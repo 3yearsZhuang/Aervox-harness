@@ -1,0 +1,39 @@
+name: Docs
+
+on:
+  pull_request:
+    paths:
+      - "docs/**"
+      - "PRD.md"
+      - ".markdownlint-cli2.json"
+      - ".github/workflows/docs.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "PRD.md"
+      - ".markdownlint-cli2.json"
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Markdown lint & link check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Markdown lint
+        uses: DavidAnson/markdownlint-cli2-action@v19
+        with:
+          globs: |
+            PRD.md
+            docs/**/*.md
+          config: .markdownlint-cli2.json
+
+      - name: Link check (PRD + docs, exclude reference/ and demos/)
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --no-progress --accept 200,429,403 PRD.md docs

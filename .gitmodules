@@ -1,0 +1,12 @@
+[submodule "reference/deepseek-harness"]
+	path = reference/deepseek-harness
+	url = https://github.com/deepseek-ai/deepseek-harness
+[submodule "reference/pi"]
+	path = reference/pi
+	url = https://github.com/earendil-works/pi
+[submodule "reference/baishou-next"]
+	path = reference/baishou-next
+	url = https://github.com/foxletters-hq/BaiShou-Next.git
+[submodule "reference/dsh-synapse"]
+	path = reference/dsh-synapse
+	url = https://github.com/liangmianya/dsh-synapse.git
