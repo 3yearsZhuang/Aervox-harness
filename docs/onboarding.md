@@ -4,15 +4,15 @@
 > 版本：v0.1  
 > 更新日期：2026-08-24  
 > 状态：Draft  
-> 关联：[文档索引](README.md) · [PRD](../PRD.md)
+> 关联：[文档索引](README.md) · [PRD](PRD.md)
 
-本文面向新成员或首次接触本仓库的 AI Agent，说明“仓库里有什么、从哪里开始、提交前要自检什么”。规则详情以[文档索引](README.md)和 [PRD](../PRD.md) 为准。
+本文面向新成员或首次接触本仓库的 AI Agent，说明“仓库里有什么、从哪里开始、提交前要自检什么”。规则详情以[文档索引](README.md)和 [PRD](PRD.md) 为准。
 
 ## 1. 仓库结构
 
 ```text
-PRD.md                 # 产品需求事实源（AVX-PRD-001）
 docs/
+  PRD.md               # 产品需求事实源（AVX-PRD-001）
   README.md            # 文档索引 + 权威顺序 + 生命周期登记表
   ARCHITECTURE.md      # 系统架构设计（AVX-SAD-001）
   requirements/        # SRS（AVX-SRS-001）
@@ -31,26 +31,26 @@ demos/                 # 纯前端原型，非交付物
 ## 2. 从哪里开始
 
 1. 先读 [docs/README.md](README.md) 的文档体系表与权威顺序，弄清每份文档回答什么问题、冲突时谁优先。
-2. 读 [PRD](../PRD.md) 第 1 节产品决策摘要与功能地图，了解产品边界。
+2. 读 [PRD](PRD.md) 第 1 节产品决策摘要与功能地图，了解产品边界。
 3. 按需进入对应 how-to：[新增需求](how-to/add-requirement.md)、[写 ADR](how-to/write-adr.md)、[过发布门禁](how-to/release-gates.md)、[执行演练](how-to/run-drill.md)。
 
 ## 3. 写作与改动的硬性规则
 
 - 能力/需求 ID 一经建立不改；`P0~P3` 是优先级、`R0~R5` 是阶段，两者不得混用。
-- 修改已批准文档：先建 `CR-*` 再修订，不得静默改正文（见[追踪基线 §11](../REQUIREMENTS_TRACEABILITY.md#11-变更控制)）。
+- 修改已批准文档：先建 `CR-*` 再修订，不得静默改正文（见[追踪基线 §11](REQUIREMENTS_TRACEABILITY.md#11-变更控制)）。
 - 新增/修改文档必须同步[文档生命周期登记表](README.md#11-文档生命周期登记表owner-指派与核验)的核验日期与责任角色。
-- 参考仓库只作设计验证，MVP 不得依赖其运行时（见 [PRD 15](../PRD.md#15-参考项目与借鉴边界)）。
+- 参考仓库只作设计验证，MVP 不得依赖其运行时（见 [PRD 15](PRD.md#15-参考项目与借鉴边界)）。
 
 ## 4. 提交前自检（Docs CI 门禁）
 
-改动 `docs/**` 或 `PRD.md` 的 PR 必须通过：
+改动 `docs/**` 或 `README.md` 的 PR 必须通过：
 
-- **Markdown lint**：`npx markdownlint-cli2 --config .markdownlint-cli2.json "PRD.md" "docs/**/*.md"`（配置关闭 MD013/033/060）；
-- **链接检查**：`lychee --no-progress PRD.md docs`（CI 中由 lychee-action 执行）；
+- **Markdown lint**：`npx markdownlint-cli2 --config .markdownlint-cli2.jsonc "docs/**/*.md" "README.md"`（配置关闭 MD013/033/060）；
+- **链接检查**：`lychee --no-progress README.md docs`（CI 中由 lychee-action 执行）；
 - 本地先跑 lint，确保 0 问题再提交。
 
 ## 5. 需要介入时
 
 - 文档冲突：停止相关发布，按[权威顺序](README.md#2-权威顺序与冲突处理)仲裁；
-- 生产问题：按[运行手册](../operations/RUNBOOK.md) 与[值班矩阵](operations/ONCALL.md)升级；
-- 变更请求：走[变更流程](../REQUIREMENTS_TRACEABILITY.md#113-变更流程)。
+- 生产问题：按[运行手册](operations/RUNBOOK.md) 与[值班矩阵](operations/ONCALL.md)升级；
+- 变更请求：走[变更流程](REQUIREMENTS_TRACEABILITY.md#113-变更流程)。

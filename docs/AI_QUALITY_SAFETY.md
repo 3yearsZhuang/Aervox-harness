@@ -4,7 +4,7 @@
 > 版本：v0.2（评审候选）  
 > 更新日期：2026-08-24  
 > 负责人：待指定  
-> 关联文档：[PRD](../PRD.md) · [架构设计](ARCHITECTURE.md) · [流式协议](contracts/STREAMING_PROTOCOL.md) · [数据与隐私](DATA_PRIVACY.md) · [需求追踪](REQUIREMENTS_TRACEABILITY.md)
+> 关联文档：[PRD](PRD.md) · [架构设计](ARCHITECTURE.md) · [流式协议](contracts/STREAMING_PROTOCOL.md) · [数据与隐私](DATA_PRIVACY.md) · [需求追踪](REQUIREMENTS_TRACEABILITY.md)
 
 本文规定教学回答、模型编排、四段记忆、AI 每日日记和安全响应的可复现质量门槛。它把“模型看起来不错”转换为版本化评估、人工判定、运行监控、降级和回滚要求。
 

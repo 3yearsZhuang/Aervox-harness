@@ -4,7 +4,7 @@
 > 版本：v0.1（评审候选）  
 > 更新日期：2026-08-24  
 > 状态：Review Candidate  
-> 产品事实源：[PRD](../../PRD.md)  
+> 产品事实源：[PRD](../PRD.md)  
 > 追踪矩阵：[REQUIREMENTS_TRACEABILITY.md](../REQUIREMENTS_TRACEABILITY.md)
 
 本文件把 PRD 的产品能力拆成可以交给设计、工程和 QA 评审的原子需求。它不是实现代码，也不替代 OpenAPI、数据库迁移或测试用例。所有未列入本文件的 P1/P2/P3 行为，仍必须在进入开发前补充并通过 `Ready` 门禁。

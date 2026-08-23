@@ -4,13 +4,13 @@
 > 文档版本：v0.1  
 > 文档状态：评审候选（Review Candidate）  
 > 更新日期：2026-08-24  
-> 产品需求来源：[PRD.md](../PRD.md)
+> 产品需求来源：[PRD.md](PRD.md)
 > 文档负责人：待指定
 > 适用范围：原型、MVP、MVP+、P1、桌面阶段、P2、P3 及后续维护版本
 
 ## 1. 目的与使用方式
 
-本文档为 [PRD.md](../PRD.md) 提供稳定的需求编号、覆盖状态、交付准入、测试追踪、发布门禁、风险登记和变更控制规则。PRD 负责说明产品价值、用户场景、生命周期范围和功能优先级；本文档负责证明每项需求是否已经被完整定义、实现、验证并发布。
+本文档为 [PRD.md](PRD.md) 提供稳定的需求编号、覆盖状态、交付准入、测试追踪、发布门禁、风险登记和变更控制规则。PRD 负责说明产品价值、用户场景、生命周期范围和功能优先级；本文档负责证明每项需求是否已经被完整定义、实现、验证并发布。
 
 本文件遵循以下原则：
 
@@ -91,38 +91,38 @@
 
 | 能力 ID | 能力 | 优先级 | 首次交付阶段 | 当前状态 | PRD 依据 | 达到下一状态所需工作 |
 |---|---|---|---|---|---|---|
-| `CAP-001` | 桌宠入口 | P0 | R1 MVP | `Specified` | [首页工作台](../PRD.md#prd-home)、[视觉小说式对话形态](../PRD.md#prd-conversation-ui) | 进入 DoR：补齐 Owner、自动化 `TC-*` 与埋点后推进 `Ready` |
-| `CAP-002` | 学习目标与对话 | P0 | R1 MVP | `Specified` | [学习目标](../PRD.md#prd-cap-002)、[引导式学习对话](../PRD.md#prd-cap-007) | 拆分 `FR/BR/AC`，明确会话状态、并发修改、归档和恢复规则 |
-| `CAP-003` | 互动刷题 | P0 | R1 MVP | `Specified` | [互动练习与错题本](../PRD.md#prd-cap-003-004) | 补题目来源、答案可验证性、重复提交、恢复和题组完成规则 |
-| `CAP-004` | 错题本 | P0 | R1 MVP | `Specified` | [互动练习与错题本](../PRD.md#prd-cap-003-004) | 补筛选、删除、重练、错因变更、重复题合并和掌握状态规则 |
-| `CAP-005` | 四段式记忆与记忆树 | P0 | R1～R2 | `Specified` | [四段式记忆与记忆树](../PRD.md#prd-cap-005) | 拆分各层状态转换、TTL、压缩、冲突、删除、重建和迁移测试 |
-| `CAP-006` | 间隔重复 | P0 | R1 MVP | `Specified` | [间隔复习](../PRD.md#prd-cap-006) | 明确调度幂等、错过日期、夏令时、算法升级和历史重算策略 |
-| `CAP-007` | 文本与代码答疑 | P0 | R1 MVP | `Specified` | [引导式学习对话](../PRD.md#prd-cap-007) | 进入 DoR：补齐 Owner、自动化 `TC-*` 与埋点后推进 `Ready`（讲解触发复用 `FR-CONV-001`） |
-| `CAP-008` | 情绪价值与安全陪伴 | P0 | R1 MVP | `Specified` | [关系与情绪边界](../PRD.md#prd-safety-boundary)、[轻量陪伴](../PRD.md#prd-cap-008) | 固定风险分级、地区化求助入口、审计、误报处置和安全回归集 |
-| `CAP-009` | AI 每日日记 | P0 | R1.5 MVP+ | `Specified` | [AI 每日日记](../PRD.md#prd-cap-009)、[日记与记忆层的关系](../PRD.md#prd-diary-memory) | 补定时任务幂等、重试、版本冲突、来源快照、通知和时区边界测试 |
-| `CAP-010` | 人格问卷与基础偏好 | P0 | R1.5 MVP+ | `Specified` | [全生命周期功能地图](../PRD.md#prd-cap-map)、[P0 最低验收](../PRD.md#prd-cap-001-010-013) | 进入 DoR：补齐 Owner、自动化 `TC-*` 与埋点后推进 `Ready` |
-| `CAP-011` | 学习资料整理 | P0 | R1.5 MVP+ | `Specified` | [全生命周期功能地图](../PRD.md#prd-cap-map)、[P0 最低验收](../PRD.md#prd-cap-001-010-013) | 进入 DoR：补齐 Owner、自动化 `TC-*` 与埋点后推进 `Ready` |
-| `CAP-012` | 多模态答疑 | P0 | R1.5 MVP+ | `Specified` | [全生命周期功能地图](../PRD.md#prd-cap-map)、[P0 最低验收](../PRD.md#prd-cap-001-010-013) | 进入 DoR：补齐 Owner、自动化 `TC-*` 与埋点后推进 `Ready` |
-| `CAP-013` | 消息编辑、删除与引用 | P0 | R1.5 MVP+ | `Specified` | [学习记录与数据控制](../PRD.md#prd-cap-013)、[P0 最低验收](../PRD.md#prd-cap-001-010-013) | 进入 DoR：补齐 Owner、自动化 `TC-*` 与埋点后推进 `Ready` |
-| `CAP-014` | 层级对话与会话地图 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](../PRD.md#prd-cap-014-019) | 补分支生命周期、归属、合并、删除、布局恢复和大图性能 |
-| `CAP-015` | 思维宇宙 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](../PRD.md#prd-cap-014-019) | 补节点/边类型、证据、纠错传播、版本和可视化交互验收 |
-| `CAP-016` | 自适应刷题与报告 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](../PRD.md#prd-cap-014-019) | 补适应算法输入、冷启动、解释、偏差评估和报告口径 |
-| `CAP-017` | 考试日计划 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](../PRD.md#prd-cap-014-019) | 补计划生成约束、滚动调整、冲突、跳过、过期和完成定义 |
-| `CAP-018` | 桌面化与 Live2D | P1 | R3 端扩展 | `Mapped` | [P1 验收原则](../PRD.md#prd-cap-014-019) | 补平台矩阵、权限、签名更新、资源预算、崩溃恢复和后台行为 |
-| `CAP-019` | 多人格模板 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](../PRD.md#prd-cap-014-019) | 补模板审核、切换、记忆隔离/共享、回滚和人格回归评估 |
-| `CAP-020` | 技能与插件系统 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](../PRD.md#prd-cap-020-027) | 补清单格式、权限模型、沙箱、签名、版本兼容、撤权和卸载残留 |
-| `CAP-021` | 学习路线与视频推荐 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](../PRD.md#prd-cap-020-027) | 补来源、排序、失效链接、用户反馈、商业内容标识和推荐评估 |
-| `CAP-022` | 兴趣分析与跨域推荐 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](../PRD.md#prd-cap-020-027) | 补授权信号、解释、关闭/重置、敏感属性禁用和偏差评估 |
-| `CAP-023` | 第三方刷题接入 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](../PRD.md#prd-cap-020-027) | 补 OAuth、字段映射、增量同步、冲突、限流、撤权和删除 |
-| `CAP-024` | 文献阅读与发散 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](../PRD.md#prd-cap-020-027) | 补解析格式、引用定位、长文分段、版权、模型上下文和失败恢复 |
-| `CAP-025` | 线下试卷扫描 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](../PRD.md#prd-cap-020-027) | 补图像质量、分题/批改识别、人工校正、置信度和附件删除 |
-| `CAP-026` | 收藏空间与知识库 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](../PRD.md#prd-cap-020-027) | 补收藏状态、去重、检索、标签、来源失效、导入导出和容量限制 |
-| `CAP-027` | 本地优先与多工作区 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](../PRD.md#prd-cap-020-027) | 补存储格式、工作区隔离、同步冲突、加密、备份恢复和版本迁移 |
-| `CAP-028` | 社区互助 | P3 | R5 生态规模化 | `Mapped` | [P3 验收原则](../PRD.md#prd-cap-028-032) | 补角色、发布/回答状态机、信誉、举报申诉、审核 SLA 和未成年保护 |
-| `CAP-029` | 名词解释网页 | P3 | R5 生态规模化 | `Mapped` | [P3 验收原则](../PRD.md#prd-cap-028-032) | 补发布、更新、撤回、来源失效、SEO/分享、隐私预览和版权规则 |
-| `CAP-030` | 主动提醒深化 | P3 | R5 生态规模化 | `Mapped` | [P3 验收原则](../PRD.md#prd-cap-028-032) | 补触发优先级、频控、去重、解释、免打扰、跨端和退订验收 |
-| `CAP-031` | 内容与技能市场 | P3 | R5 生态规模化 | `Mapped` | [P3 验收原则](../PRD.md#prd-cap-028-032) | 补商品、版本、审核、结算、退款、下架、许可证和供应链治理 |
-| `CAP-032` | 机构与监护模式 | P3 | R5 生态规模化 | `Mapped` | [P3 验收原则](../PRD.md#prd-cap-028-032) | 补组织角色、邀请/移除、授权报表、最小可见、审计和监护同意 |
+| `CAP-001` | 桌宠入口 | P0 | R1 MVP | `Specified` | [首页工作台](PRD.md#prd-home)、[视觉小说式对话形态](PRD.md#prd-conversation-ui) | 进入 DoR：补齐 Owner、自动化 `TC-*` 与埋点后推进 `Ready` |
+| `CAP-002` | 学习目标与对话 | P0 | R1 MVP | `Specified` | [学习目标](PRD.md#prd-cap-002)、[引导式学习对话](PRD.md#prd-cap-007) | 拆分 `FR/BR/AC`，明确会话状态、并发修改、归档和恢复规则 |
+| `CAP-003` | 互动刷题 | P0 | R1 MVP | `Specified` | [互动练习与错题本](PRD.md#prd-cap-003-004) | 补题目来源、答案可验证性、重复提交、恢复和题组完成规则 |
+| `CAP-004` | 错题本 | P0 | R1 MVP | `Specified` | [互动练习与错题本](PRD.md#prd-cap-003-004) | 补筛选、删除、重练、错因变更、重复题合并和掌握状态规则 |
+| `CAP-005` | 四段式记忆与记忆树 | P0 | R1～R2 | `Specified` | [四段式记忆与记忆树](PRD.md#prd-cap-005) | 拆分各层状态转换、TTL、压缩、冲突、删除、重建和迁移测试 |
+| `CAP-006` | 间隔重复 | P0 | R1 MVP | `Specified` | [间隔复习](PRD.md#prd-cap-006) | 明确调度幂等、错过日期、夏令时、算法升级和历史重算策略 |
+| `CAP-007` | 文本与代码答疑 | P0 | R1 MVP | `Specified` | [引导式学习对话](PRD.md#prd-cap-007) | 进入 DoR：补齐 Owner、自动化 `TC-*` 与埋点后推进 `Ready`（讲解触发复用 `FR-CONV-001`） |
+| `CAP-008` | 情绪价值与安全陪伴 | P0 | R1 MVP | `Specified` | [关系与情绪边界](PRD.md#prd-safety-boundary)、[轻量陪伴](PRD.md#prd-cap-008) | 固定风险分级、地区化求助入口、审计、误报处置和安全回归集 |
+| `CAP-009` | AI 每日日记 | P0 | R1.5 MVP+ | `Specified` | [AI 每日日记](PRD.md#prd-cap-009)、[日记与记忆层的关系](PRD.md#prd-diary-memory) | 补定时任务幂等、重试、版本冲突、来源快照、通知和时区边界测试 |
+| `CAP-010` | 人格问卷与基础偏好 | P0 | R1.5 MVP+ | `Specified` | [全生命周期功能地图](PRD.md#prd-cap-map)、[P0 最低验收](PRD.md#prd-cap-001-010-013) | 进入 DoR：补齐 Owner、自动化 `TC-*` 与埋点后推进 `Ready` |
+| `CAP-011` | 学习资料整理 | P0 | R1.5 MVP+ | `Specified` | [全生命周期功能地图](PRD.md#prd-cap-map)、[P0 最低验收](PRD.md#prd-cap-001-010-013) | 进入 DoR：补齐 Owner、自动化 `TC-*` 与埋点后推进 `Ready` |
+| `CAP-012` | 多模态答疑 | P0 | R1.5 MVP+ | `Specified` | [全生命周期功能地图](PRD.md#prd-cap-map)、[P0 最低验收](PRD.md#prd-cap-001-010-013) | 进入 DoR：补齐 Owner、自动化 `TC-*` 与埋点后推进 `Ready` |
+| `CAP-013` | 消息编辑、删除与引用 | P0 | R1.5 MVP+ | `Specified` | [学习记录与数据控制](PRD.md#prd-cap-013)、[P0 最低验收](PRD.md#prd-cap-001-010-013) | 进入 DoR：补齐 Owner、自动化 `TC-*` 与埋点后推进 `Ready` |
+| `CAP-014` | 层级对话与会话地图 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补分支生命周期、归属、合并、删除、布局恢复和大图性能 |
+| `CAP-015` | 思维宇宙 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补节点/边类型、证据、纠错传播、版本和可视化交互验收 |
+| `CAP-016` | 自适应刷题与报告 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补适应算法输入、冷启动、解释、偏差评估和报告口径 |
+| `CAP-017` | 考试日计划 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补计划生成约束、滚动调整、冲突、跳过、过期和完成定义 |
+| `CAP-018` | 桌面化与 Live2D | P1 | R3 端扩展 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补平台矩阵、权限、签名更新、资源预算、崩溃恢复和后台行为 |
+| `CAP-019` | 多人格模板 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补模板审核、切换、记忆隔离/共享、回滚和人格回归评估 |
+| `CAP-020` | 技能与插件系统 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补清单格式、权限模型、沙箱、签名、版本兼容、撤权和卸载残留 |
+| `CAP-021` | 学习路线与视频推荐 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补来源、排序、失效链接、用户反馈、商业内容标识和推荐评估 |
+| `CAP-022` | 兴趣分析与跨域推荐 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补授权信号、解释、关闭/重置、敏感属性禁用和偏差评估 |
+| `CAP-023` | 第三方刷题接入 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补 OAuth、字段映射、增量同步、冲突、限流、撤权和删除 |
+| `CAP-024` | 文献阅读与发散 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补解析格式、引用定位、长文分段、版权、模型上下文和失败恢复 |
+| `CAP-025` | 线下试卷扫描 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补图像质量、分题/批改识别、人工校正、置信度和附件删除 |
+| `CAP-026` | 收藏空间与知识库 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补收藏状态、去重、检索、标签、来源失效、导入导出和容量限制 |
+| `CAP-027` | 本地优先与多工作区 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补存储格式、工作区隔离、同步冲突、加密、备份恢复和版本迁移 |
+| `CAP-028` | 社区互助 | P3 | R5 生态规模化 | `Mapped` | [P3 验收原则](PRD.md#prd-cap-028-032) | 补角色、发布/回答状态机、信誉、举报申诉、审核 SLA 和未成年保护 |
+| `CAP-029` | 名词解释网页 | P3 | R5 生态规模化 | `Mapped` | [P3 验收原则](PRD.md#prd-cap-028-032) | 补发布、更新、撤回、来源失效、SEO/分享、隐私预览和版权规则 |
+| `CAP-030` | 主动提醒深化 | P3 | R5 生态规模化 | `Mapped` | [P3 验收原则](PRD.md#prd-cap-028-032) | 补触发优先级、频控、去重、解释、免打扰、跨端和退订验收 |
+| `CAP-031` | 内容与技能市场 | P3 | R5 生态规模化 | `Mapped` | [P3 验收原则](PRD.md#prd-cap-028-032) | 补商品、版本、审核、结算、退款、下架、许可证和供应链治理 |
+| `CAP-032` | 机构与监护模式 | P3 | R5 生态规模化 | `Mapped` | [P3 验收原则](PRD.md#prd-cap-028-032) | 补组织角色、邀请/移除、授权报表、最小可见、审计和监护同意 |
 
 矩阵状态由需求负责人维护，QA 负责核实 `Verified` 证据，发布负责人负责核实 `Released` 状态。任何状态变化必须在变更记录中留下日期和责任人。
 
@@ -149,7 +149,7 @@
 **DoR 清单逐项结论（[§6](#6-definition-of-ready) 12 项）**：13 个 CAP 均未全部满足。共性未满足项：
 
 - 真实 Owner 人名未回填（责任角色已指派）；
-- `TC-*` 为稳定占位 ID，无关联代码/CI/人工证据（见[测试策略 §6](../qa/TEST_STRATEGY.md#6-当前阻断)）；
+- `TC-*` 为稳定占位 ID，无关联代码/CI/人工证据（见[测试策略 §6](qa/TEST_STRATEGY.md#6-当前阻断)）；
 - API/数据实体/状态转换/UX 原型评审未完成；
 - 埋点与指标事件未定义；
 - 阻塞型 `EXP/RISK/DEC/ADR` 未全部关闭。
@@ -268,15 +268,15 @@ DoR 不允许以“开发中再确定”代替。确需并行探索的内容应�
 
 | 需求 ID | 类别 | Parent CAP | 当前状态 | 规范/来源 | AC | 测试/证据 |
 |---|---|---|---|---|---|---|
-| `NFR-AVAIL-001` | 可用性 | CAP-001～032 | `Specified` | [PRD NFR](../PRD.md#prd-nfr) | `AC-NFR-AVAIL-001` | `TC-PERF-AVAIL-001` |
-| `NFR-PERF-001` | 性能 | CAP-001～032 | `Specified` | [PRD NFR](../PRD.md#prd-nfr)、[流式协议](contracts/STREAMING_PROTOCOL.md) | `AC-NFR-PERF-001` | `TC-PERF-API-001`、`TC-CONTRACT-STREAM-001` |
-| `NFR-SCALE-001` | 容量 | CAP-001～032 | `Specified` | [PRD NFR](../PRD.md#prd-nfr) | `AC-NFR-SCALE-001` | `TC-PERF-SCALE-001` |
-| `NFR-REL-001` | 可靠性/幂等 | CAP-002/003/005/009/013 | `Specified` | [PRD NFR](../PRD.md#prd-nfr) | `AC-NFR-REL-001` | `TC-RES-RETRY-001` |
+| `NFR-AVAIL-001` | 可用性 | CAP-001～032 | `Specified` | [PRD NFR](PRD.md#prd-nfr) | `AC-NFR-AVAIL-001` | `TC-PERF-AVAIL-001` |
+| `NFR-PERF-001` | 性能 | CAP-001～032 | `Specified` | [PRD NFR](PRD.md#prd-nfr)、[流式协议](contracts/STREAMING_PROTOCOL.md) | `AC-NFR-PERF-001` | `TC-PERF-API-001`、`TC-CONTRACT-STREAM-001` |
+| `NFR-SCALE-001` | 容量 | CAP-001～032 | `Specified` | [PRD NFR](PRD.md#prd-nfr) | `AC-NFR-SCALE-001` | `TC-PERF-SCALE-001` |
+| `NFR-REL-001` | 可靠性/幂等 | CAP-002/003/005/009/013 | `Specified` | [PRD NFR](PRD.md#prd-nfr) | `AC-NFR-REL-001` | `TC-RES-RETRY-001` |
 | `NFR-JOB-001` | 后台任务 SLA | CAP-006/009/030 | `Specified` | [SRS](requirements/SRS.md#srs-nfr) | `AC-NFR-JOB-001` | `TC-INTEG-JOB-001` |
 | `NFR-DR-001` | 灾备 | CAP-001～032 | `Specified` | [SRS](requirements/SRS.md#srs-nfr)、[架构灾备](ARCHITECTURE.md#arch-nfr) | `AC-NFR-DR-001` | `TC-RES-DR-001`、`TC-RES-LEDGER-001` |
-| `NFR-A11Y-001` | 无障碍 | CAP-001/002/003/009 | `Specified` | [PRD NFR](../PRD.md#prd-nfr) | `AC-NFR-A11Y-001` | `TC-A11Y-CORE-001` |
-| `NFR-COMPAT-001` | 兼容性 | CAP-001/018/027 | `Mapped` | [PRD NFR](../PRD.md#prd-nfr) | `AC-NFR-COMPAT-001` | `TC-E2E-COMPAT-001` |
-| `NFR-I18N-001` | 国际化/时区 | CAP-006/009/030 | `Specified` | [PRD NFR](../PRD.md#prd-nfr) | `AC-NFR-I18N-001` | `TC-INTEG-TZ-001` |
+| `NFR-A11Y-001` | 无障碍 | CAP-001/002/003/009 | `Specified` | [PRD NFR](PRD.md#prd-nfr) | `AC-NFR-A11Y-001` | `TC-A11Y-CORE-001` |
+| `NFR-COMPAT-001` | 兼容性 | CAP-001/018/027 | `Mapped` | [PRD NFR](PRD.md#prd-nfr) | `AC-NFR-COMPAT-001` | `TC-E2E-COMPAT-001` |
+| `NFR-I18N-001` | 国际化/时区 | CAP-006/009/030 | `Specified` | [PRD NFR](PRD.md#prd-nfr) | `AC-NFR-I18N-001` | `TC-INTEG-TZ-001` |
 | `NFR-SEC-001` | 安全 | CAP-001～032 | `Specified` | [SRS](requirements/SRS.md#srs-nfr)、[数据隐私](DATA_PRIVACY.md#privacy-security) | `AC-NFR-SEC-001` | `TC-SEC-BASELINE-001` |
 | `NFR-PRIV-001` | 隐私 | CAP-005/009/013/027 | `Specified` | [数据隐私](DATA_PRIVACY.md#privacy-gates) | `AC-NFR-PRIV-001` | `TC-PRIV-DEL-001` |
 | `NFR-OBS-001` | 可观测性 | CAP-001～032 | `Mapped` | [架构告警](ARCHITECTURE.md#arch-nfr) | `AC-NFR-OBS-001` | `TC-OPS-OBS-001` |
@@ -284,8 +284,8 @@ DoR 不允许以“开发中再确定”代替。确需并行探索的内容应�
 | `AIQ-MEM-001` | 记忆压缩/晋升/来源 | CAP-005/015 | `Specified` | [AI 记忆](AI_QUALITY_SAFETY.md#ai-memory) | `AC-AIQ-MEM-001` | `TC-AIEVAL-MEM-001` |
 | `AIQ-DIA-001` | 日记事实与时间窗口 | CAP-009 | `Specified` | [AI 日记](AI_QUALITY_SAFETY.md#ai-diary) | `AC-AIQ-DIA-001` | `TC-AIEVAL-DIA-001` |
 | `AIQ-SAFE-001` | 安全分类与响应 | CAP-008/019/030 | `Specified` | [AI 安全响应](AI_QUALITY_SAFETY.md#ai-safety) | `AC-AIQ-SAFE-001` | `TC-AIEVAL-SAFE-001` |
-| `DATA-MEM-001` | 记忆来源链与投影 | CAP-005 | `Specified` | [PRD 数据规则](../PRD.md#prd-data) | `AC-DATA-MEM-001` | `TC-INTEG-MEM-001` |
-| `DATA-DIA-001` | 日记版本/来源/缓冲 | CAP-009 | `Specified` | [PRD 数据模型](../PRD.md#prd-data) | `AC-DATA-DIA-001` | `TC-INTEG-DIA-001` |
+| `DATA-MEM-001` | 记忆来源链与投影 | CAP-005 | `Specified` | [PRD 数据规则](PRD.md#prd-data) | `AC-DATA-MEM-001` | `TC-INTEG-MEM-001` |
+| `DATA-DIA-001` | 日记版本/来源/缓冲 | CAP-009 | `Specified` | [PRD 数据模型](PRD.md#prd-data) | `AC-DATA-DIA-001` | `TC-INTEG-DIA-001` |
 | `FR-STREAM-001` | Turn 流式响应、恢复与取消 | CAP-002/007/008 | `Specified` | [SRS 流式需求](requirements/SRS.md#srs-fr-stream)、[流式协议](contracts/STREAMING_PROTOCOL.md) | `AC-FR-STREAM-001-01～05` | `TC-CONTRACT-STREAM-001`、`TC-RES-STREAM-001`、`TC-SEC-STREAM-001`、`TC-E2E-STREAM-001` |
 | `DATA-STREAM-001` | Turn 事件保留、撤回与删除 | CAP-002/007/008/013 | `Specified` | [SRS 跨域规则](requirements/SRS.md#srs-data-stream)、[流式协议](contracts/STREAMING_PROTOCOL.md#5-重连保留与断点恢复) | `AC-DATA-STREAM-001-01～02` | `TC-PRIV-STREAM-001`、`TC-INTEG-STREAM-RET-001` |
 | `DATA-DEL-001` | 删除传播与账本 | CAP-005/009/013/026/027 | `Specified` | [删除 SLA](DATA_PRIVACY.md#privacy-deletion-sla) | `AC-DATA-DEL-001` | `TC-PRIV-DEL-001` |

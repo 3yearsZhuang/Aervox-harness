@@ -4,7 +4,7 @@
 > 版本：v0.1（评审候选）  
 > 更新日期：2026-08-24  
 > 状态：Review Candidate  
-> 关联 PRD：[PRD.md](../PRD.md) · 追踪：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
+> 关联 PRD：[PRD.md](PRD.md) · 追踪：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
 
 本文回答“系统如何实现、怎样扩展和怎样在故障/删除/模型变更下保持正确”。产品目标和用户级验收以 PRD 为准；本文件不能扩大 PRD 已批准的权限、数据用途或生命周期范围。
 

@@ -13,7 +13,13 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "build": "tsc -p tsconfig.json && pnpm generate:openapi",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "generate:openapi": "node scripts/generate-openapi.ts"
+  },
+  "dependencies": {
+    "@asteasolutions/zod-to-openapi": "9.1.0",
+    "openapi3-ts": "4.6.1",
+    "zod": "4.4.3"
   }
 }

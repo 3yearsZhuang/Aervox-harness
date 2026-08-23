@@ -1,0 +1,674 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Aervox｜思隅 Turn Streaming API",
+    "version": "0.1.0",
+    "description": "对话流式协议（Turn/SSE）机器可验证契约。规则见 docs/contracts/STREAMING_PROTOCOL.md（AVX-SPC-001）。"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "CreateTurnRequest": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "object",
+            "properties": {
+              "content": {
+                "type": "string",
+                "minLength": 1
+              },
+              "contentType": {
+                "type": "string",
+                "enum": [
+                  "text",
+                  "markdown"
+                ]
+              }
+            },
+            "required": [
+              "content",
+              "contentType"
+            ]
+          },
+          "clientVersion": {
+            "type": "string",
+            "minLength": 1
+          },
+          "references": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sourceId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sourceVersion": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "sourceId",
+                "sourceVersion"
+              ]
+            }
+          }
+        },
+        "required": [
+          "message",
+          "clientVersion"
+        ]
+      },
+      "CreateTurnResponse": {
+        "type": "object",
+        "properties": {
+          "turnId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "Created"
+            ]
+          },
+          "eventsUrl": {
+            "type": "string",
+            "minLength": 1
+          },
+          "cancelUrl": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "turnId",
+          "status",
+          "eventsUrl",
+          "cancelUrl"
+        ]
+      },
+      "CancelTurnResponse": {
+        "type": "object",
+        "properties": {
+          "turnId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "CancelRequested",
+              "Cancelled"
+            ]
+          }
+        },
+        "required": [
+          "turnId",
+          "status"
+        ]
+      },
+      "TurnStreamEvent": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "turnId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sequence": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "eventType": {
+            "type": "string",
+            "enum": [
+              "message",
+              "delta",
+              "done",
+              "error",
+              "redacted"
+            ]
+          },
+          "payloadVersion": {
+            "type": "integer"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "modelRunId": {
+            "type": "string"
+          },
+          "data": {}
+        },
+        "required": [
+          "eventId",
+          "turnId",
+          "sequence",
+          "eventType",
+          "payloadVersion",
+          "occurredAt"
+        ]
+      },
+      "MessageEventData": {
+        "type": "object",
+        "properties": {
+          "messageId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "assistant"
+            ]
+          },
+          "contentType": {
+            "type": "string",
+            "enum": [
+              "text",
+              "markdown"
+            ]
+          },
+          "isComplete": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "messageId",
+          "role",
+          "contentType",
+          "isComplete"
+        ]
+      },
+      "DeltaEventData": {
+        "type": "object",
+        "properties": {
+          "messageId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "text": {
+            "type": "string"
+          },
+          "isFinal": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "messageId",
+          "text",
+          "isFinal"
+        ]
+      },
+      "DoneEventData": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "Created",
+              "InputChecking",
+              "Running",
+              "Finalizing",
+              "Completed",
+              "Rejected",
+              "CancelRequested",
+              "Cancelled",
+              "Interrupted",
+              "Failed"
+            ]
+          },
+          "messageId": {
+            "type": "string"
+          },
+          "isComplete": {
+            "type": "boolean"
+          },
+          "lastSequence": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "contextVersion": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "isComplete",
+          "lastSequence"
+        ]
+      },
+      "ErrorEventData": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "IDEMPOTENCY_KEY_REUSED",
+              "TURN_NOT_FOUND",
+              "STREAM_CURSOR_EXPIRED",
+              "TURN_CANCELLED",
+              "MODEL_TIMEOUT",
+              "MODEL_UNAVAILABLE",
+              "OUTPUT_SAFETY_BLOCKED",
+              "PERMISSION_REVOKED"
+            ]
+          },
+          "retryable": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "lastSequence": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          }
+        },
+        "required": [
+          "code",
+          "retryable",
+          "message",
+          "lastSequence"
+        ]
+      },
+      "RedactedEventData": {
+        "type": "object",
+        "properties": {
+          "targetEventId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "visibilityRevision": {
+            "type": "integer"
+          },
+          "reasonCode": {
+            "type": "string",
+            "enum": [
+              "revoked",
+              "deleted",
+              "policy_changed"
+            ]
+          },
+          "replacement": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "targetEventId",
+          "visibilityRevision",
+          "reasonCode"
+        ]
+      },
+      "StreamErrorCode": {
+        "type": "string",
+        "enum": [
+          "IDEMPOTENCY_KEY_REUSED",
+          "TURN_NOT_FOUND",
+          "STREAM_CURSOR_EXPIRED",
+          "TURN_CANCELLED",
+          "MODEL_TIMEOUT",
+          "MODEL_UNAVAILABLE",
+          "OUTPUT_SAFETY_BLOCKED",
+          "PERMISSION_REVOKED"
+        ]
+      }
+    },
+    "parameters": {}
+  },
+  "paths": {
+    "/v1/sessions/{sessionId}/turns": {
+      "post": {
+        "summary": "创建 Turn（幂等）",
+        "tags": [
+          "Turn"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "sessionId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "Idempotency-Key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "message": {
+                    "type": "object",
+                    "properties": {
+                      "content": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "contentType": {
+                        "type": "string",
+                        "enum": [
+                          "text",
+                          "markdown"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "content",
+                      "contentType"
+                    ]
+                  },
+                  "clientVersion": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "references": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "sourceId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "sourceVersion": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "sourceId",
+                        "sourceVersion"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "message",
+                  "clientVersion"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "turnId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "Created"
+                      ]
+                    },
+                    "eventsUrl": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "cancelUrl": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "turnId",
+                    "status",
+                    "eventsUrl",
+                    "cancelUrl"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "IDEMPOTENCY_KEY_REUSED",
+                        "TURN_NOT_FOUND",
+                        "STREAM_CURSOR_EXPIRED",
+                        "TURN_CANCELLED",
+                        "MODEL_TIMEOUT",
+                        "MODEL_UNAVAILABLE",
+                        "OUTPUT_SAFETY_BLOCKED",
+                        "PERMISSION_REVOKED"
+                      ]
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "lastSequence": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "retryable",
+                    "message",
+                    "lastSequence"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "IDEMPOTENCY_KEY_REUSED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "IDEMPOTENCY_KEY_REUSED",
+                        "TURN_NOT_FOUND",
+                        "STREAM_CURSOR_EXPIRED",
+                        "TURN_CANCELLED",
+                        "MODEL_TIMEOUT",
+                        "MODEL_UNAVAILABLE",
+                        "OUTPUT_SAFETY_BLOCKED",
+                        "PERMISSION_REVOKED"
+                      ]
+                    },
+                    "retryable": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "lastSequence": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "retryable",
+                    "message",
+                    "lastSequence"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/turns/{turnId}/events": {
+      "get": {
+        "summary": "读取 Turn SSE 事件流",
+        "tags": [
+          "Turn"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "turnId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SSE event stream",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "eventId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "turnId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "sequence": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    },
+                    "eventType": {
+                      "type": "string",
+                      "enum": [
+                        "message",
+                        "delta",
+                        "done",
+                        "error",
+                        "redacted"
+                      ]
+                    },
+                    "payloadVersion": {
+                      "type": "integer"
+                    },
+                    "occurredAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "modelRunId": {
+                      "type": "string"
+                    },
+                    "data": {}
+                  },
+                  "required": [
+                    "eventId",
+                    "turnId",
+                    "sequence",
+                    "eventType",
+                    "payloadVersion",
+                    "occurredAt"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "TURN_NOT_FOUND"
+          },
+          "410": {
+            "description": "STREAM_CURSOR_EXPIRED"
+          }
+        }
+      }
+    },
+    "/v1/turns/{turnId}/cancel": {
+      "post": {
+        "summary": "取消 Turn",
+        "tags": [
+          "Turn"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "turnId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "turnId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "CancelRequested",
+                        "Cancelled"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "turnId",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "TURN_NOT_FOUND"
+          }
+        }
+      }
+    }
+  },
+  "webhooks": {}
+}

@@ -8,7 +8,7 @@
 > 技术负责人：待指定  
 > 安全与隐私负责人：待指定  
 > 首发平台：Web；后续扩展桌面端、移动端和插件生态  
-> 关联文档：[架构设计](docs/ARCHITECTURE.md) · [需求追踪与交付标准](docs/REQUIREMENTS_TRACEABILITY.md) · [数据与隐私规范](docs/DATA_PRIVACY.md) · [AI 质量与安全规范](docs/AI_QUALITY_SAFETY.md) · [文档索引](docs/README.md)
+> 关联文档：[架构设计](ARCHITECTURE.md) · [需求追踪与交付标准](REQUIREMENTS_TRACEABILITY.md) · [数据与隐私规范](DATA_PRIVACY.md) · [AI 质量与安全规范](AI_QUALITY_SAFETY.md) · [文档索引](README.md)
 
 本文件是“为什么做、为谁做、做什么、做到什么程度”的产品需求事实源。系统拆分、框架选型、部署拓扑和实现约束以架构设计为准；需求编号、测试证据和发布门禁以追踪文档为准；数据处理与 AI 质量分别以专项规范为准。文档发生冲突时，先停止相关实施并通过变更流程修订，不能由开发阶段自行解释。
 
@@ -621,7 +621,7 @@ AI 每日日记是给用户阅读的叙事视图，记忆层是供系统推理�
 - 来源内容被删除后，立即从模型召回和检索中屏蔽；在线数据库、缓存、全文/向量索引和对象存储在 24 小时内完成清除或重建，备份按已公示周期自然过期；
 - `RecoveryControlLedger` 是删除、同意撤销、插件撤权和外部同步撤权的权威 deny 控制事实源，不能与业务 PostgreSQL 假装共享事务：服务端先以确定性 `eventId/idempotencyKey` 追加账本并取得持久确认，再幂等提交业务数据库状态、DeletionRequest/Outbox 和派生清理。账本已写而业务提交失败时由按 sequence 运行的 reconciler 重放；账本不可用、序列有缺口或应用水位未追平时，受影响范围 fail closed，不能确认操作完成或开放流量。PITR 恢复必须在维护/全局 deny 状态下校验完整性与水位、幂等重放、重建派生数据并完成零召回/零越权验证后才可恢复流量；
 - 为证明删除传播可保留不含原文的 tombstone，例如来源类型、不可逆散列、删除时间和处理状态；tombstone 不得用于恢复、推断或展示已删除内容；
-- 各实体的分类、召回期限、业务保留期限、备份期限、删除 SLA、责任模块和验收证据以[数据与隐私规范](docs/DATA_PRIVACY.md)为准，不能仅由数据库 TTL 决定。
+- 各实体的分类、召回期限、业务保留期限、备份期限、删除 SLA、责任模块和验收证据以[数据与隐私规范](DATA_PRIVACY.md)为准，不能仅由数据库 TTL 决定。
 
 ## 9. AI 质量与安全
 
@@ -758,7 +758,7 @@ AI 每日日记是给用户阅读的叙事视图，记忆层是供系统推理�
 
 ## 14. 技术边界与独立设计文档
 
-PRD 只规定用户价值、行为规则和验收结果；可变的实现细节以 [架构设计](docs/ARCHITECTURE.md) 和 ADR 为准。架构基线必须满足“TypeScript-first、Web-first、模型可替换、业务数据可迁移、异步任务可重试、核心流程不依赖外部 Agent 运行时”六项约束。
+PRD 只规定用户价值、行为规则和验收结果；可变的实现细节以 [架构设计](ARCHITECTURE.md) 和 ADR 为准。架构基线必须满足“TypeScript-first、Web-first、模型可替换、业务数据可迁移、异步任务可重试、核心流程不依赖外部 Agent 运行时”六项约束。
 
 ### 14.1 TypeScript 全栈技术基线
 
@@ -793,7 +793,7 @@ MVP 使用“模块化单体 + 独立 Worker/Scheduler”部署：`apps/web`、`
 - API 使用当前版本和上一版本客户端兼容策略；数据库采用 expand/contract migration；Prompt、模型路由、记忆算法和复习算法均有独立版本；
 - dsh、pi、MCP 和参考项目只能经 `adapter-*` 接口接入，不能拥有 Aervox 核心业务数据；插件写记忆只能提交候选，不能直接更新长期或系统记忆；
 - 外部导入内容视为不可信数据，不能覆盖系统指令或直接触发工具；工具调用必须经过权限代理；
-- 具体 C4、部署拓扑、时序、容量模型、威胁模型、ADR 和回滚方案见 `docs/ARCHITECTURE.md`，不在 PRD 中重复维护两套细节。
+- 具体 C4、部署拓扑、时序、容量模型、威胁模型、ADR 和回滚方案见 `ARCHITECTURE.md`，不在 PRD 中重复维护两套细节。
 
 dsh、pi-ai、ACP/RPC、Cordis、FSRS、桌面外壳和插件权限模型属于技术选型，需分别通过原型验证并记录在架构设计或 RFC 中。尤其需要验证：
 
