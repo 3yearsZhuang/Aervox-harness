@@ -1,8 +1,19 @@
 export type KnowledgeItem = {
+    id: string;
     name: string;
+
     correctCount: number;
     wrongCount: number;
     correctStreak: number;
+
     mastery: number;
-    nextReviewAt: Date;
+};
+
+export type ReviewItem = {
+    knowledgeId: string;
+
+    dueAt: Date;
+    intervalDays: number;
+
+    schedulerVersion: "mvp-v1";
 };
