@@ -109,8 +109,8 @@
 | `CAP-016` | 自适应刷题与报告 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补适应算法输入、冷启动、解释、偏差评估和报告口径 |
 | `CAP-017` | 考试日计划 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补计划生成约束、滚动调整、冲突、跳过、过期和完成定义 |
 | `CAP-018` | 桌面化与 Live2D | P1 | R3 端扩展 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补平台矩阵、权限、签名更新、资源预算、崩溃恢复和后台行为 |
-| `CAP-019` | 多人格模板 | P1 | R2 学习深化 | `Specified` | [P1 验收原则](PRD.md#prd-cap-014-019)、[人格插件 V1](PRD.md#prd-persona-plugin-v1) | V1 已补人格 CRUD、Prompt/Skills/MCP/Voice、导入导出；后续补模板审核、记忆隔离/共享和回归评估 |
-| `CAP-020` | 技能与插件系统 | P2 | R4 连接智能化 | `Specified` | [P2 验收原则](PRD.md#prd-cap-020-027)、[人格插件 V1](PRD.md#prd-persona-plugin-v1) | V1 已补 Anthropic Skills ZIP/过滤和 MCP 选择；后续补完整插件沙箱、签名、市场和卸载残留 |
+| `CAP-019` | 多人格模板 | P1 | R2 学习深化 | `Specified` | [P1 验收原则](PRD.md#prd-cap-014-019)、[人格插件 V1](PRD.md#prd-persona-plugin-v1) | V1 由 `modules/persona-plugin` 提供人格 CRUD、Prompt/Skills/MCP/Voice、导入导出；后续补模板审核、记忆隔离/共享和回归评估 |
+| `CAP-020` | 技能与插件系统 | P2 | R4 连接智能化 | `Specified` | [P2 验收原则](PRD.md#prd-cap-020-027)、[人格插件 V1](PRD.md#prd-persona-plugin-v1) | V1 由 `modules/persona-plugin` 提供 Anthropic Skills ZIP/过滤和 MCP 选择；后续补完整插件沙箱、签名、市场和卸载残留 |
 | `CAP-021` | 学习路线与视频推荐 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补来源、排序、失效链接、用户反馈、商业内容标识和推荐评估 |
 | `CAP-022` | 兴趣分析与跨域推荐 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补授权信号、解释、关闭/重置、敏感属性禁用和偏差评估 |
 | `CAP-023` | 第三方刷题接入 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补 OAuth、字段映射、增量同步、冲突、限流、撤权和删除 |

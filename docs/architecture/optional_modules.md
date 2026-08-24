@@ -96,7 +96,7 @@ packages:
 | CAP | 功能 | 候选/远期 | 启用方式 | 接口/适配边界 | 依赖的 ADR |
 |---|---|---|---|---|---|
 | CAP-018 | 桌面化 + Live2D | 候选 | 构建 | desktop 作为独立入口复用 Web UI；Live2D 皮肤作为可替换资源包 | ADR-009（桌面/多端相关，若存在） |
-| CAP-019 | 多人格模板 | 候选 | 运行 | 人格仅影响表达，共享安全边界（对齐 CAP-008） | — |
+| CAP-019 | 多人格模板 | 候选 | 运行 | `@aervox/mod-persona`（`modules/persona-plugin`）负责 Persona Revision、Prompt、激活与 Bundle；人格仅影响表达，共享安全边界 | ADR-014 |
 | CAP-014 | 层级对话/会话地图 | 候选 | 运行 | 画布元数据与业务会话分离（对齐 dsh-synapse 借鉴） | — |
 | CAP-015 | 思维宇宙 | 候选 | 运行 | 知识关系基于长期记忆投影，主仓领域约束 | — |
 | CAP-016 | 自适应刷题与报告 | 候选 | 运行 | 基于 QuestionAttempt 事实，掌握度派生 | — |
@@ -106,7 +106,7 @@ packages:
 
 | CAP | 功能 | 候选/远期 | 启用方式 | 接口/适配边界 | 依赖的 ADR |
 |---|---|---|---|---|---|
-| CAP-020 | 技能/插件系统 | 候选 | 双 | 插件 SDK + 沙箱；MVP 依赖内部稳定 API，不承诺插件兼容（PRD 14.3 末尾） | ADR-009/ADR-010（插件/生态） |
+| CAP-020 | 技能/插件系统 | 候选 | 双 | `@aervox/mod-persona`（`modules/persona-plugin`）提供 Anthropic Skills、MCP ToolPolicy、ZIP 导入导出和 GPT-SoVITS 适配；不直接写核心数据 | ADR-009/ADR-010/ADR-014 |
 | CAP-027 | 本地优先/多工作区 | 候选 | 构建 | 工作区隔离、快照/迁移；核心数据可迁移不锁定云端 | ADR-008（本地优先） |
 | CAP-023 | 第三方刷题接入 | 候选 | 运行 | OAuth 授权撤销、同步方向与冲突可见 | — |
 | CAP-024 | 文献阅读与发散 | 候选 | 运行 | 外部内容不可信，防 prompt injection | — |
@@ -128,6 +128,15 @@ packages:
 | CAP-032 | 机构/监护模式 | 运行 | 需字段级权限与监护人流程 |
 
 未列入可选清单的其余 CAP：CAP-002~013（P0 核心）、以及未出现在表内的 P1/P2/P3 项（若后续裁决为可选，需经 CR-* 更新本表）。
+
+### 4.4 已注册可选模块
+
+| 模块 | workspace 包 | Git submodule | 固定 commit | 启用方式 | 关联能力/ADR |
+|---|---|---|---|---|---|
+| `persona-plugin` | `@aervox/mod-persona` | `modules/persona-plugin` → `https://github.com/KashiwagiEri233/aervox-persona-plugin-module.git` | `57fa711e11ab20f5ecd2679fe3d289ee9cb610da` | 双 | `CAP-019/020`、`ADR-014` |
+
+模块仓库是可执行代码的唯一事实源；主仓只保留跨模块契约、API 集成和文档，不在 `packages/*` 保留同功能平行实现。
+
 
 ## 5. 生命周期与门禁
 

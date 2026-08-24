@@ -23,24 +23,12 @@ importers:
 
   apps/api:
     dependencies:
-      '@aervox/ai-runtime':
-        specifier: workspace:*
-        version: link:../../packages/ai-runtime
       '@aervox/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@aervox/mcp-port':
+      '@aervox/mod-persona':
         specifier: workspace:*
-        version: link:../../packages/mcp-port
-      '@aervox/persona':
-        specifier: workspace:*
-        version: link:../../packages/persona
-      '@aervox/skill-runtime':
-        specifier: workspace:*
-        version: link:../../packages/skill-runtime
-      '@aervox/voice-port':
-        specifier: workspace:*
-        version: link:../../packages/voice-port
+        version: link:../../modules/persona-plugin
       fastify:
         specifier: 5.12.1
         version: 5.12.1
@@ -55,17 +43,24 @@ importers:
         specifier: 4.0.18
         version: 4.0.18(@types/node@22.20.1)(tsx@4.23.12)(yaml@2.9.0)
 
-  packages/ai-runtime:
+  modules/persona-plugin:
     dependencies:
-      '@aervox/mcp-port':
-        specifier: workspace:*
-        version: link:../mcp-port
-      '@aervox/persona':
-        specifier: workspace:*
-        version: link:../persona
-      '@aervox/skill-runtime':
-        specifier: workspace:*
-        version: link:../skill-runtime
+      fflate:
+        specifier: 0.8.2
+        version: 0.8.2
+      yaml:
+        specifier: 2.9.0
+        version: 2.9.0
+    devDependencies:
+      '@types/node':
+        specifier: 22.20.1
+        version: 22.20.1
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: 4.0.18
+        version: 4.0.18(@types/node@22.20.1)(tsx@4.23.12)(yaml@2.9.0)
 
   packages/contracts:
     dependencies:
@@ -78,28 +73,6 @@ importers:
       zod:
         specifier: 4.4.3
         version: 4.4.3
-
-  packages/mcp-port: {}
-
-  packages/persona:
-    dependencies:
-      '@aervox/skill-runtime':
-        specifier: workspace:*
-        version: link:../skill-runtime
-      fflate:
-        specifier: 0.8.2
-        version: 0.8.2
-
-  packages/skill-runtime:
-    dependencies:
-      fflate:
-        specifier: 0.8.2
-        version: 0.8.2
-      yaml:
-        specifier: 2.9.0
-        version: 2.9.0
-
-  packages/voice-port: {}
 
 packages:
 

@@ -42,9 +42,11 @@ apps/
   mobile/       # 后续 Expo/React Native
 packages/
   contracts/ identity-consent/ conversation/ learning/
-  practice-review/ memory/ diary/ ai-runtime/ safety/
+  practice-review/ memory/ diary/ safety/
   content-ingestion/ integrations/ plugin-sdk/
   database/ observability/ ui/ domain/
+modules/
+  persona-plugin/       # @aervox/mod-persona，可选 submodule（CAP-019/020）
 ```
 
 领域模块：
@@ -55,7 +57,7 @@ packages/
 - **Practice & Review**：题目、作答、错题和调度器。
 - **Memory**：四段记忆、证据、冲突、晋升、衰减、树投影和删除传播。
 - **Diary**：计划、滚动窗口素材缓冲、生成运行、版本、段落来源和通知。
-- **AI Runtime**：上下文组装、模型路由、Prompt、工具权限代理、结构验证。
+- **AI Runtime**：核心上下文组装、模型路由、Prompt、工具权限代理、结构验证；可选 Persona/Skills/MCP/Voice 通过 `@aervox/mod-persona` 适配。
 - **Safety**：输入/输出分类、固定危机响应、人工升级和安全审计。
 - **Content/Ingestion**：附件、OCR、引用、许可和不可信输入隔离。
 - **Integrations/Plugins**：OAuth、外部同步、适配器、沙箱和权限代理；P2 才启用。

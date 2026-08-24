@@ -13,11 +13,9 @@
 
 ## 工程骨架
 
-- pnpm + Turborepo monorepo（`apps/*`、`packages/*`）
+- pnpm + Turborepo monorepo（`apps/*`、`packages/*`、`modules/*`）
 - `@aervox/contracts`：流式协议、Persona、Skills、MCP 和 Voice 的机器契约（规则见 [STREAMING_PROTOCOL](docs/contracts/STREAMING_PROTOCOL.md)）
-- `@aervox/persona`：人格修订、激活、上下文快照与 Persona Bundle 导入导出
-- `@aervox/skill-runtime`：Anthropic `SKILL.md` 解析、三态过滤、渐进式提示和安全 ZIP
-- `@aervox/ai-runtime`、`@aervox/mcp-port`、`@aervox/voice-port`：上下文组合、MCP ToolPolicy 与 GPT-SoVITS Provider Port
+- `modules/persona-plugin`（`@aervox/mod-persona`）：独立可选模块，提供人格修订、Anthropic Skills、MCP ToolPolicy、GPT-SoVITS 与 Persona Bundle；通过 git submodule 固定版本
 - 参考仓库 `reference/`（固定 commit 子模块，仅作设计验证）：deepseek-harness / pi / baishou-next / dsh-synapse
 
 ## 快速开始
@@ -36,4 +34,4 @@ pnpm test
 ## CI 门禁
 
 - **文档**（改动 `docs/**` 或 `README.md`）：markdown lint + 链接检查（[docs.yml](.github/workflows/docs.yml)）
-- **代码**（改动 `apps/**`、`packages/**`）：install + build + typecheck（[ci.yml](.github/workflows/ci.yml)）
+- **代码**（改动 `apps/**`、`packages/**`、`modules/**`）：install + build + typecheck + test（[ci.yml](.github/workflows/ci.yml)）

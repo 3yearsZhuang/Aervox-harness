@@ -13,11 +13,7 @@
   "dependencies": {
     "@aervox/contracts": "workspace:*",
     "fastify": "5.12.1",
-    "@aervox/mcp-port": "workspace:*",
-    "@aervox/persona": "workspace:*",
-    "@aervox/skill-runtime": "workspace:*",
-    "@aervox/voice-port": "workspace:*",
-    "@aervox/ai-runtime": "workspace:*"
+    "@aervox/mod-persona": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

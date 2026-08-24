@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.js";
-import type { SkillRecord } from "@aervox/skill-runtime";
-import type { McpTool } from "@aervox/mcp-port";
-import type { VoiceProviderPort } from "@aervox/voice-port";
+import type { SkillRecord } from "@aervox/mod-persona";
+import type { McpTool } from "@aervox/mod-persona";
+import type { VoiceProviderPort } from "@aervox/mod-persona";
 
 function makeSkill(name: string): SkillRecord {
   const markdown = `---\nname: ${name}\ndescription: ${name} description\n---\n\nUse ${name}.`;

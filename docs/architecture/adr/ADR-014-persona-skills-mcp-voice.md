@@ -32,7 +32,8 @@ Aervox 需要让用户创建和切换人格，并将人格 Prompt、Skills、MCP
 - Persona Bundle 为 ZIP，包含 `manifest.json`、`persona.json` 和 `skills/skills.zip`。Skills 导出范围是人格实际生效集合：未配置时全部有效 Skills，空列表时零个，allowlist 时只导出有效命中项；保留完整目录和 checksum。
 - 导入必须先校验 ZIP 路径、大小、文件数、压缩比、符号链接、YAML frontmatter、checksum 和版本；不执行 Skill 脚本，不自动授予 MCP 或其他权限。
 - GPT-SoVITS 通过 `VoiceProviderPort` 提供本地 allowlist 模型和 HTTP/WS 外部服务适配；人格包只存引用与 Secret Reference 之外的非敏感配置，不包含凭据和模型权重。
-- 当前实现先使用内存仓储与 Fastify 契约，后续 PostgreSQL/Outbox/Worker 实现必须保持这些 Port 和三态语义不变。
+- 可选实现的唯一代码事实源是独立仓库 `https://github.com/KashiwagiEri233/aervox-persona-plugin-module.git`，以主仓 `modules/persona-plugin` submodule 固定 commit `57fa711e11ab20f5ecd2679fe3d289ee9cb610da`，workspace 包名为 `@aervox/mod-persona`。
+- 主仓 `apps/api` 通过 workspace 依赖消费该模块；主仓 `packages/*` 不保留 Persona/Skills/MCP/Voice 的平行实现。后续 PostgreSQL/Outbox/Worker 实现必须保持模块 Port 和三态语义不变。
 
 ## Positive consequences
 

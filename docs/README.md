@@ -147,6 +147,7 @@ docs/
   requirements/          # SRS（AVX-SRS-001）
   operations/  how-to/  architecture/adr/
 reference/               # 固定 commit 的子模块（只读参考，见 PRD 15.1）
+modules/persona-plugin/  # @aervox/mod-persona 可选模块 submodule（CAP-019/020）
 demos/                   # 纯前端原型，非交付物
 ```
 
@@ -154,7 +155,7 @@ demos/                   # 纯前端原型，非交付物
 
 1. 先读本页[文档体系表](#1-文档体系与事实源)与[权威顺序](#2-权威顺序与冲突处理)，弄清每份文档回答什么、冲突时谁优先。
 2. 读 [PRD](PRD.md) 第 1 节产品决策摘要与功能地图，了解产品边界。
-3. 拉取子模块：clone 后先执行 `git submodule update --init --recursive`，否则 `pnpm build` 会缺 `@aervox/mod-*` 失败（见[可选模块协作指南](how-to/submodule-collaboration.md)）。
+3. 拉取子模块：clone 后先执行 `git submodule update --init --recursive`，否则 `pnpm build` 会缺 `@aervox/mod-*` 失败（当前包括 `@aervox/mod-persona`，见[可选模块协作指南](how-to/submodule-collaboration.md)）。
 4. 按需进入 [how-to](how-to/)：新增需求 / 写 ADR / 过发布门禁 / 执行演练 / 可选模块 submodule。
 
 ### 8.3 写作与改动的硬性规则

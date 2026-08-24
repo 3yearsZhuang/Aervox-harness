@@ -12,29 +12,23 @@ import {
   voiceSynthesisRequestSchema,
   type TurnStreamEvent,
 } from "@aervox/contracts";
-import { composeSystemPrompt } from "@aervox/ai-runtime";
 import {
-  InMemoryMcpRegistry,
-  type McpTool,
-} from "@aervox/mcp-port";
-import {
+  composeSystemPrompt,
   createPersonaContextSnapshot,
   exportPersonaBundleDetails,
   importPersonaBundle,
+  InMemoryMcpRegistry,
   InMemoryPersonaRepository,
-  previewPersonaBundle,
-} from "@aervox/persona";
-import {
-  createSkillsZip,
   InMemorySkillRegistry,
+  previewPersonaBundle,
+  createSkillsZip,
   summarizeSkill,
-  type SkillRecord,
-} from "@aervox/skill-runtime";
-import {
   GptSovitsLocalProvider,
   GptSovitsRemoteProvider,
+  type McpTool,
+  type SkillRecord,
   type VoiceProviderPort,
-} from "@aervox/voice-port";
+} from "@aervox/mod-persona";
 
 export type AervoxAppOptions = {
   logger?: boolean;

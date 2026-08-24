@@ -5,6 +5,8 @@ on:
     paths:
       - "apps/**"
       - "packages/**"
+      - "modules/**"
+      - ".gitmodules"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
@@ -16,6 +18,8 @@ on:
     paths:
       - "apps/**"
       - "packages/**"
+      - "modules/**"
+      - ".gitmodules"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
@@ -32,6 +36,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -43,6 +49,12 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+
+      - name: Verify optional submodules
+        run: |
+          test -f modules/persona-plugin/package.json
+          git submodule status --recursive
+          test "$(git submodule status --recursive | grep -c 'modules/persona-plugin')" -eq 1
 
       - name: Install (frozen lockfile)
         run: pnpm install --frozen-lockfile

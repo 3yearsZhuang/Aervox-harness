@@ -10,3 +10,6 @@
 [submodule "reference/dsh-synapse"]
 	path = reference/dsh-synapse
 	url = https://github.com/liangmianya/dsh-synapse.git
+[submodule "modules/persona-plugin"]
+	path = modules/persona-plugin
+	url = https://github.com/KashiwagiEri233/aervox-persona-plugin-module.git
