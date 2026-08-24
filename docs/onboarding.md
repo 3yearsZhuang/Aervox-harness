@@ -22,9 +22,11 @@ docs/
   security/            # 威胁模型（AVX-SEC-001）
   qa/                  # 测试策略（AVX-QA-001）
   architecture/adr/    # ADR 001~013（AVX-SAD 配套决策记录）
-  how-to/              # 任务型操作指南（新增需求/ADR/发布/演练）
+  architecture/optional_modules.md   # 可选功能模块化方案（AVX-MOD-001）
+  how-to/              # 任务型操作指南（新增需求/ADR/发布/演练/可选模块 submodule）
   onboarding.md        # 本文件
 reference/             # 4 个固定 commit 的子模块（详见 PRD 15.1）
+modules/               # 可选功能子模块（规划中，见 AVX-MOD-001，落地后出现）
 demos/                 # 纯前端原型，非交付物
 ```
 
@@ -32,7 +34,8 @@ demos/                 # 纯前端原型，非交付物
 
 1. 先读 [docs/README.md](README.md) 的文档体系表与权威顺序，弄清每份文档回答什么问题、冲突时谁优先。
 2. 读 [PRD](PRD.md) 第 1 节产品决策摘要与功能地图，了解产品边界。
-3. 按需进入对应 how-to：[新增需求](how-to/add-requirement.md)、[写 ADR](how-to/write-adr.md)、[过发布门禁](how-to/release-gates.md)、[执行演练](how-to/run-drill.md)。
+3. **拉取子模块**：clone 后先执行 `git submodule update --init --recursive`，否则 `pnpm build` 会因缺 `@aervox/mod-*` 失败（见[可选模块协作指南](how-to/submodule-collaboration.md)）。
+4. 按需进入对应 how-to：[新增需求](how-to/add-requirement.md)、[写 ADR](how-to/write-adr.md)、[过发布门禁](how-to/release-gates.md)、[执行演练](how-to/run-drill.md)、[可选模块 submodule 规范](how-to/submodule-collaboration.md)。
 
 ## 3. 写作与改动的硬性规则
 
