@@ -25,6 +25,7 @@
 ## Decision
 
 以 **SQLite (LibSQL/better-sqlite3) + Drizzle ORM** 作为默认业务真源与 `@aervox/database` 实现：
+
 1. **多租户隔离**：通过 `TenantContext` 在仓储层强制注入 `(workspaceId, subjectUserId)` 过滤，结合底层 SQLite 复合外键与唯一索引作为安全兜底。
 2. **递归查询**：利用 SQLite 3.8.3+ 原生 `WITH RECURSIVE` CTE 投影系统记忆树。
 3. **全文与向量检索**：内置 SQLite FTS5 虚表处理全文检索；向量检索通过 `VectorSearchPort` 解耦，派生索引可随意清空或离线重建。
