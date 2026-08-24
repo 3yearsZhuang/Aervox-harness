@@ -42,6 +42,21 @@ pnpm install
 pnpm run dev
 ```
 
+在主仓根目录执行 `pnpm install`，再运行以下命令同时启动 API 和桌面端：
+
+```bash
+pnpm dev:desktop
+```
+
+桌面 renderer 不直接访问模型或 API，而是通过受限 preload IPC 交给 Electron 主进程调用 Aervox Turn/SSE。API 地址可在启动桌面端前通过服务端环境变量指定：
+
+```powershell
+$env:AERVOX_API_URL = 'http://127.0.0.1:3000'
+$env:AERVOX_SESSION_ID = '<现有会话 ID>'
+pnpm dev:desktop
+```
+
+桌面端不会自行创建临时会话；`AERVOX_SESSION_ID` 必须指向现有 API 能识别且当前用户有权访问的会话。模型、鉴权、持久化和安全策略继续由原有 `@aervox/api` 负责。
 在主仓根目录执行 `pnpm install`，再通过 `pnpm --filter @aervox/desktop dev` 启动桌面端。
 
 生产构建与本地预览：

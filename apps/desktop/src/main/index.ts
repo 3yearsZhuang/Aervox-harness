@@ -23,12 +23,14 @@ async function streamAervoxTurn(event: Electron.IpcMainEvent, payload: unknown) 
     if (!isTurnRequest(payload)) return
     const {requestId, content} = payload
     const apiBaseUrl = (process.env.AERVOX_API_URL ?? 'http://127.0.0.1:3000').replace(/\/$/, '')
+    const sessionId = process.env.AERVOX_SESSION_ID?.trim()
     const send = (message: Record<string, unknown>) => {
         if (!event.sender.isDestroyed()) event.sender.send('aervox:turn:event', {requestId, ...message})
     }
 
     try {
-        const createResponse = await fetch(`${apiBaseUrl}/v1/sessions/desktop-demo/turns`, {
+        if (!sessionId) throw new Error('请先配置 AERVOX_SESSION_ID')
+        const createResponse = await fetch(`${apiBaseUrl}/v1/sessions/${encodeURIComponent(sessionId)}/turns`, {
             method: 'POST',
             headers: {
                 Accept: 'application/json',
