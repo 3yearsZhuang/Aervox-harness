@@ -37,3 +37,5 @@ export type RedactedEventData = z.infer<typeof redactedEventDataSchema>;
 export type CreateTurnRequest = z.infer<typeof createTurnRequestSchema>;
 export type CreateTurnResponse = z.infer<typeof createTurnResponseSchema>;
 export type CancelTurnResponse = z.infer<typeof cancelTurnResponseSchema>;
+
+export * from "./persona-schemas.js";

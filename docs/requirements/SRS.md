@@ -361,6 +361,61 @@
   - `AC-FR-PER-003-02`：Given 偏好与数据权限/删除规则冲突，When 校验，Then 以数据权限/安全策略为准。
 - **测试**：`TC-E2E-PER-001`、`TC-PRIV-PER-001`。
 
+### FR-PER-004 人格创建、修订与激活
+
+- **Parent CAP**：`CAP-019`
+- **触发**：用户创建、编辑、归档或激活人格。
+- **必须**：人格拥有唯一身份和不可变修订；编辑生成新修订；激活只影响后续 Turn；每个 Turn 固化人格修订和有效上下文快照。
+- **异常**：名称或 Prompt 为空、重复提交、并发修订冲突、跨工作区访问、激活已归档人格。
+- **验收**：
+  - `AC-FR-PER-004-01`：Given 用户创建合法人格，When 保存，Then 返回人格和 revision，且 revision 有 checksum。
+  - `AC-FR-PER-004-02`：Given 两次并发编辑使用同一 expectedRevision，When 提交，Then 仅一个成功，另一个返回 revision conflict。
+  - `AC-FR-PER-004-03`：Given 激活人格后创建 Turn，When 读取 ContextSnapshot，Then 包含 persona/revision、Prompt、Skills 和 MCP 实际集合。
+- **测试**：`TC-API-PER-002`、`TC-INTEG-PER-001`、`TC-E2E-PER-002`。
+
+### FR-PER-005 人格 Prompt、Skills 与 MCP 配置
+
+- **Parent CAP**：`CAP-019`、`CAP-020`
+- **必须**：人格 Prompt 追加到 system prompt；系统枚举激活 Skills 与工作区 Skills，并按人格三态规则过滤；MCP 工具集合经过服务端授权交集。
+- **验收**：
+  - `AC-FR-PER-005-01`：Given 人格配置 Prompt，When 生成上下文，Then Prompt 位于人格区且安全/数据策略仍不可覆盖。
+  - `AC-FR-PER-005-02`：Given Skills 未配置、配置空数组或非空列表，When 生成上下文，Then 分别得到全部、零个或按 name 过滤后的 Skills，并通过 `build_skills_prompt()` 注入。
+  - `AC-FR-PER-005-03`：Given MCP 未配置、空数组或非空列表，When 生成上下文，Then 分别选择全部合格工具、零个或 allowlist 工具。
+- **测试**：`TC-UNIT-PER-002`、`TC-UNIT-PLG-001`、`TC-AIEVAL-SAFE-002`。
+
+### FR-PER-006 GPT-SoVITS 语音模型选择
+
+- **Parent CAP**：`CAP-019`
+- **必须**：人格可保存 GPT-SoVITS provider、model、speaker 和参数引用；支持本地 allowlist 模型与外部服务；模型不可用时文本流程继续。
+- **验收**：
+  - `AC-FR-PER-006-01`：Given 本地模型路径在 allowlist 且存在，When 列出模型，Then 状态为 available。
+  - `AC-FR-PER-006-02`：Given 外部 provider 可用，When 选择语音模型，Then 保存非敏感引用且凭据不进入 Persona Bundle。
+  - `AC-FR-PER-006-03`：Given 语音 provider 超时或缺失，When 完成文本 Turn，Then 文本成功且语音显示可重试状态。
+- **测试**：`TC-CONTRACT-VOICE-001`、`TC-RES-VOICE-001`、`TC-E2E-PER-003`。
+
+### FR-PER-007 人格与 Skills 导入导出
+
+- **Parent CAP**：`CAP-019`、`CAP-020`
+- **必须**：支持标准 Skills ZIP 和 Persona Bundle；导出 Persona Bundle 时携带人格实际生效 Skills 的完整目录；导入先预览和校验，再创建新人格和导入 Skills。
+- **规则**：Skills 未配置时导出全部有效 Skills；空列表导出零个；allowlist 仅导出有效命中项。不得导出 MCP 凭据、语音模型权重、本地绝对路径或用户业务正文。
+- **验收**：
+  - `AC-FR-PER-007-01`：Given Persona 生效 Skills 为 A/B，When 导出，Then ZIP 包含 A/B 的 `SKILL.md`、资源、manifest、版本和 checksum。
+  - `AC-FR-PER-007-02`：Given 导入包包含非法 frontmatter、路径穿越、符号链接或超限压缩，When 预览，Then 拒绝且不执行脚本。
+  - `AC-FR-PER-007-03`：Given 导入合法包，When 用户确认，Then 创建新人格；同 checksum Skill 去重，冲突需显式选择替换或拒绝。
+- **测试**：`TC-CONTRACT-PLG-001`、`TC-SEC-PLUG-002`、`TC-PRIV-EXPORT-002`、`TC-E2E-PER-004`。
+
+### BR-PER-003 Skills 渐进式加载与安全边界
+
+- **Parent CAP**：`CAP-020`
+- **规则**：Skill 先暴露 name/description 元数据，再按需读取 `SKILL.md` 和 `scripts/`、`references/`、`assets/`；Skill 内容不能覆盖 system policy，`allowed-tools` 不能代替 ToolPolicy；无效、撤权或禁用 Skill 不进入上下文。
+- **测试**：`TC-UNIT-PLG-002`、`TC-SEC-PROMPT-002`。
+
+### BR-PER-004 MCP 三态与服务端授权
+
+- **Parent CAP**：`CAP-020`
+- **规则**：MCP 未配置列表表示全部合格工具，空列表表示全部禁用，非空列表按 `{mcpServerId}:{toolName}` allowlist；最终工具集合还必须通过用户同意、工作区策略、安全策略、健康状态和 kill switch。
+- **测试**：`TC-UNIT-PLG-003`、`TC-SEC-PLUG-003`。
+
 ### BR-PER-001 中性默认值规则
 
 - **Parent CAP**：`CAP-010`

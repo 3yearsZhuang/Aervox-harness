@@ -53,6 +53,16 @@
 
 同意记录包含政策版本、范围、授予/撤销时间、来源界面和证据。撤销只影响后续处理时，界面必须说明历史数据会保留还是删除，并提供相应操作。
 
+<a id="privacy-persona"></a>
+
+## 4.1 Persona、Skills、MCP 与语音配置
+
+- Persona 名称、描述、Prompt、修订、checksum 和当前激活状态属于 `Confidential` 工作区配置；Prompt 发送给模型前遵循 `model_processing` purpose 和最小上下文原则。
+- Anthropic Skill 的 `SKILL.md`、`references/`、`assets/` 和脚本属于工作区扩展数据；来源、许可证、版本、checksum、启用/撤权状态必须可审计。Skill ZIP 导入不执行脚本，不因导入自动取得文件、网络、数据库、记忆或 MCP 权限。
+- MCP 工具 ID、授权 scope、撤权状态和调用审计属于权限控制数据；MCP 凭据/OAuth Token 只能进入 Secret Manager/Secret Reference，禁止写入 Persona Bundle。
+- GPT-SoVITS 本地路径、外部 endpoint、provider/model/speaker 引用按敏感配置处理；导出禁止本地绝对路径、凭据和模型权重。外部语音供应商须按数据地区、保留、训练和删除能力审查。
+- Persona 导出必须包含实际生效 Skills 的版本/checksum 和缺失依赖；不得包含会话、记忆、日记、安全事件或其他用户业务正文。删除/撤权后新 ContextManifest 不得引用对应 Persona、Skill 或 MCP 权限。
+
 <a id="privacy-retention"></a>
 
 ## 5. 召回、保留与删除基线

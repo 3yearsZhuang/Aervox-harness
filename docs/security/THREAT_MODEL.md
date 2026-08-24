@@ -37,6 +37,9 @@
 | TM-010 | Abuse | 情绪脆弱/危机内容被用于留存、推荐或日记 | purpose 隔离、安全事件受限、禁止商业定向/关系分数 | `TC-AIEVAL-SAFE-001`；政策误分类持续监控 |
 | TM-011 | Supply chain | 依赖、参考代码或插件引入恶意代码/许可证风险 | lockfile、SBOM、签名、漏洞/许可证扫描、AGPL 隔离 | `TC-SEC-SUPPLY-001`；高危/许可未决阻断发布 |
 | TM-012 | Data poisoning | 外部题库/附件污染掌握度、记忆或知识树 | 来源/许可/置信状态、人工纠正、候选机制、回滚 | `TC-AIEVAL-POISON-001`；低置信内容不入正式事实 |
+| TM-013 | Tampering/Disclosure | Persona/Skills ZIP 路径穿越、压缩炸弹、恶意脚本或 manifest checksum 伪造 | ZIP 中央目录预检、路径/符号链接/大小/压缩比限制、YAML 校验、脚本不执行、checksum 比对和隔离导入 | `TC-SEC-PLUG-002`；导入失败不写入工作区 |
+| TM-014 | Elevation | Persona Prompt/Skill `allowed-tools` 或 MCP 返回内容提升工具权限、覆盖安全规则 | 信任层分离、Prompt 安全区最后组合、服务端 ToolPolicy、MCP allowlist/同意/kill switch 求交集 | `TC-SEC-PROMPT-002`、`TC-SEC-PLUG-003` |
+| TM-015 | Disclosure/DoS | GPT-SoVITS endpoint、凭据、本地路径或模型权重随人格包泄露；语音服务耗尽主流程 | Secret Reference、导出脱敏、本地路径 allowlist、超时/配额、文本优先降级 | `TC-SEC-VOICE-001`、`TC-RES-VOICE-001` |
 
 ## 4. 数据流安全规则
 

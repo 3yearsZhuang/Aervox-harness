@@ -187,6 +187,16 @@ Captured
 
 测试必须覆盖普通疲惫的误报、隐晦高风险的漏报、多语言、代码/引文中出现的危险词、Prompt injection 和人格模板覆盖尝试。不同地区资源不得硬编码为单一国家/地区。
 
+<a id="ai-persona"></a>
+
+## 7.1 Persona 与 Skills 质量
+
+- 每个 Turn 记录 PersonaRevision、Prompt checksum、Skills checksum、MCP 工具集合和语音 provider/model 引用；默认不记录完整 Restricted Prompt。
+- Prompt 评估集覆盖人格越权、安全策略覆盖尝试、删除/退出覆盖尝试、多语言和空/allowlist 配置。
+- Skills 评估集覆盖元数据注入、`SKILL.md` 读取边界、恶意 `allowed-tools`、未选 Skill 不进入上下文、禁用/撤权 Skill 零召回和导出/导入 checksum 一致性。
+- MCP 评估覆盖未配置列表全部启用、空列表全部禁用、allowlist、撤权和 kill switch；模型请求不视为授权。
+- 语音 provider 失败、超时、模型缺失或本地路径不允许时，文本主流程必须可完成并显示可重试状态。
+
 ## 8. 工具、插件与外部内容
 
 - 工具定义包含输入 schema、权限 scope、资源限额、超时、取消、审计和失败结果；模型请求不等于授权。

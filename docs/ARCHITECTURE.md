@@ -213,6 +213,15 @@ Captured
 
 附件、网页、插件输出和外部题库都是不可信数据，不能覆盖系统提示或直接触发工具。模型只能请求工具，权限代理根据用户授权、工作区和工具策略作最终决定。插件默认无数据库、文件、网络、记忆和日记权限；云端插件在容器/microVM 中运行，桌面插件使用受限子进程，Node `vm` 不作为安全沙箱。
 
+### 7.1 Persona / Skills / MCP / Voice V1
+
+- `PersonaResolver` 读取当前 `PersonaRevision`，把 `systemPromptAppend` 放入独立人格区，并在最终策略区保留不可覆盖的安全、隐私、删除、退出和工具授权规则。
+- `SkillRegistry` 枚举激活 Skills 与工作区 Skills；工作区同名定义覆盖激活定义。Skills 按 Anthropic `SKILL.md` 规范解析，先注入元数据提示，完整正文和资源按需加载；`allowed-tools` 不授予服务端权限。
+- `McpToolPolicy` 对人格三态列表做选择，再与同意、工作区策略、安全策略、健康状态和 kill switch 求交集。未配置列表为全部合格工具，空列表为零工具。
+- `VoiceProviderPort` 隔离 GPT-SoVITS 本地 allowlist 模型和外部服务；语音生成失败时文本 Turn 不失败。人格包只导出非敏感 provider/model 引用，不导出凭据、绝对路径和权重。
+- Turn 创建时保存 `PersonaContextSnapshot`，至少包含 Persona/Revision checksum、Prompt checksum、Skill checksum、MCP 工具 ID 和 Voice 引用，支持审计和后续重放。
+- 当前骨架使用内存仓储验证契约；生产落地必须替换为 PostgreSQL/Outbox/Worker，并保持包接口、三态语义和删除/撤权 fail-closed 行为。
+
 ## 8. 日记调度与时区
 
 - `DiarySchedule.nextRunAt` 和 `lastCutoffAt` 保存 UTC 时间点，另存 IANA 时区及首次启用的 `initialWindowStart`；Scheduler 每分钟批量锁定到期记录，不为每个用户注册长期 Cron。所有调度、通知和 Job 都必须携带 `(workspaceId, subjectUserId)`。

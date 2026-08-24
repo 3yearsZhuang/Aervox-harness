@@ -50,6 +50,14 @@
 - `SourceArtifact/SourceRevision` 的编辑、撤权、删除和版本切换必须传播到 ContextManifest、EmbeddingIndex、记忆证据、日记段落与缓存；禁止残余 `sourceType + sourceId` 弱关联路径。
 - 恢复账本测试覆盖“账本成功/业务失败”“账本失败”“重复 eventId”“sequence 缺口”“业务 PITR 回退到旧水位”和账本防篡改校验；任何未追平状态均不得确认删除完成或恢复业务流量。
 
+### 3.2.1 Persona / Skills / MCP / Voice 断言
+
+- Persona Revision 使用 CAS；激活只影响后续 Turn，Turn ContextSnapshot 保存 Persona/Prompt/Skill/MCP/Voice 版本信息。
+- Skills 验证 Anthropic `SKILL.md` frontmatter、name/目录一致性、渐进式加载、工作区覆盖、三态筛选和导出实际生效集合。
+- Persona Bundle/Skills ZIP 验证路径穿越、符号链接、压缩比、超大文件、checksum、许可证字段和脚本不执行；导入预览失败不得写入工作区。
+- MCP 验证未配置/空/allowlist 三态、用户同意/工作区/安全交集、撤权和 kill switch 零调用。
+- GPT-SoVITS 验证本地路径 allowlist、模型缺失、远程超时、Secret Reference 不导出和文本回退。
+
 ### 3.3 流式协议断言
 
 - 对每个公开 SSE 事件验证 UTF-8 framing、稳定 `eventId`、Turn 内连续 `sequence`、payload schema、终态关闭、heartbeat 无业务 ID，以及建流前 Problem Details/建流后持久化终态错误。

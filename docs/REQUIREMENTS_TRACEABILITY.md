@@ -109,8 +109,8 @@
 | `CAP-016` | 自适应刷题与报告 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补适应算法输入、冷启动、解释、偏差评估和报告口径 |
 | `CAP-017` | 考试日计划 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补计划生成约束、滚动调整、冲突、跳过、过期和完成定义 |
 | `CAP-018` | 桌面化与 Live2D | P1 | R3 端扩展 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补平台矩阵、权限、签名更新、资源预算、崩溃恢复和后台行为 |
-| `CAP-019` | 多人格模板 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补模板审核、切换、记忆隔离/共享、回滚和人格回归评估 |
-| `CAP-020` | 技能与插件系统 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补清单格式、权限模型、沙箱、签名、版本兼容、撤权和卸载残留 |
+| `CAP-019` | 多人格模板 | P1 | R2 学习深化 | `Specified` | [P1 验收原则](PRD.md#prd-cap-014-019)、[人格插件 V1](PRD.md#prd-persona-plugin-v1) | V1 已补人格 CRUD、Prompt/Skills/MCP/Voice、导入导出；后续补模板审核、记忆隔离/共享和回归评估 |
+| `CAP-020` | 技能与插件系统 | P2 | R4 连接智能化 | `Specified` | [P2 验收原则](PRD.md#prd-cap-020-027)、[人格插件 V1](PRD.md#prd-persona-plugin-v1) | V1 已补 Anthropic Skills ZIP/过滤和 MCP 选择；后续补完整插件沙箱、签名、市场和卸载残留 |
 | `CAP-021` | 学习路线与视频推荐 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补来源、排序、失效链接、用户反馈、商业内容标识和推荐评估 |
 | `CAP-022` | 兴趣分析与跨域推荐 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补授权信号、解释、关闭/重置、敏感属性禁用和偏差评估 |
 | `CAP-023` | 第三方刷题接入 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补 OAuth、字段映射、增量同步、冲突、限流、撤权和删除 |
@@ -268,6 +268,12 @@ DoR 不允许以“开发中再确定”代替。确需并行探索的内容应�
 
 | 需求 ID | 类别 | Parent CAP | 当前状态 | 规范/来源 | AC | 测试/证据 |
 |---|---|---|---|---|---|---|
+| `FR-PER-004` | 人格创建、修订与激活 | CAP-019 | `Specified` | [SRS 人格](requirements/SRS.md#fr-per-004-人格创建修订与激活) | `AC-FR-PER-004-01～03` | `TC-API-PER-002`、`TC-INTEG-PER-001`、`TC-E2E-PER-002` |
+| `FR-PER-005` | Prompt、Skills 与 MCP 配置 | CAP-019/020 | `Specified` | [SRS 人格](requirements/SRS.md#fr-per-005-人格-promptskills-与-mcp-配置) | `AC-FR-PER-005-01～03` | `TC-UNIT-PER-002`、`TC-UNIT-PLG-001`、`TC-AIEVAL-SAFE-002` |
+| `FR-PER-006` | GPT-SoVITS 模型选择 | CAP-019 | `Specified` | [SRS 人格](requirements/SRS.md#fr-per-006-gpt-sovits-语音模型选择) | `AC-FR-PER-006-01～03` | `TC-CONTRACT-VOICE-001`、`TC-RES-VOICE-001`、`TC-E2E-PER-003` |
+| `FR-PER-007` | Persona/Skills 导入导出 | CAP-019/020 | `Specified` | [SRS 人格](requirements/SRS.md#fr-per-007-人格与-skills-导入导出) | `AC-FR-PER-007-01～03` | `TC-CONTRACT-PLG-001`、`TC-SEC-PLUG-002`、`TC-PRIV-EXPORT-002` |
+| `BR-PER-003` | Skills 渐进式加载与安全边界 | CAP-020 | `Specified` | [SRS 人格](requirements/SRS.md#br-per-003-skills-渐进式加载与安全边界) | — | `TC-UNIT-PLG-002`、`TC-SEC-PROMPT-002` |
+| `BR-PER-004` | MCP 三态与服务端授权 | CAP-020 | `Specified` | [SRS 人格](requirements/SRS.md#br-per-004-mcp-三态与服务端授权) | — | `TC-UNIT-PLG-003`、`TC-SEC-PLUG-003` |
 | `NFR-AVAIL-001` | 可用性 | CAP-001～032 | `Specified` | [PRD NFR](PRD.md#prd-nfr) | `AC-NFR-AVAIL-001` | `TC-PERF-AVAIL-001` |
 | `NFR-PERF-001` | 性能 | CAP-001～032 | `Specified` | [PRD NFR](PRD.md#prd-nfr)、[流式协议](contracts/STREAMING_PROTOCOL.md) | `AC-NFR-PERF-001` | `TC-PERF-API-001`、`TC-CONTRACT-STREAM-001` |
 | `NFR-SCALE-001` | 容量 | CAP-001～032 | `Specified` | [PRD NFR](PRD.md#prd-nfr) | `AC-NFR-SCALE-001` | `TC-PERF-SCALE-001` |
@@ -290,6 +296,9 @@ DoR 不允许以“开发中再确定”代替。确需并行探索的内容应�
 | `DATA-STREAM-001` | Turn 事件保留、撤回与删除 | CAP-002/007/008/013 | `Specified` | [SRS 跨域规则](requirements/SRS.md#srs-data-stream)、[流式协议](contracts/STREAMING_PROTOCOL.md#5-重连保留与断点恢复) | `AC-DATA-STREAM-001-01～02` | `TC-PRIV-STREAM-001`、`TC-INTEG-STREAM-RET-001` |
 | `DATA-DEL-001` | 删除传播与账本 | CAP-005/009/013/026/027 | `Specified` | [删除 SLA](DATA_PRIVACY.md#privacy-deletion-sla) | `AC-DATA-DEL-001` | `TC-PRIV-DEL-001` |
 | `BR-CTRL-001` | 独立恢复控制账本一致性 | CAP-001～032 | `Specified` | [SRS 控制规则](requirements/SRS.md#srs-br-ctrl) | `AC-BR-CTRL-001-01～03` | `TC-RES-LEDGER-001`、`TC-SEC-REVOKE-001` |
+| `SEC-PLG-002` | Skill/Persona ZIP 安全导入 | CAP-019/020 | `Specified` | [ADR-014](architecture/adr/ADR-014-persona-skills-mcp-voice.md) | `AC-FR-PER-007-02` | `TC-SEC-PLUG-002` |
+| `PRIV-EXPORT-002` | Persona/Skills 可读导出与敏感信息排除 | CAP-019/020 | `Specified` | [数据隐私](DATA_PRIVACY.md#privacy-persona) | `AC-FR-PER-007-01～03` | `TC-PRIV-EXPORT-002` |
+| `AIQ-PER-001` | Persona Prompt/Skills 组合可复现 | CAP-019/020 | `Specified` | [AI 质量](AI_QUALITY_SAFETY.md#ai-persona) | `AC-FR-PER-005-01～03` | `TC-AIEVAL-PER-001` |
 | `SEC-PLG-001` | 插件最小权限/沙箱 | CAP-020/031 | `Mapped` | [架构插件边界](ARCHITECTURE.md#arch-ai-security) | `AC-SEC-PLG-001` | `TC-SEC-PLUG-001` |
 | `SEC-TEN-001` | 工作区/数据主体/组织隔离 | CAP-001～032 | `Specified` | [SRS 租户隔离](requirements/SRS.md#srs-sec-ten)、[数据安全控制](DATA_PRIVACY.md#privacy-security) | `AC-SEC-TEN-001-01～03` | `TC-SEC-TENANT-001`、`TC-INTEG-RLS-001` |
 | `PRIV-CONS-001` | 分 purpose 同意与撤销 | CAP-009/020/023/027 | `Specified` | [同意与偏好](DATA_PRIVACY.md#privacy-consent) | `AC-PRIV-CONS-001` | `TC-PRIV-CONSENT-001` |

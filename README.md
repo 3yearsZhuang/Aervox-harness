@@ -14,7 +14,10 @@
 ## 工程骨架
 
 - pnpm + Turborepo monorepo（`apps/*`、`packages/*`）
-- `@aervox/contracts`：流式协议机器契约（规则见 [STREAMING_PROTOCOL](docs/contracts/STREAMING_PROTOCOL.md)）
+- `@aervox/contracts`：流式协议、Persona、Skills、MCP 和 Voice 的机器契约（规则见 [STREAMING_PROTOCOL](docs/contracts/STREAMING_PROTOCOL.md)）
+- `@aervox/persona`：人格修订、激活、上下文快照与 Persona Bundle 导入导出
+- `@aervox/skill-runtime`：Anthropic `SKILL.md` 解析、三态过滤、渐进式提示和安全 ZIP
+- `@aervox/ai-runtime`、`@aervox/mcp-port`、`@aervox/voice-port`：上下文组合、MCP ToolPolicy 与 GPT-SoVITS Provider Port
 - 参考仓库 `reference/`（固定 commit 子模块，仅作设计验证）：deepseek-harness / pi / baishou-next / dsh-synapse
 
 ## 快速开始
@@ -23,6 +26,7 @@
 pnpm install
 pnpm build
 pnpm typecheck
+pnpm test
 ```
 
 ## 当前状态
