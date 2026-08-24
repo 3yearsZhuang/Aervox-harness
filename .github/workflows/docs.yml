@@ -6,6 +6,7 @@ on:
       - "docs/**"
       - "README.md"
       - ".markdownlint-cli2.jsonc"
+      - "mise.toml"
       - ".github/workflows/docs.yml"
   push:
     branches: [main]
@@ -13,6 +14,7 @@ on:
       - "docs/**"
       - "README.md"
       - ".markdownlint-cli2.jsonc"
+      - "mise.toml"
 
 permissions:
   contents: read
@@ -25,13 +27,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Markdown lint
-        uses: DavidAnson/markdownlint-cli2-action@v19
+      - name: Install mise
+        run: |
+          curl https://mise.run | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Restore mise cache
+        uses: actions/cache@v4
         with:
-          globs: |
-            docs/**/*.md
-            README.md
-          config: .markdownlint-cli2.jsonc
+          path: |
+            ~/.local/share/mise/installs
+            ~/.local/share/mise/cache
+          key: mise-${{ runner.os }}-${{ hashFiles('mise.toml') }}
+
+      - name: Install tools (node + pnpm from mise.toml)
+        run: mise install
+
+      - name: Markdown lint (via mise task)
+        run: mise tasks run ci-docs
 
       - name: Link check (docs + README, exclude reference/ and demos/)
         uses: lycheeverse/lychee-action@v2
