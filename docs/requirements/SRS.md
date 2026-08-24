@@ -425,7 +425,7 @@
 ### SEC-TEN-001 工作区/数据主体隔离
 
 - **Parent CAP**：`CAP-001`～`CAP-032`（适用于 MVP 全部数据面，P2/P3 增加组织/插件角色）
-- **必须**：所有业务实体、Turn 事件、后台 Job、缓存键、对象路径、索引和导出任务都绑定 `(workspaceId, subjectUserId)`；组织管理员、教师、监护人或插件只能以单独 `actorId` 表示，不得替代数据主体。应用鉴权与 PostgreSQL RLS、复合外键和队列幂等键必须共同强制该边界。
+- **必须**：所有业务实体、Turn 事件、后台 Job、缓存键、对象路径、索引和导出任务都绑定 `(workspaceId, subjectUserId)`；组织管理员、教师、监护人或插件只能以单独 `actorId` 表示，不得替代数据主体。应用鉴权与 TenantContext 仓储校验、复合外键和队列幂等键必须共同强制该边界。
 - **验收**：
   - `AC-SEC-TEN-001-01`：Given actor 对 workspace 有管理权限但不是 subjectUserId，When 读取/导出/删除另一主体数据，Then 仅返回获授权字段并完整审计，不泄露未授权正文。
   - `AC-SEC-TEN-001-02`：Given 相同业务 ID 出现在两个 workspace，When 访问 API、SSE、索引、对象和 Job，Then 只能访问当前 workspace/subjectUserId 的记录。
@@ -462,7 +462,7 @@
 
 ### BR-CTRL-001 RecoveryControlLedger 一致性
 
-删除、同意撤销、插件撤权和外部同步撤权必须先以确定性 `eventId/idempotencyKey` 写入与业务 PostgreSQL 分离凭据、分离故障域的 `RecoveryControlLedger` 并取得 durable ack，再幂等提交业务状态、DeletionRequest/Outbox 和派生清理。账本是 deny 控制事实源：账本已写而业务提交失败时由 reconciler 按连续 sequence 重放；账本不可用、签名/序列有缺口、保留不足以覆盖最老可恢复备份或应用水位未追平时，受影响范围必须 fail closed。
+删除、同意撤销、插件撤权和外部同步撤权必须先以确定性 `eventId/idempotencyKey` 写入与业务数据库分离凭据、分离故障域的 `RecoveryControlLedger` 并取得 durable ack，再幂等提交业务状态、DeletionRequest/Outbox 和派生清理。账本是 deny 控制事实源：账本已写而业务提交失败时由 reconciler 按连续 sequence 重放；账本不可用、签名/序列有缺口、保留不足以覆盖最老可恢复备份或应用水位未追平时，受影响范围必须 fail closed。
 
 - `AC-BR-CTRL-001-01`：Given 账本 append 成功而业务事务失败，When reconciler 扫描新 sequence，Then 幂等补齐 deny/撤权状态且不会重复清理或恢复权限。
 - `AC-BR-CTRL-001-02`：Given 账本不可用、重复/乱序或 sequence 缺口，When 执行控制请求或 PITR 开放流量，Then 系统保持 fail closed、告警并拒绝宣告完成。

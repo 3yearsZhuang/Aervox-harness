@@ -2,6 +2,7 @@ packages:
   - "apps/*"
   - "packages/*"
 
-# pnpm 11：允许 esbuild 构建脚本（下载平台二进制），否则 install 报 ERR_PNPM_IGNORED_BUILDS
+# pnpm 11: allow native build scripts
 allowBuilds:
   esbuild: true
+  better-sqlite3: false

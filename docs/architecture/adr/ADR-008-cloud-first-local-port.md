@@ -24,7 +24,7 @@
 
 ## Decision
 
-R1/R1.5 使用 Web 账户和 PostgreSQL；领域仓储、导出、同步事件和版本模型不绑定云厂商。R4 通过 Repository/Sync Port 增加 SQLite/Markdown、自托管和快照恢复，明确单主/冲突规则。
+R1/R1.5 使用 Web 账户与 SQLite 业务库（基于仓储抽象层）；领域仓储、导出、同步事件和版本模型不绑定云厂商。R4 通过 Repository/Sync Port 增加 SQLite/Markdown、自托管和快照恢复，明确单主/冲突规则。
 
 ## Positive consequences
 

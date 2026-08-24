@@ -19,7 +19,7 @@
 | 层 | 工具/环境 | 覆盖 |
 |---|---|---|
 | Unit/property | Vitest、fast-check | 状态机、调度、时区/DST、连续窗口、压缩 schema、投影覆盖、幂等、fencing/CAS、删除依赖图 |
-| Integration | Testcontainers PostgreSQL/Redis/S3 | Outbox、队列重放、RLS/复合外键、索引、DiaryCycle/cursor、恢复账本、删除传播 |
+| Integration | In-Memory/Isolated SQLite、Redis/S3 | Outbox、队列重放、TenantContext/复合外键、索引、DiaryCycle/cursor、恢复账本、删除传播 |
 | Contract | OpenAPI/事件 schema diff、Provider/plugin fixtures | API 兼容、SSE framing/重放、模型适配、插件权限、外部同步 |
 | E2E | Playwright | 学习闭环、复习、日记、多日恢复、消息编辑/删除、流式重连/取消、导出、弱网恢复、无障碍 |
 | AI Eval | 版本化 EvalSet + 人工双标 | 教学事实、提示泄露、安全、记忆压缩、日记来源、Prompt injection |
@@ -42,7 +42,7 @@
 
 - 使用数据库级并发测试证明同一 Turn 只有当前 Attempt、同一 DiaryCycle 只有当前 fencing token 能追加事件或提交终态；不能只通过 mock 验证。
 - 对 Turn、DiaryCycle、DeletionRequest 和恢复账本建立状态迁移表测试，随机生成重复、乱序、超时和崩溃序列，断言非法迁移、重复业务结果和 cursor 越级均被拒绝。
-- 对 `scheduleVersion/cursorVersion`、Turn revision 和 Cancel/Finalize 竞态执行真实 PostgreSQL CAS 测试，并保存失败事务与最终唯一状态证据。
+- 对 `scheduleVersion/cursorVersion`、Turn revision 和 Cancel/Finalize 竞态执行真实 SQLite CAS 测试，并保存失败事务与最终唯一状态证据。
 
 ### 3.2 多租户、来源与恢复断言
 

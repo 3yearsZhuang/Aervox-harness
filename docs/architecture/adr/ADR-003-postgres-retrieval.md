@@ -1,52 +1,56 @@
-# ADR-003 PostgreSQL + FTS/pgvector
+# ADR-003 仓储抽象架构：SQLite 业务真源与 FTS5/Vector Port
 
 - 状态：Proposed（待技术负责人批准）
-- 日期：2026-08-23
+- 日期：2026-08-24
 - Owner：待指定
-- 关联：`CAP-005/015/026/027`、`DATA-MEM-001`、`NFR-SCALE-001`
+- 关联：`CAP-005/015/026/027`、`DATA-MEM-001`、`NFR-SCALE-001`、`ADR-008`
 
 ## Context
 
-系统需要事务、RLS、来源外键、递归树查询、全文和后续向量召回。MVP 流量与检索规模尚未证明需要独立数据库。
+系统需要强事务、租户隔离、来源外键、记忆树递归查询、全文检索和向量召回。为了兼顾本地极简部署、测试效率与未来多引擎扩展能力，数据持久层需要具备清晰的仓储抽象（Repository / Port 模式）。
 
 ## Decision drivers
 
-- 业务数据、来源链和删除传播需要强事务与 RLS 隔离；
-- 记忆树需要递归查询，全文/向量检索规模在 MVP 阶段未验证；
-- 减少部署与删除传播边界，避免多个数据库成为事实真源；
-- 派生索引必须可重建，不能成为业务事实真源。
+- 业务数据、来源链和删除传播需要强事务与多租户隔离保障；
+- 记忆树需要层级递归查询（`WITH RECURSIVE`），全文与向量检索必须作为可重建的派生索引；
+- 避免重型外部数据库基础设施（如外置 PG / Docker / Testcontainers）阻塞本地开发与 CI 流程；
+- 保持仓储接口解耦，使 SQLite 与未来云端分布式引擎共享统一领域契约。
 
 ## Considered options
 
-1. **PostgreSQL + FTS/pgvector**：事务/RLS/来源外键与检索同库，边界简单（选定）。
-2. **PostgreSQL + 独立向量库**：大规模向量性能更强，但引入第二存储、同步与删除传播边界。
-3. **Neo4j + 关系库**：图查询表达能力更强，但多一层部署和一致性/删除复杂度。
-4. **本地 SQLite 首发**：交付简单，但不符合 MVP 云端多端/同步与 RLS 要求。
+1. **SQLite (WAL 模式) + Repository Port + FTS5/Vector Port**：单机零外部依赖、秒级测试、内置 FTS5 与 `WITH RECURSIVE`，派生向量通过 Port 解耦（选定）。
+2. **PostgreSQL 17+ 强绑定**：提供原生 RLS 和 pgvector，但本地部署和 CI 依赖外部 Docker 实例，增加单机/桌面端接入复杂度。
+3. **双真源同步**：同时在端侧和云端维护两套事实库，冲突处理与密钥管理成本过高。
 
 ## Decision
 
-PostgreSQL 17+ 作为业务真源，全文检索优先使用 PostgreSQL，P1 按需启用 pgvector。记忆树使用节点/边表和递归 CTE；Embedding 记录模型、维度和版本。MVP 不引入 Neo4j 或独立向量库。
+以 **SQLite (LibSQL/better-sqlite3) + Drizzle ORM** 作为默认业务真源与 `@aervox/database` 实现：
+1. **多租户隔离**：通过 `TenantContext` 在仓储层强制注入 `(workspaceId, subjectUserId)` 过滤，结合底层 SQLite 复合外键与唯一索引作为安全兜底。
+2. **递归查询**：利用 SQLite 3.8.3+ 原生 `WITH RECURSIVE` CTE 投影系统记忆树。
+3. **全文与向量检索**：内置 SQLite FTS5 虚表处理全文检索；向量检索通过 `VectorSearchPort` 解耦，派生索引可随意清空或离线重建。
+4. **灾备与恢复**：单机通过 Litestream 实现 SQLite WAL 秒级流式备份与 PITR；删除与撤权事实源由独立的 `RecoveryControlLedger` 保障。
 
 ## Positive consequences
 
-- 减少部署和删除传播边界，事务一致性较强；
-- RLS、来源外键与检索在同一数据面，权限强制一致；
-- 派生索引可删除/重建而不丢业务数据。
+- 极简部署与毫秒级 In-Memory 单元/集成测试，无需 Docker 依赖；
+- 业务表与派生索引生命周期清晰，向量索引重建不破坏关系数据；
+- 接口抽象规范，未来云端按需接入 PostgreSQL 仅需新增适配器。
 
 ## Negative consequences and risks
 
-- 超大规模向量/图查询可能需要后续拆分；
-- 届时派生索引仍不能成为事实真源，需保持重建能力。
+- SQLite 默认单写多读，高频超大规模并发写入需依赖应用内连接排队或 WAL 参数调优；
+- 多租户隔离依托应用层 `TenantContext` 强校验，需严格防范绕过仓储的裸 SQL 调用。
 
 ## Migration / rollback
 
-建立 `EmbeddingIndex` 和重建任务；可删除/重建所有索引而不丢业务数据。独立检索服务若未来引入，采用双读校验和可回退开关。
+仓储层对上层应用仅暴露 `IConversationRepository`、`IMemoryRepository`、`IDiaryRepository`、`IVectorSearchPort` 接口。若未来需切换到 PostgreSQL，只需在 `@aervox/database` 中提供 PG 驱动适配器，无需改动上层业务逻辑。
 
 ## Verification evidence
 
 状态改为 `Accepted` 前至少提供：
 
-- RLS 与递归树查询集成测试（`TC-INTEG-RLS-001`）；
-- 来源删除后零召回（`TC-PRIV-DEL-001`）；
-- Embedding 重嵌入、索引重建与备份恢复演练；
-- 2 倍峰值压测（`TC-PERF-SCALE-001`）。
+- 租户越权防护与隔离测试（`TC-SEC-TENANT-001`）；
+- 来源删除后 FTS5 与向量零召回测试（`TC-PRIV-DEL-001`）；
+- 记忆树递归 CTE 投影测试；
+- 日记周期 CAS 乐观锁与并发 lease 测试；
+- Litestream 灾备与备份恢复演练。
