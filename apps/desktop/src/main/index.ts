@@ -83,6 +83,46 @@ async function streamAervoxTurn(event: Electron.IpcMainEvent, payload: unknown) 
     }
 }
 
+function isApiRequest(value: unknown): value is {method?: string; path: string; body?: unknown} {
+    if (!value || typeof value !== 'object') return false
+    const req = value as Record<string, unknown>
+    if (typeof req.path !== 'string') return false
+    if (!req.path.startsWith('/') || req.path.includes('://')) return false // 防 SSRF：仅允许站内相对路径
+    if (req.method !== undefined && typeof req.method !== 'string') return false
+    return true
+}
+
+async function proxyApiRequest(_event: Electron.IpcMainInvokeEvent, payload: unknown) {
+    if (!isApiRequest(payload)) return {status: 400, ok: false, json: null, text: 'invalid api request'}
+    const apiBaseUrl = (process.env.AERVOX_API_URL ?? 'http://127.0.0.1:3000').replace(/\/$/, '')
+    const method = (payload.method ?? 'GET').toUpperCase()
+    const headers: Record<string, string> = {Accept: 'application/json'}
+    const workspaceId = process.env.AERVOX_WORKSPACE_ID?.trim()
+    const userId = process.env.AERVOX_USER_ID?.trim()
+    if (workspaceId) headers['x-workspace-id'] = workspaceId
+    if (userId) headers['x-user-id'] = userId
+
+    let body: string | undefined
+    if (method !== 'GET' && payload.body !== undefined) {
+        headers['Content-Type'] = 'application/json'
+        body = JSON.stringify(payload.body)
+    }
+
+    try {
+        const res = await fetch(`${apiBaseUrl}${payload.path}`, {method, headers, body})
+        const text = await res.text()
+        let json: unknown = null
+        try {
+            json = text ? JSON.parse(text) : null
+        } catch {
+            json = null
+        }
+        return {status: res.status, ok: res.ok, json, text}
+    } catch (error) {
+        return {status: 0, ok: false, json: null, text: error instanceof Error ? error.message : 'request failed'}
+    }
+}
+
 function broadcastTheme() {
     for (const window of [mainWindow, petWindow]) {
         if (!window?.isDestroyed()) { // @ts-ignore
@@ -181,6 +221,7 @@ app.whenReady().then(() => {
         return true
     })
     ipcMain.on('aervox:turn:start', streamAervoxTurn)
+    ipcMain.handle('aervox:api:request', proxyApiRequest)
     createMainWindow()
     createPetWindow()
     app.on('activate', () => {

@@ -1250,3 +1250,94 @@ button, input, textarea {
 .pet-footer-label {
     line-height: 1.3
 }
+
+/* ===== 今日学习面板 ===== */
+.study-section {
+    margin-bottom: 20px;
+    padding: 14px;
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.study-section h4 {
+    margin: 0 0 10px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.study-section h4 small {
+    color: var(--text-muted);
+    font-weight: 400;
+}
+
+.study-goal-form {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.study-goal-form input {
+    flex: 1;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-size: 13px;
+}
+
+.study-goal-form button {
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    width: 34px;
+    cursor: pointer;
+}
+
+.study-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.study-list li {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.study-item-title {
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.study-list small {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.study-diary p {
+    margin: 6px 0 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+}
+
+.study-empty {
+    margin: 0;
+    padding: 8px 0;
+    font-size: 12px;
+    color: var(--text-muted);
+}

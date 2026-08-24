@@ -1,0 +1,188 @@
+erDiagram
+    %% ============ ① 会话域 Conversations ============
+    sessions {
+        TEXT id PK "主键"
+        TEXT workspace_id "租户隔离"
+        TEXT subject_user_id "租户隔离"
+        TEXT title "会话标题"
+        TEXT created_at "ISO8601 UTC"
+        TEXT updated_at "ISO8601 UTC"
+    }
+
+    turns {
+        TEXT id PK "主键"
+        TEXT session_id FK "→ sessions.id (CASCADE)"
+        TEXT workspace_id "租户隔离"
+        TEXT subject_user_id "租户隔离"
+        TEXT idempotency_key "租户内唯一"
+        TEXT status "Created/Streaming/Done/Error"
+        INTEGER last_sequence "最后事件序号"
+        TEXT error "JSON 错误体"
+        TEXT created_at ""
+        TEXT updated_at ""
+    }
+
+    message_versions {
+        TEXT id PK "主键"
+        TEXT turn_id FK "→ turns.id (CASCADE)"
+        TEXT workspace_id ""
+        TEXT subject_user_id ""
+        TEXT role "user/assistant/system"
+        INTEGER version "同一 turn 内递增"
+        TEXT content "消息内容"
+        INTEGER is_redacted "0/1 脱敏标记"
+        TEXT created_at ""
+    }
+
+    turn_stream_events {
+        TEXT id PK "主键"
+        TEXT turn_id FK "→ turns.id (CASCADE)"
+        TEXT workspace_id ""
+        TEXT subject_user_id ""
+        INTEGER sequence "租户内 turn 有序"
+        TEXT event_type "message/delta/done/error/redacted"
+        INTEGER payload_version "默认 1"
+        TEXT data "JSON 载荷"
+        TEXT occurred_at "事件发生时间"
+    }
+
+    %% ============ ② 记忆域 Memory ============
+    memory_records {
+        TEXT id PK "主键"
+        TEXT workspace_id ""
+        TEXT subject_user_id ""
+        TEXT layer "四层: ephemeral/short_term/long_term/system"
+        TEXT type "user_fact / user_preference / learning_event / inference"
+        TEXT content "记忆正文"
+        TEXT canonical_parent_id FK "自引用 → memory_records.id (记忆树父节点)"
+        TEXT source_turn_id FK "来源 → turns.id"
+        INTEGER version "记忆版本号"
+        INTEGER is_deleted "0/1 软删除"
+        TEXT created_at ""
+        TEXT updated_at ""
+    }
+
+    memory_edges {
+        TEXT id PK "主键"
+        TEXT workspace_id ""
+        TEXT subject_user_id ""
+        TEXT source_id FK "→ memory_records.id (CASCADE)"
+        TEXT target_id FK "→ memory_records.id (CASCADE)"
+        TEXT relation_type "parent_child / cross_topic / causal / contrast"
+        TEXT created_at ""
+    }
+
+    memory_projection_overrides {
+        TEXT id PK "主键"
+        TEXT workspace_id ""
+        TEXT subject_user_id ""
+        TEXT memory_record_id FK "→ memory_records.id (CASCADE)"
+        TEXT override_type "rename / reparent / lock"
+        TEXT custom_title "用户自定义标题"
+        TEXT custom_parent_id "用户自定义父节点"
+        INTEGER is_locked "0/1 锁定"
+        TEXT created_at ""
+        TEXT updated_at ""
+    }
+
+    %% ============ ③ 日记域 Diary ============
+    diaries {
+        TEXT id PK "主键"
+        TEXT workspace_id ""
+        TEXT subject_user_id ""
+        TEXT local_date "YYYY-MM-DD 日期标签"
+        INTEGER auto_generated "1=自动 / 0=手动，条件唯一索引"
+        TEXT title ""
+        TEXT content "日记全文"
+        INTEGER version ""
+        TEXT created_at ""
+        TEXT updated_at ""
+    }
+
+    diary_cycles {
+        TEXT id PK "主键"
+        TEXT workspace_id ""
+        TEXT subject_user_id ""
+        TEXT schedule_epoch_id "来自 schedule_revisions"
+        TEXT local_date "归属日期"
+        TEXT previous_cutoff_at "前一窗口截止 (ISO)"
+        TEXT cutoff_at "本窗口截止 (ISO)"
+        TEXT status "Scheduled/Claimed/Generating/Validating/Published/Skipped/Failed/Cancelled"
+        INTEGER schedule_version "乐观锁"
+        INTEGER fencing_token "lease 栅栏令牌"
+        TEXT diary_id FK "→ diaries.id (生成后回填)"
+        TEXT created_at ""
+        TEXT updated_at ""
+    }
+
+    diary_schedule_revisions {
+        TEXT id PK "主键"
+        TEXT workspace_id ""
+        TEXT subject_user_id ""
+        INTEGER revision "修订号递增"
+        INTEGER enabled "0/1"
+        TEXT cron_time "Cron 表达式"
+        TEXT timezone "时区如 Asia/Shanghai"
+        TEXT initial_window_start "首个窗口起始"
+        TEXT created_at ""
+    }
+
+    diary_run_attempts {
+        TEXT id PK "主键"
+        TEXT cycle_id FK "→ diary_cycles.id (CASCADE)"
+        INTEGER schedule_version "快照时版本"
+        TEXT worker_id "执行 Worker ID"
+        INTEGER attempt "重试次数"
+        TEXT status "Claimed/Generating/..."
+        TEXT lease_expires_at "lease 过期时间"
+        TEXT created_at ""
+    }
+
+    %% ============ ④ Outbox + 派生索引 ============
+    outbox_events {
+        TEXT id PK "主键"
+        TEXT workspace_id ""
+        TEXT subject_user_id ""
+        TEXT control_event_id "关联 RecoveryControlLedger"
+        TEXT idempotency_key "租户内唯一"
+        TEXT event_type ""
+        TEXT payload "JSON 事件载荷"
+        TEXT status "pending/published/failed/dead_letter"
+        INTEGER retry_count "重试次数"
+        TEXT last_error ""
+        TEXT created_at ""
+        TEXT published_at ""
+    }
+
+    %% 派生 FTS5 虚表（可重建，非真源）
+    messages_fts {
+        TEXT id UNINDEXED "FK → message_versions.id"
+        TEXT workspace_id UNINDEXED
+        TEXT subject_user_id UNINDEXED
+        TEXT content "分词内容"
+    }
+    memories_fts {
+        TEXT id UNINDEXED "FK → memory_records.id"
+        TEXT workspace_id UNINDEXED
+        TEXT subject_user_id UNINDEXED
+        TEXT content "分词内容"
+    }
+
+    %% ============ 关系 ============
+    sessions ||--o{ turns : "1:N (CASCADE delete)"
+    turns ||--o{ message_versions : "1:N (CASCADE)"
+    turns ||--o{ turn_stream_events : "1:N (CASCADE, SSE重放)"
+
+    memory_records ||--o{ memory_edges : "→ source (CASCADE)"
+    memory_records ||--o{ memory_edges : "→ target (CASCADE)"
+    memory_records ||--o{ memory_projection_overrides : "1:N 投影覆盖"
+    memory_records ||--o{ memory_records : "自引用 canonical_parent_id (记忆树)"
+    turns ||--o{ memory_records : "来源 source_turn_id"
+
+    diary_schedule_revisions ||--o{ diary_cycles : "派生周期 (epoch_id)"
+    diary_cycles ||--o{ diary_run_attempts : "1:N lease 尝试"
+    diaries o{--|| diary_cycles : "← 生成后回填 diary_id"
+
+    %% 派生索引引用
+    message_versions }o--|| messages_fts : "同步/可重建虚表"
+    memory_records }o--|| memories_fts : "同步/可重建虚表"

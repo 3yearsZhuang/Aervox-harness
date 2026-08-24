@@ -1,0 +1,231 @@
+erDiagram
+    %% ============ ① 用户域 Identity（PG 阶段上线，CR-003 范围外）============
+    workspaces {
+        UUID id PK "组织 ID"
+        TEXT name "组织名"
+        TEXT slug UNIQUE "短标识"
+        TEXT plan "free/pro/enterprise"
+        TIMESTAMPTZ created_at ""
+        TIMESTAMPTZ updated_at ""
+    }
+
+    users {
+        UUID id PK "用户 ID"
+        TEXT email UNIQUE "登录邮箱"
+        TEXT status "active/inactive/suspended"
+        BOOLEAN email_verified "邮箱验证"
+        TIMESTAMPTZ last_login_at ""
+        TIMESTAMPTZ created_at ""
+        TIMESTAMPTZ updated_at ""
+        "RLS": "subject_user_id = current_setting('app.user_id')::uuid"
+    }
+
+    user_credentials {
+        UUID user_id PK,FK "→ users.id (1:1)"
+        TEXT password_hash "bcrypt"
+        TEXT salt "bcrypt salt"
+        TEXT password_algo "bcrypt/v2"
+        TIMESTAMPTZ password_changed_at ""
+        TIMESTAMPTZ created_at ""
+    }
+
+    workspace_members {
+        UUID id PK
+        UUID workspace_id FK "→ workspaces.id"
+        UUID user_id FK "→ users.id"
+        TEXT role "owner/admin/member"
+        TIMESTAMPTZ joined_at ""
+    }
+
+    user_profiles {
+        UUID user_id PK,FK "→ users.id"
+        TEXT nickname "昵称"
+        TEXT avatar_url "头像"
+        JSONB personality "人格问卷结果"
+        JSONB preferences "偏好设置(语言/风格/通知)"
+        TEXT locale "zh-CN etc"
+        TEXT timezone ""
+        TIMESTAMPTZ created_at ""
+        TIMESTAMPTZ updated_at ""
+        "RLS": "user_id = current_setting('app.user_id')::uuid"
+    }
+
+    %% ============ ② 会话域（同构 + 类型增强 + RLS）============
+    sessions {
+        UUID id PK
+        UUID workspace_id FK "→ workspaces.id"
+        UUID subject_user_id FK "→ users.id"
+        TEXT title ""
+        TIMESTAMPTZ created_at ""
+        TIMESTAMPTZ updated_at ""
+        "RLS": "workspace_id AND subject_user_id 强制匹配"
+    }
+
+    turns {
+        UUID id PK
+        UUID session_id FK "→ sessions.id ON DELETE CASCADE"
+        UUID workspace_id ""
+        UUID subject_user_id ""
+        TEXT idempotency_key "租户内 UNIQUE"
+        TEXT status ""
+        INTEGER last_sequence ""
+        JSONB error ""
+        TIMESTAMPTZ created_at ""
+        TIMESTAMPTZ updated_at ""
+    }
+
+    message_versions {
+        UUID id PK
+        UUID turn_id FK "→ turns.id CASCADE"
+        UUID workspace_id ""
+        UUID subject_user_id ""
+        TEXT role ""
+        INTEGER version "UNIQUE(turn_id, version)"
+        TEXT content ""
+        BOOLEAN is_redacted ""
+        TIMESTAMPTZ created_at ""
+    }
+
+    turn_stream_events {
+        BIGSERIAL id PK "自增替代 TEXT（分区友好）"
+        UUID turn_id FK "→ turns.id CASCADE"
+        UUID workspace_id ""
+        UUID subject_user_id ""
+        INTEGER sequence "UNIQUE(turn_id, sequence)"
+        TEXT event_type ""
+        INTEGER payload_version ""
+        JSONB data ""
+        TIMESTAMPTZ occurred_at ""
+        "Partition": "BY RANGE (occurred_at)"
+    }
+
+    %% ============ ③ 记忆域（同构 + pgvector）============
+    memory_records {
+        UUID id PK
+        UUID workspace_id ""
+        UUID subject_user_id ""
+        TEXT layer ""
+        TEXT type ""
+        TEXT content ""
+        UUID canonical_parent_id FK "自引用 → memory_records.id"
+        UUID source_turn_id FK "→ turns.id"
+        vector embedding "pgvector(n) dim, 可空"
+        INTEGER version ""
+        BOOLEAN is_deleted ""
+        TIMESTAMPTZ created_at ""
+        TIMESTAMPTZ updated_at ""
+        "Index": "USING HNSW (embedding vector_cosine_ops)"
+    }
+
+    memory_edges {
+        UUID id PK
+        UUID workspace_id ""
+        UUID subject_user_id ""
+        UUID source_id FK "→ memory_records.id CASCADE"
+        UUID target_id FK "→ memory_records.id CASCADE"
+        TEXT relation_type ""
+        TIMESTAMPTZ created_at ""
+    }
+
+    memory_projection_overrides {
+        UUID id PK
+        UUID workspace_id ""
+        UUID subject_user_id ""
+        UUID memory_record_id FK "→ memory_records.id CASCADE"
+        TEXT override_type ""
+        TEXT custom_title ""
+        UUID custom_parent_id ""
+        BOOLEAN is_locked ""
+        TIMESTAMPTZ created_at ""
+        TIMESTAMPTZ updated_at ""
+    }
+
+    %% ============ ④ 日记域（同构 · SKIP LOCKED 替代 lease）============
+    diaries {
+        UUID id PK
+        UUID workspace_id ""
+        UUID subject_user_id ""
+        TEXT local_date "YYYY-MM-DD"
+        BOOLEAN auto_generated ""
+        TEXT title ""
+        TEXT content ""
+        INTEGER version ""
+        TIMESTAMPTZ created_at ""
+        TIMESTAMPTZ updated_at ""
+    }
+
+    diary_cycles {
+        UUID id PK
+        UUID workspace_id ""
+        UUID subject_user_id ""
+        TEXT schedule_epoch_id ""
+        TEXT local_date ""
+        TIMESTAMPTZ previous_cutoff_at ""
+        TIMESTAMPTZ cutoff_at ""
+        TEXT status ""
+        INTEGER schedule_version ""
+        INTEGER fencing_token "advisory lock 辅助"
+        UUID diary_id FK "→ diaries.id"
+        TIMESTAMPTZ created_at ""
+        TIMESTAMPTZ updated_at ""
+    }
+
+    diary_schedule_revisions {
+        UUID id PK
+        UUID workspace_id ""
+        UUID subject_user_id ""
+        INTEGER revision ""
+        BOOLEAN enabled ""
+        TEXT cron_time ""
+        TEXT timezone ""
+        TIMESTAMPTZ initial_window_start ""
+        TIMESTAMPTZ created_at ""
+    }
+
+    diary_run_attempts {
+        UUID id PK
+        UUID cycle_id FK "→ diary_cycles.id CASCADE"
+        INTEGER schedule_version ""
+        TEXT worker_id ""
+        INTEGER attempt ""
+        TEXT status ""
+        TIMESTAMPTZ lease_expires_at ""
+        TIMESTAMPTZ created_at ""
+    }
+
+    %% ============ ⑤ Outbox + 检索层 ============
+    outbox_events {
+        UUID id PK
+        UUID workspace_id ""
+        UUID subject_user_id ""
+        TEXT control_event_id ""
+        TEXT idempotency_key "租户内 UNIQUE"
+        TEXT event_type ""
+        JSONB payload ""
+        TEXT status ""
+        INTEGER retry_count ""
+        TEXT last_error ""
+        TIMESTAMPTZ created_at ""
+        TIMESTAMPTZ published_at ""
+        "Trigger": "AFTER INSERT → pg_notify('outbox_new', id::text)"
+    }
+
+    %% ============ 关系 ============
+    workspaces ||--o{ workspace_members : "拥有 N 成员"
+    users ||--o{ workspace_members : "加入 N 组织"
+    users ||--|| user_credentials : "1:1 凭证"
+    users ||--|| user_profiles : "1:1 Profile"
+
+    sessions ||--o{ turns : "1:N CASCADE"
+    turns ||--o{ message_versions : "1:N"
+    turns ||--o{ turn_stream_events : "1:N (分区表)"
+
+    memory_records ||--o{ memory_edges : "→ source"
+    memory_records ||--o{ memory_edges : "→ target"
+    memory_records ||--o{ memory_projection_overrides : "覆盖"
+    memory_records ||--o{ memory_records : "自引用 (记忆树)"
+    turns ||--o{ memory_records : "来源 turn"
+
+    diary_schedule_revisions ||--o{ diary_cycles : "派生周期"
+    diary_cycles ||--o{ diary_run_attempts : "1:N lease"
+    diaries o{--|| diary_cycles : "回填 diary_id"

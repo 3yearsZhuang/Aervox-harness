@@ -5,12 +5,25 @@
  */
 import { eq, and, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
-import { diaries, diaryCycles, diaryRunAttempts, outboxEvents } from "../../schema/index.js";
+import {
+  diaries,
+  diaryCycles,
+  diaryRunAttempts,
+  diarySchedules,
+  diaryVersions,
+  diaryParagraphSources,
+  diaryMaterialBuffers,
+  outboxEvents,
+} from "../../schema/index.js";
 import { assertTenantContext, type TenantContext } from "../../tenant.js";
 import type {
   IDiaryRepository,
   DiaryModel,
   DiaryCycleModel,
+  DiaryScheduleModel,
+  DiaryVersionModel,
+  DiaryParagraphSourceModel,
+  DiaryMaterialBufferModel,
 } from "../types.js";
 
 export class SqliteDiaryRepository implements IDiaryRepository {
@@ -215,5 +228,155 @@ export class SqliteDiaryRepository implements IDiaryRepository {
         ),
       );
     return (found as DiaryModel) ?? null;
+  }
+
+  // ============ MVP+ 补齐（PRD §8）：计划主实体 / 版本 / 段落来源 / 素材缓冲 ============
+
+  async createDiarySchedule(
+    tenant: TenantContext,
+    scheduleData: {
+      id: string;
+      scheduleEpochId: string;
+      activeFrom: string;
+      initialWindowStart: string;
+      cutoffRule: string;
+      bufferMinutes?: number;
+      contentScopes?: unknown;
+      quietHours?: unknown;
+    },
+  ): Promise<DiaryScheduleModel> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    const [created] = await this.db
+      .insert(diarySchedules)
+      .values({
+        id: scheduleData.id,
+        workspaceId: tenant.workspaceId,
+        subjectUserId: tenant.subjectUserId,
+        enabled: 1,
+        scheduleEpochId: scheduleData.scheduleEpochId,
+        activeFrom: scheduleData.activeFrom,
+        initialWindowStart: scheduleData.initialWindowStart,
+        cutoffRule: scheduleData.cutoffRule,
+        bufferMinutes: scheduleData.bufferMinutes ?? 0,
+        contentScopes: scheduleData.contentScopes ?? null,
+        quietHours: scheduleData.quietHours ?? null,
+        version: 1,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    return created as DiaryScheduleModel;
+  }
+
+  async getDiarySchedule(tenant: TenantContext, id: string): Promise<DiaryScheduleModel | null> {
+    assertTenantContext(tenant);
+    const [found] = await this.db
+      .select()
+      .from(diarySchedules)
+      .where(
+        and(
+          eq(diarySchedules.id, id),
+          eq(diarySchedules.workspaceId, tenant.workspaceId),
+          eq(diarySchedules.subjectUserId, tenant.subjectUserId),
+        ),
+      );
+    return (found as DiaryScheduleModel) ?? null;
+  }
+
+  async createDiaryVersion(
+    tenant: TenantContext,
+    versionData: {
+      id: string;
+      diaryId: string;
+      perspective: string;
+      content: string;
+      modelRunId?: string | null;
+    },
+  ): Promise<DiaryVersionModel> {
+    assertTenantContext(tenant);
+    // 校验日记属于当前租户
+    const [diary] = await this.db
+      .select()
+      .from(diaries)
+      .where(
+        and(
+          eq(diaries.id, versionData.diaryId),
+          eq(diaries.workspaceId, tenant.workspaceId),
+          eq(diaries.subjectUserId, tenant.subjectUserId),
+        ),
+      );
+    if (!diary) throw new Error(`Diary ${versionData.diaryId} not found in tenant`);
+    const [created] = await this.db
+      .insert(diaryVersions)
+      .values({
+        id: versionData.id,
+        diaryId: versionData.diaryId,
+        perspective: versionData.perspective,
+        content: versionData.content,
+        modelRunId: versionData.modelRunId ?? null,
+        createdAt: new Date().toISOString(),
+      })
+      .returning();
+    return created as DiaryVersionModel;
+  }
+
+  async createDiaryParagraphSource(
+    sourceData: {
+      id: string;
+      diaryVersionId: string;
+      paragraphIndex: number;
+      sourceArtifactId: string;
+      sourceRevisionId: string;
+      permissionSnapshot?: unknown;
+    },
+  ): Promise<DiaryParagraphSourceModel> {
+    const [created] = await this.db
+      .insert(diaryParagraphSources)
+      .values({
+        id: sourceData.id,
+        diaryVersionId: sourceData.diaryVersionId,
+        paragraphIndex: sourceData.paragraphIndex,
+        sourceArtifactId: sourceData.sourceArtifactId,
+        sourceRevisionId: sourceData.sourceRevisionId,
+        permissionSnapshot: sourceData.permissionSnapshot ?? null,
+      })
+      .returning();
+    return created as DiaryParagraphSourceModel;
+  }
+
+  async createDiaryMaterialBuffer(
+    tenant: TenantContext,
+    bufferData: {
+      id: string;
+      cycleId: string;
+      sourceArtifactId: string;
+      sourceRevisionId: string;
+      occurredAt: string;
+      ingestedAt: string;
+      expiresAt: string;
+      ephemeralSnapshot?: unknown;
+      permissionSnapshot?: unknown;
+    },
+  ): Promise<DiaryMaterialBufferModel> {
+    assertTenantContext(tenant);
+    const [created] = await this.db
+      .insert(diaryMaterialBuffers)
+      .values({
+        id: bufferData.id,
+        cycleId: bufferData.cycleId,
+        workspaceId: tenant.workspaceId,
+        subjectUserId: tenant.subjectUserId,
+        sourceArtifactId: bufferData.sourceArtifactId,
+        sourceRevisionId: bufferData.sourceRevisionId,
+        occurredAt: bufferData.occurredAt,
+        ingestedAt: bufferData.ingestedAt,
+        ephemeralSnapshot: bufferData.ephemeralSnapshot ?? null,
+        permissionSnapshot: bufferData.permissionSnapshot ?? null,
+        expiresAt: bufferData.expiresAt,
+        status: "buffered",
+      })
+      .returning();
+    return created as DiaryMaterialBufferModel;
   }
 }

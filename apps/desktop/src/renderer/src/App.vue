@@ -20,6 +20,7 @@ import {
 } from 'lucide-vue-next'
 import AppTitlebar from '@/components/AppTitlebar.vue'
 import {streamAervoxTurn} from '@/composables/useAervoxTurn'
+import {useAervoxApi} from '@/composables/useAervoxApi'
 
 interface StoryLine {
   id: number
@@ -32,12 +33,15 @@ const composerOpen = ref(true)
 const historyOpen = ref(false)
 const todoOpen = ref(false)
 const timerOpen = ref(false)
+const studyOpen = ref(false)
+const newGoalTopic = ref('')
 const input = ref('')
 const timerSeconds = ref(25 * 60)
 const timerRunning = ref(false)
 const newTodo = ref('')
 const todos = ref<Array<{id: number; text: string; done: boolean}>>([])
 const story = ref<StoryLine[]>([])
+const api = useAervoxApi()
 
 const currentLine = computed(() => story.value[story.value.length - 1] ?? null)
 const unfinishedTodos = computed(() => todos.value.filter((todo) => !todo.done))
@@ -75,6 +79,17 @@ function addTodo() {
   if (!text) return
   todos.value.unshift({id: Date.now(), text, done: false})
   newTodo.value = ''
+}
+
+async function submitNewGoal() {
+  const topic = newGoalTopic.value.trim()
+  if (!topic) return
+  try {
+    await api.createGoal(topic)
+    newGoalTopic.value = ''
+  } catch (error) {
+    console.error('创建学习目标失败', error)
+  }
 }
 
 function toggleTimer() {
@@ -149,6 +164,10 @@ onUnmounted(() => {
             <button class="tool-menu-item" type="button" @click="historyOpen = true">
               <span class="tool-icon"><History :size="22" /></span>
               <span><strong>对话回看</strong><small>{{ story.length }} 段剧情记录</small></span>
+            </button>
+            <button class="tool-menu-item" type="button" @click="studyOpen = true">
+              <span class="tool-icon"><Sparkles :size="22" /></span>
+              <span><strong>今日学习</strong><small>{{ api.dueReviews.length }} 项待复习 · {{ api.notifications.length }} 条提醒</small></span>
             </button>
           </div>
 
@@ -289,6 +308,54 @@ onUnmounted(() => {
           <button type="button" @click="resetTimer"><TimerReset :size="20" />重置</button>
         </div>
       </div>
+    </el-drawer>
+
+    <el-drawer v-model="studyOpen" title="今日学习" direction="rtl" size="min(440px, 92vw)" @open="api.loadAll">
+      <section class="study-section">
+        <h4>学习目标</h4>
+        <form class="study-goal-form" @submit.prevent="submitNewGoal">
+          <input v-model="newGoalTopic" placeholder="添加一个学习目标，如：高中数学三角函数" />
+          <button type="submit" aria-label="创建学习目标"><Plus :size="18" /></button>
+        </form>
+        <ul class="study-list">
+          <li v-for="goal in api.goals" :key="goal.id">
+            <span class="study-item-title">{{ goal.topic }}</span>
+            <small>{{ goal.level }} · {{ goal.availableMinutes }} 分钟/天</small>
+          </li>
+          <li v-if="api.goals.length === 0" class="study-empty">暂无学习目标</li>
+        </ul>
+      </section>
+
+      <section class="study-section">
+        <h4>今日日记 <small v-if="api.todayDiary">· {{ api.todayDiary.status }}</small></h4>
+        <article v-if="api.todayDiary" class="study-diary">
+          <strong>{{ api.todayDiary.title }}</strong>
+          <p>{{ api.todayDiary.content }}</p>
+        </article>
+        <p v-else class="study-empty">今日日记将在 Worker 生成后出现</p>
+      </section>
+
+      <section class="study-section">
+        <h4>待复习 <small>{{ api.dueReviews.length }}</small></h4>
+        <ul class="study-list">
+          <li v-for="item in api.dueReviews" :key="item.id">
+            <span class="study-item-title">复习 #{{ item.knowledgeId }}</span>
+            <small>到期 {{ item.dueAt.slice(0, 10) }} · 间隔 {{ item.intervalDays }} 天</small>
+          </li>
+          <li v-if="api.dueReviews.length === 0" class="study-empty">今日无到期复习</li>
+        </ul>
+      </section>
+
+      <section class="study-section">
+        <h4>提醒 <small>{{ api.notifications.length }}</small></h4>
+        <ul class="study-list">
+          <li v-for="ntf in api.notifications" :key="ntf.id">
+            <span class="study-item-title">{{ ntf.type }} 提醒</span>
+            <small>{{ ntf.channel }} · {{ ntf.status }}</small>
+          </li>
+          <li v-if="api.notifications.length === 0" class="study-empty">暂无提醒</li>
+        </ul>
+      </section>
     </el-drawer>
   </div>
 </template>
