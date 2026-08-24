@@ -1,0 +1,78 @@
+flowchart TB
+    subgraph CONSUMERS["上层消费者（仅依赖 Repository Port，零数据库耦合）"]
+        direction LR
+        API["apps/api<br/>Fastify /v1/*"]
+        WEB["apps/web<br/>Next.js UI"]
+        DESKTOP["apps/desktop<br/>Electron 端侧"]
+        WORKERS["Workers<br/>日记/Outbox"]
+        TESTS["集成/单元测试"]
+    end
+
+    subgraph PORT["Repository / Vector Search Port（契约边界 · DRI: packages/database）"]
+        direction LR
+        I_CONV["IConversationRepository<br/>sessions/turns/msgs/stream"]
+        I_MEM["IMemoryRepository<br/>records/edges/tree"]
+        I_DIARY["IDiaryRepository<br/>cycles/lease/diaries"]
+        I_OUTBOX["IOutboxRepository<br/>events/retry/mark"]
+        I_VEC["IVectorSearchPort<br/>upsert/search/delete"]
+    end
+
+    subgraph SQLITE_ADAPTER["SQLite 适配器 · 真源（当前 LibSQL + WAL）"]
+        direction TB
+        subgraph SQLITE_CORE["核心业务表（13 张，字段同构）"]
+            S_CONV["会话仓储<br/>sessions/turns/msg_ver/stream_events<br/>TEXT PK · JSON 载荷 · TenantContext 注入"]
+            S_MEM["记忆仓储<br/>memory_records+edges+overrides<br/>WITH RECURSIVE 记忆树"]
+            S_DIA["日记仓储<br/>diary_cycles+run_attempts+diaries<br/>CAS lease + 乐观锁 version"]
+            S_OUT["Outbox 事件<br/>outbox_events（事务出账）"]
+        end
+        subgraph SQLITE_DERIVED["派生索引（可重建 · 非真源）"]
+            S_FTS["FTS5 虚表<br/>messages_fts / memories_fts"]
+            S_VEC["向量：InMemoryVectorSearchAdapter<br/>内存 Map，零持久化"]
+        end
+        subgraph SQLITE_OUTOFSCOPE["PG 补齐（CR-003 范围外 · SQLite 不实现）"]
+            direction TB
+            S_NO_USER["❌ 用户注册 / 登录"]
+            S_NO_WS["❌ Workspace 组织 / RBAC"]
+            S_NO_PROF["❌ credentials / Profile"]
+            S_NO_RLS["❌ 数据库级 RLS（仅仓储层）"]
+        end
+    end
+
+    subgraph PG_ADAPTER["PostgreSQL 适配器 · 真源（生产启用 17+）"]
+        direction TB
+        subgraph PG_CORE["核心业务表（13 张，同构 + 类型自然升级）"]
+            P_CONV["会话仓储<br/>sessions/turns UUID<br/>JSONB · BIGSERIAL 分区<br/>◉ RLS 强制"]
+            P_MEM["记忆仓储<br/>memory_records + VECTOR(n) 列<br/>pgvector HNSW 索引 · WITH RECURSIVE"]
+            P_DIA["日记仓储<br/>cycles/diaries/attempts<br/>advisory lock · SKIP LOCKED"]
+            P_OUT["Outbox 事件<br/>JSONB + NOTIFY trigger"]
+        end
+        subgraph PG_DERIVED["原生检索（持久化 · 可重建）"]
+            P_FTS["GIN tsvector 索引<br/>to_tsvector('zhparser', content)"]
+            P_VEC["pgvector 表<br/>HNSW / ivfflat 持久化索引"]
+        end
+        subgraph PG_USERDOMAIN["用户域（PG 首启 · 全新 5 张表）"]
+            direction TB
+            P_USER["workspaces / users / credentials<br/>workspace_members RBAC<br/>user_profiles 偏好 + personality JSONB"]
+            P_RLS["◉ RLS POLICY 全表使能<br/>数据库原生 (workspace_id, user_id) 隔离"]
+        end
+    end
+
+    subgraph MIGRATION["迁移三阶段 · Expand/Contract（可回退，不执行不可逆迁移）"]
+        direction LR
+        P1["Phase 1 · Expand<br/>SQLite 主写 + PG 适配器新增 + 双方言 CI<br/>+ Drizzle pg 方言 DDL<br/>验收：同输入同字段逐值一致"]
+        P2["Phase 2 · Dual-Read<br/>SQLite 写 + PG 影子读 diff 校验<br/>PG 用户域上线 + 向量索引回填<br/>验收：7 天 diff=0 · RLS 越权 0 通过率<br/>可回退开关"]
+        P3["Phase 3 · Contract<br/>写/读路由切 PG · SQLite 适配器保留 30 天<br/>本地 SQLite 文件保留为备份<br/>验收：旧适配器引用 0"]
+    end
+
+    CONSUMERS -->|"仅调接口"| PORT
+
+    PORT <-->|"仓储层解耦 · 可互换"| SQLITE_ADAPTER
+    PORT <-->|"仓储层解耦 · 可互换"| PG_ADAPTER
+
+    S_MEM -.->|"同步删除<br/>TC-PRIV-DEL-001 零召回"| S_FTS
+    S_MEM -.->|"内存 upsert/search"| S_VEC
+    P_MEM -.->|"RLS+GIN 触发索引"| P_FTS
+    P_MEM -.->|"HNSW 持久化"| P_VEC
+
+    P1 -->|"校验通过"| P2
+    P2 -->|"验收通过"| P3

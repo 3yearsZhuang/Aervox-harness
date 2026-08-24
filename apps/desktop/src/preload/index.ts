@@ -23,4 +23,11 @@ contextBridge.exposeInMainWorld('fairyDesktop', {
         ipcRenderer.send('aervox:turn:start', {requestId, content})
         return () => ipcRenderer.removeListener('aervox:turn:event', listener)
     },
+    apiRequest: <T = unknown>(method: string, path: string, body?: unknown) =>
+        ipcRenderer.invoke('aervox:api:request', {method, path, body}) as Promise<{
+            status: number
+            ok: boolean
+            json: T | null
+            text: string
+        }>,
 })

@@ -103,6 +103,18 @@ export interface IConversationRepository {
     afterSequence?: number,
   ): Promise<TurnStreamEventModel[]>;
   deleteMessage(tenant: TenantContext, messageId: string): Promise<boolean>;
+  // MVP 补齐（PRD §8）：Message 身份表 / TurnAttempt
+  createMessage(
+    tenant: TenantContext,
+    message: { id: string; sessionId: string; role: string; label?: string | null },
+  ): Promise<MessageModel>;
+  getMessage(tenant: TenantContext, messageId: string): Promise<MessageModel | null>;
+  createTurnAttempt(
+    tenant: TenantContext,
+    turnId: string,
+    attempt: { id: string; attempt?: number; leaseId?: string | null; fencingToken?: number },
+  ): Promise<TurnAttemptModel>;
+  listTurnAttempts(tenant: TenantContext, turnId: string): Promise<TurnAttemptModel[]>;
 }
 
 export interface MemoryRecordModel {
@@ -223,6 +235,104 @@ export interface IDiaryRepository {
     },
   ): Promise<{ diary: DiaryModel; cycle: DiaryCycleModel }>;
   getDiaryByDate(tenant: TenantContext, localDate: string): Promise<DiaryModel | null>;
+  // MVP+ 补齐（PRD §8）：计划主实体 / 版本 / 段落来源 / 素材缓冲
+  createDiarySchedule(
+    tenant: TenantContext,
+    schedule: {
+      id: string;
+      scheduleEpochId: string;
+      activeFrom: string;
+      initialWindowStart: string;
+      cutoffRule: string;
+      bufferMinutes?: number;
+      contentScopes?: unknown;
+      quietHours?: unknown;
+    },
+  ): Promise<DiaryScheduleModel>;
+  getDiarySchedule(tenant: TenantContext, id: string): Promise<DiaryScheduleModel | null>;
+  createDiaryVersion(
+    tenant: TenantContext,
+    version: { id: string; diaryId: string; perspective: string; content: string; modelRunId?: string | null },
+  ): Promise<DiaryVersionModel>;
+  createDiaryParagraphSource(
+    source: {
+      id: string;
+      diaryVersionId: string;
+      paragraphIndex: number;
+      sourceArtifactId: string;
+      sourceRevisionId: string;
+      permissionSnapshot?: unknown;
+    },
+  ): Promise<DiaryParagraphSourceModel>;
+  createDiaryMaterialBuffer(
+    tenant: TenantContext,
+    buffer: {
+      id: string;
+      cycleId: string;
+      sourceArtifactId: string;
+      sourceRevisionId: string;
+      occurredAt: string;
+      ingestedAt: string;
+      expiresAt: string;
+      ephemeralSnapshot?: unknown;
+      permissionSnapshot?: unknown;
+    },
+  ): Promise<DiaryMaterialBufferModel>;
+}
+
+export interface DiaryScheduleModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  enabled: number;
+  scheduleEpochId: string;
+  activeFrom: string;
+  disabledAt?: string | null;
+  currentRevisionId?: string | null;
+  nextRunAt?: string | null;
+  lastCutoffAt?: string | null;
+  initialWindowStart: string;
+  cutoffRule: string;
+  bufferMinutes: number;
+  contentScopes?: unknown;
+  quietHours?: unknown;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DiaryVersionModel {
+  id: string;
+  diaryId: string;
+  perspective: string;
+  content: string;
+  modelRunId?: string | null;
+  createdAt: string;
+  supersededAt?: string | null;
+}
+
+export interface DiaryParagraphSourceModel {
+  id: string;
+  diaryVersionId: string;
+  paragraphIndex: number;
+  sourceArtifactId: string;
+  sourceRevisionId: string;
+  permissionSnapshot?: unknown;
+}
+
+export interface DiaryMaterialBufferModel {
+  id: string;
+  cycleId: string;
+  workspaceId: string;
+  subjectUserId: string;
+  sourceArtifactId: string;
+  sourceRevisionId: string;
+  occurredAt: string;
+  ingestedAt: string;
+  ephemeralSnapshot?: unknown;
+  permissionSnapshot?: unknown;
+  expiresAt: string;
+  status: string;
 }
 
 export interface IOutboxRepository {
@@ -239,4 +349,686 @@ export interface IOutboxRepository {
   fetchPendingEvents(limit?: number): Promise<OutboxEventModel[]>;
   markPublished(eventId: string): Promise<void>;
   markFailed(eventId: string, error: string): Promise<void>;
+}
+
+// ============ 会话补齐：Message 身份 / TurnAttempt ============
+
+export interface MessageModel {
+  id: string;
+  sessionId: string;
+  role: string;
+  currentVersionId?: string | null;
+  label?: string | null;
+  createdAt: string;
+  deletedAt?: string | null;
+}
+
+export interface TurnAttemptModel {
+  id: string;
+  turnId: string;
+  attempt: number;
+  leaseId?: string | null;
+  fencingToken: number;
+  status: string;
+  startedAt: string;
+  finishedAt?: string | null;
+}
+
+// ============ 学习/练习/复习域 ============
+
+export interface LearningGoalModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  topic: string;
+  level: string;
+  availableMinutes: number;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuestionModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  sourceArtifactId?: string | null;
+  prompt: string;
+  answerSpec: unknown;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuestionAttemptModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  sessionId: string;
+  questionId: string;
+  answer: string;
+  judgement: string;
+  evidence?: unknown;
+  createdAt: string;
+}
+
+export interface KnowledgeItemModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  concept: string;
+  sourceStatus: string;
+  masteryState: string;
+  masteryBasis?: unknown;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReviewItemModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  knowledgeId: string;
+  dueAt: string;
+  intervalDays: number;
+  schedulerVersion: number;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ILearningRepository {
+  createLearningGoal(
+    tenant: TenantContext,
+    goal: { id: string; topic: string; level?: string; availableMinutes?: number; status?: string },
+  ): Promise<LearningGoalModel>;
+  getLearningGoal(tenant: TenantContext, id: string): Promise<LearningGoalModel | null>;
+  listLearningGoals(tenant: TenantContext): Promise<LearningGoalModel[]>;
+  createQuestion(
+    tenant: TenantContext,
+    question: { id: string; prompt: string; answerSpec: unknown; sourceArtifactId?: string | null },
+  ): Promise<QuestionModel>;
+  getQuestion(tenant: TenantContext, id: string): Promise<QuestionModel | null>;
+  recordAttempt(
+    tenant: TenantContext,
+    attempt: {
+      id: string;
+      sessionId: string;
+      questionId: string;
+      answer: string;
+      judgement: string;
+      evidence?: unknown;
+    },
+  ): Promise<QuestionAttemptModel>;
+  listAttemptsByQuestion(tenant: TenantContext, questionId: string): Promise<QuestionAttemptModel[]>;
+  createKnowledgeItem(
+    tenant: TenantContext,
+    item: { id: string; concept: string; sourceStatus?: string; masteryState?: string },
+  ): Promise<KnowledgeItemModel>;
+  getKnowledgeItem(tenant: TenantContext, id: string): Promise<KnowledgeItemModel | null>;
+  updateMastery(tenant: TenantContext, id: string, masteryState: string, basis?: unknown): Promise<KnowledgeItemModel | null>;
+  createReviewItem(
+    tenant: TenantContext,
+    item: { id: string; knowledgeId: string; dueAt: string; intervalDays?: number; schedulerVersion?: number },
+  ): Promise<ReviewItemModel>;
+  listDueReviewItems(tenant: TenantContext, before: string): Promise<ReviewItemModel[]>;
+  completeReviewItem(tenant: TenantContext, id: string): Promise<ReviewItemModel | null>;
+}
+
+// ============ 反馈域 ============
+
+export interface FeedbackModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  actorId: string;
+  subjectType: string;
+  subjectId: string;
+  type: string;
+  note?: string | null;
+  createdAt: string;
+}
+
+export interface IFeedbackRepository {
+  createFeedback(
+    tenant: TenantContext,
+    feedbackData: {
+      id: string;
+      actorId: string;
+      subjectType: string;
+      subjectId: string;
+      type: string;
+      note?: string | null;
+    },
+  ): Promise<FeedbackModel>;
+  listFeedback(tenant: TenantContext, subjectType?: string, subjectId?: string): Promise<FeedbackModel[]>;
+}
+
+// ============ 统一来源链 + 记忆版本/证据/事件 ============
+
+export interface SourceArtifactModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  kind: string;
+  ownerModule: string;
+  currentRevisionId?: string | null;
+  occurredAt: string;
+  ingestedAt: string;
+  deletedAt?: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SourceRevisionModel {
+  id: string;
+  artifactId: string;
+  checksum: string;
+  content?: string | null;
+  version: number;
+  supersededAt?: string | null;
+  createdAt: string;
+}
+
+export interface MemoryRevisionModel {
+  id: string;
+  memoryId: string;
+  content: string;
+  confidence: number;
+  importance: number;
+  algorithmVersion?: string | null;
+  createdAt: string;
+}
+
+export interface MemoryEvidenceModel {
+  id: string;
+  memoryRevisionId: string;
+  sourceArtifactId: string;
+  sourceRevisionId: string;
+  sourceRange?: string | null;
+  status: string;
+  createdAt: string;
+}
+
+export interface MemoryEventModel {
+  id: string;
+  memoryId: string;
+  action: string;
+  fromTier?: string | null;
+  toTier?: string | null;
+  reason?: string | null;
+  actorType: string;
+  createdAt: string;
+}
+
+export interface IProvenanceRepository {
+  createSourceArtifact(
+    tenant: TenantContext,
+    artifact: {
+      id: string;
+      kind: string;
+      ownerModule: string;
+      occurredAt: string;
+      ingestedAt: string;
+    },
+  ): Promise<SourceArtifactModel>;
+  getSourceArtifact(tenant: TenantContext, id: string): Promise<SourceArtifactModel | null>;
+  appendSourceRevision(
+    tenant: TenantContext,
+    artifactId: string,
+    revision: { id: string; checksum: string; content?: string | null },
+  ): Promise<SourceRevisionModel>;
+  setCurrentRevision(tenant: TenantContext, artifactId: string, revisionId: string): Promise<SourceArtifactModel | null>;
+  appendMemoryRevision(
+    tenant: TenantContext,
+    revision: {
+      id: string;
+      memoryId: string;
+      content: string;
+      confidence?: number;
+      importance?: number;
+      algorithmVersion?: string | null;
+    },
+  ): Promise<MemoryRevisionModel>;
+  setMemoryCurrentRevision(tenant: TenantContext, memoryId: string, revisionId: string): Promise<boolean>;
+  listMemoryRevisions(tenant: TenantContext, memoryId: string): Promise<MemoryRevisionModel[]>;
+  createMemoryEvidence(
+    tenant: TenantContext,
+    evidence: {
+      id: string;
+      memoryRevisionId: string;
+      sourceArtifactId: string;
+      sourceRevisionId: string;
+      sourceRange?: string | null;
+    },
+  ): Promise<MemoryEvidenceModel>;
+  recordMemoryEvent(
+    tenant: TenantContext,
+    event: {
+      id: string;
+      memoryId: string;
+      action: string;
+      fromTier?: string | null;
+      toTier?: string | null;
+      reason?: string | null;
+      actorType?: string;
+    },
+  ): Promise<MemoryEventModel>;
+  listMemoryEvents(tenant: TenantContext, memoryId: string): Promise<MemoryEventModel[]>;
+}
+
+// ============ 平台/运营域 ============
+
+export interface ScheduledJobModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  jobType: string;
+  subjectId: string;
+  idempotencyKey: string;
+  runAt: string;
+  status: string;
+  attemptCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotificationModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  type: string;
+  scheduledAt: string;
+  sentAt?: string | null;
+  channel: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PromptVersionModel {
+  id: string;
+  purpose: string;
+  version: number;
+  checksum: string;
+  status: string;
+  approvedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ModelRunModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  purpose: string;
+  provider: string;
+  modelId: string;
+  promptVersionId?: string | null;
+  contextManifestId?: string | null;
+  latencyMs?: number | null;
+  tokenUsage?: unknown;
+  cost?: number | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContextManifestModel {
+  id: string;
+  modelRunId: string;
+  purpose: string;
+  sourceArtifactId: string;
+  sourceRevisionId: string;
+  selectionReason?: string | null;
+  permissionSnapshot?: unknown;
+  tokenBudget?: number | null;
+  createdAt: string;
+}
+
+export interface AuditRecordModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  actorType: string;
+  actorId: string;
+  action: string;
+  subjectType: string;
+  subjectId: string;
+  metadata?: unknown;
+  createdAt: string;
+}
+
+export interface IPlatformRepository {
+  createScheduledJob(
+    tenant: TenantContext,
+    job: { id: string; jobType: string; subjectId: string; idempotencyKey: string; runAt: string },
+  ): Promise<ScheduledJobModel>;
+  markJobDone(tenant: TenantContext, id: string): Promise<ScheduledJobModel | null>;
+  createNotification(
+    tenant: TenantContext,
+    notification: { id: string; type: string; scheduledAt: string; channel: string },
+  ): Promise<NotificationModel>;
+  markNotificationSent(tenant: TenantContext, id: string): Promise<NotificationModel | null>;
+  listNotifications(tenant: TenantContext, limit?: number): Promise<NotificationModel[]>;
+  createPromptVersion(
+    version: { id: string; purpose: string; version: number; checksum: string; status?: string },
+  ): Promise<PromptVersionModel>;
+  getPromptVersion(purpose: string, version: number): Promise<PromptVersionModel | null>;
+  createModelRun(
+    tenant: TenantContext,
+    run: {
+      id: string;
+      purpose: string;
+      provider: string;
+      modelId: string;
+      promptVersionId?: string | null;
+    },
+  ): Promise<ModelRunModel>;
+  completeModelRun(
+    tenant: TenantContext,
+    id: string,
+    result: { latencyMs?: number; tokenUsage?: unknown; cost?: number; status?: string },
+  ): Promise<ModelRunModel | null>;
+  attachContextManifest(tenant: TenantContext, modelRunId: string, manifestId: string): Promise<ModelRunModel | null>;
+  createContextManifest(
+    manifest: {
+      id: string;
+      modelRunId: string;
+      purpose: string;
+      sourceArtifactId: string;
+      sourceRevisionId: string;
+      selectionReason?: string | null;
+      permissionSnapshot?: unknown;
+      tokenBudget?: number | null;
+    },
+  ): Promise<ContextManifestModel>;
+  createAuditRecord(
+    tenant: TenantContext,
+    record: {
+      id: string;
+      actorType: string;
+      actorId: string;
+      action: string;
+      subjectType: string;
+      subjectId: string;
+      metadata?: unknown;
+    },
+  ): Promise<AuditRecordModel>;
+  listAuditRecords(tenant: TenantContext, limit?: number): Promise<AuditRecordModel[]>;
+  // MVP 补齐（PRD §8）：工具策略 + 评估集（系统级，无租户列）
+  createToolPolicy(policy: {
+    id: string;
+    purpose: string;
+    toolName: string;
+    scope?: string;
+    approvalMode?: string;
+    timeoutMs?: number | null;
+    quota?: number | null;
+    version?: number;
+    status?: string;
+  }): Promise<ToolPolicyModel>;
+  getToolPolicy(purpose: string, toolName: string, version: number): Promise<ToolPolicyModel | null>;
+  createEvalSet(evalSet: {
+    id: string;
+    purpose: string;
+    version: number;
+    language?: string;
+    domain: string;
+    sampleCount?: number;
+    annotationPolicy?: unknown;
+    status?: string;
+  }): Promise<EvalSetModel>;
+  listEvalSets(purpose: string): Promise<EvalSetModel[]>;
+}
+
+export interface ToolPolicyModel {
+  id: string;
+  purpose: string;
+  toolName: string;
+  scope: string;
+  approvalMode: string;
+  timeoutMs?: number | null;
+  quota?: number | null;
+  version: number;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EvalSetModel {
+  id: string;
+  purpose: string;
+  version: number;
+  language: string;
+  domain: string;
+  sampleCount: number;
+  annotationPolicy?: unknown;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============ 埋点事件域 ============
+
+export interface AnalyticsEventModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  eventName: string;
+  eventSchemaVersion: number;
+  occurredAt: string;
+  analyticsSubjectId: string;
+  context?: unknown;
+  privacyClass: string;
+}
+
+export interface IAnalyticsRepository {
+  recordEvent(
+    tenant: TenantContext,
+    event: {
+      id: string;
+      eventName: string;
+      eventSchemaVersion?: number;
+      occurredAt?: string;
+      analyticsSubjectId: string;
+      context?: unknown;
+      privacyClass?: string;
+    },
+  ): Promise<AnalyticsEventModel>;
+  listEventsBySubject(tenant: TenantContext, analyticsSubjectId: string, limit?: number): Promise<AnalyticsEventModel[]>;
+}
+
+// ============ 内容/资源域 ============
+
+export interface AttachmentModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  objectKey: string;
+  mediaType: string;
+  size: number;
+  scanStatus: string;
+  sourceLicense?: string | null;
+  deletedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmbeddingIndexModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  sourceArtifactId: string;
+  sourceRevisionId: string;
+  modelId: string;
+  dimension: number;
+  indexVersion: number;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IContentRepository {
+  createAttachment(
+    tenant: TenantContext,
+    attachment: {
+      id: string;
+      objectKey: string;
+      mediaType: string;
+      size?: number;
+      scanStatus?: string;
+      sourceLicense?: string | null;
+    },
+  ): Promise<AttachmentModel>;
+  getAttachment(tenant: TenantContext, id: string): Promise<AttachmentModel | null>;
+  createEmbeddingIndex(
+    tenant: TenantContext,
+    index: {
+      id: string;
+      sourceArtifactId: string;
+      sourceRevisionId: string;
+      modelId: string;
+      dimension?: number;
+      indexVersion?: number;
+      status?: string;
+    },
+  ): Promise<EmbeddingIndexModel>;
+  listEmbeddingIndexes(tenant: TenantContext, sourceArtifactId: string): Promise<EmbeddingIndexModel[]>;
+}
+
+// ============ 安全域 ============
+
+export interface SafetyIncidentModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  category: string;
+  severity: string;
+  disposition: string;
+  policyVersion: string;
+  createdAt: string;
+}
+
+export interface ISafetyRepository {
+  recordIncident(
+    tenant: TenantContext,
+    incident: { id: string; category: string; severity: string; disposition: string; policyVersion: string },
+  ): Promise<SafetyIncidentModel>;
+  listIncidents(tenant: TenantContext, limit?: number): Promise<SafetyIncidentModel[]>;
+}
+
+// ============ 隐私/删除域 ============
+
+export interface ConsentGrantModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  actorId: string;
+  purpose: string;
+  scope: string;
+  policyVersion: string;
+  grantedAt: string;
+  revokedAt?: string | null;
+  createdAt: string;
+}
+
+export interface DeletionRequestModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  scope: string;
+  idempotencyKey: string;
+  requestedAt: string;
+  effectiveAt?: string | null;
+  status: string;
+  attemptCount: number;
+  lastError?: string | null;
+  ownerModule: string;
+  lastVerifiedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DeletionTargetModel {
+  requestId: string;
+  targetType: string;
+  targetId: string;
+  ownerModule: string;
+  status: string;
+  attemptCount: number;
+  verifiedAt?: string | null;
+  evidenceRef?: string | null;
+}
+
+export interface IPrivacyRepository {
+  grantConsent(
+    tenant: TenantContext,
+    grant: {
+      id: string;
+      actorId: string;
+      purpose: string;
+      scope: string;
+      policyVersion: string;
+      grantedAt?: string;
+    },
+  ): Promise<ConsentGrantModel>;
+  revokeConsent(tenant: TenantContext, id: string, revokedAt?: string): Promise<ConsentGrantModel | null>;
+  hasActiveConsent(tenant: TenantContext, purpose: string, scope: string): Promise<boolean>;
+  createDeletionRequest(
+    tenant: TenantContext,
+    request: {
+      id: string;
+      scope: string;
+      idempotencyKey: string;
+      requestedAt?: string;
+      ownerModule: string;
+    },
+  ): Promise<DeletionRequestModel>;
+  getDeletionRequest(tenant: TenantContext, id: string): Promise<DeletionRequestModel | null>;
+  updateDeletionRequestStatus(
+    tenant: TenantContext,
+    id: string,
+    status: string,
+    patch?: { lastError?: string | null; lastVerifiedAt?: string; attemptCount?: number },
+  ): Promise<DeletionRequestModel | null>;
+  createDeletionTarget(
+    target: { requestId: string; targetType: string; targetId: string; ownerModule: string },
+  ): Promise<DeletionTargetModel>;
+  updateDeletionTargetStatus(
+    target: { requestId: string; targetType: string; targetId: string },
+    status: string,
+    evidenceRef?: string,
+  ): Promise<DeletionTargetModel | null>;
+}
+
+// ============ RecoveryControlLedger（独立故障域账本）============
+
+export interface RecoveryLedgerEventModel {
+  eventId: string;
+  idempotencyKey: string;
+  eventType: string;
+  workspaceRef?: string | null;
+  subjectRef?: string | null;
+  targetRef?: string | null;
+  occurredAt: string;
+  sequence: number;
+  tamperEvidence?: unknown;
+}
+
+export interface IRecoveryLedgerPort {
+  appendEvent(event: {
+    eventId: string;
+    idempotencyKey: string;
+    eventType: string;
+    workspaceRef?: string | null;
+    subjectRef?: string | null;
+    targetRef?: string | null;
+    occurredAt?: string;
+    tamperEvidence?: unknown;
+  }): Promise<RecoveryLedgerEventModel>;
+  getMaxSequence(): Promise<number>;
+  getBySequence(sequence: number): Promise<RecoveryLedgerEventModel | null>;
+  getByIdempotencyKey(idempotencyKey: string): Promise<RecoveryLedgerEventModel | null>;
 }
