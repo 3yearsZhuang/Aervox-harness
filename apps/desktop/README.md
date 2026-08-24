@@ -57,6 +57,7 @@ pnpm dev:desktop
 ```
 
 桌面端不会自行创建临时会话；`AERVOX_SESSION_ID` 必须指向现有 API 能识别且当前用户有权访问的会话。模型、鉴权、持久化和安全策略继续由原有 `@aervox/api` 负责。
+在主仓根目录执行 `pnpm install`，再通过 `pnpm --filter @aervox/desktop dev` 启动桌面端。
 
 生产构建与本地预览：
 

@@ -20,3 +20,5 @@ Desktop.ini
 *.temp
 *.swp
 *~
+.pnpm-store/
+*.db*
