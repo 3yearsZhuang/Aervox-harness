@@ -31,7 +31,7 @@ importers:
         specifier: ^4.19.2
         version: 4.23.12
 
-  modules/fairy-desktop:
+  apps/desktop:
     dependencies:
       '@aervox/contracts':
         specifier: workspace:^

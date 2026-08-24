@@ -10,6 +10,3 @@
 [submodule "reference/dsh-synapse"]
 	path = reference/dsh-synapse
 	url = https://github.com/liangmianya/dsh-synapse.git
-[submodule "modules/fairy-desktop"]
-	path = modules/fairy-desktop
-	url = https://github.com/jiyun233/fairy-agent.git

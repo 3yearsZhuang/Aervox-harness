@@ -108,7 +108,7 @@
 | `CAP-015` | 思维宇宙 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补节点/边类型、证据、纠错传播、版本和可视化交互验收 |
 | `CAP-016` | 自适应刷题与报告 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补适应算法输入、冷启动、解释、偏差评估和报告口径 |
 | `CAP-017` | 考试日计划 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补计划生成约束、滚动调整、冲突、跳过、过期和完成定义 |
-| `CAP-018` | 桌面化与 Live2D | P1 | R3 端扩展 | `Specified` | [P1 验收原则](PRD.md#prd-cap-014-019)、[CR-002](changes/CR-002-fairy-desktop-module.md)、[ADR-009](architecture/adr/ADR-009-electron-plugin-sandbox.md) | 已固定 `@aervox/mod-fairy-desktop` 子模块与 Turn/SSE 边界；仍需补平台矩阵、签名更新、资源预算、崩溃恢复、后台行为及可执行 TC 证据后进入 Ready |
+| `CAP-018` | 桌面化与 Live2D | P1 | R3 端扩展 | `Specified` | [P1 验收原则](PRD.md#prd-cap-014-019)、[CR-002](changes/CR-002-fairy-desktop-module.md)、[ADR-009](architecture/adr/ADR-009-electron-plugin-sandbox.md) | 已移植 `apps/desktop` Electron/Vue UI 与 Turn/SSE 边界；仍需补平台矩阵、签名更新、资源预算、崩溃恢复、后台行为及可执行 TC 证据后进入 Ready |
 | `CAP-019` | 多人格模板 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补模板审核、切换、记忆隔离/共享、回滚和人格回归评估 |
 | `CAP-020` | 技能与插件系统 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补清单格式、权限模型、沙箱、签名、版本兼容、撤权和卸载残留 |
 | `CAP-021` | 学习路线与视频推荐 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补来源、排序、失效链接、用户反馈、商业内容标识和推荐评估 |

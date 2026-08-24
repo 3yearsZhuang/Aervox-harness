@@ -26,7 +26,7 @@
 | `AVX-ONC-001` | [值班与升级矩阵](operations/ONCALL.md) | 运维/平台负责人（安全复核） | 2026-08-24 | 每次值班变更 + 季度 | 联系人/升级时限变更未同步 |
 | `AVX-DRL-001` | [演练证据模板](operations/DRILL_TEMPLATE.md) | 运维/平台负责人 | 2026-08-24 | 每季度演练后 | 演练项/通过标准与运行手册不符 |
 | `AVX-MOD-001` | [可选功能模块化方案](architecture/optional_modules.md) | 技术负责人 | 2026-08-24 | G2 评审 + 模块机制变更 | 模块清单/接口边界与 `modules/*` 实际不符 |
-| `CR-002` | [Fairy Agent Electron 桌面模块](changes/CR-002-fairy-desktop-module.md) | 产品与技术负责人 | 2026-08-24 | CAP-018 模块或固定 commit 变更 | 子模块指针、契约边界、测试证据或回滚条件与实现不符 |
+| `CR-002` | [Fairy Agent Electron 桌面端](changes/CR-002-fairy-desktop-module.md) | 产品与技术负责人 | 2026-08-24 | CAP-018 桌面端实现或安全边界变更 | Electron 端目录、契约边界、测试证据或回滚条件与实现不符 |
 | `AVX-DOC-001` | [文档索引](README.md) | 文档负责人 | 2026-08-24 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
 
 ## 维护规则

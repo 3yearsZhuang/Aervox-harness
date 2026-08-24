@@ -147,7 +147,6 @@ docs/
   qa/                    # 测试策略（AVX-QA-001）
   requirements/          # SRS（AVX-SRS-001）
   operations/  how-to/  architecture/adr/
-modules/                 # 固定 commit 的可选功能子模块（workspace 消费，见 AVX-MOD-001）
 reference/               # 固定 commit 的子模块（只读参考，见 PRD 15.1）
 demos/                   # 纯前端原型，非交付物
 ```
