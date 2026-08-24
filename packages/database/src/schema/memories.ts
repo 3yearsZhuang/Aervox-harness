@@ -19,6 +19,12 @@ export const memoryRecords = sqliteTable(
     sourceTurnId: text("source_turn_id"),
     version: integer("version").notNull().default(1),
     isDeleted: integer("is_deleted").notNull().default(0),
+    // MVP 补齐（PRD §8）：召回与历史保留独立、敏感分级与校验状态
+    currentRevisionId: text("current_revision_id"), // → memory_revisions.id（应用层维护，避免循环外键）
+    sensitivityClass: text("sensitivity_class").notNull().default("normal"), // "public" | "normal" | "sensitive" | "restricted"
+    aiRecallUntil: text("ai_recall_until"), // 召回期限
+    userRetentionUntil: text("user_retention_until"), // 历史保留期限
+    verificationStatus: text("verification_status").notNull().default("unverified"), // "unverified" | "verified" | "conflicted" | "invalidated"
     ...timestampColumns,
   },
   (table) => ({

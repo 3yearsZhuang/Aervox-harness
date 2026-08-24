@@ -33,3 +33,9 @@ pnpm typecheck
 
 - **文档**（改动 `docs/**` 或 `README.md`）：markdown lint + 链接检查（[docs.yml](.github/workflows/docs.yml)）
 - **代码**（改动 `apps/**`、`packages/**`）：install + build + typecheck（[ci.yml](.github/workflows/ci.yml)）
+
+## License
+
+This project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International Public License. See the [LICENSE](./LICENSE) file for details.
+
+本项目采用 Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International Public License（CC BY-NC-SA 4.0）许可。详见 [LICENSE](./LICENSE) 文件。

@@ -20,64 +20,41 @@ import {
 } from 'lucide-vue-next'
 import AppTitlebar from '@/components/AppTitlebar.vue'
 import {streamAervoxTurn} from '@/composables/useAervoxTurn'
+import {useAervoxApi} from '@/composables/useAervoxApi'
 
 interface StoryLine {
   id: number
   speaker: 'fairy' | 'user'
   text: string
-  fullText?: string
-  revealed: boolean
 }
 
 const toolsOpen = ref(false)
-const suggestionsOpen = ref(true)
 const composerOpen = ref(true)
 const historyOpen = ref(false)
 const todoOpen = ref(false)
 const timerOpen = ref(false)
+const studyOpen = ref(false)
+const newGoalTopic = ref('')
 const input = ref('')
 const timerSeconds = ref(25 * 60)
 const timerRunning = ref(false)
 const newTodo = ref('')
-const todos = ref([
-  {id: 1, text: '确认周末的旅行路线', done: false},
-  {id: 2, text: '给小精灵补充能量', done: true},
-])
-const story = ref<StoryLine[]>([
-  {id: 1, speaker: 'fairy', text: '早上好，Moe。今天想让我陪你做什么？', revealed: true},
-  {
-    id: 2,
-    speaker: 'fairy',
-    text: '我可以陪你规划旅行、整理想法，也可以安静地待在这里。',
-    fullText: '我可以陪你规划旅行、整理想法，也可以安静地待在这里。如果你愿意，我们还可以一起把今天最重要的一件事完成。',
-    revealed: false,
-  },
-])
+const todos = ref<Array<{id: number; text: string; done: boolean}>>([])
+const story = ref<StoryLine[]>([])
+const api = useAervoxApi()
 
-const currentLine = computed(() => story.value[story.value.length - 1])
+const currentLine = computed(() => story.value[story.value.length - 1] ?? null)
 const unfinishedTodos = computed(() => todos.value.filter((todo) => !todo.done))
 const formattedTime = computed(() => {
   const minutes = String(Math.floor(timerSeconds.value / 60)).padStart(2, '0')
   const seconds = String(timerSeconds.value % 60).padStart(2, '0')
   return `${minutes}:${seconds}`
 })
-const suggestions = ['帮我规划一次旅行', '把今天安排得更有条理', '我想找个人聊聊']
-
-function advanceStory() {
-  const line = currentLine.value
-  if (line.fullText && !line.revealed) {
-    line.text = line.fullText
-    line.revealed = true
-    return
-  }
-  story.value.push({id: Date.now(), speaker: 'fairy', text: '那就从现在开始吧。我会一直在这里。', revealed: true})
-}
-
 async function sendMessage(value = input.value) {
   const text = value.trim()
   if (!text) return
-  const assistantLine: StoryLine = {id: Date.now() + 1, speaker: 'fairy', text: '正在连接 Aervox…', revealed: true}
-  story.value.push({id: Date.now(), speaker: 'user', text, revealed: true}, assistantLine)
+  const assistantLine: StoryLine = {id: Date.now() + 1, speaker: 'fairy', text: '正在连接 Aervox…'}
+  story.value.push({id: Date.now(), speaker: 'user', text}, assistantLine)
   input.value = ''
   composerOpen.value = true
   try {
@@ -86,11 +63,9 @@ async function sendMessage(value = input.value) {
         if (assistantLine.text === '正在连接 Aervox…') assistantLine.text = ''
         assistantLine.text += delta
       },
-      onDone: (done) => {
-        if (!assistantLine.text) {
-          assistantLine.text = done.status === 'Completed'
-            ? '本次 Turn 已完成，但当前服务没有返回可展示的正文。'
-            : `本次 Turn 以「${done.status}」结束。`
+      onDone: () => {
+        if (assistantLine.text === '正在连接 Aervox…') {
+          story.value = story.value.filter(({id}) => id !== assistantLine.id)
         }
       },
     })
@@ -104,6 +79,17 @@ function addTodo() {
   if (!text) return
   todos.value.unshift({id: Date.now(), text, done: false})
   newTodo.value = ''
+}
+
+async function submitNewGoal() {
+  const topic = newGoalTopic.value.trim()
+  if (!topic) return
+  try {
+    await api.createGoal(topic)
+    newGoalTopic.value = ''
+  } catch (error) {
+    console.error('创建学习目标失败', error)
+  }
 }
 
 function toggleTimer() {
@@ -138,7 +124,7 @@ onUnmounted(() => {
         <section class="pet-hero" :class="{'tools-open': toolsOpen}">
           <div class="pet-identity">
             <span class="identity-dot" />
-            <span><strong>Fairy</strong><small>在线陪伴</small></span>
+            <span><strong>Fairy</strong><small>Aervox 桌面端</small></span>
           </div>
 
           <div class="hero-pet-stage">
@@ -159,7 +145,7 @@ onUnmounted(() => {
               <span class="hero-foot foot-left" />
               <span class="hero-foot foot-right" />
             </button>
-            <div class="pet-speech">今天想一起做什么？</div>
+            <div class="pet-speech">对话由 Aervox API 提供</div>
           </div>
 
           <div class="pet-tool-menu" :class="{open: toolsOpen}">
@@ -179,6 +165,10 @@ onUnmounted(() => {
               <span class="tool-icon"><History :size="22" /></span>
               <span><strong>对话回看</strong><small>{{ story.length }} 段剧情记录</small></span>
             </button>
+            <button class="tool-menu-item" type="button" @click="studyOpen = true">
+              <span class="tool-icon"><Sparkles :size="22" /></span>
+              <span><strong>今日学习</strong><small>{{ api.dueReviews.length }} 项待复习 · {{ api.notifications.length }} 条提醒</small></span>
+            </button>
           </div>
 
           <button class="pet-menu-toggle" type="button" @click="toolsOpen = !toolsOpen">
@@ -191,8 +181,7 @@ onUnmounted(() => {
 
         <section class="companion-status-card">
           <span class="status-icon"><Sparkles :size="21" /></span>
-          <span><small>当前状态</small><strong>精力充沛，随时可以陪你</strong></span>
-          <span class="energy-bars" aria-label="精力值 80%"><i /><i /><i /><i /><i class="empty" /></span>
+          <span><small>当前状态</small><strong>等待输入</strong></span>
         </section>
       </section>
 
@@ -206,17 +195,11 @@ onUnmounted(() => {
           <div class="story-content">
             <div class="story-speaker">
               <span class="speaker-mark"><Sparkles :size="18" /></span>
-              <span><small>正在与你对话</small><strong>{{ currentLine.speaker === 'fairy' ? 'Fairy' : '你' }}</strong></span>
+              <span><small>对话记录</small><strong>{{ currentLine ? (currentLine.speaker === 'fairy' ? 'Fairy' : '你') : '暂无' }}</strong></span>
               <span class="speaker-line" />
             </div>
-            <p class="story-text">{{ currentLine.text }}</p>
+            <p class="story-text">{{ currentLine?.text || '暂无对话' }}</p>
             <div class="story-actions">
-              <button v-if="currentLine.fullText && !currentLine.revealed" class="next-line" type="button" @click="advanceStory">
-                继续阅读<ChevronDown :size="19" />
-              </button>
-              <button v-else class="next-line subtle" type="button" @click="advanceStory">
-                下一句<ChevronDown :size="19" />
-              </button>
               <button class="read-all" type="button" @click="historyOpen = true"><History :size="18" />展开全文</button>
             </div>
           </div>
@@ -231,19 +214,6 @@ onUnmounted(() => {
           <header class="interaction-heading">
             <span><Sparkles :size="20" /><span><small>继续这段故事</small><strong>你想对 Fairy 说什么？</strong></span></span>
           </header>
-
-          <section class="interaction-block suggestion-block">
-            <button class="collapse-trigger" type="button" @click="suggestionsOpen = !suggestionsOpen">
-              <span>推荐话题</span>
-              <ChevronUp v-if="suggestionsOpen" :size="19" />
-              <ChevronDown v-else :size="19" />
-            </button>
-            <div v-if="suggestionsOpen" class="suggestions">
-              <button v-for="suggestion in suggestions" :key="suggestion" type="button" @click="sendMessage(suggestion)">
-                <span>{{ suggestion }}</span><Send :size="17" />
-              </button>
-            </div>
-          </section>
 
           <section class="interaction-block composer-block">
             <button class="collapse-trigger" type="button" @click="composerOpen = !composerOpen">
@@ -311,7 +281,7 @@ onUnmounted(() => {
       <div class="history-list">
         <article v-for="line in story" :key="line.id" :class="line.speaker">
           <span>{{ line.speaker === 'fairy' ? 'Fairy' : '你' }}</span>
-          <p>{{ line.fullText ?? line.text }}</p>
+          <p>{{ line.text }}</p>
         </article>
       </div>
     </el-drawer>
@@ -338,6 +308,54 @@ onUnmounted(() => {
           <button type="button" @click="resetTimer"><TimerReset :size="20" />重置</button>
         </div>
       </div>
+    </el-drawer>
+
+    <el-drawer v-model="studyOpen" title="今日学习" direction="rtl" size="min(440px, 92vw)" @open="api.loadAll">
+      <section class="study-section">
+        <h4>学习目标</h4>
+        <form class="study-goal-form" @submit.prevent="submitNewGoal">
+          <input v-model="newGoalTopic" placeholder="添加一个学习目标，如：高中数学三角函数" />
+          <button type="submit" aria-label="创建学习目标"><Plus :size="18" /></button>
+        </form>
+        <ul class="study-list">
+          <li v-for="goal in api.goals" :key="goal.id">
+            <span class="study-item-title">{{ goal.topic }}</span>
+            <small>{{ goal.level }} · {{ goal.availableMinutes }} 分钟/天</small>
+          </li>
+          <li v-if="api.goals.length === 0" class="study-empty">暂无学习目标</li>
+        </ul>
+      </section>
+
+      <section class="study-section">
+        <h4>今日日记 <small v-if="api.todayDiary">· {{ api.todayDiary.status }}</small></h4>
+        <article v-if="api.todayDiary" class="study-diary">
+          <strong>{{ api.todayDiary.title }}</strong>
+          <p>{{ api.todayDiary.content }}</p>
+        </article>
+        <p v-else class="study-empty">今日日记将在 Worker 生成后出现</p>
+      </section>
+
+      <section class="study-section">
+        <h4>待复习 <small>{{ api.dueReviews.length }}</small></h4>
+        <ul class="study-list">
+          <li v-for="item in api.dueReviews" :key="item.id">
+            <span class="study-item-title">复习 #{{ item.knowledgeId }}</span>
+            <small>到期 {{ item.dueAt.slice(0, 10) }} · 间隔 {{ item.intervalDays }} 天</small>
+          </li>
+          <li v-if="api.dueReviews.length === 0" class="study-empty">今日无到期复习</li>
+        </ul>
+      </section>
+
+      <section class="study-section">
+        <h4>提醒 <small>{{ api.notifications.length }}</small></h4>
+        <ul class="study-list">
+          <li v-for="ntf in api.notifications" :key="ntf.id">
+            <span class="study-item-title">{{ ntf.type }} 提醒</span>
+            <small>{{ ntf.channel }} · {{ ntf.status }}</small>
+          </li>
+          <li v-if="api.notifications.length === 0" class="study-empty">暂无提醒</li>
+        </ul>
+      </section>
     </el-drawer>
   </div>
 </template>

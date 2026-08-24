@@ -16,6 +16,7 @@
 | [SRS](requirements/SRS.md) | 发布范围内每个行为、异常和业务规则如何原子化 | FR/BR/NFR、Given/When/Then 验收和测试 ID |
 | [架构设计](ARCHITECTURE.md) | 系统如何实现和演进 | TypeScript 全栈选型、C4、模块/数据所有权、部署、可靠性、安全和 ADR |
 | [流式协议契约](contracts/STREAMING_PROTOCOL.md) | Turn 创建、SSE 事件、幂等、重连、取消和部分响应如何保持一致 | OpenAPI 配套的机器可验证事件 envelope、状态机、游标、保留和安全持久化规则 |
+| [数据库设计与双引擎契约](contracts/DATABASE.md) | SQLite ↔ PostgreSQL 双引擎真源切换、租户隔离、仓储 Port、迁移三阶段与删除传播规则 | Drizzle schema 生成双方言 DDL、Repository/Vector Search Port 签名、Expand/Contract 迁移与 TC 门禁 |
 | [需求追踪与交付标准](REQUIREMENTS_TRACEABILITY.md) | 每条需求是否完整、由谁负责、怎样证明交付 | ID、状态、DoR/DoD、CAP 映射、测试证据、发布门禁、风险和变更控制 |
 | [数据与隐私规范](DATA_PRIVACY.md) | 数据为什么收集、何时召回/保留/删除、谁能访问 | 数据分类、同意、来源链、保留表、删除传播、导出和审计 |
 | [AI 质量与安全规范](AI_QUALITY_SAFETY.md) | 模型、记忆和日记怎样达到可复现质量与安全门槛 | 模型运行记录、评估集、记忆压缩、日记事实性、安全分类和回滚 |
@@ -142,7 +143,7 @@ docs/
   PRD.md                 # 产品需求事实源（AVX-PRD-001）
   ARCHITECTURE.md        # 系统架构设计（AVX-SAD-001）
   REQUIREMENTS_TRACEABILITY.md   # 需求追踪与交付基线（AVX-TRC-001）
-  contracts/             # 流式协议契约（AVX-SPC-001）
+  contracts/             # 流式协议契约（AVX-SPC-001）、数据库设计与双引擎契约（AVX-DB-001）
   security/              # 威胁模型（AVX-SEC-001）
   qa/                    # 测试策略（AVX-QA-001）
   requirements/          # SRS（AVX-SRS-001）

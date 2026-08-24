@@ -26,6 +26,9 @@ importers:
       '@aervox/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@libsql/client':
+        specifier: ^0.14.0
+        version: 0.14.0
       fastify:
         specifier: 5.12.1
         version: 5.12.1
@@ -36,6 +39,9 @@ importers:
       tsx:
         specifier: ^4.19.2
         version: 4.23.12
+      vitest:
+        specifier: 4.0.18
+        version: 4.0.18(@types/node@22.20.1)(tsx@4.23.12)(yaml@2.9.0)
 
   apps/desktop:
     dependencies:
@@ -70,6 +76,28 @@ importers:
       vue-tsc:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.8.3)
+
+  apps/worker:
+    dependencies:
+      '@aervox/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@libsql/client':
+        specifier: ^0.14.0
+        version: 0.14.0
+      drizzle-orm:
+        specifier: ^0.39.3
+        version: 0.39.3(@libsql/client@0.14.0)
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
+      tsx:
+        specifier: ^4.19.2
+        version: 4.23.12
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
 
   packages/contracts:
     dependencies:
