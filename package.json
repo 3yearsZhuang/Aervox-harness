@@ -9,6 +9,7 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "dev:desktop": "turbo run dev --filter=@aervox/api --filter=@aervox/mod-fairy-desktop",
     "typecheck": "turbo run typecheck"
   },
   "devDependencies": {

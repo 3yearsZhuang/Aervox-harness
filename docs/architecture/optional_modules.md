@@ -95,7 +95,7 @@ packages:
 
 | CAP | 功能 | 候选/远期 | 启用方式 | 接口/适配边界 | 依赖的 ADR |
 |---|---|---|---|---|---|
-| CAP-018 | 桌面化 + Live2D | 候选 | 构建 | desktop 作为独立入口复用 Web UI；Live2D 皮肤作为可替换资源包 | ADR-009（桌面/多端相关，若存在） |
+| CAP-018 | 桌面化 + Live2D | 候选 | 构建 | `modules/fairy-desktop`（`@aervox/mod-fairy-desktop`）提供 Electron/Vue 桌面入口和透明桌宠窗口，通过 `@aervox/contracts` 消费 Turn/SSE；核心数据仍归 Aervox API，Live2D 皮肤保持可替换 | ADR-009、CR-002 |
 | CAP-019 | 多人格模板 | 候选 | 运行 | 人格仅影响表达，共享安全边界（对齐 CAP-008） | — |
 | CAP-014 | 层级对话/会话地图 | 候选 | 运行 | 画布元数据与业务会话分离（对齐 dsh-synapse 借鉴） | — |
 | CAP-015 | 思维宇宙 | 候选 | 运行 | 知识关系基于长期记忆投影，主仓领域约束 | — |

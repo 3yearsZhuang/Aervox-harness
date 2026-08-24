@@ -137,6 +137,7 @@ CAP 从 `Mapped` 转 `Specified` 应只发生在临近开发批次时；P1/P2/P3
 ```text
 docs/
   README.md              # 文档索引 + 权威顺序 + 从哪开始（本文件，AVX-DOC-001）
+  changes/                # CR-* 变更请求与影响记录
   DOC_REGISTRY.md        # 文档生命周期登记表（AVX-DOC-CONF-001）
   PRD.md                 # 产品需求事实源（AVX-PRD-001）
   ARCHITECTURE.md        # 系统架构设计（AVX-SAD-001）
@@ -146,6 +147,7 @@ docs/
   qa/                    # 测试策略（AVX-QA-001）
   requirements/          # SRS（AVX-SRS-001）
   operations/  how-to/  architecture/adr/
+modules/                 # 固定 commit 的可选功能子模块（workspace 消费，见 AVX-MOD-001）
 reference/               # 固定 commit 的子模块（只读参考，见 PRD 15.1）
 demos/                   # 纯前端原型，非交付物
 ```
