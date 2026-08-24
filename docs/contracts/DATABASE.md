@@ -13,6 +13,7 @@
 - 当前开发阶段（MVP 前，本地开发 / 集成测试优先）以 **SQLite（LibSQL）+ Drizzle ORM** 为业务真源；完成全部设计目标后再评估启用 PostgreSQL，兼容边界见 [ADR-003](../architecture/adr/ADR-003-postgres-retrieval.md) 与 [CR-003](../changes/CR-003-sqlite-primary-pg-compat.md)。
 - 所有业务数据访问必须通过 `@aervox/database` 的仓储（Repository）/Port 接口。**禁止跨模块直接写表、禁止在业务代码中执行未经仓储封装的裸 SQL**（[ARCHITECTURE.md](../ARCHITECTURE.md) Database 行）。
 - 每张业务表都必须携带 `(workspaceId, subjectUserId)` 租户列，且每次读写强制注入 `TenantContext`（见 §4）。
+- 用户注册 / 账号体系（注册、登录、凭据、Profile 等字段）**不在 SQLite 阶段范围**：`subjectUserId`/`workspaceId` 仅为占位主体标识（API 当前取自 `x-user-id`/`x-workspace-id` 请求头，缺省 `usr_default`/`ws_default`）。注册与账号字段待启用 PostgreSQL 后随账号体系正式上线（见 [CR-003](../changes/CR-003-sqlite-primary-pg-compat.md) 范围外）。
 - 用户可见结果的事实源是持久化行（`TurnStreamEvent`、`MessageVersion`、`MemoryRecord` 等），不是内存缓冲、Redis 或客户端缓存（对齐 `AVX-SPC-001`）。
 - 派生索引（FTS5 全文、向量）可以随意清空或离线重建，**永远不能成为业务事实真源**。
 - 删除传播、同意撤销和撤权后的零召回是硬性约束；来源删除后只保留最少 tombstone，不保留已删正文（对齐 `AVX-DATA-001`）。
@@ -82,6 +83,7 @@
 - 跨租户访问通过 `assertEntityBelongsToTenant` 显式拒绝；返回给调用方的"不存在"不得泄露其他租户资源是否存在（对齐 `AVX-SPC-001` 错误语义）。
 - 多租户隔离是仓储层应用约束 + 唯一索引兜底，不依赖数据库 RLS（SQLite 无原生 RLS）；因此必须严格防范绕过仓储的裸 SQL。
 - 说明：`sessions.id` 为全局唯一主键，多租户调用方应自行提供租户限定的 `sessionId`（见 `getOrCreateSession` 注释）。
+- 说明：SQLite 阶段不落库账号 / 凭据 / 注册字段；`subjectUserId`/`workspaceId` 由调用方以请求头提供（缺省 `usr_default`/`ws_default`），仅作租户隔离维度，不得在 SQLite schema 中引入用户注册相关字段。
 
 ## 5. 仓储与事务边界
 
