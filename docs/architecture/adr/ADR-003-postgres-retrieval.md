@@ -24,7 +24,9 @@
 
 ## Decision
 
-以 **SQLite (LibSQL/better-sqlite3) + Drizzle ORM** 作为默认业务真源与 `@aervox/database` 实现：
+**阶段化决策**：当前开发阶段（MVP 前，本地开发 / 集成测试优先）以 **SQLite (LibSQL) + Drizzle ORM** 作为业务真源与 `@aervox/database` 实现；待完成全部设计目标（多端/云端同步、组织级权限与 RLS、合规边界、大规模检索）后再评估启用 PostgreSQL。切换依赖仓储 Port 与 Drizzle 多方言，不改变上层业务逻辑（见 [CR-003](../../changes/CR-003-sqlite-primary-pg-compat.md)）。
+
+具体实现要点：
 
 1. **多租户隔离**：通过 `TenantContext` 在仓储层强制注入 `(workspaceId, subjectUserId)` 过滤，结合底层 SQLite 复合外键与唯一索引作为安全兜底。
 2. **递归查询**：利用 SQLite 3.8.3+ 原生 `WITH RECURSIVE` CTE 投影系统记忆树。
@@ -44,7 +46,7 @@
 
 ## Migration / rollback
 
-仓储层对上层应用仅暴露 `IConversationRepository`、`IMemoryRepository`、`IDiaryRepository`、`IVectorSearchPort` 接口。若未来需切换到 PostgreSQL，只需在 `@aervox/database` 中提供 PG 驱动适配器，无需改动上层业务逻辑。
+仓储层对上层应用仅暴露 `IConversationRepository`、`IMemoryRepository`、`IDiaryRepository`、`IVectorSearchPort` 接口，作为未来切换到 PostgreSQL 的兼容边界。启用 PG 前需补齐：PG 驱动适配器（Drizzle 多方言）、RLS 与递归 CTE 等价实现、pgvector 适配，并在 CI/本地提供可复现的 PG 测试环境；切换不改变上层业务逻辑，派生索引可重建、业务真源可迁移，具备双读校验与可回退开关。
 
 ## Verification evidence
 

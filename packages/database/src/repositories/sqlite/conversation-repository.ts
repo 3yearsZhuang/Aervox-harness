@@ -49,6 +49,36 @@ export class SqliteConversationRepository implements IConversationRepository {
     return (found as SessionModel) ?? null;
   }
 
+  /**
+   * 按客户端 sessionId 获取会话，不存在则创建。
+   *
+   * 用于修复 API 直接以外部 sessionId 创建 Turn 时的外键违约
+   * （turns.session_id 引用 sessions.id）。注意 sessions.id 为主键，
+   * 全局唯一，多租户调用方应自行提供租户限定的 sessionId。
+   */
+  async getOrCreateSession(
+    tenant: TenantContext,
+    sessionId: string,
+    title = "默认会话",
+  ): Promise<SessionModel> {
+    assertTenantContext(tenant);
+    const existing = await this.getSession(tenant, sessionId);
+    if (existing) return existing;
+    const now = new Date().toISOString();
+    const [created] = await this.db
+      .insert(sessions)
+      .values({
+        id: sessionId,
+        workspaceId: tenant.workspaceId,
+        subjectUserId: tenant.subjectUserId,
+        title,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    return created as SessionModel;
+  }
+
   async createTurnWithOutbox(
     tenant: TenantContext,
     turnData: { id: string; sessionId: string; idempotencyKey: string; status?: string },

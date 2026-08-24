@@ -69,6 +69,7 @@ export interface OutboxEventModel {
 export interface IConversationRepository {
   createSession(tenant: TenantContext, title: string): Promise<SessionModel>;
   getSession(tenant: TenantContext, sessionId: string): Promise<SessionModel | null>;
+  getOrCreateSession(tenant: TenantContext, sessionId: string, title?: string): Promise<SessionModel>;
   createTurnWithOutbox(
     tenant: TenantContext,
     turn: { id: string; sessionId: string; idempotencyKey: string; status?: string },

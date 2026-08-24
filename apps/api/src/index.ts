@@ -55,6 +55,9 @@ app.post("/v1/sessions/:sessionId/turns", async (req, reply) => {
     subjectUserId: (req.headers["x-user-id"] as string) ?? "usr_default",
   };
 
+  // 确保会话存在（turns.session_id 外键引用 sessions；客户端可能直接以任意 sessionId 发起首次 Turn）
+  await convRepo.getOrCreateSession(tenant, sessionId, "Aervox 会话");
+
   // 检查幂等性
   const existingTurn = await convRepo.getTurnByIdempotencyKey(tenant, idempotencyKey);
   if (existingTurn) {
