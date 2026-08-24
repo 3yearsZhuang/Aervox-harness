@@ -25,7 +25,8 @@
 | [ADR 索引](architecture/adr/README.md) | 为什么选择当前架构、舍弃了什么方案 | 架构决策状态、后果、迁移和回滚边界 |
 | [可选功能模块化方案](architecture/optional_modules.md) | 非核心功能如何以子仓库开发并作为 workspace 包自选消费 | 核心/可选边界、`modules/*` 机制、构建+运行时双自选、模块清单与门禁 |
 | [操作指南](how-to/) | 怎么新增需求、写 ADR、过发布门禁、做演练、管可选模块 submodule | 任务型流程；规则以对应专项文档为事实源 |
-| [上手指南](onboarding.md) | 新成员/Agent 从哪里开始、提交前自检什么 | 导航型；不承载规则 |
+| [文档生命周期登记表](DOC_REGISTRY.md) | 每份文档由谁负责、何时核验、多久复核 | Owner/核验节奏/陈旧信号；独立于索引维护 |
+| 从这里开始（见[§8](#8-从哪开始)） | 新成员/Agent 从哪看起、提交前自检什么 | 导航型；不承载规则 |
 | [值班与升级矩阵](operations/ONCALL.md) | 出问题找谁、如何升级、如何交接 | 值班角色与 SEV 升级；联系人人名待定 |
 | [演练证据模板](operations/DRILL_TEMPLATE.md) | 季度演练留什么证 | 演练项、通过标准与证据字段；G5 门禁引用 |
 
@@ -33,26 +34,7 @@
 
 ### 1.1 文档生命周期登记表（Owner 指派与核验）
 
-下表跟踪每份关键文档的责任角色、最后核验时间与陈旧信号。责任角色按[第 4 节](#4-责任与审批)角色模型落地，具体人名在评审时回填；`最后核验` 默认取文档头更新日期，核验后更新该字段。
-
-| 文档编号 | 文档 | 责任角色（人名待定） | 最后核验 | 核验节奏 | 陈旧信号 |
-|---|---|---|---|---|---|
-| `AVX-PRD-001` | [PRD](PRD.md) | 产品负责人 | 2026-08-24 | 每次版本立项 / G0 | CAP 范围或优先级变更未建立 `CR-*` |
-| `AVX-SRS-001` | [SRS](requirements/SRS.md) | 产品与模块负责人 | 2026-08-24 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
-| `AVX-DOC-001` | [文档索引](README.md) | 文档负责人 | 2026-08-24 | 每季度 + 每次文档集变更 | 登记表/事实源映射与仓库实际不符 |
-| `AVX-SAD-001` | [架构设计](ARCHITECTURE.md) | 技术负责人 | 2026-08-24 | G2 评审 + 架构变更 | 新增 ADR/技术基线变化未同步 |
-| `ADR-001~013` | [ADR 索引](architecture/adr/README.md) | 技术负责人（各 ADR 另有 Owner） | 2026-08-24 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
-| `AVX-SPC-001` | [流式协议](contracts/STREAMING_PROTOCOL.md) | 技术负责人 | 2026-08-24 | OpenAPI/事件 schema 变更 | `packages/contracts` 版本高于文档描述 |
-| `AVX-DATA-001` | [数据与隐私](DATA_PRIVACY.md) | 安全与隐私负责人 | 2026-08-24 | 每季度 + 数据流变更 | 新增数据实体/用途/保留未评审 |
-| `AVX-AIQ-001` | [AI 质量与安全](AI_QUALITY_SAFETY.md) | AI 质量负责人 | 2026-08-24 | 模型/Prompt/算法变更 + AI 评估 | ModelRun/PromptVersion 更新未同步 |
-| `AVX-SEC-001` | [威胁模型](security/THREAT_MODEL.md) | 安全与隐私负责人 | 2026-08-24 | 每季度 + 信任边界变更 | 新增数据流/信任边界未加入威胁模型 |
-| `AVX-QA-001` | [测试策略](qa/TEST_STRATEGY.md) | QA 负责人 | 2026-08-24 | G1/G4 门禁 | AC/TC 状态变化未回填 |
-| `AVX-OPS-001` | [运行与恢复手册](operations/RUNBOOK.md) | 运维/平台负责人 | 2026-08-24 | 每季度演练 + 每次发布 | 演练日期超期或告警/拓扑变化未更新 |
-| `AVX-TRC-001` | [需求追踪与交付基线](REQUIREMENTS_TRACEABILITY.md) | 文档负责人（QA 复核） | 2026-08-24 | 版本立项 / G1 / G4 | CAP/AC/TC 状态或追踪关系变化未回填 |
-| `AVX-GUIDE-001~006` | [操作指南](how-to/) · [上手指南](onboarding.md) | 文档负责人 | 2026-08-24 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
-| `AVX-ONC-001` | [值班与升级矩阵](operations/ONCALL.md) | 运维/平台负责人（安全复核） | 2026-08-24 | 每次值班变更 + 季度 | 联系人/升级时限变更未同步 |
-| `AVX-DRL-001` | [演练证据模板](operations/DRILL_TEMPLATE.md) | 运维/平台负责人 | 2026-08-24 | 每季度演练后 | 演练项/通过标准与运行手册不符 |
-| `AVX-MOD-001` | [可选功能模块化方案](architecture/optional_modules.md) | 技术负责人 | 2026-08-24 | G2 评审 + 模块机制变更 | 模块清单/接口边界与 `modules/*` 实际不符 |
+每份关键文档的责任角色、最后核验时间、核验节奏与陈旧信号，独立维护在[文档生命周期登记表](DOC_REGISTRY.md)（AVX-DOC-CONF-001）。新增或改版文档时同步更新该表，避免索引与登记职责混在同一文件。
 
 ## 2. 权威顺序与冲突处理
 
@@ -145,3 +127,53 @@ CAP 从 `Mapped` 转 `Specified` 应只发生在临近开发批次时；P1/P2/P3
 借鉴设计不等于验证用户需求，也不等于自动通过许可证、安全或维护性评审。
 
 固定 commit 与许可证清单以 [PRD 15.1](PRD.md#prd-reference-manifest) 为唯一事实源（复核日期 2026-08-24）；任何升级需建立 `CR-*`、重跑许可证/契约测试并更新复核日期。
+
+## 8. 从哪开始
+
+> 面向新成员或首次接触本仓库的 AI Agent：仓库里有什么、从哪里看、提交前自检什么。规则详情以各专项文档为准。
+
+### 8.1 仓库结构
+
+```text
+docs/
+  README.md              # 文档索引 + 权威顺序 + 从哪开始（本文件，AVX-DOC-001）
+  DOC_REGISTRY.md        # 文档生命周期登记表（AVX-DOC-CONF-001）
+  PRD.md                 # 产品需求事实源（AVX-PRD-001）
+  ARCHITECTURE.md        # 系统架构设计（AVX-SAD-001）
+  REQUIREMENTS_TRACEABILITY.md   # 需求追踪与交付基线（AVX-TRC-001）
+  contracts/             # 流式协议契约（AVX-SPC-001）
+  security/              # 威胁模型（AVX-SEC-001）
+  qa/                    # 测试策略（AVX-QA-001）
+  requirements/          # SRS（AVX-SRS-001）
+  operations/  how-to/  architecture/adr/
+reference/               # 固定 commit 的子模块（只读参考，见 PRD 15.1）
+demos/                   # 纯前端原型，非交付物
+```
+
+### 8.2 阅读顺序
+
+1. 先读本页[文档体系表](#1-文档体系与事实源)与[权威顺序](#2-权威顺序与冲突处理)，弄清每份文档回答什么、冲突时谁优先。
+2. 读 [PRD](PRD.md) 第 1 节产品决策摘要与功能地图，了解产品边界。
+3. 拉取子模块：clone 后先执行 `git submodule update --init --recursive`，否则 `pnpm build` 会缺 `@aervox/mod-*` 失败（见[可选模块协作指南](how-to/submodule-collaboration.md)）。
+4. 按需进入 [how-to](how-to/)：新增需求 / 写 ADR / 过发布门禁 / 执行演练 / 可选模块 submodule。
+
+### 8.3 写作与改动的硬性规则
+
+- 能力/需求 ID 一经建立不改；`P0~P3` 是优先级、`R0~R5` 是阶段，两者不得混用。
+- 修改已批准文档：先建 `CR-*` 再修订，不得静默改正文（见[追踪基线 §11](REQUIREMENTS_TRACEABILITY.md#11-变更控制)）。
+- 新增/修改文档必须同步[生命周期登记表](DOC_REGISTRY.md)（编号、负责人、核验日期、陈旧信号）。
+- 参考仓库只作设计验证，MVP 不得依赖其运行时（见 [PRD 15](PRD.md#15-参考项目与借鉴边界)）。
+
+### 8.4 提交前自检（Docs CI 门禁）
+
+改动 `docs/**` 或根 `README.md` 的 PR 必须通过：
+
+- **Markdown lint**：`npx markdownlint-cli2 --config .markdownlint-cli2.jsonc "docs/**/*.md" "README.md"`（配置关闭 MD013/033/060）；
+- **链接检查**：`lychee`（CI 中由 lychee-action 执行，排除 `reference/` 与 `demos/`）；
+- 本地先跑 lint 与相对链接存在性检查，确保 0 问题再提交。
+
+### 8.5 需要介入时
+
+- 文档冲突：停止相关发布，按[权威顺序](#2-权威顺序与冲突处理)仲裁；
+- 生产问题：按[运行手册](operations/RUNBOOK.md) 与[值班矩阵](operations/ONCALL.md)升级；
+- 变更请求：走[变更流程](REQUIREMENTS_TRACEABILITY.md#113-变更流程)。
