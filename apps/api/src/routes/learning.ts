@@ -16,10 +16,19 @@ export function registerLearningRoutes(app: FastifyInstance, c: RepoContainer): 
   app.post("/v1/learning/goals", async (req, reply) => {
     const tenant = resolveTenant(req);
     const body = (req.body ?? {}) as { topic?: string; level?: string; availableMinutes?: number };
-    if (!body.topic) return reply.code(400).send({ error: "topic is required" });
+    const topic = body.topic?.trim();
+    if (!topic) {
+      return reply.code(400).send({ error: "topic is required" });
+    }
+    if (
+      body.availableMinutes !== undefined &&
+      (!Number.isInteger(body.availableMinutes) || body.availableMinutes <= 0)
+    ) {
+      return reply.code(400).send({ error: "availableMinutes must be a positive integer" });
+    }
     const goal = await c.learning.createLearningGoal(tenant, {
       id: id("goal"),
-      topic: body.topic,
+      topic,
       level: body.level,
       availableMinutes: body.availableMinutes,
     });
