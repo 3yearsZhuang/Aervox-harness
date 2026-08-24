@@ -10,6 +10,7 @@ on:
       - "pnpm-workspace.yaml"
       - "turbo.json"
       - "tsconfig.base.json"
+      - "mise.toml"
       - ".github/workflows/ci.yml"
   push:
     branches: [main]
@@ -21,6 +22,7 @@ on:
       - "pnpm-workspace.yaml"
       - "turbo.json"
       - "tsconfig.base.json"
+      - "mise.toml"
 
 permissions:
   contents: read
@@ -33,22 +35,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - name: Install mise
+        run: |
+          curl https://mise.run | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Restore mise cache
+        uses: actions/cache@v4
         with:
-          version: 11.22.0
+          path: |
+            ~/.local/share/mise/installs
+            ~/.local/share/mise/cache
+          key: mise-${{ runner.os }}-${{ hashFiles('mise.toml') }}
 
-      - name: Setup Node (24 LTS, 文档基线)
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
+      - name: Install tools (node + pnpm from mise.toml)
+        run: mise install
 
-      - name: Install (frozen lockfile)
-        run: pnpm install --frozen-lockfile
-
-      - name: Build (含 contracts 生成 openapi.json)
-        run: pnpm build
-
-      - name: Typecheck
-        run: pnpm typecheck
+      - name: Run code gate (build + typecheck + test)
+        run: mise tasks run ci-code
