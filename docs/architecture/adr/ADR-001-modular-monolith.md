@@ -27,7 +27,7 @@ Aervox 首发需要对话、学习、练习/复习、四段记忆、日记、安
 
 ## Decision
 
-选择模块化单体：同一 TypeScript monorepo 和 PostgreSQL 业务库，领域模块拥有各自服务/仓储边界；API 处理同步与流式交互，Worker/Scheduler 处理记忆、日记、OCR、Embedding、通知和删除。跨模块通过命令、领域事件和事务 Outbox，不允许直接写其他模块表。
+选择模块化单体：同一 TypeScript monorepo 和 SQLite 业务库 + 仓储抽象，领域模块拥有各自服务/仓储边界；API 处理同步与流式交互，Worker/Scheduler 处理记忆、日记、OCR、Embedding、通知和删除。跨模块通过命令、领域事件和事务 Outbox，不允许直接写其他模块表。
 
 ## Positive consequences
 
@@ -41,7 +41,7 @@ Aervox 首发需要对话、学习、练习/复习、四段记忆、日记、安
 - 单库/单代码库需要严格执行模块边界；
 - 部署包较大，团队并行时可能出现耦合；
 - P3 高流量社区、市场或组织域未来可能需要拆分；
-- PostgreSQL 是重要故障域，必须做好 HA、PITR 和容量管理。
+- 数据库是重要故障域，必须做好 HA、PITR 和容量管理。
 
 ## Migration / rollback
 
@@ -50,6 +50,6 @@ MVP 不存在从微服务回迁。若某模块需拆分，先定义数据所有�
 ## Verification evidence
 
 - 架构边界测试与禁止跨模块仓储依赖；
-- PostgreSQL/Redis/S3 Testcontainers 集成；
+- SQLite/Redis/S3 集成测试；
 - 100 并发流式会话和 2 倍峰值压测；
 - Redis 丢失后 Outbox 重建、重复投递幂等、数据库恢复和删除账本回放演练。

@@ -27,6 +27,7 @@
 | `AVX-DRL-001` | [演练证据模板](operations/DRILL_TEMPLATE.md) | 运维/平台负责人 | 2026-08-24 | 每季度演练后 | 演练项/通过标准与运行手册不符 |
 | `AVX-MOD-001` | [可选功能模块化方案](architecture/optional_modules.md) | 技术负责人 | 2026-08-24 | G2 评审 + 模块机制变更 | 模块清单/接口边界与 `modules/*` 实际不符 |
 | `CR-002` | [Fairy Agent Electron 桌面端](changes/CR-002-fairy-desktop-module.md) | 产品与技术负责人 | 2026-08-24 | CAP-018 桌面端实现或安全边界变更 | Electron 端目录、契约边界、测试证据或回滚条件与实现不符 |
+| `CR-003` | [SQLite 业务真源与 PG 兼容](changes/CR-003-sqlite-primary-pg-compat.md) | 技术负责人 | 2026-08-24 | 数据真源 / 仓储抽象变更 | 仓储接口或 PG 切换计划与实现不符 |
 | `AVX-DOC-001` | [文档索引](README.md) | 文档负责人 | 2026-08-24 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
 
 ## 维护规则
