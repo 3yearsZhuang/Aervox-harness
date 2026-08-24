@@ -24,7 +24,7 @@
 
 ## Decision
 
-业务变更与 `OutboxEvent` 在同一 PostgreSQL 事务提交；Worker 至少一次消费，使用 `ScheduledJob.idempotencyKey`、状态机、重试/退避和 DLQ。Redis/BullMQ 是传输和短暂调度，不是事实源；重建以 Outbox/ScheduledJob 为准。
+业务变更与 `OutboxEvent` 在同一 SQLite 事务提交；Worker 至少一次消费，使用 `ScheduledJob.idempotencyKey`、状态机、重试/退避和 DLQ。Redis/BullMQ 是传输和短暂调度，不是事实源；重建以 Outbox/ScheduledJob 为准。
 
 ## Positive consequences
 

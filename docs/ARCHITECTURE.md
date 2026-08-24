@@ -10,7 +10,7 @@
 
 ## 1. 架构结论
 
-采用 **TypeScript-first 模块化单体 + 独立 Worker/Scheduler**。Web、API、后台任务和桌面壳共享契约、领域类型和 UI；PostgreSQL 是业务真源，Redis 只负责缓存/队列，S3 负责附件；AI、记忆、日记和插件通过稳定的内部 Port 解耦。
+采用 **TypeScript-first 模块化单体 + 独立 Worker/Scheduler**。Web、API、后台任务和桌面壳共享契约、领域类型和 UI；SQLite (WAL 模式) + 仓储抽象是业务真源，Redis 只负责缓存/队列，S3 负责附件；AI、记忆、日记和插件通过稳定的内部 Port 解耦。
 
 MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应商成为核心运行时依赖。等 P3 的流量、组织权限或合规边界确实需要拆分时，再通过 ADR 把单一模块提取为服务，并保持业务事件、数据删除和客户端兼容。
 
@@ -23,8 +23,8 @@ MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应
 | Web | React 19、Vite 7、TanStack Router/Query | 首发是登录后流式应用；不依赖 Next 私有后端能力 |
 | UI/editor | Tailwind 4、Radix/shadcn 约束、CodeMirror 6 | 组件共享、键盘可用和 WCAG 2.2 AA |
 | API | Fastify 5、Zod 4、OpenAPI 3.1、POST Turn + GET SSE（Fetch 消费） | 客户端和插件通过契约访问；事件 envelope、重连、取消、幂等和安全持久化遵循[流式协议契约](contracts/STREAMING_PROTOCOL.md)；不以 tRPC 锁定消费者 |
-| Database | PostgreSQL 17+、Drizzle ORM、显式 SQL migration | 事务、约束、RLS、递归 CTE、全文检索；禁止跨模块直接写表 |
-| Retrieval | PostgreSQL FTS + pgvector（P1 按需） | 记录 embedding 模型/维度/版本，可离线重建；MVP 不引入 Neo4j/独立向量库 |
+| Database | SQLite (WAL 模式) + Drizzle ORM + Repository Port | 事务、约束、RLS、递归 CTE、全文检索；禁止跨模块直接写表 |
+| Retrieval | SQLite FTS5 + VectorSearchPort（sqlite-vec/内存适配） | 记录 embedding 模型/维度/版本，可离线重建；MVP 不引入 Neo4j/独立向量库 |
 | Queue | Redis 7、BullMQ 5 | 至少一次投递、幂等键、重试、指数退避和 DLQ；Redis 不是真源 |
 | Object | S3 兼容存储、短期签名 URL | 上传前后做大小/格式/解压比/病毒扫描；删除遵循数据 SLA |
 | AI | Vercel AI SDK 6 + 内部 `ProviderPort` | SDK 负责流式表现层，业务通过内部接口调用模型；模型不能直写业务表 |
@@ -93,7 +93,7 @@ Web / Electron / Mobile
        CDN + WAF
           │
        Stateless API instances
-        ├── PostgreSQL (business truth + FTS)
+        ├── SQLite (business truth + FTS5, WAL mode)
         ├── Redis/BullMQ (queue/cache)
         ├── S3 (attachments/exports)
         ├── RecoveryControlLedger (independent immutable control events)
@@ -109,24 +109,24 @@ Scheduler ──> BullMQ ──> Worker pools
 All processes ──> OpenTelemetry Collector ──> metrics/logs/traces
 ```
 
-用户消息、答题和权限变更先在 PostgreSQL 事务中落库，同时写 Outbox；API 再流式请求模型。记忆、日记、附件、嵌入和通知异步执行。客户端不能直接调用模型服务；附件通过短期签名 URL 上传，API 在提交前检查授权和扫描状态。
+用户消息、答题和权限变更先在 SQLite 事务中落库，同时写 Outbox；API 再流式请求模型。记忆、日记、附件、嵌入和通知异步执行。客户端不能直接调用模型服务；附件通过短期签名 URL 上传，API 在提交前检查授权和扫描状态。
 
 ### 4.3 关键组件与信任边界
 
 | 容器 | 关键组件 | 可写数据 | 外部信任边界 |
 |---|---|---|---|
 | Web/Desktop/Mobile | UI、离线草稿、流式渲染、授权界面 | 本地最小草稿/设置 | 浏览器、OS 权限、Electron IPC |
-| API | Auth/Consent、Conversation、Learning、Review、Context Builder、Provider Gateway | PostgreSQL 领域表、Outbox；按 `(workspaceId, subjectUserId)` 做租户边界 | OIDC、AI Provider、对象签名服务 |
+| API | Auth/Consent、Conversation、Learning、Review、Context Builder、Provider Gateway | SQLite 领域表、Outbox；按 `(workspaceId, subjectUserId)` 做租户边界 | OIDC、AI Provider、对象签名服务 |
 | Worker/Scheduler | Memory、Diary、OCR、Embedding、Notification、Deletion Orchestrator | 各领域模块公开仓储；不得绕过所有权；所有 Job 包含 `workspaceId/subjectUserId` | Redis、对象存储、通知供应商 |
 | Plugin Host（P2） | Manifest、Policy Proxy、Adapter、Kill Switch | 插件自有状态；核心数据只经命令/候选 | 第三方代码和远程 Host |
-| Recovery Control Ledger | 删除、Consent/Plugin/External Grant 撤销的最小控制事件、单调序列、防篡改证据 | 独立账号/凭据/保留策略的追加写存储；不含用户正文 | 与业务 PostgreSQL 和其 PITR 备份分离故障域 |
+| Recovery Control Ledger | 删除、Consent/Plugin/External Grant 撤销的最小控制事件、单调序列、防篡改证据 | 独立账号/凭据/保留策略的追加写存储；不含用户正文 | 与业务 SQLite 和其备份分离故障域 |
 | Observability | trace/metrics/脱敏日志 | 运行元数据，不得成为用户内容副本 | 监控/错误平台供应商 |
 
 主要威胁与架构控制：
 
 | 威胁 | 控制 | 验证 |
 |---|---|---|
-| 跨工作区/组织数据泄露 | 应用鉴权 + PostgreSQL RLS、workspaceId 约束、伪匿名分析主体 | `TC-SEC-TENANT-001` |
+| 跨工作区/组织数据泄露 | 应用鉴权 + TenantContext 仓储强校验、workspaceId 约束、伪匿名分析主体 | `TC-SEC-TENANT-001` |
 | Prompt injection/恶意附件 | 不可信上下文分区、工具权限代理、扫描、引用验证 | `TC-SEC-PROMPT-001` |
 | 插件远程代码执行/数据外泄 | 进程外沙箱、默认无权限、签名、Host allowlist、配额和 kill switch | `TC-SEC-PLUG-001` |
 | 删除后数据复活 | `RecoveryControlLedger` 撤权先行、DeletionTargets、零召回验证、恢复前校验水位并按序重放 | `TC-PRIV-DEL-001`、`TC-RES-LEDGER-001` |
@@ -137,14 +137,14 @@ All processes ──> OpenTelemetry Collector ──> metrics/logs/traces
 
 ```text
 Client -> API: POST /turns + idempotency key
-API -> PostgreSQL: Turn + MessageVersion + Outbox (one transaction)
+API -> SQLite: Turn + MessageVersion + Outbox (one transaction)
 API -> Safety: input classify
 API -> Context Builder: consent-filtered ContextManifest
 API -> Provider: stream into bounded segment buffer
 API -> Safety/Validator: per-segment checks
-API -> PostgreSQL: committed segment + TurnStreamEvent + ModelRun + Outbox
+API -> SQLite: committed segment + TurnStreamEvent + ModelRun + Outbox
 Client -> API: GET /v1/turns/{id}/events (Fetch SSE, Last-Event-ID)
-API -> PostgreSQL: finalize Completed/Rejected/Cancelled/Interrupted/Failed Turn + done event
+API -> SQLite: finalize Completed/Rejected/Cancelled/Interrupted/Failed Turn + done event
 Worker -> Memory: create candidate, validate sources, version revision
 Memory -> Tree Projection: rebuild affected nodes/edges
 ```
@@ -154,7 +154,7 @@ Memory -> Tree Projection: rebuild affected nodes/edges
 ```text
 Client -> API: delete source
 API -> RecoveryControlLedger: append immutable deny/revoke event and receive durable ack
-API -> PostgreSQL: idempotent deny projection + DeletionRequest/Targets + Outbox
+API -> SQLite: idempotent deny projection + DeletionRequest/Targets + Outbox
 API -> Retrieval/Context: immediate deny
 Worker -> DB/Redis/FTS/Vector/S3/Diary/Memory/Suppliers: clear or rebuild
 Worker -> Verification: zero-recall + target evidence
@@ -166,11 +166,11 @@ Restore process -> RecoveryControlLedger: verify signature/sequence/watermark + 
 
 ## 5. 关键数据与一致性
 
-- PostgreSQL 事务是跨模块状态变更的边界；数据库迁移使用 expand/contract，API 保持当前及上一版本客户端兼容。
+- SQLite 事务是跨模块状态变更的边界；数据库迁移使用 expand/contract，API 保持当前及上一版本客户端兼容。
 - 队列按至少一次投递设计。Job 必须有 `idempotencyKey`、最大尝试次数、可取消状态、DLQ 和人工重放工具。
 - Memory 的 `MemoryRecord` 只保存临时/短期/长期身份和版本；系统记忆树由有效长期记忆构建可重建投影，避免两份永久真源。`MemoryProjectionOverride` 记录用户锁定、改名和父节点调整，重建时先投影再叠加覆盖。
 - 日记使用 `Diary` + 不可变 `DiaryCycle` + `DiaryScheduleRevision` + `DiaryRunAttempt` + `DiaryVersion` + `DiaryParagraphSource`；每个段落带来源版本和生成时权限快照。`DiaryCycle` 以 `occurredAt` 计算窗口，`DiaryMaterialBuffer` 必须关联 `cycleId`；周期终态与 `lastCutoffAt/cursorVersion` 通过 scheduleVersion CAS 在同一事务提交，使用 lease/fencing token 拒绝过期 Worker。
-- 删除、同意撤销和插件/外部授权撤权先以确定性 `controlEventId/idempotencyKey` 追加独立故障域的 `RecoveryControlLedger` 并取得 durable ack，再幂等提交 PostgreSQL 的即时 deny 投影、`DeletionRequest`/Targets 和 Outbox；账本已写而业务提交失败由 reconciler 按 sequence 重放，账本不可用、序列有缺口或水位未追平时受影响范围 fail closed。业务投影不得反向覆盖账本事实；PITR 后必须先校验并重放账本、验证零召回/零越权后再开放流量。
+- 删除、同意撤销和插件/外部授权撤权先以确定性 `controlEventId/idempotencyKey` 追加独立故障域的 `RecoveryControlLedger` 并取得 durable ack，再幂等提交 SQLite 的即时 deny 投影、`DeletionRequest`/Targets 和 Outbox；账本已写而业务提交失败由 reconciler 按 sequence 重放，账本不可用、序列有缺口或水位未追平时受影响范围 fail closed。业务投影不得反向覆盖账本事实；恢复后必须先校验并重放账本、验证零召回/零越权后再开放流量。
 - 所有个人学习状态按 `(workspaceId, subjectUserId)` 隔离；运营者/组织成员作为 `actorId` 另记，不得代替数据主体。
 - 用户查看历史消息的保留策略与 AI 召回 TTL 分离。临时记忆过期只代表不能进入模型上下文，不代表聊天历史必须被删除。
 
@@ -221,7 +221,7 @@ Captured
 - 修改时间或时区时，已锁定/已到期运行的 `cutoffAt` 不移动；新计划从上一次 `lastCutoffAt` 之后的第一个合格截止点生效，允许窗口变长或变短但不得重叠或产生空洞。停用结束当前 `scheduleEpochId`；重新启用创建新的周期并以启用时点作为 `initialWindowStart`，默认不回填停用期间素材。
 - DST 缺口取下一个合法时点；重复时间只执行一次。撤销授权会取消未执行任务；保存成功后再发送通知。
 - 日记验证失败不得发布；重试不得生成重复版本，失败进入可见状态和 DLQ。用户明确编辑或确认的内容才能产生记忆候选，不自动写入系统记忆。
-- `DiaryScheduleRevision` 不可变；Scheduler 声明 `DiaryCycle` 后用 `scheduleVersion` CAS、lease 和单调 fencing token 进行领取。周期状态为 `Scheduled -> Claimed -> Generating -> Validating -> Published | Skipped | Failed | Cancelled`；只有 `Published` 或有原因/操作者/时间证据的 `Skipped` 能与 `lastCutoffAt/cursorVersion` 在同一 PostgreSQL 事务提交，过期 Worker、`Failed` 和 `Cancelled` 不推进 cursor。空日记如已发布则属于 `Published`，只有用户或明确策略选择不生成才属于 `Skipped`。
+- `DiaryScheduleRevision` 不可变；Scheduler 声明 `DiaryCycle` 后用 `scheduleVersion` CAS、lease 和单调 fencing token 进行领取。周期状态为 `Scheduled -> Claimed -> Generating -> Validating -> Published | Skipped | Failed | Cancelled`；只有 `Published` 或有原因/操作者/时间证据的 `Skipped` 能与 `lastCutoffAt/cursorVersion` 在同一 SQLite 事务提交，过期 Worker、`Failed` 和 `Cancelled` 不推进 cursor。空日记如已发布则属于 `Published`，只有用户或明确策略选择不生成才属于 `Skipped`。
 - 来源必须区分 `occurredAt` 和 `ingestedAt`，周期归属只使用 `occurredAt`。只有 `occurredAt > cutoffAt` 的事件进入下一周期；`occurredAt <= previousCutoffAt`（首次为 `< initialWindowStart`）但后写入的来源标记为历史迟到，只能手动关联原周期或忽略。超过 `bufferClosedAt` 才写入的本周期来源不自动改写或生成候选。
 - 失败跨过下一截止点或多日宕机时，Scheduler 按 `cutoffAt` 从旧到新建立独立周期并顺序恢复，不自动合并或静默跳过；超过已批准自动补写上限时转为待决定队列。quiet hours 只延迟/合并通知，不改变 cutoff、生成或 cursor。首次 `initialWindowStart` 为启用和授权持久化时点；同日标签已存在自动日记时，新 revision 顺延到下一个未占用标签。
 
@@ -245,7 +245,7 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 - G2 前由产品/技术/财务批准 `每有效学习会话成本`、`每活跃用户月成本 P50/P95` 和总月预算；当前数值为待定阻断项，不用缺乏依据的虚假精度填充。
 - 预算达到 70% 触发预测告警，85% 停止非核心高成本任务（自动扩展阅读、批量重写等），100% 只保留已批准的核心模型/固定降级；不得通过降低安全分类或删除能力省钱。
 - Provider 路由记录模型能力、地区、保留、成本、限流和健康状态。超时/5xx/限流达到熔断阈值后切换已评估备用模型；无合格备用时保留输入并显示可重试状态。
-- Redis 丢失时以 PostgreSQL Outbox/ScheduledJob 为真源重建队列；消费者使用幂等键和水位线，重放后执行重复结果检查，不从 Redis 反向恢复业务状态。
+- Redis 丢失时以 SQLite Outbox/ScheduledJob 为真源重建队列；消费者使用幂等键和水位线，重放后执行重复结果检查，不从 Redis 反向恢复业务状态。
 
 ## 10. 参考项目适配边界
 
@@ -260,7 +260,7 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 |---|---|
 | ADR-001 | 模块化单体 + Worker，而非 MVP 微服务 |
 | ADR-002 | React/Vite + Fastify + OpenAPI/SSE，而非 Next 一体化后端或 tRPC 锁定 |
-| ADR-003 | PostgreSQL + FTS/pgvector，而非 Neo4j/独立向量库 |
+| ADR-003 | 仓储抽象架构：SQLite 业务真源与 FTS5/Vector Port |
 | ADR-004 | 业务状态 + Outbox + 幂等队列，而非全系统 Event Sourcing |
 | ADR-005 | 内部 Provider Port 包裹 AI SDK，模型和 Prompt 可替换 |
 | ADR-006 | AI 召回期限与用户可见数据保留期限分离 |
@@ -300,4 +300,4 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 - 记忆、日记、附件、插件和外部同步均有幂等、撤销、权限和 DLQ 测试；
 - 依赖、许可证、SBOM、Secret scan、漏洞扫描和参考项目许可边界通过；
 - Playwright 覆盖学习闭环、日记、删除、导出和弱网恢复；AI 回归集覆盖教学、安全、来源、过度压缩和删除后零召回；
-- 生产演练证明模型供应商中断、Redis 丢失、数据库 PITR、对象恢复、队列重放和功能开关回滚可执行。
+- 生产演练证明模型供应商中断、Redis 丢失、数据库备份恢复、对象恢复、队列重放和功能开关回滚可执行。

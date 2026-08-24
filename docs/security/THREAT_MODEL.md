@@ -8,14 +8,14 @@
 
 ## 1. 范围与资产
 
-范围包括 Web/API/Worker、PostgreSQL、Redis/BullMQ、S3、独立故障域 `RecoveryControlLedger`、模型/身份/通知供应商、Electron、P2 插件/外部同步和 P3 组织权限。关键资产：凭据、私人会话、作答、记忆、日记、附件、安全事件、同意、撤权/删除 deny 控制事件、模型上下文和组织角色。
+范围包括 Web/API/Worker、SQLite、Redis/BullMQ、S3、独立故障域 `RecoveryControlLedger`、模型/身份/通知供应商、Electron、P2 插件/外部同步和 P3 组织权限。关键资产：凭据、私人会话、作答、记忆、日记、附件、安全事件、同意、撤权/删除 deny 控制事件、模型上下文和组织角色。
 
 不在当前生产范围：未成年人、设备屏幕/麦克风/摄像头捕获、社区私信、市场支付和任意第三方插件执行；这些能力启用前必须扩展本模型。
 
 ## 2. 信任边界
 
 1. 用户客户端 ↔ CDN/WAF/API。
-2. API/Worker ↔ PostgreSQL/Redis/S3；业务库 ↔ 独立 `RecoveryControlLedger` 是不能假定原子提交的跨故障域边界。
+2. API/Worker ↔ SQLite/Redis/S3；业务库 ↔ 独立 `RecoveryControlLedger` 是不能假定原子提交的跨故障域边界。
 3. Aervox ↔ OIDC/AI/通知/分析供应商。
 4. 用户工作区 ↔ 其他工作区/组织管理员。
 5. 核心应用 ↔ 外部内容、OAuth 集成、插件/DSH/pi/MCP。

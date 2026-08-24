@@ -5,3 +5,5 @@ out/
 *.tsbuildinfo
 .DS_Store
 *.log
+.pnpm-store/
+*.db*

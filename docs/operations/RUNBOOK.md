@@ -15,7 +15,7 @@
 | AI Gateway | TTFT P95 ≤ 8 s；教学/安全质量门槛 | 超时、限流、成本、模型/Prompt 回归 |
 | Worker/Queue | 日记首版 95% ≤ 15m；复习/通知 P95 ≤ 5m | queue lag、DLQ、重复结果、worker crash |
 | Data/Deletion | 在线删除 ≤ 24h；删除后零召回 | DeletionTarget 失败/积压、索引残留 |
-| PostgreSQL/S3 | 数据完整、备份可恢复 | 容量、复制延迟、PITR、对象错误 |
+| SQLite/S3 | 数据完整、备份可恢复 | 容量、复制延迟、PITR、对象错误 |
 
 ### 1.1 快速入口
 
@@ -41,12 +41,12 @@
 
 ## 4. Redis/队列丢失或积压
 
-- 暂停非核心生产者和重复重放；保留 API 核心写入及 PostgreSQL Outbox。
+- 暂停非核心生产者和重复重放；保留 API 核心写入及 SQLite Outbox。
 - 恢复 Redis 后按 Outbox/ScheduledJob 水位线重建队列；使用幂等键，检查每个 `(workspaceId, subjectUserId, localDate)` 标签最多一个自动日记身份、复习活动项唯一和删除任务状态。
 - DLQ 重放前检查权限/删除状态/版本，过期或撤销任务标记取消，不再次调用供应商。
 - 验证 queue lag、重复业务结果、Outbox 未消费数和 Worker trace。
 
-## 5. PostgreSQL 故障与 PITR
+## 5. SQLite 故障与备份恢复
 
 - 进入只读/维护状态，停止 Worker 写入和外部同步；保护当前 WAL/备份证据。
 - 按批准 RPO 选择恢复点，在隔离环境恢复并运行完整性/迁移检查。
@@ -82,4 +82,4 @@
 
 ## 10. 演练与证据
 
-每季度演练 PostgreSQL PITR、RecoveryControlLedger 账本不可用/缺口/重复/乱序及 reconciler、Redis 丢失重建、S3 恢复、模型中断、删除传播、插件 kill switch 和日记跨 DST。记录日期、环境、版本、RPO/RTO、账本水位、fail-closed 结果、偏差、Owner 和改进项；没有演练证据不能通过 G5。
+每季度演练 SQLite 备份恢复/Litestream、RecoveryControlLedger 账本不可用/缺口/重复/乱序及 reconciler、Redis 丢失重建、S3 恢复、模型中断、删除传播、插件 kill switch 和日记跨 DST。记录日期、环境、版本、RPO/RTO、账本水位、fail-closed 结果、偏差、Owner 和改进项；没有演练证据不能通过 G5。

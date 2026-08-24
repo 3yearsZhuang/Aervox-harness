@@ -10,7 +10,7 @@
 
 ## 演练范围（每季度）
 
-- PostgreSQL PITR 与完整性校验；
+- SQLite/Litestream 备份恢复与完整性校验；
 - `RecoveryControlLedger` 不可用/缺口/重复/乱序及 reconciler 重放；
 - Redis 丢失后 Outbox/ScheduledJob 重建；
 - S3/对象恢复与 checksum 校验；
