@@ -1,6 +1,9 @@
 node_modules/
 dist/
+out/
 .turbo/
 *.tsbuildinfo
 .DS_Store
 *.log
+.pnpm-store/
+*.db*

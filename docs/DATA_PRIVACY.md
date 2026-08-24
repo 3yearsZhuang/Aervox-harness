@@ -113,7 +113,7 @@
 
 删除 SLA：立即停止在线使用；24 小时内完成 Aervox 控制的在线存储清除/重建；外部处理者按合同 SLA，若不能满足则不得承载相应数据。失败进入队列重试和告警，用户可查看进度。删除失败不能以“后台处理中”为由继续召回。
 
-`RecoveryControlLedger` 是删除、同意撤销及插件/外部权限撤权的 deny 控制事实源，使用独立凭据和故障域，不与业务 PostgreSQL 假装共享事务。每个控制操作以确定性 `eventId/idempotencyKey` 先追加并取得 durable ack，再写业务事务和 Outbox；若账本已写而业务事务失败，reconciler 必须按连续 `sequence` 幂等补齐业务 deny/清理状态。账本不可用、签名验证失败、sequence 缺口、账本保留未覆盖最老可恢复备份或业务应用水位未追平时，受影响用途/工作区必须 fail closed，不得确认操作完成或重新开放流量。账本只保留不可逆/假名化引用和最少证明材料，不能包含正文、Embedding 或可逆摘要。
+`RecoveryControlLedger` 是删除、同意撤销及插件/外部权限撤权的 deny 控制事实源，使用独立凭据和故障域，不与业务数据库假装共享事务。每个控制操作以确定性 `eventId/idempotencyKey` 先追加并取得 durable ack，再写业务事务和 Outbox；若账本已写而业务事务失败，reconciler 必须按连续 `sequence` 幂等补齐业务 deny/清理状态。账本不可用、签名验证失败、sequence 缺口、账本保留未覆盖最老可恢复备份或业务应用水位未追平时，受影响用途/工作区必须 fail closed，不得确认操作完成或重新开放流量。账本只保留不可逆/假名化引用和最少证明材料，不能包含正文、Embedding 或可逆摘要。
 
 删除单条来源不必删除独立合法事实：若高层记忆仍有其他有效证据，应重新计算并显示证据数量；若无证据，必须失效。删除日记不删除原始会话；删除原始来源则把受影响日记段落标为“来源已删除/不可验证”，并禁止用其生成长期事实。
 
@@ -123,7 +123,7 @@
 
 | 下游 | 删除动作 | 目标完成时间 | 责任模块 | 验证证据 |
 |---|---|---:|---|---|
-| PostgreSQL 业务记录 | 标记不可用、级联删除或重建派生记录 | 立即阻断；24 小时内完成 | Domain/Data | `TC-PRIV-DEL-001`、DeletionRequest 状态 |
+| SQLite 业务记录 | 标记不可用、级联删除或重建派生记录 | 立即阻断；24 小时内完成 | Domain/Data | `TC-PRIV-DEL-001`、DeletionRequest 状态 |
 | Redis 缓存/BullMQ | 取消未执行 Job、清理缓存键、拒绝旧任务 | 立即阻断；1 小时内 | Worker/Platform | 队列扫描、缓存零命中 |
 | TurnStreamEvent | 清除事件正文、停止重放并追加不含正文的可见性变更事件 | 立即阻断；24 小时内清除正文 | Conversation/Platform | `TC-PRIV-STREAM-001`、事件正文零读取 |
 | FTS/pgvector | 删除或重建索引，更新 embedding 版本 | 24 小时内 | Retrieval/Memory | 删除后零召回测试 |
@@ -146,7 +146,7 @@
 ## 10. 安全控制
 
 - Web 使用同源 HttpOnly/Secure/SameSite Cookie、CSRF、防重放、CSP 和速率限制；桌面/移动使用 OIDC Authorization Code + PKCE。
-- 应用鉴权与 PostgreSQL RLS 双层限制 `(workspaceId, subjectUserId)`；管理员、组织、插件和供应商访问使用独立 `actorId` 并分别审计。
+- 应用鉴权与 TenantContext 仓储双层限制 `(workspaceId, subjectUserId)`；管理员、组织、插件和供应商访问使用独立 `actorId` 并分别审计。
 - 静态和传输加密；Restricted 内容和对象使用 KMS envelope encryption；密钥不以明文入库或进入模型。
 - 模型、日志、错误监控和分析使用字段级脱敏；`ModelRun` 保存 ContextManifest，不默认复制完整 Prompt。
 - 附件限制类型、大小、解压比例和扫描状态；不可信内容不能执行或提升工具权限。

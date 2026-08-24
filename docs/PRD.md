@@ -388,7 +388,7 @@ MVP 使用一个可解释的最小调度规则：新知识次日复习；连续�
 | NFR-SCALE-001 | 容量 | MVP 按 10,000 注册用户、1,000 DAU、100 个并发流式会话验证；每阶段上线前依据真实负载重估并完成 2 倍峰值压测 |
 | NFR-REL-001 | 可靠性 | 用户消息和答题先持久化再调用模型；流式响应只展示已通过分段安全检查且持久化的内容；刷新、短时断网、重连、取消、重复提交和任务重投不得丢失已展示分段或重复形成业务结果 |
 | NFR-JOB-001 | 后台任务 | 自动日记首版在设定时间后 15 分钟内发布的比例 ≥ 95%，不得为等待 30 分钟晚到宽限期而延迟；到期复习和通知的 P95 延迟 ≤ 5 分钟；失败任务可见、可重试且不重复生成 |
-| NFR-DR-001 | 灾备 | MVP 每日加密备份，每季度执行恢复演练并保留证据；成长期目标 RPO ≤ 5 分钟、RTO ≤ 1 小时；删除、同意撤销和插件/外部授权撤权的关键控制事件必须进入与业务 PostgreSQL 独立故障域的不可变恢复账本，恢复后重放和验证完成前不得开放流量 |
+| NFR-DR-001 | 灾备 | MVP 每日加密备份，每季度执行恢复演练并保留证据；成长期目标 RPO ≤ 5 分钟、RTO ≤ 1 小时；删除、同意撤销和插件/外部授权撤权的关键控制事件必须进入与业务数据库独立故障域的不可变恢复账本，恢复后重放和验证完成前不得开放流量 |
 | NFR-A11Y-001 | 无障碍 | 核心 Web 流程达到 WCAG 2.2 AA；支持键盘、可读标签、可见焦点、减少动画、字幕/文本替代和不依赖颜色传达状态 |
 | NFR-COMPAT-001 | 兼容 | 支持 Chrome、Edge、Safari 当前及前一个主版本；移动 Web 保证浏览、对话和答题；桌宠视觉可降级但核心流程不可缺失 |
 | NFR-I18N-001 | 国际化 | 文案、日期、时区、复习日界线和日记生成均不得硬编码为单一语言或 UTC+8；MVP 至少完整支持简体中文 |
@@ -593,7 +593,7 @@ AI 每日日记是给用户阅读的叙事视图，记忆层是供系统推理�
 | AuditRecord | id, workspaceId, subjectUserId, actorType, actorId, action, subjectType, subjectId, metadata, createdAt | 权限、导出、删除、插件、管理员和高风险操作审计；操作者和数据主体不可混用 |
 | DeletionRequest | id, workspaceId, subjectUserId, scope, idempotencyKey, requestedAt, effectiveAt, status, attemptCount, lastError, ownerModule, lastVerifiedAt | 账户/工作区/来源级删除及各存储传播进度；接受后来源始终保持 deny |
 | DeletionTarget | requestId, targetType, targetId, ownerModule, status, attemptCount, verifiedAt, evidenceRef | 删除传播清单的逐下游状态；不包含被删除正文，供清理、验证和重试，不充当独立恢复账本 |
-| RecoveryControlLedger | eventId, idempotencyKey, eventType, workspaceRef, subjectRef, targetRef, occurredAt, sequence, tamperEvidence | 与业务 PostgreSQL 分离凭据、分离故障域的不可变 deny 控制事实源；使用假名化引用记录删除、同意撤销和外部权限撤权，不含用户正文 |
+| RecoveryControlLedger | eventId, idempotencyKey, eventType, workspaceRef, subjectRef, targetRef, occurredAt, sequence, tamperEvidence | 与业务数据库分离凭据、分离故障域的不可变 deny 控制事实源；使用假名化引用记录删除、同意撤销和外部权限撤权，不含用户正文 |
 
 全生命周期扩展实体（不要求 MVP 首次实现）：
 
@@ -769,8 +769,8 @@ PRD 只规定用户价值、行为规则和验收结果；可变的实现细节�
 | 运行时/语言 | Node.js 24 LTS；TypeScript 6.x strict；pnpm 11 + Turborepo 2.x | 与参考项目的 Node ≥22.19 兼容；统一前后端类型和构建；版本、lockfile、容器镜像精确锁定 |
 | Web 客户端 | React 19 + Vite 7 + TanStack Router/Query；共享 UI 包 | 登录后流式应用优先客户端渲染；可复用到 Electron；核心路由和缓存不依赖服务端框架私有 API |
 | API/契约 | Fastify 5 + Zod 4 + OpenAPI 3.1；POST 创建 Turn + GET SSE | 结构化校验、可生成契约和多语言客户端；SSE 明确事件 ID、`Last-Event-ID`、重放/去重、取消和部分响应持久化；不以 tRPC 锁定未来插件/移动端消费者 |
-| 业务数据 | PostgreSQL 17+ + Drizzle ORM + 显式 SQL migration | 事务、约束、RLS、全文和递归查询满足学习与记忆树；不把 ORM 推断当作数据治理 |
-| 向量/检索 | pgvector（P1 按需启用）+ PostgreSQL 全文检索 | MVP 不引入独立向量数据库；Embedding 记录模型、维度和版本，可重建 |
+| 业务数据 | SQLite (WAL 模式) + Drizzle ORM + 仓储抽象 | 事务、约束、RLS、全文和递归查询满足学习与记忆树；不把 ORM 推断当作数据治理 |
+| 向量/检索 | SQLite FTS5 + 向量检索 Port（sqlite-vec/内存适配） | MVP 不引入独立向量数据库；Embedding 记录模型、维度和版本，可重建 |
 | 队列/缓存 | Redis 7 + BullMQ 5；至少一次投递、幂等 Job、DLQ | 日记、记忆、OCR、嵌入和通知异步化；Redis 不是业务真源 |
 | 附件 | S3 兼容对象存储 + 短期签名 URL + 病毒/内容扫描 | 图片、论文、试卷和导出文件与事务数据分离；对象删除受来源删除 SLA 约束 |
 | AI 运行时 | Vercel AI SDK 6（表现层）+ 内部 Provider Port；结构化输出、模型路由和安全分类 | 可利用参考项目验证过的生态，同时避免供应商或 Agent 框架成为领域真源；不让模型直接写核心表 |

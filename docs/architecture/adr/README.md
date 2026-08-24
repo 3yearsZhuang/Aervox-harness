@@ -13,7 +13,7 @@ ADR 记录难以逆转、影响多个模块或改变数据/运维边界的技术
 |---|---|---|---|
 | ADR-001 | Proposed | 模块化单体 + Worker，而非 MVP 微服务 | [ADR-001](ADR-001-modular-monolith.md) |
 | ADR-002 | Proposed | React/Vite + Fastify + OpenAPI/SSE | [ADR-002](ADR-002-web-api-contract.md) |
-| ADR-003 | Proposed | PostgreSQL + FTS/pgvector | [ADR-003](ADR-003-postgres-retrieval.md) |
+| ADR-003 | Proposed | 仓储抽象架构：SQLite 业务真源与 FTS5/Vector Port | [ADR-003](ADR-003-postgres-retrieval.md) |
 | ADR-004 | Proposed | 业务状态 + Outbox + 幂等队列 | [ADR-004](ADR-004-outbox-idempotent-jobs.md) |
 | ADR-005 | Proposed | 内部 Provider Port 包裹 AI SDK | [ADR-005](ADR-005-provider-port.md) |
 | ADR-006 | Proposed | AI 召回期限与用户历史保留期限分离 | [ADR-006](ADR-006-recall-retention.md) |

@@ -24,7 +24,7 @@
 
 | # | 演练项 | 通过标准 | 结果 PASS/FAIL | 账本水位/序列 | fail-closed 结果 | 偏差 | 改进项 | Owner |
 |---|---|---|---|---|---|---|---|---|
-| 1 | PostgreSQL PITR 与完整性校验 | 恢复演练达到已批准 RPO/RTO | | | | | | |
+| 1 | SQLite/Litestream 备份恢复与完整性校验 | 恢复演练达到已批准 RPO/RTO | | | | | | |
 | 2 | `RecoveryControlLedger` 不可用/缺口/重复/乱序 + reconciler | 按 sequence 幂等重放；账本不可用/缺口时 fail closed | | | | | | |
 | 3 | Redis 丢失重建 | 从 Outbox/ScheduledJob 重建，无重复业务结果 | | | | | | |
 | 4 | S3/对象恢复与 checksum | 校验通过，不恢复已删除对象 | | | | | | |

@@ -9,10 +9,13 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
-    "typecheck": "turbo run typecheck"
+    "dev:desktop": "turbo run dev --filter=@aervox/api --filter=@aervox/desktop",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test"
   },
   "devDependencies": {
     "turbo": "2.10.11",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "vitest": "4.0.18"
   }
 }
