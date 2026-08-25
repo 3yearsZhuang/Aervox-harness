@@ -4,7 +4,7 @@
  * 面向用户侧：学习目标 / 题目 / 作答 / 知识点 / 复习项。
  */
 import type { FastifyInstance } from "fastify";
-import { createLearningGoalSchema } from "@aervox/contracts";
+import { createLearningGoalSchema, updateLearningGoalSchema } from "@aervox/contracts";
 import type { SqliteLearningRepository } from "@aervox/database";
 import { resolveTenant } from "../../shared/tenant.js";
 import { createReviewItem, updateAfterAnswer } from "@aervox/practice-review";
@@ -47,17 +47,24 @@ export function registerLearningRoutes(
       return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? "invalid request" });
     }
     const { topic, level, availableMinutes } = parsed.data;
-    const goal = await learningRepo.createLearningGoal(tenant, {
-      id: id("goal"),
-      topic,
-      level,
-      availableMinutes,
-    });
+    const idempotencyKey = req.headers["idempotency-key"];
+    if (typeof idempotencyKey === "string" && idempotencyKey.length > 0) {
+      const result = await learningRepo.createLearningGoalIdempotent(tenant, {
+        id: id("goal"),
+        topic,
+        level,
+        availableMinutes,
+        idempotencyKey,
+      });
+      return reply.code(result.created ? 201 : 200).send(result.goal);
+    }
+    const goal = await learningRepo.createLearningGoal(tenant, { id: id("goal"), topic, level, availableMinutes });
     return reply.code(201).send(goal);
   });
 
   app.get("/v1/learning/goals", async (req) => {
-    return { items: await learningRepo.listLearningGoals(resolveTenant(req)) };
+    const includeArchived = (req.query as { includeArchived?: string }).includeArchived === "true";
+    return { items: await learningRepo.listLearningGoals(resolveTenant(req), includeArchived) };
   });
 
   app.get("/v1/learning/goals/:goalId", async (req, reply) => {
@@ -65,6 +72,32 @@ export function registerLearningRoutes(
     const goal = await learningRepo.getLearningGoal(resolveTenant(req), goalId);
     if (!goal) return reply.code(404).send({ error: "goal not found" });
     return goal;
+  });
+
+  app.patch("/v1/learning/goals/:goalId", async (req, reply) => {
+    const { goalId } = req.params as { goalId: string };
+    const parsed = updateLearningGoalSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? "invalid request" });
+    }
+    const tenant = resolveTenant(req);
+    const existing = await learningRepo.getLearningGoal(tenant, goalId);
+    if (!existing || existing.status === "archived") {
+      return reply.code(404).send({ error: "goal not found" });
+    }
+    const goal = await learningRepo.updateLearningGoal(tenant, goalId, parsed.data);
+    return goal;
+  });
+
+  app.delete("/v1/learning/goals/:goalId", async (req, reply) => {
+    const tenant = resolveTenant(req);
+    const { goalId } = req.params as { goalId: string };
+    const existing = await learningRepo.getLearningGoal(tenant, goalId);
+    if (!existing || existing.status === "archived") {
+      return reply.code(404).send({ error: "goal not found" });
+    }
+    await learningRepo.updateLearningGoal(tenant, goalId, { status: "archived" });
+    return reply.code(204).send();
   });
 
   // 题目
