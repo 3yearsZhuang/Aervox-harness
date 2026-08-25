@@ -13,6 +13,21 @@ let seq = 0;
 const id = (prefix: string): string =>
   `${prefix}_${Date.now().toString(36)}_${(++seq).toString(36)}`;
 
+function judgeAnswer(answerSpec: unknown, answer: string): "correct" | "incorrect" | "unverifiable" {
+  if (
+    !answerSpec ||
+    typeof answerSpec !== "object" ||
+    !("answer" in answerSpec) ||
+    typeof answerSpec.answer !== "string"
+  ) {
+    return "unverifiable";
+  }
+
+  return answer.trim().toLocaleLowerCase() === answerSpec.answer.trim().toLocaleLowerCase()
+    ? "correct"
+    : "incorrect";
+}
+
 export function registerLearningRoutes(
   app: FastifyInstance,
   learningRepo: SqliteLearningRepository,
@@ -82,19 +97,14 @@ export function registerLearningRoutes(
     const body = (req.body ?? {}) as {
       sessionId?: string;
       answer?: string;
-      judgement?: string;
       evidence?: unknown;
     };
-    if (!body.answer || !body.judgement) {
-      return reply.code(400).send({ error: "answer and judgement are required" });
-    }
-    if (!(["correct", "incorrect", "partial", "unverifiable"] as const).includes(body.judgement as never)) {
-      return reply.code(400).send({ error: "invalid judgement" });
-    }
+    if (!body.answer) return reply.code(400).send({ error: "answer is required" });
     const idempotencyKey = req.headers["idempotency-key"];
     const hasIdempotencyKey = typeof idempotencyKey === "string" && idempotencyKey.length > 0;
     const question = await learningRepo.getQuestion(tenant, questionId);
     if (!question) return reply.code(404).send({ error: "question not found" });
+    const judgement = judgeAnswer(question.answerSpec, body.answer);
 
     const { attempt, created } = hasIdempotencyKey
       ? await learningRepo.recordAttemptIdempotent(tenant, {
@@ -102,7 +112,7 @@ export function registerLearningRoutes(
           sessionId: body.sessionId ?? "ses_unknown",
           questionId,
           answer: body.answer,
-          judgement: body.judgement,
+          judgement,
           evidence: body.evidence,
           idempotencyKey,
         })
@@ -112,14 +122,14 @@ export function registerLearningRoutes(
             sessionId: body.sessionId ?? "ses_unknown",
             questionId,
             answer: body.answer,
-            judgement: body.judgement,
+            judgement,
             evidence: body.evidence,
             idempotencyKey: null,
           }),
           created: true,
         };
     if (!created) return reply.code(200).send(attempt);
-    if (!question.knowledgeId || !["correct", "incorrect"].includes(body.judgement)) {
+    if (!question.knowledgeId || !["correct", "incorrect"].includes(judgement)) {
       return reply.code(201).send(attempt);
     }
 
@@ -134,7 +144,7 @@ export function registerLearningRoutes(
       correctStreak: storedItem.correctStreak,
       mastery: storedItem.mastery,
     };
-    const isCorrect = body.judgement === "correct";
+    const isCorrect = judgement === "correct";
     updateAfterAnswer(item, isCorrect);
     const review = createReviewItem(item, isCorrect);
     const masteryState = item.mastery >= 0.8 ? "mastered" : "learning";
