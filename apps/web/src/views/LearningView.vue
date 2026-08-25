@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useAervoxApi } from '@/composables/useAervoxApi';
+import { useAervoxApi } from '@aervox/api-client';
 
 const { goals, dueReviews, todayDiary, loading, error, createGoal } = useAervoxApi();
 const topic = ref('');

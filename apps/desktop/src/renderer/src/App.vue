@@ -19,8 +19,8 @@ import {
   X,
 } from 'lucide-vue-next'
 import AppTitlebar from '@/components/AppTitlebar.vue'
-import {streamAervoxTurn} from '@/composables/useAervoxTurn'
-import {useAervoxApi} from '@/composables/useAervoxApi'
+import {PetHero} from '@aervox/ui'
+import {streamAervoxTurn, useAervoxApi} from '@aervox/api-client'
 
 interface StoryLine {
   id: number
@@ -128,22 +128,8 @@ onUnmounted(() => {
           </div>
 
           <div class="hero-pet-stage">
-            <button class="hero-pet" type="button" aria-label="打开桌宠工具菜单" @click="toolsOpen = !toolsOpen">
-              <span class="hero-wing wing-left" />
-              <span class="hero-wing wing-right" />
-              <span class="hero-head">
-                <span class="hero-ear ear-left" />
-                <span class="hero-ear ear-right" />
-                <span class="hero-hair">⌁</span>
-                <span class="hero-eye eye-left" />
-                <span class="hero-eye eye-right" />
-                <span class="hero-cheek cheek-left" />
-                <span class="hero-cheek cheek-right" />
-                <span class="hero-mouth">⌣</span>
-              </span>
-              <span class="hero-body"><span class="hero-collar" /></span>
-              <span class="hero-foot foot-left" />
-              <span class="hero-foot foot-right" />
+            <button class="hero-pet" type="button" aria-label="打开桌宠工具菜单" style="display:flex;align-items:center;justify-content:center" @click="toolsOpen = !toolsOpen">
+              <PetHero />
             </button>
             <div class="pet-speech">对话由 Aervox API 提供</div>
           </div>
