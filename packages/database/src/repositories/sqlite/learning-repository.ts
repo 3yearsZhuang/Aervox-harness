@@ -125,6 +125,23 @@ export class SqliteLearningRepository implements ILearningRepository {
     return (found as QuestionModel) ?? null;
   }
 
+  async listActiveQuestions(tenant: TenantContext, limit: number): Promise<QuestionModel[]> {
+    assertTenantContext(tenant);
+    const rows = await this.db
+      .select()
+      .from(questions)
+      .where(
+        and(
+          eq(questions.workspaceId, tenant.workspaceId),
+          eq(questions.subjectUserId, tenant.subjectUserId),
+          eq(questions.status, "active"),
+        ),
+      )
+      .orderBy(questions.createdAt)
+      .limit(limit);
+    return rows as QuestionModel[];
+  }
+
   /** 每次答题为不可变学习事实，仅追加不更新 */
   async recordAttempt(
     tenant: TenantContext,
