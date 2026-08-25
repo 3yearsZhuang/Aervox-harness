@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {Maximize2, Minimize2, Minus, Moon, Sparkles, Sun, X} from 'lucide-vue-next'
+import {Maximize2, Minimize2, Minus, Moon, Settings, Sparkles, Sun, X} from 'lucide-vue-next'
 import {onMounted, onUnmounted, ref} from 'vue'
 
 const isMaximized = ref(false)
@@ -36,6 +36,10 @@ async function minimizeWindow() {
 async function closeWindow() {
   await window.fairyDesktop?.close()
 }
+
+function openSettings() {
+  window.dispatchEvent(new CustomEvent('aervox:open-settings'))
+}
 </script>
 
 <template>
@@ -52,6 +56,11 @@ async function closeWindow() {
                 :aria-label="isDark ? '切换亮色模式' : '切换暗色模式'" @click.stop="toggleTheme">
           <Moon v-if="isDark" :size="18"/>
           <Sun v-else :size="18"/>
+        </button>
+      </el-tooltip>
+      <el-tooltip content="设置" placement="bottom" :show-after="500">
+        <button class="window-control" type="button" aria-label="打开设置" @click.stop="openSettings">
+          <Settings :size="17"/>
         </button>
       </el-tooltip>
       <el-tooltip content="最小化" placement="bottom" :show-after="500">

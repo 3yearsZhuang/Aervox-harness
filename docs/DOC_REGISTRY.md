@@ -11,9 +11,9 @@
 
 | 文档编号 | 文档 | 责任角色（人名待定） | 最后核验 | 核验节奏 | 陈旧信号 |
 |---|---|---|---|---|---|
-| `AVX-PRD-001` | [PRD](reference/PRD.md) | 产品负责人 | 2026-08-24 | 每次版本立项 / G0 | CAP 范围或优先级变更未建立 `CR-*` |
-| `AVX-SRS-001` | [SRS](reference/SRS.md) | 产品与模块负责人 | 2026-08-24 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
-| `AVX-SAD-001` | [架构设计](reference/ARCHITECTURE.md) | 技术负责人 | 2026-08-24 | G2 评审 + 架构变更 | 新增 ADR/技术基线变化未同步 |
+| `AVX-PRD-001` | [PRD](reference/PRD.md) | 产品负责人 | 2026-08-25 | 每次版本立项 / G0 | CAP 范围或优先级变更未建立 `CR-*` |
+| `AVX-SRS-001` | [SRS](reference/SRS.md) | 产品与模块负责人 | 2026-08-25 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
+| `AVX-SAD-001` | [架构设计](reference/ARCHITECTURE.md) | 技术负责人 | 2026-08-25 | G2 评审 + 架构变更 | 新增 ADR/技术基线变化未同步 |
 | `ADR-001~015` | [ADR 索引](reference/adr/README.md) | 技术负责人（各 ADR 另有 Owner） | 2026-08-24 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
 | `AVX-SPC-001` | [流式协议](reference/STREAMING_PROTOCOL.md) | 技术负责人 | 2026-08-24 | OpenAPI/事件 schema 变更 | `packages/contracts` 版本高于文档描述 |
 | `AVX-DB-001` | [数据库设计与双引擎契约](reference/DATABASE.md) | 技术负责人 | 2026-08-24 | Schema/仓储接口/迁移计划变更 | 仓储接口签名或租户隔离模式/PG 切换计划与实现不一致 |
@@ -22,7 +22,7 @@
 | `AVX-SEC-001` | [威胁模型](reference/THREAT_MODEL.md) | 安全与隐私负责人 | 2026-08-24 | 每季度 + 信任边界变更 | 新增数据流/信任边界未加入威胁模型 |
 | `AVX-QA-001` | [测试策略](reference/TEST_STRATEGY.md) | QA 负责人 | 2026-08-24 | G1/G4 门禁 | AC/TC 状态变化未回填 |
 | `AVX-OPS-001` | [运行与恢复手册](reference/RUNBOOK.md) | 运维/平台负责人 | 2026-08-24 | 每季度演练 + 每次发布 | 演练日期超期或告警/拓扑变化未更新 |
-| `AVX-TRC-001` | [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) | 文档负责人（QA 复核） | 2026-08-24 | 版本立项 / G1 / G4 | CAP/AC/TC 状态或追踪关系变化未回填 |
+| `AVX-TRC-001` | [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) | 文档负责人（QA 复核） | 2026-08-25 | 版本立项 / G1 / G4 | CAP/AC/TC 状态或追踪关系变化未回填 |
 | `AVX-GUIDE-001~006` | [操作指南](how-to) | 文档负责人 | 2026-08-24 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
 | `AVX-ONC-001` | [值班与升级矩阵](reference/ONCALL.md) | 运维/平台负责人（安全复核） | 2026-08-24 | 每次值班变更 + 季度 | 联系人/升级时限变更未同步 |
 | `AVX-DRL-001` | [演练证据模板](reference/DRILL_TEMPLATE.md) | 运维/平台负责人 | 2026-08-24 | 每季度演练后 | 演练项/通过标准与运行手册不符 |
@@ -30,6 +30,7 @@
 | `AVX-WEB-001` | [Web 工作台实现规划](explanation/web-implementation.md) | 技术负责人 | 2026-08-25 | Web 端实现或技术基线变更 | `apps/web` 结构与 ADR-015/规划不一致 |
 | `CR-002` | [Fairy Agent Electron 桌面端](reference/changes/CR-002-fairy-desktop-module.md) | 产品与技术负责人 | 2026-08-24 | CAP-018 桌面端实现或安全边界变更 | Electron 端目录、契约边界、测试证据或回滚条件与实现不符 |
 | `CR-003` | [SQLite 业务真源与 PG 兼容](reference/changes/CR-003-sqlite-primary-pg-compat.md) | 技术负责人 | 2026-08-24 | 数据真源 / 仓储抽象变更 | 仓储接口或 PG 切换计划与实现不符 |
+| `CR-004` | [共享工作台与 Web 无桌宠表现层](reference/changes/CR-004-shared-workbench-web-without-pet.md) | 产品与技术负责人 | 2026-08-25 | Web/Desktop 共享 UI 或桌宠边界变更 | 两端工作台、桌宠渲染边界或平台壳与文档不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 文档负责人 | 2026-08-25 | 规则变更或季度评审 | 新增文档未标注四分类/头字段不合规，或 Vale 规则与术语表不一致 |
 | `AVX-TERM-001` | [术语表](reference/standards/terminology.md) | 文档负责人 | 2026-08-25 | 术语新增/变更 | 新增缩写未登记，或正文拼写与「禁写」列不一致 |
 | `AVX-TUT-001` | [教程：第一个对话](tutorials/first-conversation.md) | 文档负责人（技术复核） | 2026-08-25 | 启动命令/端点变更 | 快速开始命令、Turn/SSE 端点与 README/契约不一致 |

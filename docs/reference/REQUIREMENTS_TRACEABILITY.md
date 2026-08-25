@@ -2,9 +2,9 @@
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
-> 文档版本：v0.1  
+> 文档版本：v0.2
 > 文档状态：评审候选（Review Candidate）  
-> 更新日期：2026-08-24  
+> 更新日期：2026-08-25
 > 产品需求来源：[PRD.md](PRD.md)
 > 文档负责人：待指定
 > 适用范围：原型、MVP、MVP+、P1、桌面阶段、P2、P3 及后续维护版本
@@ -92,7 +92,7 @@
 
 | 能力 ID | 能力 | 优先级 | 首次交付阶段 | 当前状态 | PRD 依据 | 达到下一状态所需工作 |
 |---|---|---|---|---|---|---|
-| `CAP-001` | 桌宠入口 | P0 | R1 MVP | `Specified` | [首页工作台](PRD.md#prd-home)、[视觉小说式对话形态](PRD.md#prd-conversation-ui) | 进入 DoR：补齐 Owner、自动化 `TC-*` 与埋点后推进 `Ready` |
+| `CAP-001` | 桌宠入口 | P0 | R1 MVP | `Specified` | [首页工作台](PRD.md#prd-home)、[视觉小说式对话形态](PRD.md#prd-conversation-ui)、[CR-004](changes/CR-004-shared-workbench-web-without-pet.md) | 进入 DoR：补齐 Owner、自动化 `TC-*` 与埋点后推进 `Ready`；Web/Desktop 表现层边界按 CR-004 验证 |
 | `CAP-002` | 学习目标与对话 | P0 | R1 MVP | `Specified` | [学习目标](PRD.md#prd-cap-002)、[引导式学习对话](PRD.md#prd-cap-007) | 拆分 `FR/BR/AC`，明确会话状态、并发修改、归档和恢复规则 |
 | `CAP-003` | 互动刷题 | P0 | R1 MVP | `Specified` | [互动练习与错题本](PRD.md#prd-cap-003-004) | 补题目来源、答案可验证性、重复提交、恢复和题组完成规则 |
 | `CAP-004` | 错题本 | P0 | R1 MVP | `Specified` | [互动练习与错题本](PRD.md#prd-cap-003-004) | 补筛选、删除、重练、错因变更、重复题合并和掌握状态规则 |
