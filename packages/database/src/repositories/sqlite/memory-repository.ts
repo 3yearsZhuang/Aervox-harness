@@ -289,6 +289,21 @@ export class SqliteMemoryRepository implements IMemoryRepository {
     return (found as MemoryNodeModel) ?? null;
   }
 
+  async listNodesByTenant(tenant: TenantContext): Promise<MemoryNodeModel[]> {
+    assertTenantContext(tenant);
+    const rows = await this.db
+      .select()
+      .from(memoryNodes)
+      .where(
+        and(
+          eq(memoryNodes.workspaceId, tenant.workspaceId),
+          eq(memoryNodes.subjectUserId, tenant.subjectUserId),
+        ),
+      )
+      .orderBy(memoryNodes.updatedAt);
+    return rows as MemoryNodeModel[];
+  }
+
   async createEdgeEvidence(
     evidenceData: { id: string; edgeId: string; memoryRevisionId: string },
   ): Promise<MemoryEdgeEvidenceModel> {
