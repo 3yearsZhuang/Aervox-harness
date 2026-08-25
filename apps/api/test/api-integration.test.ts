@@ -96,11 +96,14 @@ describe("API 集成测试：用户侧域路由", () => {
   });
 
   it("题目与作答：创建题目 → 提交作答 → 查询作答列表", async () => {
+    const learning = new SqliteLearningRepository(db);
+    const tenant = { workspaceId: "ws_it", subjectUserId: "usr_it" };
+    await learning.createKnowledgeItem(tenant, { id: "ki_trig", concept: "正弦" });
     const q = await app.inject({
       method: "POST",
       url: "/v1/questions",
       headers,
-      payload: { prompt: "sin(30°)=?", answerSpec: { answer: "1/2" } },
+      payload: { prompt: "sin(30°)=?", answerSpec: { answer: "1/2" }, knowledgeId: "ki_trig" },
     });
     expect(q.statusCode).toBe(201);
     const questionId = q.json().id as string;
@@ -120,6 +123,74 @@ describe("API 集成测试：用户侧域路由", () => {
     });
     expect(list.json().items).toHaveLength(1);
     expect(list.json().items[0].judgement).toBe("correct");
+
+    const knowledge = await app.inject({ method: "GET", url: "/v1/knowledge-items/ki_trig", headers });
+    expect(knowledge.json()).toMatchObject({ correctCount: 1, wrongCount: 0, correctStreak: 1, mastery: 0.1 });
+
+    const reviews = await app.inject({
+      method: "GET",
+      url: "/v1/review-items?dueBefore=2100-01-01T00:00:00.000Z",
+      headers,
+    });
+    expect(reviews.json().items).toHaveLength(1);
+    expect(reviews.json().items[0]).toMatchObject({ knowledgeId: "ki_trig", intervalDays: 2 });
+  });
+
+  it("作答：幂等重试只记录一次，部分正确不改变掌握度", async () => {
+    const learning = new SqliteLearningRepository(db);
+    const tenant = { workspaceId: "ws_it", subjectUserId: "usr_it" };
+    await learning.createKnowledgeItem(tenant, { id: "ki_idem", concept: "余弦" });
+    const question = await app.inject({
+      method: "POST",
+      url: "/v1/questions",
+      headers,
+      payload: { prompt: "cos(0)=?", answerSpec: { answer: "1" }, knowledgeId: "ki_idem" },
+    });
+    const questionId = question.json().id as string;
+    const attemptHeaders = { ...headers, "idempotency-key": "attempt_idem_1" };
+    const payload = { sessionId: "ses_2", answer: "1", judgement: "correct" };
+
+    expect(
+      (await app.inject({ method: "POST", url: `/v1/questions/${questionId}/attempts`, headers: attemptHeaders, payload })).statusCode,
+    ).toBe(201);
+    expect(
+      (await app.inject({ method: "POST", url: `/v1/questions/${questionId}/attempts`, headers: attemptHeaders, payload })).statusCode,
+    ).toBe(200);
+
+    const partial = await app.inject({
+      method: "POST",
+      url: `/v1/questions/${questionId}/attempts`,
+      headers,
+      payload: { sessionId: "ses_2", answer: "0.5", judgement: "partial" },
+    });
+    expect(partial.statusCode).toBe(201);
+
+    const attempts = await app.inject({ method: "GET", url: `/v1/questions/${questionId}/attempts`, headers });
+    expect(attempts.json().items).toHaveLength(2);
+
+    const otherQuestion = await app.inject({
+      method: "POST",
+      url: "/v1/questions",
+      headers,
+      payload: { prompt: "tan(45°)=?", answerSpec: { answer: "1" } },
+    });
+    const otherQuestionId = otherQuestion.json().id as string;
+    const crossKey = await app.inject({
+      method: "POST",
+      url: `/v1/questions/${otherQuestionId}/attempts`,
+      headers: attemptHeaders,
+      payload: { sessionId: "ses_2", answer: "1", judgement: "correct" },
+    });
+    expect(crossKey.statusCode).toBe(201);
+    const otherAttempts = await app.inject({
+      method: "GET",
+      url: `/v1/questions/${otherQuestionId}/attempts`,
+      headers,
+    });
+    expect(otherAttempts.json().items).toHaveLength(1);
+
+    const knowledge = await app.inject({ method: "GET", url: "/v1/knowledge-items/ki_idem", headers });
+    expect(knowledge.json()).toMatchObject({ correctCount: 1, wrongCount: 0, correctStreak: 1, mastery: 0.1 });
   });
 
   it("复习项：到期列表（先经仓储创建到期项）", async () => {

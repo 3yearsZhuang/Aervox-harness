@@ -7,6 +7,7 @@ import type { FastifyInstance } from "fastify";
 import { createLearningGoalSchema } from "@aervox/contracts";
 import type { SqliteLearningRepository } from "@aervox/database";
 import { resolveTenant } from "../../shared/tenant.js";
+import { createReviewItem, updateAfterAnswer } from "@aervox/practice-review";
 
 let seq = 0;
 const id = (prefix: string): string =>
@@ -47,13 +48,22 @@ export function registerLearningRoutes(
   // 题目
   app.post("/v1/questions", async (req, reply) => {
     const tenant = resolveTenant(req);
-    const body = (req.body ?? {}) as { prompt?: string; answerSpec?: unknown; sourceArtifactId?: string | null };
+    const body = (req.body ?? {}) as {
+      prompt?: string;
+      answerSpec?: unknown;
+      sourceArtifactId?: string | null;
+      knowledgeId?: string | null;
+    };
     if (!body.prompt) return reply.code(400).send({ error: "prompt is required" });
+    if (body.knowledgeId && !(await learningRepo.getKnowledgeItem(tenant, body.knowledgeId))) {
+      return reply.code(400).send({ error: "knowledge item not found" });
+    }
     const question = await learningRepo.createQuestion(tenant, {
       id: id("q"),
       prompt: body.prompt,
       answerSpec: body.answerSpec ?? {},
       sourceArtifactId: body.sourceArtifactId,
+      knowledgeId: body.knowledgeId,
     });
     return reply.code(201).send(question);
   });
@@ -78,13 +88,71 @@ export function registerLearningRoutes(
     if (!body.answer || !body.judgement) {
       return reply.code(400).send({ error: "answer and judgement are required" });
     }
-    const attempt = await learningRepo.recordAttempt(tenant, {
-      id: id("att"),
-      sessionId: body.sessionId ?? "ses_unknown",
-      questionId,
-      answer: body.answer,
-      judgement: body.judgement,
-      evidence: body.evidence,
+    if (!(["correct", "incorrect", "partial", "unverifiable"] as const).includes(body.judgement as never)) {
+      return reply.code(400).send({ error: "invalid judgement" });
+    }
+    const idempotencyKey = req.headers["idempotency-key"];
+    const hasIdempotencyKey = typeof idempotencyKey === "string" && idempotencyKey.length > 0;
+    const question = await learningRepo.getQuestion(tenant, questionId);
+    if (!question) return reply.code(404).send({ error: "question not found" });
+
+    const { attempt, created } = hasIdempotencyKey
+      ? await learningRepo.recordAttemptIdempotent(tenant, {
+          id: id("att"),
+          sessionId: body.sessionId ?? "ses_unknown",
+          questionId,
+          answer: body.answer,
+          judgement: body.judgement,
+          evidence: body.evidence,
+          idempotencyKey,
+        })
+      : {
+          attempt: await learningRepo.recordAttempt(tenant, {
+            id: id("att"),
+            sessionId: body.sessionId ?? "ses_unknown",
+            questionId,
+            answer: body.answer,
+            judgement: body.judgement,
+            evidence: body.evidence,
+            idempotencyKey: null,
+          }),
+          created: true,
+        };
+    if (!created) return reply.code(200).send(attempt);
+    if (!question.knowledgeId || !["correct", "incorrect"].includes(body.judgement)) {
+      return reply.code(201).send(attempt);
+    }
+
+    const storedItem = await learningRepo.getKnowledgeItem(tenant, question.knowledgeId);
+    if (!storedItem) return reply.code(201).send(attempt);
+
+    const item = {
+      id: storedItem.id,
+      name: storedItem.concept,
+      correctCount: storedItem.correctCount,
+      wrongCount: storedItem.wrongCount,
+      correctStreak: storedItem.correctStreak,
+      mastery: storedItem.mastery,
+    };
+    const isCorrect = body.judgement === "correct";
+    updateAfterAnswer(item, isCorrect);
+    const review = createReviewItem(item, isCorrect);
+    const masteryState = item.mastery >= 0.8 ? "mastered" : "learning";
+    await learningRepo.updatePracticeState(tenant, item.id, {
+      ...item,
+      masteryState,
+      masteryBasis: {
+        correctCount: item.correctCount,
+        wrongCount: item.wrongCount,
+        correctStreak: item.correctStreak,
+        schedulerVersion: review.schedulerVersion,
+      },
+    });
+    await learningRepo.scheduleReviewItem(tenant, {
+      id: id("review"),
+      knowledgeId: review.knowledgeId,
+      dueAt: review.dueAt.toISOString(),
+      intervalDays: review.intervalDays,
     });
     return reply.code(201).send(attempt);
   });

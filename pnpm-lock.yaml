@@ -26,6 +26,9 @@ importers:
       '@aervox/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@aervox/practice-review':
+        specifier: workspace:*
+        version: link:../../packages/practice-review
       '@fastify/cors':
         specifier: ^11.3.0
         version: 11.3.0
