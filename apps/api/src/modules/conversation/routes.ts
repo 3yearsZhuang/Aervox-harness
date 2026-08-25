@@ -9,14 +9,17 @@ import {
   createTurnRequestSchema,
   type TurnStreamEvent,
 } from "@aervox/contracts";
-import type { RepoContainer } from "../container.js";
-import { resolveTenant } from "../tenant.js";
+import type { SqliteConversationRepository } from "@aervox/database";
+import { resolveTenant } from "../../shared/tenant.js";
 
 let seq = 0;
 const nextTurnId = (): string => `turn_${Date.now().toString(36)}_${(++seq).toString(36)}`;
 const now = (): string => new Date().toISOString();
 
-export function registerConversationRoutes(app: FastifyInstance, c: RepoContainer): void {
+export function registerConversationRoutes(
+  app: FastifyInstance,
+  conversationRepo: SqliteConversationRepository,
+): void {
   // POST /v1/sessions/{sessionId}/turns — 幂等创建 Turn 并原子写入 Outbox
   app.post("/v1/sessions/:sessionId/turns", async (req, reply) => {
     const { sessionId } = req.params as { sessionId: string };
@@ -37,10 +40,10 @@ export function registerConversationRoutes(app: FastifyInstance, c: RepoContaine
     const tenant = resolveTenant(req);
 
     // 确保会话存在（turns.session_id 外键引用 sessions）
-    await c.conversation.getOrCreateSession(tenant, sessionId, "Aervox 会话");
+    await conversationRepo.getOrCreateSession(tenant, sessionId, "Aervox 会话");
 
     // 检查幂等性
-    const existingTurn = await c.conversation.getTurnByIdempotencyKey(tenant, idempotencyKey);
+    const existingTurn = await conversationRepo.getTurnByIdempotencyKey(tenant, idempotencyKey);
     if (existingTurn) {
       return reply.code(200).send({
         turnId: existingTurn.id,
@@ -53,7 +56,7 @@ export function registerConversationRoutes(app: FastifyInstance, c: RepoContaine
     const turnId = nextTurnId();
     const messageId = `msg_${Date.now().toString(36)}_${(++seq).toString(36)}`;
 
-    await c.conversation.createTurnWithOutbox(
+    await conversationRepo.createTurnWithOutbox(
       tenant,
       { id: turnId, sessionId, idempotencyKey, status: "Created" },
       { id: messageId, content: parsed.data.message.content },
@@ -99,7 +102,7 @@ export function registerConversationRoutes(app: FastifyInstance, c: RepoContaine
   app.post("/v1/turns/:turnId/cancel", async (req, reply) => {
     const { turnId } = req.params as { turnId: string };
     const tenant = resolveTenant(req);
-    await c.conversation.updateTurnStatus(tenant, turnId, "Cancelled");
+    await conversationRepo.updateTurnStatus(tenant, turnId, "Cancelled");
     return reply.send({ turnId, status: "Cancelled" as const });
   });
 
@@ -110,7 +113,7 @@ export function registerConversationRoutes(app: FastifyInstance, c: RepoContaine
     if (!body.sessionId || !body.role) {
       return reply.code(400).send({ error: "sessionId and role are required" });
     }
-    const message = await c.conversation.createMessage(tenant, {
+    const message = await conversationRepo.createMessage(tenant, {
       id: `msg_${Date.now().toString(36)}_${(++seq).toString(36)}`,
       sessionId: body.sessionId,
       role: body.role,

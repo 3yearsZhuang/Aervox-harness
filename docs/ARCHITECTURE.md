@@ -36,7 +36,7 @@ MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应
 ```text
 apps/
   web/          # React/Vite 工作台
-  api/          # Fastify HTTP/SSE、鉴权、限流
+  api/          # Fastify HTTP/SSE，按领域模块组织（见 §3.1）
   worker/       # 幂等后台任务和 DLQ
   desktop/      # P1 Electron 壳，复用 web/ui
   mobile/       # 后续 Expo/React Native
@@ -46,6 +46,74 @@ packages/
   content-ingestion/ integrations/ plugin-sdk/
   database/ observability/ ui/ domain/
 ```
+
+### 3.1 apps/api 内部结构（演进式模块化单体）
+
+`apps/api/src/` 采用**按领域模块组织**的结构，每个模块自管路由与仓储实例化，通过 `shared/event-bus.ts` 做进程内跨模块通信：
+
+```text
+apps/api/src/
+├── modules/                        # 业务模块（每个自管 routes + 依赖注入）
+│   ├── conversation/                #   对话模块：Session、Turn、Message、SSE 流式
+│   │   ├── routes.ts
+│   │   └── index.ts
+│   ├── learning/                    #   学习模块：目标、题目、作答、知识点、复习
+│   │   ├── routes.ts
+│   │   └── index.ts
+│   ├── diary/                       #   日记模块：日记查询、计划、窗口调度
+│   │   ├── routes.ts
+│   │   └── index.ts
+│   ├── feedback/                    #   反馈模块：用户反馈记录与查询
+│   │   ├── routes.ts
+│   │   └── index.ts
+│   ├── privacy/                     #   隐私模块：同意授权、撤回、删除请求
+│   │   ├── routes.ts
+│   │   └── index.ts
+│   ├── analytics/                   #   埋点模块：伪匿名事件记录
+│   │   ├── routes.ts
+│   │   └── index.ts
+│   ├── content/                     #   内容模块：附件元数据、引用
+│   │   ├── routes.ts
+│   │   └── index.ts
+│   └── notification/                #   通知模块：通知列表查询
+│       ├── routes.ts
+│       └── index.ts
+├── shared/                          # 跨模块共享（严格限制：只放通用工具）
+│   ├── tenant.ts                    #   租户上下文解析（从请求 Header 提取 TenantContext）
+│   ├── event-bus.ts                 #   进程内事件总线（pub/sub，未来可替换为消息队列）
+│   └── errors.ts                    #   共享错误类型（NotFoundError、ValidationError 等）
+├── app.ts                           #   Fastify 应用工厂：组装模块、注册路由
+└── index.ts                         #   进程入口：创建 app、listen
+
+apps/api/test/                       # 集成测试
+  └── api-integration.test.ts
+```
+
+**核心约束**：
+
+| 规则 | 说明 |
+|---|---|
+| 模块自管仓储 | 每个 `modules/*/index.ts` 内部实例化该模块的仓储，不引用全局容器 |
+| 路由函数签名 | `routes.ts` 导出函数接收**该模块专属的仓储实例**，而非全局 `RepoContainer` |
+| shared 严格受限 | `shared/` 只放跨 2 个以上模块的通用工具，禁止放业务逻辑 |
+| 跨模块通信 | 仅限 `shared/event-bus.ts` 的 pub/sub + `shared/` 中的纯工具函数直接调用 |
+| 单一数据库 | 仍是一个 SQLite/PostgreSQL 实例，通过表前缀做逻辑分区 |
+| 对外入口唯一 | 每个模块只有 `index.ts` 对外可见，`routes.ts` 内部函数不被其他模块引用 |
+
+**模块与仓储对应关系**：
+
+| 模块 | 仓储（来自 `@aervox/database`） | 对应路由前缀 |
+|---|---|---|
+| conversation | `SqliteConversationRepository` | `/v1/sessions/*`, `/v1/turns/*`, `/v1/messages` |
+| learning | `SqliteLearningRepository` | `/v1/learning/*`, `/v1/questions/*`, `/v1/review-items/*` |
+| diary | `SqliteDiaryRepository` | `/v1/diaries/*` |
+| feedback | `SqliteFeedbackRepository` | `/v1/feedback` |
+| privacy | `SqlitePrivacyRepository` | `/v1/consent*`, `/v1/deletions` |
+| analytics | `SqliteAnalyticsRepository` | `/v1/analytics/events` |
+| content | `SqliteContentRepository` | `/v1/attachments/*` |
+| notification | `SqlitePlatformRepository` | `/v1/notifications` |
+
+**与 ADR-001 的关系**：本结构是 ADR-001（模块化单体）在 API 层的细化设计，由 ADR-014 记录完整决策。未来当某个模块满足拆分条件（团队边界、独立扩缩容、部署独立性）时，可将该模块的进程内 EventBus 调用替换为消息队列，仓储实例化替换为 HTTP/gRPC 客户端，业务逻辑代码零改动。
 
 领域模块：
 
@@ -271,6 +339,7 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 | ADR-011 | 日记不可变周期、计划修订、cursor 连续性、迟到事件与 lease/fencing |
 | ADR-012 | POST Turn + GET SSE、分段安全门、重连去重与部分响应持久化 |
 | ADR-013 | 独立恢复控制账本与撤权先行 |
+| ADR-014 | 演进式模块化单体：apps/api 按领域模块组织，自管仓储 + 进程内事件总线 |
 
 每个 ADR 需要记录上下文、备选方案、决策、后果、迁移和回滚。未批准的技术建议不能写成已承诺架构。
 

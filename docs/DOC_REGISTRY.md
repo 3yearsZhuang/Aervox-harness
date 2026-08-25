@@ -14,7 +14,7 @@
 | `AVX-PRD-001` | [PRD](PRD.md) | 产品负责人 | 2026-08-24 | 每次版本立项 / G0 | CAP 范围或优先级变更未建立 `CR-*` |
 | `AVX-SRS-001` | [SRS](requirements/SRS.md) | 产品与模块负责人 | 2026-08-24 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
 | `AVX-SAD-001` | [架构设计](ARCHITECTURE.md) | 技术负责人 | 2026-08-24 | G2 评审 + 架构变更 | 新增 ADR/技术基线变化未同步 |
-| `ADR-001~013` | [ADR 索引](architecture/adr/README.md) | 技术负责人（各 ADR 另有 Owner） | 2026-08-24 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
+| `ADR-001~014` | [ADR 索引](architecture/adr/README.md) | 技术负责人（各 ADR 另有 Owner） | 2026-08-24 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
 | `AVX-SPC-001` | [流式协议](contracts/STREAMING_PROTOCOL.md) | 技术负责人 | 2026-08-24 | OpenAPI/事件 schema 变更 | `packages/contracts` 版本高于文档描述 |
 | `AVX-DB-001` | [数据库设计与双引擎契约](contracts/DATABASE.md) | 技术负责人 | 2026-08-24 | Schema/仓储接口/迁移计划变更 | 仓储接口签名或租户隔离模式/PG 切换计划与实现不一致 |
 | `AVX-DATA-001` | [数据与隐私](DATA_PRIVACY.md) | 安全与隐私负责人 | 2026-08-24 | 每季度 + 数据流变更 | 新增数据实体/用途/保留未评审 |
