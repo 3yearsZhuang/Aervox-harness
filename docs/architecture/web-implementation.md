@@ -4,7 +4,7 @@
 > 版本：v0.1（规划候选）  
 > 更新日期：2026-08-25  
 > 状态：Review Candidate  
-> 关联：[ADR-015](adr/ADR-015-vue-full-stack.md)（Web 技术基线）· [ADR-014](adr/ADR-014-modular-monolith-structure.md)（apps/api 模块组织）· [架构设计](ARCHITECTURE.md) · [PRD](PRD.md)
+> 关联：[ADR-015](adr/ADR-015-vue-full-stack.md)（Web 技术基线）· [ADR-014](adr/ADR-014-modular-monolith-structure.md)（apps/api 模块组织）· [架构设计](../ARCHITECTURE.md) · [PRD](../PRD.md)
 
 本文规划 `apps/web` 的实现路径：作为 Vue 全栈单栈的一员，最大化复用 `apps/desktop` 的 renderer 资产，并严格通过 `@aervox/contracts` + `@aervox/api` 消费后端能力。
 
