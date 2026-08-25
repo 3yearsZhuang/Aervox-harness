@@ -95,6 +95,77 @@ describe("API 集成测试：用户侧域路由", () => {
     expect(fractionalMinutes.statusCode).toBe(400);
   });
 
+  it("学习目标：幂等创建、更新状态与软归档", async () => {
+    const idempotencyHeaders = { ...headers, "idempotency-key": "goal_idem_1" };
+    const payload = { topic: "线性代数", level: "beginner", availableMinutes: 30 };
+    const first = await app.inject({
+      method: "POST",
+      url: "/v1/learning/goals",
+      headers: idempotencyHeaders,
+      payload,
+    });
+    expect(first.statusCode).toBe(201);
+    const goalId = first.json().id as string;
+
+    const retried = await app.inject({
+      method: "POST",
+      url: "/v1/learning/goals",
+      headers: idempotencyHeaders,
+      payload,
+    });
+    expect(retried.statusCode).toBe(200);
+    expect(retried.json().id).toBe(goalId);
+
+    const updated = await app.inject({
+      method: "PATCH",
+      url: `/v1/learning/goals/${goalId}`,
+      headers,
+      payload: { topic: "线性代数基础", availableMinutes: 45, status: "paused" },
+    });
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json()).toMatchObject({
+      id: goalId,
+      topic: "线性代数基础",
+      availableMinutes: 45,
+      status: "paused",
+    });
+
+    const invalidUpdate = await app.inject({
+      method: "PATCH",
+      url: `/v1/learning/goals/${goalId}`,
+      headers,
+      payload: { availableMinutes: 0 },
+    });
+    expect(invalidUpdate.statusCode).toBe(400);
+
+    const archived = await app.inject({
+      method: "DELETE",
+      url: `/v1/learning/goals/${goalId}`,
+      headers,
+    });
+    expect(archived.statusCode).toBe(204);
+
+    const activeGoals = await app.inject({ method: "GET", url: "/v1/learning/goals", headers });
+    expect(activeGoals.json().items).toHaveLength(0);
+    const allGoals = await app.inject({
+      method: "GET",
+      url: "/v1/learning/goals?includeArchived=true",
+      headers,
+    });
+    expect(allGoals.json().items).toMatchObject([{ id: goalId, status: "archived" }]);
+    const detail = await app.inject({ method: "GET", url: `/v1/learning/goals/${goalId}`, headers });
+    expect(detail.statusCode).toBe(200);
+    expect(detail.json().status).toBe("archived");
+
+    const otherTenant = await app.inject({
+      method: "PATCH",
+      url: `/v1/learning/goals/${goalId}`,
+      headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" },
+      payload: { status: "active" },
+    });
+    expect(otherTenant.statusCode).toBe(404);
+  });
+
   it("题目与作答：创建题目 → 提交作答 → 查询作答列表", async () => {
     const learning = new SqliteLearningRepository(db);
     const tenant = { workspaceId: "ws_it", subjectUserId: "usr_it" };

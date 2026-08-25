@@ -22,11 +22,13 @@ import {
   redactedEventDataSchema,
   streamErrorCodeSchema,
   turnStreamEventSchema,
+  updateLearningGoalSchema,
 } from "./schemas.js";
 
 const registry = new OpenAPIRegistry();
 
 registry.register("CreateLearningGoal", createLearningGoalSchema);
+registry.register("UpdateLearningGoal", updateLearningGoalSchema);
 registry.register("CreateTurnRequest", createTurnRequestSchema);
 registry.register("CreateTurnResponse", createTurnResponseSchema);
 registry.register("CancelTurnResponse", cancelTurnResponseSchema);
@@ -108,11 +110,65 @@ registry.registerPath({
   summary: "创建学习目标（FR-LRN-001）",
   tags: ["Learning"],
   request: {
+    headers: z.object({ "Idempotency-Key": z.string().min(1).optional() }),
     body: { content: { "application/json": { schema: createLearningGoalSchema } } },
   },
   responses: {
     201: { description: "Created" },
+    200: { description: "Existing idempotent result" },
     400: { description: "Invalid request（topic/availableMinutes 非法）" },
+  },
+});
+
+const learningGoalIdParam = z.object({ goalId: z.string().min(1) });
+const learningGoalListQuery = z.object({ includeArchived: z.enum(["true", "false"]).optional() });
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/learning/goals",
+  summary: "列出学习目标",
+  tags: ["Learning"],
+  request: { query: learningGoalListQuery },
+  responses: { 200: { description: "Learning goals" } },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/learning/goals/{goalId}",
+  summary: "读取学习目标",
+  tags: ["Learning"],
+  request: { params: learningGoalIdParam },
+  responses: {
+    200: { description: "Learning goal" },
+    404: { description: "Goal not found" },
+  },
+});
+
+registry.registerPath({
+  method: "patch",
+  path: "/v1/learning/goals/{goalId}",
+  summary: "更新学习目标",
+  tags: ["Learning"],
+  request: {
+    params: learningGoalIdParam,
+    body: { content: { "application/json": { schema: updateLearningGoalSchema } } },
+  },
+  responses: {
+    200: { description: "Updated" },
+    400: { description: "Invalid request" },
+    404: { description: "Goal not found" },
+  },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/v1/learning/goals/{goalId}",
+  summary: "归档学习目标",
+  tags: ["Learning"],
+  request: { params: learningGoalIdParam },
+  responses: {
+    204: { description: "Archived" },
+    404: { description: "Goal not found" },
   },
 });
 
