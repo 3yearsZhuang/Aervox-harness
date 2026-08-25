@@ -57,6 +57,10 @@ const studyOpen = ref(false)
 const settingsOpen = ref(false)
 const settingsCategory = ref<'appearance' | 'conversation' | 'focus' | 'notifications'>('appearance')
 const newGoalTopic = ref('')
+const newGoalLevel = ref<'beginner' | 'intermediate' | 'advanced'>('beginner')
+const newGoalMinutes = ref(25)
+const showArchivedGoals = ref(false)
+const goalBusyId = ref<string | null>(null)
 const input = ref('')
 const timerSeconds = ref(25 * 60)
 const timerRunning = ref(false)
@@ -169,10 +173,45 @@ async function submitNewGoal() {
   const topic = newGoalTopic.value.trim()
   if (!topic) return
   try {
-    await api.createGoal(topic)
+    await api.createGoal({topic, level: newGoalLevel.value, availableMinutes: newGoalMinutes.value})
     newGoalTopic.value = ''
+    newGoalLevel.value = 'beginner'
+    newGoalMinutes.value = 25
   } catch (error) {
     console.error('创建学习目标失败', error)
+  }
+}
+
+function goalStatusLabel(status: string) {
+  return ({active: '进行中', paused: '已暂停', completed: '已完成', archived: '已归档'} as Record<string, string>)[status] ?? status
+}
+
+async function reloadGoals() {
+  await api.loadAll(showArchivedGoals.value)
+}
+
+async function setGoalStatus(goalId: string, status: 'active' | 'paused' | 'completed') {
+  goalBusyId.value = goalId
+  try {
+    await api.updateGoal(goalId, {status})
+    await reloadGoals()
+  } catch (error) {
+    console.error('更新学习目标失败', error)
+  } finally {
+    goalBusyId.value = null
+  }
+}
+
+async function archiveGoal(goalId: string) {
+  if (!window.confirm('归档后目标将从默认列表隐藏，但学习记录仍会保留。确定归档吗？')) return
+  goalBusyId.value = goalId
+  try {
+    await api.archiveGoal(goalId)
+    await reloadGoals()
+  } catch (error) {
+    console.error('归档学习目标失败', error)
+  } finally {
+    goalBusyId.value = null
   }
 }
 
@@ -536,21 +575,42 @@ onUnmounted(() => {
       </div>
     </el-drawer>
 
-    <el-drawer v-model="studyOpen" title="今日学习" direction="rtl" size="min(480px, 96vw)" @open="api.loadAll">
+    <el-drawer v-model="studyOpen" title="今日学习" direction="rtl" size="min(520px, 96vw)" @open="reloadGoals">
       <p class="drawer-intro">目标、复习和日记都来自同一份 Aervox 学习数据。</p>
       <p v-if="apiError" class="drawer-error">{{ apiError }}</p>
 
       <section class="study-section">
-        <h4>学习目标 <small>{{ goals.length }}</small></h4>
+        <div class="study-section-title-row">
+          <h4>学习目标 <small>{{ goals.length }}</small></h4>
+          <label class="study-archive-toggle"><input v-model="showArchivedGoals" type="checkbox" @change="reloadGoals" />显示归档</label>
+        </div>
         <form class="study-goal-form" @submit.prevent="submitNewGoal">
           <label class="sr-only" for="new-goal">添加学习目标</label>
           <input id="new-goal" v-model="newGoalTopic" placeholder="例如：掌握二叉树遍历" />
+          <select v-model="newGoalLevel" aria-label="学习水平">
+            <option value="beginner">入门</option>
+            <option value="intermediate">进阶</option>
+            <option value="advanced">熟练</option>
+          </select>
+          <select v-model.number="newGoalMinutes" aria-label="每日可用时间">
+            <option :value="15">15 分钟</option>
+            <option :value="25">25 分钟</option>
+            <option :value="45">45 分钟</option>
+            <option :value="60">60 分钟</option>
+          </select>
           <button type="submit" aria-label="创建学习目标"><Plus :size="18" /></button>
         </form>
         <ul class="study-list">
           <li v-for="goal in goals" :key="goal.id">
-            <span class="study-item-title">{{ goal.topic }}</span>
-            <small>{{ goal.level }} · {{ goal.availableMinutes }} 分钟/天 · {{ goal.status }}</small>
+            <div class="goal-item-heading"><span class="study-item-title">{{ goal.topic }}</span><span class="goal-status" :class="`is-${goal.status}`">{{ goalStatusLabel(goal.status) }}</span></div>
+            <small>{{ goal.level === 'beginner' ? '入门' : goal.level === 'intermediate' ? '进阶' : '熟练' }} · {{ goal.availableMinutes }} 分钟/天</small>
+            <div v-if="goal.status !== 'archived'" class="goal-actions">
+              <button v-if="goal.status === 'active'" type="button" :disabled="goalBusyId === goal.id" @click="setGoalStatus(goal.id, 'paused')"><Pause :size="14" />暂停</button>
+              <button v-else-if="goal.status === 'paused'" type="button" :disabled="goalBusyId === goal.id" @click="setGoalStatus(goal.id, 'active')"><Play :size="14" />继续</button>
+              <button v-if="goal.status !== 'completed'" type="button" :disabled="goalBusyId === goal.id" @click="setGoalStatus(goal.id, 'completed')"><Check :size="14" />完成</button>
+              <button v-if="goal.status === 'completed'" type="button" :disabled="goalBusyId === goal.id" @click="setGoalStatus(goal.id, 'active')"><RotateCcw :size="14" />重新开始</button>
+              <button type="button" class="danger" :disabled="goalBusyId === goal.id" @click="archiveGoal(goal.id)"><X :size="14" />归档</button>
+            </div>
           </li>
           <li v-if="goals.length === 0" class="study-empty">暂无学习目标，先添加一个想完成的主题。</li>
         </ul>
