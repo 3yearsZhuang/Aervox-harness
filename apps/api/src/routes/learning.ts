@@ -4,6 +4,7 @@
  * 面向用户侧：学习目标 / 题目 / 作答 / 知识点 / 复习项。
  */
 import type { FastifyInstance } from "fastify";
+import { createLearningGoalSchema } from "@aervox/contracts";
 import type { RepoContainer } from "../container.js";
 import { resolveTenant } from "../tenant.js";
 
@@ -15,22 +16,16 @@ export function registerLearningRoutes(app: FastifyInstance, c: RepoContainer): 
   // 学习目标
   app.post("/v1/learning/goals", async (req, reply) => {
     const tenant = resolveTenant(req);
-    const body = (req.body ?? {}) as { topic?: string; level?: string; availableMinutes?: number };
-    const topic = body.topic?.trim();
-    if (!topic) {
-      return reply.code(400).send({ error: "topic is required" });
+    const parsed = createLearningGoalSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? "invalid request" });
     }
-    if (
-      body.availableMinutes !== undefined &&
-      (!Number.isInteger(body.availableMinutes) || body.availableMinutes <= 0)
-    ) {
-      return reply.code(400).send({ error: "availableMinutes must be a positive integer" });
-    }
+    const { topic, level, availableMinutes } = parsed.data;
     const goal = await c.learning.createLearningGoal(tenant, {
       id: id("goal"),
       topic,
-      level: body.level,
-      availableMinutes: body.availableMinutes,
+      level,
+      availableMinutes,
     });
     return reply.code(201).send(goal);
   });
