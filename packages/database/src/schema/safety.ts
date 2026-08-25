@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 安全事件实体表
  *
- * 规则依据：docs/PRD.md §8 数据模型（SafetyIncident）
+ * 规则依据：docs/reference/PRD.md §8 数据模型（SafetyIncident）
  * 访问受限：不写入普通记忆或分析明细。
  */
 import { sqliteTable, text, index } from "drizzle-orm/sqlite-core";

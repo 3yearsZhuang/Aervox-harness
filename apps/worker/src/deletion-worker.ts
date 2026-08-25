@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/worker — 删除传播 Worker
  *
- * 规则依据：PRD §8 数据规则（DeletionRequest/DeletionTarget）+ docs/contracts/DATABASE.md §14.7。
+ * 规则依据：PRD §8 数据规则（DeletionRequest/DeletionTarget）+ docs/reference/DATABASE.md §14.7。
  *
  * 消费未完成删除请求，逐 target 执行清除并标记 verifiedAt；全部完成后请求置 completed。
  * 骨架：清除动作以证据引用占位（真实存储/索引清理按 ownerModule 分发后续接入）。

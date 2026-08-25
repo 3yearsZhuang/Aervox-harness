@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — RecoveryControlLedger 独立 deny 账本仓储实现
  *
- * 规则依据：docs/PRD.md §8 数据规则 + docs/contracts/DATABASE.md §14.7
+ * 规则依据：docs/reference/PRD.md §8 数据规则 + docs/reference/DATABASE.md §14.7
  *
  * 关键约束：本仓储使用独立 libsql client / 数据库文件，与业务库分离凭据与故障域。
  * 服务端先以确定性 eventId/idempotencyKey 追加账本并取得持久确认，再幂等提交业务状态。

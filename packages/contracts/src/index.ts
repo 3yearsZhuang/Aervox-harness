@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/contracts
  *
  * 对话流式协议（Turn/SSE）的机器可验证契约事实源。
- * 模式见 schemas.ts，OpenAPI 文档见 openapi.ts，规则依据 docs/contracts/STREAMING_PROTOCOL.md。
+ * 模式见 schemas.ts，OpenAPI 文档见 openapi.ts，规则依据 docs/reference/STREAMING_PROTOCOL.md。
  */
 import { z } from "zod";
 import {

@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 学习/练习/复习域 SQLite 仓储实现
  *
- * 规则依据：docs/PRD.md §8 + docs/contracts/DATABASE.md §14.3
+ * 规则依据：docs/reference/PRD.md §8 + docs/reference/DATABASE.md §14.3
  */
 import { eq, and, lte, desc } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";

@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 内容/资源域 SQLite 仓储实现
  *
- * 规则依据：docs/PRD.md §8（Attachment / EmbeddingIndex）
+ * 规则依据：docs/reference/PRD.md §8（Attachment / EmbeddingIndex）
  */
 import { eq, and, desc } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";

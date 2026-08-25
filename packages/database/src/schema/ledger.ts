@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — RecoveryControlLedger 独立 deny 账本实体表
  *
- * 规则依据：docs/PRD.md §8 数据规则 + docs/contracts/DATABASE.md §14.7
+ * 规则依据：docs/reference/PRD.md §8 数据规则 + docs/reference/DATABASE.md §14.7
  *
  * 关键约束：本表必须与业务数据库分离凭据、分离故障域（独立 libsql 文件/连接），
  * 不可与业务库共享事务。服务端先以确定性 eventId/idempotencyKey 追加账本并取得持久确认，

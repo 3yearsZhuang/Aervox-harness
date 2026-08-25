@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 质量反馈实体表
  *
- * 规则依据：docs/PRD.md §8 数据模型（Feedback）
+ * 规则依据：docs/reference/PRD.md §8 数据模型（Feedback）
  */
 import { sqliteTable, text, index } from "drizzle-orm/sqlite-core";
 import { tenantColumns } from "./common.js";

@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 日记与不可变调度周期实体表
  *
- * 规则依据：docs/architecture/adr/ADR-011-diary-cycle-schedule-revision.md
+ * 规则依据：docs/reference/adr/ADR-011-diary-cycle-schedule-revision.md
  */
 import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";

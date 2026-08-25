@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 隐私/删除域 SQLite 仓储实现
  *
- * 规则依据：docs/PRD.md §8（ConsentGrant/DeletionRequest/DeletionTarget）
+ * 规则依据：docs/reference/PRD.md §8（ConsentGrant/DeletionRequest/DeletionTarget）
  */
 import { eq, and, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";

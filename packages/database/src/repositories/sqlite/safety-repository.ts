@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 安全事件 SQLite 仓储实现
  *
- * 规则依据：docs/PRD.md §8（SafetyIncident）；访问受限，不写入普通记忆/分析明细。
+ * 规则依据：docs/reference/PRD.md §8（SafetyIncident）；访问受限，不写入普通记忆/分析明细。
  */
 import { eq, and, desc } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";

@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 埋点事件实体表
  *
- * 规则依据：docs/PRD.md §8 数据模型（AnalyticsEvent）
+ * 规则依据：docs/reference/PRD.md §8 数据模型（AnalyticsEvent）
  * 注意：analyticsSubjectId 使用伪名化标识，不保存无必要正文。
  */
 import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";

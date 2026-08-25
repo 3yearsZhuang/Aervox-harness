@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/api — 会话/流式协议路由
  *
- * 规则依据：docs/contracts/STREAMING_PROTOCOL.md + @aervox/contracts。
+ * 规则依据：docs/reference/STREAMING_PROTOCOL.md + @aervox/contracts。
  * 迁移自原单文件 index.ts，并补充 Message 身份写链路。
  */
 import type { FastifyInstance } from "fastify";

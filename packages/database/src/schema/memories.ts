@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 记忆与记忆树实体表
  *
- * 规则依据：docs/architecture/adr/ADR-007-memory-tree-projection.md + SRS BR-MEM-001/003 + PRD §8
+ * 规则依据：docs/reference/adr/ADR-007-memory-tree-projection.md + SRS BR-MEM-001/003 + PRD §8
  *
  * P1（R2）迁移重构：系统记忆树投影独立为 memory_nodes；memory_edges / memory_projection_overrides
  * 由记录级（memory_records）迁移到节点级（memory_nodes），新增 memory_edge_evidence 证据关联。

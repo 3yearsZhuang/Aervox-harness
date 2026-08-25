@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 平台/运营实体表
  *
- * 规则依据：docs/PRD.md §8 数据模型
+ * 规则依据：docs/reference/PRD.md §8 数据模型
  * （ScheduledJob / Notification / PromptVersion / ModelRun / ContextManifest / AuditRecord）
  *
  * 注意：prompt_versions 为系统级表（无租户列）；model_runs ↔ context_manifests 为循环引用，
