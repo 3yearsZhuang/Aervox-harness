@@ -3,7 +3,7 @@
   "info": {
     "title": "Aervox｜思隅 Turn Streaming API",
     "version": "0.1.0",
-    "description": "对话流式协议（Turn/SSE）机器可验证契约。规则见 docs/contracts/STREAMING_PROTOCOL.md（AVX-SPC-001）。"
+    "description": "对话流式协议（Turn/SSE）机器可验证契约。规则见 docs/reference/STREAMING_PROTOCOL.md（AVX-SPC-001）。"
   },
   "servers": [
     {

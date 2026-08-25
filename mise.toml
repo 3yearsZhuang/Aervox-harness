@@ -1,6 +1,7 @@
 [tools]
 node = "24"
 pnpm = "11.22.0"
+vale = "3.18.0"
 
 [settings]
 env_file = ".env"
@@ -18,8 +19,11 @@ install = "pnpm install --frozen-lockfile"
 # 本地代码门禁（对齐 .github/workflows/ci.yml，含 frozen-lockfile install）
 ci-code = "pnpm install --frozen-lockfile && pnpm build && pnpm typecheck && pnpm test"
 
-# 本地文档门禁：Markdown lint（链接检查由 CI 的 lychee-action 执行）
-ci-docs = "npx markdownlint-cli2 --config .markdownlint-cli2.jsonc 'docs/**/*.md' 'README.md'"
+# 本地文档门禁：Markdown lint + 术语散文 lint（链接检查由 CI 的 lychee-action 执行）
+ci-docs = "npx markdownlint-cli2 --config .markdownlint-cli2.jsonc 'docs/**/*.md' 'README.md' 'AGENTS.md' && mise tasks run docs-lint-prose"
+
+# 术语/散文一致性（配置见 .vale.ini，错误级别阻断）
+docs-lint-prose = "vale --minAlertLevel=error docs README.md AGENTS.md"
 
 # 开发：API + 桌面端（见 package.json scripts.dev:desktop）
 dev-desktop = "pnpm dev:desktop"

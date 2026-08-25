@@ -1,0 +1,23 @@
+# 术语拼写检查：与 docs/standards/terminology.md「禁写」列对应
+# 命中即以 error 级别中断文档 CI，要求正文使用规范写法
+extends: existence
+message: "术语表：'%s' 应为规范写法（见 docs/standards/terminology.md）"
+level: error
+ignorecase: false
+scope: sentence
+tokens:
+  - sqlite
+  - postgres
+  - openapi
+  - drizzle
+  - fastify
+  - koa
+  - electron
+  - capacitor
+  - typescript
+  - javascript
+  - nodejs
+  - vite
+  - vitest
+  - zod
+  - vue

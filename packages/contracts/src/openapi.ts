@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/contracts — OpenAPI 3.1 文档生成
  *
  * 由 Zod 模式（schemas.ts）生成，作为流式协议机器可验证契约。
- * 规则依据：docs/contracts/STREAMING_PROTOCOL.md（AVX-SPC-001）。
+ * 规则依据：docs/reference/STREAMING_PROTOCOL.md（AVX-SPC-001）。
  */
 import { z } from "zod";
 import type { OpenAPIObject } from "openapi3-ts/oas31";
@@ -124,7 +124,7 @@ export const openApiDocument: OpenAPIObject = generator.generateDocument({
     title: "Aervox｜思隅 Turn Streaming API",
     version: "0.1.0",
     description:
-      "对话流式协议（Turn/SSE）机器可验证契约。规则见 docs/contracts/STREAMING_PROTOCOL.md（AVX-SPC-001）。",
+      "对话流式协议（Turn/SSE）机器可验证契约。规则见 docs/reference/STREAMING_PROTOCOL.md（AVX-SPC-001）。",
   },
   servers: [{ url: "http://localhost:3000" }],
 });
