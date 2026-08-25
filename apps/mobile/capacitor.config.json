@@ -1,0 +1,9 @@
+{
+  "$schema": "https://raw.githubusercontent.com/ionic-team/capacitor/main/cli/src/config.ts",
+  "appId": "com.aervox.mobile",
+  "appName": "Aervox",
+  "webDir": "../web/dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

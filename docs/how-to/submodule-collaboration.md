@@ -4,9 +4,9 @@
 > 版本：v0.1  
 > 更新日期：2026-08-24  
 > 状态：Draft  
-> 关联：[可选功能模块化方案](../architecture/optional_modules.md) · [文档索引](../README.md)
+> 关联：[可选功能模块化方案](../explanation/optional_modules.md) · [文档索引](../README.md)
 
-本指南回答"引入 `modules/*` 之后的 clone、初始化、增删、升级和协作流程"，是[可选功能模块化方案](../architecture/optional_modules.md)的落地操作手册。机制决定与门禁以该方案为准，本文件只给步骤与规范，不重复规则。
+本指南回答"引入 `modules/*` 之后的 clone、初始化、增删、升级和协作流程"，是[可选功能模块化方案](../explanation/optional_modules.md)的落地操作手册。机制决定与门禁以该方案为准，本文件只给步骤与规范，不重复规则。
 
 ## 1. 角色与一次性环境准备
 
@@ -61,20 +61,20 @@ git submodule add <repo-url> modules/<name>
 git add .gitmodules modules/<name>
 ```
 
-1. 在[可选功能清单](../architecture/optional_modules.md#4-可选功能清单)声明状态/启用方式/接口边界/关联 ADR。
+1. 在[可选功能清单](../explanation/optional_modules.md#4-可选功能清单)声明状态/启用方式/接口边界/关联 ADR。
 2. 更新根 `pnpm-workspace.yaml` 打包范围（需含 `modules/*`) 并在主 app 声明 `workspace:*` 依赖。
 
 > 新增模块属于机制变更类，需同步更新文档登记表核验日期。
 
 ## 4. 升级 / 降级模块版本
 
-1. 记录升级/降级原因并建 `CR-*`（对齐 [PRD 15.1](../PRD.md#prd-reference-manifest) 参考仓库规则）；
+1. 记录升级/降级原因并建 `CR-*`（对齐 [PRD 15.1](../reference/PRD.md#prd-reference-manifest) 参考仓库规则）；
 2. 在子模块内 checkout 目标版本 → 更新指针；主仓 `pnpm install` 后跑模块测试 + 主仓集成 CI；
 3. 通过后提交两层指针；失败则回退指针并保留回归记录。
 
 ## 5. 删除 / 停用一个可选模块
 
-1. 从[可选功能清单](../architecture/optional_modules.md#4-可选功能清单)移除或标 `远期`；
+1. 从[可选功能清单](../explanation/optional_modules.md#4-可选功能清单)移除或标 `远期`；
 2. 从主 app 依赖与构建清单剔除 `workspace:*` 引用；
 3. 清理子模块：
 
@@ -84,12 +84,12 @@ rm -rf .git/modules/<name> modules/<name>
 git rm -f modules/<name>
 ```
 
-1. 被停用模块的数据按主仓删除/导出规则处理（不允许绕过 [DATA_PRIVACY](../DATA_PRIVACY.md))。
+1. 被停用模块的数据按主仓删除/导出规则处理（不允许绕过 [DATA_PRIVACY](../reference/DATA_PRIVACY.md))。
 
 ## 6. 多开发者 / CI 协作要点
 
 - **clone 第一步就跑 `submodule update --init`**，否则 `pnpm build` 报找不到 `@aervox/mod-*`;
-- CI 中未初始化或指针未 pin 的模块应**显式失败**，不得静默跳过（见 [optional_modules.md 第 5 节](../architecture/optional_modules.md#5-生命周期与门禁));
+- CI 中未初始化或指针未 pin 的模块应**显式失败**，不得静默跳过（见 [optional_modules.md 第 5 节](../explanation/optional_modules.md#5-生命周期与门禁));
 - 合并主仓分支前检查 `.gitmodules` 与子模块指针冲突（`git diff --submodule`）;
 - 若他人只切了外层指针而未切内层，拉取后执行 `git submodule update` 同步。
 
@@ -105,4 +105,4 @@ git rm -f modules/<name>
 ## 门禁提醒
 
 - 未初始化子模块视为构建失败，不静默放行;
-- 新增/升级/删除可选模块均需更新[文档登记表](../README.md#11-文档生命周期登记表owner-指派与核验)与[可选功能清单](../architecture/optional_modules.md#4-可选功能清单)。
+- 新增/升级/删除可选模块均需更新[文档登记表](../README.md#11-文档生命周期登记表owner-指派与核验)与[可选功能清单](../explanation/optional_modules.md#4-可选功能清单)。

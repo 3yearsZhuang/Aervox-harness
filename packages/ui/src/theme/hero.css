@@ -1,0 +1,154 @@
+/**
+ * Aervox｜思隅 @aervox/ui — 桌宠（Fairy 精灵）视觉样式
+ *
+ * 原样取自桌面端 apps/desktop/src/renderer/src/styles/story.css 的 .hero-* 规则
+ * （唯一事实源；桌面已删除重复定义，经 @aervox/ui 全局引入后两端共用同一份）。
+ * 尺寸缩放由使用端以 transform:scale 包裹，不在此改写任何数值。
+ */
+
+.hero-head,
+.hero-body,
+.hero-wing,
+.hero-foot,
+.hero-ear,
+.hero-hair,
+.hero-eye,
+.hero-cheek,
+.hero-mouth,
+.hero-collar {
+  position: absolute;
+  display: block;
+}
+
+.hero-head {
+  z-index: 2;
+  left: 34px;
+  top: 25px;
+  width: 112px;
+  height: 104px;
+  border-radius: 47% 47% 44% 44%;
+  background: #f6c9b6;
+}
+
+.hero-hair {
+  top: -18px;
+  left: 33px;
+  color: #d99072;
+  font-size: 61px;
+  line-height: 1;
+}
+
+.hero-ear {
+  top: 42px;
+  width: 19px;
+  height: 26px;
+  border-radius: 55%;
+  background: #f1b5a4;
+}
+
+.hero-ear.ear-left {
+  left: -11px;
+  transform: rotate(-22deg);
+}
+
+.hero-ear.ear-right {
+  right: -11px;
+  transform: rotate(22deg);
+}
+
+.hero-eye {
+  top: 52px;
+  width: 9px;
+  height: 13px;
+  border-radius: 50%;
+  background: #3b4b45;
+}
+
+.hero-eye.eye-left {
+  left: 32px;
+}
+
+.hero-eye.eye-right {
+  right: 32px;
+}
+
+.hero-cheek {
+  top: 72px;
+  width: 17px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ec9c96;
+  opacity: 0.7;
+}
+
+.hero-cheek.cheek-left {
+  left: 17px;
+}
+
+.hero-cheek.cheek-right {
+  right: 17px;
+}
+
+.hero-mouth {
+  left: 49px;
+  top: 69px;
+  color: #ae5e5a;
+  font-size: 25px;
+  transform: rotate(180deg);
+}
+
+.hero-body {
+  z-index: 1;
+  top: 112px;
+  left: 25px;
+  width: 128px;
+  height: 112px;
+  border-radius: 42% 42% 34% 34%;
+  background: #dff0df;
+}
+
+.hero-collar {
+  top: 9px;
+  left: 27px;
+  width: 73px;
+  height: 16px;
+  border-radius: 10px;
+  background: #78b994;
+}
+
+.hero-wing {
+  z-index: 0;
+  top: 128px;
+  width: 55px;
+  height: 84px;
+  border: 2px solid #efcf91;
+  border-radius: 75% 20% 70% 30%;
+  background: #f7dfae;
+  opacity: 0.9;
+}
+
+.hero-wing.wing-left {
+  left: 0;
+  transform: rotate(18deg);
+}
+
+.hero-wing.wing-right {
+  right: 0;
+  transform: scaleX(-1) rotate(18deg);
+}
+
+.hero-foot {
+  bottom: 1px;
+  width: 36px;
+  height: 18px;
+  border-radius: 50%;
+  background: #efb28f;
+}
+
+.hero-foot.foot-left {
+  left: 40px;
+}
+
+.hero-foot.foot-right {
+  right: 40px;
+}

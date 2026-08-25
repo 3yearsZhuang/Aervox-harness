@@ -4,9 +4,9 @@
 > 版本：v0.1  
 > 更新日期：2026-08-24  
 > 状态：Draft  
-> 关联：[需求追踪与交付基线](../REQUIREMENTS_TRACEABILITY.md) · [运行与恢复手册](../operations/RUNBOOK.md)
+> 关联：[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md) · [运行与恢复手册](../reference/RUNBOOK.md)
 
-本指南回答“每个版本/能力如何按 G0~G6 门禁推进到发布”。门禁定义与证据要求以[追踪基线 §9](../REQUIREMENTS_TRACEABILITY.md#9-发布门禁)为准。
+本指南回答“每个版本/能力如何按 G0~G6 门禁推进到发布”。门禁定义与证据要求以[追踪基线 §9](../reference/REQUIREMENTS_TRACEABILITY.md#9-发布门禁)为准。
 
 ## 门禁速查
 
@@ -22,13 +22,13 @@
 
 ## 推进步骤
 
-1. **确认当前 Gate** 及其强制退出条件（见[追踪基线 §9](../REQUIREMENTS_TRACEABILITY.md#9-发布门禁)）。
+1. **确认当前 Gate** 及其强制退出条件（见[追踪基线 §9](../reference/REQUIREMENTS_TRACEABILITY.md#9-发布门禁)）。
 2. **准备最低证据**：CI/覆盖报告、验收报告、评估报告、威胁模型、运行手册、回滚演练等，证据需含构建号/版本/环境/执行时间/执行人。
-3. **对照阻断项**：任一[发布阻断项](../REQUIREMENTS_TRACEABILITY.md#9-发布门禁)存在时不得放行，不得以“已知问题”通过。
-4. **G5 前置**：完成[季度演练](../operations/RUNBOOK.md#10-演练与证据)并回填[演练证据模板](../operations/DRILL_TEMPLATE.md)，无演练证据不能过 G5。
+3. **对照阻断项**：任一[发布阻断项](../reference/REQUIREMENTS_TRACEABILITY.md#9-发布门禁)存在时不得放行，不得以“已知问题”通过。
+4. **G5 前置**：完成[季度演练](../reference/RUNBOOK.md#10-演练与证据)并回填[演练证据模板](../reference/DRILL_TEMPLATE.md)，无演练证据不能过 G5。
 5. **记录结果**：在每个 Gate 更新追踪矩阵状态与证据链接。
 
 ## 回滚与灰度
 
-- 应用回滚不能回滚数据库到丢失新数据，使用 expand/contract 与兼容开关（见[运行手册 §9](../operations/RUNBOOK.md#9-发布与回滚)）；
-- 灰度分级与逐级检查项见[运行手册 §9](../operations/RUNBOOK.md#9-发布与回滚)。
+- 应用回滚不能回滚数据库到丢失新数据，使用 expand/contract 与兼容开关（见[运行手册 §9](../reference/RUNBOOK.md#9-发布与回滚)）；
+- 灰度分级与逐级检查项见[运行手册 §9](../reference/RUNBOOK.md#9-发布与回滚)。
