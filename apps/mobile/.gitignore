@@ -1,0 +1,9 @@
+# Capacitor 生成/构建产物
+www/
+dist/
+android/
+ios/
+
+# 本地工具
+*.log
+.DS_Store
