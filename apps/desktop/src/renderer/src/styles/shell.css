@@ -1,0 +1,131 @@
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 760px;
+  background: var(--bg-app);
+}
+
+.window-shell {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-app);
+}
+
+.window-shell > .aervox-workbench {
+  width: auto;
+  height: auto;
+  min-height: 0;
+  flex: 1 1 0;
+}
+
+.app-titlebar {
+  height: 50px;
+  flex: 0 0 50px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-titlebar);
+  color: var(--text-secondary);
+  -webkit-app-region: drag;
+}
+
+.titlebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.titlebar-logo {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--text-primary);
+  color: var(--accent-soft);
+}
+
+.titlebar-name {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.titlebar-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: 3px;
+  color: var(--text-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.titlebar-status i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #65bd87;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.titlebar-drag-space {
+  flex: 1;
+  height: 100%;
+}
+
+.window-controls {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  -webkit-app-region: no-drag;
+}
+
+.window-control {
+  width: 40px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.window-control:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.window-control.close:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.theme-control {
+  margin-right: 5px;
+}

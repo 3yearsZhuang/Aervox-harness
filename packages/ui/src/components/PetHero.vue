@@ -2,8 +2,8 @@
 /**
  * Aervox｜思隅 @aervox/ui — 桌宠（Fairy 精灵）结构组件
  *
- * 只承载 DOM 骨架；视觉由共享样式 packages/ui/src/theme/hero.css
- * （原样取自桌面 story.css 的 .hero-*，唯一事实源）提供，两端 import '@aervox/ui' 即共用。
+ * 只承载 DOM 骨架；视觉由共享样式 packages/ui/src/theme/hero.css 提供。
+ * Electron 与共享工作台 import '@aervox/ui' 后共用同一表现层。
  * 尺寸缩放请在使用端以 transform:scale 包裹组件；浮动动画/点击交互属壳层，由使用端负责。
  */
 </script>
