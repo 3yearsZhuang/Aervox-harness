@@ -438,12 +438,19 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       level TEXT NOT NULL DEFAULT 'beginner',
       available_minutes INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'active',
+      idempotency_key TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
   `);
+  await addColumnIfMissing(client, "learning_goals", "idempotency_key", "idempotency_key TEXT");
   await client.execute(`
     CREATE INDEX IF NOT EXISTS learning_goals_tenant_idx ON learning_goals(workspace_id, subject_user_id);
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS learning_goals_tenant_idempotency_idx
+    ON learning_goals(workspace_id, subject_user_id, idempotency_key)
+    WHERE idempotency_key IS NOT NULL;
   `);
 
   await client.execute(`
