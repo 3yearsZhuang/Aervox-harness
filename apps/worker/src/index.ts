@@ -11,6 +11,7 @@ import {
   SqlitePlatformRepository,
   SqliteDiaryRepository,
   SqlitePrivacyRepository,
+  SqliteLearningRepository,
 } from "@aervox/database";
 import { runOutboxCycle } from "./outbox-worker.js";
 import { runReviewNotificationCycle } from "./review-notifier.js";
@@ -27,10 +28,11 @@ const outboxRepo = new SqliteOutboxRepository(db);
 const platformRepo = new SqlitePlatformRepository(db);
 const diaryRepo = new SqliteDiaryRepository(db);
 const privacyRepo = new SqlitePrivacyRepository(db);
+const learningRepo = new SqliteLearningRepository(db);
 
 const runTick = async (): Promise<void> => {
   const outbox = await runOutboxCycle({ outboxRepo, platformRepo, workerId });
-  const review = await runReviewNotificationCycle({ db, platformRepo, workerId });
+  const review = await runReviewNotificationCycle({ db, platformRepo, learningRepo, workerId });
   const diary = await runDiaryGenerationCycle({ db, diaryRepo, platformRepo, outboxRepo, workerId });
   const deletion = await runDeletionCycle({ db, privacyRepo, platformRepo, workerId });
   if (outbox + review + diary + deletion > 0) {
