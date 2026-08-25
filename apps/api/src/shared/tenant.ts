@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/api — 租户上下文解析
+ * Aervox｜思隅 @aervox/api — 租户上下文解析（跨模块共享）
  *
  * 从请求 Header 提取 TenantContext（x-workspace-id / x-user-id / x-actor-id），
  * 替代 PostgreSQL RLS 的应用层隔离防线。所有仓储方法均要求注入该上下文。

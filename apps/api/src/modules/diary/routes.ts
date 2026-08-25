@@ -4,19 +4,19 @@
  * 日记查询、计划主实体管理；生成/发布由 Worker 负责。
  */
 import type { FastifyInstance } from "fastify";
-import type { RepoContainer } from "../container.js";
-import { resolveTenant } from "../tenant.js";
+import type { SqliteDiaryRepository } from "@aervox/database";
+import { resolveTenant } from "../../shared/tenant.js";
 
 let seq = 0;
 const id = (prefix: string): string =>
   `${prefix}_${Date.now().toString(36)}_${(++seq).toString(36)}`;
 
-export function registerDiaryRoutes(app: FastifyInstance, c: RepoContainer): void {
+export function registerDiaryRoutes(app: FastifyInstance, diaryRepo: SqliteDiaryRepository): void {
   // 按日期查询日记
   app.get("/v1/diaries", async (req, reply) => {
     const { localDate } = req.query as { localDate?: string };
     if (!localDate) return reply.code(400).send({ error: "localDate is required" });
-    const diary = await c.diary.getDiaryByDate(resolveTenant(req), localDate);
+    const diary = await diaryRepo.getDiaryByDate(resolveTenant(req), localDate);
     if (!diary) return reply.code(404).send({ error: "diary not found" });
     return diary;
   });
@@ -38,7 +38,7 @@ export function registerDiaryRoutes(app: FastifyInstance, c: RepoContainer): voi
         error: "scheduleEpochId, activeFrom, initialWindowStart and cutoffRule are required",
       });
     }
-    const schedule = await c.diary.createDiarySchedule(tenant, {
+    const schedule = await diaryRepo.createDiarySchedule(tenant, {
       id: id("ds"),
       scheduleEpochId: body.scheduleEpochId,
       activeFrom: body.activeFrom,
@@ -53,7 +53,7 @@ export function registerDiaryRoutes(app: FastifyInstance, c: RepoContainer): voi
 
   app.get("/v1/diaries/schedules/:scheduleId", async (req, reply) => {
     const { scheduleId } = req.params as { scheduleId: string };
-    const schedule = await c.diary.getDiarySchedule(resolveTenant(req), scheduleId);
+    const schedule = await diaryRepo.getDiarySchedule(resolveTenant(req), scheduleId);
     if (!schedule) return reply.code(404).send({ error: "schedule not found" });
     return schedule;
   });

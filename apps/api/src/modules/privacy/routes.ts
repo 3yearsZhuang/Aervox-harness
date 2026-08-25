@@ -4,14 +4,17 @@
  * 删除传播与 RecoveryControlLedger 内部账本由 Worker 处理，不对外暴露。
  */
 import type { FastifyInstance } from "fastify";
-import type { RepoContainer } from "../container.js";
-import { resolveTenant } from "../tenant.js";
+import type { SqlitePrivacyRepository } from "@aervox/database";
+import { resolveTenant } from "../../shared/tenant.js";
 
 let seq = 0;
 const id = (prefix: string): string =>
   `${prefix}_${Date.now().toString(36)}_${(++seq).toString(36)}`;
 
-export function registerPrivacyRoutes(app: FastifyInstance, c: RepoContainer): void {
+export function registerPrivacyRoutes(
+  app: FastifyInstance,
+  privacyRepo: SqlitePrivacyRepository,
+): void {
   app.post("/v1/consent", async (req, reply) => {
     const tenant = resolveTenant(req);
     const body = (req.body ?? {}) as {
@@ -23,7 +26,7 @@ export function registerPrivacyRoutes(app: FastifyInstance, c: RepoContainer): v
     if (!body.purpose || !body.scope || !body.policyVersion) {
       return reply.code(400).send({ error: "purpose, scope and policyVersion are required" });
     }
-    const grant = await c.privacy.grantConsent(tenant, {
+    const grant = await privacyRepo.grantConsent(tenant, {
       id: id("cg"),
       actorId: body.actorId ?? tenant.actorId ?? tenant.subjectUserId,
       purpose: body.purpose,
@@ -35,7 +38,7 @@ export function registerPrivacyRoutes(app: FastifyInstance, c: RepoContainer): v
 
   app.post("/v1/consent/:grantId/revoke", async (req, reply) => {
     const { grantId } = req.params as { grantId: string };
-    const grant = await c.privacy.revokeConsent(resolveTenant(req), grantId);
+    const grant = await privacyRepo.revokeConsent(resolveTenant(req), grantId);
     if (!grant) return reply.code(404).send({ error: "consent grant not found" });
     return grant;
   });
@@ -43,7 +46,7 @@ export function registerPrivacyRoutes(app: FastifyInstance, c: RepoContainer): v
   app.get("/v1/consent", async (req) => {
     const { purpose, scope } = req.query as { purpose?: string; scope?: string };
     if (!purpose || !scope) return { active: false };
-    const active = await c.privacy.hasActiveConsent(resolveTenant(req), purpose, scope);
+    const active = await privacyRepo.hasActiveConsent(resolveTenant(req), purpose, scope);
     return { purpose, scope, active };
   });
 
@@ -57,7 +60,7 @@ export function registerPrivacyRoutes(app: FastifyInstance, c: RepoContainer): v
     if (!body.scope || !body.ownerModule) {
       return reply.code(400).send({ error: "scope and ownerModule are required" });
     }
-    const request = await c.privacy.createDeletionRequest(tenant, {
+    const request = await privacyRepo.createDeletionRequest(tenant, {
       id: id("dr"),
       scope: body.scope,
       idempotencyKey: body.idempotencyKey ?? id("del"),
