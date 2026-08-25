@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 内容/资源实体表
  *
- * 规则依据：docs/PRD.md §8 数据模型（Attachment / EmbeddingIndex）
+ * 规则依据：docs/reference/PRD.md §8 数据模型（Attachment / EmbeddingIndex）
  */
 import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 import { tenantColumns, timestampColumns } from "./common.js";

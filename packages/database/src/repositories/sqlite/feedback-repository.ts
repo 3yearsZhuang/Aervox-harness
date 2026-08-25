@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 质量反馈 SQLite 仓储实现
  *
- * 规则依据：docs/PRD.md §8（Feedback）
+ * 规则依据：docs/reference/PRD.md §8（Feedback）
  */
 import { eq, and, desc } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";

@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/worker — 后台任务入口
  *
  * 当前：Outbox 消费 / 复习到期提醒 / 日记生成 / 删除传播。按 WORKER_TICK_MS 轮询。
- * 规则依据：docs/contracts/DATABASE.md §14 + ADR-004 + ADR-011。
+ * 规则依据：docs/reference/DATABASE.md §14 + ADR-004 + ADR-011。
  */
 import {
   createDatabase,

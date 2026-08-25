@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 会话与流式协议实体表
  *
- * 规则依据：docs/contracts/STREAMING_PROTOCOL.md + ADR-012
+ * 规则依据：docs/reference/STREAMING_PROTOCOL.md + ADR-012
  */
 import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { tenantColumns, timestampColumns } from "./common.js";
