@@ -536,6 +536,7 @@ export interface ILearningRepository {
     },
   ): Promise<QuestionModel>;
   getQuestion(tenant: TenantContext, id: string): Promise<QuestionModel | null>;
+  listActiveQuestions(tenant: TenantContext, limit: number): Promise<QuestionModel[]>;
   recordAttempt(
     tenant: TenantContext,
     attempt: {
