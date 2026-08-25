@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 内容/生态扩展实体表（P2/P3）
  *
- * 规则依据：docs/PRD.md §8 数据模型
+ * 规则依据：docs/reference/PRD.md §8 数据模型
  * （ExternalSource / Plugin / PluginGrant / CommunityContent / Organization）
  *
  * 扩展实体 PRD 标注「不要求 MVP 首次实现」，先落表为后续生态/社区功能预留。

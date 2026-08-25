@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/contracts — 流式协议 Zod 模式
  *
- * 规则依据：docs/contracts/STREAMING_PROTOCOL.md（AVX-SPC-001）。
+ * 规则依据：docs/reference/STREAMING_PROTOCOL.md（AVX-SPC-001）。
  * 模式是运行时校验与 OpenAPI 生成的事实源；类型经 z.infer 派生。
  */
 import { z } from "zod";

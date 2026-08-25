@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 统一来源链 + 记忆版本/证据/事件 SQLite 仓储实现
  *
- * 规则依据：docs/PRD.md §8（SourceArtifact/SourceRevision/MemoryRevision/MemoryEvidence/MemoryEvent）
+ * 规则依据：docs/reference/PRD.md §8（SourceArtifact/SourceRevision/MemoryRevision/MemoryEvidence/MemoryEvent）
  * 不变量：来源删除后保留 tombstone，MemoryEvidence 不随来源级联删除。
  */
 import { eq, and, desc } from "drizzle-orm";

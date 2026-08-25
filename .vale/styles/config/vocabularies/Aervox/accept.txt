@@ -1,0 +1,34 @@
+# Aervox 项目词汇表：Vale 拼写规则豁免/识别
+# 追加新术语时同步 docs/standards/terminology.md
+Aervox
+CAP
+CR
+ADR
+EXP
+RISK
+AVX
+DoR
+DoD
+NFR
+MVP
+SQLite
+PostgreSQL
+OpenAPI
+Drizzle
+Fastify
+Koa
+Electron
+Capacitor
+TypeScript
+Vite
+Vitest
+Zod
+Node.js
+pnpm
+mise
+npx
+markdownlint
+lychee
+Vue
+Session
+Turn

@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 统一来源链 + 记忆版本/证据/事件实体表
  *
- * 规则依据：docs/PRD.md §8 数据模型
+ * 规则依据：docs/reference/PRD.md §8 数据模型
  * （SourceArtifact / SourceRevision / MemoryRevision / MemoryEvidence / MemoryEvent）
  *
  * 关键不变量：
