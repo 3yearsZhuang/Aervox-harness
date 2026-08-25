@@ -1,0 +1,20 @@
+{
+  "name": "@aervox/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Aervox Capacitor mobile shell (packages apps/web, see ADR-015).",
+  "scripts": {
+    "build": "pnpm --filter @aervox/web build && cap sync web",
+    "dev": "pnpm --filter @aervox/web dev",
+    "preview": "cap serve web",
+    "cap:sync": "cap sync",
+    "cap:sync:web": "cap sync web"
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.5.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.0"
+  }
+}
