@@ -1317,8 +1317,49 @@
   font-weight: 400;
 }
 
+.study-section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.study-section-title-row h4 {
+  margin-bottom: 11px;
+}
+
+.study-archive-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.study-archive-toggle input {
+  accent-color: var(--accent);
+}
+
 .study-goal-form {
   margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.study-goal-form select {
+  min-width: 0;
+  padding: 9px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  outline: 0;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.study-goal-form select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .study-list {
@@ -1337,6 +1378,73 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--bg-input);
+}
+
+.goal-item-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.goal-status {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.goal-status.is-paused {
+  background: #f4ead2;
+  color: #8e6d2a;
+}
+
+.goal-status.is-completed {
+  background: #dceee4;
+  color: #3c7c59;
+}
+
+.goal-status.is-archived {
+  background: var(--bg-soft);
+  color: var(--text-muted);
+}
+
+.goal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 7px;
+}
+
+.goal-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 7px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-soft);
+  color: var(--text-secondary);
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.goal-actions button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.goal-actions button.danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.goal-actions button:disabled {
+  cursor: wait;
+  opacity: .5;
 }
 
 .study-item-title,
