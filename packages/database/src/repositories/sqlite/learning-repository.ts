@@ -11,6 +11,7 @@ import {
   questionAttempts,
   knowledgeItems,
   reviewItems,
+  knowledgeRelations,
 } from "../../schema/index.js";
 import { assertTenantContext, type TenantContext } from "../../tenant.js";
 import type {
@@ -20,6 +21,7 @@ import type {
   QuestionAttemptModel,
   KnowledgeItemModel,
   ReviewItemModel,
+  KnowledgeRelationModel,
 } from "../types.js";
 
 export class SqliteLearningRepository implements ILearningRepository {
@@ -433,5 +435,55 @@ export class SqliteLearningRepository implements ILearningRepository {
       )
       .returning();
     return (updated as ReviewItemModel) ?? null;
+  }
+
+  // ============ P1（R2 · CAP-015）：思维宇宙知识关系 ============
+
+  async createKnowledgeRelation(
+    tenant: TenantContext,
+    relationData: {
+      id: string;
+      fromKnowledgeId: string;
+      toKnowledgeId: string;
+      relationType: string;
+      source?: string;
+      confidence?: number;
+    },
+  ): Promise<KnowledgeRelationModel> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    const [created] = await this.db
+      .insert(knowledgeRelations)
+      .values({
+        id: relationData.id,
+        workspaceId: tenant.workspaceId,
+        subjectUserId: tenant.subjectUserId,
+        fromKnowledgeId: relationData.fromKnowledgeId,
+        toKnowledgeId: relationData.toKnowledgeId,
+        relationType: relationData.relationType,
+        source: relationData.source ?? "inference",
+        confidence: relationData.confidence ?? 0,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    return created as KnowledgeRelationModel;
+  }
+
+  async listKnowledgeRelations(tenant: TenantContext, knowledgeId: string): Promise<KnowledgeRelationModel[]> {
+    assertTenantContext(tenant);
+    const rows = await this.db
+      .select()
+      .from(knowledgeRelations)
+      .where(
+        and(
+          eq(knowledgeRelations.workspaceId, tenant.workspaceId),
+          eq(knowledgeRelations.subjectUserId, tenant.subjectUserId),
+          // 出边或入边都算关联
+          eq(knowledgeRelations.fromKnowledgeId, knowledgeId),
+        ),
+      )
+      .orderBy(desc(knowledgeRelations.updatedAt));
+    return rows as KnowledgeRelationModel[];
   }
 }

@@ -119,3 +119,29 @@ export const reviewItems = sqliteTable(
     ),
   }),
 );
+
+/** 思维宇宙知识关系（P1 · CAP-015；知识网络边） */
+export const knowledgeRelations = sqliteTable(
+  "knowledge_relations",
+  {
+    id: text("id").primaryKey(),
+    ...tenantColumns,
+    fromKnowledgeId: text("from_knowledge_id")
+      .notNull()
+      .references(() => knowledgeItems.id, { onDelete: "cascade" }),
+    toKnowledgeId: text("to_knowledge_id")
+      .notNull()
+      .references(() => knowledgeItems.id, { onDelete: "cascade" }),
+    relationType: text("relation_type").notNull(), // "prerequisite" | "related" | "contrast" | "causal"
+    source: text("source").notNull().default("inference"), // "user" | "inference" | "external" | "system"
+    confidence: integer("confidence").notNull().default(0),
+    ...timestampColumns,
+  },
+  (table) => ({
+    tenantFromIdx: index("knowledge_relations_tenant_from_idx").on(
+      table.workspaceId,
+      table.subjectUserId,
+      table.fromKnowledgeId,
+    ),
+  }),
+);

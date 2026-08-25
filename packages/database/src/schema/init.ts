@@ -158,16 +158,58 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     CREATE INDEX IF NOT EXISTS memory_records_tenant_layer_idx ON memory_records(workspace_id, subject_user_id, layer, is_deleted);
   `);
 
+  // P1：系统记忆树投影节点（投影层；memory_edges / overrides 迁移到节点级）
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS memory_nodes (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      canonical_parent_id TEXT,
+      label TEXT NOT NULL,
+      node_type TEXT NOT NULL DEFAULT 'concept',
+      confidence INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'active',
+      projection_version INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS memory_nodes_tenant_idx ON memory_nodes(workspace_id, subject_user_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS memory_nodes_parent_idx ON memory_nodes(canonical_parent_id);
+  `);
+
   await client.execute(`
     CREATE TABLE IF NOT EXISTS memory_edges (
       id TEXT PRIMARY KEY,
       workspace_id TEXT NOT NULL,
       subject_user_id TEXT NOT NULL,
-      source_id TEXT NOT NULL REFERENCES memory_records(id) ON DELETE CASCADE,
-      target_id TEXT NOT NULL REFERENCES memory_records(id) ON DELETE CASCADE,
+      from_node_id TEXT NOT NULL REFERENCES memory_nodes(id) ON DELETE CASCADE,
+      to_node_id TEXT NOT NULL REFERENCES memory_nodes(id) ON DELETE CASCADE,
       relation_type TEXT NOT NULL,
+      confidence INTEGER NOT NULL DEFAULT 0,
+      visibility_scope TEXT NOT NULL DEFAULT 'private',
+      status TEXT NOT NULL DEFAULT 'active',
       created_at TEXT NOT NULL
     );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS memory_edges_tenant_from_idx ON memory_edges(workspace_id, subject_user_id, from_node_id);
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS memory_edge_evidence (
+      id TEXT PRIMARY KEY,
+      edge_id TEXT NOT NULL REFERENCES memory_edges(id) ON DELETE CASCADE,
+      memory_revision_id TEXT NOT NULL REFERENCES memory_revisions(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS memory_edge_evidence_edge_idx ON memory_edge_evidence(edge_id);
   `);
 
   await client.execute(`
@@ -175,14 +217,35 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       id TEXT PRIMARY KEY,
       workspace_id TEXT NOT NULL,
       subject_user_id TEXT NOT NULL,
-      memory_record_id TEXT NOT NULL REFERENCES memory_records(id) ON DELETE CASCADE,
-      override_type TEXT NOT NULL,
-      custom_title TEXT,
-      custom_parent_id TEXT,
-      is_locked INTEGER NOT NULL DEFAULT 0,
+      node_id TEXT NOT NULL REFERENCES memory_nodes(id) ON DELETE CASCADE,
+      operation TEXT NOT NULL,
+      label TEXT,
+      parent_node_id TEXT,
+      actor_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS memory_projection_overrides_node_idx ON memory_projection_overrides(node_id);
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS memory_algorithms (
+      id TEXT PRIMARY KEY,
+      stage TEXT NOT NULL,
+      schema_version INTEGER NOT NULL DEFAULT 1,
+      prompt_version_id TEXT,
+      thresholds TEXT,
+      status TEXT NOT NULL DEFAULT 'draft',
+      approved_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS memory_algorithms_stage_schema_idx ON memory_algorithms(stage, schema_version);
   `);
 
   // 3. 日记与调度周期
@@ -873,6 +936,133 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   `);
   await client.execute(`
     CREATE INDEX IF NOT EXISTS embedding_indexes_source_idx ON embedding_indexes(source_artifact_id);
+  `);
+
+  // 15. P1：会话地图分支 + 知识关系（PRD §8）
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS conversation_branches (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      parent_session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+      fork_at_message_id TEXT,
+      child_session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS conversation_branches_parent_idx ON conversation_branches(parent_session_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS conversation_branches_tenant_idx ON conversation_branches(workspace_id, subject_user_id);
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS knowledge_relations (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      from_knowledge_id TEXT NOT NULL REFERENCES knowledge_items(id) ON DELETE CASCADE,
+      to_knowledge_id TEXT NOT NULL REFERENCES knowledge_items(id) ON DELETE CASCADE,
+      relation_type TEXT NOT NULL,
+      source TEXT NOT NULL DEFAULT 'inference',
+      confidence INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS knowledge_relations_tenant_from_idx ON knowledge_relations(workspace_id, subject_user_id, from_knowledge_id);
+  `);
+
+  // 16. P2/P3 扩展实体：内容/生态域（PRD §8）
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS external_sources (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      external_id TEXT NOT NULL,
+      permission_scope TEXT NOT NULL,
+      sync_state TEXT NOT NULL DEFAULT 'idle',
+      revoked_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS external_sources_tenant_provider_idx ON external_sources(workspace_id, subject_user_id, provider);
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS plugins (
+      id TEXT PRIMARY KEY,
+      publisher TEXT NOT NULL,
+      version TEXT NOT NULL,
+      checksum TEXT NOT NULL,
+      signature TEXT,
+      permissions TEXT,
+      install_source TEXT NOT NULL DEFAULT 'registry',
+      enabled INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS plugins_publisher_id_version_idx ON plugins(publisher, id, version);
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS plugin_grants (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      plugin_id TEXT NOT NULL REFERENCES plugins(id) ON DELETE CASCADE,
+      permission TEXT NOT NULL,
+      scope TEXT NOT NULL,
+      granted_at TEXT NOT NULL,
+      revoked_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS plugin_grants_tenant_plugin_perm_idx ON plugin_grants(workspace_id, subject_user_id, plugin_id, permission) WHERE revoked_at IS NULL;
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS community_contents (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      author_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'draft',
+      review_state TEXT NOT NULL DEFAULT 'pending',
+      visibility TEXT NOT NULL DEFAULT 'public',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS community_contents_tenant_idx ON community_contents(workspace_id, subject_user_id);
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS organizations (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      owner_id TEXT NOT NULL,
+      member_scope TEXT NOT NULL DEFAULT 'institution',
+      policy_version TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS organizations_tenant_idx ON organizations(workspace_id, subject_user_id);
   `);
 
   // 5. 初始化 FTS5 全文检索引擎
