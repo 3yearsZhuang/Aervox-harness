@@ -6,12 +6,22 @@
 import { eq, and } from "drizzle-orm";
 import type { Client, InValue } from "@libsql/client";
 import type { AervoxDatabase } from "../../client.js";
-import { memoryRecords, memoryEdges, memoryProjectionOverrides } from "../../schema/index.js";
+import {
+  memoryRecords,
+  memoryEdges,
+  memoryNodes,
+  memoryEdgeEvidence,
+  memoryAlgorithms,
+  memoryProjectionOverrides,
+} from "../../schema/index.js";
 import { assertTenantContext, type TenantContext } from "../../tenant.js";
 import type {
   IMemoryRepository,
   MemoryRecordModel,
   MemoryEdgeModel,
+  MemoryNodeModel,
+  MemoryEdgeEvidenceModel,
+  MemoryAlgorithmModel,
   MemoryTreeNode,
 } from "../types.js";
 
@@ -88,7 +98,14 @@ export class SqliteMemoryRepository implements IMemoryRepository {
 
   async createEdge(
     tenant: TenantContext,
-    edgeData: { id: string; sourceId: string; targetId: string; relationType: string },
+    edgeData: {
+      id: string;
+      fromNodeId: string;
+      toNodeId: string;
+      relationType: string;
+      confidence?: number;
+      visibilityScope?: string;
+    },
   ): Promise<MemoryEdgeModel> {
     assertTenantContext(tenant);
     const [created] = await this.db
@@ -97,9 +114,12 @@ export class SqliteMemoryRepository implements IMemoryRepository {
         id: edgeData.id,
         workspaceId: tenant.workspaceId,
         subjectUserId: tenant.subjectUserId,
-        sourceId: edgeData.sourceId,
-        targetId: edgeData.targetId,
+        fromNodeId: edgeData.fromNodeId,
+        toNodeId: edgeData.toNodeId,
         relationType: edgeData.relationType,
+        confidence: edgeData.confidence ?? 0,
+        visibilityScope: edgeData.visibilityScope ?? "private",
+        status: "active",
         createdAt: new Date().toISOString(),
       })
       .returning();
@@ -218,5 +238,111 @@ export class SqliteMemoryRepository implements IMemoryRepository {
       )
       .returning();
     return !!updated;
+  }
+
+  // ============ P1（R2）：记忆树投影节点 / 边证据 / 算法版本 ============
+
+  async createNode(
+    tenant: TenantContext,
+    nodeData: {
+      id: string;
+      label: string;
+      nodeType?: string;
+      canonicalParentId?: string | null;
+      confidence?: number;
+      projectionVersion?: number;
+    },
+  ): Promise<MemoryNodeModel> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    const [created] = await this.db
+      .insert(memoryNodes)
+      .values({
+        id: nodeData.id,
+        workspaceId: tenant.workspaceId,
+        subjectUserId: tenant.subjectUserId,
+        canonicalParentId: nodeData.canonicalParentId ?? null,
+        label: nodeData.label,
+        nodeType: nodeData.nodeType ?? "concept",
+        confidence: nodeData.confidence ?? 0,
+        status: "active",
+        projectionVersion: nodeData.projectionVersion ?? 1,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    return created as MemoryNodeModel;
+  }
+
+  async getNode(tenant: TenantContext, id: string): Promise<MemoryNodeModel | null> {
+    assertTenantContext(tenant);
+    const [found] = await this.db
+      .select()
+      .from(memoryNodes)
+      .where(
+        and(
+          eq(memoryNodes.id, id),
+          eq(memoryNodes.workspaceId, tenant.workspaceId),
+          eq(memoryNodes.subjectUserId, tenant.subjectUserId),
+        ),
+      );
+    return (found as MemoryNodeModel) ?? null;
+  }
+
+  async createEdgeEvidence(
+    evidenceData: { id: string; edgeId: string; memoryRevisionId: string },
+  ): Promise<MemoryEdgeEvidenceModel> {
+    const [created] = await this.db
+      .insert(memoryEdgeEvidence)
+      .values({
+        id: evidenceData.id,
+        edgeId: evidenceData.edgeId,
+        memoryRevisionId: evidenceData.memoryRevisionId,
+        status: "active",
+        createdAt: new Date().toISOString(),
+      })
+      .returning();
+    return created as MemoryEdgeEvidenceModel;
+  }
+
+  async createMemoryAlgorithm(
+    algorithmData: {
+      id: string;
+      stage: string;
+      schemaVersion?: number;
+      promptVersionId?: string | null;
+      thresholds?: unknown;
+      status?: string;
+    },
+  ): Promise<MemoryAlgorithmModel> {
+    const now = new Date().toISOString();
+    const [created] = await this.db
+      .insert(memoryAlgorithms)
+      .values({
+        id: algorithmData.id,
+        stage: algorithmData.stage,
+        schemaVersion: algorithmData.schemaVersion ?? 1,
+        promptVersionId: algorithmData.promptVersionId ?? null,
+        thresholds: algorithmData.thresholds ?? null,
+        status: algorithmData.status ?? "draft",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    return created as MemoryAlgorithmModel;
+  }
+
+  async getActiveAlgorithm(stage: string): Promise<MemoryAlgorithmModel | null> {
+    const [found] = await this.db
+      .select()
+      .from(memoryAlgorithms)
+      .where(
+        and(
+          eq(memoryAlgorithms.stage, stage),
+          eq(memoryAlgorithms.status, "active"),
+        ),
+      )
+      .limit(1);
+    return (found as MemoryAlgorithmModel) ?? null;
   }
 }

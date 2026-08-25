@@ -14,3 +14,4 @@ export * from "./privacy-repository.js";
 export * from "./recovery-ledger-repository.js";
 export * from "./analytics-repository.js";
 export * from "./content-repository.js";
+export * from "./extension-repository.js";

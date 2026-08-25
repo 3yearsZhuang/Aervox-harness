@@ -10,6 +10,7 @@ import {
   messageVersions,
   turnStreamEvents,
   turnAttempts,
+  conversationBranches,
   outboxEvents,
 } from "../../schema/index.js";
 import { assertTenantContext, type TenantContext } from "../../tenant.js";
@@ -20,6 +21,7 @@ import type {
   MessageModel,
   MessageVersionModel,
   TurnAttemptModel,
+  ConversationBranchModel,
   TurnStreamEventModel,
 } from "../types.js";
 
@@ -357,5 +359,45 @@ export class SqliteConversationRepository implements IConversationRepository {
       )
       .orderBy(desc(turnAttempts.attempt));
     return rows.map((r) => r.attempt) as TurnAttemptModel[];
+  }
+
+  // ============ P1（R2 · CAP-014）：会话地图分支 ============
+
+  async createConversationBranch(
+    tenant: TenantContext,
+    branchData: { id: string; parentSessionId: string; forkAtMessageId?: string | null; childSessionId: string },
+  ): Promise<ConversationBranchModel> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    const [created] = await this.db
+      .insert(conversationBranches)
+      .values({
+        id: branchData.id,
+        workspaceId: tenant.workspaceId,
+        subjectUserId: tenant.subjectUserId,
+        parentSessionId: branchData.parentSessionId,
+        forkAtMessageId: branchData.forkAtMessageId ?? null,
+        childSessionId: branchData.childSessionId,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    return created as ConversationBranchModel;
+  }
+
+  async listBranchesByParent(tenant: TenantContext, parentSessionId: string): Promise<ConversationBranchModel[]> {
+    assertTenantContext(tenant);
+    const rows = await this.db
+      .select()
+      .from(conversationBranches)
+      .where(
+        and(
+          eq(conversationBranches.parentSessionId, parentSessionId),
+          eq(conversationBranches.workspaceId, tenant.workspaceId),
+          eq(conversationBranches.subjectUserId, tenant.subjectUserId),
+        ),
+      )
+      .orderBy(conversationBranches.createdAt);
+    return rows as ConversationBranchModel[];
   }
 }
