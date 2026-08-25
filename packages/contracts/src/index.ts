@@ -2,16 +2,18 @@
  * Aervox｜思隅 @aervox/contracts
  *
  * 对话流式协议（Turn/SSE）的机器可验证契约事实源。
- * 模式见 schemas.ts，OpenAPI 文档见 openapi.ts，规则依据 docs/contracts/STREAMING_PROTOCOL.md。
+ * 模式见 schemas.ts，OpenAPI 文档见 openapi.ts，规则依据 docs/reference/STREAMING_PROTOCOL.md。
  */
 import { z } from "zod";
 import {
   cancelTurnResponseSchema,
+  createLearningGoalSchema,
   createTurnRequestSchema,
   createTurnResponseSchema,
   deltaEventDataSchema,
   doneEventDataSchema,
   errorEventDataSchema,
+  learningGoalLevelSchema,
   messageEventDataSchema,
   redactedEventDataSchema,
   streamErrorCodeSchema,
@@ -37,5 +39,5 @@ export type RedactedEventData = z.infer<typeof redactedEventDataSchema>;
 export type CreateTurnRequest = z.infer<typeof createTurnRequestSchema>;
 export type CreateTurnResponse = z.infer<typeof createTurnResponseSchema>;
 export type CancelTurnResponse = z.infer<typeof cancelTurnResponseSchema>;
-
-export * from "./persona-schemas.js";
+export type LearningGoalLevel = z.infer<typeof learningGoalLevelSchema>;
+export type CreateLearningGoal = z.infer<typeof createLearningGoalSchema>;

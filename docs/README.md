@@ -1,8 +1,8 @@
 # Aervox｜思隅 产品与工程文档索引
 
 > 文档编号：AVX-DOC-001  
-> 版本：v0.1  
-> 更新日期：2026-08-24  
+> 版本：v0.2  
+> 更新日期：2026-08-25  
 > 状态：评审候选  
 > 文档负责人：待指定
 
@@ -12,25 +12,32 @@
 
 | 文档 | 负责回答 | 事实源边界 |
 |---|---|---|
-| [PRD](PRD.md) | 为什么做、为谁做、全生命周期做什么、用户层面如何验收 | 产品定位、场景、CAP-001～CAP-032、优先级、路线和用户级指标 |
-| [SRS](requirements/SRS.md) | 发布范围内每个行为、异常和业务规则如何原子化 | FR/BR/NFR、Given/When/Then 验收和测试 ID |
-| [架构设计](ARCHITECTURE.md) | 系统如何实现和演进 | TypeScript 全栈选型、C4、模块/数据所有权、部署、可靠性、安全和 ADR |
-| [流式协议契约](contracts/STREAMING_PROTOCOL.md) | Turn 创建、SSE 事件、幂等、重连、取消和部分响应如何保持一致 | OpenAPI 配套的机器可验证事件 envelope、状态机、游标、保留和安全持久化规则 |
-| [需求追踪与交付标准](REQUIREMENTS_TRACEABILITY.md) | 每条需求是否完整、由谁负责、怎样证明交付 | ID、状态、DoR/DoD、CAP 映射、测试证据、发布门禁、风险和变更控制 |
-| [数据与隐私规范](DATA_PRIVACY.md) | 数据为什么收集、何时召回/保留/删除、谁能访问 | 数据分类、同意、来源链、保留表、删除传播、导出和审计 |
-| [AI 质量与安全规范](AI_QUALITY_SAFETY.md) | 模型、记忆和日记怎样达到可复现质量与安全门槛 | 模型运行记录、评估集、记忆压缩、日记事实性、安全分类和回滚 |
-| [威胁模型](security/THREAT_MODEL.md) | 哪些资产和信任边界会受到何种攻击 | 威胁场景、控制、验证、残余风险和安全评审输入 |
-| [测试策略](qa/TEST_STRATEGY.md) | 各类需求怎样验证、哪些路径阻断发布 | 测试分层、P0 必测路径、AI 评估、覆盖门槛和证据要求 |
-| [运行与恢复手册](operations/RUNBOOK.md) | 生产故障怎样止损、恢复和验证 | 告警、事件响应、降级、恢复、回滚、演练和证据 |
-| [ADR 索引](architecture/adr/README.md) | 为什么选择当前架构、舍弃了什么方案 | 架构决策状态、后果、迁移和回滚边界 |
-| [可选功能模块化方案](architecture/optional_modules.md) | 非核心功能如何以子仓库开发并作为 workspace 包自选消费 | 核心/可选边界、`modules/*` 机制、构建+运行时双自选、模块清单与门禁 |
-| [操作指南](how-to/) | 怎么新增需求、写 ADR、过发布门禁、做演练、管可选模块 submodule | 任务型流程；规则以对应专项文档为事实源 |
+| [PRD](reference/PRD.md) | 为什么做、为谁做、全生命周期做什么、用户层面如何验收 | 产品定位、场景、CAP-001～CAP-032、优先级、路线和用户级指标 |
+| [SRS](reference/SRS.md) | 发布范围内每个行为、异常和业务规则如何原子化 | FR/BR/NFR、Given/When/Then 验收和测试 ID |
+| [架构设计](reference/ARCHITECTURE.md) | 系统如何实现和演进 | TypeScript 全栈选型、C4、模块/数据所有权、部署、可靠性、安全和 ADR |
+| [流式协议契约](reference/STREAMING_PROTOCOL.md) | Turn 创建、SSE 事件、幂等、重连、取消和部分响应如何保持一致 | OpenAPI 配套的机器可验证事件 envelope、状态机、游标、保留和安全持久化规则 |
+| [数据库设计与双引擎契约](reference/DATABASE.md) | SQLite ↔ PostgreSQL 双引擎真源切换、租户隔离、仓储 Port、迁移三阶段与删除传播规则 | Drizzle schema 生成双方言 DDL、Repository/Vector Search Port 签名、Expand/Contract 迁移与 TC 门禁 |
+| [需求追踪与交付标准](reference/REQUIREMENTS_TRACEABILITY.md) | 每条需求是否完整、由谁负责、怎样证明交付 | ID、状态、DoR/DoD、CAP 映射、测试证据、发布门禁、风险和变更控制 |
+| [数据与隐私规范](reference/DATA_PRIVACY.md) | 数据为什么收集、何时召回/保留/删除、谁能访问 | 数据分类、同意、来源链、保留表、删除传播、导出和审计 |
+| [AI 质量与安全规范](reference/AI_QUALITY_SAFETY.md) | 模型、记忆和日记怎样达到可复现质量与安全门槛 | 模型运行记录、评估集、记忆压缩、日记事实性、安全分类和回滚 |
+| [威胁模型](reference/THREAT_MODEL.md) | 哪些资产和信任边界会受到何种攻击 | 威胁场景、控制、验证、残余风险和安全评审输入 |
+| [测试策略](reference/TEST_STRATEGY.md) | 各类需求怎样验证、哪些路径阻断发布 | 测试分层、P0 必测路径、AI 评估、覆盖门槛和证据要求 |
+| [运行与恢复手册](reference/RUNBOOK.md) | 生产故障怎样止损、恢复和验证 | 告警、事件响应、降级、恢复、回滚、演练和证据 |
+| [ADR 索引](reference/adr/README.md) | 为什么选择当前架构、舍弃了什么方案 | 架构决策状态、后果、迁移和回滚边界 |
+| [可选功能模块化方案](explanation/optional_modules.md) | 非核心功能如何以子仓库开发并作为 workspace 包自选消费 | 核心/可选边界、`modules/*` 机制、构建+运行时双自选、模块清单与门禁 |
+| [操作指南](how-to) | 怎么新增需求、写 ADR、过发布门禁、做演练、管可选模块 submodule | 任务型流程；规则以对应专项文档为事实源 |
 | [文档生命周期登记表](DOC_REGISTRY.md) | 每份文档由谁负责、何时核验、多久复核 | Owner/核验节奏/陈旧信号；独立于索引维护 |
 | 从这里开始（见[§8](#8-从哪开始)） | 新成员/Agent 从哪看起、提交前自检什么 | 导航型；不承载规则 |
-| [值班与升级矩阵](operations/ONCALL.md) | 出问题找谁、如何升级、如何交接 | 值班角色与 SEV 升级；联系人人名待定 |
-| [演练证据模板](operations/DRILL_TEMPLATE.md) | 季度演练留什么证 | 演练项、通过标准与证据字段；G5 门禁引用 |
+| [值班与升级矩阵](reference/ONCALL.md) | 出问题找谁、如何升级、如何交接 | 值班角色与 SEV 升级；联系人人名待定 |
+| [演练证据模板](reference/DRILL_TEMPLATE.md) | 季度演练留什么证 | 演练项、通过标准与证据字段；G5 门禁引用 |
+| [文档写作规范](reference/standards/doc-standards.md)（AVX-STD-001） | 每份文档怎么分类、文档头怎么填、怎么写、如何被校验 | Diátaxis 四分类、元数据 schema、命名、风格基线、Vale 术语门禁、模板族 |
+| [术语表](reference/standards/terminology.md)（AVX-TERM-001） | 项目术语的唯一含义与规范写法 | 缩写/产品名唯一语义；Vale 依据「禁写」列自动校验 |
+| [教程：第一个对话](tutorials/first-conversation.md)（AVX-TUT-001） | 新成员如何从 0 跑到第一条对话 | 可执行步骤与验证 |
+| [数据流总览](explanation/data-flow-overview.md)（AVX-EXPL-001） | 消息端到端如何流动 | 先写后投递、Worker 周期、记忆/知识写入 |
 
-当前已提供 [SRS](requirements/SRS.md) 原子需求样例、共享 ADR、威胁模型、测试策略、运行手册和基线 NFR/AIQ/DATA/SEC/PRIV/OPS 追踪。每个进入开发的能力仍应逐步补充其专属 API/OpenAPI 片段、UX 原型、数据字典、测试证据和 ADR 关联；这些材料未齐备前，不得把能力地图中的一行视为完整开发规格。
+写作层规则（四分类、头字段、命名、Vale 门禁）见[文档写作规范](reference/standards/doc-standards.md)，术语唯一语义见[术语表](reference/standards/terminology.md)。
+
+当前已提供 [SRS](reference/SRS.md) 原子需求样例、共享 ADR、威胁模型、测试策略、运行手册和基线 NFR/AIQ/DATA/SEC/PRIV/OPS 追踪。每个进入开发的能力仍应逐步补充其专属 API/OpenAPI 片段、UX 原型、数据字典、测试证据和 ADR 关联；这些材料未齐备前，不得把能力地图中的一行视为完整开发规格。
 
 ### 1.1 文档生命周期登记表（Owner 指派与核验）
 
@@ -86,7 +93,7 @@ PRD 批准至少需要产品、技术、设计、QA、安全/隐私负责人；�
 
 ### 5.1 能力拆分路线（建议批次）
 
-CAP 从 `Mapped` 转 `Specified` 应只发生在临近开发批次时；P1/P2/P3 保持 `Mapped` 是正常的，进入对应阶段前再原子化（规则见 [SRS §6](requirements/SRS.md#6-p1p2p3-规格化规则)）。
+CAP 从 `Mapped` 转 `Specified` 应只发生在临近开发批次时；P1/P2/P3 保持 `Mapped` 是正常的，进入对应阶段前再原子化（规则见 [SRS §6](reference/SRS.md#6-p1p2p3-规格化规则)）。
 
 | 批次 | 阶段 | 建议顺序 | 说明 |
 |---|---|---|---|
@@ -126,7 +133,7 @@ CAP 从 `Mapped` 转 `Specified` 应只发生在临近开发批次时；P1/P2/P3
 
 借鉴设计不等于验证用户需求，也不等于自动通过许可证、安全或维护性评审。
 
-固定 commit 与许可证清单以 [PRD 15.1](PRD.md#prd-reference-manifest) 为唯一事实源（复核日期 2026-08-24）；任何升级需建立 `CR-*`、重跑许可证/契约测试并更新复核日期。
+固定 commit 与许可证清单以 [PRD 15.1](reference/PRD.md#prd-reference-manifest) 为唯一事实源（复核日期 2026-08-24）；任何升级需建立 `CR-*`、重跑许可证/契约测试并更新复核日期。
 
 ## 8. 从哪开始
 
@@ -138,32 +145,36 @@ CAP 从 `Mapped` 转 `Specified` 应只发生在临近开发批次时；P1/P2/P3
 docs/
   README.md              # 文档索引 + 权威顺序 + 从哪开始（本文件，AVX-DOC-001）
   DOC_REGISTRY.md        # 文档生命周期登记表（AVX-DOC-CONF-001）
-  PRD.md                 # 产品需求事实源（AVX-PRD-001）
-  ARCHITECTURE.md        # 系统架构设计（AVX-SAD-001）
-  REQUIREMENTS_TRACEABILITY.md   # 需求追踪与交付基线（AVX-TRC-001）
-  contracts/             # 流式协议契约（AVX-SPC-001）
-  security/              # 威胁模型（AVX-SEC-001）
-  qa/                    # 测试策略（AVX-QA-001）
-  requirements/          # SRS（AVX-SRS-001）
-  operations/  how-to/  architecture/adr/
-reference/               # 固定 commit 的子模块（只读参考，见 PRD 15.1）
-modules/persona-plugin/  # @aervox/mod-persona 可选模块 submodule（CAP-019/020）
+  tutorials/             # 教程（AVX-TUT-001）
+  how-to/                # 操作指南（AVX-GUIDE-*）
+  explanation/           # 概念讲解（AVX-EXPL-001 / 实现规划 / 可选模块方案）
+  reference/             # 参考类（AVX-PRD/SRS/SAD/TRC/SPC/DB/DATA/AIQ/SEC/QA/OPS 等）
+    adr/                 # ADR-001~015 + 索引
+    changes/             # CR-*
+    standards/           # 文档写作规范（AVX-STD-001）· 术语表（AVX-TERM-001）· 模板
+    diagrams/            # 数据库 ERD（.mmd）
+    PRD.md · ARCHITECTURE.md · SRS.md · REQUIREMENTS_TRACEABILITY.md
+    DATABASE.md · STREAMING_PROTOCOL.md
+    DATA_PRIVACY.md · AI_QUALITY_SAFETY.md · THREAT_MODEL.md · TEST_STRATEGY.md
+    RUNBOOK.md · ONCALL.md · DRILL_TEMPLATE.md
+reference/               # 固定 commit 的子模块（只读参考，见 PRD 15.1；与上文 docs/reference/ 不同）
 demos/                   # 纯前端原型，非交付物
 ```
 
 ### 8.2 阅读顺序
 
 1. 先读本页[文档体系表](#1-文档体系与事实源)与[权威顺序](#2-权威顺序与冲突处理)，弄清每份文档回答什么、冲突时谁优先。
-2. 读 [PRD](PRD.md) 第 1 节产品决策摘要与功能地图，了解产品边界。
-3. 拉取子模块：clone 后先执行 `git submodule update --init --recursive`，否则 `pnpm build` 会缺 `@aervox/mod-*` 失败（当前包括 `@aervox/mod-persona`，见[可选模块协作指南](how-to/submodule-collaboration.md)）。
-4. 按需进入 [how-to](how-to/)：新增需求 / 写 ADR / 过发布门禁 / 执行演练 / 可选模块 submodule。
+2. 读 [PRD](reference/PRD.md) 第 1 节产品决策摘要与功能地图，了解产品边界。
+3. 拉取子模块：clone 后先执行 `git submodule update --init --recursive`，否则 `pnpm build` 会缺 `@aervox/mod-*` 失败（见[可选模块协作指南](how-to/submodule-collaboration.md)）。
+4. 按需进入 [how-to](how-to)：新增需求 / 写 ADR / 过发布门禁 / 执行演练 / 可选模块 submodule。
 
 ### 8.3 写作与改动的硬性规则
 
 - 能力/需求 ID 一经建立不改；`P0~P3` 是优先级、`R0~R5` 是阶段，两者不得混用。
-- 修改已批准文档：先建 `CR-*` 再修订，不得静默改正文（见[追踪基线 §11](REQUIREMENTS_TRACEABILITY.md#11-变更控制)）。
+- 新增/改版文档按[文档写作规范](reference/standards/doc-standards.md)标注类型与头字段，模板见[模板族](reference/standards/doc-standards.md#6-模板族)。
+- 修改已批准文档：先建 `CR-*` 再修订，不得静默改正文（见[追踪基线 §11](reference/REQUIREMENTS_TRACEABILITY.md#11-变更控制)）。
 - 新增/修改文档必须同步[生命周期登记表](DOC_REGISTRY.md)（编号、负责人、核验日期、陈旧信号）。
-- 参考仓库只作设计验证，MVP 不得依赖其运行时（见 [PRD 15](PRD.md#15-参考项目与借鉴边界)）。
+- 参考仓库只作设计验证，MVP 不得依赖其运行时（见 [PRD 15](reference/PRD.md#15-参考项目与借鉴边界)）。
 
 ### 8.4 提交前自检（Docs CI 门禁）
 
@@ -176,5 +187,5 @@ demos/                   # 纯前端原型，非交付物
 ### 8.5 需要介入时
 
 - 文档冲突：停止相关发布，按[权威顺序](#2-权威顺序与冲突处理)仲裁；
-- 生产问题：按[运行手册](operations/RUNBOOK.md) 与[值班矩阵](operations/ONCALL.md)升级；
-- 变更请求：走[变更流程](REQUIREMENTS_TRACEABILITY.md#113-变更流程)。
+- 生产问题：按[运行手册](reference/RUNBOOK.md) 与[值班矩阵](reference/ONCALL.md)升级；
+- 变更请求：走[变更流程](reference/REQUIREMENTS_TRACEABILITY.md#113-变更流程)。

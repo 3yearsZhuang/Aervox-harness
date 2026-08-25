@@ -5,26 +5,24 @@ on:
     paths:
       - "apps/**"
       - "packages/**"
-      - "modules/**"
-      - ".gitmodules"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - "turbo.json"
       - "tsconfig.base.json"
+      - "mise.toml"
       - ".github/workflows/ci.yml"
   push:
     branches: [main]
     paths:
       - "apps/**"
       - "packages/**"
-      - "modules/**"
-      - ".gitmodules"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - "turbo.json"
       - "tsconfig.base.json"
+      - "mise.toml"
 
 permissions:
   contents: read
@@ -36,34 +34,22 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 11.22.0
-
-      - name: Setup Node (24 LTS, 文档基线)
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Verify optional submodules
+      - name: Install mise
         run: |
-          test -f modules/persona-plugin/package.json
-          git submodule status --recursive
-          test "$(git submodule status --recursive | grep -c 'modules/persona-plugin')" -eq 1
+          curl https://mise.run | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-      - name: Install (frozen lockfile)
-        run: pnpm install --frozen-lockfile
+      - name: Restore mise cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/mise/installs
+            ~/.local/share/mise/cache
+          key: mise-${{ runner.os }}-${{ hashFiles('mise.toml') }}
 
-      - name: Build (含 contracts 生成 openapi.json)
-        run: pnpm build
+      - name: Install tools (node + pnpm from mise.toml)
+        run: mise install
 
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Test
-        run: pnpm test
+      - name: Run code gate (build + typecheck + test)
+        run: mise tasks run ci-code

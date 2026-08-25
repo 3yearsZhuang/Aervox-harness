@@ -1,8 +1,9 @@
 packages:
   - "apps/*"
   - "packages/*"
-  - "modules/*"
 
-# pnpm 11：允许 esbuild 构建脚本（下载平台二进制），否则 install 报 ERR_PNPM_IGNORED_BUILDS
+# pnpm 11：允许 esbuild / electron 构建脚本（下载平台二进制），显式阻断 better-sqlite3 原生编译（@aervox/database 实际使用 @libsql/client）
 allowBuilds:
   esbuild: true
+  electron: true
+  better-sqlite3: false

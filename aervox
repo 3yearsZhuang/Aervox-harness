@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+#
+# Aervox 统一命令入口
+# 一条命令 + 变体覆盖：前置依赖、各端启动、构建移动壳、清理产物、本地门禁。
+#
+set -euo pipefail
+
+cd "$(dirname "$0")" # 始终以仓库根为工作目录
+
+GREEN='\033[0;32m'; YELLOW='\033[0;33m'; CYAN='\033[0;36m'; RED='\033[0;31m'; NC='\033[0m'
+info() { printf "${CYAN}[aervox]${NC} %s\n" "$*"; }
+ok()   { printf "${GREEN}[aervox]${NC} %s\n" "$*"; }
+warn() { printf "${YELLOW}[aervox]${NC} %s\n" "$*"; }
+fail() { printf "${RED}[aervox]${NC} %s\n" "$*" >&2; exit 1; }
+
+HELP="$(
+  cat <<'EOF'
+用法:  aervox <命令> [目标]
+
+命令:
+  setup                        前置安装: mise install(幂等) + 重新解析依赖
+  dev [full|web|desktop|worker|api]
+                               启动开发服务:
+                                 full      = API + Web + Desktop + Worker (默认)
+                                 web       = API + Web(5173)
+                                 desktop   = API + Desktop(Electron)
+                                 worker    = 仅 Worker(后台任务)
+                                 api       = 仅 API(3000)
+  mobile                       构建 Web 产物并同步 Capacitor 壳(cap sync web)
+  clean                        清理构建产物 dist/out/.turbo(保留 node_modules)
+  ci                           本地门禁: ci-code(install+build+typecheck+test) + ci-docs(lint)
+  help, -h, --help             显示本帮助
+
+依赖策略: 每次 dev/mobile 前自动检查——lockfile 与 package.json 一致时跳过,
+          不一致或首次则自动重新解析; 无需手动 install。
+
+环境变量(各端):
+  API        PORT                监听端口 (默认 3000)
+  Desktop    AERVOX_API_URL      API 地址; AERVOX_SESSION_ID 现有会话 ID
+  Web        VITE_API_URL        API 地址 (默认 http://127.0.0.1:3000)
+             VITE_SESSION_ID     会话 ID (默认 web_default)
+             VITE_WORKSPACE_ID / VITE_USER_ID   可选租户头(缺省回退默认租户)
+EOF
+)"
+
+help() { printf '%s\n' "$HELP"; }
+
+# ── 工具链 ──────────────────────────────────────────────
+ensure_mise() {
+  if ! command -v mise >/dev/null 2>&1; then
+    fail "未检测到 mise。请先安装: brew install mise 后重试(项目锁定 Node 24 / pnpm 11)。"
+  fi
+}
+
+run() { # 通过 mise exec 激活项目工具链(Node 24 / pnpm 11)后执行
+  ensure_mise
+  mise exec -- "$@"
+}
+
+# 自动补齐依赖: frozen install 成功则跳过; 首次/锁文件陈旧则重解析
+ensure_deps() {
+  ensure_mise
+  info "检查依赖…"
+  if [ ! -d node_modules ] || [ ! -f pnpm-lock.yaml ]; then
+    info "首次安装依赖…"
+    run pnpm install
+    return 0
+  fi
+  if run pnpm install --frozen-lockfile --prefer-offline >/dev/null 2>&1; then
+    ok "依赖已就绪"
+  else
+    warn "lockfile 与 package.json 不一致，自动重新解析依赖…"
+    run pnpm install
+  fi
+}
+
+# ── 子命令 ──────────────────────────────────────────────
+cmd_setup() {
+  ensure_mise
+  info "mise install(幂等)…"
+  mise install
+  info "重新解析依赖…"
+  run pnpm install --no-frozen-lockfile
+  ok "setup 完成"
+}
+
+cmd_dev() {
+  ensure_deps
+  local target="${1:-full}"
+  case "$target" in
+    full)
+      info "启动全栈: API + Web + Desktop + Worker…"
+      run pnpm dev
+      ;;
+    web)
+      info "启动 Web(+5173) + API(+3000)…"
+      run turbo run dev --filter=@aervox/api --filter=@aervox/web
+      ;;
+    desktop)
+      info "启动 Desktop(Electron) + API(+3000)…"
+      run turbo run dev --filter=@aervox/api --filter=@aervox/desktop
+      ;;
+    worker)
+      info "启动 Worker(后台任务)…"
+      run turbo run dev --filter=@aervox/worker
+      ;;
+    api)
+      info "启动 API(+3000)…"
+      run turbo run dev --filter=@aervox/api
+      ;;
+    *)
+      fail "未知 dev 目标: ${target}（可用: full | web | desktop | worker | api）"
+      ;;
+  esac
+}
+
+cmd_mobile() {
+  ensure_deps
+  info "构建 Web 产物…"
+  run pnpm --filter @aervox/web build
+  info "Capacitor 同步(web)…"
+  (cd apps/mobile && run npx cap sync web)
+  ok "移动壳已同步(webDir: apps/web/dist)"
+}
+
+cmd_clean() {
+  info "清理构建产物(保留 node_modules)…"
+  rm -rf apps/*/dist apps/*/out packages/*/dist node_modules/.turbo
+  ok "已清理 dist / out / .turbo"
+}
+
+cmd_ci() {
+  ensure_mise
+  info "代码门禁 ci-code…"
+  mise tasks run ci-code
+  info "文档门禁 ci-docs…"
+  mise tasks run ci-docs
+  ok "ci 全部通过"
+}
+
+# ── 分发 ────────────────────────────────────────────────
+CMD="${1:-help}"; shift || true
+case "$CMD" in
+  help|-h|--help)          help ;;
+  setup)                   cmd_setup ;;
+  dev)                     cmd_dev "${1:-full}" ;;
+  mobile)                  cmd_mobile ;;
+  clean)                   cmd_clean ;;
+  ci)                      cmd_ci ;;
+  *)                       fail "未知命令: ${CMD}（运行 aervox help 查看用法）" ;;
+esac

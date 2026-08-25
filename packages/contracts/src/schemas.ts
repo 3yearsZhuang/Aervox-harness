@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/contracts — 流式协议 Zod 模式
  *
- * 规则依据：docs/contracts/STREAMING_PROTOCOL.md（AVX-SPC-001）。
+ * 规则依据：docs/reference/STREAMING_PROTOCOL.md（AVX-SPC-001）。
  * 模式是运行时校验与 OpenAPI 生成的事实源；类型经 z.infer 派生。
  */
 import { z } from "zod";
@@ -134,3 +134,18 @@ export const cancelTurnResponseSchema = z.object({
 
 /** 当前事件 payload 版本 */
 export const STREAM_PAYLOAD_VERSION = 1;
+
+/** 学习目标等级（与 packages/database src/schema/learning.ts 对齐） */
+export const learningGoalLevelSchema = z.enum(["beginner", "intermediate", "advanced"]);
+
+/** 创建学习目标请求体（FR-LRN-001 / CAP-002） */
+export const createLearningGoalSchema = z.object({
+  topic: z.string().trim().min(1, "topic is required"),
+  level: learningGoalLevelSchema.optional(),
+  availableMinutes: z
+    .number({ error: "availableMinutes must be a positive integer" })
+    .int("availableMinutes must be a positive integer")
+    .positive("availableMinutes must be a positive integer")
+    .optional(),
+});
+
