@@ -7,11 +7,13 @@
 import { z } from "zod";
 import {
   cancelTurnResponseSchema,
+  createLearningGoalSchema,
   createTurnRequestSchema,
   createTurnResponseSchema,
   deltaEventDataSchema,
   doneEventDataSchema,
   errorEventDataSchema,
+  learningGoalLevelSchema,
   messageEventDataSchema,
   redactedEventDataSchema,
   streamErrorCodeSchema,
@@ -37,3 +39,5 @@ export type RedactedEventData = z.infer<typeof redactedEventDataSchema>;
 export type CreateTurnRequest = z.infer<typeof createTurnRequestSchema>;
 export type CreateTurnResponse = z.infer<typeof createTurnResponseSchema>;
 export type CancelTurnResponse = z.infer<typeof cancelTurnResponseSchema>;
+export type LearningGoalLevel = z.infer<typeof learningGoalLevelSchema>;
+export type CreateLearningGoal = z.infer<typeof createLearningGoalSchema>;

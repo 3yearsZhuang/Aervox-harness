@@ -12,6 +12,30 @@
   ],
   "components": {
     "schemas": {
+      "CreateLearningGoal": {
+        "type": "object",
+        "properties": {
+          "topic": {
+            "type": "string",
+            "minLength": 1
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "beginner",
+              "intermediate",
+              "advanced"
+            ]
+          },
+          "availableMinutes": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          }
+        },
+        "required": [
+          "topic"
+        ]
+      },
       "CreateTurnRequest": {
         "type": "object",
         "properties": {
@@ -665,6 +689,52 @@
           },
           "404": {
             "description": "TURN_NOT_FOUND"
+          }
+        }
+      }
+    },
+    "/v1/learning/goals": {
+      "post": {
+        "summary": "创建学习目标（FR-LRN-001）",
+        "tags": [
+          "Learning"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "topic": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "level": {
+                    "type": "string",
+                    "enum": [
+                      "beginner",
+                      "intermediate",
+                      "advanced"
+                    ]
+                  },
+                  "availableMinutes": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "topic"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Invalid request（topic/availableMinutes 非法）"
           }
         }
       }

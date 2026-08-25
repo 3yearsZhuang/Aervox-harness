@@ -61,6 +61,40 @@ describe("API 集成测试：用户侧域路由", () => {
     expect(otherList.json().items).toHaveLength(0);
   });
 
+  it("学习目标：拒绝空主题和非法可用时长", async () => {
+    const emptyTopic = await app.inject({
+      method: "POST",
+      url: "/v1/learning/goals",
+      headers,
+      payload: { topic: "   ", availableMinutes: 20 },
+    });
+    expect(emptyTopic.statusCode).toBe(400);
+
+    const invalidMinutes = await app.inject({
+      method: "POST",
+      url: "/v1/learning/goals",
+      headers,
+      payload: { topic: "三角函数", availableMinutes: 0 },
+    });
+    expect(invalidMinutes.statusCode).toBe(400);
+
+    const negativeMinutes = await app.inject({
+      method: "POST",
+      url: "/v1/learning/goals",
+      headers,
+      payload: { topic: "三角函数", availableMinutes: -10 },
+    });
+    expect(negativeMinutes.statusCode).toBe(400);
+
+    const fractionalMinutes = await app.inject({
+      method: "POST",
+      url: "/v1/learning/goals",
+      headers,
+      payload: { topic: "三角函数", availableMinutes: 1.5 },
+    });
+    expect(fractionalMinutes.statusCode).toBe(400);
+  });
+
   it("题目与作答：创建题目 → 提交作答 → 查询作答列表", async () => {
     const q = await app.inject({
       method: "POST",
