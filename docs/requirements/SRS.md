@@ -193,7 +193,7 @@
 
 - **Parent CAP**：`CAP-003`、`CAP-004`
 - **必须**：默认题组 3～5 题；每题提交后返回正确/部分正确/待确认和下一步；选择题按标准答案判定，短文本题不可验证时进入待确认。
-- **数据**：`Question`、`QuestionAttempt`、`KnowledgeItem`、`ReviewItem`；原始作答不可变，掌握度为派生状态。
+- **数据**：`Question`、`QuestionAttempt`、`KnowledgeItem`、`ReviewItem`；原始作答不可变，掌握度为派生状态；作答请求可携带 `Idempotency-Key`，在同一工作区、数据主体和题目维度内去重。
 - **验收**：
   - `AC-FR-PRC-001-01`：Given 用户重复提交同一答案，When 请求重试，Then 只产生一个作答事实和一个调度结果。
   - `AC-FR-PRC-001-02`：Given 判定为部分正确/待确认，When 会话结束，Then 不直接计入掌握度。
@@ -203,7 +203,7 @@
 ### FR-REV-001 间隔复习
 
 - **Parent CAP**：`CAP-006`
-- **规则**：MVP 使用次日、1/3/7/14 天递增；答错回到次日；每条记录带 `schedulerVersion`。
+- **规则**：MVP 答错或连续答对数为 0 时次日复习；答对后按更新后的连续答对数 1/2/3/4+ 分别安排 2/4/8/15 天后复习；每条记录带 `schedulerVersion`。同一工作区、数据主体和知识点只保留一条活动复习项。
 - **验收**：
   - `AC-FR-REV-001-01`：Given 到期项存在，When 打开首页，Then 显示数量、预计耗时和今日列表。
   - `AC-FR-REV-001-02`：Given 用户完成复习，When 保存结果，Then 只更新一次下次日期并显示规则版本。
