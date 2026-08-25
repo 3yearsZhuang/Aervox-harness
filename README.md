@@ -56,6 +56,8 @@ apps/
 packages/
   contracts/    Zod 契约事实源 → OpenAPI 3.1（流式协议 / 学习域）
   database/     SQLite 真源 + 仓储 / FTS5 / 向量检索 Port
+modules/
+  persona-plugin/  @aervox/mod-persona 可选模块（CAP-019/020，独立仓库 submodule）
   practice-review/  间隔重复排期（CAP-006）
 reference/      参考仓库子模块（deepseek-harness / pi / baishou-next / dsh-synapse，仅设计验证）
 docs/            按 Diátaxis 四分类组织：tutorials / how-to / explanation / reference/（含 adr · changes · standards · diagrams）

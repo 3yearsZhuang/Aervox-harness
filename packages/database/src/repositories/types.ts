@@ -1308,3 +1308,158 @@ export interface IExtensionRepository {
   ): Promise<OrganizationModel>;
   getOrganization(tenant: TenantContext, id: string): Promise<OrganizationModel | null>;
 }
+
+// ============ Persona / Skills / MCP / 上下文快照域（CAP-019/CAP-020）============
+
+/** 人格（与 @aervox/mod-persona 领域类型结构一致，但由主仓数据库拥有模型） */
+export interface PersonaModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  name: string;
+  description: string;
+  source: string; // "builtin" | "user_created" | "imported"
+  status: string; // "active" | "archived"
+  currentRevisionId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 人格不可变修订 */
+export interface PersonaRevisionModel {
+  id: string;
+  personaId: string;
+  revision: number;
+  config: unknown; // PersonaRevisionConfig（JSON）
+  checksum: string;
+  createdAt: string;
+}
+
+/** 当前激活人格 */
+export interface ActivePersonaSelectionModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  personaId: string;
+  revisionId: string;
+  selectedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 工作区 Anthropic Skill 持久化模型（files 为 path→base64） */
+export interface SkillModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  name: string;
+  description: string;
+  license?: string | null;
+  compatibility?: string | null;
+  metadata?: unknown;
+  allowedTools?: unknown;
+  source: string; // "active" | "workspace" | "imported"
+  version: number;
+  checksum: string;
+  enabled: number;
+  valid: number;
+  validationErrors: string[];
+  filesJson: Record<string, string>;
+  skillMarkdown: string;
+  importedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** MCP 工具注册模型 */
+export interface McpToolModel {
+  id: string; // "{serverId}:{toolName}"
+  workspaceId: string;
+  subjectUserId: string;
+  serverId: string;
+  name: string;
+  description?: string | null;
+  inputSchema?: unknown;
+  scopes: string[];
+  healthy: number;
+  authorized: number;
+  revoked: number;
+  killSwitch: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Turn 级 PersonaContextSnapshot 持久化模型 */
+export interface PersonaTurnContextModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  turnId: string;
+  personaId: string;
+  revisionId: string;
+  revisionChecksum: string;
+  promptChecksum: string;
+  skillChecksums: string[];
+  mcpToolIds: string[];
+  voice?: unknown;
+  createdAt: string;
+}
+
+export interface IPersonaRepository {
+  listPersonas(tenant: TenantContext): Promise<PersonaModel[]>;
+  getPersona(tenant: TenantContext, personaId: string): Promise<PersonaModel | null>;
+  listPersonaRevisions(tenant: TenantContext, personaId: string): Promise<PersonaRevisionModel[]>;
+  getPersonaRevision(
+    tenant: TenantContext,
+    personaId: string,
+    revisionId?: string,
+  ): Promise<PersonaRevisionModel | null>;
+  /** 按全局唯一 personaId 读取修订（personaId 为 UUID，租户不参与过滤；仅供模块适配器使用） */
+  getPersonaRevisionById(personaId: string, revisionId?: string): Promise<PersonaRevisionModel | null>;
+  createPersona(
+    tenant: TenantContext,
+    data: {
+      id: string;
+      name: string;
+      description?: string;
+      source?: string;
+      config: unknown;
+      checksum: string;
+    },
+  ): Promise<{ persona: PersonaModel; revision: PersonaRevisionModel }>;
+  updatePersona(
+    tenant: TenantContext,
+    data: {
+      personaId: string;
+      expectedRevision: number;
+      name?: string;
+      description?: string;
+      config: unknown;
+      checksum: string;
+    },
+  ): Promise<{ persona: PersonaModel; revision: PersonaRevisionModel } | null>;
+  deletePersona(tenant: TenantContext, personaId: string): Promise<boolean>;
+  activatePersona(
+    tenant: TenantContext,
+    personaId: string,
+    revisionId?: string,
+  ): Promise<ActivePersonaSelectionModel | null>;
+  getActivePersona(tenant: TenantContext): Promise<ActivePersonaSelectionModel | null>;
+  saveTurnContext(tenant: TenantContext, context: PersonaTurnContextModel): Promise<PersonaTurnContextModel>;
+  getTurnContext(tenant: TenantContext, turnId: string): Promise<PersonaTurnContextModel | null>;
+}
+
+export interface ISkillRepository {
+  listSkills(tenant: TenantContext): Promise<SkillModel[]>;
+  getSkill(tenant: TenantContext, name: string): Promise<SkillModel | null>;
+  upsertSkill(tenant: TenantContext, skill: SkillModel): Promise<SkillModel>;
+  setSkillEnabled(tenant: TenantContext, name: string, enabled: boolean): Promise<SkillModel | null>;
+  deleteSkill(tenant: TenantContext, name: string): Promise<boolean>;
+}
+
+export interface IMcpToolRepository {
+  listMcpTools(tenant: TenantContext): Promise<McpToolModel[]>;
+  upsertMcpTool(tenant: TenantContext, tool: McpToolModel): Promise<McpToolModel>;
+  setMcpToolRevoked(tenant: TenantContext, id: string, revoked: boolean): Promise<McpToolModel | null>;
+  setMcpToolKillSwitch(tenant: TenantContext, id: string, killSwitch: boolean): Promise<McpToolModel | null>;
+}
