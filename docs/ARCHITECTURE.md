@@ -20,26 +20,26 @@ MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应
 |---|---|---|
 | Runtime | Node.js 24 LTS | `engines`、容器和 CI 精确锁定；参考仓库最低 Node 22.19，适配器独立兼容 |
 | Language/build | TypeScript 6.x strict、pnpm 11、Turborepo 2.x | lockfile 必须提交；禁止 `latest`；Renovate 升级需通过契约/安全测试 |
-| Web | React 19、Vite 7、TanStack Router/Query | 首发是登录后流式应用；不依赖 Next 私有后端能力 |
-| UI/editor | Tailwind 4、Radix/shadcn 约束、CodeMirror 6 | 组件共享、键盘可用和 WCAG 2.2 AA |
+| Web | Vue 3、Vite 7、Element Plus（Vue 全栈单栈，见 ADR-015） | Web 复用桌面端 renderer 核心（composables/主题），首发是登录后流式应用；不依赖任何框架私有后端能力 |
+| UI/editor | Element Plus + 定制主题（迁移自 desktop styles）、CodeMirror 6 | 组件共享、键盘可用和 WCAG 2.2 AA |
 | API | Fastify 5、Zod 4、OpenAPI 3.1、POST Turn + GET SSE（Fetch 消费） | 客户端和插件通过契约访问；事件 envelope、重连、取消、幂等和安全持久化遵循[流式协议契约](contracts/STREAMING_PROTOCOL.md)；不以 tRPC 锁定消费者 |
 | Database | SQLite (WAL 模式) + Drizzle ORM + Repository Port | 事务、约束、RLS、递归 CTE、全文检索；禁止跨模块直接写表 |
 | Retrieval | SQLite FTS5 + VectorSearchPort（sqlite-vec/内存适配） | 记录 embedding 模型/维度/版本，可离线重建；MVP 不引入 Neo4j/独立向量库 |
 | Queue | Redis 7、BullMQ 5 | 至少一次投递、幂等键、重试、指数退避和 DLQ；Redis 不是真源 |
 | Object | S3 兼容存储、短期签名 URL | 上传前后做大小/格式/解压比/病毒扫描；删除遵循数据 SLA |
 | AI | Vercel AI SDK 6 + 内部 `ProviderPort` | SDK 负责流式表现层，业务通过内部接口调用模型；模型不能直写业务表 |
-| Desktop/mobile | Electron（P1）、Expo/React Native（后续） | `contextIsolation`、关闭 `nodeIntegration`、受限 IPC、签名更新包、逐项设备授权 |
+| Desktop/mobile | Electron（P1）、Capacitor（后续，打包 web UI） | `contextIsolation`、关闭 `nodeIntegration`、受限 IPC、签名更新包、逐项设备授权；移动端优先 WebView 壳，团队用 RN 仅当细粒化需要原生能力时评估 |
 | Test/observability | Vitest、Playwright、Testing Library、Testcontainers、fast-check、OpenTelemetry、Pino、Prometheus/Grafana、Sentry | 正常 CI 不依赖实时供应商；日志默认不含完整用户内容 |
 
 ## 3. 仓库与领域边界
 
 ```text
 apps/
-  web/          # React/Vite 工作台
+  web/          # Vue 3 工作台（复用 desktop renderer 核心，见 ADR-015 / AVX-WEB-001）
   api/          # Fastify HTTP/SSE，按领域模块组织（见 §3.1）
   worker/       # 幂等后台任务和 DLQ
   desktop/      # P1 Electron 壳，复用 web/ui
-  mobile/       # 后续 Expo/React Native
+  mobile/       # 后续 Capacitor 打包 web UI
 packages/
   contracts/ identity-consent/ conversation/ learning/
   practice-review/ memory/ diary/ ai-runtime/ safety/
@@ -327,7 +327,7 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 | ADR | 决策 |
 |---|---|
 | ADR-001 | 模块化单体 + Worker，而非 MVP 微服务 |
-| ADR-002 | React/Vite + Fastify + OpenAPI/SSE，而非 Next 一体化后端或 tRPC 锁定 |
+| ADR-002 | Superseded by ADR-015 — 原 React/Vite + Fastify + OpenAPI/SSE 的 Web 基线已改为 Vue 单栈 |
 | ADR-003 | 仓储抽象架构：SQLite 业务真源与 FTS5/Vector Port |
 | ADR-004 | 业务状态 + Outbox + 幂等队列，而非全系统 Event Sourcing |
 | ADR-005 | 内部 Provider Port 包裹 AI SDK，模型和 Prompt 可替换 |
@@ -340,6 +340,7 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 | ADR-012 | POST Turn + GET SSE、分段安全门、重连去重与部分响应持久化 |
 | ADR-013 | 独立恢复控制账本与撤权先行 |
 | ADR-014 | 演进式模块化单体：apps/api 按领域模块组织，自管仓储 + 进程内事件总线 |
+| ADR-015 | Vue 全栈单栈：Web 复用桌面端技术族，替代 ADR-002 的 Web 基线 |
 
 每个 ADR 需要记录上下文、备选方案、决策、后果、迁移和回滚。未批准的技术建议不能写成已承诺架构。
 
@@ -347,7 +348,7 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 
 ### 11.1 技术版本冻结规则
 
-本文中的 Node 24 LTS、TypeScript 6.x、React/Vite/Fastify/Zod、PostgreSQL、AI SDK 等是目标基线，不是尚未存在 `package.json`/lockfile 时的可构建证明。G2 前必须：
+本文中的 Node 24 LTS、TypeScript 6.x、Vue/Vite/Fastify/Zod、PostgreSQL、AI SDK 等是目标基线（React 相关基线已随 ADR-015 更新为 Vue），不是尚未存在 `package.json`/lockfile 时的可构建证明。G2 前必须：
 
 - 验证实际发布日期、LTS/支持周期、peer dependency、Node ABI、Electron 和参考适配器兼容；
 - 在根 `package.json`、`packageManager`、`engines`、lockfile、容器 digest 和 CI matrix 中精确冻结版本；
