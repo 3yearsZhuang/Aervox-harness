@@ -3,7 +3,7 @@
  *
  * 规则依据：docs/PRD.md §8 数据模型（LearningGoal / Question / QuestionAttempt / KnowledgeItem / ReviewItem）
  */
-import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 import { tenantColumns, timestampColumns } from "./common.js";
 
@@ -31,6 +31,7 @@ export const questions = sqliteTable(
     id: text("id").primaryKey(),
     ...tenantColumns,
     sourceArtifactId: text("source_artifact_id"), // → source_artifacts.id（应用层维护，来源未落库前允许为空）
+    knowledgeId: text("knowledge_id").references(() => knowledgeItems.id),
     prompt: text("prompt").notNull(),
     answerSpec: text("answer_spec", { mode: "json" }).notNull(),
     status: text("status").notNull().default("active"), // "draft" | "active" | "archived"
@@ -39,6 +40,7 @@ export const questions = sqliteTable(
   (table) => ({
     tenantIdx: index("questions_tenant_idx").on(table.workspaceId, table.subjectUserId),
     sourceIdx: index("questions_source_artifact_idx").on(table.sourceArtifactId),
+    knowledgeIdx: index("questions_knowledge_idx").on(table.knowledgeId),
   }),
 );
 
@@ -55,6 +57,7 @@ export const questionAttempts = sqliteTable(
     answer: text("answer").notNull(),
     judgement: text("judgement").notNull(), // "correct" | "incorrect" | "partial" | "unverifiable"
     evidence: text("evidence", { mode: "json" }),
+    idempotencyKey: text("idempotency_key"),
     createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
   },
   (table) => ({
@@ -63,6 +66,9 @@ export const questionAttempts = sqliteTable(
       table.questionId,
     ),
     tenantIdx: index("question_attempts_tenant_idx").on(table.workspaceId, table.subjectUserId),
+    tenantIdempotencyIdx: uniqueIndex("question_attempts_tenant_idempotency_idx")
+      .on(table.workspaceId, table.subjectUserId, table.idempotencyKey)
+      .where(sql`${table.idempotencyKey} IS NOT NULL`),
   }),
 );
 
@@ -75,6 +81,10 @@ export const knowledgeItems = sqliteTable(
     concept: text("concept").notNull(),
     sourceStatus: text("source_status").notNull().default("inferred"), // "observed" | "inferred" | "verified"
     masteryState: text("mastery_state").notNull().default("unknown"), // "unknown" | "learning" | "reviewing" | "mastered"
+    correctCount: integer("correct_count").notNull().default(0),
+    wrongCount: integer("wrong_count").notNull().default(0),
+    correctStreak: integer("correct_streak").notNull().default(0),
+    mastery: real("mastery").notNull().default(0),
     masteryBasis: text("mastery_basis", { mode: "json" }), // 掌握度派生依据快照
     ...timestampColumns,
   },

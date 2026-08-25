@@ -80,7 +80,13 @@ export class SqliteLearningRepository implements ILearningRepository {
 
   async createQuestion(
     tenant: TenantContext,
-    questionData: { id: string; prompt: string; answerSpec: unknown; sourceArtifactId?: string | null },
+    questionData: {
+      id: string;
+      prompt: string;
+      answerSpec: unknown;
+      sourceArtifactId?: string | null;
+      knowledgeId?: string | null;
+    },
   ): Promise<QuestionModel> {
     assertTenantContext(tenant);
     const now = new Date().toISOString();
@@ -91,6 +97,7 @@ export class SqliteLearningRepository implements ILearningRepository {
         workspaceId: tenant.workspaceId,
         subjectUserId: tenant.subjectUserId,
         sourceArtifactId: questionData.sourceArtifactId ?? null,
+        knowledgeId: questionData.knowledgeId ?? null,
         prompt: questionData.prompt,
         answerSpec: questionData.answerSpec,
         status: "active",
@@ -126,6 +133,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       answer: string;
       judgement: string;
       evidence?: unknown;
+      idempotencyKey?: string | null;
     },
   ): Promise<QuestionAttemptModel> {
     assertTenantContext(tenant);
@@ -140,6 +148,7 @@ export class SqliteLearningRepository implements ILearningRepository {
         answer: attemptData.answer,
         judgement: attemptData.judgement,
         evidence: attemptData.evidence ?? null,
+        idempotencyKey: attemptData.idempotencyKey ?? null,
         createdAt: new Date().toISOString(),
       })
       .returning();
@@ -162,9 +171,36 @@ export class SqliteLearningRepository implements ILearningRepository {
     return rows as QuestionAttemptModel[];
   }
 
+  async getAttemptByIdempotencyKey(
+    tenant: TenantContext,
+    idempotencyKey: string,
+  ): Promise<QuestionAttemptModel | null> {
+    assertTenantContext(tenant);
+    const [found] = await this.db
+      .select()
+      .from(questionAttempts)
+      .where(
+        and(
+          eq(questionAttempts.workspaceId, tenant.workspaceId),
+          eq(questionAttempts.subjectUserId, tenant.subjectUserId),
+          eq(questionAttempts.idempotencyKey, idempotencyKey),
+        ),
+      );
+    return (found as QuestionAttemptModel) ?? null;
+  }
+
   async createKnowledgeItem(
     tenant: TenantContext,
-    itemData: { id: string; concept: string; sourceStatus?: string; masteryState?: string },
+    itemData: {
+      id: string;
+      concept: string;
+      sourceStatus?: string;
+      masteryState?: string;
+      correctCount?: number;
+      wrongCount?: number;
+      correctStreak?: number;
+      mastery?: number;
+    },
   ): Promise<KnowledgeItemModel> {
     assertTenantContext(tenant);
     const now = new Date().toISOString();
@@ -177,6 +213,10 @@ export class SqliteLearningRepository implements ILearningRepository {
         concept: itemData.concept,
         sourceStatus: itemData.sourceStatus ?? "inferred",
         masteryState: itemData.masteryState ?? "unknown",
+        correctCount: itemData.correctCount ?? 0,
+        wrongCount: itemData.wrongCount ?? 0,
+        correctStreak: itemData.correctStreak ?? 0,
+        mastery: itemData.mastery ?? 0,
         masteryBasis: null,
         createdAt: now,
         updatedAt: now,
@@ -224,6 +264,33 @@ export class SqliteLearningRepository implements ILearningRepository {
     return (updated as KnowledgeItemModel) ?? null;
   }
 
+  async updatePracticeState(
+    tenant: TenantContext,
+    id: string,
+    state: {
+      correctCount: number;
+      wrongCount: number;
+      correctStreak: number;
+      mastery: number;
+      masteryState: string;
+      masteryBasis: unknown;
+    },
+  ): Promise<KnowledgeItemModel | null> {
+    assertTenantContext(tenant);
+    const [updated] = await this.db
+      .update(knowledgeItems)
+      .set({ ...state, updatedAt: new Date().toISOString() })
+      .where(
+        and(
+          eq(knowledgeItems.id, id),
+          eq(knowledgeItems.workspaceId, tenant.workspaceId),
+          eq(knowledgeItems.subjectUserId, tenant.subjectUserId),
+        ),
+      )
+      .returning();
+    return (updated as KnowledgeItemModel) ?? null;
+  }
+
   async createReviewItem(
     tenant: TenantContext,
     itemData: { id: string; knowledgeId: string; dueAt: string; intervalDays?: number; schedulerVersion?: number },
@@ -246,6 +313,33 @@ export class SqliteLearningRepository implements ILearningRepository {
       })
       .returning();
     return created as ReviewItemModel;
+  }
+
+  async scheduleReviewItem(
+    tenant: TenantContext,
+    itemData: { id: string; knowledgeId: string; dueAt: string; intervalDays: number; schedulerVersion?: number },
+  ): Promise<ReviewItemModel> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    const [updated] = await this.db
+      .update(reviewItems)
+      .set({
+        dueAt: itemData.dueAt,
+        intervalDays: itemData.intervalDays,
+        schedulerVersion: itemData.schedulerVersion ?? 1,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(reviewItems.workspaceId, tenant.workspaceId),
+          eq(reviewItems.subjectUserId, tenant.subjectUserId),
+          eq(reviewItems.knowledgeId, itemData.knowledgeId),
+          eq(reviewItems.status, "active"),
+        ),
+      )
+      .returning();
+    if (updated) return updated as ReviewItemModel;
+    return this.createReviewItem(tenant, itemData);
   }
 
   async listDueReviewItems(tenant: TenantContext, before: string): Promise<ReviewItemModel[]> {

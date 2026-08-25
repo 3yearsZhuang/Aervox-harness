@@ -393,6 +393,7 @@ export interface QuestionModel {
   workspaceId: string;
   subjectUserId: string;
   sourceArtifactId?: string | null;
+  knowledgeId?: string | null;
   prompt: string;
   answerSpec: unknown;
   status: string;
@@ -409,6 +410,7 @@ export interface QuestionAttemptModel {
   answer: string;
   judgement: string;
   evidence?: unknown;
+  idempotencyKey?: string | null;
   createdAt: string;
 }
 
@@ -419,6 +421,10 @@ export interface KnowledgeItemModel {
   concept: string;
   sourceStatus: string;
   masteryState: string;
+  correctCount: number;
+  wrongCount: number;
+  correctStreak: number;
+  mastery: number;
   masteryBasis?: unknown;
   createdAt: string;
   updatedAt: string;
@@ -446,7 +452,13 @@ export interface ILearningRepository {
   listLearningGoals(tenant: TenantContext): Promise<LearningGoalModel[]>;
   createQuestion(
     tenant: TenantContext,
-    question: { id: string; prompt: string; answerSpec: unknown; sourceArtifactId?: string | null },
+    question: {
+      id: string;
+      prompt: string;
+      answerSpec: unknown;
+      sourceArtifactId?: string | null;
+      knowledgeId?: string | null;
+    },
   ): Promise<QuestionModel>;
   getQuestion(tenant: TenantContext, id: string): Promise<QuestionModel | null>;
   recordAttempt(
@@ -458,15 +470,45 @@ export interface ILearningRepository {
       answer: string;
       judgement: string;
       evidence?: unknown;
+      idempotencyKey?: string | null;
     },
   ): Promise<QuestionAttemptModel>;
   listAttemptsByQuestion(tenant: TenantContext, questionId: string): Promise<QuestionAttemptModel[]>;
+  getAttemptByIdempotencyKey(
+    tenant: TenantContext,
+    idempotencyKey: string,
+  ): Promise<QuestionAttemptModel | null>;
   createKnowledgeItem(
     tenant: TenantContext,
-    item: { id: string; concept: string; sourceStatus?: string; masteryState?: string },
+    item: {
+      id: string;
+      concept: string;
+      sourceStatus?: string;
+      masteryState?: string;
+      correctCount?: number;
+      wrongCount?: number;
+      correctStreak?: number;
+      mastery?: number;
+    },
   ): Promise<KnowledgeItemModel>;
   getKnowledgeItem(tenant: TenantContext, id: string): Promise<KnowledgeItemModel | null>;
   updateMastery(tenant: TenantContext, id: string, masteryState: string, basis?: unknown): Promise<KnowledgeItemModel | null>;
+  updatePracticeState(
+    tenant: TenantContext,
+    id: string,
+    state: {
+      correctCount: number;
+      wrongCount: number;
+      correctStreak: number;
+      mastery: number;
+      masteryState: string;
+      masteryBasis: unknown;
+    },
+  ): Promise<KnowledgeItemModel | null>;
+  scheduleReviewItem(
+    tenant: TenantContext,
+    item: { id: string; knowledgeId: string; dueAt: string; intervalDays: number; schedulerVersion?: number },
+  ): Promise<ReviewItemModel>;
   createReviewItem(
     tenant: TenantContext,
     item: { id: string; knowledgeId: string; dueAt: string; intervalDays?: number; schedulerVersion?: number },

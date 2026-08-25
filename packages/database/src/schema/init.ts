@@ -6,6 +6,17 @@
 import type { Client } from "@libsql/client";
 import { initFtsTables } from "../search/fts.js";
 
+async function addColumnIfMissing(
+  client: Client,
+  table: string,
+  column: string,
+  definition: string,
+): Promise<void> {
+  const columns = await client.execute(`PRAGMA table_info(${table})`);
+  if (columns.rows.some((row) => String(row.name) === column)) return;
+  await client.execute(`ALTER TABLE ${table} ADD COLUMN ${definition}`);
+}
+
 export async function initDatabaseSchema(client: Client): Promise<void> {
   // 1. 会话与 Turn
   await client.execute(`
@@ -378,6 +389,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       workspace_id TEXT NOT NULL,
       subject_user_id TEXT NOT NULL,
       source_artifact_id TEXT,
+      knowledge_id TEXT REFERENCES knowledge_items(id),
       prompt TEXT NOT NULL,
       answer_spec TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'active',
@@ -385,11 +397,15 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       updated_at TEXT NOT NULL
     );
   `);
+  await addColumnIfMissing(client, "questions", "knowledge_id", "knowledge_id TEXT");
   await client.execute(`
     CREATE INDEX IF NOT EXISTS questions_tenant_idx ON questions(workspace_id, subject_user_id);
   `);
   await client.execute(`
     CREATE INDEX IF NOT EXISTS questions_source_artifact_idx ON questions(source_artifact_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS questions_knowledge_idx ON questions(knowledge_id);
   `);
 
   await client.execute(`
@@ -402,14 +418,21 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       answer TEXT NOT NULL,
       judgement TEXT NOT NULL,
       evidence TEXT,
+      idempotency_key TEXT,
       created_at TEXT NOT NULL
     );
   `);
+  await addColumnIfMissing(client, "question_attempts", "idempotency_key", "idempotency_key TEXT");
   await client.execute(`
     CREATE INDEX IF NOT EXISTS question_attempts_session_question_idx ON question_attempts(session_id, question_id);
   `);
   await client.execute(`
     CREATE INDEX IF NOT EXISTS question_attempts_tenant_idx ON question_attempts(workspace_id, subject_user_id);
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS question_attempts_tenant_idempotency_idx
+    ON question_attempts(workspace_id, subject_user_id, idempotency_key)
+    WHERE idempotency_key IS NOT NULL;
   `);
 
   await client.execute(`
@@ -420,11 +443,19 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       concept TEXT NOT NULL,
       source_status TEXT NOT NULL DEFAULT 'inferred',
       mastery_state TEXT NOT NULL DEFAULT 'unknown',
+      correct_count INTEGER NOT NULL DEFAULT 0,
+      wrong_count INTEGER NOT NULL DEFAULT 0,
+      correct_streak INTEGER NOT NULL DEFAULT 0,
+      mastery REAL NOT NULL DEFAULT 0,
       mastery_basis TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
   `);
+  await addColumnIfMissing(client, "knowledge_items", "correct_count", "correct_count INTEGER NOT NULL DEFAULT 0");
+  await addColumnIfMissing(client, "knowledge_items", "wrong_count", "wrong_count INTEGER NOT NULL DEFAULT 0");
+  await addColumnIfMissing(client, "knowledge_items", "correct_streak", "correct_streak INTEGER NOT NULL DEFAULT 0");
+  await addColumnIfMissing(client, "knowledge_items", "mastery", "mastery REAL NOT NULL DEFAULT 0");
   await client.execute(`
     CREATE INDEX IF NOT EXISTS knowledge_items_tenant_idx ON knowledge_items(workspace_id, subject_user_id);
   `);

@@ -6,6 +6,7 @@
 import type { FastifyInstance } from "fastify";
 import type { RepoContainer } from "../container.js";
 import { resolveTenant } from "../tenant.js";
+import { createReviewItem, updateAfterAnswer } from "@aervox/practice-review";
 
 let seq = 0;
 const id = (prefix: string): string =>
@@ -40,13 +41,22 @@ export function registerLearningRoutes(app: FastifyInstance, c: RepoContainer): 
   // 题目
   app.post("/v1/questions", async (req, reply) => {
     const tenant = resolveTenant(req);
-    const body = (req.body ?? {}) as { prompt?: string; answerSpec?: unknown; sourceArtifactId?: string | null };
+    const body = (req.body ?? {}) as {
+      prompt?: string;
+      answerSpec?: unknown;
+      sourceArtifactId?: string | null;
+      knowledgeId?: string | null;
+    };
     if (!body.prompt) return reply.code(400).send({ error: "prompt is required" });
+    if (body.knowledgeId && !(await c.learning.getKnowledgeItem(tenant, body.knowledgeId))) {
+      return reply.code(400).send({ error: "knowledge item not found" });
+    }
     const question = await c.learning.createQuestion(tenant, {
       id: id("q"),
       prompt: body.prompt,
       answerSpec: body.answerSpec ?? {},
       sourceArtifactId: body.sourceArtifactId,
+      knowledgeId: body.knowledgeId,
     });
     return reply.code(201).send(question);
   });
@@ -71,6 +81,17 @@ export function registerLearningRoutes(app: FastifyInstance, c: RepoContainer): 
     if (!body.answer || !body.judgement) {
       return reply.code(400).send({ error: "answer and judgement are required" });
     }
+    if (!(["correct", "incorrect", "partial", "unverifiable"] as const).includes(body.judgement as never)) {
+      return reply.code(400).send({ error: "invalid judgement" });
+    }
+    const idempotencyKey = req.headers["idempotency-key"];
+    if (typeof idempotencyKey === "string") {
+      const previous = await c.learning.getAttemptByIdempotencyKey(tenant, idempotencyKey);
+      if (previous) return reply.code(200).send(previous);
+    }
+    const question = await c.learning.getQuestion(tenant, questionId);
+    if (!question) return reply.code(404).send({ error: "question not found" });
+
     const attempt = await c.learning.recordAttempt(tenant, {
       id: id("att"),
       sessionId: body.sessionId ?? "ses_unknown",
@@ -78,6 +99,42 @@ export function registerLearningRoutes(app: FastifyInstance, c: RepoContainer): 
       answer: body.answer,
       judgement: body.judgement,
       evidence: body.evidence,
+      idempotencyKey: typeof idempotencyKey === "string" ? idempotencyKey : null,
+    });
+    if (!question.knowledgeId || !["correct", "incorrect"].includes(body.judgement)) {
+      return reply.code(201).send(attempt);
+    }
+
+    const storedItem = await c.learning.getKnowledgeItem(tenant, question.knowledgeId);
+    if (!storedItem) return reply.code(201).send(attempt);
+
+    const item = {
+      id: storedItem.id,
+      name: storedItem.concept,
+      correctCount: storedItem.correctCount,
+      wrongCount: storedItem.wrongCount,
+      correctStreak: storedItem.correctStreak,
+      mastery: storedItem.mastery,
+    };
+    const isCorrect = body.judgement === "correct";
+    updateAfterAnswer(item, isCorrect);
+    const review = createReviewItem(item, isCorrect);
+    const masteryState = item.mastery >= 0.8 ? "mastered" : "learning";
+    await c.learning.updatePracticeState(tenant, item.id, {
+      ...item,
+      masteryState,
+      masteryBasis: {
+        correctCount: item.correctCount,
+        wrongCount: item.wrongCount,
+        correctStreak: item.correctStreak,
+        schedulerVersion: review.schedulerVersion,
+      },
+    });
+    await c.learning.scheduleReviewItem(tenant, {
+      id: id("review"),
+      knowledgeId: review.knowledgeId,
+      dueAt: review.dueAt.toISOString(),
+      intervalDays: review.intervalDays,
     });
     return reply.code(201).send(attempt);
   });
