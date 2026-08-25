@@ -3,7 +3,7 @@
  *
  * 规则依据：docs/reference/PRD.md §8 + docs/reference/DATABASE.md §14.3
  */
-import { eq, and, lte, desc } from "drizzle-orm";
+import { eq, and, lte, desc, ne } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import {
   learningGoals,
@@ -29,7 +29,14 @@ export class SqliteLearningRepository implements ILearningRepository {
 
   async createLearningGoal(
     tenant: TenantContext,
-    goalData: { id: string; topic: string; level?: string; availableMinutes?: number; status?: string },
+    goalData: {
+      id: string;
+      topic: string;
+      level?: string;
+      availableMinutes?: number;
+      status?: string;
+      idempotencyKey?: string | null;
+    },
   ): Promise<LearningGoalModel> {
     assertTenantContext(tenant);
     const now = new Date().toISOString();
@@ -43,11 +50,56 @@ export class SqliteLearningRepository implements ILearningRepository {
         level: goalData.level ?? "beginner",
         availableMinutes: goalData.availableMinutes ?? 0,
         status: goalData.status ?? "active",
+        idempotencyKey: goalData.idempotencyKey ?? null,
         createdAt: now,
         updatedAt: now,
       })
       .returning();
     return created as LearningGoalModel;
+  }
+
+  async createLearningGoalIdempotent(
+    tenant: TenantContext,
+    goalData: {
+      id: string;
+      topic: string;
+      level?: string;
+      availableMinutes?: number;
+      idempotencyKey: string;
+    },
+  ): Promise<{ goal: LearningGoalModel; created: boolean }> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    const inserted = await this.db
+      .insert(learningGoals)
+      .values({
+        id: goalData.id,
+        workspaceId: tenant.workspaceId,
+        subjectUserId: tenant.subjectUserId,
+        topic: goalData.topic,
+        level: goalData.level ?? "beginner",
+        availableMinutes: goalData.availableMinutes ?? 0,
+        status: "active",
+        idempotencyKey: goalData.idempotencyKey,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing()
+      .returning();
+    if (inserted[0]) return { goal: inserted[0] as LearningGoalModel, created: true };
+
+    const [existing] = await this.db
+      .select()
+      .from(learningGoals)
+      .where(
+        and(
+          eq(learningGoals.workspaceId, tenant.workspaceId),
+          eq(learningGoals.subjectUserId, tenant.subjectUserId),
+          eq(learningGoals.idempotencyKey, goalData.idempotencyKey),
+        ),
+      );
+    if (!existing) throw new Error("learning goal idempotency conflict without a stored goal");
+    return { goal: existing as LearningGoalModel, created: false };
   }
 
   async getLearningGoal(tenant: TenantContext, id: string): Promise<LearningGoalModel | null> {
@@ -65,19 +117,45 @@ export class SqliteLearningRepository implements ILearningRepository {
     return (found as LearningGoalModel) ?? null;
   }
 
-  async listLearningGoals(tenant: TenantContext): Promise<LearningGoalModel[]> {
+  async listLearningGoals(tenant: TenantContext, includeArchived = false): Promise<LearningGoalModel[]> {
     assertTenantContext(tenant);
     const rows = await this.db
       .select()
       .from(learningGoals)
       .where(
+        includeArchived
+          ? and(
+              eq(learningGoals.workspaceId, tenant.workspaceId),
+              eq(learningGoals.subjectUserId, tenant.subjectUserId),
+            )
+          : and(
+              eq(learningGoals.workspaceId, tenant.workspaceId),
+              eq(learningGoals.subjectUserId, tenant.subjectUserId),
+              ne(learningGoals.status, "archived"),
+            ),
+      )
+      .orderBy(desc(learningGoals.updatedAt));
+    return rows as LearningGoalModel[];
+  }
+
+  async updateLearningGoal(
+    tenant: TenantContext,
+    id: string,
+    goalData: { topic?: string; level?: string; availableMinutes?: number; status?: string },
+  ): Promise<LearningGoalModel | null> {
+    assertTenantContext(tenant);
+    const [updated] = await this.db
+      .update(learningGoals)
+      .set({ ...goalData, updatedAt: new Date().toISOString() })
+      .where(
         and(
+          eq(learningGoals.id, id),
           eq(learningGoals.workspaceId, tenant.workspaceId),
           eq(learningGoals.subjectUserId, tenant.subjectUserId),
         ),
       )
-      .orderBy(desc(learningGoals.updatedAt));
-    return rows as LearningGoalModel[];
+      .returning();
+    return (updated as LearningGoalModel) ?? null;
   }
 
   async createQuestion(

@@ -36,6 +36,35 @@
           "topic"
         ]
       },
+      "UpdateLearningGoal": {
+        "type": "object",
+        "properties": {
+          "topic": {
+            "type": "string",
+            "minLength": 1
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "beginner",
+              "intermediate",
+              "advanced"
+            ]
+          },
+          "availableMinutes": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "paused",
+              "completed"
+            ]
+          }
+        }
+      },
       "CreateTurnRequest": {
         "type": "object",
         "properties": {
@@ -699,6 +728,17 @@
         "tags": [
           "Learning"
         ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "Idempotency-Key",
+            "in": "header"
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -730,11 +770,154 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "Existing idempotent result"
+          },
           "201": {
             "description": "Created"
           },
           "400": {
             "description": "Invalid request（topic/availableMinutes 非法）"
+          }
+        }
+      },
+      "get": {
+        "summary": "列出学习目标",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "required": false,
+            "name": "includeArchived",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Learning goals"
+          }
+        }
+      }
+    },
+    "/v1/learning/goals/{goalId}": {
+      "get": {
+        "summary": "读取学习目标",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "goalId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Learning goal"
+          },
+          "404": {
+            "description": "Goal not found"
+          }
+        }
+      },
+      "patch": {
+        "summary": "更新学习目标",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "goalId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "topic": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "level": {
+                    "type": "string",
+                    "enum": [
+                      "beginner",
+                      "intermediate",
+                      "advanced"
+                    ]
+                  },
+                  "availableMinutes": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "paused",
+                      "completed"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "404": {
+            "description": "Goal not found"
+          }
+        }
+      },
+      "delete": {
+        "summary": "归档学习目标",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "goalId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Archived"
+          },
+          "404": {
+            "description": "Goal not found"
           }
         }
       }
