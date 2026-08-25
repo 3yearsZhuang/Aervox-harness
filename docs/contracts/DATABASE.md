@@ -1,8 +1,8 @@
 # Aervox｜思隅 数据库设计与双引擎契约（DBC）
 
 > 文档编号：AVX-DB-001  
-> 版本：v0.3（评审候选）  
-> 更新日期：2026-08-24  
+> 版本：v0.4（评审候选）  
+> 更新日期：2026-08-25  
 > 状态：Review Candidate  
 > 关联：`CR-003`、`ADR-003`、`ADR-004`、`ADR-007`、`ADR-011`、`ADR-012`、`ADR-013`、`AVX-SPC-001`、`AVX-PRD-001`、`NFR-SCALE-001`、`NFR-SEC-001`
 
@@ -19,6 +19,7 @@
 | v0.1 | 2026-08-24 | 建立数据库设计与双引擎契约：SQLite/PG ERD、迁移映射、兼容性矩阵、迁移计划、测试门禁 |
 | v0.2 | 2026-08-24 | 对齐 PRD §8 全量数据模型：新增 §14 覆盖清单，逐实体标注阶段与实现状态，明确未落表规划 backlog |
 | v0.3 | 2026-08-24 | MVP（R1）优先队列 22 组实体 + 独立账本全部落表：新增 24 张表与 7 个仓储 Port；§14 状态同步为已落表/已建模，覆盖度 12→35（69%） |
+| v0.4 | 2026-08-25 | 统一 API / Worker 共享 SQLite 真源路径 `<repo>/data/aervox.db`：新增 §2.1 路径约定（自动建目录 / DATABASE_URL 覆盖 / WAL 多进程并发） |
 
 ---
 
@@ -47,9 +48,17 @@
 | 租户隔离 | 应用层 `TenantContext` 强注入 + 唯一/外键兜底 | 应用层同等校验 + 数据库原生 `ROW LEVEL SECURITY` 双保险 |
 | 用户注册 | 范围外（CR-003 明确不实现） | users / credentials / workspace_members / user_profiles 5 张表上线 |
 | 并发控制 | SQLite 级联 write 串行化 + lease/fencing token；Worker 竞争 | `SELECT ... FOR UPDATE SKIP LOCKED` + advisory lock；原生并发 |
-| 典型部署位置 | apps/desktop 本地文件、apps/api 本地测试内存库 | 云端生产实例、多端共享真源 |
+| 典型部署位置 | API / Worker / 端侧共享 `<repo>/data/aervox.db`（见 §2.1） | 云端生产实例、多端共享真源 |
 
 > 全量覆盖：上表只描述已落库/已建模表。PRD §8 全生命周期数据模型的逐实体覆盖清单（阶段 × 实现状态）见 [§14](#14-prd-全量数据模型覆盖清单)。
+
+### 2.1 SQLite 共享真源路径约定
+
+- **共享真源文件**：所有进程（API、Worker、未来端侧）默认使用同一文件 `<repo>/data/aervox.db`。路径由 `packages/database/src/client.ts` 的 `createDatabase` 经 `import.meta.url` 定位仓库根后计算，源码与编译产物（`dist`）均解析到同一位置，避免各包各自落库导致数据不互通。
+- **自动建目录**：`createDatabase` 在 `createClient`（libsql 构造时即打开文件）之前自动 `fs.mkdirSync(data/, { recursive: true })`，首次启动无需手工创建。
+- **覆盖优先级**：`config.url` > `DATABASE_URL` 环境变量 > 默认共享路径。临时隔离/测试仍可显式传 `url` 或设 `DATABASE_URL`。
+- **多进程并发**：SQLite WAL 模式（`PRAGMA journal_mode=WAL; synchronous=NORMAL; busy_timeout`）支持 API / Worker 多进程同时读写同一文件；写事务由 SQLite 串行化 + 仓储层 lease/fencing（§9）兜底。
+- **初始化幂等**：`initDatabaseSchema` 使用 `CREATE TABLE IF NOT EXISTS`，多进程重复初始化安全。
 
 ---
 
@@ -761,6 +770,7 @@ flowchart TB
 ## 13. 参考与落地代码
 
 - 真源 schema：[packages/database/src/schema/](../../packages/database/src/schema/)
+- 连接与共享库路径：[client.ts](../../packages/database/src/client.ts#L21-L23)（`createDatabase` 默认 `<repo>/data/aervox.db`，见 §2.1）
 - 公共列定义：[common.ts](../../packages/database/src/schema/common.ts#L6-L17)
 - DDL 初始化脚本：[init.ts](../../packages/database/src/schema/init.ts#L9-L219)
 - Repository Port 签名：[repositories/types.ts](../../packages/database/src/repositories/types.ts#L1-L242)
