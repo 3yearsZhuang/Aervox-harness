@@ -136,7 +136,7 @@ describe("API 集成测试：用户侧域路由", () => {
     expect(reviews.json().items[0]).toMatchObject({ knowledgeId: "ki_trig", intervalDays: 2 });
   });
 
-  it("作答：幂等重试只记录一次，部分正确不改变掌握度", async () => {
+  it("作答：幂等重试只记录一次", async () => {
     const learning = new SqliteLearningRepository(db);
     const tenant = { workspaceId: "ws_it", subjectUserId: "usr_it" };
     await learning.createKnowledgeItem(tenant, { id: "ki_idem", concept: "余弦" });
@@ -157,16 +157,8 @@ describe("API 集成测试：用户侧域路由", () => {
       (await app.inject({ method: "POST", url: `/v1/questions/${questionId}/attempts`, headers: attemptHeaders, payload })).statusCode,
     ).toBe(200);
 
-    const partial = await app.inject({
-      method: "POST",
-      url: `/v1/questions/${questionId}/attempts`,
-      headers,
-      payload: { sessionId: "ses_2", answer: "0.5", judgement: "partial" },
-    });
-    expect(partial.statusCode).toBe(201);
-
     const attempts = await app.inject({ method: "GET", url: `/v1/questions/${questionId}/attempts`, headers });
-    expect(attempts.json().items).toHaveLength(2);
+    expect(attempts.json().items).toHaveLength(1);
 
     const otherQuestion = await app.inject({
       method: "POST",
@@ -190,6 +182,44 @@ describe("API 集成测试：用户侧域路由", () => {
     expect(otherAttempts.json().items).toHaveLength(1);
 
     const knowledge = await app.inject({ method: "GET", url: "/v1/knowledge-items/ki_idem", headers });
+    expect(knowledge.json()).toMatchObject({ correctCount: 1, wrongCount: 0, correctStreak: 1, mastery: 0.1 });
+  });
+
+  it("作答：服务端根据标准答案判定，无法判定时不更新掌握度", async () => {
+    const learning = new SqliteLearningRepository(db);
+    const tenant = { workspaceId: "ws_it", subjectUserId: "usr_it" };
+    await learning.createKnowledgeItem(tenant, { id: "ki_judge", concept: "单位圆" });
+    const deterministicQuestion = await app.inject({
+      method: "POST",
+      url: "/v1/questions",
+      headers,
+      payload: { prompt: "cos(0)=?", answerSpec: { answer: "1" }, knowledgeId: "ki_judge" },
+    });
+    const deterministicId = deterministicQuestion.json().id as string;
+    const correct = await app.inject({
+      method: "POST",
+      url: `/v1/questions/${deterministicId}/attempts`,
+      headers,
+      payload: { sessionId: "ses_judge", answer: " 1 ", judgement: "incorrect" },
+    });
+    expect(correct.json().judgement).toBe("correct");
+
+    const unverifiableQuestion = await app.inject({
+      method: "POST",
+      url: "/v1/questions",
+      headers,
+      payload: { prompt: "解释余弦定理", answerSpec: {}, knowledgeId: "ki_judge" },
+    });
+    const unverifiableId = unverifiableQuestion.json().id as string;
+    const unverifiable = await app.inject({
+      method: "POST",
+      url: `/v1/questions/${unverifiableId}/attempts`,
+      headers,
+      payload: { sessionId: "ses_judge", answer: "一种解释" },
+    });
+    expect(unverifiable.json().judgement).toBe("unverifiable");
+
+    const knowledge = await app.inject({ method: "GET", url: "/v1/knowledge-items/ki_judge", headers });
     expect(knowledge.json()).toMatchObject({ correctCount: 1, wrongCount: 0, correctStreak: 1, mastery: 0.1 });
   });
 
