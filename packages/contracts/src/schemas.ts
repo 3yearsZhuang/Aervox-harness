@@ -137,6 +137,7 @@ export const STREAM_PAYLOAD_VERSION = 1;
 
 /** 学习目标等级（与 packages/database src/schema/learning.ts 对齐） */
 export const learningGoalLevelSchema = z.enum(["beginner", "intermediate", "advanced"]);
+export const learningGoalStatusSchema = z.enum(["active", "paused", "completed", "archived"]);
 
 /** 创建学习目标请求体（FR-LRN-001 / CAP-002） */
 export const createLearningGoalSchema = z.object({
@@ -148,4 +149,18 @@ export const createLearningGoalSchema = z.object({
     .positive("availableMinutes must be a positive integer")
     .optional(),
 });
+
+/** 更新学习目标请求体；归档由 DELETE 路由统一处理。 */
+export const updateLearningGoalSchema = z
+  .object({
+    topic: z.string().trim().min(1, "topic is required").optional(),
+    level: learningGoalLevelSchema.optional(),
+    availableMinutes: z
+      .number({ error: "availableMinutes must be a positive integer" })
+      .int("availableMinutes must be a positive integer")
+      .positive("availableMinutes must be a positive integer")
+      .optional(),
+    status: z.enum(["active", "paused", "completed"]).optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, "at least one field is required");
 

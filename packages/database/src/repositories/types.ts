@@ -459,6 +459,7 @@ export interface LearningGoalModel {
   level: string;
   availableMinutes: number;
   status: string;
+  idempotencyKey?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -521,10 +522,32 @@ export interface ReviewItemModel {
 export interface ILearningRepository {
   createLearningGoal(
     tenant: TenantContext,
-    goal: { id: string; topic: string; level?: string; availableMinutes?: number; status?: string },
+    goal: {
+      id: string;
+      topic: string;
+      level?: string;
+      availableMinutes?: number;
+      status?: string;
+      idempotencyKey?: string | null;
+    },
   ): Promise<LearningGoalModel>;
+  createLearningGoalIdempotent(
+    tenant: TenantContext,
+    goal: {
+      id: string;
+      topic: string;
+      level?: string;
+      availableMinutes?: number;
+      idempotencyKey: string;
+    },
+  ): Promise<{ goal: LearningGoalModel; created: boolean }>;
   getLearningGoal(tenant: TenantContext, id: string): Promise<LearningGoalModel | null>;
-  listLearningGoals(tenant: TenantContext): Promise<LearningGoalModel[]>;
+  listLearningGoals(tenant: TenantContext, includeArchived?: boolean): Promise<LearningGoalModel[]>;
+  updateLearningGoal(
+    tenant: TenantContext,
+    id: string,
+    goal: { topic?: string; level?: string; availableMinutes?: number; status?: string },
+  ): Promise<LearningGoalModel | null>;
   createQuestion(
     tenant: TenantContext,
     question: {
