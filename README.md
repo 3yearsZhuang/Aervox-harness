@@ -92,6 +92,7 @@ AERVOX_API_URL='http://127.0.0.1:3000' AERVOX_SESSION_ID='<现有会话 ID>' pnp
 | | `VITE_SESSION_ID` | 会话 ID（默认 `web_default`） |
 | | `VITE_WORKSPACE_ID` / `VITE_USER_ID` | 可选租户头（缺省回退默认租户） |
 | Desktop | `AERVOX_API_URL` / `AERVOX_SESSION_ID` | 见上方桌面端小节 |
+| 数据 | `DATABASE_URL` | SQLite 真源路径；API / Worker / 端侧默认共享 `<repo>/data/aervox.db`（详见 [AVX-DB-001 §2.1](docs/contracts/DATABASE.md#21-sqlite-共享真源路径约定)） |
 
 ## 文档与追踪
 
