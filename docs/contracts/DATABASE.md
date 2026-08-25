@@ -811,7 +811,7 @@ flowchart TB
 |---|---|---|---|
 | LearningGoal | MVP | 已落表 | `learning_goals`（topic/level/availableMinutes/status） |
 | Question | MVP | 已落表 | `questions`（sourceArtifactId 应用层维护；可选 knowledgeId 关联知识点） |
-| QuestionAttempt | MVP | 已落表 | `question_attempts` 不可变事实（judgement/evidence/idempotencyKey，仅追加；非空幂等键按租户唯一） |
+| QuestionAttempt | MVP | 已落表 | `question_attempts` 不可变事实（judgement/evidence/idempotencyKey，仅追加；非空幂等键按工作区/数据主体/题目唯一） |
 | KnowledgeItem | MVP | 已落表 | `knowledge_items`（sourceStatus/masteryState、correctCount/wrongCount/correctStreak/mastery、masteryBasis） |
 | ReviewItem | MVP | 已落表 | `review_items`（活动项条件唯一，status='active'） |
 | Feedback | MVP | 已落表 | `feedback`（actorId 与数据主体分离） |

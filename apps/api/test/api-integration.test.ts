@@ -167,6 +167,28 @@ describe("API 集成测试：用户侧域路由", () => {
 
     const attempts = await app.inject({ method: "GET", url: `/v1/questions/${questionId}/attempts`, headers });
     expect(attempts.json().items).toHaveLength(2);
+
+    const otherQuestion = await app.inject({
+      method: "POST",
+      url: "/v1/questions",
+      headers,
+      payload: { prompt: "tan(45°)=?", answerSpec: { answer: "1" } },
+    });
+    const otherQuestionId = otherQuestion.json().id as string;
+    const crossKey = await app.inject({
+      method: "POST",
+      url: `/v1/questions/${otherQuestionId}/attempts`,
+      headers: attemptHeaders,
+      payload: { sessionId: "ses_2", answer: "1", judgement: "correct" },
+    });
+    expect(crossKey.statusCode).toBe(201);
+    const otherAttempts = await app.inject({
+      method: "GET",
+      url: `/v1/questions/${otherQuestionId}/attempts`,
+      headers,
+    });
+    expect(otherAttempts.json().items).toHaveLength(1);
+
     const knowledge = await app.inject({ method: "GET", url: "/v1/knowledge-items/ki_idem", headers });
     expect(knowledge.json()).toMatchObject({ correctCount: 1, wrongCount: 0, correctStreak: 1, mastery: 0.1 });
   });

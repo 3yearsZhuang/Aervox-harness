@@ -476,8 +476,21 @@ export interface ILearningRepository {
   listAttemptsByQuestion(tenant: TenantContext, questionId: string): Promise<QuestionAttemptModel[]>;
   getAttemptByIdempotencyKey(
     tenant: TenantContext,
+    questionId: string,
     idempotencyKey: string,
   ): Promise<QuestionAttemptModel | null>;
+  recordAttemptIdempotent(
+    tenant: TenantContext,
+    attempt: {
+      id: string;
+      sessionId: string;
+      questionId: string;
+      answer: string;
+      judgement: string;
+      evidence?: unknown;
+      idempotencyKey: string;
+    },
+  ): Promise<{ attempt: QuestionAttemptModel; created: boolean }>;
   createKnowledgeItem(
     tenant: TenantContext,
     item: {

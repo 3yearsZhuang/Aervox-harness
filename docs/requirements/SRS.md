@@ -193,7 +193,7 @@
 
 - **Parent CAP**：`CAP-003`、`CAP-004`
 - **必须**：默认题组 3～5 题；每题提交后返回正确/部分正确/待确认和下一步；选择题按标准答案判定，短文本题不可验证时进入待确认。
-- **数据**：`Question`、`QuestionAttempt`、`KnowledgeItem`、`ReviewItem`；原始作答不可变，掌握度为派生状态；作答请求可携带 `Idempotency-Key`，在同一工作区和数据主体内去重。
+- **数据**：`Question`、`QuestionAttempt`、`KnowledgeItem`、`ReviewItem`；原始作答不可变，掌握度为派生状态；作答请求可携带 `Idempotency-Key`，在同一工作区、数据主体和题目维度内去重。
 - **验收**：
   - `AC-FR-PRC-001-01`：Given 用户重复提交同一答案，When 请求重试，Then 只产生一个作答事实和一个调度结果。
   - `AC-FR-PRC-001-02`：Given 判定为部分正确/待确认，When 会话结束，Then 不直接计入掌握度。

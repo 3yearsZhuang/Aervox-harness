@@ -173,6 +173,7 @@ export class SqliteLearningRepository implements ILearningRepository {
 
   async getAttemptByIdempotencyKey(
     tenant: TenantContext,
+    questionId: string,
     idempotencyKey: string,
   ): Promise<QuestionAttemptModel | null> {
     assertTenantContext(tenant);
@@ -183,10 +184,68 @@ export class SqliteLearningRepository implements ILearningRepository {
         and(
           eq(questionAttempts.workspaceId, tenant.workspaceId),
           eq(questionAttempts.subjectUserId, tenant.subjectUserId),
+          eq(questionAttempts.questionId, questionId),
           eq(questionAttempts.idempotencyKey, idempotencyKey),
         ),
       );
     return (found as QuestionAttemptModel) ?? null;
+  }
+
+  /** 幂等作答：先查后插，依赖 (tenant, question, idempotency_key) 唯一索引并发兜底；重复返回已有记录与 created=false */
+  async recordAttemptIdempotent(
+    tenant: TenantContext,
+    attemptData: {
+      id: string;
+      sessionId: string;
+      questionId: string;
+      answer: string;
+      judgement: string;
+      evidence?: unknown;
+      idempotencyKey: string;
+    },
+  ): Promise<{ attempt: QuestionAttemptModel; created: boolean }> {
+    assertTenantContext(tenant);
+    const findExisting = async (): Promise<QuestionAttemptModel | null> => {
+      const [found] = await this.db
+        .select()
+        .from(questionAttempts)
+        .where(
+          and(
+            eq(questionAttempts.workspaceId, tenant.workspaceId),
+            eq(questionAttempts.subjectUserId, tenant.subjectUserId),
+            eq(questionAttempts.questionId, attemptData.questionId),
+            eq(questionAttempts.idempotencyKey, attemptData.idempotencyKey),
+          ),
+        );
+      return (found as QuestionAttemptModel) ?? null;
+    };
+
+    const existing = await findExisting();
+    if (existing) return { attempt: existing, created: false };
+
+    try {
+      const [inserted] = await this.db
+        .insert(questionAttempts)
+        .values({
+          id: attemptData.id,
+          workspaceId: tenant.workspaceId,
+          subjectUserId: tenant.subjectUserId,
+          sessionId: attemptData.sessionId,
+          questionId: attemptData.questionId,
+          answer: attemptData.answer,
+          judgement: attemptData.judgement,
+          evidence: attemptData.evidence ?? null,
+          idempotencyKey: attemptData.idempotencyKey,
+          createdAt: new Date().toISOString(),
+        })
+        .returning();
+      return { attempt: inserted as QuestionAttemptModel, created: true };
+    } catch {
+      // 并发竞态：唯一索引兜底后重查，命中即视为已存在
+      const raced = await findExisting();
+      if (raced) return { attempt: raced, created: false };
+      throw new Error("recordAttemptIdempotent: 唯一索引约束与查询结果不一致");
+    }
   }
 
   async createKnowledgeItem(

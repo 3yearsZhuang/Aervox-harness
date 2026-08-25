@@ -66,8 +66,8 @@ export const questionAttempts = sqliteTable(
       table.questionId,
     ),
     tenantIdx: index("question_attempts_tenant_idx").on(table.workspaceId, table.subjectUserId),
-    tenantIdempotencyIdx: uniqueIndex("question_attempts_tenant_idempotency_idx")
-      .on(table.workspaceId, table.subjectUserId, table.idempotencyKey)
+    tenantQuestionIdempotencyIdx: uniqueIndex("question_attempts_tenant_question_idempotency_idx")
+      .on(table.workspaceId, table.subjectUserId, table.questionId, table.idempotencyKey)
       .where(sql`${table.idempotencyKey} IS NOT NULL`),
   }),
 );

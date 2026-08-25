@@ -429,9 +429,10 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await client.execute(`
     CREATE INDEX IF NOT EXISTS question_attempts_tenant_idx ON question_attempts(workspace_id, subject_user_id);
   `);
+  await client.execute(`DROP INDEX IF EXISTS question_attempts_tenant_idempotency_idx;`);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS question_attempts_tenant_idempotency_idx
-    ON question_attempts(workspace_id, subject_user_id, idempotency_key)
+    CREATE UNIQUE INDEX IF NOT EXISTS question_attempts_tenant_question_idempotency_idx
+    ON question_attempts(workspace_id, subject_user_id, question_id, idempotency_key)
     WHERE idempotency_key IS NOT NULL;
   `);
 

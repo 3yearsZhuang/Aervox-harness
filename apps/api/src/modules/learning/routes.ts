@@ -92,22 +92,33 @@ export function registerLearningRoutes(
       return reply.code(400).send({ error: "invalid judgement" });
     }
     const idempotencyKey = req.headers["idempotency-key"];
-    if (typeof idempotencyKey === "string") {
-      const previous = await learningRepo.getAttemptByIdempotencyKey(tenant, idempotencyKey);
-      if (previous) return reply.code(200).send(previous);
-    }
+    const hasIdempotencyKey = typeof idempotencyKey === "string" && idempotencyKey.length > 0;
     const question = await learningRepo.getQuestion(tenant, questionId);
     if (!question) return reply.code(404).send({ error: "question not found" });
 
-    const attempt = await learningRepo.recordAttempt(tenant, {
-      id: id("att"),
-      sessionId: body.sessionId ?? "ses_unknown",
-      questionId,
-      answer: body.answer,
-      judgement: body.judgement,
-      evidence: body.evidence,
-      idempotencyKey: typeof idempotencyKey === "string" ? idempotencyKey : null,
-    });
+    const { attempt, created } = hasIdempotencyKey
+      ? await learningRepo.recordAttemptIdempotent(tenant, {
+          id: id("att"),
+          sessionId: body.sessionId ?? "ses_unknown",
+          questionId,
+          answer: body.answer,
+          judgement: body.judgement,
+          evidence: body.evidence,
+          idempotencyKey,
+        })
+      : {
+          attempt: await learningRepo.recordAttempt(tenant, {
+            id: id("att"),
+            sessionId: body.sessionId ?? "ses_unknown",
+            questionId,
+            answer: body.answer,
+            judgement: body.judgement,
+            evidence: body.evidence,
+            idempotencyKey: null,
+          }),
+          created: true,
+        };
+    if (!created) return reply.code(200).send(attempt);
     if (!question.knowledgeId || !["correct", "incorrect"].includes(body.judgement)) {
       return reply.code(201).send(attempt);
     }

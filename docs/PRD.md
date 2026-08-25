@@ -556,7 +556,7 @@ AI 每日日记是给用户阅读的叙事视图，记忆层是供系统推理�
 | TurnAttempt | id, turnId, attempt, leaseId, fencingToken, status, startedAt, finishedAt | Turn 的内部执行尝试；首个可见分段前且无工具副作用时才允许自动重试，客户端不依赖该身份 |
 | TurnStreamEvent | id, turnId, attemptId, sequence, eventType, payloadVersion, content, safetyDecision, visibilityRevision, committedAt | 只有通过分段安全检查并持久化的 `delta` 才能发送；通过稳定 `eventId` 和 `(turnId, sequence)` 支持重连、去重、撤回事件和已展示前缀恢复 |
 | Question | id, workspaceId, subjectUserId, sourceArtifactId, knowledgeId, prompt, answerSpec, status | 生成题、导入题和人工题的统一身份；可选关联一个知识点，来源通过统一来源实体关联 |
-| QuestionAttempt | id, workspaceId, subjectUserId, sessionId, questionId, answer, judgement, evidence, idempotencyKey, createdAt | 每次答题的不可变记录；幂等键在同一工作区和数据主体内去重，掌握度是其派生结果 |
+| QuestionAttempt | id, workspaceId, subjectUserId, sessionId, questionId, answer, judgement, evidence, idempotencyKey, createdAt | 每次答题的不可变记录；幂等键在同一工作区、数据主体和题目维度内去重，掌握度是其派生结果 |
 | KnowledgeItem | id, workspaceId, subjectUserId, concept, sourceStatus, masteryState, correctCount, wrongCount, correctStreak, mastery, masteryBasis | 用户可见知识点；作答计数、连续答对与数值掌握度是掌握状态的派生依据 |
 | ReviewItem | id, workspaceId, subjectUserId, knowledgeId, dueAt, intervalDays, schedulerVersion, status | 复习调度项；同一工作区/数据主体/知识点的活动项须有唯一约束 |
 | Feedback | id, workspaceId, subjectUserId, actorId, subjectType, subjectId, type, note, createdAt | 对消息、日记、记忆、题目和社区内容的反馈；反馈操作者与被处理数据主体分离 |
