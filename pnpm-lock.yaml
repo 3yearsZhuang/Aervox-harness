@@ -48,9 +48,15 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@aervox/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@aervox/contracts':
         specifier: workspace:^
         version: link:../../packages/contracts
+      '@aervox/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       element-plus:
         specifier: ^2.11.5
         version: 2.14.5(vue@3.5.41(typescript@5.8.3))
@@ -92,9 +98,15 @@ importers:
 
   apps/web:
     dependencies:
+      '@aervox/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@aervox/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@aervox/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       element-plus:
         specifier: ^2.11.5
         version: 2.14.5(vue@3.5.41(typescript@5.8.3))
@@ -146,6 +158,16 @@ importers:
         specifier: 7.0.2
         version: 7.0.2
 
+  packages/api-client:
+    dependencies:
+      '@aervox/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      vue:
+        specifier: ^3.5.21
+        version: 3.5.41(typescript@7.0.2)
+
   packages/contracts:
     dependencies:
       '@asteasolutions/zod-to-openapi':
@@ -191,6 +213,18 @@ importers:
       vitest:
         specifier: 4.0.18
         version: 4.0.18(@types/node@24.13.3)(tsx@4.23.12)(yaml@2.9.0)
+
+  packages/ui:
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.8.3
+      vue:
+        specifier: ^3.5.21
+        version: 3.5.41(typescript@5.8.3)
+      vue-tsc:
+        specifier: ^2.2.12
+        version: 2.2.12(typescript@5.8.3)
 
 packages:
 
@@ -4635,6 +4669,16 @@ snapshots:
       '@vue/shared': 3.5.41
     optionalDependencies:
       typescript: 5.8.3
+
+  vue@3.5.41(typescript@7.0.2):
+    dependencies:
+      '@vue/compiler-dom': 3.5.41
+      '@vue/compiler-sfc': 3.5.41
+      '@vue/runtime-dom': 3.5.41
+      '@vue/server-renderer': 3.5.41
+      '@vue/shared': 3.5.41
+    optionalDependencies:
+      typescript: 7.0.2
 
   web-streams-polyfill@3.3.3: {}
 

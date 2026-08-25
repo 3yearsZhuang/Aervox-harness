@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { streamAervoxTurn } from '@/composables/useAervoxTurn';
+import { streamAervoxTurn } from '@aervox/api-client';
+import { MessageBubble } from '@aervox/ui';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -45,19 +46,17 @@ const askSuggestion = (s: string): void => {
 <template>
   <div class="chat">
     <div class="messages">
-      <div v-for="(m, i) in messages" :key="i" class="message" :class="m.role">
-        <div class="bubble">{{ m.text }}<span v-if="streaming && m.role === 'assistant' && i === messages.length - 1" class="cursor">▍</span></div>
-      </div>
+      <MessageBubble
+        v-for="(m, i) in messages"
+        :key="i"
+        :role="m.role"
+        :text="m.text"
+        :streaming="streaming && m.role === 'assistant' && i === messages.length - 1"
+      />
     </div>
 
-    <div class="suggestions" v-if="messages.length <= 2">
-      <el-tag
-        v-for="s in suggestions"
-        :key="s"
-        class="suggestion"
-        effect="plain"
-        @click="askSuggestion(s)"
-      >
+    <div v-if="messages.length <= 2" class="suggestions">
+      <el-tag v-for="s in suggestions" :key="s" class="suggestion" effect="plain" @click="askSuggestion(s)">
         {{ s }}
       </el-tag>
     </div>
@@ -88,31 +87,6 @@ const askSuggestion = (s: string): void => {
   flex-direction: column;
   gap: 12px;
 }
-.message.user {
-  align-self: flex-end;
-}
-.message.assistant {
-  align-self: flex-start;
-  max-width: 80%;
-}
-.bubble {
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: var(--el-fill-color-light);
-  white-space: pre-wrap;
-  line-height: 1.6;
-}
-.message.user .bubble {
-  background: var(--el-color-primary-light-8);
-}
-.cursor {
-  animation: blink 1s steps(1) infinite;
-}
-@keyframes blink {
-  50% {
-    opacity: 0;
-  }
-}
 .suggestions {
   display: flex;
   gap: 8px;
@@ -126,6 +100,6 @@ const askSuggestion = (s: string): void => {
   display: flex;
   gap: 8px;
   padding: 12px 16px;
-  border-top: 1px solid var(--el-border-color-lighter);
+  border-top: 1px solid var(--aervox-border-lighter, #e4e7ed);
 }
 </style>

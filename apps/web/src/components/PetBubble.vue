@@ -1,17 +1,23 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
+import { PetHero } from '@aervox/ui';
 
 const router = useRouter();
 </script>
 
 <template>
   <div class="pet-bubble" @click="router.push('/chat')">
-    <span class="emoji">🐣</span>
-    <span class="label">桌宠</span>
+    <span class="pet-scale-box"><PetHero /></span>
+    <span class="label">对话</span>
   </div>
 </template>
 
 <style scoped>
+.pet-scale-box {
+  display: inline-block;
+  transform: scale(0.55);
+  transform-origin: bottom center;
+}
 .pet-bubble {
   position: fixed;
   right: 20px;
@@ -20,10 +26,10 @@ const router = useRouter();
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   padding: 10px 14px;
   border-radius: 999px;
-  background: var(--el-color-primary);
+  background: var(--aervox-primary, #409eff);
   color: #fff;
   cursor: pointer;
   box-shadow: 0 6px 20px rgb(0 0 0 / 15%);
@@ -31,10 +37,6 @@ const router = useRouter();
 }
 .pet-bubble:hover {
   transform: translateY(-2px);
-}
-.emoji {
-  font-size: 20px;
-  line-height: 1;
 }
 .label {
   font-size: 11px;
