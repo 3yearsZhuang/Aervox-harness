@@ -29,6 +29,12 @@ function judgeAnswer(answerSpec: unknown, answer: string): "correct" | "incorrec
     : "incorrect";
 }
 
+function nextStepFor(judgement: "correct" | "incorrect" | "unverifiable"): string {
+  if (judgement === "correct") return "continue";
+  if (judgement === "incorrect") return "review_scheduled";
+  return "await_review";
+}
+
 export function registerLearningRoutes(
   app: FastifyInstance,
   learningRepo: SqliteLearningRepository,
@@ -91,6 +97,15 @@ export function registerLearningRoutes(
     return question;
   });
 
+  app.get("/v1/practice/questions", async (req, reply) => {
+    const countParam = (req.query as { count?: string }).count;
+    const count = countParam === undefined ? 3 : Number(countParam);
+    if (!Number.isInteger(count) || count < 3 || count > 5) {
+      return reply.code(400).send({ error: "count must be an integer from 3 to 5" });
+    }
+    return { items: await learningRepo.listActiveQuestions(resolveTenant(req), count) };
+  });
+
   // 作答（不可变学习事实）
   app.post("/v1/questions/:questionId/attempts", async (req, reply) => {
     const tenant = resolveTenant(req);
@@ -129,9 +144,9 @@ export function registerLearningRoutes(
           }),
           created: true,
         };
-    if (!created) return reply.code(200).send(attempt);
+    if (!created) return reply.code(200).send({ ...attempt, nextStep: nextStepFor(attempt.judgement as "correct" | "incorrect" | "unverifiable") });
     if (!question.knowledgeId || !["correct", "incorrect"].includes(judgement)) {
-      return reply.code(201).send(attempt);
+      return reply.code(201).send({ ...attempt, nextStep: nextStepFor(judgement) });
     }
 
     const storedItem = await learningRepo.getKnowledgeItem(tenant, question.knowledgeId);
@@ -165,7 +180,7 @@ export function registerLearningRoutes(
       dueAt: review.dueAt.toISOString(),
       intervalDays: review.intervalDays,
     });
-    return reply.code(201).send(attempt);
+    return reply.code(201).send({ ...attempt, nextStep: nextStepFor(judgement) });
   });
 
   app.get("/v1/questions/:questionId/attempts", async (req) => {

@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 内容/生态扩展域 SQLite 仓储实现
  *
- * 规则依据：docs/PRD.md §8（ExternalSource/Plugin/PluginGrant/CommunityContent/Organization）
+ * 规则依据：docs/reference/PRD.md §8（ExternalSource/Plugin/PluginGrant/CommunityContent/Organization）
  * P2/P3 扩展实体：先落表为后续生态/社区功能预留。
  */
 import { eq, and } from "drizzle-orm";

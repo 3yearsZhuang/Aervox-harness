@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 学习/练习/复习实体表
  *
- * 规则依据：docs/PRD.md §8 数据模型（LearningGoal / Question / QuestionAttempt / KnowledgeItem / ReviewItem）
+ * 规则依据：docs/reference/PRD.md §8 数据模型（LearningGoal / Question / QuestionAttempt / KnowledgeItem / ReviewItem）
  */
 import { sqliteTable, text, integer, real, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
