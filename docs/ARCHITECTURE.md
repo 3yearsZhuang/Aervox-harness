@@ -115,6 +115,26 @@ apps/api/test/                       # 集成测试
 
 **与 ADR-001 的关系**：本结构是 ADR-001（模块化单体）在 API 层的细化设计，由 ADR-014 记录完整决策。未来当某个模块满足拆分条件（团队边界、独立扩缩容、部署独立性）时，可将该模块的进程内 EventBus 调用替换为消息队列，仓储实例化替换为 HTTP/gRPC 客户端，业务逻辑代码零改动。
 
+### 3.2 UI 共享包规划（packages/ui / api-client）
+
+**现状（2026-08-25）——逻辑层与视觉内核已收敛为共享包，组件层按需继续上收**：
+
+| 层级 | 桌面端（Electron/Vue） | Web 工作台（Vue） | 复用形态 |
+|---|---|---|---|
+| 契约/协议 | `@aervox/contracts`、`@aervox/api` | 同一份 | ✅ 真共享（import 同一包） |
+| 逻辑（transport + composables） | 注入 `desktopTransport`（preload IPC 适配，`@aervox/api-client`） | 默认 `fetchTransport`（浏览器 fetch/SSE，同包） | ✅ 真共享：两端各注入传输适配，composables（`useAervoxApi`/`useAervoxTurn`）收敛到 `@aervox/api-client`，本地副本已删除 |
+| UI 组件/主题 | `PetAvatar`（桌面 hero / PetWindow 内部使用）；`AppTitlebar` 等窗口壳保留端内 | `PetAvatar`（PetBubble 浮层）+ `MessageBubble`（对话）；主题 token | ⚠️ 共享中：桌宠视觉内核与消息气泡收至 `@aervox/ui`；窗口壳、页面布局仍各端私有，按 §3.2 触发条件继续上收 |
+
+- 共享包清单：`@aervox/api-client`（transport 抽象 + Vue composables，源码出口）与 `@aervox/ui`（PetAvatar / MessageBubble / 主题 token，源码出口）均为新建，两端 dev/build 经 Vite 直接消费源码。
+- 渲染层差异（桌面 story 单条叙事 vs Web 消息列表）与多窗口桌宠 vs 同页浮层仍属壳能力差异，保留各端适配层，不强制统一。
+
+**规划（ADR-014/015 演进式，仍有触发式上收）**：
+
+- **创建时机**：当同一展示组件被 ≥2 个端（web / desktop / mobile）真实复用且实现开始分叉时，把两端竞品实现收敛为 `packages/ui` 的共享组件 + 主题 token（以 desktop styles 为基础），例如对话消息渲染、学习卡片、PetBubble/PetWindow 的视觉内核。
+- **内容边界**：只放跨端复用且**无壳依赖**（Electron IPC / Capacitor）的展示组件与主题 token；页面壳、窗口控制、preload 桥接、平台通道逻辑一律留在各端。
+- **允许端内差异**：多窗口桌宠（桌面）与同页浮层（Web）属于壳能力差异，保留各端适配层，不强制统一。
+- **约束**：建包不改变 ADR-014/015 决策；若仅两端复用亦可在各自端内先收敛再提升，避免为假想需求建包。
+
 领域模块：
 
 - **Identity & Consent**：账户、工作区、角色、年龄组、同意和设备授权。
