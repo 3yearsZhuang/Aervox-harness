@@ -1,0 +1,14 @@
+/**
+ * Aervox｜思隅 @aervox/ui — 主题令牌（基础 CSS 变量）
+ *
+ * 两端共用的一致配色令牌；各端壳级布局样式仍保留在各自 styles/ 内。
+ */
+:root {
+  --aervox-primary: #409eff;
+  --aervox-primary-light: #ecf5ff;
+  --aervox-fill-light: #f4f4f5;
+  --aervox-text: #303133;
+  --aervox-text-secondary: #909399;
+  --aervox-border-lighter: #e4e7ed;
+  --aervox-radius: 10px;
+}
