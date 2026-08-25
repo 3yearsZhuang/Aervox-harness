@@ -115,6 +115,23 @@ export interface IConversationRepository {
     attempt: { id: string; attempt?: number; leaseId?: string | null; fencingToken?: number },
   ): Promise<TurnAttemptModel>;
   listTurnAttempts(tenant: TenantContext, turnId: string): Promise<TurnAttemptModel[]>;
+  // P1（R2 · CAP-014）：会话地图与替代解法分支
+  createConversationBranch(
+    tenant: TenantContext,
+    branch: { id: string; parentSessionId: string; forkAtMessageId?: string | null; childSessionId: string },
+  ): Promise<ConversationBranchModel>;
+  listBranchesByParent(tenant: TenantContext, parentSessionId: string): Promise<ConversationBranchModel[]>;
+}
+
+export interface ConversationBranchModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  parentSessionId: string;
+  forkAtMessageId?: string | null;
+  childSessionId: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface MemoryRecordModel {
@@ -136,10 +153,47 @@ export interface MemoryEdgeModel {
   id: string;
   workspaceId: string;
   subjectUserId: string;
-  sourceId: string;
-  targetId: string;
+  fromNodeId: string;
+  toNodeId: string;
   relationType: string;
+  confidence: number;
+  visibilityScope: string;
+  status: string;
   createdAt: string;
+}
+
+export interface MemoryNodeModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  canonicalParentId?: string | null;
+  label: string;
+  nodeType: string;
+  confidence: number;
+  status: string;
+  projectionVersion: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MemoryEdgeEvidenceModel {
+  id: string;
+  edgeId: string;
+  memoryRevisionId: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface MemoryAlgorithmModel {
+  id: string;
+  stage: string;
+  schemaVersion: number;
+  promptVersionId?: string | null;
+  thresholds?: unknown;
+  status: string;
+  approvedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface MemoryTreeNode {
@@ -165,13 +219,33 @@ export interface IMemoryRepository {
   listRecordsByLayer(tenant: TenantContext, layer: string): Promise<MemoryRecordModel[]>;
   createEdge(
     tenant: TenantContext,
-    edge: { id: string; sourceId: string; targetId: string; relationType: string },
+    edge: { id: string; fromNodeId: string; toNodeId: string; relationType: string; confidence?: number; visibilityScope?: string },
   ): Promise<MemoryEdgeModel>;
   getTreeProjection(
     tenant: TenantContext,
     rootRecordId?: string | null,
   ): Promise<MemoryTreeNode[]>;
   softDeleteRecord(tenant: TenantContext, id: string): Promise<boolean>;
+  // P1（R2）：记忆树投影节点 / 边证据 / 算法版本
+  createNode(
+    tenant: TenantContext,
+    node: { id: string; label: string; nodeType?: string; canonicalParentId?: string | null; confidence?: number; projectionVersion?: number },
+  ): Promise<MemoryNodeModel>;
+  getNode(tenant: TenantContext, id: string): Promise<MemoryNodeModel | null>;
+  createEdgeEvidence(
+    evidence: { id: string; edgeId: string; memoryRevisionId: string },
+  ): Promise<MemoryEdgeEvidenceModel>;
+  createMemoryAlgorithm(
+    algorithm: {
+      id: string;
+      stage: string;
+      schemaVersion?: number;
+      promptVersionId?: string | null;
+      thresholds?: unknown;
+      status?: string;
+    },
+  ): Promise<MemoryAlgorithmModel>;
+  getActiveAlgorithm(stage: string): Promise<MemoryAlgorithmModel | null>;
 }
 
 export interface DiaryModel {
@@ -528,6 +602,32 @@ export interface ILearningRepository {
   ): Promise<ReviewItemModel>;
   listDueReviewItems(tenant: TenantContext, before: string): Promise<ReviewItemModel[]>;
   completeReviewItem(tenant: TenantContext, id: string): Promise<ReviewItemModel | null>;
+  // P1（R2 · CAP-015）：思维宇宙知识关系
+  createKnowledgeRelation(
+    tenant: TenantContext,
+    relation: {
+      id: string;
+      fromKnowledgeId: string;
+      toKnowledgeId: string;
+      relationType: string;
+      source?: string;
+      confidence?: number;
+    },
+  ): Promise<KnowledgeRelationModel>;
+  listKnowledgeRelations(tenant: TenantContext, knowledgeId: string): Promise<KnowledgeRelationModel[]>;
+}
+
+export interface KnowledgeRelationModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  fromKnowledgeId: string;
+  toKnowledgeId: string;
+  relationType: string;
+  source: string;
+  confidence: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ============ 反馈域 ============
@@ -1086,4 +1186,106 @@ export interface IRecoveryLedgerPort {
   getMaxSequence(): Promise<number>;
   getBySequence(sequence: number): Promise<RecoveryLedgerEventModel | null>;
   getByIdempotencyKey(idempotencyKey: string): Promise<RecoveryLedgerEventModel | null>;
+}
+
+// ============ 内容/生态扩展域（P2/P3）============
+
+export interface ExternalSourceModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  provider: string;
+  externalId: string;
+  permissionScope: string;
+  syncState: string;
+  revokedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PluginModel {
+  id: string;
+  publisher: string;
+  version: string;
+  checksum: string;
+  signature?: string | null;
+  permissions?: unknown;
+  installSource: string;
+  enabled: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PluginGrantModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  pluginId: string;
+  permission: string;
+  scope: string;
+  grantedAt: string;
+  revokedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CommunityContentModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  authorId: string;
+  type: string;
+  status: string;
+  reviewState: string;
+  visibility: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OrganizationModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  ownerId: string;
+  memberScope: string;
+  policyVersion: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IExtensionRepository {
+  createExternalSource(
+    tenant: TenantContext,
+    source: { id: string; provider: string; externalId: string; permissionScope: string; syncState?: string },
+  ): Promise<ExternalSourceModel>;
+  getExternalSource(tenant: TenantContext, id: string): Promise<ExternalSourceModel | null>;
+  createPlugin(
+    plugin: {
+      id: string;
+      publisher: string;
+      version: string;
+      checksum: string;
+      signature?: string | null;
+      permissions?: unknown;
+      installSource?: string;
+      enabled?: number;
+    },
+  ): Promise<PluginModel>;
+  listPlugins(): Promise<PluginModel[]>;
+  grantPlugin(
+    tenant: TenantContext,
+    grant: { id: string; pluginId: string; permission: string; scope: string; grantedAt?: string },
+  ): Promise<PluginGrantModel>;
+  revokePluginGrant(tenant: TenantContext, id: string): Promise<PluginGrantModel | null>;
+  hasPluginPermission(tenant: TenantContext, pluginId: string, permission: string): Promise<boolean>;
+  createCommunityContent(
+    tenant: TenantContext,
+    content: { id: string; authorId: string; type: string; status?: string; reviewState?: string; visibility?: string },
+  ): Promise<CommunityContentModel>;
+  getCommunityContent(tenant: TenantContext, id: string): Promise<CommunityContentModel | null>;
+  createOrganization(
+    tenant: TenantContext,
+    org: { id: string; ownerId: string; memberScope?: string; policyVersion: string },
+  ): Promise<OrganizationModel>;
+  getOrganization(tenant: TenantContext, id: string): Promise<OrganizationModel | null>;
 }

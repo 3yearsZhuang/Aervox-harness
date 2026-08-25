@@ -1,7 +1,7 @@
 # Aervox｜思隅 数据库设计与双引擎契约（DBC）
 
 > 文档编号：AVX-DB-001  
-> 版本：v0.4（评审候选）  
+> 版本：v0.6（评审候选）  
 > 更新日期：2026-08-25  
 > 状态：Review Candidate  
 > 关联：`CR-003`、`ADR-003`、`ADR-004`、`ADR-007`、`ADR-011`、`ADR-012`、`ADR-013`、`AVX-SPC-001`、`AVX-PRD-001`、`NFR-SCALE-001`、`NFR-SEC-001`
@@ -20,6 +20,8 @@
 | v0.2 | 2026-08-24 | 对齐 PRD §8 全量数据模型：新增 §14 覆盖清单，逐实体标注阶段与实现状态，明确未落表规划 backlog |
 | v0.3 | 2026-08-24 | MVP（R1）优先队列 22 组实体 + 独立账本全部落表：新增 24 张表与 7 个仓储 Port；§14 状态同步为已落表/已建模，覆盖度 12→35（69%） |
 | v0.4 | 2026-08-25 | 统一 API / Worker 共享 SQLite 真源路径 `<repo>/data/aervox.db`：新增 §2.1 路径约定（自动建目录 / DATABASE_URL 覆盖 / WAL 多进程并发） |
+| v0.5 | 2026-08-25 | P1（R2）落表 5 张：memory_nodes 投影独立化 + memory_edges/overrides 迁移到节点级 + memory_edge_evidence + memory_algorithms + conversation_branches + knowledge_relations；§14 表格状态同步（48 张业务表已落表，覆盖除 PG 用户域外全部核心实体） |
+| v0.6 | 2026-08-25 | P2/P3 扩展落表 5 张：external_sources + plugins/plugin_grants + community_contents + organizations + IExtensionRepository；§14 覆盖 48→53 张业务表，除 PG 用户域外全部落表 |
 
 ---
 
@@ -825,8 +827,8 @@ flowchart TB
 | KnowledgeItem | MVP | 已落表 | `knowledge_items`（sourceStatus/masteryState、correctCount/wrongCount/correctStreak/mastery、masteryBasis） |
 | ReviewItem | MVP | 已落表 | `review_items`（活动项条件唯一，status='active'） |
 | Feedback | MVP | 已落表 | `feedback`（actorId 与数据主体分离） |
-| ConversationBranch | P1 | 未落表 | CAP-014 会话地图与替代解法分支 |
-| KnowledgeRelation | P1 | 未落表 | CAP-015 思维宇宙知识关系（来源/置信/状态） |
+| ConversationBranch | P1 | 已落表 | `conversation_branches`（parentSessionId/forkAtMessageId/childSessionId） |
+| KnowledgeRelation | P1 | 已落表 | `knowledge_relations`（fromKnowledgeId/toKnowledgeId/relationType/source/confidence） |
 
 ### 14.4 记忆域 Memory
 
@@ -837,35 +839,35 @@ flowchart TB
 | SourceArtifact / SourceRevision | MVP | 已落表 | `source_artifacts` + `source_revisions`（真实外键，occurredAt 与 ingestedAt 分离，删除保留 tombstone） |
 | MemoryEvidence | MVP | 已落表 | `memory_evidence`（memoryRevision ↔ source，来源删除不级联保留 tombstone） |
 | MemoryEvent | MVP | 已落表 | `memory_events`（生成/晋升/衰减/锁定/冲突/失效/删除审计） |
-| MemoryNode | P1 | 未落表 | 系统记忆树投影节点；当前以 memory_records 自引用内联，待分离为独立投影表 |
-| MemoryProjectionOverride | P1 | 已落表 | `memory_projection_overrides`（当前挂 memory_records，待挂 memory_node） |
-| MemoryEdge | P1 | 已落表 | `memory_edges`（当前挂 memory_records，待挂 memory_node；缺 MemoryEdgeEvidence） |
-| MemoryEdgeEvidence | P1 | 未落表 | 关系边 → 长期记忆证据外键 |
-| EmbeddingIndex | MVP+ | 未落表 | 向量/全文派生索引元数据；当前仅 memory_records.embedding 规划列 |
-| MemoryAlgorithm | P1 | 未落表 | 压缩/晋升/衰减规则版本（thresholds/promptVersionId） |
+| MemoryNode | P1 | 已落表 | `memory_nodes` 投影节点（label/nodeType/confidence/projectionVersion），投影层与记录层分离 |
+| MemoryProjectionOverride | P1 | 已落表 | `memory_projection_overrides`（已迁移到 node 级：nodeId/operation/label/parentNodeId/actorId/status） |
+| MemoryEdge | P1 | 已落表 | `memory_edges`（已迁移到 node 级：fromNodeId/toNodeId/confidence/visibilityScope/status） |
+| MemoryEdgeEvidence | P1 | 已落表 | `memory_edge_evidence`（edgeId ↔ memoryRevisionId 证据关联） |
+| EmbeddingIndex | MVP+ | 已落表 | `embedding_indexes`（sourceArtifactId/sourceRevisionId/modelId/dimension/indexVersion） |
+| MemoryAlgorithm | P1 | 已落表 | `memory_algorithms`（系统级：stage/schemaVersion/thresholds，仅 active 生效） |
 
 ### 14.5 日记域 Diary
 
 | PRD 实体 | 阶段 | 实现状态 | 说明 / 对应表 |
 |---|---|---|---|
-| Diary | MVP+ | 已落表 | `diaries`（缺 currentVersionId/cycleId/status） |
-| DiarySchedule | MVP+ | 未落表 | 计划主实体（scheduleEpochId/nextRunAt/lastCutoffAt/cutoffRule/bufferMinutes/contentScopes/quietHours）；当前仅修订表 |
-| DiaryScheduleRevision | MVP+ | 已落表 | `diary_schedule_revisions`（缺 scheduleId/contentScopes/quietHours/effectiveAt） |
-| DiaryCycle | MVP+ | 已落表 | `diary_cycles`（缺 sourceWindowStart/sourceWindowEnd/timezoneSnapshot/bufferClosedAt/cursorCommittedAt） |
-| DiaryRunAttempt | MVP+ | 已落表 | `diary_run_attempts`（缺 leaseId/fencingToken/idempotencyKey/errorCode） |
-| DiaryVersion | MVP+ | 未落表 | 日记版本表；当前版本号内联在 diaries.version，待抽离 |
-| DiaryParagraphSource | MVP+ | 未落表 | 段落级来源/版本/权限快照 |
-| DiaryMaterialBuffer | MVP+ | 未落表 | 用途受限滚动窗口素材缓冲（occurredAt/ingestedAt/expiresAt），不可被普通对话召回 |
+| Diary | MVP+ | 已落表 | `diaries`（已补 cycleId/currentVersionId/status） |
+| DiarySchedule | MVP+ | 已落表 | `diary_schedules` 计划主实体（scheduleEpochId/nextRunAt/lastCutoffAt/cutoffRule/bufferMinutes/contentScopes/quietHours） |
+| DiaryScheduleRevision | MVP+ | 已落表 | `diary_schedule_revisions`（已补 scheduleId/contentScopes/quietHours/effectiveAt） |
+| DiaryCycle | MVP+ | 已落表 | `diary_cycles`（已补 sourceWindowStart/sourceWindowEnd/timezoneSnapshot/bufferClosedAt/cursorCommittedAt） |
+| DiaryRunAttempt | MVP+ | 已落表 | `diary_run_attempts`（已补 leaseId/fencingToken/idempotencyKey/errorCode） |
+| DiaryVersion | MVP+ | 已落表 | `diary_versions`（perspective/content/modelRunId/supersededAt，版本不覆盖历史） |
+| DiaryParagraphSource | MVP+ | 已落表 | `diary_paragraph_sources`（diaryVersionId/paragraphIndex/sourceArtifact/sourceRevision/permissionSnapshot） |
+| DiaryMaterialBuffer | MVP+ | 已落表 | `diary_material_buffers`（occurredAt/ingestedAt/expiresAt/ephemeralSnapshot，不可被普通对话召回） |
 
 ### 14.6 内容 · 资源 · 生态域
 
 | PRD 实体 | 阶段 | 实现状态 | 说明 / 对应表 |
 |---|---|---|---|
-| Attachment | MVP+ | 未落表 | CAP-012 图片/论文/试卷/导出文件元数据（objectKey/scanStatus/sourceLicense），大对象存 S3 |
-| ExternalSource | P2 | 未落表 | CAP-023 第三方题库/文献同步（permissionScope/syncState/revokedAt） |
-| Plugin / PluginGrant | P2 | 未落表 | CAP-020 技能插件生命周期与逐项授权/撤销 |
-| CommunityContent | P3 | 未落表 | CAP-028/029 社区内容与公开知识网页（审核/版本/下架） |
-| Organization | P3 | 未落表 | CAP-032 机构/监护模式（成员范围/policyVersion） |
+| Attachment | MVP+ | 已落表 | `attachments`（objectKey/mediaType/size/scanStatus/sourceLicense，大对象存对象存储） |
+| ExternalSource | P2 | 已落表 | `external_sources`（provider/externalId/permissionScope/syncState/revokedAt） |
+| Plugin / PluginGrant | P2 | 已落表 | `plugins`（系统级：publisher/version/checksum/permissions/installSource）+ `plugin_grants`（未撤销授权条件唯一） |
+| CommunityContent | P3 | 已落表 | `community_contents`（authorId/type/reviewState/visibility） |
+| Organization | P3 | 已落表 | `organizations`（ownerId/memberScope/policyVersion） |
 
 ### 14.7 运营 · 平台域
 
@@ -877,9 +879,9 @@ flowchart TB
 | ModelRun | MVP | 已落表 | `model_runs`（provider/modelId/promptVersionId/contextManifestId/latency/tokenUsage/cost，不复制敏感 Prompt） |
 | PromptVersion | MVP | 已落表 | `prompt_versions`（系统级无租户列，purpose+version 唯一） |
 | ContextManifest | MVP | 已落表 | `context_manifests`（sourceArtifact/sourceRevision 外键 + permissionSnapshot） |
-| ToolPolicy | MVP | 未落表 | 服务端工具权限/限额/审批策略 |
-| EvalSet | MVP+ | 未落表 | 教学/记忆/日记/安全评估集元数据 |
-| AnalyticsEvent | MVP | 未落表 | 埋点事件 schema（analyticsSubjectId 伪名化） |
+| ToolPolicy | MVP | 已落表 | `tool_policies`（系统级：purpose/toolName/approvalMode/timeoutMs/quota，purpose+toolName+version 唯一） |
+| EvalSet | MVP+ | 已落表 | `eval_sets`（系统级：purpose/version/language/domain/sampleCount/annotationPolicy） |
+| AnalyticsEvent | MVP | 已落表 | `analytics_events`（analyticsSubjectId 伪名化 + eventSchemaVersion + privacyClass） |
 | SafetyIncident | MVP | 已落表 | `safety_incidents`（访问受限，不写入普通记忆/分析明细） |
 | AuditRecord | MVP | 已落表 | `audit_records`（actorType/actorId 与数据主体分离） |
 | DeletionRequest | MVP | 已落表 | `deletion_requests`（scope/idempotencyKey/ownerModule/lastVerifiedAt） |
@@ -888,10 +890,8 @@ flowchart TB
 
 ### 14.8 未覆盖结论与下一步
 
-- 当前已落表 36 张业务表（含独立账本 recovery_control_ledger）+ 2 张 FTS5 虚表，覆盖 PRD §8 **51 个核心实体中的 35 个（约 69%）**；扩展实体 7 个全部未落表。
-- **MVP（R1）优先补齐队列已完成**：`LearningGoal`、`Question`、`QuestionAttempt`、`KnowledgeItem`、`ReviewItem`、`Feedback`、`Message`（身份表分离）、`TurnAttempt`、`SourceArtifact/SourceRevision`、`MemoryEvidence`、`MemoryRevision`、`MemoryEvent`、`ConsentGrant`、`ScheduledJob`、`Notification`、`ModelRun`、`PromptVersion`、`ContextManifest`、`SafetyIncident`、`AuditRecord`、`DeletionRequest/DeletionTarget`、`RecoveryControlLedger` 已全部落表（对应 Port 见 §7 新增接口）。
-- **MVP 剩余（R1 收尾）**：`ToolPolicy`、`AnalyticsEvent`。
-- **MVP+（R1.5）**：日记域补 `DiarySchedule`/`DiaryVersion`/`DiaryParagraphSource`/`DiaryMaterialBuffer` 与 DiaryCycle 窗口字段；`Attachment`；`EmbeddingIndex`；`EvalSet`；`UserPreference`。
-- **P1（R2）**：`MemoryNode`/`MemoryEdgeEvidence`/`MemoryAlgorithm`（记忆树投影独立化）、`ConversationBranch`、`KnowledgeRelation`。
-- **P2/P3 扩展实体**：`ExternalSource`、`Plugin`/`PluginGrant`、`CommunityContent`、`Organization`（PRD 标注不要求 MVP 首次实现）。
+- 当前已落表 **53 张业务表** + 2 张 FTS5 虚表（含独立账本 recovery_control_ledger），覆盖 PRD §8 除 PG 用户域外的**全部核心与扩展实体**；未落表仅剩：`UserPreference`（PG 级）与 PG 用户域（User/Workspace/WorkspaceMember/user_profiles，CR-003 范围外）。
+- **MVP（R1）+ MVP+（R1.5）优先队列已完成**：学习/反馈/会话补齐/溯源/记忆/平台/安全/隐私/埋点/内容/日记域实体全部落表（含 ToolPolicy/AnalyticsEvent/EvalSet、DiarySchedule 等日记域补表、Attachment/EmbeddingIndex）。
+- **P1（R2）已完成**：`MemoryNode`/`MemoryEdgeEvidence`/`MemoryAlgorithm`（记忆树投影独立化，memory_edges/overrides 已迁移到节点级）、`ConversationBranch`、`KnowledgeRelation` 已全部落表。
+- **P2/P3 扩展已完成**：`ExternalSource`、`Plugin`/`PluginGrant`、`CommunityContent`、`Organization` 已全部落表（为生态/社区功能预留）。
 - 每张新表上线前必须在 [schema/](../../packages/database/src/schema/) 建表、在 [repositories/types.ts](../../packages/database/src/repositories/types.ts) 补 Port 签名、在 §11 登记 TC，并同步更新本文档 ERD 与本文清单状态。

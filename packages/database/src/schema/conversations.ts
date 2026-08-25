@@ -147,3 +147,27 @@ export const turnAttempts = sqliteTable(
     ),
   }),
 );
+
+/** 会话地图与替代解法分支（P1 · CAP-014） */
+export const conversationBranches = sqliteTable(
+  "conversation_branches",
+  {
+    id: text("id").primaryKey(),
+    ...tenantColumns,
+    parentSessionId: text("parent_session_id")
+      .notNull()
+      .references(() => sessions.id, { onDelete: "cascade" }),
+    forkAtMessageId: text("fork_at_message_id"), // → messages.id
+    childSessionId: text("child_session_id")
+      .notNull()
+      .references(() => sessions.id, { onDelete: "cascade" }),
+    ...timestampColumns,
+  },
+  (table) => ({
+    parentIdx: index("conversation_branches_parent_idx").on(table.parentSessionId),
+    tenantIdx: index("conversation_branches_tenant_idx").on(
+      table.workspaceId,
+      table.subjectUserId,
+    ),
+  }),
+);

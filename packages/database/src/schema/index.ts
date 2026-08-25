@@ -15,4 +15,5 @@ export * from "./privacy.js";
 export * from "./ledger.js";
 export * from "./analytics.js";
 export * from "./content.js";
+export * from "./ecosystem.js";
 export * from "./init.js";
