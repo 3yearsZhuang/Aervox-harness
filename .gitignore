@@ -22,3 +22,5 @@ Desktop.ini
 *~
 .pnpm-store/
 *.db*
+# 共享 SQLite 真源目录（API / Worker 默认 <repo>/data/aervox.db）
+data/
