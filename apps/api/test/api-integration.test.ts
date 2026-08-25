@@ -333,4 +333,80 @@ describe("API 集成测试：用户侧域路由", () => {
     expect(list.statusCode).toBe(200);
     expect(list.json().items).toHaveLength(1);
   });
+
+  it("P1 记忆投影节点：创建 + 列表 + 租户隔离", async () => {
+    const create = await app.inject({
+      method: "POST",
+      url: "/v1/memory/nodes",
+      headers,
+      payload: { label: "自然科学", nodeType: "topic" },
+    });
+    expect(create.statusCode).toBe(201);
+    expect(create.json().nodeType).toBe("topic");
+
+    const list = await app.inject({ method: "GET", url: "/v1/memory/nodes", headers });
+    expect(list.json().items).toHaveLength(1);
+
+    const other = await app.inject({
+      method: "GET",
+      url: "/v1/memory/nodes",
+      headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" },
+    });
+    expect(other.json().items).toHaveLength(0);
+  });
+
+  it("P1 知识关系：创建 + 按知识点查询 + 租户隔离", async () => {
+    // 通过仓储创建知识点，再经 API 建关系
+    const { SqliteLearningRepository } = await import("@aervox/database");
+    const learning = new SqliteLearningRepository(db);
+    const tenant = { workspaceId: "ws_it", subjectUserId: "usr_it" };
+    await learning.createKnowledgeItem(tenant, { id: "ki_a", concept: "导数" });
+    await learning.createKnowledgeItem(tenant, { id: "ki_b", concept: "极限" });
+
+    const create = await app.inject({
+      method: "POST",
+      url: "/v1/knowledge-relations",
+      headers,
+      payload: { fromKnowledgeId: "ki_a", toKnowledgeId: "ki_b", relationType: "prerequisite" },
+    });
+    expect(create.statusCode).toBe(201);
+
+    const list = await app.inject({
+      method: "GET",
+      url: "/v1/knowledge-relations?knowledgeId=ki_a",
+      headers,
+    });
+    expect(list.json().items).toHaveLength(1);
+    expect(list.json().items[0].relationType).toBe("prerequisite");
+
+    const other = await app.inject({
+      method: "GET",
+      url: "/v1/knowledge-relations?knowledgeId=ki_a",
+      headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" },
+    });
+    expect(other.json().items).toHaveLength(0);
+  });
+
+  it("P1 会话地图分支：创建 + 按父会话列出", async () => {
+    const { SqliteConversationRepository } = await import("@aervox/database");
+    const conv = new SqliteConversationRepository(db);
+    const tenant = { workspaceId: "ws_it", subjectUserId: "usr_it" };
+    const parent = await conv.createSession(tenant, "Parent");
+    const child = await conv.createSession(tenant, "Child");
+
+    const create = await app.inject({
+      method: "POST",
+      url: `/v1/sessions/${parent.id}/branches`,
+      headers,
+      payload: { childSessionId: child.id },
+    });
+    expect(create.statusCode).toBe(201);
+
+    const list = await app.inject({
+      method: "GET",
+      url: `/v1/sessions/${parent.id}/branches`,
+      headers,
+    });
+    expect(list.json().items).toHaveLength(1);
+  });
 });

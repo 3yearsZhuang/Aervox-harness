@@ -21,6 +21,9 @@ import { registerContentModule } from "./modules/content/index.js";
 import { registerNotificationModule } from "./modules/notification/index.js";
 import { registerPrivacyModule } from "./modules/privacy/index.js";
 import { registerAnalyticsModule } from "./modules/analytics/index.js";
+import { registerMemoryModule } from "./modules/memory/index.js";
+import { registerKnowledgeModule } from "./modules/knowledge/index.js";
+import { registerBranchModule } from "./modules/branch/index.js";
 
 export interface BuildAppOptions {
   /** 注入既有数据库（如内存库）；缺省时使用 createDatabase() */
@@ -55,6 +58,9 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   registerNotificationModule(app, db);
   registerPrivacyModule(app, db);
   registerAnalyticsModule(app, db);
+  registerMemoryModule(app, db, client);
+  registerKnowledgeModule(app, db);
+  registerBranchModule(app, db);
 
   return { app, db, client };
 }

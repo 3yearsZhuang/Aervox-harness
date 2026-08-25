@@ -7,11 +7,17 @@
  * 仅读取租户列与调度字段，随后按租户调用受控仓储创建通知与审计，不读取正文。
  */
 import { and, eq, lte } from "drizzle-orm";
-import { reviewItems, type AervoxDatabase, type SqlitePlatformRepository } from "@aervox/database";
+import {
+  reviewItems,
+  type AervoxDatabase,
+  type SqlitePlatformRepository,
+  type SqliteLearningRepository,
+} from "@aervox/database";
 
 export interface ReviewNotifierContext {
   db: AervoxDatabase;
   platformRepo: SqlitePlatformRepository;
+  learningRepo: SqliteLearningRepository;
   workerId: string;
 }
 
@@ -44,6 +50,10 @@ export async function runReviewNotificationCycle(ctx: ReviewNotifierContext): Pr
       scheduledAt: now,
       channel: "in_app",
     });
+    // P1 增强（CAP-015）：附带知识关系中的关联知识点，供关联复习/提醒策略使用
+    const relations = await ctx.learningRepo
+      .listKnowledgeRelations(tenant, item.knowledgeId)
+      .catch(() => []);
     await ctx.platformRepo.createAuditRecord(tenant, {
       id: id("aud"),
       actorType: "system",
@@ -51,7 +61,11 @@ export async function runReviewNotificationCycle(ctx: ReviewNotifierContext): Pr
       action: "review.due.notified",
       subjectType: "review_item",
       subjectId: item.id,
-      metadata: { knowledgeId: item.knowledgeId, dueAt: item.dueAt },
+      metadata: {
+        knowledgeId: item.knowledgeId,
+        dueAt: item.dueAt,
+        relatedKnowledgeIds: relations.map((r) => r.toKnowledgeId),
+      },
     });
   }
   return dueItems.length;

@@ -232,6 +232,7 @@ export interface IMemoryRepository {
     node: { id: string; label: string; nodeType?: string; canonicalParentId?: string | null; confidence?: number; projectionVersion?: number },
   ): Promise<MemoryNodeModel>;
   getNode(tenant: TenantContext, id: string): Promise<MemoryNodeModel | null>;
+  listNodesByTenant(tenant: TenantContext): Promise<MemoryNodeModel[]>;
   createEdgeEvidence(
     evidence: { id: string; edgeId: string; memoryRevisionId: string },
   ): Promise<MemoryEdgeEvidenceModel>;
