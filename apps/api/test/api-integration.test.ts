@@ -115,6 +115,7 @@ describe("API 集成测试：用户侧域路由", () => {
       payload: { sessionId: "ses_1", answer: "1/2", judgement: "correct" },
     });
     expect(attempt.statusCode).toBe(201);
+    expect(attempt.json().nextStep).toBe("continue");
 
     const list = await app.inject({
       method: "GET",
@@ -156,6 +157,13 @@ describe("API 集成测试：用户侧域路由", () => {
     expect(
       (await app.inject({ method: "POST", url: `/v1/questions/${questionId}/attempts`, headers: attemptHeaders, payload })).statusCode,
     ).toBe(200);
+    const duplicate = await app.inject({
+      method: "POST",
+      url: `/v1/questions/${questionId}/attempts`,
+      headers: attemptHeaders,
+      payload,
+    });
+    expect(duplicate.json().nextStep).toBe("continue");
 
     const attempts = await app.inject({ method: "GET", url: `/v1/questions/${questionId}/attempts`, headers });
     expect(attempts.json().items).toHaveLength(1);
@@ -218,9 +226,39 @@ describe("API 集成测试：用户侧域路由", () => {
       payload: { sessionId: "ses_judge", answer: "一种解释" },
     });
     expect(unverifiable.json().judgement).toBe("unverifiable");
+    expect(unverifiable.json().nextStep).toBe("await_review");
 
     const knowledge = await app.inject({ method: "GET", url: "/v1/knowledge-items/ki_judge", headers });
     expect(knowledge.json()).toMatchObject({ correctCount: 1, wrongCount: 0, correctStreak: 1, mastery: 0.1 });
+  });
+
+  it("练习题组：默认返回 3 题，并限制题目数量和租户", async () => {
+    for (const prompt of ["题目一", "题目二", "题目三", "题目四"]) {
+      const question = await app.inject({
+        method: "POST",
+        url: "/v1/questions",
+        headers,
+        payload: { prompt, answerSpec: { answer: "ok" } },
+      });
+      expect(question.statusCode).toBe(201);
+    }
+
+    const group = await app.inject({ method: "GET", url: "/v1/practice/questions", headers });
+    expect(group.statusCode).toBe(200);
+    expect(group.json().items).toHaveLength(3);
+
+    const fourQuestions = await app.inject({ method: "GET", url: "/v1/practice/questions?count=4", headers });
+    expect(fourQuestions.json().items).toHaveLength(4);
+
+    const invalidCount = await app.inject({ method: "GET", url: "/v1/practice/questions?count=2", headers });
+    expect(invalidCount.statusCode).toBe(400);
+
+    const otherTenant = await app.inject({
+      method: "GET",
+      url: "/v1/practice/questions",
+      headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" },
+    });
+    expect(otherTenant.json().items).toHaveLength(0);
   });
 
   it("复习项：到期列表（先经仓储创建到期项）", async () => {
