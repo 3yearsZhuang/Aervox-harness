@@ -12,6 +12,7 @@ import {
 } from "@asteasolutions/zod-to-openapi";
 import {
   cancelTurnResponseSchema,
+  createLearningGoalSchema,
   createTurnRequestSchema,
   createTurnResponseSchema,
   deltaEventDataSchema,
@@ -25,6 +26,7 @@ import {
 
 const registry = new OpenAPIRegistry();
 
+registry.register("CreateLearningGoal", createLearningGoalSchema);
 registry.register("CreateTurnRequest", createTurnRequestSchema);
 registry.register("CreateTurnResponse", createTurnResponseSchema);
 registry.register("CancelTurnResponse", cancelTurnResponseSchema);
@@ -97,6 +99,20 @@ registry.registerPath({
       content: { "application/json": { schema: cancelTurnResponseSchema } },
     },
     404: { description: "TURN_NOT_FOUND" },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/learning/goals",
+  summary: "创建学习目标（FR-LRN-001）",
+  tags: ["Learning"],
+  request: {
+    body: { content: { "application/json": { schema: createLearningGoalSchema } } },
+  },
+  responses: {
+    201: { description: "Created" },
+    400: { description: "Invalid request（topic/availableMinutes 非法）" },
   },
 });
 
