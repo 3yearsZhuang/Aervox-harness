@@ -129,6 +129,14 @@ packages:
 
 未列入可选清单的其余 CAP：CAP-002~013（P0 核心）、以及未出现在表内的 P1/P2/P3 项（若后续裁决为可选，需经 CR-* 更新本表）。
 
+### 4.4 已注册可选模块
+
+| 模块 | workspace 包 | Git submodule | 启用方式 | 关联能力/ADR |
+|---|---|---|---|---|
+| `persona-plugin` | `@aervox/mod-persona` | `modules/persona-plugin` → `https://github.com/KashiwagiEri233/aervox-persona-plugin-module.git` | 双 | `CAP-019/020`、`CR-004`、`ADR-014` |
+
+模块仓库是可执行代码的唯一事实源；主仓只保留契约、数据库仓储与 API 集成，不在 `packages/*` 保留平行实现。
+
 ## 5. 生命周期与门禁
 
 1. **新增可选模块**：先走 `CR-*` 在追踪矩阵登记新模块与受影响 CAP → 建立独立 git 仓库 + 固定版本 → 以 submodule 挂入 `modules/*` → 声明进入 [第 4 节]清单（状态/启用方式/接口边界/关联 ADR）→ 更新 docs/README 登记表与构建清单。具体命令与两层提交规范见[协作指南](../how-to/submodule-collaboration.md)。

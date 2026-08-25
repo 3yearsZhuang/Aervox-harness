@@ -1065,6 +1065,137 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     CREATE INDEX IF NOT EXISTS organizations_tenant_idx ON organizations(workspace_id, subject_user_id);
   `);
 
+  // 4.6 Persona / Skills / MCP / 上下文快照（CAP-019/CAP-020，@aervox/mod-persona 领域）
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS personas (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      source TEXT NOT NULL DEFAULT 'user_created',
+      status TEXT NOT NULL DEFAULT 'active',
+      current_revision_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS personas_tenant_idx ON personas(workspace_id, subject_user_id);
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS persona_revisions (
+      id TEXT PRIMARY KEY,
+      persona_id TEXT NOT NULL REFERENCES personas(id) ON DELETE CASCADE,
+      revision INTEGER NOT NULL,
+      config TEXT NOT NULL,
+      checksum TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS persona_revisions_persona_revision_idx ON persona_revisions(persona_id, revision);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS persona_revisions_persona_idx ON persona_revisions(persona_id);
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS persona_selections (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      persona_id TEXT NOT NULL REFERENCES personas(id) ON DELETE CASCADE,
+      revision_id TEXT NOT NULL,
+      selected_at TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS persona_selections_tenant_unique_idx ON persona_selections(workspace_id, subject_user_id);
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS workspace_skills (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL,
+      license TEXT,
+      compatibility TEXT,
+      metadata TEXT,
+      allowed_tools TEXT,
+      source TEXT NOT NULL DEFAULT 'workspace',
+      version INTEGER NOT NULL DEFAULT 1,
+      checksum TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      valid INTEGER NOT NULL DEFAULT 1,
+      validation_errors TEXT NOT NULL DEFAULT '[]',
+      files_json TEXT NOT NULL,
+      skill_markdown TEXT NOT NULL,
+      imported_at TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS workspace_skills_tenant_name_unique_idx ON workspace_skills(workspace_id, subject_user_id, name);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS workspace_skills_tenant_idx ON workspace_skills(workspace_id, subject_user_id);
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS mcp_tools (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      server_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      input_schema TEXT,
+      scopes TEXT NOT NULL DEFAULT '[]',
+      healthy INTEGER NOT NULL DEFAULT 1,
+      authorized INTEGER NOT NULL DEFAULT 1,
+      revoked INTEGER NOT NULL DEFAULT 0,
+      kill_switch INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS mcp_tools_tenant_server_name_idx ON mcp_tools(workspace_id, subject_user_id, server_id, name);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS mcp_tools_tenant_idx ON mcp_tools(workspace_id, subject_user_id);
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS persona_turn_contexts (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      turn_id TEXT NOT NULL,
+      persona_id TEXT NOT NULL,
+      revision_id TEXT NOT NULL,
+      revision_checksum TEXT NOT NULL,
+      prompt_checksum TEXT NOT NULL,
+      skill_checksums TEXT NOT NULL DEFAULT '[]',
+      mcp_tool_ids TEXT NOT NULL DEFAULT '[]',
+      voice TEXT,
+      created_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS persona_turn_contexts_tenant_turn_idx ON persona_turn_contexts(workspace_id, subject_user_id, turn_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS persona_turn_contexts_tenant_idx ON persona_turn_contexts(workspace_id, subject_user_id);
+  `);
+
   // 5. 初始化 FTS5 全文检索引擎
   await initFtsTables(client);
 }

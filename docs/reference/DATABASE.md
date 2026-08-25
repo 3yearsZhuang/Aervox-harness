@@ -1,7 +1,7 @@
 # Aervox｜思隅 数据库设计与双引擎契约（DBC）
 
 > 文档编号：AVX-DB-001  
-> 版本：v0.6（评审候选）  
+> 版本：v0.7（评审候选）  
 > 更新日期：2026-08-25  
 > 状态：Review Candidate  
 > 关联：`CR-003`、`ADR-003`、`ADR-004`、`ADR-007`、`ADR-011`、`ADR-012`、`ADR-013`、`AVX-SPC-001`、`AVX-PRD-001`、`NFR-SCALE-001`、`NFR-SEC-001`
@@ -22,6 +22,7 @@
 | v0.4 | 2026-08-25 | 统一 API / Worker 共享 SQLite 真源路径 `<repo>/data/aervox.db`：新增 §2.1 路径约定（自动建目录 / DATABASE_URL 覆盖 / WAL 多进程并发） |
 | v0.5 | 2026-08-25 | P1（R2）落表 5 张：memory_nodes 投影独立化 + memory_edges/overrides 迁移到节点级 + memory_edge_evidence + memory_algorithms + conversation_branches + knowledge_relations；§14 表格状态同步（48 张业务表已落表，覆盖除 PG 用户域外全部核心实体） |
 | v0.6 | 2026-08-25 | P2/P3 扩展落表 5 张：external_sources + plugins/plugin_grants + community_contents + organizations + IExtensionRepository；§14 覆盖 48→53 张业务表，除 PG 用户域外全部落表 |
+| v0.7 | 2026-08-25 | 人格插件 SQLite 落表 6 张：personas / persona_revisions / persona_selections / workspace_skills / mcp_tools / persona_turn_contexts（CAP-019/020），补 IPersonaRepository / ISkillRepository / IMcpToolRepository 与 §14 清单 |
 
 ---
 
@@ -239,7 +240,99 @@ erDiagram
         TEXT content "分词内容"
     }
 
+    %% ============ ⑤ Persona / Skills / MCP / 上下文快照（CAP-019/020）============
+    personas {
+        TEXT id PK "主键"
+        TEXT workspace_id ""
+        TEXT subject_user_id ""
+        TEXT name "人格名"
+        TEXT description ""
+        TEXT source "builtin / user_created / imported"
+        TEXT status "active / archived（删除=归档）"
+        TEXT current_revision_id "→ persona_revisions.id"
+        TEXT created_at ""
+        TEXT updated_at ""
+    }
+
+    persona_revisions {
+        TEXT id PK "主键"
+        TEXT persona_id FK "→ personas.id (CASCADE)"
+        INTEGER revision "personaId+revision UNIQUE"
+        TEXT config "PersonaRevisionConfig JSON"
+        TEXT checksum "sha256"
+        TEXT created_at ""
+    }
+
+    persona_selections {
+        TEXT id PK "主键"
+        TEXT workspace_id ""
+        TEXT subject_user_id "每租户一行 UNIQUE"
+        TEXT persona_id FK "→ personas.id (CASCADE)"
+        TEXT revision_id "→ persona_revisions.id"
+        TEXT selected_at ""
+        TEXT created_at ""
+        TEXT updated_at ""
+    }
+
+    workspace_skills {
+        TEXT id PK "主键"
+        TEXT workspace_id ""
+        TEXT subject_user_id ""
+        TEXT name "Skill 名（租户内唯一）"
+        TEXT description ""
+        TEXT license ""
+        TEXT compatibility ""
+        TEXT metadata "JSON"
+        TEXT allowed_tools "JSON（提示性，不授权）"
+        TEXT source "active / workspace / imported"
+        INTEGER version ""
+        TEXT checksum "sha256"
+        INTEGER enabled "0/1"
+        INTEGER valid "0/1"
+        TEXT validation_errors "JSON"
+        TEXT files_json "{path: base64}"
+        TEXT skill_markdown "SKILL.md 正文"
+        TEXT imported_at ""
+        TEXT created_at ""
+        TEXT updated_at ""
+    }
+
+    mcp_tools {
+        TEXT id PK "主键 {serverId}:{toolName}"
+        TEXT workspace_id ""
+        TEXT subject_user_id ""
+        TEXT server_id ""
+        TEXT name "serverId+name 租户内唯一"
+        TEXT description ""
+        TEXT input_schema "JSON"
+        TEXT scopes "JSON"
+        INTEGER healthy "0/1"
+        INTEGER authorized "0/1"
+        INTEGER revoked "0/1"
+        INTEGER kill_switch "0/1"
+        TEXT created_at ""
+        TEXT updated_at ""
+    }
+
+    persona_turn_contexts {
+        TEXT id PK "主键"
+        TEXT workspace_id ""
+        TEXT subject_user_id ""
+        TEXT turn_id "turnId 租户内唯一"
+        TEXT persona_id ""
+        TEXT revision_id ""
+        TEXT revision_checksum ""
+        TEXT prompt_checksum ""
+        TEXT skill_checksums "JSON"
+        TEXT mcp_tool_ids "JSON"
+        TEXT voice "JSON（不含凭据）"
+        TEXT created_at ""
+    }
+
     %% ============ 关系 ============
+    personas ||--o{ persona_revisions : "1:N 不可变修订 (CASCADE)"
+    personas ||--o| persona_selections : "1:N 激活（每租户一行）"
+    sessions ||--o{ persona_turn_contexts : "1:N Turn 快照"
     sessions ||--o{ turns : "1:N (CASCADE delete)"
     turns ||--o{ message_versions : "1:N (CASCADE)"
     turns ||--o{ turn_stream_events : "1:N (CASCADE, SSE重放)"
@@ -888,10 +981,24 @@ flowchart TB
 | DeletionTarget | MVP | 已落表 | `deletion_targets`（requestId+targetType+targetId 复合主键，不含正文） |
 | RecoveryControlLedger | MVP | 已落表 | `recovery_control_ledger`（独立故障域账本，独立 client/文件，sequence 单调 + idempotency 唯一） |
 
-### 14.8 未覆盖结论与下一步
+### 14.8 人格 · 技能 · MCP 域（CAP-019/CAP-020）
 
-- 当前已落表 **53 张业务表** + 2 张 FTS5 虚表（含独立账本 recovery_control_ledger），覆盖 PRD §8 除 PG 用户域外的**全部核心与扩展实体**；未落表仅剩：`UserPreference`（PG 级）与 PG 用户域（User/Workspace/WorkspaceMember/user_profiles，CR-003 范围外）。
-- **MVP（R1）+ MVP+（R1.5）优先队列已完成**：学习/反馈/会话补齐/溯源/记忆/平台/安全/隐私/埋点/内容/日记域实体全部落表（含 ToolPolicy/AnalyticsEvent/EvalSet、DiarySchedule 等日记域补表、Attachment/EmbeddingIndex）。
+| PRD 实体 | 阶段 | 实现状态 | 说明 / 对应表 |
+|---|---|---|---|
+| Persona | P1 | 已落表 | `personas`（name/description/source/status/currentRevisionId，删除=归档） |
+| PersonaRevision | P1 | 已落表 | `persona_revisions`（config JSON + checksum，personaId+revision 唯一，不可变修订） |
+| ActivePersonaSelection | P1 | 已落表 | `persona_selections`（每租户一行条件唯一，激活 upsert） |
+| WorkspaceSkill | P2 | 已落表 | `workspace_skills`（Anthropic SKILL.md 元数据 + filesJson base64 + checksum；导入不执行脚本） |
+| McpTool | P2 | 已落表 | `mcp_tools`（serverId+name 租户内唯一；授权/健康/kill switch 状态） |
+| PersonaTurnContext | P1 | 已落表 | `persona_turn_contexts`（turnId 租户内唯一；revision/prompt checksum + skill/mcp 引用，不含完整 Prompt） |
+
+领域 Port 由模块 `@aervox/mod-persona` 定义（`PersonaRepository` / `SkillRepository` / `McpToolRepository`），主仓
+`@aervox/database` 提供 SQLite 实现并通过 `apps/api` 适配器接入；数据库表与 Repository Port 是持久化事实源。
+
+### 14.9 未覆盖结论与下一步
+
+- 当前已落表 **59 张业务表** + 2 张 FTS5 虚表（含独立账本 recovery_control_ledger），覆盖 PRD §8 除 PG 用户域外的**全部核心与扩展实体**；未落表仅剩：`UserPreference`（PG 级）与 PG 用户域（User/Workspace/WorkspaceMember/user_profiles，CR-003 范围外）。
+- **MVP（R1）+ MVP+（R1.5）优先队列已完成**：学习/反馈/会话补齐/溯源/记忆/平台/安全/隐私/埋点/内容/日记域实体全部落表（含 ToolPolicy/AnalyticsEvent/EvalSet、DiarySchedule 等日记域补表、Attachment/EmbeddingIndex、Persona/Skills/MCP 6 张人格域表）。
 - **P1（R2）已完成**：`MemoryNode`/`MemoryEdgeEvidence`/`MemoryAlgorithm`（记忆树投影独立化，memory_edges/overrides 已迁移到节点级）、`ConversationBranch`、`KnowledgeRelation` 已全部落表。
 - **P2/P3 扩展已完成**：`ExternalSource`、`Plugin`/`PluginGrant`、`CommunityContent`、`Organization` 已全部落表（为生态/社区功能预留）。
 - 每张新表上线前必须在 [schema/](../../packages/database/src/schema) 建表、在 [repositories/types.ts](../../packages/database/src/repositories/types.ts) 补 Port 签名、在 §11 登记 TC，并同步更新本文档 ERD 与本文清单状态。

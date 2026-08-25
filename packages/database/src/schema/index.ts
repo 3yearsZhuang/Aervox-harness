@@ -16,4 +16,5 @@ export * from "./ledger.js";
 export * from "./analytics.js";
 export * from "./content.js";
 export * from "./ecosystem.js";
+export * from "./persona.js";
 export * from "./init.js";

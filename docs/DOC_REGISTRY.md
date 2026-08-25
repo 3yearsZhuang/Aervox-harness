@@ -16,7 +16,7 @@
 | `AVX-SAD-001` | [架构设计](reference/ARCHITECTURE.md) | 技术负责人 | 2026-08-24 | G2 评审 + 架构变更 | 新增 ADR/技术基线变化未同步 |
 | `ADR-001~015` | [ADR 索引](reference/adr/README.md) | 技术负责人（各 ADR 另有 Owner） | 2026-08-24 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
 | `AVX-SPC-001` | [流式协议](reference/STREAMING_PROTOCOL.md) | 技术负责人 | 2026-08-24 | OpenAPI/事件 schema 变更 | `packages/contracts` 版本高于文档描述 |
-| `AVX-DB-001` | [数据库设计与双引擎契约](reference/DATABASE.md) | 技术负责人 | 2026-08-24 | Schema/仓储接口/迁移计划变更 | 仓储接口签名或租户隔离模式/PG 切换计划与实现不一致 |
+| `AVX-DB-001` | [数据库设计与双引擎契约](reference/DATABASE.md) | 技术负责人 | 2026-08-25 | Schema/仓储接口/迁移计划变更 | 仓储接口签名或租户隔离模式/PG 切换计划与实现不一致 |
 | `AVX-DATA-001` | [数据与隐私](reference/DATA_PRIVACY.md) | 安全与隐私负责人 | 2026-08-24 | 每季度 + 数据流变更 | 新增数据实体/用途/保留未评审 |
 | `AVX-AIQ-001` | [AI 质量与安全](reference/AI_QUALITY_SAFETY.md) | AI 质量负责人 | 2026-08-24 | 模型/Prompt/算法变更 + AI 评估 | ModelRun/PromptVersion 更新未同步 |
 | `AVX-SEC-001` | [威胁模型](reference/THREAT_MODEL.md) | 安全与隐私负责人 | 2026-08-24 | 每季度 + 信任边界变更 | 新增数据流/信任边界未加入威胁模型 |
@@ -30,6 +30,8 @@
 | `AVX-WEB-001` | [Web 工作台实现规划](explanation/web-implementation.md) | 技术负责人 | 2026-08-25 | Web 端实现或技术基线变更 | `apps/web` 结构与 ADR-015/规划不一致 |
 | `CR-002` | [Fairy Agent Electron 桌面端](reference/changes/CR-002-fairy-desktop-module.md) | 产品与技术负责人 | 2026-08-24 | CAP-018 桌面端实现或安全边界变更 | Electron 端目录、契约边界、测试证据或回滚条件与实现不符 |
 | `CR-003` | [SQLite 业务真源与 PG 兼容](reference/changes/CR-003-sqlite-primary-pg-compat.md) | 技术负责人 | 2026-08-24 | 数据真源 / 仓储抽象变更 | 仓储接口或 PG 切换计划与实现不符 |
+| `CR-004` | [人格插件 SQLite 持久化](reference/changes/CR-004-persona-sqlite-persistence.md) | 技术负责人 | 2026-08-25 | 数据库 schema / Port / 模块指针变更 | 表、Port 或 CR 状态与实现不一致 |
+| `AVX-MOD-PERSONA-001` | [`modules/persona-plugin`](https://github.com/KashiwagiEri233/aervox-persona-plugin-module) | Persona 模块负责人 | 2026-08-25 | 每次 submodule 指针/包契约/权限变更 | workspace 包、固定 commit 或模块自身 CI 不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 文档负责人 | 2026-08-25 | 规则变更或季度评审 | 新增文档未标注四分类/头字段不合规，或 Vale 规则与术语表不一致 |
 | `AVX-TERM-001` | [术语表](reference/standards/terminology.md) | 文档负责人 | 2026-08-25 | 术语新增/变更 | 新增缩写未登记，或正文拼写与「禁写」列不一致 |
 | `AVX-TUT-001` | [教程：第一个对话](tutorials/first-conversation.md) | 文档负责人（技术复核） | 2026-08-25 | 启动命令/端点变更 | 快速开始命令、Turn/SSE 端点与 README/契约不一致 |
