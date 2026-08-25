@@ -821,7 +821,7 @@ flowchart TB
 
 | PRD 实体 | 阶段 | 实现状态 | 说明 / 对应表 |
 |---|---|---|---|
-| LearningGoal | MVP | 已落表 | `learning_goals`（topic/level/availableMinutes/status） |
+| LearningGoal | MVP | 已落表 | `learning_goals`（topic/level/availableMinutes/status/idempotencyKey；非空幂等键按工作区/数据主体唯一，归档不删除学习事实） |
 | Question | MVP | 已落表 | `questions`（sourceArtifactId 应用层维护；可选 knowledgeId 关联知识点） |
 | QuestionAttempt | MVP | 已落表 | `question_attempts` 不可变事实（judgement/evidence/idempotencyKey，仅追加；非空幂等键按工作区/数据主体/题目唯一） |
 | KnowledgeItem | MVP | 已落表 | `knowledge_items`（sourceStatus/masteryState、correctCount/wrongCount/correctStreak/mastery、masteryBasis） |

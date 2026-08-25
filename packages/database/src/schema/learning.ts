@@ -17,10 +17,14 @@ export const learningGoals = sqliteTable(
     level: text("level").notNull().default("beginner"), // "beginner" | "intermediate" | "advanced"
     availableMinutes: integer("available_minutes").notNull().default(0),
     status: text("status").notNull().default("active"), // "active" | "paused" | "completed" | "archived"
+    idempotencyKey: text("idempotency_key"),
     ...timestampColumns,
   },
   (table) => ({
     tenantIdx: index("learning_goals_tenant_idx").on(table.workspaceId, table.subjectUserId),
+    tenantIdempotencyIdx: uniqueIndex("learning_goals_tenant_idempotency_idx")
+      .on(table.workspaceId, table.subjectUserId, table.idempotencyKey)
+      .where(sql`${table.idempotencyKey} IS NOT NULL`),
   }),
 );
 

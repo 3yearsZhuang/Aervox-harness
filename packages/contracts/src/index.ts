@@ -14,11 +14,13 @@ import {
   doneEventDataSchema,
   errorEventDataSchema,
   learningGoalLevelSchema,
+  learningGoalStatusSchema,
   messageEventDataSchema,
   redactedEventDataSchema,
   streamErrorCodeSchema,
   streamEventTypeSchema,
   turnStatusSchema,
+  updateLearningGoalSchema,
   turnStreamEventSchema,
 } from "./schemas.js";
 
@@ -40,4 +42,6 @@ export type CreateTurnRequest = z.infer<typeof createTurnRequestSchema>;
 export type CreateTurnResponse = z.infer<typeof createTurnResponseSchema>;
 export type CancelTurnResponse = z.infer<typeof cancelTurnResponseSchema>;
 export type LearningGoalLevel = z.infer<typeof learningGoalLevelSchema>;
+export type LearningGoalStatus = z.infer<typeof learningGoalStatusSchema>;
 export type CreateLearningGoal = z.infer<typeof createLearningGoalSchema>;
+export type UpdateLearningGoal = z.infer<typeof updateLearningGoalSchema>;
