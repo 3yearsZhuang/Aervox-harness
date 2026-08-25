@@ -57,7 +57,7 @@ describe("createReviewItem", () => {
   it("错误答案：1 天后复习", () => {
     setNow("2026-01-01T00:00:00Z");
     const review = createReviewItem(makeItem(), false);
-    expect(review.schedulerVersion).toBe("mvp-v1");
+    expect(review.schedulerVersion).toBe(1);
     expect(review.knowledgeId).toBe("k_tn_001");
     expect(review.intervalDays).toBe(1);
     expect(review.dueAt.toISOString()).toBe("2026-01-02T00:00:00.000Z");
