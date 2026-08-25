@@ -825,7 +825,7 @@ flowchart TB
 | Question | MVP | 已落表 | `questions`（sourceArtifactId 应用层维护；可选 knowledgeId 关联知识点） |
 | QuestionAttempt | MVP | 已落表 | `question_attempts` 不可变事实（judgement/evidence/idempotencyKey，仅追加；非空幂等键按工作区/数据主体/题目唯一） |
 | KnowledgeItem | MVP | 已落表 | `knowledge_items`（sourceStatus/masteryState、correctCount/wrongCount/correctStreak/mastery、masteryBasis） |
-| ReviewItem | MVP | 已落表 | `review_items`（活动项条件唯一，status='active'） |
+| ReviewItem | MVP | 已落表 | `review_items`（`schedulerVersion` 为数值，MVP 值为 `1`；活动项条件唯一，status='active'） |
 | Feedback | MVP | 已落表 | `feedback`（actorId 与数据主体分离） |
 | ConversationBranch | P1 | 已落表 | `conversation_branches`（parentSessionId/forkAtMessageId/childSessionId） |
 | KnowledgeRelation | P1 | 已落表 | `knowledge_relations`（fromKnowledgeId/toKnowledgeId/relationType/source/confidence） |

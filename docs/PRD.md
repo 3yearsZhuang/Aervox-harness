@@ -307,7 +307,7 @@
 
 ### 6.4 间隔复习（CAP-006）
 
-MVP 使用一个可解释的最小调度规则：新知识次日复习；连续答对后按 1、3、7、14 天递增；答错回到次日。规则版本写入每条复习记录，便于后续迁移到 FSRS。
+MVP 使用一个可解释的最小调度规则：答错或连续答对数为 0 时次日复习；答对后按更新后的连续答对数 1/2/3/4+ 分别安排 2/4/8/15 天后复习。规则版本以数值 `schedulerVersion: 1` 写入每条复习记录，便于后续迁移到 FSRS；完成复习时必须原子地完成当前项、更新知识点掌握状态并创建下一条活动项。
 
 **验收标准**：
 
@@ -558,7 +558,7 @@ AI 每日日记是给用户阅读的叙事视图，记忆层是供系统推理�
 | Question | id, workspaceId, subjectUserId, sourceArtifactId, knowledgeId, prompt, answerSpec, status | 生成题、导入题和人工题的统一身份；可选关联一个知识点，来源通过统一来源实体关联 |
 | QuestionAttempt | id, workspaceId, subjectUserId, sessionId, questionId, answer, judgement, evidence, idempotencyKey, createdAt | 每次答题的不可变记录；幂等键在同一工作区、数据主体和题目维度内去重，掌握度是其派生结果 |
 | KnowledgeItem | id, workspaceId, subjectUserId, concept, sourceStatus, masteryState, correctCount, wrongCount, correctStreak, mastery, masteryBasis | 用户可见知识点；作答计数、连续答对与数值掌握度是掌握状态的派生依据 |
-| ReviewItem | id, workspaceId, subjectUserId, knowledgeId, dueAt, intervalDays, schedulerVersion, status | 复习调度项；同一工作区/数据主体/知识点的活动项须有唯一约束 |
+| ReviewItem | id, workspaceId, subjectUserId, knowledgeId, dueAt, intervalDays, schedulerVersion, status | 复习调度项；MVP 的规则版本为数值 `1`，同一工作区/数据主体/知识点的活动项须有唯一约束 |
 | Feedback | id, workspaceId, subjectUserId, actorId, subjectType, subjectId, type, note, createdAt | 对消息、日记、记忆、题目和社区内容的反馈；反馈操作者与被处理数据主体分离 |
 | MemoryRecord | id, workspaceId, subjectUserId, tier, memoryType, sensitivityClass, currentRevisionId, aiRecallUntil, userRetentionUntil, verificationStatus, status | 临时/短期/长期记忆身份；`memoryType` 区分 user_fact/user_preference/learning_event/inference，召回与历史保留独立；系统记忆不在此形成第二真源 |
 | MemoryRevision | id, memoryId, content, confidence, importance, algorithmVersion, createdAt | 压缩、纠错、合并产生新版本，不物理覆盖旧版本 |

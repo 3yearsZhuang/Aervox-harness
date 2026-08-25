@@ -236,6 +236,68 @@ describe("API 集成测试：用户侧域路由", () => {
     });
     expect(list.statusCode).toBe(200);
     expect(list.json().items).toHaveLength(1);
+
+    const summary = await app.inject({
+      method: "GET",
+      url: "/v1/review-items/summary?dueBefore=2026-12-31T00:00:00.000Z",
+      headers,
+    });
+    expect(summary.json()).toMatchObject({ dueCount: 1, estimatedMinutes: 2 });
+    expect(summary.json().items).toHaveLength(1);
+  });
+
+  it("复习完成：原子更新知识点并创建下一条活动项", async () => {
+    const learning = new SqliteLearningRepository(db);
+    const tenant = { workspaceId: "ws_it", subjectUserId: "usr_it" };
+    await learning.createKnowledgeItem(tenant, {
+      id: "ki_review_complete",
+      concept: "极限",
+      correctCount: 2,
+      wrongCount: 1,
+      correctStreak: 1,
+      mastery: 0.5,
+    });
+    await learning.createReviewItem(tenant, {
+      id: "ri_complete",
+      knowledgeId: "ki_review_complete",
+      dueAt: "2026-01-01T00:00:00.000Z",
+      intervalDays: 2,
+      schedulerVersion: 1,
+    });
+
+    const complete = await app.inject({
+      method: "POST",
+      url: "/v1/review-items/ri_complete/complete",
+      headers,
+      payload: { isCorrect: true },
+    });
+    expect(complete.statusCode).toBe(200);
+    expect(complete.json()).toMatchObject({
+      completed: { id: "ri_complete", status: "completed" },
+      nextReview: { knowledgeId: "ki_review_complete", status: "active", intervalDays: 4, schedulerVersion: 1 },
+      knowledge: { correctCount: 3, wrongCount: 1, correctStreak: 2, mastery: 0.6 },
+    });
+
+    const retry = await app.inject({
+      method: "POST",
+      url: "/v1/review-items/ri_complete/complete",
+      headers,
+      payload: { isCorrect: true },
+    });
+    expect(retry.statusCode).toBe(404);
+
+    const nextReviewId = complete.json().nextReview.id as string;
+    const wrong = await app.inject({
+      method: "POST",
+      url: `/v1/review-items/${nextReviewId}/complete`,
+      headers,
+      payload: { isCorrect: false },
+    });
+    expect(wrong.statusCode).toBe(200);
+    expect(wrong.json()).toMatchObject({
+      nextReview: { status: "active", intervalDays: 1, schedulerVersion: 1 },
+      knowledge: { correctCount: 3, wrongCount: 2, correctStreak: 0, mastery: 0.5 },
+    });
   });
 
   it("反馈：提交 + 列表", async () => {

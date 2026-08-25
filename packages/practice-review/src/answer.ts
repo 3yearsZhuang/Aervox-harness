@@ -39,6 +39,6 @@ export function createReviewItem(
     knowledgeId: item.id,
     dueAt,
     intervalDays,
-    schedulerVersion: "mvp-v1",
+    schedulerVersion: 1,
   };
 }

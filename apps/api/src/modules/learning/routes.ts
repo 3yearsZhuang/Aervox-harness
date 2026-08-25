@@ -10,6 +10,7 @@ import { resolveTenant } from "../../shared/tenant.js";
 import { createReviewItem, updateAfterAnswer } from "@aervox/practice-review";
 
 let seq = 0;
+const estimatedMinutesPerReview = 2;
 const id = (prefix: string): string =>
   `${prefix}_${Date.now().toString(36)}_${(++seq).toString(36)}`;
 
@@ -187,10 +188,63 @@ export function registerLearningRoutes(
     return { items: await learningRepo.listDueReviewItems(resolveTenant(req), dueBefore) };
   });
 
+  app.get("/v1/review-items/summary", async (req) => {
+    const dueBefore =
+      ((req.query as { dueBefore?: string }).dueBefore ?? new Date().toISOString());
+    const items = await learningRepo.listDueReviewItems(resolveTenant(req), dueBefore);
+    return {
+      dueCount: items.length,
+      estimatedMinutes: items.length * estimatedMinutesPerReview,
+      items,
+    };
+  });
+
   app.post("/v1/review-items/:reviewId/complete", async (req, reply) => {
+    const tenant = resolveTenant(req);
     const { reviewId } = req.params as { reviewId: string };
-    const item = await learningRepo.completeReviewItem(resolveTenant(req), reviewId);
-    if (!item) return reply.code(404).send({ error: "review item not found" });
-    return item;
+    const body = (req.body ?? {}) as { isCorrect?: boolean };
+    if (typeof body.isCorrect !== "boolean") {
+      return reply.code(400).send({ error: "isCorrect is required" });
+    }
+    const reviewItem = await learningRepo.getReviewItem(tenant, reviewId);
+    if (!reviewItem || reviewItem.status !== "active") {
+      return reply.code(404).send({ error: "active review item not found" });
+    }
+    const storedItem = await learningRepo.getKnowledgeItem(tenant, reviewItem.knowledgeId);
+    if (!storedItem) return reply.code(404).send({ error: "knowledge item not found" });
+
+    const item = {
+      id: storedItem.id,
+      name: storedItem.concept,
+      correctCount: storedItem.correctCount,
+      wrongCount: storedItem.wrongCount,
+      correctStreak: storedItem.correctStreak,
+      mastery: storedItem.mastery,
+    };
+    updateAfterAnswer(item, body.isCorrect);
+    const next = createReviewItem(item, body.isCorrect);
+    const masteryState = item.mastery >= 0.8 ? "mastered" : "learning";
+    const result = await learningRepo.completeReviewAndSchedule(tenant, {
+      reviewId,
+      knowledgeId: item.id,
+      practiceState: {
+        ...item,
+        masteryState,
+        masteryBasis: {
+          correctCount: item.correctCount,
+          wrongCount: item.wrongCount,
+          correctStreak: item.correctStreak,
+          schedulerVersion: next.schedulerVersion,
+        },
+      },
+      nextReview: {
+        id: id("review"),
+        dueAt: next.dueAt.toISOString(),
+        intervalDays: next.intervalDays,
+        schedulerVersion: next.schedulerVersion,
+      },
+    });
+    if (!result) return reply.code(409).send({ error: "review item was already completed" });
+    return result;
   });
 }

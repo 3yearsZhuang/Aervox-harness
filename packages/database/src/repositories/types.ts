@@ -601,6 +601,23 @@ export interface ILearningRepository {
     tenant: TenantContext,
     item: { id: string; knowledgeId: string; dueAt: string; intervalDays?: number; schedulerVersion?: number },
   ): Promise<ReviewItemModel>;
+  getReviewItem(tenant: TenantContext, id: string): Promise<ReviewItemModel | null>;
+  completeReviewAndSchedule(
+    tenant: TenantContext,
+    data: {
+      reviewId: string;
+      knowledgeId: string;
+      practiceState: {
+        correctCount: number;
+        wrongCount: number;
+        correctStreak: number;
+        mastery: number;
+        masteryState: string;
+        masteryBasis: unknown;
+      };
+      nextReview: { id: string; dueAt: string; intervalDays: number; schedulerVersion: number };
+    },
+  ): Promise<{ completed: ReviewItemModel; nextReview: ReviewItemModel; knowledge: KnowledgeItemModel } | null>;
   listDueReviewItems(tenant: TenantContext, before: string): Promise<ReviewItemModel[]>;
   completeReviewItem(tenant: TenantContext, id: string): Promise<ReviewItemModel | null>;
   // P1（R2 · CAP-015）：思维宇宙知识关系

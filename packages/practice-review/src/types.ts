@@ -15,5 +15,5 @@ export type ReviewItem = {
     dueAt: Date;
     intervalDays: number;
 
-    schedulerVersion: "mvp-v1";
+    schedulerVersion: 1;
 };

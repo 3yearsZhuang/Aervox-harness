@@ -403,6 +403,91 @@ export class SqliteLearningRepository implements ILearningRepository {
     return this.createReviewItem(tenant, itemData);
   }
 
+  async getReviewItem(tenant: TenantContext, id: string): Promise<ReviewItemModel | null> {
+    assertTenantContext(tenant);
+    const [found] = await this.db
+      .select()
+      .from(reviewItems)
+      .where(
+        and(
+          eq(reviewItems.id, id),
+          eq(reviewItems.workspaceId, tenant.workspaceId),
+          eq(reviewItems.subjectUserId, tenant.subjectUserId),
+        ),
+      );
+    return (found as ReviewItemModel) ?? null;
+  }
+
+  async completeReviewAndSchedule(
+    tenant: TenantContext,
+    data: {
+      reviewId: string;
+      knowledgeId: string;
+      practiceState: {
+        correctCount: number;
+        wrongCount: number;
+        correctStreak: number;
+        mastery: number;
+        masteryState: string;
+        masteryBasis: unknown;
+      };
+      nextReview: { id: string; dueAt: string; intervalDays: number; schedulerVersion: number };
+    },
+  ): Promise<{ completed: ReviewItemModel; nextReview: ReviewItemModel; knowledge: KnowledgeItemModel } | null> {
+    assertTenantContext(tenant);
+    return this.db.transaction(async (tx) => {
+      const now = new Date().toISOString();
+      const [completed] = await tx
+        .update(reviewItems)
+        .set({ status: "completed", updatedAt: now })
+        .where(
+          and(
+            eq(reviewItems.id, data.reviewId),
+            eq(reviewItems.knowledgeId, data.knowledgeId),
+            eq(reviewItems.workspaceId, tenant.workspaceId),
+            eq(reviewItems.subjectUserId, tenant.subjectUserId),
+            eq(reviewItems.status, "active"),
+          ),
+        )
+        .returning();
+      if (!completed) return null;
+
+      const [knowledge] = await tx
+        .update(knowledgeItems)
+        .set({ ...data.practiceState, updatedAt: now })
+        .where(
+          and(
+            eq(knowledgeItems.id, data.knowledgeId),
+            eq(knowledgeItems.workspaceId, tenant.workspaceId),
+            eq(knowledgeItems.subjectUserId, tenant.subjectUserId),
+          ),
+        )
+        .returning();
+      if (!knowledge) throw new Error("review completion references a missing knowledge item");
+
+      const [nextReview] = await tx
+        .insert(reviewItems)
+        .values({
+          id: data.nextReview.id,
+          workspaceId: tenant.workspaceId,
+          subjectUserId: tenant.subjectUserId,
+          knowledgeId: data.knowledgeId,
+          dueAt: data.nextReview.dueAt,
+          intervalDays: data.nextReview.intervalDays,
+          schedulerVersion: data.nextReview.schedulerVersion,
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
+      return {
+        completed: completed as ReviewItemModel,
+        nextReview: nextReview as ReviewItemModel,
+        knowledge: knowledge as KnowledgeItemModel,
+      };
+    });
+  }
+
   async listDueReviewItems(tenant: TenantContext, before: string): Promise<ReviewItemModel[]> {
     assertTenantContext(tenant);
     const rows = await this.db
