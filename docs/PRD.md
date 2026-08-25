@@ -767,14 +767,14 @@ PRD 只规定用户价值、行为规则和验收结果；可变的实现细节�
 | 层 | 推荐基线 | 选用理由与限制 |
 |---|---|---|
 | 运行时/语言 | Node.js 24 LTS；TypeScript 6.x strict；pnpm 11 + Turborepo 2.x | 与参考项目的 Node ≥22.19 兼容；统一前后端类型和构建；版本、lockfile、容器镜像精确锁定 |
-| Web 客户端 | React 19 + Vite 7 + TanStack Router/Query；共享 UI 包 | 登录后流式应用优先客户端渲染；可复用到 Electron；核心路由和缓存不依赖服务端框架私有 API |
+| Web 客户端 | Vue 3 + Vite 7 + Element Plus（Vue 全栈单栈，见 ADR-015）；共享 UI 包 | 登录后流式应用优先客户端渲染；Web 复用桌面端 renderer 核心，避免 React/Vue 双栈；路由和缓存不依赖任何框架私有后端 API |
 | API/契约 | Fastify 5 + Zod 4 + OpenAPI 3.1；POST 创建 Turn + GET SSE | 结构化校验、可生成契约和多语言客户端；SSE 明确事件 ID、`Last-Event-ID`、重放/去重、取消和部分响应持久化；不以 tRPC 锁定未来插件/移动端消费者 |
 | 业务数据 | SQLite (WAL 模式) + Drizzle ORM + 仓储抽象 | 事务、约束、RLS、全文和递归查询满足学习与记忆树；不把 ORM 推断当作数据治理 |
 | 向量/检索 | SQLite FTS5 + 向量检索 Port（sqlite-vec/内存适配） | MVP 不引入独立向量数据库；Embedding 记录模型、维度和版本，可重建 |
 | 队列/缓存 | Redis 7 + BullMQ 5；至少一次投递、幂等 Job、DLQ | 日记、记忆、OCR、嵌入和通知异步化；Redis 不是业务真源 |
 | 附件 | S3 兼容对象存储 + 短期签名 URL + 病毒/内容扫描 | 图片、论文、试卷和导出文件与事务数据分离；对象删除受来源删除 SLA 约束 |
 | AI 运行时 | Vercel AI SDK 6（表现层）+ 内部 Provider Port；结构化输出、模型路由和安全分类 | 可利用参考项目验证过的生态，同时避免供应商或 Agent 框架成为领域真源；不让模型直接写核心表 |
-| 桌面/移动 | Electron（P1）复用 Web UI；Expo/React Native（后续） | 保持 TS 全栈并逐项管理设备权限；桌面必须启用隔离、签名和最小 IPC |
+| 桌面/移动 | Electron（P1）复用 Web UI；Capacitor（后续）打包 Web UI | 保持 TS 全栈并逐项管理设备权限；桌面必须启用隔离、签名和最小 IPC；移动端优先 WebView 壳，仅当出现明显原生需求时再评估 RN |
 | 测试 | Vitest、Testing Library、Playwright、Testcontainers、fast-check、OpenAPI diff | 覆盖领域规则、真实基础设施、端到端、时区/DST、幂等和删除传播性质 |
 | 可观测性 | OpenTelemetry + Pino + Prometheus/Grafana + Sentry | 统一 Web/API/Worker/AI trace；敏感内容默认脱敏，不以第三方 AI 平台作为唯一审计真源 |
 

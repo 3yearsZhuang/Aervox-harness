@@ -2,8 +2,10 @@
  * Aervox｜思隅 @aervox/api — Fastify 应用工厂
  *
  * 允许注入内存/临时数据库用于集成测试；不负责 listen（由入口或测试调用方控制）。
+ * 按 ADR-014 演进式模块化单体组织：注册 8 个领域模块，各自实例化仓储。
  */
 import Fastify from "fastify";
+import cors from "@fastify/cors";
 import { openApiDocument } from "@aervox/contracts";
 import {
   createDatabase,
@@ -11,15 +13,14 @@ import {
   type AervoxDatabase,
 } from "@aervox/database";
 import type { Client } from "@libsql/client";
-import { buildContainer } from "./container.js";
-import { registerConversationRoutes } from "./routes/conversation.js";
-import { registerLearningRoutes } from "./routes/learning.js";
-import { registerFeedbackRoutes } from "./routes/feedback.js";
-import { registerDiaryRoutes } from "./routes/diary.js";
-import { registerContentRoutes } from "./routes/content.js";
-import { registerNotificationRoutes } from "./routes/notification.js";
-import { registerPrivacyRoutes } from "./routes/privacy.js";
-import { registerAnalyticsRoutes } from "./routes/analytics.js";
+import { registerConversationModule } from "./modules/conversation/index.js";
+import { registerLearningModule } from "./modules/learning/index.js";
+import { registerFeedbackModule } from "./modules/feedback/index.js";
+import { registerDiaryModule } from "./modules/diary/index.js";
+import { registerContentModule } from "./modules/content/index.js";
+import { registerNotificationModule } from "./modules/notification/index.js";
+import { registerPrivacyModule } from "./modules/privacy/index.js";
+import { registerAnalyticsModule } from "./modules/analytics/index.js";
 
 export interface BuildAppOptions {
   /** 注入既有数据库（如内存库）；缺省时使用 createDatabase() */
@@ -38,20 +39,22 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   const { db, client } =
     options.db && options.client ? { db: options.db, client: options.client } : await createDatabase();
   await initDatabaseSchema(client);
-  const container = buildContainer(db);
+
+  // CORS：允许本地 Web/移动端跨源访问（生产环境按部署配置收紧 origin）
+  await app.register(cors, { origin: true });
 
   // 契约骨架：暴露由 @aervox/contracts 生成的 OpenAPI 3.1 文档
   app.get("/openapi.json", async () => openApiDocument);
 
-  // 注册业务路由
-  registerConversationRoutes(app, container);
-  registerLearningRoutes(app, container);
-  registerFeedbackRoutes(app, container);
-  registerDiaryRoutes(app, container);
-  registerContentRoutes(app, container);
-  registerNotificationRoutes(app, container);
-  registerPrivacyRoutes(app, container);
-  registerAnalyticsRoutes(app, container);
+  // 注册领域模块（每个模块自管仓储实例化）
+  registerConversationModule(app, db);
+  registerLearningModule(app, db);
+  registerFeedbackModule(app, db);
+  registerDiaryModule(app, db);
+  registerContentModule(app, db);
+  registerNotificationModule(app, db);
+  registerPrivacyModule(app, db);
+  registerAnalyticsModule(app, db);
 
   return { app, db, client };
 }

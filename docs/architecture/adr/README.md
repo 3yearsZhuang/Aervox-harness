@@ -12,7 +12,7 @@ ADR 记录难以逆转、影响多个模块或改变数据/运维边界的技术
 | ADR | 状态 | 决策 | 独立记录 |
 |---|---|---|---|
 | ADR-001 | Proposed | 模块化单体 + Worker，而非 MVP 微服务 | [ADR-001](ADR-001-modular-monolith.md) |
-| ADR-002 | Proposed | React/Vite + Fastify + OpenAPI/SSE | [ADR-002](ADR-002-web-api-contract.md) |
+| ADR-002 | Superseded by ADR-015 | React/Vite + Fastify + OpenAPI/SSE（Web 基线已改） | [ADR-002](ADR-002-web-api-contract.md) |
 | ADR-003 | Proposed | 仓储抽象架构：SQLite 业务真源与 FTS5/Vector Port | [ADR-003](ADR-003-postgres-retrieval.md) |
 | ADR-004 | Proposed | 业务状态 + Outbox + 幂等队列 | [ADR-004](ADR-004-outbox-idempotent-jobs.md) |
 | ADR-005 | Proposed | 内部 Provider Port 包裹 AI SDK | [ADR-005](ADR-005-provider-port.md) |
@@ -24,6 +24,8 @@ ADR 记录难以逆转、影响多个模块或改变数据/运维边界的技术
 | ADR-011 | Proposed | 日记周期、计划修订与连续窗口 | [ADR-011](ADR-011-diary-cycle-schedule-revision.md) |
 | ADR-012 | Proposed | 可恢复流式协议、输出安全门与部分响应持久化 | [ADR-012](ADR-012-streaming-safety-persistence.md) |
 | ADR-013 | Proposed | 独立恢复控制账本与撤权先行 | [ADR-013](ADR-013-recovery-control-ledger.md) |
+| ADR-014 | Proposed | 演进式模块化单体：apps/api 按领域模块组织 | [ADR-014](ADR-014-modular-monolith-structure.md) |
+| ADR-015 | Proposed | Vue 全栈单栈：Web 复用桌面端技术族，替代 ADR-002 Web 基线 | [ADR-015](ADR-015-vue-full-stack.md) |
 
 `Proposed` 不代表已经批准。当前独立记录是评审输入，不是 G2 通过证据；每条 ADR 必须补齐 Owner、评审人、备选方案、后果、迁移、回滚和验证证据并获得批准，状态才能改为 `Accepted`。
 

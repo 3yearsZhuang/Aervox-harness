@@ -20,32 +20,120 @@ MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应
 |---|---|---|
 | Runtime | Node.js 24 LTS | `engines`、容器和 CI 精确锁定；参考仓库最低 Node 22.19，适配器独立兼容 |
 | Language/build | TypeScript 6.x strict、pnpm 11、Turborepo 2.x | lockfile 必须提交；禁止 `latest`；Renovate 升级需通过契约/安全测试 |
-| Web | React 19、Vite 7、TanStack Router/Query | 首发是登录后流式应用；不依赖 Next 私有后端能力 |
-| UI/editor | Tailwind 4、Radix/shadcn 约束、CodeMirror 6 | 组件共享、键盘可用和 WCAG 2.2 AA |
+| Web | Vue 3、Vite 7、Element Plus（Vue 全栈单栈，见 ADR-015） | Web 复用桌面端 renderer 核心（composables/主题），首发是登录后流式应用；不依赖任何框架私有后端能力 |
+| UI/editor | Element Plus + 定制主题（迁移自 desktop styles）、CodeMirror 6 | 组件共享、键盘可用和 WCAG 2.2 AA |
 | API | Fastify 5、Zod 4、OpenAPI 3.1、POST Turn + GET SSE（Fetch 消费） | 客户端和插件通过契约访问；事件 envelope、重连、取消、幂等和安全持久化遵循[流式协议契约](contracts/STREAMING_PROTOCOL.md)；不以 tRPC 锁定消费者 |
 | Database | SQLite (WAL 模式) + Drizzle ORM + Repository Port | 事务、约束、RLS、递归 CTE、全文检索；禁止跨模块直接写表 |
 | Retrieval | SQLite FTS5 + VectorSearchPort（sqlite-vec/内存适配） | 记录 embedding 模型/维度/版本，可离线重建；MVP 不引入 Neo4j/独立向量库 |
 | Queue | Redis 7、BullMQ 5 | 至少一次投递、幂等键、重试、指数退避和 DLQ；Redis 不是真源 |
 | Object | S3 兼容存储、短期签名 URL | 上传前后做大小/格式/解压比/病毒扫描；删除遵循数据 SLA |
 | AI | Vercel AI SDK 6 + 内部 `ProviderPort` | SDK 负责流式表现层，业务通过内部接口调用模型；模型不能直写业务表 |
-| Desktop/mobile | Electron（P1）、Expo/React Native（后续） | `contextIsolation`、关闭 `nodeIntegration`、受限 IPC、签名更新包、逐项设备授权 |
+| Desktop/mobile | Electron（P1）、Capacitor（后续，打包 web UI） | `contextIsolation`、关闭 `nodeIntegration`、受限 IPC、签名更新包、逐项设备授权；移动端优先 WebView 壳，团队用 RN 仅当细粒化需要原生能力时评估 |
 | Test/observability | Vitest、Playwright、Testing Library、Testcontainers、fast-check、OpenTelemetry、Pino、Prometheus/Grafana、Sentry | 正常 CI 不依赖实时供应商；日志默认不含完整用户内容 |
 
 ## 3. 仓库与领域边界
 
 ```text
 apps/
-  web/          # React/Vite 工作台
-  api/          # Fastify HTTP/SSE、鉴权、限流
+  web/          # Vue 3 工作台（复用 desktop renderer 核心，见 ADR-015 / AVX-WEB-001）
+  api/          # Fastify HTTP/SSE，按领域模块组织（见 §3.1）
   worker/       # 幂等后台任务和 DLQ
   desktop/      # P1 Electron 壳，复用 web/ui
-  mobile/       # 后续 Expo/React Native
+  mobile/       # 后续 Capacitor 打包 web UI
 packages/
   contracts/ identity-consent/ conversation/ learning/
   practice-review/ memory/ diary/ ai-runtime/ safety/
   content-ingestion/ integrations/ plugin-sdk/
   database/ observability/ ui/ domain/
 ```
+
+### 3.1 apps/api 内部结构（演进式模块化单体）
+
+`apps/api/src/` 采用**按领域模块组织**的结构，每个模块自管路由与仓储实例化，通过 `shared/event-bus.ts` 做进程内跨模块通信：
+
+```text
+apps/api/src/
+├── modules/                        # 业务模块（每个自管 routes + 依赖注入）
+│   ├── conversation/                #   对话模块：Session、Turn、Message、SSE 流式
+│   │   ├── routes.ts
+│   │   └── index.ts
+│   ├── learning/                    #   学习模块：目标、题目、作答、知识点、复习
+│   │   ├── routes.ts
+│   │   └── index.ts
+│   ├── diary/                       #   日记模块：日记查询、计划、窗口调度
+│   │   ├── routes.ts
+│   │   └── index.ts
+│   ├── feedback/                    #   反馈模块：用户反馈记录与查询
+│   │   ├── routes.ts
+│   │   └── index.ts
+│   ├── privacy/                     #   隐私模块：同意授权、撤回、删除请求
+│   │   ├── routes.ts
+│   │   └── index.ts
+│   ├── analytics/                   #   埋点模块：伪匿名事件记录
+│   │   ├── routes.ts
+│   │   └── index.ts
+│   ├── content/                     #   内容模块：附件元数据、引用
+│   │   ├── routes.ts
+│   │   └── index.ts
+│   └── notification/                #   通知模块：通知列表查询
+│       ├── routes.ts
+│       └── index.ts
+├── shared/                          # 跨模块共享（严格限制：只放通用工具）
+│   ├── tenant.ts                    #   租户上下文解析（从请求 Header 提取 TenantContext）
+│   ├── event-bus.ts                 #   进程内事件总线（pub/sub，未来可替换为消息队列）
+│   └── errors.ts                    #   共享错误类型（NotFoundError、ValidationError 等）
+├── app.ts                           #   Fastify 应用工厂：组装模块、注册路由
+└── index.ts                         #   进程入口：创建 app、listen
+
+apps/api/test/                       # 集成测试
+  └── api-integration.test.ts
+```
+
+**核心约束**：
+
+| 规则 | 说明 |
+|---|---|
+| 模块自管仓储 | 每个 `modules/*/index.ts` 内部实例化该模块的仓储，不引用全局容器 |
+| 路由函数签名 | `routes.ts` 导出函数接收**该模块专属的仓储实例**，而非全局 `RepoContainer` |
+| shared 严格受限 | `shared/` 只放跨 2 个以上模块的通用工具，禁止放业务逻辑 |
+| 跨模块通信 | 仅限 `shared/event-bus.ts` 的 pub/sub + `shared/` 中的纯工具函数直接调用 |
+| 单一数据库 | 仍是一个 SQLite/PostgreSQL 实例，通过表前缀做逻辑分区 |
+| 对外入口唯一 | 每个模块只有 `index.ts` 对外可见，`routes.ts` 内部函数不被其他模块引用 |
+
+**模块与仓储对应关系**：
+
+| 模块 | 仓储（来自 `@aervox/database`） | 对应路由前缀 |
+|---|---|---|
+| conversation | `SqliteConversationRepository` | `/v1/sessions/*`, `/v1/turns/*`, `/v1/messages` |
+| learning | `SqliteLearningRepository` | `/v1/learning/*`, `/v1/questions/*`, `/v1/review-items/*` |
+| diary | `SqliteDiaryRepository` | `/v1/diaries/*` |
+| feedback | `SqliteFeedbackRepository` | `/v1/feedback` |
+| privacy | `SqlitePrivacyRepository` | `/v1/consent*`, `/v1/deletions` |
+| analytics | `SqliteAnalyticsRepository` | `/v1/analytics/events` |
+| content | `SqliteContentRepository` | `/v1/attachments/*` |
+| notification | `SqlitePlatformRepository` | `/v1/notifications` |
+
+**与 ADR-001 的关系**：本结构是 ADR-001（模块化单体）在 API 层的细化设计，由 ADR-014 记录完整决策。未来当某个模块满足拆分条件（团队边界、独立扩缩容、部署独立性）时，可将该模块的进程内 EventBus 调用替换为消息队列，仓储实例化替换为 HTTP/gRPC 客户端，业务逻辑代码零改动。
+
+### 3.2 UI 共享包规划（packages/ui / api-client）
+
+**现状（2026-08-25）——逻辑层与视觉内核已收敛为共享包，组件层按需继续上收**：
+
+| 层级 | 桌面端（Electron/Vue） | Web 工作台（Vue） | 复用形态 |
+|---|---|---|---|
+| 契约/协议 | `@aervox/contracts`、`@aervox/api` | 同一份 | ✅ 真共享（import 同一包） |
+| 逻辑（transport + composables） | 注入 `desktopTransport`（preload IPC 适配，`@aervox/api-client`） | 默认 `fetchTransport`（浏览器 fetch/SSE，同包） | ✅ 真共享：两端各注入传输适配，composables（`useAervoxApi`/`useAervoxTurn`）收敛到 `@aervox/api-client`，本地副本已删除 |
+| UI 组件/主题 | `PetAvatar`（桌面 hero / PetWindow 内部使用）；`AppTitlebar` 等窗口壳保留端内 | `PetAvatar`（PetBubble 浮层）+ `MessageBubble`（对话）；主题 token | ⚠️ 共享中：桌宠视觉内核与消息气泡收至 `@aervox/ui`；窗口壳、页面布局仍各端私有，按 §3.2 触发条件继续上收 |
+
+- 共享包清单：`@aervox/api-client`（transport 抽象 + Vue composables，源码出口）与 `@aervox/ui`（PetAvatar / MessageBubble / 主题 token，源码出口）均为新建，两端 dev/build 经 Vite 直接消费源码。
+- 渲染层差异（桌面 story 单条叙事 vs Web 消息列表）与多窗口桌宠 vs 同页浮层仍属壳能力差异，保留各端适配层，不强制统一。
+
+**规划（ADR-014/015 演进式，仍有触发式上收）**：
+
+- **创建时机**：当同一展示组件被 ≥2 个端（web / desktop / mobile）真实复用且实现开始分叉时，把两端竞品实现收敛为 `packages/ui` 的共享组件 + 主题 token（以 desktop styles 为基础），例如对话消息渲染、学习卡片、PetBubble/PetWindow 的视觉内核。
+- **内容边界**：只放跨端复用且**无壳依赖**（Electron IPC / Capacitor）的展示组件与主题 token；页面壳、窗口控制、preload 桥接、平台通道逻辑一律留在各端。
+- **允许端内差异**：多窗口桌宠（桌面）与同页浮层（Web）属于壳能力差异，保留各端适配层，不强制统一。
+- **约束**：建包不改变 ADR-014/015 决策；若仅两端复用亦可在各自端内先收敛再提升，避免为假想需求建包。
 
 领域模块：
 
@@ -259,7 +347,7 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 | ADR | 决策 |
 |---|---|
 | ADR-001 | 模块化单体 + Worker，而非 MVP 微服务 |
-| ADR-002 | React/Vite + Fastify + OpenAPI/SSE，而非 Next 一体化后端或 tRPC 锁定 |
+| ADR-002 | Superseded by ADR-015 — 原 React/Vite + Fastify + OpenAPI/SSE 的 Web 基线已改为 Vue 单栈 |
 | ADR-003 | 仓储抽象架构：SQLite 业务真源与 FTS5/Vector Port |
 | ADR-004 | 业务状态 + Outbox + 幂等队列，而非全系统 Event Sourcing |
 | ADR-005 | 内部 Provider Port 包裹 AI SDK，模型和 Prompt 可替换 |
@@ -271,6 +359,8 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 | ADR-011 | 日记不可变周期、计划修订、cursor 连续性、迟到事件与 lease/fencing |
 | ADR-012 | POST Turn + GET SSE、分段安全门、重连去重与部分响应持久化 |
 | ADR-013 | 独立恢复控制账本与撤权先行 |
+| ADR-014 | 演进式模块化单体：apps/api 按领域模块组织，自管仓储 + 进程内事件总线 |
+| ADR-015 | Vue 全栈单栈：Web 复用桌面端技术族，替代 ADR-002 的 Web 基线 |
 
 每个 ADR 需要记录上下文、备选方案、决策、后果、迁移和回滚。未批准的技术建议不能写成已承诺架构。
 
@@ -278,7 +368,7 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 
 ### 11.1 技术版本冻结规则
 
-本文中的 Node 24 LTS、TypeScript 6.x、React/Vite/Fastify/Zod、PostgreSQL、AI SDK 等是目标基线，不是尚未存在 `package.json`/lockfile 时的可构建证明。G2 前必须：
+本文中的 Node 24 LTS、TypeScript 6.x、Vue/Vite/Fastify/Zod、PostgreSQL、AI SDK 等是目标基线（React 相关基线已随 ADR-015 更新为 Vue），不是尚未存在 `package.json`/lockfile 时的可构建证明。G2 前必须：
 
 - 验证实际发布日期、LTS/支持周期、peer dependency、Node ABI、Electron 和参考适配器兼容；
 - 在根 `package.json`、`packageManager`、`engines`、lockfile、容器 digest 和 CI matrix 中精确冻结版本；

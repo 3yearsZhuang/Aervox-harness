@@ -7,11 +7,20 @@
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 import { createClient, type Client } from "@libsql/client";
 import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
 import * as schema from "./schema/index.js";
 
 export type AervoxDatabase = LibSQLDatabase<typeof schema>;
+
+/**
+ * 仓库根目录（src/client.ts 或 dist/client.js 均向上三级到达仓库根）。
+ * 用于统一 API / Worker / 多进程默认数据库真源路径。
+ */
+const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
+/** 默认共享数据库文件：<repo>/data/aervox.db */
+const defaultDbUrl = `file:${path.join(repoRoot, "data", "aervox.db")}`;
 
 export interface DatabaseConfig {
   /** SQLite 数据库文件路径或 URL（如 "file:aervox.db"） */
@@ -28,7 +37,18 @@ export interface DatabaseConfig {
 export async function createDatabase(
   config: DatabaseConfig = {},
 ): Promise<{ db: AervoxDatabase; client: Client }> {
-  const url = config.url ?? process.env.DATABASE_URL ?? "file:aervox.db";
+  const url = config.url ?? process.env.DATABASE_URL ?? defaultDbUrl;
+
+  // 先确保文件父目录存在（libsql createClient 构造时即打开文件，必须在其之前创建 <repo>/data）
+  if (url.startsWith("file:") || !url.includes("://")) {
+    const filePath = url.startsWith("file:") ? url.slice("file:".length) : url;
+    try {
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    } catch {
+      // 目录已存在或路径不可创建时忽略
+    }
+  }
+
   const client = createClient({
     url,
     authToken: config.authToken ?? process.env.DATABASE_AUTH_TOKEN,
