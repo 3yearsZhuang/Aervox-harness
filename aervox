@@ -94,19 +94,19 @@ cmd_dev() {
       ;;
     web)
       info "启动 Web(+5173) + API(+3000)…"
-      run turbo run dev --filter=@aervox/api --filter=@aervox/web
+      run pnpm exec turbo run dev --filter=@aervox/api --filter=@aervox/web
       ;;
     desktop)
       info "启动 Desktop(Electron) + API(+3000)…"
-      run turbo run dev --filter=@aervox/api --filter=@aervox/desktop
+      run pnpm exec turbo run dev --filter=@aervox/api --filter=@aervox/desktop
       ;;
     worker)
       info "启动 Worker(后台任务)…"
-      run turbo run dev --filter=@aervox/worker
+      run pnpm exec turbo run dev --filter=@aervox/worker
       ;;
     api)
       info "启动 API(+3000)…"
-      run turbo run dev --filter=@aervox/api
+      run pnpm exec turbo run dev --filter=@aervox/api
       ;;
     *)
       fail "未知 dev 目标: ${target}（可用: full | web | desktop | worker | api）"

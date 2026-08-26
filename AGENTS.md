@@ -1,6 +1,6 @@
 # AGENTS.md — AI 协作指南（薄入口）
 
-本文件是 AI 编码 Agent 的进入点：只索引、不复制，权威内容一律深链至 `docs/`，避免双源漂移。详细规则见 [docs/README.md §8 从哪开始](docs/README.md)（面向新成员或 Agent 的完整 onboarding）与[文档写作规范](docs/reference/standards/doc-standards.md)。
+本文件是 AI 编码 Agent 的进入点：只索引、不复制，权威内容一律深链至 `docs/`，避免双源漂移。详细规则见 [从哪开始](docs/getting-started.md)（面向新成员或 Agent 的完整 onboarding）与[文档写作规范](docs/reference/standards/doc-standards.md)。
 
 ## 这是什么仓库
 
@@ -8,10 +8,11 @@ Aervox｜思隅：面向编程初学者的 AI 陪伴学习桌宠。TypeScript �
 
 ## 必读顺序（按需取读，不必通读全文）
 
-1. [docs/README.md](docs/README.md) — 文档索引、权威顺序与冲突处理；§8 从哪开始是完整 onboarding；
-2. [教程：构建并运行第一个对话](docs/tutorials/first-conversation.md)；
-3. [文档写作规范](docs/reference/standards/doc-standards.md)（目录=Diátaxis 四分类、文档头 schema、命名、Vale 门禁）与[术语表](docs/reference/standards/terminology.md)；
-4. 按需深入：PRD / 架构与 ADR / 契约（流式协议·数据库）。
+1. [docs/README.md](docs/README.md) — 文档索引、权威顺序与冲突处理；
+2. [从哪开始](docs/getting-started.md) — 仓库结构、阅读顺序、写作硬规则与 Docs CI 自检（完整 onboarding）；
+3. [教程：构建并运行第一个对话](docs/tutorials/first-conversation.md)；
+4. [文档写作规范](docs/reference/standards/doc-standards.md)（目录=Diátaxis 四分类、文档头 schema、命名、Vale 门禁）与[术语表](docs/reference/standards/terminology.md)；
+5. 按需深入：PRD / 架构与 ADR / 契约（流式协议·数据库）。
 
 ## 硬约束（违反即打回）
 
@@ -38,4 +39,4 @@ mise x -- pnpm test       # 测试（在 mise 环境内执行）
 
 ## 需要介入时
 
-文档冲突 / 生产问题 / 变更请求的处理路径见 [docs/README.md §8](docs/README.md#8-从哪开始)；修改已批准文档先建 `CR-*`（见 [追踪基线 §11](docs/reference/REQUIREMENTS_TRACEABILITY.md#11-变更控制)）。
+文档冲突 / 生产问题 / 变更请求的处理路径见 [从哪开始 §5](docs/getting-started.md#5-需要介入时)；修改已批准文档先建 `CR-*`（见 [追踪基线 §11](docs/reference/REQUIREMENTS_TRACEABILITY.md#11-变更控制)）。
