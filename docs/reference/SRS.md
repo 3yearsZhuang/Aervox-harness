@@ -1,8 +1,8 @@
 # Aervox｜思隅 软件需求规格（SRS）
 
 > 文档编号：AVX-SRS-001  
-> 版本：v0.2（评审候选）
-> 更新日期：2026-08-25
+> 版本：v0.3（评审候选）
+> 更新日期：2026-08-26
 > 状态：Review Candidate  
 > 产品事实源：[PRD](PRD.md)  
 > 追踪矩阵：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)

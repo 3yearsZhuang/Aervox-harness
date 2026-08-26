@@ -12,7 +12,7 @@
 | 文档编号 | 文档 | 责任角色（人名待定） | 最后核验 | 核验节奏 | 陈旧信号 |
 |---|---|---|---|---|---|
 | `AVX-PRD-001` | [PRD](reference/PRD.md) | 产品负责人 | 2026-08-25 | 每次版本立项 / G0 | CAP 范围或优先级变更未建立 `CR-*` |
-| `AVX-SRS-001` | [SRS](reference/SRS.md) | 产品与模块负责人 | 2026-08-25 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
+| `AVX-SRS-001` | [SRS](reference/SRS.md) | 产品与模块负责人 | 2026-08-26 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
 | `AVX-SAD-001` | [架构设计](reference/ARCHITECTURE.md) | 技术负责人 | 2026-08-25 | G2 评审 + 架构变更 | 新增 ADR/技术基线变化未同步 |
 | `ADR-001~015` | [ADR 索引](reference/adr/README.md) | 技术负责人（各 ADR 另有 Owner） | 2026-08-26 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
 | `AVX-SPC-001` | [流式协议](reference/STREAMING_PROTOCOL.md) | 技术负责人 | 2026-08-24 | OpenAPI/事件 schema 变更 | `packages/contracts` 版本高于文档描述 |
@@ -33,10 +33,8 @@
 | `CR-003` | [SQLite 业务真源与 PG 兼容](reference/changes/CR-003-sqlite-primary-pg-compat.md) | 技术负责人 | 2026-08-24 | 数据真源 / 仓储抽象变更 | 仓储接口或 PG 切换计划与实现不符 |
 | `CR-004` | [人格插件 SQLite 持久化](reference/changes/CR-004-persona-sqlite-persistence.md) | 技术负责人 | 2026-08-25 | 数据库 schema / Port / 模块指针变更 | 表、Port 或 CR 状态与实现不一致 |
 | `CR-005` | [共享工作台与 Web 无桌宠表现层](reference/changes/CR-005-shared-workbench-web-without-pet.md) | 产品与技术负责人 | 2026-08-25 | 端形态与共享 UI 边界变更 | Electron/Web 目录、共享组件契约或回滚条件与实现不符 |
-| `AVX-PLUG-001` | [插件 Config 与 Page 规范](reference/plugin-config-and-pages.md) | 技术负责人（安全/隐私复核） | 2026-08-26 | Config/Page 契约或实现变更 | Schema/Bridge/API 与实现或 CR-006 不一致 |
-| `CR-006` | [插件配置解析与可视化](reference/changes/CR-006-plugin-config-and-pages.md) | 技术负责人 | 2026-08-26 | CAP-020 插件配置/Page 变更 | 表、Port、API 或安全边界与实现不符 |
 | `AVX-MOD-PERSONA-001` | [`modules/persona-plugin`](https://github.com/KashiwagiEri233/aervox-persona-plugin-module) | Persona 模块负责人 | 2026-08-25 | 每次 submodule 指针/包契约/权限变更 | workspace 包、固定 commit 或模块自身 CI 不一致 |
-| `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 文档负责人 | 2026-08-25 | 规则变更或季度评审 | 新增文档未标注四分类/头字段不合规，或 Vale 规则与术语表不一致 |
+| `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 文档负责人 | 2026-08-26 | 规则变更或季度评审 | 新增文档未标注四分类/头字段不合规，或 Vale 规则与术语表不一致 |
 | `AVX-TERM-001` | [术语表](reference/standards/terminology.md) | 文档负责人 | 2026-08-26 | 术语新增/变更 | 新增缩写未登记，或正文拼写与「禁写」列不一致 |
 | `AVX-TUT-001` | [教程：第一个对话](tutorials/first-conversation.md) | 文档负责人（技术复核） | 2026-08-25 | 启动命令/端点变更 | 快速开始命令、Turn/SSE 端点与 README/契约不一致 |
 | `AVX-TUT-002` | [教程：迁移已集成能力并接入 DSH/pi](tutorials/migrate-integrated-capabilities.md) | 文档负责人（技术/安全复核） | 2026-08-26 | 能力目录、DSH/pi 上游或迁移步骤变更 | 当前实现路径、固定 SHA、权限/隔离边界或验证命令与仓库不一致 |
@@ -49,7 +47,10 @@
 
 ## 维护规则
 
-- 每份文档创建/改版时，在此登记或更新对应条目（编号、负责人、核验日期、陈旧信号）；
-- 新增文档后同步[文档索引](README.md)的体系表与[从哪开始](getting-started.md)入口；
+- 登记强度按[文档写作规范 §3.1 改动等级](reference/standards/doc-standards.md#31-改动等级与同步要求)执行：
+  - L1 编辑性：只过 ci-docs，不登记；
+  - L2 内容更新：更新本表「最后核验」日期，不新增/改条目；
+  - L3 结构性（新增文档、目录迁移、编号/类型/事实源变更）：新增或更新条目，并同步[文档索引](README.md)体系表与[从哪开始](getting-started.md)入口；
+- 每份文档创建/改版时，按上一条分级在此登记或更新对应条目（编号、负责人、核验日期、陈旧信号）；
 - 新增文档按[文档写作规范](reference/standards/doc-standards.md)标注类型与头字段；导航/登记类（[文档索引](README.md)、本表）只登记不标四分类；
 - 核验时更新 `最后核验` 日期；长期未核验或陈旧信号命中时按[更新与评审节奏](README.md#5-更新与评审节奏)处置。
