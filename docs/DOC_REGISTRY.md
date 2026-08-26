@@ -34,6 +34,7 @@
 | `AVX-TERM-001` | [术语表](reference/standards/terminology.md) | 文档负责人 | 2026-08-25 | 术语新增/变更 | 新增缩写未登记，或正文拼写与「禁写」列不一致 |
 | `AVX-TUT-001` | [教程：第一个对话](tutorials/first-conversation.md) | 文档负责人（技术复核） | 2026-08-25 | 启动命令/端点变更 | 快速开始命令、Turn/SSE 端点与 README/契约不一致 |
 | `AVX-EXPL-001` | [数据流总览](explanation/data-flow-overview.md) | 文档负责人（技术复核） | 2026-08-25 | 模块/Worker/路由变更 | 新增模块或 Worker 循环未入概念地图 |
+| `AVX-EXPL-002` | [参考项目能力迁移与借鉴评估](explanation/reference-design-transfer.md) | 技术负责人 | 2026-08-26 | 参考项目升级或架构变更 | 新增借鉴决策未登记，或参考项目 commit 超出固定清单 |
 | `AVX-DOC-001` | [文档索引](README.md) | 文档负责人 | 2026-08-24 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
 
 ## 维护规则

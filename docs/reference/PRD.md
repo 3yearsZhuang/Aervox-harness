@@ -3,7 +3,7 @@
 > 文档编号：AVX-PRD-001  
 > 类型：Reference  
 > 版本：v0.7 RC4（全生命周期需求与架构基线）  
-> 创建/更新日期：2026-08-24  
+> 创建/更新日期：2026-08-26  
 > 文档状态：评审候选（Review Candidate）  
 > 产品负责人：待指定  
 > 技术负责人：待指定  
@@ -826,12 +826,15 @@ dsh、pi-ai、ACP/RPC、Cordis、FSRS、桌面外壳和插件权限模型属于�
 | `reference/dsh-synapse` | dsh-synapse | `a323f76b0c47ffad59194d8ac7efacb3aa6bdfba` | MIT | 2026-08-24 |
 | `reference/deepseek-harness` | DeepSeek Harness | `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e` | MIT | 2026-08-24 |
 | `reference/pi` | pi monorepo | `c49906ec77788625aacbdc53ebca6fbe65bd20f5` | MIT | 2026-08-24 |
+| `reference/AstrBot` | AstrBot | `4d877c9919e58008f6f2cf4b19e18f9c48e4338f` | AGPLv3 | 2026-08-26 |
+| `reference/Petra` | Petra | `b629b295b5ae535d80e09cd59bd3d515bcd8150f` | MIT | 2026-08-26 |
 
 - 参考仓库的行为和 API 只能通过固定 commit 复核，升级时需记录变更原因和回归结果；
 - 任何从参考项目复制或改写的代码，都必须在实现设计中记录文件来源、版权声明和许可证影响；
-- BaiShou-Next 当前采用 AGPLv3。除非完成许可证评审并接受网络服务开源义务，否则只借鉴公开设计和数据模型，不直接复制其代码或形成链接依赖；
+- BaiShou-Next 与 AstrBot 当前均采用 AGPLv3。除非完成许可证评审并接受网络服务开源义务，否则只借鉴公开设计和数据模型，不直接复制其代码或形成链接依赖；
 - dsh-synapse 当前采用 MIT，可作为较低风险的交互和插件实现参考，但仍需独立检查其对 DSH 版本、Node.js 版本和 Web profile 的依赖；
-- 参考项目不是本产品的运行时依赖。MVP 的核心学习流程必须在不安装 BaiShou-Next 或 dsh-synapse 的情况下正常运行。
+- Petra 当前采用 MIT，可作为较低风险的表现与交互实现参考，但仍需独立检查其对 Tauri、pixi.js 版本与 Windows 平台的依赖；
+- 参考项目不是本产品的运行时依赖。MVP 的核心学习流程必须在不安装 BaiShou-Next、AstrBot 或 dsh-synapse 的情况下正常运行。
 
 ### 15.2 由参考项目新增的设计决策
 
