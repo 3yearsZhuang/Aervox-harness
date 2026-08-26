@@ -3,6 +3,8 @@
  */
 export * from "./conversation-repository.js";
 export * from "./memory-repository.js";
+export * from "./memory-compaction-repository.js";
+export * from "./memory-embedding-repository.js";
 export * from "./diary-repository.js";
 export * from "./outbox-repository.js";
 export * from "./learning-repository.js";
@@ -15,6 +17,4 @@ export * from "./recovery-ledger-repository.js";
 export * from "./analytics-repository.js";
 export * from "./content-repository.js";
 export * from "./extension-repository.js";
-export * from "./persona-repository.js";
-export * from "./skill-repository.js";
-export * from "./mcp-tool-repository.js";
+export * from "./tool-registry-repository.js";

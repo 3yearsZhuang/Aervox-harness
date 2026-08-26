@@ -19,7 +19,7 @@ declare global {
   }
 }
 
-import type { TurnStreamEvent } from '@aervox/contracts';
+import type { PetCommand, TurnStreamEvent } from '@aervox/contracts';
 import type { AervoxTransport, TurnCallbacks } from './transport';
 
 export const desktopTransport: AervoxTransport = {
@@ -64,6 +64,7 @@ function streamTurnViaBridge(
       if (event.eventType === 'error') {
         callbacks.onError?.(new Error((event.data as { message?: string }).message ?? 'Turn 出错'));
       }
+      if (event.eventType === 'emote') callbacks.onEmote?.(event.data as PetCommand);
     });
   });
 }

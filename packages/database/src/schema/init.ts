@@ -157,6 +157,64 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await client.execute(`
     CREATE INDEX IF NOT EXISTS memory_records_tenant_layer_idx ON memory_records(workspace_id, subject_user_id, layer, is_deleted);
   `);
+  // PET-02 记忆条目字段（新库建列；旧库走下方 addColumnIfMissing 补齐）
+  await addColumnIfMissing(client, "memory_records", "source", "source TEXT NOT NULL DEFAULT 'user_said'");
+  await addColumnIfMissing(client, "memory_records", "category", "category TEXT NOT NULL DEFAULT 'other'");
+  await addColumnIfMissing(client, "memory_records", "keywords_json", "keywords_json TEXT");
+  await addColumnIfMissing(client, "memory_records", "last_used_at", "last_used_at TEXT");
+
+  // T-03 上下文压缩标记（新表）
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS memory_compaction_markers (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      memory_id TEXT NOT NULL REFERENCES memory_records(id) ON DELETE CASCADE,
+      snapshot_id TEXT NOT NULL,
+      covered_up_to_message_id TEXT,
+      summary_text TEXT,
+      phase TEXT NOT NULL DEFAULT 'auto',
+      status TEXT NOT NULL DEFAULT 'completed',
+      thought_duration_ms INTEGER,
+      summary_duration_ms INTEGER,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS memory_compaction_markers_memory_snapshot_idx
+    ON memory_compaction_markers(memory_id, snapshot_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS memory_compaction_markers_tenant_idx
+    ON memory_compaction_markers(workspace_id, subject_user_id);
+  `);
+
+  // T-05 记忆向量独立表（向量数据本体；任务/版本状态在 embedding_indexes）
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS memory_embeddings (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      memory_id TEXT NOT NULL REFERENCES memory_records(id) ON DELETE CASCADE,
+      dimension INTEGER NOT NULL,
+      model_id TEXT NOT NULL,
+      embedding_json TEXT NOT NULL,
+      source_created_at TEXT,
+      index_version INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS memory_embeddings_tenant_idx ON memory_embeddings(workspace_id, subject_user_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS memory_embeddings_memory_idx ON memory_embeddings(memory_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS memory_embeddings_model_idx ON memory_embeddings(model_id);
+  `);
 
   // P1：系统记忆树投影节点（投影层；memory_edges / overrides 迁移到节点级）
   await client.execute(`
@@ -438,12 +496,19 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       level TEXT NOT NULL DEFAULT 'beginner',
       available_minutes INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'active',
+      idempotency_key TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
   `);
+  await addColumnIfMissing(client, "learning_goals", "idempotency_key", "idempotency_key TEXT");
   await client.execute(`
     CREATE INDEX IF NOT EXISTS learning_goals_tenant_idx ON learning_goals(workspace_id, subject_user_id);
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS learning_goals_tenant_idempotency_idx
+    ON learning_goals(workspace_id, subject_user_id, idempotency_key)
+    WHERE idempotency_key IS NOT NULL;
   `);
 
   await client.execute(`
@@ -1198,6 +1263,40 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
 
   // 5. 初始化 FTS5 全文检索引擎
   await initFtsTables(client);
+
+  // 17. T-04 工具注册表 + AST-04 条件门控（系统级，无租户列）
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS tool_registrations (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL,
+      category TEXT NOT NULL,
+      safety_level TEXT NOT NULL DEFAULT 'write_with_approval',
+      required_permissions_json TEXT,
+      input_schema_json TEXT,
+      builtin INTEGER NOT NULL DEFAULT 0,
+      plugin_id TEXT,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      gating_conditions_json TEXT,
+      priority INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS tool_registrations_plugin_idx ON tool_registrations(plugin_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS tool_registrations_category_enabled_idx ON tool_registrations(category, enabled);
+  `);
+
+  // AST-04 插件元数据列补齐（旧库 addColumnIfMissing 兼容）
+  await addColumnIfMissing(client, "plugins", "display_name", "display_name TEXT");
+  await addColumnIfMissing(client, "plugins", "repository", "repository TEXT");
+  await addColumnIfMissing(client, "plugins", "platforms_json", "platforms_json TEXT");
+  await addColumnIfMissing(client, "plugins", "dependencies_json", "dependencies_json TEXT");
+  await addColumnIfMissing(client, "plugins", "i18n_json", "i18n_json TEXT");
+  await addColumnIfMissing(client, "plugins", "registry_meta_json", "registry_meta_json TEXT");
 }
 
 /**
