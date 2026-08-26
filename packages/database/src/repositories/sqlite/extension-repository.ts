@@ -100,6 +100,25 @@ export class SqliteExtensionRepository implements IExtensionRepository {
     return rows as PluginModel[];
   }
 
+  async getPlugin(id: string): Promise<PluginModel | null> {
+    const [found] = await this.db.select().from(plugins).where(eq(plugins.id, id)).limit(1);
+    return (found as PluginModel) ?? null;
+  }
+
+  async setPluginConfigSchema(
+    id: string,
+    schema: unknown,
+    schemaVersion: number,
+  ): Promise<PluginModel | null> {
+    const now = new Date().toISOString();
+    const [updated] = await this.db
+      .update(plugins)
+      .set({ configSchemaJson: schema, configSchemaVersion: schemaVersion, updatedAt: now })
+      .where(eq(plugins.id, id))
+      .returning();
+    return (updated as PluginModel) ?? null;
+  }
+
   async setPluginEnabled(id: string, enabled: boolean): Promise<PluginModel | null> {
     const now = new Date().toISOString();
     const [updated] = await this.db

@@ -22,3 +22,4 @@ export * from "./persona.js";
 export * from "./tool-registry.js";
 export * from "./skills.js";
 export * from "./init.js";
+export * from "./plugin-config.js";

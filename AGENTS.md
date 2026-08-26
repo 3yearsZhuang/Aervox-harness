@@ -14,7 +14,7 @@ Aervox｜思隅：更好上手的"主动智能" Agent——以桌宠为入口，
 1. [docs/README.md](docs/README.md) — 文档索引、权威顺序与冲突处理；
 2. [从哪开始](docs/getting-started.md) — 仓库结构、阅读顺序、写作硬规则与 Docs CI 自检（完整 onboarding）；
 3. [教程：构建并运行第一个对话](docs/tutorials/first-conversation.md)；
-4. [文档写作规范](docs/reference/standards/doc-standards.md)（Diátaxis 四分类、文档头 schema、Vale 门禁）与[术语表](docs/reference/standards/terminology.md)；
+4. [文档写作规范](docs/reference/standards/doc-standards.md)（目录=Diátaxis 四分类、文档头 schema、命名、Vale 门禁）与[术语表](docs/reference/standards/terminology.md)；
 5. 按需深入：PRD / 架构与 ADR / 契约（流式协议·数据库）。
 
 ## 硬约束（违反即打回）

@@ -54,6 +54,8 @@ export interface PluginServiceDeps {
   skillRegistry: SqliteSkillRegistryRepository;
   /** 技能内容落盘根目录（插件技能写 <skillsRoot>/<pluginId>/<skillName>/） */
   skillsRoot: string;
+  /** CR-006：卸载时清理插件配置/secret/Page 与 Bundle 目录 */
+  cleanup?: (pluginId: string) => Promise<void>;
 }
 
 export class PluginService {
@@ -156,6 +158,7 @@ export class PluginService {
       await this.deps.skillRegistry.removeSkill(skill.id);
     }
     await fs.rm(path.join(this.deps.skillsRoot, id), { recursive: true, force: true }).catch(() => undefined);
+    if (this.deps.cleanup) await this.deps.cleanup(id);
     return this.deps.extensionRepo.deletePlugin(id);
   }
 

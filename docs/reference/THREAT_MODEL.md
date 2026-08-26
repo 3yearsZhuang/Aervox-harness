@@ -39,6 +39,7 @@
 | TM-010 | Abuse | 情绪脆弱/危机内容被用于留存、推荐或日记 | purpose 隔离、安全事件受限、禁止商业定向/关系分数 | `TC-AIEVAL-SAFE-001`；政策误分类持续监控 |
 | TM-011 | Supply chain | 依赖、参考代码或插件引入恶意代码/许可证风险 | lockfile、SBOM、签名、漏洞/许可证扫描、AGPL 隔离 | `TC-SEC-SUPPLY-001`；高危/许可未决阻断发布 |
 | TM-012 | Data poisoning | 外部题库/附件污染掌握度、记忆或知识树 | 来源/许可/置信状态、人工纠正、候选机制、回滚 | `TC-AIEVAL-POISON-001`；低置信内容不入正式事实 |
+| TM-013 | Elevation/Disclosure | 插件 Page 越权读取配置、secret 泄露或静态资源逃逸 | 受限 iframe sandbox、Host Bridge 能力白名单、Bundle 路径安全与 checksum、secret 不回显、AuditRecord | `TC-SEC-PLUG-001`、`TC-SEC-PLUG-CFG-001`；本地默认 secret 存储必须替换为加密 Store 后上线 |
 
 ## 4. 数据流安全规则
 
