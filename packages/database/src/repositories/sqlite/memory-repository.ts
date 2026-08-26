@@ -40,6 +40,12 @@ export class SqliteMemoryRepository implements IMemoryRepository {
       content: string;
       canonicalParentId?: string | null;
       sourceTurnId?: string | null;
+      // PET-02 记忆条目字段
+      source?: string;
+      category?: string;
+      keywords?: string[];
+      lastUsedAt?: string | null;
+      verificationStatus?: string;
     },
   ): Promise<MemoryRecordModel> {
     assertTenantContext(tenant);
@@ -57,6 +63,14 @@ export class SqliteMemoryRepository implements IMemoryRepository {
         sourceTurnId: recordData.sourceTurnId ?? null,
         version: 1,
         isDeleted: 0,
+        source: recordData.source ?? "user_said",
+        category: recordData.category ?? "other",
+        keywordsJson:
+          recordData.keywords && recordData.keywords.length > 0
+            ? JSON.stringify(recordData.keywords)
+            : null,
+        lastUsedAt: recordData.lastUsedAt ?? null,
+        verificationStatus: recordData.verificationStatus,
         createdAt: now,
         updatedAt: now,
       })

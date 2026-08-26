@@ -102,3 +102,69 @@ export async function searchMessagesFts(
     score: Number(row.score),
   }));
 }
+
+/**
+ * 同步记忆内容到 memories_fts 虚表（先清理旧索引再插入）
+ */
+export async function indexMemoryFts(
+  client: Client,
+  tenant: TenantContext,
+  memory: { id: string; content: string },
+): Promise<void> {
+  assertTenantContext(tenant);
+  await client.execute({
+    sql: `DELETE FROM memories_fts WHERE id = ? AND workspace_id = ? AND subject_user_id = ?`,
+    args: [memory.id, tenant.workspaceId, tenant.subjectUserId],
+  });
+  await client.execute({
+    sql: `INSERT INTO memories_fts(id, workspace_id, subject_user_id, content) VALUES (?, ?, ?, ?)`,
+    args: [memory.id, tenant.workspaceId, tenant.subjectUserId, memory.content],
+  });
+}
+
+/**
+ * 从 memories_fts 虚表中清理被删除记忆的索引（删除即刻零召回）
+ */
+export async function deleteMemoryFts(
+  client: Client,
+  tenant: TenantContext,
+  memoryId: string,
+): Promise<void> {
+  assertTenantContext(tenant);
+  await client.execute({
+    sql: `DELETE FROM memories_fts WHERE id = ? AND workspace_id = ? AND subject_user_id = ?`,
+    args: [memoryId, tenant.workspaceId, tenant.subjectUserId],
+  });
+}
+
+/**
+ * 在租户隔离下对记忆执行 FTS5 全文搜索
+ */
+export async function searchMemoriesFts(
+  client: Client,
+  tenant: TenantContext,
+  query: string,
+  limit: number = 20,
+): Promise<FtsSearchResult[]> {
+  assertTenantContext(tenant);
+  const sanitized = query.replace(/[^\p{L}\p{N}\s]/gu, " ").trim();
+  if (!sanitized) return [];
+
+  const res = await client.execute({
+    sql: `
+      SELECT id, rank AS score
+      FROM memories_fts
+      WHERE memories_fts MATCH ?
+        AND workspace_id = ?
+        AND subject_user_id = ?
+      ORDER BY rank
+      LIMIT ?;
+    `,
+    args: [sanitized, tenant.workspaceId, tenant.subjectUserId, limit],
+  });
+
+  return res.rows.map((row) => ({
+    id: String(row.id),
+    score: Number(row.score),
+  }));
+}

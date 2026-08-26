@@ -4,6 +4,8 @@
 export * from "./common.js";
 export * from "./conversations.js";
 export * from "./memories.js";
+export * from "./memory-compaction.js";
+export * from "./embeddings.js";
 export * from "./diaries.js";
 export * from "./outbox.js";
 export * from "./learning.js";
@@ -16,4 +18,6 @@ export * from "./ledger.js";
 export * from "./analytics.js";
 export * from "./content.js";
 export * from "./ecosystem.js";
+export * from "./persona.js";
+export * from "./tool-registry.js";
 export * from "./init.js";
