@@ -218,34 +218,11 @@ Aervox 自研落地（AGPLv3 仅借鉴设计，不复制源码）：
 1. **第一批（低风险，独立可排）**：T-01 busy 重试 → AST-01 会话级写锁 → T-02 混合检索。三者都是 `packages/database`/写路径内收口改动，直接解除多进程锁风险并打通记忆召回首链路。
 2. **第二批（需要契约与 Worker 配合）**：T-03 压缩标记 → T-05 embedding 独立表（对照 AST-02 对齐 Port 语义）→ PET-01 表现指令字段、PET-02 记忆条目字段（随契约冻结对照）。涉及记忆溯源与运行时代价，先冻结 `packages/contracts` 相关 schema 再实现。
 3. **第三批（随 CAP 排期）**：T-04 工具系统随 CAP-020 立项（对照 AST-04 元数据模型，安全对照 PET-05 白名单）；AST-03 人设解析链随 CAP-019 立项（对照 T-08 文档化）；PET-03 自主行为、PET-04 表现驱动抽象随桌面端功能扩展引入；T-06～T-10、AST-05 按对应功能阶段引入。
-4. **第四批（运行时接线）**：为第一批至第三批已落地的契约/存储接通真实调用链——T-04 tools 运行时与 `/v1/tools` 路由、T-03/T-05 Worker 异步消费、PET-01 前端 emote 消费、CAP-020 插件运行时、T-06 迁移服务与 AST-05 完成标记、T-09 快照与 T-10 分账（详见 §6.1）。
+4. **第四批（运行时接线）**：为第一批至第三批已落地的契约/存储接通真实调用链——T-04 tools 运行时与 `/v1/tools` 路由、T-03/T-05 Worker 异步消费、PET-01 前端 emote 消费、CAP-020 插件运行时、T-06 迁移服务与 AST-05 完成标记、T-09 快照与 T-10 分账（落地明细见 [§4.2 唯一真源](#61-落地登记唯一真源)）。
 
-### 6.1 已落地进度总表
+### 6.1 落地登记唯一真源
 
-本表是第四批以后改动落地追踪的事实源：凡按 §3 / §4 落地的设计，必须在此登记实现位置与日期（约束见 [AGENTS.md](../../AGENTS.md)）。未登记即视为未闭环。
-
-| 编号 | 判定 | 批次 | 落地日期 | 实现位置 | 说明 |
-|---|---|---|---|---|---|
-| T-03 | A | 第二批 | 2026-08-26 | `packages/database/src/schema/memory-compaction.ts`、`repositories/sqlite/memory-compaction-repository.ts` | `memory_compaction_markers` 表 + 幂等仓储 |
-| T-05 | A | 第二批 | 2026-08-26 | `packages/database/src/schema/embeddings.ts`、`repositories/sqlite/memory-embedding-repository.ts` | `memory_embeddings` 独立表 + 批量/重试/余弦检索（对照 AST-02） |
-| PET-01 | A | 第二批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（`petCommandSchema`/`emoteEventDataSchema`） | SSE 表现指令契约预留 |
-| PET-02 | A | 第二批 | 2026-08-26 | `packages/database/src/schema/memories.ts`、`repositories/types.ts` | 记忆条目字段 `source`/`category`/`keywordsJson`/`lastUsedAt` |
-| T-04 | A | 第三批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（工具注册表契约）、`packages/database/src/schema/tool-registry.ts`、`repositories/sqlite/tool-registry-repository.ts` | 工具注册表 + 主动记忆契约 + 幂等/过滤/门控导出 |
-| AST-04 | B→已落地雏形 | 第三批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（`pluginMetadataSchema`、`toolGatingConditionSchema`）、`packages/database/src/schema/tool-registry.ts` | 插件元数据字段 + 工具条件门控（CAP-020 雏形） |
-| PET-05 | B→已落地雏形 | 第三批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（`toolSafetyLevelSchema`） | 工具安全级别（read_only 白名单）有线 |
-| T-08 | B→已落地 | 第三批 | 2026-08-26 | `docs/explanation/persona-organization.md`（AVX-EXPL-003） | 桌宠角色设定独立成文档（核心概念/外形/提示词边界/识别边界），按人设目录版本化（CAP-019） |
-| T-04 | A（运行时接线） | 第四批 | 2026-08-26 | `apps/api/src/modules/tools/`（`runtime.ts`/`memory-store-tool.ts`/`mcp.ts`/`routes.ts`） | MemoryStoreTool 运行时 + ToolRuntime + `/v1/tools` 路由 + MCP 形态 listTools/callTool；PET-05 在调用侧强制授权 |
-| T-03 | A（消费接线） | 第四批 | 2026-08-26 | `apps/worker/src/compaction-marker.ts` | 消费 outbox `memory.compaction.requested` 事件异步落库压缩标记 + 审计（先写后投递） |
-| T-05 | A（迁移接线） | 第四批 | 2026-08-26 | `apps/worker/src/embedding-migration.ts` | 扫描缺向量记忆 → 批量生成 → insertBatch；可中止 + 进度回调；provider 未注入诚实跳过 |
-| T-06 | B→已落地 | 第四批 | 2026-08-26 | `packages/database/src/migration/migration-service.ts` | 迁移 journal（`_migration_journal`）+ 幂等重入 + 旧库列补齐纳入迁移步骤 |
-| AST-05 | B→已落地雏形 | 第四批 | 2026-08-26 | `packages/database/src/migration/migration-service.ts`（完成标记）、`apps/worker/src/pipeline.ts` | `isMigrationCompleted` 双条件幂等 + `PIPELINE_STAGES` 显式顺序 + 短路语义 |
-| T-09 | B→已落地 | 第四批 | 2026-08-26 | `packages/database/src/sync/git-snapshot.ts` | 行级快照导出/恢复 + 快照命名约定；git 提交/回滚由宿主（CLI/桌面）按需调用 |
-| T-10 | B→已落地 | 第四批 | 2026-08-26 | `packages/database/src/token-usage.ts` | Token 用量分账（非缓存/缓存读/缓存写），兼容 OpenAI/旧形态 |
-| PET-01 | A（前端消费） | 第四批 | 2026-08-26 | `packages/api-client/src/transport.ts`、`desktop-transport.ts`、`useAervoxTurn.ts`、`packages/ui/src/components/PetHero.vue` | emote 事件透传 + `PetHero` activeEmote/activeGesture 消费 |
-| AST-04 | B→已落地（运行时） | 第四批 | 2026-08-26 | `apps/api/src/modules/plugins/` | CAP-020 插件运行时：安装/启停/卸载 + 工具注册联动 + 权限授予/撤销/查询 |
-| Skill | B→已落地（契约+存储） | 第五批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（Skill 契约）、`packages/database/src/schema/skills.ts`、`repositories/sqlite/skill-registry-repository.ts`、`skill-lifecycle-repository.ts` | `skill_registrations` + `skill_payloads`/`skill_candidates`/`skill_releases` 四表 + 幂等/门控导出/生命周期仓储 |
-| Skill | B→已落地（管理 + 生命周期运行时） | 第五批 | 2026-08-26 | `apps/api/src/modules/skills/`（`zip.ts`/`skill-manager.ts`/`skill-prompt.ts`/`lifecycle.ts`/`routes.ts`/`skill-tools.ts`） | zip 安装（安全校验）+ 渐进式披露 prompt + Neo 生命周期（payload→candidate→evaluate→promote→rollback/sync）+ `aervox_skill_*` 工具（PET-05 安全级别） |
-| Skill | B→已落地（插件联动） | 第五批 | 2026-08-26 | `apps/api/src/modules/plugins/service.ts` | 插件声明技能只读注册（source=plugin/readonly/pluginId）+ 启停/卸载联动 |
+凡按 §3 / §4 落地的设计，实现位置与日期**统一在[需求追踪基线 §4.2「落地实现登记」](../reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)登记**，来源列标注 `T-*`/`AST-*`/`PET-*` 编号（约束见 [AGENTS.md](../../AGENTS.md)）。本文档不再维护落地进度表，未在 §4.2 登记的落地视为未闭环、提交打回。
 
 ### 6.2 待接线缺口（现状如实记录）
 

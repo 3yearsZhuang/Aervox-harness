@@ -27,6 +27,7 @@ on:
       - "turbo.json"
       - "tsconfig.base.json"
       - "mise.toml"
+      - ".github/workflows/ci.yml"
 
 permissions:
   contents: read

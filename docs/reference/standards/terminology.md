@@ -2,8 +2,8 @@
 
 > 文档编号：AVX-TERM-001
 > 类型：Reference
-> 版本：v0.1
-> 更新日期：2026-08-25
+> 版本：v0.2
+> 更新日期：2026-08-26
 > 状态：Review Candidate
 > 责任角色：文档负责人
 > 关联：[文档写作规范](doc-standards.md)
@@ -30,6 +30,16 @@
 | Turn | 一次完整的请求-响应轮次，含 SSE 事件流 | `Turn`；禁 `轮询`/`轮次` 指代 Turn 对象 |
 | 模块化单体 | ADR-014 定的 API 组织方式，自包含模块 | `模块化单体`；禁 `微服务` |
 | 仓储 Port | 数据库访问的接口抽象（Repository Port） | `Port` / `仓储 Port` |
+| Capability | 由 Profile 选择的语义能力，不等同于包或插件文件 | `Capability` / `能力` |
+| Definition | Capability 的稳定 Port、事件、错误与数据语义 | `Definition` / `能力定义` |
+| Provider | 对某个 Definition 的可替换实现 | `Provider` / `能力提供方` |
+| Consumer | 调用或展示 Definition 的能力、API、Worker 或 Shell | `Consumer` / `能力消费方` |
+| Adapter | 外部运行时与 Aervox Contract 之间的翻译边界 | `Adapter` / `适配器` |
+| Capability Host | 执行解析、生命周期、权限和隔离的宿主进程 | `Host` / `Capability Host` |
+| Kernel Substrate | 不可由 Profile 关闭的生命周期、权限、数据权利与审计不变量 | `Kernel Substrate` / `Kernel` |
+| Manifest | 描述能力身份、依赖、权限、数据和入口的机器可读声明 | `Manifest` |
+| Profile / Bundle / Overlay | 运行组合 / 分发集合 / 配置覆盖层 | `Profile` / `Bundle` / `Overlay` |
+| Contribution | Plugin/Extension 向 Host 提交的受限 Tool、Provider、Event 或 UI 能力 | `Contribution` |
 | 双引擎 | SQLite 与 PostgreSQL 互为切换的数据真源模式 | `双引擎`；禁 `双主`/`多主` |
 | 迁移三阶段 | Expand → Migrate → Contract 的表结构演进 | `Expand/Contract 迁移` |
 | 删除传播 | 删除实体时按引用关系级联清理 | `删除传播` |
@@ -58,6 +68,7 @@
 | 客户端 | `Electron`、`Capacitor`、`Vue` | `electron`、`capacitor`、`vue` |
 | 构建测试 | `TypeScript`、`Vite`、`Vitest`、`Node.js` | `typescript`、`vite`、`vitest`、`nodejs` |
 | 工具链 | `pnpm`、`mise`、`npx` | 保持小写（产品官方拼写） |
+| 外部运行时 | `DSH`（DeepSeek Harness）、`pi` | `DSH` 专指 `reference/deepseek-harness`；`dsh-synapse` 是独立插件，不是 DSH 本体 |
 
 ## 维护规则
 

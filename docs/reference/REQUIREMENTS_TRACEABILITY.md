@@ -2,7 +2,7 @@
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
-> 文档版本：v0.4  
+> 文档版本：v0.5  
 > 文档状态：评审候选（Review Candidate）  
 > 更新日期：2026-08-26  
 > 产品需求来源：[PRD.md](PRD.md)
@@ -92,36 +92,36 @@
 
 | 能力 ID | 能力 | 优先级 | 首次交付阶段 | 当前状态 | PRD 依据 | 达到下一状态所需工作 |
 |---|---|---|---|---|---|---|
-| `CAP-001` | 桌宠入口 | P0 | R1 MVP | `Specified` | [首页工作台](PRD.md#prd-home)、[视觉小说式对话形态](PRD.md#prd-conversation-ui)、[CR-004](changes/CR-004-shared-workbench-web-without-pet.md) | 进入 DoR：补齐 Owner、自动化 `TC-*` 与埋点后推进 `Ready`；Web/Desktop 表现层边界按 CR-004 验证 |
+| `CAP-001` | 桌宠入口 | P0 | R1 MVP | `Specified` | [首页工作台](PRD.md#prd-home)、[视觉小说式对话形态](PRD.md#prd-conversation-ui)、[CR-005](changes/CR-005-shared-workbench-web-without-pet.md) | 进入 DoR：补齐 Owner、自动化 `TC-*` 与埋点后推进 `Ready`；Web/Desktop 表现层边界按 CR-005 验证 |
 | `CAP-002` | 学习目标与对话 | P0 | R1 MVP | `Specified` | [学习目标](PRD.md#prd-cap-002)、[引导式学习对话](PRD.md#prd-cap-007) | 拆分 `FR/BR/AC`，明确会话状态、并发修改、归档和恢复规则 |
 | `CAP-003` | 互动刷题 | P0 | R1 MVP | `Specified` | [互动练习与错题本](PRD.md#prd-cap-003-004) | 补题目来源、答案可验证性、重复提交、恢复和题组完成规则 |
 | `CAP-004` | 错题本 | P0 | R1 MVP | `Specified` | [互动练习与错题本](PRD.md#prd-cap-003-004) | 补筛选、删除、重练、错因变更、重复题合并和掌握状态规则 |
-| `CAP-005` | 四段式记忆与记忆树 | P0 | R1～R2 | `Specified` | [四段式记忆与记忆树](PRD.md#prd-cap-005) | 拆分各层状态转换、TTL、压缩、冲突、删除、重建和迁移测试 |
+| `CAP-005` | 四段式记忆与记忆树 | P0 | R1～R2 | `Specified` | [四段式记忆与记忆树](PRD.md#prd-cap-005) | 拆分各层状态转换、TTL、压缩、冲突、删除、重建和迁移测试；增强候选见 [SRS §7](SRS.md#7-产品上限增强候选需求ab-档评估)（FR-MEM-001/002/003） |
 | `CAP-006` | 间隔重复 | P0 | R1 MVP | `Specified` | [间隔复习](PRD.md#prd-cap-006) | 明确调度幂等、错过日期、夏令时、算法升级和历史重算策略 |
 | `CAP-007` | 文本与代码答疑 | P0 | R1 MVP | `Specified` | [引导式学习对话](PRD.md#prd-cap-007) | 进入 DoR：补齐 Owner、自动化 `TC-*` 与埋点后推进 `Ready`（讲解触发复用 `FR-CONV-001`） |
 | `CAP-008` | 情绪价值与安全陪伴 | P0 | R1 MVP | `Specified` | [关系与情绪边界](PRD.md#prd-safety-boundary)、[轻量陪伴](PRD.md#prd-cap-008) | 固定风险分级、地区化求助入口、审计、误报处置和安全回归集 |
-| `CAP-009` | AI 每日日记 | P0 | R1.5 MVP+ | `Specified` | [AI 每日日记](PRD.md#prd-cap-009)、[日记与记忆层的关系](PRD.md#prd-diary-memory) | 补定时任务幂等、重试、版本冲突、来源快照、通知和时区边界测试 |
+| `CAP-009` | AI 每日日记 | P0 | R1.5 MVP+ | `Specified` | [AI 每日日记](PRD.md#prd-cap-009)、[日记与记忆层的关系](PRD.md#prd-diary-memory) | 补定时任务幂等、重试、版本冲突、来源快照、通知和时区边界测试；叙事增强候选见 [SRS §7](SRS.md#7-产品上限增强候选需求ab-档评估)（FR-DIA-002/003） |
 | `CAP-010` | 人格问卷与基础偏好 | P0 | R1.5 MVP+ | `Specified` | [全生命周期功能地图](PRD.md#prd-cap-map)、[P0 最低验收](PRD.md#prd-cap-001-010-013) | 进入 DoR：补齐 Owner、自动化 `TC-*` 与埋点后推进 `Ready` |
 | `CAP-011` | 学习资料整理 | P0 | R1.5 MVP+ | `Specified` | [全生命周期功能地图](PRD.md#prd-cap-map)、[P0 最低验收](PRD.md#prd-cap-001-010-013) | 进入 DoR：补齐 Owner、自动化 `TC-*` 与埋点后推进 `Ready` |
 | `CAP-012` | 多模态答疑 | P0 | R1.5 MVP+ | `Specified` | [全生命周期功能地图](PRD.md#prd-cap-map)、[P0 最低验收](PRD.md#prd-cap-001-010-013) | 进入 DoR：补齐 Owner、自动化 `TC-*` 与埋点后推进 `Ready` |
 | `CAP-013` | 消息编辑、删除与引用 | P0 | R1.5 MVP+ | `Specified` | [学习记录与数据控制](PRD.md#prd-cap-013)、[P0 最低验收](PRD.md#prd-cap-001-010-013) | 进入 DoR：补齐 Owner、自动化 `TC-*` 与埋点后推进 `Ready` |
-| `CAP-014` | 层级对话与会话地图 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补分支生命周期、归属、合并、删除、布局恢复和大图性能 |
-| `CAP-015` | 思维宇宙 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补节点/边类型、证据、纠错传播、版本和可视化交互验收 |
+| `CAP-014` | 层级对话与会话地图 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补分支生命周期、归属、合并、删除、布局恢复和大图性能；复盘候选见 [SRS §7](SRS.md#7-产品上限增强候选需求ab-档评估)（FR-CONV-006） |
+| `CAP-015` | 思维宇宙 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补节点/边类型、证据、纠错传播、版本和可视化交互验收；闪卡候选见 [SRS §7](SRS.md#7-产品上限增强候选需求ab-档评估)（FR-KNO-001） |
 | `CAP-016` | 自适应刷题与报告 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补适应算法输入、冷启动、解释、偏差评估和报告口径 |
 | `CAP-017` | 考试日计划 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补计划生成约束、滚动调整、冲突、跳过、过期和完成定义 |
-| `CAP-018` | 桌面化与 Live2D | P1 | R3 端扩展 | `Specified` | [P1 验收原则](PRD.md#prd-cap-014-019)、[CR-002](changes/CR-002-fairy-desktop-module.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md) | 已移植 `apps/desktop` Electron/Vue UI 与 Turn/SSE 边界；仍需补平台矩阵、签名更新、资源预算、崩溃恢复、后台行为及可执行 TC 证据后进入 Ready |
-| `CAP-019` | 多人格模板 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补模板审核、切换、记忆隔离/共享、回滚和人格回归评估 |
-| `CAP-020` | 技能与插件系统 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补清单格式、权限模型、沙箱、签名、版本兼容、撤权和卸载残留 |
+| `CAP-018` | 桌面化与 Live2D | P1 | R3 端扩展 | `Specified` | [P1 验收原则](PRD.md#prd-cap-014-019)、[CR-002](changes/CR-002-fairy-desktop-module.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md) | 已移植 `apps/desktop` Electron/Vue UI 与 Turn/SSE 边界；仍需补平台矩阵、签名更新、资源预算、崩溃恢复、后台行为及可执行 TC 证据后进入 Ready；无 UI 陪伴模式候选见 [SRS §7](SRS.md#7-产品上限增强候选需求ab-档评估)（FR-UX-005） |
+| `CAP-019` | 多人格模板 | P1 | R2 学习深化 | `Mapped` | [P1 验收原则](PRD.md#prd-cap-014-019) | 补模板审核、切换、记忆隔离/共享、回滚和人格回归评估；人格切换候选见 [SRS §7](SRS.md#7-产品上限增强候选需求ab-档评估)（FR-PLG-001） |
+| `CAP-020` | 技能与插件系统 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补清单格式、权限模型、沙箱、签名、版本兼容、撤权和卸载残留；文档注入与人格切换候选见 [SRS §7](SRS.md#7-产品上限增强候选需求ab-档评估)（FR-MEM-003/FR-PLG-001） |
 | `CAP-021` | 学习路线与视频推荐 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补来源、排序、失效链接、用户反馈、商业内容标识和推荐评估 |
 | `CAP-022` | 兴趣分析与跨域推荐 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补授权信号、解释、关闭/重置、敏感属性禁用和偏差评估 |
 | `CAP-023` | 第三方刷题接入 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补 OAuth、字段映射、增量同步、冲突、限流、撤权和删除 |
 | `CAP-024` | 文献阅读与发散 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补解析格式、引用定位、长文分段、版权、模型上下文和失败恢复 |
 | `CAP-025` | 线下试卷扫描 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补图像质量、分题/批改识别、人工校正、置信度和附件删除 |
 | `CAP-026` | 收藏空间与知识库 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补收藏状态、去重、检索、标签、来源失效、导入导出和容量限制 |
-| `CAP-027` | 本地优先与多工作区 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补存储格式、工作区隔离、同步冲突、加密、备份恢复和版本迁移 |
+| `CAP-027` | 本地优先与多工作区 | P2 | R4 连接智能化 | `Mapped` | [P2 验收原则](PRD.md#prd-cap-020-027) | 补存储格式、工作区隔离、同步冲突、加密、备份恢复和版本迁移；本地语义检索候选见 [SRS §7](SRS.md#7-产品上限增强候选需求ab-档评估)（FR-MEM-001） |
 | `CAP-028` | 社区互助 | P3 | R5 生态规模化 | `Mapped` | [P3 验收原则](PRD.md#prd-cap-028-032) | 补角色、发布/回答状态机、信誉、举报申诉、审核 SLA 和未成年保护 |
 | `CAP-029` | 名词解释网页 | P3 | R5 生态规模化 | `Mapped` | [P3 验收原则](PRD.md#prd-cap-028-032) | 补发布、更新、撤回、来源失效、SEO/分享、隐私预览和版权规则 |
-| `CAP-030` | 主动提醒深化 | P3 | R5 生态规模化 | `Mapped` | [P3 验收原则](PRD.md#prd-cap-028-032) | 补触发优先级、频控、去重、解释、免打扰、跨端和退订验收 |
+| `CAP-030` | 主动提醒深化 | P3 | R5 生态规模化 | `Mapped` | [P3 验收原则](PRD.md#prd-cap-028-032) | 补触发优先级、频控、去重、解释、免打扰、跨端和退订验收；承接 [SRS §7](SRS.md#7-产品上限增强候选需求ab-档评估) 拆步依赖（梦境开场白、主动闲聊、主动引用） |
 | `CAP-031` | 内容与技能市场 | P3 | R5 生态规模化 | `Mapped` | [P3 验收原则](PRD.md#prd-cap-028-032) | 补商品、版本、审核、结算、退款、下架、许可证和供应链治理 |
 | `CAP-032` | 机构与监护模式 | P3 | R5 生态规模化 | `Mapped` | [P3 验收原则](PRD.md#prd-cap-028-032) | 补组织角色、邀请/移除、授权报表、最小可见、审计和监护同意 |
 
@@ -161,7 +161,7 @@
 
 本节是**整个项目**代码落地完成情况的追踪事实源（约束见 [AGENTS.md](../../AGENTS.md)）。凡已合并的实现，无论是否完成 DoR/DoD 门禁，均须在此登记；门禁状态（§4 矩阵的 `当前状态` 列）仍按 §6/§7 单独推进，两者不互相替代。未登记的落地视为未闭环、提交打回。
 
-登记规则：`关联 CAP` 表实现所属能力；`验证` 表已通过的自动化验证（测试/typecheck）；`来源` 标注参考设计（`T-*`/`AST-*`/`PET-*`，细则见 [参考设计迁移文档](../explanation/reference-design-transfer.md#61-已落地进度总表)）或原生实现。
+登记规则：`关联 CAP` 表实现所属能力；`验证` 表已通过的自动化验证（测试/typecheck）；`来源` 标注参考设计（`T-*`/`AST-*`/`PET-*`，细则见 [参考设计迁移文档 §6.1](../explanation/reference-design-transfer.md#61-落地登记唯一真源)）或原生实现。
 
 | 落地实现 | 关联 CAP | 实现位置 | 日期 | 验证 | 来源 |
 |---|---|---|---|---|---|
@@ -186,11 +186,17 @@
 | 桌面 preload 按域 IPC 拆分 | CAP-018 | `apps/desktop/src/preload/domains/` | 2026-08-26 | typecheck | `T-07` |
 | Persona/Skills/MCP SQLite 持久化与 API 模块（Persona Revision/Skills/MCP/上下文快照） | CAP-019/020 | `packages/database/src/schema/persona.ts`、`repositories/sqlite/{persona,skill,mcp-tool}-repository.ts`、`apps/api/src/modules/persona/`、`packages/contracts/src/persona-schemas.ts` | 2026-08-26 | 单测 + API 集成测试 + ci-code | 原生 |
 | Codex Pets 兼容：9 状态 spritesheet 协议（manifest + 8×9 atlas 渲染 + 工具状态驱动） | CAP-001/018 | `packages/contracts/src/schemas.ts`（`petSheet*`/`petManifest`）、`packages/ui/src/components/SpritePet.vue`、`apps/api/src/modules/tools/mcp.ts`（`derivePetSheetState`） | 2026-08-26 | typecheck + API 集成测试 + ci-code | 原生（外部协议兼容） |
-| Skill 契约与存储（注册表 + Neo 生命周期表 + 幂等仓储） | CAP-020 | `packages/contracts/src/schemas.ts`（Skill 契约）、`packages/database/src/schema/skills.ts`、`repositories/sqlite/skill-registry-repository.ts`、`skill-lifecycle-repository.ts` | 2026-08-26 | 单测 | `Skill`（借鉴 AstrBot，登记见 [参考设计迁移 §6.1](../explanation/reference-design-transfer.md#61-已落地进度总表)） |
+| Skill 契约与存储（注册表 + Neo 生命周期表 + 幂等仓储） | CAP-020 | `packages/contracts/src/schemas.ts`（Skill 契约）、`packages/database/src/schema/skills.ts`、`repositories/sqlite/skill-registry-repository.ts`、`skill-lifecycle-repository.ts` | 2026-08-26 | 单测 | `Skill`（借鉴 AstrBot） |
 | Skill 管理模块与 API（zip 安装 + 渐进式披露 prompt） | CAP-020 | `apps/api/src/modules/skills/`（`zip.ts`/`skill-manager.ts`/`skill-prompt.ts`/`routes.ts`） | 2026-08-26 | API 集成测试 | `Skill`（借鉴 AstrBot） |
 | Skill Neo 生命周期 + `aervox_skill_*` 工具 | CAP-020 | `apps/api/src/modules/skills/`（`lifecycle.ts`/`skill-tools.ts`） | 2026-08-26 | API 集成测试 | `Skill`（借鉴 AstrBot，PET-05 安全级别） |
 | 插件技能联动（只读注册 / 启停 / 卸载） | CAP-020 | `apps/api/src/modules/plugins/service.ts` | 2026-08-26 | API 集成测试 | `Skill`（借鉴 AstrBot） |
-| CI 增量缓存（pnpm store + Turbo 本地缓存，只验证变更包） | 基础设施 | `.github/workflows/ci.yml` | 2026-08-26 | YAML 结构校验（CI 实测待 PR 后确认） | 原生 |
+| CI 增量缓存（pnpm store + Turbo 本地缓存，只验证变更包） | 基础设施 | `.github/workflows/ci.yml` | 2026-08-26 | YAML 结构校验 + CI 实测通过（1m20s→32s） | 原生 |
+| `aervox dev` 命令入口修复（`pnpm exec turbo`，修复 PATH 缺 `.bin`） | 基础设施 | `aervox` | 2026-08-26 | 启动验证（`./aervox dev web`） | 原生 |
+| 全能力可选组合目标规范文档化 | CAP-020/027/031 + 基础设施 | `docs/reference/capability-composition.md`（AVX-CAP-001） | 2026-08-26 | ci-docs | `DSH-01` + `PI-01` + 原生 |
+| 已集成能力迁移与 DSH/pi 接入教程文档化 | CAP-020/027 | `docs/tutorials/migrate-integrated-capabilities.md`（AVX-TUT-002） | 2026-08-26 | ci-docs | `DSH-01` + `PI-01` + 原生 |
+| 文档登记强度分级（L1 编辑性 / L2 内容更新 / L3 结构性） | 基础设施（文档治理） | [doc-standards §3.1](standards/doc-standards.md#31-改动等级与同步要求)、`docs/DOC_REGISTRY.md` 维护规则、`AGENTS.md` 硬约束 | 2026-08-26 | ci-docs | 原生 |
+| 文档去重：落地登记合并单源 + 导航文档精简 | 基础设施（文档治理） | [reference-design-transfer §6.1](../explanation/reference-design-transfer.md#61-落地登记唯一真源) 改为唯一真源指引（明细移入本节）、`docs/getting-started.md` §3 硬性规则改链接、`AGENTS.md` 硬约束同步 | 2026-08-26 | ci-docs | 原生 |
+| 产品上限增强候选需求规格化（A/B 档） | CAP-005/009/014/015/018/019/020/027/030 | [SRS §7](SRS.md#7-产品上限增强候选需求ab-档评估)（FR-MEM-001/002/003、FR-DIA-002/003、FR-KNO-001、FR-CONV-006、FR-PLG-001、FR-UX-005）与本节 CAP 矩阵关联标注；挂靠现有 CAP，未进入对应阶段前保持 `Specified` | 2026-08-26 | ci-docs | 原生（产品评估采纳） |
 
 ## 5. 原子需求字段模板
 
