@@ -1374,6 +1374,8 @@ export interface PluginModel {
   permissions?: unknown;
   installSource: string;
   enabled: number;
+  configSchemaJson?: unknown;
+  configSchemaVersion?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -1434,6 +1436,10 @@ export interface IExtensionRepository {
     },
   ): Promise<PluginModel>;
   listPlugins(): Promise<PluginModel[]>;
+  getPlugin(id: string): Promise<PluginModel | null>;
+  /** CR-006：登记插件配置 Schema（系统级） */
+  setPluginConfigSchema(id: string, schema: unknown, schemaVersion: number): Promise<PluginModel | null>;
+
   /** CAP-020：启停插件（联动其声明的工具启停） */
   setPluginEnabled(id: string, enabled: boolean): Promise<PluginModel | null>;
   /** CAP-020：卸载插件（需先注销其工具） */
@@ -1454,6 +1460,115 @@ export interface IExtensionRepository {
     org: { id: string; ownerId: string; memberScope?: string; policyVersion: string },
   ): Promise<OrganizationModel>;
   getOrganization(tenant: TenantContext, id: string): Promise<OrganizationModel | null>;
+}
+
+// ============ 插件 Config / Page（CAP-020 扩展 · CR-006）============
+
+export interface PluginConfigModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  pluginId: string;
+  /** 非敏感配置值 */
+  valuesJson: unknown;
+  /** 已配置 secret 字段键 */
+  secretKeysJson: string[];
+  schemaVersion: number;
+  revision: number;
+  orphanedValuesJson?: unknown;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PluginSecretModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  pluginId: string;
+  fieldKey: string;
+  valueJson: unknown;
+  configured: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PluginPageModel {
+  id: string;
+  pluginId: string;
+  pageId: string;
+  title: unknown;
+  description?: unknown;
+  entry: string;
+  capabilitiesJson: string[];
+  checksum?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 配置保存输入（由 API 层完成 Schema 校验/默认值合并后调用） */
+export interface PluginConfigSaveInput {
+  pluginId: string;
+  schemaVersion: number;
+  /** 期望 revision（-1 表示无条件写） */
+  expectedRevision: number;
+  values: Record<string, unknown>;
+  secretKeys: string[];
+  orphanedValues?: Record<string, unknown>;
+}
+
+export interface IPluginConfigRepository {
+  getConfig(
+    tenant: TenantContext,
+    pluginId: string,
+  ): Promise<PluginConfigModel | null>;
+  saveConfig(
+    tenant: TenantContext,
+    input: PluginConfigSaveInput,
+  ): Promise<{ saved: PluginConfigModel; conflict: boolean }>;
+  resetConfig(
+    tenant: TenantContext,
+    pluginId: string,
+    schemaVersion: number,
+    defaults: Record<string, unknown>,
+  ): Promise<PluginConfigModel>;
+  deleteConfigsForPlugin(pluginId: string): Promise<void>;
+}
+
+export interface IPluginSecretRepository {
+  put(
+    tenant: TenantContext,
+    entry: { pluginId: string; fieldKey: string; value: unknown },
+  ): Promise<void>;
+  getState(
+    tenant: TenantContext,
+    pluginId: string,
+    fieldKey: string,
+  ): Promise<{ configured: boolean }>;
+  listStates(
+    tenant: TenantContext,
+    pluginId: string,
+  ): Promise<Array<{ fieldKey: string; configured: boolean }>>;
+  delete(
+    tenant: TenantContext,
+    pluginId: string,
+    fieldKey: string,
+  ): Promise<void>;
+  deleteAllForPlugin(pluginId: string): Promise<void>;
+}
+
+export interface IPluginPageRepository {
+  upsertPage(page: {
+    pluginId: string;
+    pageId: string;
+    title: unknown;
+    description?: unknown;
+    entry: string;
+    capabilities: string[];
+    checksum?: string | null;
+  }): Promise<PluginPageModel>;
+  listPages(pluginId: string): Promise<PluginPageModel[]>;
+  getPage(pluginId: string, pageId: string): Promise<PluginPageModel | null>;
+  deletePagesForPlugin(pluginId: string): Promise<void>;
 }
 
 // ============ T-04 工具注册表 + AST-04 门控 + PET-05 安全级别 ============

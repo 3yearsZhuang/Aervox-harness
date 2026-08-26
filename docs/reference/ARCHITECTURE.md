@@ -15,6 +15,10 @@
 
 MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应商成为核心运行时依赖。等 P3 的流量、组织权限或合规边界确实需要拆分时，再通过 ADR 把单一模块提取为服务，并保持业务事件、数据删除和客户端兼容。
 
+## 1.1 插件配置与页面边界（CR-006）
+
+插件配置使用 Aervox Config Schema v1：Schema 随 Bundle 注册并存储在 `plugins` 表，配置值按 `(workspaceId, subjectUserId, pluginId)` 存入 `plugin_configs`，secret 走 `plugin_config_secrets`（生产注入加密 SecretStore Port）。插件 Page 只加载本地 Bundle 静态资源，运行在受限 iframe 中并通过 Host Bridge 读写本插件配置；不开放插件自有后端路由、文件上传、SSE 或直接数据库访问，符合 `ADR-009` 与 `AVX-CAP-001` 的沙箱与最小权限要求。
+
 ## 2. 技术栈基线
 
 | 层 | 选择 | 约束 |

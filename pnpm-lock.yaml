@@ -244,6 +244,9 @@ importers:
       '@aervox/api-client':
         specifier: workspace:*
         version: link:../api-client
+      '@aervox/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       element-plus:
         specifier: ^2.11.5
         version: 2.14.5(vue@3.5.41(typescript@5.8.3))
