@@ -1,8 +1,8 @@
 # Aervox｜思隅 产品与工程文档索引
 
 > 文档编号：AVX-DOC-001  
-> 版本：v0.2  
-> 更新日期：2026-08-25  
+> 版本：v0.3  
+> 更新日期：2026-08-26  
 > 状态：评审候选  
 > 文档负责人：待指定
 
@@ -24,15 +24,18 @@
 | [测试策略](reference/TEST_STRATEGY.md) | 各类需求怎样验证、哪些路径阻断发布 | 测试分层、P0 必测路径、AI 评估、覆盖门槛和证据要求 |
 | [运行与恢复手册](reference/RUNBOOK.md) | 生产故障怎样止损、恢复和验证 | 告警、事件响应、降级、恢复、回滚、演练和证据 |
 | [ADR 索引](reference/adr/README.md) | 为什么选择当前架构、舍弃了什么方案 | 架构决策状态、后果、迁移和回滚边界 |
-| [可选功能模块化方案](explanation/optional_modules.md) | 非核心功能如何以子仓库开发并作为 workspace 包自选消费 | 核心/可选边界、`modules/*` 机制、构建+运行时双自选、模块清单与门禁 |
+| [能力组合与可选化目录规范](reference/capability-composition.md)（AVX-CAP-001） | 所有业务能力最终如何通过 Manifest、Provider、Adapter 和 Profile 自由组合 | 目标目录、Kernel 不变量、依赖解析、生命周期、DSH/pi 适配与迁移验收 |
+| [可选功能模块化方案](explanation/optional_modules.md) | 当前非核心功能如何以子仓库开发并作为 workspace 包自选消费 | 过渡期 `modules/*` 机制、构建+运行时双轴、模块清单与门禁；目标演进见 AVX-CAP-001 |
 | [操作指南](how-to) | 怎么新增需求、写 ADR、过发布门禁、做演练、管可选模块 submodule | 任务型流程；规则以对应专项文档为事实源 |
 | [文档生命周期登记表](DOC_REGISTRY.md) | 每份文档由谁负责、何时核验、多久复核 | Owner/核验节奏/陈旧信号；独立于索引维护 |
-| 从这里开始（见[§8](#8-从哪开始)） | 新成员/Agent 从哪看起、提交前自检什么 | 导航型；不承载规则 |
+| [从这里开始](getting-started.md)（AVX-DOC-002，见[§8](#8-从哪开始)） | 新成员/Agent 从哪看起、提交前自检什么 | 导航型；不承载规则 |
+| [能力拆分路线](explanation/roadmap.md)（AVX-EXPL-004，见[§5.1](#51-能力拆分路线建议批次)） | CAP 按什么批次、什么顺序进入规格化与开发 | 建议批次与拆分节奏；既不重复 PRD 路线图，也不重复追踪基线矩阵 |
 | [值班与升级矩阵](reference/ONCALL.md) | 出问题找谁、如何升级、如何交接 | 值班角色与 SEV 升级；联系人人名待定 |
 | [演练证据模板](reference/DRILL_TEMPLATE.md) | 季度演练留什么证 | 演练项、通过标准与证据字段；G5 门禁引用 |
 | [文档写作规范](reference/standards/doc-standards.md)（AVX-STD-001） | 每份文档怎么分类、文档头怎么填、怎么写、如何被校验 | Diátaxis 四分类、元数据 schema、命名、风格基线、Vale 术语门禁、模板族 |
 | [术语表](reference/standards/terminology.md)（AVX-TERM-001） | 项目术语的唯一含义与规范写法 | 缩写/产品名唯一语义；Vale 依据「禁写」列自动校验 |
 | [教程：第一个对话](tutorials/first-conversation.md)（AVX-TUT-001） | 新成员如何从 0 跑到第一条对话 | 可执行步骤与验证 |
+| [教程：迁移已集成能力并接入 DSH/pi](tutorials/migrate-integrated-capabilities.md)（AVX-TUT-002） | 如何把现有 tools/plugins/skills 迁移为可组合能力，并设计 DSH/pi 适配器 | 原生能力迁移、Job Handler、外部 Host、Profile、撤权和回滚演练 |
 | [数据流总览](explanation/data-flow-overview.md)（AVX-EXPL-001） | 消息端到端如何流动 | 先写后投递、Worker 周期、记忆/知识写入 |
 | [参考项目能力迁移与借鉴评估](explanation/reference-design-transfer.md)（AVX-EXPL-002） | 参考项目哪些设计值得落地或借鉴 | 判定框架、建议落地清单、落地顺序与 AGPL 边界 |
 | [桌宠角色设定文档化与多人格模板组织](explanation/persona-organization.md)（AVX-EXPL-003） | 桌宠 IP 与多人格模板（CAP-019）的角色如何文档化、版本化并维护 | 角色文档清单、字段化结构（prompt/开场白/语气/技能/错误兜底语）、人设目录与模板版本化、维护责任 |
@@ -41,7 +44,7 @@
 
 当前已提供 [SRS](reference/SRS.md) 原子需求样例、共享 ADR、威胁模型、测试策略、运行手册和基线 NFR/AIQ/DATA/SEC/PRIV/OPS 追踪。每个进入开发的能力仍应逐步补充其专属 API/OpenAPI 片段、UX 原型、数据字典、测试证据和 ADR 关联；这些材料未齐备前，不得把能力地图中的一行视为完整开发规格。
 
-最近的端形态变更见 [CR-004：共享工作台与 Web 无桌宠表现层](reference/changes/CR-004-shared-workbench-web-without-pet.md)：Web 与 Electron 共用 `@aervox/ui` 工作台，Web 不渲染桌宠，Electron 保留桌面壳和桌宠窗口。
+最近的端形态变更见 [CR-005：共享工作台与 Web 无桌宠表现层](reference/changes/CR-005-shared-workbench-web-without-pet.md)：Web 与 Electron 共用 `@aervox/ui` 工作台，Web 不渲染桌宠，Electron 保留桌面壳和桌宠窗口。
 
 ### 1.1 文档生命周期登记表（Owner 指派与核验）
 
@@ -97,22 +100,7 @@ PRD 批准至少需要产品、技术、设计、QA、安全/隐私负责人；�
 
 ### 5.1 能力拆分路线（建议批次）
 
-CAP 从 `Mapped` 转 `Specified` 应只发生在临近开发批次时；P1/P2/P3 保持 `Mapped` 是正常的，进入对应阶段前再原子化（规则见 [SRS §6](reference/SRS.md#6-p1p2p3-规格化规则)）。
-
-| 批次 | 阶段 | 建议顺序 | 说明 |
-|---|---|---|---|
-| 第一批 | R1 MVP（已完成） | CAP-001/002/003/004/005/006/007/008/009 | 已全部 `Specified`，进入 DoR/Ready |
-| 第二批 | R1.5 MVP+（P0） | CAP-010 → CAP-013 → CAP-011 → CAP-012 | 010 依赖少且固定安全边界；013 衔接删除传播；011/012 共享附件/OCR 管线合并拆分 |
-| 第三批 | R2/R3（P1） | CAP-014 → CAP-015 → CAP-016/017 → CAP-019；CAP-018 独立排期 | 按依赖序：014 依赖对话、015 依赖记忆、016 依赖刷题数据、019 依赖 010 |
-| 第四批 | R4（P2） | CAP-020/027 优先（依赖 ADR-009/010/008），其余按 R4 立项 | 插件、本地优先、第三方接入、推荐等 |
-| 第五批 | R5（P3） | CAP-028~032 | 社区/市场/机构，进入 R5 前再原子化 |
-
-关键建议：
-
-- 拆分只服务临近开发批次，不为“清空 Mapped”提前拆远期 P2/P3；
-- 高风险/合规项（CAP-010 安全边界、CAP-013 删除传播）优先固定验收；
-- 共享基础设施的 CAP（011/012 附件管线）合并拆分，避免重复设计；
-- 每个 CAP 拆分按[操作指南：新增需求](how-to/add-requirement.md)执行，拆分后更新本登记表核验日期。
+每批 CAP 何时从 `Mapped` 转 `Specified`、按什么顺序拆分进入开发，见[能力拆分路线](explanation/roadmap.md)（AVX-EXPL-004）。拆分的唯一事实源是[追踪基线覆盖矩阵](reference/REQUIREMENTS_TRACEABILITY.md#4-cap-001cap-032-覆盖矩阵)。
 
 ## 6. 专业基线自检
 
@@ -143,55 +131,4 @@ CAP 从 `Mapped` 转 `Specified` 应只发生在临近开发批次时；P1/P2/P3
 
 ## 8. 从哪开始
 
-> 面向新成员或首次接触本仓库的 AI Agent：仓库里有什么、从哪里看、提交前自检什么。规则详情以各专项文档为准。
-
-### 8.1 仓库结构
-
-```text
-docs/
-  README.md              # 文档索引 + 权威顺序 + 从哪开始（本文件，AVX-DOC-001）
-  DOC_REGISTRY.md        # 文档生命周期登记表（AVX-DOC-CONF-001）
-  tutorials/             # 教程（AVX-TUT-001）
-  how-to/                # 操作指南（AVX-GUIDE-*）
-  explanation/           # 概念讲解（AVX-EXPL-001 / 实现规划 / 可选模块方案）
-  reference/             # 参考类（AVX-PRD/SRS/SAD/TRC/SPC/DB/DATA/AIQ/SEC/QA/OPS 等）
-    adr/                 # ADR-001~015 + 索引
-    changes/             # CR-*
-    standards/           # 文档写作规范（AVX-STD-001）· 术语表（AVX-TERM-001）· 模板
-    diagrams/            # 数据库 ERD（.mmd）
-    PRD.md · ARCHITECTURE.md · SRS.md · REQUIREMENTS_TRACEABILITY.md
-    DATABASE.md · STREAMING_PROTOCOL.md
-    DATA_PRIVACY.md · AI_QUALITY_SAFETY.md · THREAT_MODEL.md · TEST_STRATEGY.md
-    RUNBOOK.md · ONCALL.md · DRILL_TEMPLATE.md
-reference/               # 固定 commit 的子模块（只读参考，见 PRD 15.1；与上文 docs/reference/ 不同）
-demos/                   # 纯前端原型，非交付物
-```
-
-### 8.2 阅读顺序
-
-1. 先读本页[文档体系表](#1-文档体系与事实源)与[权威顺序](#2-权威顺序与冲突处理)，弄清每份文档回答什么、冲突时谁优先。
-2. 读 [PRD](reference/PRD.md) 第 1 节产品决策摘要与功能地图，了解产品边界。
-3. 拉取子模块：clone 后先执行 `git submodule update --init --recursive`，否则 `pnpm build` 会缺 `@aervox/mod-*` 失败（见[可选模块协作指南](how-to/submodule-collaboration.md)）。
-4. 按需进入 [how-to](how-to)：新增需求 / 写 ADR / 过发布门禁 / 执行演练 / 可选模块 submodule。
-
-### 8.3 写作与改动的硬性规则
-
-- 能力/需求 ID 一经建立不改；`P0~P3` 是优先级、`R0~R5` 是阶段，两者不得混用。
-- 新增/改版文档按[文档写作规范](reference/standards/doc-standards.md)标注类型与头字段，模板见[模板族](reference/standards/doc-standards.md#6-模板族)。
-- 修改已批准文档：先建 `CR-*` 再修订，不得静默改正文（见[追踪基线 §11](reference/REQUIREMENTS_TRACEABILITY.md#11-变更控制)）。
-- 新增/修改文档必须同步[生命周期登记表](DOC_REGISTRY.md)（编号、负责人、核验日期、陈旧信号）。
-- 参考仓库只作设计验证，MVP 不得依赖其运行时（见 [PRD 15](reference/PRD.md#15-参考项目与借鉴边界)）。
-
-### 8.4 提交前自检（Docs CI 门禁）
-
-改动 `docs/**` 或根 `README.md` 的 PR 必须通过：
-
-- **Markdown lint**：`npx markdownlint-cli2 --config .markdownlint-cli2.jsonc "docs/**/*.md" "README.md"`（配置关闭 MD013/033/060）；
-- **链接检查**：`lychee`（CI 中由 lychee-action 执行，排除 `reference/` 与 `demos/`）；
-- 本地先跑 lint 与相对链接存在性检查，确保 0 问题再提交。
-
-### 8.5 需要介入时
-
-- 文档冲突：停止相关发布，按[权威顺序](#2-权威顺序与冲突处理)仲裁；
-- 生产问题：按[运行手册](reference/RUNBOOK.md) 与[值班矩阵](reference/ONCALL.md)升级；
-- 变更请求：走[变更流程](reference/REQUIREMENTS_TRACEABILITY.md#113-变更流程)。
+> 面向新成员或首次接触本仓库的 AI Agent 的完整 onboarding（仓库结构、阅读顺序、写作硬规则、Docs CI 自检、介入路径），见[从哪开始](getting-started.md)（AVX-DOC-002）。

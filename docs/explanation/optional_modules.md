@@ -1,11 +1,13 @@
 # 可选功能模块化方案（子仓库开发 + workspace 消费）
 
 > 文档编号：AVX-MOD-001  
-> 版本：v0.1  
-> 创建/更新日期：2026-08-24  
+> 版本：v0.2  
+> 创建/更新日期：2026-08-26  
 > 文档状态：评审候选  
 > 文档负责人：技术负责人（待指定）  
-> 关联文档：[PRD](../reference/PRD.md) · [架构设计](../reference/ARCHITECTURE.md) · [ADR 索引](../reference/adr/README.md) · [需求追踪](../reference/REQUIREMENTS_TRACEABILITY.md) · [文档索引](../README.md)
+> 关联文档：[能力组合与可选化目录规范](../reference/capability-composition.md) · [PRD](../reference/PRD.md) · [架构设计](../reference/ARCHITECTURE.md) · [ADR 索引](../reference/adr/README.md) · [需求追踪](../reference/REQUIREMENTS_TRACEABILITY.md) · [文档索引](../README.md)
+>
+> 过渡状态：本文是当前 `modules/*` + git submodule 交付机制的执行基线。[AVX-CAP-001](../reference/capability-composition.md) 已定义“Kernel 不变量 + 所有业务能力由 Profile 选择”的目标形态，与本文的“P0 永远非自选”“可选代码只能使用 submodule”“`modules/*` 是能力边界”存在实质冲突。对应 ADR/CR 接受前继续按本文执行；接受后本文进入 Superseded/迁移状态，构建/运行时双轴和数据权利约束继续保留。
 
 ## 1. 目标与不变量
 

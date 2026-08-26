@@ -6,9 +6,9 @@
 > 更新日期：2026-08-25
 > 状态：Review Candidate
 > 责任角色：文档负责人（技术复核）
-> 关联：[文档索引 §8 从哪开始](../README.md#8-从哪开始)、[流式协议契约](../reference/STREAMING_PROTOCOL.md)
+> 关联：[从哪开始](../getting-started.md)、[流式协议契约](../reference/STREAMING_PROTOCOL.md)
 
-本教程面向首次接触仓库的新成员：从一次干净 clone 起，把 API、Worker 与桌面/Web 客户端跑起来，并发出第一条对话。它是 [从哪开始](../README.md#8-从哪开始) 的可执行版本，本页只讲步骤，规则细节以各专项文档为准。
+本教程面向首次接触仓库的新成员：从一次干净 clone 起，把 API、Worker 与桌面/Web 客户端跑起来，并发出第一条对话。它是 [从哪开始](../getting-started.md) 的可执行版本，本页只讲步骤，规则细节以各专项文档为准。
 
 ## 前置条件
 
@@ -77,6 +77,6 @@ curl -N http://127.0.0.1:3000/v1/turns/<turnId>/events
 
 ## 下一步
 
-- 按 [文档索引 §8 从哪开始](../README.md#8-从哪开始) 的阅读顺序浏览；
+- 按 [从哪开始](../getting-started.md) 的阅读顺序浏览；
 - 想理解消息端到端如何流转，见 [数据流总览](../explanation/data-flow-overview.md)；
 - 写文档前先过一遍 [文档写作规范](../reference/standards/doc-standards.md)。
