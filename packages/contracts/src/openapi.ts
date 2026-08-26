@@ -17,10 +17,17 @@ import {
   createTurnResponseSchema,
   deltaEventDataSchema,
   doneEventDataSchema,
+  emoteEventDataSchema,
   errorEventDataSchema,
+  memoryStoreToolInputSchema,
+  memoryStoreToolOutputSchema,
   messageEventDataSchema,
+  petCommandSchema,
   redactedEventDataSchema,
   streamErrorCodeSchema,
+  toolMetadataSchema,
+  toolRegistryEntrySchema,
+  toolRegistryExportSchema,
   turnStreamEventSchema,
   updateLearningGoalSchema,
 } from "./schemas.js";
@@ -38,7 +45,14 @@ registry.register("DeltaEventData", deltaEventDataSchema);
 registry.register("DoneEventData", doneEventDataSchema);
 registry.register("ErrorEventData", errorEventDataSchema);
 registry.register("RedactedEventData", redactedEventDataSchema);
+registry.register("PetCommand", petCommandSchema);
+registry.register("EmoteEventData", emoteEventDataSchema);
 registry.register("StreamErrorCode", streamErrorCodeSchema);
+registry.register("ToolMetadata", toolMetadataSchema);
+registry.register("ToolRegistryEntry", toolRegistryEntrySchema);
+registry.register("ToolRegistryExport", toolRegistryExportSchema);
+registry.register("MemoryStoreToolInput", memoryStoreToolInputSchema);
+registry.register("MemoryStoreToolOutput", memoryStoreToolOutputSchema);
 
 const sessionIdParam = z.object({ sessionId: z.string().min(1) });
 const turnIdParam = z.object({ turnId: z.string().min(1) });

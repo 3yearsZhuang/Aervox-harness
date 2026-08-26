@@ -12,13 +12,28 @@ import {
   createTurnResponseSchema,
   deltaEventDataSchema,
   doneEventDataSchema,
+  emoteEventDataSchema,
   errorEventDataSchema,
   learningGoalLevelSchema,
   learningGoalStatusSchema,
+  memoryStoreToolInputSchema,
+  memoryStoreToolOutputSchema,
   messageEventDataSchema,
+  petCommandSchema,
+  petCommandTypeSchema,
+  petEmoteSchema,
+  petGestureSchema,
+  pluginMetadataSchema,
   redactedEventDataSchema,
   streamErrorCodeSchema,
   streamEventTypeSchema,
+  toolCategorySchema,
+  toolGatingConditionSchema,
+  toolGatingOperatorSchema,
+  toolMetadataSchema,
+  toolRegistryEntrySchema,
+  toolRegistryExportSchema,
+  toolSafetyLevelSchema,
   turnStatusSchema,
   updateLearningGoalSchema,
   turnStreamEventSchema,
@@ -38,6 +53,11 @@ export type DeltaEventData = z.infer<typeof deltaEventDataSchema>;
 export type DoneEventData = z.infer<typeof doneEventDataSchema>;
 export type ErrorEventData = z.infer<typeof errorEventDataSchema>;
 export type RedactedEventData = z.infer<typeof redactedEventDataSchema>;
+export type EmoteEventData = z.infer<typeof emoteEventDataSchema>;
+export type PetCommand = z.infer<typeof petCommandSchema>;
+export type PetCommandType = z.infer<typeof petCommandTypeSchema>;
+export type PetEmote = z.infer<typeof petEmoteSchema>;
+export type PetGesture = z.infer<typeof petGestureSchema>;
 export type CreateTurnRequest = z.infer<typeof createTurnRequestSchema>;
 export type CreateTurnResponse = z.infer<typeof createTurnResponseSchema>;
 export type CancelTurnResponse = z.infer<typeof cancelTurnResponseSchema>;
@@ -45,3 +65,13 @@ export type LearningGoalLevel = z.infer<typeof learningGoalLevelSchema>;
 export type LearningGoalStatus = z.infer<typeof learningGoalStatusSchema>;
 export type CreateLearningGoal = z.infer<typeof createLearningGoalSchema>;
 export type UpdateLearningGoal = z.infer<typeof updateLearningGoalSchema>;
+export type ToolCategory = z.infer<typeof toolCategorySchema>;
+export type ToolGatingOperator = z.infer<typeof toolGatingOperatorSchema>;
+export type ToolGatingCondition = z.infer<typeof toolGatingConditionSchema>;
+export type ToolSafetyLevel = z.infer<typeof toolSafetyLevelSchema>;
+export type ToolMetadata = z.infer<typeof toolMetadataSchema>;
+export type ToolRegistryEntry = z.infer<typeof toolRegistryEntrySchema>;
+export type ToolRegistryExport = z.infer<typeof toolRegistryExportSchema>;
+export type MemoryStoreToolInput = z.infer<typeof memoryStoreToolInputSchema>;
+export type MemoryStoreToolOutput = z.infer<typeof memoryStoreToolOutputSchema>;
+export type PluginMetadata = z.infer<typeof pluginMetadataSchema>;

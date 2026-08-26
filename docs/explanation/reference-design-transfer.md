@@ -2,7 +2,7 @@
 
 > 文档编号：AVX-EXPL-002
 > 类型：Explanation
-> 版本：v0.3
+> 版本：v0.4
 > 更新日期：2026-08-26
 > 状态：Draft
 > 责任角色：技术负责人
@@ -201,6 +201,33 @@ Aervox 工具链安全规范可对照该白名单粒度：把"查询类命令"�
 1. **第一批（低风险，独立可排）**：T-01 busy 重试 → AST-01 会话级写锁 → T-02 混合检索。三者都是 `packages/database`/写路径内收口改动，直接解除多进程锁风险并打通记忆召回首链路。
 2. **第二批（需要契约与 Worker 配合）**：T-03 压缩标记 → T-05 embedding 独立表（对照 AST-02 对齐 Port 语义）→ PET-01 表现指令字段、PET-02 记忆条目字段（随契约冻结对照）。涉及记忆溯源与运行时代价，先冻结 `packages/contracts` 相关 schema 再实现。
 3. **第三批（随 CAP 排期）**：T-04 工具系统随 CAP-020 立项（对照 AST-04 元数据模型，安全对照 PET-05 白名单）；AST-03 人设解析链随 CAP-019 立项（对照 T-08 文档化）；PET-03 自主行为、PET-04 表现驱动抽象随桌面端功能扩展引入；T-06～T-10、AST-05 按对应功能阶段引入。
+
+### 6.1 已落地进度总表
+
+本表是第四批以后改动落地追踪的事实源：凡按 §3 / §4 落地的设计，必须在此登记实现位置与日期（约束见 [AGENTS.md](../../../AGENTS.md)）。未登记即视为未闭环。
+
+| 编号 | 判定 | 批次 | 落地日期 | 实现位置 | 说明 |
+|---|---|---|---|---|---|
+| T-03 | A | 第二批 | 2026-08-26 | `packages/database/src/schema/memory-compaction.ts`、`repositories/sqlite/memory-compaction-repository.ts` | `memory_compaction_markers` 表 + 幂等仓储 |
+| T-05 | A | 第二批 | 2026-08-26 | `packages/database/src/schema/embeddings.ts`、`repositories/sqlite/memory-embedding-repository.ts` | `memory_embeddings` 独立表 + 批量/重试/余弦检索（对照 AST-02） |
+| PET-01 | A | 第二批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（`petCommandSchema`/`emoteEventDataSchema`） | SSE 表现指令契约预留 |
+| PET-02 | A | 第二批 | 2026-08-26 | `packages/database/src/schema/memories.ts`、`repositories/types.ts` | 记忆条目字段 `source`/`category`/`keywordsJson`/`lastUsedAt` |
+| T-04 | A | 第三批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（工具注册表契约）、`packages/database/src/schema/tool-registry.ts`、`repositories/sqlite/tool-registry-repository.ts` | 工具注册表 + 主动记忆契约 + 幂等/过滤/门控导出 |
+| AST-04 | B→已落地雏形 | 第三批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（`pluginMetadataSchema`、`toolGatingConditionSchema`）、`packages/database/src/schema/tool-registry.ts` | 插件元数据字段 + 工具条件门控（CAP-020 雏形） |
+| PET-05 | B→已落地雏形 | 第三批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（`toolSafetyLevelSchema`） | 工具安全级别（read_only 白名单）有线 |
+
+### 6.2 待接线缺口（现状如实记录）
+
+§6.1 已落地项多为**定义 / 存储 / 仓储接口**层面，以下运行时链路尚未接线，未登记为完成：
+
+| 缺口 | 关联设计 | 说明 |
+|---|---|---|
+| `MemoryStoreTool` 运行时实现 | T-04 | 仅定义输入/输出契约；embedding、去重、写记忆的编排逻辑未实现 |
+| 内部工具 MCP server 暴露 | T-04 | `aervox_*` 式工具未走 MCP 通道暴露给运行时 |
+| 工具注册表 API 路由 | T-04 / AST-04 | 未将 `tool_registrations` 暴露成 `/v1/tools` 等路由 |
+| Worker 异步消费链路 | T-03 / T-05 / AST-02 | 压缩标记写入、embedding 迁移的异步排队消费未接 |
+| 前端表现层消费 emote 事件 | PET-01 | `emote` 事件未接到 Vue 桌宠组件（`PetHero.vue`） |
+| 真实向量库接入 | T-05 | 当前为 SQLite 行扫描 + JS 余弦兜底，未接 pgvector |
 
 ## 7. 参照
 
