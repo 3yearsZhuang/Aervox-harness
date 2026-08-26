@@ -100,7 +100,7 @@ AERVOX_API_URL='http://127.0.0.1:3000' AERVOX_SESSION_ID='<现有会话 ID>' pnp
 
 ## 文档与追踪
 
-- [文档索引](docs/README.md)：体系、权威顺序、从哪开始（§8）· [生命周期登记表](docs/DOC_REGISTRY.md)
+- [文档索引](docs/README.md)：体系、权威顺序 · [从哪开始](docs/getting-started.md) · [生命周期登记表](docs/DOC_REGISTRY.md)
 - [AGENTS.md](AGENTS.md)：AI 协作入口（根目录，AI 编码工具自动加载）
 - [PRD](docs/reference/PRD.md)（AVX-PRD-001）· [架构设计](docs/reference/ARCHITECTURE.md) · [ADR](docs/reference/adr/README.md) · [SRS](docs/reference/SRS.md)
 - [需求追踪](docs/reference/REQUIREMENTS_TRACEABILITY.md)：CAP 状态、DoR、G0\~G6 门禁
