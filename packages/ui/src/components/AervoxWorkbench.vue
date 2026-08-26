@@ -17,6 +17,7 @@ import {
   Pause,
   Play,
   Plus,
+  Puzzle,
   RotateCcw,
   Send,
   Settings,
@@ -27,6 +28,7 @@ import {
 } from 'lucide-vue-next'
 import {streamAervoxTurn, useAervoxApi} from '@aervox/api-client'
 import PetHero from './PetHero.vue'
+import PluginManagerPanel from './plugin/PluginManagerPanel.vue'
 
 type Platform = 'desktop' | 'web'
 type Speaker = 'assistant' | 'user'
@@ -55,7 +57,7 @@ const todoOpen = ref(false)
 const timerOpen = ref(false)
 const studyOpen = ref(false)
 const settingsOpen = ref(false)
-const settingsCategory = ref<'appearance' | 'conversation' | 'focus' | 'notifications'>('appearance')
+const settingsCategory = ref<'appearance' | 'conversation' | 'focus' | 'notifications' | 'plugins'>('appearance')
 const newGoalTopic = ref('')
 const newGoalLevel = ref<'beginner' | 'intermediate' | 'advanced'>('beginner')
 const newGoalMinutes = ref(25)
@@ -110,6 +112,7 @@ const settingCategories = [
   {id: 'conversation', label: '对话', description: '称呼与输入方式', icon: MessageCircle},
   {id: 'focus', label: '专注', description: '番茄钟工作时长', icon: Clock3},
   {id: 'notifications', label: '提醒', description: '学习节奏与通知', icon: Bell},
+  {id: 'plugins', label: '插件', description: '插件配置与页面', icon: Puzzle},
 ] as const
 const workbenchState = computed(() => {
   if (streaming.value) return '正在思考并组织回答'
@@ -672,11 +675,12 @@ onUnmounted(() => {
             <div class="settings-section-heading"><span><Clock3 :size="19" /><span><strong>专注</strong><small>设置番茄钟的默认工作时长</small></span></span></div>
             <div class="settings-row settings-choice-row"><span><strong>专注时长</strong><small>重置计时器时使用该时长</small></span><span class="settings-segmented"><button v-for="minutes in [15, 25, 45, 60]" :key="minutes" type="button" :class="{active: timerMinutes === minutes}" @click="timerMinutes = minutes; saveSettings()">{{ minutes }} 分钟</button></span></div>
           </div>
-          <div v-else class="settings-section">
+          <div v-else-if="settingsCategory === 'notifications'" class="settings-section">
             <div class="settings-section-heading"><span><Bell :size="19" /><span><strong>提醒</strong><small>控制学习过程中的轻量提醒</small></span></span></div>
             <label class="settings-row settings-choice-row"><span><strong>学习提醒</strong><small>允许工作台显示复习和目标提醒</small></span><input v-model="dailyReminder" type="checkbox" class="settings-switch" @change="saveSettings" /></label>
             <div class="settings-note"><Check :size="16" />设置会自动保存在当前设备</div>
           </div>
+          <PluginManagerPanel v-else class="settings-section" />
         </section>
       </div>
     </el-dialog>

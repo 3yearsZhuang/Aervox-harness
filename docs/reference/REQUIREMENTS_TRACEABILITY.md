@@ -175,6 +175,11 @@
 | 工具注册表（契约 + 表 + 仓储） | CAP-020 | `packages/contracts/src/schemas.ts`、`packages/database/src/schema/tool-registry.ts`、`repositories/sqlite/tool-registry-repository.ts` | 2026-08-26 | 单测 | `T-04` + `AST-04` |
 | 工具运行时与 API 路由（`/v1/tools`） | CAP-020 | `apps/api/src/modules/tools/` | 2026-08-26 | API 集成测试 + typecheck | `T-04` + `PET-05` |
 | 插件运行时（生命周期/权限/工具联动） | CAP-020 | `apps/api/src/modules/plugins/` | 2026-08-26 | API 集成测试 + typecheck | `AST-04` |
+| 插件 Config/Page 契约（Zod + OpenAPI） | CAP-020 | `packages/contracts/src/plugin-config-schemas.ts`、`packages/contracts/src/openapi.ts` | 2026-08-26 | contracts typecheck + 生成 openapi.json | `AST-08` + `AST-09` |
+| 插件 Config/Page 存储（三表 + 仓储） | CAP-020 | `packages/database/src/schema/plugin-config.ts`、`repositories/sqlite/plugin-config-repository.ts` | 2026-08-26 | 单测（plugin-config.test.ts） | `AST-08` + `AST-09` |
+| 插件配置/Page 服务与 API（CR-006） | CAP-020 | `apps/api/src/modules/plugins/`（`config-schema.ts`/`config-service.ts`/`config-routes.ts`/`bundle-store.ts`/`bridge-sdk.ts`） | 2026-08-26 | API 集成测试 + typecheck | `AST-08` + `AST-09` |
+| 插件配置/Page UI（设置弹窗 + 表单 + iframe Bridge） | CAP-020 | `packages/api-client/src/useAervoxPlugins.ts`、`packages/ui/src/components/plugin/`、`packages/ui/src/components/AervoxWorkbench.vue` | 2026-08-26 | UI/Web/Desktop typecheck + build | `AST-08` + `AST-09` |
+| 插件 Config/Page 规范文档化 | CAP-020 | `docs/reference/plugin-config-and-pages.md`（AVX-PLUG-001）、`docs/reference/changes/CR-006-plugin-config-and-pages.md` | 2026-08-26 | ci-docs | `AST-08` + `AST-09` |
 | 数据库迁移服务（journal + 旧库补齐 + 完成标记） | 基础设施 | `packages/database/src/migration/`、`apps/worker/src/pipeline.ts` | 2026-08-26 | 单测 | `T-06` + `AST-05` |
 | 数据版本快照（快照导出/恢复） | CAP-027 | `packages/database/src/sync/git-snapshot.ts` | 2026-08-26 | 单测 | `T-09` |
 | Token 用量分账 | 基础设施/埋点 | `packages/database/src/token-usage.ts` | 2026-08-26 | 单测 | `T-10` |

@@ -35,6 +35,8 @@ export interface BuildAppOptions {
   client?: Client;
   /** Skill 内容落盘根目录（测试注入临时目录；缺省 <repo>/data/skills） */
   skillsRoot?: string;
+  /** 插件 Page Bundle 落盘根目录（测试注入临时目录；缺省 <repo>/data/plugins） */
+  pluginsRoot?: string;
 }
 
 export interface BuildAppResult {
@@ -68,7 +70,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   registerKnowledgeModule(app, db);
   registerBranchModule(app, db);
   const toolRuntime = registerToolsModule(app, db, client);
-  registerPluginsModule(app, db, { skillsRoot: options.skillsRoot });
+  registerPluginsModule(app, db, { skillsRoot: options.skillsRoot, pluginsRoot: options.pluginsRoot });
   registerPersonaModule(app, db);
   registerSkillsModule(app, db, { skillsRoot: options.skillsRoot, toolRuntime });
 
