@@ -20,6 +20,7 @@ import type {
   LearningGoalModel,
   QuestionModel,
   QuestionAttemptModel,
+  MistakeItemModel,
   PracticeSessionModel,
   KnowledgeItemModel,
   ReviewItemModel,
@@ -340,6 +341,54 @@ export class SqliteLearningRepository implements ILearningRepository {
       )
       .orderBy(questionAttempts.createdAt);
     return rows as QuestionAttemptModel[];
+  }
+
+  async listMistakes(
+    tenant: TenantContext,
+    status: "active" | "mastered" | "all" = "active",
+  ): Promise<MistakeItemModel[]> {
+    assertTenantContext(tenant);
+    const rows = await this.db
+      .select({
+        questionId: questions.id,
+        knowledgeId: questions.knowledgeId,
+        prompt: questions.prompt,
+        latestAnswer: questionAttempts.answer,
+        latestAttemptAt: questionAttempts.createdAt,
+        masteryState: knowledgeItems.masteryState,
+      })
+      .from(questionAttempts)
+      .innerJoin(questions, eq(questionAttempts.questionId, questions.id))
+      .leftJoin(knowledgeItems, eq(questions.knowledgeId, knowledgeItems.id))
+      .where(
+        and(
+          eq(questionAttempts.workspaceId, tenant.workspaceId),
+          eq(questionAttempts.subjectUserId, tenant.subjectUserId),
+          eq(questionAttempts.judgement, "incorrect"),
+        ),
+      )
+      .orderBy(desc(questionAttempts.createdAt));
+
+    const grouped = new Map<string, MistakeItemModel>();
+    for (const row of rows) {
+      const existing = grouped.get(row.questionId);
+      if (existing) {
+        existing.wrongCount += 1;
+        continue;
+      }
+      const masteryState = row.masteryState ?? "unknown";
+      grouped.set(row.questionId, {
+        questionId: row.questionId,
+        knowledgeId: row.knowledgeId,
+        prompt: row.prompt,
+        latestAnswer: row.latestAnswer,
+        latestAttemptAt: row.latestAttemptAt,
+        wrongCount: 1,
+        masteryState,
+        status: masteryState === "mastered" ? "mastered" : "active",
+      });
+    }
+    return [...grouped.values()].filter((item) => status === "all" || item.status === status);
   }
 
   async getAttemptByIdempotencyKey(
