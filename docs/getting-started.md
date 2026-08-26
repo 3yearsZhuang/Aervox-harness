@@ -19,16 +19,17 @@ docs/
   tutorials/             # 教程（AVX-TUT-001～002）
   how-to/                # 操作指南（AVX-GUIDE-*）
   explanation/           # 概念讲解（AVX-EXPL-*）/ 实现规划 / 可选模块方案 / 能力拆分路线
+  templates/             # 新建文档模板（How-to / Reference / Explanation）
   reference/             # 参考类（AVX-PRD/SRS/SAD/TRC/SPC/DB/DATA/AIQ/SEC/QA/OPS 等）
     adr/                 # ADR-001~015 + 索引
     changes/             # CR-*
-    standards/           # 文档写作规范（AVX-STD-001）· 术语表（AVX-TERM-001）· 模板
+    standards/           # 文档写作规范（AVX-STD-001）· 术语表（AVX-TERM-001）
     diagrams/            # 数据库 ERD（.mmd）
     PRD.md · ARCHITECTURE.md · SRS.md · REQUIREMENTS_TRACEABILITY.md
     capability-composition.md
     DATABASE.md · STREAMING_PROTOCOL.md
     DATA_PRIVACY.md · AI_QUALITY_SAFETY.md · THREAT_MODEL.md · TEST_STRATEGY.md
-    RUNBOOK.md · ONCALL.md · DRILL_TEMPLATE.md
+    operations.md
 reference/               # 固定 commit 的子模块（只读参考，见 PRD 15.1；与上文 docs/reference/ 不同）
 demos/                   # 纯前端原型，非交付物
 ```
@@ -39,7 +40,7 @@ demos/                   # 纯前端原型，非交付物
 2. 读 [PRD](reference/PRD.md) 第 1 节产品决策摘要与功能地图，了解产品边界。
 3. 规划能力宿主或外部插件时，读[能力组合与可选化目录规范](reference/capability-composition.md)；实际迁移从[迁移教程](tutorials/migrate-integrated-capabilities.md)开始。
 4. 拉取子模块：clone 后先执行 `git submodule update --init --recursive`，否则 `pnpm build` 会缺 `@aervox/mod-*` 失败（见[可选模块协作指南](how-to/submodule-collaboration.md)）。
-5. 按需进入 [how-to](how-to)：新增需求 / 写 ADR / 过发布门禁 / 执行演练 / 可选模块 submodule。
+5. 贡献者流程见根级 [CONTRIBUTING](../CONTRIBUTING.md)；按需进入 [how-to](how-to)：新增需求 / 写 ADR / 过发布门禁 / 执行演练 / 可选模块 submodule。
 
 ## 3. 写作与改动的硬性规则
 
@@ -62,5 +63,5 @@ demos/                   # 纯前端原型，非交付物
 ## 5. 需要介入时
 
 - 文档冲突：停止相关发布，按[文档索引的权威顺序](README.md#2-权威顺序与冲突处理)仲裁；
-- 生产问题：按[运行手册](reference/RUNBOOK.md) 与[值班矩阵](reference/ONCALL.md)升级；
+- 生产问题：按[运行、值班与演练手册](reference/operations.md)升级；
 - 变更请求：走[变更流程](reference/REQUIREMENTS_TRACEABILITY.md#113-变更流程)。

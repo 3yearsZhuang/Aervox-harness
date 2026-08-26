@@ -18,6 +18,9 @@ Aervox｜思隅：更好上手的"主动智能" Agent——以桌宠为入口，
 
 - 工具版本以 [mise.toml](mise.toml) 为唯一真源（node 24 / pnpm / vale）；不要用系统自带 Node 跑 `.ts` 脚本，统一 `mise x -- <cmd>`；
 - 中间件一律 async/await、不用回调式；路由文件在中间件重构期间不许改动；
+- 依赖安装：新增依赖统一 `pnpm add -w <pkg>`（开发依赖 `-Dw`）装到根 workspace，禁止子包单独加依赖造成版本分裂；
+- SQLite/libsql 事务与读一致：写操作走写者连接；事务提交后其它连接存在读快照滞后，测试断言须用写者连接自身；事务内不嵌套、不长时间持锁；libsql 0.4.x 事务 BEGIN 阶段不会自动重试（详见 [ADR-003](docs/reference/adr/ADR-003-postgres-retrieval.md) 与 `packages/database`）；
+- OpenAPI 契约：`zod-to-openapi` 固定 v9，用 `OpenApiGeneratorV31` 而非 `generateDocument`；`extendZodWithOpenApi` 必须在任何 schema 定义前调用，否则 `.openapi()` 不可用（生成逻辑在 `packages/contracts`）；
 - 修改文档前先读[文档写作规范](docs/reference/standards/doc-standards.md)：标注 `类型` 与文档头字段；仅结构性改动（新增文档、目录迁移、编号/类型/事实源变更）须同步 [DOC_REGISTRY.md](docs/DOC_REGISTRY.md) 与[文档索引](docs/README.md)，编辑性/内容更新只过 ci-docs 并更新核验日期（登记强度见[改动等级 §3.1](docs/reference/standards/doc-standards.md#31-改动等级与同步要求)）；
 - 术语唯一：以术语表「规范写法」为准；提交文档前跑 `mise tasks run ci-docs`（markdownlint + Vale，链接检查在 CI）；
 - 代码门禁：`mise tasks run ci-code`（install + build + typecheck + test）；

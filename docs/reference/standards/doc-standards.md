@@ -92,9 +92,9 @@
 
 | 文档类 | 模板 | 场景 |
 |---|---|---|
-| How-to | [templates/how-to.md](templates/how-to.md) | 操作指南 |
-| Reference | [templates/reference.md](templates/reference.md) | 契约、策略、数据库等规范 |
-| Explanation | [templates/explanation.md](templates/explanation.md) | 概念讲解、数据流总览 |
+| How-to | [../../templates/how-to.md](../../templates/how-to.md) | 操作指南 |
+| Reference | [../../templates/reference.md](../../templates/reference.md) | 契约、策略、数据库等规范 |
+| Explanation | [../../templates/explanation.md](../../templates/explanation.md) | 概念讲解、数据流总览 |
 | ADR | [写 ADR 指南](../../how-to/write-adr.md) + [ADR 索引](../adr/README.md) | 架构决策记录 |
 
 - 提交前自检第 3 步会校验全部相对链接，任何目录迁移后先跑链接检查再推送。

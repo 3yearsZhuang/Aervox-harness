@@ -22,16 +22,14 @@
 | [AI 质量与安全规范](reference/AI_QUALITY_SAFETY.md) | 模型、记忆和日记怎样达到可复现质量与安全门槛 | 模型运行记录、评估集、记忆压缩、日记事实性、安全分类和回滚 |
 | [威胁模型](reference/THREAT_MODEL.md) | 哪些资产和信任边界会受到何种攻击 | 威胁场景、控制、验证、残余风险和安全评审输入 |
 | [测试策略](reference/TEST_STRATEGY.md) | 各类需求怎样验证、哪些路径阻断发布 | 测试分层、P0 必测路径、AI 评估、覆盖门槛和证据要求 |
-| [运行与恢复手册](reference/RUNBOOK.md) | 生产故障怎样止损、恢复和验证 | 告警、事件响应、降级、恢复、回滚、演练和证据 |
+| [运行、值班与演练手册](reference/operations.md) | 生产故障怎样止损、恢复和验证；出问题找谁、如何升级；季度演练留什么证 | 告警、事件响应、降级、恢复、回滚、值班与 SEV 升级、演练项与证据字段；G5 门禁引用 |
 | [ADR 索引](reference/adr/README.md) | 为什么选择当前架构、舍弃了什么方案 | 架构决策状态、后果、迁移和回滚边界 |
 | [能力组合与可选化目录规范](reference/capability-composition.md)（AVX-CAP-001） | 所有业务能力最终如何通过 Manifest、Provider、Adapter 和 Profile 自由组合 | 目标目录、Kernel 不变量、依赖解析、生命周期、DSH/pi 适配与迁移验收 |
 | [可选功能模块化方案](explanation/optional_modules.md) | 当前非核心功能如何以子仓库开发并作为 workspace 包自选消费 | 过渡期 `modules/*` 机制、构建+运行时双轴、模块清单与门禁；目标演进见 AVX-CAP-001 |
-| [操作指南](how-to) | 怎么新增需求、写 ADR、过发布门禁、做演练、管可选模块 submodule | 任务型流程；规则以对应专项文档为事实源 |
+| [操作指南](how-to) | 怎么新增/修改需求、写 ADR、过发布会门禁、做季度演练、管可选模块 submodule；贡献者流程见根级 [CONTRIBUTING](../../CONTRIBUTING.md) | 任务型流程（工程与发布流程合一）；规则以对应专项文档为事实源 |
 | [文档生命周期登记表](DOC_REGISTRY.md) | 每份文档由谁负责、何时核验、多久复核 | Owner/核验节奏/陈旧信号；独立于索引维护 |
 | [从这里开始](getting-started.md)（AVX-DOC-002，见[§8](#8-从哪开始)） | 新成员/Agent 从哪看起、提交前自检什么 | 导航型；不承载规则 |
 | [能力拆分路线](explanation/roadmap.md)（AVX-EXPL-004，见[§5.1](#51-能力拆分路线建议批次)） | CAP 按什么批次、什么顺序进入规格化与开发 | 建议批次与拆分节奏；既不重复 PRD 路线图，也不重复追踪基线矩阵 |
-| [值班与升级矩阵](reference/ONCALL.md) | 出问题找谁、如何升级、如何交接 | 值班角色与 SEV 升级；联系人人名待定 |
-| [演练证据模板](reference/DRILL_TEMPLATE.md) | 季度演练留什么证 | 演练项、通过标准与证据字段；G5 门禁引用 |
 | [文档写作规范](reference/standards/doc-standards.md)（AVX-STD-001） | 每份文档怎么分类、文档头怎么填、怎么写、如何被校验 | Diátaxis 四分类、元数据 schema、命名、风格基线、Vale 术语门禁、模板族 |
 | [术语表](reference/standards/terminology.md)（AVX-TERM-001） | 项目术语的唯一含义与规范写法 | 缩写/产品名唯一语义；Vale 依据「禁写」列自动校验 |
 | [教程：第一个对话](tutorials/first-conversation.md)（AVX-TUT-001） | 新成员如何从 0 跑到第一条对话 | 可执行步骤与验证 |

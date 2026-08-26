@@ -21,11 +21,9 @@
 | `AVX-AIQ-001` | [AI 质量与安全](reference/AI_QUALITY_SAFETY.md) | AI 质量负责人 | 2026-08-24 | 模型/Prompt/算法变更 + AI 评估 | ModelRun/PromptVersion 更新未同步 |
 | `AVX-SEC-001` | [威胁模型](reference/THREAT_MODEL.md) | 安全与隐私负责人 | 2026-08-24 | 每季度 + 信任边界变更 | 新增数据流/信任边界未加入威胁模型 |
 | `AVX-QA-001` | [测试策略](reference/TEST_STRATEGY.md) | QA 负责人 | 2026-08-24 | G1/G4 门禁 | AC/TC 状态变化未回填 |
-| `AVX-OPS-001` | [运行与恢复手册](reference/RUNBOOK.md) | 运维/平台负责人 | 2026-08-24 | 每季度演练 + 每次发布 | 演练日期超期或告警/拓扑变化未更新 |
+| `AVX-OPS-001` | [运行、值班与演练手册](reference/operations.md) | 运维/平台负责人 | 2026-08-26 | 每季度演练 + 每次发布 + 值班变更 | 演练日期超期、告警/拓扑变化或联系人未更新 |
 | `AVX-TRC-001` | [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) | 文档负责人（QA 复核） | 2026-08-26 | 版本立项 / G1 / G4 / 落地登记 | CAP/AC/TC 状态或追踪关系变化未回填；§4.2 落地登记与实现不符 |
-| `AVX-GUIDE-001~005` | [操作指南](how-to) | 文档负责人 | 2026-08-24 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
-| `AVX-ONC-001` | [值班与升级矩阵](reference/ONCALL.md) | 运维/平台负责人（安全复核） | 2026-08-24 | 每次值班变更 + 季度 | 联系人/升级时限变更未同步 |
-| `AVX-DRL-001` | [演练证据模板](reference/DRILL_TEMPLATE.md) | 运维/平台负责人 | 2026-08-24 | 每季度演练后 | 演练项/通过标准与运行手册不符 |
+| `AVX-GUIDE-001~003` | [操作指南](how-to) | 文档负责人 | 2026-08-26 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
 | `AVX-MOD-001` | [可选功能模块化方案](explanation/optional_modules.md) | 技术负责人 | 2026-08-26 | G2 评审 + 模块机制变更 | 过渡机制与 `modules/*` 实际不符，或目标替代关系未同步 |
 | `AVX-CAP-001` | [能力组合与可选化目录规范](reference/capability-composition.md) | 技术负责人（安全/隐私复核） | 2026-08-26 | G2 评审 + 能力宿主/适配器机制变更 | Manifest、Profile、Provider、Adapter、Kernel 边界与实现或 ADR/CR 不一致 |
 | `AVX-WEB-001` | [Web 工作台实现规划](explanation/web-implementation.md) | 技术负责人 | 2026-08-25 | Web 端实现或技术基线变更 | `apps/web` 结构与 ADR-015/规划不一致 |
