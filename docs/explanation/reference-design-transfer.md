@@ -193,6 +193,11 @@ Aervox 自研落地（AGPLv3 仅借鉴设计，不复制源码）：
 - **Neo 生命周期适配**：AstrBot 沙盒「执行证据」适配为 Aervox 业务对象（turns / memory_records / learning_goals），stable + syncToLocal 时把 `payload.skill_markdown` 落盘并注册；
 - **安全边界**：技能为只读指令包，可执行内容不经技能自动运行，必须经 `tool_registrations` 白名单 + PET-05 授权。
 
+> 统一说明：远端并入的 persona 模块曾自带租户级 `/v1/skills*` 路由（工作区技能 import/export），
+> 与本节系统级实现同路径冲突。合并时以本节实现为准：`/v1/skills*` 由
+> `apps/api/src/modules/skills/` 统一接管，persona 模块移除其 `/v1/skills*` 路由，
+> 保留 Persona/MCP/Voice 路由；persona bundle 导入仍向其 `skills` 仓储写入工作区技能。
+
 ## 5. C 类：暂不采用
 
 | 设计 | 原因 |

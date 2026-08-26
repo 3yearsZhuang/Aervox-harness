@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { strToU8, zipSync } from "fflate";
-import { createInMemoryDatabase, type AervoxDatabase } from "@aervox/database";
+import { createInMemoryDatabase, SqliteSkillRepository, type AervoxDatabase } from "@aervox/database";
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
@@ -9,12 +8,6 @@ const headers = {
   "x-workspace-id": "ws_persona",
   "x-user-id": "usr_persona",
 } as const;
-
-function makeSkillZip(name: string): string {
-  const markdown = `---\nname: ${name}\ndescription: ${name} description\n---\n\nUse ${name}.`;
-  const zip = zipSync({ [`${name}/SKILL.md`]: strToU8(markdown) });
-  return Buffer.from(zip).toString("base64");
-}
 
 describe("Persona API：SQLite 持久化 + Skills/MCP/Voice", () => {
   let app: FastifyInstance;
@@ -38,14 +31,30 @@ describe("Persona API：SQLite 持久化 + Skills/MCP/Voice", () => {
   });
 
   it("创建/激活人格，导入 Skills 并导出 Persona Bundle", async () => {
-    // 导入 Skill ZIP
-    const skillImport = await app.inject({
-      method: "POST",
-      url: "/v1/skills/import",
-      headers,
-      payload: { zipBase64: makeSkillZip("alpha"), conflictResolution: "error" },
-    });
-    expect(skillImport.statusCode).toBe(201);
+    // 直接经仓储种子工作区技能（/v1/skills* 路由已由系统级 skills 模块接管）
+    const skillRepo = new SqliteSkillRepository(db);
+    const markdown = "---\nname: alpha\ndescription: alpha description\n---\n\nUse alpha.";
+    await skillRepo.upsertSkill(
+      { workspaceId: "ws_persona", subjectUserId: "usr_persona" },
+      {
+        id: "alpha",
+        workspaceId: "ws_persona",
+        subjectUserId: "usr_persona",
+        name: "alpha",
+        description: "alpha description",
+        source: "imported",
+        version: 1,
+        checksum: "sha256:alpha",
+        enabled: 1,
+        valid: 1,
+        validationErrors: [],
+        filesJson: { "SKILL.md": Buffer.from(markdown).toString("base64") },
+        skillMarkdown: markdown,
+        importedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    );
 
     // 创建人格并激活
     const create = await app.inject({
