@@ -18,3 +18,6 @@ export * from "./analytics-repository.js";
 export * from "./content-repository.js";
 export * from "./extension-repository.js";
 export * from "./tool-registry-repository.js";
+export * from "./persona-repository.js";
+export * from "./skill-repository.js";
+export * from "./mcp-tool-repository.js";

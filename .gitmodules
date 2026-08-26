@@ -16,3 +16,7 @@
 [submodule "reference/Petra"]
 	path = reference/Petra
 	url = https://github.com/Wumiu/Petra.git
+
+[submodule "modules/persona-plugin"]
+	path = modules/persona-plugin
+	url = https://github.com/KashiwagiEri233/aervox-persona-plugin-module.git
