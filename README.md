@@ -116,6 +116,8 @@ AERVOX_API_URL='http://127.0.0.1:3000' AERVOX_SESSION_ID='<现有会话 ID>' pnp
 
 ## License
 
-This project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International Public License. See the [LICENSE](LICENSE) file for details.
+The source code (apps/, packages/, scripts/ and configuration files) is licensed under the GNU Affero General Public License v3 or later. See the [LICENSE](LICENSE) file for details.
 
-本项目采用 Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International Public License（CC BY-NC-SA 4.0）许可。详见 [LICENSE](LICENSE) 文件。
+The documentation (docs/, README.md, AGENTS.md) is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International Public License. See the [docs/LICENSE](docs/LICENSE) file for details.
+
+本项目采用双许可：源码（apps/、packages/、scripts/ 及配置文件）基于 GNU Affero General Public License v3 或更高版本授权，详见 [LICENSE](LICENSE)；文档（docs/、README.md、AGENTS.md）基于 Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International（CC BY-NC-SA 4.0）授权，详见 [docs/LICENSE](docs/LICENSE)。
