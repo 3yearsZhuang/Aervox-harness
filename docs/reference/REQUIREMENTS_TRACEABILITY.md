@@ -178,7 +178,7 @@
 | 工具安全级别（read_only 白名单） | CAP-020 | `packages/contracts/src/schemas.ts`、`apps/api/src/modules/tools/runtime.ts` | 2026-08-26 | API 集成测试 | `PET-05` |
 | 桌宠角色设定文档化 | CAP-019 | `docs/explanation/persona-organization.md`（AVX-EXPL-003） | 2026-08-26 | ci-docs | `T-08` |
 | 桌面 preload 按域 IPC 拆分 | CAP-018 | `apps/desktop/src/preload/domains/` | 2026-08-26 | typecheck | `T-07` |
-| Persona/Skills/MCP SQLite 持久化与 API 模块（Persona Revision/Skills/MCP/上下文快照） | CAP-019/020 | `packages/database/src/schema/persona.ts`、`repositories/sqlite/{persona,skill,mcp-tool}-repository.ts`、`apps/api/src/modules/persona/`、`packages/contracts/src/persona-schemas.ts` | 2026-08-26 | 单测 + API 集成测试 + ci-code | 原生 |
+| Persona 系统级重构（去模块化 + 结合系统级 Skills/Tools/MCP + 独立 Voice 模块） | CAP-019/020 | `apps/api/src/modules/{persona,voice}/`、`packages/database/src/schema/persona.ts`、`repositories/sqlite/persona-repository.ts`、`packages/contracts/src/persona-schemas.ts` | 2026-08-27 | 单测 + API 集成测试 + ci-code | 原生 |
 | Codex Pets 兼容：9 状态 spritesheet 协议（manifest + 8×9 atlas 渲染 + 工具状态驱动） | CAP-001/018 | `packages/contracts/src/schemas.ts`（`petSheet*`/`petManifest`）、`packages/ui/src/components/SpritePet.vue`、`apps/api/src/modules/tools/mcp.ts`（`derivePetSheetState`） | 2026-08-26 | typecheck + API 集成测试 + ci-code | 原生（外部协议兼容） |
 | Skill 契约与存储（注册表 + Neo 生命周期表 + 幂等仓储） | CAP-020 | `packages/contracts/src/schemas.ts`（Skill 契约）、`packages/database/src/schema/skills.ts`、`repositories/sqlite/skill-registry-repository.ts`、`skill-lifecycle-repository.ts` | 2026-08-26 | 单测 | `Skill`（借鉴 AstrBot） |
 | Skill 管理模块与 API（zip 安装 + 渐进式披露 prompt） | CAP-020 | `apps/api/src/modules/skills/`（`zip.ts`/`skill-manager.ts`/`skill-prompt.ts`/`routes.ts`） | 2026-08-26 | API 集成测试 | `Skill`（借鉴 AstrBot） |

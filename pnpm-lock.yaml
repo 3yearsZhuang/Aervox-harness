@@ -26,9 +26,6 @@ importers:
       '@aervox/database':
         specifier: workspace:*
         version: link:../../packages/database
-      '@aervox/mod-persona':
-        specifier: workspace:*
-        version: link:../../modules/persona-plugin
       '@aervox/practice-review':
         specifier: workspace:*
         version: link:../../packages/practice-review
@@ -41,13 +38,13 @@ importers:
       fastify:
         specifier: 5.12.1
         version: 5.12.1
+      fflate:
+        specifier: 0.8.2
+        version: 0.8.2
     devDependencies:
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.1
-      fflate:
-        specifier: 0.8.2
-        version: 0.8.2
       tsx:
         specifier: ^4.19.2
         version: 4.23.12
