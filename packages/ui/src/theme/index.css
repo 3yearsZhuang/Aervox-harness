@@ -122,6 +122,7 @@
   background: var(--bg-main) !important;
   border: 1px solid var(--border) !important;
   box-shadow: var(--shadow) !important;
+  border-radius: 10px !important;
 }
 
 .el-popper.is-light .el-popper__arrow::before {
@@ -130,11 +131,11 @@
 }
 
 .el-dropdown-menu {
-  background: var(--bg-main) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 10px !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
   padding: 4px !important;
-  box-shadow: var(--shadow) !important;
+  box-shadow: none !important;
 }
 
 .el-dropdown-menu__item {
