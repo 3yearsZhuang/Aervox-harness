@@ -4,11 +4,90 @@
  * 两端共用的一致配色令牌；各端壳级布局样式仍保留在各自 styles/ 内。
  */
 :root {
-  --aervox-primary: #409eff;
-  --aervox-primary-light: #ecf5ff;
-  --aervox-fill-light: #f4f4f5;
-  --aervox-text: #303133;
-  --aervox-text-secondary: #909399;
-  --aervox-border-lighter: #e4e7ed;
-  --aervox-radius: 10px;
+  color-scheme: light;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-synthesis: none;
+  --aervox-primary: #4b7d62;
+  --aervox-primary-light: #e5efe8;
+  --aervox-fill-light: #f1f4f1;
+  --aervox-text: #29352f;
+  --aervox-text-secondary: #53625a;
+  --aervox-border-lighter: #d9e1db;
+  --aervox-radius: 12px;
+  --bg-app: #edf1ee;
+  --bg-titlebar: #f8faf8;
+  --bg-main: #fcfdfc;
+  --bg-soft: #f1f4f1;
+  --bg-hover: #e8eeea;
+  --bg-input: #ffffff;
+  --text-primary: #29352f;
+  --text-secondary: #53625a;
+  --text-muted: #87938c;
+  --border: #d9e1db;
+  --border-strong: #c8d4cb;
+  --accent: #4b7d62;
+  --accent-hover: #3d6c52;
+  --accent-soft: #e5efe8;
+  --danger-soft: #f7e3df;
+  --danger: #a6493c;
+  --shadow: 0 10px 30px rgba(38, 67, 51, .075);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --aervox-primary: #83bd9c;
+  --aervox-primary-light: #293d31;
+  --aervox-fill-light: #272e2a;
+  --aervox-text: #e6ece8;
+  --aervox-text-secondary: #b9c5bd;
+  --aervox-border-lighter: #303a34;
+  --bg-app: #151a17;
+  --bg-titlebar: #1b211e;
+  --bg-main: #202622;
+  --bg-soft: #272e2a;
+  --bg-hover: #2d3731;
+  --bg-input: #252c28;
+  --text-primary: #e6ece8;
+  --text-secondary: #b9c5bd;
+  --text-muted: #829087;
+  --border: #303a34;
+  --border-strong: #414e46;
+  --accent: #83bd9c;
+  --accent-hover: #96cbaa;
+  --accent-soft: #293d31;
+  --danger-soft: #472d2a;
+  --danger: #ef9b8f;
+  --shadow: 0 12px 34px rgba(0, 0, 0, .24);
+}
+
+.el-drawer,
+.el-dialog,
+.el-message-box {
+  --el-bg-color: var(--bg-main);
+  --el-text-color-primary: var(--text-primary);
+  --el-text-color-regular: var(--text-secondary);
+  --el-border-color: var(--border);
+  background: var(--bg-main);
+}
+
+.el-drawer__header,
+.el-dialog__header,
+.el-message-box__header {
+  margin: 0;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.el-drawer__title,
+.el-dialog__title,
+.el-message-box__title {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.el-drawer__body,
+.el-dialog__body,
+.el-message-box__content {
+  color: var(--text-secondary);
 }

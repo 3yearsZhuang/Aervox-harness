@@ -2,6 +2,9 @@ node_modules/
 dist/
 out/
 .turbo/
+.vite/
+.cache/
+.eslintcache
 coverage/
 *.tsbuildinfo
 .DS_Store

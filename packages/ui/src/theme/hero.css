@@ -1,8 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/ui — 桌宠（Fairy 精灵）视觉样式
  *
- * 原样取自桌面端 apps/desktop/src/renderer/src/styles/story.css 的 .hero-* 规则
- * （唯一事实源；桌面已删除重复定义，经 @aervox/ui 全局引入后两端共用同一份）。
+ * 本文件是桌宠视觉规则的唯一事实源；Electron 与共享工作台通过 @aervox/ui 共用。
  * 尺寸缩放由使用端以 transform:scale 包裹，不在此改写任何数值。
  */
 
