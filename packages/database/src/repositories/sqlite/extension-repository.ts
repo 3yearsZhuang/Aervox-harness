@@ -100,6 +100,22 @@ export class SqliteExtensionRepository implements IExtensionRepository {
     return rows as PluginModel[];
   }
 
+  async setPluginEnabled(id: string, enabled: boolean): Promise<PluginModel | null> {
+    const now = new Date().toISOString();
+    const [updated] = await this.db
+      .update(plugins)
+      .set({ enabled: enabled ? 1 : 0, updatedAt: now })
+      .where(eq(plugins.id, id))
+      .returning();
+    return (updated as PluginModel) ?? null;
+  }
+
+  async deletePlugin(id: string): Promise<boolean> {
+    // plugin_grants 外键 ON DELETE CASCADE 连带清理授权
+    const res = await this.db.delete(plugins).where(eq(plugins.id, id)).returning({ id: plugins.id });
+    return res.length > 0;
+  }
+
   async grantPlugin(
     tenant: TenantContext,
     grantData: { id: string; pluginId: string; permission: string; scope: string; grantedAt?: string },

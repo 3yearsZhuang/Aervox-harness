@@ -223,6 +223,8 @@ export interface IMemoryRepository {
       category?: string;
       keywords?: string[];
       lastUsedAt?: string | null;
+      /** 校验状态；缺省沿用 schema 默认 unverified（候选语义） */
+      verificationStatus?: string;
     },
   ): Promise<MemoryRecordModel>;
   getRecord(tenant: TenantContext, id: string): Promise<MemoryRecordModel | null>;
@@ -1432,6 +1434,10 @@ export interface IExtensionRepository {
     },
   ): Promise<PluginModel>;
   listPlugins(): Promise<PluginModel[]>;
+  /** CAP-020：启停插件（联动其声明的工具启停） */
+  setPluginEnabled(id: string, enabled: boolean): Promise<PluginModel | null>;
+  /** CAP-020：卸载插件（需先注销其工具） */
+  deletePlugin(id: string): Promise<boolean>;
   grantPlugin(
     tenant: TenantContext,
     grant: { id: string; pluginId: string; permission: string; scope: string; grantedAt?: string },

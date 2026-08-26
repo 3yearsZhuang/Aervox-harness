@@ -2,7 +2,7 @@
 
 > 文档编号：AVX-EXPL-002
 > 类型：Explanation
-> 版本：v0.4
+> 版本：v0.5
 > 更新日期：2026-08-26
 > 状态：Draft
 > 责任角色：技术负责人
@@ -196,11 +196,12 @@ Aervox 工具链安全规范可对照该白名单粒度：把"查询类命令"�
 
 ## 6. 落地顺序建议
 
-以"见效快、不改结构、先服务现有痛点"为原则分三批：
+以"见效快、不改结构、先服务现有痛点"为原则分三批，此后按需接线：
 
 1. **第一批（低风险，独立可排）**：T-01 busy 重试 → AST-01 会话级写锁 → T-02 混合检索。三者都是 `packages/database`/写路径内收口改动，直接解除多进程锁风险并打通记忆召回首链路。
 2. **第二批（需要契约与 Worker 配合）**：T-03 压缩标记 → T-05 embedding 独立表（对照 AST-02 对齐 Port 语义）→ PET-01 表现指令字段、PET-02 记忆条目字段（随契约冻结对照）。涉及记忆溯源与运行时代价，先冻结 `packages/contracts` 相关 schema 再实现。
 3. **第三批（随 CAP 排期）**：T-04 工具系统随 CAP-020 立项（对照 AST-04 元数据模型，安全对照 PET-05 白名单）；AST-03 人设解析链随 CAP-019 立项（对照 T-08 文档化）；PET-03 自主行为、PET-04 表现驱动抽象随桌面端功能扩展引入；T-06～T-10、AST-05 按对应功能阶段引入。
+4. **第四批（运行时接线）**：为第一批至第三批已落地的契约/存储接通真实调用链——T-04 tools 运行时与 `/v1/tools` 路由、T-03/T-05 Worker 异步消费、PET-01 前端 emote 消费、CAP-020 插件运行时、T-06 迁移服务与 AST-05 完成标记、T-09 快照与 T-10 分账（详见 §6.1）。
 
 ### 6.1 已落地进度总表
 
@@ -215,19 +216,28 @@ Aervox 工具链安全规范可对照该白名单粒度：把"查询类命令"�
 | T-04 | A | 第三批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（工具注册表契约）、`packages/database/src/schema/tool-registry.ts`、`repositories/sqlite/tool-registry-repository.ts` | 工具注册表 + 主动记忆契约 + 幂等/过滤/门控导出 |
 | AST-04 | B→已落地雏形 | 第三批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（`pluginMetadataSchema`、`toolGatingConditionSchema`）、`packages/database/src/schema/tool-registry.ts` | 插件元数据字段 + 工具条件门控（CAP-020 雏形） |
 | PET-05 | B→已落地雏形 | 第三批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（`toolSafetyLevelSchema`） | 工具安全级别（read_only 白名单）有线 |
+| T-08 | B→已落地 | 第三批 | 2026-08-26 | `docs/explanation/persona-organization.md`（AVX-EXPL-003） | 桌宠角色设定独立成文档（核心概念/外形/提示词边界/识别边界），按人设目录版本化（CAP-019） |
+| T-04 | A（运行时接线） | 第四批 | 2026-08-26 | `apps/api/src/modules/tools/`（`runtime.ts`/`memory-store-tool.ts`/`mcp.ts`/`routes.ts`） | MemoryStoreTool 运行时 + ToolRuntime + `/v1/tools` 路由 + MCP 形态 listTools/callTool；PET-05 在调用侧强制授权 |
+| T-03 | A（消费接线） | 第四批 | 2026-08-26 | `apps/worker/src/compaction-marker.ts` | 消费 outbox `memory.compaction.requested` 事件异步落库压缩标记 + 审计（先写后投递） |
+| T-05 | A（迁移接线） | 第四批 | 2026-08-26 | `apps/worker/src/embedding-migration.ts` | 扫描缺向量记忆 → 批量生成 → insertBatch；可中止 + 进度回调；provider 未注入诚实跳过 |
+| T-06 | B→已落地 | 第四批 | 2026-08-26 | `packages/database/src/migration/migration-service.ts` | 迁移 journal（`_migration_journal`）+ 幂等重入 + 旧库列补齐纳入迁移步骤 |
+| AST-05 | B→已落地雏形 | 第四批 | 2026-08-26 | `packages/database/src/migration/migration-service.ts`（完成标记）、`apps/worker/src/pipeline.ts` | `isMigrationCompleted` 双条件幂等 + `PIPELINE_STAGES` 显式顺序 + 短路语义 |
+| T-09 | B→已落地 | 第四批 | 2026-08-26 | `packages/database/src/sync/git-snapshot.ts` | 行级快照导出/恢复 + 快照命名约定；git 提交/回滚由宿主（CLI/桌面）按需调用 |
+| T-10 | B→已落地 | 第四批 | 2026-08-26 | `packages/database/src/token-usage.ts` | Token 用量分账（非缓存/缓存读/缓存写），兼容 OpenAI/旧形态 |
+| PET-01 | A（前端消费） | 第四批 | 2026-08-26 | `packages/api-client/src/transport.ts`、`desktop-transport.ts`、`useAervoxTurn.ts`、`packages/ui/src/components/PetHero.vue` | emote 事件透传 + `PetHero` activeEmote/activeGesture 消费 |
+| AST-04 | B→已落地（运行时） | 第四批 | 2026-08-26 | `apps/api/src/modules/plugins/` | CAP-020 插件运行时：安装/启停/卸载 + 工具注册联动 + 权限授予/撤销/查询 |
 
 ### 6.2 待接线缺口（现状如实记录）
 
-§6.1 已落地项多为**定义 / 存储 / 仓储接口**层面，以下运行时链路尚未接线，未登记为完成：
+第四批已接通运行时链路（tools 路由 / Worker 消费 / 前端 emote / 插件运行时）。以下残留缺口仍未接线，未登记为完成：
 
 | 缺口 | 关联设计 | 说明 |
 |---|---|---|
-| `MemoryStoreTool` 运行时实现 | T-04 | 仅定义输入/输出契约；embedding、去重、写记忆的编排逻辑未实现 |
-| 内部工具 MCP server 暴露 | T-04 | `aervox_*` 式工具未走 MCP 通道暴露给运行时 |
-| 工具注册表 API 路由 | T-04 / AST-04 | 未将 `tool_registrations` 暴露成 `/v1/tools` 等路由 |
-| Worker 异步消费链路 | T-03 / T-05 / AST-02 | 压缩标记写入、embedding 迁移的异步排队消费未接 |
-| 前端表现层消费 emote 事件 | PET-01 | `emote` 事件未接到 Vue 桌宠组件（`PetHero.vue`） |
-| 真实向量库接入 | T-05 | 当前为 SQLite 行扫描 + JS 余弦兜底，未接 pgvector |
+| 真实向量库接入 | T-05 | 当前为 SQLite 行扫描 + JS 余弦兜底，未接 pgvector；embedding provider（真实服务）需在生产注入 |
+| 压缩摘要由模型生成 | T-03 | Worker 已消费事件落库；`summaryText` 的生成仍待接入摘要模型 |
+| AST-03 人设解析链 | AST-03 | 文档组织已就绪（AVX-EXPL-003），运行时解析链随 CAP-019 立项 |
+| PET-03 / PET-04 桌宠自主行为与表现驱动抽象 | PET-03/04 | 前端已消费 emote 指令，完整行为引擎与 PetDriver 抽象随桌面端功能扩展引入 |
+| T-07 桌面 preload 分域迁移覆盖 | T-07 | 已提供按域 API 结构（`preload/domains/`）并兼容旧通道；桌面端全面迁移到新域通道待功能扩展时推进 |
 
 ## 7. 参照
 
