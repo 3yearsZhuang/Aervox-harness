@@ -27,6 +27,7 @@ docs/
     PRD.md · ARCHITECTURE.md · SRS.md · REQUIREMENTS_TRACEABILITY.md
     capability-composition.md
     DATABASE.md · STREAMING_PROTOCOL.md
+    plugin-config-and-pages.md
     DATA_PRIVACY.md · AI_QUALITY_SAFETY.md · THREAT_MODEL.md · TEST_STRATEGY.md
     RUNBOOK.md · ONCALL.md · DRILL_TEMPLATE.md
 reference/               # 固定 commit 的子模块（只读参考，见 PRD 15.1；与上文 docs/reference/ 不同）

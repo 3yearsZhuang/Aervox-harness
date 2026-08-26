@@ -1294,6 +1294,61 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     CREATE INDEX IF NOT EXISTS tool_registrations_category_enabled_idx ON tool_registrations(category, enabled);
   `);
 
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS plugin_configs (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      plugin_id TEXT NOT NULL,
+      values_json TEXT NOT NULL,
+      secret_keys_json TEXT NOT NULL,
+      schema_version INTEGER NOT NULL DEFAULT 1,
+      revision INTEGER NOT NULL DEFAULT 0,
+      orphaned_values_json TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS plugin_configs_tenant_plugin_idx ON plugin_configs(workspace_id, subject_user_id, plugin_id);
+  `);
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS plugin_config_secrets (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      plugin_id TEXT NOT NULL,
+      field_key TEXT NOT NULL,
+      value_json TEXT NOT NULL,
+      configured INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS plugin_config_secrets_tenant_plugin_field_idx ON plugin_config_secrets(workspace_id, subject_user_id, plugin_id, field_key);
+  `);
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS plugin_pages (
+      id TEXT PRIMARY KEY,
+      plugin_id TEXT NOT NULL,
+      page_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      entry TEXT NOT NULL,
+      capabilities_json TEXT NOT NULL,
+      checksum TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS plugin_pages_plugin_page_idx ON plugin_pages(plugin_id, page_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS plugin_pages_plugin_idx ON plugin_pages(plugin_id);
+  `);
+
   // AST-04 插件元数据列补齐（旧库 addColumnIfMissing 兼容）
   await addColumnIfMissing(client, "plugins", "display_name", "display_name TEXT");
   await addColumnIfMissing(client, "plugins", "repository", "repository TEXT");
@@ -1301,6 +1356,8 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await addColumnIfMissing(client, "plugins", "dependencies_json", "dependencies_json TEXT");
   await addColumnIfMissing(client, "plugins", "i18n_json", "i18n_json TEXT");
   await addColumnIfMissing(client, "plugins", "registry_meta_json", "registry_meta_json TEXT");
+  await addColumnIfMissing(client, "plugins", "config_schema_json", "config_schema_json TEXT");
+  await addColumnIfMissing(client, "plugins", "config_schema_version", "config_schema_version INTEGER NOT NULL DEFAULT 1");
 
   // 18. CAP-020 Skill 能力：注册表 + Neo 生命周期（系统级，无租户列）
   await client.execute(`
