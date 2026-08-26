@@ -10,3 +10,9 @@
 [submodule "reference/dsh-synapse"]
 	path = reference/dsh-synapse
 	url = https://github.com/liangmianya/dsh-synapse.git
+[submodule "reference/AstrBot"]
+	path = reference/AstrBot
+	url = https://github.com/AstrBotDevs/AstrBot.git
+[submodule "reference/Petra"]
+	path = reference/Petra
+	url = https://github.com/Wumiu/Petra.git
