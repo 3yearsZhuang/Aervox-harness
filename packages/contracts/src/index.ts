@@ -29,6 +29,21 @@ import {
   petSheetStateSchema,
   pluginMetadataSchema,
   redactedEventDataSchema,
+  skillCandidateCreateSchema,
+  skillCandidateSchema,
+  skillCandidateStatusSchema,
+  skillEvaluationSchema,
+  skillInstallRequestSchema,
+  skillMetadataSchema,
+  skillNameSchema,
+  skillPayloadCreateSchema,
+  skillPayloadSchema,
+  skillPromoteRequestSchema,
+  skillReleaseSchema,
+  skillSourceEvidenceSchema,
+  skillSourceSchema,
+  skillStageSchema,
+  skillDescriptorSchema,
   streamErrorCodeSchema,
   streamEventTypeSchema,
   toolCategorySchema,
@@ -84,3 +99,18 @@ export type PetSheetState = z.infer<typeof petSheetStateSchema>;
 export type PetSheetLayout = z.infer<typeof petSheetLayoutSchema>;
 export type PetManifest = z.infer<typeof petManifestSchema>;
 export type PetSheetRowFrames = z.infer<typeof petSheetRowFramesSchema>;
+export type SkillSource = z.infer<typeof skillSourceSchema>;
+export type SkillName = z.infer<typeof skillNameSchema>;
+export type SkillStage = z.infer<typeof skillStageSchema>;
+export type SkillCandidateStatus = z.infer<typeof skillCandidateStatusSchema>;
+export type SkillMetadata = z.infer<typeof skillMetadataSchema>;
+export type SkillDescriptor = z.infer<typeof skillDescriptorSchema>;
+export type SkillInstallRequest = z.infer<typeof skillInstallRequestSchema>;
+export type SkillPayload = z.infer<typeof skillPayloadSchema>;
+export type SkillPayloadCreate = z.infer<typeof skillPayloadCreateSchema>;
+export type SkillSourceEvidence = z.infer<typeof skillSourceEvidenceSchema>;
+export type SkillCandidate = z.infer<typeof skillCandidateSchema>;
+export type SkillCandidateCreate = z.infer<typeof skillCandidateCreateSchema>;
+export type SkillEvaluation = z.infer<typeof skillEvaluationSchema>;
+export type SkillRelease = z.infer<typeof skillReleaseSchema>;
+export type SkillPromoteRequest = z.infer<typeof skillPromoteRequestSchema>;
