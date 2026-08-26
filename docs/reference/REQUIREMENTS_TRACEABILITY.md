@@ -2,7 +2,7 @@
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
-> 文档版本：v0.4  
+> 文档版本：v0.5  
 > 文档状态：评审候选（Review Candidate）  
 > 更新日期：2026-08-26  
 > 产品需求来源：[PRD.md](PRD.md)
@@ -190,7 +190,10 @@
 | Skill 管理模块与 API（zip 安装 + 渐进式披露 prompt） | CAP-020 | `apps/api/src/modules/skills/`（`zip.ts`/`skill-manager.ts`/`skill-prompt.ts`/`routes.ts`） | 2026-08-26 | API 集成测试 | `Skill`（借鉴 AstrBot） |
 | Skill Neo 生命周期 + `aervox_skill_*` 工具 | CAP-020 | `apps/api/src/modules/skills/`（`lifecycle.ts`/`skill-tools.ts`） | 2026-08-26 | API 集成测试 | `Skill`（借鉴 AstrBot，PET-05 安全级别） |
 | 插件技能联动（只读注册 / 启停 / 卸载） | CAP-020 | `apps/api/src/modules/plugins/service.ts` | 2026-08-26 | API 集成测试 | `Skill`（借鉴 AstrBot） |
-| CI 增量缓存（pnpm store + Turbo 本地缓存，只验证变更包） | 基础设施 | `.github/workflows/ci.yml` | 2026-08-26 | YAML 结构校验（CI 实测待 PR 后确认） | 原生 |
+| CI 增量缓存（pnpm store + Turbo 本地缓存，只验证变更包） | 基础设施 | `.github/workflows/ci.yml` | 2026-08-26 | YAML 结构校验 + CI 实测通过（1m20s→32s） | 原生 |
+| `aervox dev` 命令入口修复（`pnpm exec turbo`，修复 PATH 缺 `.bin`） | 基础设施 | `aervox` | 2026-08-26 | 启动验证（`./aervox dev web`） | 原生 |
+| 全能力可选组合目标规范文档化 | CAP-020/027/031 + 基础设施 | `docs/reference/capability-composition.md`（AVX-CAP-001） | 2026-08-26 | ci-docs | `DSH-01` + `PI-01` + 原生 |
+| 已集成能力迁移与 DSH/pi 接入教程文档化 | CAP-020/027 | `docs/tutorials/migrate-integrated-capabilities.md`（AVX-TUT-002） | 2026-08-26 | ci-docs | `DSH-01` + `PI-01` + 原生 |
 
 ## 5. 原子需求字段模板
 
