@@ -2454,6 +2454,326 @@
           "displayName",
           "pageId"
         ]
+      },
+      "PracticeQuestion": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "subjectUserId": {
+            "type": "string"
+          },
+          "sourceArtifactId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "knowledgeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "answerSpec": {},
+          "status": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workspaceId",
+          "subjectUserId",
+          "prompt",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreatePracticeSessionRequest": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 3,
+            "maximum": 5
+          }
+        }
+      },
+      "CreatePracticeSessionResponse": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "workspaceId": {
+                  "type": "string"
+                },
+                "subjectUserId": {
+                  "type": "string"
+                },
+                "sourceArtifactId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "knowledgeId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "prompt": {
+                  "type": "string"
+                },
+                "answerSpec": {},
+                "status": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "updatedAt": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "workspaceId",
+                "subjectUserId",
+                "prompt",
+                "status",
+                "createdAt",
+                "updatedAt"
+              ]
+            }
+          }
+        },
+        "required": [
+          "sessionId",
+          "items"
+        ]
+      },
+      "PracticeReport": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string"
+          },
+          "questionCount": {
+            "type": "integer"
+          },
+          "answeredCount": {
+            "type": "integer"
+          },
+          "remainingCount": {
+            "type": "integer"
+          },
+          "correctCount": {
+            "type": "integer"
+          },
+          "incorrectCount": {
+            "type": "integer"
+          },
+          "unverifiableCount": {
+            "type": "integer"
+          },
+          "accuracy": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "nextStep": {
+            "type": "string",
+            "enum": [
+              "review_scheduled",
+              "await_review",
+              "continue"
+            ]
+          }
+        },
+        "required": [
+          "sessionId",
+          "questionCount",
+          "answeredCount",
+          "remainingCount",
+          "correctCount",
+          "incorrectCount",
+          "unverifiableCount",
+          "accuracy",
+          "nextStep"
+        ]
+      },
+      "MistakeItem": {
+        "type": "object",
+        "properties": {
+          "questionId": {
+            "type": "string"
+          },
+          "knowledgeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "latestAnswer": {
+            "type": "string"
+          },
+          "latestAttemptAt": {
+            "type": "string"
+          },
+          "wrongCount": {
+            "type": "integer"
+          },
+          "masteryState": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "mastered"
+            ]
+          }
+        },
+        "required": [
+          "questionId",
+          "knowledgeId",
+          "prompt",
+          "latestAnswer",
+          "latestAttemptAt",
+          "wrongCount",
+          "masteryState",
+          "status"
+        ]
+      },
+      "MistakeListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "questionId": {
+                  "type": "string"
+                },
+                "knowledgeId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "prompt": {
+                  "type": "string"
+                },
+                "latestAnswer": {
+                  "type": "string"
+                },
+                "latestAttemptAt": {
+                  "type": "string"
+                },
+                "wrongCount": {
+                  "type": "integer"
+                },
+                "masteryState": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "mastered"
+                  ]
+                }
+              },
+              "required": [
+                "questionId",
+                "knowledgeId",
+                "prompt",
+                "latestAnswer",
+                "latestAttemptAt",
+                "wrongCount",
+                "masteryState",
+                "status"
+              ]
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "UpdateMistakeRequest": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "mastered"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "RepracticeRequest": {
+        "type": "object",
+        "properties": {
+          "questionIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "maxItems": 5
+          }
+        }
+      },
+      "CreateAttemptRequest": {
+        "type": "object",
+        "properties": {
+          "answer": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "answer"
+        ]
       }
     },
     "parameters": {}
@@ -6387,6 +6707,822 @@
         "responses": {
           "200": {
             "description": "JavaScript"
+          }
+        }
+      }
+    },
+    "/v1/practice/sessions": {
+      "post": {
+        "summary": "创建短时练习会话（3~5 题）",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "count": {
+                    "type": "integer",
+                    "minimum": 3,
+                    "maximum": 5
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sessionId": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "workspaceId": {
+                            "type": "string"
+                          },
+                          "subjectUserId": {
+                            "type": "string"
+                          },
+                          "sourceArtifactId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "knowledgeId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "prompt": {
+                            "type": "string"
+                          },
+                          "answerSpec": {},
+                          "status": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "workspaceId",
+                          "subjectUserId",
+                          "prompt",
+                          "status",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "sessionId",
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "count 必须为 3~5 的整数"
+          },
+          "409": {
+            "description": "活跃题目数量不足"
+          }
+        }
+      }
+    },
+    "/v1/practice/sessions/{sessionId}/report": {
+      "get": {
+        "summary": "读取练习会话报告",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "sessionId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sessionId": {
+                      "type": "string"
+                    },
+                    "questionCount": {
+                      "type": "integer"
+                    },
+                    "answeredCount": {
+                      "type": "integer"
+                    },
+                    "remainingCount": {
+                      "type": "integer"
+                    },
+                    "correctCount": {
+                      "type": "integer"
+                    },
+                    "incorrectCount": {
+                      "type": "integer"
+                    },
+                    "unverifiableCount": {
+                      "type": "integer"
+                    },
+                    "accuracy": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "nextStep": {
+                      "type": "string",
+                      "enum": [
+                        "review_scheduled",
+                        "await_review",
+                        "continue"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "sessionId",
+                    "questionCount",
+                    "answeredCount",
+                    "remainingCount",
+                    "correctCount",
+                    "incorrectCount",
+                    "unverifiableCount",
+                    "accuracy",
+                    "nextStep"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PRACTICE_SESSION_NOT_FOUND"
+          }
+        }
+      }
+    },
+    "/v1/practice/sessions/{sessionId}/complete": {
+      "post": {
+        "summary": "结束练习会话并返回报告",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "sessionId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sessionId": {
+                      "type": "string"
+                    },
+                    "questionCount": {
+                      "type": "integer"
+                    },
+                    "answeredCount": {
+                      "type": "integer"
+                    },
+                    "remainingCount": {
+                      "type": "integer"
+                    },
+                    "correctCount": {
+                      "type": "integer"
+                    },
+                    "incorrectCount": {
+                      "type": "integer"
+                    },
+                    "unverifiableCount": {
+                      "type": "integer"
+                    },
+                    "accuracy": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "nextStep": {
+                      "type": "string",
+                      "enum": [
+                        "review_scheduled",
+                        "await_review",
+                        "continue"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "sessionId",
+                    "questionCount",
+                    "answeredCount",
+                    "remainingCount",
+                    "correctCount",
+                    "incorrectCount",
+                    "unverifiableCount",
+                    "accuracy",
+                    "nextStep"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PRACTICE_SESSION_NOT_FOUND"
+          }
+        }
+      }
+    },
+    "/v1/mistakes": {
+      "get": {
+        "summary": "列出错题本",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "mastered",
+                "all"
+              ]
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mistakes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "questionId": {
+                            "type": "string"
+                          },
+                          "knowledgeId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "prompt": {
+                            "type": "string"
+                          },
+                          "latestAnswer": {
+                            "type": "string"
+                          },
+                          "latestAttemptAt": {
+                            "type": "string"
+                          },
+                          "wrongCount": {
+                            "type": "integer"
+                          },
+                          "masteryState": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "mastered"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "questionId",
+                          "knowledgeId",
+                          "prompt",
+                          "latestAnswer",
+                          "latestAttemptAt",
+                          "wrongCount",
+                          "masteryState",
+                          "status"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "status 非法"
+          }
+        }
+      }
+    },
+    "/v1/mistakes/{questionId}": {
+      "patch": {
+        "summary": "标记错题掌握状态",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "questionId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "mastered"
+                    ]
+                  }
+                },
+                "required": [
+                  "status"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "questionId": {
+                      "type": "string"
+                    },
+                    "knowledgeId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "prompt": {
+                      "type": "string"
+                    },
+                    "latestAnswer": {
+                      "type": "string"
+                    },
+                    "latestAttemptAt": {
+                      "type": "string"
+                    },
+                    "wrongCount": {
+                      "type": "integer"
+                    },
+                    "masteryState": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "active",
+                        "mastered"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "questionId",
+                    "knowledgeId",
+                    "prompt",
+                    "latestAnswer",
+                    "latestAttemptAt",
+                    "wrongCount",
+                    "masteryState",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "status 非法"
+          },
+          "404": {
+            "description": "MISTAKE_NOT_FOUND"
+          },
+          "409": {
+            "description": "错题无关联知识点"
+          }
+        }
+      }
+    },
+    "/v1/mistakes/repractice": {
+      "post": {
+        "summary": "从错题本创建重练会话",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "questionIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "maxItems": 5
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sessionId": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "workspaceId": {
+                            "type": "string"
+                          },
+                          "subjectUserId": {
+                            "type": "string"
+                          },
+                          "sourceArtifactId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "knowledgeId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "prompt": {
+                            "type": "string"
+                          },
+                          "answerSpec": {},
+                          "status": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "workspaceId",
+                          "subjectUserId",
+                          "prompt",
+                          "status",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "sessionId",
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "questionIds 非法或含非活跃错题"
+          },
+          "409": {
+            "description": "错题题目不可用"
+          }
+        }
+      }
+    },
+    "/v1/questions/{questionId}/attempts": {
+      "post": {
+        "summary": "作答题目（不可变学习事实，可关联练习会话）",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "questionId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "answer": {
+                    "type": "string"
+                  },
+                  "idempotencyKey": {
+                    "type": "string"
+                  },
+                  "sessionId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "answer"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Attempt recorded"
+          },
+          "400": {
+            "description": "请求或会话信息非法"
+          },
+          "404": {
+            "description": "QUESTION_NOT_FOUND"
+          },
+          "409": {
+            "description": "练习会话未激活或题目不属于该会话"
           }
         }
       }

@@ -70,6 +70,18 @@ import {
   pluginManifestSchema,
   pluginPageContextSchema,
 } from "./plugin-config-schemas.js";
+import {
+  createAttemptRequestSchema,
+  createPracticeSessionRequestSchema,
+  createPracticeSessionResponseSchema,
+  mistakeItemSchema,
+  mistakeListResponseSchema,
+  mistakeStatusEnumSchema,
+  practiceQuestionSchema,
+  practiceReportSchema,
+  repracticeRequestSchema,
+  updateMistakeRequestSchema,
+} from "./practice-schemas.js";
 
 const registry = new OpenAPIRegistry();
 
@@ -124,6 +136,16 @@ registry.register("PluginPage", pluginPageSchema);
 registry.register("PluginPageAssetsRequest", pluginPageAssetsRequestSchema);
 registry.register("PluginManifest", pluginManifestSchema);
 registry.register("PluginPageContext", pluginPageContextSchema);
+
+registry.register("PracticeQuestion", practiceQuestionSchema);
+registry.register("CreatePracticeSessionRequest", createPracticeSessionRequestSchema);
+registry.register("CreatePracticeSessionResponse", createPracticeSessionResponseSchema);
+registry.register("PracticeReport", practiceReportSchema);
+registry.register("MistakeItem", mistakeItemSchema);
+registry.register("MistakeListResponse", mistakeListResponseSchema);
+registry.register("UpdateMistakeRequest", updateMistakeRequestSchema);
+registry.register("RepracticeRequest", repracticeRequestSchema);
+registry.register("CreateAttemptRequest", createAttemptRequestSchema);
 
 const sessionIdParam = z.object({ sessionId: z.string().min(1) });
 const turnIdParam = z.object({ turnId: z.string().min(1) });
@@ -371,8 +393,51 @@ registry.registerPath({
   responses: { 201: { description: "Written" }, 400: { description: "INVALID_ASSET_PATH" } },
 });
 registry.registerPath({
-  method: "get", path: "/v1/plugin-pages/bridge.js", summary: "Page Bridge SDK", tags: ["Plugins"],
+  method: "get",
+  path: "/v1/plugin-pages/bridge.js",
+  summary: "Page Bridge SDK",
+  tags: ["Plugins"],
   responses: { 200: { description: "JavaScript" } },
+});
+
+const practiceSessionIdParam = z.object({ sessionId: z.string().min(1) });
+const learningQuestionIdParam = z.object({ questionId: z.string().min(1) });
+const mistakeListQuery = z.object({ status: mistakeStatusEnumSchema.optional() });
+
+registry.registerPath({
+  method: "post", path: "/v1/practice/sessions", summary: "创建短时练习会话（3~5 题）", tags: ["Learning"],
+  request: { headers: scopeHeaders, body: { content: { "application/json": { schema: createPracticeSessionRequestSchema } } } },
+  responses: { 201: { description: "Created", content: { "application/json": { schema: createPracticeSessionResponseSchema } } }, 400: { description: "count 必须为 3~5 的整数" }, 409: { description: "活跃题目数量不足" } },
+});
+registry.registerPath({
+  method: "get", path: "/v1/practice/sessions/{sessionId}/report", summary: "读取练习会话报告", tags: ["Learning"],
+  request: { params: practiceSessionIdParam, headers: scopeHeaders },
+  responses: { 200: { description: "Report", content: { "application/json": { schema: practiceReportSchema } } }, 404: { description: "PRACTICE_SESSION_NOT_FOUND" } },
+});
+registry.registerPath({
+  method: "post", path: "/v1/practice/sessions/{sessionId}/complete", summary: "结束练习会话并返回报告", tags: ["Learning"],
+  request: { params: practiceSessionIdParam, headers: scopeHeaders },
+  responses: { 200: { description: "Report", content: { "application/json": { schema: practiceReportSchema } } }, 404: { description: "PRACTICE_SESSION_NOT_FOUND" } },
+});
+registry.registerPath({
+  method: "get", path: "/v1/mistakes", summary: "列出错题本", tags: ["Learning"],
+  request: { query: mistakeListQuery, headers: scopeHeaders },
+  responses: { 200: { description: "Mistakes", content: { "application/json": { schema: mistakeListResponseSchema } } }, 400: { description: "status 非法" } },
+});
+registry.registerPath({
+  method: "patch", path: "/v1/mistakes/{questionId}", summary: "标记错题掌握状态", tags: ["Learning"],
+  request: { params: learningQuestionIdParam, headers: scopeHeaders, body: { content: { "application/json": { schema: updateMistakeRequestSchema } } } },
+  responses: { 200: { description: "Updated", content: { "application/json": { schema: mistakeItemSchema } } }, 400: { description: "status 非法" }, 404: { description: "MISTAKE_NOT_FOUND" }, 409: { description: "错题无关联知识点" } },
+});
+registry.registerPath({
+  method: "post", path: "/v1/mistakes/repractice", summary: "从错题本创建重练会话", tags: ["Learning"],
+  request: { headers: scopeHeaders, body: { content: { "application/json": { schema: repracticeRequestSchema } } } },
+  responses: { 201: { description: "Created", content: { "application/json": { schema: createPracticeSessionResponseSchema } } }, 400: { description: "questionIds 非法或含非活跃错题" }, 409: { description: "错题题目不可用" } },
+});
+registry.registerPath({
+  method: "post", path: "/v1/questions/{questionId}/attempts", summary: "作答题目（不可变学习事实，可关联练习会话）", tags: ["Learning"],
+  request: { params: learningQuestionIdParam, headers: scopeHeaders, body: { content: { "application/json": { schema: createAttemptRequestSchema } } } },
+  responses: { 200: { description: "Attempt recorded" }, 400: { description: "请求或会话信息非法" }, 404: { description: "QUESTION_NOT_FOUND" }, 409: { description: "练习会话未激活或题目不属于该会话" } },
 });
 
 const generator = new OpenApiGeneratorV31(registry.definitions);
