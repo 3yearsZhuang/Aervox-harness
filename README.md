@@ -1,6 +1,6 @@
 # Aervox｜思隅
 
-面向编程初学者的 AI 陪伴式学习产品。本仓库承载产品定义、工程规范与契约种子，代码以 TypeScript 全栈交付。
+更好上手的"主动智能" Agent：以桌宠为入口，视觉小说 + 工作台双形态交互，承载陪伴与学习双重任务。本仓库承载产品定义、工程规范与契约种子，代码以 TypeScript 全栈交付。
 
 ## 快速开始
 
@@ -87,6 +87,13 @@ AERVOX_API_URL='http://127.0.0.1:3000' AERVOX_SESSION_ID='<现有会话 ID>' pnp
 
 浏览器版对话 + 学习工作台（端口 5173），复用桌面端 renderer 核心（composables / SSE 浏览器分支），桌宠以同页浮层呈现。移动端（Capacitor）为其壳，原生平台随 auth（PG 阶段）启用。
 
+### 桌宠表现
+
+桌宠支持两种渲染形态，共用一套表现契约（`@aervox/contracts`）与 SSE `emote` 事件：
+
+- **CSS 骨架**（`PetHero`）：静态 DOM + CSS 变换表达 emote/gesture，无外部素材依赖；
+- **Codex Pets 兼容精灵图**（`SpritePet`）：消费 Codex Pets 9 状态 spritesheet（`pet.json` + 8×9 atlas），工具调用结果经 `/v1/tools/:id/call` 的 `sheetState` 驱动姿态（成功 `waving` / 失败 `failed`）。
+
 ### 环境变量
 
 | 端            | 变量                                     | 说明                                                                                                                             |
@@ -109,12 +116,17 @@ AERVOX_API_URL='http://127.0.0.1:3000' AERVOX_SESSION_ID='<现有会话 ID>' pnp
 ## 项目状态与质量门禁
 
 - P0（CAP-001\~013）需求已 `Specified` 并进入 DoR 评估；
-- 首批落地：API 域路由 + SQLite 仓储（[AVX-DB-001](docs/reference/DATABASE.md)）、Fairy 桌面端、Web 工作台、学习域契约、间隔重复调度。
+- 首批落地：API 域路由 + SQLite 仓储（[AVX-DB-001](docs/reference/DATABASE.md)）、Fairy 桌面端、Web 工作台、学习域契约、间隔重复调度；
+- 持续演进（[落地追踪基线 §4.2](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记) 有全部登记）：
+  - **数据/存储**：SQLite 写路径 busy 重试（T-01）、会话级写锁（AST-01）、FTS+向量 RRF 混合检索（T-02）、上下文压缩标记（T-03）、Embedding 独立表（T-05）、迁移服务与完成标记（T-06/AST-05）、数据版本快照（T-09）、Token 用量分账（T-10）；
+  - **工具与插件**：工具注册表 + 运行时 + `/v1/tools`（T-04）、插件运行时（CAP-020）、PET-05 工具安全级别白名单；
+  - **桌宠表现**：表现指令契约与前端消费（PET-01/02）、Codex Pets 兼容的 9 状态 spritesheet 协议（`pet.json` + 8×9 atlas + 工具状态驱动，原生·外部协议兼容）、桌面 preload 按域 IPC（T-07）、桌宠角色设定文档化（T-08，AVX-EXPL-003）。
 
 合并到 `main` 前通过（本地 `./aervox ci` 等效，CI 定义见 `.github/workflows/`）：
 
 - **代码**（`apps/**`、`packages/**`、锁文件等）：install + build + typecheck + test；
-- **文档**（`docs/**`、`README.md`、`AGENTS.md` 等）：markdown lint + Vale 术语检查 + 链接检查。
+- **文档**（`docs/**`、`README.md`、`AGENTS.md` 等）：markdown lint + Vale 术语检查 + 链接检查；
+- 变更一律走功能分支 + PR 合入 `main`（分支前缀：`feat/` `fix/` `docs/`）；PR 描述须引用对应落地登记。
 
 ## License
 
