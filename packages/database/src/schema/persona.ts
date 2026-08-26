@@ -1,9 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 人格/技能/MCP/上下文快照实体表（CAP-019/CAP-020）
- *
- * 规则依据：docs/reference/PRD.md §8 数据模型 + docs/reference/DATABASE.md §14
- * Persona 属于可选模块 `@aervox/mod-persona` 的领域，但持久化真源由主仓 @aervox/database 拥有；
- * 模块仅提供纯领域与组合逻辑，不直接写库。
+ * Aervox｜思隅 @aervox/database — 人格与上下文快照实体表（CAP-019/CAP-020）
  */
 import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { tenantColumns, timestampColumns } from "./common.js";
@@ -69,67 +65,6 @@ export const personaSelections = sqliteTable(
   }),
 );
 
-/** 工作区 Anthropic Skills（CAP-020）；文件以 base64 JSON 持久化，脚本不执行 */
-export const workspaceSkills = sqliteTable(
-  "workspace_skills",
-  {
-    id: text("id").primaryKey(),
-    ...tenantColumns,
-    name: text("name").notNull(),
-    description: text("description").notNull(),
-    license: text("license"),
-    compatibility: text("compatibility"),
-    metadata: text("metadata", { mode: "json" }),
-    allowedTools: text("allowed_tools", { mode: "json" }),
-    source: text("source").notNull().default("workspace"), // "active" | "workspace" | "imported"
-    version: integer("version").notNull().default(1),
-    checksum: text("checksum").notNull(),
-    enabled: integer("enabled").notNull().default(1),
-    valid: integer("valid").notNull().default(1),
-    validationErrors: text("validation_errors", { mode: "json" }).notNull().default([]),
-    filesJson: text("files_json").notNull(), // { path: base64 }
-    skillMarkdown: text("skill_markdown").notNull(),
-    importedAt: text("imported_at").notNull(),
-    ...timestampColumns,
-  },
-  (table) => ({
-    tenantNameUniqueIdx: uniqueIndex("workspace_skills_tenant_name_unique_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.name,
-    ),
-    tenantIdx: index("workspace_skills_tenant_idx").on(table.workspaceId, table.subjectUserId),
-  }),
-);
-
-/** MCP 工具注册表（每租户工具策略输入；授权最终由服务端 ToolPolicy 决定） */
-export const mcpTools = sqliteTable(
-  "mcp_tools",
-  {
-    id: text("id").primaryKey(), // "{serverId}:{toolName}"
-    ...tenantColumns,
-    serverId: text("server_id").notNull(),
-    name: text("name").notNull(),
-    description: text("description"),
-    inputSchema: text("input_schema", { mode: "json" }),
-    scopes: text("scopes", { mode: "json" }).notNull().default([]),
-    healthy: integer("healthy").notNull().default(1),
-    authorized: integer("authorized").notNull().default(1),
-    revoked: integer("revoked").notNull().default(0),
-    killSwitch: integer("kill_switch").notNull().default(0),
-    ...timestampColumns,
-  },
-  (table) => ({
-    tenantIdx: index("mcp_tools_tenant_idx").on(table.workspaceId, table.subjectUserId),
-    tenantServerNameIdx: uniqueIndex("mcp_tools_tenant_server_name_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.serverId,
-      table.name,
-    ),
-  }),
-);
-
 /** Turn 级 PersonaContextSnapshot（审计/重放；不含完整敏感 Prompt） */
 export const personaTurnContexts = sqliteTable(
   "persona_turn_contexts",
@@ -158,4 +93,3 @@ export const personaTurnContexts = sqliteTable(
     ),
   }),
 );
-

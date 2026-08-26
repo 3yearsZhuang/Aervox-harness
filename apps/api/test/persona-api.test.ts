@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createInMemoryDatabase, SqliteSkillRepository, type AervoxDatabase } from "@aervox/database";
+import { strToU8, zipSync } from "fflate";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { createInMemoryDatabase, type AervoxDatabase } from "@aervox/database";
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
@@ -14,13 +18,15 @@ describe("Persona API：SQLite 持久化 + Skills/MCP/Voice", () => {
   let db: AervoxDatabase;
   let client: Client;
   let cleanup: () => Promise<void>;
+  let skillsRoot: string;
 
   beforeEach(async () => {
+    skillsRoot = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-persona-test-"));
     const res = await createInMemoryDatabase();
     db = res.db;
     client = res.client;
     cleanup = res.cleanup;
-    const built = await buildApp({ db, client });
+    const built = await buildApp({ db, client, skillsRoot });
     app = built.app;
     await app.ready();
   });
@@ -28,33 +34,19 @@ describe("Persona API：SQLite 持久化 + Skills/MCP/Voice", () => {
   afterEach(async () => {
     await app.close();
     await cleanup();
+    await fs.rm(skillsRoot, { recursive: true, force: true }).catch(() => undefined);
   });
 
   it("创建/激活人格，导入 Skills 并导出 Persona Bundle", async () => {
-    // 直接经仓储种子工作区技能（/v1/skills* 路由已由系统级 skills 模块接管）
-    const skillRepo = new SqliteSkillRepository(db);
+    // 安装系统级技能
     const markdown = "---\nname: alpha\ndescription: alpha description\n---\n\nUse alpha.";
-    await skillRepo.upsertSkill(
-      { workspaceId: "ws_persona", subjectUserId: "usr_persona" },
-      {
-        id: "alpha",
-        workspaceId: "ws_persona",
-        subjectUserId: "usr_persona",
-        name: "alpha",
-        description: "alpha description",
-        source: "imported",
-        version: 1,
-        checksum: "sha256:alpha",
-        enabled: 1,
-        valid: 1,
-        validationErrors: [],
-        filesJson: { "SKILL.md": Buffer.from(markdown).toString("base64") },
-        skillMarkdown: markdown,
-        importedAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-    );
+    const skillZip = zipSync({ "alpha/SKILL.md": strToU8(markdown) });
+    const installRes = await app.inject({
+      method: "POST",
+      url: "/v1/skills",
+      payload: { zipBase64: Buffer.from(skillZip).toString("base64") },
+    });
+    expect(installRes.statusCode).toBe(201);
 
     // 创建人格并激活
     const create = await app.inject({
