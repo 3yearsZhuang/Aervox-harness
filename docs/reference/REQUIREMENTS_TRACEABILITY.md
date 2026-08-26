@@ -103,32 +103,32 @@
 | `CAP-002` | 学习目标与对话 | `P0 · R1` | `Specified` | Not Ready | — | [学习目标](PRD.md#prd-cap-002)、[引导式学习对话](PRD.md#prd-cap-007) | 拆分 `FR/BR/AC`，明确会话状态、并发修改、归档和恢复规则 |
 | `CAP-003` | 互动刷题 | `P0 · R1` | `Specified` | Not Ready | — | [互动练习与错题本](PRD.md#prd-cap-003-004) | 补题目来源、答案可验证性、重复提交、恢复和题组完成规则 |
 | `CAP-004` | 错题本 | `P0 · R1` | `Specified` | Not Ready | — | [互动练习与错题本](PRD.md#prd-cap-003-004) | 补筛选、删除、重练、错因变更、重复题合并和掌握状态规则 |
-| `CAP-005` | 四段式记忆与记忆树 | `P0 · R1–R2` | `Specified` | Not Ready | ✔ | [四段式记忆与记忆树](PRD.md#prd-cap-005) | 拆分各层状态转换、TTL、压缩、冲突、删除、重建和迁移测试；增强候选见 [SRS §7](SRS.md#7-产品上限增强候选需求ab-档评估)（FR-MEM-001/002/003） |
+| `CAP-005` | 四段式记忆与记忆树 | `P0 · R1–R2` | `Specified` | Not Ready | ✔ | [四段式记忆与记忆树](PRD.md#prd-cap-005) | 拆分各层状态转换、TTL、压缩、冲突、删除、重建和迁移测试 |
 | `CAP-006` | 间隔重复 | `P0 · R1` | `Specified` | Not Ready | — | [间隔复习](PRD.md#prd-cap-006) | 明确调度幂等、错过日期、夏令时、算法升级和历史重算策略 |
 | `CAP-007` | 文本与代码答疑 | `P0 · R1` | `Specified` | Not Ready | — | [引导式学习对话](PRD.md#prd-cap-007) | 进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready`（讲解触发复用 `FR-CONV-001`） |
 | `CAP-008` | 情绪价值与安全陪伴 | `P0 · R1` | `Specified` | Not Ready | — | [关系与情绪边界](PRD.md#prd-safety-boundary)、[轻量陪伴](PRD.md#prd-cap-008) | 固定风险分级、地区化求助入口、审计、误报处置和安全回归集 |
-| `CAP-009` | AI 每日日记 | `P0 · R1.5` | `Specified` | Not Ready | ✔ | [AI 每日日记](PRD.md#prd-cap-009)、[日记与记忆层的关系](PRD.md#prd-diary-memory) | 补定时任务幂等、重试、版本冲突、来源快照、通知和时区边界测试；叙事增强候选见 [SRS §7](SRS.md#7-产品上限增强候选需求ab-档评估)（FR-DIA-002/003） |
+| `CAP-009` | AI 每日日记 | `P0 · R1.5` | `Specified` | Not Ready | ✔ | [AI 每日日记](PRD.md#prd-cap-009)、[日记与记忆层的关系](PRD.md#prd-diary-memory) | 补定时任务幂等、重试、版本冲突、来源快照、通知和时区边界测试 |
 | `CAP-010` | 人格问卷与基础偏好 | `P0 · R1.5` | `Specified` | Not Ready | — | [全生命周期功能地图](PRD.md#prd-cap-map)、[P0 最低验收](PRD.md#prd-cap-001-010-013) | 进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready` |
 | `CAP-011` | 学习资料整理 | `P0 · R1.5` | `Specified` | Not Ready | — | [全生命周期功能地图](PRD.md#prd-cap-map)、[P0 最低验收](PRD.md#prd-cap-001-010-013) | 进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready` |
 | `CAP-012` | 多模态答疑 | `P0 · R1.5` | `Specified` | Not Ready | — | [全生命周期功能地图](PRD.md#prd-cap-map)、[P0 最低验收](PRD.md#prd-cap-001-010-013) | 进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready` |
 | `CAP-013` | 消息编辑、删除与引用 | `P0 · R1.5` | `Specified` | Not Ready | ✔ | [学习记录与数据控制](PRD.md#prd-cap-013)、[P0 最低验收](PRD.md#prd-cap-001-010-013) | 进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready` |
-| `CAP-014` | 层级对话与会话地图 | `P1 · R2` | `Mapped` | — | — | [P1 验收原则](PRD.md#prd-cap-014-019) | 补分支生命周期、归属、合并、删除、布局恢复和大图性能；复盘候选见 [SRS §7](SRS.md#7-产品上限增强候选需求ab-档评估)（FR-CONV-006） |
-| `CAP-015` | 思维宇宙 | `P1 · R2` | `Mapped` | — | — | [P1 验收原则](PRD.md#prd-cap-014-019) | 补节点/边类型、证据、纠错传播、版本和可视化交互验收；闪卡候选见 [SRS §7](SRS.md#7-产品上限增强候选需求ab-档评估)（FR-KNO-001） |
+| `CAP-014` | 层级对话与会话地图 | `P1 · R2` | `Mapped` | — | — | [P1 验收原则](PRD.md#prd-cap-014-019) | 补分支生命周期、归属、合并、删除、布局恢复和大图性能 |
+| `CAP-015` | 思维宇宙 | `P1 · R2` | `Mapped` | — | — | [P1 验收原则](PRD.md#prd-cap-014-019) | 补节点/边类型、证据、纠错传播、版本和可视化交互验收 |
 | `CAP-016` | 自适应刷题与报告 | `P1 · R2` | `Mapped` | — | — | [P1 验收原则](PRD.md#prd-cap-014-019) | 补适应算法输入、冷启动、解释、偏差评估和报告口径 |
 | `CAP-017` | 考试日计划 | `P1 · R2` | `Mapped` | — | — | [P1 验收原则](PRD.md#prd-cap-014-019) | 补计划生成约束、滚动调整、冲突、跳过、过期和完成定义 |
-| `CAP-018` | 桌面化与 Live2D | `P1 · R3` | `Specified` | —（待评估） | ✔ | [P1 验收原则](PRD.md#prd-cap-014-019)、[CR-002](changes/CR-002-fairy-desktop-module.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md) | 已移植 `apps/desktop` Electron/Vue UI 与 Turn/SSE 边界；仍需补平台矩阵、签名更新、资源预算、崩溃恢复、后台行为及可执行 TC 证据后进入 Ready；无 UI 陪伴模式候选见 [SRS §7](SRS.md#7-产品上限增强候选需求ab-档评估)（FR-UX-005） |
-| `CAP-019` | 多人格模板 | `P1 · R2` | `Mapped` | — | ✔ | [P1 验收原则](PRD.md#prd-cap-014-019) | 补模板审核、切换、记忆隔离/共享、回滚和人格回归评估；人格切换候选见 [SRS §7](SRS.md#7-产品上限增强候选需求ab-档评估)（FR-PLG-001） |
-| `CAP-020` | 技能与插件系统 | `P2 · R4` | `Mapped` | — | ✔ | [P2 验收原则](PRD.md#prd-cap-020-027) | 补清单格式、权限模型、沙箱、签名、版本兼容、撤权和卸载残留；文档注入与人格切换候选见 [SRS §7](SRS.md#7-产品上限增强候选需求ab-档评估)（FR-MEM-003/FR-PLG-001） |
+| `CAP-018` | 桌面化与 Live2D | `P1 · R3` | `Specified` | —（待评估） | ✔ | [P1 验收原则](PRD.md#prd-cap-014-019)、[CR-002](changes/CR-002-fairy-desktop-module.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md) | 已移植 `apps/desktop` Electron/Vue UI 与 Turn/SSE 边界；仍需补平台矩阵、签名更新、资源预算、崩溃恢复、后台行为及可执行 TC 证据后进入 Ready |
+| `CAP-019` | 多人格模板 | `P1 · R2` | `Mapped` | — | ✔ | [P1 验收原则](PRD.md#prd-cap-014-019) | 补模板审核、切换、记忆隔离/共享、回滚和人格回归评估 |
+| `CAP-020` | 技能与插件系统 | `P2 · R4` | `Mapped` | — | ✔ | [P2 验收原则](PRD.md#prd-cap-020-027) | 补清单格式、权限模型、沙箱、签名、版本兼容、撤权和卸载残留；插件配置规格见 [AVX-PLUG-001](plugin-config-and-pages.md) 与 [CR-006](changes/CR-006-plugin-config-and-pages.md) |
 | `CAP-021` | 学习路线与视频推荐 | `P2 · R4` | `Mapped` | — | — | [P2 验收原则](PRD.md#prd-cap-020-027) | 补来源、排序、失效链接、用户反馈、商业内容标识和推荐评估 |
 | `CAP-022` | 兴趣分析与跨域推荐 | `P2 · R4` | `Mapped` | — | — | [P2 验收原则](PRD.md#prd-cap-020-027) | 补授权信号、解释、关闭/重置、敏感属性禁用和偏差评估 |
 | `CAP-023` | 第三方刷题接入 | `P2 · R4` | `Mapped` | — | — | [P2 验收原则](PRD.md#prd-cap-020-027) | 补 OAuth、字段映射、增量同步、冲突、限流、撤权和删除 |
 | `CAP-024` | 文献阅读与发散 | `P2 · R4` | `Mapped` | — | — | [P2 验收原则](PRD.md#prd-cap-020-027) | 补解析格式、引用定位、长文分段、版权、模型上下文和失败恢复 |
 | `CAP-025` | 线下试卷扫描 | `P2 · R4` | `Mapped` | — | — | [P2 验收原则](PRD.md#prd-cap-020-027) | 补图像质量、分题/批改识别、人工校正、置信度和附件删除 |
 | `CAP-026` | 收藏空间与知识库 | `P2 · R4` | `Mapped` | — | ✔ | [P2 验收原则](PRD.md#prd-cap-020-027) | 补收藏状态、去重、检索、标签、来源失效、导入导出和容量限制 |
-| `CAP-027` | 本地优先与多工作区 | `P2 · R4` | `Mapped` | — | ✔ | [P2 验收原则](PRD.md#prd-cap-020-027) | 补存储格式、工作区隔离、同步冲突、加密、备份恢复和版本迁移；本地语义检索候选见 [SRS §7](SRS.md#7-产品上限增强候选需求ab-档评估)（FR-MEM-001） |
+| `CAP-027` | 本地优先与多工作区 | `P2 · R4` | `Mapped` | — | ✔ | [P2 验收原则](PRD.md#prd-cap-020-027) | 补存储格式、工作区隔离、同步冲突、加密、备份恢复和版本迁移 |
 | `CAP-028` | 社区互助 | `P3 · R5` | `Mapped` | — | — | [P3 验收原则](PRD.md#prd-cap-028-032) | 补角色、发布/回答状态机、信誉、举报申诉、审核 SLA 和未成年保护 |
 | `CAP-029` | 名词解释网页 | `P3 · R5` | `Mapped` | — | — | [P3 验收原则](PRD.md#prd-cap-028-032) | 补发布、更新、撤回、来源失效、SEO/分享、隐私预览和版权规则 |
-| `CAP-030` | 主动提醒深化 | `P3 · R5` | `Mapped` | — | — | [P3 验收原则](PRD.md#prd-cap-028-032) | 补触发优先级、频控、去重、解释、免打扰、跨端和退订验收；承接 [SRS §7](SRS.md#7-产品上限增强候选需求ab-档评估) 拆步依赖（梦境开场白、主动闲聊、主动引用） |
+| `CAP-030` | 主动提醒深化 | `P3 · R5` | `Mapped` | — | — | [P3 验收原则](PRD.md#prd-cap-028-032) | 补触发优先级、频控、去重、解释、免打扰、跨端和退订验收 |
 | `CAP-031` | 内容与技能市场 | `P3 · R5` | `Mapped` | — | — | [P3 验收原则](PRD.md#prd-cap-028-032) | 补商品、版本、审核、结算、退款、下架、许可证和供应链治理 |
 | `CAP-032` | 机构与监护模式 | `P3 · R5` | `Mapped` | — | — | [P3 验收原则](PRD.md#prd-cap-028-032) | 补组织角色、邀请/移除、授权报表、最小可见、审计和监护同意 |
 
@@ -161,7 +161,7 @@
 | 工具注册表（契约 + 表 + 仓储） | CAP-020 | `packages/contracts/src/schemas.ts`、`packages/database/src/schema/tool-registry.ts`、`repositories/sqlite/tool-registry-repository.ts` | 2026-08-26 | 单测 | `T-04` + `AST-04` |
 | 工具运行时与 API 路由（`/v1/tools`） | CAP-020 | `apps/api/src/modules/tools/` | 2026-08-26 | API 集成测试 + typecheck | `T-04` + `PET-05` |
 | 插件运行时（生命周期/权限/工具联动） | CAP-020 | `apps/api/src/modules/plugins/` | 2026-08-26 | API 集成测试 + typecheck | `AST-04` |
-| 插件 Config/Page 契约（Zod + OpenAPI） | CAP-020 | `packages/contracts/src/plugin-config-schemas.ts`、`packages/contracts/src/openapi.ts` | 2026-08-26 | contracts typecheck + 生成 openapi.json | `AST-08` + `AST-09` |
+| 插件 Config/Page 契约（Zod + OpenAPI） | CAP-020 | `packages/contracts/src/plugin-config-schemas.ts`、`packages/contracts/src/openapi.ts` | 2026-08-26 | contracts typecheck + 生成 `openapi.json` | `AST-08` + `AST-09` |
 | 插件 Config/Page 存储（三表 + 仓储） | CAP-020 | `packages/database/src/schema/plugin-config.ts`、`repositories/sqlite/plugin-config-repository.ts` | 2026-08-26 | 单测（plugin-config.test.ts） | `AST-08` + `AST-09` |
 | 插件配置/Page 服务与 API（CR-006） | CAP-020 | `apps/api/src/modules/plugins/`（`config-schema.ts`/`config-service.ts`/`config-routes.ts`/`bundle-store.ts`/`bridge-sdk.ts`） | 2026-08-26 | API 集成测试 + typecheck | `AST-08` + `AST-09` |
 | 插件配置/Page UI（设置弹窗 + 表单 + iframe Bridge） | CAP-020 | `packages/api-client/src/useAervoxPlugins.ts`、`packages/ui/src/components/plugin/`、`packages/ui/src/components/AervoxWorkbench.vue` | 2026-08-26 | UI/Web/Desktop typecheck + build | `AST-08` + `AST-09` |
@@ -187,7 +187,7 @@
 | 已集成能力迁移与 DSH/pi 接入教程文档化 | CAP-020/027 | `docs/tutorials/migrate-integrated-capabilities.md`（AVX-TUT-002） | 2026-08-26 | ci-docs | `DSH-01` + `PI-01` + 原生 |
 | 文档登记强度分级（L1 编辑性 / L2 内容更新 / L3 结构性） | 基础设施（文档治理） | [doc-standards §3.1](standards/doc-standards.md#31-改动等级与同步要求)、`docs/DOC_REGISTRY.md` 维护规则、`AGENTS.md` 硬约束 | 2026-08-26 | ci-docs | 原生 |
 | 文档去重：落地登记合并单源 + 导航文档精简 | 基础设施（文档治理） | [reference-design-transfer §6.1](../explanation/reference-design-transfer.md#61-落地登记唯一真源) 改为唯一真源指引（明细移入本节）、`docs/getting-started.md` §3 硬性规则改链接、`AGENTS.md` 硬约束同步 | 2026-08-26 | ci-docs | 原生 |
-| 产品上限增强候选需求规格化（A/B 档） | CAP-005/009/014/015/018/019/020/027/030 | [SRS §7](SRS.md#7-产品上限增强候选需求ab-档评估)（FR-MEM-001/002/003、FR-DIA-002/003、FR-KNO-001、FR-CONV-006、FR-PLG-001、FR-UX-005）与本节 CAP 矩阵关联标注；挂靠现有 CAP，未进入对应阶段前保持 `Specified` | 2026-08-26 | ci-docs | 原生（产品评估采纳） |
+| 产品上限增强候选需求规格化（A/B 档） | CAP-005/009/014/015/018/019/020/027/030 | 评估成果原落于 [SRS §7]，该节随后被 main 的『SRS §7 插件配置与页面（CR-006）』取代（FR-MEM-001 等候选不再作为可引用需求源，插件规范化独立为 [AVX-PLUG-001](plugin-config-and-pages.md)）；本行保留以追溯产品评估结论 | 2026-08-26 | ci-docs | 原生（产品评估采纳） |
 | 文档结构合并与速览精简（运维×3合一、工程流程×3合一、覆盖矩阵立为唯一速览、AGENTS 硬纪律内联、模板目录上移 `docs/templates`） | 基础设施（文档治理） | `docs/reference/operations.md`（AVX-OPS-001）、`docs/how-to/engineering-process.md`（AVX-GUIDE-001/003/004 合一，原 add-requirement/release-gates/run-drill 删除）、模板从 `reference/standards/templates` 迁至 `docs/templates`、`REQUIREMENTS_TRACEABILITY.md` §4 精简、`docs/DOC_REGISTRY.md`、`docs/README.md`、`docs/getting-started.md`、`AGENTS.md` 硬约束同步 | 2026-08-26 | ci-docs | 原生 |
 | 新功能开发流程文档化（根级贡献指南 CONTRIBUTING，双语，替代暂存 AVX-GUIDE-004 how-to） | 基础设施（工程流程/文档治理） | [CONTRIBUTING.md](../../CONTRIBUTING.md)（融合参考项目贡献指南骨架 + 三阶段流程 + 本仓库门禁；feature-development.md 已删除并入） | 2026-08-26 | ci-docs | 原生 |
 

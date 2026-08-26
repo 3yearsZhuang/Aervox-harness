@@ -28,6 +28,7 @@
 | [ADR 索引](reference/adr/README.md) | 为什么选择当前架构、舍弃了什么方案 | 架构决策状态、后果、迁移和回滚边界 |
 | [能力组合与可选化目录规范](reference/capability-composition.md)（AVX-CAP-001） | 所有业务能力最终如何通过 Manifest、Provider、Adapter 和 Profile 自由组合 | 目标目录、Kernel 不变量、依赖解析、生命周期、DSH/pi 适配与迁移验收 |
 | [可选功能模块化方案](explanation/optional_modules.md) | 当前非核心功能如何以子仓库开发并作为 workspace 包自选消费 | 过渡期 `modules/*` 机制、构建+运行时双轴、模块清单与门禁；目标演进见 AVX-CAP-001 |
+| [插件 Config 与 Page 规范](reference/plugin-config-and-pages.md)（AVX-PLUG-001） | 插件配置如何声明、校验、可视化，Page 如何安全承载 | Config Schema v1、配置存储/API、Page Bridge 与安全边界（CR-006） |
 | [操作指南](how-to) | 怎么新增/修改需求、写 ADR、过发布会门禁、做季度演练、管可选模块 submodule；贡献者流程见根级 [CONTRIBUTING](../../CONTRIBUTING.md) | 任务型流程（工程与发布流程合一）；规则以对应专项文档为事实源 |
 | [文档生命周期登记表](DOC_REGISTRY.md) | 每份文档何时核验、多久复核、什么信号表示陈旧 | 核验节奏/陈旧信号；独立于索引维护 |
 | [从这里开始](getting-started.md)（AVX-DOC-002，见[§7](#7-从哪开始)） | 新成员/Agent 从哪看起、提交前自检什么 | 导航型；不承载规则 |
@@ -45,6 +46,8 @@
 当前已提供 [SRS](reference/SRS.md) 原子需求样例、共享 ADR、威胁模型、测试策略、运行手册和基线 NFR/AIQ/DATA/SEC/PRIV/OPS 追踪。每个进入开发的能力仍应逐步补充其专属 API/OpenAPI 片段、UX 原型、数据字典、测试证据和 ADR 关联；这些材料未齐备前，不得把能力地图中的一行视为完整开发规格。
 
 最近的端形态变更见 [CR-005：共享工作台与 Web 无桌宠表现层](reference/changes/CR-005-shared-workbench-web-without-pet.md)：Web 与 Electron 共用 `@aervox/ui` 工作台，Web 不渲染桌宠，Electron 保留桌面壳和桌宠窗口。
+
+最近的插件能力变更见 [CR-006：插件配置解析与可视化](reference/changes/CR-006-plugin-config-and-pages.md)：新增插件 Config Schema v1、配置持久化/API 与受限 Page Bridge（规范见 [AVX-PLUG-001](reference/plugin-config-and-pages.md)）。
 
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
 
