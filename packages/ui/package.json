@@ -6,6 +6,7 @@
   "description": "Aervox shared Vue workbench, platform-neutral components, companion visual core and theme tokens.",
   "exports": {
     ".": "./src/index.ts",
+    "./live2d/layout": "./src/live2d/layout.ts",
     "./theme": "./src/theme/index.css"
   },
   "scripts": {
@@ -14,18 +15,22 @@
   },
   "peerDependencies": {
     "@aervox/api-client": "workspace:*",
+    "@aervox/contracts": "workspace:*",
+    "@sekai-world/pixi-live2d-display-mulmotion": "^0.5.1",
     "element-plus": "^2.11.5",
     "lucide-vue-next": "^0.468.0",
-    "vue": "^3.5.21",
-    "@aervox/contracts": "workspace:*"
+    "pixi.js": "^7.4.3",
+    "vue": "^3.5.21"
   },
   "devDependencies": {
     "@aervox/api-client": "workspace:*",
+    "@aervox/contracts": "workspace:*",
+    "@sekai-world/pixi-live2d-display-mulmotion": "^0.5.1",
     "element-plus": "^2.11.5",
     "lucide-vue-next": "^0.468.0",
+    "pixi.js": "^7.4.3",
     "typescript": "^5.8.3",
     "vue": "^3.5.21",
-    "vue-tsc": "^2.2.12",
-    "@aervox/contracts": "workspace:*"
+    "vue-tsc": "^2.2.12"
   }
 }

@@ -3,5 +3,5 @@ import {AervoxWorkbench} from '@aervox/ui'
 </script>
 
 <template>
-  <AervoxWorkbench platform="web" />
+  <AervoxWorkbench platform="web" :show-companion="true" />
 </template>

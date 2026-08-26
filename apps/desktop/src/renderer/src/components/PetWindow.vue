@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {MessageCircle, Sparkles} from 'lucide-vue-next'
 import {PetHero} from '@aervox/ui'
+import Live2DPet from './Live2DPet.vue'
 </script>
 
 <template>
@@ -10,7 +11,11 @@ import {PetHero} from '@aervox/ui'
       <Sparkles class="sparkle sparkle-b" :size="16"/>
       <div class="pet-shadow"/>
       <div class="pet-character">
-        <span class="pet-hero-scale"><PetHero /></span>
+        <Live2DPet>
+          <template #fallback>
+            <span class="pet-hero-scale"><PetHero /></span>
+          </template>
+        </Live2DPet>
       </div>
     </div>
     <section class="pet-card">
