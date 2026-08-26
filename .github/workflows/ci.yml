@@ -57,10 +57,29 @@ jobs:
       - name: Install tools (node + pnpm from mise.toml)
         run: mise install
 
+      # 方案 A：缓存 pnpm store，install 由全量下载变为硬链接，秒级完成
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+
+      # 方案 B：持久化 Turbo 本地缓存，按内容哈希跳过未变更包，
+      # 实现"只验证更改部分及其下游"
+      - name: Cache turbo
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/turbo-cache
+          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            turbo-${{ runner.os }}-
+
       - name: Verify optional submodules
         run: |
           test -f modules/persona-plugin/package.json
           git submodule status --recursive
 
       - name: Run code gate (build + typecheck + test)
+        env:
+          TURBO_CACHE_DIR: ${{ runner.temp }}/turbo-cache
         run: mise tasks run ci-code
