@@ -1,11 +1,13 @@
 # Aervox 能力组合与可选化目录规范
 
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
 > 文档编号：AVX-CAP-001  
 > 类型：Reference  
 > 版本：v0.1  
 > 更新日期：2026-08-26  
 > 状态：Review Candidate  
-> 责任角色：技术负责人  
 > 关联：[架构设计](ARCHITECTURE.md)、[ADR-001](adr/ADR-001-modular-monolith.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-014](adr/ADR-014-modular-monolith-structure.md)、[可选功能模块化方案](../explanation/optional_modules.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
 本文规定 Aervox 的目标能力组合模型、最终目录、Manifest、生命周期、依赖解析和外部运行时适配边界。它是目标架构规范，不代表当前代码已经完成迁移；在对应 ADR/CR 被接受前，现有实现和 [AVX-MOD-001](../explanation/optional_modules.md) 仍是当前执行基线。

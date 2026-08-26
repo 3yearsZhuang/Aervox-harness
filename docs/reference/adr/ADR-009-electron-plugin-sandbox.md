@@ -1,8 +1,10 @@
 # ADR-009 Electron 最小权限壳与进程外插件
 
-- 状态：Proposed（待安全负责人批准；R3/P2 前必须 Accepted）
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
+- 状态：Proposed（R3/P2 前必须 Accepted）
 - 日期：2026-08-23
-- Owner：待指定
 - 关联：`CAP-018/020/031`、`SEC-PLG-001`、`RISK-006`
 
 ## Context

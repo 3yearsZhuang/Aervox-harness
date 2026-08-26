@@ -1,14 +1,16 @@
 # 能力拆分路线（建议批次）
 
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
 > 文档编号：AVX-EXPL-004
 > 类型：Explanation
 > 版本：v0.1
 > 更新日期：2026-08-26
 > 状态：Review Candidate
-> 责任角色：产品与技术负责人
-> 关联：[文档索引](../README.md)、[SRS §6](../reference/SRS.md#6-p1p2p3-规格化规则)、[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md)、[操作指南：新增需求](../how-to/add-requirement.md)
+> 关联：[文档索引](../README.md)、[SRS §6](../reference/SRS.md#6-p1p2p3-规格化规则)、[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md)、[工程与发布流程 §1](../how-to/engineering-process.md#1-新增与修改需求)
 
-本文从[文档索引 §5](../README.md#5-更新与评审节奏)拆分而来，回答"能力按什么批次进入规格化与开发"。CAP 状态与优先级的唯一事实源是[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md)；本页只给建议批次与拆分节奏，不重复登记。
+本文从[文档索引 §4](../README.md#4-更新与评审节奏)拆分而来，回答"能力按什么批次进入规格化与开发"。CAP 状态与优先级的唯一事实源是[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md)；本页只给建议批次与拆分节奏，不重复登记。
 
 ## 1. 拆分原则
 
@@ -29,4 +31,4 @@ CAP 从 `Mapped` 转 `Specified` 应只发生在临近开发批次时；P1/P2/P3
 - 拆分只服务临近开发批次，不为"清空 Mapped"提前拆远期 P2/P3；
 - 高风险/合规项（CAP-010 安全边界、CAP-013 删除传播）优先固定验收；
 - 共享基础设施的 CAP（011/012 附件管线）合并拆分，避免重复设计；
-- 每个 CAP 拆分按[操作指南：新增需求](../how-to/add-requirement.md)执行，拆分后更新[追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)核验日期。
+- 每个 CAP 拆分按[工程与发布流程 §1](../how-to/engineering-process.md#1-新增与修改需求)执行，拆分后更新[追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)核验日期。

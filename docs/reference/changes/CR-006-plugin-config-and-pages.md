@@ -1,11 +1,13 @@
 # CR-006 插件配置解析与可视化（Config + Page）
 
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
 > 文档编号：CR-006
 > 类型：Reference
 > 版本：v0.1
 > 更新日期：2026-08-26
 > 状态：Review Candidate
-> 责任角色：技术负责人
 > 关联：[插件 Config 与 Page 规范](../plugin-config-and-pages.md)、[能力组合与可选化目录规范](../capability-composition.md)、[ADR-009](../adr/ADR-009-electron-plugin-sandbox.md)、[需求追踪基线](../REQUIREMENTS_TRACEABILITY.md)
 
 - 状态：Implemented（待发布评审）
@@ -27,6 +29,6 @@
 - 风险与成本：secret 本地默认实现为明文落库（不对外回显），生产必须注入加密 SecretStore Port；iframe 页面默认无网络，能力受限属预期。
 - 灰度、回滚和用户通知：功能随 API/UI 一起发布；可关闭「插件」分类展示回退，不影响既有插件生命周期 API。
 - 决策：Implemented
-- 批准人 / 日期：待指定
+- 修改人 / 日期：
 - 更新的文档和测试：`docs/reference/plugin-config-and-pages.md`、`docs/reference/SRS.md`、`docs/reference/PRD.md`、`docs/reference/ARCHITECTURE.md`、`docs/reference/DATA_PRIVACY.md`、`docs/reference/THREAT_MODEL.md`、`docs/DOC_REGISTRY.md`、`docs/README.md`
 - 发布后结果：待发布
