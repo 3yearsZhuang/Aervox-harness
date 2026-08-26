@@ -4,6 +4,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createInMemoryDatabase, initDatabaseSchema, type AervoxDatabase } from "@aervox/database";
 import { buildApp } from "../src/app.js";
+import { derivePetSheetState } from "../src/modules/tools/mcp.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
 
@@ -11,6 +12,15 @@ const headers = {
   "x-workspace-id": "ws_it",
   "x-user-id": "usr_it",
 } as const;
+
+describe("Codex Pets 兼容：工具结果 → 桌宠状态行", () => {
+  it("成功调用派生 waving（行 3，Codex Pets 9 态之一）", () => {
+    expect(derivePetSheetState({ isError: false })).toBe("waving");
+  });
+  it("失败调用派生 failed（行 5，9 态之一）", () => {
+    expect(derivePetSheetState({ isError: true })).toBe("failed");
+  });
+});
 
 describe("T-04/PET-05 工具系统接线", () => {
   let app: FastifyInstance;

@@ -23,6 +23,10 @@ import {
   petCommandTypeSchema,
   petEmoteSchema,
   petGestureSchema,
+  petManifestSchema,
+  petSheetLayoutSchema,
+  petSheetRowFramesSchema,
+  petSheetStateSchema,
   pluginMetadataSchema,
   redactedEventDataSchema,
   streamErrorCodeSchema,
@@ -75,3 +79,7 @@ export type ToolRegistryExport = z.infer<typeof toolRegistryExportSchema>;
 export type MemoryStoreToolInput = z.infer<typeof memoryStoreToolInputSchema>;
 export type MemoryStoreToolOutput = z.infer<typeof memoryStoreToolOutputSchema>;
 export type PluginMetadata = z.infer<typeof pluginMetadataSchema>;
+export type PetSheetState = z.infer<typeof petSheetStateSchema>;
+export type PetSheetLayout = z.infer<typeof petSheetLayoutSchema>;
+export type PetManifest = z.infer<typeof petManifestSchema>;
+export type PetSheetRowFrames = z.infer<typeof petSheetRowFramesSchema>;

@@ -821,6 +821,199 @@
           "memoryId",
           "isCandidate"
         ]
+      },
+      "PetSheetState": {
+        "type": "string",
+        "enum": [
+          "idle",
+          "running-right",
+          "running-left",
+          "waving",
+          "jumping",
+          "failed",
+          "waiting",
+          "running",
+          "review"
+        ]
+      },
+      "PetSheetLayout": {
+        "type": "object",
+        "properties": {
+          "columns": {
+            "type": "number",
+            "enum": [
+              8
+            ]
+          },
+          "rows": {
+            "type": "number",
+            "enum": [
+              9
+            ]
+          },
+          "cellWidth": {
+            "type": "number",
+            "enum": [
+              192
+            ]
+          },
+          "cellHeight": {
+            "type": "number",
+            "enum": [
+              208
+            ]
+          },
+          "atlasWidth": {
+            "type": "number",
+            "enum": [
+              1536
+            ]
+          },
+          "atlasHeight": {
+            "type": "number",
+            "enum": [
+              1872
+            ]
+          },
+          "spriteVersionNumber": {
+            "type": "number",
+            "enum": [
+              1
+            ]
+          }
+        },
+        "required": [
+          "columns",
+          "rows",
+          "cellWidth",
+          "cellHeight",
+          "atlasWidth",
+          "atlasHeight",
+          "spriteVersionNumber"
+        ]
+      },
+      "PetManifest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "spritesheetPath": {
+            "type": "string",
+            "minLength": 1
+          },
+          "layout": {
+            "type": "object",
+            "properties": {
+              "columns": {
+                "type": "number",
+                "enum": [
+                  8
+                ]
+              },
+              "rows": {
+                "type": "number",
+                "enum": [
+                  9
+                ]
+              },
+              "cellWidth": {
+                "type": "number",
+                "enum": [
+                  192
+                ]
+              },
+              "cellHeight": {
+                "type": "number",
+                "enum": [
+                  208
+                ]
+              },
+              "atlasWidth": {
+                "type": "number",
+                "enum": [
+                  1536
+                ]
+              },
+              "atlasHeight": {
+                "type": "number",
+                "enum": [
+                  1872
+                ]
+              },
+              "spriteVersionNumber": {
+                "type": "number",
+                "enum": [
+                  1
+                ]
+              }
+            },
+            "required": [
+              "columns",
+              "rows",
+              "cellWidth",
+              "cellHeight",
+              "atlasWidth",
+              "atlasHeight",
+              "spriteVersionNumber"
+            ]
+          },
+          "rowFrames": {
+            "type": "object",
+            "properties": {
+              "idle": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "running-right": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "running-left": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "waving": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "jumping": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "failed": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "waiting": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "running": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "review": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "spritesheetPath",
+          "layout"
+        ]
       }
     },
     "parameters": {}
