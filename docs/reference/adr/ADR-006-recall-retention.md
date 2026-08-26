@@ -1,8 +1,10 @@
 # ADR-006 AI 召回期限与历史保留期限分离
 
-- 状态：Proposed（待隐私负责人批准）
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
+- 状态：Proposed
 - 日期：2026-08-23
-- Owner：待指定
 - 关联：`CAP-005/009/013`、`PRIV-RET-001`、`NFR-PRIV-001`
 
 ## Context

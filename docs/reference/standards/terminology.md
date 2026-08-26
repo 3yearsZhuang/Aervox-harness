@@ -1,11 +1,13 @@
 # 术语表（唯一含义与规范写法）
 
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
 > 文档编号：AVX-TERM-001
 > 类型：Reference
 > 版本：v0.2
 > 更新日期：2026-08-26
 > 状态：Review Candidate
-> 责任角色：文档负责人
 > 关联：[文档写作规范](doc-standards.md)
 
 本表是项目术语的唯一事实源。正文一律使用「规范写法」列；「禁写」列由 Vale 的 [`Project/Terms.yml`](../../../.vale/styles/Project/Terms.yml) 自动校验（规则见 [文档写作规范 §5](doc-standards.md#5-vale-术语门禁)），应为其它拼写变体时在提交前修正。

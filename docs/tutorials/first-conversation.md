@@ -1,11 +1,13 @@
 # 教程：构建并运行你的第一个对话
 
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
 > 文档编号：AVX-TUT-001
 > 类型：Tutorials
 > 版本：v0.1
 > 更新日期：2026-08-25
 > 状态：Review Candidate
-> 责任角色：文档负责人（技术复核）
 > 关联：[从哪开始](../getting-started.md)、[流式协议契约](../reference/STREAMING_PROTOCOL.md)
 
 本教程面向首次接触仓库的新成员：从一次干净 clone 起，把 API、Worker 与桌面/Web 客户端跑起来，并发出第一条对话。它是 [从哪开始](../getting-started.md) 的可执行版本，本页只讲步骤，规则细节以各专项文档为准。

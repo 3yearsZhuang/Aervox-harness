@@ -1,5 +1,8 @@
 # CR-002 引入 Fairy Agent Electron 桌面端
 
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
 - 状态：More Evidence Required
 - 提出人 / 日期：Codex / 2026-08-24
 - 目标版本：R3 原型验证（CAP-018）
@@ -13,7 +16,6 @@
 - 风险与成本：源 UI 原先为内存占位聊天，已移除本地假回复并适配 Aervox API；Electron 依赖版本与 Node 24 兼容性需验证；第三方依赖执行许可证/漏洞扫描。
 - 灰度、回滚和用户通知：默认不加入核心默认产物；通过桌面构建开关灰度。构建或运行失败时禁用模块并保留 Web/API；不执行不可逆数据迁移。
 - 决策：More Evidence Required（代码、契约、构建和基础联调证据已完成；平台签名、权限矩阵、崩溃恢复、可执行安全/E2E 测试仍需评审）
-- 批准人 / 日期：待指定
 - 更新的文档和测试：`docs/explanation/optional_modules.md`、`docs/DOC_REGISTRY.md`、`docs/reference/REQUIREMENTS_TRACEABILITY.md`、`.github/workflows/ci.yml`、模块测试与集成证据（实施后回填）
 - 已完成证据：主仓 `pnpm install`、`pnpm typecheck`、`pnpm build`；API POST Turn/SSE 联调；Electron preview 双窗口启动；`apps/desktop` 普通源码目录构建通过。
 - 发布后结果：待发布

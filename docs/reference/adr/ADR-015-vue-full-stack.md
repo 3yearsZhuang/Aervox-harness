@@ -1,9 +1,11 @@
 # ADR-015 Vue 全栈单栈：Web 复用桌面端技术族
 
-- 状态：Proposed（待技术负责人批准；替代 `ADR-002`）
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
+- 状态：Proposed（替代 `ADR-002`）
 - 日期：2026-08-25
-- Owner：待指定
-- 评审人：产品、技术、QA、安全/隐私负责人待指定
+
 - 关联：`ADR-002`（Superseded）、`ADR-014`、`CAP-001/002/009/018`、`NFR-PERF-001`、`NFR-COMPAT-001`、`AVX-WEB-001`
 
 ## Context

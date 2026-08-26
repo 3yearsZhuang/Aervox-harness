@@ -1,8 +1,10 @@
 # ADR-013 独立恢复控制账本与撤权先行
 
-- 状态：Proposed（待技术、安全/隐私、数据与灾备负责人批准）
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
+- 状态：Proposed
 - 日期：2026-08-24
-- Owner：待指定
 - 关联：`NFR-DR-001`、`NFR-SEC-001`、`NFR-PRIV-001`、`RISK-004/005`、`ADR-004`、`ADR-011`、`ADR-012`
 
 ## Context
