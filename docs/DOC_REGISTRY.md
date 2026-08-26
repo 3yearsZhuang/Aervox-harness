@@ -12,7 +12,7 @@
 | 文档编号 | 文档 | 责任角色（人名待定） | 最后核验 | 核验节奏 | 陈旧信号 |
 |---|---|---|---|---|---|
 | `AVX-PRD-001` | [PRD](reference/PRD.md) | 产品负责人 | 2026-08-25 | 每次版本立项 / G0 | CAP 范围或优先级变更未建立 `CR-*` |
-| `AVX-SRS-001` | [SRS](reference/SRS.md) | 产品与模块负责人 | 2026-08-25 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
+| `AVX-SRS-001` | [SRS](reference/SRS.md) | 产品与模块负责人 | 2026-08-26 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
 | `AVX-SAD-001` | [架构设计](reference/ARCHITECTURE.md) | 技术负责人 | 2026-08-25 | G2 评审 + 架构变更 | 新增 ADR/技术基线变化未同步 |
 | `ADR-001~015` | [ADR 索引](reference/adr/README.md) | 技术负责人（各 ADR 另有 Owner） | 2026-08-26 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
 | `AVX-SPC-001` | [流式协议](reference/STREAMING_PROTOCOL.md) | 技术负责人 | 2026-08-24 | OpenAPI/事件 schema 变更 | `packages/contracts` 版本高于文档描述 |
