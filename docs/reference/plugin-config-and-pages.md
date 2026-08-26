@@ -106,6 +106,7 @@ Page 约束：
 
 - 第一版只加载已安装且校验过的 Bundle 本地资源，禁止远程 URL；
 - iframe 固定 `sandbox="allow-scripts allow-forms allow-downloads"`、`referrerpolicy="no-referrer"`；
+- Page 静态资源响应的 CSP 使用 `frame-ancestors *`（宿主 Web/Desktop 与 API 不同源，不能用 `'self'`），页面内 `connect-src 'none'`，所有业务操作必须经过 Bridge；
 - 禁止 `allow-same-origin`、`allow-top-navigation`、`allow-popups`；
 - 禁止访问宿主 Cookie、LocalStorage、父 DOM 或直接请求 API/数据库/外部网络。
 
