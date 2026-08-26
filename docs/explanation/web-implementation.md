@@ -87,7 +87,7 @@ apps/web/
 - **双端主题一致性**：Web 与 desktop 共享 `@aervox/ui` 工作台与主题，平台壳差异通过属性适配，避免两套视觉漂移。
 - **设置窗口一致性**：两端共享 `AervoxWorkbench` 的设置入口与双栏设置窗口；左侧分类、右侧详情在窄屏退化为横向分类栏。主题、助手称呼、回车发送、界面密度、番茄钟时长和提醒偏好保存在当前设备，Electron 主题继续通过受限 IPC 同步到窗口壳。
 
-本次实现对应 [CR-005](../reference/changes/CR-005-shared-workbench-web-without-pet.md)：Web 的 `PetBubble` 与旧独立页面已移除，Electron 仍保留桌宠区域和 `pet.html` 独立窗口。
+本次实现对应 [CR-005](../reference/changes/CR-005-shared-workbench-web-without-pet.md) 与 [CR-007](../reference/changes/CR-007-live2d-sekai-viewer-pet.md)：Web 工作台使用共享 `Live2DPet`，Electron 主工作台隐藏左侧桌宠区域，独立 `pet.html` 窗口继续保留 Live2D。
 
 ## 7. 同步清单（随 ADR-015 执行）
 

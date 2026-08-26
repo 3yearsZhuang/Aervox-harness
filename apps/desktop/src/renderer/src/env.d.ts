@@ -1,4 +1,15 @@
 /// <reference types="vite/client" />
+interface ImportMetaEnv {
+  readonly VITE_AERVOX_LIVE2D_MODEL_URL?: string
+  readonly VITE_AERVOX_LIVE2D_MOTION_DATA_URL?: string
+  readonly VITE_AERVOX_LIVE2D_ADDITIONAL_MOTION_DATA_URL?: string
+  readonly VITE_AERVOX_LIVE2D_SCALE?: string
+  readonly VITE_AERVOX_LIVE2D_ENABLE_EXPRESSIONS?: string
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv
+}
 interface ApiRequestResult<T = unknown> {
   status: number
   ok: boolean
@@ -6,10 +17,18 @@ interface ApiRequestResult<T = unknown> {
   text: string
 }
 interface Window {
+  aervoxLive2D?: {
+    readonly motions: readonly string[]
+    readonly expressions: readonly string[]
+    playMotion: (motion: string) => boolean
+    playExpression: (expression: string) => void
+    playPose: (pose: { motion?: string; expression?: string }) => void
+  }
   fairyDesktop?: {
     minimize: () => Promise<void>
     toggleMaximize: () => Promise<boolean>
     close: () => Promise<void>
+    onPetCommand: (callback: (command: unknown) => void) => () => void
     getTheme: () => Promise<'light' | 'dark'>
     setTheme: (theme: 'light' | 'dark') => Promise<'light' | 'dark'>
     onThemeChange: (callback: (theme: 'light' | 'dark') => void) => () => void

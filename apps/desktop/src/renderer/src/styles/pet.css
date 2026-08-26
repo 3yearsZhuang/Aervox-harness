@@ -36,20 +36,24 @@ html, body, #pet-app {
 .pet-shadow {
     position: absolute;
     bottom: 23px;
+    left: 50%;
     width: 108px;
     height: 17px;
     border-radius: 50%;
     background: rgba(117, 161, 130, .24);
-    filter: blur(3px)
+    filter: blur(3px);
+    transform: translateX(-50%)
 }
 
 .pet-character {
     position: relative;
-    width: 126px;
-    height: 178px;
+    width: 190px;
+    height: 230px;
     animation: float 3.6s ease-in-out infinite;
     cursor: pointer
 }
+
+.pet-character .pet-hero-scale { position: absolute; inset: 0; display: grid; place-items: end center; }
 
 .pet-hero-scale {
     display: inline-block;
