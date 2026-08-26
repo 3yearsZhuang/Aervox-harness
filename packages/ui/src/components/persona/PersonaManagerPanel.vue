@@ -259,16 +259,16 @@ function formatDate(isoString: string): string {
         <!-- 标签徽章栏（对齐图 1） -->
         <div class="persona-badges">
           <span class="badge-tag">
-            <MessageSquare :size="13" />
-            <span>人设就绪</span>
+            <MessageSquare :size="12" />
+            <span>设定就绪</span>
           </span>
           <span class="badge-tag">
-            <Wrench :size="13" />
-            <span>使用系统工具</span>
+            <Wrench :size="12" />
+            <span>使用可用工具</span>
           </span>
           <span class="badge-tag">
-            <Zap :size="13" />
-            <span>具备系统技能</span>
+            <Zap :size="12" />
+            <span>系统技能就绪</span>
           </span>
         </div>
 
@@ -324,20 +324,22 @@ function formatDate(isoString: string): string {
 .btn-create-persona {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
+  gap: 5px;
+  padding: 7px 14px;
   border: none;
   border-radius: 8px;
-  background: #38bdf8;
+  background: var(--accent);
   color: #fff;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.15s ease, background-color 0.15s ease;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 28%, transparent);
+  transition: background-color 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
 }
 
 .btn-create-persona:hover {
-  background: #0ea5e9;
+  background: var(--accent-hover);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 36%, transparent);
 }
 
 .menu-icon {
@@ -379,8 +381,9 @@ function formatDate(isoString: string): string {
 }
 
 .persona-card.active {
-  border-color: #38bdf8;
-  box-shadow: 0 0 0 1px #38bdf8;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1.5px var(--accent);
+  background: color-mix(in srgb, var(--accent-soft) 30%, var(--bg-soft));
 }
 
 .card-top-row {
@@ -412,8 +415,9 @@ function formatDate(isoString: string): string {
   gap: 4px;
   padding: 2px 7px;
   border-radius: 6px;
-  background: #e0f2fe;
-  color: #0284c7;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
   font-size: 10.5px;
   font-weight: 600;
 }
@@ -459,12 +463,12 @@ function formatDate(isoString: string): string {
 .badge-tag {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
+  gap: 5px;
+  padding: 3px 9px;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--border) 40%, var(--bg-soft));
+  background: color-mix(in srgb, var(--border) 45%, var(--bg-soft));
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: 11.5px;
 }
 
 .card-footer {
