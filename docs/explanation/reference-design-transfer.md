@@ -2,7 +2,7 @@
 
 > 文档编号：AVX-EXPL-002
 > 类型：Explanation
-> 版本：v0.5
+> 版本：v0.6
 > 更新日期：2026-08-26
 > 状态：Draft
 > 责任角色：技术负责人
@@ -49,6 +49,7 @@
 | PET-03 | 自主行为引擎参数化（活动频率三档/躲避/待机） | B | 桌面端角色行为 | T-07、桌宠 IP |
 | PET-04 | 表现驱动数据对象 + 视图接口分离 | B | 桌宠表现层抽象 | 桌宠 IP、CAP-019 |
 | PET-05 | AI 工具只读白名单与提示词使用原则 | B | 工具链安全规范 | AI 质量与安全规范 |
+| Skill | Skill 能力（Anthropic Skills 渐进式披露 + Neo 生命周期） | B→已落地 | `apps/api/src/modules/skills/`、`packages/database` 技能表 | CAP-020 |
 
 ## 3. A 类：建议落地
 
@@ -181,6 +182,17 @@ Petra 的系统工具 `run_shell` 声明只读命令白名单（ipconfig/dir/pin
 
 Aervox 工具链安全规范可对照该白名单粒度：把"查询类命令"与"应用启动"拆成不同工具、收紧模型自由发挥空间。具体规则以 [AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md) 为准。
 
+### 4.12 Skill 能力（Anthropic Skills 渐进式披露 + Neo 生命周期）
+
+AstrBot v4.13+ 支持 Anthropic Skills：技能以 `SKILL.md`（frontmatter `name/description`）+ `scripts/`/`assets/` 组织，系统提示词仅注入名称与描述（渐进式披露），模型决定使用某技能时才读取全文（参考 `reference/AstrBot/astrbot/core/skills/skill_manager.py`）；进阶形态是 AI 自主创作技能的生命周期 payload → candidate → evaluate → promote（canary/stable）→ release + sync（参考 `reference/AstrBot/astrbot/core/tools/computer_tools/shipyard_neo/neo_skills.py`）。
+
+Aervox 自研落地（AGPLv3 仅借鉴设计，不复制源码）：
+
+- **注册表 + 内容双轨**：`skill_registrations` 表为真源（source/active/readonly/gating），SKILL.md 内容落盘 `data/skills/<name>/`；
+- **来源三态**：`local`（zip 安装，可管理）/ `plugin`（插件声明，只读、生命周期归插件）/ `ai_authored`（Neo 生命周期晋升后落盘）；
+- **Neo 生命周期适配**：AstrBot 沙盒「执行证据」适配为 Aervox 业务对象（turns / memory_records / learning_goals），stable + syncToLocal 时把 `payload.skill_markdown` 落盘并注册；
+- **安全边界**：技能为只读指令包，可执行内容不经技能自动运行，必须经 `tool_registrations` 白名单 + PET-05 授权。
+
 ## 5. C 类：暂不采用
 
 | 设计 | 原因 |
@@ -226,6 +238,9 @@ Aervox 工具链安全规范可对照该白名单粒度：把"查询类命令"�
 | T-10 | B→已落地 | 第四批 | 2026-08-26 | `packages/database/src/token-usage.ts` | Token 用量分账（非缓存/缓存读/缓存写），兼容 OpenAI/旧形态 |
 | PET-01 | A（前端消费） | 第四批 | 2026-08-26 | `packages/api-client/src/transport.ts`、`desktop-transport.ts`、`useAervoxTurn.ts`、`packages/ui/src/components/PetHero.vue` | emote 事件透传 + `PetHero` activeEmote/activeGesture 消费 |
 | AST-04 | B→已落地（运行时） | 第四批 | 2026-08-26 | `apps/api/src/modules/plugins/` | CAP-020 插件运行时：安装/启停/卸载 + 工具注册联动 + 权限授予/撤销/查询 |
+| Skill | B→已落地（契约+存储） | 第五批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（Skill 契约）、`packages/database/src/schema/skills.ts`、`repositories/sqlite/skill-registry-repository.ts`、`skill-lifecycle-repository.ts` | `skill_registrations` + `skill_payloads`/`skill_candidates`/`skill_releases` 四表 + 幂等/门控导出/生命周期仓储 |
+| Skill | B→已落地（管理 + 生命周期运行时） | 第五批 | 2026-08-26 | `apps/api/src/modules/skills/`（`zip.ts`/`skill-manager.ts`/`skill-prompt.ts`/`lifecycle.ts`/`routes.ts`/`skill-tools.ts`） | zip 安装（安全校验）+ 渐进式披露 prompt + Neo 生命周期（payload→candidate→evaluate→promote→rollback/sync）+ `aervox_skill_*` 工具（PET-05 安全级别） |
+| Skill | B→已落地（插件联动） | 第五批 | 2026-08-26 | `apps/api/src/modules/plugins/service.ts` | 插件声明技能只读注册（source=plugin/readonly/pluginId）+ 启停/卸载联动 |
 
 ### 6.2 待接线缺口（现状如实记录）
 
@@ -238,6 +253,7 @@ Aervox 工具链安全规范可对照该白名单粒度：把"查询类命令"�
 | AST-03 人设解析链 | AST-03 | 文档组织已就绪（AVX-EXPL-003），运行时解析链随 CAP-019 立项 |
 | PET-03 / PET-04 桌宠自主行为与表现驱动抽象 | PET-03/04 | 前端已消费 emote 指令，完整行为引擎与 PetDriver 抽象随桌面端功能扩展引入 |
 | T-07 桌面 preload 分域迁移覆盖 | T-07 | 已提供按域 API 结构（`preload/domains/`）并兼容旧通道；桌面端全面迁移到新域通道待功能扩展时推进 |
+| Skill 渐进式披露注入 AI 对话运行时 | Skill | `/v1/skills/prompt` 已提供清单；真实对话构建时注入系统提示词待 AI 运行时（Turn 链路）接线 |
 
 ## 7. 参照
 

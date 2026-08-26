@@ -1,21 +1,28 @@
 /**
- * Aervox｜思隅 @aervox/api — CAP-020 插件运行时（生命周期 + 权限 + 工具联动）
+ * Aervox｜思隅 @aervox/api — CAP-020 插件运行时（生命周期 + 权限 + 工具/技能联动）
  *
- * 将 plugins 表（安装态/激活态）与 tool_registrations 联动：
- * - 安装：createPlugin + 为该插件注册声明工具（pluginId 关联，非内置）；
- * - 启停：setPluginEnabled 联动其工具 enabled；
- * - 卸载：先注销插件工具，再 deletePlugin（plugin_grants 级联清理）；
+ * 将 plugins 表（安装态/激活态）与 tool_registrations、skill_registrations 联动：
+ * - 安装：createPlugin + 为该插件注册声明工具（pluginId 关联，非内置）
+ *   + 写入声明的技能（source=plugin / readonly / pluginId 关联，内容落盘）；
+ * - 启停：setPluginEnabled 联动其工具 enabled 与技能 active；
+ * - 卸载：先注销插件工具与技能（readonly 也移除），再 deletePlugin
+ *   （plugin_grants 级联清理）；
  * - 权限：grant/revoke/hasPluginPermission 复用既有仓储；门控求值默认实现
  *   与 tools 模块一致（defaultGatingEvaluator）。
  *
- * 规则依据：docs/explanation/reference-design-transfer.md §4.7 AST-04（安装态与激活态分离）。
+ * 规则依据：docs/explanation/reference-design-transfer.md §4.7 AST-04（安装态与激活态分离）
+ * 与 Skill 能力（插件内置技能为只读指令包，生命周期归插件）。
  */
+import fs from "node:fs/promises";
+import path from "node:path";
 import {
   SqliteExtensionRepository,
+  SqliteSkillRegistryRepository,
   SqliteToolRegistryRepository,
   type PluginModel,
   type TenantContext,
 } from "@aervox/database";
+import { isValidSkillName, parseFrontmatter } from "../skills/skill-manager.js";
 
 /** 插件声明的工具（安装时注册进 tool_registrations） */
 export interface PluginDeclaredTool {
@@ -31,9 +38,22 @@ export interface PluginDeclaredTool {
   priority?: number;
 }
 
+/** 插件声明的技能（安装时写入本地并只读注册进 skill_registrations） */
+export interface PluginDeclaredSkill {
+  /** 技能名（须匹配 ^[\w.-]+$） */
+  name: string;
+  /** 简短描述；缺省从 SKILL.md frontmatter 解析 */
+  description?: string;
+  /** SKILL.md 全文 */
+  content: string;
+}
+
 export interface PluginServiceDeps {
   extensionRepo: SqliteExtensionRepository;
   registry: SqliteToolRegistryRepository;
+  skillRegistry: SqliteSkillRegistryRepository;
+  /** 技能内容落盘根目录（插件技能写 <skillsRoot>/<pluginId>/<skillName>/） */
+  skillsRoot: string;
 }
 
 export class PluginService {
@@ -44,7 +64,7 @@ export class PluginService {
     return this.deps.extensionRepo.listPlugins();
   }
 
-  /** 安装：登记插件 + 同步声明工具（幂等） */
+  /** 安装：登记插件 + 同步声明工具与技能（幂等） */
   async installPlugin(plugin: {
     id: string;
     publisher: string;
@@ -54,6 +74,7 @@ export class PluginService {
     permissions?: unknown;
     installSource?: string;
     tools?: PluginDeclaredTool[];
+    skills?: PluginDeclaredSkill[];
   }): Promise<PluginModel> {
     const created = await this.deps.extensionRepo.createPlugin({
       id: plugin.id,
@@ -85,10 +106,30 @@ export class PluginService {
       });
     }
 
+    // 声明技能：写入本地 + 只读注册（生命周期归插件，启停联动）
+    for (const skill of plugin.skills ?? []) {
+      if (!isValidSkillName(skill.name)) continue;
+      const content = skill.content ?? "";
+      const frontmatter = parseFrontmatter(content);
+      const skillDir = path.join(this.deps.skillsRoot, plugin.id, skill.name);
+      await fs.mkdir(skillDir, { recursive: true });
+      await fs.writeFile(path.join(skillDir, "SKILL.md"), content, "utf8");
+      await this.deps.skillRegistry.registerSkill({
+        id: skill.name,
+        name: skill.name,
+        description: skill.description || frontmatter.description || `Plugin skill: ${skill.name}`,
+        source: "plugin",
+        active: true,
+        readonly: true,
+        pluginId: plugin.id,
+        contentPath: path.join(skillDir, "SKILL.md"),
+      });
+    }
+
     return created;
   }
 
-  /** 启停插件 + 联动其工具 enabled */
+  /** 启停插件 + 联动其工具 enabled 与技能 active */
   async setEnabled(id: string, enabled: boolean): Promise<PluginModel | null> {
     const updated = await this.deps.extensionRepo.setPluginEnabled(id, enabled);
     if (!updated) return null;
@@ -96,15 +137,25 @@ export class PluginService {
     for (const tool of tools.filter((t) => t.pluginId === id)) {
       await this.deps.registry.setEnabled(tool.id, enabled);
     }
+    const skills = await this.deps.skillRegistry.listSkills();
+    for (const skill of skills.filter((s) => s.pluginId === id)) {
+      await this.deps.skillRegistry.setActive(skill.id, enabled);
+    }
     return updated;
   }
 
-  /** 卸载：先注销插件工具，再删插件（grants 级联清理） */
+  /** 卸载：先注销插件工具与技能（含 readonly），再删插件（grants 级联清理） */
   async uninstallPlugin(id: string): Promise<boolean> {
     const tools = await this.deps.registry.listTools();
     for (const tool of tools.filter((t) => t.pluginId === id)) {
       await this.deps.registry.unregisterTool(tool.id);
     }
+    const skills = await this.deps.skillRegistry.listSkills();
+    for (const skill of skills.filter((s) => s.pluginId === id)) {
+      await fs.rm(path.join(this.deps.skillsRoot, id, skill.name), { recursive: true, force: true }).catch(() => undefined);
+      await this.deps.skillRegistry.removeSkill(skill.id);
+    }
+    await fs.rm(path.join(this.deps.skillsRoot, id), { recursive: true, force: true }).catch(() => undefined);
     return this.deps.extensionRepo.deletePlugin(id);
   }
 
