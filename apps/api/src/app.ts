@@ -27,11 +27,14 @@ import { registerBranchModule } from "./modules/branch/index.js";
 import { registerToolsModule } from "./modules/tools/index.js";
 import { registerPluginsModule } from "./modules/plugins/index.js";
 import { registerPersonaModule } from "./modules/persona/index.js";
+import { registerSkillsModule } from "./modules/skills/index.js";
 
 export interface BuildAppOptions {
   /** 注入既有数据库（如内存库）；缺省时使用 createDatabase() */
   db?: AervoxDatabase;
   client?: Client;
+  /** Skill 内容落盘根目录（测试注入临时目录；缺省 <repo>/data/skills） */
+  skillsRoot?: string;
 }
 
 export interface BuildAppResult {
@@ -64,9 +67,10 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   registerMemoryModule(app, db, client);
   registerKnowledgeModule(app, db);
   registerBranchModule(app, db);
-  registerToolsModule(app, db, client);
-  registerPluginsModule(app, db);
+  const toolRuntime = registerToolsModule(app, db, client);
+  registerPluginsModule(app, db, { skillsRoot: options.skillsRoot });
   registerPersonaModule(app, db);
+  registerSkillsModule(app, db, { skillsRoot: options.skillsRoot, toolRuntime });
 
   return { app, db, client };
 }

@@ -360,7 +360,10 @@ export const petSheetStateSchema = z.enum([
 ]);
 
 /** 每态帧数（行 → 实际使用的列数；尾部列为全透明） */
-export const petSheetRowFramesSchema = z.record(petSheetStateSchema, z.number().int().positive());
+export const petSheetRowFramesSchema = z.partialRecord(
+  petSheetStateSchema,
+  z.number().int().min(1).max(8),
+);
 
 /** Codex Pets atlas 几何布局常量（协议固定值） */
 export const petSheetLayoutSchema = z.object({
@@ -408,3 +411,154 @@ export const petStateToCommandSchema = z.record(
   petCommandSchema,
 );
 
+// ============ CAP-020 Skill 能力（基础 + Neo 生命周期） ============
+// 设计依据：reference/AstrBot astrbot/core/skills/skill_manager.py（SkillInfo/渐进式披露、
+// payload→candidate→promote 生命周期）与 astrbot/core/tools/computer_tools/shipyard_neo/neo_skills.py。
+// 借鉴协议形态、自研字段；AstrBot 沙盒「执行证据」适配为 Aervox 业务对象
+// （turns / memory_records / learning_goals），语义见 docs/explanation/reference-design-transfer.md。
+
+/** Skill 来源类型（来源决定可管理性与生命周期归属） */
+export const skillSourceSchema = z.enum([
+  "local", // 本地上传/安装（zip），可启停/删除
+  "plugin", // 插件内置 skills/ 目录，只读、由插件生命周期管理
+  "ai_authored", // Neo 生命周期晋升后落盘的 AI 自主技能，可启停/删除
+]);
+
+/** Skill 名称合法字符集（对应 Anthropic Skills 目录名规范：英文/数字/点/下划线/短横线） */
+export const skillNameSchema = z
+  .string()
+  .min(1)
+  .regex(/^[\w.-]+$/, "skill name must match [\\w.-]+");
+
+/** Neo 生命周期发布阶段 */
+export const skillStageSchema = z.enum(["canary", "stable"]);
+
+/** Neo 技能候选状态机 */
+export const skillCandidateStatusSchema = z.enum([
+  "pending", // 已创建候选，待评估
+  "evaluated", // 已评估（passed/failed）
+  "promoted", // 已晋升为 release
+  "rejected", // 评估未通过
+]);
+
+/** CAP-020 Skill 注册表元数据（DB 真源映射；内容本体在文件系统 data/skills/<name>/） */
+export const skillMetadataSchema = z.object({
+  /** 技能唯一标识（= skill_registrations.id，即目录名） */
+  name: skillNameSchema,
+  /** 面向 Agent 的简短描述（渐进式披露清单仅注入 name+description） */
+  description: z.string().min(1),
+  source: skillSourceSchema,
+  /** 是否启用（disabled 对应 active=false） */
+  active: z.boolean().default(true),
+  /** 只读（插件内置 / 沙盒技能不可编辑删除） */
+  readonly: z.boolean().default(false),
+  version: z.string().default("1.0.0"),
+  /** 内容校验和（zip 安装 / AI 落盘时记录） */
+  checksum: z.string().optional(),
+  /** 关联插件 ID（source=plugin 时必填） */
+  pluginId: z.string().optional(),
+  /** AST-04 条件门控（复用工具门控求值器） */
+  gatingConditions: z.array(toolGatingConditionSchema).default([]),
+  /** SKILL.md 落盘路径（运行时读取用） */
+  contentPath: z.string().optional(),
+});
+
+/** 渐进式披露清单项：仅 name + description（对齐 AstrBot build_skills_prompt） */
+export const skillDescriptorSchema = z.object({
+  name: skillNameSchema,
+  description: z.string(),
+});
+
+/** Skill 安装请求（zip 上传由 HTTP multipart 承载，此处表达元信息） */
+export const skillInstallRequestSchema = z.object({
+  /** 单技能 zip（根含 SKILL.md）时的名称提示；缺省用 zip 文件名 */
+  name: skillNameSchema.optional(),
+  /** 已存在同名技能时是否覆盖（缺省 false 冲突即报错） */
+  overwrite: z.boolean().default(false),
+});
+
+// ---- Neo 生命周期：payload → candidate → evaluate → promote → release ----
+
+/** 不可变技能内容载荷（skill_markdown + 结构化 metadata；只存内容，不直接写本地技能目录） */
+export const skillPayloadSchema = z.object({
+  /** 载荷引用标识（幂等键） */
+  payloadRef: z.string().min(1),
+  /** 载荷类型（如 "aervox_skill_v1"） */
+  kind: z.string().default("aervox_skill_v1"),
+  /** 载荷内容（典型：{ skill_markdown, inputs, outputs, meta }） */
+  content: z.unknown(),
+  /** 内容校验和（防篡改溯源） */
+  checksum: z.string().optional(),
+  createdAt: z.string().optional(),
+});
+
+/** 创建 payload 请求 */
+export const skillPayloadCreateSchema = z.object({
+  payload: z.unknown(),
+  kind: z.string().default("aervox_skill_v1"),
+});
+
+/** 技能创作来源证据（AstrBot source_execution_ids 适配为 Aervox 业务对象） */
+export const skillSourceEvidenceSchema = z.object({
+  /** 关联对话轮次（创作依据） */
+  turnIds: z.array(z.string()).default([]),
+  /** 关联记忆记录 */
+  memoryIds: z.array(z.string()).default([]),
+  /** 关联学习目标 */
+  learningItemIds: z.array(z.string()).default([]),
+});
+
+/** 技能候选（绑定来源证据 + 可选载荷） */
+export const skillCandidateSchema = z.object({
+  candidateId: z.string().min(1),
+  /** 稳定逻辑标识（如 "image-collage-9grid"） */
+  skillKey: z.string().min(1),
+  /** 来源证据（Aervox 无沙盒，以 turns/memory/learning 为创作依据） */
+  sourceEvidence: skillSourceEvidenceSchema,
+  payloadRef: z.string().optional(),
+  /** 候选分组命名空间 */
+  scenarioKey: z.string().optional(),
+  status: skillCandidateStatusSchema,
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+});
+
+/** 创建候选请求 */
+export const skillCandidateCreateSchema = z.object({
+  skillKey: z.string().min(1),
+  sourceEvidence: skillSourceEvidenceSchema.default({ turnIds: [], memoryIds: [], learningItemIds: [] }),
+  payloadRef: z.string().optional(),
+  scenarioKey: z.string().optional(),
+});
+
+/** 候选评估请求 */
+export const skillEvaluationSchema = z.object({
+  passed: z.boolean(),
+  /** 0~100 评分（可选） */
+  score: z.number().min(0).max(100).optional(),
+  /** 评估报告（文本） */
+  report: z.string().optional(),
+});
+
+/** 发布记录（release） */
+export const skillReleaseSchema = z.object({
+  releaseId: z.string().min(1),
+  skillKey: z.string().min(1),
+  stage: skillStageSchema,
+  candidateId: z.string().min(1),
+  payloadRef: z.string().optional(),
+  /** 版本号（单调递增） */
+  version: z.number().int().min(1),
+  /** 是否为当前生效发布（同 skillKey 同 stage 仅一份 active） */
+  active: z.boolean().default(true),
+  /** stable 发布是否已同步到本地 SKILL.md */
+  syncedToLocal: z.boolean().default(false),
+  createdAt: z.string().optional(),
+});
+
+/** 晋升候选请求 */
+export const skillPromoteRequestSchema = z.object({
+  stage: skillStageSchema.default("canary"),
+  /** stable 时是否同步 payload.skill_markdown 到本地 SKILL.md（缺省 true） */
+  syncToLocal: z.boolean().default(true),
+});

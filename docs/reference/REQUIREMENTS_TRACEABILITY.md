@@ -2,7 +2,7 @@
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
-> 文档版本：v0.3  
+> 文档版本：v0.4  
 > 文档状态：评审候选（Review Candidate）  
 > 更新日期：2026-08-26  
 > 产品需求来源：[PRD.md](PRD.md)
@@ -186,6 +186,10 @@
 | 桌面 preload 按域 IPC 拆分 | CAP-018 | `apps/desktop/src/preload/domains/` | 2026-08-26 | typecheck | `T-07` |
 | Persona/Skills/MCP SQLite 持久化与 API 模块（Persona Revision/Skills/MCP/上下文快照） | CAP-019/020 | `packages/database/src/schema/persona.ts`、`repositories/sqlite/{persona,skill,mcp-tool}-repository.ts`、`apps/api/src/modules/persona/`、`packages/contracts/src/persona-schemas.ts` | 2026-08-26 | 单测 + API 集成测试 + ci-code | 原生 |
 | Codex Pets 兼容：9 状态 spritesheet 协议（manifest + 8×9 atlas 渲染 + 工具状态驱动） | CAP-001/018 | `packages/contracts/src/schemas.ts`（`petSheet*`/`petManifest`）、`packages/ui/src/components/SpritePet.vue`、`apps/api/src/modules/tools/mcp.ts`（`derivePetSheetState`） | 2026-08-26 | typecheck + API 集成测试 + ci-code | 原生（外部协议兼容） |
+| Skill 契约与存储（注册表 + Neo 生命周期表 + 幂等仓储） | CAP-020 | `packages/contracts/src/schemas.ts`（Skill 契约）、`packages/database/src/schema/skills.ts`、`repositories/sqlite/skill-registry-repository.ts`、`skill-lifecycle-repository.ts` | 2026-08-26 | 单测 | `Skill`（借鉴 AstrBot，登记见 [参考设计迁移 §6.1](../explanation/reference-design-transfer.md#61-已落地进度总表)） |
+| Skill 管理模块与 API（zip 安装 + 渐进式披露 prompt） | CAP-020 | `apps/api/src/modules/skills/`（`zip.ts`/`skill-manager.ts`/`skill-prompt.ts`/`routes.ts`） | 2026-08-26 | API 集成测试 | `Skill`（借鉴 AstrBot） |
+| Skill Neo 生命周期 + `aervox_skill_*` 工具 | CAP-020 | `apps/api/src/modules/skills/`（`lifecycle.ts`/`skill-tools.ts`） | 2026-08-26 | API 集成测试 | `Skill`（借鉴 AstrBot，PET-05 安全级别） |
+| 插件技能联动（只读注册 / 启停 / 卸载） | CAP-020 | `apps/api/src/modules/plugins/service.ts` | 2026-08-26 | API 集成测试 | `Skill`（借鉴 AstrBot） |
 
 ## 5. 原子需求字段模板
 

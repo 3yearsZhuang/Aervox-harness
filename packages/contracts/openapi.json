@@ -971,39 +971,48 @@
             "properties": {
               "idle": {
                 "type": "integer",
-                "exclusiveMinimum": 0
+                "minimum": 1,
+                "maximum": 8
               },
               "running-right": {
                 "type": "integer",
-                "exclusiveMinimum": 0
+                "minimum": 1,
+                "maximum": 8
               },
               "running-left": {
                 "type": "integer",
-                "exclusiveMinimum": 0
+                "minimum": 1,
+                "maximum": 8
               },
               "waving": {
                 "type": "integer",
-                "exclusiveMinimum": 0
+                "minimum": 1,
+                "maximum": 8
               },
               "jumping": {
                 "type": "integer",
-                "exclusiveMinimum": 0
+                "minimum": 1,
+                "maximum": 8
               },
               "failed": {
                 "type": "integer",
-                "exclusiveMinimum": 0
+                "minimum": 1,
+                "maximum": 8
               },
               "waiting": {
                 "type": "integer",
-                "exclusiveMinimum": 0
+                "minimum": 1,
+                "maximum": 8
               },
               "running": {
                 "type": "integer",
-                "exclusiveMinimum": 0
+                "minimum": 1,
+                "maximum": 8
               },
               "review": {
                 "type": "integer",
-                "exclusiveMinimum": 0
+                "minimum": 1,
+                "maximum": 8
               }
             }
           }
@@ -1681,6 +1690,331 @@
           "fileName",
           "skillNames"
         ]
+      },
+      "SkillMetadata": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[\\w.-]+$"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "local",
+              "plugin",
+              "ai_authored"
+            ]
+          },
+          "active": {
+            "type": "boolean",
+            "default": true
+          },
+          "readonly": {
+            "type": "boolean",
+            "default": false
+          },
+          "version": {
+            "type": "string",
+            "default": "1.0.0"
+          },
+          "checksum": {
+            "type": "string"
+          },
+          "pluginId": {
+            "type": "string"
+          },
+          "gatingConditions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "operator": {
+                  "type": "string",
+                  "enum": [
+                    "equals",
+                    "in",
+                    "truthy",
+                    "custom"
+                  ]
+                },
+                "value": {},
+                "evaluatorId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "field",
+                "operator"
+              ]
+            },
+            "default": []
+          },
+          "contentPath": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "source"
+        ]
+      },
+      "SkillInstallRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[\\w.-]+$"
+          },
+          "overwrite": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "SkillPayload": {
+        "type": "object",
+        "properties": {
+          "payloadRef": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "default": "aervox_skill_v1"
+          },
+          "content": {},
+          "checksum": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "payloadRef"
+        ]
+      },
+      "SkillPayloadCreate": {
+        "type": "object",
+        "properties": {
+          "payload": {},
+          "kind": {
+            "type": "string",
+            "default": "aervox_skill_v1"
+          }
+        }
+      },
+      "SkillCandidate": {
+        "type": "object",
+        "properties": {
+          "candidateId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "skillKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sourceEvidence": {
+            "type": "object",
+            "properties": {
+              "turnIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": []
+              },
+              "memoryIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": []
+              },
+              "learningItemIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": []
+              }
+            }
+          },
+          "payloadRef": {
+            "type": "string"
+          },
+          "scenarioKey": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "evaluated",
+              "promoted",
+              "rejected"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidateId",
+          "skillKey",
+          "sourceEvidence",
+          "status"
+        ]
+      },
+      "SkillCandidateCreate": {
+        "type": "object",
+        "properties": {
+          "skillKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sourceEvidence": {
+            "type": "object",
+            "properties": {
+              "turnIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": []
+              },
+              "memoryIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": []
+              },
+              "learningItemIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": []
+              }
+            },
+            "default": {
+              "turnIds": [],
+              "memoryIds": [],
+              "learningItemIds": []
+            }
+          },
+          "payloadRef": {
+            "type": "string"
+          },
+          "scenarioKey": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "skillKey"
+        ]
+      },
+      "SkillEvaluation": {
+        "type": "object",
+        "properties": {
+          "passed": {
+            "type": "boolean"
+          },
+          "score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "report": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "passed"
+        ]
+      },
+      "SkillRelease": {
+        "type": "object",
+        "properties": {
+          "releaseId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "skillKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "canary",
+              "stable"
+            ]
+          },
+          "candidateId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "payloadRef": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "active": {
+            "type": "boolean",
+            "default": true
+          },
+          "syncedToLocal": {
+            "type": "boolean",
+            "default": false
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "releaseId",
+          "skillKey",
+          "stage",
+          "candidateId",
+          "version"
+        ]
+      },
+      "SkillPromoteRequest": {
+        "type": "object",
+        "properties": {
+          "stage": {
+            "type": "string",
+            "enum": [
+              "canary",
+              "stable"
+            ],
+            "default": "canary"
+          },
+          "syncToLocal": {
+            "type": "boolean",
+            "default": true
+          }
+        }
       }
     },
     "parameters": {}

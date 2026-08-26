@@ -29,6 +29,7 @@ export function registerPluginRoutes(app: FastifyInstance, service: PluginServic
       permissions?: unknown;
       installSource?: string;
       tools?: unknown;
+      skills?: unknown;
     };
     if (
       !body.id ||
@@ -46,6 +47,7 @@ export function registerPluginRoutes(app: FastifyInstance, service: PluginServic
       permissions: body.permissions,
       installSource: body.installSource,
       tools: (body.tools ?? undefined) as never,
+      skills: (body.skills ?? undefined) as never,
     });
     return reply.code(201).send(plugin);
   });

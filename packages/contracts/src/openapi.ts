@@ -27,6 +27,15 @@ import {
   petSheetLayoutSchema,
   petSheetStateSchema,
   redactedEventDataSchema,
+  skillCandidateCreateSchema,
+  skillCandidateSchema,
+  skillEvaluationSchema,
+  skillInstallRequestSchema,
+  skillMetadataSchema,
+  skillPayloadCreateSchema,
+  skillPayloadSchema,
+  skillPromoteRequestSchema,
+  skillReleaseSchema,
   streamErrorCodeSchema,
   toolMetadataSchema,
   toolRegistryEntrySchema,
@@ -89,6 +98,15 @@ registry.register("VoiceSynthesisRequest", voiceSynthesisRequestSchema);
 registry.register("VoiceSynthesisResponse", voiceSynthesisResponseSchema);
 registry.register("PersonaBundleResponse", personaBundleResponseSchema);
 registry.register("SkillZipResponse", skillZipResponseSchema);
+registry.register("SkillMetadata", skillMetadataSchema);
+registry.register("SkillInstallRequest", skillInstallRequestSchema);
+registry.register("SkillPayload", skillPayloadSchema);
+registry.register("SkillPayloadCreate", skillPayloadCreateSchema);
+registry.register("SkillCandidate", skillCandidateSchema);
+registry.register("SkillCandidateCreate", skillCandidateCreateSchema);
+registry.register("SkillEvaluation", skillEvaluationSchema);
+registry.register("SkillRelease", skillReleaseSchema);
+registry.register("SkillPromoteRequest", skillPromoteRequestSchema);
 
 const sessionIdParam = z.object({ sessionId: z.string().min(1) });
 const turnIdParam = z.object({ turnId: z.string().min(1) });
