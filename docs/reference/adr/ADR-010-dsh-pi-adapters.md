@@ -7,7 +7,7 @@
 
 ## Context
 
-dsh-synapse 展示了会话分支和画布投影的价值，pi/DSH 展示了可替换模型与扩展接口；但它们版本快速变化，运行时/插件权限和数据所有权不应成为 Aervox 核心依赖。BaiShou-Next 为 AGPLv3，不能未经许可复制或链接。
+本文中的 `DSH` 专指 DeepSeek Harness（`reference/deepseek-harness`）。`dsh-synapse` 是运行在 DSH 上的独立 Web 视图插件，不是 DSH 本体；它展示了会话分支和画布投影的价值。pi/DSH 展示了可替换模型与扩展接口，但它们版本快速变化，运行时/插件权限和数据所有权不应成为 Aervox 核心依赖。BaiShou-Next 为 AGPLv3，不能未经许可复制或链接。
 
 ## Decision drivers
 
@@ -24,7 +24,7 @@ dsh-synapse 展示了会话分支和画布投影的价值，pi/DSH 展示了可�
 
 ## Decision
 
-通过 `adapter-dsh`、`adapter-pi`、`adapter-mcp` 接入；Aervox Session/Message/学习数据仍是唯一真源。dsh-synapse 画布只保存布局、锚点、折叠和真实 ID。版本精确锁定、契约测试、权限代理、超时、配额、审计和 kill switch 必须存在；MVP 不安装这些运行时也必须完整可用。
+通过 `adapter-dsh`、`adapter-pi`、`adapter-mcp` 接入；Aervox Session/Message/学习数据仍是唯一真源。`dsh-synapse` 画布只保存布局、锚点、折叠和真实 ID。版本精确锁定、契约测试、权限代理、超时、配额、审计和 kill switch 必须存在；MVP 不安装这些运行时也必须完整可用。统一 Manifest/Profile/Contribution 的目标扩展见 [能力组合与可选化目录规范](../capability-composition.md)。
 
 ## Positive consequences
 
