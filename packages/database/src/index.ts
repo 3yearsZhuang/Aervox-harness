@@ -7,4 +7,6 @@ export * from "./client.js";
 export * from "./tenant.js";
 export * from "./schema/index.js";
 export * from "./search/index.js";
+export * from "./write-retry.js";
+export * from "./session-lock.js";
 export * from "./repositories/index.js";

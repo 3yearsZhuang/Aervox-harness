@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { createClient, type Client } from "@libsql/client";
 import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
 import * as schema from "./schema/index.js";
+import { withBusyRetry, type BusyRetryConfig } from "./write-retry.js";
 
 export type AervoxDatabase = LibSQLDatabase<typeof schema>;
 
@@ -29,6 +30,8 @@ export interface DatabaseConfig {
   readonly authToken?: string;
   /** 事务忙等待超时（毫秒），默认 5000 */
   readonly busyTimeoutMs?: number;
+  /** SQLITE_BUSY 指数退避重试配置（T-01），缺省开启（5 次/50ms 起步） */
+  readonly busyRetry?: BusyRetryConfig;
 }
 
 /**
@@ -67,8 +70,11 @@ export async function createDatabase(
     }
   }
 
-  const db = drizzle(client, { schema });
-  return { db, client };
+  // T-01：写路径统一 busy 退避重试（仅影响写入口，调用方零侵入）
+  const retryingClient = withBusyRetry(client, config.busyRetry);
+
+  const db = drizzle(retryingClient, { schema });
+  return { db, client: retryingClient };
 }
 
 /**

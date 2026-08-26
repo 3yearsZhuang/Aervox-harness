@@ -20,7 +20,8 @@ Aervox｜思隅：面向编程初学者的 AI 陪伴学习桌宠。TypeScript �
 - 修改文档前先读文档写作规范：标注 `类型` 与文档头字段，改完同步 [DOC_REGISTRY.md](docs/DOC_REGISTRY.md) 与 [文档索引](docs/README.md)；
 - 术语唯一：以术语表「规范写法」列为准，提交文档前须 `mise tasks run ci-docs`（markdownlint + Vale，链接检查在 CI）；
 - 代码 CI 门禁：`mise tasks run ci-code`（install + build + typecheck + test）；
-- 文档目录即类型：`tutorials/` `how-to/` `explanation/` `reference/`（含 `adr/ changes/ standards/ diagrams/`），根层只放索引与登记表。
+- 文档目录即类型：`tutorials/` `how-to/` `explanation/` `reference/`（含 `adr/ changes/ standards/ diagrams/`），根层只放索引与登记表；
+- 借鉴参考项目（`T-*` / `AST-*` / `PET-*`）落地的改动必须闭环到[参考设计迁移文档](docs/explanation/reference-design-transfer.md#61-已落地进度总表)：在 §6.1「已落地进度总表」登记实现位置与日期（含第三方代码需记录来源与版权声明，见 PRD §15.1）。未登记的改动视为未闭环、提交打回；改文档的结项以该总表为准。
 
 ## 常用命令
 

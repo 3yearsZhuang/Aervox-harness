@@ -189,7 +189,8 @@
               "delta",
               "done",
               "error",
-              "redacted"
+              "redacted",
+              "emote"
             ]
           },
           "payloadVersion": {
@@ -363,6 +364,104 @@
           "targetEventId",
           "visibilityRevision",
           "reasonCode"
+        ]
+      },
+      "PetCommand": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "speak",
+              "emote",
+              "gesture",
+              "move",
+              "react"
+            ]
+          },
+          "emote": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "cheer",
+              "think",
+              "worry",
+              "happy",
+              "sad",
+              "surprise"
+            ]
+          },
+          "gesture": {
+            "type": "string",
+            "enum": [
+              "wave",
+              "nod",
+              "shake",
+              "stretch",
+              "yawn"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "EmoteEventData": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "speak",
+              "emote",
+              "gesture",
+              "move",
+              "react"
+            ]
+          },
+          "emote": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "cheer",
+              "think",
+              "worry",
+              "happy",
+              "sad",
+              "surprise"
+            ]
+          },
+          "gesture": {
+            "type": "string",
+            "enum": [
+              "wave",
+              "nod",
+              "shake",
+              "stretch",
+              "yawn"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "type"
         ]
       },
       "StreamErrorCode": {
@@ -635,7 +734,8 @@
                         "delta",
                         "done",
                         "error",
-                        "redacted"
+                        "redacted",
+                        "emote"
                       ]
                     },
                     "payloadVersion": {
