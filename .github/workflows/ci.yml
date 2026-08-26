@@ -5,6 +5,8 @@ on:
     paths:
       - "apps/**"
       - "packages/**"
+      - "modules/**"
+      - ".gitmodules"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
@@ -17,6 +19,8 @@ on:
     paths:
       - "apps/**"
       - "packages/**"
+      - "modules/**"
+      - ".gitmodules"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
@@ -34,6 +38,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install mise
         run: |
@@ -50,6 +56,11 @@ jobs:
 
       - name: Install tools (node + pnpm from mise.toml)
         run: mise install
+
+      - name: Verify optional submodules
+        run: |
+          test -f modules/persona-plugin/package.json
+          git submodule status --recursive
 
       - name: Run code gate (build + typecheck + test)
         run: mise tasks run ci-code

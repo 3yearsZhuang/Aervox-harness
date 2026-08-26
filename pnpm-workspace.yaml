@@ -1,6 +1,7 @@
 packages:
   - "apps/*"
   - "packages/*"
+  - "modules/*"
 
 # pnpm 11：允许 esbuild / electron 构建脚本（下载平台二进制），显式阻断 better-sqlite3 原生编译（@aervox/database 实际使用 @libsql/client）
 allowBuilds:
