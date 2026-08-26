@@ -476,6 +476,351 @@
           "OUTPUT_SAFETY_BLOCKED",
           "PERMISSION_REVOKED"
         ]
+      },
+      "ToolMetadata": {
+        "type": "object",
+        "properties": {
+          "toolId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "memory",
+              "search",
+              "learning",
+              "diary",
+              "system",
+              "external"
+            ]
+          },
+          "safetyLevel": {
+            "type": "string",
+            "enum": [
+              "read_only",
+              "write_with_approval",
+              "privileged"
+            ],
+            "default": "write_with_approval"
+          },
+          "requiredPermissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "inputSchema": {},
+          "builtin": {
+            "type": "boolean",
+            "default": false
+          },
+          "pluginId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "toolId",
+          "name",
+          "description",
+          "category"
+        ]
+      },
+      "ToolRegistryEntry": {
+        "type": "object",
+        "properties": {
+          "toolId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "memory",
+              "search",
+              "learning",
+              "diary",
+              "system",
+              "external"
+            ]
+          },
+          "safetyLevel": {
+            "type": "string",
+            "enum": [
+              "read_only",
+              "write_with_approval",
+              "privileged"
+            ],
+            "default": "write_with_approval"
+          },
+          "requiredPermissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "inputSchema": {},
+          "builtin": {
+            "type": "boolean",
+            "default": false
+          },
+          "pluginId": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "gatingConditions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "operator": {
+                  "type": "string",
+                  "enum": [
+                    "equals",
+                    "in",
+                    "truthy",
+                    "custom"
+                  ]
+                },
+                "value": {},
+                "evaluatorId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "field",
+                "operator"
+              ]
+            },
+            "default": []
+          },
+          "priority": {
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "required": [
+          "toolId",
+          "name",
+          "description",
+          "category"
+        ]
+      },
+      "ToolRegistryExport": {
+        "type": "object",
+        "properties": {
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "toolId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "memory",
+                    "search",
+                    "learning",
+                    "diary",
+                    "system",
+                    "external"
+                  ]
+                },
+                "safetyLevel": {
+                  "type": "string",
+                  "enum": [
+                    "read_only",
+                    "write_with_approval",
+                    "privileged"
+                  ],
+                  "default": "write_with_approval"
+                },
+                "requiredPermissions": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": []
+                },
+                "inputSchema": {},
+                "builtin": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "pluginId": {
+                  "type": "string"
+                },
+                "enabled": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "gatingConditions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "field": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "operator": {
+                        "type": "string",
+                        "enum": [
+                          "equals",
+                          "in",
+                          "truthy",
+                          "custom"
+                        ]
+                      },
+                      "value": {},
+                      "evaluatorId": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "field",
+                      "operator"
+                    ]
+                  },
+                  "default": []
+                },
+                "priority": {
+                  "type": "integer",
+                  "default": 0
+                }
+              },
+              "required": [
+                "toolId",
+                "name",
+                "description",
+                "category"
+              ]
+            }
+          },
+          "disabledToolIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "exportVersion": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tools",
+          "exportVersion"
+        ]
+      },
+      "MemoryStoreToolInput": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "user_said",
+              "ai_inferred"
+            ],
+            "default": "ai_inferred"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "identity",
+              "preference",
+              "habit",
+              "schedule",
+              "relationship",
+              "event",
+              "other"
+            ],
+            "default": "other"
+          },
+          "keywords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "sourceTurnId": {
+            "type": "string"
+          },
+          "asCandidate": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "content"
+        ]
+      },
+      "MemoryStoreToolOutput": {
+        "type": "object",
+        "properties": {
+          "memoryId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "isCandidate": {
+            "type": "boolean"
+          },
+          "deduplicatedMemoryId": {
+            "type": "string"
+          },
+          "embeddingStatus": {
+            "type": "string",
+            "enum": [
+              "indexed",
+              "skipped",
+              "failed"
+            ]
+          }
+        },
+        "required": [
+          "memoryId",
+          "isCandidate"
+        ]
       }
     },
     "parameters": {}

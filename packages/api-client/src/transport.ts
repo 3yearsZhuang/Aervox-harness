@@ -4,12 +4,13 @@
  * 将桌面端（Electron IPC）与 Web（浏览器 fetch/SSE）的差异抽象为单一 Transport 接口，
  * 两端只依赖本接口与领域 composables，不再各自维护实现副本（见 ARCHITECTURE §3.2）。
  */
-import type { TurnStreamEvent } from '@aervox/contracts';
+import type { PetCommand, TurnStreamEvent } from '@aervox/contracts';
 
 export interface TurnCallbacks {
   onDelta: (text: string) => void;
   onDone: () => void;
   onError?: (err: unknown) => void;
+  onEmote?: (command: PetCommand) => void;
 }
 
 /** 两端能力的最小契约：普通请求 + Turn 流式 */
@@ -142,6 +143,8 @@ export function createFetchTransport(apiBase: string, workspaceId?: string, user
       callbacks.onDone();
     } else if (event.eventType === 'error') {
       callbacks.onError?.(new Error((event.data as { message?: string }).message ?? 'Turn 出错'));
+    } else if (event.eventType === 'emote') {
+      callbacks.onEmote?.(event.data as PetCommand);
     }
   };
 

@@ -45,6 +45,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
       category?: string;
       keywords?: string[];
       lastUsedAt?: string | null;
+      verificationStatus?: string;
     },
   ): Promise<MemoryRecordModel> {
     assertTenantContext(tenant);
@@ -69,6 +70,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
             ? JSON.stringify(recordData.keywords)
             : null,
         lastUsedAt: recordData.lastUsedAt ?? null,
+        verificationStatus: recordData.verificationStatus,
         createdAt: now,
         updatedAt: now,
       })
