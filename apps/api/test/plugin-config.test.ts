@@ -184,7 +184,7 @@ describe("CAP-020 插件 Config / Page API", () => {
     const entry = await app.inject({ method: "GET", url: "/v1/plugins/cfg-demo/pages/dashboard/assets/index.html" });
     expect(entry.statusCode).toBe(200);
     expect(entry.body).toContain("<h1>Hi</h1>");
-    expect(entry.headers["content-security-policy"]).toContain("frame-ancestors 'self'");
+    expect(entry.headers["content-security-policy"]).toContain("frame-ancestors *");
 
     const js = await app.inject({ method: "GET", url: "/v1/plugins/cfg-demo/pages/dashboard/assets/app.js" });
     expect(js.statusCode).toBe(200);

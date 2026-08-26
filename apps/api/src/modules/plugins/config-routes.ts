@@ -129,7 +129,7 @@ export function registerPluginConfigRoutes(app: FastifyInstance, service: Plugin
           ? await service.readPageEntry(pluginId, pageId)
           : await service.readPageAsset(pluginId, pageId, rest);
       return reply
-        .header("Content-Security-Policy", "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; frame-ancestors 'self'; base-uri 'none'; form-action 'none'")
+        .header("Content-Security-Policy", "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; frame-ancestors *; base-uri 'none'; form-action 'none'")
         .header("X-Content-Type-Options", "nosniff")
         .header("Cache-Control", "no-store")
         .header("Referrer-Policy", "no-referrer")
