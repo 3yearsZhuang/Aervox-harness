@@ -29,7 +29,7 @@ export function registerSkillsModule(
   app: FastifyInstance,
   db: AervoxDatabase,
   options: RegisterSkillsModuleOptions = {},
-): void {
+): SkillManager {
   const registry = new SqliteSkillRegistryRepository(db);
   const manager = new SkillManager(registry, options.skillsRoot);
 
@@ -43,4 +43,5 @@ export function registerSkillsModule(
 
   const toolRegistry = new SqliteToolRegistryRepository(db);
   registerSkillLifecycleTools(toolRegistry, lifecycle, options.toolRuntime);
+  return manager;
 }
