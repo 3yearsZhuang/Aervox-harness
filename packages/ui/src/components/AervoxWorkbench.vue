@@ -827,7 +827,7 @@ onUnmounted(() => {
       </section>
     </el-drawer>
 
-    <el-dialog v-model="settingsOpen" title="设置" class="settings-dialog" width="min(780px, calc(100vw - 28px))" align-center>
+    <el-dialog v-model="settingsOpen" title="设置" class="settings-dialog" width="min(860px, calc(100vw - 28px))" align-center>
       <div class="settings-layout">
         <nav class="settings-categories" aria-label="设置分类">
           <button v-for="category in settingCategories" :key="category.id" type="button" :class="{active: settingsCategory === category.id}" @click="settingsCategory = category.id">
@@ -837,23 +837,35 @@ onUnmounted(() => {
         </nav>
         <section class="settings-detail">
           <div v-if="settingsCategory === 'appearance'" class="settings-section">
-            <div class="settings-section-heading"><span><Sun :size="19" /><span><strong>外观</strong><small>让工作台更符合你的节奏</small></span></span></div>
+            <div class="settings-section-heading">
+              <span class="heading-icon-wrap"><Sun :size="18" /></span>
+              <span><strong>外观</strong><small>让工作台更符合你的节奏与喜好</small></span>
+            </div>
             <div class="settings-row settings-choice-row"><span><strong>主题</strong><small>选择工作台的明暗模式</small></span><span class="settings-segmented"><button type="button" :class="{active: !isDark}" @click="setTheme('light')"><Sun :size="16" />亮色</button><button type="button" :class="{active: isDark}" @click="setTheme('dark')"><Moon :size="16" />暗色</button></span></div>
             <label class="settings-row settings-choice-row"><span><strong>界面密度</strong><small>紧凑模式会减少面板间距</small></span><input v-model="compactMode" type="checkbox" class="settings-switch" @change="saveSettings" /></label>
             <label v-if="!isWeb && props.showCompanion" class="settings-row settings-choice-row"><span><strong>工作台桌宠</strong><small>控制桌面端主窗口中的桌宠区域</small></span><input v-model="desktopCompanionEnabled" type="checkbox" class="settings-switch" @change="saveSettings" /></label>
           </div>
           <div v-else-if="settingsCategory === 'conversation'" class="settings-section">
-            <div class="settings-section-heading"><span><MessageCircle :size="19" /><span><strong>对话</strong><small>调整你与思隅交流的方式</small></span></span></div>
+            <div class="settings-section-heading">
+              <span class="heading-icon-wrap"><MessageCircle :size="18" /></span>
+              <span><strong>对话</strong><small>调整你与思隅交流的输入与展示方式</small></span>
+            </div>
             <label class="settings-field"><span><strong>助手称呼</strong><small>工作台中显示的名字</small></span><input v-model="assistantDisplayName" maxlength="12" @change="saveSettings" /></label>
             <label class="settings-row settings-choice-row"><span><strong>回车发送</strong><small>关闭后，回车只换行</small></span><input v-model="enterToSend" type="checkbox" class="settings-switch" @change="saveSettings" /></label>
           </div>
           <PersonaManagerPanel v-else-if="settingsCategory === 'persona'" class="settings-section" />
           <div v-else-if="settingsCategory === 'focus'" class="settings-section">
-            <div class="settings-section-heading"><span><Clock3 :size="19" /><span><strong>专注</strong><small>设置番茄钟的默认工作时长</small></span></span></div>
+            <div class="settings-section-heading">
+              <span class="heading-icon-wrap"><Clock3 :size="18" /></span>
+              <span><strong>专注</strong><small>设置番茄钟的默认工作与休息时长</small></span>
+            </div>
             <div class="settings-row settings-choice-row"><span><strong>专注时长</strong><small>重置计时器时使用该时长</small></span><span class="settings-segmented"><button v-for="minutes in [15, 25, 45, 60]" :key="minutes" type="button" :class="{active: timerMinutes === minutes}" @click="timerMinutes = minutes; saveSettings()">{{ minutes }} 分钟</button></span></div>
           </div>
           <div v-else-if="settingsCategory === 'notifications'" class="settings-section">
-            <div class="settings-section-heading"><span><Bell :size="19" /><span><strong>提醒</strong><small>控制学习过程中的轻量提醒</small></span></span></div>
+            <div class="settings-section-heading">
+              <span class="heading-icon-wrap"><Bell :size="18" /></span>
+              <span><strong>提醒</strong><small>控制学习过程中的轻量通知与节奏提醒</small></span>
+            </div>
             <label class="settings-row settings-choice-row"><span><strong>学习提醒</strong><small>允许工作台显示复习和目标提醒</small></span><input v-model="dailyReminder" type="checkbox" class="settings-switch" @change="saveSettings" /></label>
             <div class="settings-note"><Check :size="16" />设置会自动保存在当前设备</div>
           </div>
