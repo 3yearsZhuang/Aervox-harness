@@ -61,6 +61,15 @@ import {
   voiceSynthesisRequestSchema,
   voiceSynthesisResponseSchema,
 } from "./persona-schemas.js";
+import {
+  pluginConfigSchemaOpenApi,
+  pluginConfigSnapshotSchema,
+  pluginConfigUpdateRequestSchema,
+  pluginPageAssetsRequestSchema,
+  pluginPageSchema,
+  pluginManifestSchema,
+  pluginPageContextSchema,
+} from "./plugin-config-schemas.js";
 
 const registry = new OpenAPIRegistry();
 
@@ -107,6 +116,14 @@ registry.register("SkillCandidateCreate", skillCandidateCreateSchema);
 registry.register("SkillEvaluation", skillEvaluationSchema);
 registry.register("SkillRelease", skillReleaseSchema);
 registry.register("SkillPromoteRequest", skillPromoteRequestSchema);
+
+registry.register("PluginConfigSchema", pluginConfigSchemaOpenApi);
+registry.register("PluginConfigSnapshot", pluginConfigSnapshotSchema);
+registry.register("PluginConfigUpdateRequest", pluginConfigUpdateRequestSchema);
+registry.register("PluginPage", pluginPageSchema);
+registry.register("PluginPageAssetsRequest", pluginPageAssetsRequestSchema);
+registry.register("PluginManifest", pluginManifestSchema);
+registry.register("PluginPageContext", pluginPageContextSchema);
 
 const sessionIdParam = z.object({ sessionId: z.string().min(1) });
 const turnIdParam = z.object({ turnId: z.string().min(1) });
@@ -309,6 +326,54 @@ registry.registerPath({ method: "delete", path: "/v1/skills/{skillName}", summar
 registry.registerPath({ method: "get", path: "/v1/mcp/tools", summary: "列出 MCP 工具", tags: ["MCP"], request: { headers: scopeHeaders }, responses: { 200: { description: "MCP tools", content: { "application/json": { schema: z.object({ tools: z.array(mcpToolSchema) }) } } } } });
 registry.registerPath({ method: "get", path: "/v1/voice/models", summary: "列出 GPT-SoVITS 模型", tags: ["Voice"], responses: { 200: { description: "Voice models", content: { "application/json": { schema: z.object({ models: z.array(voiceModelSchema) }) } } } } });
 registry.registerPath({ method: "post", path: "/v1/voice/synthesize", summary: "GPT-SoVITS 语音合成", tags: ["Voice"], request: { body: { content: { "application/json": { schema: voiceSynthesisRequestSchema } } } }, responses: { 200: { description: "Audio artifact", content: { "application/json": { schema: voiceSynthesisResponseSchema } } }, 503: { description: "VOICE_PROVIDER_UNAVAILABLE" } } });
+
+const pluginIdParam = z.object({ pluginId: z.string().min(1) });
+const pluginPageParam = pluginIdParam.extend({ pageId: z.string().min(1) });
+
+registry.registerPath({
+  method: "get", path: "/v1/plugins/{pluginId}/config/schema", summary: "读取插件配置 Schema", tags: ["Plugins"],
+  request: { params: pluginIdParam, headers: scopeHeaders },
+  responses: { 200: { description: "Schema", content: { "application/json": { schema: pluginConfigSchemaOpenApi } } }, 404: { description: "Plugin or schema not found" } },
+});
+registry.registerPath({
+  method: "put", path: "/v1/plugins/{pluginId}/config/schema", summary: "注册/更新插件配置 Schema", tags: ["Plugins"],
+  request: { params: pluginIdParam, headers: scopeHeaders, body: { content: { "application/json": { schema: pluginConfigSchemaOpenApi } } } },
+  responses: { 200: { description: "Schema", content: { "application/json": { schema: pluginConfigSchemaOpenApi } } }, 400: { description: "INVALID_CONFIG_SCHEMA" } },
+});
+registry.registerPath({
+  method: "get", path: "/v1/plugins/{pluginId}/config", summary: "读取插件配置（secret 仅返回状态）", tags: ["Plugins"],
+  request: { params: pluginIdParam, headers: scopeHeaders },
+  responses: { 200: { description: "Snapshot", content: { "application/json": { schema: pluginConfigSnapshotSchema } } }, 404: { description: "Plugin not found" } },
+});
+registry.registerPath({
+  method: "put", path: "/v1/plugins/{pluginId}/config", summary: "保存插件配置（revision CAS）", tags: ["Plugins"],
+  request: { params: pluginIdParam, headers: scopeHeaders, body: { content: { "application/json": { schema: pluginConfigUpdateRequestSchema } } } },
+  responses: { 200: { description: "Snapshot", content: { "application/json": { schema: pluginConfigSnapshotSchema } } }, 400: { description: "INVALID_CONFIG" }, 404: { description: "Plugin not found" }, 409: { description: "PLUGIN_CONFIG_REVISION_CONFLICT" } },
+});
+registry.registerPath({
+  method: "post", path: "/v1/plugins/{pluginId}/config/reset", summary: "重置插件配置", tags: ["Plugins"],
+  request: { params: pluginIdParam, headers: scopeHeaders },
+  responses: { 200: { description: "Snapshot", content: { "application/json": { schema: pluginConfigSnapshotSchema } } }, 404: { description: "Plugin not found" } },
+});
+registry.registerPath({
+  method: "get", path: "/v1/plugins/{pluginId}/pages", summary: "列出插件 Page", tags: ["Plugins"],
+  request: { params: pluginIdParam, headers: scopeHeaders },
+  responses: { 200: { description: "Pages", content: { "application/json": { schema: z.object({ pages: z.array(pluginPageSchema) }) } } }, 404: { description: "Plugin not found" } },
+});
+registry.registerPath({
+  method: "post", path: "/v1/plugins/{pluginId}/pages", summary: "注册插件 Page 元数据", tags: ["Plugins"],
+  request: { params: pluginIdParam, headers: scopeHeaders, body: { content: { "application/json": { schema: pluginPageSchema } } } },
+  responses: { 201: { description: "Created", content: { "application/json": { schema: pluginPageSchema } } }, 400: { description: "INVALID_PAGE" } },
+});
+registry.registerPath({
+  method: "post", path: "/v1/plugins/{pluginId}/pages/{pageId}/assets", summary: "写入插件 Page 静态资源（base64）", tags: ["Plugins"],
+  request: { params: pluginPageParam, headers: scopeHeaders, body: { content: { "application/json": { schema: pluginPageAssetsRequestSchema } } } },
+  responses: { 201: { description: "Written" }, 400: { description: "INVALID_ASSET_PATH" } },
+});
+registry.registerPath({
+  method: "get", path: "/v1/plugin-pages/bridge.js", summary: "Page Bridge SDK", tags: ["Plugins"],
+  responses: { 200: { description: "JavaScript" } },
+});
 
 const generator = new OpenApiGeneratorV31(registry.definitions);
 

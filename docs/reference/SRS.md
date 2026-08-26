@@ -494,3 +494,39 @@
 5. Owner、Feature Flag、迁移、灰度、回滚、风险和许可证结论。
 
 不满足上述条件的状态必须保持 `Mapped` 或 `Specified`，不得标记为 `Ready`、`Verified` 或 `Released`。
+
+## 7. 插件配置与页面（P2 · CAP-020 · CR-006）
+
+### FR-PLG-001 插件配置 Schema 声明与解析
+
+- **Parent CAP**：`CAP-020`
+- **必须**：插件可通过 Bundle 声明 Aervox Config Schema v1（字段类型、默认值、校验、层级、本地化文案）；非法 Schema、超深度/超量字段与非法默认值被拒绝。
+- **验收**：
+  - `AC-FR-PLG-001-01`：Given 合法 Schema，When 注册，Then 可读取且字段顺序与定义一致；
+  - `AC-FR-PLG-001-02`：Given `object` 缺 `children` 或 `select` 缺 `options`，When 注册，Then 返回 400 且不落库。
+
+### FR-PLG-002 插件配置可视化编辑
+
+- **Parent CAP**：`CAP-020`
+- **必须**：设置页「插件」分类展示已安装插件；有 Schema 的插件可打开配置弹窗，按类型渲染表单并显示行级校验错误；secret 只显示配置状态。
+- **验收**：
+  - `AC-FR-PLG-002-01`：Given 用户修改并保存，When 校验通过，Then revision 递增且配置持久化；
+  - `AC-FR-PLG-002-02`：Given 校验失败，When 保存，Then 不落库并定位具体字段错误；
+  - `AC-FR-PLG-002-03`：Given secret 已配置，When 刷新页面或重开弹窗，Then 只显示「已配置」，不显示明文。
+
+### FR-PLG-003 插件配置并发与重置
+
+- **Parent CAP**：`CAP-020`
+- **必须**：保存使用 revision CAS；冲突返回 409 且不静默覆盖；重置需用户确认并清空 secret。
+- **验收**：
+  - `AC-FR-PLG-003-01`：Given 旧 revision 保存，When 提交，Then 返回 `PLUGIN_CONFIG_REVISION_CONFLICT`；
+  - `AC-FR-PLG-003-02`：Given 用户确认重置，When 提交，Then 恢复 Schema 默认值且 secret 全部清除。
+
+### FR-PLG-004 插件 Page 与 Bridge
+
+- **Parent CAP**：`CAP-020`
+- **必须**：插件可注册 Page 并写入本地 Bundle 静态资源；设置弹窗内可通过 iframe 打开 Page；Page 仅通过 Host Bridge 读取/保存本插件配置、通知与关闭，能力按 Manifest 声明放行。
+- **验收**：
+  - `AC-FR-PLG-004-01`：Given Page 已注册且资源已写入，When 打开，Then 渲染 `index.html` 且 Bridge 可读取配置；
+  - `AC-FR-PLG-004-02`：Given Page 声明 `config.write`，When 保存配置，Then revision 递增；未声明时调用被拒绝；
+  - `AC-FR-PLG-004-03`：Given 路径穿越或未启用插件，When 访问静态资源，Then 被拒绝。
