@@ -190,6 +190,7 @@
 | Skill 管理模块与 API（zip 安装 + 渐进式披露 prompt） | CAP-020 | `apps/api/src/modules/skills/`（`zip.ts`/`skill-manager.ts`/`skill-prompt.ts`/`routes.ts`） | 2026-08-26 | API 集成测试 | `Skill`（借鉴 AstrBot） |
 | Skill Neo 生命周期 + `aervox_skill_*` 工具 | CAP-020 | `apps/api/src/modules/skills/`（`lifecycle.ts`/`skill-tools.ts`） | 2026-08-26 | API 集成测试 | `Skill`（借鉴 AstrBot，PET-05 安全级别） |
 | 插件技能联动（只读注册 / 启停 / 卸载） | CAP-020 | `apps/api/src/modules/plugins/service.ts` | 2026-08-26 | API 集成测试 | `Skill`（借鉴 AstrBot） |
+| CI 增量缓存（pnpm store + Turbo 本地缓存，只验证变更包） | 基础设施 | `.github/workflows/ci.yml` | 2026-08-26 | YAML 结构校验（CI 实测待 PR 后确认） | 原生 |
 
 ## 5. 原子需求字段模板
 
