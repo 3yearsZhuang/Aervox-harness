@@ -66,6 +66,9 @@ async function streamAervoxTurn(event: Electron.IpcMainEvent, payload: unknown) 
             if (!data) return
             const turnEvent = JSON.parse(data) as Record<string, unknown>
             send({type: 'event', event: turnEvent})
+            if (turnEvent.eventType === 'emote' && petWindow && !petWindow.isDestroyed()) {
+                petWindow.webContents.send('pet:command', turnEvent.data)
+            }
         }
 
         while (true) {

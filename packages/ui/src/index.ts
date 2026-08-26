@@ -8,6 +8,8 @@ export { default as PluginConfigDialog } from './components/plugin/PluginConfigD
 export { default as PluginPageDialog } from './components/plugin/PluginPageDialog.vue';
 export { default as PluginConfigForm } from './components/plugin/PluginConfigForm.vue';
 export { default as PluginConfigFieldInput } from './components/plugin/PluginConfigFieldInput.vue';
+export { default as Live2DPet } from './components/Live2DPet.vue';
+export * from './live2d/model';
 import './theme/index.css';
 import './theme/hero.css';
 import './theme/workbench.css';

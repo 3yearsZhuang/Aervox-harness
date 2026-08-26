@@ -99,7 +99,7 @@
 
 | 能力 ID | 能力 | 优先级 · 交付阶段 | 当前状态 | DoR 就绪 | 落地 | PRD 依据 | 达到下一状态所需工作 |
 |---|---|---|---|---|---|---|---|
-| `CAP-001` | 桌宠入口 | `P0 · R1` | `Specified` | Not Ready | ✔ | [首页工作台](PRD.md#prd-home)、[视觉小说式对话形态](PRD.md#prd-conversation-ui)、[CR-005](changes/CR-005-shared-workbench-web-without-pet.md) | 进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready`；Web/Desktop 表现层边界按 CR-005 验证 |
+| `CAP-001` | 桌宠入口 | `P0 · R1` | `Specified` | Not Ready | ✔ | [首页工作台](PRD.md#prd-home)、[视觉小说式对话形态](PRD.md#prd-conversation-ui)、[CR-005](changes/CR-005-shared-workbench-web-without-pet.md)、[CR-007](changes/CR-007-live2d-sekai-viewer-pet.md) | 进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready`；Web/Desktop 表现层边界按 CR-005/CR-007 验证 |
 | `CAP-002` | 学习目标与对话 | `P0 · R1` | `Specified` | Not Ready | — | [学习目标](PRD.md#prd-cap-002)、[引导式学习对话](PRD.md#prd-cap-007) | 拆分 `FR/BR/AC`，明确会话状态、并发修改、归档和恢复规则 |
 | `CAP-003` | 互动刷题 | `P0 · R1` | `Specified` | Not Ready | — | [互动练习与错题本](PRD.md#prd-cap-003-004) | 补题目来源、答案可验证性、重复提交、恢复和题组完成规则 |
 | `CAP-004` | 错题本 | `P0 · R1` | `Specified` | Not Ready | — | [互动练习与错题本](PRD.md#prd-cap-003-004) | 补筛选、删除、重练、错因变更、重复题合并和掌握状态规则 |
@@ -166,6 +166,7 @@
 | 插件配置/Page 服务与 API（CR-006） | CAP-020 | `apps/api/src/modules/plugins/`（`config-schema.ts`/`config-service.ts`/`config-routes.ts`/`bundle-store.ts`/`bridge-sdk.ts`） | 2026-08-26 | API 集成测试 + typecheck | `AST-08` + `AST-09` |
 | 插件配置/Page UI（设置弹窗 + 表单 + iframe Bridge） | CAP-020 | `packages/api-client/src/useAervoxPlugins.ts`、`packages/ui/src/components/plugin/`、`packages/ui/src/components/AervoxWorkbench.vue` | 2026-08-26 | UI/Web/Desktop typecheck + build | `AST-08` + `AST-09` |
 | 插件 Config/Page 规范文档化 | CAP-020 | `docs/reference/plugin-config-and-pages.md`（AVX-PLUG-001）、`docs/reference/changes/CR-006-plugin-config-and-pages.md` | 2026-08-26 | ci-docs | `AST-08` + `AST-09` |
+| 可替换 Live2D 桌宠渲染层（model3.json 兼容解析 + 固定运行时资源 + PetHero 回退） | CAP-001/018 | `packages/ui/src/live2d/{model,controller,layout}.ts`、`packages/ui/src/components/Live2DPet.vue`、`packages/ui/src/components/AervoxWorkbench.vue`、`apps/web/src/App.vue`、`apps/web/index.html`、`apps/desktop/src/renderer/src/live2d/{model,controller}.ts`、`apps/desktop/src/renderer/src/components/PetWindow.vue`、`apps/desktop/src/renderer/pet.html`；mizuki 模型资产经子仓库 [3yearszhuang/live2d-mizuki](https://github.com/3yearszhuang/live2d-mizuki) 挂载于 `apps/web/public/live2d/mizuki` 与 `apps/desktop/src/renderer/public/live2d/mizuki` | 2026-08-26 | UI/Web/Desktop typecheck + build；固定资产完整性检查；Electron/Web/Pet 浏览器冒烟（无白屏、`ready`、非透明像素布局居中） | `CR-007`；Aervox 自有控制层，运行库 MIT；模型来源与再分发许可待确认 |
 | 数据库迁移服务（journal + 旧库补齐 + 完成标记） | 基础设施 | `packages/database/src/migration/`、`apps/worker/src/pipeline.ts` | 2026-08-26 | 单测 | `T-06` + `AST-05` |
 | 数据版本快照（快照导出/恢复） | CAP-027 | `packages/database/src/sync/git-snapshot.ts` | 2026-08-26 | 单测 | `T-09` |
 | Token 用量分账 | 基础设施/埋点 | `packages/database/src/token-usage.ts` | 2026-08-26 | 单测 | `T-10` |

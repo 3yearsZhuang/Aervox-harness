@@ -6,6 +6,6 @@ import {AervoxWorkbench} from '@aervox/ui'
 <template>
   <div class="window-shell">
     <AppTitlebar />
-    <AervoxWorkbench platform="desktop" :show-companion="true" />
+    <AervoxWorkbench platform="desktop" :show-companion="false" />
   </div>
 </template>

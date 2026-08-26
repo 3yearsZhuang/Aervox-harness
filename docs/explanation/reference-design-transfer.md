@@ -246,6 +246,7 @@ Aervox 自研落地（AGPLv3 仅借鉴设计，不复制源码）：
 | T-09 | B→已落地 | 第四批 | 2026-08-26 | `packages/database/src/sync/git-snapshot.ts` | 行级快照导出/恢复 + 快照命名约定；git 提交/回滚由宿主（CLI/桌面）按需调用 |
 | T-10 | B→已落地 | 第四批 | 2026-08-26 | `packages/database/src/token-usage.ts` | Token 用量分账（非缓存/缓存读/缓存写），兼容 OpenAI/旧形态 |
 | PET-01 | A（前端消费） | 第四批 | 2026-08-26 | `packages/api-client/src/transport.ts`、`desktop-transport.ts`、`useAervoxTurn.ts`、`packages/ui/src/components/PetHero.vue` | emote 事件透传 + `PetHero` activeEmote/activeGesture 消费 |
+| PET-01 | A（Live2D 表现接线） | 第四批 | 2026-08-26 | `packages/ui/src/live2d/{model,controller}.ts`、`packages/ui/src/components/Live2DPet.vue`、`apps/desktop/src/renderer/src/components/PetWindow.vue` | model3.json 兼容加载、动作/表情 Enum 与 API、SSE 表现命令映射；Web 工作台显示 Live2D，Electron 主工作台隐藏左侧区域，独立桌宠窗口保留 Live2D |
 | AST-04 | B→已落地（运行时） | 第四批 | 2026-08-26 | `apps/api/src/modules/plugins/` | CAP-020 插件运行时：安装/启停/卸载 + 工具注册联动 + 权限授予/撤销/查询 |
 | AST-08 | B→已落地 | 第六批 | 2026-08-26 | `packages/contracts/src/plugin-config-schemas.ts`、`packages/database/src/schema/plugin-config.ts`、`apps/api/src/modules/plugins/config-*.ts` | 插件 Config Schema v1：声明式解析/默认值/校验/secret 状态/租户持久化/CAS（CR-006） |
 | AST-09 | B→已落地 | 第六批 | 2026-08-26 | `apps/api/src/modules/plugins/bundle-store.ts`、`bridge-sdk.ts`、`packages/ui/src/components/plugin/` | 插件 Page：本地 Bundle 静态资源 + 沙箱 iframe + Host Bridge（config.read/write、notify、close） |

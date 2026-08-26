@@ -293,7 +293,8 @@
   position: relative;
   z-index: 1;
   width: 100%;
-  height: 310px;
+  height: min(42vh, 420px);
+  min-height: 280px;
   display: grid;
   place-items: center;
 }
@@ -301,8 +302,10 @@
 .hero-pet-button {
   position: relative;
   z-index: 2;
-  width: 178px;
-  height: 240px;
+  width: min(42vw, 320px);
+  height: min(42vh, 360px);
+  min-width: 220px;
+  min-height: 280px;
   display: grid;
   place-items: center;
   padding: 0;
@@ -310,6 +313,16 @@
   background: transparent;
   cursor: pointer;
   animation: aervox-hero-float 4s ease-in-out infinite;
+}
+
+.hero-pet-button .aervox-live2d-pet {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.hero-pet-button .aervox-live2d-pet__canvas {
+  inset: 0;
 }
 
 .pet-speech {
