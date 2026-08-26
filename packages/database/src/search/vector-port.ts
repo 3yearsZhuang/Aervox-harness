@@ -35,7 +35,7 @@ export interface IVectorSearchPort {
 /**
  * 计算两向量的余弦相似度
  */
-function cosineSimilarity(a: number[], b: number[]): number {
+export function cosineSimilarity(a: number[], b: number[]): number {
   if (a.length !== b.length || a.length === 0) return 0;
   let dot = 0;
   let normA = 0;

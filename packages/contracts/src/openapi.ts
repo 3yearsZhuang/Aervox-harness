@@ -17,11 +17,22 @@ import {
   createTurnResponseSchema,
   deltaEventDataSchema,
   doneEventDataSchema,
+  emoteEventDataSchema,
   errorEventDataSchema,
+  memoryStoreToolInputSchema,
+  memoryStoreToolOutputSchema,
   messageEventDataSchema,
+  petCommandSchema,
+  petManifestSchema,
+  petSheetLayoutSchema,
+  petSheetStateSchema,
   redactedEventDataSchema,
   streamErrorCodeSchema,
+  toolMetadataSchema,
+  toolRegistryEntrySchema,
+  toolRegistryExportSchema,
   turnStreamEventSchema,
+  updateLearningGoalSchema,
 } from "./schemas.js";
 import {
   activatePersonaRequestSchema,
@@ -45,6 +56,7 @@ import {
 const registry = new OpenAPIRegistry();
 
 registry.register("CreateLearningGoal", createLearningGoalSchema);
+registry.register("UpdateLearningGoal", updateLearningGoalSchema);
 registry.register("CreateTurnRequest", createTurnRequestSchema);
 registry.register("CreateTurnResponse", createTurnResponseSchema);
 registry.register("CancelTurnResponse", cancelTurnResponseSchema);
@@ -54,19 +66,17 @@ registry.register("DeltaEventData", deltaEventDataSchema);
 registry.register("DoneEventData", doneEventDataSchema);
 registry.register("ErrorEventData", errorEventDataSchema);
 registry.register("RedactedEventData", redactedEventDataSchema);
+registry.register("PetCommand", petCommandSchema);
+registry.register("EmoteEventData", emoteEventDataSchema);
 registry.register("StreamErrorCode", streamErrorCodeSchema);
-registry.register("Persona", personaSchema);
-registry.register("PersonaRevision", personaRevisionSchema);
-registry.register("ActivePersonaSelection", activePersonaSelectionSchema);
-registry.register("CreatePersonaRequest", createPersonaRequestSchema);
-registry.register("UpdatePersonaRequest", updatePersonaRequestSchema);
-registry.register("SkillSummary", skillSummarySchema);
-registry.register("McpTool", mcpToolSchema);
-registry.register("VoiceModel", voiceModelSchema);
-registry.register("VoiceSynthesisRequest", voiceSynthesisRequestSchema);
-registry.register("VoiceSynthesisResponse", voiceSynthesisResponseSchema);
-registry.register("PersonaBundleResponse", personaBundleResponseSchema);
-registry.register("SkillZipResponse", skillZipResponseSchema);
+registry.register("ToolMetadata", toolMetadataSchema);
+registry.register("ToolRegistryEntry", toolRegistryEntrySchema);
+registry.register("ToolRegistryExport", toolRegistryExportSchema);
+registry.register("MemoryStoreToolInput", memoryStoreToolInputSchema);
+registry.register("MemoryStoreToolOutput", memoryStoreToolOutputSchema);
+registry.register("PetSheetState", petSheetStateSchema);
+registry.register("PetSheetLayout", petSheetLayoutSchema);
+registry.register("PetManifest", petManifestSchema);
 
 const sessionIdParam = z.object({ sessionId: z.string().min(1) });
 const turnIdParam = z.object({ turnId: z.string().min(1) });
@@ -138,84 +148,67 @@ registry.registerPath({
   summary: "创建学习目标（FR-LRN-001）",
   tags: ["Learning"],
   request: {
+    headers: z.object({ "Idempotency-Key": z.string().min(1).optional() }),
     body: { content: { "application/json": { schema: createLearningGoalSchema } } },
   },
   responses: {
     201: { description: "Created" },
+    200: { description: "Existing idempotent result" },
     400: { description: "Invalid request（topic/availableMinutes 非法）" },
   },
 });
 
-
-const personaIdParam = z.object({ personaId: z.string().min(1) });
-const skillNameParam = z.object({ skillName: z.string().min(1) });
-const scopeHeaders = z.object({
-  "X-Workspace-Id": z.string().min(1).optional(),
-  "X-User-Id": z.string().min(1).optional(),
-  "X-Actor-Id": z.string().min(1).optional(),
-});
+const learningGoalIdParam = z.object({ goalId: z.string().min(1) });
+const learningGoalListQuery = z.object({ includeArchived: z.enum(["true", "false"]).optional() });
 
 registry.registerPath({
-  method: "get", path: "/v1/personas", summary: "列出人格", tags: ["Persona"],
-  request: { headers: scopeHeaders },
-  responses: { 200: { description: "Persona list", content: { "application/json": { schema: z.object({ personas: z.array(personaSchema), active: activePersonaSelectionSchema.nullable() }) } } } },
+  method: "get",
+  path: "/v1/learning/goals",
+  summary: "列出学习目标",
+  tags: ["Learning"],
+  request: { query: learningGoalListQuery },
+  responses: { 200: { description: "Learning goals" } },
 });
+
 registry.registerPath({
-  method: "post", path: "/v1/personas", summary: "创建人格", tags: ["Persona"],
-  request: { headers: scopeHeaders, body: { content: { "application/json": { schema: createPersonaRequestSchema } } } },
-  responses: { 201: { description: "Created", content: { "application/json": { schema: z.object({ persona: personaSchema, revision: personaRevisionSchema }) } } } },
+  method: "get",
+  path: "/v1/learning/goals/{goalId}",
+  summary: "读取学习目标",
+  tags: ["Learning"],
+  request: { params: learningGoalIdParam },
+  responses: {
+    200: { description: "Learning goal" },
+    404: { description: "Goal not found" },
+  },
 });
+
 registry.registerPath({
-  method: "get", path: "/v1/personas/{personaId}", summary: "读取人格", tags: ["Persona"],
-  request: { params: personaIdParam, headers: scopeHeaders },
-  responses: { 200: { description: "Persona", content: { "application/json": { schema: z.object({ persona: personaSchema, revision: personaRevisionSchema, active: z.boolean() }) } } }, 404: { description: "PERSONA_NOT_FOUND" } },
+  method: "patch",
+  path: "/v1/learning/goals/{goalId}",
+  summary: "更新学习目标",
+  tags: ["Learning"],
+  request: {
+    params: learningGoalIdParam,
+    body: { content: { "application/json": { schema: updateLearningGoalSchema } } },
+  },
+  responses: {
+    200: { description: "Updated" },
+    400: { description: "Invalid request" },
+    404: { description: "Goal not found" },
+  },
 });
+
 registry.registerPath({
-  method: "patch", path: "/v1/personas/{personaId}", summary: "创建人格新修订", tags: ["Persona"],
-  request: { params: personaIdParam, headers: scopeHeaders, body: { content: { "application/json": { schema: updatePersonaRequestSchema } } } },
-  responses: { 200: { description: "Updated", content: { "application/json": { schema: z.object({ persona: personaSchema, revision: personaRevisionSchema }) } } }, 409: { description: "PERSONA_REVISION_CONFLICT" } },
+  method: "delete",
+  path: "/v1/learning/goals/{goalId}",
+  summary: "归档学习目标",
+  tags: ["Learning"],
+  request: { params: learningGoalIdParam },
+  responses: {
+    204: { description: "Archived" },
+    404: { description: "Goal not found" },
+  },
 });
-registry.registerPath({
-  method: "delete", path: "/v1/personas/{personaId}", summary: "归档人格", tags: ["Persona"],
-  request: { params: personaIdParam, headers: scopeHeaders }, responses: { 200: { description: "Deleted" }, 404: { description: "PERSONA_NOT_FOUND" } },
-});
-registry.registerPath({
-  method: "post", path: "/v1/personas/{personaId}/activate", summary: "激活人格", tags: ["Persona"],
-  request: { params: personaIdParam, headers: scopeHeaders, body: { content: { "application/json": { schema: activatePersonaRequestSchema } } } },
-  responses: { 200: { description: "Activated", content: { "application/json": { schema: activePersonaSelectionSchema } } } },
-});
-registry.registerPath({
-  method: "post", path: "/v1/personas/{personaId}/export", summary: "导出人格及实际生效 Skills", tags: ["Persona"],
-  request: { params: personaIdParam, headers: scopeHeaders }, responses: { 200: { description: "Base64 ZIP", content: { "application/json": { schema: personaBundleResponseSchema } } } },
-});
-registry.registerPath({
-  method: "post", path: "/v1/personas/import/preview", summary: "预览人格 Bundle", tags: ["Persona"],
-  request: { headers: scopeHeaders, body: { content: { "application/json": { schema: importPersonaRequestSchema } } } }, responses: { 200: { description: "Preview" }, 400: { description: "INVALID_BUNDLE" } },
-});
-registry.registerPath({
-  method: "post", path: "/v1/personas/import", summary: "导入人格及 Skills", tags: ["Persona"],
-  request: { headers: scopeHeaders, body: { content: { "application/json": { schema: importPersonaRequestSchema } } } }, responses: { 201: { description: "Imported" } },
-});
-registry.registerPath({
-  method: "get", path: "/v1/skills", summary: "列出有效 Skills", tags: ["Skills"], request: { headers: scopeHeaders },
-  responses: { 200: { description: "Skills", content: { "application/json": { schema: z.object({ skills: z.array(skillSummarySchema) }) } } } },
-});
-registry.registerPath({
-  method: "post", path: "/v1/skills/import", summary: "导入 Anthropic Skills ZIP", tags: ["Skills"],
-  request: { headers: scopeHeaders, body: { content: { "application/json": { schema: importSkillsRequestSchema } } } }, responses: { 201: { description: "Imported" } },
-});
-registry.registerPath({
-  method: "post", path: "/v1/skills/export", summary: "导出 Skills ZIP", tags: ["Skills"],
-  request: { headers: scopeHeaders, body: { content: { "application/json": { schema: exportSkillsRequestSchema } } } }, responses: { 200: { description: "Base64 ZIP", content: { "application/json": { schema: skillZipResponseSchema } } } },
-});
-for (const action of ["enable", "disable"] as const) registry.registerPath({
-  method: "post", path: `/v1/skills/{skillName}/${action}`, summary: `${action} Skill`, tags: ["Skills"],
-  request: { params: skillNameParam, headers: scopeHeaders }, responses: { 200: { description: "Skill", content: { "application/json": { schema: skillSummarySchema } } } },
-});
-registry.registerPath({ method: "delete", path: "/v1/skills/{skillName}", summary: "删除工作区 Skill", tags: ["Skills"], request: { params: skillNameParam, headers: scopeHeaders }, responses: { 200: { description: "Deleted" } } });
-registry.registerPath({ method: "get", path: "/v1/mcp/tools", summary: "列出 MCP 工具", tags: ["MCP"], request: { headers: scopeHeaders }, responses: { 200: { description: "MCP tools", content: { "application/json": { schema: z.object({ tools: z.array(mcpToolSchema) }) } } } } });
-registry.registerPath({ method: "get", path: "/v1/voice/models", summary: "列出 GPT-SoVITS 模型", tags: ["Voice"], responses: { 200: { description: "Voice models", content: { "application/json": { schema: z.object({ models: z.array(voiceModelSchema) }) } } } } });
-registry.registerPath({ method: "post", path: "/v1/voice/synthesize", summary: "GPT-SoVITS 语音合成", tags: ["Voice"], request: { body: { content: { "application/json": { schema: voiceSynthesisRequestSchema } } } }, responses: { 200: { description: "Audio artifact", content: { "application/json": { schema: voiceSynthesisResponseSchema } } }, 503: { description: "VOICE_PROVIDER_UNAVAILABLE" } } });
 
 const generator = new OpenApiGeneratorV31(registry.definitions);
 
