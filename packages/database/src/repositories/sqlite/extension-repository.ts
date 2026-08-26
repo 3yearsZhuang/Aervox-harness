@@ -4,7 +4,7 @@
  * 规则依据：docs/reference/PRD.md §8（ExternalSource/Plugin/PluginGrant/CommunityContent/Organization）
  * P2/P3 扩展实体：先落表为后续生态/社区功能预留。
  */
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import {
   externalSources,
@@ -167,11 +167,12 @@ export class SqliteExtensionRepository implements IExtensionRepository {
           eq(pluginGrants.subjectUserId, tenant.subjectUserId),
           eq(pluginGrants.pluginId, pluginId),
           eq(pluginGrants.permission, permission),
-          // 未撤销的授权视为有效
+          // 未撤销的授权视为有效（libsql file 后端读快照偶发滞后，沿用 sql IS NULL 既有约定）
+          sql`${pluginGrants.revokedAt} IS NULL`,
         ),
       )
       .limit(1);
-    return !!found && !found.revokedAt;
+    return !!found;
   }
 
   async createCommunityContent(

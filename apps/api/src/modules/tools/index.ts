@@ -26,7 +26,7 @@ export function registerToolsModule(
   db: AervoxDatabase,
   client: Client,
   options: RegisterToolsModuleOptions = {},
-): void {
+): ToolRuntime {
   const registry = new SqliteToolRegistryRepository(db);
   const memoryRepo = new SqliteMemoryRepository(db, client);
   const embeddingRepo = new SqliteMemoryEmbeddingRepository(db);
@@ -69,4 +69,5 @@ export function registerToolsModule(
   });
 
   registerToolRoutes(app, runtime);
+  return runtime;
 }

@@ -1,7 +1,9 @@
 /**
  * Aervox｜思隅 @aervox/api — Persona / Skills / MCP / Voice 路由
  *
- * 全部写路径校验租户上下文；Persona 修订使用 CAS；Skills/MCP 持久化走 SQLite（经模块 Port）。
+ * 全部写路径校验租户上下文；Persona 修订使用 CAS；MCP 持久化走 SQLite（经模块 Port）。
+ * Skills 生命周期（/v1/skills*）已由系统级 skills 模块接管（本分支统一实现），
+ * 本文件仅保留 Persona 域路由；persona bundle 导入仍会向 `skills` 仓储写入工作区技能。
  * 导入编排（Bundle 预览 → Skills 入库 → 创建人格）由 @aervox/mod-persona 的
  * `importPersonaBundle` 承担，本文件只做请求解析与错误映射。
  */
@@ -9,9 +11,7 @@ import type { FastifyInstance } from "fastify";
 import {
   activatePersonaRequestSchema,
   createPersonaRequestSchema,
-  exportSkillsRequestSchema,
   importPersonaRequestSchema,
-  importSkillsRequestSchema,
   updatePersonaRequestSchema,
   voiceSynthesisRequestSchema,
 } from "@aervox/contracts";
@@ -27,7 +27,6 @@ import {
   type SkillRepository,
   type VoiceProviderPort,
 } from "@aervox/mod-persona";
-import { createSkillsZip } from "@aervox/mod-persona";
 import { resolveTenant } from "../../shared/tenant.js";
 
 type PersonaServices = {
@@ -220,60 +219,6 @@ export function registerPersonaRoutes(app: FastifyInstance, services: PersonaSer
       const status = (error as Error & { statusCode?: number }).statusCode ?? 400;
       return sendError(reply, status, status === 409 ? "SKILL_CONFLICT" : "INVALID_BUNDLE", error instanceof Error ? error.message : "Unable to import persona bundle");
     }
-  });
-
-  // ── Skills ─────────────────────────────────────────────────
-  app.get("/v1/skills", async (request) => {
-    const tenant = resolveTenant(request);
-    return { skills: (await skills.list(tenant.workspaceId, tenant.subjectUserId)).map(summarizeSkill) };
-  });
-
-  app.post("/v1/skills/import", async (request, reply) => {
-    const parsed = importSkillsRequestSchema.safeParse(request.body);
-    if (!parsed.success) return sendError(reply, 400, "INVALID_SKILL_BUNDLE", "Invalid Skills bundle request", parsed.error.issues);
-    const tenant = resolveTenant(request);
-    try {
-      const imported = await importSkillZip(
-        services,
-        tenant.workspaceId,
-        tenant.subjectUserId,
-        fromBase64(parsed.data.zipBase64),
-        parsed.data.conflictResolution,
-      );
-      return reply.code(201).send({ skills: imported.map(summarizeSkill) });
-    } catch (error) {
-      const status = (error as Error & { statusCode?: number }).statusCode ?? 400;
-      return sendError(reply, status, status === 409 ? "SKILL_CONFLICT" : "INVALID_SKILL_BUNDLE", error instanceof Error ? error.message : "Unable to import Skills");
-    }
-  });
-
-  app.post("/v1/skills/export", async (request, reply) => {
-    const parsed = exportSkillsRequestSchema.safeParse(request.body ?? {});
-    if (!parsed.success) return sendError(reply, 400, "INVALID_SKILL_EXPORT", "Invalid Skills export request", parsed.error.issues);
-    const tenant = resolveTenant(request);
-    const available = await skills.list(tenant.workspaceId, tenant.subjectUserId);
-    const selected = parsed.data.names === undefined ? available : available.filter((skill) => parsed.data.names!.includes(skill.name));
-    const bundle = createSkillsZip(selected);
-    return { bundleBase64: asBase64(bundle), fileName: "skills.zip", skillNames: selected.map((skill) => skill.name) };
-  });
-
-  for (const action of ["enable", "disable"] as const) {
-    app.post(`/v1/skills/:skillName/${action}`, async (request, reply) => {
-      const { skillName } = request.params as { skillName: string };
-      const tenant = resolveTenant(request);
-      const skill = await skills.setEnabled(tenant.workspaceId, tenant.subjectUserId, skillName, action === "enable");
-      if (!skill) return sendError(reply, 404, "SKILL_NOT_FOUND", "Skill not found");
-      return summarizeSkill(skill);
-    });
-  }
-
-  app.delete("/v1/skills/:skillName", async (request, reply) => {
-    const { skillName } = request.params as { skillName: string };
-    const tenant = resolveTenant(request);
-    if (!(await skills.delete(tenant.workspaceId, tenant.subjectUserId, skillName))) {
-      return sendError(reply, 404, "SKILL_NOT_FOUND", "Skill not found");
-    }
-    return { deleted: true, skillName };
   });
 
   // ── MCP 工具注册表（只读列表；授权/健康由服务端策略维护）──

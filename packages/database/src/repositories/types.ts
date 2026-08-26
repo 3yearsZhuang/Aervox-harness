@@ -1541,6 +1541,31 @@ export interface PersonaModel {
   updatedAt: string;
 }
 
+// ============ CAP-020 Skill 能力（系统级注册表 + Neo 生命周期）============
+
+/** Skill 注册表条目（DB 真源映射；内容本体在文件系统） */
+export interface SkillRegistrationModel {
+  /** 技能唯一标识（即目录名） */
+  id: string;
+  name: string;
+  description: string;
+  /** local / plugin / ai_authored */
+  source: string;
+  /** 0 | 1 */
+  active: number;
+  /** 0 | 1 */
+  readonly: number;
+  version: string;
+  checksum?: string | null;
+  pluginId?: string | null;
+  /** AST-04 条件门控（JSON 数组） */
+  gatingConditionsJson?: unknown;
+  contentPath?: string | null;
+  lastUsedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** 人格不可变修订 */
 export interface PersonaRevisionModel {
   id: string;
@@ -1563,7 +1588,17 @@ export interface ActivePersonaSelectionModel {
   updatedAt: string;
 }
 
-/** 工作区 Anthropic Skill 持久化模型（files 为 path→base64） */
+/** Neo 生命周期：不可变技能内容载荷 */
+export interface SkillPayloadModel {
+  payloadRef: string;
+  kind: string;
+  content: unknown;
+  checksum?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 工作区 Anthropic Skill 持久化模型（files 为 path→base64；租户级工作区技能，属 persona 域） */
 export interface SkillModel {
   id: string;
   workspaceId: string;
@@ -1583,6 +1618,37 @@ export interface SkillModel {
   filesJson: Record<string, string>;
   skillMarkdown: string;
   importedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Neo 生命周期：技能候选 */
+export interface SkillCandidateModel {
+  candidateId: string;
+  skillKey: string;
+  /** { turnIds, memoryIds, learningItemIds } */
+  sourceEvidence: { turnIds: string[]; memoryIds: string[]; learningItemIds: string[] };
+  payloadRef?: string | null;
+  scenarioKey?: string | null;
+  /** pending / evaluated / promoted / rejected */
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Neo 生命周期：发布记录 */
+export interface SkillReleaseModel {
+  releaseId: string;
+  skillKey: string;
+  /** canary / stable */
+  stage: string;
+  candidateId: string;
+  payloadRef?: string | null;
+  version: number;
+  /** 0 | 1 */
+  active: number;
+  /** 0 | 1 */
+  syncedToLocal: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -1680,3 +1746,87 @@ export interface IMcpToolRepository {
   setMcpToolKillSwitch(tenant: TenantContext, id: string, killSwitch: boolean): Promise<McpToolModel | null>;
 }
 
+// ============ CAP-020 Skill 能力：系统级注册表 + Neo 生命周期（本分支实现） ============
+
+export interface ISkillRegistryRepository {
+  /** 注册技能（幂等：同一 id 覆盖元数据，active/readonly 保持既有状态） */
+  registerSkill(
+    skill: {
+      id: string;
+      name: string;
+      description: string;
+      source?: string;
+      active?: boolean;
+      readonly?: boolean;
+      version?: string;
+      checksum?: string | null;
+      pluginId?: string | null;
+      gatingConditions?: unknown;
+      contentPath?: string | null;
+    },
+  ): Promise<SkillRegistrationModel>;
+  getSkill(id: string): Promise<SkillRegistrationModel | null>;
+  listSkills(activeOnly?: boolean): Promise<SkillRegistrationModel[]>;
+  /** 启停技能（plugin/系统只读例外由调用方决定） */
+  setActive(id: string, active: boolean): Promise<SkillRegistrationModel | null>;
+  /** 注销技能（readonly=1 拒绝；由调用方负责清理文件系统内容） */
+  unregisterSkill(id: string): Promise<boolean>;
+  /** 无条件移除技能（忽略 readonly，供插件卸载等内部生命周期使用；调用方负责清理文件系统） */
+  removeSkill(id: string): Promise<boolean>;
+  /** 记录最近引用时间（召回窗口淘汰用） */
+  touchSkill(id: string): Promise<SkillRegistrationModel | null>;
+  /** 导出运行时可调用快照（active + 门控过滤） */
+  exportSkills(options?: {
+    gatingEvaluator?: (condition: {
+      field: string;
+      operator: string;
+      value?: unknown;
+      evaluatorId?: string;
+    }, context?: unknown) => boolean;
+    gatingContext?: unknown;
+  }): Promise<SkillRegistrationModel[]>;
+}
+
+export interface ISkillLifecycleRepository {
+  /** 创建载荷（幂等：同一 payloadRef 覆盖内容，checksum 同步） */
+  createPayload(
+    payload: { payloadRef: string; kind?: string; content: unknown; checksum?: string | null },
+  ): Promise<SkillPayloadModel>;
+  getPayload(payloadRef: string): Promise<SkillPayloadModel | null>;
+  /** 创建候选（幂等：同一 candidateId 返回既有记录） */
+  createCandidate(
+    candidate: {
+      candidateId: string;
+      skillKey: string;
+      sourceEvidence: { turnIds: string[]; memoryIds: string[]; learningItemIds: string[] };
+      payloadRef?: string | null;
+      scenarioKey?: string | null;
+    },
+  ): Promise<SkillCandidateModel>;
+  getCandidate(candidateId: string): Promise<SkillCandidateModel | null>;
+  listCandidates(options?: { skillKey?: string; status?: string }): Promise<SkillCandidateModel[]>;
+  /** 更新候选状态（pending → evaluated/promoted/rejected） */
+  updateCandidateStatus(
+    candidateId: string,
+    status: string,
+  ): Promise<SkillCandidateModel | null>;
+  /** 创建发布（幂等：同 skillKey+stage+version 返回既有；自动取消同 key+stage 旧 active） */
+  createRelease(
+    release: {
+      releaseId: string;
+      skillKey: string;
+      stage: string;
+      candidateId: string;
+      payloadRef?: string | null;
+      version: number;
+    },
+  ): Promise<SkillReleaseModel>;
+  getRelease(releaseId: string): Promise<SkillReleaseModel | null>;
+  listReleases(options?: { skillKey?: string; stage?: string; activeOnly?: boolean }): Promise<SkillReleaseModel[]>;
+  /** 标记发布为已同步本地（synced_to_local=1） */
+  markSyncedToLocal(releaseId: string): Promise<SkillReleaseModel | null>;
+  /** 回滚：取消当前 active 发布（使旧发布重新可激活由调用方编排） */
+  deactivateRelease(releaseId: string): Promise<SkillReleaseModel | null>;
+  /** 设置发布 active 状态（回滚重新激活旧发布 / 取消激活用） */
+  setReleaseActive(releaseId: string, active: boolean): Promise<SkillReleaseModel | null>;
+}
