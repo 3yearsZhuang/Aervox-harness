@@ -10,6 +10,8 @@ export { default as PluginConfigForm } from './components/plugin/PluginConfigFor
 export { default as PluginConfigFieldInput } from './components/plugin/PluginConfigFieldInput.vue';
 export { default as Live2DPet } from './components/Live2DPet.vue';
 export * from './live2d/model';
+export { default as PersonaManagerPanel } from './components/persona/PersonaManagerPanel.vue';
+export { default as PersonaEditDialog } from './components/persona/PersonaEditDialog.vue';
 import './theme/index.css';
 import './theme/hero.css';
 import './theme/workbench.css';
