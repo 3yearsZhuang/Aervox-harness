@@ -1,5 +1,8 @@
 # 操作指南：可选模块的 submodule 初始化与协作规范（How-to）
 
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
 > 文档编号：AVX-GUIDE-003  
 > 版本：v0.1  
 > 更新日期：2026-08-24  
@@ -105,4 +108,4 @@ git rm -f modules/<name>
 ## 门禁提醒
 
 - 未初始化子模块视为构建失败，不静默放行;
-- 新增/升级/删除可选模块均需更新[文档登记表](../README.md#11-文档生命周期登记表owner-指派与核验)与[可选功能清单](../explanation/optional_modules.md#4-可选功能清单)。
+- 新增/升级/删除可选模块均需更新[文档登记表](../README.md#11-文档生命周期登记表核验节奏与陈旧信号)与[可选功能清单](../explanation/optional_modules.md#4-可选功能清单)。

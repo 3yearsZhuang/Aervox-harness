@@ -1,5 +1,8 @@
 # <概念>如何运作（Explanation 模板）
 
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
 > 文档编号：AVX-EXPL-###
 > 类型：Explanation
 > 版本：v0.1

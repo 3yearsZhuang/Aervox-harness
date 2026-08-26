@@ -1,11 +1,13 @@
 # 参考项目能力迁移与借鉴评估
 
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
 > 文档编号：AVX-EXPL-002
 > 类型：Explanation
 > 版本：v0.6
 > 更新日期：2026-08-26
 > 状态：Draft
-> 责任角色：技术负责人
 > 关联：[参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[数据库设计与双引擎契约](../reference/DATABASE.md)、[可选功能模块化方案](optional_modules.md)、[AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)
 
 ## 1. 评估范围与判定框架
@@ -136,7 +138,7 @@ BaiShou-Next 在 preload 通过 contextBridge 暴露按域拆分的 `settings.ap
 
 ### 4.3 T-08 桌宠角色设定文档化
 
-BaiShou-Next 将桌宠人设独立成文档（`Latte/角色設定.md` 与多语言 profile，含核心概念、外形、提示词边界）。Aervox 桌宠 IP 与多人格模板（CAP-019）可复用此组织方式，把角色提示词与识别边界文档化、版本化，交由产品负责人维护。
+BaiShou-Next 将桌宠人设独立成文档（`Latte/角色設定.md` 与多语言 profile，含核心概念、外形、提示词边界）。Aervox 桌宠 IP 与多人格模板（CAP-019）可复用此组织方式，把角色提示词与识别边界文档化、版本化，并纳入评审与冻结流程维护。
 
 ### 4.4 T-09 Git 作为数据版本/同步层
 

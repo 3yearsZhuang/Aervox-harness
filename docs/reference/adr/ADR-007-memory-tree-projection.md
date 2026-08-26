@@ -1,8 +1,10 @@
 # ADR-007 系统记忆树作为可重建投影
 
-- 状态：Proposed（待 AI/隐私负责人批准）
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
+- 状态：Proposed
 - 日期：2026-08-23
-- Owner：待指定
 - 关联：`CAP-005/015`、`BR-MEM-003`、`DATA-MEM-001`、`RISK-003/004`
 
 ## Context

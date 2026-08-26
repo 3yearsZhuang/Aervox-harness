@@ -1,11 +1,13 @@
 # CR-005 共享工作台与 Web 无桌宠表现层
 
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
 > 文档编号：CR-005
 > 类型：Reference
 > 版本：v0.1
 > 更新日期：2026-08-25
 > 状态：Review Candidate
-> 责任角色：产品与技术负责人
 > 关联：[Web 工作台实现规划](../../explanation/web-implementation.md)、[架构设计](../ARCHITECTURE.md)、[ADR-015](../adr/ADR-015-vue-full-stack.md)
 
 - 状态：More Evidence Required
@@ -21,6 +23,5 @@
 - 风险与成本：共享组件包含 Element Plus drawer 和 API composable，包边界更宽；桌面与 Web 的窗口壳仍需分别维护；旧端内 CSS 被删除后若第三端直接依赖旧选择器会出现视觉回归。
 - 灰度、回滚和用户通知：共享组件可通过端入口回退到旧壳；不执行数据迁移；若 Web 适配出现问题，可恢复 Web 独立路由而不影响 API、Electron 或数据层。
 - 决策：More Evidence Required（代码与类型检查已完成，浏览器视觉、无障碍和完整 CI 证据待补齐）。
-- 批准人 / 日期：待指定
 - 更新的文档和测试：`docs/explanation/web-implementation.md`、`docs/reference/ARCHITECTURE.md`、`docs/DOC_REGISTRY.md`、`packages/ui`、`apps/web`、`apps/desktop`。
 - 发布后结果：待发布

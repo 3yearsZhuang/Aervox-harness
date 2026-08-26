@@ -1,8 +1,10 @@
 # ADR-003 仓储抽象架构：SQLite 业务真源与 FTS5/Vector Port
 
-- 状态：Proposed（待技术负责人批准）
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
+- 状态：Proposed
 - 日期：2026-08-24
-- Owner：待指定
 - 关联：`CAP-005/015/026/027`、`DATA-MEM-001`、`NFR-SCALE-001`、`ADR-008`
 
 ## Context

@@ -1,5 +1,8 @@
 # 操作指南：<动词短语>（How-to 模板）
 
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
 > 文档编号：AVX-GUIDE-###
 > 类型：How-to
 > 版本：v0.1
