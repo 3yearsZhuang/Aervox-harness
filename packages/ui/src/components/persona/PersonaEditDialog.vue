@@ -407,11 +407,12 @@ async function save() {
   font-size: 13px;
   outline: none;
   box-sizing: border-box;
-  transition: border-color 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .persona-input:focus {
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .persona-textarea {
@@ -428,11 +429,12 @@ async function save() {
   resize: vertical;
   box-sizing: border-box;
   font-family: inherit;
-  transition: border-color 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .persona-textarea:focus {
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .ability-heading {
@@ -477,6 +479,12 @@ async function save() {
   gap: 8px;
   cursor: pointer;
   font-size: 12px;
+}
+
+.checkbox-label input,
+.ability-item-row input {
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 .header-title {
@@ -527,7 +535,7 @@ async function save() {
 }
 
 .ability-item-row.selected {
-  background: color-mix(in srgb, var(--accent) 8%, var(--bg-soft));
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-soft));
 }
 
 .item-info {
@@ -584,12 +592,15 @@ async function save() {
   background: var(--accent);
   color: #fff;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 26%, transparent);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .btn-primary:hover {
-  opacity: 0.92;
+  background: var(--accent-hover);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 34%, transparent);
 }
 
 .btn-primary:disabled {
