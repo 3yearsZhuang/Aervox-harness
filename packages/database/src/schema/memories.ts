@@ -30,6 +30,15 @@ export const memoryRecords = sqliteTable(
     aiRecallUntil: text("ai_recall_until"), // 召回期限
     userRetentionUntil: text("user_retention_until"), // 历史保留期限
     verificationStatus: text("verification_status").notNull().default("unverified"), // "unverified" | "verified" | "conflicted" | "invalidated"
+    // PET-02 记忆条目字段对照（参考 Petra MemoryEntry 字段形态，自研）：
+    // source 区分「用户自述 / AI 推断」：user_said 可置信，ai_inferred 默认降入候选（verificationStatus 联动）
+    source: text("source").notNull().default("user_said"), // "user_said" | "ai_inferred"
+    // 记忆类别（identity/preference/habit/schedule/relationship/event/other）
+    category: text("category").notNull().default("other"),
+    // 关键词（JSON string[]；支撑记忆树投影与检索归类）
+    keywordsJson: text("keywords_json"),
+    // 最近一次被引用时间（支撑召回窗口淘汰，替换由上层维护）
+    lastUsedAt: text("last_used_at"),
     ...timestampColumns,
   },
   (table) => ({

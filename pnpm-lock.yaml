@@ -26,6 +26,9 @@ importers:
       '@aervox/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@aervox/mod-persona':
+        specifier: workspace:*
+        version: link:../../modules/persona-plugin
       '@aervox/practice-review':
         specifier: workspace:*
         version: link:../../packages/practice-review
@@ -42,6 +45,9 @@ importers:
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.1
+      fflate:
+        specifier: 0.8.2
+        version: 0.8.2
       tsx:
         specifier: ^4.19.2
         version: 4.23.12
@@ -157,6 +163,25 @@ importers:
       typescript:
         specifier: 7.0.2
         version: 7.0.2
+
+  modules/persona-plugin:
+    dependencies:
+      fflate:
+        specifier: 0.8.2
+        version: 0.8.2
+      yaml:
+        specifier: 2.9.0
+        version: 2.9.0
+    devDependencies:
+      '@types/node':
+        specifier: 22.20.1
+        version: 22.20.1
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: 4.0.18
+        version: 4.0.18(@types/node@22.20.1)(tsx@4.23.12)(yaml@2.9.0)
 
   packages/api-client:
     dependencies:
@@ -1909,6 +1934,9 @@ packages:
   fetch-blob@3.2.0:
     resolution: {integrity: sha512-7yAQpD2UMJzLi1Dqv7qFYnPbaPx7ZfFK6PiIxQ4PfkGPyNyl2Ugx+a/umUonmKqjhM4DnfbMvdX6otXq83soQQ==}
     engines: {node: ^12.20 || >= 14.13}
+
+  fflate@0.8.2:
+    resolution: {integrity: sha512-cPJU47OaAoCbg0pBvzsgpTPhmhqI5eJjh/JIu8tPj5q+T7iLvW/JAYUqmE7KOB4R1ZyEhzBaIQpQpardBF5z8A==}
 
   find-my-way@9.9.0:
     resolution: {integrity: sha512-sJsgZ1sQH2UDuowPuMKg8az7Qc8F0jnj+SKkFWU/+T0xcFlgV5skgXOGUqmQzOdmW6ALA7AhJINWx3qFBkbLHA==}
@@ -4017,6 +4045,8 @@ snapshots:
     dependencies:
       node-domexception: 1.0.0
       web-streams-polyfill: 3.3.3
+
+  fflate@0.8.2: {}
 
   find-my-way@9.9.0:
     dependencies:

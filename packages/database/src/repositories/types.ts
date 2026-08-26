@@ -145,6 +145,11 @@ export interface MemoryRecordModel {
   sourceTurnId?: string | null;
   version: number;
   isDeleted: number;
+  // PET-02 记忆条目字段
+  source?: string; // "user_said" | "ai_inferred"
+  category?: string; // identity/preference/habit/schedule/relationship/event/other
+  keywordsJson?: string | null;
+  lastUsedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -213,6 +218,13 @@ export interface IMemoryRepository {
       content: string;
       canonicalParentId?: string | null;
       sourceTurnId?: string | null;
+      // PET-02 可选记忆条目字段
+      source?: string;
+      category?: string;
+      keywords?: string[];
+      lastUsedAt?: string | null;
+      /** 校验状态；缺省沿用 schema 默认 unverified（候选语义） */
+      verificationStatus?: string;
     },
   ): Promise<MemoryRecordModel>;
   getRecord(tenant: TenantContext, id: string): Promise<MemoryRecordModel | null>;
@@ -247,6 +259,114 @@ export interface IMemoryRepository {
     },
   ): Promise<MemoryAlgorithmModel>;
   getActiveAlgorithm(stage: string): Promise<MemoryAlgorithmModel | null>;
+}
+
+// ============ T-03 上下文压缩标记 ============
+
+export interface MemoryCompactionMarkerModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  memoryId: string;
+  snapshotId: string;
+  coveredUpToMessageId?: string | null;
+  summaryText?: string | null;
+  phase: string; // "auto" | "manual"
+  status: string; // "completed" | "failed"
+  thoughtDurationMs?: number | null;
+  summaryDurationMs?: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IMemoryCompactionRepository {
+  /**
+   * 幂等写入压缩标记：同一 memoryId + snapshotId 已存在时不覆盖（快照溯源不可改写）。
+   * 由调用方保证在「完整响应持久化后」（先写后投递时序）调用。
+   */
+  upsertMarker(
+    tenant: TenantContext,
+    marker: {
+      id: string;
+      memoryId: string;
+      snapshotId: string;
+      coveredUpToMessageId?: string | null;
+      summaryText?: string | null;
+      phase?: string;
+      status?: string;
+      thoughtDurationMs?: number | null;
+      summaryDurationMs?: number | null;
+    },
+  ): Promise<MemoryCompactionMarkerModel>;
+  getMarkerBySnapshotId(tenant: TenantContext, snapshotId: string): Promise<MemoryCompactionMarkerModel | null>;
+  listMarkersByMemoryId(tenant: TenantContext, memoryId: string): Promise<MemoryCompactionMarkerModel[]>;
+  /** 写 memory_events 审计（action = "compressed" 等） */
+  recordEvent(
+    tenant: TenantContext,
+    event: {
+      id: string;
+      memoryId: string;
+      action: string;
+      fromTier?: string | null;
+      toTier?: string | null;
+      reason?: string | null;
+      actorType?: string;
+    },
+  ): Promise<void>;
+}
+
+// ============ T-05 记忆向量存储 ============
+
+export interface MemoryEmbeddingModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  memoryId: string;
+  dimension: number;
+  modelId: string;
+  vector: number[];
+  sourceCreatedAt?: string | null;
+  indexVersion: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MemoryEmbeddingBatchProgress {
+  current: number;
+  total: number;
+}
+
+export interface IMemoryEmbeddingRepository {
+  /**
+   * 批量写入向量（对照 AST-02 Port 形态：分批 + 重试 + 进度回调）。
+   * 同一 memoryId 已有向量时覆盖（同 model_id 重算场景），换模型请用不同 model_id。
+   */
+  insertBatch(
+    tenant: TenantContext,
+    items: Array<{
+      id: string;
+      memoryId: string;
+      vector: number[];
+      modelId: string;
+      sourceCreatedAt?: string | null;
+      indexVersion?: number;
+    }>,
+    options?: {
+      batchSize?: number;
+      maxRetries?: number;
+      progressCallback?: (progress: MemoryEmbeddingBatchProgress) => void;
+    },
+  ): Promise<void>;
+  /** 余弦检索 topK（JS 行扫描，SQLite 无原生向量扩展时的兜底） */
+  retrieve(
+    tenant: TenantContext,
+    queryVector: number[],
+    topK: number,
+    minScore?: number,
+    modelId?: string,
+  ): Promise<Array<{ memoryId: string; score: number }>>;
+  deleteByMemoryId(tenant: TenantContext, memoryId: string): Promise<void>;
+  clearTenant(tenant: TenantContext): Promise<void>;
 }
 
 export interface DiaryModel {
@@ -1314,6 +1434,10 @@ export interface IExtensionRepository {
     },
   ): Promise<PluginModel>;
   listPlugins(): Promise<PluginModel[]>;
+  /** CAP-020：启停插件（联动其声明的工具启停） */
+  setPluginEnabled(id: string, enabled: boolean): Promise<PluginModel | null>;
+  /** CAP-020：卸载插件（需先注销其工具） */
+  deletePlugin(id: string): Promise<boolean>;
   grantPlugin(
     tenant: TenantContext,
     grant: { id: string; pluginId: string; permission: string; scope: string; grantedAt?: string },
@@ -1331,3 +1455,228 @@ export interface IExtensionRepository {
   ): Promise<OrganizationModel>;
   getOrganization(tenant: TenantContext, id: string): Promise<OrganizationModel | null>;
 }
+
+// ============ T-04 工具注册表 + AST-04 门控 + PET-05 安全级别 ============
+
+export interface ToolRegistrationModel {
+  id: string;
+  name: string;
+  description: string;
+  category: string; // memory/search/learning/diary/system/external
+  /** PET-05 安全级别：read_only / write_with_approval / privileged */
+  safetyLevel: string;
+  requiredPermissionsJson?: unknown;
+  inputSchemaJson?: unknown;
+  builtin: number; // 0 | 1
+  pluginId?: string | null;
+  enabled: number; // 0 | 1
+  /** AST-04 条件门控（JSON 数组，运行时求值） */
+  gatingConditionsJson?: unknown;
+  priority: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IToolRegistryRepository {
+  /** 注册工具（幂等：同一 id 覆盖元数据，enabled 保持不变） */
+  registerTool(
+    tool: {
+      id: string;
+      name: string;
+      description: string;
+      category: string;
+      safetyLevel?: string;
+      requiredPermissions?: unknown;
+      inputSchema?: unknown;
+      builtin?: boolean;
+      pluginId?: string | null;
+      gatingConditions?: unknown;
+      priority?: number;
+    },
+  ): Promise<ToolRegistrationModel>;
+  /** 获取单个工具注册信息 */
+  getTool(id: string): Promise<ToolRegistrationModel | null>;
+  /** 列出所有工具 */
+  listTools(): Promise<ToolRegistrationModel[]>;
+  /** 启用/禁用工具（disabledToolIds 操作） */
+  setEnabled(id: string, enabled: boolean): Promise<ToolRegistrationModel | null>;
+  /** 注销工具（内置工具不可注销） */
+  unregisterTool(id: string): Promise<boolean>;
+  /**
+   * 导出工具注册表快照（面向 AI 运行时 / MCP server）
+   * 过滤逻辑：enabled = 1 且门控条件通过（门控求值由调用方注入 evaluator）
+   */
+  exportRegistry(
+    options?: {
+      /** 全局禁用列表（补充 per-entry enabled=false） */
+      disabledToolIds?: string[];
+      /** AST-04 门控求值函数（field, operator, value, context）→ boolean */
+      gatingEvaluator?: (condition: {
+        field: string;
+        operator: string;
+        value?: unknown;
+        evaluatorId?: string;
+      }, context?: unknown) => boolean;
+      /** 门控求值上下文 */
+      gatingContext?: unknown;
+      /** 按分类过滤 */
+      category?: string;
+    },
+  ): Promise<ToolRegistrationModel[]>;
+}
+
+// ============ Persona / Skills / MCP / 上下文快照域（CAP-019/CAP-020）============
+
+/** 人格（与 @aervox/mod-persona 领域类型结构一致，但由主仓数据库拥有模型） */
+export interface PersonaModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  name: string;
+  description: string;
+  source: string; // "builtin" | "user_created" | "imported"
+  status: string; // "active" | "archived"
+  currentRevisionId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 人格不可变修订 */
+export interface PersonaRevisionModel {
+  id: string;
+  personaId: string;
+  revision: number;
+  config: unknown; // PersonaRevisionConfig（JSON）
+  checksum: string;
+  createdAt: string;
+}
+
+/** 当前激活人格 */
+export interface ActivePersonaSelectionModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  personaId: string;
+  revisionId: string;
+  selectedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 工作区 Anthropic Skill 持久化模型（files 为 path→base64） */
+export interface SkillModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  name: string;
+  description: string;
+  license?: string | null;
+  compatibility?: string | null;
+  metadata?: unknown;
+  allowedTools?: unknown;
+  source: string; // "active" | "workspace" | "imported"
+  version: number;
+  checksum: string;
+  enabled: number;
+  valid: number;
+  validationErrors: string[];
+  filesJson: Record<string, string>;
+  skillMarkdown: string;
+  importedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** MCP 工具注册模型 */
+export interface McpToolModel {
+  id: string; // "{serverId}:{toolName}"
+  workspaceId: string;
+  subjectUserId: string;
+  serverId: string;
+  name: string;
+  description?: string | null;
+  inputSchema?: unknown;
+  scopes: string[];
+  healthy: number;
+  authorized: number;
+  revoked: number;
+  killSwitch: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Turn 级 PersonaContextSnapshot 持久化模型 */
+export interface PersonaTurnContextModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  turnId: string;
+  personaId: string;
+  revisionId: string;
+  revisionChecksum: string;
+  promptChecksum: string;
+  skillChecksums: string[];
+  mcpToolIds: string[];
+  voice?: unknown;
+  createdAt: string;
+}
+
+export interface IPersonaRepository {
+  listPersonas(tenant: TenantContext): Promise<PersonaModel[]>;
+  getPersona(tenant: TenantContext, personaId: string): Promise<PersonaModel | null>;
+  listPersonaRevisions(tenant: TenantContext, personaId: string): Promise<PersonaRevisionModel[]>;
+  getPersonaRevision(
+    tenant: TenantContext,
+    personaId: string,
+    revisionId?: string,
+  ): Promise<PersonaRevisionModel | null>;
+  /** 按全局唯一 personaId 读取修订（personaId 为 UUID，租户不参与过滤；仅供模块适配器使用） */
+  getPersonaRevisionById(personaId: string, revisionId?: string): Promise<PersonaRevisionModel | null>;
+  createPersona(
+    tenant: TenantContext,
+    data: {
+      id: string;
+      name: string;
+      description?: string;
+      source?: string;
+      config: unknown;
+      checksum: string;
+    },
+  ): Promise<{ persona: PersonaModel; revision: PersonaRevisionModel }>;
+  updatePersona(
+    tenant: TenantContext,
+    data: {
+      personaId: string;
+      expectedRevision: number;
+      name?: string;
+      description?: string;
+      config: unknown;
+      checksum: string;
+    },
+  ): Promise<{ persona: PersonaModel; revision: PersonaRevisionModel } | null>;
+  deletePersona(tenant: TenantContext, personaId: string): Promise<boolean>;
+  activatePersona(
+    tenant: TenantContext,
+    personaId: string,
+    revisionId?: string,
+  ): Promise<ActivePersonaSelectionModel | null>;
+  getActivePersona(tenant: TenantContext): Promise<ActivePersonaSelectionModel | null>;
+  saveTurnContext(tenant: TenantContext, context: PersonaTurnContextModel): Promise<PersonaTurnContextModel>;
+  getTurnContext(tenant: TenantContext, turnId: string): Promise<PersonaTurnContextModel | null>;
+}
+
+export interface ISkillRepository {
+  listSkills(tenant: TenantContext): Promise<SkillModel[]>;
+  getSkill(tenant: TenantContext, name: string): Promise<SkillModel | null>;
+  upsertSkill(tenant: TenantContext, skill: SkillModel): Promise<SkillModel>;
+  setSkillEnabled(tenant: TenantContext, name: string, enabled: boolean): Promise<SkillModel | null>;
+  deleteSkill(tenant: TenantContext, name: string): Promise<boolean>;
+}
+
+export interface IMcpToolRepository {
+  listMcpTools(tenant: TenantContext): Promise<McpToolModel[]>;
+  upsertMcpTool(tenant: TenantContext, tool: McpToolModel): Promise<McpToolModel>;
+  setMcpToolRevoked(tenant: TenantContext, id: string, revoked: boolean): Promise<McpToolModel | null>;
+  setMcpToolKillSwitch(tenant: TenantContext, id: string, killSwitch: boolean): Promise<McpToolModel | null>;
+}
+

@@ -22,7 +22,7 @@
 | `AVX-SEC-001` | [威胁模型](reference/THREAT_MODEL.md) | 安全与隐私负责人 | 2026-08-24 | 每季度 + 信任边界变更 | 新增数据流/信任边界未加入威胁模型 |
 | `AVX-QA-001` | [测试策略](reference/TEST_STRATEGY.md) | QA 负责人 | 2026-08-24 | G1/G4 门禁 | AC/TC 状态变化未回填 |
 | `AVX-OPS-001` | [运行与恢复手册](reference/RUNBOOK.md) | 运维/平台负责人 | 2026-08-24 | 每季度演练 + 每次发布 | 演练日期超期或告警/拓扑变化未更新 |
-| `AVX-TRC-001` | [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) | 文档负责人（QA 复核） | 2026-08-25 | 版本立项 / G1 / G4 | CAP/AC/TC 状态或追踪关系变化未回填 |
+| `AVX-TRC-001` | [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) | 文档负责人（QA 复核） | 2026-08-26 | 版本立项 / G1 / G4 / 落地登记 | CAP/AC/TC 状态或追踪关系变化未回填；§4.2 落地登记与实现不符 |
 | `AVX-GUIDE-001~006` | [操作指南](how-to) | 文档负责人 | 2026-08-24 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
 | `AVX-ONC-001` | [值班与升级矩阵](reference/ONCALL.md) | 运维/平台负责人（安全复核） | 2026-08-24 | 每次值班变更 + 季度 | 联系人/升级时限变更未同步 |
 | `AVX-DRL-001` | [演练证据模板](reference/DRILL_TEMPLATE.md) | 运维/平台负责人 | 2026-08-24 | 每季度演练后 | 演练项/通过标准与运行手册不符 |
@@ -30,11 +30,14 @@
 | `AVX-WEB-001` | [Web 工作台实现规划](explanation/web-implementation.md) | 技术负责人 | 2026-08-25 | Web 端实现或技术基线变更 | `apps/web` 结构与 ADR-015/规划不一致 |
 | `CR-002` | [Fairy Agent Electron 桌面端](reference/changes/CR-002-fairy-desktop-module.md) | 产品与技术负责人 | 2026-08-24 | CAP-018 桌面端实现或安全边界变更 | Electron 端目录、契约边界、测试证据或回滚条件与实现不符 |
 | `CR-003` | [SQLite 业务真源与 PG 兼容](reference/changes/CR-003-sqlite-primary-pg-compat.md) | 技术负责人 | 2026-08-24 | 数据真源 / 仓储抽象变更 | 仓储接口或 PG 切换计划与实现不符 |
-| `CR-004` | [共享工作台与 Web 无桌宠表现层](reference/changes/CR-004-shared-workbench-web-without-pet.md) | 产品与技术负责人 | 2026-08-25 | Web/Desktop 共享 UI 或桌宠边界变更 | 两端工作台、桌宠渲染边界或平台壳与文档不一致 |
+| `CR-004` | [人格插件 SQLite 持久化](reference/changes/CR-004-persona-sqlite-persistence.md) | 技术负责人 | 2026-08-25 | 数据库 schema / Port / 模块指针变更 | 表、Port 或 CR 状态与实现不一致 |
+| `AVX-MOD-PERSONA-001` | [`modules/persona-plugin`](https://github.com/KashiwagiEri233/aervox-persona-plugin-module) | Persona 模块负责人 | 2026-08-25 | 每次 submodule 指针/包契约/权限变更 | workspace 包、固定 commit 或模块自身 CI 不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 文档负责人 | 2026-08-25 | 规则变更或季度评审 | 新增文档未标注四分类/头字段不合规，或 Vale 规则与术语表不一致 |
 | `AVX-TERM-001` | [术语表](reference/standards/terminology.md) | 文档负责人 | 2026-08-25 | 术语新增/变更 | 新增缩写未登记，或正文拼写与「禁写」列不一致 |
 | `AVX-TUT-001` | [教程：第一个对话](tutorials/first-conversation.md) | 文档负责人（技术复核） | 2026-08-25 | 启动命令/端点变更 | 快速开始命令、Turn/SSE 端点与 README/契约不一致 |
 | `AVX-EXPL-001` | [数据流总览](explanation/data-flow-overview.md) | 文档负责人（技术复核） | 2026-08-25 | 模块/Worker/路由变更 | 新增模块或 Worker 循环未入概念地图 |
+| `AVX-EXPL-002` | [参考项目能力迁移与借鉴评估](explanation/reference-design-transfer.md) | 技术负责人 | 2026-08-26 | 参考项目升级或架构变更 | 新增借鉴决策未登记，或参考项目 commit 超出固定清单 |
+| `AVX-EXPL-003` | [桌宠角色设定文档化与多人格模板组织](explanation/persona-organization.md) | 产品负责人 | 2026-08-26 | 桌宠 IP / CAP-019 立项或人设变更 | 新增/变更角色文档未按字段化结构与模板版本化落地，或识别边界未同步 AI 质量/安全评审 |
 | `AVX-DOC-001` | [文档索引](README.md) | 文档负责人 | 2026-08-24 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
 
 ## 维护规则

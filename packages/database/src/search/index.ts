@@ -3,3 +3,4 @@
  */
 export * from "./fts.js";
 export * from "./vector-port.js";
+export * from "./hybrid-search.js";
