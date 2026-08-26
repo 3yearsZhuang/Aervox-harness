@@ -18,12 +18,12 @@ Aervox｜思隅：面向编程初学者的 AI 陪伴学习桌宠。TypeScript �
 
 - 工具版本以 [mise.toml](mise.toml) 为唯一真源（node 24 / pnpm / vale）；不要用系统自带 Node 跑 `.ts` 脚本，统一 `mise x -- <cmd>`；
 - 中间件一律 async/await、不用回调式；路由文件在中间件重构期间不许改动；
-- 修改文档前先读文档写作规范：标注 `类型` 与文档头字段，改完同步 [DOC_REGISTRY.md](docs/DOC_REGISTRY.md) 与 [文档索引](docs/README.md)；
+- 修改文档前先读[文档写作规范](docs/reference/standards/doc-standards.md)：标注 `类型` 与文档头字段；登记强度按[改动等级 §3.1](docs/reference/standards/doc-standards.md#31-改动等级与同步要求)执行——仅结构性改动（新增文档、目录迁移、编号/类型/事实源变更）必须同步 [DOC_REGISTRY.md](docs/DOC_REGISTRY.md) 与 [文档索引](docs/README.md)，编辑性与内容更新只过 ci-docs / 更新核验日期；
 - 术语唯一：以术语表「规范写法」列为准，提交文档前须 `mise tasks run ci-docs`（markdownlint + Vale，链接检查在 CI）；
 - 代码 CI 门禁：`mise tasks run ci-code`（install + build + typecheck + test）；
 - 文档目录即类型：`tutorials/` `how-to/` `explanation/` `reference/`（含 `adr/ changes/ standards/ diagrams/`），根层只放索引与登记表；
 - 整个项目所有落地改动都必须闭环到[落地追踪基线](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)并在**对应文档标注完成情况**，未登记视为未闭环、提交打回：
-  - 借鉴参考项目（`T-*` / `AST-*` / `PET-*`）的落地：在[参考设计迁移文档](docs/explanation/reference-design-transfer.md#61-已落地进度总表) §6.1 登记实现位置与日期（含第三方代码需记录来源与版权声明，见 PRD §15.1）；
+  - 借鉴参考项目（`T-*` / `AST-*` / `PET-*`）的落地：同样在追踪基线 §4.2「落地实现登记」登记，`来源` 列标注参考编号（查询指引见[参考设计迁移文档 §6.1](docs/explanation/reference-design-transfer.md#61-落地登记唯一真源)，第三方代码需记录来源与版权声明，见 PRD §15.1）；
   - 其余功能/基础设施落地：在追踪基线 §4.2「落地实现登记」登记关联 CAP、实现位置、日期与验证方式；
   - 文档结项以对应登记表为准；改文档的结项以该表为准。
 

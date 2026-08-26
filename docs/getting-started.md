@@ -43,11 +43,13 @@ demos/                   # 纯前端原型，非交付物
 
 ## 3. 写作与改动的硬性规则
 
-- 能力/需求 ID 一经建立不改；`P0~P3` 是优先级、`R0~R5` 是阶段，两者不得混用。
-- 新增/改版文档按[文档写作规范](reference/standards/doc-standards.md)标注类型与头字段，模板见[模板族](reference/standards/doc-standards.md#6-模板族)。
-- 修改已批准文档：先建 `CR-*` 再修订，不得静默改正文（见[追踪基线 §11](reference/REQUIREMENTS_TRACEABILITY.md#11-变更控制)）。
-- 新增/修改文档必须同步[生命周期登记表](DOC_REGISTRY.md)（编号、负责人、核验日期、陈旧信号）。
-- 参考仓库只作设计验证，MVP 不得依赖其运行时（见 [PRD 15](reference/PRD.md#15-参考项目与借鉴边界)）。
+硬性规则以专项文档为事实源，先读再改：
+
+- ID/优先级/阶段语义与不可改动原则：[追踪基线 §1](reference/REQUIREMENTS_TRACEABILITY.md#1-目的与使用方式)；
+- 新增/改版文档的类型、头字段与模板：[文档写作规范 §1-2/§6](reference/standards/doc-standards.md#1-文档分类diataxis-四分类)；
+- 已批准文档的变更（含 `CR-*`）与变更豁免：[追踪基线 §11](reference/REQUIREMENTS_TRACEABILITY.md#11-变更控制)；
+- 登记强度分级（L1/L2/L3）与登记表同步：[文档写作规范 §3.1](reference/standards/doc-standards.md#31-改动等级与同步要求)、[生命周期登记表](DOC_REGISTRY.md)；
+- 参考仓库使用边界：[PRD §15](reference/PRD.md#15-参考项目与借鉴边界)。
 
 ## 4. 提交前自检（Docs CI 门禁）
 
