@@ -19,7 +19,7 @@
 ## 概念地图
 
 - 参与组件、模块与文档清单及其职责边界；
-- 用引用的形式指向 [ARCHITECTURE.md](../../reference/ARCHITECTURE.md)、相关 ADR 与契约。
+- 用引用的形式指向 [ARCHITECTURE.md](../reference/ARCHITECTURE.md)、相关 ADR 与契约。
 
 ## 端到端视角
 

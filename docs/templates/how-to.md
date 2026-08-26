@@ -26,7 +26,7 @@
 ## 验证与门禁
 
 - 完成的判定标准；
-- 涉及的发布门禁（G1/G4 等）与文档 CI 要求（[文档写作规范 §7](../../reference/standards/doc-standards.md#7-提交前自检)）。
+- 涉及的发布门禁（G1/G4 等）与文档 CI 要求（[文档写作规范 §7](../reference/standards/doc-standards.md#7-提交前自检)）。
 
 ## 常见问题与陷阱
 
