@@ -5,6 +5,7 @@ import {
   ChevronDown,
   Download,
   Edit3,
+  Heart,
   MessageSquare,
   MoreVertical,
   Plus,
@@ -163,11 +164,14 @@ function formatDate(isoString: string): string {
 
 <template>
   <div class="persona-manager">
-    <!-- 顶部标题与操作栏（对齐图 1 / 图 3） -->
+    <!-- 顶部标题与操作栏（对齐全局标题设计） -->
     <div class="persona-header">
-      <div class="header-titles">
-        <h2>人格设定</h2>
-        <small>管理人格角色设定</small>
+      <div class="persona-title-group">
+        <span class="heading-icon-wrap"><Heart :size="18" /></span>
+        <div class="header-titles">
+          <strong>人格设定</strong>
+          <small>管理人格角色设定</small>
+        </div>
       </div>
 
       <div class="header-actions">
@@ -299,8 +303,27 @@ function formatDate(isoString: string): string {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 12px;
+  gap: 12px;
+  padding-bottom: 15px;
   border-bottom: 1px solid var(--border);
+}
+
+.persona-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.heading-icon-wrap {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .header-titles {
@@ -309,16 +332,16 @@ function formatDate(isoString: string): string {
   gap: 2px;
 }
 
-.header-titles h2 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
+.header-titles strong {
   color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .header-titles small {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
+  line-height: 1.4;
 }
 
 .btn-create-persona {
