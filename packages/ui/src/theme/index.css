@@ -95,6 +95,15 @@
   background: var(--bg-main);
 }
 
+.el-dialog {
+  --el-dialog-bg-color: var(--bg-main);
+  --el-dialog-border-radius: 16px;
+  border-radius: 16px !important;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
 .el-drawer__header,
 .el-dialog__header,
 .el-message-box__header {

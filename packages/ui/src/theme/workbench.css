@@ -1776,14 +1776,20 @@
   }
 }
 
-.settings-dialog {
+.el-dialog,
+.settings-dialog,
+.persona-edit-dialog,
+.plugin-config-dialog,
+.plugin-page-dialog {
   --el-dialog-bg-color: var(--bg-main);
   --el-dialog-title-font-size: 16px;
-  border-radius: 16px;
-  overflow: hidden;
+  border-radius: 16px !important;
+  overflow: hidden !important;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
 }
 
-.settings-dialog .el-dialog__header {
+.el-dialog__header {
   margin: 0;
   padding: 18px 24px 15px;
   border-bottom: 1px solid var(--border);
