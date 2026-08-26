@@ -38,12 +38,34 @@ export async function listTools(runtime: ToolRuntime): Promise<McpListToolsResul
   };
 }
 
-/** 执行 tools/call 对应调用（按 name 解析） */
+/** 工具活动 → Codex Pets 状态行（SpritePet/桌宠姿态驱动） */
+export type PetToolSheetState =
+  | "idle"
+  | "running-right"
+  | "running-left"
+  | "waving"
+  | "jumping"
+  | "failed"
+  | "waiting"
+  | "running"
+  | "review";
+
+const FAILED_SHEET_STATE: PetToolSheetState = "failed";
+const SUCCESS_SHEET_STATE: PetToolSheetState = "waving";
+
+/** 由执行结果派生桌宠状态行：成功挥手示意，失败沮丧（PET-01 表现与工具结果解耦） */
+export function derivePetSheetState(
+  result: { isError?: boolean },
+): PetToolSheetState {
+  return result.isError ? FAILED_SHEET_STATE : SUCCESS_SHEET_STATE;
+}
+
+/** 执行 tools/call 对应调用（按 name 解析），并附桌宠状态行供表现层消费 */
 export async function callTool(
   runtime: ToolRuntime,
   tenant: Parameters<ToolRuntime["callTool"]>[0],
   args: McpCallToolArgs,
-): Promise<{ content: unknown[]; isError?: boolean }> {
+): Promise<{ content: unknown[]; isError?: boolean; sheetState: PetToolSheetState }> {
   try {
     const result = await runtime.callTool(
       tenant,
@@ -51,11 +73,15 @@ export async function callTool(
       args.arguments ?? {},
       { approval: args.approval },
     );
-    return { content: [{ type: "text", text: JSON.stringify(result) }] };
+    return {
+      content: [{ type: "text", text: JSON.stringify(result) }],
+      sheetState: derivePetSheetState({ isError: false }),
+    };
   } catch (err) {
     return {
       content: [{ type: "text", text: err instanceof Error ? err.message : String(err) }],
       isError: true,
+      sheetState: derivePetSheetState({ isError: true }),
     };
   }
 }

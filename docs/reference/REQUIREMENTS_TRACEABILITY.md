@@ -2,7 +2,7 @@
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
-> 文档版本：v0.2  
+> 文档版本：v0.3  
 > 文档状态：评审候选（Review Candidate）  
 > 更新日期：2026-08-26  
 > 产品需求来源：[PRD.md](PRD.md)
@@ -159,7 +159,7 @@
 
 ### 4.2 落地实现登记
 
-本节是**整个项目**代码落地完成情况的追踪事实源（约束见 [AGENTS.md](../../../AGENTS.md)）。凡已合并的实现，无论是否完成 DoR/DoD 门禁，均须在此登记；门禁状态（§4 矩阵的 `当前状态` 列）仍按 §6/§7 单独推进，两者不互相替代。未登记的落地视为未闭环、提交打回。
+本节是**整个项目**代码落地完成情况的追踪事实源（约束见 [AGENTS.md](../../AGENTS.md)）。凡已合并的实现，无论是否完成 DoR/DoD 门禁，均须在此登记；门禁状态（§4 矩阵的 `当前状态` 列）仍按 §6/§7 单独推进，两者不互相替代。未登记的落地视为未闭环、提交打回。
 
 登记规则：`关联 CAP` 表实现所属能力；`验证` 表已通过的自动化验证（测试/typecheck）；`来源` 标注参考设计（`T-*`/`AST-*`/`PET-*`，细则见 [参考设计迁移文档](../explanation/reference-design-transfer.md#61-已落地进度总表)）或原生实现。
 
@@ -184,6 +184,7 @@
 | 工具安全级别（read_only 白名单） | CAP-020 | `packages/contracts/src/schemas.ts`、`apps/api/src/modules/tools/runtime.ts` | 2026-08-26 | API 集成测试 | `PET-05` |
 | 桌宠角色设定文档化 | CAP-019 | `docs/explanation/persona-organization.md`（AVX-EXPL-003） | 2026-08-26 | ci-docs | `T-08` |
 | 桌面 preload 按域 IPC 拆分 | CAP-018 | `apps/desktop/src/preload/domains/` | 2026-08-26 | typecheck | `T-07` |
+| Codex Pets 兼容：9 状态 spritesheet 协议（manifest + 8×9 atlas 渲染 + 工具状态驱动） | CAP-001/018 | `packages/contracts/src/schemas.ts`（`petSheet*`/`petManifest`）、`packages/ui/src/components/SpritePet.vue`、`apps/api/src/modules/tools/mcp.ts`（`derivePetSheetState`） | 2026-08-26 | typecheck + API 集成测试 + ci-code | 原生（外部协议兼容） |
 
 ## 5. 原子需求字段模板
 

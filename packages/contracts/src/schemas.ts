@@ -341,3 +341,70 @@ export const pluginMetadataSchema = z.object({
     .optional(),
 });
 
+// ============ Codex Pets 兼容：9 状态 spritesheet 协议 ============
+// 兼容对象：OpenAI Codex Pets（2026-05）标准精灵图集协议—— pet.json manifest +
+// 8 列 × 9 行 atlas（每格 192×208），9 个固定动画状态，每态固定帧数。
+// 本段仅表达协议结构（自研 schema），不含任何 OpenAI 素材/代码。
+
+/** Codex Pets 9 个标准动画状态（行索引 0~8，固定顺序） */
+export const petSheetStateSchema = z.enum([
+  "idle", // 行 0：平静呼吸/眨眼，6 帧；第一帧为减少动态的静态姿势
+  "running-right", // 行 1：向右移动，8 帧
+  "running-left", // 行 2：向左移动（通常为 right 镜像），8 帧
+  "waving", // 行 3：打招呼/引起注意，4 帧
+  "jumping", // 行 4：跳跃（预备→起跳→顶点→落地→落定），5 帧
+  "failed", // 行 5：失败/沮丧/泄气，8 帧
+  "waiting", // 行 6：等待（待机变体），6 帧
+  "running", // 行 7：工作进行中/推理循环（非跑步），6 帧
+  "review", // 行 8：专注检查/思考，6 帧
+]);
+
+/** 每态帧数（行 → 实际使用的列数；尾部列为全透明） */
+export const petSheetRowFramesSchema = z.record(petSheetStateSchema, z.number().int().positive());
+
+/** Codex Pets atlas 几何布局常量（协议固定值） */
+export const petSheetLayoutSchema = z.object({
+  columns: z.literal(8),
+  rows: z.literal(9),
+  cellWidth: z.literal(192),
+  cellHeight: z.literal(208),
+  atlasWidth: z.literal(1536),
+  atlasHeight: z.literal(1872),
+  /** 清单协议版本（1 = 8×9 基础版；2 = 另含 9-10 行注视方向，V1 客户端仍可用） */
+  spriteVersionNumber: z.literal(1),
+});
+
+/** pet.json manifest（Codex Pets 自定义桌宠包必需字段） */
+export const petManifestSchema = z.object({
+  id: z.string().min(1),
+  displayName: z.string().min(1),
+  description: z.string().optional(),
+  spritesheetPath: z.string().min(1),
+  /** 缺省按布局配置 */
+  layout: petSheetLayoutSchema,
+  /** 每态帧数（缺省用协议默认表） */
+  rowFrames: petSheetRowFramesSchema.optional(),
+});
+
+/** Aervox 侧 P0 协议默认帧数表（与 Codex Pets 固定值一致） */
+export const DEFAULT_PET_SHEET_ROW_FRAMES: Record<
+  z.infer<typeof petSheetStateSchema>,
+  number
+> = {
+  idle: 6,
+  "running-right": 8,
+  "running-left": 8,
+  waving: 4,
+  jumping: 5,
+  failed: 8,
+  waiting: 6,
+  running: 6,
+  review: 6,
+};
+
+/** Codex Pets 状态 → PET-01 emote/gesture 建议映射（表现层消费时参考） */
+export const petStateToCommandSchema = z.record(
+  petSheetStateSchema,
+  petCommandSchema,
+);
+

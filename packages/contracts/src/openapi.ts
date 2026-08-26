@@ -23,6 +23,9 @@ import {
   memoryStoreToolOutputSchema,
   messageEventDataSchema,
   petCommandSchema,
+  petManifestSchema,
+  petSheetLayoutSchema,
+  petSheetStateSchema,
   redactedEventDataSchema,
   streamErrorCodeSchema,
   toolMetadataSchema,
@@ -53,6 +56,9 @@ registry.register("ToolRegistryEntry", toolRegistryEntrySchema);
 registry.register("ToolRegistryExport", toolRegistryExportSchema);
 registry.register("MemoryStoreToolInput", memoryStoreToolInputSchema);
 registry.register("MemoryStoreToolOutput", memoryStoreToolOutputSchema);
+registry.register("PetSheetState", petSheetStateSchema);
+registry.register("PetSheetLayout", petSheetLayoutSchema);
+registry.register("PetManifest", petManifestSchema);
 
 const sessionIdParam = z.object({ sessionId: z.string().min(1) });
 const turnIdParam = z.object({ turnId: z.string().min(1) });
