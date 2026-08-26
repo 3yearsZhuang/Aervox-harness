@@ -2015,6 +2015,445 @@
             "default": true
           }
         }
+      },
+      "PluginConfigSchema": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "aervox.dev/v1"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "PluginConfigSchema"
+            ]
+          },
+          "schemaVersion": {
+            "type": "number",
+            "enum": [
+              1
+            ]
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            "maxItems": 200
+          }
+        },
+        "required": [
+          "apiVersion",
+          "kind",
+          "schemaVersion",
+          "fields"
+        ],
+        "additionalProperties": false
+      },
+      "PluginConfigSnapshot": {
+        "type": "object",
+        "properties": {
+          "pluginId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "values": {
+            "type": "object",
+            "additionalProperties": {},
+            "default": {}
+          },
+          "secretFields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "configured": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "configured"
+              ]
+            },
+            "default": {}
+          },
+          "orphanedValues": {
+            "type": "object",
+            "additionalProperties": {},
+            "default": {}
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "code",
+                "message"
+              ]
+            },
+            "default": []
+          }
+        },
+        "required": [
+          "pluginId",
+          "revision",
+          "schemaVersion"
+        ]
+      },
+      "PluginConfigUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "values": {
+            "type": "object",
+            "additionalProperties": {},
+            "default": {}
+          },
+          "secretValues": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "default": {}
+          }
+        },
+        "required": [
+          "revision"
+        ]
+      },
+      "PluginPage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          "entry": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "config.read",
+                "config.write",
+                "host.notify",
+                "host.close"
+              ]
+            },
+            "default": []
+          },
+          "checksum": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "entry"
+        ]
+      },
+      "PluginPageAssetsRequest": {
+        "type": "object",
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                "contentBase64": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "path",
+                "contentBase64"
+              ]
+            },
+            "maxItems": 200
+          }
+        },
+        "required": [
+          "files"
+        ]
+      },
+      "PluginManifest": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "aervox.dev/v1"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "PluginManifest"
+            ]
+          },
+          "metadata": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "displayName": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "publisher": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "version": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 2000
+              },
+              "license": {
+                "type": "string",
+                "maxLength": 128
+              }
+            },
+            "required": [
+              "id",
+              "displayName",
+              "publisher",
+              "version"
+            ]
+          },
+          "spec": {
+            "type": "object",
+            "properties": {
+              "config": {
+                "type": "object",
+                "properties": {
+                  "schemaVersion": {
+                    "type": "number",
+                    "enum": [
+                      1
+                    ]
+                  },
+                  "entry": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512,
+                    "default": "config.schema.json"
+                  }
+                },
+                "required": [
+                  "schemaVersion"
+                ]
+              },
+              "pages": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    },
+                    "title": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      ]
+                    },
+                    "description": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      ]
+                    },
+                    "entry": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "capabilities": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "config.read",
+                          "config.write",
+                          "host.notify",
+                          "host.close"
+                        ]
+                      },
+                      "default": []
+                    },
+                    "checksum": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "entry"
+                  ]
+                },
+                "maxItems": 50
+              }
+            },
+            "default": {}
+          }
+        },
+        "required": [
+          "apiVersion",
+          "kind",
+          "metadata"
+        ]
+      },
+      "PluginPageContext": {
+        "type": "object",
+        "properties": {
+          "pluginId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "pageId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "locale": {
+            "type": "string",
+            "default": "zh-CN"
+          },
+          "theme": {
+            "type": "string",
+            "enum": [
+              "light",
+              "dark"
+            ],
+            "default": "light"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "config.read",
+                "config.write",
+                "host.notify",
+                "host.close"
+              ]
+            },
+            "default": []
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          }
+        },
+        "required": [
+          "pluginId",
+          "displayName",
+          "pageId"
+        ]
       }
     },
     "parameters": {}
@@ -4854,6 +5293,1100 @@
           },
           "503": {
             "description": "VOICE_PROVIDER_UNAVAILABLE"
+          }
+        }
+      }
+    },
+    "/v1/plugins/{pluginId}/config/schema": {
+      "get": {
+        "summary": "读取插件配置 Schema",
+        "tags": [
+          "Plugins"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "pluginId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Schema",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "apiVersion": {
+                      "type": "string",
+                      "enum": [
+                        "aervox.dev/v1"
+                      ]
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "PluginConfigSchema"
+                      ]
+                    },
+                    "schemaVersion": {
+                      "type": "number",
+                      "enum": [
+                        1
+                      ]
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      },
+                      "maxItems": 200
+                    }
+                  },
+                  "required": [
+                    "apiVersion",
+                    "kind",
+                    "schemaVersion",
+                    "fields"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Plugin or schema not found"
+          }
+        }
+      },
+      "put": {
+        "summary": "注册/更新插件配置 Schema",
+        "tags": [
+          "Plugins"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "pluginId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "apiVersion": {
+                    "type": "string",
+                    "enum": [
+                      "aervox.dev/v1"
+                    ]
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "PluginConfigSchema"
+                    ]
+                  },
+                  "schemaVersion": {
+                    "type": "number",
+                    "enum": [
+                      1
+                    ]
+                  },
+                  "fields": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "maxItems": 200
+                  }
+                },
+                "required": [
+                  "apiVersion",
+                  "kind",
+                  "schemaVersion",
+                  "fields"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Schema",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "apiVersion": {
+                      "type": "string",
+                      "enum": [
+                        "aervox.dev/v1"
+                      ]
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "PluginConfigSchema"
+                      ]
+                    },
+                    "schemaVersion": {
+                      "type": "number",
+                      "enum": [
+                        1
+                      ]
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      },
+                      "maxItems": 200
+                    }
+                  },
+                  "required": [
+                    "apiVersion",
+                    "kind",
+                    "schemaVersion",
+                    "fields"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_CONFIG_SCHEMA"
+          }
+        }
+      }
+    },
+    "/v1/plugins/{pluginId}/config": {
+      "get": {
+        "summary": "读取插件配置（secret 仅返回状态）",
+        "tags": [
+          "Plugins"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "pluginId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pluginId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "schemaVersion": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "values": {
+                      "type": "object",
+                      "additionalProperties": {},
+                      "default": {}
+                    },
+                    "secretFields": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                          "configured": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "configured"
+                        ]
+                      },
+                      "default": {}
+                    },
+                    "orphanedValues": {
+                      "type": "object",
+                      "additionalProperties": {},
+                      "default": {}
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "code",
+                          "message"
+                        ]
+                      },
+                      "default": []
+                    }
+                  },
+                  "required": [
+                    "pluginId",
+                    "revision",
+                    "schemaVersion"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Plugin not found"
+          }
+        }
+      },
+      "put": {
+        "summary": "保存插件配置（revision CAS）",
+        "tags": [
+          "Plugins"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "pluginId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "values": {
+                    "type": "object",
+                    "additionalProperties": {},
+                    "default": {}
+                  },
+                  "secretValues": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "default": {}
+                  }
+                },
+                "required": [
+                  "revision"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pluginId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "schemaVersion": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "values": {
+                      "type": "object",
+                      "additionalProperties": {},
+                      "default": {}
+                    },
+                    "secretFields": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                          "configured": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "configured"
+                        ]
+                      },
+                      "default": {}
+                    },
+                    "orphanedValues": {
+                      "type": "object",
+                      "additionalProperties": {},
+                      "default": {}
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "code",
+                          "message"
+                        ]
+                      },
+                      "default": []
+                    }
+                  },
+                  "required": [
+                    "pluginId",
+                    "revision",
+                    "schemaVersion"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_CONFIG"
+          },
+          "404": {
+            "description": "Plugin not found"
+          },
+          "409": {
+            "description": "PLUGIN_CONFIG_REVISION_CONFLICT"
+          }
+        }
+      }
+    },
+    "/v1/plugins/{pluginId}/config/reset": {
+      "post": {
+        "summary": "重置插件配置",
+        "tags": [
+          "Plugins"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "pluginId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pluginId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "schemaVersion": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "values": {
+                      "type": "object",
+                      "additionalProperties": {},
+                      "default": {}
+                    },
+                    "secretFields": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                          "configured": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "configured"
+                        ]
+                      },
+                      "default": {}
+                    },
+                    "orphanedValues": {
+                      "type": "object",
+                      "additionalProperties": {},
+                      "default": {}
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "code",
+                          "message"
+                        ]
+                      },
+                      "default": []
+                    }
+                  },
+                  "required": [
+                    "pluginId",
+                    "revision",
+                    "schemaVersion"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Plugin not found"
+          }
+        }
+      }
+    },
+    "/v1/plugins/{pluginId}/pages": {
+      "get": {
+        "summary": "列出插件 Page",
+        "tags": [
+          "Plugins"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "pluginId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pages",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pages": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64,
+                            "pattern": "^[A-Za-z0-9_-]+$"
+                          },
+                          "title": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "string"
+                                }
+                              }
+                            ]
+                          },
+                          "description": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "string"
+                                }
+                              }
+                            ]
+                          },
+                          "entry": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 512
+                          },
+                          "capabilities": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "config.read",
+                                "config.write",
+                                "host.notify",
+                                "host.close"
+                              ]
+                            },
+                            "default": []
+                          },
+                          "checksum": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "entry"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "pages"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Plugin not found"
+          }
+        }
+      },
+      "post": {
+        "summary": "注册插件 Page 元数据",
+        "tags": [
+          "Plugins"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "pluginId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "pattern": "^[A-Za-z0-9_-]+$"
+                  },
+                  "title": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        }
+                      }
+                    ]
+                  },
+                  "description": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        }
+                      }
+                    ]
+                  },
+                  "entry": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
+                  },
+                  "capabilities": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "config.read",
+                        "config.write",
+                        "host.notify",
+                        "host.close"
+                      ]
+                    },
+                    "default": []
+                  },
+                  "checksum": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "title",
+                  "entry"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64,
+                      "pattern": "^[A-Za-z0-9_-]+$"
+                    },
+                    "title": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      ]
+                    },
+                    "description": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      ]
+                    },
+                    "entry": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "capabilities": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "config.read",
+                          "config.write",
+                          "host.notify",
+                          "host.close"
+                        ]
+                      },
+                      "default": []
+                    },
+                    "checksum": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "entry"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_PAGE"
+          }
+        }
+      }
+    },
+    "/v1/plugins/{pluginId}/pages/{pageId}/assets": {
+      "post": {
+        "summary": "写入插件 Page 静态资源（base64）",
+        "tags": [
+          "Plugins"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "pluginId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "pageId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "files": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "path": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 512
+                        },
+                        "contentBase64": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "path",
+                        "contentBase64"
+                      ]
+                    },
+                    "maxItems": 200
+                  }
+                },
+                "required": [
+                  "files"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Written"
+          },
+          "400": {
+            "description": "INVALID_ASSET_PATH"
+          }
+        }
+      }
+    },
+    "/v1/plugin-pages/bridge.js": {
+      "get": {
+        "summary": "Page Bridge SDK",
+        "tags": [
+          "Plugins"
+        ],
+        "responses": {
+          "200": {
+            "description": "JavaScript"
           }
         }
       }

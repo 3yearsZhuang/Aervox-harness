@@ -23,3 +23,4 @@ export * from "./skill-repository.js";
 export * from "./mcp-tool-repository.js";
 export * from "./skill-registry-repository.js";
 export * from "./skill-lifecycle-repository.js";
+export * from "./plugin-config-repository.js";

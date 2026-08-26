@@ -57,9 +57,18 @@ import {
   updateLearningGoalSchema,
   turnStreamEventSchema,
 } from "./schemas.js";
+import {
+  pluginConfigFieldSchema,
+  pluginConfigSnapshotSchema,
+  pluginConfigUpdateRequestSchema,
+  pluginManifestSchema,
+  pluginPageContextSchema,
+  pluginPageSchema,
+} from "./plugin-config-schemas.js";
 
 export * from "./schemas.js";
 export * from "./persona-schemas.js";
+export * from "./plugin-config-schemas.js";
 export { openApiDocument } from "./openapi.js";
 
 export type TurnStatus = z.infer<typeof turnStatusSchema>;
@@ -95,6 +104,12 @@ export type ToolRegistryExport = z.infer<typeof toolRegistryExportSchema>;
 export type MemoryStoreToolInput = z.infer<typeof memoryStoreToolInputSchema>;
 export type MemoryStoreToolOutput = z.infer<typeof memoryStoreToolOutputSchema>;
 export type PluginMetadata = z.infer<typeof pluginMetadataSchema>;
+export type PluginConfigField = z.infer<typeof pluginConfigFieldSchema>;
+export type PluginConfigSnapshot = z.infer<typeof pluginConfigSnapshotSchema>;
+export type PluginConfigUpdateRequest = z.infer<typeof pluginConfigUpdateRequestSchema>;
+export type PluginPage = z.infer<typeof pluginPageSchema>;
+export type PluginManifest = z.infer<typeof pluginManifestSchema>;
+export type PluginPageContext = z.infer<typeof pluginPageContextSchema>;
 export type PetSheetState = z.infer<typeof petSheetStateSchema>;
 export type PetSheetLayout = z.infer<typeof petSheetLayoutSchema>;
 export type PetManifest = z.infer<typeof petManifestSchema>;

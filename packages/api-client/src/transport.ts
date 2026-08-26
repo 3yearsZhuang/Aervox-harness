@@ -71,6 +71,11 @@ export function getSessionId(): string {
   return runtime.sessionId;
 }
 
+/** 当前 API 基址（插件 Page iframe 资源地址等场景使用） */
+export function getApiBase(): string {
+  return runtime.apiBase;
+}
+
 // ── fetchTransport（Web / 无桌面桥时的默认实现） ─────────────────────────
 
 export function createFetchTransport(apiBase: string, workspaceId?: string, userId?: string): AervoxTransport {

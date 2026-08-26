@@ -45,6 +45,9 @@ export const plugins = sqliteTable(
     permissions: text("permissions", { mode: "json" }), // 插件声明的权限
     installSource: text("install_source").notNull().default("registry"), // "registry" | "local" | "marketplace"
     enabled: integer("enabled").notNull().default(1),
+    /** Aervox 插件配置 Schema（CR-006；随 Bundle 注册，系统级） */
+    configSchemaJson: text("config_schema_json", { mode: "json" }),
+    configSchemaVersion: integer("config_schema_version").notNull().default(1),
     ...timestampColumns,
   },
   (table) => ({
