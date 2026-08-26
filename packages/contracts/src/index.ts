@@ -69,6 +69,7 @@ import {
 export * from "./schemas.js";
 export * from "./persona-schemas.js";
 export * from "./plugin-config-schemas.js";
+export * from "./practice-schemas.js";
 export { openApiDocument } from "./openapi.js";
 
 export type TurnStatus = z.infer<typeof turnStatusSchema>;
