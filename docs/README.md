@@ -41,6 +41,8 @@
 
 当前已提供 [SRS](reference/SRS.md) 原子需求样例、共享 ADR、威胁模型、测试策略、运行手册和基线 NFR/AIQ/DATA/SEC/PRIV/OPS 追踪。每个进入开发的能力仍应逐步补充其专属 API/OpenAPI 片段、UX 原型、数据字典、测试证据和 ADR 关联；这些材料未齐备前，不得把能力地图中的一行视为完整开发规格。
 
+最近的端形态变更见 [CR-004：共享工作台与 Web 无桌宠表现层](reference/changes/CR-004-shared-workbench-web-without-pet.md)：Web 与 Electron 共用 `@aervox/ui` 工作台，Web 不渲染桌宠，Electron 保留桌面壳和桌宠窗口。
+
 ### 1.1 文档生命周期登记表（Owner 指派与核验）
 
 每份关键文档的责任角色、最后核验时间、核验节奏与陈旧信号，独立维护在[文档生命周期登记表](DOC_REGISTRY.md)（AVX-DOC-CONF-001）。新增或改版文档时同步更新该表，避免索引与登记职责混在同一文件。

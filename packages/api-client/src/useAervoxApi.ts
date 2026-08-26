@@ -4,14 +4,16 @@
  * 基于统一 Transport 提供学习/复习/日记/通知等数据组合；桌面与 Web 共用一份。
  */
 import { computed, onMounted, ref } from 'vue';
+import type { LearningGoalLevel, LearningGoalStatus, UpdateLearningGoal } from '@aervox/contracts';
 import { getTransport } from './transport';
 
 export interface GoalDto {
   id: string;
   topic: string;
-  level: string;
+  level: LearningGoalLevel;
   availableMinutes: number;
-  status: string;
+  status: LearningGoalStatus;
+  idempotencyKey?: string | null;
 }
 
 export interface ReviewItemDto {
@@ -55,12 +57,12 @@ export function useAervoxApi() {
 
   const transport = getTransport();
 
-  const loadAll = async (): Promise<void> => {
+  const loadAll = async (includeArchived = false): Promise<void> => {
     loading.value = true;
     error.value = null;
     try {
       const [g, r, n, d] = await Promise.all([
-        transport.request<{ items: GoalDto[] }>('GET', '/v1/learning/goals').catch(() => ({ items: [] })),
+        transport.request<{ items: GoalDto[] }>('GET', `/v1/learning/goals${includeArchived ? '?includeArchived=true' : ''}`).catch(() => ({ items: [] })),
         transport.request<{ items: ReviewItemDto[] }>('GET', '/v1/review-items').catch(() => ({ items: [] })),
         transport.request<{ items: NotificationDto[] }>('GET', '/v1/notifications').catch(() => ({ items: [] })),
         transport
@@ -78,8 +80,18 @@ export function useAervoxApi() {
     }
   };
 
-  const createGoal = async (topic: string): Promise<void> => {
-    await transport.request('POST', '/v1/learning/goals', { topic });
+  const createGoal = async (goal: { topic: string; level?: LearningGoalLevel; availableMinutes?: number }): Promise<void> => {
+    await transport.request('POST', '/v1/learning/goals', goal);
+    await loadAll();
+  };
+
+  const updateGoal = async (goalId: string, update: UpdateLearningGoal): Promise<void> => {
+    await transport.request('PATCH', `/v1/learning/goals/${encodeURIComponent(goalId)}`, update);
+    await loadAll();
+  };
+
+  const archiveGoal = async (goalId: string): Promise<void> => {
+    await transport.request('DELETE', `/v1/learning/goals/${encodeURIComponent(goalId)}`);
     await loadAll();
   };
 
@@ -107,6 +119,8 @@ export function useAervoxApi() {
     hasData,
     loadAll,
     createGoal,
+    updateGoal,
+    archiveGoal,
     submitFeedback,
     trackEvent,
   };
