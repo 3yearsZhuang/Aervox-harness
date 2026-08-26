@@ -1,11 +1,13 @@
 # CR-007 引入可替换 Live2D 桌宠渲染层
 
+- 提出人：jiyun233 · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
 > 文档编号：CR-007  
 > 类型：Reference  
 > 版本：v0.3  
-> 更新日期：2026-08-27  
+> 更新日期：2026-08-26  
 > 状态：More Evidence Required  
-> 责任角色：产品与技术负责人（待指定）  
 > 关联：[PRD](../PRD.md) · [架构设计](../ARCHITECTURE.md) · [需求追踪](../REQUIREMENTS_TRACEABILITY.md) · [CR-002](CR-002-fairy-desktop-module.md)
 
 ## 变更

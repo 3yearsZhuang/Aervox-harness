@@ -23,3 +23,6 @@
 [submodule "apps/desktop/src/renderer/public/live2d/mizuki"]
 	path = apps/desktop/src/renderer/public/live2d/mizuki
 	url = https://github.com/3yearszhuang/live2d-mizuki.git
+[submodule "apps/web/public/live2d/mizuki"]
+	path = apps/web/public/live2d/mizuki
+	url = https://github.com/3yearszhuang/live2d-mizuki.git
