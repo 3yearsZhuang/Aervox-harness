@@ -610,6 +610,17 @@ export interface QuestionAttemptModel {
   createdAt: string;
 }
 
+export interface PracticeSessionModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  questionCount: number;
+  questionIds: string[];
+  status: string;
+  startedAt: string;
+  endedAt?: string | null;
+}
+
 export interface KnowledgeItemModel {
   id: string;
   workspaceId: string;
@@ -680,6 +691,12 @@ export interface ILearningRepository {
   ): Promise<QuestionModel>;
   getQuestion(tenant: TenantContext, id: string): Promise<QuestionModel | null>;
   listActiveQuestions(tenant: TenantContext, limit: number): Promise<QuestionModel[]>;
+  createPracticeSession(
+    tenant: TenantContext,
+    session: { id: string; questionCount: number; questionIds: string[] },
+  ): Promise<PracticeSessionModel>;
+  getPracticeSession(tenant: TenantContext, sessionId: string): Promise<PracticeSessionModel | null>;
+  completePracticeSession(tenant: TenantContext, sessionId: string): Promise<PracticeSessionModel | null>;
   recordAttempt(
     tenant: TenantContext,
     attempt: {
@@ -693,6 +710,7 @@ export interface ILearningRepository {
     },
   ): Promise<QuestionAttemptModel>;
   listAttemptsByQuestion(tenant: TenantContext, questionId: string): Promise<QuestionAttemptModel[]>;
+  listAttemptsBySession(tenant: TenantContext, sessionId: string): Promise<QuestionAttemptModel[]>;
   getAttemptByIdempotencyKey(
     tenant: TenantContext,
     questionId: string,

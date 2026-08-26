@@ -151,6 +151,7 @@
 
 | 落地实现 | 关联 CAP | 实现位置 | 日期 | 验证 | 来源 |
 |---|---|---|---|---|---|
+| 练习会话与结果报告 | CAP-003/004/006 | `apps/api/src/modules/learning/routes.ts`、`packages/database/src/schema/learning.ts`、`packages/database/src/repositories/sqlite/learning-repository.ts`、`packages/api-client/src/useAervoxApi.ts`、`packages/ui/src/components/AervoxWorkbench.vue` | 2026-08-26 | `practice-session.test.ts` 集成测试；学习路由类型检查 | 原生 |
 | SQLite 写路径 busy 重试 | CAP-005/009/013 | `packages/database/src/write-retry.ts`、`client.ts` | 2026-08-26 | 单测 | `T-01` |
 | 会话级写锁 | CAP-005/009/013 | `packages/database/src/session-lock.ts` | 2026-08-26 | 单测 | `AST-01` |
 | 混合检索（FTS + 向量 RRF） | CAP-005/026 | `packages/database/src/search/`（`fts.ts`/`hybrid-search.ts`/`vector-port.ts`） | 2026-08-26 | 单测 | `T-02` + 原生 |

@@ -76,6 +76,23 @@ export const questionAttempts = sqliteTable(
   }),
 );
 
+/** 一次短时练习的范围与结束状态；作答事实仍单独保存在 questionAttempts。 */
+export const practiceSessions = sqliteTable(
+  "practice_sessions",
+  {
+    id: text("id").primaryKey(),
+    ...tenantColumns,
+    questionCount: integer("question_count").notNull(),
+    questionIds: text("question_ids", { mode: "json" }).notNull(),
+    status: text("status").notNull().default("active"), // "active" | "completed"
+    startedAt: text("started_at").notNull(),
+    endedAt: text("ended_at"),
+  },
+  (table) => ({
+    tenantIdx: index("practice_sessions_tenant_idx").on(table.workspaceId, table.subjectUserId),
+  }),
+);
+
 /** 用户可见知识点（明确区分观察结果 sourceStatus 与算法推断 masteryBasis） */
 export const knowledgeItems = sqliteTable(
   "knowledge_items",

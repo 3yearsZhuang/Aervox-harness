@@ -35,6 +35,25 @@ function nextStepFor(judgement: "correct" | "incorrect" | "unverifiable"): strin
   return "await_review";
 }
 
+function practiceReport(sessionId: string, attempted: Array<{ judgement: string }>, questionCount: number) {
+  const correctCount = attempted.filter((attempt) => attempt.judgement === "correct").length;
+  const incorrectCount = attempted.filter((attempt) => attempt.judgement === "incorrect").length;
+  const unverifiableCount = attempted.filter((attempt) => attempt.judgement === "unverifiable").length;
+  const judgedCount = correctCount + incorrectCount;
+  return {
+    sessionId,
+    questionCount,
+    answeredCount: attempted.length,
+    remainingCount: Math.max(questionCount - attempted.length, 0),
+    correctCount,
+    incorrectCount,
+    unverifiableCount,
+    accuracy: judgedCount === 0 ? null : correctCount / judgedCount,
+    nextStep:
+      incorrectCount > 0 ? "review_scheduled" : unverifiableCount > 0 ? "await_review" : "continue",
+  };
+}
+
 export function registerLearningRoutes(
   app: FastifyInstance,
   learningRepo: SqliteLearningRepository,
@@ -139,6 +158,41 @@ export function registerLearningRoutes(
     return { items: await learningRepo.listActiveQuestions(resolveTenant(req), count) };
   });
 
+  app.post("/v1/practice/sessions", async (req, reply) => {
+    const countValue = (req.body as { count?: unknown } | undefined)?.count ?? 3;
+    if (typeof countValue !== "number" || !Number.isInteger(countValue) || countValue < 3 || countValue > 5) {
+      return reply.code(400).send({ error: "count must be an integer from 3 to 5" });
+    }
+    const items = await learningRepo.listActiveQuestions(resolveTenant(req), countValue);
+    if (items.length < countValue) {
+      return reply.code(409).send({ error: `at least ${countValue} active questions are required` });
+    }
+    const session = await learningRepo.createPracticeSession(resolveTenant(req), {
+      id: id("practice"),
+      questionCount: items.length,
+      questionIds: items.map((item) => item.id),
+    });
+    return reply.code(201).send({ sessionId: session.id, items });
+  });
+
+  app.get("/v1/practice/sessions/:sessionId/report", async (req, reply) => {
+    const { sessionId } = req.params as { sessionId: string };
+    const tenant = resolveTenant(req);
+    const session = await learningRepo.getPracticeSession(tenant, sessionId);
+    if (!session) return reply.code(404).send({ error: "practice session not found" });
+    const attempts = await learningRepo.listAttemptsBySession(tenant, sessionId);
+    return practiceReport(sessionId, attempts, session.questionCount);
+  });
+
+  app.post("/v1/practice/sessions/:sessionId/complete", async (req, reply) => {
+    const { sessionId } = req.params as { sessionId: string };
+    const tenant = resolveTenant(req);
+    const session = await learningRepo.completePracticeSession(tenant, sessionId);
+    if (!session) return reply.code(404).send({ error: "practice session not found" });
+    const attempts = await learningRepo.listAttemptsBySession(tenant, sessionId);
+    return practiceReport(sessionId, attempts, session.questionCount);
+  });
+
   // 作答（不可变学习事实）
   app.post("/v1/questions/:questionId/attempts", async (req, reply) => {
     const tenant = resolveTenant(req);
@@ -153,6 +207,15 @@ export function registerLearningRoutes(
     const hasIdempotencyKey = typeof idempotencyKey === "string" && idempotencyKey.length > 0;
     const question = await learningRepo.getQuestion(tenant, questionId);
     if (!question) return reply.code(404).send({ error: "question not found" });
+    if (body.sessionId?.startsWith("practice_")) {
+      const session = await learningRepo.getPracticeSession(tenant, body.sessionId);
+      if (!session || session.status !== "active") {
+        return reply.code(409).send({ error: "practice session is not active" });
+      }
+      if (!session.questionIds.includes(questionId)) {
+        return reply.code(400).send({ error: "question does not belong to practice session" });
+      }
+    }
     const judgement = judgeAnswer(question.answerSpec, body.answer);
 
     const { attempt, created } = hasIdempotencyKey

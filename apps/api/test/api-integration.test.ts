@@ -332,6 +332,60 @@ describe("API 集成测试：用户侧域路由", () => {
     expect(otherTenant.json().items).toHaveLength(0);
   });
 
+  it("练习会话：启动、逐题作答、提前结束后汇总结果", async () => {
+    for (const [prompt, answer] of [["1 + 1 = ?", "2"], ["2 + 2 = ?", "4"], ["3 + 3 = ?", "6"]]) {
+      const question = await app.inject({
+        method: "POST",
+        url: "/v1/questions",
+        headers,
+        payload: { prompt, answerSpec: { answer } },
+      });
+      expect(question.statusCode).toBe(201);
+    }
+
+    const started = await app.inject({ method: "POST", url: "/v1/practice/sessions", headers, payload: { count: 3 } });
+    expect(started.statusCode).toBe(201);
+    expect(started.json().items).toHaveLength(3);
+    const sessionId = started.json().sessionId as string;
+    const firstQuestionId = started.json().items[0].id as string;
+    const secondQuestionId = started.json().items[1].id as string;
+
+    expect(
+      (await app.inject({ method: "POST", url: `/v1/questions/${firstQuestionId}/attempts`, headers, payload: { sessionId, answer: "2" } })).statusCode,
+    ).toBe(201);
+    expect(
+      (await app.inject({ method: "POST", url: `/v1/questions/${secondQuestionId}/attempts`, headers, payload: { sessionId, answer: "wrong" } })).statusCode,
+    ).toBe(201);
+
+    const report = await app.inject({ method: "POST", url: `/v1/practice/sessions/${sessionId}/complete`, headers });
+    expect(report.statusCode).toBe(200);
+    expect(report.json()).toMatchObject({
+      sessionId,
+      questionCount: 3,
+      answeredCount: 2,
+      remainingCount: 1,
+      correctCount: 1,
+      incorrectCount: 1,
+      accuracy: 0.5,
+      nextStep: "review_scheduled",
+    });
+
+    const afterCompletion = await app.inject({
+      method: "POST",
+      url: `/v1/questions/${started.json().items[2].id}/attempts`,
+      headers,
+      payload: { sessionId, answer: "ok" },
+    });
+    expect(afterCompletion.statusCode).toBe(409);
+
+    const foreignReport = await app.inject({
+      method: "GET",
+      url: `/v1/practice/sessions/${sessionId}/report`,
+      headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" },
+    });
+    expect(foreignReport.statusCode).toBe(404);
+  });
+
   it("复习项：到期列表（先经仓储创建到期项）", async () => {
     const learning = new SqliteLearningRepository(db);
     const tenant = { workspaceId: "ws_it", subjectUserId: "usr_it" };
