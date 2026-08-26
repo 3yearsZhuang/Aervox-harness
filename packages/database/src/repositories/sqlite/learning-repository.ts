@@ -9,6 +9,7 @@ import {
   learningGoals,
   questions,
   questionAttempts,
+  practiceSessions,
   knowledgeItems,
   reviewItems,
   knowledgeRelations,
@@ -19,6 +20,8 @@ import type {
   LearningGoalModel,
   QuestionModel,
   QuestionAttemptModel,
+  MistakeItemModel,
+  PracticeSessionModel,
   KnowledgeItemModel,
   ReviewItemModel,
   KnowledgeRelationModel,
@@ -220,6 +223,62 @@ export class SqliteLearningRepository implements ILearningRepository {
     return rows as QuestionModel[];
   }
 
+  async createPracticeSession(
+    tenant: TenantContext,
+    session: { id: string; questionCount: number; questionIds: string[] },
+  ): Promise<PracticeSessionModel> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    const [created] = await this.db
+      .insert(practiceSessions)
+      .values({
+        id: session.id,
+        workspaceId: tenant.workspaceId,
+        subjectUserId: tenant.subjectUserId,
+        questionCount: session.questionCount,
+        questionIds: session.questionIds,
+        status: "active",
+        startedAt: now,
+        endedAt: null,
+      })
+      .returning();
+    return created as PracticeSessionModel;
+  }
+
+  async getPracticeSession(tenant: TenantContext, sessionId: string): Promise<PracticeSessionModel | null> {
+    assertTenantContext(tenant);
+    const [session] = await this.db
+      .select()
+      .from(practiceSessions)
+      .where(
+        and(
+          eq(practiceSessions.id, sessionId),
+          eq(practiceSessions.workspaceId, tenant.workspaceId),
+          eq(practiceSessions.subjectUserId, tenant.subjectUserId),
+        ),
+      );
+    return (session as PracticeSessionModel) ?? null;
+  }
+
+  async completePracticeSession(tenant: TenantContext, sessionId: string): Promise<PracticeSessionModel | null> {
+    assertTenantContext(tenant);
+    const [updated] = await this.db
+      .update(practiceSessions)
+      .set({ status: "completed", endedAt: new Date().toISOString() })
+      .where(
+        and(
+          eq(practiceSessions.id, sessionId),
+          eq(practiceSessions.workspaceId, tenant.workspaceId),
+          eq(practiceSessions.subjectUserId, tenant.subjectUserId),
+          eq(practiceSessions.status, "active"),
+        ),
+      )
+      .returning();
+    if (updated) return updated as PracticeSessionModel;
+    const existing = await this.getPracticeSession(tenant, sessionId);
+    return existing?.status === "completed" ? existing : null;
+  }
+
   /** 每次答题为不可变学习事实，仅追加不更新 */
   async recordAttempt(
     tenant: TenantContext,
@@ -266,6 +325,70 @@ export class SqliteLearningRepository implements ILearningRepository {
       )
       .orderBy(questionAttempts.createdAt);
     return rows as QuestionAttemptModel[];
+  }
+
+  async listAttemptsBySession(tenant: TenantContext, sessionId: string): Promise<QuestionAttemptModel[]> {
+    assertTenantContext(tenant);
+    const rows = await this.db
+      .select()
+      .from(questionAttempts)
+      .where(
+        and(
+          eq(questionAttempts.sessionId, sessionId),
+          eq(questionAttempts.workspaceId, tenant.workspaceId),
+          eq(questionAttempts.subjectUserId, tenant.subjectUserId),
+        ),
+      )
+      .orderBy(questionAttempts.createdAt);
+    return rows as QuestionAttemptModel[];
+  }
+
+  async listMistakes(
+    tenant: TenantContext,
+    status: "active" | "mastered" | "all" = "active",
+  ): Promise<MistakeItemModel[]> {
+    assertTenantContext(tenant);
+    const rows = await this.db
+      .select({
+        questionId: questions.id,
+        knowledgeId: questions.knowledgeId,
+        prompt: questions.prompt,
+        latestAnswer: questionAttempts.answer,
+        latestAttemptAt: questionAttempts.createdAt,
+        masteryState: knowledgeItems.masteryState,
+      })
+      .from(questionAttempts)
+      .innerJoin(questions, eq(questionAttempts.questionId, questions.id))
+      .leftJoin(knowledgeItems, eq(questions.knowledgeId, knowledgeItems.id))
+      .where(
+        and(
+          eq(questionAttempts.workspaceId, tenant.workspaceId),
+          eq(questionAttempts.subjectUserId, tenant.subjectUserId),
+          eq(questionAttempts.judgement, "incorrect"),
+        ),
+      )
+      .orderBy(desc(questionAttempts.createdAt));
+
+    const grouped = new Map<string, MistakeItemModel>();
+    for (const row of rows) {
+      const existing = grouped.get(row.questionId);
+      if (existing) {
+        existing.wrongCount += 1;
+        continue;
+      }
+      const masteryState = row.masteryState ?? "unknown";
+      grouped.set(row.questionId, {
+        questionId: row.questionId,
+        knowledgeId: row.knowledgeId,
+        prompt: row.prompt,
+        latestAnswer: row.latestAnswer,
+        latestAttemptAt: row.latestAttemptAt,
+        wrongCount: 1,
+        masteryState,
+        status: masteryState === "mastered" ? "mastered" : "active",
+      });
+    }
+    return [...grouped.values()].filter((item) => status === "all" || item.status === status);
   }
 
   async getAttemptByIdempotencyKey(

@@ -35,6 +35,25 @@ function nextStepFor(judgement: "correct" | "incorrect" | "unverifiable"): strin
   return "await_review";
 }
 
+function practiceReport(sessionId: string, attempted: Array<{ judgement: string }>, questionCount: number) {
+  const correctCount = attempted.filter((attempt) => attempt.judgement === "correct").length;
+  const incorrectCount = attempted.filter((attempt) => attempt.judgement === "incorrect").length;
+  const unverifiableCount = attempted.filter((attempt) => attempt.judgement === "unverifiable").length;
+  const judgedCount = correctCount + incorrectCount;
+  return {
+    sessionId,
+    questionCount,
+    answeredCount: attempted.length,
+    remainingCount: Math.max(questionCount - attempted.length, 0),
+    correctCount,
+    incorrectCount,
+    unverifiableCount,
+    accuracy: judgedCount === 0 ? null : correctCount / judgedCount,
+    nextStep:
+      incorrectCount > 0 ? "review_scheduled" : unverifiableCount > 0 ? "await_review" : "continue",
+  };
+}
+
 export function registerLearningRoutes(
   app: FastifyInstance,
   learningRepo: SqliteLearningRepository,
@@ -139,6 +158,41 @@ export function registerLearningRoutes(
     return { items: await learningRepo.listActiveQuestions(resolveTenant(req), count) };
   });
 
+  app.post("/v1/practice/sessions", async (req, reply) => {
+    const countValue = (req.body as { count?: unknown } | undefined)?.count ?? 3;
+    if (typeof countValue !== "number" || !Number.isInteger(countValue) || countValue < 3 || countValue > 5) {
+      return reply.code(400).send({ error: "count must be an integer from 3 to 5" });
+    }
+    const items = await learningRepo.listActiveQuestions(resolveTenant(req), countValue);
+    if (items.length < countValue) {
+      return reply.code(409).send({ error: `at least ${countValue} active questions are required` });
+    }
+    const session = await learningRepo.createPracticeSession(resolveTenant(req), {
+      id: id("practice"),
+      questionCount: items.length,
+      questionIds: items.map((item) => item.id),
+    });
+    return reply.code(201).send({ sessionId: session.id, items });
+  });
+
+  app.get("/v1/practice/sessions/:sessionId/report", async (req, reply) => {
+    const { sessionId } = req.params as { sessionId: string };
+    const tenant = resolveTenant(req);
+    const session = await learningRepo.getPracticeSession(tenant, sessionId);
+    if (!session) return reply.code(404).send({ error: "practice session not found" });
+    const attempts = await learningRepo.listAttemptsBySession(tenant, sessionId);
+    return practiceReport(sessionId, attempts, session.questionCount);
+  });
+
+  app.post("/v1/practice/sessions/:sessionId/complete", async (req, reply) => {
+    const { sessionId } = req.params as { sessionId: string };
+    const tenant = resolveTenant(req);
+    const session = await learningRepo.completePracticeSession(tenant, sessionId);
+    if (!session) return reply.code(404).send({ error: "practice session not found" });
+    const attempts = await learningRepo.listAttemptsBySession(tenant, sessionId);
+    return practiceReport(sessionId, attempts, session.questionCount);
+  });
+
   // 作答（不可变学习事实）
   app.post("/v1/questions/:questionId/attempts", async (req, reply) => {
     const tenant = resolveTenant(req);
@@ -153,6 +207,15 @@ export function registerLearningRoutes(
     const hasIdempotencyKey = typeof idempotencyKey === "string" && idempotencyKey.length > 0;
     const question = await learningRepo.getQuestion(tenant, questionId);
     if (!question) return reply.code(404).send({ error: "question not found" });
+    if (body.sessionId?.startsWith("practice_")) {
+      const session = await learningRepo.getPracticeSession(tenant, body.sessionId);
+      if (!session || session.status !== "active") {
+        return reply.code(409).send({ error: "practice session is not active" });
+      }
+      if (!session.questionIds.includes(questionId)) {
+        return reply.code(400).send({ error: "question does not belong to practice session" });
+      }
+    }
     const judgement = judgeAnswer(question.answerSpec, body.answer);
 
     const { attempt, created } = hasIdempotencyKey
@@ -219,6 +282,68 @@ export function registerLearningRoutes(
   app.get("/v1/questions/:questionId/attempts", async (req) => {
     const { questionId } = req.params as { questionId: string };
     return { items: await learningRepo.listAttemptsByQuestion(resolveTenant(req), questionId) };
+  });
+
+  // 错题本（由不可变作答事实派生，不复制原始答案）
+  app.get("/v1/mistakes", async (req, reply) => {
+    const status = (req.query as { status?: string }).status ?? "active";
+    if (!["active", "mastered", "all"].includes(status)) {
+      return reply.code(400).send({ error: "status must be active, mastered, or all" });
+    }
+    return {
+      items: await learningRepo.listMistakes(
+        resolveTenant(req),
+        status as "active" | "mastered" | "all",
+      ),
+    };
+  });
+
+  app.patch("/v1/mistakes/:questionId", async (req, reply) => {
+    const tenant = resolveTenant(req);
+    const { questionId } = req.params as { questionId: string };
+    const body = (req.body ?? {}) as { status?: string };
+    if (!['active', 'mastered'].includes(body.status ?? '')) {
+      return reply.code(400).send({ error: "status must be active or mastered" });
+    }
+    const mistake = (await learningRepo.listMistakes(tenant, "all"))
+      .find((item) => item.questionId === questionId);
+    if (!mistake) return reply.code(404).send({ error: "mistake not found" });
+    if (!mistake.knowledgeId) {
+      return reply.code(409).send({ error: "mistake has no knowledge item" });
+    }
+    const updated = await learningRepo.updateMastery(
+      tenant,
+      mistake.knowledgeId,
+      body.status === "mastered" ? "mastered" : "learning",
+      { source: "user", action: body.status === "mastered" ? "mark_mastered" : "resume_learning" },
+    );
+    return { ...mistake, masteryState: updated?.masteryState, status: body.status };
+  });
+
+  app.post("/v1/mistakes/repractice", async (req, reply) => {
+    const tenant = resolveTenant(req);
+    const requested = (req.body as { questionIds?: unknown } | undefined)?.questionIds;
+    if (requested !== undefined && (!Array.isArray(requested) || requested.some((value) => typeof value !== "string"))) {
+      return reply.code(400).send({ error: "questionIds must be an array of strings" });
+    }
+    const activeMistakes = await learningRepo.listMistakes(tenant, "active");
+    const available = new Map(activeMistakes.map((item) => [item.questionId, item]));
+    const questionIds = (requested as string[] | undefined) ?? activeMistakes.slice(0, 5).map((item) => item.questionId);
+    const uniqueQuestionIds = [...new Set(questionIds)];
+    if (uniqueQuestionIds.length < 1 || uniqueQuestionIds.length > 5) {
+      return reply.code(400).send({ error: "choose from 1 to 5 mistakes" });
+    }
+    if (uniqueQuestionIds.some((questionId) => !available.has(questionId))) {
+      return reply.code(400).send({ error: "questionIds must reference active mistakes" });
+    }
+    const items = await Promise.all(uniqueQuestionIds.map((questionId) => learningRepo.getQuestion(tenant, questionId)));
+    if (items.some((item) => !item)) return reply.code(409).send({ error: "mistake question is unavailable" });
+    const session = await learningRepo.createPracticeSession(tenant, {
+      id: id("practice"),
+      questionCount: uniqueQuestionIds.length,
+      questionIds: uniqueQuestionIds,
+    });
+    return reply.code(201).send({ sessionId: session.id, items });
   });
 
   // 知识点

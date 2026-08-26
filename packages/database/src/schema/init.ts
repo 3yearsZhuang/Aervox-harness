@@ -569,6 +569,23 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   `);
 
   await client.execute(`
+    CREATE TABLE IF NOT EXISTS practice_sessions (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      question_count INTEGER NOT NULL,
+      question_ids TEXT NOT NULL DEFAULT '[]',
+      status TEXT NOT NULL DEFAULT 'active',
+      started_at TEXT NOT NULL,
+      ended_at TEXT
+    );
+  `);
+  await addColumnIfMissing(client, "practice_sessions", "question_ids", "question_ids TEXT NOT NULL DEFAULT '[]'");
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS practice_sessions_tenant_idx ON practice_sessions(workspace_id, subject_user_id);
+  `);
+
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS knowledge_items (
       id TEXT PRIMARY KEY,
       workspace_id TEXT NOT NULL,

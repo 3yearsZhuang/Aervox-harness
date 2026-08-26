@@ -24,6 +24,40 @@ export interface ReviewItemDto {
   status: string;
 }
 
+export interface PracticeQuestionDto {
+  id: string;
+  prompt: string;
+  knowledgeId?: string | null;
+}
+
+export interface PracticeSessionDto {
+  sessionId: string;
+  items: PracticeQuestionDto[];
+}
+
+export interface PracticeReportDto {
+  sessionId: string;
+  questionCount: number;
+  answeredCount: number;
+  remainingCount: number;
+  correctCount: number;
+  incorrectCount: number;
+  unverifiableCount: number;
+  accuracy: number | null;
+  nextStep: 'continue' | 'review_scheduled' | 'await_review';
+}
+
+export interface MistakeItemDto {
+  questionId: string;
+  knowledgeId?: string | null;
+  prompt: string;
+  latestAnswer: string;
+  latestAttemptAt: string;
+  wrongCount: number;
+  masteryState: string;
+  status: 'active' | 'mastered';
+}
+
 export interface NotificationDto {
   id: string;
   type: string;
@@ -50,6 +84,7 @@ const todayLocal = (): string => {
 export function useAervoxApi() {
   const goals = ref<GoalDto[]>([]);
   const dueReviews = ref<ReviewItemDto[]>([]);
+  const mistakes = ref<MistakeItemDto[]>([]);
   const notifications = ref<NotificationDto[]>([]);
   const todayDiary = ref<DiaryDto | null>(null);
   const loading = ref(false);
@@ -61,9 +96,10 @@ export function useAervoxApi() {
     loading.value = true;
     error.value = null;
     try {
-      const [g, r, n, d] = await Promise.all([
+      const [g, r, m, n, d] = await Promise.all([
         transport.request<{ items: GoalDto[] }>('GET', `/v1/learning/goals${includeArchived ? '?includeArchived=true' : ''}`).catch(() => ({ items: [] })),
         transport.request<{ items: ReviewItemDto[] }>('GET', '/v1/review-items').catch(() => ({ items: [] })),
+        transport.request<{ items: MistakeItemDto[] }>('GET', '/v1/mistakes?status=all').catch(() => ({ items: [] })),
         transport.request<{ items: NotificationDto[] }>('GET', '/v1/notifications').catch(() => ({ items: [] })),
         transport
           .request<DiaryDto>(`GET`, `/v1/diaries?localDate=${encodeURIComponent(todayLocal())}`)
@@ -71,6 +107,7 @@ export function useAervoxApi() {
       ]);
       goals.value = g.items;
       dueReviews.value = r.items;
+      mistakes.value = m.items;
       notifications.value = n.items;
       todayDiary.value = d;
     } catch (e) {
@@ -95,6 +132,23 @@ export function useAervoxApi() {
     await loadAll();
   };
 
+  const startPracticeSession = async (count = 3): Promise<PracticeSessionDto> =>
+    transport.request('POST', '/v1/practice/sessions', { count });
+
+  const submitPracticeAnswer = async (sessionId: string, questionId: string, answer: string): Promise<{ judgement: string; nextStep: string }> =>
+    transport.request('POST', `/v1/questions/${encodeURIComponent(questionId)}/attempts`, { sessionId, answer });
+
+  const completePracticeSession = async (sessionId: string): Promise<PracticeReportDto> =>
+    transport.request('POST', `/v1/practice/sessions/${encodeURIComponent(sessionId)}/complete`);
+
+  const setMistakeStatus = async (questionId: string, status: 'active' | 'mastered'): Promise<void> => {
+    await transport.request('PATCH', `/v1/mistakes/${encodeURIComponent(questionId)}`, { status });
+    await loadAll();
+  };
+
+  const startMistakePractice = async (questionIds: string[]): Promise<PracticeSessionDto> =>
+    transport.request('POST', '/v1/mistakes/repractice', { questionIds });
+
   const submitFeedback = async (subjectType: string, subjectId: string, type: string, note?: string): Promise<void> => {
     await transport.request('POST', '/v1/feedback', { subjectType, subjectId, type, note });
   };
@@ -112,6 +166,7 @@ export function useAervoxApi() {
   return {
     goals,
     dueReviews,
+    mistakes,
     notifications,
     todayDiary,
     loading,
@@ -121,6 +176,11 @@ export function useAervoxApi() {
     createGoal,
     updateGoal,
     archiveGoal,
+    startPracticeSession,
+    submitPracticeAnswer,
+    completePracticeSession,
+    setMistakeStatus,
+    startMistakePractice,
     submitFeedback,
     trackEvent,
   };
