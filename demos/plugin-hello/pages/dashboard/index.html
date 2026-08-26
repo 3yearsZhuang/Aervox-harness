@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hello Aervox</title>
+  <script src="/v1/plugin-pages/bridge.js"></script>
+  <style>
+    :root { --bg: #f6f8f5; --text: #22302a; --muted: #718078; --accent: #4d8766; }
+    html[data-theme="dark"] { --bg: #1d2420; --text: #dce6df; --muted: #91a198; --accent: #6eb18a; }
+    body { margin: 0; padding: 28px; background: var(--bg); color: var(--text); font-family: -apple-system, "PingFang SC", sans-serif; }
+    h1 { font-size: 20px; }
+    p { color: var(--muted); }
+    label { display: grid; gap: 6px; margin-bottom: 14px; font-size: 13px; }
+    input[type="text"] { padding: 8px 10px; border: 1px solid #d5ded8; border-radius: 8px; }
+    button { margin-right: 8px; padding: 8px 14px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; cursor: pointer; }
+    .status { margin-top: 18px; font-size: 12px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <h1>Hello Aervox</h1>
+  <p id="greeting">加载中…</p>
+  <label>问候语 <input id="greetingInput" type="text" /></label>
+  <label><input id="enabledInput" type="checkbox" /> 启用演示</label>
+  <button id="save">保存配置</button>
+  <button id="notify">发送通知</button>
+  <button id="close">关闭</button>
+  <p class="status" id="status"></p>
+
+  <script>
+    const bridge = window.AervoxPluginPageBridge;
+    const $ = (id) => document.getElementById(id);
+    let config = null;
+
+    async function refresh() {
+      const ctx = await bridge.ready();
+      document.documentElement.dataset.theme = ctx.theme;
+      config = await bridge.getConfig();
+      const values = config.values || {};
+      $('greeting').textContent = values.greeting || '（未配置问候语）';
+      $('greetingInput').value = values.greeting || '';
+      $('enabledInput').checked = values.enabled !== false;
+      $('status').textContent = `revision=${config.revision} · apiKey=${config.secretFields?.apiKey?.configured ? '已配置' : '未配置'}`;
+    }
+
+    $('save').addEventListener('click', async () => {
+      const next = await bridge.saveConfig({
+        values: {
+          greeting: $('greetingInput').value,
+          enabled: $('enabledInput').checked,
+        },
+      });
+      config = next;
+      $('status').textContent = `已保存 revision=${next.revision}`;
+      bridge.notify({ type: 'success', message: '配置已保存' });
+    });
+
+    $('notify').addEventListener('click', () => bridge.notify({ type: 'info', message: '来自插件页面的通知' }));
+    $('close').addEventListener('click', () => bridge.close());
+    refresh();
+  </script>
+</body>
+</html>
