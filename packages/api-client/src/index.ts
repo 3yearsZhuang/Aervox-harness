@@ -12,4 +12,15 @@ export {
 export { desktopTransport } from './desktop-transport';
 export { useAervoxApi, type GoalDto, type ReviewItemDto, type NotificationDto, type DiaryDto } from './useAervoxApi';
 export { useAervoxPlugins, type PluginSummaryDto, type PluginPageDto } from './useAervoxPlugins';
+export {
+  useAervoxPersonas,
+  type PersonaDto,
+  type PersonaRevisionDto,
+  type PersonaRevisionConfigDto,
+  type ActivePersonaSelectionDto,
+  type CreatePersonaInputDto,
+  type UpdatePersonaInputDto,
+  type ToolItemDto,
+  type SkillItemDto,
+} from './useAervoxPersonas';
 export { streamAervoxTurn, type StreamAervoxTurnCallbacks } from './useAervoxTurn';

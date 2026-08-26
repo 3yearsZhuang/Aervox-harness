@@ -28,6 +28,7 @@ import { registerToolsModule } from "./modules/tools/index.js";
 import { registerPluginsModule } from "./modules/plugins/index.js";
 import { registerPersonaModule } from "./modules/persona/index.js";
 import { registerSkillsModule } from "./modules/skills/index.js";
+import { registerVoiceModule, type VoiceModuleOptions } from "./modules/voice/index.js";
 
 export interface BuildAppOptions {
   /** 注入既有数据库（如内存库）；缺省时使用 createDatabase() */
@@ -37,6 +38,8 @@ export interface BuildAppOptions {
   skillsRoot?: string;
   /** 插件 Page Bundle 落盘根目录（测试注入临时目录；缺省 <repo>/data/plugins） */
   pluginsRoot?: string;
+  /** 语音服务配置（如测试注入 mock provider） */
+  voiceOptions?: VoiceModuleOptions;
 }
 
 export interface BuildAppResult {
@@ -71,8 +74,9 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   registerBranchModule(app, db);
   const toolRuntime = registerToolsModule(app, db, client);
   registerPluginsModule(app, db, { skillsRoot: options.skillsRoot, pluginsRoot: options.pluginsRoot });
-  registerPersonaModule(app, db);
-  registerSkillsModule(app, db, { skillsRoot: options.skillsRoot, toolRuntime });
+  const voiceService = registerVoiceModule(app, options.voiceOptions);
+  const skillManager = registerSkillsModule(app, db, { skillsRoot: options.skillsRoot, toolRuntime });
+  registerPersonaModule(app, db, { skillManager, toolRuntime, voiceService });
 
   return { app, db, client };
 }

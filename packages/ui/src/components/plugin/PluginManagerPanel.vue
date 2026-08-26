@@ -58,7 +58,8 @@ function openConfigFromPage(): void {
 <template>
   <div class="plugin-manager">
     <div class="settings-section-heading">
-      <span><Puzzle :size="19" /><span><strong>插件</strong><small>管理已安装插件、配置与页面</small></span></span>
+      <span class="heading-icon-wrap"><Puzzle :size="18" /></span>
+      <span><strong>插件</strong><small>管理已安装插件、配置与页面</small></span>
     </div>
 
     <div v-if="loading" class="pcfg-loading">加载插件…</div>
