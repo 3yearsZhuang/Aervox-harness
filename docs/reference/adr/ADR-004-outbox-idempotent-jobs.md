@@ -1,8 +1,10 @@
 # ADR-004 业务状态 + Outbox + 幂等队列
 
-- 状态：Proposed（待技术负责人批准）
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
+- 状态：Proposed
 - 日期：2026-08-23
-- Owner：待指定
 - 关联：`NFR-REL-001`、`OPS-QUEUE-001`、`CAP-005/009/013`
 
 ## Context

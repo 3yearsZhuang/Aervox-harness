@@ -1,5 +1,8 @@
 # <概念>如何运作（Explanation 模板）
 
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
 > 文档编号：AVX-EXPL-###
 > 类型：Explanation
 > 版本：v0.1
@@ -16,7 +19,7 @@
 ## 概念地图
 
 - 参与组件、模块与文档清单及其职责边界；
-- 用引用的形式指向 [ARCHITECTURE.md](../../ARCHITECTURE.md)、相关 ADR 与契约。
+- 用引用的形式指向 [ARCHITECTURE.md](../reference/ARCHITECTURE.md)、相关 ADR 与契约。
 
 ## 端到端视角
 

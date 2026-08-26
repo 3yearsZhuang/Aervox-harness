@@ -1,5 +1,8 @@
 # 操作指南：撰写与批准 ADR（How-to）
 
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
 > 文档编号：AVX-GUIDE-002  
 > 版本：v0.1  
 > 更新日期：2026-08-24  
@@ -26,11 +29,11 @@
    - `Migration / rollback`：如何落地与回退；
    - `Verification evidence`：状态改为 `Accepted` 前至少提供的证据。
 3. **关联 ID**：挂 `CAP/NFR/DATA/SEC/PRIV/RISK/CR`，标题变化不改 ADR 编号。
-4. **提交评审**：以 `Proposed` 提交，记录 Owner（当前人名待定）与评审人。
+4. **提交评审**：以 `Proposed` 提交并登记提出人。
 
 ## 状态推进
 
-- `Proposed` → `Accepted`：补齐 Owner、评审人、备选方案、后果、迁移/回滚与验证证据，并通过 G2 评审。
+- `Proposed` → `Accepted`：补齐备选方案、后果、迁移/回滚与验证证据，并通过 G2 评审。
 - `Accepted` → `Superseded` / `Rejected`：保留原文并标记，不得复用编号。
 - 未批准的技术建议不得写成已承诺架构（与[架构 §11](../reference/ARCHITECTURE.md#11-首批-adr)一致）。
 

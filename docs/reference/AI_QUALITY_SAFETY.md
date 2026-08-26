@@ -1,10 +1,12 @@
 # Aervox｜思隅 AI 质量与安全规范
 
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
 > 文档编号：AVX-AIQ-001  
 > 类型：Reference  
 > 版本：v0.2（评审候选）  
 > 更新日期：2026-08-24  
-> 负责人：待指定  
 > 关联文档：[PRD](PRD.md) · [架构设计](ARCHITECTURE.md) · [流式协议](STREAMING_PROTOCOL.md) · [数据与隐私](DATA_PRIVACY.md) · [需求追踪](REQUIREMENTS_TRACEABILITY.md)
 
 本文规定教学回答、模型编排、四段记忆、AI 每日日记和安全响应的可复现质量门槛。它把“模型看起来不错”转换为版本化评估、人工判定、运行监控、降级和回滚要求。
@@ -24,7 +26,7 @@
 | 对象 | 必备字段 | 变更要求 |
 |---|---|---|
 | Model | provider、modelId、能力、上下文限制、数据地区 | 供应商/模型切换需回归和成本评审 |
-| Prompt | purpose、version、checksum、批准人 | 教学、记忆、日记、安全独立版本，可回滚 |
+| Prompt | purpose、version、checksum | 教学、记忆、日记、安全独立版本，可回滚 |
 | ContextManifest | 资源 ID/版本、权限、选择原因、截断策略 | 不记录不必要正文；来源删除后 manifest 失效 |
 | ToolPolicy | 工具、scope、配额、超时、审批 | 工具权限由服务端策略最终决定，模型不能提升 |
 | MemoryAlgorithm | schema、压缩规则、阈值、版本 | 迁移保留旧版本和回滚路径 |
@@ -226,7 +228,7 @@ Captured
 - 日记事实覆盖 / 时区窗口 / 敏感内容：
 - 失败样本与严重性：
 - 灰度范围、监控指标和回滚条件：
-- 批准人、证据链接和后续 CR/RISK：
+- 证据链接和后续 CR/RISK：
 ```
 
 没有版本化评估报告、可重放输入和明确回滚条件的模型/Prompt 变更，不得进入生产。

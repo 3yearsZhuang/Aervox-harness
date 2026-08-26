@@ -1,8 +1,10 @@
 # ADR-008 Cloud-first 与本地/自托管 Port
 
-- 状态：Proposed（待技术/隐私负责人批准）
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
+- 状态：Proposed
 - 日期：2026-08-23
-- Owner：待指定
 - 关联：`CAP-027`、`NFR-PRIV-001`、`RISK-007`
 
 ## Context

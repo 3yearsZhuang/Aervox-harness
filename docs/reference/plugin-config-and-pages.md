@@ -1,11 +1,13 @@
 # 插件 Config 与 Page 规范
 
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
 > 文档编号：AVX-PLUG-001
 > 类型：Reference
 > 版本：v0.1
 > 更新日期：2026-08-26
 > 状态：Review Candidate
-> 责任角色：技术负责人
 > 关联：[CR-006](changes/CR-006-plugin-config-and-pages.md)、[能力组合与可选化目录规范](capability-composition.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[AI 质量与安全规范](AI_QUALITY_SAFETY.md)
 
 本文是插件配置与页面的运行时契约与实现规范。设计参考 [AstrBot 插件配置指南](https://docs.astrbot.app/dev/star/guides/plugin-config.html) 与 [插件页面指南](https://docs.astrbot.app/dev/star/guides/plugin-pages.html)（AGPLv3，仅借鉴公开设计），Aervox 以自有版本化 DSL 作为唯一事实源，不做 AstrBot 格式兼容导入。

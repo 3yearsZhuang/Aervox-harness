@@ -1,5 +1,8 @@
 # Aervox｜思隅 系统架构设计（SAD）
 
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
 > 文档编号：AVX-SAD-001  
 > 类型：Explanation  
 > 版本：v0.1（评审候选）  
@@ -369,7 +372,7 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 
 每个 ADR 需要记录上下文、备选方案、决策、后果、迁移和回滚。未批准的技术建议不能写成已承诺架构。
 
-独立记录已建立在 `docs/reference/adr/ADR-###-slug.md`；上表是 canonical 索引，其他文档不得给同一个 `ADR-*` 赋予不同含义。当前状态均为 `Proposed`，不代表已经通过 G2 或取得技术负责人批准。
+独立记录已建立在 `docs/reference/adr/ADR-###-slug.md`；上表是 canonical 索引，其他文档不得给同一个 `ADR-*` 赋予不同含义。当前状态均为 `Proposed`，不代表已经通过 G2 评审。
 
 ### 11.1 技术版本冻结规则
 
@@ -377,7 +380,7 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 
 - 验证实际发布日期、LTS/支持周期、peer dependency、Node ABI、Electron 和参考适配器兼容；
 - 在根 `package.json`、`packageManager`、`engines`、lockfile、容器 digest 和 CI matrix 中精确冻结版本；
-- 生成 SBOM/许可证清单和升级 Owner；主版本升级建立 ADR/CR，小版本通过自动回归；
+- 生成 SBOM/许可证清单；主版本升级建立 ADR/CR，小版本通过自动回归；
 - 若目标版本不可用或不兼容，使用最近受支持稳定版并记录偏差，不为满足文档数字使用预发布依赖。
 
 #### 实测偏差记录（2026-08-24 骨架）

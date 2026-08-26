@@ -1,10 +1,12 @@
 # 可选功能模块化方案（子仓库开发 + workspace 消费）
 
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
 > 文档编号：AVX-MOD-001  
 > 版本：v0.2  
 > 创建/更新日期：2026-08-26  
 > 文档状态：评审候选  
-> 文档负责人：技术负责人（待指定）  
 > 关联文档：[能力组合与可选化目录规范](../reference/capability-composition.md) · [PRD](../reference/PRD.md) · [架构设计](../reference/ARCHITECTURE.md) · [ADR 索引](../reference/adr/README.md) · [需求追踪](../reference/REQUIREMENTS_TRACEABILITY.md) · [文档索引](../README.md)
 >
 > 过渡状态：本文是当前 `modules/*` + git submodule 交付机制的执行基线。[AVX-CAP-001](../reference/capability-composition.md) 已定义“Kernel 不变量 + 所有业务能力由 Profile 选择”的目标形态，与本文的“P0 永远非自选”“可选代码只能使用 submodule”“`modules/*` 是能力边界”存在实质冲突。对应 ADR/CR 接受前继续按本文执行；接受后本文进入 Superseded/迁移状态，构建/运行时双轴和数据权利约束继续保留。
@@ -146,7 +148,7 @@ packages:
 3. **许可证 / 安全检查**：每个可选模块按其来源执行许可证评审（align `PRD 15.1`），AGPL 类模块不得形成主仓链接依赖。
 4. **数据 / 隐私 / 删除**：模块不得绕过主仓删除、同意、导出与保留边界（见 [2.5]）。
 5. **回滚 / 降级**：任一可选模块构建或运行时降级，不阻断核心流程；被禁用的模块数据按主仓删除/导出规则处理。
-6. **更新登记**：模块每次批准/修订后更新本文档与[文档索引登记表](../README.md#11-文档生命周期登记表owner-指派与核验)的核验日期。
+6. **更新登记**：模块每次批准/修订后更新本文档与[文档索引登记表](../README.md#11-文档生命周期登记表核验节奏与陈旧信号)的核验日期。
 
 ## 6. 风险与替代方案
 

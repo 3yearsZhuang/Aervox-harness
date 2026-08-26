@@ -1,10 +1,12 @@
 # ADR-002 React/Vite + Fastify + OpenAPI/SSE
 
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
 > **Superseded by [ADR-015](ADR-015-vue-full-stack.md)**：Web 层基线改为 Vue 全栈单栈；本记录保留原文，仅备案历史决策。
 
 - 状态：Superseded by ADR-015（原为 Proposed）
 - 日期：2026-08-23（2026-08-25 标记 Superseded）
-- Owner：待指定
 - 关联：`NFR-PERF-001`、`NFR-COMPAT-001`、`CAP-001/002/009/018`
 
 ## Context

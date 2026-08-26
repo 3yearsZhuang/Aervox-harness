@@ -1,8 +1,10 @@
 # ADR-010 DSH/pi 仅为可选适配器
 
-- 状态：Proposed（待技术/安全负责人批准；P2 前必须 Accepted）
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
+- 状态：Proposed（P2 前必须 Accepted）
 - 日期：2026-08-23
-- Owner：待指定
 - 关联：`CAP-020`、`CAP-027`、`RISK-006/010`
 
 ## Context

@@ -1,5 +1,8 @@
 # Aervox 架构决策记录（ADR）
 
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-26
+
 > 状态：评审候选  
 > 更新日期：2026-08-24  
 > 架构基线摘要：[ARCHITECTURE.md 第 11 节](../ARCHITECTURE.md#11-首批-adr)  
@@ -27,7 +30,7 @@ ADR 记录难以逆转、影响多个模块或改变数据/运维边界的技术
 | ADR-014 | Proposed | 演进式模块化单体：apps/api 按领域模块组织 | [ADR-014](ADR-014-modular-monolith-structure.md) |
 | ADR-015 | Proposed | Vue 全栈单栈：Web 复用桌面端技术族，替代 ADR-002 Web 基线 | [ADR-015](ADR-015-vue-full-stack.md) |
 
-`Proposed` 不代表已经批准。当前独立记录是评审输入，不是 G2 通过证据；每条 ADR 必须补齐 Owner、评审人、备选方案、后果、迁移、回滚和验证证据并获得批准，状态才能改为 `Accepted`。
+`Proposed` 不代表已经批准。当前独立记录是评审输入，不是 G2 通过证据；每条 ADR 必须补齐备选方案、后果、迁移、回滚和验证证据并经过评审，状态才能改为 `Accepted`。
 
 ADR-011/012 是 2026-08-24 架构一致性审查新增的评审记录；因其状态仍为 `Proposed`，架构设计中的摘要表在决策接受或通过对应 `CR-*` 时再同步，不能把本登记视为已批准实现承诺。
 
@@ -38,7 +41,7 @@ ADR-011/012 是 2026-08-24 架构一致性审查新增的评审记录；因其�
 
 - 状态：Proposed / Accepted / Superseded / Rejected
 - 日期：
-- Owner / 评审人：
+- 提出人 / 日期：
 - 关联：CAP / NFR / DATA / SEC / PRIV / RISK / CR
 
 ## Context
