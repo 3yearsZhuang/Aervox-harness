@@ -29,6 +29,7 @@ import {
 import {streamAervoxTurn, useAervoxApi} from '@aervox/api-client'
 import PetHero from './PetHero.vue'
 import PluginManagerPanel from './plugin/PluginManagerPanel.vue'
+import Live2DPet from './Live2DPet.vue'
 
 type Platform = 'desktop' | 'web'
 type Speaker = 'assistant' | 'user'
@@ -97,7 +98,9 @@ const {
 let nextStoryId = 2
 
 const isWeb = computed(() => props.platform === 'web')
-const showCompanionEnabled = computed(() => props.showCompanion && desktopCompanionEnabled.value)
+// Web always presents its companion card; the desktop-only preference must not
+// leak through shared localStorage and hide the Web companion.
+const showCompanionEnabled = computed(() => props.showCompanion && (isWeb.value || desktopCompanionEnabled.value))
 const currentLine = computed(() => story.value.at(-1) ?? null)
 const currentAssistantLine = computed(() => [...story.value].reverse().find((line) => line.speaker === 'assistant') ?? null)
 const unfinishedTodos = computed(() => todos.value.filter((todo) => !todo.done))
@@ -363,7 +366,9 @@ onUnmounted(() => {
 
           <div class="hero-pet-stage">
             <button class="hero-pet-button" type="button" aria-label="打开桌宠工具菜单" @click="toolsOpen = !toolsOpen">
-              <PetHero />
+              <Live2DPet>
+                <template #fallback><PetHero /></template>
+              </Live2DPet>
             </button>
             <div class="pet-speech">{{ streaming ? '我正在整理思路…' : '今天也一起稳稳前进。' }}</div>
           </div>
@@ -664,7 +669,7 @@ onUnmounted(() => {
             <div class="settings-section-heading"><span><Sun :size="19" /><span><strong>外观</strong><small>让工作台更符合你的节奏</small></span></span></div>
             <div class="settings-row settings-choice-row"><span><strong>主题</strong><small>选择工作台的明暗模式</small></span><span class="settings-segmented"><button type="button" :class="{active: !isDark}" @click="setTheme('light')"><Sun :size="16" />亮色</button><button type="button" :class="{active: isDark}" @click="setTheme('dark')"><Moon :size="16" />暗色</button></span></div>
             <label class="settings-row settings-choice-row"><span><strong>界面密度</strong><small>紧凑模式会减少面板间距</small></span><input v-model="compactMode" type="checkbox" class="settings-switch" @change="saveSettings" /></label>
-            <label v-if="!isWeb" class="settings-row settings-choice-row"><span><strong>工作台桌宠</strong><small>控制桌面端主窗口中的桌宠区域</small></span><input v-model="desktopCompanionEnabled" type="checkbox" class="settings-switch" @change="saveSettings" /></label>
+            <label v-if="!isWeb && props.showCompanion" class="settings-row settings-choice-row"><span><strong>工作台桌宠</strong><small>控制桌面端主窗口中的桌宠区域</small></span><input v-model="desktopCompanionEnabled" type="checkbox" class="settings-switch" @change="saveSettings" /></label>
           </div>
           <div v-else-if="settingsCategory === 'conversation'" class="settings-section">
             <div class="settings-section-heading"><span><MessageCircle :size="19" /><span><strong>对话</strong><small>调整你与思隅交流的方式</small></span></span></div>

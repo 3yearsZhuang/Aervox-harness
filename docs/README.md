@@ -4,8 +4,8 @@
 - 修改人：3yearszhuang · 2026-08-26
 
 > 文档编号：AVX-DOC-001  
-> 版本：v0.3  
-> 更新日期：2026-08-26  
+> 版本：v0.4  
+> 更新日期：2026-08-27
 > 状态：评审候选  
 
 本目录把产品目标、可测试需求、架构决策、数据权利和 AI 质量分开维护，避免单一 PRD 同时承担所有细节。所有上线范围必须能从用户价值追踪到需求、设计、测试和发布证据。
@@ -46,6 +46,8 @@
 当前已提供 [SRS](reference/SRS.md) 原子需求样例、共享 ADR、威胁模型、测试策略、运行手册和基线 NFR/AIQ/DATA/SEC/PRIV/OPS 追踪。每个进入开发的能力仍应逐步补充其专属 API/OpenAPI 片段、UX 原型、数据字典、测试证据和 ADR 关联；这些材料未齐备前，不得把能力地图中的一行视为完整开发规格。
 
 最近的端形态变更见 [CR-005：共享工作台与 Web 无桌宠表现层](reference/changes/CR-005-shared-workbench-web-without-pet.md)：Web 与 Electron 共用 `@aervox/ui` 工作台，Web 不渲染桌宠，Electron 保留桌面壳和桌宠窗口。
+
+后续表现层变更见 [CR-007：可替换 Live2D 桌宠渲染层](reference/changes/CR-007-live2d-sekai-viewer-pet.md)：Web 工作台重新启用可回退的 Live2D 桌宠；Electron 主工作台保持无左侧桌宠，独立桌宠窗口继续使用 Live2D。
 
 最近的插件能力变更见 [CR-006：插件配置解析与可视化](reference/changes/CR-006-plugin-config-and-pages.md)：新增插件 Config Schema v1、配置持久化/API 与受限 Page Bridge（规范见 [AVX-PLUG-001](reference/plugin-config-and-pages.md)）。
 

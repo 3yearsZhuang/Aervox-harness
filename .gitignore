@@ -27,3 +27,7 @@ Desktop.ini
 *.db*
 # 共享 SQLite 真源目录（API / Worker 默认 <repo>/data/aervox.db）
 data/
+
+# Legacy local-only Live2D test assets retained outside the committed fixed model.
+apps/desktop/src/renderer/public/live2d-test/
+apps/web/public/live2d-test/
