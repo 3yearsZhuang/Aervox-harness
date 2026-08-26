@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {computed, ref, watch} from 'vue'
 import {ElMessage} from 'element-plus'
-import {Wrench, Zap} from 'lucide-vue-next'
+import {Heart, Wrench, Zap} from 'lucide-vue-next'
 import {
   useAervoxPersonas,
   type SkillItemDto,
@@ -213,12 +213,22 @@ async function save() {
 <template>
   <el-dialog
     :model-value="open"
-    :title="isEdit ? '编辑人格' : '创建新人格'"
     class="persona-edit-dialog"
     width="min(860px, calc(100vw - 28px))"
     align-center
+    :append-to-body="true"
     @close="emit('close')"
   >
+    <template #header>
+      <div class="dialog-header-wrap">
+        <span class="heading-icon-wrap"><Heart :size="18" /></span>
+        <div class="dialog-header-text">
+          <strong>{{ isEdit ? '编辑人格' : '创建新人格' }}</strong>
+          <small>{{ isEdit ? '更新人格提示词、能力与工具配置' : '配置新人格的核心设定与可用能力' }}</small>
+        </div>
+      </div>
+    </template>
+
     <div v-if="loading" class="dialog-loading">正在加载人格配置…</div>
     <div v-else class="persona-form-grid">
       <!-- 左侧：基础信息与系统提示词 -->
@@ -350,10 +360,57 @@ async function save() {
 </template>
 
 <style scoped>
+.persona-edit-dialog {
+  --el-dialog-bg-color: var(--bg-main);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.persona-edit-dialog :deep(.el-dialog__header) {
+  margin: 0;
+  padding: 16px 22px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-main);
+}
+
+.dialog-header-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.heading-icon-wrap {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.dialog-header-text {
+  display: grid;
+  gap: 2px;
+}
+
+.dialog-header-text strong {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.dialog-header-text small {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
 .persona-edit-dialog :deep(.el-dialog__body) {
   max-height: 72vh;
   overflow-y: auto;
-  padding: 16px 20px;
+  padding: 20px 24px;
 }
 
 .dialog-loading {
@@ -568,33 +625,37 @@ async function save() {
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
+  padding: 4px 0 0;
 }
 
 .btn-secondary {
-  padding: 7px 14px;
+  padding: 8px 16px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg-soft);
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 12.5px;
+  font-weight: 500;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .btn-secondary:hover {
-  border-color: var(--text-muted);
+  border-color: var(--border-strong, var(--accent));
   color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
 .btn-primary {
-  padding: 7px 18px;
+  padding: 8px 20px;
   border: none;
   border-radius: 8px;
   background: var(--accent);
   color: #fff;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 26%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 28%, transparent);
   transition: background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
