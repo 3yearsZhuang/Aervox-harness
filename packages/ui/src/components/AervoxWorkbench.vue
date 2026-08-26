@@ -64,6 +64,13 @@ const newGoalLevel = ref<'beginner' | 'intermediate' | 'advanced'>('beginner')
 const newGoalMinutes = ref(25)
 const showArchivedGoals = ref(false)
 const goalBusyId = ref<string | null>(null)
+const practiceSession = ref<{sessionId: string; items: Array<{id: string; prompt: string}>} | null>(null)
+const practiceIndex = ref(0)
+const practiceAnswer = ref('')
+const practiceFeedback = ref<{judgement: string; nextStep: string} | null>(null)
+const practiceReport = ref<{answeredCount: number; questionCount: number; remainingCount: number; correctCount: number; incorrectCount: number; unverifiableCount: number; accuracy: number | null; nextStep: string} | null>(null)
+const practiceBusy = ref(false)
+const practiceError = ref<string | null>(null)
 const input = ref('')
 const timerSeconds = ref(25 * 60)
 const timerRunning = ref(false)
@@ -219,6 +226,64 @@ async function archiveGoal(goalId: string) {
   } finally {
     goalBusyId.value = null
   }
+}
+
+const currentPracticeQuestion = computed(() => practiceSession.value?.items[practiceIndex.value] ?? null)
+
+async function startPractice() {
+  practiceBusy.value = true
+  practiceError.value = null
+  practiceReport.value = null
+  practiceFeedback.value = null
+  try {
+    practiceSession.value = await api.startPracticeSession()
+    practiceIndex.value = 0
+    practiceAnswer.value = ''
+  } catch (error) {
+    practiceError.value = error instanceof Error ? '当前没有可练习的题目，请先创建题目。' : '启动练习失败，请稍后再试。'
+  } finally {
+    practiceBusy.value = false
+  }
+}
+
+async function submitPracticeAnswer() {
+  const question = currentPracticeQuestion.value
+  const answer = practiceAnswer.value.trim()
+  if (!practiceSession.value || !question || !answer || practiceBusy.value) return
+  practiceBusy.value = true
+  practiceError.value = null
+  try {
+    practiceFeedback.value = await api.submitPracticeAnswer(practiceSession.value.sessionId, question.id, answer)
+  } catch (error) {
+    practiceError.value = error instanceof Error ? '作答没有保存，请重试。' : '作答失败，请重试。'
+  } finally {
+    practiceBusy.value = false
+  }
+}
+
+async function finishPractice() {
+  if (!practiceSession.value) return
+  practiceBusy.value = true
+  practiceError.value = null
+  try {
+    practiceReport.value = await api.completePracticeSession(practiceSession.value.sessionId)
+    practiceFeedback.value = null
+  } catch {
+    practiceError.value = '暂时无法生成练习报告，请稍后再试。'
+  } finally {
+    practiceBusy.value = false
+  }
+}
+
+function nextPracticeQuestion() {
+  if (!practiceSession.value) return
+  if (practiceIndex.value + 1 >= practiceSession.value.items.length) {
+    void finishPractice()
+    return
+  }
+  practiceIndex.value += 1
+  practiceAnswer.value = ''
+  practiceFeedback.value = null
 }
 
 function toggleTimer() {
@@ -586,6 +651,35 @@ onUnmounted(() => {
     <el-drawer v-model="studyOpen" title="今日学习" direction="rtl" size="min(520px, 96vw)" @open="reloadGoals">
       <p class="drawer-intro">目标、复习和日记都来自同一份 Aervox 学习数据。</p>
       <p v-if="apiError" class="drawer-error">{{ apiError }}</p>
+
+      <section class="study-section">
+        <div class="study-section-title-row">
+          <h4>快速练习</h4>
+          <button class="practice-start" type="button" :disabled="practiceBusy" @click="startPractice"><Sparkles :size="15" />开始 3 题练习</button>
+        </div>
+        <p v-if="practiceError" class="drawer-error">{{ practiceError }}</p>
+        <article v-if="practiceReport" class="practice-report">
+          <strong>本次练习完成</strong>
+          <p>已作答 {{ practiceReport.answeredCount }}/{{ practiceReport.questionCount }} 题 · 正确 {{ practiceReport.correctCount }} · 错误 {{ practiceReport.incorrectCount }} · 待确认 {{ practiceReport.unverifiableCount }}</p>
+          <p v-if="practiceReport.accuracy !== null">可判定题正确率：{{ Math.round(practiceReport.accuracy * 100) }}%</p>
+          <small>{{ practiceReport.remainingCount > 0 ? `还有 ${practiceReport.remainingCount} 题未作答；` : '' }}{{ practiceReport.nextStep === 'review_scheduled' ? '错题已进入后续复习。' : practiceReport.nextStep === 'await_review' ? '待确认题暂不计入掌握度。' : '继续保持这个节奏。' }}</small>
+        </article>
+        <article v-else-if="currentPracticeQuestion" class="practice-panel">
+          <small>第 {{ practiceIndex + 1 }}/{{ practiceSession?.items.length }} 题</small>
+          <strong>{{ currentPracticeQuestion.prompt }}</strong>
+          <form v-if="!practiceFeedback" @submit.prevent="submitPracticeAnswer">
+            <label class="sr-only" for="practice-answer">你的答案</label>
+            <input id="practice-answer" v-model="practiceAnswer" placeholder="输入你的答案" :disabled="practiceBusy" />
+            <button type="submit" :disabled="practiceBusy || !practiceAnswer.trim()">提交答案</button>
+          </form>
+          <div v-else class="practice-feedback">
+            <p>{{ practiceFeedback.judgement === 'correct' ? '回答正确。' : practiceFeedback.judgement === 'incorrect' ? '这题暂不正确，已安排后续复习。' : '这题需要进一步确认，暂不计入掌握度。' }}</p>
+            <button type="button" :disabled="practiceBusy" @click="nextPracticeQuestion">{{ practiceIndex + 1 === practiceSession?.items.length ? '查看报告' : '下一题' }}</button>
+          </div>
+          <button class="practice-end" type="button" :disabled="practiceBusy" @click="finishPractice">提前结束并查看报告</button>
+        </article>
+        <p v-else class="study-empty">每次 3 题，答完立即反馈；也可以随时结束并查看报告。</p>
+      </section>
 
       <section class="study-section">
         <div class="study-section-title-row">

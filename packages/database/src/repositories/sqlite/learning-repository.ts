@@ -9,6 +9,7 @@ import {
   learningGoals,
   questions,
   questionAttempts,
+  practiceSessions,
   knowledgeItems,
   reviewItems,
   knowledgeRelations,
@@ -19,6 +20,7 @@ import type {
   LearningGoalModel,
   QuestionModel,
   QuestionAttemptModel,
+  PracticeSessionModel,
   KnowledgeItemModel,
   ReviewItemModel,
   KnowledgeRelationModel,
@@ -220,6 +222,62 @@ export class SqliteLearningRepository implements ILearningRepository {
     return rows as QuestionModel[];
   }
 
+  async createPracticeSession(
+    tenant: TenantContext,
+    session: { id: string; questionCount: number; questionIds: string[] },
+  ): Promise<PracticeSessionModel> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    const [created] = await this.db
+      .insert(practiceSessions)
+      .values({
+        id: session.id,
+        workspaceId: tenant.workspaceId,
+        subjectUserId: tenant.subjectUserId,
+        questionCount: session.questionCount,
+        questionIds: session.questionIds,
+        status: "active",
+        startedAt: now,
+        endedAt: null,
+      })
+      .returning();
+    return created as PracticeSessionModel;
+  }
+
+  async getPracticeSession(tenant: TenantContext, sessionId: string): Promise<PracticeSessionModel | null> {
+    assertTenantContext(tenant);
+    const [session] = await this.db
+      .select()
+      .from(practiceSessions)
+      .where(
+        and(
+          eq(practiceSessions.id, sessionId),
+          eq(practiceSessions.workspaceId, tenant.workspaceId),
+          eq(practiceSessions.subjectUserId, tenant.subjectUserId),
+        ),
+      );
+    return (session as PracticeSessionModel) ?? null;
+  }
+
+  async completePracticeSession(tenant: TenantContext, sessionId: string): Promise<PracticeSessionModel | null> {
+    assertTenantContext(tenant);
+    const [updated] = await this.db
+      .update(practiceSessions)
+      .set({ status: "completed", endedAt: new Date().toISOString() })
+      .where(
+        and(
+          eq(practiceSessions.id, sessionId),
+          eq(practiceSessions.workspaceId, tenant.workspaceId),
+          eq(practiceSessions.subjectUserId, tenant.subjectUserId),
+          eq(practiceSessions.status, "active"),
+        ),
+      )
+      .returning();
+    if (updated) return updated as PracticeSessionModel;
+    const existing = await this.getPracticeSession(tenant, sessionId);
+    return existing?.status === "completed" ? existing : null;
+  }
+
   /** 每次答题为不可变学习事实，仅追加不更新 */
   async recordAttempt(
     tenant: TenantContext,
@@ -260,6 +318,22 @@ export class SqliteLearningRepository implements ILearningRepository {
       .where(
         and(
           eq(questionAttempts.questionId, questionId),
+          eq(questionAttempts.workspaceId, tenant.workspaceId),
+          eq(questionAttempts.subjectUserId, tenant.subjectUserId),
+        ),
+      )
+      .orderBy(questionAttempts.createdAt);
+    return rows as QuestionAttemptModel[];
+  }
+
+  async listAttemptsBySession(tenant: TenantContext, sessionId: string): Promise<QuestionAttemptModel[]> {
+    assertTenantContext(tenant);
+    const rows = await this.db
+      .select()
+      .from(questionAttempts)
+      .where(
+        and(
+          eq(questionAttempts.sessionId, sessionId),
           eq(questionAttempts.workspaceId, tenant.workspaceId),
           eq(questionAttempts.subjectUserId, tenant.subjectUserId),
         ),

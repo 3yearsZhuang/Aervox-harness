@@ -24,6 +24,29 @@ export interface ReviewItemDto {
   status: string;
 }
 
+export interface PracticeQuestionDto {
+  id: string;
+  prompt: string;
+  knowledgeId?: string | null;
+}
+
+export interface PracticeSessionDto {
+  sessionId: string;
+  items: PracticeQuestionDto[];
+}
+
+export interface PracticeReportDto {
+  sessionId: string;
+  questionCount: number;
+  answeredCount: number;
+  remainingCount: number;
+  correctCount: number;
+  incorrectCount: number;
+  unverifiableCount: number;
+  accuracy: number | null;
+  nextStep: 'continue' | 'review_scheduled' | 'await_review';
+}
+
 export interface NotificationDto {
   id: string;
   type: string;
@@ -95,6 +118,15 @@ export function useAervoxApi() {
     await loadAll();
   };
 
+  const startPracticeSession = async (count = 3): Promise<PracticeSessionDto> =>
+    transport.request('POST', '/v1/practice/sessions', { count });
+
+  const submitPracticeAnswer = async (sessionId: string, questionId: string, answer: string): Promise<{ judgement: string; nextStep: string }> =>
+    transport.request('POST', `/v1/questions/${encodeURIComponent(questionId)}/attempts`, { sessionId, answer });
+
+  const completePracticeSession = async (sessionId: string): Promise<PracticeReportDto> =>
+    transport.request('POST', `/v1/practice/sessions/${encodeURIComponent(sessionId)}/complete`);
+
   const submitFeedback = async (subjectType: string, subjectId: string, type: string, note?: string): Promise<void> => {
     await transport.request('POST', '/v1/feedback', { subjectType, subjectId, type, note });
   };
@@ -121,6 +153,9 @@ export function useAervoxApi() {
     createGoal,
     updateGoal,
     archiveGoal,
+    startPracticeSession,
+    submitPracticeAnswer,
+    completePracticeSession,
     submitFeedback,
     trackEvent,
   };
