@@ -610,6 +610,17 @@ export interface QuestionAttemptModel {
   createdAt: string;
 }
 
+export interface MistakeItemModel {
+  questionId: string;
+  knowledgeId?: string | null;
+  prompt: string;
+  latestAnswer: string;
+  latestAttemptAt: string;
+  wrongCount: number;
+  masteryState: string;
+  status: "active" | "mastered";
+}
+
 export interface PracticeSessionModel {
   id: string;
   workspaceId: string;
@@ -711,6 +722,10 @@ export interface ILearningRepository {
   ): Promise<QuestionAttemptModel>;
   listAttemptsByQuestion(tenant: TenantContext, questionId: string): Promise<QuestionAttemptModel[]>;
   listAttemptsBySession(tenant: TenantContext, sessionId: string): Promise<QuestionAttemptModel[]>;
+  listMistakes(
+    tenant: TenantContext,
+    status?: "active" | "mastered" | "all",
+  ): Promise<MistakeItemModel[]>;
   getAttemptByIdempotencyKey(
     tenant: TenantContext,
     questionId: string,

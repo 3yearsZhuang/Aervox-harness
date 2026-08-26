@@ -71,6 +71,9 @@ const practiceFeedback = ref<{judgement: string; nextStep: string} | null>(null)
 const practiceReport = ref<{answeredCount: number; questionCount: number; remainingCount: number; correctCount: number; incorrectCount: number; unverifiableCount: number; accuracy: number | null; nextStep: string} | null>(null)
 const practiceBusy = ref(false)
 const practiceError = ref<string | null>(null)
+const mistakeFilter = ref<'active' | 'mastered' | 'all'>('active')
+const selectedMistakeIds = ref<string[]>([])
+const mistakeBusyId = ref<string | null>(null)
 const input = ref('')
 const timerSeconds = ref(25 * 60)
 const timerRunning = ref(false)
@@ -98,6 +101,7 @@ const api = useAervoxApi()
 const {
   goals,
   dueReviews,
+  mistakes,
   notifications,
   todayDiary,
   error: apiError,
@@ -229,6 +233,7 @@ async function archiveGoal(goalId: string) {
 }
 
 const currentPracticeQuestion = computed(() => practiceSession.value?.items[practiceIndex.value] ?? null)
+const visibleMistakes = computed(() => mistakes.value.filter((item) => mistakeFilter.value === 'all' || item.status === mistakeFilter.value))
 
 async function startPractice() {
   practiceBusy.value = true
@@ -268,10 +273,46 @@ async function finishPractice() {
   try {
     practiceReport.value = await api.completePracticeSession(practiceSession.value.sessionId)
     practiceFeedback.value = null
+    await api.loadAll(showArchivedGoals.value)
   } catch {
     practiceError.value = '暂时无法生成练习报告，请稍后再试。'
   } finally {
     practiceBusy.value = false
+  }
+}
+
+async function startMistakePractice() {
+  const activeIds = mistakes.value.filter((item) => item.status === 'active').map((item) => item.questionId)
+  const questionIds = (selectedMistakeIds.value.length ? selectedMistakeIds.value : activeIds).slice(0, 5)
+  if (!questionIds.length) {
+    practiceError.value = '当前没有可重练的错题。'
+    return
+  }
+  practiceBusy.value = true
+  practiceError.value = null
+  practiceReport.value = null
+  practiceFeedback.value = null
+  try {
+    practiceSession.value = await api.startMistakePractice(questionIds)
+    practiceIndex.value = 0
+    practiceAnswer.value = ''
+    selectedMistakeIds.value = []
+  } catch {
+    practiceError.value = '错题重练启动失败，请刷新后重试。'
+  } finally {
+    practiceBusy.value = false
+  }
+}
+
+async function setMistakeStatus(questionId: string, status: 'active' | 'mastered') {
+  mistakeBusyId.value = questionId
+  try {
+    await api.setMistakeStatus(questionId, status)
+    selectedMistakeIds.value = selectedMistakeIds.value.filter((id) => id !== questionId)
+  } catch {
+    practiceError.value = '错题状态没有保存，请稍后重试。'
+  } finally {
+    mistakeBusyId.value = null
   }
 }
 
@@ -679,6 +720,39 @@ onUnmounted(() => {
           <button class="practice-end" type="button" :disabled="practiceBusy" @click="finishPractice">提前结束并查看报告</button>
         </article>
         <p v-else class="study-empty">每次 3 题，答完立即反馈；也可以随时结束并查看报告。</p>
+      </section>
+
+      <section class="study-section">
+        <div class="study-section-title-row">
+          <h4>错题本 <small>{{ visibleMistakes.length }}</small></h4>
+          <button class="practice-start" type="button" :disabled="practiceBusy || !mistakes.some((item) => item.status === 'active')" @click="startMistakePractice">
+            <RotateCcw :size="15" />{{ selectedMistakeIds.length ? `重练所选 ${selectedMistakeIds.length} 题` : '重练错题' }}
+          </button>
+        </div>
+        <div class="mistake-filters" aria-label="错题筛选">
+          <button v-for="option in (['active', 'mastered', 'all'] as const)" :key="option" type="button" :class="{active: mistakeFilter === option}" @click="mistakeFilter = option">
+            {{ option === 'active' ? '待掌握' : option === 'mastered' ? '已掌握' : '全部' }}
+          </button>
+        </div>
+        <ul class="study-list mistake-list">
+          <li v-for="item in visibleMistakes" :key="item.questionId">
+            <div class="mistake-heading">
+              <label v-if="item.status === 'active'">
+                <input v-model="selectedMistakeIds" type="checkbox" :value="item.questionId" :disabled="selectedMistakeIds.length >= 5 && !selectedMistakeIds.includes(item.questionId)" />
+                <span class="study-item-title">{{ item.prompt }}</span>
+              </label>
+              <span v-else class="study-item-title">{{ item.prompt }}</span>
+              <span class="goal-status" :class="{'is-completed': item.status === 'mastered'}">{{ item.status === 'mastered' ? '已掌握' : '待掌握' }}</span>
+            </div>
+            <small>最近答案：{{ item.latestAnswer }} · 共答错 {{ item.wrongCount }} 次 · {{ item.latestAttemptAt.slice(0, 10) }}</small>
+            <div v-if="item.knowledgeId" class="goal-actions">
+              <button v-if="item.status === 'active'" type="button" :disabled="mistakeBusyId === item.questionId" @click="setMistakeStatus(item.questionId, 'mastered')"><Check :size="14" />标记已掌握</button>
+              <button v-else type="button" :disabled="mistakeBusyId === item.questionId" @click="setMistakeStatus(item.questionId, 'active')"><RotateCcw :size="14" />继续学习</button>
+            </div>
+            <small v-else>这道题尚未关联知识点，可以重练，但暂不能标记掌握。</small>
+          </li>
+          <li v-if="visibleMistakes.length === 0" class="study-empty">{{ mistakeFilter === 'mastered' ? '还没有已掌握的错题。' : '当前没有待处理错题。' }}</li>
+        </ul>
       </section>
 
       <section class="study-section">
