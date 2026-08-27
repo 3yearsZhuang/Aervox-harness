@@ -16,10 +16,6 @@
 [submodule "reference/Petra"]
 	path = reference/Petra
 	url = https://github.com/Wumiu/Petra.git
-
-[submodule "modules/persona-plugin"]
-	path = modules/persona-plugin
-	url = https://github.com/KashiwagiEri233/aervox-persona-plugin-module.git
 [submodule "apps/desktop/src/renderer/public/live2d/mizuki"]
 	path = apps/desktop/src/renderer/public/live2d/mizuki
 	url = https://github.com/3yearszhuang/live2d-mizuki.git
