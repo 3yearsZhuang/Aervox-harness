@@ -618,7 +618,7 @@ export interface MistakeItemModel {
   latestAttemptAt: string;
   wrongCount: number;
   masteryState: string;
-  status: "active" | "mastered";
+  status: "active" | "mastered" | "dismissed";
 }
 
 export interface PracticeSessionModel {
@@ -724,8 +724,9 @@ export interface ILearningRepository {
   listAttemptsBySession(tenant: TenantContext, sessionId: string): Promise<QuestionAttemptModel[]>;
   listMistakes(
     tenant: TenantContext,
-    status?: "active" | "mastered" | "all",
+    status?: "active" | "mastered" | "dismissed" | "all",
   ): Promise<MistakeItemModel[]>;
+  setMistakeDisposition(tenant: TenantContext, item: { id: string; questionId: string; status: "active" | "dismissed" }): Promise<void>;
   getAttemptByIdempotencyKey(
     tenant: TenantContext,
     questionId: string,

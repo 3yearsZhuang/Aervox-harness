@@ -53,6 +53,8 @@
 
 学习域练习会话的规格补全见 [CR-008：练习会话与作答契约补全](reference/changes/CR-008-practice-session-contract.md)：明确题组快照、重复提交、会话结束和租户隔离的验收边界；仍待 DoR 评审。
 
+错题本的处置边界见 [CR-009：错题本忽略与恢复规则](reference/changes/CR-009-mistake-book-dismissal.md)：忽略只影响派生错题展示与重练资格，不删除原始学习事实。
+
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
 
 每份关键文档的最后核验时间、核验节奏与陈旧信号，独立维护在[文档生命周期登记表](DOC_REGISTRY.md)（AVX-DOC-CONF-001）；文档历史责任由各文档头部的 `- 提出人 / - 修改人` 点阵签名追踪（见[文档写作规范 §2](reference/standards/doc-standards.md#2-文档头元数据)）。新增或改版文档时同步更新登记表，避免索引与登记混在同一文件。
