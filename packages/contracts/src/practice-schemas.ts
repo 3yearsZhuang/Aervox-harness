@@ -52,7 +52,7 @@ export const practiceReportSchema = z.object({
 });
 
 /** 错题列表 status 查询参数 */
-export const mistakeStatusEnumSchema = z.enum(["active", "mastered", "all"]);
+export const mistakeStatusEnumSchema = z.enum(["active", "mastered", "dismissed", "all"]);
 
 /** 错题本条目（由不可变作答事实派生） */
 export const mistakeItemSchema = z.object({
@@ -63,7 +63,7 @@ export const mistakeItemSchema = z.object({
   latestAttemptAt: z.string(),
   wrongCount: z.number().int(),
   masteryState: z.string(),
-  status: z.enum(["active", "mastered"]),
+  status: z.enum(["active", "mastered", "dismissed"]),
 });
 
 /** GET /v1/mistakes 响应 */
@@ -73,7 +73,7 @@ export const mistakeListResponseSchema = z.object({
 
 /** PATCH /v1/mistakes/:questionId 请求体 */
 export const updateMistakeRequestSchema = z.object({
-  status: z.enum(["active", "mastered"]),
+  status: z.enum(["active", "mastered", "dismissed"]),
 });
 
 /** POST /v1/mistakes/repractice 请求体 */

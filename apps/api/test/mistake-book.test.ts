@@ -106,4 +106,28 @@ describe("错题本与重练", () => {
     });
     expect(invalid.statusCode).toBe(400);
   });
+
+  it("忽略错题不删除作答历史，恢复后可再次重练", async () => {
+    const question = await app.inject({
+      method: "POST",
+      url: "/v1/questions",
+      headers,
+      payload: { prompt: "1 + 1 = ?", answerSpec: { answer: "2" } },
+    });
+    const questionId = question.json().id as string;
+    await app.inject({
+      method: "POST",
+      url: `/v1/questions/${questionId}/attempts`,
+      headers,
+      payload: { sessionId: "ses_dismiss", answer: "3" },
+    });
+
+    expect((await app.inject({ method: "PATCH", url: `/v1/mistakes/${questionId}`, headers, payload: { status: "dismissed" } })).statusCode).toBe(200);
+    expect((await app.inject({ method: "GET", url: "/v1/mistakes", headers })).json().items).toHaveLength(0);
+    expect((await app.inject({ method: "GET", url: "/v1/mistakes?status=dismissed", headers })).json().items).toEqual([expect.objectContaining({ questionId, status: "dismissed" })]);
+    expect((await app.inject({ method: "GET", url: `/v1/questions/${questionId}/attempts`, headers })).json().items).toHaveLength(1);
+
+    expect((await app.inject({ method: "PATCH", url: `/v1/mistakes/${questionId}`, headers, payload: { status: "active" } })).statusCode).toBe(200);
+    expect((await app.inject({ method: "POST", url: "/v1/mistakes/repractice", headers, payload: { questionIds: [questionId] } })).statusCode).toBe(201);
+  });
 });
