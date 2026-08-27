@@ -23,3 +23,4 @@ export * from "./skill-registry-repository.js";
 export * from "./skill-lifecycle-repository.js";
 export * from "./plugin-config-repository.js";
 export * from "./voice-config-repository.js";
+export * from "./llm-config-repository.js";

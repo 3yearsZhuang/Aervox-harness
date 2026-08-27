@@ -3215,6 +3215,188 @@
           "nextReview",
           "knowledge"
         ]
+      },
+      "LLMConfig": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "providerType": {
+            "type": "string",
+            "enum": [
+              "ollama",
+              "deepseek",
+              "openai",
+              "anthropic",
+              "custom_openai"
+            ]
+          },
+          "baseUrl": {
+            "type": "string",
+            "minLength": 1
+          },
+          "apiKey": {
+            "type": "string"
+          },
+          "modelId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "temperature": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2,
+            "default": 0.7
+          },
+          "maxTokens": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "default": 4096
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "enabled",
+          "providerType",
+          "baseUrl",
+          "modelId"
+        ]
+      },
+      "LLMConfigResponse": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "providerType": {
+            "type": "string",
+            "enum": [
+              "ollama",
+              "deepseek",
+              "openai",
+              "anthropic",
+              "custom_openai"
+            ]
+          },
+          "baseUrl": {
+            "type": "string",
+            "minLength": 1
+          },
+          "apiKey": {
+            "type": "string"
+          },
+          "modelId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "temperature": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2,
+            "default": 0.7
+          },
+          "maxTokens": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "default": 4096
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "default": {}
+          }
+        },
+        "required": [
+          "enabled",
+          "providerType",
+          "baseUrl",
+          "modelId"
+        ]
+      },
+      "LLMTestConnectionRequest": {
+        "type": "object",
+        "properties": {
+          "providerType": {
+            "type": "string",
+            "enum": [
+              "ollama",
+              "deepseek",
+              "openai",
+              "anthropic",
+              "custom_openai"
+            ]
+          },
+          "baseUrl": {
+            "type": "string",
+            "minLength": 1
+          },
+          "apiKey": {
+            "type": "string"
+          },
+          "modelId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "providerType",
+          "baseUrl",
+          "modelId"
+        ]
+      },
+      "LLMTestConnectionResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "latencyMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "message": {
+            "type": "string"
+          },
+          "availableModels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "ok",
+          "latencyMs",
+          "message"
+        ]
       }
     },
     "parameters": {}
@@ -6289,6 +6471,405 @@
           },
           "503": {
             "description": "VOICE_PROVIDER_UNAVAILABLE"
+          }
+        }
+      }
+    },
+    "/v1/llm/config": {
+      "get": {
+        "summary": "读取大语言模型与供应商配置",
+        "tags": [
+          "LLM"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "LLM config",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "providerType": {
+                      "type": "string",
+                      "enum": [
+                        "ollama",
+                        "deepseek",
+                        "openai",
+                        "anthropic",
+                        "custom_openai"
+                      ]
+                    },
+                    "baseUrl": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "apiKey": {
+                      "type": "string"
+                    },
+                    "modelId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "temperature": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 2,
+                      "default": 0.7
+                    },
+                    "maxTokens": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "default": 4096
+                    },
+                    "settings": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ]
+                      },
+                      "default": {}
+                    }
+                  },
+                  "required": [
+                    "enabled",
+                    "providerType",
+                    "baseUrl",
+                    "modelId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "保存大语言模型与供应商配置",
+        "tags": [
+          "LLM"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "providerType": {
+                    "type": "string",
+                    "enum": [
+                      "ollama",
+                      "deepseek",
+                      "openai",
+                      "anthropic",
+                      "custom_openai"
+                    ]
+                  },
+                  "baseUrl": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "apiKey": {
+                    "type": "string"
+                  },
+                  "modelId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "temperature": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 2,
+                    "default": 0.7
+                  },
+                  "maxTokens": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "default": 4096
+                  },
+                  "settings": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "enabled",
+                  "providerType",
+                  "baseUrl",
+                  "modelId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "LLM config",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "providerType": {
+                      "type": "string",
+                      "enum": [
+                        "ollama",
+                        "deepseek",
+                        "openai",
+                        "anthropic",
+                        "custom_openai"
+                      ]
+                    },
+                    "baseUrl": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "apiKey": {
+                      "type": "string"
+                    },
+                    "modelId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "temperature": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 2,
+                      "default": 0.7
+                    },
+                    "maxTokens": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "default": 4096
+                    },
+                    "settings": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ]
+                      },
+                      "default": {}
+                    }
+                  },
+                  "required": [
+                    "enabled",
+                    "providerType",
+                    "baseUrl",
+                    "modelId"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_LLM_CONFIG"
+          }
+        }
+      }
+    },
+    "/v1/llm/test-connection": {
+      "post": {
+        "summary": "测试大模型供应商连通性",
+        "tags": [
+          "LLM"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "providerType": {
+                    "type": "string",
+                    "enum": [
+                      "ollama",
+                      "deepseek",
+                      "openai",
+                      "anthropic",
+                      "custom_openai"
+                    ]
+                  },
+                  "baseUrl": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "apiKey": {
+                    "type": "string"
+                  },
+                  "modelId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "providerType",
+                  "baseUrl",
+                  "modelId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Test connection result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "latencyMs": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "availableModels": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "latencyMs",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST"
           }
         }
       }

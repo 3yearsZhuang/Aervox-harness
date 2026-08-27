@@ -33,3 +33,12 @@ export {
   type VoiceSynthesisInput,
   type VoiceSynthesisResultDto,
 } from './useAervoxVoice';
+export {
+  useAervoxLLM,
+  PRESET_PROVIDERS,
+  type LLMProviderType,
+  type LLMConfigDto,
+  type LLMTestConnectionInput,
+  type LLMTestConnectionResultDto,
+  type PresetProviderInfo,
+} from './useAervoxLLM';
