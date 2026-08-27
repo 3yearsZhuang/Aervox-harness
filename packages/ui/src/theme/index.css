@@ -31,6 +31,18 @@
   --danger-soft: #f7e3df;
   --danger: #a6493c;
   --shadow: 0 10px 30px rgba(38, 67, 51, .075);
+  --el-color-primary: var(--accent);
+  --el-color-primary-light-3: color-mix(in srgb, var(--accent) 70%, white);
+  --el-color-primary-light-5: color-mix(in srgb, var(--accent) 50%, white);
+  --el-color-primary-light-7: color-mix(in srgb, var(--accent) 30%, white);
+  --el-color-primary-light-8: color-mix(in srgb, var(--accent) 20%, white);
+  --el-color-primary-light-9: var(--accent-soft);
+  --el-color-primary-dark-2: var(--accent-hover);
+  --el-dropdown-menuItem-hover-fill: var(--accent-soft);
+  --el-dropdown-menuItem-hover-color: var(--accent);
+  --el-bg-color-overlay: var(--bg-main);
+  --el-border-color-light: var(--border);
+  --el-border-color-lighter: var(--border);
 }
 
 :root[data-theme="dark"] {
@@ -58,16 +70,38 @@
   --danger-soft: #472d2a;
   --danger: #ef9b8f;
   --shadow: 0 12px 34px rgba(0, 0, 0, .24);
+  --el-color-primary: var(--accent);
+  --el-color-primary-light-3: color-mix(in srgb, var(--accent) 70%, black);
+  --el-color-primary-light-5: color-mix(in srgb, var(--accent) 50%, black);
+  --el-color-primary-light-7: color-mix(in srgb, var(--accent) 30%, black);
+  --el-color-primary-light-8: color-mix(in srgb, var(--accent) 20%, black);
+  --el-color-primary-light-9: var(--accent-soft);
+  --el-color-primary-dark-2: var(--accent-hover);
+  --el-dropdown-menuItem-hover-fill: var(--accent-soft);
+  --el-dropdown-menuItem-hover-color: var(--accent);
+  --el-bg-color-overlay: var(--bg-main);
+  --el-border-color-light: var(--border);
+  --el-border-color-lighter: var(--border);
 }
 
 .el-drawer,
 .el-dialog,
-.el-message-box {
+.el-message-box,
+.el-popper {
   --el-bg-color: var(--bg-main);
   --el-text-color-primary: var(--text-primary);
   --el-text-color-regular: var(--text-secondary);
   --el-border-color: var(--border);
   background: var(--bg-main);
+}
+
+.el-dialog {
+  --el-dialog-bg-color: var(--bg-main);
+  --el-dialog-border-radius: 16px;
+  border-radius: 16px !important;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
 }
 
 .el-drawer__header,
@@ -90,4 +124,66 @@
 .el-dialog__body,
 .el-message-box__content {
   color: var(--text-secondary);
+}
+
+.el-popper.is-light,
+.el-popper.is-pure {
+  background: var(--bg-main) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow) !important;
+  border-radius: 10px !important;
+}
+
+.el-popper.is-light .el-popper__arrow::before {
+  background: var(--bg-main) !important;
+  border-color: var(--border) !important;
+}
+
+.el-dropdown-menu {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 4px !important;
+  box-shadow: none !important;
+}
+
+.el-dropdown-menu__item {
+  color: var(--text-primary) !important;
+  font-size: 12.5px !important;
+  border-radius: 6px !important;
+  padding: 8px 12px !important;
+  gap: 8px !important;
+  transition: background-color 0.12s ease, color 0.12s ease !important;
+}
+
+.el-dropdown-menu__item:hover,
+.el-dropdown-menu__item:focus,
+.el-dropdown-menu__item.is-active {
+  background-color: var(--accent-soft) !important;
+  color: var(--accent) !important;
+}
+
+.el-dropdown-menu__item:hover .menu-icon,
+.el-dropdown-menu__item:focus .menu-icon {
+  color: var(--accent) !important;
+}
+
+.el-dropdown-menu__item--divided {
+  border-top: 1px solid var(--border) !important;
+  margin: 4px 0 !important;
+}
+
+.el-dropdown-menu__item.danger-item {
+  color: var(--danger) !important;
+}
+
+.el-dropdown-menu__item.danger-item:hover,
+.el-dropdown-menu__item.danger-item:focus {
+  background-color: var(--danger-soft) !important;
+  color: var(--danger) !important;
+}
+
+.el-dropdown-menu__item.danger-item:hover .menu-icon,
+.el-dropdown-menu__item.danger-item:focus .menu-icon {
+  color: var(--danger) !important;
 }
