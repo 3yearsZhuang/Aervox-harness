@@ -86,3 +86,38 @@ export const createAttemptRequestSchema = z.object({
   answer: z.string(),
   sessionId: z.string().optional(),
 });
+
+export const reviewItemSchema = z.object({
+  id: z.string(),
+  knowledgeId: z.string(),
+  dueAt: z.string(),
+  intervalDays: z.number().int().positive(),
+  schedulerVersion: z.number().int().positive(),
+  status: z.enum(["active", "completed", "dismissed", "archived"]),
+});
+
+export const reviewListResponseSchema = z.object({ items: z.array(reviewItemSchema) });
+export const reviewHistoryItemSchema = reviewItemSchema.extend({
+  completionIsCorrect: z.boolean().nullable(),
+  nextReviewId: z.string().nullable(),
+  updatedAt: z.string(),
+});
+export const reviewHistoryResponseSchema = z.object({ items: z.array(reviewHistoryItemSchema) });
+export const reviewSummaryResponseSchema = z.object({
+  dueCount: z.number().int().nonnegative(),
+  estimatedMinutes: z.number().int().nonnegative(),
+  items: z.array(reviewItemSchema),
+});
+export const completeReviewRequestSchema = z.object({ isCorrect: z.boolean() });
+export const completeReviewResponseSchema = z.object({
+  completed: reviewItemSchema,
+  nextReview: reviewItemSchema,
+  knowledge: z.object({
+    id: z.string(),
+    correctCount: z.number().int().nonnegative(),
+    wrongCount: z.number().int().nonnegative(),
+    correctStreak: z.number().int().nonnegative(),
+    mastery: z.number().min(0).max(1),
+    masteryState: z.string(),
+  }),
+});

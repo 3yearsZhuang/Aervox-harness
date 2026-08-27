@@ -649,11 +649,29 @@ export class SqliteLearningRepository implements ILearningRepository {
     return (found as ReviewItemModel) ?? null;
   }
 
+  async listCompletedReviewItems(tenant: TenantContext, limit = 10): Promise<ReviewItemModel[]> {
+    assertTenantContext(tenant);
+    const rows = await this.db
+      .select()
+      .from(reviewItems)
+      .where(
+        and(
+          eq(reviewItems.workspaceId, tenant.workspaceId),
+          eq(reviewItems.subjectUserId, tenant.subjectUserId),
+          eq(reviewItems.status, "completed"),
+        ),
+      )
+      .orderBy(desc(reviewItems.updatedAt))
+      .limit(limit);
+    return rows as ReviewItemModel[];
+  }
+
   async completeReviewAndSchedule(
     tenant: TenantContext,
     data: {
       reviewId: string;
       knowledgeId: string;
+      isCorrect: boolean;
       practiceState: {
         correctCount: number;
         wrongCount: number;
@@ -670,7 +688,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       const now = new Date().toISOString();
       const [completed] = await tx
         .update(reviewItems)
-        .set({ status: "completed", updatedAt: now })
+        .set({ status: "completed", completionIsCorrect: data.isCorrect, nextReviewId: data.nextReview.id, updatedAt: now })
         .where(
           and(
             eq(reviewItems.id, data.reviewId),

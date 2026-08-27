@@ -76,6 +76,7 @@ const practiceError = ref<string | null>(null)
 const mistakeFilter = ref<'active' | 'mastered' | 'dismissed' | 'all'>('active')
 const selectedMistakeIds = ref<string[]>([])
 const mistakeBusyId = ref<string | null>(null)
+const reviewBusyId = ref<string | null>(null)
 const input = ref('')
 const timerSeconds = ref(25 * 60)
 const timerRunning = ref(false)
@@ -103,6 +104,7 @@ const api = useAervoxApi()
 const {
   goals,
   dueReviews,
+  completedReviews,
   mistakes,
   notifications,
   todayDiary,
@@ -316,6 +318,18 @@ async function setMistakeStatus(questionId: string, status: 'active' | 'mastered
     practiceError.value = '错题状态没有保存，请稍后重试。'
   } finally {
     mistakeBusyId.value = null
+  }
+}
+
+async function completeReview(reviewId: string, isCorrect: boolean) {
+  reviewBusyId.value = reviewId
+  practiceError.value = null
+  try {
+    await api.completeReview(reviewId, isCorrect)
+  } catch {
+    practiceError.value = '复习结果没有保存，请使用相同结果重试。'
+  } finally {
+    reviewBusyId.value = null
   }
 }
 
@@ -802,9 +816,24 @@ onUnmounted(() => {
         <ul class="study-list">
           <li v-for="item in dueReviews" :key="item.id">
             <span class="study-item-title">知识点 #{{ item.knowledgeId }}</span>
-            <small>到期 {{ item.dueAt.slice(0, 10) }} · 间隔 {{ item.intervalDays }} 天</small>
+            <small>到期 {{ item.dueAt.slice(0, 10) }} · 间隔 {{ item.intervalDays }} 天 · 规则 v{{ item.schedulerVersion }}</small>
+            <div class="goal-actions">
+              <button type="button" :disabled="reviewBusyId === item.id" @click="completeReview(item.id, true)"><Check :size="14" />记得</button>
+              <button type="button" :disabled="reviewBusyId === item.id" @click="completeReview(item.id, false)"><RotateCcw :size="14" />忘了</button>
+            </div>
           </li>
           <li v-if="dueReviews.length === 0" class="study-empty">今天没有到期复习，可以继续当前目标。</li>
+        </ul>
+      </section>
+
+      <section class="study-section">
+        <h4>最近复习 <small>{{ completedReviews.length }}</small></h4>
+        <ul class="study-list">
+          <li v-for="item in completedReviews" :key="item.id">
+            <span class="study-item-title">知识点 #{{ item.knowledgeId }}</span>
+            <small>{{ item.completionIsCorrect === true ? '记得' : item.completionIsCorrect === false ? '忘了' : '旧记录' }} · {{ item.updatedAt?.slice(0, 10) }}<template v-if="item.nextReviewId"> · 下一项 #{{ item.nextReviewId }}</template></small>
+          </li>
+          <li v-if="completedReviews.length === 0" class="study-empty">完成复习后，这里会保留最近记录。</li>
         </ul>
       </section>
 

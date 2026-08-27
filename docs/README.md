@@ -55,6 +55,8 @@
 
 错题本的处置边界见 [CR-009：错题本忽略与恢复规则](reference/changes/CR-009-mistake-book-dismissal.md)：忽略只影响派生错题展示与重练资格，不删除原始学习事实。
 
+复习闭环的幂等边界见 [CR-010：复习完成幂等与结果重放](reference/changes/CR-010-review-completion-idempotency.md)：重复完成可重放首次结算，相反判定被拒绝且不重复调度。
+
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
 
 每份关键文档的最后核验时间、核验节奏与陈旧信号，独立维护在[文档生命周期登记表](DOC_REGISTRY.md)（AVX-DOC-CONF-001）；文档历史责任由各文档头部的 `- 提出人 / - 修改人` 点阵签名追踪（见[文档写作规范 §2](reference/standards/doc-standards.md#2-文档头元数据)）。新增或改版文档时同步更新登记表，避免索引与登记混在同一文件。

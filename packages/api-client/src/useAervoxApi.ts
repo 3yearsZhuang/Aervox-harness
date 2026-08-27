@@ -21,7 +21,11 @@ export interface ReviewItemDto {
   knowledgeId: string;
   dueAt: string;
   intervalDays: number;
+  schedulerVersion: number;
   status: string;
+  completionIsCorrect?: boolean | null;
+  nextReviewId?: string | null;
+  updatedAt?: string;
 }
 
 export interface PracticeQuestionDto {
@@ -84,6 +88,7 @@ const todayLocal = (): string => {
 export function useAervoxApi() {
   const goals = ref<GoalDto[]>([]);
   const dueReviews = ref<ReviewItemDto[]>([]);
+  const completedReviews = ref<ReviewItemDto[]>([]);
   const mistakes = ref<MistakeItemDto[]>([]);
   const notifications = ref<NotificationDto[]>([]);
   const todayDiary = ref<DiaryDto | null>(null);
@@ -96,9 +101,10 @@ export function useAervoxApi() {
     loading.value = true;
     error.value = null;
     try {
-      const [g, r, m, n, d] = await Promise.all([
+      const [g, r, history, m, n, d] = await Promise.all([
         transport.request<{ items: GoalDto[] }>('GET', `/v1/learning/goals${includeArchived ? '?includeArchived=true' : ''}`).catch(() => ({ items: [] })),
         transport.request<{ items: ReviewItemDto[] }>('GET', '/v1/review-items').catch(() => ({ items: [] })),
+        transport.request<{ items: ReviewItemDto[] }>('GET', '/v1/review-items/history?limit=5').catch(() => ({ items: [] })),
         transport.request<{ items: MistakeItemDto[] }>('GET', '/v1/mistakes?status=all').catch(() => ({ items: [] })),
         transport.request<{ items: NotificationDto[] }>('GET', '/v1/notifications').catch(() => ({ items: [] })),
         transport
@@ -107,6 +113,7 @@ export function useAervoxApi() {
       ]);
       goals.value = g.items;
       dueReviews.value = r.items;
+      completedReviews.value = history.items;
       mistakes.value = m.items;
       notifications.value = n.items;
       todayDiary.value = d;
@@ -141,6 +148,11 @@ export function useAervoxApi() {
   const completePracticeSession = async (sessionId: string): Promise<PracticeReportDto> =>
     transport.request('POST', `/v1/practice/sessions/${encodeURIComponent(sessionId)}/complete`);
 
+  const completeReview = async (reviewId: string, isCorrect: boolean): Promise<void> => {
+    await transport.request('POST', `/v1/review-items/${encodeURIComponent(reviewId)}/complete`, { isCorrect });
+    await loadAll();
+  };
+
   const setMistakeStatus = async (questionId: string, status: 'active' | 'mastered' | 'dismissed'): Promise<void> => {
     await transport.request('PATCH', `/v1/mistakes/${encodeURIComponent(questionId)}`, { status });
     await loadAll();
@@ -166,6 +178,7 @@ export function useAervoxApi() {
   return {
     goals,
     dueReviews,
+    completedReviews,
     mistakes,
     notifications,
     todayDiary,
@@ -179,6 +192,7 @@ export function useAervoxApi() {
     startPracticeSession,
     submitPracticeAnswer,
     completePracticeSession,
+    completeReview,
     setMistakeStatus,
     startMistakePractice,
     submitFeedback,
