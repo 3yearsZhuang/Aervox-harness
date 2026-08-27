@@ -199,6 +199,7 @@
 | 产品上限增强候选需求规格化（A/B 档） | CAP-005/009/014/015/018/019/020/027/030 | 评估成果原落于 [SRS §7]，该节随后被 main 的『SRS §7 插件配置与页面（CR-006）』取代（FR-MEM-001 等候选不再作为可引用需求源，插件规范化独立为 [AVX-PLUG-001](plugin-config-and-pages.md)）；本行保留以追溯产品评估结论 | 2026-08-26 | ci-docs | 原生（产品评估采纳） |
 | 文档结构合并与速览精简（运维×3合一、工程流程×3合一、覆盖矩阵立为唯一速览、AGENTS 硬纪律内联、模板目录上移 `docs/templates`） | 基础设施（文档治理） | `docs/reference/operations.md`（AVX-OPS-001）、`docs/how-to/engineering-process.md`（AVX-GUIDE-001/003/004 合一，原 add-requirement/release-gates/run-drill 删除）、模板从 `reference/standards/templates` 迁至 `docs/templates`、`REQUIREMENTS_TRACEABILITY.md` §4 精简、`docs/DOC_REGISTRY.md`、`docs/README.md`、`docs/getting-started.md`、`AGENTS.md` 硬约束同步 | 2026-08-26 | ci-docs | 原生 |
 | 新功能开发流程文档化（根级贡献指南 CONTRIBUTING，双语，替代暂存 AVX-GUIDE-004 how-to） | 基础设施（工程流程/文档治理） | [CONTRIBUTING.md](../../CONTRIBUTING.md)（融合参考项目贡献指南骨架 + 三阶段流程 + 本仓库门禁；feature-development.md 已删除并入） | 2026-08-26 | ci-docs | 原生 |
+| 可选模块方案并入能力组合体系（AVX-MOD-001 提升为必选机制） | 基础设施（文档治理） | [AVX-CAP-001](capability-composition.md) 新增「交付载体与自选机制（必选）」（不变量/双轴/接口边界/判定准则）、新建 [AVX-CAP-REG-001](capability-registry.md) 能力注册表、[AVX-GUIDE-003](../how-to/submodule-collaboration.md) 并入生命周期门禁 §8、删除 `docs/explanation/optional_modules.md` 并同步索引/登记表/教程/CR 引用；README 按项目现状更新 | 2026-08-28 | ci-docs | 原生 |
 
 ## 5. 原子需求字段模板
 
