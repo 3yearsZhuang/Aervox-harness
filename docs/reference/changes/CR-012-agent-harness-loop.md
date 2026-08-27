@@ -1,9 +1,9 @@
-# CR-011 Agent Harness Loop 目标规范与迁移基线
+# CR-012 Agent Harness Loop 目标规范与迁移基线
 
 - 提出人：3yearszhuang · 2026-08-28
 - 修改人：3yearszhuang · 2026-08-28
 
-> 文档编号：CR-011  
+> 文档编号：CR-012  
 > 类型：Reference  
 > 版本：v0.1  
 > 更新日期：2026-08-28  
