@@ -121,4 +121,63 @@ describe("Persona API：SQLite 持久化 + Skills/MCP/Voice", () => {
     });
     expect(failed.statusCode).toBe(503);
   });
+
+  it("创建与更新携带 voice 语音配置的人格，并在详情中回显", async () => {
+    const create = await app.inject({
+      method: "POST",
+      url: "/v1/personas",
+      headers,
+      payload: {
+        name: "VoicePersona",
+        description: "带语音设定的人格",
+        config: {
+          systemPromptAppend: "You have a calm voice.",
+          voice: {
+            enabled: true,
+            providerId: "gpt-sovits-local",
+            modelId: "gpt-sovits-v2",
+            speakerId: "calm_girl",
+          },
+        },
+      },
+    });
+    expect(create.statusCode).toBe(201);
+    const personaId = create.json().persona.id;
+    expect(create.json().revision.config.voice).toEqual({
+      enabled: true,
+      providerId: "gpt-sovits-local",
+      modelId: "gpt-sovits-v2",
+      speakerId: "calm_girl",
+    });
+
+    // 查询详情验证回显
+    const detail = await app.inject({
+      method: "GET",
+      url: `/v1/personas/${personaId}`,
+      headers,
+    });
+    expect(detail.statusCode).toBe(200);
+    expect(detail.json().revision.config.voice.speakerId).toBe("calm_girl");
+
+    // 更新人格：修改音色
+    const update = await app.inject({
+      method: "PATCH",
+      url: `/v1/personas/${personaId}`,
+      headers,
+      payload: {
+        expectedRevision: 1,
+        config: {
+          systemPromptAppend: "Updated prompt",
+          voice: {
+            enabled: true,
+            providerId: "gpt-sovits-local",
+            modelId: "gpt-sovits-v2",
+            speakerId: "energetic_girl",
+          },
+        },
+      },
+    });
+    expect(update.statusCode).toBe(200);
+    expect(update.json().revision.config.voice.speakerId).toBe("energetic_girl");
+  });
 });

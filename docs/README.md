@@ -1,11 +1,11 @@
 # Aervox｜思隅 产品与工程文档索引
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：kikoyida · 2026-08-27
+- 修改人：3yearszhuang · 2026-08-28
 
 > 文档编号：AVX-DOC-001  
-> 版本：v0.5
-> 更新日期：2026-08-27
+> 版本：v0.7
+> 更新日期：2026-08-28
 > 状态：评审候选  
 
 本目录把产品目标、可测试需求、架构决策、数据权利和 AI 质量分开维护，避免单一 PRD 同时承担所有细节。所有上线范围必须能从用户价值追踪到需求、设计、测试和发布证据。
@@ -56,6 +56,8 @@
 错题本的处置边界见 [CR-009：错题本忽略与恢复规则](reference/changes/CR-009-mistake-book-dismissal.md)：忽略只影响派生错题展示与重练资格，不删除原始学习事实。
 
 复习闭环的幂等边界见 [CR-010：复习完成幂等与结果重放](reference/changes/CR-010-review-completion-idempotency.md)：重复完成可重放首次结算，相反判定被拒绝且不重复调度。
+
+系统语音输出的本地模型配置见 [CR-011：WebUI 语音输出配置](reference/changes/CR-011-voice-config-webui.md)：设置「语音」分类读写本地 `gpt-sovits-local` 模型（模型路径、音色支持手输，桌面端也可经系统「选择文件夹」获得，`modelPath` 受服务端 `allowedRoots` 白名单校验），持久化到 `voice_configs` 表并按租户隔离；人格编辑弹窗新增「语音」能力块，选择 provider/模型/音色并试听，写入 `PersonaRevisionConfig.voice`。
 
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
 

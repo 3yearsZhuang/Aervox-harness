@@ -74,7 +74,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   registerBranchModule(app, db);
   const toolRuntime = registerToolsModule(app, db, client);
   registerPluginsModule(app, db, { skillsRoot: options.skillsRoot, pluginsRoot: options.pluginsRoot });
-  const voiceService = registerVoiceModule(app, options.voiceOptions);
+  const voiceService = registerVoiceModule(app, db, options.voiceOptions);
   const skillManager = registerSkillsModule(app, db, { skillsRoot: options.skillsRoot, toolRuntime });
   registerPersonaModule(app, db, { skillManager, toolRuntime, voiceService });
 

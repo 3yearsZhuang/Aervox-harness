@@ -24,3 +24,12 @@ export {
   type SkillItemDto,
 } from './useAervoxPersonas';
 export { streamAervoxTurn, type StreamAervoxTurnCallbacks } from './useAervoxTurn';
+export {
+  useAervoxVoice,
+  canPickDirectory,
+  basenameOf,
+  type LocalVoiceConfigDto,
+  type VoiceModelDto,
+  type VoiceSynthesisInput,
+  type VoiceSynthesisResultDto,
+} from './useAervoxVoice';

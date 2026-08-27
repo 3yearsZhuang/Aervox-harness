@@ -1464,6 +1464,26 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await client.execute(`
     CREATE UNIQUE INDEX IF NOT EXISTS skill_releases_skill_stage_active_idx ON skill_releases(skill_key, stage) WHERE active = 1;
   `);
+
+  // CR-011 语音输出配置（系统核心能力 · 本地语音模型配置）：每租户一行本地语音模型
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS voice_configs (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      provider_id TEXT NOT NULL,
+      model_path TEXT,
+      model_id TEXT NOT NULL,
+      speaker_id TEXT,
+      settings_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS voice_configs_tenant_unique_idx ON voice_configs(workspace_id, subject_user_id);
+  `);
 }
 
 /**
