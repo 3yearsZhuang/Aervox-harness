@@ -657,6 +657,8 @@ export interface ReviewItemModel {
   intervalDays: number;
   schedulerVersion: number;
   status: string;
+  completionIsCorrect?: boolean | null;
+  nextReviewId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -780,11 +782,13 @@ export interface ILearningRepository {
     item: { id: string; knowledgeId: string; dueAt: string; intervalDays?: number; schedulerVersion?: number },
   ): Promise<ReviewItemModel>;
   getReviewItem(tenant: TenantContext, id: string): Promise<ReviewItemModel | null>;
+  listCompletedReviewItems(tenant: TenantContext, limit?: number): Promise<ReviewItemModel[]>;
   completeReviewAndSchedule(
     tenant: TenantContext,
     data: {
       reviewId: string;
       knowledgeId: string;
+      isCorrect: boolean;
       practiceState: {
         correctCount: number;
         wrongCount: number;

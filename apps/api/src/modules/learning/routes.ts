@@ -380,6 +380,15 @@ export function registerLearningRoutes(
     };
   });
 
+  app.get("/v1/review-items/history", async (req, reply) => {
+    const rawLimit = (req.query as { limit?: string }).limit;
+    const limit = rawLimit === undefined ? 10 : Number(rawLimit);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
+      return reply.code(400).send({ error: "limit must be an integer between 1 and 50" });
+    }
+    return { items: await learningRepo.listCompletedReviewItems(resolveTenant(req), limit) };
+  });
+
   app.post("/v1/review-items/:reviewId/complete", async (req, reply) => {
     const tenant = resolveTenant(req);
     const { reviewId } = req.params as { reviewId: string };
@@ -388,9 +397,19 @@ export function registerLearningRoutes(
       return reply.code(400).send({ error: "isCorrect is required" });
     }
     const reviewItem = await learningRepo.getReviewItem(tenant, reviewId);
-    if (!reviewItem || reviewItem.status !== "active") {
-      return reply.code(404).send({ error: "active review item not found" });
-    }
+    if (!reviewItem) return reply.code(404).send({ error: "review item not found" });
+    const replayCompletion = async (completed: typeof reviewItem) => {
+      if (completed.status !== "completed" || !completed.nextReviewId) return null;
+      if (completed.completionIsCorrect !== body.isCorrect) {
+        return reply.code(409).send({ error: "review completion payload does not match" });
+      }
+      const nextReview = await learningRepo.getReviewItem(tenant, completed.nextReviewId);
+      const knowledge = await learningRepo.getKnowledgeItem(tenant, completed.knowledgeId);
+      return nextReview && knowledge ? { completed, nextReview, knowledge } : null;
+    };
+    const replay = await replayCompletion(reviewItem);
+    if (replay) return replay;
+    if (reviewItem.status !== "active") return reply.code(404).send({ error: "active review item not found" });
     const storedItem = await learningRepo.getKnowledgeItem(tenant, reviewItem.knowledgeId);
     if (!storedItem) return reply.code(404).send({ error: "knowledge item not found" });
 
@@ -408,6 +427,7 @@ export function registerLearningRoutes(
     const result = await learningRepo.completeReviewAndSchedule(tenant, {
       reviewId,
       knowledgeId: item.id,
+      isCorrect: body.isCorrect,
       practiceState: {
         ...item,
         masteryState,
@@ -425,7 +445,14 @@ export function registerLearningRoutes(
         schedulerVersion: next.schedulerVersion,
       },
     });
-    if (!result) return reply.code(409).send({ error: "review item was already completed" });
+    if (!result) {
+      const concurrentCompletion = await learningRepo.getReviewItem(tenant, reviewId);
+      if (concurrentCompletion) {
+        const concurrentReplay = await replayCompletion(concurrentCompletion);
+        if (concurrentReplay) return concurrentReplay;
+      }
+      return reply.code(409).send({ error: "review item was already completed" });
+    }
     return result;
   });
 }

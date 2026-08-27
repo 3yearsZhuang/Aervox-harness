@@ -643,6 +643,8 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await client.execute(`
     CREATE INDEX IF NOT EXISTS review_items_tenant_due_idx ON review_items(workspace_id, subject_user_id, due_at);
   `);
+  await addColumnIfMissing(client, "review_items", "completion_is_correct", "completion_is_correct INTEGER");
+  await addColumnIfMissing(client, "review_items", "next_review_id", "next_review_id TEXT");
 
   // 7. 反馈域（PRD §8）
   await client.execute(`
