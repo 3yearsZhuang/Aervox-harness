@@ -1,7 +1,7 @@
 # AGENTS.md — AI 协作指南（薄入口）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-28
 
 本文件是 AI 编码 Agent 的进入点：只索引、不复制，权威内容一律深链至 `docs/`，避免双源漂移。详细规则见 [从哪开始](docs/getting-started.md)（面向新成员或 Agent 的完整 onboarding）与[文档写作规范](docs/reference/standards/doc-standards.md)。
 
@@ -30,7 +30,7 @@ Aervox｜思隅：更好上手的"主动智能" Agent——以桌宠为入口，
 - 文档目录即类型：`tutorials/` `how-to/` `explanation/` `reference/`（含 `adr/ changes/ standards/ diagrams/`），根层只放索引与登记表；
 - 变更一律走功能分支 + PR 合入 `main`，禁止直接向 `main` 推送或提交：分支按 `feat/` `fix/` `docs/` 命名；推送前本地过对应门禁（`ci-code` / `ci-docs`）；PR 描述须引用落地登记（见下条）；
 - 一切落地改动必须在[落地追踪基线 §4.2](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)登记完成情况（关联 CAP、实现位置、日期、验证方式），未登记视为未闭环、提交打回：
-  - 借鉴参考项目（`T-*` / `AST-*` / `PET-*`）：`来源` 列标注参考编号（查询指引见[参考设计迁移文档 §6.1](docs/explanation/reference-design-transfer.md#61-落地登记唯一真源)；第三方代码须记录来源与版权声明，见 PRD §15.1）；
+  - 借鉴参考项目（`T-*` / `AST-*` / `PET-*` / `DSH-01` / `PI-01`）：`来源` 列标注参考编号（查询指引见[参考设计迁移文档 §6.1](docs/explanation/reference-design-transfer.md#61-落地登记唯一真源)；第三方代码须记录来源与版权声明，见 PRD §15.1）；
   - 原生功能/基础设施：登记关联 CAP、实现位置、日期与验证方式；
   - 结项以对应登记表为准。
 

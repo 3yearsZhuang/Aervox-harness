@@ -1,12 +1,12 @@
 # 术语表（唯一含义与规范写法）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-28
 
 > 文档编号：AVX-TERM-001
 > 类型：Reference
-> 版本：v0.2
-> 更新日期：2026-08-26
+> 版本：v0.3
+> 更新日期：2026-08-28
 > 状态：Review Candidate
 > 关联：[文档写作规范](doc-standards.md)
 
@@ -30,6 +30,10 @@
 |---|---|---|
 | 会话 / Session | 用户与 Aervox 之间的一次持续对话上下文 | `Session`（英文语境）/ `会话`（中文语境）；不指代 Turn 对象 |
 | Turn | 一次完整的请求-响应轮次，含 SSE 事件流 | `Turn`；禁 `轮询`/`轮次` 指代 Turn 对象 |
+| Agent Harness Loop | 驱动一个 Turn 内 Context、模型、工具、多 Step 与终止的执行循环 | `Agent Harness Loop` / `Agent Loop` / `智能体执行循环`；不指 Worker 定时轮询或 SSE 读取循环 |
+| TurnAttempt | Turn 的一次带 lease/fencing 的内部执行尝试 | `TurnAttempt`；客户端不依赖该身份 |
+| AgentStep | TurnAttempt 内一次模型请求及工具结果闭环 | `AgentStep` / `Step`；不等同于 Turn |
+| AgentInboxItem | 提交给 Agent Loop 的 follow-up、steer 或 context injection | `AgentInboxItem` / `Agent Inbox` |
 | 模块化单体 | ADR-014 定的 API 组织方式，自包含模块 | `模块化单体`；禁 `微服务` |
 | 仓储 Port | 数据库访问的接口抽象（Repository Port） | `Port` / `仓储 Port` |
 | Capability | 由 Profile 选择的语义能力，不等同于包或插件文件 | `Capability` / `能力` |
