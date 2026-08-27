@@ -26,7 +26,7 @@
 | `AVX-OPS-001` | [运行、值班与演练手册](reference/operations.md) | 2026-08-26 | 每季度演练 + 每次发布 + 值班变更 | 演练日期超期、告警/拓扑变化或联系人未更新 |
 | `AVX-TRC-001` | [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) | 2026-08-28 | 版本立项 / G1 / G4 / 落地登记 | CAP/AC/TC 状态或追踪关系变化未回填；§4.2 落地登记与实现不符 |
 | `AVX-GUIDE-001~003` | [操作指南](how-to) | 2026-08-26 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
-| `AVX-MOD-001` | [可选功能模块化方案](explanation/optional_modules.md) | 2026-08-26 | G2 评审 + 模块机制变更 | 过渡机制与 `modules/*` 实际不符，或目标替代关系未同步 |
+| `AVX-CAP-REG-001` | [能力注册表](reference/capability-registry.md) | 2026-08-28 | 每次自选状态 / 模块变更 | 交付载体、启用方式或已注册模块与实现/CR 不一致 |
 | `AVX-CAP-001` | [能力组合与可选化目录规范](reference/capability-composition.md) | 2026-08-26 | G2 评审 + 能力宿主/适配器机制变更 | Manifest、Profile、Provider、Adapter、Kernel 边界与实现或 ADR/CR 不一致 |
 | `AVX-HAR-001` | [Agent Harness Loop 设计与落地规范](reference/agent-harness-loop.md) | 2026-08-28 | G2 评审 + Agent Loop/Provider/工具/持久化边界变更 | Turn/Attempt/Step、Provider、Tool、Inbox、恢复或 Profile 语义与实现/ADR 不一致 |
 | `AVX-WEB-001` | [Web 工作台实现规划](explanation/web-implementation.md) | 2026-08-25 | Web 端实现或技术基线变更 | `apps/web` 结构与 ADR-015/规划不一致 |

@@ -20,7 +20,7 @@ docs/
   getting-started.md     # 从哪开始（本文件，AVX-DOC-002）
   tutorials/             # 教程（AVX-TUT-001～002）
   how-to/                # 操作指南（AVX-GUIDE-*）
-  explanation/           # 概念讲解（AVX-EXPL-*）/ 实现规划 / 可选模块方案 / 能力拆分路线
+  explanation/           # 概念讲解（AVX-EXPL-*）/ 实现规划 / 能力拆分路线
   templates/             # 新建文档模板（How-to / Reference / Explanation）
   reference/             # 参考类（AVX-PRD/SRS/SAD/TRC/SPC/DB/DATA/AIQ/SEC/QA/OPS 等）
     adr/                 # ADR-001~015 + 索引
@@ -29,6 +29,7 @@ docs/
     diagrams/            # 数据库 ERD（.mmd）
     PRD.md · ARCHITECTURE.md · SRS.md · REQUIREMENTS_TRACEABILITY.md
     capability-composition.md
+    capability-registry.md
     agent-harness-loop.md
     DATABASE.md · STREAMING_PROTOCOL.md
     plugin-config-and-pages.md
