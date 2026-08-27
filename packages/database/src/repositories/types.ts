@@ -1960,3 +1960,40 @@ export interface ISkillLifecycleRepository {
   /** 设置发布 active 状态（回滚重新激活旧发布 / 取消激活用） */
   setReleaseActive(releaseId: string, active: boolean): Promise<SkillReleaseModel | null>;
 }
+
+// ============ CR-012 大语言模型与供应商配置持久化 ============
+
+export interface LLMConfigModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  enabled: number;
+  providerType: string;
+  baseUrl: string;
+  apiKey?: string | null;
+  modelId: string;
+  temperature: number;
+  maxTokens?: number | null;
+  settingsJson: unknown;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LLMConfigSaveInput {
+  enabled: boolean;
+  providerType: string;
+  baseUrl: string;
+  apiKey?: string | null;
+  modelId: string;
+  temperature: number;
+  maxTokens?: number;
+  settings?: Record<string, unknown>;
+}
+
+export interface ILLMConfigRepository {
+  getConfig(tenant: TenantContext): Promise<LLMConfigModel | null>;
+  saveConfig(
+    tenant: TenantContext,
+    input: LLMConfigSaveInput,
+  ): Promise<LLMConfigModel>;
+}
