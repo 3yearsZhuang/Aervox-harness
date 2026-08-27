@@ -12,6 +12,7 @@ import {
   practiceSessions,
   knowledgeItems,
   reviewItems,
+  mistakeDispositions,
   knowledgeRelations,
 } from "../../schema/index.js";
 import { assertTenantContext, type TenantContext } from "../../tenant.js";
@@ -345,7 +346,7 @@ export class SqliteLearningRepository implements ILearningRepository {
 
   async listMistakes(
     tenant: TenantContext,
-    status: "active" | "mastered" | "all" = "active",
+    status: "active" | "mastered" | "dismissed" | "all" = "active",
   ): Promise<MistakeItemModel[]> {
     assertTenantContext(tenant);
     const rows = await this.db
@@ -356,10 +357,12 @@ export class SqliteLearningRepository implements ILearningRepository {
         latestAnswer: questionAttempts.answer,
         latestAttemptAt: questionAttempts.createdAt,
         masteryState: knowledgeItems.masteryState,
+        disposition: mistakeDispositions.status,
       })
       .from(questionAttempts)
       .innerJoin(questions, eq(questionAttempts.questionId, questions.id))
       .leftJoin(knowledgeItems, eq(questions.knowledgeId, knowledgeItems.id))
+      .leftJoin(mistakeDispositions, and(eq(mistakeDispositions.questionId, questions.id), eq(mistakeDispositions.workspaceId, tenant.workspaceId), eq(mistakeDispositions.subjectUserId, tenant.subjectUserId)))
       .where(
         and(
           eq(questionAttempts.workspaceId, tenant.workspaceId),
@@ -377,6 +380,7 @@ export class SqliteLearningRepository implements ILearningRepository {
         continue;
       }
       const masteryState = row.masteryState ?? "unknown";
+      const status = row.disposition === "dismissed" ? "dismissed" : masteryState === "mastered" ? "mastered" : "active";
       grouped.set(row.questionId, {
         questionId: row.questionId,
         knowledgeId: row.knowledgeId,
@@ -385,10 +389,19 @@ export class SqliteLearningRepository implements ILearningRepository {
         latestAttemptAt: row.latestAttemptAt,
         wrongCount: 1,
         masteryState,
-        status: masteryState === "mastered" ? "mastered" : "active",
+        status,
       });
     }
     return [...grouped.values()].filter((item) => status === "all" || item.status === status);
+  }
+
+  async setMistakeDisposition(tenant: TenantContext, item: { id: string; questionId: string; status: "active" | "dismissed" }): Promise<void> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    await this.db.insert(mistakeDispositions).values({ ...item, ...tenant, createdAt: now, updatedAt: now }).onConflictDoUpdate({
+      target: [mistakeDispositions.workspaceId, mistakeDispositions.subjectUserId, mistakeDispositions.questionId],
+      set: { status: item.status, updatedAt: now },
+    });
   }
 
   async getAttemptByIdempotencyKey(

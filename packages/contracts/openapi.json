@@ -2658,7 +2658,8 @@
             "type": "string",
             "enum": [
               "active",
-              "mastered"
+              "mastered",
+              "dismissed"
             ]
           }
         },
@@ -2709,7 +2710,8 @@
                   "type": "string",
                   "enum": [
                     "active",
-                    "mastered"
+                    "mastered",
+                    "dismissed"
                   ]
                 }
               },
@@ -2737,7 +2739,8 @@
             "type": "string",
             "enum": [
               "active",
-              "mastered"
+              "mastered",
+              "dismissed"
             ]
           }
         },
@@ -7070,6 +7073,7 @@
               "enum": [
                 "active",
                 "mastered",
+                "dismissed",
                 "all"
               ]
             },
@@ -7146,7 +7150,8 @@
                             "type": "string",
                             "enum": [
                               "active",
-                              "mastered"
+                              "mastered",
+                              "dismissed"
                             ]
                           }
                         },
@@ -7230,7 +7235,8 @@
                     "type": "string",
                     "enum": [
                       "active",
-                      "mastered"
+                      "mastered",
+                      "dismissed"
                     ]
                   }
                 },
@@ -7277,7 +7283,8 @@
                       "type": "string",
                       "enum": [
                         "active",
-                        "mastered"
+                        "mastered",
+                        "dismissed"
                       ]
                     }
                   },

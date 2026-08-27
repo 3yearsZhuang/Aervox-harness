@@ -73,7 +73,7 @@ const practiceFeedback = ref<{judgement: string; nextStep: string} | null>(null)
 const practiceReport = ref<{answeredCount: number; questionCount: number; remainingCount: number; correctCount: number; incorrectCount: number; unverifiableCount: number; accuracy: number | null; nextStep: string} | null>(null)
 const practiceBusy = ref(false)
 const practiceError = ref<string | null>(null)
-const mistakeFilter = ref<'active' | 'mastered' | 'all'>('active')
+const mistakeFilter = ref<'active' | 'mastered' | 'dismissed' | 'all'>('active')
 const selectedMistakeIds = ref<string[]>([])
 const mistakeBusyId = ref<string | null>(null)
 const input = ref('')
@@ -307,7 +307,7 @@ async function startMistakePractice() {
   }
 }
 
-async function setMistakeStatus(questionId: string, status: 'active' | 'mastered') {
+async function setMistakeStatus(questionId: string, status: 'active' | 'mastered' | 'dismissed') {
   mistakeBusyId.value = questionId
   try {
     await api.setMistakeStatus(questionId, status)
@@ -733,8 +733,8 @@ onUnmounted(() => {
           </button>
         </div>
         <div class="mistake-filters" aria-label="错题筛选">
-          <button v-for="option in (['active', 'mastered', 'all'] as const)" :key="option" type="button" :class="{active: mistakeFilter === option}" @click="mistakeFilter = option">
-            {{ option === 'active' ? '待掌握' : option === 'mastered' ? '已掌握' : '全部' }}
+          <button v-for="option in (['active', 'mastered', 'dismissed', 'all'] as const)" :key="option" type="button" :class="{active: mistakeFilter === option}" @click="mistakeFilter = option">
+            {{ option === 'active' ? '待掌握' : option === 'mastered' ? '已掌握' : option === 'dismissed' ? '已忽略' : '全部' }}
           </button>
         </div>
         <ul class="study-list mistake-list">
@@ -745,12 +745,14 @@ onUnmounted(() => {
                 <span class="study-item-title">{{ item.prompt }}</span>
               </label>
               <span v-else class="study-item-title">{{ item.prompt }}</span>
-              <span class="goal-status" :class="{'is-completed': item.status === 'mastered'}">{{ item.status === 'mastered' ? '已掌握' : '待掌握' }}</span>
+              <span class="goal-status" :class="{'is-completed': item.status === 'mastered'}">{{ item.status === 'mastered' ? '已掌握' : item.status === 'dismissed' ? '已忽略' : '待掌握' }}</span>
             </div>
             <small>最近答案：{{ item.latestAnswer }} · 共答错 {{ item.wrongCount }} 次 · {{ item.latestAttemptAt.slice(0, 10) }}</small>
             <div v-if="item.knowledgeId" class="goal-actions">
               <button v-if="item.status === 'active'" type="button" :disabled="mistakeBusyId === item.questionId" @click="setMistakeStatus(item.questionId, 'mastered')"><Check :size="14" />标记已掌握</button>
-              <button v-else type="button" :disabled="mistakeBusyId === item.questionId" @click="setMistakeStatus(item.questionId, 'active')"><RotateCcw :size="14" />继续学习</button>
+              <button v-else-if="item.status === 'mastered'" type="button" :disabled="mistakeBusyId === item.questionId" @click="setMistakeStatus(item.questionId, 'active')"><RotateCcw :size="14" />继续学习</button>
+              <button v-else type="button" :disabled="mistakeBusyId === item.questionId" @click="setMistakeStatus(item.questionId, 'active')"><RotateCcw :size="14" />恢复错题</button>
+              <button v-if="item.status === 'active'" type="button" :disabled="mistakeBusyId === item.questionId" @click="setMistakeStatus(item.questionId, 'dismissed')">忽略</button>
             </div>
             <small v-else>这道题尚未关联知识点，可以重练，但暂不能标记掌握。</small>
           </li>
