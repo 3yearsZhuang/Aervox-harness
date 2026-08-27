@@ -21,6 +21,7 @@ export interface ReviewItemDto {
   knowledgeId: string;
   dueAt: string;
   intervalDays: number;
+  schedulerVersion: number;
   status: string;
 }
 
@@ -141,6 +142,11 @@ export function useAervoxApi() {
   const completePracticeSession = async (sessionId: string): Promise<PracticeReportDto> =>
     transport.request('POST', `/v1/practice/sessions/${encodeURIComponent(sessionId)}/complete`);
 
+  const completeReview = async (reviewId: string, isCorrect: boolean): Promise<void> => {
+    await transport.request('POST', `/v1/review-items/${encodeURIComponent(reviewId)}/complete`, { isCorrect });
+    await loadAll();
+  };
+
   const setMistakeStatus = async (questionId: string, status: 'active' | 'mastered' | 'dismissed'): Promise<void> => {
     await transport.request('PATCH', `/v1/mistakes/${encodeURIComponent(questionId)}`, { status });
     await loadAll();
@@ -179,6 +185,7 @@ export function useAervoxApi() {
     startPracticeSession,
     submitPracticeAnswer,
     completePracticeSession,
+    completeReview,
     setMistakeStatus,
     startMistakePractice,
     submitFeedback,

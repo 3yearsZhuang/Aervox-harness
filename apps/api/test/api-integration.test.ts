@@ -447,7 +447,18 @@ describe("API 集成测试：用户侧域路由", () => {
       headers,
       payload: { isCorrect: true },
     });
-    expect(retry.statusCode).toBe(404);
+    expect(retry.statusCode).toBe(200);
+    expect(retry.json()).toMatchObject({
+      completed: { id: "ri_complete", status: "completed" },
+      nextReview: { knowledgeId: "ki_review_complete", status: "active", intervalDays: 4, schedulerVersion: 1 },
+    });
+    const conflictingRetry = await app.inject({
+      method: "POST",
+      url: "/v1/review-items/ri_complete/complete",
+      headers,
+      payload: { isCorrect: false },
+    });
+    expect(conflictingRetry.statusCode).toBe(409);
 
     const nextReviewId = complete.json().nextReview.id as string;
     const wrong = await app.inject({

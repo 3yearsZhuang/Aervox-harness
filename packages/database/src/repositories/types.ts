@@ -657,6 +657,8 @@ export interface ReviewItemModel {
   intervalDays: number;
   schedulerVersion: number;
   status: string;
+  completionIsCorrect?: boolean | null;
+  nextReviewId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -785,6 +787,7 @@ export interface ILearningRepository {
     data: {
       reviewId: string;
       knowledgeId: string;
+      isCorrect: boolean;
       practiceState: {
         correctCount: number;
         wrongCount: number;

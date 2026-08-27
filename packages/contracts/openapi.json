@@ -2774,6 +2774,290 @@
         "required": [
           "answer"
         ]
+      },
+      "ReviewItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "knowledgeId": {
+            "type": "string"
+          },
+          "dueAt": {
+            "type": "string"
+          },
+          "intervalDays": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "schedulerVersion": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "completed",
+              "dismissed",
+              "archived"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "knowledgeId",
+          "dueAt",
+          "intervalDays",
+          "schedulerVersion",
+          "status"
+        ]
+      },
+      "ReviewListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "knowledgeId": {
+                  "type": "string"
+                },
+                "dueAt": {
+                  "type": "string"
+                },
+                "intervalDays": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "schedulerVersion": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "completed",
+                    "dismissed",
+                    "archived"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "knowledgeId",
+                "dueAt",
+                "intervalDays",
+                "schedulerVersion",
+                "status"
+              ]
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "ReviewSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "dueCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "estimatedMinutes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "knowledgeId": {
+                  "type": "string"
+                },
+                "dueAt": {
+                  "type": "string"
+                },
+                "intervalDays": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "schedulerVersion": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "completed",
+                    "dismissed",
+                    "archived"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "knowledgeId",
+                "dueAt",
+                "intervalDays",
+                "schedulerVersion",
+                "status"
+              ]
+            }
+          }
+        },
+        "required": [
+          "dueCount",
+          "estimatedMinutes",
+          "items"
+        ]
+      },
+      "CompleteReviewRequest": {
+        "type": "object",
+        "properties": {
+          "isCorrect": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "isCorrect"
+        ]
+      },
+      "CompleteReviewResponse": {
+        "type": "object",
+        "properties": {
+          "completed": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "knowledgeId": {
+                "type": "string"
+              },
+              "dueAt": {
+                "type": "string"
+              },
+              "intervalDays": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "schedulerVersion": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "completed",
+                  "dismissed",
+                  "archived"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "knowledgeId",
+              "dueAt",
+              "intervalDays",
+              "schedulerVersion",
+              "status"
+            ]
+          },
+          "nextReview": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "knowledgeId": {
+                "type": "string"
+              },
+              "dueAt": {
+                "type": "string"
+              },
+              "intervalDays": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "schedulerVersion": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "completed",
+                  "dismissed",
+                  "archived"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "knowledgeId",
+              "dueAt",
+              "intervalDays",
+              "schedulerVersion",
+              "status"
+            ]
+          },
+          "knowledge": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "correctCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "wrongCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "correctStreak": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "mastery": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "masteryState": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "correctCount",
+              "wrongCount",
+              "correctStreak",
+              "mastery",
+              "masteryState"
+            ]
+          }
+        },
+        "required": [
+          "completed",
+          "nextReview",
+          "knowledge"
+        ]
       }
     },
     "parameters": {}
@@ -7536,6 +7820,429 @@
           },
           "409": {
             "description": "练习会话未激活或题目不属于该会话"
+          }
+        }
+      }
+    },
+    "/v1/review-items": {
+      "get": {
+        "summary": "列出到期复习项",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "dueBefore",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Due review items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "knowledgeId": {
+                            "type": "string"
+                          },
+                          "dueAt": {
+                            "type": "string"
+                          },
+                          "intervalDays": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0
+                          },
+                          "schedulerVersion": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "completed",
+                              "dismissed",
+                              "archived"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "knowledgeId",
+                          "dueAt",
+                          "intervalDays",
+                          "schedulerVersion",
+                          "status"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/review-items/summary": {
+      "get": {
+        "summary": "读取到期复习汇总",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "dueBefore",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Due review summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dueCount": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "estimatedMinutes": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "knowledgeId": {
+                            "type": "string"
+                          },
+                          "dueAt": {
+                            "type": "string"
+                          },
+                          "intervalDays": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0
+                          },
+                          "schedulerVersion": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "completed",
+                              "dismissed",
+                              "archived"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "knowledgeId",
+                          "dueAt",
+                          "intervalDays",
+                          "schedulerVersion",
+                          "status"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "dueCount",
+                    "estimatedMinutes",
+                    "items"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/review-items/{reviewId}/complete": {
+      "post": {
+        "summary": "完成复习并调度下一项（幂等重放）",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "reviewId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "isCorrect": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "isCorrect"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Completion result or matching replay",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "completed": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "knowledgeId": {
+                          "type": "string"
+                        },
+                        "dueAt": {
+                          "type": "string"
+                        },
+                        "intervalDays": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "schedulerVersion": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "completed",
+                            "dismissed",
+                            "archived"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "knowledgeId",
+                        "dueAt",
+                        "intervalDays",
+                        "schedulerVersion",
+                        "status"
+                      ]
+                    },
+                    "nextReview": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "knowledgeId": {
+                          "type": "string"
+                        },
+                        "dueAt": {
+                          "type": "string"
+                        },
+                        "intervalDays": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "schedulerVersion": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "completed",
+                            "dismissed",
+                            "archived"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "knowledgeId",
+                        "dueAt",
+                        "intervalDays",
+                        "schedulerVersion",
+                        "status"
+                      ]
+                    },
+                    "knowledge": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "correctCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "wrongCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "correctStreak": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "mastery": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "masteryState": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "correctCount",
+                        "wrongCount",
+                        "correctStreak",
+                        "mastery",
+                        "masteryState"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "completed",
+                    "nextReview",
+                    "knowledge"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "isCorrect 缺失或非法"
+          },
+          "404": {
+            "description": "REVIEW_ITEM_NOT_FOUND"
+          },
+          "409": {
+            "description": "完成结果与首次请求不一致"
           }
         }
       }

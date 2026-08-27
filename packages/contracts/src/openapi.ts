@@ -81,6 +81,11 @@ import {
   practiceReportSchema,
   repracticeRequestSchema,
   updateMistakeRequestSchema,
+  completeReviewRequestSchema,
+  completeReviewResponseSchema,
+  reviewItemSchema,
+  reviewListResponseSchema,
+  reviewSummaryResponseSchema,
 } from "./practice-schemas.js";
 
 const registry = new OpenAPIRegistry();
@@ -146,6 +151,11 @@ registry.register("MistakeListResponse", mistakeListResponseSchema);
 registry.register("UpdateMistakeRequest", updateMistakeRequestSchema);
 registry.register("RepracticeRequest", repracticeRequestSchema);
 registry.register("CreateAttemptRequest", createAttemptRequestSchema);
+registry.register("ReviewItem", reviewItemSchema);
+registry.register("ReviewListResponse", reviewListResponseSchema);
+registry.register("ReviewSummaryResponse", reviewSummaryResponseSchema);
+registry.register("CompleteReviewRequest", completeReviewRequestSchema);
+registry.register("CompleteReviewResponse", completeReviewResponseSchema);
 
 const sessionIdParam = z.object({ sessionId: z.string().min(1) });
 const turnIdParam = z.object({ turnId: z.string().min(1) });
@@ -402,6 +412,7 @@ registry.registerPath({
 
 const practiceSessionIdParam = z.object({ sessionId: z.string().min(1) });
 const learningQuestionIdParam = z.object({ questionId: z.string().min(1) });
+const reviewItemIdParam = z.object({ reviewId: z.string().min(1) });
 const mistakeListQuery = z.object({ status: mistakeStatusEnumSchema.optional() });
 
 registry.registerPath({
@@ -438,6 +449,22 @@ registry.registerPath({
   method: "post", path: "/v1/questions/{questionId}/attempts", summary: "作答题目（不可变学习事实，可关联练习会话）", tags: ["Learning"],
   request: { params: learningQuestionIdParam, headers: scopeHeaders.extend({ "Idempotency-Key": z.string().min(1).optional() }), body: { content: { "application/json": { schema: createAttemptRequestSchema } } } },
   responses: { 201: { description: "Attempt created" }, 200: { description: "Existing idempotent attempt" }, 400: { description: "请求或会话信息非法" }, 404: { description: "QUESTION_NOT_FOUND" }, 409: { description: "练习会话未激活或题目不属于该会话" } },
+});
+
+registry.registerPath({
+  method: "get", path: "/v1/review-items", summary: "列出到期复习项", tags: ["Learning"],
+  request: { headers: scopeHeaders, query: z.object({ dueBefore: z.string().optional() }) },
+  responses: { 200: { description: "Due review items", content: { "application/json": { schema: reviewListResponseSchema } } } },
+});
+registry.registerPath({
+  method: "get", path: "/v1/review-items/summary", summary: "读取到期复习汇总", tags: ["Learning"],
+  request: { headers: scopeHeaders, query: z.object({ dueBefore: z.string().optional() }) },
+  responses: { 200: { description: "Due review summary", content: { "application/json": { schema: reviewSummaryResponseSchema } } } },
+});
+registry.registerPath({
+  method: "post", path: "/v1/review-items/{reviewId}/complete", summary: "完成复习并调度下一项（幂等重放）", tags: ["Learning"],
+  request: { params: reviewItemIdParam, headers: scopeHeaders, body: { content: { "application/json": { schema: completeReviewRequestSchema } } } },
+  responses: { 200: { description: "Completion result or matching replay", content: { "application/json": { schema: completeReviewResponseSchema } } }, 400: { description: "isCorrect 缺失或非法" }, 404: { description: "REVIEW_ITEM_NOT_FOUND" }, 409: { description: "完成结果与首次请求不一致" } },
 });
 
 const generator = new OpenApiGeneratorV31(registry.definitions);
