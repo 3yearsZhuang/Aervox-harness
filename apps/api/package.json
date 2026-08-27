@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@aervox/agent-loop": "workspace:*",
     "@aervox/contracts": "workspace:*",
     "@aervox/database": "workspace:*",
     "@aervox/practice-review": "workspace:*",
