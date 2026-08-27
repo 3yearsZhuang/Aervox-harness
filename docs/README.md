@@ -1,10 +1,10 @@
 # Aervox｜思隅 产品与工程文档索引
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：kikoyida · 2026-08-27
 
 > 文档编号：AVX-DOC-001  
-> 版本：v0.4  
+> 版本：v0.5
 > 更新日期：2026-08-27
 > 状态：评审候选  
 
@@ -50,6 +50,8 @@
 后续表现层变更见 [CR-007：可替换 Live2D 桌宠渲染层](reference/changes/CR-007-live2d-sekai-viewer-pet.md)：Web 工作台重新启用可回退的 Live2D 桌宠；Electron 主工作台保持无左侧桌宠，独立桌宠窗口继续使用 Live2D。
 
 最近的插件能力变更见 [CR-006：插件配置解析与可视化](reference/changes/CR-006-plugin-config-and-pages.md)：新增插件 Config Schema v1、配置持久化/API 与受限 Page Bridge（规范见 [AVX-PLUG-001](reference/plugin-config-and-pages.md)）。
+
+学习域练习会话的规格补全见 [CR-008：练习会话与作答契约补全](reference/changes/CR-008-practice-session-contract.md)：明确题组快照、重复提交、会话结束和租户隔离的验收边界；仍待 DoR 评审。
 
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
 

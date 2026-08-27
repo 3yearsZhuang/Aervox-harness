@@ -436,8 +436,8 @@ registry.registerPath({
 });
 registry.registerPath({
   method: "post", path: "/v1/questions/{questionId}/attempts", summary: "作答题目（不可变学习事实，可关联练习会话）", tags: ["Learning"],
-  request: { params: learningQuestionIdParam, headers: scopeHeaders, body: { content: { "application/json": { schema: createAttemptRequestSchema } } } },
-  responses: { 200: { description: "Attempt recorded" }, 400: { description: "请求或会话信息非法" }, 404: { description: "QUESTION_NOT_FOUND" }, 409: { description: "练习会话未激活或题目不属于该会话" } },
+  request: { params: learningQuestionIdParam, headers: scopeHeaders.extend({ "Idempotency-Key": z.string().min(1).optional() }), body: { content: { "application/json": { schema: createAttemptRequestSchema } } } },
+  responses: { 201: { description: "Attempt created" }, 200: { description: "Existing idempotent attempt" }, 400: { description: "请求或会话信息非法" }, 404: { description: "QUESTION_NOT_FOUND" }, 409: { description: "练习会话未激活或题目不属于该会话" } },
 });
 
 const generator = new OpenApiGeneratorV31(registry.definitions);
