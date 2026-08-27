@@ -416,4 +416,4 @@ mise tasks run ci-docs
 
 ## 下一步
 
-本教程完成后建立 `ADR-016`，明确 Kernel Substrate、`AVX-MOD-001` 的替代/迁移日期、`ADR-014` 的过渡期，以及 DSH（DeepSeek Harness）、pi、MCP 和 dsh-synapse 的统一 Adapter 范围。在 ADR-016 和相关 `CR-*` 接受前，生产 Profile 不应把外部 DSH/pi 运行时视为核心依赖。
+本教程完成后建立 `ADR-016`，明确 Kernel Substrate 的接受边界、`ADR-014` 的过渡期，以及 DSH（DeepSeek Harness）、pi、MCP 和 dsh-synapse 的统一 Adapter 范围。原 `AVX-MOD-001`（可选功能模块化方案）的机制已并入[能力组合与可选化目录规范](../reference/capability-composition.md)作为必选交付机制，功能清单迁至[能力注册表](../reference/capability-registry.md)。在 ADR-016 和相关 `CR-*` 接受前，生产 Profile 不应把外部 DSH/pi 运行时视为核心依赖。
