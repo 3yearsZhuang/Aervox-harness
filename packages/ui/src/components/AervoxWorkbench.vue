@@ -66,8 +66,9 @@ const newGoalLevel = ref<'beginner' | 'intermediate' | 'advanced'>('beginner')
 const newGoalMinutes = ref(25)
 const showArchivedGoals = ref(false)
 const goalBusyId = ref<string | null>(null)
-const practiceSession = ref<{sessionId: string; items: Array<{id: string; prompt: string}>} | null>(null)
+const practiceSession = ref<{sessionId: string; items: Array<{id: string; prompt: string}>; nextQuestionIndex?: number} | null>(null)
 const practiceIndex = ref(0)
+const practiceReadyToComplete = ref(false)
 const practiceAnswer = ref('')
 const practiceFeedback = ref<{judgement: string; nextStep: string} | null>(null)
 const practiceReport = ref<{answeredCount: number; questionCount: number; remainingCount: number; correctCount: number; incorrectCount: number; unverifiableCount: number; accuracy: number | null; nextStep: string} | null>(null)
@@ -109,6 +110,7 @@ const {
   mistakes,
   notifications,
   todayDiary,
+  activePracticeSession,
   error: apiError,
 } = api
 let nextStoryId = 2
@@ -211,6 +213,9 @@ function goalStatusLabel(status: string) {
 
 async function reloadGoals() {
   await api.loadAll(showArchivedGoals.value)
+  if (!practiceSession.value && activePracticeSession.value) {
+    restorePracticeSession(activePracticeSession.value)
+  }
 }
 
 async function setGoalStatus(goalId: string, status: 'active' | 'paused' | 'completed') {
@@ -241,15 +246,22 @@ async function archiveGoal(goalId: string) {
 const currentPracticeQuestion = computed(() => practiceSession.value?.items[practiceIndex.value] ?? null)
 const visibleMistakes = computed(() => mistakes.value.filter((item) => mistakeFilter.value === 'all' || item.status === mistakeFilter.value))
 
+function restorePracticeSession(session: {sessionId: string; items: Array<{id: string; prompt: string}>; nextQuestionIndex?: number}) {
+  practiceSession.value = session
+  const nextIndex = session.nextQuestionIndex ?? 0
+  practiceReadyToComplete.value = nextIndex >= session.items.length
+  practiceIndex.value = Math.min(nextIndex, Math.max(session.items.length - 1, 0))
+  practiceAnswer.value = ''
+  practiceFeedback.value = null
+}
+
 async function startPractice() {
   practiceBusy.value = true
   practiceError.value = null
   practiceReport.value = null
   practiceFeedback.value = null
   try {
-    practiceSession.value = await api.startPracticeSession()
-    practiceIndex.value = 0
-    practiceAnswer.value = ''
+    restorePracticeSession(await api.startPracticeSession())
   } catch (error) {
     practiceError.value = error instanceof Error ? '当前没有可练习的题目，请先创建题目。' : '启动练习失败，请稍后再试。'
   } finally {
@@ -279,6 +291,7 @@ async function finishPractice() {
   try {
     practiceReport.value = await api.completePracticeSession(practiceSession.value.sessionId)
     practiceFeedback.value = null
+    practiceReadyToComplete.value = false
     await api.loadAll(showArchivedGoals.value)
   } catch {
     practiceError.value = '暂时无法生成练习报告，请稍后再试。'
@@ -299,9 +312,7 @@ async function startMistakePractice() {
   practiceReport.value = null
   practiceFeedback.value = null
   try {
-    practiceSession.value = await api.startMistakePractice(questionIds)
-    practiceIndex.value = 0
-    practiceAnswer.value = ''
+    restorePracticeSession(await api.startMistakePractice(questionIds))
     selectedMistakeIds.value = []
   } catch {
     practiceError.value = '错题重练启动失败，请刷新后重试。'
@@ -337,7 +348,7 @@ async function completeReview(reviewId: string, isCorrect: boolean) {
 function nextPracticeQuestion() {
   if (!practiceSession.value) return
   if (practiceIndex.value + 1 >= practiceSession.value.items.length) {
-    void finishPractice()
+    practiceReadyToComplete.value = true
     return
   }
   practiceIndex.value += 1
@@ -714,7 +725,7 @@ onUnmounted(() => {
       <section class="study-section">
         <div class="study-section-title-row">
           <h4>快速练习</h4>
-          <button class="practice-start" type="button" :disabled="practiceBusy" @click="startPractice"><Sparkles :size="15" />开始 3 题练习</button>
+            <button class="practice-start" type="button" :disabled="practiceBusy" @click="startPractice"><Sparkles :size="15" />{{ practiceSession ? '继续当前练习' : '开始 3 题练习' }}</button>
         </div>
         <p v-if="practiceError" class="drawer-error">{{ practiceError }}</p>
         <article v-if="practiceReport" class="practice-report">
@@ -723,7 +734,12 @@ onUnmounted(() => {
           <p v-if="practiceReport.accuracy !== null">可判定题正确率：{{ Math.round(practiceReport.accuracy * 100) }}%</p>
           <small>{{ practiceReport.remainingCount > 0 ? `还有 ${practiceReport.remainingCount} 题未作答；` : '' }}{{ practiceReport.nextStep === 'review_scheduled' ? '错题已进入后续复习。' : practiceReport.nextStep === 'await_review' ? '待确认题暂不计入掌握度。' : '继续保持这个节奏。' }}</small>
         </article>
-        <article v-else-if="currentPracticeQuestion" class="practice-panel">
+          <article v-else-if="practiceSession && practiceReadyToComplete" class="practice-panel">
+            <strong>本次答案已保存</strong>
+            <p>你可以结束练习并查看本次报告。</p>
+            <button type="button" :disabled="practiceBusy" @click="finishPractice">生成练习报告</button>
+          </article>
+          <article v-else-if="currentPracticeQuestion" class="practice-panel">
           <small>第 {{ practiceIndex + 1 }}/{{ practiceSession?.items.length }} 题</small>
           <strong>{{ currentPracticeQuestion.prompt }}</strong>
           <form v-if="!practiceFeedback" @submit.prevent="submitPracticeAnswer">

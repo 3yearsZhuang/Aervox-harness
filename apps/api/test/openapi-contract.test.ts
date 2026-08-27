@@ -17,4 +17,18 @@ describe("Learning OpenAPI 契约", () => {
       201: expect.objectContaining({ description: "Attempt created" }),
     }));
   });
+
+  it("声明活跃练习会话恢复及重复启动的响应", () => {
+    const createSession = openApiDocument.paths["/v1/practice/sessions"]?.post;
+    const activeSession = openApiDocument.paths["/v1/practice/sessions/active"]?.get;
+
+    expect(createSession?.responses).toEqual(expect.objectContaining({
+      200: expect.objectContaining({ description: "Resumed active session" }),
+      201: expect.objectContaining({ description: "Created" }),
+    }));
+    expect(activeSession?.responses).toEqual(expect.objectContaining({
+      200: expect.objectContaining({ description: "Active practice session" }),
+      404: expect.anything(),
+    }));
+  });
 });

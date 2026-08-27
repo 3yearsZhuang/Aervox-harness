@@ -46,6 +46,9 @@ export interface PracticeQuestionDto {
 export interface PracticeSessionDto {
   sessionId: string;
   items: PracticeQuestionDto[];
+  startedAt?: string;
+  answeredQuestionIds?: string[];
+  nextQuestionIndex?: number;
 }
 
 export interface PracticeReportDto {
@@ -102,6 +105,7 @@ export function useAervoxApi() {
   const mistakes = ref<MistakeItemDto[]>([]);
   const notifications = ref<NotificationDto[]>([]);
   const todayDiary = ref<DiaryDto | null>(null);
+  const activePracticeSession = ref<PracticeSessionDto | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
@@ -112,7 +116,7 @@ export function useAervoxApi() {
     loading.value = true;
     error.value = null;
     try {
-      const [g, r, summary, history, m, n, d] = await Promise.all([
+      const [g, r, summary, history, m, n, d, activeSession] = await Promise.all([
         transport.request<{ items: GoalDto[] }>('GET', `/v1/learning/goals${includeArchived ? '?includeArchived=true' : ''}`).catch(() => ({ items: [] })),
         transport.request<{ items: ReviewItemDto[] }>('GET', '/v1/review-items').catch(() => ({ items: [] })),
         transport.request<ReviewSummaryDto>('GET', `/v1/review-items/summary?timeZone=${encodeURIComponent(timeZone)}`).catch(() => null),
@@ -122,6 +126,7 @@ export function useAervoxApi() {
         transport
           .request<DiaryDto>(`GET`, `/v1/diaries?localDate=${encodeURIComponent(todayLocal())}`)
           .catch(() => null),
+        transport.request<PracticeSessionDto>('GET', '/v1/practice/sessions/active').catch(() => null),
       ]);
       goals.value = g.items;
       dueReviews.value = r.items;
@@ -130,6 +135,7 @@ export function useAervoxApi() {
       mistakes.value = m.items;
       notifications.value = n.items;
       todayDiary.value = d;
+      activePracticeSession.value = activeSession;
     } catch (e) {
       error.value = e instanceof Error ? e.message : '加载失败';
     } finally {
@@ -196,6 +202,7 @@ export function useAervoxApi() {
     mistakes,
     notifications,
     todayDiary,
+    activePracticeSession,
     loading,
     error,
     hasData,

@@ -1,11 +1,11 @@
 # Aervox｜思隅 软件需求规格（SRS）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：kikoyida · 2026-08-27
+- 修改人：kikoyida · 2026-08-28
 
 > 文档编号：AVX-SRS-001  
-> 版本：v0.6（评审候选）
-> 更新日期：2026-08-27
+> 版本：v0.7（评审候选）
+> 更新日期：2026-08-28
 > 状态：Review Candidate  
 > 产品事实源：[PRD](PRD.md)  
 > 追踪矩阵：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
@@ -210,6 +210,7 @@
   - `AC-FR-PRC-001-07`：Given 另一工作区或数据主体访问会话、报告或作答，When 请求资源，Then 返回 404 且不泄露资源存在性。
   - `AC-FR-PRC-001-08`：Given 用户忽略一条活动错题，When 再次读取默认列表或创建错题重练，Then 该条目不可见且不会进入题组，原始作答仍可查询。
   - `AC-FR-PRC-001-09`：Given 用户恢复一条已忽略错题，When 读取活动列表，Then 该条目重新可见并可被选择重练。
+  - `AC-FR-PRC-001-10`：Given 用户重开存在活跃会话的学习界面或重试创建会话，When 系统恢复会话，Then 返回原题组快照、已答题目和首个未答题，且不创建第二个活跃会话。
 - **测试**：`TC-UNIT-PRC-001`、`TC-API-PRC-001`、`TC-INTEG-PRC-001`、`TC-E2E-PRC-001`。变更依据见 [CR-008](changes/CR-008-practice-session-contract.md) 与 [CR-009](changes/CR-009-mistake-book-dismissal.md)。
 
 ### FR-REV-001 间隔复习

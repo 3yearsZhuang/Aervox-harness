@@ -1,11 +1,11 @@
 # 文档生命周期登记表（核验节奏与陈旧信号）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：kikoyida · 2026-08-27
+- 修改人：kikoyida · 2026-08-28
 
 > 文档编号：AVX-DOC-CONF-001  
-> 版本：v0.5
-> 更新日期：2026-08-27
+> 版本：v0.6
+> 更新日期：2026-08-28
 > 状态：评审候选  
 > 关联：[文档索引](README.md)
 
@@ -14,7 +14,7 @@
 | 文档编号 | 文档 | 最后核验 | 核验节奏 | 陈旧信号 |
 |---|---|---|---|---|
 | `AVX-PRD-001` | [PRD](reference/PRD.md) | 2026-08-25 | 每次版本立项 / G0 | CAP 范围或优先级变更未建立 `CR-*` |
-| `AVX-SRS-001` | [SRS](reference/SRS.md) | 2026-08-27 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
+| `AVX-SRS-001` | [SRS](reference/SRS.md) | 2026-08-28 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
 | `AVX-SAD-001` | [架构设计](reference/ARCHITECTURE.md) | 2026-08-25 | G2 评审 + 架构变更 | 新增 ADR/技术基线变化未同步 |
 | `ADR-001~015` | [ADR 索引](reference/adr/README.md) | 2026-08-26 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
 | `AVX-SPC-001` | [流式协议](reference/STREAMING_PROTOCOL.md) | 2026-08-24 | OpenAPI/事件 schema 变更 | `packages/contracts` 版本高于文档描述 |
@@ -24,7 +24,7 @@
 | `AVX-SEC-001` | [威胁模型](reference/THREAT_MODEL.md) | 2026-08-24 | 每季度 + 信任边界变更 | 新增数据流/信任边界未加入威胁模型 |
 | `AVX-QA-001` | [测试策略](reference/TEST_STRATEGY.md) | 2026-08-24 | G1/G4 门禁 | AC/TC 状态变化未回填 |
 | `AVX-OPS-001` | [运行、值班与演练手册](reference/operations.md) | 2026-08-26 | 每季度演练 + 每次发布 + 值班变更 | 演练日期超期、告警/拓扑变化或联系人未更新 |
-| `AVX-TRC-001` | [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) | 2026-08-27 | 版本立项 / G1 / G4 / 落地登记 | CAP/AC/TC 状态或追踪关系变化未回填；§4.2 落地登记与实现不符 |
+| `AVX-TRC-001` | [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) | 2026-08-28 | 版本立项 / G1 / G4 / 落地登记 | CAP/AC/TC 状态或追踪关系变化未回填；§4.2 落地登记与实现不符 |
 | `AVX-GUIDE-001~003` | [操作指南](how-to) | 2026-08-26 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
 | `AVX-MOD-001` | [可选功能模块化方案](explanation/optional_modules.md) | 2026-08-26 | G2 评审 + 模块机制变更 | 过渡机制与 `modules/*` 实际不符，或目标替代关系未同步 |
 | `AVX-CAP-001` | [能力组合与可选化目录规范](reference/capability-composition.md) | 2026-08-26 | G2 评审 + 能力宿主/适配器机制变更 | Manifest、Profile、Provider、Adapter、Kernel 边界与实现或 ADR/CR 不一致 |
@@ -39,6 +39,7 @@
 | `CR-009` | [错题本忽略与恢复规则](reference/changes/CR-009-mistake-book-dismissal.md) | 2026-08-27 | `CAP-004` 错题本处置或重练规则变更 | SRS、API、数据库和 UI 对忽略状态、恢复与学习事实保留的语义不一致 |
 | `CR-010` | [复习完成幂等与结果重放](reference/changes/CR-010-review-completion-idempotency.md) | 2026-08-27 | `CAP-006` 完成、重试或调度结果契约变更 | SRS、API、数据库、OpenAPI 和 UI 的幂等语义不一致 |
 | `CR-011` | [时区安全的复习调度与逾期汇总](reference/changes/CR-011-timezone-safe-review-scheduling.md) | 2026-08-27 | `CAP-006` 时区来源、日界线或调度版本变更 | 时区快照、DST 算法、逾期口径与实现不一致 |
+| `CR-012` | [活跃练习会话恢复与续答](reference/changes/CR-012-practice-session-recovery.md) | 2026-08-28 | `CAP-003` 活跃会话、题组快照或续答边界变更 | SRS、OpenAPI、持久化进度与工作台恢复行为不一致 |
 | `AVX-PLUG-001` | [插件 Config 与 Page 规范](reference/plugin-config-and-pages.md) | 2026-08-26 | CR-006 / 插件机制变更 | Manifest、Config Schema、Page Bridge 与实现不一致 |
 | `AVX-MOD-PERSONA-001` | [`modules/persona-plugin`](https://github.com/KashiwagiEri233/aervox-persona-plugin-module) | 2026-08-25 | 每次 submodule 指针/包契约/权限变更 | workspace 包、固定 commit 或模块自身 CI 不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 2026-08-26 | 规则变更或季度评审 | 新增文档未标注四分类/头字段不合规，或 Vale 规则与术语表不一致 |
