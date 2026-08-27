@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   createInMemoryDatabase,
   SqliteLearningRepository,
@@ -36,6 +36,7 @@ describe("API 集成测试：用户侧域路由", () => {
   });
 
   afterEach(async () => {
+    vi.useRealTimers();
     await app.close();
     await cleanup();
   });
@@ -402,11 +403,16 @@ describe("API 集成测试：用户侧域路由", () => {
 
     const summary = await app.inject({
       method: "GET",
-      url: "/v1/review-items/summary?dueBefore=2026-12-31T00:00:00.000Z",
+      url: "/v1/review-items/summary?dueBefore=2026-12-31T00:00:00.000Z&timeZone=Asia%2FShanghai",
       headers,
     });
-    expect(summary.json()).toMatchObject({ dueCount: 1, estimatedMinutes: 2 });
+    expect(summary.json()).toMatchObject({ dueCount: 1, overdueCount: 1, dueTodayCount: 0, estimatedMinutes: 2, timeZone: "Asia/Shanghai" });
     expect(summary.json().items).toHaveLength(1);
+    expect((await app.inject({
+      method: "GET",
+      url: "/v1/review-items/summary?timeZone=Mars%2FOlympus",
+      headers,
+    })).statusCode).toBe(400);
   });
 
   it("复习完成：原子更新知识点并创建下一条活动项", async () => {
@@ -432,12 +438,12 @@ describe("API 集成测试：用户侧域路由", () => {
       method: "POST",
       url: "/v1/review-items/ri_complete/complete",
       headers,
-      payload: { isCorrect: true },
+      payload: { isCorrect: true, timeZone: "America/New_York" },
     });
     expect(complete.statusCode).toBe(200);
     expect(complete.json()).toMatchObject({
       completed: { id: "ri_complete", status: "completed" },
-      nextReview: { knowledgeId: "ki_review_complete", status: "active", intervalDays: 4, schedulerVersion: 1 },
+      nextReview: { knowledgeId: "ki_review_complete", status: "active", intervalDays: 4, schedulerVersion: 2, timezoneSnapshot: "America/New_York" },
       knowledge: { correctCount: 3, wrongCount: 1, correctStreak: 2, mastery: 0.6 },
     });
 
@@ -445,12 +451,12 @@ describe("API 集成测试：用户侧域路由", () => {
       method: "POST",
       url: "/v1/review-items/ri_complete/complete",
       headers,
-      payload: { isCorrect: true },
+      payload: { isCorrect: true, timeZone: "America/New_York" },
     });
     expect(retry.statusCode).toBe(200);
     expect(retry.json()).toMatchObject({
       completed: { id: "ri_complete", status: "completed" },
-      nextReview: { knowledgeId: "ki_review_complete", status: "active", intervalDays: 4, schedulerVersion: 1 },
+      nextReview: { knowledgeId: "ki_review_complete", status: "active", intervalDays: 4, schedulerVersion: 2, timezoneSnapshot: "America/New_York" },
     });
     const conflictingRetry = await app.inject({
       method: "POST",
@@ -469,7 +475,7 @@ describe("API 集成测试：用户侧域路由", () => {
     });
     expect(wrong.statusCode).toBe(200);
     expect(wrong.json()).toMatchObject({
-      nextReview: { status: "active", intervalDays: 1, schedulerVersion: 1 },
+      nextReview: { status: "active", intervalDays: 1, schedulerVersion: 2, timezoneSnapshot: "America/New_York" },
       knowledge: { correctCount: 3, wrongCount: 2, correctStreak: 0, mastery: 0.5 },
     });
 
@@ -488,6 +494,136 @@ describe("API 集成测试：用户侧域路由", () => {
     });
     expect(otherHistory.json().items).toHaveLength(0);
     expect((await app.inject({ method: "GET", url: "/v1/review-items/history?limit=0", headers })).statusCode).toBe(400);
+    expect((await app.inject({
+      method: "POST",
+      url: `/v1/review-items/${wrong.json().nextReview.id as string}/complete`,
+      headers,
+      payload: { isCorrect: true, timeZone: "Mars/Olympus" },
+    })).statusCode).toBe(400);
+  });
+
+  it("时区安全：完成逾期复习不重复创建活动项", async () => {
+    const learning = new SqliteLearningRepository(db);
+    const tenant = { workspaceId: "ws_it", subjectUserId: "usr_it" };
+    await learning.createKnowledgeItem(tenant, { id: "ki_overdue", concept: "逾期测试" });
+    await learning.createReviewItem(tenant, {
+      id: "ri_overdue",
+      knowledgeId: "ki_overdue",
+      dueAt: "2020-01-01T00:00:00.000Z",
+      intervalDays: 1,
+      schedulerVersion: 1,
+      timezoneSnapshot: "UTC",
+    });
+
+    const complete = await app.inject({
+      method: "POST",
+      url: "/v1/review-items/ri_overdue/complete",
+      headers,
+      payload: { isCorrect: false, timeZone: "UTC" },
+    });
+    expect(complete.statusCode).toBe(200);
+    expect(complete.json().completed).toMatchObject({ id: "ri_overdue", status: "completed" });
+    expect(complete.json().nextReview).toMatchObject({ status: "active", knowledgeId: "ki_overdue" });
+
+    const allActive = await learning.listDueReviewItems(tenant, "2099-12-31T00:00:00.000Z");
+    const kiActive = allActive.filter((item) => item.knowledgeId === "ki_overdue");
+    expect(kiActive).toHaveLength(1);
+    expect(kiActive[0].id).toBe(complete.json().nextReview.id);
+  });
+
+  it("逾期复习从实际完成时间重新调度（非原到期时间）", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-08-15T10:00:00.000Z"));
+    try {
+      const learning = new SqliteLearningRepository(db);
+      const tenant = { workspaceId: "ws_it", subjectUserId: "usr_it" };
+      await learning.createKnowledgeItem(tenant, { id: "ki_rec", concept: "重算测试" });
+      await learning.createReviewItem(tenant, {
+        id: "ri_rec",
+        knowledgeId: "ki_rec",
+        dueAt: "2020-01-01T00:00:00.000Z",
+        intervalDays: 1,
+        schedulerVersion: 1,
+      });
+
+      const complete = await app.inject({
+        method: "POST",
+        url: "/v1/review-items/ri_rec/complete",
+        headers,
+        payload: { isCorrect: false, timeZone: "UTC" },
+      });
+      expect(complete.statusCode).toBe(200);
+      expect(complete.json().nextReview.dueAt).toBe("2026-08-16T10:00:00.000Z");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("完成复习保存时区快照并支持跨时区更新", async () => {
+    const learning = new SqliteLearningRepository(db);
+    const tenant = { workspaceId: "ws_it", subjectUserId: "usr_it" };
+    await learning.createKnowledgeItem(tenant, {
+      id: "ki_tz",
+      concept: "时区快照",
+      correctCount: 1,
+      correctStreak: 1,
+    });
+    await learning.createReviewItem(tenant, {
+      id: "ri_tz",
+      knowledgeId: "ki_tz",
+      dueAt: "2020-01-01T00:00:00.000Z",
+      intervalDays: 1,
+      schedulerVersion: 1,
+      timezoneSnapshot: "Asia/Shanghai",
+    });
+
+    const complete = await app.inject({
+      method: "POST",
+      url: "/v1/review-items/ri_tz/complete",
+      headers,
+      payload: { isCorrect: true, timeZone: "America/New_York" },
+    });
+    expect(complete.statusCode).toBe(200);
+    expect(complete.json().nextReview.timezoneSnapshot).toBe("America/New_York");
+    expect(complete.json().nextReview.schedulerVersion).toBe(2);
+
+    const retry = await app.inject({
+      method: "POST",
+      url: "/v1/review-items/ri_tz/complete",
+      headers,
+      payload: { isCorrect: true, timeZone: "Asia/Shanghai" },
+    });
+    expect(retry.statusCode).toBe(200);
+    expect(retry.json().nextReview.timezoneSnapshot).toBe("America/New_York");
+  });
+
+  it("汇总接口按时区区分今日到期与逾期", async () => {
+    const learning = new SqliteLearningRepository(db);
+    const tenant = { workspaceId: "ws_it", subjectUserId: "usr_it" };
+    await learning.createKnowledgeItem(tenant, { id: "ki_sum1", concept: "逾期知识点" });
+    await learning.createKnowledgeItem(tenant, { id: "ki_sum2", concept: "今日知识点" });
+    await learning.createReviewItem(tenant, {
+      id: "ri_sum_overdue",
+      knowledgeId: "ki_sum1",
+      dueAt: "2020-01-01T00:00:00.000Z",
+    });
+    await learning.createReviewItem(tenant, {
+      id: "ri_sum_today",
+      knowledgeId: "ki_sum2",
+      dueAt: new Date().toISOString(),
+    });
+
+    const summary = await app.inject({
+      method: "GET",
+      url: `/v1/review-items/summary?timeZone=${encodeURIComponent("Asia/Shanghai")}`,
+      headers,
+    });
+    expect(summary.statusCode).toBe(200);
+    const body = summary.json();
+    expect(body.dueCount).toBe(2);
+    expect(body.overdueCount).toBe(1);
+    expect(body.dueTodayCount).toBe(1);
+    expect(body.timeZone).toBe("Asia/Shanghai");
   });
 
   it("反馈：提交 + 列表", async () => {

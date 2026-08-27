@@ -460,7 +460,7 @@ registry.registerPath({
 });
 registry.registerPath({
   method: "get", path: "/v1/review-items/summary", summary: "读取到期复习汇总", tags: ["Learning"],
-  request: { headers: scopeHeaders, query: z.object({ dueBefore: z.string().optional() }) },
+  request: { headers: scopeHeaders, query: z.object({ dueBefore: z.string().optional(), timeZone: z.string().optional() }) },
   responses: { 200: { description: "Due review summary", content: { "application/json": { schema: reviewSummaryResponseSchema } } } },
 });
 registry.registerPath({

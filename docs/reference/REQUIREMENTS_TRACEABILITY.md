@@ -1,13 +1,13 @@
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：kikoyida · 2026-08-27
+- 修改人：kikoyida · 2026-08-28
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
-> 文档版本：v0.7
+> 文档版本：v0.8
 > 文档状态：评审候选（Review Candidate）  
-> 更新日期：2026-08-27
+> 更新日期：2026-08-28
 > 产品需求来源：[PRD.md](PRD.md)
 > 适用范围：原型、MVP、MVP+、P1、桌面阶段、P2、P3 及后续维护版本
 
@@ -104,7 +104,7 @@
 | `CAP-003` | 互动刷题 | `P0 · R1` | `Specified` | Not Ready | — | [互动练习与错题本](PRD.md#prd-cap-003-004) | 已由 [CR-008](changes/CR-008-practice-session-contract.md) 补齐题目选择、快照、幂等和完成边界；仍需 UX、API 错误语义、E2E 与评审证据后推进 Ready |
 | `CAP-004` | 错题本 | `P0 · R1` | `Specified` | Not Ready | — | [互动练习与错题本](PRD.md#prd-cap-003-004)、[CR-009](changes/CR-009-mistake-book-dismissal.md) | 已明确忽略/恢复不删除学习事实；仍需补错因变更、重复题合并的产品决策，以及 API、UI 与测试证据 |
 | `CAP-005` | 四段式记忆与记忆树 | `P0 · R1–R2` | `Specified` | Not Ready | ✔ | [四段式记忆与记忆树](PRD.md#prd-cap-005) | 拆分各层状态转换、TTL、压缩、冲突、删除、重建和迁移测试 |
-| `CAP-006` | 间隔重复 | `P0 · R1` | `Specified` | Not Ready | — | [间隔复习](PRD.md#prd-cap-006)、[CR-010](changes/CR-010-review-completion-idempotency.md) | 已明确完成幂等与结果重放；仍需错过日期、夏令时、算法升级和历史重算策略 |
+| `CAP-006` | 间隔重复 | `P0 · R1` | `Specified` | Not Ready | — | [间隔复习](PRD.md#prd-cap-006)、[CR-010](changes/CR-010-review-completion-idempotency.md)、[CR-011](changes/CR-011-timezone-safe-review-scheduling.md) | AC-FR-REV-001-03 已闭环（DST·跨时区·逾期汇总全覆盖）；仍需长期算法升级和批量历史重算策略 |
 | `CAP-007` | 文本与代码答疑 | `P0 · R1` | `Specified` | Not Ready | — | [引导式学习对话](PRD.md#prd-cap-007) | 进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready`（讲解触发复用 `FR-CONV-001`） |
 | `CAP-008` | 情绪价值与安全陪伴 | `P0 · R1` | `Specified` | Not Ready | — | [关系与情绪边界](PRD.md#prd-safety-boundary)、[轻量陪伴](PRD.md#prd-cap-008) | 固定风险分级、地区化求助入口、审计、误报处置和安全回归集 |
 | `CAP-009` | AI 每日日记 | `P0 · R1.5` | `Specified` | Not Ready | ✔ | [AI 每日日记](PRD.md#prd-cap-009)、[日记与记忆层的关系](PRD.md#prd-diary-memory) | 补定时任务幂等、重试、版本冲突、来源快照、通知和时区边界测试 |
@@ -156,6 +156,7 @@
 | 练习作答 OpenAPI 幂等契约对齐 | CAP-003/004 | `packages/contracts/src/{practice-schemas,openapi}.ts`、`packages/contracts/openapi.json`、`apps/api/test/openapi-contract.test.ts` | 2026-08-27 | `@aervox/contracts` build 生成 OpenAPI；`openapi-contract.test.ts` 契约测试 | 原生 |
 | 错题忽略/恢复处置 | CAP-004 | `apps/api/src/modules/learning/routes.ts`、`packages/database/src/schema/{learning,init}.ts`、`packages/database/src/repositories/sqlite/learning-repository.ts`、`packages/api-client/src/useAervoxApi.ts` | 2026-08-27 | `mistake-book.test.ts` 集成测试；Database/API/UI 类型检查 | 原生 |
 | 复习完成幂等重放、历史查询与工作台操作 | CAP-006 | `apps/api/src/modules/learning/routes.ts`、`packages/database/src/{schema,repositories}/`、`packages/contracts/src/`、`packages/api-client/src/useAervoxApi.ts`、`packages/ui/src/components/AervoxWorkbench.vue` | 2026-08-27 | API 集成测试与 OpenAPI 回归测试；Database/API Client/UI 类型检查 | 原生 |
+| 时区安全的复习调度与逾期汇总 | CAP-006 | `packages/practice-review/src/answer.ts`、`apps/api/src/modules/learning/routes.ts`、`packages/database/src/`、`packages/api-client/src/`、`packages/ui/src/components/AervoxWorkbench.vue` | 2026-08-28 | DST 单元测试（春/秋季切换·南半球·无 DST·跨时区）；API 集成测试（逾期不重复·从完成时间重算·时区快照·汇总分类）；覆盖 AC-FR-REV-001-03 | 原生 |
 | SQLite 写路径 busy 重试 | CAP-005/009/013 | `packages/database/src/write-retry.ts`、`client.ts` | 2026-08-26 | 单测 | `T-01` |
 | 会话级写锁 | CAP-005/009/013 | `packages/database/src/session-lock.ts` | 2026-08-26 | 单测 | `AST-01` |
 | 混合检索（FTS + 向量 RRF） | CAP-005/026 | `packages/database/src/search/`（`fts.ts`/`hybrid-search.ts`/`vector-port.ts`） | 2026-08-26 | 单测 | `T-02` + 原生 |

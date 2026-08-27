@@ -105,6 +105,7 @@ const {
   goals,
   dueReviews,
   completedReviews,
+  reviewSummary,
   mistakes,
   notifications,
   todayDiary,
@@ -813,6 +814,7 @@ onUnmounted(() => {
 
       <section class="study-section">
         <h4>待复习 <small>{{ dueReviews.length }}</small></h4>
+        <p v-if="reviewSummary" class="drawer-intro">今日 {{ reviewSummary.dueTodayCount }} 项 · 逾期 {{ reviewSummary.overdueCount }} 项 · 约 {{ reviewSummary.estimatedMinutes }} 分钟</p>
         <ul class="study-list">
           <li v-for="item in dueReviews" :key="item.id">
             <span class="study-item-title">知识点 #{{ item.knowledgeId }}</span>

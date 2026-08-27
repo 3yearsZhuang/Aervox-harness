@@ -145,6 +145,7 @@ export const reviewItems = sqliteTable(
     dueAt: text("due_at").notNull(),
     intervalDays: integer("interval_days").notNull().default(1),
     schedulerVersion: integer("scheduler_version").notNull().default(1),
+    timezoneSnapshot: text("timezone_snapshot").notNull().default("UTC"),
     status: text("status").notNull().default("active"), // "active" | "completed" | "dismissed" | "archived"
     completionIsCorrect: integer("completion_is_correct", { mode: "boolean" }),
     nextReviewId: text("next_review_id"),
