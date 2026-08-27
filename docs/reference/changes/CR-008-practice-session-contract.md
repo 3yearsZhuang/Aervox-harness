@@ -26,6 +26,6 @@
 
 ## 验证、回滚与决策
 
-- **测试与验收影响**：新增 `TC-API-PRC-001`、`TC-INTEG-PRC-001`、`TC-E2E-PRC-001` 追踪；本次以 contracts build 重新生成 `openapi.json` 验证契约；实现阶段需覆盖题目不足、快照稳定、重复提交、已结束会话和跨租户访问。
+- **测试与验收影响**：新增 `TC-API-PRC-001`、`TC-INTEG-PRC-001`、`TC-E2E-PRC-001` 追踪；本次以 contracts build 重新生成 `openapi.json` 并以 `openapi-contract.test.ts` 锁定作答幂等请求头与 `201/200` 响应语义；实现阶段需覆盖题目不足、快照稳定、重复提交、已结束会话和跨租户访问。
 - **迁移与回滚**：本次仅补充规格与追踪，不含运行时迁移；若评审拒绝，恢复 SRS 和追踪矩阵中本 CR 的规则与引用即可。
 - **决策**：Review Candidate。待产品、设计、工程和 QA 对会话恢复文案、错误码与 E2E 路径留痕后，方可随 `CAP-003` 进入 Ready 评审。
