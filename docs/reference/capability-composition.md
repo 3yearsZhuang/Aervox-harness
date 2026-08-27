@@ -1,16 +1,16 @@
 # Aervox 能力组合与可选化目录规范
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-28
 
 > 文档编号：AVX-CAP-001  
 > 类型：Reference  
-> 版本：v0.1  
-> 更新日期：2026-08-26  
+> 版本：v0.2  
+> 更新日期：2026-08-28  
 > 状态：Review Candidate  
-> 关联：[架构设计](ARCHITECTURE.md)、[ADR-001](adr/ADR-001-modular-monolith.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-014](adr/ADR-014-modular-monolith-structure.md)、[可选功能模块化方案](../explanation/optional_modules.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
+> 关联：[架构设计](ARCHITECTURE.md)、[ADR-001](adr/ADR-001-modular-monolith.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-014](adr/ADR-014-modular-monolith-structure.md)、[能力注册表](capability-registry.md)、[submodule 协作指南](../how-to/submodule-collaboration.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
-本文规定 Aervox 的目标能力组合模型、最终目录、Manifest、生命周期、依赖解析和外部运行时适配边界。它是目标架构规范，不代表当前代码已经完成迁移；在对应 ADR/CR 被接受前，现有实现和 [AVX-MOD-001](../explanation/optional_modules.md) 仍是当前执行基线。
+本文规定 Aervox 的能力组合模型、**必选交付与自选机制**、最终形态目录、Manifest、生命周期、依赖解析和外部运行时适配边界。它是能力组合与交付的当前执行基线：原"可选功能模块化方案"（AVX-MOD-001）已并入本文（见[交付载体与自选机制](#交付载体与自选机制必选)），其不变量、双轴自选、接口边界与边界判定提升为必选机制，功能清单迁至[能力注册表](capability-registry.md)。文中标为目标形态的目录、Manifest/Profile 与状态机，只有在对应代码、迁移和契约测试落地后才可视为运行能力，当前仓库照此渐进迁移（见[当前仓库迁移](#当前仓库迁移)）。
 
 ## 范围与非目标
 
@@ -56,6 +56,72 @@ Profile 可以没有用户能力，但不能关闭 Kernel Substrate。任何外�
 | `Overlay` | 对 Profile/Bundle 的环境、租户或用户级覆盖 |
 
 `modules/*`、npm、git submodule、DSH Bundle 和 pi Package 都只是代码来源或分发载体，不是能力语义本身。
+
+## 交付载体与自选机制（必选）
+
+能力语义（Definition/Provider/Profile）与代码载体分离，见上文；本节约束标准产品中每个能力**如何交付与自选**。原"可选功能模块化方案"（AVX-MOD-001）已并入本节：机制部分提升为必选执行，功能清单迁至[能力注册表](capability-registry.md)，落地步骤见[submodule 协作指南](../how-to/submodule-collaboration.md)。
+
+### 模块化交付不变量
+
+以下不变量是强制约定，违反任一即需先停止并走 `CR-*`：
+
+1. **核心承诺不因自选关闭**。P0（CAP-001~013）是学习/陪伴闭环的必要能力，始终进入标准 Profile 与默认构建产物（Profile 可按环境裁剪，但标准形态必须包含）；自选只影响非核心体验与扩展，不改变安全、隐私、删除与导出承诺。
+2. **独立演进的功能必须子仓库开发**。任何被判定纳入自选机制的非核心功能，其代码必须位于独立 git 仓库并经 git submodule 挂入 `modules/*` 后消费；禁止在主仓 `packages/` 内维护"可选却同仓开发"的平行实现。
+3. **消费一律走 workspace 包**。`modules/<name>` 在 pnpm workspace 中成为 `@aervox/mod-<name>` 包，主 app 通过 `workspace:^` 依赖，不通过路径 hack 或复制代码引用。
+4. **接口单一事实源不分裂**。模块接口只输出一个事实源：OpenAPI / 事件 schema（走 `packages/contracts` 或模块自带 schema，二选一并登记），或 TypeScript 类型 + 契约文档；不得为同一功能在模块与主仓维护两套互相漂移的接口定义。
+5. **默认不启用**。未被显式纳入默认构建集的能力不进入默认产物；启用才产生依赖与运行时成本。
+
+### 两轮自选（构建 + 运行时）
+
+自选在两个粒度上分开控制，可同时存在（双机制）；每个纳入自选的能力必须至少落入其一，并声明于[能力注册表](capability-registry.md)。
+
+#### A. 构建时自选（发布/打包时决定默认集）
+
+- 主仓通过 workspace 依赖与构建配置决定"默认打包哪些能力"；
+- 未在默认列表的能力不进入产物，减少体积与攻击面；
+- 用于：桌面端（CAP-018）、Live2D / 桌宠皮肤、本地优先（CAP-027）等在发布边界上更自然的候选。
+
+#### B. 运行时自选（端用户在设置里开关）
+
+- 已打包进产物的能力在运行时按用户配置启用/停用；
+- 运行时开关只影响"功能是否可被触发"，不影响已存在数据、安全与删除边界；
+- 用于：插件系统（CAP-020）、第三方接入、知识库/收藏项等以"安装/授权/开关"为交互形态的候选。
+
+> 二者关系：构建时决定**能力是否存在**，运行时决定**对当前用户是否可用**。
+
+### 版本锁定与升级
+
+- 每个 `modules/*` 子模块固定 commit / tag；升级需走 `CR-*` 并记录变更原因、依赖画廊（peer 版本）与回归结果（对齐 [PRD 15.1](PRD.md#prd-reference-manifest) 参考仓库规则）。
+- 主仓记录各模块的"已批准版本"，作为构建清单事实源；升级前在 CI 中跑模块自身测试 + 主仓集成测试（见 [submodule 协作指南](../how-to/submodule-collaboration.md)）。
+
+### 接口边界
+
+- 能力模块不得拥有 Aervox 核心业务数据的直接写入权；需要读写学习/记忆/日记时，只能使用主仓暴露的受限接口或提交"候选"，由主仓领域规则决定最终落库（对齐 PRD 14.3 的 dsh/pi/MCP 接线约束）。
+- 模块输出的数据生命周期（召回、保留、删除、导出）仍服从主仓 `DATA_PRIVACY`，模块不得自建独立的删除/同意旁路。
+
+### 核心与可选的边界判定
+
+判定一个功能"是否纳入自选机制"用以下四条正向条件，**全部满足**才可纳入：
+
+1. **不构成闭环必要条件**：移除后核心"目标→引导→练习→复习→记忆"闭环仍完整成立；
+2. **存在清晰接口边界**：可用适配器/包级接口与主仓隔离，不依赖修改核心领域实体代码；
+3. **启用/停用可撤销且无数据破坏**：开关不破坏已保存数据，可回滚；
+4. **独立版本化有意义**：该能力可单独演进、单独发布或单独授权。
+
+**反向检查（防误伤）**：尽管某些期望/表现可被伪装成"可选"（例如桌宠形象 CAP-001 的表现层、NFR 的无障碍/性能），凡是承担学习闭环、安全、隐私、删除/导出或学习事实真源的功能，**一律保留主仓**，不因"看起来像皮肤"而纳入自选。
+
+> 决策边界：把某个 P0 判定为"可选"（即使表现层）属不可逆架构决策，必须新增 ADR；P1/P2/P3 纳入自选机制不改变其增长路线，只改变其交付载体。
+
+### 风险与替代方案
+
+| 风险 | 缓解 |
+|---|---|
+| **git submodule 用于运行时功能被普遍视为反模式** | 本机制把 submodule 仅作为"开发代码来源 + 版本锁定"，消费一律走 pnpm workspace 包；运行时开关由主仓构建/配置表驱动，不在运行时动态拉取 submodule |
+| 子模块未初始化 / commit 漂移导致构建假绿或失败 | CI 显式校验 `modules/*` 初始化与 pin；未 pin 视为失败 |
+| 能力模块私自读写核心数据 | [接口边界](#接口边界)强制受限接口/候选制，字段级来源约束 |
+| "可选"被滥用为绕过 P0 责任 | [边界判定](#核心与可选的边界判定)反向检查把安全/闭环/隐私规定为核心不选，误判需新 ADR |
+| 生态与插件系统（CAP-020）与自选机制演化重叠 | 本机制提供**构建时**载体（`@aervox/mod-*`），CAP-020 提供**运行时**插件运行与沙箱；两者未来可统一到插件宿主，本文保留该演进路径 |
+| 与 `reference/` 只读参考混淆 | `reference/` 不消费、不运行；`modules/` 是会被 workspace 消费的交付载体。参考项要转功能时先按许可证评估（对齐 PRD 15.1），再另建独立 `modules/*` 仓库，不把 reference 直接提升为模块 |
 
 ## 目标依赖模型
 
@@ -158,7 +224,7 @@ registry/
   licenses/
   migrations/
 
-modules/                       # 迁移期 source/distribution staging
+modules/                       # 独立演进能力的 submodule 交付载体（必选机制）
 reference/                     # 固定 commit 的只读参考
 ```
 
@@ -375,6 +441,6 @@ pi 固定参考 commit 为 `c49906ec77788625aacbdc53ebca6fbe65bd20f5`，许可�
 - `ADR-009` 对本规范构成安全约束：其进程外隔离、默认无权、签名、配额、超时、撤销和 kill switch 从 Electron 场景扩展到所有外部 Host。
 - `ADR-010` 由本规范扩展：继续保持 DSH/pi 是可选 Adapter、Aervox 数据为唯一真源，并补充统一 Manifest/Profile/Contribution。
 - `ADR-014` 是迁移期结构：`apps/api/src/modules/*` 可以继续作为起点，但最终由组合根选择 Provider，能力不能自行实例化具体 SQLite 类。
-- `AVX-MOD-001` 与目标存在实质冲突：P0 永远非自选、可选代码只能使用 git submodule、`modules/*` 是能力边界等条款需要通过 `CR-*` 被替代；其构建/运行时双轴和数据权利约束继续保留。
+- `AVX-MOD-001`（可选功能模块化方案）已并入本文（见[交付载体与自选机制](#交付载体与自选机制必选)）：不变量、双轴自选、接口边界与边界判定提升为必选机制，功能清单迁至[能力注册表](capability-registry.md)，落地步骤见 [submodule 协作指南](../how-to/submodule-collaboration.md)；原 `docs/explanation/optional_modules.md` 已删除。
 
 接受该目标前必须建立 `ADR-016`（或等效决策）并完成相关 `CR-*`。字段、目录、Kernel 范围、外部代码信任域或数据所有权的改变都必须保留迁移、回滚和追踪证据。

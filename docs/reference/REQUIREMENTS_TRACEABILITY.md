@@ -201,6 +201,7 @@
 | ESP32-S3 物理桌宠硬件延伸方案（恢复并完善） | CAP-001/018（候选；设备能力待 CR 立项） | `docs/explanation/esp32-s3-hardware-extension.md`（AVX-EXPL-005） | 2026-08-28 | ci-docs；外部模组数据手册核对 | 原生设计提案 |
 | 新功能开发流程文档化（根级贡献指南 CONTRIBUTING，双语，替代暂存 AVX-GUIDE-004 how-to） | 基础设施（工程流程/文档治理） | [CONTRIBUTING.md](../../CONTRIBUTING.md)（融合参考项目贡献指南骨架 + 三阶段流程 + 本仓库门禁；feature-development.md 已删除并入） | 2026-08-26 | ci-docs | 原生 |
 | Agent Harness Loop 阶段 0+1：契约冻结 + 无工具单 Step Loop（Replay 驱动，替换固定 done SSE） | CAP-002/007 + 基础设施 | `packages/agent-loop`（Ports/Executor/Replay Provider/内存 Store/契约测试）、`packages/database` conversation-repository（`claimTurnAttempt` CAS+fencing / `finalizeTurnAttempt` / `appendStreamEvent` 扩展 attempt/safetyDecision）、`apps/api` conversation routes（POST turn 建 Attempt + `executeTurn`，SSE 改重放 `turn_stream_events`） | 2026-08-28 | `@aervox/agent-loop` 5 单测（确定性序列/幂等重放/CAS）+ `apps/api` conversation-loop 集成测试（POST turn → message→delta→done，重连幂等）；ci-code 全量 | `DSH-01` + 原生 |
+| 可选模块方案并入能力组合体系（AVX-MOD-001 提升为必选机制） | 基础设施（文档治理） | [AVX-CAP-001](capability-composition.md) 新增「交付载体与自选机制（必选）」（不变量/双轴/接口边界/判定准则）、新建 [AVX-CAP-REG-001](capability-registry.md) 能力注册表、[AVX-GUIDE-003](../how-to/submodule-collaboration.md) 并入生命周期门禁 §8、删除 `docs/explanation/optional_modules.md` 并同步索引/登记表/教程/CR 引用；README 按项目现状更新 | 2026-08-28 | ci-docs | 原生 |
 
 ## 5. 原子需求字段模板
 
