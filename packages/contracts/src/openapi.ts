@@ -50,6 +50,8 @@ import {
   exportSkillsRequestSchema,
   importPersonaRequestSchema,
   importSkillsRequestSchema,
+  localVoiceConfigResponseSchema,
+  localVoiceConfigSchema,
   mcpToolSchema,
   personaBundleResponseSchema,
   personaRevisionSchema,
@@ -123,6 +125,8 @@ registry.register("McpTool", mcpToolSchema);
 registry.register("VoiceModel", voiceModelSchema);
 registry.register("VoiceSynthesisRequest", voiceSynthesisRequestSchema);
 registry.register("VoiceSynthesisResponse", voiceSynthesisResponseSchema);
+registry.register("LocalVoiceConfig", localVoiceConfigSchema);
+registry.register("LocalVoiceConfigResponse", localVoiceConfigResponseSchema);
 registry.register("PersonaBundleResponse", personaBundleResponseSchema);
 registry.register("SkillZipResponse", skillZipResponseSchema);
 registry.register("SkillMetadata", skillMetadataSchema);
@@ -360,6 +364,8 @@ registry.registerPath({ method: "delete", path: "/v1/skills/{skillName}", summar
 registry.registerPath({ method: "get", path: "/v1/mcp/tools", summary: "列出 MCP 工具", tags: ["MCP"], request: { headers: scopeHeaders }, responses: { 200: { description: "MCP tools", content: { "application/json": { schema: z.object({ tools: z.array(mcpToolSchema) }) } } } } });
 registry.registerPath({ method: "get", path: "/v1/voice/models", summary: "列出 GPT-SoVITS 模型", tags: ["Voice"], responses: { 200: { description: "Voice models", content: { "application/json": { schema: z.object({ models: z.array(voiceModelSchema) }) } } } } });
 registry.registerPath({ method: "post", path: "/v1/voice/synthesize", summary: "GPT-SoVITS 语音合成", tags: ["Voice"], request: { body: { content: { "application/json": { schema: voiceSynthesisRequestSchema } } } }, responses: { 200: { description: "Audio artifact", content: { "application/json": { schema: voiceSynthesisResponseSchema } } }, 503: { description: "VOICE_PROVIDER_UNAVAILABLE" } } });
+registry.registerPath({ method: "get", path: "/v1/voice/config", summary: "读取本地语音模型配置", tags: ["Voice"], request: { headers: scopeHeaders }, responses: { 200: { description: "Local voice config", content: { "application/json": { schema: localVoiceConfigResponseSchema } } } } });
+registry.registerPath({ method: "put", path: "/v1/voice/config", summary: "保存本地语音模型配置", tags: ["Voice"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: localVoiceConfigSchema } } } }, responses: { 200: { description: "Local voice config", content: { "application/json": { schema: localVoiceConfigResponseSchema } } }, 400: { description: "INVALID_VOICE_CONFIG / modelPath 不在白名单" }, 503: { description: "VOICE_PROVIDER_UNAVAILABLE" } } });
 
 const pluginIdParam = z.object({ pluginId: z.string().min(1) });
 const pluginPageParam = pluginIdParam.extend({ pageId: z.string().min(1) });

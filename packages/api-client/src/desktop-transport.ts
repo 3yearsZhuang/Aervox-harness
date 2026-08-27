@@ -15,6 +15,8 @@ declare global {
         body?: unknown,
       ) => Promise<{ status: number; ok: boolean; json: T | null; text: string }>;
       streamTurn: (content: string, callback: (message: unknown) => void) => () => void;
+      /** 打开系统「选择文件夹」对话框，返回选中目录绝对路径；取消返回 null（CR-011 阶段 3） */
+      pickDirectory?: () => Promise<string | null>;
     };
   }
 }

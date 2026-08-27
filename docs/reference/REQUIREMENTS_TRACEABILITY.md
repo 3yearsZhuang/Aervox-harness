@@ -1,13 +1,13 @@
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：kikoyida · 2026-08-27
+- 修改人：3yearszhuang · 2026-08-28
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
-> 文档版本：v0.7
+> 文档版本：v0.8
 > 文档状态：评审候选（Review Candidate）  
-> 更新日期：2026-08-27
+> 更新日期：2026-08-28
 > 产品需求来源：[PRD.md](PRD.md)
 > 适用范围：原型、MVP、MVP+、P1、桌面阶段、P2、P3 及后续维护版本
 
@@ -183,6 +183,9 @@
 | 桌面 preload 按域 IPC 拆分 | CAP-018 | `apps/desktop/src/preload/domains/` | 2026-08-26 | typecheck | `T-07` |
 | Persona 系统级重构（去模块化 + 结合系统级 Skills/Tools/MCP + 独立 Voice 模块） | CAP-019/020 | `apps/api/src/modules/{persona,voice}/`、`packages/database/src/schema/persona.ts`、`repositories/sqlite/persona-repository.ts`、`packages/contracts/src/persona-schemas.ts` | 2026-08-27 | 单测 + API 集成测试 + ci-code | 原生 |
 | Persona 设定 UI（工作台设置 + 角色列表 + 创建/编辑弹窗 + 导入导出 + 技能/工具联动） | CAP-019 | `packages/api-client/src/useAervoxPersonas.ts`、`packages/ui/src/components/persona/`、`packages/ui/src/components/AervoxWorkbench.vue` | 2026-08-27 | UI/Web/Desktop typecheck + build | `AST-03` + 原生 |
+| 本地语音模型配置（CR-011 阶段 1：设置配置 + 持久化 + 白名单校验） | CAP-019/020 | `packages/database/src/schema/voice.ts`、`repositories/sqlite/voice-config-repository.ts`、`packages/contracts/src/persona-schemas.ts`、`apps/api/src/modules/voice/`、`packages/api-client/src/useAervoxVoice.ts`、`packages/ui/src/components/voice/LocalVoiceConfigPanel.vue` | 2026-08-28 | Database 单测 + API 集成测试；API Client/UI typecheck | 原生 |
+| 人格编辑「语音」能力块（CR-011 阶段 2：人格语音选择 + 试听，写入 `PersonaRevisionConfig.voice`） | CAP-019/020 | `packages/ui/src/components/persona/{VoiceAbilityCard,PersonaEditDialog}.vue`（复用既有 `config.voice` 契约与 `useAervoxVoice`） | 2026-08-28 | UI typecheck + build | 原生 |
+| 语音目录选择（CR-011 阶段 3：模型路径与音色支持手输 + 系统「选择文件夹」并存） | CAP-019/020 | `apps/desktop/src/{main/index.ts,preload/domains/dialog-api.ts,preload/index.ts}`、`packages/api-client/src/useAervoxVoice.ts`、`packages/ui/src/components/{voice/LocalVoiceConfigPanel,persona/VoiceAbilityCard}.vue` | 2026-08-28 | API Client/UI/Web/Desktop typecheck + build | 原生 |
 | Codex Pets 兼容：9 状态 spritesheet 协议（manifest + 8×9 atlas 渲染 + 工具状态驱动） | CAP-001/018 | `packages/contracts/src/schemas.ts`（`petSheet*`/`petManifest`）、`packages/ui/src/components/SpritePet.vue`、`apps/api/src/modules/tools/mcp.ts`（`derivePetSheetState`） | 2026-08-26 | typecheck + API 集成测试 + ci-code | 原生（外部协议兼容） |
 | Skill 契约与存储（注册表 + Neo 生命周期表 + 幂等仓储） | CAP-020 | `packages/contracts/src/schemas.ts`（Skill 契约）、`packages/database/src/schema/skills.ts`、`repositories/sqlite/skill-registry-repository.ts`、`skill-lifecycle-repository.ts` | 2026-08-26 | 单测 | `Skill`（借鉴 AstrBot） |
 | Skill 管理模块与 API（zip 安装 + 渐进式披露 prompt） | CAP-020 | `apps/api/src/modules/skills/`（`zip.ts`/`skill-manager.ts`/`skill-prompt.ts`/`routes.ts`） | 2026-08-26 | API 集成测试 | `Skill`（借鉴 AstrBot） |

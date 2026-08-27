@@ -1609,6 +1609,40 @@ export interface IPluginPageRepository {
   deletePagesForPlugin(pluginId: string): Promise<void>;
 }
 
+// ============ 语音输出配置（系统核心能力 · CR-011 阶段 1：本地语音模型配置）============
+
+/** 本地语音模型配置模型（voice_configs 行；每租户一行） */
+export interface LocalVoiceConfigModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  enabled: number;
+  providerId: string;
+  modelPath?: string | null;
+  modelId: string;
+  speakerId?: string | null;
+  settingsJson?: unknown;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 本地语音配置保存输入（由 API 层完成 Schema 校验/默认值合并后调用） */
+export interface LocalVoiceConfigSaveInput {
+  enabled: boolean;
+  providerId: string;
+  modelPath?: string | null;
+  modelId: string;
+  speakerId?: string | null;
+  settings?: Record<string, unknown>;
+}
+
+export interface IVoiceConfigRepository {
+  /** 读取当前租户的本地语音配置（不存在返回 null） */
+  getConfig(tenant: TenantContext): Promise<LocalVoiceConfigModel | null>;
+  /** upsert：存在则更新，不存在则插入；返回保存后的模型 */
+  saveConfig(tenant: TenantContext, input: LocalVoiceConfigSaveInput): Promise<LocalVoiceConfigModel>;
+}
+
 // ============ T-04 工具注册表 + AST-04 门控 + PET-05 安全级别 ============
 
 export interface ToolRegistrationModel {

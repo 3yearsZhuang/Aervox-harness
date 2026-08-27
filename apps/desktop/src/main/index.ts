@@ -1,4 +1,4 @@
-import {app, BrowserWindow, ipcMain, Menu, nativeTheme, screen} from 'electron'
+import {app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, screen} from 'electron'
 import {join} from 'node:path'
 
 let mainWindow: BrowserWindow | null = null
@@ -222,6 +222,16 @@ app.whenReady().then(() => {
     ipcMain.handle('window:close', () => {
         mainWindow?.destroy()
         return true
+    })
+    // 「选择文件夹」：本地语音模型路径 / 音色目录（CR-011 阶段 3）
+    ipcMain.handle('dialog:pick-directory', async (event) => {
+        const window = BrowserWindow.fromWebContents(event.sender)
+        if (!window) return null
+        const result = await dialog.showOpenDialog(window, {
+            title: '选择文件夹',
+            properties: ['openDirectory', 'createDirectory'],
+        })
+        return result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0]
     })
     ipcMain.on('aervox:turn:start', streamAervoxTurn)
     ipcMain.handle('aervox:api:request', proxyApiRequest)
