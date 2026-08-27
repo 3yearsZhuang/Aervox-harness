@@ -1,18 +1,18 @@
 # 参考项目能力迁移与借鉴评估
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-28
 
 > 文档编号：AVX-EXPL-002
 > 类型：Explanation
-> 版本：v0.6
-> 更新日期：2026-08-26
-> 状态：Draft
-> 关联：[参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[数据库设计与双引擎契约](../reference/DATABASE.md)、[可选功能模块化方案](optional_modules.md)、[AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)
+> 版本：v0.7
+> 更新日期：2026-08-28
+> 状态：Review Candidate
+> 关联：[参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[数据库设计与双引擎契约](../reference/DATABASE.md)、[可选功能模块化方案](optional_modules.md)、[Agent Harness Loop 规范](../reference/agent-harness-loop.md)、[AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)
 
 ## 1. 评估范围与判定框架
 
-本评估回答：`reference/` 内参考项目中哪些设计适合在本项目落地，哪些仅作为设计参考。当前覆盖三个已评审项目：BaiShou-Next（固定 commit `d95bae0f`）、AstrBot（固定 commit `4d877c99`）与 Petra（固定 commit `b629b295`，v0.2.1）。前两者采用 AGPLv3，适用同一借鉴边界；Petra 采用 MIT，风险评级参照 dsh-synapse。其余子模块（dsh-synapse、deepseek-harness、pi）的评估另行补充。评估结论与 [PRD §15](../reference/PRD.md#15-参考项目与借鉴边界) 的参考项目策略保持一致。
+本评估回答：`reference/` 内参考项目中哪些设计适合在本项目落地，哪些仅作为设计参考。当前覆盖 BaiShou-Next、AstrBot、Petra、dsh-synapse、DeepSeek Harness（DSH）与 pi 六个固定版本。DSH 与 pi 的 Agent Loop 设计来源分别登记为 `DSH-01` 与 `PI-01`；它们只用于验证目标控制流和接口边界，不改变 Aervox 的数据所有权或安全模型。评估结论与 [PRD §15](../reference/PRD.md#15-参考项目与借鉴边界) 的参考项目策略保持一致。
 
 判定框架有三条边界：
 
@@ -21,6 +21,17 @@
 3. **落地成本与优先级**：以 P0/P1 能力为优先，避免为远期功能引入当前不需要的复杂度。
 
 判定结果分为三类：**A 建议落地**（符合 Aervox 规划、可在现有架构内自研实现）、**B 值得借鉴**（设计有价值但在本阶段不落地）、**C 暂不采用**（与目标架构冲突或依赖不匹配）。
+
+### 1.1 Agent Loop 参考来源登记
+
+`DSH-01` 与 `PI-01` 是 Agent Harness Loop 相关参考设计的唯一来源编号。实现登记中的 `来源` 列只能使用这两个编号指向下表，不能把外部仓库当作 Aervox 的运行时依赖或事实源。
+
+| 来源编号 | 固定参考 | 重点证据 | 可借鉴设计 | Aervox 明确不迁移 |
+|---|---|---|---|---|
+| `DSH-01` | `reference/deepseek-harness`，commit `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`，MIT | `packages/core/agent-loop/src/agent.ts`、`docs/architecture.md`、`packages/core/agent-loop/README.md` | Turn/Step 双层循环、模型流与工具请求交替、typed event、`followup`/`steer`/`inject`、可逆 effect/disposer | DSH Session log、Cordis Context、DSH 权限系统、直接连接 Aervox SQLite |
+| `PI-01` | `reference/pi`，commit `c49906ec77788625aacbdc53ebca6fbe65bd20f5`，MIT | `packages/agent/src/agent-loop.ts`、`packages/agent/src/harness/`、`packages/agent/docs/harness.md` | outer follow-up loop、inner tool/steer loop、工具参数准备与结果回填、append-only/reducer、writer lease/fencing | pi Session/存储格式、Extension 宿主权限、直接加载到 API/Worker/Renderer；该版本 Harness v2 仍有 scaffold，不能视为已接入实现 |
+
+采用方式固定为“自研重写 + Adapter 翻译”：Aervox 先以 [AVX-HAR-001](../reference/agent-harness-loop.md) 的 Definition、Port、事件和状态机为准，再为 DSH/pi 生成可替换 Provider。外部参考的示例名称、Session ID、工具参数和事件序列都必须经过 Aervox schema、Consent、ToolPolicy、租约和审计检查。
 
 ## 2. 结论摘要
 
@@ -217,19 +228,21 @@ Aervox 自研落地（AGPLv3 仅借鉴设计，不复制源码）：
 
 ## 6. 落地顺序建议
 
-以"见效快、不改结构、先服务现有痛点"为原则分三批，此后按需接线：
+以"见效快、不改结构、先服务现有痛点"为原则分四批，此后按需接线：
 
 1. **第一批（低风险，独立可排）**：T-01 busy 重试 → AST-01 会话级写锁 → T-02 混合检索。三者都是 `packages/database`/写路径内收口改动，直接解除多进程锁风险并打通记忆召回首链路。
 2. **第二批（需要契约与 Worker 配合）**：T-03 压缩标记 → T-05 embedding 独立表（对照 AST-02 对齐 Port 语义）→ PET-01 表现指令字段、PET-02 记忆条目字段（随契约冻结对照）。涉及记忆溯源与运行时代价，先冻结 `packages/contracts` 相关 schema 再实现。
 3. **第三批（随 CAP 排期）**：T-04 工具系统随 CAP-020 立项（对照 AST-04 元数据模型，安全对照 PET-05 白名单）；AST-03 人设解析链随 CAP-019 立项（对照 T-08 文档化）；PET-03 自主行为、PET-04 表现驱动抽象随桌面端功能扩展引入；T-06～T-10、AST-05 按对应功能阶段引入。
 4. **第四批（运行时接线）**：为第一批至第三批已落地的契约/存储接通真实调用链——T-04 tools 运行时与 `/v1/tools` 路由、T-03/T-05 Worker 异步消费、PET-01 前端 emote 消费、CAP-020 插件运行时、T-06 迁移服务与 AST-05 完成标记、T-09 快照与 T-10 分账（详见 §6.1）。
 
-### 6.1 已落地进度总表
+### 6.1 落地登记唯一真源
 
-本表是第四批以后改动落地追踪的事实源：凡按 §3 / §4 落地的设计，必须在此登记实现位置与日期（约束见 [AGENTS.md](../../AGENTS.md)）。未登记即视为未闭环。
+本表是参考设计在 Aervox 中的落地追踪事实源：凡按 §3 / §4 落地、完成契约文档化或进入运行时接线的设计，必须在此登记实现位置、日期和验证方式（约束见 [AGENTS.md](../../AGENTS.md)）。`目标已文档化` 不等于 `运行时已接入`；未登记即视为未闭环。
 
 | 编号 | 判定 | 批次 | 落地日期 | 实现位置 | 说明 |
 |---|---|---|---|---|---|
+| `DSH-01` | B（目标已文档化） | Agent Loop 阶段 0 前 | 2026-08-28 | `docs/reference/agent-harness-loop.md`（AVX-HAR-001）、`docs/reference/changes/CR-012-agent-harness-loop.md` | 已固化 Turn/Step、typed event、工具管线和 Adapter 边界；DSH 运行时尚未接入，不能标记为已实现 |
+| `PI-01` | B（目标已文档化） | Agent Loop 阶段 0 前 | 2026-08-28 | `docs/reference/agent-harness-loop.md`（AVX-HAR-001）、`docs/reference/changes/CR-012-agent-harness-loop.md` | 已固化 outer/inner loop、Inbox、lease/fencing 和进程外 Host 约束；pi 运行时尚未接入，不能标记为已实现 |
 | T-03 | A | 第二批 | 2026-08-26 | `packages/database/src/schema/memory-compaction.ts`、`repositories/sqlite/memory-compaction-repository.ts` | `memory_compaction_markers` 表 + 幂等仓储 |
 | T-05 | A | 第二批 | 2026-08-26 | `packages/database/src/schema/embeddings.ts`、`repositories/sqlite/memory-embedding-repository.ts` | `memory_embeddings` 独立表 + 批量/重试/余弦检索（对照 AST-02） |
 | PET-01 | A | 第二批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（`petCommandSchema`/`emoteEventDataSchema`） | SSE 表现指令契约预留 |
@@ -273,6 +286,9 @@ Aervox 自研落地（AGPLv3 仅借鉴设计，不复制源码）：
 - [文档索引 §7 参考项目](../README.md#7-参考项目)
 - [数据库设计与双引擎契约](../reference/DATABASE.md)
 - [可选功能模块化方案](optional_modules.md)
+- [Agent Harness Loop 设计与落地规范](../reference/agent-harness-loop.md)（AVX-HAR-001）
+- DeepSeek Harness 固定 commit `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`（MIT，仅以 `DSH-01` 借鉴 Agent Loop 设计，不作为运行时依赖）
+- pi 固定 commit `c49906ec77788625aacbdc53ebca6fbe65bd20f5`（MIT，仅以 `PI-01` 借鉴 Agent Harness 设计，不作为运行时依赖）
 - BaiShou-Next 固定 commit `d95bae0f6f3184a94bbc3a77eb71ca987bfcadba`（AGPLv3，仅参考设计，不复制源码）
 - AstrBot 固定 commit `4d877c9919e58008f6f2cf4b19e18f9c48e4338f`（AGPLv3，仅参考设计，不复制源码）
 - Petra 固定 commit `b629b295b5ae535d80e09cd59bd3d515bcd8150f`（MIT，复制代码需记录来源与版权声明）

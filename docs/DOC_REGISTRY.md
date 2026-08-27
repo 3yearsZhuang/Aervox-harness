@@ -28,6 +28,7 @@
 | `AVX-GUIDE-001~003` | [操作指南](how-to) | 2026-08-26 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
 | `AVX-MOD-001` | [可选功能模块化方案](explanation/optional_modules.md) | 2026-08-26 | G2 评审 + 模块机制变更 | 过渡机制与 `modules/*` 实际不符，或目标替代关系未同步 |
 | `AVX-CAP-001` | [能力组合与可选化目录规范](reference/capability-composition.md) | 2026-08-26 | G2 评审 + 能力宿主/适配器机制变更 | Manifest、Profile、Provider、Adapter、Kernel 边界与实现或 ADR/CR 不一致 |
+| `AVX-HAR-001` | [Agent Harness Loop 设计与落地规范](reference/agent-harness-loop.md) | 2026-08-28 | G2 评审 + Agent Loop/Provider/工具/持久化边界变更 | Turn/Attempt/Step、Provider、Tool、Inbox、恢复或 Profile 语义与实现/ADR 不一致 |
 | `AVX-WEB-001` | [Web 工作台实现规划](explanation/web-implementation.md) | 2026-08-25 | Web 端实现或技术基线变更 | `apps/web` 结构与 ADR-015/规划不一致 |
 | `CR-002` | [Fairy Agent Electron 桌面端](reference/changes/CR-002-fairy-desktop-module.md) | 2026-08-24 | CAP-018 桌面端实现或安全边界变更 | Electron 端目录、契约边界、测试证据或回滚条件与实现不符 |
 | `CR-003` | [SQLite 业务真源与 PG 兼容](reference/changes/CR-003-sqlite-primary-pg-compat.md) | 2026-08-24 | 数据真源 / 仓储抽象变更 | 仓储接口或 PG 切换计划与实现不符 |
@@ -39,19 +40,20 @@
 | `CR-009` | [错题本忽略与恢复规则](reference/changes/CR-009-mistake-book-dismissal.md) | 2026-08-27 | `CAP-004` 错题本处置或重练规则变更 | SRS、API、数据库和 UI 对忽略状态、恢复与学习事实保留的语义不一致 |
 | `CR-010` | [复习完成幂等与结果重放](reference/changes/CR-010-review-completion-idempotency.md) | 2026-08-27 | `CAP-006` 完成、重试或调度结果契约变更 | SRS、API、数据库、OpenAPI 和 UI 的幂等语义不一致 |
 | `CR-011` | [时区安全的复习调度与逾期汇总](reference/changes/CR-011-timezone-safe-review-scheduling.md) | 2026-08-27 | `CAP-006` 时区来源、日界线或调度版本变更 | 时区快照、DST 算法、逾期口径与实现不一致 |
-| `CR-012` | [活跃练习会话恢复与续答](reference/changes/CR-012-practice-session-recovery.md) | 2026-08-28 | `CAP-003` 活跃会话、题组快照或续答边界变更 | SRS、OpenAPI、持久化进度与工作台恢复行为不一致 |
+| `CR-012` | [Agent Harness Loop 目标规范与迁移基线](reference/changes/CR-012-agent-harness-loop.md) | 2026-08-28 | Agent Loop、TurnAttempt、工具管线、Provider 或部署形态变更 | AVX-HAR-001、流式协议、能力组合、实现阶段或回滚边界不一致 |
+| `CR-013` | [活跃练习会话恢复与续答](reference/changes/CR-013-practice-session-recovery.md) | 2026-08-28 | `CAP-003` 活跃会话、题组快照或续答边界变更 | SRS、OpenAPI、持久化进度与工作台恢复行为不一致 |
 | `AVX-PLUG-001` | [插件 Config 与 Page 规范](reference/plugin-config-and-pages.md) | 2026-08-26 | CR-006 / 插件机制变更 | Manifest、Config Schema、Page Bridge 与实现不一致 |
 | `AVX-MOD-PERSONA-001` | [`modules/persona-plugin`](https://github.com/KashiwagiEri233/aervox-persona-plugin-module) | 2026-08-25 | 每次 submodule 指针/包契约/权限变更 | workspace 包、固定 commit 或模块自身 CI 不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 2026-08-26 | 规则变更或季度评审 | 新增文档未标注四分类/头字段不合规，或 Vale 规则与术语表不一致 |
-| `AVX-TERM-001` | [术语表](reference/standards/terminology.md) | 2026-08-26 | 术语新增/变更 | 新增缩写未登记，或正文拼写与「禁写」列不一致 |
+| `AVX-TERM-001` | [术语表](reference/standards/terminology.md) | 2026-08-28 | 术语新增/变更 | 新增缩写未登记，或正文拼写与「禁写」列不一致 |
 | `AVX-TUT-001` | [教程：第一个对话](tutorials/first-conversation.md) | 2026-08-25 | 启动命令/端点变更 | 快速开始命令、Turn/SSE 端点与 README/契约不一致 |
-| `AVX-TUT-002` | [教程：迁移已集成能力并接入 DSH/pi](tutorials/migrate-integrated-capabilities.md) | 2026-08-26 | 能力目录、DSH/pi 上游或迁移步骤变更 | 当前实现路径、固定 SHA、权限/隔离边界或验证命令与仓库不一致 |
+| `AVX-TUT-002` | [教程：迁移已集成能力并接入 DSH/pi](tutorials/migrate-integrated-capabilities.md) | 2026-08-28 | 能力目录、DSH/pi 上游或迁移步骤变更 | 当前实现路径、固定 SHA、权限/隔离边界或验证命令与仓库不一致 |
 | `AVX-EXPL-001` | [数据流总览](explanation/data-flow-overview.md) | 2026-08-25 | 模块/Worker/路由变更 | 新增模块或 Worker 循环未入概念地图 |
-| `AVX-EXPL-002` | [参考项目能力迁移与借鉴评估](explanation/reference-design-transfer.md) | 2026-08-26 | 参考项目升级或架构变更 | 新增借鉴决策未登记，或参考项目 commit 超出固定清单 |
+| `AVX-EXPL-002` | [参考项目能力迁移与借鉴评估](explanation/reference-design-transfer.md) | 2026-08-28 | 参考项目升级或架构变更 | 新增借鉴决策未登记，或参考项目 commit 超出固定清单 |
 | `AVX-EXPL-003` | [桌宠角色设定文档化与多人格模板组织](explanation/persona-organization.md) | 2026-08-26 | 桌宠 IP / CAP-019 立项或人设变更 | 新增/变更角色文档未按字段化结构与模板版本化落地，或识别边界未同步评审 |
 | `AVX-EXPL-004` | [能力拆分路线](explanation/roadmap.md) | 2026-08-26 | CAP 批次/依赖变更时 | 批次顺序与追踪基线 CAP 状态或新增 CAP 不一致 |
-| `AVX-DOC-001` | [文档索引](README.md) | 2026-08-26 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
-| `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-08-26 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |
+| `AVX-DOC-001` | [文档索引](README.md) | 2026-08-28 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
+| `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-08-28 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |
 
 ## 维护规则
 
