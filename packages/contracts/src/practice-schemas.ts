@@ -38,6 +38,13 @@ export const createPracticeSessionResponseSchema = z.object({
   items: z.array(practiceQuestionSchema),
 });
 
+/** 活跃练习会话的题组快照与恢复进度 */
+export const practiceSessionResumeResponseSchema = createPracticeSessionResponseSchema.extend({
+  startedAt: z.string(),
+  answeredQuestionIds: z.array(z.string()),
+  nextQuestionIndex: z.number().int().nonnegative(),
+});
+
 /** 练习报告（report / complete 共用） */
 export const practiceReportSchema = z.object({
   sessionId: z.string(),

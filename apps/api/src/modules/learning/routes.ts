@@ -7,7 +7,7 @@ import type { FastifyInstance } from "fastify";
 import { createLearningGoalSchema, updateLearningGoalSchema } from "@aervox/contracts";
 import type { SqliteLearningRepository } from "@aervox/database";
 import { resolveTenant } from "../../shared/tenant.js";
-import { createReviewItem, getLocalDayBounds, updateAfterAnswer } from "@aervox/practice-review";
+import { createReviewItem, getLocalDayBounds, getPracticeSessionProgress, updateAfterAnswer } from "@aervox/practice-review";
 
 let seq = 0;
 const estimatedMinutesPerReview = 2;
@@ -60,6 +60,25 @@ function practiceReport(sessionId: string, attempted: Array<{ judgement: string 
     accuracy: judgedCount === 0 ? null : correctCount / judgedCount,
     nextStep:
       incorrectCount > 0 ? "review_scheduled" : unverifiableCount > 0 ? "await_review" : "continue",
+  };
+}
+
+async function practiceSessionResumePayload(
+  learningRepo: SqliteLearningRepository,
+  tenant: ReturnType<typeof resolveTenant>,
+  session: { id: string; questionIds: string[]; startedAt: string },
+) {
+  const items = await Promise.all(session.questionIds.map((questionId) => learningRepo.getQuestion(tenant, questionId)));
+  if (items.some((item) => !item)) return null;
+
+  const attempts = await learningRepo.listAttemptsBySession(tenant, session.id);
+  const { answeredQuestionIds, nextQuestionIndex } = getPracticeSessionProgress(session.questionIds, attempts);
+  return {
+    sessionId: session.id,
+    items,
+    startedAt: session.startedAt,
+    answeredQuestionIds,
+    nextQuestionIndex,
   };
 }
 
@@ -168,20 +187,37 @@ export function registerLearningRoutes(
   });
 
   app.post("/v1/practice/sessions", async (req, reply) => {
+    const tenant = resolveTenant(req);
     const countValue = (req.body as { count?: unknown } | undefined)?.count ?? 3;
     if (typeof countValue !== "number" || !Number.isInteger(countValue) || countValue < 3 || countValue > 5) {
       return reply.code(400).send({ error: "count must be an integer from 3 to 5" });
     }
-    const items = await learningRepo.listActiveQuestions(resolveTenant(req), countValue);
+    const activeSession = await learningRepo.getLatestActivePracticeSession(tenant);
+    if (activeSession) {
+      const payload = await practiceSessionResumePayload(learningRepo, tenant, activeSession);
+      if (!payload) return reply.code(409).send({ error: "practice session question is unavailable" });
+      return reply.code(200).send(payload);
+    }
+
+    const items = await learningRepo.listActiveQuestions(tenant, countValue);
     if (items.length < countValue) {
       return reply.code(409).send({ error: `at least ${countValue} active questions are required` });
     }
-    const session = await learningRepo.createPracticeSession(resolveTenant(req), {
+    const session = await learningRepo.createPracticeSession(tenant, {
       id: id("practice"),
       questionCount: items.length,
       questionIds: items.map((item) => item.id),
     });
-    return reply.code(201).send({ sessionId: session.id, items });
+    return reply.code(201).send({ sessionId: session.id, items, startedAt: session.startedAt, answeredQuestionIds: [], nextQuestionIndex: 0 });
+  });
+
+  app.get("/v1/practice/sessions/active", async (req, reply) => {
+    const tenant = resolveTenant(req);
+    const session = await learningRepo.getLatestActivePracticeSession(tenant);
+    if (!session) return reply.code(404).send({ error: "practice session not found" });
+    const payload = await practiceSessionResumePayload(learningRepo, tenant, session);
+    if (!payload) return reply.code(409).send({ error: "practice session question is unavailable" });
+    return payload;
   });
 
   app.get("/v1/practice/sessions/:sessionId/report", async (req, reply) => {
@@ -349,6 +385,12 @@ export function registerLearningRoutes(
     const requested = (req.body as { questionIds?: unknown } | undefined)?.questionIds;
     if (requested !== undefined && (!Array.isArray(requested) || requested.some((value) => typeof value !== "string"))) {
       return reply.code(400).send({ error: "questionIds must be an array of strings" });
+    }
+    const activeSession = await learningRepo.getLatestActivePracticeSession(tenant);
+    if (activeSession) {
+      const payload = await practiceSessionResumePayload(learningRepo, tenant, activeSession);
+      if (!payload) return reply.code(409).send({ error: "practice session question is unavailable" });
+      return reply.code(200).send(payload);
     }
     const activeMistakes = await learningRepo.listMistakes(tenant, "active");
     const available = new Map(activeMistakes.map((item) => [item.questionId, item]));

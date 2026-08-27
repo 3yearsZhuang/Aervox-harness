@@ -713,6 +713,7 @@ export interface ILearningRepository {
     session: { id: string; questionCount: number; questionIds: string[] },
   ): Promise<PracticeSessionModel>;
   getPracticeSession(tenant: TenantContext, sessionId: string): Promise<PracticeSessionModel | null>;
+  getLatestActivePracticeSession(tenant: TenantContext): Promise<PracticeSessionModel | null>;
   completePracticeSession(tenant: TenantContext, sessionId: string): Promise<PracticeSessionModel | null>;
   recordAttempt(
     tenant: TenantContext,

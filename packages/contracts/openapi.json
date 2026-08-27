@@ -2576,6 +2576,85 @@
           "items"
         ]
       },
+      "PracticeSessionResumeResponse": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "workspaceId": {
+                  "type": "string"
+                },
+                "subjectUserId": {
+                  "type": "string"
+                },
+                "sourceArtifactId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "knowledgeId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "prompt": {
+                  "type": "string"
+                },
+                "answerSpec": {},
+                "status": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "updatedAt": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "workspaceId",
+                "subjectUserId",
+                "prompt",
+                "status",
+                "createdAt",
+                "updatedAt"
+              ]
+            }
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "answeredQuestionIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "nextQuestionIndex": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "sessionId",
+          "items",
+          "startedAt",
+          "answeredQuestionIds",
+          "nextQuestionIndex"
+        ]
+      },
       "PracticeReport": {
         "type": "object",
         "properties": {
@@ -7161,6 +7240,92 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "Resumed active session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sessionId": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "workspaceId": {
+                            "type": "string"
+                          },
+                          "subjectUserId": {
+                            "type": "string"
+                          },
+                          "sourceArtifactId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "knowledgeId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "prompt": {
+                            "type": "string"
+                          },
+                          "answerSpec": {},
+                          "status": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "workspaceId",
+                          "subjectUserId",
+                          "prompt",
+                          "status",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      }
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "answeredQuestionIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "nextQuestionIndex": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "sessionId",
+                    "items",
+                    "startedAt",
+                    "answeredQuestionIds",
+                    "nextQuestionIndex"
+                  ]
+                }
+              }
+            }
+          },
           "201": {
             "description": "Created",
             "content": {
@@ -7221,11 +7386,27 @@
                           "updatedAt"
                         ]
                       }
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "answeredQuestionIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "nextQuestionIndex": {
+                      "type": "integer",
+                      "minimum": 0
                     }
                   },
                   "required": [
                     "sessionId",
-                    "items"
+                    "items",
+                    "startedAt",
+                    "answeredQuestionIds",
+                    "nextQuestionIndex"
                   ]
                 }
               }
@@ -7236,6 +7417,134 @@
           },
           "409": {
             "description": "活跃题目数量不足"
+          }
+        }
+      }
+    },
+    "/v1/practice/sessions/active": {
+      "get": {
+        "summary": "恢复当前活跃练习会话",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active practice session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sessionId": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "workspaceId": {
+                            "type": "string"
+                          },
+                          "subjectUserId": {
+                            "type": "string"
+                          },
+                          "sourceArtifactId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "knowledgeId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "prompt": {
+                            "type": "string"
+                          },
+                          "answerSpec": {},
+                          "status": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "workspaceId",
+                          "subjectUserId",
+                          "prompt",
+                          "status",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      }
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "answeredQuestionIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "nextQuestionIndex": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "sessionId",
+                    "items",
+                    "startedAt",
+                    "answeredQuestionIds",
+                    "nextQuestionIndex"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PRACTICE_SESSION_NOT_FOUND"
           }
         }
       }
@@ -7767,6 +8076,92 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "Resumed active session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sessionId": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "workspaceId": {
+                            "type": "string"
+                          },
+                          "subjectUserId": {
+                            "type": "string"
+                          },
+                          "sourceArtifactId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "knowledgeId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "prompt": {
+                            "type": "string"
+                          },
+                          "answerSpec": {},
+                          "status": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "workspaceId",
+                          "subjectUserId",
+                          "prompt",
+                          "status",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      }
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "answeredQuestionIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "nextQuestionIndex": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "sessionId",
+                    "items",
+                    "startedAt",
+                    "answeredQuestionIds",
+                    "nextQuestionIndex"
+                  ]
+                }
+              }
+            }
+          },
           "201": {
             "description": "Created",
             "content": {
