@@ -55,7 +55,7 @@ export interface MistakeItemDto {
   latestAttemptAt: string;
   wrongCount: number;
   masteryState: string;
-  status: 'active' | 'mastered';
+  status: 'active' | 'mastered' | 'dismissed';
 }
 
 export interface NotificationDto {
@@ -141,7 +141,7 @@ export function useAervoxApi() {
   const completePracticeSession = async (sessionId: string): Promise<PracticeReportDto> =>
     transport.request('POST', `/v1/practice/sessions/${encodeURIComponent(sessionId)}/complete`);
 
-  const setMistakeStatus = async (questionId: string, status: 'active' | 'mastered'): Promise<void> => {
+  const setMistakeStatus = async (questionId: string, status: 'active' | 'mastered' | 'dismissed'): Promise<void> => {
     await transport.request('PATCH', `/v1/mistakes/${encodeURIComponent(questionId)}`, { status });
     await loadAll();
   };

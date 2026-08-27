@@ -569,6 +569,19 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   `);
 
   await client.execute(`
+    CREATE TABLE IF NOT EXISTS mistake_dispositions (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      question_id TEXT NOT NULL REFERENCES questions(id),
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(workspace_id, subject_user_id, question_id)
+    );
+  `);
+
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS practice_sessions (
       id TEXT PRIMARY KEY,
       workspace_id TEXT NOT NULL,

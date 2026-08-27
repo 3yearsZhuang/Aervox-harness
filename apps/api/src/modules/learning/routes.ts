@@ -287,13 +287,13 @@ export function registerLearningRoutes(
   // 错题本（由不可变作答事实派生，不复制原始答案）
   app.get("/v1/mistakes", async (req, reply) => {
     const status = (req.query as { status?: string }).status ?? "active";
-    if (!["active", "mastered", "all"].includes(status)) {
-      return reply.code(400).send({ error: "status must be active, mastered, or all" });
+    if (!["active", "mastered", "dismissed", "all"].includes(status)) {
+      return reply.code(400).send({ error: "status must be active, mastered, dismissed, or all" });
     }
     return {
       items: await learningRepo.listMistakes(
         resolveTenant(req),
-        status as "active" | "mastered" | "all",
+        status as "active" | "mastered" | "dismissed" | "all",
       ),
     };
   });
@@ -302,12 +302,20 @@ export function registerLearningRoutes(
     const tenant = resolveTenant(req);
     const { questionId } = req.params as { questionId: string };
     const body = (req.body ?? {}) as { status?: string };
-    if (!['active', 'mastered'].includes(body.status ?? '')) {
-      return reply.code(400).send({ error: "status must be active or mastered" });
+    if (!['active', 'mastered', 'dismissed'].includes(body.status ?? '')) {
+      return reply.code(400).send({ error: "status must be active, mastered, or dismissed" });
     }
     const mistake = (await learningRepo.listMistakes(tenant, "all"))
       .find((item) => item.questionId === questionId);
     if (!mistake) return reply.code(404).send({ error: "mistake not found" });
+    if (body.status === "dismissed" || (body.status === "active" && mistake.status === "dismissed")) {
+      await learningRepo.setMistakeDisposition(tenant, {
+        id: id("mistake_disposition"),
+        questionId,
+        status: body.status,
+      });
+      return { ...mistake, status: body.status };
+    }
     if (!mistake.knowledgeId) {
       return reply.code(409).send({ error: "mistake has no knowledge item" });
     }

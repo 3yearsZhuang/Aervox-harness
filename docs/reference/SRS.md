@@ -199,6 +199,7 @@
 - **会话状态**：会话只能从 `active` 转为 `completed`；结束操作可重试并返回同一汇总结果。已结束、不属于题组的作答不得写入；跨租户资源统一返回 404。
 - **判定与数据**：服务端根据题目的标准答案判定可确定答案（标准化比较，忽略大小写与首尾空白）；短文本题不可验证时进入待确认。`QuestionAttempt` 为不可变事实，掌握度和复习项为派生状态；待确认或答案不可验证的题目不得进入掌握度、正式错题或复习调度。
 - **重试**：作答请求可携带 `Idempotency-Key`；同一工作区、数据主体和题目维度内相同键只创建一个作答事实，且只触发一次掌握度与复习调度更新。请求超时后客户端必须使用原键重试，并以首个成功响应为准。
+- **错题处置**：错题本条目可为 `active`、`mastered` 或 `dismissed`。`dismissed` 仅隐藏派生错题条目，并排除错题重练；恢复后重新进入 `active`。任何处置均不得删除或改写 `QuestionAttempt`、知识点统计或已创建复习项。
 - **验收**：
   - `AC-FR-PRC-001-01`：Given 用户重复提交同一答案，When 请求重试，Then 只产生一个作答事实和一个调度结果。
   - `AC-FR-PRC-001-02`：Given 判定为待确认（unverifiable），When 会话结束，Then 不直接计入掌握度。
@@ -207,7 +208,9 @@
   - `AC-FR-PRC-001-05`：Given 会话已创建，When 题库随后变化，Then 会话仍只接受其开始时快照中的题目。
   - `AC-FR-PRC-001-06`：Given 会话已经结束，When 再次提交作答，Then 返回冲突错误且不创建作答事实。
   - `AC-FR-PRC-001-07`：Given 另一工作区或数据主体访问会话、报告或作答，When 请求资源，Then 返回 404 且不泄露资源存在性。
-- **测试**：`TC-UNIT-PRC-001`、`TC-API-PRC-001`、`TC-INTEG-PRC-001`、`TC-E2E-PRC-001`。变更依据见 [CR-008](changes/CR-008-practice-session-contract.md)。
+  - `AC-FR-PRC-001-08`：Given 用户忽略一条活动错题，When 再次读取默认列表或创建错题重练，Then 该条目不可见且不会进入题组，原始作答仍可查询。
+  - `AC-FR-PRC-001-09`：Given 用户恢复一条已忽略错题，When 读取活动列表，Then 该条目重新可见并可被选择重练。
+- **测试**：`TC-UNIT-PRC-001`、`TC-API-PRC-001`、`TC-INTEG-PRC-001`、`TC-E2E-PRC-001`。变更依据见 [CR-008](changes/CR-008-practice-session-contract.md) 与 [CR-009](changes/CR-009-mistake-book-dismissal.md)。
 
 ### FR-REV-001 间隔复习
 
