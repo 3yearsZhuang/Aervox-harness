@@ -8,7 +8,7 @@
 > 版本：v0.7
 > 更新日期：2026-08-28
 > 状态：Review Candidate
-> 关联：[参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[数据库设计与双引擎契约](../reference/DATABASE.md)、[可选功能模块化方案](optional_modules.md)、[Agent Harness Loop 规范](../reference/agent-harness-loop.md)、[AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)
+> 关联：[参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[数据库设计与双引擎契约](../reference/DATABASE.md)、[能力注册表](../reference/capability-registry.md)、[Agent Harness Loop 规范](../reference/agent-harness-loop.md)、[AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)
 
 ## 1. 评估范围与判定框架
 
@@ -31,7 +31,9 @@
 | `DSH-01` | `reference/deepseek-harness`，commit `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`，MIT | `packages/core/agent-loop/src/agent.ts`、`docs/architecture.md`、`packages/core/agent-loop/README.md` | Turn/Step 双层循环、模型流与工具请求交替、typed event、`followup`/`steer`/`inject`、可逆 effect/disposer | DSH Session log、Cordis Context、DSH 权限系统、直接连接 Aervox SQLite |
 | `PI-01` | `reference/pi`，commit `c49906ec77788625aacbdc53ebca6fbe65bd20f5`，MIT | `packages/agent/src/agent-loop.ts`、`packages/agent/src/harness/`、`packages/agent/docs/harness.md` | outer follow-up loop、inner tool/steer loop、工具参数准备与结果回填、append-only/reducer、writer lease/fencing | pi Session/存储格式、Extension 宿主权限、直接加载到 API/Worker/Renderer；该版本 Harness v2 仍有 scaffold，不能视为已接入实现 |
 
-采用方式固定为“自研重写 + Adapter 翻译”：Aervox 先以 [AVX-HAR-001](../reference/agent-harness-loop.md) 的 Definition、Port、事件和状态机为准，再为 DSH/pi 生成可替换 Provider。外部参考的示例名称、Session ID、工具参数和事件序列都必须经过 Aervox schema、Consent、ToolPolicy、租约和审计检查。
+固定版本的终止语义并不相同：DSH 在一个已结算工具批次中任一成功结果声明 `concludesTurn` 即可结束，pi 低层 loop 则要求非空批次的所有结果 `terminate=true`。Aervox 统一采用后者的严格策略；`adapter-dsh` 必须显式收紧或拒绝不兼容的混合批次，不能把上游 any 语义静默暴露给业务。pi 的低层 `agent-loop.ts` 可作为控制流参考，但固定版本 `AgentHarness` v2 的公开 `prompt`/`resume`/`abort` 等能力仍是 scaffold。
+
+采用方式固定为“自研重写 + Adapter 翻译”：Aervox 先以 [AVX-HAR-001](../reference/agent-harness-loop.md) 的 Definition、Port、事件和状态机为准，再为 DSH/pi 生成可替换 Loop Driver、Model Provider 或受限 Contribution。外部参考的示例名称、Session ID、工具参数和事件序列都必须经过 Aervox schema、Consent、ToolPolicy、租约和审计检查。
 
 ## 2. 结论摘要
 
@@ -285,7 +287,7 @@ Aervox 自研落地（AGPLv3 仅借鉴设计，不复制源码）：
 - [PRD §15 参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[§15.1 参考实现要求](../reference/PRD.md#151-参考实现要求)
 - [文档索引 §7 参考项目](../README.md#7-参考项目)
 - [数据库设计与双引擎契约](../reference/DATABASE.md)
-- [可选功能模块化方案](optional_modules.md)
+- [能力注册表](../reference/capability-registry.md)（AVX-CAP-REG-001）
 - [Agent Harness Loop 设计与落地规范](../reference/agent-harness-loop.md)（AVX-HAR-001）
 - DeepSeek Harness 固定 commit `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`（MIT，仅以 `DSH-01` 借鉴 Agent Loop 设计，不作为运行时依赖）
 - pi 固定 commit `c49906ec77788625aacbdc53ebca6fbe65bd20f5`（MIT，仅以 `PI-01` 借鉴 Agent Harness 设计，不作为运行时依赖）

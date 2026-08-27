@@ -49,6 +49,9 @@ export interface TurnStreamEventModel {
   payloadVersion: number;
   data: unknown;
   occurredAt: string;
+  attemptId?: string | null;
+  safetyDecision?: string | null;
+  committedAt?: string | null;
 }
 
 export interface OutboxEventModel {
