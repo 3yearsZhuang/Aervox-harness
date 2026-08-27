@@ -4,7 +4,7 @@
 - 修改人：kikoyida · 2026-08-27
 
 > 文档编号：AVX-DOC-002  
-> 版本：v0.2
+> 版本：v0.3
 > 更新日期：2026-08-27
 > 状态：Review Candidate  
 > 关联：[文档索引](README.md)（AVX-DOC-001）
@@ -24,7 +24,7 @@ docs/
   templates/             # 新建文档模板（How-to / Reference / Explanation）
   reference/             # 参考类（AVX-PRD/SRS/SAD/TRC/SPC/DB/DATA/AIQ/SEC/QA/OPS 等）
     adr/                 # ADR-001~015 + 索引
-    changes/             # CR-002～010
+    changes/             # CR-002～011
     standards/           # 文档写作规范（AVX-STD-001）· 术语表（AVX-TERM-001）
     diagrams/            # 数据库 ERD（.mmd）
     PRD.md · ARCHITECTURE.md · SRS.md · REQUIREMENTS_TRACEABILITY.md

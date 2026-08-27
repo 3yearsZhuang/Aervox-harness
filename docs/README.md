@@ -4,7 +4,7 @@
 - 修改人：kikoyida · 2026-08-27
 
 > 文档编号：AVX-DOC-001  
-> 版本：v0.5
+> 版本：v0.6
 > 更新日期：2026-08-27
 > 状态：评审候选  
 
@@ -56,6 +56,8 @@
 错题本的处置边界见 [CR-009：错题本忽略与恢复规则](reference/changes/CR-009-mistake-book-dismissal.md)：忽略只影响派生错题展示与重练资格，不删除原始学习事实。
 
 复习闭环的幂等边界见 [CR-010：复习完成幂等与结果重放](reference/changes/CR-010-review-completion-idempotency.md)：重复完成可重放首次结算，相反判定被拒绝且不重复调度。
+
+复习日期边界见 [CR-011：时区安全的复习调度与逾期汇总](reference/changes/CR-011-timezone-safe-review-scheduling.md)：v2 按 IANA 时区增加本地日历天，并区分今日到期与历史逾期。
 
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
 
