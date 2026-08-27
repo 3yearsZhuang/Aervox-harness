@@ -81,9 +81,8 @@ export const repracticeRequestSchema = z.object({
   questionIds: z.array(z.string()).min(1).max(5).optional(),
 });
 
-/** 作答请求体（可关联练习会话，供会话校验） */
+/** 作答请求体（可关联练习会话，供会话校验；幂等键位于 HTTP Header） */
 export const createAttemptRequestSchema = z.object({
   answer: z.string(),
-  idempotencyKey: z.string().optional(),
   sessionId: z.string().optional(),
 });
