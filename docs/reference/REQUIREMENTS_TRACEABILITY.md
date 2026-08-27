@@ -198,7 +198,9 @@
 | 文档去重：落地登记合并单源 + 导航文档精简 | 基础设施（文档治理） | [reference-design-transfer §6.1](../explanation/reference-design-transfer.md#61-落地登记唯一真源) 改为唯一真源指引（明细移入本节）、`docs/getting-started.md` §3 硬性规则改链接、`AGENTS.md` 硬约束同步 | 2026-08-26 | ci-docs | 原生 |
 | 产品上限增强候选需求规格化（A/B 档） | CAP-005/009/014/015/018/019/020/027/030 | 评估成果原落于 [SRS §7]，该节随后被 main 的『SRS §7 插件配置与页面（CR-006）』取代（FR-MEM-001 等候选不再作为可引用需求源，插件规范化独立为 [AVX-PLUG-001](plugin-config-and-pages.md)）；本行保留以追溯产品评估结论 | 2026-08-26 | ci-docs | 原生（产品评估采纳） |
 | 文档结构合并与速览精简（运维×3合一、工程流程×3合一、覆盖矩阵立为唯一速览、AGENTS 硬纪律内联、模板目录上移 `docs/templates`） | 基础设施（文档治理） | `docs/reference/operations.md`（AVX-OPS-001）、`docs/how-to/engineering-process.md`（AVX-GUIDE-001/003/004 合一，原 add-requirement/release-gates/run-drill 删除）、模板从 `reference/standards/templates` 迁至 `docs/templates`、`REQUIREMENTS_TRACEABILITY.md` §4 精简、`docs/DOC_REGISTRY.md`、`docs/README.md`、`docs/getting-started.md`、`AGENTS.md` 硬约束同步 | 2026-08-26 | ci-docs | 原生 |
+| ESP32-S3 物理桌宠硬件延伸方案（恢复并完善） | CAP-001/018（候选；设备能力待 CR 立项） | `docs/explanation/esp32-s3-hardware-extension.md`（AVX-EXPL-005） | 2026-08-28 | ci-docs；外部模组数据手册核对 | 原生设计提案 |
 | 新功能开发流程文档化（根级贡献指南 CONTRIBUTING，双语，替代暂存 AVX-GUIDE-004 how-to） | 基础设施（工程流程/文档治理） | [CONTRIBUTING.md](../../CONTRIBUTING.md)（融合参考项目贡献指南骨架 + 三阶段流程 + 本仓库门禁；feature-development.md 已删除并入） | 2026-08-26 | ci-docs | 原生 |
+| Agent Harness Loop 阶段 0+1：契约冻结 + 无工具单 Step Loop（Replay 驱动，替换固定 done SSE） | CAP-002/007 + 基础设施 | `packages/agent-loop`（Ports/Executor/Replay Provider/内存 Store/契约测试）、`packages/database` conversation-repository（`claimTurnAttempt` CAS+fencing / `finalizeTurnAttempt` / `appendStreamEvent` 扩展 attempt/safetyDecision）、`apps/api` conversation routes（POST turn 建 Attempt + `executeTurn`，SSE 改重放 `turn_stream_events`） | 2026-08-28 | `@aervox/agent-loop` 5 单测（确定性序列/幂等重放/CAS）+ `apps/api` conversation-loop 集成测试（POST turn → message→delta→done，重连幂等）；ci-code 全量 | `DSH-01` + 原生 |
 
 ## 5. 原子需求字段模板
 
