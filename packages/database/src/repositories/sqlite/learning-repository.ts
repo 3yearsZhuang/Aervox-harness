@@ -261,6 +261,23 @@ export class SqliteLearningRepository implements ILearningRepository {
     return (session as PracticeSessionModel) ?? null;
   }
 
+  async getLatestActivePracticeSession(tenant: TenantContext): Promise<PracticeSessionModel | null> {
+    assertTenantContext(tenant);
+    const [session] = await this.db
+      .select()
+      .from(practiceSessions)
+      .where(
+        and(
+          eq(practiceSessions.workspaceId, tenant.workspaceId),
+          eq(practiceSessions.subjectUserId, tenant.subjectUserId),
+          eq(practiceSessions.status, "active"),
+        ),
+      )
+      .orderBy(desc(practiceSessions.startedAt))
+      .limit(1);
+    return (session as PracticeSessionModel) ?? null;
+  }
+
   async completePracticeSession(tenant: TenantContext, sessionId: string): Promise<PracticeSessionModel | null> {
     assertTenantContext(tenant);
     const [updated] = await this.db

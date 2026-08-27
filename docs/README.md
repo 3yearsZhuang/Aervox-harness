@@ -1,10 +1,10 @@
 # Aervox｜思隅 产品与工程文档索引
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：kikoyida · 2026-08-28
 
 > 文档编号：AVX-DOC-001  
-> 版本：v0.6
+> 版本：v0.7
 > 更新日期：2026-08-28
 > 状态：评审候选  
 
@@ -61,6 +61,8 @@
 复习日期边界见 [CR-011：时区安全的复习调度与逾期汇总](reference/changes/CR-011-timezone-safe-review-scheduling.md)：v2 按 IANA 时区增加本地日历天，并区分今日到期与历史逾期。
 
 Agent 执行核心的目标基线见 [CR-012：Agent Harness Loop](reference/changes/CR-012-agent-harness-loop.md) 与 [AVX-HAR-001](reference/agent-harness-loop.md)：当前固定 `done` SSE 将分阶段迁移为可恢复的模型—工具—模型多 Step 循环，外部 DSH/pi 仍只作为可选 Loop Driver 或受限 Contribution。
+
+练习中断恢复边界见 [CR-013：活跃练习会话恢复与续答](reference/changes/CR-013-practice-session-recovery.md)：重开学习界面会恢复同一题组快照和首个未答题，重复启动不会创建第二个活跃会话。
 
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
 
