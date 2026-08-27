@@ -57,7 +57,7 @@
 
 复习闭环的幂等边界见 [CR-010：复习完成幂等与结果重放](reference/changes/CR-010-review-completion-idempotency.md)：重复完成可重放首次结算，相反判定被拒绝且不重复调度。
 
-系统语音输出的本地模型配置见 [CR-011：WebUI 语音输出配置](reference/changes/CR-011-voice-config-webui.md)：设置「语音」分类读写本地 `gpt-sovits-local` 模型（模型路径、音色支持手输，桌面端也可经系统「选择文件夹」获得，`modelPath` 受服务端 `allowedRoots` 白名单校验），持久化到 `voice_configs` 表并按租户隔离；人格编辑弹窗新增「语音」能力块，选择 provider/模型/音色并试听，写入 `PersonaRevisionConfig.voice`。
+系统语音输出的本地模型配置见 [CR-014：WebUI 语音输出配置](reference/changes/CR-014-voice-config-webui.md)：设置「语音」分类读写本地 `gpt-sovits-local` 模型（模型路径、音色支持手输，桌面端也可经系统「选择文件夹」获得，`modelPath` 受服务端 `allowedRoots` 白名单校验），持久化到 `voice_configs` 表并按租户隔离；人格编辑弹窗新增「语音」能力块，选择 provider/模型/音色并试听，写入 `PersonaRevisionConfig.voice`。
 
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
 
