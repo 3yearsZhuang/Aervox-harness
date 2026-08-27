@@ -198,24 +198,48 @@ export class SkillManager {
   }
 
   setActive(name: string, active: boolean): Promise<SkillRegistrationModel | null> {
-    return this.registry.setActive(name, active);
-  }
+   return this.registry.setActive(name, active);
+ }
 
-  /** 删除技能：readonly 拒绝；清理文件系统 + 注销注册表 */
-  async deleteSkill(name: string): Promise<boolean> {
+ /** 删除技能：readonly 拒绝；清理文件系统 + 注销注册表 */
+ async deleteSkill(name: string): Promise<boolean> {
+   const skill = await this.registry.getSkill(name);
+   if (!skill) return false;
+   if (skill.readonly === 1) return false;
+   const dir = path.join(this.skillsRoot, name);
+   await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
+   return this.registry.unregisterSkill(name);
+ }
+
+  /** 读取技能文件夹内所有文件（供 Persona Bundle 导出与打包） */
+  async readSkillFolderFiles(name: string): Promise<Array<{ relativePath: string; data: Buffer }> | null> {
     const skill = await this.registry.getSkill(name);
-    if (!skill) return false;
-    if (skill.readonly === 1) return false;
+    if (!skill) return null;
     const dir = path.join(this.skillsRoot, name);
-    await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
-    return this.registry.unregisterSkill(name);
+    try {
+      const entries = await fs.readdir(dir, { recursive: true, withFileTypes: true });
+      const files: Array<{ relativePath: string; data: Buffer }> = [];
+      for (const entry of entries) {
+        if (!entry.isFile()) continue;
+        const parent = (entry as { parentPath?: string }).parentPath ?? dir;
+        const fullPath = path.join(parent, entry.name);
+        const relativePath = path.relative(dir, fullPath).replaceAll("\\", "/");
+        const data = await fs.readFile(fullPath);
+        files.push({ relativePath, data });
+      }
+      return files;
+    } catch {
+      return null;
+    }
   }
 
-  /** 构建渐进式披露提示词段（仅 active 技能） */
-  async buildPrompt(): Promise<string> {
-    const skills = await this.registry.exportSkills();
-    return buildSkillsPrompt(skills.map((s) => ({ name: s.name, description: s.description })));
-  }
+ /** 构建渐进式披露提示词段（仅 active 技能） */
+  async buildPrompt(allowedSkillNames?: readonly string[]): Promise<string> {
+   const skills = await this.registry.exportSkills();
+    const allowedSet = allowedSkillNames ? new Set(allowedSkillNames) : null;
+    const filtered = allowedSet ? skills.filter((s) => allowedSet.has(s.name)) : skills;
+    return buildSkillsPrompt(filtered.map((s) => ({ name: s.name, description: s.description })));
+ }
 }
 
 /** 技能已存在冲突错误（路由层映射 409） */

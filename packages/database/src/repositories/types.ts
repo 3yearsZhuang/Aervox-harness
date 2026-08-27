@@ -1746,30 +1746,6 @@ export interface SkillPayloadModel {
   updatedAt: string;
 }
 
-/** 工作区 Anthropic Skill 持久化模型（files 为 path→base64；租户级工作区技能，属 persona 域） */
-export interface SkillModel {
-  id: string;
-  workspaceId: string;
-  subjectUserId: string;
-  name: string;
-  description: string;
-  license?: string | null;
-  compatibility?: string | null;
-  metadata?: unknown;
-  allowedTools?: unknown;
-  source: string; // "active" | "workspace" | "imported"
-  version: number;
-  checksum: string;
-  enabled: number;
-  valid: number;
-  validationErrors: string[];
-  filesJson: Record<string, string>;
-  skillMarkdown: string;
-  importedAt: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 /** Neo 生命周期：技能候选 */
 export interface SkillCandidateModel {
   candidateId: string;
@@ -1797,24 +1773,6 @@ export interface SkillReleaseModel {
   active: number;
   /** 0 | 1 */
   syncedToLocal: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-/** MCP 工具注册模型 */
-export interface McpToolModel {
-  id: string; // "{serverId}:{toolName}"
-  workspaceId: string;
-  subjectUserId: string;
-  serverId: string;
-  name: string;
-  description?: string | null;
-  inputSchema?: unknown;
-  scopes: string[];
-  healthy: number;
-  authorized: number;
-  revoked: number;
-  killSwitch: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -1877,21 +1835,6 @@ export interface IPersonaRepository {
   getActivePersona(tenant: TenantContext): Promise<ActivePersonaSelectionModel | null>;
   saveTurnContext(tenant: TenantContext, context: PersonaTurnContextModel): Promise<PersonaTurnContextModel>;
   getTurnContext(tenant: TenantContext, turnId: string): Promise<PersonaTurnContextModel | null>;
-}
-
-export interface ISkillRepository {
-  listSkills(tenant: TenantContext): Promise<SkillModel[]>;
-  getSkill(tenant: TenantContext, name: string): Promise<SkillModel | null>;
-  upsertSkill(tenant: TenantContext, skill: SkillModel): Promise<SkillModel>;
-  setSkillEnabled(tenant: TenantContext, name: string, enabled: boolean): Promise<SkillModel | null>;
-  deleteSkill(tenant: TenantContext, name: string): Promise<boolean>;
-}
-
-export interface IMcpToolRepository {
-  listMcpTools(tenant: TenantContext): Promise<McpToolModel[]>;
-  upsertMcpTool(tenant: TenantContext, tool: McpToolModel): Promise<McpToolModel>;
-  setMcpToolRevoked(tenant: TenantContext, id: string, revoked: boolean): Promise<McpToolModel | null>;
-  setMcpToolKillSwitch(tenant: TenantContext, id: string, killSwitch: boolean): Promise<McpToolModel | null>;
 }
 
 // ============ CAP-020 Skill 能力：系统级注册表 + Neo 生命周期（本分支实现） ============
