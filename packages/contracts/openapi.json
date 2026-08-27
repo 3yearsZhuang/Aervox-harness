@@ -2814,6 +2814,74 @@
           "status"
         ]
       },
+      "ReviewHistoryResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "knowledgeId": {
+                  "type": "string"
+                },
+                "dueAt": {
+                  "type": "string"
+                },
+                "intervalDays": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "schedulerVersion": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "completed",
+                    "dismissed",
+                    "archived"
+                  ]
+                },
+                "completionIsCorrect": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "nextReviewId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "updatedAt": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "knowledgeId",
+                "dueAt",
+                "intervalDays",
+                "schedulerVersion",
+                "status",
+                "completionIsCorrect",
+                "nextReviewId",
+                "updatedAt"
+              ]
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
       "ReviewListResponse": {
         "type": "object",
         "properties": {
@@ -8038,6 +8106,133 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/v1/review-items/history": {
+      "get": {
+        "summary": "读取最近复习历史",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recent completed reviews",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "knowledgeId": {
+                            "type": "string"
+                          },
+                          "dueAt": {
+                            "type": "string"
+                          },
+                          "intervalDays": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0
+                          },
+                          "schedulerVersion": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "completed",
+                              "dismissed",
+                              "archived"
+                            ]
+                          },
+                          "completionIsCorrect": {
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
+                          },
+                          "nextReviewId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "knowledgeId",
+                          "dueAt",
+                          "intervalDays",
+                          "schedulerVersion",
+                          "status",
+                          "completionIsCorrect",
+                          "nextReviewId",
+                          "updatedAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "limit 非法"
           }
         }
       }

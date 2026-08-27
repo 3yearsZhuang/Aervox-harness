@@ -97,6 +97,12 @@ export const reviewItemSchema = z.object({
 });
 
 export const reviewListResponseSchema = z.object({ items: z.array(reviewItemSchema) });
+export const reviewHistoryItemSchema = reviewItemSchema.extend({
+  completionIsCorrect: z.boolean().nullable(),
+  nextReviewId: z.string().nullable(),
+  updatedAt: z.string(),
+});
+export const reviewHistoryResponseSchema = z.object({ items: z.array(reviewHistoryItemSchema) });
 export const reviewSummaryResponseSchema = z.object({
   dueCount: z.number().int().nonnegative(),
   estimatedMinutes: z.number().int().nonnegative(),

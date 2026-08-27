@@ -5,7 +5,7 @@
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
-> 文档版本：v0.6
+> 文档版本：v0.7
 > 文档状态：评审候选（Review Candidate）  
 > 更新日期：2026-08-27
 > 产品需求来源：[PRD.md](PRD.md)
@@ -155,7 +155,7 @@
 | 练习会话与结果报告 | CAP-003/004/006 | `apps/api/src/modules/learning/routes.ts`、`packages/database/src/schema/learning.ts`、`packages/database/src/repositories/sqlite/learning-repository.ts`、`packages/api-client/src/useAervoxApi.ts`、`packages/ui/src/components/AervoxWorkbench.vue` | 2026-08-26 | `practice-session.test.ts` 集成测试；学习路由类型检查 | 原生 |
 | 练习作答 OpenAPI 幂等契约对齐 | CAP-003/004 | `packages/contracts/src/{practice-schemas,openapi}.ts`、`packages/contracts/openapi.json`、`apps/api/test/openapi-contract.test.ts` | 2026-08-27 | `@aervox/contracts` build 生成 OpenAPI；`openapi-contract.test.ts` 契约测试 | 原生 |
 | 错题忽略/恢复处置 | CAP-004 | `apps/api/src/modules/learning/routes.ts`、`packages/database/src/schema/{learning,init}.ts`、`packages/database/src/repositories/sqlite/learning-repository.ts`、`packages/api-client/src/useAervoxApi.ts` | 2026-08-27 | `mistake-book.test.ts` 集成测试；Database/API/UI 类型检查 | 原生 |
-| 复习完成幂等重放与工作台操作 | CAP-006 | `apps/api/src/modules/learning/routes.ts`、`packages/database/src/{schema,repositories}/`、`packages/contracts/src/`、`packages/api-client/src/useAervoxApi.ts`、`packages/ui/src/components/AervoxWorkbench.vue` | 2026-08-27 | API 集成测试；Database/API/UI 类型检查 | 原生 |
+| 复习完成幂等重放、历史查询与工作台操作 | CAP-006 | `apps/api/src/modules/learning/routes.ts`、`packages/database/src/{schema,repositories}/`、`packages/contracts/src/`、`packages/api-client/src/useAervoxApi.ts`、`packages/ui/src/components/AervoxWorkbench.vue` | 2026-08-27 | API 集成测试与 OpenAPI 回归测试；Database/API Client/UI 类型检查 | 原生 |
 | SQLite 写路径 busy 重试 | CAP-005/009/013 | `packages/database/src/write-retry.ts`、`client.ts` | 2026-08-26 | 单测 | `T-01` |
 | 会话级写锁 | CAP-005/009/013 | `packages/database/src/session-lock.ts` | 2026-08-26 | 单测 | `AST-01` |
 | 混合检索（FTS + 向量 RRF） | CAP-005/026 | `packages/database/src/search/`（`fts.ts`/`hybrid-search.ts`/`vector-port.ts`） | 2026-08-26 | 单测 | `T-02` + 原生 |

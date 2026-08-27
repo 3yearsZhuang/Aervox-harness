@@ -6,6 +6,7 @@ describe("复习 API 契约", () => {
     expect(openApiDocument.paths).toMatchObject({
       "/v1/review-items": { get: expect.any(Object) },
       "/v1/review-items/summary": { get: expect.any(Object) },
+      "/v1/review-items/history": { get: expect.any(Object) },
       "/v1/review-items/{reviewId}/complete": {
         post: {
           responses: {
