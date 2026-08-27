@@ -1,10 +1,10 @@
 # 文档生命周期登记表（核验节奏与陈旧信号）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：KashiwagiEri233 · 2026-08-28
 
 > 文档编号：AVX-DOC-CONF-001  
-> 版本：v0.5
+> 版本：v0.6
 > 更新日期：2026-08-28
 > 状态：评审候选  
 > 关联：[文档索引](README.md)
@@ -38,8 +38,8 @@
 | `CR-008` | [练习会话与作答契约补全](reference/changes/CR-008-practice-session-contract.md) | 2026-08-27 | `CAP-003` 练习会话、作答或报告契约变更 | SRS、OpenAPI、实现与 `FR-PRC-001` 的快照、幂等、会话状态和隔离规则不一致 |
 | `CR-009` | [错题本忽略与恢复规则](reference/changes/CR-009-mistake-book-dismissal.md) | 2026-08-27 | `CAP-004` 错题本处置或重练规则变更 | SRS、API、数据库和 UI 对忽略状态、恢复与学习事实保留的语义不一致 |
 | `CR-010` | [复习完成幂等与结果重放](reference/changes/CR-010-review-completion-idempotency.md) | 2026-08-27 | `CAP-006` 完成、重试或调度结果契约变更 | SRS、API、数据库、OpenAPI 和 UI 的幂等语义不一致 |
-| `CR-011` | [WebUI 语音输出配置](reference/changes/CR-011-voice-config-webui.md) | 2026-08-28 | `CAP-019/020` 系统语音输出 / 本地语音模型配置变更 | 表、契约、Voice 模块或设置 UI 与实现不一致 |
-| `CR-012` | [WebUI 大语言模型与供应商配置](reference/changes/CR-012-llm-provider-config-webui.md) | 2026-08-28 | `CAP-020` / `ADR-005` 大语言模型供应商与配置变更 | 表、契约、LLM 模块或设置 UI 与实现不一致 |
+| `CR-014` | [WebUI 语音输出配置](reference/changes/CR-011-voice-config-webui.md) | 2026-08-28 | `CAP-019/020` 系统语音输出 / 本地语音模型配置变更 | 表、契约、Voice 模块或设置 UI 与实现不一致 |
+| `CR-015` | [WebUI 大语言模型与供应商配置](reference/changes/CR-012-llm-provider-config-webui.md) | 2026-08-28 | `CAP-020` / `ADR-005` 大语言模型供应商与配置变更 | 表、契约、LLM 模块或设置 UI 与实现不一致 |
 | `AVX-PLUG-001` | [插件 Config 与 Page 规范](reference/plugin-config-and-pages.md) | 2026-08-26 | CR-006 / 插件机制变更 | Manifest、Config Schema、Page Bridge 与实现不一致 |
 | `AVX-MOD-PERSONA-001` | [`modules/persona-plugin`](https://github.com/KashiwagiEri233/aervox-persona-plugin-module) | 2026-08-25 | 每次 submodule 指针/包契约/权限变更 | workspace 包、固定 commit 或模块自身 CI 不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 2026-08-26 | 规则变更或季度评审 | 新增文档未标注四分类/头字段不合规，或 Vale 规则与术语表不一致 |

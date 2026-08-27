@@ -5,7 +5,7 @@
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
-> 文档版本：v0.8
+> 文档版本：v0.9
 > 文档状态：评审候选（Review Candidate）  
 > 更新日期：2026-08-28
 > 产品需求来源：[PRD.md](PRD.md)
