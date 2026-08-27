@@ -654,6 +654,7 @@ export class SqliteLearningRepository implements ILearningRepository {
     data: {
       reviewId: string;
       knowledgeId: string;
+      isCorrect: boolean;
       practiceState: {
         correctCount: number;
         wrongCount: number;
@@ -670,7 +671,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       const now = new Date().toISOString();
       const [completed] = await tx
         .update(reviewItems)
-        .set({ status: "completed", updatedAt: now })
+        .set({ status: "completed", completionIsCorrect: data.isCorrect, nextReviewId: data.nextReview.id, updatedAt: now })
         .where(
           and(
             eq(reviewItems.id, data.reviewId),
