@@ -104,6 +104,7 @@ const api = useAervoxApi()
 const {
   goals,
   dueReviews,
+  completedReviews,
   mistakes,
   notifications,
   todayDiary,
@@ -822,6 +823,17 @@ onUnmounted(() => {
             </div>
           </li>
           <li v-if="dueReviews.length === 0" class="study-empty">今天没有到期复习，可以继续当前目标。</li>
+        </ul>
+      </section>
+
+      <section class="study-section">
+        <h4>最近复习 <small>{{ completedReviews.length }}</small></h4>
+        <ul class="study-list">
+          <li v-for="item in completedReviews" :key="item.id">
+            <span class="study-item-title">知识点 #{{ item.knowledgeId }}</span>
+            <small>{{ item.completionIsCorrect === true ? '记得' : item.completionIsCorrect === false ? '忘了' : '旧记录' }} · {{ item.updatedAt?.slice(0, 10) }}<template v-if="item.nextReviewId"> · 下一项 #{{ item.nextReviewId }}</template></small>
+          </li>
+          <li v-if="completedReviews.length === 0" class="study-empty">完成复习后，这里会保留最近记录。</li>
         </ul>
       </section>
 

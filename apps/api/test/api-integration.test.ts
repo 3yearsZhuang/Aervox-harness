@@ -472,6 +472,22 @@ describe("API 集成测试：用户侧域路由", () => {
       nextReview: { status: "active", intervalDays: 1, schedulerVersion: 1 },
       knowledge: { correctCount: 3, wrongCount: 2, correctStreak: 0, mastery: 0.5 },
     });
+
+    const history = await app.inject({ method: "GET", url: "/v1/review-items/history?limit=5", headers });
+    expect(history.statusCode).toBe(200);
+    expect(history.json().items).toHaveLength(2);
+    expect(history.json().items).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "ri_complete", completionIsCorrect: true, nextReviewId }),
+      expect.objectContaining({ id: nextReviewId, completionIsCorrect: false }),
+    ]));
+
+    const otherHistory = await app.inject({
+      method: "GET",
+      url: "/v1/review-items/history",
+      headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" },
+    });
+    expect(otherHistory.json().items).toHaveLength(0);
+    expect((await app.inject({ method: "GET", url: "/v1/review-items/history?limit=0", headers })).statusCode).toBe(400);
   });
 
   it("反馈：提交 + 列表", async () => {

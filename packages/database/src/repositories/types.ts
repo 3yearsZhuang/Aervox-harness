@@ -782,6 +782,7 @@ export interface ILearningRepository {
     item: { id: string; knowledgeId: string; dueAt: string; intervalDays?: number; schedulerVersion?: number },
   ): Promise<ReviewItemModel>;
   getReviewItem(tenant: TenantContext, id: string): Promise<ReviewItemModel | null>;
+  listCompletedReviewItems(tenant: TenantContext, limit?: number): Promise<ReviewItemModel[]>;
   completeReviewAndSchedule(
     tenant: TenantContext,
     data: {

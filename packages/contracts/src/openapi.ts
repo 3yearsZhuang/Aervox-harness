@@ -84,6 +84,7 @@ import {
   completeReviewRequestSchema,
   completeReviewResponseSchema,
   reviewItemSchema,
+  reviewHistoryResponseSchema,
   reviewListResponseSchema,
   reviewSummaryResponseSchema,
 } from "./practice-schemas.js";
@@ -152,6 +153,7 @@ registry.register("UpdateMistakeRequest", updateMistakeRequestSchema);
 registry.register("RepracticeRequest", repracticeRequestSchema);
 registry.register("CreateAttemptRequest", createAttemptRequestSchema);
 registry.register("ReviewItem", reviewItemSchema);
+registry.register("ReviewHistoryResponse", reviewHistoryResponseSchema);
 registry.register("ReviewListResponse", reviewListResponseSchema);
 registry.register("ReviewSummaryResponse", reviewSummaryResponseSchema);
 registry.register("CompleteReviewRequest", completeReviewRequestSchema);
@@ -460,6 +462,11 @@ registry.registerPath({
   method: "get", path: "/v1/review-items/summary", summary: "读取到期复习汇总", tags: ["Learning"],
   request: { headers: scopeHeaders, query: z.object({ dueBefore: z.string().optional() }) },
   responses: { 200: { description: "Due review summary", content: { "application/json": { schema: reviewSummaryResponseSchema } } } },
+});
+registry.registerPath({
+  method: "get", path: "/v1/review-items/history", summary: "读取最近复习历史", tags: ["Learning"],
+  request: { headers: scopeHeaders, query: z.object({ limit: z.coerce.number().int().min(1).max(50).optional() }) },
+  responses: { 200: { description: "Recent completed reviews", content: { "application/json": { schema: reviewHistoryResponseSchema } } }, 400: { description: "limit 非法" } },
 });
 registry.registerPath({
   method: "post", path: "/v1/review-items/{reviewId}/complete", summary: "完成复习并调度下一项（幂等重放）", tags: ["Learning"],

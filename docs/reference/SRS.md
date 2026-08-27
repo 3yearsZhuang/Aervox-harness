@@ -4,7 +4,7 @@
 - 修改人：kikoyida · 2026-08-27
 
 > 文档编号：AVX-SRS-001  
-> 版本：v0.4（评审候选）
+> 版本：v0.5（评审候选）
 > 更新日期：2026-08-27
 > 状态：Review Candidate  
 > 产品事实源：[PRD](PRD.md)  
@@ -222,6 +222,7 @@
   - `AC-FR-REV-001-02`：Given 用户完成复习，When 保存结果，Then 只更新一次下次日期并显示规则版本。
   - `AC-FR-REV-001-03`：Given 用户跨时区或遇到 DST，When 计算日界线，Then 使用用户 IANA 时区且不重复生成活动项。
   - `AC-FR-REV-001-04`：Given 首次完成已提交，When 客户端以相同判定重试，Then 返回同一下一项且知识点统计只更新一次；判定不同则返回 409。
+  - `AC-FR-REV-001-05`：Given 用户已完成多次复习，When 打开学习工作台，Then 按最近完成时间展示判定和关联的下一复习项，且不得泄露其他租户记录。
 - **测试**：`TC-UNIT-REV-001`、`TC-INTEG-REV-001`、`TC-PERF-REV-001`、`TC-MIG-REV-001`。变更依据见 [CR-010](changes/CR-010-review-completion-idempotency.md)。
 
 ### FR-SAFE-001 轻量陪伴与安全响应

@@ -380,6 +380,15 @@ export function registerLearningRoutes(
     };
   });
 
+  app.get("/v1/review-items/history", async (req, reply) => {
+    const rawLimit = (req.query as { limit?: string }).limit;
+    const limit = rawLimit === undefined ? 10 : Number(rawLimit);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
+      return reply.code(400).send({ error: "limit must be an integer between 1 and 50" });
+    }
+    return { items: await learningRepo.listCompletedReviewItems(resolveTenant(req), limit) };
+  });
+
   app.post("/v1/review-items/:reviewId/complete", async (req, reply) => {
     const tenant = resolveTenant(req);
     const { reviewId } = req.params as { reviewId: string };
