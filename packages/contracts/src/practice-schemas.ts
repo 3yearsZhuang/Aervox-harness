@@ -85,6 +85,7 @@ export const repracticeRequestSchema = z.object({
 export const createAttemptRequestSchema = z.object({
   answer: z.string(),
   sessionId: z.string().optional(),
+  timeZone: z.string().min(1).optional(),
 });
 
 export const reviewItemSchema = z.object({
@@ -93,6 +94,7 @@ export const reviewItemSchema = z.object({
   dueAt: z.string(),
   intervalDays: z.number().int().positive(),
   schedulerVersion: z.number().int().positive(),
+  timezoneSnapshot: z.string(),
   status: z.enum(["active", "completed", "dismissed", "archived"]),
 });
 
@@ -105,10 +107,16 @@ export const reviewHistoryItemSchema = reviewItemSchema.extend({
 export const reviewHistoryResponseSchema = z.object({ items: z.array(reviewHistoryItemSchema) });
 export const reviewSummaryResponseSchema = z.object({
   dueCount: z.number().int().nonnegative(),
+  overdueCount: z.number().int().nonnegative(),
+  dueTodayCount: z.number().int().nonnegative(),
   estimatedMinutes: z.number().int().nonnegative(),
+  timeZone: z.string(),
   items: z.array(reviewItemSchema),
 });
-export const completeReviewRequestSchema = z.object({ isCorrect: z.boolean() });
+export const completeReviewRequestSchema = z.object({
+  isCorrect: z.boolean(),
+  timeZone: z.string().min(1).optional(),
+});
 export const completeReviewResponseSchema = z.object({
   completed: reviewItemSchema,
   nextReview: reviewItemSchema,

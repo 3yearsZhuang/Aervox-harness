@@ -58,6 +58,8 @@
 
 复习闭环的幂等边界见 [CR-010：复习完成幂等与结果重放](reference/changes/CR-010-review-completion-idempotency.md)：重复完成可重放首次结算，相反判定被拒绝且不重复调度。
 
+复习日期边界见 [CR-011：时区安全的复习调度与逾期汇总](reference/changes/CR-011-timezone-safe-review-scheduling.md)：v2 按 IANA 时区增加本地日历天，并区分今日到期与历史逾期。
+
 Agent 执行核心的目标基线见 [CR-012：Agent Harness Loop](reference/changes/CR-012-agent-harness-loop.md) 与 [AVX-HAR-001](reference/agent-harness-loop.md)：当前固定 `done` SSE 将分阶段迁移为可恢复的模型—工具—模型多 Step 循环，外部 DSH/pi 仍只作为可选 Provider。
 
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
