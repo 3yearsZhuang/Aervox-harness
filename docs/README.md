@@ -58,7 +58,7 @@
 
 复习闭环的幂等边界见 [CR-010：复习完成幂等与结果重放](reference/changes/CR-010-review-completion-idempotency.md)：重复完成可重放首次结算，相反判定被拒绝且不重复调度。
 
-Agent 执行核心的目标基线见 [CR-011：Agent Harness Loop](reference/changes/CR-011-agent-harness-loop.md) 与 [AVX-HAR-001](reference/agent-harness-loop.md)：当前固定 `done` SSE 将分阶段迁移为可恢复的模型—工具—模型多 Step 循环，外部 DSH/pi 仍只作为可选 Provider。
+Agent 执行核心的目标基线见 [CR-012：Agent Harness Loop](reference/changes/CR-012-agent-harness-loop.md) 与 [AVX-HAR-001](reference/agent-harness-loop.md)：当前固定 `done` SSE 将分阶段迁移为可恢复的模型—工具—模型多 Step 循环，外部 DSH/pi 仍只作为可选 Provider。
 
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
 

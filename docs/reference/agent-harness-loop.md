@@ -8,7 +8,7 @@
 > 版本：v0.1  
 > 更新日期：2026-08-28  
 > 状态：Review Candidate  
-> 关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[CR-011](changes/CR-011-agent-harness-loop.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
+> 关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[CR-012](changes/CR-012-agent-harness-loop.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
 本文规定 Aervox Agent Harness Loop 的职责、状态机、Port、持久化边界、工具执行、取消恢复和分阶段落地路线。当前仓库只有 Turn/Attempt、SSE、ToolRuntime、Provider 目标接口和 Worker 轮询骨架，尚无完整的“模型调用 → 工具执行 → 再次模型调用 → 终止”的 Agent 执行循环；本文描述的是目标规范，不是已完成实现。
 
@@ -572,7 +572,7 @@ pi Extension 的事件、Tool、Provider 和上下文注入可映射为 Agent Lo
 
 ## 18. 决策与后续文档
 
-本文是 `CR-011` 的目标 Reference。正式实施前应新增架构决策，冻结以下难以逆转的内容：
+本文是 `CR-012` 的目标 Reference。正式实施前应新增架构决策，冻结以下难以逆转的内容：
 
 - Agent Loop 是否作为独立 `apps/agent` 部署；
 - AgentStep/ToolInvocation/ToolExecution/Inbox 的数据模型；
