@@ -5,12 +5,12 @@
 
 > 文档编号：AVX-HAR-001  
 > 类型：Reference  
-> 版本：v0.1  
+> 版本：v0.2  
 > 更新日期：2026-08-28  
 > 状态：Review Candidate  
-> 关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[CR-012](changes/CR-012-agent-harness-loop.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
+> 关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[CR-012](changes/CR-012-agent-harness-loop.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
-本文规定 Aervox Agent Harness Loop 的职责、状态机、Port、持久化边界、工具执行、取消恢复和分阶段落地路线。当前仓库只有 Turn/Attempt、SSE、ToolRuntime、Provider 目标接口和 Worker 轮询骨架，尚无完整的“模型调用 → 工具执行 → 再次模型调用 → 终止”的 Agent 执行循环；本文描述的是目标规范，不是已完成实现。
+本文规定 Aervox Agent Harness Loop 的职责、状态机、Port、持久化边界、工具执行、取消恢复和分阶段落地路线。当前仓库只有 Turn/Attempt、SSE、ToolRuntime、ModelRun/ContextManifest 的 schema/仓储骨架，以及 Worker 轮询骨架，尚无完整的“模型调用 → 工具执行 → 再次模型调用 → 终止”的 Agent 执行循环；本文描述的是目标规范，不是已完成实现。文中标为“目标”的接口、表和状态转换，只有在对应代码、迁移和契约测试落地后才可视为运行能力。
 
 ## 1. 范围与非目标
 
@@ -21,12 +21,12 @@ Agent Harness Loop 是驱动一次 Agent Turn 的执行能力：它领取已持�
 - Agent、Turn、Attempt、Step、ModelRun 和 ToolExecution 的执行关系；
 - 输入安全、上下文组装、模型调用、工具权限、结果回填和终止判断；
 - 流式持久化、取消、重试、租约、fencing、恢复和可观测性；
-- 原生 Loop Provider 与 DSH/pi Adapter 的替换边界；
+- 原生 Loop Driver 与 DSH/pi Adapter 的替换边界，以及 Model Provider 的调用边界；
 - 从当前固定 `done` SSE 骨架迁移到完整 Loop 的阶段计划。
 
 本文不覆盖：
 
-- 具体模型供应商 SDK；它们由 `ProviderPort` Adapter 实现；
+- 具体模型供应商 SDK；它们由 `ModelProviderPort` Adapter 实现；
 - 单个工具的业务规则；工具 Owner 通过 Tool Port 提供实现；
 - Worker 的复习、日记、删除等周期任务；它们属于 Job Handler，不属于 Agent Harness Loop；
 - DSH 或 pi 的 Session 格式、权限模型和持久化格式；外部运行时只能通过 Adapter 提供 Loop/Provider 能力。
@@ -37,14 +37,14 @@ Agent Harness Loop 是驱动一次 Agent Turn 的执行能力：它领取已持�
 
 | 构件 | 当前实现 | 可复用边界 |
 |---|---|---|
-| Turn 创建 | `apps/api/src/modules/conversation/routes.ts` | 幂等创建 Turn、Message 和 Outbox |
-| TurnAttempt | `turn_attempts` 表与仓储接口 | Attempt 编号、lease、fencing 和状态的基础字段 |
-| TurnStreamEvent | `turn_stream_events` 表与 SSE 契约 | 持久事件、sequence、重连和终态语义 |
-| Provider 目标 | ADR-005、架构设计 §7 | `streamText`、`generateObject`、`embed`、`classify` |
-| ToolRuntime | `apps/api/src/modules/tools/runtime.ts` | Tool registry、启停、审批和 handler 调用 |
-| ModelRun/ContextManifest | `model_runs`、`context_manifests` | 模型、Prompt、上下文、成本与审计记录 |
-| Worker loop | `apps/worker/src/index.ts` | 后台 Job 调度，不复用为 Agent 推理循环 |
-| Pipeline | `apps/worker/src/pipeline.ts` | 显式顺序与短路思想，不直接承担 Agent Step |
+| Turn 创建 | `apps/api/src/modules/conversation/routes.ts`；当前 Outbox 事件为 `turn.created` | 已有幂等创建 Turn、Message 和 Outbox；尚未唤醒或领取 Loop Attempt |
+| TurnAttempt | `turn_attempts` schema 与 create/list 仓储骨架 | 只有 Attempt 编号、leaseId/fencingToken 等字段；没有 `leaseExpiresAt`、claim/renew/release、CAS 或 fencing 校验 |
+| TurnStreamEvent | `turn_stream_events` schema 与 append/list 仓储骨架 | 表有 attempt、安全决策和提交时间列，但 Port 未接收这些字段；SSE 路由仍返回固定内存 `done` |
+| Provider 目标 | ADR-005 与架构设计 §7 的目标接口 | 目标是 `ModelProviderPort` 的模型路由、准备和流式调用；Conversation 路由尚未驱动它 |
+| ToolRuntime | `apps/api/src/modules/tools/runtime.ts` | 已有 registry、启停、审批和 handler 调用；尚未由模型输出驱动多 Step Loop |
+| ModelRun/ContextManifest | `model_runs`、`context_manifests` schema 与通用 CRUD | 能记录模型和来源，但尚未关联 Turn/Attempt/AgentStep；粒度和关联字段待 ADR 冻结 |
+| Worker loop | `apps/worker/src/index.ts` | 已有后台 Job 调度；入口逐项调用 cycle，未调用 `runPipeline()`，不复用为 Agent 推理循环 |
+| Pipeline | `apps/worker/src/pipeline.ts` | 已定义显式顺序与短路 helper，但不直接承担 Agent Step |
 
 ### 2.2 当前缺口
 
