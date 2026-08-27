@@ -20,6 +20,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@aervox/agent-loop':
+        specifier: workspace:*
+        version: link:../../packages/agent-loop
       '@aervox/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -191,6 +194,19 @@ importers:
       vitest:
         specifier: 4.0.18
         version: 4.0.18(@types/node@22.20.1)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
+
+  packages/agent-loop:
+    dependencies:
+      '@aervox/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: 4.0.18
+        version: 4.0.18(@types/node@24.13.3)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
 
   packages/api-client:
     dependencies:
