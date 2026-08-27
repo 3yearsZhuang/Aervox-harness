@@ -2764,9 +2764,6 @@
           "answer": {
             "type": "string"
           },
-          "idempotencyKey": {
-            "type": "string"
-          },
           "sessionId": {
             "type": "string"
           }
@@ -7486,6 +7483,15 @@
             "required": false,
             "name": "X-Actor-Id",
             "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "Idempotency-Key",
+            "in": "header"
           }
         ],
         "requestBody": {
@@ -7495,9 +7501,6 @@
                 "type": "object",
                 "properties": {
                   "answer": {
-                    "type": "string"
-                  },
-                  "idempotencyKey": {
                     "type": "string"
                   },
                   "sessionId": {
@@ -7513,7 +7516,10 @@
         },
         "responses": {
           "200": {
-            "description": "Attempt recorded"
+            "description": "Existing idempotent attempt"
+          },
+          "201": {
+            "description": "Attempt created"
           },
           "400": {
             "description": "请求或会话信息非法"
