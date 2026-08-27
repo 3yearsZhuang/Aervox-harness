@@ -656,6 +656,7 @@ export interface ReviewItemModel {
   dueAt: string;
   intervalDays: number;
   schedulerVersion: number;
+  timezoneSnapshot: string;
   status: string;
   completionIsCorrect?: boolean | null;
   nextReviewId?: string | null;
@@ -775,11 +776,11 @@ export interface ILearningRepository {
   ): Promise<KnowledgeItemModel | null>;
   scheduleReviewItem(
     tenant: TenantContext,
-    item: { id: string; knowledgeId: string; dueAt: string; intervalDays: number; schedulerVersion?: number },
+    item: { id: string; knowledgeId: string; dueAt: string; intervalDays: number; schedulerVersion?: number; timezoneSnapshot?: string },
   ): Promise<ReviewItemModel>;
   createReviewItem(
     tenant: TenantContext,
-    item: { id: string; knowledgeId: string; dueAt: string; intervalDays?: number; schedulerVersion?: number },
+    item: { id: string; knowledgeId: string; dueAt: string; intervalDays?: number; schedulerVersion?: number; timezoneSnapshot?: string },
   ): Promise<ReviewItemModel>;
   getReviewItem(tenant: TenantContext, id: string): Promise<ReviewItemModel | null>;
   listCompletedReviewItems(tenant: TenantContext, limit?: number): Promise<ReviewItemModel[]>;
@@ -797,7 +798,7 @@ export interface ILearningRepository {
         masteryState: string;
         masteryBasis: unknown;
       };
-      nextReview: { id: string; dueAt: string; intervalDays: number; schedulerVersion: number };
+      nextReview: { id: string; dueAt: string; intervalDays: number; schedulerVersion: number; timezoneSnapshot: string };
     },
   ): Promise<{ completed: ReviewItemModel; nextReview: ReviewItemModel; knowledge: KnowledgeItemModel } | null>;
   listDueReviewItems(tenant: TenantContext, before: string): Promise<ReviewItemModel[]>;
