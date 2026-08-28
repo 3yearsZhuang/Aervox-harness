@@ -11,6 +11,7 @@ import type {
   PromptContext,
   PromptMessage,
   SafetyDecision,
+  ToolApprovalInfo,
   ToolCallRequest,
   ToolExecutionRecord,
   ToolSpec,
@@ -85,6 +86,8 @@ export interface ToolExecutionResult {
   ok: boolean;
   output?: unknown;
   error?: string;
+  /** 阶段 3a：需要授权（宿主未执行，生成 pending 授权并返回匹配键） */
+  needsApproval?: ToolApprovalInfo;
 }
 
 /** 工具执行器（只读工具子集；阶段 3 扩展审批/幂等/副作用证据） */
