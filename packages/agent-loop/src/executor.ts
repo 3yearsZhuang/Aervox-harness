@@ -394,6 +394,7 @@ export async function executeTurn(
           await execution.recordSafeSegment({
             turnId: input.turnId,
             attemptId: input.attemptId,
+            expectedFencingToken: claimFencingToken,
             sequence: sequence++,
             text: chunk.text,
             eventData: { messageId, text: chunk.text, isFinal: true },
@@ -425,6 +426,7 @@ export async function executeTurn(
         await execution.recordSafeSegment({
           turnId: input.turnId,
           attemptId: input.attemptId,
+          expectedFencingToken: claimFencingToken,
           sequence: sequence++,
           text: chunk.text,
           eventData: { messageId, text: chunk.text, isFinal: false },

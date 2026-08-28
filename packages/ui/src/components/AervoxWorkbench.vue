@@ -52,15 +52,6 @@ interface StoryLine {
   state?: 'streaming' | 'complete' | 'error'
 }
 
-type CompanionModeId = 'companion' | 'quick' | 'deep' | 'chat'
-
-interface CompanionMode {
-  id: CompanionModeId
-  label: string
-  hint: string
-  prefix: string
-}
-
 type CardId = 'study' | 'todo' | 'timer' | 'history' | 'review' | 'mistake' | 'diary' | 'notifications'
 
 interface CardDefinition {
@@ -121,7 +112,7 @@ const planBusyId = ref<string | null>(null)
 const planDrafts = ref<Record<string, {endDate: string; dailyAvailableMinutes: number}>>({})
 const input = ref('')
 const isComposing = ref(false)
-const activeModeId = ref<CompanionModeId>('companion')
+const composerPlaceholder = '和思隅聊聊学习或任何事…'
 const cardSlots = ref<Array<CardId | null>>([null, null])
 const timerSeconds = ref(25 * 60)
 const timerRunning = ref(false)
@@ -183,15 +174,6 @@ const settingCategories = [
   {id: 'voice', label: '语音', description: '本地语音模型配置', icon: Volume2},
   {id: 'plugins', label: '插件', description: '插件配置与页面', icon: Puzzle},
 ] as const
-
-const companionModes: CompanionMode[] = [
-  {id: 'companion', label: '陪学讲解', hint: '逐步讲解，适合卡住的时候', prefix: '[模式：陪学讲解] '},
-  {id: 'quick', label: '快问快答', hint: '简短直接，先给结论', prefix: '[模式：快问快答] '},
-  {id: 'deep', label: '深度拆解', hint: '展开原理与关联知识', prefix: '[模式：深度拆解] '},
-  {id: 'chat', label: '自由聊天', hint: '无固定结构的日常对话', prefix: ''},
-]
-
-const activeMode = computed(() => companionModes.find((mode) => mode.id === activeModeId.value) ?? companionModes[0])
 
 const activeMistakeCount = computed(() => mistakes.value.filter((item) => item.status === 'active').length)
 
@@ -275,9 +257,7 @@ async function sendMessage(value = input.value) {
   const text = value.trim()
   if (!text || streaming.value) return
 
-  // 模式前缀随消息发送（自由聊天无前缀），对话记录仍展示用户原文。
-  const modePrefix = activeMode.value.prefix
-  const outgoing = modePrefix && !text.startsWith(modePrefix) ? modePrefix + text : text
+  const outgoing = text
 
   const assistantLine = createStoryLine('assistant', '', 'streaming')
   story.value.push(createStoryLine('user', text), assistantLine)
@@ -738,11 +718,6 @@ function handleComposerInputOrKey() {
   }
 }
 
-function setMode(id: CompanionModeId) {
-  activeModeId.value = id
-  localStorage.setItem('aervox-composer-mode', id)
-}
-
 function isCardPicked(id: CardId) {
   return cardSlots.value.includes(id)
 }
@@ -868,9 +843,6 @@ onMounted(() => {
     // Ignore malformed local preferences and use defaults.
   }
 
-  const savedMode = localStorage.getItem('aervox-composer-mode')
-  if (savedMode && companionModes.some((mode) => mode.id === savedMode)) activeModeId.value = savedMode as CompanionModeId
-
   try {
     const savedCards = JSON.parse(localStorage.getItem('aervox-side-cards') ?? 'null') as unknown
     if (Array.isArray(savedCards)) {
@@ -969,12 +941,12 @@ onUnmounted(() => {
                 <strong>{{ card.label }}</strong>
                 <small>{{ card.description }}</small>
               </span>
-              <el-dropdown trigger="click" @command="(id: unknown) => handleCardCommand(slotIndex, id)">
+              <el-dropdown trigger="click" :placement="slotIndex === 0 ? 'bottom-start' : 'top-start'" :popper-options="{modifiers: [{name: 'flip', enabled: false}]}" @command="(id: unknown) => handleCardCommand(slotIndex, id)">
                 <button class="side-card-swap" type="button" aria-label="更换卡片功能" @click.stop>
                   <LayoutGrid :size="15" />
                 </button>
                 <template #dropdown>
-                  <el-dropdown-menu>
+                  <el-dropdown-menu class="side-card-menu">
                     <el-dropdown-item v-for="option in cardCatalog" :key="option.id" :command="option.id" :disabled="isCardPicked(option.id) && option.id !== card.id">
                       <span class="side-card-option"><component :is="option.icon" :size="15" /> {{ option.label }}</span>
                     </el-dropdown-item>
@@ -991,7 +963,7 @@ onUnmounted(() => {
           </article>
         </template>
 
-        <el-dropdown v-else trigger="click" @command="(id: unknown) => handleCardCommand(slotIndex, id)">
+        <el-dropdown v-else trigger="click" :placement="slotIndex === 0 ? 'bottom-start' : 'top-start'" :popper-options="{modifiers: [{name: 'flip', enabled: false}]}" @command="(id: unknown) => handleCardCommand(slotIndex, id)">
           <button class="side-card side-card-placeholder" type="button" aria-label="为此卡片选择功能">
             <span class="side-card-icon"><Plus :size="24" /></span>
             <span class="side-card-title">
@@ -1000,7 +972,7 @@ onUnmounted(() => {
             </span>
           </button>
           <template #dropdown>
-            <el-dropdown-menu>
+            <el-dropdown-menu class="side-card-menu">
               <el-dropdown-item v-for="option in cardCatalog" :key="option.id" :command="option.id" :disabled="isCardPicked(option.id)">
                 <span class="side-card-option"><component :is="option.icon" :size="15" /> {{ option.label }}</span>
               </el-dropdown-item>
@@ -1044,26 +1016,10 @@ onUnmounted(() => {
         <button v-if="!composerOpen" class="composer-collapsed" type="button" @click="expandComposer">
           <MessageCircle :size="16" />
           <span class="composer-collapsed-hint">{{ streaming ? '思隅正在回应…' : '点击输入消息' }}</span>
-          <span class="composer-mode-chip">{{ activeMode.label }}</span>
           <ChevronUp :size="15" />
         </button>
 
         <form v-else class="composer-expanded" @submit.prevent="sendMessage()">
-          <div class="composer-modes" role="radiogroup" aria-label="对话模式">
-            <button
-              v-for="mode in companionModes"
-              :key="mode.id"
-              type="button"
-              class="composer-mode"
-              :class="{active: activeModeId === mode.id}"
-              :title="mode.hint"
-              :aria-pressed="activeModeId === mode.id"
-              @mousedown.prevent
-              @click="setMode(mode.id)"
-            >
-              {{ mode.label }}
-            </button>
-          </div>
           <label class="sr-only" for="aervox-composer">输入要发送给思隅的内容</label>
           <textarea
             id="aervox-composer"
@@ -1071,7 +1027,7 @@ onUnmounted(() => {
             v-model="input"
             rows="3"
             :disabled="streaming"
-            :placeholder="activeMode.hint + '…'"
+            :placeholder="composerPlaceholder"
             @keydown.enter="handleComposerEnter"
             @input="handleComposerInputOrKey"
             @compositionstart="handleCompositionStart"
