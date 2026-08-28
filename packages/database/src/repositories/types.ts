@@ -49,6 +49,9 @@ export interface TurnStreamEventModel {
   payloadVersion: number;
   data: unknown;
   occurredAt: string;
+  attemptId?: string | null;
+  safetyDecision?: string | null;
+  committedAt?: string | null;
 }
 
 export interface OutboxEventModel {
@@ -656,6 +659,7 @@ export interface ReviewItemModel {
   dueAt: string;
   intervalDays: number;
   schedulerVersion: number;
+  timezoneSnapshot: string;
   status: string;
   completionIsCorrect?: boolean | null;
   nextReviewId?: string | null;
@@ -709,6 +713,7 @@ export interface ILearningRepository {
     session: { id: string; questionCount: number; questionIds: string[] },
   ): Promise<PracticeSessionModel>;
   getPracticeSession(tenant: TenantContext, sessionId: string): Promise<PracticeSessionModel | null>;
+  getLatestActivePracticeSession(tenant: TenantContext): Promise<PracticeSessionModel | null>;
   completePracticeSession(tenant: TenantContext, sessionId: string): Promise<PracticeSessionModel | null>;
   recordAttempt(
     tenant: TenantContext,
@@ -775,11 +780,11 @@ export interface ILearningRepository {
   ): Promise<KnowledgeItemModel | null>;
   scheduleReviewItem(
     tenant: TenantContext,
-    item: { id: string; knowledgeId: string; dueAt: string; intervalDays: number; schedulerVersion?: number },
+    item: { id: string; knowledgeId: string; dueAt: string; intervalDays: number; schedulerVersion?: number; timezoneSnapshot?: string },
   ): Promise<ReviewItemModel>;
   createReviewItem(
     tenant: TenantContext,
-    item: { id: string; knowledgeId: string; dueAt: string; intervalDays?: number; schedulerVersion?: number },
+    item: { id: string; knowledgeId: string; dueAt: string; intervalDays?: number; schedulerVersion?: number; timezoneSnapshot?: string },
   ): Promise<ReviewItemModel>;
   getReviewItem(tenant: TenantContext, id: string): Promise<ReviewItemModel | null>;
   listCompletedReviewItems(tenant: TenantContext, limit?: number): Promise<ReviewItemModel[]>;
@@ -797,7 +802,7 @@ export interface ILearningRepository {
         masteryState: string;
         masteryBasis: unknown;
       };
-      nextReview: { id: string; dueAt: string; intervalDays: number; schedulerVersion: number };
+      nextReview: { id: string; dueAt: string; intervalDays: number; schedulerVersion: number; timezoneSnapshot: string };
     },
   ): Promise<{ completed: ReviewItemModel; nextReview: ReviewItemModel; knowledge: KnowledgeItemModel } | null>;
   listDueReviewItems(tenant: TenantContext, before: string): Promise<ReviewItemModel[]>;

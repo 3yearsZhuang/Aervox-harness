@@ -76,6 +76,7 @@ import {
   createAttemptRequestSchema,
   createPracticeSessionRequestSchema,
   createPracticeSessionResponseSchema,
+  practiceSessionResumeResponseSchema,
   mistakeItemSchema,
   mistakeListResponseSchema,
   mistakeStatusEnumSchema,
@@ -157,6 +158,7 @@ registry.register("PluginPageContext", pluginPageContextSchema);
 registry.register("PracticeQuestion", practiceQuestionSchema);
 registry.register("CreatePracticeSessionRequest", createPracticeSessionRequestSchema);
 registry.register("CreatePracticeSessionResponse", createPracticeSessionResponseSchema);
+registry.register("PracticeSessionResumeResponse", practiceSessionResumeResponseSchema);
 registry.register("PracticeReport", practiceReportSchema);
 registry.register("MistakeItem", mistakeItemSchema);
 registry.register("MistakeListResponse", mistakeListResponseSchema);
@@ -442,7 +444,12 @@ const mistakeListQuery = z.object({ status: mistakeStatusEnumSchema.optional() }
 registry.registerPath({
   method: "post", path: "/v1/practice/sessions", summary: "创建短时练习会话（3~5 题）", tags: ["Learning"],
   request: { headers: scopeHeaders, body: { content: { "application/json": { schema: createPracticeSessionRequestSchema } } } },
-  responses: { 201: { description: "Created", content: { "application/json": { schema: createPracticeSessionResponseSchema } } }, 400: { description: "count 必须为 3~5 的整数" }, 409: { description: "活跃题目数量不足" } },
+  responses: { 200: { description: "Resumed active session", content: { "application/json": { schema: practiceSessionResumeResponseSchema } } }, 201: { description: "Created", content: { "application/json": { schema: practiceSessionResumeResponseSchema } } }, 400: { description: "count 必须为 3~5 的整数" }, 409: { description: "活跃题目数量不足" } },
+});
+registry.registerPath({
+  method: "get", path: "/v1/practice/sessions/active", summary: "恢复当前活跃练习会话", tags: ["Learning"],
+  request: { headers: scopeHeaders },
+  responses: { 200: { description: "Active practice session", content: { "application/json": { schema: practiceSessionResumeResponseSchema } } }, 404: { description: "PRACTICE_SESSION_NOT_FOUND" } },
 });
 registry.registerPath({
   method: "get", path: "/v1/practice/sessions/{sessionId}/report", summary: "读取练习会话报告", tags: ["Learning"],
@@ -467,7 +474,7 @@ registry.registerPath({
 registry.registerPath({
   method: "post", path: "/v1/mistakes/repractice", summary: "从错题本创建重练会话", tags: ["Learning"],
   request: { headers: scopeHeaders, body: { content: { "application/json": { schema: repracticeRequestSchema } } } },
-  responses: { 201: { description: "Created", content: { "application/json": { schema: createPracticeSessionResponseSchema } } }, 400: { description: "questionIds 非法或含非活跃错题" }, 409: { description: "错题题目不可用" } },
+  responses: { 200: { description: "Resumed active session", content: { "application/json": { schema: practiceSessionResumeResponseSchema } } }, 201: { description: "Created", content: { "application/json": { schema: createPracticeSessionResponseSchema } } }, 400: { description: "questionIds 非法或含非活跃错题" }, 409: { description: "错题题目不可用" } },
 });
 registry.registerPath({
   method: "post", path: "/v1/questions/{questionId}/attempts", summary: "作答题目（不可变学习事实，可关联练习会话）", tags: ["Learning"],
@@ -482,7 +489,7 @@ registry.registerPath({
 });
 registry.registerPath({
   method: "get", path: "/v1/review-items/summary", summary: "读取到期复习汇总", tags: ["Learning"],
-  request: { headers: scopeHeaders, query: z.object({ dueBefore: z.string().optional() }) },
+  request: { headers: scopeHeaders, query: z.object({ dueBefore: z.string().optional(), timeZone: z.string().optional() }) },
   responses: { 200: { description: "Due review summary", content: { "application/json": { schema: reviewSummaryResponseSchema } } } },
 });
 registry.registerPath({

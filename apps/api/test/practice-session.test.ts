@@ -84,4 +84,38 @@ describe("练习会话报告", () => {
     const started = await app.inject({ method: "POST", url: "/v1/practice/sessions", headers, payload: { count: 3 } });
     expect(started.statusCode).toBe(409);
   });
+
+  it("恢复活跃会话的固定题组快照与未答进度，不重复创建会话", async () => {
+    for (const [prompt, answer] of [["1 + 1 = ?", "2"], ["2 + 2 = ?", "4"], ["3 + 3 = ?", "6"]]) {
+      expect(
+        (await app.inject({ method: "POST", url: "/v1/questions", headers, payload: { prompt, answerSpec: { answer } } })).statusCode,
+      ).toBe(201);
+    }
+
+    const started = await app.inject({ method: "POST", url: "/v1/practice/sessions", headers, payload: { count: 3 } });
+    expect(started.statusCode).toBe(201);
+    const { sessionId, items } = started.json() as { sessionId: string; items: Array<{ id: string }> };
+    expect(
+      (await app.inject({ method: "POST", url: `/v1/questions/${items[0]?.id}/attempts`, headers, payload: { sessionId, answer: "2" } })).statusCode,
+    ).toBe(201);
+
+    const recovered = await app.inject({ method: "GET", url: "/v1/practice/sessions/active", headers });
+    expect(recovered.statusCode).toBe(200);
+    expect(recovered.json()).toMatchObject({ sessionId, answeredQuestionIds: [items[0]?.id], nextQuestionIndex: 1 });
+    expect(recovered.json().items.map((item: { id: string }) => item.id)).toEqual(items.map((item) => item.id));
+
+    const retriedStart = await app.inject({ method: "POST", url: "/v1/practice/sessions", headers, payload: { count: 5 } });
+    expect(retriedStart.statusCode).toBe(200);
+    expect(retriedStart.json()).toMatchObject({ sessionId, nextQuestionIndex: 1 });
+
+    const otherTenant = await app.inject({
+      method: "GET",
+      url: "/v1/practice/sessions/active",
+      headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" },
+    });
+    expect(otherTenant.statusCode).toBe(404);
+
+    expect((await app.inject({ method: "POST", url: `/v1/practice/sessions/${sessionId}/complete`, headers })).statusCode).toBe(200);
+    expect((await app.inject({ method: "GET", url: "/v1/practice/sessions/active", headers })).statusCode).toBe(404);
+  });
 });

@@ -2665,6 +2665,85 @@
           "items"
         ]
       },
+      "PracticeSessionResumeResponse": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "workspaceId": {
+                  "type": "string"
+                },
+                "subjectUserId": {
+                  "type": "string"
+                },
+                "sourceArtifactId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "knowledgeId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "prompt": {
+                  "type": "string"
+                },
+                "answerSpec": {},
+                "status": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "updatedAt": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "workspaceId",
+                "subjectUserId",
+                "prompt",
+                "status",
+                "createdAt",
+                "updatedAt"
+              ]
+            }
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "answeredQuestionIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "nextQuestionIndex": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "sessionId",
+          "items",
+          "startedAt",
+          "answeredQuestionIds",
+          "nextQuestionIndex"
+        ]
+      },
       "PracticeReport": {
         "type": "object",
         "properties": {
@@ -2858,6 +2937,10 @@
           },
           "sessionId": {
             "type": "string"
+          },
+          "timeZone": {
+            "type": "string",
+            "minLength": 1
           }
         },
         "required": [
@@ -2884,6 +2967,9 @@
             "type": "integer",
             "exclusiveMinimum": 0
           },
+          "timezoneSnapshot": {
+            "type": "string"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -2900,6 +2986,7 @@
           "dueAt",
           "intervalDays",
           "schedulerVersion",
+          "timezoneSnapshot",
           "status"
         ]
       },
@@ -2927,6 +3014,9 @@
                 "schedulerVersion": {
                   "type": "integer",
                   "exclusiveMinimum": 0
+                },
+                "timezoneSnapshot": {
+                  "type": "string"
                 },
                 "status": {
                   "type": "string",
@@ -2959,6 +3049,7 @@
                 "dueAt",
                 "intervalDays",
                 "schedulerVersion",
+                "timezoneSnapshot",
                 "status",
                 "completionIsCorrect",
                 "nextReviewId",
@@ -2996,6 +3087,9 @@
                   "type": "integer",
                   "exclusiveMinimum": 0
                 },
+                "timezoneSnapshot": {
+                  "type": "string"
+                },
                 "status": {
                   "type": "string",
                   "enum": [
@@ -3012,6 +3106,7 @@
                 "dueAt",
                 "intervalDays",
                 "schedulerVersion",
+                "timezoneSnapshot",
                 "status"
               ]
             }
@@ -3028,9 +3123,20 @@
             "type": "integer",
             "minimum": 0
           },
+          "overdueCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "dueTodayCount": {
+            "type": "integer",
+            "minimum": 0
+          },
           "estimatedMinutes": {
             "type": "integer",
             "minimum": 0
+          },
+          "timeZone": {
+            "type": "string"
           },
           "items": {
             "type": "array",
@@ -3054,6 +3160,9 @@
                   "type": "integer",
                   "exclusiveMinimum": 0
                 },
+                "timezoneSnapshot": {
+                  "type": "string"
+                },
                 "status": {
                   "type": "string",
                   "enum": [
@@ -3070,6 +3179,7 @@
                 "dueAt",
                 "intervalDays",
                 "schedulerVersion",
+                "timezoneSnapshot",
                 "status"
               ]
             }
@@ -3077,7 +3187,10 @@
         },
         "required": [
           "dueCount",
+          "overdueCount",
+          "dueTodayCount",
           "estimatedMinutes",
+          "timeZone",
           "items"
         ]
       },
@@ -3086,6 +3199,10 @@
         "properties": {
           "isCorrect": {
             "type": "boolean"
+          },
+          "timeZone": {
+            "type": "string",
+            "minLength": 1
           }
         },
         "required": [
@@ -3115,6 +3232,9 @@
                 "type": "integer",
                 "exclusiveMinimum": 0
               },
+              "timezoneSnapshot": {
+                "type": "string"
+              },
               "status": {
                 "type": "string",
                 "enum": [
@@ -3131,6 +3251,7 @@
               "dueAt",
               "intervalDays",
               "schedulerVersion",
+              "timezoneSnapshot",
               "status"
             ]
           },
@@ -3154,6 +3275,9 @@
                 "type": "integer",
                 "exclusiveMinimum": 0
               },
+              "timezoneSnapshot": {
+                "type": "string"
+              },
               "status": {
                 "type": "string",
                 "enum": [
@@ -3170,6 +3294,7 @@
               "dueAt",
               "intervalDays",
               "schedulerVersion",
+              "timezoneSnapshot",
               "status"
             ]
           },
@@ -8020,6 +8145,92 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "Resumed active session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sessionId": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "workspaceId": {
+                            "type": "string"
+                          },
+                          "subjectUserId": {
+                            "type": "string"
+                          },
+                          "sourceArtifactId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "knowledgeId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "prompt": {
+                            "type": "string"
+                          },
+                          "answerSpec": {},
+                          "status": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "workspaceId",
+                          "subjectUserId",
+                          "prompt",
+                          "status",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      }
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "answeredQuestionIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "nextQuestionIndex": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "sessionId",
+                    "items",
+                    "startedAt",
+                    "answeredQuestionIds",
+                    "nextQuestionIndex"
+                  ]
+                }
+              }
+            }
+          },
           "201": {
             "description": "Created",
             "content": {
@@ -8080,11 +8291,27 @@
                           "updatedAt"
                         ]
                       }
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "answeredQuestionIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "nextQuestionIndex": {
+                      "type": "integer",
+                      "minimum": 0
                     }
                   },
                   "required": [
                     "sessionId",
-                    "items"
+                    "items",
+                    "startedAt",
+                    "answeredQuestionIds",
+                    "nextQuestionIndex"
                   ]
                 }
               }
@@ -8095,6 +8322,134 @@
           },
           "409": {
             "description": "活跃题目数量不足"
+          }
+        }
+      }
+    },
+    "/v1/practice/sessions/active": {
+      "get": {
+        "summary": "恢复当前活跃练习会话",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active practice session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sessionId": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "workspaceId": {
+                            "type": "string"
+                          },
+                          "subjectUserId": {
+                            "type": "string"
+                          },
+                          "sourceArtifactId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "knowledgeId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "prompt": {
+                            "type": "string"
+                          },
+                          "answerSpec": {},
+                          "status": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "workspaceId",
+                          "subjectUserId",
+                          "prompt",
+                          "status",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      }
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "answeredQuestionIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "nextQuestionIndex": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "sessionId",
+                    "items",
+                    "startedAt",
+                    "answeredQuestionIds",
+                    "nextQuestionIndex"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PRACTICE_SESSION_NOT_FOUND"
           }
         }
       }
@@ -8626,6 +8981,92 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "Resumed active session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sessionId": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "workspaceId": {
+                            "type": "string"
+                          },
+                          "subjectUserId": {
+                            "type": "string"
+                          },
+                          "sourceArtifactId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "knowledgeId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "prompt": {
+                            "type": "string"
+                          },
+                          "answerSpec": {},
+                          "status": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "workspaceId",
+                          "subjectUserId",
+                          "prompt",
+                          "status",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      }
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "answeredQuestionIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "nextQuestionIndex": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "sessionId",
+                    "items",
+                    "startedAt",
+                    "answeredQuestionIds",
+                    "nextQuestionIndex"
+                  ]
+                }
+              }
+            }
+          },
           "201": {
             "description": "Created",
             "content": {
@@ -8769,6 +9210,10 @@
                   },
                   "sessionId": {
                     "type": "string"
+                  },
+                  "timeZone": {
+                    "type": "string",
+                    "minLength": 1
                   }
                 },
                 "required": [
@@ -8870,6 +9315,9 @@
                             "type": "integer",
                             "exclusiveMinimum": 0
                           },
+                          "timezoneSnapshot": {
+                            "type": "string"
+                          },
                           "status": {
                             "type": "string",
                             "enum": [
@@ -8886,6 +9334,7 @@
                           "dueAt",
                           "intervalDays",
                           "schedulerVersion",
+                          "timezoneSnapshot",
                           "status"
                         ]
                       }
@@ -8914,6 +9363,14 @@
             },
             "required": false,
             "name": "dueBefore",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "timeZone",
             "in": "query"
           },
           {
@@ -8956,9 +9413,20 @@
                       "type": "integer",
                       "minimum": 0
                     },
+                    "overdueCount": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "dueTodayCount": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
                     "estimatedMinutes": {
                       "type": "integer",
                       "minimum": 0
+                    },
+                    "timeZone": {
+                      "type": "string"
                     },
                     "items": {
                       "type": "array",
@@ -8982,6 +9450,9 @@
                             "type": "integer",
                             "exclusiveMinimum": 0
                           },
+                          "timezoneSnapshot": {
+                            "type": "string"
+                          },
                           "status": {
                             "type": "string",
                             "enum": [
@@ -8998,6 +9469,7 @@
                           "dueAt",
                           "intervalDays",
                           "schedulerVersion",
+                          "timezoneSnapshot",
                           "status"
                         ]
                       }
@@ -9005,7 +9477,10 @@
                   },
                   "required": [
                     "dueCount",
+                    "overdueCount",
+                    "dueTodayCount",
                     "estimatedMinutes",
+                    "timeZone",
                     "items"
                   ]
                 }
@@ -9090,6 +9565,9 @@
                             "type": "integer",
                             "exclusiveMinimum": 0
                           },
+                          "timezoneSnapshot": {
+                            "type": "string"
+                          },
                           "status": {
                             "type": "string",
                             "enum": [
@@ -9121,6 +9599,7 @@
                           "dueAt",
                           "intervalDays",
                           "schedulerVersion",
+                          "timezoneSnapshot",
                           "status",
                           "completionIsCorrect",
                           "nextReviewId",
@@ -9194,6 +9673,10 @@
                 "properties": {
                   "isCorrect": {
                     "type": "boolean"
+                  },
+                  "timeZone": {
+                    "type": "string",
+                    "minLength": 1
                   }
                 },
                 "required": [
@@ -9231,6 +9714,9 @@
                           "type": "integer",
                           "exclusiveMinimum": 0
                         },
+                        "timezoneSnapshot": {
+                          "type": "string"
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -9247,6 +9733,7 @@
                         "dueAt",
                         "intervalDays",
                         "schedulerVersion",
+                        "timezoneSnapshot",
                         "status"
                       ]
                     },
@@ -9270,6 +9757,9 @@
                           "type": "integer",
                           "exclusiveMinimum": 0
                         },
+                        "timezoneSnapshot": {
+                          "type": "string"
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -9286,6 +9776,7 @@
                         "dueAt",
                         "intervalDays",
                         "schedulerVersion",
+                        "timezoneSnapshot",
                         "status"
                       ]
                     },
