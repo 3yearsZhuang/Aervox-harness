@@ -63,13 +63,32 @@ export class SqliteExecutionStore implements ExecutionStorePort {
     turnId: string;
     attemptId: string;
     expectedFencingToken: number;
-  }): Promise<{ ok: true; fencingToken: number } | { ok: false; reason: "not_runnable" | "already_claimed" }> {
+  }): Promise<
+    | { ok: true; fencingToken: number; leaseId?: string; leaseExpiresAt?: string }
+    | { ok: false; reason: "not_runnable" | "already_claimed" }
+  > {
     const res = await this.repo.claimTurnAttempt(this.tenant, {
       ...input,
       leaseId: `lease_${Date.now().toString(36)}`,
     });
     if (!res.ok) return { ok: false, reason: "already_claimed" };
-    return { ok: true, fencingToken: res.fencingToken };
+    return {
+      ok: true,
+      fencingToken: res.fencingToken,
+      leaseId: res.leaseId,
+      leaseExpiresAt: res.leaseExpiresAt,
+    };
+  }
+
+  /** 3b-A：续租（CAS 委托仓储） */
+  async renewAttemptLease(input: {
+    attemptId: string;
+    leaseId: string;
+    expectedFencingToken: number;
+    ttlMs?: number;
+  }): Promise<{ ok: boolean }> {
+    const ok = await this.repo.renewTurnAttemptLease(this.tenant, input);
+    return { ok };
   }
 
   async nextSequence(turnId: string): Promise<number> {

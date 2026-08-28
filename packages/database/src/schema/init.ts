@@ -125,12 +125,15 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       fencing_token INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'Running',
       started_at TEXT NOT NULL,
-      finished_at TEXT
+      finished_at TEXT,
+      lease_expires_at TEXT
     );
   `);
   await client.execute(`
     CREATE UNIQUE INDEX IF NOT EXISTS turn_attempts_turn_attempt_idx ON turn_attempts(turn_id, attempt);
   `);
+  // 3b-A：旧库补齐租约过期列（新库已含；ALTER ADD COLUMN 幂等）
+  await addColumnIfMissing(client, "turn_attempts", "lease_expires_at", "lease_expires_at TEXT");
 
   // 2. 记忆与记忆树
   await client.execute(`
