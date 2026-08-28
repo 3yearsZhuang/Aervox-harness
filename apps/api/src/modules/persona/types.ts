@@ -8,6 +8,9 @@ export const PERSONA_SCHEMA_VERSION = 1;
 
 export type PersonaSource = "builtin" | "user_created" | "imported";
 export type PersonaStatus = "active" | "archived";
+export type PersonaReviewStatus = "draft" | "pending_review" | "approved" | "rejected";
+export type MemoryPolicy = "isolated" | "shared";
+export type SwitchReason = "user_initiated" | "rollback" | "system_default";
 
 export interface VoiceSelection {
   enabled: boolean;
@@ -32,6 +35,9 @@ export interface Persona {
   description: string;
   source: PersonaSource;
   status: PersonaStatus;
+  reviewStatus: PersonaReviewStatus;
+  reviewNotes: string;
+  reviewedAt: string | null;
   currentRevisionId: string;
   createdAt: string;
   updatedAt: string;
@@ -113,6 +119,29 @@ export interface UpdatePersonaInput {
   name?: string;
   description?: string;
   config: PersonaRevisionConfig;
+}
+
+// ---- CAP-019 扩展：审核、回滚、切换历史、记忆范围 ----
+
+export interface PersonaSwitchLog {
+  id: string;
+  personaId: string;
+  revisionId: string;
+  previousPersonaId: string | null;
+  previousRevisionId: string | null;
+  switchReason: SwitchReason;
+  regressionNotes: string | null;
+  switchedAt: string;
+}
+
+export interface PersonaMemoryScope {
+  personaId: string;
+  memoryPolicy: MemoryPolicy;
+  sharedPersonaIds: string[];
+  sharedCategories: string[];
+  confirmedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export function assertNonEmpty(value: string, field: string): string {

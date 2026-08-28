@@ -7,8 +7,10 @@ import type { FastifyInstance } from "fastify";
 import { SqliteLearningRepository } from "@aervox/database";
 import type { AervoxDatabase } from "@aervox/database";
 import { registerLearningRoutes } from "./routes.js";
+import { registerCap016017Routes } from "./cap016-017-routes.js";
 
 export function registerLearningModule(app: FastifyInstance, db: AervoxDatabase): void {
   const learningRepo = new SqliteLearningRepository(db);
   registerLearningRoutes(app, learningRepo);
+  registerCap016017Routes(app, learningRepo);
 }

@@ -25,5 +25,7 @@ export * from "./init.js";
 export * from "./plugin-config.js";
 export * from "./voice.js";
 export * from "./llm.js";
+export * from "./preferences.js";
+export * from "./study-materials.js";
 export * from "./tool-executions.js";
 export * from "./tool-approvals.js";

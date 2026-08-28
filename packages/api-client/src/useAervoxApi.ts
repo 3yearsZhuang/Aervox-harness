@@ -72,6 +72,8 @@ export interface MistakeItemDto {
   wrongCount: number;
   masteryState: string;
   status: 'active' | 'mastered' | 'dismissed';
+  reason?: string | null;
+  note?: string | null;
 }
 
 export interface NotificationDto {
@@ -174,8 +176,11 @@ export function useAervoxApi() {
     await loadAll();
   };
 
-  const setMistakeStatus = async (questionId: string, status: 'active' | 'mastered' | 'dismissed'): Promise<void> => {
-    await transport.request('PATCH', `/v1/mistakes/${encodeURIComponent(questionId)}`, { status });
+  const setMistakeStatus = async (questionId: string, status: 'active' | 'mastered' | 'dismissed', reason?: string, note?: string): Promise<void> => {
+    const body: Record<string, unknown> = { status };
+    if (reason !== undefined) body.reason = reason;
+    if (note !== undefined) body.note = note;
+    await transport.request('PATCH', `/v1/mistakes/${encodeURIComponent(questionId)}`, body);
     await loadAll();
   };
 
