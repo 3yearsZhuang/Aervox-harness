@@ -171,7 +171,8 @@ export async function runLoopTurnOnce(
   const store = new SqliteExecutionStore(repo, tenant);
 
   const buildProvider = async (): Promise<ModelProviderPort> => {
-    const mode = process.env.AERVOX_LOOP_PROVIDER ?? "replay";
+    const mode = process.env.AERVOX_LOOP_PROVIDER ?? "llm";
+    if (mode === "replay") return createReplayProvider();
     if (mode === "scripted") return createScriptedProvider(API_TOOL_SCRIPT);
     if (mode === "scripted-write") return createScriptedProvider(API_WRITE_SCRIPT);
     if (mode === "scripted-privileged") return createScriptedProvider(API_PRIVILEGED_SCRIPT);

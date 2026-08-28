@@ -45,6 +45,7 @@ describe("Agent Loop 阶段 1：Turn 创建 → 持久事件 → SSE 重放", ()
   let cleanup: () => Promise<void>;
 
   beforeEach(async () => {
+    process.env.AERVOX_LOOP_PROVIDER = "replay";
     const res = await createInMemoryDatabase();
     db = res.db;
     cleanup = res.cleanup;
@@ -54,6 +55,7 @@ describe("Agent Loop 阶段 1：Turn 创建 → 持久事件 → SSE 重放", ()
   });
 
   afterEach(async () => {
+    delete process.env.AERVOX_LOOP_PROVIDER;
     await app.close();
     await cleanup();
   });
@@ -110,5 +112,23 @@ describe("Agent Loop 阶段 1：Turn 创建 → 持久事件 → SSE 重放", ()
 
     expect(first.body).toBe(second.body);
     expect(first.body).toContain('"eventType":"done"');
+  });
+
+  it("GET events 携带 CORS 响应头，允许 Web 前端跨域流式订阅", async () => {
+    const created = await createTurn();
+    const turnId = created.json().turnId as string;
+    const url = `/v1/turns/${turnId}/events`;
+
+    const res = await app.inject({
+      method: "GET",
+      url,
+      headers: {
+        ...headers,
+        origin: "http://localhost:5173",
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["access-control-allow-origin"]).toBe("http://localhost:5173");
   });
 });

@@ -112,10 +112,13 @@ export function registerConversationRoutes(
   app.get("/v1/turns/:turnId/events", async (req, reply) => {
     const { turnId } = req.params as { turnId: string };
     const tenant = resolveTenant(req);
+    const origin = (req.headers.origin as string | undefined) ?? "*";
     reply.hijack();
     reply.raw.writeHead(200, {
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-store",
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Credentials": "true",
     });
     const events = await conversationRepo.getStreamEvents(tenant, turnId, 0);
     for (const ev of events) {
