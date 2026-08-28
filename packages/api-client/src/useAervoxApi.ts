@@ -161,8 +161,10 @@ export function useAervoxApi() {
   const startPracticeSession = async (count = 3): Promise<PracticeSessionDto> =>
     transport.request('POST', '/v1/practice/sessions', { count });
 
-  const submitPracticeAnswer = async (sessionId: string, questionId: string, answer: string): Promise<{ judgement: string; nextStep: string }> =>
-    transport.request('POST', `/v1/questions/${encodeURIComponent(questionId)}/attempts`, { sessionId, answer, timeZone });
+  const submitPracticeAnswer = async (sessionId: string, questionId: string, answer: string, idempotencyKey: string): Promise<{ judgement: string; nextStep: string }> =>
+    transport.request('POST', `/v1/questions/${encodeURIComponent(questionId)}/attempts`, { sessionId, answer, timeZone }, {
+      headers: { 'Idempotency-Key': idempotencyKey },
+    });
 
   const completePracticeSession = async (sessionId: string): Promise<PracticeReportDto> =>
     transport.request('POST', `/v1/practice/sessions/${encodeURIComponent(sessionId)}/complete`);
