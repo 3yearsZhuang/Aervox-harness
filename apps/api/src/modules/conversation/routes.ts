@@ -9,6 +9,7 @@ import type { FastifyInstance } from "fastify";
 import { createTurnRequestSchema } from "@aervox/contracts";
 import type { SqliteConversationRepository } from "@aervox/database";
 import type { ToolRuntime } from "../tools/runtime.js";
+import type { LLMConfigService } from "../llm/service.js";
 import { resolveTenant } from "../../shared/tenant.js";
 import { runLoopTurnOnce } from "./agent-executor.js";
 
@@ -18,6 +19,8 @@ const nextTurnId = (): string => `turn_${Date.now().toString(36)}_${(++seq).toSt
 export interface ConversationRouteDeps {
   /** 阶段 2d：Agent Loop 只读工具提供者（缺失时工具请求 fail-closed） */
   toolRuntime?: ToolRuntime;
+  /** 阶段 2e：AERVOX_LOOP_PROVIDER=llm 时的模型配置来源（CR-015） */
+  llmConfigService?: LLMConfigService;
 }
 
 export function registerConversationRoutes(
@@ -85,7 +88,7 @@ export function registerConversationRoutes(
         attemptId,
         userMessage: parsed.data.message.content,
       },
-      { toolRuntime: deps.toolRuntime },
+      { toolRuntime: deps.toolRuntime, llmConfigService: deps.llmConfigService },
     );
 
     return reply.code(201).send({
