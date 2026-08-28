@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 对话与流式协议 SQLite 仓储实现
  */
-import { eq, and, gt, desc, or, lt, isNull, inArray, notInArray } from "drizzle-orm";
+import { eq, and, gt, desc, or, lt, isNull, inArray, notInArray, notLike } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import {
   sessions,
@@ -839,6 +839,141 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   /**
+   * B4-D（§12.2）：原子提交「工具结果账本收口 + tool_result 事件」。
+   * BEGIN IMMEDIATE 事务内：fencing+状态守卫（同 appendStreamEvent fenced 语义）→
+   * 写入 tool_executions 结果与 turn_stream_events 事件，两者同生共死。
+   * 守卫失配抛 FencingMismatchError（迟到/被抢占执行器被拒）。
+   */
+  async recordToolOutcomeAtomically(
+    tenant: TenantContext,
+    input: {
+      turnId: string;
+      attemptId: string;
+      sequence: number;
+      invocationId: string;
+      name: string;
+      arguments: unknown;
+      status: string;
+      output?: unknown;
+      error?: string;
+      startedAt: string;
+      finishedAt?: string;
+      eventData: unknown;
+      safetyDecision?: string | null;
+      expectedFencingToken: number;
+    },
+  ): Promise<boolean> {
+    assertTenantContext(tenant);
+    return this.db.transaction(
+      async (tx) => {
+        const [attempt] = await tx
+          .select({ status: turnAttempts.status, fencingToken: turnAttempts.fencingToken })
+          .from(turnAttempts)
+          .where(
+            and(
+              eq(turnAttempts.id, input.attemptId),
+              eq(turnAttempts.turnId, input.turnId),
+            ),
+          );
+        const running = attempt && (attempt.status === "Running" || attempt.status === "CancelRequested");
+        if (!attempt || attempt.fencingToken !== input.expectedFencingToken || !running) {
+          throw new FencingMismatchError(
+            `attempt ${input.attemptId} fencing=${attempt?.fencingToken ?? "?"} status=${attempt?.status ?? "?"} cannot record tool outcome`,
+          );
+        }
+        await tx.insert(turnStreamEvents).values({
+          id: `tev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+          turnId: input.turnId,
+          attemptId: input.attemptId,
+          workspaceId: tenant.workspaceId,
+          subjectUserId: tenant.subjectUserId,
+          sequence: input.sequence,
+          eventType: "tool_result",
+          data: input.eventData,
+          occurredAt: new Date().toISOString(),
+          safetyDecision: input.safetyDecision ?? null,
+        });
+        await tx
+          .update(toolExecutions)
+          .set({
+            status: input.status,
+            outputJson: input.output,
+            error: input.error ?? null,
+            finishedAt: input.finishedAt ?? new Date().toISOString(),
+          })
+          .from(turns)
+          .where(
+            and(
+              eq(toolExecutions.turnId, turns.id),
+              eq(toolExecutions.attemptId, input.attemptId),
+              eq(toolExecutions.invocationId, input.invocationId),
+              eq(turns.workspaceId, tenant.workspaceId),
+              eq(turns.subjectUserId, tenant.subjectUserId),
+            ),
+          );
+        return true;
+      },
+      { behavior: "immediate" },
+    );
+  }
+
+  /**
+   * B4-D（§12.2）：原子提交「Attempt 终态 + 收尾事件（done/error）」。
+   * BEGIN IMMEDIATE 事务内：终态 CAS（仅 Running/CancelRequested + fencing 匹配，3b-B 单一终态）
+   * 成功才一并插入 done/error 事件；CAS 失败返回 false（不写事件，杜绝孤儿 done）。
+   */
+  async finalizeAttemptWithEventAtomically(
+    tenant: TenantContext,
+    input: {
+      turnId: string;
+      attemptId: string;
+      status: string;
+      expectedFencingToken: number;
+      sequence: number;
+      eventType: string; // "done" | "error"
+      eventData: unknown;
+      safetyDecision?: string | null;
+    },
+  ): Promise<boolean> {
+    assertTenantContext(tenant);
+    return this.db.transaction(
+      async (tx) => {
+        const [updated] = await tx
+          .update(turnAttempts)
+          .set({ status: input.status, finishedAt: new Date().toISOString() })
+          .from(turns)
+          .where(
+            and(
+              eq(turnAttempts.turnId, turns.id),
+              eq(turnAttempts.id, input.attemptId),
+              eq(turnAttempts.turnId, input.turnId),
+              eq(turns.workspaceId, tenant.workspaceId),
+              eq(turns.subjectUserId, tenant.subjectUserId),
+              inArray(turnAttempts.status, ["Running", "CancelRequested"]),
+              eq(turnAttempts.fencingToken, input.expectedFencingToken),
+            ),
+          )
+          .returning({ id: turnAttempts.id });
+        if (!updated) return false;
+        await tx.insert(turnStreamEvents).values({
+          id: `tev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+          turnId: input.turnId,
+          attemptId: input.attemptId,
+          workspaceId: tenant.workspaceId,
+          subjectUserId: tenant.subjectUserId,
+          sequence: input.sequence,
+          eventType: input.eventType,
+          data: input.eventData,
+          occurredAt: new Date().toISOString(),
+          safetyDecision: input.safetyDecision ?? null,
+        });
+        return true;
+      },
+      { behavior: "immediate" },
+    );
+  }
+
+  /**
    * 3c/4b：恢复候选查询（跨租户，供 worker 观测 + host-agent 续跑执行）。
    *
    * 命中条件：过期 Running Attempt + 存在 executed 工具执行 + 无 done 终态事件
@@ -1035,7 +1170,7 @@ export class SqliteConversationRepository implements IConversationRepository {
   /** 匹配已授权记录（toolName + argumentsHash；跨 turn 复用，取最近一条） */
   async findGrantedToolApproval(
     tenant: TenantContext,
-    input: { toolName: string; argumentsHash: string },
+    input: { toolName: string; argumentsHash: string; excludeDecidedByPrefix?: string },
   ): Promise<ToolApprovalModel | null> {
     assertTenantContext(tenant);
     const [found] = await this.db
@@ -1048,6 +1183,12 @@ export class SqliteConversationRepository implements IConversationRepository {
           eq(toolApprovals.toolName, input.toolName),
           eq(toolApprovals.argumentsHash, input.argumentsHash),
           eq(toolApprovals.state, "granted"),
+          input.excludeDecidedByPrefix
+            ? or(
+                isNull(toolApprovals.decidedBy),
+                notLike(toolApprovals.decidedBy, `${input.excludeDecidedByPrefix}%`),
+              )
+            : undefined,
         ),
       )
       .orderBy(desc(toolApprovals.id));
