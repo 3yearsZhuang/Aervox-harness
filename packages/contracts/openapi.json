@@ -1061,6 +1061,25 @@
               "archived"
             ]
           },
+          "reviewStatus": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "pending_review",
+              "approved",
+              "rejected"
+            ]
+          },
+          "reviewNotes": {
+            "type": "string"
+          },
+          "reviewedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
           "currentRevisionId": {
             "type": "string",
             "minLength": 1
@@ -1082,6 +1101,9 @@
           "description",
           "source",
           "status",
+          "reviewStatus",
+          "reviewNotes",
+          "reviewedAt",
           "currentRevisionId",
           "createdAt",
           "updatedAt"
@@ -4604,6 +4626,25 @@
                               "archived"
                             ]
                           },
+                          "reviewStatus": {
+                            "type": "string",
+                            "enum": [
+                              "draft",
+                              "pending_review",
+                              "approved",
+                              "rejected"
+                            ]
+                          },
+                          "reviewNotes": {
+                            "type": "string"
+                          },
+                          "reviewedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
                           "currentRevisionId": {
                             "type": "string",
                             "minLength": 1
@@ -4625,6 +4666,9 @@
                           "description",
                           "source",
                           "status",
+                          "reviewStatus",
+                          "reviewNotes",
+                          "reviewedAt",
                           "currentRevisionId",
                           "createdAt",
                           "updatedAt"
@@ -4846,6 +4890,25 @@
                             "archived"
                           ]
                         },
+                        "reviewStatus": {
+                          "type": "string",
+                          "enum": [
+                            "draft",
+                            "pending_review",
+                            "approved",
+                            "rejected"
+                          ]
+                        },
+                        "reviewNotes": {
+                          "type": "string"
+                        },
+                        "reviewedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time"
+                        },
                         "currentRevisionId": {
                           "type": "string",
                           "minLength": 1
@@ -4867,6 +4930,9 @@
                         "description",
                         "source",
                         "status",
+                        "reviewStatus",
+                        "reviewNotes",
+                        "reviewedAt",
                         "currentRevisionId",
                         "createdAt",
                         "updatedAt"
@@ -5075,6 +5141,25 @@
                             "archived"
                           ]
                         },
+                        "reviewStatus": {
+                          "type": "string",
+                          "enum": [
+                            "draft",
+                            "pending_review",
+                            "approved",
+                            "rejected"
+                          ]
+                        },
+                        "reviewNotes": {
+                          "type": "string"
+                        },
+                        "reviewedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time"
+                        },
                         "currentRevisionId": {
                           "type": "string",
                           "minLength": 1
@@ -5096,6 +5181,9 @@
                         "description",
                         "source",
                         "status",
+                        "reviewStatus",
+                        "reviewNotes",
+                        "reviewedAt",
                         "currentRevisionId",
                         "createdAt",
                         "updatedAt"
@@ -5403,6 +5491,25 @@
                             "archived"
                           ]
                         },
+                        "reviewStatus": {
+                          "type": "string",
+                          "enum": [
+                            "draft",
+                            "pending_review",
+                            "approved",
+                            "rejected"
+                          ]
+                        },
+                        "reviewNotes": {
+                          "type": "string"
+                        },
+                        "reviewedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time"
+                        },
                         "currentRevisionId": {
                           "type": "string",
                           "minLength": 1
@@ -5424,6 +5531,9 @@
                         "description",
                         "source",
                         "status",
+                        "reviewStatus",
+                        "reviewNotes",
+                        "reviewedAt",
                         "currentRevisionId",
                         "createdAt",
                         "updatedAt"
