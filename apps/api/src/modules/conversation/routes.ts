@@ -7,7 +7,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import { createTurnRequestSchema, editMessageSchema } from "@aervox/contracts";
-import type { SqliteConversationRepository } from "@aervox/database";
+import type { SqliteConversationRepository, SqlitePrivacyRepository } from "@aervox/database";
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
 import { resolveTenant } from "../../shared/tenant.js";
@@ -21,6 +21,8 @@ export interface ConversationRouteDeps {
   toolRuntime?: ToolRuntime;
   /** 阶段 2e：AERVOX_LOOP_PROVIDER=llm 时的模型配置来源（CR-015） */
   llmConfigService?: LLMConfigService;
+  /** 2d：删除/撤权闸门数据源（缺失时 Loop 不做删除 fail-closed） */
+  privacyRepo?: SqlitePrivacyRepository;
 }
 
 export function registerConversationRoutes(
@@ -88,7 +90,14 @@ export function registerConversationRoutes(
         attemptId,
         userMessage: parsed.data.message.content,
       },
-      { toolRuntime: deps.toolRuntime, llmConfigService: deps.llmConfigService },
+      {
+        toolRuntime: deps.toolRuntime,
+        llmConfigService: deps.llmConfigService,
+        // 2d：删除/撤权水位未追平 → Loop fail-closed（AVX-HAR-001 §11.3）
+        deletionGate: deps.privacyRepo
+          ? { isBlocked: async () => deps.privacyRepo!.hasPendingDeletionRequest(tenant) }
+          : undefined,
+      },
     );
 
     return reply.code(201).send({
@@ -125,21 +134,54 @@ export function registerConversationRoutes(
     reply.raw.end();
   });
 
-  // POST /v1/turns/{turnId}/cancel — 取消 Turn
+  // POST /v1/turns/{turnId}/cancel — 取消 Turn（AVX-HAR-001 §11.1：Attempt CAS 置 CancelRequested，executor 检查点中止）
   app.post("/v1/turns/:turnId/cancel", async (req, reply) => {
     const { turnId } = req.params as { turnId: string };
     const tenant = resolveTenant(req);
-    await conversationRepo.updateTurnStatus(tenant, turnId, "Cancelled");
-    return reply.send({ turnId, status: "Cancelled" as const });
+    const attempts = await conversationRepo.listTurnAttempts(tenant, turnId);
+    const running = attempts.find((a) => a.status === "Running");
+    if (!running) {
+      const latest = attempts[0];
+      return reply.code(latest ? 409 : 404).send({
+        error: latest ? "turn_already_finalized" : "turn_not_found",
+        turnId,
+        status: latest?.status ?? "Unknown",
+      });
+    }
+    const res = await conversationRepo.requestCancelTurnAttempt(tenant, {
+      turnId,
+      attemptId: running.id,
+    });
+    if (!res.ok) {
+      const latest = attempts[0];
+      return reply.code(409).send({ error: res.reason ?? "request_cancel_failed", turnId, status: latest?.status });
+    }
+    return reply.send({ turnId, status: "Cancelled", cancelled: true });
   });
 
-  // POST /v1/turns/{turnId}/tool-approvals — 写工具授权决定（阶段 3a：grant / deny）
+  // POST /v1/turns/{turnId}/tool-approvals — 写工具授权决定（阶段 3a：grant / deny；3b：privileged 仅管理员可批准）
   app.post("/v1/turns/:turnId/tool-approvals", async (req, reply) => {
     const { turnId } = req.params as { turnId: string };
     const tenant = resolveTenant(req);
     const body = (req.body ?? {}) as { approvalId?: string; decision?: string; decidedBy?: string };
     if (!body.approvalId || (body.decision !== "granted" && body.decision !== "denied")) {
       return reply.code(400).send({ error: "approvalId and decision (granted|denied) are required" });
+    }
+    // 3b：privileged 工具的管理员身份校验（AERVOX_ADMIN_IDS 白名单 + x-admin-user-id）
+    if (deps.toolRuntime) {
+      const approval = await conversationRepo.getToolApproval(tenant, body.approvalId);
+      if (!approval) {
+        return reply.code(404).send({ error: "approval not found" });
+      }
+      const registrations = await deps.toolRuntime.listTools();
+      const tool = registrations.find((t) => t.name === approval.toolName);
+      if (tool?.safetyLevel === "privileged") {
+        const adminId = req.headers["x-admin-user-id"] as string | undefined;
+        const allowed = (process.env.AERVOX_ADMIN_IDS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+        if (adminId === undefined || !allowed.includes(adminId)) {
+          return reply.code(403).send({ error: "admin_required: privileged tool approval requires x-admin-user-id in AERVOX_ADMIN_IDS" });
+        }
+      }
     }
     const updated = await conversationRepo.decideToolApproval(tenant, body.approvalId, body.decision, body.decidedBy ?? "admin");
     if (!updated) {

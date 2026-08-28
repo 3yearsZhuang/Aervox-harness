@@ -40,3 +40,26 @@ export interface VoiceProviderPort {
   healthCheck(): Promise<VoiceProviderHealth>;
   synthesize(request: VoiceSynthesisRequest): Promise<AudioArtifact>;
 }
+
+// ============ ASR 语音输入 Provider Port (CR-016) ============
+
+export type ASRProviderKind = "sensevoice-local" | "whisper-compatible";
+
+export interface ASRTranscribeRequest {
+  audioBuffer: Buffer;
+  mimeType?: string;
+  language?: string;
+}
+
+export interface ASRTranscribeResult {
+  text: string;
+  durationMs?: number;
+  isFinal: boolean;
+}
+
+export interface ASRProviderPort {
+  readonly id: string;
+  readonly kind: ASRProviderKind | string;
+  healthCheck(): Promise<VoiceProviderHealth>;
+  transcribe(request: ASRTranscribeRequest): Promise<ASRTranscribeResult>;
+}

@@ -5,6 +5,9 @@
  * 宿主持有实现：生产走 @aervox/database 仓储适配，测试走内存实现。
  */
 import type {
+  AgentInboxCommand,
+  AgentInboxConsumeBoundary,
+  AgentInboxItem,
   AttemptStatus,
   LoopEventType,
   ModelRequest,
@@ -14,6 +17,7 @@ import type {
   ToolApprovalInfo,
   ToolCallRequest,
   ToolExecutionRecord,
+  ToolExecutionStatus,
   ToolSpec,
 } from "./types.js";
 
@@ -49,7 +53,7 @@ export interface ExecutionStorePort {
   /** 读取 Turn 的持久事件（afterSequence 起点；0 = 全量） */
   listEvents(turnId: string, afterSequence?: number): Promise<AgentStreamEvent[]>;
 
-  /** 提交 Attempt 终态；带 expectedFencingToken 时做 CAS 校验（单一终态，3b-B） */
+  /** 提交 Attempt 终态；带 expectedFencingToken 时做 CAS 校验（单一终态，3b-B；Running/CancelRequested 均可提交） */
   finalizeAttempt(input: {
     turnId: string;
     attemptId: string;
@@ -57,8 +61,40 @@ export interface ExecutionStorePort {
     expectedFencingToken?: number;
   }): Promise<{ ok: boolean }>;
 
+  /**
+   * 用户取消请求位（AVX-HAR-001 §11.1）：仅 Attempt 仍在运行（Running）时置 CancelRequested，
+   * 已终态则拒绝（拒绝优先于执行器自己的终态，避免覆盖已提交结果）。
+   */
+  requestCancelAttempt(input: {
+    turnId: string;
+    attemptId: string;
+  }): Promise<{ ok: boolean; reason?: "not_found" | "already_finalized" }>;
+
+  /** 检查 Attempt 是否已被请求取消（executor 检查点轮询；turnId 用于宿主租户定位） */
+  isCancelRequested(input: { turnId: string; attemptId: string }): Promise<boolean>;
+
   /** 记录一次工具执行（副作用证据账本；阶段 2d 落库 tool_executions） */
   recordToolExecution(input: ToolExecutionRecord): Promise<void>;
+
+  /** 2c：幂等预留（§9 idempotency reservation）——意图先于外部副作用持久化；attempt+invocation 幂等 */
+  reserveToolExecution(input: {
+    turnId: string;
+    attemptId: string;
+    invocationId: string;
+    name: string;
+    arguments: unknown;
+  }): Promise<{ ok: boolean; alreadyReserved: boolean }>;
+
+  /** 2c：以权威结果收口预留行（§9 非幂等副作用失败不自动重试） */
+  updateToolExecutionResult(input: {
+    turnId: string;
+    attemptId: string;
+    invocationId: string;
+    status: ToolExecutionStatus;
+    output?: unknown;
+    error?: string;
+    finishedAt?: string;
+  }): Promise<{ ok: boolean }>;
 }
 
 /** 追加事件的输入（executor 构造；id / occurredAt / payloadVersion 由 store 补齐） */
@@ -116,5 +152,36 @@ export interface ToolProviderPort {
 
 /** ContextBuilder：把 Turn 输入组装为 Provider 上下文 */
 export interface ContextBuilderPort {
-  build(input: { turnId: string; sessionId: string; messages: PromptMessage[] }): PromptContext;
+  build(input: {
+    turnId: string;
+    sessionId: string;
+    messages: PromptMessage[];
+    /** 阶段 5a：本 Step 可消费的 inbox items（§7.1 第 7 项；缺省为空） */
+    inboxItems?: AgentInboxItem[];
+  }): PromptContext;
 }
+
+/**
+ * 阶段 5a：受控收件箱（ADR-017）。外部插件/用户只能提交受限 inbox command，
+ * 消费采用 claim/ack，崩溃后可安全重放。实现由宿主持有（生产走 @aervox/database 仓储，
+ * 测试走内存实现）；Loop 应用层只依赖本端口。
+ */
+export interface InboxPort {
+  /** 提交一条受控 inbox command（幂等：同 idempotencyKey 重复提交返回既有项） */
+  enqueue(command: AgentInboxCommand): Promise<AgentInboxItem>;
+  /**
+   * claim 一批可消费的 inbox items（pending → claimed）：
+   * - next-step：按 sessionId + attemptId + boundary 过滤，返回 claimed 项；
+   * - next-turn：按 sessionId + boundary 过滤（attemptId 可空）。
+   * 幂等：已被 claim 但未 ack 的项不会重复返回（崩溃安全重放语义）。
+   */
+  claimForConsumption(input: {
+    sessionId: string;
+    attemptId?: string;
+    type: AgentInboxConsumeBoundary;
+    limit?: number;
+  }): Promise<AgentInboxItem[]>;
+  /** ack 消费完成（claimed → acknowledged）；只接受此前 claim 的项 */
+  ack(input: { itemIds: string[] }): Promise<void>;
+}
+export type { AgentInboxCommand, AgentInboxConsumeBoundary, AgentInboxItem } from "./types.js";

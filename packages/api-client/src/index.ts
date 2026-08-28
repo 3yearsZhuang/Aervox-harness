@@ -42,3 +42,15 @@ export {
   type LLMTestConnectionResultDto,
   type PresetProviderInfo,
 } from './useAervoxLLM';
+export {
+  useAervoxVoiceInput,
+  type VoiceInputEngineType,
+  type VoiceInputConfigDto,
+  type VoiceTranscribeResultDto,
+  type VoiceInputModelStatusDto,
+  type VoiceInputModelDownloadResultDto,
+} from './useAervoxVoiceInput';
+export {
+  VoiceInputRecorder,
+  type VoiceInputRecorderOptions,
+} from './voice-input-recorder';

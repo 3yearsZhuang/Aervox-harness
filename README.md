@@ -19,7 +19,7 @@
 ./aervox dev             # 全栈：API(:3000) + Web(:5173) + Desktop(Electron) + Worker
 ./aervox dev web         # 仅 API + Web（desktop / worker / api 同理）
 ./aervox mobile          # 构建 Web 产物并同步 Capacitor 移动壳
-./aervox ci              # 本地门禁：ci-code（install+build+typecheck+test）+ ci-docs（markdown lint + Vale + 链接检查）
+./aervox ci              # 本地门禁：ci-code + ci-docs（Markdown + Vale + 文档治理校验）
 ./aervox clean           # 清理构建产物（保留 node_modules）
 ./aervox help            # 命令与环境变量速查
 ```
@@ -33,6 +33,7 @@
 | `pnpm dev:web`                              | API + Web（开发用）                                      |
 | `pnpm dev:desktop`                          | API + 桌面端（需 `AERVOX_API_URL` / `AERVOX_SESSION_ID`） |
 | `mise tasks run ci-code` / `ci-docs`        | 分别等同 `aervox ci` 的代码门禁 / 文档门禁                       |
+| `mise tasks run docs-validate`              | 文档 ID、签名、本地链接/锚点与登记一致性校验（`ci-docs` 的组成部分）           |
 | `mise tasks run docs-lint-prose`            | Vale 术语与散文检查（`ci-docs` 的组成部分）                       |
 
 ## 架构与技术栈
@@ -57,11 +58,12 @@ apps/
   worker/       后台任务进程（tsx）
   mobile/       Capacitor 最小壳（打包 web 产物）
 packages/
+  agent-loop/   Agent Turn/Attempt/Step 执行核心与 Replay/Scripted Driver
   contracts/    Zod 契约事实源 → OpenAPI 3.1（流式协议 / 学习域 / 插件 Config/Page / Persona）
   database/     SQLite 真源 + 仓储 / FTS5 / 向量检索 Port / 迁移服务
   practice-review/  复习排期 @aervox/practice-review（CAP-006，幂等 + 时区安全调度）
 reference/      参考仓库子模块（deepseek-harness / pi / baishou-next / dsh-synapse / AstrBot / Petra，仅设计验证）
-docs/            按 Diátaxis 四分类组织：tutorials / how-to / explanation / reference/（含 adr · changes · standards · diagrams）
+docs/            按 Diátaxis 四分类组织；_meta 存放文档治理机器策略
 AGENTS.md        AI 协作入口（薄入口，深链 docs/；被 AI 编码工具自动加载）
 ```
 
@@ -108,7 +110,7 @@ AERVOX_API_URL='http://127.0.0.1:3000' AERVOX_SESSION_ID='<现有会话 ID>' pnp
 
 ## 文档与追踪
 
-- [文档索引](docs/README.md)：体系、权威顺序 · [从哪开始](docs/getting-started.md) · [生命周期登记表](docs/DOC_REGISTRY.md)
+- [文档索引](docs/README.md)：体系、权威顺序 · [从哪开始](docs/getting-started.md) · [文档治理规范](docs/reference/document-governance.md) · [生命周期登记表](docs/DOC_REGISTRY.md)
 - [CONTRIBUTING](CONTRIBUTING.md)：双语贡献指南（三阶段新功能流程 + 门禁与落地登记）
 - [AGENTS.md](AGENTS.md)：AI 协作入口（根目录，AI 编码工具自动加载）
 - [PRD](docs/reference/PRD.md)（AVX-PRD-001）· [架构设计](docs/reference/ARCHITECTURE.md) · [ADR](docs/reference/adr/README.md) · [SRS](docs/reference/SRS.md)
@@ -125,12 +127,13 @@ AERVOX_API_URL='http://127.0.0.1:3000' AERVOX_SESSION_ID='<现有会话 ID>' pnp
   - **学习/复习**：练习会话契约（会话快照/作答幂等，CR-008）、错题本忽略与恢复（CR-009）、复习完成幂等与结果重放（CR-010）、时区安全的到期与逾期复习调度（CR-011，`@aervox/practice-review`）；
   - **工具/插件/技能**：工具注册表 + 运行时 + `/v1/tools`（T-04）、插件运行时 + Config/Page（CAP-020，CR-006）、Skill 注册表/zip 安装/渐进式披露（借鉴 AstrBot）、工具安全级别白名单（PET-05）；
   - **人格/桌宠表现**：Persona 系统级重构（去模块化 + 系统级 Skills/Tools/MCP + 独立 Voice，2026-08-27，原生）、Persona 设定 UI（AST-03）、表现指令契约与前端消费（PET-01/02）、Codex Pets 兼容的 9 状态 spritesheet 协议（`pet.json` + 8×9 atlas + 工具状态驱动，原生·外部协议兼容）、桌面 preload 按域 IPC（T-07）、桌宠角色设定文档化（T-08，AVX-EXPL-003）；
-  - **文档/架构治理**：Agent Harness Loop 目标规范与迁移计划（AVX-HAR-001/CR-012）、能力组合与可选化目录规范（AVX-CAP-001，借鉴 DSH-01/PI-01）+ 能力注册表（AVX-CAP-REG-001）、双语贡献指南（CONTRIBUTING）。
+  - **Agent 执行核心**：Agent Harness Loop 阶段 0/1/2d/2e/3a/3b 已落地（`packages/agent-loop`、Replay/Scripted/LLM Loop、持久化 SSE、只读/写工具审批、工具执行账本、租约与 Worker 恢复）；异步 Outbox Driver、完整上下文持久化、独立 Host 和 DSH/pi Adapter 继续按 AVX-HAR-001/CR-012 推进；
+  - **文档/架构治理**：能力组合与可选化目录规范（AVX-CAP-001，借鉴 DSH-01/PI-01）+ 能力注册表（AVX-CAP-REG-001）；文档治理与事实源规范（AVX-DOC-GOV-001/CR-017）+ `docs-validate`；双语贡献指南（CONTRIBUTING）。
 
 合并到 `main` 前通过（本地 `./aervox ci` 等效，CI 定义见 `.github/workflows/`）：
 
 - **代码**（`apps/**`、`packages/**`、锁文件等）：install + build + typecheck + test；
-- **文档**（`docs/**`、`README.md`、`AGENTS.md` 等）：markdown lint + Vale 术语检查 + 链接检查；
+- **文档**（`docs/**`、`README.md`、`CONTRIBUTING.md`、`AGENTS.md` 等）：Markdown lint + Vale 术语检查 + 文档治理校验；CI 另执行仓库链接检查；
 - 变更一律走功能分支 + PR 合入 `main`（分支前缀：`feat/` `fix/` `docs/`）；PR 描述须引用对应落地登记。
 
 ## License

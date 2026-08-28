@@ -9,9 +9,15 @@
  * - 终止：自然完成（无工具请求）→ done Completed；maxSteps 内始终请求工具 → done Interrupted；
  *   未配置工具却出现工具请求，或执行错误 → fail-closed。
  */
-import type { ExecutionStorePort, ModelProviderPort, ToolProviderPort } from "./ports.js";
+import type { ExecutionStorePort, InboxPort, ModelProviderPort, ToolProviderPort } from "./ports.js";
 import type { ContextBuilderPort } from "./ports.js";
-import type { ExecuteResult, ModelChunk, PromptMessage, ToolCallResult, ToolExecutionStatus } from "./types.js";
+import type {
+  ExecuteResult,
+  ModelChunk,
+  PromptMessage,
+  ToolCallResult,
+  ToolExecutionStatus,
+} from "./types.js";
 
 export interface ExecuteTurnInput {
   turnId: string;
@@ -21,11 +27,40 @@ export interface ExecuteTurnInput {
   userMessage: string;
 }
 
+/**
+ * 3c/4b 续跑输入（§11.3 首范式「工具结果已权威提交但尚未注入」）：
+ * 由恢复器从事件流 + 工具账本重建上下文后，以「抢占续跑」方式在原 Attempt 上继续，
+ * 禁止重复已提交副作用与事件。executor 跳过 message 身份事件、沿用既有 sequence 之后追加。
+ */
+export interface ExecuteTurnResumeInput {
+  /** 原执行已 claim 的 fencing（续跑以抢占语义重新 claim，预期=当前值） */
+  expectedFencingToken: number;
+  /** 已存在事件的最大序号：新事件从 lastSequence+1 追加 */
+  lastSequence: number;
+  /** 原执行已完成的 Step 数：续跑 Step 与 executionId（attempt:step:seq）从其后继续，避免与新事件冲突 */
+  lastStep: number;
+  /** 续跑上下文：恢复器重建的 PromptMessage[]（含 user + 既有 assistant 文本 + 权威 tool 结果） */
+  history: PromptMessage[];
+  /** 已提交的助手消息身份（message 事件 data.messageId），续跑 delta/done 复用 */
+  messageId: string;
+}
+
 export interface ExecuteTurnOptions {
   /** Step 上限（防死循环）；默认 8。多 Step 工具 Loop 由该边界兜底 */
   maxSteps?: number;
   /** 单个工具超时（ms）；默认 5000 */
   toolTimeoutMs?: number;
+  /** 2d：单 Turn 总耗时预算（ms）；0 关闭；超出以 Interrupted 收敛（§10 maxTurnDurationMs） */
+  maxTurnDurationMs?: number;
+  /** 2d：连续同名工具请求上限（防工具死循环）；0 关闭；超出以 Interrupted 收敛（§10 maxConsecutiveSameTool） */
+  maxConsecutiveSameTool?: number;
+  /** 4b：续跑（§11.3 首范式）；缺省为全新执行 */
+  resume?: ExecuteTurnResumeInput;
+}
+
+/** 2d：删除/撤权水位闸门（§11.3：删除/撤权水位未追平 → fail closed，不继续模型或工具调用） */
+export interface DeletionGatePort {
+  isBlocked(input: { turnId: string; sessionId: string }): Promise<boolean>;
 }
 
 export interface ExecuteTurnDeps {
@@ -34,11 +69,18 @@ export interface ExecuteTurnDeps {
   contextBuilder: ContextBuilderPort;
   /** 阶段 2：只读工具提供者；缺省则工具请求被 fail-closed 拒绝 */
   tools?: ToolProviderPort;
+  /** 2d：删除/撤权未追平闸门；缺省不启用 */
+  deletionGate?: DeletionGatePort;
+  /** 阶段 5a：受控收件箱（ADR-017）；缺省不启用 Inbox 消费 */
+  inbox?: InboxPort;
   options?: ExecuteTurnOptions;
 }
 
 /** 工具调用去重键：name + 参数序列化 */
 const dedupeKey = (name: string, args: unknown): string => `${name}:${JSON.stringify(args)}`;
+
+/** 3a：Host 幂等键重生成（AVX-HAR-001 §9：上游 callId 不可信，副作用标识由 Host 生成） */
+const hostExecutionId = (attemptId: string, step: number, seq: number): string => `${attemptId}:${step}:${seq}`;
 
 /** 超时包装（阶段 3 换租约/取消信号，此处以固定超时兜底） */
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -62,43 +104,128 @@ export async function executeTurn(
   deps: ExecuteTurnDeps,
   input: ExecuteTurnInput,
 ): Promise<ExecuteResult> {
-  const { execution, provider, contextBuilder, tools, options } = deps;
+  const { execution, provider, contextBuilder, tools, deletionGate, inbox, options } = deps;
   const maxSteps = options?.maxSteps ?? 8;
   const toolTimeoutMs = options?.toolTimeoutMs ?? 5000;
+  const maxTurnDurationMs = options?.maxTurnDurationMs ?? 0;
+  const maxConsecutiveSameTool = options?.maxConsecutiveSameTool ?? 0;
+  const startedAt = Date.now();
 
+  // 4b 续跑：以「抢占续跑」语义重新 claim（预期 = 原执行已持有的 fencing）；
+  // 全新执行为 0（首次 claim）。
+  const resume = options?.resume;
   const claim = await execution.claimTurnAttempt({
     turnId: input.turnId,
     attemptId: input.attemptId,
-    expectedFencingToken: 0,
+    expectedFencingToken: resume?.expectedFencingToken ?? 0,
   });
   if (!claim.ok) {
     return { status: "skipped", attemptId: input.attemptId, reason: claim.reason };
   }
   const claimLeaseId = claim.leaseId;
   const claimFencingToken = claim.fencingToken;
+  let stepsTaken = 0;
 
-  try {
-    let sequence = await execution.nextSequence(input.turnId);
-    const messageId = `msg_${input.turnId}_assistant`;
-
-    // 1) message 事件：Assistant Message 身份先提交（一次）
+  // 2b：用户取消闭环（AVX-HAR-001 §11.1）——先 CAS 夺终态（Cancelled），成功才写 done 事件；
+  // finalize 返回 false（与它方终态竞态）则静默中止，不产生不一致事件。
+  const finalizeCancelled = async (atSequence: number): Promise<ExecuteResult> => {
+    const finalized = await execution.finalizeAttempt({
+      turnId: input.turnId,
+      attemptId: input.attemptId,
+      status: "Cancelled",
+      expectedFencingToken: claimFencingToken,
+    });
+    if (!finalized.ok) {
+      return { status: "failed", attemptId: input.attemptId, reason: "cancelled_finalize_contested" };
+    }
     await execution.appendEvent({
       turnId: input.turnId,
       attemptId: input.attemptId,
-      sequence: sequence++,
-      eventType: "message",
-      data: { messageId, role: "assistant", contentType: "text", isComplete: false },
+      sequence: atSequence,
+      eventType: "done",
+      data: { status: "Cancelled", isComplete: false, lastSequence: atSequence },
       safetyDecision: "approved",
     });
+    return { status: "cancelled", attemptId: input.attemptId, lastSequence: atSequence, stepsTaken };
+  };
+  /** 检查点：已被请求取消时立刻走取消终态 */
+  const abortIfCancelled = async (atSequence: number): Promise<ExecuteResult | null> => {
+    if (await execution.isCancelRequested({ turnId: input.turnId, attemptId: input.attemptId })) {
+      return finalizeCancelled(atSequence);
+    }
+    return null;
+  };
 
-    // 多 Step 共享上下文：随工具结果逐步增长
-    const history: PromptMessage[] = [{ role: "user", content: input.userMessage }];
+  /** 2d：预算/环境原因终止（Interrupted + done；§5.3 budget-exhausted、§11.3 删除未追平） */
+  const finalizeInterrupted = async (atSequence: number, reason: string): Promise<ExecuteResult> => {
+    const finalized = await execution.finalizeAttempt({
+      turnId: input.turnId,
+      attemptId: input.attemptId,
+      status: "Interrupted",
+      expectedFencingToken: claimFencingToken,
+    });
+    if (!finalized.ok) {
+      return { status: "failed", attemptId: input.attemptId, reason: `${reason}_finalize_contested` };
+    }
+    await execution.appendEvent({
+      turnId: input.turnId,
+      attemptId: input.attemptId,
+      sequence: atSequence,
+      eventType: "done",
+      data: { status: "Interrupted", isComplete: false, lastSequence: atSequence, reason },
+      safetyDecision: "approved",
+    });
+    return { status: "failed", attemptId: input.attemptId, reason };
+  };
+
+  /** 2d：Step 边界守卫 —— 取消 / 删除撤权水位 / 总耗时预算，任一命中即收敛 */
+  const prematureTermination = async (atSequence: number): Promise<ExecuteResult | null> => {
+    const cancelled = await abortIfCancelled(atSequence);
+    if (cancelled) return cancelled;
+    if (deletionGate && (await deletionGate.isBlocked({ turnId: input.turnId, sessionId: input.sessionId }))) {
+      return finalizeInterrupted(atSequence, "deletion_blocked");
+    }
+    if (maxTurnDurationMs > 0 && Date.now() - startedAt > maxTurnDurationMs) {
+      return finalizeInterrupted(atSequence, "turn_timeout");
+    }
+    return null;
+  };
+
+  try {
+    // 4b 续跑：sequence 沿用已存在事件之后（lastSequence+1 起），message 身份事件已有则跳过、
+    // 复用原 messageId；全新执行为 nextSequence（stage 1 语义）。
+    let sequence = resume ? resume.lastSequence + 1 : await execution.nextSequence(input.turnId);
+    const messageId = resume?.messageId ?? `msg_${input.turnId}_assistant`;
+
+    // 1) message 事件：Assistant Message 身份先提交（一次）——仅全新执行时提交
+    if (!resume) {
+      await execution.appendEvent({
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        sequence: sequence++,
+        eventType: "message",
+        data: { messageId, role: "assistant", contentType: "text", isComplete: false },
+        safetyDecision: "approved",
+      });
+    }
+
+    // 多 Step 共享上下文：随工具结果逐步增长；续跑时以恢复器重建上下文为初始历史
+    const history: PromptMessage[] = resume?.history ?? [{ role: "user", content: input.userMessage }];
     const seenToolCalls = new Set<string>();
+    let toolCallSeq = 0;
+    let streakName: string | undefined;
+    let sameToolStreak = 0;
     let textAccumulator: string[] = [];
-    let stepsTaken = 0;
 
-    for (let step = 1; step <= maxSteps; step += 1) {
+    // 4b 续跑：Step 从 resume.lastStep 之后继续（executionId=attempt:step:seq 不与已提交冲突）；
+    // 全新执行从 1 开始。
+    const stepBase = resume?.lastStep ?? 0;
+    for (let step = stepBase + 1; step <= maxSteps; step += 1) {
       stepsTaken = step;
+
+      // 2b：检查点 · Step 首部（取消优先于租约探活：用户取消时不得因续租失败误报 lease_lost）
+      const stepOpeningCancel = await prematureTermination(sequence);
+      if (stepOpeningCancel) return stepOpeningCancel;
 
       // 3b-B：Step 首部租约活性校验（续租即探活；租约被抢占/过期 → 立即中止，丢弃本轮与后续事件）
       if (claimLeaseId) {
@@ -113,11 +240,25 @@ export async function executeTurn(
       }
 
       const chunks: ModelChunk[] = [];
+      // 阶段 5a：本 Step 可消费的 inbox 项（ADR-017 消费边界；next-step 注入本 Step 输入）
+      const stepInboxItems = inbox
+        ? await inbox.claimForConsumption({
+            sessionId: input.sessionId,
+            attemptId: input.attemptId,
+            type: "next-step",
+            limit: 20, // maxInboxItemsPerStep
+          })
+        : [];
       const context = contextBuilder.build({
         turnId: input.turnId,
         sessionId: input.sessionId,
         messages: history,
+        inboxItems: stepInboxItems,
       });
+      // 读入即消费：注入 context 后 ack（未 ack 项在崩溃恢复后会被重新 claim，安全重放）
+      if (stepInboxItems.length > 0 && inbox) {
+        await inbox.ack({ itemIds: stepInboxItems.map((i) => i.id) });
+      }
 
       // 收集本 Step 输出（文本增量 + 工具请求）
       for await (const chunk of provider.stream({
@@ -147,6 +288,9 @@ export async function executeTurn(
             safetyDecision: "approved",
           });
         }
+        // 2b：检查点 · 自然完成终态提交前（取消优先，杜绝取消后写 Completed done）
+        const finalCancel = await prematureTermination(sequence);
+        if (finalCancel) return finalCancel;
         await execution.appendEvent({
           turnId: input.turnId,
           attemptId: input.attemptId,
@@ -181,12 +325,13 @@ export async function executeTurn(
       if (!tools) {
         for (const call of toolCalls) {
           const startedAt = new Date().toISOString();
+          const executionId = hostExecutionId(input.attemptId, step, ++toolCallSeq);
           await execution.appendEvent({
             turnId: input.turnId,
             attemptId: input.attemptId,
             sequence: sequence++,
             eventType: "tool_request",
-            data: { invocationId: call.id, name: call.name, arguments: call.arguments },
+            data: { invocationId: call.id, executionId, name: call.name, arguments: call.arguments },
             safetyDecision: "approved",
           });
           await execution.appendEvent({
@@ -194,13 +339,13 @@ export async function executeTurn(
             attemptId: input.attemptId,
             sequence: sequence++,
             eventType: "tool_result",
-            data: { invocationId: call.id, name: call.name, ok: false, error: "tools_disabled" },
+            data: { invocationId: call.id, executionId, name: call.name, ok: false, error: "tools_disabled" },
             safetyDecision: "approved",
           });
           await execution.recordToolExecution({
             turnId: input.turnId,
             attemptId: input.attemptId,
-            invocationId: call.id,
+            invocationId: executionId,
             name: call.name,
             arguments: call.arguments,
             status: "rejected",
@@ -209,6 +354,9 @@ export async function executeTurn(
             finishedAt: new Date().toISOString(),
           });
         }
+        // 2b：检查点 · 工具环境缺失 fail-closed 提交前（取消优先）
+        const disabledCancel = await prematureTermination(sequence);
+        if (disabledCancel) return disabledCancel;
         await execution.finalizeAttempt({
           turnId: input.turnId,
           attemptId: input.attemptId,
@@ -218,29 +366,50 @@ export async function executeTurn(
         return { status: "failed", attemptId: input.attemptId, reason: "tools_disabled" };
       }
 
+      // 2b：检查点 · 工具批次执行前（未开始副作用即取消则立即中止）
+      const toolsCancel = await prematureTermination(sequence);
+      if (toolsCancel) return toolsCancel;
       const results: ToolCallResult[] = [];
       for (const call of toolCalls) {
+        // 2d：连续同名工具阻断（§10 maxConsecutiveSameTool；跨 Step 累计）
+        sameToolStreak = call.name === streakName ? sameToolStreak + 1 : 1;
+        streakName = call.name;
+        if (maxConsecutiveSameTool > 0 && sameToolStreak > maxConsecutiveSameTool) {
+          return finalizeInterrupted(sequence, "repeat_tool");
+        }
+        // 3a：Host 幂等键（副作用账本与工具执行以 executionId 为准；事件保留模型 callId 关联）
+        const executionId = hostExecutionId(input.attemptId, step, ++toolCallSeq);
         const startedAt = new Date().toISOString();
         await execution.appendEvent({
           turnId: input.turnId,
           attemptId: input.attemptId,
           sequence: sequence++,
           eventType: "tool_request",
-          data: { invocationId: call.id, name: call.name, arguments: call.arguments },
+          data: { invocationId: call.id, executionId, name: call.name, arguments: call.arguments },
           safetyDecision: "approved",
         });
 
         let result: ToolCallResult;
+        let reserved = false;
         if (seenToolCalls.has(dedupeKey(call.name, call.arguments))) {
           result = { id: call.id, name: call.name, ok: false, error: "duplicate_tool_call" };
         } else {
           seenToolCalls.add(dedupeKey(call.name, call.arguments));
+          // 2c：幂等预留（§9 idempotency reservation）——意图先于外部副作用持久化（executionId 为 Host 键）
+          reserved = true;
+          await execution.reserveToolExecution({
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            invocationId: executionId,
+            name: call.name,
+            arguments: call.arguments,
+          });
           try {
             const executed = await withTimeout(
               tools.execute({
                 turnId: input.turnId,
                 attemptId: input.attemptId,
-                invocationId: call.id,
+                invocationId: executionId,
                 name: call.name,
                 arguments: call.arguments,
               }),
@@ -250,10 +419,26 @@ export async function executeTurn(
           } catch (err) {
             result = { id: call.id, name: call.name, ok: false, error: err instanceof Error ? err.message : "tool_execution_error" };
           }
+          // 2c：以权威结果收口预留行（§9：非幂等副作用失败不自动重试）
+          const finalStatus: ToolExecutionStatus = result.needsApproval
+            ? "pending_approval"
+            : result.ok
+              ? "executed"
+              : result.error === "tool_timeout"
+                ? "timeout_error"
+                : "rejected";
+          await execution.updateToolExecutionResult({
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            invocationId: executionId,
+            status: finalStatus,
+            output: result.output,
+            error: result.needsApproval ? "requires_approval" : result.error,
+          });
         }
         results.push(result);
 
-        // 阶段 3a：写工具需授权（宿主未执行）→ 记审批待决事件 + 账本，中断等待授权
+        // 阶段 3a：写工具需授权（宿主未执行）→ 记审批待决事件，中断等待授权（预留行已由 update 收口为 pending_approval）
         if (result.needsApproval) {
           const info = result.needsApproval;
           await execution.appendEvent({
@@ -263,17 +448,6 @@ export async function executeTurn(
             eventType: "tool_approval_required",
             data: { approvalId: info.approvalId, toolName: info.toolName, argumentsHash: info.argumentsHash },
             safetyDecision: "approved",
-          });
-          await execution.recordToolExecution({
-            turnId: input.turnId,
-            attemptId: input.attemptId,
-            invocationId: call.id,
-            name: call.name,
-            arguments: call.arguments,
-            status: "pending_approval",
-            error: "requires_approval",
-            startedAt,
-            finishedAt: new Date().toISOString(),
           });
           await execution.appendEvent({
             turnId: input.turnId,
@@ -299,6 +473,7 @@ export async function executeTurn(
           eventType: "tool_result",
           data: {
             invocationId: call.id,
+            executionId,
             name: call.name,
             ok: result.ok,
             output: result.output,
@@ -307,26 +482,20 @@ export async function executeTurn(
           safetyDecision: "approved",
         });
 
-        // 副作用证据账本：成功/拒绝/重复/超时一律留痕
-        const status: ToolExecutionStatus = result.ok
-          ? "executed"
-          : result.error === "duplicate_tool_call"
-            ? "duplicate"
-            : result.error === "tool_timeout"
-              ? "timeout_error"
-              : "rejected";
-        await execution.recordToolExecution({
-          turnId: input.turnId,
-          attemptId: input.attemptId,
-          invocationId: call.id,
-          name: call.name,
-          arguments: call.arguments,
-          status,
-          output: result.output,
-          error: result.error,
-          startedAt,
-          finishedAt: new Date().toISOString(),
-        });
+        // 副作用证据：duplicate（未走预留）独立留痕；已预留调用由 updateToolExecutionResult 收口
+        if (!reserved) {
+          await execution.recordToolExecution({
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            invocationId: executionId,
+            name: call.name,
+            arguments: call.arguments,
+            status: "duplicate",
+            error: "duplicate_tool_call",
+            startedAt,
+            finishedAt: new Date().toISOString(),
+          });
+        }
       }
 
       // 工具结果回填上下文（工具消息），模型下一轮可见
@@ -341,7 +510,10 @@ export async function executeTurn(
       }
     }
 
-    // maxSteps 耗尽且仍在请求工具 → 预算终止（Interrupted）
+    // maxSteps 耗尽且仍在请求工具 → 预算终止（Interrupted）；取消优先于预算结论
+    // 2b：检查点 · 预算终止前
+    const budgetCancel = await prematureTermination(sequence);
+    if (budgetCancel) return budgetCancel;
     await execution.appendEvent({
       turnId: input.turnId,
       attemptId: input.attemptId,

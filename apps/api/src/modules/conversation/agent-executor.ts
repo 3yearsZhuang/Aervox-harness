@@ -13,139 +13,18 @@ import {
   executeTurn,
 } from "@aervox/agent-loop";
 import type {
-  AgentStreamEvent,
-  AgentStreamEventInput,
-  ExecutionStorePort,
   ModelProviderPort,
   ReplayStep,
   ToolExecutionInput,
   ToolExecutionResult,
   ToolProviderPort,
 } from "@aervox/agent-loop";
+import { SqliteExecutionStore } from "@aervox/host-agent";
 import type { SqliteConversationRepository, TenantContext } from "@aervox/database";
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
 
-const now = (): string => new Date().toISOString();
-let seqCounter = 0;
-const nextEventId = (turnId: string): string =>
-  `tev_${turnId}_${(++seqCounter).toString(36)}`;
-
-const toAgentEvent = (row: {
-  id: string;
-  turnId: string;
-  sequence: number;
-  eventType: string;
-  payloadVersion: number;
-  data: unknown;
-  occurredAt: string;
-  attemptId?: string | null;
-  safetyDecision?: string | null;
-}): AgentStreamEvent => ({
-  eventId: row.id,
-  turnId: row.turnId,
-  attemptId: row.attemptId ?? "",
-  sequence: row.sequence,
-  eventType: row.eventType as AgentStreamEvent["eventType"],
-  payloadVersion: row.payloadVersion,
-  data: row.data,
-  safetyDecision: (row.safetyDecision as AgentStreamEvent["safetyDecision"]) ?? "pending",
-  occurredAt: row.occurredAt,
-});
-
-export class SqliteExecutionStore implements ExecutionStorePort {
-  constructor(
-    private readonly repo: SqliteConversationRepository,
-    private readonly tenant: TenantContext,
-  ) {}
-
-  async claimTurnAttempt(input: {
-    turnId: string;
-    attemptId: string;
-    expectedFencingToken: number;
-  }): Promise<
-    | { ok: true; fencingToken: number; leaseId?: string; leaseExpiresAt?: string }
-    | { ok: false; reason: "not_runnable" | "already_claimed" }
-  > {
-    const res = await this.repo.claimTurnAttempt(this.tenant, {
-      ...input,
-      leaseId: `lease_${Date.now().toString(36)}`,
-    });
-    if (!res.ok) return { ok: false, reason: "already_claimed" };
-    return {
-      ok: true,
-      fencingToken: res.fencingToken,
-      leaseId: res.leaseId,
-      leaseExpiresAt: res.leaseExpiresAt,
-    };
-  }
-
-  /** 3b-A：续租（CAS 委托仓储） */
-  async renewAttemptLease(input: {
-    attemptId: string;
-    leaseId: string;
-    expectedFencingToken: number;
-    ttlMs?: number;
-  }): Promise<{ ok: boolean }> {
-    const ok = await this.repo.renewTurnAttemptLease(this.tenant, input);
-    return { ok };
-  }
-
-  async nextSequence(turnId: string): Promise<number> {
-    const events = await this.repo.getStreamEvents(this.tenant, turnId, 0);
-    return events.length + 1;
-  }
-
-  async appendEvent(input: AgentStreamEventInput): Promise<AgentStreamEvent> {
-    const created = await this.repo.appendStreamEvent(this.tenant, {
-      id: nextEventId(input.turnId),
-      turnId: input.turnId,
-      sequence: input.sequence,
-      eventType: input.eventType,
-      data: input.data,
-      occurredAt: now(),
-      attemptId: input.attemptId,
-      safetyDecision: input.safetyDecision,
-    });
-    return toAgentEvent(created);
-  }
-
-  async listEvents(turnId: string, afterSequence = 0): Promise<AgentStreamEvent[]> {
-    const rows = await this.repo.getStreamEvents(this.tenant, turnId, afterSequence);
-    return rows.map(toAgentEvent);
-  }
-
-  async finalizeAttempt(input: {
-    turnId: string;
-    attemptId: string;
-    status: "Running" | "Completed" | "Failed" | "Interrupted";
-    expectedFencingToken?: number;
-  }): Promise<{ ok: boolean }> {
-    const updated = await this.repo.finalizeTurnAttempt(this.tenant, {
-      turnId: input.turnId,
-      attemptId: input.attemptId,
-      status: input.status,
-      expectedFencingToken: input.expectedFencingToken,
-    });
-    return { ok: Boolean(updated) };
-  }
-
-  /** 工具副作用证据落库（tool_executions，AVX-HAR-001 §12） */
-  async recordToolExecution(input: import("@aervox/agent-loop").ToolExecutionRecord): Promise<void> {
-    await this.repo.recordToolExecution(this.tenant, {
-      turnId: input.turnId,
-      attemptId: input.attemptId,
-      invocationId: input.invocationId,
-      name: input.name,
-      arguments: input.arguments,
-      status: input.status,
-      output: input.output,
-      error: input.error ?? null,
-      startedAt: input.startedAt,
-      finishedAt: input.finishedAt,
-    });
-  }
-}
+/** SqliteExecutionStore 组合根适配由 @aervox/host-agent 提供（见上方 import），API 不再自维护 SQLite 执行存储 */
 
 /**
  * 把主仓 ToolRuntime（tool_registrations + handler）适配为 agent-loop 的 ToolProviderPort：
@@ -179,8 +58,9 @@ export function createRuntimeToolProvider(
         }
       }
 
-      // 写工具：须已授权（参数哈希匹配 + granted），否则生成待决授权
-      if (tool.safetyLevel === "write_with_approval") {
+      // 写工具（write_with_approval / privileged）：须已授权（参数哈希匹配 + granted），否则生成待决授权。
+      // privileged 与 write 同流程；「仅管理员可批准」由路由 decideToolApproval 的管理员校验把关（3b）。
+      if (tool.safetyLevel === "write_with_approval" || tool.safetyLevel === "privileged") {
         const hash = stableStringify(input.arguments);
         const granted = await deps.conversationRepo.findGrantedToolApproval(tenant, {
           toolName: tool.name,
@@ -206,8 +86,8 @@ export function createRuntimeToolProvider(
         return { ok: false, needsApproval: { approvalId: approval.id, toolName: tool.name, argumentsHash: hash } };
       }
 
-      // privileged：仅管理员通道，Loop 一律拒绝
-      return { ok: false, error: `requires_approval: ${tool.id}（privileged 仅管理员通道）` };
+      // 其它（含不可识别的 safetyLevel）：fail-closed 拒绝
+      return { ok: false, error: `requires_approval: ${tool.id}（未支持的安全级别）` };
     },
   };
 }
@@ -242,6 +122,14 @@ export const API_WRITE_SCRIPT: readonly ReplayStep[] = [
   },
 ];
 
+/** 3b privileged 管理员通道脚本（AERVOX_LOOP_PROVIDER=scripted-privileged；单 Step 请求特权工具） */
+export const API_PRIVILEGED_SCRIPT: readonly ReplayStep[] = [
+  {
+    text: "需要执行特权操作。",
+    toolCalls: [{ id: "call_priv_1", name: "aervox_privileged_op", arguments: { op: "export_all" } }],
+  },
+];
+
 /** 迁移期接线：把 Loop 未完成/配置失败写为 error 事件 + Failed 终态（不抛到 HTTP 层） */
 async function failTurnWithError(
   store: SqliteExecutionStore,
@@ -273,7 +161,12 @@ export async function runLoopTurnOnce(
   repo: SqliteConversationRepository,
   tenant: TenantContext,
   input: { turnId: string; sessionId: string; attemptId: string; userMessage: string },
-  deps: { toolRuntime?: ToolRuntime; llmConfigService?: LLMConfigService } = {},
+  deps: {
+    toolRuntime?: ToolRuntime;
+    llmConfigService?: LLMConfigService;
+    /** 2d：删除/撤权水位未追平 → Loop fail-closed（AVX-HAR-001 §11.3） */
+    deletionGate?: import("@aervox/agent-loop").DeletionGatePort;
+  } = {},
 ): Promise<void> {
   const store = new SqliteExecutionStore(repo, tenant);
 
@@ -281,6 +174,7 @@ export async function runLoopTurnOnce(
     const mode = process.env.AERVOX_LOOP_PROVIDER ?? "replay";
     if (mode === "scripted") return createScriptedProvider(API_TOOL_SCRIPT);
     if (mode === "scripted-write") return createScriptedProvider(API_WRITE_SCRIPT);
+    if (mode === "scripted-privileged") return createScriptedProvider(API_PRIVILEGED_SCRIPT);
     if (mode === "llm") {
       if (!deps.llmConfigService) {
         throw new Error("llm_provider_unavailable: LLMConfigService 未接线");
@@ -317,6 +211,7 @@ export async function runLoopTurnOnce(
       provider,
       contextBuilder: defaultContextBuilder,
       tools,
+      deletionGate: deps.deletionGate,
     },
     input,
   );

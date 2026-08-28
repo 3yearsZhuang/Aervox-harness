@@ -6,8 +6,8 @@
  * 公开 SSE 契约仍复用 @aervox/contracts 的 TurnStreamEvent 负载；本文件是 Loop 内部 schema。
  */
 
-/** Attempt 状态（对齐 turn_attempts.status 列） */
-export type AttemptStatus = "Running" | "Completed" | "Failed" | "Interrupted";
+/** Attempt 状态（对齐 turn_attempts.status 列；CancelRequested 为取消请求位，Cancelled 为终态，AVX-HAR-001 §5.1） */
+export type AttemptStatus = "Running" | "CancelRequested" | "Completed" | "Failed" | "Interrupted" | "Cancelled";
 
 /** Step 状态（阶段 2 增加 ToolRequested / ToolExecuted；阶段 3 扩写工具） */
 export type StepStatus =
@@ -115,11 +115,14 @@ export interface ModelChunk {
 /** executeTurn 执行结果 */
 export type ExecuteResult =
   | { status: "completed"; attemptId: string; lastSequence: number; stepsTaken: number }
+  | { status: "cancelled"; attemptId: string; lastSequence: number; stepsTaken: number }
   | { status: "failed"; attemptId: string; reason: string }
   | { status: "skipped"; attemptId: string; reason: "not_runnable" | "already_claimed" };
 
-/** 工具副作用证据状态（阶段 2d 持久化为 tool_executions；3a 增审批待决） */
+/** 工具副作用证据状态（阶段 2d 持久化为 tool_executions；3a 增审批待决；2c 增预留/未知结果） */
 export type ToolExecutionStatus =
+  /** 意图已提交（幂等预留/进行中，AVX-HAR-001 §9 idempotency reservation） */
+  | "pending"
   /** 已执行（含成功输出） */
   | "executed"
   /** 被拒绝：未注册 / 非只读 / 未配置工具 */
@@ -128,6 +131,8 @@ export type ToolExecutionStatus =
   | "duplicate"
   /** 执行抛错或超时 */
   | "timeout_error"
+  /** 崩溃释放后结果未知（§11.3 unknown outcome：不自动重放） */
+  | "outcome_unknown"
   /** 阶段 3a：写工具等待授权，未执行 */
   | "pending_approval";
 
@@ -143,4 +148,55 @@ export interface ToolExecutionRecord {
   error?: string;
   startedAt: string;
   finishedAt: string;
+}
+
+/** AgentInboxItem 类型（AVX-HAR-001 §7.2 + ADR-017） */
+export type AgentInboxItemType = "followup" | "steer" | "inject";
+
+/** AgentInboxItem 消费边界（next-turn=排队为新 Turn 输入；next-step=注入下一 Step 输入） */
+export type AgentInboxConsumeBoundary = "next-turn" | "next-step";
+
+/** AgentInboxItem 状态（ADR-017：pending → claimed → acknowledged；expired 兜底回收） */
+export type AgentInboxItemStatus = "pending" | "claimed" | "acknowledged" | "expired";
+
+/** 来源 actor（用户 / Agent / 插件；外部插件只能提交受限 inbox command） */
+export type AgentInboxSourceActor = "user" | "agent" | "plugin";
+
+/** AgentInboxItem（Loop 应用层面；ADR-017 数据模型） */
+export interface AgentInboxItem {
+  id: string;
+  /** 幂等键（租户内唯一；重复提交安全） */
+  idempotencyKey: string;
+  sessionId: string;
+  /** 消费目标 Attempt（next-turn = null；next-step 定位） */
+  attemptId?: string;
+  stepId?: string;
+  type: AgentInboxItemType;
+  /** 顺序（同目标边界内单调） */
+  orderingSeq: number;
+  sourceActor: AgentInboxSourceActor;
+  /** 内容载荷（compact 编码，含来源与用途标注） */
+  payload: unknown;
+  status: AgentInboxItemStatus;
+  consumeBoundary: AgentInboxConsumeBoundary;
+  claimedAt?: string;
+  ackedAt?: string;
+  expiresAt?: string;
+  createdAt: string;
+}
+
+/** 受控 inbox command（外部插件/用户提交 followup/steer/inject 的统一入口） */
+export interface AgentInboxCommand {
+  /** 幂等键（来源 + 事件去重；重复提交安全） */
+  idempotencyKey: string;
+  sessionId: string;
+  attemptId?: string;
+  stepId?: string;
+  type: AgentInboxItemType;
+  sourceActor: AgentInboxSourceActor;
+  payload: unknown;
+  /** 消费边界；缺省按类型推定（followup→next-turn；steer/inject→next-step） */
+  consumeBoundary?: AgentInboxConsumeBoundary;
+  /** 过期时间；缺省不自动过期 */
+  expiresAt?: string;
 }

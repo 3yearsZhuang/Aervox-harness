@@ -5,7 +5,7 @@
  * @aervox/database 仓储适配（见 apps/api），两者行为约定以本文件为基准。
  */
 import type { AgentStreamEvent, AgentStreamEventInput, ExecutionStorePort } from "./ports.js";
-import type { AttemptStatus, ToolExecutionRecord } from "./types.js";
+import type { AttemptStatus, ToolExecutionRecord, ToolExecutionStatus } from "./types.js";
 
 interface AttemptRecord {
   id: string;
@@ -20,6 +20,7 @@ export class InMemoryExecutionStore implements ExecutionStorePort {
   private readonly eventsByTurn = new Map<string, AgentStreamEvent[]>();
   private readonly attempts = new Map<string, AttemptRecord>();
   private readonly toolExecutionLog: ToolExecutionRecord[] = [];
+  private readonly toolExecutionByKey = new Map<string, ToolExecutionRecord>();
   private leaseRenewalCount = 0;
 
   seedAttempt(input: {
@@ -117,13 +118,30 @@ export class InMemoryExecutionStore implements ExecutionStorePort {
   }): Promise<{ ok: boolean }> {
     const attempt = this.attempts.get(input.attemptId);
     if (!attempt) return { ok: false };
-    // 3b-B：单一终态（仅 Running 可提交；fencing 匹配才允许）
-    if (attempt.status !== "Running") return { ok: false };
+    // 3b-B：单一终态（仅运行中状态 Running/CancelRequested 可提交；fencing 匹配才允许）
+    if (attempt.status !== "Running" && attempt.status !== "CancelRequested") return { ok: false };
     if (input.expectedFencingToken !== undefined && attempt.fencingToken !== input.expectedFencingToken) {
       return { ok: false };
     }
     attempt.status = input.status;
     return { ok: true };
+  }
+
+  /** 2b：取消请求位（仅 Running → CancelRequested；已终态拒绝） */
+  async requestCancelAttempt(input: {
+    turnId: string;
+    attemptId: string;
+  }): Promise<{ ok: boolean; reason?: "not_found" | "already_finalized" }> {
+    const attempt = this.attempts.get(input.attemptId);
+    if (!attempt) return { ok: false, reason: "not_found" };
+    if (attempt.status !== "Running") return { ok: false, reason: "already_finalized" };
+    attempt.status = "CancelRequested";
+    return { ok: true };
+  }
+
+  /** 2b：executor 检查点轮询 */
+  async isCancelRequested(input: { turnId: string; attemptId: string }): Promise<boolean> {
+    return this.attempts.get(input.attemptId)?.status === "CancelRequested";
   }
 
   /** 测试钩子：模拟租约被抢占/丢失（改 leaseId，使续租探活失败） */
@@ -137,6 +155,61 @@ export class InMemoryExecutionStore implements ExecutionStorePort {
 
   async recordToolExecution(input: ToolExecutionRecord): Promise<void> {
     this.toolExecutionLog.push(input);
+  }
+
+  /** 2c：幂等预留（attempt+invocation 唯一；已存在不覆盖） */
+  async reserveToolExecution(input: {
+    turnId: string;
+    attemptId: string;
+    invocationId: string;
+    name: string;
+    arguments: unknown;
+  }): Promise<{ ok: boolean; alreadyReserved: boolean }> {
+    const key = `${input.attemptId}:${input.invocationId}`;
+    if (this.toolExecutionByKey.has(key)) {
+      return { ok: true, alreadyReserved: true };
+    }
+    const record: ToolExecutionRecord = {
+      turnId: input.turnId,
+      attemptId: input.attemptId,
+      invocationId: input.invocationId,
+      name: input.name,
+      arguments: input.arguments,
+      status: "pending",
+      startedAt: new Date(0).toISOString(),
+      finishedAt: new Date(0).toISOString(),
+    };
+    this.toolExecutionLog.push(record);
+    this.toolExecutionByKey.set(key, record);
+    return { ok: true, alreadyReserved: false };
+  }
+
+  /** 2c：以权威结果收口预留行 */
+  async updateToolExecutionResult(input: {
+    turnId: string;
+    attemptId: string;
+    invocationId: string;
+    status: ToolExecutionStatus;
+    output?: unknown;
+    error?: string;
+    finishedAt?: string;
+  }): Promise<{ ok: boolean }> {
+    const record = this.toolExecutionByKey.get(`${input.attemptId}:${input.invocationId}`);
+    if (!record) return { ok: false };
+    record.status = input.status;
+    if (input.output !== undefined) record.output = input.output;
+    record.error = input.error ?? (input.status === "rejected" || input.status === "timeout_error" ? record.error : undefined);
+    record.finishedAt = input.finishedAt ?? new Date(0).toISOString();
+    return { ok: true };
+  }
+
+  /** 工具倒插预留行（崩溃恢复下由恢复器标记未知结果；测试钩子） */
+  markAllPendingUnknown(attemptId: string): void {
+    for (const record of this.toolExecutionLog) {
+      if (record.attemptId === attemptId && record.status === "pending") {
+        record.status = "outcome_unknown";
+      }
+    }
   }
 
   /** 工具副作用证据日志（测试断言用） */
