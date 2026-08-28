@@ -54,6 +54,25 @@ export interface PromptContext {
   messages: PromptMessage[];
 }
 
+/** Skill 渐进披露描述（阶段 5b；只携 name+description，模型按需读取 SKILL.md 全文） */
+export interface SkillDescriptor {
+  name: string;
+  description: string;
+}
+
+/** Context 压缩输入（阶段 5b；纯上下文数据，不含数据库句柄） */
+export interface ContextCompactionInput {
+  turnId: string;
+  sessionId: string;
+  messages: PromptMessage[];
+}
+
+/** Context 压缩结果：压缩后的消息列表 + 可选摘要文本（审计/可观测） */
+export interface ContextCompactionResult {
+  messages: PromptMessage[];
+  summary?: string;
+}
+
 /** 工具描述（只读白名单工具的主仓快照；阶段 2d 与工具注册表共用） */
 export interface ToolSpec {
   name: string;
