@@ -1061,6 +1061,25 @@
               "archived"
             ]
           },
+          "reviewStatus": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "pending_review",
+              "approved",
+              "rejected"
+            ]
+          },
+          "reviewNotes": {
+            "type": "string"
+          },
+          "reviewedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
           "currentRevisionId": {
             "type": "string",
             "minLength": 1
@@ -1082,6 +1101,9 @@
           "description",
           "source",
           "status",
+          "reviewStatus",
+          "reviewNotes",
+          "reviewedAt",
           "currentRevisionId",
           "createdAt",
           "updatedAt"
@@ -2830,10 +2852,18 @@
               "dismissed"
             ]
           },
-          "reason": {
+          "reasonCode": {
             "type": [
               "string",
               "null"
+            ],
+            "enum": [
+              "concept_gap",
+              "calculation",
+              "careless",
+              "misread",
+              "other",
+              null
             ]
           },
           "note": {
@@ -2851,7 +2881,9 @@
           "latestAttemptAt",
           "wrongCount",
           "masteryState",
-          "status"
+          "status",
+          "reasonCode",
+          "note"
         ]
       },
       "MistakeListResponse": {
@@ -2894,10 +2926,18 @@
                     "dismissed"
                   ]
                 },
-                "reason": {
+                "reasonCode": {
                   "type": [
                     "string",
                     "null"
+                  ],
+                  "enum": [
+                    "concept_gap",
+                    "calculation",
+                    "careless",
+                    "misread",
+                    "other",
+                    null
                   ]
                 },
                 "note": {
@@ -2915,7 +2955,9 @@
                 "latestAttemptAt",
                 "wrongCount",
                 "masteryState",
-                "status"
+                "status",
+                "reasonCode",
+                "note"
               ]
             }
           }
@@ -2935,18 +2977,28 @@
               "dismissed"
             ]
           },
-          "reason": {
-            "type": "string",
-            "maxLength": 200
+          "reasonCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "concept_gap",
+              "calculation",
+              "careless",
+              "misread",
+              "other",
+              null
+            ]
           },
           "note": {
-            "type": "string",
-            "maxLength": 1000
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500
           }
-        },
-        "required": [
-          "status"
-        ]
+        }
       },
       "RepracticeRequest": {
         "type": "object",
@@ -4604,6 +4656,25 @@
                               "archived"
                             ]
                           },
+                          "reviewStatus": {
+                            "type": "string",
+                            "enum": [
+                              "draft",
+                              "pending_review",
+                              "approved",
+                              "rejected"
+                            ]
+                          },
+                          "reviewNotes": {
+                            "type": "string"
+                          },
+                          "reviewedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
                           "currentRevisionId": {
                             "type": "string",
                             "minLength": 1
@@ -4625,6 +4696,9 @@
                           "description",
                           "source",
                           "status",
+                          "reviewStatus",
+                          "reviewNotes",
+                          "reviewedAt",
                           "currentRevisionId",
                           "createdAt",
                           "updatedAt"
@@ -4846,6 +4920,25 @@
                             "archived"
                           ]
                         },
+                        "reviewStatus": {
+                          "type": "string",
+                          "enum": [
+                            "draft",
+                            "pending_review",
+                            "approved",
+                            "rejected"
+                          ]
+                        },
+                        "reviewNotes": {
+                          "type": "string"
+                        },
+                        "reviewedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time"
+                        },
                         "currentRevisionId": {
                           "type": "string",
                           "minLength": 1
@@ -4867,6 +4960,9 @@
                         "description",
                         "source",
                         "status",
+                        "reviewStatus",
+                        "reviewNotes",
+                        "reviewedAt",
                         "currentRevisionId",
                         "createdAt",
                         "updatedAt"
@@ -5075,6 +5171,25 @@
                             "archived"
                           ]
                         },
+                        "reviewStatus": {
+                          "type": "string",
+                          "enum": [
+                            "draft",
+                            "pending_review",
+                            "approved",
+                            "rejected"
+                          ]
+                        },
+                        "reviewNotes": {
+                          "type": "string"
+                        },
+                        "reviewedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time"
+                        },
                         "currentRevisionId": {
                           "type": "string",
                           "minLength": 1
@@ -5096,6 +5211,9 @@
                         "description",
                         "source",
                         "status",
+                        "reviewStatus",
+                        "reviewNotes",
+                        "reviewedAt",
                         "currentRevisionId",
                         "createdAt",
                         "updatedAt"
@@ -5403,6 +5521,25 @@
                             "archived"
                           ]
                         },
+                        "reviewStatus": {
+                          "type": "string",
+                          "enum": [
+                            "draft",
+                            "pending_review",
+                            "approved",
+                            "rejected"
+                          ]
+                        },
+                        "reviewNotes": {
+                          "type": "string"
+                        },
+                        "reviewedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time"
+                        },
                         "currentRevisionId": {
                           "type": "string",
                           "minLength": 1
@@ -5424,6 +5561,9 @@
                         "description",
                         "source",
                         "status",
+                        "reviewStatus",
+                        "reviewNotes",
+                        "reviewedAt",
                         "currentRevisionId",
                         "createdAt",
                         "updatedAt"
@@ -9731,6 +9871,21 @@
           {
             "schema": {
               "type": "string",
+              "enum": [
+                "concept_gap",
+                "calculation",
+                "careless",
+                "misread",
+                "other"
+              ]
+            },
+            "required": false,
+            "name": "reasonCode",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
               "minLength": 1
             },
             "required": false,
@@ -9801,10 +9956,18 @@
                               "dismissed"
                             ]
                           },
-                          "reason": {
+                          "reasonCode": {
                             "type": [
                               "string",
                               "null"
+                            ],
+                            "enum": [
+                              "concept_gap",
+                              "calculation",
+                              "careless",
+                              "misread",
+                              "other",
+                              null
                             ]
                           },
                           "note": {
@@ -9822,7 +9985,9 @@
                           "latestAttemptAt",
                           "wrongCount",
                           "masteryState",
-                          "status"
+                          "status",
+                          "reasonCode",
+                          "note"
                         ]
                       }
                     }
@@ -9842,7 +10007,7 @@
     },
     "/v1/mistakes/{questionId}": {
       "patch": {
-        "summary": "标记错题掌握状态",
+        "summary": "更新错题处置或错因",
         "tags": [
           "Learning"
         ],
@@ -9898,18 +10063,28 @@
                       "dismissed"
                     ]
                   },
-                  "reason": {
-                    "type": "string",
-                    "maxLength": 200
+                  "reasonCode": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "concept_gap",
+                      "calculation",
+                      "careless",
+                      "misread",
+                      "other",
+                      null
+                    ]
                   },
                   "note": {
-                    "type": "string",
-                    "maxLength": 1000
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 500
                   }
-                },
-                "required": [
-                  "status"
-                ]
+                }
               }
             }
           }
@@ -9954,10 +10129,18 @@
                         "dismissed"
                       ]
                     },
-                    "reason": {
+                    "reasonCode": {
                       "type": [
                         "string",
                         "null"
+                      ],
+                      "enum": [
+                        "concept_gap",
+                        "calculation",
+                        "careless",
+                        "misread",
+                        "other",
+                        null
                       ]
                     },
                     "note": {
@@ -9975,7 +10158,9 @@
                     "latestAttemptAt",
                     "wrongCount",
                     "masteryState",
-                    "status"
+                    "status",
+                    "reasonCode",
+                    "note"
                   ]
                 }
               }

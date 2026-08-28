@@ -199,7 +199,7 @@
 - **会话状态**：会话只能从 `active` 转为 `completed`；结束操作可重试并返回同一汇总结果。已结束、不属于题组的作答不得写入；跨租户资源统一返回 404。
 - **判定与数据**：服务端根据题目的标准答案判定可确定答案（标准化比较，忽略大小写与首尾空白）；短文本题不可验证时进入待确认。`QuestionAttempt` 为不可变事实，掌握度和复习项为派生状态；待确认或答案不可验证的题目不得进入掌握度、正式错题或复习调度。
 - **重试**：作答请求可携带 `Idempotency-Key`；同一工作区、数据主体和题目维度内相同键只创建一个作答事实，且只触发一次掌握度与复习调度更新。请求超时后客户端必须使用原键重试，并以首个成功响应为准。
-- **错题处置**：错题本条目可为 `active`、`mastered` 或 `dismissed`。`dismissed` 仅隐藏派生错题条目，并排除错题重练；恢复后重新进入 `active`。任何处置均不得删除或改写 `QuestionAttempt`、知识点统计或已创建复习项。
+- **错题处置与错因**：错题本条目可为 `active`、`mastered` 或 `dismissed`。`dismissed` 仅隐藏派生错题条目，并排除错题重练；恢复后重新进入 `active`。用户可以为任一错题保存一个标准错因（概念不清、计算失误、粗心、审题偏差或其他）和最多 500 字的补充说明，并按错因筛选。错因是用户元数据，不参与判题、掌握度或复习调度；任何处置或错因更新均不得删除或改写 `QuestionAttempt`、知识点统计或已创建复习项。
 - **验收**：
   - `AC-FR-PRC-001-01`：Given 用户重复提交同一答案，When 请求重试，Then 只产生一个作答事实和一个调度结果。
   - `AC-FR-PRC-001-02`：Given 判定为待确认（unverifiable），When 会话结束，Then 不直接计入掌握度。
@@ -211,7 +211,8 @@
   - `AC-FR-PRC-001-08`：Given 用户忽略一条活动错题，When 再次读取默认列表或创建错题重练，Then 该条目不可见且不会进入题组，原始作答仍可查询。
   - `AC-FR-PRC-001-09`：Given 用户恢复一条已忽略错题，When 读取活动列表，Then 该条目重新可见并可被选择重练。
   - `AC-FR-PRC-001-10`：Given 用户重开存在活跃会话的学习界面或重试创建会话，When 系统恢复会话，Then 返回原题组快照、已答题目和首个未答题，且不创建第二个活跃会话。
-- **测试**：`TC-UNIT-PRC-001`、`TC-API-PRC-001`、`TC-INTEG-PRC-001`、`TC-E2E-PRC-001`。变更依据见 [CR-008](changes/CR-008-practice-session-contract.md) 与 [CR-009](changes/CR-009-mistake-book-dismissal.md)。
+  - `AC-FR-PRC-001-11`：Given 用户更新错因或说明，When 再次读取、筛选或重练错题，Then 更新只影响同一租户下的错因元数据与展示，原始作答和派生学习状态不变。
+- **测试**：`TC-UNIT-PRC-001`、`TC-API-PRC-001`、`TC-INTEG-PRC-001`、`TC-E2E-PRC-001`。变更依据见 [CR-008](changes/CR-008-practice-session-contract.md)、[CR-009](changes/CR-009-mistake-book-dismissal.md) 与 [CR-018](changes/CR-018-mistake-insight-workflow.md)。
 
 ### FR-REV-001 间隔复习
 

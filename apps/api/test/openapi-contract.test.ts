@@ -31,4 +31,18 @@ describe("Learning OpenAPI 契约", () => {
       404: expect.anything(),
     }));
   });
+
+  it("声明错因字段、筛选参数与可选的错题更新请求", () => {
+    const list = openApiDocument.paths["/v1/mistakes"]?.get;
+    const update = openApiDocument.paths["/v1/mistakes/{questionId}"]?.patch;
+    const mistake = openApiDocument.components?.schemas?.MistakeItem;
+
+    expect(list?.parameters).toEqual(expect.arrayContaining([
+      expect.objectContaining({ in: "query", name: "reasonCode", required: false }),
+    ]));
+    expect(update?.summary).toBe("更新错题处置或错因");
+    expect(mistake).toEqual(expect.objectContaining({
+      properties: expect.objectContaining({ reasonCode: expect.anything(), note: expect.anything() }),
+    }));
+  });
 });
