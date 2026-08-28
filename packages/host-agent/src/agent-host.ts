@@ -17,7 +17,6 @@ import type {
 import { defaultContextBuilder, executeTurn } from "@aervox/agent-loop";
 import { runAdapterTurn } from "./adapter-turn.js";
 import type { Observability } from "@aervox/observability";
-import { createNoopObservability } from "@aervox/observability";
 
 /** 可从队列领取的一条 Turn（含执行所需输入） */
 export interface ClaimableTurn {
@@ -109,8 +108,15 @@ export interface AgentHost {
 export function createAgentHost(deps: AgentHostDeps): AgentHost {
   const maxConcurrency = deps.maxConcurrency ?? 1;
   const pollIntervalMs = deps.pollIntervalMs ?? 500;
-  // 4a-2：宿主级可观测性（缺省 Noop；实现须不抛异常）
-  const ob = deps.observability ?? createNoopObservability();
+  // 缺陷5：审计不可静默丢失 —— observability 为必选注入；无采集端时调用方显式注入
+  // createNoopObservability()（观测缺省 opt-out 需明示），否则组合根 fail-fast。
+  if (!deps.observability) {
+    throw new Error(
+      "observability_required: createAgentHost 必须注入 observability 门面；" +
+        "无采集端时请显式注入 createNoopObservability()（审计默认落库，见 createSqliteObservability）",
+    );
+  }
+  const ob = deps.observability;
   let runningCount = 0;
   let processedCount = 0;
   let stopped = false;

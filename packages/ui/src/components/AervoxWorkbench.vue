@@ -32,13 +32,15 @@ import {
   TimerReset,
   X,
 } from 'lucide-vue-next'
-import {streamAervoxTurn, useAervoxApi, useAervoxVoiceInput} from '@aervox/api-client'
+import {streamAervoxTurn, submitQuestionAnswers, useAervoxApi, useAervoxVoiceInput} from '@aervox/api-client'
+import type {AskUserQuestionAnswerItem, UserQuestionRequiredEventData} from '@aervox/contracts'
 import PetHero from './PetHero.vue'
 import PluginManagerPanel from './plugin/PluginManagerPanel.vue'
 import Live2DPet from './Live2DPet.vue'
 import PersonaManagerPanel from './persona/PersonaManagerPanel.vue'
 import LocalVoiceConfigPanel from './voice/LocalVoiceConfigPanel.vue'
 import LLMConfigPanel from './llm/LLMConfigPanel.vue'
+import UserQuestionComposer from './UserQuestionComposer.vue'
 
 type Platform = 'desktop' | 'web'
 type Speaker = 'assistant' | 'user'
@@ -100,6 +102,11 @@ const practiceFeedback = ref<{judgement: string; nextStep: string} | null>(null)
 const practiceSubmission = ref<{sessionId: string; questionId: string; answer: string; idempotencyKey: string} | null>(null)
 const practiceReport = ref<{answeredCount: number; questionCount: number; remainingCount: number; correctCount: number; incorrectCount: number; unverifiableCount: number; accuracy: number | null; avgTimeSpentSec: number | null; totalHintsUsed: number; guidance: {difficulty: 'ease' | 'maintain' | 'increase'; reasonCode: string; message: string}; nextStep: string} | null>(null)
 const questionStartTime = ref<number>(0)
+
+// UQ-01: 挂起向用户提问数据与提交状态
+const activeQuestion = ref<UserQuestionRequiredEventData | null>(null)
+const questionSubmitting = ref(false)
+const currentTurnId = ref<string | null>(null)
 const practiceBusy = ref(false)
 const practiceError = ref<string | null>(null)
 const mistakeFilter = ref<'active' | 'mastered' | 'dismissed' | 'all'>('active')
@@ -276,6 +283,7 @@ async function sendMessage(value = input.value) {
   story.value.push(createStoryLine('user', text), assistantLine)
   input.value = ''
   streaming.value = true
+  activeQuestion.value = null
   await scrollStoryToBottom()
 
   try {
@@ -286,7 +294,13 @@ async function sendMessage(value = input.value) {
       },
       onDone: () => {
         assistantLine.state = 'complete'
+        activeQuestion.value = null
         if (!assistantLine.text) assistantLine.text = '这次没有收到可展示的回答，请再试一次。'
+      },
+      onUserQuestion: (qData) => {
+        activeQuestion.value = qData
+        currentTurnId.value = qData.turnId
+        void scrollStoryToBottom()
       },
     })
   } catch (error) {
@@ -296,6 +310,19 @@ async function sendMessage(value = input.value) {
     streaming.value = false
     if (!input.value.trim()) composerOpen.value = false
     await scrollStoryToBottom()
+  }
+}
+
+async function handleQuestionSubmit(answers: AskUserQuestionAnswerItem[]) {
+  if (!currentTurnId.value || questionSubmitting.value) return
+  questionSubmitting.value = true
+  try {
+    await submitQuestionAnswers(currentTurnId.value, answers)
+    activeQuestion.value = null
+  } catch (err) {
+    console.error('提交回答失败', err)
+  } finally {
+    questionSubmitting.value = false
   }
 }
 
@@ -998,6 +1025,14 @@ onUnmounted(() => {
             <span class="message-speaker">{{ assistantDisplayName }}</span>
             <span class="message-text">正在连接 Aervox…</span>
           </p>
+
+          <!-- UQ-01: 呈现向用户提问卡片 -->
+          <UserQuestionComposer
+            v-if="activeQuestion"
+            :question-data="activeQuestion"
+            :submitting="questionSubmitting"
+            @submit="handleQuestionSubmit"
+          />
         </div>
         <button class="message-history-entry" type="button" @click="historyOpen = true">
           <History :size="14" />

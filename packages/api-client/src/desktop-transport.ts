@@ -22,7 +22,12 @@ declare global {
   }
 }
 
-import type { PetCommand, TurnStreamEvent } from '@aervox/contracts';
+import type {
+  AskUserQuestionAnswerItem,
+  PetCommand,
+  TurnStreamEvent,
+  UserQuestionRequiredEventData,
+} from '@aervox/contracts';
 import type { AervoxTransport, TurnCallbacks } from './transport';
 
 export const desktopTransport: AervoxTransport = {
@@ -38,6 +43,14 @@ export const desktopTransport: AervoxTransport = {
     const bridge = window.fairyDesktop;
     if (!bridge) throw new Error('fairyDesktop 桥不可用，请通过 Electron 启动应用。');
     await streamTurnViaBridge(bridge, content, callbacks);
+  },
+
+  async submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[]): Promise<void> {
+    await this.request(
+      'POST',
+      `/v1/turns/${encodeURIComponent(turnId)}/questions/answers`,
+      { answers },
+    );
   },
 };
 
@@ -68,6 +81,9 @@ function streamTurnViaBridge(
         callbacks.onError?.(new Error((event.data as { message?: string }).message ?? 'Turn 出错'));
       }
       if (event.eventType === 'emote') callbacks.onEmote?.(event.data as PetCommand);
+      if (event.eventType === 'user_question_required') {
+        callbacks.onUserQuestion?.(event.data as UserQuestionRequiredEventData);
+      }
     });
   });
 }
