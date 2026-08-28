@@ -51,3 +51,11 @@ export class ConflictError extends ApiError {
     this.name = "ConflictError";
   }
 }
+
+/** 越权/未授权操作 → 403 { error, code: "FORBIDDEN", message }（缺陷 B） */
+export class ForbiddenError extends ApiError {
+  constructor(message = "forbidden") {
+    super("FORBIDDEN", 403, message);
+    this.name = "ForbiddenError";
+  }
+}

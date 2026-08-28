@@ -22,6 +22,7 @@ import { createTenantInboxPort } from "../inbox/port.js";
 import { runLoopTurnOnce } from "./agent-executor.js";
 import { UserQuestionCoordinator } from "./user-question-coordinator.js";
 import { submitQuestionAnswersRequestSchema } from "@aervox/contracts";
+import { loadApiConfig } from "@aervox/config";
 
 let seq = 0;
 const nextTurnId = (): string => `turn_${Date.now().toString(36)}_${(++seq).toString(36)}`;
@@ -255,7 +256,8 @@ export function registerConversationRoutes(
     if (!deps.userQuestionCoordinator) {
       return reply.code(404).send({ error: "user_questions_disabled" });
     }
-    const pending = deps.userQuestionCoordinator.getPending(turnId);
+    const tenant = resolveTenant(req);
+    const pending = await deps.userQuestionCoordinator.getPending(tenant, turnId);
     if (!pending) {
       return reply.send({ turnId, pending: false, questions: [] });
     }
@@ -280,7 +282,8 @@ export function registerConversationRoutes(
       const tool = registrations.find((t) => t.name === approval.toolName);
       if (tool?.safetyLevel === "privileged") {
         const adminId = req.headers["x-admin-user-id"] as string | undefined;
-        const allowed = (process.env.AERVOX_ADMIN_IDS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+        // 缺陷 E：管理员白名单经 @aervox/config 集中解析（AERVOX_ADMIN_IDS）
+        const allowed = loadApiConfig().adminIds;
         if (adminId === undefined || !allowed.includes(adminId)) {
           return reply.code(403).send({ error: "admin_required: privileged tool approval requires x-admin-user-id in AERVOX_ADMIN_IDS" });
         }

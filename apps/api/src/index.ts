@@ -5,7 +5,9 @@
  * 规则依据：docs/reference/STREAMING_PROTOCOL.md + docs/reference/DATABASE.md + @aervox/contracts。
  */
 import { buildApp } from "./app.js";
+import { loadApiConfig } from "@aervox/config";
 
 const { app } = await buildApp();
-const port = Number(process.env.PORT ?? 3000);
+// 缺陷 E：集中类型化配置（PORT 启动期校验）
+const port = loadApiConfig().port;
 await app.listen({ port, host: "0.0.0.0" });

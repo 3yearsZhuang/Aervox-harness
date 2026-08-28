@@ -32,6 +32,9 @@ importers:
       '@aervox/agent-loop':
         specifier: workspace:*
         version: link:../../packages/agent-loop
+      '@aervox/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@aervox/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -171,6 +174,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@aervox/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@aervox/database':
         specifier: workspace:*
         version: link:../../packages/database
@@ -190,25 +196,6 @@ importers:
       typescript:
         specifier: 7.0.2
         version: 7.0.2
-
-  modules/persona-plugin:
-    dependencies:
-      fflate:
-        specifier: 0.8.2
-        version: 0.8.2
-      yaml:
-        specifier: 2.9.0
-        version: 2.9.0
-    devDependencies:
-      '@types/node':
-        specifier: 22.20.1
-        version: 22.20.1
-      typescript:
-        specifier: 7.0.2
-        version: 7.0.2
-      vitest:
-        specifier: 4.0.18
-        version: 4.0.18(@types/node@22.20.1)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
 
   packages/agent-loop:
     dependencies:
@@ -232,6 +219,18 @@ importers:
       vue:
         specifier: ^3.5.21
         version: 3.5.41(typescript@7.0.2)
+
+  packages/config:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: 4.0.18
+        version: 4.0.18(@types/node@24.13.3)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
 
   packages/contracts:
     dependencies:
