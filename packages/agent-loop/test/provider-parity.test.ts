@@ -65,4 +65,49 @@ describe("Provider 终止语义 parity（agent-loop-provider-parity）", () => {
     );
     expect(result.status).toBe("completed");
   });
+
+  it("阶段 4 退出条件：切换 Loop Driver 不改客户端事件流契约骨架", async () => {
+    // AVX-HAR-001 §13 阶段 4 退出条件：切换 Driver 不改变客户端契约。
+    // 不论 provider 是 Replay（原生回退）还是注入式 custom，事件流骨架一致：
+    // 首事件 message（assistant 身份）→ 中间 0..N 个 delta（文本片段）→ 末事件 done（终态）。
+    // 事件类型集合 ⊆ 契约枚举 {message, delta, tool_request, tool_result, done, error}。
+    const ctxBuilder = { build: (c: { turnId: string; sessionId: string; messages: { role: string; content: string }[] }) => ({ turnId: c.turnId, sessionId: c.sessionId, messages: c.messages }) };
+
+    const replayStore = new InMemoryExecutionStore();
+    replayStore.seedAttempt({ id: "atp_exit_replay", turnId: "turn_exit_replay" });
+    await executeTurn(
+      { execution: replayStore, provider: createReplayProvider(), contextBuilder: ctxBuilder },
+      { turnId: "turn_exit_replay", sessionId: "sess_exit", attemptId: "atp_exit_replay", userMessage: "hi" },
+    );
+    const replayEvents = await replayStore.listEvents("turn_exit_replay");
+
+    const custom: ModelProviderPort = {
+      id: "exit-custom",
+      async *stream(): AsyncIterable<ModelChunk> {
+        yield { text: "a", isFinal: false };
+        yield { text: "b", isFinal: true };
+      },
+    };
+    const customStore = new InMemoryExecutionStore();
+    customStore.seedAttempt({ id: "atp_exit_custom", turnId: "turn_exit_custom" });
+    await executeTurn(
+      { execution: customStore, provider: custom, contextBuilder: ctxBuilder },
+      { turnId: "turn_exit_custom", sessionId: "sess_exit", attemptId: "atp_exit_custom", userMessage: "hi" },
+    );
+    const customEvents = await customStore.listEvents("turn_exit_custom");
+
+    // 契约枚举（AVX-HAR-001 流式协议）
+    const ALLOWED = new Set(["message", "delta", "tool_request", "tool_result", "done", "error"]);
+    const assertContract = (events: { eventType: string }[]) => {
+      expect(events.length).toBeGreaterThan(0);
+      expect(events.every((e) => ALLOWED.has(e.eventType))).toBe(true);
+      expect(events[0].eventType).toBe("message");
+      expect(events.at(-1)?.eventType).toBe("done");
+    };
+    assertContract(replayEvents);
+    assertContract(customEvents);
+    // 两侧骨架同构：首 message / 末 done / 中间全为 delta（本例无工具调用）
+    expect(replayEvents.filter((e) => e.eventType === "delta").length).toBeGreaterThan(0);
+    expect(customEvents.filter((e) => e.eventType === "delta").length).toBeGreaterThan(0);
+  });
 });

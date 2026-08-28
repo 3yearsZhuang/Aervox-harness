@@ -237,6 +237,8 @@
 
 | Agent Harness Loop 阶段 4c：最小 Profile（D2=B） | CAP-002/007 + 基础设施 | `packages/host-agent/src/profile.ts`（`createAgentProfile`：Driver→Provider 绑定（replay 无依赖 / native 需 baseUrl/apiKey/modelId 同 CR-015）、单例锁文件 <data>/profile-<id>.lock：持有者存活拒绝/陈旧锁接管/释放后可重取）、`docs/reference/agent-harness-loop.md`（§16.12） | 2026-08-28 | `@aervox/host-agent` 18（profile 6：replay 解析/单例拒/释放重取/陈旧接管/native 缺配置抛错/native 配置齐全解析）；ci-code 全量 | 原生 |
 
+| Agent Harness Loop 阶段 4d：Host 健康检查 + 阶段 4 退出条件验证 | CAP-002/007 + 基礎设施 | `packages/host-agent/src/agent-host.ts`（`health(): Promise<HostHealth>`：liveness 五态 starting/healthy/draining/stopped/stalled（tick 超 3×pollIntervalMs 未推进，首次 tick 未完成以 startedAt 兜底）；readiness `probeDeps()` 依赖探针，探针抛错收敛为 `probeDeps` 故障项；`health()` 上报 gauge `agent.host.running/processed/uptime_ms`，Noop 兜底不抛错）、`packages/observability/src/metric-names.ts`（新增 3 个 gauge：`agent.host.running`/`agent.host.processed`/`agent.host.uptime_ms`）、`packages/agent-loop/test/provider-parity.test.ts`（阶段 4 退出条件：replay 与 custom provider 事件流 eventType 集合 ⊆ 契约枚举、首 message 末 done、delta 骨架同构）、`docs/reference/agent-harness-loop.md`（§16.13 + §13 阶段 4 标记完成 + §16.7/§16.8 状态更新） | 2026-08-28 | `@aervox/host-agent` 27（新增 `host-health.test.ts` 9：未启动 starting/启动 healthy/探针 ready true/false/探针抛错收敛/draining+stopped/stalled/容量 gauge/Noop 兜底）；`@aervox/agent-loop` 59（provider-parity 新增 1：driver 切换契约骨架同构）；阶段 4 退出条件三要素机器验证（契约骨架测试 + `agent-loop-no-db` import-boundary 健身函数 + `profile.test.ts` 无 DSH/pi 原生可运行）；ci-code 全量 | 原生 |
+
 ## 5. 原子需求字段模板
 
 每条 `US/FR/BR/NFR/DATA/AIQ/SEC/PRIV/OPS` 应使用以下字段。没有影响的字段填写“不适用”并说明原因，不得留空。
