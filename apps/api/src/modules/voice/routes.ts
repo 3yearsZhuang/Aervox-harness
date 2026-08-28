@@ -153,11 +153,10 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
       });
       return result;
     } catch (error) {
-      // 避免直接抛 503 导致客户端完全中断，返回友好错误文本并在 status 中标识
-      return reply.code(200).send({
-        text: `（语音识别服务提示：${error instanceof Error ? error.message : '转写异常'}）`,
-        durationMs: 0,
-        isFinal: true,
+      // CR-016 安全/契约整改：真实错误返回 503，不再吞成 200 文案（避免错误被当作转写文本插入输入框）
+      return reply.code(503).send({
+        code: "VOICE_INPUT_PROVIDER_UNAVAILABLE",
+        message: error instanceof Error ? error.message : "转写异常",
       });
     }
   });
