@@ -207,17 +207,21 @@ test.describe("练习报告 guidance E2E（CR-020）", () => {
       "x-workspace-id": "ws_e2e_getrep",
       "x-user-id": "usr_e2e_getrep",
     };
-    const q = await request.post(`${baseURL}/v1/questions`, {
-      headers: tenant, data: { prompt: "E2E getrep", answerSpec: { answer: "t" } },
-    });
-    const qId = (await q.json()).id;
+    const qIds: string[] = [];
+    for (const answer of ["t", "u", "v"]) {
+      const q = await request.post(`${baseURL}/v1/questions`, {
+        headers: tenant, data: { prompt: `E2E getrep ${answer}`, answerSpec: { answer } },
+      });
+      qIds.push((await q.json()).id);
+    }
 
     const session = await request.post(`${baseURL}/v1/practice/sessions`, {
       headers: tenant, data: { count: 3 },
     });
+    expect(session.status()).toBe(201);
     const sessionId = (await session.json()).sessionId;
 
-    await request.post(`${baseURL}/v1/questions/${qId}/attempts`, {
+    await request.post(`${baseURL}/v1/questions/${qIds[0]}/attempts`, {
       headers: tenant,
       data: { sessionId, answer: "t", elapsedSeconds: 20, hintsUsed: 0 },
     });
@@ -380,17 +384,22 @@ test.describe("刷题完整闭环 E2E", () => {
   });
 
   test("练习 → 错题 → 标注错因 → 重练 → 掌握", async ({ request }) => {
-    // 1. 创建题目
-    const q = await request.post(`${baseURL}/v1/questions`, {
-      headers, data: { prompt: "E2E 闭环题", answerSpec: { answer: "ok" } },
-    });
-    expect(q.status()).toBe(201);
-    const qId = (await q.json()).id;
+    // 1. 创建题目（会话要求至少 3 道活跃题）
+    const qIds: string[] = [];
+    for (const answer of ["ok", "fine", "good"]) {
+      const q = await request.post(`${baseURL}/v1/questions`, {
+        headers, data: { prompt: `E2E 闭环题 ${answer}`, answerSpec: { answer } },
+      });
+      expect(q.status()).toBe(201);
+      qIds.push((await q.json()).id);
+    }
+    const qId = qIds[0];
 
     // 2. 创建练习会话
     const session = await request.post(`${baseURL}/v1/practice/sessions`, {
       headers, data: { count: 3 },
     });
+    expect(session.status()).toBe(201);
     const sessionId = (await session.json()).sessionId;
 
     // 3. 答错
@@ -401,7 +410,11 @@ test.describe("刷题完整闭环 E2E", () => {
     expect((await wrong.json()).judgement).toBe("incorrect");
 
     // 4. 结束会话
-    await request.post(`${baseURL}/v1/practice/sessions/${sessionId}/complete`, { headers });
+    const complete = await request.post(
+      `${baseURL}/v1/practice/sessions/${sessionId}/complete`,
+      { headers },
+    );
+    expect(complete.status()).toBe(200);
 
     // 5. 错题自动聚合
     const mistakes1 = await request.get(`${baseURL}/v1/mistakes`, { headers });
