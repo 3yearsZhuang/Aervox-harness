@@ -661,6 +661,33 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 
 未接入（待阶段 4 host/executor 接线）：executor 指标采样、审计留痕与 SSE 遥测尚以注释/目录形式存在，需在组合根注入 `Observability` 后启用。
 
+### 16.9 落地进展（阶段 3a：Host 幂等键 + 崩溃/超时/重复投递三重恢复测试）
+
+2026-08-28 落地（对应 §9 idempotency、§11.3 恢复、阶段 3 退出条件「崩溃/网络超时/重复投递下写工具副作用至多一次」）：
+
+- **Host 幂等键重生成**：executor 为每次工具调用生成 `executionId = attemptId:step:seq`，作为副作用账本（预留/收口）与 `tools.execute` 的幂等标识；事件流保留 `invocationId = call.id`（模型关联面，契约兼容）并新增 `executionId` 字段；
+- **三重恢复场景测试**（`packages/agent-loop/test/recovery.test.ts`）：
+  - crash：预留未收口 → `outcome_unknown` 不自动重放；新 Attempt 按新 Host 键独立执行，旧预留不被消费；
+  - timeout：工具超时 → `timeout_error` 收口一次，不自动重试（副作用至多一次）；
+  - redelivery：已终态 Attempt 重复领取被拒（`not_runnable`），同 `executionId` 二次预留 `alreadyReserved`（副作用不重复）；
+- 测试：`@aervox/agent-loop` 50（recovery 3）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.10 落地进展（阶段 3b：privileged 管理员通道）
+
+2026-08-28 落地（对应 §9 privileged 默认拒绝 + 独立管理员放行）：
+
+- privileged 工具收敛为与 `write_with_approval` 相同的「授权命中（granted）→ 执行 / 未批准 → 审批待决」流程（不再硬拒绝），但**授予动作**受管理员身份校验：`POST /v1/turns/:id/tool-approvals` 对 privileged 工具要求 `x-admin-user-id` ∈ `AERVOX_ADMIN_IDS` 白名单，否则 403 `admin_required`；
+- 新增 `getToolApproval`（读单条待决记录供预检）与 `scripted-privileged` 测试 Provider 脚本；
+- 测试：`@aervox/api` 101（`conversation-privileged` 3：未批准待决 / 非管理员 403 / 管理员 grant 后执行成功）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.11 落地进展（阶段 3c：恢复裁决基础设施）
+
+2026-08-28 落地（对应 §11.3 首范式「工具结果已权威提交但尚未注入」；**续跑执行接线属阶段 4 host-agent**，本阶段仅裁决与候选能力）：
+
+- `packages/agent-loop` 新增纯函数 `decideResume(events, toolExecutions)`：仅当最后一工具结果批次全部 `executed` 且无终态事件 → `{ resume: true, lastSequence }`；`terminal_event` / `mixed_batch`（严格批次语义）/ `outcome_unknown`（结果未知不自动重放）/ `no_committed_tool` 一律收敛；
+- `packages/database` 新增 `findResumeCandidates`：过期 Running Attempt 且存在 `executed` 工具执行且无 `done` 终态事件（附最后 tool_result 序号）；worker 恢复 cycle 先收集候选（观测日志），`recoverExpiredAttempts` 行为不变（仍释放为 Interrupted）；
+- 测试：`@aervox/agent-loop` 56（`resume-decision.test.ts` 6：裁决矩阵）、`@aervox/database` 125（候选 3：命中/终态排除/未知排除）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
 ## 17. 回滚策略
 
 - 当前保留 Replay Provider 作为无外部模型依赖的可回退执行路径；

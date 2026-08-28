@@ -61,7 +61,8 @@ describe("阶段 2c 工具幂等预留与未知结果", () => {
     const records = store.toolExecutionRecords();
     expect(records).toHaveLength(1);
     expect(records[0]?.status).toBe("executed");
-    expect(records[0]?.invocationId).toBe("call_1");
+    // 3a：副作用账本使用 Host 幂等键（attempt:step:seq），非模型 callId
+    expect(records[0]?.invocationId).toBe(`${turn.attemptId}:1:1`);
   });
 
   it("同一 callId 重复不留痕执行：只执行一次，重复以 duplicate 独立留痕", async () => {

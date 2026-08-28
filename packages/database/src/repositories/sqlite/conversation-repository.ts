@@ -662,6 +662,35 @@ export class SqliteConversationRepository implements IConversationRepository {
     return { ok: Boolean(updated) };
   }
 
+  /** 3c：恢复候选（§11.3 首范式续跑基础设施；阶段 4 host 恢复器接续，当前仅候选收集） */
+  async findResumeCandidates(
+    client: import("@libsql/client").Client,
+  ): Promise<Array<{ attemptId: string; turnId: string; lastSequence: number }>> {
+    const now = new Date().toISOString();
+    const result = await client.execute({
+      sql: `
+        SELECT ta.id AS attempt_id,
+               ta.turn_id AS turn_id,
+               (SELECT COALESCE(MAX(sequence), 0) FROM turn_stream_events e
+                WHERE e.turn_id = ta.turn_id AND e.event_type = 'tool_result') AS last_sequence
+        FROM turn_attempts ta
+        WHERE ta.status = 'Running'
+          AND ta.lease_expires_at IS NOT NULL
+          AND ta.lease_expires_at < ?
+          AND EXISTS (SELECT 1 FROM tool_executions te
+                      WHERE te.attempt_id = ta.id AND te.status = 'executed')
+          AND NOT EXISTS (SELECT 1 FROM turn_stream_events e2
+                          WHERE e2.turn_id = ta.turn_id AND e2.event_type = 'done')
+      `,
+      args: [now],
+    });
+    return result.rows.map((row) => ({
+      attemptId: String(row.attempt_id),
+      turnId: String(row.turn_id),
+      lastSequence: Number(row.last_sequence),
+    }));
+  }
+
   /** 2c：崩溃释放后将遗留 pending 预留标记为 outcome_unknown（§11.3：结果未知不自动重放） */
   async markPendingOutcomeUnknown(client: import("@libsql/client").Client): Promise<number> {
     const result = await client.execute(`
@@ -753,6 +782,23 @@ export class SqliteConversationRepository implements IConversationRepository {
       )
       .returning();
     return (updated as ToolApprovalModel) ?? null;
+  }
+
+  /** 3b：读单条授权记录（privileged 管理员校验预检用） */
+  async getToolApproval(tenant: TenantContext, approvalId: string): Promise<ToolApprovalModel | null> {
+    assertTenantContext(tenant);
+    const [row] = await this.db
+      .select()
+      .from(toolApprovals)
+      .where(
+        and(
+          eq(toolApprovals.id, approvalId),
+          eq(toolApprovals.workspaceId, tenant.workspaceId),
+          eq(toolApprovals.subjectUserId, tenant.subjectUserId),
+        ),
+      )
+      .limit(1);
+    return (row as ToolApprovalModel) ?? null;
   }
 
   /** 查询 Turn 的授权账本 */

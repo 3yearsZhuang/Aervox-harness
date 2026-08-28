@@ -51,6 +51,9 @@ export interface ExecuteTurnDeps {
 /** 工具调用去重键：name + 参数序列化 */
 const dedupeKey = (name: string, args: unknown): string => `${name}:${JSON.stringify(args)}`;
 
+/** 3a：Host 幂等键重生成（AVX-HAR-001 §9：上游 callId 不可信，副作用标识由 Host 生成） */
+const hostExecutionId = (attemptId: string, step: number, seq: number): string => `${attemptId}:${step}:${seq}`;
+
 /** 超时包装（阶段 3 换租约/取消信号，此处以固定超时兜底） */
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -174,6 +177,7 @@ export async function executeTurn(
     // 多 Step 共享上下文：随工具结果逐步增长
     const history: PromptMessage[] = [{ role: "user", content: input.userMessage }];
     const seenToolCalls = new Set<string>();
+    let toolCallSeq = 0;
     let streakName: string | undefined;
     let sameToolStreak = 0;
     let textAccumulator: string[] = [];
@@ -269,12 +273,13 @@ export async function executeTurn(
       if (!tools) {
         for (const call of toolCalls) {
           const startedAt = new Date().toISOString();
+          const executionId = hostExecutionId(input.attemptId, step, ++toolCallSeq);
           await execution.appendEvent({
             turnId: input.turnId,
             attemptId: input.attemptId,
             sequence: sequence++,
             eventType: "tool_request",
-            data: { invocationId: call.id, name: call.name, arguments: call.arguments },
+            data: { invocationId: call.id, executionId, name: call.name, arguments: call.arguments },
             safetyDecision: "approved",
           });
           await execution.appendEvent({
@@ -282,13 +287,13 @@ export async function executeTurn(
             attemptId: input.attemptId,
             sequence: sequence++,
             eventType: "tool_result",
-            data: { invocationId: call.id, name: call.name, ok: false, error: "tools_disabled" },
+            data: { invocationId: call.id, executionId, name: call.name, ok: false, error: "tools_disabled" },
             safetyDecision: "approved",
           });
           await execution.recordToolExecution({
             turnId: input.turnId,
             attemptId: input.attemptId,
-            invocationId: call.id,
+            invocationId: executionId,
             name: call.name,
             arguments: call.arguments,
             status: "rejected",
@@ -320,13 +325,15 @@ export async function executeTurn(
         if (maxConsecutiveSameTool > 0 && sameToolStreak > maxConsecutiveSameTool) {
           return finalizeInterrupted(sequence, "repeat_tool");
         }
+        // 3a：Host 幂等键（副作用账本与工具执行以 executionId 为准；事件保留模型 callId 关联）
+        const executionId = hostExecutionId(input.attemptId, step, ++toolCallSeq);
         const startedAt = new Date().toISOString();
         await execution.appendEvent({
           turnId: input.turnId,
           attemptId: input.attemptId,
           sequence: sequence++,
           eventType: "tool_request",
-          data: { invocationId: call.id, name: call.name, arguments: call.arguments },
+          data: { invocationId: call.id, executionId, name: call.name, arguments: call.arguments },
           safetyDecision: "approved",
         });
 
@@ -336,12 +343,12 @@ export async function executeTurn(
           result = { id: call.id, name: call.name, ok: false, error: "duplicate_tool_call" };
         } else {
           seenToolCalls.add(dedupeKey(call.name, call.arguments));
-          // 2c：幂等预留（§9 idempotency reservation）——意图先于外部副作用持久化
+          // 2c：幂等预留（§9 idempotency reservation）——意图先于外部副作用持久化（executionId 为 Host 键）
           reserved = true;
           await execution.reserveToolExecution({
             turnId: input.turnId,
             attemptId: input.attemptId,
-            invocationId: call.id,
+            invocationId: executionId,
             name: call.name,
             arguments: call.arguments,
           });
@@ -350,7 +357,7 @@ export async function executeTurn(
               tools.execute({
                 turnId: input.turnId,
                 attemptId: input.attemptId,
-                invocationId: call.id,
+                invocationId: executionId,
                 name: call.name,
                 arguments: call.arguments,
               }),
@@ -371,7 +378,7 @@ export async function executeTurn(
           await execution.updateToolExecutionResult({
             turnId: input.turnId,
             attemptId: input.attemptId,
-            invocationId: call.id,
+            invocationId: executionId,
             status: finalStatus,
             output: result.output,
             error: result.needsApproval ? "requires_approval" : result.error,
@@ -414,6 +421,7 @@ export async function executeTurn(
           eventType: "tool_result",
           data: {
             invocationId: call.id,
+            executionId,
             name: call.name,
             ok: result.ok,
             output: result.output,
@@ -427,7 +435,7 @@ export async function executeTurn(
           await execution.recordToolExecution({
             turnId: input.turnId,
             attemptId: input.attemptId,
-            invocationId: call.id,
+            invocationId: executionId,
             name: call.name,
             arguments: call.arguments,
             status: "duplicate",

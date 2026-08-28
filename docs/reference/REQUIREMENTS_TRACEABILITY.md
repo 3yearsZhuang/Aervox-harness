@@ -225,6 +225,12 @@
 
 | Observability 接口（阶段 2a：`@aervox/observability` logger/metrics/audit Port + 指标名目录 + Noop） | 基础设施（Observability/Recovery） | `packages/observability/`（`interfaces.ts`/`metric-names.ts`/`noop.ts`；18 counter + 2 gauge + 2 histogram 对齐 AVX-HAR-001 §16.3）、`docs/reference/agent-harness-loop.md`（§16.8 落地进展） | 2026-08-28 | `@aervox/observability` 5 测试（smoke：指标目录关键面 + Noop 不抛错/child 幂等）；ci-code 全量 17 tasks | 原生 |
 
+| Agent Harness Loop 阶段 3a：Host 幂等键 + 崩溃/超时/重复投递三重恢复测试 | CAP-002/007 + 基础设施 | `packages/agent-loop/src/executor.ts`（`executionId = attemptId:step:seq` Host 键：副作用账本/工具执行以之标识，事件新增 `executionId` 保留 `invocationId=call.id` 契约兼容）、`packages/agent-loop/test/recovery.test.ts`（crash/timeout/redelivery 三场景）、`docs/reference/agent-harness-loop.md`（§16.9） | 2026-08-28 | `@aervox/agent-loop` 50（recovery 3：crash 不重放/新 Attempt 独立、timeout 收口一次不重试、redelivery claim 拒绝+预留已存在）；`ci-code` 全量 | 原生 |
+
+| Agent Harness Loop 阶段 3b：privileged 管理员通道 | CAP-002/007/020 + 基础设施 | `apps/api`（`createRuntimeToolProvider` privileged 收敛为授权命中→执行/未批准→待决；`POST /v1/turns/:id/tool-approvals` 管理员校验 `x-admin-user-id` ∈ `AERVOX_ADMIN_IDS` 否则 403；`scripted-privileged` Provider 脚本；`API_PRIVILEGED_SCRIPT`）、`packages/database`（`getToolApproval`）、`docs/reference/agent-harness-loop.md`（§16.10） | 2026-08-28 | `@aervox/api` 101（conversation-privileged 3：未批准待决/非管理员 403/管理员 grant 执行）；`@aervox/database` 122；ci-code 全量 | 原生 |
+
+| Agent Harness Loop 阶段 3c：恢复裁决基础设施（decideResume + findResumeCandidates） | CAP-002/007 + 基础设施 | `packages/agent-loop/src/resume.ts`（`decideResume` 纯函数：最后工具批次全 executed 且无终态→resume；终态/混合/未知/无结果收敛）、`packages/database`（`findResumeCandidates`：过期 Running + executed 工具 + 无 done）、`apps/worker`（recovery cycle 候选观测日志，行为不变）、`docs/reference/agent-harness-loop.md`（§16.11） | 2026-08-28 | `@aervox/agent-loop` 56（resume-decision 6 矩阵）；`@aervox/database` 125（候选 3：命中/终态排除/未知排除）；`ci-code` 全量。**续跑执行接线待阶段 4 host-agent** | 原生 |
+
 ## 5. 原子需求字段模板
 
 每条 `US/FR/BR/NFR/DATA/AIQ/SEC/PRIV/OPS` 应使用以下字段。没有影响的字段填写“不适用”并说明原因，不得留空。
