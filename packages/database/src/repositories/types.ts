@@ -49,6 +49,9 @@ export interface TurnStreamEventModel {
   payloadVersion: number;
   data: unknown;
   occurredAt: string;
+  attemptId?: string | null;
+  safetyDecision?: string | null;
+  committedAt?: string | null;
 }
 
 export interface OutboxEventModel {
@@ -569,6 +572,23 @@ export interface TurnAttemptModel {
   finishedAt?: string | null;
 }
 
+/** Agent Loop 工具执行账本行（tool_executions） */
+export interface ToolExecutionModel {
+  id: string;
+  turnId: string;
+  attemptId: string;
+  invocationId: string;
+  name: string;
+  workspaceId: string;
+  subjectUserId: string;
+  argumentsJson?: unknown;
+  status: string;
+  outputJson?: unknown;
+  error?: string | null;
+  startedAt: string;
+  finishedAt: string;
+}
+
 // ============ 学习/练习/复习域 ============
 
 export interface LearningGoalModel {
@@ -618,7 +638,7 @@ export interface MistakeItemModel {
   latestAttemptAt: string;
   wrongCount: number;
   masteryState: string;
-  status: "active" | "mastered";
+  status: "active" | "mastered" | "dismissed";
 }
 
 export interface PracticeSessionModel {
@@ -656,7 +676,10 @@ export interface ReviewItemModel {
   dueAt: string;
   intervalDays: number;
   schedulerVersion: number;
+  timezoneSnapshot: string;
   status: string;
+  completionIsCorrect?: boolean | null;
+  nextReviewId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -707,6 +730,7 @@ export interface ILearningRepository {
     session: { id: string; questionCount: number; questionIds: string[] },
   ): Promise<PracticeSessionModel>;
   getPracticeSession(tenant: TenantContext, sessionId: string): Promise<PracticeSessionModel | null>;
+  getLatestActivePracticeSession(tenant: TenantContext): Promise<PracticeSessionModel | null>;
   completePracticeSession(tenant: TenantContext, sessionId: string): Promise<PracticeSessionModel | null>;
   recordAttempt(
     tenant: TenantContext,
@@ -724,8 +748,9 @@ export interface ILearningRepository {
   listAttemptsBySession(tenant: TenantContext, sessionId: string): Promise<QuestionAttemptModel[]>;
   listMistakes(
     tenant: TenantContext,
-    status?: "active" | "mastered" | "all",
+    status?: "active" | "mastered" | "dismissed" | "all",
   ): Promise<MistakeItemModel[]>;
+  setMistakeDisposition(tenant: TenantContext, item: { id: string; questionId: string; status: "active" | "dismissed" }): Promise<void>;
   getAttemptByIdempotencyKey(
     tenant: TenantContext,
     questionId: string,
@@ -772,18 +797,20 @@ export interface ILearningRepository {
   ): Promise<KnowledgeItemModel | null>;
   scheduleReviewItem(
     tenant: TenantContext,
-    item: { id: string; knowledgeId: string; dueAt: string; intervalDays: number; schedulerVersion?: number },
+    item: { id: string; knowledgeId: string; dueAt: string; intervalDays: number; schedulerVersion?: number; timezoneSnapshot?: string },
   ): Promise<ReviewItemModel>;
   createReviewItem(
     tenant: TenantContext,
-    item: { id: string; knowledgeId: string; dueAt: string; intervalDays?: number; schedulerVersion?: number },
+    item: { id: string; knowledgeId: string; dueAt: string; intervalDays?: number; schedulerVersion?: number; timezoneSnapshot?: string },
   ): Promise<ReviewItemModel>;
   getReviewItem(tenant: TenantContext, id: string): Promise<ReviewItemModel | null>;
+  listCompletedReviewItems(tenant: TenantContext, limit?: number): Promise<ReviewItemModel[]>;
   completeReviewAndSchedule(
     tenant: TenantContext,
     data: {
       reviewId: string;
       knowledgeId: string;
+      isCorrect: boolean;
       practiceState: {
         correctCount: number;
         wrongCount: number;
@@ -792,7 +819,7 @@ export interface ILearningRepository {
         masteryState: string;
         masteryBasis: unknown;
       };
-      nextReview: { id: string; dueAt: string; intervalDays: number; schedulerVersion: number };
+      nextReview: { id: string; dueAt: string; intervalDays: number; schedulerVersion: number; timezoneSnapshot: string };
     },
   ): Promise<{ completed: ReviewItemModel; nextReview: ReviewItemModel; knowledge: KnowledgeItemModel } | null>;
   listDueReviewItems(tenant: TenantContext, before: string): Promise<ReviewItemModel[]>;
@@ -1604,6 +1631,40 @@ export interface IPluginPageRepository {
   deletePagesForPlugin(pluginId: string): Promise<void>;
 }
 
+// ============ 语音输出配置（系统核心能力 · CR-011 阶段 1：本地语音模型配置）============
+
+/** 本地语音模型配置模型（voice_configs 行；每租户一行） */
+export interface LocalVoiceConfigModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  enabled: number;
+  providerId: string;
+  modelPath?: string | null;
+  modelId: string;
+  speakerId?: string | null;
+  settingsJson?: unknown;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 本地语音配置保存输入（由 API 层完成 Schema 校验/默认值合并后调用） */
+export interface LocalVoiceConfigSaveInput {
+  enabled: boolean;
+  providerId: string;
+  modelPath?: string | null;
+  modelId: string;
+  speakerId?: string | null;
+  settings?: Record<string, unknown>;
+}
+
+export interface IVoiceConfigRepository {
+  /** 读取当前租户的本地语音配置（不存在返回 null） */
+  getConfig(tenant: TenantContext): Promise<LocalVoiceConfigModel | null>;
+  /** upsert：存在则更新，不存在则插入；返回保存后的模型 */
+  saveConfig(tenant: TenantContext, input: LocalVoiceConfigSaveInput): Promise<LocalVoiceConfigModel>;
+}
+
 // ============ T-04 工具注册表 + AST-04 门控 + PET-05 安全级别 ============
 
 export interface ToolRegistrationModel {
@@ -1920,4 +1981,41 @@ export interface ISkillLifecycleRepository {
   deactivateRelease(releaseId: string): Promise<SkillReleaseModel | null>;
   /** 设置发布 active 状态（回滚重新激活旧发布 / 取消激活用） */
   setReleaseActive(releaseId: string, active: boolean): Promise<SkillReleaseModel | null>;
+}
+
+// ============ CR-012 大语言模型与供应商配置持久化 ============
+
+export interface LLMConfigModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  enabled: number;
+  providerType: string;
+  baseUrl: string;
+  apiKey?: string | null;
+  modelId: string;
+  temperature: number;
+  maxTokens?: number | null;
+  settingsJson: unknown;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LLMConfigSaveInput {
+  enabled: boolean;
+  providerType: string;
+  baseUrl: string;
+  apiKey?: string | null;
+  modelId: string;
+  temperature: number;
+  maxTokens?: number;
+  settings?: Record<string, unknown>;
+}
+
+export interface ILLMConfigRepository {
+  getConfig(tenant: TenantContext): Promise<LLMConfigModel | null>;
+  saveConfig(
+    tenant: TenantContext,
+    input: LLMConfigSaveInput,
+  ): Promise<LLMConfigModel>;
 }

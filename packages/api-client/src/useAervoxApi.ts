@@ -5,7 +5,7 @@
  */
 import { computed, onMounted, ref } from 'vue';
 import type { LearningGoalLevel, LearningGoalStatus, UpdateLearningGoal } from '@aervox/contracts';
-import { getTransport } from './transport';
+import { getTimeZone, getTransport } from './transport';
 
 export interface GoalDto {
   id: string;
@@ -21,7 +21,20 @@ export interface ReviewItemDto {
   knowledgeId: string;
   dueAt: string;
   intervalDays: number;
+  schedulerVersion: number;
+  timezoneSnapshot: string;
   status: string;
+  completionIsCorrect?: boolean | null;
+  nextReviewId?: string | null;
+  updatedAt?: string;
+}
+
+export interface ReviewSummaryDto {
+  dueCount: number;
+  overdueCount: number;
+  dueTodayCount: number;
+  estimatedMinutes: number;
+  timeZone: string;
 }
 
 export interface PracticeQuestionDto {
@@ -33,6 +46,9 @@ export interface PracticeQuestionDto {
 export interface PracticeSessionDto {
   sessionId: string;
   items: PracticeQuestionDto[];
+  startedAt?: string;
+  answeredQuestionIds?: string[];
+  nextQuestionIndex?: number;
 }
 
 export interface PracticeReportDto {
@@ -55,7 +71,7 @@ export interface MistakeItemDto {
   latestAttemptAt: string;
   wrongCount: number;
   masteryState: string;
-  status: 'active' | 'mastered';
+  status: 'active' | 'mastered' | 'dismissed';
 }
 
 export interface NotificationDto {
@@ -84,32 +100,42 @@ const todayLocal = (): string => {
 export function useAervoxApi() {
   const goals = ref<GoalDto[]>([]);
   const dueReviews = ref<ReviewItemDto[]>([]);
+  const completedReviews = ref<ReviewItemDto[]>([]);
+  const reviewSummary = ref<ReviewSummaryDto | null>(null);
   const mistakes = ref<MistakeItemDto[]>([]);
   const notifications = ref<NotificationDto[]>([]);
   const todayDiary = ref<DiaryDto | null>(null);
+  const activePracticeSession = ref<PracticeSessionDto | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
   const transport = getTransport();
+  const timeZone = getTimeZone();
 
   const loadAll = async (includeArchived = false): Promise<void> => {
     loading.value = true;
     error.value = null;
     try {
-      const [g, r, m, n, d] = await Promise.all([
+      const [g, r, summary, history, m, n, d, activeSession] = await Promise.all([
         transport.request<{ items: GoalDto[] }>('GET', `/v1/learning/goals${includeArchived ? '?includeArchived=true' : ''}`).catch(() => ({ items: [] })),
         transport.request<{ items: ReviewItemDto[] }>('GET', '/v1/review-items').catch(() => ({ items: [] })),
+        transport.request<ReviewSummaryDto>('GET', `/v1/review-items/summary?timeZone=${encodeURIComponent(timeZone)}`).catch(() => null),
+        transport.request<{ items: ReviewItemDto[] }>('GET', '/v1/review-items/history?limit=5').catch(() => ({ items: [] })),
         transport.request<{ items: MistakeItemDto[] }>('GET', '/v1/mistakes?status=all').catch(() => ({ items: [] })),
         transport.request<{ items: NotificationDto[] }>('GET', '/v1/notifications').catch(() => ({ items: [] })),
         transport
           .request<DiaryDto>(`GET`, `/v1/diaries?localDate=${encodeURIComponent(todayLocal())}`)
           .catch(() => null),
+        transport.request<PracticeSessionDto>('GET', '/v1/practice/sessions/active').catch(() => null),
       ]);
       goals.value = g.items;
       dueReviews.value = r.items;
+      reviewSummary.value = summary;
+      completedReviews.value = history.items;
       mistakes.value = m.items;
       notifications.value = n.items;
       todayDiary.value = d;
+      activePracticeSession.value = activeSession;
     } catch (e) {
       error.value = e instanceof Error ? e.message : '加载失败';
     } finally {
@@ -136,12 +162,17 @@ export function useAervoxApi() {
     transport.request('POST', '/v1/practice/sessions', { count });
 
   const submitPracticeAnswer = async (sessionId: string, questionId: string, answer: string): Promise<{ judgement: string; nextStep: string }> =>
-    transport.request('POST', `/v1/questions/${encodeURIComponent(questionId)}/attempts`, { sessionId, answer });
+    transport.request('POST', `/v1/questions/${encodeURIComponent(questionId)}/attempts`, { sessionId, answer, timeZone });
 
   const completePracticeSession = async (sessionId: string): Promise<PracticeReportDto> =>
     transport.request('POST', `/v1/practice/sessions/${encodeURIComponent(sessionId)}/complete`);
 
-  const setMistakeStatus = async (questionId: string, status: 'active' | 'mastered'): Promise<void> => {
+  const completeReview = async (reviewId: string, isCorrect: boolean): Promise<void> => {
+    await transport.request('POST', `/v1/review-items/${encodeURIComponent(reviewId)}/complete`, { isCorrect, timeZone });
+    await loadAll();
+  };
+
+  const setMistakeStatus = async (questionId: string, status: 'active' | 'mastered' | 'dismissed'): Promise<void> => {
     await transport.request('PATCH', `/v1/mistakes/${encodeURIComponent(questionId)}`, { status });
     await loadAll();
   };
@@ -166,9 +197,12 @@ export function useAervoxApi() {
   return {
     goals,
     dueReviews,
+    completedReviews,
+    reviewSummary,
     mistakes,
     notifications,
     todayDiary,
+    activePracticeSession,
     loading,
     error,
     hasData,
@@ -179,6 +213,7 @@ export function useAervoxApi() {
     startPracticeSession,
     submitPracticeAnswer,
     completePracticeSession,
+    completeReview,
     setMistakeStatus,
     startMistakePractice,
     submitFeedback,

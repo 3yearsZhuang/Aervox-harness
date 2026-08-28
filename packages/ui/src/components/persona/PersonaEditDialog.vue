@@ -7,6 +7,7 @@ import {
   type SkillItemDto,
   type ToolItemDto,
 } from '@aervox/api-client'
+import VoiceAbilityCard, {type VoiceSelectionValue} from './VoiceAbilityCard.vue'
 
 const props = defineProps<{
   open: boolean
@@ -35,6 +36,8 @@ const selectedToolIds = ref<string[]>([])
 
 const useAllSkills = ref(true)
 const selectedSkillNames = ref<string[]>([])
+
+const voice = ref<VoiceSelectionValue | null>(null)
 
 const isEdit = computed(() => !!props.personaId)
 
@@ -83,6 +86,8 @@ watch(
             useAllSkills.value = false
             selectedSkillNames.value = [...detail.revision.config.allowedSkillNames]
           }
+
+          voice.value = detail.revision.config.voice ? {...detail.revision.config.voice} : null
         }
       } else {
         // 创建模式默认值
@@ -94,6 +99,7 @@ watch(
         selectedToolIds.value = []
         useAllSkills.value = true
         selectedSkillNames.value = []
+        voice.value = null
       }
     } catch (e) {
       ElMessage.error(e instanceof Error ? e.message : '加载人格配置失败')
@@ -177,6 +183,7 @@ async function save() {
       systemPromptAppend: trimmedPrompt,
       allowedSkillNames: useAllSkills.value ? undefined : selectedSkillNames.value,
       allowedMcpToolIds: useAllTools.value ? undefined : selectedToolIds.value,
+      voice: voice.value ?? undefined,
     }
 
     if (props.personaId) {
@@ -309,6 +316,9 @@ async function save() {
             </div>
           </div>
         </div>
+
+        <!-- 语音块 -->
+        <VoiceAbilityCard v-model="voice" />
 
         <!-- 技能块 -->
         <div class="ability-card">

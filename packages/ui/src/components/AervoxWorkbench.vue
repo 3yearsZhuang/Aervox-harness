@@ -3,6 +3,7 @@ import {computed, nextTick, onMounted, onUnmounted, ref} from 'vue'
 import {
   Bell,
   BookOpen,
+  Bot,
   Check,
   ChevronDown,
   ChevronUp,
@@ -24,6 +25,7 @@ import {
   Settings,
   Sparkles,
   Sun,
+  Volume2,
   TimerReset,
   X,
 } from 'lucide-vue-next'
@@ -32,6 +34,8 @@ import PetHero from './PetHero.vue'
 import PluginManagerPanel from './plugin/PluginManagerPanel.vue'
 import Live2DPet from './Live2DPet.vue'
 import PersonaManagerPanel from './persona/PersonaManagerPanel.vue'
+import LocalVoiceConfigPanel from './voice/LocalVoiceConfigPanel.vue'
+import LLMConfigPanel from './llm/LLMConfigPanel.vue'
 
 type Platform = 'desktop' | 'web'
 type Speaker = 'assistant' | 'user'
@@ -60,22 +64,24 @@ const todoOpen = ref(false)
 const timerOpen = ref(false)
 const studyOpen = ref(false)
 const settingsOpen = ref(false)
-const settingsCategory = ref<'appearance' | 'conversation' | 'persona' | 'focus' | 'notifications' | 'plugins'>('appearance')
+const settingsCategory = ref<'appearance' | 'conversation' | 'model' | 'persona' | 'focus' | 'notifications' | 'voice' | 'plugins'>('appearance')
 const newGoalTopic = ref('')
 const newGoalLevel = ref<'beginner' | 'intermediate' | 'advanced'>('beginner')
 const newGoalMinutes = ref(25)
 const showArchivedGoals = ref(false)
 const goalBusyId = ref<string | null>(null)
-const practiceSession = ref<{sessionId: string; items: Array<{id: string; prompt: string}>} | null>(null)
+const practiceSession = ref<{sessionId: string; items: Array<{id: string; prompt: string}>; nextQuestionIndex?: number} | null>(null)
 const practiceIndex = ref(0)
+const practiceReadyToComplete = ref(false)
 const practiceAnswer = ref('')
 const practiceFeedback = ref<{judgement: string; nextStep: string} | null>(null)
 const practiceReport = ref<{answeredCount: number; questionCount: number; remainingCount: number; correctCount: number; incorrectCount: number; unverifiableCount: number; accuracy: number | null; nextStep: string} | null>(null)
 const practiceBusy = ref(false)
 const practiceError = ref<string | null>(null)
-const mistakeFilter = ref<'active' | 'mastered' | 'all'>('active')
+const mistakeFilter = ref<'active' | 'mastered' | 'dismissed' | 'all'>('active')
 const selectedMistakeIds = ref<string[]>([])
 const mistakeBusyId = ref<string | null>(null)
+const reviewBusyId = ref<string | null>(null)
 const input = ref('')
 const timerSeconds = ref(25 * 60)
 const timerRunning = ref(false)
@@ -103,9 +109,12 @@ const api = useAervoxApi()
 const {
   goals,
   dueReviews,
+  completedReviews,
+  reviewSummary,
   mistakes,
   notifications,
   todayDiary,
+  activePracticeSession,
   error: apiError,
 } = api
 let nextStoryId = 2
@@ -126,9 +135,11 @@ const formattedTime = computed(() => {
 const settingCategories = [
   {id: 'appearance', label: '外观', description: '主题与界面密度', icon: Sun},
   {id: 'conversation', label: '对话', description: '称呼与输入方式', icon: MessageCircle},
+  {id: 'model', label: '模型与服务', description: '大语言模型与供应商配置', icon: Bot},
   {id: 'persona', label: '人格设定', description: '管理人格角色设定', icon: Heart},
   {id: 'focus', label: '专注', description: '番茄钟工作时长', icon: Clock3},
   {id: 'notifications', label: '提醒', description: '学习节奏与通知', icon: Bell},
+  {id: 'voice', label: '语音', description: '本地语音模型配置', icon: Volume2},
   {id: 'plugins', label: '插件', description: '插件配置与页面', icon: Puzzle},
 ] as const
 const workbenchState = computed(() => {
@@ -208,6 +219,9 @@ function goalStatusLabel(status: string) {
 
 async function reloadGoals() {
   await api.loadAll(showArchivedGoals.value)
+  if (!practiceSession.value && activePracticeSession.value) {
+    restorePracticeSession(activePracticeSession.value)
+  }
 }
 
 async function setGoalStatus(goalId: string, status: 'active' | 'paused' | 'completed') {
@@ -238,15 +252,22 @@ async function archiveGoal(goalId: string) {
 const currentPracticeQuestion = computed(() => practiceSession.value?.items[practiceIndex.value] ?? null)
 const visibleMistakes = computed(() => mistakes.value.filter((item) => mistakeFilter.value === 'all' || item.status === mistakeFilter.value))
 
+function restorePracticeSession(session: {sessionId: string; items: Array<{id: string; prompt: string}>; nextQuestionIndex?: number}) {
+  practiceSession.value = session
+  const nextIndex = session.nextQuestionIndex ?? 0
+  practiceReadyToComplete.value = nextIndex >= session.items.length
+  practiceIndex.value = Math.min(nextIndex, Math.max(session.items.length - 1, 0))
+  practiceAnswer.value = ''
+  practiceFeedback.value = null
+}
+
 async function startPractice() {
   practiceBusy.value = true
   practiceError.value = null
   practiceReport.value = null
   practiceFeedback.value = null
   try {
-    practiceSession.value = await api.startPracticeSession()
-    practiceIndex.value = 0
-    practiceAnswer.value = ''
+    restorePracticeSession(await api.startPracticeSession())
   } catch (error) {
     practiceError.value = error instanceof Error ? '当前没有可练习的题目，请先创建题目。' : '启动练习失败，请稍后再试。'
   } finally {
@@ -276,6 +297,7 @@ async function finishPractice() {
   try {
     practiceReport.value = await api.completePracticeSession(practiceSession.value.sessionId)
     practiceFeedback.value = null
+    practiceReadyToComplete.value = false
     await api.loadAll(showArchivedGoals.value)
   } catch {
     practiceError.value = '暂时无法生成练习报告，请稍后再试。'
@@ -296,9 +318,7 @@ async function startMistakePractice() {
   practiceReport.value = null
   practiceFeedback.value = null
   try {
-    practiceSession.value = await api.startMistakePractice(questionIds)
-    practiceIndex.value = 0
-    practiceAnswer.value = ''
+    restorePracticeSession(await api.startMistakePractice(questionIds))
     selectedMistakeIds.value = []
   } catch {
     practiceError.value = '错题重练启动失败，请刷新后重试。'
@@ -307,7 +327,7 @@ async function startMistakePractice() {
   }
 }
 
-async function setMistakeStatus(questionId: string, status: 'active' | 'mastered') {
+async function setMistakeStatus(questionId: string, status: 'active' | 'mastered' | 'dismissed') {
   mistakeBusyId.value = questionId
   try {
     await api.setMistakeStatus(questionId, status)
@@ -319,10 +339,22 @@ async function setMistakeStatus(questionId: string, status: 'active' | 'mastered
   }
 }
 
+async function completeReview(reviewId: string, isCorrect: boolean) {
+  reviewBusyId.value = reviewId
+  practiceError.value = null
+  try {
+    await api.completeReview(reviewId, isCorrect)
+  } catch {
+    practiceError.value = '复习结果没有保存，请使用相同结果重试。'
+  } finally {
+    reviewBusyId.value = null
+  }
+}
+
 function nextPracticeQuestion() {
   if (!practiceSession.value) return
   if (practiceIndex.value + 1 >= practiceSession.value.items.length) {
-    void finishPractice()
+    practiceReadyToComplete.value = true
     return
   }
   practiceIndex.value += 1
@@ -699,7 +731,7 @@ onUnmounted(() => {
       <section class="study-section">
         <div class="study-section-title-row">
           <h4>快速练习</h4>
-          <button class="practice-start" type="button" :disabled="practiceBusy" @click="startPractice"><Sparkles :size="15" />开始 3 题练习</button>
+            <button class="practice-start" type="button" :disabled="practiceBusy" @click="startPractice"><Sparkles :size="15" />{{ practiceSession ? '继续当前练习' : '开始 3 题练习' }}</button>
         </div>
         <p v-if="practiceError" class="drawer-error">{{ practiceError }}</p>
         <article v-if="practiceReport" class="practice-report">
@@ -708,7 +740,12 @@ onUnmounted(() => {
           <p v-if="practiceReport.accuracy !== null">可判定题正确率：{{ Math.round(practiceReport.accuracy * 100) }}%</p>
           <small>{{ practiceReport.remainingCount > 0 ? `还有 ${practiceReport.remainingCount} 题未作答；` : '' }}{{ practiceReport.nextStep === 'review_scheduled' ? '错题已进入后续复习。' : practiceReport.nextStep === 'await_review' ? '待确认题暂不计入掌握度。' : '继续保持这个节奏。' }}</small>
         </article>
-        <article v-else-if="currentPracticeQuestion" class="practice-panel">
+          <article v-else-if="practiceSession && practiceReadyToComplete" class="practice-panel">
+            <strong>本次答案已保存</strong>
+            <p>你可以结束练习并查看本次报告。</p>
+            <button type="button" :disabled="practiceBusy" @click="finishPractice">生成练习报告</button>
+          </article>
+          <article v-else-if="currentPracticeQuestion" class="practice-panel">
           <small>第 {{ practiceIndex + 1 }}/{{ practiceSession?.items.length }} 题</small>
           <strong>{{ currentPracticeQuestion.prompt }}</strong>
           <form v-if="!practiceFeedback" @submit.prevent="submitPracticeAnswer">
@@ -733,8 +770,8 @@ onUnmounted(() => {
           </button>
         </div>
         <div class="mistake-filters" aria-label="错题筛选">
-          <button v-for="option in (['active', 'mastered', 'all'] as const)" :key="option" type="button" :class="{active: mistakeFilter === option}" @click="mistakeFilter = option">
-            {{ option === 'active' ? '待掌握' : option === 'mastered' ? '已掌握' : '全部' }}
+          <button v-for="option in (['active', 'mastered', 'dismissed', 'all'] as const)" :key="option" type="button" :class="{active: mistakeFilter === option}" @click="mistakeFilter = option">
+            {{ option === 'active' ? '待掌握' : option === 'mastered' ? '已掌握' : option === 'dismissed' ? '已忽略' : '全部' }}
           </button>
         </div>
         <ul class="study-list mistake-list">
@@ -745,12 +782,14 @@ onUnmounted(() => {
                 <span class="study-item-title">{{ item.prompt }}</span>
               </label>
               <span v-else class="study-item-title">{{ item.prompt }}</span>
-              <span class="goal-status" :class="{'is-completed': item.status === 'mastered'}">{{ item.status === 'mastered' ? '已掌握' : '待掌握' }}</span>
+              <span class="goal-status" :class="{'is-completed': item.status === 'mastered'}">{{ item.status === 'mastered' ? '已掌握' : item.status === 'dismissed' ? '已忽略' : '待掌握' }}</span>
             </div>
             <small>最近答案：{{ item.latestAnswer }} · 共答错 {{ item.wrongCount }} 次 · {{ item.latestAttemptAt.slice(0, 10) }}</small>
             <div v-if="item.knowledgeId" class="goal-actions">
               <button v-if="item.status === 'active'" type="button" :disabled="mistakeBusyId === item.questionId" @click="setMistakeStatus(item.questionId, 'mastered')"><Check :size="14" />标记已掌握</button>
-              <button v-else type="button" :disabled="mistakeBusyId === item.questionId" @click="setMistakeStatus(item.questionId, 'active')"><RotateCcw :size="14" />继续学习</button>
+              <button v-else-if="item.status === 'mastered'" type="button" :disabled="mistakeBusyId === item.questionId" @click="setMistakeStatus(item.questionId, 'active')"><RotateCcw :size="14" />继续学习</button>
+              <button v-else type="button" :disabled="mistakeBusyId === item.questionId" @click="setMistakeStatus(item.questionId, 'active')"><RotateCcw :size="14" />恢复错题</button>
+              <button v-if="item.status === 'active'" type="button" :disabled="mistakeBusyId === item.questionId" @click="setMistakeStatus(item.questionId, 'dismissed')">忽略</button>
             </div>
             <small v-else>这道题尚未关联知识点，可以重练，但暂不能标记掌握。</small>
           </li>
@@ -797,12 +836,28 @@ onUnmounted(() => {
 
       <section class="study-section">
         <h4>待复习 <small>{{ dueReviews.length }}</small></h4>
+        <p v-if="reviewSummary" class="drawer-intro">今日 {{ reviewSummary.dueTodayCount }} 项 · 逾期 {{ reviewSummary.overdueCount }} 项 · 约 {{ reviewSummary.estimatedMinutes }} 分钟</p>
         <ul class="study-list">
           <li v-for="item in dueReviews" :key="item.id">
             <span class="study-item-title">知识点 #{{ item.knowledgeId }}</span>
-            <small>到期 {{ item.dueAt.slice(0, 10) }} · 间隔 {{ item.intervalDays }} 天</small>
+            <small>到期 {{ item.dueAt.slice(0, 10) }} · 间隔 {{ item.intervalDays }} 天 · 规则 v{{ item.schedulerVersion }}</small>
+            <div class="goal-actions">
+              <button type="button" :disabled="reviewBusyId === item.id" @click="completeReview(item.id, true)"><Check :size="14" />记得</button>
+              <button type="button" :disabled="reviewBusyId === item.id" @click="completeReview(item.id, false)"><RotateCcw :size="14" />忘了</button>
+            </div>
           </li>
           <li v-if="dueReviews.length === 0" class="study-empty">今天没有到期复习，可以继续当前目标。</li>
+        </ul>
+      </section>
+
+      <section class="study-section">
+        <h4>最近复习 <small>{{ completedReviews.length }}</small></h4>
+        <ul class="study-list">
+          <li v-for="item in completedReviews" :key="item.id">
+            <span class="study-item-title">知识点 #{{ item.knowledgeId }}</span>
+            <small>{{ item.completionIsCorrect === true ? '记得' : item.completionIsCorrect === false ? '忘了' : '旧记录' }} · {{ item.updatedAt?.slice(0, 10) }}<template v-if="item.nextReviewId"> · 下一项 #{{ item.nextReviewId }}</template></small>
+          </li>
+          <li v-if="completedReviews.length === 0" class="study-empty">完成复习后，这里会保留最近记录。</li>
         </ul>
       </section>
 
@@ -853,6 +908,7 @@ onUnmounted(() => {
             <label class="settings-field"><span><strong>助手称呼</strong><small>工作台中显示的名字</small></span><input v-model="assistantDisplayName" maxlength="12" @change="saveSettings" /></label>
             <label class="settings-row settings-choice-row"><span><strong>回车发送</strong><small>关闭后，回车只换行</small></span><input v-model="enterToSend" type="checkbox" class="settings-switch" @change="saveSettings" /></label>
           </div>
+          <LLMConfigPanel v-else-if="settingsCategory === 'model'" class="settings-section" />
           <PersonaManagerPanel v-else-if="settingsCategory === 'persona'" class="settings-section" />
           <div v-else-if="settingsCategory === 'focus'" class="settings-section">
             <div class="settings-section-heading">
@@ -869,6 +925,7 @@ onUnmounted(() => {
             <label class="settings-row settings-choice-row"><span><strong>学习提醒</strong><small>允许工作台显示复习和目标提醒</small></span><input v-model="dailyReminder" type="checkbox" class="settings-switch" @change="saveSettings" /></label>
             <div class="settings-note"><Check :size="16" />设置会自动保存在当前设备</div>
           </div>
+          <LocalVoiceConfigPanel v-else-if="settingsCategory === 'voice'" class="settings-section" />
           <PluginManagerPanel v-else class="settings-section" />
         </section>
       </div>

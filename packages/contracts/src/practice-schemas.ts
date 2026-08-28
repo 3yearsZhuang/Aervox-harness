@@ -38,6 +38,13 @@ export const createPracticeSessionResponseSchema = z.object({
   items: z.array(practiceQuestionSchema),
 });
 
+/** 活跃练习会话的题组快照与恢复进度 */
+export const practiceSessionResumeResponseSchema = createPracticeSessionResponseSchema.extend({
+  startedAt: z.string(),
+  answeredQuestionIds: z.array(z.string()),
+  nextQuestionIndex: z.number().int().nonnegative(),
+});
+
 /** 练习报告（report / complete 共用） */
 export const practiceReportSchema = z.object({
   sessionId: z.string(),
@@ -52,7 +59,7 @@ export const practiceReportSchema = z.object({
 });
 
 /** 错题列表 status 查询参数 */
-export const mistakeStatusEnumSchema = z.enum(["active", "mastered", "all"]);
+export const mistakeStatusEnumSchema = z.enum(["active", "mastered", "dismissed", "all"]);
 
 /** 错题本条目（由不可变作答事实派生） */
 export const mistakeItemSchema = z.object({
@@ -63,7 +70,7 @@ export const mistakeItemSchema = z.object({
   latestAttemptAt: z.string(),
   wrongCount: z.number().int(),
   masteryState: z.string(),
-  status: z.enum(["active", "mastered"]),
+  status: z.enum(["active", "mastered", "dismissed"]),
 });
 
 /** GET /v1/mistakes 响应 */
@@ -73,7 +80,7 @@ export const mistakeListResponseSchema = z.object({
 
 /** PATCH /v1/mistakes/:questionId 请求体 */
 export const updateMistakeRequestSchema = z.object({
-  status: z.enum(["active", "mastered"]),
+  status: z.enum(["active", "mastered", "dismissed"]),
 });
 
 /** POST /v1/mistakes/repractice 请求体 */
@@ -81,9 +88,51 @@ export const repracticeRequestSchema = z.object({
   questionIds: z.array(z.string()).min(1).max(5).optional(),
 });
 
-/** 作答请求体（可关联练习会话，供会话校验） */
+/** 作答请求体（可关联练习会话，供会话校验；幂等键位于 HTTP Header） */
 export const createAttemptRequestSchema = z.object({
   answer: z.string(),
-  idempotencyKey: z.string().optional(),
   sessionId: z.string().optional(),
+  timeZone: z.string().min(1).optional(),
+});
+
+export const reviewItemSchema = z.object({
+  id: z.string(),
+  knowledgeId: z.string(),
+  dueAt: z.string(),
+  intervalDays: z.number().int().positive(),
+  schedulerVersion: z.number().int().positive(),
+  timezoneSnapshot: z.string(),
+  status: z.enum(["active", "completed", "dismissed", "archived"]),
+});
+
+export const reviewListResponseSchema = z.object({ items: z.array(reviewItemSchema) });
+export const reviewHistoryItemSchema = reviewItemSchema.extend({
+  completionIsCorrect: z.boolean().nullable(),
+  nextReviewId: z.string().nullable(),
+  updatedAt: z.string(),
+});
+export const reviewHistoryResponseSchema = z.object({ items: z.array(reviewHistoryItemSchema) });
+export const reviewSummaryResponseSchema = z.object({
+  dueCount: z.number().int().nonnegative(),
+  overdueCount: z.number().int().nonnegative(),
+  dueTodayCount: z.number().int().nonnegative(),
+  estimatedMinutes: z.number().int().nonnegative(),
+  timeZone: z.string(),
+  items: z.array(reviewItemSchema),
+});
+export const completeReviewRequestSchema = z.object({
+  isCorrect: z.boolean(),
+  timeZone: z.string().min(1).optional(),
+});
+export const completeReviewResponseSchema = z.object({
+  completed: reviewItemSchema,
+  nextReview: reviewItemSchema,
+  knowledge: z.object({
+    id: z.string(),
+    correctCount: z.number().int().nonnegative(),
+    wrongCount: z.number().int().nonnegative(),
+    correctStreak: z.number().int().nonnegative(),
+    mastery: z.number().min(0).max(1),
+    masteryState: z.string(),
+  }),
 });

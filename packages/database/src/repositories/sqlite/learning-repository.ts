@@ -12,6 +12,7 @@ import {
   practiceSessions,
   knowledgeItems,
   reviewItems,
+  mistakeDispositions,
   knowledgeRelations,
 } from "../../schema/index.js";
 import { assertTenantContext, type TenantContext } from "../../tenant.js";
@@ -260,6 +261,23 @@ export class SqliteLearningRepository implements ILearningRepository {
     return (session as PracticeSessionModel) ?? null;
   }
 
+  async getLatestActivePracticeSession(tenant: TenantContext): Promise<PracticeSessionModel | null> {
+    assertTenantContext(tenant);
+    const [session] = await this.db
+      .select()
+      .from(practiceSessions)
+      .where(
+        and(
+          eq(practiceSessions.workspaceId, tenant.workspaceId),
+          eq(practiceSessions.subjectUserId, tenant.subjectUserId),
+          eq(practiceSessions.status, "active"),
+        ),
+      )
+      .orderBy(desc(practiceSessions.startedAt))
+      .limit(1);
+    return (session as PracticeSessionModel) ?? null;
+  }
+
   async completePracticeSession(tenant: TenantContext, sessionId: string): Promise<PracticeSessionModel | null> {
     assertTenantContext(tenant);
     const [updated] = await this.db
@@ -345,7 +363,7 @@ export class SqliteLearningRepository implements ILearningRepository {
 
   async listMistakes(
     tenant: TenantContext,
-    status: "active" | "mastered" | "all" = "active",
+    status: "active" | "mastered" | "dismissed" | "all" = "active",
   ): Promise<MistakeItemModel[]> {
     assertTenantContext(tenant);
     const rows = await this.db
@@ -356,10 +374,12 @@ export class SqliteLearningRepository implements ILearningRepository {
         latestAnswer: questionAttempts.answer,
         latestAttemptAt: questionAttempts.createdAt,
         masteryState: knowledgeItems.masteryState,
+        disposition: mistakeDispositions.status,
       })
       .from(questionAttempts)
       .innerJoin(questions, eq(questionAttempts.questionId, questions.id))
       .leftJoin(knowledgeItems, eq(questions.knowledgeId, knowledgeItems.id))
+      .leftJoin(mistakeDispositions, and(eq(mistakeDispositions.questionId, questions.id), eq(mistakeDispositions.workspaceId, tenant.workspaceId), eq(mistakeDispositions.subjectUserId, tenant.subjectUserId)))
       .where(
         and(
           eq(questionAttempts.workspaceId, tenant.workspaceId),
@@ -377,6 +397,7 @@ export class SqliteLearningRepository implements ILearningRepository {
         continue;
       }
       const masteryState = row.masteryState ?? "unknown";
+      const status = row.disposition === "dismissed" ? "dismissed" : masteryState === "mastered" ? "mastered" : "active";
       grouped.set(row.questionId, {
         questionId: row.questionId,
         knowledgeId: row.knowledgeId,
@@ -385,10 +406,19 @@ export class SqliteLearningRepository implements ILearningRepository {
         latestAttemptAt: row.latestAttemptAt,
         wrongCount: 1,
         masteryState,
-        status: masteryState === "mastered" ? "mastered" : "active",
+        status,
       });
     }
     return [...grouped.values()].filter((item) => status === "all" || item.status === status);
+  }
+
+  async setMistakeDisposition(tenant: TenantContext, item: { id: string; questionId: string; status: "active" | "dismissed" }): Promise<void> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    await this.db.insert(mistakeDispositions).values({ ...item, ...tenant, createdAt: now, updatedAt: now }).onConflictDoUpdate({
+      target: [mistakeDispositions.workspaceId, mistakeDispositions.subjectUserId, mistakeDispositions.questionId],
+      set: { status: item.status, updatedAt: now },
+    });
   }
 
   async getAttemptByIdempotencyKey(
@@ -572,7 +602,7 @@ export class SqliteLearningRepository implements ILearningRepository {
 
   async createReviewItem(
     tenant: TenantContext,
-    itemData: { id: string; knowledgeId: string; dueAt: string; intervalDays?: number; schedulerVersion?: number },
+    itemData: { id: string; knowledgeId: string; dueAt: string; intervalDays?: number; schedulerVersion?: number; timezoneSnapshot?: string },
   ): Promise<ReviewItemModel> {
     assertTenantContext(tenant);
     const now = new Date().toISOString();
@@ -586,6 +616,7 @@ export class SqliteLearningRepository implements ILearningRepository {
         dueAt: itemData.dueAt,
         intervalDays: itemData.intervalDays ?? 1,
         schedulerVersion: itemData.schedulerVersion ?? 1,
+        timezoneSnapshot: itemData.timezoneSnapshot ?? "UTC",
         status: "active",
         createdAt: now,
         updatedAt: now,
@@ -596,7 +627,7 @@ export class SqliteLearningRepository implements ILearningRepository {
 
   async scheduleReviewItem(
     tenant: TenantContext,
-    itemData: { id: string; knowledgeId: string; dueAt: string; intervalDays: number; schedulerVersion?: number },
+    itemData: { id: string; knowledgeId: string; dueAt: string; intervalDays: number; schedulerVersion?: number; timezoneSnapshot?: string },
   ): Promise<ReviewItemModel> {
     assertTenantContext(tenant);
     const now = new Date().toISOString();
@@ -606,6 +637,7 @@ export class SqliteLearningRepository implements ILearningRepository {
         dueAt: itemData.dueAt,
         intervalDays: itemData.intervalDays,
         schedulerVersion: itemData.schedulerVersion ?? 1,
+        timezoneSnapshot: itemData.timezoneSnapshot ?? "UTC",
         updatedAt: now,
       })
       .where(
@@ -636,11 +668,29 @@ export class SqliteLearningRepository implements ILearningRepository {
     return (found as ReviewItemModel) ?? null;
   }
 
+  async listCompletedReviewItems(tenant: TenantContext, limit = 10): Promise<ReviewItemModel[]> {
+    assertTenantContext(tenant);
+    const rows = await this.db
+      .select()
+      .from(reviewItems)
+      .where(
+        and(
+          eq(reviewItems.workspaceId, tenant.workspaceId),
+          eq(reviewItems.subjectUserId, tenant.subjectUserId),
+          eq(reviewItems.status, "completed"),
+        ),
+      )
+      .orderBy(desc(reviewItems.updatedAt))
+      .limit(limit);
+    return rows as ReviewItemModel[];
+  }
+
   async completeReviewAndSchedule(
     tenant: TenantContext,
     data: {
       reviewId: string;
       knowledgeId: string;
+      isCorrect: boolean;
       practiceState: {
         correctCount: number;
         wrongCount: number;
@@ -649,7 +699,7 @@ export class SqliteLearningRepository implements ILearningRepository {
         masteryState: string;
         masteryBasis: unknown;
       };
-      nextReview: { id: string; dueAt: string; intervalDays: number; schedulerVersion: number };
+      nextReview: { id: string; dueAt: string; intervalDays: number; schedulerVersion: number; timezoneSnapshot: string };
     },
   ): Promise<{ completed: ReviewItemModel; nextReview: ReviewItemModel; knowledge: KnowledgeItemModel } | null> {
     assertTenantContext(tenant);
@@ -657,7 +707,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       const now = new Date().toISOString();
       const [completed] = await tx
         .update(reviewItems)
-        .set({ status: "completed", updatedAt: now })
+        .set({ status: "completed", completionIsCorrect: data.isCorrect, nextReviewId: data.nextReview.id, updatedAt: now })
         .where(
           and(
             eq(reviewItems.id, data.reviewId),
@@ -693,6 +743,7 @@ export class SqliteLearningRepository implements ILearningRepository {
           dueAt: data.nextReview.dueAt,
           intervalDays: data.nextReview.intervalDays,
           schedulerVersion: data.nextReview.schedulerVersion,
+          timezoneSnapshot: data.nextReview.timezoneSnapshot,
           status: "active",
           createdAt: now,
           updatedAt: now,

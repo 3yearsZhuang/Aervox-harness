@@ -50,6 +50,8 @@ import {
   exportSkillsRequestSchema,
   importPersonaRequestSchema,
   importSkillsRequestSchema,
+  localVoiceConfigResponseSchema,
+  localVoiceConfigSchema,
   mcpToolSchema,
   personaBundleResponseSchema,
   personaRevisionSchema,
@@ -74,6 +76,7 @@ import {
   createAttemptRequestSchema,
   createPracticeSessionRequestSchema,
   createPracticeSessionResponseSchema,
+  practiceSessionResumeResponseSchema,
   mistakeItemSchema,
   mistakeListResponseSchema,
   mistakeStatusEnumSchema,
@@ -81,7 +84,20 @@ import {
   practiceReportSchema,
   repracticeRequestSchema,
   updateMistakeRequestSchema,
+  completeReviewRequestSchema,
+  completeReviewResponseSchema,
+  reviewItemSchema,
+  reviewHistoryResponseSchema,
+  reviewListResponseSchema,
+  reviewSummaryResponseSchema,
 } from "./practice-schemas.js";
+
+import {
+  llmConfigResponseSchema,
+  llmConfigSchema,
+  llmTestConnectionRequestSchema,
+  llmTestConnectionResponseSchema,
+} from "./llm-schemas.js";
 
 const registry = new OpenAPIRegistry();
 
@@ -117,6 +133,8 @@ registry.register("McpTool", mcpToolSchema);
 registry.register("VoiceModel", voiceModelSchema);
 registry.register("VoiceSynthesisRequest", voiceSynthesisRequestSchema);
 registry.register("VoiceSynthesisResponse", voiceSynthesisResponseSchema);
+registry.register("LocalVoiceConfig", localVoiceConfigSchema);
+registry.register("LocalVoiceConfigResponse", localVoiceConfigResponseSchema);
 registry.register("PersonaBundleResponse", personaBundleResponseSchema);
 registry.register("SkillZipResponse", skillZipResponseSchema);
 registry.register("SkillMetadata", skillMetadataSchema);
@@ -140,12 +158,24 @@ registry.register("PluginPageContext", pluginPageContextSchema);
 registry.register("PracticeQuestion", practiceQuestionSchema);
 registry.register("CreatePracticeSessionRequest", createPracticeSessionRequestSchema);
 registry.register("CreatePracticeSessionResponse", createPracticeSessionResponseSchema);
+registry.register("PracticeSessionResumeResponse", practiceSessionResumeResponseSchema);
 registry.register("PracticeReport", practiceReportSchema);
 registry.register("MistakeItem", mistakeItemSchema);
 registry.register("MistakeListResponse", mistakeListResponseSchema);
 registry.register("UpdateMistakeRequest", updateMistakeRequestSchema);
 registry.register("RepracticeRequest", repracticeRequestSchema);
 registry.register("CreateAttemptRequest", createAttemptRequestSchema);
+registry.register("ReviewItem", reviewItemSchema);
+registry.register("ReviewHistoryResponse", reviewHistoryResponseSchema);
+registry.register("ReviewListResponse", reviewListResponseSchema);
+registry.register("ReviewSummaryResponse", reviewSummaryResponseSchema);
+registry.register("CompleteReviewRequest", completeReviewRequestSchema);
+registry.register("CompleteReviewResponse", completeReviewResponseSchema);
+
+registry.register("LLMConfig", llmConfigSchema);
+registry.register("LLMConfigResponse", llmConfigResponseSchema);
+registry.register("LLMTestConnectionRequest", llmTestConnectionRequestSchema);
+registry.register("LLMTestConnectionResponse", llmTestConnectionResponseSchema);
 
 const sessionIdParam = z.object({ sessionId: z.string().min(1) });
 const turnIdParam = z.object({ turnId: z.string().min(1) });
@@ -348,6 +378,12 @@ registry.registerPath({ method: "delete", path: "/v1/skills/{skillName}", summar
 registry.registerPath({ method: "get", path: "/v1/mcp/tools", summary: "列出 MCP 工具", tags: ["MCP"], request: { headers: scopeHeaders }, responses: { 200: { description: "MCP tools", content: { "application/json": { schema: z.object({ tools: z.array(mcpToolSchema) }) } } } } });
 registry.registerPath({ method: "get", path: "/v1/voice/models", summary: "列出 GPT-SoVITS 模型", tags: ["Voice"], responses: { 200: { description: "Voice models", content: { "application/json": { schema: z.object({ models: z.array(voiceModelSchema) }) } } } } });
 registry.registerPath({ method: "post", path: "/v1/voice/synthesize", summary: "GPT-SoVITS 语音合成", tags: ["Voice"], request: { body: { content: { "application/json": { schema: voiceSynthesisRequestSchema } } } }, responses: { 200: { description: "Audio artifact", content: { "application/json": { schema: voiceSynthesisResponseSchema } } }, 503: { description: "VOICE_PROVIDER_UNAVAILABLE" } } });
+registry.registerPath({ method: "get", path: "/v1/voice/config", summary: "读取本地语音模型配置", tags: ["Voice"], request: { headers: scopeHeaders }, responses: { 200: { description: "Local voice config", content: { "application/json": { schema: localVoiceConfigResponseSchema } } } } });
+registry.registerPath({ method: "put", path: "/v1/voice/config", summary: "保存本地语音模型配置", tags: ["Voice"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: localVoiceConfigSchema } } } }, responses: { 200: { description: "Local voice config", content: { "application/json": { schema: localVoiceConfigResponseSchema } } }, 400: { description: "INVALID_VOICE_CONFIG / modelPath 不在白名单" }, 503: { description: "VOICE_PROVIDER_UNAVAILABLE" } } });
+
+registry.registerPath({ method: "get", path: "/v1/llm/config", summary: "读取大语言模型与供应商配置", tags: ["LLM"], request: { headers: scopeHeaders }, responses: { 200: { description: "LLM config", content: { "application/json": { schema: llmConfigResponseSchema } } } } });
+registry.registerPath({ method: "put", path: "/v1/llm/config", summary: "保存大语言模型与供应商配置", tags: ["LLM"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: llmConfigSchema } } } }, responses: { 200: { description: "LLM config", content: { "application/json": { schema: llmConfigResponseSchema } } }, 400: { description: "INVALID_LLM_CONFIG" } } });
+registry.registerPath({ method: "post", path: "/v1/llm/test-connection", summary: "测试大模型供应商连通性", tags: ["LLM"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: llmTestConnectionRequestSchema } } } }, responses: { 200: { description: "Test connection result", content: { "application/json": { schema: llmTestConnectionResponseSchema } } }, 400: { description: "INVALID_REQUEST" } } });
 
 const pluginIdParam = z.object({ pluginId: z.string().min(1) });
 const pluginPageParam = pluginIdParam.extend({ pageId: z.string().min(1) });
@@ -402,12 +438,18 @@ registry.registerPath({
 
 const practiceSessionIdParam = z.object({ sessionId: z.string().min(1) });
 const learningQuestionIdParam = z.object({ questionId: z.string().min(1) });
+const reviewItemIdParam = z.object({ reviewId: z.string().min(1) });
 const mistakeListQuery = z.object({ status: mistakeStatusEnumSchema.optional() });
 
 registry.registerPath({
   method: "post", path: "/v1/practice/sessions", summary: "创建短时练习会话（3~5 题）", tags: ["Learning"],
   request: { headers: scopeHeaders, body: { content: { "application/json": { schema: createPracticeSessionRequestSchema } } } },
-  responses: { 201: { description: "Created", content: { "application/json": { schema: createPracticeSessionResponseSchema } } }, 400: { description: "count 必须为 3~5 的整数" }, 409: { description: "活跃题目数量不足" } },
+  responses: { 200: { description: "Resumed active session", content: { "application/json": { schema: practiceSessionResumeResponseSchema } } }, 201: { description: "Created", content: { "application/json": { schema: practiceSessionResumeResponseSchema } } }, 400: { description: "count 必须为 3~5 的整数" }, 409: { description: "活跃题目数量不足" } },
+});
+registry.registerPath({
+  method: "get", path: "/v1/practice/sessions/active", summary: "恢复当前活跃练习会话", tags: ["Learning"],
+  request: { headers: scopeHeaders },
+  responses: { 200: { description: "Active practice session", content: { "application/json": { schema: practiceSessionResumeResponseSchema } } }, 404: { description: "PRACTICE_SESSION_NOT_FOUND" } },
 });
 registry.registerPath({
   method: "get", path: "/v1/practice/sessions/{sessionId}/report", summary: "读取练习会话报告", tags: ["Learning"],
@@ -432,12 +474,33 @@ registry.registerPath({
 registry.registerPath({
   method: "post", path: "/v1/mistakes/repractice", summary: "从错题本创建重练会话", tags: ["Learning"],
   request: { headers: scopeHeaders, body: { content: { "application/json": { schema: repracticeRequestSchema } } } },
-  responses: { 201: { description: "Created", content: { "application/json": { schema: createPracticeSessionResponseSchema } } }, 400: { description: "questionIds 非法或含非活跃错题" }, 409: { description: "错题题目不可用" } },
+  responses: { 200: { description: "Resumed active session", content: { "application/json": { schema: practiceSessionResumeResponseSchema } } }, 201: { description: "Created", content: { "application/json": { schema: createPracticeSessionResponseSchema } } }, 400: { description: "questionIds 非法或含非活跃错题" }, 409: { description: "错题题目不可用" } },
 });
 registry.registerPath({
   method: "post", path: "/v1/questions/{questionId}/attempts", summary: "作答题目（不可变学习事实，可关联练习会话）", tags: ["Learning"],
-  request: { params: learningQuestionIdParam, headers: scopeHeaders, body: { content: { "application/json": { schema: createAttemptRequestSchema } } } },
-  responses: { 200: { description: "Attempt recorded" }, 400: { description: "请求或会话信息非法" }, 404: { description: "QUESTION_NOT_FOUND" }, 409: { description: "练习会话未激活或题目不属于该会话" } },
+  request: { params: learningQuestionIdParam, headers: scopeHeaders.extend({ "Idempotency-Key": z.string().min(1).optional() }), body: { content: { "application/json": { schema: createAttemptRequestSchema } } } },
+  responses: { 201: { description: "Attempt created" }, 200: { description: "Existing idempotent attempt" }, 400: { description: "请求或会话信息非法" }, 404: { description: "QUESTION_NOT_FOUND" }, 409: { description: "练习会话未激活或题目不属于该会话" } },
+});
+
+registry.registerPath({
+  method: "get", path: "/v1/review-items", summary: "列出到期复习项", tags: ["Learning"],
+  request: { headers: scopeHeaders, query: z.object({ dueBefore: z.string().optional() }) },
+  responses: { 200: { description: "Due review items", content: { "application/json": { schema: reviewListResponseSchema } } } },
+});
+registry.registerPath({
+  method: "get", path: "/v1/review-items/summary", summary: "读取到期复习汇总", tags: ["Learning"],
+  request: { headers: scopeHeaders, query: z.object({ dueBefore: z.string().optional(), timeZone: z.string().optional() }) },
+  responses: { 200: { description: "Due review summary", content: { "application/json": { schema: reviewSummaryResponseSchema } } } },
+});
+registry.registerPath({
+  method: "get", path: "/v1/review-items/history", summary: "读取最近复习历史", tags: ["Learning"],
+  request: { headers: scopeHeaders, query: z.object({ limit: z.coerce.number().int().min(1).max(50).optional() }) },
+  responses: { 200: { description: "Recent completed reviews", content: { "application/json": { schema: reviewHistoryResponseSchema } } }, 400: { description: "limit 非法" } },
+});
+registry.registerPath({
+  method: "post", path: "/v1/review-items/{reviewId}/complete", summary: "完成复习并调度下一项（幂等重放）", tags: ["Learning"],
+  request: { params: reviewItemIdParam, headers: scopeHeaders, body: { content: { "application/json": { schema: completeReviewRequestSchema } } } },
+  responses: { 200: { description: "Completion result or matching replay", content: { "application/json": { schema: completeReviewResponseSchema } } }, 400: { description: "isCorrect 缺失或非法" }, 404: { description: "REVIEW_ITEM_NOT_FOUND" }, 409: { description: "完成结果与首次请求不一致" } },
 });
 
 const generator = new OpenApiGeneratorV31(registry.definitions);

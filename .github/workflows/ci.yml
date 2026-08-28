@@ -75,9 +75,8 @@ jobs:
           restore-keys: |
             turbo-${{ runner.os }}-
 
-      - name: Verify optional submodules
+      - name: Verify submodules
         run: |
-          test -f modules/persona-plugin/package.json
           git submodule status --recursive
 
       - name: Run code gate (build + typecheck + test)

@@ -10,6 +10,7 @@ import {
   messageVersions,
   turnStreamEvents,
   turnAttempts,
+  toolExecutions,
   conversationBranches,
   outboxEvents,
 } from "../../schema/index.js";
@@ -23,6 +24,7 @@ import type {
   TurnAttemptModel,
   ConversationBranchModel,
   TurnStreamEventModel,
+  ToolExecutionModel,
 } from "../types.js";
 
 export class SqliteConversationRepository implements IConversationRepository {
@@ -231,6 +233,9 @@ export class SqliteConversationRepository implements IConversationRepository {
       payloadVersion?: number;
       data: unknown;
       occurredAt?: string;
+      attemptId?: string | null;
+      safetyDecision?: string | null;
+      committedAt?: string | null;
     },
   ): Promise<TurnStreamEventModel> {
     assertTenantContext(tenant);
@@ -246,6 +251,9 @@ export class SqliteConversationRepository implements IConversationRepository {
         payloadVersion: eventData.payloadVersion ?? 1,
         data: eventData.data,
         occurredAt: eventData.occurredAt ?? new Date().toISOString(),
+        attemptId: eventData.attemptId ?? null,
+        safetyDecision: eventData.safetyDecision ?? null,
+        committedAt: eventData.committedAt ?? null,
       })
       .returning();
     return created as TurnStreamEventModel;
@@ -359,6 +367,127 @@ export class SqliteConversationRepository implements IConversationRepository {
       )
       .orderBy(desc(turnAttempts.attempt));
     return rows.map((r) => r.attempt) as TurnAttemptModel[];
+  }
+
+  /**
+   * 领取 TurnAttempt（CAS + fencing）：仅在状态 Running 且 fencing 与期望值一致时成功，
+   * 成功后递增 fencing 并绑定租约，防止同一 Attempt 被重复执行（AVX-HAR-001 §11.2 阶段 1 最小租约）。
+   */
+  async claimTurnAttempt(
+    tenant: TenantContext,
+    input: {
+      turnId: string;
+      attemptId: string;
+      expectedFencingToken: number;
+      leaseId: string;
+    },
+  ): Promise<{ ok: boolean; fencingToken: number }> {
+    assertTenantContext(tenant);
+    // turn_attempts 无租户列，经 turns 关联校验租户后做 CAS 更新
+    const [updated] = await this.db
+      .update(turnAttempts)
+      .set({
+        leaseId: input.leaseId,
+        fencingToken: input.expectedFencingToken + 1,
+      })
+      .from(turns)
+      .where(
+        and(
+          eq(turnAttempts.turnId, turns.id),
+          eq(turnAttempts.id, input.attemptId),
+          eq(turnAttempts.turnId, input.turnId),
+          eq(turns.workspaceId, tenant.workspaceId),
+          eq(turns.subjectUserId, tenant.subjectUserId),
+          eq(turnAttempts.status, "Running"),
+          eq(turnAttempts.fencingToken, input.expectedFencingToken),
+        ),
+      )
+      .returning();
+    if (!updated) {
+      return { ok: false, fencingToken: input.expectedFencingToken };
+    }
+    return { ok: true, fencingToken: (updated as TurnAttemptModel).fencingToken };
+  }
+
+  /** 提交 TurnAttempt 终态（失败/完成/中断），并记录结束时间 */
+  async finalizeTurnAttempt(
+    tenant: TenantContext,
+    input: { turnId: string; attemptId: string; status: string; finishedAt?: string },
+  ): Promise<TurnAttemptModel | null> {
+    assertTenantContext(tenant);
+    const [updated] = await this.db
+      .update(turnAttempts)
+      .set({
+        status: input.status,
+        finishedAt: input.finishedAt ?? new Date().toISOString(),
+      })
+      .from(turns)
+      .where(
+        and(
+          eq(turnAttempts.turnId, turns.id),
+          eq(turnAttempts.id, input.attemptId),
+          eq(turnAttempts.turnId, input.turnId),
+          eq(turns.workspaceId, tenant.workspaceId),
+          eq(turns.subjectUserId, tenant.subjectUserId),
+        ),
+      )
+      .returning();
+    return (updated as TurnAttemptModel) ?? null;
+  }
+
+  /** 记录一次工具执行（副作用证据账本，AVX-HAR-001 §12；阶段 2d） */
+  async recordToolExecution(
+    tenant: TenantContext,
+    input: {
+      turnId: string;
+      attemptId: string;
+      invocationId: string;
+      name: string;
+      arguments?: unknown;
+      status: string;
+      output?: unknown;
+      error?: string | null;
+      startedAt: string;
+      finishedAt: string;
+    },
+  ): Promise<ToolExecutionModel> {
+    assertTenantContext(tenant);
+    const [created] = await this.db
+      .insert(toolExecutions)
+      .values({
+        id: `tex_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        invocationId: input.invocationId,
+        name: input.name,
+        workspaceId: tenant.workspaceId,
+        subjectUserId: tenant.subjectUserId,
+        argumentsJson: input.arguments,
+        status: input.status,
+        outputJson: input.output,
+        error: input.error ?? null,
+        startedAt: input.startedAt,
+        finishedAt: input.finishedAt,
+      })
+      .returning();
+    return created as ToolExecutionModel;
+  }
+
+  /** 查询 Turn 的工具执行账本（按时间倒序） */
+  async listToolExecutionsByTurn(tenant: TenantContext, turnId: string): Promise<ToolExecutionModel[]> {
+    assertTenantContext(tenant);
+    const rows = await this.db
+      .select()
+      .from(toolExecutions)
+      .where(
+        and(
+          eq(toolExecutions.turnId, turnId),
+          eq(toolExecutions.workspaceId, tenant.workspaceId),
+          eq(toolExecutions.subjectUserId, tenant.subjectUserId),
+        ),
+      )
+      .orderBy(desc(toolExecutions.startedAt));
+    return rows as ToolExecutionModel[];
   }
 
   // ============ P1（R2 · CAP-014）：会话地图分支 ============

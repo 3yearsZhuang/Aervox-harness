@@ -1636,6 +1636,95 @@
           "audioBase64"
         ]
       },
+      "LocalVoiceConfig": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "providerId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "modelPath": {
+            "type": "string",
+            "minLength": 1
+          },
+          "modelId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "speakerId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "enabled",
+          "providerId",
+          "modelId"
+        ]
+      },
+      "LocalVoiceConfigResponse": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "providerId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "modelPath": {
+            "type": "string"
+          },
+          "modelId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "speakerId": {
+            "type": "string"
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "default": {}
+          }
+        },
+        "required": [
+          "enabled",
+          "providerId",
+          "modelId"
+        ]
+      },
       "PersonaBundleResponse": {
         "type": "object",
         "properties": {
@@ -2576,6 +2665,85 @@
           "items"
         ]
       },
+      "PracticeSessionResumeResponse": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "workspaceId": {
+                  "type": "string"
+                },
+                "subjectUserId": {
+                  "type": "string"
+                },
+                "sourceArtifactId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "knowledgeId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "prompt": {
+                  "type": "string"
+                },
+                "answerSpec": {},
+                "status": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "updatedAt": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "workspaceId",
+                "subjectUserId",
+                "prompt",
+                "status",
+                "createdAt",
+                "updatedAt"
+              ]
+            }
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "answeredQuestionIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "nextQuestionIndex": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "sessionId",
+          "items",
+          "startedAt",
+          "answeredQuestionIds",
+          "nextQuestionIndex"
+        ]
+      },
       "PracticeReport": {
         "type": "object",
         "properties": {
@@ -2658,7 +2826,8 @@
             "type": "string",
             "enum": [
               "active",
-              "mastered"
+              "mastered",
+              "dismissed"
             ]
           }
         },
@@ -2709,7 +2878,8 @@
                   "type": "string",
                   "enum": [
                     "active",
-                    "mastered"
+                    "mastered",
+                    "dismissed"
                   ]
                 }
               },
@@ -2737,7 +2907,8 @@
             "type": "string",
             "enum": [
               "active",
-              "mastered"
+              "mastered",
+              "dismissed"
             ]
           }
         },
@@ -2764,15 +2935,592 @@
           "answer": {
             "type": "string"
           },
-          "idempotencyKey": {
-            "type": "string"
-          },
           "sessionId": {
             "type": "string"
+          },
+          "timeZone": {
+            "type": "string",
+            "minLength": 1
           }
         },
         "required": [
           "answer"
+        ]
+      },
+      "ReviewItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "knowledgeId": {
+            "type": "string"
+          },
+          "dueAt": {
+            "type": "string"
+          },
+          "intervalDays": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "schedulerVersion": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "timezoneSnapshot": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "completed",
+              "dismissed",
+              "archived"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "knowledgeId",
+          "dueAt",
+          "intervalDays",
+          "schedulerVersion",
+          "timezoneSnapshot",
+          "status"
+        ]
+      },
+      "ReviewHistoryResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "knowledgeId": {
+                  "type": "string"
+                },
+                "dueAt": {
+                  "type": "string"
+                },
+                "intervalDays": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "schedulerVersion": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "timezoneSnapshot": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "completed",
+                    "dismissed",
+                    "archived"
+                  ]
+                },
+                "completionIsCorrect": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "nextReviewId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "updatedAt": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "knowledgeId",
+                "dueAt",
+                "intervalDays",
+                "schedulerVersion",
+                "timezoneSnapshot",
+                "status",
+                "completionIsCorrect",
+                "nextReviewId",
+                "updatedAt"
+              ]
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "ReviewListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "knowledgeId": {
+                  "type": "string"
+                },
+                "dueAt": {
+                  "type": "string"
+                },
+                "intervalDays": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "schedulerVersion": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "timezoneSnapshot": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "completed",
+                    "dismissed",
+                    "archived"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "knowledgeId",
+                "dueAt",
+                "intervalDays",
+                "schedulerVersion",
+                "timezoneSnapshot",
+                "status"
+              ]
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "ReviewSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "dueCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "overdueCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "dueTodayCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "estimatedMinutes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "knowledgeId": {
+                  "type": "string"
+                },
+                "dueAt": {
+                  "type": "string"
+                },
+                "intervalDays": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "schedulerVersion": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "timezoneSnapshot": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "completed",
+                    "dismissed",
+                    "archived"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "knowledgeId",
+                "dueAt",
+                "intervalDays",
+                "schedulerVersion",
+                "timezoneSnapshot",
+                "status"
+              ]
+            }
+          }
+        },
+        "required": [
+          "dueCount",
+          "overdueCount",
+          "dueTodayCount",
+          "estimatedMinutes",
+          "timeZone",
+          "items"
+        ]
+      },
+      "CompleteReviewRequest": {
+        "type": "object",
+        "properties": {
+          "isCorrect": {
+            "type": "boolean"
+          },
+          "timeZone": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "isCorrect"
+        ]
+      },
+      "CompleteReviewResponse": {
+        "type": "object",
+        "properties": {
+          "completed": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "knowledgeId": {
+                "type": "string"
+              },
+              "dueAt": {
+                "type": "string"
+              },
+              "intervalDays": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "schedulerVersion": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "timezoneSnapshot": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "completed",
+                  "dismissed",
+                  "archived"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "knowledgeId",
+              "dueAt",
+              "intervalDays",
+              "schedulerVersion",
+              "timezoneSnapshot",
+              "status"
+            ]
+          },
+          "nextReview": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "knowledgeId": {
+                "type": "string"
+              },
+              "dueAt": {
+                "type": "string"
+              },
+              "intervalDays": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "schedulerVersion": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "timezoneSnapshot": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "completed",
+                  "dismissed",
+                  "archived"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "knowledgeId",
+              "dueAt",
+              "intervalDays",
+              "schedulerVersion",
+              "timezoneSnapshot",
+              "status"
+            ]
+          },
+          "knowledge": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "correctCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "wrongCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "correctStreak": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "mastery": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "masteryState": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "correctCount",
+              "wrongCount",
+              "correctStreak",
+              "mastery",
+              "masteryState"
+            ]
+          }
+        },
+        "required": [
+          "completed",
+          "nextReview",
+          "knowledge"
+        ]
+      },
+      "LLMConfig": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "providerType": {
+            "type": "string",
+            "enum": [
+              "ollama",
+              "deepseek",
+              "openai",
+              "anthropic",
+              "custom_openai"
+            ]
+          },
+          "baseUrl": {
+            "type": "string",
+            "minLength": 1
+          },
+          "apiKey": {
+            "type": "string"
+          },
+          "modelId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "temperature": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2,
+            "default": 0.7
+          },
+          "maxTokens": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "default": 4096
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "enabled",
+          "providerType",
+          "baseUrl",
+          "modelId"
+        ]
+      },
+      "LLMConfigResponse": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "providerType": {
+            "type": "string",
+            "enum": [
+              "ollama",
+              "deepseek",
+              "openai",
+              "anthropic",
+              "custom_openai"
+            ]
+          },
+          "baseUrl": {
+            "type": "string",
+            "minLength": 1
+          },
+          "apiKey": {
+            "type": "string"
+          },
+          "modelId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "temperature": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2,
+            "default": 0.7
+          },
+          "maxTokens": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "default": 4096
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "default": {}
+          }
+        },
+        "required": [
+          "enabled",
+          "providerType",
+          "baseUrl",
+          "modelId"
+        ]
+      },
+      "LLMTestConnectionRequest": {
+        "type": "object",
+        "properties": {
+          "providerType": {
+            "type": "string",
+            "enum": [
+              "ollama",
+              "deepseek",
+              "openai",
+              "anthropic",
+              "custom_openai"
+            ]
+          },
+          "baseUrl": {
+            "type": "string",
+            "minLength": 1
+          },
+          "apiKey": {
+            "type": "string"
+          },
+          "modelId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "providerType",
+          "baseUrl",
+          "modelId"
+        ]
+      },
+      "LLMTestConnectionResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "latencyMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "message": {
+            "type": "string"
+          },
+          "availableModels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "ok",
+          "latencyMs",
+          "message"
         ]
       }
     },
@@ -5617,6 +6365,640 @@
         }
       }
     },
+    "/v1/voice/config": {
+      "get": {
+        "summary": "读取本地语音模型配置",
+        "tags": [
+          "Voice"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Local voice config",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "providerId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "modelPath": {
+                      "type": "string"
+                    },
+                    "modelId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "speakerId": {
+                      "type": "string"
+                    },
+                    "settings": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ]
+                      },
+                      "default": {}
+                    }
+                  },
+                  "required": [
+                    "enabled",
+                    "providerId",
+                    "modelId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "保存本地语音模型配置",
+        "tags": [
+          "Voice"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "providerId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "modelPath": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "modelId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "speakerId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "settings": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "enabled",
+                  "providerId",
+                  "modelId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Local voice config",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "providerId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "modelPath": {
+                      "type": "string"
+                    },
+                    "modelId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "speakerId": {
+                      "type": "string"
+                    },
+                    "settings": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ]
+                      },
+                      "default": {}
+                    }
+                  },
+                  "required": [
+                    "enabled",
+                    "providerId",
+                    "modelId"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_VOICE_CONFIG / modelPath 不在白名单"
+          },
+          "503": {
+            "description": "VOICE_PROVIDER_UNAVAILABLE"
+          }
+        }
+      }
+    },
+    "/v1/llm/config": {
+      "get": {
+        "summary": "读取大语言模型与供应商配置",
+        "tags": [
+          "LLM"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "LLM config",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "providerType": {
+                      "type": "string",
+                      "enum": [
+                        "ollama",
+                        "deepseek",
+                        "openai",
+                        "anthropic",
+                        "custom_openai"
+                      ]
+                    },
+                    "baseUrl": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "apiKey": {
+                      "type": "string"
+                    },
+                    "modelId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "temperature": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 2,
+                      "default": 0.7
+                    },
+                    "maxTokens": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "default": 4096
+                    },
+                    "settings": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ]
+                      },
+                      "default": {}
+                    }
+                  },
+                  "required": [
+                    "enabled",
+                    "providerType",
+                    "baseUrl",
+                    "modelId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "保存大语言模型与供应商配置",
+        "tags": [
+          "LLM"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "providerType": {
+                    "type": "string",
+                    "enum": [
+                      "ollama",
+                      "deepseek",
+                      "openai",
+                      "anthropic",
+                      "custom_openai"
+                    ]
+                  },
+                  "baseUrl": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "apiKey": {
+                    "type": "string"
+                  },
+                  "modelId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "temperature": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 2,
+                    "default": 0.7
+                  },
+                  "maxTokens": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "default": 4096
+                  },
+                  "settings": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "enabled",
+                  "providerType",
+                  "baseUrl",
+                  "modelId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "LLM config",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "providerType": {
+                      "type": "string",
+                      "enum": [
+                        "ollama",
+                        "deepseek",
+                        "openai",
+                        "anthropic",
+                        "custom_openai"
+                      ]
+                    },
+                    "baseUrl": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "apiKey": {
+                      "type": "string"
+                    },
+                    "modelId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "temperature": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 2,
+                      "default": 0.7
+                    },
+                    "maxTokens": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "default": 4096
+                    },
+                    "settings": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ]
+                      },
+                      "default": {}
+                    }
+                  },
+                  "required": [
+                    "enabled",
+                    "providerType",
+                    "baseUrl",
+                    "modelId"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_LLM_CONFIG"
+          }
+        }
+      }
+    },
+    "/v1/llm/test-connection": {
+      "post": {
+        "summary": "测试大模型供应商连通性",
+        "tags": [
+          "LLM"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "providerType": {
+                    "type": "string",
+                    "enum": [
+                      "ollama",
+                      "deepseek",
+                      "openai",
+                      "anthropic",
+                      "custom_openai"
+                    ]
+                  },
+                  "baseUrl": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "apiKey": {
+                    "type": "string"
+                  },
+                  "modelId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "providerType",
+                  "baseUrl",
+                  "modelId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Test connection result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "latencyMs": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "availableModels": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "latencyMs",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST"
+          }
+        }
+      }
+    },
     "/v1/plugins/{pluginId}/config/schema": {
       "get": {
         "summary": "读取插件配置 Schema",
@@ -6763,6 +8145,92 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "Resumed active session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sessionId": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "workspaceId": {
+                            "type": "string"
+                          },
+                          "subjectUserId": {
+                            "type": "string"
+                          },
+                          "sourceArtifactId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "knowledgeId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "prompt": {
+                            "type": "string"
+                          },
+                          "answerSpec": {},
+                          "status": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "workspaceId",
+                          "subjectUserId",
+                          "prompt",
+                          "status",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      }
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "answeredQuestionIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "nextQuestionIndex": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "sessionId",
+                    "items",
+                    "startedAt",
+                    "answeredQuestionIds",
+                    "nextQuestionIndex"
+                  ]
+                }
+              }
+            }
+          },
           "201": {
             "description": "Created",
             "content": {
@@ -6823,11 +8291,27 @@
                           "updatedAt"
                         ]
                       }
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "answeredQuestionIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "nextQuestionIndex": {
+                      "type": "integer",
+                      "minimum": 0
                     }
                   },
                   "required": [
                     "sessionId",
-                    "items"
+                    "items",
+                    "startedAt",
+                    "answeredQuestionIds",
+                    "nextQuestionIndex"
                   ]
                 }
               }
@@ -6838,6 +8322,134 @@
           },
           "409": {
             "description": "活跃题目数量不足"
+          }
+        }
+      }
+    },
+    "/v1/practice/sessions/active": {
+      "get": {
+        "summary": "恢复当前活跃练习会话",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active practice session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sessionId": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "workspaceId": {
+                            "type": "string"
+                          },
+                          "subjectUserId": {
+                            "type": "string"
+                          },
+                          "sourceArtifactId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "knowledgeId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "prompt": {
+                            "type": "string"
+                          },
+                          "answerSpec": {},
+                          "status": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "workspaceId",
+                          "subjectUserId",
+                          "prompt",
+                          "status",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      }
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "answeredQuestionIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "nextQuestionIndex": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "sessionId",
+                    "items",
+                    "startedAt",
+                    "answeredQuestionIds",
+                    "nextQuestionIndex"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PRACTICE_SESSION_NOT_FOUND"
           }
         }
       }
@@ -7073,6 +8685,7 @@
               "enum": [
                 "active",
                 "mastered",
+                "dismissed",
                 "all"
               ]
             },
@@ -7149,7 +8762,8 @@
                             "type": "string",
                             "enum": [
                               "active",
-                              "mastered"
+                              "mastered",
+                              "dismissed"
                             ]
                           }
                         },
@@ -7233,7 +8847,8 @@
                     "type": "string",
                     "enum": [
                       "active",
-                      "mastered"
+                      "mastered",
+                      "dismissed"
                     ]
                   }
                 },
@@ -7280,7 +8895,8 @@
                       "type": "string",
                       "enum": [
                         "active",
-                        "mastered"
+                        "mastered",
+                        "dismissed"
                       ]
                     }
                   },
@@ -7365,6 +8981,92 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "Resumed active session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sessionId": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "workspaceId": {
+                            "type": "string"
+                          },
+                          "subjectUserId": {
+                            "type": "string"
+                          },
+                          "sourceArtifactId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "knowledgeId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "prompt": {
+                            "type": "string"
+                          },
+                          "answerSpec": {},
+                          "status": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "workspaceId",
+                          "subjectUserId",
+                          "prompt",
+                          "status",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      }
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "answeredQuestionIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "nextQuestionIndex": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "sessionId",
+                    "items",
+                    "startedAt",
+                    "answeredQuestionIds",
+                    "nextQuestionIndex"
+                  ]
+                }
+              }
+            }
+          },
           "201": {
             "description": "Created",
             "content": {
@@ -7486,6 +9188,15 @@
             "required": false,
             "name": "X-Actor-Id",
             "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "Idempotency-Key",
+            "in": "header"
           }
         ],
         "requestBody": {
@@ -7497,11 +9208,12 @@
                   "answer": {
                     "type": "string"
                   },
-                  "idempotencyKey": {
-                    "type": "string"
-                  },
                   "sessionId": {
                     "type": "string"
+                  },
+                  "timeZone": {
+                    "type": "string",
+                    "minLength": 1
                   }
                 },
                 "required": [
@@ -7513,7 +9225,10 @@
         },
         "responses": {
           "200": {
-            "description": "Attempt recorded"
+            "description": "Existing idempotent attempt"
+          },
+          "201": {
+            "description": "Attempt created"
           },
           "400": {
             "description": "请求或会话信息非法"
@@ -7523,6 +9238,602 @@
           },
           "409": {
             "description": "练习会话未激活或题目不属于该会话"
+          }
+        }
+      }
+    },
+    "/v1/review-items": {
+      "get": {
+        "summary": "列出到期复习项",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "dueBefore",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Due review items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "knowledgeId": {
+                            "type": "string"
+                          },
+                          "dueAt": {
+                            "type": "string"
+                          },
+                          "intervalDays": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0
+                          },
+                          "schedulerVersion": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0
+                          },
+                          "timezoneSnapshot": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "completed",
+                              "dismissed",
+                              "archived"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "knowledgeId",
+                          "dueAt",
+                          "intervalDays",
+                          "schedulerVersion",
+                          "timezoneSnapshot",
+                          "status"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/review-items/summary": {
+      "get": {
+        "summary": "读取到期复习汇总",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "dueBefore",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "timeZone",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Due review summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dueCount": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "overdueCount": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "dueTodayCount": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "estimatedMinutes": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "timeZone": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "knowledgeId": {
+                            "type": "string"
+                          },
+                          "dueAt": {
+                            "type": "string"
+                          },
+                          "intervalDays": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0
+                          },
+                          "schedulerVersion": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0
+                          },
+                          "timezoneSnapshot": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "completed",
+                              "dismissed",
+                              "archived"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "knowledgeId",
+                          "dueAt",
+                          "intervalDays",
+                          "schedulerVersion",
+                          "timezoneSnapshot",
+                          "status"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "dueCount",
+                    "overdueCount",
+                    "dueTodayCount",
+                    "estimatedMinutes",
+                    "timeZone",
+                    "items"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/review-items/history": {
+      "get": {
+        "summary": "读取最近复习历史",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recent completed reviews",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "knowledgeId": {
+                            "type": "string"
+                          },
+                          "dueAt": {
+                            "type": "string"
+                          },
+                          "intervalDays": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0
+                          },
+                          "schedulerVersion": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0
+                          },
+                          "timezoneSnapshot": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "completed",
+                              "dismissed",
+                              "archived"
+                            ]
+                          },
+                          "completionIsCorrect": {
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
+                          },
+                          "nextReviewId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "knowledgeId",
+                          "dueAt",
+                          "intervalDays",
+                          "schedulerVersion",
+                          "timezoneSnapshot",
+                          "status",
+                          "completionIsCorrect",
+                          "nextReviewId",
+                          "updatedAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "limit 非法"
+          }
+        }
+      }
+    },
+    "/v1/review-items/{reviewId}/complete": {
+      "post": {
+        "summary": "完成复习并调度下一项（幂等重放）",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "reviewId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "isCorrect": {
+                    "type": "boolean"
+                  },
+                  "timeZone": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "isCorrect"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Completion result or matching replay",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "completed": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "knowledgeId": {
+                          "type": "string"
+                        },
+                        "dueAt": {
+                          "type": "string"
+                        },
+                        "intervalDays": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "schedulerVersion": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "timezoneSnapshot": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "completed",
+                            "dismissed",
+                            "archived"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "knowledgeId",
+                        "dueAt",
+                        "intervalDays",
+                        "schedulerVersion",
+                        "timezoneSnapshot",
+                        "status"
+                      ]
+                    },
+                    "nextReview": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "knowledgeId": {
+                          "type": "string"
+                        },
+                        "dueAt": {
+                          "type": "string"
+                        },
+                        "intervalDays": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "schedulerVersion": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "timezoneSnapshot": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "completed",
+                            "dismissed",
+                            "archived"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "knowledgeId",
+                        "dueAt",
+                        "intervalDays",
+                        "schedulerVersion",
+                        "timezoneSnapshot",
+                        "status"
+                      ]
+                    },
+                    "knowledge": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "correctCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "wrongCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "correctStreak": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "mastery": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "masteryState": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "correctCount",
+                        "wrongCount",
+                        "correctStreak",
+                        "mastery",
+                        "masteryState"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "completed",
+                    "nextReview",
+                    "knowledge"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "isCorrect 缺失或非法"
+          },
+          "404": {
+            "description": "REVIEW_ITEM_NOT_FOUND"
+          },
+          "409": {
+            "description": "完成结果与首次请求不一致"
           }
         }
       }
