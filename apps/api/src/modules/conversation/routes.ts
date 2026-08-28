@@ -1,24 +1,32 @@
 /**
  * Aervox｜思隅 @aervox/api — 会话/流式协议路由
  *
- * 规则依据：docs/reference/STREAMING_PROTOCOL.md + @aervox/contracts。
- * 迁移自原单文件 index.ts，并补充 Message 身份写链路。
+ * 规则依据：docs/reference/STREAMING_PROTOCOL.md + @aervox/contracts + AVX-HAR-001（阶段 1）。
+ * 迁移自原单文件 index.ts，并补充 Message 身份写链路；SSE 事件来自持久 turn_stream_events，
+ * Turn 创建后由 Agent Loop（Replay Provider）执行并写事件。
  */
 import type { FastifyInstance } from "fastify";
-import {
-  createTurnRequestSchema,
-  type TurnStreamEvent,
-} from "@aervox/contracts";
+import { createTurnRequestSchema } from "@aervox/contracts";
 import type { SqliteConversationRepository } from "@aervox/database";
+import type { ToolRuntime } from "../tools/runtime.js";
+import type { LLMConfigService } from "../llm/service.js";
 import { resolveTenant } from "../../shared/tenant.js";
+import { runLoopTurnOnce } from "./agent-executor.js";
 
 let seq = 0;
 const nextTurnId = (): string => `turn_${Date.now().toString(36)}_${(++seq).toString(36)}`;
-const now = (): string => new Date().toISOString();
+
+export interface ConversationRouteDeps {
+  /** 阶段 2d：Agent Loop 只读工具提供者（缺失时工具请求 fail-closed） */
+  toolRuntime?: ToolRuntime;
+  /** 阶段 2e：AERVOX_LOOP_PROVIDER=llm 时的模型配置来源（CR-015） */
+  llmConfigService?: LLMConfigService;
+}
 
 export function registerConversationRoutes(
   app: FastifyInstance,
   conversationRepo: SqliteConversationRepository,
+  deps: ConversationRouteDeps = {},
 ): void {
   // POST /v1/sessions/{sessionId}/turns — 幂等创建 Turn 并原子写入 Outbox
   app.post("/v1/sessions/:sessionId/turns", async (req, reply) => {
@@ -68,6 +76,21 @@ export function registerConversationRoutes(
       },
     );
 
+    // 阶段 1/2d（AVX-HAR-001 §15）：创建 Attempt 并由 Agent Loop 执行一次
+    const attemptId = `atp_${turnId}`;
+    await conversationRepo.createTurnAttempt(tenant, turnId, { id: attemptId, attempt: 1 });
+    await runLoopTurnOnce(
+      conversationRepo,
+      tenant,
+      {
+        turnId,
+        sessionId,
+        attemptId,
+        userMessage: parsed.data.message.content,
+      },
+      { toolRuntime: deps.toolRuntime, llmConfigService: deps.llmConfigService },
+    );
+
     return reply.code(201).send({
       turnId,
       status: "Created" as const,
@@ -76,25 +99,29 @@ export function registerConversationRoutes(
     });
   });
 
-  // GET /v1/turns/{turnId}/events — SSE 事件流
+  // GET /v1/turns/{turnId}/events — SSE 事件流（重放持久 turn_stream_events，AVX-HAR-001 阶段 1）
   app.get("/v1/turns/:turnId/events", async (req, reply) => {
     const { turnId } = req.params as { turnId: string };
+    const tenant = resolveTenant(req);
     reply.hijack();
     reply.raw.writeHead(200, {
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-store",
     });
-    const done: TurnStreamEvent = {
-      eventId: `tev_${Date.now().toString(36)}`,
-      turnId,
-      sequence: 1,
-      eventType: "done",
-      payloadVersion: 1,
-      occurredAt: now(),
-      data: { status: "Completed", isComplete: true, lastSequence: 1 },
-    };
-    reply.raw.write(`id: ${done.eventId}\n`);
-    reply.raw.write(`data: ${JSON.stringify(done)}\n\n`);
+    const events = await conversationRepo.getStreamEvents(tenant, turnId, 0);
+    for (const ev of events) {
+      const body = {
+        eventId: ev.id,
+        turnId: ev.turnId,
+        sequence: ev.sequence,
+        eventType: ev.eventType,
+        payloadVersion: ev.payloadVersion,
+        occurredAt: ev.occurredAt,
+        data: ev.data,
+      };
+      reply.raw.write(`id: ${ev.id}\n`);
+      reply.raw.write(`data: ${JSON.stringify(body)}\n\n`);
+    }
     reply.raw.end();
   });
 

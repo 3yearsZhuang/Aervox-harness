@@ -76,6 +76,25 @@ export const questionAttempts = sqliteTable(
   }),
 );
 
+/** 用户对派生错题的处置；不修改不可变的 QuestionAttempt。 */
+export const mistakeDispositions = sqliteTable(
+  "mistake_dispositions",
+  {
+    id: text("id").primaryKey(),
+    ...tenantColumns,
+    questionId: text("question_id").notNull().references(() => questions.id),
+    status: text("status").notNull().default("active"), // "active" | "dismissed"
+    ...timestampColumns,
+  },
+  (table) => ({
+    tenantQuestionIdx: uniqueIndex("mistake_dispositions_tenant_question_idx").on(
+      table.workspaceId,
+      table.subjectUserId,
+      table.questionId,
+    ),
+  }),
+);
+
 /** 一次短时练习的范围与结束状态；作答事实仍单独保存在 questionAttempts。 */
 export const practiceSessions = sqliteTable(
   "practice_sessions",
@@ -126,7 +145,10 @@ export const reviewItems = sqliteTable(
     dueAt: text("due_at").notNull(),
     intervalDays: integer("interval_days").notNull().default(1),
     schedulerVersion: integer("scheduler_version").notNull().default(1),
+    timezoneSnapshot: text("timezone_snapshot").notNull().default("UTC"),
     status: text("status").notNull().default("active"), // "active" | "completed" | "dismissed" | "archived"
+    completionIsCorrect: integer("completion_is_correct", { mode: "boolean" }),
+    nextReviewId: text("next_review_id"),
     ...timestampColumns,
   },
   (table) => ({

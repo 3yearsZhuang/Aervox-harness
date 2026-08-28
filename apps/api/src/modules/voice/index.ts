@@ -2,6 +2,7 @@
  * Aervox｜思隅 @aervox/api — 系统级语音模块入口
  */
 import type { FastifyInstance } from "fastify";
+import { SqliteVoiceConfigRepository, type AervoxDatabase } from "@aervox/database";
 import type { VoiceProviderPort } from "./types.js";
 import { GptSovitsLocalProvider, GptSovitsRemoteProvider } from "./gpt-sovits.js";
 import { VoiceService } from "./service.js";
@@ -33,9 +34,14 @@ export function createDefaultVoiceProviders(): VoiceProviderPort[] {
 
 export function registerVoiceModule(
   app: FastifyInstance,
+  db: AervoxDatabase,
   options: VoiceModuleOptions = {},
 ): VoiceService {
-  const service = new VoiceService(options.providers ?? createDefaultVoiceProviders());
+  const configRepository = new SqliteVoiceConfigRepository(db);
+  const service = new VoiceService(
+    options.providers ?? createDefaultVoiceProviders(),
+    configRepository,
+  );
   registerVoiceRoutes(app, service);
   return service;
 }

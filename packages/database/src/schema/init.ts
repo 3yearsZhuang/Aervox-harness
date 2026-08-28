@@ -569,6 +569,19 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   `);
 
   await client.execute(`
+    CREATE TABLE IF NOT EXISTS mistake_dispositions (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      question_id TEXT NOT NULL REFERENCES questions(id),
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(workspace_id, subject_user_id, question_id)
+    );
+  `);
+
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS practice_sessions (
       id TEXT PRIMARY KEY,
       workspace_id TEXT NOT NULL,
@@ -619,7 +632,10 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       due_at TEXT NOT NULL,
       interval_days INTEGER NOT NULL DEFAULT 1,
       scheduler_version INTEGER NOT NULL DEFAULT 1,
+      timezone_snapshot TEXT NOT NULL DEFAULT 'UTC',
       status TEXT NOT NULL DEFAULT 'active',
+      completion_is_correct INTEGER,
+      next_review_id TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -630,6 +646,9 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await client.execute(`
     CREATE INDEX IF NOT EXISTS review_items_tenant_due_idx ON review_items(workspace_id, subject_user_id, due_at);
   `);
+  await addColumnIfMissing(client, "review_items", "completion_is_correct", "completion_is_correct INTEGER");
+  await addColumnIfMissing(client, "review_items", "next_review_id", "next_review_id TEXT");
+  await addColumnIfMissing(client, "review_items", "timezone_snapshot", "timezone_snapshot TEXT NOT NULL DEFAULT 'UTC'");
 
   // 7. 反馈域（PRD §8）
   await client.execute(`
@@ -1448,6 +1467,74 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   `);
   await client.execute(`
     CREATE UNIQUE INDEX IF NOT EXISTS skill_releases_skill_stage_active_idx ON skill_releases(skill_key, stage) WHERE active = 1;
+  `);
+
+  // CR-011 语音输出配置（系统核心能力 · 本地语音模型配置）：每租户一行本地语音模型
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS voice_configs (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      provider_id TEXT NOT NULL,
+      model_path TEXT,
+      model_id TEXT NOT NULL,
+      speaker_id TEXT,
+      settings_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS voice_configs_tenant_unique_idx ON voice_configs(workspace_id, subject_user_id);
+  `);
+
+  // CR-012 大语言模型与供应商配置（WebUI 设置与运行时模型路由）：每租户一行
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS llm_configs (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      provider_type TEXT NOT NULL DEFAULT 'ollama',
+      base_url TEXT NOT NULL,
+      api_key TEXT,
+      model_id TEXT NOT NULL,
+      temperature REAL NOT NULL DEFAULT 0.7,
+      max_tokens INTEGER DEFAULT 4096,
+      settings_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS llm_configs_tenant_unique_idx ON llm_configs(workspace_id, subject_user_id);
+  `);
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS tool_executions (
+      id TEXT PRIMARY KEY,
+      turn_id TEXT NOT NULL REFERENCES turns(id) ON DELETE CASCADE,
+      attempt_id TEXT NOT NULL,
+      invocation_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      arguments_json TEXT,
+      status TEXT NOT NULL,
+      output_json TEXT,
+      error TEXT,
+      started_at TEXT NOT NULL,
+      finished_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS tool_executions_turn_idx ON tool_executions(turn_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS tool_executions_attempt_idx ON tool_executions(attempt_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS tool_executions_tenant_idx ON tool_executions(workspace_id, subject_user_id);
   `);
 }
 

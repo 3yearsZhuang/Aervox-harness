@@ -97,6 +97,27 @@ export const voiceModelSchema = z.object({
   source: z.enum(["local", "remote"]),
 });
 
+/** 本地语音模型配置（WebUI 设置「语音」读写；CR-011 阶段 1） */
+export const localVoiceConfigSchema = z.object({
+  enabled: z.boolean(),
+  providerId: z.string().min(1),
+  modelPath: z.string().min(1).optional(),
+  modelId: z.string().min(1),
+  speakerId: z.string().min(1).optional(),
+  settings: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+});
+/** 本地语音模型配置读取响应（缺省时按 env 给出默认值） */
+export const localVoiceConfigResponseSchema = z.object({
+  enabled: z.boolean(),
+  providerId: z.string().min(1),
+  modelPath: z.string().optional(),
+  modelId: z.string().min(1),
+  speakerId: z.string().optional(),
+  settings: z
+    .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+    .default({}),
+});
+
 export const createPersonaRequestSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
