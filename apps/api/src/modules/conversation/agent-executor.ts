@@ -118,7 +118,7 @@ export class SqliteExecutionStore implements ExecutionStorePort {
   async finalizeAttempt(input: {
     turnId: string;
     attemptId: string;
-    status: "Running" | "Completed" | "Failed" | "Interrupted";
+    status: "Running" | "Completed" | "Failed" | "Interrupted" | "Cancelled";
     expectedFencingToken?: number;
   }): Promise<{ ok: boolean }> {
     const updated = await this.repo.finalizeTurnAttempt(this.tenant, {
@@ -128,6 +128,19 @@ export class SqliteExecutionStore implements ExecutionStorePort {
       expectedFencingToken: input.expectedFencingToken,
     });
     return { ok: Boolean(updated) };
+  }
+
+  /** 2b：用户取消请求位（CAS 委托仓储） */
+  async requestCancelAttempt(input: {
+    turnId: string;
+    attemptId: string;
+  }): Promise<{ ok: boolean; reason?: "not_found" | "already_finalized" }> {
+    return this.repo.requestCancelTurnAttempt(this.tenant, input);
+  }
+
+  /** 2b：executor 取消检查点（轮询仓储状态） */
+  async isCancelRequested(input: { turnId: string; attemptId: string }): Promise<boolean> {
+    return (await this.repo.getTurnAttemptStatus(this.tenant, input)) === "CancelRequested";
   }
 
   /** 工具副作用证据落库（tool_executions，AVX-HAR-001 §12） */
@@ -144,6 +157,30 @@ export class SqliteExecutionStore implements ExecutionStorePort {
       startedAt: input.startedAt,
       finishedAt: input.finishedAt,
     });
+  }
+
+  /** 2c：幂等预留（attempt+invocation 唯一） */
+  async reserveToolExecution(input: {
+    turnId: string;
+    attemptId: string;
+    invocationId: string;
+    name: string;
+    arguments: unknown;
+  }): Promise<{ ok: boolean; alreadyReserved: boolean }> {
+    return this.repo.reserveToolExecution(this.tenant, input);
+  }
+
+  /** 2c：以权威结果收口预留行 */
+  async updateToolExecutionResult(input: {
+    turnId: string;
+    attemptId: string;
+    invocationId: string;
+    status: import("@aervox/agent-loop").ToolExecutionStatus;
+    output?: unknown;
+    error?: string;
+    finishedAt?: string;
+  }): Promise<{ ok: boolean }> {
+    return this.repo.updateToolExecutionResult(this.tenant, input);
   }
 }
 
@@ -273,7 +310,12 @@ export async function runLoopTurnOnce(
   repo: SqliteConversationRepository,
   tenant: TenantContext,
   input: { turnId: string; sessionId: string; attemptId: string; userMessage: string },
-  deps: { toolRuntime?: ToolRuntime; llmConfigService?: LLMConfigService } = {},
+  deps: {
+    toolRuntime?: ToolRuntime;
+    llmConfigService?: LLMConfigService;
+    /** 2d：删除/撤权水位未追平 → Loop fail-closed（AVX-HAR-001 §11.3） */
+    deletionGate?: import("@aervox/agent-loop").DeletionGatePort;
+  } = {},
 ): Promise<void> {
   const store = new SqliteExecutionStore(repo, tenant);
 
@@ -317,6 +359,7 @@ export async function runLoopTurnOnce(
       provider,
       contextBuilder: defaultContextBuilder,
       tools,
+      deletionGate: deps.deletionGate,
     },
     input,
   );
