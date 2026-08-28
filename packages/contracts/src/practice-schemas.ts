@@ -55,6 +55,13 @@ export const practiceReportSchema = z.object({
   incorrectCount: z.number().int(),
   unverifiableCount: z.number().int(),
   accuracy: z.number().nullable(),
+  avgTimeSpentSec: z.number().int().nullable(),
+  totalHintsUsed: z.number().int().nonnegative(),
+  guidance: z.object({
+    difficulty: z.enum(["ease", "maintain", "increase"]),
+    reasonCode: z.enum(["insufficient_judged_answers", "low_accuracy", "high_accuracy_fast_no_hints", "steady_progress"]),
+    message: z.string(),
+  }),
   nextStep: z.enum(["review_scheduled", "await_review", "continue"]),
 });
 
@@ -100,6 +107,8 @@ export const createAttemptRequestSchema = z.object({
   answer: z.string(),
   sessionId: z.string().optional(),
   timeZone: z.string().min(1).optional(),
+  elapsedSeconds: z.number().int().nonnegative().optional(),
+  hintsUsed: z.number().int().nonnegative().optional(),
 });
 
 export const reviewItemSchema = z.object({

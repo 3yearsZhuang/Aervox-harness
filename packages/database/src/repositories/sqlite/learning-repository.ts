@@ -313,6 +313,8 @@ export class SqliteLearningRepository implements ILearningRepository {
       judgement: string;
       evidence?: unknown;
       idempotencyKey?: string | null;
+      hintCount?: number;
+      timeSpentSec?: number;
     },
   ): Promise<QuestionAttemptModel> {
     assertTenantContext(tenant);
@@ -328,6 +330,8 @@ export class SqliteLearningRepository implements ILearningRepository {
         judgement: attemptData.judgement,
         evidence: attemptData.evidence ?? null,
         idempotencyKey: attemptData.idempotencyKey ?? null,
+        hintCount: attemptData.hintCount ?? 0,
+        timeSpentSec: attemptData.timeSpentSec ?? null,
         createdAt: new Date().toISOString(),
       })
       .returning();
@@ -487,6 +491,8 @@ export class SqliteLearningRepository implements ILearningRepository {
       judgement: string;
       evidence?: unknown;
       idempotencyKey: string;
+      hintCount?: number;
+      timeSpentSec?: number;
     },
   ): Promise<{ attempt: QuestionAttemptModel; created: boolean }> {
     assertTenantContext(tenant);
@@ -521,6 +527,8 @@ export class SqliteLearningRepository implements ILearningRepository {
           judgement: attemptData.judgement,
           evidence: attemptData.evidence ?? null,
           idempotencyKey: attemptData.idempotencyKey,
+          hintCount: attemptData.hintCount ?? 0,
+          timeSpentSec: attemptData.timeSpentSec ?? null,
           createdAt: new Date().toISOString(),
         })
         .returning();

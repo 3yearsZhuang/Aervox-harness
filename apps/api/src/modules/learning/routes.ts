@@ -7,7 +7,7 @@ import type { FastifyInstance } from "fastify";
 import { createLearningGoalSchema, updateLearningGoalSchema, updateMistakeRequestSchema } from "@aervox/contracts";
 import type { SqliteLearningRepository } from "@aervox/database";
 import { resolveTenant } from "../../shared/tenant.js";
-import { createReviewItem, getLocalDayBounds, getPracticeSessionProgress, normalizeMistakeNote, updateAfterAnswer } from "@aervox/practice-review";
+import { createReviewItem, getLocalDayBounds, getPracticeGuidance, getPracticeSessionProgress, normalizeMistakeNote, updateAfterAnswer } from "@aervox/practice-review";
 
 let seq = 0;
 const estimatedMinutesPerReview = 2;
@@ -44,11 +44,16 @@ function nextStepFor(judgement: "correct" | "incorrect" | "unverifiable"): strin
   return "await_review";
 }
 
-function practiceReport(sessionId: string, attempted: Array<{ judgement: string }>, questionCount: number) {
+function practiceReport(sessionId: string, attempted: Array<{ judgement: string; hintCount?: number | null; timeSpentSec?: number | null }>, questionCount: number) {
   const correctCount = attempted.filter((attempt) => attempt.judgement === "correct").length;
   const incorrectCount = attempted.filter((attempt) => attempt.judgement === "incorrect").length;
   const unverifiableCount = attempted.filter((attempt) => attempt.judgement === "unverifiable").length;
   const judgedCount = correctCount + incorrectCount;
+  const timedAttempts = attempted.filter((attempt) => attempt.timeSpentSec !== undefined && attempt.timeSpentSec !== null);
+  const avgTimeSpentSec = timedAttempts.length === 0
+    ? null
+    : Math.round(timedAttempts.reduce((total, attempt) => total + (attempt.timeSpentSec ?? 0), 0) / timedAttempts.length);
+  const totalHintsUsed = attempted.reduce((total, attempt) => total + (attempt.hintCount ?? 0), 0);
   return {
     sessionId,
     questionCount,
@@ -58,6 +63,9 @@ function practiceReport(sessionId: string, attempted: Array<{ judgement: string 
     incorrectCount,
     unverifiableCount,
     accuracy: judgedCount === 0 ? null : correctCount / judgedCount,
+    avgTimeSpentSec,
+    totalHintsUsed,
+    guidance: getPracticeGuidance({ correctCount, incorrectCount, unverifiableCount, avgTimeSpentSec, totalHintsUsed }),
     nextStep:
       incorrectCount > 0 ? "review_scheduled" : unverifiableCount > 0 ? "await_review" : "continue",
   };
@@ -247,10 +255,24 @@ export function registerLearningRoutes(
       answer?: string;
       evidence?: unknown;
       timeZone?: string;
+      elapsedSeconds?: unknown;
+      hintsUsed?: unknown;
     };
     if (!body.answer) return reply.code(400).send({ error: "answer is required" });
     if (body.timeZone !== undefined && !validTimeZone(body.timeZone)) {
       return reply.code(400).send({ error: "timeZone must be a valid IANA time zone" });
+    }
+    const elapsedSeconds = typeof body.elapsedSeconds === "number" && Number.isInteger(body.elapsedSeconds) && body.elapsedSeconds >= 0
+      ? body.elapsedSeconds
+      : body.elapsedSeconds === undefined ? undefined : null;
+    const hintsUsed = typeof body.hintsUsed === "number" && Number.isInteger(body.hintsUsed) && body.hintsUsed >= 0
+      ? body.hintsUsed
+      : body.hintsUsed === undefined ? undefined : null;
+    if (elapsedSeconds === null) {
+      return reply.code(400).send({ error: "elapsedSeconds must be a non-negative integer" });
+    }
+    if (hintsUsed === null) {
+      return reply.code(400).send({ error: "hintsUsed must be a non-negative integer" });
     }
     const idempotencyKey = req.headers["idempotency-key"];
     const hasIdempotencyKey = typeof idempotencyKey === "string" && idempotencyKey.length > 0;
@@ -276,6 +298,8 @@ export function registerLearningRoutes(
           judgement,
           evidence: body.evidence,
           idempotencyKey,
+          hintCount: hintsUsed,
+          timeSpentSec: elapsedSeconds,
         })
       : {
           attempt: await learningRepo.recordAttempt(tenant, {
@@ -286,6 +310,8 @@ export function registerLearningRoutes(
             judgement,
             evidence: body.evidence,
             idempotencyKey: null,
+            hintCount: hintsUsed,
+            timeSpentSec: elapsedSeconds,
           }),
           created: true,
         };
