@@ -21,7 +21,7 @@ sources:
 - 提出人：kikoyida · 2026-08-28
 - 修改人：kikoyida · 2026-08-28
 
-关联：[PRD](../PRD.md#prd-cap-014-019)、[需求追踪](../REQUIREMENTS_TRACEABILITY.md#4-cap-001cap-032-覆盖矩阵)、[CR-008](CR-008-practice-session-contract.md)
+关联：[PRD](../PRD.md#prd-cap-014-019)、[需求追踪](../REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)、[CR-008](CR-008-practice-session-contract.md)
 
 ## 变更原因
 
