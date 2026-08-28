@@ -5,7 +5,7 @@
  * @aervox/database 仓储适配（见 apps/api），两者行为约定以本文件为基准。
  */
 import type { AgentStreamEvent, AgentStreamEventInput, ExecutionStorePort } from "./ports.js";
-import type { AttemptStatus } from "./types.js";
+import type { AttemptStatus, ToolExecutionRecord } from "./types.js";
 
 interface AttemptRecord {
   id: string;
@@ -17,6 +17,7 @@ interface AttemptRecord {
 export class InMemoryExecutionStore implements ExecutionStorePort {
   private readonly eventsByTurn = new Map<string, AgentStreamEvent[]>();
   private readonly attempts = new Map<string, AttemptRecord>();
+  private readonly toolExecutionLog: ToolExecutionRecord[] = [];
 
   seedAttempt(input: {
     id: string;
@@ -76,6 +77,15 @@ export class InMemoryExecutionStore implements ExecutionStorePort {
     if (attempt) {
       attempt.status = input.status;
     }
+  }
+
+  async recordToolExecution(input: ToolExecutionRecord): Promise<void> {
+    this.toolExecutionLog.push(input);
+  }
+
+  /** 工具副作用证据日志（测试断言用） */
+  toolExecutionRecords(): ToolExecutionRecord[] {
+    return this.toolExecutionLog;
   }
 
   attemptStatus(attemptId: string): AttemptStatus | undefined {

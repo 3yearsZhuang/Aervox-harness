@@ -1,12 +1,13 @@
 /**
- * Aervox｜思隅 @aervox/api — Agent Loop SQLite 执行存储适配（阶段 1）
+ * Aervox｜思隅 @aervox/api — Agent Loop SQLite 执行存储适配 + 工具接线（阶段 1+2d）
  *
- * 实现 @aervox/agent-loop 的 ExecutionStorePort，宿主为对话仓储；
- * 迁移期 native-agent-loop 在 API 进程内挂载（AVX-HAR-001 §13），
- * 阶段 4 抽出独立 Host 时仅替换接线，Loop 核心控制流不变。
+ * 实现 @aervox/agent-loop 的 ExecutionStorePort 与 ToolProviderPort（只读白名单），
+ * 宿主为对话仓储 + 工具运行时；迁移期 native-agent-loop 在 API 进程内挂载
+ * （AVX-HAR-001 §13），阶段 4 抽出独立 Host 时仅替换接线。
  */
 import {
   createReplayProvider,
+  createScriptedProvider,
   defaultContextBuilder,
   executeTurn,
 } from "@aervox/agent-loop";
@@ -14,8 +15,13 @@ import type {
   AgentStreamEvent,
   AgentStreamEventInput,
   ExecutionStorePort,
+  ReplayStep,
+  ToolExecutionInput,
+  ToolExecutionResult,
+  ToolProviderPort,
 } from "@aervox/agent-loop";
 import type { SqliteConversationRepository, TenantContext } from "@aervox/database";
+import type { ToolRuntime } from "../tools/runtime.js";
 
 const now = (): string => new Date().toISOString();
 let seqCounter = 0;
@@ -98,20 +104,78 @@ export class SqliteExecutionStore implements ExecutionStorePort {
       status: input.status,
     });
   }
+
+  /** 工具副作用证据落库（tool_executions，AVX-HAR-001 §12） */
+  async recordToolExecution(input: import("@aervox/agent-loop").ToolExecutionRecord): Promise<void> {
+    await this.repo.recordToolExecution(this.tenant, {
+      turnId: input.turnId,
+      attemptId: input.attemptId,
+      invocationId: input.invocationId,
+      name: input.name,
+      arguments: input.arguments,
+      status: input.status,
+      output: input.output,
+      error: input.error ?? null,
+      startedAt: input.startedAt,
+      finishedAt: input.finishedAt,
+    });
+  }
 }
 
-/** 迁移期接线：创建 Turn 后立即以 Replay Provider 执行一次（实时 Provider 阶段 2 接入） */
-export async function runReplayTurnOnce(
+/**
+ * 把主仓 ToolRuntime（tool_registrations + handler）适配为 agent-loop 的 ToolProviderPort：
+ * - 只读白名单（PET-05 read_only）可被 Loop 自主调用；
+ * - 未注册 / write_with_approval / privileged 一律拒绝（fail-closed）。
+ */
+export function createRuntimeToolProvider(runtime: ToolRuntime, tenant: TenantContext): ToolProviderPort {
+  return {
+    // 工具清单随注册表动态变化，不在此静态缓存（execute 时实时校验）
+    tools: [],
+    async execute(input: ToolExecutionInput): Promise<ToolExecutionResult> {
+      const registrations = await runtime.listTools();
+      const tool = registrations.find((t) => t.name === input.name && t.enabled === 1);
+      if (!tool) {
+        return { ok: false, error: `unregistered_tool: ${input.name}` };
+      }
+      if (tool.safetyLevel !== "read_only") {
+        return { ok: false, error: `requires_approval: ${tool.id}（write_with_approval / privileged）` };
+      }
+      try {
+        const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: false });
+        return { ok: true, output };
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : "tool_execution_error" };
+      }
+    },
+  };
+}
+
+/** 阶段 2d 工具路径脚本（AERVOX_LOOP_PROVIDER=scripted 时使用；跨 Step 验证只读工具链） */
+export const API_TOOL_SCRIPT: readonly ReplayStep[] = [
+  {
+    text: "我先查一下学习笔记。",
+    toolCalls: [{ id: "call_api_1", name: "aervox_notes_search", arguments: { query: "复习计划" } }],
+  },
+  { text: "查到了：今天复习三角函数。", toolCalls: [] },
+];
+
+/** 迁移期接线：创建 Turn 后立即执行一次 Loop（Replay 默认；AERVOX_LOOP_PROVIDER=scripted 走工具链） */
+export async function runLoopTurnOnce(
   repo: SqliteConversationRepository,
   tenant: TenantContext,
   input: { turnId: string; sessionId: string; attemptId: string; userMessage: string },
+  deps: { toolRuntime?: ToolRuntime } = {},
 ): Promise<void> {
   const store = new SqliteExecutionStore(repo, tenant);
+  const useToolScript = process.env.AERVOX_LOOP_PROVIDER === "scripted";
+  const provider = useToolScript ? createScriptedProvider(API_TOOL_SCRIPT) : createReplayProvider();
+  const tools = deps.toolRuntime ? createRuntimeToolProvider(deps.toolRuntime, tenant) : undefined;
   const result = await executeTurn(
     {
       execution: store,
-      provider: createReplayProvider(),
+      provider,
       contextBuilder: defaultContextBuilder,
+      tools,
     },
     input,
   );
