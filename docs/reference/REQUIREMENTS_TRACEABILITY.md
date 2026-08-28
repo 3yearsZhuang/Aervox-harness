@@ -215,6 +215,8 @@
 | Agent Harness Loop 阶段 3b-A：租约 TTL 与续租（CAS 续租 + Step 间持有） | CAP-002/007 + 基础设施 | `packages/database`（`turn_attempts.lease_expires_at` 列 + init `addColumnIfMissing` 幂等补齐 + `claimTurnAttempt` 写 TTL + `renewTurnAttemptLease` 续租 CAS）、`packages/agent-loop`（`ExecutionStorePort.renewAttemptLease` + executor Step 间续租 + 续租断言）、`apps/api`（Sqlite 适配续租） | 2026-08-28 | `@aervox/agent-loop` 18 测试（含续租断言 single=0/tool=1）；`packages/database` 107 测试（含 conversation-lease 3：claim TTL / CAS 续租 / 错误 leaseId 拒绝）；ci-code 全量 | 原生 |
 | Agent Harness Loop 阶段 3b-B：租约抢占 + worker 恢复 cycle + fencing 单一终态 | CAP-002/007 + 基础设施 | `packages/database`（`claimTurnAttempt` 抢占语义：Running+fencing+租约空/过期才可领；`finalizeTurnAttempt` 单一终态：仅 Running + fencing 匹配可提交；`recoverExpiredAttempts`：过期 Running → fencing+1 + Interrupted）、`packages/agent-loop`（Step 首部租约活性校验：续租即探活，抢占后 lease_lost 中止并丢弃迟到事件；in-memory `simulateLeaseLoss`）、`apps/worker`（`attempt-recovery` cycle 接入 runTick） | 2026-08-28 | `@aervox/agent-loop` 19 测试（含 lease-guard 2：抢占中止+迟到丢弃 / finalize 单一终态）；`packages/database` 111 测试（含 conversation-lease 7：抢占不可/可、过期重领、finalize 拒绝二次提交、recover 恢复）；ci-code 全量 | 原生 |
 
+| 底座边界冻结（ADR-016 + import 边界门禁 `scripts/import-boundary.mjs`） | 基础设施 | `docs/reference/adr/ADR-016-base-boundaries.md`、`scripts/import-boundary.{mjs,test.mjs}`、根 `package.json`（`check:boundary`）、`mise.toml`（ci-code 前置）、`.github/workflows/ci.yml`（触发路径 + `scripts/**`）、`docs/reference/adr/README.md`、`docs/DOC_REGISTRY.md` | 2026-08-28 | 边界脚本全仓零违规 + 单测 10/10（覆盖 5 规则、type/副作用/动态 import、宿主合法消费）+ 注入违规实测拦截（exit 1）；`mise tasks run ci-code`/`ci-docs` 通过 | 原生 |
+
 ## 5. 原子需求字段模板
 
 每条 `US/FR/BR/NFR/DATA/AIQ/SEC/PRIV/OPS` 应使用以下字段。没有影响的字段填写“不适用”并说明原因，不得留空。
