@@ -110,6 +110,44 @@ export interface ExecutionStorePort {
 
   /** 阶段 7（ADR-017）：ContextManifest 快照写入（每 Turn 首个 Step；宿主落库 context_manifests） */
   recordContextManifest(input: ContextManifestRecord): Promise<void>;
+
+  /**
+   * B4-D（§12.2）：原子提交「工具结果账本收口 + tool_result 事件」。
+   * 同一事务内写入 tool_executions 结果与 turn_stream_events 事件，避免崩溃把两者拆散。
+   * fencing 失配（被抢占/恢复）→ 抛 LeaseLostError（与 appendEvent 同语义）。
+   */
+  recordToolOutcome(input: {
+    turnId: string;
+    attemptId: string;
+    sequence: number;
+    invocationId: string;
+    name: string;
+    arguments: unknown;
+    status: ToolExecutionStatus;
+    output?: unknown;
+    error?: string;
+    startedAt: string;
+    finishedAt?: string;
+    eventData: unknown;
+    safetyDecision: SafetyDecision;
+    expectedFencingToken: number;
+  }): Promise<{ ok: boolean }>;
+
+  /**
+   * B4-D（§12.2）：原子提交「Attempt 终态 + 收尾事件（done/error）」。
+   * 终态 CAS（Running/CancelRequested + fencing 匹配）成功才一并写事件；
+   * 失败返回 ok:false（不抛，调用方按 contested 收敛，杜绝孤儿 done/终态错位）。
+   */
+  finalizeAttemptWithEvent(input: {
+    turnId: string;
+    attemptId: string;
+    status: AttemptStatus;
+    expectedFencingToken: number;
+    sequence: number;
+    eventType: Extract<LoopEventType, "done" | "error">;
+    eventData: unknown;
+    safetyDecision?: SafetyDecision;
+  }): Promise<{ ok: boolean }>;
 }
 
 /** 追加事件的输入（executor 构造；id / occurredAt / payloadVersion 由 store 补齐） */

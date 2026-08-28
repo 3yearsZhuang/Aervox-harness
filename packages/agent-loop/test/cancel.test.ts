@@ -134,9 +134,18 @@ describe("阶段 2b CancelRequested 闭环", () => {
 
   it("终态竞态：Cancelled finalize 被抢占时返回 failed 且不写 done 事件", async () => {
     class ContestedStore extends InMemoryExecutionStore {
-      override async finalizeAttempt(input: { turnId: string; attemptId: string; status: string; expectedFencingToken?: number }) {
+      override async finalizeAttemptWithEvent(input: {
+        turnId: string;
+        attemptId: string;
+        status: string;
+        expectedFencingToken: number;
+        sequence: number;
+        eventType: "done" | "error";
+        eventData: unknown;
+        safetyDecision?: unknown;
+      }) {
         if (input.status === "Cancelled") return { ok: false };
-        return super.finalizeAttempt(input as never);
+        return super.finalizeAttemptWithEvent(input as never);
       }
       override async isCancelRequested(): Promise<boolean> {
         return true;

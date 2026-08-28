@@ -178,24 +178,21 @@ export async function executeTurn(
   // 2b：用户取消闭环（AVX-HAR-001 §11.1）——先 CAS 夺终态（Cancelled），成功才写 done 事件；
   // finalize 返回 false（与它方终态竞态）则静默中止，不产生不一致事件。
   const finalizeCancelled = async (atSequence: number): Promise<ExecuteResult> => {
-    const finalized = await execution.finalizeAttempt({
+    // B4-D：终态 + done 事件原子提交（§12.2；CAS 失败即他方已终结 → 无孤儿 done）
+    const finalized = await execution.finalizeAttemptWithEvent({
       turnId: input.turnId,
       attemptId: input.attemptId,
       status: "Cancelled",
       expectedFencingToken: claimFencingToken,
-    });
-    if (!finalized.ok) {
-      return { status: "failed", attemptId: input.attemptId, reason: "cancelled_finalize_contested" };
-    }
-    await execution.appendEvent({
-      turnId: input.turnId,
-      attemptId: input.attemptId,
-      expectedFencingToken: claimFencingToken,
       sequence: atSequence,
       eventType: "done",
-      data: { status: "Cancelled", isComplete: false, lastSequence: atSequence },
+      eventData: { status: "Cancelled", isComplete: false, lastSequence: atSequence },
       safetyDecision: "approved",
     });
+    if (!finalized.ok) {
+      // 终态 CAS 失败（他方已终结/抢占）→ 不写 done，返回 contested
+      return { status: "failed", attemptId: input.attemptId, reason: "cancelled_finalize_contested" };
+    }
     return { status: "cancelled", attemptId: input.attemptId, lastSequence: atSequence, stepsTaken };
   };
   /** 检查点：已被请求取消时立刻走取消终态 */
@@ -208,24 +205,20 @@ export async function executeTurn(
 
   /** 2d：预算/环境原因终止（Interrupted + done；§5.3 budget-exhausted、§11.3 删除未追平） */
   const finalizeInterrupted = async (atSequence: number, reason: string): Promise<ExecuteResult> => {
-    const finalized = await execution.finalizeAttempt({
+    // B4-D：终态 + done 事件原子提交（§12.2；CAS 失败即他方已终结 → 无孤儿 done）
+    const finalized = await execution.finalizeAttemptWithEvent({
       turnId: input.turnId,
       attemptId: input.attemptId,
       status: "Interrupted",
       expectedFencingToken: claimFencingToken,
+      sequence: atSequence,
+      eventType: "done",
+      eventData: { status: "Interrupted", isComplete: false, lastSequence: atSequence, reason },
+      safetyDecision: "approved",
     });
     if (!finalized.ok) {
       return { status: "failed", attemptId: input.attemptId, reason: `${reason}_finalize_contested` };
     }
-    await execution.appendEvent({
-      turnId: input.turnId,
-      attemptId: input.attemptId,
-      expectedFencingToken: claimFencingToken,
-      sequence: atSequence,
-      eventType: "done",
-      data: { status: "Interrupted", isComplete: false, lastSequence: atSequence, reason },
-      safetyDecision: "approved",
-    });
     return { status: "failed", attemptId: input.attemptId, reason };
   };
 
@@ -410,20 +403,16 @@ export async function executeTurn(
         // 2b：检查点 · 自然完成终态提交前（取消优先，杜绝取消后写 Completed done）
         const finalCancel = await prematureTermination(sequence);
         if (finalCancel) return finalCancel;
-        await execution.appendEvent({
-          turnId: input.turnId,
-          attemptId: input.attemptId,
-          expectedFencingToken: claimFencingToken,
-          sequence,
-          eventType: "done",
-          data: { status: "Completed", messageId, isComplete: true, lastSequence: sequence },
-          safetyDecision: "approved",
-        });
-        await execution.finalizeAttempt({
+        // B4-D：终态 + done 事件原子提交（§12.2）
+        await execution.finalizeAttemptWithEvent({
           turnId: input.turnId,
           attemptId: input.attemptId,
           status: "Completed",
           expectedFencingToken: claimFencingToken,
+          sequence,
+          eventType: "done",
+          eventData: { status: "Completed", messageId, isComplete: true, lastSequence: sequence },
+          safetyDecision: "approved",
         });
         return { status: "completed", attemptId: input.attemptId, lastSequence: sequence, stepsTaken };
       }
@@ -480,11 +469,16 @@ export async function executeTurn(
         // 2b：检查点 · 工具环境缺失 fail-closed 提交前（取消优先）
         const disabledCancel = await prematureTermination(sequence);
         if (disabledCancel) return disabledCancel;
-        await execution.finalizeAttempt({
+        // B4-D：终态 + error 事件原子提交（§12.2）
+        await execution.finalizeAttemptWithEvent({
           turnId: input.turnId,
           attemptId: input.attemptId,
           status: "Failed",
           expectedFencingToken: claimFencingToken,
+          sequence,
+          eventType: "error",
+          eventData: { code: "TOOLS_DISABLED", retryable: true, message: "tools_disabled", lastSequence: sequence },
+          safetyDecision: "approved",
         });
         return { status: "failed", attemptId: input.attemptId, reason: "tools_disabled" };
       }
@@ -514,13 +508,33 @@ export async function executeTurn(
         });
 
         let result: ToolCallResult;
-        let reserved = false;
         if (seenToolCalls.has(dedupeKey(call.name, call.arguments))) {
           result = { id: call.id, name: call.name, ok: false, error: "duplicate_tool_call" };
+          // B4-D：duplicate 账本 + tool_result 事件原子提交（事件对模型可见，模型据之收敛）
+          await execution.recordToolOutcome({
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            sequence: sequence++,
+            invocationId: executionId,
+            name: call.name,
+            arguments: call.arguments,
+            status: "duplicate",
+            error: "duplicate_tool_call",
+            startedAt,
+            finishedAt: new Date().toISOString(),
+            eventData: {
+              invocationId: call.id,
+              executionId,
+              name: call.name,
+              ok: false,
+              error: "duplicate_tool_call",
+            },
+            safetyDecision: "approved",
+            expectedFencingToken: claimFencingToken,
+          });
         } else {
           seenToolCalls.add(dedupeKey(call.name, call.arguments));
           // 2c：幂等预留（§9 idempotency reservation）——意图先于外部副作用持久化（executionId 为 Host 键）
-          reserved = true;
           await execution.reserveToolExecution({
             turnId: input.turnId,
             attemptId: input.attemptId,
@@ -568,18 +582,46 @@ export async function executeTurn(
               : result.error === "tool_timeout"
                 ? "timeout_error"
                 : "rejected";
-          await execution.updateToolExecutionResult({
-            turnId: input.turnId,
-            attemptId: input.attemptId,
-            invocationId: executionId,
-            status: finalStatus,
-            output: result.output,
-            error: result.needsApproval ? "requires_approval" : result.error,
-          });
+          // B4-D：账本收口 + tool_result 事件原子提交（§12.2）——写工具需授权时账本记
+          // pending_approval 但不发 tool_result（等待授权），与既有语义一致。
+          if (result.needsApproval) {
+            await execution.updateToolExecutionResult({
+              turnId: input.turnId,
+              attemptId: input.attemptId,
+              invocationId: executionId,
+              status: finalStatus,
+              output: result.output,
+              error: result.needsApproval ? "requires_approval" : result.error,
+            });
+          } else {
+            await execution.recordToolOutcome({
+              turnId: input.turnId,
+              attemptId: input.attemptId,
+              sequence: sequence++,
+              invocationId: executionId,
+              name: call.name,
+              arguments: call.arguments,
+              status: finalStatus,
+              output: result.output,
+              error: result.error,
+              startedAt,
+              finishedAt: new Date().toISOString(),
+              eventData: {
+                invocationId: call.id,
+                executionId,
+                name: call.name,
+                ok: result.ok,
+                output: result.output,
+                error: result.error,
+              },
+              safetyDecision: "approved",
+              expectedFencingToken: claimFencingToken,
+            });
+          }
         }
         results.push(result);
 
-        // 阶段 3a：写工具需授权（宿主未执行）→ 记审批待决事件，中断等待授权（预留行已由 update 收口为 pending_approval）
+        // 阶段 3a：写工具需授权（宿主未执行）→ 记审批待决事件，中断等待授权（预留行已收口为 pending_approval）
         if (result.needsApproval) {
           const info = result.needsApproval;
           await execution.appendEvent({
@@ -591,55 +633,21 @@ export async function executeTurn(
             data: { approvalId: info.approvalId, toolName: info.toolName, argumentsHash: info.argumentsHash },
             safetyDecision: "approved",
           });
-          await execution.appendEvent({
-            turnId: input.turnId,
-            attemptId: input.attemptId,
-            expectedFencingToken: claimFencingToken,
-            sequence,
-            eventType: "done",
-            data: { status: "Interrupted", messageId, isComplete: false, lastSequence: sequence },
-            safetyDecision: "approved",
-          });
-          await execution.finalizeAttempt({
+          // B4-D：审批路径终态 + done 原子提交（§12.2）
+          const approvalFinalized = await execution.finalizeAttemptWithEvent({
             turnId: input.turnId,
             attemptId: input.attemptId,
             status: "Interrupted",
             expectedFencingToken: claimFencingToken,
+            sequence,
+            eventType: "done",
+            eventData: { status: "Interrupted", messageId, isComplete: false, lastSequence: sequence },
+            safetyDecision: "approved",
           });
+          void approvalFinalized;
           return { status: "failed", attemptId: input.attemptId, reason: "pending_approval" };
         }
 
-        await execution.appendEvent({
-          turnId: input.turnId,
-          attemptId: input.attemptId,
-          expectedFencingToken: claimFencingToken,
-          sequence: sequence++,
-          eventType: "tool_result",
-          data: {
-            invocationId: call.id,
-            executionId,
-            name: call.name,
-            ok: result.ok,
-            output: result.output,
-            error: result.error,
-          },
-          safetyDecision: "approved",
-        });
-
-        // 副作用证据：duplicate（未走预留）独立留痕；已预留调用由 updateToolExecutionResult 收口
-        if (!reserved) {
-          await execution.recordToolExecution({
-            turnId: input.turnId,
-            attemptId: input.attemptId,
-            invocationId: executionId,
-            name: call.name,
-            arguments: call.arguments,
-            status: "duplicate",
-            error: "duplicate_tool_call",
-            startedAt,
-            finishedAt: new Date().toISOString(),
-          });
-        }
       }
 
       // 工具结果回填上下文（工具消息），模型下一轮可见
@@ -670,25 +678,21 @@ export async function executeTurn(
     // 2b：检查点 · 预算终止前
     const budgetCancel = await prematureTermination(sequence);
     if (budgetCancel) return budgetCancel;
-    await execution.appendEvent({
+    // B4-D：终态 + done 事件原子提交（§12.2）
+    await execution.finalizeAttemptWithEvent({
       turnId: input.turnId,
       attemptId: input.attemptId,
+      status: "Interrupted",
       expectedFencingToken: claimFencingToken,
       sequence,
       eventType: "done",
-      data: {
+      eventData: {
         status: "Interrupted",
         messageId,
         isComplete: false,
         lastSequence: sequence,
       },
       safetyDecision: "approved",
-    });
-    await execution.finalizeAttempt({
-      turnId: input.turnId,
-      attemptId: input.attemptId,
-      status: "Interrupted",
-      expectedFencingToken: claimFencingToken,
     });
     return { status: "failed", attemptId: input.attemptId, reason: "max_steps" };
   } catch (err) {
@@ -697,25 +701,21 @@ export async function executeTurn(
     if (err instanceof LeaseLostError || heartbeat?.lost) {
       return { status: "failed", attemptId: input.attemptId, reason: "lease_lost" };
     }
-    await execution.appendEvent({
+    // B4-D：终态 + error 事件原子提交（§12.2；失败即他方已终结/锁定 → 静默，无孤儿 error）
+    await execution.finalizeAttemptWithEvent({
       turnId: input.turnId,
       attemptId: input.attemptId,
+      status: "Failed",
       expectedFencingToken: claimFencingToken,
       sequence: await execution.nextSequence(input.turnId),
       eventType: "error",
-      data: {
+      eventData: {
         code: "MODEL_UNAVAILABLE",
         retryable: true,
         message: err instanceof Error ? err.message : "execution failed",
         lastSequence: Math.max(0, (await execution.nextSequence(input.turnId)) - 1),
       },
       safetyDecision: "approved",
-    }).catch(() => undefined);
-    await execution.finalizeAttempt({
-      turnId: input.turnId,
-      attemptId: input.attemptId,
-      status: "Failed",
-      expectedFencingToken: claimFencingToken,
     }).catch(() => undefined);
     return { status: "failed", attemptId: input.attemptId, reason: "execution error" };
   } finally {
