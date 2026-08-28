@@ -209,7 +209,8 @@ describe("语音配置路由 (Voice Config)", () => {
     expect(dlRes.json().code).toBe("INVALID_DOWNLOAD_REQUEST");
   });
 
-  it("POST /v1/voice/transcribe 转写接口", async () => {
+  it("POST /v1/voice/transcribe 模型未就绪时返回 503（不改文案插入输入框）", async () => {
+    // 当前 provider 的 allowedRoots 指向空目录，SenseVoice 模型未就绪 → healthCheck 不通过 → 503
     const res = await app.inject({
       method: "POST",
       url: "/v1/voice/transcribe",
@@ -219,7 +220,23 @@ describe("语音配置路由 (Voice Config)", () => {
         mimeType: "audio/wav",
       },
     });
-    expect(res.statusCode).toBe(200);
-    expect(typeof res.json().text).toBe("string");
+    expect(res.statusCode).toBe(503);
+    expect(res.json().code).toBe("VOICE_INPUT_PROVIDER_UNAVAILABLE");
+  });
+
+  it("PUT /v1/voice/input/config 拒绝非法 whisper endpoint（CR-016 整改）", async () => {
+    const res = await app.inject({
+      method: "PUT",
+      url: "/v1/voice/input/config",
+      headers,
+      payload: {
+        enabled: true,
+        engineType: "whisper-compatible",
+        endpoint: "not-a-url",
+        modelId: "whisper-1",
+      },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("INVALID_VOICE_INPUT_CONFIG");
   });
 });

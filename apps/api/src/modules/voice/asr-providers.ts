@@ -413,12 +413,11 @@ export class SenseVoiceLocalProvider implements ASRProviderPort {
     const durationMs = Math.round((audioLen / (16000 * 2)) * 1000);
 
     if (health.status !== "healthy") {
-      // 当本地尚未配置/下载离线模型时，提供降级提示文本，避免 503 中断会话流程
-      return {
-        text: "（未检测到离线 SenseVoice 模型，请先前往设置 -> 语音中点击下载）",
-        durationMs,
-        isFinal: true,
-      };
+      // CR-016 整改：模型未就绪视为服务不可用，抛错由路由返回 503；
+      // 不再返回降级提示文本，避免被当作转写结果插入输入框。
+      throw new Error(
+        health.message ?? "SenseVoice 本地模型未就绪，请前往设置 -> 语音中点击下载",
+      );
     }
 
     let wav: DecodedWav;
@@ -437,8 +436,8 @@ export class SenseVoiceLocalProvider implements ASRProviderPort {
     try {
       recognizer = await this.getRecognizer(request.language);
     } catch {
-      // 模型损坏或 ONNX 加载失败：引导重新下载
-      return { text: "（离线语音识别模型加载失败，请重新下载模型）", durationMs, isFinal: true };
+      // CR-016 整改：模型损坏/加载失败视为服务不可用，抛错由路由返回 503
+      throw new Error("离线语音识别模型加载失败，请重新下载模型");
     }
 
     // sherpa-onnx 同一识别器不支持并发解码，经 decodeChain 串行执行
