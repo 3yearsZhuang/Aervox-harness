@@ -13,6 +13,7 @@ import {
 import { InMemoryExecutionStore } from "@aervox/agent-loop";
 import type { ExecutionStorePort, ModelProviderPort } from "@aervox/agent-loop";
 import type { AuditEntry, MetricSample, Observability } from "@aervox/observability";
+import { createNoopObservability } from "@aervox/observability";
 
 /** 录制型观测门面：断言宿主打点（不抛错） */
 const recordingObservability = (samples: MetricSample[], audits: AuditEntry[]): Observability => ({
@@ -92,6 +93,7 @@ function harness(maxConcurrency: number, pollIntervalMs: number) {
     provider: immediateProvider,
     maxConcurrency,
     pollIntervalMs,
+    observability: createNoopObservability(),
   };
 
   return {
