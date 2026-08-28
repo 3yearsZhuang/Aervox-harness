@@ -42,6 +42,8 @@
 | [数据流总览](explanation/data-flow-overview.md)（AVX-EXPL-001） | 消息端到端如何流动 | 先写后投递、Worker 周期、记忆/知识写入 |
 | [参考项目能力迁移与借鉴评估](explanation/reference-design-transfer.md)（AVX-EXPL-002） | 参考项目哪些设计值得落地或借鉴 | 判定框架、建议落地清单、落地顺序与 AGPL 边界 |
 | [桌宠角色设定文档化与多人格模板组织](explanation/persona-organization.md)（AVX-EXPL-003） | 桌宠 IP 与多人格模板（CAP-019）的角色如何文档化、版本化并维护 | 角色文档清单、字段化结构（prompt/开场白/语气/技能/错误兜底语）、人设目录与模板版本化、维护责任 |
+| [Home Assistant 集成评估](explanation/home-assistant-integration-assessment.md)（AVX-EXPL-006） | 如何为 Aervox 引入 Home Assistant 支持 | 评审输入：接入面盘点、与 Agent Loop/本地优先的契合点、方案对比（Loop 工具 + 事件网关推荐组合）、阶段路线与安全边界 |
+| [运动与健康数据接入评估](explanation/health-data-integration-assessment.md)（AVX-EXPL-007） | 是否可以接入苹果/小米运动健康数据（步数、睡眠、情绪） | 评审输入：敏感分级、苹果/小米接入路径盘点、方案对比（小米云 API + Apple 文件导入）与情绪健康默认拒绝红线 |
 
 文档分类、状态、事实源与复核触发以[文档治理与事实源规范](reference/document-governance.md)为准；模板、命名、签名和写作门禁见[文档写作规范](reference/standards/doc-standards.md)，术语唯一语义见[术语表](reference/standards/terminology.md)。
 
