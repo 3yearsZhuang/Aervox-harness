@@ -47,6 +47,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       accepted_at TEXT,
       cancelled_at TEXT,
       completed_at TEXT,
+      quote_message_id TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -54,6 +55,8 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await client.execute(`
     CREATE UNIQUE INDEX IF NOT EXISTS turns_tenant_idempotency_idx ON turns(workspace_id, subject_user_id, idempotency_key);
   `);
+  // CAP-013：为存量 turns 表补充 quote_message_id 列（迁移）
+  await client.execute(`ALTER TABLE turns ADD COLUMN quote_message_id TEXT;`).catch(() => {});
   await client.execute(`
     CREATE INDEX IF NOT EXISTS turns_session_idx ON turns(session_id);
   `);
@@ -558,6 +561,10 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await addColumnIfMissing(client, "question_attempts", "idempotency_key", "idempotency_key TEXT");
+  // CAP-016：难度、提示次数、耗时
+  await addColumnIfMissing(client, "question_attempts", "difficulty", "difficulty INTEGER");
+  await addColumnIfMissing(client, "question_attempts", "hint_count", "hint_count INTEGER NOT NULL DEFAULT 0");
+  await addColumnIfMissing(client, "question_attempts", "time_spent_sec", "time_spent_sec INTEGER");
   await client.execute(`
     CREATE INDEX IF NOT EXISTS question_attempts_session_question_idx ON question_attempts(session_id, question_id);
   `);
@@ -578,11 +585,15 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       subject_user_id TEXT NOT NULL,
       question_id TEXT NOT NULL REFERENCES questions(id),
       status TEXT NOT NULL DEFAULT 'active',
+      reason TEXT,
+      note TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       UNIQUE(workspace_id, subject_user_id, question_id)
     );
   `);
+  await addColumnIfMissing(client, "mistake_dispositions", "reason", "reason TEXT");
+  await addColumnIfMissing(client, "mistake_dispositions", "note", "note TEXT");
 
   await client.execute(`
     CREATE TABLE IF NOT EXISTS practice_sessions (
@@ -599,6 +610,60 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await addColumnIfMissing(client, "practice_sessions", "question_ids", "question_ids TEXT NOT NULL DEFAULT '[]'");
   await client.execute(`
     CREATE INDEX IF NOT EXISTS practice_sessions_tenant_idx ON practice_sessions(workspace_id, subject_user_id);
+  `);
+
+  // CAP-016：练习报告
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS practice_reports (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      session_id TEXT NOT NULL,
+      total_questions INTEGER NOT NULL DEFAULT 0,
+      correct_count INTEGER NOT NULL DEFAULT 0,
+      incorrect_count INTEGER NOT NULL DEFAULT 0,
+      avg_time_spent_sec INTEGER,
+      total_hints_used INTEGER NOT NULL DEFAULT 0,
+      mastery_prediction REAL,
+      bias_assessment TEXT,
+      report_type TEXT NOT NULL DEFAULT 'summary',
+      is_reset INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS practice_reports_tenant_idx ON practice_reports(workspace_id, subject_user_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS practice_reports_session_idx ON practice_reports(session_id);
+  `);
+
+  // CAP-017：学习计划
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS study_plans (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      goal_id TEXT,
+      title TEXT NOT NULL,
+      start_date TEXT NOT NULL,
+      end_date TEXT NOT NULL,
+      rest_days TEXT NOT NULL DEFAULT '[]',
+      daily_available_minutes INTEGER NOT NULL DEFAULT 120,
+      status TEXT NOT NULL DEFAULT 'active',
+      completion_prediction TEXT,
+      degradation_plan TEXT,
+      revision_count INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS study_plans_tenant_idx ON study_plans(workspace_id, subject_user_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS study_plans_goal_idx ON study_plans(goal_id);
   `);
 
   await client.execute(`
@@ -1023,6 +1088,41 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await client.execute(`
     CREATE INDEX IF NOT EXISTS attachments_tenant_idx ON attachments(workspace_id, subject_user_id);
   `);
+  // CAP-012：扩展 attachments 表（用途声明、解析状态、幂等键）
+  await addColumnIfMissing(client, "attachments", "purpose", "purpose TEXT");
+  await addColumnIfMissing(client, "attachments", "parse_status", "parse_status TEXT NOT NULL DEFAULT 'pending'");
+  await addColumnIfMissing(client, "attachments", "idempotency_key", "idempotency_key TEXT");
+
+  // CAP-012 FR-EXT-002：附件解析结果表
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS attachment_parse_results (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      attachment_id TEXT NOT NULL REFERENCES attachments(id) ON DELETE CASCADE,
+      parse_status TEXT NOT NULL DEFAULT 'pending',
+      parsed_text TEXT,
+      confidence INTEGER,
+      parse_error TEXT,
+      crop_data TEXT,
+      operation TEXT NOT NULL DEFAULT 'ocr',
+      idempotency_key TEXT,
+      superseded_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS attachment_parse_results_attachment_idx ON attachment_parse_results(attachment_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS attachment_parse_results_tenant_idx ON attachment_parse_results(workspace_id, subject_user_id);
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS attachment_parse_results_idem_idx
+    ON attachment_parse_results(workspace_id, subject_user_id, idempotency_key)
+    WHERE idempotency_key IS NOT NULL;
+  `);
 
   await client.execute(`
     CREATE TABLE IF NOT EXISTS embedding_indexes (
@@ -1065,6 +1165,16 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await client.execute(`
     CREATE INDEX IF NOT EXISTS conversation_branches_tenant_idx ON conversation_branches(workspace_id, subject_user_id);
   `);
+  // CAP-014：扩展分支表（标题、原因、状态、布局、软删除）
+  await addColumnIfMissing(client, "conversation_branches", "title", "title TEXT");
+  await addColumnIfMissing(client, "conversation_branches", "branch_reason", "branch_reason TEXT");
+  await addColumnIfMissing(client, "conversation_branches", "status", "status TEXT NOT NULL DEFAULT 'active'");
+  await addColumnIfMissing(client, "conversation_branches", "merged_at", "merged_at TEXT");
+  await addColumnIfMissing(client, "conversation_branches", "layout_data", "layout_data TEXT");
+  await addColumnIfMissing(client, "conversation_branches", "deleted_at", "deleted_at TEXT");
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS conversation_branches_status_idx ON conversation_branches(status);
+  `);
 
   await client.execute(`
     CREATE TABLE IF NOT EXISTS knowledge_relations (
@@ -1082,6 +1192,14 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   `);
   await client.execute(`
     CREATE INDEX IF NOT EXISTS knowledge_relations_tenant_from_idx ON knowledge_relations(workspace_id, subject_user_id, from_knowledge_id);
+  `);
+  // CAP-015：扩展知识关系表（纠正状态、合并/拆分、软删除）
+  await addColumnIfMissing(client, "knowledge_relations", "correction_status", "correction_status TEXT NOT NULL DEFAULT 'active'");
+  await addColumnIfMissing(client, "knowledge_relations", "correction_reason", "correction_reason TEXT");
+  await addColumnIfMissing(client, "knowledge_relations", "merged_into", "merged_into TEXT");
+  await addColumnIfMissing(client, "knowledge_relations", "deleted_at", "deleted_at TEXT");
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS knowledge_relations_correction_idx ON knowledge_relations(correction_status);
   `);
 
   // 16. P2/P3 扩展实体：内容/生态域（PRD §8）
@@ -1304,6 +1422,56 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     CREATE INDEX IF NOT EXISTS persona_turn_contexts_tenant_idx ON persona_turn_contexts(workspace_id, subject_user_id);
   `);
 
+  // 4.7 CAP-019 扩展：人格模板审核字段 + 切换日志 + 记忆范围
+  await client.execute(`
+    ALTER TABLE personas ADD COLUMN review_status TEXT NOT NULL DEFAULT 'draft';
+  `).catch(() => undefined);
+  await client.execute(`
+    ALTER TABLE personas ADD COLUMN review_notes TEXT NOT NULL DEFAULT '';
+  `).catch(() => undefined);
+  await client.execute(`
+    ALTER TABLE personas ADD COLUMN reviewed_at TEXT;
+  `).catch(() => undefined);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS persona_switch_logs (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      persona_id TEXT NOT NULL,
+      revision_id TEXT NOT NULL,
+      previous_persona_id TEXT,
+      previous_revision_id TEXT,
+      switch_reason TEXT NOT NULL DEFAULT 'user_initiated',
+      regression_notes TEXT,
+      switched_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS persona_switch_logs_tenant_idx ON persona_switch_logs(workspace_id, subject_user_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS persona_switch_logs_tenant_persona_idx ON persona_switch_logs(workspace_id, subject_user_id, persona_id);
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS persona_memory_scopes (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      persona_id TEXT NOT NULL REFERENCES personas(id) ON DELETE CASCADE,
+      memory_policy TEXT NOT NULL DEFAULT 'isolated',
+      shared_persona_ids TEXT NOT NULL DEFAULT '[]',
+      shared_categories TEXT NOT NULL DEFAULT '[]',
+      confirmed_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS persona_memory_scopes_tenant_persona_idx ON persona_memory_scopes(workspace_id, subject_user_id, persona_id);
+  `);
+
   // 5. 初始化 FTS5 全文检索引擎
   await initFtsTables(client);
 
@@ -1472,6 +1640,92 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     CREATE UNIQUE INDEX IF NOT EXISTS skill_releases_skill_stage_active_idx ON skill_releases(skill_key, stage) WHERE active = 1;
   `);
 
+  // CAP-010 人格问卷与基础偏好（FR-PER-001/002）：每租户一行
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS persona_preferences (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      tone TEXT NOT NULL DEFAULT 'neutral',
+      proactiveness TEXT NOT NULL DEFAULT 'medium',
+      address_form TEXT NOT NULL DEFAULT 'none',
+      reminder_cadence TEXT NOT NULL DEFAULT 'moderate',
+      version INTEGER NOT NULL DEFAULT 1,
+      skipped INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(workspace_id, subject_user_id)
+    );
+  `);
+
+  // CAP-011 学习资料整理（FR-LRN-002/003、BR-LRN-001）
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS study_materials (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      goal_id TEXT,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      current_version_id TEXT,
+      status TEXT NOT NULL DEFAULT 'generating',
+      idempotency_key TEXT,
+      deleted_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS study_materials_tenant_idx ON study_materials(workspace_id, subject_user_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS study_materials_goal_idx ON study_materials(goal_id);
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS material_versions (
+      id TEXT PRIMARY KEY,
+      material_id TEXT NOT NULL REFERENCES study_materials(id) ON DELETE CASCADE,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      version INTEGER NOT NULL DEFAULT 1,
+      content TEXT NOT NULL,
+      format TEXT NOT NULL DEFAULT 'markdown',
+      author TEXT NOT NULL DEFAULT 'model',
+      superseded_at TEXT,
+      created_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS material_versions_mat_ver_idx ON material_versions(material_id, version);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS material_versions_tenant_idx ON material_versions(workspace_id, subject_user_id);
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS material_sources (
+      id TEXT PRIMARY KEY,
+      material_version_id TEXT NOT NULL REFERENCES material_versions(id) ON DELETE CASCADE,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      source_type TEXT NOT NULL,
+      source_uri TEXT,
+      source_title TEXT,
+      license_status TEXT NOT NULL DEFAULT 'unconfirmed',
+      verification_status TEXT NOT NULL DEFAULT 'needs_review',
+      invalidated_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS material_sources_version_idx ON material_sources(material_version_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS material_sources_tenant_idx ON material_sources(workspace_id, subject_user_id);
+  `);
+
   // CR-011 语音输出配置（系统核心能力 · 本地语音模型配置）：每租户一行本地语音模型
   await client.execute(`
     CREATE TABLE IF NOT EXISTS voice_configs (
@@ -1588,8 +1842,37 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await client.execute(`
     CREATE INDEX IF NOT EXISTS tool_approvals_turn_idx ON tool_approvals(turn_id);
   `);
+  // 4.7 阶段 5a：Agent 收件箱（agent_inbox_items；ADR-017）
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS tool_approvals_tenant_idx ON tool_approvals(workspace_id, subject_user_id);
+    CREATE TABLE IF NOT EXISTS agent_inbox_items (
+      id TEXT PRIMARY KEY,
+      idempotency_key TEXT NOT NULL,
+      session_id TEXT NOT NULL,
+      attempt_id TEXT,
+      step_id TEXT,
+      type TEXT NOT NULL,
+      ordering_seq INTEGER NOT NULL DEFAULT 0,
+      source_actor TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      consume_boundary TEXT NOT NULL,
+      claimed_at TEXT,
+      acked_at TEXT,
+      expires_at TEXT,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS agent_inbox_tenant_session_idx ON agent_inbox_items(workspace_id, subject_user_id, session_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS agent_inbox_status_idx ON agent_inbox_items(status);
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS agent_inbox_tenant_idempotency_idx ON agent_inbox_items(workspace_id, subject_user_id, idempotency_key);
   `);
 }
 

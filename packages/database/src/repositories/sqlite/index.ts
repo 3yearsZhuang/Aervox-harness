@@ -25,3 +25,6 @@ export * from "./plugin-config-repository.js";
 export * from "./voice-config-repository.js";
 export * from "./voice-input-config-repository.js";
 export * from "./llm-config-repository.js";
+export * from "./preferences-repository.js";
+export * from "./study-material-repository.js";
+export * from "./agent-inbox-repository.js";

@@ -11,6 +11,12 @@ importers:
       '@babel/parser':
         specifier: ^8.0.4
         version: 8.0.4
+      '@playwright/test':
+        specifier: 1.62.1
+        version: 1.62.1
+      playwright:
+        specifier: ^1.62.1
+        version: 1.62.1
       turbo:
         specifier: 2.10.11
         version: 2.10.11
@@ -32,6 +38,9 @@ importers:
       '@aervox/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@aervox/host-agent':
+        specifier: workspace:*
+        version: link:../../packages/host-agent
       '@aervox/practice-review':
         specifier: workspace:*
         version: link:../../packages/practice-review
@@ -235,6 +244,31 @@ importers:
       drizzle-kit:
         specifier: ^0.30.4
         version: 0.30.6
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: 4.0.18
+        version: 4.0.18(@types/node@22.20.1)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
+
+  packages/host-agent:
+    dependencies:
+      '@aervox/agent-loop':
+        specifier: workspace:*
+        version: link:../agent-loop
+      '@aervox/database':
+        specifier: workspace:*
+        version: link:../database
+      '@aervox/observability':
+        specifier: workspace:*
+        version: link:../observability
+      '@libsql/client':
+        specifier: ^0.14.0
+        version: 0.14.0
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
       typescript:
         specifier: 7.0.2
         version: 7.0.2
@@ -1368,6 +1402,11 @@ packages:
 
   '@pixi/utils@7.4.3':
     resolution: {integrity: sha512-NO3Y9HAn2UKS1YdxffqsPp+kDpVm8XWvkZcS/E+rBzY9VTLnNOI7cawSRm+dacdET3a8Jad3aDKEDZ0HmAqAFA==}
+
+  '@playwright/test@1.62.1':
+    resolution: {integrity: sha512-DTcUc8qii+cpHvtOwggMtBRMjKZHXYWdw8syRYu2vtzuq4Wxphqq4NfCs5Zt44L6mA8rfDfj+PHnxFc/FeK6mQ==}
+    engines: {node: '>=20'}
+    hasBin: true
 
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
@@ -3953,6 +3992,10 @@ snapshots:
       earcut: 2.2.4
       eventemitter3: 4.0.0
       url: 0.11.4
+
+  '@playwright/test@1.62.1':
+    dependencies:
+      playwright: 1.62.1
 
   '@rolldown/pluginutils@1.0.1': {}
 

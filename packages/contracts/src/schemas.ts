@@ -562,3 +562,293 @@ export const skillPromoteRequestSchema = z.object({
   /** stable 时是否同步 payload.skill_markdown 到本地 SKILL.md（缺省 true） */
   syncToLocal: z.boolean().default(true),
 });
+
+// ============ CAP-010 人格问卷与基础偏好（FR-PER-001/002/003）============
+
+/** 语气选项 */
+export const toneSchema = z.enum(["friendly", "neutral", "formal"]);
+/** 主动程度选项 */
+export const proactivenessSchema = z.enum(["low", "medium", "high"]);
+/** 称呼选项 */
+export const addressFormSchema = z.enum(["casual", "formal", "none"]);
+/** 提醒节奏选项 */
+export const reminderCadenceSchema = z.enum(["gentle", "moderate", "frequent"]);
+
+/** 偏好问卷完整模型 */
+export const personaPreferencesSchema = z.object({
+  id: z.string().min(1),
+  workspaceId: z.string().min(1),
+  subjectUserId: z.string().min(1),
+  tone: toneSchema,
+  proactiveness: proactivenessSchema,
+  addressForm: addressFormSchema,
+  reminderCadence: reminderCadenceSchema,
+  version: z.number().int().min(1),
+  skipped: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+/** 首次填写问卷请求体 */
+export const savePersonaPreferencesSchema = z.object({
+  tone: toneSchema.optional(),
+  proactiveness: proactivenessSchema.optional(),
+  addressForm: addressFormSchema.optional(),
+  reminderCadence: reminderCadenceSchema.optional(),
+  /** 跳过问卷（使用中性默认值） */
+  skipped: z.boolean().optional(),
+});
+
+/** 更新偏好请求体（单项或多项） */
+export const updatePersonaPreferencesSchema = z.object({
+  tone: toneSchema.optional(),
+  proactiveness: proactivenessSchema.optional(),
+  addressForm: addressFormSchema.optional(),
+  reminderCadence: reminderCadenceSchema.optional(),
+});
+
+// ============ CAP-013 消息编辑、删除与引用（FR-CONV-004/005、BR-CONV-003/004）============
+
+/** 编辑消息请求体 */
+export const editMessageSchema = z.object({
+  content: z.string().min(1),
+  /** 期望的当前版本号（CAS） */
+  expectedVersion: z.number().int().min(1),
+});
+
+/** 消息版本模型 */
+export const messageVersionSchema = z.object({
+  id: z.string().min(1),
+  turnId: z.string().min(1),
+  messageId: z.string().nullable().optional(),
+  role: z.string(),
+  version: z.number().int().min(1),
+  content: z.string(),
+  isRedacted: z.number(),
+  supersededAt: z.string().nullable().optional(),
+  createdAt: z.string(),
+});
+
+/** 消息模型（含版本和删除状态） */
+export const messageSchema = z.object({
+  id: z.string().min(1),
+  sessionId: z.string().min(1),
+  role: z.string(),
+  currentVersionId: z.string().nullable().optional(),
+  label: z.string().nullable().optional(),
+  createdAt: z.string(),
+  deletedAt: z.string().nullable().optional(),
+});
+
+/** 删除影响预览项 */
+export const deleteImpactItemSchema = z.object({
+  type: z.enum(["summary", "mistake", "review", "diary", "memory"]),
+  id: z.string(),
+  description: z.string(),
+});
+
+/** 删除影响预览响应 */
+export const deleteImpactPreviewSchema = z.object({
+  messageId: z.string(),
+  impacts: z.array(deleteImpactItemSchema),
+  totalAffected: z.number().int().min(0),
+});
+
+// ============ CAP-011 学习资料整理（FR-LRN-002/003、BR-LRN-001）============
+
+/** 资料类型 */
+export const materialTypeSchema = z.enum(["explanation", "mindmap", "exercises", "reading", "code"]);
+
+/** 资料状态 */
+export const materialStatusSchema = z.enum(["generating", "ready", "failed", "deleted"]);
+
+/** 来源类型 */
+export const sourceTypeSchema = z.enum(["model", "external"]);
+
+/** 许可证状态 */
+export const licenseStatusSchema = z.enum(["confirmed", "unconfirmed", "restricted"]);
+
+/** 事实核验状态 */
+export const verificationStatusSchema = z.enum(["verified", "needs_review", "unverifiable"]);
+
+/** 生成资料请求体 */
+export const createStudyMaterialSchema = z.object({
+  goalId: z.string().optional(),
+  type: materialTypeSchema,
+  title: z.string().min(1),
+  content: z.string().min(1),
+  format: z.enum(["markdown", "json"]).default("markdown"),
+  sources: z.array(z.object({
+    sourceType: sourceTypeSchema,
+    sourceUri: z.string().optional(),
+    sourceTitle: z.string().optional(),
+    licenseStatus: licenseStatusSchema.default("unconfirmed"),
+    verificationStatus: verificationStatusSchema.default("needs_review"),
+  })).default([]),
+});
+
+/** 编辑资料请求体 */
+export const editStudyMaterialSchema = z.object({
+  content: z.string().min(1),
+  expectedVersion: z.number().int().min(1),
+});
+
+/** 导出格式 */
+export const exportFormatSchema = z.enum(["json", "markdown"]);
+
+// ============ CAP-012 多模态答疑（FR-EXT-001/002、BR-EXT-001/002） ============
+
+/** 附件用途声明（FR-EXT-001） */
+export const attachmentPurposeSchema = z.enum([
+  "question",
+  "chart",
+  "code_screenshot",
+  "reading",
+]);
+
+/** 允许的附件 MIME 类型（FR-EXT-001 AC-01） */
+export const allowedMediaTypesSchema = z.enum([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+  "application/pdf",
+]);
+
+/** 最大附件大小（字节）— 10MB */
+export const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
+
+/** 创建附件请求体（FR-EXT-001） */
+export const createAttachmentSchema = z.object({
+  objectKey: z.string().min(1),
+  mediaType: allowedMediaTypesSchema,
+  size: z.number().int().min(0).max(MAX_ATTACHMENT_SIZE),
+  sourceLicense: z.string().optional(),
+  purpose: attachmentPurposeSchema,
+  idempotencyKey: z.string().optional(),
+});
+
+/** 触发解析请求体（FR-EXT-002） */
+export const parseAttachmentSchema = z.object({
+  idempotencyKey: z.string().optional(),
+});
+
+/** 裁剪解析结果请求体（FR-EXT-002 AC-01） */
+export const cropParseResultSchema = z.object({
+  cropData: z.object({
+    x: z.number().min(0),
+    y: z.number().min(0),
+    width: z.number().min(1),
+    height: z.number().min(1),
+  }),
+});
+
+/** 转文字请求体（BR-EXT-001 AC-01：用户手动输入文本） */
+export const convertToTextSchema = z.object({
+  text: z.string().min(1),
+});
+
+/** OCR 置信度阈值（BR-EXT-001：低于此值标记 low_confidence） */
+export const OCR_CONFIDENCE_THRESHOLD = 0.7;
+
+// ============ CAP-014 层级对话与会话地图 ============
+
+/** 分支原因类型 */
+export const branchReasonSchema = z.enum([
+  "term_drill",
+  "text_followup",
+  "alternative_solution",
+  "other",
+]);
+
+/** 创建分支请求体 */
+export const createBranchSchema = z.object({
+  childSessionId: z.string().min(1),
+  forkAtMessageId: z.string().optional(),
+  title: z.string().optional(),
+  branchReason: branchReasonSchema.optional(),
+});
+
+/** 更新布局请求体 */
+export const updateBranchLayoutSchema = z.object({
+  layoutData: z.unknown(),
+});
+
+// ============ CAP-015 思维宇宙 ============
+
+/** 知识关系类型 */
+export const relationTypeSchema = z.enum([
+  "prerequisite",
+  "related",
+  "contrast",
+  "causal",
+]);
+
+/** 知识来源类型 */
+export const knowledgeSourceSchema = z.enum([
+  "user",
+  "inference",
+  "external",
+  "system",
+]);
+
+/** 创建知识关系请求体 */
+export const createKnowledgeRelationSchema = z.object({
+  fromKnowledgeId: z.string().min(1),
+  toKnowledgeId: z.string().min(1),
+  relationType: relationTypeSchema,
+  source: knowledgeSourceSchema.optional(),
+  confidence: z.number().int().min(0).max(100).optional(),
+});
+
+/** 纠正知识关系请求体 */
+export const correctRelationSchema = z.object({
+  reason: z.string().min(1),
+});
+
+/** 合并知识关系请求体 */
+export const mergeRelationsSchema = z.object({
+  targetRelationId: z.string().min(1),
+});
+
+// ============ CAP-016 自适应刷题与报告 ============
+
+/** 创建练习报告请求体 */
+export const createPracticeReportSchema = z.object({
+  sessionId: z.string().min(1),
+  totalQuestions: z.number().int().min(0),
+  correctCount: z.number().int().min(0),
+  incorrectCount: z.number().int().min(0),
+  avgTimeSpentSec: z.number().int().min(0).optional(),
+  totalHintsUsed: z.number().int().min(0).optional(),
+  masteryPrediction: z.number().min(0).max(1).optional(),
+  biasAssessment: z.string().optional(),
+  reportType: z.enum(["summary", "detailed"]).optional(),
+});
+
+// ============ CAP-017 考试日计划 ============
+
+/** 创建学习计划请求体 */
+export const createStudyPlanSchema = z.object({
+  goalId: z.string().optional(),
+  title: z.string().min(1),
+  startDate: z.string().min(1),
+  endDate: z.string().min(1),
+  restDays: z.array(z.string()).optional(),
+  dailyAvailableMinutes: z.number().int().min(0).optional(),
+});
+
+/** 更新学习计划请求体 */
+export const updateStudyPlanSchema = z.object({
+  title: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  restDays: z.array(z.string()).optional(),
+  dailyAvailableMinutes: z.number().int().min(0).optional(),
+});
+
+/** 更新完成预测请求体 */
+export const updatePredictionSchema = z.object({
+  prediction: z.enum(["on_track", "at_risk", "cannot_complete"]),
+  degradationPlan: z.unknown().optional(),
+});
