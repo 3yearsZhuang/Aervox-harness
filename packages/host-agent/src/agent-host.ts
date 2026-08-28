@@ -12,8 +12,10 @@ import type {
   InboxPort,
   ModelProviderPort,
   ToolProviderPort,
+  AdapterDriverPort,
 } from "@aervox/agent-loop";
 import { defaultContextBuilder, executeTurn } from "@aervox/agent-loop";
+import { runAdapterTurn } from "./adapter-turn.js";
 import type { Observability } from "@aervox/observability";
 import { createNoopObservability } from "@aervox/observability";
 
@@ -44,6 +46,12 @@ export interface AgentHostDeps {
   tools?: ToolProviderPort;
   /** 阶段 5a：受控收件箱（ADR-017）；执行时 claim/inject/ack next-step 项 */
   inbox?: InboxPort;
+  /**
+   * 阶段 6b：已准入的进程外 Adapter（dsh/pi）——存在时 Host 用其执行整 Turn
+   * （runAdapterTurn：事件映射既有契约 + all-results-conclude 收紧），不再走 executeTurn。
+   * 续跑（resume）仍走 executeTurn（adapter 无抢占续跑语义）。缺省原生路径不变。
+   */
+  adapter?: AdapterDriverPort;
   /** 4a-2：可观测性门面（指标/审计；缺省 Noop，不抛错） */
   observability?: Observability;
   maxConcurrency?: number;
@@ -119,24 +127,35 @@ export function createAgentHost(deps: AgentHostDeps): AgentHost {
   const executeOne = async (turn: ClaimableTurn): Promise<void> => {
     const turnStartedAt = Date.now();
     try {
-      // claim/finalize 全部委托 executeTurn（CAS + fencing 单一次）
-      // 已被领/已终态 → executeTurn 返回 skipped（重复投递安全）
-      const result = await executeTurn(
-        {
-          execution: deps.createStore(turn),
-          provider: deps.provider,
-          contextBuilder: deps.contextBuilder ?? defaultContextBuilder,
-          tools: deps.tools,
-          inbox: deps.inbox,
-          options: turn.resume ? { resume: turn.resume } : undefined,
-        },
-        { turnId: turn.turnId, sessionId: turn.sessionId, attemptId: turn.attemptId, userMessage: turn.userMessage },
-      );
-      // 4a-2：宿主与执行侧结果汇总指标 + 审计（failed/skipped 均收敛）
+      const store = deps.createStore(turn);
+      // 6b：已准入 Adapter 存在且非续跑 → 整 Turn 代理执行（事件映射既有契约 + 收紧）；
+      // 否则原生 executeTurn（claim/finalize CAS 语义一致，客户端契约不变）
+      const result =
+        deps.adapter && !turn.resume
+          ? await runAdapterTurn(store, deps.adapter, {
+              turnId: turn.turnId,
+              sessionId: turn.sessionId,
+              attemptId: turn.attemptId,
+              userMessage: turn.userMessage,
+              tools: deps.tools?.tools,
+            })
+          : await executeTurn(
+              {
+                execution: store,
+                provider: deps.provider,
+                contextBuilder: deps.contextBuilder ?? defaultContextBuilder,
+                tools: deps.tools,
+                inbox: deps.inbox,
+                options: turn.resume ? { resume: turn.resume } : undefined,
+              },
+              { turnId: turn.turnId, sessionId: turn.sessionId, attemptId: turn.attemptId, userMessage: turn.userMessage },
+            );
+      // 4a-2：宿主与执行侧结果汇总指标 + 审计（failed/skipped 均收敛；
+      // 原生 executeTurn 用小写 status，adapter 路径用大写，均归一处理）
       const durationMs = Date.now() - turnStartedAt;
       const fields = { turnId: turn.turnId, sessionId: turn.sessionId, attemptId: turn.attemptId, durationMs };
       ob.metrics.emit({ type: "histogram", name: "agent.provider.duration_ms", value: durationMs });
-      if (result.status === "completed") {
+      if (result.status === "completed" || result.status === "Completed") {
         ob.metrics.emit({ type: "counter", name: "agent.turn.completed", value: 1 });
         ob.log.info({ event: "agent.turn.completed", message: "turn completed", fields });
         void ob.audit.emit({ eventType: "agent.turn.completed", actorId: "agent-host", action: "complete_turn", scope: turn.turnId, payload: fields }).catch(() => undefined);

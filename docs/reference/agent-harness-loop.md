@@ -797,6 +797,16 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - **API 接线**（`apps/api`）：conversation 注入 `SqlitePlatformRepository` 构造 `ModelRunSink`（createModelRun+completeModelRun / createContextManifest+attach 关联回写），经 `SqliteExecutionStore(…, sink)` 可选委托；缺省 no-op 兼容既有宿主。
 - 测试：`@aervox/agent-loop` 108（新增 `context-manifest.test.ts` 3：单 Step 一条 run+manifest 与 snapshot 快照/多 Step 每 Step 一条 run 而 manifest 仅首条/无 meta 缺省兼容）；`@aervox/database` 142（新增 `platform-modelrun.test.ts` 3：Expand 幂等/Step 级 create+complete/manifest snapshot+attach）；`@aervox/api` 202 无回归。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。ADR-017 实施进展已更新。
 
+### 16.19 落地进展（阶段 6b/6c：Host 接入 Adapter + DSH 固定 SHA 复核真实化）
+
+2026-08-28 落地（承接 §16.18 契约面，把 Adapter 接入 Host 执行循环并把固定 SHA 复核真实化；仍不接参考仓库构建产物）：
+
+- **Host 接入**（`packages/host-agent/src/adapter-turn.ts` + `agent-host.ts`）：
+  - `runAdapterTurn`：claim（CAS+fencing）→ adapter 整 Turn（`drainAdapterDriver` 熟悉事件 + 收敛）→ 事件**映射既有契约**落库（message/delta/tool_request/tool_result/done；`executionId=attempt:0:seq` 审计键）→ finalize；收紧：concluded→Completed、mixed_batch→Interrupted+`ADAPTER_NOT_CONCLUDED`、协议缺陷→Interrupted、异常/超时→Failed+`ADAPTER_UNAVAILABLE`；重复投递→skipped；
+  - `createAgentHost({ adapter })`：存在已准入 Adapter 且非续跑时用 `runAdapterTurn` 轮询驱动，否则原生 `executeTurn`（续跑/无 adapter 路径零改动；宿主终态计数归一原生小写/adapter 大写）。
+- **DSH 固定 SHA 复核真实化**（`packages/host-agent/src/dsh-reference.ts`）：`probeDSHReference` 用父仓库 submodule gitlink（`git ls-tree HEAD -- reference/deepseek-harness`）与 `DSH-01` 登记 SHA（`b150a551…`）机器比对 + package.json 版本/许可证复核（MIT 白名单）。参考仓库为 pnpm monorepo：真实 Turn 需 `git submodule update --init && pnpm install && pnpm build:lib:host` 后接入 stdio 端口（ADR-010 实施进展含指引）；本阶段不隐式构建，未就绪 fail-closed 并给出 reason。
+- **测试**：`@aervox/host-agent` 51（新增 `adapter-host.test.ts` 7：runAdapterTurn concluded/mixed/协议缺陷/抛错/skipped + Host 集成 adapter 与原生双路径回归；`dsh-reference.test.ts` 3：gitlink 匹配 MIT manifest/submodule_missing/non-git fail-closed）；`@aervox/api` 202 无回归。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
 ## 17. 回滚策略
 
 - 当前保留 Replay Provider 作为无外部模型依赖的可回退执行路径；
