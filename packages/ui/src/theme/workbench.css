@@ -585,16 +585,37 @@
   font-weight: 650;
 }
 
+.composer-access-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 64%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-soft) 72%, transparent);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.composer-access-chip.full {
+  border-color: color-mix(in srgb, var(--danger, #dc2626) 36%, transparent);
+  background: color-mix(in srgb, var(--danger, #dc2626) 10%, transparent);
+  color: var(--danger, #dc2626);
+}
+
 .composer-collapsed svg:last-child {
   color: var(--accent);
 }
 
 .composer-expanded {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
-    "modes modes"
-    "input actions";
+    "modes"
+    "input"
+    "footer";
   align-items: end;
   gap: 8px 10px;
   padding: clamp(8px, 1.2vh, 12px);
@@ -666,8 +687,48 @@
   opacity: .68;
 }
 
+.composer-footer {
+  grid-area: footer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.permission-toggle {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 11px;
+  border: 1px solid color-mix(in srgb, var(--border) 64%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-soft) 78%, transparent);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: color .16s ease, border-color .16s ease, background-color .16s ease;
+}
+
+.permission-toggle:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.permission-toggle.full {
+  border-color: color-mix(in srgb, var(--danger, #dc2626) 42%, transparent);
+  background: color-mix(in srgb, var(--danger, #dc2626) 10%, transparent);
+  color: var(--danger, #dc2626);
+}
+
+.permission-toggle:disabled {
+  cursor: wait;
+  opacity: .5;
+}
+
 .composer-actions {
-  grid-area: actions;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -765,6 +826,92 @@
   padding: 4px 12px 2px;
   color: var(--danger, #e5484d);
   font-size: 11px;
+}
+
+.permission-confirmation {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.permission-confirmation-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--danger, #dc2626) 30%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--danger, #dc2626) 10%, transparent);
+  color: var(--danger, #dc2626);
+}
+
+.permission-confirmation p {
+  margin: 0 0 7px;
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.permission-confirmation small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.permission-acknowledgement {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 18px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.permission-acknowledgement input {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  margin: 1px 0 0;
+  accent-color: var(--danger, #dc2626);
+}
+
+.permission-confirmation-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.permission-confirmation-actions button {
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.permission-cancel {
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+  color: var(--text-secondary);
+}
+
+.permission-enable {
+  border: 1px solid var(--danger, #dc2626);
+  background: var(--danger, #dc2626);
+  color: #fff;
+}
+
+.permission-enable:disabled {
+  cursor: not-allowed;
+  opacity: .42;
 }
 
 /* ---------- 抽屉内部样式（历史 / 待办 / 番茄钟 / 学习） ---------- */
@@ -1840,14 +1987,19 @@
 
   .composer-expanded {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      "modes"
-      "input"
-      "actions";
+  }
+
+  .composer-footer {
+    align-items: stretch;
+  }
+
+  .permission-toggle {
+    flex: 1 1 auto;
+    justify-content: center;
   }
 
   .composer-actions {
-    justify-content: flex-end;
+    flex: 0 0 auto;
   }
 
   .side-cards {

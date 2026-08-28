@@ -1,14 +1,14 @@
 # Agent Harness Loop 设计与落地规范
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：3yearszhuang · 2026-08-29
 
 > 文档编号：AVX-HAR-001  
 > 类型：Reference  
-> 版本：v0.4
-> 更新日期：2026-08-28  
+> 版本：v0.5
+> 更新日期：2026-08-29
 > 状态：Review Candidate  
-> 关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[ADR-016](adr/ADR-016-base-boundaries.md)、[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md)、[CR-012](changes/CR-012-agent-harness-loop.md)、[CR-021](changes/CR-021-ask-user-question-capability.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
+> 关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[ADR-016](adr/ADR-016-base-boundaries.md)、[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md)、[CR-012](changes/CR-012-agent-harness-loop.md)、[CR-021](changes/CR-021-ask-user-question-capability.md)、[CR-022](changes/CR-022-full-access-tool-permission.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
 本文规定 Aervox Agent Harness Loop 的职责、状态机、Port、持久化边界、工具执行、取消恢复和分阶段落地路线。当前阶段 0/1/2a-2e/3a/3b-A/3b-B 已有原生实现：`packages/agent-loop` 提供 Replay/Scripted/真实 OpenAI 兼容 Provider、多 Step 工具循环、API/SSE 持久化、工具账本、写工具审批、`ask_user_question` 人机提问交互、lease TTL/续租、过期抢占、fencing 单一终态和 Worker 恢复；3c+ 生产级安全补强、完整 Inbox/ContextManifest 关联、独立 Host 以及 DSH/pi Adapter 仍是后续目标。文中标为“目标”的接口、表和状态转换，只有在对应代码、迁移和契约测试落地后才可视为运行能力。
 
@@ -311,7 +311,11 @@ resolve definition
 - 模型请求工具不等于授权；
 - `read_only` 可以按已批准策略自动执行；
 - `write_with_approval` 必须绑定可审计授权快照；
+- CreateTurn 的 `toolApprovalMode` 默认为 `ask`；用户经风险确认选择 `full_access` 时，宿主只可对 `write_with_approval` 先写授权账本再自动执行；
+- `full_access` 是 Turn 级权限快照，不改写工具自身的 `safetyLevel`；运行中的 Turn 禁止切换，关闭只影响后续 Turn，不撤回已开始的副作用；
+- 完全访问产生的自动授权必须与显式授权区分；恢复 `ask` 后，显式授权查询不得命中这些记录；
 - `privileged` 默认拒绝，只能由单独管理员通道放行；
+- Subagent/Workflow 等静态 Contribution 的写工具必须经同一授权门，不得因 Provider 组合路由绕过审批策略；
 - 写工具按业务资源/Session 串行；相互独立的只读工具可以受限并行；
 - 幂等键建议为 `attemptId:stepNo:callId`，上游 callId 不可信时由 Host 重新生成；
 - 非幂等副作用失败不自动重试；
@@ -405,8 +409,8 @@ agent.attempt.lease-expired
 - Turn + 用户 MessageVersion + `agent.turn.requested` Outbox；
 - 安全片段 + TurnStreamEvent + Draft prefix；
 - ToolInvocation + 授权快照 + 幂等预留；
-- ToolExecution 结果 + result event；
-- Turn 终态 + done TurnStreamEvent + 下游 Outbox。
+- ToolExecution 结果 + result event（**已落地：B4-D §16.26**，`recordToolOutcomeAtomically`）；
+- Turn 终态 + done TurnStreamEvent + 下游 Outbox（**终态 + done/error 事件已落地：B4-D §16.26**，`finalizeAttemptWithEventAtomically`；下游 Outbox 仍为既有 outbox 通道）。
 
 模型调用和外部工具不能与 SQLite 事务保持同一个长事务；采用“持久意图 → 外部调用 → fencing 校验后的结果提交”。
 
@@ -825,6 +829,16 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - **Loop 语义收口**（`@aervox/agent-loop`）：新增 `LeaseLostError`；`executor.ts` 全部事件写入携带 claim fencing，catch 拦截 `LeaseLostError` → 收敛 `failed(lease_lost)` 且**不再产生任何新副作用**（§11.2）；`in-memory-store.ts` 同语义守卫 + `simulatePreemption` 钩子。
 - **宿主/同步路径**（`@aervox/host-agent`、`apps/api`）：store 透传期望值并把 `FencingMismatchError` 转译为 `LeaseLostError`；`adapter-turn.ts` 携带 claim fencing；`failTurnWithError`（未 claim）携带 `expectedFencingToken=0`。
 - 测试：`@aervox/database` 150（`event-fencing.test.ts` 5：正确通过 / 恢复器抢占（过期租约 fencing+1→Interrupted）后旧期望被拒且零污染 / attempt 不存在拒绝 / 终态仅 done 放行 / CancelRequested 可写）；`@aervox/agent-loop` 121（`executor-fencing.test.ts` 4：内存守卫 + 工具执行中被抢占 → `failed(lease_lost)`、无 tool_result/done/error 迟到事件、不写终态）；`@aervox/host-agent` 62（`sqlite-execution-store-fencing.test.ts` 3：桥接正确 / 失配转译 LeaseLostError / 未携带保持兼容）；`@aervox/api` 229 无回归；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.23 落地进展（CR-022：Turn 级完全访问）
+
+2026-08-29 落地（对应 §9 工具审批决策）：
+
+- **契约与快照**：`CreateTurnRequest.toolApprovalMode = ask | full_access`，缺省 `ask`；API `preValidation` 将已解析值绑定到本请求租户上下文，不修改冻结中的对话路由。
+- **自动授权与审计**：完全访问下，`write_with_approval` 以 `tool_approvals` pending→granted 记录本次快照后才执行；`decidedBy=permission:full_access:<actor>` 区分自动授权，显式授权查询排除该前缀，关闭后同参数不会继续放行。
+- **统一写工具门**：动态 ToolRuntime 与静态 Subagent/Workflow Contribution 共用授权语义；`privileged` 仍收敛到管理员审批通道。
+- **双端交互**：共享 Workbench 输入区显示权限开关；开启必须经风险说明和显式勾选，运行中锁定，状态仅保留在当前浏览器/桌面会话；Web fetch 与 Electron IPC 传递同一字段。
+- **测试**：`conversation-approval.test.ts` 覆盖默认待决、自动执行与关闭后不泄漏；`conversation-privileged.test.ts` 覆盖管理员门不变；`tool-approval-policy.test.ts` 覆盖静态 Contribution 工具；API Client `transport.test.ts` 覆盖 `full_access` 请求体透传。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
 ## 17. 回滚策略
 

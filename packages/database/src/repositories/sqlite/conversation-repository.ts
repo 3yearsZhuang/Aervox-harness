@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 对话与流式协议 SQLite 仓储实现
  */
-import { eq, and, gt, desc, or, lt, isNull, inArray, notInArray } from "drizzle-orm";
+import { eq, and, gt, desc, or, lt, isNull, inArray, notInArray, notLike } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import {
   sessions,
@@ -1027,7 +1027,7 @@ export class SqliteConversationRepository implements IConversationRepository {
   /** 匹配已授权记录（toolName + argumentsHash；跨 turn 复用，取最近一条） */
   async findGrantedToolApproval(
     tenant: TenantContext,
-    input: { toolName: string; argumentsHash: string },
+    input: { toolName: string; argumentsHash: string; excludeDecidedByPrefix?: string },
   ): Promise<ToolApprovalModel | null> {
     assertTenantContext(tenant);
     const [found] = await this.db
@@ -1040,6 +1040,12 @@ export class SqliteConversationRepository implements IConversationRepository {
           eq(toolApprovals.toolName, input.toolName),
           eq(toolApprovals.argumentsHash, input.argumentsHash),
           eq(toolApprovals.state, "granted"),
+          input.excludeDecidedByPrefix
+            ? or(
+                isNull(toolApprovals.decidedBy),
+                notLike(toolApprovals.decidedBy, `${input.excludeDecidedByPrefix}%`),
+              )
+            : undefined,
         ),
       )
       .orderBy(desc(toolApprovals.id));

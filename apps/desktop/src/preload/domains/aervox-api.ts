@@ -8,7 +8,11 @@ export interface ApiRequestResult<T = unknown> {
 }
 
 export const aervoxApi = {
-    streamTurn: (content: string, callback: (message: unknown) => void) => {
+    streamTurn: (
+        content: string,
+        options: {toolApprovalMode: 'ask' | 'full_access'},
+        callback: (message: unknown) => void,
+    ) => {
         const requestId = `${Date.now().toString(36)}_${crypto.randomUUID().replaceAll('-', '')}`
         const listener = (_event: IpcRendererEvent, message: unknown) => {
             if (!message || typeof message !== 'object' || (message as {requestId?: unknown}).requestId !== requestId) return
@@ -17,7 +21,7 @@ export const aervoxApi = {
             if (type === 'closed' || type === 'error') ipcRenderer.removeListener('aervox:turn:event', listener)
         }
         ipcRenderer.on('aervox:turn:event', listener)
-        ipcRenderer.send('aervox:turn:start', {requestId, content})
+        ipcRenderer.send('aervox:turn:start', {requestId, content, toolApprovalMode: options.toolApprovalMode})
         return () => ipcRenderer.removeListener('aervox:turn:event', listener)
     },
     apiRequest: <T = unknown>(method: string, path: string, body?: unknown, headers?: Record<string, string>) =>
