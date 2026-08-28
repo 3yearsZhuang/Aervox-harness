@@ -17,6 +17,7 @@ import {
 import { createSqliteSubagentPort, SqliteExecutionStore } from "@aervox/host-agent";
 import { buildLoopProvider } from "./agent-executor.js";
 import { registerConversationRoutes } from "./routes.js";
+import { UserQuestionCoordinator } from "./user-question-coordinator.js";
 
 export function registerConversationModule(ctx: ModuleContext): void {
   const { app, db, toolRuntime, llmConfigService, workflows } = ctx;
@@ -26,6 +27,7 @@ export function registerConversationModule(ctx: ModuleContext): void {
   const subagentRunRepo = new SqliteSubagentRunRepository(db);
   // 阶段 7：ModelRun/ContextManifest 落库口（Step 级可追溯写入）
   const platformRepo = new SqlitePlatformRepository(db);
+  const userQuestionCoordinator = new UserQuestionCoordinator(conversationRepo);
   registerConversationRoutes(app, conversationRepo, {
     toolRuntime,
     llmConfigService,
@@ -49,5 +51,6 @@ export function registerConversationModule(ctx: ModuleContext): void {
     subagentRunRepo,
     workflows,
     platformRepo,
+    userQuestionCoordinator,
   });
 }

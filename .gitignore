@@ -31,3 +31,7 @@ data/
 # Legacy local-only Live2D test assets retained outside the committed fixed model.
 apps/desktop/src/renderer/public/live2d-test/
 apps/web/public/live2d-test/
+
+# Playwright E2E artifacts
+test-results/
+playwright-report/

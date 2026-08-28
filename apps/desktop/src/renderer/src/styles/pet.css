@@ -117,6 +117,35 @@ html, body, #pet-app {
     overflow: hidden
 }
 
+/* VN 气泡分支选择肢 */
+.pet-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-top: 8px;
+}
+
+.pet-choice-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 10px;
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    background: rgba(91, 125, 177, 0.15);
+    color: var(--text-primary);
+    font-size: 10.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.pet-choice-btn:hover {
+    background: var(--accent);
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
 .pet-bubble-fade-enter-active,
 .pet-bubble-fade-leave-active {
     transition: opacity .22s ease, transform .22s ease
