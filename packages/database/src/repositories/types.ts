@@ -570,6 +570,7 @@ export interface TurnAttemptModel {
   status: string;
   startedAt: string;
   finishedAt?: string | null;
+  leaseExpiresAt?: string | null;
 }
 
 /** Agent Loop 工具执行账本行（tool_executions） */
