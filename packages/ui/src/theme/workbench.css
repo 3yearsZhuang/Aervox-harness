@@ -249,6 +249,12 @@
   display: grid;
 }
 
+/* 占位卡与功能卡同尺寸：el-dropdown 包裹层撑满槽位，内部按钮随之拉伸 */
+.side-card-slot > .el-dropdown {
+  min-height: 0;
+  display: grid;
+}
+
 .side-card {
   min-height: 0;
   display: flex;
@@ -429,8 +435,9 @@
 }
 
 .message-panel {
+  position: relative;
   width: min(100%, var(--console-max-width));
-  max-height: clamp(260px, 62vh, 800px);
+  max-height: clamp(150px, 34vh, 460px);
   display: flex;
   flex-direction: column;
   padding: clamp(16px, 2.4vh, 26px) clamp(20px, 2.6vw, 36px);
@@ -497,6 +504,32 @@
   background: var(--accent);
   vertical-align: -.12em;
   animation: aervox-blink 1s steps(1) infinite;
+}
+
+/* 主对话框右下角：完整对话回看入口 */
+.message-history-entry {
+  position: absolute;
+  right: clamp(12px, 1.6vw, 20px);
+  bottom: clamp(8px, 1.2vh, 12px);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass-bg-strong);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 640;
+  letter-spacing: .03em;
+  cursor: pointer;
+  transition: color .2s ease, border-color .2s ease, transform .2s ease;
+}
+
+.message-history-entry:hover {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--glass-border));
+  transform: translateY(-1px);
 }
 
 /* ---------- 收起式输入框 ---------- */
@@ -736,36 +769,152 @@
 
 /* ---------- 抽屉内部样式（历史 / 待办 / 番茄钟 / 学习） ---------- */
 
-.history-list,
+/* ---------- 对话回看：视觉小说式历史窗口 ---------- */
+
+.history-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: clamp(16px, 4vh, 48px) clamp(16px, 4vw, 64px);
+  background: rgba(15, 20, 32, .46);
+  backdrop-filter: blur(10px) saturate(1.05);
+  -webkit-backdrop-filter: blur(10px) saturate(1.05);
+  animation: history-fade .22s ease;
+}
+
+.vn-history {
+  width: min(880px, 100%);
+  max-height: min(84vh, 920px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  border-radius: clamp(18px, 2vw, 26px);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: 0 30px 80px rgba(12, 18, 32, .38);
+  animation: vn-history-rise .26s cubic-bezier(.22, 1, .36, 1);
+}
+
+.vn-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: clamp(14px, 2.2vh, 20px) clamp(18px, 2.4vw, 28px);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.vn-history-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 760;
+  letter-spacing: .02em;
+}
+
+.vn-history-title svg {
+  color: var(--accent);
+}
+
+.vn-history-close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  background: var(--glass-bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color .2s ease, border-color .2s ease, transform .2s ease;
+}
+
+.vn-history-close:hover {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--glass-border));
+  transform: translateY(-1px);
+}
+
+.vn-history-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(16px, 2.4vh, 26px);
+  padding: clamp(18px, 3vh, 30px) clamp(20px, 3vw, 36px);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.vn-history-line {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.vn-history-speaker {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 780;
+  letter-spacing: .06em;
+}
+
+.vn-history-line.user .vn-history-speaker {
+  color: var(--text-muted);
+}
+
+.vn-history-text {
+  padding-left: 12px;
+  border-left: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--text-primary);
+  font-size: 15px;
+  line-height: 1.9;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.vn-history-line.user .vn-history-text {
+  border-left-color: var(--border-strong);
+  color: var(--text-secondary);
+}
+
+.vn-history-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.vn-history-foot {
+  padding: 10px clamp(16px, 2vw, 24px);
+  border-top: 1px solid var(--glass-border);
+  color: var(--text-muted);
+  font-size: 11.5px;
+  letter-spacing: .04em;
+  text-align: center;
+}
+
+@keyframes history-fade {
+  from { opacity: 0; }
+}
+
+@keyframes vn-history-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(.98);
+  }
+}
+
 .todo-list {
   display: grid;
   gap: 10px;
-}
-
-.history-list article {
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg-soft);
-}
-
-.history-list article.user {
-  border-color: color-mix(in srgb, var(--accent) 24%, var(--border));
-  background: var(--accent-soft);
-}
-
-.history-list article span {
-  color: var(--accent);
-  font-size: 10px;
-  font-weight: 780;
-}
-
-.history-list article p {
-  margin: 7px 0 0;
-  color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1.7;
-  white-space: pre-wrap;
 }
 
 .drawer-intro,
@@ -861,50 +1010,168 @@
 .timer-panel {
   display: grid;
   justify-items: center;
-  gap: 22px;
-  padding-top: 26px;
+  gap: 18px;
+  padding-top: 20px;
   text-align: center;
 }
 
-.timer-ring {
-  width: 190px;
-  height: 190px;
+.timer-dial-wrapper {
+  position: relative;
+  width: 210px;
+  height: 210px;
+  display: grid;
+  place-items: center;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  transition: transform .15s ease;
+}
+
+.timer-dial-wrapper.dragging {
+  cursor: grabbing;
+  transform: scale(1.02);
+}
+
+.timer-dial-wrapper.running {
+  cursor: default;
+}
+
+.timer-dial-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  overflow: visible;
+}
+
+.timer-dial-track {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 14%, var(--border));
+  stroke-width: 10px;
+  transition: stroke .2s ease;
+}
+
+.timer-dial-progress {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 10px;
+  stroke-linecap: round;
+  transition: stroke-dashoffset .22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.timer-dial-wrapper.dragging .timer-dial-progress {
+  transition: none; /* 拖拽时立即响应，无延迟滞后 */
+}
+
+.timer-dial-thumb-group {
+  transform-origin: 100px 100px;
+  transition: transform .22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.timer-dial-wrapper.dragging .timer-dial-thumb-group {
+  transition: none; /* 拖拽时紧贴手指/鼠标，零延迟同步 */
+}
+
+.timer-dial-thumb-halo {
+  fill: color-mix(in srgb, var(--accent) 24%, transparent);
+  opacity: 0;
+  transform-origin: 180px 100px;
+  transition: opacity .18s ease, transform .18s ease;
+}
+
+.timer-dial-thumb {
+  fill: #ffffff;
+  stroke: var(--accent);
+  stroke-width: 3.5px;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, .22));
+  transform-origin: 180px 100px;
+  transition: transform .18s ease, stroke-width .18s ease;
+}
+
+.timer-dial-wrapper:not(.running):hover .timer-dial-thumb-halo,
+.timer-dial-wrapper.dragging .timer-dial-thumb-halo {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+.timer-dial-wrapper:not(.running):hover .timer-dial-thumb,
+.timer-dial-wrapper.dragging .timer-dial-thumb {
+  stroke-width: 4px;
+  transform: scale(1.1);
+}
+
+.timer-dial-wrapper:not(.running):hover .timer-dial-track {
+  stroke: color-mix(in srgb, var(--accent) 22%, var(--border));
+}
+
+.timer-dial-center {
+  position: relative;
+  z-index: 2;
   display: grid;
   place-content: center;
   justify-items: center;
-  border: 8px solid var(--accent-soft);
-  border-top-color: var(--accent);
-  border-radius: 50%;
+  pointer-events: none;
 }
 
-.timer-ring.running {
-  animation: aervox-spin 8s linear infinite;
-}
-
-.timer-ring.running strong,
-.timer-ring.running small {
-  animation: aervox-reverse-spin 8s linear infinite;
-}
-
-.timer-ring strong {
+.timer-dial-center strong {
   color: var(--text-primary);
-  font-size: 34px;
+  font-size: 38px;
+  font-weight: 750;
+  letter-spacing: -0.5px;
   font-variant-numeric: tabular-nums;
+  line-height: 1.1;
 }
 
-.timer-ring small {
+.timer-dial-center small {
+  margin-top: 4px;
   color: var(--text-muted);
+  font-size: 13px;
 }
 
-.timer-panel > p {
+.timer-guide-text {
   margin: 0;
   color: var(--text-muted);
   font-size: 12px;
 }
 
+.timer-presets {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: -4px;
+}
+
+.timer-preset-btn {
+  padding: 5px 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 999px;
+  background: var(--bg-soft);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: all .16s ease;
+}
+
+.timer-preset-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.timer-preset-btn.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .timer-actions {
   display: flex;
   gap: 10px;
+  margin-top: 4px;
 }
 
 .timer-actions button {
@@ -1120,6 +1387,20 @@
 .practice-end { justify-self: start; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
 .practice-start:disabled,
 .practice-panel button:disabled { cursor: not-allowed; opacity: .55; }
+
+.practice-guidance {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-soft) 50%, transparent);
+  border-left: 3px solid var(--accent);
+}
+.practice-guidance strong { font-size: 14px; color: var(--text-primary); }
+.practice-guidance small { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.practice-guidance.difficulty-ease { border-left-color: #e74c3c; background: color-mix(in srgb, #e74c3c 12%, transparent); }
+.practice-guidance.difficulty-increase { border-left-color: #27ae60; background: color-mix(in srgb, #27ae60 12%, transparent); }
+.practice-guidance.difficulty-maintain { border-left-color: var(--accent); }
 
 .mistake-filters {
   display: flex;
@@ -1524,14 +1805,15 @@
     width: 100%;
   }
 
+  /* 窄窗口保持与桌面一致的纵向双卡结构：右锚定 + 宽度收缩，不横向铺满整屏 */
   .side-cards {
-    left: clamp(10px, 3vw, 16px);
+    left: auto;
     right: clamp(10px, 3vw, 16px);
     top: clamp(64px, 9vh, 84px);
     bottom: clamp(130px, 22vh, 210px);
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-auto-rows: auto;
-    width: auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: minmax(0, 1fr);
+    width: clamp(232px, 40vw, 360px);
   }
 
   .side-card {
@@ -1569,7 +1851,11 @@
   }
 
   .side-cards {
+    left: clamp(10px, 3vw, 16px);
+    right: clamp(10px, 3vw, 16px);
+    width: auto;
     grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: minmax(0, 1fr);
     top: clamp(64px, 9vh, 84px);
     bottom: clamp(120px, 20vh, 180px);
   }
@@ -1632,6 +1918,29 @@
   }
 }
 
+/* 极窄窗口：缩小组件而非破坏布局结构 */
+@media (max-width: 430px) {
+  .side-card {
+    min-height: clamp(84px, 12vh, 110px);
+    padding: 12px 14px;
+    gap: 8px;
+  }
+
+  .side-card-icon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .side-card-summary {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .menu-pill.open {
+    max-width: min(280px, calc(100vw - 24px));
+  }
+}
+
 @media (max-height: 640px) {
   .message-panel {
     max-height: 48vh;
@@ -1647,6 +1956,17 @@
     gap: 10px;
   }
 
+  /* 矮窗：收缩卡片内距与图标，保持双卡纵排不溢出 */
+  .side-card {
+    padding: clamp(10px, 2vh, 16px) clamp(12px, 1.6vw, 20px);
+    gap: 8px;
+  }
+
+  .side-card-icon {
+    width: clamp(34px, 6vh, 48px);
+    height: clamp(34px, 6vh, 48px);
+  }
+
   .side-card-title small,
   .side-card-foot {
     display: none;
@@ -1654,6 +1974,17 @@
 
   .side-card-summary {
     font-size: 12.5px;
+  }
+}
+
+/* 极矮窗：进一步精简，隐藏摘要保住骨架 */
+@media (max-height: 480px) {
+  .side-card-summary {
+    display: none;
+  }
+
+  .side-card {
+    min-height: 64px;
   }
 }
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, nextTick, onMounted, onUnmounted, ref, type Component} from 'vue'
+import {computed, nextTick, onMounted, onUnmounted, ref, watch, type Component} from 'vue'
 import {
   Bell,
   BookOpen,
@@ -86,7 +86,7 @@ const todoOpen = ref(false)
 const timerOpen = ref(false)
 const studyOpen = ref(false)
 const settingsOpen = ref(false)
-const settingsCategory = ref<'tools' | 'appearance' | 'conversation' | 'model' | 'persona' | 'focus' | 'notifications' | 'voice' | 'plugins'>('tools')
+const settingsCategory = ref<'tools' | 'appearance' | 'conversation' | 'model' | 'persona' | 'notifications' | 'voice' | 'plugins'>('tools')
 const newGoalTopic = ref('')
 const newGoalLevel = ref<'beginner' | 'intermediate' | 'advanced'>('beginner')
 const newGoalMinutes = ref(25)
@@ -98,7 +98,8 @@ const practiceReadyToComplete = ref(false)
 const practiceAnswer = ref('')
 const practiceFeedback = ref<{judgement: string; nextStep: string} | null>(null)
 const practiceSubmission = ref<{sessionId: string; questionId: string; answer: string; idempotencyKey: string} | null>(null)
-const practiceReport = ref<{answeredCount: number; questionCount: number; remainingCount: number; correctCount: number; incorrectCount: number; unverifiableCount: number; accuracy: number | null; nextStep: string} | null>(null)
+const practiceReport = ref<{answeredCount: number; questionCount: number; remainingCount: number; correctCount: number; incorrectCount: number; unverifiableCount: number; accuracy: number | null; avgTimeSpentSec: number | null; totalHintsUsed: number; guidance: {difficulty: 'ease' | 'maintain' | 'increase'; reasonCode: string; message: string}; nextStep: string} | null>(null)
+const questionStartTime = ref<number>(0)
 const practiceBusy = ref(false)
 const practiceError = ref<string | null>(null)
 const mistakeFilter = ref<'active' | 'mastered' | 'dismissed' | 'all'>('active')
@@ -107,6 +108,10 @@ const selectedMistakeIds = ref<string[]>([])
 const mistakeBusyId = ref<string | null>(null)
 const mistakeInsightDrafts = ref<Record<string, {reasonCode: string; note: string}>>({})
 const reviewBusyId = ref<string | null>(null)
+const newPlanTitle = ref('')
+const newPlanEndDate = ref('')
+const planBusyId = ref<string | null>(null)
+const planDrafts = ref<Record<string, {endDate: string; dailyAvailableMinutes: number}>>({})
 const input = ref('')
 const isComposing = ref(false)
 const activeModeId = ref<CompanionModeId>('companion')
@@ -142,6 +147,7 @@ const {
   completedReviews,
   reviewSummary,
   mistakes,
+  studyPlans,
   notifications,
   todayDiary,
   activePracticeSession,
@@ -166,7 +172,6 @@ const settingCategories = [
   {id: 'conversation', label: '对话', description: '称呼与输入方式', icon: MessageCircle},
   {id: 'model', label: '模型与服务', description: '大语言模型与供应商配置', icon: Bot},
   {id: 'persona', label: '人格设定', description: '管理人格角色设定', icon: Heart},
-  {id: 'focus', label: '专注', description: '番茄钟工作时长', icon: Clock3},
   {id: 'notifications', label: '提醒', description: '学习节奏与通知', icon: Bell},
   {id: 'voice', label: '语音', description: '本地语音模型配置', icon: Volume2},
   {id: 'plugins', label: '插件', description: '插件配置与页面', icon: Puzzle},
@@ -236,6 +241,27 @@ function createStoryLine(speaker: Speaker, text: string, state: StoryLine['state
 async function scrollStoryToBottom() {
   await nextTick()
   storyViewport.value?.scrollTo({top: storyViewport.value.scrollHeight, behavior: 'smooth'})
+}
+
+/** 主对话框只保留最新一条 AI 回复，完整上下文由二级回看窗口承载 */
+const latestAssistantLine = computed<StoryLine | null>(() => {
+  for (let i = story.value.length - 1; i >= 0; i--) {
+    if (story.value[i].speaker === 'assistant') return story.value[i]
+  }
+  return null
+})
+
+/** 视觉小说式对话回看：打开时滚到最新一条 */
+const historyViewport = ref<HTMLElement | null>(null)
+
+watch(historyOpen, async (open) => {
+  if (!open) return
+  await nextTick()
+  historyViewport.value?.scrollTo({top: historyViewport.value.scrollHeight})
+})
+
+function handleHistoryEscape(event: KeyboardEvent) {
+  if (event.key === 'Escape' && historyOpen.value) historyOpen.value = false
 }
 
 async function sendMessage(value = input.value) {
@@ -399,6 +425,7 @@ function restorePracticeSession(session: {sessionId: string; items: Array<{id: s
   practiceAnswer.value = ''
   practiceSubmission.value = null
   practiceFeedback.value = null
+  questionStartTime.value = Date.now()
 }
 
 async function startPractice() {
@@ -422,12 +449,13 @@ async function submitPracticeAnswer() {
   practiceBusy.value = true
   practiceError.value = null
   try {
+    const elapsedSeconds = Math.max(1, Math.round((Date.now() - questionStartTime.value) / 1000))
     const existing = practiceSubmission.value
     const submission = existing?.sessionId === practiceSession.value.sessionId && existing.questionId === question.id && existing.answer === answer
       ? existing
       : { sessionId: practiceSession.value.sessionId, questionId: question.id, answer, idempotencyKey: `attempt_${crypto.randomUUID()}` }
     practiceSubmission.value = submission
-    practiceFeedback.value = await api.submitPracticeAnswer(submission.sessionId, submission.questionId, submission.answer, submission.idempotencyKey)
+    practiceFeedback.value = await api.submitPracticeAnswer(submission.sessionId, submission.questionId, submission.answer, submission.idempotencyKey, elapsedSeconds)
   } catch (error) {
     practiceError.value = error instanceof Error ? '作答没有保存，请重试。' : '作答失败，请重试。'
   } finally {
@@ -513,6 +541,41 @@ async function completeReview(reviewId: string, isCorrect: boolean) {
   }
 }
 
+async function submitStudyPlan() {
+  if (!newPlanTitle.value.trim() || !newPlanEndDate.value) return
+  planBusyId.value = 'new'
+  try {
+    await api.createStudyPlan({ title: newPlanTitle.value.trim(), startDate: new Date().toISOString().slice(0, 10), endDate: newPlanEndDate.value })
+    newPlanTitle.value = ''
+    newPlanEndDate.value = ''
+  } catch {
+    practiceError.value = '学习计划没有保存，请稍后重试。'
+  } finally { planBusyId.value = null }
+}
+
+async function setPlanPrediction(planId: string, prediction: 'on_track' | 'at_risk') {
+  planBusyId.value = planId
+  try { await api.updateStudyPlanPrediction(planId, prediction) } catch { practiceError.value = '计划状态没有保存，请稍后重试。' } finally { planBusyId.value = null }
+}
+
+function planDraft(plan: {id: string; endDate: string; dailyAvailableMinutes: number}) {
+  return planDrafts.value[plan.id] ?? {endDate: plan.endDate, dailyAvailableMinutes: plan.dailyAvailableMinutes}
+}
+
+async function saveStudyPlan(plan: {id: string; endDate: string; dailyAvailableMinutes: number}) {
+  const draft = planDraft(plan)
+  planBusyId.value = plan.id
+  try {
+    await api.updateStudyPlan(plan.id, draft)
+    delete planDrafts.value[plan.id]
+  } catch { practiceError.value = '计划调整没有保存，请稍后重试。' } finally { planBusyId.value = null }
+}
+
+async function archiveStudyPlan(planId: string) {
+  planBusyId.value = planId
+  try { await api.archiveStudyPlan(planId) } catch { practiceError.value = '计划归档失败，请稍后重试。' } finally { planBusyId.value = null }
+}
+
 function nextPracticeQuestion() {
   if (!practiceSession.value) return
   if (practiceIndex.value + 1 >= practiceSession.value.items.length) {
@@ -523,6 +586,7 @@ function nextPracticeQuestion() {
   practiceAnswer.value = ''
   practiceSubmission.value = null
   practiceFeedback.value = null
+  questionStartTime.value = Date.now()
 }
 
 function toggleTimer() {
@@ -532,6 +596,91 @@ function toggleTimer() {
 function resetTimer() {
   timerRunning.value = false
   timerSeconds.value = timerMinutes.value * 60
+}
+
+const timerDialRef = ref<SVGSVGElement | null>(null)
+const isDraggingDial = ref(false)
+
+// 环形表盘几何常数 (SVG viewBox 0 0 200 200, 中心 100,100, 半径 80)
+const DIAL_RADIUS = 80
+const DIAL_CIRCUMFERENCE = 2 * Math.PI * DIAL_RADIUS
+
+const timerRatio = computed(() => {
+  if (timerRunning.value) {
+    const total = Math.max(timerMinutes.value * 60, 1)
+    return Math.max(0, Math.min(1, timerSeconds.value / total))
+  }
+  return Math.max(0, Math.min(1, timerMinutes.value / 60))
+})
+
+const timerArcDashoffset = computed(() => {
+  return DIAL_CIRCUMFERENCE * (1 - timerRatio.value)
+})
+
+// 滑块手柄（白点）旋转角度（顺时针度数，0° = 12 点钟方向）
+const thumbAngle = computed(() => {
+  return timerRatio.value * 360
+})
+
+function calculateMinutesFromEvent(event: MouseEvent | TouchEvent): number | null {
+  const svg = timerDialRef.value
+  if (!svg) return null
+  const rect = svg.getBoundingClientRect()
+  const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX
+  const clientY = 'touches' in event ? event.touches[0].clientY : event.clientY
+  const cx = rect.left + rect.width / 2
+  const cy = rect.top + rect.height / 2
+  const dx = clientX - cx
+  const dy = clientY - cy
+  // 极坐标角度，正上方为 0度，顺时针增长
+  let deg = Math.atan2(dy, dx) * (180 / Math.PI) + 90
+  if (deg < 0) deg += 360
+  // 360 度对应 60 分钟
+  const rawMin = (deg / 360) * 60
+  const clamped = Math.max(1, Math.min(60, Math.round(rawMin)))
+  return clamped
+}
+
+function handleDialPointerDown(event: MouseEvent | TouchEvent) {
+  if (timerRunning.value) return
+  isDraggingDial.value = true
+  const min = calculateMinutesFromEvent(event)
+  if (min !== null) {
+    timerMinutes.value = min
+    timerSeconds.value = min * 60
+  }
+  window.addEventListener('mousemove', handleDialPointerMove)
+  window.addEventListener('mouseup', handleDialPointerUp)
+  window.addEventListener('touchmove', handleDialPointerMove, {passive: false})
+  window.addEventListener('touchend', handleDialPointerUp)
+}
+
+function handleDialPointerMove(event: MouseEvent | TouchEvent) {
+  if (!isDraggingDial.value || timerRunning.value) return
+  if ('touches' in event) event.preventDefault()
+  const min = calculateMinutesFromEvent(event)
+  if (min !== null && min !== timerMinutes.value) {
+    timerMinutes.value = min
+    timerSeconds.value = min * 60
+  }
+}
+
+function handleDialPointerUp() {
+  if (isDraggingDial.value) {
+    isDraggingDial.value = false
+    saveSettings()
+  }
+  window.removeEventListener('mousemove', handleDialPointerMove)
+  window.removeEventListener('mouseup', handleDialPointerUp)
+  window.removeEventListener('touchmove', handleDialPointerMove)
+  window.removeEventListener('touchend', handleDialPointerUp)
+}
+
+function selectPresetMinutes(minutes: number) {
+  if (timerRunning.value) return
+  timerMinutes.value = minutes
+  timerSeconds.value = minutes * 60
+  saveSettings()
 }
 
 function handleComposerEnter(event: KeyboardEvent) {
@@ -684,7 +833,7 @@ onMounted(() => {
     if (savedSettings.assistantName) assistantDisplayName.value = savedSettings.assistantName
     if (typeof savedSettings.enterToSend === 'boolean') enterToSend.value = savedSettings.enterToSend
     if (typeof savedSettings.compactMode === 'boolean') compactMode.value = savedSettings.compactMode
-    if (typeof savedSettings.timerMinutes === 'number' && [15, 25, 45, 60].includes(savedSettings.timerMinutes)) timerMinutes.value = savedSettings.timerMinutes
+    if (typeof savedSettings.timerMinutes === 'number' && savedSettings.timerMinutes >= 1 && savedSettings.timerMinutes <= 60) timerMinutes.value = savedSettings.timerMinutes
     if (typeof savedSettings.desktopCompanionEnabled === 'boolean') desktopCompanionEnabled.value = savedSettings.desktopCompanionEnabled
     if (typeof savedSettings.dailyReminder === 'boolean') dailyReminder.value = savedSettings.dailyReminder
     timerSeconds.value = timerMinutes.value * 60
@@ -719,6 +868,7 @@ onMounted(() => {
   void scrollStoryToBottom()
 
   document.addEventListener('click', handleMenuDocumentClick)
+  document.addEventListener('keydown', handleHistoryEscape)
 
   timer = window.setInterval(() => {
     if (timerRunning.value && timerSeconds.value > 0) timerSeconds.value -= 1
@@ -729,6 +879,7 @@ onMounted(() => {
 onUnmounted(() => {
   if (timer) window.clearInterval(timer)
   document.removeEventListener('click', handleMenuDocumentClick)
+  document.removeEventListener('keydown', handleHistoryEscape)
   window.removeEventListener('aervox:open-settings', openSettings)
 })
 </script>
@@ -745,7 +896,7 @@ onUnmounted(() => {
       </Live2DPet>
     </div>
 
-    <button class="floating-settings" type="button" aria-label="打开设置" @click="settingsOpen = true">
+    <button v-if="isWeb" class="floating-settings" type="button" aria-label="打开设置" @click="settingsOpen = true">
       <Settings :size="19" />
     </button>
 
@@ -779,7 +930,7 @@ onUnmounted(() => {
         <template v-if="card">
           <article
             class="side-card"
-            role="button"
+            role="region"
             tabindex="0"
             :aria-label="`打开${card.label}`"
             @click="activateCard(card)"
@@ -836,15 +987,22 @@ onUnmounted(() => {
       <section class="message-panel" aria-label="伴学对话">
         <div ref="storyViewport" class="message-viewport" aria-live="polite">
           <p
-            v-for="line in story"
-            :key="line.id"
+            v-if="latestAssistantLine"
             class="message-line"
-            :class="[line.speaker, line.state]"
+            :class="latestAssistantLine.state"
           >
-            <span class="message-speaker">{{ line.speaker === 'assistant' ? assistantDisplayName : '你' }}</span>
-            <span class="message-text">{{ line.text || (line.speaker === 'assistant' ? '正在连接 Aervox…' : '') }}<i v-if="line.state === 'streaming'" class="stream-cursor" aria-hidden="true" /></span>
+            <span class="message-speaker">{{ assistantDisplayName }}</span>
+            <span class="message-text">{{ latestAssistantLine.text || '正在连接 Aervox…' }}<i v-if="latestAssistantLine.state === 'streaming'" class="stream-cursor" aria-hidden="true" /></span>
+          </p>
+          <p v-else class="message-line">
+            <span class="message-speaker">{{ assistantDisplayName }}</span>
+            <span class="message-text">正在连接 Aervox…</span>
           </p>
         </div>
+        <button class="message-history-entry" type="button" @click="historyOpen = true">
+          <History :size="14" />
+          <span>回看完整对话</span>
+        </button>
       </section>
 
       <section class="composer-dock" :class="{open: composerOpen}" @focusout="handleDockFocusOut">
@@ -913,14 +1071,26 @@ onUnmounted(() => {
       </section>
     </div>
 
-    <el-drawer v-model="historyOpen" title="对话回看" direction="rtl" size="min(440px, 94vw)">
-      <div class="history-list">
-        <article v-for="line in story" :key="line.id" :class="line.speaker">
-          <span>{{ line.speaker === 'assistant' ? assistantDisplayName : '你' }}</span>
-          <p>{{ line.text || '正在生成…' }}</p>
-        </article>
+    <Teleport to="body">
+      <div v-if="historyOpen" class="history-overlay" @click.self="historyOpen = false">
+        <section class="vn-history" role="dialog" aria-modal="true" aria-label="对话回看">
+          <header class="vn-history-head">
+            <span class="vn-history-title"><History :size="17" />对话回看</span>
+            <button class="vn-history-close" type="button" aria-label="关闭对话回看" @click="historyOpen = false">
+              <X :size="17" />
+            </button>
+          </header>
+          <div ref="historyViewport" class="vn-history-list">
+            <p v-for="line in story" :key="line.id" class="vn-history-line" :class="line.speaker">
+              <span class="vn-history-speaker">{{ line.speaker === 'assistant' ? assistantDisplayName : '你' }}</span>
+              <span class="vn-history-text">{{ line.text || (line.speaker === 'assistant' ? '…' : '') }}</span>
+            </p>
+            <p v-if="story.length === 0" class="vn-history-empty">还没有对话记录，先和思隅说句话吧。</p>
+          </div>
+          <footer class="vn-history-foot">上下滚动回溯完整对话 · Esc 或点击空白处关闭</footer>
+        </section>
       </div>
-    </el-drawer>
+    </Teleport>
 
     <el-drawer v-model="todoOpen" title="待办清单" direction="rtl" size="min(400px, 92vw)">
       <p class="drawer-intro">用小任务保持节奏，不需要一次完成所有事情。</p>
@@ -942,11 +1112,88 @@ onUnmounted(() => {
 
     <el-drawer v-model="timerOpen" title="番茄钟" direction="rtl" size="min(400px, 92vw)">
       <div class="timer-panel">
-        <div class="timer-ring" :class="{running: timerRunning}"><strong>{{ formattedTime }}</strong><small>专注时间</small></div>
-        <p>{{ timerRunning ? '保持当前节奏，结束后记得休息。' : '准备好后开始一个 25 分钟的小回合。' }}</p>
+        <div
+          class="timer-dial-wrapper"
+          :class="{running: timerRunning, dragging: isDraggingDial}"
+          @mousedown="handleDialPointerDown"
+          @touchstart="handleDialPointerDown"
+        >
+          <svg
+            ref="timerDialRef"
+            class="timer-dial-svg"
+            viewBox="0 0 200 200"
+            aria-hidden="true"
+          >
+            <!-- 浅色/半透明底轨 -->
+            <circle
+              class="timer-dial-track"
+              cx="100"
+              cy="100"
+              :r="DIAL_RADIUS"
+            />
+            <!-- 高亮进度弧线 -->
+            <circle
+              class="timer-dial-progress"
+              cx="100"
+              cy="100"
+              :r="DIAL_RADIUS"
+              :stroke-dasharray="DIAL_CIRCUMFERENCE"
+              :stroke-dashoffset="timerArcDashoffset"
+            />
+            <!-- 白色滑块圆圈手柄（引导用户拖拽，旋转中心为圆心 100,100，起始位置在正右方 180,100） -->
+            <g
+              v-if="!timerRunning"
+              class="timer-dial-thumb-group"
+              :style="{transform: `rotate(${thumbAngle}deg)`}"
+            >
+              <!-- 手柄外晕与白色实心圆点，位于 (100+DIAL_RADIUS, 100) = (180, 100) -->
+              <circle
+                class="timer-dial-thumb-halo"
+                cx="180"
+                cy="100"
+                r="13"
+              />
+              <circle
+                class="timer-dial-thumb"
+                cx="180"
+                cy="100"
+                r="7.5"
+              />
+            </g>
+          </svg>
+          <div class="timer-dial-center">
+            <strong>{{ formattedTime }}</strong>
+            <small>{{ timerRunning ? '专注中' : '专注时间' }}</small>
+          </div>
+        </div>
+
+        <p class="timer-guide-text">
+          {{ timerRunning ? '保持当前节奏，结束后记得休息。' : `滑动圆环设定 ${timerMinutes} 分钟专注回合` }}
+        </p>
+
+        <div v-if="!timerRunning" class="timer-presets" role="radiogroup" aria-label="快捷预设时长">
+          <button
+            v-for="preset in [15, 25, 45, 60]"
+            :key="preset"
+            type="button"
+            class="timer-preset-btn"
+            :class="{active: timerMinutes === preset}"
+            @click="selectPresetMinutes(preset)"
+          >
+            {{ preset }} 分钟
+          </button>
+        </div>
+
         <div class="timer-actions">
-          <button type="button" @click="toggleTimer"><Pause v-if="timerRunning" :size="20" /><Play v-else :size="20" />{{ timerRunning ? '暂停' : '开始专注' }}</button>
-          <button type="button" @click="resetTimer"><TimerReset :size="20" />重置</button>
+          <button type="button" @click="toggleTimer">
+            <Pause v-if="timerRunning" :size="20" />
+            <Play v-else :size="20" />
+            {{ timerRunning ? '暂停' : '开始专注' }}
+          </button>
+          <button type="button" @click="resetTimer">
+            <TimerReset :size="20" />
+            重置
+          </button>
         </div>
       </div>
     </el-drawer>
@@ -965,6 +1212,13 @@ onUnmounted(() => {
           <strong>本次练习完成</strong>
           <p>已作答 {{ practiceReport.answeredCount }}/{{ practiceReport.questionCount }} 题 · 正确 {{ practiceReport.correctCount }} · 错误 {{ practiceReport.incorrectCount }} · 待确认 {{ practiceReport.unverifiableCount }}</p>
           <p v-if="practiceReport.accuracy !== null">可判定题正确率：{{ Math.round(practiceReport.accuracy * 100) }}%</p>
+          <p v-if="practiceReport.avgTimeSpentSec !== null">平均用时：{{ practiceReport.avgTimeSpentSec }} 秒</p>
+          <div class="practice-guidance" :class="`difficulty-${practiceReport.guidance.difficulty}`">
+            <strong>
+              {{ practiceReport.guidance.difficulty === 'ease' ? '📉 建议降低难度' : practiceReport.guidance.difficulty === 'increase' ? '📈 建议提高难度' : '➡️ 保持当前难度' }}
+            </strong>
+            <small>{{ practiceReport.guidance.message }}</small>
+          </div>
           <small>{{ practiceReport.remainingCount > 0 ? `还有 ${practiceReport.remainingCount} 题未作答；` : '' }}{{ practiceReport.nextStep === 'review_scheduled' ? '错题已进入后续复习。' : practiceReport.nextStep === 'await_review' ? '待确认题暂不计入掌握度。' : '继续保持这个节奏。' }}</small>
         </article>
           <article v-else-if="practiceSession && practiceReadyToComplete" class="practice-panel">
@@ -1108,6 +1362,32 @@ onUnmounted(() => {
       </section>
 
       <section class="study-section">
+        <h4>学习计划 <small>{{ studyPlans.length }}</small></h4>
+        <form class="study-goal-form" @submit.prevent="submitStudyPlan">
+          <input v-model="newPlanTitle" placeholder="例如：期末考试复习" aria-label="计划名称" />
+          <input v-model="newPlanEndDate" type="date" aria-label="计划结束日期" />
+          <button type="submit" :disabled="planBusyId === 'new'" aria-label="创建学习计划"><Plus :size="18" /></button>
+        </form>
+        <ul class="study-list">
+          <li v-for="plan in studyPlans" :key="plan.id">
+            <div class="goal-item-heading"><span class="study-item-title">{{ plan.title }}</span><span class="goal-status">{{ plan.completionPrediction === 'at_risk' ? '需调整' : plan.completionPrediction === 'cannot_complete' ? '无法按期完成' : '进行中' }}</span></div>
+            <small>{{ plan.startDate }} 至 {{ plan.endDate }} · {{ plan.dailyAvailableMinutes }} 分钟/天 · 已调整 {{ plan.revisionCount }} 次</small>
+            <div class="study-goal-form">
+              <input :value="planDraft(plan).endDate" type="date" aria-label="调整结束日期" @input="planDrafts[plan.id] = {...planDraft(plan), endDate: ($event.target as HTMLInputElement).value}" />
+              <input :value="planDraft(plan).dailyAvailableMinutes" type="number" min="0" aria-label="调整每日可用时间" @input="planDrafts[plan.id] = {...planDraft(plan), dailyAvailableMinutes: Number(($event.target as HTMLInputElement).value)}" />
+              <button type="button" :disabled="planBusyId === plan.id" @click="saveStudyPlan(plan)">调整</button>
+            </div>
+            <div class="goal-actions">
+              <button type="button" :disabled="planBusyId === plan.id" @click="setPlanPrediction(plan.id, 'on_track')"><Check :size="14" />进度正常</button>
+              <button type="button" :disabled="planBusyId === plan.id" @click="setPlanPrediction(plan.id, 'at_risk')">标记风险</button>
+              <button type="button" class="danger" :disabled="planBusyId === plan.id" @click="archiveStudyPlan(plan.id)"><X :size="14" />归档</button>
+            </div>
+          </li>
+          <li v-if="studyPlans.length === 0" class="study-empty">还没有学习计划，先设定一个结束日期。</li>
+        </ul>
+      </section>
+
+      <section class="study-section">
         <h4>今日日记 <small v-if="todayDiary">{{ todayDiary.status }}</small></h4>
         <article v-if="todayDiary" class="study-diary">
           <strong>{{ todayDiary.title }}</strong>
@@ -1180,13 +1460,6 @@ onUnmounted(() => {
           </div>
           <LLMConfigPanel v-else-if="settingsCategory === 'model'" class="settings-section" />
           <PersonaManagerPanel v-else-if="settingsCategory === 'persona'" class="settings-section" />
-          <div v-else-if="settingsCategory === 'focus'" class="settings-section">
-            <div class="settings-section-heading">
-              <span class="heading-icon-wrap"><Clock3 :size="18" /></span>
-              <span><strong>专注</strong><small>设置番茄钟的默认工作与休息时长</small></span>
-            </div>
-            <div class="settings-row settings-choice-row"><span><strong>专注时长</strong><small>重置计时器时使用该时长</small></span><span class="settings-segmented"><button v-for="minutes in [15, 25, 45, 60]" :key="minutes" type="button" :class="{active: timerMinutes === minutes}" @click="timerMinutes = minutes; saveSettings()">{{ minutes }} 分钟</button></span></div>
-          </div>
           <div v-else-if="settingsCategory === 'notifications'" class="settings-section">
             <div class="settings-section-heading">
               <span class="heading-icon-wrap"><Bell :size="18" /></span>

@@ -826,6 +826,15 @@ export const createPracticeReportSchema = z.object({
   reportType: z.enum(["summary", "detailed"]).optional(),
 });
 
+export const practiceReportResponseSchema = z.object({
+  id: z.string(), workspaceId: z.string(), subjectUserId: z.string(), sessionId: z.string(),
+  totalQuestions: z.number().int(), correctCount: z.number().int(), incorrectCount: z.number().int(),
+  avgTimeSpentSec: z.number().int().nullable().optional(), totalHintsUsed: z.number().int(),
+  masteryPrediction: z.number().nullable().optional(), biasAssessment: z.string().nullable().optional(),
+  reportType: z.string(), isReset: z.boolean(), createdAt: z.string(), updatedAt: z.string(),
+});
+export const practiceReportListResponseSchema = z.object({ items: z.array(practiceReportResponseSchema) });
+
 // ============ CAP-017 考试日计划 ============
 
 /** 创建学习计划请求体 */
@@ -852,3 +861,11 @@ export const updatePredictionSchema = z.object({
   prediction: z.enum(["on_track", "at_risk", "cannot_complete"]),
   degradationPlan: z.unknown().optional(),
 });
+
+export const studyPlanResponseSchema = z.object({
+  id: z.string(), workspaceId: z.string(), subjectUserId: z.string(), goalId: z.string().nullable().optional(),
+  title: z.string(), startDate: z.string(), endDate: z.string(), restDays: z.array(z.string()),
+  dailyAvailableMinutes: z.number().int(), status: z.string(), completionPrediction: z.string().nullable().optional(),
+  degradationPlan: z.unknown().nullable().optional(), revisionCount: z.number().int(), createdAt: z.string(), updatedAt: z.string(),
+});
+export const studyPlanListResponseSchema = z.object({ items: z.array(studyPlanResponseSchema) });

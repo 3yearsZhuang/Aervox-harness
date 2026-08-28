@@ -13,6 +13,7 @@ import type {
   SqlitePrivacyRepository,
   SqliteAgentInboxRepository,
   SqliteSubagentRunRepository,
+  SqlitePlatformRepository,
 } from "@aervox/database";
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
@@ -40,6 +41,8 @@ export interface ConversationRouteDeps {
   workflows?: import("@aervox/agent-loop").WorkflowDefinition[];
   /** 5c：subagent_runs 仓储（GET /v1/turns/:id/subagents 审计查询） */
   subagentRunRepo?: SqliteSubagentRunRepository;
+  /** 阶段 7：ModelRun/ContextManifest 落库口（Step 级可追溯写入；缺失则不记录） */
+  platformRepo?: SqlitePlatformRepository;
 }
 
 export function registerConversationRoutes(
@@ -142,6 +145,8 @@ export function registerConversationRoutes(
         // 5c：Subagent/Workflow Contribution（独立 Tool/Provider 组合；惰性工厂按 request tenant 绑定）
         subagentFactory: deps.subagentFactory,
         workflows: deps.workflows,
+        // 阶段 7：Step 级 ModelRun + 每 Turn ContextManifest 快照落库
+        platformRepo: deps.platformRepo,
       },
     );
 

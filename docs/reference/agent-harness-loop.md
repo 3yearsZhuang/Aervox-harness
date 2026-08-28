@@ -554,7 +554,7 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - Context compaction seam（已落地 5b：`ContextCompactionPort` + 规则式摘要 `createSummaryCompaction` + composer 集成，宿主持有可注入 LLM 摘要）；
 - Skill 渐进式披露接入 ContextBuilder（已落地 5b：`buildSkillsPrompt` 迁入 agent-loop + `createSkillAwareContextBuilder`，API 对话默认注入 activeOnly 技能清单）；
 - Subagent/Workflow 通过独立 Tool/Provider Contribution 接入（已落地 5c：`SubagentPort` + `composeToolProviders` + `createSubagentToolProvider`（subagent.delegate 写类走既有审批）+ `createWorkflowToolProvider`（TS 步骤定义 workflow.run）；子任务独立 turn/attempt 落库 `subagent_runs`，隔离上下文+递归防护，审计端点 `GET /v1/turns/:id/subagents` + 注册清单 `GET /v1/workflows`）；
-- DSH/pi Adapter 进行兼容、许可证和安全验证（仍属规划）。
+- DSH/pi Adapter 进行兼容、许可证和安全验证（阶段 6 已落地契约面 + 模拟器：`AdapterDriverPort`/`AdapterManifest`/JSON 行 stdio 协议/`concludeAdapterBatch` 收紧/`verifyAdapterManifest` 准入 + fixture 子进程与内存模拟器双实现；真实运行时接入与 `Accepted` 验收仍待推进）。
 
 退出条件：高级能力均通过扩展点接入，不修改 Loop 核心控制流。（5a 已按此兑现：Inbox 注入经 `ContextBuilderPort` 扩展点 + 可选 `InboxPort`，未改动 Loop 状态机与事件流；`agent-loop-no-db` 健身函数持续机器验证。）
 
@@ -648,7 +648,7 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 | `agent-loop-sse` | `apps/api/test/conversation-loop.test.ts`（持久后发送/重连重放） | 已落地 |
 | `agent-loop-budget` | `packages/agent-loop/test/budget.test.ts`（step/turn-timeout/repeat-tool） | 已落地（token/费用预算待续） |
 | `agent-loop-deletion` | `apps/api/test/conversation-deletion.test.ts`（未追平 fail-closed）+ `budget.test.ts`（DeletionGate） | 已落地 |
-| `agent-loop-provider-parity` | `packages/agent-loop/test/provider-parity.test.ts`（终止语义表 + Native 基线 + 三方插槽 + 阶段 4 退出条件「driver 切换不改事件流契约骨架」） | 已落地（DSH/pi 适配器对照仍待进程外 Adapter 准入） |
+| `agent-loop-provider-parity` | `packages/agent-loop/test/provider-parity.test.ts`（终止语义表 + Native 基线 + 三方插槽 + 阶段 4 退出条件「driver 切换不改事件流契约骨架」）+ 阶段 6 `adapter-contract.test.ts`（any/every 收紧对照） | 已落地（DSH/pi 真实运行时对照待 Adapter 准入；收紧语义已机器验证） |
 
 ### 16.8 落地进展（阶段 2a：可观测性接口）
 
@@ -727,7 +727,7 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
   - `InMemoryInbox`（测试骨架：enqueue 幂等 / claim 单赢 / 边界按类型推定）。
 - **Host 接线**：`createAgentHost` deps 新增可选 `inbox`，透传至 `executeTurn`。
 - 测试：`@aervox/database` 132（新增 `agent-inbox.test.ts` 7：enqueue 幂等/claim 单赢/ack 仅 claimed/过期过滤/租户隔离/next-turn 无 attemptId）、`@aervox/agent-loop` 67（新增 `inbox.test.ts` 7：executor claim→注入→ack 集成/inbox 不残留 claimed/后向兼容/其它 attempt 不消费/builder 注入标注/InMemoryInbox 语义）、`@aervox/host-agent` 27（接线后无回归）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
-- 未落地（阶段 7）：ContextManifest 写入与 model_runs/context_manifests 的 attemptId/stepId Expand 迁移（ADR-017 迁移面）——经扩展点接入，不改 Loop 核心。
+- 已落地（阶段 7）：ContextManifest 写入（每 Turn 首 Step 快照）与 model_runs/context_manifests 的 attemptId/stepId Expand 迁移（ADR-017 迁移面；Step 级 recordModelRun + recordContextManifest 为可观测副作用，经扩展点接入不改 Loop 核心，见 §16.20）。
 
 ### 16.15 落地进展（阶段 5a-2：受控收件箱 HTTP 入口 + 过期回收）
 
@@ -773,6 +773,48 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - **宿主执行器**（`packages/host-agent`）：`createSqliteSubagentPort`——子任务独立 turn/attempt 落库（复用 `createTurnWithOutbox`/`createTurnAttempt`，事件流在子 turn 下审计）→ 嵌套 `executeTurn`（子任务 Step 上限默认 4）→ delta 聚合正文 → run 行终态收口；隔离原则（子上下文仅 task，不注入父历史）+ 递归防护（childTools 含 delegate/workflow 即拒绝）＋崩溃/重试幂等复用。
 - **API 接线**（`apps/api`）：`buildLoopProvider` 提取（Leader 与子任务共用）；conversation 模块默认接线 `subagentFactory`（request 级 tenant 绑定）+ 可选 `workflows`（`buildApp` 透传）；工具组合 = compose(subagent/workflow 静态贡献, fallback=动态 runtime)；新端点 `GET /v1/turns/:turnId/subagents`（子任务审计，租户隔离）与 `GET /v1/workflows`（注册清单元数据）。
 - 测试：`@aervox/agent-loop` 90（新增 `subagent-contribution.test.ts` 13：compose 并集/重名/路由/fallback 兜底、subagent 委托透传/失败/非法输入/退化为空、workflow 顺序/失败定位/未注册/抛错）；`@aervox/database` 139（新增 `subagent-runs.test.ts` 5：创建幂等/终态收口/列表/租户隔离）；`@aervox/host-agent` 31（新增 `subagent-executor.test.ts` 4：端到端落库+正文聚合/幂等复用/递归防护/子任务失败）；`@aervox/api` 199（新增 `subagent-routes.test.ts` 4：workflows 清单/空清单退化/子任务审计租户隔离/workflow 贡献不破坏 Loop）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.18 落地进展（阶段 6：DSH/pi 进程外 Adapter 契约面 + 模拟器）
+
+2026-08-28 落地（对应 §13 阶段 5 末项与 ADR-010「DSH/pi 仅为可选适配器」；范围：契约面 + 模拟器，不接真实外部运行时——参考项目固定 commit 准入留给 P2 验收）：
+
+- **契约**（`packages/agent-loop/src/adapter-contract.ts`）：
+  - `AdapterDriverPort`（整 Turn 代理执行：request → delta/tool_request/tool_result/batch 事件流）与 `AdapterManifest`（adapterId/version/sha256/license/terminationPolicy）；
+  - `concludeAdapterBatch` 纯函数：上游 any/every 批次声明收紧为 Aervox `all-results-conclude`——全结论收敛、空批次按无结论、全不结论不收敛、**混合批次一律拒绝（mixed_batch）不静默放行 any**（reference-design-transfer §1.1 冻结语义机器验证）；
+  - `verifyAdapterManifest`：固定 SHA 复核（TC-CONTRACT-STREAM-001）+ 许可证白名单（MIT/Apache/BSD；AGPL 等拒绝，ADR-010）+ 策略白名单；
+  - `AdapterWireMessage` + `encodeAdapterLine`/`decodeAdapterLine`：JSON 行协议（子进程 stdio 与内存模拟器共用，shape 白名单校验）。
+- **模拟器**（`adapter-sim.ts`）：`createSimAdapterDriver`（dsh-any / pi-every 双实现）+ `drainAdapterDriver`（事件收集 + 收紧判定 + 未声明批次协议缺陷标记）。
+- **进程外端口**（`packages/host-agent/src/stdio-adapter.ts`）：`createStdioAdapterDriver`——spawn 子进程 → 握手（hello → 准入复核，失配 kill + `adapter_admission_failed`）→ 逐 Turn 请求-事件 ping-pong；单 Turn 总超时与握手超时；kill switch（close 幂等）；失败自动禁用（后续 run 抛 `adapter_unavailable`）。fixture：`test/fixtures/sim-adapter.mjs`（env 注入 manifest 与批次模式 all/none/mixed/none-value）。
+- **Profile 准入**（`profile.ts`）：`LoopDriverId` 扩 `dsh`/`pi`；未提供已准入 Adapter 时拒绝解析（ADR-010「不安装也完整可用」不回归）；adapterId 与 driver 失配拒绝（`driver_adapter_mismatch`）。
+- **测试**：`@aervox/agent-loop` 105（新增 `adapter-contract.test.ts` 15：conclude 收紧矩阵/verifyAdapterManifest SHA·许可证·策略/decode 合法非法/sim 双实现 + drain 判定与协议缺陷）；`@aervox/host-agent` 41（新增 `stdio-adapter.test.ts` 10：握手准入/SHA 失配 kill/许可证拒绝/mixed 收紧/协议缺陷/超时禁用 + Profile dsh·pi 解析矩阵）；`@aervox/api` 201 无回归。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.19 落地进展（阶段 6b/6c：Host 接入 Adapter + DSH 固定 SHA 复核真实化）
+
+2026-08-28 落地（承接 §16.18 契约面，把 Adapter 接入 Host 执行循环并把固定 SHA 复核真实化；仍不接参考仓库构建产物）：
+
+- **Host 接入**（`packages/host-agent/src/adapter-turn.ts` + `agent-host.ts`）：
+  - `runAdapterTurn`：claim（CAS+fencing）→ adapter 整 Turn（`drainAdapterDriver` 熟悉事件 + 收敛）→ 事件**映射既有契约**落库（message/delta/tool_request/tool_result/done；`executionId=attempt:0:seq` 审计键）→ finalize；收紧：concluded→Completed、mixed_batch→Interrupted+`ADAPTER_NOT_CONCLUDED`、协议缺陷→Interrupted、异常/超时→Failed+`ADAPTER_UNAVAILABLE`；重复投递→skipped；
+  - `createAgentHost({ adapter })`：存在已准入 Adapter 且非续跑时用 `runAdapterTurn` 轮询驱动，否则原生 `executeTurn`（续跑/无 adapter 路径零改动；宿主终态计数归一原生小写/adapter 大写）。
+- **DSH 固定 SHA 复核真实化**（`packages/host-agent/src/dsh-reference.ts`）：`probeDSHReference` 用父仓库 submodule gitlink（`git ls-tree HEAD -- reference/deepseek-harness`）与 `DSH-01` 登记 SHA（`b150a551…`）机器比对 + package.json 版本/许可证复核（MIT 白名单）。参考仓库为 pnpm monorepo：真实 Turn 需 `git submodule update --init && pnpm install && pnpm build:lib:host` 后接入 stdio 端口（ADR-010 实施进展含指引）；本阶段不隐式构建，未就绪 fail-closed 并给出 reason。
+- **测试**：`@aervox/host-agent` 51（新增 `adapter-host.test.ts` 7：runAdapterTurn concluded/mixed/协议缺陷/抛错/skipped + Host 集成 adapter 与原生双路径回归；`dsh-reference.test.ts` 3：gitlink 匹配 MIT manifest/submodule_missing/non-git fail-closed）；`@aervox/api` 202 无回归。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.20 落地进展（阶段 7：ContextManifest 写入 + ModelRun Step 级关联，ADR-017 迁移面）
+
+2026-08-28 落地（对应 ADR-017 的 `model_runs`/`context_manifests` 关联冻结与 §16.14 原「阶段 7」项）：
+
+- **Expand 迁移**（`packages/database`）：`model_runs` 新增 `attempt_id`/`step_id`（PRAGMA 检查 + ADD COLUMN 幂等，不回填==空，多跑幂等）；`context_manifests` 新增 `snapshot_json`（每 Turn 上下文快照）；Drizzle schema 同步 + `model_runs_tenant_attempt_idx` 索引。
+- **扩展点写入**（`packages/agent-loop`）：`ExecutionStorePort.recordModelRun`（每 Step 一条：runId/attemptId/stepId/provider/modelId/purpose/status/latencyMs）+ `recordContextManifest`（每 Turn 首 Step：manifestId/modelRunId/snapshot=messages）——可观测副作用（同 recordToolExecution），写入失败不阻断执行；`InMemoryExecutionStore` 收集供断言。
+- **API 接线**（`apps/api`）：conversation 注入 `SqlitePlatformRepository` 构造 `ModelRunSink`（createModelRun+completeModelRun / createContextManifest+attach 关联回写），经 `SqliteExecutionStore(…, sink)` 可选委托；缺省 no-op 兼容既有宿主。
+- 测试：`@aervox/agent-loop` 108（新增 `context-manifest.test.ts` 3：单 Step 一条 run+manifest 与 snapshot 快照/多 Step 每 Step 一条 run 而 manifest 仅首条/无 meta 缺省兼容）；`@aervox/database` 142（新增 `platform-modelrun.test.ts` 3：Expand 幂等/Step 级 create+complete/manifest snapshot+attach）；`@aervox/api` 202 无回归。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。ADR-017 实施进展已更新。
+
+### 16.21 落地进展（阶段 6d/6e：DSH 真 Turn 接通骨架 + 库内产物接入证据）
+
+2026-08-28 落地（承接 §16.19/§16.20，把 6c 的「固定 SHA 复核」推进为可运行的 DSH Turn 接通骨架；6e 在参考仓库 `pnpm install && pnpm build:lib:host` 构建通过后验证库内 Agent 循环可加载）：
+
+- **runner**（`packages/host-agent/test/fixtures/dsh-turn-runner.mjs`）：完整 stdio 协议（hello/request/delta/batch/done/error）；模型回合为**真实 LLM**（OpenAI 兼容直连：`DEEPSEEK_API_KEY` 或 `DSH_LLM_BASE_URL` 指向任意兼容端点），输出 delta→batch(全结论)→done；缺前置返回指引性 `dsh_unconfigured`（host 失败自动禁用）；启动即探测参考仓库构建状态并提示（`cd reference/deepseek-harness && pnpm install && pnpm build:lib:host`）。
+- **6e 库内产物探测**（`DSH_LIB_MODE=1`）：动态 import `packages/core/agent/lib/index.js` 并验证公开导出面（`AgentRegistry`/`assembleContextFor`/`installModelSelection`/`emitAgentEvent` 等）——库内 Agent 循环可加载的机器证据；完整 Cordis 容器组装（llm/session/persistence/tools 等 service 注入）为剩余 P2 工程项。
+- **adapter 组合**（`packages/host-agent/src/dsh-adapter.ts`）：`createDSHAdapterDriver({ repoRoot, env? })`——probeDSHReference（gitlink SHA + MIT）通过后才 spawn runner（`createStdioAdapterDriver` 复用，expectedSha=DSH_REFERENCE_SHA）；未就绪不 spawn 且返回 reason。
+- 测试：`@aervox/host-agent` 56 +1 skipped（新增 `dsh-turn.test.ts` 6：复核通过+spawn 且 manifest 一致 / 缺 key→dsh_unconfigured 指引性拒绝 / 真模型回合（`it.runIf` key 就绪，外部 4xx 软跳过）/ probe 未就绪 fail-closed / 本地兼容端点完整回合 delta→batch→done→concluded 机器验证 / **库内产物加载证明（`it.runIf(refLibBuilt)`：import 成功 + 导出面符号）**）；`@aervox/api` 203 无回归。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。ADR-010 实施进展 6d/6e 已更新。
 
 ## 17. 回滚策略
 

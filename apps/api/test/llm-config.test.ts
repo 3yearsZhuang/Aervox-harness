@@ -126,4 +126,22 @@ describe("LLM Config API (CR-012)", () => {
     expect(typeof body.latencyMs).toBe("number");
     expect(typeof body.message).toBe("string");
   });
+
+  it("OPTIONS preflight 请求支持 PUT 等 CORS 方法", async () => {
+    const res = await app.inject({
+      method: "OPTIONS",
+      url: "/v1/llm/config",
+      headers: {
+        origin: "http://localhost:5173",
+        "access-control-request-method": "PUT",
+        "access-control-request-headers": "content-type,x-workspace-id,x-user-id",
+      },
+    });
+
+    expect(res.statusCode).toBe(204);
+    expect(res.headers["access-control-allow-origin"]).toBe("http://localhost:5173");
+    expect(res.headers["access-control-allow-methods"]).toContain("PUT");
+    expect(res.headers["access-control-allow-methods"]).toContain("DELETE");
+    expect(res.headers["access-control-allow-methods"]).toContain("PATCH");
+  });
 });

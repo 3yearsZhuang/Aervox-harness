@@ -60,7 +60,28 @@ export interface PracticeReportDto {
   incorrectCount: number;
   unverifiableCount: number;
   accuracy: number | null;
+  avgTimeSpentSec: number | null;
+  totalHintsUsed: number;
+  guidance: {
+    difficulty: 'ease' | 'maintain' | 'increase';
+    reasonCode: 'insufficient_judged_answers' | 'low_accuracy' | 'high_accuracy_fast_no_hints' | 'steady_progress';
+    message: string;
+  };
   nextStep: 'continue' | 'review_scheduled' | 'await_review';
+}
+
+export interface StudyPlanDto {
+  id: string;
+  goalId?: string | null;
+  title: string;
+  startDate: string;
+  endDate: string;
+  restDays: string[];
+  dailyAvailableMinutes: number;
+  status: string;
+  completionPrediction?: 'on_track' | 'at_risk' | 'cannot_complete' | null;
+  degradationPlan?: unknown;
+  revisionCount: number;
 }
 
 export interface MistakeItemDto {
@@ -107,6 +128,7 @@ export function useAervoxApi() {
   const completedReviews = ref<ReviewItemDto[]>([]);
   const reviewSummary = ref<ReviewSummaryDto | null>(null);
   const mistakes = ref<MistakeItemDto[]>([]);
+  const studyPlans = ref<StudyPlanDto[]>([]);
   const notifications = ref<NotificationDto[]>([]);
   const todayDiary = ref<DiaryDto | null>(null);
   const activePracticeSession = ref<PracticeSessionDto | null>(null);
@@ -120,12 +142,13 @@ export function useAervoxApi() {
     loading.value = true;
     error.value = null;
     try {
-      const [g, r, summary, history, m, n, d, activeSession] = await Promise.all([
+      const [g, r, summary, history, m, plans, n, d, activeSession] = await Promise.all([
         transport.request<{ items: GoalDto[] }>('GET', `/v1/learning/goals${includeArchived ? '?includeArchived=true' : ''}`).catch(() => ({ items: [] })),
         transport.request<{ items: ReviewItemDto[] }>('GET', '/v1/review-items').catch(() => ({ items: [] })),
         transport.request<ReviewSummaryDto>('GET', `/v1/review-items/summary?timeZone=${encodeURIComponent(timeZone)}`).catch(() => null),
         transport.request<{ items: ReviewItemDto[] }>('GET', '/v1/review-items/history?limit=5').catch(() => ({ items: [] })),
         transport.request<{ items: MistakeItemDto[] }>('GET', '/v1/mistakes?status=all').catch(() => ({ items: [] })),
+        transport.request<{ items: StudyPlanDto[] }>('GET', '/v1/study-plans').catch(() => ({ items: [] })),
         transport.request<{ items: NotificationDto[] }>('GET', '/v1/notifications').catch(() => ({ items: [] })),
         transport
           .request<DiaryDto>(`GET`, `/v1/diaries?localDate=${encodeURIComponent(todayLocal())}`)
@@ -137,6 +160,7 @@ export function useAervoxApi() {
       reviewSummary.value = summary;
       completedReviews.value = history.items;
       mistakes.value = m.items;
+      studyPlans.value = plans.items;
       notifications.value = n.items;
       todayDiary.value = d;
       activePracticeSession.value = activeSession;
@@ -165,8 +189,8 @@ export function useAervoxApi() {
   const startPracticeSession = async (count = 3): Promise<PracticeSessionDto> =>
     transport.request('POST', '/v1/practice/sessions', { count });
 
-  const submitPracticeAnswer = async (sessionId: string, questionId: string, answer: string, idempotencyKey: string): Promise<{ judgement: string; nextStep: string }> =>
-    transport.request('POST', `/v1/questions/${encodeURIComponent(questionId)}/attempts`, { sessionId, answer, timeZone }, {
+  const submitPracticeAnswer = async (sessionId: string, questionId: string, answer: string, idempotencyKey: string, elapsedSeconds?: number, hintsUsed?: number): Promise<{ judgement: string; nextStep: string }> =>
+    transport.request('POST', `/v1/questions/${encodeURIComponent(questionId)}/attempts`, { sessionId, answer, timeZone, elapsedSeconds, hintsUsed }, {
       headers: { 'Idempotency-Key': idempotencyKey },
     });
 
@@ -175,6 +199,23 @@ export function useAervoxApi() {
 
   const completeReview = async (reviewId: string, isCorrect: boolean): Promise<void> => {
     await transport.request('POST', `/v1/review-items/${encodeURIComponent(reviewId)}/complete`, { isCorrect, timeZone });
+    await loadAll();
+  };
+
+  const createStudyPlan = async (plan: { goalId?: string; title: string; startDate: string; endDate: string; dailyAvailableMinutes?: number }): Promise<void> => {
+    await transport.request('POST', '/v1/study-plans', plan);
+    await loadAll();
+  };
+  const updateStudyPlan = async (planId: string, update: { endDate?: string; dailyAvailableMinutes?: number }): Promise<void> => {
+    await transport.request('PATCH', `/v1/study-plans/${encodeURIComponent(planId)}`, update);
+    await loadAll();
+  };
+  const updateStudyPlanPrediction = async (planId: string, prediction: 'on_track' | 'at_risk' | 'cannot_complete'): Promise<void> => {
+    await transport.request('POST', `/v1/study-plans/${encodeURIComponent(planId)}/prediction`, { prediction });
+    await loadAll();
+  };
+  const archiveStudyPlan = async (planId: string): Promise<void> => {
+    await transport.request('POST', `/v1/study-plans/${encodeURIComponent(planId)}/archive`);
     await loadAll();
   };
 
@@ -214,6 +255,7 @@ export function useAervoxApi() {
     completedReviews,
     reviewSummary,
     mistakes,
+    studyPlans,
     notifications,
     todayDiary,
     activePracticeSession,
@@ -228,6 +270,10 @@ export function useAervoxApi() {
     submitPracticeAnswer,
     completePracticeSession,
     completeReview,
+    createStudyPlan,
+    updateStudyPlan,
+    updateStudyPlanPrediction,
+    archiveStudyPlan,
     setMistakeStatus,
     setMistakeInsight,
     startMistakePractice,

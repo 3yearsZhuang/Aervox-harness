@@ -42,6 +42,7 @@
 | [数据流总览](explanation/data-flow-overview.md)（AVX-EXPL-001） | 消息端到端如何流动 | 先写后投递、Worker 周期、记忆/知识写入 |
 | [参考项目能力迁移与借鉴评估](explanation/reference-design-transfer.md)（AVX-EXPL-002） | 参考项目哪些设计值得落地或借鉴 | 判定框架、建议落地清单、落地顺序与 AGPL 边界 |
 | [桌宠角色设定文档化与多人格模板组织](explanation/persona-organization.md)（AVX-EXPL-003） | 桌宠 IP 与多人格模板（CAP-019）的角色如何文档化、版本化并维护 | 角色文档清单、字段化结构（prompt/开场白/语气/技能/错误兜底语）、人设目录与模板版本化、维护责任 |
+| [ESP32-S3 硬件延伸方案](explanation/esp32-s3-hardware-extension.md)（AVX-EXPL-005） | 如何把 ESP32-S3 做成物理桌宠终端 | 评审输入：硬件边界、表现映射、设备协议与隐私红线；R0 先 USB 不联网 |
 | [Home Assistant 集成评估](explanation/home-assistant-integration-assessment.md)（AVX-EXPL-006） | 如何为 Aervox 引入 Home Assistant 支持 | 评审输入：接入面盘点、与 Agent Loop/本地优先的契合点、方案对比（Loop 工具 + 事件网关推荐组合）、阶段路线与安全边界 |
 | [运动与健康数据接入评估](explanation/health-data-integration-assessment.md)（AVX-EXPL-007） | 是否可以接入苹果/小米运动健康数据（步数、睡眠、情绪） | 评审输入：敏感分级、苹果/小米接入路径盘点、方案对比（小米云 API + Apple 文件导入）与情绪健康默认拒绝红线 |
 
@@ -74,6 +75,8 @@ Agent 执行核心的当前与目标边界见 [CR-012：Agent Harness Loop](refe
 大语言模型供应商配置见 [CR-015：WebUI 模型与服务](reference/changes/CR-015-llm-provider-config-webui.md)：设置「模型与服务」分类持久化 LLM 供应商端点/密钥引用/模型名并支持连通性测试，按租户隔离存储。
 
 文档治理基线见 [CR-017：文档治理与事实源标准化](reference/changes/CR-017-document-governance-standardization.md) 与 [AVX-DOC-GOV-001](reference/document-governance.md)：本轮先建立兼容式元数据、状态分层、事实源矩阵和 `docs-validate` 门禁，不批量搬迁历史文档。
+
+能力注册表状态同步见 [CR-019：CAP-010~019 主仓交付裁定](reference/changes/CR-019-capability-registry-status-sync.md)：已主仓实现交付的能力（层级对话/思维宇宙/自适应刷题/考试日计划/多人格模板）按能力组合不变量转主仓交付，配套追踪基线 §4.2 登记。
 
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
 

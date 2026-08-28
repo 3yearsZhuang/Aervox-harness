@@ -20,6 +20,8 @@ const metricsCache = new WeakMap<object, ModelLayoutMetrics>()
 export interface Live2DViewportFitOptions {
   scaleFactor?: number
   heightRatio?: number
+  /** 顶部动画余量（占视口高度比例）：动作时发饰/头饰可能上探超出静态可见范围，预留空间避免被画布上缘裁切 */
+  headroomRatio?: number
 }
 
 export function fitLive2DModelToViewport(
@@ -32,6 +34,8 @@ export function fitLive2DModelToViewport(
   const scaleFactor = options.scaleFactor ?? 1
   // 沉浸式工作台：模型可见高度撑满视口（仅按高度驱动，横向居中，超宽部分裁剪）。
   const heightRatio = options.heightRatio ?? 1
+  // 顶部预留动画余量：底边仍严格对齐视口底部，仅整体略缩，动作上探的发饰不再被裁切。
+  const headroomRatio = Math.min(Math.max(options.headroomRatio ?? 0.06, 0), 0.3)
 
   model.anchor.set(0.5, 0.5)
   let metrics = metricsCache.get(model)
@@ -56,12 +60,12 @@ export function fitLive2DModelToViewport(
 
   if (!metrics) {
     model.anchor.set(0.5, 1)
-    model.scale.set(height / model.internalModel.originalHeight * scaleFactor)
+    model.scale.set(height * (1 - headroomRatio) / model.internalModel.originalHeight * scaleFactor)
     model.position.set(width / 2, height)
     return
   }
 
-  const scale = height * heightRatio / metrics.height * scaleFactor
+  const scale = height * Math.max(heightRatio - headroomRatio, 0.1) / metrics.height * scaleFactor
   model.scale.set(scale)
   // 水平居中；模型实际像素底边对齐视口底部，控制台浮层叠加其上。
   model.position.set(
