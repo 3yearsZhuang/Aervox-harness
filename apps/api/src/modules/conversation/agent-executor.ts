@@ -13,6 +13,7 @@ import {
   executeTurn,
 } from "@aervox/agent-loop";
 import type {
+  InboxPort,
   ModelProviderPort,
   ReplayStep,
   ToolExecutionInput,
@@ -166,6 +167,8 @@ export async function runLoopTurnOnce(
     llmConfigService?: LLMConfigService;
     /** 2d：删除/撤权水位未追平 → Loop fail-closed（AVX-HAR-001 §11.3） */
     deletionGate?: import("@aervox/agent-loop").DeletionGatePort;
+    /** 5a-2：受控收件箱消费（每 Step claim next-step → 注入 → ack；缺失时跳过） */
+    inbox?: InboxPort;
   } = {},
 ): Promise<void> {
   const store = new SqliteExecutionStore(repo, tenant);
@@ -212,6 +215,7 @@ export async function runLoopTurnOnce(
       contextBuilder: defaultContextBuilder,
       tools,
       deletionGate: deps.deletionGate,
+      inbox: deps.inbox,
     },
     input,
   );

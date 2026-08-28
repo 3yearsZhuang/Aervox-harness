@@ -7,7 +7,7 @@
  * - claim/ack（pending → claimed → acknowledged）；崩溃后未 ack 的 claimed 项可安全重放；
  * - 外部插件不能直接修改 Session 日志，只能提交受限 inbox command（本仓储即唯一受控入口）。
  */
-import { eq, and, isNull, sql, or } from "drizzle-orm";
+import { eq, and, isNull, sql, or, inArray } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { agentInboxItems } from "../../schema/index.js";
 import { assertTenantContext, type TenantContext } from "../../tenant.js";
@@ -170,5 +170,45 @@ export class SqliteAgentInboxRepository implements IAgentInboxRepository {
       )
       .limit(1);
     return row ? toModel(row) : null;
+  }
+
+  /**
+   * ADR-017 兜底回收：跨租户把所有 expiresAt < now 且仍 pending/claimed 的项置为 expired。
+   * - pending 过期：从未被消费，直接到期作废；
+   * - claimed 过期：消费中崩溃未 ack 的项不再重放（避免陈旧注入）。
+   * 批量上限 200，Worker 轮询可重复调用。
+   */
+  async expireOverdue(now = new Date().toISOString()): Promise<number> {
+    const rows = await this.db
+      .select({ id: agentInboxItems.id })
+      .from(agentInboxItems)
+      .where(
+        and(
+          or(
+            eq(agentInboxItems.status, "pending"),
+            eq(agentInboxItems.status, "claimed"),
+          ),
+          sql`${agentInboxItems.expiresAt} IS NOT NULL AND ${agentInboxItems.expiresAt} < ${now}`,
+        ),
+      )
+      .limit(200);
+    if (rows.length === 0) return 0;
+    const updated = await this.db
+      .update(agentInboxItems)
+      .set({ status: "expired", updatedAt: now })
+      .where(
+        and(
+          inArray(
+            agentInboxItems.id,
+            rows.map((r) => r.id),
+          ),
+          or(
+            eq(agentInboxItems.status, "pending"),
+            eq(agentInboxItems.status, "claimed"),
+          ),
+        ),
+      )
+      .returning();
+    return updated.length;
   }
 }

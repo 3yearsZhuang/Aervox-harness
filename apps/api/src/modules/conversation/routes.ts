@@ -7,10 +7,11 @@
  */
 import type { FastifyInstance } from "fastify";
 import { createTurnRequestSchema } from "@aervox/contracts";
-import type { SqliteConversationRepository, SqlitePrivacyRepository } from "@aervox/database";
+import type { SqliteConversationRepository, SqlitePrivacyRepository, SqliteAgentInboxRepository } from "@aervox/database";
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
 import { resolveTenant } from "../../shared/tenant.js";
+import { createTenantInboxPort } from "../inbox/port.js";
 import { runLoopTurnOnce } from "./agent-executor.js";
 
 let seq = 0;
@@ -23,6 +24,8 @@ export interface ConversationRouteDeps {
   llmConfigService?: LLMConfigService;
   /** 2d：删除/撤权闸门数据源（缺失时 Loop 不做删除 fail-closed） */
   privacyRepo?: SqlitePrivacyRepository;
+  /** 5a-2：受控收件箱（followup 排队为新 Turn 输入；next-step 由 Loop 每 Step 消费） */
+  inboxRepo?: SqliteAgentInboxRepository;
 }
 
 export function registerConversationRoutes(
@@ -63,13 +66,34 @@ export function registerConversationRoutes(
       });
     }
 
+    let userMessage = parsed.data.message.content;
+
+    // 阶段 5a-2：消费本 session 的 next-turn 收件箱项（followup 排队为新 Turn 输入，§7.2）
+    if (deps.inboxRepo) {
+      const followups = await deps.inboxRepo.claimForConsumption(tenant, {
+        sessionId,
+        type: "next-turn",
+        limit: 20,
+      });
+      if (followups.length > 0) {
+        const extra = followups.map((f) =>
+          typeof f.payload === "string" ? f.payload : JSON.stringify(f.payload),
+        );
+        await deps.inboxRepo.acknowledge(
+          tenant,
+          followups.map((f) => f.id),
+        );
+        userMessage = [...extra, userMessage].join("\n\n");
+      }
+    }
+
     const turnId = nextTurnId();
     const messageId = `msg_${Date.now().toString(36)}_${(++seq).toString(36)}`;
 
     await conversationRepo.createTurnWithOutbox(
       tenant,
       { id: turnId, sessionId, idempotencyKey, status: "Created" },
-      { id: messageId, content: parsed.data.message.content },
+      { id: messageId, content: userMessage },
       {
         id: `outbox_${turnId}`,
         eventType: "turn.created",
@@ -88,7 +112,7 @@ export function registerConversationRoutes(
         turnId,
         sessionId,
         attemptId,
-        userMessage: parsed.data.message.content,
+        userMessage,
       },
       {
         toolRuntime: deps.toolRuntime,
@@ -97,6 +121,8 @@ export function registerConversationRoutes(
         deletionGate: deps.privacyRepo
           ? { isBlocked: async () => deps.privacyRepo!.hasPendingDeletionRequest(tenant) }
           : undefined,
+        // 5a-2：受控收件箱端口（每 Step 消费 next-step；steer/inject 注入上下文）
+        inbox: deps.inboxRepo ? createTenantInboxPort(deps.inboxRepo, tenant) : undefined,
       },
     );
 

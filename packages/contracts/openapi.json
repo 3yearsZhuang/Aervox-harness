@@ -3787,6 +3787,163 @@
           "message",
           "status"
         ]
+      },
+      "CreateInboxItemRequest": {
+        "type": "object",
+        "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sessionId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attemptId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "followup",
+              "steer",
+              "inject"
+            ]
+          },
+          "payload": {},
+          "consumeBoundary": {
+            "type": "string",
+            "enum": [
+              "next-turn",
+              "next-step"
+            ]
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "type"
+        ]
+      },
+      "InboxItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sessionId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attemptId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "stepId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "followup",
+              "steer",
+              "inject"
+            ]
+          },
+          "orderingSeq": {
+            "type": "integer"
+          },
+          "sourceActor": {
+            "type": "string",
+            "enum": [
+              "user",
+              "agent",
+              "plugin"
+            ]
+          },
+          "payload": {},
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "claimed",
+              "acknowledged",
+              "expired"
+            ]
+          },
+          "consumeBoundary": {
+            "type": "string",
+            "enum": [
+              "next-turn",
+              "next-step"
+            ]
+          },
+          "claimedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "ackedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "workspaceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "subjectUserId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "idempotencyKey",
+          "sessionId",
+          "type",
+          "orderingSeq",
+          "sourceActor",
+          "status",
+          "consumeBoundary",
+          "workspaceId",
+          "subjectUserId",
+          "createdAt",
+          "updatedAt"
+        ]
       }
     },
     "parameters": {}
@@ -10680,6 +10837,371 @@
           },
           "409": {
             "description": "完成结果与首次请求不一致"
+          }
+        }
+      }
+    },
+    "/v1/sessions/{sessionId}/inbox": {
+      "post": {
+        "summary": "提交受控 inbox command（followup/steer/inject；幂等）",
+        "tags": [
+          "Inbox"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "sessionId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Plugin-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "Idempotency-Key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "sessionId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "attemptId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "followup",
+                      "steer",
+                      "inject"
+                    ]
+                  },
+                  "payload": {},
+                  "consumeBoundary": {
+                    "type": "string",
+                    "enum": [
+                      "next-turn",
+                      "next-step"
+                    ]
+                  },
+                  "expiresAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "idempotencyKey",
+                  "type"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Existing idempotent item",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "idempotencyKey": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "sessionId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "attemptId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "stepId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "followup",
+                        "steer",
+                        "inject"
+                      ]
+                    },
+                    "orderingSeq": {
+                      "type": "integer"
+                    },
+                    "sourceActor": {
+                      "type": "string",
+                      "enum": [
+                        "user",
+                        "agent",
+                        "plugin"
+                      ]
+                    },
+                    "payload": {},
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "claimed",
+                        "acknowledged",
+                        "expired"
+                      ]
+                    },
+                    "consumeBoundary": {
+                      "type": "string",
+                      "enum": [
+                        "next-turn",
+                        "next-step"
+                      ]
+                    },
+                    "claimedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "ackedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "expiresAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "workspaceId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "subjectUserId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "idempotencyKey",
+                    "sessionId",
+                    "type",
+                    "orderingSeq",
+                    "sourceActor",
+                    "status",
+                    "consumeBoundary",
+                    "workspaceId",
+                    "subjectUserId",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "idempotencyKey": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "sessionId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "attemptId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "stepId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "followup",
+                        "steer",
+                        "inject"
+                      ]
+                    },
+                    "orderingSeq": {
+                      "type": "integer"
+                    },
+                    "sourceActor": {
+                      "type": "string",
+                      "enum": [
+                        "user",
+                        "agent",
+                        "plugin"
+                      ]
+                    },
+                    "payload": {},
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "claimed",
+                        "acknowledged",
+                        "expired"
+                      ]
+                    },
+                    "consumeBoundary": {
+                      "type": "string",
+                      "enum": [
+                        "next-turn",
+                        "next-step"
+                      ]
+                    },
+                    "claimedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "ackedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "expiresAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "workspaceId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "subjectUserId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "idempotencyKey",
+                    "sessionId",
+                    "type",
+                    "orderingSeq",
+                    "sourceActor",
+                    "status",
+                    "consumeBoundary",
+                    "workspaceId",
+                    "subjectUserId",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "type/payload/consumeBoundary 非法"
+          },
+          "403": {
+            "description": "插件未安装/未启用/无 inbox 权限"
           }
         }
       }
