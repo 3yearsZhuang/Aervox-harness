@@ -9,6 +9,9 @@ import fs from "fs";
 
 const BASE_PORT = 3100;
 let portCounter = 0;
+// Playwright transpiles this helper as CommonJS in some environments, so avoid
+// import.meta and use the repository root from the test command's cwd instead.
+const repoRoot = path.resolve(process.cwd());
 
 export function getServerPort(): number {
   return BASE_PORT + portCounter++;
@@ -23,7 +26,7 @@ export function getDbPath(name: string): string {
 export function startServer(port: number, dbPath: string): Promise<{ server: ChildProcess; url: string }> {
   return new Promise((resolve, reject) => {
     const server = spawn("node", ["dist/index.js"], {
-      cwd: path.resolve("/workspace/Aervox-harness/apps/api"),
+      cwd: path.join(repoRoot, "apps", "api"),
       stdio: ["ignore", "pipe", "pipe"],
       env: {
         ...process.env,

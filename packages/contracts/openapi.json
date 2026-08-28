@@ -9501,6 +9501,1315 @@
         }
       }
     },
+    "/v1/practice-reports": {
+      "post": {
+        "summary": "创建自适应练习报告",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sessionId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "totalQuestions": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "correctCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "incorrectCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "avgTimeSpentSec": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "totalHintsUsed": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "masteryPrediction": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "biasAssessment": {
+                    "type": "string"
+                  },
+                  "reportType": {
+                    "type": "string",
+                    "enum": [
+                      "summary",
+                      "detailed"
+                    ]
+                  }
+                },
+                "required": [
+                  "sessionId",
+                  "totalQuestions",
+                  "correctCount",
+                  "incorrectCount"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "workspaceId": {
+                      "type": "string"
+                    },
+                    "subjectUserId": {
+                      "type": "string"
+                    },
+                    "sessionId": {
+                      "type": "string"
+                    },
+                    "totalQuestions": {
+                      "type": "integer"
+                    },
+                    "correctCount": {
+                      "type": "integer"
+                    },
+                    "incorrectCount": {
+                      "type": "integer"
+                    },
+                    "avgTimeSpentSec": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "totalHintsUsed": {
+                      "type": "integer"
+                    },
+                    "masteryPrediction": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "biasAssessment": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "reportType": {
+                      "type": "string"
+                    },
+                    "isReset": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "workspaceId",
+                    "subjectUserId",
+                    "sessionId",
+                    "totalQuestions",
+                    "correctCount",
+                    "incorrectCount",
+                    "totalHintsUsed",
+                    "reportType",
+                    "isReset",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/v1/practice-reports/{reportId}": {
+      "get": {
+        "summary": "读取自适应练习报告",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "reportId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "workspaceId": {
+                      "type": "string"
+                    },
+                    "subjectUserId": {
+                      "type": "string"
+                    },
+                    "sessionId": {
+                      "type": "string"
+                    },
+                    "totalQuestions": {
+                      "type": "integer"
+                    },
+                    "correctCount": {
+                      "type": "integer"
+                    },
+                    "incorrectCount": {
+                      "type": "integer"
+                    },
+                    "avgTimeSpentSec": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "totalHintsUsed": {
+                      "type": "integer"
+                    },
+                    "masteryPrediction": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "biasAssessment": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "reportType": {
+                      "type": "string"
+                    },
+                    "isReset": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "workspaceId",
+                    "subjectUserId",
+                    "sessionId",
+                    "totalQuestions",
+                    "correctCount",
+                    "incorrectCount",
+                    "totalHintsUsed",
+                    "reportType",
+                    "isReset",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Report not found"
+          }
+        }
+      }
+    },
+    "/v1/practice-sessions/{sessionId}/reports": {
+      "get": {
+        "summary": "列出会话练习报告",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "sessionId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reports",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "workspaceId": {
+                            "type": "string"
+                          },
+                          "subjectUserId": {
+                            "type": "string"
+                          },
+                          "sessionId": {
+                            "type": "string"
+                          },
+                          "totalQuestions": {
+                            "type": "integer"
+                          },
+                          "correctCount": {
+                            "type": "integer"
+                          },
+                          "incorrectCount": {
+                            "type": "integer"
+                          },
+                          "avgTimeSpentSec": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "totalHintsUsed": {
+                            "type": "integer"
+                          },
+                          "masteryPrediction": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "biasAssessment": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "reportType": {
+                            "type": "string"
+                          },
+                          "isReset": {
+                            "type": "boolean"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "workspaceId",
+                          "subjectUserId",
+                          "sessionId",
+                          "totalQuestions",
+                          "correctCount",
+                          "incorrectCount",
+                          "totalHintsUsed",
+                          "reportType",
+                          "isReset",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/practice-sessions/{sessionId}/reset-inference": {
+      "post": {
+        "summary": "重置会话报告推断",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "sessionId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Reset report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "workspaceId": {
+                      "type": "string"
+                    },
+                    "subjectUserId": {
+                      "type": "string"
+                    },
+                    "sessionId": {
+                      "type": "string"
+                    },
+                    "totalQuestions": {
+                      "type": "integer"
+                    },
+                    "correctCount": {
+                      "type": "integer"
+                    },
+                    "incorrectCount": {
+                      "type": "integer"
+                    },
+                    "avgTimeSpentSec": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "totalHintsUsed": {
+                      "type": "integer"
+                    },
+                    "masteryPrediction": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "biasAssessment": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "reportType": {
+                      "type": "string"
+                    },
+                    "isReset": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "workspaceId",
+                    "subjectUserId",
+                    "sessionId",
+                    "totalQuestions",
+                    "correctCount",
+                    "incorrectCount",
+                    "totalHintsUsed",
+                    "reportType",
+                    "isReset",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/study-plans": {
+      "post": {
+        "summary": "创建学习计划",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "goalId": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "startDate": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "endDate": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "restDays": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "dailyAvailableMinutes": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "title",
+                  "startDate",
+                  "endDate"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "workspaceId": {
+                      "type": "string"
+                    },
+                    "subjectUserId": {
+                      "type": "string"
+                    },
+                    "goalId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "startDate": {
+                      "type": "string"
+                    },
+                    "endDate": {
+                      "type": "string"
+                    },
+                    "restDays": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "dailyAvailableMinutes": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "completionPrediction": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "degradationPlan": {},
+                    "revisionCount": {
+                      "type": "integer"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "workspaceId",
+                    "subjectUserId",
+                    "title",
+                    "startDate",
+                    "endDate",
+                    "restDays",
+                    "dailyAvailableMinutes",
+                    "status",
+                    "revisionCount",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          }
+        }
+      },
+      "get": {
+        "summary": "列出活跃学习计划",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plans",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "workspaceId": {
+                            "type": "string"
+                          },
+                          "subjectUserId": {
+                            "type": "string"
+                          },
+                          "goalId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "startDate": {
+                            "type": "string"
+                          },
+                          "endDate": {
+                            "type": "string"
+                          },
+                          "restDays": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "dailyAvailableMinutes": {
+                            "type": "integer"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "completionPrediction": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "degradationPlan": {},
+                          "revisionCount": {
+                            "type": "integer"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "workspaceId",
+                          "subjectUserId",
+                          "title",
+                          "startDate",
+                          "endDate",
+                          "restDays",
+                          "dailyAvailableMinutes",
+                          "status",
+                          "revisionCount",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/study-plans/{planId}": {
+      "patch": {
+        "summary": "滚动调整学习计划",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "planId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "startDate": {
+                    "type": "string"
+                  },
+                  "endDate": {
+                    "type": "string"
+                  },
+                  "restDays": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "dailyAvailableMinutes": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "workspaceId": {
+                      "type": "string"
+                    },
+                    "subjectUserId": {
+                      "type": "string"
+                    },
+                    "goalId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "startDate": {
+                      "type": "string"
+                    },
+                    "endDate": {
+                      "type": "string"
+                    },
+                    "restDays": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "dailyAvailableMinutes": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "completionPrediction": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "degradationPlan": {},
+                    "revisionCount": {
+                      "type": "integer"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "workspaceId",
+                    "subjectUserId",
+                    "title",
+                    "startDate",
+                    "endDate",
+                    "restDays",
+                    "dailyAvailableMinutes",
+                    "status",
+                    "revisionCount",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Plan not found"
+          }
+        }
+      }
+    },
+    "/v1/study-plans/{planId}/prediction": {
+      "post": {
+        "summary": "更新学习计划完成预测",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "planId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "prediction": {
+                    "type": "string",
+                    "enum": [
+                      "on_track",
+                      "at_risk",
+                      "cannot_complete"
+                    ]
+                  },
+                  "degradationPlan": {}
+                },
+                "required": [
+                  "prediction"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "workspaceId": {
+                      "type": "string"
+                    },
+                    "subjectUserId": {
+                      "type": "string"
+                    },
+                    "goalId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "startDate": {
+                      "type": "string"
+                    },
+                    "endDate": {
+                      "type": "string"
+                    },
+                    "restDays": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "dailyAvailableMinutes": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "completionPrediction": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "degradationPlan": {},
+                    "revisionCount": {
+                      "type": "integer"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "workspaceId",
+                    "subjectUserId",
+                    "title",
+                    "startDate",
+                    "endDate",
+                    "restDays",
+                    "dailyAvailableMinutes",
+                    "status",
+                    "revisionCount",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Plan not found"
+          }
+        }
+      }
+    },
+    "/v1/study-plans/{planId}/archive": {
+      "post": {
+        "summary": "归档学习计划",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "planId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Archived",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "workspaceId": {
+                      "type": "string"
+                    },
+                    "subjectUserId": {
+                      "type": "string"
+                    },
+                    "goalId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "startDate": {
+                      "type": "string"
+                    },
+                    "endDate": {
+                      "type": "string"
+                    },
+                    "restDays": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "dailyAvailableMinutes": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "completionPrediction": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "degradationPlan": {},
+                    "revisionCount": {
+                      "type": "integer"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "workspaceId",
+                    "subjectUserId",
+                    "title",
+                    "startDate",
+                    "endDate",
+                    "restDays",
+                    "dailyAvailableMinutes",
+                    "status",
+                    "revisionCount",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Plan not found"
+          }
+        }
+      }
+    },
     "/v1/practice/sessions/active": {
       "get": {
         "summary": "恢复当前活跃练习会话",
