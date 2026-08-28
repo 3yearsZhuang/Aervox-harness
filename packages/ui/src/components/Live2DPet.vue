@@ -61,7 +61,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .aervox-live2d-pet { position: relative; width: 100%; height: 100%; min-height: 220px; overflow: hidden; }
-.aervox-live2d-pet__canvas { position: absolute; inset: 0; display: grid; place-items: center; }
+.aervox-live2d-pet__canvas { position: absolute; inset: 70px 0 0; height: auto; display: grid; place-items: center; }
 .aervox-live2d-pet__canvas :deep(canvas) { display: block; width: 100%; height: 100%; }
 .aervox-live2d-pet__status { position: absolute; inset: 50% 0 auto; text-align: center; color: #737d90; font-size: 11px; }
 </style>
