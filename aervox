@@ -7,6 +7,13 @@ set -euo pipefail
 
 cd "$(dirname "$0")" # 始终以仓库根为工作目录
 
+# 若存在 .env，自动加载
+if [ -f .env ]; then
+  set -a
+  source .env
+  set +a
+fi
+
 GREEN='\033[0;32m'; YELLOW='\033[0;33m'; CYAN='\033[0;36m'; RED='\033[0;31m'; NC='\033[0m'
 info() { printf "${CYAN}[aervox]${NC} %s\n" "$*"; }
 ok()   { printf "${GREEN}[aervox]${NC} %s\n" "$*"; }

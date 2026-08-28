@@ -9,6 +9,7 @@ env_file = ".env"
 [env]
 AERVOX_PROJECT = "aervox-harness"
 AERVOX_NODE_MIN = "22.19"
+AERVOX_LOOP_PROVIDER = "llm"
 
 # ── 常用项目操作 ────────────────────────────────────────────
 
