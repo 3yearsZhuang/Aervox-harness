@@ -2796,6 +2796,46 @@
               "null"
             ]
           },
+          "avgTimeSpentSec": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "totalHintsUsed": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "guidance": {
+            "type": "object",
+            "properties": {
+              "difficulty": {
+                "type": "string",
+                "enum": [
+                  "ease",
+                  "maintain",
+                  "increase"
+                ]
+              },
+              "reasonCode": {
+                "type": "string",
+                "enum": [
+                  "insufficient_judged_answers",
+                  "low_accuracy",
+                  "high_accuracy_fast_no_hints",
+                  "steady_progress"
+                ]
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "difficulty",
+              "reasonCode",
+              "message"
+            ]
+          },
           "nextStep": {
             "type": "string",
             "enum": [
@@ -2814,6 +2854,9 @@
           "incorrectCount",
           "unverifiableCount",
           "accuracy",
+          "avgTimeSpentSec",
+          "totalHintsUsed",
+          "guidance",
           "nextStep"
         ]
       },
@@ -3025,6 +3068,14 @@
           "timeZone": {
             "type": "string",
             "minLength": 1
+          },
+          "elapsedSeconds": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "hintsUsed": {
+            "type": "integer",
+            "minimum": 0
           }
         },
         "required": [
@@ -11017,6 +11068,46 @@
                         "null"
                       ]
                     },
+                    "avgTimeSpentSec": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "totalHintsUsed": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "guidance": {
+                      "type": "object",
+                      "properties": {
+                        "difficulty": {
+                          "type": "string",
+                          "enum": [
+                            "ease",
+                            "maintain",
+                            "increase"
+                          ]
+                        },
+                        "reasonCode": {
+                          "type": "string",
+                          "enum": [
+                            "insufficient_judged_answers",
+                            "low_accuracy",
+                            "high_accuracy_fast_no_hints",
+                            "steady_progress"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "difficulty",
+                        "reasonCode",
+                        "message"
+                      ]
+                    },
                     "nextStep": {
                       "type": "string",
                       "enum": [
@@ -11035,6 +11126,9 @@
                     "incorrectCount",
                     "unverifiableCount",
                     "accuracy",
+                    "avgTimeSpentSec",
+                    "totalHintsUsed",
+                    "guidance",
                     "nextStep"
                   ]
                 }
@@ -11126,6 +11220,46 @@
                         "null"
                       ]
                     },
+                    "avgTimeSpentSec": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "totalHintsUsed": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "guidance": {
+                      "type": "object",
+                      "properties": {
+                        "difficulty": {
+                          "type": "string",
+                          "enum": [
+                            "ease",
+                            "maintain",
+                            "increase"
+                          ]
+                        },
+                        "reasonCode": {
+                          "type": "string",
+                          "enum": [
+                            "insufficient_judged_answers",
+                            "low_accuracy",
+                            "high_accuracy_fast_no_hints",
+                            "steady_progress"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "difficulty",
+                        "reasonCode",
+                        "message"
+                      ]
+                    },
                     "nextStep": {
                       "type": "string",
                       "enum": [
@@ -11144,6 +11278,9 @@
                     "incorrectCount",
                     "unverifiableCount",
                     "accuracy",
+                    "avgTimeSpentSec",
+                    "totalHintsUsed",
+                    "guidance",
                     "nextStep"
                   ]
                 }
@@ -11775,6 +11912,14 @@
                   "timeZone": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "elapsedSeconds": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "hintsUsed": {
+                    "type": "integer",
+                    "minimum": 0
                   }
                 },
                 "required": [
