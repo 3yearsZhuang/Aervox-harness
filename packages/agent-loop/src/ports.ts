@@ -148,6 +148,24 @@ export interface ExecutionStorePort {
     eventData: unknown;
     safetyDecision?: SafetyDecision;
   }): Promise<{ ok: boolean }>;
+
+  /**
+   * E2（§12.2「安全片段 + TurnStreamEvent + Draft prefix」）：原子提交「安全片段 + delta 事件」。
+   * 同一事务内写入 safe_segments（committed=1 可见前缀）与 turn_stream_events（delta），
+   * 崩溃不把片段与事件拆散。fencing 失配（被抢占/恢复）→ 抛 LeaseLostError。
+   */
+  recordSafeSegment(input: {
+    turnId: string;
+    attemptId: string;
+    sequence: number;
+    text: string;
+    eventData: unknown;
+    safetyDecision: SafetyDecision;
+    expectedFencingToken: number;
+  }): Promise<{ ok: boolean }>;
+
+  /** E2：读取 Turn 的已提交安全片段（可见前缀；sequence 升序）。缺省实现返回空（宿主未接时透传）。 */
+  listCommittedSegments?(turnId: string): Promise<Array<{ id: string; sequence: number; text: string; streamEventId: string | null }>>;
 }
 
 /** 追加事件的输入（executor 构造；id / occurredAt / payloadVersion 由 store 补齐） */

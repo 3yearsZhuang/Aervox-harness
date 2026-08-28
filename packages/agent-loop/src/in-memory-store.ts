@@ -30,6 +30,7 @@ export class InMemoryExecutionStore implements ExecutionStorePort {
   private readonly toolExecutionByKey = new Map<string, ToolExecutionRecord>();
   private readonly modelRunLog: ModelRunRecord[] = [];
   private readonly contextManifestLog: ContextManifestRecord[] = [];
+  private readonly safeSegmentLog: Array<{ turnId: string; attemptId: string; sequence: number; text: string; committed: boolean }> = [];
   private leaseRenewalCount = 0;
 
   seedAttempt(input: {
@@ -336,6 +337,48 @@ export class InMemoryExecutionStore implements ExecutionStorePort {
       expectedFencingToken: input.expectedFencingToken,
     });
     return { ok: true };
+  }
+
+  /** E2：原子提交「安全片段 + delta 事件」（§12.2；fencing 失配抛 LeaseLostError） */
+  async recordSafeSegment(input: {
+    turnId: string;
+    attemptId: string;
+    sequence: number;
+    text: string;
+    eventData: unknown;
+    safetyDecision: import("./types.js").SafetyDecision;
+    expectedFencingToken: number;
+  }): Promise<{ ok: boolean }> {
+    const attempt = this.attempts.get(input.attemptId);
+    const running = attempt && (attempt.status === "Running" || attempt.status === "CancelRequested");
+    if (!attempt || attempt.fencingToken !== input.expectedFencingToken || !running) {
+      throw new LeaseLostError("recordSafeSegment rejected: fencing mismatch");
+    }
+    await this.appendEvent({
+      turnId: input.turnId,
+      attemptId: input.attemptId,
+      sequence: input.sequence,
+      eventType: "delta",
+      data: input.eventData,
+      safetyDecision: input.safetyDecision,
+      expectedFencingToken: input.expectedFencingToken,
+    });
+    this.safeSegmentLog.push({
+      turnId: input.turnId,
+      attemptId: input.attemptId,
+      sequence: input.sequence,
+      text: input.text,
+      committed: true,
+    });
+    return { ok: true };
+  }
+
+  /** E2：已提交安全片段（可见前缀；sequence 升序）——测试断言用 */
+  safeSegments(turnId: string): Array<{ sequence: number; text: string; committed: boolean }> {
+    return this.safeSegmentLog
+      .filter((s) => s.turnId === turnId && s.committed)
+      .sort((a, b) => a.sequence - b.sequence)
+      .map((s) => ({ sequence: s.sequence, text: s.text, committed: s.committed }));
   }
 
   /** 工具副作用证据日志（测试断言用） */

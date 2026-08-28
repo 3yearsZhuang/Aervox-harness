@@ -12,6 +12,7 @@ import {
   turnAttempts,
   toolExecutions,
   toolApprovals,
+  safeSegments,
   toolRegistrations,
   conversationBranches,
   outboxEvents,
@@ -974,6 +975,107 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   /**
+   * E2（§12.2「安全片段 + TurnStreamEvent + Draft prefix」）：原子提交「安全片段 + delta 事件」。
+   * BEGIN IMMEDIATE 事务内：fencing+状态守卫（同 appendStreamEvent fenced 语义）→ 插入
+   * safe_segments 行（committed=1，可见前缀）与 turn_stream_events 行（delta），并回填关联。
+   * 守卫失配抛 FencingMismatchError（迟到/被抢占执行器被拒，无部分写入）。
+   */
+  async recordSafeSegmentAtomically(
+    tenant: TenantContext,
+    input: {
+      turnId: string;
+      attemptId: string;
+      sequence: number;
+      text: string;
+      eventData: unknown;
+      safetyDecision?: string | null;
+      expectedFencingToken: number;
+    },
+  ): Promise<boolean> {
+    assertTenantContext(tenant);
+    return this.db.transaction(
+      async (tx) => {
+        const [attempt] = await tx
+          .select({ status: turnAttempts.status, fencingToken: turnAttempts.fencingToken })
+          .from(turnAttempts)
+          .where(
+            and(
+              eq(turnAttempts.id, input.attemptId),
+              eq(turnAttempts.turnId, input.turnId),
+            ),
+          );
+        const running = attempt && (attempt.status === "Running" || attempt.status === "CancelRequested");
+        if (!attempt || attempt.fencingToken !== input.expectedFencingToken || !running) {
+          throw new FencingMismatchError(
+            `attempt ${input.attemptId} fencing=${attempt?.fencingToken ?? "?"} status=${attempt?.status ?? "?"} cannot record safe segment`,
+          );
+        }
+        const segmentId = `sseg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+        const eventId = `tev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+        const now = new Date().toISOString();
+        // 1) delta 事件
+        await tx.insert(turnStreamEvents).values({
+          id: eventId,
+          turnId: input.turnId,
+          attemptId: input.attemptId,
+          workspaceId: tenant.workspaceId,
+          subjectUserId: tenant.subjectUserId,
+          sequence: input.sequence,
+          eventType: "delta",
+          data: input.eventData,
+          occurredAt: now,
+          safetyDecision: input.safetyDecision ?? null,
+        });
+        // 2) 安全片段（committed=1 可见前缀）并回填事件关联
+        await tx.insert(safeSegments).values({
+          id: segmentId,
+          turnId: input.turnId,
+          attemptId: input.attemptId,
+          workspaceId: tenant.workspaceId,
+          subjectUserId: tenant.subjectUserId,
+          sequence: input.sequence,
+          text: input.text,
+          committed: 1,
+          streamEventId: eventId,
+          createdAt: now,
+          updatedAt: now,
+        });
+        return true;
+      },
+      { behavior: "immediate" },
+    );
+  }
+
+  /**
+   * E2：读取 Turn 的已提交安全片段（可见前缀；按 sequence 升序）。
+   * 供中断恢复（visible-prefix）与可见前缀重建使用。
+   */
+  async listCommittedSegments(
+    tenant: TenantContext,
+    turnId: string,
+  ): Promise<Array<{ id: string; sequence: number; text: string; streamEventId: string | null }>> {
+    assertTenantContext(tenant);
+    const rows = await this.db
+      .select({
+        id: safeSegments.id,
+        sequence: safeSegments.sequence,
+        text: safeSegments.text,
+        streamEventId: safeSegments.streamEventId,
+      })
+      .from(safeSegments)
+      .where(
+        and(
+          eq(safeSegments.turnId, turnId),
+          eq(safeSegments.workspaceId, tenant.workspaceId),
+          eq(safeSegments.subjectUserId, tenant.subjectUserId),
+          eq(safeSegments.committed, 1),
+        ),
+      )
+      .orderBy(safeSegments.sequence);
+    return rows;
+  }
+
+  /**
    * 3c/4b：恢复候选查询（跨租户，供 worker 观测 + host-agent 续跑执行）。
    *
    * 命中条件：过期 Running Attempt + 存在 executed 工具执行 + 无 done 终态事件
@@ -1085,6 +1187,26 @@ export class SqliteConversationRepository implements IConversationRepository {
     },
   ): Promise<ToolApprovalModel> {
     assertTenantContext(tenant);
+    // E1（§12.2「ToolInvocation + 授权快照 + 幂等预留」）：同 (toolName, argumentsHash) 已存在
+    // 未决（pending）授权则复用既有行，不重复插入——授权匹配键跨 turn 复用（schema 注释约定），
+    // 幂等预留语义：重复的写工具意图不会产生多行待决授权。granted/denied 后新请求才新建。
+    if (input.state === "pending") {
+      const [existing] = await this.db
+        .select()
+        .from(toolApprovals)
+        .where(
+          and(
+            eq(toolApprovals.workspaceId, tenant.workspaceId),
+            eq(toolApprovals.subjectUserId, tenant.subjectUserId),
+            eq(toolApprovals.toolName, input.toolName),
+            eq(toolApprovals.argumentsHash, input.argumentsHash),
+            eq(toolApprovals.state, "pending"),
+          ),
+        )
+        .orderBy(desc(toolApprovals.id))
+        .limit(1);
+      if (existing) return existing as ToolApprovalModel;
+    }
     const [created] = await this.db
       .insert(toolApprovals)
       .values({

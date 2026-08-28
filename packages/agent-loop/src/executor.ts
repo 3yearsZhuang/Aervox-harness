@@ -390,14 +390,15 @@ export async function executeTurn(
       if (!hasToolCalls) {
         for (const chunk of chunks) {
           if (chunk.text.length === 0) continue;
-          await execution.appendEvent({
+          // E2（§12.2）：安全片段 + delta 事件原子提交（可见前缀）
+          await execution.recordSafeSegment({
             turnId: input.turnId,
             attemptId: input.attemptId,
-            expectedFencingToken: claimFencingToken,
             sequence: sequence++,
-            eventType: "delta",
-            data: { messageId, text: chunk.text, isFinal: true },
+            text: chunk.text,
+            eventData: { messageId, text: chunk.text, isFinal: true },
             safetyDecision: "approved",
+            expectedFencingToken: claimFencingToken,
           });
         }
         // 2b：检查点 · 自然完成终态提交前（取消优先，杜绝取消后写 Completed done）
@@ -420,14 +421,15 @@ export async function executeTurn(
       // 工具请求 → 先落文本 delta（未完成），再逐个执行工具
       for (const chunk of chunks) {
         if (chunk.text.length === 0) continue;
-        await execution.appendEvent({
+        // E2（§12.2）：安全片段 + delta 事件原子提交（可见前缀）
+        await execution.recordSafeSegment({
           turnId: input.turnId,
           attemptId: input.attemptId,
-          expectedFencingToken: claimFencingToken,
           sequence: sequence++,
-          eventType: "delta",
-          data: { messageId, text: chunk.text, isFinal: false },
+          text: chunk.text,
+          eventData: { messageId, text: chunk.text, isFinal: false },
           safetyDecision: "approved",
+          expectedFencingToken: claimFencingToken,
         });
       }
 

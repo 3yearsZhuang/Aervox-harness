@@ -1899,6 +1899,28 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await client.execute(`
     CREATE INDEX IF NOT EXISTS tool_approvals_turn_idx ON tool_approvals(turn_id);
   `);
+  // E2：安全片段（safe_segments；§12.2「安全片段 + TurnStreamEvent + Draft prefix」原子提交）
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS safe_segments (
+      id TEXT PRIMARY KEY,
+      turn_id TEXT NOT NULL REFERENCES turns(id) ON DELETE CASCADE,
+      attempt_id TEXT,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      sequence INTEGER NOT NULL,
+      text TEXT NOT NULL,
+      committed INTEGER NOT NULL DEFAULT 0,
+      stream_event_id TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS safe_segments_turn_seq_idx ON safe_segments(turn_id, sequence);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS safe_segments_turn_committed_idx ON safe_segments(turn_id, committed);
+  `);
   // 4.7 阶段 5a：Agent 收件箱（agent_inbox_items；ADR-017）
   await client.execute(`
     CREATE TABLE IF NOT EXISTS agent_inbox_items (
