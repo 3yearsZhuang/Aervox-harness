@@ -118,6 +118,25 @@ export interface IConversationRepository {
     attempt: { id: string; attempt?: number; leaseId?: string | null; fencingToken?: number },
   ): Promise<TurnAttemptModel>;
   listTurnAttempts(tenant: TenantContext, turnId: string): Promise<TurnAttemptModel[]>;
+  /** 2b：用户取消请求位（CAS：仅 Running → CancelRequested，同步 turns 至 Cancelled 若未终态） */
+  requestCancelTurnAttempt(
+    tenant: TenantContext,
+    input: { turnId: string; attemptId: string },
+  ): Promise<{ ok: boolean; reason?: "not_found" | "already_finalized" }>;
+  /** 2b：读取 Attempt 当前状态（executor 取消检查点） */
+  getTurnAttemptStatus(tenant: TenantContext, input: { turnId: string; attemptId: string }): Promise<string | null>;
+  /** 2c：幂等预留（attempt+invocation 唯一；ON CONFLICT DO NOTHING） */
+  reserveToolExecution(
+    tenant: TenantContext,
+    input: { turnId: string; attemptId: string; invocationId: string; name: string; arguments?: unknown },
+  ): Promise<{ ok: boolean; alreadyReserved: boolean }>;
+  /** 2c：以权威结果收口预留行 */
+  updateToolExecutionResult(
+    tenant: TenantContext,
+    input: { turnId: string; attemptId: string; invocationId: string; status: string; output?: unknown; error?: string; finishedAt?: string },
+  ): Promise<{ ok: boolean }>;
+  /** 2c：崩溃释放后将遗留 pending 预留标记为 outcome_unknown（§11.3） */
+  markPendingOutcomeUnknown(client: import("@libsql/client").Client): Promise<number>;
   // P1（R2 · CAP-014）：会话地图与替代解法分支
   createConversationBranch(
     tenant: TenantContext,
@@ -1357,6 +1376,8 @@ export interface DeletionTargetModel {
 }
 
 export interface IPrivacyRepository {
+  /** 2d：该租户是否存在未完成的删除/撤权请求（Loop fail-closed 闸门数据源） */
+  hasPendingDeletionRequest(tenant: TenantContext): Promise<boolean>;
   grantConsent(
     tenant: TenantContext,
     grant: {

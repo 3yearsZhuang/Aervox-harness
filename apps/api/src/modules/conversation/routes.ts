@@ -7,7 +7,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import { createTurnRequestSchema } from "@aervox/contracts";
-import type { SqliteConversationRepository } from "@aervox/database";
+import type { SqliteConversationRepository, SqlitePrivacyRepository } from "@aervox/database";
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
 import { resolveTenant } from "../../shared/tenant.js";
@@ -21,6 +21,8 @@ export interface ConversationRouteDeps {
   toolRuntime?: ToolRuntime;
   /** 阶段 2e：AERVOX_LOOP_PROVIDER=llm 时的模型配置来源（CR-015） */
   llmConfigService?: LLMConfigService;
+  /** 2d：删除/撤权闸门数据源（缺失时 Loop 不做删除 fail-closed） */
+  privacyRepo?: SqlitePrivacyRepository;
 }
 
 export function registerConversationRoutes(
@@ -88,7 +90,14 @@ export function registerConversationRoutes(
         attemptId,
         userMessage: parsed.data.message.content,
       },
-      { toolRuntime: deps.toolRuntime, llmConfigService: deps.llmConfigService },
+      {
+        toolRuntime: deps.toolRuntime,
+        llmConfigService: deps.llmConfigService,
+        // 2d：删除/撤权水位未追平 → Loop fail-closed（AVX-HAR-001 §11.3）
+        deletionGate: deps.privacyRepo
+          ? { isBlocked: async () => deps.privacyRepo!.hasPendingDeletionRequest(tenant) }
+          : undefined,
+      },
     );
 
     return reply.code(201).send({
@@ -125,12 +134,29 @@ export function registerConversationRoutes(
     reply.raw.end();
   });
 
-  // POST /v1/turns/{turnId}/cancel — 取消 Turn
+  // POST /v1/turns/{turnId}/cancel — 取消 Turn（AVX-HAR-001 §11.1：Attempt CAS 置 CancelRequested，executor 检查点中止）
   app.post("/v1/turns/:turnId/cancel", async (req, reply) => {
     const { turnId } = req.params as { turnId: string };
     const tenant = resolveTenant(req);
-    await conversationRepo.updateTurnStatus(tenant, turnId, "Cancelled");
-    return reply.send({ turnId, status: "Cancelled" as const });
+    const attempts = await conversationRepo.listTurnAttempts(tenant, turnId);
+    const running = attempts.find((a) => a.status === "Running");
+    if (!running) {
+      const latest = attempts[0];
+      return reply.code(latest ? 409 : 404).send({
+        error: latest ? "turn_already_finalized" : "turn_not_found",
+        turnId,
+        status: latest?.status ?? "Unknown",
+      });
+    }
+    const res = await conversationRepo.requestCancelTurnAttempt(tenant, {
+      turnId,
+      attemptId: running.id,
+    });
+    if (!res.ok) {
+      const latest = attempts[0];
+      return reply.code(409).send({ error: res.reason ?? "request_cancel_failed", turnId, status: latest?.status });
+    }
+    return reply.send({ turnId, status: "Cancelled", cancelled: true });
   });
 
   // POST /v1/turns/{turnId}/tool-approvals — 写工具授权决定（阶段 3a：grant / deny）

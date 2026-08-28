@@ -1539,6 +1539,10 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await client.execute(`
     CREATE INDEX IF NOT EXISTS tool_executions_tenant_idx ON tool_executions(workspace_id, subject_user_id);
   `);
+  // 2c：幂等预留唯一键（attempt+invocation；旧库经下方 CREATE UNIQUE INDEX 幂等补齐）
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS tool_executions_attempt_invocation_idx ON tool_executions(attempt_id, invocation_id);
+  `);
   await client.execute(`
     CREATE TABLE IF NOT EXISTS tool_approvals (
       id TEXT PRIMARY KEY,

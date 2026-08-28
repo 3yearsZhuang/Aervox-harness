@@ -3,7 +3,7 @@
  *
  * 规则依据：docs/reference/PRD.md §8（ConsentGrant/DeletionRequest/DeletionTarget）
  */
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, inArray } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { consentGrants, deletionRequests, deletionTargets } from "../../schema/index.js";
 import { assertTenantContext, type TenantContext } from "../../tenant.js";
@@ -77,6 +77,23 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
         ),
       );
     return !!found;
+  }
+
+  /** 2d：该租户是否存在未完成的删除/撤权请求（删除/撤权水位未追平；AVX-HAR-001 §11.3 fail-closed 闸门数据源） */
+  async hasPendingDeletionRequest(tenant: TenantContext): Promise<boolean> {
+    assertTenantContext(tenant);
+    const rows = await this.db
+      .select({ id: deletionRequests.id })
+      .from(deletionRequests)
+      .where(
+        and(
+          eq(deletionRequests.workspaceId, tenant.workspaceId),
+          eq(deletionRequests.subjectUserId, tenant.subjectUserId),
+          inArray(deletionRequests.status, ["pending", "in_progress"]),
+        ),
+      )
+      .limit(1);
+    return rows.length > 0;
   }
 
   async createDeletionRequest(
