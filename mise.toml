@@ -17,7 +17,7 @@ AERVOX_NODE_MIN = "22.19"
 install = "pnpm install --frozen-lockfile"
 
 # 本地代码门禁（对齐 .github/workflows/ci.yml，含 frozen-lockfile install）
-ci-code = "pnpm install --frozen-lockfile && pnpm build && pnpm typecheck && pnpm test"
+ci-code = "pnpm install --frozen-lockfile && pnpm check:boundary && pnpm build && pnpm typecheck && pnpm test"
 
 # 本地文档门禁：Markdown lint + 术语散文 lint（链接检查由 CI 的 lychee-action 执行）
 ci-docs = "npx markdownlint-cli2 --config .markdownlint-cli2.jsonc 'docs/**/*.md' 'README.md' 'AGENTS.md' && mise tasks run docs-lint-prose"
