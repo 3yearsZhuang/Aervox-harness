@@ -181,5 +181,5 @@ onBeforeUnmount(() => {
   border-radius: 12px;
   background: #fff;
 }
-:root[data-theme='dark'] .plugin-page-frame { background: #1d2420; }
+:root[data-theme='dark'] .plugin-page-frame { background: #1d222e; }
 </style>

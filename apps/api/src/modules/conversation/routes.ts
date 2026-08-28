@@ -8,7 +8,13 @@
 import type { FastifyInstance } from "fastify";
 import { createTurnRequestSchema, editMessageSchema } from "@aervox/contracts";
 import type { SkillDescriptor } from "@aervox/agent-loop";
-import type { SqliteConversationRepository, SqlitePrivacyRepository, SqliteAgentInboxRepository } from "@aervox/database";
+import type {
+  SqliteConversationRepository,
+  SqlitePrivacyRepository,
+  SqliteAgentInboxRepository,
+  SqliteSubagentRunRepository,
+  SqlitePlatformRepository,
+} from "@aervox/database";
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
 import { resolveTenant } from "../../shared/tenant.js";
@@ -29,6 +35,14 @@ export interface ConversationRouteDeps {
   inboxRepo?: SqliteAgentInboxRepository;
   /** 5b：Skill 渐进披露清单加载器（activeOnly；缺省不注入 Skills 段） */
   skillLoader?: () => Promise<SkillDescriptor[]>;
+  /** 5c：Subagent 委托执行器工厂（request 级 tenant 绑定；注入则贡献 subagent.delegate 工具） */
+  subagentFactory?: (tenant: import("@aervox/database").TenantContext) => import("@aervox/agent-loop").SubagentPort;
+  /** 5c：已注册 Workflow 定义清单（贡献 workflow.run 工具；GET /v1/workflows 元数据） */
+  workflows?: import("@aervox/agent-loop").WorkflowDefinition[];
+  /** 5c：subagent_runs 仓储（GET /v1/turns/:id/subagents 审计查询） */
+  subagentRunRepo?: SqliteSubagentRunRepository;
+  /** 阶段 7：ModelRun/ContextManifest 落库口（Step 级可追溯写入；缺失则不记录） */
+  platformRepo?: SqlitePlatformRepository;
 }
 
 export function registerConversationRoutes(
@@ -128,6 +142,11 @@ export function registerConversationRoutes(
         inbox: deps.inboxRepo ? createTenantInboxPort(deps.inboxRepo, tenant) : undefined,
         // 5b：Skill 渐进披露（activeOnly 清单注入 system prompt）
         skills: deps.skillLoader ? await deps.skillLoader() : undefined,
+        // 5c：Subagent/Workflow Contribution（独立 Tool/Provider 组合；惰性工厂按 request tenant 绑定）
+        subagentFactory: deps.subagentFactory,
+        workflows: deps.workflows,
+        // 阶段 7：Step 级 ModelRun + 每 Turn ContextManifest 快照落库
+        platformRepo: deps.platformRepo,
       },
     );
 
@@ -143,10 +162,13 @@ export function registerConversationRoutes(
   app.get("/v1/turns/:turnId/events", async (req, reply) => {
     const { turnId } = req.params as { turnId: string };
     const tenant = resolveTenant(req);
+    const origin = (req.headers.origin as string | undefined) ?? "*";
     reply.hijack();
     reply.raw.writeHead(200, {
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-store",
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Credentials": "true",
     });
     const events = await conversationRepo.getStreamEvents(tenant, turnId, 0);
     for (const ev of events) {
@@ -227,6 +249,27 @@ export function registerConversationRoutes(
       data: { approvalId: updated.id, decision: updated.state, toolName: updated.toolName },
     });
     return reply.send({ approvalId: updated.id, state: updated.state });
+  });
+
+  // 阶段 5c：子任务审计（subagent_runs；租户隔离；返回父 Turn 委托的全部子任务运行记录）
+  app.get("/v1/turns/:turnId/subagents", async (req, reply) => {
+    const { turnId } = req.params as { turnId: string };
+    const tenant = resolveTenant(req);
+    if (!deps.subagentRunRepo) {
+      return reply.code(404).send({ error: "subagent_runs_disabled" });
+    }
+    const runs = await deps.subagentRunRepo.listRunsByTurn(tenant, turnId);
+    return reply.send({ turnId, runs });
+  });
+
+  // 阶段 5c：Workflow 注册清单（元数据；执行经 `workflow.run` 工具，不在此直接触发）
+  app.get("/v1/workflows", async (_req, reply) => {
+    const workflows = (deps.workflows ?? []).map((w) => ({
+      name: w.name,
+      description: w.description,
+      steps: w.steps.map((s) => s.description),
+    }));
+    return reply.send({ workflows });
   });
 
   // POST /v1/messages — 创建消息身份（身份与版本分离的写链路）

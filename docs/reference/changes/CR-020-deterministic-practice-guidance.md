@@ -1,5 +1,5 @@
 ---
-id: CR-019
+id: CR-020
 type: reference
 scope: change
 owner: learning
@@ -16,7 +16,7 @@ sources:
   - docs/reference/REQUIREMENTS_TRACEABILITY.md
 ---
 
-# CR-019 确定性练习反馈与下一轮建议
+# CR-020 确定性练习反馈与下一轮建议
 
 - 提出人：kikoyida · 2026-08-28
 - 修改人：kikoyida · 2026-08-28

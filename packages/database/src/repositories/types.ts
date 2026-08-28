@@ -730,6 +730,66 @@ export interface IAgentInboxRepository {
   expireOverdue(now?: string): Promise<number>;
 }
 
+// ============ 阶段 5c：Subagent 运行关联（subagent_runs）============
+
+/** Subagent 子任务运行行（父 Turn 与子任务的溯源关联 + 结果摘要；完整事件在子 turn 下审计） */
+export interface SubagentRunModel {
+  id: string;
+  sessionId: string;
+  parentTurnId: string;
+  parentAttemptId: string;
+  parentExecutionId: string;
+  subTurnId: string;
+  subAttemptId: string;
+  task: string;
+  toolScope: unknown | null;
+  /** Running / Completed / Failed / Interrupted / Cancelled（对齐 AttemptStatus） */
+  status: string;
+  resultText?: string | null;
+  error?: string | null;
+  finishedAt?: string | null;
+  workspaceId: string;
+  subjectUserId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 创建子任务运行行的输入（status 初始 Running，终态由 finalizeRun 收口） */
+export interface SubagentRunCreateInput {
+  id: string;
+  sessionId: string;
+  parentTurnId: string;
+  parentAttemptId: string;
+  parentExecutionId: string;
+  subTurnId: string;
+  subAttemptId: string;
+  task: string;
+  toolScope?: unknown;
+}
+
+/** Subagent 运行关联仓储（阶段 5c） */
+export interface ISubagentRunRepository {
+  /**
+   * 幂等创建：同 tenant + parentAttemptId + parentExecutionId 已存在则返回既有行
+   * （子任务崩溃/重试不重复落库——Host 幂等键=executionId 语义，AVX-HAR-001 §9）。
+   */
+  createRun(tenant: TenantContext, input: SubagentRunCreateInput): Promise<SubagentRunModel>;
+  /** 终态收口：status/resultText/error/finishedAt（仅 Running 可收口，返回 null 表示非 Running/缺失） */
+  finalizeRun(
+    tenant: TenantContext,
+    runId: string,
+    input: { status: string; resultText?: string | null; error?: string | null },
+  ): Promise<SubagentRunModel | null>;
+  /** 按父执行键回查（重试/幂等复用） */
+  getRunByParentExecution(
+    tenant: TenantContext,
+    parentAttemptId: string,
+    parentExecutionId: string,
+  ): Promise<SubagentRunModel | null>;
+  /** 父 Turn 的全部子任务运行（API 审计端点，租户隔离） */
+  listRunsByTurn(tenant: TenantContext, parentTurnId: string): Promise<SubagentRunModel[]>;
+}
+
 // ============ 学习/练习/复习域 ============
 
 export interface LearningGoalModel {
@@ -1337,6 +1397,9 @@ export interface ModelRunModel {
   id: string;
   workspaceId: string;
   subjectUserId: string;
+  /** 阶段 7（ADR-017）：Attempt/Step 关联（存量慢启动回填，可为空） */
+  attemptId?: string | null;
+  stepId?: number | null;
   purpose: string;
   provider: string;
   modelId: string;
@@ -1358,6 +1421,8 @@ export interface ContextManifestModel {
   sourceRevisionId: string;
   selectionReason?: string | null;
   permissionSnapshot?: unknown;
+  /** 阶段 7（ADR-017）：上下文快照（每 Turn 首个 Step 的 messages；可空） */
+  snapshot?: unknown;
   tokenBudget?: number | null;
   createdAt: string;
 }

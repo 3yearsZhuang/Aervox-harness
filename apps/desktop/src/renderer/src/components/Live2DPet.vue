@@ -35,7 +35,11 @@ const onPetCommand = (value: unknown) => {
     controller.playFirstAvailableMotion(patterns[command.gesture] ?? new RegExp(command.gesture, 'i'))
   }
   if (command.type === 'react') controller.playFirstAvailableMotion(/react|tap|touch|idle/i)
-  if (command.type === 'speak' && command.text) controller.speakText(command.text)
+  if (command.type === 'speak' && command.text) {
+    controller.speakText(command.text)
+    // 同步给桌宠窗口的对话气泡展示
+    window.dispatchEvent(new CustomEvent('aervox:pet-bubble', {detail: command.text}))
+  }
   if (command.type === 'move' && typeof command.x === 'number' && typeof command.y === 'number') controller.setFocus(command.x, command.y)
 }
 
@@ -76,7 +80,6 @@ onBeforeUnmount(() => {
     <div ref="canvasHost" class="live2d-pet__canvas" aria-hidden="true" />
     <slot v-if="status === 'error'" name="fallback" />
     <span v-if="status === 'loading'" class="live2d-pet__status">正在加载桌宠…</span>
-    <span class="live2d-pet__attribution">Aervox Live2D</span>
   </div>
 </template>
 
@@ -84,6 +87,5 @@ onBeforeUnmount(() => {
 .live2d-pet { position: relative; width: 100%; height: 100%; min-height: 220px; }
 .live2d-pet__canvas { position: absolute; inset: 0; }
 .live2d-pet__canvas :deep(canvas) { display: block; width: 100%; height: 100%; }
-.live2d-pet__status { position: absolute; inset: 50% 0 auto; text-align: center; color: #6e7f75; font-size: 11px; }
-.live2d-pet__attribution { position: absolute; right: 4px; bottom: 2px; color: #819087; font-size: 9px; }
+.live2d-pet__status { position: absolute; inset: 50% 0 auto; text-align: center; color: var(--text-secondary, #536284); font-size: 11px; }
 </style>

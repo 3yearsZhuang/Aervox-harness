@@ -219,3 +219,89 @@ export interface AgentInboxCommand {
   /** 过期时间；缺省不自动过期 */
   expiresAt?: string;
 }
+
+/**
+ * Subagent 委托输入（阶段 5c：Subagent/Workflow Contribution，AVX-HAR-001 §13 阶段 5）。
+ * Leader Loop 在 Step 中调用 `subagent.delegate`，宿主创建独立子 turn/attempt（落库可审计/恢复）。
+ */
+export interface SubagentDelegateInput {
+  /** 父（Leader）Turn/Attempt/执行键（子任务溯源；parentAttemptId+parentExecutionId 幂等） */
+  parentTurnId: string;
+  parentAttemptId: string;
+  parentExecutionId: string;
+  /** 子任务归属会话（与父一致；审计与恢复沿用会话边界） */
+  sessionId: string;
+  /** 子任务目标（仅注入子上下文，不注入父历史：隔离原则） */
+  task: string;
+  /**
+   * 子任务工具集约束（缺省：Host 默认工具集）。
+   * 递归防护：Leader 侧生成的子工具集必须剔除 `subagent.delegate`/`workflow.run`。
+   */
+  toolScope?: ToolSpec[];
+}
+
+/** Subagent 运行结果（父级经 tool_result 回填；子任务完整事件在子 turn 下审计） */
+export interface SubagentRunResult {
+  subTurnId: string;
+  subAttemptId: string;
+  /** 子 Attempt 终态（Completed = 结果可信；其余 = error/被取消/预算截断） */
+  status: AttemptStatus;
+  /** 子任务正文输出（Completed 时的 delta 聚合） */
+  resultText?: string;
+  error?: string;
+}
+
+/** Workflow 步骤上下文（宿主扩展；不透传数据库句柄，宿主按需注入） */
+export interface WorkflowContext {
+  turnId: string;
+  attemptId: string;
+  sessionId: string;
+}
+
+/** Workflow 步骤结果（上一步输出作为下一步输入） */
+export interface WorkflowStepResult {
+  ok: boolean;
+  output?: unknown;
+  error?: string;
+}
+
+/** Workflow 步骤（5c：TypeScript 步骤定义形态；顺序执行） */
+export interface WorkflowStep {
+  /** 供审计/模型理解的步骤说明 */
+  description: string;
+  execute(ctx: WorkflowContext, input: unknown): Promise<WorkflowStepResult>;
+}
+
+/** Workflow 定义（宿主以类型安全步骤数组声明，天然过 typecheck；`workflow.run` 为写类走既有审批） */
+export interface WorkflowDefinition {
+  name: string;
+  description: string;
+  steps: WorkflowStep[];
+}
+
+/** 阶段 7（ADR-017）：Step 级 ModelRun 记录（Loop 可追溯写入；宿主落库为 model_runs） */
+export interface ModelRunRecord {
+  runId: string;
+  turnId: string;
+  sessionId: string;
+  attemptId: string;
+  stepId: number;
+  provider: string;
+  modelId: string;
+  purpose: string;
+  status: "completed" | "failed";
+  latencyMs?: number;
+}
+
+/** 阶段 7（ADR-017）：ContextManifest 快照（每 Turn 首个 Step 的上下文；宿主落库为 context_manifests） */
+export interface ContextManifestRecord {
+  manifestId: string;
+  turnId: string;
+  sessionId: string;
+  attemptId: string;
+  stepId: number;
+  modelRunId: string;
+  purpose: string;
+  /** 上下文 messages 快照（序列化面由宿主决定；不在此持有数据库结构） */
+  snapshot: PromptMessage[];
+}

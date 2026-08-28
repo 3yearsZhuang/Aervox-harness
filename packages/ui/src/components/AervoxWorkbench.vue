@@ -1,21 +1,24 @@
 <script setup lang="ts">
-import {computed, nextTick, onMounted, onUnmounted, ref} from 'vue'
+import {computed, nextTick, onMounted, onUnmounted, ref, type Component} from 'vue'
 import {
   Bell,
   BookOpen,
   Bot,
   Check,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
-  CircleHelp,
   Clock3,
-  Copy,
   Heart,
   History,
   LayoutGrid,
   ListTodo,
+  Menu,
   MessageCircle,
+  Mic,
+  MicOff,
   Moon,
+  NotebookPen,
   Pause,
   Play,
   Plus,
@@ -26,8 +29,6 @@ import {
   Sparkles,
   Sun,
   Volume2,
-  Mic,
-  MicOff,
   TimerReset,
   X,
 } from 'lucide-vue-next'
@@ -49,6 +50,26 @@ interface StoryLine {
   state?: 'streaming' | 'complete' | 'error'
 }
 
+type CompanionModeId = 'companion' | 'quick' | 'deep' | 'chat'
+
+interface CompanionMode {
+  id: CompanionModeId
+  label: string
+  hint: string
+  prefix: string
+}
+
+type CardId = 'study' | 'todo' | 'timer' | 'history' | 'review' | 'mistake' | 'diary' | 'notifications'
+
+interface CardDefinition {
+  id: CardId
+  label: string
+  description: string
+  icon: Component
+  summary: () => string
+  action: () => void
+}
+
 const props = withDefaults(defineProps<{
   platform?: Platform
   showCompanion?: boolean
@@ -59,14 +80,13 @@ const props = withDefaults(defineProps<{
   assistantName: '思隅',
 })
 
-const toolsOpen = ref(false)
-const composerOpen = ref(true)
+const composerOpen = ref(false)
 const historyOpen = ref(false)
 const todoOpen = ref(false)
 const timerOpen = ref(false)
 const studyOpen = ref(false)
 const settingsOpen = ref(false)
-const settingsCategory = ref<'appearance' | 'conversation' | 'model' | 'persona' | 'focus' | 'notifications' | 'voice' | 'plugins'>('appearance')
+const settingsCategory = ref<'tools' | 'appearance' | 'conversation' | 'model' | 'persona' | 'focus' | 'notifications' | 'voice' | 'plugins'>('tools')
 const newGoalTopic = ref('')
 const newGoalLevel = ref<'beginner' | 'intermediate' | 'advanced'>('beginner')
 const newGoalMinutes = ref(25)
@@ -93,10 +113,12 @@ const newPlanEndDate = ref('')
 const planBusyId = ref<string | null>(null)
 const planDrafts = ref<Record<string, {endDate: string; dailyAvailableMinutes: number}>>({})
 const input = ref('')
+const isComposing = ref(false)
+const activeModeId = ref<CompanionModeId>('companion')
+const cardSlots = ref<Array<CardId | null>>([null, null])
 const timerSeconds = ref(25 * 60)
 const timerRunning = ref(false)
 const streaming = ref(false)
-const copied = ref(false)
 const isDark = ref(false)
 const assistantDisplayName = ref(props.assistantName)
 const enterToSend = ref(true)
@@ -134,11 +156,9 @@ const {
 let nextStoryId = 2
 
 const isWeb = computed(() => props.platform === 'web')
-// Web always presents its companion card; the desktop-only preference must not
+// Web always presents its companion; the desktop-only preference must not
 // leak through shared localStorage and hide the Web companion.
 const showCompanionEnabled = computed(() => props.showCompanion && (isWeb.value || desktopCompanionEnabled.value))
-const currentLine = computed(() => story.value.at(-1) ?? null)
-const currentAssistantLine = computed(() => [...story.value].reverse().find((line) => line.speaker === 'assistant') ?? null)
 const unfinishedTodos = computed(() => todos.value.filter((todo) => !todo.done))
 const completedTodoCount = computed(() => todos.value.length - unfinishedTodos.value.length)
 const formattedTime = computed(() => {
@@ -147,6 +167,7 @@ const formattedTime = computed(() => {
   return `${minutes}:${seconds}`
 })
 const settingCategories = [
+  {id: 'tools', label: '快捷工具', description: '学习面板与小工具', icon: LayoutGrid},
   {id: 'appearance', label: '外观', description: '主题与界面密度', icon: Sun},
   {id: 'conversation', label: '对话', description: '称呼与输入方式', icon: MessageCircle},
   {id: 'model', label: '模型与服务', description: '大语言模型与供应商配置', icon: Bot},
@@ -156,16 +177,63 @@ const settingCategories = [
   {id: 'voice', label: '语音', description: '本地语音模型配置', icon: Volume2},
   {id: 'plugins', label: '插件', description: '插件配置与页面', icon: Puzzle},
 ] as const
-const workbenchState = computed(() => {
-  if (streaming.value) return '正在思考并组织回答'
-  if (currentLine.value?.state === 'error') return '连接遇到问题，可以重新发送'
-  return '随时可以开始今天的学习'
-})
-const suggestions = [
-  '帮我把今天的学习目标拆小一点',
-  '解释一下递归，但先不要直接给答案',
-  '用 10 分钟带我复习二分查找',
+
+const companionModes: CompanionMode[] = [
+  {id: 'companion', label: '陪学讲解', hint: '逐步讲解，适合卡住的时候', prefix: '[模式：陪学讲解] '},
+  {id: 'quick', label: '快问快答', hint: '简短直接，先给结论', prefix: '[模式：快问快答] '},
+  {id: 'deep', label: '深度拆解', hint: '展开原理与关联知识', prefix: '[模式：深度拆解] '},
+  {id: 'chat', label: '自由聊天', hint: '无固定结构的日常对话', prefix: ''},
 ]
+
+const activeMode = computed(() => companionModes.find((mode) => mode.id === activeModeId.value) ?? companionModes[0])
+
+const activeMistakeCount = computed(() => mistakes.value.filter((item) => item.status === 'active').length)
+
+const cardCatalog = computed<CardDefinition[]>(() => [
+  {id: 'study', label: '今日学习', description: '学习目标 · 复习 · 错题 · 日记', icon: BookOpen, summary: () => `${goals.value.length} 个目标 · ${dueReviews.value.length} 项复习`, action: () => openTool('study')},
+  {id: 'todo', label: '待办清单', description: '勾选完成今天的待办事项', icon: ListTodo, summary: () => `待完成 ${unfinishedTodos.value.length} 件`, action: () => openTool('todo')},
+  {id: 'timer', label: '番茄钟', description: '专注计时，劳逸结合', icon: Clock3, summary: () => timerRunning.value ? `${formattedTime.value} 专注中` : `${formattedTime.value} 待开始`, action: () => openTool('timer')},
+  {id: 'history', label: '对话回看', description: '回顾与思隅的历史对话', icon: History, summary: () => `${story.value.length} 条对话记录`, action: () => openTool('history')},
+  {id: 'review', label: '待复习', description: '间隔复习到期内容', icon: RotateCcw, summary: () => `${dueReviews.value.length} 项到期`, action: () => openTool('study')},
+  {id: 'mistake', label: '错题本', description: '针对性练习未掌握的题', icon: Puzzle, summary: () => `${activeMistakeCount.value} 题待掌握`, action: () => openTool('study')},
+  {id: 'diary', label: '今日日记', description: 'AI 汇总的学习日记', icon: NotebookPen, summary: () => todayDiary.value?.title ?? '生成后在这里展示', action: () => openTool('study')},
+  {id: 'notifications', label: '提醒', description: '学习节奏与日常通知', icon: Bell, summary: () => `${notifications.value.length} 条提醒`, action: () => openTool('study')},
+])
+
+const slotCards = computed(() => cardSlots.value.map((id) => id ? cardCatalog.value.find((card) => card.id === id) ?? null : null))
+
+const menuOpen = ref(false)
+const menuPillRef = ref<HTMLElement | null>(null)
+
+/** 主导航：全部映射到既有功能（工具抽屉与设置弹窗），不引入新能力 */
+const menuItems: Array<{ id: string; label: string; icon: Component; action: () => void }> = [
+  {id: 'study', label: '学习', icon: BookOpen, action: () => openTool('study')},
+  {id: 'todo', label: '待办', icon: ListTodo, action: () => openTool('todo')},
+  {id: 'timer', label: '番茄钟', icon: Clock3, action: () => openTool('timer')},
+  {id: 'history', label: '回看', icon: History, action: () => openTool('history')},
+  {id: 'settings', label: '设置', icon: Settings, action: () => {settingsOpen.value = true}},
+]
+
+function toggleMenu() {
+  menuOpen.value = !menuOpen.value
+}
+
+/** 收起态点击胶囊任意区域（含边缘空白）均可展开 */
+function handlePillClick() {
+  if (!menuOpen.value) menuOpen.value = true
+}
+
+function runMenuAction(action: () => void) {
+  menuOpen.value = false
+  action()
+}
+
+/** 点击菜单胶囊外部时自动收起 */
+function handleMenuDocumentClick(event: MouseEvent) {
+  if (!menuOpen.value) return
+  if (menuPillRef.value?.contains(event.target as Node)) return
+  menuOpen.value = false
+}
 
 function createStoryLine(speaker: Speaker, text: string, state: StoryLine['state'] = 'complete'): StoryLine {
   return {id: nextStoryId++, speaker, text, state}
@@ -180,15 +248,18 @@ async function sendMessage(value = input.value) {
   const text = value.trim()
   if (!text || streaming.value) return
 
+  // 模式前缀随消息发送（自由聊天无前缀），对话记录仍展示用户原文。
+  const modePrefix = activeMode.value.prefix
+  const outgoing = modePrefix && !text.startsWith(modePrefix) ? modePrefix + text : text
+
   const assistantLine = createStoryLine('assistant', '', 'streaming')
   story.value.push(createStoryLine('user', text), assistantLine)
   input.value = ''
-  composerOpen.value = true
   streaming.value = true
   await scrollStoryToBottom()
 
   try {
-    await streamAervoxTurn(text, {
+    await streamAervoxTurn(outgoing, {
       onDelta: (delta) => {
         assistantLine.text += delta
         void scrollStoryToBottom()
@@ -203,8 +274,44 @@ async function sendMessage(value = input.value) {
     assistantLine.text = error instanceof Error ? `连接失败：${error.message}` : '连接失败，请稍后重试。'
   } finally {
     streaming.value = false
+    if (!input.value.trim()) composerOpen.value = false
     await scrollStoryToBottom()
   }
+}
+
+function expandComposer() {
+  composerOpen.value = true
+  void nextTick(() => composerTextarea.value?.focus())
+}
+
+function collapseComposer() {
+  if (voiceInput.isListening.value) voiceInput.stopListening()
+  composerOpen.value = false
+}
+
+/** 点击控制台外部的空白输入区时自动收起（输入法组合/焦点转移期间不误收起） */
+function handleDockFocusOut(event: FocusEvent) {
+  if (!composerOpen.value || isComposing.value) return
+  if (input.value.trim() || voiceInput.isListening.value) return
+  const dock = event.currentTarget as HTMLElement
+  const next = event.relatedTarget as Node | null
+  if (next && dock.contains(next)) return
+  // IME 候选窗等程序性焦点转移会让 relatedTarget 为空：
+  // 延迟复查真实焦点位置，避免输入中途输入框被销毁导致文字丢失。
+  window.setTimeout(() => {
+    if (!composerOpen.value || isComposing.value) return
+    if (input.value.trim() || voiceInput.isListening.value) return
+    if (dock.contains(document.activeElement)) return
+    composerOpen.value = false
+  }, 160)
+}
+
+function openTool(target: 'study' | 'todo' | 'timer' | 'history') {
+  settingsOpen.value = false
+  if (target === 'study') studyOpen.value = true
+  else if (target === 'todo') todoOpen.value = true
+  else if (target === 'timer') timerOpen.value = true
+  else historyOpen.value = true
 }
 
 function addTodo() {
@@ -472,6 +579,8 @@ function resetTimer() {
 }
 
 function handleComposerEnter(event: KeyboardEvent) {
+  // 输入法候选确认的 Enter 不发送消息（组合中的文字尚未落定）。
+  if (event.isComposing || isComposing.value) return
   if (voiceInput.isListening.value) {
     voiceInput.stopListening()
   }
@@ -480,11 +589,49 @@ function handleComposerEnter(event: KeyboardEvent) {
   void sendMessage()
 }
 
+/** 输入法组合开始/结束：阻止收起逻辑在组合期间销毁输入框 */
+function handleCompositionStart() {
+  isComposing.value = true
+  handleComposerInputOrKey()
+}
+
+function handleCompositionEnd() {
+  isComposing.value = false
+}
+
 /** 键盘自停：检测到键盘输入/粘贴/输入法开始时，自动停止录音 */
 function handleComposerInputOrKey() {
   if (voiceInput.isListening.value) {
     voiceInput.stopListening()
   }
+}
+
+function setMode(id: CompanionModeId) {
+  activeModeId.value = id
+  localStorage.setItem('aervox-composer-mode', id)
+}
+
+function isCardPicked(id: CardId) {
+  return cardSlots.value.includes(id)
+}
+
+function handleCardCommand(slot: number, command: unknown) {
+  if (command === '__clear__') {
+    selectCard(slot, null)
+    return
+  }
+  if (typeof command === 'string' && cardCatalog.value.some((card) => card.id === command)) {
+    selectCard(slot, command as CardId)
+  }
+}
+
+function selectCard(slot: number, id: CardId | null) {
+  cardSlots.value = cardSlots.value.map((current, index) => index === slot ? id : current)
+  localStorage.setItem('aervox-side-cards', JSON.stringify(cardSlots.value))
+}
+
+function activateCard(card: CardDefinition) {
+  card.action()
 }
 
 /** 语音输入插入当前光标处 */
@@ -548,16 +695,6 @@ function saveSettings() {
   localStorage.setItem('aervox-settings', JSON.stringify(settings))
 }
 
-async function copyCurrentAnswer() {
-  const text = currentAssistantLine.value?.text
-  if (!text) return
-  await navigator.clipboard?.writeText(text)
-  copied.value = true
-  window.setTimeout(() => {
-    copied.value = false
-  }, 1400)
-}
-
 function applyTheme(theme: 'light' | 'dark') {
   isDark.value = theme === 'dark'
   document.documentElement.dataset.theme = theme
@@ -568,12 +705,6 @@ async function setTheme(theme: 'light' | 'dark') {
   const desktopBridge = (window as Window & {fairyDesktop?: {setTheme: (value: 'light' | 'dark') => Promise<'light' | 'dark'>}}).fairyDesktop
   const appliedTheme = isWeb.value ? theme : await desktopBridge?.setTheme(theme) ?? theme
   applyTheme(appliedTheme)
-  saveSettings()
-}
-
-function toggleWebTheme() {
-  const nextTheme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'
-  applyTheme(nextTheme)
   saveSettings()
 }
 
@@ -605,6 +736,21 @@ onMounted(() => {
     // Ignore malformed local preferences and use defaults.
   }
 
+  const savedMode = localStorage.getItem('aervox-composer-mode')
+  if (savedMode && companionModes.some((mode) => mode.id === savedMode)) activeModeId.value = savedMode as CompanionModeId
+
+  try {
+    const savedCards = JSON.parse(localStorage.getItem('aervox-side-cards') ?? 'null') as unknown
+    if (Array.isArray(savedCards)) {
+      cardSlots.value = [0, 1].map((index) => {
+        const id = savedCards[index]
+        return cardCatalog.value.some((card) => card.id === id) ? (id as CardId) : null
+      })
+    }
+  } catch {
+    // Ignore malformed card preferences and keep placeholders.
+  }
+
   if (isWeb.value) {
     const saved = localStorage.getItem('aervox-theme')
     const fallback = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
@@ -614,6 +760,10 @@ onMounted(() => {
     isDark.value = saved === 'dark'
   }
 
+  void scrollStoryToBottom()
+
+  document.addEventListener('click', handleMenuDocumentClick)
+
   timer = window.setInterval(() => {
     if (timerRunning.value && timerSeconds.value > 0) timerSeconds.value -= 1
     if (timerSeconds.value === 0) timerRunning.value = false
@@ -622,6 +772,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (timer) window.clearInterval(timer)
+  document.removeEventListener('click', handleMenuDocumentClick)
   window.removeEventListener('aervox:open-settings', openSettings)
 })
 </script>
@@ -632,235 +783,179 @@ onUnmounted(() => {
     :class="[`is-${platform}`, {'has-companion': showCompanionEnabled, 'is-compact': compactMode}]"
     :data-aervox-platform="platform"
   >
-    <header v-if="isWeb" class="web-workbench-bar">
-      <a class="web-brand" href="#conversation" aria-label="Aervox 思隅首页">
-        <span class="web-brand-mark"><Sparkles :size="18" /></span>
-        <span><strong>Aervox｜思隅</strong><small>陪伴式学习工作台</small></span>
-      </a>
-      <nav class="web-nav" aria-label="工作台导航">
-        <a href="#conversation"><MessageCircle :size="17" />对话</a>
-        <button type="button" @click="studyOpen = true"><BookOpen :size="17" />学习</button>
-      </nav>
-      <div class="web-bar-actions">
-        <span class="web-status"><i />服务已连接</span>
-        <button class="web-icon-button" type="button" aria-label="打开设置" @click="settingsOpen = true">
-          <Settings :size="18" />
-        </button>
-        <button class="web-icon-button" type="button" aria-label="切换明暗主题" @click="toggleWebTheme">
-          <Moon v-if="isDark" :size="18" />
-          <Sun v-else :size="18" />
+    <div v-if="showCompanionEnabled" class="immersive-pet" aria-label="桌宠区域">
+      <Live2DPet>
+        <template #fallback><PetHero /></template>
+      </Live2DPet>
+    </div>
+
+    <button class="floating-settings" type="button" aria-label="打开设置" @click="settingsOpen = true">
+      <Settings :size="19" />
+    </button>
+
+    <nav ref="menuPillRef" class="menu-pill" :class="{open: menuOpen}" aria-label="主导航" @click="handlePillClick">
+      <button
+        class="menu-toggle"
+        type="button"
+        :aria-expanded="menuOpen"
+        :aria-label="menuOpen ? '收起菜单' : '展开菜单'"
+        @click.stop="toggleMenu"
+      >
+        <Menu v-if="!menuOpen" :size="19" />
+        <X v-else :size="19" />
+      </button>
+      <div class="menu-items">
+        <button
+          v-for="item in menuItems"
+          :key="item.id"
+          class="menu-item"
+          type="button"
+          @click.stop="runMenuAction(item.action)"
+        >
+          <component :is="item.icon" :size="16" />
+          <span>{{ item.label }}</span>
         </button>
       </div>
-    </header>
+    </nav>
 
-    <main class="workbench-main">
-      <section v-if="showCompanionEnabled" class="companion-column" aria-label="桌宠区域">
-        <section class="companion-stage" :class="{'tools-open': toolsOpen}">
-          <div class="pet-identity">
-            <span class="identity-dot" />
-            <span><strong>{{ assistantDisplayName }}</strong><small>Aervox 桌面伴学伙伴</small></span>
-          </div>
+    <aside class="side-cards" aria-label="功能卡片">
+      <div v-for="(card, slotIndex) in slotCards" :key="slotIndex" class="side-card-slot">
+        <template v-if="card">
+          <article
+            class="side-card"
+            role="button"
+            tabindex="0"
+            :aria-label="`打开${card.label}`"
+            @click="activateCard(card)"
+            @keydown.enter="activateCard(card)"
+          >
+            <header class="side-card-head">
+              <span class="side-card-icon"><component :is="card.icon" :size="24" /></span>
+              <span class="side-card-title">
+                <strong>{{ card.label }}</strong>
+                <small>{{ card.description }}</small>
+              </span>
+              <el-dropdown trigger="click" @command="(id: unknown) => handleCardCommand(slotIndex, id)">
+                <button class="side-card-swap" type="button" aria-label="更换卡片功能" @click.stop>
+                  <LayoutGrid :size="15" />
+                </button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-for="option in cardCatalog" :key="option.id" :command="option.id" :disabled="isCardPicked(option.id) && option.id !== card.id">
+                      <span class="side-card-option"><component :is="option.icon" :size="15" /> {{ option.label }}</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item divided command="__clear__">清空此卡片</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </header>
+            <p class="side-card-summary">{{ card.summary() }}</p>
+            <footer class="side-card-foot">
+              <span>点击打开</span>
+              <ChevronRight :size="15" />
+            </footer>
+          </article>
+        </template>
 
-          <div class="hero-pet-stage">
-            <button class="hero-pet-button" type="button" aria-label="打开桌宠工具菜单" @click="toolsOpen = !toolsOpen">
-              <Live2DPet>
-                <template #fallback><PetHero /></template>
-              </Live2DPet>
-            </button>
-            <div class="pet-speech">{{ streaming ? '我正在整理思路…' : '今天也一起稳稳前进。' }}</div>
-          </div>
-
-          <div class="pet-tool-menu" :class="{open: toolsOpen}">
-            <div class="pet-tool-menu-head">
-              <span>快捷工具</span>
-              <button type="button" aria-label="关闭工具菜单" @click="toolsOpen = false"><X :size="18" /></button>
-            </div>
-            <button class="tool-menu-item" type="button" @click="todoOpen = true">
-              <span class="tool-icon"><ListTodo :size="21" /></span>
-              <span><strong>待办清单</strong><small>{{ unfinishedTodos.length }} 件待完成</small></span>
-            </button>
-            <button class="tool-menu-item" type="button" @click="timerOpen = true">
-              <span class="tool-icon"><Clock3 :size="21" /></span>
-              <span><strong>番茄钟</strong><small>{{ formattedTime }} 专注计时</small></span>
-            </button>
-            <button class="tool-menu-item" type="button" @click="historyOpen = true">
-              <span class="tool-icon"><History :size="21" /></span>
-              <span><strong>对话回看</strong><small>{{ story.length }} 条对话记录</small></span>
-            </button>
-            <button class="tool-menu-item" type="button" @click="studyOpen = true">
-              <span class="tool-icon"><BookOpen :size="21" /></span>
-              <span><strong>今日学习</strong><small>{{ dueReviews.length }} 项待复习</small></span>
-            </button>
-          </div>
-
-          <button class="pet-menu-toggle" type="button" @click="toolsOpen = !toolsOpen">
-            <LayoutGrid :size="19" />
-            <span>快捷菜单</span>
-            <ChevronUp v-if="toolsOpen" :size="16" />
-            <ChevronDown v-else :size="16" />
+        <el-dropdown v-else trigger="click" @command="(id: unknown) => handleCardCommand(slotIndex, id)">
+          <button class="side-card side-card-placeholder" type="button" aria-label="为此卡片选择功能">
+            <span class="side-card-icon"><Plus :size="24" /></span>
+            <span class="side-card-title">
+              <strong>选择功能</strong>
+              <small>把常用工具放到这里</small>
+            </span>
           </button>
-        </section>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item v-for="option in cardCatalog" :key="option.id" :command="option.id" :disabled="isCardPicked(option.id)">
+                <span class="side-card-option"><component :is="option.icon" :size="15" /> {{ option.label }}</span>
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
+    </aside>
 
-        <section class="companion-status-card" aria-live="polite">
-          <span class="status-icon"><Sparkles :size="20" /></span>
-          <span><small>当前状态</small><strong>{{ workbenchState }}</strong></span>
-        </section>
+    <div class="immersive-console">
+      <section class="message-panel" aria-label="伴学对话">
+        <div ref="storyViewport" class="message-viewport" aria-live="polite">
+          <p
+            v-for="line in story"
+            :key="line.id"
+            class="message-line"
+            :class="[line.speaker, line.state]"
+          >
+            <span class="message-speaker">{{ line.speaker === 'assistant' ? assistantDisplayName : '你' }}</span>
+            <span class="message-text">{{ line.text || (line.speaker === 'assistant' ? '正在连接 Aervox…' : '') }}<i v-if="line.state === 'streaming'" class="stream-cursor" aria-hidden="true" /></span>
+          </p>
+        </div>
       </section>
 
-      <section id="conversation" class="dialogue-column" aria-label="伴学对话区域">
-        <section class="story-dialog">
-          <div class="story-dialog-top">
-            <span class="story-label"><MessageCircle :size="18" />与 {{ assistantDisplayName }} 对话</span>
-            <div class="story-top-actions">
-              <button type="button" :disabled="!currentAssistantLine?.text" @click="copyCurrentAnswer">
-                <Check v-if="copied" :size="17" /><Copy v-else :size="17" />{{ copied ? '已复制' : '复制回答' }}
-              </button>
-              <button type="button" @click="historyOpen = true"><History :size="17" />完整记录</button>
-            </div>
-          </div>
+      <section class="composer-dock" :class="{open: composerOpen}" @focusout="handleDockFocusOut">
+        <button v-if="!composerOpen" class="composer-collapsed" type="button" @click="expandComposer">
+          <MessageCircle :size="16" />
+          <span class="composer-collapsed-hint">{{ streaming ? '思隅正在回应…' : '点击输入消息' }}</span>
+          <span class="composer-mode-chip">{{ activeMode.label }}</span>
+          <ChevronUp :size="15" />
+        </button>
 
-          <div ref="storyViewport" class="story-content" aria-live="polite">
-            <article
-              v-for="line in story"
-              :key="line.id"
-              class="story-line"
-              :class="[line.speaker, line.state]"
+        <form v-else class="composer-expanded" @submit.prevent="sendMessage()">
+          <div class="composer-modes" role="radiogroup" aria-label="对话模式">
+            <button
+              v-for="mode in companionModes"
+              :key="mode.id"
+              type="button"
+              class="composer-mode"
+              :class="{active: activeModeId === mode.id}"
+              :title="mode.hint"
+              :aria-pressed="activeModeId === mode.id"
+              @mousedown.prevent
+              @click="setMode(mode.id)"
             >
-              <div class="story-speaker">
-                <span class="speaker-mark"><Sparkles v-if="line.speaker === 'assistant'" :size="17" /><span v-else>你</span></span>
-                <span>
-                  <small>{{ line.speaker === 'assistant' ? '伴学回应' : '你的输入' }}</small>
-                  <strong>{{ line.speaker === 'assistant' ? assistantDisplayName : '你' }}</strong>
-                </span>
-                <span v-if="line.state === 'streaming'" class="response-badge">生成中</span>
-                <span v-else-if="line.state === 'error'" class="response-badge error">未完成</span>
-              </div>
-              <p>{{ line.text || '正在连接 Aervox…' }}<span v-if="line.state === 'streaming'" class="stream-cursor" /></p>
-            </article>
-          </div>
-
-          <div class="story-progress">
-            <span><i :style="{width: `${Math.min(100, 18 + story.length * 8)}%`}" /></span>
-            <small>{{ story.length }} 条对话 · 内容来自 Aervox API</small>
-          </div>
-        </section>
-
-        <section class="interaction-area">
-          <header class="interaction-heading">
-            <span><Sparkles :size="19" /><span><small>继续学习</small><strong>把问题、代码或下一步目标发给思隅</strong></span></span>
-            <span class="keyboard-hint">Enter 发送 · Shift + Enter 换行</span>
-          </header>
-
-          <div class="suggestions" aria-label="建议问题">
-            <button v-for="suggestion in suggestions" :key="suggestion" type="button" :disabled="streaming" @click="sendMessage(suggestion)">
-              <CircleHelp :size="17" /><span>{{ suggestion }}</span>
+              {{ mode.label }}
             </button>
           </div>
-
-          <section class="interaction-block composer-block">
-            <button class="collapse-trigger" type="button" @click="composerOpen = !composerOpen">
-              <span>自由输入</span>
-              <ChevronUp v-if="composerOpen" :size="18" />
-              <ChevronDown v-else :size="18" />
+          <label class="sr-only" for="aervox-composer">输入要发送给思隅的内容</label>
+          <textarea
+            id="aervox-composer"
+            ref="composerTextarea"
+            v-model="input"
+            rows="3"
+            :disabled="streaming"
+            :placeholder="activeMode.hint + '…'"
+            @keydown.enter="handleComposerEnter"
+            @input="handleComposerInputOrKey"
+            @compositionstart="handleCompositionStart"
+            @compositionend="handleCompositionEnd"
+          />
+          <div class="composer-actions">
+            <button
+              type="button"
+              class="voice-input-btn"
+              :class="{ active: voiceInput.isListening.value, transcribing: voiceInput.isTranscribing.value }"
+              :title="voiceInput.isListening.value ? '点击停止语音输入 (说话停顿自动转写)' : '点击开始离线语音输入'"
+              :disabled="streaming"
+              @click="toggleVoiceInput"
+            >
+              <MicOff v-if="voiceInput.isListening.value" :size="19" />
+              <Mic v-else :size="19" />
+              <span v-if="voiceInput.isListening.value" class="recording-pulse" />
             </button>
-            <form v-if="composerOpen" class="story-composer" @submit.prevent="sendMessage()">
-              <label class="sr-only" for="aervox-composer">输入要发送给思隅的内容</label>
-              <textarea
-                id="aervox-composer"
-                ref="composerTextarea"
-                v-model="input"
-                rows="3"
-                :disabled="streaming"
-                placeholder="描述你卡住的地方，或告诉我今天想完成什么…"
-                @keydown.enter="handleComposerEnter"
-                @input="handleComposerInputOrKey"
-                @compositionstart="handleComposerInputOrKey"
-              />
-              <div class="composer-actions">
-                <button
-                  type="button"
-                  class="voice-input-btn"
-                  :class="{ active: voiceInput.isListening.value, transcribing: voiceInput.isTranscribing.value }"
-                  :title="voiceInput.isListening.value ? '点击停止语音输入 (说话停顿自动转写)' : '点击开始离线语音输入'"
-                  :disabled="streaming"
-                  @click="toggleVoiceInput"
-                >
-                  <MicOff v-if="voiceInput.isListening.value" :size="19" />
-                  <Mic v-else :size="19" />
-                  <span v-if="voiceInput.isListening.value" class="recording-pulse" />
-                </button>
-                <button type="submit" :disabled="!input.trim() || streaming" :aria-label="streaming ? '正在生成回答' : '发送消息'">
-                  <span v-if="streaming" class="sending-dot" />
-                  <Send v-else :size="21" />
-                </button>
-              </div>
-            </form>
-            <div v-if="voiceInputError" class="voice-input-inline-error">
-              <span>{{ voiceInputError }}</span>
-            </div>
-          </section>
-        </section>
+            <button type="submit" :disabled="!input.trim() || streaming" :aria-label="streaming ? '正在生成回答' : '发送消息'">
+              <span v-if="streaming" class="sending-dot" />
+              <Send v-else :size="20" />
+            </button>
+            <button type="button" class="composer-collapse-btn" aria-label="收起输入框" :disabled="streaming" @click="collapseComposer">
+              <ChevronDown :size="18" />
+            </button>
+          </div>
+        </form>
+
+        <div v-if="voiceInputError" class="voice-input-inline-error">
+          <span>{{ voiceInputError }}</span>
+        </div>
       </section>
-
-      <aside class="utility-rail" aria-label="今日工具面板">
-        <header class="rail-heading">
-          <span><LayoutGrid :size="19" />今日面板</span>
-          <span class="rail-heading-actions">
-            <small>让学习节奏更轻一点</small>
-            <button class="rail-settings-button" type="button" aria-label="打开设置" @click="settingsOpen = true"><Settings :size="16" /></button>
-          </span>
-        </header>
-
-        <button class="overview-card learning-overview" type="button" @click="studyOpen = true">
-          <span class="overview-copy">
-            <small>学习概览</small>
-            <strong>{{ goals.length }} 个目标 · {{ dueReviews.length }} 项复习</strong>
-          </span>
-          <span class="overview-orb"><BookOpen :size="22" /></span>
-        </button>
-
-        <section class="utility-card focus-card">
-          <div class="utility-card-head">
-            <span class="utility-card-icon"><Clock3 :size="20" /></span>
-            <span><small>番茄钟</small><strong>{{ timerRunning ? '正在专注' : '准备开始' }}</strong></span>
-            <button type="button" aria-label="打开番茄钟" @click="timerOpen = true"><ChevronUp :size="17" /></button>
-          </div>
-          <div class="compact-timer">
-            <strong>{{ formattedTime }}</strong>
-            <span><i :class="{running: timerRunning}" /></span>
-          </div>
-          <div class="compact-actions">
-            <button class="primary" type="button" @click="toggleTimer">
-              <Pause v-if="timerRunning" :size="18" /><Play v-else :size="18" />{{ timerRunning ? '暂停' : '开始专注' }}
-            </button>
-            <button type="button" aria-label="重置计时器" @click="resetTimer"><RotateCcw :size="18" /></button>
-          </div>
-        </section>
-
-        <section class="utility-card todo-preview">
-          <div class="utility-card-head">
-            <span class="utility-card-icon"><ListTodo :size="20" /></span>
-            <span><small>待办清单</small><strong>{{ unfinishedTodos.length }} 件待完成</strong></span>
-            <button type="button" aria-label="打开待办清单" @click="todoOpen = true"><ChevronUp :size="17" /></button>
-          </div>
-          <div v-if="todos.length" class="compact-todo-list">
-            <label v-for="todo in todos.slice(0, 3)" :key="todo.id" :class="{done: todo.done}">
-              <input v-model="todo.done" type="checkbox" />
-              <span>{{ todo.text }}</span>
-              <Check v-if="todo.done" :size="16" />
-            </label>
-          </div>
-          <p v-else class="utility-empty">把今天最重要的一件事放在这里。</p>
-          <button class="add-todo-entry" type="button" @click="todoOpen = true"><Plus :size="17" />添加待办</button>
-        </section>
-
-        <button class="history-entry" type="button" @click="historyOpen = true">
-          <span class="utility-card-icon"><History :size="20" /></span>
-          <span><small>对话记录</small><strong>回看完整学习过程</strong></span>
-          <span class="history-count">{{ story.length }}</span>
-        </button>
-      </aside>
-    </main>
+    </div>
 
     <el-drawer v-model="historyOpen" title="对话回看" direction="rtl" size="min(440px, 94vw)">
       <div class="history-list">
@@ -1119,7 +1214,31 @@ onUnmounted(() => {
           </button>
         </nav>
         <section class="settings-detail">
-          <div v-if="settingsCategory === 'appearance'" class="settings-section">
+          <div v-if="settingsCategory === 'tools'" class="settings-section">
+            <div class="settings-section-heading">
+              <span class="heading-icon-wrap"><LayoutGrid :size="18" /></span>
+              <span><strong>快捷工具</strong><small>打开学习面板与常用小工具</small></span>
+            </div>
+            <div class="quick-tools">
+              <button type="button" @click="openTool('study')">
+                <BookOpen :size="19" />
+                <span><strong>今日学习</strong><small>{{ goals.length }} 个目标 · {{ dueReviews.length }} 项复习</small></span>
+              </button>
+              <button type="button" @click="openTool('todo')">
+                <ListTodo :size="19" />
+                <span><strong>待办清单</strong><small>{{ unfinishedTodos.length }} 件待完成</small></span>
+              </button>
+              <button type="button" @click="openTool('timer')">
+                <Clock3 :size="19" />
+                <span><strong>番茄钟</strong><small>{{ formattedTime }} 专注计时</small></span>
+              </button>
+              <button type="button" @click="openTool('history')">
+                <History :size="19" />
+                <span><strong>对话回看</strong><small>{{ story.length }} 条对话记录</small></span>
+              </button>
+            </div>
+          </div>
+          <div v-else-if="settingsCategory === 'appearance'" class="settings-section">
             <div class="settings-section-heading">
               <span class="heading-icon-wrap"><Sun :size="18" /></span>
               <span><strong>外观</strong><small>让工作台更符合你的节奏与喜好</small></span>
