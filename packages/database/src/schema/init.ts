@@ -125,12 +125,15 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       fencing_token INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'Running',
       started_at TEXT NOT NULL,
-      finished_at TEXT
+      finished_at TEXT,
+      lease_expires_at TEXT
     );
   `);
   await client.execute(`
     CREATE UNIQUE INDEX IF NOT EXISTS turn_attempts_turn_attempt_idx ON turn_attempts(turn_id, attempt);
   `);
+  // 3b-A：旧库补齐租约过期列（新库已含；ALTER ADD COLUMN 幂等）
+  await addColumnIfMissing(client, "turn_attempts", "lease_expires_at", "lease_expires_at TEXT");
 
   // 2. 记忆与记忆树
   await client.execute(`
@@ -632,7 +635,10 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       due_at TEXT NOT NULL,
       interval_days INTEGER NOT NULL DEFAULT 1,
       scheduler_version INTEGER NOT NULL DEFAULT 1,
+      timezone_snapshot TEXT NOT NULL DEFAULT 'UTC',
       status TEXT NOT NULL DEFAULT 'active',
+      completion_is_correct INTEGER,
+      next_review_id TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -645,6 +651,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   `);
   await addColumnIfMissing(client, "review_items", "completion_is_correct", "completion_is_correct INTEGER");
   await addColumnIfMissing(client, "review_items", "next_review_id", "next_review_id TEXT");
+  await addColumnIfMissing(client, "review_items", "timezone_snapshot", "timezone_snapshot TEXT NOT NULL DEFAULT 'UTC'");
 
   // 7. 反馈域（PRD §8）
   await client.execute(`
@@ -1506,8 +1513,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await client.execute(`
     CREATE UNIQUE INDEX IF NOT EXISTS llm_configs_tenant_unique_idx ON llm_configs(workspace_id, subject_user_id);
   `);
-
-  // CR-016 离线语音输入 (ASR) 配置持久化：每租户一行
+// CR-016 离线语音输入 (ASR) 配置持久化：每租户一行
   await client.execute(`
     CREATE TABLE IF NOT EXISTS voice_input_configs (
       id TEXT PRIMARY KEY,
@@ -1528,6 +1534,58 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   `);
   await client.execute(`
     CREATE UNIQUE INDEX IF NOT EXISTS voice_input_configs_tenant_unique_idx ON voice_input_configs(workspace_id, subject_user_id);
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS tool_executions (
+      id TEXT PRIMARY KEY,
+      turn_id TEXT NOT NULL REFERENCES turns(id) ON DELETE CASCADE,
+      attempt_id TEXT NOT NULL,
+      invocation_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      arguments_json TEXT,
+      status TEXT NOT NULL,
+      output_json TEXT,
+      error TEXT,
+      started_at TEXT NOT NULL,
+      finished_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS tool_executions_turn_idx ON tool_executions(turn_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS tool_executions_attempt_idx ON tool_executions(attempt_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS tool_executions_tenant_idx ON tool_executions(workspace_id, subject_user_id);
+  `);
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS tool_approvals (
+      id TEXT PRIMARY KEY,
+      turn_id TEXT NOT NULL REFERENCES turns(id) ON DELETE CASCADE,
+      attempt_id TEXT NOT NULL,
+      tool_name TEXT NOT NULL,
+      arguments_hash TEXT NOT NULL,
+      tool_version TEXT,
+      requester TEXT NOT NULL,
+      state TEXT NOT NULL DEFAULT 'pending',
+      decided_by TEXT,
+      decided_at TEXT,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS tool_approvals_match_idx ON tool_approvals(tool_name, arguments_hash, state);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS tool_approvals_turn_idx ON tool_approvals(turn_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS tool_approvals_tenant_idx ON tool_approvals(workspace_id, subject_user_id);
   `);
 }
 

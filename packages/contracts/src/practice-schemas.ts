@@ -38,6 +38,13 @@ export const createPracticeSessionResponseSchema = z.object({
   items: z.array(practiceQuestionSchema),
 });
 
+/** 活跃练习会话的题组快照与恢复进度 */
+export const practiceSessionResumeResponseSchema = createPracticeSessionResponseSchema.extend({
+  startedAt: z.string(),
+  answeredQuestionIds: z.array(z.string()),
+  nextQuestionIndex: z.number().int().nonnegative(),
+});
+
 /** 练习报告（report / complete 共用） */
 export const practiceReportSchema = z.object({
   sessionId: z.string(),
@@ -85,6 +92,7 @@ export const repracticeRequestSchema = z.object({
 export const createAttemptRequestSchema = z.object({
   answer: z.string(),
   sessionId: z.string().optional(),
+  timeZone: z.string().min(1).optional(),
 });
 
 export const reviewItemSchema = z.object({
@@ -93,6 +101,7 @@ export const reviewItemSchema = z.object({
   dueAt: z.string(),
   intervalDays: z.number().int().positive(),
   schedulerVersion: z.number().int().positive(),
+  timezoneSnapshot: z.string(),
   status: z.enum(["active", "completed", "dismissed", "archived"]),
 });
 
@@ -105,10 +114,16 @@ export const reviewHistoryItemSchema = reviewItemSchema.extend({
 export const reviewHistoryResponseSchema = z.object({ items: z.array(reviewHistoryItemSchema) });
 export const reviewSummaryResponseSchema = z.object({
   dueCount: z.number().int().nonnegative(),
+  overdueCount: z.number().int().nonnegative(),
+  dueTodayCount: z.number().int().nonnegative(),
   estimatedMinutes: z.number().int().nonnegative(),
+  timeZone: z.string(),
   items: z.array(reviewItemSchema),
 });
-export const completeReviewRequestSchema = z.object({ isCorrect: z.boolean() });
+export const completeReviewRequestSchema = z.object({
+  isCorrect: z.boolean(),
+  timeZone: z.string().min(1).optional(),
+});
 export const completeReviewResponseSchema = z.object({
   completed: reviewItemSchema,
   nextReview: reviewItemSchema,

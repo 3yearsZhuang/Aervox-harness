@@ -86,12 +86,13 @@ async function streamAervoxTurn(event: Electron.IpcMainEvent, payload: unknown) 
     }
 }
 
-function isApiRequest(value: unknown): value is {method?: string; path: string; body?: unknown} {
+function isApiRequest(value: unknown): value is {method?: string; path: string; body?: unknown; headers?: Record<string, string>} {
     if (!value || typeof value !== 'object') return false
     const req = value as Record<string, unknown>
     if (typeof req.path !== 'string') return false
     if (!req.path.startsWith('/') || req.path.includes('://')) return false // 防 SSRF：仅允许站内相对路径
     if (req.method !== undefined && typeof req.method !== 'string') return false
+    if (req.headers !== undefined && (typeof req.headers !== 'object' || Array.isArray(req.headers))) return false
     return true
 }
 
@@ -104,6 +105,8 @@ async function proxyApiRequest(_event: Electron.IpcMainInvokeEvent, payload: unk
     const userId = process.env.AERVOX_USER_ID?.trim()
     if (workspaceId) headers['x-workspace-id'] = workspaceId
     if (userId) headers['x-user-id'] = userId
+    const idempotencyKey = payload.headers?.['Idempotency-Key']
+    if (typeof idempotencyKey === 'string' && idempotencyKey.length > 0) headers['Idempotency-Key'] = idempotencyKey
 
     let body: string | undefined
     if (method !== 'GET' && payload.body !== undefined) {
