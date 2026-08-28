@@ -10,6 +10,7 @@ import {
   messageVersions,
   turnStreamEvents,
   turnAttempts,
+  toolExecutions,
   conversationBranches,
   outboxEvents,
 } from "../../schema/index.js";
@@ -23,6 +24,7 @@ import type {
   TurnAttemptModel,
   ConversationBranchModel,
   TurnStreamEventModel,
+  ToolExecutionModel,
 } from "../types.js";
 
 export class SqliteConversationRepository implements IConversationRepository {
@@ -431,6 +433,61 @@ export class SqliteConversationRepository implements IConversationRepository {
       )
       .returning();
     return (updated as TurnAttemptModel) ?? null;
+  }
+
+  /** 记录一次工具执行（副作用证据账本，AVX-HAR-001 §12；阶段 2d） */
+  async recordToolExecution(
+    tenant: TenantContext,
+    input: {
+      turnId: string;
+      attemptId: string;
+      invocationId: string;
+      name: string;
+      arguments?: unknown;
+      status: string;
+      output?: unknown;
+      error?: string | null;
+      startedAt: string;
+      finishedAt: string;
+    },
+  ): Promise<ToolExecutionModel> {
+    assertTenantContext(tenant);
+    const [created] = await this.db
+      .insert(toolExecutions)
+      .values({
+        id: `tex_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        invocationId: input.invocationId,
+        name: input.name,
+        workspaceId: tenant.workspaceId,
+        subjectUserId: tenant.subjectUserId,
+        argumentsJson: input.arguments,
+        status: input.status,
+        outputJson: input.output,
+        error: input.error ?? null,
+        startedAt: input.startedAt,
+        finishedAt: input.finishedAt,
+      })
+      .returning();
+    return created as ToolExecutionModel;
+  }
+
+  /** 查询 Turn 的工具执行账本（按时间倒序） */
+  async listToolExecutionsByTurn(tenant: TenantContext, turnId: string): Promise<ToolExecutionModel[]> {
+    assertTenantContext(tenant);
+    const rows = await this.db
+      .select()
+      .from(toolExecutions)
+      .where(
+        and(
+          eq(toolExecutions.turnId, turnId),
+          eq(toolExecutions.workspaceId, tenant.workspaceId),
+          eq(toolExecutions.subjectUserId, tenant.subjectUserId),
+        ),
+      )
+      .orderBy(desc(toolExecutions.startedAt));
+    return rows as ToolExecutionModel[];
   }
 
   // ============ P1（R2 · CAP-014）：会话地图分支 ============

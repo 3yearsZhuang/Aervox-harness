@@ -572,6 +572,23 @@ export interface TurnAttemptModel {
   finishedAt?: string | null;
 }
 
+/** Agent Loop 工具执行账本行（tool_executions） */
+export interface ToolExecutionModel {
+  id: string;
+  turnId: string;
+  attemptId: string;
+  invocationId: string;
+  name: string;
+  workspaceId: string;
+  subjectUserId: string;
+  argumentsJson?: unknown;
+  status: string;
+  outputJson?: unknown;
+  error?: string | null;
+  startedAt: string;
+  finishedAt: string;
+}
+
 // ============ 学习/练习/复习域 ============
 
 export interface LearningGoalModel {

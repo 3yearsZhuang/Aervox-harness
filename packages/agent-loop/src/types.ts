@@ -94,3 +94,28 @@ export type ExecuteResult =
   | { status: "completed"; attemptId: string; lastSequence: number; stepsTaken: number }
   | { status: "failed"; attemptId: string; reason: string }
   | { status: "skipped"; attemptId: string; reason: "not_runnable" | "already_claimed" };
+
+/** 工具副作用证据状态（阶段 2d 持久化为 tool_executions） */
+export type ToolExecutionStatus =
+  /** 已执行（含成功输出） */
+  | "executed"
+  /** 被拒绝：未注册 / 非只读 / 未配置工具 */
+  | "rejected"
+  /** 重复调用被拦截 */
+  | "duplicate"
+  /** 执行抛错或超时 */
+  | "timeout_error";
+
+/** 工具执行账本记录（副作用证据；由 ExecutionStore 持久化） */
+export interface ToolExecutionRecord {
+  turnId: string;
+  attemptId: string;
+  invocationId: string;
+  name: string;
+  arguments: unknown;
+  status: ToolExecutionStatus;
+  output?: unknown;
+  error?: string;
+  startedAt: string;
+  finishedAt: string;
+}
