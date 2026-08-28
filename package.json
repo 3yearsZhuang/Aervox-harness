@@ -18,5 +18,8 @@
     "turbo": "2.10.11",
     "typescript": "7.0.2",
     "vitest": "4.0.18"
+  },
+  "dependencies": {
+    "sherpa-onnx-node": "^1.13.6"
   }
 }
