@@ -15,9 +15,16 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
+import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const nonRepoRoot = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
+const runnerPath = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "dsh-turn-runner.mjs");
+/** 参考仓库库内构建产物（pnpm install + pnpm build:lib:host 后存在） */
+const refLibBuilt = existsSync(
+  join(repoRoot, "reference", "deepseek-harness", "packages", "core", "agent", "lib", "index.js"),
+);
 
 const request = {
   turnId: "turn_dsh",
@@ -72,6 +79,21 @@ describe("阶段 6d createDSHAdapterDriver（DSH 真 Turn 接入）", () => {
     expect(result.probe.reason).toContain("submodule_missing");
     expect(result.handle).toBeUndefined();
   });
+
+  it.runIf(refLibBuilt)("库内产物加载证明（6e）：DSH_LIB_MODE=1 → 动态 import packages/core/agent 成功并使 lib-ready（导出面符号存在）", async () => {
+    const stderr = await new Promise<string>((resolve, reject) => {
+      const child = spawn(process.execPath, [runnerPath], {
+        env: { ...process.env, DSH_LIB_MODE: "1" },
+      });
+      let err = "";
+      child.stderr.on("data", (c: Buffer) => (err += c.toString()));
+      child.on("close", () => resolve(err));
+      child.on("error", reject);
+      child.stdin.end();
+    });
+    expect(stderr).toContain("lib-ready");
+    expect(stderr).toContain("packages/core/agent 可加载");
+  }, 25_000);
 
   it("本地兼容端点（mock）：完整真实模型回合 delta→batch→done → concluded（协议路径无外部依赖）", async () => {
     // 本地 chat/completions mock（OpenAI 兼容；验证 runner 的现行模型回合代码路径）
