@@ -128,7 +128,7 @@ AERVOX_API_URL='http://127.0.0.1:3000' AERVOX_SESSION_ID='<现有会话 ID>' pnp
   - **工具/插件/技能**：工具注册表 + 运行时 + `/v1/tools`（T-04）、插件运行时 + Config/Page（CAP-020，CR-006）、Skill 注册表/zip 安装/渐进式披露（借鉴 AstrBot）、工具安全级别白名单（PET-05）；
   - **人格/桌宠表现**：Persona 系统级重构（去模块化 + 系统级 Skills/Tools/MCP + 独立 Voice，2026-08-27，原生）、Persona 设定 UI（AST-03）、表现指令契约与前端消费（PET-01/02）、Codex Pets 兼容的 9 状态 spritesheet 协议（`pet.json` + 8×9 atlas + 工具状态驱动，原生·外部协议兼容）、桌面 preload 按域 IPC（T-07）、桌宠角色设定文档化（T-08，AVX-EXPL-003）；
   - **Agent 执行核心**：Agent Harness Loop 阶段 0/1/2d/2e/3a/3b 已落地（`packages/agent-loop`、Replay/Scripted/LLM Loop、持久化 SSE、只读/写工具审批、工具执行账本、租约与 Worker 恢复）；异步 Outbox Driver、完整上下文持久化、独立 Host 和 DSH/pi Adapter 继续按 AVX-HAR-001/CR-012 推进；
-  - **文档/架构治理**：能力组合与可选化目录规范（AVX-CAP-001，借鉴 DSH-01/PI-01）+ 能力注册表（AVX-CAP-REG-001）；文档治理与事实源规范（AVX-DOC-GOV-001/CR-016）+ `docs-validate`；双语贡献指南（CONTRIBUTING）。
+  - **文档/架构治理**：能力组合与可选化目录规范（AVX-CAP-001，借鉴 DSH-01/PI-01）+ 能力注册表（AVX-CAP-REG-001）；文档治理与事实源规范（AVX-DOC-GOV-001/CR-017）+ `docs-validate`；双语贡献指南（CONTRIBUTING）。
 
 合并到 `main` 前通过（本地 `./aervox ci` 等效，CI 定义见 `.github/workflows/`）：
 

@@ -69,7 +69,7 @@ Agent 执行核心的当前与目标边界见 [CR-012：Agent Harness Loop](refe
 
 大语言模型供应商配置见 [CR-015：WebUI 模型与服务](reference/changes/CR-015-llm-provider-config-webui.md)：设置「模型与服务」分类持久化 LLM 供应商端点/密钥引用/模型名并支持连通性测试，按租户隔离存储。
 
-文档治理基线见 [CR-016：文档治理与事实源标准化](reference/changes/CR-016-document-governance-standardization.md) 与 [AVX-DOC-GOV-001](reference/document-governance.md)：本轮先建立兼容式元数据、状态分层、事实源矩阵和 `docs-validate` 门禁，不批量搬迁历史文档。
+文档治理基线见 [CR-017：文档治理与事实源标准化](reference/changes/CR-017-document-governance-standardization.md) 与 [AVX-DOC-GOV-001](reference/document-governance.md)：本轮先建立兼容式元数据、状态分层、事实源矩阵和 `docs-validate` 门禁，不批量搬迁历史文档。
 
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
 

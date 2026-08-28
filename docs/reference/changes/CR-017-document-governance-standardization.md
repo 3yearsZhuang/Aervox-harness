@@ -1,5 +1,5 @@
 ---
-id: CR-016
+id: CR-017
 type: reference
 scope: change
 owner: maintainers
@@ -20,7 +20,7 @@ sources:
   - docs/reference/standards/doc-standards.md
 ---
 
-# CR-016 文档治理与事实源标准化
+# CR-017 文档治理与事实源标准化
 
 - 提出人：3yearszhuang · 2026-08-28
 - 修改人：3yearszhuang · 2026-08-28

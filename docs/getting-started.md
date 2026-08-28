@@ -25,7 +25,7 @@ docs/
   templates/             # 新建文档模板（How-to / Reference / Explanation）
   reference/             # 参考类（AVX-PRD/SRS/SAD/TRC/SPC/DB/DATA/AIQ/SEC/QA/OPS 等）
     adr/                 # ADR-001~015 + 索引
-    changes/             # CR-002～016
+    changes/             # CR-002～017
     standards/           # 文档写作规范（AVX-STD-001）· 术语表（AVX-TERM-001）
     diagrams/            # 数据库 ERD（.mmd）
     PRD.md · ARCHITECTURE.md · SRS.md · REQUIREMENTS_TRACEABILITY.md
