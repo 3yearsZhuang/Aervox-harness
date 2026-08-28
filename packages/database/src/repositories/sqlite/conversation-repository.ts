@@ -11,6 +11,7 @@ import {
   turnStreamEvents,
   turnAttempts,
   toolExecutions,
+  toolApprovals,
   conversationBranches,
   outboxEvents,
 } from "../../schema/index.js";
@@ -25,6 +26,7 @@ import type {
   ConversationBranchModel,
   TurnStreamEventModel,
   ToolExecutionModel,
+  ToolApprovalModel,
 } from "../types.js";
 
 export class SqliteConversationRepository implements IConversationRepository {
@@ -488,6 +490,107 @@ export class SqliteConversationRepository implements IConversationRepository {
       )
       .orderBy(desc(toolExecutions.startedAt));
     return rows as ToolExecutionModel[];
+  }
+
+  /** 记录一条工具授权（阶段 3a） */
+  async recordToolApproval(
+    tenant: TenantContext,
+    input: {
+      turnId: string;
+      attemptId: string;
+      toolName: string;
+      argumentsHash: string;
+      requester: string;
+      state: "pending" | "granted" | "denied";
+      toolVersion?: string | null;
+    },
+  ): Promise<ToolApprovalModel> {
+    assertTenantContext(tenant);
+    const [created] = await this.db
+      .insert(toolApprovals)
+      .values({
+        id: `tapp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        toolName: input.toolName,
+        argumentsHash: input.argumentsHash,
+        toolVersion: input.toolVersion ?? null,
+        requester: input.requester,
+        state: input.state,
+        workspaceId: tenant.workspaceId,
+        subjectUserId: tenant.subjectUserId,
+      })
+      .returning();
+    return created as ToolApprovalModel;
+  }
+
+  /** 决定（grant/deny）一条待决授权 */
+  async decideToolApproval(
+    tenant: TenantContext,
+    approvalId: string,
+    decision: "granted" | "denied",
+    decidedBy: string,
+  ): Promise<ToolApprovalModel | null> {
+    assertTenantContext(tenant);
+    const [updated] = await this.db
+      .update(toolApprovals)
+      .set({
+        state: decision,
+        decidedBy,
+        decidedAt: new Date().toISOString(),
+      })
+      .from(turns)
+      .where(
+        and(
+          eq(toolApprovals.id, approvalId),
+          eq(toolApprovals.workspaceId, tenant.workspaceId),
+          eq(toolApprovals.subjectUserId, tenant.subjectUserId),
+          eq(toolApprovals.turnId, turns.id),
+          eq(turns.workspaceId, tenant.workspaceId),
+          eq(turns.subjectUserId, tenant.subjectUserId),
+        ),
+      )
+      .returning();
+    return (updated as ToolApprovalModel) ?? null;
+  }
+
+  /** 查询 Turn 的授权账本 */
+  async listToolApprovalsByTurn(tenant: TenantContext, turnId: string): Promise<ToolApprovalModel[]> {
+    assertTenantContext(tenant);
+    const rows = await this.db
+      .select()
+      .from(toolApprovals)
+      .where(
+        and(
+          eq(toolApprovals.turnId, turnId),
+          eq(toolApprovals.workspaceId, tenant.workspaceId),
+          eq(toolApprovals.subjectUserId, tenant.subjectUserId),
+        ),
+      )
+      .orderBy(desc(toolApprovals.id));
+    return rows as ToolApprovalModel[];
+  }
+
+  /** 匹配已授权记录（toolName + argumentsHash；跨 turn 复用，取最近一条） */
+  async findGrantedToolApproval(
+    tenant: TenantContext,
+    input: { toolName: string; argumentsHash: string },
+  ): Promise<ToolApprovalModel | null> {
+    assertTenantContext(tenant);
+    const [found] = await this.db
+      .select()
+      .from(toolApprovals)
+      .where(
+        and(
+          eq(toolApprovals.workspaceId, tenant.workspaceId),
+          eq(toolApprovals.subjectUserId, tenant.subjectUserId),
+          eq(toolApprovals.toolName, input.toolName),
+          eq(toolApprovals.argumentsHash, input.argumentsHash),
+          eq(toolApprovals.state, "granted"),
+        ),
+      )
+      .orderBy(desc(toolApprovals.id));
+    return (found as ToolApprovalModel) ?? null;
   }
 
   // ============ P1（R2 · CAP-014）：会话地图分支 ============

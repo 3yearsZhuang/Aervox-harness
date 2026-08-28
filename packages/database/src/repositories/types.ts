@@ -589,6 +589,22 @@ export interface ToolExecutionModel {
   finishedAt: string;
 }
 
+/** 工具授权账本行（tool_approvals，阶段 3a） */
+export interface ToolApprovalModel {
+  id: string;
+  turnId: string;
+  attemptId: string;
+  toolName: string;
+  argumentsHash: string;
+  toolVersion?: string | null;
+  requester: string;
+  state: "pending" | "granted" | "denied";
+  decidedBy?: string | null;
+  decidedAt?: string | null;
+  workspaceId: string;
+  subjectUserId: string;
+}
+
 // ============ 学习/练习/复习域 ============
 
 export interface LearningGoalModel {

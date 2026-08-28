@@ -229,12 +229,50 @@ export async function executeTurn(
               }),
               toolTimeoutMs,
             );
-            result = { id: call.id, name: call.name, ok: executed.ok, output: executed.output, error: executed.error };
+            result = { id: call.id, name: call.name, ok: executed.ok, output: executed.output, error: executed.error, needsApproval: executed.needsApproval };
           } catch (err) {
             result = { id: call.id, name: call.name, ok: false, error: err instanceof Error ? err.message : "tool_execution_error" };
           }
         }
         results.push(result);
+
+        // 阶段 3a：写工具需授权（宿主未执行）→ 记审批待决事件 + 账本，中断等待授权
+        if (result.needsApproval) {
+          const info = result.needsApproval;
+          await execution.appendEvent({
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            sequence: sequence++,
+            eventType: "tool_approval_required",
+            data: { approvalId: info.approvalId, toolName: info.toolName, argumentsHash: info.argumentsHash },
+            safetyDecision: "approved",
+          });
+          await execution.recordToolExecution({
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            invocationId: call.id,
+            name: call.name,
+            arguments: call.arguments,
+            status: "pending_approval",
+            error: "requires_approval",
+            startedAt,
+            finishedAt: new Date().toISOString(),
+          });
+          await execution.appendEvent({
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            sequence,
+            eventType: "done",
+            data: { status: "Interrupted", messageId, isComplete: false, lastSequence: sequence },
+            safetyDecision: "approved",
+          });
+          await execution.finalizeAttempt({
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            status: "Interrupted",
+          });
+          return { status: "failed", attemptId: input.attemptId, reason: "pending_approval" };
+        }
 
         await execution.appendEvent({
           turnId: input.turnId,

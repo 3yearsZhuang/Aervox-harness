@@ -1536,6 +1536,31 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await client.execute(`
     CREATE INDEX IF NOT EXISTS tool_executions_tenant_idx ON tool_executions(workspace_id, subject_user_id);
   `);
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS tool_approvals (
+      id TEXT PRIMARY KEY,
+      turn_id TEXT NOT NULL REFERENCES turns(id) ON DELETE CASCADE,
+      attempt_id TEXT NOT NULL,
+      tool_name TEXT NOT NULL,
+      arguments_hash TEXT NOT NULL,
+      tool_version TEXT,
+      requester TEXT NOT NULL,
+      state TEXT NOT NULL DEFAULT 'pending',
+      decided_by TEXT,
+      decided_at TEXT,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS tool_approvals_match_idx ON tool_approvals(tool_name, arguments_hash, state);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS tool_approvals_turn_idx ON tool_approvals(turn_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS tool_approvals_tenant_idx ON tool_approvals(workspace_id, subject_user_id);
+  `);
 }
 
 /**
