@@ -60,8 +60,6 @@ packages/
   contracts/    Zod 契约事实源 → OpenAPI 3.1（流式协议 / 学习域 / 插件 Config/Page / Persona）
   database/     SQLite 真源 + 仓储 / FTS5 / 向量检索 Port / 迁移服务
   practice-review/  复习排期 @aervox/practice-review（CAP-006，幂等 + 时区安全调度）
-modules/
-  persona-plugin/  @aervox/mod-persona 独立仓库 submodule（CAP-019/020；Persona 核心已于 2026-08-27 去模块化为主仓原生，见追踪基线 §4.2）
 reference/      参考仓库子模块（deepseek-harness / pi / baishou-next / dsh-synapse / AstrBot / Petra，仅设计验证）
 docs/            按 Diátaxis 四分类组织：tutorials / how-to / explanation / reference/（含 adr · changes · standards · diagrams）
 AGENTS.md        AI 协作入口（薄入口，深链 docs/；被 AI 编码工具自动加载）

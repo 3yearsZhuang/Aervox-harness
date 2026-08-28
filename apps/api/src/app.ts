@@ -29,6 +29,7 @@ import { registerPluginsModule } from "./modules/plugins/index.js";
 import { registerPersonaModule } from "./modules/persona/index.js";
 import { registerSkillsModule } from "./modules/skills/index.js";
 import { registerVoiceModule, type VoiceModuleOptions } from "./modules/voice/index.js";
+import { registerLLMModule, type LLMServiceOptions } from "./modules/llm/index.js";
 
 export interface BuildAppOptions {
   /** 注入既有数据库（如内存库）；缺省时使用 createDatabase() */
@@ -40,6 +41,8 @@ export interface BuildAppOptions {
   pluginsRoot?: string;
   /** 语音服务配置（如测试注入 mock provider） */
   voiceOptions?: VoiceModuleOptions;
+  /** LLM 模型服务配置 */
+  llmOptions?: LLMServiceOptions;
 }
 
 export interface BuildAppResult {
@@ -74,9 +77,10 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   registerBranchModule(app, db);
   const toolRuntime = registerToolsModule(app, db, client);
   registerPluginsModule(app, db, { skillsRoot: options.skillsRoot, pluginsRoot: options.pluginsRoot });
-  const voiceService = registerVoiceModule(app, options.voiceOptions);
+  const voiceService = registerVoiceModule(app, db, options.voiceOptions);
   const skillManager = registerSkillsModule(app, db, { skillsRoot: options.skillsRoot, toolRuntime });
   registerPersonaModule(app, db, { skillManager, toolRuntime, voiceService });
+  registerLLMModule(app, db, options.llmOptions);
 
   return { app, db, client };
 }

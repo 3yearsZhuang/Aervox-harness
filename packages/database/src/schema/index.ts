@@ -23,3 +23,5 @@ export * from "./tool-registry.js";
 export * from "./skills.js";
 export * from "./init.js";
 export * from "./plugin-config.js";
+export * from "./voice.js";
+export * from "./llm.js";
