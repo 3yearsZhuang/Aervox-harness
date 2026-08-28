@@ -788,6 +788,16 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - **Profile 准入**（`profile.ts`）：`LoopDriverId` 扩 `dsh`/`pi`；未提供已准入 Adapter 时拒绝解析（ADR-010「不安装也完整可用」不回归）；adapterId 与 driver 失配拒绝（`driver_adapter_mismatch`）。
 - 测试：`@aervox/agent-loop` 105（新增 `adapter-contract.test.ts` 15：conclude 收紧矩阵/verifyAdapterManifest SHA·许可证·策略/decode 合法非法/sim 双实现 + drain 判定与协议缺陷）；`@aervox/host-agent` 41（新增 `stdio-adapter.test.ts` 10：握手准入/SHA 失配 kill/许可证拒绝/mixed 收紧/协议缺陷/超时禁用 + Profile dsh·pi 解析矩阵）；`@aervox/api` 201 无回归。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
+### 16.19 落地进展（阶段 6b/6c：Host 接入 Adapter + DSH 固定 SHA 复核真实化）
+
+2026-08-28 落地（承接 §16.18 契约面，把 Adapter 接入 Host 执行循环并把固定 SHA 复核真实化；仍不接参考仓库构建产物）：
+
+- **Host 接入**（`packages/host-agent/src/adapter-turn.ts` + `agent-host.ts`）：
+  - `runAdapterTurn`：claim（CAS+fencing）→ adapter 整 Turn（`drainAdapterDriver` 熟悉事件 + 收敛）→ 事件**映射既有契约**落库（message/delta/tool_request/tool_result/done；`executionId=attempt:0:seq` 审计键）→ finalize；收紧：concluded→Completed、mixed_batch→Interrupted+`ADAPTER_NOT_CONCLUDED`、协议缺陷→Interrupted、异常/超时→Failed+`ADAPTER_UNAVAILABLE`；重复投递→skipped；
+  - `createAgentHost({ adapter })`：存在已准入 Adapter 且非续跑时用 `runAdapterTurn` 轮询驱动，否则原生 `executeTurn`（续跑/无 adapter 路径零改动；宿主终态计数归一原生小写/adapter 大写）。
+- **DSH 固定 SHA 复核真实化**（`packages/host-agent/src/dsh-reference.ts`）：`probeDSHReference` 用父仓库 submodule gitlink（`git ls-tree HEAD -- reference/deepseek-harness`）与 `DSH-01` 登记 SHA（`b150a551…`）机器比对 + package.json 版本/许可证复核（MIT 白名单）。参考仓库为 pnpm monorepo：真实 Turn 需 `git submodule update --init && pnpm install && pnpm build:lib:host` 后接入 stdio 端口（ADR-010 实施进展含指引）；本阶段不隐式构建，未就绪 fail-closed 并给出 reason。
+- **测试**：`@aervox/host-agent` 51（新增 `adapter-host.test.ts` 7：runAdapterTurn concluded/mixed/协议缺陷/抛错/skipped + Host 集成 adapter 与原生双路径回归；`dsh-reference.test.ts` 3：gitlink 匹配 MIT manifest/submodule_missing/non-git fail-closed）；`@aervox/api` 202 无回归。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
 ## 17. 回滚策略
 
 - 当前保留 Replay Provider 作为无外部模型依赖的可回退执行路径；
