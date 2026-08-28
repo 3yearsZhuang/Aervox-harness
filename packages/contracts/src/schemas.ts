@@ -34,6 +34,7 @@ export const streamEventTypeSchema = z.enum([
   "emote",
   "user_question_required",
   "user_question_answered",
+  "terms_extracted",
 ]);
 
 /** 标准错误码（§4.5） */
@@ -810,6 +811,46 @@ export const convertToTextSchema = z.object({
 
 /** OCR 置信度阈值（BR-EXT-001：低于此值标记 low_confidence） */
 export const OCR_CONFIDENCE_THRESHOLD = 0.7;
+
+// ============ CAP-007 / CAP-002 术语抽取与追问探索契约 ============
+
+/** 抽取出来的单个术语 */
+export const extractedTermSchema = z.object({
+  text: z.string().min(1),
+  relation: z.enum(["background", "related"]),
+  description: z.string().optional(),
+});
+
+/** SSE terms_extracted 事件负载数据 */
+export const termsExtractedEventDataSchema = z.object({
+  turnId: z.string().min(1),
+  messageId: z.string().optional(),
+  terms: z.array(extractedTermSchema),
+});
+
+/** 追问探索方向类型 */
+export const termExploreKindSchema = z.enum([
+  "child",   // 深挖下钻（原理/前置细节）
+  "related", // 对比发散（异同/应用场景）
+  "branch",  // 分支对话（创建独立分支会话）
+]);
+
+/** 追问探索请求体 (POST /v1/terms/explore 或 POST /v1/hierarchy/explore) */
+export const termExploreRequestSchema = z.object({
+  term: z.string().min(1),
+  kind: termExploreKindSchema.default("child"),
+  context: z.string().optional(),
+  sessionId: z.string().optional(),
+});
+
+/** 追问探索响应体 */
+export const termExploreResponseSchema = z.object({
+  term: z.string(),
+  kind: termExploreKindSchema,
+  content: z.string(),
+  relatedQuestions: z.array(z.string()).default([]),
+  childSessionId: z.string().optional(),
+});
 
 // ============ CAP-014 层级对话与会话地图 ============
 

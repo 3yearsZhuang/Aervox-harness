@@ -192,7 +192,8 @@
               "redacted",
               "emote",
               "user_question_required",
-              "user_question_answered"
+              "user_question_answered",
+              "terms_extracted"
             ]
           },
           "payloadVersion": {
@@ -4342,7 +4343,8 @@
                         "redacted",
                         "emote",
                         "user_question_required",
-                        "user_question_answered"
+                        "user_question_answered",
+                        "terms_extracted"
                       ]
                     },
                     "payloadVersion": {
@@ -13028,6 +13030,88 @@
           },
           "403": {
             "description": "插件未安装/未启用/无 inbox 权限"
+          }
+        }
+      }
+    },
+    "/v1/terms/explore": {
+      "post": {
+        "summary": "追问探索概念/术语（CAP-007 / CAP-002）",
+        "description": "支持深挖（child）、对比发散（related）与分支对话（branch）三种追问探索模式",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "term": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "child",
+                      "related",
+                      "branch"
+                    ],
+                    "default": "child"
+                  },
+                  "context": {
+                    "type": "string"
+                  },
+                  "sessionId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "term"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "探索结果与关联思考问题",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "term": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "child",
+                        "related",
+                        "branch"
+                      ]
+                    },
+                    "content": {
+                      "type": "string"
+                    },
+                    "relatedQuestions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "default": []
+                    },
+                    "childSessionId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "term",
+                    "kind",
+                    "content"
+                  ]
+                }
+              }
+            }
           }
         }
       }

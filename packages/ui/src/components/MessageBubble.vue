@@ -2,13 +2,17 @@
 /**
  * Aervox｜思隅 @aervox/ui — 对话消息气泡（共享）
  */
+import { renderMarkdown } from '../utils/markdown';
+
 defineProps<{ role: 'user' | 'assistant'; text: string; streaming?: boolean }>();
 </script>
 
 <template>
   <div class="message-bubble" :class="role">
     <div class="bubble">
-      {{ text }}<span v-if="streaming && role === 'assistant'" class="cursor">▍</span>
+      <span v-if="role === 'assistant'" class="markdown-body" v-html="renderMarkdown(text)" />
+      <span v-else>{{ text }}</span>
+      <span v-if="streaming && role === 'assistant'" class="cursor">▍</span>
     </div>
   </div>
 </template>

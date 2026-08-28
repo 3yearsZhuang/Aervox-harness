@@ -4,7 +4,14 @@
  * 与具体传输解耦：桌面走 IPC transport，Web 走 fetch/SSE transport。
  */
 import { getTransport, getSessionId } from './transport';
-import type { AskUserQuestionAnswerItem, PetCommand, UserQuestionRequiredEventData } from '@aervox/contracts';
+import type {
+  AskUserQuestionAnswerItem,
+  PetCommand,
+  TermsExtractedEventData,
+  UserQuestionRequiredEventData,
+  TermExploreRequest,
+  TermExploreResponse,
+} from '@aervox/contracts';
 
 export interface StreamAervoxTurnCallbacks {
   onDelta: (text: string) => void;
@@ -13,6 +20,8 @@ export interface StreamAervoxTurnCallbacks {
   onEmote?: (command: PetCommand) => void;
   /** UQ-01: 当模型请求向用户提问时触发 */
   onUserQuestion?: (data: UserQuestionRequiredEventData) => void;
+  /** CAP-007 / CAP-002: 术语抽取完成事件 */
+  onTermsExtracted?: (data: TermsExtractedEventData) => void;
 }
 
 export async function streamAervoxTurn(content: string, callbacks: StreamAervoxTurnCallbacks): Promise<void> {
@@ -21,4 +30,8 @@ export async function streamAervoxTurn(content: string, callbacks: StreamAervoxT
 
 export async function submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[]): Promise<void> {
   await getTransport().submitQuestionAnswers(turnId, answers);
+}
+
+export async function exploreTerm(request: TermExploreRequest): Promise<TermExploreResponse> {
+  return await getTransport().request<TermExploreResponse>('POST', '/v1/terms/explore', request);
 }

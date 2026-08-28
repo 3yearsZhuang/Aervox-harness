@@ -6,7 +6,11 @@
  * Turn 创建后由 Agent Loop（Replay Provider）执行并写事件。
  */
 import type { FastifyInstance } from "fastify";
-import { createTurnRequestSchema, editMessageSchema } from "@aervox/contracts";
+import {
+  createTurnRequestSchema,
+  editMessageSchema,
+  submitQuestionAnswersRequestSchema,
+} from "@aervox/contracts";
 import type { SkillDescriptor } from "@aervox/agent-loop";
 import type {
   SqliteConversationRepository,

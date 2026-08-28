@@ -7,6 +7,7 @@
 import type {
   AskUserQuestionAnswerItem,
   PetCommand,
+  TermsExtractedEventData,
   TurnStreamEvent,
   UserQuestionRequiredEventData,
 } from '@aervox/contracts';
@@ -18,6 +19,8 @@ export interface TurnCallbacks {
   onEmote?: (command: PetCommand) => void;
   /** UQ-01: 当模型请求向用户提问时触发 */
   onUserQuestion?: (data: UserQuestionRequiredEventData) => void;
+  /** CAP-007 / CAP-002: 术语抽取完成事件 */
+  onTermsExtracted?: (data: TermsExtractedEventData) => void;
 }
 
 /** 两端能力的最小契约：普通请求 + Turn 流式 + 问答提交 */
@@ -171,6 +174,8 @@ export function createFetchTransport(apiBase: string, workspaceId?: string, user
       callbacks.onEmote?.(event.data as PetCommand);
     } else if (event.eventType === 'user_question_required') {
       callbacks.onUserQuestion?.(event.data as UserQuestionRequiredEventData);
+    } else if (event.eventType === 'terms_extracted') {
+      callbacks.onTermsExtracted?.(event.data as import('@aervox/contracts').TermsExtractedEventData);
     }
   };
 

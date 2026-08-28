@@ -33,6 +33,7 @@ import { registerPersonaModule } from "./modules/persona/index.js";
 import { registerPreferencesModule } from "./modules/preferences/index.js";
 import { registerSkillsModule } from "./modules/skills/index.js";
 import { registerInboxModule } from "./modules/inbox/index.js";
+import { registerTermsModule } from "./modules/terms/index.js";
 import { registerStudyMaterialModule } from "./modules/study-materials/index.js";
 import { registerVoiceModule, type VoiceModuleOptions } from "./modules/voice/index.js";
 import { registerLLMModule, type LLMServiceOptions } from "./modules/llm/index.js";
@@ -106,7 +107,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   // 契约骨架：暴露由 @aervox/contracts 生成的 OpenAPI 3.1 文档
   app.get("/openapi.json", async () => openApiDocument);
 
-  // 模块装配上下文：基础设施 + 构建期配置；共享服务按注册顺序填充
+// 模块装配上下文：基础设施 + 构建期配置；共享服务按注册顺序填充
   const ctx: ModuleContext = {
     app,
     db,
@@ -131,13 +132,14 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   registerMemoryModule(ctx);
   registerKnowledgeModule(ctx);
   registerBranchModule(ctx);
-  registerPluginsModule(ctx);
+  await registerPluginsModule(ctx);
   ctx.voiceService = registerVoiceModule(ctx, options.voiceOptions);
   ctx.skillManager = registerSkillsModule(ctx);
   registerPreferencesModule(ctx);
   registerStudyMaterialModule(ctx);
   registerPersonaModule(ctx);
   registerInboxModule(ctx);
+  registerTermsModule(ctx);
 
   return { app, db, client, toolRuntime: ctx.toolRuntime! };
 }

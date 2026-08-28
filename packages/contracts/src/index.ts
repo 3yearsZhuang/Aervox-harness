@@ -64,6 +64,11 @@ import {
   turnStatusSchema,
   updateLearningGoalSchema,
   turnStreamEventSchema,
+  extractedTermSchema,
+  termsExtractedEventDataSchema,
+  termExploreKindSchema,
+  termExploreRequestSchema,
+  termExploreResponseSchema,
 } from "./schemas.js";
 import {
   pluginConfigFieldSchema,
@@ -117,6 +122,11 @@ export type ToolCategory = z.infer<typeof toolCategorySchema>;
 export type ToolGatingOperator = z.infer<typeof toolGatingOperatorSchema>;
 export type ToolGatingCondition = z.infer<typeof toolGatingConditionSchema>;
 export type ToolSafetyLevel = z.infer<typeof toolSafetyLevelSchema>;
+export type ExtractedTerm = z.infer<typeof extractedTermSchema>;
+export type TermsExtractedEventData = z.infer<typeof termsExtractedEventDataSchema>;
+export type TermExploreKind = z.infer<typeof termExploreKindSchema>;
+export type TermExploreRequest = z.infer<typeof termExploreRequestSchema>;
+export type TermExploreResponse = z.infer<typeof termExploreResponseSchema>;
 export type ToolMetadata = z.infer<typeof toolMetadataSchema>;
 export type ToolRegistryEntry = z.infer<typeof toolRegistryEntrySchema>;
 export type ToolRegistryExport = z.infer<typeof toolRegistryExportSchema>;
