@@ -768,6 +768,8 @@ export interface QuestionAttemptModel {
   judgement: string;
   evidence?: unknown;
   idempotencyKey?: string | null;
+  hintCount: number;
+  timeSpentSec?: number | null;
   createdAt: string;
 }
 
@@ -885,6 +887,8 @@ export interface ILearningRepository {
       judgement: string;
       evidence?: unknown;
       idempotencyKey?: string | null;
+      hintCount?: number;
+      timeSpentSec?: number;
     },
   ): Promise<QuestionAttemptModel>;
   listAttemptsByQuestion(tenant: TenantContext, questionId: string): Promise<QuestionAttemptModel[]>;
@@ -914,6 +918,8 @@ export interface ILearningRepository {
       judgement: string;
       evidence?: unknown;
       idempotencyKey: string;
+      hintCount?: number;
+      timeSpentSec?: number;
     },
   ): Promise<{ attempt: QuestionAttemptModel; created: boolean }>;
   createKnowledgeItem(

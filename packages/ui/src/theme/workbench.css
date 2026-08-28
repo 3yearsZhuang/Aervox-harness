@@ -1560,6 +1560,20 @@
 .practice-start:disabled,
 .practice-panel button:disabled { cursor: not-allowed; opacity: .55; }
 
+.practice-guidance {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-soft) 50%, transparent);
+  border-left: 3px solid var(--accent);
+}
+.practice-guidance strong { font-size: 14px; color: var(--text-primary); }
+.practice-guidance small { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.practice-guidance.difficulty-ease { border-left-color: #e74c3c; background: color-mix(in srgb, #e74c3c 12%, transparent); }
+.practice-guidance.difficulty-increase { border-left-color: #27ae60; background: color-mix(in srgb, #27ae60 12%, transparent); }
+.practice-guidance.difficulty-maintain { border-left-color: var(--accent); }
+
 .mistake-filters {
   display: flex;
   gap: 5px;

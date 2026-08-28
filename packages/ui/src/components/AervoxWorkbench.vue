@@ -78,7 +78,8 @@ const practiceReadyToComplete = ref(false)
 const practiceAnswer = ref('')
 const practiceFeedback = ref<{judgement: string; nextStep: string} | null>(null)
 const practiceSubmission = ref<{sessionId: string; questionId: string; answer: string; idempotencyKey: string} | null>(null)
-const practiceReport = ref<{answeredCount: number; questionCount: number; remainingCount: number; correctCount: number; incorrectCount: number; unverifiableCount: number; accuracy: number | null; nextStep: string} | null>(null)
+const practiceReport = ref<{answeredCount: number; questionCount: number; remainingCount: number; correctCount: number; incorrectCount: number; unverifiableCount: number; accuracy: number | null; avgTimeSpentSec: number | null; totalHintsUsed: number; guidance: {difficulty: 'ease' | 'maintain' | 'increase'; reasonCode: string; message: string}; nextStep: string} | null>(null)
+const questionStartTime = ref<number>(0)
 const practiceBusy = ref(false)
 const practiceError = ref<string | null>(null)
 const mistakeFilter = ref<'active' | 'mastered' | 'dismissed' | 'all'>('active')
@@ -297,6 +298,7 @@ function restorePracticeSession(session: {sessionId: string; items: Array<{id: s
   practiceAnswer.value = ''
   practiceSubmission.value = null
   practiceFeedback.value = null
+  questionStartTime.value = Date.now()
 }
 
 async function startPractice() {
@@ -320,12 +322,13 @@ async function submitPracticeAnswer() {
   practiceBusy.value = true
   practiceError.value = null
   try {
+    const elapsedSeconds = Math.max(1, Math.round((Date.now() - questionStartTime.value) / 1000))
     const existing = practiceSubmission.value
     const submission = existing?.sessionId === practiceSession.value.sessionId && existing.questionId === question.id && existing.answer === answer
       ? existing
       : { sessionId: practiceSession.value.sessionId, questionId: question.id, answer, idempotencyKey: `attempt_${crypto.randomUUID()}` }
     practiceSubmission.value = submission
-    practiceFeedback.value = await api.submitPracticeAnswer(submission.sessionId, submission.questionId, submission.answer, submission.idempotencyKey)
+    practiceFeedback.value = await api.submitPracticeAnswer(submission.sessionId, submission.questionId, submission.answer, submission.idempotencyKey, elapsedSeconds)
   } catch (error) {
     practiceError.value = error instanceof Error ? '作答没有保存，请重试。' : '作答失败，请重试。'
   } finally {
@@ -456,6 +459,7 @@ function nextPracticeQuestion() {
   practiceAnswer.value = ''
   practiceSubmission.value = null
   practiceFeedback.value = null
+  questionStartTime.value = Date.now()
 }
 
 function toggleTimer() {
@@ -910,6 +914,13 @@ onUnmounted(() => {
           <strong>本次练习完成</strong>
           <p>已作答 {{ practiceReport.answeredCount }}/{{ practiceReport.questionCount }} 题 · 正确 {{ practiceReport.correctCount }} · 错误 {{ practiceReport.incorrectCount }} · 待确认 {{ practiceReport.unverifiableCount }}</p>
           <p v-if="practiceReport.accuracy !== null">可判定题正确率：{{ Math.round(practiceReport.accuracy * 100) }}%</p>
+          <p v-if="practiceReport.avgTimeSpentSec !== null">平均用时：{{ practiceReport.avgTimeSpentSec }} 秒</p>
+          <div class="practice-guidance" :class="`difficulty-${practiceReport.guidance.difficulty}`">
+            <strong>
+              {{ practiceReport.guidance.difficulty === 'ease' ? '📉 建议降低难度' : practiceReport.guidance.difficulty === 'increase' ? '📈 建议提高难度' : '➡️ 保持当前难度' }}
+            </strong>
+            <small>{{ practiceReport.guidance.message }}</small>
+          </div>
           <small>{{ practiceReport.remainingCount > 0 ? `还有 ${practiceReport.remainingCount} 题未作答；` : '' }}{{ practiceReport.nextStep === 'review_scheduled' ? '错题已进入后续复习。' : practiceReport.nextStep === 'await_review' ? '待确认题暂不计入掌握度。' : '继续保持这个节奏。' }}</small>
         </article>
           <article v-else-if="practiceSession && practiceReadyToComplete" class="practice-panel">

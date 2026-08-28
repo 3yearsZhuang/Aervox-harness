@@ -4,4 +4,6 @@
 export { createReviewItem, getLocalDayBounds, updateAfterAnswer } from "./answer.js";
 export { normalizeMistakeNote } from "./mistake-insight.js";
 export { getPracticeSessionProgress } from "./session.js";
+export { getPracticeGuidance } from "./guidance.js";
+export type { PracticeGuidance, PracticeGuidanceInput } from "./guidance.js";
 export type { KnowledgeItem, ReviewItem } from "./types.js";
