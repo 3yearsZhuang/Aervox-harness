@@ -15,6 +15,7 @@ import {
   memoryRecords,
 } from "../../schema/index.js";
 import { assertTenantContext, type TenantContext } from "../../tenant.js";
+import { NotFoundInTenantError } from "../../errors.js";
 import type {
   IProvenanceRepository,
   SourceArtifactModel,
@@ -73,7 +74,7 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
   ): Promise<SourceRevisionModel> {
     assertTenantContext(tenant);
     const artifact = await this.getSourceArtifact(tenant, artifactId);
-    if (!artifact) throw new Error(`Source artifact ${artifactId} not found in tenant`);
+    if (!artifact) throw new NotFoundInTenantError(`Source artifact ${artifactId} not found in tenant`);
     const [created] = await this.db
       .insert(sourceRevisions)
       .values({
@@ -132,7 +133,7 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
           eq(memoryRecords.subjectUserId, tenant.subjectUserId),
         ),
       );
-    if (!memory) throw new Error(`Memory ${revisionData.memoryId} not found in tenant`);
+    if (!memory) throw new NotFoundInTenantError(`Memory ${revisionData.memoryId} not found in tenant`);
     const [created] = await this.db
       .insert(memoryRevisions)
       .values({
@@ -235,7 +236,7 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
           eq(memoryRecords.subjectUserId, tenant.subjectUserId),
         ),
       );
-    if (!memory) throw new Error(`Memory ${eventData.memoryId} not found in tenant`);
+    if (!memory) throw new NotFoundInTenantError(`Memory ${eventData.memoryId} not found in tenant`);
     const [created] = await this.db
       .insert(memoryEvents)
       .values({

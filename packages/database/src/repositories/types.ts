@@ -790,6 +790,43 @@ export interface ISubagentRunRepository {
   listRunsByTurn(tenant: TenantContext, parentTurnId: string): Promise<SubagentRunModel[]>;
 }
 
+// ============ 缺陷 C：挂起提问会话（pending_user_questions）============
+
+/** 挂起提问会话行（无论 Loop 进程是否存活均存在；expiresAt 为超时唯一真源） */
+export interface PendingUserQuestionModel {
+  turnId: string;
+  attemptId: string;
+  step: number;
+  /** 模型提出的问题清单（AskUserQuestionItem[]） */
+  questions: unknown;
+  timeoutMs: number;
+  /** createdAt + timeoutMs；晚于此时间提交答案视为超时 */
+  expiresAt: string;
+  createdAt: string;
+  workspaceId: string;
+  subjectUserId: string;
+}
+
+export interface PendingUserQuestionUpsertInput {
+  turnId: string;
+  attemptId: string;
+  step: number;
+  questions: unknown;
+  timeoutMs: number;
+  expiresAt: string;
+  createdAt: string;
+}
+
+/** 挂起提问会话仓储（缺陷 C：持久化真源，进程重启后仍可接受回答/查询） */
+export interface IUserQuestionRepository {
+  /** 幂等写入挂起会话（同 turnId 覆盖）；供提问时调用 */
+  upsertPending(tenant: TenantContext, input: PendingUserQuestionUpsertInput): Promise<void>;
+  /** 按 turn 查询挂起会话（租户隔离）；无则 null */
+  getPending(tenant: TenantContext, turnId: string): Promise<PendingUserQuestionModel | null>;
+  /** 会话完成/超时后清除（租户隔离；仅删除属于本租户的行） */
+  deletePending(tenant: TenantContext, turnId: string): Promise<void>;
+}
+
 // ============ 学习/练习/复习域 ============
 
 export interface LearningGoalModel {

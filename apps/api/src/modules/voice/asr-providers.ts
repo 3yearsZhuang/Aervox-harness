@@ -10,6 +10,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 // sherpa-onnx-node 为 CJS 包，命名导出无法被 Node ESM 静态识别，必须默认导入
 import sherpaOnnx from "sherpa-onnx-node";
+import { loadApiConfig } from "@aervox/config";
 import type { OfflineRecognizer } from "sherpa-onnx-node";
 import type {
   ASRProviderPort,
@@ -46,10 +47,9 @@ export class SenseVoiceLocalProvider implements ASRProviderPort {
   /**
    * 默认模型镜像根地址：相对其拉取 `model.int8.onnx` 与 `tokens.txt`。
    * SenseVoice-Small（sherpa-onnx 发布包）权重约 227MB，全程离线。
+   * 缺陷 E：默认值经 @aervox/config 集中解析（SENSEVOICE_MODEL_BASE_URL）。
    */
-  static readonly DEFAULT_MODEL_BASE_URL =
-    process.env.SENSEVOICE_MODEL_BASE_URL ??
-    "https://hf-mirror.com/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/main";
+  static readonly DEFAULT_MODEL_BASE_URL = loadApiConfig().asr.senseVoiceBaseUrl;
 
   /**
    * CR-016 安全整改：允许的模型镜像源 host 白名单。
@@ -64,7 +64,7 @@ export class SenseVoiceLocalProvider implements ASRProviderPort {
       return false;
     }
     if (host === "hf-mirror.com") return true;
-    const envBase = process.env.SENSEVOICE_MODEL_BASE_URL;
+    const envBase = loadApiConfig().asr.senseVoiceBaseUrl;
     if (!envBase) return false;
     try {
       return new URL(envBase).host === host;

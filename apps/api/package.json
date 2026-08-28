@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@aervox/agent-loop": "workspace:*",
+    "@aervox/config": "workspace:*",
     "@aervox/contracts": "workspace:*",
     "@aervox/database": "workspace:*",
     "@aervox/host-agent": "workspace:*",

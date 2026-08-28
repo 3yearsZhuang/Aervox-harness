@@ -19,6 +19,7 @@ import {
 import type { Client } from "@libsql/client";
 import type { MemoryEmbeddingProvider } from "./embedding-provider.js";
 import { MemoryStoreTool } from "./memory-store-tool.js";
+import { ForbiddenError, NotFoundError } from "../../shared/errors.js";
 
 /** 工具调用处理器：入参已过注册表校验，返回结果由调用方编码 */
 export interface ToolHandler {
@@ -91,16 +92,16 @@ export class ToolRuntime {
     opts: { approval?: boolean } = {},
   ): Promise<unknown> {
     const tool = await this.deps.registry.getTool(toolId);
-    if (!tool) throw new Error(`tool not found: ${toolId}`);
-    if (tool.enabled !== 1) throw new Error(`tool disabled: ${toolId}`);
+    if (!tool) throw new NotFoundError(`tool not found: ${toolId}`);
+    if (tool.enabled !== 1) throw new ForbiddenError(`tool disabled: ${toolId}`);
 
     // PET-05：非只读工具必须显式授权
     if ((tool.safetyLevel ?? "write_with_approval") !== "read_only" && !opts.approval) {
-      throw new Error(`tool requires approval: ${toolId}（write_with_approval / privileged）`);
+      throw new ForbiddenError(`tool requires approval: ${toolId}（write_with_approval / privileged）`);
     }
 
     const handler = this.handlers.get(toolId);
-    if (!handler) throw new Error(`tool handler not registered: ${toolId}`);
+    if (!handler) throw new ForbiddenError(`tool handler not registered: ${toolId}`);
     return handler.call(tenant, args);
   }
 }

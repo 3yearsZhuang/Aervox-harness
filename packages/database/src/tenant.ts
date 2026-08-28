@@ -3,7 +3,9 @@
  *
  * 替代 PostgreSQL RLS 的应用层强隔离防线。
  * 所有仓储方法强制要求传入 TenantContext，并在查询构建期自动注入 (workspaceId, subjectUserId) 约束。
+ * 越权断言抛 TenantAccessViolationError（缺陷 B），由 API 层映射为 403 而非 500。
  */
+import { TenantAccessViolationError } from "./errors.js";
 
 export interface TenantContext {
   /** 工作区标识 */
@@ -41,7 +43,7 @@ export function assertEntityBelongsToTenant(
     entity.workspaceId !== tenant.workspaceId ||
     entity.subjectUserId !== tenant.subjectUserId
   ) {
-    throw new Error(
+    throw new TenantAccessViolationError(
       `Cross-tenant access violation: entity (${entity.workspaceId}, ${entity.subjectUserId}) does not match context (${tenant.workspaceId}, ${tenant.subjectUserId})`,
     );
   }

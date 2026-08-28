@@ -11,6 +11,7 @@ import {
   SenseVoiceLocalProvider,
   WhisperCompatibleProvider,
 } from "./asr-providers.js";
+import { loadApiConfig } from "@aervox/config";
 import type {
   AudioArtifact,
   VoiceModel,
@@ -417,9 +418,9 @@ export class VoiceService {
   }
 }
 
-/** 允许的 SenseVoice 模型镜像源 host（默认 hf-mirror.com，可通过环境变量覆盖） */
+/** 允许的 SenseVoice 模型镜像源 host（默认 hf-mirror.com，可通过环境变量覆盖；缺陷 E 经 @aervox/config 解析） */
 export const ALLOWED_SENSEVOICE_MIRROR_HOSTS: readonly string[] = (() => {
-  const envBase = process.env.SENSEVOICE_MODEL_BASE_URL;
+  const envBase = loadApiConfig().asr.senseVoiceBaseUrl;
   const hosts = ["hf-mirror.com"];
   if (envBase) {
     try {

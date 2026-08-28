@@ -1,9 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../src/app.js";
-import { createInMemoryDatabase } from "@aervox/database";
+import {
+  createInMemoryDatabase,
+  NotFoundInTenantError,
+  TenantAccessViolationError,
+} from "@aervox/database";
 import {
   ConflictError,
+  ForbiddenError,
   NotFoundError,
   ValidationError,
 } from "../src/shared/errors.js";
@@ -23,6 +28,9 @@ describe("统一错误序列化（缺陷6）", () => {
       if (kind === "not-found") throw new NotFoundError("user not found");
       if (kind === "validation") throw new ValidationError("bad input");
       if (kind === "conflict") throw new ConflictError("already exists");
+      if (kind === "forbidden") throw new ForbiddenError("no permission");
+      if (kind === "db-not-found") throw new NotFoundInTenantError("memory not found in tenant");
+      if (kind === "db-forbidden") throw new TenantAccessViolationError("cross-tenant access violation");
       reply.code(200).send({ ok: true });
     });
     await app.ready();
@@ -60,6 +68,36 @@ describe("统一错误序列化（缺陷6）", () => {
       error: "ConflictError",
       code: "CONFLICT",
       message: "already exists",
+    });
+  });
+
+  it("ForbiddenError → 403 { error, code: FORBIDDEN, message }（缺陷 B）", async () => {
+    const res = await app.inject({ method: "GET", url: "/__test/forbidden" });
+    expect(res.statusCode).toBe(403);
+    expect(JSON.parse(res.payload)).toEqual({
+      error: "ForbiddenError",
+      code: "FORBIDDEN",
+      message: "no permission",
+    });
+  });
+
+  it("数据层 NotFoundInTenantError → 404 而非 500（缺陷 B）", async () => {
+    const res = await app.inject({ method: "GET", url: "/__test/db-not-found" });
+    expect(res.statusCode).toBe(404);
+    expect(JSON.parse(res.payload)).toEqual({
+      error: "NotFoundInTenantError",
+      code: "NOT_FOUND",
+      message: "memory not found in tenant",
+    });
+  });
+
+  it("数据层 TenantAccessViolationError → 403 而非 500（缺陷 B）", async () => {
+    const res = await app.inject({ method: "GET", url: "/__test/db-forbidden" });
+    expect(res.statusCode).toBe(403);
+    expect(JSON.parse(res.payload)).toEqual({
+      error: "TenantAccessViolationError",
+      code: "FORBIDDEN",
+      message: "cross-tenant access violation",
     });
   });
 

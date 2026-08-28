@@ -87,10 +87,15 @@ const dedupeKey = (name: string, args: unknown): string => `${name}:${JSON.strin
 /** 3a：Host 幂等键重生成（AVX-HAR-001 §9：上游 callId 不可信，副作用标识由 Host 生成） */
 const hostExecutionId = (attemptId: string, step: number, seq: number): string => `${attemptId}:${step}:${seq}`;
 
-/** 超时包装（阶段 3 换租约/取消信号，此处以固定超时兜底） */
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+/** 工具超时兜底（缺陷 D）：超时 → abort 取消信号并向底层传播，同时 reject；promise settle → 清理 timer。
+ *  调用方须把 controller.signal 透传给 tools.execute(input)，使长工具（ask_user_question 等）
+ *  能感知取消并及时清理挂起副作用，避免「超时后底层仍在执行/写副作用」。 */
+function withTimeout<T>(promise: Promise<T>, ms: number, controller?: AbortController): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("tool_timeout")), ms);
+    const timer = setTimeout(() => {
+      controller?.abort();
+      reject(new Error("tool_timeout"));
+    }, ms);
     promise.then(
       (value) => {
         clearTimeout(timer);
@@ -443,9 +448,14 @@ export async function executeTurn(
             arguments: call.arguments,
           });
           try {
-            // ask_user_question 工具需要等待用户交互，使用更长超时（默认 120s）或配置项
+            // ask_user_question 工具需要等待用户交互，使用更长超时（默认 120s）或配置项。
+            // 注意（缺陷 C）：语义超时唯一真源是 UserQuestionCoordinator 持久化的 expiresAt
+            // （默认 60s，崩溃后仍按持久化时间判定）；此处 120s 仅是进程存活时的最终兜底，
+            // 避免协调器异常后工具长期悬挂。
             const isAskUser = call.name === "ask_user_question";
             const effectiveTimeout = isAskUser ? Math.max(toolTimeoutMs, 120000) : toolTimeoutMs;
+            // 缺陷 D：工具超时通过 AbortController 传播取消信号，底层可感知并清理挂起副作用
+            const cancel = new AbortController();
             const executed = await withTimeout(
               tools.execute({
                 turnId: input.turnId,
@@ -454,8 +464,10 @@ export async function executeTurn(
                 name: call.name,
                 arguments: call.arguments,
                 sessionId: input.sessionId,
+                signal: cancel.signal,
               }),
               effectiveTimeout,
+              cancel,
             );
             result = { id: call.id, name: call.name, ok: executed.ok, output: executed.output, error: executed.error, needsApproval: executed.needsApproval };
           } catch (err) {
