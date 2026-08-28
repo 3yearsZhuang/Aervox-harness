@@ -20,6 +20,6 @@ export const aervoxApi = {
         ipcRenderer.send('aervox:turn:start', {requestId, content})
         return () => ipcRenderer.removeListener('aervox:turn:event', listener)
     },
-    apiRequest: <T = unknown>(method: string, path: string, body?: unknown) =>
-        ipcRenderer.invoke('aervox:api:request', {method, path, body}) as Promise<ApiRequestResult<T>>,
+    apiRequest: <T = unknown>(method: string, path: string, body?: unknown, headers?: Record<string, string>) =>
+        ipcRenderer.invoke('aervox:api:request', {method, path, body, headers}) as Promise<ApiRequestResult<T>>,
 }

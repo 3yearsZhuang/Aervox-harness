@@ -33,6 +33,6 @@ interface Window {
     setTheme: (theme: 'light' | 'dark') => Promise<'light' | 'dark'>
     onThemeChange: (callback: (theme: 'light' | 'dark') => void) => () => void
     streamTurn: (content: string, callback: (message: unknown) => void) => () => void
-    apiRequest: <T = unknown>(method: string, path: string, body?: unknown) => Promise<ApiRequestResult<T>>
+    apiRequest: <T = unknown>(method: string, path: string, body?: unknown, headers?: Record<string, string>) => Promise<ApiRequestResult<T>>
   }
 }

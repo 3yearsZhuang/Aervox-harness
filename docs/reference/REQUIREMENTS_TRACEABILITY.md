@@ -1,11 +1,11 @@
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：kikoyida · 2026-08-28
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
-> 文档版本：v0.9
+> 文档版本：v1.0
 > 文档状态：评审候选（Review Candidate）  
 > 更新日期：2026-08-28
 > 产品需求来源：[PRD.md](PRD.md)
@@ -153,7 +153,7 @@
 |---|---|---|---|---|---|
 | 错题本聚合、掌握标记与错题重练 | CAP-003/004 | `apps/api/src/modules/learning/routes.ts`、`packages/database/src/repositories/{types,sqlite/learning-repository}.ts`、`packages/api-client/src/useAervoxApi.ts`、`packages/ui/src/components/AervoxWorkbench.vue` | 2026-08-26 | `mistake-book.test.ts` 集成测试；API/API Client/UI 类型检查 | 原生 |
 | 练习会话与结果报告 | CAP-003/004/006 | `apps/api/src/modules/learning/routes.ts`、`packages/database/src/schema/learning.ts`、`packages/database/src/repositories/sqlite/learning-repository.ts`、`packages/api-client/src/useAervoxApi.ts`、`packages/ui/src/components/AervoxWorkbench.vue` | 2026-08-26 | `practice-session.test.ts` 集成测试；学习路由类型检查 | 原生 |
-| 活跃练习会话恢复与续答 | CAP-003 | `packages/practice-review/src/session.ts`、`apps/api/src/modules/learning/routes.ts`、`packages/database/src/repositories/{types,sqlite/learning-repository}.ts`、`packages/contracts/src/{practice-schemas,openapi}.ts`、`packages/api-client/src/useAervoxApi.ts`、`packages/ui/src/components/AervoxWorkbench.vue` | 2026-08-28 | `session.test.ts` 单元测试（去重、未答索引、全答与空题组）；`practice-session.test.ts` 集成测试（快照、续答进度、重试复用、租户隔离、结束后不可恢复）；Contracts/Database/API/UI 类型检查 | 原生 |
+| 活跃练习会话恢复与续答 | CAP-003 | `packages/practice-review/src/session.ts`、`apps/api/src/modules/learning/routes.ts`、`packages/database/src/repositories/{types,sqlite/learning-repository}.ts`、`packages/contracts/src/{practice-schemas,openapi}.ts`、`packages/api-client/src/{transport,desktop-transport,useAervoxApi}.ts`、`apps/desktop/src/{main,preload}/`、`packages/ui/src/components/AervoxWorkbench.vue` | 2026-08-28 | `session.test.ts` 单元测试（去重、未答索引、全答与空题组）；`transport.test.ts` 单元测试（幂等键透传）；`practice-session.test.ts` 集成测试（快照、续答进度、重试复用、租户隔离、结束后不可恢复）；Contracts/Database/API Client/Desktop/UI 类型检查 | 原生 |
 | 练习作答 OpenAPI 幂等契约对齐 | CAP-003/004 | `packages/contracts/src/{practice-schemas,openapi}.ts`、`packages/contracts/openapi.json`、`apps/api/test/openapi-contract.test.ts` | 2026-08-27 | `@aervox/contracts` build 生成 OpenAPI；`openapi-contract.test.ts` 契约测试 | 原生 |
 | 错题忽略/恢复处置 | CAP-004 | `apps/api/src/modules/learning/routes.ts`、`packages/database/src/schema/{learning,init}.ts`、`packages/database/src/repositories/sqlite/learning-repository.ts`、`packages/api-client/src/useAervoxApi.ts` | 2026-08-27 | `mistake-book.test.ts` 集成测试；Database/API/UI 类型检查 | 原生 |
 | 复习完成幂等重放、历史查询与工作台操作 | CAP-006 | `apps/api/src/modules/learning/routes.ts`、`packages/database/src/{schema,repositories}/`、`packages/contracts/src/`、`packages/api-client/src/useAervoxApi.ts`、`packages/ui/src/components/AervoxWorkbench.vue` | 2026-08-27 | API 集成测试与 OpenAPI 回归测试；Database/API Client/UI 类型检查 | 原生 |
