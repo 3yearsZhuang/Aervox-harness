@@ -82,6 +82,9 @@ export const modelRuns = sqliteTable(
   {
     id: text("id").primaryKey(),
     ...tenantColumns,
+    /** 阶段 7（ADR-017 Expand）：Attempt/Step 关联（可追溯粒度；存量数据经慢启动回填，不回填==空） */
+    attemptId: text("attempt_id"),
+    stepId: integer("step_id"),
     purpose: text("purpose").notNull(),
     provider: text("provider").notNull(),
     modelId: text("model_id").notNull(),
@@ -95,6 +98,11 @@ export const modelRuns = sqliteTable(
   },
   (table) => ({
     tenantIdx: index("model_runs_tenant_idx").on(table.workspaceId, table.subjectUserId),
+    tenantAttemptIdx: index("model_runs_tenant_attempt_idx").on(
+      table.workspaceId,
+      table.subjectUserId,
+      table.attemptId,
+    ),
   }),
 );
 
@@ -111,6 +119,8 @@ export const contextManifests = sqliteTable(
     sourceRevisionId: text("source_revision_id").notNull(),
     selectionReason: text("selection_reason"),
     permissionSnapshot: text("permission_snapshot", { mode: "json" }),
+    /** 阶段 7（ADR-017）：上下文快照（每 Turn 首个 Step 的 messages；多来源为多行 entries） */
+    snapshotJson: text("snapshot_json", { mode: "json" }),
     tokenBudget: integer("token_budget"),
     createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
   },

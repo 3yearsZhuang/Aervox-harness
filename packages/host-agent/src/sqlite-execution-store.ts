@@ -8,11 +8,22 @@
 import type {
   AgentStreamEvent,
   AgentStreamEventInput,
+  ContextManifestRecord,
   ExecutionStorePort,
+  ModelRunRecord,
   ToolExecutionRecord,
   ToolExecutionStatus,
 } from "@aervox/agent-loop";
 import type { SqliteConversationRepository, TenantContext } from "@aervox/database";
+
+/**
+ * 阶段 7（ADR-017）ModelRun/ContextManifest 落库口（可选委托）。
+ * 不注入时 record* 为 no-op（缺省兼容既有宿主/测试）。
+ */
+export interface ModelRunSink {
+  recordModelRun(input: ModelRunRecord): Promise<void>;
+  recordContextManifest(input: ContextManifestRecord): Promise<void>;
+}
 
 const now = (): string => new Date().toISOString();
 let seqCounter = 0;
@@ -44,7 +55,19 @@ export class SqliteExecutionStore implements ExecutionStorePort {
   constructor(
     private readonly repo: SqliteConversationRepository,
     private readonly tenant: TenantContext,
+    /** 阶段 7：ModelRun/Manifest 落库口（可选；缺省 no-op，兼容既有宿主/测试） */
+    private readonly modelRunSink?: ModelRunSink,
   ) {}
+
+  /** 阶段 7（ADR-017）：Step 级 ModelRun 写入（委托可选落库口；缺省 no-op） */
+  async recordModelRun(input: ModelRunRecord): Promise<void> {
+    await this.modelRunSink?.recordModelRun(input);
+  }
+
+  /** 阶段 7（ADR-017）：ContextManifest 快照写入（同上） */
+  async recordContextManifest(input: ContextManifestRecord): Promise<void> {
+    await this.modelRunSink?.recordContextManifest(input);
+  }
 
   async claimTurnAttempt(input: {
     turnId: string;

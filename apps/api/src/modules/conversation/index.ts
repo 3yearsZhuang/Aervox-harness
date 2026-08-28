@@ -8,6 +8,7 @@ import type { FastifyInstance } from "fastify";
 import {
   SqliteAgentInboxRepository,
   SqliteConversationRepository,
+  SqlitePlatformRepository,
   SqlitePrivacyRepository,
   SqliteSkillRegistryRepository,
   SqliteSubagentRunRepository,
@@ -38,6 +39,8 @@ export function registerConversationModule(
   const privacyRepo = new SqlitePrivacyRepository(db);
   const skillRepo = new SqliteSkillRegistryRepository(db);
   const subagentRunRepo = new SqliteSubagentRunRepository(db);
+  // 阶段 7：ModelRun/ContextManifest 落库口（Step 级可追溯写入）
+  const platformRepo = new SqlitePlatformRepository(db);
   registerConversationRoutes(app, conversationRepo, {
     toolRuntime: options.toolRuntime,
     llmConfigService: options.llmConfigService,
@@ -60,5 +63,6 @@ export function registerConversationModule(
       }),
     subagentRunRepo,
     workflows: options.workflows,
+    platformRepo,
   });
 }

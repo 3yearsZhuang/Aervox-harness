@@ -220,9 +220,46 @@ export async function runLoopTurnOnce(
     subagentFactory?: (tenant: TenantContext) => SubagentPort;
     /** 5c：已注册 Workflow 定义清单（贡献 `workflow.run` 工具 + GET /v1/workflows 元数据） */
     workflows?: WorkflowDefinition[];
+  /**
+     * 阶段 7：ModelRun/ContextManifest 落库口（可选委托 SqlitePlatformRepository；
+     * 缺省不记录，兼容既有行为）。Step 级可追溯写入不进 Loop 控制流。
+     */
+    platformRepo?: import("@aervox/database").SqlitePlatformRepository;
   } = {},
 ): Promise<void> {
-  const store = new SqliteExecutionStore(repo, tenant);
+  // 阶段 7（ADR-017）：Step 级 ModelRun + 每 Turn ContextManifest 快照落库（委托 platform 域）
+  const store = new SqliteExecutionStore(
+    repo,
+    tenant,
+    deps.platformRepo
+      ? {
+          recordModelRun: async (r) => {
+            const p = deps.platformRepo!;
+            await p.createModelRun(tenant, {
+              id: r.runId,
+              attemptId: r.attemptId,
+              stepId: r.stepId,
+              purpose: r.purpose,
+              provider: r.provider,
+              modelId: r.modelId,
+            });
+            await p.completeModelRun(tenant, r.runId, { status: r.status === "completed" ? "completed" : "failed", latencyMs: r.latencyMs });
+          },
+          recordContextManifest: async (m) => {
+            const p = deps.platformRepo!;
+            await p.createContextManifest({
+              id: m.manifestId,
+              modelRunId: m.modelRunId,
+              purpose: m.purpose,
+              sourceArtifactId: "turn:history",
+              sourceRevisionId: "1",
+              snapshot: m.snapshot,
+            });
+            await p.attachContextManifest(tenant, m.modelRunId, m.manifestId);
+          },
+        }
+      : undefined,
+  );
 
   let provider: ModelProviderPort;
   try {

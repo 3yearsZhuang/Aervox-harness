@@ -162,6 +162,9 @@ export class SqlitePlatformRepository implements IPlatformRepository {
     tenant: TenantContext,
     runData: {
       id: string;
+      /** 阶段 7（ADR-017）：Attempt/Step 关联（Loop Step 级写入；非 Loop 场景省略） */
+      attemptId?: string | null;
+      stepId?: number | null;
       purpose: string;
       provider: string;
       modelId: string;
@@ -176,6 +179,8 @@ export class SqlitePlatformRepository implements IPlatformRepository {
         id: runData.id,
         workspaceId: tenant.workspaceId,
         subjectUserId: tenant.subjectUserId,
+        attemptId: runData.attemptId ?? null,
+        stepId: runData.stepId ?? null,
         purpose: runData.purpose,
         provider: runData.provider,
         modelId: runData.modelId,
@@ -245,6 +250,8 @@ export class SqlitePlatformRepository implements IPlatformRepository {
       sourceRevisionId: string;
       selectionReason?: string | null;
       permissionSnapshot?: unknown;
+      /** 阶段 7（ADR-017）：上下文快照（可空；多来源为多行 entries） */
+      snapshot?: unknown;
       tokenBudget?: number | null;
     },
   ): Promise<ContextManifestModel> {
@@ -258,11 +265,15 @@ export class SqlitePlatformRepository implements IPlatformRepository {
         sourceRevisionId: manifestData.sourceRevisionId,
         selectionReason: manifestData.selectionReason ?? null,
         permissionSnapshot: manifestData.permissionSnapshot ?? null,
+        snapshotJson: manifestData.snapshot ?? null,
         tokenBudget: manifestData.tokenBudget ?? null,
         createdAt: new Date().toISOString(),
       })
       .returning();
-    return created as ContextManifestModel;
+    if (!created) throw new Error("createContextManifest: insert returned no row");
+    // 行字段 snapshotJson → 模型字段 snapshot 映射
+    const row = created as unknown as ContextManifestModel & { snapshotJson?: unknown };
+    return { ...row, snapshot: row.snapshotJson ?? null, snapshotJson: undefined } as ContextManifestModel;
   }
 
   async createAuditRecord(
