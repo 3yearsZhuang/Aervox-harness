@@ -780,7 +780,7 @@ export interface MistakeItemModel {
   wrongCount: number;
   masteryState: string;
   status: "active" | "mastered" | "dismissed";
-  reason?: string | null;
+  reasonCode?: "concept_gap" | "calculation" | "careless" | "misread" | "other" | null;
   note?: string | null;
 }
 
@@ -893,7 +893,12 @@ export interface ILearningRepository {
     tenant: TenantContext,
     status?: "active" | "mastered" | "dismissed" | "all",
   ): Promise<MistakeItemModel[]>;
-  setMistakeDisposition(tenant: TenantContext, item: { id: string; questionId: string; status: "active" | "dismissed"; reason?: string | null; note?: string | null }): Promise<void>;
+  setMistakeDisposition(tenant: TenantContext, item: { id: string; questionId: string; status: "active" | "dismissed" }): Promise<void>;
+  setMistakeInsight(
+    tenant: TenantContext,
+    item: { id: string; questionId: string; reasonCode: "concept_gap" | "calculation" | "careless" | "misread" | "other"; note?: string | null },
+  ): Promise<void>;
+  clearMistakeInsight(tenant: TenantContext, questionId: string): Promise<void>;
   getAttemptByIdempotencyKey(
     tenant: TenantContext,
     questionId: string,

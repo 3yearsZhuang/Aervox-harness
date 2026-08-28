@@ -105,6 +105,26 @@ export const mistakeDispositions = sqliteTable(
   }),
 );
 
+/** 用户为派生错题添加的错因元数据；不得修改 QuestionAttempt 学习事实。 */
+export const mistakeInsights = sqliteTable(
+  "mistake_insights",
+  {
+    id: text("id").primaryKey(),
+    ...tenantColumns,
+    questionId: text("question_id").notNull().references(() => questions.id),
+    reasonCode: text("reason_code").notNull(), // concept_gap | calculation | careless | misread | other
+    note: text("note"),
+    ...timestampColumns,
+  },
+  (table) => ({
+    tenantQuestionIdx: uniqueIndex("mistake_insights_tenant_question_idx").on(
+      table.workspaceId,
+      table.subjectUserId,
+      table.questionId,
+    ),
+  }),
+);
+
 /** 一次短时练习的范围与结束状态；作答事实仍单独保存在 questionAttempts。 */
 export const practiceSessions = sqliteTable(
   "practice_sessions",
