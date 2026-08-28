@@ -13,6 +13,7 @@ import {
   SqlitePrivacyRepository,
   SqliteSkillRegistryRepository,
   SqliteSubagentRunRepository,
+  SqliteUserQuestionRepository,
 } from "@aervox/database";
 import { createSqliteSubagentPort, SqliteExecutionStore } from "@aervox/host-agent";
 import { buildLoopProvider } from "./agent-executor.js";
@@ -27,7 +28,11 @@ export function registerConversationModule(ctx: ModuleContext): void {
   const subagentRunRepo = new SqliteSubagentRunRepository(db);
   // 阶段 7：ModelRun/ContextManifest 落库口（Step 级可追溯写入）
   const platformRepo = new SqlitePlatformRepository(db);
-  const userQuestionCoordinator = new UserQuestionCoordinator(conversationRepo);
+  const userQuestionCoordinator = new UserQuestionCoordinator(
+    conversationRepo,
+    // 缺陷 C：挂起提问持久化到 pending_user_questions，进程重启后仍可作答/查询
+    new SqliteUserQuestionRepository(db),
+  );
   registerConversationRoutes(app, conversationRepo, {
     toolRuntime,
     llmConfigService,

@@ -125,12 +125,15 @@ export function createAskUserQuestionToolProvider(
 
       // 5. 委托 UserQuestionPort 挂起等待
       try {
+        // 缺陷 D：把宿主超时/取消信号透传给协调器（协调器据此清理挂起并 reject），
+        // 使「工具超时」能真正终止提问等待，而不是让底层挂到自然超时。
         const res = await userQuestionPort.ask({
           turnId: input.turnId,
           attemptId: input.attemptId,
           step,
           questions,
           timeoutMs: defaultTimeoutMs,
+          signal: input.signal,
         });
 
         return {

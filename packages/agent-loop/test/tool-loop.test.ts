@@ -156,8 +156,10 @@ describe("executeTurn 阶段 2：只读工具多 Step Loop", () => {
     expect(toolResults[1]).toMatchObject({ ok: false, error: "duplicate_tool_call" });
   });
 
-  it("工具超时：tool_timeout 记为失败结果且 Loop 继续", async () => {
+  it("工具超时：tool_timeout 记为失败结果且 Loop 继续，并向下游传播 abort 信号（缺陷 D）", async () => {
     const store = makeStore();
+    let sawSignal: AbortSignal | undefined;
+    let aborted = false;
     const result = await executeTurn(
       {
         execution: store,
@@ -167,7 +169,13 @@ describe("executeTurn 阶段 2：只读工具多 Step Loop", () => {
         ]),
         contextBuilder: defaultContextBuilder,
         tools: createMockToolProvider({
-          search_notes: () => new Promise((resolve) => setTimeout(() => resolve({ ok: true, output: {} }), 200)),
+          search_notes: (input) => {
+            sawSignal = input.signal;
+            input.signal?.addEventListener("abort", () => {
+              aborted = true;
+            });
+            return new Promise((resolve) => setTimeout(() => resolve({ ok: true, output: {} }), 200));
+          },
         }),
         options: { toolTimeoutMs: 5 },
       },
@@ -181,6 +189,10 @@ describe("executeTurn 阶段 2：只读工具多 Step Loop", () => {
       error: string;
     }>;
     expect(toolResults[0]).toMatchObject({ ok: false, error: "tool_timeout" });
+    // 缺陷 D：超时发生 aborted + 取消事件被底层感知（「超时即终止」向下传播，而非仅宿主侧 reject）
+    expect(sawSignal).toBeDefined();
+    expect(aborted).toBe(true);
+    expect(sawSignal!.aborted).toBe(true);
   });
 
   it("maxSteps 内始终请求工具 → done(Interrupted) + finalize Interrupted", async () => {
