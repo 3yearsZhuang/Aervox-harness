@@ -74,6 +74,8 @@ export async function executeTurn(
   if (!claim.ok) {
     return { status: "skipped", attemptId: input.attemptId, reason: claim.reason };
   }
+  const claimLeaseId = claim.leaseId;
+  const claimFencingToken = claim.fencingToken;
 
   try {
     let sequence = await execution.nextSequence(input.turnId);
@@ -319,6 +321,15 @@ export async function executeTurn(
           content: JSON.stringify({ ok: result.ok, output: result.output, error: result.error }),
           toolCallId: result.id,
           name: result.name,
+        });
+      }
+
+      // 3b-A：Step 间续租（保持租约持有，防长任务被误判过期）
+      if (claimLeaseId) {
+        await execution.renewAttemptLease({
+          attemptId: input.attemptId,
+          leaseId: claimLeaseId,
+          expectedFencingToken: claimFencingToken,
         });
       }
     }
