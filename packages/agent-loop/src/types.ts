@@ -278,3 +278,30 @@ export interface WorkflowDefinition {
   description: string;
   steps: WorkflowStep[];
 }
+
+/** 阶段 7（ADR-017）：Step 级 ModelRun 记录（Loop 可追溯写入；宿主落库为 model_runs） */
+export interface ModelRunRecord {
+  runId: string;
+  turnId: string;
+  sessionId: string;
+  attemptId: string;
+  stepId: number;
+  provider: string;
+  modelId: string;
+  purpose: string;
+  status: "completed" | "failed";
+  latencyMs?: number;
+}
+
+/** 阶段 7（ADR-017）：ContextManifest 快照（每 Turn 首个 Step 的上下文；宿主落库为 context_manifests） */
+export interface ContextManifestRecord {
+  manifestId: string;
+  turnId: string;
+  sessionId: string;
+  attemptId: string;
+  stepId: number;
+  modelRunId: string;
+  purpose: string;
+  /** 上下文 messages 快照（序列化面由宿主决定；不在此持有数据库结构） */
+  snapshot: PromptMessage[];
+}

@@ -1391,6 +1391,9 @@ export interface ModelRunModel {
   id: string;
   workspaceId: string;
   subjectUserId: string;
+  /** 阶段 7（ADR-017）：Attempt/Step 关联（存量慢启动回填，可为空） */
+  attemptId?: string | null;
+  stepId?: number | null;
   purpose: string;
   provider: string;
   modelId: string;
@@ -1412,6 +1415,8 @@ export interface ContextManifestModel {
   sourceRevisionId: string;
   selectionReason?: string | null;
   permissionSnapshot?: unknown;
+  /** 阶段 7（ADR-017）：上下文快照（每 Turn 首个 Step 的 messages；可空） */
+  snapshot?: unknown;
   tokenBudget?: number | null;
   createdAt: string;
 }

@@ -11,8 +11,10 @@ import type {
   AttemptStatus,
   ContextCompactionInput,
   ContextCompactionResult,
+  ContextManifestRecord,
   LoopEventType,
   ModelRequest,
+  ModelRunRecord,
   PromptContext,
   PromptMessage,
   SafetyDecision,
@@ -99,6 +101,15 @@ export interface ExecutionStorePort {
     error?: string;
     finishedAt?: string;
   }): Promise<{ ok: boolean }>;
+
+  /**
+   * 阶段 7（ADR-017）：Step 级 ModelRun 可追溯写入（宿主落库 model_runs，含 attemptId/stepId）。
+   * 可观测副作用（同 recordToolExecution），不影响 Loop 控制流；宿主缺省可为 no-op。
+   */
+  recordModelRun(input: ModelRunRecord): Promise<void>;
+
+  /** 阶段 7（ADR-017）：ContextManifest 快照写入（每 Turn 首个 Step；宿主落库 context_manifests） */
+  recordContextManifest(input: ContextManifestRecord): Promise<void>;
 }
 
 /** 追加事件的输入（executor 构造；id / occurredAt / payloadVersion 由 store 补齐） */

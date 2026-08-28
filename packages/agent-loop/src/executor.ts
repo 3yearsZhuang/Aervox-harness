@@ -73,6 +73,11 @@ export interface ExecuteTurnDeps {
   deletionGate?: DeletionGatePort;
   /** 阶段 5a：受控收件箱（ADR-017）；缺省不启用 Inbox 消费 */
   inbox?: InboxPort;
+  /**
+   * 阶段 7（ADR-017）：ModelRun 元数据（provider/modelId/purpose；缺省用 provider.id + 占位）。
+   * 写入为可观测副作用（recordModelRun/recordContextManifest），不影响控制流。
+   */
+  modelRunMeta?: { provider?: string; modelId?: string; purpose?: string };
   options?: ExecuteTurnOptions;
 }
 
@@ -261,6 +266,7 @@ export async function executeTurn(
       }
 
       // 收集本 Step 输出（文本增量 + 工具请求）
+      const stepStartedAt = Date.now();
       for await (const chunk of provider.stream({
         turnId: input.turnId,
         attemptId: input.attemptId,
@@ -274,6 +280,38 @@ export async function executeTurn(
       const toolCalls = chunks.flatMap((c) => c.toolCalls ?? []);
       const hasToolCalls = toolCalls.length > 0;
       if (stepText) textAccumulator.push(stepText);
+
+      // 阶段 7（ADR-017）：Step 级 ModelRun 可追溯写入 + 每 Turn 首个 Step 的 ContextManifest 快照。
+      // 可观测副作用（同 recordToolExecution）：写入失败不阻断执行（no-op 宿主天然兼容）。
+      try {
+        const runId = `mr_${input.turnId}_${step}`;
+        await execution.recordModelRun({
+          runId,
+          turnId: input.turnId,
+          sessionId: input.sessionId,
+          attemptId: input.attemptId,
+          stepId: step,
+          provider: deps.modelRunMeta?.provider ?? provider.id,
+          modelId: deps.modelRunMeta?.modelId ?? "n/a",
+          purpose: deps.modelRunMeta?.purpose ?? "agent.loop",
+          status: "completed",
+          latencyMs: Date.now() - stepStartedAt,
+        });
+        if (step === stepBase + 1) {
+          await execution.recordContextManifest({
+            manifestId: `mcm_${input.turnId}`,
+            turnId: input.turnId,
+            sessionId: input.sessionId,
+            attemptId: input.attemptId,
+            stepId: step,
+            modelRunId: runId,
+            purpose: "agent.loop",
+            snapshot: context.messages,
+          });
+        }
+      } catch {
+        // 可观测写入失败不影响主流程（审计/指标侧写失败收敛）
+      }
 
       // 无工具请求 → 正文完成，终止循环
       if (!hasToolCalls) {
