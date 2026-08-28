@@ -1,7 +1,7 @@
 # Agent Harness Loop 设计与落地规范
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：3yearszhuang · 2026-08-29
 
 > 文档编号：AVX-HAR-001  
 > 类型：Reference  
@@ -845,6 +845,15 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - **注册链路**（`apps/api`）：`POST /v1/tools` 支持 `replay` 枚举校验透传。
 - 测试：`@aervox/database` 151（`tool-registry.test.ts` replay 存取矩阵）；`@aervox/agent-loop` 131（`resume-decision.test.ts` 6→11：synthesized 双形态 / 未声明与 never 收敛 / pending_approval 不绕过 / 多未确定项全 listing）；`@aervox/host-agent` 64（`sqlite-resume-source.test.ts` +2：replay:safe + pending → 产出含 TOOL_NOT_STARTED 合成 tool 消息；replay:never → 收敛不产出）；`@aervox/api` 230（tools-plugins replay 透传 + 非法 400）；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
+### 16.25 落地进展（阶段 3c+-B4：工具结果入口校验 + 流式可中断 + 模型调用重试）
+
+2026-08-28 落地（对应 §9「工具结果进入模型前做大小、敏感数据、Prompt injection 和来源检查」、§10 `maxModelRetries`「仅首个可见片段前且无副作用」、§11.1「取消后丢弃失去 fencing 的迟到 chunk」的流式面）：
+
+- **结果入口校验**（`tool-result-safe.ts` `inspectToolResult`）：工具输出回填上下文前做大小截断（默认 8000 字符，可配）+ Prompt injection 启发式（中英双语典型越权样本，保守匹配）。注入命中 → 以受控摘要 `blocked_tool_injection` 替代完整内容（fail-closed，样本不进模型）；超长 → 截断后回填。敏感数据分级/来源分类（DATA_PRIVACY/audit 体系）为后续扩展点。
+- **流式可中断**（`executor.ts`）：Provider 流 chunk 间隙 ≥100ms 节流执行 `prematureTermination`（取消 / 删除撤权水位 / 总时长预算），命中即提前终止迭代收敛——流式期间用户取消/删除不再等整 Step 结束（§11.1 迟到 chunk 丢弃）。
+- **模型调用重试**（`executor.ts` `ExecuteTurnOptions.maxModelRetries`，默认 1，0 关闭）：仅「首个可见片段前且无副作用」（首 Step 且 `textAccumulator` 为空）允许重试一次；已有 delta/事件、租约丢失（LeaseLostError/heartbeat.lost）一律不重试。
+- 测试：`@aervox/agent-loop` 143（新增 `tool-result-safe.test.ts` 5：注入中英双语命中/超长截断/自定义上限/正常透传；`executor-b4.test.ts` 7：回填注入被摘要替代且原文不进上下文、超长截断回填、正常透传、首调用抛错自动重试一次完成、`maxModelRetries=0` 持续失败仅调一次、流式第二 chunk 前取消收敛且后续文本不产出）；`@aervox/database` 151、`@aervox/host-agent` 64、`@aervox/api` 232 无回归；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
 ### 16.26 落地进展（阶段 3c+-B4-D：跨包原子写对）
 
 2026-08-29 落地（对应 §12.2「ToolExecution 结果 + result event」「Turn 终态 + done」原子提交）：
@@ -854,15 +863,6 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - **executor 接线**（`executor.ts`）：工具结果收口（executed/rejected/timeout_error/duplicate）改走 `recordToolOutcome`（duplicate 账本无预留行时插入独立记录）；5 处终态路径（Cancelled / Completed / Interrupted×2 / Failed(tools_disabled) / catch error+Failed）全部改走 `finalizeAttemptWithEvent`，CAS 失败按 contested 收敛。
 - **宿主桥接**（`sqlite-execution-store.ts`）：转译 `FencingMismatchError`→`LeaseLostError`（与 appendEvent 同语义）。
 - 测试：`@aervox/database` 154（新增 `atomic-write-pairs.test.ts` 3：同事务收口+事件 / fencing 失配抛错且无部分写入 / 终态+done 同事务且二次提交 false 不写第二个 done）；`@aervox/agent-loop` 143 无回归（cancel 终态竞态用例改 override `finalizeAttemptWithEvent`；duplicate 账本独立留痕保持）；`@aervox/host-agent` 65（`sqlite-execution-store-fencing.test.ts` +2：原子桥接 + 转译 + CAS false）；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
-
-### 16.25 落地进展（阶段 3c+-B4：工具结果入口校验 + 流式可中断 + 模型调用重试）
-
-2026-08-28 落地（对应 §9「工具结果进入模型前做大小、敏感数据、Prompt injection 和来源检查」、§10 `maxModelRetries`「仅首个可见片段前且无副作用」、§11.1「取消后丢弃失去 fencing 的迟到 chunk」的流式面）：
-
-- **结果入口校验**（`tool-result-safe.ts` `inspectToolResult`）：工具输出回填上下文前做大小截断（默认 8000 字符，可配）+ Prompt injection 启发式（中英双语典型越权样本，保守匹配）。注入命中 → 以受控摘要 `blocked_tool_injection` 替代完整内容（fail-closed，样本不进模型）；超长 → 截断后回填。敏感数据分级/来源分类（DATA_PRIVACY/audit 体系）为后续扩展点。
-- **流式可中断**（`executor.ts`）：Provider 流 chunk 间隙 ≥100ms 节流执行 `prematureTermination`（取消 / 删除撤权水位 / 总时长预算），命中即提前终止迭代收敛——流式期间用户取消/删除不再等整 Step 结束（§11.1 迟到 chunk 丢弃）。
-- **模型调用重试**（`executor.ts` `ExecuteTurnOptions.maxModelRetries`，默认 1，0 关闭）：仅「首个可见片段前且无副作用」（首 Step 且 `textAccumulator` 为空）允许重试一次；已有 delta/事件、租约丢失（LeaseLostError/heartbeat.lost）一律不重试。
-- 测试：`@aervox/agent-loop` 143（新增 `tool-result-safe.test.ts` 5：注入中英双语命中/超长截断/自定义上限/正常透传；`executor-b4.test.ts` 7：回填注入被摘要替代且原文不进上下文、超长截断回填、正常透传、首调用抛错自动重试一次完成、`maxModelRetries=0` 持续失败仅调一次、流式第二 chunk 前取消收敛且后续文本不产出）；`@aervox/database` 151、`@aervox/host-agent` 64、`@aervox/api` 232 无回归；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
 ## 17. 回滚策略
 
