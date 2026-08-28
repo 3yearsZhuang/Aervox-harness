@@ -6,6 +6,8 @@ on:
       - "docs/**"
       - "README.md"
       - "AGENTS.md"
+      - "CONTRIBUTING.md"
+      - "scripts/docs-governance.mjs"
       - ".markdownlint-cli2.jsonc"
       - "mise.toml"
       - ".vale.ini"
@@ -17,6 +19,8 @@ on:
       - "docs/**"
       - "README.md"
       - "AGENTS.md"
+      - "CONTRIBUTING.md"
+      - "scripts/docs-governance.mjs"
       - ".markdownlint-cli2.jsonc"
       - "mise.toml"
       - ".vale.ini"
@@ -52,7 +56,7 @@ jobs:
       - name: Markdown lint (via mise task)
         run: mise tasks run ci-docs
 
-      - name: Link check (docs + README + AGENTS.md, exclude reference/ and demos/)
+      - name: Link check (docs + root documentation; top-level reference/ and demos/ are not targets)
         uses: lycheeverse/lychee-action@v2
         with:
-          args: --no-progress --accept 200,429,403 README.md docs AGENTS.md
+          args: --no-progress --accept 200,429,403 README.md docs AGENTS.md CONTRIBUTING.md
