@@ -25,6 +25,7 @@ describe("阶段 2b 用户取消（POST /v1/turns/:id/cancel）", () => {
   let repo: SqliteConversationRepository;
 
   beforeEach(async () => {
+    process.env.AERVOX_LOOP_PROVIDER = "replay";
     const res = await createInMemoryDatabase();
     db = res.db;
     cleanup = res.cleanup;
@@ -35,6 +36,7 @@ describe("阶段 2b 用户取消（POST /v1/turns/:id/cancel）", () => {
   });
 
   afterEach(async () => {
+    delete process.env.AERVOX_LOOP_PROVIDER;
     await app.close();
     await cleanup();
   });

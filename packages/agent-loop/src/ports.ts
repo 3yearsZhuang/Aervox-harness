@@ -16,6 +16,8 @@ import type {
   PromptContext,
   PromptMessage,
   SafetyDecision,
+  SubagentDelegateInput,
+  SubagentRunResult,
   ToolApprovalInfo,
   ToolCallRequest,
   ToolExecutionRecord,
@@ -133,6 +135,8 @@ export interface ToolExecutionInput {
   invocationId: string;
   name: string;
   arguments: unknown;
+  /** 5c：会话标识（Subagent/Workflow Contribution 创建子任务时归属会话；invocationId 为 Host 幂等键） */
+  sessionId?: string;
 }
 
 /** 工具执行结果（调用方可注入下一 Step；副作用证据持久化留阶段 2d/3） */
@@ -194,6 +198,14 @@ export interface InboxPort {
   /** ack 消费完成（claimed → acknowledged）；只接受此前 claim 的项 */
   ack(input: { itemIds: string[] }): Promise<void>;
 }
+/**
+ * 阶段 5c：Subagent 委托端口（ADR-017 扩展点）。宿主实现子任务运行：创建独立子
+ * turn/attempt 落库（可审计/恢复），嵌套执行后返回结构化结果；parentAttemptId +
+ * parentExecutionId 幂等（崩溃/重试不产生重复子任务）。
+ */
+export interface SubagentPort {
+  delegate(input: SubagentDelegateInput): Promise<SubagentRunResult>;
+}
 export type {
   AgentInboxCommand,
   AgentInboxConsumeBoundary,
@@ -201,4 +213,10 @@ export type {
   ContextCompactionInput,
   ContextCompactionResult,
   SkillDescriptor,
+  SubagentDelegateInput,
+  SubagentRunResult,
+  WorkflowContext,
+  WorkflowDefinition,
+  WorkflowStep,
+  WorkflowStepResult,
 } from "./types.js";

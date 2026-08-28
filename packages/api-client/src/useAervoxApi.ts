@@ -72,9 +72,11 @@ export interface MistakeItemDto {
   wrongCount: number;
   masteryState: string;
   status: 'active' | 'mastered' | 'dismissed';
-  reason?: string | null;
-  note?: string | null;
+  reasonCode: MistakeReasonCode | null;
+  note: string | null;
 }
+
+export type MistakeReasonCode = 'concept_gap' | 'calculation' | 'careless' | 'misread' | 'other';
 
 export interface NotificationDto {
   id: string;
@@ -176,11 +178,16 @@ export function useAervoxApi() {
     await loadAll();
   };
 
-  const setMistakeStatus = async (questionId: string, status: 'active' | 'mastered' | 'dismissed', reason?: string, note?: string): Promise<void> => {
-    const body: Record<string, unknown> = { status };
-    if (reason !== undefined) body.reason = reason;
-    if (note !== undefined) body.note = note;
-    await transport.request('PATCH', `/v1/mistakes/${encodeURIComponent(questionId)}`, body);
+  const setMistakeStatus = async (questionId: string, status: 'active' | 'mastered' | 'dismissed'): Promise<void> => {
+    await transport.request('PATCH', `/v1/mistakes/${encodeURIComponent(questionId)}`, { status });
+    await loadAll();
+  };
+
+  const setMistakeInsight = async (
+    questionId: string,
+    insight: { reasonCode: MistakeReasonCode | null; note?: string | null },
+  ): Promise<void> => {
+    await transport.request('PATCH', `/v1/mistakes/${encodeURIComponent(questionId)}`, insight);
     await loadAll();
   };
 
@@ -222,6 +229,7 @@ export function useAervoxApi() {
     completePracticeSession,
     completeReview,
     setMistakeStatus,
+    setMistakeInsight,
     startMistakePractice,
     submitFeedback,
     trackEvent,

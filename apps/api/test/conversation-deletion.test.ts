@@ -42,6 +42,7 @@ describe("阶段 2d 删除/撤权未追平 → Loop fail-closed", () => {
   let privacyRepo: SqlitePrivacyRepository;
 
   beforeEach(async () => {
+    process.env.AERVOX_LOOP_PROVIDER = "replay";
     const res = await createInMemoryDatabase();
     db = res.db;
     cleanup = res.cleanup;
@@ -53,6 +54,7 @@ describe("阶段 2d 删除/撤权未追平 → Loop fail-closed", () => {
   });
 
   afterEach(async () => {
+    delete process.env.AERVOX_LOOP_PROVIDER;
     await app.close();
     await cleanup();
   });

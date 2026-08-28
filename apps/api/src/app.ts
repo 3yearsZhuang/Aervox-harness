@@ -34,6 +34,7 @@ import { registerStudyMaterialModule } from "./modules/study-materials/index.js"
 import { registerVoiceModule, type VoiceModuleOptions } from "./modules/voice/index.js";
 import { registerLLMModule, type LLMServiceOptions } from "./modules/llm/index.js";
 import type { ToolRuntime } from "./modules/tools/runtime.js";
+import type { WorkflowDefinition } from "@aervox/agent-loop";
 
 export interface BuildAppOptions {
   /** 注入既有数据库（如内存库）；缺省时使用 createDatabase() */
@@ -47,6 +48,8 @@ export interface BuildAppOptions {
   voiceOptions?: VoiceModuleOptions;
   /** LLM 模型服务配置 */
   llmOptions?: LLMServiceOptions;
+  /** 阶段 5c：已注册 Workflow 定义清单（贡献 workflow.run 工具 + GET /v1/workflows） */
+  workflows?: WorkflowDefinition[];
 }
 
 export interface BuildAppResult {
@@ -73,7 +76,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   // 工具运行时 / LLM 配置服务先于对话模块实例化（阶段 2d/2e Agent Loop 依赖）
   const toolRuntime = registerToolsModule(app, db, client);
   const llmConfigService = registerLLMModule(app, db, options.llmOptions);
-  registerConversationModule(app, db, { toolRuntime, llmConfigService });
+  registerConversationModule(app, db, { toolRuntime, llmConfigService, workflows: options.workflows });
   registerLearningModule(app, db);
   registerFeedbackModule(app, db);
   registerDiaryModule(app, db);

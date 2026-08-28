@@ -6,11 +6,14 @@
  * （AVX-HAR-001 §13），阶段 4 抽出独立 Host 时仅替换接线。
  */
 import {
+  composeToolProviders,
   createComposedContextBuilder,
   createOpenAICompatProvider,
   createReplayProvider,
   createScriptedProvider,
+  createSubagentToolProvider,
   createSummaryCompaction,
+  createWorkflowToolProvider,
   defaultContextBuilder,
   executeTurn,
 } from "@aervox/agent-loop";
@@ -19,9 +22,11 @@ import type {
   ModelProviderPort,
   ReplayStep,
   SkillDescriptor,
+  SubagentPort,
   ToolExecutionInput,
   ToolExecutionResult,
   ToolProviderPort,
+  WorkflowDefinition,
 } from "@aervox/agent-loop";
 import { SqliteExecutionStore } from "@aervox/host-agent";
 import type { SqliteConversationRepository, TenantContext } from "@aervox/database";
@@ -158,8 +163,42 @@ async function failTurnWithError(
 }
 
 /**
+ * Loop 模型 Provider 构建（Leader 与 5c 子任务共用）。
+ * 选择（AERVOX_LOOP_PROVIDER）：replay（默认确定性回放）/ scripted（两步工具链验证）/
+ * scripted-write / scripted-privileged / llm（CR-015 真实配置；anthropic 明示不支持）。
+ */
+export async function buildLoopProvider(
+  tenant: TenantContext,
+  llmConfigService?: LLMConfigService,
+): Promise<ModelProviderPort> {
+  const mode = process.env.AERVOX_LOOP_PROVIDER ?? "llm";
+  if (mode === "replay") return createReplayProvider();
+  if (mode === "scripted") return createScriptedProvider(API_TOOL_SCRIPT);
+  if (mode === "scripted-write") return createScriptedProvider(API_WRITE_SCRIPT);
+  if (mode === "scripted-privileged") return createScriptedProvider(API_PRIVILEGED_SCRIPT);
+  if (mode === "llm") {
+    if (!llmConfigService) {
+      throw new Error("llm_provider_unavailable: LLMConfigService 未接线");
+    }
+    const cfg = await llmConfigService.getConfig(tenant);
+    if (!cfg.enabled) throw new Error("llm_disabled: 当前租户未启用 LLM 配置");
+    if (cfg.providerType === "anthropic") {
+      throw new Error("anthropic_unsupported: 阶段 2e 仅支持 OpenAI 兼容协议（openai/deepseek/ollama/custom_openai）");
+    }
+    return createOpenAICompatProvider({
+      baseUrl: cfg.baseUrl,
+      apiKey: cfg.apiKey,
+      modelId: cfg.modelId,
+      temperature: cfg.temperature,
+      maxTokens: cfg.maxTokens,
+    });
+  }
+  return createReplayProvider();
+}
+
+/**
  * 迁移期接线：创建 Turn 后立即执行一次 Loop。
- * Provider 选择（AERVOX_LOOP_PROVIDER）：replay（默认确定性回放）/ scripted（两步工具链验证）/ llm（CR-015 真实配置）。
+ * Provider 选择见 buildLoopProvider；工具来源经 compose 合并（runtime / subagent / workflow Contribution）。
  */
 export async function runLoopTurnOnce(
   repo: SqliteConversationRepository,
@@ -174,45 +213,48 @@ export async function runLoopTurnOnce(
     inbox?: InboxPort;
     /** 5b：渐进披露的 Skill 清单（name+description；模型按需读取全文；缺省不注入） */
     skills?: SkillDescriptor[];
+    /**
+     * 5c：Subagent 委托执行器工厂（request 级 tenant 绑定后创建 SubagentPort）。
+     * 注入时 `subagent.delegate` 进入工具清单；缺失则不被贡献（行为与既有一致）。
+     */
+    subagentFactory?: (tenant: TenantContext) => SubagentPort;
+    /** 5c：已注册 Workflow 定义清单（贡献 `workflow.run` 工具 + GET /v1/workflows 元数据） */
+    workflows?: WorkflowDefinition[];
   } = {},
 ): Promise<void> {
   const store = new SqliteExecutionStore(repo, tenant);
 
-  const buildProvider = async (): Promise<ModelProviderPort> => {
-    const mode = process.env.AERVOX_LOOP_PROVIDER ?? "replay";
-    if (mode === "scripted") return createScriptedProvider(API_TOOL_SCRIPT);
-    if (mode === "scripted-write") return createScriptedProvider(API_WRITE_SCRIPT);
-    if (mode === "scripted-privileged") return createScriptedProvider(API_PRIVILEGED_SCRIPT);
-    if (mode === "llm") {
-      if (!deps.llmConfigService) {
-        throw new Error("llm_provider_unavailable: LLMConfigService 未接线");
-      }
-      const cfg = await deps.llmConfigService.getConfig(tenant);
-      if (!cfg.enabled) throw new Error("llm_disabled: 当前租户未启用 LLM 配置");
-      if (cfg.providerType === "anthropic") {
-        throw new Error("anthropic_unsupported: 阶段 2e 仅支持 OpenAI 兼容协议（openai/deepseek/ollama/custom_openai）");
-      }
-      return createOpenAICompatProvider({
-        baseUrl: cfg.baseUrl,
-        apiKey: cfg.apiKey,
-        modelId: cfg.modelId,
-        temperature: cfg.temperature,
-        maxTokens: cfg.maxTokens,
-      });
-    }
-    return createReplayProvider();
-  };
-
   let provider: ModelProviderPort;
   try {
-    provider = await buildProvider();
+    provider = await buildLoopProvider(tenant, deps.llmConfigService);
   } catch (err) {
     await failTurnWithError(store, input.turnId, input.attemptId, err instanceof Error ? err.message : "provider_unavailable");
     await repo.updateTurnStatus(tenant, input.turnId, "Failed").catch(() => undefined);
     return;
   }
 
-  const tools = deps.toolRuntime ? createRuntimeToolProvider(deps.toolRuntime, tenant, { conversationRepo: repo }) : undefined;
+  // 5c：Provider Contribution 组合——
+  // - subagent/workflow 为静态声明的 Contribution（compose 路由 + 工具清单入模型 schema）；
+  // - toolRuntime（createRuntimeToolProvider）为动态注册表：tools 实时校验不静态声明，
+  //   故作为 compose 的 fallback 兜底（未命中静态清单时由其自判 unregistered/审批，语义与既有一致）。
+  const contribution: ToolProviderPort[] = [];
+  const subagent = deps.subagentFactory ? deps.subagentFactory(tenant) : undefined;
+  if (subagent) {
+    contribution.push(createSubagentToolProvider({ subagent }));
+  }
+  if (deps.workflows && deps.workflows.length > 0) {
+    contribution.push(createWorkflowToolProvider(deps.workflows));
+  }
+  let tools: ToolProviderPort | undefined;
+  if (deps.toolRuntime) {
+    const runtimeProvider = createRuntimeToolProvider(deps.toolRuntime, tenant, { conversationRepo: repo });
+    tools =
+      contribution.length > 0
+        ? composeToolProviders(contribution, { fallback: runtimeProvider })
+        : runtimeProvider;
+  } else if (contribution.length > 0) {
+    tools = composeToolProviders(contribution);
+  }
   // 5b：默认启用 Skill 渐进披露（activeOnly 清单注入 system）；压缩 seam 默认关闭，
   // 设置 AERVOX_LOOP_COMPACTION=rule 启用内置规则式摘要。
   const contextBuilder =

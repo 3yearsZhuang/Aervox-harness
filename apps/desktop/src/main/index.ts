@@ -30,13 +30,19 @@ async function streamAervoxTurn(event: Electron.IpcMainEvent, payload: unknown) 
 
     try {
         if (!sessionId) throw new Error('请先配置 AERVOX_SESSION_ID')
+        const headers: Record<string, string> = {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            'Idempotency-Key': requestId,
+        }
+        const workspaceId = process.env.AERVOX_WORKSPACE_ID?.trim()
+        const userId = process.env.AERVOX_USER_ID?.trim()
+        if (workspaceId) headers['x-workspace-id'] = workspaceId
+        if (userId) headers['x-user-id'] = userId
+
         const createResponse = await fetch(`${apiBaseUrl}/v1/sessions/${encodeURIComponent(sessionId)}/turns`, {
             method: 'POST',
-            headers: {
-                Accept: 'application/json',
-                'Content-Type': 'application/json',
-                'Idempotency-Key': requestId,
-            },
+            headers,
             body: JSON.stringify({
                 message: {content, contentType: 'text'},
                 clientVersion: '@aervox/desktop/0.2.0',

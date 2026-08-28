@@ -412,6 +412,7 @@ export async function executeTurn(
                 invocationId: executionId,
                 name: call.name,
                 arguments: call.arguments,
+                sessionId: input.sessionId,
               }),
               toolTimeoutMs,
             );
