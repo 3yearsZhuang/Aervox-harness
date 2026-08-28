@@ -285,7 +285,7 @@ Aervox 自研落地（AGPLv3 仅借鉴设计，不复制源码）：
 ## 7. 参照
 
 - [PRD §15 参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[§15.1 参考实现要求](../reference/PRD.md#151-参考实现要求)
-- [文档索引 §7 参考项目](../README.md#7-参考项目)
+- [文档索引 §6 参考项目](../README.md#6-参考项目)
 - [数据库设计与双引擎契约](../reference/DATABASE.md)
 - [能力注册表](../reference/capability-registry.md)（AVX-CAP-REG-001）
 - [Agent Harness Loop 设计与落地规范](../reference/agent-harness-loop.md)（AVX-HAR-001）

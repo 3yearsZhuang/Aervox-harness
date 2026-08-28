@@ -201,6 +201,7 @@
 | 全能力可选组合目标规范文档化 | CAP-020/027/031 + 基础设施 | `docs/reference/capability-composition.md`（AVX-CAP-001） | 2026-08-26 | ci-docs | `DSH-01` + `PI-01` + 原生 |
 | 已集成能力迁移与 DSH/pi 接入教程文档化 | CAP-020/027 | `docs/tutorials/migrate-integrated-capabilities.md`（AVX-TUT-002） | 2026-08-26 | ci-docs | `DSH-01` + `PI-01` + 原生 |
 | Agent Harness Loop 目标规范与迁移计划文档化 | CAP-002/005/007/008/019/020/027 + 基础设施 | `docs/reference/agent-harness-loop.md`（AVX-HAR-001）、`docs/reference/changes/CR-012-agent-harness-loop.md` | 2026-08-28 | ci-docs | `DSH-01` + `PI-01` + 原生 |
+| 文档治理与事实源标准化（AVX-DOC-GOV-001 / CR-016） | 基础设施（文档治理） | `docs/reference/document-governance.md`、`docs/_meta/document-policy.json`、`scripts/docs-governance.mjs`、`mise.toml`、`.github/workflows/docs.yml`；同步 `docs/README.md`、`docs/DOC_REGISTRY.md`、`docs/getting-started.md`、`docs/reference/standards/doc-standards.md`、`README.md`、`CONTRIBUTING.md`、`AGENTS.md` | 2026-08-28 | `mise tasks run docs-validate`；`mise tasks run ci-docs`；`git diff --check` | 原生 |
 | 文档登记强度分级（L1 编辑性 / L2 内容更新 / L3 结构性） | 基础设施（文档治理） | [doc-standards §3.1](standards/doc-standards.md#31-改动等级与同步要求)、`docs/DOC_REGISTRY.md` 维护规则、`AGENTS.md` 硬约束 | 2026-08-26 | ci-docs | 原生 |
 | 文档去重：落地登记合并单源 + 导航文档精简 | 基础设施（文档治理） | [reference-design-transfer §6.1](../explanation/reference-design-transfer.md#61-落地登记唯一真源) 改为唯一真源指引（明细移入本节）、`docs/getting-started.md` §3 硬性规则改链接、`AGENTS.md` 硬约束同步 | 2026-08-26 | ci-docs | 原生 |
 | 产品上限增强候选需求规格化（A/B 档） | CAP-005/009/014/015/018/019/020/027/030 | 评估成果原落于 [SRS §7]，该节随后被 main 的『SRS §7 插件配置与页面（CR-006）』取代（FR-MEM-001 等候选不再作为可引用需求源，插件规范化独立为 [AVX-PLUG-001](plugin-config-and-pages.md)）；本行保留以追溯产品评估结论 | 2026-08-26 | ci-docs | 原生（产品评估采纳） |
@@ -209,7 +210,7 @@
 | 新功能开发流程文档化（根级贡献指南 CONTRIBUTING，双语，替代暂存 AVX-GUIDE-004 how-to） | 基础设施（工程流程/文档治理） | [CONTRIBUTING.md](../../CONTRIBUTING.md)（融合参考项目贡献指南骨架 + 三阶段流程 + 本仓库门禁；feature-development.md 已删除并入） | 2026-08-26 | ci-docs | 原生 |
 | Agent Harness Loop 阶段 0+1：契约冻结 + 无工具单 Step Loop（Replay 驱动，替换固定 done SSE） | CAP-002/007 + 基础设施 | `packages/agent-loop`（Ports/Executor/Replay Provider/内存 Store/契约测试）、`packages/database` conversation-repository（`claimTurnAttempt` CAS+fencing / `finalizeTurnAttempt` / `appendStreamEvent` 扩展 attempt/safetyDecision）、`apps/api` conversation routes（POST turn 建 Attempt + `executeTurn`，SSE 改重放 `turn_stream_events`） | 2026-08-28 | `@aervox/agent-loop` 5 单测（确定性序列/幂等重放/CAS）+ `apps/api` conversation-loop 集成测试（POST turn → message→delta→done，重连幂等）；ci-code 全量 | `DSH-01` + 原生 |
 | 可选模块方案并入能力组合体系（AVX-MOD-001 提升为必选机制） | 基础设施（文档治理） | [AVX-CAP-001](capability-composition.md) 新增「交付载体与自选机制（必选）」（不变量/双轴/接口边界/判定准则）、新建 [AVX-CAP-REG-001](capability-registry.md) 能力注册表、[AVX-GUIDE-003](../how-to/submodule-collaboration.md) 并入生命周期门禁 §8、删除 `docs/explanation/optional_modules.md` 并同步索引/登记表/教程/CR 引用；README 按项目现状更新 | 2026-08-28 | ci-docs | 原生 |
-| Agent Harness Loop 阶段 2a-2c：只读工具多 Step Loop（核心控制流，脚本化 Replay 驱动） | CAP-002/007/020 + 基础设施 | `packages/agent-loop`（`ToolProviderPort` + 只读 mock 工具、Step 状态机与 `ToolCallRequest/Result` 扩展、`executeTurn` 多 Step 循环：白名单 fail-closed + 去重 + 超时 + maxSteps 终止 + 工具结果回填上下文）、脚本化 Replay Provider、7 项工具路径契约测试 | 2026-08-28 | `@aervox/agent-loop` 12 测试（含阶段 1 回归）；ci-code 全量；**阶段 2d（API 接线与 `tool_executions` 持久化）待后续 PR** | `DSH-01` + 原生 |
+| Agent Harness Loop 阶段 2a-2c：只读工具多 Step Loop（核心控制流，脚本化 Replay 驱动） | CAP-002/007/020 + 基础设施 | `packages/agent-loop`（`ToolProviderPort` + 只读 mock 工具、Step 状态机与 `ToolCallRequest/Result` 扩展、`executeTurn` 多 Step 循环：白名单 fail-closed + 去重 + 超时 + maxSteps 终止 + 工具结果回填上下文）、脚本化 Replay Provider、7 项工具路径契约测试 | 2026-08-28 | `@aervox/agent-loop` 12 测试（含阶段 1 回归）；ci-code 全量 | `DSH-01` + 原生 |
 | Agent Harness Loop 阶段 2d：API 接线（只读白名单适配 ToolRuntime）+ 工具执行账本 `tool_executions` | CAP-002/007/020 + 基础设施 | `packages/database`（`tool_executions` 表/schema/init + `recordToolExecution`/`listToolExecutionsByTurn`）、`packages/agent-loop`（`ExecutionStorePort.recordToolExecution` 副作用证据 + 事件账本断言）、`apps/api`（`createRuntimeToolProvider` 只读白名单 fail-closed、`runLoopTurnOnce` env 开关、SSE 透传 tool 事件、buildApp 暴露 toolRuntime） | 2026-08-28 | `@aervox/agent-loop` 12 测试（含账本断言）；`apps/api` 81 测试（含 conversation-tool-loop 2：SSE tool 事件 + 账本 executed/rejected）；ci-code 全量 | `DSH-01` + 原生 |
 | Agent Harness Loop 阶段 2e：真实模型 Provider（OpenAI 兼容流，复用 CR-015 LLM 配置） | CAP-002/007/020 + 基础设施 | `packages/agent-loop`（`createOpenAICompatProvider`：`/chat/completions` SSE 流、content/tool_calls delta 分片累积、`[DONE]`/finish_reason 收尾、`ModelRequest.tools` 注入只读工具 schema）、`apps/api`（`AERVOX_LOOP_PROVIDER=llm` 从 `LLMConfigService` 构造 provider，anthropic 明示不支持；未就绪写 error 事件 + Failed 不静默回退） | 2026-08-28 | `@aervox/agent-loop` 16 测试（含 mock fetch 流解析 4）；`apps/api` 83 测试（含 conversation-llm 2：SSE delta+done / anthropic_unsupported error）；ci-code 全量 | 原生 |
 | Agent Harness Loop 阶段 3a：写工具审批通道（write_with_approval 授权决断 + 授权快照） | CAP-002/007/020 + 基础设施 | `packages/database`（`tool_approvals` 表/schema/init + `recordToolApproval`/`decideToolApproval`/`listToolApprovalsByTurn`/`findGrantedToolApproval`）、`packages/agent-loop`（`needsApproval` 语义 + `tool_approval_*` 事件 + 账本 `pending_approval` + 写工具 mock）、`apps/api`（adapter 写工具分支：参数哈希匹配 granted→执行，否则 pending+needsApproval；`POST /v1/turns/:id/tool-approvals` 端点；scripted-write 脚本） | 2026-08-28 | `@aervox/agent-loop` 18 测试（含 approval-loop）；`apps/api` 86 测试（含 conversation-approval 3：未决/grant 重发执行/deny 仍挂）；ci-code 全量 | 原生 + `DSH-01` 借鉴 |
@@ -486,24 +487,35 @@ DoR 不允许以“开发中再确定”代替。确需并行探索的内容应�
 ### 11.4 CR 模板
 
 ```markdown
-## CR-001 变更标题
+---
+id: CR-001
+type: reference
+scope: change
+owner: <team-role>
+doc_status: draft
+decision_status: proposed
+delivery_status: planned
+version: 0.1.0
+updated_at: YYYY-MM-DD
+reviewed_at: YYYY-MM-DD
+review_interval_days: 90
+---
 
-- 状态：Proposed
-- 提出人 / 日期：
-- 目标版本：
-- 变更原因与证据：
-- 关联能力与需求：
-- 当前行为 / 目标行为：
-- 范围外：
-- UX/API/数据/AI/安全/隐私影响：
-- 迁移与向后兼容：
-- 测试、埋点和验收影响：
-- 风险与成本：
-- 灰度、回滚和用户通知：
-- 决策：Approved / Rejected / Deferred / More Evidence Required
-- 修改人 / 日期：
-- 更新的文档和测试：
-- 发布后结果：
+# CR-001 变更标题
+
+- 提出人：<账号> · YYYY-MM-DD
+- 修改人：<账号> · YYYY-MM-DD
+
+## 变更原因与证据
+## 关联能力与需求
+## 当前行为与目标行为
+## 范围外
+## UX/API/数据/AI/安全/隐私影响
+## 迁移与向后兼容
+## 测试、埋点和验收影响
+## 风险、成本、灰度、回滚和用户通知
+## 更新的文档和测试
+## 发布后结果
 ```
 
 ## 12. 维护规则与审计
