@@ -21,6 +21,24 @@ export interface ExecuteTurnInput {
   userMessage: string;
 }
 
+/**
+ * 3c/4b 续跑输入（§11.3 首范式「工具结果已权威提交但尚未注入」）：
+ * 由恢复器从事件流 + 工具账本重建上下文后，以「抢占续跑」方式在原 Attempt 上继续，
+ * 禁止重复已提交副作用与事件。executor 跳过 message 身份事件、沿用既有 sequence 之后追加。
+ */
+export interface ExecuteTurnResumeInput {
+  /** 原执行已 claim 的 fencing（续跑以抢占语义重新 claim，预期=当前值） */
+  expectedFencingToken: number;
+  /** 已存在事件的最大序号：新事件从 lastSequence+1 追加 */
+  lastSequence: number;
+  /** 原执行已完成的 Step 数：续跑 Step 与 executionId（attempt:step:seq）从其后继续，避免与新事件冲突 */
+  lastStep: number;
+  /** 续跑上下文：恢复器重建的 PromptMessage[]（含 user + 既有 assistant 文本 + 权威 tool 结果） */
+  history: PromptMessage[];
+  /** 已提交的助手消息身份（message 事件 data.messageId），续跑 delta/done 复用 */
+  messageId: string;
+}
+
 export interface ExecuteTurnOptions {
   /** Step 上限（防死循环）；默认 8。多 Step 工具 Loop 由该边界兜底 */
   maxSteps?: number;
@@ -30,6 +48,8 @@ export interface ExecuteTurnOptions {
   maxTurnDurationMs?: number;
   /** 2d：连续同名工具请求上限（防工具死循环）；0 关闭；超出以 Interrupted 收敛（§10 maxConsecutiveSameTool） */
   maxConsecutiveSameTool?: number;
+  /** 4b：续跑（§11.3 首范式）；缺省为全新执行 */
+  resume?: ExecuteTurnResumeInput;
 }
 
 /** 2d：删除/撤权水位闸门（§11.3：删除/撤权水位未追平 → fail closed，不继续模型或工具调用） */
@@ -83,10 +103,13 @@ export async function executeTurn(
   const maxConsecutiveSameTool = options?.maxConsecutiveSameTool ?? 0;
   const startedAt = Date.now();
 
+  // 4b 续跑：以「抢占续跑」语义重新 claim（预期 = 原执行已持有的 fencing）；
+  // 全新执行为 0（首次 claim）。
+  const resume = options?.resume;
   const claim = await execution.claimTurnAttempt({
     turnId: input.turnId,
     attemptId: input.attemptId,
-    expectedFencingToken: 0,
+    expectedFencingToken: resume?.expectedFencingToken ?? 0,
   });
   if (!claim.ok) {
     return { status: "skipped", attemptId: input.attemptId, reason: claim.reason };
@@ -161,28 +184,35 @@ export async function executeTurn(
   };
 
   try {
-    let sequence = await execution.nextSequence(input.turnId);
-    const messageId = `msg_${input.turnId}_assistant`;
+    // 4b 续跑：sequence 沿用已存在事件之后（lastSequence+1 起），message 身份事件已有则跳过、
+    // 复用原 messageId；全新执行为 nextSequence（stage 1 语义）。
+    let sequence = resume ? resume.lastSequence + 1 : await execution.nextSequence(input.turnId);
+    const messageId = resume?.messageId ?? `msg_${input.turnId}_assistant`;
 
-    // 1) message 事件：Assistant Message 身份先提交（一次）
-    await execution.appendEvent({
-      turnId: input.turnId,
-      attemptId: input.attemptId,
-      sequence: sequence++,
-      eventType: "message",
-      data: { messageId, role: "assistant", contentType: "text", isComplete: false },
-      safetyDecision: "approved",
-    });
+    // 1) message 事件：Assistant Message 身份先提交（一次）——仅全新执行时提交
+    if (!resume) {
+      await execution.appendEvent({
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        sequence: sequence++,
+        eventType: "message",
+        data: { messageId, role: "assistant", contentType: "text", isComplete: false },
+        safetyDecision: "approved",
+      });
+    }
 
-    // 多 Step 共享上下文：随工具结果逐步增长
-    const history: PromptMessage[] = [{ role: "user", content: input.userMessage }];
+    // 多 Step 共享上下文：随工具结果逐步增长；续跑时以恢复器重建上下文为初始历史
+    const history: PromptMessage[] = resume?.history ?? [{ role: "user", content: input.userMessage }];
     const seenToolCalls = new Set<string>();
     let toolCallSeq = 0;
     let streakName: string | undefined;
     let sameToolStreak = 0;
     let textAccumulator: string[] = [];
 
-    for (let step = 1; step <= maxSteps; step += 1) {
+    // 4b 续跑：Step 从 resume.lastStep 之后继续（executionId=attempt:step:seq 不与已提交冲突）；
+    // 全新执行从 1 开始。
+    const stepBase = resume?.lastStep ?? 0;
+    for (let step = stepBase + 1; step <= maxSteps; step += 1) {
       stepsTaken = step;
 
       // 2b：检查点 · Step 首部（取消优先于租约探活：用户取消时不得因续租失败误报 lease_lost）

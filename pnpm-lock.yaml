@@ -32,6 +32,9 @@ importers:
       '@aervox/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@aervox/host-agent':
+        specifier: workspace:*
+        version: link:../../packages/host-agent
       '@aervox/practice-review':
         specifier: workspace:*
         version: link:../../packages/practice-review
@@ -241,6 +244,31 @@ importers:
       vitest:
         specifier: 4.0.18
         version: 4.0.18(@types/node@22.20.1)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
+
+  packages/host-agent:
+    dependencies:
+      '@aervox/agent-loop':
+        specifier: workspace:*
+        version: link:../agent-loop
+      '@aervox/database':
+        specifier: workspace:*
+        version: link:../database
+      '@aervox/observability':
+        specifier: workspace:*
+        version: link:../observability
+      '@libsql/client':
+        specifier: ^0.14.0
+        version: 0.14.0
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: 4.0.18
+        version: 4.0.18(@types/node@24.13.3)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
 
   packages/observability:
     devDependencies:
