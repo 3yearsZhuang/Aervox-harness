@@ -86,7 +86,7 @@ const todoOpen = ref(false)
 const timerOpen = ref(false)
 const studyOpen = ref(false)
 const settingsOpen = ref(false)
-const settingsCategory = ref<'tools' | 'appearance' | 'conversation' | 'model' | 'persona' | 'focus' | 'notifications' | 'voice' | 'plugins'>('tools')
+const settingsCategory = ref<'tools' | 'appearance' | 'conversation' | 'model' | 'persona' | 'notifications' | 'voice' | 'plugins'>('tools')
 const newGoalTopic = ref('')
 const newGoalLevel = ref<'beginner' | 'intermediate' | 'advanced'>('beginner')
 const newGoalMinutes = ref(25)
@@ -98,7 +98,8 @@ const practiceReadyToComplete = ref(false)
 const practiceAnswer = ref('')
 const practiceFeedback = ref<{judgement: string; nextStep: string} | null>(null)
 const practiceSubmission = ref<{sessionId: string; questionId: string; answer: string; idempotencyKey: string} | null>(null)
-const practiceReport = ref<{answeredCount: number; questionCount: number; remainingCount: number; correctCount: number; incorrectCount: number; unverifiableCount: number; accuracy: number | null; nextStep: string} | null>(null)
+const practiceReport = ref<{answeredCount: number; questionCount: number; remainingCount: number; correctCount: number; incorrectCount: number; unverifiableCount: number; accuracy: number | null; avgTimeSpentSec: number | null; totalHintsUsed: number; guidance: {difficulty: 'ease' | 'maintain' | 'increase'; reasonCode: string; message: string}; nextStep: string} | null>(null)
+const questionStartTime = ref<number>(0)
 const practiceBusy = ref(false)
 const practiceError = ref<string | null>(null)
 const mistakeFilter = ref<'active' | 'mastered' | 'dismissed' | 'all'>('active')
@@ -171,7 +172,6 @@ const settingCategories = [
   {id: 'conversation', label: '对话', description: '称呼与输入方式', icon: MessageCircle},
   {id: 'model', label: '模型与服务', description: '大语言模型与供应商配置', icon: Bot},
   {id: 'persona', label: '人格设定', description: '管理人格角色设定', icon: Heart},
-  {id: 'focus', label: '专注', description: '番茄钟工作时长', icon: Clock3},
   {id: 'notifications', label: '提醒', description: '学习节奏与通知', icon: Bell},
   {id: 'voice', label: '语音', description: '本地语音模型配置', icon: Volume2},
   {id: 'plugins', label: '插件', description: '插件配置与页面', icon: Puzzle},
@@ -425,6 +425,7 @@ function restorePracticeSession(session: {sessionId: string; items: Array<{id: s
   practiceAnswer.value = ''
   practiceSubmission.value = null
   practiceFeedback.value = null
+  questionStartTime.value = Date.now()
 }
 
 async function startPractice() {
@@ -448,12 +449,13 @@ async function submitPracticeAnswer() {
   practiceBusy.value = true
   practiceError.value = null
   try {
+    const elapsedSeconds = Math.max(1, Math.round((Date.now() - questionStartTime.value) / 1000))
     const existing = practiceSubmission.value
     const submission = existing?.sessionId === practiceSession.value.sessionId && existing.questionId === question.id && existing.answer === answer
       ? existing
       : { sessionId: practiceSession.value.sessionId, questionId: question.id, answer, idempotencyKey: `attempt_${crypto.randomUUID()}` }
     practiceSubmission.value = submission
-    practiceFeedback.value = await api.submitPracticeAnswer(submission.sessionId, submission.questionId, submission.answer, submission.idempotencyKey)
+    practiceFeedback.value = await api.submitPracticeAnswer(submission.sessionId, submission.questionId, submission.answer, submission.idempotencyKey, elapsedSeconds)
   } catch (error) {
     practiceError.value = error instanceof Error ? '作答没有保存，请重试。' : '作答失败，请重试。'
   } finally {
@@ -584,6 +586,7 @@ function nextPracticeQuestion() {
   practiceAnswer.value = ''
   practiceSubmission.value = null
   practiceFeedback.value = null
+  questionStartTime.value = Date.now()
 }
 
 function toggleTimer() {
@@ -593,6 +596,91 @@ function toggleTimer() {
 function resetTimer() {
   timerRunning.value = false
   timerSeconds.value = timerMinutes.value * 60
+}
+
+const timerDialRef = ref<SVGSVGElement | null>(null)
+const isDraggingDial = ref(false)
+
+// 环形表盘几何常数 (SVG viewBox 0 0 200 200, 中心 100,100, 半径 80)
+const DIAL_RADIUS = 80
+const DIAL_CIRCUMFERENCE = 2 * Math.PI * DIAL_RADIUS
+
+const timerRatio = computed(() => {
+  if (timerRunning.value) {
+    const total = Math.max(timerMinutes.value * 60, 1)
+    return Math.max(0, Math.min(1, timerSeconds.value / total))
+  }
+  return Math.max(0, Math.min(1, timerMinutes.value / 60))
+})
+
+const timerArcDashoffset = computed(() => {
+  return DIAL_CIRCUMFERENCE * (1 - timerRatio.value)
+})
+
+// 滑块手柄（白点）旋转角度（顺时针度数，0° = 12 点钟方向）
+const thumbAngle = computed(() => {
+  return timerRatio.value * 360
+})
+
+function calculateMinutesFromEvent(event: MouseEvent | TouchEvent): number | null {
+  const svg = timerDialRef.value
+  if (!svg) return null
+  const rect = svg.getBoundingClientRect()
+  const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX
+  const clientY = 'touches' in event ? event.touches[0].clientY : event.clientY
+  const cx = rect.left + rect.width / 2
+  const cy = rect.top + rect.height / 2
+  const dx = clientX - cx
+  const dy = clientY - cy
+  // 极坐标角度，正上方为 0度，顺时针增长
+  let deg = Math.atan2(dy, dx) * (180 / Math.PI) + 90
+  if (deg < 0) deg += 360
+  // 360 度对应 60 分钟
+  const rawMin = (deg / 360) * 60
+  const clamped = Math.max(1, Math.min(60, Math.round(rawMin)))
+  return clamped
+}
+
+function handleDialPointerDown(event: MouseEvent | TouchEvent) {
+  if (timerRunning.value) return
+  isDraggingDial.value = true
+  const min = calculateMinutesFromEvent(event)
+  if (min !== null) {
+    timerMinutes.value = min
+    timerSeconds.value = min * 60
+  }
+  window.addEventListener('mousemove', handleDialPointerMove)
+  window.addEventListener('mouseup', handleDialPointerUp)
+  window.addEventListener('touchmove', handleDialPointerMove, {passive: false})
+  window.addEventListener('touchend', handleDialPointerUp)
+}
+
+function handleDialPointerMove(event: MouseEvent | TouchEvent) {
+  if (!isDraggingDial.value || timerRunning.value) return
+  if ('touches' in event) event.preventDefault()
+  const min = calculateMinutesFromEvent(event)
+  if (min !== null && min !== timerMinutes.value) {
+    timerMinutes.value = min
+    timerSeconds.value = min * 60
+  }
+}
+
+function handleDialPointerUp() {
+  if (isDraggingDial.value) {
+    isDraggingDial.value = false
+    saveSettings()
+  }
+  window.removeEventListener('mousemove', handleDialPointerMove)
+  window.removeEventListener('mouseup', handleDialPointerUp)
+  window.removeEventListener('touchmove', handleDialPointerMove)
+  window.removeEventListener('touchend', handleDialPointerUp)
+}
+
+function selectPresetMinutes(minutes: number) {
+  if (timerRunning.value) return
+  timerMinutes.value = minutes
+  timerSeconds.value = minutes * 60
+  saveSettings()
 }
 
 function handleComposerEnter(event: KeyboardEvent) {
@@ -745,7 +833,7 @@ onMounted(() => {
     if (savedSettings.assistantName) assistantDisplayName.value = savedSettings.assistantName
     if (typeof savedSettings.enterToSend === 'boolean') enterToSend.value = savedSettings.enterToSend
     if (typeof savedSettings.compactMode === 'boolean') compactMode.value = savedSettings.compactMode
-    if (typeof savedSettings.timerMinutes === 'number' && [15, 25, 45, 60].includes(savedSettings.timerMinutes)) timerMinutes.value = savedSettings.timerMinutes
+    if (typeof savedSettings.timerMinutes === 'number' && savedSettings.timerMinutes >= 1 && savedSettings.timerMinutes <= 60) timerMinutes.value = savedSettings.timerMinutes
     if (typeof savedSettings.desktopCompanionEnabled === 'boolean') desktopCompanionEnabled.value = savedSettings.desktopCompanionEnabled
     if (typeof savedSettings.dailyReminder === 'boolean') dailyReminder.value = savedSettings.dailyReminder
     timerSeconds.value = timerMinutes.value * 60
@@ -1024,11 +1112,88 @@ onUnmounted(() => {
 
     <el-drawer v-model="timerOpen" title="番茄钟" direction="rtl" size="min(400px, 92vw)">
       <div class="timer-panel">
-        <div class="timer-ring" :class="{running: timerRunning}"><strong>{{ formattedTime }}</strong><small>专注时间</small></div>
-        <p>{{ timerRunning ? '保持当前节奏，结束后记得休息。' : '准备好后开始一个 25 分钟的小回合。' }}</p>
+        <div
+          class="timer-dial-wrapper"
+          :class="{running: timerRunning, dragging: isDraggingDial}"
+          @mousedown="handleDialPointerDown"
+          @touchstart="handleDialPointerDown"
+        >
+          <svg
+            ref="timerDialRef"
+            class="timer-dial-svg"
+            viewBox="0 0 200 200"
+            aria-hidden="true"
+          >
+            <!-- 浅色/半透明底轨 -->
+            <circle
+              class="timer-dial-track"
+              cx="100"
+              cy="100"
+              :r="DIAL_RADIUS"
+            />
+            <!-- 高亮进度弧线 -->
+            <circle
+              class="timer-dial-progress"
+              cx="100"
+              cy="100"
+              :r="DIAL_RADIUS"
+              :stroke-dasharray="DIAL_CIRCUMFERENCE"
+              :stroke-dashoffset="timerArcDashoffset"
+            />
+            <!-- 白色滑块圆圈手柄（引导用户拖拽，旋转中心为圆心 100,100，起始位置在正右方 180,100） -->
+            <g
+              v-if="!timerRunning"
+              class="timer-dial-thumb-group"
+              :style="{transform: `rotate(${thumbAngle}deg)`}"
+            >
+              <!-- 手柄外晕与白色实心圆点，位于 (100+DIAL_RADIUS, 100) = (180, 100) -->
+              <circle
+                class="timer-dial-thumb-halo"
+                cx="180"
+                cy="100"
+                r="13"
+              />
+              <circle
+                class="timer-dial-thumb"
+                cx="180"
+                cy="100"
+                r="7.5"
+              />
+            </g>
+          </svg>
+          <div class="timer-dial-center">
+            <strong>{{ formattedTime }}</strong>
+            <small>{{ timerRunning ? '专注中' : '专注时间' }}</small>
+          </div>
+        </div>
+
+        <p class="timer-guide-text">
+          {{ timerRunning ? '保持当前节奏，结束后记得休息。' : `滑动圆环设定 ${timerMinutes} 分钟专注回合` }}
+        </p>
+
+        <div v-if="!timerRunning" class="timer-presets" role="radiogroup" aria-label="快捷预设时长">
+          <button
+            v-for="preset in [15, 25, 45, 60]"
+            :key="preset"
+            type="button"
+            class="timer-preset-btn"
+            :class="{active: timerMinutes === preset}"
+            @click="selectPresetMinutes(preset)"
+          >
+            {{ preset }} 分钟
+          </button>
+        </div>
+
         <div class="timer-actions">
-          <button type="button" @click="toggleTimer"><Pause v-if="timerRunning" :size="20" /><Play v-else :size="20" />{{ timerRunning ? '暂停' : '开始专注' }}</button>
-          <button type="button" @click="resetTimer"><TimerReset :size="20" />重置</button>
+          <button type="button" @click="toggleTimer">
+            <Pause v-if="timerRunning" :size="20" />
+            <Play v-else :size="20" />
+            {{ timerRunning ? '暂停' : '开始专注' }}
+          </button>
+          <button type="button" @click="resetTimer">
+            <TimerReset :size="20" />
+            重置
+          </button>
         </div>
       </div>
     </el-drawer>
@@ -1047,6 +1212,13 @@ onUnmounted(() => {
           <strong>本次练习完成</strong>
           <p>已作答 {{ practiceReport.answeredCount }}/{{ practiceReport.questionCount }} 题 · 正确 {{ practiceReport.correctCount }} · 错误 {{ practiceReport.incorrectCount }} · 待确认 {{ practiceReport.unverifiableCount }}</p>
           <p v-if="practiceReport.accuracy !== null">可判定题正确率：{{ Math.round(practiceReport.accuracy * 100) }}%</p>
+          <p v-if="practiceReport.avgTimeSpentSec !== null">平均用时：{{ practiceReport.avgTimeSpentSec }} 秒</p>
+          <div class="practice-guidance" :class="`difficulty-${practiceReport.guidance.difficulty}`">
+            <strong>
+              {{ practiceReport.guidance.difficulty === 'ease' ? '📉 建议降低难度' : practiceReport.guidance.difficulty === 'increase' ? '📈 建议提高难度' : '➡️ 保持当前难度' }}
+            </strong>
+            <small>{{ practiceReport.guidance.message }}</small>
+          </div>
           <small>{{ practiceReport.remainingCount > 0 ? `还有 ${practiceReport.remainingCount} 题未作答；` : '' }}{{ practiceReport.nextStep === 'review_scheduled' ? '错题已进入后续复习。' : practiceReport.nextStep === 'await_review' ? '待确认题暂不计入掌握度。' : '继续保持这个节奏。' }}</small>
         </article>
           <article v-else-if="practiceSession && practiceReadyToComplete" class="practice-panel">
@@ -1288,13 +1460,6 @@ onUnmounted(() => {
           </div>
           <LLMConfigPanel v-else-if="settingsCategory === 'model'" class="settings-section" />
           <PersonaManagerPanel v-else-if="settingsCategory === 'persona'" class="settings-section" />
-          <div v-else-if="settingsCategory === 'focus'" class="settings-section">
-            <div class="settings-section-heading">
-              <span class="heading-icon-wrap"><Clock3 :size="18" /></span>
-              <span><strong>专注</strong><small>设置番茄钟的默认工作与休息时长</small></span>
-            </div>
-            <div class="settings-row settings-choice-row"><span><strong>专注时长</strong><small>重置计时器时使用该时长</small></span><span class="settings-segmented"><button v-for="minutes in [15, 25, 45, 60]" :key="minutes" type="button" :class="{active: timerMinutes === minutes}" @click="timerMinutes = minutes; saveSettings()">{{ minutes }} 分钟</button></span></div>
-          </div>
           <div v-else-if="settingsCategory === 'notifications'" class="settings-section">
             <div class="settings-section-heading">
               <span class="heading-icon-wrap"><Bell :size="18" /></span>

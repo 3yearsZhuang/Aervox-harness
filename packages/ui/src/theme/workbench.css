@@ -1010,50 +1010,168 @@
 .timer-panel {
   display: grid;
   justify-items: center;
-  gap: 22px;
-  padding-top: 26px;
+  gap: 18px;
+  padding-top: 20px;
   text-align: center;
 }
 
-.timer-ring {
-  width: 190px;
-  height: 190px;
+.timer-dial-wrapper {
+  position: relative;
+  width: 210px;
+  height: 210px;
+  display: grid;
+  place-items: center;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  transition: transform .15s ease;
+}
+
+.timer-dial-wrapper.dragging {
+  cursor: grabbing;
+  transform: scale(1.02);
+}
+
+.timer-dial-wrapper.running {
+  cursor: default;
+}
+
+.timer-dial-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  overflow: visible;
+}
+
+.timer-dial-track {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 14%, var(--border));
+  stroke-width: 10px;
+  transition: stroke .2s ease;
+}
+
+.timer-dial-progress {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 10px;
+  stroke-linecap: round;
+  transition: stroke-dashoffset .22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.timer-dial-wrapper.dragging .timer-dial-progress {
+  transition: none; /* 拖拽时立即响应，无延迟滞后 */
+}
+
+.timer-dial-thumb-group {
+  transform-origin: 100px 100px;
+  transition: transform .22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.timer-dial-wrapper.dragging .timer-dial-thumb-group {
+  transition: none; /* 拖拽时紧贴手指/鼠标，零延迟同步 */
+}
+
+.timer-dial-thumb-halo {
+  fill: color-mix(in srgb, var(--accent) 24%, transparent);
+  opacity: 0;
+  transform-origin: 180px 100px;
+  transition: opacity .18s ease, transform .18s ease;
+}
+
+.timer-dial-thumb {
+  fill: #ffffff;
+  stroke: var(--accent);
+  stroke-width: 3.5px;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, .22));
+  transform-origin: 180px 100px;
+  transition: transform .18s ease, stroke-width .18s ease;
+}
+
+.timer-dial-wrapper:not(.running):hover .timer-dial-thumb-halo,
+.timer-dial-wrapper.dragging .timer-dial-thumb-halo {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+.timer-dial-wrapper:not(.running):hover .timer-dial-thumb,
+.timer-dial-wrapper.dragging .timer-dial-thumb {
+  stroke-width: 4px;
+  transform: scale(1.1);
+}
+
+.timer-dial-wrapper:not(.running):hover .timer-dial-track {
+  stroke: color-mix(in srgb, var(--accent) 22%, var(--border));
+}
+
+.timer-dial-center {
+  position: relative;
+  z-index: 2;
   display: grid;
   place-content: center;
   justify-items: center;
-  border: 8px solid var(--accent-soft);
-  border-top-color: var(--accent);
-  border-radius: 50%;
+  pointer-events: none;
 }
 
-.timer-ring.running {
-  animation: aervox-spin 8s linear infinite;
-}
-
-.timer-ring.running strong,
-.timer-ring.running small {
-  animation: aervox-reverse-spin 8s linear infinite;
-}
-
-.timer-ring strong {
+.timer-dial-center strong {
   color: var(--text-primary);
-  font-size: 34px;
+  font-size: 38px;
+  font-weight: 750;
+  letter-spacing: -0.5px;
   font-variant-numeric: tabular-nums;
+  line-height: 1.1;
 }
 
-.timer-ring small {
+.timer-dial-center small {
+  margin-top: 4px;
   color: var(--text-muted);
+  font-size: 13px;
 }
 
-.timer-panel > p {
+.timer-guide-text {
   margin: 0;
   color: var(--text-muted);
   font-size: 12px;
 }
 
+.timer-presets {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: -4px;
+}
+
+.timer-preset-btn {
+  padding: 5px 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 999px;
+  background: var(--bg-soft);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: all .16s ease;
+}
+
+.timer-preset-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.timer-preset-btn.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .timer-actions {
   display: flex;
   gap: 10px;
+  margin-top: 4px;
 }
 
 .timer-actions button {
@@ -1269,6 +1387,20 @@
 .practice-end { justify-self: start; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
 .practice-start:disabled,
 .practice-panel button:disabled { cursor: not-allowed; opacity: .55; }
+
+.practice-guidance {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-soft) 50%, transparent);
+  border-left: 3px solid var(--accent);
+}
+.practice-guidance strong { font-size: 14px; color: var(--text-primary); }
+.practice-guidance small { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.practice-guidance.difficulty-ease { border-left-color: #e74c3c; background: color-mix(in srgb, #e74c3c 12%, transparent); }
+.practice-guidance.difficulty-increase { border-left-color: #27ae60; background: color-mix(in srgb, #27ae60 12%, transparent); }
+.practice-guidance.difficulty-maintain { border-left-color: var(--accent); }
 
 .mistake-filters {
   display: flex;
