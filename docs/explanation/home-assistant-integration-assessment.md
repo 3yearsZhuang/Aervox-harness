@@ -248,6 +248,8 @@ HA 事件订阅器（B）── state_changed ──> 授权实体过滤 ──>
 
 ## 9. 参考资料
 
+姊妹评估：[运动与健康数据接入评估](health-data-integration-assessment.md)（AVX-EXPL-007）。
+
 - [Home Assistant REST API 官方文档](https://developers.home-assistant.io/docs/api/rest/)
 - [Home Assistant WebSocket API 官方文档](https://developers.home-assistant.io/docs/api/websocket/)
 - [Home Assistant Authentication API 官方文档](https://developers.home-assistant.io/docs/auth_api/)
