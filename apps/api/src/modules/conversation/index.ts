@@ -9,6 +9,7 @@ import {
   SqliteAgentInboxRepository,
   SqliteConversationRepository,
   SqlitePrivacyRepository,
+  SqliteSkillRegistryRepository,
 } from "@aervox/database";
 import type { AervoxDatabase } from "@aervox/database";
 import type { ToolRuntime } from "../tools/runtime.js";
@@ -29,10 +30,17 @@ export function registerConversationModule(
 ): void {
   const conversationRepo = new SqliteConversationRepository(db);
   const privacyRepo = new SqlitePrivacyRepository(db);
+  const skillRepo = new SqliteSkillRegistryRepository(db);
   registerConversationRoutes(app, conversationRepo, {
     toolRuntime: options.toolRuntime,
     llmConfigService: options.llmConfigService,
     privacyRepo,
     inboxRepo: new SqliteAgentInboxRepository(db),
+    // 5b：Skill 渐进披露（activeOnly 清单 → name+description）
+    skillLoader: async () =>
+      (await skillRepo.listSkills(true)).map((s) => ({
+        name: s.name,
+        description: s.description,
+      })),
   });
 }

@@ -7,6 +7,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import { createTurnRequestSchema } from "@aervox/contracts";
+import type { SkillDescriptor } from "@aervox/agent-loop";
 import type { SqliteConversationRepository, SqlitePrivacyRepository, SqliteAgentInboxRepository } from "@aervox/database";
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
@@ -26,6 +27,8 @@ export interface ConversationRouteDeps {
   privacyRepo?: SqlitePrivacyRepository;
   /** 5a-2：受控收件箱（followup 排队为新 Turn 输入；next-step 由 Loop 每 Step 消费） */
   inboxRepo?: SqliteAgentInboxRepository;
+  /** 5b：Skill 渐进披露清单加载器（activeOnly；缺省不注入 Skills 段） */
+  skillLoader?: () => Promise<SkillDescriptor[]>;
 }
 
 export function registerConversationRoutes(
@@ -123,6 +126,8 @@ export function registerConversationRoutes(
           : undefined,
         // 5a-2：受控收件箱端口（每 Step 消费 next-step；steer/inject 注入上下文）
         inbox: deps.inboxRepo ? createTenantInboxPort(deps.inboxRepo, tenant) : undefined,
+        // 5b：Skill 渐进披露（activeOnly 清单注入 system prompt）
+        skills: deps.skillLoader ? await deps.skillLoader() : undefined,
       },
     );
 
