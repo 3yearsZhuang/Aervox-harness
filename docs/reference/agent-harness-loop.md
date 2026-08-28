@@ -536,15 +536,15 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 
 ### 阶段 4：独立 Host 与 Profile 选择
 
-目标：把 Loop 从 API 组合根中抽出；独立 Host 已落地（4a/4b/4c），DSH/pi Adapter 仍未实现。
+目标：把 Loop 从 API 组合根中抽出；独立 Host 已落地（4a/4b/4c/4d 全闭环），DSH/pi Adapter 仍未实现。
 
-- 新建 `packages/host-agent` 和可选 `apps/agent`（已新建 `packages/host-agent`：内嵌异步 Host + SQLite ExecutionStore 组合适配 + 恢复源 + 最小 Profile）；
+- 新建 `packages/host-agent` 和可选 `apps/agent`（已新建 `packages/host-agent`：内嵌异步 Host + SQLite ExecutionStore 组合适配 + 恢复源 + 最小 Profile + 健康检查）；
 - Profile 绑定 Native/Replay/DSH/pi Loop Driver，并为每个 Driver 解析一个 Model Provider（已落地最小 Profile：replay 无依赖 / native 需 CR-015 同源配置；DSH/pi 仅在完成进程外 Adapter、许可证和安全评审后启用）；
 - API 只负责 Turn command 和 SSE query；
 - Agent Host 通过 Outbox/claim 驱动；
-- 增加健康检查、并发调度、背压和优雅停机（已落地：轮询/claim+背压/优雅停机 drain；健康检查接续 4d）。
+- 增加健康检查、并发调度、背压和优雅停机（已全落地：轮询/claim+背压/优雅停机 drain；4d 健康检查 `health()` 含 liveness 五态 + readiness 依赖探针 + 容量 gauge）。
 
-退出条件：切换 Loop Driver 不改变客户端契约和业务数据库所有权，且无 DSH/pi 时原生 Profile 仍可运行。
+退出条件：切换 Loop Driver 不改变客户端契约和业务数据库所有权，且无 DSH/pi 时原生 Profile 仍可运行。（已验证：`agent-loop-provider-parity.test.ts` driver 切换事件流契约骨架同构；`agent-loop-no-db` import-boundary 健身函数机器验证 agent-loop 不触数据库；`profile.test.ts` 验证无 DSH/pi 时原生 Profile 可运行。）
 
 ### 阶段 5：Inbox、压缩与高级能力
 
@@ -648,18 +648,18 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 | `agent-loop-sse` | `apps/api/test/conversation-loop.test.ts`（持久后发送/重连重放） | 已落地 |
 | `agent-loop-budget` | `packages/agent-loop/test/budget.test.ts`（step/turn-timeout/repeat-tool） | 已落地（token/费用预算待续） |
 | `agent-loop-deletion` | `apps/api/test/conversation-deletion.test.ts`（未追平 fail-closed）+ `budget.test.ts`（DeletionGate） | 已落地 |
-| `agent-loop-provider-parity` | `packages/agent-loop/test/provider-parity.test.ts`（终止语义表 + Native 基线 + 三方插槽） | 骨架落地（DSH/pi 适配器对照待阶段 4） |
+| `agent-loop-provider-parity` | `packages/agent-loop/test/provider-parity.test.ts`（终止语义表 + Native 基线 + 三方插槽 + 阶段 4 退出条件「driver 切换不改事件流契约骨架」） | 已落地（DSH/pi 适配器对照仍待进程外 Adapter 准入） |
 
 ### 16.8 落地进展（阶段 2a：可观测性接口）
 
 2026-08-28 落地（对应 §16.3 与 Kernel Substrate「Observability/Recovery」；接口先行，采集接线待阶段 4）：
 
 - 新增 `packages/observability`（`@aervox/observability`，零第三方依赖）：`LoggerPort`（结构化日志，禁用敏感内容）、`MetricsExporterPort`（counter/gauge/histogram）、`AuditExporterPort`（不可变事件流，at-least-once 语义）、`Observability` 门面；
-- 指标名目录对齐 §16.3：`metric-names.ts` 登记 18 个 counter、2 个 gauge、2 个 histogram（Provider TTFT/耗时、工具执行/超时、租约/fencing/恢复、预算、SSE 重连等）；新增指标必须先在此登记；
+- 指标名目录对齐 §16.3：`metric-names.ts` 登记 18 个 counter、5 个 gauge（含阶段 4d 新增 `agent.host.running/processed/uptime_ms`）、2 个 histogram（Provider TTFT/耗时、工具执行/超时、租约/fencing/恢复、预算、SSE 重连等）；新增指标必须先在此登记；
 - 默认 `createNoopObservability()`：零成本、幂等、永不抛错；
 - 测试：`@aervox/observability` 5（指标目录覆盖 §16.3 关键面 + Noop 调用不抛错/child 幂等）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
-未接入（待阶段 4 host/executor 接线）：executor 指标采样、审计留痕与 SSE 遥测尚以注释/目录形式存在，需在组合根注入 `Observability` 后启用。
+未接入（待阶段 5+ 完成全链路采集）：executor 指标采样、审计留痕与 SSE 遥测尚以注释/目录形式存在，需在组合根注入 `Observability` 后启用。阶段 4 host 侧已部分接线（`createAgentHost` 注入 `Observability`，turn 完成/fencing deny/duration/审计已采集；4d 新增 `agent.host.running/processed/uptime_ms` gauge 由 `health()` 上报）。
 
 ### 16.9 落地进展（阶段 3a：Host 幂等键 + 崩溃/超时/重复投递三重恢复测试）
 
@@ -697,6 +697,21 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - `SqliteResumeSource`（4b 恢复接线）：`findResumeCandidates` 扩展返回续跑数据面（租户/session/用户消息/当前 fencing），逐候选 `decideResume` 裁决 → `buildResumeHistory` 重建上下文 → 产出带 resume 的 ClaimableTurn 抢占续跑原 Attempt；`executeTurn` 新增 `resume` 选项（跳过 message 身份事件、sequence 从 lastSequence+1、Step/executionId 从 lastStep 之后、预填历史）；
 - `createAgentProfile`（4c 最小 Profile）：Driver→Provider 绑定（replay 无依赖 / native 需 CR-015 同源 baseUrl/apiKey/modelId）+ 单例锁文件（持有者存活拒绝 / 陈旧锁接管 / 释放后可重取）；
 - 测试：`@aervox/host-agent` 18（host 编排 6、store 冒烟 3、resume 源 3、profile 6）、`@aervox/agent-loop` 58（resume-executor 2：抢占续跑完成/Step 不冲突）、`@aervox/api` 101（接线后无回归）、`@aervox/database` 125（候选数据面扩展）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.13 落地进展（阶段 4d：健康检查 + 阶段 4 退出条件验证）
+
+2026-08-28 落地（对应 §13 阶段 4 第 5 条「健康检查」与退出条件「切换 Driver 不改客户端契约与数据所有权、无 DSH/pi 时原生 Profile 可运行」）：
+
+- **Host 健康检查**（`createAgentHost` 新增 `health(): Promise<HostHealth>`）：
+  - liveness 五态：`starting`（未启动）/`healthy`（活）/`draining`（停机 drain 中）/`stopped`（已停）/`stalled`（tick 超 `3×pollIntervalMs` 未推进，死锁疑点）；首次 tick 未完成时以 `startedAt` 兜底，避免永久误判 healthy；
+  - readiness：可选 `probeDeps()` 注入依赖探针（source/provider/store 等），`ready = status===healthy && dependencies 全 ready`；探针抛错收敛为 `probeDeps` 故障项而非让 `health()` 抛错；
+  - 容量上报：`health()` 调用时上报 gauge `agent.host.running`/`agent.host.processed`/`agent.host.uptime_ms`（登记入 `metric-names.ts`，Noop 观测缺省不抛错）；
+  - 返回结构含 `running`/`processed`/`startedAt`/`lastTickAt`/`uptimeMs`/`dependencies`/`ready`，供宿主轮询或未来 HTTP `/health` 端点消费。
+- **阶段 4 退出条件验证**：
+  - 客户端契约不变（`packages/agent-loop/test/provider-parity.test.ts` 新增）：replay 与注入式 custom provider 各跑一 turn，事件流 eventType 集合 ⊆ 契约枚举 `{message,delta,tool_request,tool_result,done,error}`，首事件 `message`、末事件 `done`、中间 `delta`，骨架同构；
+  - 业务数据库所有权（`scripts/import-boundary.mjs` `agent-loop-no-db` 健身函数）：机器验证 `packages/agent-loop` 不导入 `@aervox/database`/`@libsql`/`drizzle-orm`，数据库由宿主（`packages/host-agent` + `packages/database`）管理；
+  - 无 DSH/pi 时原生 Profile 可运行（`packages/host-agent/test/profile.test.ts`）：replay 无依赖、native 需 CR-015 同源配置，均已验证。
+- 测试：`@aervox/host-agent` 27（新增 `host-health.test.ts` 9：liveness 五态/readiness 探针/stalled/容量 gauge/Noop 兜底）、`@aervox/agent-loop` 59（provider-parity 新增 1：driver 切换契约骨架同构）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
 ## 17. 回滚策略
 

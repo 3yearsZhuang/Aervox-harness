@@ -32,6 +32,10 @@ export const COUNTERS = [
 export const GAUGES = [
   "agent.turn.status", // 值域：AttemptStatus（Running/Completed/…，编码为 0/1 位阶）
   "agent.provider.cost",
+  // 阶段 4d：Host 健康/容量指标（agent.host.*）
+  "agent.host.running", // 当前运行中任务数（= AgentHost.running()）
+  "agent.host.processed", // 累计处理数（含跳过；= AgentHost.processed()）
+  "agent.host.uptime_ms", // Host 启动后运行时长
 ] as const;
 
 /** Histogram（分布） */

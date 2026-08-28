@@ -40,6 +40,43 @@ export interface AgentHostDeps {
   observability?: Observability;
   maxConcurrency?: number;
   pollIntervalMs?: number;
+  /**
+   * 4d：依赖探针（readiness）。宿主注入回调检测 source/provider 是否可用；
+   * 缺省视为 always-ready。探针实现须不抛异常（失败返回 false 即可）。
+   */
+  probeDeps?: () => Promise<HostDependencyProbe[]>;
+}
+
+/** 4d：依赖探针结果（readiness 用） */
+export interface HostDependencyProbe {
+  /** 依赖名（source / provider / store / …） */
+  readonly name: string;
+  /** true=可用；false=不可用（readiness 视为未就绪） */
+  readonly ready: boolean;
+  /** 不可用原因（ready=false 时填） */
+  readonly reason?: string;
+}
+
+/** 4d：Host 健康状态（liveness + readiness + 容量） */
+export type HostStatus = "starting" | "healthy" | "draining" | "stopped" | "stalled";
+
+export interface HostHealth {
+  /** liveness 主判定：starting/healthy（活）/draining（停机中）/stopped（已停）/stalled（死锁疑点） */
+  readonly status: HostStatus;
+  /** 当前运行中任务数 */
+  readonly running: number;
+  /** 累计处理数（含跳过） */
+  readonly processed: number;
+  /** Host 启动时间戳（ms since epoch）；未启动为 null */
+  readonly startedAt: number | null;
+  /** 最后一次完成 tick 的时间戳（ms since epoch）；未 tick 过为 null */
+  readonly lastTickAt: number | null;
+  /** 启动至今时长（ms）；未启动为 0 */
+  readonly uptimeMs: number;
+  /** 依赖探针结果（readiness）；未配置 probeDeps 时为空数组 */
+  readonly dependencies: readonly HostDependencyProbe[];
+  /** readiness：status=healthy 且依赖全部 ready */
+  readonly ready: boolean;
 }
 
 export interface AgentHost {
@@ -49,6 +86,8 @@ export interface AgentHost {
   running(): number;
   /** 累计处理数（含跳过） */
   processed(): number;
+  /** 4d：健康检查（liveness/readiness/容量）；不抛异常 */
+  health(): Promise<HostHealth>;
 }
 
 export function createAgentHost(deps: AgentHostDeps): AgentHost {
@@ -59,11 +98,18 @@ export function createAgentHost(deps: AgentHostDeps): AgentHost {
   let runningCount = 0;
   let processedCount = 0;
   let stopped = false;
+  let draining = false;
   let timer: ReturnType<typeof setInterval> | null = null;
   let pollResolve: (() => void) | null = null;
+  // 4d：健康检查状态
+  let startedAt: number | null = null;
+  let lastTickAt: number | null = null;
+  // stalled 阈值：3 倍轮询间隔未完成 tick 视为死锁疑点（liveness）
+  const stalledAfterMs = pollIntervalMs * 3;
+  const now = (): number => Date.now();
 
   const executeOne = async (turn: ClaimableTurn): Promise<void> => {
-    const startedAt = Date.now();
+    const turnStartedAt = Date.now();
     try {
       // claim/finalize 全部委托 executeTurn（CAS + fencing 单一次）
       // 已被领/已终态 → executeTurn 返回 skipped（重复投递安全）
@@ -78,7 +124,7 @@ export function createAgentHost(deps: AgentHostDeps): AgentHost {
         { turnId: turn.turnId, sessionId: turn.sessionId, attemptId: turn.attemptId, userMessage: turn.userMessage },
       );
       // 4a-2：宿主与执行侧结果汇总指标 + 审计（failed/skipped 均收敛）
-      const durationMs = Date.now() - startedAt;
+      const durationMs = Date.now() - turnStartedAt;
       const fields = { turnId: turn.turnId, sessionId: turn.sessionId, attemptId: turn.attemptId, durationMs };
       ob.metrics.emit({ type: "histogram", name: "agent.provider.duration_ms", value: durationMs });
       if (result.status === "completed") {
@@ -104,7 +150,10 @@ export function createAgentHost(deps: AgentHostDeps): AgentHost {
   };
 
   const tick = async (): Promise<void> => {
-    if (stopped || runningCount >= maxConcurrency) return;
+    if (stopped || runningCount >= maxConcurrency) {
+      lastTickAt = now();
+      return;
+    }
     const slots = maxConcurrency - runningCount;
     const candidates = await deps.source.listClaimable(slots);
     for (const turn of candidates) {
@@ -113,17 +162,34 @@ export function createAgentHost(deps: AgentHostDeps): AgentHost {
       runningCount += 1;
       void executeOne(turn);
     }
+    // 4d：tick 完成推进水位（liveness 探测依据）
+    lastTickAt = now();
+  };
+
+  // 4d：计算 liveness status（不抛异常）
+  // stalled 判定：距最近一次 tick 完成（或启动）超过 stalledAfterMs 未推进 → 死锁疑点。
+  // 首次 tick 未完成时（lastTickAt=null）以 startedAt 兜底，避免永久误判为 healthy。
+  const computeStatus = (): HostStatus => {
+    if (stopped) return draining ? "draining" : "stopped";
+    if (startedAt === null) return "starting";
+    const ref = lastTickAt ?? startedAt;
+    if (now() - ref > stalledAfterMs) return "stalled";
+    return "healthy";
   };
 
   return {
     async start() {
       stopped = false;
+      draining = false;
+      startedAt = now();
+      lastTickAt = null;
       await tick();
       timer = setInterval(() => {
         void tick();
       }, pollIntervalMs);
     },
     async stop() {
+      draining = true;
       stopped = true;
       if (timer) {
         clearInterval(timer);
@@ -133,8 +199,41 @@ export function createAgentHost(deps: AgentHostDeps): AgentHost {
       while (runningCount > 0) {
         await new Promise((r) => setTimeout(r, 20));
       }
+      draining = false;
     },
     running: () => runningCount,
     processed: () => processedCount,
+    async health(): Promise<HostHealth> {
+      const status = computeStatus();
+      const uptimeMs = startedAt === null ? 0 : Math.max(0, now() - startedAt);
+      // 依赖探针：缺省视为 always-ready；探针实现不抛异常（catch 收敛为 not ready）
+      let dependencies: readonly HostDependencyProbe[] = [];
+      if (deps.probeDeps) {
+        try {
+          const probed = await deps.probeDeps();
+          dependencies = Array.isArray(probed) ? probed : [];
+        } catch (err) {
+          // 探针自身故障：视为未就绪，但不让 health() 抛错
+          dependencies = [
+            { name: "probeDeps", ready: false, reason: err instanceof Error ? err.message : "probe_error" },
+          ];
+        }
+      }
+      const ready = status === "healthy" && dependencies.every((d) => d.ready);
+      // 4d：health() 上报容量 gauge（不抛错；Noop 实现 no-op）
+      ob.metrics.emit({ type: "gauge", name: "agent.host.running", value: runningCount });
+      ob.metrics.emit({ type: "gauge", name: "agent.host.processed", value: processedCount });
+      ob.metrics.emit({ type: "gauge", name: "agent.host.uptime_ms", value: uptimeMs });
+      return {
+        status,
+        running: runningCount,
+        processed: processedCount,
+        startedAt,
+        lastTickAt,
+        uptimeMs,
+        dependencies,
+        ready,
+      };
+    },
   };
 }
