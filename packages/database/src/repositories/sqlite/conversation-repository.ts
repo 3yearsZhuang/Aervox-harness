@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 对话与流式协议 SQLite 仓储实现
  */
-import { eq, and, gt, desc, or, lt, isNull } from "drizzle-orm";
+import { eq, and, gt, desc, or, lt, isNull, inArray, notInArray } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import {
   sessions,
@@ -458,8 +458,10 @@ export class SqliteConversationRepository implements IConversationRepository {
       eq(turns.workspaceId, tenant.workspaceId),
       eq(turns.subjectUserId, tenant.subjectUserId),
     ];
-    // 3b-B：单一终态（仅 Running 可提交；提供 fencing 期望值时 CAS 校验）
-    conditions.push(eq(turnAttempts.status, "Running"));
+    // 3b-B：单一终态（仅运行中状态 Running/CancelRequested 可提交；提供 fencing 期望值时 CAS 校验）
+    conditions.push(
+      inArray(turnAttempts.status, ["Running", "CancelRequested"]),
+    );
     if (input.expectedFencingToken !== undefined) {
       conditions.push(eq(turnAttempts.fencingToken, input.expectedFencingToken));
     }
@@ -473,6 +475,68 @@ export class SqliteConversationRepository implements IConversationRepository {
       .where(and(...conditions))
       .returning();
     return (updated as TurnAttemptModel) ?? null;
+  }
+
+  /** 2b：用户取消请求位（CAS：仅 Running attempt → CancelRequested，并同步 turns 若未终态） */
+  async requestCancelTurnAttempt(
+    tenant: TenantContext,
+    input: { turnId: string; attemptId: string },
+  ): Promise<{ ok: boolean; reason?: "not_found" | "already_finalized" }> {
+    assertTenantContext(tenant);
+    const [updatedAttempt] = await this.db
+      .update(turnAttempts)
+      .set({ status: "CancelRequested" })
+      .from(turns)
+      .where(
+        and(
+          eq(turnAttempts.turnId, turns.id),
+          eq(turnAttempts.id, input.attemptId),
+          eq(turnAttempts.turnId, input.turnId),
+          eq(turns.workspaceId, tenant.workspaceId),
+          eq(turns.subjectUserId, tenant.subjectUserId),
+          eq(turnAttempts.status, "Running"),
+        ),
+      )
+      .returning();
+    if (!updatedAttempt) {
+      const exists = await this.getTurnAttemptStatus(tenant, input);
+      return exists === null
+        ? { ok: false, reason: "not_found" }
+        : { ok: false, reason: "already_finalized" };
+    }
+    // turns 终态保护：仅未终态可置 Cancelled；已终态（Completed/Failed/Interrupted/Cancelled 等）不覆盖
+    await this.db
+      .update(turns)
+      .set({ status: "Cancelled" })
+      .where(
+        and(
+          eq(turns.id, input.turnId),
+          notInArray(turns.status, ["Completed", "Failed", "Interrupted", "Cancelled"]),
+        ),
+      );
+    return { ok: true };
+  }
+
+  /** 2b：读取 Attempt 当前状态（executor 取消检查点轮询） */
+  async getTurnAttemptStatus(
+    tenant: TenantContext,
+    input: { turnId: string; attemptId: string },
+  ): Promise<string | null> {
+    assertTenantContext(tenant);
+    const [row] = await this.db
+      .select({ status: turnAttempts.status })
+      .from(turnAttempts)
+      .innerJoin(turns, eq(turnAttempts.turnId, turns.id))
+      .where(
+        and(
+          eq(turnAttempts.id, input.attemptId),
+          eq(turnAttempts.turnId, input.turnId),
+          eq(turns.workspaceId, tenant.workspaceId),
+          eq(turns.subjectUserId, tenant.subjectUserId),
+        ),
+      )
+      .limit(1);
+    return (row as { status: string } | undefined)?.status ?? null;
   }
 
   /** 3b-B：恢复过期 Attempt（扫描 Running + 租约过期 → fencing+1 + Interrupted + finishedAt） */
@@ -527,6 +591,89 @@ export class SqliteConversationRepository implements IConversationRepository {
       })
       .returning();
     return created as ToolExecutionModel;
+  }
+
+  /** 2c：幂等预留（§9 idempotency reservation；attempt+invocation 唯一，ON CONFLICT DO NOTHING） */
+  async reserveToolExecution(
+    tenant: TenantContext,
+    input: {
+      turnId: string;
+      attemptId: string;
+      invocationId: string;
+      name: string;
+      arguments?: unknown;
+    },
+  ): Promise<{ ok: boolean; alreadyReserved: boolean }> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    const [created] = await this.db
+      .insert(toolExecutions)
+      .values({
+        id: `tex_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        invocationId: input.invocationId,
+        name: input.name,
+        workspaceId: tenant.workspaceId,
+        subjectUserId: tenant.subjectUserId,
+        argumentsJson: input.arguments,
+        status: "pending",
+        startedAt: now,
+        finishedAt: now,
+      })
+      .onConflictDoNothing({ target: [toolExecutions.attemptId, toolExecutions.invocationId] })
+      .returning();
+    return { ok: true, alreadyReserved: !created };
+  }
+
+  /** 2c：以权威结果收口预留行（UPDATE by attempt+invocation） */
+  async updateToolExecutionResult(
+    tenant: TenantContext,
+    input: {
+      turnId: string;
+      attemptId: string;
+      invocationId: string;
+      status: string;
+      output?: unknown;
+      error?: string;
+      finishedAt?: string;
+    },
+  ): Promise<{ ok: boolean }> {
+    assertTenantContext(tenant);
+    const [updated] = await this.db
+      .update(toolExecutions)
+      .set({
+        status: input.status,
+        outputJson: input.output,
+        error: input.error ?? null,
+        finishedAt: input.finishedAt ?? new Date().toISOString(),
+      })
+      .from(turns)
+      .where(
+        and(
+          eq(toolExecutions.turnId, turns.id),
+          eq(toolExecutions.attemptId, input.attemptId),
+          eq(toolExecutions.invocationId, input.invocationId),
+          eq(turns.workspaceId, tenant.workspaceId),
+          eq(turns.subjectUserId, tenant.subjectUserId),
+        ),
+      )
+      .returning();
+    return { ok: Boolean(updated) };
+  }
+
+  /** 2c：崩溃释放后将遗留 pending 预留标记为 outcome_unknown（§11.3：结果未知不自动重放） */
+  async markPendingOutcomeUnknown(client: import("@libsql/client").Client): Promise<number> {
+    const result = await client.execute(`
+      UPDATE tool_executions
+      SET status = 'outcome_unknown', finished_at = COALESCE(finished_at, '${new Date().toISOString()}')
+      WHERE status = 'pending'
+        AND attempt_id IN (
+          SELECT id FROM turn_attempts
+          WHERE status IN ('Interrupted', 'Failed', 'Cancelled')
+        )
+    `);
+    return result.rowsAffected ?? 0;
   }
 
   /** 查询 Turn 的工具执行账本（按时间倒序） */
