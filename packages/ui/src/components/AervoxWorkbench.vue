@@ -819,7 +819,7 @@ onUnmounted(() => {
         <template v-if="card">
           <article
             class="side-card"
-            role="button"
+            role="region"
             tabindex="0"
             :aria-label="`打开${card.label}`"
             @click="activateCard(card)"
