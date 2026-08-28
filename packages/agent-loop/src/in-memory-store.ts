@@ -12,12 +12,15 @@ interface AttemptRecord {
   turnId: string;
   status: AttemptStatus;
   fencingToken: number;
+  leaseId?: string;
+  leaseExpiresAt?: string;
 }
 
 export class InMemoryExecutionStore implements ExecutionStorePort {
   private readonly eventsByTurn = new Map<string, AgentStreamEvent[]>();
   private readonly attempts = new Map<string, AttemptRecord>();
   private readonly toolExecutionLog: ToolExecutionRecord[] = [];
+  private leaseRenewalCount = 0;
 
   seedAttempt(input: {
     id: string;
@@ -37,7 +40,10 @@ export class InMemoryExecutionStore implements ExecutionStorePort {
     turnId: string;
     attemptId: string;
     expectedFencingToken: number;
-  }): Promise<{ ok: true; fencingToken: number } | { ok: false; reason: "not_runnable" | "already_claimed" }> {
+  }): Promise<
+    | { ok: true; fencingToken: number; leaseId?: string; leaseExpiresAt?: string }
+    | { ok: false; reason: "not_runnable" | "already_claimed" }
+  > {
     const attempt = this.attempts.get(input.attemptId);
     if (!attempt || attempt.status !== "Running") {
       return { ok: false, reason: "not_runnable" };
@@ -46,7 +52,34 @@ export class InMemoryExecutionStore implements ExecutionStorePort {
       return { ok: false, reason: "already_claimed" };
     }
     attempt.fencingToken += 1;
-    return { ok: true, fencingToken: attempt.fencingToken };
+    attempt.leaseId = `lease_mem_${input.attemptId}`;
+    attempt.leaseExpiresAt = new Date(Date.now() + 60_000).toISOString();
+    return {
+      ok: true,
+      fencingToken: attempt.fencingToken,
+      leaseId: attempt.leaseId,
+      leaseExpiresAt: attempt.leaseExpiresAt,
+    };
+  }
+
+  /** 3b-A：续租（CAS：leaseId + fencing 匹配且 Running 才刷新） */
+  async renewAttemptLease(input: {
+    attemptId: string;
+    leaseId: string;
+    expectedFencingToken: number;
+    ttlMs?: number;
+  }): Promise<{ ok: boolean }> {
+    const attempt = this.attempts.get(input.attemptId);
+    if (!attempt || attempt.status !== "Running") return { ok: false };
+    if (attempt.leaseId !== input.leaseId || attempt.fencingToken !== input.expectedFencingToken) return { ok: false };
+    attempt.leaseExpiresAt = new Date(Date.now() + (input.ttlMs ?? 60_000)).toISOString();
+    this.leaseRenewalCount += 1;
+    return { ok: true };
+  }
+
+  /** 续租次数（测试断言：Step 间持有租约） */
+  leaseRenewals(): number {
+    return this.leaseRenewalCount;
   }
 
   async nextSequence(turnId: string): Promise<number> {

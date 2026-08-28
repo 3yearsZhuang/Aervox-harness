@@ -373,7 +373,8 @@ export class SqliteConversationRepository implements IConversationRepository {
 
   /**
    * 领取 TurnAttempt（CAS + fencing）：仅在状态 Running 且 fencing 与期望值一致时成功，
-   * 成功后递增 fencing 并绑定租约，防止同一 Attempt 被重复执行（AVX-HAR-001 §11.2 阶段 1 最小租约）。
+   * 成功后递增 fencing、绑定租约并写入 leaseExpiresAt（3b-A TTL），防止同一 Attempt 被重复执行
+   * （AVX-HAR-001 §11.2；3b-B 据 leaseExpiresAt 过期抢占/恢复）。
    */
   async claimTurnAttempt(
     tenant: TenantContext,
@@ -382,15 +383,19 @@ export class SqliteConversationRepository implements IConversationRepository {
       attemptId: string;
       expectedFencingToken: number;
       leaseId: string;
+      ttlMs?: number;
     },
-  ): Promise<{ ok: boolean; fencingToken: number }> {
+  ): Promise<{ ok: boolean; fencingToken: number; leaseId: string; leaseExpiresAt: string }> {
     assertTenantContext(tenant);
+    const ttlMs = input.ttlMs ?? 60_000;
+    const leaseExpiresAt = new Date(Date.now() + ttlMs).toISOString();
     // turn_attempts 无租户列，经 turns 关联校验租户后做 CAS 更新
     const [updated] = await this.db
       .update(turnAttempts)
       .set({
         leaseId: input.leaseId,
         fencingToken: input.expectedFencingToken + 1,
+        leaseExpiresAt,
       })
       .from(turns)
       .where(
@@ -406,9 +411,36 @@ export class SqliteConversationRepository implements IConversationRepository {
       )
       .returning();
     if (!updated) {
-      return { ok: false, fencingToken: input.expectedFencingToken };
+      return { ok: false, fencingToken: input.expectedFencingToken, leaseId: input.leaseId, leaseExpiresAt };
     }
-    return { ok: true, fencingToken: (updated as TurnAttemptModel).fencingToken };
+    return { ok: true, fencingToken: (updated as TurnAttemptModel).fencingToken, leaseId: input.leaseId, leaseExpiresAt };
+  }
+
+  /** 3b-A：续租（CAS：leaseId + fencing 匹配且 Running 才刷新 leaseExpiresAt） */
+  async renewTurnAttemptLease(
+    tenant: TenantContext,
+    input: { attemptId: string; leaseId: string; expectedFencingToken: number; ttlMs?: number },
+  ): Promise<boolean> {
+    assertTenantContext(tenant);
+    const ttlMs = input.ttlMs ?? 60_000;
+    const leaseExpiresAt = new Date(Date.now() + ttlMs).toISOString();
+    const [updated] = await this.db
+      .update(turnAttempts)
+      .set({ leaseExpiresAt })
+      .from(turns)
+      .where(
+        and(
+          eq(turnAttempts.id, input.attemptId),
+          eq(turnAttempts.leaseId, input.leaseId),
+          eq(turnAttempts.fencingToken, input.expectedFencingToken),
+          eq(turnAttempts.status, "Running"),
+          eq(turnAttempts.turnId, turns.id),
+          eq(turns.workspaceId, tenant.workspaceId),
+          eq(turns.subjectUserId, tenant.subjectUserId),
+        ),
+      )
+      .returning();
+    return Boolean(updated);
   }
 
   /** 提交 TurnAttempt 终态（失败/完成/中断），并记录结束时间 */
