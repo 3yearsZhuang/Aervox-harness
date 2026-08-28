@@ -5,33 +5,21 @@
  * 并把 Neo 生命周期操作登记为 aervox_skill_* 工具（ToolRuntime 存在时绑定 handler）。
  * skillsRoot 可注入（测试用临时目录）；缺省为 <repo>/data/skills。
  */
-import type { FastifyInstance } from "fastify";
+import type { ModuleContext } from "../context.js";
 import {
   SqliteSkillLifecycleRepository,
   SqliteSkillRegistryRepository,
   SqliteToolRegistryRepository,
-  type AervoxDatabase,
 } from "@aervox/database";
-import type { ToolRuntime } from "../tools/runtime.js";
 import { registerSkillRoutes } from "./routes.js";
 import { SkillManager } from "./skill-manager.js";
 import { SkillLifecycleService } from "./lifecycle.js";
 import { registerSkillLifecycleTools } from "./skill-tools.js";
 
-export interface RegisterSkillsModuleOptions {
-  /** 技能内容落盘根目录（缺省 <repo>/data/skills） */
-  skillsRoot?: string;
-  /** 工具运行时（由 tools 模块创建）；存在时绑定 aervox_skill_* handler */
-  toolRuntime?: ToolRuntime;
-}
-
-export function registerSkillsModule(
-  app: FastifyInstance,
-  db: AervoxDatabase,
-  options: RegisterSkillsModuleOptions = {},
-): SkillManager {
+export function registerSkillsModule(ctx: ModuleContext): SkillManager {
+  const { app, db, skillsRoot, toolRuntime } = ctx;
   const registry = new SqliteSkillRegistryRepository(db);
-  const manager = new SkillManager(registry, options.skillsRoot);
+  const manager = new SkillManager(registry, skillsRoot);
 
   // Neo 生命周期：服务 + 路由 + aervox_skill_* 工具登记/handler
   const lifecycle = new SkillLifecycleService({
@@ -42,6 +30,6 @@ export function registerSkillsModule(
   registerSkillRoutes(app, manager, lifecycle);
 
   const toolRegistry = new SqliteToolRegistryRepository(db);
-  registerSkillLifecycleTools(toolRegistry, lifecycle, options.toolRuntime);
+  registerSkillLifecycleTools(toolRegistry, lifecycle, toolRuntime);
   return manager;
 }

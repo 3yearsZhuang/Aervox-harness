@@ -18,6 +18,7 @@ import {
 import { InMemoryExecutionStore } from "@aervox/agent-loop";
 import type { ExecutionStorePort, ModelProviderPort } from "@aervox/agent-loop";
 import type { AuditEntry, MetricSample, Observability } from "@aervox/observability";
+import { createNoopObservability } from "@aervox/observability";
 
 const recordingObservability = (samples: MetricSample[], audits: AuditEntry[]): Observability => ({
   log: {
@@ -84,6 +85,7 @@ function harness(maxConcurrency: number, pollIntervalMs: number) {
     provider: immediateProvider,
     maxConcurrency,
     pollIntervalMs,
+    observability: createNoopObservability(),
   };
   return {
     deps,
@@ -265,14 +267,10 @@ describe("Host 健康检查（health）", () => {
     expect(samples.some((s) => s.type === "gauge" && s.name === "agent.host.uptime_ms")).toBe(true);
   }, 5_000);
 
-  it("Noop 观测缺省：health() 不抛异常、返回结构完整", async () => {
+  it("未注入 observability 时 fail-fast（审计不可静默丢失）", () => {
     const h = harness(1, 10_000);
     h.enqueue(turn("atp_noop"));
-    host = createAgentHost(h.deps); // 不注入 observability
-    await host.start();
-    await new Promise((r) => setTimeout(r, 50));
-    const health = await host.health();
-    expect(health.status).toBe("healthy");
-    expect(health.ready).toBe(true);
-  }, 5_000);
+    h.deps.observability = undefined;
+    expect(() => createAgentHost(h.deps)).toThrow(/observability_required/);
+  });
 });

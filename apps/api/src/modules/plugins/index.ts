@@ -5,7 +5,7 @@
  * 配置与 Page 使用新增路由文件（config-routes.ts），不改动既有 routes.ts（中间件重构期约束）。
  */
 import path from "node:path";
-import type { FastifyInstance } from "fastify";
+import type { ModuleContext } from "../context.js";
 import {
   SqliteExtensionRepository,
   SqlitePluginConfigRepository,
@@ -14,7 +14,6 @@ import {
   SqlitePlatformRepository,
   SqliteSkillRegistryRepository,
   SqliteToolRegistryRepository,
-  type AervoxDatabase,
 } from "@aervox/database";
 import { registerPluginRoutes } from "./routes.js";
 import { PluginService } from "./service.js";
@@ -23,33 +22,23 @@ import { registerPluginConfigRoutes } from "./config-routes.js";
 import { PluginBundleStore } from "./bundle-store.js";
 import { DEFAULT_SKILLS_ROOT } from "../skills/skill-manager.js";
 
-export interface RegisterPluginsModuleOptions {
-  /** 技能内容落盘根目录（插件技能写 <skillsRoot>/<pluginId>/；缺省 <repo>/data/skills） */
-  skillsRoot?: string;
-  /** 插件 Page Bundle 落盘根目录（缺省 <repo>/data/plugins） */
-  pluginsRoot?: string;
-}
-
 const defaultPluginsRoot = (): string => {
   const repoRoot = path.resolve(import.meta.dirname, "../../../../..");
   return path.join(repoRoot, "data", "plugins");
 };
 
-export function registerPluginsModule(
-  app: FastifyInstance,
-  db: AervoxDatabase,
-  options: RegisterPluginsModuleOptions = {},
-): void {
+export function registerPluginsModule(ctx: ModuleContext): void {
+  const { app, db, skillsRoot, pluginsRoot } = ctx;
   const extensionRepo = new SqliteExtensionRepository(db);
   const registry = new SqliteToolRegistryRepository(db);
   const skillRegistry = new SqliteSkillRegistryRepository(db);
-  const skillsRoot = options.skillsRoot ?? DEFAULT_SKILLS_ROOT;
+  const resolvedSkillsRoot = skillsRoot ?? DEFAULT_SKILLS_ROOT;
 
   const configRepo = new SqlitePluginConfigRepository(db);
   const secretRepo = new SqlitePluginSecretRepository(db);
   const pageRepo = new SqlitePluginPageRepository(db);
   const auditRepo = new SqlitePlatformRepository(db);
-  const bundleStore = new PluginBundleStore(options.pluginsRoot ?? defaultPluginsRoot());
+  const bundleStore = new PluginBundleStore(pluginsRoot ?? defaultPluginsRoot());
 
   const configService = new PluginConfigService({
     extensionRepo,
@@ -64,7 +53,7 @@ export function registerPluginsModule(
     extensionRepo,
     registry,
     skillRegistry,
-    skillsRoot,
+    skillsRoot: resolvedSkillsRoot,
     cleanup: (pluginId) => configService.cleanupPlugin(pluginId),
   });
 
