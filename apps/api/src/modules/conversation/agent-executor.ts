@@ -161,6 +161,8 @@ async function failTurnWithError(
       lastSequence: Math.max(0, (await store.nextSequence(turnId)) - 1),
     },
     safetyDecision: "approved",
+    // B1：Attempt 未被 claim（fencing=0）；携带期望值使事件写入走 fencing CAS（抢占后自然被拒）
+    expectedFencingToken: 0,
   }).catch(() => undefined);
   await store.finalizeAttempt({ turnId, attemptId, status: "Failed" }).catch(() => undefined);
 }
