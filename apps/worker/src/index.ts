@@ -21,6 +21,7 @@ import { runDiaryGenerationCycle } from "./diary-generator.js";
 import { runDeletionCycle } from "./deletion-worker.js";
 import { runCompactionMarkerCycle } from "./compaction-marker.js";
 import { runEmbeddingMigrationCycle } from "./embedding-migration.js";
+import { runAttemptRecoveryCycle } from "./attempt-recovery.js";
 
 const { db, client } = await createDatabase();
 await initDatabaseSchema(client);
@@ -49,10 +50,11 @@ const runTick = async (): Promise<void> => {
     workerId,
     // embedding provider 未注入：生产接入真实服务后在此传入即可（当前诚实跳过）
   });
-  if (outbox + review + diary + deletion + compaction + embeddingMigration > 0) {
+  const attemptRecovery = await runAttemptRecoveryCycle({ db, client, workerId });
+  if (outbox + review + diary + deletion + compaction + embeddingMigration + attemptRecovery > 0) {
     console.log(
       `[worker:${workerId}] outbox=${outbox} review_notified=${review} diary=${diary} deletion=${deletion} ` +
-        `compaction_markers=${compaction} embedding_migrated=${embeddingMigration}`,
+        `compaction_markers=${compaction} embedding_migrated=${embeddingMigration} attempt_recovered=${attemptRecovery}`,
     );
   }
 };

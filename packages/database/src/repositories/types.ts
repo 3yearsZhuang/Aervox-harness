@@ -570,6 +570,7 @@ export interface TurnAttemptModel {
   status: string;
   startedAt: string;
   finishedAt?: string | null;
+  leaseExpiresAt?: string | null;
 }
 
 /** Agent Loop 工具执行账本行（tool_executions） */
@@ -587,6 +588,22 @@ export interface ToolExecutionModel {
   error?: string | null;
   startedAt: string;
   finishedAt: string;
+}
+
+/** 工具授权账本行（tool_approvals，阶段 3a） */
+export interface ToolApprovalModel {
+  id: string;
+  turnId: string;
+  attemptId: string;
+  toolName: string;
+  argumentsHash: string;
+  toolVersion?: string | null;
+  requester: string;
+  state: "pending" | "granted" | "denied";
+  decidedBy?: string | null;
+  decidedAt?: string | null;
+  workspaceId: string;
+  subjectUserId: string;
 }
 
 // ============ 学习/练习/复习域 ============
@@ -1663,6 +1680,45 @@ export interface IVoiceConfigRepository {
   getConfig(tenant: TenantContext): Promise<LocalVoiceConfigModel | null>;
   /** upsert：存在则更新，不存在则插入；返回保存后的模型 */
   saveConfig(tenant: TenantContext, input: LocalVoiceConfigSaveInput): Promise<LocalVoiceConfigModel>;
+}
+
+// ============ CR-016 离线语音输入 (ASR) 配置持久化 ============
+
+export interface VoiceInputConfigModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  enabled: number;
+  engineType: string;
+  modelPath?: string | null;
+  modelId: string;
+  endpoint?: string | null;
+  apiKey?: string | null;
+  autoStopOnKeyboard: number;
+  vadSilenceThresholdMs: number;
+  settingsJson: unknown;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VoiceInputConfigSaveInput {
+  enabled: boolean;
+  engineType: string;
+  modelPath?: string | null;
+  modelId: string;
+  endpoint?: string | null;
+  apiKey?: string | null;
+  autoStopOnKeyboard?: boolean;
+  vadSilenceThresholdMs?: number;
+  settings?: Record<string, unknown>;
+}
+
+export interface IVoiceInputConfigRepository {
+  getConfig(tenant: TenantContext): Promise<VoiceInputConfigModel | null>;
+  saveConfig(
+    tenant: TenantContext,
+    input: VoiceInputConfigSaveInput,
+  ): Promise<VoiceInputConfigModel>;
 }
 
 // ============ T-04 工具注册表 + AST-04 门控 + PET-05 安全级别 ============

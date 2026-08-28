@@ -63,13 +63,32 @@ export class SqliteExecutionStore implements ExecutionStorePort {
     turnId: string;
     attemptId: string;
     expectedFencingToken: number;
-  }): Promise<{ ok: true; fencingToken: number } | { ok: false; reason: "not_runnable" | "already_claimed" }> {
+  }): Promise<
+    | { ok: true; fencingToken: number; leaseId?: string; leaseExpiresAt?: string }
+    | { ok: false; reason: "not_runnable" | "already_claimed" }
+  > {
     const res = await this.repo.claimTurnAttempt(this.tenant, {
       ...input,
       leaseId: `lease_${Date.now().toString(36)}`,
     });
     if (!res.ok) return { ok: false, reason: "already_claimed" };
-    return { ok: true, fencingToken: res.fencingToken };
+    return {
+      ok: true,
+      fencingToken: res.fencingToken,
+      leaseId: res.leaseId,
+      leaseExpiresAt: res.leaseExpiresAt,
+    };
+  }
+
+  /** 3b-A：续租（CAS 委托仓储） */
+  async renewAttemptLease(input: {
+    attemptId: string;
+    leaseId: string;
+    expectedFencingToken: number;
+    ttlMs?: number;
+  }): Promise<{ ok: boolean }> {
+    const ok = await this.repo.renewTurnAttemptLease(this.tenant, input);
+    return { ok };
   }
 
   async nextSequence(turnId: string): Promise<number> {
@@ -100,12 +119,15 @@ export class SqliteExecutionStore implements ExecutionStorePort {
     turnId: string;
     attemptId: string;
     status: "Running" | "Completed" | "Failed" | "Interrupted";
-  }): Promise<void> {
-    await this.repo.finalizeTurnAttempt(this.tenant, {
+    expectedFencingToken?: number;
+  }): Promise<{ ok: boolean }> {
+    const updated = await this.repo.finalizeTurnAttempt(this.tenant, {
       turnId: input.turnId,
       attemptId: input.attemptId,
       status: input.status,
+      expectedFencingToken: input.expectedFencingToken,
     });
+    return { ok: Boolean(updated) };
   }
 
   /** 工具副作用证据落库（tool_executions，AVX-HAR-001 §12） */
@@ -127,30 +149,80 @@ export class SqliteExecutionStore implements ExecutionStorePort {
 
 /**
  * 把主仓 ToolRuntime（tool_registrations + handler）适配为 agent-loop 的 ToolProviderPort：
- * - 只读白名单（PET-05 read_only）可被 Loop 自主调用；
- * - 未注册 / write_with_approval / privileged 一律拒绝（fail-closed）。
+ * - read_only：AI 可自主调用（PET-05）；
+ * - write_with_approval：需已授权（toolName+参数哈希匹配 granted）才执行，否则生成 pending 授权并返回 needsApproval（阶段 3a）；
+ * - 未注册 / privileged 一律拒绝（fail-closed）；工具停用由 registry enabled 拦截。
  */
-export function createRuntimeToolProvider(runtime: ToolRuntime, tenant: TenantContext): ToolProviderPort {
+export function createRuntimeToolProvider(
+  runtime: ToolRuntime,
+  tenant: TenantContext,
+  deps: { conversationRepo: SqliteConversationRepository },
+): ToolProviderPort {
   return {
     // 工具清单随注册表动态变化，不在此静态缓存（execute 时实时校验）
     tools: [],
     async execute(input: ToolExecutionInput): Promise<ToolExecutionResult> {
+      const errorMessage = (err: unknown): string => (err instanceof Error ? err.message : "tool_execution_error");
       const registrations = await runtime.listTools();
       const tool = registrations.find((t) => t.name === input.name && t.enabled === 1);
       if (!tool) {
         return { ok: false, error: `unregistered_tool: ${input.name}` };
       }
-      if (tool.safetyLevel !== "read_only") {
-        return { ok: false, error: `requires_approval: ${tool.id}（write_with_approval / privileged）` };
+
+      // 只读工具：自主执行
+      if (tool.safetyLevel === "read_only") {
+        try {
+          const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: false });
+          return { ok: true, output };
+        } catch (err) {
+          return { ok: false, error: errorMessage(err) };
+        }
       }
-      try {
-        const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: false });
-        return { ok: true, output };
-      } catch (err) {
-        return { ok: false, error: err instanceof Error ? err.message : "tool_execution_error" };
+
+      // 写工具：须已授权（参数哈希匹配 + granted），否则生成待决授权
+      if (tool.safetyLevel === "write_with_approval") {
+        const hash = stableStringify(input.arguments);
+        const granted = await deps.conversationRepo.findGrantedToolApproval(tenant, {
+          toolName: tool.name,
+          argumentsHash: hash,
+        });
+        if (granted) {
+          try {
+            const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: true });
+            return { ok: true, output };
+          } catch (err) {
+            return { ok: false, error: errorMessage(err) };
+          }
+        }
+        const approval = await deps.conversationRepo.recordToolApproval(tenant, {
+          turnId: input.turnId,
+          attemptId: input.attemptId,
+          toolName: tool.name,
+          argumentsHash: hash,
+          requester: tenant.subjectUserId,
+          state: "pending",
+          toolVersion: tool.updatedAt,
+        });
+        return { ok: false, needsApproval: { approvalId: approval.id, toolName: tool.name, argumentsHash: hash } };
       }
+
+      // privileged：仅管理员通道，Loop 一律拒绝
+      return { ok: false, error: `requires_approval: ${tool.id}（privileged 仅管理员通道）` };
     },
   };
+}
+
+/** 参数规范化哈希：key 排序，保证等价 JSON 命中同一授权 */
+export function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  if (value !== null && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    return `{${Object.keys(obj)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
 }
 
 /** 阶段 2d 工具路径脚本（AERVOX_LOOP_PROVIDER=scripted 时使用；跨 Step 验证只读工具链） */
@@ -160,6 +232,14 @@ export const API_TOOL_SCRIPT: readonly ReplayStep[] = [
     toolCalls: [{ id: "call_api_1", name: "aervox_notes_search", arguments: { query: "复习计划" } }],
   },
   { text: "查到了：今天复习三角函数。", toolCalls: [] },
+];
+
+/** 阶段 3a 写工具脚本（AERVOX_LOOP_PROVIDER=scripted-write；单 Step 请求写工具 → 审批待决） */
+export const API_WRITE_SCRIPT: readonly ReplayStep[] = [
+  {
+    text: "我需要保存一条复习笔记。",
+    toolCalls: [{ id: "call_write_1", name: "aervox_save_note", arguments: { content: "今日复习三角函数" } }],
+  },
 ];
 
 /** 迁移期接线：把 Loop 未完成/配置失败写为 error 事件 + Failed 终态（不抛到 HTTP 层） */
@@ -200,6 +280,7 @@ export async function runLoopTurnOnce(
   const buildProvider = async (): Promise<ModelProviderPort> => {
     const mode = process.env.AERVOX_LOOP_PROVIDER ?? "replay";
     if (mode === "scripted") return createScriptedProvider(API_TOOL_SCRIPT);
+    if (mode === "scripted-write") return createScriptedProvider(API_WRITE_SCRIPT);
     if (mode === "llm") {
       if (!deps.llmConfigService) {
         throw new Error("llm_provider_unavailable: LLMConfigService 未接线");
@@ -229,7 +310,7 @@ export async function runLoopTurnOnce(
     return;
   }
 
-  const tools = deps.toolRuntime ? createRuntimeToolProvider(deps.toolRuntime, tenant) : undefined;
+  const tools = deps.toolRuntime ? createRuntimeToolProvider(deps.toolRuntime, tenant, { conversationRepo: repo }) : undefined;
   const result = await executeTurn(
     {
       execution: store,

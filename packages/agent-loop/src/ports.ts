@@ -11,6 +11,7 @@ import type {
   PromptContext,
   PromptMessage,
   SafetyDecision,
+  ToolApprovalInfo,
   ToolCallRequest,
   ToolExecutionRecord,
   ToolSpec,
@@ -20,13 +21,24 @@ import type {
 export interface ExecutionStorePort {
   /**
    * 领取 Attempt（CAS + fencing）：仅在 Attempt 可执行且期望 fencing 匹配时成功，
-   * 成功后 fencing 递增，防重复执行。
+   * 成功后 fencing 递增并绑定租约（含过期时刻），防重复执行；3b-B 据过期抢占/恢复。
    */
   claimTurnAttempt(input: {
     turnId: string;
     attemptId: string;
     expectedFencingToken: number;
-  }): Promise<{ ok: true; fencingToken: number } | { ok: false; reason: "not_runnable" | "already_claimed" }>;
+  }): Promise<
+    | { ok: true; fencingToken: number; leaseId?: string; leaseExpiresAt?: string }
+    | { ok: false; reason: "not_runnable" | "already_claimed" }
+  >;
+
+  /** 3b-A：续租（CAS：leaseId + fencing 匹配且 Running 时才刷新过期时刻） */
+  renewAttemptLease(input: {
+    attemptId: string;
+    leaseId: string;
+    expectedFencingToken: number;
+    ttlMs?: number;
+  }): Promise<{ ok: boolean }>;
 
   /** 下一个可用事件序号（现有事件数 + 1；阶段 1 单执行器，不做跨执行器分配） */
   nextSequence(turnId: string): Promise<number>;
@@ -37,8 +49,13 @@ export interface ExecutionStorePort {
   /** 读取 Turn 的持久事件（afterSequence 起点；0 = 全量） */
   listEvents(turnId: string, afterSequence?: number): Promise<AgentStreamEvent[]>;
 
-  /** 提交 Attempt 终态 */
-  finalizeAttempt(input: { turnId: string; attemptId: string; status: AttemptStatus }): Promise<void>;
+  /** 提交 Attempt 终态；带 expectedFencingToken 时做 CAS 校验（单一终态，3b-B） */
+  finalizeAttempt(input: {
+    turnId: string;
+    attemptId: string;
+    status: AttemptStatus;
+    expectedFencingToken?: number;
+  }): Promise<{ ok: boolean }>;
 
   /** 记录一次工具执行（副作用证据账本；阶段 2d 落库 tool_executions） */
   recordToolExecution(input: ToolExecutionRecord): Promise<void>;
@@ -85,6 +102,8 @@ export interface ToolExecutionResult {
   ok: boolean;
   output?: unknown;
   error?: string;
+  /** 阶段 3a：需要授权（宿主未执行，生成 pending 授权并返回匹配键） */
+  needsApproval?: ToolApprovalInfo;
 }
 
 /** 工具执行器（只读工具子集；阶段 3 扩展审批/幂等/副作用证据） */

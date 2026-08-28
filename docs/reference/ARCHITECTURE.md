@@ -1,12 +1,12 @@
 # Aervox｜思隅 系统架构设计（SAD）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-28
 
 > 文档编号：AVX-SAD-001  
 > 类型：Explanation  
 > 版本：v0.1（评审候选）  
-> 更新日期：2026-08-25
+> 更新日期：2026-08-28
 > 状态：Review Candidate  
 > 关联 PRD：[PRD.md](PRD.md) · 追踪：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
 
@@ -369,10 +369,11 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 | ADR-013 | 独立恢复控制账本与撤权先行 |
 | ADR-014 | 演进式模块化单体：apps/api 按领域模块组织，自管仓储 + 进程内事件总线 |
 | ADR-015 | Vue 全栈单栈：Web 复用桌面端技术族，替代 ADR-002 的 Web 基线 |
+| ADR-016 | Accepted — 底座边界冻结：Kernel Substrate 与能力层依赖边界，`scripts/import-boundary.mjs` 机器校验 |
 
 每个 ADR 需要记录上下文、备选方案、决策、后果、迁移和回滚。未批准的技术建议不能写成已承诺架构。
 
-独立记录已建立在 `docs/reference/adr/ADR-###-slug.md`；上表是 canonical 索引，其他文档不得给同一个 `ADR-*` 赋予不同含义。当前状态均为 `Proposed`，不代表已经通过 G2 评审。
+独立记录已建立在 `docs/reference/adr/ADR-###-slug.md`；上表是 canonical 索引，其他文档不得给同一个 `ADR-*` 赋予不同含义。除 ADR-016（`Accepted`，2026-08-28 经 G2）外，其余状态均为 `Proposed`，不代表已经通过 G2 评审。
 
 ### 11.1 技术版本冻结规则
 

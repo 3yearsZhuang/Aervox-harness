@@ -15,7 +15,7 @@ export interface TurnCallbacks {
 
 /** 两端能力的最小契约：普通请求 + Turn 流式 */
 export interface AervoxTransport {
-  request<T = unknown>(method: string, path: string, body?: unknown): Promise<T>;
+  request<T = unknown>(method: string, path: string, body?: unknown, options?: { headers?: Record<string, string> }): Promise<T>;
   streamTurn(sessionId: string, content: string, callbacks: TurnCallbacks): Promise<void>;
 }
 
@@ -96,10 +96,10 @@ export function createFetchTransport(apiBase: string, workspaceId?: string, user
     return headers;
   };
 
-  const request = async <T = unknown>(method: string, path: string, body?: unknown): Promise<T> => {
+  const request = async <T = unknown>(method: string, path: string, body?: unknown, options?: { headers?: Record<string, string> }): Promise<T> => {
     const res = await fetch(`${base}${path}`, {
       method,
-      headers: { 'Content-Type': 'application/json', ...tenantHeaders() },
+      headers: { 'Content-Type': 'application/json', ...tenantHeaders(), ...options?.headers },
       body: method === 'GET' ? undefined : JSON.stringify(body ?? {}),
     });
     if (!res.ok) throw new Error(`API ${method} ${path} → HTTP ${res.status}`);
