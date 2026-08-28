@@ -13,6 +13,7 @@ declare global {
         method: string,
         path: string,
         body?: unknown,
+        headers?: Record<string, string>,
       ) => Promise<{ status: number; ok: boolean; json: T | null; text: string }>;
       streamTurn: (content: string, callback: (message: unknown) => void) => () => void;
     };
@@ -23,10 +24,10 @@ import type { PetCommand, TurnStreamEvent } from '@aervox/contracts';
 import type { AervoxTransport, TurnCallbacks } from './transport';
 
 export const desktopTransport: AervoxTransport = {
-  async request<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
+  async request<T = unknown>(method: string, path: string, body?: unknown, options?: { headers?: Record<string, string> }): Promise<T> {
     const bridge = window.fairyDesktop;
     if (!bridge) throw new Error('fairyDesktop 桥不可用，请通过 Electron 启动应用。');
-    const res = await bridge.apiRequest<T>(method, path, body);
+    const res = await bridge.apiRequest<T>(method, path, body, options?.headers);
     if (!res.ok) throw new Error(`API ${method} ${path} → HTTP ${res.status}: ${res.text}`);
     return res.json as T;
   },

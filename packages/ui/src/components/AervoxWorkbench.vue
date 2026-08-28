@@ -71,6 +71,7 @@ const practiceIndex = ref(0)
 const practiceReadyToComplete = ref(false)
 const practiceAnswer = ref('')
 const practiceFeedback = ref<{judgement: string; nextStep: string} | null>(null)
+const practiceSubmission = ref<{sessionId: string; questionId: string; answer: string; idempotencyKey: string} | null>(null)
 const practiceReport = ref<{answeredCount: number; questionCount: number; remainingCount: number; correctCount: number; incorrectCount: number; unverifiableCount: number; accuracy: number | null; nextStep: string} | null>(null)
 const practiceBusy = ref(false)
 const practiceError = ref<string | null>(null)
@@ -252,6 +253,7 @@ function restorePracticeSession(session: {sessionId: string; items: Array<{id: s
   practiceReadyToComplete.value = nextIndex >= session.items.length
   practiceIndex.value = Math.min(nextIndex, Math.max(session.items.length - 1, 0))
   practiceAnswer.value = ''
+  practiceSubmission.value = null
   practiceFeedback.value = null
 }
 
@@ -276,7 +278,12 @@ async function submitPracticeAnswer() {
   practiceBusy.value = true
   practiceError.value = null
   try {
-    practiceFeedback.value = await api.submitPracticeAnswer(practiceSession.value.sessionId, question.id, answer)
+    const existing = practiceSubmission.value
+    const submission = existing?.sessionId === practiceSession.value.sessionId && existing.questionId === question.id && existing.answer === answer
+      ? existing
+      : { sessionId: practiceSession.value.sessionId, questionId: question.id, answer, idempotencyKey: `attempt_${crypto.randomUUID()}` }
+    practiceSubmission.value = submission
+    practiceFeedback.value = await api.submitPracticeAnswer(submission.sessionId, submission.questionId, submission.answer, submission.idempotencyKey)
   } catch (error) {
     practiceError.value = error instanceof Error ? '作答没有保存，请重试。' : '作答失败，请重试。'
   } finally {
@@ -353,6 +360,7 @@ function nextPracticeQuestion() {
   }
   practiceIndex.value += 1
   practiceAnswer.value = ''
+  practiceSubmission.value = null
   practiceFeedback.value = null
 }
 
