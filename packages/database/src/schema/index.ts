@@ -31,3 +31,4 @@ export * from "./tool-executions.js";
 export * from "./tool-approvals.js";
 export * from "./agent-inbox.js";
 export * from "./subagent-runs.js";
+export * from "./audit.js";

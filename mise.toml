@@ -7,6 +7,9 @@ vale = "3.18.0"
 env_file = ".env"
 
 [env]
+# ── 配置优先级声明（缺陷6）──────────────────────────────
+# 进程环境变量 > .env（aervox 脚本/ mise env_file 加载）> 本 [env] 注入值 > 代码内置默认。
+# mise 注入不会覆盖调用方已导出的同名变量；此处仅设项目级默认。
 AERVOX_PROJECT = "aervox-harness"
 AERVOX_NODE_MIN = "22.19"
 AERVOX_LOOP_PROVIDER = "llm"

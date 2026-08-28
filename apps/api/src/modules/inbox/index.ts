@@ -4,15 +4,12 @@
  * 自管仓储实例化：SqliteAgentInboxRepository（enqueue 面）+ SqliteExtensionRepository
  * （插件 x-plugin-id 身份校验）。规则依据 §7.2 + ADR-017。
  */
-import type { FastifyInstance } from "fastify";
-import {
-  SqliteAgentInboxRepository,
-  SqliteExtensionRepository,
-  type AervoxDatabase,
-} from "@aervox/database";
+import type { ModuleContext } from "../context.js";
+import { SqliteAgentInboxRepository, SqliteExtensionRepository } from "@aervox/database";
 import { registerInboxRoutes } from "./routes.js";
 
-export function registerInboxModule(app: FastifyInstance, db: AervoxDatabase): void {
+export function registerInboxModule(ctx: ModuleContext): void {
+  const { app, db } = ctx;
   const inboxRepo = new SqliteAgentInboxRepository(db);
   const extensionRepo = new SqliteExtensionRepository(db);
   registerInboxRoutes(app, { inboxRepo, extensionRepo });
