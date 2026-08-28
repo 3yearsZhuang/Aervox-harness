@@ -69,7 +69,7 @@
   --accent-soft: #2b3348;
   --danger-soft: #472d2a;
   --danger: #ef9b8f;
-  --shadow: 0 12px 34px rgba(0, 0, 0, .26);
+  --shadow: 0 4px 16px rgba(0, 0, 0, .14);
   --el-color-primary: var(--accent);
   --el-color-primary-light-3: color-mix(in srgb, var(--accent) 70%, black);
   --el-color-primary-light-5: color-mix(in srgb, var(--accent) 50%, black);

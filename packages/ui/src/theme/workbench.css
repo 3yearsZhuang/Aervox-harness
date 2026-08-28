@@ -131,7 +131,7 @@
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
-  box-shadow: 0 10px 30px rgba(23, 32, 54, .12);
+  box-shadow: 0 2px 10px rgba(23, 32, 54, .07), inset 0 1px 0 rgba(255, 255, 255, .18);
   overflow: hidden;
   transition: max-width .42s cubic-bezier(.22, 1, .36, 1), background-color .3s ease, border-color .3s ease, box-shadow .3s ease;
 }
@@ -140,7 +140,7 @@
   max-width: 640px;
   background: var(--glass-bg-strong);
   border-color: color-mix(in srgb, var(--accent) 22%, var(--glass-border));
-  box-shadow: 0 16px 44px rgba(23, 32, 54, .2);
+  box-shadow: 0 3px 12px rgba(23, 32, 54, .09), inset 0 1px 0 rgba(255, 255, 255, .18);
 }
 
 .menu-toggle {
@@ -226,7 +226,7 @@
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   border-color: color-mix(in srgb, var(--accent) 28%, transparent);
   transform: translateY(-1px);
-  box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 20%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 /* ---------- 右侧功能卡片：页面主元素（亚克力玻璃） ---------- */
@@ -266,7 +266,7 @@
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
-  box-shadow: 0 16px 44px rgba(23, 32, 54, .16);
+  box-shadow: 0 2px 12px rgba(23, 32, 54, .08), inset 0 1px 0 rgba(255, 255, 255, .18);
   cursor: pointer;
   text-align: left;
   overflow: hidden;
@@ -285,10 +285,10 @@
 }
 
 .side-card:hover {
-  transform: translateY(-3px);
+  transform: translateY(-1px);
   border-color: color-mix(in srgb, var(--accent) 36%, var(--glass-border));
   background: var(--glass-bg-strong);
-  box-shadow: 0 22px 54px rgba(23, 32, 54, .2);
+  box-shadow: 0 4px 14px rgba(23, 32, 54, .1), inset 0 1px 0 rgba(255, 255, 255, .22);
 }
 
 .side-card-head {
@@ -446,7 +446,7 @@
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
-  box-shadow: 0 14px 38px rgba(23, 32, 54, .12);
+  box-shadow: 0 2px 12px rgba(23, 32, 54, .07), inset 0 1px 0 rgba(255, 255, 255, .18);
 }
 
 .message-viewport {
@@ -504,6 +504,12 @@
   background: var(--accent);
   vertical-align: -.12em;
   animation: aervox-blink 1s steps(1) infinite;
+}
+
+/* 卡片功能下拉菜单：限高滚动，任何方向展开都不超出视口 */
+.el-dropdown-menu.side-card-menu {
+  max-height: min(56vh, 400px);
+  overflow-y: auto;
 }
 
 /* 主对话框右下角：完整对话回看入口 */
@@ -574,17 +580,6 @@
   white-space: nowrap;
 }
 
-.composer-mode-chip {
-  flex: 0 0 auto;
-  padding: 2px 9px;
-  border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: var(--accent);
-  font-size: 10px;
-  font-weight: 650;
-}
-
 .composer-collapsed svg:last-child {
   color: var(--accent);
 }
@@ -592,9 +587,7 @@
 .composer-expanded {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas:
-    "modes modes"
-    "input actions";
+  grid-template-areas: "input actions";
   align-items: end;
   gap: 8px 10px;
   padding: clamp(8px, 1.2vh, 12px);
@@ -603,38 +596,8 @@
   background: var(--glass-bg-strong);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
-  box-shadow: 0 16px 44px rgba(23, 32, 54, .16);
+  box-shadow: 0 2px 12px rgba(23, 32, 54, .08), inset 0 1px 0 rgba(255, 255, 255, .18);
   animation: aervox-composer-expand .2s ease;
-}
-
-.composer-modes {
-  grid-area: modes;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.composer-mode {
-  padding: 5px 12px;
-  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 11px;
-  cursor: pointer;
-  transition: color .16s ease, border-color .16s ease, background-color .16s ease;
-}
-
-.composer-mode:hover {
-  color: var(--text-secondary);
-  border-color: var(--border-strong);
-}
-
-.composer-mode.active {
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--accent);
-  font-weight: 650;
 }
 
 .composer-expanded textarea {
@@ -727,7 +690,7 @@
   border: 0;
   background: linear-gradient(145deg, var(--accent), var(--accent-hover));
   color: #fff;
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 24%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .composer-actions button[type="submit"]:disabled {
@@ -795,7 +758,7 @@
   background: var(--glass-bg-strong);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
-  box-shadow: 0 30px 80px rgba(12, 18, 32, .38);
+  box-shadow: 0 10px 36px rgba(12, 18, 32, .2), inset 0 1px 0 rgba(255, 255, 255, .18);
   animation: vn-history-rise .26s cubic-bezier(.22, 1, .36, 1);
 }
 
@@ -1841,7 +1804,6 @@
   .composer-expanded {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
-      "modes"
       "input"
       "actions";
   }

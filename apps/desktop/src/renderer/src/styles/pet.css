@@ -100,7 +100,7 @@ html, body, #pet-app {
     background: var(--glass-bg);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
-    box-shadow: 0 10px 26px rgba(23, 32, 54, .18);
+    box-shadow: 0 2px 12px rgba(23, 32, 54, .1), inset 0 1px 0 rgba(255, 255, 255, .18);
     transform: translateX(-50%);
     -webkit-app-region: no-drag
 }
@@ -173,7 +173,7 @@ html, body, #pet-app {
     background: var(--glass-bg);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
-    box-shadow: 0 12px 30px rgba(23, 32, 54, .2);
+    box-shadow: 0 2px 12px rgba(23, 32, 54, .1), inset 0 1px 0 rgba(255, 255, 255, .18);
     transform: translateX(-50%);
     -webkit-app-region: no-drag
 }
@@ -210,8 +210,8 @@ html, body, #pet-app {
     color: var(--accent);
     background: color-mix(in srgb, var(--accent) 12%, transparent);
     border-color: color-mix(in srgb, var(--accent) 30%, transparent);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 22%, transparent)
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 16%, transparent)
 }
 
 .pet-dock-btn:active {
@@ -223,7 +223,7 @@ html, body, #pet-app {
     color: #d0655a;
     background: color-mix(in srgb, #c25549 12%, transparent);
     border-color: color-mix(in srgb, #c25549 30%, transparent);
-    box-shadow: 0 8px 18px color-mix(in srgb, #c25549 22%, transparent)
+    box-shadow: 0 2px 8px color-mix(in srgb, #c25549 16%, transparent)
 }
 
 /* 窄窗回退：仅图标 */
