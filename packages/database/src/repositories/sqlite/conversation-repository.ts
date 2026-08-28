@@ -12,6 +12,7 @@ import {
   turnAttempts,
   toolExecutions,
   toolApprovals,
+  toolRegistrations,
   conversationBranches,
   outboxEvents,
 } from "../../schema/index.js";
@@ -911,12 +912,16 @@ export class SqliteConversationRepository implements IConversationRepository {
     return result.rowsAffected ?? 0;
   }
 
-  /** 查询 Turn 的工具执行账本（按时间倒序） */
+  /** 查询 Turn 的工具执行账本（按时间倒序；join tool_registrations 携带 replay 声明供恢复裁决） */
   async listToolExecutionsByTurn(tenant: TenantContext, turnId: string): Promise<ToolExecutionModel[]> {
     assertTenantContext(tenant);
     const rows = await this.db
-      .select()
+      .select({ execution: toolExecutions, registration: toolRegistrations })
       .from(toolExecutions)
+      .leftJoin(
+        toolRegistrations,
+        or(eq(toolRegistrations.id, toolExecutions.name), eq(toolRegistrations.name, toolExecutions.name)),
+      )
       .where(
         and(
           eq(toolExecutions.turnId, turnId),
@@ -925,7 +930,10 @@ export class SqliteConversationRepository implements IConversationRepository {
         ),
       )
       .orderBy(desc(toolExecutions.startedAt));
-    return rows as ToolExecutionModel[];
+    return rows.map((row) => ({
+      ...row.execution,
+      replay: row.registration?.replay ?? null,
+    })) as ToolExecutionModel[];
   }
 
   /** 记录一条工具授权（阶段 3a） */

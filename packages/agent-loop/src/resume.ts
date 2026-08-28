@@ -27,16 +27,38 @@ export interface ResumeEventLike {
 export interface ResumeExecutionLike {
   invocationId: string;
   status: string;
+  /**
+   * B3：工具结果未知的恢复复议声明（"never" | "safe" | null 未声明）。
+   * 仅当某工具声明 `safe` 且结果未确定（pending/outcome_unknown）时，
+   * 恢复器才被允许注入合成结果并继续原 Attempt（§11.3 行 4/5）。
+   */
+  replay?: "never" | "safe" | null;
+}
+
+/** 合成结果项（B3：结果未知但工具声明 safe 时的恢复注入） */
+export interface ResumeSyntheticItem {
+  /** Host executionId（attempt:step:seq） */
+  executionId: string;
+  /** 账本原始状态 */
+  status: string;
+  /** 合成语义：意图确认且未开始 → not_started；结果不可知 → outcome_unknown */
+  kind: "not_started" | "outcome_unknown";
 }
 
 /** 裁决结果（resume=true 表示可在 lastSequence 后继续） */
-export interface ResumeDecision {
-  resume: boolean;
-  reason: "resumable" | "terminal_event" | "mixed_batch" | "no_committed_tool" | "outcome_unknown";
-  lastSequence?: number;
-}
-
-const NOT_RESUMABLE_STATUSES = new Set(["pending", "outcome_unknown", "pending_approval"]);
+export type ResumeDecision =
+  | { resume: false; reason: "terminal_event"; lastSequence?: number }
+  | { resume: false; reason: "mixed_batch" }
+  | { resume: false; reason: "no_committed_tool" }
+  | { resume: false; reason: "outcome_unknown" }
+  | { resume: true; reason: "resumable"; lastSequence: number }
+  | {
+      /** B3：批次含结果未确定项，但全部相关工具声明 `replay: safe` → 注入合成结果后继续 */
+      resume: true;
+      reason: "synthesized";
+      lastSequence: number;
+      synthesized: ResumeSyntheticItem[];
+    };
 
 /** 从 Host executionId（attempt:step:seq）提取 step 段；非法返回空串 */
 const stepOf = (executionId: string): string => executionId.split(":")[1] ?? "";
@@ -62,23 +84,58 @@ export function decideResume(
     return { resume: false, reason: "no_committed_tool" };
   }
 
-  // 3) 取最后一工具结果批次（同 step 的 tool_result 集）并核对账本
+  // 3) 取最后已提交结果所在 Step 的完整工具批次（含同 Step 已请求但未收口的
+  //    tool_request——崩溃残留的「工具意图已提交」边界，§11.3 行 4/5）并核对账本
   const lastResult = toolResults[toolResults.length - 1]!; // 上方已保证非空
-  const step = stepOf(lastResult.data!.executionId!);
-  const batch = toolResults.filter((t) => stepOf(t.data!.executionId!) === step && t.sequence <= lastResult.sequence);
-  if (batch.length === 0) {
+  const lastBatchStep = stepOf(lastResult.data!.executionId!);
+  const batchExecutionIds = new Set<string>();
+  for (const ev of events) {
+    const executionId = typeof ev.data?.executionId === "string" ? ev.data.executionId : "";
+    if (!executionId) continue;
+    // 按 executionId 的 step 段归批：同 Step 内已提交结果与崩溃前最后请求（可能晚于
+    // 最后结果序号）都算作本批次意图边界
+    if (
+      stepOf(executionId) === lastBatchStep &&
+      (ev.eventType === "tool_request" || ev.eventType === "tool_result")
+    ) {
+      batchExecutionIds.add(executionId);
+    }
+  }
+  if (batchExecutionIds.size === 0) {
     return { resume: false, reason: "outcome_unknown" };
   }
-  const batchExecutionIds = new Set(batch.map((t) => t.data!.executionId!));
-  const statuses = executions.filter((x) => batchExecutionIds.has(x.invocationId)).map((x) => x.status);
+  const executionsInBatch = executions.filter((x) => batchExecutionIds.has(x.invocationId));
 
-  // 4) 结果未知 / 待决 → 不自动重放（§11.3）
-  if (statuses.length === 0 || statuses.some((s) => NOT_RESUMABLE_STATUSES.has(s))) {
+  // 4) 账本缺失 → 无可依据的确定性（不自动重放，§11.3）
+  if (executionsInBatch.length === 0) {
     return { resume: false, reason: "outcome_unknown" };
   }
 
-  // 5) 全部已权威执行 → 可在该批结果后继续；否则混合批次按严格批次语义收敛
-  if (statuses.every((s) => s === "executed")) {
+  // 5) B3 三态政策（§11.3 行 4/5）：
+  //    - 结果未确定（pending/outcome_unknown）且相关工具全部声明 `replay: safe` →
+  //      注入合成结果后续跑（synthesized），禁止重复副作用；
+  //    - 审批待决（pending_approval）【永远收敛】：等待授权是业务语义，不可被合成绕过；
+  //    - 任一结果未确定工具未声明/声明 never → fail-closed 收敛（保持原语义）。
+  const undetermined = executionsInBatch.filter((x) => x.status === "pending" || x.status === "outcome_unknown");
+  const approvalPending = executionsInBatch.some((x) => x.status === "pending_approval");
+  if (undetermined.length > 0 || approvalPending) {
+    if (approvalPending || !undetermined.every((x) => x.replay === "safe")) {
+      return { resume: false, reason: "outcome_unknown" };
+    }
+    return {
+      resume: true,
+      reason: "synthesized",
+      lastSequence: lastResult.sequence,
+      synthesized: undetermined.map((x) => ({
+        executionId: x.invocationId,
+        status: x.status,
+        kind: x.status === "pending" ? "not_started" : "outcome_unknown",
+      })),
+    };
+  }
+
+  // 6) 批次全部已权威执行 → 可在该批结果后继续；否则混合批次按严格批次语义收敛
+  if (executionsInBatch.every((x) => x.status === "executed")) {
     return { resume: true, reason: "resumable", lastSequence: lastResult.sequence };
   }
   return { resume: false, reason: "mixed_batch" };
