@@ -86,6 +86,7 @@ import {
   practiceSessionResumeResponseSchema,
   mistakeItemSchema,
   mistakeListResponseSchema,
+  mistakeReasonCodeSchema,
   mistakeStatusEnumSchema,
   practiceQuestionSchema,
   practiceReportSchema,
@@ -484,11 +485,11 @@ registry.registerPath({
 });
 registry.registerPath({
   method: "get", path: "/v1/mistakes", summary: "列出错题本", tags: ["Learning"],
-  request: { query: mistakeListQuery, headers: scopeHeaders },
+  request: { query: mistakeListQuery.extend({ reasonCode: mistakeReasonCodeSchema.optional() }), headers: scopeHeaders },
   responses: { 200: { description: "Mistakes", content: { "application/json": { schema: mistakeListResponseSchema } } }, 400: { description: "status 非法" } },
 });
 registry.registerPath({
-  method: "patch", path: "/v1/mistakes/{questionId}", summary: "标记错题掌握状态", tags: ["Learning"],
+  method: "patch", path: "/v1/mistakes/{questionId}", summary: "更新错题处置或错因", tags: ["Learning"],
   request: { params: learningQuestionIdParam, headers: scopeHeaders, body: { content: { "application/json": { schema: updateMistakeRequestSchema } } } },
   responses: { 200: { description: "Updated", content: { "application/json": { schema: mistakeItemSchema } } }, 400: { description: "status 非法" }, 404: { description: "MISTAKE_NOT_FOUND" }, 409: { description: "错题无关联知识点" } },
 });

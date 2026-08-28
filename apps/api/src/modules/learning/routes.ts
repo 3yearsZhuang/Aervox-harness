@@ -4,10 +4,10 @@
  * 面向用户侧：学习目标 / 题目 / 作答 / 知识点 / 复习项。
  */
 import type { FastifyInstance } from "fastify";
-import { createLearningGoalSchema, updateLearningGoalSchema } from "@aervox/contracts";
+import { createLearningGoalSchema, updateLearningGoalSchema, updateMistakeRequestSchema } from "@aervox/contracts";
 import type { SqliteLearningRepository } from "@aervox/database";
 import { resolveTenant } from "../../shared/tenant.js";
-import { createReviewItem, getLocalDayBounds, getPracticeSessionProgress, updateAfterAnswer } from "@aervox/practice-review";
+import { createReviewItem, getLocalDayBounds, getPracticeSessionProgress, normalizeMistakeNote, updateAfterAnswer } from "@aervox/practice-review";
 
 let seq = 0;
 const estimatedMinutesPerReview = 2;
@@ -338,35 +338,52 @@ export function registerLearningRoutes(
 
   // 错题本（由不可变作答事实派生，不复制原始答案）
   app.get("/v1/mistakes", async (req, reply) => {
-    const status = (req.query as { status?: string }).status ?? "active";
+    const { status = "active", reasonCode } = req.query as { status?: string; reasonCode?: string };
     if (!["active", "mastered", "dismissed", "all"].includes(status)) {
       return reply.code(400).send({ error: "status must be active, mastered, dismissed, or all" });
     }
+    if (reasonCode !== undefined && !["concept_gap", "calculation", "careless", "misread", "other"].includes(reasonCode)) {
+      return reply.code(400).send({ error: "reasonCode is invalid" });
+    }
     return {
-      items: await learningRepo.listMistakes(
+      items: (await learningRepo.listMistakes(
         resolveTenant(req),
         status as "active" | "mastered" | "dismissed" | "all",
-      ),
+      )).filter((item) => reasonCode === undefined || item.reasonCode === reasonCode),
     };
   });
 
   app.patch("/v1/mistakes/:questionId", async (req, reply) => {
     const tenant = resolveTenant(req);
     const { questionId } = req.params as { questionId: string };
-    const body = (req.body ?? {}) as { status?: string };
-    if (!['active', 'mastered', 'dismissed'].includes(body.status ?? '')) {
-      return reply.code(400).send({ error: "status must be active, mastered, or dismissed" });
-    }
+    const parsed = updateMistakeRequestSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? "invalid request" });
+    const body = parsed.data;
     const mistake = (await learningRepo.listMistakes(tenant, "all"))
       .find((item) => item.questionId === questionId);
     if (!mistake) return reply.code(404).send({ error: "mistake not found" });
+    if (body.reasonCode !== undefined) {
+      if (body.reasonCode === null) {
+        await learningRepo.clearMistakeInsight(tenant, questionId);
+      } else {
+        await learningRepo.setMistakeInsight(tenant, {
+          id: id("mistake_insight"),
+          questionId,
+          reasonCode: body.reasonCode,
+          note: normalizeMistakeNote(body.note),
+        });
+      }
+    }
+    const refreshed = (await learningRepo.listMistakes(tenant, "all"))
+      .find((item) => item.questionId === questionId) ?? mistake;
+    if (body.status === undefined) return refreshed;
     if (body.status === "dismissed" || (body.status === "active" && mistake.status === "dismissed")) {
       await learningRepo.setMistakeDisposition(tenant, {
         id: id("mistake_disposition"),
         questionId,
         status: body.status,
       });
-      return { ...mistake, status: body.status };
+      return { ...refreshed, status: body.status };
     }
     if (!mistake.knowledgeId) {
       return reply.code(409).send({ error: "mistake has no knowledge item" });
@@ -377,7 +394,7 @@ export function registerLearningRoutes(
       body.status === "mastered" ? "mastered" : "learning",
       { source: "user", action: body.status === "mastered" ? "mark_mastered" : "resume_learning" },
     );
-    return { ...mistake, masteryState: updated?.masteryState, status: body.status };
+    return { ...refreshed, masteryState: updated?.masteryState, status: body.status };
   });
 
   app.post("/v1/mistakes/repractice", async (req, reply) => {

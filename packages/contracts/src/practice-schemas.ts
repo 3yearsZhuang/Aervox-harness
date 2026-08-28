@@ -60,6 +60,7 @@ export const practiceReportSchema = z.object({
 
 /** 错题列表 status 查询参数 */
 export const mistakeStatusEnumSchema = z.enum(["active", "mastered", "dismissed", "all"]);
+export const mistakeReasonCodeSchema = z.enum(["concept_gap", "calculation", "careless", "misread", "other"]);
 
 /** 错题本条目（由不可变作答事实派生） */
 export const mistakeItemSchema = z.object({
@@ -71,6 +72,8 @@ export const mistakeItemSchema = z.object({
   wrongCount: z.number().int(),
   masteryState: z.string(),
   status: z.enum(["active", "mastered", "dismissed"]),
+  reasonCode: mistakeReasonCodeSchema.nullable(),
+  note: z.string().nullable(),
 });
 
 /** GET /v1/mistakes 响应 */
@@ -80,7 +83,11 @@ export const mistakeListResponseSchema = z.object({
 
 /** PATCH /v1/mistakes/:questionId 请求体 */
 export const updateMistakeRequestSchema = z.object({
-  status: z.enum(["active", "mastered", "dismissed"]),
+  status: z.enum(["active", "mastered", "dismissed"]).optional(),
+  reasonCode: mistakeReasonCodeSchema.nullable().optional(),
+  note: z.string().trim().max(500).nullable().optional(),
+}).refine((value) => value.status !== undefined || value.reasonCode !== undefined, {
+  message: "status or reasonCode is required",
 });
 
 /** POST /v1/mistakes/repractice 请求体 */

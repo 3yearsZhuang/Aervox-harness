@@ -72,7 +72,11 @@ export interface MistakeItemDto {
   wrongCount: number;
   masteryState: string;
   status: 'active' | 'mastered' | 'dismissed';
+  reasonCode: MistakeReasonCode | null;
+  note: string | null;
 }
+
+export type MistakeReasonCode = 'concept_gap' | 'calculation' | 'careless' | 'misread' | 'other';
 
 export interface NotificationDto {
   id: string;
@@ -179,6 +183,14 @@ export function useAervoxApi() {
     await loadAll();
   };
 
+  const setMistakeInsight = async (
+    questionId: string,
+    insight: { reasonCode: MistakeReasonCode | null; note?: string | null },
+  ): Promise<void> => {
+    await transport.request('PATCH', `/v1/mistakes/${encodeURIComponent(questionId)}`, insight);
+    await loadAll();
+  };
+
   const startMistakePractice = async (questionIds: string[]): Promise<PracticeSessionDto> =>
     transport.request('POST', '/v1/mistakes/repractice', { questionIds });
 
@@ -217,6 +229,7 @@ export function useAervoxApi() {
     completePracticeSession,
     completeReview,
     setMistakeStatus,
+    setMistakeInsight,
     startMistakePractice,
     submitFeedback,
     trackEvent,

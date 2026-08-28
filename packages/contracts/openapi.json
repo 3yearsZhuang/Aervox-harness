@@ -2829,6 +2829,26 @@
               "mastered",
               "dismissed"
             ]
+          },
+          "reasonCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "concept_gap",
+              "calculation",
+              "careless",
+              "misread",
+              "other",
+              null
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -2839,7 +2859,9 @@
           "latestAttemptAt",
           "wrongCount",
           "masteryState",
-          "status"
+          "status",
+          "reasonCode",
+          "note"
         ]
       },
       "MistakeListResponse": {
@@ -2881,6 +2903,26 @@
                     "mastered",
                     "dismissed"
                   ]
+                },
+                "reasonCode": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "concept_gap",
+                    "calculation",
+                    "careless",
+                    "misread",
+                    "other",
+                    null
+                  ]
+                },
+                "note": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
               },
               "required": [
@@ -2891,7 +2933,9 @@
                 "latestAttemptAt",
                 "wrongCount",
                 "masteryState",
-                "status"
+                "status",
+                "reasonCode",
+                "note"
               ]
             }
           }
@@ -2910,11 +2954,29 @@
               "mastered",
               "dismissed"
             ]
+          },
+          "reasonCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "concept_gap",
+              "calculation",
+              "careless",
+              "misread",
+              "other",
+              null
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500
           }
-        },
-        "required": [
-          "status"
-        ]
+        }
       },
       "RepracticeRequest": {
         "type": "object",
@@ -9542,6 +9604,21 @@
           {
             "schema": {
               "type": "string",
+              "enum": [
+                "concept_gap",
+                "calculation",
+                "careless",
+                "misread",
+                "other"
+              ]
+            },
+            "required": false,
+            "name": "reasonCode",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
               "minLength": 1
             },
             "required": false,
@@ -9611,6 +9688,26 @@
                               "mastered",
                               "dismissed"
                             ]
+                          },
+                          "reasonCode": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "concept_gap",
+                              "calculation",
+                              "careless",
+                              "misread",
+                              "other",
+                              null
+                            ]
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -9621,7 +9718,9 @@
                           "latestAttemptAt",
                           "wrongCount",
                           "masteryState",
-                          "status"
+                          "status",
+                          "reasonCode",
+                          "note"
                         ]
                       }
                     }
@@ -9641,7 +9740,7 @@
     },
     "/v1/mistakes/{questionId}": {
       "patch": {
-        "summary": "标记错题掌握状态",
+        "summary": "更新错题处置或错因",
         "tags": [
           "Learning"
         ],
@@ -9696,11 +9795,29 @@
                       "mastered",
                       "dismissed"
                     ]
+                  },
+                  "reasonCode": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "concept_gap",
+                      "calculation",
+                      "careless",
+                      "misread",
+                      "other",
+                      null
+                    ]
+                  },
+                  "note": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 500
                   }
-                },
-                "required": [
-                  "status"
-                ]
+                }
               }
             }
           }
@@ -9744,6 +9861,26 @@
                         "mastered",
                         "dismissed"
                       ]
+                    },
+                    "reasonCode": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "concept_gap",
+                        "calculation",
+                        "careless",
+                        "misread",
+                        "other",
+                        null
+                      ]
+                    },
+                    "note": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -9754,7 +9891,9 @@
                     "latestAttemptAt",
                     "wrongCount",
                     "masteryState",
-                    "status"
+                    "status",
+                    "reasonCode",
+                    "note"
                   ]
                 }
               }
