@@ -4,9 +4,9 @@
 - 修改人：3yearszhuang · 2026-08-28
 
 > 文档编号：AVX-DOC-001  
-> 版本：v0.7
+> 版本：v0.8
 > 更新日期：2026-08-28
-> 状态：评审候选  
+> 状态：Review Candidate
 
 本目录把产品目标、可测试需求、架构决策、数据权利和 AI 质量分开维护，避免单一 PRD 同时承担所有细节。所有上线范围必须能从用户价值追踪到需求、设计、测试和发布证据。
 
@@ -32,9 +32,10 @@
 | [插件 Config 与 Page 规范](reference/plugin-config-and-pages.md)（AVX-PLUG-001） | 插件配置如何声明、校验、可视化，Page 如何安全承载 | Config Schema v1、配置存储/API、Page Bridge 与安全边界（CR-006） |
 | [操作指南](how-to) | 怎么新增/修改需求、写 ADR、过发布会门禁、做季度演练、管可选模块 submodule；贡献者流程见根级 [CONTRIBUTING](../CONTRIBUTING.md) | 任务型流程（工程与发布流程合一）；规则以对应专项文档为事实源 |
 | [文档生命周期登记表](DOC_REGISTRY.md) | 每份文档何时核验、多久复核、什么信号表示陈旧 | 核验节奏/陈旧信号；独立于索引维护 |
+| [文档治理与事实源规范](reference/document-governance.md)（AVX-DOC-GOV-001） | 文档如何分类、标记状态、确定唯一事实源并触发复核 | 分类、事实源矩阵、元数据、状态模型、owner、复核触发器与分阶段迁移 |
 | [从这里开始](getting-started.md)（AVX-DOC-002，见[§7](#7-从哪开始)） | 新成员/Agent 从哪看起、提交前自检什么 | 导航型；不承载规则 |
 | [能力拆分路线](explanation/roadmap.md)（AVX-EXPL-004，见[§4.1](#41-能力拆分路线建议批次)） | CAP 按什么批次、什么顺序进入规格化与开发 | 建议批次与拆分节奏；既不重复 PRD 路线图，也不重复追踪基线矩阵 |
-| [文档写作规范](reference/standards/doc-standards.md)（AVX-STD-001） | 每份文档怎么分类、文档头怎么填、怎么写、如何被校验 | Diátaxis 四分类、元数据 schema、命名、风格基线、Vale 术语门禁、模板族 |
+| [文档写作规范](reference/standards/doc-standards.md)（AVX-STD-001） | 每份文档如何使用模板、命名、写作并通过门禁 | 写作体例、签名、命名、风格基线、Vale 术语门禁与模板族；治理规则见 AVX-DOC-GOV-001 |
 | [术语表](reference/standards/terminology.md)（AVX-TERM-001） | 项目术语的唯一含义与规范写法 | 缩写/产品名唯一语义；Vale 依据「禁写」列自动校验 |
 | [教程：第一个对话](tutorials/first-conversation.md)（AVX-TUT-001） | 新成员如何从 0 跑到第一条对话 | 可执行步骤与验证 |
 | [教程：迁移已集成能力并接入 DSH/pi](tutorials/migrate-integrated-capabilities.md)（AVX-TUT-002） | 如何把现有 tools/plugins/skills 迁移为可组合能力，并设计 DSH/pi 适配器 | 原生能力迁移、Job Handler、外部 Host、Profile、撤权和回滚演练 |
@@ -42,7 +43,7 @@
 | [参考项目能力迁移与借鉴评估](explanation/reference-design-transfer.md)（AVX-EXPL-002） | 参考项目哪些设计值得落地或借鉴 | 判定框架、建议落地清单、落地顺序与 AGPL 边界 |
 | [桌宠角色设定文档化与多人格模板组织](explanation/persona-organization.md)（AVX-EXPL-003） | 桌宠 IP 与多人格模板（CAP-019）的角色如何文档化、版本化并维护 | 角色文档清单、字段化结构（prompt/开场白/语气/技能/错误兜底语）、人设目录与模板版本化、维护责任 |
 
-写作层规则（四分类、头字段、命名、Vale 门禁）见[文档写作规范](reference/standards/doc-standards.md)，术语唯一语义见[术语表](reference/standards/terminology.md)。
+文档分类、状态、事实源与复核触发以[文档治理与事实源规范](reference/document-governance.md)为准；模板、命名、签名和写作门禁见[文档写作规范](reference/standards/doc-standards.md)，术语唯一语义见[术语表](reference/standards/terminology.md)。
 
 当前已提供 [SRS](reference/SRS.md) 原子需求样例、共享 ADR、威胁模型、测试策略、运行手册和基线 NFR/AIQ/DATA/SEC/PRIV/OPS 追踪。每个进入开发的能力仍应逐步补充其专属 API/OpenAPI 片段、UX 原型、数据字典、测试证据和 ADR 关联；这些材料未齐备前，不得把能力地图中的一行视为完整开发规格。
 
@@ -60,7 +61,7 @@
 
 复习日期边界见 [CR-011：时区安全的复习调度与逾期汇总](reference/changes/CR-011-timezone-safe-review-scheduling.md)：v2 按 IANA 时区增加本地日历天，并区分今日到期与历史逾期。
 
-Agent 执行核心的目标基线见 [CR-012：Agent Harness Loop](reference/changes/CR-012-agent-harness-loop.md) 与 [AVX-HAR-001](reference/agent-harness-loop.md)：当前固定 `done` SSE 将分阶段迁移为可恢复的模型—工具—模型多 Step 循环，外部 DSH/pi 仍只作为可选 Loop Driver 或受限 Contribution。
+Agent 执行核心的当前与目标边界见 [CR-012：Agent Harness Loop](reference/changes/CR-012-agent-harness-loop.md) 与 [AVX-HAR-001](reference/agent-harness-loop.md)：阶段 0、1、2d、2e、3a、3b 已落地，包括 `packages/agent-loop`、API Replay/Scripted/LLM Loop、持久化 SSE、只读工具、写工具审批、工具账本、租约与 Worker 恢复；异步 Outbox Driver、完整上下文持久化、独立 Host 和 DSH/pi Adapter 仍按后续阶段推进。
 
 练习中断恢复边界见 [CR-013：活跃练习会话恢复与续答](reference/changes/CR-013-practice-session-recovery.md)：重开学习界面会恢复同一题组快照和首个未答题，重复启动不会创建第二个活跃会话。
 
@@ -68,9 +69,11 @@ Agent 执行核心的目标基线见 [CR-012：Agent Harness Loop](reference/cha
 
 大语言模型供应商配置见 [CR-015：WebUI 模型与服务](reference/changes/CR-015-llm-provider-config-webui.md)：设置「模型与服务」分类持久化 LLM 供应商端点/密钥引用/模型名并支持连通性测试，按租户隔离存储。
 
+文档治理基线见 [CR-017：文档治理与事实源标准化](reference/changes/CR-017-document-governance-standardization.md) 与 [AVX-DOC-GOV-001](reference/document-governance.md)：本轮先建立兼容式元数据、状态分层、事实源矩阵和 `docs-validate` 门禁，不批量搬迁历史文档。
+
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
 
-每份关键文档的最后核验时间、核验节奏与陈旧信号，独立维护在[文档生命周期登记表](DOC_REGISTRY.md)（AVX-DOC-CONF-001）；文档历史责任由各文档头部的 `- 提出人 / - 修改人` 点阵签名追踪（见[文档写作规范 §2](reference/standards/doc-standards.md#2-文档头元数据)）。新增或改版文档时同步更新登记表，避免索引与登记混在同一文件。
+每份关键文档的最后核验时间、核验节奏与陈旧信号，独立维护在[文档生命周期登记表](DOC_REGISTRY.md)（AVX-DOC-CONF-001）；文档历史责任由各文档标题下的 `- 提出人 / - 修改人` 点阵签名追踪。何时更新登记、哪些代码路径触发复核，以[文档治理规范 §5-6](reference/document-governance.md#5-维护责任和更新触发器)为准。
 
 ## 2. 权威顺序与冲突处理
 
@@ -85,15 +88,9 @@ Agent 执行核心的目标基线见 [CR-012：Agent Harness Loop](reference/cha
 
 ## 3. 文档状态
 
-| 状态 | 含义 |
-|---|---|
-| Draft | 可快速修改，不能作为开发或发布承诺 |
-| Review Candidate | 内容基本完整，正在进行跨专业评审 |
-| Approved | 经评审批准，成为版本基线；变更需走 `CR-*` |
-| Superseded | 被新版本替代，仅为追溯保留 |
-| Retired | 对应能力或服务已退出，保留迁移和退出证据 |
+文档可用性、决策批准情况和代码交付进度是三个独立维度，允许值与组合规则以[文档治理规范 §4](reference/document-governance.md#4-元数据和状态模型)为唯一事实源。本索引只展示入口，不从 CR/ADR 正文反推交付状态。
 
-当前文档集仍为评审候选，原因是目标地区、基础设施预算、模型供应商和实验样本量尚未批准。它可以指导进一步规格化和原型实现，但不能作为生产发布批准。
+当前文档集整体仍为 `Review Candidate`：它可以指导进一步规格化和原型实现，但不能替代生产发布批准或对应测试证据。
 
 ## 4. 更新与评审节奏
 
@@ -108,7 +105,7 @@ Agent 执行核心的目标基线见 [CR-012：Agent Harness Loop](reference/cha
 
 ### 4.1 能力拆分路线（建议批次）
 
-每批 CAP 何时从 `Mapped` 转 `Specified`、按什么顺序拆分进入开发，见[能力拆分路线](explanation/roadmap.md)（AVX-EXPL-004）。拆分的唯一事实源是[追踪基线覆盖矩阵](reference/REQUIREMENTS_TRACEABILITY.md#4-cap-001cap-032-覆盖矩阵)。
+每批 CAP 何时从 `Mapped` 转 `Specified`、按什么顺序拆分进入开发，见[能力拆分路线](explanation/roadmap.md)（AVX-EXPL-004）。拆分的唯一事实源是[追踪基线覆盖矩阵](reference/REQUIREMENTS_TRACEABILITY.md#4-cap-001cap-032-覆盖矩阵全部能力状态唯一速览)。
 
 ## 5. 专业基线自检
 
