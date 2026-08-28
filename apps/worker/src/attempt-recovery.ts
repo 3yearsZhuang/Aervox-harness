@@ -17,6 +17,11 @@ export async function runAttemptRecoveryCycle(opts: {
   workerId: string;
 }): Promise<number> {
   const repo = new SqliteConversationRepository(opts.db);
+  // 3c：先收集「工具结果已权威提交但尚未注入」的续跑候选（阶段 4 host 恢复器接续；当前仅观测）
+  const candidates = await repo.findResumeCandidates(opts.client);
+  if (candidates.length > 0) {
+    console.log(`[worker:${opts.workerId}] resume_candidates=${candidates.length} ${candidates.map((c) => `${c.attemptId}@${c.lastSequence}`).join(",")}`);
+  }
   const recovered = await repo.recoverExpiredAttempts(opts.client);
   if (recovered > 0) {
     // 2c：释放后遗留 pending 预留结果不可知（§11.3 unknown outcome，不自动重放）

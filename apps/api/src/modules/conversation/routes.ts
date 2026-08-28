@@ -159,13 +159,29 @@ export function registerConversationRoutes(
     return reply.send({ turnId, status: "Cancelled", cancelled: true });
   });
 
-  // POST /v1/turns/{turnId}/tool-approvals — 写工具授权决定（阶段 3a：grant / deny）
+  // POST /v1/turns/{turnId}/tool-approvals — 写工具授权决定（阶段 3a：grant / deny；3b：privileged 仅管理员可批准）
   app.post("/v1/turns/:turnId/tool-approvals", async (req, reply) => {
     const { turnId } = req.params as { turnId: string };
     const tenant = resolveTenant(req);
     const body = (req.body ?? {}) as { approvalId?: string; decision?: string; decidedBy?: string };
     if (!body.approvalId || (body.decision !== "granted" && body.decision !== "denied")) {
       return reply.code(400).send({ error: "approvalId and decision (granted|denied) are required" });
+    }
+    // 3b：privileged 工具的管理员身份校验（AERVOX_ADMIN_IDS 白名单 + x-admin-user-id）
+    if (deps.toolRuntime) {
+      const approval = await conversationRepo.getToolApproval(tenant, body.approvalId);
+      if (!approval) {
+        return reply.code(404).send({ error: "approval not found" });
+      }
+      const registrations = await deps.toolRuntime.listTools();
+      const tool = registrations.find((t) => t.name === approval.toolName);
+      if (tool?.safetyLevel === "privileged") {
+        const adminId = req.headers["x-admin-user-id"] as string | undefined;
+        const allowed = (process.env.AERVOX_ADMIN_IDS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+        if (adminId === undefined || !allowed.includes(adminId)) {
+          return reply.code(403).send({ error: "admin_required: privileged tool approval requires x-admin-user-id in AERVOX_ADMIN_IDS" });
+        }
+      }
     }
     const updated = await conversationRepo.decideToolApproval(tenant, body.approvalId, body.decision, body.decidedBy ?? "admin");
     if (!updated) {
