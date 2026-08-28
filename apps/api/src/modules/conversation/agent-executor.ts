@@ -216,8 +216,9 @@ export function createRuntimeToolProvider(
         }
       }
 
-      // 写工具：须已授权（参数哈希匹配 + granted），否则生成待决授权
-      if (tool.safetyLevel === "write_with_approval") {
+      // 写工具（write_with_approval / privileged）：须已授权（参数哈希匹配 + granted），否则生成待决授权。
+      // privileged 与 write 同流程；「仅管理员可批准」由路由 decideToolApproval 的管理员校验把关（3b）。
+      if (tool.safetyLevel === "write_with_approval" || tool.safetyLevel === "privileged") {
         const hash = stableStringify(input.arguments);
         const granted = await deps.conversationRepo.findGrantedToolApproval(tenant, {
           toolName: tool.name,
@@ -243,8 +244,8 @@ export function createRuntimeToolProvider(
         return { ok: false, needsApproval: { approvalId: approval.id, toolName: tool.name, argumentsHash: hash } };
       }
 
-      // privileged：仅管理员通道，Loop 一律拒绝
-      return { ok: false, error: `requires_approval: ${tool.id}（privileged 仅管理员通道）` };
+      // 其它（含不可识别的 safetyLevel）：fail-closed 拒绝
+      return { ok: false, error: `requires_approval: ${tool.id}（未支持的安全级别）` };
     },
   };
 }
@@ -276,6 +277,14 @@ export const API_WRITE_SCRIPT: readonly ReplayStep[] = [
   {
     text: "我需要保存一条复习笔记。",
     toolCalls: [{ id: "call_write_1", name: "aervox_save_note", arguments: { content: "今日复习三角函数" } }],
+  },
+];
+
+/** 3b privileged 管理员通道脚本（AERVOX_LOOP_PROVIDER=scripted-privileged；单 Step 请求特权工具） */
+export const API_PRIVILEGED_SCRIPT: readonly ReplayStep[] = [
+  {
+    text: "需要执行特权操作。",
+    toolCalls: [{ id: "call_priv_1", name: "aervox_privileged_op", arguments: { op: "export_all" } }],
   },
 ];
 
@@ -323,6 +332,7 @@ export async function runLoopTurnOnce(
     const mode = process.env.AERVOX_LOOP_PROVIDER ?? "replay";
     if (mode === "scripted") return createScriptedProvider(API_TOOL_SCRIPT);
     if (mode === "scripted-write") return createScriptedProvider(API_WRITE_SCRIPT);
+    if (mode === "scripted-privileged") return createScriptedProvider(API_PRIVILEGED_SCRIPT);
     if (mode === "llm") {
       if (!deps.llmConfigService) {
         throw new Error("llm_provider_unavailable: LLMConfigService 未接线");
