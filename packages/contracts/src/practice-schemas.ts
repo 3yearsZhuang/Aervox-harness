@@ -71,6 +71,8 @@ export const mistakeItemSchema = z.object({
   wrongCount: z.number().int(),
   masteryState: z.string(),
   status: z.enum(["active", "mastered", "dismissed"]),
+  reason: z.string().nullable().optional(),
+  note: z.string().nullable().optional(),
 });
 
 /** GET /v1/mistakes 响应 */
@@ -81,6 +83,8 @@ export const mistakeListResponseSchema = z.object({
 /** PATCH /v1/mistakes/:questionId 请求体 */
 export const updateMistakeRequestSchema = z.object({
   status: z.enum(["active", "mastered", "dismissed"]),
+  reason: z.string().max(200).optional(),
+  note: z.string().max(1000).optional(),
 });
 
 /** POST /v1/mistakes/repractice 请求体 */

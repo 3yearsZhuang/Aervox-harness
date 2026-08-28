@@ -297,6 +297,138 @@ export class SqliteConversationRepository implements IConversationRepository {
     return res.length > 0;
   }
 
+  // ============ CAP-013：消息编辑、软删除、版本历史、恢复 ============
+
+  /**
+   * FR-CONV-004：编辑消息 — 生成新版本，旧版本标记 supersededAt，CAS 校验版本号
+   * @returns 新版本记录；若消息已删除或版本不匹配则返回 null
+   */
+  async editMessage(
+    tenant: TenantContext,
+    messageId: string,
+    content: string,
+    expectedVersion: number,
+  ): Promise<{ message: MessageModel; newVersion: MessageVersionModel } | null> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+
+    // 1. 获取消息，校验存在性和删除状态
+    const message = await this.getMessage(tenant, messageId);
+    if (!message || message.deletedAt) return null;
+
+    // 2. 获取当前版本，CAS 校验
+    const currentVersions = await this.db
+      .select()
+      .from(messageVersions)
+      .where(
+        and(
+          eq(messageVersions.messageId, messageId),
+          eq(messageVersions.workspaceId, tenant.workspaceId),
+          eq(messageVersions.subjectUserId, tenant.subjectUserId),
+          isNull(messageVersions.supersededAt),
+        ),
+      )
+      .orderBy(desc(messageVersions.version))
+      .limit(1);
+
+    if (currentVersions.length === 0) return null;
+    const currentVersion = currentVersions[0] as MessageVersionModel;
+    if (currentVersion.version !== expectedVersion) return null;
+
+    // 3. 标记旧版本 supersededAt
+    await this.db
+      .update(messageVersions)
+      .set({ supersededAt: now })
+      .where(eq(messageVersions.id, currentVersion.id));
+
+    // 4. 插入新版本
+    const newVersionId = `mv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    const [newVersion] = await this.db
+      .insert(messageVersions)
+      .values({
+        id: newVersionId,
+        turnId: currentVersion.turnId,
+        messageId: messageId,
+        workspaceId: tenant.workspaceId,
+        subjectUserId: tenant.subjectUserId,
+        role: currentVersion.role,
+        version: expectedVersion + 1,
+        content,
+        isRedacted: 0,
+        createdAt: now,
+      })
+      .returning();
+
+    // 5. 更新 messages.currentVersionId
+    await this.db
+      .update(messages)
+      .set({ currentVersionId: newVersionId })
+      .where(eq(messages.id, messageId));
+
+    return {
+      message: { ...message, currentVersionId: newVersionId } as MessageModel,
+      newVersion: newVersion as MessageVersionModel,
+    };
+  }
+
+  /**
+   * FR-CONV-005：软删除消息 — 设置 deletedAt，不物理删除
+   */
+  async softDeleteMessage(tenant: TenantContext, messageId: string): Promise<MessageModel | null> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    const message = await this.getMessage(tenant, messageId);
+    if (!message || message.deletedAt) return null;
+
+    const [updated] = await this.db
+      .update(messages)
+      .set({ deletedAt: now })
+      .where(eq(messages.id, messageId))
+      .returning();
+
+    return (updated as MessageModel) ?? null;
+  }
+
+  /**
+   * 恢复已删除的消息 — 清除 deletedAt
+   */
+  async restoreMessage(tenant: TenantContext, messageId: string): Promise<MessageModel | null> {
+    assertTenantContext(tenant);
+    // 先校验租户归属
+    const message = await this.getMessage(tenant, messageId);
+    if (!message) return null;
+
+    const [updated] = await this.db
+      .update(messages)
+      .set({ deletedAt: null })
+      .where(eq(messages.id, messageId))
+      .returning();
+
+    return (updated as MessageModel) ?? null;
+  }
+
+  /**
+   * 查询消息的所有版本（按版本号降序）
+   */
+  async listMessageVersions(
+    tenant: TenantContext,
+    messageId: string,
+  ): Promise<MessageVersionModel[]> {
+    assertTenantContext(tenant);
+    const rows = await this.db
+      .select()
+      .from(messageVersions)
+      .where(
+        and(
+          eq(messageVersions.messageId, messageId),
+          eq(messageVersions.workspaceId, tenant.workspaceId),
+          eq(messageVersions.subjectUserId, tenant.subjectUserId),
+        ),
+      )
+      .orderBy(desc(messageVersions.version));
+    return rows as MessageVersionModel[];
+  }
+
   // ============ MVP 补齐（PRD §8）：Message 身份 / TurnAttempt ============
 
   async createMessage(
@@ -875,7 +1007,14 @@ export class SqliteConversationRepository implements IConversationRepository {
 
   async createConversationBranch(
     tenant: TenantContext,
-    branchData: { id: string; parentSessionId: string; forkAtMessageId?: string | null; childSessionId: string },
+    branchData: {
+      id: string;
+      parentSessionId: string;
+      forkAtMessageId?: string | null;
+      childSessionId: string;
+      title?: string;
+      branchReason?: string;
+    },
   ): Promise<ConversationBranchModel> {
     assertTenantContext(tenant);
     const now = new Date().toISOString();
@@ -888,6 +1027,9 @@ export class SqliteConversationRepository implements IConversationRepository {
         parentSessionId: branchData.parentSessionId,
         forkAtMessageId: branchData.forkAtMessageId ?? null,
         childSessionId: branchData.childSessionId,
+        title: branchData.title ?? null,
+        branchReason: branchData.branchReason ?? null,
+        status: "active",
         createdAt: now,
         updatedAt: now,
       })
@@ -905,9 +1047,117 @@ export class SqliteConversationRepository implements IConversationRepository {
           eq(conversationBranches.parentSessionId, parentSessionId),
           eq(conversationBranches.workspaceId, tenant.workspaceId),
           eq(conversationBranches.subjectUserId, tenant.subjectUserId),
+          isNull(conversationBranches.deletedAt),
         ),
       )
       .orderBy(conversationBranches.createdAt);
     return rows as ConversationBranchModel[];
+  }
+
+  async getBranch(tenant: TenantContext, branchId: string): Promise<ConversationBranchModel | null> {
+    assertTenantContext(tenant);
+    const [found] = await this.db
+      .select()
+      .from(conversationBranches)
+      .where(
+        and(
+          eq(conversationBranches.id, branchId),
+          eq(conversationBranches.workspaceId, tenant.workspaceId),
+          eq(conversationBranches.subjectUserId, tenant.subjectUserId),
+          isNull(conversationBranches.deletedAt),
+        ),
+      )
+      .limit(1);
+    return (found as ConversationBranchModel) ?? null;
+  }
+
+  async mergeBranch(tenant: TenantContext, branchId: string): Promise<ConversationBranchModel | null> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    const [updated] = await this.db
+      .update(conversationBranches)
+      .set({ status: "merged", mergedAt: now, updatedAt: now })
+      .where(
+        and(
+          eq(conversationBranches.id, branchId),
+          eq(conversationBranches.workspaceId, tenant.workspaceId),
+          eq(conversationBranches.subjectUserId, tenant.subjectUserId),
+          eq(conversationBranches.status, "active"),
+          isNull(conversationBranches.deletedAt),
+        ),
+      )
+      .returning();
+    return (updated as ConversationBranchModel) ?? null;
+  }
+
+  async archiveBranch(tenant: TenantContext, branchId: string): Promise<ConversationBranchModel | null> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    const [updated] = await this.db
+      .update(conversationBranches)
+      .set({ status: "archived", updatedAt: now })
+      .where(
+        and(
+          eq(conversationBranches.id, branchId),
+          eq(conversationBranches.workspaceId, tenant.workspaceId),
+          eq(conversationBranches.subjectUserId, tenant.subjectUserId),
+          eq(conversationBranches.status, "active"),
+          isNull(conversationBranches.deletedAt),
+        ),
+      )
+      .returning();
+    return (updated as ConversationBranchModel) ?? null;
+  }
+
+  async deleteBranch(tenant: TenantContext, branchId: string): Promise<ConversationBranchModel | null> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    const [updated] = await this.db
+      .update(conversationBranches)
+      .set({ status: "deleted", deletedAt: now, updatedAt: now })
+      .where(
+        and(
+          eq(conversationBranches.id, branchId),
+          eq(conversationBranches.workspaceId, tenant.workspaceId),
+          eq(conversationBranches.subjectUserId, tenant.subjectUserId),
+          isNull(conversationBranches.deletedAt),
+        ),
+      )
+      .returning();
+    return (updated as ConversationBranchModel) ?? null;
+  }
+
+  async updateBranchLayout(
+    tenant: TenantContext,
+    branchId: string,
+    layoutData: unknown,
+  ): Promise<ConversationBranchModel | null> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    const [updated] = await this.db
+      .update(conversationBranches)
+      .set({ layoutData, updatedAt: now })
+      .where(
+        and(
+          eq(conversationBranches.id, branchId),
+          eq(conversationBranches.workspaceId, tenant.workspaceId),
+          eq(conversationBranches.subjectUserId, tenant.subjectUserId),
+          isNull(conversationBranches.deletedAt),
+        ),
+      )
+      .returning();
+    return (updated as ConversationBranchModel) ?? null;
+  }
+
+  async getBranchTree(tenant: TenantContext, sessionId: string): Promise<ConversationBranchModel[]> {
+    assertTenantContext(tenant);
+    // 递归获取所有以 sessionId 为根的分支（包括子分支的子分支）
+    const direct = await this.listBranchesByParent(tenant, sessionId);
+    const result = [...direct];
+    for (const branch of direct) {
+      const children = await this.getBranchTree(tenant, branch.childSessionId);
+      result.push(...children);
+    }
+    return result;
   }
 }
