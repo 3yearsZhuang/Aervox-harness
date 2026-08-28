@@ -354,7 +354,7 @@ resolve definition
 - 恢复器只领取未终态且 lease 过期的 Attempt；
 - 同 Session 的写入结合 SessionLock 和数据库 CAS，避免两个 Turn 修改同一事实。
 
-当前 3b-A/3b-B 已实现 claim TTL、Step 首部续租探活、过期抢占、Worker 收敛和 Attempt 终态 fencing；**事件写入的 fencing CAS 已落地（B1，§16.22）**——工具结果/账本写入的 fencing、长时间 Provider/Tool 调用期间的周期心跳仍属 3c+。
+当前 3b-A/3b-B 已实现 claim TTL、Step 首部续租探活、过期抢占、Worker 收敛和 Attempt 终态 fencing；**事件写入的 fencing CAS 已落地（B1，§16.22）**；**长模型/工具调用期间的周期心跳续租已落地（B2，§16.23）**——工具结果/账本写入的 fencing 仍属 3c+。
 
 ### 11.3 恢复
 
@@ -370,7 +370,7 @@ resolve definition
 | 终态已提交但事件未发送 | 重发持久 done 事件 |
 | 删除/撤权水位未追平 | fail closed，不继续模型或工具调用 |
 
-这里的恢复规则是 Aervox 自身的安全策略，不声称与 DSH/pi 完全相同。当前 3b-B Worker 恢复器只把过期的 Running Attempt 以 fencing+1 收敛为 Interrupted，不会自动继续原 Turn。DSH 的 crash repair 会为开放的 tool call 补 `TOOL_NOT_STARTED` 或 `TOOL_OUTCOME_UNKNOWN` 等 synthetic result，并把原 Turn 收敛为 Interrupted；pi 的 Harness 设计以 durable program counter 和工具的 `replay: never/safe` 约定决定是否重放，但固定版本公开 Harness 仍未完成该恢复能力。Aervox 只有在副作用状态和结果均已权威确定时，才允许继续原 Attempt；副作用或结果未知时必须记录 `unknown outcome` 并收敛或等待人工确认。
+这里的恢复规则是 Aervox 自身的安全策略，不声称与 DSH/pi 完全相同。当前 3b-B Worker 恢复器只把过期的 Running Attempt 以 fencing+1 收敛为 Interrupted，不会自动继续原 Turn。DSH 的 crash repair 会为开放的 tool call 补 `TOOL_NOT_STARTED` 或 `TOOL_OUTCOME_UNKNOWN` 等 synthetic result，并把原 Turn 收敛为 Interrupted；pi 的 Harness 设计以 durable program counter 和工具的 `replay: never/safe` 约定决定是否重放，但固定版本公开 Harness 仍未完成该恢复能力。Aervox 只有在副作用状态和结果均已权威确定时，才允许继续原 Attempt；副作用或结果未知时必须记录 `unknown outcome` 并收敛或等待人工确认。**B3 已落地三态政策（§16.24）**：`tool_registrations.replay` 声明（safe/never/未声明）+ 恢复裁决——结果未确定（pending/outcome_unknown）且相关工具全部声明 `replay: safe` 时，视为「合成结果」注入 `TOOL_NOT_STARTED` / `TOOL_OUTCOME_UNKNOWN` 后继续原 Attempt；未声明 / `never` / `pending_approval` 一律 fail-closed 收敛。
 
 ## 12. 事件与持久化边界
 
@@ -529,7 +529,7 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 目标：把当前最小实现提升为可长期运行的安全执行器。
 
 - 将 lease/fencing 校验扩展到每个事件、工具结果和终态写边界（**事件写边界已落地：B1 §16.22**；工具结果/账本写入、终态其余写边界仍待补）；
-- 完成 ToolInvocation 持久化、幂等预留、unknown outcome 收敛和工具 replay 声明；
+- 完成 ToolInvocation 持久化、幂等预留、unknown outcome 收敛和工具 replay 声明（**unknown outcome 三态政策 + 工具 replay 声明已落地：B3 §16.24**；ToolInvocation 独立持久化仍属 3c+ 后续）；
 - 接入真实分段安全门、取消传播、预算、并行调度和背压；
 - 为 ModelRun/ContextManifest 增加 Turn/Attempt/Step 关联并补齐删除/撤权水位检查。
 
@@ -825,6 +825,25 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - **Loop 语义收口**（`@aervox/agent-loop`）：新增 `LeaseLostError`；`executor.ts` 全部事件写入携带 claim fencing，catch 拦截 `LeaseLostError` → 收敛 `failed(lease_lost)` 且**不再产生任何新副作用**（§11.2）；`in-memory-store.ts` 同语义守卫 + `simulatePreemption` 钩子。
 - **宿主/同步路径**（`@aervox/host-agent`、`apps/api`）：store 透传期望值并把 `FencingMismatchError` 转译为 `LeaseLostError`；`adapter-turn.ts` 携带 claim fencing；`failTurnWithError`（未 claim）携带 `expectedFencingToken=0`。
 - 测试：`@aervox/database` 150（`event-fencing.test.ts` 5：正确通过 / 恢复器抢占（过期租约 fencing+1→Interrupted）后旧期望被拒且零污染 / attempt 不存在拒绝 / 终态仅 done 放行 / CancelRequested 可写）；`@aervox/agent-loop` 121（`executor-fencing.test.ts` 4：内存守卫 + 工具执行中被抢占 → `failed(lease_lost)`、无 tool_result/done/error 迟到事件、不写终态）；`@aervox/host-agent` 62（`sqlite-execution-store-fencing.test.ts` 3：桥接正确 / 失配转译 LeaseLostError / 未携带保持兼容）；`@aervox/api` 229 无回归；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.23 落地进展（阶段 3c+-B2：长调用周期心跳续租）
+
+2026-08-28 落地（对应 §11.2「长模型/工具调用期间由 Host 续租」「续租失败立即停止产生新副作用」）：
+
+- **心跳器**（`packages/agent-loop/src/lease-heartbeat.ts` `LeaseHeartbeat`）：claim 后按固定间隔（默认 = 租约 TTL/2 = 30s）经既有 `renewAttemptLease` CAS 续租；`renew ok=false`（被抢占/恢复器已递增 fencing 或已终态）→ 判定 `lost` 并幂等单播订阅回调；传输/瞬时故障不判死（丢失必须以 CAS 语义为准），下一心跳重试。
+- **executor 接线**（`executor.ts`）：`ExecuteTurnOptions` 增 `leaseTtlMs`（默认 60_000，与数据库层一致）/ `leaseHeartbeatIntervalMs`（默认 TTL/2，0 关闭）；claim 后启动、`try/finally` 兜底停止（无定时器泄漏、终态后不续租）；Provider 长流 chunk 间 `throwIfLost` 检查点；长工具调用注册 `onLost → AbortController.abort` 中止在途工具，且工具 catch 内 `heartbeat.lost` 直接收口 `lease_lost`（不写结果事件）。宿主零改动（复用 CAS 续租）。
+- 效果：`ask_user_question`（最长 120s）等长调用不再因租约超时被恢复器误判为僵尸原地收敛；真被抢占时心跳探知后立即中止，与 B1 事件写入 fencing 双层兜底。
+- 测试：`@aervox/agent-loop` 131（新增 `lease-heartbeat.test.ts` 5：单元 lost 判定/幂等多播/stop 后停更 + 集成——120ms 长工具调用期间续租 ≥3 且 Turn 正常完成 / 中途 `simulatePreemption`（fencing+1）→ 心跳续租失败 → 在途工具 abort → `failed(lease_lost)` 且无迟到事件/不写终态 / `leaseHeartbeatIntervalMs=0` 时仅 Step 首部探活）；`@aervox/database` 151、`@aervox/host-agent` 64、`@aervox/api` 230 无回归；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.24 落地进展（阶段 3c+-B3：工具 replay 声明 + 未知结果三态政策 + 合成结果注入）
+
+2026-08-28 落地（对应 §11.3 行 4/5「按工具 `replay: never/safe` 和幂等声明选择合成结果、人工确认或收敛」与 §3c+「unknown outcome 收敛和工具 replay 声明」关闭；人工确认路径留待后续基于 UQ-01 的恢复交互）：
+
+- **数据面**（`@aervox/database`）：`tool_registrations.replay` 列（`safe`/`never`/NULL=未声明，fail-closed），新库建列 + 旧库 `addColumnIfMissing` 幂等补齐；`registerTool` 读写 replay；`listToolExecutionsByTurn` LEFT JOIN tool_registrations 返回 replay（恢复裁决数据面就绪）。
+- **恢复裁决**（`resume.ts`）：`ResumeExecutionLike` 增 replay；批次聚合改为按 executionId 的 step 段归批（含同 Step 崩溃残留 `tool_request`——「工具意图已提交」边界，§11.3 行 5）；三态政策——批次含结果未确定（`pending`/`outcome_unknown`）且相关工具**全部**声明 `replay: safe` → 返回 `reason: "synthesized"` + 合成清单（`pending`→`not_started` / `outcome_unknown`→`outcome_unknown`）；`pending_approval` **永远收敛**（等待授权是业务语义，不可被合成绕过）；未声明 / `never` → fail-closed 收敛（保持原语义）。
+- **恢复执行**（`sqlite-resume-source.ts`）：传入 replay；`synthesized` 时向重建上下文注入合成 tool 消息（`TOOL_NOT_STARTED` / `TOOL_OUTCOME_UNKNOWN` + executionId），指导续跑模型不再重复执行副作用后继续原 Attempt；**合成结果只进重建上下文，不写事件/账本**——事件流保持仅权威提交边界（§12.2）。
+- **注册链路**（`apps/api`）：`POST /v1/tools` 支持 `replay` 枚举校验透传。
+- 测试：`@aervox/database` 151（`tool-registry.test.ts` replay 存取矩阵）；`@aervox/agent-loop` 131（`resume-decision.test.ts` 6→11：synthesized 双形态 / 未声明与 never 收敛 / pending_approval 不绕过 / 多未确定项全 listing）；`@aervox/host-agent` 64（`sqlite-resume-source.test.ts` +2：replay:safe + pending → 产出含 TOOL_NOT_STARTED 合成 tool 消息；replay:never → 收敛不产出）；`@aervox/api` 230（tools-plugins replay 透传 + 非法 400）；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
 ## 17. 回滚策略
 
