@@ -8,6 +8,7 @@ import {
   createInMemoryDatabase,
   initDatabaseSchema,
   SqliteVoiceConfigRepository,
+  SqliteVoiceInputConfigRepository,
   type AervoxDatabase,
   type TenantContext,
 } from "../src/index.js";
@@ -97,5 +98,76 @@ describe("语音输出配置仓储", () => {
     await repo.saveConfig(tenantB, { enabled: true, providerId: "gpt-sovits-local", modelId: "B" });
     expect((await repo.getConfig(tenantA))?.modelId).toBe("A");
     expect((await repo.getConfig(tenantB))?.modelId).toBe("B");
+  });
+});
+
+describe("语音输入 (ASR) 配置仓储 (CR-016)", () => {
+  let db: AervoxDatabase;
+  let client: Client;
+  let cleanup: () => Promise<void>;
+  let inputRepo: SqliteVoiceInputConfigRepository;
+
+  beforeEach(async () => {
+    const res = await createInMemoryDatabase();
+    db = res.db;
+    client = res.client;
+    cleanup = res.cleanup;
+    await initDatabaseSchema(client);
+    inputRepo = new SqliteVoiceInputConfigRepository(db);
+  });
+
+  afterEach(async () => {
+    await cleanup();
+  });
+
+  it("初始状态读取返回 null", async () => {
+    expect(await inputRepo.getConfig(tenantA)).toBeNull();
+  });
+
+  it("保存 ASR 配置并正确回显", async () => {
+    const saved = await inputRepo.saveConfig(tenantA, {
+      enabled: true,
+      engineType: "sensevoice-local",
+      modelPath: "/opt/sensevoice",
+      modelId: "sensevoice-small",
+      autoStopOnKeyboard: true,
+      vadSilenceThresholdMs: 650,
+      settings: { language: "auto" },
+    });
+
+    expect(saved.enabled).toBe(1);
+    expect(saved.engineType).toBe("sensevoice-local");
+    expect(saved.modelPath).toBe("/opt/sensevoice");
+    expect(saved.modelId).toBe("sensevoice-small");
+    expect(saved.autoStopOnKeyboard).toBe(1);
+    expect(saved.vadSilenceThresholdMs).toBe(650);
+    expect(saved.settingsJson).toEqual({ language: "auto" });
+
+    const read = await inputRepo.getConfig(tenantA);
+    expect(read).toEqual(saved);
+  });
+
+  it("支持 whisper-compatible 模式且租户隔离", async () => {
+    await inputRepo.saveConfig(tenantA, {
+      enabled: true,
+      engineType: "whisper-compatible",
+      endpoint: "http://127.0.0.1:8000/v1",
+      apiKey: "sk-whisper",
+      modelId: "whisper-1",
+    });
+
+    await inputRepo.saveConfig(tenantB, {
+      enabled: false,
+      engineType: "sensevoice-local",
+      modelId: "sensevoice-small",
+    });
+
+    const configA = await inputRepo.getConfig(tenantA);
+    const configB = await inputRepo.getConfig(tenantB);
+
+    expect(configA?.engineType).toBe("whisper-compatible");
+    expect(configA?.apiKey).toBe("sk-whisper");
+    expect(configB?.engineType).toBe("sensevoice-local");
+    expect(configB?.enabled).toBe(0);
   });
 });

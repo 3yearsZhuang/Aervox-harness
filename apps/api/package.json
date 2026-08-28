@@ -18,7 +18,8 @@
     "@fastify/cors": "^11.3.0",
     "@libsql/client": "^0.14.0",
     "fastify": "5.12.1",
-    "fflate": "0.8.2"
+    "fflate": "0.8.2",
+    "sherpa-onnx-node": "^1.13.5"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
