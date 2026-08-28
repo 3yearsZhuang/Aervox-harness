@@ -32,6 +32,7 @@ import type {
 } from "@aervox/agent-loop";
 import { SqliteExecutionStore } from "@aervox/host-agent";
 import type { SqliteConversationRepository, TenantContext } from "@aervox/database";
+import { loadApiConfig } from "@aervox/config";
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
 
@@ -173,7 +174,9 @@ export async function buildLoopProvider(
   tenant: TenantContext,
   llmConfigService?: LLMConfigService,
 ): Promise<ModelProviderPort> {
-  const mode = process.env.AERVOX_LOOP_PROVIDER ?? "llm";
+  // 缺陷 E：Provider 选择经 @aervox/config 集中解析（AERVOX_LOOP_PROVIDER 启动期枚举校验）；
+  // 每次调用读取，避免模块级缓存导致测试/配置热变失效。
+  const { loopProvider: mode } = loadApiConfig();
   if (mode === "replay") return createReplayProvider();
   if (mode === "scripted") return createScriptedProvider(API_TOOL_SCRIPT);
   if (mode === "scripted-write") return createScriptedProvider(API_WRITE_SCRIPT);
@@ -308,7 +311,7 @@ export async function runLoopTurnOnce(
       activeTools: tools?.tools,
     },
     skills: deps.skills,
-    ...(process.env.AERVOX_LOOP_COMPACTION === "rule"
+    ...(loadApiConfig().loopCompaction === "rule"
       ? { compaction: createSummaryCompaction() }
       : {}),
   });

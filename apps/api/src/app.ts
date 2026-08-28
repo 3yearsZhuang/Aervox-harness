@@ -39,7 +39,8 @@ import { registerLLMModule, type LLMServiceOptions } from "./modules/llm/index.j
 import type { ModuleContext } from "./modules/context.js";
 import type { ToolRuntime } from "./modules/tools/runtime.js";
 import { createAuthHook, type AuthConfig } from "./shared/auth.js";
-import { ApiError } from "./shared/errors.js";
+import { ApiError, type ApiErrorCode } from "./shared/errors.js";
+import { DatabaseError } from "@aervox/database";
 
 export interface BuildAppOptions {
   /** 注入既有数据库（如内存库）；缺省时使用 createDatabase() */
@@ -73,10 +74,21 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
     options.db && options.client ? { db: options.db, client: options.client } : await createDatabase();
   await initDatabaseSchema(client);
 
-  // 统一错误序列化（缺陷6）：ApiError → { error, code, message }；其余保持 Fastify 默认
+  // 统一错误序列化（缺陷6/B）：ApiError/DatabaseError → { error, code, message }；其余保持 Fastify 默认
+  // DatabaseError 携带领域语义（NOT_FOUND/FORBIDDEN/CONFLICT），在此映射为 HTTP 状态码，
+  // 避免数据层裸 Error 被当作 500（跨租户越权应 403、租户内缺失应 404、领域冲突应 409）。
+  const dbCodeToApi: Record<DatabaseError["domainCode"], { code: ApiErrorCode; status: number }> = {
+    NOT_FOUND: { code: "NOT_FOUND", status: 404 },
+    FORBIDDEN: { code: "FORBIDDEN", status: 403 },
+    CONFLICT: { code: "CONFLICT", status: 409 },
+  };
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof ApiError) {
       return reply.code(err.statusCode).send({ error: err.name, code: err.code, message: err.message });
+    }
+    if (err instanceof DatabaseError) {
+      const mapped = dbCodeToApi[err.domainCode] ?? { code: "INTERNAL_ERROR" as const, status: 500 };
+      return reply.code(mapped.status).send({ error: err.name, code: mapped.code, message: err.message });
     }
     // 非业务异常（schema validation / 5xx）：走 Fastify 默认序列化与状态码
     return reply.send(err);

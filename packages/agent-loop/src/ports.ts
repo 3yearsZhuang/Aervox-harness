@@ -148,6 +148,10 @@ export interface ToolExecutionInput {
   arguments: unknown;
   /** 5c：会话标识（Subagent/Workflow Contribution 创建子任务时归属会话；invocationId 为 Host 幂等键） */
   sessionId?: string;
+  /** 缺陷 D：工具超时/外层取消信号。aborted 表示宿主不再等待本工具结果，
+   *  实现应尽早停止长操作（清理 side effect 挂起）并 reject；支持取消是可选的，
+   *  未感知 signal 的实现保持既有行为（结果将被丢弃，timer 由宿主管控） */
+  signal?: AbortSignal;
 }
 
 /** 工具执行结果（调用方可注入下一 Step；副作用证据持久化留阶段 2d/3） */
