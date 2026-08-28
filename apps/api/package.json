@@ -14,6 +14,7 @@
     "@aervox/agent-loop": "workspace:*",
     "@aervox/contracts": "workspace:*",
     "@aervox/database": "workspace:*",
+    "@aervox/host-agent": "workspace:*",
     "@aervox/practice-review": "workspace:*",
     "@fastify/cors": "^11.3.0",
     "@libsql/client": "^0.14.0",

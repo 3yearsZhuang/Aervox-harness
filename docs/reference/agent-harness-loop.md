@@ -536,13 +536,13 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 
 ### 阶段 4：独立 Host 与 Profile 选择
 
-目标：把 Loop 从 API 组合根中抽出；独立 Host 和 DSH/pi Adapter 仍未实现。
+目标：把 Loop 从 API 组合根中抽出；独立 Host 已落地（4a/4b/4c），DSH/pi Adapter 仍未实现。
 
-- 新建 `packages/host-agent` 和可选 `apps/agent`；
-- Profile 绑定 Native/Replay/DSH/pi Loop Driver，并为每个 Driver 解析一个 Model Provider；DSH/pi 仅在完成进程外 Adapter、许可证和安全评审后启用；
+- 新建 `packages/host-agent` 和可选 `apps/agent`（已新建 `packages/host-agent`：内嵌异步 Host + SQLite ExecutionStore 组合适配 + 恢复源 + 最小 Profile）；
+- Profile 绑定 Native/Replay/DSH/pi Loop Driver，并为每个 Driver 解析一个 Model Provider（已落地最小 Profile：replay 无依赖 / native 需 CR-015 同源配置；DSH/pi 仅在完成进程外 Adapter、许可证和安全评审后启用）；
 - API 只负责 Turn command 和 SSE query；
 - Agent Host 通过 Outbox/claim 驱动；
-- 增加健康检查、并发调度、背压和优雅停机。
+- 增加健康检查、并发调度、背压和优雅停机（已落地：轮询/claim+背压/优雅停机 drain；健康检查接续 4d）。
 
 退出条件：切换 Loop Driver 不改变客户端契约和业务数据库所有权，且无 DSH/pi 时原生 Profile 仍可运行。
 
@@ -687,6 +687,16 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - `packages/agent-loop` 新增纯函数 `decideResume(events, toolExecutions)`：仅当最后一工具结果批次全部 `executed` 且无终态事件 → `{ resume: true, lastSequence }`；`terminal_event` / `mixed_batch`（严格批次语义）/ `outcome_unknown`（结果未知不自动重放）/ `no_committed_tool` 一律收敛；
 - `packages/database` 新增 `findResumeCandidates`：过期 Running Attempt 且存在 `executed` 工具执行且无 `done` 终态事件（附最后 tool_result 序号）；worker 恢复 cycle 先收集候选（观测日志），`recoverExpiredAttempts` 行为不变（仍释放为 Interrupted）；
 - 测试：`@aervox/agent-loop` 56（`resume-decision.test.ts` 6：裁决矩阵）、`@aervox/database` 125（候选 3：命中/终态排除/未知排除）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.12 落地进展（阶段 4a/4b/4c：内嵌异步 Host + 恢复接线 + 最小 Profile）
+
+2026-08-28 落地（对应 §13 迁移期接线、§11.3 首范式「续跑执行接线属阶段 4 host-agent」、§3 Resolver 不变量）：
+
+- `packages/host-agent` 新增 `SqliteExecutionStore`（自 apps/api 迁移的组合根适配，API 同步路径与异步 Host 共用；API 删除本地副本）；
+- `createAgentHost`：轮询/claim（CAS+fencing 委托 executeTurn）/并发上限+背压（槽满不再领取）/优雅停机 drain/`processed`/`running` 观测；`@aervox/observability` 接入（turn 完成计数、fencing deny、duration 直方图、审计，Noop 兜底）；
+- `SqliteResumeSource`（4b 恢复接线）：`findResumeCandidates` 扩展返回续跑数据面（租户/session/用户消息/当前 fencing），逐候选 `decideResume` 裁决 → `buildResumeHistory` 重建上下文 → 产出带 resume 的 ClaimableTurn 抢占续跑原 Attempt；`executeTurn` 新增 `resume` 选项（跳过 message 身份事件、sequence 从 lastSequence+1、Step/executionId 从 lastStep 之后、预填历史）；
+- `createAgentProfile`（4c 最小 Profile）：Driver→Provider 绑定（replay 无依赖 / native 需 CR-015 同源 baseUrl/apiKey/modelId）+ 单例锁文件（持有者存活拒绝 / 陈旧锁接管 / 释放后可重取）；
+- 测试：`@aervox/host-agent` 18（host 编排 6、store 冒烟 3、resume 源 3、profile 6）、`@aervox/agent-loop` 58（resume-executor 2：抢占续跑完成/Step 不冲突）、`@aervox/api` 101（接线后无回归）、`@aervox/database` 125（候选数据面扩展）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
 ## 17. 回滚策略
 
