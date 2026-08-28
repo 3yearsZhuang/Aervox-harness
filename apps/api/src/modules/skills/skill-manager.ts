@@ -16,8 +16,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { SqliteSkillRegistryRepository, SkillRegistrationModel } from "@aervox/database";
+import { buildSkillsPrompt } from "@aervox/agent-loop";
 import { unzip } from "./zip.js";
-import { buildSkillsPrompt } from "./skill-prompt.js";
 
 /** 技能目录名合法字符集（Anthropic Skills 规范） */
 const SKILL_NAME_RE = /^[\w.-]+$/;

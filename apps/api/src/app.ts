@@ -29,6 +29,7 @@ import { registerPluginsModule } from "./modules/plugins/index.js";
 import { registerPersonaModule } from "./modules/persona/index.js";
 import { registerPreferencesModule } from "./modules/preferences/index.js";
 import { registerSkillsModule } from "./modules/skills/index.js";
+import { registerInboxModule } from "./modules/inbox/index.js";
 import { registerStudyMaterialModule } from "./modules/study-materials/index.js";
 import { registerVoiceModule, type VoiceModuleOptions } from "./modules/voice/index.js";
 import { registerLLMModule, type LLMServiceOptions } from "./modules/llm/index.js";
@@ -89,6 +90,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   registerPreferencesModule(app, db);
   registerStudyMaterialModule(app, db);
   registerPersonaModule(app, db, { skillManager, toolRuntime, voiceService });
+  registerInboxModule(app, db);
 
   return { app, db, client, toolRuntime };
 }
