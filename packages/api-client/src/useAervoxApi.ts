@@ -63,6 +63,20 @@ export interface PracticeReportDto {
   nextStep: 'continue' | 'review_scheduled' | 'await_review';
 }
 
+export interface StudyPlanDto {
+  id: string;
+  goalId?: string | null;
+  title: string;
+  startDate: string;
+  endDate: string;
+  restDays: string[];
+  dailyAvailableMinutes: number;
+  status: string;
+  completionPrediction?: 'on_track' | 'at_risk' | 'cannot_complete' | null;
+  degradationPlan?: unknown;
+  revisionCount: number;
+}
+
 export interface MistakeItemDto {
   questionId: string;
   knowledgeId?: string | null;
@@ -107,6 +121,7 @@ export function useAervoxApi() {
   const completedReviews = ref<ReviewItemDto[]>([]);
   const reviewSummary = ref<ReviewSummaryDto | null>(null);
   const mistakes = ref<MistakeItemDto[]>([]);
+  const studyPlans = ref<StudyPlanDto[]>([]);
   const notifications = ref<NotificationDto[]>([]);
   const todayDiary = ref<DiaryDto | null>(null);
   const activePracticeSession = ref<PracticeSessionDto | null>(null);
@@ -120,12 +135,13 @@ export function useAervoxApi() {
     loading.value = true;
     error.value = null;
     try {
-      const [g, r, summary, history, m, n, d, activeSession] = await Promise.all([
+      const [g, r, summary, history, m, plans, n, d, activeSession] = await Promise.all([
         transport.request<{ items: GoalDto[] }>('GET', `/v1/learning/goals${includeArchived ? '?includeArchived=true' : ''}`).catch(() => ({ items: [] })),
         transport.request<{ items: ReviewItemDto[] }>('GET', '/v1/review-items').catch(() => ({ items: [] })),
         transport.request<ReviewSummaryDto>('GET', `/v1/review-items/summary?timeZone=${encodeURIComponent(timeZone)}`).catch(() => null),
         transport.request<{ items: ReviewItemDto[] }>('GET', '/v1/review-items/history?limit=5').catch(() => ({ items: [] })),
         transport.request<{ items: MistakeItemDto[] }>('GET', '/v1/mistakes?status=all').catch(() => ({ items: [] })),
+        transport.request<{ items: StudyPlanDto[] }>('GET', '/v1/study-plans').catch(() => ({ items: [] })),
         transport.request<{ items: NotificationDto[] }>('GET', '/v1/notifications').catch(() => ({ items: [] })),
         transport
           .request<DiaryDto>(`GET`, `/v1/diaries?localDate=${encodeURIComponent(todayLocal())}`)
@@ -137,6 +153,7 @@ export function useAervoxApi() {
       reviewSummary.value = summary;
       completedReviews.value = history.items;
       mistakes.value = m.items;
+      studyPlans.value = plans.items;
       notifications.value = n.items;
       todayDiary.value = d;
       activePracticeSession.value = activeSession;
@@ -178,6 +195,19 @@ export function useAervoxApi() {
     await loadAll();
   };
 
+  const createStudyPlan = async (plan: { goalId?: string; title: string; startDate: string; endDate: string; dailyAvailableMinutes?: number }): Promise<void> => {
+    await transport.request('POST', '/v1/study-plans', plan);
+    await loadAll();
+  };
+  const updateStudyPlanPrediction = async (planId: string, prediction: 'on_track' | 'at_risk' | 'cannot_complete'): Promise<void> => {
+    await transport.request('POST', `/v1/study-plans/${encodeURIComponent(planId)}/prediction`, { prediction });
+    await loadAll();
+  };
+  const archiveStudyPlan = async (planId: string): Promise<void> => {
+    await transport.request('POST', `/v1/study-plans/${encodeURIComponent(planId)}/archive`);
+    await loadAll();
+  };
+
   const setMistakeStatus = async (questionId: string, status: 'active' | 'mastered' | 'dismissed'): Promise<void> => {
     await transport.request('PATCH', `/v1/mistakes/${encodeURIComponent(questionId)}`, { status });
     await loadAll();
@@ -214,6 +244,7 @@ export function useAervoxApi() {
     completedReviews,
     reviewSummary,
     mistakes,
+    studyPlans,
     notifications,
     todayDiary,
     activePracticeSession,
@@ -228,6 +259,9 @@ export function useAervoxApi() {
     submitPracticeAnswer,
     completePracticeSession,
     completeReview,
+    createStudyPlan,
+    updateStudyPlanPrediction,
+    archiveStudyPlan,
     setMistakeStatus,
     setMistakeInsight,
     startMistakePractice,
