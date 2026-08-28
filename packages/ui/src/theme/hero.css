@@ -60,7 +60,7 @@
   width: 9px;
   height: 13px;
   border-radius: 50%;
-  background: #3b4b45;
+  background: #2f3a4e;
 }
 
 .hero-eye.eye-left {
@@ -103,7 +103,7 @@
   width: 128px;
   height: 112px;
   border-radius: 42% 42% 34% 34%;
-  background: #dff0df;
+  background: #dbe5f7;
 }
 
 .hero-collar {
@@ -112,7 +112,7 @@
   width: 73px;
   height: 16px;
   border-radius: 10px;
-  background: #78b994;
+  background: #7d9bd6;
 }
 
 .hero-wing {
