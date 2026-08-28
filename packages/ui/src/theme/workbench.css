@@ -435,8 +435,9 @@
 }
 
 .message-panel {
+  position: relative;
   width: min(100%, var(--console-max-width));
-  max-height: clamp(260px, 62vh, 800px);
+  max-height: clamp(150px, 34vh, 460px);
   display: flex;
   flex-direction: column;
   padding: clamp(16px, 2.4vh, 26px) clamp(20px, 2.6vw, 36px);
@@ -503,6 +504,32 @@
   background: var(--accent);
   vertical-align: -.12em;
   animation: aervox-blink 1s steps(1) infinite;
+}
+
+/* 主对话框右下角：完整对话回看入口 */
+.message-history-entry {
+  position: absolute;
+  right: clamp(12px, 1.6vw, 20px);
+  bottom: clamp(8px, 1.2vh, 12px);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass-bg-strong);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 640;
+  letter-spacing: .03em;
+  cursor: pointer;
+  transition: color .2s ease, border-color .2s ease, transform .2s ease;
+}
+
+.message-history-entry:hover {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--glass-border));
+  transform: translateY(-1px);
 }
 
 /* ---------- 收起式输入框 ---------- */
@@ -742,36 +769,152 @@
 
 /* ---------- 抽屉内部样式（历史 / 待办 / 番茄钟 / 学习） ---------- */
 
-.history-list,
+/* ---------- 对话回看：视觉小说式历史窗口 ---------- */
+
+.history-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: clamp(16px, 4vh, 48px) clamp(16px, 4vw, 64px);
+  background: rgba(15, 20, 32, .46);
+  backdrop-filter: blur(10px) saturate(1.05);
+  -webkit-backdrop-filter: blur(10px) saturate(1.05);
+  animation: history-fade .22s ease;
+}
+
+.vn-history {
+  width: min(880px, 100%);
+  max-height: min(84vh, 920px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  border-radius: clamp(18px, 2vw, 26px);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: 0 30px 80px rgba(12, 18, 32, .38);
+  animation: vn-history-rise .26s cubic-bezier(.22, 1, .36, 1);
+}
+
+.vn-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: clamp(14px, 2.2vh, 20px) clamp(18px, 2.4vw, 28px);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.vn-history-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 760;
+  letter-spacing: .02em;
+}
+
+.vn-history-title svg {
+  color: var(--accent);
+}
+
+.vn-history-close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  background: var(--glass-bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color .2s ease, border-color .2s ease, transform .2s ease;
+}
+
+.vn-history-close:hover {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--glass-border));
+  transform: translateY(-1px);
+}
+
+.vn-history-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(16px, 2.4vh, 26px);
+  padding: clamp(18px, 3vh, 30px) clamp(20px, 3vw, 36px);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.vn-history-line {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.vn-history-speaker {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 780;
+  letter-spacing: .06em;
+}
+
+.vn-history-line.user .vn-history-speaker {
+  color: var(--text-muted);
+}
+
+.vn-history-text {
+  padding-left: 12px;
+  border-left: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--text-primary);
+  font-size: 15px;
+  line-height: 1.9;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.vn-history-line.user .vn-history-text {
+  border-left-color: var(--border-strong);
+  color: var(--text-secondary);
+}
+
+.vn-history-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.vn-history-foot {
+  padding: 10px clamp(16px, 2vw, 24px);
+  border-top: 1px solid var(--glass-border);
+  color: var(--text-muted);
+  font-size: 11.5px;
+  letter-spacing: .04em;
+  text-align: center;
+}
+
+@keyframes history-fade {
+  from { opacity: 0; }
+}
+
+@keyframes vn-history-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(.98);
+  }
+}
+
 .todo-list {
   display: grid;
   gap: 10px;
-}
-
-.history-list article {
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg-soft);
-}
-
-.history-list article.user {
-  border-color: color-mix(in srgb, var(--accent) 24%, var(--border));
-  background: var(--accent-soft);
-}
-
-.history-list article span {
-  color: var(--accent);
-  font-size: 10px;
-  font-weight: 780;
-}
-
-.history-list article p {
-  margin: 7px 0 0;
-  color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1.7;
-  white-space: pre-wrap;
 }
 
 .drawer-intro,
@@ -1530,14 +1673,15 @@
     width: 100%;
   }
 
+  /* 窄窗口保持与桌面一致的纵向双卡结构：右锚定 + 宽度收缩，不横向铺满整屏 */
   .side-cards {
-    left: clamp(10px, 3vw, 16px);
+    left: auto;
     right: clamp(10px, 3vw, 16px);
     top: clamp(64px, 9vh, 84px);
     bottom: clamp(130px, 22vh, 210px);
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-auto-rows: auto;
-    width: auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: minmax(0, 1fr);
+    width: clamp(232px, 40vw, 360px);
   }
 
   .side-card {
@@ -1575,6 +1719,9 @@
   }
 
   .side-cards {
+    left: clamp(10px, 3vw, 16px);
+    right: clamp(10px, 3vw, 16px);
+    width: auto;
     grid-template-columns: minmax(0, 1fr);
     grid-auto-rows: minmax(0, 1fr);
     top: clamp(64px, 9vh, 84px);
@@ -1639,6 +1786,29 @@
   }
 }
 
+/* 极窄窗口：缩小组件而非破坏布局结构 */
+@media (max-width: 430px) {
+  .side-card {
+    min-height: clamp(84px, 12vh, 110px);
+    padding: 12px 14px;
+    gap: 8px;
+  }
+
+  .side-card-icon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .side-card-summary {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .menu-pill.open {
+    max-width: min(280px, calc(100vw - 24px));
+  }
+}
+
 @media (max-height: 640px) {
   .message-panel {
     max-height: 48vh;
@@ -1654,6 +1824,17 @@
     gap: 10px;
   }
 
+  /* 矮窗：收缩卡片内距与图标，保持双卡纵排不溢出 */
+  .side-card {
+    padding: clamp(10px, 2vh, 16px) clamp(12px, 1.6vw, 20px);
+    gap: 8px;
+  }
+
+  .side-card-icon {
+    width: clamp(34px, 6vh, 48px);
+    height: clamp(34px, 6vh, 48px);
+  }
+
   .side-card-title small,
   .side-card-foot {
     display: none;
@@ -1661,6 +1842,17 @@
 
   .side-card-summary {
     font-size: 12.5px;
+  }
+}
+
+/* 极矮窗：进一步精简，隐藏摘要保住骨架 */
+@media (max-height: 480px) {
+  .side-card-summary {
+    display: none;
+  }
+
+  .side-card {
+    min-height: 64px;
   }
 }
 

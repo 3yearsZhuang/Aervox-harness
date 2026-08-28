@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, nextTick, onMounted, onUnmounted, ref, type Component} from 'vue'
+import {computed, nextTick, onMounted, onUnmounted, ref, watch, type Component} from 'vue'
 import {
   Bell,
   BookOpen,
@@ -241,6 +241,27 @@ function createStoryLine(speaker: Speaker, text: string, state: StoryLine['state
 async function scrollStoryToBottom() {
   await nextTick()
   storyViewport.value?.scrollTo({top: storyViewport.value.scrollHeight, behavior: 'smooth'})
+}
+
+/** 主对话框只保留最新一条 AI 回复，完整上下文由二级回看窗口承载 */
+const latestAssistantLine = computed<StoryLine | null>(() => {
+  for (let i = story.value.length - 1; i >= 0; i--) {
+    if (story.value[i].speaker === 'assistant') return story.value[i]
+  }
+  return null
+})
+
+/** 视觉小说式对话回看：打开时滚到最新一条 */
+const historyViewport = ref<HTMLElement | null>(null)
+
+watch(historyOpen, async (open) => {
+  if (!open) return
+  await nextTick()
+  historyViewport.value?.scrollTo({top: historyViewport.value.scrollHeight})
+})
+
+function handleHistoryEscape(event: KeyboardEvent) {
+  if (event.key === 'Escape' && historyOpen.value) historyOpen.value = false
 }
 
 async function sendMessage(value = input.value) {
@@ -759,6 +780,7 @@ onMounted(() => {
   void scrollStoryToBottom()
 
   document.addEventListener('click', handleMenuDocumentClick)
+  document.addEventListener('keydown', handleHistoryEscape)
 
   timer = window.setInterval(() => {
     if (timerRunning.value && timerSeconds.value > 0) timerSeconds.value -= 1
@@ -769,6 +791,7 @@ onMounted(() => {
 onUnmounted(() => {
   if (timer) window.clearInterval(timer)
   document.removeEventListener('click', handleMenuDocumentClick)
+  document.removeEventListener('keydown', handleHistoryEscape)
   window.removeEventListener('aervox:open-settings', openSettings)
 })
 </script>
@@ -785,7 +808,7 @@ onUnmounted(() => {
       </Live2DPet>
     </div>
 
-    <button class="floating-settings" type="button" aria-label="打开设置" @click="settingsOpen = true">
+    <button v-if="isWeb" class="floating-settings" type="button" aria-label="打开设置" @click="settingsOpen = true">
       <Settings :size="19" />
     </button>
 
@@ -876,15 +899,22 @@ onUnmounted(() => {
       <section class="message-panel" aria-label="伴学对话">
         <div ref="storyViewport" class="message-viewport" aria-live="polite">
           <p
-            v-for="line in story"
-            :key="line.id"
+            v-if="latestAssistantLine"
             class="message-line"
-            :class="[line.speaker, line.state]"
+            :class="latestAssistantLine.state"
           >
-            <span class="message-speaker">{{ line.speaker === 'assistant' ? assistantDisplayName : '你' }}</span>
-            <span class="message-text">{{ line.text || (line.speaker === 'assistant' ? '正在连接 Aervox…' : '') }}<i v-if="line.state === 'streaming'" class="stream-cursor" aria-hidden="true" /></span>
+            <span class="message-speaker">{{ assistantDisplayName }}</span>
+            <span class="message-text">{{ latestAssistantLine.text || '正在连接 Aervox…' }}<i v-if="latestAssistantLine.state === 'streaming'" class="stream-cursor" aria-hidden="true" /></span>
+          </p>
+          <p v-else class="message-line">
+            <span class="message-speaker">{{ assistantDisplayName }}</span>
+            <span class="message-text">正在连接 Aervox…</span>
           </p>
         </div>
+        <button class="message-history-entry" type="button" @click="historyOpen = true">
+          <History :size="14" />
+          <span>回看完整对话</span>
+        </button>
       </section>
 
       <section class="composer-dock" :class="{open: composerOpen}" @focusout="handleDockFocusOut">
@@ -953,14 +983,26 @@ onUnmounted(() => {
       </section>
     </div>
 
-    <el-drawer v-model="historyOpen" title="对话回看" direction="rtl" size="min(440px, 94vw)">
-      <div class="history-list">
-        <article v-for="line in story" :key="line.id" :class="line.speaker">
-          <span>{{ line.speaker === 'assistant' ? assistantDisplayName : '你' }}</span>
-          <p>{{ line.text || '正在生成…' }}</p>
-        </article>
+    <Teleport to="body">
+      <div v-if="historyOpen" class="history-overlay" @click.self="historyOpen = false">
+        <section class="vn-history" role="dialog" aria-modal="true" aria-label="对话回看">
+          <header class="vn-history-head">
+            <span class="vn-history-title"><History :size="17" />对话回看</span>
+            <button class="vn-history-close" type="button" aria-label="关闭对话回看" @click="historyOpen = false">
+              <X :size="17" />
+            </button>
+          </header>
+          <div ref="historyViewport" class="vn-history-list">
+            <p v-for="line in story" :key="line.id" class="vn-history-line" :class="line.speaker">
+              <span class="vn-history-speaker">{{ line.speaker === 'assistant' ? assistantDisplayName : '你' }}</span>
+              <span class="vn-history-text">{{ line.text || (line.speaker === 'assistant' ? '…' : '') }}</span>
+            </p>
+            <p v-if="story.length === 0" class="vn-history-empty">还没有对话记录，先和思隅说句话吧。</p>
+          </div>
+          <footer class="vn-history-foot">上下滚动回溯完整对话 · Esc 或点击空白处关闭</footer>
+        </section>
       </div>
-    </el-drawer>
+    </Teleport>
 
     <el-drawer v-model="todoOpen" title="待办清单" direction="rtl" size="min(400px, 92vw)">
       <p class="drawer-intro">用小任务保持节奏，不需要一次完成所有事情。</p>
