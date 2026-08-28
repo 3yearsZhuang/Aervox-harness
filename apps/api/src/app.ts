@@ -28,6 +28,7 @@ import { registerToolsModule } from "./modules/tools/index.js";
 import { registerPluginsModule } from "./modules/plugins/index.js";
 import { registerPersonaModule } from "./modules/persona/index.js";
 import { registerSkillsModule } from "./modules/skills/index.js";
+import { registerInboxModule } from "./modules/inbox/index.js";
 import { registerVoiceModule, type VoiceModuleOptions } from "./modules/voice/index.js";
 import { registerLLMModule, type LLMServiceOptions } from "./modules/llm/index.js";
 import type { ToolRuntime } from "./modules/tools/runtime.js";
@@ -85,6 +86,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   const voiceService = registerVoiceModule(app, db, options.voiceOptions);
   const skillManager = registerSkillsModule(app, db, { skillsRoot: options.skillsRoot, toolRuntime });
   registerPersonaModule(app, db, { skillManager, toolRuntime, voiceService });
+  registerInboxModule(app, db);
 
   return { app, db, client, toolRuntime };
 }
