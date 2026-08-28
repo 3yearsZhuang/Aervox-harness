@@ -399,7 +399,6 @@ export async function executeTurn(
             text: chunk.text,
             eventData: { messageId, text: chunk.text, isFinal: true },
             safetyDecision: "approved",
-            expectedFencingToken: claimFencingToken,
           });
         }
         // 2b：检查点 · 自然完成终态提交前（取消优先，杜绝取消后写 Completed done）
@@ -431,7 +430,6 @@ export async function executeTurn(
           text: chunk.text,
           eventData: { messageId, text: chunk.text, isFinal: false },
           safetyDecision: "approved",
-          expectedFencingToken: claimFencingToken,
         });
       }
 
