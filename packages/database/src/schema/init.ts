@@ -632,7 +632,10 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       due_at TEXT NOT NULL,
       interval_days INTEGER NOT NULL DEFAULT 1,
       scheduler_version INTEGER NOT NULL DEFAULT 1,
+      timezone_snapshot TEXT NOT NULL DEFAULT 'UTC',
       status TEXT NOT NULL DEFAULT 'active',
+      completion_is_correct INTEGER,
+      next_review_id TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -645,6 +648,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   `);
   await addColumnIfMissing(client, "review_items", "completion_is_correct", "completion_is_correct INTEGER");
   await addColumnIfMissing(client, "review_items", "next_review_id", "next_review_id TEXT");
+  await addColumnIfMissing(client, "review_items", "timezone_snapshot", "timezone_snapshot TEXT NOT NULL DEFAULT 'UTC'");
 
   // 7. 反馈域（PRD §8）
   await client.execute(`

@@ -1,11 +1,11 @@
 # Aervox｜思隅 软件需求规格（SRS）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：kikoyida · 2026-08-27
+- 修改人：kikoyida · 2026-08-28
 
 > 文档编号：AVX-SRS-001  
-> 版本：v0.5（评审候选）
-> 更新日期：2026-08-27
+> 版本：v0.7（评审候选）
+> 更新日期：2026-08-28
 > 状态：Review Candidate  
 > 产品事实源：[PRD](PRD.md)  
 > 追踪矩阵：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
@@ -210,20 +210,21 @@
   - `AC-FR-PRC-001-07`：Given 另一工作区或数据主体访问会话、报告或作答，When 请求资源，Then 返回 404 且不泄露资源存在性。
   - `AC-FR-PRC-001-08`：Given 用户忽略一条活动错题，When 再次读取默认列表或创建错题重练，Then 该条目不可见且不会进入题组，原始作答仍可查询。
   - `AC-FR-PRC-001-09`：Given 用户恢复一条已忽略错题，When 读取活动列表，Then 该条目重新可见并可被选择重练。
+  - `AC-FR-PRC-001-10`：Given 用户重开存在活跃会话的学习界面或重试创建会话，When 系统恢复会话，Then 返回原题组快照、已答题目和首个未答题，且不创建第二个活跃会话。
 - **测试**：`TC-UNIT-PRC-001`、`TC-API-PRC-001`、`TC-INTEG-PRC-001`、`TC-E2E-PRC-001`。变更依据见 [CR-008](changes/CR-008-practice-session-contract.md) 与 [CR-009](changes/CR-009-mistake-book-dismissal.md)。
 
 ### FR-REV-001 间隔复习
 
 - **Parent CAP**：`CAP-006`
-- **规则**：MVP 答错或连续答对数为 0 时次日复习；答对后按更新后的连续答对数 1/2/3/4+ 分别安排 2/4/8/15 天后复习；每条记录带数值 `schedulerVersion: 1`。完成复习必须在同一事务中完成当前项、更新知识点状态并创建下一条活动项；同一工作区、数据主体和知识点只保留一条活动复习项。
+- **规则**：MVP 答错或连续答对数为 0 时次日复习；答对后按更新后的连续答对数 1/2/3/4+ 分别安排 2/4/8/15 天后复习。v1 使用固定 24 小时时长；v2 按完成时的 IANA 时区增加本地日历天、保存 `timezoneSnapshot` 并保留墙上时间。完成复习必须在同一事务中完成当前项、更新知识点状态并创建下一条活动项；同一工作区、数据主体和知识点只保留一条活动复习项。
 - **重试**：完成操作保存首次判定和下一项 ID；相同判定的重复请求必须重放首次结果，不再次更新知识点或创建复习项；同一复习项以不同判定重试必须返回冲突。
 - **验收**：
   - `AC-FR-REV-001-01`：Given 到期项存在，When 打开首页，Then 显示数量、预计耗时（MVP 按每项 2 分钟估算）和今日列表。
   - `AC-FR-REV-001-02`：Given 用户完成复习，When 保存结果，Then 只更新一次下次日期并显示规则版本。
-  - `AC-FR-REV-001-03`：Given 用户跨时区或遇到 DST，When 计算日界线，Then 使用用户 IANA 时区且不重复生成活动项。
+  - `AC-FR-REV-001-03`：Given 用户跨时区或遇到 DST，When 计算日界线和下一到期时间，Then 使用操作时的用户 IANA 时区、保存时区快照且不重复生成活动项。
   - `AC-FR-REV-001-04`：Given 首次完成已提交，When 客户端以相同判定重试，Then 返回同一下一项且知识点统计只更新一次；判定不同则返回 409。
   - `AC-FR-REV-001-05`：Given 用户已完成多次复习，When 打开学习工作台，Then 按最近完成时间展示判定和关联的下一复习项，且不得泄露其他租户记录。
-- **测试**：`TC-UNIT-REV-001`、`TC-INTEG-REV-001`、`TC-PERF-REV-001`、`TC-MIG-REV-001`。变更依据见 [CR-010](changes/CR-010-review-completion-idempotency.md)。
+- **测试**：`TC-UNIT-REV-001`、`TC-INTEG-REV-001`、`TC-PERF-REV-001`、`TC-MIG-REV-001`。变更依据见 [CR-010](changes/CR-010-review-completion-idempotency.md) 与 [CR-011](changes/CR-011-timezone-safe-review-scheduling.md)。
 
 ### FR-SAFE-001 轻量陪伴与安全响应
 

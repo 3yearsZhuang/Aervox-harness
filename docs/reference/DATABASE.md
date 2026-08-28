@@ -995,7 +995,7 @@ flowchart TB
 | McpTool | P2 | 已落表 | `mcp_tools`（serverId+name 租户内唯一；授权/健康/kill switch 状态） |
 | PersonaTurnContext | P1 | 已落表 | `persona_turn_contexts`（turnId 租户内唯一；revision/prompt checksum + skill/mcp 引用，不含完整 Prompt） |
 
-领域 Port 由模块 `@aervox/mod-persona` 定义（`PersonaRepository` / `SkillRepository` / `McpToolRepository`），主仓
+领域 Port 由主仓 `apps/api/src/modules/persona` 定义（`PersonaRepository` / `SkillRepository` / `McpToolRepository`；原 `modules/persona-plugin` 子模块已于 2026-08-28 移除，去模块化收尾见 §4.2），主仓
 `@aervox/database` 提供 SQLite 实现并通过 `apps/api` 适配器接入；数据库表与 Repository Port 是持久化事实源。
 
 ### 14.9 未覆盖结论与下一步

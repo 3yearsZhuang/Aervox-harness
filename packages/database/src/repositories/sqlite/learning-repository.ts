@@ -261,6 +261,23 @@ export class SqliteLearningRepository implements ILearningRepository {
     return (session as PracticeSessionModel) ?? null;
   }
 
+  async getLatestActivePracticeSession(tenant: TenantContext): Promise<PracticeSessionModel | null> {
+    assertTenantContext(tenant);
+    const [session] = await this.db
+      .select()
+      .from(practiceSessions)
+      .where(
+        and(
+          eq(practiceSessions.workspaceId, tenant.workspaceId),
+          eq(practiceSessions.subjectUserId, tenant.subjectUserId),
+          eq(practiceSessions.status, "active"),
+        ),
+      )
+      .orderBy(desc(practiceSessions.startedAt))
+      .limit(1);
+    return (session as PracticeSessionModel) ?? null;
+  }
+
   async completePracticeSession(tenant: TenantContext, sessionId: string): Promise<PracticeSessionModel | null> {
     assertTenantContext(tenant);
     const [updated] = await this.db
@@ -585,7 +602,7 @@ export class SqliteLearningRepository implements ILearningRepository {
 
   async createReviewItem(
     tenant: TenantContext,
-    itemData: { id: string; knowledgeId: string; dueAt: string; intervalDays?: number; schedulerVersion?: number },
+    itemData: { id: string; knowledgeId: string; dueAt: string; intervalDays?: number; schedulerVersion?: number; timezoneSnapshot?: string },
   ): Promise<ReviewItemModel> {
     assertTenantContext(tenant);
     const now = new Date().toISOString();
@@ -599,6 +616,7 @@ export class SqliteLearningRepository implements ILearningRepository {
         dueAt: itemData.dueAt,
         intervalDays: itemData.intervalDays ?? 1,
         schedulerVersion: itemData.schedulerVersion ?? 1,
+        timezoneSnapshot: itemData.timezoneSnapshot ?? "UTC",
         status: "active",
         createdAt: now,
         updatedAt: now,
@@ -609,7 +627,7 @@ export class SqliteLearningRepository implements ILearningRepository {
 
   async scheduleReviewItem(
     tenant: TenantContext,
-    itemData: { id: string; knowledgeId: string; dueAt: string; intervalDays: number; schedulerVersion?: number },
+    itemData: { id: string; knowledgeId: string; dueAt: string; intervalDays: number; schedulerVersion?: number; timezoneSnapshot?: string },
   ): Promise<ReviewItemModel> {
     assertTenantContext(tenant);
     const now = new Date().toISOString();
@@ -619,6 +637,7 @@ export class SqliteLearningRepository implements ILearningRepository {
         dueAt: itemData.dueAt,
         intervalDays: itemData.intervalDays,
         schedulerVersion: itemData.schedulerVersion ?? 1,
+        timezoneSnapshot: itemData.timezoneSnapshot ?? "UTC",
         updatedAt: now,
       })
       .where(
@@ -680,7 +699,7 @@ export class SqliteLearningRepository implements ILearningRepository {
         masteryState: string;
         masteryBasis: unknown;
       };
-      nextReview: { id: string; dueAt: string; intervalDays: number; schedulerVersion: number };
+      nextReview: { id: string; dueAt: string; intervalDays: number; schedulerVersion: number; timezoneSnapshot: string };
     },
   ): Promise<{ completed: ReviewItemModel; nextReview: ReviewItemModel; knowledge: KnowledgeItemModel } | null> {
     assertTenantContext(tenant);
@@ -724,6 +743,7 @@ export class SqliteLearningRepository implements ILearningRepository {
           dueAt: data.nextReview.dueAt,
           intervalDays: data.nextReview.intervalDays,
           schedulerVersion: data.nextReview.schedulerVersion,
+          timezoneSnapshot: data.nextReview.timezoneSnapshot,
           status: "active",
           createdAt: now,
           updatedAt: now,
