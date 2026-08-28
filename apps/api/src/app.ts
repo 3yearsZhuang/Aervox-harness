@@ -67,9 +67,10 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   app.get("/openapi.json", async () => openApiDocument);
 
   // 注册领域模块（每个模块自管仓储实例化）
-  // 工具运行时先于对话模块实例化：阶段 2d Agent Loop 需要只读工具提供者
+  // 工具运行时 / LLM 配置服务先于对话模块实例化（阶段 2d/2e Agent Loop 依赖）
   const toolRuntime = registerToolsModule(app, db, client);
-  registerConversationModule(app, db, { toolRuntime });
+  const llmConfigService = registerLLMModule(app, db, options.llmOptions);
+  registerConversationModule(app, db, { toolRuntime, llmConfigService });
   registerLearningModule(app, db);
   registerFeedbackModule(app, db);
   registerDiaryModule(app, db);
@@ -84,7 +85,6 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   const voiceService = registerVoiceModule(app, db, options.voiceOptions);
   const skillManager = registerSkillsModule(app, db, { skillsRoot: options.skillsRoot, toolRuntime });
   registerPersonaModule(app, db, { skillManager, toolRuntime, voiceService });
-  registerLLMModule(app, db, options.llmOptions);
 
   return { app, db, client, toolRuntime };
 }

@@ -13,6 +13,7 @@ import type {
   SafetyDecision,
   ToolCallRequest,
   ToolExecutionRecord,
+  ToolSpec,
 } from "./types.js";
 
 /** 执行存储：Executor 的持久化边界 */
@@ -67,13 +68,8 @@ export interface ModelProviderPort {
   stream(request: ModelRequest): AsyncIterable<{ text: string; isFinal: boolean; toolCalls?: ToolCallRequest[] }>;
 }
 
-/** 工具描述（只读白名单工具的主仓快照；阶段 2d 与工具注册表共用） */
-export interface ToolSpec {
-  name: string;
-  description: string;
-  /** 阶段 2 只接只读工具（PET-05 白名单）；写/需审批工具留阶段 3 */
-  readOnly: true;
-}
+/** 工具描述（定义见 types.ts；此处 re-export 保持既有导入路径兼容） */
+export type { ToolSpec } from "./types.js";
 
 /** 工具执行输入 */
 export interface ToolExecutionInput {
