@@ -19,7 +19,6 @@ const metricsCache = new WeakMap<object, ModelLayoutMetrics>()
 
 export interface Live2DViewportFitOptions {
   scaleFactor?: number
-  widthRatio?: number
   heightRatio?: number
 }
 
@@ -31,8 +30,8 @@ export function fitLive2DModelToViewport(
   const width = app.renderer.screen.width
   const height = app.renderer.screen.height
   const scaleFactor = options.scaleFactor ?? 1
-  const widthRatio = options.widthRatio ?? 0.78
-  const heightRatio = options.heightRatio ?? 0.86
+  // 沉浸式工作台：模型可见高度撑满视口（仅按高度驱动，横向居中，超宽部分裁剪）。
+  const heightRatio = options.heightRatio ?? 1
 
   model.anchor.set(0.5, 0.5)
   let metrics = metricsCache.get(model)
@@ -56,22 +55,18 @@ export function fitLive2DModelToViewport(
   }
 
   if (!metrics) {
-    model.scale.set(Math.min(
-      width / model.internalModel.originalWidth,
-      height / model.internalModel.originalHeight,
-    ) * 0.82 * scaleFactor)
-    model.position.set(width / 2, height / 2)
+    model.anchor.set(0.5, 1)
+    model.scale.set(height / model.internalModel.originalHeight * scaleFactor)
+    model.position.set(width / 2, height)
     return
   }
 
-  const scale = Math.min(
-    width * widthRatio / metrics.width,
-    height * heightRatio / metrics.height,
-  ) * scaleFactor
+  const scale = height * heightRatio / metrics.height * scaleFactor
   model.scale.set(scale)
+  // 水平居中；模型实际像素底边对齐视口底部，控制台浮层叠加其上。
   model.position.set(
     width / 2 - metrics.offsetX * scale,
-    height / 2 - metrics.offsetY * scale,
+    height - (metrics.offsetY + metrics.height / 2) * scale,
   )
 }
 
@@ -83,13 +78,16 @@ function measureVisibleBounds(app: Application): VisibleBounds | null {
     const logicalWidth = app.renderer.screen.width
     const logicalHeight = app.renderer.screen.height
     const pixels = app.renderer.extract.pixels()
+    // 仅统计真实可见像素（alpha ≥ 40/255），剔除模型软阴影与
+    // 半透明杂散像素，保证底边对齐的是肉眼可见的“实际像素底部”。
+    const alphaThreshold = 40
     let minX = pixelWidth
     let minY = pixelHeight
     let maxX = -1
     let maxY = -1
 
     for (let index = 3, pixel = 0; index < pixels.length; index += 4, pixel += 1) {
-      if (pixels[index] < 12) continue
+      if (pixels[index] < alphaThreshold) continue
       const x = pixel % pixelWidth
       const y = Math.floor(pixel / pixelWidth)
       minX = Math.min(minX, x)
