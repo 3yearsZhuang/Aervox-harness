@@ -11,7 +11,7 @@ import { createInMemoryDatabase, type AervoxDatabase } from "@aervox/database";
 import type { Client } from "@libsql/client";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../src/app.js";
-import { GptSovitsLocalProvider } from "../src/modules/voice/index.js";
+import { GptSovitsLocalProvider, SenseVoiceLocalProvider } from "../src/modules/voice/index.js";
 
 const headers = {
   "x-workspace-id": "ws_voice",
@@ -39,6 +39,13 @@ describe("语音配置路由 (Voice Config)", () => {
         providers: [
           new GptSovitsLocalProvider("gpt-sovits-local", {
             modelId: "default-local",
+            modelPath: root,
+            allowedRoots: [root],
+          }),
+        ],
+        asrProviders: [
+          new SenseVoiceLocalProvider("sensevoice-local", {
+            modelId: "sensevoice-small",
             modelPath: root,
             allowedRoots: [root],
           }),
@@ -121,5 +128,98 @@ describe("语音配置路由 (Voice Config)", () => {
       payload: { providerId: "gpt-sovits-local", modelId: 123 },
     });
     expect(res.statusCode).toBe(400);
+  });
+
+  it("GET /v1/voice/input/config 读取离线语音输入默认配置", async () => {
+    const res = await app.inject({ method: "GET", url: "/v1/voice/input/config", headers });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.enabled).toBe(true);
+    expect(body.engineType).toBe("sensevoice-local");
+    expect(body.autoStopOnKeyboard).toBe(true);
+    expect(body.vadSilenceThresholdMs).toBe(700);
+  });
+
+  it("PUT /v1/voice/input/config 保存离线语音输入配置并回显", async () => {
+    const put = await app.inject({
+      method: "PUT",
+      url: "/v1/voice/input/config",
+      headers,
+      payload: {
+        enabled: true,
+        engineType: "whisper-compatible",
+        endpoint: "http://127.0.0.1:8000/v1",
+        apiKey: "sk-test",
+        modelId: "whisper-1",
+        autoStopOnKeyboard: false,
+        vadSilenceThresholdMs: 800,
+      },
+    });
+    expect(put.statusCode).toBe(200);
+    expect(put.json().engineType).toBe("whisper-compatible");
+    expect(put.json().autoStopOnKeyboard).toBe(false);
+
+    const get = await app.inject({ method: "GET", url: "/v1/voice/input/config", headers });
+    expect(get.json().engineType).toBe("whisper-compatible");
+    expect(get.json().endpoint).toBe("http://127.0.0.1:8000/v1");
+  });
+
+  it("GET /v1/voice/input/model/status 与 POST /v1/voice/input/model/download 模型下载交互与校验", async () => {
+    const statusRes = await app.inject({
+      method: "GET",
+      url: "/v1/voice/input/model/status",
+      headers,
+    });
+    expect(statusRes.statusCode).toBe(200);
+    expect(typeof statusRes.json().downloaded).toBe("boolean");
+    expect(typeof statusRes.json().verified).toBe("boolean");
+    expect(typeof statusRes.json().progressPercent).toBe("number");
+
+    const dlRes = await app.inject({
+      method: "POST",
+      url: "/v1/voice/input/model/download",
+      headers,
+      payload: { targetDir: root },
+    });
+    expect(dlRes.statusCode).toBe(200);
+    expect(dlRes.json().accepted).toBe(true);
+    expect(dlRes.json().status.downloading).toBe(true);
+    expect(dlRes.json().status.progressPercent).toBeGreaterThan(0);
+  });
+
+  it("POST /v1/voice/input/model/download 拒绝白名单外 targetDir（CR-016 安全整改）", async () => {
+    const dlRes = await app.inject({
+      method: "POST",
+      url: "/v1/voice/input/model/download",
+      headers,
+      payload: { targetDir: "/etc" },
+    });
+    expect(dlRes.statusCode).toBe(400);
+    expect(dlRes.json().code).toBe("INVALID_DOWNLOAD_REQUEST");
+  });
+
+  it("POST /v1/voice/input/model/download 拒绝白名单外 mirrorUrl（CR-016 安全整改）", async () => {
+    const dlRes = await app.inject({
+      method: "POST",
+      url: "/v1/voice/input/model/download",
+      headers,
+      payload: { mirrorUrl: "https://example.com/evil" },
+    });
+    expect(dlRes.statusCode).toBe(400);
+    expect(dlRes.json().code).toBe("INVALID_DOWNLOAD_REQUEST");
+  });
+
+  it("POST /v1/voice/transcribe 转写接口", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/voice/transcribe",
+      headers,
+      payload: {
+        audioBase64: Buffer.from("fake-wav-content").toString("base64"),
+        mimeType: "audio/wav",
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(typeof res.json().text).toBe("string");
   });
 });

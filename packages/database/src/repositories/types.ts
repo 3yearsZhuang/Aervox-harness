@@ -1682,6 +1682,45 @@ export interface IVoiceConfigRepository {
   saveConfig(tenant: TenantContext, input: LocalVoiceConfigSaveInput): Promise<LocalVoiceConfigModel>;
 }
 
+// ============ CR-016 离线语音输入 (ASR) 配置持久化 ============
+
+export interface VoiceInputConfigModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  enabled: number;
+  engineType: string;
+  modelPath?: string | null;
+  modelId: string;
+  endpoint?: string | null;
+  apiKey?: string | null;
+  autoStopOnKeyboard: number;
+  vadSilenceThresholdMs: number;
+  settingsJson: unknown;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VoiceInputConfigSaveInput {
+  enabled: boolean;
+  engineType: string;
+  modelPath?: string | null;
+  modelId: string;
+  endpoint?: string | null;
+  apiKey?: string | null;
+  autoStopOnKeyboard?: boolean;
+  vadSilenceThresholdMs?: number;
+  settings?: Record<string, unknown>;
+}
+
+export interface IVoiceInputConfigRepository {
+  getConfig(tenant: TenantContext): Promise<VoiceInputConfigModel | null>;
+  saveConfig(
+    tenant: TenantContext,
+    input: VoiceInputConfigSaveInput,
+  ): Promise<VoiceInputConfigModel>;
+}
+
 // ============ T-04 工具注册表 + AST-04 门控 + PET-05 安全级别 ============
 
 export interface ToolRegistrationModel {

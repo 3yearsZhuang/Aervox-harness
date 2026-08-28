@@ -37,3 +37,37 @@ export const voiceConfigs = sqliteTable(
     ),
   }),
 );
+
+/** 离线语音输入 (ASR) 配置快照（租户级；每租户一行，CR-016） */
+export const voiceInputConfigs = sqliteTable(
+  "voice_input_configs",
+  {
+    id: text("id").primaryKey(),
+    ...tenantColumns,
+    /** 是否启用语音输入（0/1） */
+    enabled: integer("enabled").notNull().default(1),
+    /** 引擎类型：sensevoice-local | whisper-compatible */
+    engineType: text("engine_type").notNull().default("sensevoice-local"),
+    /** 本地模型路径（受 allowedRoots 白名单约束） */
+    modelPath: text("model_path"),
+    /** 模型标识（如 sensevoice-small） */
+    modelId: text("model_id").notNull().default("sensevoice-small"),
+    /** 远程/本地兼容端点 URL（whisper-compatible 模式使用） */
+    endpoint: text("endpoint"),
+    /** 访问密钥 */
+    apiKey: text("api_key"),
+    /** 键盘输入自动停止录音（0/1） */
+    autoStopOnKeyboard: integer("auto_stop_on_keyboard").notNull().default(1),
+    /** 静音断句门限毫秒（默认 700ms） */
+    vadSilenceThresholdMs: integer("vad_silence_threshold_ms").notNull().default(700),
+    /** 扩展设置（JSON 对象） */
+    settingsJson: text("settings_json", { mode: "json" }).notNull().default({}),
+    ...timestampColumns,
+  },
+  (table) => ({
+    tenantUniqueIdx: uniqueIndex("voice_input_configs_tenant_unique_idx").on(
+      table.workspaceId,
+      table.subjectUserId,
+    ),
+  }),
+);

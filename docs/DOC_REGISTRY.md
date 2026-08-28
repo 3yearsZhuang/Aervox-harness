@@ -44,6 +44,7 @@
 | `CR-013` | [活跃练习会话恢复与续答](reference/changes/CR-013-practice-session-recovery.md) | 2026-08-28 | `CAP-003` 活跃会话、题组快照或续答边界变更 | SRS、OpenAPI、持久化进度与工作台恢复行为不一致 |
 | `CR-014` | [WebUI 语音输出配置](reference/changes/CR-014-voice-config-webui.md) | 2026-08-28 | `CAP-019/020` 系统语音输出 / 本地语音模型配置变更 | 表、契约、Voice 模块或设置 UI 与实现不一致 |
 | `CR-015` | [WebUI 大语言模型与供应商配置](reference/changes/CR-015-llm-provider-config-webui.md) | 2026-08-28 | `CAP-020` / `ADR-005` 大语言模型供应商与配置变更 | 表、契约、LLM 模块或设置 UI 与实现不一致 |
+| `CR-016` | [离线语音输入 ASR](reference/changes/CR-016-offline-voice-input-asr.md) | 2026-08-28 | `CAP-019/020` / `ADR-005` 离线语音输入与交互变更 | 表、契约、ASR 模块或输入交互与实现不一致 |
 | `AVX-PLUG-001` | [插件 Config 与 Page 规范](reference/plugin-config-and-pages.md) | 2026-08-26 | CR-006 / 插件机制变更 | Manifest、Config Schema、Page Bridge 与实现不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 2026-08-26 | 规则变更或季度评审 | 新增文档未标注四分类/头字段不合规，或 Vale 规则与术语表不一致 |
 | `AVX-TERM-001` | [术语表](reference/standards/terminology.md) | 2026-08-28 | 术语新增/变更 | 新增缩写未登记，或正文拼写与「禁写」列不一致 |
