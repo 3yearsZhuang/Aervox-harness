@@ -45,6 +45,7 @@ describe("阶段 5c Subagent/Workflow Contribution API", () => {
   let cleanup: () => Promise<void>;
 
   beforeEach(async () => {
+    process.env.AERVOX_LOOP_PROVIDER = "replay";
     const res = await createInMemoryDatabase();
     db = res.db;
     cleanup = res.cleanup;
@@ -54,6 +55,7 @@ describe("阶段 5c Subagent/Workflow Contribution API", () => {
   });
 
   afterEach(async () => {
+    delete process.env.AERVOX_LOOP_PROVIDER;
     await app.close();
     await cleanup();
   });
