@@ -63,6 +63,17 @@ describe("executeTurn 阶段 2：只读工具多 Step Loop", () => {
     const finalDelta = events[4].data as { isFinal: boolean };
     expect(finalDelta.isFinal).toBe(true);
     expect(store.attemptStatus("atp_t")).toBe("Completed");
+
+    // 副作用证据账本：一条 executed 记录
+    const log = store.toolExecutionRecords();
+    expect(log).toHaveLength(1);
+    expect(log[0]).toMatchObject({
+      turnId: "turn_t",
+      attemptId: "atp_t",
+      name: "search_notes",
+      status: "executed",
+    });
+    expect(log[0].output).toBeTruthy();
   });
 
   it("工具执行失败不终止 Loop：tool_result(ok:false) 后继续下一轮并正常完成", async () => {
@@ -212,5 +223,9 @@ describe("executeTurn 阶段 2：只读工具多 Step Loop", () => {
     }>;
     expect(toolResults[0]).toMatchObject({ ok: false, error: "tools_disabled" });
     expect(store.attemptStatus("atp_t")).toBe("Failed");
+
+    // 未配置工具时同样留下 rejected 证据
+    const log = store.toolExecutionRecords();
+    expect(log[0]).toMatchObject({ name: "search_notes", status: "rejected", error: "tools_disabled" });
   });
 });

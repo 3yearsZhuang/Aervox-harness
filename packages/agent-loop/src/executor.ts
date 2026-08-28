@@ -11,7 +11,7 @@
  */
 import type { ExecutionStorePort, ModelProviderPort, ToolProviderPort } from "./ports.js";
 import type { ContextBuilderPort } from "./ports.js";
-import type { ExecuteResult, ModelChunk, PromptMessage, ToolCallResult } from "./types.js";
+import type { ExecuteResult, ModelChunk, PromptMessage, ToolCallResult, ToolExecutionStatus } from "./types.js";
 
 export interface ExecuteTurnInput {
   turnId: string;
@@ -163,6 +163,7 @@ export async function executeTurn(
       // fail-closed：未配置工具却收到工具请求
       if (!tools) {
         for (const call of toolCalls) {
+          const startedAt = new Date().toISOString();
           await execution.appendEvent({
             turnId: input.turnId,
             attemptId: input.attemptId,
@@ -179,6 +180,17 @@ export async function executeTurn(
             data: { invocationId: call.id, name: call.name, ok: false, error: "tools_disabled" },
             safetyDecision: "approved",
           });
+          await execution.recordToolExecution({
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            invocationId: call.id,
+            name: call.name,
+            arguments: call.arguments,
+            status: "rejected",
+            error: "tools_disabled",
+            startedAt,
+            finishedAt: new Date().toISOString(),
+          });
         }
         await execution.finalizeAttempt({
           turnId: input.turnId,
@@ -190,6 +202,7 @@ export async function executeTurn(
 
       const results: ToolCallResult[] = [];
       for (const call of toolCalls) {
+        const startedAt = new Date().toISOString();
         await execution.appendEvent({
           turnId: input.turnId,
           attemptId: input.attemptId,
@@ -235,6 +248,27 @@ export async function executeTurn(
             error: result.error,
           },
           safetyDecision: "approved",
+        });
+
+        // 副作用证据账本：成功/拒绝/重复/超时一律留痕
+        const status: ToolExecutionStatus = result.ok
+          ? "executed"
+          : result.error === "duplicate_tool_call"
+            ? "duplicate"
+            : result.error === "tool_timeout"
+              ? "timeout_error"
+              : "rejected";
+        await execution.recordToolExecution({
+          turnId: input.turnId,
+          attemptId: input.attemptId,
+          invocationId: call.id,
+          name: call.name,
+          arguments: call.arguments,
+          status,
+          output: result.output,
+          error: result.error,
+          startedAt,
+          finishedAt: new Date().toISOString(),
         });
       }
 
