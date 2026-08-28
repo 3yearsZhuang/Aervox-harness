@@ -3,7 +3,7 @@
 - 提出人：Antigravity · 2026-08-28
 - 修改人：Antigravity · 2026-08-28
 - 类型：Plan
-- 关联：[需求追踪基线](docs/reference/REQUIREMENTS_TRACEABILITY.md)、[CR-011 WebUI 语音配置](docs/reference/changes/CR-011-voice-config-webui.md)、[ADR-005 内部 Provider Port](docs/reference/adr/ADR-005-provider-port.md)、参考项目 `dsh-voice-local`
+- 关联：[需求追踪基线](docs/reference/REQUIREMENTS_TRACEABILITY.md)、[CR-014 WebUI 语音配置](docs/reference/changes/CR-014-voice-config-webui.md)、[ADR-005 内部 Provider Port](docs/reference/adr/ADR-005-provider-port.md)、参考项目 `dsh-voice-local`
 
 ---
 

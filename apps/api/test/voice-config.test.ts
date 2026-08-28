@@ -187,6 +187,28 @@ describe("语音配置路由 (Voice Config)", () => {
     expect(dlRes.json().status.progressPercent).toBeGreaterThan(0);
   });
 
+  it("POST /v1/voice/input/model/download 拒绝白名单外 targetDir（CR-016 安全整改）", async () => {
+    const dlRes = await app.inject({
+      method: "POST",
+      url: "/v1/voice/input/model/download",
+      headers,
+      payload: { targetDir: "/etc" },
+    });
+    expect(dlRes.statusCode).toBe(400);
+    expect(dlRes.json().code).toBe("INVALID_DOWNLOAD_REQUEST");
+  });
+
+  it("POST /v1/voice/input/model/download 拒绝白名单外 mirrorUrl（CR-016 安全整改）", async () => {
+    const dlRes = await app.inject({
+      method: "POST",
+      url: "/v1/voice/input/model/download",
+      headers,
+      payload: { mirrorUrl: "https://example.com/evil" },
+    });
+    expect(dlRes.statusCode).toBe(400);
+    expect(dlRes.json().code).toBe("INVALID_DOWNLOAD_REQUEST");
+  });
+
   it("POST /v1/voice/transcribe 转写接口", async () => {
     const res = await app.inject({
       method: "POST",
