@@ -9,9 +9,15 @@
  * - 终止：自然完成（无工具请求）→ done Completed；maxSteps 内始终请求工具 → done Interrupted；
  *   未配置工具却出现工具请求，或执行错误 → fail-closed。
  */
-import type { ExecutionStorePort, ModelProviderPort, ToolProviderPort } from "./ports.js";
+import type { ExecutionStorePort, InboxPort, ModelProviderPort, ToolProviderPort } from "./ports.js";
 import type { ContextBuilderPort } from "./ports.js";
-import type { ExecuteResult, ModelChunk, PromptMessage, ToolCallResult, ToolExecutionStatus } from "./types.js";
+import type {
+  ExecuteResult,
+  ModelChunk,
+  PromptMessage,
+  ToolCallResult,
+  ToolExecutionStatus,
+} from "./types.js";
 
 export interface ExecuteTurnInput {
   turnId: string;
@@ -65,6 +71,8 @@ export interface ExecuteTurnDeps {
   tools?: ToolProviderPort;
   /** 2d：删除/撤权未追平闸门；缺省不启用 */
   deletionGate?: DeletionGatePort;
+  /** 阶段 5a：受控收件箱（ADR-017）；缺省不启用 Inbox 消费 */
+  inbox?: InboxPort;
   options?: ExecuteTurnOptions;
 }
 
@@ -96,7 +104,7 @@ export async function executeTurn(
   deps: ExecuteTurnDeps,
   input: ExecuteTurnInput,
 ): Promise<ExecuteResult> {
-  const { execution, provider, contextBuilder, tools, deletionGate, options } = deps;
+  const { execution, provider, contextBuilder, tools, deletionGate, inbox, options } = deps;
   const maxSteps = options?.maxSteps ?? 8;
   const toolTimeoutMs = options?.toolTimeoutMs ?? 5000;
   const maxTurnDurationMs = options?.maxTurnDurationMs ?? 0;
@@ -232,11 +240,25 @@ export async function executeTurn(
       }
 
       const chunks: ModelChunk[] = [];
+      // 阶段 5a：本 Step 可消费的 inbox 项（ADR-017 消费边界；next-step 注入本 Step 输入）
+      const stepInboxItems = inbox
+        ? await inbox.claimForConsumption({
+            sessionId: input.sessionId,
+            attemptId: input.attemptId,
+            type: "next-step",
+            limit: 20, // maxInboxItemsPerStep
+          })
+        : [];
       const context = contextBuilder.build({
         turnId: input.turnId,
         sessionId: input.sessionId,
         messages: history,
+        inboxItems: stepInboxItems,
       });
+      // 读入即消费：注入 context 后 ack（未 ack 项在崩溃恢复后会被重新 claim，安全重放）
+      if (stepInboxItems.length > 0 && inbox) {
+        await inbox.ack({ itemIds: stepInboxItems.map((i) => i.id) });
+      }
 
       // 收集本 Step 输出（文本增量 + 工具请求）
       for await (const chunk of provider.stream({

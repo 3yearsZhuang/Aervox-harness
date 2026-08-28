@@ -625,6 +625,63 @@ export interface ToolApprovalModel {
   subjectUserId: string;
 }
 
+// ============ 阶段 5a：Agent 收件箱（agent_inbox_items；ADR-017）============
+
+/** AgentInboxItem 行（agent_inbox_items；与 @aervox/agent-loop AgentInboxItem 语义对齐） */
+export interface AgentInboxItemModel {
+  id: string;
+  idempotencyKey: string;
+  sessionId: string;
+  attemptId?: string | null;
+  stepId?: string | null;
+  type: "followup" | "steer" | "inject";
+  orderingSeq: number;
+  sourceActor: string;
+  payload: unknown;
+  status: "pending" | "claimed" | "acknowledged" | "expired";
+  consumeBoundary: "next-turn" | "next-step";
+  claimedAt?: string | null;
+  ackedAt?: string | null;
+  expiresAt?: string | null;
+  workspaceId: string;
+  subjectUserId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 受控 inbox command（ADR-017：外部插件只能提交受限 command） */
+export interface AgentInboxEnqueueInput {
+  id: string;
+  idempotencyKey: string;
+  sessionId: string;
+  attemptId?: string | null;
+  stepId?: string | null;
+  type: "followup" | "steer" | "inject";
+  sourceActor: "user" | "agent" | "plugin";
+  payload: unknown;
+  consumeBoundary?: "next-turn" | "next-step";
+  expiresAt?: string | null;
+}
+
+export interface IAgentInboxRepository {
+  /** 提交一条受控 inbox command（幂等：同 idempotencyKey 重复提交返回既有项） */
+  enqueue(tenant: TenantContext, input: AgentInboxEnqueueInput): Promise<AgentInboxItemModel>;
+  /**
+   * claim 一批可消费 inbox 项（pending → claimed）：
+   * - next-step：按 sessionId + attemptId + boundary 过滤（attemptId 必填）；
+   * - next-turn：按 sessionId + boundary 过滤（attemptId 可空）。
+   * 过滤未过期项，按 orderingSeq 排序。
+   */
+  claimForConsumption(
+    tenant: TenantContext,
+    input: { sessionId: string; attemptId?: string | null; type: "next-turn" | "next-step"; limit?: number },
+  ): Promise<AgentInboxItemModel[]>;
+  /** ack 消费完成（claimed → acknowledged）；只接受属于本租户的项 */
+  acknowledge(tenant: TenantContext, itemIds: string[]): Promise<void>;
+  /** 按 idempotencyKey 查询（API 幂等返回用） */
+  getByIdempotencyKey(tenant: TenantContext, idempotencyKey: string): Promise<AgentInboxItemModel | null>;
+}
+
 // ============ 学习/练习/复习域 ============
 
 export interface LearningGoalModel {

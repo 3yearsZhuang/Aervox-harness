@@ -27,3 +27,4 @@ export * from "./voice.js";
 export * from "./llm.js";
 export * from "./tool-executions.js";
 export * from "./tool-approvals.js";
+export * from "./agent-inbox.js";

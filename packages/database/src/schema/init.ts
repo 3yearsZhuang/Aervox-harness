@@ -1588,8 +1588,37 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await client.execute(`
     CREATE INDEX IF NOT EXISTS tool_approvals_turn_idx ON tool_approvals(turn_id);
   `);
+  // 4.7 阶段 5a：Agent 收件箱（agent_inbox_items；ADR-017）
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS tool_approvals_tenant_idx ON tool_approvals(workspace_id, subject_user_id);
+    CREATE TABLE IF NOT EXISTS agent_inbox_items (
+      id TEXT PRIMARY KEY,
+      idempotency_key TEXT NOT NULL,
+      session_id TEXT NOT NULL,
+      attempt_id TEXT,
+      step_id TEXT,
+      type TEXT NOT NULL,
+      ordering_seq INTEGER NOT NULL DEFAULT 0,
+      source_actor TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      consume_boundary TEXT NOT NULL,
+      claimed_at TEXT,
+      acked_at TEXT,
+      expires_at TEXT,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS agent_inbox_tenant_session_idx ON agent_inbox_items(workspace_id, subject_user_id, session_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS agent_inbox_status_idx ON agent_inbox_items(status);
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS agent_inbox_tenant_idempotency_idx ON agent_inbox_items(workspace_id, subject_user_id, idempotency_key);
   `);
 }
 
