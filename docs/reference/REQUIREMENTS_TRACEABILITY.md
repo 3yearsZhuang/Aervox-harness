@@ -263,6 +263,7 @@
 | 多人格模板（CAP-019：draft→review→approved/rejected + 切换日志 + 回滚 + 记忆隔离/共享） | CAP-019 | `packages/database/src/schema/persona.ts`（personas 审核列迁移 + `persona_switch_logs`/`persona_memory_scopes`）+ `repositories/sqlite/persona-repository.ts`、`packages/contracts/src/persona-schemas.ts`（reviewStatus/memoryPolicy 枚举）、`apps/api/src/modules/persona/`（`service.ts`/`routes.ts`/`bundle.ts`/`types.ts`：模板审核/切换/记忆范围端点） | 2026-08-28 | `@aervox/api` `cap019-persona-templates.test.ts` 16（模板审核流转/切换日志/回滚/记忆隔离与共享确认）；ci-code 全量 | 原生 |
 
 | 多能力 E2E 与 Playwright 测试基建 | CAP-010~017/019 | `e2e/`（`preferences`/`message-edit-delete`/`practice-flow`/`mistake-book`/`session-recovery.spec.ts`）、`playwright.config.ts`、`package.json`（`test:e2e`；`@playwright/test` 根 workspace devDep） | 2026-08-28 | playwright 用例（依赖本地 dev server）；根 workspace typecheck | 原生 |
+| 能力注册表状态同步：CAP-010~019 主仓交付裁定（CR-019） | 基础设施（文档治理） | [CR-019](changes/CR-019-capability-registry-status-sync.md)、`docs/reference/capability-registry.md`（P1 表移除候选 + 转主仓交付说明）、`docs/DOC_REGISTRY.md`、`docs/README.md`、`README.md` | 2026-08-28 | `mise tasks run ci-docs`；`git diff --check` | 原生 |
 
 ## 5. 原子需求字段模板
 
