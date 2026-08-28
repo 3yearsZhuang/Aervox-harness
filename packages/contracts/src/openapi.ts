@@ -62,6 +62,13 @@ import {
   voiceModelSchema,
   voiceSynthesisRequestSchema,
   voiceSynthesisResponseSchema,
+  voiceInputConfigSchema,
+  voiceInputConfigResponseSchema,
+  voiceTranscribeRequestSchema,
+  voiceTranscribeResponseSchema,
+  voiceInputModelStatusSchema,
+  voiceInputModelDownloadRequestSchema,
+  voiceInputModelDownloadResponseSchema,
 } from "./persona-schemas.js";
 import {
   pluginConfigSchemaOpenApi,
@@ -176,6 +183,14 @@ registry.register("LLMConfig", llmConfigSchema);
 registry.register("LLMConfigResponse", llmConfigResponseSchema);
 registry.register("LLMTestConnectionRequest", llmTestConnectionRequestSchema);
 registry.register("LLMTestConnectionResponse", llmTestConnectionResponseSchema);
+
+registry.register("VoiceInputConfig", voiceInputConfigSchema);
+registry.register("VoiceInputConfigResponse", voiceInputConfigResponseSchema);
+registry.register("VoiceTranscribeRequest", voiceTranscribeRequestSchema);
+registry.register("VoiceTranscribeResponse", voiceTranscribeResponseSchema);
+registry.register("VoiceInputModelStatus", voiceInputModelStatusSchema);
+registry.register("VoiceInputModelDownloadRequest", voiceInputModelDownloadRequestSchema);
+registry.register("VoiceInputModelDownloadResponse", voiceInputModelDownloadResponseSchema);
 
 const sessionIdParam = z.object({ sessionId: z.string().min(1) });
 const turnIdParam = z.object({ turnId: z.string().min(1) });
@@ -380,6 +395,12 @@ registry.registerPath({ method: "get", path: "/v1/voice/models", summary: "列�
 registry.registerPath({ method: "post", path: "/v1/voice/synthesize", summary: "GPT-SoVITS 语音合成", tags: ["Voice"], request: { body: { content: { "application/json": { schema: voiceSynthesisRequestSchema } } } }, responses: { 200: { description: "Audio artifact", content: { "application/json": { schema: voiceSynthesisResponseSchema } } }, 503: { description: "VOICE_PROVIDER_UNAVAILABLE" } } });
 registry.registerPath({ method: "get", path: "/v1/voice/config", summary: "读取本地语音模型配置", tags: ["Voice"], request: { headers: scopeHeaders }, responses: { 200: { description: "Local voice config", content: { "application/json": { schema: localVoiceConfigResponseSchema } } } } });
 registry.registerPath({ method: "put", path: "/v1/voice/config", summary: "保存本地语音模型配置", tags: ["Voice"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: localVoiceConfigSchema } } } }, responses: { 200: { description: "Local voice config", content: { "application/json": { schema: localVoiceConfigResponseSchema } } }, 400: { description: "INVALID_VOICE_CONFIG / modelPath 不在白名单" }, 503: { description: "VOICE_PROVIDER_UNAVAILABLE" } } });
+
+registry.registerPath({ method: "get", path: "/v1/voice/input/config", summary: "读取离线语音输入配置", tags: ["Voice"], request: { headers: scopeHeaders }, responses: { 200: { description: "Voice input config", content: { "application/json": { schema: voiceInputConfigResponseSchema } } } } });
+registry.registerPath({ method: "put", path: "/v1/voice/input/config", summary: "保存离线语音输入配置", tags: ["Voice"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: voiceInputConfigSchema } } } }, responses: { 200: { description: "Voice input config", content: { "application/json": { schema: voiceInputConfigResponseSchema } } }, 400: { description: "INVALID_VOICE_INPUT_CONFIG / modelPath 不在白名单" } } });
+registry.registerPath({ method: "get", path: "/v1/voice/input/model/status", summary: "读取离线语音输入模型下载与存在状态", tags: ["Voice"], request: { headers: scopeHeaders }, responses: { 200: { description: "Model status", content: { "application/json": { schema: voiceInputModelStatusSchema } } } } });
+registry.registerPath({ method: "post", path: "/v1/voice/input/model/download", summary: "触发离线语音输入模型下载", tags: ["Voice"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: voiceInputModelDownloadRequestSchema } } } }, responses: { 200: { description: "Download started", content: { "application/json": { schema: voiceInputModelDownloadResponseSchema } } }, 400: { description: "INVALID_DOWNLOAD_REQUEST" } } });
+registry.registerPath({ method: "post", path: "/v1/voice/transcribe", summary: "语音识别转写 (ASR)", tags: ["Voice"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: voiceTranscribeRequestSchema } } } }, responses: { 200: { description: "Transcription result", content: { "application/json": { schema: voiceTranscribeResponseSchema } } }, 400: { description: "INVALID_AUDIO" }, 503: { description: "VOICE_INPUT_PROVIDER_UNAVAILABLE" } } });
 
 registry.registerPath({ method: "get", path: "/v1/llm/config", summary: "读取大语言模型与供应商配置", tags: ["LLM"], request: { headers: scopeHeaders }, responses: { 200: { description: "LLM config", content: { "application/json": { schema: llmConfigResponseSchema } } } } });
 registry.registerPath({ method: "put", path: "/v1/llm/config", summary: "保存大语言模型与供应商配置", tags: ["LLM"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: llmConfigSchema } } } }, responses: { 200: { description: "LLM config", content: { "application/json": { schema: llmConfigResponseSchema } } }, 400: { description: "INVALID_LLM_CONFIG" } } });

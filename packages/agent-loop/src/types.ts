@@ -22,7 +22,7 @@ export type StepStatus =
 /** Turn 终止原因（阶段 2 起可产出 max_steps） */
 export type TerminalReason = "completed" | "failed" | "cancelled" | "interrupted" | "max_steps";
 
-/** Loop 内部持久事件类型（阶段 2 新增 tool 事件；公开 SSE 只消费 message/delta/done） */
+/** Loop 内部持久事件类型（阶段 2 工具、阶段 3a 审批；公开 SSE 只消费 message/delta/done） */
 export type LoopEventType =
   | "message"
   | "delta"
@@ -30,7 +30,10 @@ export type LoopEventType =
   | "error"
   | "redacted"
   | "tool_request"
-  | "tool_result";
+  | "tool_result"
+  | "tool_approval_required"
+  | "tool_approval_granted"
+  | "tool_approval_denied";
 
 /** 分段安全门决策（阶段 1/2 本地确定性内容，统一 approved） */
 export type SafetyDecision = "approved" | "blocked" | "redacted" | "pending";
@@ -55,8 +58,16 @@ export interface PromptContext {
 export interface ToolSpec {
   name: string;
   description: string;
-  /** 阶段 2 只接只读工具（PET-05 白名单）；写/需审批工具留阶段 3 */
-  readOnly: true;
+  /** read_only：AI 可自主调用；write_with_approval：需授权（阶段 3a） */
+  readOnly: boolean;
+}
+
+/** 审批信息（宿主在需要授权时返回：approvalId + 授权匹配键） */
+export interface ToolApprovalInfo {
+  approvalId: string;
+  toolName: string;
+  /** 参数规范化哈希（授权匹配用；宿主计算） */
+  argumentsHash: string;
 }
 
 /** 模型请求一个工具调用（对齐 OpenAI 风格 tool_calls 的最小面） */
@@ -77,6 +88,8 @@ export interface ToolCallResult {
   output?: unknown;
   /** 失败/超时/被拒绝原因 */
   error?: string;
+  /** 阶段 3a：宿主需要授权（未执行）；携带审批匹配键 */
+  needsApproval?: ToolApprovalInfo;
 }
 
 /** Model Provider 请求（ADR-005 ModelProviderPort 的阶段 2 面：支持工具请求） */
@@ -105,7 +118,7 @@ export type ExecuteResult =
   | { status: "failed"; attemptId: string; reason: string }
   | { status: "skipped"; attemptId: string; reason: "not_runnable" | "already_claimed" };
 
-/** 工具副作用证据状态（阶段 2d 持久化为 tool_executions） */
+/** 工具副作用证据状态（阶段 2d 持久化为 tool_executions；3a 增审批待决） */
 export type ToolExecutionStatus =
   /** 已执行（含成功输出） */
   | "executed"
@@ -114,7 +127,9 @@ export type ToolExecutionStatus =
   /** 重复调用被拦截 */
   | "duplicate"
   /** 执行抛错或超时 */
-  | "timeout_error";
+  | "timeout_error"
+  /** 阶段 3a：写工具等待授权，未执行 */
+  | "pending_approval";
 
 /** 工具执行账本记录（副作用证据；由 ExecutionStore 持久化） */
 export interface ToolExecutionRecord {

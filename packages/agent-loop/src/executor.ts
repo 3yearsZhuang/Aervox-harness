@@ -74,6 +74,8 @@ export async function executeTurn(
   if (!claim.ok) {
     return { status: "skipped", attemptId: input.attemptId, reason: claim.reason };
   }
+  const claimLeaseId = claim.leaseId;
+  const claimFencingToken = claim.fencingToken;
 
   try {
     let sequence = await execution.nextSequence(input.turnId);
@@ -97,6 +99,19 @@ export async function executeTurn(
 
     for (let step = 1; step <= maxSteps; step += 1) {
       stepsTaken = step;
+
+      // 3b-B：Step 首部租约活性校验（续租即探活；租约被抢占/过期 → 立即中止，丢弃本轮与后续事件）
+      if (claimLeaseId) {
+        const alive = await execution.renewAttemptLease({
+          attemptId: input.attemptId,
+          leaseId: claimLeaseId,
+          expectedFencingToken: claimFencingToken,
+        });
+        if (!alive.ok) {
+          return { status: "failed", attemptId: input.attemptId, reason: "lease_lost" };
+        }
+      }
+
       const chunks: ModelChunk[] = [];
       const context = contextBuilder.build({
         turnId: input.turnId,
@@ -144,6 +159,7 @@ export async function executeTurn(
           turnId: input.turnId,
           attemptId: input.attemptId,
           status: "Completed",
+          expectedFencingToken: claimFencingToken,
         });
         return { status: "completed", attemptId: input.attemptId, lastSequence: sequence, stepsTaken };
       }
@@ -197,6 +213,7 @@ export async function executeTurn(
           turnId: input.turnId,
           attemptId: input.attemptId,
           status: "Failed",
+          expectedFencingToken: claimFencingToken,
         });
         return { status: "failed", attemptId: input.attemptId, reason: "tools_disabled" };
       }
@@ -229,12 +246,51 @@ export async function executeTurn(
               }),
               toolTimeoutMs,
             );
-            result = { id: call.id, name: call.name, ok: executed.ok, output: executed.output, error: executed.error };
+            result = { id: call.id, name: call.name, ok: executed.ok, output: executed.output, error: executed.error, needsApproval: executed.needsApproval };
           } catch (err) {
             result = { id: call.id, name: call.name, ok: false, error: err instanceof Error ? err.message : "tool_execution_error" };
           }
         }
         results.push(result);
+
+        // 阶段 3a：写工具需授权（宿主未执行）→ 记审批待决事件 + 账本，中断等待授权
+        if (result.needsApproval) {
+          const info = result.needsApproval;
+          await execution.appendEvent({
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            sequence: sequence++,
+            eventType: "tool_approval_required",
+            data: { approvalId: info.approvalId, toolName: info.toolName, argumentsHash: info.argumentsHash },
+            safetyDecision: "approved",
+          });
+          await execution.recordToolExecution({
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            invocationId: call.id,
+            name: call.name,
+            arguments: call.arguments,
+            status: "pending_approval",
+            error: "requires_approval",
+            startedAt,
+            finishedAt: new Date().toISOString(),
+          });
+          await execution.appendEvent({
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            sequence,
+            eventType: "done",
+            data: { status: "Interrupted", messageId, isComplete: false, lastSequence: sequence },
+            safetyDecision: "approved",
+          });
+          await execution.finalizeAttempt({
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            status: "Interrupted",
+            expectedFencingToken: claimFencingToken,
+          });
+          return { status: "failed", attemptId: input.attemptId, reason: "pending_approval" };
+        }
 
         await execution.appendEvent({
           turnId: input.turnId,
@@ -303,6 +359,7 @@ export async function executeTurn(
       turnId: input.turnId,
       attemptId: input.attemptId,
       status: "Interrupted",
+      expectedFencingToken: claimFencingToken,
     });
     return { status: "failed", attemptId: input.attemptId, reason: "max_steps" };
   } catch (err) {
@@ -323,6 +380,7 @@ export async function executeTurn(
       turnId: input.turnId,
       attemptId: input.attemptId,
       status: "Failed",
+      expectedFencingToken: claimFencingToken,
     }).catch(() => undefined);
     return { status: "failed", attemptId: input.attemptId, reason: "execution error" };
   }

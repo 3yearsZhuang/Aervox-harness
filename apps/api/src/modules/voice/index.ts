@@ -1,19 +1,27 @@
 /**
  * Aervox｜思隅 @aervox/api — 系统级语音模块入口
  */
+import path from "node:path";
 import type { FastifyInstance } from "fastify";
-import { SqliteVoiceConfigRepository, type AervoxDatabase } from "@aervox/database";
-import type { VoiceProviderPort } from "./types.js";
+import {
+  SqliteVoiceConfigRepository,
+  SqliteVoiceInputConfigRepository,
+  type AervoxDatabase,
+} from "@aervox/database";
+import type { VoiceProviderPort, ASRProviderPort } from "./types.js";
 import { GptSovitsLocalProvider, GptSovitsRemoteProvider } from "./gpt-sovits.js";
+import { SenseVoiceLocalProvider, WhisperCompatibleProvider } from "./asr-providers.js";
 import { VoiceService } from "./service.js";
 import { registerVoiceRoutes } from "./routes.js";
 
 export * from "./types.js";
 export * from "./gpt-sovits.js";
+export * from "./asr-providers.js";
 export * from "./service.js";
 
 export interface VoiceModuleOptions {
   providers?: VoiceProviderPort[];
+  asrProviders?: ASRProviderPort[];
 }
 
 export function createDefaultVoiceProviders(): VoiceProviderPort[] {
@@ -32,15 +40,39 @@ export function createDefaultVoiceProviders(): VoiceProviderPort[] {
   ];
 }
 
+export function createDefaultASRProviders(): ASRProviderPort[] {
+  const defaultAllowedRoots = [
+    process.cwd(),
+    path.join(process.cwd(), "data"),
+    path.join(process.cwd(), "data", "models"),
+    ...(process.env.SENSEVOICE_ALLOWED_ROOTS?.split(":").filter(Boolean) ?? []),
+  ];
+  return [
+    new SenseVoiceLocalProvider("sensevoice-local", {
+      modelId: "sensevoice-small",
+      modelPath: process.env.SENSEVOICE_MODEL_PATH,
+      allowedRoots: defaultAllowedRoots,
+    }),
+    new WhisperCompatibleProvider("whisper-compatible", {
+      endpoint: process.env.WHISPER_ENDPOINT,
+      apiKey: process.env.WHISPER_API_KEY,
+      modelId: process.env.WHISPER_MODEL_ID ?? "whisper-1",
+    }),
+  ];
+}
+
 export function registerVoiceModule(
   app: FastifyInstance,
   db: AervoxDatabase,
   options: VoiceModuleOptions = {},
 ): VoiceService {
   const configRepository = new SqliteVoiceConfigRepository(db);
+  const inputConfigRepository = new SqliteVoiceInputConfigRepository(db);
   const service = new VoiceService(
     options.providers ?? createDefaultVoiceProviders(),
     configRepository,
+    options.asrProviders ?? createDefaultASRProviders(),
+    inputConfigRepository,
   );
   registerVoiceRoutes(app, service);
   return service;

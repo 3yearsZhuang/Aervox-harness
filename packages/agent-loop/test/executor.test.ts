@@ -56,6 +56,8 @@ describe("executeTurn（阶段 1 无工具单 Step）", () => {
     expect(done.lastSequence).toBe(4);
 
     expect(store.attemptStatus("atp_1")).toBe("Completed");
+    // 3b-B：Step 首部探活续租一次（单 Step 也校验一次租约持有）
+    expect(store.leaseRenewals()).toBe(1);
   });
 
   it("同一输入两次执行产生相同事件序列（确定性）", async () => {

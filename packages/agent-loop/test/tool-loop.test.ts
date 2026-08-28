@@ -74,6 +74,9 @@ describe("executeTurn 阶段 2：只读工具多 Step Loop", () => {
       status: "executed",
     });
     expect(log[0].output).toBeTruthy();
+
+    // 3b-B：每 Step 首部探活续租（step1 + step2 共 2 次；租约全程持有）
+    expect(store.leaseRenewals()).toBe(2);
   });
 
   it("工具执行失败不终止 Loop：tool_result(ok:false) 后继续下一轮并正常完成", async () => {

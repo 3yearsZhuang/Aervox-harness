@@ -26,10 +26,12 @@ import {
   Sparkles,
   Sun,
   Volume2,
+  Mic,
+  MicOff,
   TimerReset,
   X,
 } from 'lucide-vue-next'
-import {streamAervoxTurn, useAervoxApi} from '@aervox/api-client'
+import {streamAervoxTurn, useAervoxApi, useAervoxVoiceInput} from '@aervox/api-client'
 import PetHero from './PetHero.vue'
 import PluginManagerPanel from './plugin/PluginManagerPanel.vue'
 import Live2DPet from './Live2DPet.vue'
@@ -75,6 +77,7 @@ const practiceIndex = ref(0)
 const practiceReadyToComplete = ref(false)
 const practiceAnswer = ref('')
 const practiceFeedback = ref<{judgement: string; nextStep: string} | null>(null)
+const practiceSubmission = ref<{sessionId: string; questionId: string; answer: string; idempotencyKey: string} | null>(null)
 const practiceReport = ref<{answeredCount: number; questionCount: number; remainingCount: number; correctCount: number; incorrectCount: number; unverifiableCount: number; accuracy: number | null; nextStep: string} | null>(null)
 const practiceBusy = ref(false)
 const practiceError = ref<string | null>(null)
@@ -106,6 +109,9 @@ const story = ref<StoryLine[]>([
   },
 ])
 const api = useAervoxApi()
+const voiceInput = useAervoxVoiceInput()
+const composerTextarea = ref<HTMLTextAreaElement | null>(null)
+const voiceInputError = ref<string | null>(null)
 const {
   goals,
   dueReviews,
@@ -258,6 +264,7 @@ function restorePracticeSession(session: {sessionId: string; items: Array<{id: s
   practiceReadyToComplete.value = nextIndex >= session.items.length
   practiceIndex.value = Math.min(nextIndex, Math.max(session.items.length - 1, 0))
   practiceAnswer.value = ''
+  practiceSubmission.value = null
   practiceFeedback.value = null
 }
 
@@ -282,7 +289,12 @@ async function submitPracticeAnswer() {
   practiceBusy.value = true
   practiceError.value = null
   try {
-    practiceFeedback.value = await api.submitPracticeAnswer(practiceSession.value.sessionId, question.id, answer)
+    const existing = practiceSubmission.value
+    const submission = existing?.sessionId === practiceSession.value.sessionId && existing.questionId === question.id && existing.answer === answer
+      ? existing
+      : { sessionId: practiceSession.value.sessionId, questionId: question.id, answer, idempotencyKey: `attempt_${crypto.randomUUID()}` }
+    practiceSubmission.value = submission
+    practiceFeedback.value = await api.submitPracticeAnswer(submission.sessionId, submission.questionId, submission.answer, submission.idempotencyKey)
   } catch (error) {
     practiceError.value = error instanceof Error ? '作答没有保存，请重试。' : '作答失败，请重试。'
   } finally {
@@ -359,6 +371,7 @@ function nextPracticeQuestion() {
   }
   practiceIndex.value += 1
   practiceAnswer.value = ''
+  practiceSubmission.value = null
   practiceFeedback.value = null
 }
 
@@ -372,9 +385,65 @@ function resetTimer() {
 }
 
 function handleComposerEnter(event: KeyboardEvent) {
+  if (voiceInput.isListening.value) {
+    voiceInput.stopListening()
+  }
   if (event.shiftKey || !enterToSend.value) return
   event.preventDefault()
   void sendMessage()
+}
+
+/** 键盘自停：检测到键盘输入/粘贴/输入法开始时，自动停止录音 */
+function handleComposerInputOrKey() {
+  if (voiceInput.isListening.value) {
+    voiceInput.stopListening()
+  }
+}
+
+/** 语音输入插入当前光标处 */
+function insertTranscribedText(text: string) {
+  if (!text) return
+  const textarea = composerTextarea.value
+  if (!textarea) {
+    input.value += (input.value ? ' ' : '') + text
+    return
+  }
+
+  const start = textarea.selectionStart ?? input.value.length
+  const end = textarea.selectionEnd ?? input.value.length
+  const before = input.value.substring(0, start)
+  const after = input.value.substring(end)
+
+  input.value = before + (before && !before.endsWith(' ') ? ' ' : '') + text + after
+  nextTick(() => {
+    const newPos = start + text.length + (before && !before.endsWith(' ') ? 1 : 0)
+    textarea.focus()
+    textarea.setSelectionRange(newPos, newPos)
+  })
+}
+
+/** 切换麦克风录音状态 */
+async function toggleVoiceInput() {
+  voiceInputError.value = null
+  if (voiceInput.isListening.value) {
+    voiceInput.stopListening()
+    return
+  }
+
+  try {
+    const config = await voiceInput.getInputConfig()
+    await voiceInput.startListening({
+      silenceThresholdMs: config.vadSilenceThresholdMs,
+      onText: (text) => {
+        insertTranscribedText(text)
+      },
+      onError: (err) => {
+        voiceInputError.value = err.message
+      },
+    })
+  } catch (err) {
+    voiceInputError.value = err instanceof Error ? err.message : '启动语音输入失败'
+  }
 }
 
 function saveSettings() {
@@ -611,17 +680,37 @@ onUnmounted(() => {
               <label class="sr-only" for="aervox-composer">输入要发送给思隅的内容</label>
               <textarea
                 id="aervox-composer"
+                ref="composerTextarea"
                 v-model="input"
                 rows="3"
                 :disabled="streaming"
                 placeholder="描述你卡住的地方，或告诉我今天想完成什么…"
                 @keydown.enter="handleComposerEnter"
+                @input="handleComposerInputOrKey"
+                @compositionstart="handleComposerInputOrKey"
               />
-              <button type="submit" :disabled="!input.trim() || streaming" :aria-label="streaming ? '正在生成回答' : '发送消息'">
-                <span v-if="streaming" class="sending-dot" />
-                <Send v-else :size="21" />
-              </button>
+              <div class="composer-actions">
+                <button
+                  type="button"
+                  class="voice-input-btn"
+                  :class="{ active: voiceInput.isListening.value, transcribing: voiceInput.isTranscribing.value }"
+                  :title="voiceInput.isListening.value ? '点击停止语音输入 (说话停顿自动转写)' : '点击开始离线语音输入'"
+                  :disabled="streaming"
+                  @click="toggleVoiceInput"
+                >
+                  <MicOff v-if="voiceInput.isListening.value" :size="19" />
+                  <Mic v-else :size="19" />
+                  <span v-if="voiceInput.isListening.value" class="recording-pulse" />
+                </button>
+                <button type="submit" :disabled="!input.trim() || streaming" :aria-label="streaming ? '正在生成回答' : '发送消息'">
+                  <span v-if="streaming" class="sending-dot" />
+                  <Send v-else :size="21" />
+                </button>
+              </div>
             </form>
+            <div v-if="voiceInputError" class="voice-input-inline-error">
+              <span>{{ voiceInputError }}</span>
+            </div>
           </section>
         </section>
       </section>

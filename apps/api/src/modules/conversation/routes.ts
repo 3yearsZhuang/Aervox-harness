@@ -133,6 +133,29 @@ export function registerConversationRoutes(
     return reply.send({ turnId, status: "Cancelled" as const });
   });
 
+  // POST /v1/turns/{turnId}/tool-approvals — 写工具授权决定（阶段 3a：grant / deny）
+  app.post("/v1/turns/:turnId/tool-approvals", async (req, reply) => {
+    const { turnId } = req.params as { turnId: string };
+    const tenant = resolveTenant(req);
+    const body = (req.body ?? {}) as { approvalId?: string; decision?: string; decidedBy?: string };
+    if (!body.approvalId || (body.decision !== "granted" && body.decision !== "denied")) {
+      return reply.code(400).send({ error: "approvalId and decision (granted|denied) are required" });
+    }
+    const updated = await conversationRepo.decideToolApproval(tenant, body.approvalId, body.decision, body.decidedBy ?? "admin");
+    if (!updated) {
+      return reply.code(404).send({ error: "approval not found" });
+    }
+    // 决定留痕为流事件（SSE 重放可见；授权后的执行由客户端重发相同请求命中 granted）
+    await conversationRepo.appendStreamEvent(tenant, {
+      id: `tev_${Date.now().toString(36)}`,
+      turnId,
+      sequence: (await conversationRepo.getStreamEvents(tenant, turnId, 0)).length + 1,
+      eventType: body.decision === "granted" ? "tool_approval_granted" : "tool_approval_denied",
+      data: { approvalId: updated.id, decision: updated.state, toolName: updated.toolName },
+    });
+    return reply.send({ approvalId: updated.id, state: updated.state });
+  });
+
   // POST /v1/messages — 创建消息身份（身份与版本分离的写链路）
   app.post("/v1/messages", async (req, reply) => {
     const tenant = resolveTenant(req);
