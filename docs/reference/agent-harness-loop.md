@@ -584,6 +584,55 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 
 日志默认不记录完整 Prompt、用户 Restricted 内容或工具敏感结果。
 
+### 16.4 落地进展（阶段 2b：用户取消闭环）
+
+2026-08-28 落地（对应 §5.1 状态机、§11.1 取消与 §16.1 `agent-loop-recovery`/`agent-loop-fencing` 的取消面）：
+
+- `AttemptStatus` 增加 `CancelRequested`（请求位，仅 `Running` 可置）与 `Cancelled`（终态）；
+- `ExecutionStorePort` 增加 `requestCancelAttempt`（CAS：仅 Running 可写，已终态拒绝）与 `isCancelRequested`（executor 检查点轮询）；
+- executor 在 Step 首部、工具批次执行前与各终态提交前检查取消，取消优先于租约探活与预算/环境结论；终态以 `Cancelled` 提交（CAS），`finalize` 被抢占时不写不在不一致的 `done` 事件；
+- `POST /v1/turns/:id/cancel` 路由 CAS 化：Attempt `Running → CancelRequested` 且 turns 未终态时置 `Cancelled`；已终态返回 409、未知 Turn 返回 404；
+- 测试：`@aervox/agent-loop` 25（cancel 6）、`@aervox/database` 115（cancel 4）、`@aervox/api` 89（conversation-cancel 3）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+已知边界：取消请求位在 Step 之间的延迟生效窗口内，Executor 至多完成当前 Step 的已启动工具副作用（§11.1 best-effort abort）；Provider 流中断由检查点轮询在 Step 边界收敛。
+
+### 16.5 落地进展（阶段 2d：预算对账与删除/撤权 fail-closed）
+
+2026-08-28 落地（对应 §10 限额、§11.3 恢复、§16.1 `agent-loop-budget`/`agent-loop-deletion`）：
+
+- §10 预算：`maxTurnDurationMs`（单 Turn 总耗时）与 `maxConsecutiveSameTool`（连续同名工具，跨 Step 累计，防死循环）已实现；触发以 `Interrupted` 收敛，`done` 事件携带 `reason`（`turn_timeout` / `repeat_tool`）；
+- §11.3 fail-closed：新增 `DeletionGatePort`，Step 边界查询删除/撤权水位（`deletion_requests` 存在 `pending`/`in_progress` 即未追平）；未追平则零模型输出、零工具执行，收敛 `Interrupted`（`deletion_blocked`），并经隐私仓储接入 API 路由；
+- 测试：`@aervox/agent-loop` 30（`budget.test.ts` 5：超限/不误伤/超时/闸门阻塞/放行）、`@aervox/database` 115、`@aervox/api` 91（`conversation-deletion` 2：未追平 fail-closed / 追平后正常）。
+- 仍未覆盖（后续批）：`maxParallelReadTools`、`maxModelRetries`、token/费用预算与 `maxTokens`（依赖 Provider 上报 `usage`，属阶段 2e+）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.6 落地进展（阶段 2c：工具幂等预留与 unknown outcome）
+
+2026-08-28 落地（对应 §9 幂等预留管线、§11.3 恢复表、§16.1 `agent-loop-recovery` 的工具面）：
+
+- `ToolExecutionStatus` 增加 `pending`（意图已提交/进行中）与 `outcome_unknown`（崩溃释放后结果不可知）；
+- `ExecutionStorePort` 增加 `reserveToolExecution`（幂等预留：attempt+invocation 唯一，`ON CONFLICT DO NOTHING`）与 `updateToolExecutionResult`（权威结果收口同一行）；executor 工具路径改为「预留 → 执行 → 收口」，非幂等失败不自动重试；重复调用以 `duplicate` 独立留痕；
+- `turn_attempts` 释放（`Interrupted`/`Failed`/`Cancelled`）后，恢复器 `markPendingOutcomeUnknown` 将遗留 `pending` 预留标记为 `outcome_unknown`（§11.3：不自动重放未知结果副作用），已接入 worker 恢复 cycle；
+- 测试：`@aervox/agent-loop` 33（`idempotency.test.ts` 3：预留收口/重复不二次执行/崩溃标记）、`@aervox/database` 119（`tool-reservation.test.ts` 4：新建/幂等/收口/释放标记）、`@aervox/api` 91（工具账本断言兼容旧路径）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+已知边界：崩溃后「继续原 Attempt、从 ToolExecution 读取权威结果并继续」的恢复路径（§11.3 表格首范式）仍未实现，属阶段 3 写工具恢复范围；当前恢复语义为「释放 → 用户重试新 Attempt」。
+
+### 16.7 测试矩阵落地文件映射（§16.1 与代码一一对应）
+
+2026-08-28 整理：矩阵每项均有对应测试文件（未实现项明确标注待续）。
+
+| §16.1 矩阵项 | 落地测试（包内路径） | 状态 |
+|---|---|---|
+| `agent-loop-contract` | `packages/agent-loop/test/contract.test.ts` | 已落地 |
+| `agent-loop-replay` | `packages/agent-loop/test/replay.test.ts` | 已落地 |
+| `agent-loop-state-machine` | `packages/agent-loop/test/state-machine.test.ts` | 已落地 |
+| `agent-loop-fencing` | `packages/agent-loop/test/lease-guard.test.ts` | 已落地 |
+| `agent-loop-tool-policy` | `packages/agent-loop/test/tool-policy.test.ts`（read/write/privileged 三档）；`approval-loop.test.ts`（审批） | 已落地 |
+| `agent-loop-recovery` | `lease-guard`（过期释放）+ `cancel.test.ts`（取消）+ `budget.test.ts`（闸门）+ `idempotency.test.ts`（工具未知结果） | 已落地（「首片段前自动重试」待续，见 §10 maxModelRetries 未覆盖） |
+| `agent-loop-sse` | `apps/api/test/conversation-loop.test.ts`（持久后发送/重连重放） | 已落地 |
+| `agent-loop-budget` | `packages/agent-loop/test/budget.test.ts`（step/turn-timeout/repeat-tool） | 已落地（token/费用预算待续） |
+| `agent-loop-deletion` | `apps/api/test/conversation-deletion.test.ts`（未追平 fail-closed）+ `budget.test.ts`（DeletionGate） | 已落地 |
+| `agent-loop-provider-parity` | `packages/agent-loop/test/provider-parity.test.ts`（终止语义表 + Native 基线 + 三方插槽） | 骨架落地（DSH/pi 适配器对照待阶段 4） |
+
 ## 17. 回滚策略
 
 - 阶段 1 前保留当前 Turn 路由和固定响应 Feature Flag；
