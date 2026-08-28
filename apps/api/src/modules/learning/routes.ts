@@ -338,19 +338,39 @@ export function registerLearningRoutes(
 
   // 错题本（由不可变作答事实派生，不复制原始答案）
   app.get("/v1/mistakes", async (req, reply) => {
-    const { status = "active", reasonCode } = req.query as { status?: string; reasonCode?: string };
+    const query = req.query as { status?: string; knowledgeId?: string; minWrongCount?: string; sortBy?: string; reasonCode?: string };
+    const status = query.status ?? "active";
     if (!["active", "mastered", "dismissed", "all"].includes(status)) {
       return reply.code(400).send({ error: "status must be active, mastered, dismissed, or all" });
     }
-    if (reasonCode !== undefined && !["concept_gap", "calculation", "careless", "misread", "other"].includes(reasonCode)) {
+    if (query.reasonCode !== undefined && !["concept_gap", "calculation", "careless", "misread", "other"].includes(query.reasonCode)) {
       return reply.code(400).send({ error: "reasonCode is invalid" });
     }
-    return {
-      items: (await learningRepo.listMistakes(
-        resolveTenant(req),
-        status as "active" | "mastered" | "dismissed" | "all",
-      )).filter((item) => reasonCode === undefined || item.reasonCode === reasonCode),
-    };
+    let items = await learningRepo.listMistakes(
+      resolveTenant(req),
+      status as "active" | "mastered" | "dismissed" | "all",
+    );
+    // 按知识点筛选
+    if (query.knowledgeId) {
+      items = items.filter((item) => item.knowledgeId === query.knowledgeId);
+    }
+    // 按最小错误次数筛选
+    if (query.minWrongCount) {
+      const min = Number(query.minWrongCount);
+      if (Number.isInteger(min) && min > 0) {
+        items = items.filter((item) => item.wrongCount >= min);
+      }
+    }
+    // 排序：recent（默认，按最近作答时间降序）/ frequent（按错误次数降序）
+    const sortBy = query.sortBy ?? "recent";
+    if (sortBy === "frequent") {
+      items = [...items].sort((a, b) => b.wrongCount - a.wrongCount);
+    }
+    // 按错因筛选（CR-018 标准枚举，取 mistake_insights）
+    if (query.reasonCode !== undefined) {
+      items = items.filter((item) => item.reasonCode === query.reasonCode);
+    }
+    return { items };
   });
 
   app.patch("/v1/mistakes/:questionId", async (req, reply) => {

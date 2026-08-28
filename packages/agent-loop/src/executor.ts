@@ -249,7 +249,7 @@ export async function executeTurn(
             limit: 20, // maxInboxItemsPerStep
           })
         : [];
-      const context = contextBuilder.build({
+      const context = await contextBuilder.build({
         turnId: input.turnId,
         sessionId: input.sessionId,
         messages: history,

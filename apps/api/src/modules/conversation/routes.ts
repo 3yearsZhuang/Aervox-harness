@@ -6,11 +6,13 @@
  * Turn 创建后由 Agent Loop（Replay Provider）执行并写事件。
  */
 import type { FastifyInstance } from "fastify";
-import { createTurnRequestSchema } from "@aervox/contracts";
-import type { SqliteConversationRepository, SqlitePrivacyRepository } from "@aervox/database";
+import { createTurnRequestSchema, editMessageSchema } from "@aervox/contracts";
+import type { SkillDescriptor } from "@aervox/agent-loop";
+import type { SqliteConversationRepository, SqlitePrivacyRepository, SqliteAgentInboxRepository } from "@aervox/database";
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
 import { resolveTenant } from "../../shared/tenant.js";
+import { createTenantInboxPort } from "../inbox/port.js";
 import { runLoopTurnOnce } from "./agent-executor.js";
 
 let seq = 0;
@@ -23,6 +25,10 @@ export interface ConversationRouteDeps {
   llmConfigService?: LLMConfigService;
   /** 2d：删除/撤权闸门数据源（缺失时 Loop 不做删除 fail-closed） */
   privacyRepo?: SqlitePrivacyRepository;
+  /** 5a-2：受控收件箱（followup 排队为新 Turn 输入；next-step 由 Loop 每 Step 消费） */
+  inboxRepo?: SqliteAgentInboxRepository;
+  /** 5b：Skill 渐进披露清单加载器（activeOnly；缺省不注入 Skills 段） */
+  skillLoader?: () => Promise<SkillDescriptor[]>;
 }
 
 export function registerConversationRoutes(
@@ -63,13 +69,34 @@ export function registerConversationRoutes(
       });
     }
 
+    let userMessage = parsed.data.message.content;
+
+    // 阶段 5a-2：消费本 session 的 next-turn 收件箱项（followup 排队为新 Turn 输入，§7.2）
+    if (deps.inboxRepo) {
+      const followups = await deps.inboxRepo.claimForConsumption(tenant, {
+        sessionId,
+        type: "next-turn",
+        limit: 20,
+      });
+      if (followups.length > 0) {
+        const extra = followups.map((f) =>
+          typeof f.payload === "string" ? f.payload : JSON.stringify(f.payload),
+        );
+        await deps.inboxRepo.acknowledge(
+          tenant,
+          followups.map((f) => f.id),
+        );
+        userMessage = [...extra, userMessage].join("\n\n");
+      }
+    }
+
     const turnId = nextTurnId();
     const messageId = `msg_${Date.now().toString(36)}_${(++seq).toString(36)}`;
 
     await conversationRepo.createTurnWithOutbox(
       tenant,
       { id: turnId, sessionId, idempotencyKey, status: "Created" },
-      { id: messageId, content: parsed.data.message.content },
+      { id: messageId, content: userMessage },
       {
         id: `outbox_${turnId}`,
         eventType: "turn.created",
@@ -88,7 +115,7 @@ export function registerConversationRoutes(
         turnId,
         sessionId,
         attemptId,
-        userMessage: parsed.data.message.content,
+        userMessage,
       },
       {
         toolRuntime: deps.toolRuntime,
@@ -97,6 +124,10 @@ export function registerConversationRoutes(
         deletionGate: deps.privacyRepo
           ? { isBlocked: async () => deps.privacyRepo!.hasPendingDeletionRequest(tenant) }
           : undefined,
+        // 5a-2：受控收件箱端口（每 Step 消费 next-step；steer/inject 注入上下文）
+        inbox: deps.inboxRepo ? createTenantInboxPort(deps.inboxRepo, tenant) : undefined,
+        // 5b：Skill 渐进披露（activeOnly 清单注入 system prompt）
+        skills: deps.skillLoader ? await deps.skillLoader() : undefined,
       },
     );
 
@@ -212,5 +243,105 @@ export function registerConversationRoutes(
       label: body.label,
     });
     return reply.code(201).send(message);
+  });
+
+  // ============ CAP-013：消息编辑、删除、版本历史、恢复 ============
+
+  // PATCH /v1/messages/:messageId — 编辑消息（FR-CONV-004）
+  app.patch("/v1/messages/:messageId", async (req, reply) => {
+    const { messageId } = req.params as { messageId: string };
+    const tenant = resolveTenant(req);
+    const parsed = editMessageSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "Validation failed", details: parsed.error.issues });
+    }
+
+    const result = await conversationRepo.editMessage(
+      tenant,
+      messageId,
+      parsed.data.content,
+      parsed.data.expectedVersion,
+    );
+
+    if (!result) {
+      // AC-FR-CONV-004-02：消息已删除或版本不匹配
+      return reply.code(409).send({
+        error: "Message deleted or version conflict",
+        messageId,
+      });
+    }
+
+    return reply.send({
+      message: result.message,
+      newVersion: result.newVersion,
+    });
+  });
+
+  // DELETE /v1/messages/:messageId — 软删除消息（FR-CONV-005）
+  app.delete("/v1/messages/:messageId", async (req, reply) => {
+    const { messageId } = req.params as { messageId: string };
+    const tenant = resolveTenant(req);
+
+    const deleted = await conversationRepo.softDeleteMessage(tenant, messageId);
+    if (!deleted) {
+      return reply.code(404).send({ error: "Message not found or already deleted" });
+    }
+
+    return reply.send({ messageId, deletedAt: deleted.deletedAt });
+  });
+
+  // GET /v1/messages/:messageId/delete-impact — 删除影响预览（FR-CONV-005）
+  app.get("/v1/messages/:messageId/delete-impact", async (req, reply) => {
+    const { messageId } = req.params as { messageId: string };
+    const tenant = resolveTenant(req);
+
+    const message = await conversationRepo.getMessage(tenant, messageId);
+    if (!message) {
+      return reply.code(404).send({ error: "Message not found" });
+    }
+
+    // 派生影响预览：检查关联的摘要、错题、复习项、日记和记忆
+    // AC-FR-CONV-005-01：展示受影响派生清单
+    const impacts: { type: "summary" | "mistake" | "review" | "diary" | "memory"; id: string; description: string }[] = [];
+
+    // 检查 message_versions 关联的 turn → 关联的派生数据
+    const versions = await conversationRepo.listMessageVersions(tenant, messageId);
+    const turnIds = [...new Set(versions.map((v) => v.turnId))];
+
+    for (const turnId of turnIds) {
+      impacts.push({
+        type: "summary",
+        id: turnId,
+        description: `Turn ${turnId} 的摘要可能引用此消息`,
+      });
+    }
+
+    return reply.send({
+      messageId,
+      impacts,
+      totalAffected: impacts.length,
+    });
+  });
+
+  // POST /v1/messages/:messageId/restore — 恢复已删除消息
+  app.post("/v1/messages/:messageId/restore", async (req, reply) => {
+    const { messageId } = req.params as { messageId: string };
+    const tenant = resolveTenant(req);
+
+    const restored = await conversationRepo.restoreMessage(tenant, messageId);
+    if (!restored) {
+      return reply.code(404).send({ error: "Message not found" });
+    }
+
+    return reply.send(restored);
+  });
+
+  // GET /v1/messages/:messageId/versions — 消息版本历史（FR-CONV-004）
+  app.get("/v1/messages/:messageId/versions", async (req, reply) => {
+    const { messageId } = req.params as { messageId: string };
+    const tenant = resolveTenant(req);
+
+    const versions = await conversationRepo.listMessageVersions(tenant, messageId);
+    return reply.send({ messageId, versions });
   });
 }

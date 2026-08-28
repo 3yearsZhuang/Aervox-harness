@@ -7,6 +7,7 @@
 import {
   createDatabase,
   initDatabaseSchema,
+  SqliteAgentInboxRepository,
   SqliteOutboxRepository,
   SqlitePlatformRepository,
   SqliteDiaryRepository,
@@ -22,6 +23,7 @@ import { runDeletionCycle } from "./deletion-worker.js";
 import { runCompactionMarkerCycle } from "./compaction-marker.js";
 import { runEmbeddingMigrationCycle } from "./embedding-migration.js";
 import { runAttemptRecoveryCycle } from "./attempt-recovery.js";
+import { runInboxExpiryCycle } from "./inbox-expiry.js";
 
 const { db, client } = await createDatabase();
 await initDatabaseSchema(client);
@@ -36,6 +38,7 @@ const privacyRepo = new SqlitePrivacyRepository(db);
 const learningRepo = new SqliteLearningRepository(db);
 const compactionRepo = new SqliteMemoryCompactionRepository(db);
 const embeddingRepo = new SqliteMemoryEmbeddingRepository(db);
+const inboxRepo = new SqliteAgentInboxRepository(db);
 
 const runTick = async (): Promise<void> => {
   const outbox = await runOutboxCycle({ outboxRepo, platformRepo, workerId });
@@ -51,10 +54,12 @@ const runTick = async (): Promise<void> => {
     // embedding provider 未注入：生产接入真实服务后在此传入即可（当前诚实跳过）
   });
   const attemptRecovery = await runAttemptRecoveryCycle({ db, client, workerId });
-  if (outbox + review + diary + deletion + compaction + embeddingMigration + attemptRecovery > 0) {
+  const inboxExpired = await runInboxExpiryCycle({ inboxRepo });
+  if (outbox + review + diary + deletion + compaction + embeddingMigration + attemptRecovery + inboxExpired > 0) {
     console.log(
       `[worker:${workerId}] outbox=${outbox} review_notified=${review} diary=${diary} deletion=${deletion} ` +
-        `compaction_markers=${compaction} embedding_migrated=${embeddingMigration} attempt_recovered=${attemptRecovery}`,
+        `compaction_markers=${compaction} embedding_migrated=${embeddingMigration} attempt_recovered=${attemptRecovery} ` +
+        `inbox_expired=${inboxExpired}`,
     );
   }
 };

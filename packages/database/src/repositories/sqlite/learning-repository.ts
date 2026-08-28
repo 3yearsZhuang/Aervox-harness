@@ -3,7 +3,7 @@
  *
  * 规则依据：docs/reference/PRD.md §8 + docs/reference/DATABASE.md §14.3
  */
-import { eq, and, lte, desc, ne } from "drizzle-orm";
+import { eq, and, lte, desc, ne, isNull, or } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import {
   learningGoals,
@@ -15,6 +15,8 @@ import {
   mistakeDispositions,
   mistakeInsights,
   knowledgeRelations,
+  practiceReports,
+  studyPlans,
 } from "../../schema/index.js";
 import { assertTenantContext, type TenantContext } from "../../tenant.js";
 import type {
@@ -27,6 +29,8 @@ import type {
   KnowledgeItemModel,
   ReviewItemModel,
   KnowledgeRelationModel,
+  PracticeReportModel,
+  StudyPlanModel,
 } from "../types.js";
 
 export class SqliteLearningRepository implements ILearningRepository {
@@ -423,7 +427,11 @@ export class SqliteLearningRepository implements ILearningRepository {
     const now = new Date().toISOString();
     await this.db.insert(mistakeDispositions).values({ ...item, ...tenant, createdAt: now, updatedAt: now }).onConflictDoUpdate({
       target: [mistakeDispositions.workspaceId, mistakeDispositions.subjectUserId, mistakeDispositions.questionId],
-      set: { status: item.status, updatedAt: now },
+      set: {
+        status: item.status,
+        // reason/note 已废弃（CR-018 统一至 mistake_insights 标准枚举，见 §4.2），不再写入
+        updatedAt: now,
+      },
     });
   }
 
@@ -860,11 +868,423 @@ export class SqliteLearningRepository implements ILearningRepository {
         and(
           eq(knowledgeRelations.workspaceId, tenant.workspaceId),
           eq(knowledgeRelations.subjectUserId, tenant.subjectUserId),
+          isNull(knowledgeRelations.deletedAt),
           // 出边或入边都算关联
-          eq(knowledgeRelations.fromKnowledgeId, knowledgeId),
+          or(
+            eq(knowledgeRelations.fromKnowledgeId, knowledgeId),
+            eq(knowledgeRelations.toKnowledgeId, knowledgeId),
+          ),
         ),
       )
       .orderBy(desc(knowledgeRelations.updatedAt));
     return rows as KnowledgeRelationModel[];
+  }
+
+  // ============ CAP-015 思维宇宙 ============
+
+  async getKnowledgeRelation(
+    tenant: TenantContext,
+    relationId: string,
+  ): Promise<KnowledgeRelationModel | null> {
+    assertTenantContext(tenant);
+    const [found] = await this.db
+      .select()
+      .from(knowledgeRelations)
+      .where(
+        and(
+          eq(knowledgeRelations.id, relationId),
+          eq(knowledgeRelations.workspaceId, tenant.workspaceId),
+          eq(knowledgeRelations.subjectUserId, tenant.subjectUserId),
+          isNull(knowledgeRelations.deletedAt),
+        ),
+      )
+      .limit(1);
+    return (found as KnowledgeRelationModel) ?? null;
+  }
+
+  async correctKnowledgeRelation(
+    tenant: TenantContext,
+    relationId: string,
+    reason: string,
+  ): Promise<KnowledgeRelationModel | null> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    const [updated] = await this.db
+      .update(knowledgeRelations)
+      .set({ correctionStatus: "corrected", correctionReason: reason, updatedAt: now })
+      .where(
+        and(
+          eq(knowledgeRelations.id, relationId),
+          eq(knowledgeRelations.workspaceId, tenant.workspaceId),
+          eq(knowledgeRelations.subjectUserId, tenant.subjectUserId),
+          eq(knowledgeRelations.correctionStatus, "active"),
+          isNull(knowledgeRelations.deletedAt),
+        ),
+      )
+      .returning();
+    return (updated as KnowledgeRelationModel) ?? null;
+  }
+
+  async mergeKnowledgeRelations(
+    tenant: TenantContext,
+    sourceRelationId: string,
+    targetRelationId: string,
+  ): Promise<KnowledgeRelationModel | null> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    // 标记源关系为 merged
+    const [updated] = await this.db
+      .update(knowledgeRelations)
+      .set({ correctionStatus: "merged", mergedInto: targetRelationId, updatedAt: now })
+      .where(
+        and(
+          eq(knowledgeRelations.id, sourceRelationId),
+          eq(knowledgeRelations.workspaceId, tenant.workspaceId),
+          eq(knowledgeRelations.subjectUserId, tenant.subjectUserId),
+          eq(knowledgeRelations.correctionStatus, "active"),
+          isNull(knowledgeRelations.deletedAt),
+        ),
+      )
+      .returning();
+    return (updated as KnowledgeRelationModel) ?? null;
+  }
+
+  async splitKnowledgeRelation(
+    tenant: TenantContext,
+    relationId: string,
+    reason: string,
+  ): Promise<KnowledgeRelationModel | null> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    const [updated] = await this.db
+      .update(knowledgeRelations)
+      .set({ correctionStatus: "split", correctionReason: reason, updatedAt: now })
+      .where(
+        and(
+          eq(knowledgeRelations.id, relationId),
+          eq(knowledgeRelations.workspaceId, tenant.workspaceId),
+          eq(knowledgeRelations.subjectUserId, tenant.subjectUserId),
+          eq(knowledgeRelations.correctionStatus, "active"),
+          isNull(knowledgeRelations.deletedAt),
+        ),
+      )
+      .returning();
+    return (updated as KnowledgeRelationModel) ?? null;
+  }
+
+  async deleteKnowledgeRelation(
+    tenant: TenantContext,
+    relationId: string,
+  ): Promise<KnowledgeRelationModel | null> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    const [updated] = await this.db
+      .update(knowledgeRelations)
+      .set({ correctionStatus: "deleted", deletedAt: now, updatedAt: now })
+      .where(
+        and(
+          eq(knowledgeRelations.id, relationId),
+          eq(knowledgeRelations.workspaceId, tenant.workspaceId),
+          eq(knowledgeRelations.subjectUserId, tenant.subjectUserId),
+          isNull(knowledgeRelations.deletedAt),
+        ),
+      )
+      .returning();
+    return (updated as KnowledgeRelationModel) ?? null;
+  }
+
+  async getActiveKnowledgeGraph(
+    tenant: TenantContext,
+    knowledgeId: string,
+  ): Promise<KnowledgeRelationModel[]> {
+    assertTenantContext(tenant);
+    // 仅返回 active 关系（被纠正/合并/拆分/删除的不返回）
+    const rows = await this.db
+      .select()
+      .from(knowledgeRelations)
+      .where(
+        and(
+          eq(knowledgeRelations.workspaceId, tenant.workspaceId),
+          eq(knowledgeRelations.subjectUserId, tenant.subjectUserId),
+          eq(knowledgeRelations.correctionStatus, "active"),
+          isNull(knowledgeRelations.deletedAt),
+          or(
+            eq(knowledgeRelations.fromKnowledgeId, knowledgeId),
+            eq(knowledgeRelations.toKnowledgeId, knowledgeId),
+          ),
+        ),
+      )
+      .orderBy(desc(knowledgeRelations.confidence));
+    return rows as KnowledgeRelationModel[];
+  }
+
+  // ============ CAP-016 练习报告 ============
+
+  async createPracticeReport(
+    tenant: TenantContext,
+    input: {
+      id: string;
+      sessionId: string;
+      totalQuestions: number;
+      correctCount: number;
+      incorrectCount: number;
+      avgTimeSpentSec?: number;
+      totalHintsUsed?: number;
+      masteryPrediction?: number;
+      biasAssessment?: string;
+      reportType?: string;
+    },
+  ): Promise<PracticeReportModel> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    const [created] = await this.db
+      .insert(practiceReports)
+      .values({
+        id: input.id,
+        workspaceId: tenant.workspaceId,
+        subjectUserId: tenant.subjectUserId,
+        sessionId: input.sessionId,
+        totalQuestions: input.totalQuestions,
+        correctCount: input.correctCount,
+        incorrectCount: input.incorrectCount,
+        avgTimeSpentSec: input.avgTimeSpentSec ?? null,
+        totalHintsUsed: input.totalHintsUsed ?? 0,
+        masteryPrediction: input.masteryPrediction ?? null,
+        biasAssessment: input.biasAssessment ?? null,
+        reportType: input.reportType ?? "summary",
+        isReset: false,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    return created as PracticeReportModel;
+  }
+
+  async getPracticeReport(tenant: TenantContext, reportId: string): Promise<PracticeReportModel | null> {
+    assertTenantContext(tenant);
+    const [found] = await this.db
+      .select()
+      .from(practiceReports)
+      .where(
+        and(
+          eq(practiceReports.id, reportId),
+          eq(practiceReports.workspaceId, tenant.workspaceId),
+          eq(practiceReports.subjectUserId, tenant.subjectUserId),
+        ),
+      )
+      .limit(1);
+    return (found as PracticeReportModel) ?? null;
+  }
+
+  async listPracticeReports(tenant: TenantContext, sessionId: string): Promise<PracticeReportModel[]> {
+    assertTenantContext(tenant);
+    const rows = await this.db
+      .select()
+      .from(practiceReports)
+      .where(
+        and(
+          eq(practiceReports.sessionId, sessionId),
+          eq(practiceReports.workspaceId, tenant.workspaceId),
+          eq(practiceReports.subjectUserId, tenant.subjectUserId),
+        ),
+      )
+      .orderBy(desc(practiceReports.createdAt));
+    return rows as PracticeReportModel[];
+  }
+
+  async resetMasteryInference(tenant: TenantContext, sessionId: string): Promise<PracticeReportModel> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    // 创建一个 reset 类型的报告（保留原始作答，仅重置推断）
+    const [created] = await this.db
+      .insert(practiceReports)
+      .values({
+        id: `rpt_reset_${Date.now().toString(36)}`,
+        workspaceId: tenant.workspaceId,
+        subjectUserId: tenant.subjectUserId,
+        sessionId,
+        totalQuestions: 0,
+        correctCount: 0,
+        incorrectCount: 0,
+        totalHintsUsed: 0,
+        reportType: "reset",
+        isReset: true,
+        masteryPrediction: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    return created as PracticeReportModel;
+  }
+
+  // ============ CAP-017 学习计划 ============
+
+  async createStudyPlan(
+    tenant: TenantContext,
+    input: {
+      id: string;
+      goalId?: string;
+      title: string;
+      startDate: string;
+      endDate: string;
+      restDays?: string[];
+      dailyAvailableMinutes?: number;
+    },
+  ): Promise<StudyPlanModel> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    const [created] = await this.db
+      .insert(studyPlans)
+      .values({
+        id: input.id,
+        workspaceId: tenant.workspaceId,
+        subjectUserId: tenant.subjectUserId,
+        goalId: input.goalId ?? null,
+        title: input.title,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        restDays: input.restDays ?? [],
+        dailyAvailableMinutes: input.dailyAvailableMinutes ?? 120,
+        status: "active",
+        revisionCount: 0,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    return created as StudyPlanModel;
+  }
+
+  async getStudyPlan(tenant: TenantContext, planId: string): Promise<StudyPlanModel | null> {
+    assertTenantContext(tenant);
+    const [found] = await this.db
+      .select()
+      .from(studyPlans)
+      .where(
+        and(
+          eq(studyPlans.id, planId),
+          eq(studyPlans.workspaceId, tenant.workspaceId),
+          eq(studyPlans.subjectUserId, tenant.subjectUserId),
+          eq(studyPlans.status, "active"),
+        ),
+      )
+      .limit(1);
+    return (found as StudyPlanModel) ?? null;
+  }
+
+  async listStudyPlans(tenant: TenantContext): Promise<StudyPlanModel[]> {
+    assertTenantContext(tenant);
+    const rows = await this.db
+      .select()
+      .from(studyPlans)
+      .where(
+        and(
+          eq(studyPlans.workspaceId, tenant.workspaceId),
+          eq(studyPlans.subjectUserId, tenant.subjectUserId),
+          eq(studyPlans.status, "active"),
+        ),
+      )
+      .orderBy(desc(studyPlans.updatedAt));
+    return rows as StudyPlanModel[];
+  }
+
+  async updateStudyPlan(
+    tenant: TenantContext,
+    planId: string,
+    updates: {
+      title?: string;
+      startDate?: string;
+      endDate?: string;
+      restDays?: string[];
+      dailyAvailableMinutes?: number;
+    },
+  ): Promise<StudyPlanModel | null> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    const setValues: Record<string, unknown> = { updatedAt: now };
+    // revisionCount 递增（滚动调整不删除已完成记录）
+    if (Object.keys(updates).length > 0) {
+      setValues.revisionCount = 1; // will be used with SQL increment
+    }
+    if (updates.title !== undefined) setValues.title = updates.title;
+    if (updates.startDate !== undefined) setValues.startDate = updates.startDate;
+    if (updates.endDate !== undefined) setValues.endDate = updates.endDate;
+    if (updates.restDays !== undefined) setValues.restDays = updates.restDays;
+    if (updates.dailyAvailableMinutes !== undefined) setValues.dailyAvailableMinutes = updates.dailyAvailableMinutes;
+
+    const [updated] = await this.db
+      .update(studyPlans)
+      .set({
+        ...setValues,
+        revisionCount: 1, // placeholder; actual increment below
+      })
+      .where(
+        and(
+          eq(studyPlans.id, planId),
+          eq(studyPlans.workspaceId, tenant.workspaceId),
+          eq(studyPlans.subjectUserId, tenant.subjectUserId),
+          eq(studyPlans.status, "active"),
+        ),
+      )
+      .returning();
+
+    // 手动递增 revisionCount
+    if (updated) {
+      await this.db
+        .update(studyPlans)
+        .set({ revisionCount: ((updated as StudyPlanModel).revisionCount ?? 0) + 1, updatedAt: now })
+        .where(eq(studyPlans.id, planId));
+      const [refetched] = await this.db
+        .select()
+        .from(studyPlans)
+        .where(eq(studyPlans.id, planId))
+        .limit(1);
+      return (refetched as StudyPlanModel) ?? null;
+    }
+    return null;
+  }
+
+  async updateCompletionPrediction(
+    tenant: TenantContext,
+    planId: string,
+    prediction: string,
+    degradationPlan?: unknown,
+  ): Promise<StudyPlanModel | null> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    const [updated] = await this.db
+      .update(studyPlans)
+      .set({
+        completionPrediction: prediction,
+        degradationPlan: degradationPlan ?? null,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(studyPlans.id, planId),
+          eq(studyPlans.workspaceId, tenant.workspaceId),
+          eq(studyPlans.subjectUserId, tenant.subjectUserId),
+          eq(studyPlans.status, "active"),
+        ),
+      )
+      .returning();
+    return (updated as StudyPlanModel) ?? null;
+  }
+
+  async archiveStudyPlan(tenant: TenantContext, planId: string): Promise<StudyPlanModel | null> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    const [updated] = await this.db
+      .update(studyPlans)
+      .set({ status: "archived", updatedAt: now })
+      .where(
+        and(
+          eq(studyPlans.id, planId),
+          eq(studyPlans.workspaceId, tenant.workspaceId),
+          eq(studyPlans.subjectUserId, tenant.subjectUserId),
+          eq(studyPlans.status, "active"),
+        ),
+      )
+      .returning();
+    return (updated as StudyPlanModel) ?? null;
   }
 }
