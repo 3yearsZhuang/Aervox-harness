@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createInMemoryDatabase, type AervoxDatabase } from "@aervox/database";
+import { createInMemoryDatabase, SqliteSkillRegistryRepository, type AervoxDatabase } from "@aervox/database";
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
@@ -110,5 +110,28 @@ describe("Agent Loop 阶段 1：Turn 创建 → 持久事件 → SSE 重放", ()
 
     expect(first.body).toBe(second.body);
     expect(first.body).toContain('"eventType":"done"');
+  });
+
+  it("阶段 5b：注册 active Skill 后创建 Turn 仍成功（skillLoader 接线不破坏 Loop）", async () => {
+    const skillRepo = new SqliteSkillRegistryRepository(db);
+    await skillRepo.registerSkill({
+      id: "notes-search",
+      name: "notes-search",
+      description: "搜索学习笔记（渐进披露清单）",
+      source: "builtin",
+      active: true,
+      readonly: false,
+    });
+
+    const created = await createTurn();
+    expect(created.statusCode).toBe(201);
+    const turnId = created.json().turnId as string;
+    const events = await app.inject({
+      method: "GET",
+      url: `/v1/turns/${turnId}/events`,
+      headers,
+    });
+    expect(events.statusCode).toBe(200);
+    expect(events.body).toContain('"eventType":"done"');
   });
 });

@@ -550,9 +550,9 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 
 目标：支持持续 Agent 工作而不污染基本 Loop。
 
-- followup、steer、inject（已落地 5a 数据面与消费闭环：`agent_inbox_items` 表 + InboxPort + executor 消费；API/插件受控入口待 5a-2）；
-- Context compaction seam（待 5b）；
-- Skill 渐进式披露接入 ContextBuilder（待 5b）；
+- followup、steer、inject（已落地 5a 数据面与消费闭环 + 5a-2 API/插件受控入口：`agent_inbox_items` 表 + InboxPort + executor 消费 + `POST /v1/sessions/:sessionId/inbox` 统一端点（x-plugin-id 受控）+ 过期回收 Worker）；
+- Context compaction seam（已落地 5b：`ContextCompactionPort` + 规则式摘要 `createSummaryCompaction` + composer 集成，宿主持有可注入 LLM 摘要）；
+- Skill 渐进式披露接入 ContextBuilder（已落地 5b：`buildSkillsPrompt` 迁入 agent-loop + `createSkillAwareContextBuilder`，API 对话默认注入 activeOnly 技能清单）；
 - Subagent/Workflow 通过独立 Tool/Provider Contribution 接入（待 5c）；
 - DSH/pi Adapter 进行兼容、许可证和安全验证（仍属规划）。
 
@@ -727,7 +727,38 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
   - `InMemoryInbox`（测试骨架：enqueue 幂等 / claim 单赢 / 边界按类型推定）。
 - **Host 接线**：`createAgentHost` deps 新增可选 `inbox`，透传至 `executeTurn`。
 - 测试：`@aervox/database` 132（新增 `agent-inbox.test.ts` 7：enqueue 幂等/claim 单赢/ack 仅 claimed/过期过滤/租户隔离/next-turn 无 attemptId）、`@aervox/agent-loop` 67（新增 `inbox.test.ts` 7：executor claim→注入→ack 集成/inbox 不残留 claimed/后向兼容/其它 attempt 不消费/builder 注入标注/InMemoryInbox 语义）、`@aervox/host-agent` 27（接线后无回归）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
-- 未落地（5a-2/5b）：API/插件受控 inbox HTTP 入口（followup/steer/inject 三 command 端点）、inbox 项过期回收 Worker、ContextManifest 写入（阶段 7）——均经扩展点接入，不改 Loop 核心。
+- 未落地（阶段 7）：ContextManifest 写入与 model_runs/context_manifests 的 attemptId/stepId Expand 迁移（ADR-017 迁移面）——经扩展点接入，不改 Loop 核心。
+
+### 16.15 落地进展（阶段 5a-2：受控收件箱 HTTP 入口 + 过期回收）
+
+2026-08-28 落地（对应 §13 阶段 5 首条目的 API/插件受控入口与过期兜底；补完 5a 消费闭环的 next-turn 面）：
+
+- **契约**（`packages/contracts`）：新增 `inbox-schemas.ts`（`inboxItemTypeSchema`/`inboxSourceActorSchema`/`inboxConsumeBoundarySchema`/`inboxItemStatusSchema`/`createInboxItemRequestSchema`（type-payload-幂等键，sessionId 可选仅一致性校验）+ `inboxItemResponseSchema`）；`openapi.ts` 注册 `CreateInboxItemRequest`/`InboxItem` 与 `POST /v1/sessions/{sessionId}/inbox` 路径（tags: Inbox）。
+- **API 入口**（`apps/api/src/modules/inbox/`）：
+  - `routes.ts` 统一端点 `POST /v1/sessions/:sessionId/inbox`：服务端强校验（type ∈ followup/steer/inject；consumeBoundary 与 type 一致 followup→next-turn / steer→next-step / inject 皆可；payload 必填）、幂等（同 idempotencyKey 租户内唯一，重复提交返回既有项 200）；
+  - sourceActor 由服务端按调用方身份注入，客户端不自报：缺省 `user`；携带 `x-plugin-id` 时校验插件已安装且启用 + 授予 `inbox.command` 权限，否则 403，通过则注入 `plugin`；
+  - `port.ts` `createTenantInboxPort`：把 SQLite 仓储适配为 agent-loop `InboxPort`（绑定请求租户，ADR-016 组合根适配）。
+- **消费闭环补完**（`apps/api/src/modules/conversation/`）：
+  - `routes.ts` 创建新 Turn 时对该 session 执行一次 `next-turn` claim 并 ack，把 followup 项注入为新 Turn 输入（payload 字符串合并到 userMessage；已消费不重复注入）；
+  - `runLoopTurnOnce` 新增可选 `inbox` 转发给 `executeTurn`（每 Step 消费 next-step：steer/inject 注入上下文）。
+- **过期回收**（`packages/database` + `apps/worker`）：
+  - `IAgentInboxRepository.expireOverdue(now?)` + `SqliteAgentInboxRepository` 实现：跨租户把所有 `expiresAt < now` 且仍 pending/claimed 的项置为 expired（claimed 即消费中崩溃未 ack，兜底作废不重放；单批 200，可重复轮询）；
+  - `apps/worker/src/inbox-expiry.ts` `runInboxExpiryCycle` 挂载到 `runTick`（普通轮询，随 worker 日志输出 `inbox_expired`）。
+- 测试：`@aervox/contracts` typecheck + OpenAPI 生成通过；`@aervox/api` 109（新增 `inbox-routes.test.ts` 8：三类提交 201/幂等 200/非法 type·payload·边界 400/steer attemptId/插件身份 403→授权 201/next-turn 注入与不重复消费）；`@aervox/database` 134（`agent-inbox.test.ts` 新增 2：expireOverdue pending+claimed 回收/跨租户+幂等）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.16 落地进展（阶段 5b：Context 压缩 seam + Skill 渐进式披露接入 ContextBuilder）
+
+2026-08-28 落地（对应 §13 阶段 5 的 Context compaction seam 与 Skill 渐进式披露；§7.1 Context 组装第 4/5 项）：
+
+- **扩展点**（`packages/agent-loop`）：
+  - `ContextCompactionPort`（`compact` 可插拔，缺省 `defaultCompactionPort` 透传、行为与既有完全一致）+ 内置规则式摘要 `createSummaryCompaction(maxMessages)`（超阈值保留首尾消息、中部一行 `[Context compaction: …]` 摘要占位，纯函数无外部依赖；生产可注入 LLM 摘要实现）；
+  - `ContextBuilderPort.build` 返回类型扩展为 `PromptContext | Promise<PromptContext>`（压缩端口为 async；executor 调用点 await，既有同步实现零改动）；
+  - `SkillDescriptor`（name+description，不携全文）与 `buildSkillsPrompt`（由 `apps/api` 迁入，AstrBot 渐进披露规则：仅注入技能清单，模型按需 `GET /v1/skills/:name/content` 读全文）；
+  - `createSkillAwareContextBuilder`（system 段前置，已有首条 system 时插其后不翻倍）、`createComposedContextBuilder({ base, inbox?, skills?, compaction? })` 统一组合（目标消息顺序：system(skills) → inbox 追加 → 历史；压缩 seam 最外层后处理）。
+- **API 接线**（`apps/api`）：
+  - `skill-manager.ts` 改引用 agent-loop 的 `buildSkillsPrompt`（删除 `skill-prompt.ts` 本地副本，单一真源）；
+  - `conversation` 模块默认启用 Skill 渐进披露：`skillLoader`（`SqliteSkillRegistryRepository.listSkills(true)` → name+description）注入 `runLoopTurnOnce`，无 active Skill 时退化为原行为；Context 压缩 seam 默认关闭，设置 `AERVOX_LOOP_COMPACTION=rule` 开启内置规则式摘要。
+- 测试：`@aervox/agent-loop` 77（新增 `context-builder.test.ts` 9：skills prompt 构造/空清单/system 不翻倍/默认透传/规则摘要阈值与幂等/composer 组合顺序/异步 build）；`@aervox/api` 110（`conversation-loop.test.ts` 新增 1：注册 active Skill 后创建 Turn 仍成功，skillLoader 接线不破坏 Loop）；既有 5a/5a-2 无回归。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
 ## 17. 回滚策略
 

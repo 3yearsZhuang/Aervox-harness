@@ -227,4 +227,71 @@ describe("阶段 5a Agent 收件箱（agent_inbox_items）", () => {
     expect(claimed.map((i) => i.id)).toEqual(["inb_1"]);
     expect(claimed[0]!.status).toBe("claimed");
   });
+
+  it("expireOverdue：pending/claimed 过期置 expired；未过期/已回收不动", async () => {
+    const past = new Date(Date.now() - 60_000).toISOString();
+    const future = new Date(Date.now() + 60_000).toISOString();
+    // pending 过期
+    await repo.enqueue(tenantA, {
+      id: "inb_1",
+      idempotencyKey: "idem_1",
+      sessionId: "ses_1",
+      type: "followup",
+      sourceActor: "user",
+      payload: { text: "过期 followup" },
+      expiresAt: past,
+    });
+    // claimed 过期（消费中崩溃未 ack → 兜底作废，不重放）
+    await repo.enqueue(tenantA, {
+      id: "inb_2",
+      idempotencyKey: "idem_2",
+      sessionId: "ses_1",
+      attemptId: "atp_1",
+      type: "steer",
+      sourceActor: "user",
+      payload: { text: "过期 steer" },
+      expiresAt: past,
+    });
+    await repo.claimForConsumption(tenantA, { sessionId: "ses_1", attemptId: "atp_1", type: "next-step" });
+    // 未过期不动
+    await repo.enqueue(tenantA, {
+      id: "inb_3",
+      idempotencyKey: "idem_3",
+      sessionId: "ses_1",
+      type: "followup",
+      sourceActor: "user",
+      payload: { text: "有效" },
+      expiresAt: future,
+    });
+
+    const expired = await repo.expireOverdue();
+    expect(expired).toBe(2);
+
+    const claimed = await repo.claimForConsumption(tenantA, { sessionId: "ses_1", type: "next-turn" });
+    expect(claimed.map((i) => i.id)).toEqual(["inb_3"]);
+  });
+
+  it("expireOverdue 跨租户：不同租户的过期项一并回收；二次调用不再回收", async () => {
+    const past = new Date(Date.now() - 60_000).toISOString();
+    await repo.enqueue(tenantA, {
+      id: "inb_A",
+      idempotencyKey: "idem_A",
+      sessionId: "ses_1",
+      type: "followup",
+      sourceActor: "user",
+      payload: { text: "A" },
+      expiresAt: past,
+    });
+    await repo.enqueue(tenantB, {
+      id: "inb_B",
+      idempotencyKey: "idem_B",
+      sessionId: "ses_1",
+      type: "followup",
+      sourceActor: "user",
+      payload: { text: "B" },
+      expiresAt: past,
+    });
+    expect(await repo.expireOverdue()).toBe(2);
+    expect(await repo.expireOverdue()).toBe(0);
+  });
 });
