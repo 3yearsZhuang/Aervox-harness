@@ -1513,6 +1513,29 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await client.execute(`
     CREATE UNIQUE INDEX IF NOT EXISTS llm_configs_tenant_unique_idx ON llm_configs(workspace_id, subject_user_id);
   `);
+// CR-016 离线语音输入 (ASR) 配置持久化：每租户一行
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS voice_input_configs (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      engine_type TEXT NOT NULL DEFAULT 'sensevoice-local',
+      model_path TEXT,
+      model_id TEXT NOT NULL DEFAULT 'sensevoice-small',
+      endpoint TEXT,
+      api_key TEXT,
+      auto_stop_on_keyboard INTEGER NOT NULL DEFAULT 1,
+      vad_silence_threshold_ms INTEGER NOT NULL DEFAULT 700,
+      settings_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS voice_input_configs_tenant_unique_idx ON voice_input_configs(workspace_id, subject_user_id);
+  `);
+
   await client.execute(`
     CREATE TABLE IF NOT EXISTS tool_executions (
       id TEXT PRIMARY KEY,

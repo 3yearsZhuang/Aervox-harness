@@ -2,12 +2,21 @@
  * Aervox｜思隅 @aervox/api — 语音服务 HTTP 路由
  */
 import type { FastifyInstance } from "fastify";
-import { localVoiceConfigSchema, voiceSynthesisRequestSchema } from "@aervox/contracts";
+import {
+  localVoiceConfigSchema,
+  voiceSynthesisRequestSchema,
+  voiceInputConfigSchema,
+  voiceTranscribeRequestSchema,
+} from "@aervox/contracts";
 import { resolveTenant } from "../../shared/tenant.js";
 import type { VoiceService } from "./service.js";
 
 function asBase64(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString("base64");
+}
+
+function fromBase64(value: string): Buffer {
+  return Buffer.from(value, "base64");
 }
 
 export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService): void {
@@ -71,6 +80,84 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
       return reply.code(400).send({
         code: "INVALID_VOICE_CONFIG",
         message: error instanceof Error ? error.message : "Invalid local voice config",
+      });
+    }
+  });
+
+  // GET /v1/voice/input/config — 读取离线语音输入配置（CR-016）
+  app.get("/v1/voice/input/config", async (request) => {
+    const tenant = resolveTenant(request);
+    return service.getVoiceInputConfig(tenant);
+  });
+
+  // PUT /v1/voice/input/config — 保存离线语音输入配置
+  app.put("/v1/voice/input/config", async (request, reply) => {
+    const parsed = voiceInputConfigSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({
+        code: "INVALID_VOICE_INPUT_CONFIG",
+        message: "Invalid voice input config",
+        details: parsed.error.issues,
+      });
+    }
+    const tenant = resolveTenant(request);
+    try {
+      const cfg = await service.setVoiceInputConfig(tenant, parsed.data as any);
+      return cfg;
+    } catch (error) {
+      return reply.code(400).send({
+        code: "INVALID_VOICE_INPUT_CONFIG",
+        message: error instanceof Error ? error.message : "Invalid voice input config",
+      });
+    }
+  });
+
+  // GET /v1/voice/input/model/status — 读取模型状态
+  app.get("/v1/voice/input/model/status", async (request) => {
+    const tenant = resolveTenant(request);
+    return service.getVoiceInputModelStatus(tenant);
+  });
+
+  // POST /v1/voice/input/model/download — 触发模型下载
+  app.post("/v1/voice/input/model/download", async (request, reply) => {
+    const tenant = resolveTenant(request);
+    const body = (request.body as { targetDir?: string; mirrorUrl?: string } | undefined) ?? {};
+    try {
+      const result = await service.downloadVoiceInputModel(tenant, body);
+      return result;
+    } catch (error) {
+      return reply.code(400).send({
+        code: "INVALID_DOWNLOAD_REQUEST",
+        message: error instanceof Error ? error.message : "Failed to download model",
+      });
+    }
+  });
+
+  // POST /v1/voice/transcribe — 离线语音识别转写
+  app.post("/v1/voice/transcribe", async (request, reply) => {
+    const parsed = voiceTranscribeRequestSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({
+        code: "INVALID_AUDIO",
+        message: "Invalid audio transcribe payload",
+        details: parsed.error.issues,
+      });
+    }
+    const tenant = resolveTenant(request);
+    try {
+      const audioBuffer = fromBase64(parsed.data.audioBase64);
+      const result = await service.transcribe(tenant, {
+        audioBuffer,
+        mimeType: parsed.data.mimeType,
+        language: parsed.data.language,
+      });
+      return result;
+    } catch (error) {
+      // 避免直接抛 503 导致客户端完全中断，返回友好错误文本并在 status 中标识
+      return reply.code(200).send({
+        text: `（语音识别服务提示：${error instanceof Error ? error.message : '转写异常'}）`,
+        durationMs: 0,
+        isFinal: true,
       });
     }
   });

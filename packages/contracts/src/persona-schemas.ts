@@ -118,6 +118,77 @@ export const localVoiceConfigResponseSchema = z.object({
     .default({}),
 });
 
+/** 离线语音输入引擎类型（CR-016） */
+export const voiceInputEngineTypeSchema = z.enum(["sensevoice-local", "whisper-compatible"]);
+
+/** 离线语音输入 (ASR) 配置 */
+export const voiceInputConfigSchema = z.object({
+  enabled: z.boolean(),
+  engineType: voiceInputEngineTypeSchema,
+  modelPath: z.string().optional(),
+  modelId: z.string().min(1).default("sensevoice-small"),
+  endpoint: z.string().optional(),
+  apiKey: z.string().optional(),
+  autoStopOnKeyboard: z.boolean().default(true),
+  vadSilenceThresholdMs: z.number().int().min(200).max(3000).default(700),
+  settings: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+});
+
+/** 离线语音输入 (ASR) 配置响应 */
+export const voiceInputConfigResponseSchema = z.object({
+  enabled: z.boolean(),
+  engineType: voiceInputEngineTypeSchema,
+  modelPath: z.string().optional(),
+  modelId: z.string().min(1),
+  endpoint: z.string().optional(),
+  apiKey: z.string().optional(),
+  autoStopOnKeyboard: z.boolean().default(true),
+  vadSilenceThresholdMs: z.number().int().default(700),
+  settings: z
+    .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+    .default({}),
+});
+
+/** 语音转写请求 */
+export const voiceTranscribeRequestSchema = z.object({
+  audioBase64: z.string().min(1),
+  mimeType: z.string().default("audio/wav"),
+  language: z.string().optional(),
+});
+
+/** 语音转写响应 */
+export const voiceTranscribeResponseSchema = z.object({
+  text: z.string(),
+  durationMs: z.number().optional(),
+  isFinal: z.boolean().default(true),
+});
+
+/** 语音输入离线模型状态 */
+export const voiceInputModelStatusSchema = z.object({
+  downloaded: z.boolean(),
+  downloading: z.boolean(),
+  progressPercent: z.number().min(0).max(100).default(0),
+  downloadedBytes: z.number().int().nonnegative().optional(),
+  totalBytes: z.number().int().positive().optional(),
+  verified: z.boolean().default(false),
+  checksum: z.string().optional(),
+  modelPath: z.string().optional(),
+  message: z.string().optional(),
+});
+
+/** 触发下载离线语音输入模型请求 */
+export const voiceInputModelDownloadRequestSchema = z.object({
+  targetDir: z.string().optional(),
+  mirrorUrl: z.string().optional(),
+});
+
+/** 触发下载离线语音输入模型响应 */
+export const voiceInputModelDownloadResponseSchema = z.object({
+  accepted: z.boolean(),
+  message: z.string(),
+  status: voiceInputModelStatusSchema,
+});
+
 export const createPersonaRequestSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),

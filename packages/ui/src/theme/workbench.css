@@ -819,7 +819,62 @@
   opacity: .68;
 }
 
-.story-composer > button {
+.composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.voice-input-btn {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--bg-soft);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all .16s ease;
+}
+
+.voice-input-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.voice-input-btn.active {
+  border-color: #ef4444;
+  background: color-mix(in srgb, #ef4444 12%, transparent);
+  color: #ef4444;
+}
+
+.voice-input-btn.transcribing {
+  opacity: 0.8;
+}
+
+.recording-pulse {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: aervox-blink 1s ease-in-out infinite;
+}
+
+.voice-input-inline-error {
+  padding: 4px 12px 8px;
+  color: var(--danger, #e5484d);
+  font-size: 11px;
+}
+
+.story-composer > button,
+.composer-actions > button[type="submit"] {
   width: 46px;
   height: 46px;
   flex: 0 0 46px;
@@ -834,7 +889,8 @@
   cursor: pointer;
 }
 
-.story-composer > button:disabled {
+.story-composer > button:disabled,
+.composer-actions > button[type="submit"]:disabled {
   box-shadow: none;
   cursor: not-allowed;
   opacity: .42;
