@@ -2829,6 +2829,18 @@
               "mastered",
               "dismissed"
             ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -2881,6 +2893,18 @@
                     "mastered",
                     "dismissed"
                   ]
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "note": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
               },
               "required": [
@@ -2910,6 +2934,14 @@
               "mastered",
               "dismissed"
             ]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000
           }
         },
         "required": [
@@ -9768,6 +9800,18 @@
                               "mastered",
                               "dismissed"
                             ]
+                          },
+                          "reason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -9853,6 +9897,14 @@
                       "mastered",
                       "dismissed"
                     ]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 1000
                   }
                 },
                 "required": [
@@ -9900,6 +9952,18 @@
                         "active",
                         "mastered",
                         "dismissed"
+                      ]
+                    },
+                    "reason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "note": {
+                      "type": [
+                        "string",
+                        "null"
                       ]
                     }
                   },
