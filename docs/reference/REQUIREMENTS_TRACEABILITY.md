@@ -231,6 +231,12 @@
 
 | Agent Harness Loop 阶段 3c：恢复裁决基础设施（decideResume + findResumeCandidates） | CAP-002/007 + 基础设施 | `packages/agent-loop/src/resume.ts`（`decideResume` 纯函数：最后工具批次全 executed 且无终态→resume；终态/混合/未知/无结果收敛）、`packages/database`（`findResumeCandidates`：过期 Running + executed 工具 + 无 done）、`apps/worker`（recovery cycle 候选观测日志，行为不变）、`docs/reference/agent-harness-loop.md`（§16.11） | 2026-08-28 | `@aervox/agent-loop` 56（resume-decision 6 矩阵）；`@aervox/database` 125（候选 3：命中/终态排除/未知排除）；`ci-code` 全量。**续跑执行接线待阶段 4 host-agent** | 原生 |
 
+| Agent Harness Loop 阶段 4a：内嵌异步 Host + SQLite ExecutionStore 迁移 + Observability 注入 | CAP-002/007 + 基础设施 | `packages/host-agent`（`sqlite-execution-store.ts`：自 apps/api 迁移的组合根适配，API 同步路径与异步 Host 共用；`agent-host.ts`：轮询/claim 委托 executeTurn/并发上限+背压/优雅停机 drain/processed/running；`agent-host` 接 `@aervox/observability`：turn.completed、fencing.denials、duration_ms 直方图、审计 entry，Noop 兜底不抛错）、`apps/api`（`agent-executor.ts` 删除本地 130 行 SqliteExecutionStore 副本，改引 `@aervox/host-agent`）、`docs/reference/agent-harness-loop.md`（§16.12） | 2026-08-28 | `@aervox/host-agent` 12（agent-host 6：轮询/背压/CAS 跳过/drain/观测打点×2；store 冒烟 3）；`@aervox/api` 101 无回归；ci-code 全量 | 原生 |
+
+| Agent Harness Loop 阶段 4b：恢复接线（续跑执行） | CAP-002/007 + 基础设施 | `packages/agent-loop`（`ExecuteTurnOptions.resume`：占用 claim（expected=当前 fencing）/跳过 message 身份事件/sequence 从 lastSequence+1/Step 从 lastStep 之后（executionId 不冲突）/预填 history；`buildResumeHistory` 纯函数：从事件流重建 user+assistant 文本+权威 tool 结果）、`packages/database`（`findResumeCandidates` 扩展返回续跑数据面：租户/session/userMessage/fencingToken）、`packages/host-agent`（`sqlite-resume-source.ts`：候选→decideResume 裁决→重建上下文→产出带 resume 的 ClaimableTurn）、`docs/reference/agent-harness-loop.md`（§16.12） | 2026-08-28 | `@aervox/agent-loop` 58（resume-executor 2：抢占续跑自然完成/Step 与 executionId 不冲突）；`@aervox/host-agent` 15（resume 源 3：命中/终态过滤/未知过滤）；`@aervox/database` 125（候选数据面 3）；ci-code 全量 | 原生 |
+
+| Agent Harness Loop 阶段 4c：最小 Profile（D2=B） | CAP-002/007 + 基础设施 | `packages/host-agent/src/profile.ts`（`createAgentProfile`：Driver→Provider 绑定（replay 无依赖 / native 需 baseUrl/apiKey/modelId 同 CR-015）、单例锁文件 <data>/profile-<id>.lock：持有者存活拒绝/陈旧锁接管/释放后可重取）、`docs/reference/agent-harness-loop.md`（§16.12） | 2026-08-28 | `@aervox/host-agent` 18（profile 6：replay 解析/单例拒/释放重取/陈旧接管/native 缺配置抛错/native 配置齐全解析）；ci-code 全量 | 原生 |
+
 ## 5. 原子需求字段模板
 
 每条 `US/FR/BR/NFR/DATA/AIQ/SEC/PRIV/OPS` 应使用以下字段。没有影响的字段填写“不适用”并说明原因，不得留空。

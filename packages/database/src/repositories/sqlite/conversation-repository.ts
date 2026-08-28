@@ -662,18 +662,44 @@ export class SqliteConversationRepository implements IConversationRepository {
     return { ok: Boolean(updated) };
   }
 
-  /** 3c：恢复候选（§11.3 首范式续跑基础设施；阶段 4 host 恢复器接续，当前仅候选收集） */
+  /**
+   * 3c/4b：恢复候选查询（跨租户，供 worker 观测 + host-agent 续跑执行）。
+   *
+   * 命中条件：过期 Running Attempt + 存在 executed 工具执行 + 无 done 终态事件
+   * （§11.3 首范式「工具结果已权威提交但尚未注入」）。
+   * 返回含续跑所需完整数据面：租户、session、用户消息、当前 fencing（续跑 claim 预期）与 lastSequence。
+   */
   async findResumeCandidates(
     client: import("@libsql/client").Client,
-  ): Promise<Array<{ attemptId: string; turnId: string; lastSequence: number }>> {
+  ): Promise<
+    Array<{
+      attemptId: string;
+      turnId: string;
+      sessionId: string;
+      lastSequence: number;
+      workspaceId: string;
+      subjectUserId: string;
+      userMessage: string;
+      /** 续跑 claim 预期 = 当前已持有的 fencing（抢占语义） */
+      fencingToken: number;
+    }>
+  > {
     const now = new Date().toISOString();
     const result = await client.execute({
       sql: `
         SELECT ta.id AS attempt_id,
                ta.turn_id AS turn_id,
+               ta.fencing_token AS fencing_token,
+               t.session_id AS session_id,
+               t.workspace_id AS workspace_id,
+               t.subject_user_id AS subject_user_id,
+               (SELECT mv.content FROM message_versions mv
+                WHERE mv.turn_id = ta.turn_id AND mv.role = 'user'
+                ORDER BY mv.version DESC LIMIT 1) AS user_message,
                (SELECT COALESCE(MAX(sequence), 0) FROM turn_stream_events e
                 WHERE e.turn_id = ta.turn_id AND e.event_type = 'tool_result') AS last_sequence
         FROM turn_attempts ta
+        JOIN turns t ON t.id = ta.turn_id
         WHERE ta.status = 'Running'
           AND ta.lease_expires_at IS NOT NULL
           AND ta.lease_expires_at < ?
@@ -687,7 +713,12 @@ export class SqliteConversationRepository implements IConversationRepository {
     return result.rows.map((row) => ({
       attemptId: String(row.attempt_id),
       turnId: String(row.turn_id),
+      sessionId: String(row.session_id ?? ""),
       lastSequence: Number(row.last_sequence),
+      workspaceId: String(row.workspace_id ?? ""),
+      subjectUserId: String(row.subject_user_id ?? ""),
+      userMessage: String(row.user_message ?? ""),
+      fencingToken: Number(row.fencing_token ?? 0),
     }));
   }
 

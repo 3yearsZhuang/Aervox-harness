@@ -165,10 +165,18 @@ describe("3c 恢复候选（findResumeCandidates）", () => {
     });
   }
 
-  it("过期 Running + executed 工具 + 无终态事件 → 命中候选（lastSequence=tool_result seq）", async () => {
+  it("过期 Running + executed 工具 + 无终态事件 → 命中候选（lastSequence=tool_result seq + 续跑数据面）", async () => {
     await seedExecutedToolWithExpiredLease();
     const candidates = await repo.findResumeCandidates(client);
-    expect(candidates).toEqual([{ attemptId: "atp_resume", turnId: "turn_resume", lastSequence: 1 }]);
+    expect(candidates[0]).toMatchObject({
+      attemptId: "atp_resume",
+      turnId: "turn_resume",
+      sessionId: "ses_resume",
+      workspaceId: "ws_resv",
+      subjectUserId: "usr_resv",
+      lastSequence: 1,
+      fencingToken: 1, // claim（0→1）后崩溃，续跑 claim 预期
+    });
   });
 
   it("存在 done 终态事件 → 不命中", async () => {
