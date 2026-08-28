@@ -98,3 +98,10 @@ TurnAttempt
 - 阶段 5a 落地时：`packages/database` 新增 `agent_inbox_items` 表 + 仓储自测；`packages/agent-loop` 通过 Port 消费，不导入 `@aervox/database`（由 `scripts/import-boundary.mjs` 机器校验）。
 - 关联链：ModelRun/ContextManifest 明确 `attemptId`/`stepId` 后，恢复/追溯测试（`agent-loop-recovery.test`）断言粒度定位。
 - 本 ADR 状态为 `Proposed`，仅当 G2 架构与数据门禁通过后置 `Accepted` 并落实现有 `ADR README` 登记。
+
+## 实施进展（2026-08-28，阶段 7）
+
+- `model_runs` Expand 迁移已落地：新增 `attempt_id`/`step_id` 列（init 幂等 PRAGMA 检查 + ADD COLUMN 不回填==空，对应本 ADR Migration 前向语义）；`context_manifests` 新增 `snapshot_json`（每 Turn 上下文快照）。
+- `@aervox/agent-loop`：`ExecutionStorePort.recordModelRun`（每 Step 一条，attemptId/stepId 关联）/ `recordContextManifest`（每 Turn 首 Step，snapshot=messages）——可观测副作用，不进入控制流（扩展点接入，同 recordToolExecution）。
+- API 接线：conversation 注入 `SqlitePlatformRepository` 落库（Step 级 model_runs + manifest 快照 + attach 关联回写）。
+- Verification evidence 对应：`context-manifest.test.ts`（executor Step 级写入）与 `platform-modelrun.test.ts`（Expand 幂等/仓储）已落地。

@@ -5,7 +5,13 @@
  * @aervox/database 仓储适配（见 apps/api），两者行为约定以本文件为基准。
  */
 import type { AgentStreamEvent, AgentStreamEventInput, ExecutionStorePort } from "./ports.js";
-import type { AttemptStatus, ToolExecutionRecord, ToolExecutionStatus } from "./types.js";
+import type {
+  AttemptStatus,
+  ContextManifestRecord,
+  ModelRunRecord,
+  ToolExecutionRecord,
+  ToolExecutionStatus,
+} from "./types.js";
 
 interface AttemptRecord {
   id: string;
@@ -21,6 +27,8 @@ export class InMemoryExecutionStore implements ExecutionStorePort {
   private readonly attempts = new Map<string, AttemptRecord>();
   private readonly toolExecutionLog: ToolExecutionRecord[] = [];
   private readonly toolExecutionByKey = new Map<string, ToolExecutionRecord>();
+  private readonly modelRunLog: ModelRunRecord[] = [];
+  private readonly contextManifestLog: ContextManifestRecord[] = [];
   private leaseRenewalCount = 0;
 
   seedAttempt(input: {
@@ -215,6 +223,26 @@ export class InMemoryExecutionStore implements ExecutionStorePort {
   /** 工具副作用证据日志（测试断言用） */
   toolExecutionRecords(): ToolExecutionRecord[] {
     return this.toolExecutionLog;
+  }
+
+  /** 阶段 7（ADR-017）：Step 级 ModelRun 可追溯写入（测试断言用） */
+  async recordModelRun(input: ModelRunRecord): Promise<void> {
+    this.modelRunLog.push(input);
+  }
+
+  /** 阶段 7（ADR-017）：ContextManifest 快照写入（测试断言用） */
+  async recordContextManifest(input: ContextManifestRecord): Promise<void> {
+    this.contextManifestLog.push(input);
+  }
+
+  /** 已写入的 ModelRun 记录（测试断言） */
+  modelRunRecords(): ModelRunRecord[] {
+    return this.modelRunLog;
+  }
+
+  /** 已写入的 ContextManifest 记录（测试断言） */
+  contextManifestRecords(): ContextManifestRecord[] {
+    return this.contextManifestLog;
   }
 
   attemptStatus(attemptId: string): AttemptStatus | undefined {
