@@ -1,6 +1,31 @@
+/**
+ * Aervox 桌宠独立窗口 — 透明沉浸形态
+ * 窗口无背景：仅 Live2D 本体 + 顶部对话气泡 + 悬浮基础功能按钮（最小液态玻璃）。
+ */
+
 :root {
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-    color: #4d5d55
+    /* 最小液态玻璃令牌（仅气泡/按钮可见性所需，同步主工作台雾蓝） */
+    --glass-bg: rgba(249, 250, 253, 0.72);
+    --glass-bg-strong: rgba(250, 251, 254, 0.9);
+    --glass-border: rgba(72, 86, 116, 0.2);
+    --glass-blur: blur(18px) saturate(1.2);
+    --text-primary: #293547;
+    --text-secondary: #536284;
+    --text-muted: #87939f;
+    --accent: #5b7db1;
+    color: var(--text-primary)
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --glass-bg: rgba(27, 33, 47, 0.66);
+    --glass-bg-strong: rgba(30, 37, 52, 0.86);
+    --glass-border: rgba(148, 163, 197, 0.18);
+    --text-primary: #e6eaef;
+    --text-secondary: #b6c1cf;
+    --text-muted: #829087;
+    --accent: #83a6d9
 }
 
 * {
@@ -11,164 +36,176 @@ html, body, #pet-app {
     width: 100%;
     height: 100%;
     margin: 0;
-    overflow: hidden
+    overflow: hidden;
+    background: transparent
 }
 
+/* ---------- 透明窗口：无背景、无圆角、无边框 ---------- */
+
 .pet-window {
+    position: relative;
     width: 100%;
     height: 100%;
-    padding: 12px 8px 6px;
     display: flex;
     flex-direction: column;
-    align-items: center;
     user-select: none;
-    -webkit-app-region: drag
+    -webkit-app-region: drag;
+    color: var(--text-primary);
+    background: transparent
 }
+
+/* ---------- Live2D 满高区域：实际像素底边对齐 ---------- */
 
 .pet-stage {
     position: relative;
-    width: 284px;
-    height: 278px;
+    flex: 1;
+    min-height: 0;
     display: grid;
-    place-items: center
-}
-
-.pet-shadow {
-    position: absolute;
-    bottom: 23px;
-    left: 50%;
-    width: 108px;
-    height: 17px;
-    border-radius: 50%;
-    background: rgba(117, 161, 130, .24);
-    filter: blur(3px);
-    transform: translateX(-50%)
+    place-items: stretch
 }
 
 .pet-character {
     position: relative;
-    width: 190px;
-    height: 230px;
-    animation: float 3.6s ease-in-out infinite;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
     cursor: pointer
 }
 
-.pet-character .pet-hero-scale { position: absolute; inset: 0; display: grid; place-items: end center; }
+.pet-character .live2d-pet {
+    width: 100%;
+    height: 100%
+}
 
 .pet-hero-scale {
-    display: inline-block;
-    transform: scale(.7);
-    transform-origin: top center
-}
-
-.sparkle {
     position: absolute;
-    color: #edc767;
-    font-size: 17px;
-    animation: twinkle 2.4s ease-in-out infinite
+    inset: 0;
+    display: grid;
+    place-items: end center;
+    transform: scale(.86);
+    transform-origin: bottom center
 }
 
-.sparkle-a {
-    top: 64px;
-    left: 43px
-}
+/* ---------- 顶部对话气泡：最小液态玻璃 + 尾巴 ---------- */
 
-.sparkle-b {
-    top: 116px;
-    right: 44px;
-    animation-delay: 1s
-}
-
-.mood-bubble {
+.pet-bubble {
     position: absolute;
-    top: 5px;
-    right: 6px;
-    max-width: 132px;
-    padding: 8px 10px;
-    background: rgba(255, 255, 255, .96);
-    border: 1px solid #e7ece8;
-    border-radius: 10px 10px 2px 10px;
-    color: #718078;
-    font-size: 10px;
-    line-height: 1.4;
-    box-shadow: 0 4px 12px rgba(66, 91, 73, .12);
+    top: 10px;
+    left: 50%;
+    z-index: 20;
+    max-width: 82%;
+    padding: 9px 13px;
+    border: 1px solid var(--glass-border);
+    border-radius: 14px 14px 14px 4px;
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: 0 10px 26px rgba(23, 32, 54, .18);
+    transform: translateX(-50%);
     -webkit-app-region: no-drag
 }
 
-.mood-bubble:after {
-    content: "";
+.pet-bubble p {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 11.5px;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden
+}
+
+.pet-bubble-fade-enter-active,
+.pet-bubble-fade-leave-active {
+    transition: opacity .22s ease, transform .22s ease
+}
+
+.pet-bubble-fade-enter-from,
+.pet-bubble-fade-leave-to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px)
+}
+
+/* ---------- 底部功能坞：图标 + 文字胶囊按钮（背板虚化承托模型腿部） ---------- */
+
+.pet-dock {
     position: absolute;
-    bottom: -5px;
-    left: 15px;
-    width: 8px;
-    height: 8px;
-    background: #fff;
-    border-right: 1px solid #e7ece8;
-    border-bottom: 1px solid #e7ece8;
-    transform: rotate(45deg)
-}
-
-.pet-card {
-    width: 272px;
-    padding: 10px 12px 9px;
-    border: 1px solid rgba(226, 235, 228, .95);
-    border-radius: 12px;
-    background: rgba(255, 255, 255, .94);
-    box-shadow: 0 8px 26px rgba(66, 91, 73, .14);
-    -webkit-app-region: no-drag
-}
-
-.pet-card-header {
+    bottom: clamp(10px, 3vh, 20px);
+    left: 50%;
+    z-index: 20;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    color: #60766a;
-    font-size: 11px
-}
-
-.pet-card-header .el-icon {
-    margin-right: 5px;
-    color: #6eb18a
-}
-
-.pet-actions {
-    display: flex;
-    justify-content: space-between;
-    padding: 8px 5px 5px
-}
-
-.pet-action {
-    border: 0;
-    background: transparent;
-    color: #75847c;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
     align-items: center;
     gap: 3px;
-    font-size: 17px
+    padding: 5px;
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: 0 12px 30px rgba(23, 32, 54, .2);
+    transform: translateX(-50%);
+    -webkit-app-region: no-drag
 }
 
-.pet-action small {
-    font-size: 10px
+/* 坞顶高光条：与主工作台液态玻璃一致 */
+.pet-dock::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    border-radius: inherit;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 38%, transparent), transparent);
+    opacity: .8
 }
 
-.pet-action:hover {
-    color: #4d8766
-}
-
-.pet-card-footer {
-    display: flex;
+.pet-dock-btn {
+    display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding-top: 7px;
-    border-top: 1px solid #edf1ed;
-    color: #99a69e;
-    font-size: 9px
+    gap: 6px;
+    height: 32px;
+    padding: 0 13px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 620;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color .18s ease, background-color .18s ease, border-color .18s ease, transform .18s ease, box-shadow .18s ease
 }
 
-.pet-card-footer .el-icon {
-    color: #62a77f
+.pet-dock-btn:hover {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 22%, transparent)
+}
+
+.pet-dock-btn:active {
+    transform: translateY(0) scale(.94);
+    box-shadow: none
+}
+
+.pet-dock-btn-close:hover {
+    color: #d0655a;
+    background: color-mix(in srgb, #c25549 12%, transparent);
+    border-color: color-mix(in srgb, #c25549 30%, transparent);
+    box-shadow: 0 8px 18px color-mix(in srgb, #c25549 22%, transparent)
+}
+
+/* 窄窗回退：仅图标 */
+@media (max-width: 272px) {
+    .pet-dock-btn span {
+        display: none
+    }
+
+    .pet-dock-btn {
+        padding: 0 10px
+    }
 }
 
 .muted {
@@ -179,67 +216,6 @@ html, body, #pet-app {
     opacity: .7
 }
 
-@keyframes float {
-    0%, 100% {
-        transform: translateY(0)
-    }
-    50% {
-        transform: translateY(-8px)
-    }
-}
-
-@keyframes twinkle {
-    0%, 100% {
-        opacity: .35;
-        transform: scale(.85)
-    }
-    50% {
-        opacity: 1;
-        transform: scale(1.1)
-    }
-}
-
 .pet-window.muted {
     opacity: .7
-}
-
-:root[data-theme="dark"] {
-    color-scheme: dark
-}
-
-:root[data-theme="dark"] .pet-window {
-    --pet-card-bg: rgba(30, 38, 33, .94);
-    --pet-border: #3b4a40;
-    --pet-text: #c6d3cb;
-    --pet-muted: #91a198
-}
-
-:root[data-theme="dark"] .pet-card {
-    background: var(--pet-card-bg);
-    border-color: var(--pet-border);
-    box-shadow: 0 8px 26px rgba(0, 0, 0, .3)
-}
-
-:root[data-theme="dark"] .pet-card-header {
-    color: var(--pet-text)
-}
-
-:root[data-theme="dark"] .pet-card-footer {
-    border-color: var(--pet-border);
-    color: var(--pet-muted)
-}
-
-:root[data-theme="dark"] .mood-bubble {
-    background: rgba(31, 39, 34, .97);
-    border-color: var(--pet-border);
-    color: var(--pet-text)
-}
-
-:root[data-theme="dark"] .mood-bubble:after {
-    background: #1f2722;
-    border-color: var(--pet-border)
-}
-
-:root[data-theme="dark"] .pet-action {
-    color: var(--pet-muted)
 }
