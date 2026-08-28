@@ -107,6 +107,10 @@ const selectedMistakeIds = ref<string[]>([])
 const mistakeBusyId = ref<string | null>(null)
 const mistakeInsightDrafts = ref<Record<string, {reasonCode: string; note: string}>>({})
 const reviewBusyId = ref<string | null>(null)
+const newPlanTitle = ref('')
+const newPlanEndDate = ref('')
+const planBusyId = ref<string | null>(null)
+const planDrafts = ref<Record<string, {endDate: string; dailyAvailableMinutes: number}>>({})
 const input = ref('')
 const isComposing = ref(false)
 const activeModeId = ref<CompanionModeId>('companion')
@@ -142,6 +146,7 @@ const {
   completedReviews,
   reviewSummary,
   mistakes,
+  studyPlans,
   notifications,
   todayDiary,
   activePracticeSession,
@@ -511,6 +516,41 @@ async function completeReview(reviewId: string, isCorrect: boolean) {
   } finally {
     reviewBusyId.value = null
   }
+}
+
+async function submitStudyPlan() {
+  if (!newPlanTitle.value.trim() || !newPlanEndDate.value) return
+  planBusyId.value = 'new'
+  try {
+    await api.createStudyPlan({ title: newPlanTitle.value.trim(), startDate: new Date().toISOString().slice(0, 10), endDate: newPlanEndDate.value })
+    newPlanTitle.value = ''
+    newPlanEndDate.value = ''
+  } catch {
+    practiceError.value = '学习计划没有保存，请稍后重试。'
+  } finally { planBusyId.value = null }
+}
+
+async function setPlanPrediction(planId: string, prediction: 'on_track' | 'at_risk') {
+  planBusyId.value = planId
+  try { await api.updateStudyPlanPrediction(planId, prediction) } catch { practiceError.value = '计划状态没有保存，请稍后重试。' } finally { planBusyId.value = null }
+}
+
+function planDraft(plan: {id: string; endDate: string; dailyAvailableMinutes: number}) {
+  return planDrafts.value[plan.id] ?? {endDate: plan.endDate, dailyAvailableMinutes: plan.dailyAvailableMinutes}
+}
+
+async function saveStudyPlan(plan: {id: string; endDate: string; dailyAvailableMinutes: number}) {
+  const draft = planDraft(plan)
+  planBusyId.value = plan.id
+  try {
+    await api.updateStudyPlan(plan.id, draft)
+    delete planDrafts.value[plan.id]
+  } catch { practiceError.value = '计划调整没有保存，请稍后重试。' } finally { planBusyId.value = null }
+}
+
+async function archiveStudyPlan(planId: string) {
+  planBusyId.value = planId
+  try { await api.archiveStudyPlan(planId) } catch { practiceError.value = '计划归档失败，请稍后重试。' } finally { planBusyId.value = null }
 }
 
 function nextPracticeQuestion() {
@@ -1104,6 +1144,32 @@ onUnmounted(() => {
             <small>{{ item.completionIsCorrect === true ? '记得' : item.completionIsCorrect === false ? '忘了' : '旧记录' }} · {{ item.updatedAt?.slice(0, 10) }}<template v-if="item.nextReviewId"> · 下一项 #{{ item.nextReviewId }}</template></small>
           </li>
           <li v-if="completedReviews.length === 0" class="study-empty">完成复习后，这里会保留最近记录。</li>
+        </ul>
+      </section>
+
+      <section class="study-section">
+        <h4>学习计划 <small>{{ studyPlans.length }}</small></h4>
+        <form class="study-goal-form" @submit.prevent="submitStudyPlan">
+          <input v-model="newPlanTitle" placeholder="例如：期末考试复习" aria-label="计划名称" />
+          <input v-model="newPlanEndDate" type="date" aria-label="计划结束日期" />
+          <button type="submit" :disabled="planBusyId === 'new'" aria-label="创建学习计划"><Plus :size="18" /></button>
+        </form>
+        <ul class="study-list">
+          <li v-for="plan in studyPlans" :key="plan.id">
+            <div class="goal-item-heading"><span class="study-item-title">{{ plan.title }}</span><span class="goal-status">{{ plan.completionPrediction === 'at_risk' ? '需调整' : plan.completionPrediction === 'cannot_complete' ? '无法按期完成' : '进行中' }}</span></div>
+            <small>{{ plan.startDate }} 至 {{ plan.endDate }} · {{ plan.dailyAvailableMinutes }} 分钟/天 · 已调整 {{ plan.revisionCount }} 次</small>
+            <div class="study-goal-form">
+              <input :value="planDraft(plan).endDate" type="date" aria-label="调整结束日期" @input="planDrafts[plan.id] = {...planDraft(plan), endDate: ($event.target as HTMLInputElement).value}" />
+              <input :value="planDraft(plan).dailyAvailableMinutes" type="number" min="0" aria-label="调整每日可用时间" @input="planDrafts[plan.id] = {...planDraft(plan), dailyAvailableMinutes: Number(($event.target as HTMLInputElement).value)}" />
+              <button type="button" :disabled="planBusyId === plan.id" @click="saveStudyPlan(plan)">调整</button>
+            </div>
+            <div class="goal-actions">
+              <button type="button" :disabled="planBusyId === plan.id" @click="setPlanPrediction(plan.id, 'on_track')"><Check :size="14" />进度正常</button>
+              <button type="button" :disabled="planBusyId === plan.id" @click="setPlanPrediction(plan.id, 'at_risk')">标记风险</button>
+              <button type="button" class="danger" :disabled="planBusyId === plan.id" @click="archiveStudyPlan(plan.id)"><X :size="14" />归档</button>
+            </div>
+          </li>
+          <li v-if="studyPlans.length === 0" class="study-empty">还没有学习计划，先设定一个结束日期。</li>
         </ul>
       </section>
 

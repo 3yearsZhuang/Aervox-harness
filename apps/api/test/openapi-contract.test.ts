@@ -45,4 +45,11 @@ describe("Learning OpenAPI 契约", () => {
       properties: expect.objectContaining({ reasonCode: expect.anything(), note: expect.anything() }),
     }));
   });
+
+  it("声明练习报告与学习计划的读取和调整端点", () => {
+    expect(openApiDocument.paths["/v1/practice-reports"]?.post?.responses).toHaveProperty("201");
+    expect(openApiDocument.paths["/v1/practice-sessions/{sessionId}/reports"]?.get?.responses).toHaveProperty("200");
+    expect(openApiDocument.paths["/v1/study-plans"]?.get?.responses).toHaveProperty("200");
+    expect(openApiDocument.paths["/v1/study-plans/{planId}/prediction"]?.post?.responses).toHaveProperty("200");
+  });
 });
