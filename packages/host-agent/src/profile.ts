@@ -11,18 +11,21 @@
  */
 
 import { createOpenAICompatProvider, createReplayProvider } from "@aervox/agent-loop";
-import type { ModelProviderPort } from "@aervox/agent-loop";
+import type { ModelProviderPort, AdapterDriverPort } from "@aervox/agent-loop";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-/** Driver 标识（AVX-HAR-001 §3 只读子集；DSH/pi 未准入） */
-export type LoopDriverId = "native" | "replay";
+/** Driver 标识（AVX-HAR-001 §3 只读子集；DSH/pi 需已准入的进程外 Adapter） */
+export type LoopDriverId = "native" | "replay" | "dsh" | "pi";
 
-/** 已解析的 Driver→Provider 绑定（最终候选） */
+/** 已解析的 Driver→Provider/Adapter 绑定（最终候选） */
 export interface ResolvedProfile {
   readonly profileId: string;
   readonly driver: LoopDriverId;
-  readonly provider: ModelProviderPort;
+  /** native/replay 解析的模型 Provider（dsh/pi 经 adapter 执行整 Turn，不解析 Provider） */
+  readonly provider?: ModelProviderPort;
+  /** dsh/pi：已准入的进程外 Adapter Driver（整 Turn 代理执行） */
+  readonly adapter?: AdapterDriverPort;
 }
 
 /** Provider 解析输入（最小配置面；llm 需真实模型配置，replay 无外部依赖） */
@@ -57,33 +60,55 @@ export interface ProfileContract {
 }
 
 /**
- * 构造最小 Profile：按 driver 解析唯一 Provider，并绑定单例锁。
+ * 构造最小 Profile：按 driver 解析唯一 Provider（native/replay）或已准入 Adapter（dsh/pi），
+ * 并绑定单例锁。
  *
  * - driver=replay：天然无外部依赖（AVX-HAR-001 §17 回退路径）；
- * - driver=native：本阶段 ModelProvider 仍为 OpenAI 兼容流（createOpenAICompatProvider）；
- *   DSH/pi 未完成进程外 Adapter 前一律拒绝（resolveProvider 抛错）。
+ * - driver=native：ModelProvider 为 OpenAI 兼容流（createOpenAICompatProvider）；
+ * - driver=dsh/pi：需 input.adapter（已准入的进程外 Adapter Driver；清单 adapterId 必须
+ *   与 driver 一致，否则抛错）。未提供 adapter 时拒绝——与 ADR-010「不安装也完整可用」一致。
  */
 export function createAgentProfile(input: {
   profileId: string;
   driver: LoopDriverId;
   config?: ProfileProviderConfig;
+  /** dsh/pi：已准入的进程外 Adapter Driver（stdio handle 或模拟器） */
+  adapter?: AdapterDriverPort;
   lockDir?: string;
 }): { resolve(): ResolvedProfile; lock: ProfileContract } {
-  const { profileId, driver, config = {}, lockDir } = input;
+  const { profileId, driver, config = {}, adapter, lockDir } = input;
 
-  const resolveProvider = (): ModelProviderPort => {
-    if (driver === "replay") return createReplayProvider();
+  const resolveProvider = (): ResolvedProfile => {
+    if (driver === "replay") {
+      return { profileId, driver, provider: createReplayProvider() };
+    }
     if (driver === "native") {
       if (!config.baseUrl || !config.apiKey || !config.modelId) {
         throw new Error("native_profile_unconfigured: native Driver 需要 baseUrl/apiKey/modelId（同 CR-015 LLM 配置）");
       }
-      return createOpenAICompatProvider({
-        baseUrl: config.baseUrl,
-        apiKey: config.apiKey,
-        modelId: config.modelId,
-        temperature: config.temperature,
-        maxTokens: config.maxTokens,
-      });
+      return {
+        profileId,
+        driver,
+        provider: createOpenAICompatProvider({
+          baseUrl: config.baseUrl,
+          apiKey: config.apiKey,
+          modelId: config.modelId,
+          temperature: config.temperature,
+          maxTokens: config.maxTokens,
+        }),
+      };
+    }
+    // DSH/pi：仅接受「已准入」的进程外 Adapter（TC-CONTRACT-STREAM-001 固定 SHA 复核在端口层完成）
+    if (driver === "dsh" || driver === "pi") {
+      if (!adapter) {
+        throw new Error(
+          `${driver}_profile_unconfigured: ${driver.toUpperCase()} Driver 需要已准入的进程外 Adapter（固定 SHA 复核），未安装时仅 native/replay 可用`,
+        );
+      }
+      if (adapter.manifest.adapterId !== driver) {
+        throw new Error(`driver_adapter_mismatch: driver=${driver} adapter=${adapter.manifest.adapterId}`);
+      }
+      return { profileId, driver, adapter };
     }
     throw new Error(`driver_unsupported: ${driver satisfies never}`);
   };
@@ -121,7 +146,7 @@ export function createAgentProfile(input: {
   };
 
   return {
-    resolve: (): ResolvedProfile => ({ profileId, driver, provider: resolveProvider() }),
+    resolve: (): ResolvedProfile => resolveProvider(),
     lock: { lockFile, acquire },
   };
 }
