@@ -51,6 +51,28 @@ export class SenseVoiceLocalProvider implements ASRProviderPort {
     process.env.SENSEVOICE_MODEL_BASE_URL ??
     "https://hf-mirror.com/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/main";
 
+  /**
+   * CR-016 安全整改：允许的模型镜像源 host 白名单。
+   * 默认 hf-mirror.com；SENSEVOICE_MODEL_BASE_URL 指向的 host 也在其列。
+   * 防止 mirrorUrl 被用作 SSRF 探测任意内网/公网地址。
+   */
+  static isAllowedMirrorHost(mirrorBase: string): boolean {
+    let host: string;
+    try {
+      host = new URL(mirrorBase).host;
+    } catch {
+      return false;
+    }
+    if (host === "hf-mirror.com") return true;
+    const envBase = process.env.SENSEVOICE_MODEL_BASE_URL;
+    if (!envBase) return false;
+    try {
+      return new URL(envBase).host === host;
+    } catch {
+      return false;
+    }
+  }
+
   constructor(
     readonly id: string = "sensevoice-local",
     options: SenseVoiceProviderOptions = {},
@@ -194,6 +216,22 @@ export class SenseVoiceLocalProvider implements ASRProviderPort {
       return {
         accepted: false,
         message: "mirrorUrl 必须为 http(s) 地址",
+        status: this.getModelStatus(),
+      };
+    }
+    // CR-016 安全整改（纵深防御）：即使绕过 service 层，也不允许任意路径写入与任意镜像源（SSRF）。
+    const targetGuard = validateDownloadTargetLocal(this.allowedRoots, options);
+    if (targetGuard) {
+      return {
+        accepted: false,
+        message: targetGuard,
+        status: this.getModelStatus(),
+      };
+    }
+    if (!SenseVoiceLocalProvider.isAllowedMirrorHost(mirrorBase)) {
+      return {
+        accepted: false,
+        message: "mirrorUrl host 不在允许的镜像源白名单内",
         status: this.getModelStatus(),
       };
     }
@@ -624,4 +662,22 @@ function resampleLinearTo16k(samples: Float32Array, fromRate: number): Float32Ar
 /** 去除 SenseVoice 输出的特殊标记（<|zh|>、<|NEUTRAL|>、<|nospeech|> 等），保留自然标点 */
 function cleanSenseVoiceText(raw: string): string {
   return raw.replace(/<\|[^|]*\|>/g, "").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * CR-016 安全整改：下载目标路径必须位于 allowedRoots 白名单内（允许目录尚不存在），
+ * 防止任意路径写入。返回错误信息或 undefined。
+ */
+function validateDownloadTargetLocal(
+  allowedRoots: readonly string[],
+  options?: { targetDir?: string; mirrorUrl?: string },
+): string | undefined {
+  if (!options?.targetDir) return undefined;
+  if (allowedRoots.length === 0) return "no local model roots are configured";
+  const normalized = options.targetDir.replaceAll("\\", "/").replace(/\/$/, "");
+  const allowed = allowedRoots.some((root) => {
+    const normalizedRoot = root.replaceAll("\\", "/").replace(/\/$/, "");
+    return normalized === normalizedRoot || normalized.startsWith(`${normalizedRoot}/`);
+  });
+  return allowed ? undefined : "targetDir is outside the configured allowlist";
 }

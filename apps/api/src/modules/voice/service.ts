@@ -387,6 +387,12 @@ export class VoiceService {
     if (!senseVoice) {
       throw new Error("SenseVoice local provider is not available");
     }
+    // CR-016 安全整改：targetDir 必须位于 allowedRoots 白名单内（允许尚不存在的目录），
+    // 防止任意路径写入；mirrorUrl 必须命中允许的镜像源，防止 SSRF。
+    const downloadError = validateDownloadTarget(senseVoice.allowedRoots, options);
+    if (downloadError) {
+      throw new Error(`INVALID_DOWNLOAD_REQUEST: ${downloadError}`);
+    }
     const result = await senseVoice.startDownload(options);
     if (result.status.modelPath) {
       await this.setVoiceInputConfig(tenant, {
@@ -396,4 +402,49 @@ export class VoiceService {
     }
     return result;
   }
+}
+
+/** 允许的 SenseVoice 模型镜像源 host（默认 hf-mirror.com，可通过环境变量覆盖） */
+export const ALLOWED_SENSEVOICE_MIRROR_HOSTS: readonly string[] = (() => {
+  const envBase = process.env.SENSEVOICE_MODEL_BASE_URL;
+  const hosts = ["hf-mirror.com"];
+  if (envBase) {
+    try {
+      hosts.push(new URL(envBase).host);
+    } catch {
+      // 忽略非法 SENSEVOICE_MODEL_BASE_URL，回退默认镜像
+    }
+  }
+  return hosts;
+})();
+
+/**
+ * 校验模型下载请求：targetDir 位于 allowedRoots 内（允许不存在），
+ * mirrorUrl 的 host 命中允许的镜像源。任一不满足返回错误信息，否则返回 undefined。
+ */
+export function validateDownloadTarget(
+  allowedRoots: readonly string[],
+  options?: { targetDir?: string; mirrorUrl?: string },
+): string | undefined {
+  if (options?.targetDir) {
+    if (allowedRoots.length === 0) return "no local model roots are configured";
+    const normalized = options.targetDir.replaceAll("\\", "/").replace(/\/$/, "");
+    const allowed = allowedRoots.some((root) => {
+      const normalizedRoot = root.replaceAll("\\", "/").replace(/\/$/, "");
+      return normalized === normalizedRoot || normalized.startsWith(`${normalizedRoot}/`);
+    });
+    if (!allowed) return "targetDir is outside the configured allowlist";
+  }
+  if (options?.mirrorUrl) {
+    let host: string;
+    try {
+      host = new URL(options.mirrorUrl).host;
+    } catch {
+      return "mirrorUrl is not a valid http(s) URL";
+    }
+    if (!ALLOWED_SENSEVOICE_MIRROR_HOSTS.includes(host)) {
+      return `mirrorUrl host "${host}" is not allowed`;
+    }
+  }
+  return undefined;
 }
