@@ -726,6 +726,8 @@ export interface IAgentInboxRepository {
   acknowledge(tenant: TenantContext, itemIds: string[]): Promise<void>;
   /** 按 idempotencyKey 查询（API 幂等返回用） */
   getByIdempotencyKey(tenant: TenantContext, idempotencyKey: string): Promise<AgentInboxItemModel | null>;
+  /** 过期回收（跨租户，Worker 轮询）：expiresAt < now 且 status ∈ pending/claimed → expired；返回回收条数 */
+  expireOverdue(now?: string): Promise<number>;
 }
 
 // ============ 学习/练习/复习域 ============

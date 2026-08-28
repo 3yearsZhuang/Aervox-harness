@@ -106,6 +106,11 @@ import {
   llmTestConnectionResponseSchema,
 } from "./llm-schemas.js";
 
+import {
+  createInboxItemRequestSchema,
+  inboxItemResponseSchema,
+} from "./inbox-schemas.js";
+
 const registry = new OpenAPIRegistry();
 
 registry.register("CreateLearningGoal", createLearningGoalSchema);
@@ -191,6 +196,9 @@ registry.register("VoiceTranscribeResponse", voiceTranscribeResponseSchema);
 registry.register("VoiceInputModelStatus", voiceInputModelStatusSchema);
 registry.register("VoiceInputModelDownloadRequest", voiceInputModelDownloadRequestSchema);
 registry.register("VoiceInputModelDownloadResponse", voiceInputModelDownloadResponseSchema);
+
+registry.register("CreateInboxItemRequest", createInboxItemRequestSchema);
+registry.register("InboxItem", inboxItemResponseSchema);
 
 const sessionIdParam = z.object({ sessionId: z.string().min(1) });
 const turnIdParam = z.object({ turnId: z.string().min(1) });
@@ -522,6 +530,38 @@ registry.registerPath({
   method: "post", path: "/v1/review-items/{reviewId}/complete", summary: "完成复习并调度下一项（幂等重放）", tags: ["Learning"],
   request: { params: reviewItemIdParam, headers: scopeHeaders, body: { content: { "application/json": { schema: completeReviewRequestSchema } } } },
   responses: { 200: { description: "Completion result or matching replay", content: { "application/json": { schema: completeReviewResponseSchema } } }, 400: { description: "isCorrect 缺失或非法" }, 404: { description: "REVIEW_ITEM_NOT_FOUND" }, 409: { description: "完成结果与首次请求不一致" } },
+});
+
+/** 受控收件箱提交端点（阶段 5a-2：followup / steer / inject 三 command 统一入口） */
+registry.registerPath({
+  method: "post",
+  path: "/v1/sessions/{sessionId}/inbox",
+  summary: "提交受控 inbox command（followup/steer/inject；幂等）",
+  tags: ["Inbox"],
+  request: {
+    params: sessionIdParam,
+    headers: scopeHeaders.extend({
+      "X-Plugin-Id": z.string().min(1).optional(),
+      "Idempotency-Key": z.string().min(1).optional(),
+    }),
+    body: {
+      content: {
+        "application/json": { schema: createInboxItemRequestSchema },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Created",
+      content: { "application/json": { schema: inboxItemResponseSchema } },
+    },
+    200: {
+      description: "Existing idempotent item",
+      content: { "application/json": { schema: inboxItemResponseSchema } },
+    },
+    400: { description: "type/payload/consumeBoundary 非法" },
+    403: { description: "插件未安装/未启用/无 inbox 权限" },
+  },
 });
 
 const generator = new OpenApiGeneratorV31(registry.definitions);

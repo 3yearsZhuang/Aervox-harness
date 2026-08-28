@@ -9,6 +9,8 @@ import type {
   AgentInboxConsumeBoundary,
   AgentInboxItem,
   AttemptStatus,
+  ContextCompactionInput,
+  ContextCompactionResult,
   LoopEventType,
   ModelRequest,
   PromptContext,
@@ -158,7 +160,15 @@ export interface ContextBuilderPort {
     messages: PromptMessage[];
     /** 阶段 5a：本 Step 可消费的 inbox items（§7.1 第 7 项；缺省为空） */
     inboxItems?: AgentInboxItem[];
-  }): PromptContext;
+  }): PromptContext | Promise<PromptContext>;
+}
+
+/**
+ * 阶段 5b：Context 压缩扩展点（Context compaction seam，§7.1 §13 阶段 5）。
+ * 可插拔：缺省不配置即透传（行为与既有完全一致）；生产可注入 LLM 摘要实现。
+ */
+export interface ContextCompactionPort {
+  compact(input: ContextCompactionInput): Promise<ContextCompactionResult>;
 }
 
 /**
@@ -184,4 +194,11 @@ export interface InboxPort {
   /** ack 消费完成（claimed → acknowledged）；只接受此前 claim 的项 */
   ack(input: { itemIds: string[] }): Promise<void>;
 }
-export type { AgentInboxCommand, AgentInboxConsumeBoundary, AgentInboxItem } from "./types.js";
+export type {
+  AgentInboxCommand,
+  AgentInboxConsumeBoundary,
+  AgentInboxItem,
+  ContextCompactionInput,
+  ContextCompactionResult,
+  SkillDescriptor,
+} from "./types.js";
