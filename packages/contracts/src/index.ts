@@ -29,6 +29,14 @@ import {
   petSheetStateSchema,
   pluginMetadataSchema,
   redactedEventDataSchema,
+  askUserQuestionOptionSchema,
+  askUserQuestionIntentSchema,
+  askUserQuestionItemSchema,
+  userQuestionRequiredEventDataSchema,
+  askUserQuestionAnswerItemSchema,
+  userQuestionAnsweredEventDataSchema,
+  submitQuestionAnswersRequestSchema,
+  submitQuestionAnswersResponseSchema,
   skillCandidateCreateSchema,
   skillCandidateSchema,
   skillCandidateStatusSchema,
@@ -85,6 +93,14 @@ export type DeltaEventData = z.infer<typeof deltaEventDataSchema>;
 export type DoneEventData = z.infer<typeof doneEventDataSchema>;
 export type ErrorEventData = z.infer<typeof errorEventDataSchema>;
 export type RedactedEventData = z.infer<typeof redactedEventDataSchema>;
+export type AskUserQuestionOption = z.infer<typeof askUserQuestionOptionSchema>;
+export type AskUserQuestionIntent = z.infer<typeof askUserQuestionIntentSchema>;
+export type AskUserQuestionItem = z.infer<typeof askUserQuestionItemSchema>;
+export type UserQuestionRequiredEventData = z.infer<typeof userQuestionRequiredEventDataSchema>;
+export type AskUserQuestionAnswerItem = z.infer<typeof askUserQuestionAnswerItemSchema>;
+export type UserQuestionAnsweredEventData = z.infer<typeof userQuestionAnsweredEventDataSchema>;
+export type SubmitQuestionAnswersRequest = z.infer<typeof submitQuestionAnswersRequestSchema>;
+export type SubmitQuestionAnswersResponse = z.infer<typeof submitQuestionAnswersResponseSchema>;
 export type EmoteEventData = z.infer<typeof emoteEventDataSchema>;
 export type PetCommand = z.infer<typeof petCommandSchema>;
 export type PetCommandType = z.infer<typeof petCommandTypeSchema>;

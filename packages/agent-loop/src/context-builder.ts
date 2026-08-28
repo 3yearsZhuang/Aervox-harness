@@ -14,6 +14,7 @@ import type {
   SkillDescriptor,
 } from "./types.js";
 import type { ContextBuilderPort, ContextCompactionPort } from "./ports.js";
+import { buildBaseSystemPrompt, type BaseSystemPromptOptions } from "./base-prompt.js";
 
 /** 默认 builder：仅透传原始输入（inbox 项不注入，由宿主按需开启） */
 export const defaultContextBuilder: ContextBuilderPort = {
@@ -127,11 +128,7 @@ export function createSkillAwareContextBuilder(
       inboxItems?: AgentInboxItem[];
     }): PromptContext | Promise<PromptContext> {
       const msgs = input.messages;
-      // 只在 messages 首条为非 system 或全无 system 时前置
-      const hasSystem = msgs.length > 0 && msgs[0]!.role === "system";
-      const messages = hasSystem
-        ? [msgs[0]!, { role: "system" as const, content: skillSystemPrompt }, ...msgs.slice(1)]
-        : [{ role: "system" as const, content: skillSystemPrompt }, ...msgs];
+      const messages: PromptMessage[] = [{ role: "system" as const, content: skillSystemPrompt }, ...msgs];
       return base.build({ ...input, messages });
     },
   };
@@ -180,6 +177,8 @@ export interface ContextBuilderOptions {
   base?: ContextBuilderPort;
   /** 阶段 5a：Inbox 注入 */
   inbox?: boolean;
+  /** 基础系统根提示词配置（包含工具使用指引与人设） */
+  baseSystemPrompt?: BaseSystemPromptOptions;
   /** 阶段 5b：Skill 清单（空数组或未提供=不注入） */
   skills?: SkillDescriptor[];
   /** 阶段 5b：压缩端口（未提供=透传） */
@@ -188,34 +187,52 @@ export interface ContextBuilderOptions {
 
 /**
  * 统一组合 ContextBuilder。
- * 嵌套顺序（外层先执行）：compaction → inbox → skills → base。
- * 汇总得到的目标顺序：system(skills) 前置 → inbox 追加消息 → 原始历史，
- * 符合 §7.1 Context 组装顺序（Skill/来源在前，inbox 作为追加输入在后）；
+ * 嵌套顺序（外层先执行）：compaction → inbox → skills → basePrompt → base。
+ * 汇总得到的目标顺序：system(base + skills) 前置 → inbox 追加消息 → 原始历史，
+ * 符合 §7.1 Context 组装顺序（根提示词与 Skill 在前，inbox 作为追加输入在后）；
  * 压缩 seam 对全部组装后消息执行。各层可选，缺省零行为倒退。
  */
 export function createComposedContextBuilder(
   options: ContextBuilderOptions = {},
 ): ContextBuilderPort {
-  const { base = defaultContextBuilder, inbox = false, skills = [], compaction = defaultCompactionPort } = options;
+  const {
+    base = defaultContextBuilder,
+    inbox = false,
+    baseSystemPrompt,
+    skills = [],
+    compaction = defaultCompactionPort,
+  } = options;
 
   let builder: ContextBuilderPort = base;
 
-  // 5b：Skill 渐进披露（内层：把 system 清单置于输入历史前）
+  // 1) 基础 System Prompt 注入（最内层，位于 skills 之前）
+  if (baseSystemPrompt) {
+    const promptText = buildBaseSystemPrompt(baseSystemPrompt);
+    const inner = builder;
+    builder = {
+      build(input) {
+        const msgs = input.messages;
+        const messages: PromptMessage[] = [{ role: "system", content: promptText }, ...msgs];
+        return inner.build({ ...input, messages });
+      },
+    };
+  }
+
+  // 2) 5b：Skill 渐进披露（追加在 Base Prompt 后面）
   if (skills.length > 0) {
     builder = createSkillAwareContextBuilder(skills, builder);
   }
 
-  // 5a：inbox 注入（外层：把 inbox 追加消息置于 skills system 之后、历史之前）
+  // 3) 5a：inbox 注入（把 inbox 追加消息置于 system 之后、历史之前）
   if (inbox) {
     builder = createInboxAwareContextBuilder(builder);
   }
 
-  // 5b：压缩 seam（最外层：对组装结果统一后处理）
+  // 4) 5b：压缩 seam（最外层：对组装结果统一后处理）
   if (compaction !== defaultCompactionPort) {
     const inner = builder;
     builder = {
       build(input) {
-        // inner.build 可能为异步（多层包装后）；统一 Promise 化后执行压缩
         return Promise.resolve(inner.build(input)).then(async (ctx) => {
           const { messages } = await compaction.compact({
             turnId: ctx.turnId,

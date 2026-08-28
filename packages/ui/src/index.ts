@@ -2,6 +2,7 @@
 export { default as PetHero } from './components/PetHero.vue';
 export { default as SpritePet } from './components/SpritePet.vue';
 export { default as MessageBubble } from './components/MessageBubble.vue';
+export { default as UserQuestionComposer } from './components/UserQuestionComposer.vue';
 export { default as AervoxWorkbench } from './components/AervoxWorkbench.vue';
 export { default as PluginManagerPanel } from './components/plugin/PluginManagerPanel.vue';
 export { default as PluginConfigDialog } from './components/plugin/PluginConfigDialog.vue';

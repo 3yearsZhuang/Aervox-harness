@@ -20,6 +20,7 @@ import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
 import { buildLoopProvider } from "./agent-executor.js";
 import { registerConversationRoutes } from "./routes.js";
+import { UserQuestionCoordinator } from "./user-question-coordinator.js";
 
 export interface RegisterConversationModuleOptions {
   /** Agent Loop 只读工具提供者（阶段 2d，可选） */
@@ -41,6 +42,7 @@ export function registerConversationModule(
   const subagentRunRepo = new SqliteSubagentRunRepository(db);
   // 阶段 7：ModelRun/ContextManifest 落库口（Step 级可追溯写入）
   const platformRepo = new SqlitePlatformRepository(db);
+  const userQuestionCoordinator = new UserQuestionCoordinator(conversationRepo);
   registerConversationRoutes(app, conversationRepo, {
     toolRuntime: options.toolRuntime,
     llmConfigService: options.llmConfigService,
@@ -64,5 +66,6 @@ export function registerConversationModule(
     subagentRunRepo,
     workflows: options.workflows,
     platformRepo,
+    userQuestionCoordinator,
   });
 }

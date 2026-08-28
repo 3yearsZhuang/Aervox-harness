@@ -190,7 +190,9 @@
               "done",
               "error",
               "redacted",
-              "emote"
+              "emote",
+              "user_question_required",
+              "user_question_answered"
             ]
           },
           "payloadVersion": {
@@ -4338,7 +4340,9 @@
                         "done",
                         "error",
                         "redacted",
-                        "emote"
+                        "emote",
+                        "user_question_required",
+                        "user_question_answered"
                       ]
                     },
                     "payloadVersion": {
@@ -4421,6 +4425,125 @@
           },
           "404": {
             "description": "TURN_NOT_FOUND"
+          }
+        }
+      }
+    },
+    "/v1/turns/{turnId}/questions/answers": {
+      "post": {
+        "summary": "提交向用户询问的回答（UQ-01）",
+        "tags": [
+          "Turn"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "turnId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "answers": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "selected": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "default": []
+                        },
+                        "custom": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id"
+                      ]
+                    },
+                    "minItems": 1
+                  }
+                },
+                "required": [
+                  "answers"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Answers accepted and resumed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "turnId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "accepted": {
+                      "type": "boolean"
+                    },
+                    "answers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "selected": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "default": []
+                          },
+                          "custom": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "turnId",
+                    "accepted",
+                    "answers"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid answers request"
+          },
+          "404": {
+            "description": "TURN_NOT_FOUND or no pending question"
+          },
+          "409": {
+            "description": "Question already answered or turn finalized"
           }
         }
       }
