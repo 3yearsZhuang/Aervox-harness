@@ -60,6 +60,13 @@ export interface PracticeReportDto {
   incorrectCount: number;
   unverifiableCount: number;
   accuracy: number | null;
+  avgTimeSpentSec: number | null;
+  totalHintsUsed: number;
+  guidance: {
+    difficulty: 'ease' | 'maintain' | 'increase';
+    reasonCode: 'insufficient_judged_answers' | 'low_accuracy' | 'high_accuracy_fast_no_hints' | 'steady_progress';
+    message: string;
+  };
   nextStep: 'continue' | 'review_scheduled' | 'await_review';
 }
 
@@ -182,8 +189,8 @@ export function useAervoxApi() {
   const startPracticeSession = async (count = 3): Promise<PracticeSessionDto> =>
     transport.request('POST', '/v1/practice/sessions', { count });
 
-  const submitPracticeAnswer = async (sessionId: string, questionId: string, answer: string, idempotencyKey: string): Promise<{ judgement: string; nextStep: string }> =>
-    transport.request('POST', `/v1/questions/${encodeURIComponent(questionId)}/attempts`, { sessionId, answer, timeZone }, {
+  const submitPracticeAnswer = async (sessionId: string, questionId: string, answer: string, idempotencyKey: string, elapsedSeconds?: number, hintsUsed?: number): Promise<{ judgement: string; nextStep: string }> =>
+    transport.request('POST', `/v1/questions/${encodeURIComponent(questionId)}/attempts`, { sessionId, answer, timeZone, elapsedSeconds, hintsUsed }, {
       headers: { 'Idempotency-Key': idempotencyKey },
     });
 
