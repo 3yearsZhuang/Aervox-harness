@@ -1,7 +1,7 @@
 # CR-016 离线语音输入（SenseVoice/Whisper 双模式 + 句子级断句 + 键盘自停）
 
 - 提出人：Antigravity · 2026-08-28
-- 修改人：KashiwagiEri233 · 2026-08-28
+- 修改人：3yearszhuang · 2026-08-28
 
 > 文档编号：CR-016
 > 类型：Reference
@@ -32,3 +32,23 @@
 - 测试、埋点和验收影响：`packages/database/test/voice-config.test.ts`、`apps/api/test/voice-config.test.ts`、`packages/api-client/test/voice-input.test.ts`。
 - 决策：Implemented
 - 更新的文档和测试：`docs/DOC_REGISTRY.md`、`docs/README.md`、`docs/reference/REQUIREMENTS_TRACEABILITY.md`（§4.2 落地登记）
+
+---
+
+## 核查记录（2026-08-28）：全库「吞错误」专项排查
+
+PR #53 合入后补充了一次全库代码审查，排查「把真实错误吞成成功响应（`catch → 200`）、或将错误文案当正常业务数据返回」的同类问题。
+
+- **结论**：无其他同类问题。此前唯一实例为 `POST /v1/voice/transcribe`（catch 内返回 200 并将错误提示作为 `text` 插入输入框），已在 PR #57 整改为真实错误返回 `503 / VOICE_INPUT_PROVIDER_UNAVAILABLE`。
+- **已核查并判为正确**：
+  - API 路由（llm / persona / skills / voice / learning）：catch 均映射为 4xx/5xx 或 rethrow，不吞错误；
+  - Worker（outbox / deletion / diary）：catch 走 Outbox/dead-letter 或状态置 `failed`，属标准异步错误处理；
+  - `packages/agent-loop`：工具错误以 `ok:false + error` 结果模型返回（符合 ADR 契约），流解析失败仅跳过该块；
+  - `packages/api-client` 列表加载失败返回 `[]` 属非关键数据静默降级，不改变 HTTP 语义。
+- **验证**：`mise tasks run ci-code` + `ci-docs` 通过；PR #57 已合入 main。
+
+## 安全整改记录（2026-08-28，PR #57）
+
+- `POST /v1/voice/transcribe`：真实错误改返 `503 / VOICE_INPUT_PROVIDER_UNAVAILABLE`，不再吞成 200 文案插入输入框（OpenAPI 已声明 503 响应）；
+- SenseVoice：模型未就绪/加载失败改为抛错由路由 503，降级提示不再污染输入框；
+- `setVoiceInputConfig`：`whisper-compatible` 的 endpoint 保存时校验为合法 http(s) URL（对齐 LLM baseUrl `new URL` 校验先例）。

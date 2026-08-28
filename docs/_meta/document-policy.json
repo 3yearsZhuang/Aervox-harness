@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "policyId": "AVX-DOC-GOV-001",
+  "registryPath": "docs/DOC_REGISTRY.md",
+  "defaultReviewIntervalDays": 90,
+  "requiredFrontMatterFields": [
+    "id",
+    "type",
+    "scope",
+    "owner",
+    "doc_status",
+    "version",
+    "updated_at",
+    "reviewed_at"
+  ],
+  "directories": {
+    "tutorials": {
+      "type": "tutorial",
+      "answers": "如何从起点完成一次可验证学习路径"
+    },
+    "how-to": {
+      "type": "how-to",
+      "answers": "如何完成一个具体维护或开发任务"
+    },
+    "explanation": {
+      "type": "explanation",
+      "answers": "为什么这样设计，以及系统如何运作"
+    },
+    "reference": {
+      "type": "reference",
+      "answers": "准确的契约、状态、规则和清单是什么"
+    },
+    "templates": {
+      "type": "template",
+      "answers": "新文档的最小结构是什么"
+    }
+  },
+  "documentStatus": [
+    "draft",
+    "review-candidate",
+    "approved",
+    "superseded",
+    "retired"
+  ],
+  "decisionStatus": [
+    "proposed",
+    "accepted",
+    "rejected",
+    "deferred",
+    "more-evidence-required",
+    "not-applicable"
+  ],
+  "deliveryStatus": [
+    "planned",
+    "implemented",
+    "verified",
+    "released",
+    "not-applicable"
+  ],
+  "sourceKinds": [
+    "native",
+    "T-*",
+    "AST-*",
+    "PET-*",
+    "DSH-01",
+    "PI-01",
+    "Skill",
+    "CR-*",
+    "ADR-*"
+  ],
+  "derivedViews": {
+    "currentMode": "manual",
+    "plannedCatalog": "docs/_meta/document-catalog.json",
+    "views": [
+      "docs/README.md",
+      "docs/DOC_REGISTRY.md",
+      "docs/reference/adr/README.md"
+    ]
+  },
+  "canonicalSources": {
+    "product": [
+      "docs/reference/PRD.md"
+    ],
+    "requirements": [
+      "docs/reference/SRS.md",
+      "docs/reference/REQUIREMENTS_TRACEABILITY.md"
+    ],
+    "architecture": [
+      "docs/reference/ARCHITECTURE.md",
+      "docs/reference/adr/"
+    ],
+    "contracts": [
+      "packages/contracts/",
+      "docs/reference/STREAMING_PROTOCOL.md"
+    ],
+    "database": [
+      "packages/database/",
+      "docs/reference/DATABASE.md"
+    ],
+    "changeDeltas": [
+      "docs/reference/changes/"
+    ],
+    "documentGovernance": [
+      "docs/reference/document-governance.md",
+      "docs/_meta/document-policy.json"
+    ],
+    "documentLifecycle": [
+      "docs/DOC_REGISTRY.md"
+    ]
+  },
+  "reviewTriggers": {
+    "product": [
+      "docs/reference/PRD.md",
+      "release scope, CAP, priority, or stage changes"
+    ],
+    "requirements": [
+      "docs/reference/SRS.md",
+      "docs/reference/REQUIREMENTS_TRACEABILITY.md",
+      "AC, TC, DoR, or DoD status changes"
+    ],
+    "architecture": [
+      "apps/**/src/**",
+      "packages/*/package.json",
+      "pnpm-workspace.yaml",
+      "docs/reference/adr/**",
+      "docs/reference/changes/**"
+    ],
+    "contracts": [
+      "packages/contracts/**",
+      "packages/api-client/**",
+      "docs/reference/STREAMING_PROTOCOL.md"
+    ],
+    "database": [
+      "packages/database/**",
+      "docs/reference/DATABASE.md"
+    ],
+    "agentLoop": [
+      "packages/agent-loop/**",
+      "apps/api/src/modules/conversation/**",
+      "docs/reference/agent-harness-loop.md"
+    ],
+    "extensions": [
+      "modules/**",
+      "apps/api/src/modules/plugins/**",
+      "apps/api/src/modules/skills/**",
+      "docs/reference/capability-*.md"
+    ],
+    "operations": [
+      "apps/worker/**",
+      "deployment, backup, recovery, or observability changes"
+    ]
+  },
+  "migration": {
+    "mode": "compatibility",
+    "legacyMetadataAllowed": true,
+    "canonicalFormat": "yaml-front-matter",
+    "strictModeEnvironment": "DOCS_GOVERNANCE_STRICT=1",
+    "note": "Legacy blockquote and ADR/CR bullet metadata remain readable during migration. New documents use the canonical front matter schema."
+  }
+}

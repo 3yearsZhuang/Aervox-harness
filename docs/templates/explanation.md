@@ -1,14 +1,25 @@
+---
+id: AVX-EXPL-###
+type: explanation
+scope: baseline
+owner: <team-role>
+doc_status: draft
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 0.1.0
+updated_at: YYYY-MM-DD
+reviewed_at: YYYY-MM-DD
+review_interval_days: 90
+review_triggers:
+  - <path-or-event>
+sources:
+  - <canonical-source-path>
+---
+
 # <概念>如何运作（Explanation 模板）
 
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
-
-> 文档编号：AVX-EXPL-###
-> 类型：Explanation
-> 版本：v0.1
-> 更新日期：YYYY-MM-DD
-> 状态：Draft
-> 关联：<对应 Reference 文档链接>
+- 提出人：<账号> · YYYY-MM-DD
+- 修改人：<账号> · YYYY-MM-DD
 
 本文讲解"<概念>为什么这样设计、如何运转"。不重复 Reference 细节（字段、命令、接口），只讲因果与权衡；需要事实时引用对应契约。
 

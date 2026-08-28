@@ -156,3 +156,78 @@ describe("3b-A 租约 TTL 与续租", () => {
     expect(attempt?.fencingToken).toBe(2); // claim(1) + recovery(+1)
   });
 });
+
+describe("2b 取消请求位（CancelRequested）", () => {
+  let db: AervoxDatabase;
+  let client: Client;
+  let repo: SqliteConversationRepository;
+
+  beforeEach(async () => {
+    const res = await createInMemoryDatabase();
+    db = res.db;
+    client = res.client;
+    await initDatabaseSchema(client);
+    repo = new SqliteConversationRepository(db);
+    await repo.getOrCreateSession(tenant, "ses_cancel", "取消测试");
+    await repo.createTurnWithOutbox(
+      tenant,
+      { id: "turn_cancel", sessionId: "ses_cancel", idempotencyKey: "idem_cancel", status: "Created" },
+      { id: "msg_cancel", content: "x" },
+      { id: "ob_cancel", eventType: "turn.created", idempotencyKey: "idem_ob_cancel", payload: { turnId: "turn_cancel", sessionId: "ses_cancel" } },
+    );
+    await repo.createTurnAttempt(tenant, "turn_cancel", { id: "atp_cancel", attempt: 1 });
+  });
+
+  it("Running attempt 可置取消请求位，turns 同步 Cancelled（未终态）", async () => {
+    const res = await repo.requestCancelTurnAttempt(tenant, { turnId: "turn_cancel", attemptId: "atp_cancel" });
+    expect(res.ok).toBe(true);
+    expect(await repo.getTurnAttemptStatus(tenant, { turnId: "turn_cancel", attemptId: "atp_cancel" })).toBe("CancelRequested");
+    const [attempt] = await repo.listTurnAttempts(tenant, "turn_cancel");
+    expect(attempt?.status).toBe("CancelRequested");
+  });
+
+  it("已终态拒绝取消：finalize Completed 后返回 already_finalized，不覆盖", async () => {
+    await repo.claimTurnAttempt(tenant, {
+      turnId: "turn_cancel",
+      attemptId: "atp_cancel",
+      expectedFencingToken: 0,
+      leaseId: "lease_c1",
+      ttlMs: 60_000,
+    });
+    await repo.finalizeTurnAttempt(tenant, {
+      turnId: "turn_cancel",
+      attemptId: "atp_cancel",
+      status: "Completed",
+      expectedFencingToken: 1,
+    });
+    const res = await repo.requestCancelTurnAttempt(tenant, { turnId: "turn_cancel", attemptId: "atp_cancel" });
+    expect(res).toEqual({ ok: false, reason: "already_finalized" });
+    expect(await repo.getTurnAttemptStatus(tenant, { turnId: "turn_cancel", attemptId: "atp_cancel" })).toBe("Completed");
+  });
+
+  it("CancelRequested 可提交终态（Cancelled），且单一终态仍成立", async () => {
+    await repo.requestCancelTurnAttempt(tenant, { turnId: "turn_cancel", attemptId: "atp_cancel" });
+    const finalized = await repo.finalizeTurnAttempt(tenant, {
+      turnId: "turn_cancel",
+      attemptId: "atp_cancel",
+      status: "Cancelled",
+      expectedFencingToken: 0,
+    });
+    expect(finalized).not.toBeNull();
+    // 已终态：二次提交被拒
+    const second = await repo.finalizeTurnAttempt(tenant, {
+      turnId: "turn_cancel",
+      attemptId: "atp_cancel",
+      status: "Failed",
+      expectedFencingToken: 0,
+    });
+    expect(second).toBeNull();
+    expect(await repo.getTurnAttemptStatus(tenant, { turnId: "turn_cancel", attemptId: "atp_cancel" })).toBe("Cancelled");
+  });
+
+  it("未知 attempt 返回 not_found（查询状态为 null）", async () => {
+    const res = await repo.requestCancelTurnAttempt(tenant, { turnId: "turn_cancel", attemptId: "atp_missing" });
+    expect(res).toEqual({ ok: false, reason: "not_found" });
+    expect(await repo.getTurnAttemptStatus(tenant, { turnId: "turn_cancel", attemptId: "atp_missing" })).toBeNull();
+  });
+});

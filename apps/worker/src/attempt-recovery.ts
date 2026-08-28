@@ -19,7 +19,9 @@ export async function runAttemptRecoveryCycle(opts: {
   const repo = new SqliteConversationRepository(opts.db);
   const recovered = await repo.recoverExpiredAttempts(opts.client);
   if (recovered > 0) {
-    console.log(`[worker:${opts.workerId}] turn_attempt_recovery=${recovered}`);
+    // 2c：释放后遗留 pending 预留结果不可知（§11.3 unknown outcome，不自动重放）
+    const unknown = await repo.markPendingOutcomeUnknown(opts.client);
+    console.log(`[worker:${opts.workerId}] turn_attempt_recovery=${recovered} tool_outcome_unknown=${unknown}`);
   }
   return recovered;
 }
