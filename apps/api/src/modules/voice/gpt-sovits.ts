@@ -12,7 +12,7 @@ import type {
   VoiceSynthesisRequest,
 } from "./types.js";
 
-function validateLocalPath(
+export function validateLocalPath(
   modelPath: string | undefined,
   allowedRoots: readonly string[],
 ): string | undefined {
@@ -39,7 +39,42 @@ export class GptSovitsLocalProvider implements VoiceProviderPort {
       speakerIds?: string[];
       allowedRoots: string[];
     },
-  ) {}
+  ) {
+    // 快照最初（env）配置，作为未持久化配置时的缺省默认值；
+    // reconfigure 只改运行时生效值，不影响此后缺省回退。
+    this.defaults = { modelPath: config.modelPath, modelId: config.modelId };
+  }
+
+  private readonly defaults: { modelPath?: string; modelId: string };
+
+  /** 已配置的本地模型路径白名单（供配置路由校验 modelPath） */
+  get allowedRoots(): readonly string[] {
+    return this.config.allowedRoots;
+  }
+
+  get configuredModelPath(): string | undefined {
+    return this.config.modelPath;
+  }
+
+  get configuredModelId(): string {
+    return this.config.modelId;
+  }
+
+  /** 最初（env）默认模型路径，用作未持久化配置时的缺省 */
+  get defaultModelPath(): string | undefined {
+    return this.defaults.modelPath;
+  }
+
+  /** 最初（env）默认模型 ID */
+  get defaultModelId(): string {
+    return this.defaults.modelId;
+  }
+
+  /** 保存本地语音配置后，同步更新本地 provider 的生效配置 */
+  reconfigure(update: { modelPath?: string; modelId?: string }): void {
+    if (update.modelPath !== undefined) this.config.modelPath = update.modelPath;
+    if (update.modelId !== undefined) this.config.modelId = update.modelId;
+  }
 
   async listModels(): Promise<VoiceModel[]> {
     const error = validateLocalPath(this.config.modelPath, this.config.allowedRoots);

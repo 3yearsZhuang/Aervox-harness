@@ -64,11 +64,9 @@
 
 ## 已注册独立模块
 
-| 模块 | workspace 包 | Git submodule | 启用方式 | 关联能力/ADR |
-|---|---|---|---|---|
-| `persona-plugin` | `@aervox/mod-persona` | `modules/persona-plugin` → `https://github.com/KashiwagiEri233/aervox-persona-plugin-module.git` | 双 | `CAP-019/020`、`CR-004`、`ADR-014` |
+> 当前无。原 `persona-plugin`（`@aervox/mod-persona`）已于 2026-08-28 随 Persona 系统级去模块化收尾移除子模块（`CAP-019/020` 实现主仓化，见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)）。
 
-模块仓库是可执行代码的唯一事实源；主仓只保留契约、数据库仓储与 API 集成，不在 `packages/*` 保留平行实现（见[能力组合规范 · 交付载体与自选机制](capability-composition.md#交付载体与自选机制必选)）。
+模块仓库是可执行代码的唯一事实源；主仓只保留契约、数据库仓储与 API 集成，不在 `packages/*` 保留平行实现（见[能力组合规范 · 交付载体与自选机制](capability-composition.md#交付载体与自选机制必选)）。将来新建独立模块须经 `CR-*` 登记后在此入表。
 
 ## 维护规则
 

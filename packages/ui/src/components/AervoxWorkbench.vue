@@ -3,6 +3,7 @@ import {computed, nextTick, onMounted, onUnmounted, ref} from 'vue'
 import {
   Bell,
   BookOpen,
+  Bot,
   Check,
   ChevronDown,
   ChevronUp,
@@ -24,6 +25,7 @@ import {
   Settings,
   Sparkles,
   Sun,
+  Volume2,
   TimerReset,
   X,
 } from 'lucide-vue-next'
@@ -32,6 +34,8 @@ import PetHero from './PetHero.vue'
 import PluginManagerPanel from './plugin/PluginManagerPanel.vue'
 import Live2DPet from './Live2DPet.vue'
 import PersonaManagerPanel from './persona/PersonaManagerPanel.vue'
+import LocalVoiceConfigPanel from './voice/LocalVoiceConfigPanel.vue'
+import LLMConfigPanel from './llm/LLMConfigPanel.vue'
 
 type Platform = 'desktop' | 'web'
 type Speaker = 'assistant' | 'user'
@@ -60,7 +64,7 @@ const todoOpen = ref(false)
 const timerOpen = ref(false)
 const studyOpen = ref(false)
 const settingsOpen = ref(false)
-const settingsCategory = ref<'appearance' | 'conversation' | 'persona' | 'focus' | 'notifications' | 'plugins'>('appearance')
+const settingsCategory = ref<'appearance' | 'conversation' | 'model' | 'persona' | 'focus' | 'notifications' | 'voice' | 'plugins'>('appearance')
 const newGoalTopic = ref('')
 const newGoalLevel = ref<'beginner' | 'intermediate' | 'advanced'>('beginner')
 const newGoalMinutes = ref(25)
@@ -131,9 +135,11 @@ const formattedTime = computed(() => {
 const settingCategories = [
   {id: 'appearance', label: '外观', description: '主题与界面密度', icon: Sun},
   {id: 'conversation', label: '对话', description: '称呼与输入方式', icon: MessageCircle},
+  {id: 'model', label: '模型与服务', description: '大语言模型与供应商配置', icon: Bot},
   {id: 'persona', label: '人格设定', description: '管理人格角色设定', icon: Heart},
   {id: 'focus', label: '专注', description: '番茄钟工作时长', icon: Clock3},
   {id: 'notifications', label: '提醒', description: '学习节奏与通知', icon: Bell},
+  {id: 'voice', label: '语音', description: '本地语音模型配置', icon: Volume2},
   {id: 'plugins', label: '插件', description: '插件配置与页面', icon: Puzzle},
 ] as const
 const workbenchState = computed(() => {
@@ -902,6 +908,7 @@ onUnmounted(() => {
             <label class="settings-field"><span><strong>助手称呼</strong><small>工作台中显示的名字</small></span><input v-model="assistantDisplayName" maxlength="12" @change="saveSettings" /></label>
             <label class="settings-row settings-choice-row"><span><strong>回车发送</strong><small>关闭后，回车只换行</small></span><input v-model="enterToSend" type="checkbox" class="settings-switch" @change="saveSettings" /></label>
           </div>
+          <LLMConfigPanel v-else-if="settingsCategory === 'model'" class="settings-section" />
           <PersonaManagerPanel v-else-if="settingsCategory === 'persona'" class="settings-section" />
           <div v-else-if="settingsCategory === 'focus'" class="settings-section">
             <div class="settings-section-heading">
@@ -918,6 +925,7 @@ onUnmounted(() => {
             <label class="settings-row settings-choice-row"><span><strong>学习提醒</strong><small>允许工作台显示复习和目标提醒</small></span><input v-model="dailyReminder" type="checkbox" class="settings-switch" @change="saveSettings" /></label>
             <div class="settings-note"><Check :size="16" />设置会自动保存在当前设备</div>
           </div>
+          <LocalVoiceConfigPanel v-else-if="settingsCategory === 'voice'" class="settings-section" />
           <PluginManagerPanel v-else class="settings-section" />
         </section>
       </div>

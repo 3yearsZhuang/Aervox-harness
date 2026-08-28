@@ -50,6 +50,8 @@ import {
   exportSkillsRequestSchema,
   importPersonaRequestSchema,
   importSkillsRequestSchema,
+  localVoiceConfigResponseSchema,
+  localVoiceConfigSchema,
   mcpToolSchema,
   personaBundleResponseSchema,
   personaRevisionSchema,
@@ -90,6 +92,13 @@ import {
   reviewSummaryResponseSchema,
 } from "./practice-schemas.js";
 
+import {
+  llmConfigResponseSchema,
+  llmConfigSchema,
+  llmTestConnectionRequestSchema,
+  llmTestConnectionResponseSchema,
+} from "./llm-schemas.js";
+
 const registry = new OpenAPIRegistry();
 
 registry.register("CreateLearningGoal", createLearningGoalSchema);
@@ -124,6 +133,8 @@ registry.register("McpTool", mcpToolSchema);
 registry.register("VoiceModel", voiceModelSchema);
 registry.register("VoiceSynthesisRequest", voiceSynthesisRequestSchema);
 registry.register("VoiceSynthesisResponse", voiceSynthesisResponseSchema);
+registry.register("LocalVoiceConfig", localVoiceConfigSchema);
+registry.register("LocalVoiceConfigResponse", localVoiceConfigResponseSchema);
 registry.register("PersonaBundleResponse", personaBundleResponseSchema);
 registry.register("SkillZipResponse", skillZipResponseSchema);
 registry.register("SkillMetadata", skillMetadataSchema);
@@ -160,6 +171,11 @@ registry.register("ReviewListResponse", reviewListResponseSchema);
 registry.register("ReviewSummaryResponse", reviewSummaryResponseSchema);
 registry.register("CompleteReviewRequest", completeReviewRequestSchema);
 registry.register("CompleteReviewResponse", completeReviewResponseSchema);
+
+registry.register("LLMConfig", llmConfigSchema);
+registry.register("LLMConfigResponse", llmConfigResponseSchema);
+registry.register("LLMTestConnectionRequest", llmTestConnectionRequestSchema);
+registry.register("LLMTestConnectionResponse", llmTestConnectionResponseSchema);
 
 const sessionIdParam = z.object({ sessionId: z.string().min(1) });
 const turnIdParam = z.object({ turnId: z.string().min(1) });
@@ -362,6 +378,12 @@ registry.registerPath({ method: "delete", path: "/v1/skills/{skillName}", summar
 registry.registerPath({ method: "get", path: "/v1/mcp/tools", summary: "列出 MCP 工具", tags: ["MCP"], request: { headers: scopeHeaders }, responses: { 200: { description: "MCP tools", content: { "application/json": { schema: z.object({ tools: z.array(mcpToolSchema) }) } } } } });
 registry.registerPath({ method: "get", path: "/v1/voice/models", summary: "列出 GPT-SoVITS 模型", tags: ["Voice"], responses: { 200: { description: "Voice models", content: { "application/json": { schema: z.object({ models: z.array(voiceModelSchema) }) } } } } });
 registry.registerPath({ method: "post", path: "/v1/voice/synthesize", summary: "GPT-SoVITS 语音合成", tags: ["Voice"], request: { body: { content: { "application/json": { schema: voiceSynthesisRequestSchema } } } }, responses: { 200: { description: "Audio artifact", content: { "application/json": { schema: voiceSynthesisResponseSchema } } }, 503: { description: "VOICE_PROVIDER_UNAVAILABLE" } } });
+registry.registerPath({ method: "get", path: "/v1/voice/config", summary: "读取本地语音模型配置", tags: ["Voice"], request: { headers: scopeHeaders }, responses: { 200: { description: "Local voice config", content: { "application/json": { schema: localVoiceConfigResponseSchema } } } } });
+registry.registerPath({ method: "put", path: "/v1/voice/config", summary: "保存本地语音模型配置", tags: ["Voice"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: localVoiceConfigSchema } } } }, responses: { 200: { description: "Local voice config", content: { "application/json": { schema: localVoiceConfigResponseSchema } } }, 400: { description: "INVALID_VOICE_CONFIG / modelPath 不在白名单" }, 503: { description: "VOICE_PROVIDER_UNAVAILABLE" } } });
+
+registry.registerPath({ method: "get", path: "/v1/llm/config", summary: "读取大语言模型与供应商配置", tags: ["LLM"], request: { headers: scopeHeaders }, responses: { 200: { description: "LLM config", content: { "application/json": { schema: llmConfigResponseSchema } } } } });
+registry.registerPath({ method: "put", path: "/v1/llm/config", summary: "保存大语言模型与供应商配置", tags: ["LLM"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: llmConfigSchema } } } }, responses: { 200: { description: "LLM config", content: { "application/json": { schema: llmConfigResponseSchema } } }, 400: { description: "INVALID_LLM_CONFIG" } } });
+registry.registerPath({ method: "post", path: "/v1/llm/test-connection", summary: "测试大模型供应商连通性", tags: ["LLM"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: llmTestConnectionRequestSchema } } } }, responses: { 200: { description: "Test connection result", content: { "application/json": { schema: llmTestConnectionResponseSchema } } }, 400: { description: "INVALID_REQUEST" } } });
 
 const pluginIdParam = z.object({ pluginId: z.string().min(1) });
 const pluginPageParam = pluginIdParam.extend({ pageId: z.string().min(1) });

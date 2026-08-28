@@ -1,7 +1,7 @@
 # Aervox｜思隅 产品与工程文档索引
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：kikoyida · 2026-08-28
+- 修改人：3yearszhuang · 2026-08-28
 
 > 文档编号：AVX-DOC-001  
 > 版本：v0.7
@@ -63,6 +63,10 @@
 Agent 执行核心的目标基线见 [CR-012：Agent Harness Loop](reference/changes/CR-012-agent-harness-loop.md) 与 [AVX-HAR-001](reference/agent-harness-loop.md)：当前固定 `done` SSE 将分阶段迁移为可恢复的模型—工具—模型多 Step 循环，外部 DSH/pi 仍只作为可选 Loop Driver 或受限 Contribution。
 
 练习中断恢复边界见 [CR-013：活跃练习会话恢复与续答](reference/changes/CR-013-practice-session-recovery.md)：重开学习界面会恢复同一题组快照和首个未答题，重复启动不会创建第二个活跃会话。
+
+系统语音输出的本地模型配置见 [CR-014：WebUI 语音输出配置](reference/changes/CR-014-voice-config-webui.md)：设置「语音」分类读写本地 `gpt-sovits-local` 模型（模型路径、音色支持手输，桌面端也可经系统「选择文件夹」获得，`modelPath` 受服务端 `allowedRoots` 白名单校验），持久化到 `voice_configs` 表并按租户隔离；人格编辑弹窗新增「语音」能力块，选择 provider/模型/音色并试听，写入 `PersonaRevisionConfig.voice`。
+
+大语言模型供应商配置见 [CR-015：WebUI 模型与服务](reference/changes/CR-015-llm-provider-config-webui.md)：设置「模型与服务」分类持久化 LLM 供应商端点/密钥引用/模型名并支持连通性测试，按租户隔离存储。
 
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
 
