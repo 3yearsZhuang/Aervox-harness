@@ -1,7 +1,7 @@
 # ADR-010 DSH/pi 仅为可选适配器
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-28
 
 - 状态：Proposed（P2 前必须 Accepted）
 - 日期：2026-08-23
@@ -51,3 +51,12 @@
 - 固定 SHA 复核与版本升级回归（`TC-CONTRACT-STREAM-001`）；
 - 画布/内容分离、权限撤销与插件越权测试（`TC-SEC-PLUG-001`）；
 - 无适配器核心流程与删除传播测试（`TC-PRIV-DEL-001`）。
+
+## 实施进展（2026-08-28，阶段 6：契约面 + 模拟器）
+
+状态仍为 `Proposed`（真实 DSH/pi 运行时未接入，P2 前完成 Accepted 验收）。已按本 ADR 冻结的约束落地契约面与可机器验证的骨架（AVX-HAR-001 §16.18 全量清单）：
+
+- **进程外 Adapter 契约**（`@aervox/agent-loop`）：`AdapterDriverPort`/`AdapterManifest`/`AdapterWireMessage`（JSON 行协议）、纯函数 `concludeAdapterBatch`（上游 any/every 批次收紧为 `all-results-conclude`，混合批次一律拒绝不静默放行）与 `verifyAdapterManifest`（固定 SHA + 许可证白名单 [MIT/Apache/BSD]，AGPL 等拒绝）；
+- **子进程 stdio 端口**（`@aervox/host-agent`）：握手（hello → 准入复核）→ 逐 Turn 请求-事件 ping-pong；每 Turn 总超时、kill switch、失败自动禁用（后续 `adapter_unavailable`）；
+- **Profile 准入**：`LoopDriverId` 扩 `dsh`/`pi`，未提供已准入 Adapter 时拒绝解析（不安装也完整可用）；adapterId 与 driver 失配拒绝；
+- **模拟器**：`createSimAdapterDriver`（dsh-any / pi-every）与 fixture 子进程双实现；`TC-CONTRACT-STREAM-001`（固定 SHA 复核）、`TC-SEC-PLUG-001`（许可证白名单拒绝）与 `TC-PRIV-DEL-001`（缺省 native/replay 完整可用）均有对应测试骨架。

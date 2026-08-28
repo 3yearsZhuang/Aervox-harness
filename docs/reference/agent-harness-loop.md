@@ -554,7 +554,7 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - Context compaction seam（已落地 5b：`ContextCompactionPort` + 规则式摘要 `createSummaryCompaction` + composer 集成，宿主持有可注入 LLM 摘要）；
 - Skill 渐进式披露接入 ContextBuilder（已落地 5b：`buildSkillsPrompt` 迁入 agent-loop + `createSkillAwareContextBuilder`，API 对话默认注入 activeOnly 技能清单）；
 - Subagent/Workflow 通过独立 Tool/Provider Contribution 接入（已落地 5c：`SubagentPort` + `composeToolProviders` + `createSubagentToolProvider`（subagent.delegate 写类走既有审批）+ `createWorkflowToolProvider`（TS 步骤定义 workflow.run）；子任务独立 turn/attempt 落库 `subagent_runs`，隔离上下文+递归防护，审计端点 `GET /v1/turns/:id/subagents` + 注册清单 `GET /v1/workflows`）；
-- DSH/pi Adapter 进行兼容、许可证和安全验证（仍属规划）。
+- DSH/pi Adapter 进行兼容、许可证和安全验证（阶段 6 已落地契约面 + 模拟器：`AdapterDriverPort`/`AdapterManifest`/JSON 行 stdio 协议/`concludeAdapterBatch` 收紧/`verifyAdapterManifest` 准入 + fixture 子进程与内存模拟器双实现；真实运行时接入与 `Accepted` 验收仍待推进）。
 
 退出条件：高级能力均通过扩展点接入，不修改 Loop 核心控制流。（5a 已按此兑现：Inbox 注入经 `ContextBuilderPort` 扩展点 + 可选 `InboxPort`，未改动 Loop 状态机与事件流；`agent-loop-no-db` 健身函数持续机器验证。）
 
@@ -648,7 +648,7 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 | `agent-loop-sse` | `apps/api/test/conversation-loop.test.ts`（持久后发送/重连重放） | 已落地 |
 | `agent-loop-budget` | `packages/agent-loop/test/budget.test.ts`（step/turn-timeout/repeat-tool） | 已落地（token/费用预算待续） |
 | `agent-loop-deletion` | `apps/api/test/conversation-deletion.test.ts`（未追平 fail-closed）+ `budget.test.ts`（DeletionGate） | 已落地 |
-| `agent-loop-provider-parity` | `packages/agent-loop/test/provider-parity.test.ts`（终止语义表 + Native 基线 + 三方插槽 + 阶段 4 退出条件「driver 切换不改事件流契约骨架」） | 已落地（DSH/pi 适配器对照仍待进程外 Adapter 准入） |
+| `agent-loop-provider-parity` | `packages/agent-loop/test/provider-parity.test.ts`（终止语义表 + Native 基线 + 三方插槽 + 阶段 4 退出条件「driver 切换不改事件流契约骨架」）+ 阶段 6 `adapter-contract.test.ts`（any/every 收紧对照） | 已落地（DSH/pi 真实运行时对照待 Adapter 准入；收紧语义已机器验证） |
 
 ### 16.8 落地进展（阶段 2a：可观测性接口）
 
@@ -773,6 +773,20 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - **宿主执行器**（`packages/host-agent`）：`createSqliteSubagentPort`——子任务独立 turn/attempt 落库（复用 `createTurnWithOutbox`/`createTurnAttempt`，事件流在子 turn 下审计）→ 嵌套 `executeTurn`（子任务 Step 上限默认 4）→ delta 聚合正文 → run 行终态收口；隔离原则（子上下文仅 task，不注入父历史）+ 递归防护（childTools 含 delegate/workflow 即拒绝）＋崩溃/重试幂等复用。
 - **API 接线**（`apps/api`）：`buildLoopProvider` 提取（Leader 与子任务共用）；conversation 模块默认接线 `subagentFactory`（request 级 tenant 绑定）+ 可选 `workflows`（`buildApp` 透传）；工具组合 = compose(subagent/workflow 静态贡献, fallback=动态 runtime)；新端点 `GET /v1/turns/:turnId/subagents`（子任务审计，租户隔离）与 `GET /v1/workflows`（注册清单元数据）。
 - 测试：`@aervox/agent-loop` 90（新增 `subagent-contribution.test.ts` 13：compose 并集/重名/路由/fallback 兜底、subagent 委托透传/失败/非法输入/退化为空、workflow 顺序/失败定位/未注册/抛错）；`@aervox/database` 139（新增 `subagent-runs.test.ts` 5：创建幂等/终态收口/列表/租户隔离）；`@aervox/host-agent` 31（新增 `subagent-executor.test.ts` 4：端到端落库+正文聚合/幂等复用/递归防护/子任务失败）；`@aervox/api` 199（新增 `subagent-routes.test.ts` 4：workflows 清单/空清单退化/子任务审计租户隔离/workflow 贡献不破坏 Loop）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.18 落地进展（阶段 6：DSH/pi 进程外 Adapter 契约面 + 模拟器）
+
+2026-08-28 落地（对应 §13 阶段 5 末项与 ADR-010「DSH/pi 仅为可选适配器」；范围：契约面 + 模拟器，不接真实外部运行时——参考项目固定 commit 准入留给 P2 验收）：
+
+- **契约**（`packages/agent-loop/src/adapter-contract.ts`）：
+  - `AdapterDriverPort`（整 Turn 代理执行：request → delta/tool_request/tool_result/batch 事件流）与 `AdapterManifest`（adapterId/version/sha256/license/terminationPolicy）；
+  - `concludeAdapterBatch` 纯函数：上游 any/every 批次声明收紧为 Aervox `all-results-conclude`——全结论收敛、空批次按无结论、全不结论不收敛、**混合批次一律拒绝（mixed_batch）不静默放行 any**（reference-design-transfer §1.1 冻结语义机器验证）；
+  - `verifyAdapterManifest`：固定 SHA 复核（TC-CONTRACT-STREAM-001）+ 许可证白名单（MIT/Apache/BSD；AGPL 等拒绝，ADR-010）+ 策略白名单；
+  - `AdapterWireMessage` + `encodeAdapterLine`/`decodeAdapterLine`：JSON 行协议（子进程 stdio 与内存模拟器共用，shape 白名单校验）。
+- **模拟器**（`adapter-sim.ts`）：`createSimAdapterDriver`（dsh-any / pi-every 双实现）+ `drainAdapterDriver`（事件收集 + 收紧判定 + 未声明批次协议缺陷标记）。
+- **进程外端口**（`packages/host-agent/src/stdio-adapter.ts`）：`createStdioAdapterDriver`——spawn 子进程 → 握手（hello → 准入复核，失配 kill + `adapter_admission_failed`）→ 逐 Turn 请求-事件 ping-pong；单 Turn 总超时与握手超时；kill switch（close 幂等）；失败自动禁用（后续 run 抛 `adapter_unavailable`）。fixture：`test/fixtures/sim-adapter.mjs`（env 注入 manifest 与批次模式 all/none/mixed/none-value）。
+- **Profile 准入**（`profile.ts`）：`LoopDriverId` 扩 `dsh`/`pi`；未提供已准入 Adapter 时拒绝解析（ADR-010「不安装也完整可用」不回归）；adapterId 与 driver 失配拒绝（`driver_adapter_mismatch`）。
+- 测试：`@aervox/agent-loop` 105（新增 `adapter-contract.test.ts` 15：conclude 收紧矩阵/verifyAdapterManifest SHA·许可证·策略/decode 合法非法/sim 双实现 + drain 判定与协议缺陷）；`@aervox/host-agent` 41（新增 `stdio-adapter.test.ts` 10：握手准入/SHA 失配 kill/许可证拒绝/mixed 收紧/协议缺陷/超时禁用 + Profile dsh·pi 解析矩阵）；`@aervox/api` 201 无回归。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
 ## 17. 回滚策略
 
