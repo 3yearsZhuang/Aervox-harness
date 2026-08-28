@@ -4,8 +4,8 @@ type: reference
 scope: change
 owner: learning
 doc_status: review-candidate
-decision_status: implemented
-delivery_status: delivered
+decision_status: accepted
+delivery_status: implemented
 version: 0.1.0
 updated_at: 2026-08-28
 reviewed_at: 2026-08-28
