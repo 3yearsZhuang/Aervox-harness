@@ -788,15 +788,6 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - **Profile 准入**（`profile.ts`）：`LoopDriverId` 扩 `dsh`/`pi`；未提供已准入 Adapter 时拒绝解析（ADR-010「不安装也完整可用」不回归）；adapterId 与 driver 失配拒绝（`driver_adapter_mismatch`）。
 - **测试**：`@aervox/agent-loop` 105（新增 `adapter-contract.test.ts` 15：conclude 收紧矩阵/verifyAdapterManifest SHA·许可证·策略/decode 合法非法/sim 双实现 + drain 判定与协议缺陷）；`@aervox/host-agent` 41（新增 `stdio-adapter.test.ts` 10：握手准入/SHA 失配 kill/许可证拒绝/mixed 收紧/协议缺陷/超时禁用 + Profile dsh·pi 解析矩阵）；`@aervox/api` 201 无回归。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
-### 16.20 落地进展（阶段 7：ContextManifest 写入 + ModelRun Step 级关联，ADR-017 迁移面）
-
-2026-08-28 落地（对应 ADR-017 的 `model_runs`/`context_manifests` 关联冻结与 §16.14 原「阶段 7」项）：
-
-- **Expand 迁移**（`packages/database`）：`model_runs` 新增 `attempt_id`/`step_id`（PRAGMA 检查 + ADD COLUMN 幂等，不回填==空，多跑幂等）；`context_manifests` 新增 `snapshot_json`（每 Turn 上下文快照）；Drizzle schema 同步 + `model_runs_tenant_attempt_idx` 索引。
-- **扩展点写入**（`packages/agent-loop`）：`ExecutionStorePort.recordModelRun`（每 Step 一条：runId/attemptId/stepId/provider/modelId/purpose/status/latencyMs）+ `recordContextManifest`（每 Turn 首 Step：manifestId/modelRunId/snapshot=messages）——可观测副作用（同 recordToolExecution），写入失败不阻断执行；`InMemoryExecutionStore` 收集供断言。
-- **API 接线**（`apps/api`）：conversation 注入 `SqlitePlatformRepository` 构造 `ModelRunSink`（createModelRun+completeModelRun / createContextManifest+attach 关联回写），经 `SqliteExecutionStore(…, sink)` 可选委托；缺省 no-op 兼容既有宿主。
-- 测试：`@aervox/agent-loop` 108（新增 `context-manifest.test.ts` 3：单 Step 一条 run+manifest 与 snapshot 快照/多 Step 每 Step 一条 run 而 manifest 仅首条/无 meta 缺省兼容）；`@aervox/database` 142（新增 `platform-modelrun.test.ts` 3：Expand 幂等/Step 级 create+complete/manifest snapshot+attach）；`@aervox/api` 202 无回归。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。ADR-017 实施进展已更新。
-
 ### 16.19 落地进展（阶段 6b/6c：Host 接入 Adapter + DSH 固定 SHA 复核真实化）
 
 2026-08-28 落地（承接 §16.18 契约面，把 Adapter 接入 Host 执行循环并把固定 SHA 复核真实化；仍不接参考仓库构建产物）：
@@ -806,6 +797,23 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
   - `createAgentHost({ adapter })`：存在已准入 Adapter 且非续跑时用 `runAdapterTurn` 轮询驱动，否则原生 `executeTurn`（续跑/无 adapter 路径零改动；宿主终态计数归一原生小写/adapter 大写）。
 - **DSH 固定 SHA 复核真实化**（`packages/host-agent/src/dsh-reference.ts`）：`probeDSHReference` 用父仓库 submodule gitlink（`git ls-tree HEAD -- reference/deepseek-harness`）与 `DSH-01` 登记 SHA（`b150a551…`）机器比对 + package.json 版本/许可证复核（MIT 白名单）。参考仓库为 pnpm monorepo：真实 Turn 需 `git submodule update --init && pnpm install && pnpm build:lib:host` 后接入 stdio 端口（ADR-010 实施进展含指引）；本阶段不隐式构建，未就绪 fail-closed 并给出 reason。
 - **测试**：`@aervox/host-agent` 51（新增 `adapter-host.test.ts` 7：runAdapterTurn concluded/mixed/协议缺陷/抛错/skipped + Host 集成 adapter 与原生双路径回归；`dsh-reference.test.ts` 3：gitlink 匹配 MIT manifest/submodule_missing/non-git fail-closed）；`@aervox/api` 202 无回归。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.20 落地进展（阶段 7：ContextManifest 写入 + ModelRun Step 级关联，ADR-017 迁移面）
+
+2026-08-28 落地（对应 ADR-017 的 `model_runs`/`context_manifests` 关联冻结与 §16.14 原「阶段 7」项）：
+
+- **Expand 迁移**（`packages/database`）：`model_runs` 新增 `attempt_id`/`step_id`（PRAGMA 检查 + ADD COLUMN 幂等，不回填==空，多跑幂等）；`context_manifests` 新增 `snapshot_json`（每 Turn 上下文快照）；Drizzle schema 同步 + `model_runs_tenant_attempt_idx` 索引。
+- **扩展点写入**（`packages/agent-loop`）：`ExecutionStorePort.recordModelRun`（每 Step 一条：runId/attemptId/stepId/provider/modelId/purpose/status/latencyMs）+ `recordContextManifest`（每 Turn 首 Step：manifestId/modelRunId/snapshot=messages）——可观测副作用（同 recordToolExecution），写入失败不阻断执行；`InMemoryExecutionStore` 收集供断言。
+- **API 接线**（`apps/api`）：conversation 注入 `SqlitePlatformRepository` 构造 `ModelRunSink`（createModelRun+completeModelRun / createContextManifest+attach 关联回写），经 `SqliteExecutionStore(…, sink)` 可选委托；缺省 no-op 兼容既有宿主。
+- 测试：`@aervox/agent-loop` 108（新增 `context-manifest.test.ts` 3：单 Step 一条 run+manifest 与 snapshot 快照/多 Step 每 Step 一条 run 而 manifest 仅首条/无 meta 缺省兼容）；`@aervox/database` 142（新增 `platform-modelrun.test.ts` 3：Expand 幂等/Step 级 create+complete/manifest snapshot+attach）；`@aervox/api` 202 无回归。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。ADR-017 实施进展已更新。
+
+### 16.21 落地进展（阶段 6d：DSH 真 Turn 接通骨架 + 真实模型回合）
+
+2026-08-28 落地（承接 §16.19/§16.20，把 6c 的「固定 SHA 复核」推进为可运行的 DSH Turn 接通骨架；参考仓库库内循环构建产物为 P2 前置）：
+
+- **runner**（`packages/host-agent/test/fixtures/dsh-turn-runner.mjs`）：完整 stdio 协议（hello/request/delta/batch/done/error）；模型回合为**真实 LLM**（OpenAI 兼容直连：`DEEPSEEK_API_KEY` 或 `DSH_LLM_BASE_URL` 指向任意兼容端点），输出 delta→batch(全结论)→done；缺前置返回指引性 `dsh_unconfigured`（host 失败自动禁用），启动即探测参考仓库构建状态并提示（`cd reference/deepseek-harness && pnpm install && pnpm build:lib:host`）。
+- **adapter 组合**（`packages/host-agent/src/dsh-adapter.ts`）：`createDSHAdapterDriver({ repoRoot, env? })`——probeDSHReference（gitlink SHA + MIT）通过后才 spawn runner（`createStdioAdapterDriver` 复用，expectedSha=DSH_REFERENCE_SHA）；未就绪不 spawn 且返回 reason。
+- 测试：`@aervox/host-agent` 55 +1 skipped（新增 `dsh-turn.test.ts` 5：复核通过+spawn 且 manifest 一致 / 缺 key→dsh_unconfigured 指引性拒绝 / 真模型回合（`it.runIf` key 就绪，外部 4xx 软跳过）/ probe 未就绪 fail-closed / **本地兼容端点完整回合 delta→batch→done→concluded 机器验证**）；`@aervox/api` 203 无回归。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。ADR-010 实施进展 6d 已更新。
 
 ## 17. 回滚策略
 
