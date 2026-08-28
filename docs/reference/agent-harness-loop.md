@@ -403,8 +403,8 @@ agent.attempt.lease-expired
 以下动作必须原子提交：
 
 - Turn + 用户 MessageVersion + `agent.turn.requested` Outbox；
-- 安全片段 + TurnStreamEvent + Draft prefix；
-- ToolInvocation + 授权快照 + 幂等预留；
+- 安全片段 + TurnStreamEvent + Draft prefix（**已落地：E §16.27**，`recordSafeSegmentAtomically` 同事务写 safe_segments(committed) 与 delta 事件）；
+- ToolInvocation + 授权快照 + 幂等预留（**授权快照幂等已落地：E §16.27**，`recordToolApproval` 复用 pending 行；ToolInvocation 独立持久化仍属 3c+ 后续）；
 - ToolExecution 结果 + result event（**已落地：B4-D §16.26**，`recordToolOutcomeAtomically`）；
 - Turn 终态 + done TurnStreamEvent + 下游 Outbox（**终态 + done/error 事件已落地：B4-D §16.26**，`finalizeAttemptWithEventAtomically`；下游 Outbox 仍为既有 outbox 通道）。
 
@@ -863,6 +863,16 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - **executor 接线**（`executor.ts`）：工具结果收口（executed/rejected/timeout_error/duplicate）改走 `recordToolOutcome`（duplicate 账本无预留行时插入独立记录）；5 处终态路径（Cancelled / Completed / Interrupted×2 / Failed(tools_disabled) / catch error+Failed）全部改走 `finalizeAttemptWithEvent`，CAS 失败按 contested 收敛。
 - **宿主桥接**（`sqlite-execution-store.ts`）：转译 `FencingMismatchError`→`LeaseLostError`（与 appendEvent 同语义）。
 - 测试：`@aervox/database` 154（新增 `atomic-write-pairs.test.ts` 3：同事务收口+事件 / fencing 失配抛错且无部分写入 / 终态+done 同事务且二次提交 false 不写第二个 done）；`@aervox/agent-loop` 143 无回归（cancel 终态竞态用例改 override `finalizeAttemptWithEvent`；duplicate 账本独立留痕保持）；`@aervox/host-agent` 65（`sqlite-execution-store-fencing.test.ts` +2：原子桥接 + 转译 + CAS false）；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.27 落地进展（阶段 3c+-E：授权快照幂等 + 安全片段/Draft 原子化）
+
+2026-08-29 落地（对应 §12.2「ToolInvocation + 授权快照 + 幂等预留」「安全片段 + TurnStreamEvent + Draft prefix」）：
+
+- **授权快照幂等**（`@aervox/database` `recordToolApproval`）：同 `(toolName, argumentsHash)` 已存在 `pending` 授权则复用既有行，不重复插入——授权匹配键跨 turn 复用（schema 约定），重复写工具意图不产生多行待决授权；`granted/denied` 后新请求才新建。
+- **安全片段表**（`@aervox/database` `schema/safe-segments.ts` `safe_segments`）：`turn_id`/`attempt_id`/`sequence`/`text`/`committed`(0|1 可见前缀)/`stream_event_id`（关联 turn_stream_events）+ 租户列，`(turn_id, sequence)` 唯一；init 建表与索引。
+- **原子提交**（`recordSafeSegmentAtomically`）：BEGIN IMMEDIATE 内 fencing+状态守卫（同 appendEvent fenced 语义）→ 同事务插入 safe_segments（committed=1）与 delta 事件并回填事件关联，崩溃不把片段与事件拆散；守卫失配抛 `FencingMismatchError` 无部分写入。`listCommittedSegments` 按 sequence 升序返回可见前缀（中断恢复/可见前缀重建）。
+- **executor 接入**（`executor.ts`）：两处 delta 写入（无工具 isFinal / 有工具 isFinal:false）改走 `recordSafeSegment` 原子提交——每个可见片段与其事件同生共死；`ports.ts` 增 `recordSafeSegment`/可选 `listCommittedSegments`；in-memory 同语义 + `safeSegments` 断言钩子；host-agent store 委托 + `FencingMismatchError`→`LeaseLostError` 转译。
+- 测试：`@aervox/database` 160（新增 `segment-approval.test.ts` 6：E1 幂等复用/不同 hash 新建/已决后新请求新建；E2 同事务写入+事件关联 / fencing 失配无部分写入 / 可见前缀升序）；`@aervox/agent-loop` 143 无回归；`@aervox/host-agent` 65（fencing 桥接 +1 recordSafeSegment 原子+可见前缀+失配转译）；`@aervox/api` 230 无回归；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
 ## 17. 回滚策略
 
