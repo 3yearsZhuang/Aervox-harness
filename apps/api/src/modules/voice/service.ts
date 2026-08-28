@@ -302,6 +302,19 @@ export class VoiceService {
         throw new Error(`INVALID_VOICE_INPUT_CONFIG: ${error}`);
       }
     }
+    // CR-016 整改：Whisper 兼容模式 endpoint 必须为合法 http(s) URL（对齐 LLM baseUrl 校验先例），
+    // 防止非法协议/格式在转写时才暴露或引发异常。
+    if (cfg.engineType === "whisper-compatible" && cfg.endpoint) {
+      try {
+        const parsed = new URL(cfg.endpoint);
+        if (!["http:", "https:"].includes(parsed.protocol)) {
+          throw new Error("protocol must be http(s)");
+        }
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : "invalid URL";
+        throw new Error(`INVALID_VOICE_INPUT_CONFIG: endpoint URL 非法（${reason}）`);
+      }
+    }
     if (cfg.engineType === "sensevoice-local" && senseVoice) {
       senseVoice.reconfigure({ modelPath: cfg.modelPath, modelId: cfg.modelId });
     }
