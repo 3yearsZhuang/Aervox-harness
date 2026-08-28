@@ -807,13 +807,14 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - **API 接线**（`apps/api`）：conversation 注入 `SqlitePlatformRepository` 构造 `ModelRunSink`（createModelRun+completeModelRun / createContextManifest+attach 关联回写），经 `SqliteExecutionStore(…, sink)` 可选委托；缺省 no-op 兼容既有宿主。
 - 测试：`@aervox/agent-loop` 108（新增 `context-manifest.test.ts` 3：单 Step 一条 run+manifest 与 snapshot 快照/多 Step 每 Step 一条 run 而 manifest 仅首条/无 meta 缺省兼容）；`@aervox/database` 142（新增 `platform-modelrun.test.ts` 3：Expand 幂等/Step 级 create+complete/manifest snapshot+attach）；`@aervox/api` 202 无回归。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。ADR-017 实施进展已更新。
 
-### 16.21 落地进展（阶段 6d：DSH 真 Turn 接通骨架 + 真实模型回合）
+### 16.21 落地进展（阶段 6d/6e：DSH 真 Turn 接通骨架 + 库内产物接入证据）
 
-2026-08-28 落地（承接 §16.19/§16.20，把 6c 的「固定 SHA 复核」推进为可运行的 DSH Turn 接通骨架；参考仓库库内循环构建产物为 P2 前置）：
+2026-08-28 落地（承接 §16.19/§16.20，把 6c 的「固定 SHA 复核」推进为可运行的 DSH Turn 接通骨架；6e 在参考仓库 `pnpm install && pnpm build:lib:host` 构建通过后验证库内 Agent 循环可加载）：
 
-- **runner**（`packages/host-agent/test/fixtures/dsh-turn-runner.mjs`）：完整 stdio 协议（hello/request/delta/batch/done/error）；模型回合为**真实 LLM**（OpenAI 兼容直连：`DEEPSEEK_API_KEY` 或 `DSH_LLM_BASE_URL` 指向任意兼容端点），输出 delta→batch(全结论)→done；缺前置返回指引性 `dsh_unconfigured`（host 失败自动禁用），启动即探测参考仓库构建状态并提示（`cd reference/deepseek-harness && pnpm install && pnpm build:lib:host`）。
+- **runner**（`packages/host-agent/test/fixtures/dsh-turn-runner.mjs`）：完整 stdio 协议（hello/request/delta/batch/done/error）；模型回合为**真实 LLM**（OpenAI 兼容直连：`DEEPSEEK_API_KEY` 或 `DSH_LLM_BASE_URL` 指向任意兼容端点），输出 delta→batch(全结论)→done；缺前置返回指引性 `dsh_unconfigured`（host 失败自动禁用）；启动即探测参考仓库构建状态并提示（`cd reference/deepseek-harness && pnpm install && pnpm build:lib:host`）。
+- **6e 库内产物探测**（`DSH_LIB_MODE=1`）：动态 import `packages/core/agent/lib/index.js` 并验证公开导出面（`AgentRegistry`/`assembleContextFor`/`installModelSelection`/`emitAgentEvent` 等）——库内 Agent 循环可加载的机器证据；完整 Cordis 容器组装（llm/session/persistence/tools 等 service 注入）为剩余 P2 工程项。
 - **adapter 组合**（`packages/host-agent/src/dsh-adapter.ts`）：`createDSHAdapterDriver({ repoRoot, env? })`——probeDSHReference（gitlink SHA + MIT）通过后才 spawn runner（`createStdioAdapterDriver` 复用，expectedSha=DSH_REFERENCE_SHA）；未就绪不 spawn 且返回 reason。
-- 测试：`@aervox/host-agent` 55 +1 skipped（新增 `dsh-turn.test.ts` 5：复核通过+spawn 且 manifest 一致 / 缺 key→dsh_unconfigured 指引性拒绝 / 真模型回合（`it.runIf` key 就绪，外部 4xx 软跳过）/ probe 未就绪 fail-closed / **本地兼容端点完整回合 delta→batch→done→concluded 机器验证**）；`@aervox/api` 203 无回归。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。ADR-010 实施进展 6d 已更新。
+- 测试：`@aervox/host-agent` 56 +1 skipped（新增 `dsh-turn.test.ts` 6：复核通过+spawn 且 manifest 一致 / 缺 key→dsh_unconfigured 指引性拒绝 / 真模型回合（`it.runIf` key 就绪，外部 4xx 软跳过）/ probe 未就绪 fail-closed / 本地兼容端点完整回合 delta→batch→done→concluded 机器验证 / **库内产物加载证明（`it.runIf(refLibBuilt)`：import 成功 + 导出面符号）**）；`@aervox/api` 203 无回归。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。ADR-010 实施进展 6d/6e 已更新。
 
 ## 17. 回滚策略
 
