@@ -29,7 +29,7 @@ ADR 记录难以逆转、影响多个模块或改变数据/运维边界的技术
 | ADR-013 | Proposed | 独立恢复控制账本与撤权先行 | [ADR-013](ADR-013-recovery-control-ledger.md) |
 | ADR-014 | Proposed | 演进式模块化单体：apps/api 按领域模块组织 | [ADR-014](ADR-014-modular-monolith-structure.md) |
 | ADR-015 | Proposed | Vue 全栈单栈：Web 复用桌面端技术族，替代 ADR-002 Web 基线 | [ADR-015](ADR-015-vue-full-stack.md) |
-| ADR-016 | Proposed | 底座边界冻结：Kernel Substrate 与能力层依赖边界，`scripts/import-boundary.mjs` 机器校验 | [ADR-016](ADR-016-base-boundaries.md) |
+| ADR-016 | Accepted | 底座边界冻结：Kernel Substrate 与能力层依赖边界，`scripts/import-boundary.mjs` 机器校验 | [ADR-016](ADR-016-base-boundaries.md) |
 
 `Proposed` 不代表已经批准。当前独立记录是评审输入，不是 G2 通过证据；每条 ADR 必须补齐备选方案、后果、迁移、回滚和验证证据并经过评审，状态才能改为 `Accepted`。
 
