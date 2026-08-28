@@ -5,7 +5,7 @@
  * 每次工具调用（成功/拒绝/重复/超时）都留下执行证据，用于审计与副作用追溯；
  * 由 agent-loop 的 ExecutionStorePort.recordToolExecution 落库（阶段 2d）。
  */
-import { sqliteTable, text, index } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { tenantColumns } from "./common.js";
 import { turns } from "./conversations.js";
 
@@ -36,5 +36,7 @@ export const toolExecutions = sqliteTable(
     turnIdx: index("tool_executions_turn_idx").on(table.turnId),
     attemptIdx: index("tool_executions_attempt_idx").on(table.attemptId),
     tenantIdx: index("tool_executions_tenant_idx").on(table.workspaceId, table.subjectUserId),
+    /** 2c：幂等预留唯一键（attempt+invocation；对应 init 的 CREATE UNIQUE INDEX 幂等补齐） */
+    attemptInvocationIdx: uniqueIndex("tool_executions_attempt_invocation_idx").on(table.attemptId, table.invocationId),
   }),
 );
