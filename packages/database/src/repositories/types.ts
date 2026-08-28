@@ -49,6 +49,9 @@ export interface TurnStreamEventModel {
   payloadVersion: number;
   data: unknown;
   occurredAt: string;
+  attemptId?: string | null;
+  safetyDecision?: string | null;
+  committedAt?: string | null;
 }
 
 export interface OutboxEventModel {
@@ -567,6 +570,40 @@ export interface TurnAttemptModel {
   status: string;
   startedAt: string;
   finishedAt?: string | null;
+  leaseExpiresAt?: string | null;
+}
+
+/** Agent Loop 工具执行账本行（tool_executions） */
+export interface ToolExecutionModel {
+  id: string;
+  turnId: string;
+  attemptId: string;
+  invocationId: string;
+  name: string;
+  workspaceId: string;
+  subjectUserId: string;
+  argumentsJson?: unknown;
+  status: string;
+  outputJson?: unknown;
+  error?: string | null;
+  startedAt: string;
+  finishedAt: string;
+}
+
+/** 工具授权账本行（tool_approvals，阶段 3a） */
+export interface ToolApprovalModel {
+  id: string;
+  turnId: string;
+  attemptId: string;
+  toolName: string;
+  argumentsHash: string;
+  toolVersion?: string | null;
+  requester: string;
+  state: "pending" | "granted" | "denied";
+  decidedBy?: string | null;
+  decidedAt?: string | null;
+  workspaceId: string;
+  subjectUserId: string;
 }
 
 // ============ 学习/练习/复习域 ============
@@ -656,6 +693,7 @@ export interface ReviewItemModel {
   dueAt: string;
   intervalDays: number;
   schedulerVersion: number;
+  timezoneSnapshot: string;
   status: string;
   completionIsCorrect?: boolean | null;
   nextReviewId?: string | null;
@@ -709,6 +747,7 @@ export interface ILearningRepository {
     session: { id: string; questionCount: number; questionIds: string[] },
   ): Promise<PracticeSessionModel>;
   getPracticeSession(tenant: TenantContext, sessionId: string): Promise<PracticeSessionModel | null>;
+  getLatestActivePracticeSession(tenant: TenantContext): Promise<PracticeSessionModel | null>;
   completePracticeSession(tenant: TenantContext, sessionId: string): Promise<PracticeSessionModel | null>;
   recordAttempt(
     tenant: TenantContext,
@@ -775,11 +814,11 @@ export interface ILearningRepository {
   ): Promise<KnowledgeItemModel | null>;
   scheduleReviewItem(
     tenant: TenantContext,
-    item: { id: string; knowledgeId: string; dueAt: string; intervalDays: number; schedulerVersion?: number },
+    item: { id: string; knowledgeId: string; dueAt: string; intervalDays: number; schedulerVersion?: number; timezoneSnapshot?: string },
   ): Promise<ReviewItemModel>;
   createReviewItem(
     tenant: TenantContext,
-    item: { id: string; knowledgeId: string; dueAt: string; intervalDays?: number; schedulerVersion?: number },
+    item: { id: string; knowledgeId: string; dueAt: string; intervalDays?: number; schedulerVersion?: number; timezoneSnapshot?: string },
   ): Promise<ReviewItemModel>;
   getReviewItem(tenant: TenantContext, id: string): Promise<ReviewItemModel | null>;
   listCompletedReviewItems(tenant: TenantContext, limit?: number): Promise<ReviewItemModel[]>;
@@ -797,7 +836,7 @@ export interface ILearningRepository {
         masteryState: string;
         masteryBasis: unknown;
       };
-      nextReview: { id: string; dueAt: string; intervalDays: number; schedulerVersion: number };
+      nextReview: { id: string; dueAt: string; intervalDays: number; schedulerVersion: number; timezoneSnapshot: string };
     },
   ): Promise<{ completed: ReviewItemModel; nextReview: ReviewItemModel; knowledge: KnowledgeItemModel } | null>;
   listDueReviewItems(tenant: TenantContext, before: string): Promise<ReviewItemModel[]>;

@@ -30,6 +30,7 @@ import { registerPersonaModule } from "./modules/persona/index.js";
 import { registerSkillsModule } from "./modules/skills/index.js";
 import { registerVoiceModule, type VoiceModuleOptions } from "./modules/voice/index.js";
 import { registerLLMModule, type LLMServiceOptions } from "./modules/llm/index.js";
+import type { ToolRuntime } from "./modules/tools/runtime.js";
 
 export interface BuildAppOptions {
   /** 注入既有数据库（如内存库）；缺省时使用 createDatabase() */
@@ -49,6 +50,8 @@ export interface BuildAppResult {
   app: ReturnType<typeof Fastify>;
   db: AervoxDatabase;
   client: Client;
+  /** Agent Loop 只读工具提供者宿主（测试注入 handler 用；阶段 2d） */
+  toolRuntime: ToolRuntime;
 }
 
 export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppResult> {
@@ -64,7 +67,10 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   app.get("/openapi.json", async () => openApiDocument);
 
   // 注册领域模块（每个模块自管仓储实例化）
-  registerConversationModule(app, db);
+  // 工具运行时 / LLM 配置服务先于对话模块实例化（阶段 2d/2e Agent Loop 依赖）
+  const toolRuntime = registerToolsModule(app, db, client);
+  const llmConfigService = registerLLMModule(app, db, options.llmOptions);
+  registerConversationModule(app, db, { toolRuntime, llmConfigService });
   registerLearningModule(app, db);
   registerFeedbackModule(app, db);
   registerDiaryModule(app, db);
@@ -75,12 +81,10 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   registerMemoryModule(app, db, client);
   registerKnowledgeModule(app, db);
   registerBranchModule(app, db);
-  const toolRuntime = registerToolsModule(app, db, client);
   registerPluginsModule(app, db, { skillsRoot: options.skillsRoot, pluginsRoot: options.pluginsRoot });
   const voiceService = registerVoiceModule(app, db, options.voiceOptions);
   const skillManager = registerSkillsModule(app, db, { skillsRoot: options.skillsRoot, toolRuntime });
   registerPersonaModule(app, db, { skillManager, toolRuntime, voiceService });
-  registerLLMModule(app, db, options.llmOptions);
 
-  return { app, db, client };
+  return { app, db, client, toolRuntime };
 }

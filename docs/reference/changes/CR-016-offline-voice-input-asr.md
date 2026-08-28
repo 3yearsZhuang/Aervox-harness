@@ -1,14 +1,14 @@
 # CR-016 离线语音输入（SenseVoice/Whisper 双模式 + 句子级断句 + 键盘自停）
 
 - 提出人：Antigravity · 2026-08-28
-- 修改人：Antigravity · 2026-08-28
+- 修改人：KashiwagiEri233 · 2026-08-28
 
 > 文档编号：CR-016
 > 类型：Reference
 > 版本：v0.1
 > 更新日期：2026-08-28
 > 状态：Review Candidate
-> 关联：[需求追踪基线](../REQUIREMENTS_TRACEABILITY.md)、[ADR-005 内部 Provider Port](../adr/ADR-005-provider-port.md)、[CR-011 WebUI 语音配置](../changes/CR-011-voice-config-webui.md)、[dsh-voice-local 参考实现](https://github.com/Real-WangLe/dsh-voice-local)
+> 关联：[需求追踪基线](../REQUIREMENTS_TRACEABILITY.md)、[ADR-005 内部 Provider Port](../adr/ADR-005-provider-port.md)、[CR-014 WebUI 语音配置](../changes/CR-014-voice-config-webui.md)、[dsh-voice-local 参考实现](https://github.com/Real-WangLe/dsh-voice-local)
 
 - 状态：Implemented（待发布评审）
 - 提出人 / 日期：Antigravity / 2026-08-28

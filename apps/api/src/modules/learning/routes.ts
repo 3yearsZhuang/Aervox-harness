@@ -7,12 +7,21 @@ import type { FastifyInstance } from "fastify";
 import { createLearningGoalSchema, updateLearningGoalSchema } from "@aervox/contracts";
 import type { SqliteLearningRepository } from "@aervox/database";
 import { resolveTenant } from "../../shared/tenant.js";
-import { createReviewItem, updateAfterAnswer } from "@aervox/practice-review";
+import { createReviewItem, getLocalDayBounds, getPracticeSessionProgress, updateAfterAnswer } from "@aervox/practice-review";
 
 let seq = 0;
 const estimatedMinutesPerReview = 2;
 const id = (prefix: string): string =>
   `${prefix}_${Date.now().toString(36)}_${(++seq).toString(36)}`;
+
+function validTimeZone(value: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: value }).format();
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function judgeAnswer(answerSpec: unknown, answer: string): "correct" | "incorrect" | "unverifiable" {
   if (
@@ -51,6 +60,25 @@ function practiceReport(sessionId: string, attempted: Array<{ judgement: string 
     accuracy: judgedCount === 0 ? null : correctCount / judgedCount,
     nextStep:
       incorrectCount > 0 ? "review_scheduled" : unverifiableCount > 0 ? "await_review" : "continue",
+  };
+}
+
+async function practiceSessionResumePayload(
+  learningRepo: SqliteLearningRepository,
+  tenant: ReturnType<typeof resolveTenant>,
+  session: { id: string; questionIds: string[]; startedAt: string },
+) {
+  const items = await Promise.all(session.questionIds.map((questionId) => learningRepo.getQuestion(tenant, questionId)));
+  if (items.some((item) => !item)) return null;
+
+  const attempts = await learningRepo.listAttemptsBySession(tenant, session.id);
+  const { answeredQuestionIds, nextQuestionIndex } = getPracticeSessionProgress(session.questionIds, attempts);
+  return {
+    sessionId: session.id,
+    items,
+    startedAt: session.startedAt,
+    answeredQuestionIds,
+    nextQuestionIndex,
   };
 }
 
@@ -159,20 +187,37 @@ export function registerLearningRoutes(
   });
 
   app.post("/v1/practice/sessions", async (req, reply) => {
+    const tenant = resolveTenant(req);
     const countValue = (req.body as { count?: unknown } | undefined)?.count ?? 3;
     if (typeof countValue !== "number" || !Number.isInteger(countValue) || countValue < 3 || countValue > 5) {
       return reply.code(400).send({ error: "count must be an integer from 3 to 5" });
     }
-    const items = await learningRepo.listActiveQuestions(resolveTenant(req), countValue);
+    const activeSession = await learningRepo.getLatestActivePracticeSession(tenant);
+    if (activeSession) {
+      const payload = await practiceSessionResumePayload(learningRepo, tenant, activeSession);
+      if (!payload) return reply.code(409).send({ error: "practice session question is unavailable" });
+      return reply.code(200).send(payload);
+    }
+
+    const items = await learningRepo.listActiveQuestions(tenant, countValue);
     if (items.length < countValue) {
       return reply.code(409).send({ error: `at least ${countValue} active questions are required` });
     }
-    const session = await learningRepo.createPracticeSession(resolveTenant(req), {
+    const session = await learningRepo.createPracticeSession(tenant, {
       id: id("practice"),
       questionCount: items.length,
       questionIds: items.map((item) => item.id),
     });
-    return reply.code(201).send({ sessionId: session.id, items });
+    return reply.code(201).send({ sessionId: session.id, items, startedAt: session.startedAt, answeredQuestionIds: [], nextQuestionIndex: 0 });
+  });
+
+  app.get("/v1/practice/sessions/active", async (req, reply) => {
+    const tenant = resolveTenant(req);
+    const session = await learningRepo.getLatestActivePracticeSession(tenant);
+    if (!session) return reply.code(404).send({ error: "practice session not found" });
+    const payload = await practiceSessionResumePayload(learningRepo, tenant, session);
+    if (!payload) return reply.code(409).send({ error: "practice session question is unavailable" });
+    return payload;
   });
 
   app.get("/v1/practice/sessions/:sessionId/report", async (req, reply) => {
@@ -201,8 +246,12 @@ export function registerLearningRoutes(
       sessionId?: string;
       answer?: string;
       evidence?: unknown;
+      timeZone?: string;
     };
     if (!body.answer) return reply.code(400).send({ error: "answer is required" });
+    if (body.timeZone !== undefined && !validTimeZone(body.timeZone)) {
+      return reply.code(400).send({ error: "timeZone must be a valid IANA time zone" });
+    }
     const idempotencyKey = req.headers["idempotency-key"];
     const hasIdempotencyKey = typeof idempotencyKey === "string" && idempotencyKey.length > 0;
     const question = await learningRepo.getQuestion(tenant, questionId);
@@ -258,7 +307,8 @@ export function registerLearningRoutes(
     };
     const isCorrect = judgement === "correct";
     updateAfterAnswer(item, isCorrect);
-    const review = createReviewItem(item, isCorrect);
+    const timeZone = body.timeZone ?? "UTC";
+    const review = createReviewItem(item, isCorrect, { timeZone });
     const masteryState = item.mastery >= 0.8 ? "mastered" : "learning";
     await learningRepo.updatePracticeState(tenant, item.id, {
       ...item,
@@ -275,6 +325,8 @@ export function registerLearningRoutes(
       knowledgeId: review.knowledgeId,
       dueAt: review.dueAt.toISOString(),
       intervalDays: review.intervalDays,
+      schedulerVersion: review.schedulerVersion,
+      timezoneSnapshot: timeZone,
     });
     return reply.code(201).send({ ...attempt, nextStep: nextStepFor(judgement) });
   });
@@ -334,6 +386,12 @@ export function registerLearningRoutes(
     if (requested !== undefined && (!Array.isArray(requested) || requested.some((value) => typeof value !== "string"))) {
       return reply.code(400).send({ error: "questionIds must be an array of strings" });
     }
+    const activeSession = await learningRepo.getLatestActivePracticeSession(tenant);
+    if (activeSession) {
+      const payload = await practiceSessionResumePayload(learningRepo, tenant, activeSession);
+      if (!payload) return reply.code(409).send({ error: "practice session question is unavailable" });
+      return reply.code(200).send(payload);
+    }
     const activeMistakes = await learningRepo.listMistakes(tenant, "active");
     const available = new Map(activeMistakes.map((item) => [item.questionId, item]));
     const questionIds = (requested as string[] | undefined) ?? activeMistakes.slice(0, 5).map((item) => item.questionId);
@@ -369,13 +427,26 @@ export function registerLearningRoutes(
     return { items: await learningRepo.listDueReviewItems(resolveTenant(req), dueBefore) };
   });
 
-  app.get("/v1/review-items/summary", async (req) => {
-    const dueBefore =
-      ((req.query as { dueBefore?: string }).dueBefore ?? new Date().toISOString());
+  app.get("/v1/review-items/summary", async (req, reply) => {
+    const query = req.query as { dueBefore?: string; timeZone?: string };
+    const now = new Date();
+    const dueBefore = query.dueBefore ?? now.toISOString();
+    const timeZone = query.timeZone ?? "UTC";
+    if (Number.isNaN(Date.parse(dueBefore))) {
+      return reply.code(400).send({ error: "dueBefore must be an ISO date-time" });
+    }
+    if (!validTimeZone(timeZone)) {
+      return reply.code(400).send({ error: "timeZone must be a valid IANA time zone" });
+    }
     const items = await learningRepo.listDueReviewItems(resolveTenant(req), dueBefore);
+    const { start } = getLocalDayBounds(now, timeZone);
+    const overdueCount = items.filter((item) => Date.parse(item.dueAt) < start.getTime()).length;
     return {
       dueCount: items.length,
+      overdueCount,
+      dueTodayCount: items.length - overdueCount,
       estimatedMinutes: items.length * estimatedMinutesPerReview,
+      timeZone,
       items,
     };
   });
@@ -392,9 +463,12 @@ export function registerLearningRoutes(
   app.post("/v1/review-items/:reviewId/complete", async (req, reply) => {
     const tenant = resolveTenant(req);
     const { reviewId } = req.params as { reviewId: string };
-    const body = (req.body ?? {}) as { isCorrect?: boolean };
+    const body = (req.body ?? {}) as { isCorrect?: boolean; timeZone?: string };
     if (typeof body.isCorrect !== "boolean") {
       return reply.code(400).send({ error: "isCorrect is required" });
+    }
+    if (body.timeZone !== undefined && !validTimeZone(body.timeZone)) {
+      return reply.code(400).send({ error: "timeZone must be a valid IANA time zone" });
     }
     const reviewItem = await learningRepo.getReviewItem(tenant, reviewId);
     if (!reviewItem) return reply.code(404).send({ error: "review item not found" });
@@ -422,7 +496,8 @@ export function registerLearningRoutes(
       mastery: storedItem.mastery,
     };
     updateAfterAnswer(item, body.isCorrect);
-    const next = createReviewItem(item, body.isCorrect);
+    const timeZone = body.timeZone ?? reviewItem.timezoneSnapshot ?? "UTC";
+    const next = createReviewItem(item, body.isCorrect, { timeZone });
     const masteryState = item.mastery >= 0.8 ? "mastered" : "learning";
     const result = await learningRepo.completeReviewAndSchedule(tenant, {
       reviewId,
@@ -443,6 +518,7 @@ export function registerLearningRoutes(
         dueAt: next.dueAt.toISOString(),
         intervalDays: next.intervalDays,
         schedulerVersion: next.schedulerVersion,
+        timezoneSnapshot: timeZone,
       },
     });
     if (!result) {

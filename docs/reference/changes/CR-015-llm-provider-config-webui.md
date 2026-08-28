@@ -1,14 +1,14 @@
-# CR-012 WebUI 大语言模型与供应商配置（设置 + 连通性测试 + 租户持久化）
+# CR-015 WebUI 大语言模型与供应商配置（设置 + 连通性测试 + 租户持久化）
 
 - 提出人：Antigravity · 2026-08-28
-- 修改人：Antigravity · 2026-08-28
+- 修改人：3yearszhuang · 2026-08-28
 
-> 文档编号：CR-012
+> 文档编号：CR-015
 > 类型：Reference
 > 版本：v0.1
 > 更新日期：2026-08-28
 > 状态：Review Candidate
-> 关联：[需求追踪基线](../REQUIREMENTS_TRACEABILITY.md)、[ADR-005 内部 Provider Port](../adr/ADR-005-provider-port.md)、[CR-011 WebUI 语音配置](../changes/CR-011-voice-config-webui.md)
+> 关联：[需求追踪基线](../REQUIREMENTS_TRACEABILITY.md)、[ADR-005 内部 Provider Port](../adr/ADR-005-provider-port.md)、[CR-014 WebUI 语音配置](../changes/CR-014-voice-config-webui.md)
 
 - 状态：Implemented（待发布评审）
 - 提出人 / 日期：Antigravity / 2026-08-28

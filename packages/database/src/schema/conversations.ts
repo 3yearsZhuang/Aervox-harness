@@ -139,6 +139,8 @@ export const turnAttempts = sqliteTable(
     status: text("status").notNull().default("Running"), // "Running" | "Completed" | "Failed" | "Interrupted"
     startedAt: text("started_at").notNull(),
     finishedAt: text("finished_at"),
+    /** 3b-A：租约过期时刻（ISO；claim 写入、续租刷新、3b-B 据此抢占/恢复） */
+    leaseExpiresAt: text("lease_expires_at"),
   },
   (table) => ({
     turnAttemptIdx: uniqueIndex("turn_attempts_turn_attempt_idx").on(

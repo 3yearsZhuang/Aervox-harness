@@ -15,7 +15,7 @@ export interface TurnCallbacks {
 
 /** 两端能力的最小契约：普通请求 + Turn 流式 */
 export interface AervoxTransport {
-  request<T = unknown>(method: string, path: string, body?: unknown): Promise<T>;
+  request<T = unknown>(method: string, path: string, body?: unknown, options?: { headers?: Record<string, string> }): Promise<T>;
   streamTurn(sessionId: string, content: string, callbacks: TurnCallbacks): Promise<void>;
 }
 
@@ -27,6 +27,8 @@ export interface AervoxClientConfig {
   /** 可选租户头（Web 环境用 VITE_WORKSPACE_ID / VITE_USER_ID 注入） */
   workspaceId?: string;
   userId?: string;
+  /** 学习调度使用的 IANA 时区；默认读取当前系统时区。 */
+  timeZone?: string;
   /** 会话 ID（Web 用 VITE_SESSION_ID，默认 web_default） */
   sessionId?: string;
   /** 传输实现：缺省为 fetchTransport */
@@ -37,12 +39,14 @@ interface RuntimeConfig {
   apiBase: string;
   workspaceId?: string;
   userId?: string;
+  timeZone: string;
   sessionId: string;
   transport: AervoxTransport;
 }
 
 const DEFAULTS: RuntimeConfig = {
   apiBase: 'http://127.0.0.1:3000',
+  timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
   sessionId: 'web_default',
   transport: null as unknown as AervoxTransport, // 惰性：未配置时返回 fetchTransport
 };
@@ -54,6 +58,7 @@ export function configureAervoxClient(config: AervoxClientConfig): void {
     apiBase: config.apiBase?.replace(/\/+$/, '') || runtime.apiBase,
     workspaceId: config.workspaceId ?? runtime.workspaceId,
     userId: config.userId ?? runtime.userId,
+    timeZone: config.timeZone ?? runtime.timeZone,
     sessionId: config.sessionId ?? runtime.sessionId,
     transport: config.transport ?? runtime.transport,
   };
@@ -69,6 +74,10 @@ export function getTransport(): AervoxTransport {
 /** 当前会话 ID（useAervoxTurn 默认使用） */
 export function getSessionId(): string {
   return runtime.sessionId;
+}
+
+export function getTimeZone(): string {
+  return runtime.timeZone;
 }
 
 /** 当前 API 基址（插件 Page iframe 资源地址等场景使用） */
@@ -87,10 +96,10 @@ export function createFetchTransport(apiBase: string, workspaceId?: string, user
     return headers;
   };
 
-  const request = async <T = unknown>(method: string, path: string, body?: unknown): Promise<T> => {
+  const request = async <T = unknown>(method: string, path: string, body?: unknown, options?: { headers?: Record<string, string> }): Promise<T> => {
     const res = await fetch(`${base}${path}`, {
       method,
-      headers: { 'Content-Type': 'application/json', ...tenantHeaders() },
+      headers: { 'Content-Type': 'application/json', ...tenantHeaders(), ...options?.headers },
       body: method === 'GET' ? undefined : JSON.stringify(body ?? {}),
     });
     if (!res.ok) throw new Error(`API ${method} ${path} → HTTP ${res.status}`);
