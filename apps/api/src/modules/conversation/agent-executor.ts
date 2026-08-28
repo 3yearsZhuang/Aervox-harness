@@ -119,12 +119,15 @@ export class SqliteExecutionStore implements ExecutionStorePort {
     turnId: string;
     attemptId: string;
     status: "Running" | "Completed" | "Failed" | "Interrupted";
-  }): Promise<void> {
-    await this.repo.finalizeTurnAttempt(this.tenant, {
+    expectedFencingToken?: number;
+  }): Promise<{ ok: boolean }> {
+    const updated = await this.repo.finalizeTurnAttempt(this.tenant, {
       turnId: input.turnId,
       attemptId: input.attemptId,
       status: input.status,
+      expectedFencingToken: input.expectedFencingToken,
     });
+    return { ok: Boolean(updated) };
   }
 
   /** 工具副作用证据落库（tool_executions，AVX-HAR-001 §12） */

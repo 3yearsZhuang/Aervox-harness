@@ -99,6 +99,19 @@ export async function executeTurn(
 
     for (let step = 1; step <= maxSteps; step += 1) {
       stepsTaken = step;
+
+      // 3b-B：Step 首部租约活性校验（续租即探活；租约被抢占/过期 → 立即中止，丢弃本轮与后续事件）
+      if (claimLeaseId) {
+        const alive = await execution.renewAttemptLease({
+          attemptId: input.attemptId,
+          leaseId: claimLeaseId,
+          expectedFencingToken: claimFencingToken,
+        });
+        if (!alive.ok) {
+          return { status: "failed", attemptId: input.attemptId, reason: "lease_lost" };
+        }
+      }
+
       const chunks: ModelChunk[] = [];
       const context = contextBuilder.build({
         turnId: input.turnId,
@@ -146,6 +159,7 @@ export async function executeTurn(
           turnId: input.turnId,
           attemptId: input.attemptId,
           status: "Completed",
+          expectedFencingToken: claimFencingToken,
         });
         return { status: "completed", attemptId: input.attemptId, lastSequence: sequence, stepsTaken };
       }
@@ -199,6 +213,7 @@ export async function executeTurn(
           turnId: input.turnId,
           attemptId: input.attemptId,
           status: "Failed",
+          expectedFencingToken: claimFencingToken,
         });
         return { status: "failed", attemptId: input.attemptId, reason: "tools_disabled" };
       }
@@ -272,6 +287,7 @@ export async function executeTurn(
             turnId: input.turnId,
             attemptId: input.attemptId,
             status: "Interrupted",
+            expectedFencingToken: claimFencingToken,
           });
           return { status: "failed", attemptId: input.attemptId, reason: "pending_approval" };
         }
@@ -323,15 +339,6 @@ export async function executeTurn(
           name: result.name,
         });
       }
-
-      // 3b-A：Step 间续租（保持租约持有，防长任务被误判过期）
-      if (claimLeaseId) {
-        await execution.renewAttemptLease({
-          attemptId: input.attemptId,
-          leaseId: claimLeaseId,
-          expectedFencingToken: claimFencingToken,
-        });
-      }
     }
 
     // maxSteps 耗尽且仍在请求工具 → 预算终止（Interrupted）
@@ -352,6 +359,7 @@ export async function executeTurn(
       turnId: input.turnId,
       attemptId: input.attemptId,
       status: "Interrupted",
+      expectedFencingToken: claimFencingToken,
     });
     return { status: "failed", attemptId: input.attemptId, reason: "max_steps" };
   } catch (err) {
@@ -372,6 +380,7 @@ export async function executeTurn(
       turnId: input.turnId,
       attemptId: input.attemptId,
       status: "Failed",
+      expectedFencingToken: claimFencingToken,
     }).catch(() => undefined);
     return { status: "failed", attemptId: input.attemptId, reason: "execution error" };
   }

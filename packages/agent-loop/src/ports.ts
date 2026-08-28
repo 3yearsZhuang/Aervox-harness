@@ -49,8 +49,13 @@ export interface ExecutionStorePort {
   /** 读取 Turn 的持久事件（afterSequence 起点；0 = 全量） */
   listEvents(turnId: string, afterSequence?: number): Promise<AgentStreamEvent[]>;
 
-  /** 提交 Attempt 终态 */
-  finalizeAttempt(input: { turnId: string; attemptId: string; status: AttemptStatus }): Promise<void>;
+  /** 提交 Attempt 终态；带 expectedFencingToken 时做 CAS 校验（单一终态，3b-B） */
+  finalizeAttempt(input: {
+    turnId: string;
+    attemptId: string;
+    status: AttemptStatus;
+    expectedFencingToken?: number;
+  }): Promise<{ ok: boolean }>;
 
   /** 记录一次工具执行（副作用证据账本；阶段 2d 落库 tool_executions） */
   recordToolExecution(input: ToolExecutionRecord): Promise<void>;
