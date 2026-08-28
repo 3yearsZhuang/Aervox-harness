@@ -31,11 +31,11 @@
 1. **零改动（仅文档声明）**：拒绝。与现状无差异，漂移风险不消除，不符合"落地即机器验证"的仓库纪律。
 2. **eslint `no-restricted-imports`**：拒绝。仓库无任何 eslint 配置，引入全家桶在 TS 7.0.2 下兼容性未验证；且该规则只按路径 forbid，无法表达"from 目录 × to 包名"的边界矩阵，表达力不足。
 3. **dependency-cruiser**：实测后否决。先以 `-w` 安装 v18.2.0 并配置 forbid 矩阵，但运行告警缺失兼容 TypeScript 转译器（其转译支持为 `>=2.0.0 <7.0.0`）。向 `packages/agent-loop/src` 注入 `import "@aervox/database"` 的真实违规后，扫描仍报零违规——**TS 源文件依赖被漏检，门禁形同虚设**。
-4. **自写零依赖 import 边界脚本（本决策）**：选定。正则提取静态 import 说明符（含 type import、副作用导入、动态 `import()`），规则矩阵与本文健身函数一一对应；与 TS 版本无关，无需新增依赖；注入违规样例实测可拦截并返回非零退出码。
+4. **自写边界脚本 + 解析专用依赖（本决策）**：选定。初版正则提取 import 说明符，经漏检验证后升级为 AST（`@babel/parser`，纯 JS、不承担编译、与 TS 版本无关）；规则矩阵与本文健身函数一一对应，避免引入 eslint/dependency-cruiser 类工具链；注入违规样例实测可拦截并返回非零退出码。
 
 ## Decision
 
-采用**自写零依赖边界脚本**，把底座分层固化为 5 条依赖禁令，作为 `ci-code` 的组成部分。
+采用**自写边界脚本（AST 解析）**，把底座分层固化为 5 条依赖禁令，作为 `ci-code` 的组成部分。
 
 ### 底座分层（自底向上）
 
@@ -60,9 +60,10 @@
 
 ### 落地形态
 
-- 规则事实源：[scripts/import-boundary.mjs](../../../scripts/import-boundary.mjs)（`--list` 打印规则）；自测 [import-boundary.test.mjs](../../../scripts/import-boundary.test.mjs)（`node --test`，零依赖）；
+- 规则事实源：[scripts/import-boundary.mjs](../../../scripts/import-boundary.mjs)（`--list` 打印规则）；自测 [import-boundary.test.mjs](../../../scripts/import-boundary.test.mjs)（`node --test`）；
 - 门禁：根 `pnpm check:boundary` → `mise tasks run ci-code`；`.github/workflows/ci.yml` 触发路径补充 `scripts/**`；
-- 边界增删必须**双写**：同步更新脚本与本文/AVX-CAP-001，任何单一改动视为未闭环。
+- 边界增删必须**双写**：同步更新脚本与本文/AVX-CAP-001，任何单一改动视为未闭环；
+- **落地点修正（2026-08-28）**：解析器由正则升级为 AST。初版尝试复用根 `typescript@7` 主入口未果——其仅暴露版本号、不再提供运行时 API（API 迁至 `./unstable/ast` 原生绑定）；改用 `@babel/parser`（纯 JS 解析专用包，不承担编译），作为根 devDependency 引入。决策不变，仅解析实现调整：旧正则方案已确认漏检 Vue 单文件组件/export-from 等场景，升级不改动 5 条禁令与分层。
 
 ### 明确不在本 ADR 底座的
 
@@ -72,14 +73,13 @@
 
 - **机器可验证**：边界不变量进入 `ci-code`，违规即阻断，不再依赖评审自觉；
 - **fail-closed 预置**：能力层目录尚未出现，规则已先行生效（#5），未来迁移不会产生"真空期"；
-- **零依赖零风险**：不引入 eslint/dependency-cruiser 生态，不受 TS 版本影响，`node` 原生直跑；
-- **可测**：规则矩阵有 10 项自测，覆盖 type import、副作用导入、动态导入与合法宿主消费。
+- **轻依赖**：仅引入解析专用 `@babel/parser`（根 devDependency），不引入 eslint/dependency-cruiser 类工具链，不受 TypeScript 版本影响；
+- **可测**：规则矩阵有 14 项自测，覆盖 type import、副作用导入、动态 `import()`、Vue 单文件组件、export-from、相对跨包与合法宿主消费。
 
 ## Negative consequences and risks
 
-- **正则提取有盲区**：`.vue` 的 `<script>` 内导入、字符串常量别名、相对路径跨包引用（如 `../../apps/…`）不在扫描范围。缓解：登记为已知限制并在脚本注释明示，由代码评审兜底；需要时可升级为 AST 方案（本文档为升级预留验证证据位）。
-- **双写成本**：规则增删需同时改脚本与本文档。缓解：规则以脚本为机器事实源，本文档为决策依据，`--list` 输出可直接对照。
-- **动态 import 的字符串拼接无法发现**（如 `import(\`./${name}\`)`）。现状仓库不使用该模式，属评审兜底清单。
+- **解析依赖**：脚本依赖 `@babel/parser`（根 devDependency），不再是零依赖；取舍理由见落地形态中「落地点修正」。缓解：仅解析不承担编译，无版本耦合（与 TypeScript 7 无关）。
+- **仍有解析盲区**：动态 `import()` 为带表达式的模板字符串（拼接变量路径、目标无法静态确定）、CommonJS `require()`、解析不到实际文件的相对引用不在扫描范围。缓解：登记为已知限制并在脚本注释明示，由代码评审兜底；Vue 单文件组件与相对跨包引用已由本次 AST 升级覆盖。
 
 ## Migration / rollback
 
@@ -99,8 +99,8 @@
 
 决策接受（`Proposed → Accepted`）前至少提供：
 
-- [x] `node scripts/import-boundary.mjs`：全仓扫描零违规；
-- [x] `node --test scripts/import-boundary.test.mjs`：10/10 通过；覆盖 5 条规则、type import、副作用导入、动态 `import()`、宿主合法消费、已知限制（相对导入忽略）；
-- [x] 注入违规实测：`packages/contracts/src/_boundary-sanity.ts` 注入 `import "@aervox/agent-loop"`（#1）与 `packages/agent-loop` 注入 database/libsql/Drizzle（#2）均被拦截且退出码 1（dependency-cruiser 对同一注入漏检）；
+- [x] `node scripts/import-boundary.mjs`：全仓扫描零违规（含 Vue 单文件组件源扫描）；
+- [x] `node --test scripts/import-boundary.test.mjs`：14/14 通过；覆盖 5 条规则、type import、副作用导入、动态 `import()`、Vue 单文件组件、export-from、纯模板字符串、相对跨包判定、宿主合法消费与已知限制；
+- [x] 注入违规实测：`packages/contracts/src` 注入 `@aervox/agent-loop`（#1）、`packages/agent-loop` 注入 database/libsql/Drizzle（#2）、`packages/ui/.../_boundary-sanity.vue` 注入 database（#4）均被拦截且退出码 1（dependency-cruiser 对相同注入漏检）；
 - [x] `mise tasks run ci-code` 全量通过（2026-08-28，分支执行）；
 - [x] `mise tasks run ci-docs` 通过（2026-08-28，本文与索引登记改动）。

@@ -16,6 +16,7 @@
     "check:boundary": "node scripts/import-boundary.mjs && node --test scripts/import-boundary.test.mjs"
   },
   "devDependencies": {
+    "@babel/parser": "^8.0.4",
     "turbo": "2.10.11",
     "typescript": "7.0.2",
     "vitest": "4.0.18"
