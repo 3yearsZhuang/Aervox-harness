@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 依赖边界校验（零依赖，node 原生直跑）
+ * Aervox｜思隅 依赖边界校验（AST 解析，依赖 @babel/parser，不承担编译）
  *
  * 机器事实源：ADR-016「底座边界冻结」的健身函数。任何底座边界的增删，
  * 必须同时更新本文与对应 ADR/文档；违反任一规则 ci-code 即失败。
@@ -18,13 +18,21 @@
  * 参考规则：AVX-HAR-001 §16.2（agent-loop 不导入 SQLite/Drizzle）；
  *           AVX-CAP-001 交付载体与自选机制（Kernel Substrate 边界、能力层接口边界）。
  *
- * 已知限制：只覆盖静态 import（from "…" / import "…"，含 type import 与动态 import()），
- * 不解析 .vue 的 <script> 内导入与字符串常量别名；此类导入由代码评审兜底。
- * 相对路径导入（./ ../）只发生在包内，不跨越包边界，不做跨层判定。
+ * 能力覆盖（AST 解析，2026-08-28 从正则升级；落地点修正见 ADR-016 决策记录）：
+ *   - 静态 import / export ... from / 动态 import()（字符串字面量与纯模板字符串）
+ *   - .vue 的 <script> 块内导入（含 lang="ts"）
+ *   - 相对路径跨包引用（./ ../ → 解析到仓库相对路径后按包归属判定）
+ * 解析器：@babel/parser（纯 JS）。原"复用根 typescript"方案因 typescript@7
+ *           主入口不再暴露运行时 API（仅版本号，API 迁至 ./unstable/ast 原生绑定）而放弃。
+ * 已知限制（由代码评审兜底）：
+ *   - 动态 import() 为带表达式的模板字符串（目标无法静态确定）
+ *   - CommonJS require()（仓库为 ESM-only，不做判定）
+ *   - 解析不到实际文件的相对引用（按忽略处理）
  */
 
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative, sep } from "node:path";
+import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
+import { join, relative, sep, dirname, resolve } from "node:path";
+import { parse } from "@babel/parser";
 
 /** 每条规则即 ADR-016 的一条健身函数 */
 export const RULES = [
@@ -50,7 +58,6 @@ export const RULES = [
     fromDir: /^packages\/[^/]+\/(src|test)\//,
     forbid: [
       { pattern: /^@aervox\/(api|worker|web|desktop|mobile)$/, label: "宿主 Shell 包" },
-      { pattern: /^apps\//, label: "apps/ 宿主 Shell" },
     ],
   },
   {
@@ -72,19 +79,113 @@ export const RULES = [
       { pattern: /^@libsql\//, label: "@libsql/client" },
       { pattern: /^drizzle-orm($|\/)/, label: "drizzle-orm" },
       { pattern: /^@aervox\/(api|worker|web|desktop|mobile)$/, label: "宿主 Shell 包" },
-      { pattern: /^apps\//, label: "apps/ 宿主 Shell" },
     ],
   },
 ];
 
-/** 提取源码中的模块说明符（静态 import 的 from 目标 / 副作用导入 / 动态 import()） */
-export const IMPORT_SPECIFIERS_RE =
-  /(?:import\s*\(\s*|\bfrom\s+|\bimport\s+)["']([^"']+)["']/;
-export const newImportsMatcher = () => new RegExp(IMPORT_SPECIFIERS_RE.source, "g");
-
-/** 源码路径是否为允许扫描的源码文件 */
-export const SOURCE_EXT_RE = /\.(ts|tsx|js|mjs|cjs)$/;
+/** 源码文件扩展（含 .vue：提取 <script> 块再解析） */
+export const SOURCE_EXT_RE = /\.(ts|tsx|js|mjs|cjs|vue)$/;
 export const IGNORE_DIR_RE = /(^|\/)(node_modules|dist|out|reference|\.git)(\/|$)/;
+
+/** 从文本中提取 .vue 的 <script> 块（多 script 块全部提取） */
+const SCRIPT_BLOCK_RE = /<script\b[^>]*>([\s\S]*?)<\/script>/g;
+
+/** 用 AST 提取模块说明符：import/export-from/动态 import()（字符串与纯模板字面量） */
+function extractSpecifiers(source, fileName) {
+  const specifiers = [];
+  if (fileName.endsWith(".vue")) {
+    for (const match of source.matchAll(SCRIPT_BLOCK_RE)) {
+      collectFromTs(match[1], specifiers);
+    }
+    return specifiers;
+  }
+  collectFromTs(source, specifiers);
+  return specifiers;
+}
+
+/** 解析单个 TS/JS/Vue-script 片段为 AST 并收集模块说明符（@babel/parser，不承担编译） */
+function collectFromTs(text, out) {
+  let ast;
+  try {
+    ast = parse(text, { sourceType: "module", plugins: ["typescript", "jsx"] });
+  } catch {
+    return; // 语法不完整/非 TS 方言 → 跳过，由评审兜底
+  }
+  const visit = (node) => {
+    if (!node || typeof node !== "object" || typeof node.type !== "string") return;
+    switch (node.type) {
+      case "ImportDeclaration":
+      case "ExportNamedDeclaration":
+      case "ExportAllDeclaration":
+        if (node.source?.value) out.push(node.source.value);
+        break;
+      case "ImportExpression": {
+        // Babel 8 动态 import()：Source 与 options（ESM pragma）
+        const arg = node.source;
+        if (!arg) break;
+        if (arg.type === "StringLiteral") out.push(arg.value);
+        else if (arg.type === "TemplateLiteral" && arg.expressions.length === 0) {
+          out.push(arg.quasis[0].value.cooked);
+        }
+        break;
+      }
+    }
+    for (const key of Object.keys(node)) {
+      const child = node[key];
+      if (Array.isArray(child)) {
+        for (const item of child) visit(item);
+      } else {
+        visit(child);
+      }
+    }
+  };
+  visit(ast);
+}
+
+const CANDIDATE_EXTS = ["", ".ts", ".tsx", ".js", ".mjs", ".cjs", ".vue", "/index.ts"];
+/** NodeNext 以 .js 引用 .ts 源：对 JS 扩展名做 TS 源回退 */
+const JS_TO_TS = [
+  [".js", [".ts", ".tsx"]],
+  [".mjs", [".mts", ".ts"]],
+  [".cjs", [".cts", ".ts"]],
+];
+
+/** 相对导入（./ ../）解析为仓库相对路径；解析不到返回 null */
+function resolveRepoRelative(fromRelFile, specifier) {
+  if (!specifier.startsWith("./") && !specifier.startsWith("../")) return null;
+  const baseDir = dirname(join(process.cwd(), fromRelFile));
+  const absTarget = resolve(baseDir, specifier);
+  for (const ext of CANDIDATE_EXTS) {
+    const candidate = absTarget + ext;
+    if (existsSync(candidate)) {
+      return relative(process.cwd(), candidate).split(sep).join("/");
+    }
+  }
+  const jsMap = JS_TO_TS.find(([js]) => absTarget.endsWith(js));
+  if (jsMap) {
+    const stem = absTarget.slice(0, -jsMap[0].length);
+    for (const tsExt of jsMap[1]) {
+      const candidate = stem + tsExt;
+      if (existsSync(candidate)) {
+        return relative(process.cwd(), candidate).split(sep).join("/");
+      }
+    }
+  }
+  return null;
+}
+
+/** 仓库相对路径 → 所属 workspace 包键（packages/x 或 apps/x）；非包内返回 null */
+function ownPackage(repoRel) {
+  const m = repoRel.match(/^(packages|apps)\/([^/]+)\//);
+  return m ? `${m[1]}/${m[2]}` : null;
+}
+
+/** 仓库相对路径 → 伪包名（packages/x → @aervox/x；apps/x → @aervox/x）用于规则匹配 */
+function toPseudoSpecifier(repoRel) {
+  const m = repoRel.match(/^(packages|apps)\/([^/]+)\//);
+  if (!m) return null;
+  return `@aervox/${m[2]}`;
+}
 
 /** 全量遍历目录（repo 根相对），返回源码文件相对路径列表 */
 export function collectSourceFiles(rootDirs = ["apps", "packages"]) {
@@ -115,11 +216,17 @@ export function collectSourceFiles(rootDirs = ["apps", "packages"]) {
 /** 对单个文件执行全部规则，返回违规列表 [{ file, rule, module, label }] */
 export function inspectSource(relFile, source) {
   const violations = [];
+  const rawSpecifiers = extractSpecifiers(source, relFile);
+  const owner = ownPackage(relFile);
+  const normalized = rawSpecifiers.map((s) => {
+    const resolved = resolveRepoRelative(relFile, s);
+    if (resolved === null) return s; // 相对引用解析失败 → 保持原样（忽略判定）
+    if (ownPackage(resolved) === owner) return s; // 同包内相对引用合法，不做跨层判定
+    return toPseudoSpecifier(resolved) ?? s;
+  });
   for (const rule of RULES) {
     if (!rule.fromDir.test(relFile)) continue;
-    const matches = source.matchAll(newImportsMatcher());
-    for (const match of matches) {
-      const specifier = match[1];
+    for (const specifier of normalized) {
       const forbidden = rule.forbid.find((f) => f.pattern.test(specifier));
       if (forbidden) {
         violations.push({
@@ -162,5 +269,5 @@ if (process.argv[1]?.endsWith("import-boundary.mjs")) {
     }
     process.exit(1);
   }
-  console.log(`✔ 依赖边界检查通过：无违规（规则 ${RULES.length} 条，详见 ADR-016）`);
+  console.log(`✔ 依赖边界检查通过：无违规（规则 ${RULES.length} 条，TS AST 解析，详见 ADR-016）`);
 }

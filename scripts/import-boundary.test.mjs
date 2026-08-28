@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 import-boundary 门禁自测（node --test，零依赖）
+ * Aervox｜思隅 import-boundary 门禁自测（node --test，TS AST 方案）
  * 运行：node --test scripts/import-boundary.test.mjs
  */
 import { test } from "node:test";
@@ -63,7 +63,7 @@ test("宿主 Shell 允许消费底座（不违规）", () => {
   assert.deepEqual(v("apps/api/src/modules/conversation/agent-executor.ts", src), []);
 });
 
-test("import 提取：type import / 副作用导入 / 动态 import() 均覆盖", () => {
+test("AST 提取：type import / 副作用导入 / 动态 import() 均覆盖", () => {
   const typeOnly = `import type { X } from "@aervox/database";`;
   assert.deepEqual(v("packages/agent-loop/src/index.ts", typeOnly), ["agent-loop-no-db"]);
   const sideEffect = `import "@aervox/database";`;
@@ -72,15 +72,41 @@ test("import 提取：type import / 副作用导入 / 动态 import() 均覆盖"
   assert.deepEqual(v("packages/agent-loop/src/index.ts", dynamic), ["agent-loop-no-db"]);
 });
 
-test("相对路径导入不做跨层判定（含 apps 相对引用，已知限制由评审兜底）", () => {
-  const rel = `import { x } from "../../apps/api/src/index.js";`;
+test(".vue <script> 块内导入参与边界判定", () => {
+  const vueSrc = `<template><div/></template>\n<script setup lang="ts">\nimport { db } from "@aervox/database";\n</script>`;
+  assert.deepEqual(v("packages/ui/src/components/X.vue", vueSrc), ["ui-client-no-db"]);
+  const vueOk = `<script setup lang="ts">\nimport { useAervoxApi } from "@aervox/api-client";\n</script>`;
+  assert.deepEqual(v("packages/ui/src/components/Y.vue", vueOk), []);
+});
+
+test("export ... from 与纯模板字符串 import() 均覆盖", () => {
+  const exportFrom = `export { resolveX } from "@aervox/database";`;
+  assert.deepEqual(v("packages/agent-loop/src/index.ts", exportFrom), ["agent-loop-no-db"]);
+  const templateLit = "const m = await import(`@libsql/client`);";
+  assert.deepEqual(v("packages/agent-loop/src/index.ts", templateLit), ["agent-loop-no-db"]);
+});
+
+test("相对路径跨包引用可解析并判定（agent-loop → ../database 落库违规）", () => {
+  // packages/agent-loop/src/x.ts → ../../database/src/index.ts 解析为 packages/database → @aervox/database
+  const src = `import { AervoxDatabase } from "../../database/src/index.js";`;
+  assert.deepEqual(v("packages/agent-loop/src/executor.ts", src), ["agent-loop-no-db"]);
+});
+
+test("已知限制：带表达式的模板字符串 import() 不判定（评审兜底）", () => {
+  const dynamicExpr = "const m = await import(`./mod-${name}.js`);";
+  assert.deepEqual(v("packages/agent-loop/src/index.ts", dynamicExpr), []);
+});
+
+test("相对路径解析不到实际文件时保持忽略（不误报）", () => {
+  const rel = `import { x } from "../../apps/api/src/does-not-exist.js";`;
   assert.deepEqual(v("packages/api-client/src/transport.ts", rel), []);
 });
 
-test("collectSourceFiles：只收源码扩展、排除 reference/dist/node_modules", () => {
+test("collectSourceFiles：收 .ts/.vue、排除 reference/dist/node_modules", () => {
   const files = collectSourceFiles();
   assert.ok(Array.isArray(files));
   assert.ok(files.length > 10, "应扫描出全部源码文件");
   assert.ok(files.some((f) => f.startsWith("packages/contracts/")), "应包含 contracts");
+  assert.ok(files.some((f) => f.endsWith(".vue")), "应包含 .vue 组件");
   assert.ok(!files.some((f) => f.includes("reference/") || f.includes("node_modules/") || f.includes("/dist/")));
 });
