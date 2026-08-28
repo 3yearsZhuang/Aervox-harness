@@ -47,6 +47,7 @@
 | `CR-016` | [离线语音输入 ASR](reference/changes/CR-016-offline-voice-input-asr.md) | 2026-08-28 | `CAP-019/020` / `ADR-005` 离线语音输入与交互变更 | 表、契约、ASR 模块或输入交互与实现不一致 |
 | `CR-017` | [文档治理与事实源标准化](reference/changes/CR-017-document-governance-standardization.md) | 2026-08-28 | 文档治理策略、校验门禁或迁移阶段变更 | AVX-DOC-GOV-001、机器策略、入口文档或 CI 门禁不一致 |
 | `CR-018` | [错题错因记录工作流](reference/changes/CR-018-mistake-insight-workflow.md) | 2026-08-28 | `CAP-004` 错因元数据、筛选或工作台交互变更 | SRS、OpenAPI、数据库、API Client 与工作台错因语义不一致 |
+| `CR-019` | [向用户询问能力接入](reference/changes/CR-019-ask-user-question-capability.md) | 2026-08-28 | `CAP-001` / `AVX-HAR-001` 人机交互回环与向用户提问能力变更 | 流式协议、Loop 执行器、契约、API 协调或前端呈现不一致 |
 | `AVX-PLUG-001` | [插件 Config 与 Page 规范](reference/plugin-config-and-pages.md) | 2026-08-26 | CR-006 / 插件机制变更 | Manifest、Config Schema、Page Bridge 与实现不一致 |
 | `AVX-DOC-GOV-001` | [文档治理与事实源规范](reference/document-governance.md) | 2026-08-28 | 文档分类、状态、事实源、复核触发或迁移策略变更 | 策略 JSON、校验器、索引、登记表或写作规范与治理基线不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 2026-08-28 | 写作规则、模板或季度评审 | 新文档未使用规范元数据/签名，或 Vale 规则与术语表不一致 |

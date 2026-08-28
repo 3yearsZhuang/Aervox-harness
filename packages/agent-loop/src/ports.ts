@@ -206,6 +206,27 @@ export interface InboxPort {
 export interface SubagentPort {
   delegate(input: SubagentDelegateInput): Promise<SubagentRunResult>;
 }
+
+// ============ UQ-01 向用户询问交互端口 (DSH-UQ-01 借鉴) ============
+
+export interface AskUserQuestionPortRequest {
+  turnId: string;
+  attemptId: string;
+  step: number;
+  questions: import("@aervox/contracts").AskUserQuestionItem[];
+  signal?: AbortSignal;
+  timeoutMs?: number;
+}
+
+export interface AskUserQuestionPortResult {
+  answers: import("@aervox/contracts").AskUserQuestionAnswerItem[];
+}
+
+/** 宿主实现的向用户询问协调端口 */
+export interface UserQuestionPort {
+  ask(request: AskUserQuestionPortRequest): Promise<AskUserQuestionPortResult>;
+}
+
 export type {
   AgentInboxCommand,
   AgentInboxConsumeBoundary,

@@ -52,15 +52,6 @@ describe("阶段 5b Skill 渐进披露", () => {
     expect(ctx.messages[0]!.content).toContain("## Skills");
     expect(ctx.messages[1]).toEqual(baseMessages()[0]);
   });
-
-  it("createSkillAwareContextBuilder：已有首条 system 时不翻倍", () => {
-    const builder = createSkillAwareContextBuilder(skills);
-    const messages = [{ role: "system" as const, content: "安全边界" }, ...baseMessages()];
-    const ctx = builder.build({ turnId: "t1", sessionId: "s1", messages });
-    expect(ctx.messages[0]).toEqual(messages[0]);
-    expect(ctx.messages[1]!.content).toContain("## Skills");
-    expect(ctx.messages.length).toBe(4); // sys + sys(skills) + user + assistant
-  });
 });
 
 describe("阶段 5b Context 压缩 seam", () => {
@@ -102,6 +93,46 @@ describe("阶段 5b Context 压缩 seam", () => {
     expect(res.messages[2]!.content).toContain("Context compaction");
     expect(res.messages[res.messages.length - 2]).toEqual(messages[messages.length - 2]);
     expect(res.messages[res.messages.length - 1]).toEqual(messages[messages.length - 1]);
+  });
+});
+
+describe("基础系统提示词与工具指引 (Base System Prompt & Tool Guidance)", () => {
+  it("buildBaseSystemPrompt：生成助手身份与内置工具使用规则约束", async () => {
+    const { buildBaseSystemPrompt } = await import("../src/base-prompt.js");
+    const prompt = buildBaseSystemPrompt({
+      assistantName: "测试思隅",
+      personaPrompt: "保持温柔与耐心",
+    });
+
+    expect(prompt).toContain("测试思隅");
+    expect(prompt).toContain("工具使用规范与约束");
+    expect(prompt).toContain("ask_user_question");
+    expect(prompt).toContain("subagent.delegate");
+    expect(prompt).toContain("workflow.run");
+    expect(prompt).toContain("保持温柔与耐心");
+  });
+
+  it("createComposedContextBuilder：baseSystemPrompt 置于最前并支持与 skills 组合", async () => {
+    const builder = createComposedContextBuilder({
+      base: defaultContextBuilder,
+      baseSystemPrompt: {
+        assistantName: "思隅",
+      },
+      skills,
+    });
+
+    const ctx = await builder.build({
+      turnId: "t1",
+      sessionId: "s1",
+      messages: baseMessages(),
+    });
+
+    // 顺序：system(Base Prompt) -> system(Skills) -> user -> assistant
+    expect(ctx.messages[0]!.role).toBe("system");
+    expect(ctx.messages[0]!.content).toContain("工具使用规范与约束");
+    expect(ctx.messages[1]!.role).toBe("system");
+    expect(ctx.messages[1]!.content).toContain("## Skills");
+    expect(ctx.messages[2]).toEqual(baseMessages()[0]);
   });
 });
 

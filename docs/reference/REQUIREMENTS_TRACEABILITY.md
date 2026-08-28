@@ -262,6 +262,8 @@
 
 | 多人格模板（CAP-019：draft→review→approved/rejected + 切换日志 + 回滚 + 记忆隔离/共享） | CAP-019 | `packages/database/src/schema/persona.ts`（personas 审核列迁移 + `persona_switch_logs`/`persona_memory_scopes`）+ `repositories/sqlite/persona-repository.ts`、`packages/contracts/src/persona-schemas.ts`（reviewStatus/memoryPolicy 枚举）、`apps/api/src/modules/persona/`（`service.ts`/`routes.ts`/`bundle.ts`/`types.ts`：模板审核/切换/记忆范围端点） | 2026-08-28 | `@aervox/api` `cap019-persona-templates.test.ts` 16（模板审核流转/切换日志/回滚/记忆隔离与共享确认）；ci-code 全量 | 原生 |
 
+| 向用户询问能力接入（CR-019 / UQ-01：ask_user_question 工具 + Loop 挂起等待 + API 协调队列 + 双形态前端呈现） | CAP-001 | `packages/contracts/src/schemas.ts`、`packages/agent-loop/src/user-question-tool.ts`、`apps/api/src/modules/conversation/user-question-coordinator.ts`、`packages/api-client/src/`、`packages/ui/src/components/UserQuestionComposer.vue`、`apps/desktop/src/renderer/src/components/PetWindow.vue` | 2026-08-28 | `@aervox/agent-loop` `user-question-tool.test.ts`；OpenAPI 生成；全仓 typecheck；ci-code 与 ci-docs 门禁 | `DSH-UQ-01` |
+
 | 多能力 E2E 与 Playwright 测试基建 | CAP-010~017/019 | `e2e/`（`preferences`/`message-edit-delete`/`practice-flow`/`mistake-book`/`session-recovery.spec.ts`）、`playwright.config.ts`、`package.json`（`test:e2e`；`@playwright/test` 根 workspace devDep） | 2026-08-28 | playwright 用例（依赖本地 dev server）；根 workspace typecheck | 原生 |
 
 ## 5. 原子需求字段模板

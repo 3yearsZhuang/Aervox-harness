@@ -12,8 +12,9 @@ import {
   createReplayProvider,
   createScriptedProvider,
   createSubagentToolProvider,
-  createSummaryCompaction,
   createWorkflowToolProvider,
+  createAskUserQuestionToolProvider,
+  createSummaryCompaction,
   defaultContextBuilder,
   executeTurn,
 } from "@aervox/agent-loop";
@@ -26,6 +27,7 @@ import type {
   ToolExecutionInput,
   ToolExecutionResult,
   ToolProviderPort,
+  UserQuestionPort,
   WorkflowDefinition,
 } from "@aervox/agent-loop";
 import { SqliteExecutionStore } from "@aervox/host-agent";
@@ -220,6 +222,8 @@ export async function runLoopTurnOnce(
     subagentFactory?: (tenant: TenantContext) => SubagentPort;
     /** 5c：已注册 Workflow 定义清单（贡献 `workflow.run` 工具 + GET /v1/workflows 元数据） */
     workflows?: WorkflowDefinition[];
+    /** UQ-01：向用户提问协调端口（挂起与唤醒） */
+    userQuestionPort?: UserQuestionPort;
   } = {},
 ): Promise<void> {
   const store = new SqliteExecutionStore(repo, tenant);
@@ -245,6 +249,9 @@ export async function runLoopTurnOnce(
   if (deps.workflows && deps.workflows.length > 0) {
     contribution.push(createWorkflowToolProvider(deps.workflows));
   }
+  if (deps.userQuestionPort) {
+    contribution.push(createAskUserQuestionToolProvider({ userQuestionPort: deps.userQuestionPort }));
+  }
   let tools: ToolProviderPort | undefined;
   if (deps.toolRuntime) {
     const runtimeProvider = createRuntimeToolProvider(deps.toolRuntime, tenant, { conversationRepo: repo });
@@ -255,18 +262,19 @@ export async function runLoopTurnOnce(
   } else if (contribution.length > 0) {
     tools = composeToolProviders(contribution);
   }
-  // 5b：默认启用 Skill 渐进披露（activeOnly 清单注入 system）；压缩 seam 默认关闭，
+  // 5b：默认启用 Base System Prompt（含核心工具指引）与 Skill 渐进披露；压缩 seam 默认关闭，
   // 设置 AERVOX_LOOP_COMPACTION=rule 启用内置规则式摘要。
-  const contextBuilder =
-    deps.skills && deps.skills.length > 0
-      ? createComposedContextBuilder({
-          base: defaultContextBuilder,
-          skills: deps.skills,
-          ...(process.env.AERVOX_LOOP_COMPACTION === "rule"
-            ? { compaction: createSummaryCompaction() }
-            : {}),
-        })
-      : defaultContextBuilder;
+  const contextBuilder = createComposedContextBuilder({
+    base: defaultContextBuilder,
+    baseSystemPrompt: {
+      assistantName: "思隅 (Aervox)",
+      activeTools: tools?.tools,
+    },
+    skills: deps.skills,
+    ...(process.env.AERVOX_LOOP_COMPACTION === "rule"
+      ? { compaction: createSummaryCompaction() }
+      : {}),
+  });
   const result = await executeTurn(
     {
       execution: store,

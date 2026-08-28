@@ -19,6 +19,8 @@ import type { LLMConfigService } from "../llm/service.js";
 import { resolveTenant } from "../../shared/tenant.js";
 import { createTenantInboxPort } from "../inbox/port.js";
 import { runLoopTurnOnce } from "./agent-executor.js";
+import { UserQuestionCoordinator } from "./user-question-coordinator.js";
+import { submitQuestionAnswersRequestSchema } from "@aervox/contracts";
 
 let seq = 0;
 const nextTurnId = (): string => `turn_${Date.now().toString(36)}_${(++seq).toString(36)}`;
@@ -40,6 +42,8 @@ export interface ConversationRouteDeps {
   workflows?: import("@aervox/agent-loop").WorkflowDefinition[];
   /** 5c：subagent_runs 仓储（GET /v1/turns/:id/subagents 审计查询） */
   subagentRunRepo?: SqliteSubagentRunRepository;
+  /** UQ-01：向用户提问会话协调器 */
+  userQuestionCoordinator?: UserQuestionCoordinator;
 }
 
 export function registerConversationRoutes(
@@ -119,6 +123,7 @@ export function registerConversationRoutes(
     // 阶段 1/2d（AVX-HAR-001 §15）：创建 Attempt 并由 Agent Loop 执行一次
     const attemptId = `atp_${turnId}`;
     await conversationRepo.createTurnAttempt(tenant, turnId, { id: attemptId, attempt: 1 });
+    const uqPort = deps.userQuestionCoordinator ? deps.userQuestionCoordinator.createPort(tenant) : undefined;
     await runLoopTurnOnce(
       conversationRepo,
       tenant,
@@ -142,6 +147,8 @@ export function registerConversationRoutes(
         // 5c：Subagent/Workflow Contribution（独立 Tool/Provider 组合；惰性工厂按 request tenant 绑定）
         subagentFactory: deps.subagentFactory,
         workflows: deps.workflows,
+        // UQ-01: 向用户提问端口
+        userQuestionPort: uqPort,
       },
     );
 
@@ -205,6 +212,49 @@ export function registerConversationRoutes(
       return reply.code(409).send({ error: res.reason ?? "request_cancel_failed", turnId, status: latest?.status });
     }
     return reply.send({ turnId, status: "Cancelled", cancelled: true });
+  });
+
+  // POST /v1/turns/{turnId}/questions/answers — 提交对向用户询问的回答 (UQ-01)
+  app.post("/v1/turns/:turnId/questions/answers", async (req, reply) => {
+    const { turnId } = req.params as { turnId: string };
+    const tenant = resolveTenant(req);
+    if (!deps.userQuestionCoordinator) {
+      return reply.code(404).send({ error: "user_questions_disabled" });
+    }
+    const parsed = submitQuestionAnswersRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({
+        error: "invalid_request",
+        details: parsed.error.issues,
+      });
+    }
+    try {
+      const res = await deps.userQuestionCoordinator.submitAnswers(
+        tenant,
+        turnId,
+        parsed.data.answers,
+      );
+      return reply.send(res);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.startsWith("NO_PENDING_QUESTION")) {
+        return reply.code(409).send({ error: msg });
+      }
+      return reply.code(500).send({ error: msg });
+    }
+  });
+
+  // GET /v1/turns/{turnId}/questions/pending — 查询当前 Turn 待作答问题 (UQ-01)
+  app.get("/v1/turns/:turnId/questions/pending", async (req, reply) => {
+    const { turnId } = req.params as { turnId: string };
+    if (!deps.userQuestionCoordinator) {
+      return reply.code(404).send({ error: "user_questions_disabled" });
+    }
+    const pending = deps.userQuestionCoordinator.getPending(turnId);
+    if (!pending) {
+      return reply.send({ turnId, pending: false, questions: [] });
+    }
+    return reply.send({ turnId, pending: true, step: pending.step, questions: pending.questions });
   });
 
   // POST /v1/turns/{turnId}/tool-approvals — 写工具授权决定（阶段 3a：grant / deny；3b：privileged 仅管理员可批准）

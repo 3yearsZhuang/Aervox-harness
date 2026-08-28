@@ -405,6 +405,9 @@ export async function executeTurn(
             arguments: call.arguments,
           });
           try {
+            // ask_user_question 工具需要等待用户交互，使用更长超时（默认 120s）或配置项
+            const isAskUser = call.name === "ask_user_question";
+            const effectiveTimeout = isAskUser ? Math.max(toolTimeoutMs, 120000) : toolTimeoutMs;
             const executed = await withTimeout(
               tools.execute({
                 turnId: input.turnId,
@@ -414,7 +417,7 @@ export async function executeTurn(
                 arguments: call.arguments,
                 sessionId: input.sessionId,
               }),
-              toolTimeoutMs,
+              effectiveTimeout,
             );
             result = { id: call.id, name: call.name, ok: executed.ok, output: executed.output, error: executed.error, needsApproval: executed.needsApproval };
           } catch (err) {
