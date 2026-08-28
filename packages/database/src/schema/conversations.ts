@@ -38,6 +38,8 @@ export const turns = sqliteTable(
     acceptedAt: text("accepted_at"),
     cancelledAt: text("cancelled_at"),
     completedAt: text("completed_at"),
+    // CAP-013：引用追问（quote_message_id → messages.id）
+    quoteMessageId: text("quote_message_id"),
     ...timestampColumns,
   },
   (table) => ({
@@ -150,7 +152,12 @@ export const turnAttempts = sqliteTable(
   }),
 );
 
-/** 会话地图与替代解法分支（P1 · CAP-014） */
+/**
+ * 会话地图与替代解法分支（P1 · CAP-014）
+ *
+ * CAP-014 扩展：分支元数据（标题/原因）、生命周期状态、布局数据。
+ * 分支创建后可合并回主线、归档或删除；布局数据丢失不影响会话内容。
+ */
 export const conversationBranches = sqliteTable(
   "conversation_branches",
   {
@@ -163,6 +170,18 @@ export const conversationBranches = sqliteTable(
     childSessionId: text("child_session_id")
       .notNull()
       .references(() => sessions.id, { onDelete: "cascade" }),
+    /** CAP-014：分支标题（如"替代解法 A"） */
+    title: text("title"),
+    /** CAP-014：分支原因（如"术语下钻"、"文本追问"、"替代解法"） */
+    branchReason: text("branch_reason"), // "term_drill" | "text_followup" | "alternative_solution" | "other"
+    /** CAP-014：分支生命周期状态 */
+    status: text("status").notNull().default("active"), // "active" | "merged" | "archived" | "deleted"
+    /** CAP-014：合并时间戳 */
+    mergedAt: text("merged_at"),
+    /** CAP-014：会话地图布局数据（JSON: {x, y, width, height} 等） */
+    layoutData: text("layout_data", { mode: "json" }),
+    /** CAP-014：软删除 */
+    deletedAt: text("deleted_at"),
     ...timestampColumns,
   },
   (table) => ({
@@ -171,5 +190,6 @@ export const conversationBranches = sqliteTable(
       table.workspaceId,
       table.subjectUserId,
     ),
+    statusIdx: index("conversation_branches_status_idx").on(table.status),
   }),
 );
