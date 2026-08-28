@@ -354,7 +354,7 @@ resolve definition
 - 恢复器只领取未终态且 lease 过期的 Attempt；
 - 同 Session 的写入结合 SessionLock 和数据库 CAS，避免两个 Turn 修改同一事实。
 
-当前 3b-A/3b-B 已实现 claim TTL、Step 首部续租探活、过期抢占、Worker 收敛和 Attempt 终态 fencing；**事件写入的 fencing CAS 已落地（B1，§16.22）**——工具结果/账本写入的 fencing、长时间 Provider/Tool 调用期间的周期心跳仍属 3c+。
+当前 3b-A/3b-B 已实现 claim TTL、Step 首部续租探活、过期抢占、Worker 收敛和 Attempt 终态 fencing；**事件写入的 fencing CAS 已落地（B1，§16.22）**；**长模型/工具调用期间的周期心跳续租已落地（B2，§16.23）**——工具结果/账本写入的 fencing 仍属 3c+。
 
 ### 11.3 恢复
 
@@ -825,6 +825,15 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - **Loop 语义收口**（`@aervox/agent-loop`）：新增 `LeaseLostError`；`executor.ts` 全部事件写入携带 claim fencing，catch 拦截 `LeaseLostError` → 收敛 `failed(lease_lost)` 且**不再产生任何新副作用**（§11.2）；`in-memory-store.ts` 同语义守卫 + `simulatePreemption` 钩子。
 - **宿主/同步路径**（`@aervox/host-agent`、`apps/api`）：store 透传期望值并把 `FencingMismatchError` 转译为 `LeaseLostError`；`adapter-turn.ts` 携带 claim fencing；`failTurnWithError`（未 claim）携带 `expectedFencingToken=0`。
 - 测试：`@aervox/database` 150（`event-fencing.test.ts` 5：正确通过 / 恢复器抢占（过期租约 fencing+1→Interrupted）后旧期望被拒且零污染 / attempt 不存在拒绝 / 终态仅 done 放行 / CancelRequested 可写）；`@aervox/agent-loop` 121（`executor-fencing.test.ts` 4：内存守卫 + 工具执行中被抢占 → `failed(lease_lost)`、无 tool_result/done/error 迟到事件、不写终态）；`@aervox/host-agent` 62（`sqlite-execution-store-fencing.test.ts` 3：桥接正确 / 失配转译 LeaseLostError / 未携带保持兼容）；`@aervox/api` 229 无回归；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.23 落地进展（阶段 3c+-B2：长调用周期心跳续租）
+
+2026-08-28 落地（对应 §11.2「长模型/工具调用期间由 Host 续租」「续租失败立即停止产生新副作用」与 §3c+「长时间 Provider/Tool 调用期间的周期心跳仍属 3c+」关闭）：
+
+- **心跳器**（`packages/agent-loop/src/lease-heartbeat.ts` `LeaseHeartbeat`）：claim 后按固定间隔（默认 = 租约 TTL/2 = 30s）经既有 `renewAttemptLease` CAS 续租；`renew ok=false`（被抢占/恢复器已递增 fencing 或已终态）→ 判定 `lost` 并幂等单播订阅回调；传输/瞬时故障不判死（丢失必须以 CAS 语义为准），下一心跳重试。
+- **executor 接线**（`executor.ts`）：`ExecuteTurnOptions` 增 `leaseTtlMs`（默认 60_000，与数据库层一致）/ `leaseHeartbeatIntervalMs`（默认 TTL/2，0 关闭）；claim 后启动、`try/finally` 兜底停止（无定时器泄漏、终态后不续租）；Provider 长流 chunk 间 `throwIfLost` 检查点；长工具调用注册 `onLost → AbortController.abort` 中止在途工具，且工具 catch 内 `heartbeat.lost` 直接收口 `lease_lost`（不写结果事件）。宿主零改动（复用 CAS 续租）。
+- 效果：`ask_user_question`（最长 120s）等长调用不再因租约超时被恢复器误判为僵尸原地收敛；真被抢占时心跳探知后立即中止，与 B1 事件写入 fencing 双层兜底。
+- 测试：`@aervox/agent-loop` 126（新增 `lease-heartbeat.test.ts` 5：单元 lost 判定/幂等多播/stop 后停更 + 集成——120ms 长工具调用期间续租 ≥3 且 Turn 正常完成 / 中途 `simulatePreemption`（fencing+1）→ 心跳续租失败 → 在途工具 abort → `failed(lease_lost)` 且无迟到事件/不写终态 / `leaseHeartbeatIntervalMs=0` 时仅 Step 首部探活）；`@aervox/database` 150、`@aervox/host-agent` 62、`@aervox/api` 229 无回归；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
 ## 17. 回滚策略
 

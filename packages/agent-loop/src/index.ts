@@ -17,3 +17,4 @@ export * from "./base-prompt.js";
 export * from "./subagent-contribution.js";
 export * from "./user-question-tool.js";
 export * from "./resume.js";
+export * from "./lease-heartbeat.js";

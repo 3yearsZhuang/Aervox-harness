@@ -19,6 +19,7 @@ import type {
   ToolExecutionStatus,
 } from "./types.js";
 import { LeaseLostError } from "./errors.js";
+import { LeaseHeartbeat } from "./lease-heartbeat.js";
 
 export interface ExecuteTurnInput {
   turnId: string;
@@ -57,6 +58,16 @@ export interface ExecuteTurnOptions {
   maxConsecutiveSameTool?: number;
   /** 4b：续跑（§11.3 首范式）；缺省为全新执行 */
   resume?: ExecuteTurnResumeInput;
+  /**
+   * B2：租约 TTL（ms）。心跳续租以此续期；默认 60_000（与数据库层 claim/renew 默认一致）。
+   */
+  leaseTtlMs?: number;
+  /**
+   * B2：长调用周期心跳间隔（ms）。默认 = leaseTtlMs / 2；0 关闭心跳（Step 首部探活仍然生效）。
+   * 覆盖 Provider 长流与长工具调用（如 ask_user_question 最长 120s），防止租约超时被
+   * 恢复器误判为僵尸原地收敛（AVX-HAR-001 §11.2）。
+   */
+  leaseHeartbeatIntervalMs?: number;
 }
 
 /** 2d：删除/撤权水位闸门（§11.3：删除/撤权水位未追平 → fail closed，不继续模型或工具调用） */
@@ -136,6 +147,26 @@ export async function executeTurn(
   const claimLeaseId = claim.leaseId;
   const claimFencingToken = claim.fencingToken;
   let stepsTaken = 0;
+
+  // B2：长模型/工具调用期间周期心跳续租（§11.2）。默认 TTL/2 间隔；0 关闭。
+  // 心跳续租失败（CAS 语义：被抢占/恢复/终态）→ lost，abort 在途工具并在检查点收敛 lease_lost。
+  const leaseTtlMs = options?.leaseTtlMs ?? 60_000;
+  const leaseHeartbeatIntervalMs =
+    options?.leaseHeartbeatIntervalMs ?? Math.floor(leaseTtlMs / 2);
+  const heartbeat =
+    claimLeaseId && leaseHeartbeatIntervalMs > 0
+      ? new LeaseHeartbeat({
+          renew: () =>
+            execution.renewAttemptLease({
+              attemptId: input.attemptId,
+              leaseId: claimLeaseId,
+              expectedFencingToken: claimFencingToken,
+              ttlMs: leaseTtlMs,
+            }),
+          intervalMs: leaseHeartbeatIntervalMs,
+        })
+      : null;
+  heartbeat?.start();
 
   // 2b：用户取消闭环（AVX-HAR-001 §11.1）——先 CAS 夺终态（Cancelled），成功才写 done 事件；
   // finalize 返回 false（与它方终态竞态）则静默中止，不产生不一致事件。
@@ -466,6 +497,8 @@ export async function executeTurn(
             const effectiveTimeout = isAskUser ? Math.max(toolTimeoutMs, 120000) : toolTimeoutMs;
             // 缺陷 D：工具超时通过 AbortController 传播取消信号，底层可感知并清理挂起副作用
             const cancel = new AbortController();
+            // B2：租约丢失（心跳探知）→ abort 在途工具（即使工具不感知 signal，工具返回后检查点也会收敛）
+            heartbeat?.onLost(() => cancel.abort());
             const executed = await withTimeout(
               tools.execute({
                 turnId: input.turnId,
@@ -481,6 +514,11 @@ export async function executeTurn(
             );
             result = { id: call.id, name: call.name, ok: executed.ok, output: executed.output, error: executed.error, needsApproval: executed.needsApproval };
           } catch (err) {
+            // B2：工具执行期间租约已失（心跳探知）→ 立即中止本 Step 交回外层收敛 lease_lost，
+            // 不写结果事件、不启动新副作用
+            if (heartbeat?.lost) {
+              throw new LeaseLostError("lease lost during tool execution");
+            }
             result = { id: call.id, name: call.name, ok: false, error: err instanceof Error ? err.message : "tool_execution_error" };
           }
           // 2c：以权威结果收口预留行（§9：非幂等副作用失败不自动重试）
@@ -604,7 +642,8 @@ export async function executeTurn(
     return { status: "failed", attemptId: input.attemptId, reason: "max_steps" };
   } catch (err) {
     // B1：事件写入被 fencing CAS 拒绝（Attempt 已被抢占/恢复）→ 立即中止，不再产生新副作用（AVX-HAR-001 §11.2）
-    if (err instanceof LeaseLostError) {
+    // B2：心跳探知租约已失（含工具 abort 引发的错误）→ 同样收敛 lease_lost
+    if (err instanceof LeaseLostError || heartbeat?.lost) {
       return { status: "failed", attemptId: input.attemptId, reason: "lease_lost" };
     }
     await execution.appendEvent({
@@ -628,5 +667,8 @@ export async function executeTurn(
       expectedFencingToken: claimFencingToken,
     }).catch(() => undefined);
     return { status: "failed", attemptId: input.attemptId, reason: "execution error" };
+  } finally {
+    // B2：无论正常/中止均停止心跳，避免泄漏定时器或在终态后继续续租
+    heartbeat?.stop();
   }
 }
