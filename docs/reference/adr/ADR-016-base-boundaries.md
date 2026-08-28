@@ -3,8 +3,9 @@
 - 提出人：3yearszhuang · 2026-08-28
 - 修改人：3yearszhuang · 2026-08-28
 
-- 状态：Proposed
+- 状态：Accepted
 - 日期：2026-08-28
+- 接受日期：2026-08-28（G2 架构与数据门禁）
 
 - 关联：`CAP-001～032`、`ADR-001`（模块化单体）、`ADR-014`（演进式模块化单体）、`AVX-CAP-001`（能力组合与可选化目录规范）、`AVX-HAR-001 §16.2`（Loop 架构验收）
 
@@ -12,8 +13,8 @@
 
 底座边界此前只存在于文档声明，没有编码层机器校验：
 
-- [AVX-CAP-001](capability-composition.md) 规定 Kernel Substrate（Composition/Lifecycle、Contract/Protocol、Policy/Consent、Data Rights、Outbox/Audit、Sandbox/Revocation、Observability/Recovery）不可关闭，能力层不得直写核心数据；
-- [AVX-HAR-001 §16.2](agent-harness-loop.md) 架构验收要求 Loop 应用层不导入 `@aervox/database`/Drizzle/具体 SQLite；
+- [AVX-CAP-001](../capability-composition.md) 规定 Kernel Substrate（Composition/Lifecycle、Contract/Protocol、Policy/Consent、Data Rights、Outbox/Audit、Sandbox/Revocation、Observability/Recovery）不可关闭，能力层不得直写核心数据；
+- [AVX-HAR-001 §16.2](../agent-harness-loop.md) 架构验收要求 Loop 应用层不导入 `@aervox/database`/Drizzle/具体 SQLite；
 - [ADR-014](ADR-014-modular-monolith-structure.md) 早已提出"ESLint import 规则进一步强制模块边界"，但从未实施，边界约束仍靠评审自觉。
 
 仓库当前没有 `capabilities/`、`providers/`、`adapters/`、`modules/` 目录，但 AVX-CAP-001 的能力组合目标是既定方向。一旦能力层出现，若无机器校验，"能力直写数据库表/宿主 Shell"的违规只会在评审中偶然被发现。AVX-CAP-001 也已预留本决策："接受该目标前必须建立 ADR-016（或等效决策）"。
@@ -59,13 +60,13 @@
 
 ### 落地形态
 
-- 规则事实源：[scripts/import-boundary.mjs](../../scripts/import-boundary.mjs)（`--list` 打印规则）；自测 [import-boundary.test.mjs](../../scripts/import-boundary.test.mjs)（`node --test`，零依赖）；
+- 规则事实源：[scripts/import-boundary.mjs](../../../scripts/import-boundary.mjs)（`--list` 打印规则）；自测 [import-boundary.test.mjs](../../../scripts/import-boundary.test.mjs)（`node --test`，零依赖）；
 - 门禁：根 `pnpm check:boundary` → `mise tasks run ci-code`；`.github/workflows/ci.yml` 触发路径补充 `scripts/**`；
 - 边界增删必须**双写**：同步更新脚本与本文/AVX-CAP-001，任何单一改动视为未闭环。
 
 ### 明确不在本 ADR 底座的
 
-- 各业务能力（Conversation、Learning、Review……）与[能力注册表](capability-registry.md)登记的 P1/P2/P3 候选：保留主仓期间同样受上述分层约束；纳入自选机制后由分层不变式（#5）接管，不属于 Kernel Substrate。
+- 各业务能力（Conversation、Learning、Review……）与[能力注册表](../capability-registry.md)登记的 P1/P2/P3 候选：保留主仓期间同样受上述分层约束；纳入自选机制后由分层不变式（#5）接管，不属于 Kernel Substrate。
 
 ## Positive consequences
 
@@ -101,5 +102,5 @@
 - [x] `node scripts/import-boundary.mjs`：全仓扫描零违规；
 - [x] `node --test scripts/import-boundary.test.mjs`：10/10 通过；覆盖 5 条规则、type import、副作用导入、动态 `import()`、宿主合法消费、已知限制（相对导入忽略）；
 - [x] 注入违规实测：`packages/contracts/src/_boundary-sanity.ts` 注入 `import "@aervox/agent-loop"`（#1）与 `packages/agent-loop` 注入 database/libsql/Drizzle（#2）均被拦截且退出码 1（dependency-cruiser 对同一注入漏检）；
-- [ ] `mise tasks run ci-code` 全量通过（合入前在本分支执行）；
-- [ ] `mise tasks run ci-docs` 通过（本文与索引登记改动）。
+- [x] `mise tasks run ci-code` 全量通过（2026-08-28，分支执行）；
+- [x] `mise tasks run ci-docs` 通过（2026-08-28，本文与索引登记改动）。
