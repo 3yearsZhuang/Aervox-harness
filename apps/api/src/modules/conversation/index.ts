@@ -5,7 +5,12 @@
  * 阶段 2d：可注入 ToolRuntime 作为 Agent Loop 的只读工具提供者（缺失时 fail-closed）。
  */
 import type { FastifyInstance } from "fastify";
-import { SqliteConversationRepository, SqlitePrivacyRepository } from "@aervox/database";
+import {
+  SqliteAgentInboxRepository,
+  SqliteConversationRepository,
+  SqlitePrivacyRepository,
+  SqliteSkillRegistryRepository,
+} from "@aervox/database";
 import type { AervoxDatabase } from "@aervox/database";
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
@@ -25,9 +30,17 @@ export function registerConversationModule(
 ): void {
   const conversationRepo = new SqliteConversationRepository(db);
   const privacyRepo = new SqlitePrivacyRepository(db);
+  const skillRepo = new SqliteSkillRegistryRepository(db);
   registerConversationRoutes(app, conversationRepo, {
     toolRuntime: options.toolRuntime,
     llmConfigService: options.llmConfigService,
     privacyRepo,
+    inboxRepo: new SqliteAgentInboxRepository(db),
+    // 5b：Skill 渐进披露（activeOnly 清单 → name+description）
+    skillLoader: async () =>
+      (await skillRepo.listSkills(true)).map((s) => ({
+        name: s.name,
+        description: s.description,
+      })),
   });
 }

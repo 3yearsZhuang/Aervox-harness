@@ -6,15 +6,19 @@
  * （AVX-HAR-001 §13），阶段 4 抽出独立 Host 时仅替换接线。
  */
 import {
+  createComposedContextBuilder,
   createOpenAICompatProvider,
   createReplayProvider,
   createScriptedProvider,
+  createSummaryCompaction,
   defaultContextBuilder,
   executeTurn,
 } from "@aervox/agent-loop";
 import type {
+  InboxPort,
   ModelProviderPort,
   ReplayStep,
+  SkillDescriptor,
   ToolExecutionInput,
   ToolExecutionResult,
   ToolProviderPort,
@@ -166,6 +170,10 @@ export async function runLoopTurnOnce(
     llmConfigService?: LLMConfigService;
     /** 2d：删除/撤权水位未追平 → Loop fail-closed（AVX-HAR-001 §11.3） */
     deletionGate?: import("@aervox/agent-loop").DeletionGatePort;
+    /** 5a-2：受控收件箱消费（每 Step claim next-step → 注入 → ack；缺失时跳过） */
+    inbox?: InboxPort;
+    /** 5b：渐进披露的 Skill 清单（name+description；模型按需读取全文；缺省不注入） */
+    skills?: SkillDescriptor[];
   } = {},
 ): Promise<void> {
   const store = new SqliteExecutionStore(repo, tenant);
@@ -205,13 +213,26 @@ export async function runLoopTurnOnce(
   }
 
   const tools = deps.toolRuntime ? createRuntimeToolProvider(deps.toolRuntime, tenant, { conversationRepo: repo }) : undefined;
+  // 5b：默认启用 Skill 渐进披露（activeOnly 清单注入 system）；压缩 seam 默认关闭，
+  // 设置 AERVOX_LOOP_COMPACTION=rule 启用内置规则式摘要。
+  const contextBuilder =
+    deps.skills && deps.skills.length > 0
+      ? createComposedContextBuilder({
+          base: defaultContextBuilder,
+          skills: deps.skills,
+          ...(process.env.AERVOX_LOOP_COMPACTION === "rule"
+            ? { compaction: createSummaryCompaction() }
+            : {}),
+        })
+      : defaultContextBuilder;
   const result = await executeTurn(
     {
       execution: store,
       provider,
-      contextBuilder: defaultContextBuilder,
+      contextBuilder,
       tools,
       deletionGate: deps.deletionGate,
+      inbox: deps.inbox,
     },
     input,
   );
