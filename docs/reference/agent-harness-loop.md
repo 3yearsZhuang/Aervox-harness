@@ -550,13 +550,13 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 
 目标：支持持续 Agent 工作而不污染基本 Loop。
 
-- followup、steer、inject；
-- Context compaction seam；
-- Skill 渐进式披露接入 ContextBuilder；
-- Subagent/Workflow 通过独立 Tool/Provider Contribution 接入；
+- followup、steer、inject（已落地 5a 数据面与消费闭环：`agent_inbox_items` 表 + InboxPort + executor 消费；API/插件受控入口待 5a-2）；
+- Context compaction seam（待 5b）；
+- Skill 渐进式披露接入 ContextBuilder（待 5b）；
+- Subagent/Workflow 通过独立 Tool/Provider Contribution 接入（待 5c）；
 - DSH/pi Adapter 进行兼容、许可证和安全验证（仍属规划）。
 
-退出条件：高级能力均通过扩展点接入，不修改 Loop 核心控制流。
+退出条件：高级能力均通过扩展点接入，不修改 Loop 核心控制流。（5a 已按此兑现：Inbox 注入经 `ContextBuilderPort` 扩展点 + 可选 `InboxPort`，未改动 Loop 状态机与事件流；`agent-loop-no-db` 健身函数持续机器验证。）
 
 ## 16. 测试与验收
 
@@ -712,6 +712,22 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
   - 业务数据库所有权（`scripts/import-boundary.mjs` `agent-loop-no-db` 健身函数）：机器验证 `packages/agent-loop` 不导入 `@aervox/database`/`@libsql`/`drizzle-orm`，数据库由宿主（`packages/host-agent` + `packages/database`）管理；
   - 无 DSH/pi 时原生 Profile 可运行（`packages/host-agent/test/profile.test.ts`）：replay 无依赖、native 需 CR-015 同源配置，均已验证。
 - 测试：`@aervox/host-agent` 27（新增 `host-health.test.ts` 9：liveness 五态/readiness 探针/stalled/容量 gauge/Noop 兜底）、`@aervox/agent-loop` 59（provider-parity 新增 1：driver 切换契约骨架同构）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.14 落地进展（阶段 5a：受控收件箱 AgentInboxItem）
+
+2026-08-28 落地（对应 §13 阶段 5 首条目 followup/steer/inject 的数据面与消费闭环；ADR-017 冻结实现）：
+
+- **数据面**（`packages/database`）：
+  - 新增 `agent_inbox_items` 表 + schema（`agent-inbox.ts`）：`(workspaceId, subjectUserId, sessionId)` 目标边界、`type`（followup/steer/inject）、`orderingSeq`、`sourceActor`、`payloadJson`、`status`（pending/claimed/acknowledged/expired）、`consumeBoundary`（next-turn/next-step）、`claimedAt/ackedAt/expiresAt`、幂等键 `(tenant, idempotencyKey)` 唯一索引、租户+状态查询索引；`init.ts` 幂等建表/索引；
+  - `SqliteAgentInboxRepository`（`agent-inbox-repository.ts`）：`enqueue`（幂等：同 idempotencyKey 返回既有项；consumeBoundary 按类型推定 followup→next-turn / steer·inject→next-step）、`claimForConsumption`（next-step 需 attemptId 定位 / next-turn 忽略 attemptId；过滤过期项；CAS 单赢——已 claim 未 ack 不重复返回）、`acknowledge`（仅 claimed→acknowledged）、`getByIdempotencyKey`。
+- **消费闭环**（`packages/agent-loop`，扩展点接入、不改核心控制流）：
+  - `InboxPort`（enqueue/claimForConsumption/ack）+ `AgentInbox*` 领域类型（ADR-017）；
+  - `ContextBuilderPort.build` 输入追加 `inboxItems`（§7.1 第 7 项）；`defaultContextBuilder` 透传不注入（后向兼容），`createInboxAwareContextBuilder` 把 inbox 项作为追加 user 消息前置（附 `[inbox:type@actor]` 标注）；
+  - `executeTurn` 新增可选 `deps.inbox`：每 Step 前 claim next-step 项注入 context、读入即 ack（未 ack 项崩溃恢复后重新 claim，安全重放）；未配置 inbox 时行为与既有完全一致；
+  - `InMemoryInbox`（测试骨架：enqueue 幂等 / claim 单赢 / 边界按类型推定）。
+- **Host 接线**：`createAgentHost` deps 新增可选 `inbox`，透传至 `executeTurn`。
+- 测试：`@aervox/database` 132（新增 `agent-inbox.test.ts` 7：enqueue 幂等/claim 单赢/ack 仅 claimed/过期过滤/租户隔离/next-turn 无 attemptId）、`@aervox/agent-loop` 67（新增 `inbox.test.ts` 7：executor claim→注入→ack 集成/inbox 不残留 claimed/后向兼容/其它 attempt 不消费/builder 注入标注/InMemoryInbox 语义）、`@aervox/host-agent` 27（接线后无回归）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+- 未落地（5a-2/5b）：API/插件受控 inbox HTTP 入口（followup/steer/inject 三 command 端点）、inbox 项过期回收 Worker、ContextManifest 写入（阶段 7）——均经扩展点接入，不改 Loop 核心。
 
 ## 17. 回滚策略
 
