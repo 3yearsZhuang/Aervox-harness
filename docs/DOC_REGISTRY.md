@@ -29,7 +29,7 @@
 | `AVX-CAP-REG-001` | [能力注册表](reference/capability-registry.md) | 2026-08-28 | 每次自选状态 / 模块变更 | 交付载体、启用方式或已注册模块与实现/CR 不一致 |
 | `AVX-CAP-001` | [能力组合与可选化目录规范](reference/capability-composition.md) | 2026-08-28 | G2 评审 + 能力宿主/适配器机制变更 | Manifest、Profile、Provider、Adapter、Kernel 边界与实现或 ADR/CR 不一致 |
 | `AVX-HAR-001` | [Agent Harness Loop 设计与落地规范](reference/agent-harness-loop.md) | 2026-08-28 | G2 评审 + Agent Loop/Provider/工具/持久化边界变更 | Turn/Attempt/Step、Provider、Tool、Inbox、恢复或 Profile 语义与实现/ADR 不一致 |
-| `AVX-WEB-001` | [Web 工作台实现规划](explanation/web-implementation.md) | 2026-08-25 | Web 端实现或技术基线变更 | `apps/web` 结构与 ADR-015/规划不一致 |
+| `AVX-WEB-001` | [Web 工作台实现规划](explanation/web-implementation.md) | 2026-08-28 | Web 端实现或技术基线变更 | `apps/web` 结构与 ADR-015/规划不一致 |
 | `CR-002` | [Fairy Agent Electron 桌面端](reference/changes/CR-002-fairy-desktop-module.md) | 2026-08-24 | CAP-018 桌面端实现或安全边界变更 | Electron 端目录、契约边界、测试证据或回滚条件与实现不符 |
 | `CR-003` | [SQLite 业务真源与 PG 兼容](reference/changes/CR-003-sqlite-primary-pg-compat.md) | 2026-08-24 | 数据真源 / 仓储抽象变更 | 仓储接口或 PG 切换计划与实现不符 |
 | `CR-004` | [人格插件 SQLite 持久化](reference/changes/CR-004-persona-sqlite-persistence.md) | 2026-08-25 | 数据库 schema / Port / 模块指针变更 | 表、Port 或 CR 状态与实现不一致 |

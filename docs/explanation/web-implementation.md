@@ -1,11 +1,11 @@
 # Web 工作台实现规划（Vue 单栈）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-28
 
 > 文档编号：AVX-WEB-001  
 > 版本：v0.1（规划候选）  
-> 更新日期：2026-08-25  
+> 更新日期：2026-08-28  
 > 状态：Review Candidate  
 > 关联：[ADR-015](../reference/adr/ADR-015-vue-full-stack.md)（Web 技术基线）· [ADR-014](../reference/adr/ADR-014-modular-monolith-structure.md)（apps/api 模块组织）· [架构设计](../reference/ARCHITECTURE.md) · [PRD](../reference/PRD.md)
 
@@ -21,7 +21,7 @@
 - 学习：目标列表/创建、题目作答、复习项到期列表与完成；
 - 日记：按日查询、计划主实体展示；
 - 辅助：反馈、通知列表、埋点上报；
-- 桌宠 UI：Web 不渲染桌宠表现层；桌宠主体、工具菜单和独立窗口仅由 Electron 入口提供。Web 复用同一工作台的信息架构、对话和学习工具，但以浏览器导航和响应式布局承载。
+- 桌宠 UI：Web 与桌面端主工作台均通过共享 `Live2DPet` 渲染 Live2D 桌宠（沉浸式满高主体，双端同步）；Electron 另保留独立 `pet.html` 桌宠窗口与窗口控制。
 
 **不在范围**：用户注册/登录表单（与 SQLite 阶段一致，见 CR-003）、服务端 SSR、P2 插件。
 
@@ -76,7 +76,7 @@ apps/web/
 | M1 骨架 | `apps/web` 建仓（Vite+Vue+TS）、复用 request 桥、Vue Router 空路由、CI 接入 | workspace `ci-code` 通过；`pnpm dev:web` 可启动且直连本地 API |
 | M2 对话流式 | `streamTurnViaSSE` + 聊天 UI + 建议问题/自由输入；turns 创建与取消 | SSE 流式消费端到端可用；test 新增（降级 fetch、SSE 解析） |
 | M3 领域页面 | 学习目标/题目作答/复习项、日记查询、通知/反馈/埋点 | 页面走通；复用 desktop composables 语义 |
-| M4 工作台与打磨 | Web 无桌宠表现层、共享工作台、主题切换、响应式布局、键盘可达性 | WCAG 2.2 AA 自查；Playwright 冒烟；确认 Web 不存在桌宠 DOM |
+| M4 工作台与打磨 | ✅ 沉浸式共享工作台双端同步：居中构图（桌宠内移 + 卡片锚定中线右侧，消除中部留白）、顶部左侧液态玻璃菜单胶囊（圆形⇄圆角长条弹性展开、选项高光扫过、全部映射既有功能）、Live2D 左侧满高区域（实际像素底边对齐、高度驱动最大化）、右侧功能卡片升格为页面主元素（纵向满高均分两槽、大图标 + 标题/副标题/摘要/打开提示分层、亚克力玻璃 + 顶部高光条、8 项已有功能可选、持久化、可更换）、对话模式选择器（4 模式，前缀随消息发送）、输入框 IME 修复（组合期不收起、候选 Enter 不发送）、最大化纯文本消息面板（1440px / 62vh）、收起式半透明输入、悬浮设置、WinUI3 风格云母背景（雾蓝主题，双端亮暗同步）、`clamp()` 全尺寸自适应 | UI/Web/Desktop typecheck + build + test；`check:boundary` 零违规（落地登记见[追踪基线 §4.2](../reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)） |
 | M5（后续） | ✅ Capacitor 最小壳已建立（`apps/mobile` v0.1，web 平台，config 指向 `../web/dist`）；原生平台（android/ios）与 auth 接入待 PG 阶段 | 壳内直连 API 可运行；`cap sync web` / `cap doctor` 通过 |
 
 ## 6. 风险与待定项
@@ -87,7 +87,7 @@ apps/web/
 - **双端主题一致性**：Web 与 desktop 共享 `@aervox/ui` 工作台与主题，平台壳差异通过属性适配，避免两套视觉漂移。
 - **设置窗口一致性**：两端共享 `AervoxWorkbench` 的设置入口与双栏设置窗口；左侧分类、右侧详情在窄屏退化为横向分类栏。主题、助手称呼、回车发送、界面密度、番茄钟时长和提醒偏好保存在当前设备，Electron 主题继续通过受限 IPC 同步到窗口壳。
 
-本次实现对应 [CR-005](../reference/changes/CR-005-shared-workbench-web-without-pet.md) 与 [CR-007](../reference/changes/CR-007-live2d-sekai-viewer-pet.md)：Web 工作台使用共享 `Live2DPet`，Electron 主工作台隐藏左侧桌宠区域，独立 `pet.html` 窗口继续保留 Live2D。
+本次实现对应 [CR-005](../reference/changes/CR-005-shared-workbench-web-without-pet.md) 与 [CR-007](../reference/changes/CR-007-live2d-sekai-viewer-pet.md)：Web 工作台使用共享 `Live2DPet`。沉浸式重构后双端主工作台均内嵌 Live2D 满高主体（Electron 经 `show-companion` 开启，桌面端可在设置中关闭），独立 `pet.html` 窗口继续保留。
 
 ## 7. 同步清单（随 ADR-015 执行）
 
