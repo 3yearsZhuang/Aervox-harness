@@ -131,43 +131,43 @@ describe("错题本与重练", () => {
     expect((await app.inject({ method: "POST", url: "/v1/mistakes/repractice", headers, payload: { questionIds: [questionId] } })).statusCode).toBe(201);
   });
 
-  it("忽略时可标注错因和备注，恢复后保留标注", async () => {
-    const knowledge = await repo.createKnowledgeItem(tenant, { id: "know_concept", concept: "概念" });
-    const created = await app.inject({
+it("保存错因说明并支持错因筛选，不改变作答历史或租户边界", async () => {
+    const question = await app.inject({
       method: "POST",
       url: "/v1/questions",
       headers,
-      payload: { prompt: "概念题？", answerSpec: { answer: "对" }, knowledgeId: knowledge.id },
+      payload: { prompt: "循环条件是什么？", answerSpec: { answer: "i < n" } },
     });
-    const questionId = created.json().id as string;
+    const questionId = question.json().id as string;
     await app.inject({
       method: "POST",
       url: `/v1/questions/${questionId}/attempts`,
       headers,
-      payload: { sessionId: "ses_reason", answer: "错" },
+      payload: { sessionId: "ses_insight", answer: "i <= n" },
     });
 
-    const dismissed = await app.inject({
+    const updated = await app.inject({
       method: "PATCH",
       url: `/v1/mistakes/${questionId}`,
       headers,
-      payload: { status: "dismissed", reason: "概念混淆", note: "需复习基础定义" },
+      payload: { reasonCode: "careless", note: "  少考虑一次边界  " },
     });
-    expect(dismissed.statusCode).toBe(200);
-    expect(dismissed.json()).toMatchObject({ status: "dismissed", reason: "概念混淆", note: "需复习基础定义" });
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json()).toMatchObject({ questionId, reasonCode: "careless", note: "少考虑一次边界", status: "active" });
 
-    const listed = await app.inject({ method: "GET", url: "/v1/mistakes?status=dismissed", headers });
-    expect(listed.json().items[0]).toMatchObject({ questionId, reason: "概念混淆", note: "需复习基础定义" });
+    const filtered = await app.inject({ method: "GET", url: "/v1/mistakes?reasonCode=careless", headers });
+    expect(filtered.json().items).toEqual([expect.objectContaining({ questionId, reasonCode: "careless" })]);
+    expect((await app.inject({ method: "GET", url: `/v1/questions/${questionId}/attempts`, headers })).json().items).toHaveLength(1);
+    expect((await app.inject({ method: "GET", url: "/v1/mistakes?reasonCode=careless", headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" } })).json().items).toEqual([]);
 
-    const restored = await app.inject({
+    const cleared = await app.inject({
       method: "PATCH",
       url: `/v1/mistakes/${questionId}`,
       headers,
-      payload: { status: "active" },
+      payload: { reasonCode: null },
     });
-    expect(restored.statusCode).toBe(200);
-    const activeListed = await app.inject({ method: "GET", url: "/v1/mistakes", headers });
-    expect(activeListed.json().items[0]).toMatchObject({ questionId, status: "active", reason: "概念混淆", note: "需复习基础定义" });
+    expect(cleared.statusCode).toBe(200);
+    expect(cleared.json()).toMatchObject({ questionId, reasonCode: null, note: null });
   });
 
   it("按知识点筛选错题列表", async () => {

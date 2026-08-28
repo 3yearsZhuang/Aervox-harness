@@ -13,6 +13,7 @@ import {
   knowledgeItems,
   reviewItems,
   mistakeDispositions,
+  mistakeInsights,
   knowledgeRelations,
   practiceReports,
   studyPlans,
@@ -379,13 +380,14 @@ export class SqliteLearningRepository implements ILearningRepository {
         latestAttemptAt: questionAttempts.createdAt,
         masteryState: knowledgeItems.masteryState,
         disposition: mistakeDispositions.status,
-        reason: mistakeDispositions.reason,
-        note: mistakeDispositions.note,
+        reasonCode: mistakeInsights.reasonCode,
+        note: mistakeInsights.note,
       })
       .from(questionAttempts)
       .innerJoin(questions, eq(questionAttempts.questionId, questions.id))
       .leftJoin(knowledgeItems, eq(questions.knowledgeId, knowledgeItems.id))
       .leftJoin(mistakeDispositions, and(eq(mistakeDispositions.questionId, questions.id), eq(mistakeDispositions.workspaceId, tenant.workspaceId), eq(mistakeDispositions.subjectUserId, tenant.subjectUserId)))
+      .leftJoin(mistakeInsights, and(eq(mistakeInsights.questionId, questions.id), eq(mistakeInsights.workspaceId, tenant.workspaceId), eq(mistakeInsights.subjectUserId, tenant.subjectUserId)))
       .where(
         and(
           eq(questionAttempts.workspaceId, tenant.workspaceId),
@@ -413,25 +415,45 @@ export class SqliteLearningRepository implements ILearningRepository {
         wrongCount: 1,
         masteryState,
         status,
-        reason: row.reason ?? null,
-        note: row.note ?? null,
+        reasonCode: row.reasonCode as MistakeItemModel["reasonCode"],
+        note: row.note,
       });
     }
     return [...grouped.values()].filter((item) => status === "all" || item.status === status);
   }
 
-  async setMistakeDisposition(tenant: TenantContext, item: { id: string; questionId: string; status: "active" | "dismissed"; reason?: string | null; note?: string | null }): Promise<void> {
+  async setMistakeDisposition(tenant: TenantContext, item: { id: string; questionId: string; status: "active" | "dismissed" }): Promise<void> {
     assertTenantContext(tenant);
     const now = new Date().toISOString();
     await this.db.insert(mistakeDispositions).values({ ...item, ...tenant, createdAt: now, updatedAt: now }).onConflictDoUpdate({
       target: [mistakeDispositions.workspaceId, mistakeDispositions.subjectUserId, mistakeDispositions.questionId],
       set: {
         status: item.status,
-        reason: item.reason ?? null,
-        note: item.note ?? null,
+        // reason/note 已废弃（CR-018 统一至 mistake_insights 标准枚举，见 §4.2），不再写入
         updatedAt: now,
       },
     });
+  }
+
+  async setMistakeInsight(
+    tenant: TenantContext,
+    item: { id: string; questionId: string; reasonCode: "concept_gap" | "calculation" | "careless" | "misread" | "other"; note?: string | null },
+  ): Promise<void> {
+    assertTenantContext(tenant);
+    const now = new Date().toISOString();
+    await this.db.insert(mistakeInsights).values({ ...item, ...tenant, createdAt: now, updatedAt: now }).onConflictDoUpdate({
+      target: [mistakeInsights.workspaceId, mistakeInsights.subjectUserId, mistakeInsights.questionId],
+      set: { reasonCode: item.reasonCode, note: item.note ?? null, updatedAt: now },
+    });
+  }
+
+  async clearMistakeInsight(tenant: TenantContext, questionId: string): Promise<void> {
+    assertTenantContext(tenant);
+    await this.db.delete(mistakeInsights).where(and(
+      eq(mistakeInsights.workspaceId, tenant.workspaceId),
+      eq(mistakeInsights.subjectUserId, tenant.subjectUserId),
+      eq(mistakeInsights.questionId, questionId),
+    ));
   }
 
   async getAttemptByIdempotencyKey(

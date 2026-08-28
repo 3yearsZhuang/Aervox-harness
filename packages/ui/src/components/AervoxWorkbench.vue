@@ -102,8 +102,10 @@ const practiceReport = ref<{answeredCount: number; questionCount: number; remain
 const practiceBusy = ref(false)
 const practiceError = ref<string | null>(null)
 const mistakeFilter = ref<'active' | 'mastered' | 'dismissed' | 'all'>('active')
+const mistakeReasonFilter = ref<string>('all')
 const selectedMistakeIds = ref<string[]>([])
 const mistakeBusyId = ref<string | null>(null)
+const mistakeInsightDrafts = ref<Record<string, {reasonCode: string; note: string}>>({})
 const reviewBusyId = ref<string | null>(null)
 const input = ref('')
 const isComposing = ref(false)
@@ -363,7 +365,31 @@ async function archiveGoal(goalId: string) {
 }
 
 const currentPracticeQuestion = computed(() => practiceSession.value?.items[practiceIndex.value] ?? null)
-const visibleMistakes = computed(() => mistakes.value.filter((item) => mistakeFilter.value === 'all' || item.status === mistakeFilter.value))
+const visibleMistakes = computed(() => mistakes.value.filter((item) =>
+  (mistakeFilter.value === 'all' || item.status === mistakeFilter.value)
+  && (mistakeReasonFilter.value === 'all' || item.reasonCode === mistakeReasonFilter.value),
+))
+
+const mistakeReasonOptions = [
+  {value: 'concept_gap', label: '概念不清'},
+  {value: 'calculation', label: '计算失误'},
+  {value: 'careless', label: '粗心'},
+  {value: 'misread', label: '审题偏差'},
+  {value: 'other', label: '其他'},
+] as const
+
+function mistakeReasonLabel(reasonCode: string | null) {
+  return mistakeReasonOptions.find((item) => item.value === reasonCode)?.label ?? '未记录错因'
+}
+
+function mistakeInsightDraft(item: {questionId: string; reasonCode: string | null; note: string | null}) {
+  return mistakeInsightDrafts.value[item.questionId] ?? {reasonCode: item.reasonCode ?? '', note: item.note ?? ''}
+}
+
+function updateMistakeInsightDraft(questionId: string, update: Partial<{reasonCode: string; note: string}>) {
+  const current = mistakeInsightDrafts.value[questionId] ?? {reasonCode: '', note: ''}
+  mistakeInsightDrafts.value[questionId] = {...current, ...update}
+}
 
 function restorePracticeSession(session: {sessionId: string; items: Array<{id: string; prompt: string}>; nextQuestionIndex?: number}) {
   practiceSession.value = session
@@ -453,6 +479,23 @@ async function setMistakeStatus(questionId: string, status: 'active' | 'mastered
     selectedMistakeIds.value = selectedMistakeIds.value.filter((id) => id !== questionId)
   } catch {
     practiceError.value = '错题状态没有保存，请稍后重试。'
+  } finally {
+    mistakeBusyId.value = null
+  }
+}
+
+async function saveMistakeInsight(item: {questionId: string; reasonCode: string | null; note: string | null}) {
+  const draft = mistakeInsightDraft(item)
+  mistakeBusyId.value = item.questionId
+  practiceError.value = null
+  try {
+    await api.setMistakeInsight(item.questionId, {
+      reasonCode: (draft.reasonCode || null) as 'concept_gap' | 'calculation' | 'careless' | 'misread' | 'other' | null,
+      note: draft.note,
+    })
+    delete mistakeInsightDrafts.value[item.questionId]
+  } catch {
+    practiceError.value = '错因记录没有保存，请稍后重试。'
   } finally {
     mistakeBusyId.value = null
   }
@@ -958,6 +1001,12 @@ onUnmounted(() => {
             {{ option === 'active' ? '待掌握' : option === 'mastered' ? '已掌握' : option === 'dismissed' ? '已忽略' : '全部' }}
           </button>
         </div>
+        <label class="mistake-reason-filter">按错因筛选
+          <select v-model="mistakeReasonFilter" aria-label="按错因筛选">
+            <option value="all">全部错因</option>
+            <option v-for="option in mistakeReasonOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+          </select>
+        </label>
         <ul class="study-list mistake-list">
           <li v-for="item in visibleMistakes" :key="item.questionId">
             <div class="mistake-heading">
@@ -969,6 +1018,19 @@ onUnmounted(() => {
               <span class="goal-status" :class="{'is-completed': item.status === 'mastered'}">{{ item.status === 'mastered' ? '已掌握' : item.status === 'dismissed' ? '已忽略' : '待掌握' }}</span>
             </div>
             <small>最近答案：{{ item.latestAnswer }} · 共答错 {{ item.wrongCount }} 次 · {{ item.latestAttemptAt.slice(0, 10) }}</small>
+            <p class="mistake-insight-summary">错因：{{ mistakeReasonLabel(item.reasonCode) }}</p>
+            <div class="mistake-insight-editor">
+              <label>错因
+                <select :value="mistakeInsightDraft(item).reasonCode" :disabled="mistakeBusyId === item.questionId" @change="updateMistakeInsightDraft(item.questionId, {reasonCode: ($event.target as HTMLSelectElement).value})">
+                  <option value="">清除错因记录</option>
+                  <option v-for="option in mistakeReasonOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                </select>
+              </label>
+              <label>补充说明
+                <input :value="mistakeInsightDraft(item).note" maxlength="500" placeholder="例如：循环边界少比较了一次" :disabled="mistakeBusyId === item.questionId" @input="updateMistakeInsightDraft(item.questionId, {note: ($event.target as HTMLInputElement).value})" />
+              </label>
+              <button type="button" :disabled="mistakeBusyId === item.questionId" @click="saveMistakeInsight(item)">保存错因</button>
+            </div>
             <div v-if="item.knowledgeId" class="goal-actions">
               <button v-if="item.status === 'active'" type="button" :disabled="mistakeBusyId === item.questionId" @click="setMistakeStatus(item.questionId, 'mastered')"><Check :size="14" />标记已掌握</button>
               <button v-else-if="item.status === 'mastered'" type="button" :disabled="mistakeBusyId === item.questionId" @click="setMistakeStatus(item.questionId, 'active')"><RotateCcw :size="14" />继续学习</button>

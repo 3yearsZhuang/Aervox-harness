@@ -60,7 +60,9 @@ export function configureAervoxClient(config: AervoxClientConfig): void {
     userId: config.userId ?? runtime.userId,
     timeZone: config.timeZone ?? runtime.timeZone,
     sessionId: config.sessionId ?? runtime.sessionId,
-    transport: config.transport ?? runtime.transport,
+    transport: config.transport ?? (config.apiBase || config.workspaceId || config.userId
+      ? createFetchTransport(config.apiBase?.replace(/\/+$/, '') || runtime.apiBase, config.workspaceId ?? runtime.workspaceId, config.userId ?? runtime.userId)
+      : runtime.transport),
   };
 }
 
