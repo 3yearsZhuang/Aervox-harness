@@ -14,7 +14,9 @@ import type {
   ToolExecutionRecord,
   ToolExecutionStatus,
 } from "@aervox/agent-loop";
+import { LeaseLostError } from "@aervox/agent-loop";
 import type { SqliteConversationRepository, TenantContext } from "@aervox/database";
+import { FencingMismatchError } from "@aervox/database";
 
 /**
  * 阶段 7（ADR-017）ModelRun/ContextManifest 落库口（可选委托）。
@@ -107,17 +109,27 @@ export class SqliteExecutionStore implements ExecutionStorePort {
   }
 
   async appendEvent(input: AgentStreamEventInput): Promise<AgentStreamEvent> {
-    const created = await this.repo.appendStreamEvent(this.tenant, {
-      id: nextEventId(input.turnId),
-      turnId: input.turnId,
-      sequence: input.sequence,
-      eventType: input.eventType,
-      data: input.data,
-      occurredAt: now(),
-      attemptId: input.attemptId,
-      safetyDecision: input.safetyDecision,
-    });
-    return toAgentEvent(created);
+    try {
+      const created = await this.repo.appendStreamEvent(this.tenant, {
+        id: nextEventId(input.turnId),
+        turnId: input.turnId,
+        sequence: input.sequence,
+        eventType: input.eventType,
+        data: input.data,
+        occurredAt: now(),
+        attemptId: input.attemptId,
+        safetyDecision: input.safetyDecision,
+        // B1：事件写入 fencing CAS（携带 expectedFencingToken 时仓储强制校验）
+        expectedFencingToken: input.expectedFencingToken,
+      });
+      return toAgentEvent(created);
+    } catch (err) {
+      // B1：被抢占/恢复后写入被 CAS 拒绝 → 转译为 Loop 语义错误（executor 收敛为 lease_lost）
+      if (err instanceof FencingMismatchError) {
+        throw new LeaseLostError(`event write rejected: ${err.message}`);
+      }
+      throw err;
+    }
   }
 
   async listEvents(turnId: string, afterSequence = 0): Promise<AgentStreamEvent[]> {
