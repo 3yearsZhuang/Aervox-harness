@@ -219,6 +219,40 @@ export class SqliteExecutionStore implements ExecutionStorePort {
     return { ok: done };
   }
 
+  /** E2：原子提交「安全片段 + delta 事件」（§12.2；fencing 失配转译 LeaseLostError） */
+  async recordSafeSegment(input: {
+    turnId: string;
+    attemptId: string;
+    sequence: number;
+    text: string;
+    eventData: unknown;
+    safetyDecision: import("@aervox/agent-loop").SafetyDecision;
+    expectedFencingToken: number;
+  }): Promise<{ ok: boolean }> {
+    try {
+      const done = await this.repo.recordSafeSegmentAtomically(this.tenant, {
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        sequence: input.sequence,
+        text: input.text,
+        eventData: input.eventData,
+        safetyDecision: input.safetyDecision,
+        expectedFencingToken: input.expectedFencingToken,
+      });
+      return { ok: done };
+    } catch (err) {
+      if (err instanceof FencingMismatchError) {
+        throw new LeaseLostError(`safe segment rejected: ${err.message}`);
+      }
+      throw err;
+    }
+  }
+
+  /** E2：已提交安全片段（可见前缀；sequence 升序） */
+  async listCommittedSegments(turnId: string): Promise<Array<{ id: string; sequence: number; text: string; streamEventId: string | null }>> {
+    return this.repo.listCommittedSegments(this.tenant, turnId);
+  }
+
   /** 2b：用户取消请求位（CAS 委托仓储） */
   async requestCancelAttempt(input: {
     turnId: string;
