@@ -67,7 +67,10 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   await initDatabaseSchema(client);
 
   // CORS：允许本地 Web/移动端跨源访问（生产环境按部署配置收紧 origin）
-  await app.register(cors, { origin: true });
+  await app.register(cors, {
+    origin: true,
+    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  });
 
   // 契约骨架：暴露由 @aervox/contracts 生成的 OpenAPI 3.1 文档
   app.get("/openapi.json", async () => openApiDocument);
