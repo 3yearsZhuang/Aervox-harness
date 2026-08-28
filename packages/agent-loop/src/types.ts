@@ -51,6 +51,14 @@ export interface PromptContext {
   messages: PromptMessage[];
 }
 
+/** 工具描述（只读白名单工具的主仓快照；阶段 2d 与工具注册表共用） */
+export interface ToolSpec {
+  name: string;
+  description: string;
+  /** 阶段 2 只接只读工具（PET-05 白名单）；写/需审批工具留阶段 3 */
+  readOnly: true;
+}
+
 /** 模型请求一个工具调用（对齐 OpenAI 风格 tool_calls 的最小面） */
 export interface ToolCallRequest {
   /** 本次调用唯一 ID（Attempt 内）；用于结果回填与去重 */
@@ -77,6 +85,8 @@ export interface ModelRequest {
   attemptId: string;
   step: number;
   context: PromptContext;
+  /** 阶段 2e：当前可执行的只读工具 schema（供真实模型生成 tool_calls） */
+  tools?: ToolSpec[];
 }
 
 /** Provider 流输出分块：文本增量 +（阶段 2）一次 Step 末的工具请求集合 */

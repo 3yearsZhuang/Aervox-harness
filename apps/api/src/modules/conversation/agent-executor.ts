@@ -6,6 +6,7 @@
  * （AVX-HAR-001 §13），阶段 4 抽出独立 Host 时仅替换接线。
  */
 import {
+  createOpenAICompatProvider,
   createReplayProvider,
   createScriptedProvider,
   defaultContextBuilder,
@@ -15,6 +16,7 @@ import type {
   AgentStreamEvent,
   AgentStreamEventInput,
   ExecutionStorePort,
+  ModelProviderPort,
   ReplayStep,
   ToolExecutionInput,
   ToolExecutionResult,
@@ -22,6 +24,7 @@ import type {
 } from "@aervox/agent-loop";
 import type { SqliteConversationRepository, TenantContext } from "@aervox/database";
 import type { ToolRuntime } from "../tools/runtime.js";
+import type { LLMConfigService } from "../llm/service.js";
 
 const now = (): string => new Date().toISOString();
 let seqCounter = 0;
@@ -159,16 +162,73 @@ export const API_TOOL_SCRIPT: readonly ReplayStep[] = [
   { text: "查到了：今天复习三角函数。", toolCalls: [] },
 ];
 
-/** 迁移期接线：创建 Turn 后立即执行一次 Loop（Replay 默认；AERVOX_LOOP_PROVIDER=scripted 走工具链） */
+/** 迁移期接线：把 Loop 未完成/配置失败写为 error 事件 + Failed 终态（不抛到 HTTP 层） */
+async function failTurnWithError(
+  store: SqliteExecutionStore,
+  turnId: string,
+  attemptId: string,
+  message: string,
+): Promise<void> {
+  await store.appendEvent({
+    turnId,
+    attemptId,
+    sequence: await store.nextSequence(turnId),
+    eventType: "error",
+    data: {
+      code: "MODEL_UNAVAILABLE",
+      retryable: false,
+      message,
+      lastSequence: Math.max(0, (await store.nextSequence(turnId)) - 1),
+    },
+    safetyDecision: "approved",
+  }).catch(() => undefined);
+  await store.finalizeAttempt({ turnId, attemptId, status: "Failed" }).catch(() => undefined);
+}
+
+/**
+ * 迁移期接线：创建 Turn 后立即执行一次 Loop。
+ * Provider 选择（AERVOX_LOOP_PROVIDER）：replay（默认确定性回放）/ scripted（两步工具链验证）/ llm（CR-015 真实配置）。
+ */
 export async function runLoopTurnOnce(
   repo: SqliteConversationRepository,
   tenant: TenantContext,
   input: { turnId: string; sessionId: string; attemptId: string; userMessage: string },
-  deps: { toolRuntime?: ToolRuntime } = {},
+  deps: { toolRuntime?: ToolRuntime; llmConfigService?: LLMConfigService } = {},
 ): Promise<void> {
   const store = new SqliteExecutionStore(repo, tenant);
-  const useToolScript = process.env.AERVOX_LOOP_PROVIDER === "scripted";
-  const provider = useToolScript ? createScriptedProvider(API_TOOL_SCRIPT) : createReplayProvider();
+
+  const buildProvider = async (): Promise<ModelProviderPort> => {
+    const mode = process.env.AERVOX_LOOP_PROVIDER ?? "replay";
+    if (mode === "scripted") return createScriptedProvider(API_TOOL_SCRIPT);
+    if (mode === "llm") {
+      if (!deps.llmConfigService) {
+        throw new Error("llm_provider_unavailable: LLMConfigService 未接线");
+      }
+      const cfg = await deps.llmConfigService.getConfig(tenant);
+      if (!cfg.enabled) throw new Error("llm_disabled: 当前租户未启用 LLM 配置");
+      if (cfg.providerType === "anthropic") {
+        throw new Error("anthropic_unsupported: 阶段 2e 仅支持 OpenAI 兼容协议（openai/deepseek/ollama/custom_openai）");
+      }
+      return createOpenAICompatProvider({
+        baseUrl: cfg.baseUrl,
+        apiKey: cfg.apiKey,
+        modelId: cfg.modelId,
+        temperature: cfg.temperature,
+        maxTokens: cfg.maxTokens,
+      });
+    }
+    return createReplayProvider();
+  };
+
+  let provider: ModelProviderPort;
+  try {
+    provider = await buildProvider();
+  } catch (err) {
+    await failTurnWithError(store, input.turnId, input.attemptId, err instanceof Error ? err.message : "provider_unavailable");
+    await repo.updateTurnStatus(tenant, input.turnId, "Failed").catch(() => undefined);
+    return;
+  }
+
   const tools = deps.toolRuntime ? createRuntimeToolProvider(deps.toolRuntime, tenant) : undefined;
   const result = await executeTurn(
     {
