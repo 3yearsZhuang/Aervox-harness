@@ -63,7 +63,16 @@ export async function runAdapterTurn(
     data: unknown,
     safetyDecision: SafetyDecision = "approved",
   ): Promise<void> => {
-    await store.appendEvent({ turnId, attemptId, sequence, eventType, data, safetyDecision });
+    // B1：事件写入携带本 Turn claim 得到的 fencing（被抢占后写入将被 CAS 拒绝）
+    await store.appendEvent({
+      turnId,
+      attemptId,
+      sequence,
+      eventType,
+      data,
+      safetyDecision,
+      expectedFencingToken: claim.ok ? claim.fencingToken : 0,
+    });
   };
 
   try {

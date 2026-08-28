@@ -18,6 +18,7 @@ import type {
   ToolCallResult,
   ToolExecutionStatus,
 } from "./types.js";
+import { LeaseLostError } from "./errors.js";
 
 export interface ExecuteTurnInput {
   turnId: string;
@@ -151,6 +152,7 @@ export async function executeTurn(
     await execution.appendEvent({
       turnId: input.turnId,
       attemptId: input.attemptId,
+      expectedFencingToken: claimFencingToken,
       sequence: atSequence,
       eventType: "done",
       data: { status: "Cancelled", isComplete: false, lastSequence: atSequence },
@@ -180,6 +182,7 @@ export async function executeTurn(
     await execution.appendEvent({
       turnId: input.turnId,
       attemptId: input.attemptId,
+      expectedFencingToken: claimFencingToken,
       sequence: atSequence,
       eventType: "done",
       data: { status: "Interrupted", isComplete: false, lastSequence: atSequence, reason },
@@ -212,6 +215,7 @@ export async function executeTurn(
       await execution.appendEvent({
         turnId: input.turnId,
         attemptId: input.attemptId,
+        expectedFencingToken: claimFencingToken,
         sequence: sequence++,
         eventType: "message",
         data: { messageId, role: "assistant", contentType: "text", isComplete: false },
@@ -325,6 +329,7 @@ export async function executeTurn(
           await execution.appendEvent({
             turnId: input.turnId,
             attemptId: input.attemptId,
+            expectedFencingToken: claimFencingToken,
             sequence: sequence++,
             eventType: "delta",
             data: { messageId, text: chunk.text, isFinal: true },
@@ -337,6 +342,7 @@ export async function executeTurn(
         await execution.appendEvent({
           turnId: input.turnId,
           attemptId: input.attemptId,
+          expectedFencingToken: claimFencingToken,
           sequence,
           eventType: "done",
           data: { status: "Completed", messageId, isComplete: true, lastSequence: sequence },
@@ -357,6 +363,7 @@ export async function executeTurn(
         await execution.appendEvent({
           turnId: input.turnId,
           attemptId: input.attemptId,
+          expectedFencingToken: claimFencingToken,
           sequence: sequence++,
           eventType: "delta",
           data: { messageId, text: chunk.text, isFinal: false },
@@ -372,6 +379,7 @@ export async function executeTurn(
           await execution.appendEvent({
             turnId: input.turnId,
             attemptId: input.attemptId,
+            expectedFencingToken: claimFencingToken,
             sequence: sequence++,
             eventType: "tool_request",
             data: { invocationId: call.id, executionId, name: call.name, arguments: call.arguments },
@@ -380,6 +388,7 @@ export async function executeTurn(
           await execution.appendEvent({
             turnId: input.turnId,
             attemptId: input.attemptId,
+            expectedFencingToken: claimFencingToken,
             sequence: sequence++,
             eventType: "tool_result",
             data: { invocationId: call.id, executionId, name: call.name, ok: false, error: "tools_disabled" },
@@ -426,6 +435,7 @@ export async function executeTurn(
         await execution.appendEvent({
           turnId: input.turnId,
           attemptId: input.attemptId,
+          expectedFencingToken: claimFencingToken,
           sequence: sequence++,
           eventType: "tool_request",
           data: { invocationId: call.id, executionId, name: call.name, arguments: call.arguments },
@@ -498,6 +508,7 @@ export async function executeTurn(
           await execution.appendEvent({
             turnId: input.turnId,
             attemptId: input.attemptId,
+            expectedFencingToken: claimFencingToken,
             sequence: sequence++,
             eventType: "tool_approval_required",
             data: { approvalId: info.approvalId, toolName: info.toolName, argumentsHash: info.argumentsHash },
@@ -506,6 +517,7 @@ export async function executeTurn(
           await execution.appendEvent({
             turnId: input.turnId,
             attemptId: input.attemptId,
+            expectedFencingToken: claimFencingToken,
             sequence,
             eventType: "done",
             data: { status: "Interrupted", messageId, isComplete: false, lastSequence: sequence },
@@ -523,6 +535,7 @@ export async function executeTurn(
         await execution.appendEvent({
           turnId: input.turnId,
           attemptId: input.attemptId,
+          expectedFencingToken: claimFencingToken,
           sequence: sequence++,
           eventType: "tool_result",
           data: {
@@ -571,6 +584,7 @@ export async function executeTurn(
     await execution.appendEvent({
       turnId: input.turnId,
       attemptId: input.attemptId,
+      expectedFencingToken: claimFencingToken,
       sequence,
       eventType: "done",
       data: {
@@ -589,9 +603,14 @@ export async function executeTurn(
     });
     return { status: "failed", attemptId: input.attemptId, reason: "max_steps" };
   } catch (err) {
+    // B1：事件写入被 fencing CAS 拒绝（Attempt 已被抢占/恢复）→ 立即中止，不再产生新副作用（AVX-HAR-001 §11.2）
+    if (err instanceof LeaseLostError) {
+      return { status: "failed", attemptId: input.attemptId, reason: "lease_lost" };
+    }
     await execution.appendEvent({
       turnId: input.turnId,
       attemptId: input.attemptId,
+      expectedFencingToken: claimFencingToken,
       sequence: await execution.nextSequence(input.turnId),
       eventType: "error",
       data: {

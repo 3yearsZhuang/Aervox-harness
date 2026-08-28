@@ -3,6 +3,7 @@
  */
 export * from "./types.js";
 export * from "./ports.js";
+export * from "./errors.js";
 export * from "./context-builder.js";
 export * from "./replay-provider.js";
 export * from "./openai-compat-provider.js";

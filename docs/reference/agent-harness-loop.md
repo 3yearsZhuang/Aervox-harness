@@ -354,7 +354,7 @@ resolve definition
 - 恢复器只领取未终态且 lease 过期的 Attempt；
 - 同 Session 的写入结合 SessionLock 和数据库 CAS，避免两个 Turn 修改同一事实。
 
-当前 3b-A/3b-B 已实现 claim TTL、Step 首部续租探活、过期抢占、Worker 收敛和 Attempt 终态 fencing；长时间 Provider/Tool 调用期间的周期心跳，以及事件/工具写入的 fencing 校验仍属于 3c+。
+当前 3b-A/3b-B 已实现 claim TTL、Step 首部续租探活、过期抢占、Worker 收敛和 Attempt 终态 fencing；**事件写入的 fencing CAS 已落地（B1，§16.22）**——工具结果/账本写入的 fencing、长时间 Provider/Tool 调用期间的周期心跳仍属 3c+。
 
 ### 11.3 恢复
 
@@ -528,7 +528,7 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 
 目标：把当前最小实现提升为可长期运行的安全执行器。
 
-- 将 lease/fencing 校验扩展到每个事件、工具结果和终态写边界；
+- 将 lease/fencing 校验扩展到每个事件、工具结果和终态写边界（**事件写边界已落地：B1 §16.22**；工具结果/账本写入、终态其余写边界仍待补）；
 - 完成 ToolInvocation 持久化、幂等预留、unknown outcome 收敛和工具 replay 声明；
 - 接入真实分段安全门、取消传播、预算、并行调度和背压；
 - 为 ModelRun/ContextManifest 增加 Turn/Attempt/Step 关联并补齐删除/撤权水位检查。
@@ -816,6 +816,15 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - **6e 库内产物探测**（`DSH_LIB_MODE=1`）：动态 import `packages/core/agent/lib/index.js` 并验证公开导出面（`AgentRegistry`/`assembleContextFor`/`installModelSelection`/`emitAgentEvent` 等）——库内 Agent 循环可加载的机器证据；完整 Cordis 容器组装（llm/session/persistence/tools 等 service 注入）为剩余 P2 工程项。
 - **adapter 组合**（`packages/host-agent/src/dsh-adapter.ts`）：`createDSHAdapterDriver({ repoRoot, env? })`——probeDSHReference（gitlink SHA + MIT）通过后才 spawn runner（`createStdioAdapterDriver` 复用，expectedSha=DSH_REFERENCE_SHA）；未就绪不 spawn 且返回 reason。
 - 测试：`@aervox/host-agent` 56 +1 skipped（新增 `dsh-turn.test.ts` 6：复核通过+spawn 且 manifest 一致 / 缺 key→dsh_unconfigured 指引性拒绝 / 真模型回合（`it.runIf` key 就绪，外部 4xx 软跳过）/ probe 未就绪 fail-closed / 本地兼容端点完整回合 delta→batch→done→concluded 机器验证 / **库内产物加载证明（`it.runIf(refLibBuilt)`：import 成功 + 导出面符号）**）；`@aervox/api` 203 无回归。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。ADR-010 实施进展 6d/6e 已更新。
+
+### 16.22 落地进展（阶段 3c+-B1：事件写入 fencing CAS）
+
+2026-08-28 落地（对应 §3c+ 第一项「将 lease/fencing 校验扩展到每个事件写边界」与 §11.2「事件写入的 fencing 校验」前置关闭；工具结果/账本写入的 fencing 仍属 3c+ 后续项）：
+
+- **数据库 CAS 写门**（`@aervox/database`）：`appendStreamEvent` 新增可选 `expectedFencingToken`；携带 `attemptId`+期望值时在 **BEGIN IMMEDIATE** 事务内对 `turn_attempts` 校验（fencing 一致 + 状态 Running/CancelRequested；终态仅放行收尾 `done`/`error`——适配 finalize-then-done 路径），失配抛 `FencingMismatchError`。单次写锁内校验+插入，无 SELECT→INSERT 抢占窗口。
+- **Loop 语义收口**（`@aervox/agent-loop`）：新增 `LeaseLostError`；`executor.ts` 全部事件写入携带 claim fencing，catch 拦截 `LeaseLostError` → 收敛 `failed(lease_lost)` 且**不再产生任何新副作用**（§11.2）；`in-memory-store.ts` 同语义守卫 + `simulatePreemption` 钩子。
+- **宿主/同步路径**（`@aervox/host-agent`、`apps/api`）：store 透传期望值并把 `FencingMismatchError` 转译为 `LeaseLostError`；`adapter-turn.ts` 携带 claim fencing；`failTurnWithError`（未 claim）携带 `expectedFencingToken=0`。
+- 测试：`@aervox/database` 150（`event-fencing.test.ts` 5：正确通过 / 恢复器抢占（过期租约 fencing+1→Interrupted）后旧期望被拒且零污染 / attempt 不存在拒绝 / 终态仅 done 放行 / CancelRequested 可写）；`@aervox/agent-loop` 121（`executor-fencing.test.ts` 4：内存守卫 + 工具执行中被抢占 → `failed(lease_lost)`、无 tool_result/done/error 迟到事件、不写终态）；`@aervox/host-agent` 62（`sqlite-execution-store-fencing.test.ts` 3：桥接正确 / 失配转译 LeaseLostError / 未携带保持兼容）；`@aervox/api` 229 无回归；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
 ## 17. 回滚策略
 

@@ -99,6 +99,15 @@ export interface IConversationRepository {
       payloadVersion?: number;
       data: unknown;
       occurredAt?: string;
+      attemptId?: string | null;
+      safetyDecision?: string | null;
+      committedAt?: string | null;
+      /**
+       * 3c+（B1）：事件写入 fencing CAS 校验。attemptId 与本字段同时给出时，
+       * 仓储要求 turn_attempts 的 fencing_token 与期望一致且状态允许，
+       * 否则抛 FencingMismatchError（迟到的抢占执行器写入被拒绝）。
+       */
+      expectedFencingToken?: number | null;
     },
   ): Promise<TurnStreamEventModel>;
   getStreamEvents(

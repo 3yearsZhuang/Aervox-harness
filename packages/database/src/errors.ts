@@ -44,3 +44,15 @@ export class DomainConflictError extends DatabaseError {
     this.name = "DomainConflictError";
   }
 }
+
+/**
+ * 事件/工具写入的 fencing 失配：Attempt 已被新执行者抢占或恢复器收敛（fencing 递增），
+ * 迟到写入被拒绝（AVX-HAR-001 §11.2「事件/工具写入的 fencing 校验」、§12.2）。
+ * 上层（host-agent）应将其转译为 Loop 的 LeaseLostError，执行器停止产生新副作用。
+ */
+export class FencingMismatchError extends DatabaseError {
+  constructor(message = "attempt fencing mismatch: late write rejected") {
+    super("CONFLICT", message);
+    this.name = "FencingMismatchError";
+  }
+}

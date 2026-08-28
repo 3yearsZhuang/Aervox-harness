@@ -12,6 +12,7 @@ import type {
   ToolExecutionRecord,
   ToolExecutionStatus,
 } from "./types.js";
+import { LeaseLostError } from "./errors.js";
 
 interface AttemptRecord {
   id: string;
@@ -100,6 +101,25 @@ export class InMemoryExecutionStore implements ExecutionStorePort {
   }
 
   async appendEvent(input: AgentStreamEventInput): Promise<AgentStreamEvent> {
+    // B1：事件写入 fencing CAS 校验（与生产 SqliteExecutionStore 同语义；
+    // 仅当携带期望 fencing 时启用，测试夹具直写保持兼容）
+    if (input.expectedFencingToken !== undefined) {
+      const attempt = this.attempts.get(input.attemptId);
+      const running = attempt && (attempt.status === "Running" || attempt.status === "CancelRequested");
+      const terminalDoneOk =
+        attempt &&
+        (input.eventType === "done" || input.eventType === "error") &&
+        ["Completed", "Failed", "Interrupted", "Cancelled"].includes(attempt.status);
+      if (
+        !attempt ||
+        attempt.fencingToken !== input.expectedFencingToken ||
+        !(running || terminalDoneOk)
+      ) {
+        throw new LeaseLostError(
+          `attempt ${input.attemptId} fencing=${attempt?.fencingToken ?? "?"} status=${attempt?.status ?? "?"} cannot append ${input.eventType}`,
+        );
+      }
+    }
     const event: AgentStreamEvent = {
       ...input,
       eventId: `tev_${input.turnId}_${input.sequence}`,
@@ -157,6 +177,16 @@ export class InMemoryExecutionStore implements ExecutionStorePort {
     const attempt = this.attempts.get(attemptId);
     if (attempt) {
       attempt.leaseId = `lease_lost_${attemptId}`;
+      attempt.leaseExpiresAt = new Date(0).toISOString();
+    }
+  }
+
+  /** 测试钩子：模拟恢复器抢占（fencing +1，等价 worker recoverExpiredAttempts）——事件写入 CAS 将拒绝 */
+  simulatePreemption(attemptId: string): void {
+    const attempt = this.attempts.get(attemptId);
+    if (attempt) {
+      attempt.fencingToken += 1;
+      attempt.leaseId = `lease_preempted_${attemptId}`;
       attempt.leaseExpiresAt = new Date(0).toISOString();
     }
   }

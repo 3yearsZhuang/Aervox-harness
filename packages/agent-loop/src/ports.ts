@@ -121,6 +121,12 @@ export interface AgentStreamEventInput {
   data: unknown;
   safetyDecision: SafetyDecision;
   modelRunId?: string;
+  /**
+   * 3c+（B1）：事件写入 fencing CAS 校验。执行器必须携带 claim 得到的当前 fencing；
+   * store 校验 Attempt 未被抢占/恢复（fencing 递增）且状态允许，否则抛 LeaseLostError。
+   * 未携带则保持既有无校验行为（测试夹具/宿主收尾路径兼容）。
+   */
+  expectedFencingToken?: number;
 }
 
 /** 持久化后的流事件（与 @aervox/contracts TurnStreamEvent 同构的最小面） */
