@@ -110,6 +110,7 @@ export async function executeTurn(
         attemptId: input.attemptId,
         step,
         context,
+        tools: tools?.tools,
       })) {
         chunks.push(chunk);
       }
