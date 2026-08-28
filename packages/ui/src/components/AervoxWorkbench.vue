@@ -90,6 +90,7 @@ const reviewBusyId = ref<string | null>(null)
 const newPlanTitle = ref('')
 const newPlanEndDate = ref('')
 const planBusyId = ref<string | null>(null)
+const planDrafts = ref<Record<string, {endDate: string; dailyAvailableMinutes: number}>>({})
 const input = ref('')
 const timerSeconds = ref(25 * 60)
 const timerRunning = ref(false)
@@ -425,6 +426,19 @@ async function submitStudyPlan() {
 async function setPlanPrediction(planId: string, prediction: 'on_track' | 'at_risk') {
   planBusyId.value = planId
   try { await api.updateStudyPlanPrediction(planId, prediction) } catch { practiceError.value = '计划状态没有保存，请稍后重试。' } finally { planBusyId.value = null }
+}
+
+function planDraft(plan: {id: string; endDate: string; dailyAvailableMinutes: number}) {
+  return planDrafts.value[plan.id] ?? {endDate: plan.endDate, dailyAvailableMinutes: plan.dailyAvailableMinutes}
+}
+
+async function saveStudyPlan(plan: {id: string; endDate: string; dailyAvailableMinutes: number}) {
+  const draft = planDraft(plan)
+  planBusyId.value = plan.id
+  try {
+    await api.updateStudyPlan(plan.id, draft)
+    delete planDrafts.value[plan.id]
+  } catch { practiceError.value = '计划调整没有保存，请稍后重试。' } finally { planBusyId.value = null }
 }
 
 async function archiveStudyPlan(planId: string) {
@@ -1049,6 +1063,11 @@ onUnmounted(() => {
           <li v-for="plan in studyPlans" :key="plan.id">
             <div class="goal-item-heading"><span class="study-item-title">{{ plan.title }}</span><span class="goal-status">{{ plan.completionPrediction === 'at_risk' ? '需调整' : plan.completionPrediction === 'cannot_complete' ? '无法按期完成' : '进行中' }}</span></div>
             <small>{{ plan.startDate }} 至 {{ plan.endDate }} · {{ plan.dailyAvailableMinutes }} 分钟/天 · 已调整 {{ plan.revisionCount }} 次</small>
+            <div class="study-goal-form">
+              <input :value="planDraft(plan).endDate" type="date" aria-label="调整结束日期" @input="planDrafts[plan.id] = {...planDraft(plan), endDate: ($event.target as HTMLInputElement).value}" />
+              <input :value="planDraft(plan).dailyAvailableMinutes" type="number" min="0" aria-label="调整每日可用时间" @input="planDrafts[plan.id] = {...planDraft(plan), dailyAvailableMinutes: Number(($event.target as HTMLInputElement).value)}" />
+              <button type="button" :disabled="planBusyId === plan.id" @click="saveStudyPlan(plan)">调整</button>
+            </div>
             <div class="goal-actions">
               <button type="button" :disabled="planBusyId === plan.id" @click="setPlanPrediction(plan.id, 'on_track')"><Check :size="14" />进度正常</button>
               <button type="button" :disabled="planBusyId === plan.id" @click="setPlanPrediction(plan.id, 'at_risk')">标记风险</button>

@@ -199,6 +199,10 @@ export function useAervoxApi() {
     await transport.request('POST', '/v1/study-plans', plan);
     await loadAll();
   };
+  const updateStudyPlan = async (planId: string, update: { endDate?: string; dailyAvailableMinutes?: number }): Promise<void> => {
+    await transport.request('PATCH', `/v1/study-plans/${encodeURIComponent(planId)}`, update);
+    await loadAll();
+  };
   const updateStudyPlanPrediction = async (planId: string, prediction: 'on_track' | 'at_risk' | 'cannot_complete'): Promise<void> => {
     await transport.request('POST', `/v1/study-plans/${encodeURIComponent(planId)}/prediction`, { prediction });
     await loadAll();
@@ -260,6 +264,7 @@ export function useAervoxApi() {
     completePracticeSession,
     completeReview,
     createStudyPlan,
+    updateStudyPlan,
     updateStudyPlanPrediction,
     archiveStudyPlan,
     setMistakeStatus,
