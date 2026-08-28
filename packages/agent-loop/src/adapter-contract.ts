@@ -47,7 +47,7 @@ export interface AdapterBatchDeclaration {
 export type AdapterEvent =
   | { type: "delta"; text: string }
   | { type: "tool_request"; invocationId: string; name: string; arguments: unknown }
-  | { type: "tool_result"; invocationId: string; ok: boolean; output?: unknown; error?: string }
+  | { type: "tool_result"; invocationId: string; name: string; ok: boolean; output?: unknown; error?: string }
   | { type: "batch"; concludes: boolean[] };
 
 /** Adapter 整 Turn 请求（host 构造；上下文仅 user 输入 + 工具集，历史组装由 host 侧 ContextBuilder 负责） */

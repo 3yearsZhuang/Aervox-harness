@@ -52,11 +52,13 @@
 - 画布/内容分离、权限撤销与插件越权测试（`TC-SEC-PLUG-001`）；
 - 无适配器核心流程与删除传播测试（`TC-PRIV-DEL-001`）。
 
-## 实施进展（2026-08-28，阶段 6：契约面 + 模拟器）
+## 实施进展（2026-08-28，阶段 6：契约面 + 模拟器；6b/6c：Host 接入 + DSH 固定 SHA 复核真实化）
 
-状态仍为 `Proposed`（真实 DSH/pi 运行时未接入，P2 前完成 Accepted 验收）。已按本 ADR 冻结的约束落地契约面与可机器验证的骨架（AVX-HAR-001 §16.18 全量清单）：
+状态仍为 `Proposed`（真实 DSH/pi 运行时未接入，P2 前完成 Accepted 验收）。已按本 ADR 冻结的约束落地契约面与可机器验证的骨架（AVX-HAR-001 §16.18/§16.19 全量清单）：
 
 - **进程外 Adapter 契约**（`@aervox/agent-loop`）：`AdapterDriverPort`/`AdapterManifest`/`AdapterWireMessage`（JSON 行协议）、纯函数 `concludeAdapterBatch`（上游 any/every 批次收紧为 `all-results-conclude`，混合批次一律拒绝不静默放行）与 `verifyAdapterManifest`（固定 SHA + 许可证白名单 [MIT/Apache/BSD]，AGPL 等拒绝）；
 - **子进程 stdio 端口**（`@aervox/host-agent`）：握手（hello → 准入复核）→ 逐 Turn 请求-事件 ping-pong；每 Turn 总超时、kill switch、失败自动禁用（后续 `adapter_unavailable`）；
 - **Profile 准入**：`LoopDriverId` 扩 `dsh`/`pi`，未提供已准入 Adapter 时拒绝解析（不安装也完整可用）；adapterId 与 driver 失配拒绝；
-- **模拟器**：`createSimAdapterDriver`（dsh-any / pi-every）与 fixture 子进程双实现；`TC-CONTRACT-STREAM-001`（固定 SHA 复核）、`TC-SEC-PLUG-001`（许可证白名单拒绝）与 `TC-PRIV-DEL-001`（缺省 native/replay 完整可用）均有对应测试骨架。
+- **模拟器**：`createSimAdapterDriver`（dsh-any / pi-every）与 fixture 子进程双实现；`TC-CONTRACT-STREAM-001`（固定 SHA 复核）、`TC-SEC-PLUG-001`（许可证白名单拒绝）与 `TC-PRIV-DEL-001`（缺省 native/replay 完整可用）均有对应测试骨架；
+- **6b Host 接入**（`@aervox/host-agent`）：`runAdapterTurn`（claim → adapter 整 Turn → 事件映射既有契约落库 → finalize；all-results-conclude 收紧：concluded→Completed、mixed_batch→Interrupted、异常→Failed）接入 `createAgentHost({ adapter })` 轮询驱动；续跑（resume）仍走原生 executeTurn；客户端 SSE 契约零改动；
+- **6c 固定 SHA 复核真实化**（`probeDSHReference`）：父仓库 submodule gitlink 与 `DSH-01` 登记 SHA（`b150a551…`）机器比对 + 子模块 package.json 版本/许可证复核（MIT 白名单通过）。参考仓库为 pnpm monorepo，真实 Turn 需 `git submodule update --init reference/deepseek-harness && pnpm install && pnpm build:lib:host` 后再接入 stdio 端口——本阶段不在测试/CI 内构建该仓库（失败自动禁用语义见 6b），此为该验收证据与「真运行时接入」之间的剩余工程项。
