@@ -553,7 +553,7 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - followup、steer、inject（已落地 5a 数据面与消费闭环 + 5a-2 API/插件受控入口：`agent_inbox_items` 表 + InboxPort + executor 消费 + `POST /v1/sessions/:sessionId/inbox` 统一端点（x-plugin-id 受控）+ 过期回收 Worker）；
 - Context compaction seam（已落地 5b：`ContextCompactionPort` + 规则式摘要 `createSummaryCompaction` + composer 集成，宿主持有可注入 LLM 摘要）；
 - Skill 渐进式披露接入 ContextBuilder（已落地 5b：`buildSkillsPrompt` 迁入 agent-loop + `createSkillAwareContextBuilder`，API 对话默认注入 activeOnly 技能清单）；
-- Subagent/Workflow 通过独立 Tool/Provider Contribution 接入（待 5c）；
+- Subagent/Workflow 通过独立 Tool/Provider Contribution 接入（已落地 5c：`SubagentPort` + `composeToolProviders` + `createSubagentToolProvider`（subagent.delegate 写类走既有审批）+ `createWorkflowToolProvider`（TS 步骤定义 workflow.run）；子任务独立 turn/attempt 落库 `subagent_runs`，隔离上下文+递归防护，审计端点 `GET /v1/turns/:id/subagents` + 注册清单 `GET /v1/workflows`）；
 - DSH/pi Adapter 进行兼容、许可证和安全验证（仍属规划）。
 
 退出条件：高级能力均通过扩展点接入，不修改 Loop 核心控制流。（5a 已按此兑现：Inbox 注入经 `ContextBuilderPort` 扩展点 + 可选 `InboxPort`，未改动 Loop 状态机与事件流；`agent-loop-no-db` 健身函数持续机器验证。）
@@ -759,6 +759,20 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
   - `skill-manager.ts` 改引用 agent-loop 的 `buildSkillsPrompt`（删除 `skill-prompt.ts` 本地副本，单一真源）；
   - `conversation` 模块默认启用 Skill 渐进披露：`skillLoader`（`SqliteSkillRegistryRepository.listSkills(true)` → name+description）注入 `runLoopTurnOnce`，无 active Skill 时退化为原行为；Context 压缩 seam 默认关闭，设置 `AERVOX_LOOP_COMPACTION=rule` 开启内置规则式摘要。
 - 测试：`@aervox/agent-loop` 77（新增 `context-builder.test.ts` 9：skills prompt 构造/空清单/system 不翻倍/默认透传/规则摘要阈值与幂等/composer 组合顺序/异步 build）；`@aervox/api` 110（`conversation-loop.test.ts` 新增 1：注册 active Skill 后创建 Turn 仍成功，skillLoader 接线不破坏 Loop）；既有 5a/5a-2 无回归。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.17 落地进展（阶段 5c：Subagent/Workflow 通过独立 Tool/Provider Contribution 接入）
+
+2026-08-28 落地（对应 §13 阶段 5 末项；ADR-017「高级能力经扩展点接入，不改 Loop 核心」）：
+
+- **扩展点**（`packages/agent-loop`）：
+  - `SubagentPort`（`delegate`：父执行键幂等，宿主持有）+ `ToolExecutionInput.sessionId` 透传（executor 仅补字段，无控制流改动）；
+  - `composeToolProviders(providers, { fallback? })`：多 Contribution 合并为单一清单交付 executor；重名组装期报错；execute 按名路由，未命中委托 `fallback`（支持动态注册表 provider——`createRuntimeToolProvider` tools 实时校验不静态声明）或 fail-closed；
+  - `createSubagentToolProvider({ subagent })`：贡献 `subagent.delegate`（写类，走既有审批通道，与 5a-2 受控入口对称）；委托结果经既有 tool_result 回填，失败父级可收敛/重试；
+  - `createWorkflowToolProvider(defs)`：TS 步骤定义（`WorkflowDefinition`/`WorkflowStep`，天然过 typecheck）暴露 `workflow.run`（写类）；步骤顺序执行、上一步输出为下一步输入、失败携带步骤定位与部分产物；未注册流程 fail-closed。
+- **数据面**（`packages/database`）：`subagent_runs` 表（父 Turn/Attempt/执行键 + 子 turn/attempt + task/toolScope/status/result/时间戳；`parentAttemptId+parentExecutionId` 幂等唯一索引）+ `SqliteSubagentRunRepository`（createRun 幂等 / finalizeRun 仅 Running 收口 / getRunByParentExecution / listRunsByTurn 租户隔离）；init 幂等 CREATE。
+- **宿主执行器**（`packages/host-agent`）：`createSqliteSubagentPort`——子任务独立 turn/attempt 落库（复用 `createTurnWithOutbox`/`createTurnAttempt`，事件流在子 turn 下审计）→ 嵌套 `executeTurn`（子任务 Step 上限默认 4）→ delta 聚合正文 → run 行终态收口；隔离原则（子上下文仅 task，不注入父历史）+ 递归防护（childTools 含 delegate/workflow 即拒绝）＋崩溃/重试幂等复用。
+- **API 接线**（`apps/api`）：`buildLoopProvider` 提取（Leader 与子任务共用）；conversation 模块默认接线 `subagentFactory`（request 级 tenant 绑定）+ 可选 `workflows`（`buildApp` 透传）；工具组合 = compose(subagent/workflow 静态贡献, fallback=动态 runtime)；新端点 `GET /v1/turns/:turnId/subagents`（子任务审计，租户隔离）与 `GET /v1/workflows`（注册清单元数据）。
+- 测试：`@aervox/agent-loop` 90（新增 `subagent-contribution.test.ts` 13：compose 并集/重名/路由/fallback 兜底、subagent 委托透传/失败/非法输入/退化为空、workflow 顺序/失败定位/未注册/抛错）；`@aervox/database` 139（新增 `subagent-runs.test.ts` 5：创建幂等/终态收口/列表/租户隔离）；`@aervox/host-agent` 31（新增 `subagent-executor.test.ts` 4：端到端落库+正文聚合/幂等复用/递归防护/子任务失败）；`@aervox/api` 199（新增 `subagent-routes.test.ts` 4：workflows 清单/空清单退化/子任务审计租户隔离/workflow 贡献不破坏 Loop）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
 ## 17. 回滚策略
 
