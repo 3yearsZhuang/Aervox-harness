@@ -51,6 +51,10 @@ export class InMemoryExecutionStore implements ExecutionStorePort {
     if (attempt.fencingToken !== input.expectedFencingToken) {
       return { ok: false, reason: "already_claimed" };
     }
+    // 3b-B：未过期租约不可抢占
+    if (attempt.leaseExpiresAt && Date.parse(attempt.leaseExpiresAt) > Date.now()) {
+      return { ok: false, reason: "already_claimed" };
+    }
     attempt.fencingToken += 1;
     attempt.leaseId = `lease_mem_${input.attemptId}`;
     attempt.leaseExpiresAt = new Date(Date.now() + 60_000).toISOString();
@@ -105,10 +109,29 @@ export class InMemoryExecutionStore implements ExecutionStorePort {
       .sort((a, b) => a.sequence - b.sequence);
   }
 
-  async finalizeAttempt(input: { turnId: string; attemptId: string; status: AttemptStatus }): Promise<void> {
+  async finalizeAttempt(input: {
+    turnId: string;
+    attemptId: string;
+    status: AttemptStatus;
+    expectedFencingToken?: number;
+  }): Promise<{ ok: boolean }> {
     const attempt = this.attempts.get(input.attemptId);
+    if (!attempt) return { ok: false };
+    // 3b-B：单一终态（仅 Running 可提交；fencing 匹配才允许）
+    if (attempt.status !== "Running") return { ok: false };
+    if (input.expectedFencingToken !== undefined && attempt.fencingToken !== input.expectedFencingToken) {
+      return { ok: false };
+    }
+    attempt.status = input.status;
+    return { ok: true };
+  }
+
+  /** 测试钩子：模拟租约被抢占/丢失（改 leaseId，使续租探活失败） */
+  simulateLeaseLoss(attemptId: string): void {
+    const attempt = this.attempts.get(attemptId);
     if (attempt) {
-      attempt.status = input.status;
+      attempt.leaseId = `lease_lost_${attemptId}`;
+      attempt.leaseExpiresAt = new Date(0).toISOString();
     }
   }
 
