@@ -23,7 +23,7 @@ export {
   type ToolItemDto,
   type SkillItemDto,
 } from './useAervoxPersonas';
-export { streamAervoxTurn, type StreamAervoxTurnCallbacks } from './useAervoxTurn';
+export { streamAervoxTurn, submitQuestionAnswers, type StreamAervoxTurnCallbacks } from './useAervoxTurn';
 export {
   useAervoxVoice,
   canPickDirectory,

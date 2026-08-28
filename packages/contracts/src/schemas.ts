@@ -32,6 +32,8 @@ export const streamEventTypeSchema = z.enum([
   "error",
   "redacted",
   "emote",
+  "user_question_required",
+  "user_question_answered",
 ]);
 
 /** 标准错误码（§4.5） */
@@ -100,6 +102,64 @@ export const redactedEventDataSchema = z.object({
   visibilityRevision: z.number().int(),
   reasonCode: z.enum(["revoked", "deleted", "policy_changed"]),
   replacement: z.string().optional(),
+});
+
+// ============ UQ-01 向用户提问交互契约 (DSH-UQ-01 借鉴) ============
+
+/** 单个选项 */
+export const askUserQuestionOptionSchema = z.object({
+  label: z.string().min(1),
+  description: z.string().optional(),
+});
+
+/** 提问意图 */
+export const askUserQuestionIntentSchema = z.object({
+  kind: z.enum(["plan-review", "choice", "confirmation"]),
+  approve: z.string().optional(),
+});
+
+/** 单个问题 */
+export const askUserQuestionItemSchema = z.object({
+  id: z.string().min(1),
+  question: z.string().min(1),
+  header: z.string().optional(),
+  detail: z.string().optional(),
+  options: z.array(askUserQuestionOptionSchema).optional(),
+  multiSelect: z.boolean().optional().default(false),
+  intent: askUserQuestionIntentSchema.optional(),
+});
+
+/** user_question_required: SSE 下发问题交互请求 */
+export const userQuestionRequiredEventDataSchema = z.object({
+  turnId: z.string().min(1),
+  step: z.number().int().positive().optional(),
+  questions: z.array(askUserQuestionItemSchema).min(1),
+  timeoutMs: z.number().int().positive().optional(),
+});
+
+/** 单个问题的回答 */
+export const askUserQuestionAnswerItemSchema = z.object({
+  id: z.string().min(1),
+  selected: z.array(z.string()).default([]),
+  custom: z.string().optional(),
+});
+
+/** user_question_answered: SSE 回复或状态同步 */
+export const userQuestionAnsweredEventDataSchema = z.object({
+  turnId: z.string().min(1),
+  answers: z.array(askUserQuestionAnswerItemSchema),
+});
+
+/** 用户提交回答的请求体 (POST /v1/turns/:turnId/questions/answers) */
+export const submitQuestionAnswersRequestSchema = z.object({
+  answers: z.array(askUserQuestionAnswerItemSchema).min(1),
+});
+
+/** 用户提交回答的响应体 */
+export const submitQuestionAnswersResponseSchema = z.object({
+  turnId: z.string().min(1),
+  accepted: z.boolean(),
+  answers: z.array(askUserQuestionAnswerItemSchema),
 });
 
 // ============ PET-01 桌宠表现指令（契约预留） ============

@@ -5,12 +5,12 @@
 
 > 文档编号：AVX-HAR-001  
 > 类型：Reference  
-> 版本：v0.3
+> 版本：v0.4
 > 更新日期：2026-08-28  
 > 状态：Review Candidate  
-> 关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[ADR-016](adr/ADR-016-base-boundaries.md)、[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md)、[CR-012](changes/CR-012-agent-harness-loop.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
+> 关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[ADR-016](adr/ADR-016-base-boundaries.md)、[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md)、[CR-012](changes/CR-012-agent-harness-loop.md)、[CR-021](changes/CR-021-ask-user-question-capability.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
-本文规定 Aervox Agent Harness Loop 的职责、状态机、Port、持久化边界、工具执行、取消恢复和分阶段落地路线。当前阶段 0/1/2a-2e/3a/3b-A/3b-B 已有原生实现：`packages/agent-loop` 提供 Replay/Scripted/真实 OpenAI 兼容 Provider、多 Step 工具循环、API/SSE 持久化、工具账本、写工具审批、lease TTL/续租、过期抢占、fencing 单一终态和 Worker 恢复；3c+ 生产级安全补强、完整 Inbox/ContextManifest 关联、独立 Host 以及 DSH/pi Adapter 仍是后续目标。文中标为“目标”的接口、表和状态转换，只有在对应代码、迁移和契约测试落地后才可视为运行能力。
+本文规定 Aervox Agent Harness Loop 的职责、状态机、Port、持久化边界、工具执行、取消恢复和分阶段落地路线。当前阶段 0/1/2a-2e/3a/3b-A/3b-B 已有原生实现：`packages/agent-loop` 提供 Replay/Scripted/真实 OpenAI 兼容 Provider、多 Step 工具循环、API/SSE 持久化、工具账本、写工具审批、`ask_user_question` 人机提问交互、lease TTL/续租、过期抢占、fencing 单一终态和 Worker 恢复；3c+ 生产级安全补强、完整 Inbox/ContextManifest 关联、独立 Host 以及 DSH/pi Adapter 仍是后续目标。文中标为“目标”的接口、表和状态转换，只有在对应代码、迁移和契约测试落地后才可视为运行能力。
 
 ## 1. 范围与非目标
 
@@ -317,7 +317,8 @@ resolve definition
 - 非幂等副作用失败不自动重试；
 - 工具结果进入模型前做大小、敏感数据、Prompt injection 和来源检查；
 - 终端工具可以返回 `concludesTurn=true`，但不能绕过最终持久化和安全检查；
-- Aervox 的批次终止契约是“非空且所有已完成结果均 `concludesTurn=true`”；混合批次继续下一 Step，且所有已经启动的工具都必须先产生并提交确定结果。
+- Aervox 的批次终止契约是“非空且所有已完成结果均 `concludesTurn=true`”；混合批次继续下一 Step，且所有已经启动的工具都必须先产生并提交确定结果；
+- **工具 Prompt 约束与同步硬规则**：所有在系统中注册或贡献的工具（含内置工具与后续新增工具），必须在 `BASE_TOOL_GUIDANCE`（`packages/agent-loop/src/base-prompt.ts`）中登记明确的调用时机（何时使用/何时禁止）及约束要求；未在 System Prompt 中声明指导原则的工具禁止进入生产可用清单。
 
 ## 10. 限额与终止策略
 

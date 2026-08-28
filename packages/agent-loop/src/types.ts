@@ -29,11 +29,14 @@ export type LoopEventType =
   | "done"
   | "error"
   | "redacted"
+  | "emote"
   | "tool_request"
   | "tool_result"
   | "tool_approval_required"
   | "tool_approval_granted"
-  | "tool_approval_denied";
+  | "tool_approval_denied"
+  | "user_question_required"
+  | "user_question_answered";
 
 /** 分段安全门决策（阶段 1/2 本地确定性内容，统一 approved） */
 export type SafetyDecision = "approved" | "blocked" | "redacted" | "pending";

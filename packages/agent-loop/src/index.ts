@@ -12,5 +12,7 @@ export * from "./in-memory-store.js";
 export * from "./in-memory-inbox.js";
 export * from "./adapter-contract.js";
 export * from "./adapter-sim.js";
+export * from "./base-prompt.js";
 export * from "./subagent-contribution.js";
+export * from "./user-question-tool.js";
 export * from "./resume.js";

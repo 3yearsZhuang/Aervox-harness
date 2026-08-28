@@ -4,19 +4,27 @@
  * 将桌面端（Electron IPC）与 Web（浏览器 fetch/SSE）的差异抽象为单一 Transport 接口，
  * 两端只依赖本接口与领域 composables，不再各自维护实现副本（见 ARCHITECTURE §3.2）。
  */
-import type { PetCommand, TurnStreamEvent } from '@aervox/contracts';
+import type {
+  AskUserQuestionAnswerItem,
+  PetCommand,
+  TurnStreamEvent,
+  UserQuestionRequiredEventData,
+} from '@aervox/contracts';
 
 export interface TurnCallbacks {
   onDelta: (text: string) => void;
   onDone: () => void;
   onError?: (err: unknown) => void;
   onEmote?: (command: PetCommand) => void;
+  /** UQ-01: 当模型请求向用户提问时触发 */
+  onUserQuestion?: (data: UserQuestionRequiredEventData) => void;
 }
 
-/** 两端能力的最小契约：普通请求 + Turn 流式 */
+/** 两端能力的最小契约：普通请求 + Turn 流式 + 问答提交 */
 export interface AervoxTransport {
   request<T = unknown>(method: string, path: string, body?: unknown, options?: { headers?: Record<string, string> }): Promise<T>;
   streamTurn(sessionId: string, content: string, callbacks: TurnCallbacks): Promise<void>;
+  submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[]): Promise<void>;
 }
 
 // ── 运行时配置（由宿主端在入口注入 import.meta.env 等信息） ──────────────
@@ -161,8 +169,18 @@ export function createFetchTransport(apiBase: string, workspaceId?: string, user
       callbacks.onError?.(new Error((event.data as { message?: string }).message ?? 'Turn 出错'));
     } else if (event.eventType === 'emote') {
       callbacks.onEmote?.(event.data as PetCommand);
+    } else if (event.eventType === 'user_question_required') {
+      callbacks.onUserQuestion?.(event.data as UserQuestionRequiredEventData);
     }
   };
 
-  return { request, streamTurn };
+  const submitQuestionAnswers = async (turnId: string, answers: AskUserQuestionAnswerItem[]): Promise<void> => {
+    await request(
+      'POST',
+      `/v1/turns/${encodeURIComponent(turnId)}/questions/answers`,
+      { answers },
+    );
+  };
+
+  return { request, streamTurn, submitQuestionAnswers };
 }

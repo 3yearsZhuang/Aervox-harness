@@ -27,6 +27,14 @@ import {
   petSheetLayoutSchema,
   petSheetStateSchema,
   redactedEventDataSchema,
+  askUserQuestionOptionSchema,
+  askUserQuestionIntentSchema,
+  askUserQuestionItemSchema,
+  userQuestionRequiredEventDataSchema,
+  askUserQuestionAnswerItemSchema,
+  userQuestionAnsweredEventDataSchema,
+  submitQuestionAnswersRequestSchema,
+  submitQuestionAnswersResponseSchema,
   skillCandidateCreateSchema,
   skillCandidateSchema,
   skillEvaluationSchema,
@@ -270,6 +278,26 @@ registry.registerPath({
       content: { "application/json": { schema: cancelTurnResponseSchema } },
     },
     404: { description: "TURN_NOT_FOUND" },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/turns/{turnId}/questions/answers",
+  summary: "提交向用户询问的回答（UQ-01）",
+  tags: ["Turn"],
+  request: {
+    params: turnIdParam,
+    body: { content: { "application/json": { schema: submitQuestionAnswersRequestSchema } } },
+  },
+  responses: {
+    200: {
+      description: "Answers accepted and resumed",
+      content: { "application/json": { schema: submitQuestionAnswersResponseSchema } },
+    },
+    400: { description: "Invalid answers request" },
+    404: { description: "TURN_NOT_FOUND or no pending question" },
+    409: { description: "Question already answered or turn finalized" },
   },
 });
 
