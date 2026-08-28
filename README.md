@@ -46,7 +46,7 @@
 | 前端    | Vue 3 + Vite 7 + Element Plus（Web / Electron 桌面端 / Capacitor 移动壳）                  |
 | API   | Fastify 5 + Zod 4 + OpenAPI 3.1；POST Turn + GET SSE 流式                             |
 | 数据    | SQLite (WAL) + Drizzle + 仓储抽象，PG 双引擎兼容规划（[AVX-DB-001](docs/reference/DATABASE.md)） |
-| 后台    | Worker 进程（Outbox / 复习提醒 / 日记 / 删除），Redis + BullMQ 待接入                              |
+| 后台    | Worker 进程（Outbox / 复习提醒 / 日记 / 删除 / 收件箱过期回收），Redis + BullMQ 待接入                             |
 
 ## 仓库结构
 
@@ -58,9 +58,13 @@ apps/
   worker/       后台任务进程（tsx）
   mobile/       Capacitor 最小壳（打包 web 产物）
 packages/
-  agent-loop/   Agent Turn/Attempt/Step 执行核心与 Replay/Scripted Driver
+  agent-loop/   Agent Turn/Attempt/Step 执行核心：Replay/Scripted/真实 OpenAI 兼容 Provider、多 Step 工具循环、租约与恢复
+  host-agent/   内嵌异步 Agent Host：执行器、回执/续跑、健康检查与 Inbox 消费（阶段 4a-4d / 5a）
+  observability/   可观测性接口与指标（阶段 2a）
   contracts/    Zod 契约事实源 → OpenAPI 3.1（流式协议 / 学习域 / 插件 Config/Page / Persona）
   database/     SQLite 真源 + 仓储 / FTS5 / 向量检索 Port / 迁移服务
+  api-client/   Web/Desktop 共享 API 客户端（Turn/SSE、设置、收件箱）
+  ui/           Web/Desktop 共享 UI 组件与 composables
   practice-review/  复习排期 @aervox/practice-review（CAP-006，幂等 + 时区安全调度）
 reference/      参考仓库子模块（deepseek-harness / pi / baishou-next / dsh-synapse / AstrBot / Petra，仅设计验证）
 docs/            按 Diátaxis 四分类组织；_meta 存放文档治理机器策略
@@ -92,10 +96,11 @@ AERVOX_API_URL='http://127.0.0.1:3000' AERVOX_SESSION_ID='<现有会话 ID>' pnp
 
 ### 桌宠表现
 
-桌宠支持两种渲染形态，共用一套表现契约（`@aervox/contracts`）与 SSE `emote` 事件：
+桌宠支持三种渲染形态，共用一套表现契约（`@aervox/contracts`）与 SSE `emote` 事件：
 
 - **CSS 骨架**（`PetHero`）：静态 DOM + CSS 变换表达 emote/gesture，无外部素材依赖；
-- **Codex Pets 兼容精灵图**（`SpritePet`）：消费 Codex Pets 9 状态 spritesheet（`pet.json` + 8×9 atlas），工具调用结果经 `/v1/tools/:id/call` 的 `sheetState` 驱动姿态（成功 `waving` / 失败 `failed`）。
+- **Codex Pets 兼容精灵图**（`SpritePet`）：消费 Codex Pets 9 状态 spritesheet（`pet.json` + 8×9 atlas），工具调用结果经 `/v1/tools/:id/call` 的 `sheetState` 驱动姿态（成功 `waving` / 失败 `failed`）；
+- **Live2D 桌宠**（CR-007，可替换渲染层）：Web 工作台与 Electron 独立桌宠窗口经 git submodule 加载 Live2D 模型资产（如 `apps/web/public/live2d`），加载失败回退 CSS 骨架。
 
 ### 环境变量
 
@@ -115,6 +120,7 @@ AERVOX_API_URL='http://127.0.0.1:3000' AERVOX_SESSION_ID='<现有会话 ID>' pnp
 - [AGENTS.md](AGENTS.md)：AI 协作入口（根目录，AI 编码工具自动加载）
 - [PRD](docs/reference/PRD.md)（AVX-PRD-001）· [架构设计](docs/reference/ARCHITECTURE.md) · [ADR](docs/reference/adr/README.md) · [SRS](docs/reference/SRS.md)
 - [Agent Harness Loop 规范](docs/reference/agent-harness-loop.md)（AVX-HAR-001）
+- 评估与延伸：[ESP32 硬件延伸](docs/explanation/esp32-s3-hardware-extension.md)（AVX-EXPL-005）· [Home Assistant 集成评估](docs/explanation/home-assistant-integration-assessment.md)（AVX-EXPL-006）· [运动与健康数据接入评估](docs/explanation/health-data-integration-assessment.md)（AVX-EXPL-007）
 - [需求追踪](docs/reference/REQUIREMENTS_TRACEABILITY.md)：CAP 状态、DoR、G0\~G6 门禁
 - [能力注册表](docs/reference/capability-registry.md)（自选与交付状态） · [能力组合规范](docs/reference/capability-composition.md) · [操作指南](docs/how-to)
 
@@ -127,7 +133,8 @@ AERVOX_API_URL='http://127.0.0.1:3000' AERVOX_SESSION_ID='<现有会话 ID>' pnp
   - **学习/复习**：练习会话契约（会话快照/作答幂等，CR-008）、错题本忽略与恢复（CR-009）、复习完成幂等与结果重放（CR-010）、时区安全的到期与逾期复习调度（CR-011，`@aervox/practice-review`）；
   - **工具/插件/技能**：工具注册表 + 运行时 + `/v1/tools`（T-04）、插件运行时 + Config/Page（CAP-020，CR-006）、Skill 注册表/zip 安装/渐进式披露（借鉴 AstrBot）、工具安全级别白名单（PET-05）；
   - **人格/桌宠表现**：Persona 系统级重构（去模块化 + 系统级 Skills/Tools/MCP + 独立 Voice，2026-08-27，原生）、Persona 设定 UI（AST-03）、表现指令契约与前端消费（PET-01/02）、Codex Pets 兼容的 9 状态 spritesheet 协议（`pet.json` + 8×9 atlas + 工具状态驱动，原生·外部协议兼容）、桌面 preload 按域 IPC（T-07）、桌宠角色设定文档化（T-08，AVX-EXPL-003）；
-  - **Agent 执行核心**：Agent Harness Loop 阶段 0/1/2d/2e/3a/3b 已落地（`packages/agent-loop`、Replay/Scripted/LLM Loop、持久化 SSE、只读/写工具审批、工具执行账本、租约与 Worker 恢复）；异步 Outbox Driver、完整上下文持久化、独立 Host 和 DSH/pi Adapter 继续按 AVX-HAR-001/CR-012 推进；
+  - **Agent 执行核心**：Agent Harness Loop 阶段 0/1/2a-2e/3a/3b-A/3b-B/4a-4d/5a 已落地（`packages/agent-loop` + `packages/host-agent`：Replay/Scripted/真实 OpenAI 兼容 Provider、持久化 SSE、只读/写审批工具、工具执行账本、租约与 fencing、内嵌异步 Host 与健康检查、受控收件箱 AgentInboxItem）；5a-2（Inbox HTTP 入口 + 过期回收）开发中；3c+ 生产级安全补强、5b/5c 压缩/Subagent 与 DSH/pi Adapter 继续按 AVX-HAR-001/CR-012 推进；
+  - **多能力批次（CAP-010~019）**：人格偏好、消息编辑、学习资料、多模态答疑、层级对话/会话地图、思维宇宙、自适应刷题与报告、考试日计划、多人格模板（PR #64，2026-08-28）；
   - **文档/架构治理**：能力组合与可选化目录规范（AVX-CAP-001，借鉴 DSH-01/PI-01）+ 能力注册表（AVX-CAP-REG-001）；文档治理与事实源规范（AVX-DOC-GOV-001/CR-017）+ `docs-validate`；双语贡献指南（CONTRIBUTING）。
 
 合并到 `main` 前通过（本地 `./aervox ci` 等效，CI 定义见 `.github/workflows/`）：
