@@ -249,6 +249,12 @@
   display: grid;
 }
 
+/* 占位卡与功能卡同尺寸：el-dropdown 包裹层撑满槽位，内部按钮随之拉伸 */
+.side-card-slot > .el-dropdown {
+  min-height: 0;
+  display: grid;
+}
+
 .side-card {
   min-height: 0;
   display: flex;
@@ -1570,6 +1576,7 @@
 
   .side-cards {
     grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: minmax(0, 1fr);
     top: clamp(64px, 9vh, 84px);
     bottom: clamp(120px, 20vh, 180px);
   }
