@@ -707,7 +707,7 @@ describe("API 集成测试：用户侧域路由", () => {
       method: "POST",
       url: "/v1/attachments",
       headers,
-      payload: { objectKey: "obj/it1", mediaType: "image/png", size: 2048 },
+      payload: { objectKey: "obj/it1", mediaType: "image/png", size: 2048, purpose: "question" },
     });
     expect(create.statusCode).toBe(201);
     const id = create.json().id as string;

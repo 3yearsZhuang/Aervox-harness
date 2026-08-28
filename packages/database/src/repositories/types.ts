@@ -23,6 +23,7 @@ export interface TurnModel {
   status: string;
   lastSequence: number;
   error?: unknown;
+  quoteMessageId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -112,6 +113,16 @@ export interface IConversationRepository {
     message: { id: string; sessionId: string; role: string; label?: string | null },
   ): Promise<MessageModel>;
   getMessage(tenant: TenantContext, messageId: string): Promise<MessageModel | null>;
+  // CAP-013：消息编辑、软删除、版本历史、恢复
+  editMessage(
+    tenant: TenantContext,
+    messageId: string,
+    content: string,
+    expectedVersion: number,
+  ): Promise<{ message: MessageModel; newVersion: MessageVersionModel } | null>;
+  softDeleteMessage(tenant: TenantContext, messageId: string): Promise<MessageModel | null>;
+  restoreMessage(tenant: TenantContext, messageId: string): Promise<MessageModel | null>;
+  listMessageVersions(tenant: TenantContext, messageId: string): Promise<MessageVersionModel[]>;
   createTurnAttempt(
     tenant: TenantContext,
     turnId: string,
@@ -140,9 +151,32 @@ export interface IConversationRepository {
   // P1（R2 · CAP-014）：会话地图与替代解法分支
   createConversationBranch(
     tenant: TenantContext,
-    branch: { id: string; parentSessionId: string; forkAtMessageId?: string | null; childSessionId: string },
+    branch: {
+      id: string;
+      parentSessionId: string;
+      forkAtMessageId?: string | null;
+      childSessionId: string;
+      title?: string;
+      branchReason?: string;
+    },
   ): Promise<ConversationBranchModel>;
   listBranchesByParent(tenant: TenantContext, parentSessionId: string): Promise<ConversationBranchModel[]>;
+  /** CAP-014：获取分支详情 */
+  getBranch(tenant: TenantContext, branchId: string): Promise<ConversationBranchModel | null>;
+  /** CAP-014：合并分支回主线 */
+  mergeBranch(tenant: TenantContext, branchId: string): Promise<ConversationBranchModel | null>;
+  /** CAP-014：归档分支 */
+  archiveBranch(tenant: TenantContext, branchId: string): Promise<ConversationBranchModel | null>;
+  /** CAP-014：软删除分支 */
+  deleteBranch(tenant: TenantContext, branchId: string): Promise<ConversationBranchModel | null>;
+  /** CAP-014：更新布局数据（布局丢失不影响会话内容） */
+  updateBranchLayout(
+    tenant: TenantContext,
+    branchId: string,
+    layoutData: unknown,
+  ): Promise<ConversationBranchModel | null>;
+  /** CAP-014：获取会话地图（所有分支树） */
+  getBranchTree(tenant: TenantContext, sessionId: string): Promise<ConversationBranchModel[]>;
 }
 
 export interface ConversationBranchModel {
@@ -152,6 +186,18 @@ export interface ConversationBranchModel {
   parentSessionId: string;
   forkAtMessageId?: string | null;
   childSessionId: string;
+  /** CAP-014：分支标题 */
+  title?: string | null;
+  /** CAP-014：分支原因 */
+  branchReason?: string | null;
+  /** CAP-014：生命周期状态 */
+  status: string;
+  /** CAP-014：合并时间戳 */
+  mergedAt?: string | null;
+  /** CAP-014：布局数据 */
+  layoutData?: unknown;
+  /** CAP-014：软删除 */
+  deletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -734,6 +780,8 @@ export interface MistakeItemModel {
   wrongCount: number;
   masteryState: string;
   status: "active" | "mastered" | "dismissed";
+  reason?: string | null;
+  note?: string | null;
 }
 
 export interface PracticeSessionModel {
@@ -845,7 +893,7 @@ export interface ILearningRepository {
     tenant: TenantContext,
     status?: "active" | "mastered" | "dismissed" | "all",
   ): Promise<MistakeItemModel[]>;
-  setMistakeDisposition(tenant: TenantContext, item: { id: string; questionId: string; status: "active" | "dismissed" }): Promise<void>;
+  setMistakeDisposition(tenant: TenantContext, item: { id: string; questionId: string; status: "active" | "dismissed"; reason?: string | null; note?: string | null }): Promise<void>;
   getAttemptByIdempotencyKey(
     tenant: TenantContext,
     questionId: string,
@@ -932,6 +980,102 @@ export interface ILearningRepository {
     },
   ): Promise<KnowledgeRelationModel>;
   listKnowledgeRelations(tenant: TenantContext, knowledgeId: string): Promise<KnowledgeRelationModel[]>;
+  /** CAP-015：获取关系详情 */
+  getKnowledgeRelation(tenant: TenantContext, relationId: string): Promise<KnowledgeRelationModel | null>;
+  /** CAP-015：纠正关系 — corrected 状态停止用于讲解和推荐 */
+  correctKnowledgeRelation(
+    tenant: TenantContext,
+    relationId: string,
+    reason: string,
+  ): Promise<KnowledgeRelationModel | null>;
+  /** CAP-015：合并两条关系 */
+  mergeKnowledgeRelations(
+    tenant: TenantContext,
+    sourceRelationId: string,
+    targetRelationId: string,
+  ): Promise<KnowledgeRelationModel | null>;
+  /** CAP-015：拆分关系（标记为 split，可选创建新关系） */
+  splitKnowledgeRelation(
+    tenant: TenantContext,
+    relationId: string,
+    reason: string,
+  ): Promise<KnowledgeRelationModel | null>;
+  /** CAP-015：软删除关系 */
+  deleteKnowledgeRelation(tenant: TenantContext, relationId: string): Promise<KnowledgeRelationModel | null>;
+  /** CAP-015：获取知识图谱（仅 active 关系，用于讲解和推荐） */
+  getActiveKnowledgeGraph(
+    tenant: TenantContext,
+    knowledgeId: string,
+  ): Promise<KnowledgeRelationModel[]>;
+
+  // ============ CAP-016 练习报告 ============
+
+  /** CAP-016：创建练习报告 */
+  createPracticeReport(
+    tenant: TenantContext,
+    input: {
+      id: string;
+      sessionId: string;
+      totalQuestions: number;
+      correctCount: number;
+      incorrectCount: number;
+      avgTimeSpentSec?: number;
+      totalHintsUsed?: number;
+      masteryPrediction?: number;
+      biasAssessment?: string;
+      reportType?: string;
+    },
+  ): Promise<PracticeReportModel>;
+  /** CAP-016：获取练习报告 */
+  getPracticeReport(tenant: TenantContext, reportId: string): Promise<PracticeReportModel | null>;
+  /** CAP-016：按会话查询报告 */
+  listPracticeReports(tenant: TenantContext, sessionId: string): Promise<PracticeReportModel[]>;
+  /** CAP-016：重置推断（保留原始作答） */
+  resetMasteryInference(
+    tenant: TenantContext,
+    sessionId: string,
+  ): Promise<PracticeReportModel>;
+
+  // ============ CAP-017 学习计划 ============
+
+  /** CAP-017：创建学习计划 */
+  createStudyPlan(
+    tenant: TenantContext,
+    input: {
+      id: string;
+      goalId?: string;
+      title: string;
+      startDate: string;
+      endDate: string;
+      restDays?: string[];
+      dailyAvailableMinutes?: number;
+    },
+  ): Promise<StudyPlanModel>;
+  /** CAP-017：获取计划 */
+  getStudyPlan(tenant: TenantContext, planId: string): Promise<StudyPlanModel | null>;
+  /** CAP-017：列出计划 */
+  listStudyPlans(tenant: TenantContext): Promise<StudyPlanModel[]>;
+  /** CAP-017：滚动调整（不删除已完成记录） */
+  updateStudyPlan(
+    tenant: TenantContext,
+    planId: string,
+    updates: {
+      title?: string;
+      startDate?: string;
+      endDate?: string;
+      restDays?: string[];
+      dailyAvailableMinutes?: number;
+    },
+  ): Promise<StudyPlanModel | null>;
+  /** CAP-017：更新完成预测 */
+  updateCompletionPrediction(
+    tenant: TenantContext,
+    planId: string,
+    prediction: string,
+    degradationPlan?: unknown,
+  ): Promise<StudyPlanModel | null>;
+  /** CAP-017：归档计划 */
+  archiveStudyPlan(tenant: TenantContext, planId: string): Promise<StudyPlanModel | null>;
 }
 
 export interface KnowledgeRelationModel {
@@ -943,6 +1087,54 @@ export interface KnowledgeRelationModel {
   relationType: string;
   source: string;
   confidence: number;
+  /** CAP-015：纠正状态 */
+  correctionStatus: string;
+  /** CAP-015：纠正原因 */
+  correctionReason?: string | null;
+  /** CAP-015：合并目标 */
+  mergedInto?: string | null;
+  /** CAP-015：软删除 */
+  deletedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============ CAP-016 练习报告 ============
+
+export interface PracticeReportModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  sessionId: string;
+  totalQuestions: number;
+  correctCount: number;
+  incorrectCount: number;
+  avgTimeSpentSec?: number | null;
+  totalHintsUsed: number;
+  masteryPrediction?: number | null;
+  biasAssessment?: string | null;
+  reportType: string;
+  isReset: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============ CAP-017 学习计划 ============
+
+export interface StudyPlanModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  goalId?: string | null;
+  title: string;
+  startDate: string;
+  endDate: string;
+  restDays: string[];
+  dailyAvailableMinutes: number;
+  status: string;
+  completionPrediction?: string | null;
+  degradationPlan?: unknown;
+  revisionCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -1323,7 +1515,31 @@ export interface AttachmentModel {
   size: number;
   scanStatus: string;
   sourceLicense?: string | null;
+  /** CAP-012：用途声明 */
+  purpose?: string | null;
+  /** CAP-012：解析状态 */
+  parseStatus?: string | null;
+  /** CAP-012：幂等键 */
+  idempotencyKey?: string | null;
   deletedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** CAP-012 FR-EXT-002：附件解析结果模型 */
+export interface AttachmentParseResultModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  attachmentId: string;
+  parseStatus: string;
+  parsedText?: string | null;
+  confidence?: number | null;
+  parseError?: string | null;
+  cropData?: unknown;
+  operation: string;
+  idempotencyKey?: string | null;
+  supersededAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1352,9 +1568,40 @@ export interface IContentRepository {
       size?: number;
       scanStatus?: string;
       sourceLicense?: string | null;
+      purpose?: string | null;
+      idempotencyKey?: string | null;
     },
   ): Promise<AttachmentModel>;
   getAttachment(tenant: TenantContext, id: string): Promise<AttachmentModel | null>;
+  /** CAP-012 BR-EXT-002：软删除附件 */
+  softDeleteAttachment(tenant: TenantContext, id: string): Promise<AttachmentModel | null>;
+  /** CAP-012 BR-EXT-001：幂等键查询 */
+  getAttachmentByIdempotencyKey(tenant: TenantContext, key: string): Promise<AttachmentModel | null>;
+  /** CAP-012 FR-EXT-002：创建解析结果 */
+  createParseResult(
+    tenant: TenantContext,
+    input: {
+      id: string;
+      attachmentId: string;
+      parseStatus?: string;
+      parsedText?: string;
+      confidence?: number;
+      parseError?: string;
+      cropData?: unknown;
+      operation?: string;
+      idempotencyKey?: string;
+    },
+  ): Promise<AttachmentParseResultModel>;
+  /** CAP-012 FR-EXT-002：获取当前（未取代）解析结果 */
+  getActiveParseResult(tenant: TenantContext, attachmentId: string): Promise<AttachmentParseResultModel | null>;
+  /** CAP-012 BR-EXT-001 AC-02：幂等键查询解析结果 */
+  getParseResultByIdempotencyKey(tenant: TenantContext, key: string): Promise<AttachmentParseResultModel | null>;
+  /** CAP-012 FR-EXT-002：列出租户内附件的所有解析结果 */
+  listParseResults(tenant: TenantContext, attachmentId: string): Promise<AttachmentParseResultModel[]>;
+  /** CAP-012 FR-EXT-002：取代旧解析结果（裁剪/转文字时） */
+  supersedeParseResult(tenant: TenantContext, parseResultId: string): Promise<void>;
+  /** CAP-012 BR-EXT-002：失效所有解析结果（删除附件时） */
+  invalidateParseResults(tenant: TenantContext, attachmentId: string): Promise<number>;
   createEmbeddingIndex(
     tenant: TenantContext,
     index: {
@@ -1368,6 +1615,104 @@ export interface IContentRepository {
     },
   ): Promise<EmbeddingIndexModel>;
   listEmbeddingIndexes(tenant: TenantContext, sourceArtifactId: string): Promise<EmbeddingIndexModel[]>;
+}
+
+// ============ CAP-011 学习资料整理（FR-LRN-002/003、BR-LRN-001）============
+
+export interface StudyMaterialModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  goalId?: string | null;
+  type: string;
+  title: string;
+  currentVersionId?: string | null;
+  status: string;
+  idempotencyKey?: string | null;
+  deletedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MaterialVersionModel {
+  id: string;
+  materialId: string;
+  workspaceId: string;
+  subjectUserId: string;
+  version: number;
+  content: string;
+  format: string;
+  author: string;
+  supersededAt?: string | null;
+  createdAt: string;
+}
+
+export interface MaterialSourceModel {
+  id: string;
+  materialVersionId: string;
+  workspaceId: string;
+  subjectUserId: string;
+  sourceType: string;
+  sourceUri?: string | null;
+  sourceTitle?: string | null;
+  licenseStatus: string;
+  verificationStatus: string;
+  invalidatedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IStudyMaterialRepository {
+  create(
+    tenant: TenantContext,
+    input: {
+      id: string;
+      goalId?: string;
+      type: string;
+      title: string;
+      idempotencyKey?: string;
+    },
+  ): Promise<StudyMaterialModel>;
+  get(tenant: TenantContext, id: string): Promise<StudyMaterialModel | null>;
+  listByGoal(tenant: TenantContext, goalId: string): Promise<StudyMaterialModel[]>;
+  listByTenant(tenant: TenantContext): Promise<StudyMaterialModel[]>;
+  updateStatus(tenant: TenantContext, id: string, status: string): Promise<StudyMaterialModel | null>;
+  softDelete(tenant: TenantContext, id: string): Promise<StudyMaterialModel | null>;
+  getByIdempotencyKey(tenant: TenantContext, key: string): Promise<StudyMaterialModel | null>;
+
+  createVersion(
+    tenant: TenantContext,
+    input: {
+      id: string;
+      materialId: string;
+      content: string;
+      format?: string;
+      author?: string;
+    },
+  ): Promise<MaterialVersionModel>;
+  getVersion(tenant: TenantContext, versionId: string): Promise<MaterialVersionModel | null>;
+  listVersions(tenant: TenantContext, materialId: string): Promise<MaterialVersionModel[]>;
+  editVersion(
+    tenant: TenantContext,
+    materialId: string,
+    content: string,
+    expectedVersion: number,
+  ): Promise<MaterialVersionModel | null>;
+
+  addSource(
+    tenant: TenantContext,
+    input: {
+      id: string;
+      materialVersionId: string;
+      sourceType: string;
+      sourceUri?: string;
+      sourceTitle?: string;
+      licenseStatus?: string;
+      verificationStatus?: string;
+    },
+  ): Promise<MaterialSourceModel>;
+  listSources(tenant: TenantContext, materialVersionId: string): Promise<MaterialSourceModel[]>;
+  invalidateSources(tenant: TenantContext, materialVersionId: string): Promise<number>;
 }
 
 // ============ 安全域 ============
@@ -1728,6 +2073,56 @@ export interface IPluginPageRepository {
   deletePagesForPlugin(pluginId: string): Promise<void>;
 }
 
+// ============ CAP-010 人格问卷与基础偏好（FR-PER-001/002/003）============
+
+export interface PersonaPreferencesModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  /** 语气: "friendly" | "neutral" | "formal" */
+  tone: string;
+  /** 主动程度: "low" | "medium" | "high" */
+  proactiveness: string;
+  /** 称呼: "casual" | "formal" | "none" */
+  addressForm: string;
+  /** 提醒节奏: "gentle" | "moderate" | "frequent" */
+  reminderCadence: string;
+  /** 偏好版本号，每次修改递增 */
+  version: number;
+  /** 问卷是否已跳过 */
+  skipped: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IPersonaPreferencesRepository {
+  /** 获取当前租户偏好（不存在返回 null） */
+  get(tenant: TenantContext): Promise<PersonaPreferencesModel | null>;
+  /** 首次填写问卷（跳过或提交四项） */
+  save(
+    tenant: TenantContext,
+    input: {
+      tone?: string;
+      proactiveness?: string;
+      addressForm?: string;
+      reminderCadence?: string;
+      skipped?: boolean;
+    },
+  ): Promise<PersonaPreferencesModel>;
+  /** 单项或多项更新，版本号递增 */
+  update(
+    tenant: TenantContext,
+    input: {
+      tone?: string;
+      proactiveness?: string;
+      addressForm?: string;
+      reminderCadence?: string;
+    },
+  ): Promise<PersonaPreferencesModel>;
+  /** 重置为中性默认值（FR-PER-002） */
+  reset(tenant: TenantContext): Promise<PersonaPreferencesModel>;
+}
+
 // ============ 语音输出配置（系统核心能力 · CR-011 阶段 1：本地语音模型配置）============
 
 /** 本地语音模型配置模型（voice_configs 行；每租户一行） */
@@ -1881,6 +2276,12 @@ export interface PersonaModel {
   description: string;
   source: string; // "builtin" | "user_created" | "imported"
   status: string; // "active" | "archived"
+  /** 模板审核状态：draft | pending_review | approved | rejected */
+  reviewStatus: string;
+  /** 审核备注 */
+  reviewNotes: string;
+  /** 审核时间 ISO-8601 */
+  reviewedAt: string | null;
   currentRevisionId: string;
   createdAt: string;
   updatedAt: string;
@@ -1990,6 +2391,34 @@ export interface PersonaTurnContextModel {
   createdAt: string;
 }
 
+/** 人格切换日志（CAP-019） */
+export interface PersonaSwitchLogModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  personaId: string;
+  revisionId: string;
+  previousPersonaId: string | null;
+  previousRevisionId: string | null;
+  switchReason: string; // "user_initiated" | "rollback" | "system_default"
+  regressionNotes: string | null;
+  switchedAt: string;
+}
+
+/** 人格记忆范围配置（CAP-019） */
+export interface PersonaMemoryScopeModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  personaId: string;
+  memoryPolicy: string; // "isolated" | "shared"
+  sharedPersonaIds: string[];
+  sharedCategories: string[]; // "learning" | "preference" | "diary" | "fact"
+  confirmedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface IPersonaRepository {
   listPersonas(tenant: TenantContext): Promise<PersonaModel[]>;
   getPersona(tenant: TenantContext, personaId: string): Promise<PersonaModel | null>;
@@ -2032,6 +2461,57 @@ export interface IPersonaRepository {
   getActivePersona(tenant: TenantContext): Promise<ActivePersonaSelectionModel | null>;
   saveTurnContext(tenant: TenantContext, context: PersonaTurnContextModel): Promise<PersonaTurnContextModel>;
   getTurnContext(tenant: TenantContext, turnId: string): Promise<PersonaTurnContextModel | null>;
+
+  // ---- CAP-019 扩展：模板审核、切换日志、回滚、记忆范围 ----
+
+  /** 更新人格审核状态 */
+  reviewPersona(
+    tenant: TenantContext,
+    personaId: string,
+    reviewStatus: "pending_review" | "approved" | "rejected",
+    reviewNotes?: string,
+  ): Promise<PersonaModel | null>;
+
+  /** 回滚人格到指定修订（更新 currentRevisionId，不删除修订历史） */
+  rollbackPersona(
+    tenant: TenantContext,
+    personaId: string,
+    revisionId: string,
+  ): Promise<{ persona: PersonaModel; revision: PersonaRevisionModel } | null>;
+
+  /** 记录人格切换日志 */
+  recordSwitchLog(
+    tenant: TenantContext,
+    data: {
+      personaId: string;
+      revisionId: string;
+      previousPersonaId?: string | null;
+      previousRevisionId?: string | null;
+      switchReason?: string;
+      regressionNotes?: string | null;
+    },
+  ): Promise<PersonaSwitchLogModel>;
+
+  /** 获取人格切换历史 */
+  getSwitchHistory(
+    tenant: TenantContext,
+    personaId?: string,
+  ): Promise<PersonaSwitchLogModel[]>;
+
+  /** 获取人格记忆范围配置 */
+  getMemoryScope(tenant: TenantContext, personaId: string): Promise<PersonaMemoryScopeModel | null>;
+
+  /** 更新或创建人格记忆范围配置 */
+  upsertMemoryScope(
+    tenant: TenantContext,
+    personaId: string,
+    data: {
+      memoryPolicy: "isolated" | "shared";
+      sharedPersonaIds?: string[];
+      sharedCategories?: string[];
+      confirmedAt?: string | null;
+    },
+  ): Promise<PersonaMemoryScopeModel>;
 }
 
 // ============ CAP-020 Skill 能力：系统级注册表 + Neo 生命周期（本分支实现） ============

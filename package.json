@@ -13,9 +13,12 @@
     "dev:web": "turbo run dev --filter=@aervox/api --filter=@aervox/web",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+"test:e2e": "playwright test",
     "check:boundary": "node scripts/import-boundary.mjs && node --test scripts/import-boundary.test.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "playwright": "^1.62.1",
     "@babel/parser": "^8.0.4",
     "turbo": "2.10.11",
     "typescript": "7.0.2",

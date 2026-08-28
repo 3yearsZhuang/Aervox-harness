@@ -7,6 +7,8 @@ import type {
   PersonaModel,
   PersonaRevisionModel,
   PersonaTurnContextModel,
+  PersonaSwitchLogModel,
+  PersonaMemoryScopeModel,
   SkillRegistrationModel,
   SqlitePersonaRepository,
   TenantContext,
@@ -32,7 +34,11 @@ import {
   type PersonaContextSnapshot,
   type PersonaRevision,
   type PersonaSource,
+  type PersonaSwitchLog,
+  type PersonaMemoryScope,
   type UpdatePersonaInput,
+  type PersonaReviewStatus,
+  type MemoryPolicy,
 } from "./types.js";
 
 function personaToDomain(model: PersonaModel): Persona {
@@ -44,6 +50,9 @@ function personaToDomain(model: PersonaModel): Persona {
     description: model.description,
     source: model.source as PersonaSource,
     status: model.status as Persona["status"],
+    reviewStatus: model.reviewStatus as Persona["reviewStatus"],
+    reviewNotes: model.reviewNotes,
+    reviewedAt: model.reviewedAt ?? null,
     currentRevisionId: model.currentRevisionId,
     createdAt: model.createdAt,
     updatedAt: model.updatedAt,
@@ -349,5 +358,134 @@ export class PersonaService {
       skillManager: this.deps.skillManager,
       conflictResolution,
     });
+  }
+
+  // ---- CAP-019: 模板审核、回滚、切换历史、记忆范围 ----
+
+  async reviewPersona(
+    tenant: TenantContext,
+    personaId: string,
+    reviewStatus: "pending_review" | "approved" | "rejected",
+    reviewNotes?: string,
+  ): Promise<Persona | null> {
+    const updated = await this.deps.personaRepo.reviewPersona(
+      tenant,
+      personaId,
+      reviewStatus,
+      reviewNotes,
+    );
+    return updated ? personaToDomain(updated) : null;
+  }
+
+  async rollbackPersona(
+    tenant: TenantContext,
+    personaId: string,
+    revisionId: string,
+    regressionNotes?: string,
+  ): Promise<{ persona: Persona; revision: PersonaRevision } | null> {
+    const result = await this.deps.personaRepo.rollbackPersona(tenant, personaId, revisionId);
+    if (!result) return null;
+
+    // 记录回滚切换日志
+    const active = await this.getActivePersona(tenant);
+    await this.deps.personaRepo.recordSwitchLog(tenant, {
+      personaId,
+      revisionId,
+      previousPersonaId: active?.personaId ?? personaId,
+      previousRevisionId: active?.revisionId ?? null,
+      switchReason: "rollback",
+      regressionNotes: regressionNotes ?? null,
+    });
+
+    // 如果当前激活的就是这个人格，更新激活选择到回滚后的修订
+    if (active?.personaId === personaId) {
+      await this.deps.personaRepo.activatePersona(tenant, personaId, revisionId);
+    }
+
+    return {
+      persona: personaToDomain(result.persona),
+      revision: revisionToDomain(result.revision),
+    };
+  }
+
+  async getSwitchHistory(
+    tenant: TenantContext,
+    personaId?: string,
+  ): Promise<PersonaSwitchLog[]> {
+    const logs = await this.deps.personaRepo.getSwitchHistory(tenant, personaId);
+    return logs.map((log) => ({
+      id: log.id,
+      personaId: log.personaId,
+      revisionId: log.revisionId,
+      previousPersonaId: log.previousPersonaId,
+      previousRevisionId: log.previousRevisionId,
+      switchReason: log.switchReason as PersonaSwitchLog["switchReason"],
+      regressionNotes: log.regressionNotes,
+      switchedAt: log.switchedAt,
+    }));
+  }
+
+  async getMemoryScope(
+    tenant: TenantContext,
+    personaId: string,
+  ): Promise<PersonaMemoryScope | null> {
+    const scope = await this.deps.personaRepo.getMemoryScope(tenant, personaId);
+    if (!scope) {
+      // 默认隔离
+      return {
+        personaId,
+        memoryPolicy: "isolated",
+        sharedPersonaIds: [],
+        sharedCategories: [],
+        confirmedAt: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+    return {
+      personaId: scope.personaId,
+      memoryPolicy: scope.memoryPolicy as MemoryPolicy,
+      sharedPersonaIds: scope.sharedPersonaIds,
+      sharedCategories: scope.sharedCategories,
+      confirmedAt: scope.confirmedAt,
+      createdAt: scope.createdAt,
+      updatedAt: scope.updatedAt,
+    };
+  }
+
+  async updateMemoryScope(
+    tenant: TenantContext,
+    personaId: string,
+    data: {
+      memoryPolicy: MemoryPolicy;
+      sharedPersonaIds?: string[];
+      sharedCategories?: string[];
+      confirmed?: boolean;
+    },
+  ): Promise<PersonaMemoryScope> {
+    const confirmedAt = data.confirmed ? new Date().toISOString() : null;
+    const scope = await this.deps.personaRepo.upsertMemoryScope(tenant, personaId, {
+      memoryPolicy: data.memoryPolicy,
+      sharedPersonaIds: data.sharedPersonaIds,
+      sharedCategories: data.sharedCategories,
+      confirmedAt,
+    });
+    return {
+      personaId: scope.personaId,
+      memoryPolicy: scope.memoryPolicy as MemoryPolicy,
+      sharedPersonaIds: scope.sharedPersonaIds,
+      sharedCategories: scope.sharedCategories,
+      confirmedAt: scope.confirmedAt,
+      createdAt: scope.createdAt,
+      updatedAt: scope.updatedAt,
+    };
+  }
+
+  async listPersonaRevisions(
+    tenant: TenantContext,
+    personaId: string,
+  ): Promise<PersonaRevision[]> {
+    const revisions = await this.deps.personaRepo.listPersonaRevisions(tenant, personaId);
+    return revisions.map(revisionToDomain);
   }
 }

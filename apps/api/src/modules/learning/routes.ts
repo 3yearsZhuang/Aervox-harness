@@ -338,35 +338,61 @@ export function registerLearningRoutes(
 
   // 错题本（由不可变作答事实派生，不复制原始答案）
   app.get("/v1/mistakes", async (req, reply) => {
-    const status = (req.query as { status?: string }).status ?? "active";
+    const query = req.query as { status?: string; knowledgeId?: string; minWrongCount?: string; sortBy?: string };
+    const status = query.status ?? "active";
     if (!["active", "mastered", "dismissed", "all"].includes(status)) {
       return reply.code(400).send({ error: "status must be active, mastered, dismissed, or all" });
     }
-    return {
-      items: await learningRepo.listMistakes(
-        resolveTenant(req),
-        status as "active" | "mastered" | "dismissed" | "all",
-      ),
-    };
+    let items = await learningRepo.listMistakes(
+      resolveTenant(req),
+      status as "active" | "mastered" | "dismissed" | "all",
+    );
+    // 按知识点筛选
+    if (query.knowledgeId) {
+      items = items.filter((item) => item.knowledgeId === query.knowledgeId);
+    }
+    // 按最小错误次数筛选
+    if (query.minWrongCount) {
+      const min = Number(query.minWrongCount);
+      if (Number.isInteger(min) && min > 0) {
+        items = items.filter((item) => item.wrongCount >= min);
+      }
+    }
+    // 排序：recent（默认，按最近作答时间降序）/ frequent（按错误次数降序）
+    const sortBy = query.sortBy ?? "recent";
+    if (sortBy === "frequent") {
+      items = [...items].sort((a, b) => b.wrongCount - a.wrongCount);
+    }
+    return { items };
   });
 
   app.patch("/v1/mistakes/:questionId", async (req, reply) => {
     const tenant = resolveTenant(req);
     const { questionId } = req.params as { questionId: string };
-    const body = (req.body ?? {}) as { status?: string };
+    const body = (req.body ?? {}) as { status?: string; reason?: string; note?: string };
     if (!['active', 'mastered', 'dismissed'].includes(body.status ?? '')) {
       return reply.code(400).send({ error: "status must be active, mastered, or dismissed" });
+    }
+    if (body.reason !== undefined && typeof body.reason !== "string") {
+      return reply.code(400).send({ error: "reason must be a string" });
+    }
+    if (body.note !== undefined && typeof body.note !== "string") {
+      return reply.code(400).send({ error: "note must be a string" });
     }
     const mistake = (await learningRepo.listMistakes(tenant, "all"))
       .find((item) => item.questionId === questionId);
     if (!mistake) return reply.code(404).send({ error: "mistake not found" });
     if (body.status === "dismissed" || (body.status === "active" && mistake.status === "dismissed")) {
+      const reason = body.reason !== undefined ? body.reason : mistake.reason ?? null;
+      const note = body.note !== undefined ? body.note : mistake.note ?? null;
       await learningRepo.setMistakeDisposition(tenant, {
         id: id("mistake_disposition"),
         questionId,
         status: body.status,
+        reason,
+        note,
       });
-      return { ...mistake, status: body.status };
+      return { ...mistake, status: body.status, reason, note };
     }
     if (!mistake.knowledgeId) {
       return reply.code(409).send({ error: "mistake has no knowledge item" });
@@ -377,7 +403,7 @@ export function registerLearningRoutes(
       body.status === "mastered" ? "mastered" : "learning",
       { source: "user", action: body.status === "mastered" ? "mark_mastered" : "resume_learning" },
     );
-    return { ...mistake, masteryState: updated?.masteryState, status: body.status };
+    return { ...mistake, masteryState: updated?.masteryState, status: body.status, reason: body.reason ?? mistake.reason ?? null, note: body.note ?? mistake.note ?? null };
   });
 
   app.post("/v1/mistakes/repractice", async (req, reply) => {
