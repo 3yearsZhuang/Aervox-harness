@@ -5,7 +5,7 @@
  * 阶段 2d：可注入 ToolRuntime 作为 Agent Loop 的只读工具提供者（缺失时 fail-closed）。
  */
 import type { FastifyInstance } from "fastify";
-import { SqliteConversationRepository } from "@aervox/database";
+import { SqliteConversationRepository, SqlitePrivacyRepository } from "@aervox/database";
 import type { AervoxDatabase } from "@aervox/database";
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
@@ -24,8 +24,10 @@ export function registerConversationModule(
   options: RegisterConversationModuleOptions = {},
 ): void {
   const conversationRepo = new SqliteConversationRepository(db);
+  const privacyRepo = new SqlitePrivacyRepository(db);
   registerConversationRoutes(app, conversationRepo, {
     toolRuntime: options.toolRuntime,
     llmConfigService: options.llmConfigService,
+    privacyRepo,
   });
 }

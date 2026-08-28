@@ -1,14 +1,25 @@
+---
+id: AVX-###-###
+type: reference
+scope: baseline
+owner: <team-role>
+doc_status: draft
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 0.1.0
+updated_at: YYYY-MM-DD
+reviewed_at: YYYY-MM-DD
+review_interval_days: 90
+review_triggers:
+  - <path-or-event>
+sources:
+  - <canonical-source-path>
+---
+
 # <契约/规范名>（Reference 模板）
 
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
-
-> 文档编号：AVX-###-###
-> 类型：Reference
-> 版本：v0.1
-> 更新日期：YYYY-MM-DD
-> 状态：Draft
-> 关联：<生成它的 schema/代码位置>、<相关 ADR/CR>
+- 提出人：<账号> · YYYY-MM-DD
+- 修改人：<账号> · YYYY-MM-DD
 
 本契约回答"<某事物>的准确事实"。事实源边界：<哪些代码或产物是机器可验证的真源，保持一致的方法>。
 

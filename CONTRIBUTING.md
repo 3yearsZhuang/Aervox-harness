@@ -1,7 +1,7 @@
 # 贡献指南 · Contributing to Aervox
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-28
 
 > [简体中文](#简体中文) · English
 
@@ -29,7 +29,7 @@
 | 贡献方式 | 当前是否接受 | 说明 |
 |---|---|---|
 | 可复现的 Bug 报告 | 最欢迎 | 走 [报告问题](#报告问题) 模板 |
-| 文档纠错 / 补全 | 最欢迎 | 先读[文档写作规范](docs/reference/standards/doc-standards.md) |
+| 文档纠错 / 补全 | 最欢迎 | 先读[文档治理规范](docs/reference/document-governance.md)与[文档写作规范](docs/reference/standards/doc-standards.md) |
 | 小范围、有测试的 Bug 修复 PR | 视情况接受 | 见[提交代码](#提交代码环境准备) |
 | 新功能 PR | 先开 Issue | 见[提议新功能](#提议新功能) |
 | 纯 AI 生成、提交者未理解或未遵循规范的 PR | 不审核 | 你**必须理解你的代码**，见[提交代码](#提交代码环境准备) |
@@ -72,10 +72,11 @@
 提交/推送前本地过对应门禁，未过视为未闭环、提交打回：
 
 - 代码改动：`mise tasks run ci-code`（install + build + typecheck + test）
-- 文档改动：`mise tasks run ci-docs`（markdownlint + Vale，链接检查在 CI）
+- 文档改动：`mise tasks run ci-docs`（Markdown lint + Vale + `docs-validate`；仓库链接检查在 CI）
 - **契约先行**：涉及 API 以 `packages/contracts` 的 Zod schema 为先，OpenAPI 由它自动生成，不要手写契约；涉及数据库先更新 [DATABASE.md](docs/reference/DATABASE.md) 与迁移
 - **依赖统一装根**：`pnpm add -w <pkg>`（开发依赖 `-Dw`），禁止子包单独加依赖
-- **落地登记**：一切合入改动必须在[追踪基线 §4.2 落地实现登记](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)登记（关联 CAP、实现位置、日期、验证、来源）。**未登记 = 未闭环，PR 会被打回**。借鉴参考项目时 `来源` 列标注 `T-*`/`AST-*`/`PET-*`（见[参考项目与版权边界](#参考项目与版权边界)）
+- **文档治理**：改变文档编号、类型、目录或事实源时，按[文档治理规范](docs/reference/document-governance.md)与[写作规范 §3.1](docs/reference/standards/doc-standards.md#31-改动等级与同步要求)同步索引和登记表
+- **落地登记**：一切合入改动必须在[追踪基线 §4.2 落地实现登记](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)登记（关联 CAP、实现位置、日期、验证、来源）。**未登记 = 未闭环，PR 会被打回**。借鉴参考项目时 `来源` 列标注 `T-*`/`AST-*`/`PET-*`/`DSH-01`/`PI-01`（见[参考项目与版权边界](#参考项目与版权边界)）
 - **PR 描述**：引用你登记的 §4.2 登记行，并简述改动与验证方式
 
 ### 新功能开发流程（从立项到发布）
@@ -138,7 +139,7 @@ All contribution types are welcomed and valued: bug reports, doc fixes, code, de
 | Contribution | Accepted now | Notes |
 |---|---|---|
 | Reproducible bug report | Most welcome | Use the [Reporting issues](#reporting-issues) template |
-| Doc fixes / additions | Most welcome | Read [doc standards](docs/reference/standards/doc-standards.md) first |
+| Doc fixes / additions | Most welcome | Read [document governance](docs/reference/document-governance.md) and [doc standards](docs/reference/standards/doc-standards.md) first |
 | Small, tested bug-fix PR | Case by case | See [Submitting code](#submitting-code-environment) |
 | New feature PR | Open an Issue first | See [Proposing features](#proposing-features) |
 | Blind AI-generated PR | Not reviewed | You **must understand your code**, see [Submitting code](#submitting-code-environment) |
@@ -181,10 +182,11 @@ All contribution types are welcomed and valued: bug reports, doc fixes, code, de
 Run the relevant gate before push; failing is "not closed" and the PR will be rejected:
 
 - Code: `mise tasks run ci-code` (install + build + typecheck + test)
-- Docs: `mise tasks run ci-docs` (markdownlint + Vale; link check in CI)
+- Docs: `mise tasks run ci-docs` (Markdown lint + Vale + `docs-validate`; repository link check in CI)
 - **Contract-first**: define API in `packages/contracts` Zod schemas; OpenAPI is generated, don't hand-write it; update [DATABASE.md](docs/reference/DATABASE.md) and migrations for DB changes
 - **Deps at root**: `pnpm add -w <pkg>` (`-Dw` for dev deps); never add deps in a subpackage
-- **Landbook**: every merged change must be registered at [traceability §4.2](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记) (linked CAP, location, date, verification, source). **Unregistered = not closed, PR rejected.** For borrowed reference designs, mark `T-*`/`AST-*`/`PET-*` in the `source` column
+- **Document governance**: changes to an ID, type, path, or source of truth must follow [document governance](docs/reference/document-governance.md) and [doc standards §3.1](docs/reference/standards/doc-standards.md#31-改动等级与同步要求), including index and registry updates
+- **Landbook**: every merged change must be registered at [traceability §4.2](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记) (linked CAP, location, date, verification, source). **Unregistered = not closed, PR rejected.** For borrowed reference designs, mark `T-*`/`AST-*`/`PET-*`/`DSH-01`/`PI-01` in the `source` column
 - **PR description**: reference your §4.2 registration row, summarize changes and how you verified them
 
 ### Feature development workflow

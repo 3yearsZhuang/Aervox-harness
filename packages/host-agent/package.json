@@ -1,0 +1,29 @@
+{
+  "name": "@aervox/host-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Aervox in-process Agent Loop host (poll/claim/backpressure/drain) + SQLite ExecutionStore composition adapter. Phase 4; deployment seam for standalone apps/agent.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aervox/agent-loop": "workspace:*",
+    "@aervox/database": "workspace:*",
+    "@aervox/observability": "workspace:*",
+    "@libsql/client": "^0.14.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "7.0.2",
+    "vitest": "4.0.18"
+  }
+}

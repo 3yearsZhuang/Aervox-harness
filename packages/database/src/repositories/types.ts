@@ -129,6 +129,25 @@ export interface IConversationRepository {
     attempt: { id: string; attempt?: number; leaseId?: string | null; fencingToken?: number },
   ): Promise<TurnAttemptModel>;
   listTurnAttempts(tenant: TenantContext, turnId: string): Promise<TurnAttemptModel[]>;
+  /** 2b：用户取消请求位（CAS：仅 Running → CancelRequested，同步 turns 至 Cancelled 若未终态） */
+  requestCancelTurnAttempt(
+    tenant: TenantContext,
+    input: { turnId: string; attemptId: string },
+  ): Promise<{ ok: boolean; reason?: "not_found" | "already_finalized" }>;
+  /** 2b：读取 Attempt 当前状态（executor 取消检查点） */
+  getTurnAttemptStatus(tenant: TenantContext, input: { turnId: string; attemptId: string }): Promise<string | null>;
+  /** 2c：幂等预留（attempt+invocation 唯一；ON CONFLICT DO NOTHING） */
+  reserveToolExecution(
+    tenant: TenantContext,
+    input: { turnId: string; attemptId: string; invocationId: string; name: string; arguments?: unknown },
+  ): Promise<{ ok: boolean; alreadyReserved: boolean }>;
+  /** 2c：以权威结果收口预留行 */
+  updateToolExecutionResult(
+    tenant: TenantContext,
+    input: { turnId: string; attemptId: string; invocationId: string; status: string; output?: unknown; error?: string; finishedAt?: string },
+  ): Promise<{ ok: boolean }>;
+  /** 2c：崩溃释放后将遗留 pending 预留标记为 outcome_unknown（§11.3） */
+  markPendingOutcomeUnknown(client: import("@libsql/client").Client): Promise<number>;
   // P1（R2 · CAP-014）：会话地图与替代解法分支
   createConversationBranch(
     tenant: TenantContext,
@@ -650,6 +669,63 @@ export interface ToolApprovalModel {
   decidedAt?: string | null;
   workspaceId: string;
   subjectUserId: string;
+}
+
+// ============ 阶段 5a：Agent 收件箱（agent_inbox_items；ADR-017）============
+
+/** AgentInboxItem 行（agent_inbox_items；与 @aervox/agent-loop AgentInboxItem 语义对齐） */
+export interface AgentInboxItemModel {
+  id: string;
+  idempotencyKey: string;
+  sessionId: string;
+  attemptId?: string | null;
+  stepId?: string | null;
+  type: "followup" | "steer" | "inject";
+  orderingSeq: number;
+  sourceActor: string;
+  payload: unknown;
+  status: "pending" | "claimed" | "acknowledged" | "expired";
+  consumeBoundary: "next-turn" | "next-step";
+  claimedAt?: string | null;
+  ackedAt?: string | null;
+  expiresAt?: string | null;
+  workspaceId: string;
+  subjectUserId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 受控 inbox command（ADR-017：外部插件只能提交受限 command） */
+export interface AgentInboxEnqueueInput {
+  id: string;
+  idempotencyKey: string;
+  sessionId: string;
+  attemptId?: string | null;
+  stepId?: string | null;
+  type: "followup" | "steer" | "inject";
+  sourceActor: "user" | "agent" | "plugin";
+  payload: unknown;
+  consumeBoundary?: "next-turn" | "next-step";
+  expiresAt?: string | null;
+}
+
+export interface IAgentInboxRepository {
+  /** 提交一条受控 inbox command（幂等：同 idempotencyKey 重复提交返回既有项） */
+  enqueue(tenant: TenantContext, input: AgentInboxEnqueueInput): Promise<AgentInboxItemModel>;
+  /**
+   * claim 一批可消费 inbox 项（pending → claimed）：
+   * - next-step：按 sessionId + attemptId + boundary 过滤（attemptId 必填）；
+   * - next-turn：按 sessionId + boundary 过滤（attemptId 可空）。
+   * 过滤未过期项，按 orderingSeq 排序。
+   */
+  claimForConsumption(
+    tenant: TenantContext,
+    input: { sessionId: string; attemptId?: string | null; type: "next-turn" | "next-step"; limit?: number },
+  ): Promise<AgentInboxItemModel[]>;
+  /** ack 消费完成（claimed → acknowledged）；只接受属于本租户的项 */
+  acknowledge(tenant: TenantContext, itemIds: string[]): Promise<void>;
+  /** 按 idempotencyKey 查询（API 幂等返回用） */
+  getByIdempotencyKey(tenant: TenantContext, idempotencyKey: string): Promise<AgentInboxItemModel | null>;
 }
 
 // ============ 学习/练习/复习域 ============
@@ -1702,6 +1778,8 @@ export interface DeletionTargetModel {
 }
 
 export interface IPrivacyRepository {
+  /** 2d：该租户是否存在未完成的删除/撤权请求（Loop fail-closed 闸门数据源） */
+  hasPendingDeletionRequest(tenant: TenantContext): Promise<boolean>;
   grantConsent(
     tenant: TenantContext,
     grant: {
@@ -2075,6 +2153,45 @@ export interface IVoiceConfigRepository {
   getConfig(tenant: TenantContext): Promise<LocalVoiceConfigModel | null>;
   /** upsert：存在则更新，不存在则插入；返回保存后的模型 */
   saveConfig(tenant: TenantContext, input: LocalVoiceConfigSaveInput): Promise<LocalVoiceConfigModel>;
+}
+
+// ============ CR-016 离线语音输入 (ASR) 配置持久化 ============
+
+export interface VoiceInputConfigModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  enabled: number;
+  engineType: string;
+  modelPath?: string | null;
+  modelId: string;
+  endpoint?: string | null;
+  apiKey?: string | null;
+  autoStopOnKeyboard: number;
+  vadSilenceThresholdMs: number;
+  settingsJson: unknown;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VoiceInputConfigSaveInput {
+  enabled: boolean;
+  engineType: string;
+  modelPath?: string | null;
+  modelId: string;
+  endpoint?: string | null;
+  apiKey?: string | null;
+  autoStopOnKeyboard?: boolean;
+  vadSilenceThresholdMs?: number;
+  settings?: Record<string, unknown>;
+}
+
+export interface IVoiceInputConfigRepository {
+  getConfig(tenant: TenantContext): Promise<VoiceInputConfigModel | null>;
+  saveConfig(
+    tenant: TenantContext,
+    input: VoiceInputConfigSaveInput,
+  ): Promise<VoiceInputConfigModel>;
 }
 
 // ============ T-04 工具注册表 + AST-04 门控 + PET-05 安全级别 ============

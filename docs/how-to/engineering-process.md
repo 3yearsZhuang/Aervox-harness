@@ -1,15 +1,16 @@
 # 操作指南：工程与发布流程（How-to）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-28
 
 > 文档编号：AVX-GUIDE-001（合并 AVX-GUIDE-001/003/004）  
-> 版本：v0.1  
-> 更新日期：2026-08-26  
+> 类型：How-to
+> 版本：v0.2
+> 更新日期：2026-08-28
 > 状态：Draft  
-> 关联：[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md) · [运行、值班与演练手册](../reference/operations.md) · [文档写作规范](../reference/standards/doc-standards.md)
+> 关联：[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md) · [运行、值班与演练手册](../reference/operations.md) · [文档治理与事实源规范](../reference/document-governance.md) · [文档写作规范](../reference/standards/doc-standards.md)
 
-本指南合并《新增与修改需求》《过发布门禁 G0~G6》《执行季度恢复演练》三份操作指南：§1 回答如何把 CAP 拆成可开发的原子需求并过 DoR；§2 回答每个版本/能力如何按 G0~G6 推进到发布；§3 回答如何按季度执行恢复演练并留证。规则与字段以[追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)为准。
+本指南合并《新增与修改需求》《过发布门禁 G0~G6》《执行季度恢复演练》三份操作指南：§1 回答如何把 CAP 拆成可开发的原子需求并过 DoR；§2 回答每个版本/能力如何按 G0~G6 推进到发布；§3 回答如何按季度执行恢复演练并留证。需求规则与字段以[追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)为准；文档改动的分类、状态和登记按[文档治理规范](../reference/document-governance.md)执行。
 
 ## 1. 新增与修改需求
 
@@ -27,7 +28,7 @@
 3. **写验收**：每个 `AC-*` 用 Given/When/Then 原子化，可由非作者独立判定；正常/边界/失败各至少一条。
 4. **关联测试与证据**：`AC-*` → `TC-*` → CI/人工证据；AI 需求挂版本化评估集。
 5. **过 DoR**：逐项核对[Definition of Ready](../reference/REQUIREMENTS_TRACEABILITY.md#6-definition-of-ready)，阻塞型 `EXP/RISK/DEC/ADR` 需关闭或获批准豁免。
-6. **登记状态**：在追踪矩阵把需求从 `Specified` 推进到 `Ready`，并更新[文档生命周期登记表](../README.md#11-文档生命周期登记表核验节奏与陈旧信号)的核验日期。
+6. **登记状态**：在追踪矩阵把需求从 `Specified` 推进到 `Ready`，并按复核触发器更新[文档生命周期登记表](../DOC_REGISTRY.md)的核验日期。
 
 ### 1.3 变更既有需求
 

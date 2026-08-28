@@ -29,3 +29,4 @@ export * from "./preferences.js";
 export * from "./study-materials.js";
 export * from "./tool-executions.js";
 export * from "./tool-approvals.js";
+export * from "./agent-inbox.js";
