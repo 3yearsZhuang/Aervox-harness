@@ -23,6 +23,12 @@ export const toolRegistrations = sqliteTable(
     category: text("category").notNull(), // memory/search/learning/diary/system/external
     /** PET-05 安全级别：read_only / write_with_approval / privileged */
     safetyLevel: text("safety_level").notNull().default("write_with_approval"),
+    /**
+     * B3：工具结果未知时的恢复复议声明（§11.3 行 4/5）：
+     * - `safe`：副作用可重放/结果可合成——恢复器可注入合成结果后继续原 Attempt；
+     * - `never` / NULL（未声明）：失败收敛（fail-closed，不自动重放未知结果）。
+     */
+    replay: text("replay"),
     /** 工具所需权限声明（JSON 数组，对应 plugin_grants.permission） */
     requiredPermissionsJson: text("required_permissions_json", { mode: "json" }),
     /** MCP tool inputSchema（JSON） */

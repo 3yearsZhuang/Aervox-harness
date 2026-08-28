@@ -51,6 +51,44 @@ describe("T-04/PET-05 工具系统接线", () => {
     expect(names).toContain("aervox_memory_store");
   });
 
+  it("B3 replay 声明透传：POST /v1/tools 支持 safe/never，非法值 400", async () => {
+    const safe = await app.inject({
+      method: "POST",
+      url: "/v1/tools",
+      headers,
+      payload: { id: "b3_tool_safe", name: "b3_tool_safe", description: "可合成", category: "system", replay: "safe" },
+    });
+    expect(safe.statusCode).toBe(201);
+    expect(safe.json().replay).toBe("safe");
+
+    const never = await app.inject({
+      method: "POST",
+      url: "/v1/tools",
+      headers,
+      payload: { id: "b3_tool_never", name: "b3_tool_never", description: "不可重放", category: "system", replay: "never" },
+    });
+    expect(never.statusCode).toBe(201);
+    expect(never.json().replay).toBe("never");
+
+    // 省略 → 未声明（fail-closed）
+    const omitted = await app.inject({
+      method: "POST",
+      url: "/v1/tools",
+      headers,
+      payload: { id: "b3_tool_unset", name: "b3_tool_unset", description: "未声明", category: "system" },
+    });
+    expect(omitted.statusCode).toBe(201);
+    expect(omitted.json().replay ?? null).toBeNull();
+
+    const invalid = await app.inject({
+      method: "POST",
+      url: "/v1/tools",
+      headers,
+      payload: { id: "b3_tool_bad", name: "b3_tool_bad", description: "非法", category: "system", replay: "maybe" },
+    });
+    expect(invalid.statusCode).toBe(400);
+  });
+
   it("MemoryStoreTool 未授权调用被拒（write_with_approval）", async () => {
     const res = await app.inject({
       method: "POST",

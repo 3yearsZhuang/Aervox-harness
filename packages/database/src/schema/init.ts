@@ -1537,6 +1537,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       description TEXT NOT NULL,
       category TEXT NOT NULL,
       safety_level TEXT NOT NULL DEFAULT 'write_with_approval',
+      replay TEXT,
       required_permissions_json TEXT,
       input_schema_json TEXT,
       builtin INTEGER NOT NULL DEFAULT 0,
@@ -1554,6 +1555,8 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await client.execute(`
     CREATE INDEX IF NOT EXISTS tool_registrations_category_enabled_idx ON tool_registrations(category, enabled);
   `);
+  // B3：工具结果未知恢复复议声明（never/safe；未声明 = fail-closed 收敛）；旧库幂等补齐
+  await addColumnIfMissing(client, "tool_registrations", "replay", "replay TEXT");
 
   await client.execute(`
     CREATE TABLE IF NOT EXISTS plugin_configs (

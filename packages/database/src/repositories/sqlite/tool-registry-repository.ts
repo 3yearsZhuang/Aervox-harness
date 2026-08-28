@@ -25,6 +25,7 @@ export class SqliteToolRegistryRepository implements IToolRegistryRepository {
       description: string;
       category: string;
       safetyLevel?: string;
+      replay?: string;
       requiredPermissions?: unknown;
       inputSchema?: unknown;
       builtin?: boolean;
@@ -50,6 +51,7 @@ export class SqliteToolRegistryRepository implements IToolRegistryRepository {
           description: tool.description,
           category: tool.category,
           safetyLevel: tool.safetyLevel ?? "write_with_approval",
+          replay: tool.replay ?? null,
           requiredPermissionsJson: tool.requiredPermissions ?? null,
           inputSchemaJson: tool.inputSchema ?? null,
           builtin: tool.builtin ? 1 : 0,
@@ -72,6 +74,7 @@ export class SqliteToolRegistryRepository implements IToolRegistryRepository {
         description: tool.description,
         category: tool.category,
         safetyLevel: tool.safetyLevel ?? "write_with_approval",
+        replay: tool.replay ?? null,
         requiredPermissionsJson: tool.requiredPermissions ?? null,
         inputSchemaJson: tool.inputSchema ?? null,
         builtin: tool.builtin ? 1 : 0,

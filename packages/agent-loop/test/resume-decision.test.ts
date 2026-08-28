@@ -16,7 +16,11 @@ const ev = (eventType: string, sequence: number, executionId?: string): ResumeEv
   data: executionId ? { executionId } : undefined,
 });
 
-const exec = (invocationId: string, status: string): ResumeExecutionLike => ({ invocationId, status });
+const exec = (invocationId: string, status: string, replay?: "never" | "safe"): ResumeExecutionLike => ({
+  invocationId,
+  status,
+  replay,
+});
 
 /** 一个完整可续场景：工具结果批次已收口，尚未注入
     step2 工具批次（全部 executed）：atp:2:1、atp:2:2 → 之后无事件 */
@@ -75,5 +79,79 @@ describe("decideResume 恢复裁决矩阵", () => {
     ];
     const decision = decideResume(events, [exec("atp:1:1", "executed"), exec("atp:2:1", "outcome_unknown")]);
     expect(decision).toEqual({ resume: false, reason: "outcome_unknown" });
+  });
+
+  // ============ B3：结果未知三态政策（§11.3 行 4/5） ============
+  // 批次 = 最后结果 Step 内全部已请求工具（tool_request + tool_result）。
+  // 未确定（pending / outcome_unknown）工具声明 replay:safe → 合成结果后续跑；
+  // 未声明 / never → fail-closed 收敛。
+
+  /** 两工具批次：tool1 已执行，tool2 仅请求（崩溃残留意图，无结果） */
+  const twoToolPendingBatch: ResumeEventLike[] = [
+    ev("message", 1),
+    ev("tool_request", 2, "atp:2:1"),
+    ev("tool_result", 3, "atp:2:1"),
+    ev("tool_request", 4, "atp:2:2"),
+  ];
+
+  it("synthesized：pending（意图已提交未开始）+ replay:safe → 合成 TOOL_NOT_STARTED 后续跑", () => {
+    const decision = decideResume(twoToolPendingBatch, [
+      exec("atp:2:1", "executed", "safe"),
+      exec("atp:2:2", "pending", "safe"),
+    ]);
+    expect(decision).toEqual({
+      resume: true,
+      reason: "synthesized",
+      lastSequence: 3,
+      synthesized: [{ executionId: "atp:2:2", status: "pending", kind: "not_started" }],
+    });
+  });
+
+  it("synthesized：outcome_unknown + replay:safe → 合成 TOOL_OUTCOME_UNKNOWN 后续跑", () => {
+    const decision = decideResume(twoToolPendingBatch, [
+      exec("atp:2:1", "executed", "safe"),
+      exec("atp:2:2", "outcome_unknown", "safe"),
+    ]);
+    expect(decision.resume).toBe(true);
+    expect(decision.reason).toBe("synthesized");
+    if (decision.reason !== "synthesized") return;
+    expect(decision.synthesized[0]).toMatchObject({ executionId: "atp:2:2", kind: "outcome_unknown" });
+  });
+
+  it("fail-closed：未确定工具未声明/声明 never → 收敛为 outcome_unknown（不自动重放）", () => {
+    for (const replay of [undefined, "never"] as const) {
+      const decision = decideResume(twoToolPendingBatch, [
+        exec("atp:2:1", "executed"),
+        exec("atp:2:2", "pending", replay),
+      ]);
+      expect(decision).toEqual({ resume: false, reason: "outcome_unknown" });
+    }
+  });
+
+  it("fail-closed：pending_approval 不可被合成绕过（即使 replay:safe）→ 收敛", () => {
+    const decision = decideResume(twoToolPendingBatch, [
+      exec("atp:2:1", "executed", "safe"),
+      exec("atp:2:2", "pending_approval", "safe"),
+    ]);
+    expect(decision).toEqual({ resume: false, reason: "outcome_unknown" });
+  });
+
+  it("synthesized：同批多未确定项全部 safe → 全部列入合成清单", () => {
+    const events: ResumeEventLike[] = [
+      ev("message", 1),
+      ev("tool_request", 2, "atp:2:1"),
+      ev("tool_result", 3, "atp:2:1"),
+      ev("tool_request", 4, "atp:2:2"),
+    ];
+    const decision = decideResume(events, [
+      exec("atp:2:1", "pending", "safe"),
+      exec("atp:2:2", "outcome_unknown", "safe"),
+    ]);
+    expect(decision.resume).toBe(true);
+    if (decision.reason !== "synthesized") return;
+    expect(decision.synthesized).toEqual([
+      { executionId: "atp:2:1", status: "pending", kind: "not_started" },
+      { executionId: "atp:2:2", status: "outcome_unknown", kind: "outcome_unknown" },
+    ]);
   });
 });

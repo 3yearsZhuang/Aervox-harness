@@ -44,10 +44,39 @@ export function createSqliteResumeSource(deps: SqliteResumeSourceDeps): TurnSour
         const executions = (await repo.listToolExecutionsByTurn(tenant, c.turnId)).map((r) => ({
           invocationId: r.invocationId,
           status: r.status,
+          replay: r.replay === "safe" ? ("safe" as const) : r.replay === "never" ? ("never" as const) : null,
         }));
         const decision = decideResume(events as never, executions as never);
         if (!decision.resume) continue; // 非可续 → 交由既有恢复语义收敛
         const rebuilt = buildResumeHistory({ userMessage: c.userMessage, events: events as never });
+        // B3：结果未确定但工具声明 replay:safe → 注入合成结果（TOOL_NOT_STARTED /
+        // TOOL_OUTCOME_UNKNOWN）为 tool 消息，指导模型不再重复执行副作用后继续原 Attempt。
+        // 合成结果仅存在于重建上下文，不写事件/账本——保持事件流只含权威提交边界（§11.3）。
+        if (decision.reason === "synthesized" && decision.synthesized.length > 0) {
+          const lastRequest = [...events].reverse().find((e) => e.eventType === "tool_request") as
+            | { data?: { invocationId?: unknown; name?: unknown } | null }
+            | undefined;
+          const toolCallId =
+            typeof lastRequest?.data?.invocationId === "string"
+              ? lastRequest.data.invocationId
+              : decision.synthesized[0]!.executionId;
+          const name = typeof lastRequest?.data?.name === "string" ? lastRequest.data.name : "";
+          for (const item of decision.synthesized) {
+            rebuilt.history.push({
+              role: "tool",
+              toolCallId,
+              name,
+              content: JSON.stringify({
+                ok: true,
+                error: undefined,
+                output: {
+                  synthetic: item.kind === "not_started" ? "TOOL_NOT_STARTED" : "TOOL_OUTCOME_UNKNOWN",
+                  executionId: item.executionId,
+                },
+              }),
+            });
+          }
+        }
         turns.push({
           turnId: c.turnId,
           attemptId: c.attemptId,

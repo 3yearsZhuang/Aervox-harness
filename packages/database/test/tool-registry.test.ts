@@ -83,6 +83,46 @@ describe("T-04 工具注册表 + AST-04 门控 + PET-05 安全级别", () => {
     expect(updated.enabled).toBe(0);
   });
 
+  it("B3 replay 声明：safe/never 存取、省略为 null、幂等覆盖", async () => {
+    const safe = await repo.registerTool({
+      id: "tool_safe",
+      name: "tool_safe",
+      description: "可合成",
+      category: "system",
+      replay: "safe",
+    });
+    expect(safe.replay).toBe("safe");
+    expect((await repo.getTool("tool_safe"))!.replay).toBe("safe");
+
+    const never = await repo.registerTool({
+      id: "tool_never",
+      name: "tool_never",
+      description: "不可重放",
+      category: "system",
+      replay: "never",
+    });
+    expect(never.replay).toBe("never");
+
+    // 省略 → 未声明（fail-closed）
+    const unset = await repo.registerTool({
+      id: "tool_unset",
+      name: "tool_unset",
+      description: "未声明",
+      category: "system",
+    });
+    expect(unset.replay ?? null).toBeNull();
+
+    // 幂等注册覆盖 replay
+    const overridden = await repo.registerTool({
+      id: "tool_safe",
+      name: "tool_safe",
+      description: "改主意",
+      category: "system",
+      replay: "never",
+    });
+    expect(overridden.replay).toBe("never");
+  });
+
   it("setEnabled 禁用/启用", async () => {
     await repo.registerTool({
       id: "tool_b",
