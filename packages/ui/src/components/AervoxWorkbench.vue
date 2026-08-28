@@ -26,10 +26,12 @@ import {
   Sparkles,
   Sun,
   Volume2,
+  Mic,
+  MicOff,
   TimerReset,
   X,
 } from 'lucide-vue-next'
-import {streamAervoxTurn, useAervoxApi} from '@aervox/api-client'
+import {streamAervoxTurn, useAervoxApi, useAervoxVoiceInput} from '@aervox/api-client'
 import PetHero from './PetHero.vue'
 import PluginManagerPanel from './plugin/PluginManagerPanel.vue'
 import Live2DPet from './Live2DPet.vue'
@@ -107,6 +109,9 @@ const story = ref<StoryLine[]>([
   },
 ])
 const api = useAervoxApi()
+const voiceInput = useAervoxVoiceInput()
+const composerTextarea = ref<HTMLTextAreaElement | null>(null)
+const voiceInputError = ref<string | null>(null)
 const {
   goals,
   dueReviews,
@@ -380,9 +385,65 @@ function resetTimer() {
 }
 
 function handleComposerEnter(event: KeyboardEvent) {
+  if (voiceInput.isListening.value) {
+    voiceInput.stopListening()
+  }
   if (event.shiftKey || !enterToSend.value) return
   event.preventDefault()
   void sendMessage()
+}
+
+/** 键盘自停：检测到键盘输入/粘贴/输入法开始时，自动停止录音 */
+function handleComposerInputOrKey() {
+  if (voiceInput.isListening.value) {
+    voiceInput.stopListening()
+  }
+}
+
+/** 语音输入插入当前光标处 */
+function insertTranscribedText(text: string) {
+  if (!text) return
+  const textarea = composerTextarea.value
+  if (!textarea) {
+    input.value += (input.value ? ' ' : '') + text
+    return
+  }
+
+  const start = textarea.selectionStart ?? input.value.length
+  const end = textarea.selectionEnd ?? input.value.length
+  const before = input.value.substring(0, start)
+  const after = input.value.substring(end)
+
+  input.value = before + (before && !before.endsWith(' ') ? ' ' : '') + text + after
+  nextTick(() => {
+    const newPos = start + text.length + (before && !before.endsWith(' ') ? 1 : 0)
+    textarea.focus()
+    textarea.setSelectionRange(newPos, newPos)
+  })
+}
+
+/** 切换麦克风录音状态 */
+async function toggleVoiceInput() {
+  voiceInputError.value = null
+  if (voiceInput.isListening.value) {
+    voiceInput.stopListening()
+    return
+  }
+
+  try {
+    const config = await voiceInput.getInputConfig()
+    await voiceInput.startListening({
+      silenceThresholdMs: config.vadSilenceThresholdMs,
+      onText: (text) => {
+        insertTranscribedText(text)
+      },
+      onError: (err) => {
+        voiceInputError.value = err.message
+      },
+    })
+  } catch (err) {
+    voiceInputError.value = err instanceof Error ? err.message : '启动语音输入失败'
+  }
 }
 
 function saveSettings() {
@@ -619,17 +680,37 @@ onUnmounted(() => {
               <label class="sr-only" for="aervox-composer">输入要发送给思隅的内容</label>
               <textarea
                 id="aervox-composer"
+                ref="composerTextarea"
                 v-model="input"
                 rows="3"
                 :disabled="streaming"
                 placeholder="描述你卡住的地方，或告诉我今天想完成什么…"
                 @keydown.enter="handleComposerEnter"
+                @input="handleComposerInputOrKey"
+                @compositionstart="handleComposerInputOrKey"
               />
-              <button type="submit" :disabled="!input.trim() || streaming" :aria-label="streaming ? '正在生成回答' : '发送消息'">
-                <span v-if="streaming" class="sending-dot" />
-                <Send v-else :size="21" />
-              </button>
+              <div class="composer-actions">
+                <button
+                  type="button"
+                  class="voice-input-btn"
+                  :class="{ active: voiceInput.isListening.value, transcribing: voiceInput.isTranscribing.value }"
+                  :title="voiceInput.isListening.value ? '点击停止语音输入 (说话停顿自动转写)' : '点击开始离线语音输入'"
+                  :disabled="streaming"
+                  @click="toggleVoiceInput"
+                >
+                  <MicOff v-if="voiceInput.isListening.value" :size="19" />
+                  <Mic v-else :size="19" />
+                  <span v-if="voiceInput.isListening.value" class="recording-pulse" />
+                </button>
+                <button type="submit" :disabled="!input.trim() || streaming" :aria-label="streaming ? '正在生成回答' : '发送消息'">
+                  <span v-if="streaming" class="sending-dot" />
+                  <Send v-else :size="21" />
+                </button>
+              </div>
             </form>
+            <div v-if="voiceInputError" class="voice-input-inline-error">
+              <span>{{ voiceInputError }}</span>
+            </div>
           </section>
         </section>
       </section>

@@ -47,6 +47,9 @@ importers:
       fflate:
         specifier: 0.8.2
         version: 0.8.2
+      sherpa-onnx-node:
+        specifier: ^1.13.5
+        version: 1.13.6
     devDependencies:
       '@types/node':
         specifier: ^22.10.0
@@ -412,11 +415,11 @@ packages:
 
   '@esbuild-kit/core-utils@3.3.2':
     resolution: {integrity: sha512-sPRAnw9CdSsRmEtnsl2WXWdyquogVpB3yZ3dgwJfe8zrOzTsV7cJvmwrKVa+0ma5BoiGJ+BoqkMvawbayKUsqQ==}
-    deprecated: 'Merged into tsx: https://tsx.hirok.io'
+    deprecated: 'Merged into tsx: https://tsx.is'
 
   '@esbuild-kit/esm-loader@2.6.5':
     resolution: {integrity: sha512-FxEMIkJKnodyA1OaCUoEvbYRkoZlLZ4d/eXFu9Fh8CbBBgP5EmZxrfTRyN0qpXZ4vOvqnE5YdRdcrmUUXuU+dA==}
-    deprecated: 'Merged into tsx: https://tsx.hirok.io'
+    deprecated: 'Merged into tsx: https://tsx.is'
 
   '@esbuild/aix-ppc64@0.19.12':
     resolution: {integrity: sha512-bmoCYyWdEL3wDQIVbcyzRyeKLgk2WtWLTWz1ZIAZF/EGbNOwSA6ew3PftJ1PqMiOOGu0OyFMzG53L0zqIpPeNA==}
@@ -2650,6 +2653,39 @@ packages:
     resolution: {integrity: sha512-w1aiOKwKuRgtwAReIIj89puqg+I7GvX4IbLrvmhXbzQsj1+Zwi4VO3+fa6ZF91TWSjIxoEkKnMeHcLEODK5ZXA==}
     engines: {node: '>= 0.4'}
 
+  sherpa-onnx-darwin-arm64@1.13.6:
+    resolution: {integrity: sha512-m3QMOGUHVPUl7bAOPc7oJtmzOVdzQVQPsCuTjNuQ2N6zlYuXDZu9NdUR3Er3rxbhHa6SmWa94flUwmUsO1atow==}
+    cpu: [arm64]
+    os: [darwin]
+
+  sherpa-onnx-darwin-x64@1.13.6:
+    resolution: {integrity: sha512-3X5FQ9PpwlBmxLqtb2/uvl7/W2HXXzXHT0MLmB9c0TRMANLujzvIF7YbT6VW3k92ClL/1q9sbIOul0rHgxCTmw==}
+    cpu: [x64]
+    os: [darwin]
+
+  sherpa-onnx-linux-arm64@1.13.6:
+    resolution: {integrity: sha512-xSzhqrGFbBrykpbEFt5dLXB3Sp3a8idNzjhf92uylDgUhupBSRHj3ISeYaL9ZZWTNSzszNXBKlM+xH36dHQjPg==}
+    cpu: [arm64]
+    os: [linux]
+
+  sherpa-onnx-linux-x64@1.13.6:
+    resolution: {integrity: sha512-HiR3yolQDl3WoU1zSXn8L0MSXzF9PXLQpMv+Ptozg1y/DJU8HuvoXBasOarX4cer5d9kGimnOUGm0dl47PCN1A==}
+    cpu: [x64]
+    os: [linux]
+
+  sherpa-onnx-node@1.13.6:
+    resolution: {integrity: sha512-FjUSQSStTi/wcLqlScGFmNA7ySjW3QwquJcMRJ1yDkDpBp0BmWXkXoirDuEj8/v2/Cs4wLYJp2BKaMD9+1lDGA==}
+
+  sherpa-onnx-win-ia32@1.13.6:
+    resolution: {integrity: sha512-CN6rNQqn0wzdSp3XRHxdmNaLUMhP+BgsWVbaASU+V9CYBdx74uutoA/43ThUfh3S3CiArpp8OJtn8dJrPeGHnw==}
+    cpu: [ia32]
+    os: [win32]
+
+  sherpa-onnx-win-x64@1.13.6:
+    resolution: {integrity: sha512-bPMdURD1XCu1Zr3eYYlYx2obc5CMSQhEnd1GQuv7FXjdyOeMJ8jNbQEKFEIAyQdC481FgZvPBb2oSJXaLOOeVw==}
+    cpu: [x64]
+    os: [win32]
+
   side-channel-list@1.0.1:
     resolution: {integrity: sha512-mjn/0bi/oUURjc5Xl7IaWi/OJJJumuoJFQJfDDyO46+hBWsfaVM65TBHq2eoZBhzl9EchxOijpkbRC8SVBQU0w==}
     engines: {node: '>= 0.4'}
@@ -3641,7 +3677,7 @@ snapshots:
 
   '@jridgewell/source-map@0.3.11':
     dependencies:
-      '@jridgewell/gen-mapping': 0.3.12
+      '@jridgewell/gen-mapping': 0.3.5
       '@jridgewell/trace-mapping': 0.3.31
     optional: true
 
@@ -3652,7 +3688,7 @@ snapshots:
   '@jridgewell/trace-mapping@0.3.31':
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
-      '@jridgewell/sourcemap-codec': 1.5.5
+      '@jridgewell/sourcemap-codec': 1.5.0
 
   '@libsql/client@0.14.0':
     dependencies:
@@ -5117,6 +5153,33 @@ snapshots:
   shebang-regex@3.0.0: {}
 
   shell-quote@1.10.0: {}
+
+  sherpa-onnx-darwin-arm64@1.13.6:
+    optional: true
+
+  sherpa-onnx-darwin-x64@1.13.6:
+    optional: true
+
+  sherpa-onnx-linux-arm64@1.13.6:
+    optional: true
+
+  sherpa-onnx-linux-x64@1.13.6:
+    optional: true
+
+  sherpa-onnx-node@1.13.6:
+    optionalDependencies:
+      sherpa-onnx-darwin-arm64: 1.13.6
+      sherpa-onnx-darwin-x64: 1.13.6
+      sherpa-onnx-linux-arm64: 1.13.6
+      sherpa-onnx-linux-x64: 1.13.6
+      sherpa-onnx-win-ia32: 1.13.6
+      sherpa-onnx-win-x64: 1.13.6
+
+  sherpa-onnx-win-ia32@1.13.6:
+    optional: true
+
+  sherpa-onnx-win-x64@1.13.6:
+    optional: true
 
   side-channel-list@1.0.1:
     dependencies:

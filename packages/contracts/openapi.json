@@ -3522,6 +3522,271 @@
           "latencyMs",
           "message"
         ]
+      },
+      "VoiceInputConfig": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "engineType": {
+            "type": "string",
+            "enum": [
+              "sensevoice-local",
+              "whisper-compatible"
+            ]
+          },
+          "modelPath": {
+            "type": "string"
+          },
+          "modelId": {
+            "type": "string",
+            "minLength": 1,
+            "default": "sensevoice-small"
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "apiKey": {
+            "type": "string"
+          },
+          "autoStopOnKeyboard": {
+            "type": "boolean",
+            "default": true
+          },
+          "vadSilenceThresholdMs": {
+            "type": "integer",
+            "minimum": 200,
+            "maximum": 3000,
+            "default": 700
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "enabled",
+          "engineType"
+        ]
+      },
+      "VoiceInputConfigResponse": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "engineType": {
+            "type": "string",
+            "enum": [
+              "sensevoice-local",
+              "whisper-compatible"
+            ]
+          },
+          "modelPath": {
+            "type": "string"
+          },
+          "modelId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "apiKey": {
+            "type": "string"
+          },
+          "autoStopOnKeyboard": {
+            "type": "boolean",
+            "default": true
+          },
+          "vadSilenceThresholdMs": {
+            "type": "integer",
+            "default": 700
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "default": {}
+          }
+        },
+        "required": [
+          "enabled",
+          "engineType",
+          "modelId"
+        ]
+      },
+      "VoiceTranscribeRequest": {
+        "type": "object",
+        "properties": {
+          "audioBase64": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mimeType": {
+            "type": "string",
+            "default": "audio/wav"
+          },
+          "language": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "audioBase64"
+        ]
+      },
+      "VoiceTranscribeResponse": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "durationMs": {
+            "type": "number"
+          },
+          "isFinal": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "VoiceInputModelStatus": {
+        "type": "object",
+        "properties": {
+          "downloaded": {
+            "type": "boolean"
+          },
+          "downloading": {
+            "type": "boolean"
+          },
+          "progressPercent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "default": 0
+          },
+          "downloadedBytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "totalBytes": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "verified": {
+            "type": "boolean",
+            "default": false
+          },
+          "checksum": {
+            "type": "string"
+          },
+          "modelPath": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "downloaded",
+          "downloading"
+        ]
+      },
+      "VoiceInputModelDownloadRequest": {
+        "type": "object",
+        "properties": {
+          "targetDir": {
+            "type": "string"
+          },
+          "mirrorUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "VoiceInputModelDownloadResponse": {
+        "type": "object",
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "status": {
+            "type": "object",
+            "properties": {
+              "downloaded": {
+                "type": "boolean"
+              },
+              "downloading": {
+                "type": "boolean"
+              },
+              "progressPercent": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100,
+                "default": 0
+              },
+              "downloadedBytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "totalBytes": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "verified": {
+                "type": "boolean",
+                "default": false
+              },
+              "checksum": {
+                "type": "string"
+              },
+              "modelPath": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "downloaded",
+              "downloading"
+            ]
+          }
+        },
+        "required": [
+          "accepted",
+          "message",
+          "status"
+        ]
       }
     },
     "parameters": {}
@@ -6596,6 +6861,587 @@
           },
           "503": {
             "description": "VOICE_PROVIDER_UNAVAILABLE"
+          }
+        }
+      }
+    },
+    "/v1/voice/input/config": {
+      "get": {
+        "summary": "读取离线语音输入配置",
+        "tags": [
+          "Voice"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Voice input config",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "engineType": {
+                      "type": "string",
+                      "enum": [
+                        "sensevoice-local",
+                        "whisper-compatible"
+                      ]
+                    },
+                    "modelPath": {
+                      "type": "string"
+                    },
+                    "modelId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "endpoint": {
+                      "type": "string"
+                    },
+                    "apiKey": {
+                      "type": "string"
+                    },
+                    "autoStopOnKeyboard": {
+                      "type": "boolean",
+                      "default": true
+                    },
+                    "vadSilenceThresholdMs": {
+                      "type": "integer",
+                      "default": 700
+                    },
+                    "settings": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ]
+                      },
+                      "default": {}
+                    }
+                  },
+                  "required": [
+                    "enabled",
+                    "engineType",
+                    "modelId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "保存离线语音输入配置",
+        "tags": [
+          "Voice"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "engineType": {
+                    "type": "string",
+                    "enum": [
+                      "sensevoice-local",
+                      "whisper-compatible"
+                    ]
+                  },
+                  "modelPath": {
+                    "type": "string"
+                  },
+                  "modelId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "default": "sensevoice-small"
+                  },
+                  "endpoint": {
+                    "type": "string"
+                  },
+                  "apiKey": {
+                    "type": "string"
+                  },
+                  "autoStopOnKeyboard": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "vadSilenceThresholdMs": {
+                    "type": "integer",
+                    "minimum": 200,
+                    "maximum": 3000,
+                    "default": 700
+                  },
+                  "settings": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "enabled",
+                  "engineType"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Voice input config",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "engineType": {
+                      "type": "string",
+                      "enum": [
+                        "sensevoice-local",
+                        "whisper-compatible"
+                      ]
+                    },
+                    "modelPath": {
+                      "type": "string"
+                    },
+                    "modelId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "endpoint": {
+                      "type": "string"
+                    },
+                    "apiKey": {
+                      "type": "string"
+                    },
+                    "autoStopOnKeyboard": {
+                      "type": "boolean",
+                      "default": true
+                    },
+                    "vadSilenceThresholdMs": {
+                      "type": "integer",
+                      "default": 700
+                    },
+                    "settings": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ]
+                      },
+                      "default": {}
+                    }
+                  },
+                  "required": [
+                    "enabled",
+                    "engineType",
+                    "modelId"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_VOICE_INPUT_CONFIG / modelPath 不在白名单"
+          }
+        }
+      }
+    },
+    "/v1/voice/input/model/status": {
+      "get": {
+        "summary": "读取离线语音输入模型下载与存在状态",
+        "tags": [
+          "Voice"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Model status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "downloaded": {
+                      "type": "boolean"
+                    },
+                    "downloading": {
+                      "type": "boolean"
+                    },
+                    "progressPercent": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 100,
+                      "default": 0
+                    },
+                    "downloadedBytes": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "totalBytes": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    },
+                    "verified": {
+                      "type": "boolean",
+                      "default": false
+                    },
+                    "checksum": {
+                      "type": "string"
+                    },
+                    "modelPath": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "downloaded",
+                    "downloading"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/voice/input/model/download": {
+      "post": {
+        "summary": "触发离线语音输入模型下载",
+        "tags": [
+          "Voice"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "targetDir": {
+                    "type": "string"
+                  },
+                  "mirrorUrl": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Download started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accepted": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "object",
+                      "properties": {
+                        "downloaded": {
+                          "type": "boolean"
+                        },
+                        "downloading": {
+                          "type": "boolean"
+                        },
+                        "progressPercent": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 100,
+                          "default": 0
+                        },
+                        "downloadedBytes": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "totalBytes": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "verified": {
+                          "type": "boolean",
+                          "default": false
+                        },
+                        "checksum": {
+                          "type": "string"
+                        },
+                        "modelPath": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "downloaded",
+                        "downloading"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "accepted",
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_DOWNLOAD_REQUEST"
+          }
+        }
+      }
+    },
+    "/v1/voice/transcribe": {
+      "post": {
+        "summary": "语音识别转写 (ASR)",
+        "tags": [
+          "Voice"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "audioBase64": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "mimeType": {
+                    "type": "string",
+                    "default": "audio/wav"
+                  },
+                  "language": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "audioBase64"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transcription result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string"
+                    },
+                    "durationMs": {
+                      "type": "number"
+                    },
+                    "isFinal": {
+                      "type": "boolean",
+                      "default": true
+                    }
+                  },
+                  "required": [
+                    "text"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_AUDIO"
+          },
+          "503": {
+            "description": "VOICE_INPUT_PROVIDER_UNAVAILABLE"
           }
         }
       }
