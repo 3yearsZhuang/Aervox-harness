@@ -14,6 +14,11 @@ export const READONLY_TOOLS: readonly ToolSpec[] = [
   { name: "get_utc_now", description: "读取当前 UTC 时间（只读）", readOnly: true },
 ];
 
+/** 阶段 3a 写工具（需授权；默认 handler 返回 needsApproval 由宿主注入审批语义） */
+export const WRITE_TOOLS: readonly ToolSpec[] = [
+  { name: "save_memory_note", description: "写入一条记忆笔记（需授权）", readOnly: false },
+];
+
 export type ToolHandler = (input: ToolExecutionInput) => Promise<ToolExecutionResult> | ToolExecutionResult;
 
 /** 构造一个只读 mock 工具提供者；handlers 可覆盖/新增命名工具，未提供的白名单名回退默认实现 */
@@ -23,12 +28,13 @@ export function createMockToolProvider(
   const defaults: Record<string, ToolHandler> = {
     search_notes: () => ({ ok: true, output: { matches: ["《间隔重复》复习计划……", "今日待复习 3 项"] } }),
     get_utc_now: () => ({ ok: true, output: { utc: new Date().toISOString().slice(0, 10) } }),
+    save_memory_note: () => ({ ok: false, error: "requires_approval" }),
   };
   const registry = { ...defaults, ...handlers };
 
   async function execute(input: ToolExecutionInput): Promise<ToolExecutionResult> {
-    // 1) 白名单（fail-closed）：未登记 → 拒绝
-    const spec = READONLY_TOOLS.find((t) => t.name === input.name);
+    // 1) 白名单（fail-closed）：未登记 → 拒绝（只读与写工具都须登记）
+    const spec = [...READONLY_TOOLS, ...WRITE_TOOLS].find((t) => t.name === input.name);
     if (!spec) {
       return { ok: false, error: `unregistered_tool: ${input.name}` };
     }
@@ -40,5 +46,5 @@ export function createMockToolProvider(
     return handler(input);
   }
 
-  return { tools: [...READONLY_TOOLS], execute };
+  return { tools: [...READONLY_TOOLS, ...WRITE_TOOLS], execute };
 }
