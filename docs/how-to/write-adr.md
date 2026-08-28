@@ -1,11 +1,12 @@
 # 操作指南：撰写与批准 ADR（How-to）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-28
 
 > 文档编号：AVX-GUIDE-002  
-> 版本：v0.1  
-> 更新日期：2026-08-24  
+> 类型：How-to
+> 版本：v0.2
+> 更新日期：2026-08-28
 > 状态：Draft  
 > 关联：[ADR 索引](../reference/adr/README.md)
 
@@ -20,7 +21,7 @@
 ## 写作步骤
 
 1. **取号**：在 [ADR 索引](../reference/adr/README.md) 登记下一个 `ADR-###`，编号一经分配不复用。
-2. **按 8 节模板写**：
+2. **按 canonical 元数据和 8 节模板写**：先填写 `id/type/scope/owner/doc_status/decision_status/version/updated_at/reviewed_at`，再写标题下提出人/修改人签名；正文包含：
    - `Context`：背景与问题；
    - `Decision drivers`：促成决策的 2~4 条驱动因素；
    - `Considered options`：编号 + 取舍理由，标注选定项；

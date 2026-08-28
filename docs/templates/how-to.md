@@ -1,14 +1,25 @@
+---
+id: AVX-GUIDE-###
+type: how-to
+scope: guide
+owner: <team-role>
+doc_status: draft
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 0.1.0
+updated_at: YYYY-MM-DD
+reviewed_at: YYYY-MM-DD
+review_interval_days: 90
+review_triggers:
+  - <path-or-event>
+sources:
+  - <canonical-source-path>
+---
+
 # 操作指南：<动词短语>（How-to 模板）
 
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
-
-> 文档编号：AVX-GUIDE-###
-> 类型：How-to
-> 版本：v0.1
-> 更新日期：YYYY-MM-DD
-> 状态：Draft
-> 关联：<事实源文档相对链接>
+- 提出人：<账号> · YYYY-MM-DD
+- 修改人：<账号> · YYYY-MM-DD
 
 本指南回答"如何 <做某事>"。<一句话说明目标读者与前置条件。> 规则详情以 <事实源文档> 为准，本页只讲步骤。
 
