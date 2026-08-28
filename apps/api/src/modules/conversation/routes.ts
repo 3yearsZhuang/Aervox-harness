@@ -8,15 +8,22 @@
 import type { FastifyInstance } from "fastify";
 import { createTurnRequestSchema } from "@aervox/contracts";
 import type { SqliteConversationRepository } from "@aervox/database";
+import type { ToolRuntime } from "../tools/runtime.js";
 import { resolveTenant } from "../../shared/tenant.js";
-import { runReplayTurnOnce } from "./agent-executor.js";
+import { runLoopTurnOnce } from "./agent-executor.js";
 
 let seq = 0;
 const nextTurnId = (): string => `turn_${Date.now().toString(36)}_${(++seq).toString(36)}`;
 
+export interface ConversationRouteDeps {
+  /** 阶段 2d：Agent Loop 只读工具提供者（缺失时工具请求 fail-closed） */
+  toolRuntime?: ToolRuntime;
+}
+
 export function registerConversationRoutes(
   app: FastifyInstance,
   conversationRepo: SqliteConversationRepository,
+  deps: ConversationRouteDeps = {},
 ): void {
   // POST /v1/sessions/{sessionId}/turns — 幂等创建 Turn 并原子写入 Outbox
   app.post("/v1/sessions/:sessionId/turns", async (req, reply) => {
@@ -66,15 +73,20 @@ export function registerConversationRoutes(
       },
     );
 
-    // 阶段 1（AVX-HAR-001 §15）：创建 Attempt 并由 Agent Loop 执行一次
+    // 阶段 1/2d（AVX-HAR-001 §15）：创建 Attempt 并由 Agent Loop 执行一次
     const attemptId = `atp_${turnId}`;
     await conversationRepo.createTurnAttempt(tenant, turnId, { id: attemptId, attempt: 1 });
-    await runReplayTurnOnce(conversationRepo, tenant, {
-      turnId,
-      sessionId,
-      attemptId,
-      userMessage: parsed.data.message.content,
-    });
+    await runLoopTurnOnce(
+      conversationRepo,
+      tenant,
+      {
+        turnId,
+        sessionId,
+        attemptId,
+        userMessage: parsed.data.message.content,
+      },
+      { toolRuntime: deps.toolRuntime },
+    );
 
     return reply.code(201).send({
       turnId,

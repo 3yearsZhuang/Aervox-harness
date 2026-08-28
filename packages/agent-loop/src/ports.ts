@@ -12,6 +12,7 @@ import type {
   PromptMessage,
   SafetyDecision,
   ToolCallRequest,
+  ToolExecutionRecord,
 } from "./types.js";
 
 /** 执行存储：Executor 的持久化边界 */
@@ -37,6 +38,9 @@ export interface ExecutionStorePort {
 
   /** 提交 Attempt 终态 */
   finalizeAttempt(input: { turnId: string; attemptId: string; status: AttemptStatus }): Promise<void>;
+
+  /** 记录一次工具执行（副作用证据账本；阶段 2d 落库 tool_executions） */
+  recordToolExecution(input: ToolExecutionRecord): Promise<void>;
 }
 
 /** 追加事件的输入（executor 构造；id / occurredAt / payloadVersion 由 store 补齐） */
