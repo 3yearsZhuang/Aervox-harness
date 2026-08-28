@@ -650,6 +650,17 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 | `agent-loop-deletion` | `apps/api/test/conversation-deletion.test.ts`（未追平 fail-closed）+ `budget.test.ts`（DeletionGate） | 已落地 |
 | `agent-loop-provider-parity` | `packages/agent-loop/test/provider-parity.test.ts`（终止语义表 + Native 基线 + 三方插槽） | 骨架落地（DSH/pi 适配器对照待阶段 4） |
 
+### 16.8 落地进展（阶段 2a：可观测性接口）
+
+2026-08-28 落地（对应 §16.3 与 Kernel Substrate「Observability/Recovery」；接口先行，采集接线待阶段 4）：
+
+- 新增 `packages/observability`（`@aervox/observability`，零第三方依赖）：`LoggerPort`（结构化日志，禁用敏感内容）、`MetricsExporterPort`（counter/gauge/histogram）、`AuditExporterPort`（不可变事件流，at-least-once 语义）、`Observability` 门面；
+- 指标名目录对齐 §16.3：`metric-names.ts` 登记 18 个 counter、2 个 gauge、2 个 histogram（Provider TTFT/耗时、工具执行/超时、租约/fencing/恢复、预算、SSE 重连等）；新增指标必须先在此登记；
+- 默认 `createNoopObservability()`：零成本、幂等、永不抛错；
+- 测试：`@aervox/observability` 5（指标目录覆盖 §16.3 关键面 + Noop 调用不抛错/child 幂等）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+未接入（待阶段 4 host/executor 接线）：executor 指标采样、审计留痕与 SSE 遥测尚以注释/目录形式存在，需在组合根注入 `Observability` 后启用。
+
 ## 17. 回滚策略
 
 - 当前保留 Replay Provider 作为无外部模型依赖的可回退执行路径；

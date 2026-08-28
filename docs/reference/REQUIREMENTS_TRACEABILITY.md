@@ -223,6 +223,8 @@
 | Agent Harness Loop 阶段 2b：用户取消闭环（CancelRequested CAS + executor 检查点 + 路由取消） | CAP-002/007 + 基础设施 | `packages/agent-loop`（`AttemptStatus` 增 `CancelRequested`/`Cancelled`、`ExecutionStorePort.requestCancelAttempt`/`isCancelRequested`、executor 检查点取消优先 + Cancelled 终态 CAS 单一终态）、`packages/database`（`requestCancelTurnAttempt`/`getTurnAttemptStatus`、finalize 允许从 `CancelRequested` 提交）、`apps/api`（`SqliteExecutionStore` 适配 + `POST /v1/turns/:id/cancel` CAS 化：Running→CancelRequested，终态 409/404） | 2026-08-28 | `@aervox/agent-loop` 25 测试（cancel 6：运行中取消/工具批次前零副作用/已终态拒/竞态不写 done/不可领取/not_found）；`@aervox/database` 115（cancel 4：请求位 CAS/终态拒/终态提交/not_found）；`@aervox/api` 89（cancel 集成 3：成功/409/404）；ci-code 全量 | 原生 |
 | 底座边界冻结（ADR-016 + import 边界门禁 `scripts/import-boundary.mjs`） | 基础设施 | `docs/reference/adr/ADR-016-base-boundaries.md`、`scripts/import-boundary.{mjs,test.mjs}`、根 `package.json`（`check:boundary`）、`mise.toml`（ci-code 前置）、`.github/workflows/ci.yml`（触发路径 + `scripts/**`）、`docs/reference/adr/README.md`、`docs/DOC_REGISTRY.md` | 2026-08-28 | 边界脚本全仓零违规 + 单测 10/10（覆盖 5 规则、type/副作用/动态 import、宿主合法消费）+ 注入违规实测拦截（exit 1）；`mise tasks run ci-code`/`ci-docs` 通过 | 原生 |
 
+| Observability 接口（阶段 2a：`@aervox/observability` logger/metrics/audit Port + 指标名目录 + Noop） | 基础设施（Observability/Recovery） | `packages/observability/`（`interfaces.ts`/`metric-names.ts`/`noop.ts`；18 counter + 2 gauge + 2 histogram 对齐 AVX-HAR-001 §16.3）、`docs/reference/agent-harness-loop.md`（§16.8 落地进展） | 2026-08-28 | `@aervox/observability` 5 测试（smoke：指标目录关键面 + Noop 不抛错/child 幂等）；ci-code 全量 17 tasks | 原生 |
+
 ## 5. 原子需求字段模板
 
 每条 `US/FR/BR/NFR/DATA/AIQ/SEC/PRIV/OPS` 应使用以下字段。没有影响的字段填写“不适用”并说明原因，不得留空。
