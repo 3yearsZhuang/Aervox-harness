@@ -6,7 +6,13 @@
  * 执行实现与 API 同步路径一致（同一 executeTurn/同一 ExecutionStore 语义），
  * 客户端契约（turn_stream_events）不因执行侧不同而改变。
  */
-import type { ContextBuilderPort, ExecutionStorePort, ModelProviderPort, ToolProviderPort } from "@aervox/agent-loop";
+import type {
+  ContextBuilderPort,
+  ExecutionStorePort,
+  InboxPort,
+  ModelProviderPort,
+  ToolProviderPort,
+} from "@aervox/agent-loop";
 import { defaultContextBuilder, executeTurn } from "@aervox/agent-loop";
 import type { Observability } from "@aervox/observability";
 import { createNoopObservability } from "@aervox/observability";
@@ -36,6 +42,8 @@ export interface AgentHostDeps {
   provider: ModelProviderPort;
   contextBuilder?: ContextBuilderPort;
   tools?: ToolProviderPort;
+  /** 阶段 5a：受控收件箱（ADR-017）；执行时 claim/inject/ack next-step 项 */
+  inbox?: InboxPort;
   /** 4a-2：可观测性门面（指标/审计；缺省 Noop，不抛错） */
   observability?: Observability;
   maxConcurrency?: number;
@@ -119,6 +127,7 @@ export function createAgentHost(deps: AgentHostDeps): AgentHost {
           provider: deps.provider,
           contextBuilder: deps.contextBuilder ?? defaultContextBuilder,
           tools: deps.tools,
+          inbox: deps.inbox,
           options: turn.resume ? { resume: turn.resume } : undefined,
         },
         { turnId: turn.turnId, sessionId: turn.sessionId, attemptId: turn.attemptId, userMessage: turn.userMessage },
