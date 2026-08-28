@@ -621,7 +621,7 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - §10 预算：`maxTurnDurationMs`（单 Turn 总耗时）与 `maxConsecutiveSameTool`（连续同名工具，跨 Step 累计，防死循环）已实现；触发以 `Interrupted` 收敛，`done` 事件携带 `reason`（`turn_timeout` / `repeat_tool`）；
 - §11.3 fail-closed：新增 `DeletionGatePort`，Step 边界查询删除/撤权水位（`deletion_requests` 存在 `pending`/`in_progress` 即未追平）；未追平则零模型输出、零工具执行，收敛 `Interrupted`（`deletion_blocked`），并经隐私仓储接入 API 路由；
 - 测试：`@aervox/agent-loop` 30（`budget.test.ts` 5：超限/不误伤/超时/闸门阻塞/放行）、`@aervox/database` 115、`@aervox/api` 91（`conversation-deletion` 2：未追平 fail-closed / 追平后正常）。
-- 仍未覆盖（后续批）：`maxParallelReadTools`、`maxModelRetries`、token/费用预算与 `maxTokens`（依赖 Provider 上报 `usage`，属阶段 2e+）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+- 仍未覆盖（后续批）：`maxParallelReadTools`、token/费用预算与 `maxTokens`（依赖 Provider 上报 `usage`，属阶段 2e+）。`maxModelRetries` 已落地（B4-C：仅首可见片段前且无副作用时重试）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
 ### 16.6 落地进展（阶段 2c：工具幂等预留与 unknown outcome）
 
@@ -645,7 +645,7 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 | `agent-loop-state-machine` | `packages/agent-loop/test/state-machine.test.ts` | 已落地 |
 | `agent-loop-fencing` | `packages/agent-loop/test/lease-guard.test.ts` | 已落地 |
 | `agent-loop-tool-policy` | `packages/agent-loop/test/tool-policy.test.ts`（read/write/privileged 三档）；`approval-loop.test.ts`（审批） | 已落地 |
-| `agent-loop-recovery` | `lease-guard`（过期释放）+ `cancel.test.ts`（取消）+ `budget.test.ts`（闸门）+ `idempotency.test.ts`（工具未知结果） | 已落地（「首片段前自动重试」待续，见 §10 maxModelRetries 未覆盖） |
+| `agent-loop-recovery` | `lease-guard`（过期释放）+ `cancel.test.ts`（取消）+ `budget.test.ts`（闸门）+ `idempotency.test.ts`（工具未知结果）+ `executor-b4.test.ts`（首片段前模型重试、流式中断） | 已落地（`maxModelRetries` 见 §10，B4-C） |
 | `agent-loop-sse` | `apps/api/test/conversation-loop.test.ts`（持久后发送/重连重放） | 已落地 |
 | `agent-loop-budget` | `packages/agent-loop/test/budget.test.ts`（step/turn-timeout/repeat-tool） | 已落地（token/费用预算待续） |
 | `agent-loop-deletion` | `apps/api/test/conversation-deletion.test.ts`（未追平 fail-closed）+ `budget.test.ts`（DeletionGate） | 已落地 |
@@ -844,6 +844,15 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - **恢复执行**（`sqlite-resume-source.ts`）：传入 replay；`synthesized` 时向重建上下文注入合成 tool 消息（`TOOL_NOT_STARTED` / `TOOL_OUTCOME_UNKNOWN` + executionId），指导续跑模型不再重复执行副作用后继续原 Attempt；**合成结果只进重建上下文，不写事件/账本**——事件流保持仅权威提交边界（§12.2）。
 - **注册链路**（`apps/api`）：`POST /v1/tools` 支持 `replay` 枚举校验透传。
 - 测试：`@aervox/database` 151（`tool-registry.test.ts` replay 存取矩阵）；`@aervox/agent-loop` 131（`resume-decision.test.ts` 6→11：synthesized 双形态 / 未声明与 never 收敛 / pending_approval 不绕过 / 多未确定项全 listing）；`@aervox/host-agent` 64（`sqlite-resume-source.test.ts` +2：replay:safe + pending → 产出含 TOOL_NOT_STARTED 合成 tool 消息；replay:never → 收敛不产出）；`@aervox/api` 230（tools-plugins replay 透传 + 非法 400）；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.25 落地进展（阶段 3c+-B4：工具结果入口校验 + 流式可中断 + 模型调用重试）
+
+2026-08-28 落地（对应 §9「工具结果进入模型前做大小、敏感数据、Prompt injection 和来源检查」、§10 `maxModelRetries`「仅首个可见片段前且无副作用」、§11.1「取消后丢弃失去 fencing 的迟到 chunk」的流式面）：
+
+- **结果入口校验**（`tool-result-safe.ts` `inspectToolResult`）：工具输出回填上下文前做大小截断（默认 8000 字符，可配）+ Prompt injection 启发式（中英双语典型越权样本，保守匹配）。注入命中 → 以受控摘要 `blocked_tool_injection` 替代完整内容（fail-closed，样本不进模型）；超长 → 截断后回填。敏感数据分级/来源分类（DATA_PRIVACY/audit 体系）为后续扩展点。
+- **流式可中断**（`executor.ts`）：Provider 流 chunk 间隙 ≥100ms 节流执行 `prematureTermination`（取消 / 删除撤权水位 / 总时长预算），命中即提前终止迭代收敛——流式期间用户取消/删除不再等整 Step 结束（§11.1 迟到 chunk 丢弃）。
+- **模型调用重试**（`executor.ts` `ExecuteTurnOptions.maxModelRetries`，默认 1，0 关闭）：仅「首个可见片段前且无副作用」（首 Step 且 `textAccumulator` 为空）允许重试一次；已有 delta/事件、租约丢失（LeaseLostError/heartbeat.lost）一律不重试。
+- 测试：`@aervox/agent-loop` 143（新增 `tool-result-safe.test.ts` 5：注入中英双语命中/超长截断/自定义上限/正常透传；`executor-b4.test.ts` 7：回填注入被摘要替代且原文不进上下文、超长截断回填、正常透传、首调用抛错自动重试一次完成、`maxModelRetries=0` 持续失败仅调一次、流式第二 chunk 前取消收敛且后续文本不产出）；`@aervox/database` 151、`@aervox/host-agent` 64、`@aervox/api` 232 无回归；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
 ## 17. 回滚策略
 

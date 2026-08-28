@@ -20,6 +20,7 @@ import type {
 } from "./types.js";
 import { LeaseLostError } from "./errors.js";
 import { LeaseHeartbeat } from "./lease-heartbeat.js";
+import { inspectToolResult } from "./tool-result-safe.js";
 
 export interface ExecuteTurnInput {
   turnId: string;
@@ -68,6 +69,11 @@ export interface ExecuteTurnOptions {
    * 恢复器误判为僵尸原地收敛（AVX-HAR-001 §11.2）。
    */
   leaseHeartbeatIntervalMs?: number;
+  /**
+   * §10 maxModelRetries：模型调用重试次数。仅「首个可见片段前且无副作用」时生效
+   * （默认 1；0 关闭）。已有任何 delta/事件或租约丢失不重试。
+   */
+  maxModelRetries?: number;
 }
 
 /** 2d：删除/撤权水位闸门（§11.3：删除/撤权水位未追平 → fail closed，不继续模型或工具调用） */
@@ -131,6 +137,7 @@ export async function executeTurn(
   const toolTimeoutMs = options?.toolTimeoutMs ?? 5000;
   const maxTurnDurationMs = options?.maxTurnDurationMs ?? 0;
   const maxConsecutiveSameTool = options?.maxConsecutiveSameTool ?? 0;
+  const maxModelRetries = options?.maxModelRetries ?? 1;
   const startedAt = Date.now();
 
   // 4b 续跑：以「抢占续跑」语义重新 claim（预期 = 原执行已持有的 fencing）；
@@ -284,7 +291,6 @@ export async function executeTurn(
         }
       }
 
-      const chunks: ModelChunk[] = [];
       // 阶段 5a：本 Step 可消费的 inbox 项（ADR-017 消费边界；next-step 注入本 Step 输入）
       const stepInboxItems = inbox
         ? await inbox.claimForConsumption({
@@ -307,17 +313,49 @@ export async function executeTurn(
 
       // 收集本 Step 输出（文本增量 + 工具请求）
       const stepStartedAt = Date.now();
-      for await (const chunk of provider.stream({
-        turnId: input.turnId,
-        attemptId: input.attemptId,
-        step,
-        context,
-        tools: tools?.tools,
-      })) {
-        // B2：心跳检查点 —— 长流期间租约丢失则立即中止本 Step（不再产生新事件/副作用）
-        heartbeat?.throwIfLost();
-        chunks.push(chunk);
+      // B4-C：模型调用重试 —— 仅【首个可见片段前且无副作用】时允许（§10 maxModelRetries）
+      let canRetryModel = maxModelRetries > 0 && step === stepBase + 1 && textAccumulator.length === 0;
+      let midStreamStop: ExecuteResult | null = null;
+      let lastMidStreamCheck = 0;
+      const collectStep = async (): Promise<ModelChunk[]> => {
+        const out: ModelChunk[] = [];
+        for await (const chunk of provider.stream({
+          turnId: input.turnId,
+          attemptId: input.attemptId,
+          step,
+          context,
+          tools: tools?.tools,
+        })) {
+          // B2：心跳检查点 —— 长流期间租约丢失则立即中止本 Step（不再产生新事件/副作用）
+          heartbeat?.throwIfLost();
+          // B4-B：流式期间取消/删除水位/总时长检查（≥100ms 节流，避免每 chunk 压库）
+          const nowMs = Date.now();
+          if (nowMs - lastMidStreamCheck >= 100) {
+            lastMidStreamCheck = nowMs;
+            const stop = await prematureTermination(sequence);
+            if (stop) {
+              midStreamStop = stop;
+              return out; // 提前退出迭代（async iterator 清理由 for-await 保证）
+            }
+          }
+          out.push(chunk);
+        }
+        return out;
+      };
+      let chunks: ModelChunk[];
+      try {
+        chunks = await collectStep();
+      } catch (err) {
+        if (canRetryModel && !(err instanceof LeaseLostError) && !heartbeat?.lost) {
+          canRetryModel = false;
+          midStreamStop = null;
+          lastMidStreamCheck = 0;
+          chunks = await collectStep();
+        } else {
+          throw err;
+        }
       }
+      if (midStreamStop) return midStreamStop;
       const stepText = chunks.map((c) => c.text).join("");
       const toolCalls = chunks.flatMap((c) => c.toolCalls ?? []);
       const hasToolCalls = toolCalls.length > 0;
@@ -607,9 +645,21 @@ export async function executeTurn(
       // 工具结果回填上下文（工具消息），模型下一轮可见
       history.push({ role: "assistant", content: stepText, name: toolCalls[0]?.name, toolCallId: toolCalls[0]?.id });
       for (const result of results) {
+        // B4-A：§9 工具结果入口校验（大小截断 + Prompt injection 启发式）。
+        // 注入命中 → 以受控摘要替代完整内容（fail-closed，不让样本进模型）；
+        // 超长 → 回填截断后的 JSON 串。
+        const rawJson = JSON.stringify({ ok: result.ok, output: result.output, error: result.error });
+        const inspected = inspectToolResult(rawJson);
+        const content = inspected.injection
+          ? JSON.stringify({
+              ok: false,
+              output: undefined,
+              error: "blocked_tool_injection: 工具输出疑似含提示注入样本，已拦截且不注入完整内容",
+            })
+          : inspected.text;
         history.push({
           role: "tool",
-          content: JSON.stringify({ ok: result.ok, output: result.output, error: result.error }),
+          content,
           toolCallId: result.id,
           name: result.name,
         });
