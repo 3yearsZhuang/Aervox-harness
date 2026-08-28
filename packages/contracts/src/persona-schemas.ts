@@ -5,6 +5,10 @@ extendZodWithOpenApi(z);
 
 export const personaSourceSchema = z.enum(["builtin", "user_created", "imported"]);
 export const personaStatusSchema = z.enum(["active", "archived"]);
+export const personaReviewStatusSchema = z.enum(["draft", "pending_review", "approved", "rejected"]);
+export const memoryPolicySchema = z.enum(["isolated", "shared"]);
+export const memoryCategorySchema = z.enum(["learning", "preference", "diary", "fact"]);
+export const switchReasonSchema = z.enum(["user_initiated", "rollback", "system_default"]);
 export const voiceSelectionSchema = z.object({
   enabled: z.boolean(),
   providerId: z.string().min(1),
@@ -26,6 +30,9 @@ export const personaSchema = z.object({
   description: z.string(),
   source: personaSourceSchema,
   status: personaStatusSchema,
+  reviewStatus: personaReviewStatusSchema,
+  reviewNotes: z.string(),
+  reviewedAt: z.iso.datetime().nullable(),
   currentRevisionId: z.string().min(1),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -221,4 +228,53 @@ export const skillZipResponseSchema = z.object({
   bundleBase64: z.string().min(1),
   fileName: z.string().min(1),
   skillNames: z.array(z.string()),
+});
+
+// ---- CAP-019: 模板审核、回滚、切换历史、记忆范围 ----
+
+/** 提交人格审核请求 */
+export const reviewPersonaRequestSchema = z.object({
+  reviewStatus: z.enum(["pending_review", "approved", "rejected"]),
+  reviewNotes: z.string().max(2000).optional(),
+});
+
+/** 人格回滚请求 */
+export const rollbackPersonaRequestSchema = z.object({
+  revisionId: z.string().min(1),
+  /** 回滚时的回归评估备注 */
+  regressionNotes: z.string().max(2000).optional(),
+});
+
+/** 更新人格记忆范围请求 */
+export const updateMemoryScopeRequestSchema = z.object({
+  memoryPolicy: memoryPolicySchema,
+  /** 共享目标人格 ID 列表 */
+  sharedPersonaIds: z.array(z.string().min(1)).optional(),
+  /** 共享的记忆类别 */
+  sharedCategories: z.array(memoryCategorySchema).optional(),
+  /** 用户确认共享范围 */
+  confirmed: z.boolean().default(false),
+});
+
+/** 人格切换日志响应 */
+export const personaSwitchLogSchema = z.object({
+  id: z.string().min(1),
+  personaId: z.string().min(1),
+  revisionId: z.string().min(1),
+  previousPersonaId: z.string().nullable(),
+  previousRevisionId: z.string().nullable(),
+  switchReason: switchReasonSchema,
+  regressionNotes: z.string().nullable(),
+  switchedAt: z.iso.datetime(),
+});
+
+/** 人格记忆范围响应 */
+export const personaMemoryScopeSchema = z.object({
+  personaId: z.string().min(1),
+  memoryPolicy: memoryPolicySchema,
+  sharedPersonaIds: z.array(z.string()),
+  sharedCategories: z.array(z.string()),
+  confirmedAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
 });

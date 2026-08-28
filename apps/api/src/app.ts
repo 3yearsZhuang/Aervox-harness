@@ -27,7 +27,9 @@ import { registerBranchModule } from "./modules/branch/index.js";
 import { registerToolsModule } from "./modules/tools/index.js";
 import { registerPluginsModule } from "./modules/plugins/index.js";
 import { registerPersonaModule } from "./modules/persona/index.js";
+import { registerPreferencesModule } from "./modules/preferences/index.js";
 import { registerSkillsModule } from "./modules/skills/index.js";
+import { registerStudyMaterialModule } from "./modules/study-materials/index.js";
 import { registerVoiceModule, type VoiceModuleOptions } from "./modules/voice/index.js";
 import { registerLLMModule, type LLMServiceOptions } from "./modules/llm/index.js";
 import type { ToolRuntime } from "./modules/tools/runtime.js";
@@ -84,6 +86,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   registerPluginsModule(app, db, { skillsRoot: options.skillsRoot, pluginsRoot: options.pluginsRoot });
   const voiceService = registerVoiceModule(app, db, options.voiceOptions);
   const skillManager = registerSkillsModule(app, db, { skillsRoot: options.skillsRoot, toolRuntime });
+  registerPreferencesModule(app, db);
+  registerStudyMaterialModule(app, db);
   registerPersonaModule(app, db, { skillManager, toolRuntime, voiceService });
 
   return { app, db, client, toolRuntime };

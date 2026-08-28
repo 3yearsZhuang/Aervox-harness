@@ -149,3 +149,54 @@ export interface ToolExecutionRecord {
   startedAt: string;
   finishedAt: string;
 }
+
+/** AgentInboxItem 类型（AVX-HAR-001 §7.2 + ADR-017） */
+export type AgentInboxItemType = "followup" | "steer" | "inject";
+
+/** AgentInboxItem 消费边界（next-turn=排队为新 Turn 输入；next-step=注入下一 Step 输入） */
+export type AgentInboxConsumeBoundary = "next-turn" | "next-step";
+
+/** AgentInboxItem 状态（ADR-017：pending → claimed → acknowledged；expired 兜底回收） */
+export type AgentInboxItemStatus = "pending" | "claimed" | "acknowledged" | "expired";
+
+/** 来源 actor（用户 / Agent / 插件；外部插件只能提交受限 inbox command） */
+export type AgentInboxSourceActor = "user" | "agent" | "plugin";
+
+/** AgentInboxItem（Loop 应用层面；ADR-017 数据模型） */
+export interface AgentInboxItem {
+  id: string;
+  /** 幂等键（租户内唯一；重复提交安全） */
+  idempotencyKey: string;
+  sessionId: string;
+  /** 消费目标 Attempt（next-turn = null；next-step 定位） */
+  attemptId?: string;
+  stepId?: string;
+  type: AgentInboxItemType;
+  /** 顺序（同目标边界内单调） */
+  orderingSeq: number;
+  sourceActor: AgentInboxSourceActor;
+  /** 内容载荷（compact 编码，含来源与用途标注） */
+  payload: unknown;
+  status: AgentInboxItemStatus;
+  consumeBoundary: AgentInboxConsumeBoundary;
+  claimedAt?: string;
+  ackedAt?: string;
+  expiresAt?: string;
+  createdAt: string;
+}
+
+/** 受控 inbox command（外部插件/用户提交 followup/steer/inject 的统一入口） */
+export interface AgentInboxCommand {
+  /** 幂等键（来源 + 事件去重；重复提交安全） */
+  idempotencyKey: string;
+  sessionId: string;
+  attemptId?: string;
+  stepId?: string;
+  type: AgentInboxItemType;
+  sourceActor: AgentInboxSourceActor;
+  payload: unknown;
+  /** 消费边界；缺省按类型推定（followup→next-turn；steer/inject→next-step） */
+  consumeBoundary?: AgentInboxConsumeBoundary;
+  /** 过期时间；缺省不自动过期 */
+  expiresAt?: string;
+}

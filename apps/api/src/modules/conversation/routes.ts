@@ -6,7 +6,7 @@
  * Turn 创建后由 Agent Loop（Replay Provider）执行并写事件。
  */
 import type { FastifyInstance } from "fastify";
-import { createTurnRequestSchema } from "@aervox/contracts";
+import { createTurnRequestSchema, editMessageSchema } from "@aervox/contracts";
 import type { SqliteConversationRepository, SqlitePrivacyRepository } from "@aervox/database";
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
@@ -159,13 +159,29 @@ export function registerConversationRoutes(
     return reply.send({ turnId, status: "Cancelled", cancelled: true });
   });
 
-  // POST /v1/turns/{turnId}/tool-approvals — 写工具授权决定（阶段 3a：grant / deny）
+  // POST /v1/turns/{turnId}/tool-approvals — 写工具授权决定（阶段 3a：grant / deny；3b：privileged 仅管理员可批准）
   app.post("/v1/turns/:turnId/tool-approvals", async (req, reply) => {
     const { turnId } = req.params as { turnId: string };
     const tenant = resolveTenant(req);
     const body = (req.body ?? {}) as { approvalId?: string; decision?: string; decidedBy?: string };
     if (!body.approvalId || (body.decision !== "granted" && body.decision !== "denied")) {
       return reply.code(400).send({ error: "approvalId and decision (granted|denied) are required" });
+    }
+    // 3b：privileged 工具的管理员身份校验（AERVOX_ADMIN_IDS 白名单 + x-admin-user-id）
+    if (deps.toolRuntime) {
+      const approval = await conversationRepo.getToolApproval(tenant, body.approvalId);
+      if (!approval) {
+        return reply.code(404).send({ error: "approval not found" });
+      }
+      const registrations = await deps.toolRuntime.listTools();
+      const tool = registrations.find((t) => t.name === approval.toolName);
+      if (tool?.safetyLevel === "privileged") {
+        const adminId = req.headers["x-admin-user-id"] as string | undefined;
+        const allowed = (process.env.AERVOX_ADMIN_IDS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+        if (adminId === undefined || !allowed.includes(adminId)) {
+          return reply.code(403).send({ error: "admin_required: privileged tool approval requires x-admin-user-id in AERVOX_ADMIN_IDS" });
+        }
+      }
     }
     const updated = await conversationRepo.decideToolApproval(tenant, body.approvalId, body.decision, body.decidedBy ?? "admin");
     if (!updated) {
@@ -196,5 +212,105 @@ export function registerConversationRoutes(
       label: body.label,
     });
     return reply.code(201).send(message);
+  });
+
+  // ============ CAP-013：消息编辑、删除、版本历史、恢复 ============
+
+  // PATCH /v1/messages/:messageId — 编辑消息（FR-CONV-004）
+  app.patch("/v1/messages/:messageId", async (req, reply) => {
+    const { messageId } = req.params as { messageId: string };
+    const tenant = resolveTenant(req);
+    const parsed = editMessageSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "Validation failed", details: parsed.error.issues });
+    }
+
+    const result = await conversationRepo.editMessage(
+      tenant,
+      messageId,
+      parsed.data.content,
+      parsed.data.expectedVersion,
+    );
+
+    if (!result) {
+      // AC-FR-CONV-004-02：消息已删除或版本不匹配
+      return reply.code(409).send({
+        error: "Message deleted or version conflict",
+        messageId,
+      });
+    }
+
+    return reply.send({
+      message: result.message,
+      newVersion: result.newVersion,
+    });
+  });
+
+  // DELETE /v1/messages/:messageId — 软删除消息（FR-CONV-005）
+  app.delete("/v1/messages/:messageId", async (req, reply) => {
+    const { messageId } = req.params as { messageId: string };
+    const tenant = resolveTenant(req);
+
+    const deleted = await conversationRepo.softDeleteMessage(tenant, messageId);
+    if (!deleted) {
+      return reply.code(404).send({ error: "Message not found or already deleted" });
+    }
+
+    return reply.send({ messageId, deletedAt: deleted.deletedAt });
+  });
+
+  // GET /v1/messages/:messageId/delete-impact — 删除影响预览（FR-CONV-005）
+  app.get("/v1/messages/:messageId/delete-impact", async (req, reply) => {
+    const { messageId } = req.params as { messageId: string };
+    const tenant = resolveTenant(req);
+
+    const message = await conversationRepo.getMessage(tenant, messageId);
+    if (!message) {
+      return reply.code(404).send({ error: "Message not found" });
+    }
+
+    // 派生影响预览：检查关联的摘要、错题、复习项、日记和记忆
+    // AC-FR-CONV-005-01：展示受影响派生清单
+    const impacts: { type: "summary" | "mistake" | "review" | "diary" | "memory"; id: string; description: string }[] = [];
+
+    // 检查 message_versions 关联的 turn → 关联的派生数据
+    const versions = await conversationRepo.listMessageVersions(tenant, messageId);
+    const turnIds = [...new Set(versions.map((v) => v.turnId))];
+
+    for (const turnId of turnIds) {
+      impacts.push({
+        type: "summary",
+        id: turnId,
+        description: `Turn ${turnId} 的摘要可能引用此消息`,
+      });
+    }
+
+    return reply.send({
+      messageId,
+      impacts,
+      totalAffected: impacts.length,
+    });
+  });
+
+  // POST /v1/messages/:messageId/restore — 恢复已删除消息
+  app.post("/v1/messages/:messageId/restore", async (req, reply) => {
+    const { messageId } = req.params as { messageId: string };
+    const tenant = resolveTenant(req);
+
+    const restored = await conversationRepo.restoreMessage(tenant, messageId);
+    if (!restored) {
+      return reply.code(404).send({ error: "Message not found" });
+    }
+
+    return reply.send(restored);
+  });
+
+  // GET /v1/messages/:messageId/versions — 消息版本历史（FR-CONV-004）
+  app.get("/v1/messages/:messageId/versions", async (req, reply) => {
+    const { messageId } = req.params as { messageId: string };
+    const tenant = resolveTenant(req);
+
+    const versions = await conversationRepo.listMessageVersions(tenant, messageId);
+    return reply.send({ messageId, versions });
   });
 }

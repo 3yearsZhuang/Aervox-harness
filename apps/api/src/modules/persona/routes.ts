@@ -6,6 +6,9 @@ import {
   activatePersonaRequestSchema,
   createPersonaRequestSchema,
   importPersonaRequestSchema,
+  reviewPersonaRequestSchema,
+  rollbackPersonaRequestSchema,
+  updateMemoryScopeRequestSchema,
   updatePersonaRequestSchema,
 } from "@aervox/contracts";
 import { resolveTenant } from "../../shared/tenant.js";
@@ -202,6 +205,98 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
         error instanceof Error ? error.message : "Unable to import persona bundle",
       );
     }
+  });
+
+  // ---- CAP-019: 模板审核、修订列表、回滚、切换历史、记忆范围 ----
+
+  // POST /v1/personas/:personaId/review — 提交审核/批准/拒绝
+  app.post("/v1/personas/:personaId/review", async (request, reply) => {
+    const { personaId } = request.params as { personaId: string };
+    const parsed = reviewPersonaRequestSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return sendError(reply, 400, "INVALID_REVIEW", "Invalid review request", parsed.error.issues);
+    }
+    const tenant = resolveTenant(request);
+    const updated = await service.reviewPersona(
+      tenant,
+      personaId,
+      parsed.data.reviewStatus,
+      parsed.data.reviewNotes,
+    );
+    if (!updated) return sendError(reply, 404, "PERSONA_NOT_FOUND", "Persona not found");
+    return updated;
+  });
+
+  // GET /v1/personas/:personaId/revisions — 列出所有修订
+  app.get("/v1/personas/:personaId/revisions", async (request, reply) => {
+    const { personaId } = request.params as { personaId: string };
+    const tenant = resolveTenant(request);
+    const persona = await service.getPersona(tenant, personaId);
+    if (!persona) return sendError(reply, 404, "PERSONA_NOT_FOUND", "Persona not found");
+    const revisions = await service.listPersonaRevisions(tenant, personaId);
+    return { revisions };
+  });
+
+  // POST /v1/personas/:personaId/rollback — 回滚到指定修订
+  app.post("/v1/personas/:personaId/rollback", async (request, reply) => {
+    const { personaId } = request.params as { personaId: string };
+    const parsed = rollbackPersonaRequestSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return sendError(reply, 400, "INVALID_ROLLBACK", "Invalid rollback request", parsed.error.issues);
+    }
+    const tenant = resolveTenant(request);
+    const result = await service.rollbackPersona(
+      tenant,
+      personaId,
+      parsed.data.revisionId,
+      parsed.data.regressionNotes,
+    );
+    if (!result) return sendError(reply, 404, "REVISION_NOT_FOUND", "Persona or revision not found");
+    return result;
+  });
+
+  // GET /v1/personas/:personaId/switch-history — 获取切换历史
+  app.get("/v1/personas/:personaId/switch-history", async (request) => {
+    const { personaId } = request.params as { personaId: string };
+    const tenant = resolveTenant(request);
+    const history = await service.getSwitchHistory(tenant, personaId);
+    return { history };
+  });
+
+  // GET /v1/personas/switch-history — 获取全部切换历史
+  app.get("/v1/personas/switch-history", async (request) => {
+    const tenant = resolveTenant(request);
+    const history = await service.getSwitchHistory(tenant);
+    return { history };
+  });
+
+  // GET /v1/personas/:personaId/memory-scope — 获取记忆范围配置
+  app.get("/v1/personas/:personaId/memory-scope", async (request, reply) => {
+    const { personaId } = request.params as { personaId: string };
+    const tenant = resolveTenant(request);
+    const persona = await service.getPersona(tenant, personaId);
+    if (!persona) return sendError(reply, 404, "PERSONA_NOT_FOUND", "Persona not found");
+    const scope = await service.getMemoryScope(tenant, personaId);
+    return scope;
+  });
+
+  // PUT /v1/personas/:personaId/memory-scope — 更新记忆范围配置
+  app.put("/v1/personas/:personaId/memory-scope", async (request, reply) => {
+    const { personaId } = request.params as { personaId: string };
+    const parsed = updateMemoryScopeRequestSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return sendError(reply, 400, "INVALID_MEMORY_SCOPE", "Invalid memory scope request", parsed.error.issues);
+    }
+    const tenant = resolveTenant(request);
+    const persona = await service.getPersona(tenant, personaId);
+    if (!persona) return sendError(reply, 404, "PERSONA_NOT_FOUND", "Persona not found");
+    const scope = await service.updateMemoryScope(tenant, personaId, {
+      memoryPolicy: parsed.data.memoryPolicy,
+      sharedPersonaIds: parsed.data.sharedPersonaIds,
+      sharedCategories: parsed.data.sharedCategories,
+      confirmed: parsed.data.confirmed,
+    });
+    return scope;
   });
 }
 import { FileExistsError } from "../skills/skill-manager.js";

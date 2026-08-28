@@ -16,7 +16,7 @@
 | `AVX-PRD-001` | [PRD](reference/PRD.md) | 2026-08-26 | 每次版本立项 / G0 | CAP 范围或优先级变更未建立 `CR-*` |
 | `AVX-SRS-001` | [SRS](reference/SRS.md) | 2026-08-28 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
 | `AVX-SAD-001` | [架构设计](reference/ARCHITECTURE.md) | 2026-08-28 | G2 评审 + 架构变更 | 新增 ADR/技术基线变化未同步 |
-| `ADR-001~016` | [ADR 索引](reference/adr/README.md) | 2026-08-28 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
+| `ADR-001~017` | [ADR 索引](reference/adr/README.md) | 2026-08-28 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
 | `AVX-SPC-001` | [流式协议](reference/STREAMING_PROTOCOL.md) | 2026-08-24 | OpenAPI/事件 schema 变更 | `packages/contracts` 版本高于文档描述 |
 | `AVX-DB-001` | [数据库设计与双引擎契约](reference/DATABASE.md) | 2026-08-25 | Schema/仓储接口/迁移计划变更 | 仓储接口签名或租户隔离模式/PG 切换计划与实现不一致 |
 | `AVX-DATA-001` | [数据与隐私](reference/DATA_PRIVACY.md) | 2026-08-24 | 每季度 + 数据流变更 | 新增数据实体/用途/保留未评审 |
@@ -56,6 +56,8 @@
 | `AVX-EXPL-002` | [参考项目能力迁移与借鉴评估](explanation/reference-design-transfer.md) | 2026-08-28 | 参考项目升级或架构变更 | 新增借鉴决策未登记，或参考项目 commit 超出固定清单 |
 | `AVX-EXPL-003` | [桌宠角色设定文档化与多人格模板组织](explanation/persona-organization.md) | 2026-08-26 | 桌宠 IP / CAP-019 立项或人设变更 | 新增/变更角色文档未按字段化结构与模板版本化落地，或识别边界未同步评审 |
 | `AVX-EXPL-004` | [能力拆分路线](explanation/roadmap.md) | 2026-08-26 | CAP 批次/依赖变更时 | 批次顺序与追踪基线 CAP 状态或新增 CAP 不一致 |
+| `AVX-EXPL-006` | [Home Assistant 集成评估](explanation/home-assistant-integration-assessment.md) | 2026-08-28 | Agent Loop 工具机制 / 本地优先 / 插件机制变更 | HA 接入形态、数据实体或阶段结论与 AVX-HAR-001 / 能力注册表不一致 |
+| `AVX-EXPL-007` | [运动与健康数据接入评估](explanation/health-data-integration-assessment.md) | 2026-08-28 | 移动端形态 / 数据隐私 / 苹果或小米接入政策变更 | 接入路径、敏感分级或阶段结论与 AVX-EXPL-006 / DATA_PRIVACY 不一致 |
 | `AVX-DOC-001` | [文档索引](README.md) | 2026-08-28 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
 | `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-08-28 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |
 
