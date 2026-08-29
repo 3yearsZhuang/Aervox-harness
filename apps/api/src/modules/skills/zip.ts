@@ -6,7 +6,9 @@
  * 覆盖面足够常见 SKILL.md 压缩包；zip64（0xFFFFFFFF 尺寸）显式拒绝。
  *
  * 安全校验（对齐 reference/AstrBot skill_manager.py install_skill_from_zip）：
- * - 拒绝绝对路径、路径穿越（..）、__MACOSX 条目、非法字符；
+ * - 条目路径先规范化（反斜杠统一为 /、去除 ./ 段与空段）再校验，
+ *   兼容 Windows 工具与 `zip -r x.zip .` 打包的 ./ 前缀条目；
+ * - 拒绝绝对路径、路径穿越（..）、__MACOSX 条目；
  * - 由调用方按 SKILL.md 存在性与目录名规范二次过滤。
  */
 import zlib from "node:zlib";
@@ -43,12 +45,21 @@ function readAscii(buffer: Buffer, offset: number, length: number): string {
   return buffer.subarray(offset, offset + length).toString("utf8");
 }
 
+/** 条目路径规范化：反斜杠统一为 /，去除 ./ 段与空段（兼容 Windows 压缩包与 `zip -r x.zip .` 打包） */
+function normalizeEntryPath(name: string): string {
+  const parts: string[] = [];
+  for (const part of name.replace(/\\/g, "/").split("/")) {
+    if (part === "" || part === ".") continue;
+    parts.push(part);
+  }
+  return parts.join("/");
+}
+
 function isPathSafe(name: string): boolean {
   if (!name) return false;
-  if (name.startsWith("/")) return false;
   if (/^[A-Za-z]:/.test(name)) return false;
-  const parts = name.split("/");
-  if (parts.some((p) => p === ".." || p === "." || p === "")) return false;
+  // 规范化后绝对路径段已被消除，仅剩 .. 段需要拒绝（反斜杠穿越也因此被覆盖）
+  if (name.split("/").some((p) => p === "..")) return false;
   return true;
 }
 
@@ -86,18 +97,23 @@ export function unzip(buffer: Buffer): ZipEntry[] {
       throw new Error("Unsupported zip: zip64 entries not supported");
     }
 
-    const name = readAscii(buffer, cursor + 46, nameLen);
+    const rawName = readAscii(buffer, cursor + 46, nameLen);
     cursor += 46 + nameLen + extraLen + commentLen;
 
-    // 安全：拒绝绝对路径 / 穿越；忽略 __MACOSX
+    // 目录条目：原始名以 / 或 \ 结尾（规范化会去掉尾段，需先判定）
+    const isDirectory = rawName.endsWith("/") || rawName.endsWith("\\");
+
+    // 安全：先规范化（./ 段、空段、反斜杠），全部段被消除的条目（如根 "./"）直接跳过；
+    // 再拒绝 __MACOSX 与残余穿越/盘符路径
+    const name = normalizeEntryPath(rawName);
+    if (!name) continue;
     if (isIgnoredEntry(name)) continue;
     if (!isPathSafe(name)) {
-      throw new Error(`Invalid zip: unsafe entry path "${name}"`);
+      throw new Error(`Invalid zip: unsafe entry path "${rawName}"`);
     }
 
-    const isDirectory = name.endsWith("/");
     if (isDirectory) {
-      entries.push({ name: name.slice(0, -1), isDirectory: true, data: Buffer.alloc(0) });
+      entries.push({ name, isDirectory: true, data: Buffer.alloc(0) });
       continue;
     }
 
