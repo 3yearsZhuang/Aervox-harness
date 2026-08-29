@@ -54,14 +54,14 @@ describe("多模态答疑集成测试（CAP-012）", () => {
   // ============ FR-EXT-001 AC-01 ============
 
   it("FR-EXT-001 AC-01：上传展示允许格式/大小，超限拒绝并说明原因", async () => {
-    // 不支持的格式
+    // 不支持的格式（多模态输入扩展后 text/plain 已允许，用视频类型做反例）
     const badFormat = await app.inject({
       method: "POST",
       url: "/v1/attachments",
       headers,
       payload: {
-        objectKey: "uploads/test.txt",
-        mediaType: "text/plain",
+        objectKey: "uploads/test.mp4",
+        mediaType: "video/mp4",
         size: 100,
         purpose: "question",
       },

@@ -9,6 +9,8 @@ export {
   type AervoxClientConfig,
   type StreamTurnOptions,
   type TurnCallbacks,
+  type AttachmentUploadInput,
+  type UploadedAttachment,
 } from './transport';
 export { desktopTransport } from './desktop-transport';
 export { useAervoxApi, type GoalDto, type ReviewItemDto, type NotificationDto, type DiaryDto } from './useAervoxApi';
@@ -24,7 +26,7 @@ export {
   type ToolItemDto,
   type SkillItemDto,
 } from './useAervoxPersonas';
-export { streamAervoxTurn, submitQuestionAnswers, exploreTerm, type StreamAervoxTurnCallbacks } from './useAervoxTurn';
+export { streamAervoxTurn, uploadAervoxAttachment, submitQuestionAnswers, exploreTerm, type StreamAervoxTurnCallbacks } from './useAervoxTurn';
 export {
   useAervoxVoice,
   canPickDirectory,

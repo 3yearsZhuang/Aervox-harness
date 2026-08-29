@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('fairyDesktop', {
     onThemeChange: settingsApi.onThemeChange,
     streamTurn: aervoxApi.streamTurn,
     apiRequest: aervoxApi.apiRequest,
+    uploadAttachment: aervoxApi.uploadAttachment,
     pickDirectory: dialogApi.pickDirectory,
     domains: {
         settings: settingsApi,

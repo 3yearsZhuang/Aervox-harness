@@ -8,12 +8,16 @@
  * - BR-EXT-002 附件保留与删除传播（级联清除派生物）
  */
 import type { FastifyInstance } from "fastify";
+import path from "node:path";
+import fsp from "node:fs/promises";
 import type { SqliteContentRepository } from "@aervox/database";
 import {
   createAttachmentSchema,
   parseAttachmentSchema,
   cropParseResultSchema,
   convertToTextSchema,
+  allowedMediaTypesSchema,
+  attachmentPurposeSchema,
   MAX_ATTACHMENT_SIZE,
   OCR_CONFIDENCE_THRESHOLD,
 } from "@aervox/contracts";
@@ -21,6 +25,34 @@ import { resolveTenant } from "../../shared/tenant.js";
 
 let seq = 0;
 const nextId = (prefix: string): string => `${prefix}_${Date.now().toString(36)}_${(++seq).toString(36)}`;
+
+/** 文件名净化：去路径分隔符与控制字符，限长，空则回退 "unnamed" */
+function sanitizeFileName(name: string): string {
+  const cleaned = name.replace(/[\\/\u0000-\u001f<>:"|?*]/g, "_").trim();
+  return cleaned.slice(0, 120) || "unnamed";
+}
+
+/** 由 MIME 类型推断安全扩展名（含前导点；未知类型空串） */
+function extensionForMediaType(mediaType: string): string {
+  const map: Record<string, string> = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+    "application/pdf": ".pdf",
+    "text/plain": ".txt",
+    "text/markdown": ".md",
+    "text/csv": ".csv",
+    "application/msword": ".doc",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+    "audio/mpeg": ".mp3",
+    "audio/wav": ".wav",
+    "audio/ogg": ".ogg",
+    "audio/mp4": ".m4a",
+    "audio/webm": ".weba",
+  };
+  return map[mediaType] ?? "";
+}
 
 /** 模拟 OCR 解析（实际应接入 OCR 服务） */
 function mockOcrParse(_objectKey: string): { text: string; confidence: number } {
@@ -35,6 +67,7 @@ function mockOcrParse(_objectKey: string): { text: string; confidence: number } 
 export function registerContentRoutes(
   app: FastifyInstance,
   contentRepo: SqliteContentRepository,
+  attachmentsRoot: string,
 ): void {
   // ============ FR-EXT-001：附件上传与用途声明 ============
 
@@ -47,7 +80,7 @@ export function registerContentRoutes(
         error: "Validation failed",
         details: parsed.error.issues,
         // FR-EXT-001 AC-01：展示允许格式和大小
-        allowedFormats: ["image/png", "image/jpeg", "image/webp", "image/gif", "application/pdf"],
+        allowedFormats: allowedMediaTypesSchema.options,
         maxSize: MAX_ATTACHMENT_SIZE,
       });
     }
@@ -75,6 +108,94 @@ export function registerContentRoutes(
     });
 
     return reply.status(201).send(attachment);
+  });
+
+  // POST /v1/attachments/binary — 原始二进制上传（多模态输入：图片/音频/文档）
+  // Web 端 fetch 直接以 File 为 body；桌面端经 IPC 桥转发 Buffer。
+  // 查询参数：fileName / mediaType / purpose / idempotencyKey（均必填除 idempotencyKey）。
+  app.register(async (scope) => {
+    // 独立作用域注册通配 content-type parser，避免影响全局 JSON 解析行为
+    scope.addContentTypeParser(
+      "*",
+      { parseAs: "buffer" },
+      (_req, body, done) => done(null, body),
+    );
+
+    scope.post(
+      "/v1/attachments/binary",
+      { bodyLimit: MAX_ATTACHMENT_SIZE },
+      async (req, reply) => {
+        const tenant = resolveTenant(req);
+        const query = (req.query ?? {}) as Record<string, string | undefined>;
+        const fileName = sanitizeFileName(query.fileName ?? "");
+        const mediaType = query.mediaType ?? "";
+        const purpose = query.purpose ?? "";
+
+        if (!allowedMediaTypesSchema.options.includes(mediaType as never)) {
+          return reply.status(400).send({
+            error: "Unsupported media type",
+            allowedFormats: allowedMediaTypesSchema.options,
+            maxSize: MAX_ATTACHMENT_SIZE,
+          });
+        }
+        if (!attachmentPurposeSchema.options.includes(purpose as never)) {
+          return reply.status(400).send({ error: "Invalid purpose" });
+        }
+
+        const body = req.body;
+        if (!Buffer.isBuffer(body) || body.byteLength === 0) {
+          return reply.status(400).send({ error: "Empty or invalid body" });
+        }
+        if (body.byteLength > MAX_ATTACHMENT_SIZE) {
+          return reply.status(413).send({ error: "Attachment too large", maxSize: MAX_ATTACHMENT_SIZE });
+        }
+
+        const idempotencyKey = query.idempotencyKey;
+        if (idempotencyKey) {
+          const existing = await contentRepo.getAttachmentByIdempotencyKey(tenant, idempotencyKey);
+          if (existing) {
+            return reply.status(200).send(existing);
+          }
+        }
+
+        const id = nextId("att");
+        const objectKey = `${id}_${fileName}${extensionForMediaType(mediaType)}`;
+        await fsp.mkdir(attachmentsRoot, { recursive: true });
+        await fsp.writeFile(path.join(attachmentsRoot, objectKey), body);
+
+        const attachment = await contentRepo.createAttachment(tenant, {
+          id,
+          objectKey,
+          mediaType,
+          size: body.byteLength,
+          scanStatus: "clean", // 模拟扫描通过
+          purpose,
+          idempotencyKey,
+        });
+        return reply.status(201).send(attachment);
+      },
+    );
+  });
+
+  // GET /v1/attachments/:id/content — 回读附件二进制（预览/回放）
+  app.get("/v1/attachments/:attachmentId/content", async (req, reply) => {
+    const tenant = resolveTenant(req);
+    const { attachmentId } = req.params as { attachmentId: string };
+    const attachment = await contentRepo.getAttachment(tenant, attachmentId);
+    if (!attachment) {
+      return reply.status(404).send({ error: "Attachment not found" });
+    }
+    const filePath = path.join(attachmentsRoot, path.basename(attachment.objectKey));
+    let content: Buffer;
+    try {
+      content = await fsp.readFile(filePath);
+    } catch {
+      return reply.status(404).send({ error: "Attachment content missing" });
+    }
+    return reply
+      .header("Content-Type", attachment.mediaType)
+      .header("Content-Length", content.byteLength)
+      .send(content);
   });
 
   // GET /v1/attachments/:id — 获取附件详情 + 当前解析结果

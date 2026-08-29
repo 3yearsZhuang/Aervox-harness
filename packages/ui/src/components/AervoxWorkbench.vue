@@ -9,8 +9,10 @@ import {
   ChevronRight,
   ChevronUp,
   Clock3,
+  FileText,
   Heart,
   History,
+  Image as ImageIcon,
   LayoutGrid,
   ListTodo,
   Menu,
@@ -18,7 +20,9 @@ import {
   Mic,
   MicOff,
   Moon,
+  Music,
   NotebookPen,
+  Paperclip,
   Pause,
   Play,
   Plus,
@@ -34,8 +38,9 @@ import {
   Volume2,
   X,
 } from 'lucide-vue-next'
-import {streamAervoxTurn, submitQuestionAnswers, useAervoxApi, useAervoxVoiceInput} from '@aervox/api-client'
-import type {AskUserQuestionAnswerItem, ExtractedTerm, ToolApprovalMode, UserQuestionRequiredEventData} from '@aervox/contracts'
+import {streamAervoxTurn, submitQuestionAnswers, uploadAervoxAttachment, useAervoxApi, useAervoxVoiceInput} from '@aervox/api-client'
+import type {AskUserQuestionAnswerItem, AttachmentPurpose, ExtractedTerm, ToolApprovalMode, TurnAttachmentRef, UserQuestionRequiredEventData} from '@aervox/contracts'
+import {allowedMediaTypesSchema, MAX_ATTACHMENT_SIZE} from '@aervox/contracts'
 import PetHero from './PetHero.vue'
 import PluginManagerPanel from './plugin/PluginManagerPanel.vue'
 import Live2DPet from './Live2DPet.vue'
@@ -51,11 +56,18 @@ import { MizukiExpression, MizukiMotion } from '../live2d/model'
 type Platform = 'desktop' | 'web'
 type Speaker = 'assistant' | 'user'
 
+interface StoryLineAttachment {
+  name: string
+  mediaType: string
+  previewUrl?: string
+}
+
 interface StoryLine {
   id: number
   speaker: Speaker
   text: string
   state?: 'streaming' | 'complete' | 'error'
+  attachments?: StoryLineAttachment[]
 }
 
 type CardId = 'study' | 'todo' | 'timer' | 'history' | 'review' | 'mistake' | 'diary' | 'notifications'
@@ -273,6 +285,138 @@ function createStoryLine(speaker: Speaker, text: string, state: StoryLine['state
   return {id: nextStoryId++, speaker, text, state}
 }
 
+// ============ 多模态输入（CAP-012）：输入框附件上传 ============
+
+interface PendingAttachment {
+  key: string
+  file: File
+  name: string
+  mediaType: string
+  size: number
+  previewUrl?: string
+}
+
+const pendingAttachments = ref<PendingAttachment[]>([])
+const attachmentError = ref<string | null>(null)
+const attachmentUploading = ref(false)
+const attachmentFileInput = ref<HTMLInputElement | null>(null)
+
+/** 扩展名 → MIME（file.type 缺失时的兜底映射，与 contracts allowedMediaTypesSchema 对齐） */
+const EXTENSION_MEDIA_TYPES: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  pdf: 'application/pdf',
+  txt: 'text/plain',
+  md: 'text/markdown',
+  csv: 'text/csv',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  ogg: 'audio/ogg',
+  m4a: 'audio/mp4',
+  weba: 'audio/webm',
+}
+
+const ALLOWED_MEDIA_TYPES = allowedMediaTypesSchema.options as readonly string[]
+
+const attachmentAccept = [...ALLOWED_MEDIA_TYPES, ...Object.keys(EXTENSION_MEDIA_TYPES).map((ext) => `.${ext}`)].join(',')
+
+function resolveMediaType(file: File): string | null {
+  const type = file.type || EXTENSION_MEDIA_TYPES[file.name.split('.').pop()?.toLowerCase() ?? ''] || ''
+  return ALLOWED_MEDIA_TYPES.includes(type) ? type : null
+}
+
+function purposeForMediaType(mediaType: string): AttachmentPurpose {
+  if (mediaType.startsWith('image/')) return 'question'
+  if (mediaType === 'application/pdf') return 'reading'
+  if (mediaType.startsWith('audio/')) return 'audio'
+  return 'file'
+}
+
+function formatAttachmentSize(size: number): string {
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(0)} KB`
+  return `${(size / 1024 / 1024).toFixed(1)} MB`
+}
+
+function attachmentIconFor(mediaType: string) {
+  if (mediaType.startsWith('image/')) return ImageIcon
+  if (mediaType.startsWith('audio/')) return Music
+  return FileText
+}
+
+function triggerAttachmentPicker() {
+  attachmentFileInput.value?.click()
+  petReactKind('tilthead', {lookAtEl: '.composer-dock', lookDuration: 2000})
+}
+
+function handleFilesChosen(event: Event) {
+  const input = event.target as HTMLInputElement
+  const files = Array.from(input.files ?? [])
+  input.value = ''
+  attachmentError.value = null
+  for (const file of files) {
+    if (pendingAttachments.value.length >= 10) {
+      attachmentError.value = '一次最多携带 10 个附件。'
+      break
+    }
+    const mediaType = resolveMediaType(file)
+    if (!mediaType) {
+      attachmentError.value = `「${file.name}」的类型暂不支持（支持图片 / PDF / 文档 / 音频）。`
+      continue
+    }
+    if (file.size > MAX_ATTACHMENT_SIZE) {
+      attachmentError.value = `「${file.name}」超过 10MB 上限。`
+      continue
+    }
+    pendingAttachments.value.push({
+      key: `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+      file,
+      name: file.name,
+      mediaType,
+      size: file.size,
+      previewUrl: mediaType.startsWith('image/') ? URL.createObjectURL(file) : undefined,
+    })
+  }
+  if (pendingAttachments.value.length > 0) {
+    petReactKind('glad', {expression: MizukiExpression.face_notice_01, lookAtEl: '.composer-attachments', lookDuration: 2600})
+  }
+}
+
+function removePendingAttachment(key: string) {
+  const index = pendingAttachments.value.findIndex((item) => item.key === key)
+  if (index < 0) return
+  const [removed] = pendingAttachments.value.splice(index, 1)
+  if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl)
+  petReactKind('shake', {lookAtEl: '.composer-dock'})
+}
+
+/** 发送前上传全部待发附件，返回 turn 消息引用清单 */
+async function uploadPendingAttachments(): Promise<TurnAttachmentRef[]> {
+  const refs: TurnAttachmentRef[] = []
+  for (const item of pendingAttachments.value) {
+    const uploaded = await uploadAervoxAttachment({
+      file: item.file,
+      name: item.name,
+      mediaType: item.mediaType,
+      purpose: purposeForMediaType(item.mediaType),
+    })
+    refs.push({attachmentId: uploaded.id, name: item.name, mediaType: item.mediaType})
+  }
+  return refs
+}
+
+function clearPendingAttachments() {
+  for (const item of pendingAttachments.value) {
+    if (item.previewUrl) URL.revokeObjectURL(item.previewUrl)
+  }
+  pendingAttachments.value = []
+}
+
 async function scrollStoryToBottom() {
   await nextTick()
   storyViewport.value?.scrollTo({top: storyViewport.value.scrollHeight, behavior: 'smooth'})
@@ -321,14 +465,38 @@ function openTermExplore(term: ExtractedTerm) {
 
 async function sendMessage(value = input.value) {
   const text = value.trim()
-  if (!text || streaming.value) return
+  if ((!text && pendingAttachments.value.length === 0) || streaming.value) return
+
+  // 附件先行上传（CAP-012 多模态输入），失败则保留待发清单供重试
+  let attachmentRefs: TurnAttachmentRef[] = []
+  if (pendingAttachments.value.length > 0) {
+    attachmentUploading.value = true
+    try {
+      attachmentRefs = await uploadPendingAttachments()
+    } catch (error) {
+      attachmentError.value = error instanceof Error ? `附件上传失败：${error.message}` : '附件上传失败，请重试。'
+      petReactKind('sad', {expression: MizukiExpression.face_trouble_01, lookAtEl: '.composer-attachments'})
+      return
+    } finally {
+      attachmentUploading.value = false
+    }
+  }
+
+  // 纯附件发送时使用占位文案满足 content 契约（min(1)）；对话记录展示用户原文或附件标记
+  const displayText = text || '（发送了附件）'
+  const outgoingText = text || '请查看我上传的附件。'
 
   // 若开启学习模式则自动附带学习模式前缀触发专属启发式教学 Prompt，对话记录仍展示用户原文。
   const modePrefix = studyModeEnabled.value ? '[模式：学习模式] ' : ''
-  const outgoing = modePrefix && !text.startsWith(modePrefix) ? modePrefix + text : text
+  const outgoing = modePrefix && !outgoingText.startsWith(modePrefix) ? modePrefix + outgoingText : outgoingText
 
   const assistantLine = createStoryLine('assistant', '', 'streaming')
-  story.value.push(createStoryLine('user', text), assistantLine)
+  const userLine = createStoryLine('user', displayText)
+  if (attachmentRefs.length > 0) {
+    userLine.attachments = pendingAttachments.value.map((item) => ({name: item.name, mediaType: item.mediaType, previewUrl: item.previewUrl}))
+    clearPendingAttachments()
+  }
+  story.value.push(userLine, assistantLine)
   input.value = ''
   streaming.value = true
   activeQuestion.value = null
@@ -365,7 +533,7 @@ async function sendMessage(value = input.value) {
           currentExtractedTerms.value = tData.terms
         },
       },
-      {toolApprovalMode: toolApprovalMode.value},
+      {toolApprovalMode: toolApprovalMode.value, attachments: attachmentRefs},
     )
   } catch (error) {
     assistantLine.state = 'error'
@@ -1007,6 +1175,7 @@ onUnmounted(() => {
   document.removeEventListener('click', handleMenuDocumentClick)
   document.removeEventListener('keydown', handleHistoryEscape)
   window.removeEventListener('aervox:open-settings', openSettings)
+  clearPendingAttachments()
 })
 </script>
 
@@ -1195,6 +1364,34 @@ onUnmounted(() => {
 
         <form v-else class="composer-expanded" @submit.prevent="sendMessage()">
           <label class="sr-only" for="aervox-composer">输入要发送给思隅的内容</label>
+          <input
+            ref="attachmentFileInput"
+            type="file"
+            class="sr-only"
+            multiple
+            :accept="attachmentAccept"
+            aria-label="选择要上传的附件（图片 / PDF / 文档 / 音频）"
+            @change="handleFilesChosen"
+          />
+          <div v-if="pendingAttachments.length > 0" class="composer-attachments" aria-label="待发送附件">
+            <div v-for="item in pendingAttachments" :key="item.key" class="attachment-chip">
+              <img v-if="item.previewUrl" :src="item.previewUrl" :alt="item.name" class="attachment-thumb" />
+              <span v-else class="attachment-icon"><component :is="attachmentIconFor(item.mediaType)" :size="15" /></span>
+              <span class="attachment-meta">
+                <span class="attachment-name" :title="item.name">{{ item.name }}</span>
+                <span class="attachment-size">{{ formatAttachmentSize(item.size) }}</span>
+              </span>
+              <button
+                type="button"
+                class="attachment-remove"
+                :aria-label="`移除附件 ${item.name}`"
+                :disabled="streaming || attachmentUploading"
+                @click="removePendingAttachment(item.key)"
+              >
+                <X :size="13" />
+              </button>
+            </div>
+          </div>
           <textarea
             id="aervox-composer"
             ref="composerTextarea"
@@ -1225,6 +1422,17 @@ onUnmounted(() => {
             <div class="composer-actions">
               <button
                 type="button"
+                class="attachment-picker-btn"
+                title="上传附件（图片 / PDF / 文档 / 音频，≤10MB）"
+                :aria-label="attachmentUploading ? '附件上传中' : '上传附件'"
+                :disabled="streaming || attachmentUploading"
+                @click="triggerAttachmentPicker"
+              >
+                <span v-if="attachmentUploading" class="sending-dot" />
+                <Paperclip v-else :size="18" />
+              </button>
+              <button
+                type="button"
                 class="voice-input-btn"
                 :class="{ active: voiceInput.isListening.value, transcribing: voiceInput.isTranscribing.value }"
                 :title="voiceInput.isListening.value ? '点击停止语音输入 (说话停顿自动转写)' : '点击开始离线语音输入'"
@@ -1235,7 +1443,7 @@ onUnmounted(() => {
                 <Mic v-else :size="19" />
                 <span v-if="voiceInput.isListening.value" class="recording-pulse" />
               </button>
-              <button type="submit" :disabled="!input.trim() || streaming" :aria-label="streaming ? '正在生成回答' : '发送消息'">
+              <button type="submit" :disabled="(!input.trim() && pendingAttachments.length === 0) || streaming || attachmentUploading" :aria-label="streaming ? '正在生成回答' : '发送消息'">
                 <span v-if="streaming" class="sending-dot" />
                 <Send v-else :size="20" />
               </button>
@@ -1248,6 +1456,12 @@ onUnmounted(() => {
 
         <div v-if="voiceInputError" class="voice-input-inline-error">
           <span>{{ voiceInputError }}</span>
+        </div>
+        <div v-if="attachmentError" class="voice-input-inline-error attachment-inline-error">
+          <span>{{ attachmentError }}</span>
+          <button type="button" class="attachment-error-dismiss" aria-label="关闭提示" @click="attachmentError = null">
+            <X :size="13" />
+          </button>
         </div>
       </section>
     </div>
@@ -1267,6 +1481,12 @@ onUnmounted(() => {
               <span class="vn-history-text">
                 <span v-if="line.speaker === 'assistant'" class="markdown-body" v-html="renderMarkdown(line.text || '…')" />
                 <template v-else>{{ line.text }}</template>
+                <span v-if="line.attachments && line.attachments.length > 0" class="vn-history-attachments">
+                  <span v-for="(att, attIndex) in line.attachments" :key="attIndex" class="vn-history-attachment">
+                    <component :is="attachmentIconFor(att.mediaType)" :size="12" />
+                    <span>{{ att.name }}</span>
+                  </span>
+                </span>
               </span>
             </p>
             <p v-if="story.length === 0" class="vn-history-empty">还没有对话记录，先和思隅说句话吧。</p>
