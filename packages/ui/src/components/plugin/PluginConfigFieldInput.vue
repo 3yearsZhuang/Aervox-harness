@@ -197,13 +197,17 @@ function updateArrayItem(index: number, next: unknown): void {
 </template>
 
 <style scoped>
-.pcfg-field { width: 100%; }
+.pcfg-field { width: 100%; transition: opacity 0.2s ease; }
 .pcfg-group {
   margin: 0 0 14px;
   padding: 12px 14px;
   border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
   border-radius: 12px;
   background: var(--bg-soft);
+  transition: border-color 0.22s ease, background-color 0.22s ease, box-shadow 0.22s ease;
+}
+.pcfg-group:hover {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
 }
 .pcfg-group legend { padding: 0 6px; color: var(--text-primary); font-size: 11px; font-weight: 750; }
 .pcfg-hint { margin: 2px 0 8px; color: var(--text-muted); font-size: 10px; line-height: 1.45; }
@@ -215,6 +219,7 @@ function updateArrayItem(index: number, next: unknown): void {
   gap: 18px;
   padding: 12px 0;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  transition: background-color 0.18s ease;
 }
 .pcfg-field .pcfg-field:last-child .pcfg-row { border-bottom: 0; }
 .pcfg-label { min-width: 0; display: grid; gap: 3px; }
@@ -234,27 +239,80 @@ function updateArrayItem(index: number, next: unknown): void {
   background: var(--bg-input);
   color: var(--text-primary);
   font-size: 11px;
+  transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.18s ease;
 }
 .pcfg-row textarea { width: 46%; resize: vertical; }
 .pcfg-row input:focus,
 .pcfg-row textarea:focus,
-.pcfg-row select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.pcfg-row select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
 .pcfg-checks { max-width: 50%; display: grid; gap: 6px; }
-.pcfg-check { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 10px; }
+.pcfg-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s ease;
+}
+.pcfg-check:hover { color: var(--text-primary); }
+.pcfg-check input[type="checkbox"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.pcfg-check input[type="checkbox"]:active {
+  transform: scale(0.9);
+}
 .pcfg-secret { display: inline-flex; align-items: center; gap: 8px; }
-.pcfg-secret-state { padding: 4px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 10px; }
+.pcfg-secret-state {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10px;
+  transition: all 0.2s ease;
+}
 .pcfg-small-btn, .pcfg-add-btn, .pcfg-icon-btn {
   display: inline-flex; align-items: center; gap: 4px;
   border: 1px solid var(--border); border-radius: 8px;
   background: var(--bg-soft); color: var(--text-secondary);
   font-size: 10px; cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .pcfg-small-btn { padding: 5px 9px; }
-.pcfg-small-btn:hover, .pcfg-add-btn:hover, .pcfg-icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+.pcfg-small-btn:hover, .pcfg-add-btn:hover, .pcfg-icon-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+}
+.pcfg-small-btn:active, .pcfg-add-btn:active, .pcfg-icon-btn:active {
+  transform: translateY(0) scale(0.97);
+}
 .pcfg-array { display: grid; gap: 8px; width: 100%; }
-.pcfg-array-item { display: flex; align-items: flex-start; gap: 8px; }
+.pcfg-array-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  transition: background-color 0.18s ease;
+}
+.pcfg-array-item:hover {
+  background: color-mix(in srgb, var(--bg-main) 60%, transparent);
+}
 .pcfg-array-item .pcfg-field { flex: 1; }
 .pcfg-array-item .pcfg-row { border-bottom: 0; }
 .pcfg-icon-btn { padding: 6px; align-self: center; }
+.pcfg-icon-btn:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--danger-soft);
+}
 .pcfg-add-btn { justify-self: start; padding: 6px 10px; }
 </style>

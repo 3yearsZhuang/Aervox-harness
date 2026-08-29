@@ -172,14 +172,24 @@ onBeforeUnmount(() => {
   color: var(--text-secondary);
   font-size: 11px;
   cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.plugin-page-tool:hover { border-color: var(--accent); color: var(--accent); }
+.plugin-page-tool:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+}
+.plugin-page-tool:active {
+  transform: translateY(0) scale(0.97);
+}
 .plugin-page-frame {
   width: 100%;
   height: 72vh;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: #fff;
+  transition: opacity 0.25s ease;
 }
 :root[data-theme='dark'] .plugin-page-frame { background: #1d222e; }
 </style>

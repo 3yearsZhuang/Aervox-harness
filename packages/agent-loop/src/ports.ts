@@ -304,6 +304,39 @@ export interface UserQuestionPort {
   ask(request: AskUserQuestionPortRequest): Promise<AskUserQuestionPortResult>;
 }
 
+// ============ 刷题模式作答落库端口（CAP-016 刷题闭环） ============
+
+/** 刷题模式下一次作答的落库请求（AI 判定后委托宿主持久化） */
+export interface PracticeAttemptPortRequest {
+  turnId: string;
+  /** 题干 */
+  prompt: string;
+  /** 题型：choice | short_answer | fill_blank（展示用） */
+  questionType?: string;
+  /** 用户原始回答 */
+  userAnswer: string;
+  /** 标准答案 */
+  correctAnswer: string;
+  judgement: "correct" | "incorrect" | "partial";
+  /** 解析（答错时的纠正说明） */
+  explanation?: string;
+  /** 可选知识点概念描述 */
+  knowledgeConcept?: string;
+}
+
+export interface PracticeAttemptPortResult {
+  questionId: string;
+  attemptId: string;
+  judgement: "correct" | "incorrect" | "partial";
+  /** judgement === "incorrect" 时进入错题本 */
+  enteredMistakeNotebook: boolean;
+}
+
+/** 宿主实现的刷题作答落库端口（写 questions + question_attempts） */
+export interface PracticeAttemptPort {
+  recordAttempt(request: PracticeAttemptPortRequest): Promise<PracticeAttemptPortResult>;
+}
+
 export type {
   AgentInboxCommand,
   AgentInboxConsumeBoundary,

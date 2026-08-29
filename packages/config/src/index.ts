@@ -12,6 +12,7 @@ export type LoopProvider =
   | "scripted"
   | "scripted-write"
   | "scripted-privileged"
+  | "scripted-quiz"
   | "llm";
 
 /** GPT-Sovits 语音输出 provider 配置（voice 模块） */
@@ -94,7 +95,7 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
     loopProvider: requireEnum(
       "AERVOX_LOOP_PROVIDER",
       env.AERVOX_LOOP_PROVIDER,
-      ["replay", "scripted", "scripted-write", "scripted-privileged", "llm"] as const,
+      ["replay", "scripted", "scripted-write", "scripted-privileged", "scripted-quiz", "llm"] as const,
       "llm",
     ),
     loopCompaction: requireEnum(
