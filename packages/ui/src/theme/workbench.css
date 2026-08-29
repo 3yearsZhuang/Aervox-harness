@@ -555,6 +555,85 @@
   cursor: not-allowed;
 }
 
+/* ---------- 卡片切换动画（学习模式联动 / AI 提问临时卡 / 手动换卡） ---------- */
+.side-card-slot-inner {
+  min-height: 0;
+  display: grid;
+}
+
+/* 过渡期间禁用指针事件，避免残影误触（与菜单胶囊同一规范） */
+.card-swap-enter-active,
+.card-swap-leave-active {
+  pointer-events: none;
+}
+
+.card-swap-enter-active {
+  transition: opacity .28s cubic-bezier(.2, .8, .3, 1), transform .28s cubic-bezier(.2, .8, .3, 1);
+}
+
+.card-swap-leave-active {
+  transition: opacity .18s ease, transform .18s ease;
+}
+
+.card-swap-enter-from {
+  opacity: 0;
+  transform: translateY(10px) scale(.985);
+}
+
+.card-swap-leave-to {
+  opacity: 0;
+  transform: translateY(-8px) scale(.985);
+}
+
+/* 学习模式下今日学习富卡片：快捷入口网格（固定高度，不抢统计行空间） */
+.side-card-actions {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+/* AI 提问临时卡：整卡不用于打开工具，指针恢复默认；正文多行省略 */
+.side-question-card {
+  cursor: default;
+}
+
+.side-question-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.side-question-options .side-card-grid-item.picked {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--glass-border));
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.side-question-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  padding: clamp(6px, 1vh, 9px) clamp(12px, 1.2vw, 16px);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--glass-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font-size: clamp(11.5px, .9vw, 13px);
+  font-weight: 640;
+  cursor: pointer;
+  transition: background-color .16s ease, border-color .16s ease;
+}
+
+.side-question-submit:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.side-question-submit:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
 /* ---------- 底部控制台：消息对话框 + 输入框 ---------- */
 
 .immersive-console {

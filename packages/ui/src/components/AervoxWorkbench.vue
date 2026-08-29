@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronUp,
+  CircleHelp,
   Clock3,
   Database,
   Download,
@@ -134,6 +135,8 @@ const questionStartTime = ref<number>(0)
 const activeQuestion = ref<UserQuestionRequiredEventData | null>(null)
 const questionSubmitting = ref(false)
 const currentTurnId = ref<string | null>(null)
+// UQ-01: 侧边提问卡（第一槽临时覆盖）的本地多选暂存
+const questionCardSelected = ref<string[]>([])
 
 // CAP-007 / CAP-002: 术语抽取与追问探索弹窗
 const currentExtractedTerms = ref<ExtractedTerm[]>([])
@@ -155,6 +158,8 @@ const input = ref('')
 const isComposing = ref(false)
 const composerPlaceholder = '和思隅聊聊学习或任何事…'
 const cardSlots = ref<Array<CardId | null>>([null, null])
+// 学习模式卡片联动：开启前的槽位快照（仅存内存，不写 localStorage，退出/回落时恢复）
+let savedCardSlots: Array<CardId | null> | null = null
 const timerSeconds = ref(25 * 60)
 const timerRunning = ref(false)
 const streaming = ref(false)
@@ -260,6 +265,58 @@ const cardCatalog = computed<CardDefinition[]>(() => [
 ])
 
 const slotCards = computed(() => cardSlots.value.map((id) => id ? cardCatalog.value.find((card) => card.id === id) ?? null : null))
+
+/** 侧边提问卡展示的问题（UQ-01：覆盖第一槽，多题时只展示第一题，完整交互见消息面板） */
+const questionCardData = computed(() => activeQuestion.value?.questions[0] ?? null)
+
+/** 学习模式卡片联动：把两个槽位临时替换为「今日学习 + 番茄钟」（不写 localStorage，刷新后回落持久化配置） */
+function applyStudyCardLayout() {
+  savedCardSlots = [...cardSlots.value]
+  cardSlots.value = ['study', 'timer']
+}
+
+/** 学习模式卡片联动：恢复开启前的槽位快照 */
+function restoreStudyCardLayout() {
+  if (!savedCardSlots) return
+  cardSlots.value = savedCardSlots
+  savedCardSlots = null
+}
+
+/** 每日一题入口：经系统浏览器打开牛客每日一题（纯跳转，不抓取数据） */
+const DAILY_PROBLEM_URL = 'https://www.nowcoder.com/problem/tracker'
+
+function openDailyProblem() {
+  recordProactiveActivity('aervox.operation', 'workbench.daily_problem_opened', DAILY_PROBLEM_URL)
+  petReactKind('forward', {lookAtEl: '.side-cards'})
+  const desktopBridge = (window as Window & {fairyDesktop?: {openExternal?: (url: string) => Promise<void>}}).fairyDesktop
+  if (desktopBridge?.openExternal) void desktopBridge.openExternal(DAILY_PROBLEM_URL)
+  else window.open(DAILY_PROBLEM_URL, '_blank', 'noopener')
+}
+
+/** 侧边提问卡选项点击：单选直接提交，多选本地暂存 */
+function handleQuestionCardOption(label: string) {
+  const question = questionCardData.value
+  if (!question) return
+  if (question.multiSelect) {
+    questionCardSelected.value = questionCardSelected.value.includes(label)
+      ? questionCardSelected.value.filter((item) => item !== label)
+      : [...questionCardSelected.value, label]
+    return
+  }
+  void handleQuestionSubmit([{id: question.id, selected: [label]}])
+}
+
+/** 侧边提问卡多选提交 */
+function submitQuestionCardAnswers() {
+  const question = questionCardData.value
+  if (!question || questionCardSelected.value.length === 0) return
+  void handleQuestionSubmit([{id: question.id, selected: [...questionCardSelected.value]}])
+}
+
+// 提问结束后清空侧边提问卡的本地多选暂存
+watch(activeQuestion, (value) => {
+  if (!value) questionCardSelected.value = []
+})
 
 const menuOpen = ref(false)
 const menuPillRef = ref<HTMLElement | null>(null)
@@ -576,6 +633,8 @@ async function sendMessage(value = input.value) {
         onUserQuestion: (qData) => {
           activeQuestion.value = qData
           currentTurnId.value = qData.turnId
+          // 侧边第一槽临时切换为提问卡，桌宠看向卡片区提示作答入口
+          petReactKind('tilthead', {lookAtEl: '.side-cards', lookDuration: 3200})
           void scrollStoryToBottom()
         },
         onTermsExtracted: (tData) => {
@@ -1296,9 +1355,12 @@ async function toggleVoiceInput() {
 function toggleStudyMode() {
   studyModeEnabled.value = !studyModeEnabled.value
   recordProactiveActivity('aervox.operation', 'conversation.study_mode_changed', undefined, {enabled: studyModeEnabled.value})
-  if (studyModeEnabled.value) petReactKind('glad', {expression: MizukiExpression.face_smile_01, lookAtEl: '.floating-study-switch-wrap'})
-  else petReactKind('shake', {expression: MizukiExpression.face_normal_01, lookAtEl: '.floating-study-switch-wrap'})
-  if (!studyModeEnabled.value) {
+  if (studyModeEnabled.value) {
+    petReactKind('glad', {expression: MizukiExpression.face_smile_01, lookAtEl: '.floating-study-switch-wrap'})
+    applyStudyCardLayout()
+  } else {
+    petReactKind('shake', {expression: MizukiExpression.face_normal_01, lookAtEl: '.floating-study-switch-wrap'})
+    restoreStudyCardLayout()
     currentExtractedTerms.value = []
     exploreDialogOpen.value = false
   }
@@ -1379,6 +1441,9 @@ onMounted(() => {
   } catch {
     // Ignore malformed card preferences and keep placeholders.
   }
+
+  // 学习模式开启时刷新页面：仍按「今日学习 + 番茄钟」呈现，并记录快照供退出恢复
+  if (studyModeEnabled.value) applyStudyCardLayout()
 
   if (isWeb.value) {
     const saved = localStorage.getItem('aervox-theme')
@@ -1485,55 +1550,116 @@ onUnmounted(() => {
 
     <aside class="side-cards" aria-label="功能卡片">
       <div v-for="(card, slotIndex) in slotCards" :key="slotIndex" class="side-card-slot">
-        <template v-if="card">
-          <article
-            class="side-card"
-            role="region"
-            tabindex="0"
-            :aria-label="`打开${card.label}`"
-            @click="activateCard(card, $event)"
-            @keydown.enter="activateCard(card, $event)"
-          >
-            <header class="side-card-head">
-              <span class="side-card-icon"><component :is="card.icon" :size="24" /></span>
-              <span class="side-card-title">
-                <strong>{{ card.label }}</strong>
-                <small>{{ card.description }}</small>
-              </span>
-              <button class="side-card-remove" type="button" aria-label="移除此卡片" @click.stop="selectCard(slotIndex, null, $event)">
-                <X :size="15" />
-              </button>
-            </header>
-            <p class="side-card-summary">{{ card.summary() }}</p>
-            <footer class="side-card-foot">
-              <span>点击打开</span>
-              <ChevronRight :size="15" />
-            </footer>
-          </article>
-        </template>
-
-        <div v-else class="side-card side-card-placeholder" role="group" aria-label="为此卡片选择功能">
-          <header class="side-card-head">
-            <span class="side-card-icon"><Plus :size="17" /></span>
-            <span class="side-card-title">
-              <strong>选择功能</strong>
-              <small>把常用工具放到这里</small>
-            </span>
-          </header>
-          <div class="side-card-grid">
-            <button
-              v-for="option in cardCatalog"
-              :key="option.id"
-              type="button"
-              class="side-card-grid-item"
-              :disabled="isCardPicked(option.id)"
-              @click="selectCard(slotIndex, option.id, $event)"
+        <Transition name="card-swap" mode="out-in">
+          <div :key="slotIndex === 0 && questionCardData ? 'question' : card?.id ?? 'placeholder'" class="side-card-slot-inner">
+            <!-- UQ-01: AI 提问时第一槽临时切换为提问卡，作答后自动恢复 -->
+            <article
+              v-if="slotIndex === 0 && questionCardData"
+              class="side-card side-question-card"
+              role="region"
+              tabindex="0"
+              :aria-label="`${assistantDisplayName}想问你`"
             >
-              <component :is="option.icon" :size="15" />
-              <span>{{ option.label }}</span>
-            </button>
+              <header class="side-card-head">
+                <span class="side-card-icon"><CircleHelp :size="24" /></span>
+                <span class="side-card-title">
+                  <strong>{{ assistantDisplayName }}想问你</strong>
+                  <small>点选选项作答，答完卡片自动恢复</small>
+                </span>
+              </header>
+              <p class="side-card-summary side-question-text">{{ questionCardData.question }}</p>
+              <div v-if="questionCardData.options?.length" class="side-card-grid side-question-options">
+                <button
+                  v-for="option in questionCardData.options"
+                  :key="option.label"
+                  type="button"
+                  class="side-card-grid-item"
+                  :class="{picked: questionCardSelected.includes(option.label)}"
+                  :disabled="questionSubmitting"
+                  @click.stop="handleQuestionCardOption(option.label)"
+                >
+                  <span>{{ option.label }}</span>
+                </button>
+              </div>
+              <button
+                v-if="questionCardData.multiSelect && questionCardData.options?.length"
+                type="button"
+                class="side-question-submit"
+                :disabled="questionSubmitting || questionCardSelected.length === 0"
+                @click.stop="submitQuestionCardAnswers()"
+              >
+                {{ questionSubmitting ? '提交中…' : `提交（已选 ${questionCardSelected.length}）` }}
+              </button>
+              <footer class="side-card-foot">
+                <span>{{ questionSubmitting ? '正在提交回答…' : '正在等待你的回答…' }}</span>
+              </footer>
+            </article>
+
+            <article
+              v-else-if="card"
+              class="side-card"
+              role="region"
+              tabindex="0"
+              :aria-label="`打开${card.label}`"
+              @click="activateCard(card, $event)"
+              @keydown.enter="activateCard(card, $event)"
+            >
+              <header class="side-card-head">
+                <span class="side-card-icon"><component :is="card.icon" :size="24" /></span>
+                <span class="side-card-title">
+                  <strong>{{ card.label }}</strong>
+                  <small>{{ card.description }}</small>
+                </span>
+                <button class="side-card-remove" type="button" aria-label="移除此卡片" @click.stop="selectCard(slotIndex, null, $event)">
+                  <X :size="15" />
+                </button>
+              </header>
+              <p class="side-card-summary">{{ card.summary() }}</p>
+              <!-- 学习模式下的今日学习富卡片：每日一题与学习快捷入口（点击卡片仍整体打开学习抽屉） -->
+              <div v-if="card.id === 'study' && studyModeEnabled" class="side-card-grid side-card-actions">
+                <button type="button" class="side-card-grid-item" @click.stop="openDailyProblem()">
+                  <CircleHelp :size="15" />
+                  <span>每日一题</span>
+                </button>
+                <button type="button" class="side-card-grid-item" @click.stop="openTool('timer')">
+                  <Clock3 :size="15" />
+                  <span>开始专注</span>
+                </button>
+                <button type="button" class="side-card-grid-item" @click.stop="openTool('study')">
+                  <Puzzle :size="15" />
+                  <span>错题重练</span>
+                </button>
+              </div>
+              <footer class="side-card-foot">
+                <span>点击打开</span>
+                <ChevronRight :size="15" />
+              </footer>
+            </article>
+
+            <div v-else class="side-card side-card-placeholder" role="group" aria-label="为此卡片选择功能">
+              <header class="side-card-head">
+                <span class="side-card-icon"><Plus :size="17" /></span>
+                <span class="side-card-title">
+                  <strong>选择功能</strong>
+                  <small>把常用工具放到这里</small>
+                </span>
+              </header>
+              <div class="side-card-grid">
+                <button
+                  v-for="option in cardCatalog"
+                  :key="option.id"
+                  type="button"
+                  class="side-card-grid-item"
+                  :disabled="isCardPicked(option.id)"
+                  @click="selectCard(slotIndex, option.id, $event)"
+                >
+                  <component :is="option.icon" :size="15" />
+                  <span>{{ option.label }}</span>
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        </Transition>
       </div>
     </aside>
 
