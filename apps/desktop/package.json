@@ -4,8 +4,8 @@
   "description": "Aervox Electron desktop UI and companion pet.",
   "main": "out/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
-    "build": "vue-tsc --noEmit && electron-vite build",
+    "dev": "node scripts/generate-icons.mjs && electron-vite dev",
+    "build": "vue-tsc --noEmit && node scripts/generate-icons.mjs && electron-vite build",
     "start": "electron-vite preview",
     "test": "vitest run",
     "typecheck": "vue-tsc --noEmit"
