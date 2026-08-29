@@ -55,13 +55,12 @@ import {
   turnStreamEventSchema,
   updateLearningGoalSchema,
   createPracticeReportSchema,
-  createStudyPlanSchema,
-  updateStudyPlanSchema,
-  updatePredictionSchema,
+  generateLearningPlanSchema,
+  updatePlanTaskStatusSchema,
   practiceReportResponseSchema,
   practiceReportListResponseSchema,
-  studyPlanResponseSchema,
-  studyPlanListResponseSchema,
+  learningPlanResponseSchema,
+  learningPlanListResponseSchema,
   extractedTermSchema,
   termsExtractedEventDataSchema,
   termExploreRequestSchema,
@@ -775,7 +774,8 @@ const practiceSessionIdParam = z.object({ sessionId: z.string().min(1) });
 const learningQuestionIdParam = z.object({ questionId: z.string().min(1) });
 const reviewItemIdParam = z.object({ reviewId: z.string().min(1) });
 const reportIdParam = z.object({ reportId: z.string().min(1) });
-const studyPlanIdParam = z.object({ planId: z.string().min(1) });
+const learningPlanIdParam = z.object({ planId: z.string().min(1) });
+const planTaskIdParam = z.object({ taskId: z.string().min(1) });
 const mistakeListQuery = z.object({ status: mistakeStatusEnumSchema.optional() });
 
 registry.registerPath({
@@ -788,11 +788,11 @@ registry.registerPath({ method: "post", path: "/v1/practice-reports", summary: "
 registry.registerPath({ method: "get", path: "/v1/practice-reports/{reportId}", summary: "读取自适应练习报告", tags: ["Learning"], request: { params: reportIdParam, headers: scopeHeaders }, responses: { 200: { description: "Report", content: { "application/json": { schema: practiceReportResponseSchema } } }, 404: { description: "Report not found" } } });
 registry.registerPath({ method: "get", path: "/v1/practice-sessions/{sessionId}/reports", summary: "列出会话练习报告", tags: ["Learning"], request: { params: practiceSessionIdParam, headers: scopeHeaders }, responses: { 200: { description: "Reports", content: { "application/json": { schema: practiceReportListResponseSchema } } } } });
 registry.registerPath({ method: "post", path: "/v1/practice-sessions/{sessionId}/reset-inference", summary: "重置会话报告推断", tags: ["Learning"], request: { params: practiceSessionIdParam, headers: scopeHeaders }, responses: { 201: { description: "Reset report", content: { "application/json": { schema: practiceReportResponseSchema } } } } });
-registry.registerPath({ method: "post", path: "/v1/study-plans", summary: "创建学习计划", tags: ["Learning"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: createStudyPlanSchema } } } }, responses: { 201: { description: "Created", content: { "application/json": { schema: studyPlanResponseSchema } } }, 400: { description: "Validation failed" } } });
-registry.registerPath({ method: "get", path: "/v1/study-plans", summary: "列出活跃学习计划", tags: ["Learning"], request: { headers: scopeHeaders }, responses: { 200: { description: "Plans", content: { "application/json": { schema: studyPlanListResponseSchema } } } } });
-registry.registerPath({ method: "patch", path: "/v1/study-plans/{planId}", summary: "滚动调整学习计划", tags: ["Learning"], request: { params: studyPlanIdParam, headers: scopeHeaders, body: { content: { "application/json": { schema: updateStudyPlanSchema } } } }, responses: { 200: { description: "Updated", content: { "application/json": { schema: studyPlanResponseSchema } } }, 400: { description: "Validation failed" }, 404: { description: "Plan not found" } } });
-registry.registerPath({ method: "post", path: "/v1/study-plans/{planId}/prediction", summary: "更新学习计划完成预测", tags: ["Learning"], request: { params: studyPlanIdParam, headers: scopeHeaders, body: { content: { "application/json": { schema: updatePredictionSchema } } } }, responses: { 200: { description: "Updated", content: { "application/json": { schema: studyPlanResponseSchema } } }, 400: { description: "Validation failed" }, 404: { description: "Plan not found" } } });
-registry.registerPath({ method: "post", path: "/v1/study-plans/{planId}/archive", summary: "归档学习计划", tags: ["Learning"], request: { params: studyPlanIdParam, headers: scopeHeaders }, responses: { 200: { description: "Archived", content: { "application/json": { schema: studyPlanResponseSchema } } }, 404: { description: "Plan not found" } } });
+registry.registerPath({ method: "post", path: "/v1/learning-plans/generate", summary: "AI 生成学习规划（里程碑+任务路线图）", tags: ["Learning"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: generateLearningPlanSchema } } } }, responses: { 201: { description: "Created", content: { "application/json": { schema: learningPlanResponseSchema } } }, 400: { description: "Validation failed / LLM 未配置" } } });
+registry.registerPath({ method: "get", path: "/v1/learning-plans", summary: "列出学习规划", tags: ["Learning"], request: { headers: scopeHeaders }, responses: { 200: { description: "Plans", content: { "application/json": { schema: learningPlanListResponseSchema } } } } });
+registry.registerPath({ method: "get", path: "/v1/learning-plans/{planId}", summary: "获取学习规划详情", tags: ["Learning"], request: { params: learningPlanIdParam, headers: scopeHeaders }, responses: { 200: { description: "Plan", content: { "application/json": { schema: learningPlanResponseSchema } } }, 404: { description: "Plan not found" } } });
+registry.registerPath({ method: "patch", path: "/v1/plan-tasks/{taskId}", summary: "更新规划任务状态（勾选/取消完成）", tags: ["Learning"], request: { params: planTaskIdParam, headers: scopeHeaders, body: { content: { "application/json": { schema: updatePlanTaskStatusSchema } } } }, responses: { 200: { description: "Updated plan", content: { "application/json": { schema: learningPlanResponseSchema } } }, 400: { description: "Validation failed" }, 404: { description: "Task not found" } } });
+registry.registerPath({ method: "post", path: "/v1/learning-plans/{planId}/archive", summary: "归档学习规划", tags: ["Learning"], request: { params: learningPlanIdParam, headers: scopeHeaders }, responses: { 200: { description: "Archived", content: { "application/json": { schema: learningPlanResponseSchema } } }, 404: { description: "Plan not found" } } });
 registry.registerPath({
   method: "get", path: "/v1/practice/sessions/active", summary: "恢复当前活跃练习会话", tags: ["Learning"],
   request: { headers: scopeHeaders },
