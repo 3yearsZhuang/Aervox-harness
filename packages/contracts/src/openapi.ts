@@ -21,6 +21,10 @@ import {
   errorEventDataSchema,
   memoryStoreToolInputSchema,
   memoryStoreToolOutputSchema,
+  diarySchema,
+  diaryWriteToolInputSchema,
+  diaryWriteToolOutputSchema,
+  toolApprovalRequiredEventDataSchema,
   messageEventDataSchema,
   petCommandSchema,
   petManifestSchema,
@@ -166,6 +170,10 @@ registry.register("ToolRegistryEntry", toolRegistryEntrySchema);
 registry.register("ToolRegistryExport", toolRegistryExportSchema);
 registry.register("MemoryStoreToolInput", memoryStoreToolInputSchema);
 registry.register("MemoryStoreToolOutput", memoryStoreToolOutputSchema);
+registry.register("Diary", diarySchema);
+registry.register("DiaryWriteToolInput", diaryWriteToolInputSchema);
+registry.register("DiaryWriteToolOutput", diaryWriteToolOutputSchema);
+registry.register("ToolApprovalRequiredEventData", toolApprovalRequiredEventDataSchema);
 registry.register("PetSheetState", petSheetStateSchema);
 registry.register("PetSheetLayout", petSheetLayoutSchema);
 registry.register("PetManifest", petManifestSchema);
@@ -251,6 +259,25 @@ const scopeHeaders = z.object({
   "X-Workspace-Id": z.string().min(1).optional(),
   "X-User-Id": z.string().min(1).optional(),
   "X-Actor-Id": z.string().min(1).optional(),
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/diaries",
+  summary: "按本地日期查询日记",
+  tags: ["Diary"],
+  request: {
+    query: z.object({ localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }),
+    headers: scopeHeaders,
+  },
+  responses: {
+    200: {
+      description: "Diary of the local date",
+      content: { "application/json": { schema: diarySchema } },
+    },
+    400: { description: "localDate is required (YYYY-MM-DD)" },
+    404: { description: "Diary not found" },
+  },
 });
 const proactiveHeaders = scopeHeaders.extend({
   "X-Aervox-Proactive-Token": z.string().min(32),
@@ -424,6 +451,33 @@ registry.registerPath({
     400: { description: "Invalid answers request" },
     404: { description: "TURN_NOT_FOUND or no pending question" },
     409: { description: "Question already answered or turn finalized" },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/turns/{turnId}/tool-approvals",
+  summary: "写工具授权决定（PET-05；granted 后由客户端重发相同请求命中授权）",
+  tags: ["Turn"],
+  request: {
+    params: turnIdParam,
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            approvalId: z.string().min(1),
+            decision: z.enum(["granted", "denied"]),
+            decidedBy: z.string().optional(),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: { description: "Decision recorded" },
+    400: { description: "approvalId and decision (granted|denied) are required" },
+    403: { description: "admin_required (privileged tool)" },
+    404: { description: "Approval not found" },
   },
 });
 
