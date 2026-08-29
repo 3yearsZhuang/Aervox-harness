@@ -4,7 +4,7 @@
  * 遵循 ADR-014 演进式模块化单体与 AVX-PLUG-001 插件规范：
  * - 暴露独立 POST /v1/terms/explore 与 POST /v1/hierarchy/explore
  * - 支持 child (深挖原理)、related (关联对比) 与 branch (创建独立会话分支)
- * - 仅在学习模式 / 学习上下文中被激活调用
+ * - 仅在专注模式 / 学习上下文中被激活调用
  */
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import type { SqliteConversationRepository } from "@aervox/database";

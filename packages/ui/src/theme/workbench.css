@@ -81,7 +81,7 @@
   min-height: 0;
 }
 
-/* ---------- 悬浮顶栏：学习模式开关 + 设置按钮 ---------- */
+/* ---------- 悬浮顶栏：专注模式开关 + 设置按钮 ---------- */
 
 .floating-top-actions {
   position: absolute;
@@ -93,7 +93,7 @@
   gap: clamp(8px, 1vw, 12px);
 }
 
-/* 学习模式切换开关：玻璃胶囊（图标 + 文案 + 轨道） */
+/* 专注模式切换开关：玻璃胶囊（图标 + 文案 + 轨道） */
 .floating-study-switch-wrap {
   display: inline-flex;
   align-items: center;
@@ -129,6 +129,43 @@
 }
 
 .study-switch-label {
+  font-size: clamp(11.5px, .9vw, 13px);
+  font-weight: 640;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+
+/* 刷题一次性按钮：与学习模式开关同视觉语言的玻璃胶囊 */
+.floating-quiz-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 clamp(10px, 1vw, 14px);
+  height: clamp(34px, 4vh, 40px);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: .78;
+  transition: opacity .18s ease, color .18s ease, border-color .18s ease;
+  user-select: none;
+}
+
+.floating-quiz-btn:hover:not(:disabled) {
+  opacity: 1;
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--glass-border));
+}
+
+.floating-quiz-btn:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
+.quiz-btn-label {
   font-size: clamp(11.5px, .9vw, 13px);
   font-weight: 640;
   letter-spacing: .02em;
@@ -853,6 +890,83 @@
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   box-shadow: 0 2px 12px rgba(23, 32, 54, .07), inset 0 1px 0 rgba(255, 255, 255, .18);
+  transition: max-height .32s cubic-bezier(.2, .8, .3, 1), padding-block .32s cubic-bezier(.2, .8, .3, 1);
+}
+
+/* ── 对话区域收起开关（CAP-001）：折叠为细条摘要行，高度动画过渡 ── */
+.message-panel.collapsed {
+  max-height: 44px;
+  padding-block: 9px;
+}
+
+.message-panel.collapsed .message-viewport,
+.message-panel.collapsed .message-history-entry {
+  flex: 0 0 0;
+  max-height: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: max-height .32s cubic-bezier(.2, .8, .3, 1), opacity .18s ease;
+}
+
+.message-viewport,
+.message-history-entry {
+  transition: max-height .32s cubic-bezier(.2, .8, .3, 1), opacity .28s ease .08s;
+}
+
+.console-collapsed-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding-right: 34px; /* 给右上角 toggle 按钮留位 */
+  animation: novel-sentence-in .28s ease;
+}
+
+.console-collapsed-speaker {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-size: clamp(10px, 1.1vh, 12px);
+  font-weight: 780;
+  letter-spacing: .04em;
+}
+
+.console-collapsed-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--text-2);
+  font-size: clamp(12px, 1.4vh, 14px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.console-collapse-toggle {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  z-index: 2;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  background: var(--glass-bg);
+  color: var(--text-2);
+  cursor: pointer;
+  opacity: .6;
+  transition: opacity .18s ease, color .18s ease, border-color .18s ease, transform .18s ease;
+}
+
+.console-collapse-toggle:hover {
+  opacity: 1;
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--glass-border));
+  transform: translateY(-1px);
 }
 
 .message-viewport {
@@ -965,10 +1079,42 @@
 .message-novel-text {
   display: grid;
   gap: 0;
+  min-height: 0;
+  max-height: 100%;
 }
 
+/* 切换模式下单句仍可能很长：限高内部滚动，保证对话框永不超最大高度 */
 .message-novel-text .markdown-body {
   animation: novel-sentence-in .28s ease;
+  max-height: clamp(88px, 20vh, 220px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
+}
+
+/* 流式打字机期间首句同样限高，超长自动滚动到末尾（跟随打字位置） */
+.message-text > .markdown-body {
+  max-height: clamp(88px, 20vh, 220px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
+}
+
+/* 句序指示 + 下一句按钮同一行（左下贴文本，不占额外高度） */
+.novel-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.novel-progress {
+  color: color-mix(in srgb, var(--text-2) 72%, transparent);
+  font-size: 11px;
+  font-weight: 640;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .04em;
+  opacity: .85;
 }
 
 @keyframes novel-sentence-in {
@@ -979,11 +1125,9 @@
 }
 
 .novel-next-btn {
-  justify-self: start;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: 6px;
   padding: 4px 12px;
   border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--glass-border));
   border-radius: 999px;
@@ -1027,7 +1171,7 @@
   }
 }
 
-/* 核心概念标签栏（学习模式 · 渐变光泽卡片与芯片） */
+/* 核心概念标签栏（专注模式 · 渐变光泽卡片与芯片） */
 .message-terms-bar {
   display: flex;
   flex-wrap: wrap;
@@ -3708,7 +3852,7 @@
     height: 26px;
   }
 
-  /* 窄视口：学习模式开关去文字，只留图标 + 轨道，避免与左侧菜单胶囊拥挤 */
+  /* 窄视口：专注模式开关去文字，只留图标 + 轨道，避免与左侧菜单胶囊拥挤 */
   .study-switch-label {
     display: none;
   }
