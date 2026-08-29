@@ -63,6 +63,8 @@ export interface BuildAppOptions {
   skillsRoot?: string;
   /** 插件 Page Bundle 落盘根目录（测试注入临时目录；缺省 <repo>/data/plugins） */
   pluginsRoot?: string;
+  /** 附件二进制落盘根目录（测试注入临时目录；缺省 <repo>/data/attachments） */
+  attachmentsRoot?: string;
   /** 语音服务配置（如测试注入 mock provider） */
   voiceOptions?: VoiceModuleOptions;
   /** LLM 模型服务配置 */
@@ -163,6 +165,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
     workflows: options.workflows,
     skillsRoot: options.skillsRoot,
     pluginsRoot: options.pluginsRoot,
+    attachmentsRoot: options.attachmentsRoot,
   };
 
   // 先注册「被依赖」模块并填充共享服务（依赖方经 ctx 读取；顺序显式）：

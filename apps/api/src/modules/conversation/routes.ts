@@ -98,6 +98,16 @@ export function registerConversationRoutes(
 
     let userMessage = parsed.data.message.content;
 
+    // 多模态输入（CAP-012）：消息携带附件引用时附加结构化清单，
+    // Agent Loop 消费 userMessage 即可感知附件（图片/音频/文档），后续接 OCR/转写管线。
+    const attachments = parsed.data.message.attachments ?? [];
+    if (attachments.length > 0) {
+      const list = attachments
+        .map((a) => `- ${a.name ?? a.attachmentId}${a.mediaType ? ` (${a.mediaType})` : ""} [id: ${a.attachmentId}]`)
+        .join("\n");
+      userMessage = `${userMessage}\n\n[附件清单]\n${list}`;
+    }
+
     // 阶段 5a-2：消费本 session 的 next-turn 收件箱项（followup 排队为新 Turn 输入，§7.2）
     if (deps.inboxRepo) {
       const followups = await deps.inboxRepo.claimForConsumption(tenant, {

@@ -4,11 +4,13 @@
  * 与具体传输解耦：桌面走 IPC transport，Web 走 fetch/SSE transport。
  */
 import { getTransport, getSessionId } from './transport';
+import type { AttachmentUploadInput, UploadedAttachment } from './transport';
 import type {
   AskUserQuestionAnswerItem,
   PetCommand,
   TermsExtractedEventData,
   ToolApprovalMode,
+  TurnAttachmentRef,
   UserQuestionRequiredEventData,
   TermExploreRequest,
   TermExploreResponse,
@@ -28,9 +30,18 @@ export interface StreamAervoxTurnCallbacks {
 export async function streamAervoxTurn(
   content: string,
   callbacks: StreamAervoxTurnCallbacks,
-  options: { toolApprovalMode?: ToolApprovalMode } = {},
+  options: { toolApprovalMode?: ToolApprovalMode; attachments?: TurnAttachmentRef[] } = {},
 ): Promise<void> {
   await getTransport().streamTurn(getSessionId(), content, callbacks, options);
+}
+
+/** 多模态输入：上传附件二进制（Web 直连 / 桌面经 IPC 桥），返回附件引用 */
+export async function uploadAervoxAttachment(input: AttachmentUploadInput): Promise<UploadedAttachment> {
+  const transport = getTransport();
+  if (!transport.uploadAttachment) {
+    throw new Error('当前传输层不支持附件上传');
+  }
+  return transport.uploadAttachment(input);
 }
 
 export async function submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[]): Promise<void> {
