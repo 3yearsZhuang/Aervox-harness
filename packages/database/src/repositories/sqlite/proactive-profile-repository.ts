@@ -411,9 +411,9 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
             scope: "all",
             osCapability: item.osCapability,
             // 未收到 OS/adapter 回执时只能是 requested；显式 sources.state=granted
-            // 才能让该能力参与 effectiveGrantSet。
+            // 才能让该能力参与 effectiveGrantSet。mandatory 以服务端 manifest 为准。
             state: "requested" as const,
-            mandatory: true,
+            mandatory: item.mandatory,
             grantVersion: 1,
             metadata: {},
             grantedAt: null,

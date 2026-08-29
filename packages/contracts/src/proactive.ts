@@ -245,6 +245,10 @@ export interface ProactiveDesktopBridge {
   onStatusChange(callback: (status: ProactiveProfileStatus) => void): () => void
 }
 
+// required 表示「当前版本已接入探测/适配器、可被用户实际授予的必需来源」。
+// 通信、位置、传感器与敏感私人资料尚无平台 Provider（CR-023：待平台接入），
+// 只能保持可见并显示待接入，不阻塞最小激活集——否则 effectiveState 永远
+// 到不了 active，主动智能的集成与动作全链路都会被闸死。
 export const PROFILE_CAPABILITY_CATALOG: readonly Omit<ProfileCapabilityState, 'osStatus' | 'reason' | 'lastVerifiedAt'>[] = [
   {id: 'aervox.activity', label: 'Aervox 使用', description: '工作台功能、学习时段、任务时长和提醒响应', required: true, canRequest: false},
   {id: 'aervox.operation', label: 'Aervox 操作', description: '界面与工具操作序列，用于形成操作习惯', required: true, canRequest: false},
@@ -254,12 +258,12 @@ export const PROFILE_CAPABILITY_CATALOG: readonly Omit<ProfileCapabilityState, '
   {id: 'device.clipboard', label: '剪贴板', description: '剪贴板变更和内容，用于上下文理解', required: true, canRequest: true},
   {id: 'device.screen_capture', label: '屏幕与视觉', description: '屏幕帧、OCR 和视觉上下文', required: true, canRequest: true},
   {id: 'filesystem.full_disk_watch', label: '文件与目录', description: '用户授权的文件、目录和持续变更', required: true, canRequest: true},
-  {id: 'external.communication', label: '通信资料', description: '邮件、消息、联系人和日历连接器', required: true, canRequest: true},
+  {id: 'external.communication', label: '通信资料', description: '邮件、消息、联系人和日历连接器；等待平台接入', required: false, canRequest: false},
   {id: 'device.microphone', label: '麦克风', description: '本地音频信号和语音上下文', required: true, canRequest: true},
   {id: 'device.camera', label: '摄像头', description: '本地视频信号和视觉上下文', required: true, canRequest: true},
-  {id: 'device.location', label: '位置', description: '设备定位和位置变化', required: true, canRequest: true},
-  {id: 'device.sensors', label: '其他传感器', description: '平台可提供的环境和设备信号', required: true, canRequest: true},
-  {id: 'restricted.profile', label: '敏感私人资料', description: '健康、情绪、关系等用户明确选择的资料', required: true, canRequest: true},
+  {id: 'device.location', label: '位置', description: '设备定位和位置变化；等待平台接入', required: false, canRequest: false},
+  {id: 'device.sensors', label: '其他传感器', description: '平台可提供的环境和设备信号；经外部连接授予', required: false, canRequest: false},
+  {id: 'restricted.profile', label: '敏感私人资料', description: '健康、情绪、关系等用户明确选择的资料；经外部连接授予', required: false, canRequest: false},
   {id: 'background.persistent', label: '后台持续运行', description: '开机启动、应用退出后运行和休眠恢复', required: true, canRequest: true},
   {id: 'action.local', label: '本地主动操作', description: '获得单独授权的本地提醒和文件操作', required: true, canRequest: false},
   {id: 'action.external', label: '外部主动操作', description: '获得单独授权的浏览器、通信和设备操作', required: true, canRequest: false},

@@ -178,20 +178,26 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
     }).filter((source): source is NonNullable<typeof source> => source !== null) ?? [];
     // full_profile_v1 的 manifest 是固定全量清单；调用方只回报已拿到的 OS grant
     // 时，其余来源仍落为 requested，不能因请求体省略而暗示授权范围变小。
+    // mandatory 是服务端策略（当前版本支持的最小激活集），不信任客户端声明：
+    // 无平台 Provider 的来源不能被客户端改回 mandatory 而重新闸死激活。
     const parsedByKey = new Map(parsedSources.map((source) => [source.sourceKey, source]));
-    const sources = FULL_PROFILE_SOURCE_MANIFEST.map((manifest, index) => parsedByKey.get(manifest.sourceKey) ?? ({
-      id: `${profileId}_source_${index + 1}`,
-      sourceKey: manifest.sourceKey,
-      purpose: manifest.purpose,
-      scope: "all",
-      osCapability: manifest.osCapability,
-      state: "requested" as const,
-      mandatory: true,
-      grantVersion: 1,
-      metadata: {},
-      grantedAt: null,
-      lastVerifiedAt: null,
-    }));
+    const sources = FULL_PROFILE_SOURCE_MANIFEST.map((manifest, index) => {
+      const parsed = parsedByKey.get(manifest.sourceKey);
+      if (parsed) return {...parsed, mandatory: manifest.mandatory};
+      return {
+        id: `${profileId}_source_${index + 1}`,
+        sourceKey: manifest.sourceKey,
+        purpose: manifest.purpose,
+        scope: "all",
+        osCapability: manifest.osCapability,
+        state: "requested" as const,
+        mandatory: manifest.mandatory,
+        grantVersion: 1,
+        metadata: {},
+        grantedAt: null,
+        lastVerifiedAt: null,
+      };
+    });
     // Preserve explicitly supplied non-catalog source IDs for forward-compatible adapters.
     for (const source of parsedSources) {
       if (!FULL_PROFILE_SOURCE_MANIFEST.some((item) => item.sourceKey === source.sourceKey)) sources.push(source);

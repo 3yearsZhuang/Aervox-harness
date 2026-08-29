@@ -11,27 +11,31 @@ import { tenantColumns, timestampColumns } from "./common.js";
 /**
  * 当前版本完整画像授权包的来源清单。它是能力 manifest 的默认基线，
  * 不是绕过 OS 权限的通配符；每项仍需由本地 Permission Broker 回执。
+ * mandatory 表示「当前版本支持、必须授予才能激活」的最小集合：与
+ * contracts 的 PROFILE_CAPABILITY_CATALOG.required 保持一致——无平台
+ * Provider 的来源（通信/位置/传感器/敏感资料）不阻塞激活，其中传感器与
+ * 敏感资料经外部连接（Home Assistant / 小米运动健康）显式授予。
  */
 export const FULL_PROFILE_SOURCE_MANIFEST = [
-  { sourceKey: "aervox.activity", purpose: "profile.observe", osCapability: "aervox.activity" },
-  { sourceKey: "aervox.operation", purpose: "profile.observe", osCapability: "aervox.operation" },
-  { sourceKey: "device.app_activity", purpose: "profile.observe", osCapability: "os.app_activity" },
-  { sourceKey: "device.browser_activity", purpose: "profile.observe", osCapability: "os.browser_history" },
-  { sourceKey: "device.input_content", purpose: "profile.observe", osCapability: "os.input" },
-  { sourceKey: "device.clipboard", purpose: "profile.observe", osCapability: "os.clipboard" },
-  { sourceKey: "device.screen_capture", purpose: "profile.observe", osCapability: "os.screen_capture" },
-  { sourceKey: "filesystem.full_disk_watch", purpose: "profile.observe", osCapability: "os.files" },
-  { sourceKey: "external.communication", purpose: "profile.observe", osCapability: "os.communications" },
-  { sourceKey: "device.microphone", purpose: "profile.observe", osCapability: "os.microphone" },
-  { sourceKey: "device.camera", purpose: "profile.observe", osCapability: "os.camera" },
-  { sourceKey: "device.location", purpose: "profile.observe", osCapability: "os.location" },
-  { sourceKey: "device.sensors", purpose: "profile.observe", osCapability: "os.sensors" },
-  { sourceKey: "restricted.profile", purpose: "profile.observe", osCapability: "os.restricted_profile" },
-  { sourceKey: "background.persistent", purpose: "profile.persist", osCapability: "os.background" },
-  { sourceKey: "action.local", purpose: "action.authorize", osCapability: "action.local" },
-  { sourceKey: "action.external", purpose: "action.authorize", osCapability: "action.external" },
-  { sourceKey: "action.privileged", purpose: "action.authorize", osCapability: "action.privileged" },
-  { sourceKey: "action.irreversible", purpose: "action.authorize", osCapability: "action.irreversible" },
+  { sourceKey: "aervox.activity", purpose: "profile.observe", osCapability: "aervox.activity", mandatory: true },
+  { sourceKey: "aervox.operation", purpose: "profile.observe", osCapability: "aervox.operation", mandatory: true },
+  { sourceKey: "device.app_activity", purpose: "profile.observe", osCapability: "os.app_activity", mandatory: true },
+  { sourceKey: "device.browser_activity", purpose: "profile.observe", osCapability: "os.browser_history", mandatory: true },
+  { sourceKey: "device.input_content", purpose: "profile.observe", osCapability: "os.input", mandatory: true },
+  { sourceKey: "device.clipboard", purpose: "profile.observe", osCapability: "os.clipboard", mandatory: true },
+  { sourceKey: "device.screen_capture", purpose: "profile.observe", osCapability: "os.screen_capture", mandatory: true },
+  { sourceKey: "filesystem.full_disk_watch", purpose: "profile.observe", osCapability: "os.files", mandatory: true },
+  { sourceKey: "external.communication", purpose: "profile.observe", osCapability: "os.communications", mandatory: false },
+  { sourceKey: "device.microphone", purpose: "profile.observe", osCapability: "os.microphone", mandatory: true },
+  { sourceKey: "device.camera", purpose: "profile.observe", osCapability: "os.camera", mandatory: true },
+  { sourceKey: "device.location", purpose: "profile.observe", osCapability: "os.location", mandatory: false },
+  { sourceKey: "device.sensors", purpose: "profile.observe", osCapability: "os.sensors", mandatory: false },
+  { sourceKey: "restricted.profile", purpose: "profile.observe", osCapability: "os.restricted_profile", mandatory: false },
+  { sourceKey: "background.persistent", purpose: "profile.persist", osCapability: "os.background", mandatory: true },
+  { sourceKey: "action.local", purpose: "action.authorize", osCapability: "action.local", mandatory: true },
+  { sourceKey: "action.external", purpose: "action.authorize", osCapability: "action.external", mandatory: true },
+  { sourceKey: "action.privileged", purpose: "action.authorize", osCapability: "action.privileged", mandatory: true },
+  { sourceKey: "action.irreversible", purpose: "action.authorize", osCapability: "action.irreversible", mandatory: true },
 ] as const;
 
 /** 版本化全量画像授权包（一个租户/设备可有多次修订） */

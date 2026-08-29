@@ -191,6 +191,56 @@ describe("CAP-033 proactive API", () => {
     expect((await app.inject({ method: "GET", url: "/v1/proactive/claims", headers })).json().items).toHaveLength(0);
   });
 
+  it("derives mandatory from the server manifest and stays active while platform-pending sources wait", async () => {
+    const pending = new Set(["external.communication", "device.location", "device.sensors", "restricted.profile"]);
+    const profile = await app.inject({
+      method: "POST",
+      url: "/v1/proactive/authorize",
+      headers,
+      payload: {
+        id: "profile-api-pending",
+        deviceId: "device-api",
+        fullAccessConfirmed: true,
+        // 客户端谎报 mandatory=true 也不能把待平台接入来源重新变成必需：
+        // mandatory 由服务端 manifest 派生。
+        sources: FULL_PROFILE_SOURCE_MANIFEST.map((source, index) => ({
+          id: `profile-api-pending-source-${index}`,
+          sourceKey: source.sourceKey,
+          purpose: source.purpose,
+          osCapability: source.osCapability,
+          state: pending.has(source.sourceKey) ? "requested" : "granted",
+          mandatory: true,
+        })),
+      },
+    });
+    expect(profile.statusCode).toBe(201);
+    const grantedSource = profile.json().sources.find((source: {sourceKey: string; state: string}) => source.state === "granted");
+
+    const lease = await app.inject({
+      method: "POST",
+      url: "/v1/proactive/activation",
+      headers,
+      payload: {
+        id: "lease-api-pending",
+        revisionId: profile.json().revision.id,
+        deviceId: "device-api",
+        epoch: "epoch-api-pending",
+        localReady: true,
+        fullAccessSnapshot: true,
+      },
+    });
+    expect(lease.statusCode).toBe(201);
+
+    const status = await app.inject({ method: "GET", url: "/v1/proactive/status", headers });
+    expect(status.json().effectiveState).toBe("active");
+    expect(status.json().mandatorySources).toMatchObject({
+      total: FULL_PROFILE_SOURCE_MANIFEST.length - pending.size,
+      granted: FULL_PROFILE_SOURCE_MANIFEST.length - pending.size,
+      missing: [],
+    });
+    expect(grantedSource).toBeTruthy();
+  });
+
   it("exports a checksummed local snapshot and tracks action grant revisions", async () => {
     const profile = await app.inject({
       method: "POST",

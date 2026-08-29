@@ -79,6 +79,49 @@ describe("CAP-033 proactive profile repository", () => {
     expect((await repository.getEffectiveStatus(tenant)).effectiveState).toBe("limited");
   });
 
+  it("derives active once mandatory sources are granted even when platform-pending sources wait", async () => {
+    const repository = new SqliteProactiveProfileRepository(db);
+    // 未显式传入 sources 时，mandatory 由服务端 manifest 派生：
+    // 通信/位置/传感器/敏感资料 4 项待平台接入，不计入必需集合。
+    const pending = new Set(["external.communication", "device.location", "device.sensors", "restricted.profile"]);
+    const fallback = await repository.confirmProfile(tenant, {
+      id: "profile_fallback",
+      deviceId: "device-a",
+      actorId: "usr_pro",
+    });
+    expect(fallback.sources).toHaveLength(FULL_PROFILE_SOURCE_MANIFEST.length);
+    expect(fallback.sources.filter((source) => source.mandatory)).toHaveLength(FULL_PROFILE_SOURCE_MANIFEST.length - pending.size);
+
+    const sources = FULL_PROFILE_SOURCE_MANIFEST.map((source, index) => ({
+      id: `profile_pending_source_${index + 1}`,
+      sourceKey: source.sourceKey,
+      purpose: source.purpose,
+      osCapability: source.osCapability,
+      scope: "all",
+      state: (pending.has(source.sourceKey) ? "requested" : "granted") as "requested" | "granted",
+      mandatory: !pending.has(source.sourceKey),
+      lastVerifiedAt: "2026-08-29T00:00:00.000Z",
+    }));
+    const result = await repository.confirmProfile(otherTenant, {
+      id: "profile_pending",
+      deviceId: "device-b",
+      actorId: "usr_other",
+      sources,
+    });
+    await repository.createActivationLease(otherTenant, {
+      id: "lease_pending",
+      revisionId: result.revision.id,
+      deviceId: "device-b",
+      epoch: "epoch-pending",
+      localReady: true,
+      fullAccessSnapshot: true,
+      actorId: "usr_other",
+    });
+    const status = await repository.getEffectiveStatus(otherTenant);
+    expect(status.effectiveState).toBe("active");
+    expect(status.mandatorySources).toMatchObject({total: FULL_PROFILE_SOURCE_MANIFEST.length - pending.size, granted: FULL_PROFILE_SOURCE_MANIFEST.length - pending.size, missing: []});
+  });
+
   it("retains raw captures for seven days and blocks expiry until memory distillation", async () => {
     const cipher = createProactiveVaultCipher(new Uint8Array(32).fill(9), "test-v1");
     const repository = new SqliteProactiveProfileRepository(db, cipher);

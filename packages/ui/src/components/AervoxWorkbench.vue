@@ -918,6 +918,24 @@ function proactiveStateLabel(status: ProactiveProfileStatus | null): string {
   return profileStatusLabel(status.effectiveState)
 }
 
+function proactiveSuspendHint(status: ProactiveProfileStatus | null): string {
+  if (!status || (status.effectiveState !== 'suspended' && status.effectiveState !== 'limited')) return ''
+  if (status.host?.reason === 'unsigned_development_host') {
+    return '未签名的开发构建默认不受信任；使用 ./aervox dev（已自动设置 AERVOX_TRUST_LOCAL_DEV_HOST=1）或手动设置该变量后重新打开。'
+  }
+  const reasonLabel: Record<string, string> = {
+    tool_mode: '请先在输入区开启「完全访问」。',
+    user_paused: '你已手动暂停观察，可点击「恢复观察」。',
+    local_unavailable: '本地 API 不可达或 Host 未受信，请确认 API 已在本机运行。',
+    os_permission: '存在未授予的必需系统权限，请在下方列表逐项授权。',
+    lease_expired: '激活租约已过期，刷新状态即可续期。',
+    watermark: '授权快照与服务端不一致，请重新确认授权。',
+    policy_mismatch: '授权版本与服务端策略不一致，请重新确认授权。',
+    source_revision_changed: '画像授权修订已变化，请重新确认授权。',
+  }
+  return status.suspendReason ? reasonLabel[status.suspendReason] ?? '' : ''
+}
+
 async function refreshProactiveStatus() {
   const bridge = proactiveBridge()
   if (isWeb.value || !bridge) {
@@ -2911,6 +2929,7 @@ onUnmounted(() => {
                 <strong>{{ proactiveStateLabel(proactiveStatus) }}</strong>
                 <small v-if="proactiveStatus?.host">{{ proactiveStatus.host.localOnly ? '数据处理边界：仅本机' : '本地边界未验证' }} · {{ proactiveStatus.host.platform }}</small>
                 <small v-else>主动智能模式需要受信的 Electron 本地 Host，Web 端不会伪造授权。</small>
+                <small v-if="proactiveSuspendHint(proactiveStatus)" class="proactive-suspend-hint">{{ proactiveSuspendHint(proactiveStatus) }}</small>
               </span>
               <button v-if="!isWeb" type="button" class="proactive-icon-button" aria-label="刷新主动智能状态" title="刷新状态" :disabled="proactiveBusy" @click="refreshProactiveStatus"><RefreshCw :size="15" /></button>
             </div>

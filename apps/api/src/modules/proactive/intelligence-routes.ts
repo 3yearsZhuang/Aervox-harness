@@ -15,7 +15,12 @@ const stringArray = (value: unknown): string[] => Array.isArray(value) ? value.f
 
 async function revisionId(profileRepo: SqliteProactiveProfileRepository, req: Parameters<typeof resolveTenant>[0]) {
   const revision = await profileRepo.getRevision(resolveTenant(req));
-  if (!revision) throw new Error("proactive_profile_revision_required");
+  // 409 而非默认 500：尚未确认画像授权是客户端可恢复的前置条件缺失。
+  if (!revision) {
+    const error = new Error("proactive_profile_revision_required") as Error & {statusCode?: number};
+    error.statusCode = 409;
+    throw error;
+  }
   return revision.id;
 }
 
