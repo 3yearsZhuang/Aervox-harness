@@ -32,6 +32,7 @@ ADR 记录难以逆转、影响多个模块或改变数据/运维边界的技术
 | ADR-016 | Accepted | 底座边界冻结：Kernel Substrate 与能力层依赖边界，`scripts/import-boundary.mjs` 机器校验 | [ADR-016](ADR-016-base-boundaries.md) |
 | ADR-017 | Proposed | ContextManifest/ModelRun/AgentStep 关联（ModelRun 唯一父级，新增 attemptId/stepId）+ AgentInboxItem 数据模型与 claim/ack 消费 | [ADR-017](ADR-017-context-manifest-modelrun-step.md) |
 | ADR-018 | Proposed | CAP-033 本地私密存储、受信主动智能 Host、OS Permission Broker、全动作授权与后台生命周期 | [ADR-018](ADR-018-proactive-local-privacy-host.md) |
+| ADR-019 | Accepted | 主动智能外部连接采用本地网关、加密凭据、受控工具和连接级撤销 | [ADR-019](ADR-019-proactive-integrations-local-gateway.md) |
 
 `Proposed` 不代表已经批准。当前独立记录是评审输入，不是 G2 通过证据；每条 ADR 必须补齐备选方案、后果、迁移、回滚和验证证据并经过评审，状态才能改为 `Accepted`。
 

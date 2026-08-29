@@ -14,7 +14,7 @@
 
 | 文档 | 负责回答 | 事实源边界 |
 |---|---|---|
-| [PRD](reference/PRD.md) | 为什么做、为谁做、全生命周期做什么、用户层面如何验收 | 产品定位、场景、CAP-001～CAP-033、优先级、路线和用户级指标 |
+| [PRD](reference/PRD.md) | 为什么做、为谁做、全生命周期做什么、用户层面如何验收 | 产品定位、场景、CAP-001～CAP-035、优先级、路线和用户级指标 |
 | [SRS](reference/SRS.md) | 发布范围内每个行为、异常和业务规则如何原子化 | FR/BR/NFR、Given/When/Then 验收和测试 ID |
 | [架构设计](reference/ARCHITECTURE.md) | 系统如何实现和演进 | TypeScript 全栈选型、C4、模块/数据所有权、部署、可靠性、安全和 ADR |
 | [流式协议契约](reference/STREAMING_PROTOCOL.md) | Turn 创建、SSE 事件、幂等、重连、取消和部分响应如何保持一致 | OpenAPI 配套的机器可验证事件 envelope、状态机、游标、保留和安全持久化规则 |
@@ -36,6 +36,8 @@
 | [从这里开始](getting-started.md)（AVX-DOC-002，见[§7](#7-从哪开始)） | 新成员/Agent 从哪看起、提交前自检什么 | 导航型；不承载规则 |
 | [能力拆分路线](explanation/roadmap.md)（AVX-EXPL-004，见[§4.1](#41-能力拆分路线建议批次)） | CAP 按什么批次、什么顺序进入规格化与开发 | 建议批次与拆分节奏；既不重复 PRD 路线图，也不重复追踪基线矩阵 |
 | [主动智能模式](explanation/proactive-intelligence-mode.md)（AVX-EXPL-008） | 完全访问上如何以广域画像授权、OS 能力、特权观察 Host、本地私密数据和主动操作组合既有 CAP | 评审提案；不替代 PRD/SRS/DATA_PRIVACY/ADR，不表示运行时已实现 |
+| [CR-024 主动智能能力套件与外部环境连接](reference/changes/CR-024-proactive-intelligence-suite-integrations.md) | 十二项主动智能能力与 HA/小米健康如何进入产品基线 | 已接受差量、实现位置、验证和回滚；关联 CAP-033～035 |
+| [ADR-019 主动智能外部连接本地网关](reference/adr/ADR-019-proactive-integrations-local-gateway.md) | 外部连接为何使用本地网关、加密凭据和受控工具 | 已接受的 HA REST/WS、小米 OAuth/每日指标、白名单与撤销边界 |
 | [文档写作规范](reference/standards/doc-standards.md)（AVX-STD-001） | 每份文档如何使用模板、命名、写作并通过门禁 | 写作体例、签名、命名、风格基线、Vale 术语门禁与模板族；治理规则见 AVX-DOC-GOV-001 |
 | [术语表](reference/standards/terminology.md)（AVX-TERM-001） | 项目术语的唯一含义与规范写法 | 缩写/产品名唯一语义；Vale 依据「禁写」列自动校验 |
 | [教程：第一个对话](tutorials/first-conversation.md)（AVX-TUT-001） | 新成员如何从 0 跑到第一条对话 | 可执行步骤与验证 |
@@ -44,8 +46,8 @@
 | [参考项目能力迁移与借鉴评估](explanation/reference-design-transfer.md)（AVX-EXPL-002） | 参考项目哪些设计值得落地或借鉴 | 判定框架、建议落地清单、落地顺序与 AGPL 边界 |
 | [桌宠角色设定文档化与多人格模板组织](explanation/persona-organization.md)（AVX-EXPL-003） | 桌宠 IP 与多人格模板（CAP-019）的角色如何文档化、版本化并维护 | 角色文档清单、字段化结构（prompt/开场白/语气/技能/错误兜底语）、人设目录与模板版本化、维护责任 |
 | [ESP32-S3 硬件延伸方案](explanation/esp32-s3-hardware-extension.md)（AVX-EXPL-005） | 如何把 ESP32-S3 做成物理桌宠终端 | 评审输入：硬件边界、表现映射、设备协议与隐私红线；R0 先 USB 不联网 |
-| [Home Assistant 集成评估](explanation/home-assistant-integration-assessment.md)（AVX-EXPL-006） | 如何为 Aervox 引入 Home Assistant 支持 | 评审输入：接入面盘点、与 Agent Loop/本地优先的契合点、方案对比（Loop 工具 + 事件网关推荐组合）、阶段路线与安全边界 |
-| [运动与健康数据接入评估](explanation/health-data-integration-assessment.md)（AVX-EXPL-007） | 是否可以接入苹果/小米运动健康数据（步数、睡眠、情绪） | 评审输入：敏感分级、苹果/小米接入路径盘点、方案对比（小米云 API + Apple 文件导入）与情绪健康默认拒绝红线 |
+| [Home Assistant 集成评估](explanation/home-assistant-integration-assessment.md)（AVX-EXPL-006） | 如何为 Aervox 引入 Home Assistant 支持 | 候选方案与后续路线；推荐组合已由 CR-024/ADR-019 接受 |
+| [运动与健康数据接入评估](explanation/health-data-integration-assessment.md)（AVX-EXPL-007） | 是否可以接入苹果/小米运动健康数据（步数、睡眠、情绪） | 小米每日指标路径已由 CR-024/ADR-019 接受；苹果与情绪健康仍为评估输入 |
 
 文档分类、状态、事实源与复核触发以[文档治理与事实源规范](reference/document-governance.md)为准；模板、命名、签名和写作门禁见[文档写作规范](reference/standards/doc-standards.md)，术语唯一语义见[术语表](reference/standards/terminology.md)。
 
@@ -55,7 +57,7 @@
 
 后续表现层变更见 [CR-007：可替换 Live2D 桌宠渲染层](reference/changes/CR-007-live2d-sekai-viewer-pet.md)：Web 工作台重新启用可回退的 Live2D 桌宠；Electron 主工作台保持无左侧桌宠，独立桌宠窗口继续使用 Live2D。
 
-桌面端首次启动体验见 [CR-024：桌面端首次启动引导](reference/changes/CR-024-desktop-first-run-onboarding.md)：Electron 首次启动通过四步窗口内序章介绍产品，复用 Live2D 与 CR-015 模型配置能力，并用版本化本机标记控制后续跳过。
+桌面端首次启动体验见 [CR-025：桌面端首次启动引导](reference/changes/CR-025-desktop-first-run-onboarding.md)：Electron 首次启动通过四步窗口内序章介绍产品，复用 Live2D 与 CR-015 模型配置能力，并用版本化本机标记控制后续跳过。
 
 最近的插件能力变更见 [CR-006：插件配置解析与可视化](reference/changes/CR-006-plugin-config-and-pages.md)：新增插件 Config Schema v1、配置持久化/API 与受限 Page Bridge（规范见 [AVX-PLUG-001](reference/plugin-config-and-pages.md)）。
 
@@ -73,7 +75,7 @@ Agent 执行核心的当前与目标边界见 [CR-012：Agent Harness Loop](refe
 
 工具授权的 Turn 级完全访问开关见 [CR-022](reference/changes/CR-022-full-access-tool-permission.md)：默认仍逐次确认，用户经风险确认后可自动放行普通写工具；CAP-033 另以独立的 `FullProfileActionGrant` 承载用户明确批准的全量主动动作，撤权/删除、租户隔离和平台访问控制仍由各自事实源约束。
 
-本地主动智能能力见 [CR-023](reference/changes/CR-023-proactive-local-intelligence-mode.md) 与 [AVX-EXPL-008](explanation/proactive-intelligence-mode.md)：已接受新增 `CAP-033`「全域感知与个人画像（主动智能模式）」的产品方向；主动智能模式是「当前 `full_access` + 全量画像授权包 + OS 能力授权 + 受信 Host + 强制本地存储/处理」的派生状态。当前运行时已实现本地 Vault、授权/lease、全动作授权器、Aervox activity/operation 与剪贴板采集、Worker 提炼、导出和后台 heartbeat；其余平台来源仍 limited，CAP-033 为 partial/Not Ready，尚未 Released。
+本地主动智能能力见 [CR-023](reference/changes/CR-023-proactive-local-intelligence-mode.md)、[CR-024](reference/changes/CR-024-proactive-intelligence-suite-integrations.md) 与 [AVX-EXPL-008](explanation/proactive-intelligence-mode.md)：`CAP-033` 已具备本地 Vault、授权/lease、全动作授权器、部分来源、十二项本地派生、日/周回顾和桌面仪表盘；`CAP-034/035` 已具备 HA 私网 REST/WS、实体/service 白名单、小米健康每日指标和五个 Agent 工具。三项能力仍为 Not Ready，生产 OS Broker、HA 兼容矩阵和小米厂商沙箱/账号审批未完成，尚未 Released。
 
 练习中断恢复边界见 [CR-013：活跃练习会话恢复与续答](reference/changes/CR-013-practice-session-recovery.md)：重开学习界面会恢复同一题组快照和首个未答题，重复启动不会创建第二个活跃会话。
 
@@ -119,7 +121,7 @@ Agent 执行核心的当前与目标边界见 [CR-012：Agent Harness Loop](refe
 
 ### 4.1 能力拆分路线（建议批次）
 
-每批 CAP 何时从 `Mapped` 转 `Specified`、按什么顺序拆分进入开发，见[能力拆分路线](explanation/roadmap.md)（AVX-EXPL-004）。拆分的唯一事实源是[追踪基线覆盖矩阵](reference/REQUIREMENTS_TRACEABILITY.md#4-cap-001cap-033-覆盖矩阵全部能力状态唯一速览)。
+每批 CAP 何时从 `Mapped` 转 `Specified`、按什么顺序拆分进入开发，见[能力拆分路线](explanation/roadmap.md)（AVX-EXPL-004）。拆分的唯一事实源是[追踪基线覆盖矩阵](reference/REQUIREMENTS_TRACEABILITY.md#4-cap-001cap-035-覆盖矩阵全部能力状态唯一速览)。
 
 ## 5. 专业基线自检
 

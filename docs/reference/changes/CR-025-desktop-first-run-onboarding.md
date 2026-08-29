@@ -1,5 +1,5 @@
 ---
-id: CR-024
+id: CR-025
 type: reference
 scope: change
 owner: desktop
@@ -18,7 +18,7 @@ sources:
   - docs/reference/changes/CR-015-llm-provider-config-webui.md
 ---
 
-# CR-024 桌面端首次启动引导
+# CR-025 桌面端首次启动引导
 
 - 提出人：kikoyida · 2026-08-29
 - 修改人：kikoyida · 2026-08-29

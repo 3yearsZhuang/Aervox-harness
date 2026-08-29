@@ -92,6 +92,37 @@ body {
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
+/* 大模型连接状态呼吸灯：online 缓慢呼吸 / offline 静默红点 / unknown 探测橙 */
+.titlebar-status.llm-online i {
+  background: #34a853;
+  box-shadow: 0 0 0 3px rgba(52, 168, 83, .22);
+  animation: llm-breath 2.4s ease-in-out infinite;
+}
+
+.titlebar-status.llm-offline i {
+  background: #e5484d;
+  box-shadow: 0 0 0 3px rgba(229, 72, 77, .2);
+}
+
+.titlebar-status.llm-unknown i {
+  background: #f5a623;
+  box-shadow: 0 0 0 3px rgba(245, 166, 35, .22);
+  animation: llm-breath 1.2s ease-in-out infinite;
+}
+
+.titlebar-status.llm-online {
+  color: color-mix(in srgb, #34a853 78%, var(--text-muted));
+}
+
+.titlebar-status.llm-offline {
+  color: color-mix(in srgb, #e5484d 78%, var(--text-muted));
+}
+
+@keyframes llm-breath {
+  0%, 100% { opacity: .55; }
+  50% { opacity: 1; }
+}
+
 .titlebar-drag-space {
   flex: 1;
   height: 100%;

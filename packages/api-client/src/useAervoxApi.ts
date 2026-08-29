@@ -176,6 +176,13 @@ export function useAervoxApi() {
     await loadAll();
   };
 
+  /** CAP-009: 单独刷新今日日记（对话触发生成后调用，避免全量 loadAll） */
+  const loadTodayDiary = async (): Promise<void> => {
+    todayDiary.value = await transport
+      .request<DiaryDto>(`GET`, `/v1/diaries?localDate=${encodeURIComponent(todayLocal())}`)
+      .catch(() => null);
+  };
+
   const updateGoal = async (goalId: string, update: UpdateLearningGoal): Promise<void> => {
     await transport.request('PATCH', `/v1/learning/goals/${encodeURIComponent(goalId)}`, update);
     await loadAll();
@@ -263,6 +270,7 @@ export function useAervoxApi() {
     error,
     hasData,
     loadAll,
+    loadTodayDiary,
     createGoal,
     updateGoal,
     archiveGoal,

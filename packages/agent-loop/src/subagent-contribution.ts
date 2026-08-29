@@ -25,9 +25,10 @@ export const WORKFLOW_RUN_TOOL = "workflow_run";
  * 合并多个 ToolProviderPort 为单一清单（5c Provider Contribution）：
  * - 工具清单取 providers 并集；重名（name 冲突）在组装期抛错，杜绝执行期歧义路由；
  * - execute 按 name 路由到声明它的 provider；
- * - 未命中时：存在 `fallback` 则委托其执行（支持「动态注册表」provider——其 tools 为空、
- *   execute 时实时校验注册表并自判 unregistered/审批，如 apps/api 的 createRuntimeToolProvider）；
- *   无 fallback 则 fail-closed（与既有未注册语义一致）。
+ * - 未命中时：存在 `fallback` 则委托其执行（支持「动态注册表」provider——execute 时实时校验
+ *   注册表并自判 unregistered/审批，如 apps/api 的 createRuntimeToolProvider）；
+ *   fallback 的 tools 非空时一并并入模型清单（重名以 providers 优先），保证真实 LLM 模式下
+ *   注册表工具对模型可见；无 fallback 则 fail-closed（与既有未注册语义一致）。
  */
 export function composeToolProviders(
   providers: ToolProviderPort[],
@@ -48,6 +49,13 @@ export function composeToolProviders(
     }
   }
   const fallback = opts.fallback;
+  // fallback 携带预载清单时并入（模型可见性）；执行仍按 name 未命中回落到 fallback
+  for (const tool of opts.fallback?.tools ?? []) {
+    if (!nameToProvider.has(tool.name) && opts.fallback) {
+      nameToProvider.set(tool.name, opts.fallback);
+      tools.push(tool);
+    }
+  }
   return {
     tools,
     async execute(input: ToolExecutionInput): Promise<ToolExecutionResult> {
@@ -55,6 +63,8 @@ export function composeToolProviders(
       if (provider) {
         return provider.execute(input);
       }
+      // 未命中（含 fallback 清单之外的动态注册名）仍委托 fallback 自判：注册表 provider
+      // 实时校验 enabled/授权，语义为 unregistered/disabled/approval 由其自行返回
       if (fallback) {
         return fallback.execute(input);
       }

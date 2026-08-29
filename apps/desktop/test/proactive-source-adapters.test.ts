@@ -1,3 +1,4 @@
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   createProactiveSourceAdapters,
@@ -56,7 +57,16 @@ describe("CAP-033 desktop wide-source adapters", () => {
   });
 
   it("browser history capture exposes metadata and path hash only", async () => {
-    const historyPath = "/fixture/home/Library/Application Support/Google/Chrome/Default/History";
+    // Adapter 通过 join() 构造候选路径，fixture 必须用同样的方式生成，才能跨平台（Windows 反斜杠）匹配。
+    const historyPath = join(
+      "/fixture/home",
+      "Library",
+      "Application Support",
+      "Google",
+      "Chrome",
+      "Default",
+      "History",
+    );
     const fs = {
       access: async (path: string) => {
         if (path !== historyPath) throw new Error("not readable");
@@ -93,10 +103,12 @@ describe("CAP-033 desktop wide-source adapters", () => {
   });
 
   it("file metadata capture rejects symlinks and paths escaping the authorized root", async () => {
-    const root = "/fixture/root";
-    const safe = `${root}/safe.txt`;
-    const link = `${root}/link.txt`;
-    const escape = `${root}/escape.txt`;
+    // uniquePaths() 会 resolve() 根路径，Windows 下 "/fixture/root" 变为 "C:\fixture\root"；
+    // fixture 用 resolve()/join() 生成才能与 adapter 内部路径逐字匹配。
+    const root = resolve("/fixture/root");
+    const safe = join(root, "safe.txt");
+    const link = join(root, "link.txt");
+    const escape = join(root, "escape.txt");
     const fs = {
       access: async (path: string) => {
         if (path !== root && path !== safe) throw new Error("denied");

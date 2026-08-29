@@ -1,5 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalEnv": ["AERVOX_WEB_PORT", "AERVOX_DESKTOP_PORT"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

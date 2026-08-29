@@ -1,13 +1,13 @@
 # Aervox｜思隅 Turn 流式协议（SPC）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：witchscottishfoldcat · 2026-08-29
 
 > 文档编号：AVX-SPC-001  
 > 版本：v0.2（评审候选）  
-> 更新日期：2026-08-28  
+> 更新日期：2026-08-29  
 > 状态：Review Candidate  
-> 关联：`ADR-002`、`ADR-012`、`CR-019`、`NFR-PERF-001`、`NFR-REL-001`、`NFR-SEC-001`
+> 关联：`ADR-002`、`ADR-012`、`CR-019`、`CR-022`、`NFR-PERF-001`、`NFR-REL-001`、`NFR-SEC-001`
 
 本文是对话流式 API 和客户端行为的可执行契约。OpenAPI 3.1 描述 HTTP 资源、鉴权和错误；本文件描述 SSE 事件 envelope、状态机、重连、取消、幂等和持久化顺序。实现必须从同一份 `packages/contracts` schema 生成服务端校验、客户端类型和契约测试，不能只依赖本文件中的示例。
 
@@ -136,6 +136,10 @@ Created -> InputChecking -> Running -> Finalizing -> Completed
 
 - `user_question_required`：表示模型在执行过程中调用 `ask_user_question` 发起向用户提问与决策确认，Step 挂起等待。`data` 包含 `turnId`、`step`、`questions` 数组（含 `id`、`question`、`header`、`detail`、`options`、`multiSelect`、`intent`）以及 `timeoutMs`。
 - `user_question_answered`：表示用户已提交对该问题的回答（通过 `POST /v1/turns/:turnId/questions/answers`），Loop 被唤醒继续执行。`data` 包含 `turnId` 与 `answers` 数组。
+
+### 4.7 `tool_approval_required` (PET-05 / CAP-009)
+
+表示模型请求的写工具（如 `aervox_diary_write`、`aervox_memory_store`）尚未获得用户授权，本次 Attempt 以 `Interrupted` 结束等待授权。`data` 包含 `approvalId`、`toolName`、`argumentsHash`。用户经 `POST /v1/turns/:turnId/tool-approvals` 提交决定（`granted`/`denied`）；授权后由客户端重发相同请求命中 `granted` 记录（工具名 + 参数哈希匹配），模型重新请求该工具时才真正执行。客户端对未知事件类型应忽略不影响既有展示。
 
 标准错误码：
 
