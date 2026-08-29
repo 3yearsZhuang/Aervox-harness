@@ -10,10 +10,21 @@ function isTheme(value: unknown): value is 'light' | 'dark' {
     return value === 'light' || value === 'dark'
 }
 
+function isTurnAttachment(value: unknown): value is {attachmentId: string; name?: string; mediaType?: string} {
+    if (!value || typeof value !== 'object') return false
+    const item = value as Record<string, unknown>
+    return typeof item.attachmentId === 'string'
+        && item.attachmentId.length > 0
+        && item.attachmentId.length <= 128
+        && (item.name === undefined || (typeof item.name === 'string' && item.name.length <= 200))
+        && (item.mediaType === undefined || (typeof item.mediaType === 'string' && item.mediaType.length <= 100))
+}
+
 function isTurnRequest(value: unknown): value is {
     requestId: string
     content: string
     toolApprovalMode?: 'ask' | 'full_access'
+    attachments?: Array<{attachmentId: string; name?: string; mediaType?: string}>
 } {
     if (!value || typeof value !== 'object') return false
     const request = value as Record<string, unknown>
@@ -25,6 +36,8 @@ function isTurnRequest(value: unknown): value is {
         && (request.toolApprovalMode === undefined
             || request.toolApprovalMode === 'ask'
             || request.toolApprovalMode === 'full_access')
+        && (request.attachments === undefined
+            || (Array.isArray(request.attachments) && request.attachments.length <= 20 && request.attachments.every(isTurnAttachment)))
 }
 
 async function streamAervoxTurn(event: Electron.IpcMainEvent, payload: unknown) {
@@ -52,7 +65,7 @@ async function streamAervoxTurn(event: Electron.IpcMainEvent, payload: unknown) 
             method: 'POST',
             headers,
             body: JSON.stringify({
-                message: {content, contentType: 'text'},
+                message: {content, contentType: 'text', ...(payload.attachments ? {attachments: payload.attachments} : {})},
                 clientVersion: '@aervox/desktop/0.2.0',
                 toolApprovalMode,
                 references: [],
@@ -142,6 +155,59 @@ async function proxyApiRequest(_event: Electron.IpcMainInvokeEvent, payload: unk
     } catch (error) {
         return {status: 0, ok: false, json: null, text: error instanceof Error ? error.message : 'request failed'}
     }
+}
+
+/** 多模态输入：附件上传请求校验（renderer → 主进程 → API 二进制端点） */
+function isAttachmentUploadRequest(value: unknown): value is {
+    fileName: string
+    mediaType: string
+    purpose: string
+    dataBase64: string
+    idempotencyKey?: string
+} {
+    if (!value || typeof value !== 'object') return false
+    const req = value as Record<string, unknown>
+    return typeof req.fileName === 'string'
+        && req.fileName.length > 0
+        && req.fileName.length <= 200
+        && typeof req.mediaType === 'string'
+        && /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/i.test(req.mediaType)
+        && typeof req.purpose === 'string'
+        && req.purpose.length > 0
+        && req.purpose.length <= 40
+        && typeof req.dataBase64 === 'string'
+        && req.dataBase64.length > 0
+        && (req.idempotencyKey === undefined || typeof req.idempotencyKey === 'string')
+}
+
+const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024
+
+async function uploadAttachment(_event: Electron.IpcMainInvokeEvent, payload: unknown) {
+    if (!isAttachmentUploadRequest(payload)) throw new Error('invalid upload request')
+    const buffer = Buffer.from(payload.dataBase64, 'base64')
+    if (buffer.byteLength === 0 || buffer.byteLength > MAX_ATTACHMENT_SIZE_BYTES) {
+        throw new Error(`附件大小超出限制（≤10MB）`)
+    }
+    const apiBaseUrl = (process.env.AERVOX_API_URL ?? 'http://127.0.0.1:3000').replace(/\/$/, '')
+    const query = new URLSearchParams({
+        fileName: payload.fileName,
+        mediaType: payload.mediaType,
+        purpose: payload.purpose,
+    })
+    if (payload.idempotencyKey) query.set('idempotencyKey', payload.idempotencyKey)
+    const headers: Record<string, string> = {'Content-Type': payload.mediaType}
+    const workspaceId = process.env.AERVOX_WORKSPACE_ID?.trim()
+    const userId = process.env.AERVOX_USER_ID?.trim()
+    if (workspaceId) headers['x-workspace-id'] = workspaceId
+    if (userId) headers['x-user-id'] = userId
+
+    const res = await fetch(`${apiBaseUrl}/v1/attachments/binary?${query.toString()}`, {
+        method: 'POST',
+        headers,
+        body: buffer,
+    })
+    if (!res.ok) throw new Error(`附件上传失败（HTTP ${res.status}）`)
+    return await res.json()
 }
 
 function broadcastTheme() {
@@ -253,6 +319,7 @@ app.whenReady().then(() => {
     })
     ipcMain.on('aervox:turn:start', streamAervoxTurn)
     ipcMain.handle('aervox:api:request', proxyApiRequest)
+    ipcMain.handle('aervox:attachment:upload', uploadAttachment)
     createMainWindow()
     createPetWindow()
     app.on('activate', () => {
