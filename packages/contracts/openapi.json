@@ -2095,7 +2095,7 @@
           "name": {
             "type": "string",
             "minLength": 1,
-            "pattern": "^[\\w.-]+$"
+            "pattern": "^(?!\\.{1,2}$)[\\w.-]+$"
           },
           "description": {
             "type": "string",
@@ -2173,7 +2173,7 @@
           "name": {
             "type": "string",
             "minLength": 1,
-            "pattern": "^[\\w.-]+$"
+            "pattern": "^(?!\\.{1,2}$)[\\w.-]+$"
           },
           "overwrite": {
             "type": "boolean",

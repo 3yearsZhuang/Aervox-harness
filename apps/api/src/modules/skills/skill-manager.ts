@@ -19,8 +19,8 @@ import type { SqliteSkillRegistryRepository, SkillRegistrationModel } from "@aer
 import { buildSkillsPrompt } from "@aervox/agent-loop";
 import { unzip } from "./zip.js";
 
-/** 技能目录名合法字符集（Anthropic Skills 规范） */
-const SKILL_NAME_RE = /^[\w.-]+$/;
+/** 技能目录名合法字符集（Anthropic Skills 规范）；`.` 与 `..` 会被 path.join 解析为层级，显式排除防目录穿越 */
+const SKILL_NAME_RE = /^(?!\.{1,2}$)[\w.-]+$/;
 /** 仓库根（apps/api/src/modules/skills 向上 4 级；dist 布局同深） */
 const repoRoot = fileURLToPath(new URL("../../../../", import.meta.url));
 export const DEFAULT_SKILLS_ROOT = path.join(repoRoot, "data", "skills");
