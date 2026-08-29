@@ -21,7 +21,15 @@ import { registerConversationRoutes } from "./routes.js";
 import { UserQuestionCoordinator } from "./user-question-coordinator.js";
 
 export function registerConversationModule(ctx: ModuleContext): void {
-  const { app, db, toolRuntime, llmConfigService, workflows } = ctx;
+  const {
+    app,
+    db,
+    toolRuntime,
+    llmConfigService,
+    workflows,
+    proactiveActionAuthorizer,
+    proactiveRepository,
+  } = ctx;
   const conversationRepo = new SqliteConversationRepository(db);
   const privacyRepo = new SqlitePrivacyRepository(db);
   const skillRepo = new SqliteSkillRegistryRepository(db);
@@ -57,5 +65,7 @@ export function registerConversationModule(ctx: ModuleContext): void {
     workflows,
     platformRepo,
     userQuestionCoordinator,
+    proactiveActionAuthorizer,
+    proactiveRepository,
   });
 }

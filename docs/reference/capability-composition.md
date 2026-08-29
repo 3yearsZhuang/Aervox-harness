@@ -1,12 +1,12 @@
 # Aervox 能力组合与可选化目录规范
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：3yearszhuang · 2026-08-29
 
 > 文档编号：AVX-CAP-001  
 > 类型：Reference  
-> 版本：v0.2  
-> 更新日期：2026-08-28  
+> 版本：v0.3
+> 更新日期：2026-08-29
 > 状态：Review Candidate  
 > 关联：[架构设计](ARCHITECTURE.md)、[ADR-001](adr/ADR-001-modular-monolith.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-014](adr/ADR-014-modular-monolith-structure.md)、[能力注册表](capability-registry.md)、[submodule 协作指南](../how-to/submodule-collaboration.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
@@ -86,6 +86,8 @@ Profile 可以没有用户能力，但不能关闭 Kernel Substrate。任何外�
 - 已打包进产物的能力在运行时按用户配置启用/停用；
 - 运行时开关只影响"功能是否可被触发"，不影响已存在数据、安全与删除边界；
 - 用于：插件系统（CAP-020）、第三方接入、知识库/收藏项等以"安装/授权/开关"为交互形态的候选。
+
+CAP-033「全域感知与个人画像（主动智能模式）」采用双机制：构建时提供受信桌面 Privacy Host/OS Broker 载体，运行时由用户确认版本化来源、后台和动作 grant 后激活。其本地私密存储、撤权、导出和删除责任属于 Kernel Substrate 的强制边界，不能被自选开关关闭。
 
 > 二者关系：构建时决定**能力是否存在**，运行时决定**对当前用户是否可用**。
 
@@ -405,6 +407,7 @@ pi 固定参考 commit 为 `c49906ec77788625aacbdc53ebca6fbe65bd20f5`，许可�
 | Diary/Version | Diary | 提交授权素材或生成候选 |
 | Consent/Deletion/Audit | Kernel Data Rights | 只允许 Host 受控操作 |
 | View metadata | 对应 View Capability | 可重建、可导出、不可覆盖真源 |
+| CAP-033 Profile/Action/Source | CAP-033 Privacy Host | 只在用户确认的 grant/revision、OS 能力和本地处理边界交集内观察、提炼和动作；原始副本七天且提炼后清理 |
 
 外部能力的有效权限是 Manifest 声明、用户/租户授权和当前 Policy 的交集。模型请求、插件声明或外部运行时自报的租户字段不能产生授权。删除必须传播到摘要、索引、缓存、视图投影和外部副本，不能只删除安装记录。
 
