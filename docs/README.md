@@ -1,4 +1,4 @@
-﻿# Aervox｜思隅 产品与工程文档索引
+# Aervox｜思隅 产品与工程文档索引
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-29

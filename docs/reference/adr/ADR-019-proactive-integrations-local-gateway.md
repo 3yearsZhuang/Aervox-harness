@@ -1,4 +1,4 @@
-﻿---
+---
 id: ADR-019
 type: reference
 scope: decision

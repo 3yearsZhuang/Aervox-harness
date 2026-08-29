@@ -1,4 +1,4 @@
-﻿---
+---
 id: AVX-EXPL-006
 type: explanation
 scope: baseline
