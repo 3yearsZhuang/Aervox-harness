@@ -1182,6 +1182,10 @@ const isDraggingDial = ref(false)
 const DIAL_RADIUS = 80
 const DIAL_CIRCUMFERENCE = 2 * Math.PI * DIAL_RADIUS
 
+// 番茄钟土司倒计时环几何常数 (SVG viewBox 0 0 44 44, 中心 22,22, 半径 18)
+const TOAST_RING_RADIUS = 18
+const TOAST_RING_CIRCUMFERENCE = 2 * Math.PI * TOAST_RING_RADIUS
+
 const timerRatio = computed(() => {
   if (timerRunning.value) {
     const total = Math.max(timerMinutes.value * 60, 1)
@@ -1192,6 +1196,10 @@ const timerRatio = computed(() => {
 
 const timerArcDashoffset = computed(() => {
   return DIAL_CIRCUMFERENCE * (1 - timerRatio.value)
+})
+
+const toastRingDashoffset = computed(() => {
+  return TOAST_RING_CIRCUMFERENCE * (1 - timerRatio.value)
 })
 
 // 滑块手柄（白点）旋转角度（顺时针度数，0° = 12 点钟方向）
@@ -1523,6 +1531,35 @@ onUnmounted(() => {
       </button>
     </div>
 
+    <!-- 番茄钟运行土司：开启后右上流畅侧弹出，环形倒计时动画，暂停/重置即收回 -->
+    <Transition name="timer-toast">
+      <div v-if="timerRunning" class="timer-toast" role="status" aria-live="polite" aria-label="番茄钟倒计时通知">
+        <svg class="timer-toast-ring" viewBox="0 0 44 44" aria-hidden="true">
+          <circle class="timer-toast-track" cx="22" cy="22" :r="TOAST_RING_RADIUS" />
+          <circle
+            class="timer-toast-progress"
+            cx="22"
+            cy="22"
+            :r="TOAST_RING_RADIUS"
+            :stroke-dasharray="TOAST_RING_CIRCUMFERENCE"
+            :stroke-dashoffset="toastRingDashoffset"
+          />
+        </svg>
+        <div class="timer-toast-body">
+          <strong class="timer-toast-time">{{ formattedTime }}</strong>
+          <small class="timer-toast-label">专注中 · {{ timerMinutes }} 分钟回合</small>
+        </div>
+        <div class="timer-toast-ops">
+          <button type="button" aria-label="暂停专注" @click="toggleTimer()">
+            <Pause :size="14" />
+          </button>
+          <button type="button" aria-label="重置番茄钟" @click="resetTimer()">
+            <TimerReset :size="14" />
+          </button>
+        </div>
+      </div>
+    </Transition>
+
     <nav ref="menuPillRef" class="menu-pill" :class="{open: menuOpen}" aria-label="主导航" @click="handlePillClick">
       <button
         class="menu-toggle"
@@ -1615,6 +1652,33 @@ onUnmounted(() => {
                 </button>
               </header>
               <p class="side-card-summary">{{ card.summary() }}</p>
+              <!-- 番茄钟基础操作：预设时长 + 开始/暂停/重置（点击卡片本体仍打开二级抽屉的完整表盘） -->
+              <div v-if="card.id === 'timer'" class="timer-card-ops">
+                <div v-if="!timerRunning" class="timer-card-presets" role="radiogroup" aria-label="快捷预设时长">
+                  <button
+                    v-for="preset in [15, 25, 45, 60]"
+                    :key="preset"
+                    type="button"
+                    class="timer-chip"
+                    :class="{active: timerMinutes === preset}"
+                    :aria-pressed="timerMinutes === preset"
+                    @click.stop="selectPresetMinutes(preset)"
+                  >
+                    {{ preset }}分
+                  </button>
+                </div>
+                <div class="timer-card-actions">
+                  <button type="button" class="side-card-grid-item" @click.stop="toggleTimer()">
+                    <Pause v-if="timerRunning" :size="15" />
+                    <Play v-else :size="15" />
+                    <span>{{ timerRunning ? '暂停专注' : '开始专注' }}</span>
+                  </button>
+                  <button type="button" class="side-card-grid-item" @click.stop="resetTimer()">
+                    <TimerReset :size="15" />
+                    <span>重置</span>
+                  </button>
+                </div>
+              </div>
               <!-- 学习模式下的今日学习富卡片：每日一题与学习快捷入口（点击卡片仍整体打开学习抽屉） -->
               <div v-if="card.id === 'study' && studyModeEnabled" class="side-card-grid side-card-actions">
                 <button type="button" class="side-card-grid-item" @click.stop="openDailyProblem()">
