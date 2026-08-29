@@ -1,6 +1,0 @@
-fix(docs): CR-025 重编号收尾与 BOM 清理
-
-- CR-025 文件 front matter id: CR-024 → CR-025（文件重命名时漏改），
-  移除 PowerShell Set-Content 引入的 UTF-8 BOM
-- 清除此前批量替换引入的 7 个文档 BOM（README、getting-started、
-  REQUIREMENTS_TRACEABILITY、THREAT_MODEL、两份评估文档、ADR-019）

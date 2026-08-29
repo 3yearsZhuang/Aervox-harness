@@ -18,7 +18,7 @@ review_triggers:
   - docs/reference/adr/ADR-008-cloud-first-local-port.md
   - docs/reference/changes/CR-022-full-access-tool-permission.md
   - docs/reference/adr/ADR-018-proactive-local-privacy-host.md
-  - docs/reference/changes/CR-025-proactive-intelligence-suite-integrations.md
+  - docs/reference/changes/CR-024-proactive-intelligence-suite-integrations.md
   - docs/reference/adr/ADR-019-proactive-integrations-local-gateway.md
   - docs/explanation/health-data-integration-assessment.md
   - docs/explanation/home-assistant-integration-assessment.md
@@ -278,7 +278,7 @@ RecoveryControlLedger 先追加 revoke/deny
 
 ### 10.1 十二项派生与外部信号落地
 
-[CR-025](../reference/changes/CR-025-proactive-intelligence-suite-integrations.md) 已在 CAP-033 下实现统一个人时间线、项目与意图图谱、操作流程学习、情境触发、动作验证、画像冲突、主动准备、注意力/疲劳、行为漂移、关系上下文、场景模型和日/周回顾。上述输出均进入本地 Vault，并通过桌面设置页查看。
+[CR-024](../reference/changes/CR-024-proactive-intelligence-suite-integrations.md) 已在 CAP-033 下实现统一个人时间线、项目与意图图谱、操作流程学习、情境触发、动作验证、画像冲突、主动准备、注意力/疲劳、行为漂移、关系上下文、场景模型和日/周回顾。上述输出均进入本地 Vault，并通过桌面设置页查看。
 
 同一变更新增 CAP-034/035：Home Assistant 通过私网 REST/WebSocket、实体/service 白名单和受控 Agent 工具接入；小米运动健康通过用户自有且获准的官方开放平台配置同步每日步数、睡眠和静息心率。连接凭据不进入模型、日志或导出，撤销连接删除凭据和对应缓存。架构边界见 [ADR-019](../reference/adr/ADR-019-proactive-integrations-local-gateway.md)。
 

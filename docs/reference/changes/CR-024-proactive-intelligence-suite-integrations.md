@@ -1,5 +1,5 @@
 ---
-id: CR-025
+id: CR-024
 type: reference
 scope: change
 owner: product-platform
@@ -22,7 +22,7 @@ sources:
   - docs/reference/adr/ADR-019-proactive-integrations-local-gateway.md
 ---
 
-# CR-025 主动智能能力套件与外部环境连接
+# CR-024 主动智能能力套件与外部环境连接
 
 - 提出人：3yearszhuang · 2026-08-29
 - 修改人：3yearszhuang · 2026-08-29
