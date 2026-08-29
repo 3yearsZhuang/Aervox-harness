@@ -99,7 +99,7 @@ function openConfigFromPage(): void {
             :aria-label="`${plugin.enabled === 1 ? '停用' : '启用'} ${plugin.id}`"
             @click="toggleEnabled(plugin)"
           />
-          <button v-if="plugin.configSchemaJson" type="button" class="plugin-action" title="配置" @click="openConfig(plugin)">
+          <button v-if="plugin.configSchemaJson && plugin.enabled === 1" type="button" class="plugin-action" title="配置" @click="openConfig(plugin)">
             <Settings :size="15" />配置
           </button>
           <button v-if="pluginsWithPages.has(plugin.id)" type="button" class="plugin-action" title="页面" :disabled="pageBusy === plugin.id" @click="openPage(plugin)">
@@ -137,6 +137,13 @@ function openConfigFromPage(): void {
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--bg-soft);
+  transition: border-color 0.22s ease, background-color 0.22s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease;
+}
+.plugin-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: color-mix(in srgb, var(--bg-soft) 85%, var(--accent-soft));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 20, 32, 0.05);
 }
 .plugin-card-icon {
   width: 36px; height: 36px; flex: 0 0 36px;
@@ -144,12 +151,16 @@ function openConfigFromPage(): void {
   border-radius: 10px;
   background: var(--accent-soft);
   color: var(--accent);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.22s ease;
+}
+.plugin-card:hover .plugin-card-icon {
+  transform: scale(1.05);
 }
 .plugin-card-main { min-width: 0; flex: 1; display: grid; gap: 3px; }
 .plugin-card-main strong { color: var(--text-primary); font-size: 12px; }
 .plugin-card-main small { color: var(--text-muted); font-size: 10px; }
 .plugin-card-actions { display: flex; align-items: center; gap: 8px; }
-.plugin-toggle { width: 39px; height: 23px; flex: 0 0 39px; }
+.plugin-toggle { width: 40px; height: 22px; flex: 0 0 40px; }
 .plugin-action {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 6px 10px;
@@ -159,7 +170,17 @@ function openConfigFromPage(): void {
   color: var(--text-secondary);
   font-size: 10px;
   cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.plugin-action:hover { border-color: var(--accent); color: var(--accent); }
+.plugin-action:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(78, 119, 209, 0.15);
+}
+.plugin-action:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
 .plugin-action:disabled { opacity: .5; cursor: default; }
 </style>

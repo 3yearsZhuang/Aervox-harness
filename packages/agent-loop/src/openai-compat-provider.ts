@@ -93,7 +93,7 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
               ? {
                   tools: request.tools.map((t) => ({
                     type: "function",
-                  function: { name: encodeToolName(t.name), description: t.description, parameters: { type: "object" } },
+                    function: { name: encodeToolName(t.name), description: t.description, parameters: t.parameters ?? { type: "object" } },
                   })),
                 }
               : {}),

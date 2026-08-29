@@ -140,6 +140,30 @@ describe("createOpenAICompatProvider（阶段 2e）", () => {
     ]);
   });
 
+  it("tools 声明 parameters JSON Schema 时透传给兼容端点（防数组参数被模型序列化为字符串）", async () => {
+    const fetchFn = mockFetch(sseBody([]));
+    const provider = createOpenAICompatProvider({
+      baseUrl: "http://127.0.0.1:11434/v1/",
+      apiKey: "k",
+      modelId: "llama3.2",
+    });
+    const schema = {
+      type: "object",
+      properties: { questions: { type: "array", items: { type: "object" } } },
+      required: ["questions"],
+    };
+    await collect(provider, {
+      ...baseRequest,
+      tools: [{ name: "ask_user_question", description: "提问", readOnly: true, parameters: schema }],
+    });
+
+    const [, init] = fetchFn.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(String(init?.body)) as {
+      tools?: Array<{ function: { parameters?: unknown } }>;
+    };
+    expect(body.tools?.[0]?.function.parameters).toEqual(schema);
+  });
+
   it("非 2xx：抛出 llm_http_<status> 错误", async () => {
     mockFetch("unauthorized", 401);
     const provider = createOpenAICompatProvider({ baseUrl: "http://x/v1", modelId: "m" });
