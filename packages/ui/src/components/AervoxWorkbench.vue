@@ -124,6 +124,9 @@ const props = withDefaults(defineProps<{
   assistantName: '思隅',
 })
 
+/** 引导回放：由宿主应用（桌面端 App.vue）监听后重新挂载 OnboardingFlow */
+const emit = defineEmits<{ 'replay-onboarding': [] }>()
+
 const composerOpen = ref(false)
 const historyOpen = ref(false)
 const todoOpen = ref(false)
@@ -3166,6 +3169,10 @@ onUnmounted(() => {
             <div class="settings-row settings-choice-row"><span><strong>主题</strong><small>选择工作台的明暗模式</small></span><span class="settings-segmented"><button type="button" :class="{active: !isDark}" @click="setTheme('light')"><Sun :size="16" />亮色</button><button type="button" :class="{active: isDark}" @click="setTheme('dark')"><Moon :size="16" />暗色</button></span></div>
             <label class="settings-row settings-choice-row"><span><strong>界面密度</strong><small>紧凑模式会减少面板间距</small></span><input v-model="compactMode" type="checkbox" class="settings-switch" @change="saveSettings" /></label>
             <label v-if="!isWeb && props.showCompanion" class="settings-row settings-choice-row"><span><strong>工作台桌宠</strong><small>控制桌面端主窗口中的桌宠区域</small></span><input v-model="desktopCompanionEnabled" type="checkbox" class="settings-switch" @change="saveSettings" /></label>
+            <div v-if="!isWeb" class="settings-row settings-choice-row">
+              <span><strong>重看新手引导</strong><small>重新播放首次启动的相遇序章，回放期间会暂时离开工作台</small></span>
+              <button type="button" class="settings-replay-action" @click="emit('replay-onboarding')"><PlayCircle :size="15" />回放</button>
+            </div>
           </div>
           <div v-else-if="settingsCategory === 'conversation'" class="settings-section">
             <div class="settings-section-heading">
