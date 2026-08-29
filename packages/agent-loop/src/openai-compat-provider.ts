@@ -18,6 +18,8 @@ export interface OpenAICompatConfig {
   maxTokens?: number;
   /** Hard deadline for the upstream request and its SSE stream. */
   timeoutMs?: number;
+  /** CAP-033 local-only calls reject redirects instead of following them. */
+  redirect?: RequestRedirect;
 }
 
 interface OpenAIToolCallDelta {
@@ -97,6 +99,7 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
               : {}),
           }),
           signal: controller.signal,
+          redirect: config.redirect,
         });
       if (!res.ok || !res.body) {
         const detail = await res.text().catch(() => "");

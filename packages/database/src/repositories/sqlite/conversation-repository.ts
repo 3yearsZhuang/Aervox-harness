@@ -1313,9 +1313,18 @@ export class SqliteConversationRepository implements IConversationRepository {
   /** 匹配已授权记录（toolName + argumentsHash；跨 turn 复用，取最近一条） */
   async findGrantedToolApproval(
     tenant: TenantContext,
-    input: { toolName: string; argumentsHash: string; excludeDecidedByPrefix?: string },
+    input: {
+      toolName: string;
+      argumentsHash: string;
+      excludeDecidedByPrefix?: string;
+      excludeDecidedByPrefixes?: string[];
+    },
   ): Promise<ToolApprovalModel | null> {
     assertTenantContext(tenant);
+    const excludedPrefixes = [
+      ...(input.excludeDecidedByPrefixes ?? []),
+      ...(input.excludeDecidedByPrefix ? [input.excludeDecidedByPrefix] : []),
+    ];
     const [found] = await this.db
       .select()
       .from(toolApprovals)
@@ -1326,10 +1335,10 @@ export class SqliteConversationRepository implements IConversationRepository {
           eq(toolApprovals.toolName, input.toolName),
           eq(toolApprovals.argumentsHash, input.argumentsHash),
           eq(toolApprovals.state, "granted"),
-          input.excludeDecidedByPrefix
+          excludedPrefixes.length > 0
             ? or(
                 isNull(toolApprovals.decidedBy),
-                notLike(toolApprovals.decidedBy, `${input.excludeDecidedByPrefix}%`),
+                and(...excludedPrefixes.map((prefix) => notLike(toolApprovals.decidedBy, `${prefix}%`))),
               )
             : undefined,
         ),

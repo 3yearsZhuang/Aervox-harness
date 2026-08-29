@@ -1,11 +1,11 @@
 # ADR-009 Electron 最小权限壳与进程外插件
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-29
 
 - 状态：Proposed（R3/P2 前必须 Accepted）
 - 日期：2026-08-23
-- 关联：`CAP-018/020/031`、`SEC-PLG-001`、`RISK-006`
+- 关联：`CAP-018/020/031/033`、`SEC-PLG-001`、`SEC-PRO-001/002`、`RISK-006/RISK-013`
 
 ## Context
 
@@ -27,7 +27,7 @@
 
 ## Decision
 
-Electron 启用 `contextIsolation`、关闭 `nodeIntegration`、schema 化 IPC、签名更新包和逐项 OS 授权。云端插件使用容器/microVM，桌面插件使用受限子进程；manifest 包含签名、权限、Host allowlist、资源配额、超时、撤销和全局 kill switch。插件写记忆只能提交候选。
+Electron 启用 `contextIsolation`、关闭 `nodeIntegration`、schema 化 IPC、签名更新包和逐项 OS 授权。云端插件使用容器/microVM，桌面插件使用受限子进程；manifest 包含签名、权限、Host allowlist、资源配额、超时、撤销和全局 kill switch。插件写记忆只能提交候选。CAP-033 的一方受信 Privacy Host/Helper 可以在用户确认 `FullProfileActionGrant` 后承载全动作和后台生命周期，但必须独立签名、设备绑定、记录目标 scope/授权 revision，并接受同一撤权与 kill switch；第三方插件不能因 CAP-033 自动获得该 Host 信任。
 
 ## Positive consequences
 
@@ -52,3 +52,4 @@ Electron 启用 `contextIsolation`、关闭 `nodeIntegration`、schema 化 IPC�
 - IPC、文件/网络/进程逃逸与 Prompt injection 测试（`TC-SEC-PLUG-001`）；
 - 恶意包、资源耗尽、撤权与 kill switch 测试（`TC-SEC-DESKTOP-001`）；
 - 无插件核心端 Playwright 流程回归（`TC-E2E-COMPAT-001`）。
+- CAP-033 一方 Privacy Host 的签名/设备绑定、全动作授权、后台恢复、撤权和本地出网阻断测试（`TC-SEC-PRO-HOST-001`、`TC-SEC-PRO-ACTION-001`）。
