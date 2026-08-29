@@ -4251,6 +4251,21 @@
             "type": "string",
             "minLength": 1
           },
+          "promptText": {
+            "type": "string",
+            "minLength": 1
+          },
+          "promptLang": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "zh",
+              "en",
+              "ja",
+              "ko",
+              "yue"
+            ]
+          },
           "auxRefAudioPaths": {
             "type": "array",
             "items": {
@@ -4322,6 +4337,20 @@
           },
           "refAudioPath": {
             "type": "string"
+          },
+          "promptText": {
+            "type": "string"
+          },
+          "promptLang": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "zh",
+              "en",
+              "ja",
+              "ko",
+              "yue"
+            ]
           },
           "auxRefAudioPaths": {
             "type": "array",
@@ -11518,6 +11547,20 @@
                     "refAudioPath": {
                       "type": "string"
                     },
+                    "promptText": {
+                      "type": "string"
+                    },
+                    "promptLang": {
+                      "type": "string",
+                      "enum": [
+                        "auto",
+                        "zh",
+                        "en",
+                        "ja",
+                        "ko",
+                        "yue"
+                      ]
+                    },
                     "auxRefAudioPaths": {
                       "type": "array",
                       "items": {
@@ -11634,6 +11677,21 @@
                     "type": "string",
                     "minLength": 1
                   },
+                  "promptText": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "promptLang": {
+                    "type": "string",
+                    "enum": [
+                      "auto",
+                      "zh",
+                      "en",
+                      "ja",
+                      "ko",
+                      "yue"
+                    ]
+                  },
                   "auxRefAudioPaths": {
                     "type": "array",
                     "items": {
@@ -11713,6 +11771,20 @@
                     },
                     "refAudioPath": {
                       "type": "string"
+                    },
+                    "promptText": {
+                      "type": "string"
+                    },
+                    "promptLang": {
+                      "type": "string",
+                      "enum": [
+                        "auto",
+                        "zh",
+                        "en",
+                        "ja",
+                        "ko",
+                        "yue"
+                      ]
                     },
                     "auxRefAudioPaths": {
                       "type": "array",

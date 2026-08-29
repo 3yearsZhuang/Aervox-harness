@@ -1900,6 +1900,8 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       speaker_id TEXT,
       text_lang TEXT,
       ref_audio_path TEXT,
+      prompt_text TEXT,
+      prompt_lang TEXT,
       aux_ref_audio_paths_json TEXT,
       speed_factor REAL,
       settings_json TEXT NOT NULL DEFAULT '{}',

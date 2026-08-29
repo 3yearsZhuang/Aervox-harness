@@ -206,6 +206,8 @@ describe("在线语音配置仓储 (CR-028 · GPT-SoVITS 远程 API)", () => {
       speakerId: "spk-firefly",
       textLang: "zh",
       refAudioPath: "D:/gpt-sovits/voice/ref.wav",
+      promptText: "我还知道你们经常在银河各地到处旅行.",
+      promptLang: "zh",
       auxRefAudioPaths: ["D:/gpt-sovits/voice/aux1.wav", "D:/gpt-sovits/voice/aux2.wav"],
       speedFactor: 1.1,
       settings: {},
@@ -214,6 +216,8 @@ describe("在线语音配置仓储 (CR-028 · GPT-SoVITS 远程 API)", () => {
     expect(saved.endpoint).toBe("http://127.0.0.1:9880");
     expect(saved.modelId).toBe("firefly-remote");
     expect(saved.textLang).toBe("zh");
+    expect(saved.promptText).toBe("我还知道你们经常在银河各地到处旅行.");
+    expect(saved.promptLang).toBe("zh");
     expect(saved.speedFactor).toBe(1.1);
 
     const read = await repo.getConfig(tenantA);

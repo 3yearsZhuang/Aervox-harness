@@ -94,6 +94,10 @@ export const voiceRemoteConfigs = sqliteTable(
     textLang: text("text_lang"),
     /** api_v2 参考音频路径（GPT-SoVITS 机器上的路径） */
     refAudioPath: text("ref_audio_path"),
+    /** 参考音频的文字内容（api_v2 prompt_text，v3/v4 必填） */
+    promptText: text("prompt_text"),
+    /** 参考音频的语言（api_v2 prompt_lang） */
+    promptLang: text("prompt_lang"),
     /** api_v2 辅助参考音频路径列表（JSON 数组） */
     auxRefAudioPathsJson: text("aux_ref_audio_paths_json", { mode: "json" }),
     /** api_v2 语速（0.6–1.65） */

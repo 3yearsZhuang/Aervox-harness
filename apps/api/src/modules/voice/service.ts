@@ -44,6 +44,8 @@ export interface RemoteVoiceConfig {
   speakerId?: string;
   textLang?: string;
   refAudioPath?: string;
+  promptText?: string;
+  promptLang?: string;
   auxRefAudioPaths?: string[];
   speedFactor?: number;
   settings?: Record<string, string | number | boolean>;
@@ -113,6 +115,8 @@ function normalizeRemoteConfig(model: {
   speakerId: string | null;
   textLang: string | null;
   refAudioPath: string | null;
+  promptText: string | null;
+  promptLang: string | null;
   auxRefAudioPathsJson: unknown;
   speedFactor: number | null;
   settingsJson: unknown;
@@ -126,6 +130,8 @@ function normalizeRemoteConfig(model: {
     ...(model.speakerId ? { speakerId: model.speakerId } : {}),
     ...(model.textLang ? { textLang: model.textLang } : {}),
     ...(model.refAudioPath ? { refAudioPath: model.refAudioPath } : {}),
+    ...(model.promptText ? { promptText: model.promptText } : {}),
+    ...(model.promptLang ? { promptLang: model.promptLang } : {}),
     ...(Array.isArray(model.auxRefAudioPathsJson) && model.auxRefAudioPathsJson.length > 0
       ? { auxRefAudioPaths: model.auxRefAudioPathsJson as string[] }
       : {}),
@@ -331,6 +337,8 @@ export class VoiceService {
         speakerId: stored.speakerId ?? null,
         textLang: stored.textLang ?? null,
         refAudioPath: stored.refAudioPath ?? null,
+        promptText: stored.promptText ?? null,
+        promptLang: stored.promptLang ?? null,
         auxRefAudioPathsJson: stored.auxRefAudioPathsJson,
         speedFactor: stored.speedFactor ?? null,
         settingsJson: stored.settingsJson,
@@ -370,6 +378,8 @@ export class VoiceService {
       ...(cfg.apiKey !== undefined ? { secretRef: cfg.apiKey } : {}),
       ...(cfg.textLang !== undefined ? { textLang: cfg.textLang } : {}),
       ...(cfg.refAudioPath !== undefined ? { refAudioPath: cfg.refAudioPath } : {}),
+      ...(cfg.promptText !== undefined ? { promptText: cfg.promptText } : {}),
+      ...(cfg.promptLang !== undefined ? { promptLang: cfg.promptLang } : {}),
       ...(cfg.auxRefAudioPaths !== undefined ? { auxRefAudioPaths: cfg.auxRefAudioPaths } : {}),
       ...(cfg.speedFactor !== undefined ? { speedFactor: cfg.speedFactor } : {}),
     });
@@ -387,6 +397,8 @@ export class VoiceService {
       speakerId: cfg.speakerId ?? null,
       textLang: cfg.textLang ?? null,
       refAudioPath: cfg.refAudioPath ?? null,
+      promptText: cfg.promptText ?? null,
+      promptLang: cfg.promptLang ?? null,
       auxRefAudioPaths: cfg.auxRefAudioPaths ?? null,
       speedFactor: cfg.speedFactor ?? null,
       settings: cfg.settings,
@@ -400,6 +412,8 @@ export class VoiceService {
       speakerId: saved.speakerId ?? null,
       textLang: saved.textLang ?? null,
       refAudioPath: saved.refAudioPath ?? null,
+      promptText: saved.promptText ?? null,
+      promptLang: saved.promptLang ?? null,
       auxRefAudioPathsJson: saved.auxRefAudioPathsJson,
       speedFactor: saved.speedFactor ?? null,
       settingsJson: saved.settingsJson,

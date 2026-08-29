@@ -49,6 +49,8 @@ export class SqliteVoiceRemoteConfigRepository implements IVoiceRemoteConfigRepo
       speakerId: input.speakerId ?? null,
       textLang: input.textLang ?? null,
       refAudioPath: input.refAudioPath ?? null,
+      promptText: input.promptText ?? null,
+      promptLang: input.promptLang ?? null,
       auxRefAudioPathsJson: input.auxRefAudioPaths ?? null,
       speedFactor: input.speedFactor ?? null,
       settingsJson: input.settings ?? {},

@@ -2343,6 +2343,8 @@ export interface RemoteVoiceConfigModel {
   speakerId?: string | null;
   textLang?: string | null;
   refAudioPath?: string | null;
+  promptText?: string | null;
+  promptLang?: string | null;
   auxRefAudioPathsJson?: unknown;
   speedFactor?: number | null;
   settingsJson?: unknown;
@@ -2360,6 +2362,8 @@ export interface RemoteVoiceConfigSaveInput {
   speakerId?: string | null;
   textLang?: string | null;
   refAudioPath?: string | null;
+  promptText?: string | null;
+  promptLang?: string | null;
   auxRefAudioPaths?: string[] | null;
   speedFactor?: number | null;
   settings?: Record<string, unknown>;

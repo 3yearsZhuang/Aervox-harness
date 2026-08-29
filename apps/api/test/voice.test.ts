@@ -48,6 +48,8 @@ describe("系统级语音模块 (Voice Module)", () => {
         secretRef: "secret-token-123",
         textLang: "zh",
         refAudioPath: "D:/gpt-sovits/voice/ref.wav",
+        promptText: "我还知道你们经常在银河各地到处旅行.",
+        promptLang: "zh",
         auxRefAudioPaths: ["D:/gpt-sovits/voice/aux1.wav"],
         speedFactor: 1.1,
       },
@@ -68,11 +70,13 @@ describe("系统级语音模块 (Voice Module)", () => {
     expect(payload.text).toBe("hello world");
     expect(payload.text_lang).toBe("zh");
     expect(payload.ref_audio_path).toBe("D:/gpt-sovits/voice/ref.wav");
+    expect(payload.prompt_text).toBe("我还知道你们经常在银河各地到处旅行.");
+    expect(payload.prompt_lang).toBe("zh");
     expect(payload.aux_ref_audio_paths).toEqual(["D:/gpt-sovits/voice/aux1.wav"]);
     expect(payload.speed_factor).toBe(1.1);
   });
 
-  it("Remote GPT-SoVITS: 缺少 refAudioPath 时合成报错；reconfigure 后生效（CR-028）", async () => {
+  it("Remote GPT-SoVITS: 缺少 refAudioPath/promptText 时合成报错；reconfigure 后生效（CR-028）", async () => {
     const calls: Array<{ url: string; body?: string }> = [];
     const mockFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       calls.push({ url: String(input), body: init?.body as string });
@@ -96,6 +100,7 @@ describe("系统级语音模块 (Voice Module)", () => {
       modelId: "firefly",
       textLang: "en",
       refAudioPath: "D:/gpt-sovits/voice/ref2.wav",
+      promptText: "hello world.",
     });
     const artifact = await remoteProvider.synthesize({ text: "hello", modelId: "firefly" });
     expect(artifact.modelId).toBe("firefly");
@@ -103,6 +108,9 @@ describe("系统级语音模块 (Voice Module)", () => {
     const payload = JSON.parse(calls[0]?.body ?? "{}") as Record<string, unknown>;
     expect(payload.text_lang).toBe("en");
     expect(payload.ref_audio_path).toBe("D:/gpt-sovits/voice/ref2.wav");
+    // prompt_lang 未配置时跟随 text_lang
+    expect(payload.prompt_text).toBe("hello world.");
+    expect(payload.prompt_lang).toBe("en");
     // 未配置的 aux/speed 不下发
     expect("aux_ref_audio_paths" in payload).toBe(false);
     expect("speed_factor" in payload).toBe(false);

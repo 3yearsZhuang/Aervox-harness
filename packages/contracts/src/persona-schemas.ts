@@ -142,6 +142,8 @@ export const remoteVoiceConfigSchema = z.object({
   speakerId: z.string().min(1).optional(),
   textLang: voiceTextLangSchema.optional(),
   refAudioPath: z.string().min(1).optional(),
+  promptText: z.string().min(1).optional(),
+  promptLang: voiceTextLangSchema.optional(),
   auxRefAudioPaths: z.array(z.string().min(1)).optional(),
   speedFactor: z.number().min(0.6).max(1.65).optional(),
   settings: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
@@ -157,6 +159,8 @@ export const remoteVoiceConfigResponseSchema = z.object({
   speakerId: z.string().optional(),
   textLang: voiceTextLangSchema.optional(),
   refAudioPath: z.string().optional(),
+  promptText: z.string().optional(),
+  promptLang: voiceTextLangSchema.optional(),
   auxRefAudioPaths: z.array(z.string()).optional(),
   speedFactor: z.number().optional(),
   settings: z

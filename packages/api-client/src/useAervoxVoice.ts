@@ -25,6 +25,8 @@ export interface RemoteVoiceConfigDto {
   speakerId?: string;
   textLang?: 'auto' | 'zh' | 'en' | 'ja' | 'ko' | 'yue';
   refAudioPath?: string;
+  promptText?: string;
+  promptLang?: 'auto' | 'zh' | 'en' | 'ja' | 'ko' | 'yue';
   auxRefAudioPaths?: string[];
   speedFactor?: number;
   settings?: Record<string, string | number | boolean>;

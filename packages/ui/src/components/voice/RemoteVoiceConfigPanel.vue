@@ -98,6 +98,8 @@ async function preview(): Promise<void> {
       settings: {
         textLang: draft.value.textLang ?? 'zh',
         ...(draft.value.refAudioPath ? { refAudioPath: draft.value.refAudioPath } : {}),
+        ...(draft.value.promptText ? { promptText: draft.value.promptText } : {}),
+        ...(draft.value.promptLang ? { promptLang: draft.value.promptLang } : {}),
         ...(draft.value.speedFactor ? { speedFactor: draft.value.speedFactor } : {}),
       },
     })
@@ -155,6 +157,8 @@ async function save(): Promise<void> {
       speakerId: draft.value.speakerId?.trim() || undefined,
       textLang: draft.value.textLang,
       refAudioPath: draft.value.refAudioPath?.trim() || undefined,
+      promptText: draft.value.promptText?.trim() || undefined,
+      promptLang: draft.value.promptLang,
       auxRefAudioPaths: (draft.value.auxRefAudioPaths ?? []).length
         ? draft.value.auxRefAudioPaths
         : undefined,
@@ -257,6 +261,28 @@ async function save(): Promise<void> {
           class="voice-input-field-full"
           placeholder="D:\GPT-SOVITS-V4\voice\firefly\ref.wav"
         />
+      </div>
+
+      <div class="settings-field">
+        <span><strong>参考音频文本</strong><small>参考音频说的内容（api_v2 prompt_text），需与音频一致，v3/v4 模型必填</small></span>
+        <textarea
+          v-model="draft.promptText"
+          class="voice-textarea"
+          rows="2"
+          placeholder="我还知道你们经常在银河各地到处旅行."
+        />
+      </div>
+
+      <div class="settings-field">
+        <span><strong>参考音频语言</strong><small>api_v2 prompt_lang 参数，默认跟随文本语言</small></span>
+        <select v-model="draft.promptLang" class="voice-select-field">
+          <option :value="undefined">跟随文本语言</option>
+          <option value="zh">中文 (zh)</option>
+          <option value="en">英文 (en)</option>
+          <option value="ja">日文 (ja)</option>
+          <option value="ko">韩文 (ko)</option>
+          <option value="yue">粤语 (yue)</option>
+        </select>
       </div>
 
       <div class="settings-field">

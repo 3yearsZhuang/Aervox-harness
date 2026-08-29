@@ -123,6 +123,10 @@ export interface GptSovitsRemoteRuntimeConfig {
   textLang?: string;
   /** api_v2 参考音频路径（GPT-SoVITS 机器上的路径） */
   refAudioPath?: string;
+  /** api_v2 参考音频的文字内容（v3/v4 SoVITS 必填，需与参考音频一致） */
+  promptText?: string;
+  /** api_v2 参考音频的语言（prompt_lang） */
+  promptLang?: string;
   /** api_v2 辅助参考音频路径列表 */
   auxRefAudioPaths?: string[];
   /** api_v2 语速（0.6–1.65） */
@@ -163,6 +167,8 @@ export class GptSovitsRemoteProvider implements VoiceProviderPort {
     if (update.secretRef !== undefined) this.config.secretRef = update.secretRef;
     if (update.textLang !== undefined) this.config.textLang = update.textLang;
     if (update.refAudioPath !== undefined) this.config.refAudioPath = update.refAudioPath;
+    if (update.promptText !== undefined) this.config.promptText = update.promptText;
+    if (update.promptLang !== undefined) this.config.promptLang = update.promptLang;
     if (update.auxRefAudioPaths !== undefined) this.config.auxRefAudioPaths = update.auxRefAudioPaths;
     if (update.speedFactor !== undefined) this.config.speedFactor = update.speedFactor;
   }
@@ -219,8 +225,8 @@ export class GptSovitsRemoteProvider implements VoiceProviderPort {
     if (!this.config.endpoint) {
       throw new Error("Remote GPT-SoVITS is misconfigured");
     }
-    // GPT-SoVITS api_v2 协议（CR-028）：text_lang / ref_audio_path 为必填，
-    // 请求级 settings 可覆盖 provider 配置（便于试听不同参数）。
+    // GPT-SoVITS api_v2 协议（CR-028）：text_lang / ref_audio_path / prompt_lang 为必填，
+    // v3/v4 SoVITS 还要求 prompt_text 非空；请求级 settings 可覆盖 provider 配置（便于试听不同参数）。
     const settings = request.settings ?? {};
     const textLang = (settings.textLang as string | undefined) ?? this.config.textLang ?? "zh";
     const refAudioPath =
@@ -228,6 +234,15 @@ export class GptSovitsRemoteProvider implements VoiceProviderPort {
     if (!refAudioPath) {
       throw new Error("refAudioPath is required (api_v2 ref_audio_path)");
     }
+    const promptText =
+      (settings.promptText as string | undefined) ?? this.config.promptText;
+    if (!promptText) {
+      throw new Error("promptText is required (api_v2 prompt_text)");
+    }
+    const promptLang =
+      (settings.promptLang as string | undefined) ??
+      this.config.promptLang ??
+      textLang;
     const speedFactor =
       (settings.speedFactor as number | undefined) ?? this.config.speedFactor;
     const auxRefAudioPaths =
@@ -245,6 +260,8 @@ export class GptSovitsRemoteProvider implements VoiceProviderPort {
         text: request.text,
         text_lang: textLang,
         ref_audio_path: refAudioPath,
+        prompt_text: promptText,
+        prompt_lang: promptLang,
         ...(auxRefAudioPaths ? { aux_ref_audio_paths: auxRefAudioPaths } : {}),
         ...(speedFactor !== undefined ? { speed_factor: speedFactor } : {}),
       }),
