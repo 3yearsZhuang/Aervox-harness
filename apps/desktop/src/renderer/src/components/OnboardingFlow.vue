@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {computed, onBeforeUnmount, onMounted, ref} from 'vue'
 import {useAervoxLLM, type LLMConfigDto, type LLMProviderType} from '@aervox/api-client'
+import {AervoxBrandMark, AervoxCompanionMark} from '@aervox/ui'
 import Live2DPet from '@/components/Live2DPet.vue'
 import {applyOnboardingProvider, validateOnboardingModel} from '@/onboarding-model'
 
@@ -130,7 +131,7 @@ onBeforeUnmount(() => {
     <div class="ambient ambient-b" aria-hidden="true"/>
 
     <header class="onboarding-header">
-      <span class="brand-mark"><i>✦</i> Aervox <b>/ 思隅</b></span>
+      <span class="brand-mark"><AervoxBrandMark :size="24"/> Aervox <b>/ 思隅</b></span>
       <span class="chapter">{{ progress }}</span>
     </header>
 
@@ -151,7 +152,7 @@ onBeforeUnmount(() => {
           <div class="character-glass" aria-hidden="true"/>
           <Live2DPet class="welcome-character">
             <template #fallback>
-              <div class="character-fallback"><i/><span/></div>
+              <AervoxCompanionMark class="character-fallback"/>
             </template>
           </Live2DPet>
           <p class="character-caption"><span>LIVE PRESENCE</span> 我会在这里，慢慢认识你。</p>
@@ -250,7 +251,7 @@ onBeforeUnmount(() => {
 
     <Transition name="launch">
       <div v-if="isLaunching" class="launch-screen">
-        <div class="launch-emblem"><i/><b>✦</b><span/></div>
+        <div class="launch-emblem"><i/><AervoxBrandMark :size="42"/><span/></div>
         <p v-if="launchPhase === 'saving'">正在保存这次相遇</p>
         <p v-else-if="launchPhase === 'awakening'">正在唤醒你的思隅</p>
         <p v-else>准备好了</p>
@@ -317,6 +318,9 @@ onBeforeUnmount(() => {
 .test-action:disabled,.save-action:disabled { opacity:.55; cursor:wait; }
 .onboarding-footer { position:absolute; z-index:10; right:42px; bottom:27px; left:42px; display:flex; justify-content:space-between; align-items:center; }.onboarding-footer > button { width:75px; border:0; color:rgba(218,228,244,.5); background:transparent; font:inherit; font-size:9px; letter-spacing:.09em; cursor:pointer; }.onboarding-footer > button:last-child { text-align:right; }.onboarding-footer > button:disabled { opacity:0; pointer-events:none; }.onboarding-footer nav { display:flex; gap:11px; }.onboarding-footer nav button { width:5px; height:5px; padding:0; border:0; border-radius:99px; background:rgba(218,230,248,.25); cursor:pointer; transition:width .35s ease,background .35s ease,box-shadow .35s ease; }.onboarding-footer nav button.active { width:26px; background:rgba(208,225,255,.85); box-shadow:0 0 16px rgba(136,180,248,.55); }
 .launch-screen { position:absolute; z-index:30; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#f4f0e9; background:radial-gradient(circle at 50% 45%,#172d4d,#08111f 48%,#03070d 100%); }.launch-emblem { position:relative; display:grid; place-items:center; width:112px; height:112px; margin-bottom:30px; }.launch-emblem::before,.launch-emblem::after,.launch-emblem i { content:""; position:absolute; inset:0; border:1px solid rgba(197,220,255,.22); border-radius:50%; animation:orbit 2.1s linear infinite; }.launch-emblem::after { inset:13px; border-color:rgba(225,198,153,.22); animation-direction:reverse; animation-duration:2.8s; }.launch-emblem i { inset:29px; border-top-color:#9cbfff; border-right-color:transparent; border-bottom-color:transparent; animation-duration:1.15s; }.launch-emblem b { font-size:28px; color:#dbe7fb; text-shadow:0 0 28px rgba(140,184,251,.7); }.launch-emblem span { position:absolute; inset:45%; border-radius:50%; box-shadow:0 0 70px 25px rgba(101,155,237,.2); }.launch-screen p { margin:0 0 10px; font-family:"Segoe UI Variable Display","Source Han Serif SC",serif; font-size:18px; letter-spacing:.08em; }.launch-screen small { color:rgba(210,222,240,.38); font-size:8px; letter-spacing:.25em; }
+.brand-mark :deep(.aervox-brand-mark) { color:#bdd3ff; filter:drop-shadow(0 0 10px rgba(140,184,251,.35)); }
+.welcome-character :deep(.character-fallback) { right:12%; bottom:13%; width:min(72%,430px); height:auto; border:1px solid rgba(218,234,255,.18); border-radius:28%; background:none; box-shadow:0 28px 70px rgba(0,0,0,.36); }
+.launch-emblem :deep(.aervox-brand-mark) { position:relative; z-index:1; color:#dbe7fb; filter:drop-shadow(0 0 14px rgba(140,184,251,.7)); }
 .scene-enter-active,.scene-leave-active { transition:opacity .65s ease,transform .75s cubic-bezier(.2,.8,.2,1),filter .65s ease; }.scene-enter-from { opacity:0; transform:translateX(24px) scale(1.015); filter:blur(6px); }.scene-leave-to { opacity:0; transform:translateX(-18px) scale(.99); filter:blur(4px); }.launch-enter-active,.launch-leave-active { transition:opacity .65s ease,filter .65s ease; }.launch-enter-from,.launch-leave-to { opacity:0; filter:blur(12px); }
 @keyframes grain { 0%{transform:translate(0)}25%{transform:translate(2%,-3%)}50%{transform:translate(-3%,2%)}75%{transform:translate(3%,3%)}100%{transform:translate(-2%,-2%)} }
 @keyframes drift { to { transform:translate3d(3vw,-2vh,0) scale(1.08); } }
