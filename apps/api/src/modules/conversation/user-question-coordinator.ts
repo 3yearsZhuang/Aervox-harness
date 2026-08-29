@@ -97,12 +97,18 @@ export class UserQuestionCoordinator {
           };
         });
 
-        // 若全部问题都有选项或推荐则放行，否则超时报错
+        // 若全部问题都有选项或推荐则放行，否则超时报错。
+        // 错误信息面向模型：明确指示不要重复提问，避免"超时→再问→再超时"的 60s×N 循环。
         const canDefault = questions.every((q) => (q.options?.length ?? 0) > 0);
         if (canDefault && defaultAnswers.length > 0) {
           resolve({ answers: defaultAnswers });
         } else {
-          reject(new Error(`QUESTION_TIMEOUT: User did not answer within ${timeoutMs}ms`));
+          reject(
+            new Error(
+              `QUESTION_TIMEOUT: 用户未在 ${timeoutMs}ms 内回答（客户端在回合结束后才能看到问题）。` +
+                `请勿再次提问或等待：基于现有信息继续完成任务，或礼貌说明稍后可重新发起。`,
+            ),
+          );
         }
       }, timeoutMs);
 

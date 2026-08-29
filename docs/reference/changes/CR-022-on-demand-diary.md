@@ -60,4 +60,6 @@ CAP-009 的数据层与调度骨架（8 张日记表、事务发布、Worker 轮
 
 - 验证：`apps/api/test/diary-ondemand.test.ts` 集成测试 5 项（PET-05 未授权拒绝 / 授权新建 + `GET /v1/diaries` / 同日改写版本与主行推进 / 无素材空日记诚实降级 / `createRuntimeToolProvider` 审批缝挂起-授权-执行）；`openapi-contract.test.ts` 契约断言；`@aervox/agent-loop` 117 测试（含更新后的 provider 协议序列化断言）；全仓 `pnpm build`/`typecheck`/`test` 通过；**真实 DeepSeek E2E**：对话触发 → 审批中断 → 批准 → 重发命中授权 → LLM 生成桌宠视角日记落库 → 工具后续写叙述 → `Completed`；同日改写（version 递增、status `edited`）；预授权命中（同参数哈希免二次审批）。
 - 已修复（同分支提交）：UQ-01 `ask_user_question` 挂起路径的 `turn_stream_events.sequence` 唯一约束冲突（执行器本地计数器与协调器读条数+1 分叉）——`appendStreamEvent` 序号改为仓储原子分配 MAX+1、显式序号冲突回退改配，协调器与审批路由去除读后写；回归测试 `turn-stream-sequence.test.ts` 3 项。
+- 已修复（同分支提交，同根因另一面）：长挂起与 Attempt 租约生命周期冲突——提问挂起（默认 60s）恰等于租约 TTL(60s)，不续租会被 Worker `attempt-recovery` 判定宕机抢占、回合悬死；执行器在模型流式与工具执行期间增加 15s 心跳续租；提问超时错误改为明确指示模型不要重复提问（避免 60s×N 循环）。
+- 架构性限制（未修，需独立任务）：Turn 执行仍在 POST 请求路径上同步等待，且 SSE 事件端点为一次性重放——客户端在回合结束前看不到挂起中的提问、无法交互作答；需「后台执行 + 事件实时尾随（live tailing）」重构后，提问交互才能端到端可用。当前行为：提问 60s 超时后模型基于超时指示优雅收尾，回合正常终结。
 - 决策：Review Candidate，阶段 1（对话触发 + 真实 LLM 接线）已落地；定时路径按阶段 2 推进。

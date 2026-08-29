@@ -131,6 +131,23 @@ export async function executeTurn(
   const claimFencingToken = claim.fencingToken;
   let stepsTaken = 0;
 
+  // 3b-A：长操作心跳续租——Step 首部续租覆盖不到模型流式与工具执行期；挂起类工具
+  // （ask_user_question 默认 60s 挂起）恰与租约 TTL(60s) 冲突，不续租会被 Worker 的
+  // attempt-recovery 判定宕机抢占（fencing 失效、迟到事件被丢弃，回合悬死）。
+  // 心跳失败静默（租约已被抢占时由既有的 fencing 终态校验兜底）。
+  const startLeaseHeartbeat = (): ReturnType<typeof setInterval> | null =>
+    claimLeaseId
+      ? setInterval(() => {
+          void execution
+            .renewAttemptLease({
+              attemptId: input.attemptId,
+              leaseId: claimLeaseId,
+              expectedFencingToken: claimFencingToken,
+            })
+            .catch(() => undefined);
+        }, 15_000)
+      : null;
+
   // 2b：用户取消闭环（AVX-HAR-001 §11.1）——先 CAS 夺终态（Cancelled），成功才写 done 事件；
   // finalize 返回 false（与它方终态竞态）则静默中止，不产生不一致事件。
   const finalizeCancelled = async (atSequence: number): Promise<ExecuteResult> => {
@@ -265,16 +282,21 @@ export async function executeTurn(
         await inbox.ack({ itemIds: stepInboxItems.map((i) => i.id) });
       }
 
-      // 收集本 Step 输出（文本增量 + 工具请求）
+      // 收集本 Step 输出（文本增量 + 工具请求）；模型流式可能长于租约 TTL，心跳续租
       const stepStartedAt = Date.now();
-      for await (const chunk of provider.stream({
-        turnId: input.turnId,
-        attemptId: input.attemptId,
-        step,
-        context,
-        tools: tools?.tools,
-      })) {
-        chunks.push(chunk);
+      const streamHeartbeat = startLeaseHeartbeat();
+      try {
+        for await (const chunk of provider.stream({
+          turnId: input.turnId,
+          attemptId: input.attemptId,
+          step,
+          context,
+          tools: tools?.tools,
+        })) {
+          chunks.push(chunk);
+        }
+      } finally {
+        if (streamHeartbeat) clearInterval(streamHeartbeat);
       }
       const stepText = chunks.map((c) => c.text).join("");
       const toolCalls = chunks.flatMap((c) => c.toolCalls ?? []);
@@ -442,13 +464,15 @@ export async function executeTurn(
             name: call.name,
             arguments: call.arguments,
           });
+          // 长耗时工具放宽超时：ask_user_question 等待用户交互（默认 120s）；
+          // aervox_diary_write 内含一次完整 LLM 日记生成（CAP-009），同样放宽
+          const isAskUser = call.name === "ask_user_question";
+          const isDiaryWrite = call.name === "aervox_diary_write";
+          const effectiveTimeout =
+            isAskUser || isDiaryWrite ? Math.max(toolTimeoutMs, 120000) : toolTimeoutMs;
+          // 挂起/长生成期间心跳续租，防止租约过期被 Worker 抢占回收
+          const toolHeartbeat = startLeaseHeartbeat();
           try {
-            // 长耗时工具放宽超时：ask_user_question 等待用户交互（默认 120s）；
-            // aervox_diary_write 内含一次完整 LLM 日记生成（CAP-009），同样放宽
-            const isAskUser = call.name === "ask_user_question";
-            const isDiaryWrite = call.name === "aervox_diary_write";
-            const effectiveTimeout =
-              isAskUser || isDiaryWrite ? Math.max(toolTimeoutMs, 120000) : toolTimeoutMs;
             const executed = await withTimeout(
               tools.execute({
                 turnId: input.turnId,
@@ -463,6 +487,8 @@ export async function executeTurn(
             result = { id: call.id, name: call.name, ok: executed.ok, output: executed.output, error: executed.error, needsApproval: executed.needsApproval };
           } catch (err) {
             result = { id: call.id, name: call.name, ok: false, error: err instanceof Error ? err.message : "tool_execution_error" };
+          } finally {
+            if (toolHeartbeat) clearInterval(toolHeartbeat);
           }
           // 2c：以权威结果收口预留行（§9：非幂等副作用失败不自动重试）
           const finalStatus: ToolExecutionStatus = result.needsApproval
