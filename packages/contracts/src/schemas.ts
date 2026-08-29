@@ -32,6 +32,7 @@ export const streamEventTypeSchema = z.enum([
   "error",
   "redacted",
   "emote",
+  "reasoning_delta",
   "user_question_required",
   "user_question_answered",
   "tool_approval_required",
@@ -79,6 +80,15 @@ export const deltaEventDataSchema = z.object({
   messageId: z.string().min(1),
   text: z.string(),
   isFinal: z.boolean(),
+});
+
+/**
+ * reasoning_delta：思考型模型的思考进度增量（CR-027）。
+ * 非正文：不进消息历史，仅作为长思考期间的活性/进度信号；客户端可展示「思考中」反馈。
+ */
+export const reasoningDeltaEventDataSchema = z.object({
+  messageId: z.string().min(1),
+  text: z.string(),
 });
 
 /** done：Turn 终态已提交（§4.3） */

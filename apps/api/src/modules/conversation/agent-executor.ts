@@ -461,12 +461,16 @@ export async function buildLoopProvider(
     if (options.requireLocalOnly && !isLiteralLoopbackUrl(cfg.baseUrl)) {
       throw new Error("proactive_local_provider_required: 主动画像上下文禁止发送到非本机模型端点");
     }
+    // CR-027：思考型模型经 settings.requestTimeoutMs（空闲超时，ms）放宽上游静默上限；
+    // provider 语义为「每收到一段数据即重置」，默认 45s 空闲。
+    const requestTimeoutMs = Number(cfg.settings?.requestTimeoutMs);
     return createOpenAICompatProvider({
       baseUrl: cfg.baseUrl,
       apiKey: cfg.apiKey,
       modelId: cfg.modelId,
       temperature: cfg.temperature,
       maxTokens: cfg.maxTokens,
+      ...(Number.isFinite(requestTimeoutMs) && requestTimeoutMs > 0 ? { timeoutMs: requestTimeoutMs } : {}),
       redirect: options.requireLocalOnly ? "error" : undefined,
     });
   }

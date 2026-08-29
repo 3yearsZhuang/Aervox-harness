@@ -31,7 +31,7 @@ function mockFetch(body: string, status = 200): ReturnType<typeof vi.fn> {
 }
 
 async function collect(provider: ReturnType<typeof createOpenAICompatProvider>, request: ModelRequest = baseRequest) {
-  const chunks: Array<{ text: string; isFinal: boolean; toolCalls?: unknown[] }> = [];
+  const chunks: Array<{ text: string; isFinal: boolean; reasoning?: string; toolCalls?: unknown[] }> = [];
   for await (const chunk of provider.stream(request)) chunks.push(chunk);
   return chunks;
 }
@@ -163,6 +163,35 @@ describe("createOpenAICompatProvider（阶段 2e）", () => {
       tools?: Array<{ function: { parameters?: unknown } }>;
     };
     expect(body.tools?.[0]?.function.parameters).toEqual(schema);
+  });
+
+  it("思考模型（DeepSeek/Qwen/vLLM）：delta.reasoning_content 逐块透出 reasoning，不混入正文", async () => {
+    mockFetch(
+      sseBody([
+        JSON.stringify({ choices: [{ delta: { reasoning_content: "先想一下" }, finish_reason: null }] }),
+        JSON.stringify({ choices: [{ delta: { reasoning_content: "：1+1=2" }, finish_reason: null }] }),
+        JSON.stringify({ choices: [{ delta: { content: "答案是 2" }, finish_reason: "stop" }] }),
+      ]),
+    );
+    const chunks = await collect(createOpenAICompatProvider({ baseUrl: "http://x/v1", modelId: "m" }));
+    const reasoningChunks = chunks.filter((c) => c.reasoning);
+    expect(reasoningChunks.map((c) => c.reasoning)).toEqual(["先想一下", "：1+1=2"]);
+    // 思考增量不产生正文
+    expect(reasoningChunks.every((c) => c.text === "" && !c.isFinal)).toBe(true);
+    // 正文只有 content 部分（isFinal 收尾块 text 为空串，被 filter 排除）
+    expect(chunks.filter((c) => c.text).map((c) => c.text)).toEqual(["答案是 2"]);
+  });
+
+  it("思考模型（OpenRouter/Ollama）：delta.reasoning 同样透出 reasoning", async () => {
+    mockFetch(
+      sseBody([
+        JSON.stringify({ choices: [{ delta: { reasoning: "推理片段" }, finish_reason: null }] }),
+        JSON.stringify({ choices: [{ delta: { content: "结论" }, finish_reason: "stop" }] }),
+      ]),
+    );
+    const chunks = await collect(createOpenAICompatProvider({ baseUrl: "http://x/v1", modelId: "m" }));
+    expect(chunks.find((c) => c.reasoning)?.reasoning).toBe("推理片段");
+    expect(chunks.filter((c) => c.text).map((c) => c.text)).toEqual(["结论"]);
   });
 
   it("非 2xx：抛出 llm_http_<status> 错误", async () => {

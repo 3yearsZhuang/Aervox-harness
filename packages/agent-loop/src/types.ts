@@ -30,6 +30,7 @@ export type LoopEventType =
   | "error"
   | "redacted"
   | "emote"
+  | "reasoning_delta"
   | "tool_request"
   | "tool_result"
   | "tool_approval_required"
@@ -138,6 +139,12 @@ export interface ModelChunk {
   isFinal: boolean;
   /** Step 结束时模型请求的工具（isFinal=true 时携带） */
   toolCalls?: ToolCallRequest[];
+  /**
+   * 思考型模型（DeepSeek reasoning_content / OpenRouter·Ollama reasoning）的思考增量。
+   * 非正文：不进 message 历史与安全片段，仅作为 reasoning_delta 进度事件透出，
+   * 让客户端在长思考期间保持活性与「思考中」反馈。
+   */
+  reasoning?: string;
 }
 
 /** executeTurn 执行结果 */

@@ -64,7 +64,7 @@ describe("阶段 2b 用户取消（POST /v1/turns/:id/cancel）", () => {
   });
 
   it("已终态 Turn 取消被拒：409 turn_already_finalized，终态不被覆盖", async () => {
-    // 走真实 Turn 创建 + Loop 同步完成（replay provider）
+    // 走真实 Turn 创建 + replay Loop 后台完成（CR-027 background 语义）
     const create = await app.inject({
       method: "POST",
       url: "/v1/sessions/ses_done/turns",
@@ -78,11 +78,17 @@ describe("阶段 2b 用户取消（POST /v1/turns/:id/cancel）", () => {
     expect(create.statusCode).toBe(201);
     const { turnId } = create.json();
 
+    // SSE 活流在 Attempt 终态排空后结束——作为「回合已完成」屏障，规避 background 竞态
+    const stream = await app.inject({ method: "GET", url: `/v1/turns/${turnId}/events`, headers });
+    expect(stream.statusCode).toBe(200);
+    const attempts = await repo.listTurnAttempts(tenant, turnId);
+    expect(attempts[0]?.status).toBe("Completed");
+
     const res = await app.inject({ method: "POST", url: `/v1/turns/${turnId}/cancel`, headers });
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe("turn_already_finalized");
-    const attempts = await repo.listTurnAttempts(tenant, turnId);
-    expect(attempts[0]?.status).toBe("Completed");
+    const attemptsAfter = await repo.listTurnAttempts(tenant, turnId);
+    expect(attemptsAfter[0]?.status).toBe("Completed");
   });
 
   it("不存在的 Turn 返回 404", async () => {

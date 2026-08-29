@@ -1,7 +1,7 @@
 # 文档生命周期登记表（核验节奏与陈旧信号）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：kikoyida · 2026-08-29
+- 修改人：3yearszhuang · 2026-08-29
 
 > 文档编号：AVX-DOC-CONF-001  
 > 版本：v1.3
@@ -17,7 +17,7 @@
 | `AVX-SRS-001` | [SRS](reference/SRS.md) | 2026-08-29 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
 | `AVX-SAD-001` | [架构设计](reference/ARCHITECTURE.md) | 2026-08-29 | G2 评审 + 架构变更 | 新增 ADR/技术基线变化未同步 |
 | `ADR-001~019` | [ADR 索引](reference/adr/README.md) | 2026-08-29 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
-| `AVX-SPC-001` | [流式协议](reference/STREAMING_PROTOCOL.md) | 2026-08-28 | OpenAPI/事件 schema 变更 | `packages/contracts` 版本高于文档描述 |
+| `AVX-SPC-001` | [流式协议](reference/STREAMING_PROTOCOL.md) | 2026-08-29 | OpenAPI/事件 schema 变更 | `packages/contracts` 版本高于文档描述 |
 | `AVX-DB-001` | [数据库设计与双引擎契约](reference/DATABASE.md) | 2026-08-29 | Schema/仓储接口/迁移计划变更 | 仓储接口签名或租户隔离模式/PG 切换计划与实现不一致 |
 | `AVX-DATA-001` | [数据与隐私](reference/DATA_PRIVACY.md) | 2026-08-29 | 每季度 + 数据流变更 | 新增数据实体/用途/保留未评审 |
 | `AVX-AIQ-001` | [AI 质量与安全](reference/AI_QUALITY_SAFETY.md) | 2026-08-29 | 模型/Prompt/算法变更 + AI 评估 | ModelRun/PromptVersion 更新未同步 |
@@ -57,6 +57,7 @@
 | `CR-023` | [广域本地主动智能模式](reference/changes/CR-023-proactive-local-intelligence-mode.md) | 2026-08-29 | `CAP-033` + `CAP-002/005/007/008/009/010/012/013/018/020/022/023/024/026/027/030` 广域画像、Agent Host/Inbox、OS 权限、本地私密数据或授权语义变更 | AVX-EXPL-008、CR-022、OS Permission Broker、本地 Provider/存储、撤权、导出或待决策不一致 |
 | `CR-024` | [主动智能能力套件与外部环境连接](reference/changes/CR-024-proactive-intelligence-suite-integrations.md) | 2026-08-29 | `CAP-033/034/035` 十二能力、HA/健康连接、工具或本地数据结构变更 | ADR-019、OpenAPI、数据库、Worker、桌面设置、凭据或撤销删除与实现不一致 |
 | `CR-025` | [桌面端首次启动引导](reference/changes/CR-025-desktop-first-run-onboarding.md) | 2026-08-29 | `CAP-001/018` 桌面首启、Live2D、模型配置入口或本机完成标记变更 | 首次启动判定、CR-015 配置复用、快速开始或启动过渡与实现不一致 |
+| `CR-027` | [Turn 流活性治理：执行解耦、SSE 活流与思考增量透传](reference/changes/CR-027-turn-stream-liveness.md) | 2026-08-29 | 流式协议建流语义、思考事件类型、客户端超时/取消语义变更 | STREAMING_PROTOCOL、OpenAPI、Agent Loop/Provider、API Client/桌面桥或 Workbench 与实现不一致 |
 | `AVX-PLUG-001` | [插件 Config 与 Page 规范](reference/plugin-config-and-pages.md) | 2026-08-26 | CR-006 / 插件机制变更 | Manifest、Config Schema、Page Bridge 与实现不一致 |
 | `AVX-DOC-GOV-001` | [文档治理与事实源规范](reference/document-governance.md) | 2026-08-28 | 文档分类、状态、事实源、复核触发或迁移策略变更 | 策略 JSON、校验器、索引、登记表或写作规范与治理基线不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 2026-08-28 | 写作规则、模板或季度评审 | 新文档未使用规范元数据/签名，或 Vale 规则与术语表不一致 |

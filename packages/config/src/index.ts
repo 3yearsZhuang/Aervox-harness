@@ -15,6 +15,14 @@ export type LoopProvider =
   | "scripted-quiz"
   | "llm";
 
+/**
+ * Turn 执行模式（AERVOX_TURN_EXECUTION）：
+ * - background（默认）：POST /turns 落库后立即返回，Agent Loop 后台执行，
+ *   客户端经 SSE 活流（重放 + tail）观察进度——深度思考等长回合不再阻塞 HTTP 响应；
+ * - inline：POST 内联等 Loop 跑完再返回（旧语义；测试与排查用）。
+ */
+export type TurnExecution = "background" | "inline";
+
 /** GPT-Sovits 语音输出 provider 配置（voice 模块） */
 export interface GptSovitsConfig {
   modelPath?: string;
@@ -41,6 +49,8 @@ export interface ApiConfig {
   port: number;
   /** Agent Loop 模型 Provider（AERVOX_LOOP_PROVIDER，默认 llm） */
   loopProvider: LoopProvider;
+  /** Turn 执行模式（AERVOX_TURN_EXECUTION，默认 background） */
+  turnExecution: TurnExecution;
   /** Context 压缩方式：rule | off（AERVOX_LOOP_COMPACTION，默认 off） */
   loopCompaction: "rule" | "off";
   /** 3b privileged 工具管理员白名单（AERVOX_ADMIN_IDS，逗号分隔，默认空） */
@@ -97,6 +107,12 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
       env.AERVOX_LOOP_PROVIDER,
       ["replay", "scripted", "scripted-write", "scripted-privileged", "scripted-quiz", "llm"] as const,
       "llm",
+    ),
+    turnExecution: requireEnum(
+      "AERVOX_TURN_EXECUTION",
+      env.AERVOX_TURN_EXECUTION,
+      ["background", "inline"] as const,
+      "background",
     ),
     loopCompaction: requireEnum(
       "AERVOX_LOOP_COMPACTION",

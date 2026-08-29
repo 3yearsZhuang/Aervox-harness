@@ -587,6 +587,9 @@ function isTurnRequest(value: unknown): value is {
             || (Array.isArray(request.attachments) && request.attachments.length <= 20 && request.attachments.every(isTurnAttachment)))
 }
 
+/** CR-027：在途 Turn 请求的中止控制器（requestId → controller），供渲染层空闲超时/主动放弃时中止上游 */
+const activeTurnRequests = new Map<string, AbortController>()
+
 async function streamAervoxTurn(event: Electron.IpcMainEvent, payload: unknown) {
     if (!isTurnRequest(payload)) return
     const {requestId, content} = payload
@@ -594,6 +597,11 @@ async function streamAervoxTurn(event: Electron.IpcMainEvent, payload: unknown) 
     const sessionId = resolveDesktopSessionId(process.env.AERVOX_SESSION_ID)
     const send = (message: Record<string, unknown>) => {
         if (!event.sender.isDestroyed()) event.sender.send('aervox:turn:event', {requestId, ...message})
+    }
+    const controller = new AbortController()
+    activeTurnRequests.set(requestId, controller)
+    const unregister = () => {
+        if (activeTurnRequests.get(requestId) === controller) activeTurnRequests.delete(requestId)
     }
 
     try {
@@ -618,6 +626,7 @@ async function streamAervoxTurn(event: Electron.IpcMainEvent, payload: unknown) 
                 toolApprovalMode,
                 references: [],
             }),
+            signal: controller.signal,
         })
         if (!createResponse.ok) throw new Error(`创建 Turn 失败（HTTP ${createResponse.status}）`)
 
@@ -626,7 +635,10 @@ async function streamAervoxTurn(event: Electron.IpcMainEvent, payload: unknown) 
             throw new Error('Turn 响应缺少有效 eventsUrl')
         }
 
-        const eventsResponse = await fetch(`${apiBaseUrl}${turn.eventsUrl}`, {headers: {Accept: 'text/event-stream'}})
+        const eventsResponse = await fetch(`${apiBaseUrl}${turn.eventsUrl}`, {
+            headers: {Accept: 'text/event-stream'},
+            signal: controller.signal,
+        })
         if (!eventsResponse.ok || !eventsResponse.body) {
             throw new Error(`读取 Turn 事件失败（HTTP ${eventsResponse.status}）`)
         }
@@ -639,7 +651,11 @@ async function streamAervoxTurn(event: Electron.IpcMainEvent, payload: unknown) 
                 .filter((line) => line.startsWith('data:'))
                 .map((line) => line.slice(5).trim())
                 .join('')
-            if (!data) return
+            if (!data) {
+                // SSE 注释心跳帧（`: ping`）：转发为桥消息，维持渲染层空闲超时计时（CR-027）
+                send({type: 'heartbeat'})
+                return
+            }
             const turnEvent = JSON.parse(data) as Record<string, unknown>
             send({type: 'event', event: turnEvent})
             if (turnEvent.eventType === 'emote' && petWindow && !petWindow.isDestroyed()) {
@@ -658,7 +674,12 @@ async function streamAervoxTurn(event: Electron.IpcMainEvent, payload: unknown) 
         if (buffer.trim()) consumeFrame(buffer)
         send({type: 'closed'})
     } catch (error) {
-        send({type: 'error', message: error instanceof Error ? error.message : 'Aervox 请求失败'})
+        // 渲染层主动取消（空闲超时/UI 放弃）时不再回发 error，避免对已收敛的 UI 重复报错
+        if (!controller.signal.aborted) {
+            send({type: 'error', message: error instanceof Error ? error.message : 'Aervox 请求失败'})
+        }
+    } finally {
+        unregister()
     }
 }
 
@@ -1071,6 +1092,14 @@ app.whenReady().then(async () => {
         return proactiveHost.shouldKeepAlive()
     })
     ipcMain.on('aervox:turn:start', streamAervoxTurn)
+    // CR-027：中止在途 Turn 请求（渲染层空闲超时收敛后调用，避免幽灵回合继续消耗上游 tokens）
+    ipcMain.on('aervox:turn:cancel', (_event, requestId: unknown) => {
+        if (typeof requestId !== 'string') return
+        const controller = activeTurnRequests.get(requestId)
+        if (!controller) return
+        activeTurnRequests.delete(requestId)
+        controller.abort()
+    })
     ipcMain.handle('aervox:api:request', proxyApiRequest)
     ipcMain.handle('aervox:attachment:upload', uploadAttachment)
     createMainWindow()

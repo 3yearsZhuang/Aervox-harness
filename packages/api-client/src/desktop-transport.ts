@@ -34,9 +34,16 @@ declare global {
       ) => Promise<{ status: number; ok: boolean; json: T | null; text: string }>;
       streamTurn: (
         content: string,
-        options: { toolApprovalMode: ToolApprovalMode; attachments?: TurnAttachmentRef[] },
+        options: {
+          toolApprovalMode: ToolApprovalMode;
+          attachments?: TurnAttachmentRef[];
+          /** CR-027：渲染层生成的请求 ID，供 cancelTurn 定位主进程在途请求 */
+          requestId?: string;
+        },
         callback: (message: unknown) => void,
       ) => () => void;
+      /** CR-027：中止主进程仍在等待/消费的上游 Turn 请求（超时或 UI 主动放弃时调用） */
+      cancelTurn?: (requestId: string) => void;
       /** 打开系统「选择文件夹」对话框，返回选中目录绝对路径；取消返回 null（CR-011 阶段 3） */
       pickDirectory?: () => Promise<string | null>;
       /** 多模态输入：附件二进制上传（renderer File → base64 → 主进程转发 API） */
@@ -51,7 +58,11 @@ declare global {
   }
 }
 
-/** API 上游超时后仍未返回时，桌面端必须收敛 UI 的 loading 状态。 */
+/**
+ * CR-027：Turn 流【空闲】超时——每收到一条桥消息（delta / reasoning_delta / 心跳等）即重置。
+ * 深度思考等长回合持续有事件流入，不再触发误报；真正静默（网络断、上游卡死）时收敛 UI
+ * 并经 cancelTurn 通知主进程中止上游请求。
+ */
 export const DESKTOP_TURN_TIMEOUT_MS = 60_000;
 export const desktopTransport: AervoxTransport = {
   async request<T = unknown>(method: string, path: string, body?: unknown, options?: { headers?: Record<string, string> }): Promise<T> {
@@ -121,18 +132,30 @@ function streamTurnViaBridge(
   return new Promise((resolve, reject) => {
     let settled = false;
     let stop: () => void = () => undefined;
+    const requestId = `turn_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
     const settle = (finish: () => void) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timeout);
+      if (idleTimer) clearTimeout(idleTimer);
       stop();
       finish();
     };
-    const timeout = setTimeout(() => {
-      settle(() => reject(new Error(`desktop_turn_timeout: no terminal event received within ${DESKTOP_TURN_TIMEOUT_MS}ms`)));
-    }, DESKTOP_TURN_TIMEOUT_MS);
+    // 空闲超时（替代旧 60s 绝对总时限）：每收到一条桥消息即重置。
+    let idleTimer: ReturnType<typeof setTimeout> | undefined;
+    const armIdleTimer = (): void => {
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        settle(() =>
+          reject(new Error(`desktop_turn_timeout: no data received for ${DESKTOP_TURN_TIMEOUT_MS}ms`)),
+        );
+        // UI 已收敛；通知主进程中止仍在等待的上游请求，避免幽灵回合继续消耗 tokens
+        bridge.cancelTurn?.(requestId);
+      }, DESKTOP_TURN_TIMEOUT_MS);
+    };
+    armIdleTimer();
 
-    stop = bridge.streamTurn(content, { toolApprovalMode, attachments }, (message) => {
+    stop = bridge.streamTurn(content, { toolApprovalMode, attachments, requestId }, (message) => {
+      armIdleTimer();
       if (!message || typeof message !== 'object') return;
       const envelope = message as { type?: unknown; event?: unknown; message?: unknown };
       if (envelope.type === 'error') {
@@ -146,6 +169,10 @@ function streamTurnViaBridge(
       if (envelope.type !== 'event' || !envelope.event || typeof envelope.event !== 'object') return;
       const event = envelope.event as TurnStreamEvent;
       if (event.eventType === 'delta') callbacks.onDelta((event.data as { text: string }).text);
+      if (event.eventType === 'reasoning_delta') {
+        const text = (event.data as { text?: string }).text;
+        if (text) callbacks.onReasoning?.(text);
+      }
       if (event.eventType === 'done') callbacks.onDone();
       if (event.eventType === 'error') {
         const error = new Error((event.data as { message?: string }).message ?? 'Turn 出错');

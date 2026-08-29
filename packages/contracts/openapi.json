@@ -222,6 +222,7 @@
               "error",
               "redacted",
               "emote",
+              "reasoning_delta",
               "user_question_required",
               "user_question_answered",
               "tool_approval_required",
@@ -298,6 +299,22 @@
           "messageId",
           "text",
           "isFinal"
+        ]
+      },
+      "ReasoningDeltaEventData": {
+        "type": "object",
+        "properties": {
+          "messageId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "messageId",
+          "text"
         ]
       },
       "DoneEventData": {
@@ -8038,6 +8055,7 @@
                         "error",
                         "redacted",
                         "emote",
+                        "reasoning_delta",
                         "user_question_required",
                         "user_question_answered",
                         "tool_approval_required",

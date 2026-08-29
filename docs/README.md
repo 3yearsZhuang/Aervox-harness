@@ -1,7 +1,7 @@
 # Aervox｜思隅 产品与工程文档索引
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：kikoyida · 2026-08-29
+- 修改人：3yearszhuang · 2026-08-29
 
 > 文档编号：AVX-DOC-001  
 > 版本：v1.3
@@ -72,6 +72,8 @@
 复习日期边界见 [CR-011：时区安全的复习调度与逾期汇总](reference/changes/CR-011-timezone-safe-review-scheduling.md)：v2 按 IANA 时区增加本地日历天，并区分今日到期与历史逾期。
 
 Agent 执行核心的当前与目标边界见 [CR-012：Agent Harness Loop](reference/changes/CR-012-agent-harness-loop.md) 与 [AVX-HAR-001](reference/agent-harness-loop.md)：阶段 0、1、2d、2e、3a、3b 已落地，包括 `packages/agent-loop`、API Replay/Scripted/LLM Loop、持久化 SSE、只读工具、写工具审批、工具账本、租约与 Worker 恢复；异步 Outbox Driver、完整上下文持久化、独立 Host 和 DSH/pi Adapter 仍按后续阶段推进。
+
+Turn 流活性边界见 [CR-027：Turn 流活性治理](reference/changes/CR-027-turn-stream-liveness.md)：`POST /turns` 落库即返回（Loop 后台执行，`AERVOX_TURN_EXECUTION=inline` 可回退旧同步语义），SSE 为「重放 + 轮询 tail + 心跳」活流；思考型模型增量以 `reasoning_delta` 事件透传（`reasoning_content`/`reasoning` 双格式）；provider 与客户端超时均为空闲语义，桌面端空闲超时后经 IPC 中止上游在途请求。
 
 工具授权的 Turn 级完全访问开关见 [CR-022](reference/changes/CR-022-full-access-tool-permission.md)：默认仍逐次确认，用户经风险确认后可自动放行普通写工具；CAP-033 另以独立的 `FullProfileActionGrant` 承载用户明确批准的全量主动动作，撤权/删除、租户隔离和平台访问控制仍由各自事实源约束。
 

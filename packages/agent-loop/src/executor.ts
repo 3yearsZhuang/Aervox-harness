@@ -310,6 +310,34 @@ export async function executeTurn(
       let canRetryModel = maxModelRetries > 0 && step === stepBase + 1 && textAccumulator.length === 0;
       let midStreamStop: ExecuteResult | null = null;
       let lastMidStreamCheck = 0;
+      // 思考型模型（CAP-034）：思考增量节流落 reasoning_delta 进度事件——
+      // 长思考期间客户端仍有事件流入（SSE 活性）；不进正文历史与安全片段。
+      let reasoningBuffer = "";
+      let reasoningEmitted = false;
+      let reasoningLastFlushAt = 0;
+      const flushReasoning = async (force = false): Promise<void> => {
+        const nowMs = Date.now();
+        if (!force && reasoningBuffer.length < 200 && nowMs - reasoningLastFlushAt < 400) return;
+        const text = reasoningBuffer;
+        reasoningBuffer = "";
+        reasoningLastFlushAt = nowMs;
+        if (!text) return;
+        reasoningEmitted = true;
+        try {
+          await execution.appendEvent({
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            expectedFencingToken: claimFencingToken,
+            sequence: sequence++,
+            eventType: "reasoning_delta",
+            data: { messageId, text },
+            safetyDecision: "approved",
+          });
+        } catch (err) {
+          // 进度事件失败不阻断 Turn；租约丢失除外（上层统一收敛 lease_lost）
+          if (err instanceof LeaseLostError) throw err;
+        }
+      };
       const collectStep = async (): Promise<ModelChunk[]> => {
         const out: ModelChunk[] = [];
         for await (const chunk of provider.stream({
@@ -332,6 +360,10 @@ export async function executeTurn(
             }
           }
           out.push(chunk);
+          if (chunk.reasoning) {
+            reasoningBuffer += chunk.reasoning;
+            await flushReasoning();
+          }
         }
         return out;
       };
@@ -339,7 +371,7 @@ export async function executeTurn(
       try {
         chunks = await collectStep();
       } catch (err) {
-        if (canRetryModel && !(err instanceof LeaseLostError) && !heartbeat?.lost) {
+        if (canRetryModel && !reasoningEmitted && !(err instanceof LeaseLostError) && !heartbeat?.lost) {
           canRetryModel = false;
           midStreamStop = null;
           lastMidStreamCheck = 0;
@@ -348,7 +380,11 @@ export async function executeTurn(
           throw err;
         }
       }
-      if (midStreamStop) return midStreamStop;
+      if (midStreamStop) {
+        await flushReasoning(true);
+        return midStreamStop;
+      }
+      await flushReasoning(true);
       const stepText = chunks.map((c) => c.text).join("");
       const toolCalls = chunks.flatMap((c) => c.toolCalls ?? []);
       const hasToolCalls = toolCalls.length > 0;

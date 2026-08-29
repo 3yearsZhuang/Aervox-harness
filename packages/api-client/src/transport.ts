@@ -21,6 +21,8 @@ export interface TurnCallbacks {
   onDone: () => void;
   onError?: (err: unknown) => void;
   onEmote?: (command: PetCommand) => void;
+  /** CR-027: 思考型模型的思考进度增量（reasoning_delta；非正文，仅作「思考中」反馈） */
+  onReasoning?: (text: string) => void;
   /** UQ-01: 当模型请求向用户提问时触发 */
   onUserQuestion?: (data: UserQuestionRequiredEventData) => void;
   /** CAP-007 / CAP-002: 术语抽取完成事件 */
@@ -137,6 +139,12 @@ export function getApiBase(): string {
 
 // ── fetchTransport（Web / 无桌面桥时的默认实现） ─────────────────────────
 
+/**
+ * CR-027：Turn 流空闲超时——创建请求与 SSE 流共用，每收到一段数据即重置。
+ * 思考型模型的 reasoning_delta 同样算活性，长思考不再触发超时。
+ */
+export const TURN_STREAM_IDLE_TIMEOUT_MS = 60_000;
+
 export function createFetchTransport(apiBase: string, workspaceId?: string, userId?: string): AervoxTransport {
   const base = apiBase.replace(/\/+$/, '');
   const tenantHeaders = (): Record<string, string> => {
@@ -146,11 +154,17 @@ export function createFetchTransport(apiBase: string, workspaceId?: string, user
     return headers;
   };
 
-  const request = async <T = unknown>(method: string, path: string, body?: unknown, options?: { headers?: Record<string, string> }): Promise<T> => {
+  const request = async <T = unknown>(
+    method: string,
+    path: string,
+    body?: unknown,
+    options?: { headers?: Record<string, string>; signal?: AbortSignal },
+  ): Promise<T> => {
     const res = await fetch(`${base}${path}`, {
       method,
       headers: { 'Content-Type': 'application/json', ...tenantHeaders(), ...options?.headers },
       body: method === 'GET' ? undefined : JSON.stringify(body ?? {}),
+      signal: options?.signal,
     });
     if (!res.ok) throw new Error(`API ${method} ${path} → HTTP ${res.status}`);
     return (await res.json()) as T;
@@ -167,16 +181,37 @@ export function createFetchTransport(apiBase: string, workspaceId?: string, user
       contentType: 'text',
     };
     if (options.attachments && options.attachments.length > 0) message.attachments = options.attachments;
-    const turn = await request<{ turnId: string }>(
-      'POST',
-      `/v1/sessions/${encodeURIComponent(sessionId)}/turns`,
-      {
-        message,
-        clientVersion: 'aervox-api-client@0.1',
-        toolApprovalMode: options.toolApprovalMode ?? 'ask',
-      },
-    );
-    await consumeSse(turn.turnId, callbacks);
+    const controller = new AbortController();
+    let timedOut = false;
+    let idleTimer: ReturnType<typeof setTimeout> | undefined;
+    const armIdleTimer = (): void => {
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, TURN_STREAM_IDLE_TIMEOUT_MS);
+    };
+    try {
+      armIdleTimer();
+      const turn = await request<{ turnId: string }>(
+        'POST',
+        `/v1/sessions/${encodeURIComponent(sessionId)}/turns`,
+        {
+          message,
+          clientVersion: 'aervox-api-client@0.1',
+          toolApprovalMode: options.toolApprovalMode ?? 'ask',
+        },
+        { signal: controller.signal },
+      );
+      await consumeSse(turn.turnId, callbacks, controller.signal, armIdleTimer);
+    } catch (err) {
+      if (timedOut) {
+        throw new Error(`turn_stream_idle: no data received for ${TURN_STREAM_IDLE_TIMEOUT_MS}ms`);
+      }
+      throw err;
+    } finally {
+      if (idleTimer) clearTimeout(idleTimer);
+    }
   };
 
   /** 多模态输入：原始二进制直传 POST /v1/attachments/binary（File 即请求体） */
@@ -196,9 +231,15 @@ export function createFetchTransport(apiBase: string, workspaceId?: string, user
     return (await res.json()) as UploadedAttachment;
   };
 
-  const consumeSse = async (turnId: string, callbacks: TurnCallbacks): Promise<void> => {
+  const consumeSse = async (
+    turnId: string,
+    callbacks: TurnCallbacks,
+    signal?: AbortSignal,
+    armIdleTimer?: () => void,
+  ): Promise<void> => {
     const res = await fetch(`${base}/v1/turns/${encodeURIComponent(turnId)}/events`, {
       headers: { Accept: 'text/event-stream' },
+      signal,
     });
     if (!res.ok || !res.body) throw new Error(`SSE 连接失败 HTTP ${res.status}`);
 
@@ -209,6 +250,7 @@ export function createFetchTransport(apiBase: string, workspaceId?: string, user
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
+        armIdleTimer?.();
         buffer += decoder.decode(value, { stream: true });
         const blocks = buffer.split('\n\n');
         buffer = blocks.pop() ?? '';
@@ -234,6 +276,9 @@ export function createFetchTransport(apiBase: string, workspaceId?: string, user
     if (event.eventType === 'delta') {
       const text = (event.data as { text?: string }).text;
       if (text) callbacks.onDelta(text);
+    } else if (event.eventType === 'reasoning_delta') {
+      const text = (event.data as { text?: string }).text;
+      if (text) callbacks.onReasoning?.(text);
     } else if (event.eventType === 'done') {
       callbacks.onDone();
     } else if (event.eventType === 'error') {

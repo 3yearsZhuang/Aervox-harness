@@ -750,11 +750,25 @@ async function sendMessage(value = input.value, options?: { quizMode?: boolean; 
 
   /** 流式期间每 1.2s 驱动一次口型，让桌宠"开口说话" */
   let lastSpeakAt = 0
+  // CR-027：思考占位文案——reasoning_delta 期间展示「思考中」，首个正文 delta 到达即清除
+  const thinkingPlaceholder = '思考中…'
+  let thinkingVisible = false
   try {
     await streamAervoxTurn(
       outgoing,
       {
+        onReasoning: () => {
+          if (!liveAssistantLine.text) {
+            thinkingVisible = true
+            liveAssistantLine.text = thinkingPlaceholder
+            void scrollStoryToBottom()
+          }
+        },
         onDelta: (delta) => {
+          if (thinkingVisible && !liveAssistantLine.text.replace(thinkingPlaceholder, '')) {
+            thinkingVisible = false
+            liveAssistantLine.text = ''
+          }
           liveAssistantLine.text += delta
           void scrollStoryToBottom()
           const now = Date.now()
@@ -766,6 +780,11 @@ async function sendMessage(value = input.value, options?: { quizMode?: boolean; 
         onDone: () => {
           liveAssistantLine.state = 'complete'
           activeQuestion.value = null
+          // CR-027：回合结束仍无正文时清掉思考占位，换成兜底文案
+          if (thinkingVisible && !liveAssistantLine.text.replace(thinkingPlaceholder, '')) {
+            thinkingVisible = false
+            liveAssistantLine.text = ''
+          }
           if (!liveAssistantLine.text) liveAssistantLine.text = '这次没有收到可展示的回答，请再试一次。'
           petReactKind('glad', {expression: MizukiExpression.face_smile_01, speak: liveAssistantLine.text})
         },

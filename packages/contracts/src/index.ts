@@ -34,6 +34,7 @@ import {
   petSheetRowFramesSchema,
   petSheetStateSchema,
   pluginMetadataSchema,
+  reasoningDeltaEventDataSchema,
   redactedEventDataSchema,
   turnAttachmentRefSchema,
   askUserQuestionOptionSchema,
@@ -105,6 +106,7 @@ export type TurnStreamEvent<TData = unknown> = z.infer<
 > & { data: TData };
 export type MessageEventData = z.infer<typeof messageEventDataSchema>;
 export type DeltaEventData = z.infer<typeof deltaEventDataSchema>;
+export type ReasoningDeltaEventData = z.infer<typeof reasoningDeltaEventDataSchema>;
 export type DoneEventData = z.infer<typeof doneEventDataSchema>;
 export type ErrorEventData = z.infer<typeof errorEventDataSchema>;
 export type RedactedEventData = z.infer<typeof redactedEventDataSchema>;

@@ -13,6 +13,7 @@ import {
   executeTurn,
   InMemoryExecutionStore,
 } from "../src/index.js";
+import type { ModelProviderPort } from "../src/index.js";
 
 const deps = (store: InMemoryExecutionStore) => ({
   execution: store,
@@ -124,5 +125,44 @@ describe("executeTurn（阶段 1 无工具单 Step）", () => {
     });
     expect(result.status).toBe("skipped");
     expect(result).toMatchObject({ reason: "not_runnable" });
+  });
+});
+
+describe("executeTurn（CR-027 思考增量 reasoning_delta）", () => {
+  /** 思考型模型桩：先吐 reasoning 增量，再吐正文 */
+  const thinkingProvider = (): ModelProviderPort => ({
+    id: "thinking-stub",
+    async *stream() {
+      yield { text: "", isFinal: false, reasoning: "先想一步" };
+      yield { text: "", isFinal: false, reasoning: "再想一步" };
+      yield { text: "最终回答", isFinal: true };
+    },
+  });
+
+  it("reasoning 增量以 reasoning_delta 事件落库（不占正文 delta），序号连续", async () => {
+    const store = new InMemoryExecutionStore();
+    store.seedAttempt({ id: "atp_t1", turnId: "turn_t1" });
+
+    const result = await executeTurn(
+      { execution: store, provider: thinkingProvider(), contextBuilder: defaultContextBuilder },
+      { turnId: "turn_t1", sessionId: "sess_t1", attemptId: "atp_t1", userMessage: "q" },
+    );
+
+    expect(result.status).toBe("completed");
+    const events = await store.listEvents("turn_t1");
+    expect(events.map((e) => e.eventType)).toEqual([
+      "message",
+      "reasoning_delta",
+      "reasoning_delta",
+      "delta",
+      "done",
+    ]);
+    expect(events.map((e) => e.sequence)).toEqual([1, 2, 3, 4, 5]);
+    const reasoning = events.filter((e) => e.eventType === "reasoning_delta").map((e) => e.data as { text: string });
+    expect(reasoning.map((r) => r.text)).toEqual(["先想一步", "再想一步"]);
+    expect(reasoning[0].messageId).toBe((events[0].data as { messageId: string }).messageId);
+    // 正文不受思考增量影响
+    const deltas = events.filter((e) => e.eventType === "delta").map((e) => e.data as { text: string });
+    expect(deltas.map((d) => d.text)).toEqual(["最终回答"]);
   });
 });
