@@ -327,6 +327,27 @@ export class SqliteConversationRepository implements IConversationRepository {
     return rows as TurnStreamEventModel[];
   }
 
+  async recordTurnStreamEvent(
+    tenant: TenantContext,
+    eventData: {
+      id?: string;
+      turnId: string;
+      sequence: number;
+      eventType: string;
+      payloadVersion?: number;
+      data: unknown;
+      occurredAt?: string;
+      attemptId?: string | null;
+      safetyDecision?: string | null;
+      committedAt?: string | null;
+    },
+  ): Promise<TurnStreamEventModel> {
+    return this.appendStreamEvent(tenant, {
+      ...eventData,
+      id: eventData.id || `tev_${eventData.turnId}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+    });
+  }
+
   async deleteMessage(tenant: TenantContext, messageId: string): Promise<boolean> {
     assertTenantContext(tenant);
     const res = await this.db

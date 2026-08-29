@@ -110,6 +110,21 @@ describe("基础系统提示词与工具指引 (Base System Prompt & Tool Guidan
     expect(prompt).toContain("subagent.delegate");
     expect(prompt).toContain("workflow.run");
     expect(prompt).toContain("保持温柔与耐心");
+    expect(prompt).not.toContain("学习模式核心教学原则");
+  });
+
+  it("buildBaseSystemPrompt：开启 studyMode 时注入苏格拉底启发式教学与防剧透规则", async () => {
+    const { buildBaseSystemPrompt } = await import("../src/base-prompt.js");
+    const prompt = buildBaseSystemPrompt({
+      assistantName: "导师思隅",
+      studyMode: true,
+      personaPrompt: "活泼幽默",
+    });
+
+    expect(prompt).toContain("学习模式核心教学原则");
+    expect(prompt).toContain("苏格拉底式启发引导");
+    expect(prompt).toContain("循序渐进与分步拆解");
+    expect(prompt).toContain("活泼幽默");
   });
 
   it("createComposedContextBuilder：baseSystemPrompt 置于最前并支持与 skills 组合", async () => {

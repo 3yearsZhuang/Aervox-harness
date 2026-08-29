@@ -35,7 +35,7 @@ import {
   X,
 } from 'lucide-vue-next'
 import {streamAervoxTurn, submitQuestionAnswers, useAervoxApi, useAervoxVoiceInput} from '@aervox/api-client'
-import type {AskUserQuestionAnswerItem, ToolApprovalMode, UserQuestionRequiredEventData} from '@aervox/contracts'
+import type {AskUserQuestionAnswerItem, ExtractedTerm, ToolApprovalMode, UserQuestionRequiredEventData} from '@aervox/contracts'
 import PetHero from './PetHero.vue'
 import PluginManagerPanel from './plugin/PluginManagerPanel.vue'
 import Live2DPet from './Live2DPet.vue'
@@ -43,6 +43,8 @@ import PersonaManagerPanel from './persona/PersonaManagerPanel.vue'
 import LocalVoiceConfigPanel from './voice/LocalVoiceConfigPanel.vue'
 import LLMConfigPanel from './llm/LLMConfigPanel.vue'
 import UserQuestionComposer from './UserQuestionComposer.vue'
+import TermExploreDialog from './TermExploreDialog.vue'
+import { renderMarkdown } from '../utils/markdown'
 
 type Platform = 'desktop' | 'web'
 type Speaker = 'assistant' | 'user'
@@ -100,6 +102,11 @@ const questionStartTime = ref<number>(0)
 const activeQuestion = ref<UserQuestionRequiredEventData | null>(null)
 const questionSubmitting = ref(false)
 const currentTurnId = ref<string | null>(null)
+
+// CAP-007 / CAP-002: 术语抽取与追问探索弹窗
+const currentExtractedTerms = ref<ExtractedTerm[]>([])
+const exploreDialogOpen = ref(false)
+const selectedTerm = ref<ExtractedTerm | null>(null)
 const practiceBusy = ref(false)
 const practiceError = ref<string | null>(null)
 const mistakeFilter = ref<'active' | 'mastered' | 'dismissed' | 'all'>('active')
@@ -123,6 +130,7 @@ const isDark = ref(false)
 const assistantDisplayName = ref(props.assistantName)
 const enterToSend = ref(true)
 const compactMode = ref(false)
+const studyModeEnabled = ref(false)
 const timerMinutes = ref(25)
 const desktopCompanionEnabled = ref(props.showCompanion)
 const dailyReminder = ref(true)
@@ -258,11 +266,18 @@ function handleHistoryEscape(event: KeyboardEvent) {
   if (event.key === 'Escape' && historyOpen.value) historyOpen.value = false
 }
 
+function openTermExplore(term: ExtractedTerm) {
+  selectedTerm.value = term
+  exploreDialogOpen.value = true
+}
+
 async function sendMessage(value = input.value) {
   const text = value.trim()
   if (!text || streaming.value) return
 
-  const outgoing = text
+  // 若开启学习模式则自动附带学习模式前缀触发专属启发式教学 Prompt，对话记录仍展示用户原文。
+  const modePrefix = studyModeEnabled.value ? '[模式：学习模式] ' : ''
+  const outgoing = modePrefix && !text.startsWith(modePrefix) ? modePrefix + text : text
 
   const assistantLine = createStoryLine('assistant', '', 'streaming')
   story.value.push(createStoryLine('user', text), assistantLine)
@@ -288,6 +303,9 @@ async function sendMessage(value = input.value) {
           activeQuestion.value = qData
           currentTurnId.value = qData.turnId
           void scrollStoryToBottom()
+        },
+        onTermsExtracted: (tData) => {
+          currentExtractedTerms.value = tData.terms
         },
       },
       {toolApprovalMode: toolApprovalMode.value},
@@ -823,12 +841,22 @@ async function toggleVoiceInput() {
   }
 }
 
+function toggleStudyMode() {
+  studyModeEnabled.value = !studyModeEnabled.value
+  if (!studyModeEnabled.value) {
+    currentExtractedTerms.value = []
+    exploreDialogOpen.value = false
+  }
+  saveSettings()
+}
+
 function saveSettings() {
   const settings = {
     theme: isDark.value ? 'dark' : 'light',
     assistantName: assistantDisplayName.value.trim() || props.assistantName,
     enterToSend: enterToSend.value,
     compactMode: compactMode.value,
+    studyModeEnabled: studyModeEnabled.value,
     timerMinutes: timerMinutes.value,
     desktopCompanionEnabled: desktopCompanionEnabled.value,
     dailyReminder: dailyReminder.value,
@@ -864,6 +892,7 @@ onMounted(() => {
       assistantName: string
       enterToSend: boolean
       compactMode: boolean
+      studyModeEnabled: boolean
       timerMinutes: number
       desktopCompanionEnabled: boolean
       dailyReminder: boolean
@@ -871,6 +900,7 @@ onMounted(() => {
     if (savedSettings.assistantName) assistantDisplayName.value = savedSettings.assistantName
     if (typeof savedSettings.enterToSend === 'boolean') enterToSend.value = savedSettings.enterToSend
     if (typeof savedSettings.compactMode === 'boolean') compactMode.value = savedSettings.compactMode
+    if (typeof savedSettings.studyModeEnabled === 'boolean') studyModeEnabled.value = savedSettings.studyModeEnabled
     if (typeof savedSettings.timerMinutes === 'number' && savedSettings.timerMinutes >= 1 && savedSettings.timerMinutes <= 60) timerMinutes.value = savedSettings.timerMinutes
     if (typeof savedSettings.desktopCompanionEnabled === 'boolean') desktopCompanionEnabled.value = savedSettings.desktopCompanionEnabled
     if (typeof savedSettings.dailyReminder === 'boolean') dailyReminder.value = savedSettings.dailyReminder
@@ -934,9 +964,30 @@ onUnmounted(() => {
       </Live2DPet>
     </div>
 
-    <button v-if="isWeb" class="floating-settings" type="button" aria-label="打开设置" @click="settingsOpen = true">
-      <Settings :size="19" />
-    </button>
+    <div class="floating-top-actions">
+      <label
+        class="floating-study-switch-wrap"
+        :title="studyModeEnabled ? '学习模式已开启（点击关闭）' : '学习模式已关闭（点击开启）'"
+      >
+        <BookOpen :size="15" class="study-switch-icon" />
+        <span class="study-switch-label">学习模式</span>
+        <button
+          type="button"
+          role="switch"
+          class="study-switch-track"
+          :class="{ active: studyModeEnabled }"
+          :aria-checked="studyModeEnabled"
+          :aria-label="studyModeEnabled ? '关闭学习模式' : '开启学习模式'"
+          @click="toggleStudyMode"
+        >
+          <span class="study-switch-thumb" />
+        </button>
+      </label>
+
+      <button v-if="isWeb" class="floating-settings" type="button" aria-label="打开设置" @click="settingsOpen = true">
+        <Settings :size="19" />
+      </button>
+    </div>
 
     <nav ref="menuPillRef" class="menu-pill" :class="{open: menuOpen}" aria-label="主导航" @click="handlePillClick">
       <button
@@ -1030,7 +1081,13 @@ onUnmounted(() => {
             :class="latestAssistantLine.state"
           >
             <span class="message-speaker">{{ assistantDisplayName }}</span>
-            <span class="message-text">{{ latestAssistantLine.text || '正在连接 Aervox…' }}<i v-if="latestAssistantLine.state === 'streaming'" class="stream-cursor" aria-hidden="true" /></span>
+            <span v-if="latestAssistantLine.state === 'streaming'" class="message-text">
+              <span class="markdown-body" v-html="renderMarkdown(latestAssistantLine.text)" />
+              <i class="stream-cursor" aria-hidden="true" />
+            </span>
+            <span v-else class="message-text">
+              <span class="markdown-body" v-html="renderMarkdown(latestAssistantLine.text || '正在连接 Aervox…')" />
+            </span>
           </p>
           <p v-else class="message-line">
             <span class="message-speaker">{{ assistantDisplayName }}</span>
@@ -1044,6 +1101,23 @@ onUnmounted(() => {
             :submitting="questionSubmitting"
             @submit="handleQuestionSubmit"
           />
+
+          <!-- CAP-007 / CAP-002: 术语高亮芯片栏（仅在学习模式下展示） -->
+          <div v-if="studyModeEnabled && currentExtractedTerms.length > 0 && !streaming" class="message-terms-bar">
+            <span class="terms-bar-title"><Sparkles :size="13" /> 核心概念：</span>
+            <button
+              v-for="t in currentExtractedTerms"
+              :key="t.text"
+              type="button"
+              class="term-chip"
+              :class="t.relation"
+              title="点击查看名词解释与深度追问"
+              @click="openTermExplore(t)"
+            >
+              <span>{{ t.text }}</span>
+              <small>{{ t.relation === 'background' ? '深挖' : '对比' }}</small>
+            </button>
+          </div>
         </div>
         <button class="message-history-entry" type="button" @click="historyOpen = true">
           <History :size="14" />
@@ -1054,7 +1128,8 @@ onUnmounted(() => {
       <section class="composer-dock" :class="{open: composerOpen}" @focusout="handleDockFocusOut">
         <button v-if="!composerOpen" class="composer-collapsed" type="button" @click="expandComposer">
           <MessageCircle :size="16" />
-          <span class="composer-collapsed-hint">{{ streaming ? '思隅正在回应…' : '点击输入消息' }}</span>
+          <span class="composer-collapsed-hint">{{ streaming ? '思隅正在回应…' : (studyModeEnabled ? '输入学习问题或卡点（学习模式已开启）…' : '点击输入消息…') }}</span>
+          <span v-if="studyModeEnabled" class="composer-mode-chip">学习模式</span>
           <span class="composer-access-chip" :class="{full: toolApprovalMode === 'full_access'}">
             <ShieldAlert v-if="toolApprovalMode === 'full_access'" :size="12" />
             <ShieldCheck v-else :size="12" />
@@ -1071,7 +1146,7 @@ onUnmounted(() => {
             v-model="input"
             rows="3"
             :disabled="streaming"
-            :placeholder="composerPlaceholder"
+            :placeholder="studyModeEnabled ? '告诉我你正在学什么，或者把卡住的地方发来（逐步引导与启发式解答）…' : composerPlaceholder"
             @keydown.enter="handleComposerEnter"
             @input="handleComposerInputOrKey"
             @compositionstart="handleCompositionStart"
@@ -1134,7 +1209,10 @@ onUnmounted(() => {
           <div ref="historyViewport" class="vn-history-list">
             <p v-for="line in story" :key="line.id" class="vn-history-line" :class="line.speaker">
               <span class="vn-history-speaker">{{ line.speaker === 'assistant' ? assistantDisplayName : '你' }}</span>
-              <span class="vn-history-text">{{ line.text || (line.speaker === 'assistant' ? '…' : '') }}</span>
+              <span class="vn-history-text">
+                <span v-if="line.speaker === 'assistant'" class="markdown-body" v-html="renderMarkdown(line.text || '…')" />
+                <template v-else>{{ line.text }}</template>
+              </span>
             </p>
             <p v-if="story.length === 0" class="vn-history-empty">还没有对话记录，先和思隅说句话吧。</p>
           </div>
@@ -1507,6 +1585,7 @@ onUnmounted(() => {
               <span><strong>对话</strong><small>调整你与思隅交流的输入与展示方式</small></span>
             </div>
             <label class="settings-field"><span><strong>助手称呼</strong><small>工作台中显示的名字</small></span><input v-model="assistantDisplayName" maxlength="12" @change="saveSettings" /></label>
+            <label class="settings-row settings-choice-row"><span><strong>学习模式</strong><small>启用专属苏格拉底启发式教学与防剧透规则</small></span><input v-model="studyModeEnabled" type="checkbox" class="settings-switch" @change="saveSettings" /></label>
             <label class="settings-row settings-choice-row"><span><strong>回车发送</strong><small>关闭后，回车只换行</small></span><input v-model="enterToSend" type="checkbox" class="settings-switch" @change="saveSettings" /></label>
           </div>
           <LLMConfigPanel v-else-if="settingsCategory === 'model'" class="settings-section" />
@@ -1525,6 +1604,12 @@ onUnmounted(() => {
       </div>
     </el-dialog>
 
+    <!-- CAP-007 / CAP-002: 术语名词解释弹窗 -->
+    <TermExploreDialog
+      v-model="exploreDialogOpen"
+      :term="selectedTerm"
+      :context-text="latestAssistantLine?.text"
+    />
     <el-dialog
       v-model="fullAccessDialogOpen"
       title="启用完全访问？"

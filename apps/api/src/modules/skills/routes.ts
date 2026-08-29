@@ -32,8 +32,11 @@ export function registerSkillRoutes(
 ): void {
   // 列出
   app.get("/v1/skills", async (req) => {
-    const { activeOnly } = (req.query ?? {}) as { activeOnly?: string };
-    const items = await manager.listSkills(activeOnly === "true");
+    const { activeOnly, source } = (req.query ?? {}) as { activeOnly?: string; source?: string };
+    let items = await manager.listSkills(activeOnly === "true");
+    if (source) {
+      items = items.filter((s) => s.source === source);
+    }
     return { items };
   });
 
