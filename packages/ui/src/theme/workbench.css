@@ -81,13 +81,96 @@
   min-height: 0;
 }
 
-/* ---------- 悬浮设置按钮 ---------- */
+/* ---------- 悬浮顶栏：学习模式开关 + 设置按钮 ---------- */
 
-.floating-settings {
+.floating-top-actions {
   position: absolute;
   z-index: 30;
   top: clamp(12px, 2.2vh, 20px);
   right: clamp(12px, 2.2vw, 22px);
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 1vw, 12px);
+}
+
+/* 学习模式切换开关：玻璃胶囊（图标 + 文案 + 轨道） */
+.floating-study-switch-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 clamp(10px, 1vw, 14px);
+  height: clamp(34px, 4vh, 40px);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: .78;
+  transition: opacity .18s ease, color .18s ease, border-color .18s ease;
+  user-select: none;
+}
+
+.floating-study-switch-wrap:hover {
+  opacity: 1;
+  color: var(--text-secondary);
+}
+
+.floating-study-switch-wrap.on,
+.floating-study-switch-wrap:has(.study-switch-track.active) {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--glass-border));
+}
+
+.study-switch-icon {
+  flex: 0 0 auto;
+  color: currentColor;
+}
+
+.study-switch-label {
+  font-size: clamp(11.5px, .9vw, 13px);
+  font-weight: 640;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+
+/* 切换轨道（iOS 风格，点击整个胶囊均可切换） */
+.study-switch-track {
+  position: relative;
+  width: 34px;
+  height: 19px;
+  flex: 0 0 34px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 22%, transparent);
+  cursor: pointer;
+  transition: background-color .2s ease, border-color .2s ease;
+}
+
+.study-switch-track .study-switch-thumb {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 20, 32, .24);
+  transition: transform .2s ease;
+}
+
+.study-switch-track.active {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  background: var(--accent);
+}
+
+.study-switch-track.active .study-switch-thumb {
+  transform: translateX(15px);
+}
+
+.floating-settings {
   width: clamp(40px, 4.6vh, 46px);
   height: clamp(40px, 4.6vh, 46px);
   display: grid;
@@ -2027,6 +2110,16 @@
 @media (max-width: 620px) {
   .aervox-workbench {
     --console-max-width: 100%;
+  }
+
+  /* 窄视口：学习模式开关去文字，只留图标 + 轨道，避免与左侧菜单胶囊拥挤 */
+  .study-switch-label {
+    display: none;
+  }
+
+  .floating-study-switch-wrap {
+    gap: 6px;
+    padding: 0 9px;
   }
 
   .message-panel {
