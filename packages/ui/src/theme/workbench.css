@@ -901,6 +901,72 @@
   color: var(--danger);
 }
 
+/* ── 视觉小说式分句（CAP-001）：新句淡入 + 「下一句」玻璃胶囊按钮 ── */
+.message-novel-text {
+  display: grid;
+  gap: 0;
+}
+
+.message-novel-text .markdown-body {
+  animation: novel-sentence-in .28s ease;
+}
+
+@keyframes novel-sentence-in {
+  from {
+    opacity: .35;
+    transform: translateY(3px);
+  }
+}
+
+.novel-next-btn {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 12px;
+  padding: 7px 15px;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--glass-border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+  font-size: clamp(12px, .95vw, 13.5px);
+  font-weight: 660;
+  letter-spacing: .02em;
+  cursor: pointer;
+  transition: background-color .18s ease, border-color .18s ease, transform .18s ease;
+  animation: novel-next-in .34s cubic-bezier(.2, .8, .3, 1);
+}
+
+.novel-next-btn:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--glass-border));
+  transform: translateY(-1px);
+}
+
+.novel-next-btn:active {
+  transform: translateY(0);
+}
+
+.novel-next-count {
+  min-width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  font-size: 10.5px;
+  font-weight: 720;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes novel-next-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
 /* 核心概念标签栏（学习模式 · 渐变光泽卡片与芯片） */
 .message-terms-bar {
   display: flex;

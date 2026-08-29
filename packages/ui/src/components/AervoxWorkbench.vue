@@ -544,6 +544,52 @@ const latestAssistantLine = computed<StoryLine | null>(() => {
   return null
 })
 
+/* ── 视觉小说式分句呈现（CAP-001）：流式只显示第一句，余句缓存，「下一句」逐句释放 ── */
+
+/** 已额外释放的句子数（0 = 只显示第一句；回复切换时重置） */
+const novelReleased = ref(0)
+
+/** 把回复按句末标点（。！？…）或换行切段，保留句末标点 */
+function splitIntoSentences(text: string): string[] {
+  const normalized = text.replace(/\r\n/g, '\n').trim()
+  if (!normalized) return []
+  return normalized
+    .split(/(?<=[。!?!?…])\s*|\n+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean)
+}
+
+const novelSentences = computed(() => {
+  const line = latestAssistantLine.value
+  return line ? splitIntoSentences(line.text) : []
+})
+
+/** 流式期间只显示第一句：打字机效果自然落在首句上，后续句子静默缓存 */
+const novelStreamingText = computed(() => novelSentences.value[0] ?? '')
+
+/** 完成态显示已释放句子（第一句 + 点「下一句」追加），全部释放后等于全文 */
+const novelDisplayText = computed(() => {
+  const sentences = novelSentences.value
+  if (sentences.length === 0) return ''
+  return sentences.slice(0, novelReleased.value + 1).join('')
+})
+
+const queuedSentenceCount = computed(() => Math.max(0, novelSentences.value.length - novelReleased.value - 1))
+const hasQueuedSentence = computed(() => queuedSentenceCount.value > 0)
+
+/** 新回复（或重发）开始时重置释放进度 */
+watch(latestAssistantLine, (_line, old) => {
+  if (old !== undefined) novelReleased.value = 0
+})
+
+/** 「下一句」：释放缓存中的下一句，桌宠同步念出该句 */
+function revealNextSentence() {
+  if (!hasQueuedSentence.value) return
+  novelReleased.value++
+  const sentence = novelSentences.value[novelReleased.value]
+  if (sentence) petReact({speak: sentence})
+}
+
 /** 视觉小说式对话回看：打开时滚到最新一条 */
 const historyViewport = ref<HTMLElement | null>(null)
 
@@ -1775,11 +1821,23 @@ onUnmounted(() => {
           >
             <span class="message-speaker">{{ assistantDisplayName }}</span>
             <span v-if="latestAssistantLine.state === 'streaming'" class="message-text">
-              <span class="markdown-body" v-html="renderMarkdown(latestAssistantLine.text)" />
+              <span class="markdown-body" v-html="renderMarkdown(novelStreamingText)" />
               <i class="stream-cursor" aria-hidden="true" />
             </span>
-            <span v-else class="message-text">
-              <span class="markdown-body" v-html="renderMarkdown(latestAssistantLine.text || '正在连接 Aervox…')" />
+            <span v-else class="message-text message-novel-text">
+              <!-- 视觉小说分句：:key 随释放数变化，触发新句淡入动画 -->
+              <span :key="novelReleased" class="markdown-body" v-html="renderMarkdown(novelDisplayText || '正在连接 Aervox…')" />
+              <button
+                v-if="hasQueuedSentence"
+                type="button"
+                class="novel-next-btn"
+                :aria-label="`显示下一句，还剩 ${queuedSentenceCount} 句`"
+                @click="revealNextSentence"
+              >
+                <span>下一句</span>
+                <span class="novel-next-count" aria-hidden="true">{{ queuedSentenceCount }}</span>
+                <ChevronRight :size="14" />
+              </button>
             </span>
           </p>
           <p v-else class="message-line">
