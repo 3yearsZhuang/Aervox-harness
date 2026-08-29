@@ -793,6 +793,10 @@ function rendererUrl(page: string) {
     return baseUrl ? `${baseUrl}/${page}` : undefined
 }
 
+const iconPath = app.isPackaged
+    ? join(process.resourcesPath, 'icon.ico')
+    : join(__dirname, '../../build/icon.ico')
+
 function createMainWindow() {
     mainWindow = new BrowserWindow({
         width: 1440,
@@ -803,6 +807,7 @@ function createMainWindow() {
         frame: false,
         autoHideMenuBar: true,
         title: 'Aervox｜思隅',
+        icon: iconPath,
         webPreferences: {
             preload: join(__dirname, '../preload/index.js'),
             contextIsolation: true,
