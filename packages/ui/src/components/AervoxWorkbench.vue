@@ -593,6 +593,9 @@ function clearPendingAttachments() {
 async function scrollStoryToBottom() {
   await nextTick()
   storyViewport.value?.scrollTo({top: storyViewport.value.scrollHeight, behavior: 'smooth'})
+  // 分句模式下当前句 markdown-body 自身限高滚动：跟随打字/切句位置滚到末尾
+  const sentenceBody = storyViewport.value?.querySelector('.message-novel-text .markdown-body, .message-text > .markdown-body') as HTMLElement | null
+  if (sentenceBody) sentenceBody.scrollTop = sentenceBody.scrollHeight
 }
 
 /** 主对话框只保留最新一条 AI 回复，完整上下文由二级回看窗口承载 */
@@ -605,8 +608,20 @@ const latestAssistantLine = computed<StoryLine | null>(() => {
 
 /* ── 视觉小说式分句呈现（CAP-001）：流式只显示第一句，余句缓存，「下一句」逐句释放 ── */
 
-/** 已额外释放的句子数（0 = 只显示第一句；回复切换时重置） */
-const novelReleased = ref(0)
+/** 当前显示的句子索引（视觉小说切换模式：一次只显示一句，非追加） */
+const novelIndex = ref(0)
+
+/** 对话区域收起开关（高度折叠为细条，只留摘要行 + 展开按钮；内存态，刷新回落展开） */
+const consoleCollapsed = ref(false)
+
+/** 收起态摘要：流式显示首句打字、完成显示当前句，单行省略 */
+const collapsedSummaryText = computed(() => {
+  const line = latestAssistantLine.value
+  if (!line) return '正在连接 Aervox…'
+  if (line.state === 'streaming') return novelStreamingText.value || '思隅正在回应…'
+  if (line.state === 'error') return line.text
+  return novelDisplayText.value || '这次没有收到可展示的回答。'
+})
 
 /** 把回复按句末标点（。！？…）或换行切段，保留句末标点 */
 function splitIntoSentences(text: string): string[] {
@@ -626,27 +641,29 @@ const novelSentences = computed(() => {
 /** 流式期间只显示第一句：打字机效果自然落在首句上，后续句子静默缓存 */
 const novelStreamingText = computed(() => novelSentences.value[0] ?? '')
 
-/** 完成态显示已释放句子（第一句 + 点「下一句」追加），全部释放后等于全文 */
-const novelDisplayText = computed(() => {
-  const sentences = novelSentences.value
-  if (sentences.length === 0) return ''
-  return sentences.slice(0, novelReleased.value + 1).join('')
-})
+/** 完成态只显示当前句（切换而非追加，对话框高度恒定不超限） */
+const novelDisplayText = computed(() => novelSentences.value[Math.min(novelIndex.value, novelSentences.value.length - 1)] ?? '')
 
-const queuedSentenceCount = computed(() => Math.max(0, novelSentences.value.length - novelReleased.value - 1))
+/** 剩余未读句数（不含当前句） */
+const queuedSentenceCount = computed(() => Math.max(0, novelSentences.value.length - novelIndex.value - 1))
 const hasQueuedSentence = computed(() => queuedSentenceCount.value > 0)
 
-/** 新回复（或重发）开始时重置释放进度 */
+/** 新回复（或重发）开始时重置到第一句 */
 watch(latestAssistantLine, (_line, old) => {
-  if (old !== undefined) novelReleased.value = 0
+  if (old !== undefined) novelIndex.value = 0
 })
 
-/** 「下一句」：释放缓存中的下一句，桌宠同步念出该句 */
-function revealNextSentence() {
+/** 「下一句」：切换显示缓存中的下一句（替换当前句），桌宠同步念出该句 */
+function showNextSentence() {
   if (!hasQueuedSentence.value) return
-  novelReleased.value++
-  const sentence = novelSentences.value[novelReleased.value]
+  novelIndex.value++
+  const sentence = novelSentences.value[novelIndex.value]
   if (sentence) petReact({speak: sentence})
+  // 新句从顶部开始显示（限高滚动容器复位）
+  void nextTick(() => {
+    const sentenceBody = storyViewport.value?.querySelector('.message-novel-text .markdown-body') as HTMLElement | null
+    if (sentenceBody) sentenceBody.scrollTop = 0
+  })
 }
 
 /** 视觉小说式对话回看：打开时滚到最新一条 */
@@ -723,6 +740,10 @@ async function sendMessage(value = input.value, options?: { quizMode?: boolean; 
     }
     story.value.push(userLine, assistantLine)
   }
+  // 关键：push 后从 reactive 数组取回代理引用（resend 与普通发送两个分支的最后一条都是 assistantLine）；
+  // 若继续持有原始对象，onDelta/onDone 的赋值将绕过代理 set trap，不触发响应式更新
+  // （novelSentences 等 computed 依赖代理的 .text/.state，收不到通知就会永远停在空值）。
+  const liveAssistantLine: StoryLine = story.value[story.value.length - 1]
   input.value = ''
   streaming.value = true
   activeQuestion.value = null
@@ -742,7 +763,7 @@ async function sendMessage(value = input.value, options?: { quizMode?: boolean; 
       outgoing,
       {
         onDelta: (delta) => {
-          assistantLine.text += delta
+          liveAssistantLine.text += delta
           void scrollStoryToBottom()
           const now = Date.now()
           if (now - lastSpeakAt > 1200 && delta.trim()) {
@@ -751,10 +772,10 @@ async function sendMessage(value = input.value, options?: { quizMode?: boolean; 
           }
         },
         onDone: () => {
-          assistantLine.state = 'complete'
+          liveAssistantLine.state = 'complete'
           activeQuestion.value = null
-          if (!assistantLine.text) assistantLine.text = '这次没有收到可展示的回答，请再试一次。'
-          petReactKind('glad', {expression: MizukiExpression.face_smile_01, speak: assistantLine.text})
+          if (!liveAssistantLine.text) liveAssistantLine.text = '这次没有收到可展示的回答，请再试一次。'
+          petReactKind('glad', {expression: MizukiExpression.face_smile_01, speak: liveAssistantLine.text})
           // CAP-009：对话触发可能已生成/改写日记，回合结束后刷新今日日记卡片
           void loadTodayDiary()
         },
@@ -776,8 +797,9 @@ async function sendMessage(value = input.value, options?: { quizMode?: boolean; 
       {toolApprovalMode: toolApprovalMode.value, attachments: attachmentRefs},
     )
   } catch (error) {
-    assistantLine.state = 'error'
-    assistantLine.text = error instanceof Error ? `连接失败：${error.message}` : '连接失败，请稍后重试。'
+    console.error('对话流式失败', error)
+    liveAssistantLine.state = 'error'
+    liveAssistantLine.text = error instanceof Error ? `连接失败：${error.message}` : '连接失败，请稍后重试。'
     petReactKind('sad', {expression: MizukiExpression.face_sad_01})
   } finally {
     streaming.value = false
@@ -2060,7 +2082,12 @@ onUnmounted(() => {
     </aside>
 
     <div class="immersive-console">
-      <section class="message-panel" aria-label="伴学对话">
+      <section class="message-panel" :class="{collapsed: consoleCollapsed}" aria-label="伴学对话">
+        <!-- 收起态摘要行：说话人 + 当前句单行省略（视觉小说细条） -->
+        <div v-if="consoleCollapsed" class="console-collapsed-summary" aria-hidden="true">
+          <span class="console-collapsed-speaker">{{ assistantDisplayName }}</span>
+          <span class="console-collapsed-text">{{ collapsedSummaryText }}</span>
+        </div>
         <div ref="storyViewport" class="message-viewport" aria-live="polite">
           <p
             v-if="latestAssistantLine"
@@ -2073,19 +2100,22 @@ onUnmounted(() => {
               <i class="stream-cursor" aria-hidden="true" />
             </span>
             <span v-else class="message-text message-novel-text">
-              <!-- 视觉小说分句：:key 随释放数变化，触发新句淡入动画 -->
-              <span :key="novelReleased" class="markdown-body" v-html="renderMarkdown(novelDisplayText || '正在连接 Aervox…')" />
-              <button
-                v-if="hasQueuedSentence"
-                type="button"
-                class="novel-next-btn"
-                :aria-label="`显示下一句，还剩 ${queuedSentenceCount} 句`"
-                @click="revealNextSentence"
-              >
-                <span>下一句</span>
-                <span class="novel-next-count" aria-hidden="true">{{ queuedSentenceCount }}</span>
-                <ChevronRight :size="14" />
-              </button>
+              <!-- 视觉小说分句（切换模式）：:key 随句索引变化，整句替换触发切换动画 -->
+              <span :key="novelIndex" class="markdown-body" v-html="renderMarkdown(novelDisplayText || '正在连接 Aervox…')" />
+              <span class="novel-meta-row">
+                <span class="novel-progress" aria-hidden="true">{{ Math.min(novelIndex + 1, novelSentences.length) }} / {{ novelSentences.length }}</span>
+                <button
+                  v-if="hasQueuedSentence"
+                  type="button"
+                  class="novel-next-btn"
+                  :aria-label="`切换到下一句，还剩 ${queuedSentenceCount} 句`"
+                  @click="showNextSentence"
+                >
+                  <span>下一句</span>
+                  <span class="novel-next-count" aria-hidden="true">{{ queuedSentenceCount }}</span>
+                  <ChevronRight :size="14" />
+                </button>
+              </span>
             </span>
           </p>
           <p v-else class="message-line">
@@ -2142,6 +2172,17 @@ onUnmounted(() => {
         <button class="message-history-entry" type="button" @click="historyOpen = true">
           <History :size="14" />
           <span>回看完整对话</span>
+        </button>
+        <!-- 收起/展开开关：右上角常驻，收起态仍留在细条上 -->
+        <button
+          type="button"
+          class="console-collapse-toggle"
+          :aria-label="consoleCollapsed ? '展开对话区域' : '收起对话区域'"
+          :aria-expanded="!consoleCollapsed"
+          @click="consoleCollapsed = !consoleCollapsed"
+        >
+          <ChevronDown v-if="consoleCollapsed" :size="14" />
+          <ChevronUp v-else :size="14" />
         </button>
       </section>
 
