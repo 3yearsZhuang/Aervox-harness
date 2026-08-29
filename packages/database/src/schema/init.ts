@@ -1912,6 +1912,9 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await client.execute(`
     CREATE UNIQUE INDEX IF NOT EXISTS voice_remote_configs_tenant_unique_idx ON voice_remote_configs(workspace_id, subject_user_id);
   `);
+  // 9dbfecb 后补列：早期版本建的表缺 prompt_text/prompt_lang，幂等补齐
+  await addColumnIfMissing(client, "voice_remote_configs", "prompt_text", "prompt_text TEXT");
+  await addColumnIfMissing(client, "voice_remote_configs", "prompt_lang", "prompt_lang TEXT");
 
   await client.execute(`
     CREATE TABLE IF NOT EXISTS tool_executions (
