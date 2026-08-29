@@ -198,6 +198,18 @@ describe("CAP-020 Skill 模块", () => {
     expect(res.statusCode).toBe(400);
   });
 
+  it("安全校验：显式 name 为 . / .. 时拒绝（path.join 层级穿越）", async () => {
+    const zip = buildStoreZip([{ name: "SKILL.md", content: SKILL_MD("ok", "v1") }]);
+    for (const name of [".", ".."]) {
+      const res = await app.inject({
+        method: "POST",
+        url: "/v1/skills",
+        payload: { name, zipBase64: zip.toString("base64") },
+      });
+      expect(res.statusCode).toBe(400);
+    }
+  });
+
   it("overwrite 语义：冲突 409，覆盖 201", async () => {
     const zip = buildStoreZip([{ name: "SKILL.md", content: SKILL_MD("dup", "v1") }]);
     const first = await app.inject({

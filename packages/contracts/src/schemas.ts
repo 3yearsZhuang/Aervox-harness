@@ -566,11 +566,11 @@ export const skillSourceSchema = z.enum([
   "ai_authored", // Neo 生命周期晋升后落盘的 AI 自主技能，可启停/删除
 ]);
 
-/** Skill 名称合法字符集（对应 Anthropic Skills 目录名规范：英文/数字/点/下划线/短横线） */
+/** Skill 名称合法字符集（对应 Anthropic Skills 目录名规范：英文/数字/点/下划线/短横线）；`.` 与 `..` 会被 path.join 解析为层级，显式排除防目录穿越 */
 export const skillNameSchema = z
   .string()
   .min(1)
-  .regex(/^[\w.-]+$/, "skill name must match [\\w.-]+");
+  .regex(/^(?!\.{1,2}$)[\w.-]+$/, "skill name must match [\\w.-]+ and must not be . or ..");
 
 /** Neo 生命周期发布阶段 */
 export const skillStageSchema = z.enum(["canary", "stable"]);
