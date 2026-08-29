@@ -203,6 +203,84 @@ describe("CAP-033/034/035 proactive integrations", () => {
     expect(dashboard.json().health).toHaveLength(3);
   });
 
+  it("gates integrations on active mode and explicit revocation instead of unreachable OS grants", async () => {
+    const sensorHeaders = {
+      "x-workspace-id": "ws_sensor_flow",
+      "x-user-id": "usr_sensor_flow",
+      "x-actor-id": "usr_sensor_flow",
+    } as const;
+    // device.sensors 没有平台 Provider，桌面 Host 只能回报 requested；
+    // 授权不得因此卡在 limited（历史上这是集成全链路被闸死的根因）。
+    const profile = await app.inject({
+      method: "POST",
+      url: "/v1/proactive/authorize",
+      headers: sensorHeaders,
+      payload: {
+        id: "profile_sensor_flow",
+        deviceId: "device_sensor_flow",
+        fullAccessConfirmed: true,
+        sources: FULL_PROFILE_SOURCE_MANIFEST.map((source, index) => ({
+          id: `profile_sensor_flow_source_${index}`,
+          sourceKey: source.sourceKey,
+          purpose: source.purpose,
+          osCapability: source.osCapability,
+          state: source.sourceKey === "device.sensors" ? "requested" : "granted",
+        })),
+      },
+    });
+    expect(profile.statusCode).toBe(201);
+    const lease = await app.inject({
+      method: "POST",
+      url: "/v1/proactive/activation",
+      headers: sensorHeaders,
+      payload: {
+        id: "lease_sensor_flow",
+        revisionId: profile.json().revision.id,
+        deviceId: "device_sensor_flow",
+        epoch: "epoch_sensor_flow",
+        localReady: true,
+        fullAccessSnapshot: true,
+      },
+    });
+    expect(lease.statusCode).toBe(201);
+
+    const status = await app.inject({method: "GET", url: "/v1/proactive/status", headers: sensorHeaders});
+    expect(status.statusCode).toBe(200);
+    expect(status.json().effectiveState).toBe("active");
+
+    const connected = await app.inject({
+      method: "POST",
+      url: "/v1/proactive/integrations/home-assistant",
+      headers: sensorHeaders,
+      payload: {
+        id: "conn_ha_sensor_flow",
+        endpoint,
+        accessToken: "ha-sensor-token",
+        subscriptionEnabled: false,
+      },
+    });
+    expect(connected.statusCode).toBe(201);
+    expect(connected.json().sync.synced).toBe(2);
+
+    // 用户显式撤销该来源后，集成同步必须重新被阻断。
+    const grantId = (status.json().sources as Array<{sourceKey: string; id: string}>)
+      .find((source) => source.sourceKey === "device.sensors")?.id;
+    expect(grantId).toBeTruthy();
+    const revoked = await app.inject({
+      method: "PATCH",
+      url: `/v1/proactive/sources/${encodeURIComponent(grantId!)}`,
+      headers: sensorHeaders,
+      payload: {state: "revoked"},
+    });
+    expect(revoked.statusCode).toBe(200);
+    const sync = await app.inject({
+      method: "POST",
+      url: "/v1/proactive/integrations/home-assistant/conn_ha_sensor_flow/sync",
+      headers: sensorHeaders,
+    });
+    expect(sync.statusCode).toBe(403);
+  });
+
   it("registers five integration tools and removes credentials plus cached data on revoke", async () => {
     const tools = await app.inject({method: "GET", url: "/v1/tools", headers});
     const names = tools.json().items.map((item: {name: string}) => item.name);

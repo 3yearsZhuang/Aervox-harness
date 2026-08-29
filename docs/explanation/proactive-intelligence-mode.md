@@ -111,7 +111,7 @@ CR-022 当前仍把 `full_access` 作为每次 CreateTurn 请求的快照；本�
 - **设备能力集**：版本化的 `ProfileAuthorizationRevision + DeviceCapabilityGrantSet`，记录当前平台所有可用的应用、文件、输入、屏幕、音视频、位置和其他来源；
 - **有效运行状态**：`inactive | configuring | active | limited | suspended | revoking`，由期望状态、授权包、OS grant、激活事件/租约和 `local-ready` 派生。
 
-`effectiveGrantSet` 必须绑定某一个 `ProfileAuthorizationRevision` 的精确 grant/source 修订集。「全量」指当前版本授权包中的所有 mandatory 来源均已明确授予；缺失能力时显示 `limited` 而不静默称为完整画像。导出是 Kernel Data Rights，对已保存主动数据始终可用，不是可选授权。
+`effectiveGrantSet` 必须绑定某一个 `ProfileAuthorizationRevision` 的精确 grant/source 修订集。「全量」指当前版本授权包中的所有 mandatory 来源均已明确授予；缺失能力时显示 `limited` 而不静默称为完整画像。mandatory 集合由服务端 manifest 定义，只含**当前版本已接入探测/适配器**的来源：通信、位置、传感器和敏感私人资料尚无平台 Provider（保持可见、状态待验证），不计入最小激活集，否则 `active` 永远不可达、集成与主动动作全链路被闸死；其中传感器与敏感资料在用户连接 Home Assistant / 小米运动健康等外部连接时视为对该来源的显式授权（显式撤销后同步重新被阻断）。导出是 Kernel Data Rights，对已保存主动数据始终可用，不是可选授权。
 
 ```text
 ask + desired=enabled
