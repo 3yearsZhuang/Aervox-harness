@@ -11,7 +11,7 @@
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
 import type { AervoxDatabase, ProactiveVaultCipher } from "@aervox/database";
-import type { IProactiveProfileRepository } from "@aervox/database";
+import type { IProactiveProfileRepository, SqliteProactiveIntelligenceRepository } from "@aervox/database";
 import type { WorkflowDefinition } from "@aervox/agent-loop";
 import type { ToolRuntime } from "./tools/runtime.js";
 import type { LLMConfigService } from "./llm/service.js";
@@ -30,6 +30,7 @@ export interface ModuleContext {
   proactiveAccessToken?: string | null;
   /** CAP-033 主动动作授权器（由 proactive 模块填充） */
   proactiveRepository?: IProactiveProfileRepository;
+  proactiveIntelligenceRepository?: SqliteProactiveIntelligenceRepository;
   proactiveActionAuthorizer?: ProactiveActionAuthorizer;
   /** Agent Loop 只读工具提供者（tools 模块填充；conversation/persona/skills 读取） */
   toolRuntime?: ToolRuntime;

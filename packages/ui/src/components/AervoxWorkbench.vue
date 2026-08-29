@@ -2,6 +2,7 @@
 import {type Component, computed, nextTick, onMounted, onUnmounted, ref, watch} from 'vue'
 import {
   AlertTriangle,
+  Activity,
   Bell,
   BookOpen,
   BrainCircuit,
@@ -10,15 +11,20 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronUp,
+  CircleHelp,
   ClipboardList,
   Clock3,
+  CalendarDays,
   Database,
   Download,
   FileText,
+  Gauge,
   Heart,
+  Home,
   History,
   Image as ImageIcon,
   LayoutGrid,
+  Link2,
   ListTodo,
   Menu,
   MessageCircle,
@@ -35,6 +41,7 @@ import {
   Plus,
   Puzzle,
   RotateCcw,
+  Route,
   RefreshCw,
   Send,
   Settings,
@@ -44,8 +51,11 @@ import {
   Sun,
   TimerReset,
   Trash2,
+  Users,
   Volume2,
+  Workflow,
   X,
+  Zap,
 } from 'lucide-vue-next'
 import {decideToolApproval, streamAervoxTurn, submitQuestionAnswers, uploadAervoxAttachment, useAervoxApi, useAervoxVoiceInput} from '@aervox/api-client'
 import type {AskUserQuestionAnswerItem, AttachmentPurpose, ExtractedTerm, ToolApprovalMode, ToolApprovalRequiredEventData, TurnAttachmentRef, UserQuestionRequiredEventData} from '@aervox/contracts'
@@ -56,6 +66,9 @@ import type {
   ProfileDesiredState,
   ProfilePersistenceUpdate,
   ProactiveDesktopBridge,
+  ProactiveHealthSampleView,
+  ProactiveHomeEntityView,
+  ProactiveIntelligenceDashboard,
   ProactiveProfileClaimView,
   ProactiveProfileStatus,
 } from '@aervox/contracts/proactive'
@@ -89,7 +102,7 @@ interface StoryLine {
   attachments?: StoryLineAttachment[]
 }
 
-type CardId = 'study' | 'todo' | 'timer' | 'history' | 'review' | 'mistake' | 'diary' | 'notifications'
+type CardId = 'study' | 'todo' | 'timer' | 'history' | 'review' | 'mistake' | 'quiz' | 'diary' | 'notifications'
 
 interface CardDefinition {
   id: CardId
@@ -137,6 +150,8 @@ const questionStartTime = ref<number>(0)
 const activeQuestion = ref<UserQuestionRequiredEventData | null>(null)
 const questionSubmitting = ref(false)
 const currentTurnId = ref<string | null>(null)
+// UQ-01: 侧边提问卡（第一槽临时覆盖）的本地多选暂存
+const questionCardSelected = ref<string[]>([])
 
 // PET-05: 写工具审批待决（授权后重发相同请求命中已授予权限）
 const pendingApproval = ref<(ToolApprovalRequiredEventData & { turnId: string; outgoing: string }) | null>(null)
@@ -170,6 +185,8 @@ const input = ref('')
 const isComposing = ref(false)
 const composerPlaceholder = '和思隅聊聊学习或任何事…'
 const cardSlots = ref<Array<CardId | null>>([null, null])
+// 学习模式卡片联动：开启前的槽位快照（仅存内存，不写 localStorage，退出/回落时恢复）
+let savedCardSlots: Array<CardId | null> | null = null
 const timerSeconds = ref(25 * 60)
 const timerRunning = ref(false)
 const streaming = ref(false)
@@ -193,6 +210,20 @@ const proactiveBackground = ref(true)
 const proactiveBusy = ref(false)
 const proactiveError = ref<string | null>(null)
 const proactiveNotice = ref<string | null>(null)
+const proactiveDashboard = ref<ProactiveIntelligenceDashboard | null>(null)
+const proactiveView = ref<'overview' | 'integrations'>('overview')
+const homeAssistantForm = ref({displayName: '家庭', endpoint: 'http://homeassistant.local:8123', accessToken: ''})
+const xiaomiHealthForm = ref({
+  displayName: '小米运动健康',
+  apiBaseUrl: '',
+  accessToken: '',
+  refreshToken: '',
+  tokenEndpoint: '',
+  clientId: '',
+  clientSecret: '',
+  dailyPath: '/v1/health/daily',
+})
+const homeEntityOpsDrafts = ref<Record<string, string>>({})
 const newTodo = ref('')
 const storyViewport = ref<HTMLElement | null>(null)
 const todos = ref<Array<{id: number; text: string; done: boolean}>>([])
@@ -238,6 +269,26 @@ function recordProactiveActivity(
   void proactiveBridge()?.recordActivity(source, {eventType, payloadText, metadata}).catch(() => undefined)
 }
 const proactiveActive = computed(() => proactiveStatus.value?.effectiveState === 'active')
+const homeAssistantConnections = computed(() => proactiveDashboard.value?.connections.filter((item) => item.provider === 'home_assistant') ?? [])
+const xiaomiHealthConnections = computed(() => proactiveDashboard.value?.connections.filter((item) => item.provider === 'xiaomi_health') ?? [])
+const homeAssistantEntities = computed(() => proactiveDashboard.value?.homeEntities ?? [])
+const proactiveIntelligenceCapabilities = computed(() => {
+  const dashboard = proactiveDashboard.value
+  return [
+    {id: 'timeline', label: '统一个人时间线', icon: History, count: dashboard?.timeline.length ?? 0},
+    {id: 'projects', label: '项目与意图图谱', icon: Route, count: dashboard?.projects.length ?? 0},
+    {id: 'workflows', label: '操作流程学习', icon: Workflow, count: dashboard?.workflows.length ?? 0},
+    {id: 'triggers', label: '情境主动触发', icon: Zap, count: dashboard?.triggers.length ?? 0},
+    {id: 'verification', label: '计划执行验证', icon: Check, count: dashboard?.verifications.length ?? 0},
+    {id: 'conflicts', label: '画像冲突纠正', icon: AlertTriangle, count: dashboard?.conflicts.length ?? 0},
+    {id: 'preparations', label: '主动准备包', icon: Sparkles, count: dashboard?.preparations.length ?? 0},
+    {id: 'attention', label: '注意力与疲劳', icon: Gauge, count: dashboard?.attention.length ?? 0},
+    {id: 'drift', label: '行为漂移检测', icon: Activity, count: dashboard?.drift.length ?? 0},
+    {id: 'relationships', label: '关系与沟通上下文', icon: Users, count: dashboard?.relationships.length ?? 0},
+    {id: 'scenes', label: '本地场景模型', icon: Home, count: dashboard?.scenes.length ?? 0},
+    {id: 'reviews', label: '每日与每周回顾', icon: CalendarDays, count: dashboard?.reviews.length ?? 0},
+  ]
+})
 const accessChipLabel = computed(() => proactiveActive.value ? '主动智能模式' : toolApprovalMode.value === 'full_access' ? '完全访问' : '操作需确认')
 const accessChipIcon = computed(() => proactiveActive.value ? BrainCircuit : toolApprovalMode.value === 'full_access' ? ShieldAlert : ShieldCheck)
 // Web always presents its companion; the desktop-only preference must not
@@ -267,6 +318,7 @@ const activeMistakeCount = computed(() => mistakes.value.filter((item) => item.s
 const cardCatalog = computed<CardDefinition[]>(() => [
   {id: 'study', label: '今日学习', description: '学习目标 · 复习 · 练习 · 日记', icon: BookOpen, summary: () => `${goals.value.length} 个目标 · ${dueReviews.value.length} 项复习`, action: () => openTool('study')},
   {id: 'mistake', label: '错题本', description: '针对性练习未掌握的题', icon: Puzzle, summary: () => `${activeMistakeCount.value} 题待掌握`, action: () => openTool('mistake')},
+  {id: 'quiz', label: '刷题模式', description: 'AI 现场出题，答错自动进错题本', icon: ClipboardList, summary: () => activePracticeSession.value ? '进行中的练习' : 'AI 出题 · 即时判定', action: () => startQuiz()},
   {id: 'todo', label: '待办清单', description: '勾选完成今天的待办事项', icon: ListTodo, summary: () => `待完成 ${unfinishedTodos.value.length} 件`, action: () => openTool('todo')},
   {id: 'timer', label: '番茄钟', description: '专注计时，劳逸结合', icon: Clock3, summary: () => timerRunning.value ? `${formattedTime.value} 专注中` : `${formattedTime.value} 待开始`, action: () => openTool('timer')},
   {id: 'history', label: '对话回看', description: '回顾与思隅的历史对话', icon: History, summary: () => `${story.value.length} 条对话记录`, action: () => openTool('history')},
@@ -276,6 +328,58 @@ const cardCatalog = computed<CardDefinition[]>(() => [
 ])
 
 const slotCards = computed(() => cardSlots.value.map((id) => id ? cardCatalog.value.find((card) => card.id === id) ?? null : null))
+
+/** 侧边提问卡展示的问题（UQ-01：覆盖第一槽，多题时只展示第一题，完整交互见消息面板） */
+const questionCardData = computed(() => activeQuestion.value?.questions[0] ?? null)
+
+/** 学习模式卡片联动：把两个槽位临时替换为「今日学习 + 番茄钟」（不写 localStorage，刷新后回落持久化配置） */
+function applyStudyCardLayout() {
+  savedCardSlots = [...cardSlots.value]
+  cardSlots.value = ['study', 'timer']
+}
+
+/** 学习模式卡片联动：恢复开启前的槽位快照 */
+function restoreStudyCardLayout() {
+  if (!savedCardSlots) return
+  cardSlots.value = savedCardSlots
+  savedCardSlots = null
+}
+
+/** 每日一题入口：经系统浏览器打开牛客每日一题（纯跳转，不抓取数据） */
+const DAILY_PROBLEM_URL = 'https://www.nowcoder.com/problem/tracker'
+
+function openDailyProblem() {
+  recordProactiveActivity('aervox.operation', 'workbench.daily_problem_opened', DAILY_PROBLEM_URL)
+  petReactKind('forward', {lookAtEl: '.side-cards'})
+  const desktopBridge = (window as Window & {fairyDesktop?: {openExternal?: (url: string) => Promise<void>}}).fairyDesktop
+  if (desktopBridge?.openExternal) void desktopBridge.openExternal(DAILY_PROBLEM_URL)
+  else window.open(DAILY_PROBLEM_URL, '_blank', 'noopener')
+}
+
+/** 侧边提问卡选项点击：单选直接提交，多选本地暂存 */
+function handleQuestionCardOption(label: string) {
+  const question = questionCardData.value
+  if (!question) return
+  if (question.multiSelect) {
+    questionCardSelected.value = questionCardSelected.value.includes(label)
+      ? questionCardSelected.value.filter((item) => item !== label)
+      : [...questionCardSelected.value, label]
+    return
+  }
+  void handleQuestionSubmit([{id: question.id, selected: [label]}])
+}
+
+/** 侧边提问卡多选提交 */
+function submitQuestionCardAnswers() {
+  const question = questionCardData.value
+  if (!question || questionCardSelected.value.length === 0) return
+  void handleQuestionSubmit([{id: question.id, selected: [...questionCardSelected.value]}])
+}
+
+// 提问结束后清空侧边提问卡的本地多选暂存
+watch(activeQuestion, (value) => {
+  if (!value) questionCardSelected.value = []
+})
 
 const menuOpen = ref(false)
 const menuPillRef = ref<HTMLElement | null>(null)
@@ -499,6 +603,52 @@ const latestAssistantLine = computed<StoryLine | null>(() => {
   return null
 })
 
+/* ── 视觉小说式分句呈现（CAP-001）：流式只显示第一句，余句缓存，「下一句」逐句释放 ── */
+
+/** 已额外释放的句子数（0 = 只显示第一句；回复切换时重置） */
+const novelReleased = ref(0)
+
+/** 把回复按句末标点（。！？…）或换行切段，保留句末标点 */
+function splitIntoSentences(text: string): string[] {
+  const normalized = text.replace(/\r\n/g, '\n').trim()
+  if (!normalized) return []
+  return normalized
+    .split(/(?<=[。!?!?…])\s*|\n+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean)
+}
+
+const novelSentences = computed(() => {
+  const line = latestAssistantLine.value
+  return line ? splitIntoSentences(line.text) : []
+})
+
+/** 流式期间只显示第一句：打字机效果自然落在首句上，后续句子静默缓存 */
+const novelStreamingText = computed(() => novelSentences.value[0] ?? '')
+
+/** 完成态显示已释放句子（第一句 + 点「下一句」追加），全部释放后等于全文 */
+const novelDisplayText = computed(() => {
+  const sentences = novelSentences.value
+  if (sentences.length === 0) return ''
+  return sentences.slice(0, novelReleased.value + 1).join('')
+})
+
+const queuedSentenceCount = computed(() => Math.max(0, novelSentences.value.length - novelReleased.value - 1))
+const hasQueuedSentence = computed(() => queuedSentenceCount.value > 0)
+
+/** 新回复（或重发）开始时重置释放进度 */
+watch(latestAssistantLine, (_line, old) => {
+  if (old !== undefined) novelReleased.value = 0
+})
+
+/** 「下一句」：释放缓存中的下一句，桌宠同步念出该句 */
+function revealNextSentence() {
+  if (!hasQueuedSentence.value) return
+  novelReleased.value++
+  const sentence = novelSentences.value[novelReleased.value]
+  if (sentence) petReact({speak: sentence})
+}
+
 /** 视觉小说式对话回看：打开时滚到最新一条 */
 const historyViewport = ref<HTMLElement | null>(null)
 
@@ -611,6 +761,8 @@ async function sendMessage(value = input.value, options?: { quizMode?: boolean; 
         onUserQuestion: (qData) => {
           activeQuestion.value = qData
           currentTurnId.value = qData.turnId
+          // 侧边第一槽临时切换为提问卡，桌宠看向卡片区提示作答入口
+          petReactKind('tilthead', {lookAtEl: '.side-cards', lookDuration: 3200})
           void scrollStoryToBottom()
         },
         onTermsExtracted: (tData) => {
@@ -751,18 +903,164 @@ async function refreshProactiveStatus() {
     return
   }
   try {
-    const [status, claims] = await Promise.all([
+    const [status, claims, dashboard] = await Promise.all([
       bridge.getStatus(toolApprovalMode.value),
       bridge.listClaims().catch(() => []),
+      bridge.getIntelligenceDashboard().catch(() => null),
     ])
     proactiveStatus.value = status
     proactiveClaims.value = claims
+    proactiveDashboard.value = dashboard
+    if (dashboard) {
+      homeEntityOpsDrafts.value = Object.fromEntries(
+        dashboard.homeEntities.map((entity) => [entity.id, entity.allowedOps.join(', ')]),
+      )
+    }
     proactiveAutostart.value = proactiveStatus.value.persistence.autostart
     proactiveBackground.value = proactiveStatus.value.persistence.background
     proactiveError.value = null
   } catch (error) {
     proactiveError.value = error instanceof Error ? error.message : '无法读取主动智能状态'
   }
+}
+
+function integrationTime(value: string | null | undefined): string {
+  if (!value) return '尚未同步'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString('zh-CN', {hour12: false})
+}
+
+function healthMetricLabel(sample: ProactiveHealthSampleView): string {
+  return {
+    steps: '步数',
+    sleep_minutes: '睡眠',
+    resting_heart_rate: '静息心率',
+  }[sample.metric] ?? sample.metric
+}
+
+function healthMetricValue(sample: ProactiveHealthSampleView): string {
+  if (sample.metric === 'sleep_minutes') return `${Math.floor(sample.value / 60)} 小时 ${sample.value % 60} 分`
+  return `${sample.value} ${sample.unit === 'count' ? '步' : sample.unit}`
+}
+
+async function connectHomeAssistant() {
+  const bridge = proactiveBridge()
+  if (!bridge || !proactiveActive.value || !homeAssistantForm.value.endpoint.trim() || !homeAssistantForm.value.accessToken.trim()) return
+  proactiveBusy.value = true
+  proactiveError.value = null
+  proactiveNotice.value = null
+  try {
+    await bridge.connectHomeAssistant({
+      displayName: homeAssistantForm.value.displayName.trim() || '家庭',
+      endpoint: homeAssistantForm.value.endpoint.trim(),
+      accessToken: homeAssistantForm.value.accessToken,
+      subscriptionEnabled: true,
+    })
+    homeAssistantForm.value.accessToken = ''
+    proactiveNotice.value = 'Home Assistant 已连接并完成实体同步'
+    await refreshProactiveStatus()
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : 'Home Assistant 连接失败'
+  } finally {
+    proactiveBusy.value = false
+  }
+}
+
+async function connectXiaomiHealth() {
+  const bridge = proactiveBridge()
+  if (!bridge || !proactiveActive.value || !xiaomiHealthForm.value.apiBaseUrl.trim() || !xiaomiHealthForm.value.accessToken.trim()) return
+  proactiveBusy.value = true
+  proactiveError.value = null
+  proactiveNotice.value = null
+  try {
+    await bridge.connectXiaomiHealth({
+      displayName: xiaomiHealthForm.value.displayName.trim() || '小米运动健康',
+      apiBaseUrl: xiaomiHealthForm.value.apiBaseUrl.trim(),
+      accessToken: xiaomiHealthForm.value.accessToken,
+      refreshToken: xiaomiHealthForm.value.refreshToken.trim() || undefined,
+      tokenEndpoint: xiaomiHealthForm.value.tokenEndpoint.trim() || undefined,
+      clientId: xiaomiHealthForm.value.clientId.trim() || undefined,
+      clientSecret: xiaomiHealthForm.value.clientSecret,
+      dailyPath: xiaomiHealthForm.value.dailyPath.trim() || undefined,
+      scopes: ['steps', 'sleep', 'resting_heart_rate'],
+    })
+    xiaomiHealthForm.value.accessToken = ''
+    xiaomiHealthForm.value.refreshToken = ''
+    xiaomiHealthForm.value.clientSecret = ''
+    proactiveNotice.value = '小米运动健康已连接并完成今日同步'
+    await refreshProactiveStatus()
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : '小米运动健康连接失败'
+  } finally {
+    proactiveBusy.value = false
+  }
+}
+
+async function syncProactiveConnection(provider: string, connectionId: string) {
+  const bridge = proactiveBridge()
+  if (!bridge) return
+  proactiveBusy.value = true
+  proactiveError.value = null
+  try {
+    if (provider === 'home_assistant') await bridge.syncHomeAssistant(connectionId)
+    else await bridge.syncXiaomiHealth(connectionId)
+    proactiveNotice.value = '同步完成'
+    await refreshProactiveStatus()
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : '外部连接同步失败'
+  } finally {
+    proactiveBusy.value = false
+  }
+}
+
+async function deleteProactiveConnection(provider: string, connectionId: string, displayName: string) {
+  const bridge = proactiveBridge()
+  if (!bridge || !window.confirm(`撤销“${displayName}”并删除本地凭据与缓存数据？`)) return
+  proactiveBusy.value = true
+  proactiveError.value = null
+  try {
+    if (provider === 'home_assistant') await bridge.deleteHomeAssistant(connectionId)
+    else await bridge.deleteXiaomiHealth(connectionId)
+    proactiveNotice.value = `已撤销 ${displayName}`
+    await refreshProactiveStatus()
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : '外部连接撤销失败'
+  } finally {
+    proactiveBusy.value = false
+  }
+}
+
+async function updateHomeEntity(entity: ProactiveHomeEntityView, patch: {enabled?: boolean; allowedOps?: string[]}) {
+  const bridge = proactiveBridge()
+  if (!bridge) return
+  proactiveBusy.value = true
+  proactiveError.value = null
+  try {
+    const updated = await bridge.configureHomeAssistantEntity(entity.connectionId, entity.entityId, patch)
+    if (proactiveDashboard.value) {
+      proactiveDashboard.value = {
+        ...proactiveDashboard.value,
+        homeEntities: proactiveDashboard.value.homeEntities.map((item) => item.id === updated.id ? updated : item),
+      }
+    }
+    homeEntityOpsDrafts.value[updated.id] = updated.allowedOps.join(', ')
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : 'Home Assistant 实体授权更新失败'
+  } finally {
+    proactiveBusy.value = false
+  }
+}
+
+function toggleHomeEntity(entity: ProactiveHomeEntityView, event: Event) {
+  void updateHomeEntity(entity, {enabled: (event.target as HTMLInputElement).checked})
+}
+
+function saveHomeEntityOps(entity: ProactiveHomeEntityView) {
+  const allowedOps = (homeEntityOpsDrafts.value[entity.id] ?? '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+  void updateHomeEntity(entity, {allowedOps})
 }
 
 function proactiveClaimStateLabel(state: ProactiveProfileClaimView['state']): string {
@@ -1198,6 +1496,10 @@ const isDraggingDial = ref(false)
 const DIAL_RADIUS = 80
 const DIAL_CIRCUMFERENCE = 2 * Math.PI * DIAL_RADIUS
 
+// 番茄钟土司倒计时环几何常数 (SVG viewBox 0 0 44 44, 中心 22,22, 半径 18)
+const TOAST_RING_RADIUS = 18
+const TOAST_RING_CIRCUMFERENCE = 2 * Math.PI * TOAST_RING_RADIUS
+
 const timerRatio = computed(() => {
   if (timerRunning.value) {
     const total = Math.max(timerMinutes.value * 60, 1)
@@ -1208,6 +1510,10 @@ const timerRatio = computed(() => {
 
 const timerArcDashoffset = computed(() => {
   return DIAL_CIRCUMFERENCE * (1 - timerRatio.value)
+})
+
+const toastRingDashoffset = computed(() => {
+  return TOAST_RING_CIRCUMFERENCE * (1 - timerRatio.value)
 })
 
 // 滑块手柄（白点）旋转角度（顺时针度数，0° = 12 点钟方向）
@@ -1371,9 +1677,12 @@ async function toggleVoiceInput() {
 function toggleStudyMode() {
   studyModeEnabled.value = !studyModeEnabled.value
   recordProactiveActivity('aervox.operation', 'conversation.study_mode_changed', undefined, {enabled: studyModeEnabled.value})
-  if (studyModeEnabled.value) petReactKind('glad', {expression: MizukiExpression.face_smile_01, lookAtEl: '.floating-study-switch-wrap'})
-  else petReactKind('shake', {expression: MizukiExpression.face_normal_01, lookAtEl: '.floating-study-switch-wrap'})
-  if (!studyModeEnabled.value) {
+  if (studyModeEnabled.value) {
+    petReactKind('glad', {expression: MizukiExpression.face_smile_01, lookAtEl: '.floating-study-switch-wrap'})
+    applyStudyCardLayout()
+  } else {
+    petReactKind('shake', {expression: MizukiExpression.face_normal_01, lookAtEl: '.floating-study-switch-wrap'})
+    restoreStudyCardLayout()
     currentExtractedTerms.value = []
     exploreDialogOpen.value = false
   }
@@ -1461,6 +1770,9 @@ onMounted(() => {
     // Ignore malformed card preferences and keep placeholders.
   }
 
+  // 学习模式开启时刷新页面：仍按「今日学习 + 番茄钟」呈现，并记录快照供退出恢复
+  if (studyModeEnabled.value) applyStudyCardLayout()
+
   if (isWeb.value) {
     const saved = localStorage.getItem('aervox-theme')
     const fallback = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
@@ -1534,22 +1846,39 @@ onUnmounted(() => {
         </button>
       </label>
 
-      <button
-        type="button"
-        class="floating-quiz-btn"
-        :disabled="streaming"
-        aria-label="开始刷题"
-        title="开始刷题：AI 现场出题，答错自动进错题本"
-        @click="startQuiz"
-      >
-        <ClipboardList :size="15" />
-        <span class="quiz-btn-label">刷题</span>
-      </button>
-
       <button v-if="isWeb" class="floating-settings" type="button" aria-label="打开设置" @click="settingsOpen = true">
         <Settings :size="19" />
       </button>
     </div>
+
+    <!-- 番茄钟运行土司：开启后右上流畅侧弹出，环形倒计时动画，暂停/重置即收回 -->
+    <Transition name="timer-toast">
+      <div v-if="timerRunning" class="timer-toast" role="status" aria-live="polite" aria-label="番茄钟倒计时通知">
+        <svg class="timer-toast-ring" viewBox="0 0 44 44" aria-hidden="true">
+          <circle class="timer-toast-track" cx="22" cy="22" :r="TOAST_RING_RADIUS" />
+          <circle
+            class="timer-toast-progress"
+            cx="22"
+            cy="22"
+            :r="TOAST_RING_RADIUS"
+            :stroke-dasharray="TOAST_RING_CIRCUMFERENCE"
+            :stroke-dashoffset="toastRingDashoffset"
+          />
+        </svg>
+        <div class="timer-toast-body">
+          <strong class="timer-toast-time">{{ formattedTime }}</strong>
+          <small class="timer-toast-label">专注中 · {{ timerMinutes }} 分钟回合</small>
+        </div>
+        <div class="timer-toast-ops">
+          <button type="button" aria-label="暂停专注" @click="toggleTimer()">
+            <Pause :size="14" />
+          </button>
+          <button type="button" aria-label="重置番茄钟" @click="resetTimer()">
+            <TimerReset :size="14" />
+          </button>
+        </div>
+      </div>
+    </Transition>
 
     <nav ref="menuPillRef" class="menu-pill" :class="{open: menuOpen}" aria-label="主导航" @click="handlePillClick">
       <button
@@ -1578,55 +1907,143 @@ onUnmounted(() => {
 
     <aside class="side-cards" aria-label="功能卡片">
       <div v-for="(card, slotIndex) in slotCards" :key="slotIndex" class="side-card-slot">
-        <template v-if="card">
-          <article
-            class="side-card"
-            role="region"
-            tabindex="0"
-            :aria-label="`打开${card.label}`"
-            @click="activateCard(card, $event)"
-            @keydown.enter="activateCard(card, $event)"
-          >
-            <header class="side-card-head">
-              <span class="side-card-icon"><component :is="card.icon" :size="24" /></span>
-              <span class="side-card-title">
-                <strong>{{ card.label }}</strong>
-                <small>{{ card.description }}</small>
-              </span>
-              <button class="side-card-remove" type="button" aria-label="移除此卡片" @click.stop="selectCard(slotIndex, null, $event)">
-                <X :size="15" />
-              </button>
-            </header>
-            <p class="side-card-summary">{{ card.summary() }}</p>
-            <footer class="side-card-foot">
-              <span>点击打开</span>
-              <ChevronRight :size="15" />
-            </footer>
-          </article>
-        </template>
-
-        <div v-else class="side-card side-card-placeholder" role="group" aria-label="为此卡片选择功能">
-          <header class="side-card-head">
-            <span class="side-card-icon"><Plus :size="17" /></span>
-            <span class="side-card-title">
-              <strong>选择功能</strong>
-              <small>把常用工具放到这里</small>
-            </span>
-          </header>
-          <div class="side-card-grid">
-            <button
-              v-for="option in cardCatalog"
-              :key="option.id"
-              type="button"
-              class="side-card-grid-item"
-              :disabled="isCardPicked(option.id)"
-              @click="selectCard(slotIndex, option.id, $event)"
+        <Transition name="card-swap" mode="out-in">
+          <div :key="slotIndex === 0 && questionCardData ? 'question' : card?.id ?? 'placeholder'" class="side-card-slot-inner">
+            <!-- UQ-01: AI 提问时第一槽临时切换为提问卡，作答后自动恢复 -->
+            <article
+              v-if="slotIndex === 0 && questionCardData"
+              class="side-card side-question-card"
+              role="region"
+              tabindex="0"
+              :aria-label="`${assistantDisplayName}想问你`"
             >
-              <component :is="option.icon" :size="15" />
-              <span>{{ option.label }}</span>
-            </button>
+              <header class="side-card-head">
+                <span class="side-card-icon"><CircleHelp :size="24" /></span>
+                <span class="side-card-title">
+                  <strong>{{ assistantDisplayName }}想问你</strong>
+                  <small>点选选项作答，答完卡片自动恢复</small>
+                </span>
+              </header>
+              <p class="side-card-summary side-question-text">{{ questionCardData.question }}</p>
+              <div v-if="questionCardData.options?.length" class="side-card-grid side-question-options">
+                <button
+                  v-for="option in questionCardData.options"
+                  :key="option.label"
+                  type="button"
+                  class="side-card-grid-item"
+                  :class="{picked: questionCardSelected.includes(option.label)}"
+                  :disabled="questionSubmitting"
+                  @click.stop="handleQuestionCardOption(option.label)"
+                >
+                  <span>{{ option.label }}</span>
+                </button>
+              </div>
+              <button
+                v-if="questionCardData.multiSelect && questionCardData.options?.length"
+                type="button"
+                class="side-question-submit"
+                :disabled="questionSubmitting || questionCardSelected.length === 0"
+                @click.stop="submitQuestionCardAnswers()"
+              >
+                {{ questionSubmitting ? '提交中…' : `提交（已选 ${questionCardSelected.length}）` }}
+              </button>
+              <footer class="side-card-foot">
+                <span>{{ questionSubmitting ? '正在提交回答…' : '正在等待你的回答…' }}</span>
+              </footer>
+            </article>
+
+            <article
+              v-else-if="card"
+              class="side-card"
+              role="region"
+              tabindex="0"
+              :aria-label="`打开${card.label}`"
+              @click="activateCard(card, $event)"
+              @keydown.enter="activateCard(card, $event)"
+            >
+              <header class="side-card-head">
+                <span class="side-card-icon"><component :is="card.icon" :size="24" /></span>
+                <span class="side-card-title">
+                  <strong>{{ card.label }}</strong>
+                  <small>{{ card.description }}</small>
+                </span>
+                <button class="side-card-remove" type="button" aria-label="移除此卡片" @click.stop="selectCard(slotIndex, null, $event)">
+                  <X :size="15" />
+                </button>
+              </header>
+              <p class="side-card-summary">{{ card.summary() }}</p>
+              <!-- 番茄钟基础操作：预设时长 + 开始/暂停/重置（点击卡片本体仍打开二级抽屉的完整表盘） -->
+              <div v-if="card.id === 'timer'" class="timer-card-ops">
+                <div v-if="!timerRunning" class="timer-card-presets" role="radiogroup" aria-label="快捷预设时长">
+                  <button
+                    v-for="preset in [15, 25, 45, 60]"
+                    :key="preset"
+                    type="button"
+                    class="timer-chip"
+                    :class="{active: timerMinutes === preset}"
+                    :aria-pressed="timerMinutes === preset"
+                    @click.stop="selectPresetMinutes(preset)"
+                  >
+                    {{ preset }}分
+                  </button>
+                </div>
+                <div class="timer-card-actions">
+                  <button type="button" class="side-card-grid-item" @click.stop="toggleTimer()">
+                    <Pause v-if="timerRunning" :size="15" />
+                    <Play v-else :size="15" />
+                    <span>{{ timerRunning ? '暂停专注' : '开始专注' }}</span>
+                  </button>
+                  <button type="button" class="side-card-grid-item" @click.stop="resetTimer()">
+                    <TimerReset :size="15" />
+                    <span>重置</span>
+                  </button>
+                </div>
+              </div>
+              <!-- 学习模式下的今日学习富卡片：每日一题与学习快捷入口（点击卡片仍整体打开学习抽屉） -->
+              <div v-if="card.id === 'study' && studyModeEnabled" class="side-card-grid side-card-actions">
+                <button type="button" class="side-card-grid-item" @click.stop="openDailyProblem()">
+                  <CircleHelp :size="15" />
+                  <span>每日一题</span>
+                </button>
+                <button type="button" class="side-card-grid-item" @click.stop="openTool('timer')">
+                  <Clock3 :size="15" />
+                  <span>开始专注</span>
+                </button>
+                <button type="button" class="side-card-grid-item" @click.stop="openTool('study')">
+                  <Puzzle :size="15" />
+                  <span>错题重练</span>
+                </button>
+              </div>
+              <footer class="side-card-foot">
+                <span>点击打开</span>
+                <ChevronRight :size="15" />
+              </footer>
+            </article>
+
+            <div v-else class="side-card side-card-placeholder" role="group" aria-label="为此卡片选择功能">
+              <header class="side-card-head">
+                <span class="side-card-icon"><Plus :size="17" /></span>
+                <span class="side-card-title">
+                  <strong>选择功能</strong>
+                  <small>把常用工具放到这里</small>
+                </span>
+              </header>
+              <div class="side-card-grid">
+                <button
+                  v-for="option in cardCatalog"
+                  :key="option.id"
+                  type="button"
+                  class="side-card-grid-item"
+                  :disabled="isCardPicked(option.id)"
+                  @click="selectCard(slotIndex, option.id, $event)"
+                >
+                  <component :is="option.icon" :size="15" />
+                  <span>{{ option.label }}</span>
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        </Transition>
       </div>
     </aside>
 
@@ -1640,11 +2057,23 @@ onUnmounted(() => {
           >
             <span class="message-speaker">{{ assistantDisplayName }}</span>
             <span v-if="latestAssistantLine.state === 'streaming'" class="message-text">
-              <span class="markdown-body" v-html="renderMarkdown(latestAssistantLine.text)" />
+              <span class="markdown-body" v-html="renderMarkdown(novelStreamingText)" />
               <i class="stream-cursor" aria-hidden="true" />
             </span>
-            <span v-else class="message-text">
-              <span class="markdown-body" v-html="renderMarkdown(latestAssistantLine.text || '正在连接 Aervox…')" />
+            <span v-else class="message-text message-novel-text">
+              <!-- 视觉小说分句：:key 随释放数变化，触发新句淡入动画 -->
+              <span :key="novelReleased" class="markdown-body" v-html="renderMarkdown(novelDisplayText || '正在连接 Aervox…')" />
+              <button
+                v-if="hasQueuedSentence"
+                type="button"
+                class="novel-next-btn"
+                :aria-label="`显示下一句，还剩 ${queuedSentenceCount} 句`"
+                @click="revealNextSentence"
+              >
+                <span>下一句</span>
+                <span class="novel-next-count" aria-hidden="true">{{ queuedSentenceCount }}</span>
+                <ChevronRight :size="14" />
+              </button>
             </span>
           </p>
           <p v-else class="message-line">
@@ -2463,31 +2892,102 @@ onUnmounted(() => {
                 <input v-model="proactiveBackground" type="checkbox" class="settings-switch" :disabled="proactiveBusy" @change="setProactivePersistence({background: proactiveBackground})" />
               </div>
 
-              <div class="proactive-capability-heading"><strong>全量画像来源与动作</strong><small>每项状态来自 OS 或已接入适配器；“待验证”不会被当作已授权。</small></div>
-              <ul class="proactive-capability-list">
-                <li v-for="capability in proactiveStatus?.capabilities ?? []" :key="capability.id" class="proactive-capability-item">
-                  <span class="proactive-capability-marker" :class="capabilityStatusClass(capability.osStatus)" aria-hidden="true"><Check v-if="capability.osStatus === 'granted'" :size="13" /><AlertTriangle v-else :size="13" /></span>
-                  <span class="proactive-capability-copy"><strong>{{ capability.label }}</strong><small>{{ capability.description }}<template v-if="capability.reason"> · {{ capability.reason }}</template></small></span>
-                  <span class="proactive-capability-state" :class="capabilityStatusClass(capability.osStatus)">{{ capabilityStatusLabel(capability.osStatus) }}</span>
-                  <span class="proactive-capability-actions">
-                    <button v-if="capability.canRequest && capability.osStatus !== 'granted'" type="button" class="proactive-request-button" :disabled="proactiveBusy" @click="requestProactiveCapability(capability)">请求系统权限</button>
-                    <button v-if="proactiveStatus?.desiredState === 'enabled' || proactiveStatus?.desiredState === 'paused'" type="button" class="proactive-delete-button" :disabled="proactiveBusy" :aria-label="`撤销并删除${capability.label}`" title="撤销并删除此来源" @click="deleteProactiveSource(capability)"><Trash2 :size="13" /></button>
-                  </span>
-                </li>
-                <li v-if="!proactiveStatus" class="study-empty">等待桌面 Host 返回能力快照。</li>
-              </ul>
-              <div class="proactive-capability-heading"><strong>本地画像记忆</strong><small>推断可由你确认或拒绝；被拒绝的声明不会进入后续个性化上下文。</small></div>
-              <ul class="proactive-claim-list">
-                <li v-for="claim in proactiveClaims" :key="claim.id" class="proactive-claim-item">
-                  <span class="proactive-claim-copy"><strong>{{ claim.content }}</strong><small>{{ claim.claimType }} · 置信度 {{ claim.confidence }} · {{ proactiveClaimStateLabel(claim.state) }}</small></span>
-                  <span class="proactive-claim-actions">
-                    <button type="button" :class="{active: claim.state === 'confirmed'}" :disabled="proactiveBusy" title="确认这条画像记忆" aria-label="确认画像记忆" @click="updateProactiveClaimState(claim, 'confirmed')"><Check :size="14" /></button>
-                    <button type="button" :class="{rejected: claim.state === 'rejected'}" :disabled="proactiveBusy" title="拒绝这条画像记忆" aria-label="拒绝画像记忆" @click="updateProactiveClaimState(claim, 'rejected')"><X :size="14" /></button>
-                  </span>
-                </li>
-                <li v-if="proactiveClaims.length === 0" class="study-empty">尚未形成画像记忆。</li>
-              </ul>
-              <div class="settings-note proactive-retention-note"><Database :size="16" />原始屏幕、音频、输入、剪贴板和文件副本最多保留 7 天，并在成功提炼为用户记忆后才删除；控制面与画像数据留在本机。</div>
+              <div class="settings-segmented proactive-view-tabs" role="tablist" aria-label="主动智能视图">
+                <button type="button" role="tab" :aria-selected="proactiveView === 'overview'" :class="{active: proactiveView === 'overview'}" @click="proactiveView = 'overview'"><BrainCircuit :size="15" />能力概览</button>
+                <button type="button" role="tab" :aria-selected="proactiveView === 'integrations'" :class="{active: proactiveView === 'integrations'}" @click="proactiveView = 'integrations'"><Link2 :size="15" />外部连接</button>
+              </div>
+
+              <template v-if="proactiveView === 'overview'">
+                <div class="proactive-capability-heading"><strong>主动智能能力</strong><small>数字表示当前本地 Vault 中可用于该能力的记录数。</small></div>
+                <ul class="proactive-intelligence-grid">
+                  <li v-for="capability in proactiveIntelligenceCapabilities" :key="capability.id" :class="{active: capability.count > 0}">
+                    <component :is="capability.icon" :size="17" />
+                    <span><strong>{{ capability.label }}</strong><small>{{ capability.count > 0 ? `${capability.count} 条本地记录` : '等待形成数据' }}</small></span>
+                    <b>{{ capability.count }}</b>
+                  </li>
+                </ul>
+
+                <div class="proactive-capability-heading"><strong>全量画像来源与动作</strong><small>每项状态来自 OS 或已接入适配器；“待验证”不会被当作已授权。</small></div>
+                <ul class="proactive-capability-list">
+                  <li v-for="capability in proactiveStatus?.capabilities ?? []" :key="capability.id" class="proactive-capability-item">
+                    <span class="proactive-capability-marker" :class="capabilityStatusClass(capability.osStatus)" aria-hidden="true"><Check v-if="capability.osStatus === 'granted'" :size="13" /><AlertTriangle v-else :size="13" /></span>
+                    <span class="proactive-capability-copy"><strong>{{ capability.label }}</strong><small>{{ capability.description }}<template v-if="capability.reason"> · {{ capability.reason }}</template></small></span>
+                    <span class="proactive-capability-state" :class="capabilityStatusClass(capability.osStatus)">{{ capabilityStatusLabel(capability.osStatus) }}</span>
+                    <span class="proactive-capability-actions">
+                      <button v-if="capability.canRequest && capability.osStatus !== 'granted'" type="button" class="proactive-request-button" :disabled="proactiveBusy" @click="requestProactiveCapability(capability)">请求系统权限</button>
+                      <button v-if="proactiveStatus?.desiredState === 'enabled' || proactiveStatus?.desiredState === 'paused'" type="button" class="proactive-delete-button" :disabled="proactiveBusy" :aria-label="`撤销并删除${capability.label}`" title="撤销并删除此来源" @click="deleteProactiveSource(capability)"><Trash2 :size="13" /></button>
+                    </span>
+                  </li>
+                  <li v-if="!proactiveStatus" class="study-empty">等待桌面 Host 返回能力快照。</li>
+                </ul>
+                <div class="proactive-capability-heading"><strong>本地画像记忆</strong><small>推断可由你确认或拒绝；被拒绝的声明不会进入后续个性化上下文。</small></div>
+                <ul class="proactive-claim-list">
+                  <li v-for="claim in proactiveClaims" :key="claim.id" class="proactive-claim-item">
+                    <span class="proactive-claim-copy"><strong>{{ claim.content }}</strong><small>{{ claim.claimType }} · 置信度 {{ claim.confidence }} · {{ proactiveClaimStateLabel(claim.state) }}</small></span>
+                    <span class="proactive-claim-actions">
+                      <button type="button" :class="{active: claim.state === 'confirmed'}" :disabled="proactiveBusy" title="确认这条画像记忆" aria-label="确认画像记忆" @click="updateProactiveClaimState(claim, 'confirmed')"><Check :size="14" /></button>
+                      <button type="button" :class="{rejected: claim.state === 'rejected'}" :disabled="proactiveBusy" title="拒绝这条画像记忆" aria-label="拒绝画像记忆" @click="updateProactiveClaimState(claim, 'rejected')"><X :size="14" /></button>
+                    </span>
+                  </li>
+                  <li v-if="proactiveClaims.length === 0" class="study-empty">尚未形成画像记忆。</li>
+                </ul>
+                <div class="settings-note proactive-retention-note"><Database :size="16" />原始屏幕、音频、输入、剪贴板和文件副本最多保留 7 天，并在成功提炼为用户记忆后才删除；控制面与画像数据留在本机。</div>
+              </template>
+
+              <template v-else>
+                <section class="proactive-integration-section">
+                  <div class="proactive-capability-heading"><strong>Home Assistant</strong><small>局域网状态订阅与实体级服务授权。</small></div>
+                  <form class="proactive-integration-form" @submit.prevent="connectHomeAssistant">
+                    <label><span>名称</span><input v-model="homeAssistantForm.displayName" autocomplete="off" /></label>
+                    <label class="wide"><span>实例地址</span><input v-model="homeAssistantForm.endpoint" inputmode="url" autocomplete="url" /></label>
+                    <label class="wide"><span>长期访问令牌</span><input v-model="homeAssistantForm.accessToken" type="password" autocomplete="off" /></label>
+                    <button type="submit" :disabled="proactiveBusy || !proactiveActive"><Link2 :size="15" />连接</button>
+                  </form>
+                  <ul class="proactive-connection-list">
+                    <li v-for="connection in homeAssistantConnections" :key="connection.id">
+                      <span><strong>{{ connection.displayName }}</strong><small>{{ connection.endpoint }} · {{ integrationTime(connection.lastSyncAt) }}</small></span>
+                      <em :class="`is-${connection.state}`">{{ connection.state }}</em>
+                      <button type="button" title="立即同步" aria-label="立即同步 Home Assistant" :disabled="proactiveBusy" @click="syncProactiveConnection(connection.provider, connection.id)"><RefreshCw :size="14" /></button>
+                      <button type="button" title="撤销连接" aria-label="撤销 Home Assistant 连接" :disabled="proactiveBusy" @click="deleteProactiveConnection(connection.provider, connection.id, connection.displayName)"><Trash2 :size="14" /></button>
+                    </li>
+                    <li v-if="homeAssistantConnections.length === 0" class="study-empty">尚未连接 Home Assistant。</li>
+                  </ul>
+                  <ul v-if="homeAssistantEntities.length > 0" class="proactive-entity-list">
+                    <li v-for="entity in homeAssistantEntities" :key="entity.id">
+                      <input :checked="entity.enabled" type="checkbox" class="settings-switch" :disabled="proactiveBusy" :aria-label="`授权 ${entity.displayName ?? entity.entityId}`" @change="toggleHomeEntity(entity, $event)" />
+                      <span><strong>{{ entity.displayName ?? entity.entityId }}</strong><small>{{ entity.entityId }} · {{ entity.state.state ?? 'unknown' }}</small></span>
+                      <input v-model="homeEntityOpsDrafts[entity.id]" class="proactive-ops-input" placeholder="turn_on, turn_off" :disabled="proactiveBusy || !entity.enabled" @change="saveHomeEntityOps(entity)" />
+                    </li>
+                  </ul>
+                </section>
+
+                <section class="proactive-integration-section">
+                  <div class="proactive-capability-heading"><strong>小米运动健康</strong><small>使用用户自有的官方开放平台配置同步步数、睡眠与静息心率。</small></div>
+                  <form class="proactive-integration-form" @submit.prevent="connectXiaomiHealth">
+                    <label><span>名称</span><input v-model="xiaomiHealthForm.displayName" autocomplete="off" /></label>
+                    <label class="wide"><span>API 地址</span><input v-model="xiaomiHealthForm.apiBaseUrl" inputmode="url" autocomplete="url" /></label>
+                    <label><span>Access Token</span><input v-model="xiaomiHealthForm.accessToken" type="password" autocomplete="off" /></label>
+                    <label><span>Refresh Token</span><input v-model="xiaomiHealthForm.refreshToken" type="password" autocomplete="off" /></label>
+                    <label class="wide"><span>Token Endpoint</span><input v-model="xiaomiHealthForm.tokenEndpoint" inputmode="url" autocomplete="off" /></label>
+                    <label><span>Client ID</span><input v-model="xiaomiHealthForm.clientId" autocomplete="off" /></label>
+                    <label><span>Client Secret</span><input v-model="xiaomiHealthForm.clientSecret" type="password" autocomplete="off" /></label>
+                    <label class="wide"><span>每日汇总路径</span><input v-model="xiaomiHealthForm.dailyPath" autocomplete="off" /></label>
+                    <button type="submit" :disabled="proactiveBusy || !proactiveActive"><Heart :size="15" />连接</button>
+                  </form>
+                  <ul class="proactive-connection-list">
+                    <li v-for="connection in xiaomiHealthConnections" :key="connection.id">
+                      <span><strong>{{ connection.displayName }}</strong><small>{{ integrationTime(connection.lastSyncAt) }}</small></span>
+                      <em :class="`is-${connection.state}`">{{ connection.state }}</em>
+                      <button type="button" title="同步今日健康数据" aria-label="同步今日健康数据" :disabled="proactiveBusy" @click="syncProactiveConnection(connection.provider, connection.id)"><RefreshCw :size="14" /></button>
+                      <button type="button" title="撤销连接" aria-label="撤销小米运动健康连接" :disabled="proactiveBusy" @click="deleteProactiveConnection(connection.provider, connection.id, connection.displayName)"><Trash2 :size="14" /></button>
+                    </li>
+                    <li v-if="xiaomiHealthConnections.length === 0" class="study-empty">尚未连接小米运动健康。</li>
+                  </ul>
+                  <ul v-if="proactiveDashboard?.health.length" class="proactive-health-list">
+                    <li v-for="sample in proactiveDashboard.health" :key="sample.id"><span>{{ healthMetricLabel(sample) }}</span><strong>{{ healthMetricValue(sample) }}</strong><small>{{ sample.localDate }}</small></li>
+                  </ul>
+                </section>
+              </template>
             </template>
           </div>
           <div v-else-if="settingsCategory === 'appearance'" class="settings-section">

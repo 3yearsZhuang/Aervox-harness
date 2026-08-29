@@ -1,4 +1,4 @@
-import {app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, Menu, nativeTheme, Notification, powerMonitor, screen, systemPreferences} from 'electron'
+import {app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, Menu, nativeTheme, Notification, powerMonitor, screen, shell, systemPreferences} from 'electron'
 import {createHash} from 'node:crypto'
 import {chmod, mkdir, readFile, rename, writeFile} from 'node:fs/promises'
 import os from 'node:os'
@@ -489,6 +489,41 @@ function isProfilePersistenceUpdate(value: unknown): value is ProfilePersistence
         update[key] === undefined || typeof update[key] === 'boolean')
 }
 
+function objectInput(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null
+}
+
+function requiredConnectionId(value: unknown): string {
+    const input = objectInput(value)
+    const connectionId = input?.connectionId
+    if (typeof connectionId !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(connectionId)) {
+        throw new Error('invalid proactive integration connection id')
+    }
+    return connectionId
+}
+
+function validatedHomeAssistantInput(value: unknown): Record<string, unknown> {
+    const input = objectInput(value)
+    if (!input || typeof input.endpoint !== 'string' || typeof input.accessToken !== 'string') {
+        throw new Error('invalid Home Assistant connection')
+    }
+    if (input.endpoint.length > 2048 || input.accessToken.length < 8 || input.accessToken.length > 4096) {
+        throw new Error('invalid Home Assistant connection')
+    }
+    return input
+}
+
+function validatedXiaomiInput(value: unknown): Record<string, unknown> {
+    const input = objectInput(value)
+    if (!input || typeof input.apiBaseUrl !== 'string' || typeof input.accessToken !== 'string') {
+        throw new Error('invalid Xiaomi Health connection')
+    }
+    if (input.apiBaseUrl.length > 2048 || input.accessToken.length < 8 || input.accessToken.length > 4096) {
+        throw new Error('invalid Xiaomi Health connection')
+    }
+    return input
+}
+
 function parseProactiveActivity(value: unknown): {
     source: 'aervox.activity' | 'aervox.operation'
     eventType: string
@@ -739,8 +774,8 @@ function rendererUrl(page: string) {
 
 function createMainWindow() {
     mainWindow = new BrowserWindow({
-        width: 1360,
-        height: 820,
+        width: 1440,
+        height: 880,
         minWidth: 760,
         minHeight: 620,
         backgroundColor: '#f5f7f4',
@@ -823,6 +858,13 @@ app.whenReady().then(async () => {
     ipcMain.handle('window:close', () => {
         mainWindow?.destroy()
         return true
+    })
+    // 外链经系统浏览器打开（如牛客每日一题）：仅放行 https 协议
+    ipcMain.handle('window:open-external', (_event, url: unknown) => {
+        if (typeof url !== 'string' || !/^https:\/\//i.test(url)) {
+            throw new Error('仅允许打开 https:// 外部链接')
+        }
+        return shell.openExternal(url)
     })
     // 「选择文件夹」：本地语音模型路径 / 音色目录（CR-011 阶段 3）
     ipcMain.handle('dialog:pick-directory', async (event) => {
@@ -944,6 +986,66 @@ app.whenReady().then(async () => {
             `/v1/proactive/claims/${encodeURIComponent(claimId)}/state`,
             {state},
         )
+    })
+    ipcMain.handle('proactive:intelligence:dashboard', async (event) => {
+        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+        if (!await refreshProactiveLocalReady()) throw new Error('本地主动画像 Vault 尚未就绪')
+        return requestProactiveApi('GET', '/v1/proactive/intelligence/dashboard')
+    })
+    ipcMain.handle('proactive:ha:connect', async (event, payload: unknown) => {
+        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+        return requestProactiveApi('POST', '/v1/proactive/integrations/home-assistant', validatedHomeAssistantInput(payload))
+    })
+    ipcMain.handle('proactive:ha:sync', async (event, payload: unknown) => {
+        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+        const connectionId = requiredConnectionId(payload)
+        return requestProactiveApi('POST', `/v1/proactive/integrations/home-assistant/${encodeURIComponent(connectionId)}/sync`)
+    })
+    ipcMain.handle('proactive:ha:entity', async (event, payload: unknown) => {
+        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+        const input = objectInput(payload)
+        const connectionId = requiredConnectionId(payload)
+        const entityId = input?.entityId
+        const patch = objectInput(input?.patch)
+        if (typeof entityId !== 'string' || entityId.length > 255 || !patch) throw new Error('invalid Home Assistant entity update')
+        if (patch.allowedOps !== undefined && (!Array.isArray(patch.allowedOps) || patch.allowedOps.some((item) => typeof item !== 'string'))) {
+            throw new Error('invalid Home Assistant allowed operations')
+        }
+        return requestProactiveApi(
+            'PATCH',
+            `/v1/proactive/integrations/home-assistant/${encodeURIComponent(connectionId)}/entities/${encodeURIComponent(entityId)}`,
+            patch,
+        )
+    })
+    ipcMain.handle('proactive:ha:delete', async (event, payload: unknown) => {
+        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+        const connectionId = requiredConnectionId(payload)
+        await requestProactiveApi('DELETE', `/v1/proactive/integrations/home-assistant/${encodeURIComponent(connectionId)}`)
+        return true
+    })
+    ipcMain.handle('proactive:xiaomi:connect', async (event, payload: unknown) => {
+        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+        return requestProactiveApi('POST', '/v1/proactive/integrations/xiaomi-health', validatedXiaomiInput(payload))
+    })
+    ipcMain.handle('proactive:xiaomi:sync', async (event, payload: unknown) => {
+        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+        const input = objectInput(payload)
+        const connectionId = requiredConnectionId(payload)
+        const localDate = input?.localDate
+        if (localDate !== undefined && (typeof localDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(localDate))) {
+            throw new Error('invalid Xiaomi Health sync date')
+        }
+        return requestProactiveApi(
+            'POST',
+            `/v1/proactive/integrations/xiaomi-health/${encodeURIComponent(connectionId)}/sync`,
+            localDate ? {localDate} : {},
+        )
+    })
+    ipcMain.handle('proactive:xiaomi:delete', async (event, payload: unknown) => {
+        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+        const connectionId = requiredConnectionId(payload)
+        await requestProactiveApi('DELETE', `/v1/proactive/integrations/xiaomi-health/${encodeURIComponent(connectionId)}`)
+        return true
     })
     ipcMain.handle('proactive:export', async (event, payload: unknown) => {
         if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')

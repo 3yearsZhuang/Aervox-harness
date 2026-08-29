@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('fairyDesktop', {
     minimize: windowApi.minimize,
     toggleMaximize: windowApi.toggleMaximize,
     close: windowApi.close,
+    openExternal: windowApi.openExternal,
     onPetCommand: windowApi.onPetCommand,
     getTheme: settingsApi.getTheme,
     setTheme: settingsApi.setTheme,

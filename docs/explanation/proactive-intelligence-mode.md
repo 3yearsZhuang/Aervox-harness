@@ -6,7 +6,7 @@ owner: product-platform
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.3.0
+version: 0.4.0
 updated_at: 2026-08-29
 reviewed_at: 2026-08-29
 review_interval_days: 60
@@ -18,6 +18,8 @@ review_triggers:
   - docs/reference/adr/ADR-008-cloud-first-local-port.md
   - docs/reference/changes/CR-022-full-access-tool-permission.md
   - docs/reference/adr/ADR-018-proactive-local-privacy-host.md
+  - docs/reference/changes/CR-024-proactive-intelligence-suite-integrations.md
+  - docs/reference/adr/ADR-019-proactive-integrations-local-gateway.md
   - docs/explanation/health-data-integration-assessment.md
   - docs/explanation/home-assistant-integration-assessment.md
   - packages/database/**
@@ -274,6 +276,12 @@ RecoveryControlLedger 先追加 revoke/deny
 
 结构化部分使用 UTF-8 JSON/CSV/Markdown。原始文件是否包含在导出中、是否记录绝对路径以及是否生成密码加密包仍属待确认决策。导出不得包含密钥、凭据、未脱敏安全事件或可恢复已删内容的 tombstone。
 
+### 10.1 十二项派生与外部信号落地
+
+[CR-024](../reference/changes/CR-024-proactive-intelligence-suite-integrations.md) 已在 CAP-033 下实现统一个人时间线、项目与意图图谱、操作流程学习、情境触发、动作验证、画像冲突、主动准备、注意力/疲劳、行为漂移、关系上下文、场景模型和日/周回顾。上述输出均进入本地 Vault，并通过桌面设置页查看。
+
+同一变更新增 CAP-034/035：Home Assistant 通过私网 REST/WebSocket、实体/service 白名单和受控 Agent 工具接入；小米运动健康通过用户自有且获准的官方开放平台配置同步每日步数、睡眠和静息心率。连接凭据不进入模型、日志或导出，撤销连接删除凭据和对应缓存。架构边界见 [ADR-019](../reference/adr/ADR-019-proactive-integrations-local-gateway.md)。
+
 ## 11. 当前实现阻断项
 
 | 阻断 ID | 当前缺口 | 进入实现前的最少处置 |
@@ -287,7 +295,7 @@ RecoveryControlLedger 先追加 revoke/deny
 | `PRO-BLOCK-007` | CAP-033 已增加 owner-only loopback token；测试注入可显式关闭，生产配置与代理/redirect 禁止仍需部署验证 | 本地私密模式需绑定受信 IPC/loopback + 本地身份，不以开发默认值作为产品边界 |
 | `PRO-BLOCK-008` | CR-022 的 `full_access` 仍是 CreateTurn 请求快照；本分支已实现本地 ProfileRevision/activation lease/heartbeat/token，但 Web+Host 多窗口/设备所有权与断连收敛未完整验证 | 完成 `FullProfileGrant`/激活 epoch/heartbeat/expiry、多窗口/设备所有权与断连收敛；不以该状态代替 Turn 级 ToolApproval |
 | `PRO-BLOCK-009` | 广域捕获可包含 symlink/path escape、隐藏凭据、压缩炸弹、未知类型、Secure Input 或旁观者数据 | 冻结 canonical path/time-of-read 复验、symlink 边界、类型/大小/解压比、secret/Secure Input filter、旁观者处理、未知分类 fail closed 和分类测试 |
-| `PRO-BLOCK-010` | 当前已接入 Aervox activity/operation、剪贴板、屏幕、浏览器历史元数据和显式文件根适配器；应用活动正文、通信、音视频、位置和传感器尚未完成 | 为剩余来源建立签名 provider、权限状态机、收集失败降级和功耗/磁盘配额测试 |
+| `PRO-BLOCK-010` | 当前已接入 Aervox activity/operation、剪贴板、屏幕、浏览器历史元数据、显式文件根、HA 授权实体事件和小米健康每日指标；应用活动正文、通信、音视频、位置及其它平台传感器尚未完成 | 为剩余来源建立签名 provider、权限状态机、收集失败降级和功耗/磁盘配额测试；HA/健康仍须生产兼容门禁 |
 | `PRO-BLOCK-011` | 当前已建立原始捕获、行为观察、画像声明、权限回执和导出模型；全量来源时间线、外部动作历史和生产迁移仍未完整验证 | 完成 `RawCaptureSegment` 七天/提炼门、`ProfileClaim` 证据链、画像版本和导出 manifest/checksum 验证 |
 | `PRO-BLOCK-012` | 当前已建立本地 Vault、动作授权器和确定性提炼器；全链 `local_only`、Provider 本地证明、远端旁路隔离和零外传故障注入仍待验证 | 完成全链 provenance 传播、本地 Provider 证明、控制面隔离和零外传故障注入 |
 

@@ -7,9 +7,17 @@
 import { timingSafeEqual } from "node:crypto";
 import type { AervoxDatabase, ProactiveVaultCipher } from "@aervox/database";
 import type { ModuleContext } from "../context.js";
-import { SqlitePrivacyRepository, SqliteProactiveProfileRepository } from "@aervox/database";
+import {
+  SqlitePrivacyRepository,
+  SqliteProactiveIntelligenceRepository,
+  SqliteProactiveProfileRepository,
+} from "@aervox/database";
 import { registerProactiveRoutes } from "./routes.js";
 import { ProactiveActionAuthorizer } from "./action-authorizer.js";
+import { registerProactiveIntelligenceRoutes } from "./intelligence-routes.js";
+import { registerProactiveIntegrationRoutes } from "./integration-routes.js";
+import { ProactiveIntegrationManager } from "./integration-manager.js";
+import { registerProactiveIntegrationTools } from "./integration-tools.js";
 
 export interface ProactiveModuleOptions {
   db?: AervoxDatabase;
@@ -19,7 +27,9 @@ export interface ProactiveModuleOptions {
 
 export interface ProactiveModuleServices {
   repository: SqliteProactiveProfileRepository;
+  intelligenceRepository: SqliteProactiveIntelligenceRepository;
   actionAuthorizer: ProactiveActionAuthorizer;
+  integrationManager: ProactiveIntegrationManager;
 }
 
 export function registerProactiveModule(ctx: ModuleContext, options: ProactiveModuleOptions = {}): ProactiveModuleServices {
@@ -28,8 +38,15 @@ export function registerProactiveModule(ctx: ModuleContext, options: ProactiveMo
     options.cipher ?? ctx.proactiveCipher,
   );
   const actionAuthorizer = new ProactiveActionAuthorizer(repository);
-  const privacyRepository = new SqlitePrivacyRepository(options.db ?? ctx.proactiveDb ?? ctx.db);
+  const localDb = options.db ?? ctx.proactiveDb ?? ctx.db;
+  const privacyRepository = new SqlitePrivacyRepository(localDb);
+  const intelligenceRepository = new SqliteProactiveIntelligenceRepository(
+    localDb,
+    options.cipher ?? ctx.proactiveCipher,
+  );
+  const integrationManager = new ProactiveIntegrationManager(intelligenceRepository, repository);
   ctx.proactiveRepository = repository;
+  ctx.proactiveIntelligenceRepository = intelligenceRepository;
   ctx.proactiveActionAuthorizer = actionAuthorizer;
   const accessToken = options.accessToken ?? ctx.proactiveAccessToken;
   if (accessToken) {
@@ -44,5 +61,25 @@ export function registerProactiveModule(ctx: ModuleContext, options: ProactiveMo
     });
   }
   registerProactiveRoutes(ctx.app, { repository, privacyRepository });
-  return { repository, actionAuthorizer };
+  registerProactiveIntelligenceRoutes(ctx.app, {
+    intelligenceRepo: intelligenceRepository,
+    profileRepo: repository,
+  });
+  registerProactiveIntegrationRoutes(ctx.app, {
+    intelligenceRepo: intelligenceRepository,
+    profileRepo: repository,
+    actionAuthorizer,
+    manager: integrationManager,
+  });
+  if (ctx.toolRuntime) {
+    registerProactiveIntegrationTools({
+      runtime: ctx.toolRuntime,
+      repo: intelligenceRepository,
+      manager: integrationManager,
+      authorizer: actionAuthorizer,
+    });
+  }
+  ctx.app.addHook("onReady", async () => integrationManager.start());
+  ctx.app.addHook("onClose", async () => integrationManager.stop());
+  return { repository, intelligenceRepository, actionAuthorizer, integrationManager };
 }
