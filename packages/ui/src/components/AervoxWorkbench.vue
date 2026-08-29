@@ -956,6 +956,7 @@ onUnmounted(() => {
     <div class="floating-top-actions">
       <label
         class="floating-study-switch-wrap"
+        :class="{on: studyModeEnabled}"
         :title="studyModeEnabled ? '学习模式已开启（点击关闭）' : '学习模式已关闭（点击开启）'"
       >
         <BookOpen :size="15" class="study-switch-icon" />
