@@ -171,6 +171,33 @@ describe("CAP-020 Skill 模块", () => {
     expect(res.statusCode).toBe(400);
   });
 
+  it("安全校验：./ 前缀与反斜杠条目被规范化（Windows / zip -r . 打包兼容）", async () => {
+    const zip = buildStoreZip([
+      { name: "./", content: "" },
+      { name: "./skill-a/SKILL.md", content: SKILL_MD("skill-a", "技能A") },
+      { name: "./skill-a/assets/note.md", content: "note" },
+      { name: "skill-b\\SKILL.md", content: SKILL_MD("skill-b", "技能B") },
+    ]);
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/skills",
+      payload: { zipBase64: zip.toString("base64") },
+    });
+    expect(res.statusCode).toBe(201);
+    const installed = res.json().installed as Array<{ name: string }>;
+    expect(installed.map((s) => s.name).sort()).toEqual(["skill-a", "skill-b"]);
+  });
+
+  it("安全校验：反斜杠路径穿越被拒绝", async () => {
+    const zip = buildStoreZip([{ name: "skill\\..\\..\\evil.txt", content: "x" }]);
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/skills",
+      payload: { name: "evil", zipBase64: zip.toString("base64") },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
   it("overwrite 语义：冲突 409，覆盖 201", async () => {
     const zip = buildStoreZip([{ name: "SKILL.md", content: SKILL_MD("dup", "v1") }]);
     const first = await app.inject({
