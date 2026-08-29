@@ -1,11 +1,11 @@
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-29
+- 修改人：MoeJiyun233 · 2026-08-29
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
-> 文档版本：v1.8
+> 文档版本：v1.9
 > 文档状态：评审候选（Review Candidate）  
 > 更新日期：2026-08-29
 > 产品需求来源：[PRD.md](PRD.md)
@@ -326,11 +326,13 @@
 | 桌宠 dock 可收起 + 展开按钮旁快捷输入 + 回复气泡（CAP-001 桌宠入口交互扩展，FR-UX-003 自由输入既有范围） | CAP-001 | `apps/desktop/src/renderer/src/pet-main.ts`（`configureAervoxClient` 注入 `desktopTransport`：桌宠窗口快捷对话与选择肢提交经主进程桥带租户/鉴权头，不再裸 fetch 直连 API）、`apps/desktop/src/renderer/src/components/PetWindow.vue`（`dockOpen` 内存态开关（默认展开不写 localStorage）；底部常驻 `.pet-dock-bar` = `pet-quick-input`（回车发送、等待中禁用并显示「思考中…」）+ `pet-dock-toggle` 展开开关（ChevronUp/Down + `aria-expanded`）；功能坞三按钮 `<transition name="pet-dock-slide">` 向上淡入展开；`sendQuickChat()` 经 `streamAervoxTurn`：onDelta 流式追加气泡文本（`stripMarkdownForBubble` 清理）、onDone 按 `replyBubbleDurationMs`（6~18s）调度消失、onError 气泡报错、onUserQuestion 复用既有 VN 选择肢（`questionBubbleActive` 门控防流式文本覆盖提问气泡）、onToolApproval 提示到工作台确认；流式占用气泡期间忽略 `aervox:pet-bubble`（防自身 Turn 的 emote speak 覆盖回复）、气泡点击提前关闭）、`apps/desktop/src/renderer/src/quick-chat.ts`（`stripMarkdownForBubble`/`replyBubbleDurationMs` 纯函数）、`apps/desktop/src/renderer/src/styles/pet.css`（`.pet-dock-wrap`/`.pet-dock-bar`/`.pet-quick-input`/`.pet-dock-toggle` 液态玻璃样式、`.pet-dock-slide` 过渡、`.pet-bubble-reply` 去 4 行截断改 max-height 内部滚动、窄窗输入框收窄回退）、`apps/desktop/test/quick-chat.test.ts` | 2026-08-29 | `@aervox/desktop` Vitest 22/22（新增 `quick-chat.test.ts` 10：markdown 清理 6 + 时长 4）；Desktop typecheck（`vue-tsc`）+ build 通过；`mise tasks run ci-code` 全量 20/20（`@aervox/api` `conversation-privileged` 首轮并发下偶发 5s 超时，单独复跑 5/5 与二轮全量均通过，与本改动无关）；桌面 dev 冒烟建议：dock 收起/展开动画、输入回车发送、流式气泡打字与超长滚动、选择肢作答、与工作台同会话历史 | 原生 |
 
 | 恢复悬浮「刷题」入口按钮（合并 PR #109：#109 分支为 #106 同源支线，净增量即悬浮按钮；与 #108 卡片目录「刷题模式」卡并存，双入口触发同一 `startQuiz()` 刷题前缀链路） | CAP-003/004/016 | `packages/ui/src/components/AervoxWorkbench.vue`（顶栏悬浮 `.floating-quiz-btn` 玻璃胶囊按钮，`:disabled="streaming"`，`@click="startQuiz"`）、`packages/ui/src/theme/workbench.css`（`.floating-quiz-btn`/`.quiz-btn-label` 样式（与学习模式开关同视觉语言）） | 2026-08-29 | 合并净 diff 审查（相对 `main` 仅两 UI 文件 +49 行，API/agent-loop 内容与 #106 squash 一致）；全仓 ci-code（install + build + typecheck + test）通过 | 原生 |
-| 扩展中心设置增强（插件面板集成 Skill 技能管理与 MCP 工具端点调试） | CAP-020 | `packages/api-client/src/{useAervoxSkills.ts,useAervoxTools.ts,index.ts}`、`packages/ui/src/components/plugin/{SkillManagerTab.vue,SkillContentDialog.vue,McpToolsTab.vue,ToolCallDialog.vue,McpRegisterDialog.vue,PluginManagerPanel.vue}`、`packages/ui/src/index.ts` | 2026-08-29 | API Client/UI/Desktop/Web typecheck；UI build；全栈测试全绿；ci-docs 门禁 | 原生 |
+| 扩展中心设置增强（插件面板集成 Skill 技能与 MCP 工具端点调试） | CAP-020 | `packages/api-client/src/{useAervoxSkills.ts,useAervoxTools.ts,index.ts}`、`packages/ui/src/components/plugin/{SkillManagerTab.vue,SkillContentDialog.vue,McpToolsTab.vue,ToolCallDialog.vue,McpRegisterDialog.vue,PluginManagerPanel.vue}`、`packages/ui/src/index.ts` | 2026-08-29 | API Client/UI/Desktop/Web typecheck；UI build；全栈测试全绿；ci-docs 门禁 | 原生 |
 
 | 学习计划生成与路由（LLM 生成里程碑式学习路线图：JSON 提取/校验/水合/缺口处理 + 计划列表/详情/任务状态/归档路由 + 前端「AI 学习规划」面板替代旧「今日学习」抽屉） | CAP-016/017 | `apps/api/src/modules/learning/plan-generation.ts`（单次 LLM 调用生成「里程碑 + 任务」规划：结构化 JSON 提取与校验、缺口补齐水合、失败降级文案）、`apps/api/src/modules/learning/plan-routes.ts`（`POST /v1/learning-plans` 生成、列表/详情/任务状态更新/归档）、`apps/api/src/modules/learning/{index.ts,cap016-017-routes.ts}`（注册 + 移除旧 `/v1/study-plans` 手动计划端点）、`packages/database/src/schema/learning.ts`、`packages/contracts/src/{schemas,openapi}.ts`、`packages/api-client/src/{useAervoxApi.ts,index.ts}`、`packages/ui/src/components/AervoxWorkbench.vue`（学习规划面板：主题输入生成、里程碑/任务勾选推进、归档） | 2026-08-29 | `@aervox/api` `learning-plan.test.ts`（生成校验/租户隔离/任务推进/归档）；本地试验合并全仓 ci-code 20/20；GitHub CI build/typecheck 全绿 | 原生 |
 
 **替代关系（2026-08-29，PR #118，维护者确认合入）**：`/v1/learning-plans`（LLM 生成式学习规划）**替代**原 `/v1/study-plans` 手动学习计划端点（「自适应刷题与考试日计划」登记行中 study_plans 部分；practice_reports 部分不变），旧端点与其 UI、旧测试随 #118 移除；工作台「待复习 / 今日日记 / 提醒 / 番茄钟」卡与目标管理 UI 同批移除（「今日学习」抽屉由「AI 学习规划」面板替代），上述能力的后端路由与数据层保留未动，UI 形态恢复或重设计待后续 CR 立项。
+
+| 移除工作台右上角悬浮「刷题」按钮（产品裁定回归单入口：卡片目录「刷题模式」卡与悬浮按钮曾双入口并存，保留后者冗余；刷题能力与 `startQuiz()` 链路不变；与上行「恢复悬浮刷题入口」行为 #118 后的入口收敛决策） | CAP-001/003 | `packages/ui/src/components/AervoxWorkbench.vue`（移除悬浮顶栏 `.floating-quiz-btn` 模板按钮；`cardCatalog`「刷题模式」卡（`ClipboardList` 图标）与 `startQuiz()` 刷题前缀链路保留，卡片入口不受影响）、`packages/ui/src/theme/workbench.css`（删除 `.floating-quiz-btn`/`.floating-quiz-btn:hover`/`.floating-quiz-btn:disabled`/`.quiz-btn-label` 死样式） | 2026-08-29 | `@aervox/ui` typecheck（`vue-tsc`）+ build + Vitest 通过；`mise tasks run ci-code` 全量；浏览器冒烟建议：右上角仅剩专注模式开关（与 Web 端设置按钮）、卡片目录「刷题模式」卡仍可发起刷题对话、全站无 `floating-quiz` 残留引用 | 原生 |
 
 ## 5. 原子需求字段模板
 

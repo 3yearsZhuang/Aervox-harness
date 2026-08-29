@@ -135,43 +135,6 @@
   white-space: nowrap;
 }
 
-/* 刷题一次性按钮：与学习模式开关同视觉语言的玻璃胶囊 */
-.floating-quiz-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 clamp(10px, 1vw, 14px);
-  height: clamp(34px, 4vh, 40px);
-  border: 1px solid var(--glass-border);
-  border-radius: 999px;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  color: var(--text-muted);
-  cursor: pointer;
-  opacity: .78;
-  transition: opacity .18s ease, color .18s ease, border-color .18s ease;
-  user-select: none;
-}
-
-.floating-quiz-btn:hover:not(:disabled) {
-  opacity: 1;
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 32%, var(--glass-border));
-}
-
-.floating-quiz-btn:disabled {
-  cursor: not-allowed;
-  opacity: .45;
-}
-
-.quiz-btn-label {
-  font-size: clamp(11.5px, .9vw, 13px);
-  font-weight: 640;
-  letter-spacing: .02em;
-  white-space: nowrap;
-}
-
 /* 切换轨道（iOS 风格，点击整个胶囊均可切换） */
 .study-switch-track {
   position: relative;
