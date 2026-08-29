@@ -843,7 +843,7 @@
 .message-panel {
   position: relative;
   width: min(100%, var(--console-max-width));
-  max-height: clamp(150px, 34vh, 460px);
+  max-height: clamp(120px, 26vh, 320px);
   display: flex;
   flex-direction: column;
   padding: clamp(16px, 2.4vh, 26px) clamp(20px, 2.6vw, 36px);
@@ -901,7 +901,7 @@
   color: var(--danger);
 }
 
-/* ── 视觉小说式分句（CAP-001）：新句淡入 + 「下一句」玻璃胶囊按钮 ── */
+/* ── 视觉小说式分句（CAP-001）：新句淡入 + 「下一句」玻璃胶囊按钮（左下贴文本，不占额外高度） ── */
 .message-novel-text {
   display: grid;
   gap: 0;
@@ -919,17 +919,17 @@
 }
 
 .novel-next-btn {
-  justify-self: end;
+  justify-self: start;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  margin-top: 12px;
-  padding: 7px 15px;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 4px 12px;
   border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--glass-border));
   border-radius: 999px;
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   color: var(--accent);
-  font-size: clamp(12px, .95vw, 13.5px);
+  font-size: clamp(11.5px, .9vw, 12.5px);
   font-weight: 660;
   letter-spacing: .02em;
   cursor: pointer;
@@ -948,14 +948,14 @@
 }
 
 .novel-next-count {
-  min-width: 18px;
-  height: 18px;
+  min-width: 16px;
+  height: 16px;
   display: grid;
   place-items: center;
-  padding: 0 5px;
+  padding: 0 4px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--accent) 16%, transparent);
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 720;
   font-variant-numeric: tabular-nums;
 }
@@ -3409,7 +3409,7 @@
   }
 
   .message-panel {
-    max-height: clamp(200px, 52vh, 520px);
+    max-height: clamp(160px, 40vh, 380px);
   }
 
   .composer-expanded {
@@ -3550,7 +3550,7 @@
 
 @media (max-height: 640px) {
   .message-panel {
-    max-height: 48vh;
+    max-height: 38vh;
   }
 
   .composer-expanded textarea {
