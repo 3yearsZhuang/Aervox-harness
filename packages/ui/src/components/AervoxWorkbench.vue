@@ -26,6 +26,8 @@ import {
   RotateCcw,
   Send,
   Settings,
+  ShieldAlert,
+  ShieldCheck,
   Sparkles,
   Sun,
   Volume2,
@@ -33,7 +35,7 @@ import {
   X,
 } from 'lucide-vue-next'
 import {streamAervoxTurn, submitQuestionAnswers, useAervoxApi, useAervoxVoiceInput} from '@aervox/api-client'
-import type {AskUserQuestionAnswerItem, UserQuestionRequiredEventData} from '@aervox/contracts'
+import type {AskUserQuestionAnswerItem, ToolApprovalMode, UserQuestionRequiredEventData} from '@aervox/contracts'
 import PetHero from './PetHero.vue'
 import PluginManagerPanel from './plugin/PluginManagerPanel.vue'
 import Live2DPet from './Live2DPet.vue'
@@ -124,6 +126,9 @@ const compactMode = ref(false)
 const timerMinutes = ref(25)
 const desktopCompanionEnabled = ref(props.showCompanion)
 const dailyReminder = ref(true)
+const toolApprovalMode = ref<ToolApprovalMode>('ask')
+const fullAccessDialogOpen = ref(false)
+const fullAccessAcknowledged = ref(false)
 const newTodo = ref('')
 const storyViewport = ref<HTMLElement | null>(null)
 const todos = ref<Array<{id: number; text: string; done: boolean}>>([])
@@ -267,22 +272,26 @@ async function sendMessage(value = input.value) {
   await scrollStoryToBottom()
 
   try {
-    await streamAervoxTurn(outgoing, {
-      onDelta: (delta) => {
-        assistantLine.text += delta
-        void scrollStoryToBottom()
+    await streamAervoxTurn(
+      outgoing,
+      {
+        onDelta: (delta) => {
+          assistantLine.text += delta
+          void scrollStoryToBottom()
+        },
+        onDone: () => {
+          assistantLine.state = 'complete'
+          activeQuestion.value = null
+          if (!assistantLine.text) assistantLine.text = '这次没有收到可展示的回答，请再试一次。'
+        },
+        onUserQuestion: (qData) => {
+          activeQuestion.value = qData
+          currentTurnId.value = qData.turnId
+          void scrollStoryToBottom()
+        },
       },
-      onDone: () => {
-        assistantLine.state = 'complete'
-        activeQuestion.value = null
-        if (!assistantLine.text) assistantLine.text = '这次没有收到可展示的回答，请再试一次。'
-      },
-      onUserQuestion: (qData) => {
-        activeQuestion.value = qData
-        currentTurnId.value = qData.turnId
-        void scrollStoryToBottom()
-      },
-    })
+      {toolApprovalMode: toolApprovalMode.value},
+    )
   } catch (error) {
     assistantLine.state = 'error'
     assistantLine.text = error instanceof Error ? `连接失败：${error.message}` : '连接失败，请稍后重试。'
@@ -319,6 +328,7 @@ function collapseComposer() {
 /** 点击控制台外部的空白输入区时自动收起（输入法组合/焦点转移期间不误收起） */
 function handleDockFocusOut(event: FocusEvent) {
   if (!composerOpen.value || isComposing.value) return
+  if (fullAccessDialogOpen.value) return
   if (input.value.trim() || voiceInput.isListening.value) return
   const dock = event.currentTarget as HTMLElement
   const next = event.relatedTarget as Node | null
@@ -327,10 +337,36 @@ function handleDockFocusOut(event: FocusEvent) {
   // 延迟复查真实焦点位置，避免输入中途输入框被销毁导致文字丢失。
   window.setTimeout(() => {
     if (!composerOpen.value || isComposing.value) return
+    if (fullAccessDialogOpen.value) return
     if (input.value.trim() || voiceInput.isListening.value) return
     if (dock.contains(document.activeElement)) return
     composerOpen.value = false
   }, 160)
+}
+
+function saveToolApprovalMode(mode: ToolApprovalMode) {
+  toolApprovalMode.value = mode
+  sessionStorage.setItem('aervox-tool-approval-mode', mode)
+}
+
+function toggleToolApprovalMode() {
+  if (streaming.value) return
+  if (toolApprovalMode.value === 'full_access') {
+    saveToolApprovalMode('ask')
+    return
+  }
+  fullAccessAcknowledged.value = false
+  fullAccessDialogOpen.value = true
+}
+
+function enableFullAccess() {
+  if (!fullAccessAcknowledged.value) return
+  saveToolApprovalMode('full_access')
+  fullAccessDialogOpen.value = false
+}
+
+function resetFullAccessConfirmation() {
+  fullAccessAcknowledged.value = false
 }
 
 function openTool(target: 'study' | 'todo' | 'timer' | 'history') {
@@ -843,6 +879,9 @@ onMounted(() => {
     // Ignore malformed local preferences and use defaults.
   }
 
+  const savedToolApprovalMode = sessionStorage.getItem('aervox-tool-approval-mode')
+  if (savedToolApprovalMode === 'full_access') toolApprovalMode.value = 'full_access'
+
   try {
     const savedCards = JSON.parse(localStorage.getItem('aervox-side-cards') ?? 'null') as unknown
     if (Array.isArray(savedCards)) {
@@ -1016,6 +1055,11 @@ onUnmounted(() => {
         <button v-if="!composerOpen" class="composer-collapsed" type="button" @click="expandComposer">
           <MessageCircle :size="16" />
           <span class="composer-collapsed-hint">{{ streaming ? '思隅正在回应…' : '点击输入消息' }}</span>
+          <span class="composer-access-chip" :class="{full: toolApprovalMode === 'full_access'}">
+            <ShieldAlert v-if="toolApprovalMode === 'full_access'" :size="12" />
+            <ShieldCheck v-else :size="12" />
+            {{ toolApprovalMode === 'full_access' ? '完全访问' : '需确认' }}
+          </span>
           <ChevronUp :size="15" />
         </button>
 
@@ -1033,26 +1077,42 @@ onUnmounted(() => {
             @compositionstart="handleCompositionStart"
             @compositionend="handleCompositionEnd"
           />
-          <div class="composer-actions">
+          <div class="composer-footer">
             <button
               type="button"
-              class="voice-input-btn"
-              :class="{ active: voiceInput.isListening.value, transcribing: voiceInput.isTranscribing.value }"
-              :title="voiceInput.isListening.value ? '点击停止语音输入 (说话停顿自动转写)' : '点击开始离线语音输入'"
+              class="permission-toggle"
+              :class="{full: toolApprovalMode === 'full_access'}"
+              :aria-pressed="toolApprovalMode === 'full_access'"
+              :title="toolApprovalMode === 'full_access' ? '关闭完全访问' : '开启完全访问'"
               :disabled="streaming"
-              @click="toggleVoiceInput"
+              @mousedown.prevent
+              @click="toggleToolApprovalMode"
             >
-              <MicOff v-if="voiceInput.isListening.value" :size="19" />
-              <Mic v-else :size="19" />
-              <span v-if="voiceInput.isListening.value" class="recording-pulse" />
+              <ShieldAlert v-if="toolApprovalMode === 'full_access'" :size="16" />
+              <ShieldCheck v-else :size="16" />
+              <span>{{ toolApprovalMode === 'full_access' ? '完全访问' : '操作需确认' }}</span>
             </button>
-            <button type="submit" :disabled="!input.trim() || streaming" :aria-label="streaming ? '正在生成回答' : '发送消息'">
-              <span v-if="streaming" class="sending-dot" />
-              <Send v-else :size="20" />
-            </button>
-            <button type="button" class="composer-collapse-btn" aria-label="收起输入框" :disabled="streaming" @click="collapseComposer">
-              <ChevronDown :size="18" />
-            </button>
+            <div class="composer-actions">
+              <button
+                type="button"
+                class="voice-input-btn"
+                :class="{ active: voiceInput.isListening.value, transcribing: voiceInput.isTranscribing.value }"
+                :title="voiceInput.isListening.value ? '点击停止语音输入 (说话停顿自动转写)' : '点击开始离线语音输入'"
+                :disabled="streaming"
+                @click="toggleVoiceInput"
+              >
+                <MicOff v-if="voiceInput.isListening.value" :size="19" />
+                <Mic v-else :size="19" />
+                <span v-if="voiceInput.isListening.value" class="recording-pulse" />
+              </button>
+              <button type="submit" :disabled="!input.trim() || streaming" :aria-label="streaming ? '正在生成回答' : '发送消息'">
+                <span v-if="streaming" class="sending-dot" />
+                <Send v-else :size="20" />
+              </button>
+              <button type="button" class="composer-collapse-btn" aria-label="收起输入框" :disabled="streaming" @click="collapseComposer">
+                <ChevronDown :size="18" />
+              </button>
+            </div>
           </div>
         </form>
 
@@ -1463,6 +1523,35 @@ onUnmounted(() => {
           <PluginManagerPanel v-else class="settings-section" />
         </section>
       </div>
+    </el-dialog>
+
+    <el-dialog
+      v-model="fullAccessDialogOpen"
+      title="启用完全访问？"
+      class="permission-confirm-dialog"
+      width="min(500px, calc(100vw - 28px))"
+      align-center
+      @closed="resetFullAccessConfirmation"
+    >
+      <div class="permission-confirmation">
+        <span class="permission-confirmation-icon"><ShieldAlert :size="24" /></span>
+        <div>
+          <p>完全访问会减少确认步骤，允许思隅在当前会话中直接执行普通写操作。</p>
+          <small>管理员级操作、数据撤权、租户隔离与其它安全限制仍然生效。仅在你信任当前任务时开启。</small>
+        </div>
+      </div>
+      <label class="permission-acknowledgement">
+        <input v-model="fullAccessAcknowledged" type="checkbox" />
+        <span>我已了解风险，并愿意继续</span>
+      </label>
+      <template #footer>
+        <div class="permission-confirmation-actions">
+          <button type="button" class="permission-cancel" @click="fullAccessDialogOpen = false">取消</button>
+          <button type="button" class="permission-enable" :disabled="!fullAccessAcknowledged" @click="enableFullAccess">
+            启用完全访问
+          </button>
+        </div>
+      </template>
     </el-dialog>
   </section>
 </template>
