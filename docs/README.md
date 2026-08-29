@@ -1,4 +1,4 @@
-# Aervox｜思隅 产品与工程文档索引
+﻿# Aervox｜思隅 产品与工程文档索引
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-29
@@ -36,7 +36,7 @@
 | [从这里开始](getting-started.md)（AVX-DOC-002，见[§7](#7-从哪开始)） | 新成员/Agent 从哪看起、提交前自检什么 | 导航型；不承载规则 |
 | [能力拆分路线](explanation/roadmap.md)（AVX-EXPL-004，见[§4.1](#41-能力拆分路线建议批次)） | CAP 按什么批次、什么顺序进入规格化与开发 | 建议批次与拆分节奏；既不重复 PRD 路线图，也不重复追踪基线矩阵 |
 | [主动智能模式](explanation/proactive-intelligence-mode.md)（AVX-EXPL-008） | 完全访问上如何以广域画像授权、OS 能力、特权观察 Host、本地私密数据和主动操作组合既有 CAP | 评审提案；不替代 PRD/SRS/DATA_PRIVACY/ADR，不表示运行时已实现 |
-| [CR-024 主动智能能力套件与外部环境连接](reference/changes/CR-024-proactive-intelligence-suite-integrations.md) | 十二项主动智能能力与 HA/小米健康如何进入产品基线 | 已接受差量、实现位置、验证和回滚；关联 CAP-033～035 |
+| [CR-025 主动智能能力套件与外部环境连接](reference/changes/CR-025-proactive-intelligence-suite-integrations.md) | 十二项主动智能能力与 HA/小米健康如何进入产品基线 | 已接受差量、实现位置、验证和回滚；关联 CAP-033～035 |
 | [ADR-019 主动智能外部连接本地网关](reference/adr/ADR-019-proactive-integrations-local-gateway.md) | 外部连接为何使用本地网关、加密凭据和受控工具 | 已接受的 HA REST/WS、小米 OAuth/每日指标、白名单与撤销边界 |
 | [文档写作规范](reference/standards/doc-standards.md)（AVX-STD-001） | 每份文档如何使用模板、命名、写作并通过门禁 | 写作体例、签名、命名、风格基线、Vale 术语门禁与模板族；治理规则见 AVX-DOC-GOV-001 |
 | [术语表](reference/standards/terminology.md)（AVX-TERM-001） | 项目术语的唯一含义与规范写法 | 缩写/产品名唯一语义；Vale 依据「禁写」列自动校验 |
@@ -73,7 +73,7 @@ Agent 执行核心的当前与目标边界见 [CR-012：Agent Harness Loop](refe
 
 工具授权的 Turn 级完全访问开关见 [CR-022](reference/changes/CR-022-full-access-tool-permission.md)：默认仍逐次确认，用户经风险确认后可自动放行普通写工具；CAP-033 另以独立的 `FullProfileActionGrant` 承载用户明确批准的全量主动动作，撤权/删除、租户隔离和平台访问控制仍由各自事实源约束。
 
-本地主动智能能力见 [CR-023](reference/changes/CR-023-proactive-local-intelligence-mode.md)、[CR-024](reference/changes/CR-024-proactive-intelligence-suite-integrations.md) 与 [AVX-EXPL-008](explanation/proactive-intelligence-mode.md)：`CAP-033` 已具备本地 Vault、授权/lease、全动作授权器、部分来源、十二项本地派生、日/周回顾和桌面仪表盘；`CAP-034/035` 已具备 HA 私网 REST/WS、实体/service 白名单、小米健康每日指标和五个 Agent 工具。三项能力仍为 Not Ready，生产 OS Broker、HA 兼容矩阵和小米厂商沙箱/账号审批未完成，尚未 Released。
+本地主动智能能力见 [CR-023](reference/changes/CR-023-proactive-local-intelligence-mode.md)、[CR-025](reference/changes/CR-025-proactive-intelligence-suite-integrations.md) 与 [AVX-EXPL-008](explanation/proactive-intelligence-mode.md)：`CAP-033` 已具备本地 Vault、授权/lease、全动作授权器、部分来源、十二项本地派生、日/周回顾和桌面仪表盘；`CAP-034/035` 已具备 HA 私网 REST/WS、实体/service 白名单、小米健康每日指标和五个 Agent 工具。三项能力仍为 Not Ready，生产 OS Broker、HA 兼容矩阵和小米厂商沙箱/账号审批未完成，尚未 Released。
 
 练习中断恢复边界见 [CR-013：活跃练习会话恢复与续答](reference/changes/CR-013-practice-session-recovery.md)：重开学习界面会恢复同一题组快照和首个未答题，重复启动不会创建第二个活跃会话。
 

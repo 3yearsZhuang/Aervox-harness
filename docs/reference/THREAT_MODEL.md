@@ -1,4 +1,4 @@
-# Aervox｜思隅 威胁模型
+﻿# Aervox｜思隅 威胁模型
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-29
@@ -6,7 +6,7 @@
 > 文档编号：AVX-SEC-001  
 > 版本：v0.3（CAP-033～035 主动智能与外部连接）
 > 更新日期：2026-08-29
-> 关联：[架构设计](ARCHITECTURE.md) · [数据与隐私](DATA_PRIVACY.md) · [CR-023](changes/CR-023-proactive-local-intelligence-mode.md) · [CR-024](changes/CR-024-proactive-intelligence-suite-integrations.md)
+> 关联：[架构设计](ARCHITECTURE.md) · [数据与隐私](DATA_PRIVACY.md) · [CR-023](changes/CR-023-proactive-local-intelligence-mode.md) · [CR-025](changes/CR-025-proactive-intelligence-suite-integrations.md)
 
 ## 1. 范围与资产
 

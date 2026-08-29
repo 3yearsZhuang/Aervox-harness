@@ -1,4 +1,4 @@
----
+﻿---
 id: ADR-019
 type: reference
 scope: decision
@@ -15,7 +15,7 @@ review_triggers:
   - packages/database/src/schema/proactive-intelligence.ts
   - Home Assistant REST/WebSocket 或小米 OAuth 契约变化
 sources:
-  - docs/reference/changes/CR-024-proactive-intelligence-suite-integrations.md
+  - docs/reference/changes/CR-025-proactive-intelligence-suite-integrations.md
   - docs/reference/adr/ADR-018-proactive-local-privacy-host.md
   - docs/reference/DATA_PRIVACY.md
   - docs/reference/THREAT_MODEL.md

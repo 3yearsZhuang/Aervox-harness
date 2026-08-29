@@ -593,6 +593,9 @@ function clearPendingAttachments() {
 async function scrollStoryToBottom() {
   await nextTick()
   storyViewport.value?.scrollTo({top: storyViewport.value.scrollHeight, behavior: 'smooth'})
+  // 分句模式下当前句 markdown-body 自身限高滚动：跟随打字/切句位置滚到末尾
+  const sentenceBody = storyViewport.value?.querySelector('.message-novel-text .markdown-body, .message-text > .markdown-body') as HTMLElement | null
+  if (sentenceBody) sentenceBody.scrollTop = sentenceBody.scrollHeight
 }
 
 /** 主对话框只保留最新一条 AI 回复，完整上下文由二级回看窗口承载 */
@@ -605,8 +608,8 @@ const latestAssistantLine = computed<StoryLine | null>(() => {
 
 /* ── 视觉小说式分句呈现（CAP-001）：流式只显示第一句，余句缓存，「下一句」逐句释放 ── */
 
-/** 已额外释放的句子数（0 = 只显示第一句；回复切换时重置） */
-const novelReleased = ref(0)
+/** 当前显示的句子索引（视觉小说切换模式：一次只显示一句，非追加） */
+const novelIndex = ref(0)
 
 /** 把回复按句末标点（。！？…）或换行切段，保留句末标点 */
 function splitIntoSentences(text: string): string[] {
@@ -626,27 +629,29 @@ const novelSentences = computed(() => {
 /** 流式期间只显示第一句：打字机效果自然落在首句上，后续句子静默缓存 */
 const novelStreamingText = computed(() => novelSentences.value[0] ?? '')
 
-/** 完成态显示已释放句子（第一句 + 点「下一句」追加），全部释放后等于全文 */
-const novelDisplayText = computed(() => {
-  const sentences = novelSentences.value
-  if (sentences.length === 0) return ''
-  return sentences.slice(0, novelReleased.value + 1).join('')
-})
+/** 完成态只显示当前句（切换而非追加，对话框高度恒定不超限） */
+const novelDisplayText = computed(() => novelSentences.value[Math.min(novelIndex.value, novelSentences.value.length - 1)] ?? '')
 
-const queuedSentenceCount = computed(() => Math.max(0, novelSentences.value.length - novelReleased.value - 1))
+/** 剩余未读句数（不含当前句） */
+const queuedSentenceCount = computed(() => Math.max(0, novelSentences.value.length - novelIndex.value - 1))
 const hasQueuedSentence = computed(() => queuedSentenceCount.value > 0)
 
-/** 新回复（或重发）开始时重置释放进度 */
+/** 新回复（或重发）开始时重置到第一句 */
 watch(latestAssistantLine, (_line, old) => {
-  if (old !== undefined) novelReleased.value = 0
+  if (old !== undefined) novelIndex.value = 0
 })
 
-/** 「下一句」：释放缓存中的下一句，桌宠同步念出该句 */
-function revealNextSentence() {
+/** 「下一句」：切换显示缓存中的下一句（替换当前句），桌宠同步念出该句 */
+function showNextSentence() {
   if (!hasQueuedSentence.value) return
-  novelReleased.value++
-  const sentence = novelSentences.value[novelReleased.value]
+  novelIndex.value++
+  const sentence = novelSentences.value[novelIndex.value]
   if (sentence) petReact({speak: sentence})
+  // 新句从顶部开始显示（限高滚动容器复位）
+  void nextTick(() => {
+    const sentenceBody = storyViewport.value?.querySelector('.message-novel-text .markdown-body') as HTMLElement | null
+    if (sentenceBody) sentenceBody.scrollTop = 0
+  })
 }
 
 /** 视觉小说式对话回看：打开时滚到最新一条 */
@@ -2066,19 +2071,22 @@ onUnmounted(() => {
               <i class="stream-cursor" aria-hidden="true" />
             </span>
             <span v-else class="message-text message-novel-text">
-              <!-- 视觉小说分句：:key 随释放数变化，触发新句淡入动画 -->
-              <span :key="novelReleased" class="markdown-body" v-html="renderMarkdown(novelDisplayText || '正在连接 Aervox…')" />
-              <button
-                v-if="hasQueuedSentence"
-                type="button"
-                class="novel-next-btn"
-                :aria-label="`显示下一句，还剩 ${queuedSentenceCount} 句`"
-                @click="revealNextSentence"
-              >
-                <span>下一句</span>
-                <span class="novel-next-count" aria-hidden="true">{{ queuedSentenceCount }}</span>
-                <ChevronRight :size="14" />
-              </button>
+              <!-- 视觉小说分句（切换模式）：:key 随句索引变化，整句替换触发切换动画 -->
+              <span :key="novelIndex" class="markdown-body" v-html="renderMarkdown(novelDisplayText || '正在连接 Aervox…')" />
+              <span class="novel-meta-row">
+                <span class="novel-progress" aria-hidden="true">{{ Math.min(novelIndex + 1, novelSentences.length) }} / {{ novelSentences.length }}</span>
+                <button
+                  v-if="hasQueuedSentence"
+                  type="button"
+                  class="novel-next-btn"
+                  :aria-label="`切换到下一句，还剩 ${queuedSentenceCount} 句`"
+                  @click="showNextSentence"
+                >
+                  <span>下一句</span>
+                  <span class="novel-next-count" aria-hidden="true">{{ queuedSentenceCount }}</span>
+                  <ChevronRight :size="14" />
+                </button>
+              </span>
             </span>
           </p>
           <p v-else class="message-line">

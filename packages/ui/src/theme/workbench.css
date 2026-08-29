@@ -965,10 +965,42 @@
 .message-novel-text {
   display: grid;
   gap: 0;
+  min-height: 0;
+  max-height: 100%;
 }
 
+/* 切换模式下单句仍可能很长：限高内部滚动，保证对话框永不超最大高度 */
 .message-novel-text .markdown-body {
   animation: novel-sentence-in .28s ease;
+  max-height: clamp(88px, 20vh, 220px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
+}
+
+/* 流式打字机期间首句同样限高，超长自动滚动到末尾（跟随打字位置） */
+.message-text > .markdown-body {
+  max-height: clamp(88px, 20vh, 220px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
+}
+
+/* 句序指示 + 下一句按钮同一行（左下贴文本，不占额外高度） */
+.novel-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.novel-progress {
+  color: color-mix(in srgb, var(--text-2) 72%, transparent);
+  font-size: 11px;
+  font-weight: 640;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .04em;
+  opacity: .85;
 }
 
 @keyframes novel-sentence-in {
@@ -979,11 +1011,9 @@
 }
 
 .novel-next-btn {
-  justify-self: start;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: 6px;
   padding: 4px 12px;
   border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--glass-border));
   border-radius: 999px;
