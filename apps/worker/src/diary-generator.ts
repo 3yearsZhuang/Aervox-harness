@@ -1,35 +1,43 @@
 /**
- * Aervox｜思隅 @aervox/worker — 日记生成 Worker
+ * Aervox｜思隅 @aervox/worker — 日记生成 Worker（定时兜底路径）
  *
  * 规则依据：PRD §8（DiarySchedule/DiaryCycle/DiaryVersion）+ ADR-011。
  *
- * 骨架：跨租户扫描到期 schedule → 创建不可变周期 → 汇总窗口素材 → 发布日记版本 + Outbox 事件。
- * 实际模型生成尚未接入（占位内容），后续在 publish 前插入模型调用即可，不改变周期/版本事务边界。
+ * 与按需路径（对话工具 / POST generate-today）共用 @aervox/diary 生成单源：
+ * - 素材 = 当日消息 + 当日记忆 + 学习目标 + 当日练习（collectDiaryMaterial）；
+ * - AI 依据当天记忆与上下文、模仿人类写日记（Prompt/模板降级均在共享服务内）；
+ * - 同日已存在日记则跳过（推进游标），避免与按需路径对同日唯一索引的冲突；
+ * - localDate 统一服务器本地日期（localDateToday），修正既定 UTC 前缀偏差。
  */
-import { and, eq, lte, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import {
   diarySchedules,
-  diaryMaterialBuffers,
   type AervoxDatabase,
   type SqliteDiaryRepository,
+  type SqliteLLMConfigRepository,
   type SqlitePlatformRepository,
   type SqliteOutboxRepository,
   type TenantContext,
 } from "@aervox/database";
+import {
+  collectDiaryMaterial,
+  createLlmDiaryModelPort,
+  createRepoDiaryLlmConfigPort,
+  DiaryGenerationService,
+  generateDiaryId,
+  localDateToday,
+} from "@aervox/diary";
 
 export interface DiaryGeneratorContext {
   db: AervoxDatabase;
   diaryRepo: SqliteDiaryRepository;
+  llmConfigRepo: SqliteLLMConfigRepository;
   platformRepo: SqlitePlatformRepository;
   outboxRepo: SqliteOutboxRepository;
   workerId: string;
 }
 
-let seq = 0;
-const id = (prefix: string): string =>
-  `${prefix}_${Date.now().toString(36)}_${(++seq).toString(36)}`;
-
-const toLocalDate = (iso: string): string => iso.slice(0, 10);
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** 单次日记生成扫描；返回生成的日记数量 */
 export async function runDiaryGenerationCycle(ctx: DiaryGeneratorContext): Promise<number> {
@@ -47,86 +55,98 @@ export async function runDiaryGenerationCycle(ctx: DiaryGeneratorContext): Promi
     )
     .limit(20);
 
+  if (schedules.length === 0) return 0;
+
+  const generation = new DiaryGenerationService({
+    db: ctx.db,
+    model: createLlmDiaryModelPort(createRepoDiaryLlmConfigPort(ctx.llmConfigRepo)),
+  });
+
   let generated = 0;
   for (const schedule of schedules) {
     const tenant: TenantContext = {
       workspaceId: schedule.workspaceId,
       subjectUserId: schedule.subjectUserId,
     };
-    const localDate = toLocalDate(schedule.nextRunAt ?? now);
+    // 服务器本地日期（与按需路径同一日期语义，避免同日错位）
+    const localDate = localDateToday(new Date());
 
     try {
+      // 0. 同日已存在（按需路径可能已生成）→ 跳过并推进游标，避免唯一索引冲突
+      const existingDiary = await ctx.diaryRepo.getDiaryByDate(tenant, localDate);
+      if (existingDiary) {
+        await ctx.db
+          .update(diarySchedules)
+          .set({
+            nextRunAt: new Date(Date.now() + DAY_MS).toISOString(),
+            lastCutoffAt: now,
+            updatedAt: now,
+          })
+          .where(eq(diarySchedules.id, schedule.id));
+        continue;
+      }
+
       // 1. 创建不可变周期（scheduleVersion=1）
       const cycle = await ctx.diaryRepo.createCycle(tenant, {
-        id: id("cyc"),
+        id: generateDiaryId("cyc"),
         scheduleEpochId: schedule.scheduleEpochId,
         localDate,
         previousCutoffAt: schedule.lastCutoffAt ?? schedule.activeFrom,
         cutoffAt: now,
       });
 
-      // 2. 汇总该窗口素材（跨租户只读，按租户 + occurredAt 窗口归属，非新 cycleId）
-      const materials = await ctx.db
-        .select({ sourceRevisionId: diaryMaterialBuffers.sourceRevisionId })
-        .from(diaryMaterialBuffers)
-        .where(
-          and(
-            eq(diaryMaterialBuffers.workspaceId, tenant.workspaceId),
-            eq(diaryMaterialBuffers.subjectUserId, tenant.subjectUserId),
-            eq(diaryMaterialBuffers.status, "buffered"),
-            sql`${diaryMaterialBuffers.occurredAt} >= ${cycle.previousCutoffAt}`,
-            sql`${diaryMaterialBuffers.occurredAt} <= ${cycle.cutoffAt}`,
-          ),
-        )
-        .limit(50);
-      const materialCount = materials.length;
+      // 2. 汇总该窗口素材（跨租户只读：对话/记忆/目标/练习，与按需路径同源）
+      const window = { startIso: cycle.previousCutoffAt, endIso: cycle.cutoffAt };
+      const material = await collectDiaryMaterial(ctx.db, tenant, window);
+      const materialCount =
+        material.messages.length + material.memories.length + material.goals.length;
 
-      // 3. 生成日记（骨架占位内容；接入模型后替换此步）
-      const content =
-        materialCount > 0
-          ? `今日从 ${materialCount} 份素材中生成。${materials.map((m) => m.sourceRevisionId).join("、")}`
-          : "今日暂无可回素材，记录了当前学习状态。";
+      // 3. 生成日记（LLM 或模板降级，均在共享服务内决策）
+      const draft = await generation.generate(tenant, { localDate, window });
 
       // 4. 同一事务发布日记 + 周期状态 + Outbox + 创建日记版本
       const published = await ctx.diaryRepo.publishDiaryWithCycle(tenant, {
         cycleId: cycle.id,
         diary: {
-          id: id("diary"),
+          id: generateDiaryId("diary"),
           localDate,
-          title: `日记 ${localDate}`,
-          content,
+          title: draft.title,
+          content: draft.content,
           autoGenerated: 1,
         },
         expectedScheduleVersion: 1,
         outboxEvent: {
-          id: id("outbox"),
+          id: generateDiaryId("outbox"),
           eventType: "diary.published",
-          idempotencyKey: id("idem_diary"),
+          idempotencyKey: generateDiaryId("idem_diary"),
           payload: { cycleId: cycle.id, localDate },
         },
       });
       await ctx.diaryRepo.createDiaryVersion(tenant, {
-        id: id("dv"),
+        id: generateDiaryId("dv"),
         diaryId: published.diary.id,
         perspective: "ai_generated",
-        content,
+        content: draft.content,
       });
 
       // 5. 推进计划游标（+1 天；自定义 cron 后续按 cutoffRule 计算）
-      const nextRun = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
       await ctx.db
         .update(diarySchedules)
-        .set({ nextRunAt: nextRun, lastCutoffAt: now, updatedAt: now })
+        .set({
+          nextRunAt: new Date(Date.now() + DAY_MS).toISOString(),
+          lastCutoffAt: now,
+          updatedAt: now,
+        })
         .where(eq(diarySchedules.id, schedule.id));
 
       await ctx.platformRepo.createAuditRecord(tenant, {
-        id: id("aud"),
+        id: generateDiaryId("aud"),
         actorType: "system",
         actorId: `diary:${ctx.workerId}`,
         action: "diary.generated",
         subjectType: "diary_cycle",
         subjectId: cycle.id,
-        metadata: { localDate, materialCount },
+        metadata: { localDate, materialCount, generatedBy: draft.generatedBy },
       });
       generated += 1;
     } catch (err) {

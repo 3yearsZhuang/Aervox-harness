@@ -230,6 +230,22 @@ export class SqliteDiaryRepository implements IDiaryRepository {
     return (found as DiaryModel) ?? null;
   }
 
+  async listDiaries(tenant: TenantContext, limit: number): Promise<DiaryModel[]> {
+    assertTenantContext(tenant);
+    const rows = await this.db
+      .select()
+      .from(diaries)
+      .where(
+        and(
+          eq(diaries.workspaceId, tenant.workspaceId),
+          eq(diaries.subjectUserId, tenant.subjectUserId),
+        ),
+      )
+      .orderBy(diaries.localDate)
+      .limit(Math.max(1, Math.min(100, limit)));
+    return rows as DiaryModel[];
+  }
+
   // ============ MVP+ 补齐（PRD §8）：计划主实体 / 版本 / 段落来源 / 素材缓冲 ============
 
   async createDiarySchedule(
@@ -243,6 +259,8 @@ export class SqliteDiaryRepository implements IDiaryRepository {
       bufferMinutes?: number;
       contentScopes?: unknown;
       quietHours?: unknown;
+      enabled?: number;
+      nextRunAt?: string;
     },
   ): Promise<DiaryScheduleModel> {
     assertTenantContext(tenant);
@@ -253,7 +271,7 @@ export class SqliteDiaryRepository implements IDiaryRepository {
         id: scheduleData.id,
         workspaceId: tenant.workspaceId,
         subjectUserId: tenant.subjectUserId,
-        enabled: 1,
+        enabled: scheduleData.enabled ?? 1,
         scheduleEpochId: scheduleData.scheduleEpochId,
         activeFrom: scheduleData.activeFrom,
         initialWindowStart: scheduleData.initialWindowStart,
@@ -261,6 +279,7 @@ export class SqliteDiaryRepository implements IDiaryRepository {
         bufferMinutes: scheduleData.bufferMinutes ?? 0,
         contentScopes: scheduleData.contentScopes ?? null,
         quietHours: scheduleData.quietHours ?? null,
+        nextRunAt: scheduleData.nextRunAt ?? null,
         version: 1,
         createdAt: now,
         updatedAt: now,
@@ -281,6 +300,23 @@ export class SqliteDiaryRepository implements IDiaryRepository {
           eq(diarySchedules.subjectUserId, tenant.subjectUserId),
         ),
       );
+    return (found as DiaryScheduleModel) ?? null;
+  }
+
+  async getActiveDailySchedule(tenant: TenantContext): Promise<DiaryScheduleModel | null> {
+    assertTenantContext(tenant);
+    const [found] = await this.db
+      .select()
+      .from(diarySchedules)
+      .where(
+        and(
+          eq(diarySchedules.workspaceId, tenant.workspaceId),
+          eq(diarySchedules.subjectUserId, tenant.subjectUserId),
+          eq(diarySchedules.enabled, 1),
+          eq(diarySchedules.cutoffRule, "daily"),
+        ),
+      )
+      .limit(1);
     return (found as DiaryScheduleModel) ?? null;
   }
 

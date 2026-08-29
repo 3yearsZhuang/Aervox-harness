@@ -21,7 +21,16 @@ export {
   type PlanMilestoneDto,
   type PlanTaskDto,
 } from './useAervoxApi';
-export { useAervoxPlugins, type PluginSummaryDto, type PluginPageDto } from './useAervoxPlugins';
+export {
+  useAervoxPlugins,
+  type PluginSummaryDto,
+  type PluginPageDto,
+} from './useAervoxPlugins';
+export {
+  useAervoxDiary,
+  type DiaryDto,
+  type GenerateTodayResultDto,
+} from './useAervoxDiary';
 export {
   useAervoxSkills,
   type SkillDto,
