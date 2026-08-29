@@ -1,7 +1,7 @@
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：kikoyida · 2026-08-29
+- 修改人：MoeJiyun233 · 2026-08-29
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
