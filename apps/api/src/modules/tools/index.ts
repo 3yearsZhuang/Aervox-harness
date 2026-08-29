@@ -4,13 +4,11 @@
  * 实例化 ToolRuntime 并在启动时把内置工具（aervox_memory_store）幂等同步进
  * tool_registrations，保证「注册表」与「运行时 handler」两处事实一致。
  */
-import type { FastifyInstance } from "fastify";
-import type { Client } from "@libsql/client";
+import type { ModuleContext } from "../context.js";
 import {
   SqliteMemoryRepository,
   SqliteMemoryEmbeddingRepository,
   SqliteToolRegistryRepository,
-  type AervoxDatabase,
 } from "@aervox/database";
 import { registerToolRoutes } from "./routes.js";
 import { ToolRuntime } from "./runtime.js";
@@ -22,11 +20,10 @@ export interface RegisterToolsModuleOptions {
 }
 
 export function registerToolsModule(
-  app: FastifyInstance,
-  db: AervoxDatabase,
-  client: Client,
+  ctx: ModuleContext,
   options: RegisterToolsModuleOptions = {},
 ): ToolRuntime {
+  const { app, db, client } = ctx;
   const registry = new SqliteToolRegistryRepository(db);
   const memoryRepo = new SqliteMemoryRepository(db, client);
   const embeddingRepo = new SqliteMemoryEmbeddingRepository(db);

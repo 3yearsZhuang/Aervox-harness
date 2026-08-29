@@ -6,7 +6,7 @@ import PluginConfigDialog from './PluginConfigDialog.vue'
 import PluginPageDialog from './PluginPageDialog.vue'
 
 const api = useAervoxPlugins()
-const {plugins, loading, error, loadPlugins, setPluginEnabled, listPages} = api
+const {plugins, loading, error, setPluginEnabled, listPages} = api
 const configTarget = ref<PluginSummaryDto | null>(null)
 const configOpen = ref(false)
 const pageTarget = ref<PluginSummaryDto | null>(null)
@@ -14,14 +14,32 @@ const pageOpen = ref(false)
 const pageTargetPage = ref<PluginPageDto | null>(null)
 const pageBusy = ref<string | null>(null)
 
+/** 已提供 Page 资源的插件 ID 集合（无页面时隐藏「页面」按钮） */
+const pluginsWithPages = ref<Set<string>>(new Set())
+
+async function refresh(): Promise<void> {
+  await api.loadPlugins()
+  // 逐个查询插件页面元数据，仅记录有页面的插件
+  const withPages = new Set<string>()
+  await Promise.all(plugins.value.map(async (plugin) => {
+    try {
+      const pages = await listPages(plugin.id)
+      if (pages.length > 0) withPages.add(plugin.id)
+    } catch {
+      // 插件被禁用或页面查询失败时忽略
+    }
+  }))
+  pluginsWithPages.value = withPages
+}
+
 onMounted(() => {
-  void api.loadPlugins()
+  void refresh()
 })
 
 async function toggleEnabled(plugin: PluginSummaryDto): Promise<void> {
   try {
     await setPluginEnabled(plugin.id, plugin.enabled !== 1)
-    await loadPlugins()
+    await refresh()
   } catch (e) {
     console.error('切换插件状态失败', e)
   }
@@ -84,7 +102,7 @@ function openConfigFromPage(): void {
           <button v-if="plugin.configSchemaJson" type="button" class="plugin-action" title="配置" @click="openConfig(plugin)">
             <Settings :size="15" />配置
           </button>
-          <button type="button" class="plugin-action" title="页面" :disabled="pageBusy === plugin.id" @click="openPage(plugin)">
+          <button v-if="pluginsWithPages.has(plugin.id)" type="button" class="plugin-action" title="页面" :disabled="pageBusy === plugin.id" @click="openPage(plugin)">
             <LayoutGrid :size="15" />页面
           </button>
         </div>
@@ -95,7 +113,7 @@ function openConfigFromPage(): void {
       :open="configOpen"
       :plugin="configTarget"
       @close="configOpen = false"
-      @saved="loadPlugins"
+      @saved="refresh"
     />
     <PluginPageDialog
       :open="pageOpen"

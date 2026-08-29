@@ -29,5 +29,8 @@ export * from "./preferences.js";
 export * from "./study-materials.js";
 export * from "./tool-executions.js";
 export * from "./tool-approvals.js";
+export * from "./safe-segments.js";
 export * from "./agent-inbox.js";
 export * from "./subagent-runs.js";
+export * from "./audit.js";
+export * from "./user-question.js";

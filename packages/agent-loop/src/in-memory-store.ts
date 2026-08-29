@@ -12,6 +12,7 @@ import type {
   ToolExecutionRecord,
   ToolExecutionStatus,
 } from "./types.js";
+import { LeaseLostError } from "./errors.js";
 
 interface AttemptRecord {
   id: string;
@@ -29,6 +30,7 @@ export class InMemoryExecutionStore implements ExecutionStorePort {
   private readonly toolExecutionByKey = new Map<string, ToolExecutionRecord>();
   private readonly modelRunLog: ModelRunRecord[] = [];
   private readonly contextManifestLog: ContextManifestRecord[] = [];
+  private readonly safeSegmentLog: Array<{ turnId: string; attemptId: string; sequence: number; text: string; committed: boolean }> = [];
   private leaseRenewalCount = 0;
 
   seedAttempt(input: {
@@ -100,6 +102,25 @@ export class InMemoryExecutionStore implements ExecutionStorePort {
   }
 
   async appendEvent(input: AgentStreamEventInput): Promise<AgentStreamEvent> {
+    // B1：事件写入 fencing CAS 校验（与生产 SqliteExecutionStore 同语义；
+    // 仅当携带期望 fencing 时启用，测试夹具直写保持兼容）
+    if (input.expectedFencingToken !== undefined) {
+      const attempt = this.attempts.get(input.attemptId);
+      const running = attempt && (attempt.status === "Running" || attempt.status === "CancelRequested");
+      const terminalDoneOk =
+        attempt &&
+        (input.eventType === "done" || input.eventType === "error") &&
+        ["Completed", "Failed", "Interrupted", "Cancelled"].includes(attempt.status);
+      if (
+        !attempt ||
+        attempt.fencingToken !== input.expectedFencingToken ||
+        !(running || terminalDoneOk)
+      ) {
+        throw new LeaseLostError(
+          `attempt ${input.attemptId} fencing=${attempt?.fencingToken ?? "?"} status=${attempt?.status ?? "?"} cannot append ${input.eventType}`,
+        );
+      }
+    }
     const event: AgentStreamEvent = {
       ...input,
       eventId: `tev_${input.turnId}_${input.sequence}`,
@@ -161,6 +182,16 @@ export class InMemoryExecutionStore implements ExecutionStorePort {
     }
   }
 
+  /** 测试钩子：模拟恢复器抢占（fencing +1，等价 worker recoverExpiredAttempts）——事件写入 CAS 将拒绝 */
+  simulatePreemption(attemptId: string): void {
+    const attempt = this.attempts.get(attemptId);
+    if (attempt) {
+      attempt.fencingToken += 1;
+      attempt.leaseId = `lease_preempted_${attemptId}`;
+      attempt.leaseExpiresAt = new Date(0).toISOString();
+    }
+  }
+
   async recordToolExecution(input: ToolExecutionRecord): Promise<void> {
     this.toolExecutionLog.push(input);
   }
@@ -218,6 +249,136 @@ export class InMemoryExecutionStore implements ExecutionStorePort {
         record.status = "outcome_unknown";
       }
     }
+  }
+
+  /** B4-D：原子提交「工具结果账本收口 + tool_result 事件」（§12.2；fencing 失配抛 LeaseLostError） */
+  async recordToolOutcome(input: {
+    turnId: string;
+    attemptId: string;
+    sequence: number;
+    invocationId: string;
+    name: string;
+    arguments: unknown;
+    status: ToolExecutionStatus;
+    output?: unknown;
+    error?: string;
+    startedAt: string;
+    finishedAt?: string;
+    eventData: unknown;
+    safetyDecision: import("./types.js").SafetyDecision;
+    expectedFencingToken: number;
+  }): Promise<{ ok: boolean }> {
+    const attempt = this.attempts.get(input.attemptId);
+    const running = attempt && (attempt.status === "Running" || attempt.status === "CancelRequested");
+    if (!attempt || attempt.fencingToken !== input.expectedFencingToken || !running) {
+      throw new LeaseLostError("recordToolOutcome rejected: fencing mismatch");
+    }
+    // duplicate：账本无预留行（同一 intent 的重复请求未落账）→ 插入独立 duplicate 记录
+    const key = `${input.attemptId}:${input.invocationId}`;
+    if (input.status === "duplicate" && !this.toolExecutionByKey.has(key)) {
+      this.toolExecutionLog.push({
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        invocationId: input.invocationId,
+        name: input.name,
+        arguments: input.arguments,
+        status: "duplicate",
+        error: input.error ?? "duplicate_tool_call",
+        startedAt: input.startedAt,
+        finishedAt: input.finishedAt ?? new Date(0).toISOString(),
+      });
+      this.toolExecutionByKey.set(key, this.toolExecutionLog[this.toolExecutionLog.length - 1]!);
+    } else {
+      await this.updateToolExecutionResult({
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        invocationId: input.invocationId,
+        status: input.status,
+        output: input.output,
+        error: input.error,
+        finishedAt: input.finishedAt,
+      });
+    }
+    await this.appendEvent({
+      turnId: input.turnId,
+      attemptId: input.attemptId,
+      sequence: input.sequence,
+      eventType: "tool_result",
+      data: input.eventData,
+      safetyDecision: input.safetyDecision,
+      expectedFencingToken: input.expectedFencingToken,
+    });
+    return { ok: true };
+  }
+
+  /** B4-D：原子提交「Attempt 终态 + 收尾事件（done/error）」（§12.2；CAS 失败返回 false） */
+  async finalizeAttemptWithEvent(input: {
+    turnId: string;
+    attemptId: string;
+    status: AttemptStatus;
+    expectedFencingToken: number;
+    sequence: number;
+    eventType: Extract<import("./types.js").LoopEventType, "done" | "error">;
+    eventData: unknown;
+    safetyDecision?: import("./types.js").SafetyDecision;
+  }): Promise<{ ok: boolean }> {
+    const attempt = this.attempts.get(input.attemptId);
+    if (!attempt) return { ok: false };
+    if (attempt.status !== "Running" && attempt.status !== "CancelRequested") return { ok: false };
+    if (attempt.fencingToken !== input.expectedFencingToken) return { ok: false };
+    attempt.status = input.status;
+    await this.appendEvent({
+      turnId: input.turnId,
+      attemptId: input.attemptId,
+      sequence: input.sequence,
+      eventType: input.eventType,
+      data: input.eventData,
+      safetyDecision: input.safetyDecision ?? "approved",
+      expectedFencingToken: input.expectedFencingToken,
+    });
+    return { ok: true };
+  }
+
+  /** E2：原子提交「安全片段 + delta 事件」（§12.2；fencing 失配抛 LeaseLostError） */
+  async recordSafeSegment(input: {
+    turnId: string;
+    attemptId: string;
+    sequence: number;
+    text: string;
+    eventData: unknown;
+    safetyDecision: import("./types.js").SafetyDecision;
+    expectedFencingToken: number;
+  }): Promise<{ ok: boolean }> {
+    const attempt = this.attempts.get(input.attemptId);
+    const running = attempt && (attempt.status === "Running" || attempt.status === "CancelRequested");
+    if (!attempt || attempt.fencingToken !== input.expectedFencingToken || !running) {
+      throw new LeaseLostError("recordSafeSegment rejected: fencing mismatch");
+    }
+    await this.appendEvent({
+      turnId: input.turnId,
+      attemptId: input.attemptId,
+      sequence: input.sequence,
+      eventType: "delta",
+      data: input.eventData,
+      safetyDecision: input.safetyDecision,
+      expectedFencingToken: input.expectedFencingToken,
+    });
+    this.safeSegmentLog.push({
+      turnId: input.turnId,
+      attemptId: input.attemptId,
+      sequence: input.sequence,
+      text: input.text,
+      committed: true,
+    });
+    return { ok: true };
+  }
+
+  /** E2：已提交安全片段（可见前缀；sequence 升序）——测试断言用 */
+  safeSegments(turnId: string): Array<{ sequence: number; text: string; committed: boolean }> {
+    return this.safeSegmentLog
+      .filter((s) => s.turnId === turnId && s.committed)
+      .sort((a, b) => a.sequence - b.sequence)
+      .map((s) => ({ sequence: s.sequence, text: s.text, committed: s.committed }));
   }
 
   /** 工具副作用证据日志（测试断言用） */

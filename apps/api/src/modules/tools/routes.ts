@@ -39,6 +39,7 @@ export function registerToolRoutes(app: FastifyInstance, runtime: ToolRuntime): 
       description?: string;
       category?: string;
       safetyLevel?: string;
+      replay?: string;
       requiredPermissions?: unknown;
       inputSchema?: unknown;
       builtin?: boolean;
@@ -49,12 +50,16 @@ export function registerToolRoutes(app: FastifyInstance, runtime: ToolRuntime): 
     if (!body.id || !body.name || !body.description) {
       return reply.code(400).send({ error: "id/name/description are required" });
     }
+    if (body.replay !== undefined && body.replay !== "never" && body.replay !== "safe") {
+      return reply.code(400).send({ error: "replay must be 'never' | 'safe' | omitted" });
+    }
     const tool = await runtime.registerTool({
       id: body.id,
       name: body.name,
       description: body.description,
       category: body.category ?? "memory",
       safetyLevel: body.safetyLevel,
+      replay: body.replay,
       requiredPermissions: body.requiredPermissions,
       inputSchema: body.inputSchema,
       builtin: body.builtin,

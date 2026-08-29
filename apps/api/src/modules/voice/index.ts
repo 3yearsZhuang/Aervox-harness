@@ -2,11 +2,11 @@
  * Aervox｜思隅 @aervox/api — 系统级语音模块入口
  */
 import path from "node:path";
-import type { FastifyInstance } from "fastify";
+import type { ModuleContext } from "../context.js";
+import { loadApiConfig } from "@aervox/config";
 import {
   SqliteVoiceConfigRepository,
   SqliteVoiceInputConfigRepository,
-  type AervoxDatabase,
 } from "@aervox/database";
 import type { VoiceProviderPort, ASRProviderPort } from "./types.js";
 import { GptSovitsLocalProvider, GptSovitsRemoteProvider } from "./gpt-sovits.js";
@@ -25,47 +25,51 @@ export interface VoiceModuleOptions {
 }
 
 export function createDefaultVoiceProviders(): VoiceProviderPort[] {
+  // 缺陷 E：GPT-Sovits 配置经 @aervox/config 集中解析（GPT_SOVITS_*）
+  const { gptSovits } = loadApiConfig();
   return [
     new GptSovitsLocalProvider("gpt-sovits-local", {
       modelId: "default-local",
-      modelPath: process.env.GPT_SOVITS_MODEL_PATH,
-      allowedRoots: process.env.GPT_SOVITS_ALLOWED_ROOTS?.split(":").filter(Boolean) ?? [],
+      modelPath: gptSovits.modelPath,
+      allowedRoots: gptSovits.allowedRoots,
     }),
     new GptSovitsRemoteProvider("gpt-sovits-remote", {
-      endpoint: process.env.GPT_SOVITS_ENDPOINT,
-      protocol: (process.env.GPT_SOVITS_PROTOCOL as "http" | "websocket" | undefined) ?? "http",
-      modelId: process.env.GPT_SOVITS_MODEL_ID ?? "default-remote",
-      secretRef: process.env.GPT_SOVITS_SECRET_REF,
+      endpoint: gptSovits.endpoint,
+      protocol: gptSovits.protocol,
+      modelId: gptSovits.modelId,
+      secretRef: gptSovits.secretRef,
     }),
   ];
 }
 
 export function createDefaultASRProviders(): ASRProviderPort[] {
+  // 缺陷 E：ASR 配置经 @aervox/config 集中解析（SENSEVOICE_* / WHISPER_*）
+  const { asr } = loadApiConfig();
   const defaultAllowedRoots = [
     process.cwd(),
     path.join(process.cwd(), "data"),
     path.join(process.cwd(), "data", "models"),
-    ...(process.env.SENSEVOICE_ALLOWED_ROOTS?.split(":").filter(Boolean) ?? []),
+    ...asr.senseVoiceAllowedRoots,
   ];
   return [
     new SenseVoiceLocalProvider("sensevoice-local", {
       modelId: "sensevoice-small",
-      modelPath: process.env.SENSEVOICE_MODEL_PATH,
+      modelPath: asr.senseVoiceModelPath,
       allowedRoots: defaultAllowedRoots,
     }),
     new WhisperCompatibleProvider("whisper-compatible", {
-      endpoint: process.env.WHISPER_ENDPOINT,
-      apiKey: process.env.WHISPER_API_KEY,
-      modelId: process.env.WHISPER_MODEL_ID ?? "whisper-1",
+      endpoint: asr.whisperEndpoint,
+      apiKey: asr.whisperApiKey,
+      modelId: asr.whisperModelId,
     }),
   ];
 }
 
 export function registerVoiceModule(
-  app: FastifyInstance,
-  db: AervoxDatabase,
+  ctx: ModuleContext,
   options: VoiceModuleOptions = {},
 ): VoiceService {
+  const { app, db } = ctx;
   const configRepository = new SqliteVoiceConfigRepository(db);
   const inputConfigRepository = new SqliteVoiceInputConfigRepository(db);
   const service = new VoiceService(

@@ -1,11 +1,14 @@
 /**
  * Aervox｜思隅 @aervox/worker — 后台任务入口
  *
- * 当前：Outbox 消费 / 复习到期提醒 / 日记生成 / 删除传播 / 压缩标记异步落库 / 记忆向量迁移。
- * 按 WORKER_TICK_MS 轮询。规则依据：docs/reference/DATABASE.md §14 + ADR-004 + ADR-011。
+ * 规则依据：docs/reference/DATABASE.md §14 + ADR-004 + ADR-011。
+ *
+ * 调度模型（缺陷4修正）：每类任务独立节拍器（interval），互不阻塞：
+ * - 独立频率：每任务可用 WORKER_INTERVAL_<NAME>_MS 覆盖，缺省回退 WORKER_TICK_MS（默认 5000ms）；
+ * - 不重叠：上一轮未结束则跳过本轮（防任务自重叠/堆积），而非排队串行；
+ * - 隔离失败：单任务抛错只记录自身日志，不拖垮其它任务与后续轮次。
  */
-import {
-  createDatabase,
+import { createDatabase,
   initDatabaseSchema,
   SqliteAgentInboxRepository,
   SqliteOutboxRepository,
@@ -16,6 +19,7 @@ import {
   SqliteMemoryCompactionRepository,
   SqliteMemoryEmbeddingRepository,
 } from "@aervox/database";
+import { loadWorkerConfig } from "@aervox/config";
 import { runOutboxCycle } from "./outbox-worker.js";
 import { runReviewNotificationCycle } from "./review-notifier.js";
 import { runDiaryGenerationCycle } from "./diary-generator.js";
@@ -25,11 +29,14 @@ import { runEmbeddingMigrationCycle } from "./embedding-migration.js";
 import { runAttemptRecoveryCycle } from "./attempt-recovery.js";
 import { runInboxExpiryCycle } from "./inbox-expiry.js";
 
+// 缺陷 E：集中类型化配置（WORKER_ID / WORKER_TICK_MS / WORKER_INTERVAL_<NAME>_MS；启动期校验）
+const config = loadWorkerConfig();
+
 const { db, client } = await createDatabase();
 await initDatabaseSchema(client);
 
-const workerId = process.env.WORKER_ID ?? `worker_${Date.now().toString(36)}`;
-const tickMs = Number(process.env.WORKER_TICK_MS ?? 5000);
+const workerId = config.workerId;
+const defaultTickMs = config.tickMs;
 
 const outboxRepo = new SqliteOutboxRepository(db);
 const platformRepo = new SqlitePlatformRepository(db);
@@ -40,40 +47,80 @@ const compactionRepo = new SqliteMemoryCompactionRepository(db);
 const embeddingRepo = new SqliteMemoryEmbeddingRepository(db);
 const inboxRepo = new SqliteAgentInboxRepository(db);
 
-const runTick = async (): Promise<void> => {
-  const outbox = await runOutboxCycle({ outboxRepo, platformRepo, workerId });
-  const review = await runReviewNotificationCycle({ db, platformRepo, learningRepo, workerId });
-  const diary = await runDiaryGenerationCycle({ db, diaryRepo, platformRepo, outboxRepo, workerId });
-  const deletion = await runDeletionCycle({ db, privacyRepo, platformRepo, workerId });
-  const compaction = await runCompactionMarkerCycle({ outboxRepo, compactionRepo, workerId });
-  const embeddingMigration = await runEmbeddingMigrationCycle({
-    db,
-    client,
-    embeddingRepo,
-    workerId,
-    // embedding provider 未注入：生产接入真实服务后在此传入即可（当前诚实跳过）
-  });
-  const attemptRecovery = await runAttemptRecoveryCycle({ db, client, workerId });
-  const inboxExpired = await runInboxExpiryCycle({ inboxRepo });
-  if (outbox + review + diary + deletion + compaction + embeddingMigration + attemptRecovery + inboxExpired > 0) {
-    console.log(
-      `[worker:${workerId}] outbox=${outbox} review_notified=${review} diary=${diary} deletion=${deletion} ` +
-        `compaction_markers=${compaction} embedding_migrated=${embeddingMigration} attempt_recovered=${attemptRecovery} ` +
-        `inbox_expired=${inboxExpired}`,
-    );
-  }
-};
+/** 每任务独立调频：WORKER_INTERVAL_<NAME>_MS 覆盖（由 @aervox/config 解析），缺省 WORKER_TICK_MS */
+function taskInterval(name: string): number {
+  return config.intervalOverrides[name] ?? defaultTickMs;
+}
 
-const loop = async (): Promise<void> => {
-  try {
-    await runTick();
-  } catch (err) {
-    console.error(`[worker:${workerId}] tick failed:`, err);
-  }
-};
+interface WorkerTask {
+  name: string;
+  intervalMs: number;
+  run(): Promise<number>;
+}
 
-// 首次立即执行，随后按间隔轮询
-await loop();
-setInterval(() => {
-  void loop();
-}, tickMs);
+const tasks: WorkerTask[] = [
+  {
+    name: "outbox",
+    intervalMs: taskInterval("outbox"),
+    run: () => runOutboxCycle({ outboxRepo, platformRepo, workerId }),
+  },
+  {
+    name: "review",
+    intervalMs: taskInterval("review"),
+    run: () => runReviewNotificationCycle({ db, platformRepo, learningRepo, workerId }),
+  },
+  {
+    name: "diary",
+    intervalMs: taskInterval("diary"),
+    run: () => runDiaryGenerationCycle({ db, diaryRepo, platformRepo, outboxRepo, workerId }),
+  },
+  {
+    name: "deletion",
+    intervalMs: taskInterval("deletion"),
+    run: () => runDeletionCycle({ db, privacyRepo, platformRepo, workerId }),
+  },
+  {
+    name: "compaction",
+    intervalMs: taskInterval("compaction"),
+    run: () => runCompactionMarkerCycle({ outboxRepo, compactionRepo, workerId }),
+  },
+  {
+    name: "embedding",
+    intervalMs: taskInterval("embedding"),
+    run: () => runEmbeddingMigrationCycle({ db, client, embeddingRepo, workerId }),
+  },
+  {
+    name: "attempt-recovery",
+    intervalMs: taskInterval("attempt-recovery"),
+    run: () => runAttemptRecoveryCycle({ db, client, workerId }),
+  },
+  {
+    name: "inbox-expiry",
+    intervalMs: taskInterval("inbox-expiry"),
+    run: () => runInboxExpiryCycle({ inboxRepo }),
+  },
+];
+
+// 每任务独立节拍器：首次立即执行一次，随后按各自 interval 轮询；
+// 运行中跳过（不重叠）、单任务异常隔离。
+for (const task of tasks) {
+  let running = false;
+  const runOnce = async (): Promise<void> => {
+    if (running) return;
+    running = true;
+    try {
+      const processed = await task.run();
+      if (processed > 0) {
+        console.log(`[worker:${workerId}] ${task.name}=${processed}`);
+      }
+    } catch (err) {
+      console.error(`[worker:${workerId}] ${task.name} tick failed:`, err);
+    } finally {
+      running = false;
+    }
+  };
+  void runOnce();
+  setInterval(() => {
+    void runOnce();
+  }, task.intervalMs);
+}

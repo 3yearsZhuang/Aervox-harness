@@ -460,7 +460,8 @@ export class SqlitePersonaRepository implements IPersonaRepository {
       .select()
       .from(personaSwitchLogs)
       .where(and(...conditions))
-      .orderBy(desc(personaSwitchLogs.switchedAt));
+      // 切换日志时间戳为毫秒精度，同一毫秒内多次切换须按插入顺序（rowid）倒序，保证「最新一条」确定
+      .orderBy(desc(personaSwitchLogs.switchedAt), desc(sql`rowid`));
     return rows as PersonaSwitchLogModel[];
   }
 

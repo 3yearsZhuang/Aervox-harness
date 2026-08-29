@@ -7,6 +7,7 @@ export {
   createFetchTransport,
   type AervoxTransport,
   type AervoxClientConfig,
+  type StreamTurnOptions,
   type TurnCallbacks,
 } from './transport';
 export { desktopTransport } from './desktop-transport';
@@ -23,7 +24,7 @@ export {
   type ToolItemDto,
   type SkillItemDto,
 } from './useAervoxPersonas';
-export { streamAervoxTurn, submitQuestionAnswers, type StreamAervoxTurnCallbacks } from './useAervoxTurn';
+export { streamAervoxTurn, submitQuestionAnswers, exploreTerm, type StreamAervoxTurnCallbacks } from './useAervoxTurn';
 export {
   useAervoxVoice,
   canPickDirectory,

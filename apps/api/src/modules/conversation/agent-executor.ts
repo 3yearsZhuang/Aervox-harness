@@ -31,11 +31,109 @@ import type {
   WorkflowDefinition,
 } from "@aervox/agent-loop";
 import { SqliteExecutionStore } from "@aervox/host-agent";
+import { extractTerms } from "@aervox/practice-review";
 import type { SqliteConversationRepository, TenantContext } from "@aervox/database";
+import { loadApiConfig } from "@aervox/config";
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
+import { getRequestToolApprovalMode } from "../../shared/tool-approval-policy.js";
 
 /** SqliteExecutionStore 组合根适配由 @aervox/host-agent 提供（见上方 import），API 不再自维护 SQLite 执行存储 */
+
+/** 自动授权决策人前缀；显式授权查询排除该类记录，避免关闭完全访问后泄漏。 */
+export const FULL_ACCESS_DECIDER_PREFIX = "permission:full_access:";
+
+type ToolApprovalRepository = Pick<
+  SqliteConversationRepository,
+  "recordToolApproval" | "decideToolApproval" | "findGrantedToolApproval"
+>;
+
+async function findExplicitToolApproval(
+  repo: ToolApprovalRepository,
+  tenant: TenantContext,
+  input: { toolName: string; argumentsHash: string },
+) {
+  return repo.findGrantedToolApproval(tenant, {
+    ...input,
+    excludeDecidedByPrefix: FULL_ACCESS_DECIDER_PREFIX,
+  });
+}
+
+async function recordFullAccessApproval(
+  repo: ToolApprovalRepository,
+  tenant: TenantContext,
+  input: {
+    turnId: string;
+    attemptId: string;
+    toolName: string;
+    argumentsHash: string;
+    toolVersion?: string | null;
+  },
+): Promise<boolean> {
+  const approval = await repo.recordToolApproval(tenant, {
+    ...input,
+    requester: tenant.subjectUserId,
+    state: "pending",
+  });
+  const actor = tenant.actorId ?? tenant.subjectUserId;
+  const granted = await repo.decideToolApproval(
+    tenant,
+    approval.id,
+    "granted",
+    `${FULL_ACCESS_DECIDER_PREFIX}${actor}`,
+  );
+  return granted !== null;
+}
+
+/**
+ * 给静态 Contribution 工具补齐通用写工具授权门：
+ * readOnly 直接执行；写工具命中显式授权或本 Turn 完全访问后执行。
+ */
+export function createApprovalGatedToolProvider(
+  provider: ToolProviderPort,
+  tenant: TenantContext,
+  repo: ToolApprovalRepository,
+): ToolProviderPort {
+  const specs = new Map(provider.tools.map((tool) => [tool.name, tool]));
+  return {
+    tools: provider.tools,
+    async execute(input: ToolExecutionInput): Promise<ToolExecutionResult> {
+      const spec = specs.get(input.name);
+      if (!spec || spec.readOnly) return provider.execute(input);
+
+      const argumentsHash = stableStringify(input.arguments);
+      const granted = await findExplicitToolApproval(repo, tenant, {
+        toolName: input.name,
+        argumentsHash,
+      });
+      if (granted) return provider.execute(input);
+
+      if (getRequestToolApprovalMode(tenant) === "full_access") {
+        const recorded = await recordFullAccessApproval(repo, tenant, {
+          turnId: input.turnId,
+          attemptId: input.attemptId,
+          toolName: input.name,
+          argumentsHash,
+        });
+        if (!recorded) return { ok: false, error: "full_access_approval_not_recorded" };
+        return provider.execute(input);
+      }
+
+      const approval = await repo.recordToolApproval(tenant, {
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        toolName: input.name,
+        argumentsHash,
+        requester: tenant.subjectUserId,
+        state: "pending",
+      });
+      return {
+        ok: false,
+        needsApproval: { approvalId: approval.id, toolName: input.name, argumentsHash },
+      };
+    },
+  };
+}
 
 /**
  * 把主仓 ToolRuntime（tool_registrations + handler）适配为 agent-loop 的 ToolProviderPort：
@@ -73,11 +171,31 @@ export function createRuntimeToolProvider(
       // privileged 与 write 同流程；「仅管理员可批准」由路由 decideToolApproval 的管理员校验把关（3b）。
       if (tool.safetyLevel === "write_with_approval" || tool.safetyLevel === "privileged") {
         const hash = stableStringify(input.arguments);
-        const granted = await deps.conversationRepo.findGrantedToolApproval(tenant, {
+        const granted = await findExplicitToolApproval(deps.conversationRepo, tenant, {
           toolName: tool.name,
           argumentsHash: hash,
         });
         if (granted) {
+          try {
+            const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: true });
+            return { ok: true, output };
+          } catch (err) {
+            return { ok: false, error: errorMessage(err) };
+          }
+        }
+        // 完全访问只预授权普通写工具；privileged 仍必须经独立管理员通道。
+        if (
+          tool.safetyLevel === "write_with_approval" &&
+          getRequestToolApprovalMode(tenant) === "full_access"
+        ) {
+          const recorded = await recordFullAccessApproval(deps.conversationRepo, tenant, {
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            toolName: tool.name,
+            argumentsHash: hash,
+            toolVersion: tool.updatedAt,
+          });
+          if (!recorded) return { ok: false, error: "full_access_approval_not_recorded" };
           try {
             const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: true });
             return { ok: true, output };
@@ -160,6 +278,8 @@ async function failTurnWithError(
       lastSequence: Math.max(0, (await store.nextSequence(turnId)) - 1),
     },
     safetyDecision: "approved",
+    // B1：Attempt 未被 claim（fencing=0）；携带期望值使事件写入走 fencing CAS（抢占后自然被拒）
+    expectedFencingToken: 0,
   }).catch(() => undefined);
   await store.finalizeAttempt({ turnId, attemptId, status: "Failed" }).catch(() => undefined);
 }
@@ -173,7 +293,9 @@ export async function buildLoopProvider(
   tenant: TenantContext,
   llmConfigService?: LLMConfigService,
 ): Promise<ModelProviderPort> {
-  const mode = process.env.AERVOX_LOOP_PROVIDER ?? "llm";
+  // 缺陷 E：Provider 选择经 @aervox/config 集中解析（AERVOX_LOOP_PROVIDER 启动期枚举校验）；
+  // 每次调用读取，避免模块级缓存导致测试/配置热变失效。
+  const { loopProvider: mode } = loadApiConfig();
   if (mode === "replay") return createReplayProvider();
   if (mode === "scripted") return createScriptedProvider(API_TOOL_SCRIPT);
   if (mode === "scripted-write") return createScriptedProvider(API_WRITE_SCRIPT);
@@ -289,16 +411,21 @@ export async function runLoopTurnOnce(
   if (deps.userQuestionPort) {
     contribution.push(createAskUserQuestionToolProvider({ userQuestionPort: deps.userQuestionPort }));
   }
-  let tools: ToolProviderPort | undefined;
-  if (deps.toolRuntime) {
-    const runtimeProvider = createRuntimeToolProvider(deps.toolRuntime, tenant, { conversationRepo: repo });
-    tools =
-      contribution.length > 0
-        ? composeToolProviders(contribution, { fallback: runtimeProvider })
-        : runtimeProvider;
-  } else if (contribution.length > 0) {
-    tools = composeToolProviders(contribution);
-  }
+  const contributionProvider =
+    contribution.length > 0
+      ? createApprovalGatedToolProvider(composeToolProviders(contribution), tenant, repo)
+      : undefined;
+  const runtimeProvider = deps.toolRuntime
+    ? createRuntimeToolProvider(deps.toolRuntime, tenant, { conversationRepo: repo })
+    : undefined;
+  const tools = contributionProvider && runtimeProvider
+    ? composeToolProviders([contributionProvider], { fallback: runtimeProvider })
+    : contributionProvider ?? runtimeProvider;
+  // 识别当前消息是否带学习模式前缀或标识，动态决定是否注入学习模式专属 Prompt
+  const isStudyMode =
+    input.userMessage.includes("[模式：学习模式]") ||
+    input.userMessage.includes("[模式：陪学讲解]") ||
+    input.userMessage.includes("[模式：深度拆解]");
   // 5b：默认启用 Base System Prompt（含核心工具指引）与 Skill 渐进披露；压缩 seam 默认关闭，
   // 设置 AERVOX_LOOP_COMPACTION=rule 启用内置规则式摘要。
   const contextBuilder = createComposedContextBuilder({
@@ -306,9 +433,10 @@ export async function runLoopTurnOnce(
     baseSystemPrompt: {
       assistantName: "思隅 (Aervox)",
       activeTools: tools?.tools,
+      studyMode: isStudyMode,
     },
     skills: deps.skills,
-    ...(process.env.AERVOX_LOOP_COMPACTION === "rule"
+    ...(loadApiConfig().loopCompaction === "rule"
       ? { compaction: createSummaryCompaction() }
       : {}),
   });
@@ -326,5 +454,46 @@ export async function runLoopTurnOnce(
   // 以 Loop 结果对齐 turns 状态；skipped（幂等保护）不覆盖。
   if (result.status === "completed") {
     await repo.updateTurnStatus(tenant, input.turnId, "Completed");
+
+    // CAP-007 / CAP-002: 仅在学习模式下，后处理阶段异步抽取文本中的术语并写入 turn_stream_events (terms_extracted)
+    if (isStudyMode) {
+      try {
+        const events = await repo.getStreamEvents(tenant, input.turnId, 0);
+        let fullAssistantText = "";
+        let lastSeq = 0;
+        let lastMessageId: string | undefined;
+
+        for (const ev of events) {
+          if (ev.sequence > lastSeq) lastSeq = ev.sequence;
+          if (ev.eventType === "message" && (ev.data as { messageId?: string }).messageId) {
+            lastMessageId = (ev.data as { messageId?: string }).messageId;
+          }
+          if (ev.eventType === "delta" && typeof (ev.data as { text?: string }).text === "string") {
+            fullAssistantText += (ev.data as { text?: string }).text;
+          }
+        }
+
+        let terms = fullAssistantText.trim().length > 0 ? await extractTerms(fullAssistantText) : [];
+        if (terms.length === 0 && input.userMessage) {
+          terms = await extractTerms(input.userMessage);
+        }
+        if (terms.length > 0) {
+          await repo.appendStreamEvent(tenant, {
+            id: `tme_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+            turnId: input.turnId,
+            sequence: lastSeq + 1,
+            eventType: "terms_extracted",
+            payloadVersion: 1,
+            data: {
+              turnId: input.turnId,
+              messageId: lastMessageId,
+              terms,
+            },
+          });
+        }
+      } catch (err) {
+        // 术语抽取属于增强后处理，吞掉异常防止影响 Turn 最终完成态
+      }
+    }
   }
 }

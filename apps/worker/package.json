@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@aervox/config": "workspace:*",
     "@aervox/database": "workspace:*",
     "@libsql/client": "^0.14.0",
     "drizzle-orm": "^0.39.3"

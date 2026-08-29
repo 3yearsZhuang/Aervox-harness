@@ -99,6 +99,15 @@ export interface IConversationRepository {
       payloadVersion?: number;
       data: unknown;
       occurredAt?: string;
+      attemptId?: string | null;
+      safetyDecision?: string | null;
+      committedAt?: string | null;
+      /**
+       * 3c+（B1）：事件写入 fencing CAS 校验。attemptId 与本字段同时给出时，
+       * 仓储要求 turn_attempts 的 fencing_token 与期望一致且状态允许，
+       * 否则抛 FencingMismatchError（迟到的抢占执行器写入被拒绝）。
+       */
+      expectedFencingToken?: number | null;
     },
   ): Promise<TurnStreamEventModel>;
   getStreamEvents(
@@ -653,6 +662,8 @@ export interface ToolExecutionModel {
   error?: string | null;
   startedAt: string;
   finishedAt: string;
+  /** B3：工具注册的 replay 声明（join tool_registrations；NULL=未声明） */
+  replay?: string | null;
 }
 
 /** 工具授权账本行（tool_approvals，阶段 3a） */
@@ -788,6 +799,43 @@ export interface ISubagentRunRepository {
   ): Promise<SubagentRunModel | null>;
   /** 父 Turn 的全部子任务运行（API 审计端点，租户隔离） */
   listRunsByTurn(tenant: TenantContext, parentTurnId: string): Promise<SubagentRunModel[]>;
+}
+
+// ============ 缺陷 C：挂起提问会话（pending_user_questions）============
+
+/** 挂起提问会话行（无论 Loop 进程是否存活均存在；expiresAt 为超时唯一真源） */
+export interface PendingUserQuestionModel {
+  turnId: string;
+  attemptId: string;
+  step: number;
+  /** 模型提出的问题清单（AskUserQuestionItem[]） */
+  questions: unknown;
+  timeoutMs: number;
+  /** createdAt + timeoutMs；晚于此时间提交答案视为超时 */
+  expiresAt: string;
+  createdAt: string;
+  workspaceId: string;
+  subjectUserId: string;
+}
+
+export interface PendingUserQuestionUpsertInput {
+  turnId: string;
+  attemptId: string;
+  step: number;
+  questions: unknown;
+  timeoutMs: number;
+  expiresAt: string;
+  createdAt: string;
+}
+
+/** 挂起提问会话仓储（缺陷 C：持久化真源，进程重启后仍可接受回答/查询） */
+export interface IUserQuestionRepository {
+  /** 幂等写入挂起会话（同 turnId 覆盖）；供提问时调用 */
+  upsertPending(tenant: TenantContext, input: PendingUserQuestionUpsertInput): Promise<void>;
+  /** 按 turn 查询挂起会话（租户隔离）；无则 null */
+  getPending(tenant: TenantContext, turnId: string): Promise<PendingUserQuestionModel | null>;
+  /** 会话完成/超时后清除（租户隔离；仅删除属于本租户的行） */
+  deletePending(tenant: TenantContext, turnId: string): Promise<void>;
 }
 
 // ============ 学习/练习/复习域 ============
@@ -2011,6 +2059,8 @@ export interface IExtensionRepository {
       permissions?: unknown;
       installSource?: string;
       enabled?: number;
+      configSchemaJson?: unknown;
+      configSchemaVersion?: number;
     },
   ): Promise<PluginModel>;
   listPlugins(): Promise<PluginModel[]>;
@@ -2281,6 +2331,8 @@ export interface ToolRegistrationModel {
   category: string; // memory/search/learning/diary/system/external
   /** PET-05 安全级别：read_only / write_with_approval / privileged */
   safetyLevel: string;
+  /** B3：结果未知恢复复议声明（"never" | "safe"；NULL=未声明，收敛） */
+  replay?: string | null;
   requiredPermissionsJson?: unknown;
   inputSchemaJson?: unknown;
   builtin: number; // 0 | 1
@@ -2302,6 +2354,8 @@ export interface IToolRegistryRepository {
       description: string;
       category: string;
       safetyLevel?: string;
+      /** B3：结果未知恢复复议声明（"never" | "safe"；省略=未声明，收敛） */
+      replay?: string;
       requiredPermissions?: unknown;
       inputSchema?: unknown;
       builtin?: boolean;

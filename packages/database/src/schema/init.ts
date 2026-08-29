@@ -972,6 +972,26 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     CREATE INDEX IF NOT EXISTS audit_records_subject_idx ON audit_records(subject_type, subject_id);
   `);
 
+  // 缺陷5：Agent 可观测性审计日志（系统级；对齐 observability AuditEntry，payload 为 JSON 文本）
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY,
+      event_type TEXT NOT NULL,
+      actor_id TEXT NOT NULL,
+      action TEXT NOT NULL,
+      scope TEXT NOT NULL,
+      evidence_ref TEXT,
+      payload TEXT,
+      created_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS audit_logs_event_created_idx ON audit_logs(event_type, created_at);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS audit_logs_scope_idx ON audit_logs(scope);
+  `);
+
   // 10. 安全事件（PRD §8）
   await client.execute(`
     CREATE TABLE IF NOT EXISTS safety_incidents (
@@ -1517,6 +1537,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       description TEXT NOT NULL,
       category TEXT NOT NULL,
       safety_level TEXT NOT NULL DEFAULT 'write_with_approval',
+      replay TEXT,
       required_permissions_json TEXT,
       input_schema_json TEXT,
       builtin INTEGER NOT NULL DEFAULT 0,
@@ -1534,6 +1555,8 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await client.execute(`
     CREATE INDEX IF NOT EXISTS tool_registrations_category_enabled_idx ON tool_registrations(category, enabled);
   `);
+  // B3：工具结果未知恢复复议声明（never/safe；未声明 = fail-closed 收敛）；旧库幂等补齐
+  await addColumnIfMissing(client, "tool_registrations", "replay", "replay TEXT");
 
   await client.execute(`
     CREATE TABLE IF NOT EXISTS plugin_configs (
@@ -1876,6 +1899,28 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await client.execute(`
     CREATE INDEX IF NOT EXISTS tool_approvals_turn_idx ON tool_approvals(turn_id);
   `);
+  // E2：安全片段（safe_segments；§12.2「安全片段 + TurnStreamEvent + Draft prefix」原子提交）
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS safe_segments (
+      id TEXT PRIMARY KEY,
+      turn_id TEXT NOT NULL REFERENCES turns(id) ON DELETE CASCADE,
+      attempt_id TEXT,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      sequence INTEGER NOT NULL,
+      text TEXT NOT NULL,
+      committed INTEGER NOT NULL DEFAULT 0,
+      stream_event_id TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS safe_segments_turn_seq_idx ON safe_segments(turn_id, sequence);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS safe_segments_turn_committed_idx ON safe_segments(turn_id, committed);
+  `);
   // 4.7 阶段 5a：Agent 收件箱（agent_inbox_items；ADR-017）
   await client.execute(`
     CREATE TABLE IF NOT EXISTS agent_inbox_items (
@@ -1938,6 +1983,26 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   `);
   await client.execute(`
     CREATE UNIQUE INDEX IF NOT EXISTS subagent_runs_tenant_parent_exec_idx ON subagent_runs(workspace_id, subject_user_id, parent_attempt_id, parent_execution_id);
+  `);
+  // 4.9 缺陷 C：挂起提问会话（pending_user_questions；主键 turnId，expiresAt 为超时唯一真源）
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS pending_user_questions (
+      turn_id TEXT PRIMARY KEY,
+      attempt_id TEXT NOT NULL,
+      step INTEGER NOT NULL,
+      questions_json TEXT NOT NULL,
+      timeout_ms INTEGER NOT NULL,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS pending_user_questions_tenant_idx ON pending_user_questions(workspace_id, subject_user_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS pending_user_questions_tenant_expires_idx ON pending_user_questions(workspace_id, subject_user_id, expires_at);
   `);
 }
 

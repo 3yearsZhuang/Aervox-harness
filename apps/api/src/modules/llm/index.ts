@@ -1,15 +1,14 @@
-import type { FastifyInstance } from "fastify";
-import type { AervoxDatabase } from "@aervox/database";
+import type { ModuleContext } from "../context.js";
 import { SqliteLLMConfigRepository } from "@aervox/database";
 import { LLMConfigService } from "./service.js";
 import { registerLLMRoutes } from "./routes.js";
 import type { LLMServiceOptions } from "./types.js";
 
 export function registerLLMModule(
-  app: FastifyInstance,
-  db: AervoxDatabase,
+  ctx: ModuleContext,
   options?: LLMServiceOptions,
 ): LLMConfigService {
+  const { app, db } = ctx;
   const repo = new SqliteLLMConfigRepository(db);
   const service = new LLMConfigService(repo, options);
   registerLLMRoutes(app, service);

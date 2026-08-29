@@ -2,7 +2,9 @@
  * Aervox｜思隅 @aervox/api — Fastify 应用工厂
  *
  * 允许注入内存/临时数据库用于集成测试；不负责 listen（由入口或测试调用方控制）。
- * 按 ADR-014 演进式模块化单体组织：注册 8 个领域模块，各自实例化仓储。
+ * 按 ADR-014 演进式模块化单体组织：注册领域模块，各自实例化仓储；模块间共享
+ * 依赖（toolRuntime / llmConfigService / voiceService / skillManager）经
+ * ModuleContext 提供，装配顺序（tools/llm 先于 conversation、persona 等）显式声明。
  */
 import Fastify from "fastify";
 import cors from "@fastify/cors";
@@ -13,6 +15,7 @@ import {
   type AervoxDatabase,
 } from "@aervox/database";
 import type { Client } from "@libsql/client";
+import type { WorkflowDefinition } from "@aervox/agent-loop";
 import { registerConversationModule } from "./modules/conversation/index.js";
 import { registerLearningModule } from "./modules/learning/index.js";
 import { registerFeedbackModule } from "./modules/feedback/index.js";
@@ -30,11 +33,16 @@ import { registerPersonaModule } from "./modules/persona/index.js";
 import { registerPreferencesModule } from "./modules/preferences/index.js";
 import { registerSkillsModule } from "./modules/skills/index.js";
 import { registerInboxModule } from "./modules/inbox/index.js";
+import { registerTermsModule } from "./modules/terms/index.js";
 import { registerStudyMaterialModule } from "./modules/study-materials/index.js";
 import { registerVoiceModule, type VoiceModuleOptions } from "./modules/voice/index.js";
 import { registerLLMModule, type LLMServiceOptions } from "./modules/llm/index.js";
+import type { ModuleContext } from "./modules/context.js";
 import type { ToolRuntime } from "./modules/tools/runtime.js";
-import type { WorkflowDefinition } from "@aervox/agent-loop";
+import { createAuthHook, type AuthConfig } from "./shared/auth.js";
+import { createToolApprovalPolicyHook } from "./shared/tool-approval-policy.js";
+import { ApiError, type ApiErrorCode } from "./shared/errors.js";
+import { DatabaseError } from "@aervox/database";
 
 export interface BuildAppOptions {
   /** 注入既有数据库（如内存库）；缺省时使用 createDatabase() */
@@ -50,6 +58,8 @@ export interface BuildAppOptions {
   llmOptions?: LLMServiceOptions;
   /** 阶段 5c：已注册 Workflow 定义清单（贡献 workflow.run 工具 + GET /v1/workflows） */
   workflows?: WorkflowDefinition[];
+  /** 认证配置（缺省从环境加载：AERVOX_AUTH_MODE / AERVOX_AUTH_TOKEN） */
+  auth?: AuthConfig;
 }
 
 export interface BuildAppResult {
@@ -66,6 +76,30 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
     options.db && options.client ? { db: options.db, client: options.client } : await createDatabase();
   await initDatabaseSchema(client);
 
+  // 统一错误序列化（缺陷6/B）：ApiError/DatabaseError → { error, code, message }；其余保持 Fastify 默认
+  // DatabaseError 携带领域语义（NOT_FOUND/FORBIDDEN/CONFLICT），在此映射为 HTTP 状态码，
+  // 避免数据层裸 Error 被当作 500（跨租户越权应 403、租户内缺失应 404、领域冲突应 409）。
+  const dbCodeToApi: Record<DatabaseError["domainCode"], { code: ApiErrorCode; status: number }> = {
+    NOT_FOUND: { code: "NOT_FOUND", status: 404 },
+    FORBIDDEN: { code: "FORBIDDEN", status: 403 },
+    CONFLICT: { code: "CONFLICT", status: 409 },
+  };
+  app.setErrorHandler((err, _req, reply) => {
+    if (err instanceof ApiError) {
+      return reply.code(err.statusCode).send({ error: err.name, code: err.code, message: err.message });
+    }
+    if (err instanceof DatabaseError) {
+      const mapped = dbCodeToApi[err.domainCode] ?? { code: "INTERNAL_ERROR" as const, status: 500 };
+      return reply.code(mapped.status).send({ error: err.name, code: mapped.code, message: err.message });
+    }
+    // 非业务异常（schema validation / 5xx）：走 Fastify 默认序列化与状态码
+    return reply.send(err);
+  });
+
+  // 认证前置关口：open=本地免认证；token=强制 Bearer token（校验通过才进入路由与仓储）
+  app.addHook("onRequest", createAuthHook(options.auth));
+  app.addHook("preValidation", createToolApprovalPolicyHook());
+
   // CORS：允许本地 Web/移动端跨源访问（生产环境按部署配置收紧 origin）
   await app.register(cors, {
     origin: true,
@@ -75,28 +109,39 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   // 契约骨架：暴露由 @aervox/contracts 生成的 OpenAPI 3.1 文档
   app.get("/openapi.json", async () => openApiDocument);
 
-  // 注册领域模块（每个模块自管仓储实例化）
-  // 工具运行时 / LLM 配置服务先于对话模块实例化（阶段 2d/2e Agent Loop 依赖）
-  const toolRuntime = registerToolsModule(app, db, client);
-  const llmConfigService = registerLLMModule(app, db, options.llmOptions);
-  registerConversationModule(app, db, { toolRuntime, llmConfigService, workflows: options.workflows });
-  registerLearningModule(app, db);
-  registerFeedbackModule(app, db);
-  registerDiaryModule(app, db);
-  registerContentModule(app, db);
-  registerNotificationModule(app, db);
-  registerPrivacyModule(app, db);
-  registerAnalyticsModule(app, db);
-  registerMemoryModule(app, db, client);
-  registerKnowledgeModule(app, db);
-  registerBranchModule(app, db);
-  registerPluginsModule(app, db, { skillsRoot: options.skillsRoot, pluginsRoot: options.pluginsRoot });
-  const voiceService = registerVoiceModule(app, db, options.voiceOptions);
-  const skillManager = registerSkillsModule(app, db, { skillsRoot: options.skillsRoot, toolRuntime });
-  registerPreferencesModule(app, db);
-  registerStudyMaterialModule(app, db);
-  registerPersonaModule(app, db, { skillManager, toolRuntime, voiceService });
-  registerInboxModule(app, db);
+// 模块装配上下文：基础设施 + 构建期配置；共享服务按注册顺序填充
+  const ctx: ModuleContext = {
+    app,
+    db,
+    client,
+    workflows: options.workflows,
+    skillsRoot: options.skillsRoot,
+    pluginsRoot: options.pluginsRoot,
+  };
 
-  return { app, db, client, toolRuntime };
+  // 先注册「被依赖」模块并填充共享服务（依赖方经 ctx 读取；顺序显式）：
+  // tools → llm 必须早于 conversation（Agent Loop 依赖）；voice/skills 早于 persona
+  ctx.toolRuntime = registerToolsModule(ctx);
+  ctx.llmConfigService = registerLLMModule(ctx, options.llmOptions);
+  registerConversationModule(ctx);
+  registerLearningModule(ctx);
+  registerFeedbackModule(ctx);
+  registerDiaryModule(ctx);
+  registerContentModule(ctx);
+  registerNotificationModule(ctx);
+  registerPrivacyModule(ctx);
+  registerAnalyticsModule(ctx);
+  registerMemoryModule(ctx);
+  registerKnowledgeModule(ctx);
+  registerBranchModule(ctx);
+  await registerPluginsModule(ctx);
+  ctx.voiceService = registerVoiceModule(ctx, options.voiceOptions);
+  ctx.skillManager = registerSkillsModule(ctx);
+  registerPreferencesModule(ctx);
+  registerStudyMaterialModule(ctx);
+  registerPersonaModule(ctx);
+  registerInboxModule(ctx);
+  registerTermsModule(ctx);
+
+  return { app, db, client, toolRuntime: ctx.toolRuntime! };
 }
