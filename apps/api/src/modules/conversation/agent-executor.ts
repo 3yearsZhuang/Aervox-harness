@@ -339,10 +339,10 @@ export async function runLoopTurnOnce(
     skills?: SkillDescriptor[];
     /**
      * 5c：Subagent 委托执行器工厂（request 级 tenant 绑定后创建 SubagentPort）。
-     * 注入时 `subagent.delegate` 进入工具清单；缺失则不被贡献（行为与既有一致）。
+     * 注入时 `subagent_delegate` 进入工具清单；缺失则不被贡献（行为与既有一致）。
      */
     subagentFactory?: (tenant: TenantContext) => SubagentPort;
-    /** 5c：已注册 Workflow 定义清单（贡献 `workflow.run` 工具 + GET /v1/workflows 元数据） */
+    /** 5c：已注册 Workflow 定义清单（贡献 `workflow_run` 工具 + GET /v1/workflows 元数据） */
     workflows?: WorkflowDefinition[];
   /**
      * 阶段 7：ModelRun/ContextManifest 落库口（可选委托 SqlitePlatformRepository；

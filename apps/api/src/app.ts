@@ -58,7 +58,7 @@ export interface BuildAppOptions {
   voiceOptions?: VoiceModuleOptions;
   /** LLM 模型服务配置 */
   llmOptions?: LLMServiceOptions;
-  /** 阶段 5c：已注册 Workflow 定义清单（贡献 workflow.run 工具 + GET /v1/workflows） */
+  /** 阶段 5c：已注册 Workflow 定义清单（贡献 workflow_run 工具 + GET /v1/workflows） */
   workflows?: WorkflowDefinition[];
   /** 认证配置（缺省从环境加载：AERVOX_AUTH_MODE / AERVOX_AUTH_TOKEN） */
   auth?: AuthConfig;
