@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import {type Component, computed, nextTick, onMounted, onUnmounted, ref, watch} from 'vue'
 import {
+  AlertTriangle,
   Bell,
   BookOpen,
+  BrainCircuit,
   Bot,
   Check,
   ChevronDown,
@@ -10,8 +12,12 @@ import {
   ChevronUp,
   ClipboardList,
   Clock3,
+  Database,
+  Download,
+  FileText,
   Heart,
   History,
+  Image as ImageIcon,
   LayoutGrid,
   ListTodo,
   Menu,
@@ -19,12 +25,17 @@ import {
   Mic,
   MicOff,
   Moon,
+  Music,
   NotebookPen,
+  Paperclip,
   Pause,
+  PauseCircle,
   Play,
+  PlayCircle,
   Plus,
   Puzzle,
   RotateCcw,
+  RefreshCw,
   Send,
   Settings,
   ShieldAlert,
@@ -32,11 +43,23 @@ import {
   Sparkles,
   Sun,
   TimerReset,
+  Trash2,
   Volume2,
   X,
 } from 'lucide-vue-next'
-import {streamAervoxTurn, submitQuestionAnswers, useAervoxApi, useAervoxVoiceInput} from '@aervox/api-client'
-import type {AskUserQuestionAnswerItem, ExtractedTerm, ToolApprovalMode, UserQuestionRequiredEventData} from '@aervox/contracts'
+import {streamAervoxTurn, submitQuestionAnswers, uploadAervoxAttachment, useAervoxApi, useAervoxVoiceInput} from '@aervox/api-client'
+import type {AskUserQuestionAnswerItem, AttachmentPurpose, ExtractedTerm, ToolApprovalMode, TurnAttachmentRef, UserQuestionRequiredEventData} from '@aervox/contracts'
+import {allowedMediaTypesSchema, MAX_ATTACHMENT_SIZE} from '@aervox/contracts'
+import type {
+  ProfileAuthorizationRequest,
+  ProfileCapabilityState,
+  ProfileDesiredState,
+  ProfilePersistenceUpdate,
+  ProactiveDesktopBridge,
+  ProactiveProfileClaimView,
+  ProactiveProfileStatus,
+} from '@aervox/contracts/proactive'
+import {profileStatusLabel} from '@aervox/contracts/proactive'
 import PetHero from './PetHero.vue'
 import PluginManagerPanel from './plugin/PluginManagerPanel.vue'
 import Live2DPet from './Live2DPet.vue'
@@ -46,15 +69,24 @@ import LLMConfigPanel from './llm/LLMConfigPanel.vue'
 import UserQuestionComposer from './UserQuestionComposer.vue'
 import TermExploreDialog from './TermExploreDialog.vue'
 import { renderMarkdown } from '../utils/markdown'
+import { petReact } from '../live2d/petReactions'
+import { MizukiExpression, MizukiMotion } from '../live2d/model'
 
 type Platform = 'desktop' | 'web'
 type Speaker = 'assistant' | 'user'
+
+interface StoryLineAttachment {
+  name: string
+  mediaType: string
+  previewUrl?: string
+}
 
 interface StoryLine {
   id: number
   speaker: Speaker
   text: string
   state?: 'streaming' | 'complete' | 'error'
+  attachments?: StoryLineAttachment[]
 }
 
 type CardId = 'study' | 'todo' | 'timer' | 'history' | 'review' | 'mistake' | 'diary' | 'notifications'
@@ -86,7 +118,7 @@ const studyOpen = ref(false)
 const mistakeOpen = ref(false)
 const studyCategory = ref<'practice' | 'goals' | 'review' | 'plans' | 'diary'>('practice')
 const settingsOpen = ref(false)
-const settingsCategory = ref<'tools' | 'appearance' | 'conversation' | 'model' | 'persona' | 'notifications' | 'voice' | 'plugins'>('tools')
+const settingsCategory = ref<'tools' | 'appearance' | 'conversation' | 'model' | 'persona' | 'notifications' | 'voice' | 'plugins' | 'proactive'>('tools')
 const newGoalTopic = ref('')
 const newGoalLevel = ref<'beginner' | 'intermediate' | 'advanced'>('beginner')
 const newGoalMinutes = ref(25)
@@ -140,6 +172,15 @@ const dailyReminder = ref(true)
 const toolApprovalMode = ref<ToolApprovalMode>('ask')
 const fullAccessDialogOpen = ref(false)
 const fullAccessAcknowledged = ref(false)
+const proactiveStatus = ref<ProactiveProfileStatus | null>(null)
+const proactiveClaims = ref<readonly ProactiveProfileClaimView[]>([])
+const proactiveDialogOpen = ref(false)
+const proactiveAcknowledged = ref(false)
+const proactiveAutostart = ref(true)
+const proactiveBackground = ref(true)
+const proactiveBusy = ref(false)
+const proactiveError = ref<string | null>(null)
+const proactiveNotice = ref<string | null>(null)
 const newTodo = ref('')
 const storyViewport = ref<HTMLElement | null>(null)
 const todos = ref<Array<{id: number; text: string; done: boolean}>>([])
@@ -170,6 +211,22 @@ const {
 let nextStoryId = 2
 
 const isWeb = computed(() => props.platform === 'web')
+const proactiveBridge = (): ProactiveDesktopBridge | undefined => {
+  if (typeof window === 'undefined') return undefined
+  return (window as Window & {fairyDesktop?: {proactive?: ProactiveDesktopBridge}}).fairyDesktop?.proactive
+}
+function recordProactiveActivity(
+  source: 'aervox.activity' | 'aervox.operation',
+  eventType: string,
+  payloadText?: string,
+  metadata?: Record<string, unknown>,
+) {
+  if (isWeb.value || proactiveStatus.value?.desiredState !== 'enabled') return
+  void proactiveBridge()?.recordActivity(source, {eventType, payloadText, metadata}).catch(() => undefined)
+}
+const proactiveActive = computed(() => proactiveStatus.value?.effectiveState === 'active')
+const accessChipLabel = computed(() => proactiveActive.value ? '主动智能模式' : toolApprovalMode.value === 'full_access' ? '完全访问' : '操作需确认')
+const accessChipIcon = computed(() => proactiveActive.value ? BrainCircuit : toolApprovalMode.value === 'full_access' ? ShieldAlert : ShieldCheck)
 // Web always presents its companion; the desktop-only preference must not
 // leak through shared localStorage and hide the Web companion.
 const showCompanionEnabled = computed(() => props.showCompanion && (isWeb.value || desktopCompanionEnabled.value))
@@ -182,6 +239,7 @@ const formattedTime = computed(() => {
 })
 const settingCategories = [
   {id: 'tools', label: '快捷工具', description: '学习面板与小工具', icon: LayoutGrid},
+  {id: 'proactive', label: '主动智能', description: '全量画像与本地权限', icon: BrainCircuit},
   {id: 'appearance', label: '外观', description: '主题与界面密度', icon: Sun},
   {id: 'conversation', label: '对话', description: '称呼与输入方式', icon: MessageCircle},
   {id: 'model', label: '模型与服务', description: '大语言模型与供应商配置', icon: Bot},
@@ -227,13 +285,44 @@ const toolNavItems: Array<{ id: ToolId; label: string; description: string; icon
   {id: 'history', label: '对话回看', description: '回顾历史对话记录', icon: History},
 ]
 
+/** Live2D 操作反馈动作池：按语义挑选 Mizuki 动作子集，随机取用避免重复 */
+const PET_MOTION_POOLS = {
+  glad: [MizukiMotion.w_cute_glad01, MizukiMotion.w_cute_glad03, MizukiMotion.w_adult_glad01, MizukiMotion.w_happy_glad01, MizukiMotion.w_normal_glad01],
+  nod: [MizukiMotion.w_cute_nod01, MizukiMotion.w_normal_nod01, MizukiMotion.w_adult_nod01, MizukiMotion.w_happy_nod01],
+  think: [MizukiMotion.w_adult_think01, MizukiMotion.w_adult_think02],
+  shake: [MizukiMotion.w_normal_shakehead01, MizukiMotion.w_happy_shakehead01, MizukiMotion.w_cute_shakehead01],
+  greet: [MizukiMotion.w_normal_greeting01, MizukiMotion.w_cute_poseforward02],
+  forward: [MizukiMotion.w_cute_forward01, MizukiMotion.w_normal_forward01, MizukiMotion.w_happy_forward01],
+  tilthead: [MizukiMotion.w_normal_tilthead01, MizukiMotion.w_cute_tilthead01, MizukiMotion.w_adult_tilthead01],
+  sad: [MizukiMotion.w_normal_sad01, MizukiMotion.w_happy_sad01, MizukiMotion.w_cool_sad01],
+} as const
+
+type PetReactionKind = keyof typeof PET_MOTION_POOLS
+
+/** 按语义派发桌宠反馈：动作 + 表情 + 看向目标 + 说话 */
+function petReactKind(kind: PetReactionKind, options: {expression?: MizukiExpression; lookAtEl?: string | Element; speak?: string; lookDuration?: number} = {}) {
+  const pool = PET_MOTION_POOLS[kind]
+  petReact({
+    motion: pool[Math.floor(Math.random() * pool.length)],
+    expression: options.expression,
+    lookAtEl: options.lookAtEl,
+    lookDuration: options.lookDuration,
+    speak: options.speak,
+  })
+}
+
 function toggleMenu() {
   menuOpen.value = !menuOpen.value
+  if (menuOpen.value) petReactKind('greet', {lookAtEl: '.menu-pill', lookDuration: 3200})
+  else petReactKind('nod')
 }
 
 /** 收起态点击胶囊任意区域（含边缘空白）均可展开 */
 function handlePillClick() {
-  if (!menuOpen.value) menuOpen.value = true
+  if (!menuOpen.value) {
+    menuOpen.value = true
+    petReactKind('greet', {lookAtEl: '.menu-pill', lookDuration: 3200})
+  }
 }
 
 function runMenuAction(action: () => void) {
@@ -250,6 +339,138 @@ function handleMenuDocumentClick(event: MouseEvent) {
 
 function createStoryLine(speaker: Speaker, text: string, state: StoryLine['state'] = 'complete'): StoryLine {
   return {id: nextStoryId++, speaker, text, state}
+}
+
+// ============ 多模态输入（CAP-012）：输入框附件上传 ============
+
+interface PendingAttachment {
+  key: string
+  file: File
+  name: string
+  mediaType: string
+  size: number
+  previewUrl?: string
+}
+
+const pendingAttachments = ref<PendingAttachment[]>([])
+const attachmentError = ref<string | null>(null)
+const attachmentUploading = ref(false)
+const attachmentFileInput = ref<HTMLInputElement | null>(null)
+
+/** 扩展名 → MIME（file.type 缺失时的兜底映射，与 contracts allowedMediaTypesSchema 对齐） */
+const EXTENSION_MEDIA_TYPES: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  pdf: 'application/pdf',
+  txt: 'text/plain',
+  md: 'text/markdown',
+  csv: 'text/csv',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  ogg: 'audio/ogg',
+  m4a: 'audio/mp4',
+  weba: 'audio/webm',
+}
+
+const ALLOWED_MEDIA_TYPES = allowedMediaTypesSchema.options as readonly string[]
+
+const attachmentAccept = [...ALLOWED_MEDIA_TYPES, ...Object.keys(EXTENSION_MEDIA_TYPES).map((ext) => `.${ext}`)].join(',')
+
+function resolveMediaType(file: File): string | null {
+  const type = file.type || EXTENSION_MEDIA_TYPES[file.name.split('.').pop()?.toLowerCase() ?? ''] || ''
+  return ALLOWED_MEDIA_TYPES.includes(type) ? type : null
+}
+
+function purposeForMediaType(mediaType: string): AttachmentPurpose {
+  if (mediaType.startsWith('image/')) return 'question'
+  if (mediaType === 'application/pdf') return 'reading'
+  if (mediaType.startsWith('audio/')) return 'audio'
+  return 'file'
+}
+
+function formatAttachmentSize(size: number): string {
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(0)} KB`
+  return `${(size / 1024 / 1024).toFixed(1)} MB`
+}
+
+function attachmentIconFor(mediaType: string) {
+  if (mediaType.startsWith('image/')) return ImageIcon
+  if (mediaType.startsWith('audio/')) return Music
+  return FileText
+}
+
+function triggerAttachmentPicker() {
+  attachmentFileInput.value?.click()
+  petReactKind('tilthead', {lookAtEl: '.composer-dock', lookDuration: 2000})
+}
+
+function handleFilesChosen(event: Event) {
+  const input = event.target as HTMLInputElement
+  const files = Array.from(input.files ?? [])
+  input.value = ''
+  attachmentError.value = null
+  for (const file of files) {
+    if (pendingAttachments.value.length >= 10) {
+      attachmentError.value = '一次最多携带 10 个附件。'
+      break
+    }
+    const mediaType = resolveMediaType(file)
+    if (!mediaType) {
+      attachmentError.value = `「${file.name}」的类型暂不支持（支持图片 / PDF / 文档 / 音频）。`
+      continue
+    }
+    if (file.size > MAX_ATTACHMENT_SIZE) {
+      attachmentError.value = `「${file.name}」超过 10MB 上限。`
+      continue
+    }
+    pendingAttachments.value.push({
+      key: `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+      file,
+      name: file.name,
+      mediaType,
+      size: file.size,
+      previewUrl: mediaType.startsWith('image/') ? URL.createObjectURL(file) : undefined,
+    })
+  }
+  if (pendingAttachments.value.length > 0) {
+    petReactKind('glad', {expression: MizukiExpression.face_notice_01, lookAtEl: '.composer-attachments', lookDuration: 2600})
+  }
+}
+
+function removePendingAttachment(key: string) {
+  const index = pendingAttachments.value.findIndex((item) => item.key === key)
+  if (index < 0) return
+  const [removed] = pendingAttachments.value.splice(index, 1)
+  if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl)
+  petReactKind('shake', {lookAtEl: '.composer-dock'})
+}
+
+/** 发送前上传全部待发附件，返回 turn 消息引用清单 */
+async function uploadPendingAttachments(): Promise<TurnAttachmentRef[]> {
+  const refs: TurnAttachmentRef[] = []
+  for (const item of pendingAttachments.value) {
+    const uploaded = await uploadAervoxAttachment({
+      file: item.file,
+      name: item.name,
+      mediaType: item.mediaType,
+      purpose: purposeForMediaType(item.mediaType),
+    })
+    refs.push({attachmentId: uploaded.id, name: item.name, mediaType: item.mediaType})
+  }
+  return refs
+}
+
+function clearPendingAttachments() {
+  for (const item of pendingAttachments.value) {
+    if (item.previewUrl) URL.revokeObjectURL(item.previewUrl)
+  }
+  pendingAttachments.value = []
 }
 
 async function scrollStoryToBottom() {
@@ -269,9 +490,24 @@ const latestAssistantLine = computed<StoryLine | null>(() => {
 const historyViewport = ref<HTMLElement | null>(null)
 
 watch(historyOpen, async (open) => {
-  if (!open) return
-  await nextTick()
-  historyViewport.value?.scrollTo({top: historyViewport.value.scrollHeight})
+  if (open) {
+    petReactKind('think', {expression: MizukiExpression.face_notice_01, lookAtEl: '.history-overlay', lookDuration: 3200})
+    await nextTick()
+    historyViewport.value?.scrollTo({top: historyViewport.value.scrollHeight})
+  } else {
+    petReactKind('nod')
+  }
+})
+
+/** 设置弹窗开合的桌宠反馈：开启时看向弹窗、关闭时点头 */
+watch(settingsOpen, async (open) => {
+  if (open) {
+    petReactKind('tilthead', {expression: MizukiExpression.face_notice_01})
+    await nextTick()
+    petReact({lookAtEl: '.el-dialog.settings-dialog', lookDuration: 3600})
+  } else {
+    petReactKind('nod')
+  }
 })
 
 function handleHistoryEscape(event: KeyboardEvent) {
@@ -285,22 +521,54 @@ function openTermExplore(term: ExtractedTerm) {
 
 async function sendMessage(value = input.value, options?: { quizMode?: boolean }) {
   const text = value.trim()
-  if (!text || streaming.value) return
+  if ((!text && pendingAttachments.value.length === 0) || streaming.value) return
+
+  // 附件先行上传（CAP-012 多模态输入），失败则保留待发清单供重试
+  let attachmentRefs: TurnAttachmentRef[] = []
+  if (pendingAttachments.value.length > 0) {
+    attachmentUploading.value = true
+    try {
+      attachmentRefs = await uploadPendingAttachments()
+    } catch (error) {
+      attachmentError.value = error instanceof Error ? `附件上传失败：${error.message}` : '附件上传失败，请重试。'
+      petReactKind('sad', {expression: MizukiExpression.face_trouble_01, lookAtEl: '.composer-attachments'})
+      return
+    } finally {
+      attachmentUploading.value = false
+    }
+  }
+
+  // 纯附件发送时使用占位文案满足 content 契约（min(1)）；对话记录展示用户原文或附件标记
+  const displayText = text || '（发送了附件）'
+  const outgoingText = text || '请查看我上传的附件。'
 
   // 若开启学习模式则自动附带学习模式前缀触发专属启发式教学 Prompt，对话记录仍展示用户原文。
   // 刷题触发时刷题前缀优先于学习模式前缀：本回合由刷题规范接管教学规则。
   const quizPrefix = options?.quizMode ? '[模式：刷题模式] ' : ''
   const modePrefix = quizPrefix || (studyModeEnabled.value ? '[模式：学习模式] ' : '')
-  const outgoing = modePrefix && !text.startsWith(modePrefix) ? modePrefix + text : text
+  const outgoing = modePrefix && !outgoingText.startsWith(modePrefix) ? modePrefix + outgoingText : outgoingText
 
   const assistantLine = createStoryLine('assistant', '', 'streaming')
-  story.value.push(createStoryLine('user', text), assistantLine)
+  const userLine = createStoryLine('user', displayText)
+  if (attachmentRefs.length > 0) {
+    userLine.attachments = pendingAttachments.value.map((item) => ({name: item.name, mediaType: item.mediaType, previewUrl: item.previewUrl}))
+    clearPendingAttachments()
+  }
+  story.value.push(userLine, assistantLine)
   input.value = ''
   streaming.value = true
   activeQuestion.value = null
   currentExtractedTerms.value = []
+  petReactKind('think', {lookAtEl: '.message-panel'})
   await scrollStoryToBottom()
+  recordProactiveActivity('aervox.activity', 'conversation.turn_submitted', text, {
+    studyModeEnabled: studyModeEnabled.value,
+    toolApprovalMode: toolApprovalMode.value,
+    characterCount: text.length,
+  })
 
+  /** 流式期间每 1.2s 驱动一次口型，让桌宠"开口说话" */
+  let lastSpeakAt = 0
   try {
     await streamAervoxTurn(
       outgoing,
@@ -308,11 +576,17 @@ async function sendMessage(value = input.value, options?: { quizMode?: boolean }
         onDelta: (delta) => {
           assistantLine.text += delta
           void scrollStoryToBottom()
+          const now = Date.now()
+          if (now - lastSpeakAt > 1200 && delta.trim()) {
+            lastSpeakAt = now
+            petReact({speak: delta})
+          }
         },
         onDone: () => {
           assistantLine.state = 'complete'
           activeQuestion.value = null
           if (!assistantLine.text) assistantLine.text = '这次没有收到可展示的回答，请再试一次。'
+          petReactKind('glad', {expression: MizukiExpression.face_smile_01, speak: assistantLine.text})
         },
         onUserQuestion: (qData) => {
           activeQuestion.value = qData
@@ -323,11 +597,12 @@ async function sendMessage(value = input.value, options?: { quizMode?: boolean }
           currentExtractedTerms.value = tData.terms
         },
       },
-      {toolApprovalMode: toolApprovalMode.value},
+      {toolApprovalMode: toolApprovalMode.value, attachments: attachmentRefs},
     )
   } catch (error) {
     assistantLine.state = 'error'
     assistantLine.text = error instanceof Error ? `连接失败：${error.message}` : '连接失败，请稍后重试。'
+    petReactKind('sad', {expression: MizukiExpression.face_sad_01})
   } finally {
     streaming.value = false
     if (!input.value.trim()) composerOpen.value = false
@@ -350,6 +625,7 @@ async function handleQuestionSubmit(answers: AskUserQuestionAnswerItem[]) {
 
 function expandComposer() {
   composerOpen.value = true
+  petReactKind('tilthead', {lookAtEl: '.composer-dock'})
   void nextTick(() => composerTextarea.value?.focus())
 }
 
@@ -379,7 +655,8 @@ function handleDockFocusOut(event: FocusEvent) {
 
 function saveToolApprovalMode(mode: ToolApprovalMode) {
   toolApprovalMode.value = mode
-  sessionStorage.setItem('aervox-tool-approval-mode', mode)
+  localStorage.setItem('aervox-tool-approval-mode', mode)
+  void refreshProactiveStatus()
 }
 
 function toggleToolApprovalMode() {
@@ -404,8 +681,186 @@ function resetFullAccessConfirmation() {
 
 type ToolId = 'study' | 'mistake' | 'todo' | 'timer' | 'history'
 
+function capabilityStatusLabel(status: ProfileCapabilityState['osStatus']): string {
+  return {
+    granted: '已授权',
+    denied: '已拒绝',
+    prompt: '等待授权',
+    unavailable: '不可用',
+    unknown: '待验证',
+  }[status]
+}
+
+function capabilityStatusClass(status: ProfileCapabilityState['osStatus']): string {
+  return `is-${status}`
+}
+
+function proactiveStateLabel(status: ProactiveProfileStatus | null): string {
+  if (!status) return isWeb.value ? '桌面端可用' : '未连接本地 Host'
+  return profileStatusLabel(status.effectiveState)
+}
+
+async function refreshProactiveStatus() {
+  const bridge = proactiveBridge()
+  if (isWeb.value || !bridge) {
+    proactiveStatus.value = null
+    return
+  }
+  try {
+    const [status, claims] = await Promise.all([
+      bridge.getStatus(toolApprovalMode.value),
+      bridge.listClaims().catch(() => []),
+    ])
+    proactiveStatus.value = status
+    proactiveClaims.value = claims
+    proactiveAutostart.value = proactiveStatus.value.persistence.autostart
+    proactiveBackground.value = proactiveStatus.value.persistence.background
+    proactiveError.value = null
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : '无法读取主动智能状态'
+  }
+}
+
+function proactiveClaimStateLabel(state: ProactiveProfileClaimView['state']): string {
+  return {
+    observed: '已观察',
+    inferred: '推断',
+    user_asserted: '用户提供',
+    confirmed: '已确认',
+    rejected: '已拒绝',
+  }[state]
+}
+
+async function updateProactiveClaimState(claim: ProactiveProfileClaimView, state: 'confirmed' | 'rejected') {
+  const bridge = proactiveBridge()
+  if (!bridge || isWeb.value) return
+  proactiveBusy.value = true
+  proactiveError.value = null
+  try {
+    const updated = await bridge.updateClaimState(claim.id, state)
+    proactiveClaims.value = proactiveClaims.value.map((item) => item.id === updated.id ? updated : item)
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : '画像记忆状态更新失败'
+  } finally {
+    proactiveBusy.value = false
+  }
+}
+
+function openProactiveAuthorization() {
+  proactiveError.value = null
+  proactiveAcknowledged.value = false
+  proactiveAutostart.value = proactiveStatus.value?.persistence.autostart ?? true
+  proactiveBackground.value = proactiveStatus.value?.persistence.background ?? true
+  proactiveDialogOpen.value = true
+}
+
+function resetProactiveAuthorization() {
+  proactiveAcknowledged.value = false
+}
+
+async function authorizeProactive() {
+  const bridge = proactiveBridge()
+  if (!bridge || isWeb.value || !proactiveAcknowledged.value || toolApprovalMode.value !== 'full_access') return
+  proactiveBusy.value = true
+  proactiveError.value = null
+  const request: ProfileAuthorizationRequest = {
+    acknowledged: true,
+    enableAutostart: proactiveAutostart.value,
+    enableBackground: proactiveBackground.value,
+    requestAllOsCapabilities: true,
+  }
+  try {
+    proactiveStatus.value = await bridge.authorize(request, toolApprovalMode.value)
+    proactiveDialogOpen.value = false
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : '主动智能授权失败'
+  } finally {
+    proactiveBusy.value = false
+  }
+}
+
+async function setProactiveDesiredState(desiredState: Extract<ProfileDesiredState, 'enabled' | 'paused' | 'revoked'>) {
+  const bridge = proactiveBridge()
+  if (!bridge || isWeb.value) return
+  if (desiredState === 'revoked' && !window.confirm('撤销后会立即停止新的观察、召回、分析、提醒和主动任务。已保存的本地数据不会自动删除。确定撤销吗？')) return
+  proactiveBusy.value = true
+  proactiveError.value = null
+  try {
+    proactiveStatus.value = await bridge.setDesiredState(desiredState, toolApprovalMode.value)
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : '主动智能状态更新失败'
+  } finally {
+    proactiveBusy.value = false
+  }
+}
+
+async function setProactivePersistence(update: ProfilePersistenceUpdate) {
+  const bridge = proactiveBridge()
+  if (!bridge || isWeb.value) return
+  proactiveBusy.value = true
+  proactiveError.value = null
+  try {
+    proactiveStatus.value = await bridge.setPersistence(update, toolApprovalMode.value)
+    proactiveAutostart.value = proactiveStatus.value.persistence.autostart
+    proactiveBackground.value = proactiveStatus.value.persistence.background
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : '常驻设置更新失败'
+  } finally {
+    proactiveBusy.value = false
+  }
+}
+
+async function requestProactiveCapability(capability: ProfileCapabilityState) {
+  const bridge = proactiveBridge()
+  if (!bridge || isWeb.value || !capability.canRequest) return
+  proactiveBusy.value = true
+  proactiveError.value = null
+  try {
+    proactiveStatus.value = await bridge.requestCapability(capability.id, toolApprovalMode.value)
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : '系统权限请求失败'
+  } finally {
+    proactiveBusy.value = false
+  }
+}
+
+async function deleteProactiveSource(capability: ProfileCapabilityState) {
+  const bridge = proactiveBridge()
+  if (!bridge || isWeb.value) return
+  if (!window.confirm(`撤销“${capability.label}”并删除其本地捕获、观察和画像证据？此操作不可撤销。`)) return
+  proactiveBusy.value = true
+  proactiveError.value = null
+  proactiveNotice.value = null
+  try {
+    proactiveStatus.value = await bridge.deleteSource(capability.id, toolApprovalMode.value)
+    proactiveNotice.value = `已撤销并清理 ${capability.label}`
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : '来源撤销与删除失败'
+  } finally {
+    proactiveBusy.value = false
+  }
+}
+
+async function exportProactiveData(includeRaw: boolean) {
+  const bridge = proactiveBridge()
+  if (!bridge || isWeb.value) return
+  if (includeRaw && !window.confirm('导出文件将包含仍在 7 天保留期内的原始副本。确定继续吗？')) return
+  proactiveBusy.value = true
+  proactiveError.value = null
+  proactiveNotice.value = null
+  try {
+    const result = await bridge.exportData(includeRaw)
+    if (result) proactiveNotice.value = `已导出到 ${result.path}`
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : '主动画像导出失败'
+  } finally {
+    proactiveBusy.value = false
+  }
+}
+
 /** 打开（或切换到）指定功能弹窗：同一时间只保留一个功能弹窗 */
 function openTool(target: ToolId, category?: 'practice' | 'goals' | 'review' | 'plans' | 'diary') {
+  recordProactiveActivity('aervox.operation', 'workbench.tool_opened', undefined, {target})
   settingsOpen.value = false
   studyOpen.value = false
   mistakeOpen.value = false
@@ -683,6 +1138,8 @@ function nextPracticeQuestion() {
 
 function toggleTimer() {
   timerRunning.value = !timerRunning.value
+  if (timerRunning.value) petReactKind('nod', {expression: MizukiExpression.face_serious_01})
+  else petReactKind('tilthead', {expression: MizukiExpression.face_smile_01})
 }
 
 function resetTimer() {
@@ -806,12 +1263,18 @@ function isCardPicked(id: CardId) {
   return cardSlots.value.includes(id)
 }
 
-function selectCard(slot: number, id: CardId | null) {
+function selectCard(slot: number, id: CardId | null, event?: MouseEvent) {
   cardSlots.value = cardSlots.value.map((current, index) => index === slot ? id : current)
   localStorage.setItem('aervox-side-cards', JSON.stringify(cardSlots.value))
+  // 桌宠反馈：看向被操作的那个卡片槽位，选功能时开心、移除时摇头
+  const slotEl = (event?.target as HTMLElement | null)?.closest?.('.side-card-slot') ?? undefined
+  if (id) petReactKind('glad', {expression: MizukiExpression.face_smile_03, lookAtEl: slotEl, lookDuration: 3600})
+  else petReactKind('shake', {expression: MizukiExpression.face_trouble_01, lookAtEl: slotEl})
 }
 
-function activateCard(card: CardDefinition) {
+function activateCard(card: CardDefinition, event?: MouseEvent | KeyboardEvent) {
+  const cardEl = (event?.currentTarget as HTMLElement | null)?.closest?.('.side-card') ?? undefined
+  petReactKind('forward', {expression: MizukiExpression.face_notice_01, lookAtEl: cardEl})
   card.action()
 }
 
@@ -863,6 +1326,9 @@ async function toggleVoiceInput() {
 
 function toggleStudyMode() {
   studyModeEnabled.value = !studyModeEnabled.value
+  recordProactiveActivity('aervox.operation', 'conversation.study_mode_changed', undefined, {enabled: studyModeEnabled.value})
+  if (studyModeEnabled.value) petReactKind('glad', {expression: MizukiExpression.face_smile_01, lookAtEl: '.floating-study-switch-wrap'})
+  else petReactKind('shake', {expression: MizukiExpression.face_normal_01, lookAtEl: '.floating-study-switch-wrap'})
   if (!studyModeEnabled.value) {
     currentExtractedTerms.value = []
     exploreDialogOpen.value = false
@@ -906,6 +1372,7 @@ async function setTheme(theme: 'light' | 'dark') {
 }
 
 let timer: number | undefined
+let removeProactiveStatusListener: (() => void) | undefined
 const openSettings = () => {
   settingsOpen.value = true
 }
@@ -935,7 +1402,7 @@ onMounted(() => {
     // Ignore malformed local preferences and use defaults.
   }
 
-  const savedToolApprovalMode = sessionStorage.getItem('aervox-tool-approval-mode')
+  const savedToolApprovalMode = localStorage.getItem('aervox-tool-approval-mode')
   if (savedToolApprovalMode === 'full_access') toolApprovalMode.value = 'full_access'
 
   try {
@@ -959,6 +1426,16 @@ onMounted(() => {
     isDark.value = saved === 'dark'
   }
 
+  if (!isWeb.value) {
+    const bridge = proactiveBridge()
+    removeProactiveStatusListener = bridge?.onStatusChange((status) => {
+      proactiveStatus.value = status
+      proactiveAutostart.value = status.persistence.autostart
+      proactiveBackground.value = status.persistence.background
+    })
+    void refreshProactiveStatus()
+  }
+
   void scrollStoryToBottom()
 
   document.addEventListener('click', handleMenuDocumentClick)
@@ -975,6 +1452,8 @@ onUnmounted(() => {
   document.removeEventListener('click', handleMenuDocumentClick)
   document.removeEventListener('keydown', handleHistoryEscape)
   window.removeEventListener('aervox:open-settings', openSettings)
+  removeProactiveStatusListener?.()
+  clearPendingAttachments()
 })
 </script>
 
@@ -1061,8 +1540,8 @@ onUnmounted(() => {
             role="region"
             tabindex="0"
             :aria-label="`打开${card.label}`"
-            @click="activateCard(card)"
-            @keydown.enter="activateCard(card)"
+            @click="activateCard(card, $event)"
+            @keydown.enter="activateCard(card, $event)"
           >
             <header class="side-card-head">
               <span class="side-card-icon"><component :is="card.icon" :size="24" /></span>
@@ -1070,7 +1549,7 @@ onUnmounted(() => {
                 <strong>{{ card.label }}</strong>
                 <small>{{ card.description }}</small>
               </span>
-              <button class="side-card-remove" type="button" aria-label="移除此卡片" @click.stop="selectCard(slotIndex, null)">
+              <button class="side-card-remove" type="button" aria-label="移除此卡片" @click.stop="selectCard(slotIndex, null, $event)">
                 <X :size="15" />
               </button>
             </header>
@@ -1097,7 +1576,7 @@ onUnmounted(() => {
               type="button"
               class="side-card-grid-item"
               :disabled="isCardPicked(option.id)"
-              @click="selectCard(slotIndex, option.id)"
+              @click="selectCard(slotIndex, option.id, $event)"
             >
               <component :is="option.icon" :size="15" />
               <span>{{ option.label }}</span>
@@ -1170,16 +1649,43 @@ onUnmounted(() => {
           <MessageCircle :size="16" />
           <span class="composer-collapsed-hint">{{ streaming ? '思隅正在回应…' : (studyModeEnabled ? '输入学习问题或卡点（学习模式已开启）…' : '点击输入消息…') }}</span>
           <span v-if="studyModeEnabled" class="composer-mode-chip">学习模式</span>
-          <span class="composer-access-chip" :class="{full: toolApprovalMode === 'full_access'}">
-            <ShieldAlert v-if="toolApprovalMode === 'full_access'" :size="12" />
-            <ShieldCheck v-else :size="12" />
-            {{ toolApprovalMode === 'full_access' ? '完全访问' : '需确认' }}
+          <span class="composer-access-chip" :class="{full: toolApprovalMode === 'full_access', proactive: proactiveActive}">
+            <component :is="accessChipIcon" :size="12" />
+            {{ accessChipLabel }}
           </span>
           <ChevronUp :size="15" />
         </button>
 
         <form v-else class="composer-expanded" @submit.prevent="sendMessage()">
           <label class="sr-only" for="aervox-composer">输入要发送给思隅的内容</label>
+          <input
+            ref="attachmentFileInput"
+            type="file"
+            class="sr-only"
+            multiple
+            :accept="attachmentAccept"
+            aria-label="选择要上传的附件（图片 / PDF / 文档 / 音频）"
+            @change="handleFilesChosen"
+          />
+          <div v-if="pendingAttachments.length > 0" class="composer-attachments" aria-label="待发送附件">
+            <div v-for="item in pendingAttachments" :key="item.key" class="attachment-chip">
+              <img v-if="item.previewUrl" :src="item.previewUrl" :alt="item.name" class="attachment-thumb" />
+              <span v-else class="attachment-icon"><component :is="attachmentIconFor(item.mediaType)" :size="15" /></span>
+              <span class="attachment-meta">
+                <span class="attachment-name" :title="item.name">{{ item.name }}</span>
+                <span class="attachment-size">{{ formatAttachmentSize(item.size) }}</span>
+              </span>
+              <button
+                type="button"
+                class="attachment-remove"
+                :aria-label="`移除附件 ${item.name}`"
+                :disabled="streaming || attachmentUploading"
+                @click="removePendingAttachment(item.key)"
+              >
+                <X :size="13" />
+              </button>
+            </div>
+          </div>
           <textarea
             id="aervox-composer"
             ref="composerTextarea"
@@ -1196,18 +1702,28 @@ onUnmounted(() => {
             <button
               type="button"
               class="permission-toggle"
-              :class="{full: toolApprovalMode === 'full_access'}"
+              :class="{full: toolApprovalMode === 'full_access', proactive: proactiveActive}"
               :aria-pressed="toolApprovalMode === 'full_access'"
               :title="toolApprovalMode === 'full_access' ? '关闭完全访问' : '开启完全访问'"
               :disabled="streaming"
               @mousedown.prevent
               @click="toggleToolApprovalMode"
             >
-              <ShieldAlert v-if="toolApprovalMode === 'full_access'" :size="16" />
-              <ShieldCheck v-else :size="16" />
-              <span>{{ toolApprovalMode === 'full_access' ? '完全访问' : '操作需确认' }}</span>
+              <component :is="accessChipIcon" :size="16" />
+              <span>{{ accessChipLabel }}</span>
             </button>
             <div class="composer-actions">
+              <button
+                type="button"
+                class="attachment-picker-btn"
+                title="上传附件（图片 / PDF / 文档 / 音频，≤10MB）"
+                :aria-label="attachmentUploading ? '附件上传中' : '上传附件'"
+                :disabled="streaming || attachmentUploading"
+                @click="triggerAttachmentPicker"
+              >
+                <span v-if="attachmentUploading" class="sending-dot" />
+                <Paperclip v-else :size="18" />
+              </button>
               <button
                 type="button"
                 class="voice-input-btn"
@@ -1220,7 +1736,7 @@ onUnmounted(() => {
                 <Mic v-else :size="19" />
                 <span v-if="voiceInput.isListening.value" class="recording-pulse" />
               </button>
-              <button type="submit" :disabled="!input.trim() || streaming" :aria-label="streaming ? '正在生成回答' : '发送消息'">
+              <button type="submit" :disabled="(!input.trim() && pendingAttachments.length === 0) || streaming || attachmentUploading" :aria-label="streaming ? '正在生成回答' : '发送消息'">
                 <span v-if="streaming" class="sending-dot" />
                 <Send v-else :size="20" />
               </button>
@@ -1233,6 +1749,12 @@ onUnmounted(() => {
 
         <div v-if="voiceInputError" class="voice-input-inline-error">
           <span>{{ voiceInputError }}</span>
+        </div>
+        <div v-if="attachmentError" class="voice-input-inline-error attachment-inline-error">
+          <span>{{ attachmentError }}</span>
+          <button type="button" class="attachment-error-dismiss" aria-label="关闭提示" @click="attachmentError = null">
+            <X :size="13" />
+          </button>
         </div>
       </section>
     </div>
@@ -1252,6 +1774,12 @@ onUnmounted(() => {
               <span class="vn-history-text">
                 <span v-if="line.speaker === 'assistant'" class="markdown-body" v-html="renderMarkdown(line.text || '…')" />
                 <template v-else>{{ line.text }}</template>
+                <span v-if="line.attachments && line.attachments.length > 0" class="vn-history-attachments">
+                  <span v-for="(att, attIndex) in line.attachments" :key="attIndex" class="vn-history-attachment">
+                    <component :is="attachmentIconFor(att.mediaType)" :size="12" />
+                    <span>{{ att.name }}</span>
+                  </span>
+                </span>
               </span>
             </p>
             <p v-if="story.length === 0" class="vn-history-empty">还没有对话记录，先和思隅说句话吧。</p>
@@ -1829,6 +2357,79 @@ onUnmounted(() => {
               </button>
             </div>
           </div>
+          <div v-else-if="settingsCategory === 'proactive'" class="settings-section proactive-settings">
+            <div class="settings-section-heading">
+              <span class="heading-icon-wrap"><BrainCircuit :size="18" /></span>
+              <span><strong>主动智能模式</strong><small>全量画像、持续本地处理与主动操作授权</small></span>
+            </div>
+
+            <div class="proactive-status-banner" :class="`is-${proactiveStatus?.effectiveState ?? 'unavailable'}`">
+              <component :is="proactiveActive ? BrainCircuit : AlertTriangle" :size="20" />
+              <span>
+                <strong>{{ proactiveStateLabel(proactiveStatus) }}</strong>
+                <small v-if="proactiveStatus?.host">{{ proactiveStatus.host.localOnly ? '数据处理边界：仅本机' : '本地边界未验证' }} · {{ proactiveStatus.host.platform }}</small>
+                <small v-else>主动智能模式需要受信的 Electron 本地 Host，Web 端不会伪造授权。</small>
+              </span>
+              <button v-if="!isWeb" type="button" class="proactive-icon-button" aria-label="刷新主动智能状态" title="刷新状态" :disabled="proactiveBusy" @click="refreshProactiveStatus"><RefreshCw :size="15" /></button>
+            </div>
+
+            <div v-if="isWeb" class="settings-note proactive-warning"><AlertTriangle :size="16" />请在桌面端完成设备授权；浏览器端不会读取系统级来源。</div>
+            <template v-else>
+              <p v-if="proactiveError" class="proactive-error" role="alert">{{ proactiveError }}</p>
+              <p v-if="proactiveNotice" class="settings-note" role="status">{{ proactiveNotice }}</p>
+              <div class="proactive-actions">
+                <button
+                  v-if="!proactiveStatus || proactiveStatus.desiredState === 'none' || proactiveStatus.desiredState === 'revoked'"
+                  type="button"
+                  class="proactive-primary-action"
+                  :disabled="proactiveBusy || toolApprovalMode !== 'full_access'"
+                  :title="toolApprovalMode !== 'full_access' ? '请先开启完全访问' : '打开全量画像授权向导'"
+                  @click="openProactiveAuthorization"
+                ><BrainCircuit :size="15" />授权并启用</button>
+                <button v-else-if="proactiveStatus.desiredState === 'paused'" type="button" :disabled="proactiveBusy || toolApprovalMode !== 'full_access'" @click="setProactiveDesiredState('enabled')"><PlayCircle :size="15" />恢复观察</button>
+                <button v-else type="button" :disabled="proactiveBusy" @click="setProactiveDesiredState('paused')"><PauseCircle :size="15" />暂停观察</button>
+                <button v-if="proactiveStatus && (proactiveStatus.effectiveState === 'limited' || proactiveStatus.effectiveState === 'suspended') && proactiveStatus.desiredState !== 'none' && proactiveStatus.desiredState !== 'revoked'" type="button" :disabled="proactiveBusy || toolApprovalMode !== 'full_access'" @click="openProactiveAuthorization"><RefreshCw :size="15" />重新确认授权</button>
+                <button v-if="proactiveStatus?.desiredState === 'enabled' || proactiveStatus?.desiredState === 'paused'" type="button" class="danger" :disabled="proactiveBusy" @click="setProactiveDesiredState('revoked')"><ShieldAlert :size="15" />撤销授权</button>
+                <button v-if="proactiveStatus" type="button" :disabled="proactiveBusy" @click="exportProactiveData(false)"><Download :size="15" />导出画像</button>
+                <button v-if="proactiveStatus" type="button" :disabled="proactiveBusy" @click="exportProactiveData(true)"><Database :size="15" />导出含原始副本</button>
+              </div>
+
+              <div class="settings-row settings-choice-row proactive-persistence-row">
+                <span><strong>开机自启</strong><small>允许 Host 在设备登录后恢复；系统实际状态以权限回执为准</small></span>
+                <input v-model="proactiveAutostart" type="checkbox" class="settings-switch" :disabled="proactiveBusy" @change="setProactivePersistence({autostart: proactiveAutostart})" />
+              </div>
+              <div class="settings-row settings-choice-row proactive-persistence-row">
+                <span><strong>后台持续运行</strong><small>允许应用窗口关闭后保持主动 Host；平台不支持时会显示受限</small></span>
+                <input v-model="proactiveBackground" type="checkbox" class="settings-switch" :disabled="proactiveBusy" @change="setProactivePersistence({background: proactiveBackground})" />
+              </div>
+
+              <div class="proactive-capability-heading"><strong>全量画像来源与动作</strong><small>每项状态来自 OS 或已接入适配器；“待验证”不会被当作已授权。</small></div>
+              <ul class="proactive-capability-list">
+                <li v-for="capability in proactiveStatus?.capabilities ?? []" :key="capability.id" class="proactive-capability-item">
+                  <span class="proactive-capability-marker" :class="capabilityStatusClass(capability.osStatus)" aria-hidden="true"><Check v-if="capability.osStatus === 'granted'" :size="13" /><AlertTriangle v-else :size="13" /></span>
+                  <span class="proactive-capability-copy"><strong>{{ capability.label }}</strong><small>{{ capability.description }}<template v-if="capability.reason"> · {{ capability.reason }}</template></small></span>
+                  <span class="proactive-capability-state" :class="capabilityStatusClass(capability.osStatus)">{{ capabilityStatusLabel(capability.osStatus) }}</span>
+                  <span class="proactive-capability-actions">
+                    <button v-if="capability.canRequest && capability.osStatus !== 'granted'" type="button" class="proactive-request-button" :disabled="proactiveBusy" @click="requestProactiveCapability(capability)">请求系统权限</button>
+                    <button v-if="proactiveStatus?.desiredState === 'enabled' || proactiveStatus?.desiredState === 'paused'" type="button" class="proactive-delete-button" :disabled="proactiveBusy" :aria-label="`撤销并删除${capability.label}`" title="撤销并删除此来源" @click="deleteProactiveSource(capability)"><Trash2 :size="13" /></button>
+                  </span>
+                </li>
+                <li v-if="!proactiveStatus" class="study-empty">等待桌面 Host 返回能力快照。</li>
+              </ul>
+              <div class="proactive-capability-heading"><strong>本地画像记忆</strong><small>推断可由你确认或拒绝；被拒绝的声明不会进入后续个性化上下文。</small></div>
+              <ul class="proactive-claim-list">
+                <li v-for="claim in proactiveClaims" :key="claim.id" class="proactive-claim-item">
+                  <span class="proactive-claim-copy"><strong>{{ claim.content }}</strong><small>{{ claim.claimType }} · 置信度 {{ claim.confidence }} · {{ proactiveClaimStateLabel(claim.state) }}</small></span>
+                  <span class="proactive-claim-actions">
+                    <button type="button" :class="{active: claim.state === 'confirmed'}" :disabled="proactiveBusy" title="确认这条画像记忆" aria-label="确认画像记忆" @click="updateProactiveClaimState(claim, 'confirmed')"><Check :size="14" /></button>
+                    <button type="button" :class="{rejected: claim.state === 'rejected'}" :disabled="proactiveBusy" title="拒绝这条画像记忆" aria-label="拒绝画像记忆" @click="updateProactiveClaimState(claim, 'rejected')"><X :size="14" /></button>
+                  </span>
+                </li>
+                <li v-if="proactiveClaims.length === 0" class="study-empty">尚未形成画像记忆。</li>
+              </ul>
+              <div class="settings-note proactive-retention-note"><Database :size="16" />原始屏幕、音频、输入、剪贴板和文件副本最多保留 7 天，并在成功提炼为用户记忆后才删除；控制面与画像数据留在本机。</div>
+            </template>
+          </div>
           <div v-else-if="settingsCategory === 'appearance'" class="settings-section">
             <div class="settings-section-heading">
               <span class="heading-icon-wrap"><Sun :size="18" /></span>
@@ -1893,6 +2494,43 @@ onUnmounted(() => {
           <button type="button" class="permission-cancel" @click="fullAccessDialogOpen = false">取消</button>
           <button type="button" class="permission-enable" :disabled="!fullAccessAcknowledged" @click="enableFullAccess">
             启用完全访问
+          </button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="proactiveDialogOpen"
+      title="授权主动智能模式？"
+      class="permission-confirm-dialog proactive-authorization-dialog"
+      width="min(620px, calc(100vw - 28px))"
+      align-center
+      @closed="resetProactiveAuthorization"
+    >
+      <div class="permission-confirmation">
+        <span class="permission-confirmation-icon proactive-confirmation-icon"><BrainCircuit :size="24" /></span>
+        <div>
+          <p>主动智能模式会在本机持续理解你的使用习惯、操作习惯和已授权私人资料，并可执行你单独授权的本地、外部、特权及不可逆动作。</p>
+          <small>需要先保持“完全访问”。系统会逐项请求当前平台可以验证的权限；无法探测或未接入的来源会明确显示为“待验证”，不会静默开启。</small>
+        </div>
+      </div>
+      <div class="proactive-authorization-scope">
+        <strong>本次授权范围</strong>
+        <span>应用与窗口、浏览器、键鼠与剪贴板、屏幕、文件、通信、音视频、位置、传感器、敏感私人资料，以及后台与主动动作权限。</span>
+      </div>
+      <label class="settings-row settings-choice-row proactive-dialog-choice"><span><strong>开机自启</strong><small>设备登录后恢复 Host（会告知系统设置结果）</small></span><input v-model="proactiveAutostart" type="checkbox" class="settings-switch" /></label>
+      <label class="settings-row settings-choice-row proactive-dialog-choice"><span><strong>后台持续运行</strong><small>窗口关闭后继续运行已授权观察与处理</small></span><input v-model="proactiveBackground" type="checkbox" class="settings-switch" /></label>
+      <label class="permission-acknowledgement proactive-acknowledgement">
+        <input v-model="proactiveAcknowledged" type="checkbox" />
+        <span>我已阅读全量画像范围，确认这些来源和动作由我单独授权，并知悉数据仅在本机持久化。</span>
+      </label>
+      <template #footer>
+        <div class="permission-confirmation-actions">
+          <button type="button" class="permission-cancel" @click="proactiveDialogOpen = false">取消</button>
+          <button type="button" class="permission-enable proactive-enable" :disabled="!proactiveAcknowledged || proactiveBusy || toolApprovalMode !== 'full_access'" @click="authorizeProactive">
+            <RefreshCw v-if="proactiveBusy" class="proactive-spinner" :size="15" />
+            <BrainCircuit v-else :size="15" />
+            {{ toolApprovalMode === 'full_access' ? '请求权限并启用' : '请先开启完全访问' }}
           </button>
         </div>
       </template>

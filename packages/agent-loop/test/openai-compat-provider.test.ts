@@ -81,6 +81,31 @@ describe("createOpenAICompatProvider（阶段 2e）", () => {
     ]);
   });
 
+  it("将含点号的内部工具名编码为 OpenAI 兼容名称，并在回调时还原", async () => {
+    const fetchFn = mockFetch(
+      sseBody([
+        JSON.stringify({
+          choices: [{
+            delta: { tool_calls: [{ index: 0, id: "call_1", function: { name: "avx_subagent_delegate", arguments: "{}" } }] },
+            finish_reason: "tool_calls",
+          }],
+        }),
+      ]),
+    );
+    const provider = createOpenAICompatProvider({ baseUrl: "http://x/v1", modelId: "m" });
+    const chunks = await collect(provider, {
+      ...baseRequest,
+      tools: [{ name: "subagent_delegate", description: "委派子任务", readOnly: true }],
+    });
+
+    expect(chunks.find((chunk) => chunk.toolCalls)?.toolCalls).toEqual([
+      { id: "call_1", name: "subagent_delegate", arguments: {} },
+    ]);
+    const [, init] = fetchFn.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(String(init.body)) as { tools: Array<{ function: { name: string } }> };
+    expect(body.tools[0]?.function.name).toBe("avx_subagent_delegate");
+  });
+
   it("请求体组装：messages 含 tool 消息映射，tools 注入只读白名单 schema，stream:true", async () => {
     const fetchFn = mockFetch(sseBody([]));
     const provider = createOpenAICompatProvider({
@@ -107,11 +132,11 @@ describe("createOpenAICompatProvider（阶段 2e）", () => {
     expect(body.stream).toBe(true);
     expect(body.messages).toEqual([
       { role: "user", content: "帮我查复习计划" },
-      { role: "assistant", content: "我先查一下", name: "search_notes" },
+      { role: "assistant", content: "我先查一下", name: "avx_search_notes" },
       { role: "tool", content: "{\"ok\":true}", tool_call_id: "call_1" },
     ]);
     expect(body.tools).toEqual([
-      { type: "function", function: { name: "search_notes", description: "查笔记", parameters: { type: "object" } } },
+      { type: "function", function: { name: "avx_search_notes", description: "查笔记", parameters: { type: "object" } } },
     ]);
   });
 
@@ -144,5 +169,20 @@ describe("createOpenAICompatProvider（阶段 2e）", () => {
     const provider = createOpenAICompatProvider({ baseUrl: "http://x/v1", modelId: "m" });
     const chunks = collect(provider);
     await expect(chunks).rejects.toThrow(/llm_http_401/);
+  });
+
+  it("上游模型长期不响应时中止请求并报告 llm_timeout", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn((_url: string, init?: RequestInit) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+    })));
+    const provider = createOpenAICompatProvider({ baseUrl: "http://x/v1", modelId: "m", timeoutMs: 10 });
+    const chunks = collect(provider);
+    const timeoutAssertion = expect(chunks).rejects.toThrow(/llm_timeout/);
+
+    await vi.advanceTimersByTimeAsync(10);
+
+    await timeoutAssertion;
+    vi.useRealTimers();
   });
 });

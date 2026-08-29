@@ -26,6 +26,7 @@ import { createTenantInboxPort } from "../inbox/port.js";
 import { runLoopTurnOnce } from "./agent-executor.js";
 import { UserQuestionCoordinator } from "./user-question-coordinator.js";
 import { loadApiConfig } from "@aervox/config";
+import type { ProactiveActionAuthorizer } from "../proactive/action-authorizer.js";
 
 let seq = 0;
 const nextTurnId = (): string => `turn_${Date.now().toString(36)}_${(++seq).toString(36)}`;
@@ -41,9 +42,9 @@ export interface ConversationRouteDeps {
   inboxRepo?: SqliteAgentInboxRepository;
   /** 5b：Skill 渐进披露清单加载器（activeOnly；缺省不注入 Skills 段） */
   skillLoader?: () => Promise<SkillDescriptor[]>;
-  /** 5c：Subagent 委托执行器工厂（request 级 tenant 绑定；注入则贡献 subagent.delegate 工具） */
+  /** 5c：Subagent 委托执行器工厂（request 级 tenant 绑定；注入则贡献 subagent_delegate 工具） */
   subagentFactory?: (tenant: import("@aervox/database").TenantContext) => import("@aervox/agent-loop").SubagentPort;
-  /** 5c：已注册 Workflow 定义清单（贡献 workflow.run 工具；GET /v1/workflows 元数据） */
+  /** 5c：已注册 Workflow 定义清单（贡献 workflow_run 工具；GET /v1/workflows 元数据） */
   workflows?: import("@aervox/agent-loop").WorkflowDefinition[];
   /** 5c：subagent_runs 仓储（GET /v1/turns/:id/subagents 审计查询） */
   subagentRunRepo?: SqliteSubagentRunRepository;
@@ -53,6 +54,10 @@ export interface ConversationRouteDeps {
   userQuestionCoordinator?: UserQuestionCoordinator;
   /** CAP-016：刷题模式作答落库端口工厂（request 级 tenant 绑定） */
   practiceAttemptFactory?: (tenant: import("@aervox/database").TenantContext) => import("@aervox/agent-loop").PracticeAttemptPort;
+  /** CAP-033：主动智能全动作授权与本地动作账本。 */
+  proactiveActionAuthorizer?: ProactiveActionAuthorizer;
+  /** CAP-033：本地画像上下文来源。 */
+  proactiveRepository?: import("@aervox/database").IProactiveProfileRepository;
 }
 
 export function registerConversationRoutes(
@@ -94,6 +99,16 @@ export function registerConversationRoutes(
     }
 
     let userMessage = parsed.data.message.content;
+
+    // 多模态输入（CAP-012）：消息携带附件引用时附加结构化清单，
+    // Agent Loop 消费 userMessage 即可感知附件（图片/音频/文档），后续接 OCR/转写管线。
+    const attachments = parsed.data.message.attachments ?? [];
+    if (attachments.length > 0) {
+      const list = attachments
+        .map((a) => `- ${a.name ?? a.attachmentId}${a.mediaType ? ` (${a.mediaType})` : ""} [id: ${a.attachmentId}]`)
+        .join("\n");
+      userMessage = `${userMessage}\n\n[附件清单]\n${list}`;
+    }
 
     // 阶段 5a-2：消费本 session 的 next-turn 收件箱项（followup 排队为新 Turn 输入，§7.2）
     if (deps.inboxRepo) {
@@ -163,6 +178,8 @@ export function registerConversationRoutes(
         userQuestionPort: uqPort,
         // CAP-016: 刷题模式作答落库端口
         practiceAttemptPort,
+        proactiveActionAuthorizer: deps.proactiveActionAuthorizer,
+        proactiveRepository: deps.proactiveRepository,
       },
     );
 
@@ -323,7 +340,7 @@ export function registerConversationRoutes(
     return reply.send({ turnId, runs });
   });
 
-  // 阶段 5c：Workflow 注册清单（元数据；执行经 `workflow.run` 工具，不在此直接触发）
+  // 阶段 5c：Workflow 注册清单（元数据；执行经 `workflow_run` 工具，不在此直接触发）
   app.get("/v1/workflows", async (_req, reply) => {
     const workflows = (deps.workflows ?? []).map((w) => ({
       name: w.name,

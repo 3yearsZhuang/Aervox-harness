@@ -6,12 +6,14 @@
   "description": "Aervox shared Vue workbench, platform-neutral components, companion visual core and theme tokens.",
   "exports": {
     ".": "./src/index.ts",
+    "./proactive": "./src/proactive/profile-authorization.ts",
     "./live2d/layout": "./src/live2d/layout.ts",
     "./theme": "./src/theme/index.css"
   },
   "scripts": {
     "typecheck": "vue-tsc --noEmit",
-    "build": "vue-tsc --noEmit"
+    "build": "vue-tsc --noEmit",
+    "test": "vitest run"
   },
   "peerDependencies": {
     "@aervox/api-client": "workspace:*",

@@ -16,6 +16,10 @@ export interface OpenAICompatConfig {
   modelId: string;
   temperature?: number;
   maxTokens?: number;
+  /** Hard deadline for the upstream request and its SSE stream. */
+  timeoutMs?: number;
+  /** CAP-033 local-only calls reject redirects instead of following them. */
+  redirect?: RequestRedirect;
 }
 
 interface OpenAIToolCallDelta {
@@ -31,12 +35,17 @@ interface ChatCompletionChunk {
   }>;
 }
 
-function toOpenAIMessages(messages: PromptMessage[]): unknown[] {
+/** OpenAI-compatible providers only accept [A-Za-z0-9_-] in function names. */
+function encodeToolName(name: string): string {
+  return `avx_${name.replace(/[^a-zA-Z0-9_-]/g, (character) => `_x${character.codePointAt(0)!.toString(16)}_`)}`;
+}
+
+function toOpenAIMessages(messages: PromptMessage[], encodeName: (name: string) => string): unknown[] {
   return messages.map((m) => {
     if (m.role === "tool") {
       return { role: "tool", content: m.content, tool_call_id: m.toolCallId };
     }
-    return { role: m.role, content: m.content, name: m.name };
+    return { role: m.role, content: m.content, ...(m.name ? { name: encodeName(m.name) } : {}) };
   });
 }
 
@@ -52,31 +61,46 @@ function parseToolArguments(raw: string | undefined): unknown {
 /** 构造 OpenAI 兼容流式 Provider */
 export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelProviderPort {
   const baseUrl = config.baseUrl.replace(/\/+$/, "");
+  const timeoutMs = config.timeoutMs ?? 45_000;
   return {
     id: "openai-compat",
     async *stream(request: ModelRequest): AsyncIterable<ModelChunk> {
-      const res = await fetch(`${baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
-        },
-        body: JSON.stringify({
-          model: config.modelId,
-          messages: toOpenAIMessages(request.context.messages),
-          stream: true,
-          temperature: config.temperature ?? 0.7,
-          ...(config.maxTokens ? { max_tokens: config.maxTokens } : {}),
-          ...(request.tools?.length
-            ? {
-                tools: request.tools.map((t) => ({
-                  type: "function",
-                  function: { name: t.name, description: t.description, parameters: t.parameters ?? { type: "object" } },
-                })),
-              }
-            : {}),
-        }),
-      });
+      const toolNameByWireName = new Map(
+        (request.tools ?? []).map((tool) => [encodeToolName(tool.name), tool.name]),
+      );
+      const encodeName = (name: string): string => toolNameByWireName.has(name) ? name : encodeToolName(name);
+      const controller = new AbortController();
+      let timedOut = false;
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, timeoutMs);
+
+      try {
+        const res = await fetch(`${baseUrl}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
+          },
+          body: JSON.stringify({
+            model: config.modelId,
+            messages: toOpenAIMessages(request.context.messages, encodeName),
+            stream: true,
+            temperature: config.temperature ?? 0.7,
+            ...(config.maxTokens ? { max_tokens: config.maxTokens } : {}),
+            ...(request.tools?.length
+              ? {
+                  tools: request.tools.map((t) => ({
+                    type: "function",
+                    function: { name: encodeToolName(t.name), description: t.description, parameters: t.parameters ?? { type: "object" } },
+                  })),
+                }
+              : {}),
+          }),
+          signal: controller.signal,
+          redirect: config.redirect,
+        });
       if (!res.ok || !res.body) {
         const detail = await res.text().catch(() => "");
         throw new Error(`llm_http_${res.status}: ${detail.slice(0, 200)}`);
@@ -94,7 +118,7 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
         for (const [, acc] of [...toolAccumulator.entries()].sort(([a], [b]) => a - b)) {
           calls.push({
             id: acc.id ?? `tool_${calls.length + 1}`,
-            name: acc.name,
+            name: toolNameByWireName.get(acc.name) ?? acc.name,
             arguments: parseToolArguments(acc.args),
           });
         }
@@ -148,6 +172,12 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
       const leftover = flushToolCalls();
       if (leftover.length > 0) {
         yield { text: "", isFinal: true, toolCalls: leftover };
+      }
+      } catch (error) {
+        if (timedOut) throw new Error(`llm_timeout: upstream model did not respond within ${timeoutMs}ms`);
+        throw error;
+      } finally {
+        clearTimeout(timeout);
       }
     },
   };

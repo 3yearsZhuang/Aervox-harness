@@ -231,7 +231,7 @@ export interface AgentInboxCommand {
 
 /**
  * Subagent 委托输入（阶段 5c：Subagent/Workflow Contribution，AVX-HAR-001 §13 阶段 5）。
- * Leader Loop 在 Step 中调用 `subagent.delegate`，宿主创建独立子 turn/attempt（落库可审计/恢复）。
+ * Leader Loop 在 Step 中调用 `subagent_delegate`，宿主创建独立子 turn/attempt（落库可审计/恢复）。
  */
 export interface SubagentDelegateInput {
   /** 父（Leader）Turn/Attempt/执行键（子任务溯源；parentAttemptId+parentExecutionId 幂等） */
@@ -244,7 +244,7 @@ export interface SubagentDelegateInput {
   task: string;
   /**
    * 子任务工具集约束（缺省：Host 默认工具集）。
-   * 递归防护：Leader 侧生成的子工具集必须剔除 `subagent.delegate`/`workflow.run`。
+   * 递归防护：Leader 侧生成的子工具集必须剔除 `subagent_delegate`/`workflow_run`。
    */
   toolScope?: ToolSpec[];
 }
@@ -281,7 +281,7 @@ export interface WorkflowStep {
   execute(ctx: WorkflowContext, input: unknown): Promise<WorkflowStepResult>;
 }
 
-/** Workflow 定义（宿主以类型安全步骤数组声明，天然过 typecheck；`workflow.run` 为写类走既有审批） */
+/** Workflow 定义（宿主以类型安全步骤数组声明，天然过 typecheck；`workflow_run` 为写类走既有审批） */
 export interface WorkflowDefinition {
   name: string;
   description: string;

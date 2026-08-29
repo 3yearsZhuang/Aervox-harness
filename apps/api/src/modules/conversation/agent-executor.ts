@@ -34,11 +34,23 @@ import type {
 } from "@aervox/agent-loop";
 import { SqliteExecutionStore } from "@aervox/host-agent";
 import { extractTerms } from "@aervox/practice-review";
-import type { SqliteConversationRepository, TenantContext } from "@aervox/database";
+import type {
+  IProactiveProfileRepository,
+  SqliteConversationRepository,
+  TenantContext,
+} from "@aervox/database";
 import { loadApiConfig } from "@aervox/config";
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
 import { getRequestToolApprovalMode } from "../../shared/tool-approval-policy.js";
+import {
+  PROACTIVE_ACTION_DECIDER_PREFIX,
+  type ProactiveActionAuthorizer,
+} from "../proactive/action-authorizer.js";
+import {
+  isLiteralLoopbackUrl,
+  loadProactiveProfilePrompt,
+} from "../proactive/profile-context.js";
 
 /** SqliteExecutionStore 组合根适配由 @aervox/host-agent 提供（见上方 import），API 不再自维护 SQLite 执行存储 */
 
@@ -57,11 +69,11 @@ async function findExplicitToolApproval(
 ) {
   return repo.findGrantedToolApproval(tenant, {
     ...input,
-    excludeDecidedByPrefix: FULL_ACCESS_DECIDER_PREFIX,
+    excludeDecidedByPrefixes: [FULL_ACCESS_DECIDER_PREFIX, PROACTIVE_ACTION_DECIDER_PREFIX],
   });
 }
 
-async function recordFullAccessApproval(
+async function recordAutomaticApproval(
   repo: ToolApprovalRepository,
   tenant: TenantContext,
   input: {
@@ -71,6 +83,7 @@ async function recordFullAccessApproval(
     argumentsHash: string;
     toolVersion?: string | null;
   },
+  decidedBy: string,
 ): Promise<boolean> {
   const approval = await repo.recordToolApproval(tenant, {
     ...input,
@@ -82,9 +95,28 @@ async function recordFullAccessApproval(
     tenant,
     approval.id,
     "granted",
-    `${FULL_ACCESS_DECIDER_PREFIX}${actor}`,
+    decidedBy || `${FULL_ACCESS_DECIDER_PREFIX}${actor}`,
   );
   return granted !== null;
+}
+
+async function executeAuthorizedProactiveAction(
+  authorizer: ProactiveActionAuthorizer,
+  tenant: TenantContext,
+  actionId: string,
+  execute: () => Promise<ToolExecutionResult>,
+): Promise<ToolExecutionResult> {
+  try {
+    await authorizer.markRunning(tenant, actionId);
+    const result = await execute();
+    if (result.ok) await authorizer.markExecuted(tenant, actionId, result.output);
+    else await authorizer.markFailed(tenant, actionId, result.error ?? "tool_execution_failed");
+    return result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await authorizer.markFailed(tenant, actionId, message).catch(() => undefined);
+    return { ok: false, error: message };
+  }
 }
 
 /**
@@ -95,6 +127,7 @@ export function createApprovalGatedToolProvider(
   provider: ToolProviderPort,
   tenant: TenantContext,
   repo: ToolApprovalRepository,
+  proactiveActionAuthorizer?: ProactiveActionAuthorizer,
 ): ToolProviderPort {
   const specs = new Map(provider.tools.map((tool) => [tool.name, tool]));
   return {
@@ -111,12 +144,47 @@ export function createApprovalGatedToolProvider(
       if (granted) return provider.execute(input);
 
       if (getRequestToolApprovalMode(tenant) === "full_access") {
-        const recorded = await recordFullAccessApproval(repo, tenant, {
+        if (proactiveActionAuthorizer) {
+          const authorization = await proactiveActionAuthorizer.authorize(tenant, {
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            invocationId: input.invocationId,
+            toolId: input.name,
+            toolName: input.name,
+            category: "system",
+            safetyLevel: "write_with_approval",
+            arguments: input.arguments,
+          });
+          if (authorization.authorized) {
+            const recorded = await recordAutomaticApproval(repo, tenant, {
+              turnId: input.turnId,
+              attemptId: input.attemptId,
+              toolName: input.name,
+              argumentsHash,
+            }, authorization.decidedBy);
+            if (!recorded) {
+              await proactiveActionAuthorizer.markFailed(
+                tenant,
+                authorization.action.id,
+                "proactive_action_approval_not_recorded",
+              );
+              return { ok: false, error: "proactive_action_approval_not_recorded" };
+            }
+            return executeAuthorizedProactiveAction(
+              proactiveActionAuthorizer,
+              tenant,
+              authorization.action.id,
+              () => provider.execute(input),
+            );
+          }
+        }
+        const actor = tenant.actorId ?? tenant.subjectUserId;
+        const recorded = await recordAutomaticApproval(repo, tenant, {
           turnId: input.turnId,
           attemptId: input.attemptId,
           toolName: input.name,
           argumentsHash,
-        });
+        }, `${FULL_ACCESS_DECIDER_PREFIX}${actor}`);
         if (!recorded) return { ok: false, error: "full_access_approval_not_recorded" };
         return provider.execute(input);
       }
@@ -146,7 +214,10 @@ export function createApprovalGatedToolProvider(
 export function createRuntimeToolProvider(
   runtime: ToolRuntime,
   tenant: TenantContext,
-  deps: { conversationRepo: SqliteConversationRepository },
+  deps: {
+    conversationRepo: SqliteConversationRepository;
+    proactiveActionAuthorizer?: ProactiveActionAuthorizer;
+  },
 ): ToolProviderPort {
   return {
     // 工具清单随注册表动态变化，不在此静态缓存（execute 时实时校验）
@@ -185,18 +256,67 @@ export function createRuntimeToolProvider(
             return { ok: false, error: errorMessage(err) };
           }
         }
-        // 完全访问只预授权普通写工具；privileged 仍必须经独立管理员通道。
+        // 主动智能模式下，全动作授权包可覆盖普通写、外部、privileged 与不可逆动作；
+        // 每次执行仍绑定当前画像修订/租约/scope 并写入本地动作账本。
+        if (
+          getRequestToolApprovalMode(tenant) === "full_access" &&
+          deps.proactiveActionAuthorizer
+        ) {
+          const authorization = await deps.proactiveActionAuthorizer.authorize(tenant, {
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            invocationId: input.invocationId,
+            toolId: tool.id,
+            toolName: tool.name,
+            category: tool.category,
+            safetyLevel: tool.safetyLevel,
+            requiredPermissions: tool.requiredPermissionsJson,
+            arguments: input.arguments,
+          });
+          if (authorization.authorized) {
+            const recorded = await recordAutomaticApproval(deps.conversationRepo, tenant, {
+              turnId: input.turnId,
+              attemptId: input.attemptId,
+              toolName: tool.name,
+              argumentsHash: hash,
+              toolVersion: tool.updatedAt,
+            }, authorization.decidedBy);
+            if (!recorded) {
+              await deps.proactiveActionAuthorizer.markFailed(
+                tenant,
+                authorization.action.id,
+                "proactive_action_approval_not_recorded",
+              );
+              return { ok: false, error: "proactive_action_approval_not_recorded" };
+            }
+            return executeAuthorizedProactiveAction(
+              deps.proactiveActionAuthorizer,
+              tenant,
+              authorization.action.id,
+              async () => {
+                try {
+                  const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: true });
+                  return { ok: true, output };
+                } catch (error) {
+                  return { ok: false, error: errorMessage(error) };
+                }
+              },
+            );
+          }
+        }
+        // CR-022 fallback：普通写工具可由 Turn full_access 预授权；privileged 无主动授权时仍走管理员通道。
         if (
           tool.safetyLevel === "write_with_approval" &&
           getRequestToolApprovalMode(tenant) === "full_access"
         ) {
-          const recorded = await recordFullAccessApproval(deps.conversationRepo, tenant, {
+          const actor = tenant.actorId ?? tenant.subjectUserId;
+          const recorded = await recordAutomaticApproval(deps.conversationRepo, tenant, {
             turnId: input.turnId,
             attemptId: input.attemptId,
             toolName: tool.name,
             argumentsHash: hash,
             toolVersion: tool.updatedAt,
-          });
+          }, `${FULL_ACCESS_DECIDER_PREFIX}${actor}`);
           if (!recorded) return { ok: false, error: "full_access_approval_not_recorded" };
           try {
             const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: true });
@@ -316,6 +436,7 @@ async function failTurnWithError(
 export async function buildLoopProvider(
   tenant: TenantContext,
   llmConfigService?: LLMConfigService,
+  options: { requireLocalOnly?: boolean } = {},
 ): Promise<ModelProviderPort> {
   // 缺陷 E：Provider 选择经 @aervox/config 集中解析（AERVOX_LOOP_PROVIDER 启动期枚举校验）；
   // 每次调用读取，避免模块级缓存导致测试/配置热变失效。
@@ -334,12 +455,16 @@ export async function buildLoopProvider(
     if (cfg.providerType === "anthropic") {
       throw new Error("anthropic_unsupported: 阶段 2e 仅支持 OpenAI 兼容协议（openai/deepseek/ollama/custom_openai）");
     }
+    if (options.requireLocalOnly && !isLiteralLoopbackUrl(cfg.baseUrl)) {
+      throw new Error("proactive_local_provider_required: 主动画像上下文禁止发送到非本机模型端点");
+    }
     return createOpenAICompatProvider({
       baseUrl: cfg.baseUrl,
       apiKey: cfg.apiKey,
       modelId: cfg.modelId,
       temperature: cfg.temperature,
       maxTokens: cfg.maxTokens,
+      redirect: options.requireLocalOnly ? "error" : undefined,
     });
   }
   return createReplayProvider();
@@ -364,10 +489,10 @@ export async function runLoopTurnOnce(
     skills?: SkillDescriptor[];
     /**
      * 5c：Subagent 委托执行器工厂（request 级 tenant 绑定后创建 SubagentPort）。
-     * 注入时 `subagent.delegate` 进入工具清单；缺失则不被贡献（行为与既有一致）。
+     * 注入时 `subagent_delegate` 进入工具清单；缺失则不被贡献（行为与既有一致）。
      */
     subagentFactory?: (tenant: TenantContext) => SubagentPort;
-    /** 5c：已注册 Workflow 定义清单（贡献 `workflow.run` 工具 + GET /v1/workflows 元数据） */
+    /** 5c：已注册 Workflow 定义清单（贡献 `workflow_run` 工具 + GET /v1/workflows 元数据） */
     workflows?: WorkflowDefinition[];
   /**
      * 阶段 7：ModelRun/ContextManifest 落库口（可选委托 SqlitePlatformRepository；
@@ -378,6 +503,10 @@ export async function runLoopTurnOnce(
     userQuestionPort?: UserQuestionPort;
     /** CAP-016：刷题模式作答落库端口（AI 判定后写 questions + question_attempts） */
     practiceAttemptPort?: PracticeAttemptPort;
+    /** CAP-033：主动智能全动作授权与本地动作账本。 */
+    proactiveActionAuthorizer?: ProactiveActionAuthorizer;
+    /** CAP-033：本地画像声明来源；仅在有效且本地模型准入时注入。 */
+    proactiveRepository?: IProactiveProfileRepository;
   } = {},
 ): Promise<void> {
   // 阶段 7（ADR-017）：Step 级 ModelRun + 每 Turn ContextManifest 快照落库（委托 platform 域）
@@ -415,8 +544,18 @@ export async function runLoopTurnOnce(
   );
 
   let provider: ModelProviderPort;
+  let proactiveProfilePrompt = "";
   try {
-    provider = await buildLoopProvider(tenant, deps.llmConfigService);
+    const proactiveStatus = deps.proactiveRepository
+      ? await deps.proactiveRepository.getEffectiveStatus(tenant)
+      : null;
+    const proactiveActive = proactiveStatus?.effectiveState === "active";
+    provider = await buildLoopProvider(tenant, deps.llmConfigService, {
+      requireLocalOnly: proactiveActive,
+    });
+    if (proactiveActive && deps.proactiveRepository) {
+      proactiveProfilePrompt = await loadProactiveProfilePrompt(deps.proactiveRepository, tenant);
+    }
   } catch (err) {
     await failTurnWithError(store, input.turnId, input.attemptId, err instanceof Error ? err.message : "provider_unavailable");
     await repo.updateTurnStatus(tenant, input.turnId, "Failed").catch(() => undefined);
@@ -443,10 +582,18 @@ export async function runLoopTurnOnce(
   }
   const contributionProvider =
     contribution.length > 0
-      ? createApprovalGatedToolProvider(composeToolProviders(contribution), tenant, repo)
+      ? createApprovalGatedToolProvider(
+          composeToolProviders(contribution),
+          tenant,
+          repo,
+          deps.proactiveActionAuthorizer,
+        )
       : undefined;
   const runtimeProvider = deps.toolRuntime
-    ? createRuntimeToolProvider(deps.toolRuntime, tenant, { conversationRepo: repo })
+    ? createRuntimeToolProvider(deps.toolRuntime, tenant, {
+        conversationRepo: repo,
+        proactiveActionAuthorizer: deps.proactiveActionAuthorizer,
+      })
     : undefined;
   const tools = contributionProvider && runtimeProvider
     ? composeToolProviders([contributionProvider], { fallback: runtimeProvider })
@@ -462,7 +609,7 @@ export async function runLoopTurnOnce(
   const isQuizMode = hasQuizPrefix || (isStudyMode && quizKeywords.test(input.userMessage));
   // 5b：默认启用 Base System Prompt（含核心工具指引）与 Skill 渐进披露；压缩 seam 默认关闭，
   // 设置 AERVOX_LOOP_COMPACTION=rule 启用内置规则式摘要。
-  const contextBuilder = createComposedContextBuilder({
+  let contextBuilder = createComposedContextBuilder({
     base: defaultContextBuilder,
     baseSystemPrompt: {
       assistantName: "思隅 (Aervox)",
@@ -475,6 +622,21 @@ export async function runLoopTurnOnce(
       ? { compaction: createSummaryCompaction() }
       : {}),
   });
+  if (proactiveProfilePrompt) {
+    const inner = contextBuilder;
+    contextBuilder = {
+      async build(input) {
+        const context = await inner.build(input);
+        const messages = [...context.messages];
+        const insertionIndex = messages.findIndex((message) => message.role !== "system");
+        messages.splice(insertionIndex < 0 ? messages.length : insertionIndex, 0, {
+          role: "system",
+          content: proactiveProfilePrompt,
+        });
+        return { ...context, messages };
+      },
+    };
+  }
   const result = await executeTurn(
     {
       execution: store,

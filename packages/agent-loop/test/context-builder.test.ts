@@ -107,8 +107,8 @@ describe("基础系统提示词与工具指引 (Base System Prompt & Tool Guidan
     expect(prompt).toContain("测试思隅");
     expect(prompt).toContain("工具使用规范与约束");
     expect(prompt).toContain("ask_user_question");
-    expect(prompt).toContain("subagent.delegate");
-    expect(prompt).toContain("workflow.run");
+    expect(prompt).toContain("subagent_delegate");
+    expect(prompt).toContain("workflow_run");
     expect(prompt).toContain("保持温柔与耐心");
     expect(prompt).not.toContain("学习模式核心教学原则");
   });

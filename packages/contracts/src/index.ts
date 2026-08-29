@@ -6,6 +6,8 @@
  */
 import { z } from "zod";
 import {
+  allowedMediaTypesSchema,
+  attachmentPurposeSchema,
   cancelTurnResponseSchema,
   createLearningGoalSchema,
   createTurnRequestSchema,
@@ -29,6 +31,7 @@ import {
   petSheetStateSchema,
   pluginMetadataSchema,
   redactedEventDataSchema,
+  turnAttachmentRefSchema,
   askUserQuestionOptionSchema,
   askUserQuestionIntentSchema,
   askUserQuestionItemSchema,
@@ -86,6 +89,8 @@ export * from "./plugin-config-schemas.js";
 export * from "./practice-schemas.js";
 export * from "./llm-schemas.js";
 export * from "./inbox-schemas.js";
+export * from "./proactive.js";
+export * from "./proactive-schemas.js";
 export { openApiDocument } from "./openapi.js";
 
 export type TurnStatus = z.infer<typeof turnStatusSchema>;
@@ -113,6 +118,9 @@ export type PetCommandType = z.infer<typeof petCommandTypeSchema>;
 export type PetEmote = z.infer<typeof petEmoteSchema>;
 export type PetGesture = z.infer<typeof petGestureSchema>;
 export type CreateTurnRequest = z.infer<typeof createTurnRequestSchema>;
+export type TurnAttachmentRef = z.infer<typeof turnAttachmentRefSchema>;
+export type AttachmentMediaType = z.infer<typeof allowedMediaTypesSchema>;
+export type AttachmentPurpose = z.infer<typeof attachmentPurposeSchema>;
 export type CreateTurnResponse = z.infer<typeof createTurnResponseSchema>;
 export type CancelTurnResponse = z.infer<typeof cancelTurnResponseSchema>;
 export type LearningGoalLevel = z.infer<typeof learningGoalLevelSchema>;

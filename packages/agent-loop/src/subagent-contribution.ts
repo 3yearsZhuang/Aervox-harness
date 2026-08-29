@@ -7,19 +7,19 @@
  * 实现形态（全部是 ToolProviderPort 层面的组装，executor 无感知）：
  * - `composeToolProviders`：把宿主贡献的多个 ToolProviderPort 合并为单一清单交付 executor，
  *   重名工具在组装期报错；execute 按名路由，未命中 fail-closed（与既有语义一致）；
- * - `createSubagentToolProvider`：贡献 `subagent.delegate` 工具（写类，走既有审批通道），
+ * - `createSubagentToolProvider`：贡献 `subagent_delegate` 工具（写类，走既有审批通道），
  *   执行时委托宿主持有的 SubagentPort 创建独立子任务（落库审计/恢复）；未注入时不为模型
  *   提供该工具（退化安全）；
- * - `createWorkflowToolProvider`：把宿主声明的 TypeScript 步骤定义暴露为 `workflow.run` 工具
+ * - `createWorkflowToolProvider`：把宿主声明的 TypeScript 步骤定义暴露为 `workflow_run` 工具
  *   （写类走审批），步骤顺序执行、上一步输出作为下一步输入；未注册流程 fail-closed。
  */
 import type { SubagentPort, ToolExecutionInput, ToolExecutionResult, ToolProviderPort } from "./ports.js";
 import type { ToolSpec, WorkflowContext, WorkflowDefinition } from "./types.js";
 
 /** Subagent 委托工具名（模型可见；Leader 标识由 Host 幂等键承载） */
-export const SUBAGENT_DELEGATE_TOOL = "subagent.delegate";
+export const SUBAGENT_DELEGATE_TOOL = "subagent_delegate";
 /** Workflow 编排工具名（参数携带 workflow 选择） */
-export const WORKFLOW_RUN_TOOL = "workflow.run";
+export const WORKFLOW_RUN_TOOL = "workflow_run";
 
 /**
  * 合并多个 ToolProviderPort 为单一清单（5c Provider Contribution）：
@@ -116,7 +116,7 @@ export function createSubagentToolProvider(deps: { subagent?: SubagentPort } = {
 
 /**
  * 阶段 5c：Workflow 编排工具 provider（TypeScript 步骤定义形态）。
- * - 无定义时不贡献工具（退化安全）；有一个及以上定义时暴露 `workflow.run`（写类，走既有审批）；
+ * - 无定义时不贡献工具（退化安全）；有一个及以上定义时暴露 `workflow_run`（写类，走既有审批）；
  * - 执行：按 `{ name, input }` 选择定义，步骤顺序执行，上一步输出作为下一步输入；
  *   任一步失败（返回 !ok 或抛错）即整体失败并携带步骤定位与部分产物，Leader 可据既有语义重试；
  * - 未注册流程名 fail-closed（unregistered_workflow）。
