@@ -1,5 +1,7 @@
+import { reactive } from 'vue';
 import { describe, expect, it } from 'vitest';
-import { PRESET_PROVIDERS } from '../src/useAervoxLLM';
+import { configureAervoxClient, type AervoxTransport } from '../src/transport';
+import { PRESET_PROVIDERS, useAervoxLLM } from '../src/useAervoxLLM';
 
 describe('useAervoxLLM & PRESET_PROVIDERS (CR-012)', () => {
   it('预置供应商定义完整且包含推荐模型与 BaseURL', () => {
@@ -26,5 +28,34 @@ describe('useAervoxLLM & PRESET_PROVIDERS (CR-012)', () => {
     expect(anthropic).toBeDefined();
     expect(anthropic?.defaultBaseUrl).toBe('https://api.anthropic.com/v1');
     expect(anthropic?.requiresApiKey).toBe(true);
+  });
+
+  it('保存时将 Vue 响应式配置规范化为可经 Electron IPC 克隆的纯数据', async () => {
+    let sentBody: unknown;
+    const transport: AervoxTransport = {
+      request: async <T>(_method: string, _path: string, body?: unknown): Promise<T> => {
+        sentBody = body;
+        structuredClone(body);
+        return body as T;
+      },
+      streamTurn: async () => undefined,
+      submitQuestionAnswers: async () => undefined,
+    };
+    configureAervoxClient({ transport });
+
+    const config = reactive({
+      enabled: true,
+      providerType: 'deepseek' as const,
+      baseUrl: 'https://api.deepseek.com/v1',
+      apiKey: 'test-key',
+      modelId: 'deepseek-chat',
+      temperature: 0.7,
+      maxTokens: 4096,
+      settings: { retry: 1 },
+    });
+
+    await useAervoxLLM().saveConfig(config);
+
+    expect(sentBody).toEqual({ ...config, settings: { retry: 1 } });
   });
 });

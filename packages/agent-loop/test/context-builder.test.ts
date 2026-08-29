@@ -107,9 +107,48 @@ describe("基础系统提示词与工具指引 (Base System Prompt & Tool Guidan
     expect(prompt).toContain("测试思隅");
     expect(prompt).toContain("工具使用规范与约束");
     expect(prompt).toContain("ask_user_question");
-    expect(prompt).toContain("subagent.delegate");
-    expect(prompt).toContain("workflow.run");
+    expect(prompt).toContain("subagent_delegate");
+    expect(prompt).toContain("workflow_run");
     expect(prompt).toContain("保持温柔与耐心");
+    expect(prompt).not.toContain("学习模式核心教学原则");
+  });
+
+  it("buildBaseSystemPrompt：开启 studyMode 时注入苏格拉底启发式教学与防剧透规则", async () => {
+    const { buildBaseSystemPrompt } = await import("../src/base-prompt.js");
+    const prompt = buildBaseSystemPrompt({
+      assistantName: "导师思隅",
+      studyMode: true,
+      personaPrompt: "活泼幽默",
+    });
+
+    expect(prompt).toContain("学习模式核心教学原则");
+    expect(prompt).toContain("苏格拉底式启发引导");
+    expect(prompt).toContain("循序渐进与分步拆解");
+    expect(prompt).toContain("活泼幽默");
+  });
+
+  it("buildBaseSystemPrompt：默认不注入刷题模式规范", async () => {
+    const { buildBaseSystemPrompt } = await import("../src/base-prompt.js");
+    const prompt = buildBaseSystemPrompt({ assistantName: "思隅" });
+
+    expect(prompt).not.toContain("刷题模式核心规范");
+  });
+
+  it("buildBaseSystemPrompt：开启 quizMode 时注入刷题闭环规范并登记工具指引", async () => {
+    const { buildBaseSystemPrompt } = await import("../src/base-prompt.js");
+    const prompt = buildBaseSystemPrompt({
+      assistantName: "考官思隅",
+      studyMode: true,
+      quizMode: true,
+    });
+
+    expect(prompt).toContain("刷题模式核心规范");
+    expect(prompt).toContain("record_practice_attempt");
+    expect(prompt).toContain("ask_user_question");
+    // 刷题段置后于学习模式段（覆盖「不直接给答案」规则）
+    expect(prompt.indexOf("学习模式核心教学原则")).toBeLessThan(
+      prompt.indexOf("刷题模式核心规范"),
+    );
   });
 
   it("createComposedContextBuilder：baseSystemPrompt 置于最前并支持与 skills 组合", async () => {

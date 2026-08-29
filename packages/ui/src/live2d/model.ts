@@ -203,7 +203,9 @@ async function mergeExternalMotionData(asset: ResolvedCubismAsset, metadataUrl: 
   for (const name of metadata.motions ?? []) {
     const motionGroup = groups.Motion ?? (groups.Motion = [])
     const file = name.endsWith('.motion3.json') ? name : `${name}.motion3.json`
-    const motionPath = file.includes('/') ? file : `motion/${file}`
+    // 模型资产里动作文件实际位于 motion/motion/ 嵌套目录（model3.json 原始 Idle 条目同构），
+    // 拼错层级会导致整个 Motion 组 404、所有动作静默失效（含操作反馈与待机多样化池）。
+    const motionPath = file.includes('/') ? file : `motion/motion/${file}`
     const fileUrl = new URL(motionPath, metadataBaseUrl).toString()
     if (!fileUrl.startsWith(asset.baseUrl)) throw new Error('Live2D motion metadata path escapes the model directory')
     if (!motionGroup.some((motion) => motion.Name === name || motion.File === fileUrl)) motionGroup.push({ Name: name, File: fileUrl })

@@ -9,25 +9,40 @@ import type { ModuleContext } from "../context.js";
 import {
   SqliteAgentInboxRepository,
   SqliteConversationRepository,
+  SqliteLearningRepository,
   SqlitePlatformRepository,
   SqlitePrivacyRepository,
   SqliteSkillRegistryRepository,
   SqliteSubagentRunRepository,
+  SqliteUserQuestionRepository,
 } from "@aervox/database";
 import { createSqliteSubagentPort, SqliteExecutionStore } from "@aervox/host-agent";
 import { buildLoopProvider } from "./agent-executor.js";
 import { registerConversationRoutes } from "./routes.js";
 import { UserQuestionCoordinator } from "./user-question-coordinator.js";
+import { createPracticeAttemptPortFactory } from "./practice-attempt-port.js";
 
 export function registerConversationModule(ctx: ModuleContext): void {
-  const { app, db, toolRuntime, llmConfigService, workflows } = ctx;
+  const {
+    app,
+    db,
+    toolRuntime,
+    llmConfigService,
+    workflows,
+    proactiveActionAuthorizer,
+    proactiveRepository,
+  } = ctx;
   const conversationRepo = new SqliteConversationRepository(db);
   const privacyRepo = new SqlitePrivacyRepository(db);
   const skillRepo = new SqliteSkillRegistryRepository(db);
   const subagentRunRepo = new SqliteSubagentRunRepository(db);
   // 阶段 7：ModelRun/ContextManifest 落库口（Step 级可追溯写入）
   const platformRepo = new SqlitePlatformRepository(db);
-  const userQuestionCoordinator = new UserQuestionCoordinator(conversationRepo);
+  const userQuestionCoordinator = new UserQuestionCoordinator(
+    conversationRepo,
+    // 缺陷 C：挂起提问持久化到 pending_user_questions，进程重启后仍可作答/查询
+    new SqliteUserQuestionRepository(db),
+  );
   registerConversationRoutes(app, conversationRepo, {
     toolRuntime,
     llmConfigService,
@@ -52,5 +67,9 @@ export function registerConversationModule(ctx: ModuleContext): void {
     workflows,
     platformRepo,
     userQuestionCoordinator,
+    // CAP-016：刷题模式作答落库端口（模块自管 learning 仓储，按 request tenant 绑定）
+    practiceAttemptFactory: createPracticeAttemptPortFactory(new SqliteLearningRepository(db)),
+    proactiveActionAuthorizer,
+    proactiveRepository,
   });
 }

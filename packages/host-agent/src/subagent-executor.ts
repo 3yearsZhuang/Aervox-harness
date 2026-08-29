@@ -5,7 +5,7 @@
  * - 实现 @aervox/agent-loop 的 SubagentPort「宿主侧」：创建独立子 turn/attempt 落库
  *   （可审计/恢复），嵌套执行后返回结构化结果；
  * - 隔离原则：子上下文仅注入 task（defaultContextBuilder 起始即用户消息），不注入父历史；
- * - 递归防护：子任务工具集不得包含 subagent.delegate / workflow.run，执行前强校验 fail-closed；
+ * - 递归防护：子任务工具集不得包含 subagent_delegate / workflow_run，执行前强校验 fail-closed；
  * - 幂等：parentAttemptId + parentExecutionId 唯一（subagent_runs），崩溃/重试复用既有子任务；
  * - 子任务默认无工具（纯推理）；宿主可选注入 childTools 提供受限工具集。
  */
@@ -45,7 +45,7 @@ export interface SqliteSubagentPortDeps {
   contextBuilder?: ContextBuilderPort;
   /**
    * 子任务工具集（可选；缺省无工具——纯推理子任务）。
-   * 递归防护：不得含 subagent.delegate / workflow.run，delegate 前强校验。
+   * 递归防护：不得含 subagent_delegate / workflow_run，delegate 前强校验。
    */
   childTools?: ToolProviderPort;
   /** 子任务 Step 上限（缺省 4；比 Leader 的 8 更保守，防子任务无限扩张） */

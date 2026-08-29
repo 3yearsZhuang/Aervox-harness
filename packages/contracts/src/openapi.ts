@@ -62,6 +62,10 @@ import {
   practiceReportListResponseSchema,
   studyPlanResponseSchema,
   studyPlanListResponseSchema,
+  extractedTermSchema,
+  termsExtractedEventDataSchema,
+  termExploreRequestSchema,
+  termExploreResponseSchema,
 } from "./schemas.js";
 import {
   activatePersonaRequestSchema,
@@ -131,6 +135,19 @@ import {
   createInboxItemRequestSchema,
   inboxItemResponseSchema,
 } from "./inbox-schemas.js";
+import {
+  proactiveActionRequestSchema,
+  proactiveActivationRequestSchema,
+  proactiveAuthorizeRequestSchema,
+  proactiveCaptureRequestSchema,
+  proactiveClaimRequestSchema,
+  proactiveDesiredStateRequestSchema,
+  proactiveExportRequestSchema,
+  proactiveExportResponseSchema,
+  proactiveObservationRequestSchema,
+  proactiveSourceGrantInputSchema,
+  proactiveStatusResponseSchema,
+} from "./proactive-schemas.js";
 
 const registry = new OpenAPIRegistry();
 
@@ -224,6 +241,17 @@ registry.register("VoiceInputModelDownloadResponse", voiceInputModelDownloadResp
 
 registry.register("CreateInboxItemRequest", createInboxItemRequestSchema);
 registry.register("InboxItem", inboxItemResponseSchema);
+registry.register("ProactiveSourceGrantInput", proactiveSourceGrantInputSchema);
+registry.register("ProactiveAuthorizeRequest", proactiveAuthorizeRequestSchema);
+registry.register("ProactiveDesiredStateRequest", proactiveDesiredStateRequestSchema);
+registry.register("ProactiveActivationRequest", proactiveActivationRequestSchema);
+registry.register("ProactiveCaptureRequest", proactiveCaptureRequestSchema);
+registry.register("ProactiveObservationRequest", proactiveObservationRequestSchema);
+registry.register("ProactiveClaimRequest", proactiveClaimRequestSchema);
+registry.register("ProactiveActionRequest", proactiveActionRequestSchema);
+registry.register("ProactiveExportRequest", proactiveExportRequestSchema);
+registry.register("ProactiveStatusResponse", proactiveStatusResponseSchema);
+registry.register("ProactiveExportResponse", proactiveExportResponseSchema);
 
 const sessionIdParam = z.object({ sessionId: z.string().min(1) });
 const turnIdParam = z.object({ turnId: z.string().min(1) });
@@ -251,6 +279,10 @@ registry.registerPath({
     404: { description: "Diary not found" },
   },
 });
+const proactiveHeaders = scopeHeaders.extend({
+  "X-Aervox-Proactive-Token": z.string().min(32),
+});
+const proactiveSourceGrantIdParam = z.object({ sourceGrantId: z.string().min(1) });
 
 registry.registerPath({
   method: "post",
@@ -280,6 +312,95 @@ registry.registerPath({
       content: { "application/json": { schema: errorEventDataSchema } },
     },
   },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/proactive/status",
+  summary: "读取主动智能授权与本地运行状态",
+  tags: ["Proactive"],
+  request: { headers: proactiveHeaders },
+  responses: { 200: { description: "Proactive status", content: { "application/json": { schema: proactiveStatusResponseSchema } } } },
+});
+registry.registerPath({
+  method: "get",
+  path: "/v1/proactive/manifest",
+  summary: "读取 full_profile_v1 来源与保留策略",
+  tags: ["Proactive"],
+  request: { headers: proactiveHeaders },
+  responses: { 200: { description: "Full profile manifest" } },
+});
+registry.registerPath({
+  method: "post",
+  path: "/v1/proactive/authorize",
+  summary: "原子确认全量画像与动作授权包",
+  tags: ["Proactive"],
+  request: { headers: proactiveHeaders, body: { content: { "application/json": { schema: proactiveAuthorizeRequestSchema } } } },
+  responses: { 201: { description: "Profile revision confirmed" }, 400: { description: "Invalid grant" }, 409: { description: "full_access required" } },
+});
+registry.registerPath({
+  method: "post",
+  path: "/v1/proactive/desired-state",
+  summary: "暂停、恢复或撤销主动智能模式",
+  tags: ["Proactive"],
+  request: { headers: proactiveHeaders, body: { content: { "application/json": { schema: proactiveDesiredStateRequestSchema } } } },
+  responses: { 200: { description: "Desired state updated" }, 404: { description: "Profile revision not found" } },
+});
+registry.registerPath({
+  method: "post",
+  path: "/v1/proactive/activation",
+  summary: "创建设备级本地激活租约",
+  tags: ["Proactive"],
+  request: { headers: proactiveHeaders, body: { content: { "application/json": { schema: proactiveActivationRequestSchema } } } },
+  responses: { 201: { description: "Activation lease created" } },
+});
+registry.registerPath({
+  method: "delete",
+  path: "/v1/proactive/sources/{sourceGrantId}/data",
+  summary: "撤销来源并删除本地捕获、观察和画像证据",
+  tags: ["Proactive"],
+  request: { headers: proactiveHeaders, params: proactiveSourceGrantIdParam },
+  responses: { 200: { description: "Source data deleted" }, 404: { description: "Source grant not found" } },
+});
+registry.registerPath({
+  method: "post",
+  path: "/v1/proactive/captures",
+  summary: "写入加密原始捕获副本",
+  tags: ["Proactive"],
+  request: { headers: proactiveHeaders, body: { content: { "application/json": { schema: proactiveCaptureRequestSchema } } } },
+  responses: { 201: { description: "Capture accepted without echoing raw payload" } },
+});
+registry.registerPath({
+  method: "post",
+  path: "/v1/proactive/observations",
+  summary: "写入本地规范化行为观察",
+  tags: ["Proactive"],
+  request: { headers: proactiveHeaders, body: { content: { "application/json": { schema: proactiveObservationRequestSchema } } } },
+  responses: { 201: { description: "Observation created" } },
+});
+registry.registerPath({
+  method: "post",
+  path: "/v1/proactive/claims",
+  summary: "写入带证据的本地画像声明",
+  tags: ["Proactive"],
+  request: { headers: proactiveHeaders, body: { content: { "application/json": { schema: proactiveClaimRequestSchema } } } },
+  responses: { 201: { description: "Profile claim created" } },
+});
+registry.registerPath({
+  method: "post",
+  path: "/v1/proactive/actions",
+  summary: "写入主动动作请求与授权修订",
+  tags: ["Proactive"],
+  request: { headers: proactiveHeaders, body: { content: { "application/json": { schema: proactiveActionRequestSchema } } } },
+  responses: { 201: { description: "Proactive action created" } },
+});
+registry.registerPath({
+  method: "post",
+  path: "/v1/proactive/export",
+  summary: "显式导出本地主动画像数据",
+  tags: ["Proactive"],
+  request: { headers: proactiveHeaders, body: { content: { "application/json": { schema: proactiveExportRequestSchema } } } },
+  responses: { 200: { description: "Checksummed export", content: { "application/json": { schema: proactiveExportResponseSchema } } } },
 });
 
 registry.registerPath({
@@ -430,7 +551,6 @@ registry.registerPath({
 
 const personaIdParam = z.object({ personaId: z.string().min(1) });
 const skillNameParam = z.object({ skillName: z.string().min(1) });
-
 registry.registerPath({
   method: "get", path: "/v1/personas", summary: "列出人格", tags: ["Persona"],
   request: { headers: scopeHeaders },
@@ -664,6 +784,24 @@ registry.registerPath({
     },
     400: { description: "type/payload/consumeBoundary 非法" },
     403: { description: "插件未安装/未启用/无 inbox 权限" },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/terms/explore",
+  summary: "追问探索概念/术语（CAP-007 / CAP-002）",
+  description: "支持深挖（child）、对比发散（related）与分支对话（branch）三种追问探索模式",
+  request: {
+    body: {
+      content: { "application/json": { schema: termExploreRequestSchema } },
+    },
+  },
+  responses: {
+    200: {
+      description: "探索结果与关联思考问题",
+      content: { "application/json": { schema: termExploreResponseSchema } },
+    },
   },
 });
 

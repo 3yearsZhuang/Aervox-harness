@@ -24,7 +24,7 @@ export const turnStatusSchema = z.enum([
   "Failed",
 ]);
 
-/** 公开业务 SSE 事件类型（§4；tool_approval_required 为 PET-05 阶段 3a 事件，CR-022 补充登记） */
+/** 公开业务 SSE 事件类型（§4；tool_approval_required 为 PET-05 阶段 3a 事件，CR-024 补充登记） */
 export const streamEventTypeSchema = z.enum([
   "message",
   "delta",
@@ -35,6 +35,7 @@ export const streamEventTypeSchema = z.enum([
   "user_question_required",
   "user_question_answered",
   "tool_approval_required",
+  "terms_extracted",
 ]);
 
 /** 标准错误码（§4.5） */
@@ -208,12 +209,25 @@ export const petCommandSchema = z.object({
 export const emoteEventDataSchema = petCommandSchema;
 
 /** 创建 Turn 请求体最小字段（§2.1） */
+export const toolApprovalModeSchema = z.enum(["ask", "full_access"]);
+
+/** Turn 消息附件引用（多模态输入：附件先经 POST /v1/attachments 上传，再随消息引用） */
+export const turnAttachmentRefSchema = z.object({
+  attachmentId: z.string().min(1),
+  name: z.string().min(1).optional(),
+  mediaType: z.string().min(1).optional(),
+});
+
 export const createTurnRequestSchema = z.object({
   message: z.object({
     content: z.string().min(1),
     contentType: z.enum(["text", "markdown"]),
+    /** 多模态输入：随消息发送的附件引用清单（CAP-012） */
+    attachments: z.array(turnAttachmentRefSchema).optional(),
   }),
   clientVersion: z.string().min(1),
+  /** Turn 级工具授权策略；full_access 仅预授权普通写工具，不放行 privileged。 */
+  toolApprovalMode: toolApprovalModeSchema.default("ask"),
   references: z
     .array(
       z.object({
@@ -411,7 +425,7 @@ export const diaryWriteToolOutputSchema = z.object({
   generatedBy: z.enum(["llm", "template"]),
 });
 
-/** PET-05 写工具审批待决事件负载（tool_approval_required；CR-022 补充公开契约） */
+/** PET-05 写工具审批待决事件负载（tool_approval_required；CR-024 补充公开契约） */
 export const toolApprovalRequiredEventDataSchema = z.object({
   approvalId: z.string().min(1),
   toolName: z.string().min(1),
@@ -799,21 +813,33 @@ export const exportFormatSchema = z.enum(["json", "markdown"]);
 
 // ============ CAP-012 多模态答疑（FR-EXT-001/002、BR-EXT-001/002） ============
 
-/** 附件用途声明（FR-EXT-001） */
+/** 附件用途声明（FR-EXT-001；audio/file 为多模态输入扩展） */
 export const attachmentPurposeSchema = z.enum([
   "question",
   "chart",
   "code_screenshot",
   "reading",
+  "audio",
+  "file",
 ]);
 
-/** 允许的附件 MIME 类型（FR-EXT-001 AC-01） */
+/** 允许的附件 MIME 类型（FR-EXT-001 AC-01；多模态输入扩展：音频与文档） */
 export const allowedMediaTypesSchema = z.enum([
   "image/png",
   "image/jpeg",
   "image/webp",
   "image/gif",
   "application/pdf",
+  "text/plain",
+  "text/markdown",
+  "text/csv",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "audio/mpeg",
+  "audio/wav",
+  "audio/ogg",
+  "audio/mp4",
+  "audio/webm",
 ]);
 
 /** 最大附件大小（字节）— 10MB */
@@ -851,6 +877,46 @@ export const convertToTextSchema = z.object({
 
 /** OCR 置信度阈值（BR-EXT-001：低于此值标记 low_confidence） */
 export const OCR_CONFIDENCE_THRESHOLD = 0.7;
+
+// ============ CAP-007 / CAP-002 术语抽取与追问探索契约 ============
+
+/** 抽取出来的单个术语 */
+export const extractedTermSchema = z.object({
+  text: z.string().min(1),
+  relation: z.enum(["background", "related"]),
+  description: z.string().optional(),
+});
+
+/** SSE terms_extracted 事件负载数据 */
+export const termsExtractedEventDataSchema = z.object({
+  turnId: z.string().min(1),
+  messageId: z.string().optional(),
+  terms: z.array(extractedTermSchema),
+});
+
+/** 追问探索方向类型 */
+export const termExploreKindSchema = z.enum([
+  "child",   // 深挖下钻（原理/前置细节）
+  "related", // 对比发散（异同/应用场景）
+  "branch",  // 分支对话（创建独立分支会话）
+]);
+
+/** 追问探索请求体 (POST /v1/terms/explore 或 POST /v1/hierarchy/explore) */
+export const termExploreRequestSchema = z.object({
+  term: z.string().min(1),
+  kind: termExploreKindSchema.default("child"),
+  context: z.string().optional(),
+  sessionId: z.string().optional(),
+});
+
+/** 追问探索响应体 */
+export const termExploreResponseSchema = z.object({
+  term: z.string(),
+  kind: termExploreKindSchema,
+  content: z.string(),
+  relatedQuestions: z.array(z.string()).default([]),
+  childSessionId: z.string().optional(),
+});
 
 // ============ CAP-014 层级对话与会话地图 ============
 

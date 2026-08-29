@@ -8,8 +8,7 @@
  * - 不重叠：上一轮未结束则跳过本轮（防任务自重叠/堆积），而非排队串行；
  * - 隔离失败：单任务抛错只记录自身日志，不拖垮其它任务与后续轮次。
  */
-import {
-  createDatabase,
+import { createDatabase,
   initDatabaseSchema,
   SqliteAgentInboxRepository,
   SqliteOutboxRepository,
@@ -19,7 +18,11 @@ import {
   SqliteLearningRepository,
   SqliteMemoryCompactionRepository,
   SqliteMemoryEmbeddingRepository,
+  SqliteProactiveProfileRepository,
+  createProactiveVaultDatabase,
+  loadProactiveVaultCipher,
 } from "@aervox/database";
+import { loadWorkerConfig } from "@aervox/config";
 import { runOutboxCycle } from "./outbox-worker.js";
 import { runReviewNotificationCycle } from "./review-notifier.js";
 import { runDiaryGenerationCycle } from "./diary-generator.js";
@@ -28,12 +31,20 @@ import { runCompactionMarkerCycle } from "./compaction-marker.js";
 import { runEmbeddingMigrationCycle } from "./embedding-migration.js";
 import { runAttemptRecoveryCycle } from "./attempt-recovery.js";
 import { runInboxExpiryCycle } from "./inbox-expiry.js";
+import { createRuleBasedProactiveDistiller } from "./proactive-distiller.js";
+import { runProactiveProfileCycle } from "./proactive-profile-worker.js";
+
+// 缺陷 E：集中类型化配置（WORKER_ID / WORKER_TICK_MS / WORKER_INTERVAL_<NAME>_MS；启动期校验）
+const config = loadWorkerConfig();
 
 const { db, client } = await createDatabase();
 await initDatabaseSchema(client);
+const { db: proactiveDb, client: proactiveClient } = await createProactiveVaultDatabase();
+await initDatabaseSchema(proactiveClient);
+const proactiveCipher = await loadProactiveVaultCipher();
 
-const workerId = process.env.WORKER_ID ?? `worker_${Date.now().toString(36)}`;
-const defaultTickMs = Number(process.env.WORKER_TICK_MS ?? 5000);
+const workerId = config.workerId;
+const defaultTickMs = config.tickMs;
 
 const outboxRepo = new SqliteOutboxRepository(db);
 const platformRepo = new SqlitePlatformRepository(db);
@@ -43,17 +54,12 @@ const learningRepo = new SqliteLearningRepository(db);
 const compactionRepo = new SqliteMemoryCompactionRepository(db);
 const embeddingRepo = new SqliteMemoryEmbeddingRepository(db);
 const inboxRepo = new SqliteAgentInboxRepository(db);
+const proactiveRepo = new SqliteProactiveProfileRepository(proactiveDb, proactiveCipher);
+const proactiveDistiller = createRuleBasedProactiveDistiller();
 
-/** 每任务独立调频：WORKER_INTERVAL_<NAME>_MS 覆盖，缺省 WORKER_TICK_MS（非法值回退并告警） */
+/** 每任务独立调频：WORKER_INTERVAL_<NAME>_MS 覆盖（由 @aervox/config 解析），缺省 WORKER_TICK_MS */
 function taskInterval(name: string): number {
-  const key = `WORKER_INTERVAL_${name.toUpperCase()}_MS`;
-  const raw = process.env[key];
-  if (raw !== undefined) {
-    const parsed = Number(raw);
-    if (Number.isFinite(parsed) && parsed > 0) return parsed;
-    console.warn(`[worker:${workerId}] invalid ${key}=${raw}; fallback to WORKER_TICK_MS=${defaultTickMs}`);
-  }
-  return defaultTickMs;
+  return config.intervalOverrides[name] ?? defaultTickMs;
 }
 
 interface WorkerTask {
@@ -102,6 +108,22 @@ const tasks: WorkerTask[] = [
     name: "inbox-expiry",
     intervalMs: taskInterval("inbox-expiry"),
     run: () => runInboxExpiryCycle({ inboxRepo }),
+  },
+  {
+    name: "proactive-profile",
+    intervalMs: taskInterval("proactive-profile"),
+    run: async () => {
+      const result = await runProactiveProfileCycle({
+        db: proactiveDb,
+        repo: proactiveRepo,
+        distiller: proactiveDistiller,
+        workerId,
+      });
+      if (result.failed > 0) {
+        console.warn(`[worker:${workerId}] proactive-profile failed=${result.failed}`);
+      }
+      return result.distilled + result.purged;
+    },
   },
 ];
 

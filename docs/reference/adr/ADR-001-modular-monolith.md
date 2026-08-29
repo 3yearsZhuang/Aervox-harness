@@ -1,12 +1,12 @@
 # ADR-001 模块化单体 + 独立 Worker
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-29
 
 - 状态：Proposed
 - 日期：2026-08-23
 
-- 关联：`CAP-001～032`、`NFR-REL-001`、`NFR-SCALE-001`、`OPS-QUEUE-001`、`RISK-011`
+- 关联：`CAP-001～033`、`NFR-REL-001`、`NFR-SCALE-001`、`OPS-QUEUE-001`、`RISK-011`
 
 ## Context
 

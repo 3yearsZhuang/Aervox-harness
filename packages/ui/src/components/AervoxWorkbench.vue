@@ -1,16 +1,23 @@
 <script setup lang="ts">
-import {computed, nextTick, onMounted, onUnmounted, ref, watch, type Component} from 'vue'
+import {type Component, computed, nextTick, onMounted, onUnmounted, ref, watch} from 'vue'
 import {
+  AlertTriangle,
   Bell,
   BookOpen,
+  BrainCircuit,
   Bot,
   Check,
   ChevronDown,
   ChevronRight,
   ChevronUp,
+  ClipboardList,
   Clock3,
+  Database,
+  Download,
+  FileText,
   Heart,
   History,
+  Image as ImageIcon,
   LayoutGrid,
   ListTodo,
   Menu,
@@ -18,22 +25,41 @@ import {
   Mic,
   MicOff,
   Moon,
+  Music,
   NotebookPen,
+  Paperclip,
   Pause,
+  PauseCircle,
   Play,
+  PlayCircle,
   Plus,
   Puzzle,
   RotateCcw,
+  RefreshCw,
   Send,
   Settings,
+  ShieldAlert,
+  ShieldCheck,
   Sparkles,
   Sun,
-  Volume2,
   TimerReset,
+  Trash2,
+  Volume2,
   X,
 } from 'lucide-vue-next'
-import {decideToolApproval, streamAervoxTurn, submitQuestionAnswers, useAervoxApi, useAervoxVoiceInput} from '@aervox/api-client'
-import type {AskUserQuestionAnswerItem, ToolApprovalRequiredEventData, UserQuestionRequiredEventData} from '@aervox/contracts'
+import {decideToolApproval, streamAervoxTurn, submitQuestionAnswers, uploadAervoxAttachment, useAervoxApi, useAervoxVoiceInput} from '@aervox/api-client'
+import type {AskUserQuestionAnswerItem, AttachmentPurpose, ExtractedTerm, ToolApprovalMode, ToolApprovalRequiredEventData, TurnAttachmentRef, UserQuestionRequiredEventData} from '@aervox/contracts'
+import {allowedMediaTypesSchema, MAX_ATTACHMENT_SIZE} from '@aervox/contracts'
+import type {
+  ProfileAuthorizationRequest,
+  ProfileCapabilityState,
+  ProfileDesiredState,
+  ProfilePersistenceUpdate,
+  ProactiveDesktopBridge,
+  ProactiveProfileClaimView,
+  ProactiveProfileStatus,
+} from '@aervox/contracts/proactive'
+import {profileStatusLabel} from '@aervox/contracts/proactive'
 import PetHero from './PetHero.vue'
 import PluginManagerPanel from './plugin/PluginManagerPanel.vue'
 import Live2DPet from './Live2DPet.vue'
@@ -41,24 +67,26 @@ import PersonaManagerPanel from './persona/PersonaManagerPanel.vue'
 import LocalVoiceConfigPanel from './voice/LocalVoiceConfigPanel.vue'
 import LLMConfigPanel from './llm/LLMConfigPanel.vue'
 import UserQuestionComposer from './UserQuestionComposer.vue'
+import TermExploreDialog from './TermExploreDialog.vue'
+import { renderMarkdown } from '../utils/markdown'
+import { petReact } from '../live2d/petReactions'
+import { MizukiExpression, MizukiMotion } from '../live2d/model'
 
 type Platform = 'desktop' | 'web'
 type Speaker = 'assistant' | 'user'
+
+interface StoryLineAttachment {
+  name: string
+  mediaType: string
+  previewUrl?: string
+}
 
 interface StoryLine {
   id: number
   speaker: Speaker
   text: string
   state?: 'streaming' | 'complete' | 'error'
-}
-
-type CompanionModeId = 'companion' | 'quick' | 'deep' | 'chat'
-
-interface CompanionMode {
-  id: CompanionModeId
-  label: string
-  hint: string
-  prefix: string
+  attachments?: StoryLineAttachment[]
 }
 
 type CardId = 'study' | 'todo' | 'timer' | 'history' | 'review' | 'mistake' | 'diary' | 'notifications'
@@ -87,8 +115,10 @@ const historyOpen = ref(false)
 const todoOpen = ref(false)
 const timerOpen = ref(false)
 const studyOpen = ref(false)
+const mistakeOpen = ref(false)
+const studyCategory = ref<'practice' | 'goals' | 'review' | 'plans' | 'diary'>('practice')
 const settingsOpen = ref(false)
-const settingsCategory = ref<'tools' | 'appearance' | 'conversation' | 'model' | 'persona' | 'notifications' | 'voice' | 'plugins'>('tools')
+const settingsCategory = ref<'tools' | 'appearance' | 'conversation' | 'model' | 'persona' | 'notifications' | 'voice' | 'plugins' | 'proactive'>('tools')
 const newGoalTopic = ref('')
 const newGoalLevel = ref<'beginner' | 'intermediate' | 'advanced'>('beginner')
 const newGoalMinutes = ref(25)
@@ -119,6 +149,11 @@ const approvalToolLabel = computed(() => {
   const name = pendingApproval.value?.toolName ?? ''
   return approvalToolLabels[name] ?? `执行工具 ${name}`
 })
+
+// CAP-007 / CAP-002: 术语抽取与追问探索弹窗
+const currentExtractedTerms = ref<ExtractedTerm[]>([])
+const exploreDialogOpen = ref(false)
+const selectedTerm = ref<ExtractedTerm | null>(null)
 const practiceBusy = ref(false)
 const practiceError = ref<string | null>(null)
 const mistakeFilter = ref<'active' | 'mastered' | 'dismissed' | 'all'>('active')
@@ -133,7 +168,7 @@ const planBusyId = ref<string | null>(null)
 const planDrafts = ref<Record<string, {endDate: string; dailyAvailableMinutes: number}>>({})
 const input = ref('')
 const isComposing = ref(false)
-const activeModeId = ref<CompanionModeId>('companion')
+const composerPlaceholder = '和思隅聊聊学习或任何事…'
 const cardSlots = ref<Array<CardId | null>>([null, null])
 const timerSeconds = ref(25 * 60)
 const timerRunning = ref(false)
@@ -142,9 +177,22 @@ const isDark = ref(false)
 const assistantDisplayName = ref(props.assistantName)
 const enterToSend = ref(true)
 const compactMode = ref(false)
+const studyModeEnabled = ref(false)
 const timerMinutes = ref(25)
 const desktopCompanionEnabled = ref(props.showCompanion)
 const dailyReminder = ref(true)
+const toolApprovalMode = ref<ToolApprovalMode>('ask')
+const fullAccessDialogOpen = ref(false)
+const fullAccessAcknowledged = ref(false)
+const proactiveStatus = ref<ProactiveProfileStatus | null>(null)
+const proactiveClaims = ref<readonly ProactiveProfileClaimView[]>([])
+const proactiveDialogOpen = ref(false)
+const proactiveAcknowledged = ref(false)
+const proactiveAutostart = ref(true)
+const proactiveBackground = ref(true)
+const proactiveBusy = ref(false)
+const proactiveError = ref<string | null>(null)
+const proactiveNotice = ref<string | null>(null)
 const newTodo = ref('')
 const storyViewport = ref<HTMLElement | null>(null)
 const todos = ref<Array<{id: number; text: string; done: boolean}>>([])
@@ -176,6 +224,22 @@ const { loadTodayDiary } = api
 let nextStoryId = 2
 
 const isWeb = computed(() => props.platform === 'web')
+const proactiveBridge = (): ProactiveDesktopBridge | undefined => {
+  if (typeof window === 'undefined') return undefined
+  return (window as Window & {fairyDesktop?: {proactive?: ProactiveDesktopBridge}}).fairyDesktop?.proactive
+}
+function recordProactiveActivity(
+  source: 'aervox.activity' | 'aervox.operation',
+  eventType: string,
+  payloadText?: string,
+  metadata?: Record<string, unknown>,
+) {
+  if (isWeb.value || proactiveStatus.value?.desiredState !== 'enabled') return
+  void proactiveBridge()?.recordActivity(source, {eventType, payloadText, metadata}).catch(() => undefined)
+}
+const proactiveActive = computed(() => proactiveStatus.value?.effectiveState === 'active')
+const accessChipLabel = computed(() => proactiveActive.value ? '主动智能模式' : toolApprovalMode.value === 'full_access' ? '完全访问' : '操作需确认')
+const accessChipIcon = computed(() => proactiveActive.value ? BrainCircuit : toolApprovalMode.value === 'full_access' ? ShieldAlert : ShieldCheck)
 // Web always presents its companion; the desktop-only preference must not
 // leak through shared localStorage and hide the Web companion.
 const showCompanionEnabled = computed(() => props.showCompanion && (isWeb.value || desktopCompanionEnabled.value))
@@ -188,6 +252,7 @@ const formattedTime = computed(() => {
 })
 const settingCategories = [
   {id: 'tools', label: '快捷工具', description: '学习面板与小工具', icon: LayoutGrid},
+  {id: 'proactive', label: '主动智能', description: '全量画像与本地权限', icon: BrainCircuit},
   {id: 'appearance', label: '外观', description: '主题与界面密度', icon: Sun},
   {id: 'conversation', label: '对话', description: '称呼与输入方式', icon: MessageCircle},
   {id: 'model', label: '模型与服务', description: '大语言模型与供应商配置', icon: Bot},
@@ -197,26 +262,17 @@ const settingCategories = [
   {id: 'plugins', label: '插件', description: '插件配置与页面', icon: Puzzle},
 ] as const
 
-const companionModes: CompanionMode[] = [
-  {id: 'companion', label: '陪学讲解', hint: '逐步讲解，适合卡住的时候', prefix: '[模式：陪学讲解] '},
-  {id: 'quick', label: '快问快答', hint: '简短直接，先给结论', prefix: '[模式：快问快答] '},
-  {id: 'deep', label: '深度拆解', hint: '展开原理与关联知识', prefix: '[模式：深度拆解] '},
-  {id: 'chat', label: '自由聊天', hint: '无固定结构的日常对话', prefix: ''},
-]
-
-const activeMode = computed(() => companionModes.find((mode) => mode.id === activeModeId.value) ?? companionModes[0])
-
 const activeMistakeCount = computed(() => mistakes.value.filter((item) => item.status === 'active').length)
 
 const cardCatalog = computed<CardDefinition[]>(() => [
-  {id: 'study', label: '今日学习', description: '学习目标 · 复习 · 错题 · 日记', icon: BookOpen, summary: () => `${goals.value.length} 个目标 · ${dueReviews.value.length} 项复习`, action: () => openTool('study')},
+  {id: 'study', label: '今日学习', description: '学习目标 · 复习 · 练习 · 日记', icon: BookOpen, summary: () => `${goals.value.length} 个目标 · ${dueReviews.value.length} 项复习`, action: () => openTool('study')},
+  {id: 'mistake', label: '错题本', description: '针对性练习未掌握的题', icon: Puzzle, summary: () => `${activeMistakeCount.value} 题待掌握`, action: () => openTool('mistake')},
   {id: 'todo', label: '待办清单', description: '勾选完成今天的待办事项', icon: ListTodo, summary: () => `待完成 ${unfinishedTodos.value.length} 件`, action: () => openTool('todo')},
   {id: 'timer', label: '番茄钟', description: '专注计时，劳逸结合', icon: Clock3, summary: () => timerRunning.value ? `${formattedTime.value} 专注中` : `${formattedTime.value} 待开始`, action: () => openTool('timer')},
   {id: 'history', label: '对话回看', description: '回顾与思隅的历史对话', icon: History, summary: () => `${story.value.length} 条对话记录`, action: () => openTool('history')},
-  {id: 'review', label: '待复习', description: '间隔复习到期内容', icon: RotateCcw, summary: () => `${dueReviews.value.length} 项到期`, action: () => openTool('study')},
-  {id: 'mistake', label: '错题本', description: '针对性练习未掌握的题', icon: Puzzle, summary: () => `${activeMistakeCount.value} 题待掌握`, action: () => openTool('study')},
-  {id: 'diary', label: '今日日记', description: 'AI 汇总的学习日记', icon: NotebookPen, summary: () => todayDiary.value?.title ?? '生成后在这里展示', action: () => openTool('study')},
-  {id: 'notifications', label: '提醒', description: '学习节奏与日常通知', icon: Bell, summary: () => `${notifications.value.length} 条提醒`, action: () => openTool('study')},
+  {id: 'review', label: '待复习', description: '间隔复习到期内容', icon: RotateCcw, summary: () => `${dueReviews.value.length} 项到期`, action: () => openTool('study', 'review')},
+  {id: 'diary', label: '今日日记', description: 'AI 汇总的学习日记', icon: NotebookPen, summary: () => todayDiary.value?.title ?? '生成后在这里展示', action: () => openTool('study', 'diary')},
+  {id: 'notifications', label: '提醒', description: '学习节奏与日常通知', icon: Bell, summary: () => `${notifications.value.length} 条提醒`, action: () => openTool('study', 'diary')},
 ])
 
 const slotCards = computed(() => cardSlots.value.map((id) => id ? cardCatalog.value.find((card) => card.id === id) ?? null : null))
@@ -224,22 +280,62 @@ const slotCards = computed(() => cardSlots.value.map((id) => id ? cardCatalog.va
 const menuOpen = ref(false)
 const menuPillRef = ref<HTMLElement | null>(null)
 
-/** 主导航：全部映射到既有功能（工具抽屉与设置弹窗），不引入新能力 */
+/** 主导航：全部映射到既有功能（全部为居中弹窗），不引入新能力 */
 const menuItems: Array<{ id: string; label: string; icon: Component; action: () => void }> = [
   {id: 'study', label: '学习', icon: BookOpen, action: () => openTool('study')},
+  {id: 'mistake', label: '错题本', icon: Puzzle, action: () => openTool('mistake')},
   {id: 'todo', label: '待办', icon: ListTodo, action: () => openTool('todo')},
   {id: 'timer', label: '番茄钟', icon: Clock3, action: () => openTool('timer')},
   {id: 'history', label: '回看', icon: History, action: () => openTool('history')},
-  {id: 'settings', label: '设置', icon: Settings, action: () => {settingsOpen.value = true}},
 ]
+
+/** 功能弹窗左侧导航：五个功能统一入口，当前弹窗高亮，点击即切换 */
+const toolNavItems: Array<{ id: ToolId; label: string; description: string; icon: Component }> = [
+  {id: 'study', label: '今日学习', description: '目标 · 复习 · 练习 · 日记', icon: BookOpen},
+  {id: 'mistake', label: '错题本', description: '针对性重练未掌握题', icon: Puzzle},
+  {id: 'todo', label: '待办清单', description: '勾选完成今天的待办', icon: ListTodo},
+  {id: 'timer', label: '番茄钟', description: '专注计时，劳逸结合', icon: Clock3},
+  {id: 'history', label: '对话回看', description: '回顾历史对话记录', icon: History},
+]
+
+/** Live2D 操作反馈动作池：按语义挑选 Mizuki 动作子集，随机取用避免重复 */
+const PET_MOTION_POOLS = {
+  glad: [MizukiMotion.w_cute_glad01, MizukiMotion.w_cute_glad03, MizukiMotion.w_adult_glad01, MizukiMotion.w_happy_glad01, MizukiMotion.w_normal_glad01],
+  nod: [MizukiMotion.w_cute_nod01, MizukiMotion.w_normal_nod01, MizukiMotion.w_adult_nod01, MizukiMotion.w_happy_nod01],
+  think: [MizukiMotion.w_adult_think01, MizukiMotion.w_adult_think02],
+  shake: [MizukiMotion.w_normal_shakehead01, MizukiMotion.w_happy_shakehead01, MizukiMotion.w_cute_shakehead01],
+  greet: [MizukiMotion.w_normal_greeting01, MizukiMotion.w_cute_poseforward02],
+  forward: [MizukiMotion.w_cute_forward01, MizukiMotion.w_normal_forward01, MizukiMotion.w_happy_forward01],
+  tilthead: [MizukiMotion.w_normal_tilthead01, MizukiMotion.w_cute_tilthead01, MizukiMotion.w_adult_tilthead01],
+  sad: [MizukiMotion.w_normal_sad01, MizukiMotion.w_happy_sad01, MizukiMotion.w_cool_sad01],
+} as const
+
+type PetReactionKind = keyof typeof PET_MOTION_POOLS
+
+/** 按语义派发桌宠反馈：动作 + 表情 + 看向目标 + 说话 */
+function petReactKind(kind: PetReactionKind, options: {expression?: MizukiExpression; lookAtEl?: string | Element; speak?: string; lookDuration?: number} = {}) {
+  const pool = PET_MOTION_POOLS[kind]
+  petReact({
+    motion: pool[Math.floor(Math.random() * pool.length)],
+    expression: options.expression,
+    lookAtEl: options.lookAtEl,
+    lookDuration: options.lookDuration,
+    speak: options.speak,
+  })
+}
 
 function toggleMenu() {
   menuOpen.value = !menuOpen.value
+  if (menuOpen.value) petReactKind('greet', {lookAtEl: '.menu-pill', lookDuration: 3200})
+  else petReactKind('nod')
 }
 
 /** 收起态点击胶囊任意区域（含边缘空白）均可展开 */
 function handlePillClick() {
-  if (!menuOpen.value) menuOpen.value = true
+  if (!menuOpen.value) {
+    menuOpen.value = true
+    petReactKind('greet', {lookAtEl: '.menu-pill', lookDuration: 3200})
+  }
 }
 
 function runMenuAction(action: () => void) {
@@ -256,6 +352,138 @@ function handleMenuDocumentClick(event: MouseEvent) {
 
 function createStoryLine(speaker: Speaker, text: string, state: StoryLine['state'] = 'complete'): StoryLine {
   return {id: nextStoryId++, speaker, text, state}
+}
+
+// ============ 多模态输入（CAP-012）：输入框附件上传 ============
+
+interface PendingAttachment {
+  key: string
+  file: File
+  name: string
+  mediaType: string
+  size: number
+  previewUrl?: string
+}
+
+const pendingAttachments = ref<PendingAttachment[]>([])
+const attachmentError = ref<string | null>(null)
+const attachmentUploading = ref(false)
+const attachmentFileInput = ref<HTMLInputElement | null>(null)
+
+/** 扩展名 → MIME（file.type 缺失时的兜底映射，与 contracts allowedMediaTypesSchema 对齐） */
+const EXTENSION_MEDIA_TYPES: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  pdf: 'application/pdf',
+  txt: 'text/plain',
+  md: 'text/markdown',
+  csv: 'text/csv',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  ogg: 'audio/ogg',
+  m4a: 'audio/mp4',
+  weba: 'audio/webm',
+}
+
+const ALLOWED_MEDIA_TYPES = allowedMediaTypesSchema.options as readonly string[]
+
+const attachmentAccept = [...ALLOWED_MEDIA_TYPES, ...Object.keys(EXTENSION_MEDIA_TYPES).map((ext) => `.${ext}`)].join(',')
+
+function resolveMediaType(file: File): string | null {
+  const type = file.type || EXTENSION_MEDIA_TYPES[file.name.split('.').pop()?.toLowerCase() ?? ''] || ''
+  return ALLOWED_MEDIA_TYPES.includes(type) ? type : null
+}
+
+function purposeForMediaType(mediaType: string): AttachmentPurpose {
+  if (mediaType.startsWith('image/')) return 'question'
+  if (mediaType === 'application/pdf') return 'reading'
+  if (mediaType.startsWith('audio/')) return 'audio'
+  return 'file'
+}
+
+function formatAttachmentSize(size: number): string {
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(0)} KB`
+  return `${(size / 1024 / 1024).toFixed(1)} MB`
+}
+
+function attachmentIconFor(mediaType: string) {
+  if (mediaType.startsWith('image/')) return ImageIcon
+  if (mediaType.startsWith('audio/')) return Music
+  return FileText
+}
+
+function triggerAttachmentPicker() {
+  attachmentFileInput.value?.click()
+  petReactKind('tilthead', {lookAtEl: '.composer-dock', lookDuration: 2000})
+}
+
+function handleFilesChosen(event: Event) {
+  const input = event.target as HTMLInputElement
+  const files = Array.from(input.files ?? [])
+  input.value = ''
+  attachmentError.value = null
+  for (const file of files) {
+    if (pendingAttachments.value.length >= 10) {
+      attachmentError.value = '一次最多携带 10 个附件。'
+      break
+    }
+    const mediaType = resolveMediaType(file)
+    if (!mediaType) {
+      attachmentError.value = `「${file.name}」的类型暂不支持（支持图片 / PDF / 文档 / 音频）。`
+      continue
+    }
+    if (file.size > MAX_ATTACHMENT_SIZE) {
+      attachmentError.value = `「${file.name}」超过 10MB 上限。`
+      continue
+    }
+    pendingAttachments.value.push({
+      key: `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+      file,
+      name: file.name,
+      mediaType,
+      size: file.size,
+      previewUrl: mediaType.startsWith('image/') ? URL.createObjectURL(file) : undefined,
+    })
+  }
+  if (pendingAttachments.value.length > 0) {
+    petReactKind('glad', {expression: MizukiExpression.face_notice_01, lookAtEl: '.composer-attachments', lookDuration: 2600})
+  }
+}
+
+function removePendingAttachment(key: string) {
+  const index = pendingAttachments.value.findIndex((item) => item.key === key)
+  if (index < 0) return
+  const [removed] = pendingAttachments.value.splice(index, 1)
+  if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl)
+  petReactKind('shake', {lookAtEl: '.composer-dock'})
+}
+
+/** 发送前上传全部待发附件，返回 turn 消息引用清单 */
+async function uploadPendingAttachments(): Promise<TurnAttachmentRef[]> {
+  const refs: TurnAttachmentRef[] = []
+  for (const item of pendingAttachments.value) {
+    const uploaded = await uploadAervoxAttachment({
+      file: item.file,
+      name: item.name,
+      mediaType: item.mediaType,
+      purpose: purposeForMediaType(item.mediaType),
+    })
+    refs.push({attachmentId: uploaded.id, name: item.name, mediaType: item.mediaType})
+  }
+  return refs
+}
+
+function clearPendingAttachments() {
+  for (const item of pendingAttachments.value) {
+    if (item.previewUrl) URL.revokeObjectURL(item.previewUrl)
+  }
+  pendingAttachments.value = []
 }
 
 async function scrollStoryToBottom() {
@@ -275,58 +503,130 @@ const latestAssistantLine = computed<StoryLine | null>(() => {
 const historyViewport = ref<HTMLElement | null>(null)
 
 watch(historyOpen, async (open) => {
-  if (!open) return
-  await nextTick()
-  historyViewport.value?.scrollTo({top: historyViewport.value.scrollHeight})
+  if (open) {
+    petReactKind('think', {expression: MizukiExpression.face_notice_01, lookAtEl: '.history-overlay', lookDuration: 3200})
+    await nextTick()
+    historyViewport.value?.scrollTo({top: historyViewport.value.scrollHeight})
+  } else {
+    petReactKind('nod')
+  }
+})
+
+/** 设置弹窗开合的桌宠反馈：开启时看向弹窗、关闭时点头 */
+watch(settingsOpen, async (open) => {
+  if (open) {
+    petReactKind('tilthead', {expression: MizukiExpression.face_notice_01})
+    await nextTick()
+    petReact({lookAtEl: '.el-dialog.settings-dialog', lookDuration: 3600})
+  } else {
+    petReactKind('nod')
+  }
 })
 
 function handleHistoryEscape(event: KeyboardEvent) {
   if (event.key === 'Escape' && historyOpen.value) historyOpen.value = false
 }
 
-async function sendMessage(value = input.value, options: { resend?: boolean } = {}) {
-  const text = value.trim()
-  if (!text || streaming.value) return
+function openTermExplore(term: ExtractedTerm) {
+  selectedTerm.value = term
+  exploreDialogOpen.value = true
+}
 
-  // 模式前缀随消息发送（自由聊天无前缀），对话记录仍展示用户原文。
-  const modePrefix = activeMode.value.prefix
-  const outgoing = modePrefix && !text.startsWith(modePrefix) ? modePrefix + text : text
+async function sendMessage(value = input.value, options?: { quizMode?: boolean; resend?: boolean }) {
+  const text = value.trim()
+  if ((!text && pendingAttachments.value.length === 0) || streaming.value) return
+
+  // 附件先行上传（CAP-012 多模态输入），失败则保留待发清单供重试
+  let attachmentRefs: TurnAttachmentRef[] = []
+  if (pendingAttachments.value.length > 0) {
+    attachmentUploading.value = true
+    try {
+      attachmentRefs = await uploadPendingAttachments()
+    } catch (error) {
+      attachmentError.value = error instanceof Error ? `附件上传失败：${error.message}` : '附件上传失败，请重试。'
+      petReactKind('sad', {expression: MizukiExpression.face_trouble_01, lookAtEl: '.composer-attachments'})
+      return
+    } finally {
+      attachmentUploading.value = false
+    }
+  }
+
+  // 纯附件发送时使用占位文案满足 content 契约（min(1)）；对话记录展示用户原文或附件标记
+  const displayText = text || '（发送了附件）'
+  const outgoingText = text || '请查看我上传的附件。'
+
+  // 若开启学习模式则自动附带学习模式前缀触发专属启发式教学 Prompt，对话记录仍展示用户原文。
+  // 刷题触发时刷题前缀优先于学习模式前缀：本回合由刷题规范接管教学规则。
+  const quizPrefix = options?.quizMode ? '[模式：刷题模式] ' : ''
+  const modePrefix = quizPrefix || (studyModeEnabled.value ? '[模式：学习模式] ' : '')
+  const outgoing = modePrefix && !outgoingText.startsWith(modePrefix) ? modePrefix + outgoingText : outgoingText
 
   const assistantLine = createStoryLine('assistant', '', 'streaming')
   // 授权重发不重复展示用户气泡（原文已在对话记录中）
-  if (options.resend) story.value.push(assistantLine)
-  else story.value.push(createStoryLine('user', text), assistantLine)
+  if (options?.resend) {
+    story.value.push(assistantLine)
+  } else {
+    const userLine = createStoryLine('user', displayText)
+    if (attachmentRefs.length > 0) {
+      userLine.attachments = pendingAttachments.value.map((item) => ({name: item.name, mediaType: item.mediaType, previewUrl: item.previewUrl}))
+      clearPendingAttachments()
+    }
+    story.value.push(userLine, assistantLine)
+  }
   input.value = ''
   streaming.value = true
   activeQuestion.value = null
+  currentExtractedTerms.value = []
+  petReactKind('think', {lookAtEl: '.message-panel'})
   await scrollStoryToBottom()
+  recordProactiveActivity('aervox.activity', 'conversation.turn_submitted', text, {
+    studyModeEnabled: studyModeEnabled.value,
+    toolApprovalMode: toolApprovalMode.value,
+    characterCount: text.length,
+  })
 
+  /** 流式期间每 1.2s 驱动一次口型，让桌宠"开口说话" */
+  let lastSpeakAt = 0
   try {
-    await streamAervoxTurn(outgoing, {
-      onDelta: (delta) => {
-        assistantLine.text += delta
-        void scrollStoryToBottom()
+    await streamAervoxTurn(
+      outgoing,
+      {
+        onDelta: (delta) => {
+          assistantLine.text += delta
+          void scrollStoryToBottom()
+          const now = Date.now()
+          if (now - lastSpeakAt > 1200 && delta.trim()) {
+            lastSpeakAt = now
+            petReact({speak: delta})
+          }
+        },
+        onDone: () => {
+          assistantLine.state = 'complete'
+          activeQuestion.value = null
+          if (!assistantLine.text) assistantLine.text = '这次没有收到可展示的回答，请再试一次。'
+          petReactKind('glad', {expression: MizukiExpression.face_smile_01, speak: assistantLine.text})
+          // CAP-009：对话触发可能已生成/改写日记，回合结束后刷新今日日记卡片
+          void loadTodayDiary()
+        },
+        onUserQuestion: (qData) => {
+          activeQuestion.value = qData
+          currentTurnId.value = qData.turnId
+          void scrollStoryToBottom()
+        },
+        onTermsExtracted: (tData) => {
+          currentExtractedTerms.value = tData.terms
+        },
+        onToolApproval: (aData) => {
+          pendingApproval.value = {...aData, outgoing}
+          void scrollStoryToBottom()
+        },
       },
-      onDone: () => {
-        assistantLine.state = 'complete'
-        activeQuestion.value = null
-        if (!assistantLine.text) assistantLine.text = '这次没有收到可展示的回答，请再试一次。'
-        // CAP-009：对话触发可能已生成/改写日记，回合结束后刷新今日日记卡片
-        void loadTodayDiary()
-      },
-      onUserQuestion: (qData) => {
-        activeQuestion.value = qData
-        currentTurnId.value = qData.turnId
-        void scrollStoryToBottom()
-      },
-      onToolApproval: (aData) => {
-        pendingApproval.value = {...aData, outgoing}
-        void scrollStoryToBottom()
-      },
-    })
+      {toolApprovalMode: toolApprovalMode.value, attachments: attachmentRefs},
+    )
   } catch (error) {
     assistantLine.state = 'error'
     assistantLine.text = error instanceof Error ? `连接失败：${error.message}` : '连接失败，请稍后重试。'
+    petReactKind('sad', {expression: MizukiExpression.face_sad_01})
   } finally {
     streaming.value = false
     if (!input.value.trim()) composerOpen.value = false
@@ -369,6 +669,7 @@ async function handleQuestionSubmit(answers: AskUserQuestionAnswerItem[]) {
 
 function expandComposer() {
   composerOpen.value = true
+  petReactKind('tilthead', {lookAtEl: '.composer-dock'})
   void nextTick(() => composerTextarea.value?.focus())
 }
 
@@ -380,6 +681,7 @@ function collapseComposer() {
 /** 点击控制台外部的空白输入区时自动收起（输入法组合/焦点转移期间不误收起） */
 function handleDockFocusOut(event: FocusEvent) {
   if (!composerOpen.value || isComposing.value) return
+  if (fullAccessDialogOpen.value) return
   if (input.value.trim() || voiceInput.isListening.value) return
   const dock = event.currentTarget as HTMLElement
   const next = event.relatedTarget as Node | null
@@ -388,18 +690,239 @@ function handleDockFocusOut(event: FocusEvent) {
   // 延迟复查真实焦点位置，避免输入中途输入框被销毁导致文字丢失。
   window.setTimeout(() => {
     if (!composerOpen.value || isComposing.value) return
+    if (fullAccessDialogOpen.value) return
     if (input.value.trim() || voiceInput.isListening.value) return
     if (dock.contains(document.activeElement)) return
     composerOpen.value = false
   }, 160)
 }
 
-function openTool(target: 'study' | 'todo' | 'timer' | 'history') {
+function saveToolApprovalMode(mode: ToolApprovalMode) {
+  toolApprovalMode.value = mode
+  localStorage.setItem('aervox-tool-approval-mode', mode)
+  void refreshProactiveStatus()
+}
+
+function toggleToolApprovalMode() {
+  if (streaming.value) return
+  if (toolApprovalMode.value === 'full_access') {
+    saveToolApprovalMode('ask')
+    return
+  }
+  fullAccessAcknowledged.value = false
+  fullAccessDialogOpen.value = true
+}
+
+function enableFullAccess() {
+  if (!fullAccessAcknowledged.value) return
+  saveToolApprovalMode('full_access')
+  fullAccessDialogOpen.value = false
+}
+
+function resetFullAccessConfirmation() {
+  fullAccessAcknowledged.value = false
+}
+
+type ToolId = 'study' | 'mistake' | 'todo' | 'timer' | 'history'
+
+function capabilityStatusLabel(status: ProfileCapabilityState['osStatus']): string {
+  return {
+    granted: '已授权',
+    denied: '已拒绝',
+    prompt: '等待授权',
+    unavailable: '不可用',
+    unknown: '待验证',
+  }[status]
+}
+
+function capabilityStatusClass(status: ProfileCapabilityState['osStatus']): string {
+  return `is-${status}`
+}
+
+function proactiveStateLabel(status: ProactiveProfileStatus | null): string {
+  if (!status) return isWeb.value ? '桌面端可用' : '未连接本地 Host'
+  return profileStatusLabel(status.effectiveState)
+}
+
+async function refreshProactiveStatus() {
+  const bridge = proactiveBridge()
+  if (isWeb.value || !bridge) {
+    proactiveStatus.value = null
+    return
+  }
+  try {
+    const [status, claims] = await Promise.all([
+      bridge.getStatus(toolApprovalMode.value),
+      bridge.listClaims().catch(() => []),
+    ])
+    proactiveStatus.value = status
+    proactiveClaims.value = claims
+    proactiveAutostart.value = proactiveStatus.value.persistence.autostart
+    proactiveBackground.value = proactiveStatus.value.persistence.background
+    proactiveError.value = null
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : '无法读取主动智能状态'
+  }
+}
+
+function proactiveClaimStateLabel(state: ProactiveProfileClaimView['state']): string {
+  return {
+    observed: '已观察',
+    inferred: '推断',
+    user_asserted: '用户提供',
+    confirmed: '已确认',
+    rejected: '已拒绝',
+  }[state]
+}
+
+async function updateProactiveClaimState(claim: ProactiveProfileClaimView, state: 'confirmed' | 'rejected') {
+  const bridge = proactiveBridge()
+  if (!bridge || isWeb.value) return
+  proactiveBusy.value = true
+  proactiveError.value = null
+  try {
+    const updated = await bridge.updateClaimState(claim.id, state)
+    proactiveClaims.value = proactiveClaims.value.map((item) => item.id === updated.id ? updated : item)
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : '画像记忆状态更新失败'
+  } finally {
+    proactiveBusy.value = false
+  }
+}
+
+function openProactiveAuthorization() {
+  proactiveError.value = null
+  proactiveAcknowledged.value = false
+  proactiveAutostart.value = proactiveStatus.value?.persistence.autostart ?? true
+  proactiveBackground.value = proactiveStatus.value?.persistence.background ?? true
+  proactiveDialogOpen.value = true
+}
+
+function resetProactiveAuthorization() {
+  proactiveAcknowledged.value = false
+}
+
+async function authorizeProactive() {
+  const bridge = proactiveBridge()
+  if (!bridge || isWeb.value || !proactiveAcknowledged.value || toolApprovalMode.value !== 'full_access') return
+  proactiveBusy.value = true
+  proactiveError.value = null
+  const request: ProfileAuthorizationRequest = {
+    acknowledged: true,
+    enableAutostart: proactiveAutostart.value,
+    enableBackground: proactiveBackground.value,
+    requestAllOsCapabilities: true,
+  }
+  try {
+    proactiveStatus.value = await bridge.authorize(request, toolApprovalMode.value)
+    proactiveDialogOpen.value = false
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : '主动智能授权失败'
+  } finally {
+    proactiveBusy.value = false
+  }
+}
+
+async function setProactiveDesiredState(desiredState: Extract<ProfileDesiredState, 'enabled' | 'paused' | 'revoked'>) {
+  const bridge = proactiveBridge()
+  if (!bridge || isWeb.value) return
+  if (desiredState === 'revoked' && !window.confirm('撤销后会立即停止新的观察、召回、分析、提醒和主动任务。已保存的本地数据不会自动删除。确定撤销吗？')) return
+  proactiveBusy.value = true
+  proactiveError.value = null
+  try {
+    proactiveStatus.value = await bridge.setDesiredState(desiredState, toolApprovalMode.value)
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : '主动智能状态更新失败'
+  } finally {
+    proactiveBusy.value = false
+  }
+}
+
+async function setProactivePersistence(update: ProfilePersistenceUpdate) {
+  const bridge = proactiveBridge()
+  if (!bridge || isWeb.value) return
+  proactiveBusy.value = true
+  proactiveError.value = null
+  try {
+    proactiveStatus.value = await bridge.setPersistence(update, toolApprovalMode.value)
+    proactiveAutostart.value = proactiveStatus.value.persistence.autostart
+    proactiveBackground.value = proactiveStatus.value.persistence.background
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : '常驻设置更新失败'
+  } finally {
+    proactiveBusy.value = false
+  }
+}
+
+async function requestProactiveCapability(capability: ProfileCapabilityState) {
+  const bridge = proactiveBridge()
+  if (!bridge || isWeb.value || !capability.canRequest) return
+  proactiveBusy.value = true
+  proactiveError.value = null
+  try {
+    proactiveStatus.value = await bridge.requestCapability(capability.id, toolApprovalMode.value)
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : '系统权限请求失败'
+  } finally {
+    proactiveBusy.value = false
+  }
+}
+
+async function deleteProactiveSource(capability: ProfileCapabilityState) {
+  const bridge = proactiveBridge()
+  if (!bridge || isWeb.value) return
+  if (!window.confirm(`撤销“${capability.label}”并删除其本地捕获、观察和画像证据？此操作不可撤销。`)) return
+  proactiveBusy.value = true
+  proactiveError.value = null
+  proactiveNotice.value = null
+  try {
+    proactiveStatus.value = await bridge.deleteSource(capability.id, toolApprovalMode.value)
+    proactiveNotice.value = `已撤销并清理 ${capability.label}`
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : '来源撤销与删除失败'
+  } finally {
+    proactiveBusy.value = false
+  }
+}
+
+async function exportProactiveData(includeRaw: boolean) {
+  const bridge = proactiveBridge()
+  if (!bridge || isWeb.value) return
+  if (includeRaw && !window.confirm('导出文件将包含仍在 7 天保留期内的原始副本。确定继续吗？')) return
+  proactiveBusy.value = true
+  proactiveError.value = null
+  proactiveNotice.value = null
+  try {
+    const result = await bridge.exportData(includeRaw)
+    if (result) proactiveNotice.value = `已导出到 ${result.path}`
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : '主动画像导出失败'
+  } finally {
+    proactiveBusy.value = false
+  }
+}
+
+/** 打开（或切换到）指定功能弹窗：同一时间只保留一个功能弹窗 */
+function openTool(target: ToolId, category?: 'practice' | 'goals' | 'review' | 'plans' | 'diary') {
+  recordProactiveActivity('aervox.operation', 'workbench.tool_opened', undefined, {target})
   settingsOpen.value = false
-  if (target === 'study') studyOpen.value = true
-  else if (target === 'todo') todoOpen.value = true
-  else if (target === 'timer') timerOpen.value = true
-  else historyOpen.value = true
+  studyOpen.value = false
+  mistakeOpen.value = false
+  todoOpen.value = false
+  timerOpen.value = false
+  historyOpen.value = false
+  if (target === 'study') {
+    if (category) studyCategory.value = category
+    studyOpen.value = true
+  } else if (target === 'mistake') {
+    mistakeOpen.value = true
+  } else if (target === 'todo') {
+    todoOpen.value = true
+  } else if (target === 'timer') {
+    timerOpen.value = true
+  } else {
+    historyOpen.value = true
+  }
 }
 
 function addTodo() {
@@ -659,6 +1182,8 @@ function nextPracticeQuestion() {
 
 function toggleTimer() {
   timerRunning.value = !timerRunning.value
+  if (timerRunning.value) petReactKind('nod', {expression: MizukiExpression.face_serious_01})
+  else petReactKind('tilthead', {expression: MizukiExpression.face_smile_01})
 }
 
 function resetTimer() {
@@ -705,8 +1230,7 @@ function calculateMinutesFromEvent(event: MouseEvent | TouchEvent): number | nul
   if (deg < 0) deg += 360
   // 360 度对应 60 分钟
   const rawMin = (deg / 360) * 60
-  const clamped = Math.max(1, Math.min(60, Math.round(rawMin)))
-  return clamped
+  return Math.max(1, Math.min(60, Math.round(rawMin)))
 }
 
 function handleDialPointerDown(event: MouseEvent | TouchEvent) {
@@ -779,31 +1303,22 @@ function handleComposerInputOrKey() {
   }
 }
 
-function setMode(id: CompanionModeId) {
-  activeModeId.value = id
-  localStorage.setItem('aervox-composer-mode', id)
-}
-
 function isCardPicked(id: CardId) {
   return cardSlots.value.includes(id)
 }
 
-function handleCardCommand(slot: number, command: unknown) {
-  if (command === '__clear__') {
-    selectCard(slot, null)
-    return
-  }
-  if (typeof command === 'string' && cardCatalog.value.some((card) => card.id === command)) {
-    selectCard(slot, command as CardId)
-  }
-}
-
-function selectCard(slot: number, id: CardId | null) {
+function selectCard(slot: number, id: CardId | null, event?: MouseEvent) {
   cardSlots.value = cardSlots.value.map((current, index) => index === slot ? id : current)
   localStorage.setItem('aervox-side-cards', JSON.stringify(cardSlots.value))
+  // 桌宠反馈：看向被操作的那个卡片槽位，选功能时开心、移除时摇头
+  const slotEl = (event?.target as HTMLElement | null)?.closest?.('.side-card-slot') ?? undefined
+  if (id) petReactKind('glad', {expression: MizukiExpression.face_smile_03, lookAtEl: slotEl, lookDuration: 3600})
+  else petReactKind('shake', {expression: MizukiExpression.face_trouble_01, lookAtEl: slotEl})
 }
 
-function activateCard(card: CardDefinition) {
+function activateCard(card: CardDefinition, event?: MouseEvent | KeyboardEvent) {
+  const cardEl = (event?.currentTarget as HTMLElement | null)?.closest?.('.side-card') ?? undefined
+  petReactKind('forward', {expression: MizukiExpression.face_notice_01, lookAtEl: cardEl})
   card.action()
 }
 
@@ -853,12 +1368,31 @@ async function toggleVoiceInput() {
   }
 }
 
+function toggleStudyMode() {
+  studyModeEnabled.value = !studyModeEnabled.value
+  recordProactiveActivity('aervox.operation', 'conversation.study_mode_changed', undefined, {enabled: studyModeEnabled.value})
+  if (studyModeEnabled.value) petReactKind('glad', {expression: MizukiExpression.face_smile_01, lookAtEl: '.floating-study-switch-wrap'})
+  else petReactKind('shake', {expression: MizukiExpression.face_normal_01, lookAtEl: '.floating-study-switch-wrap'})
+  if (!studyModeEnabled.value) {
+    currentExtractedTerms.value = []
+    exploreDialogOpen.value = false
+  }
+  saveSettings()
+}
+
+/** 刷题一次性入口：发送带刷题模式前缀的消息，AI 进入出题-判定-落库闭环（答错自动进错题本）。 */
+function startQuiz() {
+  if (streaming.value) return
+  void sendMessage(input.value.trim() || '来几道题', {quizMode: true})
+}
+
 function saveSettings() {
   const settings = {
     theme: isDark.value ? 'dark' : 'light',
     assistantName: assistantDisplayName.value.trim() || props.assistantName,
     enterToSend: enterToSend.value,
     compactMode: compactMode.value,
+    studyModeEnabled: studyModeEnabled.value,
     timerMinutes: timerMinutes.value,
     desktopCompanionEnabled: desktopCompanionEnabled.value,
     dailyReminder: dailyReminder.value,
@@ -882,6 +1416,7 @@ async function setTheme(theme: 'light' | 'dark') {
 }
 
 let timer: number | undefined
+let removeProactiveStatusListener: (() => void) | undefined
 const openSettings = () => {
   settingsOpen.value = true
 }
@@ -894,6 +1429,7 @@ onMounted(() => {
       assistantName: string
       enterToSend: boolean
       compactMode: boolean
+      studyModeEnabled: boolean
       timerMinutes: number
       desktopCompanionEnabled: boolean
       dailyReminder: boolean
@@ -901,6 +1437,7 @@ onMounted(() => {
     if (savedSettings.assistantName) assistantDisplayName.value = savedSettings.assistantName
     if (typeof savedSettings.enterToSend === 'boolean') enterToSend.value = savedSettings.enterToSend
     if (typeof savedSettings.compactMode === 'boolean') compactMode.value = savedSettings.compactMode
+    if (typeof savedSettings.studyModeEnabled === 'boolean') studyModeEnabled.value = savedSettings.studyModeEnabled
     if (typeof savedSettings.timerMinutes === 'number' && savedSettings.timerMinutes >= 1 && savedSettings.timerMinutes <= 60) timerMinutes.value = savedSettings.timerMinutes
     if (typeof savedSettings.desktopCompanionEnabled === 'boolean') desktopCompanionEnabled.value = savedSettings.desktopCompanionEnabled
     if (typeof savedSettings.dailyReminder === 'boolean') dailyReminder.value = savedSettings.dailyReminder
@@ -909,8 +1446,8 @@ onMounted(() => {
     // Ignore malformed local preferences and use defaults.
   }
 
-  const savedMode = localStorage.getItem('aervox-composer-mode')
-  if (savedMode && companionModes.some((mode) => mode.id === savedMode)) activeModeId.value = savedMode as CompanionModeId
+  const savedToolApprovalMode = localStorage.getItem('aervox-tool-approval-mode')
+  if (savedToolApprovalMode === 'full_access') toolApprovalMode.value = 'full_access'
 
   try {
     const savedCards = JSON.parse(localStorage.getItem('aervox-side-cards') ?? 'null') as unknown
@@ -933,6 +1470,16 @@ onMounted(() => {
     isDark.value = saved === 'dark'
   }
 
+  if (!isWeb.value) {
+    const bridge = proactiveBridge()
+    removeProactiveStatusListener = bridge?.onStatusChange((status) => {
+      proactiveStatus.value = status
+      proactiveAutostart.value = status.persistence.autostart
+      proactiveBackground.value = status.persistence.background
+    })
+    void refreshProactiveStatus()
+  }
+
   void scrollStoryToBottom()
 
   document.addEventListener('click', handleMenuDocumentClick)
@@ -949,6 +1496,8 @@ onUnmounted(() => {
   document.removeEventListener('click', handleMenuDocumentClick)
   document.removeEventListener('keydown', handleHistoryEscape)
   window.removeEventListener('aervox:open-settings', openSettings)
+  removeProactiveStatusListener?.()
+  clearPendingAttachments()
 })
 </script>
 
@@ -964,9 +1513,43 @@ onUnmounted(() => {
       </Live2DPet>
     </div>
 
-    <button v-if="isWeb" class="floating-settings" type="button" aria-label="打开设置" @click="settingsOpen = true">
-      <Settings :size="19" />
-    </button>
+    <div class="floating-top-actions">
+      <label
+        class="floating-study-switch-wrap"
+        :class="{on: studyModeEnabled}"
+        :title="studyModeEnabled ? '学习模式已开启（点击关闭）' : '学习模式已关闭（点击开启）'"
+      >
+        <BookOpen :size="15" class="study-switch-icon" />
+        <span class="study-switch-label">学习模式</span>
+        <button
+          type="button"
+          role="switch"
+          class="study-switch-track"
+          :class="{ active: studyModeEnabled }"
+          :aria-checked="studyModeEnabled"
+          :aria-label="studyModeEnabled ? '关闭学习模式' : '开启学习模式'"
+          @click="toggleStudyMode"
+        >
+          <span class="study-switch-thumb" />
+        </button>
+      </label>
+
+      <button
+        type="button"
+        class="floating-quiz-btn"
+        :disabled="streaming"
+        aria-label="开始刷题"
+        title="开始刷题：AI 现场出题，答错自动进错题本"
+        @click="startQuiz"
+      >
+        <ClipboardList :size="15" />
+        <span class="quiz-btn-label">刷题</span>
+      </button>
+
+      <button v-if="isWeb" class="floating-settings" type="button" aria-label="打开设置" @click="settingsOpen = true">
+        <Settings :size="19" />
+      </button>
+    </div>
 
     <nav ref="menuPillRef" class="menu-pill" :class="{open: menuOpen}" aria-label="主导航" @click="handlePillClick">
       <button
@@ -1001,8 +1584,8 @@ onUnmounted(() => {
             role="region"
             tabindex="0"
             :aria-label="`打开${card.label}`"
-            @click="activateCard(card)"
-            @keydown.enter="activateCard(card)"
+            @click="activateCard(card, $event)"
+            @keydown.enter="activateCard(card, $event)"
           >
             <header class="side-card-head">
               <span class="side-card-icon"><component :is="card.icon" :size="24" /></span>
@@ -1010,19 +1593,9 @@ onUnmounted(() => {
                 <strong>{{ card.label }}</strong>
                 <small>{{ card.description }}</small>
               </span>
-              <el-dropdown trigger="click" @command="(id: unknown) => handleCardCommand(slotIndex, id)">
-                <button class="side-card-swap" type="button" aria-label="更换卡片功能" @click.stop>
-                  <LayoutGrid :size="15" />
-                </button>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item v-for="option in cardCatalog" :key="option.id" :command="option.id" :disabled="isCardPicked(option.id) && option.id !== card.id">
-                      <span class="side-card-option"><component :is="option.icon" :size="15" /> {{ option.label }}</span>
-                    </el-dropdown-item>
-                    <el-dropdown-item divided command="__clear__">清空此卡片</el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
+              <button class="side-card-remove" type="button" aria-label="移除此卡片" @click.stop="selectCard(slotIndex, null, $event)">
+                <X :size="15" />
+              </button>
             </header>
             <p class="side-card-summary">{{ card.summary() }}</p>
             <footer class="side-card-foot">
@@ -1032,22 +1605,28 @@ onUnmounted(() => {
           </article>
         </template>
 
-        <el-dropdown v-else trigger="click" @command="(id: unknown) => handleCardCommand(slotIndex, id)">
-          <button class="side-card side-card-placeholder" type="button" aria-label="为此卡片选择功能">
-            <span class="side-card-icon"><Plus :size="24" /></span>
+        <div v-else class="side-card side-card-placeholder" role="group" aria-label="为此卡片选择功能">
+          <header class="side-card-head">
+            <span class="side-card-icon"><Plus :size="17" /></span>
             <span class="side-card-title">
               <strong>选择功能</strong>
               <small>把常用工具放到这里</small>
             </span>
-          </button>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item v-for="option in cardCatalog" :key="option.id" :command="option.id" :disabled="isCardPicked(option.id)">
-                <span class="side-card-option"><component :is="option.icon" :size="15" /> {{ option.label }}</span>
-              </el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
+          </header>
+          <div class="side-card-grid">
+            <button
+              v-for="option in cardCatalog"
+              :key="option.id"
+              type="button"
+              class="side-card-grid-item"
+              :disabled="isCardPicked(option.id)"
+              @click="selectCard(slotIndex, option.id, $event)"
+            >
+              <component :is="option.icon" :size="15" />
+              <span>{{ option.label }}</span>
+            </button>
+          </div>
+        </div>
       </div>
     </aside>
 
@@ -1060,7 +1639,13 @@ onUnmounted(() => {
             :class="latestAssistantLine.state"
           >
             <span class="message-speaker">{{ assistantDisplayName }}</span>
-            <span class="message-text">{{ latestAssistantLine.text || '正在连接 Aervox…' }}<i v-if="latestAssistantLine.state === 'streaming'" class="stream-cursor" aria-hidden="true" /></span>
+            <span v-if="latestAssistantLine.state === 'streaming'" class="message-text">
+              <span class="markdown-body" v-html="renderMarkdown(latestAssistantLine.text)" />
+              <i class="stream-cursor" aria-hidden="true" />
+            </span>
+            <span v-else class="message-text">
+              <span class="markdown-body" v-html="renderMarkdown(latestAssistantLine.text || '正在连接 Aervox…')" />
+            </span>
           </p>
           <p v-else class="message-line">
             <span class="message-speaker">{{ assistantDisplayName }}</span>
@@ -1090,6 +1675,28 @@ onUnmounted(() => {
               </button>
             </div>
           </div>
+
+          <!-- CAP-007 / CAP-002: 术语高亮芯片栏（仅在学习模式下展示） -->
+          <div v-if="studyModeEnabled && currentExtractedTerms.length > 0 && !streaming" class="message-terms-bar">
+            <div class="terms-bar-label">
+              <Sparkles :size="13" />
+              <span>核心概念</span>
+            </div>
+            <div class="terms-chips-list">
+              <button
+                v-for="t in currentExtractedTerms"
+                :key="t.text"
+                type="button"
+                class="term-chip"
+                :class="t.relation"
+                title="点击查看名词解释与深度追问"
+                @click="openTermExplore(t)"
+              >
+                <span class="term-chip-text">{{ t.text }}</span>
+                <span class="term-chip-badge">{{ t.relation === 'background' ? '深挖' : '对比' }}</span>
+              </button>
+            </div>
+          </div>
         </div>
         <button class="message-history-entry" type="button" @click="historyOpen = true">
           <History :size="14" />
@@ -1100,65 +1707,114 @@ onUnmounted(() => {
       <section class="composer-dock" :class="{open: composerOpen}" @focusout="handleDockFocusOut">
         <button v-if="!composerOpen" class="composer-collapsed" type="button" @click="expandComposer">
           <MessageCircle :size="16" />
-          <span class="composer-collapsed-hint">{{ streaming ? '思隅正在回应…' : '点击输入消息' }}</span>
-          <span class="composer-mode-chip">{{ activeMode.label }}</span>
+          <span class="composer-collapsed-hint">{{ streaming ? '思隅正在回应…' : (studyModeEnabled ? '输入学习问题或卡点（学习模式已开启）…' : '点击输入消息…') }}</span>
+          <span v-if="studyModeEnabled" class="composer-mode-chip">学习模式</span>
+          <span class="composer-access-chip" :class="{full: toolApprovalMode === 'full_access', proactive: proactiveActive}">
+            <component :is="accessChipIcon" :size="12" />
+            {{ accessChipLabel }}
+          </span>
           <ChevronUp :size="15" />
         </button>
 
         <form v-else class="composer-expanded" @submit.prevent="sendMessage()">
-          <div class="composer-modes" role="radiogroup" aria-label="对话模式">
-            <button
-              v-for="mode in companionModes"
-              :key="mode.id"
-              type="button"
-              class="composer-mode"
-              :class="{active: activeModeId === mode.id}"
-              :title="mode.hint"
-              :aria-pressed="activeModeId === mode.id"
-              @mousedown.prevent
-              @click="setMode(mode.id)"
-            >
-              {{ mode.label }}
-            </button>
-          </div>
           <label class="sr-only" for="aervox-composer">输入要发送给思隅的内容</label>
+          <input
+            ref="attachmentFileInput"
+            type="file"
+            class="sr-only"
+            multiple
+            :accept="attachmentAccept"
+            aria-label="选择要上传的附件（图片 / PDF / 文档 / 音频）"
+            @change="handleFilesChosen"
+          />
+          <div v-if="pendingAttachments.length > 0" class="composer-attachments" aria-label="待发送附件">
+            <div v-for="item in pendingAttachments" :key="item.key" class="attachment-chip">
+              <img v-if="item.previewUrl" :src="item.previewUrl" :alt="item.name" class="attachment-thumb" />
+              <span v-else class="attachment-icon"><component :is="attachmentIconFor(item.mediaType)" :size="15" /></span>
+              <span class="attachment-meta">
+                <span class="attachment-name" :title="item.name">{{ item.name }}</span>
+                <span class="attachment-size">{{ formatAttachmentSize(item.size) }}</span>
+              </span>
+              <button
+                type="button"
+                class="attachment-remove"
+                :aria-label="`移除附件 ${item.name}`"
+                :disabled="streaming || attachmentUploading"
+                @click="removePendingAttachment(item.key)"
+              >
+                <X :size="13" />
+              </button>
+            </div>
+          </div>
           <textarea
             id="aervox-composer"
             ref="composerTextarea"
             v-model="input"
             rows="3"
             :disabled="streaming"
-            :placeholder="activeMode.hint + '…'"
+            :placeholder="studyModeEnabled ? '告诉我你正在学什么，或者把卡住的地方发来（逐步引导与启发式解答）…' : composerPlaceholder"
             @keydown.enter="handleComposerEnter"
             @input="handleComposerInputOrKey"
             @compositionstart="handleCompositionStart"
             @compositionend="handleCompositionEnd"
           />
-          <div class="composer-actions">
+          <div class="composer-footer">
             <button
               type="button"
-              class="voice-input-btn"
-              :class="{ active: voiceInput.isListening.value, transcribing: voiceInput.isTranscribing.value }"
-              :title="voiceInput.isListening.value ? '点击停止语音输入 (说话停顿自动转写)' : '点击开始离线语音输入'"
+              class="permission-toggle"
+              :class="{full: toolApprovalMode === 'full_access', proactive: proactiveActive}"
+              :aria-pressed="toolApprovalMode === 'full_access'"
+              :title="toolApprovalMode === 'full_access' ? '关闭完全访问' : '开启完全访问'"
               :disabled="streaming"
-              @click="toggleVoiceInput"
+              @mousedown.prevent
+              @click="toggleToolApprovalMode"
             >
-              <MicOff v-if="voiceInput.isListening.value" :size="19" />
-              <Mic v-else :size="19" />
-              <span v-if="voiceInput.isListening.value" class="recording-pulse" />
+              <component :is="accessChipIcon" :size="16" />
+              <span>{{ accessChipLabel }}</span>
             </button>
-            <button type="submit" :disabled="!input.trim() || streaming" :aria-label="streaming ? '正在生成回答' : '发送消息'">
-              <span v-if="streaming" class="sending-dot" />
-              <Send v-else :size="20" />
-            </button>
-            <button type="button" class="composer-collapse-btn" aria-label="收起输入框" :disabled="streaming" @click="collapseComposer">
-              <ChevronDown :size="18" />
-            </button>
+            <div class="composer-actions">
+              <button
+                type="button"
+                class="attachment-picker-btn"
+                title="上传附件（图片 / PDF / 文档 / 音频，≤10MB）"
+                :aria-label="attachmentUploading ? '附件上传中' : '上传附件'"
+                :disabled="streaming || attachmentUploading"
+                @click="triggerAttachmentPicker"
+              >
+                <span v-if="attachmentUploading" class="sending-dot" />
+                <Paperclip v-else :size="18" />
+              </button>
+              <button
+                type="button"
+                class="voice-input-btn"
+                :class="{ active: voiceInput.isListening.value, transcribing: voiceInput.isTranscribing.value }"
+                :title="voiceInput.isListening.value ? '点击停止语音输入 (说话停顿自动转写)' : '点击开始离线语音输入'"
+                :disabled="streaming"
+                @click="toggleVoiceInput"
+              >
+                <MicOff v-if="voiceInput.isListening.value" :size="19" />
+                <Mic v-else :size="19" />
+                <span v-if="voiceInput.isListening.value" class="recording-pulse" />
+              </button>
+              <button type="submit" :disabled="(!input.trim() && pendingAttachments.length === 0) || streaming || attachmentUploading" :aria-label="streaming ? '正在生成回答' : '发送消息'">
+                <span v-if="streaming" class="sending-dot" />
+                <Send v-else :size="20" />
+              </button>
+              <button type="button" class="composer-collapse-btn" aria-label="收起输入框" :disabled="streaming" @click="collapseComposer">
+                <ChevronDown :size="18" />
+              </button>
+            </div>
           </div>
         </form>
 
         <div v-if="voiceInputError" class="voice-input-inline-error">
           <span>{{ voiceInputError }}</span>
+        </div>
+        <div v-if="attachmentError" class="voice-input-inline-error attachment-inline-error">
+          <span>{{ attachmentError }}</span>
+          <button type="button" class="attachment-error-dismiss" aria-label="关闭提示" @click="attachmentError = null">
+            <X :size="13" />
+          </button>
         </div>
       </section>
     </div>
@@ -1175,7 +1831,16 @@ onUnmounted(() => {
           <div ref="historyViewport" class="vn-history-list">
             <p v-for="line in story" :key="line.id" class="vn-history-line" :class="line.speaker">
               <span class="vn-history-speaker">{{ line.speaker === 'assistant' ? assistantDisplayName : '你' }}</span>
-              <span class="vn-history-text">{{ line.text || (line.speaker === 'assistant' ? '…' : '') }}</span>
+              <span class="vn-history-text">
+                <span v-if="line.speaker === 'assistant'" class="markdown-body" v-html="renderMarkdown(line.text || '…')" />
+                <template v-else>{{ line.text }}</template>
+                <span v-if="line.attachments && line.attachments.length > 0" class="vn-history-attachments">
+                  <span v-for="(att, attIndex) in line.attachments" :key="attIndex" class="vn-history-attachment">
+                    <component :is="attachmentIconFor(att.mediaType)" :size="12" />
+                    <span>{{ att.name }}</span>
+                  </span>
+                </span>
+              </span>
             </p>
             <p v-if="story.length === 0" class="vn-history-empty">还没有对话记录，先和思隅说句话吧。</p>
           </div>
@@ -1184,321 +1849,536 @@ onUnmounted(() => {
       </div>
     </Teleport>
 
-    <el-drawer v-model="todoOpen" title="待办清单" direction="rtl" size="min(400px, 92vw)">
-      <p class="drawer-intro">用小任务保持节奏，不需要一次完成所有事情。</p>
-      <form class="todo-form" @submit.prevent="addTodo">
-        <label class="sr-only" for="new-todo">添加待办</label>
-        <input id="new-todo" v-model="newTodo" placeholder="添加一件小事" />
-        <button type="submit" aria-label="添加待办"><Plus :size="20" /></button>
-      </form>
-      <div class="todo-summary">已完成 {{ completedTodoCount }} 件 · 待完成 {{ unfinishedTodos.length }} 件</div>
-      <div class="todo-list">
-        <label v-for="todo in todos" :key="todo.id" class="todo-item" :class="{done: todo.done}">
-          <input v-model="todo.done" type="checkbox" />
-          <span>{{ todo.text }}</span>
-          <Check v-if="todo.done" :size="18" />
-        </label>
-        <p v-if="todos.length === 0" class="drawer-empty">暂无待办，先从一件五分钟能完成的小事开始。</p>
-      </div>
-    </el-drawer>
-
-    <el-drawer v-model="timerOpen" title="番茄钟" direction="rtl" size="min(400px, 92vw)">
-      <div class="timer-panel">
-        <div
-          class="timer-dial-wrapper"
-          :class="{running: timerRunning, dragging: isDraggingDial}"
-          @mousedown="handleDialPointerDown"
-          @touchstart="handleDialPointerDown"
-        >
-          <svg
-            ref="timerDialRef"
-            class="timer-dial-svg"
-            viewBox="0 0 200 200"
-            aria-hidden="true"
-          >
-            <!-- 浅色/半透明底轨 -->
-            <circle
-              class="timer-dial-track"
-              cx="100"
-              cy="100"
-              :r="DIAL_RADIUS"
-            />
-            <!-- 高亮进度弧线 -->
-            <circle
-              class="timer-dial-progress"
-              cx="100"
-              cy="100"
-              :r="DIAL_RADIUS"
-              :stroke-dasharray="DIAL_CIRCUMFERENCE"
-              :stroke-dashoffset="timerArcDashoffset"
-            />
-            <!-- 白色滑块圆圈手柄（引导用户拖拽，旋转中心为圆心 100,100，起始位置在正右方 180,100） -->
-            <g
-              v-if="!timerRunning"
-              class="timer-dial-thumb-group"
-              :style="{transform: `rotate(${thumbAngle}deg)`}"
-            >
-              <!-- 手柄外晕与白色实心圆点，位于 (100+DIAL_RADIUS, 100) = (180, 100) -->
-              <circle
-                class="timer-dial-thumb-halo"
-                cx="180"
-                cy="100"
-                r="13"
-              />
-              <circle
-                class="timer-dial-thumb"
-                cx="180"
-                cy="100"
-                r="7.5"
-              />
-            </g>
-          </svg>
-          <div class="timer-dial-center">
-            <strong>{{ formattedTime }}</strong>
-            <small>{{ timerRunning ? '专注中' : '专注时间' }}</small>
-          </div>
-        </div>
-
-        <p class="timer-guide-text">
-          {{ timerRunning ? '保持当前节奏，结束后记得休息。' : `滑动圆环设定 ${timerMinutes} 分钟专注回合` }}
-        </p>
-
-        <div v-if="!timerRunning" class="timer-presets" role="radiogroup" aria-label="快捷预设时长">
+    <el-dialog
+      v-model="todoOpen"
+      title="待办清单"
+      class="todo-dialog"
+      width="min(860px, calc(100vw - 28px))"
+      align-center
+    >
+      <div class="tool-dialog-layout">
+        <nav class="tool-sidebar" aria-label="功能导航">
           <button
-            v-for="preset in [15, 25, 45, 60]"
-            :key="preset"
+            v-for="item in toolNavItems"
+            :key="item.id"
             type="button"
-            class="timer-preset-btn"
-            :class="{active: timerMinutes === preset}"
-            @click="selectPresetMinutes(preset)"
+            :class="{active: item.id === 'todo'}"
+            :aria-current="item.id === 'todo' ? 'true' : undefined"
+            @click="item.id !== 'todo' && openTool(item.id)"
           >
-            {{ preset }} 分钟
+            <component :is="item.icon" :size="18" />
+            <span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span>
           </button>
-        </div>
-
-        <div class="timer-actions">
-          <button type="button" @click="toggleTimer">
-            <Pause v-if="timerRunning" :size="20" />
-            <Play v-else :size="20" />
-            {{ timerRunning ? '暂停' : '开始专注' }}
-          </button>
-          <button type="button" @click="resetTimer">
-            <TimerReset :size="20" />
-            重置
-          </button>
+        </nav>
+        <div class="tool-dialog-content">
+          <p class="drawer-intro">用小任务保持节奏，不需要一次完成所有事情。</p>
+          <form class="todo-form" @submit.prevent="addTodo">
+            <label class="sr-only" for="new-todo">添加待办</label>
+            <input id="new-todo" v-model="newTodo" placeholder="添加一件小事" />
+            <button type="submit" aria-label="添加待办"><Plus :size="20" /></button>
+          </form>
+          <div class="todo-summary">已完成 {{ completedTodoCount }} 件 · 待完成 {{ unfinishedTodos.length }} 件</div>
+          <div class="todo-list">
+            <label v-for="todo in todos" :key="todo.id" class="todo-item" :class="{done: todo.done}">
+              <input v-model="todo.done" type="checkbox" />
+              <span>{{ todo.text }}</span>
+              <Check v-if="todo.done" :size="18" />
+            </label>
+            <p v-if="todos.length === 0" class="drawer-empty">暂无待办，先从一件五分钟能完成的小事开始。</p>
+          </div>
         </div>
       </div>
-    </el-drawer>
+    </el-dialog>
 
-    <el-drawer v-model="studyOpen" title="今日学习" direction="rtl" size="min(520px, 96vw)" @open="reloadGoals">
-      <p class="drawer-intro">目标、复习和日记都来自同一份 Aervox 学习数据。</p>
-      <p v-if="apiError" class="drawer-error">{{ apiError }}</p>
+    <el-dialog
+      v-model="timerOpen"
+      title="番茄钟"
+      class="timer-dialog"
+      width="min(860px, calc(100vw - 28px))"
+      align-center
+    >
+      <div class="tool-dialog-layout">
+        <nav class="tool-sidebar" aria-label="功能导航">
+          <button
+            v-for="item in toolNavItems"
+            :key="item.id"
+            type="button"
+            :class="{active: item.id === 'timer'}"
+            :aria-current="item.id === 'timer' ? 'true' : undefined"
+            @click="item.id !== 'timer' && openTool(item.id)"
+          >
+            <component :is="item.icon" :size="18" />
+            <span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span>
+          </button>
+        </nav>
+        <div class="tool-dialog-content">
+        <div class="timer-panel">
+          <div
+            class="timer-dial-wrapper"
+            :class="{running: timerRunning, dragging: isDraggingDial}"
+            @mousedown="handleDialPointerDown"
+            @touchstart="handleDialPointerDown"
+          >
+            <svg
+              ref="timerDialRef"
+              class="timer-dial-svg"
+              viewBox="0 0 200 200"
+              aria-hidden="true"
+            >
+              <!-- 浅色/半透明底轨 -->
+              <circle
+                class="timer-dial-track"
+                cx="100"
+                cy="100"
+                :r="DIAL_RADIUS"
+              />
+              <!-- 高亮进度弧线 -->
+              <circle
+                class="timer-dial-progress"
+                cx="100"
+                cy="100"
+                :r="DIAL_RADIUS"
+                :stroke-dasharray="DIAL_CIRCUMFERENCE"
+                :stroke-dashoffset="timerArcDashoffset"
+              />
+              <!-- 白色滑块圆圈手柄（引导用户拖拽，旋转中心为圆心 100,100，起始位置在正右方 180,100） -->
+              <g
+                v-if="!timerRunning"
+                class="timer-dial-thumb-group"
+                :style="{transform: `rotate(${thumbAngle}deg)`}"
+              >
+                <!-- 手柄外晕与白色实心圆点，位于 (100+DIAL_RADIUS, 100) = (180, 100) -->
+                <circle
+                  class="timer-dial-thumb-halo"
+                  cx="180"
+                  cy="100"
+                  r="13"
+                />
+                <circle
+                  class="timer-dial-thumb"
+                  cx="180"
+                  cy="100"
+                  r="7.5"
+                />
+              </g>
+            </svg>
+            <div class="timer-dial-center">
+              <strong>{{ formattedTime }}</strong>
+              <small>{{ timerRunning ? '专注中' : '专注时间' }}</small>
+            </div>
+          </div>
 
-      <section class="study-section">
-        <div class="study-section-title-row">
-          <h4>快速练习</h4>
-            <button class="practice-start" type="button" :disabled="practiceBusy" @click="startPractice"><Sparkles :size="15" />{{ practiceSession ? '继续当前练习' : '开始 3 题练习' }}</button>
+          <p class="timer-guide-text">
+            {{ timerRunning ? '保持当前节奏，结束后记得休息。' : `滑动圆环设定 ${timerMinutes} 分钟专注回合` }}
+          </p>
+
+          <div v-if="!timerRunning" class="timer-presets" role="radiogroup" aria-label="快捷预设时长">
+            <button
+              v-for="preset in [15, 25, 45, 60]"
+              :key="preset"
+              type="button"
+              class="timer-preset-btn"
+              :class="{active: timerMinutes === preset}"
+              @click="selectPresetMinutes(preset)"
+            >
+              {{ preset }} 分钟
+            </button>
+          </div>
+
+          <div class="timer-actions">
+            <button type="button" @click="toggleTimer">
+              <Pause v-if="timerRunning" :size="20" />
+              <Play v-else :size="20" />
+              {{ timerRunning ? '暂停' : '开始专注' }}
+            </button>
+            <button type="button" @click="resetTimer">
+              <TimerReset :size="20" />
+              重置
+            </button>
+          </div>
         </div>
-        <p v-if="practiceError" class="drawer-error">{{ practiceError }}</p>
-        <article v-if="practiceReport" class="practice-report">
-          <strong>本次练习完成</strong>
-          <p>已作答 {{ practiceReport.answeredCount }}/{{ practiceReport.questionCount }} 题 · 正确 {{ practiceReport.correctCount }} · 错误 {{ practiceReport.incorrectCount }} · 待确认 {{ practiceReport.unverifiableCount }}</p>
-          <p v-if="practiceReport.accuracy !== null">可判定题正确率：{{ Math.round(practiceReport.accuracy * 100) }}%</p>
-          <p v-if="practiceReport.avgTimeSpentSec !== null">平均用时：{{ practiceReport.avgTimeSpentSec }} 秒</p>
-          <div class="practice-guidance" :class="`difficulty-${practiceReport.guidance.difficulty}`">
-            <strong>
-              {{ practiceReport.guidance.difficulty === 'ease' ? '📉 建议降低难度' : practiceReport.guidance.difficulty === 'increase' ? '📈 建议提高难度' : '➡️ 保持当前难度' }}
-            </strong>
-            <small>{{ practiceReport.guidance.message }}</small>
-          </div>
-          <small>{{ practiceReport.remainingCount > 0 ? `还有 ${practiceReport.remainingCount} 题未作答；` : '' }}{{ practiceReport.nextStep === 'review_scheduled' ? '错题已进入后续复习。' : practiceReport.nextStep === 'await_review' ? '待确认题暂不计入掌握度。' : '继续保持这个节奏。' }}</small>
-        </article>
-          <article v-else-if="practiceSession && practiceReadyToComplete" class="practice-panel">
-            <strong>本次答案已保存</strong>
-            <p>你可以结束练习并查看本次报告。</p>
-            <button type="button" :disabled="practiceBusy" @click="finishPractice">生成练习报告</button>
-          </article>
-          <article v-else-if="currentPracticeQuestion" class="practice-panel">
-          <small>第 {{ practiceIndex + 1 }}/{{ practiceSession?.items.length }} 题</small>
-          <strong>{{ currentPracticeQuestion.prompt }}</strong>
-          <form v-if="!practiceFeedback" @submit.prevent="submitPracticeAnswer">
-            <label class="sr-only" for="practice-answer">你的答案</label>
-            <input id="practice-answer" v-model="practiceAnswer" placeholder="输入你的答案" :disabled="practiceBusy" />
-            <button type="submit" :disabled="practiceBusy || !practiceAnswer.trim()">提交答案</button>
-          </form>
-          <div v-else class="practice-feedback">
-            <p>{{ practiceFeedback.judgement === 'correct' ? '回答正确。' : practiceFeedback.judgement === 'incorrect' ? '这题暂不正确，已安排后续复习。' : '这题需要进一步确认，暂不计入掌握度。' }}</p>
-            <button type="button" :disabled="practiceBusy" @click="nextPracticeQuestion">{{ practiceIndex + 1 === practiceSession?.items.length ? '查看报告' : '下一题' }}</button>
-          </div>
-          <button class="practice-end" type="button" :disabled="practiceBusy" @click="finishPractice">提前结束并查看报告</button>
-        </article>
-        <p v-else class="study-empty">每次 3 题，答完立即反馈；也可以随时结束并查看报告。</p>
-      </section>
+        </div>
+      </div>
+    </el-dialog>
 
-      <section class="study-section">
-        <div class="study-section-title-row">
-          <h4>错题本 <small>{{ visibleMistakes.length }}</small></h4>
-          <button class="practice-start" type="button" :disabled="practiceBusy || !mistakes.some((item) => item.status === 'active')" @click="startMistakePractice">
-            <RotateCcw :size="15" />{{ selectedMistakeIds.length ? `重练所选 ${selectedMistakeIds.length} 题` : '重练错题' }}
+    <el-dialog
+      v-model="studyOpen"
+      title="今日学习"
+      class="study-dialog single-panel-dialog"
+      width="min(860px, calc(100vw - 28px))"
+      align-center
+      @open="reloadGoals"
+    >
+      <div class="tool-dialog-layout">
+        <nav class="tool-sidebar" aria-label="功能导航">
+          <button
+            v-for="item in toolNavItems"
+            :key="item.id"
+            type="button"
+            :class="{active: item.id === 'study'}"
+            :aria-current="item.id === 'study' ? 'true' : undefined"
+            @click="item.id !== 'study' && openTool(item.id)"
+          >
+            <component :is="item.icon" :size="18" />
+            <span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span>
+          </button>
+        </nav>
+        <div class="single-dialog-detail">
+        <p v-if="apiError" class="drawer-error">{{ apiError }}</p>
+
+        <div class="study-subnav-tabs" aria-label="学习子模块切换">
+          <button
+            type="button"
+            class="study-subnav-btn"
+            :class="{active: studyCategory === 'practice'}"
+            @click="studyCategory = 'practice'"
+          >
+            <Sparkles :size="14" />
+            <span>快速练习</span>
+          </button>
+          <button
+            type="button"
+            class="study-subnav-btn"
+            :class="{active: studyCategory === 'goals'}"
+            @click="studyCategory = 'goals'"
+          >
+            <BookOpen :size="14" />
+            <span>目标 <small v-if="goals.length" class="subnav-badge">{{ goals.length }}</small></span>
+          </button>
+          <button
+            type="button"
+            class="study-subnav-btn"
+            :class="{active: studyCategory === 'review'}"
+            @click="studyCategory = 'review'"
+          >
+            <RotateCcw :size="14" />
+            <span>复习 <small v-if="dueReviews.length" class="subnav-badge highlight">{{ dueReviews.length }}</small></span>
+          </button>
+          <button
+            type="button"
+            class="study-subnav-btn"
+            :class="{active: studyCategory === 'plans'}"
+            @click="studyCategory = 'plans'"
+          >
+            <LayoutGrid :size="14" />
+            <span>计划 <small v-if="studyPlans.length" class="subnav-badge">{{ studyPlans.length }}</small></span>
+          </button>
+          <button
+            type="button"
+            class="study-subnav-btn"
+            :class="{active: studyCategory === 'diary'}"
+            @click="studyCategory = 'diary'"
+          >
+            <NotebookPen :size="14" />
+            <span>日记提醒</span>
           </button>
         </div>
-        <div class="mistake-filters" aria-label="错题筛选">
-          <button v-for="option in (['active', 'mastered', 'dismissed', 'all'] as const)" :key="option" type="button" :class="{active: mistakeFilter === option}" @click="mistakeFilter = option">
-            {{ option === 'active' ? '待掌握' : option === 'mastered' ? '已掌握' : option === 'dismissed' ? '已忽略' : '全部' }}
+
+          <!-- 快速练习 -->
+          <div v-if="studyCategory === 'practice'" class="settings-section">
+            <div class="settings-section-heading">
+              <span class="heading-icon-wrap"><Sparkles :size="18" /></span>
+              <span><strong>快速练习</strong><small>每次 3 题自测，即时反馈，巩固所学</small></span>
+            </div>
+            <div class="study-section-title-row">
+              <span class="study-section-desc">轻量随堂检测，支持生成练习报告并根据准确率自适应推荐难度</span>
+              <button class="practice-start" type="button" :disabled="practiceBusy" @click="startPractice">
+                <Sparkles :size="15" />{{ practiceSession ? '继续当前练习' : '开始 3 题练习' }}
+              </button>
+            </div>
+            <p v-if="practiceError" class="drawer-error">{{ practiceError }}</p>
+            <article v-if="practiceReport" class="practice-report">
+              <strong>本次练习完成</strong>
+              <p>已作答 {{ practiceReport.answeredCount }}/{{ practiceReport.questionCount }} 题 · 正确 {{ practiceReport.correctCount }} · 错误 {{ practiceReport.incorrectCount }} · 待确认 {{ practiceReport.unverifiableCount }}</p>
+              <p v-if="practiceReport.accuracy !== null">可判定题正确率：{{ Math.round(practiceReport.accuracy * 100) }}%</p>
+              <p v-if="practiceReport.avgTimeSpentSec !== null">平均用时：{{ practiceReport.avgTimeSpentSec }} 秒</p>
+              <div class="practice-guidance" :class="`difficulty-${practiceReport.guidance.difficulty}`">
+                <strong>
+                  {{ practiceReport.guidance.difficulty === 'ease' ? '📉 建议降低难度' : practiceReport.guidance.difficulty === 'increase' ? '📈 建议提高难度' : '➡️ 保持当前难度' }}
+                </strong>
+                <small>{{ practiceReport.guidance.message }}</small>
+              </div>
+              <small>{{ practiceReport.remainingCount > 0 ? `还有 ${practiceReport.remainingCount} 题未作答；` : '' }}{{ practiceReport.nextStep === 'review_scheduled' ? '错题已进入后续复习。' : practiceReport.nextStep === 'await_review' ? '待确认题暂不计入掌握度。' : '继续保持这个节奏。' }}</small>
+            </article>
+            <article v-else-if="practiceSession && practiceReadyToComplete" class="practice-panel">
+              <strong>本次答案已保存</strong>
+              <p>你可以结束练习并查看本次报告。</p>
+              <button type="button" :disabled="practiceBusy" @click="finishPractice">生成练习报告</button>
+            </article>
+            <article v-else-if="currentPracticeQuestion" class="practice-panel">
+              <small>第 {{ practiceIndex + 1 }}/{{ practiceSession?.items.length }} 题</small>
+              <strong>{{ currentPracticeQuestion.prompt }}</strong>
+              <form v-if="!practiceFeedback" @submit.prevent="submitPracticeAnswer">
+                <label class="sr-only" for="practice-answer">你的答案</label>
+                <input id="practice-answer" v-model="practiceAnswer" placeholder="输入你的答案" :disabled="practiceBusy" />
+                <button type="submit" :disabled="practiceBusy || !practiceAnswer.trim()">提交答案</button>
+              </form>
+              <div v-else class="practice-feedback">
+                <p>{{ practiceFeedback.judgement === 'correct' ? '回答正确。' : practiceFeedback.judgement === 'incorrect' ? '这题暂不正确，已安排后续复习。' : '这题需要进一步确认，暂不计入掌握度。' }}</p>
+                <button type="button" :disabled="practiceBusy" @click="nextPracticeQuestion">{{ practiceIndex + 1 === practiceSession?.items.length ? '查看报告' : '下一题' }}</button>
+              </div>
+              <button class="practice-end" type="button" :disabled="practiceBusy" @click="finishPractice">提前结束并查看报告</button>
+            </article>
+            <p v-else class="study-empty">每次 3 题，答完立即反馈；也可以随时结束并查看报告。</p>
+          </div>
+
+          <!-- 学习目标 -->
+          <div v-else-if="studyCategory === 'goals'" class="settings-section">
+            <div class="settings-section-heading">
+              <span class="heading-icon-wrap"><BookOpen :size="18" /></span>
+              <span><strong>学习目标</strong><small>管理学习主题、难度与每日时间规划</small></span>
+            </div>
+            <div class="study-section-title-row">
+              <h4>目标列表 <small>{{ goals.length }}</small></h4>
+              <label class="study-archive-toggle"><input v-model="showArchivedGoals" type="checkbox" @change="reloadGoals" />显示归档</label>
+            </div>
+            <form class="study-goal-form" @submit.prevent="submitNewGoal">
+              <label class="sr-only" for="new-goal">添加学习目标</label>
+              <input id="new-goal" v-model="newGoalTopic" placeholder="例如：掌握二叉树遍历" />
+              <select v-model="newGoalLevel" aria-label="学习水平">
+                <option value="beginner">入门</option>
+                <option value="intermediate">进阶</option>
+                <option value="advanced">熟练</option>
+              </select>
+              <select v-model.number="newGoalMinutes" aria-label="每日可用时间">
+                <option :value="15">15 分钟</option>
+                <option :value="25">25 分钟</option>
+                <option :value="45">45 分钟</option>
+                <option :value="60">60 分钟</option>
+              </select>
+              <button type="submit" aria-label="创建学习目标"><Plus :size="18" /></button>
+            </form>
+            <ul class="study-list">
+              <li v-for="goal in goals" :key="goal.id">
+                <div class="goal-item-heading"><span class="study-item-title">{{ goal.topic }}</span><span class="goal-status" :class="`is-${goal.status}`">{{ goalStatusLabel(goal.status) }}</span></div>
+                <small>{{ goal.level === 'beginner' ? '入门' : goal.level === 'intermediate' ? '进阶' : '熟练' }} · {{ goal.availableMinutes }} 分钟/天</small>
+                <div v-if="goal.status !== 'archived'" class="goal-actions">
+                  <button v-if="goal.status === 'active'" type="button" :disabled="goalBusyId === goal.id" @click="setGoalStatus(goal.id, 'paused')"><Pause :size="14" />暂停</button>
+                  <button v-else-if="goal.status === 'paused'" type="button" :disabled="goalBusyId === goal.id" @click="setGoalStatus(goal.id, 'active')"><Play :size="14" />继续</button>
+                  <button v-if="goal.status !== 'completed'" type="button" :disabled="goalBusyId === goal.id" @click="setGoalStatus(goal.id, 'completed')"><Check :size="14" />完成</button>
+                  <button v-if="goal.status === 'completed'" type="button" :disabled="goalBusyId === goal.id" @click="setGoalStatus(goal.id, 'active')"><RotateCcw :size="14" />重新开始</button>
+                  <button type="button" class="danger" :disabled="goalBusyId === goal.id" @click="archiveGoal(goal.id)"><X :size="14" />归档</button>
+                </div>
+              </li>
+              <li v-if="goals.length === 0" class="study-empty">暂无学习目标，先添加一个想完成的主题。</li>
+            </ul>
+          </div>
+
+          <!-- 复习管理 -->
+          <div v-else-if="studyCategory === 'review'" class="settings-section">
+            <div class="settings-section-heading">
+              <span class="heading-icon-wrap"><RotateCcw :size="18" /></span>
+              <span><strong>复习管理</strong><small>艾宾浩斯间隔复习与历史结果跟踪</small></span>
+            </div>
+            <h4>待复习 <small>{{ dueReviews.length }}</small></h4>
+            <p v-if="reviewSummary" class="drawer-intro">今日 {{ reviewSummary.dueTodayCount }} 项 · 逾期 {{ reviewSummary.overdueCount }} 项 · 约 {{ reviewSummary.estimatedMinutes }} 分钟</p>
+            <ul class="study-list">
+              <li v-for="item in dueReviews" :key="item.id">
+                <span class="study-item-title">知识点 #{{ item.knowledgeId }}</span>
+                <small>到期 {{ item.dueAt.slice(0, 10) }} · 间隔 {{ item.intervalDays }} 天 · 规则 v{{ item.schedulerVersion }}</small>
+                <div class="goal-actions">
+                  <button type="button" :disabled="reviewBusyId === item.id" @click="completeReview(item.id, true)"><Check :size="14" />记得</button>
+                  <button type="button" :disabled="reviewBusyId === item.id" @click="completeReview(item.id, false)"><RotateCcw :size="14" />忘了</button>
+                </div>
+              </li>
+              <li v-if="dueReviews.length === 0" class="study-empty">今天没有到期复习，可以继续当前目标。</li>
+            </ul>
+
+            <h4 style="margin-top: 16px;">最近复习记录 <small>{{ completedReviews.length }}</small></h4>
+            <ul class="study-list">
+              <li v-for="item in completedReviews" :key="item.id">
+                <span class="study-item-title">知识点 #{{ item.knowledgeId }}</span>
+                <small>{{ item.completionIsCorrect === true ? '记得' : item.completionIsCorrect === false ? '忘了' : '旧记录' }} · {{ item.updatedAt?.slice(0, 10) }}<template v-if="item.nextReviewId"> · 下一项 #{{ item.nextReviewId }}</template></small>
+              </li>
+              <li v-if="completedReviews.length === 0" class="study-empty">完成复习后，这里会保留最近记录。</li>
+            </ul>
+          </div>
+
+          <!-- 学习计划 -->
+          <div v-else-if="studyCategory === 'plans'" class="settings-section">
+            <div class="settings-section-heading">
+              <span class="heading-icon-wrap"><LayoutGrid :size="18" /></span>
+              <span><strong>学习计划</strong><small>设立阶段目标、倒计时与进度风险预测</small></span>
+            </div>
+            <h4>计划列表 <small>{{ studyPlans.length }}</small></h4>
+            <form class="study-goal-form" @submit.prevent="submitStudyPlan">
+              <input v-model="newPlanTitle" placeholder="例如：期末考试复习" aria-label="计划名称" />
+              <input v-model="newPlanEndDate" type="date" aria-label="计划结束日期" />
+              <button type="submit" :disabled="planBusyId === 'new'" aria-label="创建学习计划"><Plus :size="18" /></button>
+            </form>
+            <ul class="study-list">
+              <li v-for="plan in studyPlans" :key="plan.id">
+                <div class="goal-item-heading"><span class="study-item-title">{{ plan.title }}</span><span class="goal-status">{{ plan.completionPrediction === 'at_risk' ? '需调整' : plan.completionPrediction === 'cannot_complete' ? '无法按期完成' : '进行中' }}</span></div>
+                <small>{{ plan.startDate }} 至 {{ plan.endDate }} · {{ plan.dailyAvailableMinutes }} 分钟/天 · 已调整 {{ plan.revisionCount }} 次</small>
+                <div class="study-goal-form">
+                  <input :value="planDraft(plan).endDate" type="date" aria-label="调整结束日期" @input="planDrafts[plan.id] = {...planDraft(plan), endDate: ($event.target as HTMLInputElement).value}" />
+                  <input :value="planDraft(plan).dailyAvailableMinutes" type="number" min="0" aria-label="调整每日可用时间" @input="planDrafts[plan.id] = {...planDraft(plan), dailyAvailableMinutes: Number(($event.target as HTMLInputElement).value)}" />
+                  <button type="button" :disabled="planBusyId === plan.id" @click="saveStudyPlan(plan)">调整</button>
+                </div>
+                <div class="goal-actions">
+                  <button type="button" :disabled="planBusyId === plan.id" @click="setPlanPrediction(plan.id, 'on_track')"><Check :size="14" />进度正常</button>
+                  <button type="button" :disabled="planBusyId === plan.id" @click="setPlanPrediction(plan.id, 'at_risk')">标记风险</button>
+                  <button type="button" class="danger" :disabled="planBusyId === plan.id" @click="archiveStudyPlan(plan.id)"><X :size="14" />归档</button>
+                </div>
+              </li>
+              <li v-if="studyPlans.length === 0" class="study-empty">还没有学习计划，先设定一个结束日期。</li>
+            </ul>
+          </div>
+
+          <!-- 学习日记与提醒 -->
+          <div v-else-if="studyCategory === 'diary'" class="settings-section">
+            <div class="settings-section-heading">
+              <span class="heading-icon-wrap"><NotebookPen :size="18" /></span>
+              <span><strong>学习日记与提醒</strong><small>智能总结每日进展与日程节奏</small></span>
+            </div>
+            <h4>今日日记 <small v-if="todayDiary">{{ todayDiary.status }}</small></h4>
+            <article v-if="todayDiary" class="study-diary">
+              <strong>{{ todayDiary.title }}</strong>
+              <p>{{ todayDiary.content }}</p>
+            </article>
+            <p v-else class="study-empty">今日日记将在 Worker 生成后显示。</p>
+
+            <template v-if="dailyReminder">
+              <h4 style="margin-top: 18px;">日常提醒 <small>{{ notifications.length }}</small></h4>
+              <ul class="study-list">
+                <li v-for="notification in notifications" :key="notification.id">
+                  <span class="study-item-title">{{ notification.type }} 提醒</span>
+                  <small>{{ notification.channel }} · {{ notification.status }}</small>
+                </li>
+                <li v-if="notifications.length === 0" class="study-empty">暂无提醒。</li>
+              </ul>
+            </template>
+          </div>
+      </div>
+      </div>
+    </el-dialog>
+
+    <!-- 独立错题本弹窗 -->
+    <el-dialog
+      v-model="mistakeOpen"
+      title="错题本"
+      class="mistake-dialog single-panel-dialog"
+      width="min(860px, calc(100vw - 28px))"
+      align-center
+      @open="reloadGoals"
+    >
+      <div class="tool-dialog-layout">
+        <nav class="tool-sidebar" aria-label="功能导航">
+          <button
+            v-for="item in toolNavItems"
+            :key="item.id"
+            type="button"
+            :class="{active: item.id === 'mistake'}"
+            :aria-current="item.id === 'mistake' ? 'true' : undefined"
+            @click="item.id !== 'mistake' && openTool(item.id)"
+          >
+            <component :is="item.icon" :size="18" />
+            <span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span>
           </button>
+        </nav>
+        <div class="single-dialog-detail">
+        <div class="settings-section">
+          <div class="settings-section-heading">
+            <span class="heading-icon-wrap"><Puzzle :size="18" /></span>
+            <span><strong>错题管理与重练</strong><small>针对性练习未掌握题目，记录错因洞察</small></span>
+          </div>
+
+          <div class="study-section-title-row">
+            <div class="mistake-filter-summary">
+              <span>当前错题 <strong>{{ visibleMistakes.length }}</strong> 题</span>
+              <span v-if="selectedMistakeIds.length" class="mistake-selected-badge">已选 {{ selectedMistakeIds.length }} 题</span>
+            </div>
+            <button
+              class="practice-start"
+              type="button"
+              :disabled="practiceBusy || !mistakes.some((item) => item.status === 'active')"
+              @click="startMistakePractice"
+            >
+              <RotateCcw :size="15" />{{ selectedMistakeIds.length ? `重练所选 ${selectedMistakeIds.length} 题` : '重练错题' }}
+            </button>
+          </div>
+
+          <div class="mistake-filter-bar">
+            <div class="mistake-status-tabs" aria-label="错题状态筛选">
+              <button
+                v-for="option in (['active', 'mastered', 'dismissed', 'all'] as const)"
+                :key="option"
+                type="button"
+                class="mistake-tab-btn"
+                :class="{active: mistakeFilter === option}"
+                @click="mistakeFilter = option"
+              >
+                {{ option === 'active' ? '待掌握' : option === 'mastered' ? '已掌握' : option === 'dismissed' ? '已忽略' : '全部' }}
+              </button>
+            </div>
+
+            <label class="mistake-reason-filter">错因：
+              <select v-model="mistakeReasonFilter" aria-label="按错因筛选">
+                <option value="all">全部错因</option>
+                <option v-for="option in mistakeReasonOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+              </select>
+            </label>
+          </div>
+
+          <p v-if="practiceError" class="drawer-error">{{ practiceError }}</p>
+
+          <ul class="study-list mistake-list">
+            <li v-for="item in visibleMistakes" :key="item.questionId">
+              <div class="mistake-heading">
+                <label v-if="item.status === 'active'">
+                  <input
+                    v-model="selectedMistakeIds"
+                    type="checkbox"
+                    :value="item.questionId"
+                    :disabled="selectedMistakeIds.length >= 5 && !selectedMistakeIds.includes(item.questionId)"
+                  />
+                  <span class="study-item-title">{{ item.prompt }}</span>
+                </label>
+                <span v-else class="study-item-title">{{ item.prompt }}</span>
+                <span class="goal-status" :class="{'is-completed': item.status === 'mastered'}">
+                  {{ item.status === 'mastered' ? '已掌握' : item.status === 'dismissed' ? '已忽略' : '待掌握' }}
+                </span>
+              </div>
+              <small>最近答案：{{ item.latestAnswer }} · 共答错 {{ item.wrongCount }} 次 · {{ item.latestAttemptAt.slice(0, 10) }}</small>
+              <p class="mistake-insight-summary">错因：{{ mistakeReasonLabel(item.reasonCode) }}</p>
+              <div class="mistake-insight-editor">
+                <label>错因
+                  <select
+                    :value="mistakeInsightDraft(item).reasonCode"
+                    :disabled="mistakeBusyId === item.questionId"
+                    @change="updateMistakeInsightDraft(item.questionId, {reasonCode: ($event.target as HTMLSelectElement).value})"
+                  >
+                    <option value="">清除错因记录</option>
+                    <option v-for="option in mistakeReasonOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                  </select>
+                </label>
+                <label>补充说明
+                  <input
+                    :value="mistakeInsightDraft(item).note"
+                    maxlength="500"
+                    placeholder="例如：循环边界少比较了一次"
+                    :disabled="mistakeBusyId === item.questionId"
+                    @input="updateMistakeInsightDraft(item.questionId, {note: ($event.target as HTMLInputElement).value})"
+                  />
+                </label>
+                <button type="button" :disabled="mistakeBusyId === item.questionId" @click="saveMistakeInsight(item)">保存错因</button>
+              </div>
+              <div v-if="item.knowledgeId" class="goal-actions">
+                <button v-if="item.status === 'active'" type="button" :disabled="mistakeBusyId === item.questionId" @click="setMistakeStatus(item.questionId, 'mastered')"><Check :size="14" />标记已掌握</button>
+                <button v-else-if="item.status === 'mastered'" type="button" :disabled="mistakeBusyId === item.questionId" @click="setMistakeStatus(item.questionId, 'active')"><RotateCcw :size="14" />继续学习</button>
+                <button v-else type="button" :disabled="mistakeBusyId === item.questionId" @click="setMistakeStatus(item.questionId, 'active')"><RotateCcw :size="14" />恢复错题</button>
+                <button v-if="item.status === 'active'" type="button" :disabled="mistakeBusyId === item.questionId" @click="setMistakeStatus(item.questionId, 'dismissed')">忽略</button>
+              </div>
+              <small v-else>这道题尚未关联知识点，可以重练，但暂不能标记掌握。</small>
+            </li>
+            <li v-if="visibleMistakes.length === 0" class="study-empty">
+              {{ mistakeFilter === 'mastered' ? '还没有已掌握的错题。' : '当前没有待处理错题。' }}
+            </li>
+          </ul>
         </div>
-        <label class="mistake-reason-filter">按错因筛选
-          <select v-model="mistakeReasonFilter" aria-label="按错因筛选">
-            <option value="all">全部错因</option>
-            <option v-for="option in mistakeReasonOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-          </select>
-        </label>
-        <ul class="study-list mistake-list">
-          <li v-for="item in visibleMistakes" :key="item.questionId">
-            <div class="mistake-heading">
-              <label v-if="item.status === 'active'">
-                <input v-model="selectedMistakeIds" type="checkbox" :value="item.questionId" :disabled="selectedMistakeIds.length >= 5 && !selectedMistakeIds.includes(item.questionId)" />
-                <span class="study-item-title">{{ item.prompt }}</span>
-              </label>
-              <span v-else class="study-item-title">{{ item.prompt }}</span>
-              <span class="goal-status" :class="{'is-completed': item.status === 'mastered'}">{{ item.status === 'mastered' ? '已掌握' : item.status === 'dismissed' ? '已忽略' : '待掌握' }}</span>
-            </div>
-            <small>最近答案：{{ item.latestAnswer }} · 共答错 {{ item.wrongCount }} 次 · {{ item.latestAttemptAt.slice(0, 10) }}</small>
-            <p class="mistake-insight-summary">错因：{{ mistakeReasonLabel(item.reasonCode) }}</p>
-            <div class="mistake-insight-editor">
-              <label>错因
-                <select :value="mistakeInsightDraft(item).reasonCode" :disabled="mistakeBusyId === item.questionId" @change="updateMistakeInsightDraft(item.questionId, {reasonCode: ($event.target as HTMLSelectElement).value})">
-                  <option value="">清除错因记录</option>
-                  <option v-for="option in mistakeReasonOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-                </select>
-              </label>
-              <label>补充说明
-                <input :value="mistakeInsightDraft(item).note" maxlength="500" placeholder="例如：循环边界少比较了一次" :disabled="mistakeBusyId === item.questionId" @input="updateMistakeInsightDraft(item.questionId, {note: ($event.target as HTMLInputElement).value})" />
-              </label>
-              <button type="button" :disabled="mistakeBusyId === item.questionId" @click="saveMistakeInsight(item)">保存错因</button>
-            </div>
-            <div v-if="item.knowledgeId" class="goal-actions">
-              <button v-if="item.status === 'active'" type="button" :disabled="mistakeBusyId === item.questionId" @click="setMistakeStatus(item.questionId, 'mastered')"><Check :size="14" />标记已掌握</button>
-              <button v-else-if="item.status === 'mastered'" type="button" :disabled="mistakeBusyId === item.questionId" @click="setMistakeStatus(item.questionId, 'active')"><RotateCcw :size="14" />继续学习</button>
-              <button v-else type="button" :disabled="mistakeBusyId === item.questionId" @click="setMistakeStatus(item.questionId, 'active')"><RotateCcw :size="14" />恢复错题</button>
-              <button v-if="item.status === 'active'" type="button" :disabled="mistakeBusyId === item.questionId" @click="setMistakeStatus(item.questionId, 'dismissed')">忽略</button>
-            </div>
-            <small v-else>这道题尚未关联知识点，可以重练，但暂不能标记掌握。</small>
-          </li>
-          <li v-if="visibleMistakes.length === 0" class="study-empty">{{ mistakeFilter === 'mastered' ? '还没有已掌握的错题。' : '当前没有待处理错题。' }}</li>
-        </ul>
-      </section>
-
-      <section class="study-section">
-        <div class="study-section-title-row">
-          <h4>学习目标 <small>{{ goals.length }}</small></h4>
-          <label class="study-archive-toggle"><input v-model="showArchivedGoals" type="checkbox" @change="reloadGoals" />显示归档</label>
-        </div>
-        <form class="study-goal-form" @submit.prevent="submitNewGoal">
-          <label class="sr-only" for="new-goal">添加学习目标</label>
-          <input id="new-goal" v-model="newGoalTopic" placeholder="例如：掌握二叉树遍历" />
-          <select v-model="newGoalLevel" aria-label="学习水平">
-            <option value="beginner">入门</option>
-            <option value="intermediate">进阶</option>
-            <option value="advanced">熟练</option>
-          </select>
-          <select v-model.number="newGoalMinutes" aria-label="每日可用时间">
-            <option :value="15">15 分钟</option>
-            <option :value="25">25 分钟</option>
-            <option :value="45">45 分钟</option>
-            <option :value="60">60 分钟</option>
-          </select>
-          <button type="submit" aria-label="创建学习目标"><Plus :size="18" /></button>
-        </form>
-        <ul class="study-list">
-          <li v-for="goal in goals" :key="goal.id">
-            <div class="goal-item-heading"><span class="study-item-title">{{ goal.topic }}</span><span class="goal-status" :class="`is-${goal.status}`">{{ goalStatusLabel(goal.status) }}</span></div>
-            <small>{{ goal.level === 'beginner' ? '入门' : goal.level === 'intermediate' ? '进阶' : '熟练' }} · {{ goal.availableMinutes }} 分钟/天</small>
-            <div v-if="goal.status !== 'archived'" class="goal-actions">
-              <button v-if="goal.status === 'active'" type="button" :disabled="goalBusyId === goal.id" @click="setGoalStatus(goal.id, 'paused')"><Pause :size="14" />暂停</button>
-              <button v-else-if="goal.status === 'paused'" type="button" :disabled="goalBusyId === goal.id" @click="setGoalStatus(goal.id, 'active')"><Play :size="14" />继续</button>
-              <button v-if="goal.status !== 'completed'" type="button" :disabled="goalBusyId === goal.id" @click="setGoalStatus(goal.id, 'completed')"><Check :size="14" />完成</button>
-              <button v-if="goal.status === 'completed'" type="button" :disabled="goalBusyId === goal.id" @click="setGoalStatus(goal.id, 'active')"><RotateCcw :size="14" />重新开始</button>
-              <button type="button" class="danger" :disabled="goalBusyId === goal.id" @click="archiveGoal(goal.id)"><X :size="14" />归档</button>
-            </div>
-          </li>
-          <li v-if="goals.length === 0" class="study-empty">暂无学习目标，先添加一个想完成的主题。</li>
-        </ul>
-      </section>
-
-      <section class="study-section">
-        <h4>待复习 <small>{{ dueReviews.length }}</small></h4>
-        <p v-if="reviewSummary" class="drawer-intro">今日 {{ reviewSummary.dueTodayCount }} 项 · 逾期 {{ reviewSummary.overdueCount }} 项 · 约 {{ reviewSummary.estimatedMinutes }} 分钟</p>
-        <ul class="study-list">
-          <li v-for="item in dueReviews" :key="item.id">
-            <span class="study-item-title">知识点 #{{ item.knowledgeId }}</span>
-            <small>到期 {{ item.dueAt.slice(0, 10) }} · 间隔 {{ item.intervalDays }} 天 · 规则 v{{ item.schedulerVersion }}</small>
-            <div class="goal-actions">
-              <button type="button" :disabled="reviewBusyId === item.id" @click="completeReview(item.id, true)"><Check :size="14" />记得</button>
-              <button type="button" :disabled="reviewBusyId === item.id" @click="completeReview(item.id, false)"><RotateCcw :size="14" />忘了</button>
-            </div>
-          </li>
-          <li v-if="dueReviews.length === 0" class="study-empty">今天没有到期复习，可以继续当前目标。</li>
-        </ul>
-      </section>
-
-      <section class="study-section">
-        <h4>最近复习 <small>{{ completedReviews.length }}</small></h4>
-        <ul class="study-list">
-          <li v-for="item in completedReviews" :key="item.id">
-            <span class="study-item-title">知识点 #{{ item.knowledgeId }}</span>
-            <small>{{ item.completionIsCorrect === true ? '记得' : item.completionIsCorrect === false ? '忘了' : '旧记录' }} · {{ item.updatedAt?.slice(0, 10) }}<template v-if="item.nextReviewId"> · 下一项 #{{ item.nextReviewId }}</template></small>
-          </li>
-          <li v-if="completedReviews.length === 0" class="study-empty">完成复习后，这里会保留最近记录。</li>
-        </ul>
-      </section>
-
-      <section class="study-section">
-        <h4>学习计划 <small>{{ studyPlans.length }}</small></h4>
-        <form class="study-goal-form" @submit.prevent="submitStudyPlan">
-          <input v-model="newPlanTitle" placeholder="例如：期末考试复习" aria-label="计划名称" />
-          <input v-model="newPlanEndDate" type="date" aria-label="计划结束日期" />
-          <button type="submit" :disabled="planBusyId === 'new'" aria-label="创建学习计划"><Plus :size="18" /></button>
-        </form>
-        <ul class="study-list">
-          <li v-for="plan in studyPlans" :key="plan.id">
-            <div class="goal-item-heading"><span class="study-item-title">{{ plan.title }}</span><span class="goal-status">{{ plan.completionPrediction === 'at_risk' ? '需调整' : plan.completionPrediction === 'cannot_complete' ? '无法按期完成' : '进行中' }}</span></div>
-            <small>{{ plan.startDate }} 至 {{ plan.endDate }} · {{ plan.dailyAvailableMinutes }} 分钟/天 · 已调整 {{ plan.revisionCount }} 次</small>
-            <div class="study-goal-form">
-              <input :value="planDraft(plan).endDate" type="date" aria-label="调整结束日期" @input="planDrafts[plan.id] = {...planDraft(plan), endDate: ($event.target as HTMLInputElement).value}" />
-              <input :value="planDraft(plan).dailyAvailableMinutes" type="number" min="0" aria-label="调整每日可用时间" @input="planDrafts[plan.id] = {...planDraft(plan), dailyAvailableMinutes: Number(($event.target as HTMLInputElement).value)}" />
-              <button type="button" :disabled="planBusyId === plan.id" @click="saveStudyPlan(plan)">调整</button>
-            </div>
-            <div class="goal-actions">
-              <button type="button" :disabled="planBusyId === plan.id" @click="setPlanPrediction(plan.id, 'on_track')"><Check :size="14" />进度正常</button>
-              <button type="button" :disabled="planBusyId === plan.id" @click="setPlanPrediction(plan.id, 'at_risk')">标记风险</button>
-              <button type="button" class="danger" :disabled="planBusyId === plan.id" @click="archiveStudyPlan(plan.id)"><X :size="14" />归档</button>
-            </div>
-          </li>
-          <li v-if="studyPlans.length === 0" class="study-empty">还没有学习计划，先设定一个结束日期。</li>
-        </ul>
-      </section>
-
-      <section class="study-section">
-        <h4>今日日记 <small v-if="todayDiary">{{ todayDiary.status }}</small></h4>
-        <article v-if="todayDiary" class="study-diary">
-          <strong>{{ todayDiary.title }}</strong>
-          <p>{{ todayDiary.content }}</p>
-        </article>
-        <p v-else class="study-empty">今日日记将在 Worker 生成后显示。</p>
-      </section>
-
-      <section v-if="dailyReminder" class="study-section">
-        <h4>提醒 <small>{{ notifications.length }}</small></h4>
-        <ul class="study-list">
-          <li v-for="notification in notifications" :key="notification.id">
-            <span class="study-item-title">{{ notification.type }} 提醒</span>
-            <small>{{ notification.channel }} · {{ notification.status }}</small>
-          </li>
-          <li v-if="notifications.length === 0" class="study-empty">暂无提醒。</li>
-        </ul>
-      </section>
-    </el-drawer>
+      </div>
+      </div>
+    </el-dialog>
 
     <el-dialog v-model="settingsOpen" title="设置" class="settings-dialog" width="min(860px, calc(100vw - 28px))" align-center>
       <div class="settings-layout">
@@ -1519,6 +2399,10 @@ onUnmounted(() => {
                 <BookOpen :size="19" />
                 <span><strong>今日学习</strong><small>{{ goals.length }} 个目标 · {{ dueReviews.length }} 项复习</small></span>
               </button>
+              <button type="button" @click="openTool('mistake')">
+                <Puzzle :size="19" />
+                <span><strong>错题本</strong><small>{{ activeMistakeCount }} 题待掌握</small></span>
+              </button>
               <button type="button" @click="openTool('todo')">
                 <ListTodo :size="19" />
                 <span><strong>待办清单</strong><small>{{ unfinishedTodos.length }} 件待完成</small></span>
@@ -1532,6 +2416,79 @@ onUnmounted(() => {
                 <span><strong>对话回看</strong><small>{{ story.length }} 条对话记录</small></span>
               </button>
             </div>
+          </div>
+          <div v-else-if="settingsCategory === 'proactive'" class="settings-section proactive-settings">
+            <div class="settings-section-heading">
+              <span class="heading-icon-wrap"><BrainCircuit :size="18" /></span>
+              <span><strong>主动智能模式</strong><small>全量画像、持续本地处理与主动操作授权</small></span>
+            </div>
+
+            <div class="proactive-status-banner" :class="`is-${proactiveStatus?.effectiveState ?? 'unavailable'}`">
+              <component :is="proactiveActive ? BrainCircuit : AlertTriangle" :size="20" />
+              <span>
+                <strong>{{ proactiveStateLabel(proactiveStatus) }}</strong>
+                <small v-if="proactiveStatus?.host">{{ proactiveStatus.host.localOnly ? '数据处理边界：仅本机' : '本地边界未验证' }} · {{ proactiveStatus.host.platform }}</small>
+                <small v-else>主动智能模式需要受信的 Electron 本地 Host，Web 端不会伪造授权。</small>
+              </span>
+              <button v-if="!isWeb" type="button" class="proactive-icon-button" aria-label="刷新主动智能状态" title="刷新状态" :disabled="proactiveBusy" @click="refreshProactiveStatus"><RefreshCw :size="15" /></button>
+            </div>
+
+            <div v-if="isWeb" class="settings-note proactive-warning"><AlertTriangle :size="16" />请在桌面端完成设备授权；浏览器端不会读取系统级来源。</div>
+            <template v-else>
+              <p v-if="proactiveError" class="proactive-error" role="alert">{{ proactiveError }}</p>
+              <p v-if="proactiveNotice" class="settings-note" role="status">{{ proactiveNotice }}</p>
+              <div class="proactive-actions">
+                <button
+                  v-if="!proactiveStatus || proactiveStatus.desiredState === 'none' || proactiveStatus.desiredState === 'revoked'"
+                  type="button"
+                  class="proactive-primary-action"
+                  :disabled="proactiveBusy || toolApprovalMode !== 'full_access'"
+                  :title="toolApprovalMode !== 'full_access' ? '请先开启完全访问' : '打开全量画像授权向导'"
+                  @click="openProactiveAuthorization"
+                ><BrainCircuit :size="15" />授权并启用</button>
+                <button v-else-if="proactiveStatus.desiredState === 'paused'" type="button" :disabled="proactiveBusy || toolApprovalMode !== 'full_access'" @click="setProactiveDesiredState('enabled')"><PlayCircle :size="15" />恢复观察</button>
+                <button v-else type="button" :disabled="proactiveBusy" @click="setProactiveDesiredState('paused')"><PauseCircle :size="15" />暂停观察</button>
+                <button v-if="proactiveStatus && (proactiveStatus.effectiveState === 'limited' || proactiveStatus.effectiveState === 'suspended') && proactiveStatus.desiredState !== 'none' && proactiveStatus.desiredState !== 'revoked'" type="button" :disabled="proactiveBusy || toolApprovalMode !== 'full_access'" @click="openProactiveAuthorization"><RefreshCw :size="15" />重新确认授权</button>
+                <button v-if="proactiveStatus?.desiredState === 'enabled' || proactiveStatus?.desiredState === 'paused'" type="button" class="danger" :disabled="proactiveBusy" @click="setProactiveDesiredState('revoked')"><ShieldAlert :size="15" />撤销授权</button>
+                <button v-if="proactiveStatus" type="button" :disabled="proactiveBusy" @click="exportProactiveData(false)"><Download :size="15" />导出画像</button>
+                <button v-if="proactiveStatus" type="button" :disabled="proactiveBusy" @click="exportProactiveData(true)"><Database :size="15" />导出含原始副本</button>
+              </div>
+
+              <div class="settings-row settings-choice-row proactive-persistence-row">
+                <span><strong>开机自启</strong><small>允许 Host 在设备登录后恢复；系统实际状态以权限回执为准</small></span>
+                <input v-model="proactiveAutostart" type="checkbox" class="settings-switch" :disabled="proactiveBusy" @change="setProactivePersistence({autostart: proactiveAutostart})" />
+              </div>
+              <div class="settings-row settings-choice-row proactive-persistence-row">
+                <span><strong>后台持续运行</strong><small>允许应用窗口关闭后保持主动 Host；平台不支持时会显示受限</small></span>
+                <input v-model="proactiveBackground" type="checkbox" class="settings-switch" :disabled="proactiveBusy" @change="setProactivePersistence({background: proactiveBackground})" />
+              </div>
+
+              <div class="proactive-capability-heading"><strong>全量画像来源与动作</strong><small>每项状态来自 OS 或已接入适配器；“待验证”不会被当作已授权。</small></div>
+              <ul class="proactive-capability-list">
+                <li v-for="capability in proactiveStatus?.capabilities ?? []" :key="capability.id" class="proactive-capability-item">
+                  <span class="proactive-capability-marker" :class="capabilityStatusClass(capability.osStatus)" aria-hidden="true"><Check v-if="capability.osStatus === 'granted'" :size="13" /><AlertTriangle v-else :size="13" /></span>
+                  <span class="proactive-capability-copy"><strong>{{ capability.label }}</strong><small>{{ capability.description }}<template v-if="capability.reason"> · {{ capability.reason }}</template></small></span>
+                  <span class="proactive-capability-state" :class="capabilityStatusClass(capability.osStatus)">{{ capabilityStatusLabel(capability.osStatus) }}</span>
+                  <span class="proactive-capability-actions">
+                    <button v-if="capability.canRequest && capability.osStatus !== 'granted'" type="button" class="proactive-request-button" :disabled="proactiveBusy" @click="requestProactiveCapability(capability)">请求系统权限</button>
+                    <button v-if="proactiveStatus?.desiredState === 'enabled' || proactiveStatus?.desiredState === 'paused'" type="button" class="proactive-delete-button" :disabled="proactiveBusy" :aria-label="`撤销并删除${capability.label}`" title="撤销并删除此来源" @click="deleteProactiveSource(capability)"><Trash2 :size="13" /></button>
+                  </span>
+                </li>
+                <li v-if="!proactiveStatus" class="study-empty">等待桌面 Host 返回能力快照。</li>
+              </ul>
+              <div class="proactive-capability-heading"><strong>本地画像记忆</strong><small>推断可由你确认或拒绝；被拒绝的声明不会进入后续个性化上下文。</small></div>
+              <ul class="proactive-claim-list">
+                <li v-for="claim in proactiveClaims" :key="claim.id" class="proactive-claim-item">
+                  <span class="proactive-claim-copy"><strong>{{ claim.content }}</strong><small>{{ claim.claimType }} · 置信度 {{ claim.confidence }} · {{ proactiveClaimStateLabel(claim.state) }}</small></span>
+                  <span class="proactive-claim-actions">
+                    <button type="button" :class="{active: claim.state === 'confirmed'}" :disabled="proactiveBusy" title="确认这条画像记忆" aria-label="确认画像记忆" @click="updateProactiveClaimState(claim, 'confirmed')"><Check :size="14" /></button>
+                    <button type="button" :class="{rejected: claim.state === 'rejected'}" :disabled="proactiveBusy" title="拒绝这条画像记忆" aria-label="拒绝画像记忆" @click="updateProactiveClaimState(claim, 'rejected')"><X :size="14" /></button>
+                  </span>
+                </li>
+                <li v-if="proactiveClaims.length === 0" class="study-empty">尚未形成画像记忆。</li>
+              </ul>
+              <div class="settings-note proactive-retention-note"><Database :size="16" />原始屏幕、音频、输入、剪贴板和文件副本最多保留 7 天，并在成功提炼为用户记忆后才删除；控制面与画像数据留在本机。</div>
+            </template>
           </div>
           <div v-else-if="settingsCategory === 'appearance'" class="settings-section">
             <div class="settings-section-heading">
@@ -1548,6 +2505,7 @@ onUnmounted(() => {
               <span><strong>对话</strong><small>调整你与思隅交流的输入与展示方式</small></span>
             </div>
             <label class="settings-field"><span><strong>助手称呼</strong><small>工作台中显示的名字</small></span><input v-model="assistantDisplayName" maxlength="12" @change="saveSettings" /></label>
+            <label class="settings-row settings-choice-row"><span><strong>学习模式</strong><small>启用专属苏格拉底启发式教学与防剧透规则</small></span><input v-model="studyModeEnabled" type="checkbox" class="settings-switch" @change="saveSettings" /></label>
             <label class="settings-row settings-choice-row"><span><strong>回车发送</strong><small>关闭后，回车只换行</small></span><input v-model="enterToSend" type="checkbox" class="settings-switch" @change="saveSettings" /></label>
           </div>
           <LLMConfigPanel v-else-if="settingsCategory === 'model'" class="settings-section" />
@@ -1564,6 +2522,78 @@ onUnmounted(() => {
           <PluginManagerPanel v-else class="settings-section" />
         </section>
       </div>
+    </el-dialog>
+
+    <!-- CAP-007 / CAP-002: 术语名词解释弹窗 -->
+    <TermExploreDialog
+      v-model="exploreDialogOpen"
+      :term="selectedTerm"
+      :context-text="latestAssistantLine?.text"
+    />
+    <el-dialog
+      v-model="fullAccessDialogOpen"
+      title="启用完全访问？"
+      class="permission-confirm-dialog"
+      width="min(500px, calc(100vw - 28px))"
+      align-center
+      @closed="resetFullAccessConfirmation"
+    >
+      <div class="permission-confirmation">
+        <span class="permission-confirmation-icon"><ShieldAlert :size="24" /></span>
+        <div>
+          <p>完全访问会减少确认步骤，允许思隅在当前会话中直接执行普通写操作。</p>
+          <small>管理员级操作、数据撤权、租户隔离与其它安全限制仍然生效。仅在你信任当前任务时开启。</small>
+        </div>
+      </div>
+      <label class="permission-acknowledgement">
+        <input v-model="fullAccessAcknowledged" type="checkbox" />
+        <span>我已了解风险，并愿意继续</span>
+      </label>
+      <template #footer>
+        <div class="permission-confirmation-actions">
+          <button type="button" class="permission-cancel" @click="fullAccessDialogOpen = false">取消</button>
+          <button type="button" class="permission-enable" :disabled="!fullAccessAcknowledged" @click="enableFullAccess">
+            启用完全访问
+          </button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="proactiveDialogOpen"
+      title="授权主动智能模式？"
+      class="permission-confirm-dialog proactive-authorization-dialog"
+      width="min(620px, calc(100vw - 28px))"
+      align-center
+      @closed="resetProactiveAuthorization"
+    >
+      <div class="permission-confirmation">
+        <span class="permission-confirmation-icon proactive-confirmation-icon"><BrainCircuit :size="24" /></span>
+        <div>
+          <p>主动智能模式会在本机持续理解你的使用习惯、操作习惯和已授权私人资料，并可执行你单独授权的本地、外部、特权及不可逆动作。</p>
+          <small>需要先保持“完全访问”。系统会逐项请求当前平台可以验证的权限；无法探测或未接入的来源会明确显示为“待验证”，不会静默开启。</small>
+        </div>
+      </div>
+      <div class="proactive-authorization-scope">
+        <strong>本次授权范围</strong>
+        <span>应用与窗口、浏览器、键鼠与剪贴板、屏幕、文件、通信、音视频、位置、传感器、敏感私人资料，以及后台与主动动作权限。</span>
+      </div>
+      <label class="settings-row settings-choice-row proactive-dialog-choice"><span><strong>开机自启</strong><small>设备登录后恢复 Host（会告知系统设置结果）</small></span><input v-model="proactiveAutostart" type="checkbox" class="settings-switch" /></label>
+      <label class="settings-row settings-choice-row proactive-dialog-choice"><span><strong>后台持续运行</strong><small>窗口关闭后继续运行已授权观察与处理</small></span><input v-model="proactiveBackground" type="checkbox" class="settings-switch" /></label>
+      <label class="permission-acknowledgement proactive-acknowledgement">
+        <input v-model="proactiveAcknowledged" type="checkbox" />
+        <span>我已阅读全量画像范围，确认这些来源和动作由我单独授权，并知悉数据仅在本机持久化。</span>
+      </label>
+      <template #footer>
+        <div class="permission-confirmation-actions">
+          <button type="button" class="permission-cancel" @click="proactiveDialogOpen = false">取消</button>
+          <button type="button" class="permission-enable proactive-enable" :disabled="!proactiveAcknowledged || proactiveBusy || toolApprovalMode !== 'full_access'" @click="authorizeProactive">
+            <RefreshCw v-if="proactiveBusy" class="proactive-spinner" :size="15" />
+            <BrainCircuit v-else :size="15" />
+            {{ toolApprovalMode === 'full_access' ? '请求权限并启用' : '请先开启完全访问' }}
+          </button>
+        </div>
+      </template>
     </el-dialog>
   </section>
 </template>

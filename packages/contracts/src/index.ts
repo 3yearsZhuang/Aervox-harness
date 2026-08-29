@@ -6,6 +6,8 @@
  */
 import { z } from "zod";
 import {
+  allowedMediaTypesSchema,
+  attachmentPurposeSchema,
   cancelTurnResponseSchema,
   createLearningGoalSchema,
   createTurnRequestSchema,
@@ -33,6 +35,7 @@ import {
   petSheetStateSchema,
   pluginMetadataSchema,
   redactedEventDataSchema,
+  turnAttachmentRefSchema,
   askUserQuestionOptionSchema,
   askUserQuestionIntentSchema,
   askUserQuestionItemSchema,
@@ -64,10 +67,16 @@ import {
   toolMetadataSchema,
   toolRegistryEntrySchema,
   toolRegistryExportSchema,
+  toolApprovalModeSchema,
   toolSafetyLevelSchema,
   turnStatusSchema,
   updateLearningGoalSchema,
   turnStreamEventSchema,
+  extractedTermSchema,
+  termsExtractedEventDataSchema,
+  termExploreKindSchema,
+  termExploreRequestSchema,
+  termExploreResponseSchema,
 } from "./schemas.js";
 import {
   pluginConfigFieldSchema,
@@ -84,6 +93,8 @@ export * from "./plugin-config-schemas.js";
 export * from "./practice-schemas.js";
 export * from "./llm-schemas.js";
 export * from "./inbox-schemas.js";
+export * from "./proactive.js";
+export * from "./proactive-schemas.js";
 export { openApiDocument } from "./openapi.js";
 
 export type TurnStatus = z.infer<typeof turnStatusSchema>;
@@ -111,6 +122,9 @@ export type PetCommandType = z.infer<typeof petCommandTypeSchema>;
 export type PetEmote = z.infer<typeof petEmoteSchema>;
 export type PetGesture = z.infer<typeof petGestureSchema>;
 export type CreateTurnRequest = z.infer<typeof createTurnRequestSchema>;
+export type TurnAttachmentRef = z.infer<typeof turnAttachmentRefSchema>;
+export type AttachmentMediaType = z.infer<typeof allowedMediaTypesSchema>;
+export type AttachmentPurpose = z.infer<typeof attachmentPurposeSchema>;
 export type CreateTurnResponse = z.infer<typeof createTurnResponseSchema>;
 export type CancelTurnResponse = z.infer<typeof cancelTurnResponseSchema>;
 export type LearningGoalLevel = z.infer<typeof learningGoalLevelSchema>;
@@ -120,7 +134,13 @@ export type UpdateLearningGoal = z.infer<typeof updateLearningGoalSchema>;
 export type ToolCategory = z.infer<typeof toolCategorySchema>;
 export type ToolGatingOperator = z.infer<typeof toolGatingOperatorSchema>;
 export type ToolGatingCondition = z.infer<typeof toolGatingConditionSchema>;
+export type ToolApprovalMode = z.infer<typeof toolApprovalModeSchema>;
 export type ToolSafetyLevel = z.infer<typeof toolSafetyLevelSchema>;
+export type ExtractedTerm = z.infer<typeof extractedTermSchema>;
+export type TermsExtractedEventData = z.infer<typeof termsExtractedEventDataSchema>;
+export type TermExploreKind = z.infer<typeof termExploreKindSchema>;
+export type TermExploreRequest = z.infer<typeof termExploreRequestSchema>;
+export type TermExploreResponse = z.infer<typeof termExploreResponseSchema>;
 export type ToolMetadata = z.infer<typeof toolMetadataSchema>;
 export type ToolRegistryEntry = z.infer<typeof toolRegistryEntrySchema>;
 export type ToolRegistryExport = z.infer<typeof toolRegistryExportSchema>;

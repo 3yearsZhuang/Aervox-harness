@@ -1,14 +1,14 @@
 # Agent Harness Loop 设计与落地规范
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：kikoyida · 2026-08-29
 
 > 文档编号：AVX-HAR-001  
 > 类型：Reference  
-> 版本：v0.4
-> 更新日期：2026-08-28  
+> 版本：v0.5
+> 更新日期：2026-08-29
 > 状态：Review Candidate  
-> 关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[ADR-016](adr/ADR-016-base-boundaries.md)、[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md)、[CR-012](changes/CR-012-agent-harness-loop.md)、[CR-021](changes/CR-021-ask-user-question-capability.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
+> 关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[ADR-016](adr/ADR-016-base-boundaries.md)、[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md)、[CR-012](changes/CR-012-agent-harness-loop.md)、[CR-021](changes/CR-021-ask-user-question-capability.md)、[CR-022](changes/CR-022-full-access-tool-permission.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
 本文规定 Aervox Agent Harness Loop 的职责、状态机、Port、持久化边界、工具执行、取消恢复和分阶段落地路线。当前阶段 0/1/2a-2e/3a/3b-A/3b-B 已有原生实现：`packages/agent-loop` 提供 Replay/Scripted/真实 OpenAI 兼容 Provider、多 Step 工具循环、API/SSE 持久化、工具账本、写工具审批、`ask_user_question` 人机提问交互、lease TTL/续租、过期抢占、fencing 单一终态和 Worker 恢复；3c+ 生产级安全补强、完整 Inbox/ContextManifest 关联、独立 Host 以及 DSH/pi Adapter 仍是后续目标。文中标为“目标”的接口、表和状态转换，只有在对应代码、迁移和契约测试落地后才可视为运行能力。
 
@@ -310,8 +310,12 @@ resolve definition
 
 - 模型请求工具不等于授权；
 - `read_only` 可以按已批准策略自动执行；
-- `write_with_approval` 必须绑定可审计授权快照；
-- `privileged` 默认拒绝，只能由单独管理员通道放行；
+- `write_with_approval` 必须绑定可审计授权快照；CAP-033 主动智能模式下，`FullProfileActionGrant` 也必须绑定动作类别、目标 scope、授权修订和可撤销快照；
+- CreateTurn 的 `toolApprovalMode` 默认为 `ask`；用户经风险确认选择 `full_access` 时，宿主只可对 `write_with_approval` 先写授权账本再自动执行；
+- `full_access` 是 Turn 级权限快照，不改写工具自身的 `safetyLevel`；运行中的 Turn 禁止切换，关闭只影响后续 Turn，不撤回已开始的副作用；
+- 完全访问产生的自动授权必须与显式授权区分；恢复 `ask` 后，显式授权查询不得命中这些记录；
+- `privileged` 在普通 Turn 中默认拒绝，只能由单独管理员通道放行；若当前主动智能模式存在用户确认且覆盖目标的 `FullProfileActionGrant`，可按同一工具门校验后放行，不能由模型/插件自授；
+- Subagent/Workflow 等静态 Contribution 的写工具必须经同一授权门，不得因 Provider 组合路由绕过审批策略；
 - 写工具按业务资源/Session 串行；相互独立的只读工具可以受限并行；
 - 幂等键建议为 `attemptId:stepNo:callId`，上游 callId 不可信时由 Host 重新生成；
 - 非幂等副作用失败不自动重试；
@@ -319,6 +323,10 @@ resolve definition
 - 终端工具可以返回 `concludesTurn=true`，但不能绕过最终持久化和安全检查；
 - Aervox 的批次终止契约是“非空且所有已完成结果均 `concludesTurn=true`”；混合批次继续下一 Step，且所有已经启动的工具都必须先产生并提交确定结果；
 - **工具 Prompt 约束与同步硬规则**：所有在系统中注册或贡献的工具（含内置工具与后续新增工具），必须在 `BASE_TOOL_GUIDANCE`（`packages/agent-loop/src/base-prompt.ts`）中登记明确的调用时机（何时使用/何时禁止）及约束要求；未在 System Prompt 中声明指导原则的工具禁止进入生产可用清单。
+
+### CAP-033 主动动作分支
+
+CAP-033 的后台主动动作仍复用本管线，但授权来源改为用户确认的 `FullProfileActionGrant`。Host 在 `approval decision` 前同时校验主动智能激活租约、动作类别（`local`/`external`/`privileged`/不可逆）、目标 scope、授权 revision、OS/身份授权、deny watermark 和幂等键；任一条件失效即拒绝。动作结果、用户通知和撤权状态写入 CAP-033 本地审计面，不能通过普通 Turn 自动授权记录替代。
 
 ## 10. 限额与终止策略
 
@@ -354,7 +362,7 @@ resolve definition
 - 恢复器只领取未终态且 lease 过期的 Attempt；
 - 同 Session 的写入结合 SessionLock 和数据库 CAS，避免两个 Turn 修改同一事实。
 
-当前 3b-A/3b-B 已实现 claim TTL、Step 首部续租探活、过期抢占、Worker 收敛和 Attempt 终态 fencing；长时间 Provider/Tool 调用期间的周期心跳，以及事件/工具写入的 fencing 校验仍属于 3c+。
+当前 3b-A/3b-B 已实现 claim TTL、Step 首部续租探活、过期抢占、Worker 收敛和 Attempt 终态 fencing；**事件写入的 fencing CAS 已落地（B1，§16.22）**；**长模型/工具调用期间的周期心跳续租已落地（B2，§16.23）**——工具结果/账本写入的 fencing 仍属 3c+。
 
 ### 11.3 恢复
 
@@ -370,7 +378,7 @@ resolve definition
 | 终态已提交但事件未发送 | 重发持久 done 事件 |
 | 删除/撤权水位未追平 | fail closed，不继续模型或工具调用 |
 
-这里的恢复规则是 Aervox 自身的安全策略，不声称与 DSH/pi 完全相同。当前 3b-B Worker 恢复器只把过期的 Running Attempt 以 fencing+1 收敛为 Interrupted，不会自动继续原 Turn。DSH 的 crash repair 会为开放的 tool call 补 `TOOL_NOT_STARTED` 或 `TOOL_OUTCOME_UNKNOWN` 等 synthetic result，并把原 Turn 收敛为 Interrupted；pi 的 Harness 设计以 durable program counter 和工具的 `replay: never/safe` 约定决定是否重放，但固定版本公开 Harness 仍未完成该恢复能力。Aervox 只有在副作用状态和结果均已权威确定时，才允许继续原 Attempt；副作用或结果未知时必须记录 `unknown outcome` 并收敛或等待人工确认。
+这里的恢复规则是 Aervox 自身的安全策略，不声称与 DSH/pi 完全相同。当前 3b-B Worker 恢复器只把过期的 Running Attempt 以 fencing+1 收敛为 Interrupted，不会自动继续原 Turn。DSH 的 crash repair 会为开放的 tool call 补 `TOOL_NOT_STARTED` 或 `TOOL_OUTCOME_UNKNOWN` 等 synthetic result，并把原 Turn 收敛为 Interrupted；pi 的 Harness 设计以 durable program counter 和工具的 `replay: never/safe` 约定决定是否重放，但固定版本公开 Harness 仍未完成该恢复能力。Aervox 只有在副作用状态和结果均已权威确定时，才允许继续原 Attempt；副作用或结果未知时必须记录 `unknown outcome` 并收敛或等待人工确认。**B3 已落地三态政策（§16.24）**：`tool_registrations.replay` 声明（safe/never/未声明）+ 恢复裁决——结果未确定（pending/outcome_unknown）且相关工具全部声明 `replay: safe` 时，视为「合成结果」注入 `TOOL_NOT_STARTED` / `TOOL_OUTCOME_UNKNOWN` 后继续原 Attempt；未声明 / `never` / `pending_approval` 一律 fail-closed 收敛。
 
 ## 12. 事件与持久化边界
 
@@ -403,10 +411,10 @@ agent.attempt.lease-expired
 以下动作必须原子提交：
 
 - Turn + 用户 MessageVersion + `agent.turn.requested` Outbox；
-- 安全片段 + TurnStreamEvent + Draft prefix；
-- ToolInvocation + 授权快照 + 幂等预留；
-- ToolExecution 结果 + result event；
-- Turn 终态 + done TurnStreamEvent + 下游 Outbox。
+- 安全片段 + TurnStreamEvent + Draft prefix（**已落地：E §16.27**，`recordSafeSegmentAtomically` 同事务写 safe_segments(committed) 与 delta 事件）；
+- ToolInvocation + 授权快照 + 幂等预留（**授权快照幂等已落地：E §16.27**，`recordToolApproval` 复用 pending 行；ToolInvocation 独立持久化仍属 3c+ 后续）；
+- ToolExecution 结果 + result event（**已落地：B4-D §16.26**，`recordToolOutcomeAtomically`）；
+- Turn 终态 + done TurnStreamEvent + 下游 Outbox（**终态 + done/error 事件已落地：B4-D §16.26**，`finalizeAttemptWithEventAtomically`；下游 Outbox 仍为既有 outbox 通道）。
 
 模型调用和外部工具不能与 SQLite 事务保持同一个长事务；采用“持久意图 → 外部调用 → fencing 校验后的结果提交”。
 
@@ -528,8 +536,8 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 
 目标：把当前最小实现提升为可长期运行的安全执行器。
 
-- 将 lease/fencing 校验扩展到每个事件、工具结果和终态写边界；
-- 完成 ToolInvocation 持久化、幂等预留、unknown outcome 收敛和工具 replay 声明；
+- 将 lease/fencing 校验扩展到每个事件、工具结果和终态写边界（**事件写边界已落地：B1 §16.22**；工具结果/账本写入、终态其余写边界仍待补）；
+- 完成 ToolInvocation 持久化、幂等预留、unknown outcome 收敛和工具 replay 声明（**unknown outcome 三态政策 + 工具 replay 声明已落地：B3 §16.24**；ToolInvocation 独立持久化仍属 3c+ 后续）；
 - 接入真实分段安全门、取消传播、预算、并行调度和背压；
 - 为 ModelRun/ContextManifest 增加 Turn/Attempt/Step 关联并补齐删除/撤权水位检查。
 
@@ -554,7 +562,7 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - followup、steer、inject（已落地 5a 数据面与消费闭环 + 5a-2 API/插件受控入口：`agent_inbox_items` 表 + InboxPort + executor 消费 + `POST /v1/sessions/:sessionId/inbox` 统一端点（x-plugin-id 受控）+ 过期回收 Worker）；
 - Context compaction seam（已落地 5b：`ContextCompactionPort` + 规则式摘要 `createSummaryCompaction` + composer 集成，宿主持有可注入 LLM 摘要）；
 - Skill 渐进式披露接入 ContextBuilder（已落地 5b：`buildSkillsPrompt` 迁入 agent-loop + `createSkillAwareContextBuilder`，API 对话默认注入 activeOnly 技能清单）；
-- Subagent/Workflow 通过独立 Tool/Provider Contribution 接入（已落地 5c：`SubagentPort` + `composeToolProviders` + `createSubagentToolProvider`（subagent.delegate 写类走既有审批）+ `createWorkflowToolProvider`（TS 步骤定义 workflow.run）；子任务独立 turn/attempt 落库 `subagent_runs`，隔离上下文+递归防护，审计端点 `GET /v1/turns/:id/subagents` + 注册清单 `GET /v1/workflows`）；
+- Subagent/Workflow 通过独立 Tool/Provider Contribution 接入（已落地 5c：`SubagentPort` + `composeToolProviders` + `createSubagentToolProvider`（`subagent_delegate` 写类走既有审批）+ `createWorkflowToolProvider`（TS 步骤定义 `workflow_run`）；子任务独立 turn/attempt 落库 `subagent_runs`，隔离上下文+递归防护，审计端点 `GET /v1/turns/:id/subagents` + 注册清单 `GET /v1/workflows`）；模型可见工具名必须匹配 `[A-Za-z0-9_-]+`，内部名称不得使用点号；
 - DSH/pi Adapter 进行兼容、许可证和安全验证（阶段 6 已落地契约面 + 模拟器：`AdapterDriverPort`/`AdapterManifest`/JSON 行 stdio 协议/`concludeAdapterBatch` 收紧/`verifyAdapterManifest` 准入 + fixture 子进程与内存模拟器双实现；真实运行时接入与 `Accepted` 验收仍待推进）。
 
 退出条件：高级能力均通过扩展点接入，不修改 Loop 核心控制流。（5a 已按此兑现：Inbox 注入经 `ContextBuilderPort` 扩展点 + 可选 `InboxPort`，未改动 Loop 状态机与事件流；`agent-loop-no-db` 健身函数持续机器验证。）
@@ -621,7 +629,7 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - §10 预算：`maxTurnDurationMs`（单 Turn 总耗时）与 `maxConsecutiveSameTool`（连续同名工具，跨 Step 累计，防死循环）已实现；触发以 `Interrupted` 收敛，`done` 事件携带 `reason`（`turn_timeout` / `repeat_tool`）；
 - §11.3 fail-closed：新增 `DeletionGatePort`，Step 边界查询删除/撤权水位（`deletion_requests` 存在 `pending`/`in_progress` 即未追平）；未追平则零模型输出、零工具执行，收敛 `Interrupted`（`deletion_blocked`），并经隐私仓储接入 API 路由；
 - 测试：`@aervox/agent-loop` 30（`budget.test.ts` 5：超限/不误伤/超时/闸门阻塞/放行）、`@aervox/database` 115、`@aervox/api` 91（`conversation-deletion` 2：未追平 fail-closed / 追平后正常）。
-- 仍未覆盖（后续批）：`maxParallelReadTools`、`maxModelRetries`、token/费用预算与 `maxTokens`（依赖 Provider 上报 `usage`，属阶段 2e+）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+- 仍未覆盖（后续批）：`maxParallelReadTools`、token/费用预算与 `maxTokens`（依赖 Provider 上报 `usage`，属阶段 2e+）。`maxModelRetries` 已落地（B4-C：仅首可见片段前且无副作用时重试）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
 ### 16.6 落地进展（阶段 2c：工具幂等预留与 unknown outcome）
 
@@ -645,7 +653,7 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 | `agent-loop-state-machine` | `packages/agent-loop/test/state-machine.test.ts` | 已落地 |
 | `agent-loop-fencing` | `packages/agent-loop/test/lease-guard.test.ts` | 已落地 |
 | `agent-loop-tool-policy` | `packages/agent-loop/test/tool-policy.test.ts`（read/write/privileged 三档）；`approval-loop.test.ts`（审批） | 已落地 |
-| `agent-loop-recovery` | `lease-guard`（过期释放）+ `cancel.test.ts`（取消）+ `budget.test.ts`（闸门）+ `idempotency.test.ts`（工具未知结果） | 已落地（「首片段前自动重试」待续，见 §10 maxModelRetries 未覆盖） |
+| `agent-loop-recovery` | `lease-guard`（过期释放）+ `cancel.test.ts`（取消）+ `budget.test.ts`（闸门）+ `idempotency.test.ts`（工具未知结果）+ `executor-b4.test.ts`（首片段前模型重试、流式中断） | 已落地（`maxModelRetries` 见 §10，B4-C） |
 | `agent-loop-sse` | `apps/api/test/conversation-loop.test.ts`（持久后发送/重连重放） | 已落地 |
 | `agent-loop-budget` | `packages/agent-loop/test/budget.test.ts`（step/turn-timeout/repeat-tool） | 已落地（token/费用预算待续） |
 | `agent-loop-deletion` | `apps/api/test/conversation-deletion.test.ts`（未追平 fail-closed）+ `budget.test.ts`（DeletionGate） | 已落地 |
@@ -677,7 +685,7 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 
 2026-08-28 落地（对应 §9 privileged 默认拒绝 + 独立管理员放行）：
 
-- privileged 工具收敛为与 `write_with_approval` 相同的「授权命中（granted）→ 执行 / 未批准 → 审批待决」流程（不再硬拒绝），但**授予动作**受管理员身份校验：`POST /v1/turns/:id/tool-approvals` 对 privileged 工具要求 `x-admin-user-id` ∈ `AERVOX_ADMIN_IDS` 白名单，否则 403 `admin_required`；
+- privileged 工具收敛为与 `write_with_approval` 相同的「授权命中（granted）→ 执行 / 未批准 → 审批待决」流程（不再硬拒绝）。普通 Turn 的**授予动作**仍受管理员身份校验：`POST /v1/turns/:id/tool-approvals` 对 privileged 工具要求 `x-admin-user-id` ∈ `AERVOX_ADMIN_IDS` 白名单，否则 403 `admin_required`；CAP-033 主动智能模式的用户 `FullProfileActionGrant` 走独立动作授权快照与本地 Host 门，不把普通 Turn 自动授权伪装成管理员授予。
 - 新增 `getToolApproval`（读单条待决记录供预检）与 `scripted-privileged` 测试 Provider 脚本；
 - 测试：`@aervox/api` 101（`conversation-privileged` 3：未批准待决 / 非管理员 403 / 管理员 grant 后执行成功）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
@@ -768,8 +776,8 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - **扩展点**（`packages/agent-loop`）：
   - `SubagentPort`（`delegate`：父执行键幂等，宿主持有）+ `ToolExecutionInput.sessionId` 透传（executor 仅补字段，无控制流改动）；
   - `composeToolProviders(providers, { fallback? })`：多 Contribution 合并为单一清单交付 executor；重名组装期报错；execute 按名路由，未命中委托 `fallback`（支持动态注册表 provider——`createRuntimeToolProvider` tools 实时校验不静态声明）或 fail-closed；
-  - `createSubagentToolProvider({ subagent })`：贡献 `subagent.delegate`（写类，走既有审批通道，与 5a-2 受控入口对称）；委托结果经既有 tool_result 回填，失败父级可收敛/重试；
-  - `createWorkflowToolProvider(defs)`：TS 步骤定义（`WorkflowDefinition`/`WorkflowStep`，天然过 typecheck）暴露 `workflow.run`（写类）；步骤顺序执行、上一步输出为下一步输入、失败携带步骤定位与部分产物；未注册流程 fail-closed。
+  - `createSubagentToolProvider({ subagent })`：贡献 `subagent_delegate`（写类，走既有审批通道，与 5a-2 受控入口对称）；委托结果经既有 tool_result 回填，失败父级可收敛/重试；
+  - `createWorkflowToolProvider(defs)`：TS 步骤定义（`WorkflowDefinition`/`WorkflowStep`，天然过 typecheck）暴露 `workflow_run`（写类）；步骤顺序执行、上一步输出为下一步输入、失败携带步骤定位与部分产物；未注册流程 fail-closed。
 - **数据面**（`packages/database`）：`subagent_runs` 表（父 Turn/Attempt/执行键 + 子 turn/attempt + task/toolScope/status/result/时间戳；`parentAttemptId+parentExecutionId` 幂等唯一索引）+ `SqliteSubagentRunRepository`（createRun 幂等 / finalizeRun 仅 Running 收口 / getRunByParentExecution / listRunsByTurn 租户隔离）；init 幂等 CREATE。
 - **宿主执行器**（`packages/host-agent`）：`createSqliteSubagentPort`——子任务独立 turn/attempt 落库（复用 `createTurnWithOutbox`/`createTurnAttempt`，事件流在子 turn 下审计）→ 嵌套 `executeTurn`（子任务 Step 上限默认 4）→ delta 聚合正文 → run 行终态收口；隔离原则（子上下文仅 task，不注入父历史）+ 递归防护（childTools 含 delegate/workflow 即拒绝）＋崩溃/重试幂等复用。
 - **API 接线**（`apps/api`）：`buildLoopProvider` 提取（Leader 与子任务共用）；conversation 模块默认接线 `subagentFactory`（request 级 tenant 绑定）+ 可选 `workflows`（`buildApp` 透传）；工具组合 = compose(subagent/workflow 静态贡献, fallback=动态 runtime)；新端点 `GET /v1/turns/:turnId/subagents`（子任务审计，租户隔离）与 `GET /v1/workflows`（注册清单元数据）。
@@ -816,6 +824,79 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - **6e 库内产物探测**（`DSH_LIB_MODE=1`）：动态 import `packages/core/agent/lib/index.js` 并验证公开导出面（`AgentRegistry`/`assembleContextFor`/`installModelSelection`/`emitAgentEvent` 等）——库内 Agent 循环可加载的机器证据；完整 Cordis 容器组装（llm/session/persistence/tools 等 service 注入）为剩余 P2 工程项。
 - **adapter 组合**（`packages/host-agent/src/dsh-adapter.ts`）：`createDSHAdapterDriver({ repoRoot, env? })`——probeDSHReference（gitlink SHA + MIT）通过后才 spawn runner（`createStdioAdapterDriver` 复用，expectedSha=DSH_REFERENCE_SHA）；未就绪不 spawn 且返回 reason。
 - 测试：`@aervox/host-agent` 56 +1 skipped（新增 `dsh-turn.test.ts` 6：复核通过+spawn 且 manifest 一致 / 缺 key→dsh_unconfigured 指引性拒绝 / 真模型回合（`it.runIf` key 就绪，外部 4xx 软跳过）/ probe 未就绪 fail-closed / 本地兼容端点完整回合 delta→batch→done→concluded 机器验证 / **库内产物加载证明（`it.runIf(refLibBuilt)`：import 成功 + 导出面符号）**）；`@aervox/api` 203 无回归。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。ADR-010 实施进展 6d/6e 已更新。
+
+### 16.22 落地进展（阶段 3c+-B1：事件写入 fencing CAS）
+
+2026-08-28 落地（对应 §3c+ 第一项「将 lease/fencing 校验扩展到每个事件写边界」与 §11.2「事件写入的 fencing 校验」前置关闭；工具结果/账本写入的 fencing 仍属 3c+ 后续项）：
+
+- **数据库 CAS 写门**（`@aervox/database`）：`appendStreamEvent` 新增可选 `expectedFencingToken`；携带 `attemptId`+期望值时在 **BEGIN IMMEDIATE** 事务内对 `turn_attempts` 校验（fencing 一致 + 状态 Running/CancelRequested；终态仅放行收尾 `done`/`error`——适配 finalize-then-done 路径），失配抛 `FencingMismatchError`。单次写锁内校验+插入，无 SELECT→INSERT 抢占窗口。
+- **Loop 语义收口**（`@aervox/agent-loop`）：新增 `LeaseLostError`；`executor.ts` 全部事件写入携带 claim fencing，catch 拦截 `LeaseLostError` → 收敛 `failed(lease_lost)` 且**不再产生任何新副作用**（§11.2）；`in-memory-store.ts` 同语义守卫 + `simulatePreemption` 钩子。
+- **宿主/同步路径**（`@aervox/host-agent`、`apps/api`）：store 透传期望值并把 `FencingMismatchError` 转译为 `LeaseLostError`；`adapter-turn.ts` 携带 claim fencing；`failTurnWithError`（未 claim）携带 `expectedFencingToken=0`。
+- 测试：`@aervox/database` 150（`event-fencing.test.ts` 5：正确通过 / 恢复器抢占（过期租约 fencing+1→Interrupted）后旧期望被拒且零污染 / attempt 不存在拒绝 / 终态仅 done 放行 / CancelRequested 可写）；`@aervox/agent-loop` 121（`executor-fencing.test.ts` 4：内存守卫 + 工具执行中被抢占 → `failed(lease_lost)`、无 tool_result/done/error 迟到事件、不写终态）；`@aervox/host-agent` 62（`sqlite-execution-store-fencing.test.ts` 3：桥接正确 / 失配转译 LeaseLostError / 未携带保持兼容）；`@aervox/api` 229 无回归；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.23 落地进展（阶段 3c+-B2：长调用周期心跳续租）
+
+2026-08-28 落地（对应 §11.2「长模型/工具调用期间由 Host 续租」「续租失败立即停止产生新副作用」）：
+
+- **心跳器**（`packages/agent-loop/src/lease-heartbeat.ts` `LeaseHeartbeat`）：claim 后按固定间隔（默认 = 租约 TTL/2 = 30s）经既有 `renewAttemptLease` CAS 续租；`renew ok=false`（被抢占/恢复器已递增 fencing 或已终态）→ 判定 `lost` 并幂等单播订阅回调；传输/瞬时故障不判死（丢失必须以 CAS 语义为准），下一心跳重试。
+- **executor 接线**（`executor.ts`）：`ExecuteTurnOptions` 增 `leaseTtlMs`（默认 60_000，与数据库层一致）/ `leaseHeartbeatIntervalMs`（默认 TTL/2，0 关闭）；claim 后启动、`try/finally` 兜底停止（无定时器泄漏、终态后不续租）；Provider 长流 chunk 间 `throwIfLost` 检查点；长工具调用注册 `onLost → AbortController.abort` 中止在途工具，且工具 catch 内 `heartbeat.lost` 直接收口 `lease_lost`（不写结果事件）。宿主零改动（复用 CAS 续租）。
+- 效果：`ask_user_question`（最长 120s）等长调用不再因租约超时被恢复器误判为僵尸原地收敛；真被抢占时心跳探知后立即中止，与 B1 事件写入 fencing 双层兜底。
+- 测试：`@aervox/agent-loop` 131（新增 `lease-heartbeat.test.ts` 5：单元 lost 判定/幂等多播/stop 后停更 + 集成——120ms 长工具调用期间续租 ≥3 且 Turn 正常完成 / 中途 `simulatePreemption`（fencing+1）→ 心跳续租失败 → 在途工具 abort → `failed(lease_lost)` 且无迟到事件/不写终态 / `leaseHeartbeatIntervalMs=0` 时仅 Step 首部探活）；`@aervox/database` 151、`@aervox/host-agent` 64、`@aervox/api` 230 无回归；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.24 落地进展（阶段 3c+-B3：工具 replay 声明 + 未知结果三态政策 + 合成结果注入）
+
+2026-08-28 落地（对应 §11.3 行 4/5「按工具 `replay: never/safe` 和幂等声明选择合成结果、人工确认或收敛」与 §3c+「unknown outcome 收敛和工具 replay 声明」关闭；人工确认路径留待后续基于 UQ-01 的恢复交互）：
+
+- **数据面**（`@aervox/database`）：`tool_registrations.replay` 列（`safe`/`never`/NULL=未声明，fail-closed），新库建列 + 旧库 `addColumnIfMissing` 幂等补齐；`registerTool` 读写 replay；`listToolExecutionsByTurn` LEFT JOIN tool_registrations 返回 replay（恢复裁决数据面就绪）。
+- **恢复裁决**（`resume.ts`）：`ResumeExecutionLike` 增 replay；批次聚合改为按 executionId 的 step 段归批（含同 Step 崩溃残留 `tool_request`——「工具意图已提交」边界，§11.3 行 5）；三态政策——批次含结果未确定（`pending`/`outcome_unknown`）且相关工具**全部**声明 `replay: safe` → 返回 `reason: "synthesized"` + 合成清单（`pending`→`not_started` / `outcome_unknown`→`outcome_unknown`）；`pending_approval` **永远收敛**（等待授权是业务语义，不可被合成绕过）；未声明 / `never` → fail-closed 收敛（保持原语义）。
+- **恢复执行**（`sqlite-resume-source.ts`）：传入 replay；`synthesized` 时向重建上下文注入合成 tool 消息（`TOOL_NOT_STARTED` / `TOOL_OUTCOME_UNKNOWN` + executionId），指导续跑模型不再重复执行副作用后继续原 Attempt；**合成结果只进重建上下文，不写事件/账本**——事件流保持仅权威提交边界（§12.2）。
+- **注册链路**（`apps/api`）：`POST /v1/tools` 支持 `replay` 枚举校验透传。
+- 测试：`@aervox/database` 151（`tool-registry.test.ts` replay 存取矩阵）；`@aervox/agent-loop` 131（`resume-decision.test.ts` 6→11：synthesized 双形态 / 未声明与 never 收敛 / pending_approval 不绕过 / 多未确定项全 listing）；`@aervox/host-agent` 64（`sqlite-resume-source.test.ts` +2：replay:safe + pending → 产出含 TOOL_NOT_STARTED 合成 tool 消息；replay:never → 收敛不产出）；`@aervox/api` 230（tools-plugins replay 透传 + 非法 400）；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.25 落地进展（阶段 3c+-B4：工具结果入口校验 + 流式可中断 + 模型调用重试）
+
+2026-08-28 落地（对应 §9「工具结果进入模型前做大小、敏感数据、Prompt injection 和来源检查」、§10 `maxModelRetries`「仅首个可见片段前且无副作用」、§11.1「取消后丢弃失去 fencing 的迟到 chunk」的流式面）：
+
+- **结果入口校验**（`tool-result-safe.ts` `inspectToolResult`）：工具输出回填上下文前做大小截断（默认 8000 字符，可配）+ Prompt injection 启发式（中英双语典型越权样本，保守匹配）。注入命中 → 以受控摘要 `blocked_tool_injection` 替代完整内容（fail-closed，样本不进模型）；超长 → 截断后回填。敏感数据分级/来源分类（DATA_PRIVACY/audit 体系）为后续扩展点。
+- **流式可中断**（`executor.ts`）：Provider 流 chunk 间隙 ≥100ms 节流执行 `prematureTermination`（取消 / 删除撤权水位 / 总时长预算），命中即提前终止迭代收敛——流式期间用户取消/删除不再等整 Step 结束（§11.1 迟到 chunk 丢弃）。
+- **模型调用重试**（`executor.ts` `ExecuteTurnOptions.maxModelRetries`，默认 1，0 关闭）：仅「首个可见片段前且无副作用」（首 Step 且 `textAccumulator` 为空）允许重试一次；已有 delta/事件、租约丢失（LeaseLostError/heartbeat.lost）一律不重试。
+- 测试：`@aervox/agent-loop` 143（新增 `tool-result-safe.test.ts` 5：注入中英双语命中/超长截断/自定义上限/正常透传；`executor-b4.test.ts` 7：回填注入被摘要替代且原文不进上下文、超长截断回填、正常透传、首调用抛错自动重试一次完成、`maxModelRetries=0` 持续失败仅调一次、流式第二 chunk 前取消收敛且后续文本不产出）；`@aervox/database` 151、`@aervox/host-agent` 64、`@aervox/api` 232 无回归；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.26 落地进展（阶段 3c+-B4-D：跨包原子写对）
+
+2026-08-29 落地（对应 §12.2「ToolExecution 结果 + result event」「Turn 终态 + done」原子提交）：
+
+- **Port 扩展**（`packages/agent-loop/src/ports.ts`）：`ExecutionStorePort` 新增 `recordToolOutcome`（工具结果账本收口 + tool_result 事件原子）与 `finalizeAttemptWithEvent`（终态 CAS + done/error 事件原子）；in-memory 实现同语义。
+- **数据库原子事务**（`@aervox/database`）：`recordToolOutcomeAtomically` / `finalizeAttemptWithEventAtomically` —— BEGIN IMMEDIATE 内先做 fencing+状态守卫（前者守卫失败抛 `FencingMismatchError` 无部分写入；后者终态 CAS 失败返回 false 不写事件，杜绝孤儿 done/error）。
+- **executor 接线**（`executor.ts`）：工具结果收口（executed/rejected/timeout_error/duplicate）改走 `recordToolOutcome`（duplicate 账本无预留行时插入独立记录）；5 处终态路径（Cancelled / Completed / Interrupted×2 / Failed(tools_disabled) / catch error+Failed）全部改走 `finalizeAttemptWithEvent`，CAS 失败按 contested 收敛。
+- **宿主桥接**（`sqlite-execution-store.ts`）：转译 `FencingMismatchError`→`LeaseLostError`（与 appendEvent 同语义）。
+- 测试：`@aervox/database` 154（新增 `atomic-write-pairs.test.ts` 3：同事务收口+事件 / fencing 失配抛错且无部分写入 / 终态+done 同事务且二次提交 false 不写第二个 done）；`@aervox/agent-loop` 143 无回归（cancel 终态竞态用例改 override `finalizeAttemptWithEvent`；duplicate 账本独立留痕保持）；`@aervox/host-agent` 65（`sqlite-execution-store-fencing.test.ts` +2：原子桥接 + 转译 + CAS false）；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.27 落地进展（阶段 3c+-E：授权快照幂等 + 安全片段/Draft 原子化）
+
+2026-08-29 落地（对应 §12.2「ToolInvocation + 授权快照 + 幂等预留」「安全片段 + TurnStreamEvent + Draft prefix」）：
+
+- **授权快照幂等**（`@aervox/database` `recordToolApproval`）：同 `(toolName, argumentsHash)` 已存在 `pending` 授权则复用既有行，不重复插入——授权匹配键跨 turn 复用（schema 约定），重复写工具意图不产生多行待决授权；`granted/denied` 后新请求才新建。
+- **安全片段表**（`@aervox/database` `schema/safe-segments.ts` `safe_segments`）：`turn_id`/`attempt_id`/`sequence`/`text`/`committed`(0|1 可见前缀)/`stream_event_id`（关联 turn_stream_events）+ 租户列，`(turn_id, sequence)` 唯一；init 建表与索引。
+- **原子提交**（`recordSafeSegmentAtomically`）：BEGIN IMMEDIATE 内 fencing+状态守卫（同 appendEvent fenced 语义）→ 同事务插入 safe_segments（committed=1）与 delta 事件并回填事件关联，崩溃不把片段与事件拆散；守卫失配抛 `FencingMismatchError` 无部分写入。`listCommittedSegments` 按 sequence 升序返回可见前缀（中断恢复/可见前缀重建）。
+- **executor 接入**（`executor.ts`）：两处 delta 写入（无工具 isFinal / 有工具 isFinal:false）改走 `recordSafeSegment` 原子提交——每个可见片段与其事件同生共死；`ports.ts` 增 `recordSafeSegment`/可选 `listCommittedSegments`；in-memory 同语义 + `safeSegments` 断言钩子；host-agent store 委托 + `FencingMismatchError`→`LeaseLostError` 转译。
+- 测试：`@aervox/database` 160（新增 `segment-approval.test.ts` 6：E1 幂等复用/不同 hash 新建/已决后新请求新建；E2 同事务写入+事件关联 / fencing 失配无部分写入 / 可见前缀升序）；`@aervox/agent-loop` 143 无回归；`@aervox/host-agent` 65（fencing 桥接 +1 recordSafeSegment 原子+可见前缀+失配转译）；`@aervox/api` 230 无回归；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.28 落地进展（CR-022：Turn 级完全访问）
+
+2026-08-29 落地（对应 §9 工具审批决策）：
+
+- **契约与快照**：`CreateTurnRequest.toolApprovalMode = ask | full_access`，缺省 `ask`；API `preValidation` 将已解析值绑定到本请求租户上下文，不修改冻结中的对话路由。
+- **自动授权与审计**：完全访问下，`write_with_approval` 以 `tool_approvals` pending→granted 记录本次快照后才执行；`decidedBy=permission:full_access:<actor>` 区分自动授权，显式授权查询排除该前缀，关闭后同参数不会继续放行。
+- **统一写工具门**：动态 ToolRuntime 与静态 Subagent/Workflow Contribution 共用授权语义；普通 Turn 的 `privileged` 仍收敛到管理员审批通道，CAP-033 的全动作授权通过同一门的独立 `FullProfileActionGrant` 分支校验（当前仅完成契约骨架，执行分支待专项实现）。
+- **双端交互**：共享 Workbench 输入区显示权限开关；开启必须经风险说明和显式勾选，运行中锁定，状态仅保留在当前浏览器/桌面会话；Web fetch 与 Electron IPC 传递同一字段。
+- **测试**：`conversation-approval.test.ts` 覆盖默认待决、自动执行与关闭后不泄漏；`conversation-privileged.test.ts` 覆盖普通 Turn 管理员门；`tool-approval-policy.test.ts` 覆盖静态 Contribution 工具；API Client `transport.test.ts` 覆盖 `full_access` 请求体透传。CAP-033 的 Host/数据面专项授权、来源、保留和动作测试尚待补齐。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.24 落地进展（阶段 CAP-033：主动智能本地数据面与动作授权）
+
+2026-08-29 已落地部分路径：独立加密本地 Vault、owner-only `proactive-access.token`（`0600`）与字面 loopback/redirect 拒绝、版本化 ProfileRevision/SourceGrant/ActivationLease、`FullProfileActionGrant` 工具门、Aervox activity/operation 与剪贴板采集、确定性本地提炼 Worker、来源级撤销删除、导出和后台 heartbeat。系统应用、浏览器、屏幕、文件、通信、音视频、位置和传感器适配器仍未全部接入；本地 Provider 出网证明、生产 OS Broker、全量删除传播和专项门禁继续阻断 CAP-033 的 `Ready`。
+
+验证证据：`@aervox/database` 162 tests、`@aervox/api` 241 tests、`@aervox/worker` 6 tests、Contracts OpenAPI build 已通过；完整端到端和平台权限矩阵待补齐。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
 ## 17. 回滚策略
 

@@ -5,6 +5,8 @@
  * - 只实现 OpenAI `/chat/completions` SSE 流协议（Anthropic 等非兼容协议在宿主接线层拒绝）；
  * - 流式解析 delta.content 与 delta.tool_calls（工具调用分片累积），`[DONE]` / finish_reason 收尾；
  * - 工具 schema 来自 request.tools（executor 传入只读白名单），不改变 Loop 控制流。
+ * - 思考型模型（DeepSeek v4 等）：捕获 delta.reasoning_content 并在下一 Step 序列化时随
+ *   assistant 消息回灌（provider 实例在单回合内跨 Step 存活）。
  * 使用全局 fetch（Node 18+ / 浏览器均可用）。
  */
 import type { ModelProviderPort } from "./ports.js";
@@ -16,6 +18,10 @@ export interface OpenAICompatConfig {
   modelId: string;
   temperature?: number;
   maxTokens?: number;
+  /** Hard deadline for the upstream request and its SSE stream. */
+  timeoutMs?: number;
+  /** CAP-033 local-only calls reject redirects instead of following them. */
+  redirect?: RequestRedirect;
 }
 
 interface OpenAIToolCallDelta {
@@ -26,84 +32,32 @@ interface OpenAIToolCallDelta {
 
 interface ChatCompletionChunk {
   choices?: Array<{
-    delta?: { content?: string | null; reasoning_content?: string | null; tool_calls?: OpenAIToolCallDelta[] };
+    delta?: { content?: string | null; tool_calls?: OpenAIToolCallDelta[]; reasoning_content?: string | null };
     finish_reason?: string | null;
   }>;
 }
 
-/**
- * 序列化为 OpenAI 兼容消息序列：
- * - 携带 toolCallId 的 assistant 消息（Loop 记录的工具调用步骤）→ assistant.tool_calls 载体；
- * - role=tool 消息必须紧跟带 tool_calls 的 assistant 消息（OpenAI/DeepSeek 协议要求），
- *   若历史缺失载体则就地合成（id/name 取自 tool 消息）；
- * - 思考型模型（DeepSeek v4 等）要求把上一步骤的 reasoning_content 随 assistant 消息回传：
- *   provider 实例在单回合内跨 Step 存活，lastStepReasoning 由上一次 stream 捕获。
- */
+/** OpenAI-compatible providers only accept [A-Za-z0-9_-] in function names. */
+function encodeToolName(name: string): string {
+  return `avx_${name.replace(/[^a-zA-Z0-9_-]/g, (character) => `_x${character.codePointAt(0)!.toString(16)}_`)}`;
+}
+
 function toOpenAIMessages(
   messages: PromptMessage[],
+  encodeName: (name: string) => string,
   opts: { lastStepReasoning?: string } = {},
 ): unknown[] {
   const out: unknown[] = [];
-  const isToolCallsCarrier = (m: unknown): boolean =>
-    Array.isArray((m as { tool_calls?: unknown[] }).tool_calls);
-
-  const emitAssistantWithToolCalls = (m: PromptMessage) => {
-    const msg: Record<string, unknown> = {
-      role: "assistant",
-      content: m.content ?? "",
-      tool_calls: [
-        {
-          id: m.toolCallId ?? `call_${out.length}`,
-          type: "function",
-          function: { name: m.name ?? "tool", arguments: "{}" },
-        },
-      ],
-    };
-    if (opts.lastStepReasoning) msg.reasoning_content = opts.lastStepReasoning;
+  for (const m of messages) {
+    if (m.role === "tool") {
+      out.push({ role: "tool", content: m.content, tool_call_id: m.toolCallId });
+      continue;
+    }
+    const msg: Record<string, unknown> = { role: m.role, content: m.content };
+    if (m.name) msg.name = encodeName(m.name);
+    // 思考型模型：把上一步骤的 reasoning_content 随 assistant 消息回传
+    if (m.role === "assistant" && opts.lastStepReasoning) msg.reasoning_content = opts.lastStepReasoning;
     out.push(msg);
-  };
-
-  let i = 0;
-  while (i < messages.length) {
-    const m = messages[i];
-    if (!m) break;
-    if (m.role === "assistant" && m.toolCallId) {
-      emitAssistantWithToolCalls(m);
-      i += 1;
-      continue;
-    }
-    if (m.role !== "tool") {
-      out.push({ role: m.role, content: m.content, name: m.name });
-      i += 1;
-      continue;
-    }
-    // tool 消息：前置载体缺失时为连续 tool 批次合成一条 assistant.tool_calls
-    if (!isToolCallsCarrier(out[out.length - 1])) {
-      const batch: PromptMessage[] = [];
-      while (i < messages.length && messages[i]?.role === "tool") {
-        const t = messages[i];
-        if (!t) break;
-        batch.push(t);
-        i += 1;
-      }
-      const msg: Record<string, unknown> = {
-        role: "assistant",
-        content: "",
-        tool_calls: batch.map((t, idx) => ({
-          id: t.toolCallId ?? `call_${out.length}_${idx}`,
-          type: "function",
-          function: { name: t.name ?? "tool", arguments: "{}" },
-        })),
-      };
-      if (opts.lastStepReasoning) msg.reasoning_content = opts.lastStepReasoning;
-      out.push(msg);
-      for (const t of batch) {
-        out.push({ role: "tool", content: t.content, tool_call_id: t.toolCallId ?? "" });
-      }
-      continue;
-    }
-    out.push({ role: "tool", content: m.content, tool_call_id: m.toolCallId ?? "" });
-    i += 1;
   }
   return out;
 }
@@ -117,53 +71,51 @@ function parseToolArguments(raw: string | undefined): unknown {
   }
 }
 
-/**
- * OpenAI 兼容端点的 function.name 仅允许 ^[a-zA-Z0-9_-]+$（DeepSeek 等严格校验），
- * 而 Loop 内置工具名含点号（subagent.delegate / workflow.run）。
- * 出站按请求做安全名映射（非法字符→下划线），入站在 tool_calls 上还原为内部名。
- */
-const SAFE_TOOL_NAME = /^[a-zA-Z0-9_-]+$/;
-
-function sanitizeToolName(name: string): string {
-  return SAFE_TOOL_NAME.test(name) ? name : name.replace(/[^a-zA-Z0-9_-]/g, "_");
-}
-
 /** 构造 OpenAI 兼容流式 Provider */
 export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelProviderPort {
   const baseUrl = config.baseUrl.replace(/\/+$/, "");
-  // 思考型模型跨 Step 回灌：上一次 stream 捕获的 reasoning_content（provider 实例回合内存活）
-  let lastStepReasoning = "";
+  const timeoutMs = config.timeoutMs ?? 45_000;
   return {
     id: "openai-compat",
     async *stream(request: ModelRequest): AsyncIterable<ModelChunk> {
-      // 工具名安全映射：内部名 ↔ API 安全名（本请求内双向一致）
-      const safeNameToInternal = new Map<string, string>();
-      for (const t of request.tools ?? []) {
-        const safe = sanitizeToolName(t.name);
-        if (safe !== t.name) safeNameToInternal.set(safe, t.name);
-      }
-      const res = await fetch(`${baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
-        },
-        body: JSON.stringify({
-          model: config.modelId,
-          messages: toOpenAIMessages(request.context.messages, { lastStepReasoning }),
-          stream: true,
-          temperature: config.temperature ?? 0.7,
-          ...(config.maxTokens ? { max_tokens: config.maxTokens } : {}),
-          ...(request.tools?.length
-            ? {
-                tools: request.tools.map((t) => ({
-                  type: "function",
-                  function: { name: sanitizeToolName(t.name), description: t.description, parameters: { type: "object" } },
-                })),
-              }
-            : {}),
-        }),
-      });
+      const toolNameByWireName = new Map(
+        (request.tools ?? []).map((tool) => [encodeToolName(tool.name), tool.name]),
+      );
+      const encodeName = (name: string): string => toolNameByWireName.has(name) ? name : encodeToolName(name);
+      // 思考型模型跨 Step 回灌：上一次 stream 捕获的 reasoning_content（provider 实例单回合内存活）
+      let lastStepReasoning = "";
+      const controller = new AbortController();
+      let timedOut = false;
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, timeoutMs);
+
+      try {
+        const res = await fetch(`${baseUrl}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
+          },
+          body: JSON.stringify({
+            model: config.modelId,
+            messages: toOpenAIMessages(request.context.messages, encodeName, { lastStepReasoning }),
+            stream: true,
+            temperature: config.temperature ?? 0.7,
+            ...(config.maxTokens ? { max_tokens: config.maxTokens } : {}),
+            ...(request.tools?.length
+              ? {
+                  tools: request.tools.map((t) => ({
+                    type: "function",
+                    function: { name: encodeToolName(t.name), description: t.description, parameters: t.parameters ?? { type: "object" } },
+                  })),
+                }
+              : {}),
+          }),
+          signal: controller.signal,
+          redirect: config.redirect,
+        });
       if (!res.ok || !res.body) {
         const detail = await res.text().catch(() => "");
         throw new Error(`llm_http_${res.status}: ${detail.slice(0, 200)}`);
@@ -183,8 +135,7 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
         for (const [, acc] of [...toolAccumulator.entries()].sort(([a], [b]) => a - b)) {
           calls.push({
             id: acc.id ?? `tool_${calls.length + 1}`,
-            // API 返回安全名时还原为内部工具名（如 subagent_delegate → subagent.delegate）
-            name: safeNameToInternal.get(acc.name) ?? acc.name,
+            name: toolNameByWireName.get(acc.name) ?? acc.name,
             arguments: parseToolArguments(acc.args),
           });
         }
@@ -244,6 +195,12 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
       }
       // 供同回合下一 Step 序列化时回灌（思考型模型协议要求）
       lastStepReasoning = stepReasoning;
+      } catch (error) {
+        if (timedOut) throw new Error(`llm_timeout: upstream model did not respond within ${timeoutMs}ms`);
+        throw error;
+      } finally {
+        clearTimeout(timeout);
+      }
     },
   };
 }

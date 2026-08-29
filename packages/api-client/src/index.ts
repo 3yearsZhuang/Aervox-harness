@@ -7,7 +7,10 @@ export {
   createFetchTransport,
   type AervoxTransport,
   type AervoxClientConfig,
+  type StreamTurnOptions,
   type TurnCallbacks,
+  type AttachmentUploadInput,
+  type UploadedAttachment,
 } from './transport';
 export { desktopTransport } from './desktop-transport';
 export { useAervoxApi, type GoalDto, type ReviewItemDto, type NotificationDto, type DiaryDto } from './useAervoxApi';
@@ -23,7 +26,7 @@ export {
   type ToolItemDto,
   type SkillItemDto,
 } from './useAervoxPersonas';
-export { streamAervoxTurn, submitQuestionAnswers, decideToolApproval, type StreamAervoxTurnCallbacks } from './useAervoxTurn';
+export { streamAervoxTurn, uploadAervoxAttachment, submitQuestionAnswers, exploreTerm, decideToolApproval, type StreamAervoxTurnCallbacks } from './useAervoxTurn';
 export {
   useAervoxVoice,
   canPickDirectory,

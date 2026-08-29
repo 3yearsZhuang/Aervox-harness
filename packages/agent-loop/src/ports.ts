@@ -110,6 +110,62 @@ export interface ExecutionStorePort {
 
   /** 阶段 7（ADR-017）：ContextManifest 快照写入（每 Turn 首个 Step；宿主落库 context_manifests） */
   recordContextManifest(input: ContextManifestRecord): Promise<void>;
+
+  /**
+   * B4-D（§12.2）：原子提交「工具结果账本收口 + tool_result 事件」。
+   * 同一事务内写入 tool_executions 结果与 turn_stream_events 事件，避免崩溃把两者拆散。
+   * fencing 失配（被抢占/恢复）→ 抛 LeaseLostError（与 appendEvent 同语义）。
+   */
+  recordToolOutcome(input: {
+    turnId: string;
+    attemptId: string;
+    sequence: number;
+    invocationId: string;
+    name: string;
+    arguments: unknown;
+    status: ToolExecutionStatus;
+    output?: unknown;
+    error?: string;
+    startedAt: string;
+    finishedAt?: string;
+    eventData: unknown;
+    safetyDecision: SafetyDecision;
+    expectedFencingToken: number;
+  }): Promise<{ ok: boolean }>;
+
+  /**
+   * B4-D（§12.2）：原子提交「Attempt 终态 + 收尾事件（done/error）」。
+   * 终态 CAS（Running/CancelRequested + fencing 匹配）成功才一并写事件；
+   * 失败返回 ok:false（不抛，调用方按 contested 收敛，杜绝孤儿 done/终态错位）。
+   */
+  finalizeAttemptWithEvent(input: {
+    turnId: string;
+    attemptId: string;
+    status: AttemptStatus;
+    expectedFencingToken: number;
+    sequence: number;
+    eventType: Extract<LoopEventType, "done" | "error">;
+    eventData: unknown;
+    safetyDecision?: SafetyDecision;
+  }): Promise<{ ok: boolean }>;
+
+  /**
+   * E2（§12.2「安全片段 + TurnStreamEvent + Draft prefix」）：原子提交「安全片段 + delta 事件」。
+   * 同一事务内写入 safe_segments（committed=1 可见前缀）与 turn_stream_events（delta），
+   * 崩溃不把片段与事件拆散。fencing 失配（被抢占/恢复）→ 抛 LeaseLostError。
+   */
+  recordSafeSegment(input: {
+    turnId: string;
+    attemptId: string;
+    sequence: number;
+    text: string;
+    eventData: unknown;
+    safetyDecision: SafetyDecision;
+    expectedFencingToken: number;
+  }): Promise<{ ok: boolean }>;
+
+  /** E2：读取 Turn 的已提交安全片段（可见前缀；sequence 升序）。缺省实现返回空（宿主未接时透传）。 */
+  listCommittedSegments?(turnId: string): Promise<Array<{ id: string; sequence: number; text: string; streamEventId: string | null }>>;
 }
 
 /** 追加事件的输入（executor 构造；id / occurredAt / payloadVersion 由 store 补齐） */
@@ -121,6 +177,12 @@ export interface AgentStreamEventInput {
   data: unknown;
   safetyDecision: SafetyDecision;
   modelRunId?: string;
+  /**
+   * 3c+（B1）：事件写入 fencing CAS 校验。执行器必须携带 claim 得到的当前 fencing；
+   * store 校验 Attempt 未被抢占/恢复（fencing 递增）且状态允许，否则抛 LeaseLostError。
+   * 未携带则保持既有无校验行为（测试夹具/宿主收尾路径兼容）。
+   */
+  expectedFencingToken?: number;
 }
 
 /** 持久化后的流事件（与 @aervox/contracts TurnStreamEvent 同构的最小面） */
@@ -148,6 +210,10 @@ export interface ToolExecutionInput {
   arguments: unknown;
   /** 5c：会话标识（Subagent/Workflow Contribution 创建子任务时归属会话；invocationId 为 Host 幂等键） */
   sessionId?: string;
+  /** 缺陷 D：工具超时/外层取消信号。aborted 表示宿主不再等待本工具结果，
+   *  实现应尽早停止长操作（清理 side effect 挂起）并 reject；支持取消是可选的，
+   *  未感知 signal 的实现保持既有行为（结果将被丢弃，timer 由宿主管控） */
+  signal?: AbortSignal;
 }
 
 /** 工具执行结果（调用方可注入下一 Step；副作用证据持久化留阶段 2d/3） */
@@ -236,6 +302,39 @@ export interface AskUserQuestionPortResult {
 /** 宿主实现的向用户询问协调端口 */
 export interface UserQuestionPort {
   ask(request: AskUserQuestionPortRequest): Promise<AskUserQuestionPortResult>;
+}
+
+// ============ 刷题模式作答落库端口（CAP-016 刷题闭环） ============
+
+/** 刷题模式下一次作答的落库请求（AI 判定后委托宿主持久化） */
+export interface PracticeAttemptPortRequest {
+  turnId: string;
+  /** 题干 */
+  prompt: string;
+  /** 题型：choice | short_answer | fill_blank（展示用） */
+  questionType?: string;
+  /** 用户原始回答 */
+  userAnswer: string;
+  /** 标准答案 */
+  correctAnswer: string;
+  judgement: "correct" | "incorrect" | "partial";
+  /** 解析（答错时的纠正说明） */
+  explanation?: string;
+  /** 可选知识点概念描述 */
+  knowledgeConcept?: string;
+}
+
+export interface PracticeAttemptPortResult {
+  questionId: string;
+  attemptId: string;
+  judgement: "correct" | "incorrect" | "partial";
+  /** judgement === "incorrect" 时进入错题本 */
+  enteredMistakeNotebook: boolean;
+}
+
+/** 宿主实现的刷题作答落库端口（写 questions + question_attempts） */
+export interface PracticeAttemptPort {
+  recordAttempt(request: PracticeAttemptPortRequest): Promise<PracticeAttemptPortResult>;
 }
 
 export type {

@@ -14,6 +14,7 @@ import {
   createSubagentToolProvider,
   createWorkflowToolProvider,
   createAskUserQuestionToolProvider,
+  createPracticeAttemptToolProvider,
   createSummaryCompaction,
   defaultContextBuilder,
   executeTurn,
@@ -21,6 +22,7 @@ import {
 import type {
   InboxPort,
   ModelProviderPort,
+  PracticeAttemptPort,
   ReplayStep,
   SkillDescriptor,
   SubagentPort,
@@ -31,29 +33,195 @@ import type {
   WorkflowDefinition,
 } from "@aervox/agent-loop";
 import { SqliteExecutionStore } from "@aervox/host-agent";
-import type { SqliteConversationRepository, TenantContext } from "@aervox/database";
+import { extractTerms } from "@aervox/practice-review";
+import type {
+  IProactiveProfileRepository,
+  SqliteConversationRepository,
+  TenantContext,
+} from "@aervox/database";
+import { loadApiConfig } from "@aervox/config";
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
+import { getRequestToolApprovalMode } from "../../shared/tool-approval-policy.js";
+import {
+  PROACTIVE_ACTION_DECIDER_PREFIX,
+  type ProactiveActionAuthorizer,
+} from "../proactive/action-authorizer.js";
+import {
+  isLiteralLoopbackUrl,
+  loadProactiveProfilePrompt,
+} from "../proactive/profile-context.js";
 
 /** SqliteExecutionStore 组合根适配由 @aervox/host-agent 提供（见上方 import），API 不再自维护 SQLite 执行存储 */
+
+/** 自动授权决策人前缀；显式授权查询排除该类记录，避免关闭完全访问后泄漏。 */
+export const FULL_ACCESS_DECIDER_PREFIX = "permission:full_access:";
+
+type ToolApprovalRepository = Pick<
+  SqliteConversationRepository,
+  "recordToolApproval" | "decideToolApproval" | "findGrantedToolApproval"
+>;
+
+async function findExplicitToolApproval(
+  repo: ToolApprovalRepository,
+  tenant: TenantContext,
+  input: { toolName: string; argumentsHash: string },
+) {
+  return repo.findGrantedToolApproval(tenant, {
+    ...input,
+    excludeDecidedByPrefixes: [FULL_ACCESS_DECIDER_PREFIX, PROACTIVE_ACTION_DECIDER_PREFIX],
+  });
+}
+
+async function recordAutomaticApproval(
+  repo: ToolApprovalRepository,
+  tenant: TenantContext,
+  input: {
+    turnId: string;
+    attemptId: string;
+    toolName: string;
+    argumentsHash: string;
+    toolVersion?: string | null;
+  },
+  decidedBy: string,
+): Promise<boolean> {
+  const approval = await repo.recordToolApproval(tenant, {
+    ...input,
+    requester: tenant.subjectUserId,
+    state: "pending",
+  });
+  const actor = tenant.actorId ?? tenant.subjectUserId;
+  const granted = await repo.decideToolApproval(
+    tenant,
+    approval.id,
+    "granted",
+    decidedBy || `${FULL_ACCESS_DECIDER_PREFIX}${actor}`,
+  );
+  return granted !== null;
+}
+
+async function executeAuthorizedProactiveAction(
+  authorizer: ProactiveActionAuthorizer,
+  tenant: TenantContext,
+  actionId: string,
+  execute: () => Promise<ToolExecutionResult>,
+): Promise<ToolExecutionResult> {
+  try {
+    await authorizer.markRunning(tenant, actionId);
+    const result = await execute();
+    if (result.ok) await authorizer.markExecuted(tenant, actionId, result.output);
+    else await authorizer.markFailed(tenant, actionId, result.error ?? "tool_execution_failed");
+    return result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await authorizer.markFailed(tenant, actionId, message).catch(() => undefined);
+    return { ok: false, error: message };
+  }
+}
+
+/**
+ * 给静态 Contribution 工具补齐通用写工具授权门：
+ * readOnly 直接执行；写工具命中显式授权或本 Turn 完全访问后执行。
+ */
+export function createApprovalGatedToolProvider(
+  provider: ToolProviderPort,
+  tenant: TenantContext,
+  repo: ToolApprovalRepository,
+  proactiveActionAuthorizer?: ProactiveActionAuthorizer,
+): ToolProviderPort {
+  const specs = new Map(provider.tools.map((tool) => [tool.name, tool]));
+  return {
+    tools: provider.tools,
+    async execute(input: ToolExecutionInput): Promise<ToolExecutionResult> {
+      const spec = specs.get(input.name);
+      if (!spec || spec.readOnly) return provider.execute(input);
+
+      const argumentsHash = stableStringify(input.arguments);
+      const granted = await findExplicitToolApproval(repo, tenant, {
+        toolName: input.name,
+        argumentsHash,
+      });
+      if (granted) return provider.execute(input);
+
+      if (getRequestToolApprovalMode(tenant) === "full_access") {
+        if (proactiveActionAuthorizer) {
+          const authorization = await proactiveActionAuthorizer.authorize(tenant, {
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            invocationId: input.invocationId,
+            toolId: input.name,
+            toolName: input.name,
+            category: "system",
+            safetyLevel: "write_with_approval",
+            arguments: input.arguments,
+          });
+          if (authorization.authorized) {
+            const recorded = await recordAutomaticApproval(repo, tenant, {
+              turnId: input.turnId,
+              attemptId: input.attemptId,
+              toolName: input.name,
+              argumentsHash,
+            }, authorization.decidedBy);
+            if (!recorded) {
+              await proactiveActionAuthorizer.markFailed(
+                tenant,
+                authorization.action.id,
+                "proactive_action_approval_not_recorded",
+              );
+              return { ok: false, error: "proactive_action_approval_not_recorded" };
+            }
+            return executeAuthorizedProactiveAction(
+              proactiveActionAuthorizer,
+              tenant,
+              authorization.action.id,
+              () => provider.execute(input),
+            );
+          }
+        }
+        const actor = tenant.actorId ?? tenant.subjectUserId;
+        const recorded = await recordAutomaticApproval(repo, tenant, {
+          turnId: input.turnId,
+          attemptId: input.attemptId,
+          toolName: input.name,
+          argumentsHash,
+        }, `${FULL_ACCESS_DECIDER_PREFIX}${actor}`);
+        if (!recorded) return { ok: false, error: "full_access_approval_not_recorded" };
+        return provider.execute(input);
+      }
+
+      const approval = await repo.recordToolApproval(tenant, {
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        toolName: input.name,
+        argumentsHash,
+        requester: tenant.subjectUserId,
+        state: "pending",
+      });
+      return {
+        ok: false,
+        needsApproval: { approvalId: approval.id, toolName: input.name, argumentsHash },
+      };
+    },
+  };
+}
 
 /**
  * 把主仓 ToolRuntime（tool_registrations + handler）适配为 agent-loop 的 ToolProviderPort：
  * - read_only：AI 可自主调用（PET-05）；
  * - write_with_approval：需已授权（toolName+参数哈希匹配 granted）才执行，否则生成 pending 授权并返回 needsApproval（阶段 3a）；
  * - 未注册 / privileged 一律拒绝（fail-closed）；工具停用由 registry enabled 拦截。
- * exposedTools：随注册表预载的工具清单（真实 LLM 模式下模型 schema 必须包含注册表工具，
- * 否则模型无从得知可调用；空数组 = 兼容旧行为，模型不可见但调用会被兜底校验）。
  */
 export function createRuntimeToolProvider(
   runtime: ToolRuntime,
   tenant: TenantContext,
-  deps: { conversationRepo: SqliteConversationRepository },
-  exposedTools: import("@aervox/agent-loop").ToolSpec[] = [],
+  deps: {
+    conversationRepo: SqliteConversationRepository;
+    proactiveActionAuthorizer?: ProactiveActionAuthorizer;
+  },
 ): ToolProviderPort {
   return {
-    // 预载的注册表工具清单（模型 schema 用；执行仍实时校验 enabled）
-    tools: exposedTools,
+    // 工具清单随注册表动态变化，不在此静态缓存（execute 时实时校验）
+    tools: [],
     async execute(input: ToolExecutionInput): Promise<ToolExecutionResult> {
       const errorMessage = (err: unknown): string => (err instanceof Error ? err.message : "tool_execution_error");
       const registrations = await runtime.listTools();
@@ -76,11 +244,80 @@ export function createRuntimeToolProvider(
       // privileged 与 write 同流程；「仅管理员可批准」由路由 decideToolApproval 的管理员校验把关（3b）。
       if (tool.safetyLevel === "write_with_approval" || tool.safetyLevel === "privileged") {
         const hash = stableStringify(input.arguments);
-        const granted = await deps.conversationRepo.findGrantedToolApproval(tenant, {
+        const granted = await findExplicitToolApproval(deps.conversationRepo, tenant, {
           toolName: tool.name,
           argumentsHash: hash,
         });
         if (granted) {
+          try {
+            const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: true });
+            return { ok: true, output };
+          } catch (err) {
+            return { ok: false, error: errorMessage(err) };
+          }
+        }
+        // 主动智能模式下，全动作授权包可覆盖普通写、外部、privileged 与不可逆动作；
+        // 每次执行仍绑定当前画像修订/租约/scope 并写入本地动作账本。
+        if (
+          getRequestToolApprovalMode(tenant) === "full_access" &&
+          deps.proactiveActionAuthorizer
+        ) {
+          const authorization = await deps.proactiveActionAuthorizer.authorize(tenant, {
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            invocationId: input.invocationId,
+            toolId: tool.id,
+            toolName: tool.name,
+            category: tool.category,
+            safetyLevel: tool.safetyLevel,
+            requiredPermissions: tool.requiredPermissionsJson,
+            arguments: input.arguments,
+          });
+          if (authorization.authorized) {
+            const recorded = await recordAutomaticApproval(deps.conversationRepo, tenant, {
+              turnId: input.turnId,
+              attemptId: input.attemptId,
+              toolName: tool.name,
+              argumentsHash: hash,
+              toolVersion: tool.updatedAt,
+            }, authorization.decidedBy);
+            if (!recorded) {
+              await deps.proactiveActionAuthorizer.markFailed(
+                tenant,
+                authorization.action.id,
+                "proactive_action_approval_not_recorded",
+              );
+              return { ok: false, error: "proactive_action_approval_not_recorded" };
+            }
+            return executeAuthorizedProactiveAction(
+              deps.proactiveActionAuthorizer,
+              tenant,
+              authorization.action.id,
+              async () => {
+                try {
+                  const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: true });
+                  return { ok: true, output };
+                } catch (error) {
+                  return { ok: false, error: errorMessage(error) };
+                }
+              },
+            );
+          }
+        }
+        // CR-022 fallback：普通写工具可由 Turn full_access 预授权；privileged 无主动授权时仍走管理员通道。
+        if (
+          tool.safetyLevel === "write_with_approval" &&
+          getRequestToolApprovalMode(tenant) === "full_access"
+        ) {
+          const actor = tenant.actorId ?? tenant.subjectUserId;
+          const recorded = await recordAutomaticApproval(deps.conversationRepo, tenant, {
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            toolName: tool.name,
+            argumentsHash: hash,
+            toolVersion: tool.updatedAt,
+          }, `${FULL_ACCESS_DECIDER_PREFIX}${actor}`);
+          if (!recorded) return { ok: false, error: "full_access_approval_not_recorded" };
           try {
             const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: true });
             return { ok: true, output };
@@ -144,6 +381,28 @@ export const API_PRIVILEGED_SCRIPT: readonly ReplayStep[] = [
   },
 ];
 
+/** CAP-016 刷题闭环脚本（AERVOX_LOOP_PROVIDER=scripted-quiz；record_practice_attempt 落库验证） */
+export const API_QUIZ_SCRIPT: readonly ReplayStep[] = [
+  {
+    text: "我来记录本次作答。",
+    toolCalls: [
+      {
+        id: "call_quiz_1",
+        name: "record_practice_attempt",
+        arguments: {
+          prompt: "1 + 1 等于几？",
+          questionType: "short_answer",
+          userAnswer: "3",
+          correctAnswer: "2",
+          judgement: "incorrect",
+          explanation: "基础加法：1 + 1 = 2。",
+        },
+      },
+    ],
+  },
+  { text: "答错了，正确答案是 2。", toolCalls: [] },
+];
+
 /** 迁移期接线：把 Loop 未完成/配置失败写为 error 事件 + Failed 终态（不抛到 HTTP 层） */
 async function failTurnWithError(
   store: SqliteExecutionStore,
@@ -163,6 +422,8 @@ async function failTurnWithError(
       lastSequence: Math.max(0, (await store.nextSequence(turnId)) - 1),
     },
     safetyDecision: "approved",
+    // B1：Attempt 未被 claim（fencing=0）；携带期望值使事件写入走 fencing CAS（抢占后自然被拒）
+    expectedFencingToken: 0,
   }).catch(() => undefined);
   await store.finalizeAttempt({ turnId, attemptId, status: "Failed" }).catch(() => undefined);
 }
@@ -175,12 +436,16 @@ async function failTurnWithError(
 export async function buildLoopProvider(
   tenant: TenantContext,
   llmConfigService?: LLMConfigService,
+  options: { requireLocalOnly?: boolean } = {},
 ): Promise<ModelProviderPort> {
-  const mode = process.env.AERVOX_LOOP_PROVIDER ?? "llm";
+  // 缺陷 E：Provider 选择经 @aervox/config 集中解析（AERVOX_LOOP_PROVIDER 启动期枚举校验）；
+  // 每次调用读取，避免模块级缓存导致测试/配置热变失效。
+  const { loopProvider: mode } = loadApiConfig();
   if (mode === "replay") return createReplayProvider();
   if (mode === "scripted") return createScriptedProvider(API_TOOL_SCRIPT);
   if (mode === "scripted-write") return createScriptedProvider(API_WRITE_SCRIPT);
   if (mode === "scripted-privileged") return createScriptedProvider(API_PRIVILEGED_SCRIPT);
+  if (mode === "scripted-quiz") return createScriptedProvider(API_QUIZ_SCRIPT);
   if (mode === "llm") {
     if (!llmConfigService) {
       throw new Error("llm_provider_unavailable: LLMConfigService 未接线");
@@ -190,12 +455,16 @@ export async function buildLoopProvider(
     if (cfg.providerType === "anthropic") {
       throw new Error("anthropic_unsupported: 阶段 2e 仅支持 OpenAI 兼容协议（openai/deepseek/ollama/custom_openai）");
     }
+    if (options.requireLocalOnly && !isLiteralLoopbackUrl(cfg.baseUrl)) {
+      throw new Error("proactive_local_provider_required: 主动画像上下文禁止发送到非本机模型端点");
+    }
     return createOpenAICompatProvider({
       baseUrl: cfg.baseUrl,
       apiKey: cfg.apiKey,
       modelId: cfg.modelId,
       temperature: cfg.temperature,
       maxTokens: cfg.maxTokens,
+      redirect: options.requireLocalOnly ? "error" : undefined,
     });
   }
   return createReplayProvider();
@@ -220,10 +489,10 @@ export async function runLoopTurnOnce(
     skills?: SkillDescriptor[];
     /**
      * 5c：Subagent 委托执行器工厂（request 级 tenant 绑定后创建 SubagentPort）。
-     * 注入时 `subagent.delegate` 进入工具清单；缺失则不被贡献（行为与既有一致）。
+     * 注入时 `subagent_delegate` 进入工具清单；缺失则不被贡献（行为与既有一致）。
      */
     subagentFactory?: (tenant: TenantContext) => SubagentPort;
-    /** 5c：已注册 Workflow 定义清单（贡献 `workflow.run` 工具 + GET /v1/workflows 元数据） */
+    /** 5c：已注册 Workflow 定义清单（贡献 `workflow_run` 工具 + GET /v1/workflows 元数据） */
     workflows?: WorkflowDefinition[];
   /**
      * 阶段 7：ModelRun/ContextManifest 落库口（可选委托 SqlitePlatformRepository；
@@ -232,6 +501,12 @@ export async function runLoopTurnOnce(
     platformRepo?: import("@aervox/database").SqlitePlatformRepository;
     /** UQ-01：向用户提问协调端口（挂起与唤醒） */
     userQuestionPort?: UserQuestionPort;
+    /** CAP-016：刷题模式作答落库端口（AI 判定后写 questions + question_attempts） */
+    practiceAttemptPort?: PracticeAttemptPort;
+    /** CAP-033：主动智能全动作授权与本地动作账本。 */
+    proactiveActionAuthorizer?: ProactiveActionAuthorizer;
+    /** CAP-033：本地画像声明来源；仅在有效且本地模型准入时注入。 */
+    proactiveRepository?: IProactiveProfileRepository;
   } = {},
 ): Promise<void> {
   // 阶段 7（ADR-017）：Step 级 ModelRun + 每 Turn ContextManifest 快照落库（委托 platform 域）
@@ -269,8 +544,18 @@ export async function runLoopTurnOnce(
   );
 
   let provider: ModelProviderPort;
+  let proactiveProfilePrompt = "";
   try {
-    provider = await buildLoopProvider(tenant, deps.llmConfigService);
+    const proactiveStatus = deps.proactiveRepository
+      ? await deps.proactiveRepository.getEffectiveStatus(tenant)
+      : null;
+    const proactiveActive = proactiveStatus?.effectiveState === "active";
+    provider = await buildLoopProvider(tenant, deps.llmConfigService, {
+      requireLocalOnly: proactiveActive,
+    });
+    if (proactiveActive && deps.proactiveRepository) {
+      proactiveProfilePrompt = await loadProactiveProfilePrompt(deps.proactiveRepository, tenant);
+    }
   } catch (err) {
     await failTurnWithError(store, input.turnId, input.attemptId, err instanceof Error ? err.message : "provider_unavailable");
     await repo.updateTurnStatus(tenant, input.turnId, "Failed").catch(() => undefined);
@@ -292,36 +577,66 @@ export async function runLoopTurnOnce(
   if (deps.userQuestionPort) {
     contribution.push(createAskUserQuestionToolProvider({ userQuestionPort: deps.userQuestionPort }));
   }
-  let tools: ToolProviderPort | undefined;
-  if (deps.toolRuntime) {
-    // 真实 LLM 模式：注册表工具必须进入模型 schema（模型只能调用看得见的工具）。
-    // 预载 enabled 快照；执行时仍由 registry 实时校验（停用即拒绝）。
-    const registrySpecs = (await deps.toolRuntime.exportRegistry()).map((t) => ({
-      name: t.name,
-      description: t.description,
-      readOnly: t.safetyLevel === "read_only",
-    }));
-    const runtimeProvider = createRuntimeToolProvider(deps.toolRuntime, tenant, { conversationRepo: repo }, registrySpecs);
-    tools =
-      contribution.length > 0
-        ? composeToolProviders(contribution, { fallback: runtimeProvider })
-        : runtimeProvider;
-  } else if (contribution.length > 0) {
-    tools = composeToolProviders(contribution);
+  if (deps.practiceAttemptPort) {
+    contribution.push(createPracticeAttemptToolProvider({ practiceAttemptPort: deps.practiceAttemptPort }));
   }
+  const contributionProvider =
+    contribution.length > 0
+      ? createApprovalGatedToolProvider(
+          composeToolProviders(contribution),
+          tenant,
+          repo,
+          deps.proactiveActionAuthorizer,
+        )
+      : undefined;
+  const runtimeProvider = deps.toolRuntime
+    ? createRuntimeToolProvider(deps.toolRuntime, tenant, {
+        conversationRepo: repo,
+        proactiveActionAuthorizer: deps.proactiveActionAuthorizer,
+      })
+    : undefined;
+  const tools = contributionProvider && runtimeProvider
+    ? composeToolProviders([contributionProvider], { fallback: runtimeProvider })
+    : contributionProvider ?? runtimeProvider;
+  // 识别当前消息是否带学习模式前缀或标识，动态决定是否注入学习模式专属 Prompt
+  const isStudyMode =
+    input.userMessage.includes("[模式：学习模式]") ||
+    input.userMessage.includes("[模式：陪学讲解]") ||
+    input.userMessage.includes("[模式：深度拆解]");
+  // CAP-016 刷题模式触发：按钮前缀（任何模式生效）或 学习模式下的刷题关键词（避免日常聊天误触发）
+  const hasQuizPrefix = input.userMessage.includes("[模式：刷题模式]");
+  const quizKeywords = /来几道题|来几道|刷题|出几道题|考考我|出题/;
+  const isQuizMode = hasQuizPrefix || (isStudyMode && quizKeywords.test(input.userMessage));
   // 5b：默认启用 Base System Prompt（含核心工具指引）与 Skill 渐进披露；压缩 seam 默认关闭，
   // 设置 AERVOX_LOOP_COMPACTION=rule 启用内置规则式摘要。
-  const contextBuilder = createComposedContextBuilder({
+  let contextBuilder = createComposedContextBuilder({
     base: defaultContextBuilder,
     baseSystemPrompt: {
       assistantName: "思隅 (Aervox)",
       activeTools: tools?.tools,
+      studyMode: isStudyMode,
+      quizMode: isQuizMode,
     },
     skills: deps.skills,
-    ...(process.env.AERVOX_LOOP_COMPACTION === "rule"
+    ...(loadApiConfig().loopCompaction === "rule"
       ? { compaction: createSummaryCompaction() }
       : {}),
   });
+  if (proactiveProfilePrompt) {
+    const inner = contextBuilder;
+    contextBuilder = {
+      async build(input) {
+        const context = await inner.build(input);
+        const messages = [...context.messages];
+        const insertionIndex = messages.findIndex((message) => message.role !== "system");
+        messages.splice(insertionIndex < 0 ? messages.length : insertionIndex, 0, {
+          role: "system",
+          content: proactiveProfilePrompt,
+        });
+        return { ...context, messages };
+      },
+    };
+  }
   const result = await executeTurn(
     {
       execution: store,
@@ -336,5 +651,46 @@ export async function runLoopTurnOnce(
   // 以 Loop 结果对齐 turns 状态；skipped（幂等保护）不覆盖。
   if (result.status === "completed") {
     await repo.updateTurnStatus(tenant, input.turnId, "Completed");
+
+    // CAP-007 / CAP-002: 仅在学习模式下，后处理阶段异步抽取文本中的术语并写入 turn_stream_events (terms_extracted)
+    if (isStudyMode) {
+      try {
+        const events = await repo.getStreamEvents(tenant, input.turnId, 0);
+        let fullAssistantText = "";
+        let lastSeq = 0;
+        let lastMessageId: string | undefined;
+
+        for (const ev of events) {
+          if (ev.sequence > lastSeq) lastSeq = ev.sequence;
+          if (ev.eventType === "message" && (ev.data as { messageId?: string }).messageId) {
+            lastMessageId = (ev.data as { messageId?: string }).messageId;
+          }
+          if (ev.eventType === "delta" && typeof (ev.data as { text?: string }).text === "string") {
+            fullAssistantText += (ev.data as { text?: string }).text;
+          }
+        }
+
+        let terms = fullAssistantText.trim().length > 0 ? await extractTerms(fullAssistantText) : [];
+        if (terms.length === 0 && input.userMessage) {
+          terms = await extractTerms(input.userMessage);
+        }
+        if (terms.length > 0) {
+          await repo.appendStreamEvent(tenant, {
+            id: `tme_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+            turnId: input.turnId,
+            sequence: lastSeq + 1,
+            eventType: "terms_extracted",
+            payloadVersion: 1,
+            data: {
+              turnId: input.turnId,
+              messageId: lastMessageId,
+              terms,
+            },
+          });
+        }
+      } catch (err) {
+        // 术语抽取属于增强后处理，吞掉异常防止影响 Turn 最终完成态
+      }
+    }
   }
 }

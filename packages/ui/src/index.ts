@@ -16,6 +16,8 @@ export { default as PersonaEditDialog } from './components/persona/PersonaEditDi
 export { default as VoiceAbilityCard } from './components/persona/VoiceAbilityCard.vue';
 export { default as LocalVoiceConfigPanel } from './components/voice/LocalVoiceConfigPanel.vue';
 export { default as LLMConfigPanel } from './components/llm/LLMConfigPanel.vue';
+export * from './utils/markdown';
+export * from './proactive/profile-authorization';
 import './theme/index.css';
 import './theme/hero.css';
 import './theme/workbench.css';

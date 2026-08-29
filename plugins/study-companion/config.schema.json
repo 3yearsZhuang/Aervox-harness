@@ -1,0 +1,32 @@
+{
+  "apiVersion": "aervox.dev/v1",
+  "kind": "PluginConfigSchema",
+  "schemaVersion": 1,
+  "fields": [
+    {
+      "key": "autoEnableStudyMode",
+      "type": "boolean",
+      "label": "默认开启学习模式",
+      "description": "新会话是否默认进入苏格拉底启发式教学模式",
+      "default": true
+    },
+    {
+      "key": "strictAntiSpoiler",
+      "type": "boolean",
+      "label": "严格防剧透模式",
+      "description": "是否严格禁止模型在初次求助时直接给出完整答案或代码",
+      "default": true
+    },
+    {
+      "key": "scaffoldingSteps",
+      "type": "integer",
+      "label": "分步拆解默认步数",
+      "description": "复杂知识点推导的推荐分步数量（2~5 步）",
+      "default": 3,
+      "validation": {
+        "min": 2,
+        "max": 5
+      }
+    }
+  ]
+}

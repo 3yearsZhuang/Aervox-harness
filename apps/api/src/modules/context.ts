@@ -10,17 +10,27 @@
  */
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
-import type { AervoxDatabase } from "@aervox/database";
+import type { AervoxDatabase, ProactiveVaultCipher } from "@aervox/database";
+import type { IProactiveProfileRepository } from "@aervox/database";
 import type { WorkflowDefinition } from "@aervox/agent-loop";
 import type { ToolRuntime } from "./tools/runtime.js";
 import type { LLMConfigService } from "./llm/service.js";
 import type { VoiceService } from "./voice/service.js";
 import type { SkillManager } from "./skills/skill-manager.js";
+import type { ProactiveActionAuthorizer } from "./proactive/action-authorizer.js";
 
 export interface ModuleContext {
   app: FastifyInstance;
   db: AervoxDatabase;
   client: Client;
+  /** CAP-033：独立本地主动画像 Vault（生产与主业务库分离） */
+  proactiveDb?: AervoxDatabase;
+  proactiveClient?: Client;
+  proactiveCipher?: ProactiveVaultCipher;
+  proactiveAccessToken?: string | null;
+  /** CAP-033 主动动作授权器（由 proactive 模块填充） */
+  proactiveRepository?: IProactiveProfileRepository;
+  proactiveActionAuthorizer?: ProactiveActionAuthorizer;
   /** Agent Loop 只读工具提供者（tools 模块填充；conversation/persona/skills 读取） */
   toolRuntime?: ToolRuntime;
   /** LLM 配置服务（llm 模块填充；conversation 读取） */
@@ -35,4 +45,6 @@ export interface ModuleContext {
   skillsRoot?: string;
   /** 插件 Page Bundle 落盘根目录（缺省 <repo>/data/plugins） */
   pluginsRoot?: string;
+  /** 附件二进制落盘根目录（缺省 <repo>/data/attachments；CAP-012 多模态输入） */
+  attachmentsRoot?: string;
 }

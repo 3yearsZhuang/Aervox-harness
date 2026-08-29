@@ -7,6 +7,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./proactive": {
+      "types": "./dist/proactive.d.ts",
+      "default": "./dist/proactive.js"
     }
   },
   "files": [

@@ -1,11 +1,11 @@
 # ADR-008 Cloud-first 与本地/自托管 Port
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-29
 
 - 状态：Proposed
 - 日期：2026-08-23
-- 关联：`CAP-027`、`NFR-PRIV-001`、`RISK-007`
+- 关联：`CAP-027`、`CAP-033`、`NFR-PRIV-001`、`RISK-007`
 
 ## Context
 
@@ -26,7 +26,7 @@
 
 ## Decision
 
-R1/R1.5 使用 Web 账户与 SQLite 业务库（基于仓储抽象层）；领域仓储、导出、同步事件和版本模型不绑定云厂商。R4 通过 Repository/Sync Port 增加 SQLite/Markdown、自托管和快照恢复，明确单主/冲突规则。
+R1/R1.5 使用 Web 账户与 SQLite 业务库（基于仓储抽象层）；领域仓储、导出、同步事件和版本模型不绑定云厂商。R4 通过 Repository/Sync Port 增加 SQLite/Markdown、自托管和快照恢复，明确单主/冲突规则。CAP-033 是独立例外：其主动画像、动作和控制面必须从启用起进入受信设备的本地私密存储与处理，不得继承普通云端 `DATABASE_URL`；不改变其他能力的 Cloud-first 选择。
 
 ## Positive consequences
 
@@ -50,3 +50,4 @@ R1/R1.5 使用 Web 账户与 SQLite 业务库（基于仓储抽象层）；领�
 - 导出/导入与断网、冲突测试（`TC-INTEG-SYNC-001`）；
 - 快照恢复、权限隔离与删除传播演练（`TC-PRIV-DEL-001`）；
 - 本地模式迁移不静默覆盖云端的数据完整性检查。
+- CAP-033 本地存储与远程 endpoint 拒绝、`local_only` 传播、七天捕获提炼清理和全动作授权边界测试（见 ADR-018）。
