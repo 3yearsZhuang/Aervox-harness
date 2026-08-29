@@ -50,15 +50,6 @@ declare global {
   }
 }
 
-import type {
-  AskUserQuestionAnswerItem,
-  PetCommand,
-  ToolApprovalMode,
-  TurnStreamEvent,
-  UserQuestionRequiredEventData,
-} from '@aervox/contracts';
-import type { AervoxTransport, StreamTurnOptions, TurnCallbacks } from './transport';
-
 /** API 上游超时后仍未返回时，桌面端必须收敛 UI 的 loading 状态。 */
 export const DESKTOP_TURN_TIMEOUT_MS = 60_000;
 export const desktopTransport: AervoxTransport = {
