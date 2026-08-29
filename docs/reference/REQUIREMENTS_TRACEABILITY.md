@@ -1,11 +1,11 @@
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：MoeJiyun233 · 2026-08-29
+- 修改人：3yearszhuang · 2026-08-29
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
-> 文档版本：v1.7
+> 文档版本：v1.8
 > 文档状态：评审候选（Review Candidate）  
 > 更新日期：2026-08-29
 > 产品需求来源：[PRD.md](PRD.md)
@@ -327,6 +327,10 @@
 
 | 恢复悬浮「刷题」入口按钮（合并 PR #109：#109 分支为 #106 同源支线，净增量即悬浮按钮；与 #108 卡片目录「刷题模式」卡并存，双入口触发同一 `startQuiz()` 刷题前缀链路） | CAP-003/004/016 | `packages/ui/src/components/AervoxWorkbench.vue`（顶栏悬浮 `.floating-quiz-btn` 玻璃胶囊按钮，`:disabled="streaming"`，`@click="startQuiz"`）、`packages/ui/src/theme/workbench.css`（`.floating-quiz-btn`/`.quiz-btn-label` 样式（与学习模式开关同视觉语言）） | 2026-08-29 | 合并净 diff 审查（相对 `main` 仅两 UI 文件 +49 行，API/agent-loop 内容与 #106 squash 一致）；全仓 ci-code（install + build + typecheck + test）通过 | 原生 |
 | 扩展中心设置增强（插件面板集成 Skill 技能管理与 MCP 工具端点调试） | CAP-020 | `packages/api-client/src/{useAervoxSkills.ts,useAervoxTools.ts,index.ts}`、`packages/ui/src/components/plugin/{SkillManagerTab.vue,SkillContentDialog.vue,McpToolsTab.vue,ToolCallDialog.vue,McpRegisterDialog.vue,PluginManagerPanel.vue}`、`packages/ui/src/index.ts` | 2026-08-29 | API Client/UI/Desktop/Web typecheck；UI build；全栈测试全绿；ci-docs 门禁 | 原生 |
+
+| 学习计划生成与路由（LLM 生成里程碑式学习路线图：JSON 提取/校验/水合/缺口处理 + 计划列表/详情/任务状态/归档路由 + 前端「AI 学习规划」面板替代旧「今日学习」抽屉） | CAP-016/017 | `apps/api/src/modules/learning/plan-generation.ts`（单次 LLM 调用生成「里程碑 + 任务」规划：结构化 JSON 提取与校验、缺口补齐水合、失败降级文案）、`apps/api/src/modules/learning/plan-routes.ts`（`POST /v1/learning-plans` 生成、列表/详情/任务状态更新/归档）、`apps/api/src/modules/learning/{index.ts,cap016-017-routes.ts}`（注册 + 移除旧 `/v1/study-plans` 手动计划端点）、`packages/database/src/schema/learning.ts`、`packages/contracts/src/{schemas,openapi}.ts`、`packages/api-client/src/{useAervoxApi.ts,index.ts}`、`packages/ui/src/components/AervoxWorkbench.vue`（学习规划面板：主题输入生成、里程碑/任务勾选推进、归档） | 2026-08-29 | `@aervox/api` `learning-plan.test.ts`（生成校验/租户隔离/任务推进/归档）；本地试验合并全仓 ci-code 20/20；GitHub CI build/typecheck 全绿 | 原生 |
+
+**替代关系（2026-08-29，PR #118，维护者确认合入）**：`/v1/learning-plans`（LLM 生成式学习规划）**替代**原 `/v1/study-plans` 手动学习计划端点（「自适应刷题与考试日计划」登记行中 study_plans 部分；practice_reports 部分不变），旧端点与其 UI、旧测试随 #118 移除；工作台「待复习 / 今日日记 / 提醒 / 番茄钟」卡与目标管理 UI 同批移除（「今日学习」抽屉由「AI 学习规划」面板替代），上述能力的后端路由与数据层保留未动，UI 形态恢复或重设计待后续 CR 立项。
 
 ## 5. 原子需求字段模板
 
