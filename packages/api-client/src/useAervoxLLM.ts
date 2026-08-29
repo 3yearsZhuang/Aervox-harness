@@ -93,6 +93,23 @@ export const PRESET_PROVIDERS: PresetProviderInfo[] = [
   },
 ];
 
+/**
+ * Electron IPC only accepts structured-cloneable values. Vue may hand this
+ * composable a reactive proxy, so copy the object at the transport boundary.
+ */
+export function toLLMConfigRequest(body: LLMConfigDto): LLMConfigDto {
+  return {
+    enabled: body.enabled,
+    providerType: body.providerType,
+    baseUrl: body.baseUrl,
+    apiKey: body.apiKey,
+    modelId: body.modelId,
+    temperature: body.temperature,
+    maxTokens: body.maxTokens,
+    settings: body.settings ? { ...body.settings } : {},
+  };
+}
+
 export function useAervoxLLM() {
   const transport = getTransport();
 
@@ -102,7 +119,7 @@ export function useAervoxLLM() {
 
   /** 保存大语言模型与供应商配置 */
   const saveConfig = async (body: LLMConfigDto): Promise<LLMConfigDto> =>
-    transport.request<LLMConfigDto>('PUT', '/v1/llm/config', body);
+    transport.request<LLMConfigDto>('PUT', '/v1/llm/config', toLLMConfigRequest(body));
 
   /** 测试模型供应商连通性 */
   const testConnection = async (
