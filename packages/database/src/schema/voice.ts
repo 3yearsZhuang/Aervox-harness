@@ -7,7 +7,7 @@
  * gpt-sovits-local 本地模型的 provider/modelPath/modelId/speakerId 等运行时配置，
  * 使其可从 WebUI 设置中读写并在保存后同步到本地 provider（reconfigure）。
  */
-import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { tenantColumns, timestampColumns } from "./common.js";
 
 /** 本地语音模型配置快照（租户级；每租户一行） */
@@ -66,6 +66,44 @@ export const voiceInputConfigs = sqliteTable(
   },
   (table) => ({
     tenantUniqueIdx: uniqueIndex("voice_input_configs_tenant_unique_idx").on(
+      table.workspaceId,
+      table.subjectUserId,
+    ),
+  }),
+);
+
+/** 在线语音模型（GPT-SoVITS 远程 API）配置快照（租户级；每租户一行，CR-028） */
+export const voiceRemoteConfigs = sqliteTable(
+  "voice_remote_configs",
+  {
+    id: text("id").primaryKey(),
+    ...tenantColumns,
+    /** 是否启用在线语音输出（0/1） */
+    enabled: integer("enabled").notNull().default(1),
+    /** provider 标识，在线固定为 gpt-sovits-remote */
+    providerId: text("provider_id").notNull().default("gpt-sovits-remote"),
+    /** api_v2 服务 base URL（如 http://127.0.0.1:9880） */
+    endpoint: text("endpoint").notNull(),
+    /** 访问密钥（为空表示服务未开启鉴权） */
+    apiKey: text("api_key"),
+    /** 模型标识（GPT-SoVITS 侧按服务端已加载权重合成，此字段仅作展示与选择标识） */
+    modelId: text("model_id").notNull(),
+    /** 音色标识（可空） */
+    speakerId: text("speaker_id"),
+    /** api_v2 text_lang 参数（auto/zh/en/ja/ko/yue） */
+    textLang: text("text_lang"),
+    /** api_v2 参考音频路径（GPT-SoVITS 机器上的路径） */
+    refAudioPath: text("ref_audio_path"),
+    /** api_v2 辅助参考音频路径列表（JSON 数组） */
+    auxRefAudioPathsJson: text("aux_ref_audio_paths_json", { mode: "json" }),
+    /** api_v2 语速（0.6–1.65） */
+    speedFactor: real("speed_factor"),
+    /** 扩展设置（JSON 对象） */
+    settingsJson: text("settings_json", { mode: "json" }).notNull().default({}),
+    ...timestampColumns,
+  },
+  (table) => ({
+    tenantUniqueIdx: uniqueIndex("voice_remote_configs_tenant_unique_idx").on(
       table.workspaceId,
       table.subjectUserId,
     ),

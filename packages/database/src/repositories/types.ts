@@ -2328,6 +2328,50 @@ export interface IVoiceConfigRepository {
   saveConfig(tenant: TenantContext, input: LocalVoiceConfigSaveInput): Promise<LocalVoiceConfigModel>;
 }
 
+// ============ 语音输出配置（CR-028：在线语音模型 · GPT-SoVITS 远程 API）============
+
+/** 在线语音模型配置模型（voice_remote_configs 行；每租户一行） */
+export interface RemoteVoiceConfigModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  enabled: number;
+  providerId: string;
+  endpoint: string;
+  apiKey?: string | null;
+  modelId: string;
+  speakerId?: string | null;
+  textLang?: string | null;
+  refAudioPath?: string | null;
+  auxRefAudioPathsJson?: unknown;
+  speedFactor?: number | null;
+  settingsJson?: unknown;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 在线语音配置保存输入（由 API 层完成 Schema 校验/默认值合并后调用） */
+export interface RemoteVoiceConfigSaveInput {
+  enabled: boolean;
+  providerId: string;
+  endpoint: string;
+  apiKey?: string | null;
+  modelId: string;
+  speakerId?: string | null;
+  textLang?: string | null;
+  refAudioPath?: string | null;
+  auxRefAudioPaths?: string[] | null;
+  speedFactor?: number | null;
+  settings?: Record<string, unknown>;
+}
+
+export interface IVoiceRemoteConfigRepository {
+  /** 读取当前租户的在线语音配置（不存在返回 null） */
+  getConfig(tenant: TenantContext): Promise<RemoteVoiceConfigModel | null>;
+  /** upsert：存在则更新，不存在则插入；返回保存后的模型 */
+  saveConfig(tenant: TenantContext, input: RemoteVoiceConfigSaveInput): Promise<RemoteVoiceConfigModel>;
+}
+
 // ============ CR-016 离线语音输入 (ASR) 配置持久化 ============
 
 export interface VoiceInputConfigModel {

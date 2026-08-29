@@ -110,20 +110,73 @@ export class GptSovitsLocalProvider implements VoiceProviderPort {
   }
 }
 
+/** 远程 Provider 运行时配置（CR-028：此前仅由 env 管理，现在可由设置 UI 热更新） */
+export interface GptSovitsRemoteRuntimeConfig {
+  /** api_v2 服务 base URL（如 http://127.0.0.1:9880），不含 /tts 后缀 */
+  endpoint?: string;
+  protocol?: VoiceProtocol;
+  modelId: string;
+  speakerIds?: string[];
+  /** Bearer 访问密钥（服务端未开启鉴权时留空） */
+  secretRef?: string;
+  /** api_v2 text_lang（auto/zh/en/ja/ko/yue） */
+  textLang?: string;
+  /** api_v2 参考音频路径（GPT-SoVITS 机器上的路径） */
+  refAudioPath?: string;
+  /** api_v2 辅助参考音频路径列表 */
+  auxRefAudioPaths?: string[];
+  /** api_v2 语速（0.6–1.65） */
+  speedFactor?: number;
+}
+
 export class GptSovitsRemoteProvider implements VoiceProviderPort {
   readonly kind = "gpt-sovits-remote" as const;
 
   constructor(
     readonly id: string,
-    private readonly config: {
-      endpoint?: string;
-      protocol?: VoiceProtocol;
-      modelId: string;
-      speakerIds?: string[];
-      secretRef?: string;
-    },
+    private readonly config: GptSovitsRemoteRuntimeConfig,
     private readonly fetchImpl: typeof fetch = fetch,
-  ) {}
+  ) {
+    // 快照最初（env）配置，作为未持久化配置时的缺省默认值；
+    // reconfigure 只改运行时生效值，不影响此后缺省回退。
+    this.defaults = { ...config };
+  }
+
+  private readonly defaults: GptSovitsRemoteRuntimeConfig;
+
+  /** 最初（env）默认 base URL，用作未持久化配置时的缺省 */
+  get defaultEndpoint(): string | undefined {
+    return this.defaults.endpoint;
+  }
+
+  /** 最初（env）默认模型 ID */
+  get defaultModelId(): string {
+    return this.defaults.modelId;
+  }
+
+  /** 保存在线语音配置后，同步更新远程 provider 的生效配置 */
+  reconfigure(update: Partial<Omit<GptSovitsRemoteRuntimeConfig, "modelId">> & { modelId?: string }): void {
+    if (update.endpoint !== undefined) this.config.endpoint = update.endpoint;
+    if (update.protocol !== undefined) this.config.protocol = update.protocol;
+    if (update.modelId !== undefined) this.config.modelId = update.modelId;
+    if (update.speakerIds !== undefined) this.config.speakerIds = update.speakerIds;
+    if (update.secretRef !== undefined) this.config.secretRef = update.secretRef;
+    if (update.textLang !== undefined) this.config.textLang = update.textLang;
+    if (update.refAudioPath !== undefined) this.config.refAudioPath = update.refAudioPath;
+    if (update.auxRefAudioPaths !== undefined) this.config.auxRefAudioPaths = update.auxRefAudioPaths;
+    if (update.speedFactor !== undefined) this.config.speedFactor = update.speedFactor;
+  }
+
+  /** 拼接 api_v2 端点：base URL 去尾斜杠 + /tts */
+  private ttsEndpoint(): string {
+    return `${this.config.endpoint!.replace(/\/+$/, "")}/tts`;
+  }
+
+  private authHeaders(): Record<string, string> {
+    return this.config.secretRef
+      ? { Authorization: `Bearer ${this.config.secretRef}` }
+      : {};
+  }
 
   async listModels(): Promise<VoiceModel[]> {
     const health = await this.healthCheck();
@@ -140,19 +193,20 @@ export class GptSovitsRemoteProvider implements VoiceProviderPort {
   }
 
   async healthCheck(): Promise<VoiceProviderHealth> {
-    if (!this.config.endpoint || !this.config.protocol) {
-      return { status: "misconfigured", message: "endpoint and protocol are required" };
+    if (!this.config.endpoint) {
+      return { status: "misconfigured", message: "endpoint is required" };
     }
     try {
-      const response = await this.fetchImpl(this.config.endpoint, {
+      // api_v2 对根路径与 /tts 的 GET 都会返回 HTTP 状态（非 2xx 也说明服务可达），
+      // 因此以「是否拿到 HTTP 响应」判定连通性，网络异常才视为不可用。
+      const response = await this.fetchImpl(this.config.endpoint.replace(/\/+$/, ""), {
         method: "GET",
-        headers: this.config.secretRef
-          ? { Authorization: `Bearer ${this.config.secretRef}` }
-          : undefined,
+        headers: this.authHeaders(),
       });
-      return response.ok
-        ? { status: "healthy" }
-        : { status: "unavailable", message: `provider returned ${response.status}` };
+      return {
+        status: "healthy",
+        message: `服务可达（HTTP ${response.status}）`,
+      };
     } catch (error) {
       return {
         status: "unavailable",
@@ -162,24 +216,44 @@ export class GptSovitsRemoteProvider implements VoiceProviderPort {
   }
 
   async synthesize(request: VoiceSynthesisRequest): Promise<AudioArtifact> {
-    if (!this.config.endpoint || !this.config.protocol) {
+    if (!this.config.endpoint) {
       throw new Error("Remote GPT-SoVITS is misconfigured");
     }
-    const response = await this.fetchImpl(this.config.endpoint, {
+    // GPT-SoVITS api_v2 协议（CR-028）：text_lang / ref_audio_path 为必填，
+    // 请求级 settings 可覆盖 provider 配置（便于试听不同参数）。
+    const settings = request.settings ?? {};
+    const textLang = (settings.textLang as string | undefined) ?? this.config.textLang ?? "zh";
+    const refAudioPath =
+      (settings.refAudioPath as string | undefined) ?? this.config.refAudioPath;
+    if (!refAudioPath) {
+      throw new Error("refAudioPath is required (api_v2 ref_audio_path)");
+    }
+    const speedFactor =
+      (settings.speedFactor as number | undefined) ?? this.config.speedFactor;
+    const auxRefAudioPaths =
+      this.config.auxRefAudioPaths && this.config.auxRefAudioPaths.length > 0
+        ? this.config.auxRefAudioPaths
+        : undefined;
+
+    const response = await this.fetchImpl(this.ttsEndpoint(), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(this.config.secretRef ? { Authorization: `Bearer ${this.config.secretRef}` } : {}),
+        ...this.authHeaders(),
       },
       body: JSON.stringify({
         text: request.text,
-        modelId: request.modelId,
-        speakerId: request.speakerId,
-        settings: request.settings,
+        text_lang: textLang,
+        ref_audio_path: refAudioPath,
+        ...(auxRefAudioPaths ? { aux_ref_audio_paths: auxRefAudioPaths } : {}),
+        ...(speedFactor !== undefined ? { speed_factor: speedFactor } : {}),
       }),
     });
     if (!response.ok) {
-      throw new Error(`GPT-SoVITS provider returned ${response.status}`);
+      const detail = await response.text().catch(() => "");
+      throw new Error(
+        `GPT-SoVITS provider returned ${response.status}${detail ? `: ${detail.slice(0, 200)}` : ""}`,
+      );
     }
     return {
       contentType: response.headers.get("content-type") ?? "audio/wav",

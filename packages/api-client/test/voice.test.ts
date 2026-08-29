@@ -9,6 +9,8 @@ import {
   configureAervoxClient,
   type AervoxTransport,
   type LocalVoiceConfigDto,
+  type RemoteVoiceConfigDto,
+  type VoiceRemoteTestConnectionResultDto,
   type VoiceModelDto,
   type VoiceSynthesisResultDto,
 } from '../src/index.js';
@@ -157,6 +159,111 @@ describe('useAervoxVoice / 语音组合式 API', () => {
         modelId: 'm1',
         speakerId: 'spk1',
         text: '测试文本',
+      });
+      expect(res).toEqual(mockResult);
+    });
+
+    it('synthesize 透传 settings（在线模型试听参数，CR-028）', async () => {
+      const mockResult: VoiceSynthesisResultDto = {
+        providerId: 'gpt-sovits-remote',
+        modelId: 'remote-1',
+        contentType: 'audio/wav',
+        audioBase64: 'UklGRg==',
+      };
+      requestMock.mockResolvedValueOnce(mockResult);
+
+      const api = useAervoxVoice();
+      await api.synthesize({
+        providerId: 'gpt-sovits-remote',
+        modelId: 'remote-1',
+        text: '测试文本',
+        settings: { textLang: 'zh', refAudioPath: 'D:/ref.wav', speedFactor: 1.1 },
+      });
+
+      expect(requestMock).toHaveBeenCalledWith('POST', '/v1/voice/synthesize', {
+        providerId: 'gpt-sovits-remote',
+        modelId: 'remote-1',
+        text: '测试文本',
+        settings: { textLang: 'zh', refAudioPath: 'D:/ref.wav', speedFactor: 1.1 },
+      });
+    });
+
+    it('loadVoices 返回本地 + 在线全部可用模型，可按 source 过滤（CR-028）', async () => {
+      const models: VoiceModelDto[] = [
+        {
+          providerId: 'gpt-sovits-local',
+          modelId: 'local-1',
+          displayName: 'Local 1',
+          speakerIds: [],
+          available: true,
+          source: 'local',
+        },
+        {
+          providerId: 'gpt-sovits-remote',
+          modelId: 'remote-1',
+          displayName: 'Remote 1',
+          speakerIds: [],
+          available: true,
+          source: 'remote',
+        },
+        {
+          providerId: 'gpt-sovits-remote',
+          modelId: 'remote-broken',
+          displayName: 'Broken',
+          speakerIds: [],
+          available: false,
+          source: 'remote',
+        },
+      ];
+      requestMock.mockResolvedValueOnce({ models }).mockResolvedValueOnce({ models });
+
+      const api = useAervoxVoice();
+      const all = await api.loadVoices();
+      expect(all.map((m) => m.modelId)).toEqual(['local-1', 'remote-1']);
+
+      const remoteOnly = await api.loadVoices('remote');
+      expect(remoteOnly.map((m) => m.modelId)).toEqual(['remote-1']);
+    });
+
+    it('getRemoteConfig / saveRemoteConfig 正确发起远程配置请求（CR-028）', async () => {
+      const mockConfig: RemoteVoiceConfigDto = {
+        enabled: true,
+        providerId: 'gpt-sovits-remote',
+        endpoint: 'http://127.0.0.1:9880',
+        modelId: 'firefly-remote',
+        textLang: 'zh',
+        refAudioPath: 'D:/gpt-sovits/voice/ref.wav',
+        speedFactor: 1,
+      };
+      requestMock.mockResolvedValueOnce(mockConfig).mockResolvedValueOnce(mockConfig);
+
+      const api = useAervoxVoice();
+      const got = await api.getRemoteConfig();
+      expect(requestMock).toHaveBeenCalledWith('GET', '/v1/voice/remote/config');
+      expect(got).toEqual(mockConfig);
+
+      const saved = await api.saveRemoteConfig(mockConfig);
+      expect(requestMock).toHaveBeenCalledWith('PUT', '/v1/voice/remote/config', mockConfig);
+      expect(saved).toEqual(mockConfig);
+    });
+
+    it('testRemoteConnection 正确发起连通性测试请求（CR-028）', async () => {
+      const mockResult: VoiceRemoteTestConnectionResultDto = {
+        ok: true,
+        latencyMs: 12,
+        message: '服务可达（HTTP 404）',
+      };
+      requestMock.mockResolvedValueOnce(mockResult);
+
+      const api = useAervoxVoice();
+      const res = await api.testRemoteConnection({
+        endpoint: 'http://127.0.0.1:9880',
+        modelId: 'default-remote',
+      });
+
+      expect(requestMock).toHaveBeenCalledWith('POST', '/v1/voice/remote/test-connection', {
+        endpoint: 'http://127.0.0.1:9880',
+        modelId: 'default-remote',
       });
       expect(res).toEqual(mockResult);
     });

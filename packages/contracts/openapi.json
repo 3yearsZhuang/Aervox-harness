@@ -4210,6 +4210,192 @@
           "status"
         ]
       },
+      "RemoteVoiceConfig": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "providerId": {
+            "type": "string",
+            "minLength": 1,
+            "default": "gpt-sovits-remote"
+          },
+          "endpoint": {
+            "type": "string",
+            "minLength": 1
+          },
+          "apiKey": {
+            "type": "string"
+          },
+          "modelId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "speakerId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "textLang": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "zh",
+              "en",
+              "ja",
+              "ko",
+              "yue"
+            ]
+          },
+          "refAudioPath": {
+            "type": "string",
+            "minLength": 1
+          },
+          "auxRefAudioPaths": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "speedFactor": {
+            "type": "number",
+            "minimum": 0.6,
+            "maximum": 1.65
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "enabled",
+          "endpoint",
+          "modelId"
+        ]
+      },
+      "RemoteVoiceConfigResponse": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "providerId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "apiKey": {
+            "type": "string"
+          },
+          "modelId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "speakerId": {
+            "type": "string"
+          },
+          "textLang": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "zh",
+              "en",
+              "ja",
+              "ko",
+              "yue"
+            ]
+          },
+          "refAudioPath": {
+            "type": "string"
+          },
+          "auxRefAudioPaths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "speedFactor": {
+            "type": "number"
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "default": {}
+          }
+        },
+        "required": [
+          "enabled",
+          "providerId",
+          "modelId"
+        ]
+      },
+      "VoiceRemoteTestConnectionRequest": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "minLength": 1
+          },
+          "apiKey": {
+            "type": "string"
+          },
+          "modelId": {
+            "type": "string",
+            "minLength": 1,
+            "default": "default-remote"
+          }
+        },
+        "required": [
+          "endpoint"
+        ]
+      },
+      "VoiceRemoteTestConnectionResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "latencyMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "latencyMs",
+          "message"
+        ]
+      },
       "CreateInboxItemRequest": {
         "type": "object",
         "properties": {
@@ -11251,6 +11437,416 @@
           },
           "503": {
             "description": "VOICE_PROVIDER_UNAVAILABLE"
+          }
+        }
+      }
+    },
+    "/v1/voice/remote/config": {
+      "get": {
+        "summary": "读取在线语音模型（GPT-SoVITS 远程 API）配置",
+        "tags": [
+          "Voice"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Remote voice config",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "providerId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "endpoint": {
+                      "type": "string"
+                    },
+                    "apiKey": {
+                      "type": "string"
+                    },
+                    "modelId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "speakerId": {
+                      "type": "string"
+                    },
+                    "textLang": {
+                      "type": "string",
+                      "enum": [
+                        "auto",
+                        "zh",
+                        "en",
+                        "ja",
+                        "ko",
+                        "yue"
+                      ]
+                    },
+                    "refAudioPath": {
+                      "type": "string"
+                    },
+                    "auxRefAudioPaths": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "speedFactor": {
+                      "type": "number"
+                    },
+                    "settings": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ]
+                      },
+                      "default": {}
+                    }
+                  },
+                  "required": [
+                    "enabled",
+                    "providerId",
+                    "modelId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "保存在线语音模型配置",
+        "tags": [
+          "Voice"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "providerId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "default": "gpt-sovits-remote"
+                  },
+                  "endpoint": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "apiKey": {
+                    "type": "string"
+                  },
+                  "modelId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "speakerId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "textLang": {
+                    "type": "string",
+                    "enum": [
+                      "auto",
+                      "zh",
+                      "en",
+                      "ja",
+                      "ko",
+                      "yue"
+                    ]
+                  },
+                  "refAudioPath": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "auxRefAudioPaths": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "speedFactor": {
+                    "type": "number",
+                    "minimum": 0.6,
+                    "maximum": 1.65
+                  },
+                  "settings": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "enabled",
+                  "endpoint",
+                  "modelId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Remote voice config",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "providerId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "endpoint": {
+                      "type": "string"
+                    },
+                    "apiKey": {
+                      "type": "string"
+                    },
+                    "modelId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "speakerId": {
+                      "type": "string"
+                    },
+                    "textLang": {
+                      "type": "string",
+                      "enum": [
+                        "auto",
+                        "zh",
+                        "en",
+                        "ja",
+                        "ko",
+                        "yue"
+                      ]
+                    },
+                    "refAudioPath": {
+                      "type": "string"
+                    },
+                    "auxRefAudioPaths": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "speedFactor": {
+                      "type": "number"
+                    },
+                    "settings": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ]
+                      },
+                      "default": {}
+                    }
+                  },
+                  "required": [
+                    "enabled",
+                    "providerId",
+                    "modelId"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_VOICE_REMOTE_CONFIG / endpoint 非法"
+          }
+        }
+      }
+    },
+    "/v1/voice/remote/test-connection": {
+      "post": {
+        "summary": "在线语音服务连通性测试",
+        "tags": [
+          "Voice"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "endpoint": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "apiKey": {
+                    "type": "string"
+                  },
+                  "modelId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "default": "default-remote"
+                  }
+                },
+                "required": [
+                  "endpoint"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Test connection result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "latencyMs": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "latencyMs",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST"
           }
         }
       }
