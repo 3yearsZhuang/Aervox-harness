@@ -19,7 +19,57 @@ export const ASK_USER_QUESTION_SPEC: ToolSpec = {
   description:
     "向用户提出简明问题，用于在需要确认、决策、补充缺失信息或计划审批时暂停并等待用户回答。参数: { questions: [{ id, question, header?, detail?, options?: [{ label, description? }], multiSelect?, intent?: { kind, approve? } }] }",
   readOnly: true,
+  // 声明强类型 schema：部分兼容端点在 parameters 缺省（仅 {type:"object"}）时会把数组参数序列化为字符串
+  parameters: {
+    type: "object",
+    properties: {
+      questions: {
+        type: "array",
+        description: "要向用户提出的问题列表（1~4 个）",
+        items: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "问题唯一标识" },
+            question: { type: "string", description: "问题正文" },
+            header: { type: "string", description: "问题标题（可选）" },
+            detail: { type: "string", description: "补充说明（可选）" },
+            options: {
+              type: "array",
+              description: "选项（可选；简答题不提供）",
+              items: {
+                type: "object",
+                properties: {
+                  label: { type: "string", description: "选项文案" },
+                  description: { type: "string", description: "选项说明（可选）" },
+                },
+                required: ["label"],
+              },
+            },
+            multiSelect: { type: "boolean", description: "是否多选（默认单选）" },
+          },
+          required: ["id", "question"],
+        },
+      },
+    },
+    required: ["questions"],
+  },
 };
+
+/**
+ * 模型容错：部分模型会把数组参数整体序列化为 JSON 字符串（schema 缺省时的真实 LLM 行为）。
+ * 尝试解析字符串形态（含剥 markdown code fence），失败返回 undefined 走原校验报错。
+ */
+function coerceQuestionsArray(raw: unknown): unknown {
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw !== "string") return undefined;
+  const text = raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return Array.isArray(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 export interface CreateAskUserQuestionToolOptions {
   userQuestionPort: UserQuestionPort;
@@ -50,9 +100,10 @@ export function createAskUserQuestionToolProvider(
         };
       }
 
-      // 2. 参数结构校验与规范化
+      // 2. 参数结构校验与规范化（容错：字符串化的 JSON 数组自动解析）
       const args = (input.arguments ?? {}) as { questions?: unknown };
-      if (!Array.isArray(args.questions) || args.questions.length === 0) {
+      const questionsInput = coerceQuestionsArray(args.questions);
+      if (!Array.isArray(questionsInput) || questionsInput.length === 0) {
         return {
           ok: false,
           error: "EMPTY_QUESTIONS: ask_user_question requires a non-empty `questions` array",
@@ -60,7 +111,7 @@ export function createAskUserQuestionToolProvider(
       }
 
       const questions: AskUserQuestionItem[] = [];
-      for (const raw of args.questions) {
+      for (const raw of questionsInput) {
         if (!raw || typeof raw !== "object") {
           return { ok: false, error: "INVALID_QUESTION: each question must be an object" };
         }
