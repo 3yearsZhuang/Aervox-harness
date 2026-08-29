@@ -18,6 +18,9 @@ import { createDatabase,
   SqliteLearningRepository,
   SqliteMemoryCompactionRepository,
   SqliteMemoryEmbeddingRepository,
+  SqliteProactiveProfileRepository,
+  createProactiveVaultDatabase,
+  loadProactiveVaultCipher,
 } from "@aervox/database";
 import { loadWorkerConfig } from "@aervox/config";
 import { runOutboxCycle } from "./outbox-worker.js";
@@ -28,12 +31,17 @@ import { runCompactionMarkerCycle } from "./compaction-marker.js";
 import { runEmbeddingMigrationCycle } from "./embedding-migration.js";
 import { runAttemptRecoveryCycle } from "./attempt-recovery.js";
 import { runInboxExpiryCycle } from "./inbox-expiry.js";
+import { createRuleBasedProactiveDistiller } from "./proactive-distiller.js";
+import { runProactiveProfileCycle } from "./proactive-profile-worker.js";
 
 // 缺陷 E：集中类型化配置（WORKER_ID / WORKER_TICK_MS / WORKER_INTERVAL_<NAME>_MS；启动期校验）
 const config = loadWorkerConfig();
 
 const { db, client } = await createDatabase();
 await initDatabaseSchema(client);
+const { db: proactiveDb, client: proactiveClient } = await createProactiveVaultDatabase();
+await initDatabaseSchema(proactiveClient);
+const proactiveCipher = await loadProactiveVaultCipher();
 
 const workerId = config.workerId;
 const defaultTickMs = config.tickMs;
@@ -46,6 +54,8 @@ const learningRepo = new SqliteLearningRepository(db);
 const compactionRepo = new SqliteMemoryCompactionRepository(db);
 const embeddingRepo = new SqliteMemoryEmbeddingRepository(db);
 const inboxRepo = new SqliteAgentInboxRepository(db);
+const proactiveRepo = new SqliteProactiveProfileRepository(proactiveDb, proactiveCipher);
+const proactiveDistiller = createRuleBasedProactiveDistiller();
 
 /** 每任务独立调频：WORKER_INTERVAL_<NAME>_MS 覆盖（由 @aervox/config 解析），缺省 WORKER_TICK_MS */
 function taskInterval(name: string): number {
@@ -98,6 +108,22 @@ const tasks: WorkerTask[] = [
     name: "inbox-expiry",
     intervalMs: taskInterval("inbox-expiry"),
     run: () => runInboxExpiryCycle({ inboxRepo }),
+  },
+  {
+    name: "proactive-profile",
+    intervalMs: taskInterval("proactive-profile"),
+    run: async () => {
+      const result = await runProactiveProfileCycle({
+        db: proactiveDb,
+        repo: proactiveRepo,
+        distiller: proactiveDistiller,
+        workerId,
+      });
+      if (result.failed > 0) {
+        console.warn(`[worker:${workerId}] proactive-profile failed=${result.failed}`);
+      }
+      return result.distilled + result.purged;
+    },
   },
 ];
 

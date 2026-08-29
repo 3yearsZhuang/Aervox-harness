@@ -7,7 +7,13 @@
  * - 非管理员 grant → 403 admin_required。
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createInMemoryDatabase, SqliteToolRegistryRepository, type AervoxDatabase } from "@aervox/database";
+import {
+  createInMemoryDatabase,
+  FULL_PROFILE_SOURCE_MANIFEST,
+  SqliteProactiveProfileRepository,
+  SqliteToolRegistryRepository,
+  type AervoxDatabase,
+} from "@aervox/database";
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";
 
@@ -15,6 +21,7 @@ const headers = {
   "x-workspace-id": "ws_3b",
   "x-user-id": "usr_3b",
 } as const;
+const tenant = { workspaceId: headers["x-workspace-id"], subjectUserId: headers["x-user-id"] } as const;
 
 const turnPayload = {
   message: { content: "执行特权操作", contentType: "text" },
@@ -85,7 +92,7 @@ describe("阶段 3b：privileged 管理员通道", () => {
     expect(events.at(-1)?.data.status).toBe("Interrupted");
   });
 
-  it("完全访问不放行 privileged，仍进入管理员审批通道", async () => {
+  it("仅开启完全访问不会放行 privileged，仍进入管理员审批通道", async () => {
     const created = await app.inject({
       method: "POST",
       url: "/v1/sessions/ses_3b/turns",
@@ -96,6 +103,68 @@ describe("阶段 3b：privileged 管理员通道", () => {
     const events = parseSse((await app.inject({ method: "GET", url: `/v1/turns/${turnId}/events`, headers })).body);
     expect(events.map((event) => event.eventType)).toContain("tool_approval_required");
     expect(events.at(-1)?.data.status).toBe("Interrupted");
+  });
+
+  it("主动智能全动作授权可执行 privileged，撤权后同参数不复用自动授权", async () => {
+    const proactiveRepo = new SqliteProactiveProfileRepository(db);
+    const { revision, sources } = await proactiveRepo.confirmProfile(tenant, {
+      id: "profile_3b",
+      deviceId: "device_3b",
+      actorId: tenant.subjectUserId,
+      sources: FULL_PROFILE_SOURCE_MANIFEST.map((source, index) => ({
+        id: `profile_3b_source_${index + 1}`,
+        sourceKey: source.sourceKey,
+        purpose: source.purpose,
+        scope: "all",
+        osCapability: source.osCapability,
+        state: "granted" as const,
+        mandatory: true,
+        grantVersion: 1,
+      })),
+    });
+    await proactiveRepo.createActivationLease(tenant, {
+      id: "lease_3b",
+      revisionId: revision.id,
+      deviceId: revision.deviceId,
+      epoch: "epoch_3b",
+      localReady: true,
+      fullAccessSnapshot: true,
+      actorId: tenant.subjectUserId,
+    });
+
+    const created = await app.inject({
+      method: "POST",
+      url: "/v1/sessions/ses_3b/turns",
+      headers,
+      payload: { ...turnPayload, toolApprovalMode: "full_access" },
+    });
+    const turnId = created.json().turnId as string;
+    const events = parseSse((await app.inject({ method: "GET", url: `/v1/turns/${turnId}/events`, headers })).body);
+    expect(events.map((event) => event.eventType)).not.toContain("tool_approval_required");
+    expect(events.find((event) => event.eventType === "tool_result")?.data.ok).toBe(true);
+    const [action] = await proactiveRepo.listActions(tenant);
+    expect(action).toMatchObject({
+      actionType: "aervox_privileged_op",
+      state: "executed",
+    });
+    expect(action?.authorizationScope).toContain("action.privileged");
+
+    const privilegedGrant = sources.find((source) => source.sourceKey === "action.privileged")!;
+    await proactiveRepo.updateSourceGrant(tenant, privilegedGrant.id, {
+      state: "revoked",
+      actorId: tenant.subjectUserId,
+    });
+    const afterRevoke = await app.inject({
+      method: "POST",
+      url: "/v1/sessions/ses_3b/turns",
+      headers,
+      payload: { ...turnPayload, toolApprovalMode: "full_access" },
+    });
+    const afterRevokeTurnId = afterRevoke.json().turnId as string;
+    const afterRevokeEvents = parseSse(
+      (await app.inject({ method: "GET", url: `/v1/turns/${afterRevokeTurnId}/events`, headers })).body,
+    );
+    expect(afterRevokeEvents.map((event) => event.eventType)).toContain("tool_approval_required");
   });
 
   it("非管理员 grant → 403 admin_required，未产生授权", async () => {

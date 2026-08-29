@@ -1,13 +1,13 @@
 # Aervox｜思隅 数据库设计与双引擎契约（DBC）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-29
 
 > 文档编号：AVX-DB-001  
-> 版本：v0.7（评审候选）  
-> 更新日期：2026-08-25  
+> 版本：v0.8（CAP-033 主动智能模式数据面）
+> 更新日期：2026-08-29
 > 状态：Review Candidate  
-> 关联：`CR-003`、`ADR-003`、`ADR-004`、`ADR-007`、`ADR-011`、`ADR-012`、`ADR-013`、`AVX-SPC-001`、`AVX-PRD-001`、`NFR-SCALE-001`、`NFR-SEC-001`
+> 关联：`CR-003`、`CR-023`、`ADR-003`、`ADR-004`、`ADR-007`、`ADR-011`、`ADR-012`、`ADR-013`、`AVX-SPC-001`、`AVX-PRD-001`、`NFR-SCALE-001`、`NFR-SEC-001`
 
 本文是持久化层的可执行契约：**数据真源、租户隔离边界、双引擎字段语义同构、派生索引生命周期、迁移 Expand/Contract 三阶段和删除传播不变量**。实现必须从同一份 `packages/database` Drizzle schema 生成双方言 DDL、Repository Port 类型和契约测试，不能只依赖本文件中的示例。
 
@@ -26,6 +26,7 @@
 | v0.5 | 2026-08-25 | P1（R2）落表 5 张：memory_nodes 投影独立化 + memory_edges/overrides 迁移到节点级 + memory_edge_evidence + memory_algorithms + conversation_branches + knowledge_relations；§14 表格状态同步（48 张业务表已落表，覆盖除 PG 用户域外全部核心实体） |
 | v0.6 | 2026-08-25 | P2/P3 扩展落表 5 张：external_sources + plugins/plugin_grants + community_contents + organizations + IExtensionRepository；§14 覆盖 48→53 张业务表，除 PG 用户域外全部落表 |
 | v0.7 | 2026-08-25 | 人格插件 SQLite 落表 6 张：personas / persona_revisions / persona_selections / workspace_skills / mcp_tools / persona_turn_contexts（CAP-019/020），补 IPersonaRepository / ISkillRepository / IMcpToolRepository 与 §14 清单 |
+| v0.8 | 2026-08-29 | CAP-033 主动智能模式数据面新增授权修订、来源 grant、激活租约、原始捕获、画像声明、动作和本地审计表；补七天提炼清理、local-only 边界和导出/撤权契约 |
 
 ---
 
@@ -38,6 +39,8 @@
 5. **Port 接口是唯一消费边界**：应用代码只能依赖 `IConversationRepository`、`IMemoryRepository`、`IDiaryRepository`、`IOutboxRepository` 和 `IVectorSearchPort`。消费者不得引入方言特定类型、直接读/写 FTS 虚表或向量存储。
 6. **字段名零重命名、语义零漂移**：SQLite → PostgreSQL 的迁移仅做**类型自然升级**（TEXT→UUID/TIMESTAMPTZ/JSONB/BOOLEAN），不做字段重命名或业务语义改写；新列必须可空或带默认；破坏性变更必须走版本号和 `CR-*`。
 7. **SQLite 阶段不启用用户注册**：用户域（workspaces/users/credentials/workspace_members/user_profiles）5 张表仅在 PostgreSQL 阶段创建。SQLite 阶段 `subject_user_id` 视为本地标识字符串，不关联凭证或组织角色。
+8. **CAP-033 私密数据隔离**：主动智能模式的授权、来源、捕获、画像、动作、租约和审计表必须显式带 `processing_boundary=local_only`，不写入普通远程同步/分析旁路；原始捕获按七天且完成记忆提炼后才允许清理。
+9. **CAP-033 全动作授权溯源**：每个主动动作必须绑定用户确认的 `FullProfileActionGrant`、授权修订、目标 scope、设备租约和 deny 水位；数据库层不得把模型请求或普通 Turn 自动授权当作动作授权。
 
 ---
 
@@ -65,6 +68,12 @@
 - **覆盖优先级**：`config.url` > `DATABASE_URL` 环境变量 > 默认共享路径。临时隔离/测试仍可显式传 `url` 或设 `DATABASE_URL`。
 - **多进程并发**：SQLite WAL 模式（`PRAGMA journal_mode=WAL; synchronous=NORMAL; busy_timeout`）支持 API / Worker 多进程同时读写同一文件；写事务由 SQLite 串行化 + 仓储层 lease/fencing（§9）兜底。
 - **初始化幂等**：`initDatabaseSchema` 使用 `CREATE TABLE IF NOT EXISTS`，多进程重复初始化安全。
+
+### 2.2 CAP-033 本地私密数据面
+
+CAP-033 的 `proactive_*` 表是当前 SQLite 数据面中的独立逻辑域。它们可以与业务库共享 SQLite 进程，但必须由本地 Host 选择本地文件/连接、禁止远程 `DATABASE_URL`、禁止普通 Outbox/分析同步，并在每条记录上保留租户、授权修订和 `processing_boundary`。若部署无法证明本地边界，CAP-033 必须保持挂起。
+
+当前分支已补 `proactive_profile_revisions`、`proactive_source_grants`、`proactive_activation_leases`、`proactive_captures`、`proactive_observations`、`proactive_profile_claims`、`proactive_actions` 和 `proactive_audit_events` 的 Drizzle/SQLite 初始化、Repository 和本地 Vault 加密；已接入授权/lease、动作运行时、Aervox activity/operation、剪贴板、屏幕/浏览器/显式文件根适配器、Worker 提炼、本地画像上下文、来源级删除和导出。剩余签名 Provider 证明、通信/音视频/位置/传感器适配器和双引擎迁移仍属待实现。生产控制面另要求 owner-only `proactive-access.token`（私密目录 `0600`）、字面 loopback 连接和禁止 redirect；令牌不得进入业务表、日志或导出。
 
 ---
 
@@ -332,6 +341,112 @@ erDiagram
         TEXT created_at ""
     }
 
+    %% ============ ⑥ CAP-033 主动智能模式本地画像 ==========
+    proactive_profile_revisions {
+        TEXT id PK "版本化全量画像授权"
+        TEXT workspace_id "租户隔离"
+        TEXT subject_user_id "租户隔离"
+        TEXT profile_version "full_profile_v1"
+        INTEGER revision "修订号"
+        TEXT device_id "设备绑定"
+        TEXT desired_state "none/enabled/paused/revoking/revoked"
+        TEXT status "draft/active/superseded/revoked"
+        TEXT processing_boundary "local_only"
+        TEXT manifest_json "来源/动作清单"
+        TEXT created_at ""
+        TEXT updated_at ""
+    }
+
+    proactive_source_grants {
+        TEXT id PK "来源授权"
+        TEXT revision_id FK "→ proactive_profile_revisions.id"
+        TEXT workspace_id "租户隔离"
+        TEXT subject_user_id "租户隔离"
+        TEXT source_key "来源键"
+        TEXT purpose "用途"
+        TEXT scope "范围"
+        TEXT os_capability "OS 回执"
+        TEXT state "requested/granted/denied/revoked/expired"
+        INTEGER mandatory "0/1"
+        TEXT processing_boundary "local_only"
+        TEXT created_at ""
+        TEXT updated_at ""
+    }
+
+    proactive_activation_leases {
+        TEXT id PK "激活租约"
+        TEXT revision_id FK "→ proactive_profile_revisions.id"
+        TEXT device_id "设备绑定"
+        TEXT epoch "激活 epoch"
+        TEXT status "active/expired/ended/revoked"
+        INTEGER local_ready "0/1"
+        INTEGER full_access_snapshot "0/1"
+        TEXT expires_at ""
+        TEXT heartbeat_at ""
+    }
+
+    proactive_captures {
+        TEXT id PK "原始捕获副本"
+        TEXT revision_id FK "授权修订"
+        TEXT source_grant_id FK "来源授权"
+        TEXT source_key "来源键"
+        TEXT content_type "内容类型"
+        TEXT checksum "哈希"
+        TEXT observed_at ""
+        TEXT retention_until "observed_at + 7d"
+        TEXT distillation_status "pending/distilled/failed/deleted"
+        TEXT distilled_memory_ids_json "提炼记忆"
+        TEXT deleted_at ""
+    }
+
+    proactive_observations {
+        TEXT id PK "归一化行为观察"
+        TEXT revision_id FK "授权修订"
+        TEXT source_grant_id FK "来源授权"
+        TEXT source_key "来源键"
+        TEXT observation_type "观察类型"
+        TEXT subject_key "主体键"
+        TEXT payload_json "本地规范化载荷"
+        TEXT checksum "哈希"
+        TEXT processing_boundary "local_only"
+        TEXT algorithm_version "算法版本"
+        TEXT observed_at ""
+        TEXT normalized_at ""
+    }
+
+    proactive_profile_claims {
+        TEXT id PK "画像声明"
+        TEXT revision_id FK "授权修订"
+        TEXT claim_type "习惯/操作/兴趣"
+        TEXT content "本地画像内容"
+        TEXT state "observed/inferred/confirmed/rejected"
+        INTEGER confidence "置信度"
+        TEXT evidence_refs_json "证据链"
+        TEXT processing_boundary "local_only"
+    }
+
+    proactive_actions {
+        TEXT id PK "主动动作"
+        TEXT revision_id FK "授权修订"
+        TEXT action_type "local/external/privileged/irreversible"
+        TEXT target "目标 scope"
+        TEXT authorization_scope "FullProfileActionGrant"
+        TEXT action_grant_revision "动作授权修订"
+        TEXT state "pending/approved/running/executed/denied/failed/revoked"
+        TEXT outcome_json "结果"
+    }
+
+    proactive_audit_events {
+        TEXT id PK "本地审计"
+        TEXT revision_id FK "授权修订"
+        TEXT event_type "授权/恢复/动作/撤权/导出/删除"
+        TEXT actor_id "操作者"
+        TEXT resource_type "资源类型"
+        TEXT resource_id "资源 ID"
+        TEXT processing_boundary "local_only"
+        TEXT occurred_at ""
+    }
+
     %% ============ 关系 ============
     personas ||--o{ persona_revisions : "1:N 不可变修订 (CASCADE)"
     personas ||--o| persona_selections : "1:N 激活（每租户一行）"
@@ -349,6 +464,16 @@ erDiagram
     diary_schedule_revisions ||--o{ diary_cycles : "派生周期 (epoch_id)"
     diary_cycles ||--o{ diary_run_attempts : "1:N lease 尝试"
     diaries o{--|| diary_cycles : "← 生成后回填 diary_id"
+
+    proactive_profile_revisions ||--o{ proactive_source_grants : "1:N 来源授权"
+    proactive_profile_revisions ||--o{ proactive_activation_leases : "1:N 激活租约"
+    proactive_profile_revisions ||--o{ proactive_captures : "1:N 原始捕获"
+    proactive_profile_revisions ||--o{ proactive_observations : "1:N 行为观察"
+    proactive_profile_revisions ||--o{ proactive_profile_claims : "1:N 画像声明"
+    proactive_profile_revisions ||--o{ proactive_actions : "1:N 主动动作"
+    proactive_profile_revisions ||--o{ proactive_audit_events : "1:N 本地审计"
+    proactive_source_grants ||--o{ proactive_captures : "来源限制"
+    proactive_source_grants ||--o{ proactive_observations : "来源限制"
 
     %% 派生索引引用
     message_versions }o--|| messages_fts : "同步/可重建虚表"
@@ -780,6 +905,7 @@ flowchart TB
 | `IDiaryRepository` | `createCycle / claimCycleWithLease`<br/>`publishDiaryWithCycle(..., outboxEvent?)` | `claimCycleWithLease` 通过 schedule_version CAS；发布必须同一事务更新 diary + cycle + 可选 outbox |
 | `IOutboxRepository` | `insertEvent / fetchPendingEvents`<br/>`markPublished / markFailed` | fetchPending 不按租户过滤（跨租户处理），但每个 Event 自身携带 ws/user；必须重试上限后进入 dead_letter |
 | `IVectorSearchPort` | `upsert / search / delete / clearTenant` | 派生索引、可重建；删除传播必须在事务外部紧随业务事务提交后显式调用，或在同一事务内同步（SQLite） |
+| `IProactiveProfileRepository` | `createDraft / confirmProfile`、`getEffectiveStatus`、`createActivationLease`、`createCapture`、`createClaim`、`createAction`、`exportSnapshot`、来源级删除 | CAP-033 所有写入绑定 tenant/revision/device；必须保留 `local_only`、七天捕获提炼状态和全动作授权快照；当前分支已实现 SQLite Repository、加密字段和来源级 scrub，生产双引擎迁移仍待完成 |
 
 ---
 
@@ -791,6 +917,7 @@ flowchart TB
 | `password_hash` / `salt` | `user_credentials`（PG 新域） | bcrypt；独立表；RLS 禁止应用层 `SELECT credentials.*`；只读审计账号无 SELECT 权限 | RLS + 权限审计脚本 |
 | `email` / `user_profiles` PII | `users` / `user_profiles`（PG 新域） | RLS 按 `user_id` 隔离；`status=deactivated` 触发删除账本（RecoveryControlLedger），保留最小元数据 | 合规：GDPR 删除请求 → 删除账本 + 审计导出 |
 | `(workspace_id, subject_user_id)` | 所有表 | 仓储层 `assertTenantContext` 强注入 + SQLite 唯一/外键兜底 + PG RLS 双保险 | `TC-SEC-TENANT-001` 租户越权 0 通过 |
+| CAP-033 原始捕获/画像/动作正文 | `proactive_captures` / `proactive_observations` / `proactive_profile_claims` / `proactive_actions` | `processing_boundary=local_only`、静态加密、grant/revision 外键；捕获按七天且完成记忆提炼后清理；动作绑定 `FullProfileActionGrant`、目标和租约；来源级删除会 scrub 捕获、删除观察/画像并撤销匹配动作 | `TC-SEC-PRO-LOCAL-001`、`TC-PRIV-PRO-RETENTION-001`、`TC-SEC-PRO-ACTION-001`、`apps/api/test/proactive.test.ts` |
 
 ---
 
@@ -853,6 +980,10 @@ flowchart TB
 | `TC-DIA-CAS-001` | 日记周期 CAS：并发 Worker 同 cycle 只有 1 个 successful claim | fence_token、SKIP LOCKED、advisory lock |
 | `TC-OUT-IDEM-001` | Outbox 同 tenant 同 idempotency_key 重插入唯一冲突 & 幂等读取 | 唯一索引、重试 dead_letter |
 | `TC-STOR-COMPAT-001` | SQLite ↔ PG 同输入仓储对拍，字段逐值一致 ignore_whitelist={created_at ms} | 双引擎契约 |
+| `TC-INTEG-PRO-SCHEMA-001` | CAP-033 proactive_* 表初始化、租户外键/索引和 revision 关联 | Schema/DDL/Repository 类型（当前骨架） |
+| `TC-PRIV-PRO-RETENTION-001` | 原始捕获七天且 distillationStatus=distilled 后才清理；pending/failed 不误删 | `proactive_captures.retention_until`、提炼状态和删除任务 |
+| `TC-SEC-PRO-ACTION-001` | 全动作授权按 revision/target/lease/deny 校验，未授权不产生副作用 | `proactive_actions`、ToolPolicy 和审计 |
+| `TC-SEC-PRO-AUTH-001` | proactive 控制面仅接受 `0600` owner-only token 的字面 loopback 请求，缺失/错误/redirect 均拒绝 | Vault token、Host hook 和 redirect 防线 |
 
 ---
 
@@ -868,6 +999,7 @@ flowchart TB
 ## 13. 参考与落地代码
 
 - 真源 schema：[packages/database/src/schema/](../../packages/database/src/schema)
+- CAP-033 主动智能模式 schema：[proactive.ts](../../packages/database/src/schema/proactive.ts)；初始化：[init.ts](../../packages/database/src/schema/init.ts)
 - 连接与共享库路径：[client.ts](../../packages/database/src/client.ts#L21-L23)（`createDatabase` 默认 `<repo>/data/aervox.db`，见 §2.1）
 - 公共列定义：[common.ts](../../packages/database/src/schema/common.ts#L6-L17)
 - DDL 初始化脚本：[init.ts](../../packages/database/src/schema/init.ts#L9-L219)
@@ -889,7 +1021,7 @@ flowchart TB
 >
 > - **阶段**：`MVP`（R1）/ `MVP+`（R1.5）/ `P1`（R2）/ `P2`（R4）/ `P3`（R5）/ `PG`（PostgreSQL 启用后，CR-003 范围外）。
 > - **实现状态**：`已落表`（当前 SQLite schema 已有）／ `已建模`（本文档 §3/§4/§5 有规划表或规划列）／ `未落表`（仅 PRD 定义，进入规划 backlog）。
-> - 当前 SQLite 真源已落 12 张初版业务表 + 24 张 MVP 补齐表（共 36 张，含独立账本 recovery_control_ledger）+ 2 张 FTS5 虚表；其余实体上线前必须先按阶段补齐 Drizzle schema、Repository Port 与 TC 门禁（§11），并走 `CR-*`。
+> - 当前 SQLite 真源在原有业务表基础上新增 8 张 CAP-033 表（共 67 张业务表，含独立账本 recovery_control_ledger）+ 2 张 FTS5 虚表；CAP-033 的 Repository、Vault 加密、授权/lease、部分来源采集、提炼、动作授权和导出已落地，系统级适配器、生产出网/OS 门禁、双引擎迁移与完整 TC 仍待补齐，并走 `CR-*`。
 
 ### 14.1 用户域 Identity（PG 启用后 · CR-003 范围外）
 
@@ -998,9 +1130,24 @@ flowchart TB
 领域 Port 由主仓 `apps/api/src/modules/persona` 定义（`PersonaRepository` / `SkillRepository` / `McpToolRepository`；原 `modules/persona-plugin` 子模块已于 2026-08-28 移除，去模块化收尾见 §4.2），主仓
 `@aervox/database` 提供 SQLite 实现并通过 `apps/api` 适配器接入；数据库表与 Repository Port 是持久化事实源。
 
-### 14.9 未覆盖结论与下一步
+### 14.9 主动智能模式域（CAP-033）
 
-- 当前已落表 **59 张业务表** + 2 张 FTS5 虚表（含独立账本 recovery_control_ledger），覆盖 PRD §8 除 PG 用户域外的**全部核心与扩展实体**；未落表仅剩：`UserPreference`（PG 级）与 PG 用户域（User/Workspace/WorkspaceMember/user_profiles，CR-003 范围外）。
+| PRD 实体 | 阶段 | 实现状态 | 说明 / 对应表 |
+|---|---|---|---|
+| ProfileAuthorizationRevision | P3 | 已落表 | `proactive_profile_revisions`；版本化 full_profile manifest、desired/status、device 和 local-only 边界 |
+| DeviceCapabilityGrant | P3 | 已落表 | `proactive_source_grants`；来源/purpose/scope/OS 回执可独立撤销 |
+| LocalActivationLease | P3 | 已落表 | `proactive_activation_leases`；epoch/heartbeat/expiry/localReady/fullAccessSnapshot |
+| RawCaptureSegment | P3 | 已落表 | `proactive_captures`；七天 retention + distillationStatus/记忆引用 |
+| ProfileClaim | P3 | 已落表 | `proactive_profile_claims`；画像状态、置信度、证据和 grant provenance |
+| BehaviorObservation | P3 | 已落表 | `proactive_observations`；来源授权、规范化载荷、算法版本和 local-only 边界 |
+| ProactiveAction | P3 | 已落表 | `proactive_actions`；local/external/privileged/irreversible 动作授权与结果 |
+| ProactiveAuditEvent | P3 | 已落表 | `proactive_audit_events`；授权、恢复、动作、撤权、导出和删除审计 |
+
+上述表已在 `packages/database/src/schema/proactive.ts` 和 `schema/init.ts` 建立结构/初始化骨架；完整采集适配器、Provider 本地证明、删除 Worker 和双引擎迁移仍待实现，不能据此宣称 CAP-033 已发布。
+
+### 14.10 未覆盖结论与下一步
+
+- 当前已落表 **67 张业务表** + 2 张 FTS5 虚表（含独立账本 recovery_control_ledger 和 CAP-033 八张表），覆盖 PRD §8 除 PG 用户域外的**全部核心与扩展实体**；未落表仅剩：`UserPreference`（PG 级）与 PG 用户域（User/Workspace/WorkspaceMember/user_profiles，CR-003 范围外）。CAP-033 的本地 Vault、授权/lease、部分来源采集、提炼、动作授权、来源级删除和导出已落地，系统级其余适配器、生产 OS/出网证明和双引擎迁移仍待完成。
 - **MVP（R1）+ MVP+（R1.5）优先队列已完成**：学习/反馈/会话补齐/溯源/记忆/平台/安全/隐私/埋点/内容/日记域实体全部落表（含 ToolPolicy/AnalyticsEvent/EvalSet、DiarySchedule 等日记域补表、Attachment/EmbeddingIndex、Persona/Skills/MCP 6 张人格域表）。
 - **P1（R2）已完成**：`MemoryNode`/`MemoryEdgeEvidence`/`MemoryAlgorithm`（记忆树投影独立化，memory_edges/overrides 已迁移到节点级）、`ConversationBranch`、`KnowledgeRelation` 已全部落表。
 - **P2/P3 扩展已完成**：`ExternalSource`、`Plugin`/`PluginGrant`、`CommunityContent`、`Organization` 已全部落表（为生态/社区功能预留）。

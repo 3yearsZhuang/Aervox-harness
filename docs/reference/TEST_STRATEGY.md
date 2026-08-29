@@ -1,13 +1,13 @@
 # Aervox｜思隅 测试策略
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-29
 
 > 文档编号：AVX-QA-001  
-> 版本：v0.2（评审候选）  
-> 更新日期：2026-08-24  
+> 版本：v0.3（CAP-033 主动智能模式）
+> 更新日期：2026-08-29
 > 状态：Review Candidate  
-> 关联：[SRS](SRS.md) · [需求追踪](REQUIREMENTS_TRACEABILITY.md) · [AI 质量](AI_QUALITY_SAFETY.md)
+> 关联：[SRS](SRS.md) · [需求追踪](REQUIREMENTS_TRACEABILITY.md) · [AI 质量](AI_QUALITY_SAFETY.md) · [CR-023](changes/CR-023-proactive-local-intelligence-mode.md)
 
 ## 1. 测试原则
 
@@ -58,22 +58,31 @@
 - 客户端按 `eventId` 去重、按 sequence 检测空洞；授权撤销或来源删除后追加 `redacted/revoked` 事件并关闭相关订阅，不能原地改写既有事件 payload。
 - TTFT 从 Turn 持久化接受计至首个通过安全门且已持久化的可见分段；同时分解输入检查、Provider 首 token、分段缓冲、安全检查、数据库提交和客户端渲染耗时。
 
+### 3.4 CAP-033 主动智能模式断言
+
+- 授权向导只在 `full_access`、用户确认 `full_profile_v1`、受信 Host、OS grant、local-ready 和 activation lease 同时满足时进入 active；取消、重复提交、缺少权限和 token 错误均不产生部分生效授权。
+- 覆盖 Aervox activity/operation、剪贴板及平台适配器的来源 provenance；未接入或被撤销的应用、浏览器、屏幕、文件、通信、音视频、位置和传感器来源不得采集，状态必须显示 limited/缺口。
+- 原始捕获 `retentionUntil=observedAt+7d`；七天前不清理，七天后仅在 `distilled` 时清理，pending/failed 进入重试/blocked；用户主动删除可提前触发零召回。
+- `FullProfileActionGrant` 覆盖 `action.local`、`action.external`、`action.privileged` 和 `action.irreversible` 时，校验 revision、target、lease、OS/身份、deny watermark 和幂等键；未授权动作不产生副作用。
+- 本地 Vault 加密、owner-only `proactive-access.token`（`0600`）、字面 loopback、禁止 redirect/代理、导出字段过滤和后台 heartbeat 必须有自动化测试；token 不得出现在日志、备份或导出。
+- 启用开机自启、应用退出后常驻、休眠恢复和重启恢复时，验证用户通知、恢复前授权复核、暂停/撤权优先和崩溃后不重复动作。
+
 1. Turn 流式契约：重复 POST 幂等、首个安全持久化 `delta` 的 TTFT、SSE 高水位重放、Last-Event-ID 映射/过期、取消 CAS、首片段前 TurnAttempt 重试、首片段后 `Interrupted`、旧 Worker fencing、撤权主动断流，以及原始 Provider chunk 不出客户端。
 2. `RecoveryControlLedger` 独立故障域：账本先写获得 durable ack、业务提交失败后的 reconciler 重放、重复/乱序/序列缺口、账本不可用时 fail closed，以及 PITR 前后水位校验。
 3. 代组织管理员/教师/插件 `actorId` 操作另一数据主体 `subjectUserId` 的越权、导出、删除、日记唯一性和审计场景。
 
 ## 4. AI 评估
 
-每次模型/Prompt/算法变更记录 EvalSet 版本、样本量、语言/领域、标注协议、结果、95% 置信区间和失败样本。门槛采用 [AI 质量规范](AI_QUALITY_SAFETY.md#43-mvp-门槛)。危机召回、来源覆盖和删除后零召回未达 100% 时阻断发布。
+每次模型/Prompt/算法变更记录 EvalSet 版本、样本量、语言/领域、标注协议、结果、95% 置信区间和失败样本。CAP-033 另评估跨来源画像证据、七天提炼清理、动作目标授权和本地 Provider 证明；原始画像不得上传评估供应商。门槛采用 [AI 质量规范](AI_QUALITY_SAFETY.md#43-mvp-门槛)。危机召回、来源覆盖和删除后零召回未达 100% 时阻断发布。
 
 ## 5. 发布覆盖门槛
 
 - 目标版本内需求 100% 有 AC 和 TC；所有 P0 AC 有自动化或批准的人工证据。
 - 单元/集成/契约/E2E 全部通过；不以总代码覆盖率替代关键分支覆盖。
 - 数据删除、恢复账本、权限、多租户、迁移、备份恢复、弱网/SSE 重连、DST、无障碍和安全对抗用例通过。
-- 失败/隔离测试证明分析、通知、模型、插件和派生索引故障不破坏业务事实。
+- 失败/隔离测试证明分析、通知、模型、插件和派生索引故障不破坏业务事实；CAP-033 的本地 Vault/Provider/Host 故障不得远程降级或产生未授权动作。
 - 残余风险有期限和批准；测试证据记录构建、commit、环境、时间和执行者。
 
 ## 6. 当前阻断
 
-当前 AC/TC 仍是文档中的稳定占位 ID，尚未关联代码、CI 或人工证据，全部能力状态不得超过 `Specified`。进入 G1 前建立可执行用例仓库/任务并回填追踪矩阵。
+除已落地的 CAP-033 数据面、授权/lease、部分来源采集、提炼、动作授权器、导出和 heartbeat 测试外，CAP-033 全量平台适配、生产出网证明和删除传播 AC/TC 仍是占位；全部能力状态不得超过 `Specified`。进入 G1 前建立可执行用例仓库/任务并回填追踪矩阵。

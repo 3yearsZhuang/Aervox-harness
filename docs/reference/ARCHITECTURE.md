@@ -1,12 +1,12 @@
 # Aervox｜思隅 系统架构设计（SAD）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：3yearszhuang · 2026-08-29
 
 > 文档编号：AVX-SAD-001  
 > 类型：Explanation  
-> 版本：v0.1（评审候选）  
-> 更新日期：2026-08-28
+> 版本：v0.2（CAP-033 主动智能模式）
+> 更新日期：2026-08-29
 > 状态：Review Candidate  
 > 关联 PRD：[PRD.md](PRD.md) · 追踪：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
 
@@ -14,7 +14,7 @@
 
 ## 1. 架构结论
 
-采用 **TypeScript-first 模块化单体 + 独立 Worker/Scheduler**。Web、API、后台任务和桌面壳共享契约、领域类型和 UI；SQLite (WAL 模式) + 仓储抽象是业务真源，Redis 只负责缓存/队列，S3 负责附件；AI、记忆、日记和插件通过稳定的内部 Port 解耦。
+采用 **TypeScript-first 模块化单体 + 独立 Worker/Scheduler**。Web、API、后台任务和桌面壳共享契约、领域类型和 UI；SQLite (WAL 模式) + 仓储抽象是业务真源，Redis 只负责缓存/队列，S3 负责附件；AI、记忆、日记和插件通过稳定的内部 Port 解耦。CAP-033 另由受信本地 Privacy Host/Helper 承担全量观察、画像、后台生命周期和主动动作，主动数据不得进入普通云端数据面。
 
 MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应商成为核心运行时依赖。等 P3 的流量、组织权限或合规边界确实需要拆分时，再通过 ADR 把单一模块提取为服务，并保持业务事件、数据删除和客户端兼容。
 
@@ -36,7 +36,7 @@ MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应
 | Queue | Redis 7、BullMQ 5 | 至少一次投递、幂等键、重试、指数退避和 DLQ；Redis 不是真源 |
 | Object | S3 兼容存储、短期签名 URL | 上传前后做大小/格式/解压比/病毒扫描；删除遵循数据 SLA |
 | AI | Vercel AI SDK 6 + 内部 `ProviderPort` | SDK 负责流式表现层，业务通过内部接口调用模型；模型不能直写业务表 |
-| Desktop/mobile | Electron（P1）、Capacitor（后续，打包 web UI） | `contextIsolation`、关闭 `nodeIntegration`、受限 IPC、签名更新包、逐项设备授权；移动端优先 WebView 壳，团队用 RN 仅当细粒化需要原生能力时评估 |
+| Desktop/mobile | Electron（P1）、Capacitor（后续，打包 web UI） | `contextIsolation`、关闭 `nodeIntegration`、受限 IPC、签名更新包、逐项设备授权；CAP-033 使用独立签名 Privacy Host/OS Permission Broker 管理后台和设备能力；移动端优先 WebView 壳，团队用 RN 仅当细粒化需要原生能力时评估 |
 | Test/observability | Vitest、Playwright、Testing Library、Testcontainers、fast-check、OpenTelemetry、Pino、Prometheus/Grafana、Sentry | 正常 CI 不依赖实时供应商；日志默认不含完整用户内容 |
 
 ## 3. 仓库与领域边界
@@ -205,6 +205,19 @@ Scheduler ──> BullMQ ──> Worker pools
 All processes ──> OpenTelemetry Collector ──> metrics/logs/traces
 ```
 
+CAP-033 的主动智能路径与普通云端路径分离：
+
+```text
+Electron Shell
+  -> signed Local Privacy Host / OS Permission Broker
+      -> device/app/browser/file/communication/media/location adapters
+      -> encrypted local proactive_* store
+      -> local profile inference + FullProfileActionGrant gate
+      -> user-visible notification / export / revoke
+```
+
+该路径不把原始捕获、画像、动作或控制面送入 API、远程 Provider、普通 Outbox、分析或自动云备份；控制面仅接受私密目录 `0600` 的 owner-only `proactive-access.token`、字面 loopback 请求并拒绝 redirect。Host 崩溃、租约过期、OS grant 撤销或本地证明失效时进入 `suspended`，核心学习流程继续可用。
+
 用户消息、答题和权限变更先在 SQLite 事务中落库，同时写 Outbox；API 再流式请求模型。记忆、日记、附件、嵌入和通知异步执行。客户端不能直接调用模型服务；附件通过短期签名 URL 上传，API 在提交前检查授权和扫描状态。
 
 ### 4.3 关键组件与信任边界
@@ -215,8 +228,11 @@ All processes ──> OpenTelemetry Collector ──> metrics/logs/traces
 | API | Auth/Consent、Conversation、Learning、Review、Context Builder、Provider Gateway | SQLite 领域表、Outbox；按 `(workspaceId, subjectUserId)` 做租户边界 | OIDC、AI Provider、对象签名服务 |
 | Worker/Scheduler | Memory、Diary、OCR、Embedding、Notification、Deletion Orchestrator | 各领域模块公开仓储；不得绕过所有权；所有 Job 包含 `workspaceId/subjectUserId` | Redis、对象存储、通知供应商 |
 | Plugin Host（P2） | Manifest、Policy Proxy、Adapter、Kill Switch | 插件自有状态；核心数据只经命令/候选 | 第三方代码和远程 Host |
+| CAP-033 Privacy Host（P3） | signed observation/action Host、OS Permission Broker、activation lease、source adapters | `proactive_*` 本地授权/捕获/画像/动作/审计表；全链 `local_only` | 操作系统、文件/浏览器/通信/设备能力、用户导出目标 |
 | Recovery Control Ledger | 删除、Consent/Plugin/External Grant 撤销的最小控制事件、单调序列、防篡改证据 | 独立账号/凭据/保留策略的追加写存储；不含用户正文 | 与业务 SQLite 和其备份分离故障域 |
 | Observability | trace/metrics/脱敏日志 | 运行元数据，不得成为用户内容副本 | 监控/错误平台供应商 |
+
+当前分支的 CAP-033 实现覆盖本地 Vault、授权/lease、动作授权器、Aervox activity/operation 与剪贴板采集、Worker 提炼、导出和后台 heartbeat；其余平台来源适配器仍为 limited，不能把该部分实现解读为全量设备权限已可用。
 
 主要威胁与架构控制：
 
@@ -228,6 +244,8 @@ All processes ──> OpenTelemetry Collector ──> metrics/logs/traces
 | 删除后数据复活 | `RecoveryControlLedger` 撤权先行、DeletionTargets、零召回验证、恢复前校验水位并按序重放 | `TC-PRIV-DEL-001`、`TC-RES-LEDGER-001` |
 | 供应商保留/训练超出用途 | Provider metadata、合同/地区/保留审查、脱敏、可替换路由 | `TC-PRIV-PROVIDER-001` |
 | Electron 主进程越权 | contextIsolation、禁用 nodeIntegration、schema 化 IPC、签名更新 | `TC-SEC-DESKTOP-001` |
+| CAP-033 原始数据外传/错误清理 | 本地私密存储、Provider/出网准入、`local_only` provenance、七天+提炼门、撤权零召回 | `TC-SEC-PRO-LOCAL-001`、`TC-PRIV-PRO-RETENTION-001` |
+| CAP-033 主动动作越权 | `FullProfileActionGrant`、目标 scope/授权修订、OS/身份校验、幂等、沙箱、deny ledger | `TC-SEC-PRO-ACTION-001`、`TC-SEC-PROMPT-001` |
 
 ### 4.4 关键时序：对话到记忆
 
@@ -307,7 +325,7 @@ Captured
 
 `ProviderPort` 至少支持 `streamText`、`generateObject`、`embed`、`classify`，并声明上下文长度、成本、数据地区和能力。流式协议采用 POST 创建 Turn + GET SSE，事件使用 Turn 内单调 `eventId/sequence` 和 `Last-Event-ID` 重连；供应商输出先进有界分段缓冲，逐段通过安全/结构检查并持久化后才展示。TTFT 从 Turn 持久化接受时刻起计到首个已安全检查且持久化的可见分段，另记端到端首段渲染延迟。每个 `ModelRun` 记录模型、供应商、Prompt、ContextManifest、token、延迟、成本、失败和安全决策；默认不记录完整敏感 Prompt。
 
-附件、网页、插件输出和外部题库都是不可信数据，不能覆盖系统提示或直接触发工具。模型只能请求工具，权限代理根据用户授权、工作区和工具策略作最终决定。插件默认无数据库、文件、网络、记忆和日记权限；云端插件在容器/microVM 中运行，桌面插件使用受限子进程，Node `vm` 不作为安全沙箱。
+附件、网页、插件输出和外部题库都是不可信数据，不能覆盖系统提示或直接触发工具。模型只能请求工具，权限代理根据用户授权、工作区和工具策略作最终决定。CAP-033 主动动作还需校验 `FullProfileActionGrant`、目标 scope、设备 lease 和本地处理证明；用户确认后可覆盖声明的本地、外部、特权和不可逆动作，但模型/插件不能自授。插件默认无数据库、文件、网络、记忆和日记权限；云端插件在容器/microVM 中运行，桌面插件使用受限子进程，Node `vm` 不作为安全沙箱。
 
 ## 8. 日记调度与时区
 
@@ -370,6 +388,7 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 | ADR-014 | 演进式模块化单体：apps/api 按领域模块组织，自管仓储 + 进程内事件总线 |
 | ADR-015 | Vue 全栈单栈：Web 复用桌面端技术族，替代 ADR-002 的 Web 基线 |
 | ADR-016 | Accepted — 底座边界冻结：Kernel Substrate 与能力层依赖边界，`scripts/import-boundary.mjs` 机器校验 |
+| ADR-018 | Proposed — CAP-033 本地私密存储、受信主动智能 Host、OS Permission Broker、全动作授权与后台生命周期 |
 
 每个 ADR 需要记录上下文、备选方案、决策、后果、迁移和回滚。未批准的技术建议不能写成已承诺架构。
 
@@ -400,3 +419,4 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 - 依赖、许可证、SBOM、Secret scan、漏洞扫描和参考项目许可边界通过；
 - Playwright 覆盖学习闭环、日记、删除、导出和弱网恢复；AI 回归集覆盖教学、安全、来源、过度压缩和删除后零召回；
 - 生产演练证明模型供应商中断、Redis 丢失、数据库备份恢复、对象恢复、队列重放和功能开关回滚可执行。
+- CAP-033 另须证明本地出网阻断、全量来源授权、七天捕获提炼清理、后台自启/恢复通知、全动作授权/撤权和独立可读导出；ADR-018 接受前不得启用真实广域数据。

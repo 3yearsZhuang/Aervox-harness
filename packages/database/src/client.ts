@@ -23,6 +23,19 @@ const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
 /** 默认共享数据库文件：<repo>/data/aervox.db */
 const defaultDbUrl = `file:${path.join(repoRoot, "data", "aervox.db")}`;
 
+function proactiveApplicationDataDir(env: NodeJS.ProcessEnv = process.env): string {
+  if (process.platform === "darwin") {
+    return path.join(os.homedir(), "Library", "Application Support", "Aervox");
+  }
+  if (process.platform === "win32") {
+    return path.join(env.LOCALAPPDATA ?? path.join(os.homedir(), "AppData", "Local"), "Aervox");
+  }
+  return path.join(env.XDG_DATA_HOME ?? path.join(os.homedir(), ".local", "share"), "aervox");
+}
+
+/** CAP-033 本地私密 Vault：不继承可能指向远端的 DATABASE_URL。 */
+const defaultProactiveVaultUrl = `file:${path.join(proactiveApplicationDataDir(), "proactive-vault.db")}`;
+
 export interface DatabaseConfig {
   /** SQLite 数据库文件路径或 URL（如 "file:aervox.db"） */
   readonly url?: string;
@@ -32,6 +45,66 @@ export interface DatabaseConfig {
   readonly busyTimeoutMs?: number;
   /** SQLITE_BUSY 指数退避重试配置（T-01），缺省开启（5 次/50ms 起步） */
   readonly busyRetry?: BusyRetryConfig;
+}
+
+export interface ProactiveVaultDatabaseConfig {
+  /** 仅接受本地 SQLite 文件路径；缺省读取 AERVOX_PROACTIVE_VAULT_URL。 */
+  readonly url?: string;
+  readonly busyTimeoutMs?: number;
+  readonly busyRetry?: BusyRetryConfig;
+}
+
+/**
+ * CAP-033 主动画像正文与控制面必须留在当前设备。
+ * 这里在连接建立前拒绝 http(s)/libsql/ws 等远端 transport，避免主库切换时
+ * 主动数据静默跟随 DATABASE_URL 出机。
+ */
+export function assertLocalSqliteUrl(url: string): void {
+  const trimmed = url.trim();
+  const normalized = trimmed.toLowerCase();
+  if (normalized.length === 0) {
+    throw new Error("proactive vault URL must not be empty");
+  }
+  if (normalized.startsWith("file://")) {
+    const hostname = new URL(trimmed).hostname.toLowerCase();
+    if (hostname && hostname !== "localhost") {
+      throw new Error("proactive vault requires a local SQLite file URL");
+    }
+    return;
+  }
+  if (normalized.startsWith("file:") || normalized === ":memory:") return;
+  if (trimmed.startsWith("\\\\") || trimmed.startsWith("//")) {
+    throw new Error("proactive vault requires a local SQLite file URL");
+  }
+  if (/^[a-zA-Z]:[\\/]/.test(trimmed)) return;
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed) || normalized.includes("://")) {
+    throw new Error("proactive vault requires a local SQLite file URL");
+  }
+  // Relative and absolute filesystem paths without a URL scheme are local SQLite paths.
+  if (trimmed.length > 0) return;
+  throw new Error("proactive vault requires a local SQLite file URL");
+}
+
+/** 解析 CAP-033 Vault URL；显式不读取 DATABASE_URL。 */
+export function resolveProactiveVaultUrl(
+  configuredUrl?: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const url = configuredUrl ?? env.AERVOX_PROACTIVE_VAULT_URL ?? defaultProactiveVaultUrl;
+  assertLocalSqliteUrl(url);
+  return url;
+}
+
+/** 创建独立的 CAP-033 本地 Vault 连接。调用方仍需执行 initDatabaseSchema。 */
+export async function createProactiveVaultDatabase(
+  config: ProactiveVaultDatabaseConfig = {},
+): Promise<{ db: AervoxDatabase; client: Client }> {
+  const url = resolveProactiveVaultUrl(config.url);
+  return createDatabase({
+    url,
+    busyTimeoutMs: config.busyTimeoutMs,
+    busyRetry: config.busyRetry,
+  });
 }
 
 /**
