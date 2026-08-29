@@ -4,6 +4,7 @@
  * 每个测试文件使用唯一的数据库文件，确保隔离。
  */
 import { spawn, type ChildProcess } from "child_process";
+import net from "net";
 import path from "path";
 import fs from "fs";
 
@@ -42,7 +43,7 @@ export function startServer(port: number, dbPath: string): Promise<{ server: Chi
         server.kill();
         reject(new Error(`Server startup timeout on port ${port}`));
       }
-    }, 15_000);
+    }, 30_000);
 
     server.stdout?.on("data", (data: Buffer) => {
       const text = data.toString();
@@ -69,14 +70,25 @@ export function startServer(port: number, dbPath: string): Promise<{ server: Chi
       reject(err);
     });
 
-    // 兜底：2 秒后检查是否已启动
-    setTimeout(() => {
-      if (!started) {
-        started = true;
-        clearTimeout(timeout);
-        resolve({ server, url: `http://localhost:${port}` });
-      }
-    }, 3000);
+    // 兜底：轮询 TCP 端口直到真正可连接（重建 dist 后首启可能因杀毒扫描显著变慢）
+    const probePort = (attempt: number) => {
+      if (started) return;
+      if (attempt > 150) return; // 30s 总预算由外层 timeout 兜底
+      const socket = net.connect({ port, host: "127.0.0.1" });
+      socket.on("connect", () => {
+        socket.destroy();
+        if (!started) {
+          started = true;
+          clearTimeout(timeout);
+          resolve({ server, url: `http://localhost:${port}` });
+        }
+      });
+      socket.on("error", () => {
+        socket.destroy();
+      });
+      setTimeout(() => probePort(attempt + 1), 200);
+    };
+    probePort(0);
   });
 }
 
