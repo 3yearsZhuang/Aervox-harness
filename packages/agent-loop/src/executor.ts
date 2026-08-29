@@ -443,9 +443,12 @@ export async function executeTurn(
             arguments: call.arguments,
           });
           try {
-            // ask_user_question 工具需要等待用户交互，使用更长超时（默认 120s）或配置项
+            // 长耗时工具放宽超时：ask_user_question 等待用户交互（默认 120s）；
+            // aervox_diary_write 内含一次完整 LLM 日记生成（CAP-009），同样放宽
             const isAskUser = call.name === "ask_user_question";
-            const effectiveTimeout = isAskUser ? Math.max(toolTimeoutMs, 120000) : toolTimeoutMs;
+            const isDiaryWrite = call.name === "aervox_diary_write";
+            const effectiveTimeout =
+              isAskUser || isDiaryWrite ? Math.max(toolTimeoutMs, 120000) : toolTimeoutMs;
             const executed = await withTimeout(
               tools.execute({
                 turnId: input.turnId,

@@ -25,6 +25,7 @@ declare global {
 import type {
   AskUserQuestionAnswerItem,
   PetCommand,
+  ToolApprovalRequiredEventData,
   TurnStreamEvent,
   UserQuestionRequiredEventData,
 } from '@aervox/contracts';
@@ -50,6 +51,14 @@ export const desktopTransport: AervoxTransport = {
       'POST',
       `/v1/turns/${encodeURIComponent(turnId)}/questions/answers`,
       { answers },
+    );
+  },
+
+  async decideToolApproval(turnId: string, approvalId: string, decision: 'granted' | 'denied'): Promise<void> {
+    await this.request(
+      'POST',
+      `/v1/turns/${encodeURIComponent(turnId)}/tool-approvals`,
+      { approvalId, decision, decidedBy: 'user' },
     );
   },
 };
@@ -83,6 +92,9 @@ function streamTurnViaBridge(
       if (event.eventType === 'emote') callbacks.onEmote?.(event.data as PetCommand);
       if (event.eventType === 'user_question_required') {
         callbacks.onUserQuestion?.(event.data as UserQuestionRequiredEventData);
+      }
+      if (event.eventType === 'tool_approval_required') {
+        callbacks.onToolApproval?.({ ...(event.data as ToolApprovalRequiredEventData), turnId: event.turnId });
       }
     });
   });

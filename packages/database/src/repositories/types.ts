@@ -517,6 +517,12 @@ export interface IDiaryRepository {
     tenant: TenantContext,
     version: { id: string; diaryId: string; perspective: string; content: string; modelRunId?: string | null },
   ): Promise<DiaryVersionModel>;
+  /** 改写路径：主行内容推进到新版本（version+1、状态转 edited；历史版本不覆盖） */
+  updateDiaryContent(
+    tenant: TenantContext,
+    diaryId: string,
+    update: { title?: string; content: string },
+  ): Promise<DiaryModel>;
   createDiaryParagraphSource(
     source: {
       id: string;

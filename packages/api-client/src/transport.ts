@@ -7,6 +7,7 @@
 import type {
   AskUserQuestionAnswerItem,
   PetCommand,
+  ToolApprovalRequiredEventData,
   TurnStreamEvent,
   UserQuestionRequiredEventData,
 } from '@aervox/contracts';
@@ -18,13 +19,16 @@ export interface TurnCallbacks {
   onEmote?: (command: PetCommand) => void;
   /** UQ-01: 当模型请求向用户提问时触发 */
   onUserQuestion?: (data: UserQuestionRequiredEventData) => void;
+  /** PET-05: 写工具需要用户授权时触发（含 turnId 供授权提交使用） */
+  onToolApproval?: (data: ToolApprovalRequiredEventData & { turnId: string }) => void;
 }
 
-/** 两端能力的最小契约：普通请求 + Turn 流式 + 问答提交 */
+/** 两端能力的最小契约：普通请求 + Turn 流式 + 问答提交 + 工具授权 */
 export interface AervoxTransport {
   request<T = unknown>(method: string, path: string, body?: unknown, options?: { headers?: Record<string, string> }): Promise<T>;
   streamTurn(sessionId: string, content: string, callbacks: TurnCallbacks): Promise<void>;
   submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[]): Promise<void>;
+  decideToolApproval(turnId: string, approvalId: string, decision: 'granted' | 'denied'): Promise<void>;
 }
 
 // ── 运行时配置（由宿主端在入口注入 import.meta.env 等信息） ──────────────
@@ -141,14 +145,14 @@ export function createFetchTransport(apiBase: string, workspaceId?: string, user
         buffer += decoder.decode(value, { stream: true });
         const blocks = buffer.split('\n\n');
         buffer = blocks.pop() ?? '';
-        for (const block of blocks) dispatch(block, callbacks);
+        for (const block of blocks) dispatch(block, callbacks, turnId);
       }
     } finally {
       reader.releaseLock();
     }
   };
 
-  const dispatch = (block: string, callbacks: TurnCallbacks): void => {
+  const dispatch = (block: string, callbacks: TurnCallbacks, turnId: string): void => {
     let data = '';
     for (const line of block.split('\n')) {
       if (line.startsWith('data:')) data += line.slice(5).trim();
@@ -171,6 +175,8 @@ export function createFetchTransport(apiBase: string, workspaceId?: string, user
       callbacks.onEmote?.(event.data as PetCommand);
     } else if (event.eventType === 'user_question_required') {
       callbacks.onUserQuestion?.(event.data as UserQuestionRequiredEventData);
+    } else if (event.eventType === 'tool_approval_required') {
+      callbacks.onToolApproval?.({ ...(event.data as ToolApprovalRequiredEventData), turnId });
     }
   };
 
@@ -182,5 +188,13 @@ export function createFetchTransport(apiBase: string, workspaceId?: string, user
     );
   };
 
-  return { request, streamTurn, submitQuestionAnswers };
+  const decideToolApproval = async (turnId: string, approvalId: string, decision: 'granted' | 'denied'): Promise<void> => {
+    await request(
+      'POST',
+      `/v1/turns/${encodeURIComponent(turnId)}/tool-approvals`,
+      { approvalId, decision, decidedBy: 'user' },
+    );
+  };
+
+  return { request, streamTurn, submitQuestionAnswers, decideToolApproval };
 }

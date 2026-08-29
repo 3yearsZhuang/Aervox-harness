@@ -18,6 +18,10 @@ import {
   learningGoalStatusSchema,
   memoryStoreToolInputSchema,
   memoryStoreToolOutputSchema,
+  diarySchema,
+  diaryWriteToolInputSchema,
+  diaryWriteToolOutputSchema,
+  toolApprovalRequiredEventDataSchema,
   messageEventDataSchema,
   petCommandSchema,
   petCommandTypeSchema,
@@ -122,6 +126,10 @@ export type ToolRegistryEntry = z.infer<typeof toolRegistryEntrySchema>;
 export type ToolRegistryExport = z.infer<typeof toolRegistryExportSchema>;
 export type MemoryStoreToolInput = z.infer<typeof memoryStoreToolInputSchema>;
 export type MemoryStoreToolOutput = z.infer<typeof memoryStoreToolOutputSchema>;
+export type Diary = z.infer<typeof diarySchema>;
+export type DiaryWriteToolInput = z.infer<typeof diaryWriteToolInputSchema>;
+export type DiaryWriteToolOutput = z.infer<typeof diaryWriteToolOutputSchema>;
+export type ToolApprovalRequiredEventData = z.infer<typeof toolApprovalRequiredEventDataSchema>;
 export type PluginMetadata = z.infer<typeof pluginMetadataSchema>;
 export type PluginConfigField = z.infer<typeof pluginConfigFieldSchema>;
 export type PluginConfigSnapshot = z.infer<typeof pluginConfigSnapshotSchema>;

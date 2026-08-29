@@ -32,8 +32,8 @@ import {
   TimerReset,
   X,
 } from 'lucide-vue-next'
-import {streamAervoxTurn, submitQuestionAnswers, useAervoxApi, useAervoxVoiceInput} from '@aervox/api-client'
-import type {AskUserQuestionAnswerItem, UserQuestionRequiredEventData} from '@aervox/contracts'
+import {decideToolApproval, streamAervoxTurn, submitQuestionAnswers, useAervoxApi, useAervoxVoiceInput} from '@aervox/api-client'
+import type {AskUserQuestionAnswerItem, ToolApprovalRequiredEventData, UserQuestionRequiredEventData} from '@aervox/contracts'
 import PetHero from './PetHero.vue'
 import PluginManagerPanel from './plugin/PluginManagerPanel.vue'
 import Live2DPet from './Live2DPet.vue'
@@ -107,6 +107,18 @@ const questionStartTime = ref<number>(0)
 const activeQuestion = ref<UserQuestionRequiredEventData | null>(null)
 const questionSubmitting = ref(false)
 const currentTurnId = ref<string | null>(null)
+
+// PET-05: 写工具审批待决（授权后重发相同请求命中已授予权限）
+const pendingApproval = ref<(ToolApprovalRequiredEventData & { turnId: string; outgoing: string }) | null>(null)
+const approvalBusy = ref(false)
+const approvalToolLabels: Record<string, string> = {
+  aervox_diary_write: '把今天的日记写进日记本',
+  aervox_memory_store: '保存一条长期记忆',
+}
+const approvalToolLabel = computed(() => {
+  const name = pendingApproval.value?.toolName ?? ''
+  return approvalToolLabels[name] ?? `执行工具 ${name}`
+})
 const practiceBusy = ref(false)
 const practiceError = ref<string | null>(null)
 const mistakeFilter = ref<'active' | 'mastered' | 'dismissed' | 'all'>('active')
@@ -160,6 +172,7 @@ const {
   activePracticeSession,
   error: apiError,
 } = api
+const { loadTodayDiary } = api
 let nextStoryId = 2
 
 const isWeb = computed(() => props.platform === 'web')
@@ -271,7 +284,7 @@ function handleHistoryEscape(event: KeyboardEvent) {
   if (event.key === 'Escape' && historyOpen.value) historyOpen.value = false
 }
 
-async function sendMessage(value = input.value) {
+async function sendMessage(value = input.value, options: { resend?: boolean } = {}) {
   const text = value.trim()
   if (!text || streaming.value) return
 
@@ -280,7 +293,9 @@ async function sendMessage(value = input.value) {
   const outgoing = modePrefix && !text.startsWith(modePrefix) ? modePrefix + text : text
 
   const assistantLine = createStoryLine('assistant', '', 'streaming')
-  story.value.push(createStoryLine('user', text), assistantLine)
+  // 授权重发不重复展示用户气泡（原文已在对话记录中）
+  if (options.resend) story.value.push(assistantLine)
+  else story.value.push(createStoryLine('user', text), assistantLine)
   input.value = ''
   streaming.value = true
   activeQuestion.value = null
@@ -296,10 +311,16 @@ async function sendMessage(value = input.value) {
         assistantLine.state = 'complete'
         activeQuestion.value = null
         if (!assistantLine.text) assistantLine.text = '这次没有收到可展示的回答，请再试一次。'
+        // CAP-009：对话触发可能已生成/改写日记，回合结束后刷新今日日记卡片
+        void loadTodayDiary()
       },
       onUserQuestion: (qData) => {
         activeQuestion.value = qData
         currentTurnId.value = qData.turnId
+        void scrollStoryToBottom()
+      },
+      onToolApproval: (aData) => {
+        pendingApproval.value = {...aData, outgoing}
         void scrollStoryToBottom()
       },
     })
@@ -310,6 +331,26 @@ async function sendMessage(value = input.value) {
     streaming.value = false
     if (!input.value.trim()) composerOpen.value = false
     await scrollStoryToBottom()
+  }
+}
+
+/** PET-05：提交写工具授权决定；批准后重发相同请求命中已授予权限 */
+async function handleApprovalDecision(decision: 'granted' | 'denied') {
+  const pending = pendingApproval.value
+  if (!pending || approvalBusy.value) return
+  approvalBusy.value = true
+  try {
+    await decideToolApproval(pending.turnId, pending.approvalId, decision)
+    pendingApproval.value = null
+    if (decision === 'granted') {
+      await sendMessage(pending.outgoing, {resend: true})
+    } else if (streaming.value) {
+      streaming.value = false
+    }
+  } catch (err) {
+    console.error('提交授权决定失败', err)
+  } finally {
+    approvalBusy.value = false
   }
 }
 
@@ -1033,6 +1074,22 @@ onUnmounted(() => {
             :submitting="questionSubmitting"
             @submit="handleQuestionSubmit"
           />
+
+          <!-- PET-05: 写工具授权确认（如写日记落库前） -->
+          <div v-if="pendingApproval" class="tool-approval-card">
+            <div class="tool-approval-text">
+              <strong>{{ assistantDisplayName }}请求执行写操作</strong>
+              <span>{{ approvalToolLabel }} — 需要你的确认后才会执行。</span>
+            </div>
+            <div class="tool-approval-actions">
+              <button type="button" :disabled="approvalBusy" @click="handleApprovalDecision('granted')">
+                <Check :size="14" /> 批准
+              </button>
+              <button type="button" class="secondary" :disabled="approvalBusy" @click="handleApprovalDecision('denied')">
+                <X :size="14" /> 拒绝
+              </button>
+            </div>
+          </div>
         </div>
         <button class="message-history-entry" type="button" @click="historyOpen = true">
           <History :size="14" />

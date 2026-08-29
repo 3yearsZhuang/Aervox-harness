@@ -8,6 +8,7 @@ export default defineConfig({
     alias: { '@': resolve('src') },
   },
   server: {
-    port: 5173,
+    // AERVOX_WEB_PORT：本地端口被系统保留段（如 Windows WinNAT excludedportrange）占用时覆盖；默认 5173
+    port: Number(process.env.AERVOX_WEB_PORT) || 5173,
   },
 })

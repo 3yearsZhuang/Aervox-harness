@@ -1,13 +1,13 @@
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：witchscottishfoldcat · 2026-08-29
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
 > 文档版本：v1.0
 > 文档状态：评审候选（Review Candidate）  
-> 更新日期：2026-08-28
+> 更新日期：2026-08-29
 > 产品需求来源：[PRD.md](PRD.md)
 > 适用范围：原型、MVP、MVP+、P1、桌面阶段、P2、P3 及后续维护版本
 
@@ -107,7 +107,7 @@
 | `CAP-006` | 间隔重复 | `P0 · R1` | `Specified` | Not Ready | — | [间隔复习](PRD.md#prd-cap-006)、[CR-010](changes/CR-010-review-completion-idempotency.md)、[CR-011](changes/CR-011-timezone-safe-review-scheduling.md) | AC-FR-REV-001-03 已闭环（DST·跨时区·逾期汇总全覆盖）；仍需长期算法升级和批量历史重算策略 |
 | `CAP-007` | 文本与代码答疑 | `P0 · R1` | `Specified` | Not Ready | — | [引导式学习对话](PRD.md#prd-cap-007) | 进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready`（讲解触发复用 `FR-CONV-001`） |
 | `CAP-008` | 情绪价值与安全陪伴 | `P0 · R1` | `Specified` | Not Ready | — | [关系与情绪边界](PRD.md#prd-safety-boundary)、[轻量陪伴](PRD.md#prd-cap-008) | 固定风险分级、地区化求助入口、审计、误报处置和安全回归集 |
-| `CAP-009` | AI 每日日记 | `P0 · R1.5` | `Specified` | Not Ready | ✔ | [AI 每日日记](PRD.md#prd-cap-009)、[日记与记忆层的关系](PRD.md#prd-diary-memory) | 补定时任务幂等、重试、版本冲突、来源快照、通知和时区边界测试 |
+| `CAP-009` | AI 每日日记 | `P0 · R1.5` | `Specified` | Not Ready | ✔ | [AI 每日日记](PRD.md#prd-cap-009)、[日记与记忆层的关系](PRD.md#prd-diary-memory)、[CR-022](changes/CR-022-on-demand-diary.md) | 对话触发路径已落地（CR-022 §4.2）；定时任务幂等、重试、版本冲突、来源快照、通知和时区边界测试仍待阶段 2 |
 | `CAP-010` | 人格问卷与基础偏好 | `P0 · R1.5` | `Specified` | Not Ready | ✔ | [全生命周期功能地图](PRD.md#prd-cap-map)、[P0 最低验收](PRD.md#prd-cap-001-010-013) | 实现已落地（PR #64 §4.2）；进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready` |
 | `CAP-011` | 学习资料整理 | `P0 · R1.5` | `Specified` | Not Ready | ✔ | [全生命周期功能地图](PRD.md#prd-cap-map)、[P0 最低验收](PRD.md#prd-cap-001-010-013) | 实现已落地（PR #64 §4.2）；进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready` |
 | `CAP-012` | 多模态答疑 | `P0 · R1.5` | `Specified` | Not Ready | ✔ | [全生命周期功能地图](PRD.md#prd-cap-map)、[P0 最低验收](PRD.md#prd-cap-001-010-013) | 实现已落地（PR #64 §4.2）；进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready` |
@@ -219,6 +219,7 @@
 | Agent Harness Loop 阶段 3a：写工具审批通道（write_with_approval 授权决断 + 授权快照） | CAP-002/007/020 + 基础设施 | `packages/database`（`tool_approvals` 表/schema/init + `recordToolApproval`/`decideToolApproval`/`listToolApprovalsByTurn`/`findGrantedToolApproval`）、`packages/agent-loop`（`needsApproval` 语义 + `tool_approval_*` 事件 + 账本 `pending_approval` + 写工具 mock）、`apps/api`（adapter 写工具分支：参数哈希匹配 granted→执行，否则 pending+needsApproval；`POST /v1/turns/:id/tool-approvals` 端点；scripted-write 脚本） | 2026-08-28 | `@aervox/agent-loop` 18 测试（含 approval-loop）；`apps/api` 86 测试（含 conversation-approval 3：未决/grant 重发执行/deny 仍挂）；ci-code 全量 | 原生 + `DSH-01` 借鉴 |
 | Agent Harness Loop 阶段 3b-A：租约 TTL 与续租（CAS 续租 + Step 间持有） | CAP-002/007 + 基础设施 | `packages/database`（`turn_attempts.lease_expires_at` 列 + init `addColumnIfMissing` 幂等补齐 + `claimTurnAttempt` 写 TTL + `renewTurnAttemptLease` 续租 CAS）、`packages/agent-loop`（`ExecutionStorePort.renewAttemptLease` + executor Step 间续租 + 续租断言）、`apps/api`（Sqlite 适配续租） | 2026-08-28 | `@aervox/agent-loop` 18 测试（含续租断言 single=0/tool=1）；`packages/database` 107 测试（含 conversation-lease 3：claim TTL / CAS 续租 / 错误 leaseId 拒绝）；ci-code 全量 | 原生 |
 | Agent Harness Loop 阶段 3b-B：租约抢占 + worker 恢复 cycle + fencing 单一终态 | CAP-002/007 + 基础设施 | `packages/database`（`claimTurnAttempt` 抢占语义：Running+fencing+租约空/过期才可领；`finalizeTurnAttempt` 单一终态：仅 Running + fencing 匹配可提交；`recoverExpiredAttempts`：过期 Running → fencing+1 + Interrupted）、`packages/agent-loop`（Step 首部租约活性校验：续租即探活，抢占后 lease_lost 中止并丢弃迟到事件；in-memory `simulateLeaseLoss`）、`apps/worker`（`attempt-recovery` cycle 接入 runTick） | 2026-08-28 | `@aervox/agent-loop` 19 测试（含 lease-guard 2：抢占中止+迟到丢弃 / finalize 单一终态）；`packages/database` 111 测试（含 conversation-lease 7：抢占不可/可、过期重领、finalize 拒绝二次提交、recover 恢复）；ci-code 全量 | 原生 |
+| 对话触发写日记（aervox_diary_write）与日记/审批契约补全 | CAP-009 | `apps/api/src/modules/diary/{generation,material,diary-write-tool,index}.ts`、`packages/agent-loop/src/{base-prompt,executor}.ts`、`packages/contracts/src/{schemas,openapi,index}.ts`、`packages/database/src/repositories/{types,sqlite/diary-repository}.ts`、`packages/api-client/src/{transport,desktop-transport,useAervoxTurn,useAervoxApi,index}.ts`、`packages/ui/src/components/AervoxWorkbench.vue`、`docs/reference/changes/CR-022-on-demand-diary.md` | 2026-08-29 | `diary-ondemand.test.ts` 集成测试 5 项（审批拒绝/新建/改写/空日记/审批缝）；`openapi-contract.test.ts` 契约断言；全仓 typecheck/test/build | 原生 |
 
 | Agent Harness Loop 阶段 2e：§16.1 测试矩阵文件化 + provider-parity 骨架 | CAP-002/007 + 基础设施 | `packages/agent-loop/test/`（新增 `contract`/`replay`/`state-machine`/`tool-policy`/`provider-parity`；§16.1 十项全部映射到落地测试文件，见 AVX-HAR-001 §16.7） | 2026-08-28 | `@aervox/agent-loop` 47（13 测试文件，新增 14 用例）；ci-code 全量 | 原生 |
 | Agent Harness Loop 阶段 2c：工具幂等预留 + unknown outcome 恢复 | CAP-002/007 + 基础设施 | `packages/agent-loop`（`ToolExecutionStatus` 增 `pending`/`outcome_unknown`；`reserveToolExecution`/`updateToolExecutionResult`；executor 工具路径「预留→执行→收口」）、`packages/database`（`tool_executions` attempt+invocation 唯一索引（schema + init 幂等）+ 三方法；`markPendingOutcomeUnknown`）、`apps/worker`（attempt-recovery 释放后标记）、`apps/api`（Sqlite store 适配） | 2026-08-28 | `@aervox/agent-loop` 33（idempotency 3：预留收口/重复不二次执行/崩溃标记）；`@aervox/database` 119（tool-reservation 4：新建/幂等/收口/释放标记）；`@aervox/api` 91（工具账本断言兼容）；ci-code 全量 | 原生 |

@@ -1,11 +1,11 @@
 # 文档生命周期登记表（核验节奏与陈旧信号）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：witchscottishfoldcat · 2026-08-29
 
 > 文档编号：AVX-DOC-CONF-001  
 > 版本：v0.8
-> 更新日期：2026-08-28
+> 更新日期：2026-08-29
 > 状态：Review Candidate
 > 关联：[文档索引](README.md)、[文档治理与事实源规范](reference/document-governance.md)
 
@@ -50,6 +50,7 @@
 | `CR-019` | [能力注册表状态同步：CAP-010~019 主仓交付裁定](reference/changes/CR-019-capability-registry-status-sync.md) | 2026-08-28 | 已落地 CAP 的自选状态 / 主仓交付边界变更 | 能力注册表、追踪基线 §4.2 或实现载体与 CR-019 结论不一致 |
 | `CR-020` | [确定性练习反馈与下一轮建议](reference/changes/CR-020-deterministic-practice-guidance.md) | 2026-08-28 | `CAP-016` 作答观测、练习报告或自适应建议变更 | SRS、OpenAPI、作答事实、报告统计或工作台展示与确定性规则不一致 |
 | `CR-021` | [向用户询问能力接入](reference/changes/CR-021-ask-user-question-capability.md) | 2026-08-28 | `CAP-001` / `AVX-HAR-001` 人机交互回环与向用户提问能力变更 | 流式协议、Loop 执行器、契约、API 协调或前端呈现不一致 |
+| `CR-022` | [对话触发写日记与日记契约补全](reference/changes/CR-022-on-demand-diary.md) | 2026-08-29 | `CAP-009` 对话触发写日记、桌宠视角生成或审批事件契约变更 | PRD §6.7、流式协议、日记工具/生成核心、`/v1/diaries` 契约或工作台授权交互与实现不一致 |
 | `AVX-PLUG-001` | [插件 Config 与 Page 规范](reference/plugin-config-and-pages.md) | 2026-08-26 | CR-006 / 插件机制变更 | Manifest、Config Schema、Page Bridge 与实现不一致 |
 | `AVX-DOC-GOV-001` | [文档治理与事实源规范](reference/document-governance.md) | 2026-08-28 | 文档分类、状态、事实源、复核触发或迁移策略变更 | 策略 JSON、校验器、索引、登记表或写作规范与治理基线不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 2026-08-28 | 写作规则、模板或季度评审 | 新文档未使用规范元数据/签名，或 Vale 规则与术语表不一致 |
