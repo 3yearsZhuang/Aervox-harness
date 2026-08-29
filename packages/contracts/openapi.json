@@ -4090,6 +4090,694 @@
           "createdAt",
           "updatedAt"
         ]
+      },
+      "ProactiveSourceGrantInput": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sourceKey": {
+            "type": "string",
+            "enum": [
+              "aervox.activity",
+              "aervox.operation",
+              "device.app_activity",
+              "device.browser_activity",
+              "device.input_content",
+              "device.clipboard",
+              "device.screen_capture",
+              "filesystem.full_disk_watch",
+              "external.communication",
+              "device.microphone",
+              "device.camera",
+              "device.location",
+              "device.sensors",
+              "restricted.profile",
+              "background.persistent",
+              "action.local",
+              "action.external",
+              "action.privileged",
+              "action.irreversible"
+            ]
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "osCapability": {
+            "type": "string",
+            "minLength": 1
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "requested",
+              "granted",
+              "denied",
+              "revoked",
+              "expired"
+            ],
+            "default": "requested"
+          },
+          "mandatory": {
+            "type": "boolean",
+            "default": true
+          },
+          "grantVersion": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "default": 1
+          },
+          "metadata": {},
+          "grantedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "lastVerifiedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "sourceKey"
+        ]
+      },
+      "ProactiveAuthorizeRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "acknowledged": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "fullAccessConfirmed": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "toolApprovalMode": {
+            "type": "string",
+            "enum": [
+              "full_access"
+            ]
+          },
+          "profileVersion": {
+            "type": "string",
+            "enum": [
+              "full_profile_v1"
+            ],
+            "default": "full_profile_v1"
+          },
+          "deviceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "manifest": {},
+          "grantSetHash": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sourceKey": {
+                  "type": "string",
+                  "enum": [
+                    "aervox.activity",
+                    "aervox.operation",
+                    "device.app_activity",
+                    "device.browser_activity",
+                    "device.input_content",
+                    "device.clipboard",
+                    "device.screen_capture",
+                    "filesystem.full_disk_watch",
+                    "external.communication",
+                    "device.microphone",
+                    "device.camera",
+                    "device.location",
+                    "device.sensors",
+                    "restricted.profile",
+                    "background.persistent",
+                    "action.local",
+                    "action.external",
+                    "action.privileged",
+                    "action.irreversible"
+                  ]
+                },
+                "purpose": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "scope": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "osCapability": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "requested",
+                    "granted",
+                    "denied",
+                    "revoked",
+                    "expired"
+                  ],
+                  "default": "requested"
+                },
+                "mandatory": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "grantVersion": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "default": 1
+                },
+                "metadata": {},
+                "grantedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "lastVerifiedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "sourceKey"
+              ]
+            }
+          }
+        },
+        "required": [
+          "acknowledged",
+          "deviceId"
+        ]
+      },
+      "ProactiveDesiredStateRequest": {
+        "type": "object",
+        "properties": {
+          "desiredState": {
+            "type": "string",
+            "enum": [
+              "enabled",
+              "paused",
+              "revoked"
+            ]
+          },
+          "revisionId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "desiredState"
+        ]
+      },
+      "ProactiveActivationRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "revisionId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "deviceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "epoch": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ttlMs": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "localReady": {
+            "type": "boolean"
+          },
+          "fullAccessSnapshot": {
+            "type": "boolean"
+          },
+          "metadata": {}
+        },
+        "required": [
+          "revisionId",
+          "deviceId",
+          "epoch",
+          "localReady",
+          "fullAccessSnapshot"
+        ]
+      },
+      "ProactiveCaptureRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "revisionId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sourceGrantId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sourceKey": {
+            "type": "string",
+            "enum": [
+              "aervox.activity",
+              "aervox.operation",
+              "device.app_activity",
+              "device.browser_activity",
+              "device.input_content",
+              "device.clipboard",
+              "device.screen_capture",
+              "filesystem.full_disk_watch",
+              "external.communication",
+              "device.microphone",
+              "device.camera",
+              "device.location",
+              "device.sensors",
+              "restricted.profile",
+              "background.persistent",
+              "action.local",
+              "action.external",
+              "action.privileged",
+              "action.irreversible"
+            ]
+          },
+          "contentType": {
+            "type": "string",
+            "minLength": 1
+          },
+          "payloadText": {
+            "type": "string"
+          },
+          "payload": {},
+          "checksum": {
+            "type": "string",
+            "minLength": 1
+          },
+          "byteSize": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "observedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ingestedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "revisionId",
+          "sourceGrantId",
+          "sourceKey",
+          "contentType"
+        ]
+      },
+      "ProactiveObservationRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "revisionId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sourceGrantId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sourceKey": {
+            "type": "string",
+            "enum": [
+              "aervox.activity",
+              "aervox.operation",
+              "device.app_activity",
+              "device.browser_activity",
+              "device.input_content",
+              "device.clipboard",
+              "device.screen_capture",
+              "filesystem.full_disk_watch",
+              "external.communication",
+              "device.microphone",
+              "device.camera",
+              "device.location",
+              "device.sensors",
+              "restricted.profile",
+              "background.persistent",
+              "action.local",
+              "action.external",
+              "action.privileged",
+              "action.irreversible"
+            ]
+          },
+          "observationType": {
+            "type": "string",
+            "minLength": 1
+          },
+          "subjectKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "payload": {},
+          "checksum": {
+            "type": "string",
+            "minLength": 1
+          },
+          "algorithmVersion": {
+            "type": "string",
+            "minLength": 1
+          },
+          "observedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "normalizedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "revisionId",
+          "sourceGrantId",
+          "sourceKey",
+          "observationType",
+          "subjectKey",
+          "checksum"
+        ]
+      },
+      "ProactiveClaimRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "revisionId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "claimType": {
+            "type": "string",
+            "minLength": 1
+          },
+          "subjectKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "observed",
+              "inferred",
+              "user_asserted",
+              "confirmed",
+              "rejected"
+            ]
+          },
+          "confidence": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "evidenceCaptureIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "evidenceRefs": {
+            "type": "array",
+            "items": {}
+          },
+          "sourceGrantIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "required": [
+          "revisionId",
+          "claimType",
+          "subjectKey",
+          "content"
+        ]
+      },
+      "ProactiveActionRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "revisionId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "activationLeaseId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "actionType": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "request": {},
+          "authorizationScope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "actionGrantRevision": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reversible": {
+            "type": "boolean",
+            "default": true
+          },
+          "external": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "revisionId",
+          "actionType",
+          "target",
+          "authorizationScope",
+          "actionGrantRevision"
+        ]
+      },
+      "ProactiveExportRequest": {
+        "type": "object",
+        "properties": {
+          "includeRaw": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "ProactiveStatusResponse": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "enum": [
+              "full_profile_v1"
+            ]
+          },
+          "processingBoundary": {
+            "type": "string",
+            "enum": [
+              "local_only"
+            ]
+          },
+          "exportAvailable": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "desiredState": {
+            "type": "string",
+            "enum": [
+              "none",
+              "enabled",
+              "paused",
+              "revoking",
+              "revoked"
+            ]
+          },
+          "effectiveState": {
+            "type": "string",
+            "enum": [
+              "inactive",
+              "configuring",
+              "active",
+              "limited",
+              "suspended",
+              "revoking"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "revision": {},
+          "sources": {
+            "type": "array",
+            "items": {}
+          },
+          "activationLease": {},
+          "mandatorySources": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "granted": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "missing": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "total",
+              "granted",
+              "missing"
+            ]
+          },
+          "expiredUndistilledCaptures": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "version",
+          "processingBoundary",
+          "exportAvailable",
+          "desiredState",
+          "effectiveState",
+          "reason",
+          "sources",
+          "mandatorySources",
+          "expiredUndistilledCaptures"
+        ]
+      },
+      "ProactiveExportResponse": {
+        "type": "object",
+        "properties": {
+          "manifest": {
+            "type": "object",
+            "properties": {
+              "schemaVersion": {
+                "type": "string"
+              },
+              "exportedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "processingBoundary": {
+                "type": "string",
+                "enum": [
+                  "local_only"
+                ]
+              },
+              "includeRaw": {
+                "type": "boolean"
+              },
+              "checksum": {
+                "type": "string"
+              },
+              "counts": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "required": [
+              "schemaVersion",
+              "exportedAt",
+              "processingBoundary",
+              "includeRaw",
+              "checksum",
+              "counts"
+            ]
+          },
+          "data": {}
+        },
+        "required": [
+          "manifest"
+        ]
       }
     },
     "parameters": {}
@@ -4304,6 +4992,1249 @@
                     "retryable",
                     "message",
                     "lastSequence"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/proactive/status": {
+      "get": {
+        "summary": "读取主动能授权与本地运行状态",
+        "tags": [
+          "Proactive"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 32
+            },
+            "required": true,
+            "name": "X-Aervox-Proactive-Token",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Proactive status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "version": {
+                      "type": "string",
+                      "enum": [
+                        "full_profile_v1"
+                      ]
+                    },
+                    "processingBoundary": {
+                      "type": "string",
+                      "enum": [
+                        "local_only"
+                      ]
+                    },
+                    "exportAvailable": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "desiredState": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "enabled",
+                        "paused",
+                        "revoking",
+                        "revoked"
+                      ]
+                    },
+                    "effectiveState": {
+                      "type": "string",
+                      "enum": [
+                        "inactive",
+                        "configuring",
+                        "active",
+                        "limited",
+                        "suspended",
+                        "revoking"
+                      ]
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "revision": {},
+                    "sources": {
+                      "type": "array",
+                      "items": {}
+                    },
+                    "activationLease": {},
+                    "mandatorySources": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "granted": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "missing": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "granted",
+                        "missing"
+                      ]
+                    },
+                    "expiredUndistilledCaptures": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "version",
+                    "processingBoundary",
+                    "exportAvailable",
+                    "desiredState",
+                    "effectiveState",
+                    "reason",
+                    "sources",
+                    "mandatorySources",
+                    "expiredUndistilledCaptures"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/proactive/manifest": {
+      "get": {
+        "summary": "读取 full_profile_v1 来源与保留策略",
+        "tags": [
+          "Proactive"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 32
+            },
+            "required": true,
+            "name": "X-Aervox-Proactive-Token",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Full profile manifest"
+          }
+        }
+      }
+    },
+    "/v1/proactive/authorize": {
+      "post": {
+        "summary": "原子确认全量画像与动作授权包",
+        "tags": [
+          "Proactive"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 32
+            },
+            "required": true,
+            "name": "X-Aervox-Proactive-Token",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "acknowledged": {
+                    "type": "boolean",
+                    "enum": [
+                      true
+                    ]
+                  },
+                  "fullAccessConfirmed": {
+                    "type": "boolean",
+                    "enum": [
+                      true
+                    ]
+                  },
+                  "toolApprovalMode": {
+                    "type": "string",
+                    "enum": [
+                      "full_access"
+                    ]
+                  },
+                  "profileVersion": {
+                    "type": "string",
+                    "enum": [
+                      "full_profile_v1"
+                    ],
+                    "default": "full_profile_v1"
+                  },
+                  "deviceId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "manifest": {},
+                  "grantSetHash": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "minLength": 1
+                  },
+                  "sources": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "sourceKey": {
+                          "type": "string",
+                          "enum": [
+                            "aervox.activity",
+                            "aervox.operation",
+                            "device.app_activity",
+                            "device.browser_activity",
+                            "device.input_content",
+                            "device.clipboard",
+                            "device.screen_capture",
+                            "filesystem.full_disk_watch",
+                            "external.communication",
+                            "device.microphone",
+                            "device.camera",
+                            "device.location",
+                            "device.sensors",
+                            "restricted.profile",
+                            "background.persistent",
+                            "action.local",
+                            "action.external",
+                            "action.privileged",
+                            "action.irreversible"
+                          ]
+                        },
+                        "purpose": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "scope": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "osCapability": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "requested",
+                            "granted",
+                            "denied",
+                            "revoked",
+                            "expired"
+                          ],
+                          "default": "requested"
+                        },
+                        "mandatory": {
+                          "type": "boolean",
+                          "default": true
+                        },
+                        "grantVersion": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "default": 1
+                        },
+                        "metadata": {},
+                        "grantedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time"
+                        },
+                        "lastVerifiedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "sourceKey"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "acknowledged",
+                  "deviceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Profile revision confirmed"
+          },
+          "400": {
+            "description": "Invalid grant"
+          },
+          "409": {
+            "description": "full_access required"
+          }
+        }
+      }
+    },
+    "/v1/proactive/desired-state": {
+      "post": {
+        "summary": "暂停、恢复或撤销主动能模式",
+        "tags": [
+          "Proactive"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 32
+            },
+            "required": true,
+            "name": "X-Aervox-Proactive-Token",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "desiredState": {
+                    "type": "string",
+                    "enum": [
+                      "enabled",
+                      "paused",
+                      "revoked"
+                    ]
+                  },
+                  "revisionId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "desiredState"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Desired state updated"
+          },
+          "404": {
+            "description": "Profile revision not found"
+          }
+        }
+      }
+    },
+    "/v1/proactive/activation": {
+      "post": {
+        "summary": "创建设备级本地激活租约",
+        "tags": [
+          "Proactive"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 32
+            },
+            "required": true,
+            "name": "X-Aervox-Proactive-Token",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "revisionId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "deviceId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "epoch": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "ttlMs": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  },
+                  "localReady": {
+                    "type": "boolean"
+                  },
+                  "fullAccessSnapshot": {
+                    "type": "boolean"
+                  },
+                  "metadata": {}
+                },
+                "required": [
+                  "revisionId",
+                  "deviceId",
+                  "epoch",
+                  "localReady",
+                  "fullAccessSnapshot"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Activation lease created"
+          }
+        }
+      }
+    },
+    "/v1/proactive/sources/{sourceGrantId}/data": {
+      "delete": {
+        "summary": "撤销来源并删除本地捕获、观察和画像证据",
+        "tags": [
+          "Proactive"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "sourceGrantId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 32
+            },
+            "required": true,
+            "name": "X-Aervox-Proactive-Token",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Source data deleted"
+          },
+          "404": {
+            "description": "Source grant not found"
+          }
+        }
+      }
+    },
+    "/v1/proactive/captures": {
+      "post": {
+        "summary": "写入加密原始捕获副本",
+        "tags": [
+          "Proactive"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 32
+            },
+            "required": true,
+            "name": "X-Aervox-Proactive-Token",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "revisionId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "sourceGrantId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "sourceKey": {
+                    "type": "string",
+                    "enum": [
+                      "aervox.activity",
+                      "aervox.operation",
+                      "device.app_activity",
+                      "device.browser_activity",
+                      "device.input_content",
+                      "device.clipboard",
+                      "device.screen_capture",
+                      "filesystem.full_disk_watch",
+                      "external.communication",
+                      "device.microphone",
+                      "device.camera",
+                      "device.location",
+                      "device.sensors",
+                      "restricted.profile",
+                      "background.persistent",
+                      "action.local",
+                      "action.external",
+                      "action.privileged",
+                      "action.irreversible"
+                    ]
+                  },
+                  "contentType": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "payloadText": {
+                    "type": "string"
+                  },
+                  "payload": {},
+                  "checksum": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "byteSize": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "observedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "ingestedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "revisionId",
+                  "sourceGrantId",
+                  "sourceKey",
+                  "contentType"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Capture accepted without echoing raw payload"
+          }
+        }
+      }
+    },
+    "/v1/proactive/observations": {
+      "post": {
+        "summary": "写入本地规范化行为观察",
+        "tags": [
+          "Proactive"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 32
+            },
+            "required": true,
+            "name": "X-Aervox-Proactive-Token",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "revisionId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "sourceGrantId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "sourceKey": {
+                    "type": "string",
+                    "enum": [
+                      "aervox.activity",
+                      "aervox.operation",
+                      "device.app_activity",
+                      "device.browser_activity",
+                      "device.input_content",
+                      "device.clipboard",
+                      "device.screen_capture",
+                      "filesystem.full_disk_watch",
+                      "external.communication",
+                      "device.microphone",
+                      "device.camera",
+                      "device.location",
+                      "device.sensors",
+                      "restricted.profile",
+                      "background.persistent",
+                      "action.local",
+                      "action.external",
+                      "action.privileged",
+                      "action.irreversible"
+                    ]
+                  },
+                  "observationType": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "subjectKey": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "payload": {},
+                  "checksum": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "algorithmVersion": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "observedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "normalizedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "revisionId",
+                  "sourceGrantId",
+                  "sourceKey",
+                  "observationType",
+                  "subjectKey",
+                  "checksum"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Observation created"
+          }
+        }
+      }
+    },
+    "/v1/proactive/claims": {
+      "post": {
+        "summary": "写入带证据的本地画像声明",
+        "tags": [
+          "Proactive"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 32
+            },
+            "required": true,
+            "name": "X-Aervox-Proactive-Token",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "revisionId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "claimType": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "subjectKey": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "content": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "observed",
+                      "inferred",
+                      "user_asserted",
+                      "confirmed",
+                      "rejected"
+                    ]
+                  },
+                  "confidence": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "evidenceCaptureIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "evidenceRefs": {
+                    "type": "array",
+                    "items": {}
+                  },
+                  "sourceGrantIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": [
+                  "revisionId",
+                  "claimType",
+                  "subjectKey",
+                  "content"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Profile claim created"
+          }
+        }
+      }
+    },
+    "/v1/proactive/actions": {
+      "post": {
+        "summary": "写入主动动作请求与授权修订",
+        "tags": [
+          "Proactive"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 32
+            },
+            "required": true,
+            "name": "X-Aervox-Proactive-Token",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "revisionId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "activationLeaseId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "minLength": 1
+                  },
+                  "actionType": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "target": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "request": {},
+                  "authorizationScope": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "actionGrantRevision": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "reversible": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "external": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "revisionId",
+                  "actionType",
+                  "target",
+                  "authorizationScope",
+                  "actionGrantRevision"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Proactive action created"
+          }
+        }
+      }
+    },
+    "/v1/proactive/export": {
+      "post": {
+        "summary": "显式导出本地主动画像数据",
+        "tags": [
+          "Proactive"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 32
+            },
+            "required": true,
+            "name": "X-Aervox-Proactive-Token",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "includeRaw": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Checksummed export",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "manifest": {
+                      "type": "object",
+                      "properties": {
+                        "schemaVersion": {
+                          "type": "string"
+                        },
+                        "exportedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "processingBoundary": {
+                          "type": "string",
+                          "enum": [
+                            "local_only"
+                          ]
+                        },
+                        "includeRaw": {
+                          "type": "boolean"
+                        },
+                        "checksum": {
+                          "type": "string"
+                        },
+                        "counts": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        }
+                      },
+                      "required": [
+                        "schemaVersion",
+                        "exportedAt",
+                        "processingBoundary",
+                        "includeRaw",
+                        "checksum",
+                        "counts"
+                      ]
+                    },
+                    "data": {}
+                  },
+                  "required": [
+                    "manifest"
                   ]
                 }
               }

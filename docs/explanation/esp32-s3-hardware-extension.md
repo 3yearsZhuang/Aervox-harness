@@ -1,12 +1,12 @@
 # ESP32-S3-WROOM-2-N32R16V 硬件延伸方案
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：3yearszhuang · 2026-08-29
 
 > 文档编号：AVX-EXPL-005
 > 类型：Explanation
-> 版本：v0.2
-> 更新日期：2026-08-28
+> 版本：v0.2.1
+> 更新日期：2026-08-29
 > 状态：Review Candidate
 > 责任角色：技术负责人（待指定）
 > 关联：[PRD](../reference/PRD.md)、[架构设计](../reference/ARCHITECTURE.md)、[数据与隐私规范](../reference/DATA_PRIVACY.md)、[威胁模型](../reference/THREAT_MODEL.md)、[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md)
@@ -54,7 +54,7 @@ ESP32-S3 物理桌宠
 | `CAP-027` 本地优先与多工作区 | 后续 | 设备离线队列或网关 | 少量状态缓存 |
 | `CAP-002/007/012` | 后续 | Push-to-Talk 专项评审后 | 首版麦克风采集 |
 
-若配网、设备身份、OTA、离线同步或传感器形成独立生命周期能力，应建立新的能力基线（例如 `CAP-033`），不能静默扩写 `CAP-018`。
+若配网、设备身份、OTA、离线同步或传感器形成独立生命周期能力，应建立设备专属的新能力基线（编号须另经 CR 裁定），不能占用或静默扩写已登记的 `CAP-033`/`CAP-018`。
 
 ## 2. 模组事实和工程约束
 

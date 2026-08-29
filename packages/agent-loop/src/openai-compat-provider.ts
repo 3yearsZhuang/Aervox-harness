@@ -16,6 +16,8 @@ export interface OpenAICompatConfig {
   modelId: string;
   temperature?: number;
   maxTokens?: number;
+  /** CAP-033 local-only calls reject redirects instead of following them. */
+  redirect?: RequestRedirect;
 }
 
 interface OpenAIToolCallDelta {
@@ -76,6 +78,7 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
               }
             : {}),
         }),
+        redirect: config.redirect,
       });
       if (!res.ok || !res.body) {
         const detail = await res.text().catch(() => "");

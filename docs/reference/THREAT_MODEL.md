@@ -1,18 +1,18 @@
 # Aervox｜思隅 威胁模型
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-29
 
 > 文档编号：AVX-SEC-001  
-> 版本：v0.1（评审候选）  
-> 更新日期：2026-08-24  
-> 关联：[架构设计](ARCHITECTURE.md) · [数据与隐私](DATA_PRIVACY.md)
+> 版本：v0.2（CAP-033 主动能模式）
+> 更新日期：2026-08-29
+> 关联：[架构设计](ARCHITECTURE.md) · [数据与隐私](DATA_PRIVACY.md) · [CR-023](changes/CR-023-proactive-local-intelligence-mode.md)
 
 ## 1. 范围与资产
 
-范围包括 Web/API/Worker、SQLite、Redis/BullMQ、S3、独立故障域 `RecoveryControlLedger`、模型/身份/通知供应商、Electron、P2 插件/外部同步和 P3 组织权限。关键资产：凭据、私人会话、作答、记忆、日记、附件、安全事件、同意、撤权/删除 deny 控制事件、模型上下文和组织角色。
+范围包括 Web/API/Worker、SQLite、Redis/BullMQ、S3、独立故障域 `RecoveryControlLedger`、模型/身份/通知供应商、Electron、P2 插件/外部同步、P3 组织权限和 CAP-033 主动能模式本地 Host。关键资产：凭据、私人会话、作答、记忆、日记、附件、安全事件、同意、撤权/删除 deny 控制事件、模型上下文、组织角色、全量画像原始捕获、画像声明、动作授权、后台状态和本地导出。
 
-不在当前生产范围：未成年人、设备屏幕/麦克风/摄像头捕获、社区私信、市场支付和任意第三方插件执行；这些能力启用前必须扩展本模型。
+尚未进入生产启用范围：未成年人、CAP-033 尚未接入的平台设备捕获/全量文件 watcher、社区私信、市场支付和任意第三方插件执行；本分支已启用本地 Vault、Aervox activity/operation 与剪贴板采集、画像提炼、动作授权和后台 heartbeat 的测试路径，真实能力扩大前必须完成本模型扩展与专项门禁。
 
 ## 2. 信任边界
 
@@ -22,6 +22,10 @@
 4. 用户工作区 ↔ 其他工作区/组织管理员。
 5. 核心应用 ↔ 外部内容、OAuth 集成、插件/DSH/pi/MCP。
 6. Electron renderer ↔ preload/主进程/操作系统。
+7. CAP-033 受信观察 Host/后台 helper ↔ 操作系统权限、文件系统、浏览器/通信连接器和设备传感器。
+8. CAP-033 本地私密存储/处理器 ↔ 普通业务数据库、远程模型/Embedding、日志/分析/备份和用户导出目标。
+9. CAP-033 主动动作 Host ↔ 本地文件、浏览器/家居、外部消息和特权系统 API。
+10. CAP-033 loopback 控制面 ↔ owner-only `proactive-access.token`（私密目录 `0600`）、HTTP 传输和 redirect/代理路径。
 
 ## 3. 威胁登记（STRIDE）
 
@@ -40,6 +44,11 @@
 | TM-011 | Supply chain | 依赖、参考代码或插件引入恶意代码/许可证风险 | lockfile、SBOM、签名、漏洞/许可证扫描、AGPL 隔离 | `TC-SEC-SUPPLY-001`；高危/许可未决阻断发布 |
 | TM-012 | Data poisoning | 外部题库/附件污染掌握度、记忆或知识树 | 来源/许可/置信状态、人工纠正、候选机制、回滚 | `TC-AIEVAL-POISON-001`；低置信内容不入正式事实 |
 | TM-013 | Elevation/Disclosure | 插件 Page 越权读取配置、secret 泄露或静态资源逃逸 | 受限 iframe sandbox、Host Bridge 能力白名单、Bundle 路径安全与 checksum、secret 不回显、AuditRecord | `TC-SEC-PLUG-001`、`TC-SEC-PLUG-CFG-001`；本地默认 secret 存储必须替换为加密 Store 后上线 |
+| TM-014 | Disclosure/Tampering | CAP-033 原始屏幕、音频、输入、剪贴板或文件副本被写入远程存储/模型/日志，或七天提炼前被错误清理 | 独立本地加密存储、`local_only` provenance、Provider/出网准入、七天+distillation gate、零外传/零召回测试 | `TC-SEC-PRO-LOCAL-001`、`TC-PRIV-PRO-RETENTION-001`；本地证明失效时 fail closed |
+| TM-015 | Elevation/Disclosure | CAP-033 观察内容或 Prompt injection 扩大 `FullProfileActionGrant`，跨用户操作、外发或不可逆修改 | 用户确认的版本化 action grant、目标 scope/OS/身份校验、沙箱、幂等、deny ledger 和动作审计 | `TC-SEC-PRO-ACTION-001`、`TC-SEC-PROMPT-001`；模型/插件不能自授 |
+| TM-016 | Spoofing/Repudiation | 伪造设备/Host/activation epoch 或重放后台恢复，绕过用户通知和撤权 | 签名 Host、设备绑定、heartbeat/expiry、版本和 grant hash、审计回执、恢复竞争 CAS | `TC-SEC-PRO-HOST-001`、`TC-RES-PRO-LIFECYCLE-001` |
+| TM-017 | Disclosure | 全量画像导出、云同步目录或备份误带密钥、凭据、Secure Input 或已删除内容 | 导出 manifest/checksum、字段过滤、目标提示、密钥隔离、删除 tombstone 不可恢复 | `TC-PRIV-PRO-EXPORT-001`、`TC-SEC-PRO-LOCAL-001` |
+| TM-018 | Spoofing/Disclosure | 非本机进程伪造 CAP-033 控制请求，或 token 经日志/代理/重定向泄露 | owner-only token、`0600` 文件权限、字面 loopback 校验、禁止 redirect、请求不写入日志/导出 | `TC-SEC-PRO-AUTH-001`、`TC-SEC-PRO-LOCAL-001` |
 
 ## 4. 数据流安全规则
 
@@ -55,6 +64,6 @@
 - OWASP ASVS L2 基线、依赖/Secret/SBOM/许可证扫描通过；
 - 跨工作区、管理员、组织、插件、附件、Prompt injection 和 Electron IPC 测试通过；
 - 删除、导出、备份恢复、Redis 重建和供应商故障演练通过；
-- 未成年人、设备捕获、社区、市场、支付或机构能力的新增数据流已经加入本威胁模型。
+- CAP-033 设备捕获、后台恢复、全动作授权、本地出网阻断、七天提炼清理和导出删除的新增数据流已经加入本威胁模型，专项测试仍是启用前置；未成年人、社区、市场、支付或机构能力仍须各自扩展模型。
 
 本文件仍为评审候选，目标部署/供应商确定后必须重新评分概率和影响。

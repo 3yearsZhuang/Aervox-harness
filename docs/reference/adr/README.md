@@ -1,10 +1,10 @@
 # Aervox 架构决策记录（ADR）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：3yearszhuang · 2026-08-29
 
 > 状态：评审候选  
-> 更新日期：2026-08-28  
+> 更新日期：2026-08-29
 > 架构基线摘要：[ARCHITECTURE.md 第 11 节](../ARCHITECTURE.md#11-首批-adr)  
 > ADR 文件编号与评审登记以本文件为准
 
@@ -31,6 +31,7 @@ ADR 记录难以逆转、影响多个模块或改变数据/运维边界的技术
 | ADR-015 | Proposed | Vue 全栈单栈：Web 复用桌面端技术族，替代 ADR-002 Web 基线 | [ADR-015](ADR-015-vue-full-stack.md) |
 | ADR-016 | Accepted | 底座边界冻结：Kernel Substrate 与能力层依赖边界，`scripts/import-boundary.mjs` 机器校验 | [ADR-016](ADR-016-base-boundaries.md) |
 | ADR-017 | Proposed | ContextManifest/ModelRun/AgentStep 关联（ModelRun 唯一父级，新增 attemptId/stepId）+ AgentInboxItem 数据模型与 claim/ack 消费 | [ADR-017](ADR-017-context-manifest-modelrun-step.md) |
+| ADR-018 | Proposed | CAP-033 本地私密存储、受信主动能 Host、OS Permission Broker、全动作授权与后台生命周期 | [ADR-018](ADR-018-proactive-local-privacy-host.md) |
 
 `Proposed` 不代表已经批准。当前独立记录是评审输入，不是 G2 通过证据；每条 ADR 必须补齐备选方案、后果、迁移、回滚和验证证据并经过评审，状态才能改为 `Accepted`。
 

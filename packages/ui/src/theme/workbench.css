@@ -2075,6 +2075,398 @@
   margin-top: 4px;
 }
 
+/* ---------- CAP-033 主动能授权与能力状态 ---------- */
+
+.proactive-settings {
+  gap: 14px;
+}
+
+.proactive-status-banner {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  color: var(--text-muted);
+}
+
+.proactive-status-banner > span {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.proactive-status-banner strong {
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.proactive-status-banner small {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.proactive-status-banner.is-active {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 80%, var(--bg-main));
+  color: var(--accent);
+}
+
+.proactive-status-banner.is-limited,
+.proactive-status-banner.is-suspended,
+.proactive-status-banner.is-unavailable {
+  border-color: color-mix(in srgb, var(--warning, #c97a00) 36%, var(--border));
+  color: var(--warning, #c97a00);
+}
+
+.proactive-icon-button {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-main);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.proactive-icon-button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.proactive-icon-button:disabled {
+  cursor: wait;
+  opacity: .5;
+}
+
+.proactive-warning {
+  color: var(--warning, #c97a00);
+}
+
+.proactive-error {
+  margin: 0;
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, var(--danger, #dc2626) 35%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--danger, #dc2626) 8%, var(--bg-main));
+  color: var(--danger, #dc2626);
+  font-size: 11.5px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.proactive-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.proactive-actions button,
+.proactive-request-button {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-main);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.proactive-capability-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.proactive-delete-button {
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-main);
+  color: var(--danger, #dc2626);
+  cursor: pointer;
+}
+
+.proactive-delete-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--danger, #dc2626) 45%, var(--border));
+  background: color-mix(in srgb, var(--danger, #dc2626) 8%, var(--bg-main));
+}
+
+.proactive-delete-button:disabled {
+  cursor: not-allowed;
+  opacity: .48;
+}
+
+.proactive-claim-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border);
+}
+
+.proactive-claim-item {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+}
+
+.proactive-claim-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.proactive-claim-copy strong {
+  color: var(--text-primary);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.proactive-claim-copy small {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.proactive-claim-actions {
+  display: inline-flex;
+  gap: 5px;
+}
+
+.proactive-claim-actions button {
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-main);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.proactive-claim-actions button.active {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  color: var(--accent);
+}
+
+.proactive-claim-actions button.rejected {
+  border-color: color-mix(in srgb, var(--danger, #dc2626) 45%, var(--border));
+  color: var(--danger, #dc2626);
+}
+
+.proactive-claim-actions button:disabled {
+  cursor: not-allowed;
+  opacity: .48;
+}
+
+.proactive-actions button:hover:not(:disabled),
+.proactive-request-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--border));
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.proactive-actions button:disabled,
+.proactive-request-button:disabled {
+  cursor: not-allowed;
+  opacity: .48;
+}
+
+.proactive-actions .proactive-primary-action {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.proactive-actions .danger {
+  color: var(--danger, #dc2626);
+}
+
+.proactive-persistence-row {
+  padding: 11px 0;
+}
+
+.proactive-capability-heading {
+  display: grid;
+  gap: 3px;
+  padding-top: 5px;
+}
+
+.proactive-capability-heading strong {
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.proactive-capability-heading small {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.proactive-capability-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border);
+}
+
+.proactive-capability-item {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+}
+
+.proactive-capability-marker {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--bg-soft);
+  color: var(--text-muted);
+}
+
+.proactive-capability-marker.is-granted {
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-soft));
+  color: var(--accent);
+}
+
+.proactive-capability-marker.is-denied,
+.proactive-capability-marker.is-prompt {
+  background: color-mix(in srgb, var(--warning, #c97a00) 14%, var(--bg-soft));
+  color: var(--warning, #c97a00);
+}
+
+.proactive-capability-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.proactive-capability-copy strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proactive-capability-copy small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 10.5px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proactive-capability-state {
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.proactive-capability-state.is-granted {
+  color: var(--accent);
+}
+
+.proactive-capability-state.is-denied,
+.proactive-capability-state.is-prompt {
+  color: var(--warning, #c97a00);
+}
+
+.proactive-capability-state.is-unknown,
+.proactive-capability-state.is-unavailable {
+  color: var(--text-muted);
+}
+
+.proactive-request-button {
+  min-height: 27px;
+  padding: 0 8px;
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.proactive-retention-note {
+  line-height: 1.5;
+}
+
+.proactive-authorization-scope {
+  display: grid;
+  gap: 5px;
+  margin-top: 15px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-soft);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+.proactive-authorization-scope strong {
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.proactive-dialog-choice {
+  margin: 0;
+}
+
+.proactive-acknowledgement {
+  margin-top: 14px;
+}
+
+.proactive-confirmation-icon {
+  border-color: color-mix(in srgb, var(--accent) 36%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+}
+
+.proactive-enable {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.proactive-spinner {
+  animation: aervox-spin .8s linear infinite;
+}
+
 /* ---------- 自适应：任何窗口尺寸 ---------- */
 
 @media (max-width: 880px) {
@@ -2137,6 +2529,21 @@
   .permission-toggle {
     flex: 1 1 auto;
     justify-content: center;
+  }
+
+  .proactive-capability-item {
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+  }
+
+  .proactive-capability-state {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: start;
+  }
+
+  .proactive-request-button {
+    grid-column: 3;
+    grid-row: 1 / span 2;
   }
 
   .composer-actions {

@@ -38,5 +38,6 @@ interface Window {
       callback: (message: unknown) => void,
     ) => () => void
     apiRequest: <T = unknown>(method: string, path: string, body?: unknown, headers?: Record<string, string>) => Promise<ApiRequestResult<T>>
+    proactive: import('@aervox/contracts/proactive').ProactiveDesktopBridge
   }
 }

@@ -310,11 +310,11 @@ resolve definition
 
 - 模型请求工具不等于授权；
 - `read_only` 可以按已批准策略自动执行；
-- `write_with_approval` 必须绑定可审计授权快照；
+- `write_with_approval` 必须绑定可审计授权快照；CAP-033 主动能模式下，`FullProfileActionGrant` 也必须绑定动作类别、目标 scope、授权修订和可撤销快照；
 - CreateTurn 的 `toolApprovalMode` 默认为 `ask`；用户经风险确认选择 `full_access` 时，宿主只可对 `write_with_approval` 先写授权账本再自动执行；
 - `full_access` 是 Turn 级权限快照，不改写工具自身的 `safetyLevel`；运行中的 Turn 禁止切换，关闭只影响后续 Turn，不撤回已开始的副作用；
 - 完全访问产生的自动授权必须与显式授权区分；恢复 `ask` 后，显式授权查询不得命中这些记录；
-- `privileged` 默认拒绝，只能由单独管理员通道放行；
+- `privileged` 在普通 Turn 中默认拒绝，只能由单独管理员通道放行；若当前主动能模式存在用户确认且覆盖目标的 `FullProfileActionGrant`，可按同一工具门校验后放行，不能由模型/插件自授；
 - Subagent/Workflow 等静态 Contribution 的写工具必须经同一授权门，不得因 Provider 组合路由绕过审批策略；
 - 写工具按业务资源/Session 串行；相互独立的只读工具可以受限并行；
 - 幂等键建议为 `attemptId:stepNo:callId`，上游 callId 不可信时由 Host 重新生成；
@@ -323,6 +323,10 @@ resolve definition
 - 终端工具可以返回 `concludesTurn=true`，但不能绕过最终持久化和安全检查；
 - Aervox 的批次终止契约是“非空且所有已完成结果均 `concludesTurn=true`”；混合批次继续下一 Step，且所有已经启动的工具都必须先产生并提交确定结果；
 - **工具 Prompt 约束与同步硬规则**：所有在系统中注册或贡献的工具（含内置工具与后续新增工具），必须在 `BASE_TOOL_GUIDANCE`（`packages/agent-loop/src/base-prompt.ts`）中登记明确的调用时机（何时使用/何时禁止）及约束要求；未在 System Prompt 中声明指导原则的工具禁止进入生产可用清单。
+
+### CAP-033 主动动作分支
+
+CAP-033 的后台主动动作仍复用本管线，但授权来源改为用户确认的 `FullProfileActionGrant`。Host 在 `approval decision` 前同时校验主动能激活租约、动作类别（`local`/`external`/`privileged`/不可逆）、目标 scope、授权 revision、OS/身份授权、deny watermark 和幂等键；任一条件失效即拒绝。动作结果、用户通知和撤权状态写入 CAP-033 本地审计面，不能通过普通 Turn 自动授权记录替代。
 
 ## 10. 限额与终止策略
 
@@ -681,7 +685,7 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 
 2026-08-28 落地（对应 §9 privileged 默认拒绝 + 独立管理员放行）：
 
-- privileged 工具收敛为与 `write_with_approval` 相同的「授权命中（granted）→ 执行 / 未批准 → 审批待决」流程（不再硬拒绝），但**授予动作**受管理员身份校验：`POST /v1/turns/:id/tool-approvals` 对 privileged 工具要求 `x-admin-user-id` ∈ `AERVOX_ADMIN_IDS` 白名单，否则 403 `admin_required`；
+- privileged 工具收敛为与 `write_with_approval` 相同的「授权命中（granted）→ 执行 / 未批准 → 审批待决」流程（不再硬拒绝）。普通 Turn 的**授予动作**仍受管理员身份校验：`POST /v1/turns/:id/tool-approvals` 对 privileged 工具要求 `x-admin-user-id` ∈ `AERVOX_ADMIN_IDS` 白名单，否则 403 `admin_required`；CAP-033 主动能模式的用户 `FullProfileActionGrant` 走独立动作授权快照与本地 Host 门，不把普通 Turn 自动授权伪装成管理员授予。
 - 新增 `getToolApproval`（读单条待决记录供预检）与 `scripted-privileged` 测试 Provider 脚本；
 - 测试：`@aervox/api` 101（`conversation-privileged` 3：未批准待决 / 非管理员 403 / 管理员 grant 后执行成功）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
@@ -884,9 +888,15 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 
 - **契约与快照**：`CreateTurnRequest.toolApprovalMode = ask | full_access`，缺省 `ask`；API `preValidation` 将已解析值绑定到本请求租户上下文，不修改冻结中的对话路由。
 - **自动授权与审计**：完全访问下，`write_with_approval` 以 `tool_approvals` pending→granted 记录本次快照后才执行；`decidedBy=permission:full_access:<actor>` 区分自动授权，显式授权查询排除该前缀，关闭后同参数不会继续放行。
-- **统一写工具门**：动态 ToolRuntime 与静态 Subagent/Workflow Contribution 共用授权语义；`privileged` 仍收敛到管理员审批通道。
+- **统一写工具门**：动态 ToolRuntime 与静态 Subagent/Workflow Contribution 共用授权语义；普通 Turn 的 `privileged` 仍收敛到管理员审批通道，CAP-033 的全动作授权通过同一门的独立 `FullProfileActionGrant` 分支校验（当前仅完成契约骨架，执行分支待专项实现）。
 - **双端交互**：共享 Workbench 输入区显示权限开关；开启必须经风险说明和显式勾选，运行中锁定，状态仅保留在当前浏览器/桌面会话；Web fetch 与 Electron IPC 传递同一字段。
-- **测试**：`conversation-approval.test.ts` 覆盖默认待决、自动执行与关闭后不泄漏；`conversation-privileged.test.ts` 覆盖管理员门不变；`tool-approval-policy.test.ts` 覆盖静态 Contribution 工具；API Client `transport.test.ts` 覆盖 `full_access` 请求体透传。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+- **测试**：`conversation-approval.test.ts` 覆盖默认待决、自动执行与关闭后不泄漏；`conversation-privileged.test.ts` 覆盖普通 Turn 管理员门；`tool-approval-policy.test.ts` 覆盖静态 Contribution 工具；API Client `transport.test.ts` 覆盖 `full_access` 请求体透传。CAP-033 的 Host/数据面专项授权、来源、保留和动作测试尚待补齐。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.24 落地进展（阶段 CAP-033：主动能本地数据面与动作授权）
+
+2026-08-29 已落地部分路径：独立加密本地 Vault、owner-only `proactive-access.token`（`0600`）与字面 loopback/redirect 拒绝、版本化 ProfileRevision/SourceGrant/ActivationLease、`FullProfileActionGrant` 工具门、Aervox activity/operation 与剪贴板采集、确定性本地提炼 Worker、来源级撤销删除、导出和后台 heartbeat。系统应用、浏览器、屏幕、文件、通信、音视频、位置和传感器适配器仍未全部接入；本地 Provider 出网证明、生产 OS Broker、全量删除传播和专项门禁继续阻断 CAP-033 的 `Ready`。
+
+验证证据：`@aervox/database` 162 tests、`@aervox/api` 241 tests、`@aervox/worker` 6 tests、Contracts OpenAPI build 已通过；完整端到端和平台权限矩阵待补齐。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
 ## 17. 回滚策略
 

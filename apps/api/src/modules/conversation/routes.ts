@@ -26,6 +26,7 @@ import { createTenantInboxPort } from "../inbox/port.js";
 import { runLoopTurnOnce } from "./agent-executor.js";
 import { UserQuestionCoordinator } from "./user-question-coordinator.js";
 import { loadApiConfig } from "@aervox/config";
+import type { ProactiveActionAuthorizer } from "../proactive/action-authorizer.js";
 
 let seq = 0;
 const nextTurnId = (): string => `turn_${Date.now().toString(36)}_${(++seq).toString(36)}`;
@@ -51,6 +52,10 @@ export interface ConversationRouteDeps {
   platformRepo?: SqlitePlatformRepository;
   /** UQ-01：向用户提问会话协调器 */
   userQuestionCoordinator?: UserQuestionCoordinator;
+  /** CAP-033：主动能全动作授权与本地动作账本。 */
+  proactiveActionAuthorizer?: ProactiveActionAuthorizer;
+  /** CAP-033：本地画像上下文来源。 */
+  proactiveRepository?: import("@aervox/database").IProactiveProfileRepository;
 }
 
 export function registerConversationRoutes(
@@ -158,6 +163,8 @@ export function registerConversationRoutes(
         platformRepo: deps.platformRepo,
         // UQ-01: 向用户提问端口
         userQuestionPort: uqPort,
+        proactiveActionAuthorizer: deps.proactiveActionAuthorizer,
+        proactiveRepository: deps.proactiveRepository,
       },
     );
 
