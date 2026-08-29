@@ -879,9 +879,6 @@ onMounted(() => {
     // Ignore malformed local preferences and use defaults.
   }
 
-  const savedMode = localStorage.getItem('aervox-composer-mode')
-  if (savedMode && companionModes.some((mode) => mode.id === savedMode)) activeModeId.value = savedMode as CompanionModeId
-
   const savedToolApprovalMode = sessionStorage.getItem('aervox-tool-approval-mode')
   if (savedToolApprovalMode === 'full_access') toolApprovalMode.value = 'full_access'
 
@@ -1058,7 +1055,6 @@ onUnmounted(() => {
         <button v-if="!composerOpen" class="composer-collapsed" type="button" @click="expandComposer">
           <MessageCircle :size="16" />
           <span class="composer-collapsed-hint">{{ streaming ? '思隅正在回应…' : '点击输入消息' }}</span>
-          <span class="composer-mode-chip">{{ activeMode.label }}</span>
           <span class="composer-access-chip" :class="{full: toolApprovalMode === 'full_access'}">
             <ShieldAlert v-if="toolApprovalMode === 'full_access'" :size="12" />
             <ShieldCheck v-else :size="12" />

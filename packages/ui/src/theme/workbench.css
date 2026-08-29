@@ -580,17 +580,6 @@
   white-space: nowrap;
 }
 
-.composer-mode-chip {
-  flex: 0 0 auto;
-  padding: 2px 9px;
-  border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: var(--accent);
-  font-size: 10px;
-  font-weight: 650;
-}
-
 .composer-access-chip {
   flex: 0 0 auto;
   display: inline-flex;
@@ -617,9 +606,7 @@
 
 .composer-expanded {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
-    "modes"
     "input"
     "footer";
   align-items: end;
