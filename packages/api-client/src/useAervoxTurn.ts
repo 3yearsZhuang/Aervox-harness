@@ -22,6 +22,8 @@ export interface StreamAervoxTurnCallbacks {
   onDone: () => void;
   onError?: (err: unknown) => void;
   onEmote?: (command: PetCommand) => void;
+  /** CR-027: 思考型模型的思考进度增量（reasoning_delta；非正文，仅作「思考中」反馈） */
+  onReasoning?: (text: string) => void;
   /** UQ-01: 当模型请求向用户提问时触发 */
   onUserQuestion?: (data: UserQuestionRequiredEventData) => void;
   /** CAP-007 / CAP-002: 术语抽取完成事件 */

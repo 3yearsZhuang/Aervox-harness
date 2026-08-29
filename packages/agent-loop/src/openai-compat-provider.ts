@@ -5,8 +5,11 @@
  * - 只实现 OpenAI `/chat/completions` SSE 流协议（Anthropic 等非兼容协议在宿主接线层拒绝）；
  * - 流式解析 delta.content 与 delta.tool_calls（工具调用分片累积），`[DONE]` / finish_reason 收尾；
  * - 工具 schema 来自 request.tools（executor 传入只读白名单），不改变 Loop 控制流。
- * - 思考型模型（DeepSeek v4 等）：捕获 delta.reasoning_content 并在下一 Step 序列化时随
- *   assistant 消息回灌（provider 实例在单回合内跨 Step 存活）。
+ * - 思考型模型：思考增量以 `delta.reasoning_content`（DeepSeek / Qwen / vLLM 事实标准）
+ *   或 `delta.reasoning`（OpenRouter 统一字段 / Ollama 兼容端点）透传，两种格式同时解析；
+ *   OpenAI 官方 Chat Completions 不透出原生推理（走 Responses API），此时自然无思考增量。
+ *   捕获的思考内容在下一 Step 序列化时随 assistant 消息回灌（provider 实例单回合内跨 Step 存活）。
+ * - timeoutMs 为【空闲超时】：每收到一段上游数据即重置；思考模型持续吐 reasoning 也算活性。
  * 使用全局 fetch（Node 18+ / 浏览器均可用）。
  */
 import type { ModelProviderPort } from "./ports.js";
@@ -18,7 +21,7 @@ export interface OpenAICompatConfig {
   modelId: string;
   temperature?: number;
   maxTokens?: number;
-  /** Hard deadline for the upstream request and its SSE stream. */
+  /** 上游空闲超时：连接/首包/任意流片段之间的最大静默间隔（收到数据即重置）。 */
   timeoutMs?: number;
   /** CAP-033 local-only calls reject redirects instead of following them. */
   redirect?: RequestRedirect;
@@ -32,7 +35,14 @@ interface OpenAIToolCallDelta {
 
 interface ChatCompletionChunk {
   choices?: Array<{
-    delta?: { content?: string | null; tool_calls?: OpenAIToolCallDelta[]; reasoning_content?: string | null };
+    delta?: {
+      content?: string | null;
+      tool_calls?: OpenAIToolCallDelta[];
+      /** DeepSeek / Qwen / vLLM 系思考增量 */
+      reasoning_content?: string | null;
+      /** OpenRouter 统一字段 / Ollama 兼容端点思考增量 */
+      reasoning?: string | null;
+    };
     finish_reason?: string | null;
   }>;
 }
@@ -86,10 +96,16 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
       let lastStepReasoning = "";
       const controller = new AbortController();
       let timedOut = false;
-      const timeout = setTimeout(() => {
-        timedOut = true;
-        controller.abort();
-      }, timeoutMs);
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      // 空闲超时：连接建立、首包、每段流数据都重置计时；持续输出的思考模型不会被误杀
+      const armIdleTimer = (): void => {
+        if (timeout) clearTimeout(timeout);
+        timeout = setTimeout(() => {
+          timedOut = true;
+          controller.abort();
+        }, timeoutMs);
+      };
+      armIdleTimer();
 
       try {
         const res = await fetch(`${baseUrl}/chat/completions`, {
@@ -120,6 +136,7 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
         const detail = await res.text().catch(() => "");
         throw new Error(`llm_http_${res.status}: ${detail.slice(0, 200)}`);
       }
+      armIdleTimer();
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -146,6 +163,7 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        armIdleTimer();
         buffer += decoder.decode(value, { stream: true });
 
         let newlineIndex: number;
@@ -165,8 +183,11 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
 
           for (const choice of parsed.choices ?? []) {
             const delta = choice.delta ?? {};
-            if (delta.reasoning_content) {
-              stepReasoning += delta.reasoning_content;
+            // 思考增量：reasoning_content（DeepSeek/Qwen/vLLM）与 reasoning（OpenRouter/Ollama）双格式
+            const reasoningDelta = delta.reasoning_content ?? delta.reasoning ?? "";
+            if (reasoningDelta) {
+              stepReasoning += reasoningDelta;
+              yield { text: "", isFinal: false, reasoning: reasoningDelta };
             }
             if (delta.content) {
               yield { text: delta.content, isFinal: false };
@@ -196,7 +217,7 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
       // 供同回合下一 Step 序列化时回灌（思考型模型协议要求）
       lastStepReasoning = stepReasoning;
       } catch (error) {
-        if (timedOut) throw new Error(`llm_timeout: upstream model did not respond within ${timeoutMs}ms`);
+        if (timedOut) throw new Error(`llm_timeout: upstream idle for over ${timeoutMs}ms`);
         throw error;
       } finally {
         clearTimeout(timeout);
