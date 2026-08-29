@@ -5,11 +5,13 @@ import {PetHero} from '@aervox/ui'
 import {streamAervoxTurn, submitQuestionAnswers} from '@aervox/api-client'
 import type {AskUserQuestionAnswerItem, UserQuestionRequiredEventData} from '@aervox/contracts'
 import {replyBubbleDurationMs, stripMarkdownForBubble} from '../quick-chat'
+import {pickPetButtonPose, type PetButtonPose, type PetButtonPoseKind} from '../pet-button-poses'
 import Live2DPet from './Live2DPet.vue'
 
 const bubbleText = ref('')
 const activeQuestion = ref<UserQuestionRequiredEventData | null>(null)
 let bubbleTimer: number | null = null
+let closingTimer: number | null = null
 
 // 快捷对话状态：dock 展开开关为内存态（刷新回落展开，不写 localStorage）
 const dockOpen = ref(true)
@@ -69,6 +71,7 @@ async function sendQuickChat() {
     quickChatPending.value = true
     replyBubbleActive.value = true
     replyRaw = ''
+    playButtonPose('think')
     showStreamingBubble('思考中…')
     try {
         await streamAervoxTurn(content, {
@@ -130,18 +133,37 @@ async function selectPetOption(questionId: string, optionLabel: string) {
     }
 }
 
+/** dock 按钮 Live2D 响应：每个按钮绑定独立动作+表情池，随机取用避免连续重复 */
+const lastPoseByKind: Partial<Record<PetButtonPoseKind, PetButtonPose>> = {}
+
+function playButtonPose(kind: PetButtonPoseKind) {
+    const pose = pickPetButtonPose(kind, lastPoseByKind[kind])
+    lastPoseByKind[kind] = pose
+    window.aervoxLive2D?.playPose(pose)
+}
+
 function playGreeting() {
-    window.aervoxLive2D?.playMotion('w-normal-greeting01')
+    playButtonPose('greet')
     showBubble('嗨～我在这儿哦')
 }
 
 function playHappy() {
-    window.aervoxLive2D?.playExpression('face_smile_01')
+    playButtonPose('happy')
     showBubble('嘿嘿，开心！')
 }
 
+/** 关闭前先播放挥手告别的动作+表情，动画结束后再关窗 */
 function closePet() {
-    window.close()
+    if (closingTimer !== null) return
+    playButtonPose('farewell')
+    showBubble('那下次再见啦～')
+    closingTimer = window.setTimeout(() => window.close(), 1_600)
+}
+
+/** 展开/收起功能坞，两个方向各有独立的动作+表情响应 */
+function toggleDock() {
+    dockOpen.value = !dockOpen.value
+    playButtonPose(dockOpen.value ? 'expand' : 'collapse')
 }
 
 const onBubble = (event: Event) => {
@@ -158,6 +180,7 @@ onBeforeUnmount(() => {
     window.removeEventListener('aervox:pet-bubble', onBubble)
     window.removeEventListener('aervox:pet-question', onPetQuestion)
     clearBubbleTimer()
+    if (closingTimer !== null) window.clearTimeout(closingTimer)
 })
 </script>
 
@@ -228,7 +251,7 @@ onBeforeUnmount(() => {
           type="button"
           :aria-expanded="dockOpen"
           :aria-label="dockOpen ? '收起功能坞' : '展开功能坞'"
-          @click.stop="dockOpen = !dockOpen"
+          @click.stop="toggleDock"
         >
           <ChevronDown v-if="dockOpen" :size="16"/>
           <ChevronUp v-else :size="16"/>
