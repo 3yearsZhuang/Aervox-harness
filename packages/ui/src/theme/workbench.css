@@ -4074,3 +4074,119 @@
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
 }
+
+/* ---------- 日记本（AI 每日日记） ---------- */
+
+.diary-actions {
+  display: flex;
+  margin-bottom: 14px;
+}
+
+.diary-generate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--accent);
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.diary-generate-btn:disabled {
+  cursor: not-allowed;
+  opacity: .52;
+}
+
+.diary-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-soft);
+}
+
+.diary-head {
+  display: grid;
+  gap: 3px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.diary-head strong {
+  color: var(--text-primary);
+  font-size: 15px;
+}
+
+.diary-meta {
+  color: var(--text-muted);
+  font-size: 10.5px;
+}
+
+.diary-body {
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--text-secondary);
+}
+
+.diary-body p {
+  margin: 0 0 10px;
+}
+
+.diary-body p:last-child {
+  margin-bottom: 0;
+}
+
+.diary-history-list {
+  display: grid;
+  gap: 6px;
+}
+
+.diary-history-list li {
+  min-width: 0;
+}
+
+.diary-history-list button {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg-main);
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.diary-history-list button:hover,
+.diary-history-list button.active {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-main));
+}
+
+.diary-history-list button.active {
+  color: var(--accent);
+}
+
+.diary-history-date {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.diary-history-title {
+  overflow: hidden;
+  color: var(--text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

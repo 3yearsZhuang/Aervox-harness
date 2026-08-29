@@ -41,6 +41,9 @@ importers:
       '@aervox/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@aervox/diary':
+        specifier: workspace:*
+        version: link:../../packages/diary
       '@aervox/host-agent':
         specifier: workspace:*
         version: link:../../packages/host-agent
@@ -177,12 +180,18 @@ importers:
 
   apps/worker:
     dependencies:
+      '@aervox/agent-loop':
+        specifier: workspace:*
+        version: link:../../packages/agent-loop
       '@aervox/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@aervox/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@aervox/diary':
+        specifier: workspace:*
+        version: link:../../packages/diary
       '@libsql/client':
         specifier: ^0.14.0
         version: 0.14.0
@@ -233,7 +242,7 @@ importers:
         version: 7.0.2
       vitest:
         specifier: 4.0.18
-        version: 4.0.18(@types/node@24.13.3)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
+        version: 4.0.18(@types/node@22.20.1)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
 
   packages/contracts:
     dependencies:
@@ -265,6 +274,31 @@ importers:
       drizzle-kit:
         specifier: ^0.30.4
         version: 0.30.6
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: 4.0.18
+        version: 4.0.18(@types/node@22.20.1)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
+
+  packages/diary:
+    dependencies:
+      '@aervox/agent-loop':
+        specifier: workspace:*
+        version: link:../agent-loop
+      '@aervox/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@aervox/database':
+        specifier: workspace:*
+        version: link:../database
+      drizzle-orm:
+        specifier: ^0.39.3
+        version: 0.39.3(@libsql/client@0.14.0)
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
       typescript:
         specifier: 7.0.2
         version: 7.0.2
@@ -1153,6 +1187,9 @@ packages:
 
   '@jridgewell/sourcemap-codec@1.5.5':
     resolution: {integrity: sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==}
+
+  '@jridgewell/sourcemap-codec@1.6.0':
+    resolution: {integrity: sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw==}
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
@@ -3732,7 +3769,7 @@ snapshots:
   '@jridgewell/gen-mapping@0.3.5':
     dependencies:
       '@jridgewell/set-array': 1.2.1
-      '@jridgewell/sourcemap-codec': 1.5.0
+      '@jridgewell/sourcemap-codec': 1.6.0
       '@jridgewell/trace-mapping': 0.3.31
 
   '@jridgewell/remapping@2.3.5':
@@ -3754,10 +3791,12 @@ snapshots:
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
+  '@jridgewell/sourcemap-codec@1.6.0': {}
+
   '@jridgewell/trace-mapping@0.3.31':
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
-      '@jridgewell/sourcemap-codec': 1.5.0
+      '@jridgewell/sourcemap-codec': 1.6.0
 
   '@libsql/client@0.14.0':
     dependencies:
