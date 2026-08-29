@@ -1,10 +1,53 @@
 <script setup lang="ts">
 import {Maximize2, Minimize2, Minus, Moon, Settings, Sparkles, Sun, X} from 'lucide-vue-next'
-import {onMounted, onUnmounted, ref} from 'vue'
+import {computed, onMounted, onUnmounted, ref} from 'vue'
+import {useAervoxLLM, type LLMConfigDto} from '@aervox/api-client'
 
 const isMaximized = ref(false)
 const isDark = ref(false)
 let removeThemeListener: (() => void) | undefined
+
+/** 大模型连接状态：unknown 探测中 / online 已连通 / offline 不可用，驱动标题栏呼吸灯 */
+const llmStatus = ref<'unknown' | 'online' | 'offline'>('unknown')
+const llmStatusLabel = computed(() =>
+  llmStatus.value === 'online' ? '模型已连接' : llmStatus.value === 'offline' ? '模型未连接' : '模型连接检测中',
+)
+let llmProbeTimer: ReturnType<typeof setInterval> | undefined
+
+const llmApi = useAervoxLLM()
+
+/** 轻量探测：读取配置并试连供应商端点（与设置面板「测试连接」同一后端逻辑） */
+async function probeLlmConnection() {
+  try {
+    const config = await llmApi.getConfig() as LLMConfigDto
+    if (!config.enabled) {
+      llmStatus.value = 'offline'
+      return
+    }
+    const result = await llmApi.testConnection({
+      providerType: config.providerType,
+      baseUrl: config.baseUrl,
+      apiKey: config.apiKey,
+      modelId: config.modelId,
+    })
+    llmStatus.value = result.ok ? 'online' : 'offline'
+  } catch {
+    llmStatus.value = 'offline'
+  }
+}
+
+onMounted(async () => {
+  const fallbackTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  applyTheme(await window.fairyDesktop?.getTheme() ?? fallbackTheme)
+  removeThemeListener = window.fairyDesktop?.onThemeChange(applyTheme)
+  void probeLlmConnection()
+  llmProbeTimer = setInterval(probeLlmConnection, 60_000)
+})
+
+onUnmounted(() => {
+  removeThemeListener?.()
+  if (llmProbeTimer) clearInterval(llmProbeTimer)
+})
 
 function applyTheme(theme: 'light' | 'dark') {
   isDark.value = theme === 'dark'
@@ -47,7 +90,16 @@ function openSettings() {
     <div class="titlebar-brand">
       <span class="titlebar-logo"><Sparkles :size="15" :stroke-width="2.2"/></span>
       <span class="titlebar-name">Fairy Agent</span>
-      <span class="titlebar-status"><i/>AI companion</span>
+      <el-tooltip :content="llmStatusLabel" placement="bottom" :show-after="300">
+        <span
+          class="titlebar-status"
+          :class="`llm-${llmStatus}`"
+          :aria-label="`大模型连接状态：${llmStatusLabel}`"
+        >
+          <i/>
+          {{ llmStatusLabel }}
+        </span>
+      </el-tooltip>
     </div>
     <div class="titlebar-drag-space"/>
     <nav class="window-controls" aria-label="窗口控制">

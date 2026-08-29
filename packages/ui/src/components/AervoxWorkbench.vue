@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronUp,
+  CircleHelp,
   ClipboardList,
   Clock3,
   Database,
@@ -89,7 +90,7 @@ interface StoryLine {
   attachments?: StoryLineAttachment[]
 }
 
-type CardId = 'study' | 'todo' | 'timer' | 'history' | 'review' | 'mistake' | 'diary' | 'notifications'
+type CardId = 'study' | 'todo' | 'timer' | 'history' | 'review' | 'mistake' | 'quiz' | 'diary' | 'notifications'
 
 interface CardDefinition {
   id: CardId
@@ -137,6 +138,8 @@ const questionStartTime = ref<number>(0)
 const activeQuestion = ref<UserQuestionRequiredEventData | null>(null)
 const questionSubmitting = ref(false)
 const currentTurnId = ref<string | null>(null)
+// UQ-01: 侧边提问卡（第一槽临时覆盖）的本地多选暂存
+const questionCardSelected = ref<string[]>([])
 
 // PET-05: 写工具审批待决（授权后重发相同请求命中已授予权限）
 const pendingApproval = ref<(ToolApprovalRequiredEventData & { turnId: string; outgoing: string }) | null>(null)
@@ -170,6 +173,8 @@ const input = ref('')
 const isComposing = ref(false)
 const composerPlaceholder = '和思隅聊聊学习或任何事…'
 const cardSlots = ref<Array<CardId | null>>([null, null])
+// 学习模式卡片联动：开启前的槽位快照（仅存内存，不写 localStorage，退出/回落时恢复）
+let savedCardSlots: Array<CardId | null> | null = null
 const timerSeconds = ref(25 * 60)
 const timerRunning = ref(false)
 const streaming = ref(false)
@@ -267,6 +272,7 @@ const activeMistakeCount = computed(() => mistakes.value.filter((item) => item.s
 const cardCatalog = computed<CardDefinition[]>(() => [
   {id: 'study', label: '今日学习', description: '学习目标 · 复习 · 练习 · 日记', icon: BookOpen, summary: () => `${goals.value.length} 个目标 · ${dueReviews.value.length} 项复习`, action: () => openTool('study')},
   {id: 'mistake', label: '错题本', description: '针对性练习未掌握的题', icon: Puzzle, summary: () => `${activeMistakeCount.value} 题待掌握`, action: () => openTool('mistake')},
+  {id: 'quiz', label: '刷题模式', description: 'AI 现场出题，答错自动进错题本', icon: ClipboardList, summary: () => activePracticeSession.value ? '进行中的练习' : 'AI 出题 · 即时判定', action: () => startQuiz()},
   {id: 'todo', label: '待办清单', description: '勾选完成今天的待办事项', icon: ListTodo, summary: () => `待完成 ${unfinishedTodos.value.length} 件`, action: () => openTool('todo')},
   {id: 'timer', label: '番茄钟', description: '专注计时，劳逸结合', icon: Clock3, summary: () => timerRunning.value ? `${formattedTime.value} 专注中` : `${formattedTime.value} 待开始`, action: () => openTool('timer')},
   {id: 'history', label: '对话回看', description: '回顾与思隅的历史对话', icon: History, summary: () => `${story.value.length} 条对话记录`, action: () => openTool('history')},
@@ -276,6 +282,58 @@ const cardCatalog = computed<CardDefinition[]>(() => [
 ])
 
 const slotCards = computed(() => cardSlots.value.map((id) => id ? cardCatalog.value.find((card) => card.id === id) ?? null : null))
+
+/** 侧边提问卡展示的问题（UQ-01：覆盖第一槽，多题时只展示第一题，完整交互见消息面板） */
+const questionCardData = computed(() => activeQuestion.value?.questions[0] ?? null)
+
+/** 学习模式卡片联动：把两个槽位临时替换为「今日学习 + 番茄钟」（不写 localStorage，刷新后回落持久化配置） */
+function applyStudyCardLayout() {
+  savedCardSlots = [...cardSlots.value]
+  cardSlots.value = ['study', 'timer']
+}
+
+/** 学习模式卡片联动：恢复开启前的槽位快照 */
+function restoreStudyCardLayout() {
+  if (!savedCardSlots) return
+  cardSlots.value = savedCardSlots
+  savedCardSlots = null
+}
+
+/** 每日一题入口：经系统浏览器打开牛客每日一题（纯跳转，不抓取数据） */
+const DAILY_PROBLEM_URL = 'https://www.nowcoder.com/problem/tracker'
+
+function openDailyProblem() {
+  recordProactiveActivity('aervox.operation', 'workbench.daily_problem_opened', DAILY_PROBLEM_URL)
+  petReactKind('forward', {lookAtEl: '.side-cards'})
+  const desktopBridge = (window as Window & {fairyDesktop?: {openExternal?: (url: string) => Promise<void>}}).fairyDesktop
+  if (desktopBridge?.openExternal) void desktopBridge.openExternal(DAILY_PROBLEM_URL)
+  else window.open(DAILY_PROBLEM_URL, '_blank', 'noopener')
+}
+
+/** 侧边提问卡选项点击：单选直接提交，多选本地暂存 */
+function handleQuestionCardOption(label: string) {
+  const question = questionCardData.value
+  if (!question) return
+  if (question.multiSelect) {
+    questionCardSelected.value = questionCardSelected.value.includes(label)
+      ? questionCardSelected.value.filter((item) => item !== label)
+      : [...questionCardSelected.value, label]
+    return
+  }
+  void handleQuestionSubmit([{id: question.id, selected: [label]}])
+}
+
+/** 侧边提问卡多选提交 */
+function submitQuestionCardAnswers() {
+  const question = questionCardData.value
+  if (!question || questionCardSelected.value.length === 0) return
+  void handleQuestionSubmit([{id: question.id, selected: [...questionCardSelected.value]}])
+}
+
+// 提问结束后清空侧边提问卡的本地多选暂存
+watch(activeQuestion, (value) => {
+  if (!value) questionCardSelected.value = []
+})
 
 const menuOpen = ref(false)
 const menuPillRef = ref<HTMLElement | null>(null)
@@ -499,6 +557,52 @@ const latestAssistantLine = computed<StoryLine | null>(() => {
   return null
 })
 
+/* ── 视觉小说式分句呈现（CAP-001）：流式只显示第一句，余句缓存，「下一句」逐句释放 ── */
+
+/** 已额外释放的句子数（0 = 只显示第一句；回复切换时重置） */
+const novelReleased = ref(0)
+
+/** 把回复按句末标点（。！？…）或换行切段，保留句末标点 */
+function splitIntoSentences(text: string): string[] {
+  const normalized = text.replace(/\r\n/g, '\n').trim()
+  if (!normalized) return []
+  return normalized
+    .split(/(?<=[。!?!?…])\s*|\n+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean)
+}
+
+const novelSentences = computed(() => {
+  const line = latestAssistantLine.value
+  return line ? splitIntoSentences(line.text) : []
+})
+
+/** 流式期间只显示第一句：打字机效果自然落在首句上，后续句子静默缓存 */
+const novelStreamingText = computed(() => novelSentences.value[0] ?? '')
+
+/** 完成态显示已释放句子（第一句 + 点「下一句」追加），全部释放后等于全文 */
+const novelDisplayText = computed(() => {
+  const sentences = novelSentences.value
+  if (sentences.length === 0) return ''
+  return sentences.slice(0, novelReleased.value + 1).join('')
+})
+
+const queuedSentenceCount = computed(() => Math.max(0, novelSentences.value.length - novelReleased.value - 1))
+const hasQueuedSentence = computed(() => queuedSentenceCount.value > 0)
+
+/** 新回复（或重发）开始时重置释放进度 */
+watch(latestAssistantLine, (_line, old) => {
+  if (old !== undefined) novelReleased.value = 0
+})
+
+/** 「下一句」：释放缓存中的下一句，桌宠同步念出该句 */
+function revealNextSentence() {
+  if (!hasQueuedSentence.value) return
+  novelReleased.value++
+  const sentence = novelSentences.value[novelReleased.value]
+  if (sentence) petReact({speak: sentence})
+}
+
 /** 视觉小说式对话回看：打开时滚到最新一条 */
 const historyViewport = ref<HTMLElement | null>(null)
 
@@ -611,6 +715,8 @@ async function sendMessage(value = input.value, options?: { quizMode?: boolean; 
         onUserQuestion: (qData) => {
           activeQuestion.value = qData
           currentTurnId.value = qData.turnId
+          // 侧边第一槽临时切换为提问卡，桌宠看向卡片区提示作答入口
+          petReactKind('tilthead', {lookAtEl: '.side-cards', lookDuration: 3200})
           void scrollStoryToBottom()
         },
         onTermsExtracted: (tData) => {
@@ -1198,6 +1304,10 @@ const isDraggingDial = ref(false)
 const DIAL_RADIUS = 80
 const DIAL_CIRCUMFERENCE = 2 * Math.PI * DIAL_RADIUS
 
+// 番茄钟土司倒计时环几何常数 (SVG viewBox 0 0 44 44, 中心 22,22, 半径 18)
+const TOAST_RING_RADIUS = 18
+const TOAST_RING_CIRCUMFERENCE = 2 * Math.PI * TOAST_RING_RADIUS
+
 const timerRatio = computed(() => {
   if (timerRunning.value) {
     const total = Math.max(timerMinutes.value * 60, 1)
@@ -1208,6 +1318,10 @@ const timerRatio = computed(() => {
 
 const timerArcDashoffset = computed(() => {
   return DIAL_CIRCUMFERENCE * (1 - timerRatio.value)
+})
+
+const toastRingDashoffset = computed(() => {
+  return TOAST_RING_CIRCUMFERENCE * (1 - timerRatio.value)
 })
 
 // 滑块手柄（白点）旋转角度（顺时针度数，0° = 12 点钟方向）
@@ -1371,9 +1485,12 @@ async function toggleVoiceInput() {
 function toggleStudyMode() {
   studyModeEnabled.value = !studyModeEnabled.value
   recordProactiveActivity('aervox.operation', 'conversation.study_mode_changed', undefined, {enabled: studyModeEnabled.value})
-  if (studyModeEnabled.value) petReactKind('glad', {expression: MizukiExpression.face_smile_01, lookAtEl: '.floating-study-switch-wrap'})
-  else petReactKind('shake', {expression: MizukiExpression.face_normal_01, lookAtEl: '.floating-study-switch-wrap'})
-  if (!studyModeEnabled.value) {
+  if (studyModeEnabled.value) {
+    petReactKind('glad', {expression: MizukiExpression.face_smile_01, lookAtEl: '.floating-study-switch-wrap'})
+    applyStudyCardLayout()
+  } else {
+    petReactKind('shake', {expression: MizukiExpression.face_normal_01, lookAtEl: '.floating-study-switch-wrap'})
+    restoreStudyCardLayout()
     currentExtractedTerms.value = []
     exploreDialogOpen.value = false
   }
@@ -1461,6 +1578,9 @@ onMounted(() => {
     // Ignore malformed card preferences and keep placeholders.
   }
 
+  // 学习模式开启时刷新页面：仍按「今日学习 + 番茄钟」呈现，并记录快照供退出恢复
+  if (studyModeEnabled.value) applyStudyCardLayout()
+
   if (isWeb.value) {
     const saved = localStorage.getItem('aervox-theme')
     const fallback = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
@@ -1534,22 +1654,39 @@ onUnmounted(() => {
         </button>
       </label>
 
-      <button
-        type="button"
-        class="floating-quiz-btn"
-        :disabled="streaming"
-        aria-label="开始刷题"
-        title="开始刷题：AI 现场出题，答错自动进错题本"
-        @click="startQuiz"
-      >
-        <ClipboardList :size="15" />
-        <span class="quiz-btn-label">刷题</span>
-      </button>
-
       <button v-if="isWeb" class="floating-settings" type="button" aria-label="打开设置" @click="settingsOpen = true">
         <Settings :size="19" />
       </button>
     </div>
+
+    <!-- 番茄钟运行土司：开启后右上流畅侧弹出，环形倒计时动画，暂停/重置即收回 -->
+    <Transition name="timer-toast">
+      <div v-if="timerRunning" class="timer-toast" role="status" aria-live="polite" aria-label="番茄钟倒计时通知">
+        <svg class="timer-toast-ring" viewBox="0 0 44 44" aria-hidden="true">
+          <circle class="timer-toast-track" cx="22" cy="22" :r="TOAST_RING_RADIUS" />
+          <circle
+            class="timer-toast-progress"
+            cx="22"
+            cy="22"
+            :r="TOAST_RING_RADIUS"
+            :stroke-dasharray="TOAST_RING_CIRCUMFERENCE"
+            :stroke-dashoffset="toastRingDashoffset"
+          />
+        </svg>
+        <div class="timer-toast-body">
+          <strong class="timer-toast-time">{{ formattedTime }}</strong>
+          <small class="timer-toast-label">专注中 · {{ timerMinutes }} 分钟回合</small>
+        </div>
+        <div class="timer-toast-ops">
+          <button type="button" aria-label="暂停专注" @click="toggleTimer()">
+            <Pause :size="14" />
+          </button>
+          <button type="button" aria-label="重置番茄钟" @click="resetTimer()">
+            <TimerReset :size="14" />
+          </button>
+        </div>
+      </div>
+    </Transition>
 
     <nav ref="menuPillRef" class="menu-pill" :class="{open: menuOpen}" aria-label="主导航" @click="handlePillClick">
       <button
@@ -1578,55 +1715,143 @@ onUnmounted(() => {
 
     <aside class="side-cards" aria-label="功能卡片">
       <div v-for="(card, slotIndex) in slotCards" :key="slotIndex" class="side-card-slot">
-        <template v-if="card">
-          <article
-            class="side-card"
-            role="region"
-            tabindex="0"
-            :aria-label="`打开${card.label}`"
-            @click="activateCard(card, $event)"
-            @keydown.enter="activateCard(card, $event)"
-          >
-            <header class="side-card-head">
-              <span class="side-card-icon"><component :is="card.icon" :size="24" /></span>
-              <span class="side-card-title">
-                <strong>{{ card.label }}</strong>
-                <small>{{ card.description }}</small>
-              </span>
-              <button class="side-card-remove" type="button" aria-label="移除此卡片" @click.stop="selectCard(slotIndex, null, $event)">
-                <X :size="15" />
-              </button>
-            </header>
-            <p class="side-card-summary">{{ card.summary() }}</p>
-            <footer class="side-card-foot">
-              <span>点击打开</span>
-              <ChevronRight :size="15" />
-            </footer>
-          </article>
-        </template>
-
-        <div v-else class="side-card side-card-placeholder" role="group" aria-label="为此卡片选择功能">
-          <header class="side-card-head">
-            <span class="side-card-icon"><Plus :size="17" /></span>
-            <span class="side-card-title">
-              <strong>选择功能</strong>
-              <small>把常用工具放到这里</small>
-            </span>
-          </header>
-          <div class="side-card-grid">
-            <button
-              v-for="option in cardCatalog"
-              :key="option.id"
-              type="button"
-              class="side-card-grid-item"
-              :disabled="isCardPicked(option.id)"
-              @click="selectCard(slotIndex, option.id, $event)"
+        <Transition name="card-swap" mode="out-in">
+          <div :key="slotIndex === 0 && questionCardData ? 'question' : card?.id ?? 'placeholder'" class="side-card-slot-inner">
+            <!-- UQ-01: AI 提问时第一槽临时切换为提问卡，作答后自动恢复 -->
+            <article
+              v-if="slotIndex === 0 && questionCardData"
+              class="side-card side-question-card"
+              role="region"
+              tabindex="0"
+              :aria-label="`${assistantDisplayName}想问你`"
             >
-              <component :is="option.icon" :size="15" />
-              <span>{{ option.label }}</span>
-            </button>
+              <header class="side-card-head">
+                <span class="side-card-icon"><CircleHelp :size="24" /></span>
+                <span class="side-card-title">
+                  <strong>{{ assistantDisplayName }}想问你</strong>
+                  <small>点选选项作答，答完卡片自动恢复</small>
+                </span>
+              </header>
+              <p class="side-card-summary side-question-text">{{ questionCardData.question }}</p>
+              <div v-if="questionCardData.options?.length" class="side-card-grid side-question-options">
+                <button
+                  v-for="option in questionCardData.options"
+                  :key="option.label"
+                  type="button"
+                  class="side-card-grid-item"
+                  :class="{picked: questionCardSelected.includes(option.label)}"
+                  :disabled="questionSubmitting"
+                  @click.stop="handleQuestionCardOption(option.label)"
+                >
+                  <span>{{ option.label }}</span>
+                </button>
+              </div>
+              <button
+                v-if="questionCardData.multiSelect && questionCardData.options?.length"
+                type="button"
+                class="side-question-submit"
+                :disabled="questionSubmitting || questionCardSelected.length === 0"
+                @click.stop="submitQuestionCardAnswers()"
+              >
+                {{ questionSubmitting ? '提交中…' : `提交（已选 ${questionCardSelected.length}）` }}
+              </button>
+              <footer class="side-card-foot">
+                <span>{{ questionSubmitting ? '正在提交回答…' : '正在等待你的回答…' }}</span>
+              </footer>
+            </article>
+
+            <article
+              v-else-if="card"
+              class="side-card"
+              role="region"
+              tabindex="0"
+              :aria-label="`打开${card.label}`"
+              @click="activateCard(card, $event)"
+              @keydown.enter="activateCard(card, $event)"
+            >
+              <header class="side-card-head">
+                <span class="side-card-icon"><component :is="card.icon" :size="24" /></span>
+                <span class="side-card-title">
+                  <strong>{{ card.label }}</strong>
+                  <small>{{ card.description }}</small>
+                </span>
+                <button class="side-card-remove" type="button" aria-label="移除此卡片" @click.stop="selectCard(slotIndex, null, $event)">
+                  <X :size="15" />
+                </button>
+              </header>
+              <p class="side-card-summary">{{ card.summary() }}</p>
+              <!-- 番茄钟基础操作：预设时长 + 开始/暂停/重置（点击卡片本体仍打开二级抽屉的完整表盘） -->
+              <div v-if="card.id === 'timer'" class="timer-card-ops">
+                <div v-if="!timerRunning" class="timer-card-presets" role="radiogroup" aria-label="快捷预设时长">
+                  <button
+                    v-for="preset in [15, 25, 45, 60]"
+                    :key="preset"
+                    type="button"
+                    class="timer-chip"
+                    :class="{active: timerMinutes === preset}"
+                    :aria-pressed="timerMinutes === preset"
+                    @click.stop="selectPresetMinutes(preset)"
+                  >
+                    {{ preset }}分
+                  </button>
+                </div>
+                <div class="timer-card-actions">
+                  <button type="button" class="side-card-grid-item" @click.stop="toggleTimer()">
+                    <Pause v-if="timerRunning" :size="15" />
+                    <Play v-else :size="15" />
+                    <span>{{ timerRunning ? '暂停专注' : '开始专注' }}</span>
+                  </button>
+                  <button type="button" class="side-card-grid-item" @click.stop="resetTimer()">
+                    <TimerReset :size="15" />
+                    <span>重置</span>
+                  </button>
+                </div>
+              </div>
+              <!-- 学习模式下的今日学习富卡片：每日一题与学习快捷入口（点击卡片仍整体打开学习抽屉） -->
+              <div v-if="card.id === 'study' && studyModeEnabled" class="side-card-grid side-card-actions">
+                <button type="button" class="side-card-grid-item" @click.stop="openDailyProblem()">
+                  <CircleHelp :size="15" />
+                  <span>每日一题</span>
+                </button>
+                <button type="button" class="side-card-grid-item" @click.stop="openTool('timer')">
+                  <Clock3 :size="15" />
+                  <span>开始专注</span>
+                </button>
+                <button type="button" class="side-card-grid-item" @click.stop="openTool('study')">
+                  <Puzzle :size="15" />
+                  <span>错题重练</span>
+                </button>
+              </div>
+              <footer class="side-card-foot">
+                <span>点击打开</span>
+                <ChevronRight :size="15" />
+              </footer>
+            </article>
+
+            <div v-else class="side-card side-card-placeholder" role="group" aria-label="为此卡片选择功能">
+              <header class="side-card-head">
+                <span class="side-card-icon"><Plus :size="17" /></span>
+                <span class="side-card-title">
+                  <strong>选择功能</strong>
+                  <small>把常用工具放到这里</small>
+                </span>
+              </header>
+              <div class="side-card-grid">
+                <button
+                  v-for="option in cardCatalog"
+                  :key="option.id"
+                  type="button"
+                  class="side-card-grid-item"
+                  :disabled="isCardPicked(option.id)"
+                  @click="selectCard(slotIndex, option.id, $event)"
+                >
+                  <component :is="option.icon" :size="15" />
+                  <span>{{ option.label }}</span>
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        </Transition>
       </div>
     </aside>
 
@@ -1640,11 +1865,23 @@ onUnmounted(() => {
           >
             <span class="message-speaker">{{ assistantDisplayName }}</span>
             <span v-if="latestAssistantLine.state === 'streaming'" class="message-text">
-              <span class="markdown-body" v-html="renderMarkdown(latestAssistantLine.text)" />
+              <span class="markdown-body" v-html="renderMarkdown(novelStreamingText)" />
               <i class="stream-cursor" aria-hidden="true" />
             </span>
-            <span v-else class="message-text">
-              <span class="markdown-body" v-html="renderMarkdown(latestAssistantLine.text || '正在连接 Aervox…')" />
+            <span v-else class="message-text message-novel-text">
+              <!-- 视觉小说分句：:key 随释放数变化，触发新句淡入动画 -->
+              <span :key="novelReleased" class="markdown-body" v-html="renderMarkdown(novelDisplayText || '正在连接 Aervox…')" />
+              <button
+                v-if="hasQueuedSentence"
+                type="button"
+                class="novel-next-btn"
+                :aria-label="`显示下一句，还剩 ${queuedSentenceCount} 句`"
+                @click="revealNextSentence"
+              >
+                <span>下一句</span>
+                <span class="novel-next-count" aria-hidden="true">{{ queuedSentenceCount }}</span>
+                <ChevronRight :size="14" />
+              </button>
             </span>
           </p>
           <p v-else class="message-line">
