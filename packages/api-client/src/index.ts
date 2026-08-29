@@ -16,6 +16,18 @@ export { desktopTransport } from './desktop-transport';
 export { useAervoxApi, type GoalDto, type ReviewItemDto, type NotificationDto, type DiaryDto } from './useAervoxApi';
 export { useAervoxPlugins, type PluginSummaryDto, type PluginPageDto } from './useAervoxPlugins';
 export {
+  useAervoxSkills,
+  type SkillDto,
+  type SkillInstallResultDto,
+} from './useAervoxSkills';
+export {
+  useAervoxTools,
+  type ToolRegistrationDto,
+  type RegisterToolInputDto,
+  type McpToolListItemDto,
+  type McpCallToolResultDto,
+} from './useAervoxTools';
+export {
   useAervoxPersonas,
   type PersonaDto,
   type PersonaRevisionDto,

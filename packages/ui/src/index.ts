@@ -9,6 +9,11 @@ export { default as PluginConfigDialog } from './components/plugin/PluginConfigD
 export { default as PluginPageDialog } from './components/plugin/PluginPageDialog.vue';
 export { default as PluginConfigForm } from './components/plugin/PluginConfigForm.vue';
 export { default as PluginConfigFieldInput } from './components/plugin/PluginConfigFieldInput.vue';
+export { default as SkillManagerTab } from './components/plugin/SkillManagerTab.vue';
+export { default as SkillContentDialog } from './components/plugin/SkillContentDialog.vue';
+export { default as McpToolsTab } from './components/plugin/McpToolsTab.vue';
+export { default as ToolCallDialog } from './components/plugin/ToolCallDialog.vue';
+export { default as McpRegisterDialog } from './components/plugin/McpRegisterDialog.vue';
 export { default as Live2DPet } from './components/Live2DPet.vue';
 export * from './live2d/model';
 export { default as PersonaManagerPanel } from './components/persona/PersonaManagerPanel.vue';
