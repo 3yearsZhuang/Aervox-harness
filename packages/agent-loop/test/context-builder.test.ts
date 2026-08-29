@@ -110,7 +110,7 @@ describe("基础系统提示词与工具指引 (Base System Prompt & Tool Guidan
     expect(prompt).toContain("subagent_delegate");
     expect(prompt).toContain("workflow_run");
     expect(prompt).toContain("保持温柔与耐心");
-    expect(prompt).not.toContain("学习模式核心教学原则");
+    expect(prompt).not.toContain("专注模式核心教学原则");
   });
 
   it("buildBaseSystemPrompt：开启 studyMode 时注入苏格拉底启发式教学与防剧透规则", async () => {
@@ -121,7 +121,7 @@ describe("基础系统提示词与工具指引 (Base System Prompt & Tool Guidan
       personaPrompt: "活泼幽默",
     });
 
-    expect(prompt).toContain("学习模式核心教学原则");
+    expect(prompt).toContain("专注模式核心教学原则");
     expect(prompt).toContain("苏格拉底式启发引导");
     expect(prompt).toContain("循序渐进与分步拆解");
     expect(prompt).toContain("活泼幽默");
@@ -145,8 +145,8 @@ describe("基础系统提示词与工具指引 (Base System Prompt & Tool Guidan
     expect(prompt).toContain("刷题模式核心规范");
     expect(prompt).toContain("record_practice_attempt");
     expect(prompt).toContain("ask_user_question");
-    // 刷题段置后于学习模式段（覆盖「不直接给答案」规则）
-    expect(prompt.indexOf("学习模式核心教学原则")).toBeLessThan(
+    // 刷题段置后于专注模式段（覆盖「不直接给答案」规则）
+    expect(prompt.indexOf("专注模式核心教学原则")).toBeLessThan(
       prompt.indexOf("刷题模式核心规范"),
     );
   });
