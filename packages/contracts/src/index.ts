@@ -92,6 +92,7 @@ import {
 
 export * from "./schemas.js";
 export * from "./persona-schemas.js";
+export * from "./mcp-schemas.js";
 export * from "./plugin-config-schemas.js";
 export * from "./practice-schemas.js";
 export * from "./llm-schemas.js";

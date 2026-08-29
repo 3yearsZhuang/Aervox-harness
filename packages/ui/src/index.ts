@@ -14,6 +14,7 @@ export { default as SkillContentDialog } from './components/plugin/SkillContentD
 export { default as McpToolsTab } from './components/plugin/McpToolsTab.vue';
 export { default as ToolCallDialog } from './components/plugin/ToolCallDialog.vue';
 export { default as McpRegisterDialog } from './components/plugin/McpRegisterDialog.vue';
+export { default as McpPresetServers } from './components/plugin/McpPresetServers.vue';
 export { default as Live2DPet } from './components/Live2DPet.vue';
 export { default as AervoxBrandMark } from './components/AervoxBrandMark.vue';
 export { default as AervoxCompanionMark } from './components/AervoxCompanionMark.vue';

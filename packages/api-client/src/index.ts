@@ -37,6 +37,12 @@ export {
   type SkillInstallResultDto,
 } from './useAervoxSkills';
 export {
+  useAervoxMcp,
+  type McpPresetDto,
+  type McpServerConfigDto,
+  type McpServerToolDto,
+} from './useAervoxMcp';
+export {
   useAervoxTools,
   type ToolRegistrationDto,
   type RegisterToolInputDto,

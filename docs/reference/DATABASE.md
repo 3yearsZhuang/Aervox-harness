@@ -4,7 +4,7 @@
 - 修改人：3yearszhuang · 2026-08-29
 
 > 文档编号：AVX-DB-001  
-> 版本：v0.9（CAP-033～035 主动智能派生与外部连接数据面）
+> 版本：v0.10（CAP-020 MCP 预设服务器接入）
 > 更新日期：2026-08-29
 > 状态：Review Candidate  
 > 关联：`CR-003`、`CR-023`、`ADR-003`、`ADR-004`、`ADR-007`、`ADR-011`、`ADR-012`、`ADR-013`、`AVX-SPC-001`、`AVX-PRD-001`、`NFR-SCALE-001`、`NFR-SEC-001`
@@ -28,6 +28,7 @@
 | v0.7 | 2026-08-25 | 人格插件 SQLite 落表 6 张：personas / persona_revisions / persona_selections / workspace_skills / mcp_tools / persona_turn_contexts（CAP-019/020），补 IPersonaRepository / ISkillRepository / IMcpToolRepository 与 §14 清单 |
 | v0.8 | 2026-08-29 | CAP-033 主动智能模式数据面新增授权修订、来源 grant、激活租约、原始捕获、画像声明、动作和本地审计表；补七天提炼清理、local-only 边界和导出/撤权契约 |
 | v0.9 | 2026-08-29 | CR-024 新增十二项主动智能派生、Home Assistant 连接/实体和小米健康每日样本共 17 张本地表；补凭据加密、白名单、同步、导出与连接级删除 |
+| v0.10 | 2026-08-29 | CAP-020 MCP 预设接入：新增系统级 `mcp_servers` 连接配置表（transport/endpoint/本地 Token 不回显/同步状态）与 `IMcpServerRepository`；同步出的远程工具以 `mcp__<serverId>__<toolName>` 命名落 `tool_registrations`（PET-05 分级），预设首项为麦当劳中国官方 MCP（mcd-mcp，Streamable HTTP） |
 
 ---
 
@@ -324,6 +325,23 @@ erDiagram
         INTEGER authorized "0/1"
         INTEGER revoked "0/1"
         INTEGER kill_switch "0/1"
+        TEXT created_at ""
+        TEXT updated_at ""
+    }
+
+    mcp_servers {
+        TEXT id PK "服务器标识（预设 mcd-mcp）"
+        TEXT name "展示名"
+        TEXT transport "streamable_http / sse（预留）"
+        TEXT endpoint_url "接入端点"
+        TEXT auth_type "bearer / none"
+        TEXT token "本地敏感凭据，API 不回传原文"
+        INTEGER enabled "0/1（断开=0）"
+        INTEGER is_preset "0/1 预设档案"
+        TEXT status "disconnected / connected / error"
+        TEXT last_sync_at "最近同步时间"
+        TEXT last_error "最近错误"
+        INTEGER tool_count "最近同步工具数"
         TEXT created_at ""
         TEXT updated_at ""
     }
@@ -1127,6 +1145,7 @@ flowchart TB
 | ActivePersonaSelection | P1 | 已落表 | `persona_selections`（每租户一行条件唯一，激活 upsert） |
 | WorkspaceSkill | P2 | 已落表 | `workspace_skills`（Anthropic SKILL.md 元数据 + filesJson base64 + checksum；导入不执行脚本） |
 | McpTool | P2 | 已落表 | `mcp_tools`（serverId+name 租户内唯一；授权/健康/kill switch 状态） |
+| McpServer（连接配置） | P2 | 已落表 | `mcp_servers`（系统级无租户列：transport/endpoint/本地 Token 与同步状态；同步出的远程工具以 `mcp__<serverId>__<toolName>` 落 `tool_registrations`，category=external；Port 为 `IMcpServerRepository`） |
 | PersonaTurnContext | P1 | 已落表 | `persona_turn_contexts`（turnId 租户内唯一；revision/prompt checksum + skill/mcp 引用，不含完整 Prompt） |
 
 领域 Port 由主仓 `apps/api/src/modules/persona` 定义（`PersonaRepository` / `SkillRepository` / `McpToolRepository`；原 `modules/persona-plugin` 子模块已于 2026-08-28 移除，去模块化收尾见 §4.2），主仓
@@ -1163,7 +1182,7 @@ flowchart TB
 
 ### 14.10 未覆盖结论与下一步
 
-- 当前已落表 **84 张业务表** + 2 张 FTS5 虚表（含独立账本 recovery_control_ledger、CAP-033 八张控制/捕获表和 CR-024 十七张派生/连接表），覆盖 PRD §8 除 PG 用户域外的**全部核心与扩展实体**；未落表仅剩：`UserPreference`（PG 级）与 PG 用户域（User/Workspace/WorkspaceMember/user_profiles，CR-003 范围外）。CAP-033～035 的本地 Vault、十二项派生、HA/健康连接、来源/连接级删除和导出已落地；生产 OS/出网/厂商兼容与双引擎迁移仍待完成。
+- 当前已落表 **85 张业务表** + 2 张 FTS5 虚表（含独立账本 recovery_control_ledger、CAP-033 八张控制/捕获表和 CR-024 十七张派生/连接表），覆盖 PRD §8 除 PG 用户域外的**全部核心与扩展实体**；未落表仅剩：`UserPreference`（PG 级）与 PG 用户域（User/Workspace/WorkspaceMember/user_profiles，CR-003 范围外）。CAP-033～035 的本地 Vault、十二项派生、HA/健康连接、来源/连接级删除和导出已落地；生产 OS/出网/厂商兼容与双引擎迁移仍待完成。
 - **MVP（R1）+ MVP+（R1.5）优先队列已完成**：学习/反馈/会话补齐/溯源/记忆/平台/安全/隐私/埋点/内容/日记域实体全部落表（含 ToolPolicy/AnalyticsEvent/EvalSet、DiarySchedule 等日记域补表、Attachment/EmbeddingIndex、Persona/Skills/MCP 6 张人格域表）。
 - **P1（R2）已完成**：`MemoryNode`/`MemoryEdgeEvidence`/`MemoryAlgorithm`（记忆树投影独立化，memory_edges/overrides 已迁移到节点级）、`ConversationBranch`、`KnowledgeRelation` 已全部落表。
 - **P2/P3 扩展已完成**：`ExternalSource`、`Plugin`/`PluginGrant`、`CommunityContent`、`Organization` 已全部落表（为生态/社区功能预留）。

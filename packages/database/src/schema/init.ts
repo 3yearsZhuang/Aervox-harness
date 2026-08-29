@@ -1597,6 +1597,26 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   // B3：工具结果未知恢复复议声明（never/safe；未声明 = fail-closed 收敛）；旧库幂等补齐
   await addColumnIfMissing(client, "tool_registrations", "replay", "replay TEXT");
 
+  // 17.1 MCP 服务器连接配置（系统级，无租户列；同步出的工具落 tool_registrations）
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS mcp_servers (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      transport TEXT NOT NULL DEFAULT 'streamable_http',
+      endpoint_url TEXT NOT NULL,
+      auth_type TEXT NOT NULL DEFAULT 'bearer',
+      token TEXT,
+      enabled INTEGER NOT NULL DEFAULT 0,
+      is_preset INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'disconnected',
+      last_sync_at TEXT,
+      last_error TEXT,
+      tool_count INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+
   await client.execute(`
     CREATE TABLE IF NOT EXISTS plugin_configs (
       id TEXT PRIMARY KEY,
