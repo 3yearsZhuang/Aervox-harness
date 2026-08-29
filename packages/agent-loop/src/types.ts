@@ -82,6 +82,12 @@ export interface ToolSpec {
   description: string;
   /** read_only：AI 可自主调用；write_with_approval：需授权（阶段 3a） */
   readOnly: boolean;
+  /**
+   * 参数 JSON Schema（OpenAI 兼容 function calling 的 parameters）。
+   * 缺省时 LLM 请求降级为 `{type:"object"}`——模型只能从 description 推断参数形状，
+   * 容易把数组参数序列化为字符串（真实 LLM 下 ask_user_questions 曾触发）。声明 schema 的工具应尽量提供。
+   */
+  parameters?: Record<string, unknown>;
 }
 
 /** 审批信息（宿主在需要授权时返回：approvalId + 授权匹配键） */

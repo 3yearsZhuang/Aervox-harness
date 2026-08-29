@@ -217,7 +217,7 @@ async function preview(): Promise<void> {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
+  transition: border-color 0.22s ease, background-color 0.22s ease, box-shadow 0.22s ease;
 }
 
 .ability-card-header {
@@ -229,6 +229,7 @@ async function preview(): Promise<void> {
   cursor: pointer;
   user-select: none;
   border-bottom: 1px solid transparent;
+  transition: background-color 0.2s ease, border-bottom-color 0.2s ease;
 }
 
 .ability-card.is-open .ability-card-header {

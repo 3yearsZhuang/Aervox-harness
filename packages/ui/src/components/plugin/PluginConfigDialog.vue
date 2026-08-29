@@ -138,8 +138,23 @@ async function reset(): Promise<void> {
 </template>
 
 <style scoped>
-.plugin-config-dialog :deep(.el-dialog__body) { max-height: 66vh; overflow-y: auto; }
+.plugin-config-dialog :deep(.el-dialog__body) {
+  max-height: 66vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
 .pcfg-loading { padding: 30px 0; text-align: center; color: var(--text-muted); font-size: 12px; }
-.pcfg-issues { padding: 16px; border-radius: 10px; background: var(--danger-soft); }
+.pcfg-issues {
+  padding: 16px;
+  border-radius: 10px;
+  background: var(--danger-soft);
+  animation: pcfg-fade-in 0.2s ease-out;
+}
 .pcfg-issue { margin: 0 0 6px; color: var(--danger); font-size: 11px; }
+
+@keyframes pcfg-fade-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 </style>
