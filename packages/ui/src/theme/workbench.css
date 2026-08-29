@@ -135,43 +135,6 @@
   white-space: nowrap;
 }
 
-/* 刷题一次性按钮：与学习模式开关同视觉语言的玻璃胶囊 */
-.floating-quiz-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 clamp(10px, 1vw, 14px);
-  height: clamp(34px, 4vh, 40px);
-  border: 1px solid var(--glass-border);
-  border-radius: 999px;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  color: var(--text-muted);
-  cursor: pointer;
-  opacity: .78;
-  transition: opacity .18s ease, color .18s ease, border-color .18s ease;
-  user-select: none;
-}
-
-.floating-quiz-btn:hover:not(:disabled) {
-  opacity: 1;
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 32%, var(--glass-border));
-}
-
-.floating-quiz-btn:disabled {
-  cursor: not-allowed;
-  opacity: .45;
-}
-
-.quiz-btn-label {
-  font-size: clamp(11.5px, .9vw, 13px);
-  font-weight: 640;
-  letter-spacing: .02em;
-  white-space: nowrap;
-}
-
 /* 切换轨道（iOS 风格，点击整个胶囊均可切换） */
 .study-switch-track {
   position: relative;
@@ -605,6 +568,259 @@
   cursor: not-allowed;
 }
 
+/* ---------- 卡片切换动画（学习模式联动 / AI 提问临时卡 / 手动换卡） ---------- */
+.side-card-slot-inner {
+  min-height: 0;
+  display: grid;
+}
+
+/* 过渡期间禁用指针事件，避免残影误触（与菜单胶囊同一规范） */
+.card-swap-enter-active,
+.card-swap-leave-active {
+  pointer-events: none;
+}
+
+.card-swap-enter-active {
+  transition: opacity .28s cubic-bezier(.2, .8, .3, 1), transform .28s cubic-bezier(.2, .8, .3, 1);
+}
+
+.card-swap-leave-active {
+  transition: opacity .18s ease, transform .18s ease;
+}
+
+.card-swap-enter-from {
+  opacity: 0;
+  transform: translateY(10px) scale(.985);
+}
+
+.card-swap-leave-to {
+  opacity: 0;
+  transform: translateY(-8px) scale(.985);
+}
+
+/* 学习模式下今日学习富卡片：快捷入口网格（固定高度，不抢统计行空间） */
+.side-card-actions {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+/* ---------- 番茄钟卡片基础操作（二级抽屉保留完整表盘交互） ---------- */
+.timer-card-ops {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(6px, 1vh, 9px);
+}
+
+.timer-card-presets {
+  display: flex;
+  gap: 6px;
+}
+
+.timer-chip {
+  flex: 1;
+  padding: clamp(3px, .6vh, 5px) 0;
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-soft) 55%, transparent);
+  color: var(--text-muted);
+  font-size: clamp(10.5px, .8vw, 12px);
+  font-weight: 620;
+  text-align: center;
+  cursor: pointer;
+  transition: color .16s ease, border-color .16s ease, background-color .16s ease;
+}
+
+.timer-chip:hover {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--glass-border));
+}
+
+.timer-chip.active {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--glass-border));
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  font-weight: 660;
+}
+
+.timer-card-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(6px, 1vh, 10px);
+}
+
+/* ---------- 番茄钟倒计时土司（开启后右上流畅侧弹出） ---------- */
+.timer-toast {
+  position: absolute;
+  top: clamp(58px, 8vh, 68px);
+  right: clamp(14px, 1.6vw, 22px);
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  min-width: 236px;
+  max-width: min(300px, 72vw);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-soft) 88%, transparent);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: 0 6px 18px rgba(23, 32, 54, .14), inset 0 1px 0 rgba(255, 255, 255, .16);
+}
+
+.timer-toast-ring {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  transform: rotate(-90deg);
+}
+
+.timer-toast-track {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 4;
+  opacity: .45;
+}
+
+.timer-toast-progress {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 4;
+  stroke-linecap: round;
+  /* 每秒 tick 之间以线性过渡，形成连续流走的倒计时环动画 */
+  transition: stroke-dashoffset 1s linear;
+}
+
+.timer-toast-body {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.timer-toast-time {
+  color: var(--text-primary);
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .02em;
+}
+
+.timer-toast-label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding-left: 11px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.timer-toast-label::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: timer-toast-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes timer-toast-pulse {
+  0%, 100% { opacity: .35; transform: scale(.85); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+.timer-toast-ops {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+
+.timer-toast-ops button {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--bg-soft) 60%, transparent);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color .16s ease, border-color .16s ease, background-color .16s ease;
+}
+
+.timer-toast-ops button:hover {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--glass-border));
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+/* 过渡期间禁用指针事件，防残影误触（与菜单胶囊/卡片切换同一规范） */
+.timer-toast-enter-active,
+.timer-toast-leave-active {
+  pointer-events: none;
+}
+
+.timer-toast-enter-active {
+  transition: opacity .34s cubic-bezier(.2, .8, .3, 1), transform .38s cubic-bezier(.16, 1, .3, 1);
+}
+
+.timer-toast-leave-active {
+  transition: opacity .22s ease, transform .24s cubic-bezier(.4, 0, 1, 1);
+}
+
+.timer-toast-enter-from,
+.timer-toast-leave-to {
+  opacity: 0;
+  transform: translateX(calc(100% + 24px));
+}
+
+/* AI 提问临时卡：整卡不用于打开工具，指针恢复默认；正文多行省略 */
+.side-question-card {
+  cursor: default;
+}
+
+.side-question-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.side-question-options .side-card-grid-item.picked {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--glass-border));
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.side-question-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  padding: clamp(6px, 1vh, 9px) clamp(12px, 1.2vw, 16px);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--glass-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font-size: clamp(11.5px, .9vw, 13px);
+  font-weight: 640;
+  cursor: pointer;
+  transition: background-color .16s ease, border-color .16s ease;
+}
+
+.side-question-submit:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.side-question-submit:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
 /* ---------- 底部控制台：消息对话框 + 输入框 ---------- */
 
 .immersive-console {
@@ -627,7 +843,7 @@
 .message-panel {
   position: relative;
   width: min(100%, var(--console-max-width));
-  max-height: clamp(150px, 34vh, 460px);
+  max-height: clamp(120px, 26vh, 320px);
   display: flex;
   flex-direction: column;
   padding: clamp(16px, 2.4vh, 26px) clamp(20px, 2.6vw, 36px);
@@ -672,6 +888,66 @@
   word-break: break-word;
 }
 
+/* PET-05: 写工具授权确认卡片（与消息流同栏） */
+.tool-approval-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(8px, 1vw, 14px);
+  padding: clamp(10px, 1.4vh, 14px) clamp(12px, 1.6vw, 16px);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--glass-bg);
+}
+
+.tool-approval-text {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.tool-approval-text strong {
+  color: var(--text-primary);
+  font-size: clamp(12px, 1.1vh, 14px);
+}
+
+.tool-approval-text span {
+  color: var(--text-secondary);
+  font-size: clamp(11px, 1vh, 13px);
+}
+
+.tool-approval-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.tool-approval-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 13px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--accent-contrast, #fff);
+  font-size: clamp(11px, 1vh, 13px);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tool-approval-actions button.secondary {
+  background: transparent;
+  border-color: var(--border-strong);
+  color: var(--text-secondary);
+}
+
+.tool-approval-actions button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+
 .message-line.user .message-speaker {
   color: var(--text-muted);
 }
@@ -683,6 +959,72 @@
 
 .message-line.error .message-text {
   color: var(--danger);
+}
+
+/* ── 视觉小说式分句（CAP-001）：新句淡入 + 「下一句」玻璃胶囊按钮（左下贴文本，不占额外高度） ── */
+.message-novel-text {
+  display: grid;
+  gap: 0;
+}
+
+.message-novel-text .markdown-body {
+  animation: novel-sentence-in .28s ease;
+}
+
+@keyframes novel-sentence-in {
+  from {
+    opacity: .35;
+    transform: translateY(3px);
+  }
+}
+
+.novel-next-btn {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 4px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--glass-border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+  font-size: clamp(11.5px, .9vw, 12.5px);
+  font-weight: 660;
+  letter-spacing: .02em;
+  cursor: pointer;
+  transition: background-color .18s ease, border-color .18s ease, transform .18s ease;
+  animation: novel-next-in .34s cubic-bezier(.2, .8, .3, 1);
+}
+
+.novel-next-btn:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--glass-border));
+  transform: translateY(-1px);
+}
+
+.novel-next-btn:active {
+  transform: translateY(0);
+}
+
+.novel-next-count {
+  min-width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  font-size: 10px;
+  font-weight: 720;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes novel-next-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
 }
 
 /* 核心概念标签栏（学习模式 · 渐变光泽卡片与芯片） */
@@ -3010,6 +3352,256 @@
   line-height: 1.5;
 }
 
+.proactive-view-tabs {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.proactive-intelligence-grid,
+.proactive-connection-list,
+.proactive-entity-list,
+.proactive-health-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.proactive-intelligence-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--border);
+}
+
+.proactive-intelligence-grid li {
+  min-width: 0;
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 28px;
+  gap: 8px;
+  align-items: center;
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.proactive-intelligence-grid li:nth-child(odd) {
+  border-right: 1px solid var(--border);
+}
+
+.proactive-intelligence-grid li.active > svg,
+.proactive-intelligence-grid li.active > b {
+  color: var(--accent);
+}
+
+.proactive-intelligence-grid li > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.proactive-intelligence-grid strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proactive-intelligence-grid small {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.proactive-intelligence-grid b {
+  font-size: 13px;
+  text-align: right;
+}
+
+.proactive-integration-section {
+  display: grid;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.proactive-integration-section + .proactive-integration-section {
+  margin-top: 4px;
+  padding-top: 15px;
+  border-top: 1px solid var(--border);
+}
+
+.proactive-integration-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px 10px;
+}
+
+.proactive-integration-form label {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.proactive-integration-form label.wide {
+  grid-column: 1 / -1;
+}
+
+.proactive-integration-form label > span {
+  color: var(--text-muted);
+  font-size: 10.5px;
+}
+
+.proactive-integration-form input,
+.proactive-ops-input {
+  min-width: 0;
+  height: 34px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  outline: none;
+  background: var(--bg-main);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 11px;
+}
+
+.proactive-integration-form input:focus,
+.proactive-ops-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.proactive-integration-form > button {
+  width: fit-content;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.proactive-integration-form > button:disabled {
+  cursor: not-allowed;
+  opacity: .48;
+}
+
+.proactive-connection-list,
+.proactive-entity-list {
+  border-top: 1px solid var(--border);
+}
+
+.proactive-connection-list li {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 28px 28px;
+  gap: 7px;
+  align-items: center;
+  min-height: 48px;
+  padding: 8px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+}
+
+.proactive-connection-list li > span,
+.proactive-entity-list li > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.proactive-connection-list strong,
+.proactive-entity-list strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proactive-connection-list small,
+.proactive-entity-list small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proactive-connection-list em {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-style: normal;
+}
+
+.proactive-connection-list em.is-active {
+  color: var(--accent);
+}
+
+.proactive-connection-list button {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-main);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.proactive-connection-list button:last-child {
+  color: var(--danger, #dc2626);
+}
+
+.proactive-entity-list li {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) minmax(150px, .75fr);
+  gap: 9px;
+  align-items: center;
+  min-height: 50px;
+  padding: 8px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+}
+
+.proactive-ops-input:disabled {
+  opacity: .55;
+}
+
+.proactive-health-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.proactive-health-list li {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-soft);
+}
+
+.proactive-health-list span,
+.proactive-health-list small {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.proactive-health-list strong {
+  overflow-wrap: anywhere;
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
 .proactive-authorization-scope {
   display: grid;
   gap: 5px;
@@ -3089,6 +3681,33 @@
     --console-max-width: 100%;
   }
 
+  /* 窄视口：番茄钟土司收缩（隐藏副文案、缩环），避开下方卡片区 */
+  .timer-toast {
+    top: 56px;
+    min-width: 0;
+    padding: 8px 10px;
+    gap: 9px;
+  }
+
+  .timer-toast-ring {
+    width: 32px;
+    height: 32px;
+    flex-basis: 32px;
+  }
+
+  .timer-toast-time {
+    font-size: 15px;
+  }
+
+  .timer-toast-label {
+    display: none;
+  }
+
+  .timer-toast-ops button {
+    width: 26px;
+    height: 26px;
+  }
+
   /* 窄视口：学习模式开关去文字，只留图标 + 轨道，避免与左侧菜单胶囊拥挤 */
   .study-switch-label {
     display: none;
@@ -3100,7 +3719,7 @@
   }
 
   .message-panel {
-    max-height: clamp(200px, 52vh, 520px);
+    max-height: clamp(160px, 40vh, 380px);
   }
 
   .composer-expanded {
@@ -3129,6 +3748,28 @@
   .proactive-request-button {
     grid-column: 3;
     grid-row: 1 / span 2;
+  }
+
+  .proactive-intelligence-grid,
+  .proactive-integration-form,
+  .proactive-health-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .proactive-intelligence-grid li:nth-child(odd) {
+    border-right: 0;
+  }
+
+  .proactive-integration-form label.wide {
+    grid-column: auto;
+  }
+
+  .proactive-entity-list li {
+    grid-template-columns: 36px minmax(0, 1fr);
+  }
+
+  .proactive-ops-input {
+    grid-column: 2;
   }
 
   .composer-actions {
@@ -3241,7 +3882,7 @@
 
 @media (max-height: 640px) {
   .message-panel {
-    max-height: 48vh;
+    max-height: 38vh;
   }
 
   .composer-expanded textarea {

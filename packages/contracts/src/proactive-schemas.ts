@@ -160,3 +160,78 @@ export const proactiveExportResponseSchema = z.object({
   }),
   data: z.unknown(),
 });
+
+const proactiveRecordListSchema = z.array(z.record(z.string(), z.unknown()));
+
+export const proactiveConnectionResponseSchema = z.object({
+  id: z.string(),
+  provider: z.string(),
+  displayName: z.string(),
+  endpoint: z.string().nullable().optional(),
+  authType: z.string(),
+  scopes: z.array(z.string()),
+  settings: z.record(z.string(), z.unknown()),
+  state: z.string(),
+  lastSyncAt: z.string().nullable().optional(),
+  lastError: z.string().nullable().optional(),
+  hasCredential: z.boolean(),
+});
+
+export const proactiveIntelligenceDashboardSchema = z.object({
+  timeline: proactiveRecordListSchema,
+  projects: proactiveRecordListSchema,
+  commitments: proactiveRecordListSchema,
+  workflows: proactiveRecordListSchema,
+  triggers: proactiveRecordListSchema,
+  verifications: proactiveRecordListSchema,
+  conflicts: proactiveRecordListSchema,
+  preparations: proactiveRecordListSchema,
+  attention: proactiveRecordListSchema,
+  drift: proactiveRecordListSchema,
+  relationships: proactiveRecordListSchema,
+  scenes: proactiveRecordListSchema,
+  reviews: proactiveRecordListSchema,
+  connections: z.array(proactiveConnectionResponseSchema),
+  homeEntities: proactiveRecordListSchema,
+  health: proactiveRecordListSchema,
+});
+
+export const homeAssistantEntityAuthorizationSchema = z.object({
+  entityId: z.string().min(3),
+  enabled: z.boolean().optional(),
+  sensitive: z.boolean().optional(),
+  allowedOps: z.array(z.string().regex(/^[a-z0-9_.]+$/)).optional(),
+});
+
+export const homeAssistantConnectionRequestSchema = z.object({
+  id: z.string().min(1).optional(),
+  displayName: z.string().min(1).optional(),
+  endpoint: z.url(),
+  accessToken: z.string().min(8),
+  subscriptionEnabled: z.boolean().default(true),
+  entities: z.array(homeAssistantEntityAuthorizationSchema).optional(),
+});
+
+export const homeAssistantEntityPatchSchema = homeAssistantEntityAuthorizationSchema.omit({entityId: true});
+
+export const homeAssistantCallServiceSchema = z.object({
+  entityId: z.string().min(3),
+  service: z.string().regex(/^[a-z0-9_]+$/),
+  data: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const xiaomiHealthConnectionRequestSchema = z.object({
+  id: z.string().min(1).optional(),
+  displayName: z.string().min(1).optional(),
+  apiBaseUrl: z.url(),
+  accessToken: z.string().min(8),
+  refreshToken: z.string().min(1).optional(),
+  tokenEndpoint: z.url().optional(),
+  clientId: z.string().min(1).optional(),
+  clientSecret: z.string().min(1).optional(),
+  dailyPath: z.string().min(1).optional(),
+  scopes: z.array(z.string()).optional(),
+  localDate: z.iso.date().optional(),
+});
+
+export const proactiveSyncDateSchema = z.object({localDate: z.iso.date().optional()});

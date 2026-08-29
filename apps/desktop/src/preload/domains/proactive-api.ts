@@ -6,9 +6,13 @@ import type {
   ProfilePersistenceUpdate,
   ProfileSourceId,
   ProactiveExportResult,
+  HomeAssistantConnectionInput,
+  ProactiveHomeEntityView,
+  ProactiveIntelligenceDashboard,
   ProactiveProfileClaimState,
   ProactiveProfileClaimView,
   ProactiveProfileStatus,
+  XiaomiHealthConnectionInput,
 } from '@aervox/contracts/proactive'
 
 export type ProactiveToolApprovalMode = 'ask' | 'full_access'
@@ -84,6 +88,31 @@ function requireClaim(value: unknown): ProactiveProfileClaimView {
   return value as unknown as ProactiveProfileClaimView
 }
 
+function requireDashboard(value: unknown): ProactiveIntelligenceDashboard {
+  if (!isObject(value)
+    || !Array.isArray(value.timeline)
+    || !Array.isArray(value.projects)
+    || !Array.isArray(value.workflows)
+    || !Array.isArray(value.connections)
+    || !Array.isArray(value.homeEntities)
+    || !Array.isArray(value.health)) {
+    throw new Error('invalid proactive intelligence dashboard')
+  }
+  return value as unknown as ProactiveIntelligenceDashboard
+}
+
+function requireHomeEntity(value: unknown): ProactiveHomeEntityView {
+  if (!isObject(value)
+    || typeof value.id !== 'string'
+    || typeof value.connectionId !== 'string'
+    || typeof value.entityId !== 'string'
+    || typeof value.enabled !== 'boolean'
+    || !Array.isArray(value.allowedOps)) {
+    throw new Error('invalid Home Assistant entity')
+  }
+  return value as unknown as ProactiveHomeEntityView
+}
+
 export const proactiveApi = {
   getStatus: async (toolApprovalMode: ProactiveToolApprovalMode): Promise<ProactiveProfileStatus> =>
     requireStatus(await ipcRenderer.invoke('proactive:status', {toolApprovalMode})),
@@ -120,6 +149,35 @@ export const proactiveApi = {
   ): Promise<ProactiveProfileClaimView> => requireClaim(
     await ipcRenderer.invoke('proactive:claims:state', {claimId, state}),
   ),
+
+  getIntelligenceDashboard: async (): Promise<ProactiveIntelligenceDashboard> =>
+    requireDashboard(await ipcRenderer.invoke('proactive:intelligence:dashboard')),
+
+  connectHomeAssistant: (input: HomeAssistantConnectionInput): Promise<unknown> =>
+    ipcRenderer.invoke('proactive:ha:connect', input),
+
+  syncHomeAssistant: (connectionId: string): Promise<unknown> =>
+    ipcRenderer.invoke('proactive:ha:sync', {connectionId}),
+
+  configureHomeAssistantEntity: async (
+    connectionId: string,
+    entityId: string,
+    patch: {enabled?: boolean; sensitive?: boolean; allowedOps?: string[]},
+  ): Promise<ProactiveHomeEntityView> => requireHomeEntity(
+    await ipcRenderer.invoke('proactive:ha:entity', {connectionId, entityId, patch}),
+  ),
+
+  deleteHomeAssistant: (connectionId: string): Promise<boolean> =>
+    ipcRenderer.invoke('proactive:ha:delete', {connectionId}) as Promise<boolean>,
+
+  connectXiaomiHealth: (input: XiaomiHealthConnectionInput): Promise<unknown> =>
+    ipcRenderer.invoke('proactive:xiaomi:connect', input),
+
+  syncXiaomiHealth: (connectionId: string, localDate?: string): Promise<unknown> =>
+    ipcRenderer.invoke('proactive:xiaomi:sync', {connectionId, localDate}),
+
+  deleteXiaomiHealth: (connectionId: string): Promise<boolean> =>
+    ipcRenderer.invoke('proactive:xiaomi:delete', {connectionId}) as Promise<boolean>,
 
   exportData: async (includeRaw = false): Promise<ProactiveExportResult | null> => {
     const result = await ipcRenderer.invoke('proactive:export', {includeRaw}) as unknown

@@ -304,7 +304,7 @@ export async function executeTurn(
         await inbox.ack({ itemIds: stepInboxItems.map((i) => i.id) });
       }
 
-      // 收集本 Step 输出（文本增量 + 工具请求）
+      // 收集本 Step 输出（文本增量 + 工具请求）；模型流式可能长于租约 TTL，心跳续租
       const stepStartedAt = Date.now();
       // B4-C：模型调用重试 —— 仅【首个可见片段前且无副作用】时允许（§10 maxModelRetries）
       let canRetryModel = maxModelRetries > 0 && step === stepBase + 1 && textAccumulator.length === 0;
@@ -544,13 +544,13 @@ export async function executeTurn(
             name: call.name,
             arguments: call.arguments,
           });
+          // 长耗时工具放宽超时：ask_user_question 等待用户交互（默认 120s）；
+          // aervox_diary_write 内含一次完整 LLM 日记生成（CAP-009），同样放宽
+          const isAskUser = call.name === "ask_user_question";
+          const isDiaryWrite = call.name === "aervox_diary_write";
+          const effectiveTimeout =
+            isAskUser || isDiaryWrite ? Math.max(toolTimeoutMs, 120000) : toolTimeoutMs;
           try {
-            // ask_user_question 工具需要等待用户交互，使用更长超时（默认 120s）或配置项。
-            // 注意（缺陷 C）：语义超时唯一真源是 UserQuestionCoordinator 持久化的 expiresAt
-            // （默认 60s，崩溃后仍按持久化时间判定）；此处 120s 仅是进程存活时的最终兜底，
-            // 避免协调器异常后工具长期悬挂。
-            const isAskUser = call.name === "ask_user_question";
-            const effectiveTimeout = isAskUser ? Math.max(toolTimeoutMs, 120000) : toolTimeoutMs;
             // 缺陷 D：工具超时通过 AbortController 传播取消信号，底层可感知并清理挂起副作用
             const cancel = new AbortController();
             // B2：租约丢失（心跳探知）→ abort 在途工具（即使工具不感知 signal，工具返回后检查点也会收敛）
@@ -575,6 +575,7 @@ export async function executeTurn(
               throw new LeaseLostError("lease lost during tool execution");
             }
             result = { id: call.id, name: call.name, ok: false, error: err instanceof Error ? err.message : "tool_execution_error" };
+          } finally {
           }
           // 2c：以权威结果收口预留行（§9：非幂等副作用失败不自动重试）
           const finalStatus: ToolExecutionStatus = result.needsApproval

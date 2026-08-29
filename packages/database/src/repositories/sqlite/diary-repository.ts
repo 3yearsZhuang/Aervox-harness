@@ -321,6 +321,42 @@ export class SqliteDiaryRepository implements IDiaryRepository {
     return created as DiaryVersionModel;
   }
 
+  /**
+   * 更新日记主行内容（改写路径）：内容指向最新版本，version 递增，状态转 edited。
+   * 历史版本不覆盖（createDiaryVersion 已落版本账本）；此处仅推进主行指针。
+   */
+  async updateDiaryContent(
+    tenant: TenantContext,
+    diaryId: string,
+    update: { title?: string; content: string },
+  ): Promise<DiaryModel> {
+    assertTenantContext(tenant);
+    const [existing] = await this.db
+      .select()
+      .from(diaries)
+      .where(
+        and(
+          eq(diaries.id, diaryId),
+          eq(diaries.workspaceId, tenant.workspaceId),
+          eq(diaries.subjectUserId, tenant.subjectUserId),
+        ),
+      );
+    if (!existing) throw new Error(`Diary ${diaryId} not found in tenant`);
+    const now = new Date().toISOString();
+    const [updated] = await this.db
+      .update(diaries)
+      .set({
+        title: update.title ?? existing.title,
+        content: update.content,
+        version: existing.version + 1,
+        status: "edited",
+        updatedAt: now,
+      })
+      .where(eq(diaries.id, diaryId))
+      .returning();
+    return updated as DiaryModel;
+  }
+
   async createDiaryParagraphSource(
     sourceData: {
       id: string;

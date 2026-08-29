@@ -4,7 +4,7 @@
 - 修改人：3yearszhuang · 2026-08-29
 
 > 文档编号：AVX-DB-001  
-> 版本：v0.8（CAP-033 主动智能模式数据面）
+> 版本：v0.9（CAP-033～035 主动智能派生与外部连接数据面）
 > 更新日期：2026-08-29
 > 状态：Review Candidate  
 > 关联：`CR-003`、`CR-023`、`ADR-003`、`ADR-004`、`ADR-007`、`ADR-011`、`ADR-012`、`ADR-013`、`AVX-SPC-001`、`AVX-PRD-001`、`NFR-SCALE-001`、`NFR-SEC-001`
@@ -27,6 +27,7 @@
 | v0.6 | 2026-08-25 | P2/P3 扩展落表 5 张：external_sources + plugins/plugin_grants + community_contents + organizations + IExtensionRepository；§14 覆盖 48→53 张业务表，除 PG 用户域外全部落表 |
 | v0.7 | 2026-08-25 | 人格插件 SQLite 落表 6 张：personas / persona_revisions / persona_selections / workspace_skills / mcp_tools / persona_turn_contexts（CAP-019/020），补 IPersonaRepository / ISkillRepository / IMcpToolRepository 与 §14 清单 |
 | v0.8 | 2026-08-29 | CAP-033 主动智能模式数据面新增授权修订、来源 grant、激活租约、原始捕获、画像声明、动作和本地审计表；补七天提炼清理、local-only 边界和导出/撤权契约 |
+| v0.9 | 2026-08-29 | CR-024 新增十二项主动智能派生、Home Assistant 连接/实体和小米健康每日样本共 17 张本地表；补凭据加密、白名单、同步、导出与连接级删除 |
 
 ---
 
@@ -41,6 +42,7 @@
 7. **SQLite 阶段不启用用户注册**：用户域（workspaces/users/credentials/workspace_members/user_profiles）5 张表仅在 PostgreSQL 阶段创建。SQLite 阶段 `subject_user_id` 视为本地标识字符串，不关联凭证或组织角色。
 8. **CAP-033 私密数据隔离**：主动智能模式的授权、来源、捕获、画像、动作、租约和审计表必须显式带 `processing_boundary=local_only`，不写入普通远程同步/分析旁路；原始捕获按七天且完成记忆提炼后才允许清理。
 9. **CAP-033 全动作授权溯源**：每个主动动作必须绑定用户确认的 `FullProfileActionGrant`、授权修订、目标 scope、设备租约和 deny 水位；数据库层不得把模型请求或普通 Turn 自动授权当作动作授权。
+10. **CAP-034/035 外部连接最小化**：连接凭据与私密设置使用本地 Vault cipher；HA 实体默认禁用并保存 service 白名单；健康只保存规范化每日指标。删除连接必须同时删除凭据和对应实体缓存/健康样本。
 
 ---
 
@@ -73,7 +75,7 @@
 
 CAP-033 的 `proactive_*` 表是当前 SQLite 数据面中的独立逻辑域。它们可以与业务库共享 SQLite 进程，但必须由本地 Host 选择本地文件/连接、禁止远程 `DATABASE_URL`、禁止普通 Outbox/分析同步，并在每条记录上保留租户、授权修订和 `processing_boundary`。若部署无法证明本地边界，CAP-033 必须保持挂起。
 
-当前分支已补 `proactive_profile_revisions`、`proactive_source_grants`、`proactive_activation_leases`、`proactive_captures`、`proactive_observations`、`proactive_profile_claims`、`proactive_actions` 和 `proactive_audit_events` 的 Drizzle/SQLite 初始化、Repository 和本地 Vault 加密；已接入授权/lease、动作运行时、Aervox activity/operation、剪贴板、屏幕/浏览器/显式文件根适配器、Worker 提炼、本地画像上下文、来源级删除和导出。剩余签名 Provider 证明、通信/音视频/位置/传感器适配器和双引擎迁移仍属待实现。生产控制面另要求 owner-only `proactive-access.token`（私密目录 `0600`）、字面 loopback 连接和禁止 redirect；令牌不得进入业务表、日志或导出。
+当前分支已补 CAP-033 的 8 张控制/捕获表，以及 CR-024 的 17 张主动派生与连接表；已接入授权/lease、动作运行时、部分来源、Worker 提炼、十二项派生、Home Assistant 实体目录、小米健康每日指标、本地画像上下文、连接/来源级删除和导出。剩余签名 Provider 证明、未接入平台来源、生产 HA/OAuth 兼容矩阵和双引擎迁移仍属待实现。生产控制面另要求 owner-only `proactive-access.token`（私密目录 `0600`）、字面 loopback 连接和禁止 redirect；令牌与外部连接凭据不得进入日志或导出。
 
 ---
 
@@ -999,7 +1001,7 @@ flowchart TB
 ## 13. 参考与落地代码
 
 - 真源 schema：[packages/database/src/schema/](../../packages/database/src/schema)
-- CAP-033 主动智能模式 schema：[proactive.ts](../../packages/database/src/schema/proactive.ts)；初始化：[init.ts](../../packages/database/src/schema/init.ts)
+- CAP-033 主动智能控制/捕获 schema：[proactive.ts](../../packages/database/src/schema/proactive.ts)；CAP-033～035 派生与连接 schema：[proactive-intelligence.ts](../../packages/database/src/schema/proactive-intelligence.ts)；初始化：[init.ts](../../packages/database/src/schema/init.ts)
 - 连接与共享库路径：[client.ts](../../packages/database/src/client.ts#L21-L23)（`createDatabase` 默认 `<repo>/data/aervox.db`，见 §2.1）
 - 公共列定义：[common.ts](../../packages/database/src/schema/common.ts#L6-L17)
 - DDL 初始化脚本：[init.ts](../../packages/database/src/schema/init.ts#L9-L219)
@@ -1021,7 +1023,7 @@ flowchart TB
 >
 > - **阶段**：`MVP`（R1）/ `MVP+`（R1.5）/ `P1`（R2）/ `P2`（R4）/ `P3`（R5）/ `PG`（PostgreSQL 启用后，CR-003 范围外）。
 > - **实现状态**：`已落表`（当前 SQLite schema 已有）／ `已建模`（本文档 §3/§4/§5 有规划表或规划列）／ `未落表`（仅 PRD 定义，进入规划 backlog）。
-> - 当前 SQLite 真源在原有业务表基础上新增 8 张 CAP-033 表（共 67 张业务表，含独立账本 recovery_control_ledger）+ 2 张 FTS5 虚表；CAP-033 的 Repository、Vault 加密、授权/lease、部分来源采集、提炼、动作授权和导出已落地，系统级适配器、生产出网/OS 门禁、双引擎迁移与完整 TC 仍待补齐，并走 `CR-*`。
+> - 当前 SQLite 真源在原有业务表基础上包含 8 张 CAP-033 控制/捕获表和 17 张主动派生/连接表（共 84 张业务表，含独立账本 recovery_control_ledger）+ 2 张 FTS5 虚表；本地 Vault、十二项派生、HA/健康连接骨架已落地，生产 OS/出网/厂商兼容门禁、双引擎迁移与完整 TC 仍待补齐，并走 `CR-*`。
 
 ### 14.1 用户域 Identity（PG 启用后 · CR-003 范围外）
 
@@ -1145,9 +1147,23 @@ flowchart TB
 
 上述表已在 `packages/database/src/schema/proactive.ts` 和 `schema/init.ts` 建立结构/初始化骨架；完整采集适配器、Provider 本地证明、删除 Worker 和双引擎迁移仍待实现，不能据此宣称 CAP-033 已发布。
 
+### 14.10 主动智能派生与外部连接域（CAP-033～035）
+
+| 逻辑实体 | 状态 | SQLite 真源与约束 |
+|---|---|---|
+| PersonalTimeline / Project / Relationship / Commitment | 已落表 | `proactive_timeline_events`、`proactive_projects`、`proactive_relationships`、`proactive_commitments`；正文加密，按 tenant/revision 隔离 |
+| Workflow / TriggerRule / TriggerEvent | 已落表 | `proactive_workflow_templates`、`proactive_trigger_rules`、`proactive_trigger_events`；触发原因本地加密，事件 ID 去重 |
+| ActionVerification / ClaimConflict / PreparationBundle | 已落表 | `proactive_action_verifications`、`proactive_claim_conflicts`、`proactive_preparation_bundles`；关联动作、声明、项目或承诺 |
+| AttentionState / DriftSignal / SceneSnapshot / ReviewReport | 已落表 | `proactive_attention_states`、`proactive_drift_signals`、`proactive_scene_snapshots`、`proactive_review_reports`；支持小时窗口和日/周周期幂等 |
+| ExternalConnection | 已落表 | `proactive_external_connections`；provider/endpoint/scopes 明文最小化，display/settings/error/credential 使用 Vault cipher，API 不回显 credential |
+| HomeEntity | 已落表 | `proactive_home_entities`；`connectionId+entityId` 唯一，默认 `enabled=false`，保存 service 白名单与受限状态属性 |
+| HealthSample | 已落表 | `proactive_health_samples`；`tenant+connection+metric+localDate` 唯一，只保存步数、睡眠分钟、静息心率和最小元数据 |
+
+实现真源：[proactive-intelligence.ts](../../packages/database/src/schema/proactive-intelligence.ts)、[proactive-intelligence-repository.ts](../../packages/database/src/repositories/sqlite/proactive-intelligence-repository.ts) 与 [init.ts](../../packages/database/src/schema/init.ts)。连接删除先停止运行时，再删除 `proactive_external_connections` 及对应 HA 实体/健康样本；导出不包含连接凭据。
+
 ### 14.10 未覆盖结论与下一步
 
-- 当前已落表 **67 张业务表** + 2 张 FTS5 虚表（含独立账本 recovery_control_ledger 和 CAP-033 八张表），覆盖 PRD §8 除 PG 用户域外的**全部核心与扩展实体**；未落表仅剩：`UserPreference`（PG 级）与 PG 用户域（User/Workspace/WorkspaceMember/user_profiles，CR-003 范围外）。CAP-033 的本地 Vault、授权/lease、部分来源采集、提炼、动作授权、来源级删除和导出已落地，系统级其余适配器、生产 OS/出网证明和双引擎迁移仍待完成。
+- 当前已落表 **84 张业务表** + 2 张 FTS5 虚表（含独立账本 recovery_control_ledger、CAP-033 八张控制/捕获表和 CR-024 十七张派生/连接表），覆盖 PRD §8 除 PG 用户域外的**全部核心与扩展实体**；未落表仅剩：`UserPreference`（PG 级）与 PG 用户域（User/Workspace/WorkspaceMember/user_profiles，CR-003 范围外）。CAP-033～035 的本地 Vault、十二项派生、HA/健康连接、来源/连接级删除和导出已落地；生产 OS/出网/厂商兼容与双引擎迁移仍待完成。
 - **MVP（R1）+ MVP+（R1.5）优先队列已完成**：学习/反馈/会话补齐/溯源/记忆/平台/安全/隐私/埋点/内容/日记域实体全部落表（含 ToolPolicy/AnalyticsEvent/EvalSet、DiarySchedule 等日记域补表、Attachment/EmbeddingIndex、Persona/Skills/MCP 6 张人格域表）。
 - **P1（R2）已完成**：`MemoryNode`/`MemoryEdgeEvidence`/`MemoryAlgorithm`（记忆树投影独立化，memory_edges/overrides 已迁移到节点级）、`ConversationBranch`、`KnowledgeRelation` 已全部落表。
 - **P2/P3 扩展已完成**：`ExternalSource`、`Plugin`/`PluginGrant`、`CommunityContent`、`Organization` 已全部落表（为生态/社区功能预留）。
