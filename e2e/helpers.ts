@@ -24,7 +24,11 @@ export function getDbPath(name: string): string {
   return path.join(dir, `${name}.db`);
 }
 
-export function startServer(port: number, dbPath: string): Promise<{ server: ChildProcess; url: string }> {
+export function startServer(
+  port: number,
+  dbPath: string,
+  extraEnv: Record<string, string> = {},
+): Promise<{ server: ChildProcess; url: string }> {
   return new Promise((resolve, reject) => {
     const server = spawn("node", ["dist/index.js"], {
       cwd: path.join(repoRoot, "apps", "api"),
@@ -34,6 +38,7 @@ export function startServer(port: number, dbPath: string): Promise<{ server: Chi
         PORT: String(port),
         DATABASE_URL: `file:${dbPath}`,
         NODE_ENV: "test",
+        ...extraEnv,
       },
     });
 

@@ -3,7 +3,7 @@
  *
  * 规则依据：docs/reference/PRD.md §8 + docs/reference/DATABASE.md §14.3
  */
-import { eq, and, lte, desc, ne, isNull, or } from "drizzle-orm";
+import { eq, and, lte, desc, ne, isNull, or, asc, inArray } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import {
   learningGoals,
@@ -16,7 +16,9 @@ import {
   mistakeInsights,
   knowledgeRelations,
   practiceReports,
-  studyPlans,
+  learningPlans,
+  planMilestones,
+  planTasks,
 } from "../../schema/index.js";
 import { assertTenantContext, type TenantContext } from "../../tenant.js";
 import type {
@@ -30,7 +32,9 @@ import type {
   ReviewItemModel,
   KnowledgeRelationModel,
   PracticeReportModel,
-  StudyPlanModel,
+  LearningPlanModel,
+  PlanMilestoneModel,
+  PlanTaskModel,
 } from "../types.js";
 
 export class SqliteLearningRepository implements ILearningRepository {
@@ -1125,174 +1129,308 @@ export class SqliteLearningRepository implements ILearningRepository {
     return created as PracticeReportModel;
   }
 
-  // ============ CAP-017 学习计划 ============
+  // ============ CAP-017 学习规划（里程碑 + 任务路线图） ============
 
-  async createStudyPlan(
+  async createLearningPlan(
     tenant: TenantContext,
     input: {
       id: string;
-      goalId?: string;
+      topic: string;
+      level?: string;
       title: string;
-      startDate: string;
-      endDate: string;
-      restDays?: string[];
+      description: string;
+      learningObjective: string;
+      gains?: string[];
       dailyAvailableMinutes?: number;
+      milestones: Array<{
+        id: string;
+        title: string;
+        description?: string;
+        briefing?: string;
+        completionCriteria?: string;
+        debrief?: string;
+        tasks: Array<{
+          id: string;
+          title: string;
+          description?: string;
+          hints?: string[];
+        }>;
+      }>;
     },
-  ): Promise<StudyPlanModel> {
+  ): Promise<LearningPlanModel> {
     assertTenantContext(tenant);
-    const now = new Date().toISOString();
-    const [created] = await this.db
-      .insert(studyPlans)
-      .values({
+    await this.db.transaction(async (tx) => {
+      const now = new Date().toISOString();
+      await tx.insert(learningPlans).values({
         id: input.id,
         workspaceId: tenant.workspaceId,
         subjectUserId: tenant.subjectUserId,
-        goalId: input.goalId ?? null,
+        topic: input.topic,
+        level: input.level ?? "beginner",
         title: input.title,
-        startDate: input.startDate,
-        endDate: input.endDate,
-        restDays: input.restDays ?? [],
-        dailyAvailableMinutes: input.dailyAvailableMinutes ?? 120,
+        description: input.description,
+        learningObjective: input.learningObjective,
+        gains: input.gains ?? [],
+        dailyAvailableMinutes: input.dailyAvailableMinutes ?? 25,
         status: "active",
-        revisionCount: 0,
         createdAt: now,
         updatedAt: now,
-      })
-      .returning();
-    return created as StudyPlanModel;
+      });
+      for (const [index, milestone] of input.milestones.entries()) {
+        await tx.insert(planMilestones).values({
+          id: milestone.id,
+          workspaceId: tenant.workspaceId,
+          subjectUserId: tenant.subjectUserId,
+          planId: input.id,
+          order: index,
+          title: milestone.title,
+          description: milestone.description ?? null,
+          briefing: milestone.briefing ?? null,
+          completionCriteria: milestone.completionCriteria ?? null,
+          debrief: milestone.debrief ?? null,
+          // 首个里程碑 active，其余 locked（任务完成驱动推进）
+          status: index === 0 ? "active" : "locked",
+          createdAt: now,
+          updatedAt: now,
+        });
+        for (const [taskIndex, task] of milestone.tasks.entries()) {
+          await tx.insert(planTasks).values({
+            id: task.id,
+            workspaceId: tenant.workspaceId,
+            subjectUserId: tenant.subjectUserId,
+            milestoneId: milestone.id,
+            order: taskIndex,
+            title: task.title,
+            description: task.description ?? null,
+            hints: task.hints ?? [],
+            status: "todo",
+            createdAt: now,
+            updatedAt: now,
+          });
+        }
+      }
+    });
+    const created = await this.getLearningPlan(tenant, input.id);
+    if (!created) throw new Error("learning plan creation failed to persist");
+    return created;
   }
 
-  async getStudyPlan(tenant: TenantContext, planId: string): Promise<StudyPlanModel | null> {
+  async getLearningPlan(tenant: TenantContext, planId: string): Promise<LearningPlanModel | null> {
     assertTenantContext(tenant);
-    const [found] = await this.db
+    const [plan] = await this.db
       .select()
-      .from(studyPlans)
+      .from(learningPlans)
       .where(
         and(
-          eq(studyPlans.id, planId),
-          eq(studyPlans.workspaceId, tenant.workspaceId),
-          eq(studyPlans.subjectUserId, tenant.subjectUserId),
-          eq(studyPlans.status, "active"),
+          eq(learningPlans.id, planId),
+          eq(learningPlans.workspaceId, tenant.workspaceId),
+          eq(learningPlans.subjectUserId, tenant.subjectUserId),
         ),
       )
       .limit(1);
-    return (found as StudyPlanModel) ?? null;
+    if (!plan) return null;
+    const milestones = await this.listPlanMilestones(tenant, [plan.id]);
+    return this.hydratePlan(plan, milestones);
   }
 
-  async listStudyPlans(tenant: TenantContext): Promise<StudyPlanModel[]> {
+  async listLearningPlans(
+    tenant: TenantContext,
+    includeArchived = false,
+  ): Promise<LearningPlanModel[]> {
     assertTenantContext(tenant);
-    const rows = await this.db
+    const planRows = await this.db
       .select()
-      .from(studyPlans)
+      .from(learningPlans)
       .where(
-        and(
-          eq(studyPlans.workspaceId, tenant.workspaceId),
-          eq(studyPlans.subjectUserId, tenant.subjectUserId),
-          eq(studyPlans.status, "active"),
-        ),
+        includeArchived
+          ? and(eq(learningPlans.workspaceId, tenant.workspaceId), eq(learningPlans.subjectUserId, tenant.subjectUserId))
+          : and(
+              eq(learningPlans.workspaceId, tenant.workspaceId),
+              eq(learningPlans.subjectUserId, tenant.subjectUserId),
+              eq(learningPlans.status, "active"),
+            ),
       )
-      .orderBy(desc(studyPlans.updatedAt));
-    return rows as StudyPlanModel[];
+      .orderBy(desc(learningPlans.updatedAt));
+    if (planRows.length === 0) return [];
+    const milestones = await this.listPlanMilestones(tenant, planRows.map((plan) => plan.id));
+    return planRows.map((plan) =>
+      this.hydratePlan(
+        plan,
+        milestones.filter((milestone) => milestone.planId === plan.id),
+      ),
+    );
   }
 
-  async updateStudyPlan(
+  async setPlanTaskStatus(
     tenant: TenantContext,
-    planId: string,
-    updates: {
-      title?: string;
-      startDate?: string;
-      endDate?: string;
-      restDays?: string[];
-      dailyAvailableMinutes?: number;
-    },
-  ): Promise<StudyPlanModel | null> {
+    taskId: string,
+    status: "todo" | "done",
+  ): Promise<LearningPlanModel | null> {
     assertTenantContext(tenant);
-    const now = new Date().toISOString();
-    const setValues: Record<string, unknown> = { updatedAt: now };
-    // revisionCount 递增（滚动调整不删除已完成记录）
-    if (Object.keys(updates).length > 0) {
-      setValues.revisionCount = 1; // will be used with SQL increment
-    }
-    if (updates.title !== undefined) setValues.title = updates.title;
-    if (updates.startDate !== undefined) setValues.startDate = updates.startDate;
-    if (updates.endDate !== undefined) setValues.endDate = updates.endDate;
-    if (updates.restDays !== undefined) setValues.restDays = updates.restDays;
-    if (updates.dailyAvailableMinutes !== undefined) setValues.dailyAvailableMinutes = updates.dailyAvailableMinutes;
-
-    const [updated] = await this.db
-      .update(studyPlans)
-      .set({
-        ...setValues,
-        revisionCount: 1, // placeholder; actual increment below
-      })
+    const [task] = await this.db
+      .select()
+      .from(planTasks)
       .where(
         and(
-          eq(studyPlans.id, planId),
-          eq(studyPlans.workspaceId, tenant.workspaceId),
-          eq(studyPlans.subjectUserId, tenant.subjectUserId),
-          eq(studyPlans.status, "active"),
+          eq(planTasks.id, taskId),
+          eq(planTasks.workspaceId, tenant.workspaceId),
+          eq(planTasks.subjectUserId, tenant.subjectUserId),
         ),
       )
-      .returning();
+      .limit(1);
+    if (!task) return null;
+    const [milestone] = await this.db
+      .select()
+      .from(planMilestones)
+      .where(eq(planMilestones.id, task.milestoneId))
+      .limit(1);
+    if (!milestone) return null;
 
-    // 手动递增 revisionCount
-    if (updated) {
-      await this.db
-        .update(studyPlans)
-        .set({ revisionCount: ((updated as StudyPlanModel).revisionCount ?? 0) + 1, updatedAt: now })
-        .where(eq(studyPlans.id, planId));
-      const [refetched] = await this.db
+    const now = new Date().toISOString();
+    await this.db.transaction(async (tx) => {
+      await tx
+        .update(planTasks)
+        .set({ status, updatedAt: now })
+        .where(eq(planTasks.id, taskId));
+      // 里程碑链推进：前置里程碑全部完成 → completed；其后第一个未完成 → active；再后 → locked
+      const chain = await tx
         .select()
-        .from(studyPlans)
-        .where(eq(studyPlans.id, planId))
-        .limit(1);
-      return (refetched as StudyPlanModel) ?? null;
-    }
-    return null;
+        .from(planMilestones)
+        .where(
+          and(
+            eq(planMilestones.planId, milestone.planId),
+            eq(planMilestones.workspaceId, tenant.workspaceId),
+            eq(planMilestones.subjectUserId, tenant.subjectUserId),
+          ),
+        )
+        .orderBy(asc(planMilestones.order));
+      const milestoneIds = chain.map((item) => item.id);
+      const taskRows =
+        milestoneIds.length > 0
+          ? await tx.select().from(planTasks).where(inArray(planTasks.milestoneId, milestoneIds))
+          : [];
+      let chainComplete = true;
+      for (const item of chain) {
+        const itemTasks = taskRows.filter((row) => row.milestoneId === item.id);
+        const allDone =
+          itemTasks.length > 0 && itemTasks.every((row) => row.status === "done");
+        const nextStatus = allDone && chainComplete ? "completed" : chainComplete ? "active" : "locked";
+        if (!allDone) chainComplete = false;
+        if (item.status !== nextStatus) {
+          await tx
+            .update(planMilestones)
+            .set({ status: nextStatus, updatedAt: now })
+            .where(eq(planMilestones.id, item.id));
+        }
+      }
+    });
+    return this.getLearningPlan(tenant, milestone.planId);
   }
 
-  async updateCompletionPrediction(
-    tenant: TenantContext,
-    planId: string,
-    prediction: string,
-    degradationPlan?: unknown,
-  ): Promise<StudyPlanModel | null> {
+  async archiveLearningPlan(tenant: TenantContext, planId: string): Promise<LearningPlanModel | null> {
     assertTenantContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
-      .update(studyPlans)
-      .set({
-        completionPrediction: prediction,
-        degradationPlan: degradationPlan ?? null,
-        updatedAt: now,
-      })
-      .where(
-        and(
-          eq(studyPlans.id, planId),
-          eq(studyPlans.workspaceId, tenant.workspaceId),
-          eq(studyPlans.subjectUserId, tenant.subjectUserId),
-          eq(studyPlans.status, "active"),
-        ),
-      )
-      .returning();
-    return (updated as StudyPlanModel) ?? null;
-  }
-
-  async archiveStudyPlan(tenant: TenantContext, planId: string): Promise<StudyPlanModel | null> {
-    assertTenantContext(tenant);
-    const now = new Date().toISOString();
-    const [updated] = await this.db
-      .update(studyPlans)
+      .update(learningPlans)
       .set({ status: "archived", updatedAt: now })
       .where(
         and(
-          eq(studyPlans.id, planId),
-          eq(studyPlans.workspaceId, tenant.workspaceId),
-          eq(studyPlans.subjectUserId, tenant.subjectUserId),
-          eq(studyPlans.status, "active"),
+          eq(learningPlans.id, planId),
+          eq(learningPlans.workspaceId, tenant.workspaceId),
+          eq(learningPlans.subjectUserId, tenant.subjectUserId),
+          eq(learningPlans.status, "active"),
         ),
       )
       .returning();
-    return (updated as StudyPlanModel) ?? null;
+    if (!updated) return null;
+    return this.getLearningPlan(tenant, planId);
+  }
+
+  /** 把 plan 行 + 里程碑聚合为 LearningPlanModel */
+  private hydratePlan(
+    plan: typeof learningPlans.$inferSelect,
+    milestones: PlanMilestoneModel[],
+  ): LearningPlanModel {
+    return {
+      id: plan.id,
+      workspaceId: plan.workspaceId,
+      subjectUserId: plan.subjectUserId,
+      topic: plan.topic,
+      level: plan.level,
+      title: plan.title,
+      description: plan.description,
+      learningObjective: plan.learningObjective,
+      gains: (plan.gains as string[]) ?? [],
+      dailyAvailableMinutes: plan.dailyAvailableMinutes,
+      status: plan.status,
+      milestones,
+      createdAt: plan.createdAt,
+      updatedAt: plan.updatedAt,
+    };
+  }
+
+  /** 聚合指定规划的里程碑（含任务，按 sort_order 排序） */
+  private async listPlanMilestones(tenant: TenantContext, planIds: string[]) {
+    if (planIds.length === 0) return [];
+    const milestoneRows = await this.db
+      .select()
+      .from(planMilestones)
+      .where(
+        and(
+          inArray(planMilestones.planId, planIds),
+          eq(planMilestones.workspaceId, tenant.workspaceId),
+          eq(planMilestones.subjectUserId, tenant.subjectUserId),
+        ),
+      )
+      .orderBy(asc(planMilestones.order));
+    const milestoneIds = milestoneRows.map((row) => row.id);
+    const taskRows =
+      milestoneIds.length > 0
+        ? await this.db
+            .select()
+            .from(planTasks)
+            .where(
+              and(
+                inArray(planTasks.milestoneId, milestoneIds),
+                eq(planTasks.workspaceId, tenant.workspaceId),
+                eq(planTasks.subjectUserId, tenant.subjectUserId),
+              ),
+            )
+            .orderBy(asc(planTasks.order))
+        : [];
+    return milestoneRows.map(
+      (milestone): PlanMilestoneModel => ({
+        id: milestone.id,
+        workspaceId: milestone.workspaceId,
+        subjectUserId: milestone.subjectUserId,
+        planId: milestone.planId,
+        order: milestone.order,
+        title: milestone.title,
+        description: milestone.description,
+        briefing: milestone.briefing,
+        completionCriteria: milestone.completionCriteria,
+        debrief: milestone.debrief,
+        status: milestone.status,
+        tasks: taskRows
+          .filter((task) => task.milestoneId === milestone.id)
+          .map(
+            (task): PlanTaskModel => ({
+              id: task.id,
+              workspaceId: task.workspaceId,
+              subjectUserId: task.subjectUserId,
+              milestoneId: task.milestoneId,
+              order: task.order,
+              title: task.title,
+              description: task.description,
+              hints: (task.hints as string[]) ?? [],
+              status: task.status,
+              createdAt: task.createdAt,
+              updatedAt: task.updatedAt,
+            }),
+          ),
+        createdAt: milestone.createdAt,
+        updatedAt: milestone.updatedAt,
+      }),
+    );
   }
 }

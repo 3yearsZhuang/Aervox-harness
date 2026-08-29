@@ -49,8 +49,8 @@ describe("Learning OpenAPI 契约", () => {
   it("声明练习报告与学习计划的读取和调整端点", () => {
     expect(openApiDocument.paths["/v1/practice-reports"]?.post?.responses).toHaveProperty("201");
     expect(openApiDocument.paths["/v1/practice-sessions/{sessionId}/reports"]?.get?.responses).toHaveProperty("200");
-    expect(openApiDocument.paths["/v1/study-plans"]?.get?.responses).toHaveProperty("200");
-    expect(openApiDocument.paths["/v1/study-plans/{planId}/prediction"]?.post?.responses).toHaveProperty("200");
+    expect(openApiDocument.paths["/v1/learning-plans"]?.get?.responses).toHaveProperty("200");
+    expect(openApiDocument.paths["/v1/learning-plans/generate"]?.post?.responses).toHaveProperty("201");
   });
   it('声明日记查询与写工具授权端点（CAP-009 / PET-05）', () => {
     const diaries = openApiDocument.paths['/v1/diaries']?.get;

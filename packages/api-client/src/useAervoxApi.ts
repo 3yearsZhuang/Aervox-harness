@@ -70,18 +70,40 @@ export interface PracticeReportDto {
   nextStep: 'continue' | 'review_scheduled' | 'await_review';
 }
 
-export interface StudyPlanDto {
+export interface PlanTaskDto {
   id: string;
-  goalId?: string | null;
+  milestoneId: string;
+  order: number;
   title: string;
-  startDate: string;
-  endDate: string;
-  restDays: string[];
+  description?: string | null;
+  hints: string[];
+  status: string;
+}
+
+export interface PlanMilestoneDto {
+  id: string;
+  planId: string;
+  order: number;
+  title: string;
+  description?: string | null;
+  briefing?: string | null;
+  completionCriteria?: string | null;
+  debrief?: string | null;
+  status: string;
+  tasks: PlanTaskDto[];
+}
+
+export interface LearningPlanDto {
+  id: string;
+  topic: string;
+  level: string;
+  title: string;
+  description: string;
+  learningObjective: string;
+  gains: string[];
   dailyAvailableMinutes: number;
   status: string;
-  completionPrediction?: 'on_track' | 'at_risk' | 'cannot_complete' | null;
-  degradationPlan?: unknown;
-  revisionCount: number;
+  milestones: PlanMilestoneDto[];
 }
 
 export interface MistakeItemDto {
@@ -99,38 +121,13 @@ export interface MistakeItemDto {
 
 export type MistakeReasonCode = 'concept_gap' | 'calculation' | 'careless' | 'misread' | 'other';
 
-export interface NotificationDto {
-  id: string;
-  type: string;
-  scheduledAt: string;
-  sentAt: string | null;
-  channel: string;
-  status: string;
-}
-
-export interface DiaryDto {
-  id: string;
-  localDate: string;
-  title: string;
-  content: string;
-  status: string;
-}
-
-const todayLocal = (): string => {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-};
-
 export function useAervoxApi() {
   const goals = ref<GoalDto[]>([]);
   const dueReviews = ref<ReviewItemDto[]>([]);
   const completedReviews = ref<ReviewItemDto[]>([]);
   const reviewSummary = ref<ReviewSummaryDto | null>(null);
   const mistakes = ref<MistakeItemDto[]>([]);
-  const studyPlans = ref<StudyPlanDto[]>([]);
-  const notifications = ref<NotificationDto[]>([]);
-  const todayDiary = ref<DiaryDto | null>(null);
+  const learningPlans = ref<LearningPlanDto[]>([]);
   const activePracticeSession = ref<PracticeSessionDto | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
@@ -142,17 +139,13 @@ export function useAervoxApi() {
     loading.value = true;
     error.value = null;
     try {
-      const [g, r, summary, history, m, plans, n, d, activeSession] = await Promise.all([
+      const [g, r, summary, history, m, plans, activeSession] = await Promise.all([
         transport.request<{ items: GoalDto[] }>('GET', `/v1/learning/goals${includeArchived ? '?includeArchived=true' : ''}`).catch(() => ({ items: [] })),
         transport.request<{ items: ReviewItemDto[] }>('GET', '/v1/review-items').catch(() => ({ items: [] })),
         transport.request<ReviewSummaryDto>('GET', `/v1/review-items/summary?timeZone=${encodeURIComponent(timeZone)}`).catch(() => null),
         transport.request<{ items: ReviewItemDto[] }>('GET', '/v1/review-items/history?limit=5').catch(() => ({ items: [] })),
         transport.request<{ items: MistakeItemDto[] }>('GET', '/v1/mistakes?status=all').catch(() => ({ items: [] })),
-        transport.request<{ items: StudyPlanDto[] }>('GET', '/v1/study-plans').catch(() => ({ items: [] })),
-        transport.request<{ items: NotificationDto[] }>('GET', '/v1/notifications').catch(() => ({ items: [] })),
-        transport
-          .request<DiaryDto>(`GET`, `/v1/diaries?localDate=${encodeURIComponent(todayLocal())}`)
-          .catch(() => null),
+        transport.request<{ items: LearningPlanDto[] }>('GET', '/v1/learning-plans').catch(() => ({ items: [] })),
         transport.request<PracticeSessionDto>('GET', '/v1/practice/sessions/active').catch(() => null),
       ]);
       goals.value = g.items;
@@ -160,9 +153,7 @@ export function useAervoxApi() {
       reviewSummary.value = summary;
       completedReviews.value = history.items;
       mistakes.value = m.items;
-      studyPlans.value = plans.items;
-      notifications.value = n.items;
-      todayDiary.value = d;
+      learningPlans.value = plans.items;
       activePracticeSession.value = activeSession;
     } catch (e) {
       error.value = e instanceof Error ? e.message : '加载失败';
@@ -174,13 +165,6 @@ export function useAervoxApi() {
   const createGoal = async (goal: { topic: string; level?: LearningGoalLevel; availableMinutes?: number }): Promise<void> => {
     await transport.request('POST', '/v1/learning/goals', goal);
     await loadAll();
-  };
-
-  /** CAP-009: 单独刷新今日日记（对话触发生成后调用，避免全量 loadAll） */
-  const loadTodayDiary = async (): Promise<void> => {
-    todayDiary.value = await transport
-      .request<DiaryDto>(`GET`, `/v1/diaries?localDate=${encodeURIComponent(todayLocal())}`)
-      .catch(() => null);
   };
 
   const updateGoal = async (goalId: string, update: UpdateLearningGoal): Promise<void> => {
@@ -209,20 +193,24 @@ export function useAervoxApi() {
     await loadAll();
   };
 
-  const createStudyPlan = async (plan: { goalId?: string; title: string; startDate: string; endDate: string; dailyAvailableMinutes?: number }): Promise<void> => {
-    await transport.request('POST', '/v1/study-plans', plan);
+  const generateLearningPlan = async (
+    input: { topic: string; level?: 'beginner' | 'intermediate' | 'advanced'; dailyMinutes?: number },
+  ): Promise<LearningPlanDto> => {
+    const plan = await transport.request<LearningPlanDto>('POST', '/v1/learning-plans/generate', input);
     await loadAll();
+    return plan;
   };
-  const updateStudyPlan = async (planId: string, update: { endDate?: string; dailyAvailableMinutes?: number }): Promise<void> => {
-    await transport.request('PATCH', `/v1/study-plans/${encodeURIComponent(planId)}`, update);
+
+  const setPlanTaskStatus = async (taskId: string, status: 'todo' | 'done'): Promise<LearningPlanDto | null> => {
+    const plan = await transport
+      .request<LearningPlanDto>('PATCH', `/v1/plan-tasks/${encodeURIComponent(taskId)}`, { status })
+      .catch(() => null);
     await loadAll();
+    return plan;
   };
-  const updateStudyPlanPrediction = async (planId: string, prediction: 'on_track' | 'at_risk' | 'cannot_complete'): Promise<void> => {
-    await transport.request('POST', `/v1/study-plans/${encodeURIComponent(planId)}/prediction`, { prediction });
-    await loadAll();
-  };
-  const archiveStudyPlan = async (planId: string): Promise<void> => {
-    await transport.request('POST', `/v1/study-plans/${encodeURIComponent(planId)}/archive`);
+
+  const archiveLearningPlan = async (planId: string): Promise<void> => {
+    await transport.request('POST', `/v1/learning-plans/${encodeURIComponent(planId)}/archive`);
     await loadAll();
   };
 
@@ -262,15 +250,12 @@ export function useAervoxApi() {
     completedReviews,
     reviewSummary,
     mistakes,
-    studyPlans,
-    notifications,
-    todayDiary,
+    learningPlans,
     activePracticeSession,
     loading,
     error,
     hasData,
     loadAll,
-    loadTodayDiary,
     createGoal,
     updateGoal,
     archiveGoal,
@@ -278,10 +263,9 @@ export function useAervoxApi() {
     submitPracticeAnswer,
     completePracticeSession,
     completeReview,
-    createStudyPlan,
-    updateStudyPlan,
-    updateStudyPlanPrediction,
-    archiveStudyPlan,
+    generateLearningPlan,
+    setPlanTaskStatus,
+    archiveLearningPlan,
     setMistakeStatus,
     setMistakeInsight,
     startMistakePractice,

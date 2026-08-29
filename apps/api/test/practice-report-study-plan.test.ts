@@ -1,21 +1,17 @@
 /**
- * Aervox｜思隅 @aervox/api — 自适应刷题报告 + 考试日计划集成测试（CAP-016/017）
+ * Aervox｜思隅 @aervox/api — 自适应刷题报告集成测试（CAP-016）
  *
- * CAP-016 覆盖：
+ * 覆盖：
  * - 报告创建（区分观测与推断）
  * - 报告查询
  * - 重置推断（保留原始作答）
- *
- * CAP-017 覆盖：
- * - 计划创建/查询/更新/归档
- * - 滚动调整（revisionCount 递增，不删除记录）
- * - 完成预测与降级计划
  * - 租户隔离
+ *
+ * 注：原 CAP-017 学习计划用例已随 study-plans 移除，学习规划由 learning-plan.test.ts 覆盖。
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   createInMemoryDatabase,
-  SqliteLearningRepository,
   type AervoxDatabase,
 } from "@aervox/database";
 import { buildApp } from "../src/app.js";
@@ -32,7 +28,7 @@ const otherHeaders = {
   "x-user-id": "usr_other",
 } as const;
 
-describe("自适应刷题报告 + 考试日计划（CAP-016/017）", () => {
+describe("自适应刷题报告（CAP-016）", () => {
   let app: FastifyInstance;
   let db: AervoxDatabase;
   let client: Client;
@@ -52,8 +48,6 @@ describe("自适应刷题报告 + 考试日计划（CAP-016/017）", () => {
     await app.close();
     await cleanup();
   });
-
-  // ============ CAP-016 练习报告 ============
 
   it("CAP-016：报告区分观测与推断", async () => {
     const res = await app.inject({
@@ -146,183 +140,7 @@ describe("自适应刷题报告 + 考试日计划（CAP-016/017）", () => {
     expect(listRes.json().items.length).toBe(2); // 原始 + reset
   });
 
-  // ============ CAP-017 学习计划 ============
-
-  it("CAP-017：创建学习计划，可修改日期/休息日/可用时间", async () => {
-    const res = await app.inject({
-      method: "POST",
-      url: "/v1/study-plans",
-      headers,
-      payload: {
-        title: "期末考试复习",
-        startDate: "2026-09-01",
-        endDate: "2026-09-30",
-        restDays: ["2026-09-10", "2026-09-11"],
-        dailyAvailableMinutes: 180,
-      },
-    });
-    expect(res.statusCode).toBe(201);
-    const body = res.json();
-    expect(body.id).toBeTruthy();
-    expect(body.title).toBe("期末考试复习");
-    expect(body.startDate).toBe("2026-09-01");
-    expect(body.endDate).toBe("2026-09-30");
-    expect(body.restDays).toEqual(["2026-09-10", "2026-09-11"]);
-    expect(body.dailyAvailableMinutes).toBe(180);
-    expect(body.status).toBe("active");
-    expect(body.revisionCount).toBe(0);
-  });
-
-  it("CAP-017：滚动调整不删除已完成记录（revisionCount 递增）", async () => {
-    // 创建计划
-    const createRes = await app.inject({
-      method: "POST",
-      url: "/v1/study-plans",
-      headers,
-      payload: {
-        title: "计划A",
-        startDate: "2026-09-01",
-        endDate: "2026-09-20",
-      },
-    });
-    const planId = createRes.json().id;
-    expect(createRes.json().revisionCount).toBe(0);
-
-    // 第一次调整
-    const update1 = await app.inject({
-      method: "PATCH",
-      url: `/v1/study-plans/${planId}`,
-      headers,
-      payload: { endDate: "2026-09-25" },
-    });
-    expect(update1.statusCode).toBe(200);
-    expect(update1.json().endDate).toBe("2026-09-25");
-
-    // 第二次调整
-    const update2 = await app.inject({
-      method: "PATCH",
-      url: `/v1/study-plans/${planId}`,
-      headers,
-      payload: { dailyAvailableMinutes: 200, restDays: ["2026-09-15"] },
-    });
-    expect(update2.statusCode).toBe(200);
-    expect(update2.json().dailyAvailableMinutes).toBe(200);
-
-    // revisionCount 应递增（不删除已完成记录）
-    const getRes = await app.inject({
-      method: "GET",
-      url: `/v1/study-plans/${planId}`,
-      headers,
-    });
-    expect(getRes.json().revisionCount).toBeGreaterThan(0);
-  });
-
-  it("CAP-017：预测无法完成时展示降级计划", async () => {
-    const createRes = await app.inject({
-      method: "POST",
-      url: "/v1/study-plans",
-      headers,
-      payload: {
-        title: "紧张计划",
-        startDate: "2026-09-01",
-        endDate: "2026-09-10",
-      },
-    });
-    const planId = createRes.json().id;
-
-    // 更新预测为无法完成
-    const predRes = await app.inject({
-      method: "POST",
-      url: `/v1/study-plans/${planId}/prediction`,
-      headers,
-      payload: {
-        prediction: "cannot_complete",
-        degradationPlan: { strategy: "focus_core", drop: ["chapter_5", "chapter_6"] },
-      },
-    });
-    expect(predRes.statusCode).toBe(200);
-    const body = predRes.json();
-    expect(body.completionPrediction).toBe("cannot_complete");
-    expect(body.degradationPlan).toEqual({ strategy: "focus_core", drop: ["chapter_5", "chapter_6"] });
-
-    // 也可更新为 on_track
-    const onTrackRes = await app.inject({
-      method: "POST",
-      url: `/v1/study-plans/${planId}/prediction`,
-      headers,
-      payload: { prediction: "on_track" },
-    });
-    expect(onTrackRes.json().completionPrediction).toBe("on_track");
-  });
-
-  it("CAP-017：归档计划后不再可见", async () => {
-    const createRes = await app.inject({
-      method: "POST",
-      url: "/v1/study-plans",
-      headers,
-      payload: {
-        title: "归档测试",
-        startDate: "2026-09-01",
-        endDate: "2026-09-15",
-      },
-    });
-    const planId = createRes.json().id;
-
-    const archiveRes = await app.inject({
-      method: "POST",
-      url: `/v1/study-plans/${planId}/archive`,
-      headers,
-    });
-    expect(archiveRes.statusCode).toBe(200);
-    expect(archiveRes.json().status).toBe("archived");
-
-    // 归档后 GET 返回 404
-    const getRes = await app.inject({
-      method: "GET",
-      url: `/v1/study-plans/${planId}`,
-      headers,
-    });
-    expect(getRes.statusCode).toBe(404);
-
-    // 不在列表中
-    const listRes = await app.inject({
-      method: "GET",
-      url: "/v1/study-plans",
-      headers,
-    });
-    expect(listRes.json().items.length).toBe(0);
-  });
-
-  // ============ 租户隔离 ============
-
-  it("租户隔离：不同工作区无法互相访问计划和报告", async () => {
-    // 创建计划
-    const createRes = await app.inject({
-      method: "POST",
-      url: "/v1/study-plans",
-      headers,
-      payload: { title: "隔离", startDate: "2026-09-01", endDate: "2026-09-20" },
-    });
-    const planId = createRes.json().id;
-
-    // 其他租户无法获取
-    const otherGet = await app.inject({
-      method: "GET",
-      url: `/v1/study-plans/${planId}`,
-      headers: otherHeaders,
-    });
-    expect(otherGet.statusCode).toBe(404);
-
-    // 其他租户无法调整
-    const otherUpdate = await app.inject({
-      method: "PATCH",
-      url: `/v1/study-plans/${planId}`,
-      headers: otherHeaders,
-      payload: { title: "hijack" },
-    });
-    expect(otherUpdate.statusCode).toBe(404);
-
-    // 创建报告
+  it("租户隔离：不同工作区无法互相访问报告", async () => {
     const reportRes = await app.inject({
       method: "POST",
       url: "/v1/practice-reports",

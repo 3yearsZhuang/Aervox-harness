@@ -14012,9 +14012,9 @@
         }
       }
     },
-    "/v1/study-plans": {
+    "/v1/learning-plans/generate": {
       "post": {
-        "summary": "创建学习计划",
+        "summary": "AI 生成学习规划（里程碑+任务路线图）",
         "tags": [
           "Learning"
         ],
@@ -14053,36 +14053,26 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "goalId": {
-                    "type": "string"
-                  },
-                  "title": {
+                  "topic": {
                     "type": "string",
                     "minLength": 1
                   },
-                  "startDate": {
+                  "level": {
                     "type": "string",
-                    "minLength": 1
+                    "enum": [
+                      "beginner",
+                      "intermediate",
+                      "advanced"
+                    ]
                   },
-                  "endDate": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "restDays": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "dailyAvailableMinutes": {
+                  "dailyMinutes": {
                     "type": "integer",
-                    "minimum": 0
+                    "minimum": 5,
+                    "maximum": 600
                   }
                 },
                 "required": [
-                  "title",
-                  "startDate",
-                  "endDate"
+                  "topic"
                 ]
               }
             }
@@ -14105,22 +14095,22 @@
                     "subjectUserId": {
                       "type": "string"
                     },
-                    "goalId": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                    "topic": {
+                      "type": "string"
+                    },
+                    "level": {
+                      "type": "string"
                     },
                     "title": {
                       "type": "string"
                     },
-                    "startDate": {
+                    "description": {
                       "type": "string"
                     },
-                    "endDate": {
+                    "learningObjective": {
                       "type": "string"
                     },
-                    "restDays": {
+                    "gains": {
                       "type": "array",
                       "items": {
                         "type": "string"
@@ -14132,15 +14122,135 @@
                     "status": {
                       "type": "string"
                     },
-                    "completionPrediction": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "degradationPlan": {},
-                    "revisionCount": {
-                      "type": "integer"
+                    "milestones": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "workspaceId": {
+                            "type": "string"
+                          },
+                          "subjectUserId": {
+                            "type": "string"
+                          },
+                          "planId": {
+                            "type": "string"
+                          },
+                          "order": {
+                            "type": "integer"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "briefing": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "completionCriteria": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "debrief": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "tasks": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "workspaceId": {
+                                  "type": "string"
+                                },
+                                "subjectUserId": {
+                                  "type": "string"
+                                },
+                                "milestoneId": {
+                                  "type": "string"
+                                },
+                                "order": {
+                                  "type": "integer"
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "description": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "hints": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "status": {
+                                  "type": "string"
+                                },
+                                "createdAt": {
+                                  "type": "string"
+                                },
+                                "updatedAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "workspaceId",
+                                "subjectUserId",
+                                "milestoneId",
+                                "order",
+                                "title",
+                                "hints",
+                                "status",
+                                "createdAt",
+                                "updatedAt"
+                              ]
+                            }
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "workspaceId",
+                          "subjectUserId",
+                          "planId",
+                          "order",
+                          "title",
+                          "status",
+                          "tasks",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      }
                     },
                     "createdAt": {
                       "type": "string"
@@ -14153,13 +14263,15 @@
                     "id",
                     "workspaceId",
                     "subjectUserId",
+                    "topic",
+                    "level",
                     "title",
-                    "startDate",
-                    "endDate",
-                    "restDays",
+                    "description",
+                    "learningObjective",
+                    "gains",
                     "dailyAvailableMinutes",
                     "status",
-                    "revisionCount",
+                    "milestones",
                     "createdAt",
                     "updatedAt"
                   ]
@@ -14168,12 +14280,14 @@
             }
           },
           "400": {
-            "description": "Validation failed"
+            "description": "Validation failed / LLM 未配置"
           }
         }
-      },
+      }
+    },
+    "/v1/learning-plans": {
       "get": {
-        "summary": "列出活跃学习计划",
+        "summary": "列出学习规划",
         "tags": [
           "Learning"
         ],
@@ -14228,22 +14342,22 @@
                           "subjectUserId": {
                             "type": "string"
                           },
-                          "goalId": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                          "topic": {
+                            "type": "string"
+                          },
+                          "level": {
+                            "type": "string"
                           },
                           "title": {
                             "type": "string"
                           },
-                          "startDate": {
+                          "description": {
                             "type": "string"
                           },
-                          "endDate": {
+                          "learningObjective": {
                             "type": "string"
                           },
-                          "restDays": {
+                          "gains": {
                             "type": "array",
                             "items": {
                               "type": "string"
@@ -14255,15 +14369,135 @@
                           "status": {
                             "type": "string"
                           },
-                          "completionPrediction": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
-                          },
-                          "degradationPlan": {},
-                          "revisionCount": {
-                            "type": "integer"
+                          "milestones": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "workspaceId": {
+                                  "type": "string"
+                                },
+                                "subjectUserId": {
+                                  "type": "string"
+                                },
+                                "planId": {
+                                  "type": "string"
+                                },
+                                "order": {
+                                  "type": "integer"
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "description": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "briefing": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "completionCriteria": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "debrief": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "status": {
+                                  "type": "string"
+                                },
+                                "tasks": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "workspaceId": {
+                                        "type": "string"
+                                      },
+                                      "subjectUserId": {
+                                        "type": "string"
+                                      },
+                                      "milestoneId": {
+                                        "type": "string"
+                                      },
+                                      "order": {
+                                        "type": "integer"
+                                      },
+                                      "title": {
+                                        "type": "string"
+                                      },
+                                      "description": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "hints": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "status": {
+                                        "type": "string"
+                                      },
+                                      "createdAt": {
+                                        "type": "string"
+                                      },
+                                      "updatedAt": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "workspaceId",
+                                      "subjectUserId",
+                                      "milestoneId",
+                                      "order",
+                                      "title",
+                                      "hints",
+                                      "status",
+                                      "createdAt",
+                                      "updatedAt"
+                                    ]
+                                  }
+                                },
+                                "createdAt": {
+                                  "type": "string"
+                                },
+                                "updatedAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "workspaceId",
+                                "subjectUserId",
+                                "planId",
+                                "order",
+                                "title",
+                                "status",
+                                "tasks",
+                                "createdAt",
+                                "updatedAt"
+                              ]
+                            }
                           },
                           "createdAt": {
                             "type": "string"
@@ -14276,13 +14510,15 @@
                           "id",
                           "workspaceId",
                           "subjectUserId",
+                          "topic",
+                          "level",
                           "title",
-                          "startDate",
-                          "endDate",
-                          "restDays",
+                          "description",
+                          "learningObjective",
+                          "gains",
                           "dailyAvailableMinutes",
                           "status",
-                          "revisionCount",
+                          "milestones",
                           "createdAt",
                           "updatedAt"
                         ]
@@ -14299,9 +14535,9 @@
         }
       }
     },
-    "/v1/study-plans/{planId}": {
-      "patch": {
-        "summary": "滚动调整学习计划",
+    "/v1/learning-plans/{planId}": {
+      "get": {
+        "summary": "获取学习规划详情",
         "tags": [
           "Learning"
         ],
@@ -14343,39 +14579,9 @@
             "in": "header"
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "title": {
-                    "type": "string"
-                  },
-                  "startDate": {
-                    "type": "string"
-                  },
-                  "endDate": {
-                    "type": "string"
-                  },
-                  "restDays": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "dailyAvailableMinutes": {
-                    "type": "integer",
-                    "minimum": 0
-                  }
-                }
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
-            "description": "Updated",
+            "description": "Plan",
             "content": {
               "application/json": {
                 "schema": {
@@ -14390,22 +14596,22 @@
                     "subjectUserId": {
                       "type": "string"
                     },
-                    "goalId": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                    "topic": {
+                      "type": "string"
+                    },
+                    "level": {
+                      "type": "string"
                     },
                     "title": {
                       "type": "string"
                     },
-                    "startDate": {
+                    "description": {
                       "type": "string"
                     },
-                    "endDate": {
+                    "learningObjective": {
                       "type": "string"
                     },
-                    "restDays": {
+                    "gains": {
                       "type": "array",
                       "items": {
                         "type": "string"
@@ -14417,15 +14623,135 @@
                     "status": {
                       "type": "string"
                     },
-                    "completionPrediction": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "degradationPlan": {},
-                    "revisionCount": {
-                      "type": "integer"
+                    "milestones": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "workspaceId": {
+                            "type": "string"
+                          },
+                          "subjectUserId": {
+                            "type": "string"
+                          },
+                          "planId": {
+                            "type": "string"
+                          },
+                          "order": {
+                            "type": "integer"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "briefing": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "completionCriteria": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "debrief": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "tasks": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "workspaceId": {
+                                  "type": "string"
+                                },
+                                "subjectUserId": {
+                                  "type": "string"
+                                },
+                                "milestoneId": {
+                                  "type": "string"
+                                },
+                                "order": {
+                                  "type": "integer"
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "description": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "hints": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "status": {
+                                  "type": "string"
+                                },
+                                "createdAt": {
+                                  "type": "string"
+                                },
+                                "updatedAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "workspaceId",
+                                "subjectUserId",
+                                "milestoneId",
+                                "order",
+                                "title",
+                                "hints",
+                                "status",
+                                "createdAt",
+                                "updatedAt"
+                              ]
+                            }
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "workspaceId",
+                          "subjectUserId",
+                          "planId",
+                          "order",
+                          "title",
+                          "status",
+                          "tasks",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      }
                     },
                     "createdAt": {
                       "type": "string"
@@ -14438,13 +14764,15 @@
                     "id",
                     "workspaceId",
                     "subjectUserId",
+                    "topic",
+                    "level",
                     "title",
-                    "startDate",
-                    "endDate",
-                    "restDays",
+                    "description",
+                    "learningObjective",
+                    "gains",
                     "dailyAvailableMinutes",
                     "status",
-                    "revisionCount",
+                    "milestones",
                     "createdAt",
                     "updatedAt"
                   ]
@@ -14452,18 +14780,15 @@
               }
             }
           },
-          "400": {
-            "description": "Validation failed"
-          },
           "404": {
             "description": "Plan not found"
           }
         }
       }
     },
-    "/v1/study-plans/{planId}/prediction": {
-      "post": {
-        "summary": "更新学习计划完成预测",
+    "/v1/plan-tasks/{taskId}": {
+      "patch": {
+        "summary": "更新规划任务状态（勾选/取消完成）",
         "tags": [
           "Learning"
         ],
@@ -14474,7 +14799,7 @@
               "minLength": 1
             },
             "required": true,
-            "name": "planId",
+            "name": "taskId",
             "in": "path"
           },
           {
@@ -14511,18 +14836,16 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "prediction": {
+                  "status": {
                     "type": "string",
                     "enum": [
-                      "on_track",
-                      "at_risk",
-                      "cannot_complete"
+                      "todo",
+                      "done"
                     ]
-                  },
-                  "degradationPlan": {}
+                  }
                 },
                 "required": [
-                  "prediction"
+                  "status"
                 ]
               }
             }
@@ -14530,7 +14853,7 @@
         },
         "responses": {
           "200": {
-            "description": "Updated",
+            "description": "Updated plan",
             "content": {
               "application/json": {
                 "schema": {
@@ -14545,22 +14868,22 @@
                     "subjectUserId": {
                       "type": "string"
                     },
-                    "goalId": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                    "topic": {
+                      "type": "string"
+                    },
+                    "level": {
+                      "type": "string"
                     },
                     "title": {
                       "type": "string"
                     },
-                    "startDate": {
+                    "description": {
                       "type": "string"
                     },
-                    "endDate": {
+                    "learningObjective": {
                       "type": "string"
                     },
-                    "restDays": {
+                    "gains": {
                       "type": "array",
                       "items": {
                         "type": "string"
@@ -14572,15 +14895,135 @@
                     "status": {
                       "type": "string"
                     },
-                    "completionPrediction": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "degradationPlan": {},
-                    "revisionCount": {
-                      "type": "integer"
+                    "milestones": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "workspaceId": {
+                            "type": "string"
+                          },
+                          "subjectUserId": {
+                            "type": "string"
+                          },
+                          "planId": {
+                            "type": "string"
+                          },
+                          "order": {
+                            "type": "integer"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "briefing": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "completionCriteria": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "debrief": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "tasks": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "workspaceId": {
+                                  "type": "string"
+                                },
+                                "subjectUserId": {
+                                  "type": "string"
+                                },
+                                "milestoneId": {
+                                  "type": "string"
+                                },
+                                "order": {
+                                  "type": "integer"
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "description": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "hints": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "status": {
+                                  "type": "string"
+                                },
+                                "createdAt": {
+                                  "type": "string"
+                                },
+                                "updatedAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "workspaceId",
+                                "subjectUserId",
+                                "milestoneId",
+                                "order",
+                                "title",
+                                "hints",
+                                "status",
+                                "createdAt",
+                                "updatedAt"
+                              ]
+                            }
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "workspaceId",
+                          "subjectUserId",
+                          "planId",
+                          "order",
+                          "title",
+                          "status",
+                          "tasks",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      }
                     },
                     "createdAt": {
                       "type": "string"
@@ -14593,13 +15036,15 @@
                     "id",
                     "workspaceId",
                     "subjectUserId",
+                    "topic",
+                    "level",
                     "title",
-                    "startDate",
-                    "endDate",
-                    "restDays",
+                    "description",
+                    "learningObjective",
+                    "gains",
                     "dailyAvailableMinutes",
                     "status",
-                    "revisionCount",
+                    "milestones",
                     "createdAt",
                     "updatedAt"
                   ]
@@ -14611,14 +15056,14 @@
             "description": "Validation failed"
           },
           "404": {
-            "description": "Plan not found"
+            "description": "Task not found"
           }
         }
       }
     },
-    "/v1/study-plans/{planId}/archive": {
+    "/v1/learning-plans/{planId}/archive": {
       "post": {
-        "summary": "归档学习计划",
+        "summary": "归档学习规划",
         "tags": [
           "Learning"
         ],
@@ -14677,22 +15122,22 @@
                     "subjectUserId": {
                       "type": "string"
                     },
-                    "goalId": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                    "topic": {
+                      "type": "string"
+                    },
+                    "level": {
+                      "type": "string"
                     },
                     "title": {
                       "type": "string"
                     },
-                    "startDate": {
+                    "description": {
                       "type": "string"
                     },
-                    "endDate": {
+                    "learningObjective": {
                       "type": "string"
                     },
-                    "restDays": {
+                    "gains": {
                       "type": "array",
                       "items": {
                         "type": "string"
@@ -14704,15 +15149,135 @@
                     "status": {
                       "type": "string"
                     },
-                    "completionPrediction": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "degradationPlan": {},
-                    "revisionCount": {
-                      "type": "integer"
+                    "milestones": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "workspaceId": {
+                            "type": "string"
+                          },
+                          "subjectUserId": {
+                            "type": "string"
+                          },
+                          "planId": {
+                            "type": "string"
+                          },
+                          "order": {
+                            "type": "integer"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "briefing": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "completionCriteria": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "debrief": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "tasks": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "workspaceId": {
+                                  "type": "string"
+                                },
+                                "subjectUserId": {
+                                  "type": "string"
+                                },
+                                "milestoneId": {
+                                  "type": "string"
+                                },
+                                "order": {
+                                  "type": "integer"
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "description": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "hints": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "status": {
+                                  "type": "string"
+                                },
+                                "createdAt": {
+                                  "type": "string"
+                                },
+                                "updatedAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "workspaceId",
+                                "subjectUserId",
+                                "milestoneId",
+                                "order",
+                                "title",
+                                "hints",
+                                "status",
+                                "createdAt",
+                                "updatedAt"
+                              ]
+                            }
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "workspaceId",
+                          "subjectUserId",
+                          "planId",
+                          "order",
+                          "title",
+                          "status",
+                          "tasks",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      }
                     },
                     "createdAt": {
                       "type": "string"
@@ -14725,13 +15290,15 @@
                     "id",
                     "workspaceId",
                     "subjectUserId",
+                    "topic",
+                    "level",
                     "title",
-                    "startDate",
-                    "endDate",
-                    "restDays",
+                    "description",
+                    "learningObjective",
+                    "gains",
                     "dailyAvailableMinutes",
                     "status",
-                    "revisionCount",
+                    "milestones",
                     "createdAt",
                     "updatedAt"
                   ]

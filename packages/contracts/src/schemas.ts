@@ -1002,37 +1002,38 @@ export const practiceReportResponseSchema = z.object({
 });
 export const practiceReportListResponseSchema = z.object({ items: z.array(practiceReportResponseSchema) });
 
-// ============ CAP-017 考试日计划 ============
+// ============ 学习规划（OpenMAIC planner 单次结构化生成） ============
 
-/** 创建学习计划请求体 */
-export const createStudyPlanSchema = z.object({
-  goalId: z.string().optional(),
-  title: z.string().min(1),
-  startDate: z.string().min(1),
-  endDate: z.string().min(1),
-  restDays: z.array(z.string()).optional(),
-  dailyAvailableMinutes: z.number().int().min(0).optional(),
+/** 生成学习规划请求体 */
+export const generateLearningPlanSchema = z.object({
+  topic: z.string().trim().min(1),
+  level: z.enum(["beginner", "intermediate", "advanced"]).optional(),
+  dailyMinutes: z.number().int().min(5).max(600).optional(),
 });
 
-/** 更新学习计划请求体 */
-export const updateStudyPlanSchema = z.object({
-  title: z.string().optional(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
-  restDays: z.array(z.string()).optional(),
-  dailyAvailableMinutes: z.number().int().min(0).optional(),
+/** 更新规划任务状态请求体 */
+export const updatePlanTaskStatusSchema = z.object({
+  status: z.enum(["todo", "done"]),
 });
 
-/** 更新完成预测请求体 */
-export const updatePredictionSchema = z.object({
-  prediction: z.enum(["on_track", "at_risk", "cannot_complete"]),
-  degradationPlan: z.unknown().optional(),
+export const planTaskResponseSchema = z.object({
+  id: z.string(), workspaceId: z.string(), subjectUserId: z.string(), milestoneId: z.string(),
+  order: z.number().int(), title: z.string(), description: z.string().nullable().optional(),
+  hints: z.array(z.string()), status: z.string(), createdAt: z.string(), updatedAt: z.string(),
 });
 
-export const studyPlanResponseSchema = z.object({
-  id: z.string(), workspaceId: z.string(), subjectUserId: z.string(), goalId: z.string().nullable().optional(),
-  title: z.string(), startDate: z.string(), endDate: z.string(), restDays: z.array(z.string()),
-  dailyAvailableMinutes: z.number().int(), status: z.string(), completionPrediction: z.string().nullable().optional(),
-  degradationPlan: z.unknown().nullable().optional(), revisionCount: z.number().int(), createdAt: z.string(), updatedAt: z.string(),
+export const planMilestoneResponseSchema = z.object({
+  id: z.string(), workspaceId: z.string(), subjectUserId: z.string(), planId: z.string(),
+  order: z.number().int(), title: z.string(), description: z.string().nullable().optional(),
+  briefing: z.string().nullable().optional(), completionCriteria: z.string().nullable().optional(),
+  debrief: z.string().nullable().optional(), status: z.string(),
+  tasks: z.array(planTaskResponseSchema), createdAt: z.string(), updatedAt: z.string(),
 });
-export const studyPlanListResponseSchema = z.object({ items: z.array(studyPlanResponseSchema) });
+
+export const learningPlanResponseSchema = z.object({
+  id: z.string(), workspaceId: z.string(), subjectUserId: z.string(), topic: z.string(), level: z.string(),
+  title: z.string(), description: z.string(), learningObjective: z.string(), gains: z.array(z.string()),
+  dailyAvailableMinutes: z.number().int(), status: z.string(),
+  milestones: z.array(planMilestoneResponseSchema), createdAt: z.string(), updatedAt: z.string(),
+});
+export const learningPlanListResponseSchema = z.object({ items: z.array(learningPlanResponseSchema) });

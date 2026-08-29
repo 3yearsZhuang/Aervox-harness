@@ -653,31 +653,70 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     CREATE INDEX IF NOT EXISTS practice_reports_session_idx ON practice_reports(session_id);
   `);
 
-  // CAP-017：学习计划
+  // CAP-017：学习规划（里程碑 + 任务路线图）
   await client.execute(`
-    CREATE TABLE IF NOT EXISTS study_plans (
+    CREATE TABLE IF NOT EXISTS learning_plans (
       id TEXT PRIMARY KEY,
       workspace_id TEXT NOT NULL,
       subject_user_id TEXT NOT NULL,
-      goal_id TEXT,
+      topic TEXT NOT NULL,
+      level TEXT NOT NULL DEFAULT 'beginner',
       title TEXT NOT NULL,
-      start_date TEXT NOT NULL,
-      end_date TEXT NOT NULL,
-      rest_days TEXT NOT NULL DEFAULT '[]',
-      daily_available_minutes INTEGER NOT NULL DEFAULT 120,
+      description TEXT NOT NULL,
+      learning_objective TEXT NOT NULL,
+      gains TEXT NOT NULL DEFAULT '[]',
+      daily_available_minutes INTEGER NOT NULL DEFAULT 25,
       status TEXT NOT NULL DEFAULT 'active',
-      completion_prediction TEXT,
-      degradation_plan TEXT,
-      revision_count INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS study_plans_tenant_idx ON study_plans(workspace_id, subject_user_id);
+    CREATE INDEX IF NOT EXISTS learning_plans_tenant_idx ON learning_plans(workspace_id, subject_user_id);
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS study_plans_goal_idx ON study_plans(goal_id);
+    CREATE TABLE IF NOT EXISTS plan_milestones (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      plan_id TEXT NOT NULL REFERENCES learning_plans(id) ON DELETE CASCADE,
+      sort_order INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      briefing TEXT,
+      completion_criteria TEXT,
+      debrief TEXT,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS plan_milestones_tenant_idx ON plan_milestones(workspace_id, subject_user_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS plan_milestones_plan_idx ON plan_milestones(plan_id);
+  `);
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS plan_tasks (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      subject_user_id TEXT NOT NULL,
+      milestone_id TEXT NOT NULL REFERENCES plan_milestones(id) ON DELETE CASCADE,
+      sort_order INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      hints TEXT NOT NULL DEFAULT '[]',
+      status TEXT NOT NULL DEFAULT 'todo',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS plan_tasks_tenant_idx ON plan_tasks(workspace_id, subject_user_id);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS plan_tasks_milestone_idx ON plan_tasks(milestone_id);
   `);
 
   await client.execute(`

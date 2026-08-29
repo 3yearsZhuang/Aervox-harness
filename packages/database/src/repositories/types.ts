@@ -1162,46 +1162,48 @@ export interface ILearningRepository {
     sessionId: string,
   ): Promise<PracticeReportModel>;
 
-  // ============ CAP-017 学习计划 ============
+  // ============ CAP-017 学习规划（里程碑 + 任务路线图） ============
 
-  /** CAP-017：创建学习计划 */
-  createStudyPlan(
+  /** 创建学习规划（事务写入规划 + 里程碑 + 任务） */
+  createLearningPlan(
     tenant: TenantContext,
     input: {
       id: string;
-      goalId?: string;
+      topic: string;
+      level?: string;
       title: string;
-      startDate: string;
-      endDate: string;
-      restDays?: string[];
+      description: string;
+      learningObjective: string;
+      gains?: string[];
       dailyAvailableMinutes?: number;
+      milestones: Array<{
+        id: string;
+        title: string;
+        description?: string;
+        briefing?: string;
+        completionCriteria?: string;
+        debrief?: string;
+        tasks: Array<{
+          id: string;
+          title: string;
+          description?: string;
+          hints?: string[];
+        }>;
+      }>;
     },
-  ): Promise<StudyPlanModel>;
-  /** CAP-017：获取计划 */
-  getStudyPlan(tenant: TenantContext, planId: string): Promise<StudyPlanModel | null>;
-  /** CAP-017：列出计划 */
-  listStudyPlans(tenant: TenantContext): Promise<StudyPlanModel[]>;
-  /** CAP-017：滚动调整（不删除已完成记录） */
-  updateStudyPlan(
+  ): Promise<LearningPlanModel>;
+  /** 获取规划（聚合里程碑与任务） */
+  getLearningPlan(tenant: TenantContext, planId: string): Promise<LearningPlanModel | null>;
+  /** 列出规划 */
+  listLearningPlans(tenant: TenantContext, includeArchived?: boolean): Promise<LearningPlanModel[]>;
+  /** 更新任务状态并推进里程碑（任务全 done → 里程碑 completed + 下一里程碑 active） */
+  setPlanTaskStatus(
     tenant: TenantContext,
-    planId: string,
-    updates: {
-      title?: string;
-      startDate?: string;
-      endDate?: string;
-      restDays?: string[];
-      dailyAvailableMinutes?: number;
-    },
-  ): Promise<StudyPlanModel | null>;
-  /** CAP-017：更新完成预测 */
-  updateCompletionPrediction(
-    tenant: TenantContext,
-    planId: string,
-    prediction: string,
-    degradationPlan?: unknown,
-  ): Promise<StudyPlanModel | null>;
-  /** CAP-017：归档计划 */
-  archiveStudyPlan(tenant: TenantContext, planId: string): Promise<StudyPlanModel | null>;
+    taskId: string,
+    status: "todo" | "done",
+  ): Promise<LearningPlanModel | null>;
+  /** 归档规划 */
+  archiveLearningPlan(tenant: TenantContext, planId: string): Promise<LearningPlanModel | null>;
 }
 
 export interface KnowledgeRelationModel {
@@ -1245,22 +1247,52 @@ export interface PracticeReportModel {
   updatedAt: string;
 }
 
-// ============ CAP-017 学习计划 ============
+// ============ CAP-017 学习规划（里程碑 + 任务路线图） ============
 
-export interface StudyPlanModel {
+export interface PlanTaskModel {
   id: string;
   workspaceId: string;
   subjectUserId: string;
-  goalId?: string | null;
+  milestoneId: string;
+  order: number;
   title: string;
-  startDate: string;
-  endDate: string;
-  restDays: string[];
+  description?: string | null;
+  hints: string[];
+  status: string; // "todo" | "done"
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlanMilestoneModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  planId: string;
+  order: number;
+  title: string;
+  description?: string | null;
+  briefing?: string | null;
+  completionCriteria?: string | null;
+  debrief?: string | null;
+  status: string; // "locked" | "active" | "completed"
+  tasks: PlanTaskModel[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LearningPlanModel {
+  id: string;
+  workspaceId: string;
+  subjectUserId: string;
+  topic: string;
+  level: string;
+  title: string;
+  description: string;
+  learningObjective: string;
+  gains: string[];
   dailyAvailableMinutes: number;
-  status: string;
-  completionPrediction?: string | null;
-  degradationPlan?: unknown;
-  revisionCount: number;
+  status: string; // "active" | "archived"
+  milestones: PlanMilestoneModel[];
   createdAt: string;
   updatedAt: string;
 }
