@@ -121,7 +121,7 @@ describe("阶段 5c Subagent/Workflow Contribution API", () => {
     expect(other.json().runs).toEqual([]);
   });
 
-  it("注册 Workflow 后创建 Turn 仍成功（workflow.run 工具贡献不破坏 Loop）", async () => {
+  it("注册 Workflow 后创建 Turn 仍成功（workflow_run 工具贡献不破坏 Loop）", async () => {
     const created = await app.inject({
       method: "POST",
       url: "/v1/sessions/ses_subroute/turns",

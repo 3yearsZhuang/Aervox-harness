@@ -41,9 +41,9 @@ export interface ConversationRouteDeps {
   inboxRepo?: SqliteAgentInboxRepository;
   /** 5b：Skill 渐进披露清单加载器（activeOnly；缺省不注入 Skills 段） */
   skillLoader?: () => Promise<SkillDescriptor[]>;
-  /** 5c：Subagent 委托执行器工厂（request 级 tenant 绑定；注入则贡献 subagent.delegate 工具） */
+  /** 5c：Subagent 委托执行器工厂（request 级 tenant 绑定；注入则贡献 subagent_delegate 工具） */
   subagentFactory?: (tenant: import("@aervox/database").TenantContext) => import("@aervox/agent-loop").SubagentPort;
-  /** 5c：已注册 Workflow 定义清单（贡献 workflow.run 工具；GET /v1/workflows 元数据） */
+  /** 5c：已注册 Workflow 定义清单（贡献 workflow_run 工具；GET /v1/workflows 元数据） */
   workflows?: import("@aervox/agent-loop").WorkflowDefinition[];
   /** 5c：subagent_runs 仓储（GET /v1/turns/:id/subagents 审计查询） */
   subagentRunRepo?: SqliteSubagentRunRepository;
@@ -318,7 +318,7 @@ export function registerConversationRoutes(
     return reply.send({ turnId, runs });
   });
 
-  // 阶段 5c：Workflow 注册清单（元数据；执行经 `workflow.run` 工具，不在此直接触发）
+  // 阶段 5c：Workflow 注册清单（元数据；执行经 `workflow_run` 工具，不在此直接触发）
   app.get("/v1/workflows", async (_req, reply) => {
     const workflows = (deps.workflows ?? []).map((w) => ({
       name: w.name,

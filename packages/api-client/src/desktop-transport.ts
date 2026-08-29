@@ -35,6 +35,9 @@ import type {
 } from '@aervox/contracts';
 import type { AervoxTransport, StreamTurnOptions, TurnCallbacks } from './transport';
 
+/** API 上游超时后仍未返回时，桌面端必须收敛 UI 的 loading 状态。 */
+export const DESKTOP_TURN_TIMEOUT_MS = 60_000;
+
 export const desktopTransport: AervoxTransport = {
   async request<T = unknown>(method: string, path: string, body?: unknown, options?: { headers?: Record<string, string> }): Promise<T> {
     const bridge = window.fairyDesktop;
@@ -71,17 +74,28 @@ function streamTurnViaBridge(
   callbacks: TurnCallbacks,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    const stop = bridge.streamTurn(content, { toolApprovalMode }, (message) => {
+    let settled = false;
+    let stop: () => void = () => undefined;
+    const settle = (finish: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      stop();
+      finish();
+    };
+    const timeout = setTimeout(() => {
+      settle(() => reject(new Error(`desktop_turn_timeout: no terminal event received within ${DESKTOP_TURN_TIMEOUT_MS}ms`)));
+    }, DESKTOP_TURN_TIMEOUT_MS);
+
+    stop = bridge.streamTurn(content, { toolApprovalMode }, (message) => {
       if (!message || typeof message !== 'object') return;
       const envelope = message as { type?: unknown; event?: unknown; message?: unknown };
       if (envelope.type === 'error') {
-        stop();
-        reject(new Error(typeof envelope.message === 'string' ? envelope.message : 'Aervox 请求失败'));
+        settle(() => reject(new Error(typeof envelope.message === 'string' ? envelope.message : 'Aervox 请求失败')));
         return;
       }
       if (envelope.type === 'closed') {
-        stop();
-        resolve();
+        settle(resolve);
         return;
       }
       if (envelope.type !== 'event' || !envelope.event || typeof envelope.event !== 'object') return;
@@ -89,7 +103,10 @@ function streamTurnViaBridge(
       if (event.eventType === 'delta') callbacks.onDelta((event.data as { text: string }).text);
       if (event.eventType === 'done') callbacks.onDone();
       if (event.eventType === 'error') {
-        callbacks.onError?.(new Error((event.data as { message?: string }).message ?? 'Turn 出错'));
+        const error = new Error((event.data as { message?: string }).message ?? 'Turn 出错');
+        callbacks.onError?.(error);
+        settle(() => reject(error));
+        return;
       }
       if (event.eventType === 'emote') callbacks.onEmote?.(event.data as PetCommand);
       if (event.eventType === 'user_question_required') {
