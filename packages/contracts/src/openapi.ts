@@ -58,6 +58,10 @@ import {
   practiceReportListResponseSchema,
   studyPlanResponseSchema,
   studyPlanListResponseSchema,
+  extractedTermSchema,
+  termsExtractedEventDataSchema,
+  termExploreRequestSchema,
+  termExploreResponseSchema,
 } from "./schemas.js";
 import {
   activatePersonaRequestSchema,
@@ -610,6 +614,24 @@ registry.registerPath({
     },
     400: { description: "type/payload/consumeBoundary 非法" },
     403: { description: "插件未安装/未启用/无 inbox 权限" },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/terms/explore",
+  summary: "追问探索概念/术语（CAP-007 / CAP-002）",
+  description: "支持深挖（child）、对比发散（related）与分支对话（branch）三种追问探索模式",
+  request: {
+    body: {
+      content: { "application/json": { schema: termExploreRequestSchema } },
+    },
+  },
+  responses: {
+    200: {
+      description: "探索结果与关联思考问题",
+      content: { "application/json": { schema: termExploreResponseSchema } },
+    },
   },
 });
 

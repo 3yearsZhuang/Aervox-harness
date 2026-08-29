@@ -31,6 +31,7 @@ import type {
   WorkflowDefinition,
 } from "@aervox/agent-loop";
 import { SqliteExecutionStore } from "@aervox/host-agent";
+import { extractTerms } from "@aervox/practice-review";
 import type { SqliteConversationRepository, TenantContext } from "@aervox/database";
 import { loadApiConfig } from "@aervox/config";
 import type { ToolRuntime } from "../tools/runtime.js";
@@ -420,6 +421,11 @@ export async function runLoopTurnOnce(
   const tools = contributionProvider && runtimeProvider
     ? composeToolProviders([contributionProvider], { fallback: runtimeProvider })
     : contributionProvider ?? runtimeProvider;
+  // 识别当前消息是否带学习模式前缀或标识，动态决定是否注入学习模式专属 Prompt
+  const isStudyMode =
+    input.userMessage.includes("[模式：学习模式]") ||
+    input.userMessage.includes("[模式：陪学讲解]") ||
+    input.userMessage.includes("[模式：深度拆解]");
   // 5b：默认启用 Base System Prompt（含核心工具指引）与 Skill 渐进披露；压缩 seam 默认关闭，
   // 设置 AERVOX_LOOP_COMPACTION=rule 启用内置规则式摘要。
   const contextBuilder = createComposedContextBuilder({
@@ -427,6 +433,7 @@ export async function runLoopTurnOnce(
     baseSystemPrompt: {
       assistantName: "思隅 (Aervox)",
       activeTools: tools?.tools,
+      studyMode: isStudyMode,
     },
     skills: deps.skills,
     ...(loadApiConfig().loopCompaction === "rule"
@@ -447,5 +454,46 @@ export async function runLoopTurnOnce(
   // 以 Loop 结果对齐 turns 状态；skipped（幂等保护）不覆盖。
   if (result.status === "completed") {
     await repo.updateTurnStatus(tenant, input.turnId, "Completed");
+
+    // CAP-007 / CAP-002: 仅在学习模式下，后处理阶段异步抽取文本中的术语并写入 turn_stream_events (terms_extracted)
+    if (isStudyMode) {
+      try {
+        const events = await repo.getStreamEvents(tenant, input.turnId, 0);
+        let fullAssistantText = "";
+        let lastSeq = 0;
+        let lastMessageId: string | undefined;
+
+        for (const ev of events) {
+          if (ev.sequence > lastSeq) lastSeq = ev.sequence;
+          if (ev.eventType === "message" && (ev.data as { messageId?: string }).messageId) {
+            lastMessageId = (ev.data as { messageId?: string }).messageId;
+          }
+          if (ev.eventType === "delta" && typeof (ev.data as { text?: string }).text === "string") {
+            fullAssistantText += (ev.data as { text?: string }).text;
+          }
+        }
+
+        let terms = fullAssistantText.trim().length > 0 ? await extractTerms(fullAssistantText) : [];
+        if (terms.length === 0 && input.userMessage) {
+          terms = await extractTerms(input.userMessage);
+        }
+        if (terms.length > 0) {
+          await repo.appendStreamEvent(tenant, {
+            id: `tme_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+            turnId: input.turnId,
+            sequence: lastSeq + 1,
+            eventType: "terms_extracted",
+            payloadVersion: 1,
+            data: {
+              turnId: input.turnId,
+              messageId: lastMessageId,
+              terms,
+            },
+          });
+        }
+      } catch (err) {
+        // 术语抽取属于增强后处理，吞掉异常防止影响 Turn 最终完成态
+      }
+    }
   }
 }

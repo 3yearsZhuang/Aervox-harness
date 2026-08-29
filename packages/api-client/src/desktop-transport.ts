@@ -95,6 +95,9 @@ function streamTurnViaBridge(
       if (event.eventType === 'user_question_required') {
         callbacks.onUserQuestion?.(event.data as UserQuestionRequiredEventData);
       }
+      if (event.eventType === 'terms_extracted') {
+        callbacks.onTermsExtracted?.(event.data as import('@aervox/contracts').TermsExtractedEventData);
+      }
     });
   });
 }

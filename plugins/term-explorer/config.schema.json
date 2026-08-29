@@ -1,0 +1,37 @@
+{
+  "apiVersion": "aervox.dev/v1",
+  "kind": "PluginConfigSchema",
+  "schemaVersion": 1,
+  "fields": [
+    {
+      "key": "maxExtractedTerms",
+      "type": "integer",
+      "label": "单次最多抽取术语数",
+      "description": "回答结束后后处理阶段提取的最多概念数量（3~10）",
+      "default": 8,
+      "validation": {
+        "min": 3,
+        "max": 10
+      }
+    },
+    {
+      "key": "enableJudgePass",
+      "type": "boolean",
+      "label": "启用 LLM 质检复核",
+      "description": "当候选术语大于 5 个时是否调用质检 Prompt 严格二次筛选",
+      "default": true
+    },
+    {
+      "key": "defaultExploreKind",
+      "type": "select",
+      "label": "默认探索模式",
+      "description": "点击术语卡片时的默认探索选项",
+      "default": "child",
+      "options": [
+        { "value": "child", "label": "深度拆解 (原理与推导)" },
+        { "value": "related", "label": "关联对比 (横向方案与发散)" },
+        { "value": "branch", "label": "分支对话 (独立探索会话)" }
+      ]
+    }
+  ]
+}

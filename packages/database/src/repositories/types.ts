@@ -2059,6 +2059,8 @@ export interface IExtensionRepository {
       permissions?: unknown;
       installSource?: string;
       enabled?: number;
+      configSchemaJson?: unknown;
+      configSchemaVersion?: number;
     },
   ): Promise<PluginModel>;
   listPlugins(): Promise<PluginModel[]>;

@@ -74,9 +74,31 @@ export class SqliteExtensionRepository implements IExtensionRepository {
       permissions?: unknown;
       installSource?: string;
       enabled?: number;
+      configSchemaJson?: unknown;
+      configSchemaVersion?: number;
     },
   ): Promise<PluginModel> {
     const now = new Date().toISOString();
+    const existing = await this.getPlugin(pluginData.id);
+    if (existing) {
+      const [updated] = await this.db
+        .update(plugins)
+        .set({
+          publisher: pluginData.publisher,
+          version: pluginData.version,
+          checksum: pluginData.checksum,
+          signature: pluginData.signature ?? null,
+          permissions: pluginData.permissions ?? null,
+          installSource: pluginData.installSource ?? "registry",
+          ...(pluginData.enabled !== undefined ? { enabled: pluginData.enabled } : {}),
+          ...(pluginData.configSchemaJson !== undefined ? { configSchemaJson: pluginData.configSchemaJson } : {}),
+          ...(pluginData.configSchemaVersion !== undefined ? { configSchemaVersion: pluginData.configSchemaVersion } : {}),
+          updatedAt: now,
+        })
+        .where(eq(plugins.id, pluginData.id))
+        .returning();
+      return updated as PluginModel;
+    }
     const [created] = await this.db
       .insert(plugins)
       .values({
@@ -88,6 +110,8 @@ export class SqliteExtensionRepository implements IExtensionRepository {
         permissions: pluginData.permissions ?? null,
         installSource: pluginData.installSource ?? "registry",
         enabled: pluginData.enabled ?? 1,
+        configSchemaJson: pluginData.configSchemaJson ?? null,
+        configSchemaVersion: pluginData.configSchemaVersion ?? 1,
         createdAt: now,
         updatedAt: now,
       })

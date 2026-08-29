@@ -1,0 +1,18 @@
+{
+  "apiVersion": "aervox.dev/v1",
+  "kind": "PluginManifest",
+  "metadata": {
+    "id": "aervox-study-companion",
+    "displayName": "学习模式与启发式教学",
+    "publisher": "aervox-official",
+    "version": "1.0.0",
+    "description": "CAP-002: 学习目标管理与苏格拉底启发式教学引导插件，支持防剧透与循序渐进点拨。",
+    "license": "MIT"
+  },
+  "spec": {
+    "config": {
+      "schemaVersion": 1,
+      "entry": "config.schema.json"
+    }
+  }
+}

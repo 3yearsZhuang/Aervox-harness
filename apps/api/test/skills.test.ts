@@ -157,7 +157,7 @@ describe("CAP-020 Skill 模块", () => {
     const installed = res.json().installed as Array<{ name: string }>;
     expect(installed.map((s) => s.name).sort()).toEqual(["skill-a", "skill-b"]);
 
-    const list = await app.inject({ method: "GET", url: "/v1/skills" });
+    const list = await app.inject({ method: "GET", url: "/v1/skills?source=local" });
     expect(list.json().items.length).toBe(2);
   });
 
@@ -219,7 +219,7 @@ describe("CAP-020 Skill 模块", () => {
     expect(disable.statusCode).toBe(200);
     expect(disable.json().active).toBe(0);
 
-    const activeOnly = await app.inject({ method: "GET", url: "/v1/skills?activeOnly=true" });
+    const activeOnly = await app.inject({ method: "GET", url: "/v1/skills?activeOnly=true&source=local" });
     expect(activeOnly.json().items.length).toBe(0);
 
     // readonly 技能直接注册后删除应 409
@@ -536,12 +536,12 @@ describe("CAP-020 插件 Skill 联动（阶段5）", () => {
     });
     expect(disable.statusCode).toBe(200);
     const activeOnly = await app.inject({ method: "GET", url: "/v1/skills?activeOnly=true" });
-    expect(activeOnly.json().items.length).toBe(0);
+    expect(activeOnly.json().items.filter((s: { pluginId?: string }) => s.pluginId === "flashcards").length).toBe(0);
 
     // 重新启用 → 技能 active
     await app.inject({ method: "PATCH", url: "/v1/plugins/flashcards", payload: { enabled: true } });
     const activeAgain = await app.inject({ method: "GET", url: "/v1/skills?activeOnly=true" });
-    expect(activeAgain.json().items.map((s: { id: string }) => s.id)).toEqual(["flashcard-review"]);
+    expect(activeAgain.json().items.some((s: { id: string }) => s.id === "flashcard-review")).toBe(true);
 
     // 卸载插件 → 技能移除 + 文件清理
     const uninstall = await app.inject({ method: "DELETE", url: "/v1/plugins/flashcards" });

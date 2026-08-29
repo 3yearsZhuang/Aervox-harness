@@ -6,7 +6,11 @@
  * Turn 创建后由 Agent Loop（Replay Provider）执行并写事件。
  */
 import type { FastifyInstance } from "fastify";
-import { createTurnRequestSchema, editMessageSchema } from "@aervox/contracts";
+import {
+  createTurnRequestSchema,
+  editMessageSchema,
+  submitQuestionAnswersRequestSchema,
+} from "@aervox/contracts";
 import type { SkillDescriptor } from "@aervox/agent-loop";
 import type {
   SqliteConversationRepository,
@@ -21,7 +25,6 @@ import { resolveTenant } from "../../shared/tenant.js";
 import { createTenantInboxPort } from "../inbox/port.js";
 import { runLoopTurnOnce } from "./agent-executor.js";
 import { UserQuestionCoordinator } from "./user-question-coordinator.js";
-import { submitQuestionAnswersRequestSchema } from "@aervox/contracts";
 import { loadApiConfig } from "@aervox/config";
 
 let seq = 0;
