@@ -3040,6 +3040,32 @@
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
+/* 设置 · 重看新手引导（桌面端） */
+.settings-replay-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  border-radius: 8px;
+  background: var(--bg-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.settings-replay-action:hover {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-soft));
+  border-color: var(--accent);
+}
+
+.settings-replay-action:active {
+  transform: translateY(1px);
+}
+
 .settings-switch {
   appearance: none;
   width: 40px;
