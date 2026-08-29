@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 对话与流式协议 SQLite 仓储实现
  */
-import { eq, and, gt, desc, or, lt, isNull, inArray, notInArray } from "drizzle-orm";
+import { eq, and, gt, desc, or, lt, isNull, inArray, notInArray, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import {
   sessions,
@@ -230,7 +230,10 @@ export class SqliteConversationRepository implements IConversationRepository {
     eventData: {
       id: string;
       turnId: string;
-      sequence: number;
+      /** 可选：调用方持有的序号（如执行器本地计数）。缺省或与既有序号冲突时
+       *  由仓储原子分配 MAX(sequence)+1——多写入方（执行器/协调器/路由）并发
+       *  追加事件时唯一约束 (turn_id, sequence) 不再因计数器分叉而失败。 */
+      sequence?: number;
       eventType: string;
       payloadVersion?: number;
       data: unknown;
@@ -241,24 +244,42 @@ export class SqliteConversationRepository implements IConversationRepository {
     },
   ): Promise<TurnStreamEventModel> {
     assertTenantContext(tenant);
-    const [created] = await this.db
-      .insert(turnStreamEvents)
-      .values({
-        id: eventData.id,
-        turnId: eventData.turnId,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
-        sequence: eventData.sequence,
-        eventType: eventData.eventType,
-        payloadVersion: eventData.payloadVersion ?? 1,
-        data: eventData.data,
-        occurredAt: eventData.occurredAt ?? new Date().toISOString(),
-        attemptId: eventData.attemptId ?? null,
-        safetyDecision: eventData.safetyDecision ?? null,
-        committedAt: eventData.committedAt ?? null,
-      })
-      .returning();
-    return created as TurnStreamEventModel;
+    const baseValues = {
+      id: eventData.id,
+      turnId: eventData.turnId,
+      workspaceId: tenant.workspaceId,
+      subjectUserId: tenant.subjectUserId,
+      eventType: eventData.eventType,
+      payloadVersion: eventData.payloadVersion ?? 1,
+      data: eventData.data,
+      occurredAt: eventData.occurredAt ?? new Date().toISOString(),
+      attemptId: eventData.attemptId ?? null,
+      safetyDecision: eventData.safetyDecision ?? null,
+      committedAt: eventData.committedAt ?? null,
+    };
+    // 原子序号分配：INSERT..VALUES 内嵌标量子查询，读写间无 TOCTOU 窗口
+    const allocated = sql`(
+      SELECT COALESCE(MAX(sequence), 0) + 1 FROM turn_stream_events WHERE turn_id = ${eventData.turnId}
+    )`;
+    const insert = (sequence: number | ReturnType<typeof sql>) =>
+      this.db
+        .insert(turnStreamEvents)
+        .values({ ...baseValues, sequence: sequence as unknown as number })
+        .returning();
+
+    if (eventData.sequence === undefined) {
+      const [created] = await insert(allocated);
+      return created as TurnStreamEventModel;
+    }
+    try {
+      const [created] = await insert(eventData.sequence);
+      return created as TurnStreamEventModel;
+    } catch (err) {
+      // 序号已被并发写入方占用（如执行器本地计数器滞后于协调器插入）→ 原子改配
+      if (!/UNIQUE constraint failed/.test(String((err as Error)?.message))) throw err;
+      const [created] = await insert(allocated);
+      return created as TurnStreamEventModel;
+    }
   }
 
   async getStreamEvents(

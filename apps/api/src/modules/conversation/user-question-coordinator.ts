@@ -61,14 +61,12 @@ export class UserQuestionCoordinator {
     const { turnId, attemptId, step, questions, timeoutMs = 60000 } = req;
 
     // 1. 写入 user_question_required 流事件（持久化至 SQLite 供 SSE 重放与前端消费）
+    //    序号由仓储原子分配——与执行器的本地计数器并发追加不再冲突
     const eventId = `ev_uq_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
-    const events = await this.conversationRepo.getStreamEvents(tenant, turnId, 0);
-    const sequence = events.length + 1;
 
     await this.conversationRepo.appendStreamEvent(tenant, {
       id: eventId,
       turnId,
-      sequence,
       eventType: "user_question_required",
       data: {
         turnId,
@@ -137,15 +135,12 @@ export class UserQuestionCoordinator {
     clearTimeout(session.timer);
     this.pendingByTurn.delete(turnId);
 
-    // 1. 写入 user_question_answered 流事件留痕
+    // 1. 写入 user_question_answered 流事件留痕（序号仓储原子分配）
     const eventId = `ev_ua_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
-    const events = await this.conversationRepo.getStreamEvents(tenant, turnId, 0);
-    const sequence = events.length + 1;
 
     await this.conversationRepo.appendStreamEvent(tenant, {
       id: eventId,
       turnId,
-      sequence,
       eventType: "user_question_answered",
       data: {
         turnId,

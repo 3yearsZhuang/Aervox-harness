@@ -59,5 +59,5 @@ CAP-009 的数据层与调度骨架（8 张日记表、事务发布、Worker 轮
 ## 验证与决策
 
 - 验证：`apps/api/test/diary-ondemand.test.ts` 集成测试 5 项（PET-05 未授权拒绝 / 授权新建 + `GET /v1/diaries` / 同日改写版本与主行推进 / 无素材空日记诚实降级 / `createRuntimeToolProvider` 审批缝挂起-授权-执行）；`openapi-contract.test.ts` 契约断言；`@aervox/agent-loop` 117 测试（含更新后的 provider 协议序列化断言）；全仓 `pnpm build`/`typecheck`/`test` 通过；**真实 DeepSeek E2E**：对话触发 → 审批中断 → 批准 → 重发命中授权 → LLM 生成桌宠视角日记落库 → 工具后续写叙述 → `Completed`；同日改写（version 递增、status `edited`）；预授权命中（同参数哈希免二次审批）。
-- 已知边界（本 CR 范围外，待独立修复）：UQ-01 `ask_user_question` 挂起路径存在 `turn_stream_events.sequence` 唯一约束冲突（协调器与执行器各自维护序号），真实 LLM 下模型选择提问时会触发；日记工具指引已注明"一次对话最多调用一次"降低规避成本。
+- 已修复（同分支提交）：UQ-01 `ask_user_question` 挂起路径的 `turn_stream_events.sequence` 唯一约束冲突（执行器本地计数器与协调器读条数+1 分叉）——`appendStreamEvent` 序号改为仓储原子分配 MAX+1、显式序号冲突回退改配，协调器与审批路由去除读后写；回归测试 `turn-stream-sequence.test.ts` 3 项。
 - 决策：Review Candidate，阶段 1（对话触发 + 真实 LLM 接线）已落地；定时路径按阶段 2 推进。

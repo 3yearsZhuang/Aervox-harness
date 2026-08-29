@@ -291,10 +291,10 @@ export function registerConversationRoutes(
       return reply.code(404).send({ error: "approval not found" });
     }
     // 决定留痕为流事件（SSE 重放可见；授权后的执行由客户端重发相同请求命中 granted）
+    // 序号由仓储原子分配（与执行器/协调器并发追加安全）
     await conversationRepo.appendStreamEvent(tenant, {
       id: `tev_${Date.now().toString(36)}`,
       turnId,
-      sequence: (await conversationRepo.getStreamEvents(tenant, turnId, 0)).length + 1,
       eventType: body.decision === "granted" ? "tool_approval_granted" : "tool_approval_denied",
       data: { approvalId: updated.id, decision: updated.state, toolName: updated.toolName },
     });

@@ -94,7 +94,8 @@ export interface IConversationRepository {
     event: {
       id: string;
       turnId: string;
-      sequence: number;
+      /** 可选：缺省或冲突时仓储原子分配 MAX(sequence)+1（多写入方并发安全） */
+      sequence?: number;
       eventType: string;
       payloadVersion?: number;
       data: unknown;
