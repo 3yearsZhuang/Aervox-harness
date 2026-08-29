@@ -336,6 +336,7 @@
 **替代关系（2026-08-29，PR #118，维护者确认合入）**：`/v1/learning-plans`（LLM 生成式学习规划）**替代**原 `/v1/study-plans` 手动学习计划端点（「自适应刷题与考试日计划」登记行中 study_plans 部分；practice_reports 部分不变），旧端点与其 UI、旧测试随 #118 移除；工作台「待复习 / 今日日记 / 提醒 / 番茄钟」卡与目标管理 UI 同批移除（「今日学习」抽屉由「AI 学习规划」面板替代），上述能力的后端路由与数据层保留未动，UI 形态恢复或重设计待后续 CR 立项。
 
 | 移除工作台右上角悬浮「刷题」按钮（产品裁定回归单入口：卡片目录「刷题模式」卡与悬浮按钮曾双入口并存，保留后者冗余；刷题能力与 `startQuiz()` 链路不变；与上行「恢复悬浮刷题入口」行为 #118 后的入口收敛决策） | CAP-001/003 | `packages/ui/src/components/AervoxWorkbench.vue`（移除悬浮顶栏 `.floating-quiz-btn` 模板按钮；`cardCatalog`「刷题模式」卡（`ClipboardList` 图标）与 `startQuiz()` 刷题前缀链路保留，卡片入口不受影响）、`packages/ui/src/theme/workbench.css`（删除 `.floating-quiz-btn`/`.floating-quiz-btn:hover`/`.floating-quiz-btn:disabled`/`.quiz-btn-label` 死样式） | 2026-08-29 | `@aervox/ui` typecheck（`vue-tsc`）+ build + Vitest 通过；`mise tasks run ci-code` 全量；浏览器冒烟建议：右上角仅剩专注模式开关（与 Web 端设置按钮）、卡片目录「刷题模式」卡仍可发起刷题对话、全站无 `floating-quiz` 残留引用 | 原生 |
+| 桌面端任务栏/窗口图标接入 Aervox 品牌图标（修复 BrowserWindow 未设 icon 导致 Windows 任务栏显示 Electron 默认图标） | CAP-001/018 | `apps/desktop/scripts/generate-icons.mjs`（sharp 由 `packages/ui/src/assets/brand/aervox-mark.svg` 栅格化生成 16/32/48/64/128/256 多尺寸 ICO 与 PNG）、`apps/desktop/build/{icon.ico,icon.png}`（入库产物）、`apps/desktop/package.json`（`dev`/`build` 脚本前置图标生成）、`apps/desktop/src/main/index.ts`（BrowserWindow `icon` 注入：`app.isPackaged` 取 `resourcesPath`（仓库尚未引入 electron-builder，前瞻分支）否则 `out/main → ../../build/icon.ico`）、根 `package.json`（`sharp` 落根 workspace devDependencies） | 2026-08-29 | 本地试验合并 `ci-code` 22/22（含 sharp 安装与 desktop build）、`ci-docs` 显式退出码 0 | 原生 |
 
 ## 5. 原子需求字段模板
 
