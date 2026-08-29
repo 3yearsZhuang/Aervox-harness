@@ -31,3 +31,4 @@ export * from "./agent-inbox-repository.js";
 export * from "./subagent-run-repository.js";
 export * from "./user-question-repository.js";
 export * from "./proactive-profile-repository.js";
+export * from "./proactive-intelligence-repository.js";
