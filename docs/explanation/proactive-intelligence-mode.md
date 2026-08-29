@@ -34,7 +34,7 @@ sources:
   - docs/reference/capability-composition.md
   - docs/reference/capability-registry.md
   - docs/reference/adr/ADR-008-cloud-first-local-port.md
-  - docs/reference/adr/ADR-009-electron-plugin-sandbox.md
+  - "docs/reference/adr/ADR-009-electron-plugin-sandbox.md"
   - docs/reference/changes/CR-022-full-access-tool-permission.md
   - docs/reference/REQUIREMENTS_TRACEABILITY.md
   - docs/reference/adr/ADR-018-proactive-local-privacy-host.md
