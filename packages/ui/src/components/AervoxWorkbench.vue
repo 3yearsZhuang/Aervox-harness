@@ -611,6 +611,18 @@ const latestAssistantLine = computed<StoryLine | null>(() => {
 /** 当前显示的句子索引（视觉小说切换模式：一次只显示一句，非追加） */
 const novelIndex = ref(0)
 
+/** 对话区域收起开关（高度折叠为细条，只留摘要行 + 展开按钮；内存态，刷新回落展开） */
+const consoleCollapsed = ref(false)
+
+/** 收起态摘要：流式显示首句打字、完成显示当前句，单行省略 */
+const collapsedSummaryText = computed(() => {
+  const line = latestAssistantLine.value
+  if (!line) return '正在连接 Aervox…'
+  if (line.state === 'streaming') return novelStreamingText.value || '思隅正在回应…'
+  if (line.state === 'error') return line.text
+  return novelDisplayText.value || '这次没有收到可展示的回答。'
+})
+
 /** 把回复按句末标点（。！？…）或换行切段，保留句末标点 */
 function splitIntoSentences(text: string): string[] {
   const normalized = text.replace(/\r\n/g, '\n').trim()
@@ -2058,7 +2070,12 @@ onUnmounted(() => {
     </aside>
 
     <div class="immersive-console">
-      <section class="message-panel" aria-label="伴学对话">
+      <section class="message-panel" :class="{collapsed: consoleCollapsed}" aria-label="伴学对话">
+        <!-- 收起态摘要行：说话人 + 当前句单行省略（视觉小说细条） -->
+        <div v-if="consoleCollapsed" class="console-collapsed-summary" aria-hidden="true">
+          <span class="console-collapsed-speaker">{{ assistantDisplayName }}</span>
+          <span class="console-collapsed-text">{{ collapsedSummaryText }}</span>
+        </div>
         <div ref="storyViewport" class="message-viewport" aria-live="polite">
           <p
             v-if="latestAssistantLine"
@@ -2143,6 +2160,17 @@ onUnmounted(() => {
         <button class="message-history-entry" type="button" @click="historyOpen = true">
           <History :size="14" />
           <span>回看完整对话</span>
+        </button>
+        <!-- 收起/展开开关：右上角常驻，收起态仍留在细条上 -->
+        <button
+          type="button"
+          class="console-collapse-toggle"
+          :aria-label="consoleCollapsed ? '展开对话区域' : '收起对话区域'"
+          :aria-expanded="!consoleCollapsed"
+          @click="consoleCollapsed = !consoleCollapsed"
+        >
+          <ChevronDown v-if="consoleCollapsed" :size="14" />
+          <ChevronUp v-else :size="14" />
         </button>
       </section>
 
