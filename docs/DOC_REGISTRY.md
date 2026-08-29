@@ -4,7 +4,7 @@
 - 修改人：3yearszhuang · 2026-08-29
 
 > 文档编号：AVX-DOC-CONF-001  
-> 版本：v1.2
+> 版本：v1.3
 > 更新日期：2026-08-29
 > 状态：Review Candidate
 > 关联：[文档索引](README.md)、[文档治理与事实源规范](reference/document-governance.md)
@@ -16,7 +16,7 @@
 | `AVX-PRD-001` | [PRD](reference/PRD.md) | 2026-08-29 | 每次版本立项 / G0 | CAP 范围或优先级变更未建立 `CR-*` |
 | `AVX-SRS-001` | [SRS](reference/SRS.md) | 2026-08-29 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
 | `AVX-SAD-001` | [架构设计](reference/ARCHITECTURE.md) | 2026-08-29 | G2 评审 + 架构变更 | 新增 ADR/技术基线变化未同步 |
-| `ADR-001~018` | [ADR 索引](reference/adr/README.md) | 2026-08-29 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
+| `ADR-001~019` | [ADR 索引](reference/adr/README.md) | 2026-08-29 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
 | `AVX-SPC-001` | [流式协议](reference/STREAMING_PROTOCOL.md) | 2026-08-28 | OpenAPI/事件 schema 变更 | `packages/contracts` 版本高于文档描述 |
 | `AVX-DB-001` | [数据库设计与双引擎契约](reference/DATABASE.md) | 2026-08-29 | Schema/仓储接口/迁移计划变更 | 仓储接口签名或租户隔离模式/PG 切换计划与实现不一致 |
 | `AVX-DATA-001` | [数据与隐私](reference/DATA_PRIVACY.md) | 2026-08-29 | 每季度 + 数据流变更 | 新增数据实体/用途/保留未评审 |
@@ -25,10 +25,11 @@
 | `AVX-QA-001` | [测试策略](reference/TEST_STRATEGY.md) | 2026-08-29 | G1/G4 门禁 | AC/TC 状态变化未回填 |
 | `AVX-OPS-001` | [运行、值班与演练手册](reference/operations.md) | 2026-08-26 | 每季度演练 + 每次发布 + 值班变更 | 演练日期超期、告警/拓扑变化或联系人未更新 |
 | `AVX-TRC-001` | [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) | 2026-08-29 | 版本立项 / G1 / G4 / 落地登记 | CAP/AC/TC 状态或追踪关系变化未回填；§4.2 落地登记与实现不符 |
-| `AVX-GUIDE-001~003` | [操作指南](how-to) | 2026-08-28 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
+| `AVX-GUIDE-001~003` | [操作指南](how-to) | 2026-08-29 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
 | `AVX-CAP-REG-001` | [能力注册表](reference/capability-registry.md) | 2026-08-29 | 每次自选状态 / 模块变更 | 交付载体、启用方式或已注册模块与实现/CR 不一致 |
 | `AVX-CAP-001` | [能力组合与可选化目录规范](reference/capability-composition.md) | 2026-08-29 | G2 评审 + 能力宿主/适配器机制变更 | Manifest、Profile、Provider、Adapter、Kernel 边界与实现或 ADR/CR 不一致 |
 | `ADR-018` | [CAP-033 本地私密存储与主动智能 Host](reference/adr/ADR-018-proactive-local-privacy-host.md) | 2026-08-29 | CAP-033 本地存储、OS Permission Broker、动作授权或后台生命周期变更 | Host 签名/设备绑定、local-only、全动作授权、七天提炼清理或恢复门禁与实现不一致 |
+| `ADR-019` | [主动智能外部连接本地网关](reference/adr/ADR-019-proactive-integrations-local-gateway.md) | 2026-08-29 | HA/健康连接、凭据隔离、工具白名单或撤销语义变更 | REST/WS、OAuth、实体/service 白名单、健康最小化或连接删除与实现不一致 |
 | `AVX-HAR-001` | [Agent Harness Loop 设计与落地规范](reference/agent-harness-loop.md) | 2026-08-29 | G2 评审 + Agent Loop/Provider/工具/持久化边界变更 | Turn/Attempt/Step、Provider、Tool、Inbox、恢复或 Profile 语义与实现/ADR 不一致 |
 | `AVX-WEB-001` | [Web 工作台实现规划](explanation/web-implementation.md) | 2026-08-28 | Web 端实现或技术基线变更 | `apps/web` 结构与 ADR-015/规划不一致 |
 | `CR-002` | [Fairy Agent Electron 桌面端](reference/changes/CR-002-fairy-desktop-module.md) | 2026-08-24 | CAP-018 桌面端实现或安全边界变更 | Electron 端目录、契约边界、测试证据或回滚条件与实现不符 |
@@ -54,6 +55,7 @@
 | `CR-024` | [对话触发写日记与日记契约补全](reference/changes/CR-024-on-demand-diary.md) | 2026-08-29 | `CAP-009` 对话触发写日记、桌宠视角生成或审批事件契约变更 | PRD §6.7、流式协议、日记工具/生成核心、`/v1/diaries` 契约或工作台授权交互与实现不一致 |
 | `CR-022` | [Turn 级完全访问工具权限开关](reference/changes/CR-022-full-access-tool-permission.md) | 2026-08-29 | `CAP-002/007/020/033` / `AVX-HAR-001` 工具授权模式、审计或双端开关变更 | CreateTurn 契约、自动授权排除、CAP-033 动作授权、API Client/IPC 或 Workbench 状态不一致 |
 | `CR-023` | [广域本地主动智能模式](reference/changes/CR-023-proactive-local-intelligence-mode.md) | 2026-08-29 | `CAP-033` + `CAP-002/005/007/008/009/010/012/013/018/020/022/023/024/026/027/030` 广域画像、Agent Host/Inbox、OS 权限、本地私密数据或授权语义变更 | AVX-EXPL-008、CR-022、OS Permission Broker、本地 Provider/存储、撤权、导出或待决策不一致 |
+| `CR-024` | [主动智能能力套件与外部环境连接](reference/changes/CR-024-proactive-intelligence-suite-integrations.md) | 2026-08-29 | `CAP-033/034/035` 十二能力、HA/健康连接、工具或本地数据结构变更 | ADR-019、OpenAPI、数据库、Worker、桌面设置、凭据或撤销删除与实现不一致 |
 | `AVX-PLUG-001` | [插件 Config 与 Page 规范](reference/plugin-config-and-pages.md) | 2026-08-26 | CR-006 / 插件机制变更 | Manifest、Config Schema、Page Bridge 与实现不一致 |
 | `AVX-DOC-GOV-001` | [文档治理与事实源规范](reference/document-governance.md) | 2026-08-28 | 文档分类、状态、事实源、复核触发或迁移策略变更 | 策略 JSON、校验器、索引、登记表或写作规范与治理基线不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 2026-08-28 | 写作规则、模板或季度评审 | 新文档未使用规范元数据/签名，或 Vale 规则与术语表不一致 |
@@ -65,8 +67,8 @@
 | `AVX-EXPL-003` | [桌宠角色设定文档化与多人格模板组织](explanation/persona-organization.md) | 2026-08-26 | 桌宠 IP / CAP-019 立项或人设变更 | 新增/变更角色文档未按字段化结构与模板版本化落地，或识别边界未同步评审 |
 | `AVX-EXPL-004` | [能力拆分路线](explanation/roadmap.md) | 2026-08-29 | CAP 批次/依赖变更时 | 批次顺序与追踪基线 CAP 状态或新增 CAP 不一致 |
 | `AVX-EXPL-005` | [ESP32-S3 硬件延伸](explanation/esp32-s3-hardware-extension.md) | 2026-08-29 | 硬件方案、设备协议或设备能力（独立设备 CAP 提议）立项变更 | 硬件边界、设备协议、隐私红线或阶段结论与 ADR-016 / 追踪基线 §4.2 / 数据隐私规范不一致 |
-| `AVX-EXPL-006` | [Home Assistant 集成评估](explanation/home-assistant-integration-assessment.md) | 2026-08-28 | Agent Loop 工具机制 / 本地优先 / 插件机制变更 | HA 接入形态、数据实体或阶段结论与 AVX-HAR-001 / 能力注册表不一致 |
-| `AVX-EXPL-007` | [运动与健康数据接入评估](explanation/health-data-integration-assessment.md) | 2026-08-28 | 移动端形态 / 数据隐私 / 苹果或小米接入政策变更 | 接入路径、敏感分级或阶段结论与 AVX-EXPL-006 / DATA_PRIVACY 不一致 |
+| `AVX-EXPL-006` | [Home Assistant 集成评估](explanation/home-assistant-integration-assessment.md) | 2026-08-29 | Agent Loop 工具机制 / 本地优先 / 插件机制变更 | HA 接入形态、数据实体或阶段结论与 CR-024 / ADR-019 不一致 |
+| `AVX-EXPL-007` | [运动与健康数据接入评估](explanation/health-data-integration-assessment.md) | 2026-08-29 | 移动端形态 / 数据隐私 / 苹果或小米接入政策变更 | 接入路径、敏感分级或阶段结论与 CR-024 / DATA_PRIVACY 不一致 |
 | `AVX-EXPL-008` | [主动智能模式设计方案](explanation/proactive-intelligence-mode.md) | 2026-08-29 | CR-023/CAP-033、完全访问、全量画像、OS 能力授权、特权观察 Host、本地处理、动作授权、CAP-022/026/027/030 变更 | 四维状态、完整画像 manifest、平台能力清单、OS grant、本地出网边界、七天提炼保留、动作授权、阻断项或实现门禁与基线不一致 |
 | `AVX-DOC-001` | [文档索引](README.md) | 2026-08-29 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
 | `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-08-29 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |

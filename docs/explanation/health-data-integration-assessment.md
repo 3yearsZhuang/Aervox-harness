@@ -6,9 +6,9 @@ owner: platform
 doc_status: draft
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.1.0
-updated_at: 2026-08-28
-reviewed_at: 2026-08-28
+version: 0.2.0
+updated_at: 2026-08-29
+reviewed_at: 2026-08-29
 review_interval_days: 90
 review_triggers:
   - Aervox 移动端形态或详情载体变化
@@ -18,14 +18,16 @@ sources:
   - docs/explanation/home-assistant-integration-assessment.md
   - docs/reference/agent-harness-loop.md
   - docs/reference/DATA_PRIVACY.md
+  - docs/reference/changes/CR-024-proactive-intelligence-suite-integrations.md
+  - docs/reference/adr/ADR-019-proactive-integrations-local-gateway.md
 ---
 
 # 运动与健康数据接入评估
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：3yearszhuang · 2026-08-29
 
-本文评估 Aervox｜思隅接入苹果（Apple Health）、小米（小米运动健康）运动与健康数据（步数、睡眠、情绪健康等）的可行性与方案取舍，作为 [Home Assistant 集成评估](home-assistant-integration-assessment.md)（AVX-EXPL-006）的姊妹评估，复用其"外部事实与执行源接入"的架构框架、授权与隐私不变量。本文是评审输入，不是已批准的生产规格、接口契约或新增 CAP；决策落地须按[追踪基线 §11 变更控制](../reference/REQUIREMENTS_TRACEABILITY.md#11-变更控制)先建 `CR-*` 再冻结 `ADR-*`。
+本文评估 Aervox｜思隅接入苹果（Apple Health）、小米（小米运动健康）运动与健康数据（步数、睡眠、情绪健康等）的可行性与方案取舍，作为 [Home Assistant 集成评估](home-assistant-integration-assessment.md)（AVX-EXPL-006）的姊妹评估。小米官方开放平台的“每日规范化指标 + 本地 Vault”路径已由 [CR-024](../reference/changes/CR-024-proactive-intelligence-suite-integrations.md) 与 [ADR-019](../reference/adr/ADR-019-proactive-integrations-local-gateway.md) 接受并实现；苹果、移动端聚合层和情绪健康仍只保留为评估输入。
 
 ## 一句话模型
 

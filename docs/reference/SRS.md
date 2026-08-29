@@ -4,7 +4,7 @@
 - 修改人：3yearszhuang · 2026-08-29
 
 > 文档编号：AVX-SRS-001  
-> 版本：v0.9（CAP-033 主动智能模式原子需求）
+> 版本：v1.0（CAP-033～035 主动智能与外部信号原子需求）
 > 更新日期：2026-08-29
 > 状态：Review Candidate  
 > 产品事实源：[PRD](PRD.md)  
@@ -446,7 +446,7 @@
 
 ### SEC-TEN-001 工作区/数据主体隔离
 
-- **Parent CAP**：`CAP-001`～`CAP-033`（适用于 MVP 全部数据面，P2/P3 增加组织/插件角色）
+- **Parent CAP**：`CAP-001`～`CAP-035`（适用于 MVP 全部数据面，P2/P3 增加组织/插件角色）
 - **必须**：所有业务实体、Turn 事件、后台 Job、缓存键、对象路径、索引和导出任务都绑定 `(workspaceId, subjectUserId)`；组织管理员、教师、监护人或插件只能以单独 `actorId` 表示，不得替代数据主体。应用鉴权与 TenantContext 仓储校验、复合外键和队列幂等键必须共同强制该边界。
 - **验收**：
   - `AC-SEC-TEN-001-01`：Given actor 对 workspace 有管理权限但不是 subjectUserId，When 读取/导出/删除另一主体数据，Then 仅返回获授权字段并完整审计，不泄露未授权正文。
@@ -507,7 +507,7 @@
 
 ## 6. P1/P2/P3 规格化规则
 
-能力地图中的 `CAP-014`～`CAP-033` 已保留全生命周期范围，但在对应 `R2`～`R5` 进入开发前，必须按以下最小结构补齐：
+能力地图中的 `CAP-014`～`CAP-035` 已保留全生命周期范围，但在对应 `R2`～`R5` 进入开发前，必须按以下最小结构补齐：
 
 1. 一个 `FR-*` 主行为和至少一个 `BR-*` 业务规则；
 2. 正常、空态、失败、取消、撤权、并发和删除传播场景；
@@ -835,3 +835,50 @@
   - `AC-OPS-PRO-001-02`：Given Host 崩溃后重启，When 恢复候选被扫描，Then 重新校验授权和水位，幂等恢复，不重复执行已完成动作。
   - `AC-OPS-PRO-001-03`：Given 用户暂停或撤权发生在恢复竞争期间，When 两者并发，Then deny/暂停获胜，旧恢复任务无副作用。
 - **测试**：`TC-RES-PRO-LIFECYCLE-001`、`TC-PERF-PRO-001`。
+
+## 9. CAP-033～035 主动智能派生与外部信号
+
+### FR-PRO-013 十二项主动智能派生
+
+- **Parent CAP**：`CAP-033`
+- **必须**：本地 Worker 从有效画像修订、观察、声明、动作和外部规范化信号中生成统一个人时间线、项目与意图图谱、操作流程、主动触发、动作验证、声明冲突、准备包、注意力/疲劳、行为漂移、关系上下文、场景快照和日/周回顾；所有输出绑定租户、画像修订和 `local_only`。
+- **验收**：
+  - `AC-FR-PRO-013-01`：Given 重复操作与项目事件，When Worker 运行，Then 生成时间线、项目和候选流程，并保留证据 ID。
+  - `AC-FR-PRO-013-02`：Given 冲突声明、已完成动作、临近承诺和停滞项目，When Worker 运行，Then 分别生成冲突、验证、准备、漂移和去重触发。
+  - `AC-FR-PRO-013-03`：Given 当日或当周有本地活动，When Worker 运行，Then 同一周期回顾幂等更新，不重复创建提醒。
+- **测试**：`TC-INTEG-PRO-INTELLIGENCE-001`。
+
+### FR-HA-001 Home Assistant 连接与感知
+
+- **Parent CAP**：`CAP-034`、`CAP-033`
+- **必须**：仅接受私网、回环或 `.local` HA 端点；凭据加密保存且不回显；同步实体目录并允许逐实体启用；WebSocket 只消费已授权实体的 `state_changed`，转为本地场景/时间线信号。
+- **验收**：
+  - `AC-FR-HA-001-01`：Given 公网或 redirect 端点，When 连接，Then 拒绝且不持久化 Token。
+  - `AC-FR-HA-001-02`：Given 实体未启用，When 状态变化，Then 不进入时间线和模型工具结果。
+  - `AC-FR-HA-001-03`：Given 连接撤销，When 后续事件或同步发生，Then 订阅停止，凭据与实体缓存被删除。
+- **测试**：`TC-INTEG-HA-001`、`TC-SEC-HA-SSRF-001`。
+
+### FR-HA-002 Home Assistant 受控执行
+
+- **Parent CAP**：`CAP-034`、`CAP-033`、`CAP-002`、`CAP-007`
+- **必须**：`ha_call_service` 仅能作用于已启用实体和允许的 service，并通过当前 `FullProfileActionGrant` 的 `action.external` 校验；调用结果进入动作账本和验证队列。
+- **验收**：
+  - `AC-FR-HA-002-01`：Given 实体或 service 不在白名单，When 请求调用，Then 返回 403 且 HA 无副作用。
+  - `AC-FR-HA-002-02`：Given 白名单与主动动作授权有效，When 调用，Then 强制目标 `entity_id`、记录 running/executed 或 failed，并可追踪结果。
+- **测试**：`TC-SEC-HA-ACTION-001`。
+
+### FR-HEALTH-001 小米运动健康按日同步
+
+- **Parent CAP**：`CAP-035`、`CAP-033`
+- **必须**：使用用户自己有权使用的官方开放平台 HTTPS 配置同步每日步数、睡眠分钟和静息心率；支持 Token 刷新；不持久化完整供应商响应，不采用逆向私有协议，不宣称 Aervox 已获厂商审批。
+- **验收**：
+  - `AC-FR-HEALTH-001-01`：Given 有效配置，When 同步指定日期，Then 三类可用指标按 `(tenant, connection, metric, date)` 幂等更新。
+  - `AC-FR-HEALTH-001-02`：Given Access Token 过期且 Refresh Token 可用，When 返回 401，Then 刷新后重试且新 Token 仍只存本地 Vault。
+  - `AC-FR-HEALTH-001-03`：Given 连接撤销，When 查询或同步，Then 凭据和健康样本删除，只读工具不再返回数据。
+- **测试**：`TC-INTEG-HEALTH-001`、`TC-PRIV-HEALTH-001`。
+
+### PRIV-EXT-001 外部连接凭据与数据最小化
+
+- **Parent CAP**：`CAP-034`、`CAP-035`、`CAP-033`
+- **必须**：连接 Token、Refresh Token、Client Secret 和私密设置不得进入日志、模型上下文、普通分析、API 响应或导出；HA 只缓存受限属性，健康只保存规范化每日指标；按连接撤销执行本地删除。
+- **验收**：`TC-PRIV-EXT-CREDENTIAL-001`、`TC-PRIV-HEALTH-001`。

@@ -23,7 +23,11 @@ import { ForbiddenError, NotFoundError } from "../../shared/errors.js";
 
 /** 工具调用处理器：入参已过注册表校验，返回结果由调用方编码 */
 export interface ToolHandler {
-  call(tenant: TenantContext, args: unknown): Promise<unknown>;
+  call(
+    tenant: TenantContext,
+    args: unknown,
+    context: { approval: boolean; proactiveAuthorization: boolean },
+  ): Promise<unknown>;
 }
 
 /** 运行时构造依赖 */
@@ -89,7 +93,7 @@ export class ToolRuntime {
     tenant: TenantContext,
     toolId: string,
     args: unknown,
-    opts: { approval?: boolean } = {},
+    opts: { approval?: boolean; proactiveAuthorization?: boolean } = {},
   ): Promise<unknown> {
     const tool = await this.deps.registry.getTool(toolId);
     if (!tool) throw new NotFoundError(`tool not found: ${toolId}`);
@@ -102,7 +106,10 @@ export class ToolRuntime {
 
     const handler = this.handlers.get(toolId);
     if (!handler) throw new ForbiddenError(`tool handler not registered: ${toolId}`);
-    return handler.call(tenant, args);
+    return handler.call(tenant, args, {
+      approval: opts.approval === true,
+      proactiveAuthorization: opts.proactiveAuthorization === true,
+    });
   }
 }
 

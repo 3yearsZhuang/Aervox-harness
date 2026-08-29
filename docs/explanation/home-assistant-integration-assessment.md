@@ -6,9 +6,9 @@ owner: platform
 doc_status: draft
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.1.0
-updated_at: 2026-08-28
-reviewed_at: 2026-08-28
+version: 0.2.0
+updated_at: 2026-08-29
+reviewed_at: 2026-08-29
 review_interval_days: 90
 review_triggers:
   - Agent Harness Loop 阶段计划或工具机制变更
@@ -18,14 +18,16 @@ sources:
   - docs/reference/agent-harness-loop.md
   - docs/reference/capability-registry.md
   - docs/reference/PRD.md
+  - docs/reference/changes/CR-024-proactive-intelligence-suite-integrations.md
+  - docs/reference/adr/ADR-019-proactive-integrations-local-gateway.md
 ---
 
 # Home Assistant 集成评估
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：3yearszhuang · 2026-08-29
 
-本文评估为 Aervox｜思隅引入 [Home Assistant](https://www.home-assistant.io/)（以下简称 HA）支持的可行性与方案取舍。本文是评审输入，不是已批准的生产规格、接口契约或新增 CAP；决策落地须按[追踪基线 §11 变更控制](../reference/REQUIREMENTS_TRACEABILITY.md#11-变更控制)先建 `CR-*` 再冻结 `ADR-*`。
+本文评估为 Aervox｜思隅引入 [Home Assistant](https://www.home-assistant.io/)（以下简称 HA）支持的可行性与方案取舍。推荐的“受控工具 + 本地事件网关”已由 [CR-024](../reference/changes/CR-024-proactive-intelligence-suite-integrations.md) 与 [ADR-019](../reference/adr/ADR-019-proactive-integrations-local-gateway.md) 接受并实现；本文保留候选方案、风险和后续 OAuth/插件路线，不替代机器契约与交付登记。
 
 ## 一句话模型
 

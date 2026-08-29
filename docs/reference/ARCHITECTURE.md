@@ -5,7 +5,7 @@
 
 > 文档编号：AVX-SAD-001  
 > 类型：Explanation  
-> 版本：v0.2（CAP-033 主动智能模式）
+> 版本：v0.3（CAP-033～035 主动智能与本地连接网关）
 > 更新日期：2026-08-29
 > 状态：Review Candidate  
 > 关联 PRD：[PRD.md](PRD.md) · 追踪：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
@@ -14,7 +14,7 @@
 
 ## 1. 架构结论
 
-采用 **TypeScript-first 模块化单体 + 独立 Worker/Scheduler**。Web、API、后台任务和桌面壳共享契约、领域类型和 UI；SQLite (WAL 模式) + 仓储抽象是业务真源，Redis 只负责缓存/队列，S3 负责附件；AI、记忆、日记和插件通过稳定的内部 Port 解耦。CAP-033 另由受信本地 Privacy Host/Helper 承担全量观察、画像、后台生命周期和主动动作，主动数据不得进入普通云端数据面。
+采用 **TypeScript-first 模块化单体 + 独立 Worker/Scheduler**。Web、API、后台任务和桌面壳共享契约、领域类型和 UI；SQLite (WAL 模式) + 仓储抽象是业务真源，Redis 只负责缓存/队列，S3 负责附件；AI、记忆、日记和插件通过稳定的内部 Port 解耦。CAP-033 另由受信本地 Privacy Host/Helper 承担全量观察、画像、后台生命周期和主动动作，主动数据不得进入普通云端数据面；CAP-034/035 通过同机本地连接网关接入家庭环境和规范化健康信号。
 
 MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应商成为核心运行时依赖。等 P3 的流量、组织权限或合规边界确实需要拆分时，再通过 ADR 把单一模块提取为服务，并保持业务事件、数据删除和客户端兼容。
 
@@ -229,10 +229,11 @@ Electron Shell
 | Worker/Scheduler | Memory、Diary、OCR、Embedding、Notification、Deletion Orchestrator | 各领域模块公开仓储；不得绕过所有权；所有 Job 包含 `workspaceId/subjectUserId` | Redis、对象存储、通知供应商 |
 | Plugin Host（P2） | Manifest、Policy Proxy、Adapter、Kill Switch | 插件自有状态；核心数据只经命令/候选 | 第三方代码和远程 Host |
 | CAP-033 Privacy Host（P3） | signed observation/action Host、OS Permission Broker、activation lease、source adapters | `proactive_*` 本地授权/捕获/画像/动作/审计表；全链 `local_only` | 操作系统、文件/浏览器/通信/设备能力、用户导出目标 |
+| CAP-033～035 主动智能与连接网关（P3） | 十二能力 Worker、Home Assistant REST/WS、小米健康 OAuth/每日同步、ToolRuntime handlers | `proactive_timeline_*`、项目/流程/触发/回顾、外部连接、HA 实体和健康样本；连接凭据加密 | 私网 Home Assistant、用户获准的小米开放平台、桌面设置与 Agent 工具 |
 | Recovery Control Ledger | 删除、Consent/Plugin/External Grant 撤销的最小控制事件、单调序列、防篡改证据 | 独立账号/凭据/保留策略的追加写存储；不含用户正文 | 与业务 SQLite 和其备份分离故障域 |
 | Observability | trace/metrics/脱敏日志 | 运行元数据，不得成为用户内容副本 | 监控/错误平台供应商 |
 
-当前分支的 CAP-033 实现覆盖本地 Vault、授权/lease、动作授权器、Aervox activity/operation 与剪贴板采集、Worker 提炼、导出和后台 heartbeat；其余平台来源适配器仍为 limited，不能把该部分实现解读为全量设备权限已可用。
+当前分支的 CAP-033 实现覆盖本地 Vault、授权/lease、动作授权器、已接入来源、Worker 提炼、十二项主动智能派生、日/周回顾、导出和后台 heartbeat；CAP-034 已接入 HA 私网 REST/WS、实体/service 白名单和受控工具，CAP-035 已接入可配置的小米官方开放平台每日指标与只读工具。其它平台来源、生产签名 Host/OS Broker、HA OAuth/重连矩阵和小米真实厂商沙箱仍是发布门禁，不能据此宣称全部平台能力已发布。
 
 主要威胁与架构控制：
 
@@ -246,6 +247,8 @@ Electron Shell
 | Electron 主进程越权 | contextIsolation、禁用 nodeIntegration、schema 化 IPC、签名更新 | `TC-SEC-DESKTOP-001` |
 | CAP-033 原始数据外传/错误清理 | 本地私密存储、Provider/出网准入、`local_only` provenance、七天+提炼门、撤权零召回 | `TC-SEC-PRO-LOCAL-001`、`TC-PRIV-PRO-RETENTION-001` |
 | CAP-033 主动动作越权 | `FullProfileActionGrant`、目标 scope/授权修订、OS/身份校验、幂等、沙箱、deny ledger | `TC-SEC-PRO-ACTION-001`、`TC-SEC-PROMPT-001` |
+| CAP-034 HA SSRF/越权控制 | 私网解析、redirect 拒绝、实体默认禁用、service 白名单、`action.external` 动作账本 | `TC-SEC-HA-SSRF-001`、`TC-SEC-HA-ACTION-001` |
+| CAP-035 健康凭据或敏感指标泄露 | Vault 加密、响应最小化、Restricted 分级、只读工具、连接级删除 | `TC-PRIV-EXT-CREDENTIAL-001`、`TC-PRIV-HEALTH-001` |
 
 ### 4.4 关键时序：对话到记忆
 
@@ -389,6 +392,7 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 | ADR-015 | Vue 全栈单栈：Web 复用桌面端技术族，替代 ADR-002 的 Web 基线 |
 | ADR-016 | Accepted — 底座边界冻结：Kernel Substrate 与能力层依赖边界，`scripts/import-boundary.mjs` 机器校验 |
 | ADR-018 | Proposed — CAP-033 本地私密存储、受信主动智能 Host、OS Permission Broker、全动作授权与后台生命周期 |
+| ADR-019 | Accepted — 主动智能外部连接使用本地网关、加密凭据、受控工具和按连接撤销 |
 
 每个 ADR 需要记录上下文、备选方案、决策、后果、迁移和回滚。未批准的技术建议不能写成已承诺架构。
 
@@ -420,3 +424,4 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 - Playwright 覆盖学习闭环、日记、删除、导出和弱网恢复；AI 回归集覆盖教学、安全、来源、过度压缩和删除后零召回；
 - 生产演练证明模型供应商中断、Redis 丢失、数据库备份恢复、对象恢复、队列重放和功能开关回滚可执行。
 - CAP-033 另须证明本地出网阻断、全量来源授权、七天捕获提炼清理、后台自启/恢复通知、全动作授权/撤权和独立可读导出；ADR-018 接受前不得启用真实广域数据。
+- CAP-034/035 另须证明 HA 重连/版本矩阵、真实 OAuth/LLAT 撤销、小米厂商沙箱契约、凭据零回显和连接级删除；通过前保持 `Not Ready`。

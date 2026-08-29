@@ -6,7 +6,7 @@
 - 状态：Proposed
 - 日期：2026-08-23
 
-- 关联：`CAP-001～033`、`NFR-REL-001`、`NFR-SCALE-001`、`OPS-QUEUE-001`、`RISK-011`
+- 关联：`CAP-001～035`、`NFR-REL-001`、`NFR-SCALE-001`、`OPS-QUEUE-001`、`RISK-011`
 
 ## Context
 
