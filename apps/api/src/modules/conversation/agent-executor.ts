@@ -42,15 +42,18 @@ import type { LLMConfigService } from "../llm/service.js";
  * - read_only：AI 可自主调用（PET-05）；
  * - write_with_approval：需已授权（toolName+参数哈希匹配 granted）才执行，否则生成 pending 授权并返回 needsApproval（阶段 3a）；
  * - 未注册 / privileged 一律拒绝（fail-closed）；工具停用由 registry enabled 拦截。
+ * exposedTools：随注册表预载的工具清单（真实 LLM 模式下模型 schema 必须包含注册表工具，
+ * 否则模型无从得知可调用；空数组 = 兼容旧行为，模型不可见但调用会被兜底校验）。
  */
 export function createRuntimeToolProvider(
   runtime: ToolRuntime,
   tenant: TenantContext,
   deps: { conversationRepo: SqliteConversationRepository },
+  exposedTools: import("@aervox/agent-loop").ToolSpec[] = [],
 ): ToolProviderPort {
   return {
-    // 工具清单随注册表动态变化，不在此静态缓存（execute 时实时校验）
-    tools: [],
+    // 预载的注册表工具清单（模型 schema 用；执行仍实时校验 enabled）
+    tools: exposedTools,
     async execute(input: ToolExecutionInput): Promise<ToolExecutionResult> {
       const errorMessage = (err: unknown): string => (err instanceof Error ? err.message : "tool_execution_error");
       const registrations = await runtime.listTools();
@@ -291,7 +294,14 @@ export async function runLoopTurnOnce(
   }
   let tools: ToolProviderPort | undefined;
   if (deps.toolRuntime) {
-    const runtimeProvider = createRuntimeToolProvider(deps.toolRuntime, tenant, { conversationRepo: repo });
+    // 真实 LLM 模式：注册表工具必须进入模型 schema（模型只能调用看得见的工具）。
+    // 预载 enabled 快照；执行时仍由 registry 实时校验（停用即拒绝）。
+    const registrySpecs = (await deps.toolRuntime.exportRegistry()).map((t) => ({
+      name: t.name,
+      description: t.description,
+      readOnly: t.safetyLevel === "read_only",
+    }));
+    const runtimeProvider = createRuntimeToolProvider(deps.toolRuntime, tenant, { conversationRepo: repo }, registrySpecs);
     tools =
       contribution.length > 0
         ? composeToolProviders(contribution, { fallback: runtimeProvider })

@@ -101,13 +101,20 @@ describe("createOpenAICompatProvider（阶段 2e）", () => {
 
     const body = JSON.parse(String(init?.body)) as {
       stream: boolean;
-      messages: Array<{ role: string; tool_call_id?: string; content: string }>;
+      messages: Array<{ role: string; tool_call_id?: string; content: string; tool_calls?: unknown[] }>;
       tools?: Array<{ type: string; function: { name: string } }>;
     };
     expect(body.stream).toBe(true);
+    // 携带 toolCallId 的 assistant 消息 → assistant.tool_calls 载体；tool 消息紧跟其后（OpenAI 协议）
     expect(body.messages).toEqual([
       { role: "user", content: "帮我查复习计划" },
-      { role: "assistant", content: "我先查一下", name: "search_notes" },
+      {
+        role: "assistant",
+        content: "我先查一下",
+        tool_calls: [
+          { id: "call_1", type: "function", function: { name: "search_notes", arguments: "{}" } },
+        ],
+      },
       { role: "tool", content: "{\"ok\":true}", tool_call_id: "call_1" },
     ]);
     expect(body.tools).toEqual([
