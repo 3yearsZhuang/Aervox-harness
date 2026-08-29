@@ -1,5 +1,5 @@
 ---
-id: CR-024
+id: CR-026
 type: reference
 scope: change
 owner: architecture
@@ -17,7 +17,7 @@ sources:
   - docs/reference/REQUIREMENTS_TRACEABILITY.md
 ---
 
-# CR-024 对话触发写日记（aervox_diary_write）与日记契约补全
+# CR-026 对话触发写日记（aervox_diary_write）与日记契约补全
 
 - 提出人：witchscottishfoldcat · 2026-08-29
 - 修改人：witchscottishfoldcat · 2026-08-29

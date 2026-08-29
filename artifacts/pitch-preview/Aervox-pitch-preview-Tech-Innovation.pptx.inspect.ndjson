@@ -1,0 +1,28 @@
+{"kind":"deck","id":"pr/0r57vn","name":"Deck"}
+{"kind":"layout","layoutId":"3fa414d2-f2b2-4e89-8f77-7072f53df0ee","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"b272594f-47b6-4612-bd8f-f4ffdee33069","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/0jbad1","slide":1,"title":"Aervox｜思隅","textShapes":4}
+{"kind":"textbox","id":"sh/9orixkv6","slide":1,"name":"brand","text":"Aervox｜思隅","textPreview":"Aervox｜思隅","textChars":9,"textLines":1,"bbox":[72,78,520,52]}
+{"kind":"textbox","id":"sh/8ni1oful","slide":1,"name":"cover-title","text":"让 AI 从回答问题，\n走到陪你完成学习","textPreview":"让 AI 从回答问题， | 走到陪你完成学习","textChars":20,"textLines":2,"bbox":[72,180,610,190]}
+{"kind":"textbox","id":"sh/vq90zudc","slide":1,"name":"cover-subtitle","text":"桌宠入口 × 视觉小说式互动 × 学习闭环","textPreview":"桌宠入口 × 视觉小说式互动 × 学习闭环","textChars":21,"textLines":1,"bbox":[76,412,560,48]}
+{"kind":"textbox","id":"sh/ap0jqpcr","slide":1,"name":"cover-kicker","text":"AI 黑客松 · 商业路演视觉小样","textPreview":"AI 黑客松 · 商业路演视觉小样","textChars":17,"textLines":1,"bbox":[76,616,460,28]}
+{"kind":"image","id":"im/32hc3mpg","slide":1,"name":"","alt":"Aervox TECH INNOVATION original hero visual","bbox":[0,0,1280,720]}
+{"kind":"notes","id":"nt/0jbad1","slide":1,"text":"开场：Aervox 不把 AI 做成另一个聊天框，而是把行动入口放到用户每天都会看见的桌面上。\n\n[Sources]\n- README.md（产品一句话定位）\n- OpenAI ImageGen（本页主视觉，2026-08-29 生成）\n[/Sources]"}
+{"kind":"slide","id":"sl/bh1ipu","slide":2,"title":"卡住时，","textShapes":5}
+{"kind":"textbox","id":"sh/gfy5g3el","slide":2,"name":"experience-line-1","text":"卡住时，","textPreview":"卡住时，","textChars":4,"textLines":1,"bbox":[72,118,420,80]}
+{"kind":"textbox","id":"sh/h07m98vq","slide":2,"name":"experience-line-2","text":"它先陪你找到","textPreview":"它先陪你找到","textChars":6,"textLines":1,"bbox":[72,198,540,84]}
+{"kind":"textbox","id":"sh/i10nidwb","slide":2,"name":"experience-line-3","text":"下一步。","textPreview":"下一步。","textChars":4,"textLines":1,"bbox":[72,278,420,92]}
+{"kind":"textbox","id":"sh/3294bidw","slide":2,"name":"experience-promise","text":"不替你完成  ·  不制造压力  ·  不让错误被遗忘","textPreview":"不替你完成  ·  不制造压力  ·  不让错误被遗忘","textChars":27,"textLines":1,"bbox":[76,440,600,48]}
+{"kind":"textbox","id":"sh/43i5kneh","slide":2,"name":"experience-signoff","text":"Aervox，把答案变成行动。","textPreview":"Aervox，把答案变成行动。","textChars":15,"textLines":1,"bbox":[76,606,620,38]}
+{"kind":"image","id":"im/ydsny10j","slide":2,"name":"","alt":"Aervox TECH INNOVATION learning experience campaign visual","bbox":[0,0,1280,720]}
+{"kind":"notes","id":"nt/bh1ipu","slide":2,"text":"宣传表达：用户卡住时，Aervox 的第一价值不是替代思考，而是让下一步变得足够清楚、足够轻。\n\n[Sources]\n- docs/reference/PRD.md §1.1、§1.2、§3 场景 A–D\n- OpenAI ImageGen（本页主视觉，2026-08-29 生成）\n[/Sources]"}
+{"kind":"slide","id":"sl/whumme","slide":3,"title":"它会","textShapes":8}
+{"kind":"textbox","id":"sh/zqtwn65g","slide":3,"name":"manifesto-kicker","text":"它会","textPreview":"它会","textChars":2,"textLines":1,"bbox":[72,58,180,54]}
+{"kind":"textbox","id":"sh/kr2dwb61","slide":3,"name":"manifesto-appear","text":"出现","textPreview":"出现","textChars":2,"textLines":1,"bbox":[72,146,330,118]}
+{"kind":"textbox","id":"sh/lsbepgnm","slide":3,"name":"manifesto-appear-copy","text":"在你准备开始的时候","textPreview":"在你准备开始的时候","textChars":9,"textLines":1,"bbox":[414,186,460,54]}
+{"kind":"textbox","id":"sh/al0vq1oz","slide":3,"name":"manifesto-remember","text":"记住","textPreview":"记住","textChars":2,"textLines":1,"bbox":[72,300,330,118]}
+{"kind":"textbox","id":"sh/bmtwj65k","slide":3,"name":"manifesto-remember-copy","text":"你走过的路与真正的卡点","textPreview":"你走过的路与真正的卡点","textChars":11,"textLines":1,"bbox":[414,340,560,54]}
+{"kind":"textbox","id":"sh/cn2dsb65","slide":3,"name":"manifesto-return","text":"回来","textPreview":"回来","textChars":2,"textLines":1,"bbox":[72,454,330,118]}
+{"kind":"textbox","id":"sh/xobelgna","slide":3,"name":"manifesto-return-copy","text":"在遗忘之前，陪你再前进一步","textPreview":"在遗忘之前，陪你再前进一步","textChars":13,"textLines":1,"bbox":[414,494,650,54]}
+{"kind":"textbox","id":"sh/uh4v25o3","slide":3,"name":"manifesto-close","text":"这不是另一个聊天框。\n这是一个会推动学习发生的 AI 伙伴。","textPreview":"这不是另一个聊天框。 | 这是一个会推动学习发生的 AI 伙伴。","textChars":30,"textLines":2,"bbox":[716,586,490,78]}
+{"kind":"notes","id":"nt/whumme","slide":3,"text":"收束：桌宠不是装饰，而是降低启动阻力的入口；工作台承担可验证的学习闭环和数据沉淀。\n\n[Sources]\n- README.md §客户端形态\n- docs/reference/PRD.md §1.2、§4.1、§4.2\n[/Sources]"}
