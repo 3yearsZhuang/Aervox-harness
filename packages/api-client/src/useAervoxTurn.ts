@@ -10,6 +10,7 @@ import type {
   PetCommand,
   TermsExtractedEventData,
   ToolApprovalMode,
+  ToolApprovalRequiredEventData,
   TurnAttachmentRef,
   UserQuestionRequiredEventData,
   TermExploreRequest,
@@ -25,6 +26,8 @@ export interface StreamAervoxTurnCallbacks {
   onUserQuestion?: (data: UserQuestionRequiredEventData) => void;
   /** CAP-007 / CAP-002: 术语抽取完成事件 */
   onTermsExtracted?: (data: TermsExtractedEventData) => void;
+  /** PET-05: 写工具需要用户授权时触发 */
+  onToolApproval?: (data: ToolApprovalRequiredEventData & { turnId: string }) => void;
 }
 
 export async function streamAervoxTurn(
@@ -50,4 +53,8 @@ export async function submitQuestionAnswers(turnId: string, answers: AskUserQues
 
 export async function exploreTerm(request: TermExploreRequest): Promise<TermExploreResponse> {
   return await getTransport().request<TermExploreResponse>('POST', '/v1/terms/explore', request);
+}
+
+export async function decideToolApproval(turnId: string, approvalId: string, decision: 'granted' | 'denied'): Promise<void> {
+  await getTransport().decideToolApproval(turnId, approvalId, decision);
 }

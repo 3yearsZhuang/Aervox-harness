@@ -5,6 +5,8 @@
  * - 只实现 OpenAI `/chat/completions` SSE 流协议（Anthropic 等非兼容协议在宿主接线层拒绝）；
  * - 流式解析 delta.content 与 delta.tool_calls（工具调用分片累积），`[DONE]` / finish_reason 收尾；
  * - 工具 schema 来自 request.tools（executor 传入只读白名单），不改变 Loop 控制流。
+ * - 思考型模型（DeepSeek v4 等）：捕获 delta.reasoning_content 并在下一 Step 序列化时随
+ *   assistant 消息回灌（provider 实例在单回合内跨 Step 存活）。
  * 使用全局 fetch（Node 18+ / 浏览器均可用）。
  */
 import type { ModelProviderPort } from "./ports.js";
@@ -30,7 +32,7 @@ interface OpenAIToolCallDelta {
 
 interface ChatCompletionChunk {
   choices?: Array<{
-    delta?: { content?: string | null; tool_calls?: OpenAIToolCallDelta[] };
+    delta?: { content?: string | null; tool_calls?: OpenAIToolCallDelta[]; reasoning_content?: string | null };
     finish_reason?: string | null;
   }>;
 }
@@ -40,13 +42,24 @@ function encodeToolName(name: string): string {
   return `avx_${name.replace(/[^a-zA-Z0-9_-]/g, (character) => `_x${character.codePointAt(0)!.toString(16)}_`)}`;
 }
 
-function toOpenAIMessages(messages: PromptMessage[], encodeName: (name: string) => string): unknown[] {
-  return messages.map((m) => {
+function toOpenAIMessages(
+  messages: PromptMessage[],
+  encodeName: (name: string) => string,
+  opts: { lastStepReasoning?: string } = {},
+): unknown[] {
+  const out: unknown[] = [];
+  for (const m of messages) {
     if (m.role === "tool") {
-      return { role: "tool", content: m.content, tool_call_id: m.toolCallId };
+      out.push({ role: "tool", content: m.content, tool_call_id: m.toolCallId });
+      continue;
     }
-    return { role: m.role, content: m.content, ...(m.name ? { name: encodeName(m.name) } : {}) };
-  });
+    const msg: Record<string, unknown> = { role: m.role, content: m.content };
+    if (m.name) msg.name = encodeName(m.name);
+    // 思考型模型：把上一步骤的 reasoning_content 随 assistant 消息回传
+    if (m.role === "assistant" && opts.lastStepReasoning) msg.reasoning_content = opts.lastStepReasoning;
+    out.push(msg);
+  }
+  return out;
 }
 
 function parseToolArguments(raw: string | undefined): unknown {
@@ -69,6 +82,8 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
         (request.tools ?? []).map((tool) => [encodeToolName(tool.name), tool.name]),
       );
       const encodeName = (name: string): string => toolNameByWireName.has(name) ? name : encodeToolName(name);
+      // 思考型模型跨 Step 回灌：上一次 stream 捕获的 reasoning_content（provider 实例单回合内存活）
+      let lastStepReasoning = "";
       const controller = new AbortController();
       let timedOut = false;
       const timeout = setTimeout(() => {
@@ -85,7 +100,7 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
           },
           body: JSON.stringify({
             model: config.modelId,
-            messages: toOpenAIMessages(request.context.messages, encodeName),
+            messages: toOpenAIMessages(request.context.messages, encodeName, { lastStepReasoning }),
             stream: true,
             temperature: config.temperature ?? 0.7,
             ...(config.maxTokens ? { max_tokens: config.maxTokens } : {}),
@@ -110,6 +125,8 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
       const decoder = new TextDecoder();
       // 工具调用分片累积：index → { id, name, arguments }
       const toolAccumulator = new Map<number, { id?: string; name: string; args: string }>();
+      // 本 Step 的思考内容（思考型模型要求下一步骤随 assistant 消息回传；不作为正文输出）
+      let stepReasoning = "";
       let buffer = "";
 
       const flushToolCalls = (): ToolCallRequest[] => {
@@ -148,6 +165,9 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
 
           for (const choice of parsed.choices ?? []) {
             const delta = choice.delta ?? {};
+            if (delta.reasoning_content) {
+              stepReasoning += delta.reasoning_content;
+            }
             if (delta.content) {
               yield { text: delta.content, isFinal: false };
             }
@@ -173,6 +193,8 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
       if (leftover.length > 0) {
         yield { text: "", isFinal: true, toolCalls: leftover };
       }
+      // 供同回合下一 Step 序列化时回灌（思考型模型协议要求）
+      lastStepReasoning = stepReasoning;
       } catch (error) {
         if (timedOut) throw new Error(`llm_timeout: upstream model did not respond within ${timeoutMs}ms`);
         throw error;

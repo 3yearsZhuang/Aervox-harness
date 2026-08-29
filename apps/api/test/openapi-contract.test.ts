@@ -52,4 +52,21 @@ describe("Learning OpenAPI 契约", () => {
     expect(openApiDocument.paths["/v1/study-plans"]?.get?.responses).toHaveProperty("200");
     expect(openApiDocument.paths["/v1/study-plans/{planId}/prediction"]?.post?.responses).toHaveProperty("200");
   });
+  it('声明日记查询与写工具授权端点（CAP-009 / PET-05）', () => {
+    const diaries = openApiDocument.paths['/v1/diaries']?.get;
+    expect(diaries?.parameters).toEqual(expect.arrayContaining([
+      expect.objectContaining({ in: 'query', name: 'localDate', required: true }),
+    ]));
+    expect(diaries?.responses).toEqual(expect.objectContaining({
+      200: expect.anything(),
+      400: expect.anything(),
+      404: expect.anything(),
+    }));
+
+    const approvals = openApiDocument.paths['/v1/turns/{turnId}/tool-approvals']?.post;
+    expect(approvals?.responses).toEqual(expect.objectContaining({
+      200: expect.anything(),
+      403: expect.anything(),
+    }));
+  });
 });

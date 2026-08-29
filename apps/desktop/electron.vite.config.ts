@@ -18,6 +18,8 @@ export default defineConfig({
   renderer: {
     resolve: { alias: { '@': resolve('src/renderer/src') } },
     plugins: [vue()],
+    // AERVOX_DESKTOP_PORT：本地端口被系统保留段占用时覆盖；默认 5174（被占用时 vite 自动顺延）
+    server: { port: Number(process.env.AERVOX_DESKTOP_PORT) || 5174 },
     build: {
       rollupOptions: {
         input: {
