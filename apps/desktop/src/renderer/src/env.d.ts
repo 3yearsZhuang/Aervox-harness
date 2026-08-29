@@ -28,6 +28,7 @@ interface Window {
     minimize: () => Promise<void>
     toggleMaximize: () => Promise<boolean>
     close: () => Promise<void>
+    openExternal?: (url: string) => Promise<void>
     onPetCommand: (callback: (command: unknown) => void) => () => void
     getTheme: () => Promise<'light' | 'dark'>
     setTheme: (theme: 'light' | 'dark') => Promise<'light' | 'dark'>

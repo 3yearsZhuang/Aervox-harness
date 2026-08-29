@@ -1,4 +1,4 @@
-import {app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, Menu, nativeTheme, Notification, powerMonitor, screen, systemPreferences} from 'electron'
+import {app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, Menu, nativeTheme, Notification, powerMonitor, screen, shell, systemPreferences} from 'electron'
 import {createHash} from 'node:crypto'
 import {chmod, mkdir, readFile, rename, writeFile} from 'node:fs/promises'
 import os from 'node:os'
@@ -739,8 +739,8 @@ function rendererUrl(page: string) {
 
 function createMainWindow() {
     mainWindow = new BrowserWindow({
-        width: 1360,
-        height: 820,
+        width: 1440,
+        height: 880,
         minWidth: 760,
         minHeight: 620,
         backgroundColor: '#f5f7f4',
@@ -823,6 +823,13 @@ app.whenReady().then(async () => {
     ipcMain.handle('window:close', () => {
         mainWindow?.destroy()
         return true
+    })
+    // 外链经系统浏览器打开（如牛客每日一题）：仅放行 https 协议
+    ipcMain.handle('window:open-external', (_event, url: unknown) => {
+        if (typeof url !== 'string' || !/^https:\/\//i.test(url)) {
+            throw new Error('仅允许打开 https:// 外部链接')
+        }
+        return shell.openExternal(url)
     })
     // 「选择文件夹」：本地语音模型路径 / 音色目录（CR-011 阶段 3）
     ipcMain.handle('dialog:pick-directory', async (event) => {
