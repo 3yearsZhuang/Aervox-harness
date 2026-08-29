@@ -34,9 +34,10 @@ interface Window {
     onThemeChange: (callback: (theme: 'light' | 'dark') => void) => () => void
     streamTurn: (
       content: string,
-      options: {toolApprovalMode: 'ask' | 'full_access'},
+      options: {toolApprovalMode: 'ask' | 'full_access'; attachments?: Array<{attachmentId: string; name?: string; mediaType?: string}>},
       callback: (message: unknown) => void,
     ) => () => void
     apiRequest: <T = unknown>(method: string, path: string, body?: unknown, headers?: Record<string, string>) => Promise<ApiRequestResult<T>>
+    uploadAttachment?: (payload: {fileName: string; mediaType: string; purpose: string; dataBase64: string; idempotencyKey?: string}) => Promise<unknown>
   }
 }

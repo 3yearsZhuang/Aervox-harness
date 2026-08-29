@@ -6,6 +6,22 @@
  * 无桥环境（如浏览器预览）下由调用方改用 fetchTransport，本实现不做隐式降级。
  */
 
+import type {
+  AskUserQuestionAnswerItem,
+  PetCommand,
+  ToolApprovalMode,
+  TurnAttachmentRef,
+  TurnStreamEvent,
+  UserQuestionRequiredEventData,
+} from '@aervox/contracts';
+import type {
+  AervoxTransport,
+  AttachmentUploadInput,
+  StreamTurnOptions,
+  TurnCallbacks,
+  UploadedAttachment,
+} from './transport';
+
 declare global {
   interface Window {
     fairyDesktop?: {
@@ -17,23 +33,22 @@ declare global {
       ) => Promise<{ status: number; ok: boolean; json: T | null; text: string }>;
       streamTurn: (
         content: string,
-        options: { toolApprovalMode: ToolApprovalMode },
+        options: { toolApprovalMode: ToolApprovalMode; attachments?: TurnAttachmentRef[] },
         callback: (message: unknown) => void,
       ) => () => void;
       /** 打开系统「选择文件夹」对话框，返回选中目录绝对路径；取消返回 null（CR-011 阶段 3） */
       pickDirectory?: () => Promise<string | null>;
+      /** 多模态输入：附件二进制上传（renderer File → base64 → 主进程转发 API） */
+      uploadAttachment?: (payload: {
+        fileName: string;
+        mediaType: string;
+        purpose: string;
+        dataBase64: string;
+        idempotencyKey?: string;
+      }) => Promise<UploadedAttachment>;
     };
   }
 }
-
-import type {
-  AskUserQuestionAnswerItem,
-  PetCommand,
-  ToolApprovalMode,
-  TurnStreamEvent,
-  UserQuestionRequiredEventData,
-} from '@aervox/contracts';
-import type { AervoxTransport, StreamTurnOptions, TurnCallbacks } from './transport';
 
 export const desktopTransport: AervoxTransport = {
   async request<T = unknown>(method: string, path: string, body?: unknown, options?: { headers?: Record<string, string> }): Promise<T> {
@@ -52,7 +67,7 @@ export const desktopTransport: AervoxTransport = {
   ): Promise<void> {
     const bridge = window.fairyDesktop;
     if (!bridge) throw new Error('fairyDesktop 桥不可用，请通过 Electron 启动应用。');
-    await streamTurnViaBridge(bridge, content, options.toolApprovalMode ?? 'ask', callbacks);
+    await streamTurnViaBridge(bridge, content, options.toolApprovalMode ?? 'ask', callbacks, options.attachments);
   },
 
   async submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[]): Promise<void> {
@@ -62,6 +77,27 @@ export const desktopTransport: AervoxTransport = {
       { answers },
     );
   },
+
+  async uploadAttachment(input: AttachmentUploadInput): Promise<UploadedAttachment> {
+    const bridge = window.fairyDesktop;
+    if (!bridge?.uploadAttachment) {
+      throw new Error('当前桌面桥不支持附件上传，请更新应用后重试。');
+    }
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(reader.error ?? new Error('附件读取失败'));
+      reader.readAsDataURL(input.file);
+    });
+    const dataBase64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+    return bridge.uploadAttachment({
+      fileName: input.name,
+      mediaType: input.mediaType,
+      purpose: input.purpose,
+      dataBase64,
+      idempotencyKey: input.idempotencyKey,
+    });
+  },
 };
 
 function streamTurnViaBridge(
@@ -69,9 +105,10 @@ function streamTurnViaBridge(
   content: string,
   toolApprovalMode: ToolApprovalMode,
   callbacks: TurnCallbacks,
+  attachments?: TurnAttachmentRef[],
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    const stop = bridge.streamTurn(content, { toolApprovalMode }, (message) => {
+    const stop = bridge.streamTurn(content, { toolApprovalMode, attachments }, (message) => {
       if (!message || typeof message !== 'object') return;
       const envelope = message as { type?: unknown; event?: unknown; message?: unknown };
       if (envelope.type === 'error') {

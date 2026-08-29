@@ -6,9 +6,11 @@
  */
 import type {
   AskUserQuestionAnswerItem,
+  AttachmentPurpose,
   PetCommand,
   TermsExtractedEventData,
   ToolApprovalMode,
+  TurnAttachmentRef,
   TurnStreamEvent,
   UserQuestionRequiredEventData,
 } from '@aervox/contracts';
@@ -26,13 +28,38 @@ export interface TurnCallbacks {
 
 export interface StreamTurnOptions {
   toolApprovalMode?: ToolApprovalMode;
+  /** 多模态输入：随消息发送的附件引用（先经 uploadAttachment 上传取得 id） */
+  attachments?: TurnAttachmentRef[];
 }
 
-/** 两端能力的最小契约：普通请求 + Turn 流式 + 问答提交 */
+/** 附件上传入参（CAP-012 多模态输入） */
+export interface AttachmentUploadInput {
+  /** 原始二进制（浏览器 File/Blob；桌面端经 IPC 桥转 base64） */
+  file: Blob;
+  name: string;
+  mediaType: string;
+  purpose: AttachmentPurpose;
+  idempotencyKey?: string;
+}
+
+/** 附件上传结果（attachments 表行子集） */
+export interface UploadedAttachment {
+  id: string;
+  objectKey: string;
+  mediaType: string;
+  size: number;
+  scanStatus?: string;
+  purpose?: string | null;
+  [key: string]: unknown;
+}
+
+/** 两端能力的最小契约：普通请求 + Turn 流式 + 问答提交 + 附件上传（可选） */
 export interface AervoxTransport {
   request<T = unknown>(method: string, path: string, body?: unknown, options?: { headers?: Record<string, string> }): Promise<T>;
   streamTurn(sessionId: string, content: string, callbacks: TurnCallbacks, options?: StreamTurnOptions): Promise<void>;
   submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[]): Promise<void>;
+  /** 多模态输入：原始二进制上传（Web 直连；桌面经 IPC 桥） */
+  uploadAttachment?(input: AttachmentUploadInput): Promise<UploadedAttachment>;
 }
 
 // ── 运行时配置（由宿主端在入口注入 import.meta.env 等信息） ──────────────
@@ -130,16 +157,38 @@ export function createFetchTransport(apiBase: string, workspaceId?: string, user
     callbacks: TurnCallbacks,
     options: StreamTurnOptions = {},
   ): Promise<void> => {
+    const message: { content: string; contentType: 'text'; attachments?: TurnAttachmentRef[] } = {
+      content,
+      contentType: 'text',
+    };
+    if (options.attachments && options.attachments.length > 0) message.attachments = options.attachments;
     const turn = await request<{ turnId: string }>(
       'POST',
       `/v1/sessions/${encodeURIComponent(sessionId)}/turns`,
       {
-        message: { content, contentType: 'text' },
+        message,
         clientVersion: 'aervox-api-client@0.1',
         toolApprovalMode: options.toolApprovalMode ?? 'ask',
       },
     );
     await consumeSse(turn.turnId, callbacks);
+  };
+
+  /** 多模态输入：原始二进制直传 POST /v1/attachments/binary（File 即请求体） */
+  const uploadAttachment = async (input: AttachmentUploadInput): Promise<UploadedAttachment> => {
+    const query = new URLSearchParams({
+      fileName: input.name,
+      mediaType: input.mediaType,
+      purpose: input.purpose,
+    });
+    if (input.idempotencyKey) query.set('idempotencyKey', input.idempotencyKey);
+    const res = await fetch(`${base}/v1/attachments/binary?${query.toString()}`, {
+      method: 'POST',
+      headers: { 'Content-Type': input.mediaType, ...tenantHeaders() },
+      body: input.file,
+    });
+    if (!res.ok) throw new Error(`API POST /v1/attachments/binary → HTTP ${res.status}`);
+    return (await res.json()) as UploadedAttachment;
   };
 
   const consumeSse = async (turnId: string, callbacks: TurnCallbacks): Promise<void> => {
@@ -201,5 +250,5 @@ export function createFetchTransport(apiBase: string, workspaceId?: string, user
     );
   };
 
-  return { request, streamTurn, submitQuestionAnswers };
+  return { request, streamTurn, submitQuestionAnswers, uploadAttachment };
 }

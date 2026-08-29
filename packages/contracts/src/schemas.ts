@@ -210,10 +210,19 @@ export const emoteEventDataSchema = petCommandSchema;
 /** 创建 Turn 请求体最小字段（§2.1） */
 export const toolApprovalModeSchema = z.enum(["ask", "full_access"]);
 
+/** Turn 消息附件引用（多模态输入：附件先经 POST /v1/attachments 上传，再随消息引用） */
+export const turnAttachmentRefSchema = z.object({
+  attachmentId: z.string().min(1),
+  name: z.string().min(1).optional(),
+  mediaType: z.string().min(1).optional(),
+});
+
 export const createTurnRequestSchema = z.object({
   message: z.object({
     content: z.string().min(1),
     contentType: z.enum(["text", "markdown"]),
+    /** 多模态输入：随消息发送的附件引用清单（CAP-012） */
+    attachments: z.array(turnAttachmentRefSchema).optional(),
   }),
   clientVersion: z.string().min(1),
   /** Turn 级工具授权策略；full_access 仅预授权普通写工具，不放行 privileged。 */
@@ -763,21 +772,33 @@ export const exportFormatSchema = z.enum(["json", "markdown"]);
 
 // ============ CAP-012 多模态答疑（FR-EXT-001/002、BR-EXT-001/002） ============
 
-/** 附件用途声明（FR-EXT-001） */
+/** 附件用途声明（FR-EXT-001；audio/file 为多模态输入扩展） */
 export const attachmentPurposeSchema = z.enum([
   "question",
   "chart",
   "code_screenshot",
   "reading",
+  "audio",
+  "file",
 ]);
 
-/** 允许的附件 MIME 类型（FR-EXT-001 AC-01） */
+/** 允许的附件 MIME 类型（FR-EXT-001 AC-01；多模态输入扩展：音频与文档） */
 export const allowedMediaTypesSchema = z.enum([
   "image/png",
   "image/jpeg",
   "image/webp",
   "image/gif",
   "application/pdf",
+  "text/plain",
+  "text/markdown",
+  "text/csv",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "audio/mpeg",
+  "audio/wav",
+  "audio/ogg",
+  "audio/mp4",
+  "audio/webm",
 ]);
 
 /** 最大附件大小（字节）— 10MB */
