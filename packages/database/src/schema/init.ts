@@ -2005,7 +2005,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     CREATE INDEX IF NOT EXISTS pending_user_questions_tenant_expires_idx ON pending_user_questions(workspace_id, subject_user_id, expires_at);
   `);
 
-  // CAP-033 主动能模式：版本化全量画像授权与本地处理数据面。
+  // CAP-033 主动智能模式：版本化全量画像授权与本地处理数据面。
   // 所有正文/派生表均显式带 processing_boundary，且不接入 outbox/远程同步表。
   await client.execute(`
     CREATE TABLE IF NOT EXISTS proactive_profile_revisions (

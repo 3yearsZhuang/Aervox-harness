@@ -290,7 +290,7 @@ registry.registerPath({
 registry.registerPath({
   method: "get",
   path: "/v1/proactive/status",
-  summary: "读取主动能授权与本地运行状态",
+  summary: "读取主动智能授权与本地运行状态",
   tags: ["Proactive"],
   request: { headers: proactiveHeaders },
   responses: { 200: { description: "Proactive status", content: { "application/json": { schema: proactiveStatusResponseSchema } } } },
@@ -314,7 +314,7 @@ registry.registerPath({
 registry.registerPath({
   method: "post",
   path: "/v1/proactive/desired-state",
-  summary: "暂停、恢复或撤销主动能模式",
+  summary: "暂停、恢复或撤销主动智能模式",
   tags: ["Proactive"],
   request: { headers: proactiveHeaders, body: { content: { "application/json": { schema: proactiveDesiredStateRequestSchema } } } },
   responses: { 200: { description: "Desired state updated" }, 404: { description: "Profile revision not found" } },

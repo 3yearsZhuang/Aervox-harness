@@ -2766,7 +2766,7 @@ export interface ILLMConfigRepository {
   ): Promise<LLMConfigModel>;
 }
 
-// ============ CAP-033 主动能模式：广域本地画像数据面 ============
+// ============ CAP-033 主动智能模式：广域本地画像数据面 ============
 
 export type ProactiveDesiredState = "none" | "enabled" | "paused" | "revoking" | "revoked";
 export type ProactiveRevisionStatus = "draft" | "active" | "superseded" | "revoked";

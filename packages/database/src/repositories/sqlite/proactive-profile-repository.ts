@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — CAP-033 主动能模式 SQLite 仓储
+ * Aervox｜思隅 @aervox/database — CAP-033 主动智能模式 SQLite 仓储
  *
  * 本仓储是主动画像数据的唯一数据库入口。它不使用 outbox，也不把原始捕获
  * 写入普通 analytics/audit 表；所有读取和写入都强制带租户边界。

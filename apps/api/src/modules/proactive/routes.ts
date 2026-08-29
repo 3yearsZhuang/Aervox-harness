@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/api — CAP-033 主动能模式控制面
+ * Aervox｜思隅 @aervox/api — CAP-033 主动智能模式控制面
  *
  * 这里仅提供本地 Host/用户控制面和数据管道入口。原始捕获默认脱敏，导出
  * 必须由用户显式请求；所有动作都保留独立 actionGrantRevision。
@@ -146,7 +146,7 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
 
   app.post("/v1/proactive/authorize", async (req, reply) => {
     const body = objectBody(req.body);
-    // 主动能授权必须与 CR-022 的 Turn full_access 明确绑定，不能由画像授权替代。
+    // 主动智能授权必须与 CR-022 的 Turn full_access 明确绑定，不能由画像授权替代。
     if (body.fullAccessConfirmed !== true && body.toolApprovalMode !== "full_access") {
       return reply.code(409).send({ error: "full_access_confirmation_required" });
     }

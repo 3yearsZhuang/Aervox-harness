@@ -4,7 +4,7 @@
 - 修改人：3yearszhuang · 2026-08-29
 
 > 文档编号：AVX-DB-001  
-> 版本：v0.8（CAP-033 主动能模式数据面）
+> 版本：v0.8（CAP-033 主动智能模式数据面）
 > 更新日期：2026-08-29
 > 状态：Review Candidate  
 > 关联：`CR-003`、`CR-023`、`ADR-003`、`ADR-004`、`ADR-007`、`ADR-011`、`ADR-012`、`ADR-013`、`AVX-SPC-001`、`AVX-PRD-001`、`NFR-SCALE-001`、`NFR-SEC-001`
@@ -26,7 +26,7 @@
 | v0.5 | 2026-08-25 | P1（R2）落表 5 张：memory_nodes 投影独立化 + memory_edges/overrides 迁移到节点级 + memory_edge_evidence + memory_algorithms + conversation_branches + knowledge_relations；§14 表格状态同步（48 张业务表已落表，覆盖除 PG 用户域外全部核心实体） |
 | v0.6 | 2026-08-25 | P2/P3 扩展落表 5 张：external_sources + plugins/plugin_grants + community_contents + organizations + IExtensionRepository；§14 覆盖 48→53 张业务表，除 PG 用户域外全部落表 |
 | v0.7 | 2026-08-25 | 人格插件 SQLite 落表 6 张：personas / persona_revisions / persona_selections / workspace_skills / mcp_tools / persona_turn_contexts（CAP-019/020），补 IPersonaRepository / ISkillRepository / IMcpToolRepository 与 §14 清单 |
-| v0.8 | 2026-08-29 | CAP-033 主动能模式数据面新增授权修订、来源 grant、激活租约、原始捕获、画像声明、动作和本地审计表；补七天提炼清理、local-only 边界和导出/撤权契约 |
+| v0.8 | 2026-08-29 | CAP-033 主动智能模式数据面新增授权修订、来源 grant、激活租约、原始捕获、画像声明、动作和本地审计表；补七天提炼清理、local-only 边界和导出/撤权契约 |
 
 ---
 
@@ -39,7 +39,7 @@
 5. **Port 接口是唯一消费边界**：应用代码只能依赖 `IConversationRepository`、`IMemoryRepository`、`IDiaryRepository`、`IOutboxRepository` 和 `IVectorSearchPort`。消费者不得引入方言特定类型、直接读/写 FTS 虚表或向量存储。
 6. **字段名零重命名、语义零漂移**：SQLite → PostgreSQL 的迁移仅做**类型自然升级**（TEXT→UUID/TIMESTAMPTZ/JSONB/BOOLEAN），不做字段重命名或业务语义改写；新列必须可空或带默认；破坏性变更必须走版本号和 `CR-*`。
 7. **SQLite 阶段不启用用户注册**：用户域（workspaces/users/credentials/workspace_members/user_profiles）5 张表仅在 PostgreSQL 阶段创建。SQLite 阶段 `subject_user_id` 视为本地标识字符串，不关联凭证或组织角色。
-8. **CAP-033 私密数据隔离**：主动能模式的授权、来源、捕获、画像、动作、租约和审计表必须显式带 `processing_boundary=local_only`，不写入普通远程同步/分析旁路；原始捕获按七天且完成记忆提炼后才允许清理。
+8. **CAP-033 私密数据隔离**：主动智能模式的授权、来源、捕获、画像、动作、租约和审计表必须显式带 `processing_boundary=local_only`，不写入普通远程同步/分析旁路；原始捕获按七天且完成记忆提炼后才允许清理。
 9. **CAP-033 全动作授权溯源**：每个主动动作必须绑定用户确认的 `FullProfileActionGrant`、授权修订、目标 scope、设备租约和 deny 水位；数据库层不得把模型请求或普通 Turn 自动授权当作动作授权。
 
 ---
@@ -341,7 +341,7 @@ erDiagram
         TEXT created_at ""
     }
 
-    %% ============ ⑥ CAP-033 主动能模式本地画像 ==========
+    %% ============ ⑥ CAP-033 主动智能模式本地画像 ==========
     proactive_profile_revisions {
         TEXT id PK "版本化全量画像授权"
         TEXT workspace_id "租户隔离"
@@ -999,7 +999,7 @@ flowchart TB
 ## 13. 参考与落地代码
 
 - 真源 schema：[packages/database/src/schema/](../../packages/database/src/schema)
-- CAP-033 主动能模式 schema：[proactive.ts](../../packages/database/src/schema/proactive.ts)；初始化：[init.ts](../../packages/database/src/schema/init.ts)
+- CAP-033 主动智能模式 schema：[proactive.ts](../../packages/database/src/schema/proactive.ts)；初始化：[init.ts](../../packages/database/src/schema/init.ts)
 - 连接与共享库路径：[client.ts](../../packages/database/src/client.ts#L21-L23)（`createDatabase` 默认 `<repo>/data/aervox.db`，见 §2.1）
 - 公共列定义：[common.ts](../../packages/database/src/schema/common.ts#L6-L17)
 - DDL 初始化脚本：[init.ts](../../packages/database/src/schema/init.ts#L9-L219)
@@ -1130,7 +1130,7 @@ flowchart TB
 领域 Port 由主仓 `apps/api/src/modules/persona` 定义（`PersonaRepository` / `SkillRepository` / `McpToolRepository`；原 `modules/persona-plugin` 子模块已于 2026-08-28 移除，去模块化收尾见 §4.2），主仓
 `@aervox/database` 提供 SQLite 实现并通过 `apps/api` 适配器接入；数据库表与 Repository Port 是持久化事实源。
 
-### 14.9 主动能模式域（CAP-033）
+### 14.9 主动智能模式域（CAP-033）
 
 | PRD 实体 | 阶段 | 实现状态 | 说明 / 对应表 |
 |---|---|---|---|

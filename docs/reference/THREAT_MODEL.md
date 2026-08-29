@@ -4,13 +4,13 @@
 - 修改人：3yearszhuang · 2026-08-29
 
 > 文档编号：AVX-SEC-001  
-> 版本：v0.2（CAP-033 主动能模式）
+> 版本：v0.2（CAP-033 主动智能模式）
 > 更新日期：2026-08-29
 > 关联：[架构设计](ARCHITECTURE.md) · [数据与隐私](DATA_PRIVACY.md) · [CR-023](changes/CR-023-proactive-local-intelligence-mode.md)
 
 ## 1. 范围与资产
 
-范围包括 Web/API/Worker、SQLite、Redis/BullMQ、S3、独立故障域 `RecoveryControlLedger`、模型/身份/通知供应商、Electron、P2 插件/外部同步、P3 组织权限和 CAP-033 主动能模式本地 Host。关键资产：凭据、私人会话、作答、记忆、日记、附件、安全事件、同意、撤权/删除 deny 控制事件、模型上下文、组织角色、全量画像原始捕获、画像声明、动作授权、后台状态和本地导出。
+范围包括 Web/API/Worker、SQLite、Redis/BullMQ、S3、独立故障域 `RecoveryControlLedger`、模型/身份/通知供应商、Electron、P2 插件/外部同步、P3 组织权限和 CAP-033 主动智能模式本地 Host。关键资产：凭据、私人会话、作答、记忆、日记、附件、安全事件、同意、撤权/删除 deny 控制事件、模型上下文、组织角色、全量画像原始捕获、画像声明、动作授权、后台状态和本地导出。
 
 尚未进入生产启用范围：未成年人、CAP-033 尚未接入的平台设备捕获/全量文件 watcher、社区私信、市场支付和任意第三方插件执行；本分支已启用本地 Vault、Aervox activity/operation 与剪贴板采集、画像提炼、动作授权和后台 heartbeat 的测试路径，真实能力扩大前必须完成本模型扩展与专项门禁。
 

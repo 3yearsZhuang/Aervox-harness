@@ -254,7 +254,7 @@ export function createRuntimeToolProvider(
             return { ok: false, error: errorMessage(err) };
           }
         }
-        // 主动能模式下，全动作授权包可覆盖普通写、外部、privileged 与不可逆动作；
+        // 主动智能模式下，全动作授权包可覆盖普通写、外部、privileged 与不可逆动作；
         // 每次执行仍绑定当前画像修订/租约/scope 并写入本地动作账本。
         if (
           getRequestToolApprovalMode(tenant) === "full_access" &&
@@ -476,7 +476,7 @@ export async function runLoopTurnOnce(
     platformRepo?: import("@aervox/database").SqlitePlatformRepository;
     /** UQ-01：向用户提问协调端口（挂起与唤醒） */
     userQuestionPort?: UserQuestionPort;
-    /** CAP-033：主动能全动作授权与本地动作账本。 */
+    /** CAP-033：主动智能全动作授权与本地动作账本。 */
     proactiveActionAuthorizer?: ProactiveActionAuthorizer;
     /** CAP-033：本地画像声明来源；仅在有效且本地模型准入时注入。 */
     proactiveRepository?: IProactiveProfileRepository;

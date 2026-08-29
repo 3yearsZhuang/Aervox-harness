@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/api — CAP-033 主动能模式模块入口。
+ * Aervox｜思隅 @aervox/api — CAP-033 主动智能模式模块入口。
  *
  * 生产装配应注入独立的本地 proactive vault 数据库与 cipher；未注入时回退
  * 到 ctx.db 仅用于本地开发/测试，调用方不应把该回退当作远程安全边界。

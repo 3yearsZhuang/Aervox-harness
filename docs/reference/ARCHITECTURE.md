@@ -5,7 +5,7 @@
 
 > 文档编号：AVX-SAD-001  
 > 类型：Explanation  
-> 版本：v0.2（CAP-033 主动能模式）
+> 版本：v0.2（CAP-033 主动智能模式）
 > 更新日期：2026-08-29
 > 状态：Review Candidate  
 > 关联 PRD：[PRD.md](PRD.md) · 追踪：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
@@ -205,7 +205,7 @@ Scheduler ──> BullMQ ──> Worker pools
 All processes ──> OpenTelemetry Collector ──> metrics/logs/traces
 ```
 
-CAP-033 的主动能路径与普通云端路径分离：
+CAP-033 的主动智能路径与普通云端路径分离：
 
 ```text
 Electron Shell
@@ -388,7 +388,7 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 | ADR-014 | 演进式模块化单体：apps/api 按领域模块组织，自管仓储 + 进程内事件总线 |
 | ADR-015 | Vue 全栈单栈：Web 复用桌面端技术族，替代 ADR-002 的 Web 基线 |
 | ADR-016 | Accepted — 底座边界冻结：Kernel Substrate 与能力层依赖边界，`scripts/import-boundary.mjs` 机器校验 |
-| ADR-018 | Proposed — CAP-033 本地私密存储、受信主动能 Host、OS Permission Broker、全动作授权与后台生命周期 |
+| ADR-018 | Proposed — CAP-033 本地私密存储、受信主动智能 Host、OS Permission Broker、全动作授权与后台生命周期 |
 
 每个 ADR 需要记录上下文、备选方案、决策、后果、迁移和回滚。未批准的技术建议不能写成已承诺架构。
 

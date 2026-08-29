@@ -25,13 +25,13 @@ sources:
 
 ## 变更原因
 
-当前 `write_with_approval` 工具每次都需命中显式授权，连续、可预期的本地任务会频繁中断。本变更增加一个默认关闭的「完全访问」开关，让用户在信任当前任务时减少普通写工具的确认步骤，同时保留原有管理员、租户、撤权、删除、超时和沙箱边界。经 CR-023 接受后，CAP-033 另提供用户确认的 `FullProfileActionGrant`，用于主动能模式的全动作授权，不改变普通 `full_access` 的默认语义。
+当前 `write_with_approval` 工具每次都需命中显式授权，连续、可预期的本地任务会频繁中断。本变更增加一个默认关闭的「完全访问」开关，让用户在信任当前任务时减少普通写工具的确认步骤，同时保留原有管理员、租户、撤权、删除、超时和沙箱边界。经 CR-023 接受后，CAP-033 另提供用户确认的 `FullProfileActionGrant`，用于主动智能模式的全动作授权，不改变普通 `full_access` 的默认语义。
 
 ## 决策与语义
 
 - `CreateTurnRequest.toolApprovalMode` 取值为 `ask | full_access`，缺省 `ask`。客户端为每个 Turn 显式传递当前模式，服务端在执行开始前固化本次快照。
 - `full_access` 只自动放行 `write_with_approval`，不修改工具注册表的固有 `safetyLevel`。
-- 普通 `full_access` 下的 `privileged` 仍进入独立管理员审批通道；CAP-033 主动能模式若存在覆盖当前目标的用户 `FullProfileActionGrant`，可按该授权快照放行 `privileged`、外部和不可逆动作。租户隔离、Consent/撤权、删除水位、工具启停、参数校验、沙箱、超时和配额始终有效。
+- 普通 `full_access` 下的 `privileged` 仍进入独立管理员审批通道；CAP-033 主动智能模式若存在覆盖当前目标的用户 `FullProfileActionGrant`，可按该授权快照放行 `privileged`、外部和不可逆动作。租户隔离、Consent/撤权、删除水位、工具启停、参数校验、沙箱、超时和配额始终有效。
 - 动态 ToolRuntime 与静态 Subagent/Workflow Contribution 的写工具共用同一授权决策，Provider 组合不得绕过审批门。
 - 运行中的 Turn 禁止切换模式。关闭完全访问只影响后续 Turn，不撤回已开始的副作用。
 

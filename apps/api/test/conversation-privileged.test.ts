@@ -105,7 +105,7 @@ describe("阶段 3b：privileged 管理员通道", () => {
     expect(events.at(-1)?.data.status).toBe("Interrupted");
   });
 
-  it("主动能全动作授权可执行 privileged，撤权后同参数不复用自动授权", async () => {
+  it("主动智能全动作授权可执行 privileged，撤权后同参数不复用自动授权", async () => {
     const proactiveRepo = new SqliteProactiveProfileRepository(db);
     const { revision, sources } = await proactiveRepo.confirmProfile(tenant, {
       id: "profile_3b",

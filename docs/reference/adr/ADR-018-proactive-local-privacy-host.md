@@ -19,7 +19,7 @@ sources:
   - docs/reference/adr/ADR-009-electron-plugin-sandbox.md
 ---
 
-# ADR-018 CAP-033 本地私密存储与主动能 Host
+# ADR-018 CAP-033 本地私密存储与主动智能 Host
 
 - 提出人：3yearszhuang · 2026-08-29
 - 修改人：3yearszhuang · 2026-08-29

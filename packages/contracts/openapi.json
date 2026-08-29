@@ -5048,7 +5048,7 @@
     },
     "/v1/proactive/status": {
       "get": {
-        "summary": "读取主动能授权与本地运行状态",
+        "summary": "读取主动智能授权与本地运行状态",
         "tags": [
           "Proactive"
         ],
@@ -5445,7 +5445,7 @@
     },
     "/v1/proactive/desired-state": {
       "post": {
-        "summary": "暂停、恢复或撤销主动能模式",
+        "summary": "暂停、恢复或撤销主动智能模式",
         "tags": [
           "Proactive"
         ],

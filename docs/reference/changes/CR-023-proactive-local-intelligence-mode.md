@@ -24,7 +24,7 @@ sources:
   - docs/explanation/home-assistant-integration-assessment.md
 ---
 
-# CR-023 广域本地主动智能与「主动能模式」（CAP-033）
+# CR-023 广域本地主动智能模式（CAP-033）
 
 - 提出人：3yearszhuang · 2026-08-29
 - 修改人：3yearszhuang · 2026-08-29
@@ -33,13 +33,13 @@ sources:
 
 ## 变更来源
 
-本变更在完全访问之上增加独立的「全量画像授权包」，并正式建立 `CAP-033 全域感知与个人画像（主动能模式）`。在用户明确确认后，Aervox 可理解当前设备上所有可用的使用、操作、内容、文档和环境信号，包括系统应用/窗口/进程、浏览器、键鼠、剪贴板、屏幕、全部可读文件、通信资料、音视频、位置、传感器和其它私人资料；用户也可一并授权后台生命周期及全部声明动作。所有原始和派生数据只在本机保存/处理，不上传云端，并允许用户导出。授权包有效且受信设备实例持有未过期的激活 epoch 时，用户可见状态显示为「主动能模式」。当前分支已实现本地 Vault、授权/lease、全动作授权运行时、Aervox activity/operation、剪贴板、屏幕、浏览器历史元数据与显式文件根适配器、Worker 提炼、本地画像上下文、导出和后台 heartbeat；应用活动正文仍需签名 native provider，通信、音视频、位置和传感器等来源仍处于 limited/待平台接入。
+本变更在完全访问之上增加独立的「全量画像授权包」，并正式建立 `CAP-033 全域感知与个人画像（主动智能模式）`。在用户明确确认后，Aervox 可理解当前设备上所有可用的使用、操作、内容、文档和环境信号，包括系统应用/窗口/进程、浏览器、键鼠、剪贴板、屏幕、全部可读文件、通信资料、音视频、位置、传感器和其它私人资料；用户也可一并授权后台生命周期及全部声明动作。所有原始和派生数据只在本机保存/处理，不上传云端，并允许用户导出。授权包有效且受信设备实例持有未过期的激活 epoch 时，用户可见状态显示为「主动智能模式」。当前分支已实现本地 Vault、授权/lease、全动作授权运行时、Aervox activity/operation、剪贴板、屏幕、浏览器历史元数据与显式文件根适配器、Worker 提炼、本地画像上下文、导出和后台 heartbeat；应用活动正文仍需签名 native provider，通信、音视频、位置和传感器等来源仍处于 limited/待平台接入。
 
 ## 能力归属
 
 本提议新增 `CAP-033`，并与以下已有能力建立显式关联；关联不改变各已有 CAP 的生命周期状态：
 
-- `CAP-033`：独立拥有全量画像授权、来源观察、画像提炼、后台生命周期、全动作授权、本地持久化、导出、撤权和删除传播的生命周期能力；「主动能模式」是其有效运行状态。
+- `CAP-033`：独立拥有全量画像授权、来源观察、画像提炼、后台生命周期、全动作授权、本地持久化、导出、撤权和删除传播的生命周期能力；「主动智能模式」是其有效运行状态。
 
 - `CAP-005`：带来源/证据的习惯候选与用户确认记忆；
 - `CAP-010`：主动程度和提醒节奏偏好，不产生权限；
@@ -55,7 +55,7 @@ sources:
 
 1. `toolApprovalMode=ask|full_access` 继续由 CR-022 定义，不增加第三个工具权限枚举值。
 2. 产品层可一次确认当前版本的全量画像授权包，内部仍按 purpose/scope/source 保留可独立撤销的记录；新增来源、用途或版本必须升级授权包并重新确认。
-3. 「主动能模式」是 `FullProfileGrant + device activation epoch + full_access per-Turn snapshot + desired=enabled + effectiveGrantSet + local-ready` 的派生展示状态；激活 epoch 只控制主动观察/处理生命周期，`FullProfileActionGrant` 作为独立动作授权由工具门逐次校验，不能改写 Turn 的 CR-022 `toolApprovalMode` 或授权无关工具。
+3. 「主动智能模式」是 `FullProfileGrant + device activation epoch + full_access per-Turn snapshot + desired=enabled + effectiveGrantSet + local-ready` 的派生展示状态；激活 epoch 只控制主动观察/处理生命周期，`FullProfileActionGrant` 作为独立动作授权由工具门逐次校验，不能改写 Turn 的 CR-022 `toolApprovalMode` 或授权无关工具。
 4. 授权向导只保存不生效的 draft，用户最终确认后才原子激活模式修订与精确 grant/source 修订集；取消或部分失败不得留下生效授权。
 5. 全量画像授权包包含当前平台全部可用的 Aervox 和系统应用/窗口/进程、浏览器、键鼠/剪贴板、屏幕、全部可读文件、通信资料、音视频、位置、传感器和其他私人内容；每个来源保留 OS grant、状态、撤销和证据，支持持续 watcher 与后台处理。
 6. 主动正文、控制面、Consent/审计投影、Embedding、派生摘要、确认后记忆和触发历史均只允许进入可验证的同机本地存储/处理器；本地处理不可用时 fail closed，不向远端降级。
@@ -104,7 +104,7 @@ sources:
 4. 本地文件、浏览器/家居控制、外部消息、特权和不可逆动作均可在用户确认 `FullProfileActionGrant` 后授权执行；
 5. 新建 `CAP-033`，并与既有 CAP 建立显式依赖和联动关系。
 
-上述确认已同步到 [PRD CAP-033](../PRD.md#prd-cap-033)、[SRS §8](../SRS.md#8-cap-033-全域感知与个人画像主动能模式) 和 [主动智能设计方案](../../explanation/proactive-intelligence-mode.md)。局域网/自托管范围、导出原文件与路径格式、云同步目录处理、具体设备仲裁和密码加密包仍待单独确认。
+上述确认已同步到 [PRD CAP-033](../PRD.md#prd-cap-033)、[SRS §8](../SRS.md#8-cap-033-全域感知与个人画像主动智能模式) 和 [主动智能设计方案](../../explanation/proactive-intelligence-mode.md)。局域网/自托管范围、导出原文件与路径格式、云同步目录处理、具体设备仲裁和密码加密包仍待单独确认。
 
 剩余 `PRO-BLOCK-001～012` 和进入实现所需门禁，以[主动智能设计方案 §11～13](../../explanation/proactive-intelligence-mode.md#11-当前实现阻断项)为唯一维护入口。
 

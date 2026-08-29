@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — CAP-033 主动能模式本地画像数据面
+ * Aervox｜思隅 @aervox/database — CAP-033 主动智能模式本地画像数据面
  *
  * 这些表与普通记忆/分析表隔离，所有正文和派生数据都带有 tenant、授权修订
  * 与 processingBoundary 溯源。运行时必须由本地 Host 保证 local_only；数据库层
@@ -316,7 +316,7 @@ export const proactiveActions = sqliteTable(
   }),
 );
 
-/** 主动能模式生命周期/权限变更审计（租户隔离且不写远程 outbox） */
+/** 主动智能模式生命周期/权限变更审计（租户隔离且不写远程 outbox） */
 export const proactiveAuditEvents = sqliteTable(
   "proactive_audit_events",
   {

@@ -214,9 +214,9 @@ export function profileStatusLabel(status: ProfileEffectiveState): string {
   return {
     inactive: '未启用',
     configuring: '配置中',
-    active: '主动能模式',
-    limited: '主动能模式受限',
-    suspended: '主动能已挂起',
+    active: '主动智能模式',
+    limited: '主动智能模式受限',
+    suspended: '主动智能已挂起',
     revoking: '正在关闭',
   }[status]
 }

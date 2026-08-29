@@ -35,7 +35,7 @@
 | [文档治理与事实源规范](reference/document-governance.md)（AVX-DOC-GOV-001） | 文档如何分类、标记状态、确定唯一事实源并触发复核 | 分类、事实源矩阵、元数据、状态模型、owner、复核触发器与分阶段迁移 |
 | [从这里开始](getting-started.md)（AVX-DOC-002，见[§7](#7-从哪开始)） | 新成员/Agent 从哪看起、提交前自检什么 | 导航型；不承载规则 |
 | [能力拆分路线](explanation/roadmap.md)（AVX-EXPL-004，见[§4.1](#41-能力拆分路线建议批次)） | CAP 按什么批次、什么顺序进入规格化与开发 | 建议批次与拆分节奏；既不重复 PRD 路线图，也不重复追踪基线矩阵 |
-| [主动智能与主动能模式](explanation/proactive-intelligence-mode.md)（AVX-EXPL-008） | 完全访问上如何以广域画像授权、OS 能力、特权观察 Host、本地私密数据和主动操作组合既有 CAP | 评审提案；不替代 PRD/SRS/DATA_PRIVACY/ADR，不表示运行时已实现 |
+| [主动智能模式](explanation/proactive-intelligence-mode.md)（AVX-EXPL-008） | 完全访问上如何以广域画像授权、OS 能力、特权观察 Host、本地私密数据和主动操作组合既有 CAP | 评审提案；不替代 PRD/SRS/DATA_PRIVACY/ADR，不表示运行时已实现 |
 | [文档写作规范](reference/standards/doc-standards.md)（AVX-STD-001） | 每份文档如何使用模板、命名、写作并通过门禁 | 写作体例、签名、命名、风格基线、Vale 术语门禁与模板族；治理规则见 AVX-DOC-GOV-001 |
 | [术语表](reference/standards/terminology.md)（AVX-TERM-001） | 项目术语的唯一含义与规范写法 | 缩写/产品名唯一语义；Vale 依据「禁写」列自动校验 |
 | [教程：第一个对话](tutorials/first-conversation.md)（AVX-TUT-001） | 新成员如何从 0 跑到第一条对话 | 可执行步骤与验证 |
@@ -71,7 +71,7 @@ Agent 执行核心的当前与目标边界见 [CR-012：Agent Harness Loop](refe
 
 工具授权的 Turn 级完全访问开关见 [CR-022](reference/changes/CR-022-full-access-tool-permission.md)：默认仍逐次确认，用户经风险确认后可自动放行普通写工具；CAP-033 另以独立的 `FullProfileActionGrant` 承载用户明确批准的全量主动动作，撤权/删除、租户隔离和平台访问控制仍由各自事实源约束。
 
-本地主动智能能力见 [CR-023](reference/changes/CR-023-proactive-local-intelligence-mode.md) 与 [AVX-EXPL-008](explanation/proactive-intelligence-mode.md)：已接受新增 `CAP-033`「全域感知与个人画像（主动能模式）」的产品方向；主动能模式是「当前 `full_access` + 全量画像授权包 + OS 能力授权 + 受信 Host + 强制本地存储/处理」的派生状态。当前运行时已实现本地 Vault、授权/lease、全动作授权器、Aervox activity/operation 与剪贴板采集、Worker 提炼、导出和后台 heartbeat；其余平台来源仍 limited，CAP-033 为 partial/Not Ready，尚未 Released。
+本地主动智能能力见 [CR-023](reference/changes/CR-023-proactive-local-intelligence-mode.md) 与 [AVX-EXPL-008](explanation/proactive-intelligence-mode.md)：已接受新增 `CAP-033`「全域感知与个人画像（主动智能模式）」的产品方向；主动智能模式是「当前 `full_access` + 全量画像授权包 + OS 能力授权 + 受信 Host + 强制本地存储/处理」的派生状态。当前运行时已实现本地 Vault、授权/lease、全动作授权器、Aervox activity/operation 与剪贴板采集、Worker 提炼、导出和后台 heartbeat；其余平台来源仍 limited，CAP-033 为 partial/Not Ready，尚未 Released。
 
 练习中断恢复边界见 [CR-013：活跃练习会话恢复与续答](reference/changes/CR-013-practice-session-recovery.md)：重开学习界面会恢复同一题组快照和首个未答题，重复启动不会创建第二个活跃会话。
 

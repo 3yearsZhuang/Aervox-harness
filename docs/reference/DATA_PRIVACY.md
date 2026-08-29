@@ -5,7 +5,7 @@
 
 > 文档编号：AVX-DATA-001  
 > 类型：Reference  
-> 版本：v0.2（CAP-033 主动能模式）
+> 版本：v0.2（CAP-033 主动智能模式）
 > 更新日期：2026-08-29
 > 关联文档：[PRD](PRD.md) · [架构设计](ARCHITECTURE.md) · [AI 质量与安全](AI_QUALITY_SAFETY.md) · [CR-023](changes/CR-023-proactive-local-intelligence-mode.md)
 

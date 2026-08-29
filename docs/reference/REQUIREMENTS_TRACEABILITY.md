@@ -79,7 +79,7 @@
 | `LOCAL` | 本地优先、工作区与同步 | `ECO` | 社区、公开内容和市场 |
 | `ORG` | 机构、监护和组织权限 | `DATA` | 跨域数据治理 |
 | `AIQ` | 跨域 AI 质量与安全 | `OPS` | 跨域运行质量 |
-| `PRO` | 全域感知、个人画像与主动能模式 |  |  |
+| `PRO` | 全域感知、个人画像与主动智能模式 |  |  |
 
 ### 3.3 编号规则
 
@@ -132,7 +132,7 @@
 | `CAP-030` | 主动提醒深化 | `P3 · R5` | `Mapped` | — | — | [P3 验收原则](PRD.md#prd-cap-028-033) | 补触发优先级、频控、去重、解释、免打扰、跨端和退订验收 |
 | `CAP-031` | 内容与技能市场 | `P3 · R5` | `Mapped` | — | — | [P3 验收原则](PRD.md#prd-cap-028-033) | 补商品、版本、审核、结算、退款、下架、许可证和供应链治理 |
 | `CAP-032` | 机构与监护模式 | `P3 · R5` | `Mapped` | — | — | [P3 验收原则](PRD.md#prd-cap-028-033) | 补组织角色、邀请/移除、授权报表、最小可见、审计和监护同意 |
-| `CAP-033` | 全域感知与个人画像（主动能模式） | `P3 · R5` | `Specified` | Not Ready | ✔（本地 Vault/授权 lease/动作运行时/部分来源采集/Worker 提炼/导出） | [PRD CAP-033](PRD.md#prd-cap-033)、[CR-023](changes/CR-023-proactive-local-intelligence-mode.md)、[ADR-018](adr/ADR-018-proactive-local-privacy-host.md) | 已接入 Aervox activity/operation、剪贴板、屏幕、浏览器历史元数据、显式文件根和本地提炼/画像上下文；应用活动正文、通信、音视频、位置、传感器等仍 limited，且全链本地证明、生产 OS Broker 和专项 TC 未闭合，保持 `Not Ready` |
+| `CAP-033` | 全域感知与个人画像（主动智能模式） | `P3 · R5` | `Specified` | Not Ready | ✔（本地 Vault/授权 lease/动作运行时/部分来源采集/Worker 提炼/导出） | [PRD CAP-033](PRD.md#prd-cap-033)、[CR-023](changes/CR-023-proactive-local-intelligence-mode.md)、[ADR-018](adr/ADR-018-proactive-local-privacy-host.md) | 已接入 Aervox activity/operation、剪贴板、屏幕、浏览器历史元数据、显式文件根和本地提炼/画像上下文；应用活动正文、通信、音视频、位置、传感器等仍 limited，且全链本地证明、生产 OS Broker 和专项 TC 未闭合，保持 `Not Ready` |
 
 矩阵状态按 §12 维护规则更新：`Verified` 证据核实与 `Released` 状态确认留痕；任何状态变化必须在变更记录中留下日期与修改人。
 
@@ -243,7 +243,7 @@
 
 | Turn 级完全访问开关（CR-022：普通写工具预授权 + CAP-033 全动作授权扩展） | CAP-002/007/020/033 + 基础设施 | `packages/contracts`（`toolApprovalModeSchema`）、`apps/api/src/shared/tool-approval-policy.ts`、`apps/api/src/modules/conversation/agent-executor.ts`（动态 ToolRuntime + 静态 Contribution 授权门）、`packages/database/src/repositories/sqlite/conversation-repository.ts`（排除自动授权前缀）、`packages/api-client/src/`、`packages/ui/src/components/AervoxWorkbench.vue`、`apps/desktop/src/{main,preload,renderer}/` | 2026-08-29 | `@aervox/api` 233（`conversation-approval` 4、`conversation-privileged` 4、`tool-approval-policy` 2）；`@aervox/api-client` 15（`transport` 2，含 `full_access` 请求体透传）；Contracts/API/API Client/UI/Desktop typecheck；OpenAPI 生成；ci-code/ci-docs | 原生 |
 
-| CAP-033 主动能模式数据面、部分来源采集与桌面 Host（CR-023） | CAP-033 + CAP-002/005/007/008/009/010/012/013/018/020/022/023/024/026/027/030 + Agent Host/Inbox/OS 权限/隐私/本地存储基础设施 | `packages/database/src/schema/proactive.ts`、`packages/database/src/schema/init.ts`、`packages/database/src/repositories/{types,sqlite/proactive-profile-repository}.ts`、`packages/database/src/{client,proactive-vault-auth,proactive-vault-crypto}.ts`、`apps/api/src/modules/proactive/`、`apps/worker/src/{proactive-profile-worker,proactive-distiller}.ts`、`packages/ui/src/proactive/`、`apps/desktop/src/main/{proactive-host,proactive-source-adapters}.ts`、`apps/desktop/src/preload/domains/proactive-api.ts` | 2026-08-29 | 本地 Vault/加密、授权/lease/loopback token、action authorizer、Aervox activity/operation、clipboard、screen/browser/file adapter、Worker 提炼、本地画像上下文、来源级删除、导出和 heartbeat 已实现；聚焦测试覆盖 Database/API/Worker/Desktop adapters，Contracts OpenAPI build 通过。应用活动正文、通信/音视频/位置/传感器 provider、全链本地证明和生产门禁仍待实现 | 原生 |
+| CAP-033 主动智能模式数据面、部分来源采集与桌面 Host（CR-023） | CAP-033 + CAP-002/005/007/008/009/010/012/013/018/020/022/023/024/026/027/030 + Agent Host/Inbox/OS 权限/隐私/本地存储基础设施 | `packages/database/src/schema/proactive.ts`、`packages/database/src/schema/init.ts`、`packages/database/src/repositories/{types,sqlite/proactive-profile-repository}.ts`、`packages/database/src/{client,proactive-vault-auth,proactive-vault-crypto}.ts`、`apps/api/src/modules/proactive/`、`apps/worker/src/{proactive-profile-worker,proactive-distiller}.ts`、`packages/ui/src/proactive/`、`apps/desktop/src/main/{proactive-host,proactive-source-adapters}.ts`、`apps/desktop/src/preload/domains/proactive-api.ts` | 2026-08-29 | 本地 Vault/加密、授权/lease/loopback token、action authorizer、Aervox activity/operation、clipboard、screen/browser/file adapter、Worker 提炼、本地画像上下文、来源级删除、导出和 heartbeat 已实现；聚焦测试覆盖 Database/API/Worker/Desktop adapters，Contracts OpenAPI build 通过。应用活动正文、通信/音视频/位置/传感器 provider、全链本地证明和生产门禁仍待实现 | 原生 |
 
 | Agent Harness Loop 阶段 3c：恢复裁决基础设施（decideResume + findResumeCandidates） | CAP-002/007 + 基础设施 | `packages/agent-loop/src/resume.ts`（`decideResume` 纯函数：最后工具批次全 executed 且无终态→resume；终态/混合/未知/无结果收敛）、`packages/database`（`findResumeCandidates`：过期 Running + executed 工具 + 无 done）、`apps/worker`（recovery cycle 候选观测日志，行为不变）、`docs/reference/agent-harness-loop.md`（§16.11） | 2026-08-28 | `@aervox/agent-loop` 56（resume-decision 6 矩阵）；`@aervox/database` 125（候选 3：命中/终态排除/未知排除）；`ci-code` 全量。**续跑执行接线待阶段 4 host-agent** | 原生 |
 
@@ -440,14 +440,14 @@ DoR 不允许以“开发中再确定”代替。确需并行探索的内容应�
 | `DATA-DIA-001` | 日记版本/来源/缓冲 | CAP-009 | `Specified` | [PRD 数据模型](PRD.md#prd-data) | `AC-DATA-DIA-001` | `TC-INTEG-DIA-001` |
 | `FR-STREAM-001` | Turn 流式响应、恢复与取消 | CAP-002/007/008 | `Specified` | [SRS 流式需求](SRS.md#srs-fr-stream)、[流式协议](STREAMING_PROTOCOL.md) | `AC-FR-STREAM-001-01～05` | `TC-CONTRACT-STREAM-001`、`TC-RES-STREAM-001`、`TC-SEC-STREAM-001`、`TC-E2E-STREAM-001` |
 | `BR-CONV-001` | 工具执行授权与完全访问边界 | CAP-002/007/020/033 | `Specified` | [SRS 代码执行边界](SRS.md#br-conv-001-代码执行边界)、[CR-022](changes/CR-022-full-access-tool-permission.md)、[CR-023](changes/CR-023-proactive-local-intelligence-mode.md)、[Agent Harness Loop §9](agent-harness-loop.md#9-工具执行管线) | `AC-BR-CONV-001-01～07` | `TC-SEC-CONV-001`、`TC-RES-CONV-001`、`TC-API-CONV-APPROVAL-001`、`TC-API-CONV-PRIV-001`、`TC-E2E-CONV-PERM-001`、`TC-SEC-PRO-ACTION-001` |
-| `FR-PRO-001` | 全量画像授权包与主动能激活 | CAP-033 | `Specified` | [SRS CAP-033](SRS.md#srs-pro-001-全量画像授权与激活)、[CR-023](changes/CR-023-proactive-local-intelligence-mode.md) | `AC-FR-PRO-001-01～04` | `TC-API-PRO-001`、`TC-E2E-PRO-001` |
+| `FR-PRO-001` | 全量画像授权包与主动智能激活 | CAP-033 | `Specified` | [SRS CAP-033](SRS.md#srs-pro-001-全量画像授权与激活)、[CR-023](changes/CR-023-proactive-local-intelligence-mode.md) | `AC-FR-PRO-001-01～04` | `TC-API-PRO-001`、`TC-E2E-PRO-001` |
 | `FR-PRO-002` | 全量来源观察与持续 watcher | CAP-033/012/023/024/026 | `Specified` | [SRS CAP-033](SRS.md#fr-pro-002-全量来源观察) | `AC-FR-PRO-002-01～03` | `TC-INTEG-PRO-SOURCE-001`、`TC-SEC-PRO-SOURCE-001` |
 | `FR-PRO-003` | 本地画像推断与记忆提炼 | CAP-033/005/022 | `Specified` | [SRS CAP-033](SRS.md#fr-pro-003-本地画像与记忆提炼) | `AC-FR-PRO-003-01～04` | `TC-AIEVAL-PRO-001`、`TC-INTEG-PRO-MEM-001` |
 | `FR-PRO-004` | 后台生命周期与重启恢复 | CAP-033/018/027 | `Specified` | [SRS CAP-033](SRS.md#fr-pro-004-后台生命周期与恢复) | `AC-FR-PRO-004-01～03` | `TC-RES-PRO-LIFECYCLE-001`、`TC-E2E-PRO-LIFECYCLE-001` |
 | `FR-PRO-005` | 全量主动动作执行 | CAP-033/002/007/020/030 | `Specified` | [SRS CAP-033](SRS.md#fr-pro-005-主动动作执行) | `AC-FR-PRO-005-01～04` | `TC-SEC-PRO-ACTION-001`、`TC-E2E-PRO-ACTION-001` |
 | `FR-PRO-006` | 暂停、撤权与删除传播 | CAP-033/005/013/026/027 | `Specified` | [SRS CAP-033](SRS.md#fr-pro-006-暂停撤权与删除) | `AC-FR-PRO-006-01～04` | `TC-PRIV-PRO-REVOKE-001`、`TC-RES-PRO-REVOKE-001`、`apps/api/test/proactive.test.ts`（来源级 revoke/delete：撤销 consent、scrub capture、删 observation/claim、撤销动作） |
 | `FR-PRO-007` | 主动画像本地导出 | CAP-033/026/027 | `Specified` | [SRS CAP-033](SRS.md#fr-pro-007-主动画像导出) | `AC-FR-PRO-007-01～03` | `TC-API-PRO-EXPORT-001`、`TC-PRIV-PRO-EXPORT-001` |
-| `BR-PRO-001` | 主动能四轴状态与完全访问前置 | CAP-033/002/007/018/020 | `Specified` | [SRS CAP-033](SRS.md#br-pro-001-激活前置与状态) | `AC-BR-PRO-001-01～03` | `TC-UNIT-PRO-STATE-001`、`TC-E2E-PRO-STATE-001` |
+| `BR-PRO-001` | 主动智能四轴状态与完全访问前置 | CAP-033/002/007/018/020 | `Specified` | [SRS CAP-033](SRS.md#br-pro-001-激活前置与状态) | `AC-BR-PRO-001-01～03` | `TC-UNIT-PRO-STATE-001`、`TC-E2E-PRO-STATE-001` |
 | `BR-PRO-002` | 来源/动作授权修订与独立撤销 | CAP-033/020/023/027 | `Specified` | [SRS CAP-033](SRS.md#br-pro-002-授权修订与撤销) | `AC-BR-PRO-002-01～03` | `TC-SEC-PRO-GRANT-001`、`TC-PRIV-PRO-CONSENT-001` |
 | `BR-PRO-003` | `local_only` 溯源与禁止远程降级 | CAP-033/005/022/026/027 | `Specified` | [SRS CAP-033](SRS.md#br-pro-003-本地处理边界) | `AC-BR-PRO-003-01～03` | `TC-SEC-PRO-LOCAL-001`、`TC-RES-PRO-LOCAL-001` |
 | `BR-PRO-004` | 原始副本七天保留与记忆提炼门 | CAP-033/005/026 | `Specified` | [SRS CAP-033](SRS.md#br-pro-004-原始副本保留与提炼) | `AC-BR-PRO-004-01～03` | `TC-INTEG-PRO-RETENTION-001`、`TC-PRIV-PRO-RETENTION-001` |

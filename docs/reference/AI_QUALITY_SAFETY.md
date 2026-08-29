@@ -5,7 +5,7 @@
 
 > 文档编号：AVX-AIQ-001  
 > 类型：Reference  
-> 版本：v0.3（CAP-033 主动能模式）
+> 版本：v0.3（CAP-033 主动智能模式）
 > 更新日期：2026-08-29
 > 关联文档：[PRD](PRD.md) · [架构设计](ARCHITECTURE.md) · [流式协议](STREAMING_PROTOCOL.md) · [数据与隐私](DATA_PRIVACY.md) · [需求追踪](REQUIREMENTS_TRACEABILITY.md) · [CR-023](changes/CR-023-proactive-local-intelligence-mode.md)
 

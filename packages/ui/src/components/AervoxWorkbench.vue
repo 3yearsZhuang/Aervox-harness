@@ -222,7 +222,7 @@ function recordProactiveActivity(
   void proactiveBridge()?.recordActivity(source, {eventType, payloadText, metadata}).catch(() => undefined)
 }
 const proactiveActive = computed(() => proactiveStatus.value?.effectiveState === 'active')
-const accessChipLabel = computed(() => proactiveActive.value ? '主动能模式' : toolApprovalMode.value === 'full_access' ? '完全访问' : '操作需确认')
+const accessChipLabel = computed(() => proactiveActive.value ? '主动智能模式' : toolApprovalMode.value === 'full_access' ? '完全访问' : '操作需确认')
 const accessChipIcon = computed(() => proactiveActive.value ? BrainCircuit : toolApprovalMode.value === 'full_access' ? ShieldAlert : ShieldCheck)
 // Web always presents its companion; the desktop-only preference must not
 // leak through shared localStorage and hide the Web companion.
@@ -236,7 +236,7 @@ const formattedTime = computed(() => {
 })
 const settingCategories = [
   {id: 'tools', label: '快捷工具', description: '学习面板与小工具', icon: LayoutGrid},
-  {id: 'proactive', label: '主动能', description: '全量画像与本地权限', icon: BrainCircuit},
+  {id: 'proactive', label: '主动智能', description: '全量画像与本地权限', icon: BrainCircuit},
   {id: 'appearance', label: '外观', description: '主题与界面密度', icon: Sun},
   {id: 'conversation', label: '对话', description: '称呼与输入方式', icon: MessageCircle},
   {id: 'model', label: '模型与服务', description: '大语言模型与供应商配置', icon: Bot},
@@ -700,7 +700,7 @@ async function refreshProactiveStatus() {
     proactiveBackground.value = proactiveStatus.value.persistence.background
     proactiveError.value = null
   } catch (error) {
-    proactiveError.value = error instanceof Error ? error.message : '无法读取主动能状态'
+    proactiveError.value = error instanceof Error ? error.message : '无法读取主动智能状态'
   }
 }
 
@@ -756,7 +756,7 @@ async function authorizeProactive() {
     proactiveStatus.value = await bridge.authorize(request, toolApprovalMode.value)
     proactiveDialogOpen.value = false
   } catch (error) {
-    proactiveError.value = error instanceof Error ? error.message : '主动能授权失败'
+    proactiveError.value = error instanceof Error ? error.message : '主动智能授权失败'
   } finally {
     proactiveBusy.value = false
   }
@@ -771,7 +771,7 @@ async function setProactiveDesiredState(desiredState: Extract<ProfileDesiredStat
   try {
     proactiveStatus.value = await bridge.setDesiredState(desiredState, toolApprovalMode.value)
   } catch (error) {
-    proactiveError.value = error instanceof Error ? error.message : '主动能状态更新失败'
+    proactiveError.value = error instanceof Error ? error.message : '主动智能状态更新失败'
   } finally {
     proactiveBusy.value = false
   }
@@ -2087,7 +2087,7 @@ onUnmounted(() => {
           <div v-else-if="settingsCategory === 'proactive'" class="settings-section proactive-settings">
             <div class="settings-section-heading">
               <span class="heading-icon-wrap"><BrainCircuit :size="18" /></span>
-              <span><strong>主动能模式</strong><small>全量画像、持续本地处理与主动操作授权</small></span>
+              <span><strong>主动智能模式</strong><small>全量画像、持续本地处理与主动操作授权</small></span>
             </div>
 
             <div class="proactive-status-banner" :class="`is-${proactiveStatus?.effectiveState ?? 'unavailable'}`">
@@ -2095,9 +2095,9 @@ onUnmounted(() => {
               <span>
                 <strong>{{ proactiveStateLabel(proactiveStatus) }}</strong>
                 <small v-if="proactiveStatus?.host">{{ proactiveStatus.host.localOnly ? '数据处理边界：仅本机' : '本地边界未验证' }} · {{ proactiveStatus.host.platform }}</small>
-                <small v-else>主动能模式需要受信的 Electron 本地 Host，Web 端不会伪造授权。</small>
+                <small v-else>主动智能模式需要受信的 Electron 本地 Host，Web 端不会伪造授权。</small>
               </span>
-              <button v-if="!isWeb" type="button" class="proactive-icon-button" aria-label="刷新主动能状态" title="刷新状态" :disabled="proactiveBusy" @click="refreshProactiveStatus"><RefreshCw :size="15" /></button>
+              <button v-if="!isWeb" type="button" class="proactive-icon-button" aria-label="刷新主动智能状态" title="刷新状态" :disabled="proactiveBusy" @click="refreshProactiveStatus"><RefreshCw :size="15" /></button>
             </div>
 
             <div v-if="isWeb" class="settings-note proactive-warning"><AlertTriangle :size="16" />请在桌面端完成设备授权；浏览器端不会读取系统级来源。</div>
@@ -2228,7 +2228,7 @@ onUnmounted(() => {
 
     <el-dialog
       v-model="proactiveDialogOpen"
-      title="授权主动能模式？"
+      title="授权主动智能模式？"
       class="permission-confirm-dialog proactive-authorization-dialog"
       width="min(620px, calc(100vw - 28px))"
       align-center
@@ -2237,7 +2237,7 @@ onUnmounted(() => {
       <div class="permission-confirmation">
         <span class="permission-confirmation-icon proactive-confirmation-icon"><BrainCircuit :size="24" /></span>
         <div>
-          <p>主动能模式会在本机持续理解你的使用习惯、操作习惯和已授权私人资料，并可执行你单独授权的本地、外部、特权及不可逆动作。</p>
+          <p>主动智能模式会在本机持续理解你的使用习惯、操作习惯和已授权私人资料，并可执行你单独授权的本地、外部、特权及不可逆动作。</p>
           <small>需要先保持“完全访问”。系统会逐项请求当前平台可以验证的权限；无法探测或未接入的来源会明确显示为“待验证”，不会静默开启。</small>
         </div>
       </div>

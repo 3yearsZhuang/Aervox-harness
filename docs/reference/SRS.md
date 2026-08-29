@@ -4,7 +4,7 @@
 - 修改人：3yearszhuang · 2026-08-29
 
 > 文档编号：AVX-SRS-001  
-> 版本：v0.9（CAP-033 主动能模式原子需求）
+> 版本：v0.9（CAP-033 主动智能模式原子需求）
 > 更新日期：2026-08-29
 > 状态：Review Candidate  
 > 产品事实源：[PRD](PRD.md)  
@@ -111,13 +111,13 @@
 ### BR-CONV-001 代码执行边界
 
 - **Parent CAP**：`CAP-007`
-- **规则**：MVP 默认不自动执行用户代码；任何执行必须明确授权、受限沙箱、超时、资源配额与审计；模型只能请求工具，执行与否由服务端权限代理决定。客户端可为后续 Turn 明确选择 `full_access`：该模式只预授权 `write_with_approval` 普通写工具，每次调用仍写入可审计授权快照；CAP-033 另以独立 `FullProfileActionGrant` 在用户确认的主动能模式下覆盖声明的 `local`、`external`、`privileged` 和不可逆动作。租户隔离、同意/撤权、删除水位、沙箱、超时与配额不得被绕过。默认 `ask` 模式和关闭完全访问/主动能后，不得复用此前自动授权。
+- **规则**：MVP 默认不自动执行用户代码；任何执行必须明确授权、受限沙箱、超时、资源配额与审计；模型只能请求工具，执行与否由服务端权限代理决定。客户端可为后续 Turn 明确选择 `full_access`：该模式只预授权 `write_with_approval` 普通写工具，每次调用仍写入可审计授权快照；CAP-033 另以独立 `FullProfileActionGrant` 在用户确认的主动智能模式下覆盖声明的 `local`、`external`、`privileged` 和不可逆动作。租户隔离、同意/撤权、删除水位、沙箱、超时与配额不得被绕过。默认 `ask` 模式和关闭完全访问/主动智能后，不得复用此前自动授权。
 - **验收**：
   - `AC-BR-CONV-001-01`：Given 用户提供代码且未获执行授权，When 请求处理，Then 只提供讲解/建议，不执行、不调用未授权工具。
   - `AC-BR-CONV-001-02`：Given 获授权执行环境，When 执行，Then 在受限沙箱内，超时/配额/审计完备，失败不产生部分结果泄漏。
   - `AC-BR-CONV-001-03`：Given 默认 `ask` 模式且模型请求普通写工具，When 没有显式授权命中，Then 工具不执行，Turn 以待授权状态收敛。
   - `AC-BR-CONV-001-04`：Given 用户经风险确认开启完全访问，When 后续 Turn 请求 `write_with_approval` 工具，Then 服务端先记录授权快照再执行，不产生待授权中断。
-  - `AC-BR-CONV-001-05`：Given 仅开启 Turn 级完全访问且没有有效 `FullProfileActionGrant`，When 模型请求 `privileged` 工具，Then 仍需独立管理员通道授权，非管理员不得放行；Given CAP-033 主动能模式已由用户确认并覆盖该动作目标，Then 仅在当前授权修订、目标 scope、OS/身份授权和 deny 水位均有效时放行，并记录用户授权快照。
+  - `AC-BR-CONV-001-05`：Given 仅开启 Turn 级完全访问且没有有效 `FullProfileActionGrant`，When 模型请求 `privileged` 工具，Then 仍需独立管理员通道授权，非管理员不得放行；Given CAP-033 主动智能模式已由用户确认并覆盖该动作目标，Then 仅在当前授权修订、目标 scope、OS/身份授权和 deny 水位均有效时放行，并记录用户授权快照。
   - `AC-BR-CONV-001-06`：Given 完全访问曾对某参数自动授权，When 用户关闭开关后以同参数再请求，Then 旧自动授权不命中，重新进入待授权流程。
   - `AC-BR-CONV-001-07`：Given CAP-033 的全动作授权已撤销或过期，When 后台再次请求原动作，Then 不执行、不复用旧快照并记录撤权结果。
 - **测试**：`TC-SEC-CONV-001`、`TC-RES-CONV-001`、`TC-API-CONV-APPROVAL-001`、`TC-API-CONV-PRIV-001`、`TC-E2E-CONV-PERM-001`、`TC-SEC-PRO-ACTION-001`。
@@ -553,7 +553,7 @@
   - `AC-FR-PLG-004-02`：Given Page 声明 `config.write`，When 保存配置，Then revision 递增；未声明时调用被拒绝；
   - `AC-FR-PLG-004-03`：Given 路径穿越或未启用插件，When 访问静态资源，Then 被拒绝。
 
-## 8. CAP-033 全域感知与个人画像（主动能模式）
+## 8. CAP-033 全域感知与个人画像（主动智能模式）
 
 本节把用户确认的 CAP-033 方向拆成可测试的授权、观察、画像、后台、动作、数据权利和运行要求。CAP-033 必须以 `full_access` 为前置，但 `full_access` 本身不代表画像或主动动作同意。
 
@@ -562,13 +562,13 @@
 ### FR-PRO-001 全量画像授权与激活
 
 - **Parent CAP**：`CAP-033`
-- **触发**：用户在 Turn 级完全访问已开启后进入主动能授权向导。
+- **触发**：用户在 Turn 级完全访问已开启后进入主动智能授权向导。
 - **必须**：展示当前版本 `full_profile_v1` 的全部可用来源、动作范围、后台生命周期、七天原始副本/记忆提炼策略、处理边界和导出权利；用户确认后原子写入 `ProfileAuthorizationRevision`、逐来源/逐动作 grant 和激活状态；向导取消或任一持久化失败不得激活。
 - **异常**：`toolApprovalMode=ask`、Host 未受信、OS grant 被拒、版本冲突、处理边界不可证明或重复确认。
 - **数据**：`ProfileAuthorizationRevision`、`DeviceCapabilityGrant`、`LocalActivationLease`、`ConsentGrant`；每条记录绑定 `(workspaceId, subjectUserId, deviceId, policyVersion)`。
 - **验收**：
   - `AC-FR-PRO-001-01`：Given `toolApprovalMode=ask`，When 用户确认全量画像，Then 不创建 active revision，显示必须先开启完全访问。
-  - `AC-FR-PRO-001-02`：Given 所有必需 grant、受信 Host 和本地处理证明有效，When 用户确认，Then 原子激活 revision/lease 并显示「主动能模式」。
+  - `AC-FR-PRO-001-02`：Given 所有必需 grant、受信 Host 和本地处理证明有效，When 用户确认，Then 原子激活 revision/lease 并显示「主动智能模式」。
   - `AC-FR-PRO-001-03`：Given 任一 grant 或写入步骤失败，When 向导结束，Then revision 保持 draft/inactive，不遗留部分生效权限。
   - `AC-FR-PRO-001-04`：Given 用户取消或重复提交相同 revision，When 处理，Then 不产生第二份 active 授权且审计结果可追溯。
 - **测试**：`TC-API-PRO-001`、`TC-E2E-PRO-001`、`TC-SEC-PRO-GRANT-001`。
@@ -578,7 +578,7 @@
 ### FR-PRO-002 全量来源观察
 
 - **Parent CAP**：`CAP-033`、`CAP-012`、`CAP-023`、`CAP-024`、`CAP-026`
-- **触发**：主动能 revision 和对应 source grant 处于有效状态。
+- **触发**：主动智能 revision 和对应 source grant 处于有效状态。
 - **必须**：按 manifest 观察当前平台全部可用的 Aervox 使用/操作、应用/窗口/进程、浏览器、键鼠/输入、剪贴板、屏幕、可读文件/目录、通信、音视频、位置/传感器及用户选择的 Restricted 私人资料；支持持续 watcher，并为每个捕获写入来源、时间、grant 和处理边界。
 - **异常**：来源适配器不可用、OS 权限撤销、文件路径变化、连接器断开、重复事件或容量达到配额。
 - **数据**：`RawCaptureSegment`、`BehaviorObservation`、`SourceArtifact/Revision`；原始副本不得进入普通分析事件或远端服务。
@@ -626,7 +626,7 @@
 - **Parent CAP**：`CAP-033`、`CAP-002`、`CAP-007`、`CAP-020`、`CAP-030`
 - **触发**：主动规划器根据有效画像生成动作请求。
 - **必须**：用户确认 `FullProfileActionGrant` 后，可在声明的范围内执行本地文件修改、浏览器/家居控制、外部消息、特权和不可逆动作；动作请求必须绑定授权修订、目标 scope、当前 lease、OS/身份授权和 deny 水位，并记录请求、结果、通知和可撤销状态。模型或外部内容不得自行扩大动作范围。
-- **异常**：动作未声明、目标超 scope、授权过期/撤销、OS 拒绝、连接器不可用、执行结果未知或用户关闭主动能。
+- **异常**：动作未声明、目标超 scope、授权过期/撤销、OS 拒绝、连接器不可用、执行结果未知或用户关闭主动智能。
 - **数据**：`ProactiveAction`、`ToolInvocation/ToolExecution`、`ProactiveAuditEvent`；不得把动作结果隐式写入其他主体或工作区。
 - **验收**：
   - `AC-FR-PRO-005-01`：Given 用户已确认覆盖目标的 `FullProfileActionGrant`，When 规划器请求合法本地/外部/特权/不可逆动作，Then 在当前授权快照下执行并向用户显示动作与结果。
@@ -671,9 +671,9 @@
 ### BR-PRO-001 激活前置与状态
 
 - **Parent CAP**：`CAP-033`、`CAP-002`、`CAP-007`、`CAP-018`、`CAP-020`
-- **规则**：工具轴 `ask|full_access`、画像期望状态、设备 grant/动作 grant 和有效运行状态独立保存。只有 `full_access`、用户确认的 profile revision、匹配的 full action grant、受信本地 Host、有效 activation lease、必要 OS grant、本地处理证明和 deny 水位同时满足时，才显示「主动能模式」；缺失时显示受限/挂起原因。
+- **规则**：工具轴 `ask|full_access`、画像期望状态、设备 grant/动作 grant 和有效运行状态独立保存。只有 `full_access`、用户确认的 profile revision、匹配的 full action grant、受信本地 Host、有效 activation lease、必要 OS grant、本地处理证明和 deny 水位同时满足时，才显示「主动智能模式」；缺失时显示受限/挂起原因。
 - **验收**：
-  - `AC-BR-PRO-001-01`：Given 任一前置条件失效，When 计算状态，Then 不显示完整主动能模式并给出具体缺口。
+  - `AC-BR-PRO-001-01`：Given 任一前置条件失效，When 计算状态，Then 不显示完整主动智能模式并给出具体缺口。
   - `AC-BR-PRO-001-02`：Given 用户显式暂停，When 计算状态，Then 期望状态为 paused，必须由用户恢复；系统临时故障只改变 effective state。
   - `AC-BR-PRO-001-03`：Given 工具轴从 full_access 变为 ask，When 后台处理，Then 停止主动观察/动作，不篡改用户授权修订。
 - **测试**：`TC-UNIT-PRO-STATE-001`、`TC-E2E-PRO-STATE-001`。
@@ -734,7 +734,7 @@
 - **规则**：后台、自启、休眠恢复和重启恢复只能按用户已确认的 persistence grant 运行；启用前和每次恢复/挂起/异常必须生成用户可见通知与审计事件；暂停、撤权和 deny 事件优先于恢复。
 - **验收**：
   - `AC-BR-PRO-006-01`：Given persistence grant 已启用，When 后台 Host 恢复，Then 展示恢复时间、来源范围和当前授权版本。
-  - `AC-BR-PRO-006-02`：Given 用户关闭 persistence 或主动能，When 系统重启/唤醒，Then 不恢复观察或动作，并显示关闭状态。
+  - `AC-BR-PRO-006-02`：Given 用户关闭 persistence 或主动智能，When 系统重启/唤醒，Then 不恢复观察或动作，并显示关闭状态。
   - `AC-BR-PRO-006-03`：Given 恢复校验失败，When Host 尝试启动，Then 进入 suspended/limited，记录原因且不静默重试越权动作。
 - **测试**：`TC-E2E-PRO-NOTICE-001`、`TC-RES-PRO-LIFECYCLE-001`。
 

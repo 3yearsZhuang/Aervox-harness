@@ -4,7 +4,7 @@
 - 修改人：3yearszhuang · 2026-08-29
 
 > 文档编号：AVX-QA-001  
-> 版本：v0.3（CAP-033 主动能模式）
+> 版本：v0.3（CAP-033 主动智能模式）
 > 更新日期：2026-08-29
 > 状态：Review Candidate  
 > 关联：[SRS](SRS.md) · [需求追踪](REQUIREMENTS_TRACEABILITY.md) · [AI 质量](AI_QUALITY_SAFETY.md) · [CR-023](changes/CR-023-proactive-local-intelligence-mode.md)
@@ -58,7 +58,7 @@
 - 客户端按 `eventId` 去重、按 sequence 检测空洞；授权撤销或来源删除后追加 `redacted/revoked` 事件并关闭相关订阅，不能原地改写既有事件 payload。
 - TTFT 从 Turn 持久化接受计至首个通过安全门且已持久化的可见分段；同时分解输入检查、Provider 首 token、分段缓冲、安全检查、数据库提交和客户端渲染耗时。
 
-### 3.4 CAP-033 主动能模式断言
+### 3.4 CAP-033 主动智能模式断言
 
 - 授权向导只在 `full_access`、用户确认 `full_profile_v1`、受信 Host、OS grant、local-ready 和 activation lease 同时满足时进入 active；取消、重复提交、缺少权限和 token 错误均不产生部分生效授权。
 - 覆盖 Aervox activity/operation、剪贴板及平台适配器的来源 provenance；未接入或被撤销的应用、浏览器、屏幕、文件、通信、音视频、位置和传感器来源不得采集，状态必须显示 limited/缺口。

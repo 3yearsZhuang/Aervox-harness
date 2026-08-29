@@ -98,7 +98,7 @@ const proactiveHost = createProactiveHost({
     requestCapability: async (id) => {
         if (id === 'filesystem.full_disk_watch') {
             const result = await dialog.showOpenDialog(mainWindow ?? undefined, {
-                title: '选择主动能可观察的文件根目录',
+                title: '选择主动智能可观察的文件根目录',
                 properties: ['openDirectory', 'multiSelections'],
             })
             if (!result.canceled && result.filePaths.length > 0) {
@@ -955,7 +955,7 @@ app.whenReady().then(async () => {
         )
         const owner = BrowserWindow.fromWebContents(event.sender)
         const result = await dialog.showSaveDialog(owner ?? undefined, {
-            title: '导出主动能画像数据',
+            title: '导出主动智能画像数据',
             defaultPath: `aervox-proactive-export-${new Date().toISOString().slice(0, 10)}.json`,
             filters: [{name: 'JSON', extensions: ['json']}],
         })
@@ -980,16 +980,16 @@ app.whenReady().then(async () => {
             broadcastProactiveStatus(status)
             if (notifyUser && Notification.isSupported()) {
                 const state = status.effectiveState === 'active'
-                    ? '主动能模式已恢复'
+                    ? '主动智能模式已恢复'
                     : status.effectiveState === 'limited'
-                        ? '主动能模式已恢复，但部分来源仍需处理'
-                        : '主动能模式当前已挂起'
-                new Notification({title: 'Aervox 主动能', body: state}).show()
+                        ? '主动智能模式已恢复，但部分来源仍需处理'
+                        : '主动智能模式当前已挂起'
+                new Notification({title: 'Aervox 主动智能', body: state}).show()
             }
         } catch (error) {
             if (notifyUser && Notification.isSupported()) {
                 new Notification({
-                    title: 'Aervox 主动能恢复失败',
+                    title: 'Aervox 主动智能恢复失败',
                     body: error instanceof Error ? error.message : '本地 Host 无法恢复',
                 }).show()
             }
