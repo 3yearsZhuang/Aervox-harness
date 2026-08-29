@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import {Maximize2, Minimize2, Minus, Moon, Settings, Sparkles, Sun, X} from 'lucide-vue-next'
+import {Maximize2, Minimize2, Minus, Moon, Settings, Sun, X} from 'lucide-vue-next'
 import {computed, onMounted, onUnmounted, ref} from 'vue'
 import {useAervoxLLM, type LLMConfigDto} from '@aervox/api-client'
+import {AervoxBrandMark} from '@aervox/ui'
 
 const isMaximized = ref(false)
 const isDark = ref(false)
@@ -88,8 +89,8 @@ function openSettings() {
 <template>
   <header class="app-titlebar" @dblclick="toggleMaximize">
     <div class="titlebar-brand">
-      <span class="titlebar-logo"><Sparkles :size="15" :stroke-width="2.2"/></span>
-      <span class="titlebar-name">Fairy Agent</span>
+      <span class="titlebar-logo"><AervoxBrandMark :size="18"/></span>
+      <span class="titlebar-name">Aervox｜思隅</span>
       <el-tooltip :content="llmStatusLabel" placement="bottom" :show-after="300">
         <span
           class="titlebar-status"
