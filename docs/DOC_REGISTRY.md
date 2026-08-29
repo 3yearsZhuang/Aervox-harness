@@ -52,7 +52,7 @@
 | `CR-019` | [能力注册表状态同步：CAP-010~019 主仓交付裁定](reference/changes/CR-019-capability-registry-status-sync.md) | 2026-08-28 | 已落地 CAP 的自选状态 / 主仓交付边界变更 | 能力注册表、追踪基线 §4.2 或实现载体与 CR-019 结论不一致 |
 | `CR-020` | [确定性练习反馈与下一轮建议](reference/changes/CR-020-deterministic-practice-guidance.md) | 2026-08-28 | `CAP-016` 作答观测、练习报告或自适应建议变更 | SRS、OpenAPI、作答事实、报告统计或工作台展示与确定性规则不一致 |
 | `CR-021` | [向用户询问能力接入](reference/changes/CR-021-ask-user-question-capability.md) | 2026-08-28 | `CAP-001` / `AVX-HAR-001` 人机交互回环与向用户提问能力变更 | 流式协议、Loop 执行器、契约、API 协调或前端呈现不一致 |
-| `CR-024` | [对话触发写日记与日记契约补全](reference/changes/CR-024-on-demand-diary.md) | 2026-08-29 | `CAP-009` 对话触发写日记、桌宠视角生成或审批事件契约变更 | PRD §6.7、流式协议、日记工具/生成核心、`/v1/diaries` 契约或工作台授权交互与实现不一致 |
+| `CR-026` | [对话触发写日记与日记契约补全](reference/changes/CR-026-on-demand-diary.md) | 2026-08-29 | `CAP-009` 对话触发写日记、桌宠视角生成或审批事件契约变更 | PRD §6.7、流式协议、日记工具/生成核心、`/v1/diaries` 契约或工作台授权交互与实现不一致 |
 | `CR-022` | [Turn 级完全访问工具权限开关](reference/changes/CR-022-full-access-tool-permission.md) | 2026-08-29 | `CAP-002/007/020/033` / `AVX-HAR-001` 工具授权模式、审计或双端开关变更 | CreateTurn 契约、自动授权排除、CAP-033 动作授权、API Client/IPC 或 Workbench 状态不一致 |
 | `CR-023` | [广域本地主动智能模式](reference/changes/CR-023-proactive-local-intelligence-mode.md) | 2026-08-29 | `CAP-033` + `CAP-002/005/007/008/009/010/012/013/018/020/022/023/024/026/027/030` 广域画像、Agent Host/Inbox、OS 权限、本地私密数据或授权语义变更 | AVX-EXPL-008、CR-022、OS Permission Broker、本地 Provider/存储、撤权、导出或待决策不一致 |
 | `CR-024` | [主动智能能力套件与外部环境连接](reference/changes/CR-024-proactive-intelligence-suite-integrations.md) | 2026-08-29 | `CAP-033/034/035` 十二能力、HA/健康连接、工具或本地数据结构变更 | ADR-019、OpenAPI、数据库、Worker、桌面设置、凭据或撤销删除与实现不一致 |
