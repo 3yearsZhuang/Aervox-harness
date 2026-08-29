@@ -214,9 +214,12 @@ export class GptSovitsRemoteProvider implements VoiceProviderPort {
         message: `服务可达（HTTP ${response.status}）`,
       };
     } catch (error) {
+      // undici 的 fetch failed 会吞掉真实原因（ECONNREFUSED/端口错误等），展开 error.cause 便于排障
+      const cause = (error as { cause?: unknown })?.cause;
+      const detail = cause instanceof Error ? cause.message : undefined;
       return {
         status: "unavailable",
-        message: error instanceof Error ? error.message : "provider unavailable",
+        message: detail ? `fetch failed: ${detail}` : "provider unavailable",
       };
     }
   }
