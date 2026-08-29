@@ -39,6 +39,7 @@ import { registerLLMModule, type LLMServiceOptions } from "./modules/llm/index.j
 import type { ModuleContext } from "./modules/context.js";
 import type { ToolRuntime } from "./modules/tools/runtime.js";
 import { createAuthHook, type AuthConfig } from "./shared/auth.js";
+import { createToolApprovalPolicyHook } from "./shared/tool-approval-policy.js";
 import { ApiError, type ApiErrorCode } from "./shared/errors.js";
 import { DatabaseError } from "@aervox/database";
 
@@ -96,6 +97,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
 
   // 认证前置关口：open=本地免认证；token=强制 Bearer token（校验通过才进入路由与仓储）
   app.addHook("onRequest", createAuthHook(options.auth));
+  app.addHook("preValidation", createToolApprovalPolicyHook());
 
   // CORS：允许本地 Web/移动端跨源访问（生产环境按部署配置收紧 origin）
   await app.register(cors, {

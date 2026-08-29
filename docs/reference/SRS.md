@@ -1,11 +1,11 @@
 # Aervox｜思隅 软件需求规格（SRS）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：kikoyida · 2026-08-28
+- 修改人：3yearszhuang · 2026-08-29
 
 > 文档编号：AVX-SRS-001  
-> 版本：v0.7（评审候选）
-> 更新日期：2026-08-28
+> 版本：v0.8（评审候选）
+> 更新日期：2026-08-29
 > 状态：Review Candidate  
 > 产品事实源：[PRD](PRD.md)  
 > 追踪矩阵：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
@@ -111,11 +111,15 @@
 ### BR-CONV-001 代码执行边界
 
 - **Parent CAP**：`CAP-007`
-- **规则**：MVP 默认不自动执行用户代码；任何执行必须明确授权、受限沙箱、超时、资源配额与审计；模型只能请求工具，执行与否由服务端权限代理决定。
+- **规则**：MVP 默认不自动执行用户代码；任何执行必须明确授权、受限沙箱、超时、资源配额与审计；模型只能请求工具，执行与否由服务端权限代理决定。客户端可为后续 Turn 明确选择 `full_access`：该模式只预授权 `write_with_approval` 普通写工具，每次调用仍写入可审计授权快照；`privileged`、租户隔离、同意/撤权、删除水位、沙箱、超时与配额不得被绕过。默认 `ask` 模式和关闭完全访问后，不得复用完全访问期间产生的自动授权。
 - **验收**：
   - `AC-BR-CONV-001-01`：Given 用户提供代码且未获执行授权，When 请求处理，Then 只提供讲解/建议，不执行、不调用未授权工具。
   - `AC-BR-CONV-001-02`：Given 获授权执行环境，When 执行，Then 在受限沙箱内，超时/配额/审计完备，失败不产生部分结果泄漏。
-- **测试**：`TC-SEC-CONV-001`、`TC-RES-CONV-001`。
+  - `AC-BR-CONV-001-03`：Given 默认 `ask` 模式且模型请求普通写工具，When 没有显式授权命中，Then 工具不执行，Turn 以待授权状态收敛。
+  - `AC-BR-CONV-001-04`：Given 用户经风险确认开启完全访问，When 后续 Turn 请求 `write_with_approval` 工具，Then 服务端先记录授权快照再执行，不产生待授权中断。
+  - `AC-BR-CONV-001-05`：Given 完全访问已开启，When 模型请求 `privileged` 工具，Then 仍需独立管理员通道授权，非管理员不得放行。
+  - `AC-BR-CONV-001-06`：Given 完全访问曾对某参数自动授权，When 用户关闭开关后以同参数再请求，Then 旧自动授权不命中，重新进入待授权流程。
+- **测试**：`TC-SEC-CONV-001`、`TC-RES-CONV-001`、`TC-API-CONV-APPROVAL-001`、`TC-API-CONV-PRIV-001`、`TC-E2E-CONV-PERM-001`。
 
 ### BR-CONV-002 讲解反馈与质量队列
 

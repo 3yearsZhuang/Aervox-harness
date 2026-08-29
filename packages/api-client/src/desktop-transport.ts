@@ -15,7 +15,11 @@ declare global {
         body?: unknown,
         headers?: Record<string, string>,
       ) => Promise<{ status: number; ok: boolean; json: T | null; text: string }>;
-      streamTurn: (content: string, callback: (message: unknown) => void) => () => void;
+      streamTurn: (
+        content: string,
+        options: { toolApprovalMode: ToolApprovalMode },
+        callback: (message: unknown) => void,
+      ) => () => void;
       /** 打开系统「选择文件夹」对话框，返回选中目录绝对路径；取消返回 null（CR-011 阶段 3） */
       pickDirectory?: () => Promise<string | null>;
     };
@@ -25,10 +29,11 @@ declare global {
 import type {
   AskUserQuestionAnswerItem,
   PetCommand,
+  ToolApprovalMode,
   TurnStreamEvent,
   UserQuestionRequiredEventData,
 } from '@aervox/contracts';
-import type { AervoxTransport, TurnCallbacks } from './transport';
+import type { AervoxTransport, StreamTurnOptions, TurnCallbacks } from './transport';
 
 export const desktopTransport: AervoxTransport = {
   async request<T = unknown>(method: string, path: string, body?: unknown, options?: { headers?: Record<string, string> }): Promise<T> {
@@ -39,10 +44,15 @@ export const desktopTransport: AervoxTransport = {
     return res.json as T;
   },
 
-  async streamTurn(_sessionId: string, content: string, callbacks: TurnCallbacks): Promise<void> {
+  async streamTurn(
+    _sessionId: string,
+    content: string,
+    callbacks: TurnCallbacks,
+    options: StreamTurnOptions = {},
+  ): Promise<void> {
     const bridge = window.fairyDesktop;
     if (!bridge) throw new Error('fairyDesktop 桥不可用，请通过 Electron 启动应用。');
-    await streamTurnViaBridge(bridge, content, callbacks);
+    await streamTurnViaBridge(bridge, content, options.toolApprovalMode ?? 'ask', callbacks);
   },
 
   async submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[]): Promise<void> {
@@ -57,10 +67,11 @@ export const desktopTransport: AervoxTransport = {
 function streamTurnViaBridge(
   bridge: NonNullable<Window['fairyDesktop']>,
   content: string,
+  toolApprovalMode: ToolApprovalMode,
   callbacks: TurnCallbacks,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    const stop = bridge.streamTurn(content, (message) => {
+    const stop = bridge.streamTurn(content, { toolApprovalMode }, (message) => {
       if (!message || typeof message !== 'object') return;
       const envelope = message as { type?: unknown; event?: unknown; message?: unknown };
       if (envelope.type === 'error') {

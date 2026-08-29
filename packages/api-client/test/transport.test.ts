@@ -24,4 +24,39 @@ describe("createFetchTransport", () => {
       }),
     }));
   });
+
+  it("创建 Turn 时传递完全访问模式", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ turnId: "turn_1" }), { status: 201 }))
+      .mockResolvedValueOnce(
+        new Response(
+          `data: ${JSON.stringify({
+            eventId: "evt_1",
+            turnId: "turn_1",
+            sequence: 1,
+            eventType: "done",
+            payloadVersion: 1,
+            occurredAt: "2026-08-29T00:00:00.000Z",
+            data: { status: "Completed", isComplete: true, lastSequence: 1 },
+          })}\n\n`,
+          { status: 200, headers: { "Content-Type": "text/event-stream" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const transport = createFetchTransport("http://api.test", "ws_1", "usr_1");
+
+    await transport.streamTurn(
+      "ses_1",
+      "hello",
+      { onDelta: vi.fn(), onDone: vi.fn() },
+      { toolApprovalMode: "full_access" },
+    );
+
+    const createOptions = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(String(createOptions.body))).toMatchObject({
+      message: { content: "hello", contentType: "text" },
+      toolApprovalMode: "full_access",
+    });
+  });
 });

@@ -7,6 +7,7 @@ export {
   createFetchTransport,
   type AervoxTransport,
   type AervoxClientConfig,
+  type StreamTurnOptions,
   type TurnCallbacks,
 } from './transport';
 export { desktopTransport } from './desktop-transport';

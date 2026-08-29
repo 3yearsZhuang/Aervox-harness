@@ -85,6 +85,19 @@ describe("阶段 3b：privileged 管理员通道", () => {
     expect(events.at(-1)?.data.status).toBe("Interrupted");
   });
 
+  it("完全访问不放行 privileged，仍进入管理员审批通道", async () => {
+    const created = await app.inject({
+      method: "POST",
+      url: "/v1/sessions/ses_3b/turns",
+      headers,
+      payload: { ...turnPayload, toolApprovalMode: "full_access" },
+    });
+    const turnId = created.json().turnId as string;
+    const events = parseSse((await app.inject({ method: "GET", url: `/v1/turns/${turnId}/events`, headers })).body);
+    expect(events.map((event) => event.eventType)).toContain("tool_approval_required");
+    expect(events.at(-1)?.data.status).toBe("Interrupted");
+  });
+
   it("非管理员 grant → 403 admin_required，未产生授权", async () => {
     const created = await app.inject({ method: "POST", url: "/v1/sessions/ses_3b/turns", headers, payload: turnPayload });
     const turnId = created.json().turnId as string;

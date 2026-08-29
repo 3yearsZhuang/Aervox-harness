@@ -1,11 +1,11 @@
 # Aervox｜思隅 产品与工程文档索引
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：3yearszhuang · 2026-08-29
 
 > 文档编号：AVX-DOC-001  
-> 版本：v0.8
-> 更新日期：2026-08-28
+> 版本：v0.9
+> 更新日期：2026-08-29
 > 状态：Review Candidate
 
 本目录把产品目标、可测试需求、架构决策、数据权利和 AI 质量分开维护，避免单一 PRD 同时承担所有细节。所有上线范围必须能从用户价值追踪到需求、设计、测试和发布证据。
@@ -67,6 +67,8 @@
 复习日期边界见 [CR-011：时区安全的复习调度与逾期汇总](reference/changes/CR-011-timezone-safe-review-scheduling.md)：v2 按 IANA 时区增加本地日历天，并区分今日到期与历史逾期。
 
 Agent 执行核心的当前与目标边界见 [CR-012：Agent Harness Loop](reference/changes/CR-012-agent-harness-loop.md) 与 [AVX-HAR-001](reference/agent-harness-loop.md)：阶段 0、1、2d、2e、3a、3b 已落地，包括 `packages/agent-loop`、API Replay/Scripted/LLM Loop、持久化 SSE、只读工具、写工具审批、工具账本、租约与 Worker 恢复；异步 Outbox Driver、完整上下文持久化、独立 Host 和 DSH/pi Adapter 仍按后续阶段推进。
+
+工具授权的 Turn 级完全访问开关见 [CR-022](reference/changes/CR-022-full-access-tool-permission.md)：默认仍逐次确认，用户经风险确认后可自动放行普通写工具；`privileged`、撤权/删除、租户隔离和其它安全门保持不变。
 
 练习中断恢复边界见 [CR-013：活跃练习会话恢复与续答](reference/changes/CR-013-practice-session-recovery.md)：重开学习界面会恢复同一题组快照和首个未答题，重复启动不会创建第二个活跃会话。
 

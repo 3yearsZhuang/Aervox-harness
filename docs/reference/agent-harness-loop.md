@@ -5,10 +5,10 @@
 
 > 文档编号：AVX-HAR-001  
 > 类型：Reference  
-> 版本：v0.4
-> 更新日期：2026-08-28  
+> 版本：v0.5
+> 更新日期：2026-08-29
 > 状态：Review Candidate  
-> 关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[ADR-016](adr/ADR-016-base-boundaries.md)、[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md)、[CR-012](changes/CR-012-agent-harness-loop.md)、[CR-021](changes/CR-021-ask-user-question-capability.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
+> 关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[ADR-016](adr/ADR-016-base-boundaries.md)、[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md)、[CR-012](changes/CR-012-agent-harness-loop.md)、[CR-021](changes/CR-021-ask-user-question-capability.md)、[CR-022](changes/CR-022-full-access-tool-permission.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
 本文规定 Aervox Agent Harness Loop 的职责、状态机、Port、持久化边界、工具执行、取消恢复和分阶段落地路线。当前阶段 0/1/2a-2e/3a/3b-A/3b-B 已有原生实现：`packages/agent-loop` 提供 Replay/Scripted/真实 OpenAI 兼容 Provider、多 Step 工具循环、API/SSE 持久化、工具账本、写工具审批、`ask_user_question` 人机提问交互、lease TTL/续租、过期抢占、fencing 单一终态和 Worker 恢复；3c+ 生产级安全补强、完整 Inbox/ContextManifest 关联、独立 Host 以及 DSH/pi Adapter 仍是后续目标。文中标为“目标”的接口、表和状态转换，只有在对应代码、迁移和契约测试落地后才可视为运行能力。
 
@@ -311,7 +311,11 @@ resolve definition
 - 模型请求工具不等于授权；
 - `read_only` 可以按已批准策略自动执行；
 - `write_with_approval` 必须绑定可审计授权快照；
+- CreateTurn 的 `toolApprovalMode` 默认为 `ask`；用户经风险确认选择 `full_access` 时，宿主只可对 `write_with_approval` 先写授权账本再自动执行；
+- `full_access` 是 Turn 级权限快照，不改写工具自身的 `safetyLevel`；运行中的 Turn 禁止切换，关闭只影响后续 Turn，不撤回已开始的副作用；
+- 完全访问产生的自动授权必须与显式授权区分；恢复 `ask` 后，显式授权查询不得命中这些记录；
 - `privileged` 默认拒绝，只能由单独管理员通道放行；
+- Subagent/Workflow 等静态 Contribution 的写工具必须经同一授权门，不得因 Provider 组合路由绕过审批策略；
 - 写工具按业务资源/Session 串行；相互独立的只读工具可以受限并行；
 - 幂等键建议为 `attemptId:stepNo:callId`，上游 callId 不可信时由 Host 重新生成；
 - 非幂等副作用失败不自动重试；
@@ -873,6 +877,16 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - **原子提交**（`recordSafeSegmentAtomically`）：BEGIN IMMEDIATE 内 fencing+状态守卫（同 appendEvent fenced 语义）→ 同事务插入 safe_segments（committed=1）与 delta 事件并回填事件关联，崩溃不把片段与事件拆散；守卫失配抛 `FencingMismatchError` 无部分写入。`listCommittedSegments` 按 sequence 升序返回可见前缀（中断恢复/可见前缀重建）。
 - **executor 接入**（`executor.ts`）：两处 delta 写入（无工具 isFinal / 有工具 isFinal:false）改走 `recordSafeSegment` 原子提交——每个可见片段与其事件同生共死；`ports.ts` 增 `recordSafeSegment`/可选 `listCommittedSegments`；in-memory 同语义 + `safeSegments` 断言钩子；host-agent store 委托 + `FencingMismatchError`→`LeaseLostError` 转译。
 - 测试：`@aervox/database` 160（新增 `segment-approval.test.ts` 6：E1 幂等复用/不同 hash 新建/已决后新请求新建；E2 同事务写入+事件关联 / fencing 失配无部分写入 / 可见前缀升序）；`@aervox/agent-loop` 143 无回归；`@aervox/host-agent` 65（fencing 桥接 +1 recordSafeSegment 原子+可见前缀+失配转译）；`@aervox/api` 230 无回归；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.28 落地进展（CR-022：Turn 级完全访问）
+
+2026-08-29 落地（对应 §9 工具审批决策）：
+
+- **契约与快照**：`CreateTurnRequest.toolApprovalMode = ask | full_access`，缺省 `ask`；API `preValidation` 将已解析值绑定到本请求租户上下文，不修改冻结中的对话路由。
+- **自动授权与审计**：完全访问下，`write_with_approval` 以 `tool_approvals` pending→granted 记录本次快照后才执行；`decidedBy=permission:full_access:<actor>` 区分自动授权，显式授权查询排除该前缀，关闭后同参数不会继续放行。
+- **统一写工具门**：动态 ToolRuntime 与静态 Subagent/Workflow Contribution 共用授权语义；`privileged` 仍收敛到管理员审批通道。
+- **双端交互**：共享 Workbench 输入区显示权限开关；开启必须经风险说明和显式勾选，运行中锁定，状态仅保留在当前浏览器/桌面会话；Web fetch 与 Electron IPC 传递同一字段。
+- **测试**：`conversation-approval.test.ts` 覆盖默认待决、自动执行与关闭后不泄漏；`conversation-privileged.test.ts` 覆盖管理员门不变；`tool-approval-policy.test.ts` 覆盖静态 Contribution 工具；API Client `transport.test.ts` 覆盖 `full_access` 请求体透传。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
 ## 17. 回滚策略
 

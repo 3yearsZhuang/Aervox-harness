@@ -66,8 +66,13 @@ describe("Agent Loop 阶段 3a：写工具审批通道", () => {
     await cleanup();
   });
 
-  const createTurn = async () =>
-    app.inject({ method: "POST", url: "/v1/sessions/ses_3a/turns", headers, payload: turnPayload });
+  const createTurn = async (toolApprovalMode?: "ask" | "full_access") =>
+    app.inject({
+      method: "POST",
+      url: "/v1/sessions/ses_3a/turns",
+      headers,
+      payload: { ...turnPayload, ...(toolApprovalMode ? { toolApprovalMode } : {}) },
+    });
 
   it("未授权写工具：tool_approval_required + done(Interrupted) + 账本 pending_approval", async () => {
     const created = await createTurn();
@@ -85,6 +90,33 @@ describe("Agent Loop 阶段 3a：写工具审批通道", () => {
     const approvals = await repo.listToolApprovalsByTurn(tenant, turnId);
     expect(approvals).toHaveLength(1);
     expect(approvals[0].state).toBe("pending");
+  });
+
+  it("完全访问：普通写工具自动授权并执行，关闭后不复用自动授权", async () => {
+    const created = await createTurn("full_access");
+    expect(created.statusCode).toBe(201);
+    const turnId = created.json().turnId as string;
+
+    const repo = new SqliteConversationRepository(db);
+    const events = parseSse((await app.inject({ method: "GET", url: `/v1/turns/${turnId}/events`, headers })).body);
+    expect(events.map((event) => event.eventType)).not.toContain("tool_approval_required");
+    expect(events.find((event) => event.eventType === "tool_result")?.data.ok).toBe(true);
+    expect(events.at(-1)?.data.status).toBe("Completed");
+
+    const approvals = await repo.listToolApprovalsByTurn(tenant, turnId);
+    expect(approvals).toHaveLength(1);
+    expect(approvals[0]).toMatchObject({
+      state: "granted",
+      requester: tenant.subjectUserId,
+    });
+    expect(approvals[0]!.decidedBy).toBe(`permission:full_access:${tenant.subjectUserId}`);
+
+    // 完全访问是 Turn 级策略；恢复 ask 后，同参数不得命中自动授权记录。
+    const askTurn = await createTurn("ask");
+    const askTurnId = askTurn.json().turnId as string;
+    const askEvents = parseSse((await app.inject({ method: "GET", url: `/v1/turns/${askTurnId}/events`, headers })).body);
+    expect(askEvents.map((event) => event.eventType)).toContain("tool_approval_required");
+    expect(askEvents.at(-1)?.data.status).toBe("Interrupted");
   });
 
   it("授权后重发：grant → 重发命中 granted 并执行成功", async () => {

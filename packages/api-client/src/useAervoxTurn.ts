@@ -4,7 +4,7 @@
  * 与具体传输解耦：桌面走 IPC transport，Web 走 fetch/SSE transport。
  */
 import { getTransport, getSessionId } from './transport';
-import type { AskUserQuestionAnswerItem, PetCommand, UserQuestionRequiredEventData } from '@aervox/contracts';
+import type { AskUserQuestionAnswerItem, PetCommand, ToolApprovalMode, UserQuestionRequiredEventData } from '@aervox/contracts';
 
 export interface StreamAervoxTurnCallbacks {
   onDelta: (text: string) => void;
@@ -15,8 +15,12 @@ export interface StreamAervoxTurnCallbacks {
   onUserQuestion?: (data: UserQuestionRequiredEventData) => void;
 }
 
-export async function streamAervoxTurn(content: string, callbacks: StreamAervoxTurnCallbacks): Promise<void> {
-  await getTransport().streamTurn(getSessionId(), content, callbacks);
+export async function streamAervoxTurn(
+  content: string,
+  callbacks: StreamAervoxTurnCallbacks,
+  options: { toolApprovalMode?: ToolApprovalMode } = {},
+): Promise<void> {
+  await getTransport().streamTurn(getSessionId(), content, callbacks, options);
 }
 
 export async function submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[]): Promise<void> {
