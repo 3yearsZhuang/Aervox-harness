@@ -90,7 +90,7 @@ interface StoryLine {
   attachments?: StoryLineAttachment[]
 }
 
-type CardId = 'study' | 'todo' | 'timer' | 'history' | 'review' | 'mistake' | 'diary' | 'notifications'
+type CardId = 'study' | 'todo' | 'timer' | 'history' | 'review' | 'mistake' | 'quiz' | 'diary' | 'notifications'
 
 interface CardDefinition {
   id: CardId
@@ -259,6 +259,7 @@ const activeMistakeCount = computed(() => mistakes.value.filter((item) => item.s
 const cardCatalog = computed<CardDefinition[]>(() => [
   {id: 'study', label: '今日学习', description: '学习目标 · 复习 · 练习 · 日记', icon: BookOpen, summary: () => `${goals.value.length} 个目标 · ${dueReviews.value.length} 项复习`, action: () => openTool('study')},
   {id: 'mistake', label: '错题本', description: '针对性练习未掌握的题', icon: Puzzle, summary: () => `${activeMistakeCount.value} 题待掌握`, action: () => openTool('mistake')},
+  {id: 'quiz', label: '刷题模式', description: 'AI 现场出题，答错自动进错题本', icon: ClipboardList, summary: () => activePracticeSession.value ? '进行中的练习' : 'AI 出题 · 即时判定', action: () => startQuiz()},
   {id: 'todo', label: '待办清单', description: '勾选完成今天的待办事项', icon: ListTodo, summary: () => `待完成 ${unfinishedTodos.value.length} 件`, action: () => openTool('todo')},
   {id: 'timer', label: '番茄钟', description: '专注计时，劳逸结合', icon: Clock3, summary: () => timerRunning.value ? `${formattedTime.value} 专注中` : `${formattedTime.value} 待开始`, action: () => openTool('timer')},
   {id: 'history', label: '对话回看', description: '回顾与思隅的历史对话', icon: History, summary: () => `${story.value.length} 条对话记录`, action: () => openTool('history')},
@@ -1562,18 +1563,6 @@ onUnmounted(() => {
           <span class="study-switch-thumb" />
         </button>
       </label>
-
-      <button
-        type="button"
-        class="floating-quiz-btn"
-        :disabled="streaming"
-        aria-label="开始刷题"
-        title="开始刷题：AI 现场出题，答错自动进错题本"
-        @click="startQuiz"
-      >
-        <ClipboardList :size="15" />
-        <span class="quiz-btn-label">刷题</span>
-      </button>
 
       <button v-if="isWeb" class="floating-settings" type="button" aria-label="打开设置" @click="settingsOpen = true">
         <Settings :size="19" />

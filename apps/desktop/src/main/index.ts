@@ -739,8 +739,8 @@ function rendererUrl(page: string) {
 
 function createMainWindow() {
     mainWindow = new BrowserWindow({
-        width: 1360,
-        height: 820,
+        width: 1440,
+        height: 880,
         minWidth: 760,
         minHeight: 620,
         backgroundColor: '#f5f7f4',
