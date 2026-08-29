@@ -1,10 +1,10 @@
 # 文档生命周期登记表（核验节奏与陈旧信号）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-29
+- 修改人：kikoyida · 2026-08-29
 
 > 文档编号：AVX-DOC-CONF-001  
-> 版本：v1.2
+> 版本：v1.3
 > 更新日期：2026-08-29
 > 状态：Review Candidate
 > 关联：[文档索引](README.md)、[文档治理与事实源规范](reference/document-governance.md)
@@ -53,6 +53,7 @@
 | `CR-021` | [向用户询问能力接入](reference/changes/CR-021-ask-user-question-capability.md) | 2026-08-28 | `CAP-001` / `AVX-HAR-001` 人机交互回环与向用户提问能力变更 | 流式协议、Loop 执行器、契约、API 协调或前端呈现不一致 |
 | `CR-022` | [Turn 级完全访问工具权限开关](reference/changes/CR-022-full-access-tool-permission.md) | 2026-08-29 | `CAP-002/007/020/033` / `AVX-HAR-001` 工具授权模式、审计或双端开关变更 | CreateTurn 契约、自动授权排除、CAP-033 动作授权、API Client/IPC 或 Workbench 状态不一致 |
 | `CR-023` | [广域本地主动智能模式](reference/changes/CR-023-proactive-local-intelligence-mode.md) | 2026-08-29 | `CAP-033` + `CAP-002/005/007/008/009/010/012/013/018/020/022/023/024/026/027/030` 广域画像、Agent Host/Inbox、OS 权限、本地私密数据或授权语义变更 | AVX-EXPL-008、CR-022、OS Permission Broker、本地 Provider/存储、撤权、导出或待决策不一致 |
+| `CR-024` | [桌面端首次启动引导](reference/changes/CR-024-desktop-first-run-onboarding.md) | 2026-08-29 | `CAP-001/018` 桌面首启、Live2D、模型配置入口或本机完成标记变更 | 首次启动判定、CR-015 配置复用、快速开始或启动过渡与实现不一致 |
 | `AVX-PLUG-001` | [插件 Config 与 Page 规范](reference/plugin-config-and-pages.md) | 2026-08-26 | CR-006 / 插件机制变更 | Manifest、Config Schema、Page Bridge 与实现不一致 |
 | `AVX-DOC-GOV-001` | [文档治理与事实源规范](reference/document-governance.md) | 2026-08-28 | 文档分类、状态、事实源、复核触发或迁移策略变更 | 策略 JSON、校验器、索引、登记表或写作规范与治理基线不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 2026-08-28 | 写作规则、模板或季度评审 | 新文档未使用规范元数据/签名，或 Vale 规则与术语表不一致 |

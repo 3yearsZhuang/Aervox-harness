@@ -1,10 +1,10 @@
 # Aervox｜思隅 产品与工程文档索引
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-29
+- 修改人：kikoyida · 2026-08-29
 
 > 文档编号：AVX-DOC-001  
-> 版本：v1.2
+> 版本：v1.3
 > 更新日期：2026-08-29
 > 状态：Review Candidate
 
@@ -54,6 +54,8 @@
 最近的端形态变更见 [CR-005：共享工作台与 Web 无桌宠表现层](reference/changes/CR-005-shared-workbench-web-without-pet.md)：Web 与 Electron 共用 `@aervox/ui` 工作台，Web 不渲染桌宠，Electron 保留桌面壳和桌宠窗口。
 
 后续表现层变更见 [CR-007：可替换 Live2D 桌宠渲染层](reference/changes/CR-007-live2d-sekai-viewer-pet.md)：Web 工作台重新启用可回退的 Live2D 桌宠；Electron 主工作台保持无左侧桌宠，独立桌宠窗口继续使用 Live2D。
+
+桌面端首次启动体验见 [CR-024：桌面端首次启动引导](reference/changes/CR-024-desktop-first-run-onboarding.md)：Electron 首次启动通过四步窗口内序章介绍产品，复用 Live2D 与 CR-015 模型配置能力，并用版本化本机标记控制后续跳过。
 
 最近的插件能力变更见 [CR-006：插件配置解析与可视化](reference/changes/CR-006-plugin-config-and-pages.md)：新增插件 Config Schema v1、配置持久化/API 与受限 Page Bridge（规范见 [AVX-PLUG-001](reference/plugin-config-and-pages.md)）。
 

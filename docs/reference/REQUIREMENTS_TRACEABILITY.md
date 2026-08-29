@@ -5,7 +5,7 @@
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
-> 文档版本：v1.5
+> 文档版本：v1.6
 > 文档状态：评审候选（Review Candidate）  
 > 更新日期：2026-08-29
 > 产品需求来源：[PRD.md](PRD.md)
@@ -153,6 +153,7 @@
 
 | 落地实现 | 关联 CAP | 实现位置 | 日期 | 验证 | 来源 |
 |---|---|---|---|---|---|
+| 桌面端首次启动引导（四步序章、Live2D、模型测试/保存、快速开始与版本化完成标记） | CAP-001/018 | `apps/desktop/src/renderer/src/{App.vue,onboarding-model.ts,onboarding-state.ts,components/OnboardingFlow.vue}`、`apps/desktop/test/{onboarding-model,onboarding-state}.test.ts` | 2026-08-29 | Desktop 单元测试（首次启动、严格完成标记、完成写入、提供商预设、模型配置校验）；Desktop build/typecheck | 原生（视觉结论见 `CR-024` 与原型提交 `050f1f0`） |
 | 错题本聚合、掌握标记与错题重练 | CAP-003/004 | `apps/api/src/modules/learning/routes.ts`、`packages/database/src/repositories/{types,sqlite/learning-repository}.ts`、`packages/api-client/src/useAervoxApi.ts`、`packages/ui/src/components/AervoxWorkbench.vue` | 2026-08-26 | `mistake-book.test.ts` 集成测试；API/API Client/UI 类型检查 | 原生 |
 | 练习会话与结果报告 | CAP-003/004/006 | `apps/api/src/modules/learning/routes.ts`、`packages/database/src/schema/learning.ts`、`packages/database/src/repositories/sqlite/learning-repository.ts`、`packages/api-client/src/useAervoxApi.ts`、`packages/ui/src/components/AervoxWorkbench.vue` | 2026-08-26 | `practice-session.test.ts` 集成测试；学习路由类型检查 | 原生 |
 | 活跃练习会话恢复与续答 | CAP-003 | `packages/practice-review/src/session.ts`、`apps/api/src/modules/learning/routes.ts`、`packages/database/src/repositories/{types,sqlite/learning-repository}.ts`、`packages/contracts/src/{practice-schemas,openapi}.ts`、`packages/api-client/src/{transport,desktop-transport,useAervoxApi}.ts`、`apps/desktop/src/{main,preload}/`、`packages/ui/src/components/AervoxWorkbench.vue` | 2026-08-28 | `session.test.ts` 单元测试（去重、未答索引、全答与空题组）；`transport.test.ts` 单元测试（幂等键透传）；`practice-session.test.ts` 集成测试（快照、续答进度、重试复用、租户隔离、结束后不可恢复）；Contracts/Database/API Client/Desktop/UI 类型检查 | 原生 |
