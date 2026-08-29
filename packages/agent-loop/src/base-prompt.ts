@@ -28,7 +28,7 @@ export const BASE_TOOL_GUIDANCE: readonly ToolGuidance[] = [
     ],
   },
   {
-    name: "subagent.delegate",
+    name: "subagent_delegate",
     whenToUse: "当任务较为庞大、具有高度独立性或需要委托子任务在隔离上下文中执行时调用。",
     whenNotToUse: "单步简单任务、或直接通过当前可用工具即可完成的任务无需委托。",
     constraints: [
@@ -37,7 +37,7 @@ export const BASE_TOOL_GUIDANCE: readonly ToolGuidance[] = [
     ],
   },
   {
-    name: "workflow.run",
+    name: "workflow_run",
     whenToUse: "当需要执行预先注册的标准工作流步骤（如错题归因分析、知识点复盘工作流等）时调用。",
     whenNotToUse: "无匹配的已注册工作流时禁止随意捏造 workflow 名称。",
     constraints: [
