@@ -1,13 +1,13 @@
 # Aervox｜思隅 Turn 流式协议（SPC）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：witchscottishfoldcat · 2026-08-29
+- 修改人：3yearszhuang · 2026-08-29
 
 > 文档编号：AVX-SPC-001  
-> 版本：v0.2（评审候选）  
+> 版本：v0.3（评审候选）  
 > 更新日期：2026-08-29  
 > 状态：Review Candidate  
-> 关联：`ADR-002`、`ADR-012`、`CR-019`、`CR-022`、`NFR-PERF-001`、`NFR-REL-001`、`NFR-SEC-001`
+> 关联：`ADR-002`、`ADR-012`、`CR-019`、`CR-022`、`CR-027`、`NFR-PERF-001`、`NFR-REL-001`、`NFR-SEC-001`
 
 本文是对话流式 API 和客户端行为的可执行契约。OpenAPI 3.1 描述 HTTP 资源、鉴权和错误；本文件描述 SSE 事件 envelope、状态机、重连、取消、幂等和持久化顺序。实现必须从同一份 `packages/contracts` schema 生成服务端校验、客户端类型和契约测试，不能只依赖本文件中的示例。
 
@@ -61,6 +61,8 @@
 `GET /v1/turns/{turnId}/events`
 
 请求头：`Accept: text/event-stream`。客户端使用 Fetch streaming 读取，以便发送标准鉴权头和 `AbortSignal`；原生 `EventSource` 不是必需客户端。
+
+Turn 执行与建流解耦（CR-027）：`POST /turns` 在落库后立即返回（`AERVOX_TURN_EXECUTION=background`，默认），Loop 后台执行。事件流端点采用「重放 + 活流 tail」：先全量重放已落库事件（断线重连同样由此恢复完整序列）；若 Attempt 未达终态，服务端持续按 sequence 高水位补拉增量并周期性发送 SSE 注释心跳（`: ping`），直至 Attempt 终态后排空残余事件再关闭连接。Attempt 已终态（历史回合/inline 模式）时重放即关闭。长思考回合期间流内始终有业务事件（含 `reasoning_delta`）或心跳，客户端不得以固定总时限判断回合失败，应以「空闲超时」判定连接失活。`AERVOX_TURN_EXECUTION=inline` 保留「POST 返回即事件就绪」的旧同步语义，仅用于测试与排查。
 
 服务端使用高水位算法避免“重放结束、实时订阅建立之前”丢事件：先在一致性读取中取得 `replayUpperBound`，重放 `(cursorSequence, replayUpperBound]`；建立实时订阅后再次从数据库补拉到当前最新 sequence，再发送实时事件。允许重复投递但不得出现 sequence 空洞。游标优先使用 `Last-Event-ID: {eventId}`；若运行环境不能设置该头，可使用同值的 `?after=` 查询参数，但不得同时提供互相冲突的两个游标。服务端必须把 `eventId` 解析到对应 `(turnId, sequence)`，拒绝不存在、跨 Turn 或当前主体无权访问的游标。
 
@@ -120,6 +122,10 @@ Created -> InputChecking -> Running -> Finalizing -> Completed
 
 表示一段已通过安全门且已持久化的可见正文。`data` 至少包含 `messageId`、`text`、`isFinal=false`。服务端不得发送未持久化或未经检查的 Provider token。
 
+### 4.2.1 `reasoning_delta` (CR-027)
+
+思考型模型的思考进度增量，`data` 包含 `messageId` 与 `text`。**非正文**：不进消息历史与安全片段，不参与 `TTFT` 与派生事实，仅作为长思考期间的活性信号与「思考中」进度反馈。来源为 OpenAI 兼容流的 `delta.reasoning_content`（DeepSeek / Qwen / vLLM）或 `delta.reasoning`（OpenRouter / Ollama 兼容端点）双格式；OpenAI 官方 Chat Completions 不透出原生推理时自然缺省。思考增量计入流活性：客户端的空闲超时计时器收到该事件同样重置。客户端对未知事件类型应忽略不影响既有展示。
+
 ### 4.3 `done`
 
 表示 Turn 终态已提交。`data` 至少包含 `status`、`messageId`（如有）、`isComplete`、`lastSequence` 和 `contextVersion`。只有 `status=Completed` 且 `isComplete=true` 的结果可触发普通下游派生；`Cancelled/Interrupted/Failed/Rejected` 的安全前缀只能作为明确标记的不完整历史保留。
@@ -164,7 +170,7 @@ Created -> InputChecking -> Running -> Finalizing -> Completed
 
 ## 6. 超时、失败、降级和取消
 
-- 服务端必须限制 Turn 总时长、累计输出、单段大小、并发流和空闲时间；SSE heartbeat 只维持连接，不改变业务状态。
+- 服务端必须限制 Turn 总时长、累计输出、单段大小、并发流和空闲时间；SSE heartbeat 只维持连接，不改变业务状态。Provider 上游超时应采用**空闲超时**语义（每收到一段流数据即重置，含思考增量），不得以固定总时限掐断持续输出的思考型模型（CR-027）；租户可经 LLM 配置 `settings.requestTimeoutMs` 调整空闲上限。客户端（Web/Desktop）侧同样以空闲超时收敛 UI，超时后必须中止上游在途请求（如桌面 `cancelTurn` IPC → 主进程 `AbortController`），避免"UI 已失败、后台继续消耗 tokens"的幽灵回合。
 - Provider 超时/5xx/限流按路由策略熔断；只可切换已通过同一 EvalSet 和安全审查的备用模型。没有合格备用时保留 User Message，返回可重试状态。
 - 输出安全分类服务不可用时，普通对话停止发送新片段；高风险输入使用固定保守响应。不得为降低延迟跳过安全门。
 - API/Worker 崩溃后，恢复器依据 Turn 状态和最后 sequence 决定是否用新 `TurnAttempt` 重试或收敛为 `Interrupted`；旧 Worker 必须通过 fencing token，不能晚提交。

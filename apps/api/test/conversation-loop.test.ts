@@ -154,4 +154,39 @@ it("阶段 5b：注册 active Skill 后创建 Turn 仍成功（skillLoader 接�
     expect(res.statusCode).toBe(200);
     expect(res.headers["access-control-allow-origin"]).toBe("http://localhost:5173");
   });
+
+  it("CR-027 background 模式：POST 立即 201 返回，SSE 活流在回合终态后排空结束", async () => {
+    const created = await createTurn();
+    expect(created.statusCode).toBe(201);
+    expect(created.json().status).toBe("Created");
+    const turnId = created.json().turnId as string;
+
+    // GET events 阻塞至 Attempt 终态并返回完整事件序列（重放 + tail + 排空）
+    const events = await app.inject({ method: "GET", url: `/v1/turns/${turnId}/events`, headers });
+    expect(events.statusCode).toBe(200);
+    const parsed = parseSse(events.body);
+    expect(parsed.length).toBeGreaterThanOrEqual(3);
+    expect(parsed[0].eventType).toBe("message");
+    expect(parsed[parsed.length - 1].eventType).toBe("done");
+    expect(parsed[parsed.length - 1].data.status).toBe("Completed");
+  });
+
+  it("CR-027 inline 模式：POST 返回时事件已全部就绪（旧同步语义）", async () => {
+    process.env.AERVOX_TURN_EXECUTION = "inline";
+    try {
+      const created = await createTurn();
+      expect(created.statusCode).toBe(201);
+      const turnId = created.json().turnId as string;
+
+      // 不经 SSE 屏障直接查库：inline 下 POST 返回即已终态
+      const repo = new (await import("@aervox/database")).SqliteConversationRepository(db);
+      const attempts = await repo.listTurnAttempts(
+        { workspaceId: "ws_loop", subjectUserId: "usr_loop" },
+        turnId,
+      );
+      expect(attempts[0]?.status).toBe("Completed");
+    } finally {
+      delete process.env.AERVOX_TURN_EXECUTION;
+    }
+  });
 });

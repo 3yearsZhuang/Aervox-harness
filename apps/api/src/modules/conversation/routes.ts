@@ -144,12 +144,16 @@ export function registerConversationRoutes(
       },
     );
 
-    // 阶段 1/2d（AVX-HAR-001 §15）：创建 Attempt 并由 Agent Loop 执行一次
+    // 阶段 1/2d（AVX-HAR-001 §15）：创建 Attempt 并由 Agent Loop 执行一次。
+    // CR-027：Loop 执行与 HTTP 响应解耦——background（默认）落库后立即 201，
+    // Loop 后台执行，客户端经 SSE 活流（重放 + tail + 心跳）观察进度；
+    // 深度思考等长回合不再把 POST 拖过客户端超时。inline 保留旧同步语义（测试/排查）。
     const attemptId = `atp_${turnId}`;
     await conversationRepo.createTurnAttempt(tenant, turnId, { id: attemptId, attempt: 1 });
     const uqPort = deps.userQuestionCoordinator ? deps.userQuestionCoordinator.createPort(tenant) : undefined;
     const practiceAttemptPort = deps.practiceAttemptFactory ? deps.practiceAttemptFactory(tenant) : undefined;
-    await runLoopTurnOnce(
+    const runLoop = async () =>
+      runLoopTurnOnce(
       conversationRepo,
       tenant,
       {
@@ -182,6 +186,12 @@ export function registerConversationRoutes(
         proactiveRepository: deps.proactiveRepository,
       },
     );
+    if (loadApiConfig().turnExecution === "inline") {
+      await runLoop();
+    } else {
+      // 后台执行：异常已在 runLoopTurnOnce 内部落 error 事件 + Failed 终态，此处仅兜底防 unhandledRejection
+      void runLoop().catch(() => undefined);
+    }
 
     return reply.code(201).send({
       turnId,
@@ -191,20 +201,36 @@ export function registerConversationRoutes(
     });
   });
 
-  // GET /v1/turns/{turnId}/events — SSE 事件流（重放持久 turn_stream_events，AVX-HAR-001 阶段 1）
+  // GET /v1/turns/{turnId}/events — SSE 事件流（CR-027：重放持久事件 + 活流 tail）
+  // 先全量重放已落库 turn_stream_events；若 Attempt 未达终态则持续轮询增量并按节拍发
+  // SSE 注释心跳（`: ping`），直至 Attempt 终态（ Completed/Failed/Interrupted/Cancelled）
+  // 事件排空后结束。深度思考等长回合期间客户端始终有数据流入，不再出现整段静默。
   app.get("/v1/turns/:turnId/events", async (req, reply) => {
     const { turnId } = req.params as { turnId: string };
     const tenant = resolveTenant(req);
     const origin = (req.headers.origin as string | undefined) ?? "*";
     reply.hijack();
-    reply.raw.writeHead(200, {
+    const raw = reply.raw;
+    raw.writeHead(200, {
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-store",
       "Access-Control-Allow-Origin": origin,
       "Access-Control-Allow-Credentials": "true",
     });
-    const events = await conversationRepo.getStreamEvents(tenant, turnId, 0);
-    for (const ev of events) {
+
+    const TAIL_POLL_INTERVAL_MS = 400;
+    const TAIL_HEARTBEAT_MS = 15_000;
+    const TAIL_MAX_DURATION_MS = 10 * 60_000;
+
+    const writeEventFrame = (ev: {
+      id: string;
+      turnId: string;
+      sequence: number;
+      eventType: string;
+      payloadVersion: number;
+      occurredAt: string;
+      data: unknown;
+    }): void => {
       const body = {
         eventId: ev.id,
         turnId: ev.turnId,
@@ -214,10 +240,76 @@ export function registerConversationRoutes(
         occurredAt: ev.occurredAt,
         data: ev.data,
       };
-      reply.raw.write(`id: ${ev.id}\n`);
-      reply.raw.write(`data: ${JSON.stringify(body)}\n\n`);
+      raw.write(`id: ${ev.id}\n`);
+      raw.write(`data: ${JSON.stringify(body)}\n\n`);
+    };
+
+    let closed = false;
+    let tailTimer: ReturnType<typeof setInterval> | undefined;
+    const finish = (): void => {
+      if (closed) return;
+      closed = true;
+      if (tailTimer) clearInterval(tailTimer);
+      raw.end();
+    };
+    req.raw.on("close", finish);
+    raw.on("close", finish);
+
+    // 1) 重放已落库事件（断线重连亦由此恢复全量序列）
+    const persisted = await conversationRepo.getStreamEvents(tenant, turnId, 0);
+    let lastSequence = 0;
+    let lastWriteAt = Date.now();
+    for (const ev of persisted) {
+      writeEventFrame(ev);
+      lastSequence = Math.max(lastSequence, ev.sequence);
     }
-    reply.raw.end();
+
+    const attemptSettled = async (): Promise<boolean> => {
+      const attempts = await conversationRepo.listTurnAttempts(tenant, turnId);
+      const terminal = ["Completed", "Failed", "Interrupted", "Cancelled"];
+      return attempts.length > 0 && attempts.every((a) => terminal.includes(a.status));
+    };
+
+    // 2) Attempt 已终态（inline 模式/历史回合）：重放即完整，直接结束（旧语义兼容）
+    if (closed || (await attemptSettled())) {
+      finish();
+      return;
+    }
+
+    // 3) 活流 tail：轮询增量 + 心跳，直至 Attempt 终态或超时上限
+    const tailStartedAt = Date.now();
+    let polling = false;
+    tailTimer = setInterval(() => {
+      if (closed || polling) return;
+      polling = true;
+      void (async () => {
+        try {
+          const fresh = await conversationRepo.getStreamEvents(tenant, turnId, lastSequence);
+          for (const ev of fresh) {
+            writeEventFrame(ev);
+            lastSequence = Math.max(lastSequence, ev.sequence);
+            lastWriteAt = Date.now();
+          }
+          if (Date.now() - lastWriteAt >= TAIL_HEARTBEAT_MS) {
+            raw.write(`: ping\n\n`);
+            lastWriteAt = Date.now();
+          }
+          if (Date.now() - tailStartedAt >= TAIL_MAX_DURATION_MS || (await attemptSettled())) {
+            // 终态后再排空一次（终态提交与 done/error 事件同事务，此处仅兜底）
+            const remaining = await conversationRepo.getStreamEvents(tenant, turnId, lastSequence);
+            for (const ev of remaining) {
+              writeEventFrame(ev);
+              lastSequence = Math.max(lastSequence, ev.sequence);
+            }
+            finish();
+          }
+        } catch {
+          finish();
+        } finally {
+          polling = false;
+        }
+      })();
+    }, TAIL_POLL_INTERVAL_MS);
   });
 
   // POST /v1/turns/{turnId}/cancel — 取消 Turn（AVX-HAR-001 §11.1：Attempt CAS 置 CancelRequested，executor 检查点中止）

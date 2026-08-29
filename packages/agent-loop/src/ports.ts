@@ -13,6 +13,7 @@ import type {
   ContextCompactionResult,
   ContextManifestRecord,
   LoopEventType,
+  ModelChunk,
   ModelRequest,
   ModelRunRecord,
   PromptContext,
@@ -21,7 +22,6 @@ import type {
   SubagentDelegateInput,
   SubagentRunResult,
   ToolApprovalInfo,
-  ToolCallRequest,
   ToolExecutionRecord,
   ToolExecutionStatus,
   ToolSpec,
@@ -195,7 +195,7 @@ export interface AgentStreamEvent extends AgentStreamEventInput {
 /** Model Provider（ADR-005 ModelProviderPort 阶段 2 面：支持工具请求） */
 export interface ModelProviderPort {
   readonly id: string;
-  stream(request: ModelRequest): AsyncIterable<{ text: string; isFinal: boolean; toolCalls?: ToolCallRequest[] }>;
+  stream(request: ModelRequest): AsyncIterable<ModelChunk>;
 }
 
 /** 工具描述（定义见 types.ts；此处 re-export 保持既有导入路径兼容） */

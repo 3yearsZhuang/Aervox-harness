@@ -26,6 +26,7 @@ import {
   diaryWriteToolOutputSchema,
   toolApprovalRequiredEventDataSchema,
   messageEventDataSchema,
+  reasoningDeltaEventDataSchema,
   petCommandSchema,
   petManifestSchema,
   petSheetLayoutSchema,
@@ -165,6 +166,7 @@ registry.register("CancelTurnResponse", cancelTurnResponseSchema);
 registry.register("TurnStreamEvent", turnStreamEventSchema);
 registry.register("MessageEventData", messageEventDataSchema);
 registry.register("DeltaEventData", deltaEventDataSchema);
+registry.register("ReasoningDeltaEventData", reasoningDeltaEventDataSchema);
 registry.register("DoneEventData", doneEventDataSchema);
 registry.register("ErrorEventData", errorEventDataSchema);
 registry.register("RedactedEventData", redactedEventDataSchema);
