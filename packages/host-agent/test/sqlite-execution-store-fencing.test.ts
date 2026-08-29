@@ -102,4 +102,120 @@ describe("SqliteExecutionStore 事件写入 fencing 桥接", () => {
     });
     expect(ev.eventType).toBe("error");
   });
+
+  // ============ B4-D：原子写对桥接 ============
+
+  it("recordToolOutcome：账本 + 事件原子；fencing 失配转译 LeaseLostError", async () => {
+    const { turnId, attemptId } = await nextTurn();
+    const claim = await store.claimTurnAttempt({ turnId, attemptId, expectedFencingToken: 0 });
+    expect(claim.ok).toBe(true);
+    if (!claim.ok) return;
+    await repo.reserveToolExecution(tenant, { turnId, attemptId, invocationId: `atp_fhost_d:1:1`, name: "notes_search", arguments: {} });
+
+    const ok = await store.recordToolOutcome({
+      turnId,
+      attemptId,
+      sequence: await store.nextSequence(turnId),
+      invocationId: `atp_fhost_d:1:1`,
+      name: "notes_search",
+      arguments: {},
+      status: "executed",
+      output: { notes: "ok" },
+      startedAt: new Date().toISOString(),
+      eventData: { ok: true },
+      safetyDecision: "approved",
+      expectedFencingToken: claim.fencingToken,
+    });
+    expect(ok.ok).toBe(true);
+    const events = await store.listEvents(turnId);
+    expect(events.some((e) => e.eventType === "tool_result")).toBe(true);
+
+    await expect(
+      store.recordToolOutcome({
+        turnId,
+        attemptId,
+        sequence: await store.nextSequence(turnId),
+        invocationId: `atp_fhost_d:1:1`,
+        name: "notes_search",
+        arguments: {},
+        status: "executed",
+        startedAt: new Date().toISOString(),
+        eventData: { ok: true },
+        safetyDecision: "approved",
+        expectedFencingToken: claim.fencingToken + 100,
+      }),
+    ).rejects.toThrow(LeaseLostError);
+  });
+
+  it("finalizeAttemptWithEvent：终态 + done 原子；CAS 失败返回 false", async () => {
+    const { turnId, attemptId } = await nextTurn();
+    const claim = await store.claimTurnAttempt({ turnId, attemptId, expectedFencingToken: 0 });
+    expect(claim.ok).toBe(true);
+    if (!claim.ok) return;
+
+    const ok = await store.finalizeAttemptWithEvent({
+      turnId,
+      attemptId,
+      status: "Completed",
+      expectedFencingToken: claim.fencingToken,
+      sequence: await store.nextSequence(turnId),
+      eventType: "done",
+      eventData: { status: "Completed", isComplete: true },
+      safetyDecision: "approved",
+    });
+    expect(ok.ok).toBe(true);
+    const events = await store.listEvents(turnId);
+    expect(events.some((e) => e.eventType === "done")).toBe(true);
+
+    // 已终态 → false 且不写第二个事件
+    const again = await store.finalizeAttemptWithEvent({
+      turnId,
+      attemptId,
+      status: "Failed",
+      expectedFencingToken: claim.fencingToken,
+      sequence: await store.nextSequence(turnId),
+      eventType: "error",
+      eventData: { code: "X" },
+      safetyDecision: "approved",
+    });
+    expect(again.ok).toBe(false);
+    const eventsAfter = await store.listEvents(turnId);
+    expect(eventsAfter.filter((e) => e.eventType === "error")).toHaveLength(0);
+  });
+
+  it("recordSafeSegment：安全片段 + delta 事件原子；可见前缀读取；fencing 失配转译", async () => {
+    const { turnId, attemptId } = await nextTurn();
+    const claim = await store.claimTurnAttempt({ turnId, attemptId, expectedFencingToken: 0 });
+    expect(claim.ok).toBe(true);
+    if (!claim.ok) return;
+
+    const ok = await store.recordSafeSegment({
+      turnId,
+      attemptId,
+      sequence: await store.nextSequence(turnId),
+      text: "第一段",
+      eventData: { text: "第一段", isFinal: false },
+      safetyDecision: "approved",
+      expectedFencingToken: claim.fencingToken,
+    });
+    expect(ok.ok).toBe(true);
+
+    const events = await store.listEvents(turnId);
+    expect(events.some((e) => e.eventType === "delta")).toBe(true);
+    const segments = await store.listCommittedSegments(turnId);
+    expect(segments).toHaveLength(1);
+    expect(segments[0]!.text).toBe("第一段");
+
+    await expect(
+      store.recordSafeSegment({
+        turnId,
+        attemptId,
+        sequence: await store.nextSequence(turnId),
+        text: "迟到",
+        eventData: { text: "迟到" },
+        safetyDecision: "approved",
+        expectedFencingToken: claim.fencingToken + 100,
+      }),
+    ).rejects.toThrow(LeaseLostError);
+  });
 });

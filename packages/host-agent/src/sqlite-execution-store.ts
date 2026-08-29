@@ -152,6 +152,107 @@ export class SqliteExecutionStore implements ExecutionStorePort {
     return { ok: Boolean(updated) };
   }
 
+  /** B4-D：原子提交「工具结果账本收口 + tool_result 事件」（§12.2） */
+  async recordToolOutcome(input: {
+    turnId: string;
+    attemptId: string;
+    sequence: number;
+    invocationId: string;
+    name: string;
+    arguments: unknown;
+    status: import("@aervox/agent-loop").ToolExecutionStatus;
+    output?: unknown;
+    error?: string;
+    startedAt: string;
+    finishedAt?: string;
+    eventData: unknown;
+    safetyDecision: import("@aervox/agent-loop").SafetyDecision;
+    expectedFencingToken: number;
+  }): Promise<{ ok: boolean }> {
+    try {
+      const done = await this.repo.recordToolOutcomeAtomically(this.tenant, {
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        sequence: input.sequence,
+        invocationId: input.invocationId,
+        name: input.name,
+        arguments: input.arguments,
+        status: input.status,
+        output: input.output,
+        error: input.error,
+        startedAt: input.startedAt,
+        finishedAt: input.finishedAt,
+        eventData: input.eventData,
+        safetyDecision: input.safetyDecision,
+        expectedFencingToken: input.expectedFencingToken,
+      });
+      return { ok: done };
+    } catch (err) {
+      if (err instanceof FencingMismatchError) {
+        throw new LeaseLostError(`tool outcome rejected: ${err.message}`);
+      }
+      throw err;
+    }
+  }
+
+  /** B4-D：原子提交「Attempt 终态 + 收尾事件（done/error）」（§12.2；CAS 失败返回 false） */
+  async finalizeAttemptWithEvent(input: {
+    turnId: string;
+    attemptId: string;
+    status: "Completed" | "Failed" | "Interrupted" | "Cancelled";
+    expectedFencingToken: number;
+    sequence: number;
+    eventType: "done" | "error";
+    eventData: unknown;
+    safetyDecision?: import("@aervox/agent-loop").SafetyDecision;
+  }): Promise<{ ok: boolean }> {
+    const done = await this.repo.finalizeAttemptWithEventAtomically(this.tenant, {
+      turnId: input.turnId,
+      attemptId: input.attemptId,
+      status: input.status,
+      expectedFencingToken: input.expectedFencingToken,
+      sequence: input.sequence,
+      eventType: input.eventType,
+      eventData: input.eventData,
+      safetyDecision: input.safetyDecision ?? null,
+    });
+    return { ok: done };
+  }
+
+  /** E2：原子提交「安全片段 + delta 事件」（§12.2；fencing 失配转译 LeaseLostError） */
+  async recordSafeSegment(input: {
+    turnId: string;
+    attemptId: string;
+    sequence: number;
+    text: string;
+    eventData: unknown;
+    safetyDecision: import("@aervox/agent-loop").SafetyDecision;
+    expectedFencingToken: number;
+  }): Promise<{ ok: boolean }> {
+    try {
+      const done = await this.repo.recordSafeSegmentAtomically(this.tenant, {
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        sequence: input.sequence,
+        text: input.text,
+        eventData: input.eventData,
+        safetyDecision: input.safetyDecision,
+        expectedFencingToken: input.expectedFencingToken,
+      });
+      return { ok: done };
+    } catch (err) {
+      if (err instanceof FencingMismatchError) {
+        throw new LeaseLostError(`safe segment rejected: ${err.message}`);
+      }
+      throw err;
+    }
+  }
+
+  /** E2：已提交安全片段（可见前缀；sequence 升序） */
+  async listCommittedSegments(turnId: string): Promise<Array<{ id: string; sequence: number; text: string; streamEventId: string | null }>> {
+    return this.repo.listCommittedSegments(this.tenant, turnId);
+  }
+
   /** 2b：用户取消请求位（CAS 委托仓储） */
   async requestCancelAttempt(input: {
     turnId: string;

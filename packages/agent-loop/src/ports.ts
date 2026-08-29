@@ -110,6 +110,62 @@ export interface ExecutionStorePort {
 
   /** 阶段 7（ADR-017）：ContextManifest 快照写入（每 Turn 首个 Step；宿主落库 context_manifests） */
   recordContextManifest(input: ContextManifestRecord): Promise<void>;
+
+  /**
+   * B4-D（§12.2）：原子提交「工具结果账本收口 + tool_result 事件」。
+   * 同一事务内写入 tool_executions 结果与 turn_stream_events 事件，避免崩溃把两者拆散。
+   * fencing 失配（被抢占/恢复）→ 抛 LeaseLostError（与 appendEvent 同语义）。
+   */
+  recordToolOutcome(input: {
+    turnId: string;
+    attemptId: string;
+    sequence: number;
+    invocationId: string;
+    name: string;
+    arguments: unknown;
+    status: ToolExecutionStatus;
+    output?: unknown;
+    error?: string;
+    startedAt: string;
+    finishedAt?: string;
+    eventData: unknown;
+    safetyDecision: SafetyDecision;
+    expectedFencingToken: number;
+  }): Promise<{ ok: boolean }>;
+
+  /**
+   * B4-D（§12.2）：原子提交「Attempt 终态 + 收尾事件（done/error）」。
+   * 终态 CAS（Running/CancelRequested + fencing 匹配）成功才一并写事件；
+   * 失败返回 ok:false（不抛，调用方按 contested 收敛，杜绝孤儿 done/终态错位）。
+   */
+  finalizeAttemptWithEvent(input: {
+    turnId: string;
+    attemptId: string;
+    status: AttemptStatus;
+    expectedFencingToken: number;
+    sequence: number;
+    eventType: Extract<LoopEventType, "done" | "error">;
+    eventData: unknown;
+    safetyDecision?: SafetyDecision;
+  }): Promise<{ ok: boolean }>;
+
+  /**
+   * E2（§12.2「安全片段 + TurnStreamEvent + Draft prefix」）：原子提交「安全片段 + delta 事件」。
+   * 同一事务内写入 safe_segments（committed=1 可见前缀）与 turn_stream_events（delta），
+   * 崩溃不把片段与事件拆散。fencing 失配（被抢占/恢复）→ 抛 LeaseLostError。
+   */
+  recordSafeSegment(input: {
+    turnId: string;
+    attemptId: string;
+    sequence: number;
+    text: string;
+    eventData: unknown;
+    safetyDecision: SafetyDecision;
+    expectedFencingToken: number;
+  }): Promise<{ ok: boolean }>;
+
+  /** E2：读取 Turn 的已提交安全片段（可见前缀；sequence 升序）。缺省实现返回空（宿主未接时透传）。 */
+  listCommittedSegments?(turnId: string): Promise<Array<{ id: string; sequence: number; text: string; streamEventId: string | null }>>;
 }
 
 /** 追加事件的输入（executor 构造；id / occurredAt / payloadVersion 由 store 补齐） */

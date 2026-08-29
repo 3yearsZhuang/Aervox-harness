@@ -358,7 +358,7 @@ resolve definition
 - 恢复器只领取未终态且 lease 过期的 Attempt；
 - 同 Session 的写入结合 SessionLock 和数据库 CAS，避免两个 Turn 修改同一事实。
 
-当前 3b-A/3b-B 已实现 claim TTL、Step 首部续租探活、过期抢占、Worker 收敛和 Attempt 终态 fencing；**事件写入的 fencing CAS 已落地（B1，§16.22）**——工具结果/账本写入的 fencing、长时间 Provider/Tool 调用期间的周期心跳仍属 3c+。
+当前 3b-A/3b-B 已实现 claim TTL、Step 首部续租探活、过期抢占、Worker 收敛和 Attempt 终态 fencing；**事件写入的 fencing CAS 已落地（B1，§16.22）**；**长模型/工具调用期间的周期心跳续租已落地（B2，§16.23）**——工具结果/账本写入的 fencing 仍属 3c+。
 
 ### 11.3 恢复
 
@@ -374,7 +374,7 @@ resolve definition
 | 终态已提交但事件未发送 | 重发持久 done 事件 |
 | 删除/撤权水位未追平 | fail closed，不继续模型或工具调用 |
 
-这里的恢复规则是 Aervox 自身的安全策略，不声称与 DSH/pi 完全相同。当前 3b-B Worker 恢复器只把过期的 Running Attempt 以 fencing+1 收敛为 Interrupted，不会自动继续原 Turn。DSH 的 crash repair 会为开放的 tool call 补 `TOOL_NOT_STARTED` 或 `TOOL_OUTCOME_UNKNOWN` 等 synthetic result，并把原 Turn 收敛为 Interrupted；pi 的 Harness 设计以 durable program counter 和工具的 `replay: never/safe` 约定决定是否重放，但固定版本公开 Harness 仍未完成该恢复能力。Aervox 只有在副作用状态和结果均已权威确定时，才允许继续原 Attempt；副作用或结果未知时必须记录 `unknown outcome` 并收敛或等待人工确认。
+这里的恢复规则是 Aervox 自身的安全策略，不声称与 DSH/pi 完全相同。当前 3b-B Worker 恢复器只把过期的 Running Attempt 以 fencing+1 收敛为 Interrupted，不会自动继续原 Turn。DSH 的 crash repair 会为开放的 tool call 补 `TOOL_NOT_STARTED` 或 `TOOL_OUTCOME_UNKNOWN` 等 synthetic result，并把原 Turn 收敛为 Interrupted；pi 的 Harness 设计以 durable program counter 和工具的 `replay: never/safe` 约定决定是否重放，但固定版本公开 Harness 仍未完成该恢复能力。Aervox 只有在副作用状态和结果均已权威确定时，才允许继续原 Attempt；副作用或结果未知时必须记录 `unknown outcome` 并收敛或等待人工确认。**B3 已落地三态政策（§16.24）**：`tool_registrations.replay` 声明（safe/never/未声明）+ 恢复裁决——结果未确定（pending/outcome_unknown）且相关工具全部声明 `replay: safe` 时，视为「合成结果」注入 `TOOL_NOT_STARTED` / `TOOL_OUTCOME_UNKNOWN` 后继续原 Attempt；未声明 / `never` / `pending_approval` 一律 fail-closed 收敛。
 
 ## 12. 事件与持久化边界
 
@@ -407,8 +407,8 @@ agent.attempt.lease-expired
 以下动作必须原子提交：
 
 - Turn + 用户 MessageVersion + `agent.turn.requested` Outbox；
-- 安全片段 + TurnStreamEvent + Draft prefix；
-- ToolInvocation + 授权快照 + 幂等预留；
+- 安全片段 + TurnStreamEvent + Draft prefix（**已落地：E §16.27**，`recordSafeSegmentAtomically` 同事务写 safe_segments(committed) 与 delta 事件）；
+- ToolInvocation + 授权快照 + 幂等预留（**授权快照幂等已落地：E §16.27**，`recordToolApproval` 复用 pending 行；ToolInvocation 独立持久化仍属 3c+ 后续）；
 - ToolExecution 结果 + result event（**已落地：B4-D §16.26**，`recordToolOutcomeAtomically`）；
 - Turn 终态 + done TurnStreamEvent + 下游 Outbox（**终态 + done/error 事件已落地：B4-D §16.26**，`finalizeAttemptWithEventAtomically`；下游 Outbox 仍为既有 outbox 通道）。
 
@@ -533,7 +533,7 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 目标：把当前最小实现提升为可长期运行的安全执行器。
 
 - 将 lease/fencing 校验扩展到每个事件、工具结果和终态写边界（**事件写边界已落地：B1 §16.22**；工具结果/账本写入、终态其余写边界仍待补）；
-- 完成 ToolInvocation 持久化、幂等预留、unknown outcome 收敛和工具 replay 声明；
+- 完成 ToolInvocation 持久化、幂等预留、unknown outcome 收敛和工具 replay 声明（**unknown outcome 三态政策 + 工具 replay 声明已落地：B3 §16.24**；ToolInvocation 独立持久化仍属 3c+ 后续）；
 - 接入真实分段安全门、取消传播、预算、并行调度和背压；
 - 为 ModelRun/ContextManifest 增加 Turn/Attempt/Step 关联并补齐删除/撤权水位检查。
 
@@ -625,7 +625,7 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - §10 预算：`maxTurnDurationMs`（单 Turn 总耗时）与 `maxConsecutiveSameTool`（连续同名工具，跨 Step 累计，防死循环）已实现；触发以 `Interrupted` 收敛，`done` 事件携带 `reason`（`turn_timeout` / `repeat_tool`）；
 - §11.3 fail-closed：新增 `DeletionGatePort`，Step 边界查询删除/撤权水位（`deletion_requests` 存在 `pending`/`in_progress` 即未追平）；未追平则零模型输出、零工具执行，收敛 `Interrupted`（`deletion_blocked`），并经隐私仓储接入 API 路由；
 - 测试：`@aervox/agent-loop` 30（`budget.test.ts` 5：超限/不误伤/超时/闸门阻塞/放行）、`@aervox/database` 115、`@aervox/api` 91（`conversation-deletion` 2：未追平 fail-closed / 追平后正常）。
-- 仍未覆盖（后续批）：`maxParallelReadTools`、`maxModelRetries`、token/费用预算与 `maxTokens`（依赖 Provider 上报 `usage`，属阶段 2e+）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+- 仍未覆盖（后续批）：`maxParallelReadTools`、token/费用预算与 `maxTokens`（依赖 Provider 上报 `usage`，属阶段 2e+）。`maxModelRetries` 已落地（B4-C：仅首可见片段前且无副作用时重试）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
 ### 16.6 落地进展（阶段 2c：工具幂等预留与 unknown outcome）
 
@@ -649,7 +649,7 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 | `agent-loop-state-machine` | `packages/agent-loop/test/state-machine.test.ts` | 已落地 |
 | `agent-loop-fencing` | `packages/agent-loop/test/lease-guard.test.ts` | 已落地 |
 | `agent-loop-tool-policy` | `packages/agent-loop/test/tool-policy.test.ts`（read/write/privileged 三档）；`approval-loop.test.ts`（审批） | 已落地 |
-| `agent-loop-recovery` | `lease-guard`（过期释放）+ `cancel.test.ts`（取消）+ `budget.test.ts`（闸门）+ `idempotency.test.ts`（工具未知结果） | 已落地（「首片段前自动重试」待续，见 §10 maxModelRetries 未覆盖） |
+| `agent-loop-recovery` | `lease-guard`（过期释放）+ `cancel.test.ts`（取消）+ `budget.test.ts`（闸门）+ `idempotency.test.ts`（工具未知结果）+ `executor-b4.test.ts`（首片段前模型重试、流式中断） | 已落地（`maxModelRetries` 见 §10，B4-C） |
 | `agent-loop-sse` | `apps/api/test/conversation-loop.test.ts`（持久后发送/重连重放） | 已落地 |
 | `agent-loop-budget` | `packages/agent-loop/test/budget.test.ts`（step/turn-timeout/repeat-tool） | 已落地（token/费用预算待续） |
 | `agent-loop-deletion` | `apps/api/test/conversation-deletion.test.ts`（未追平 fail-closed）+ `budget.test.ts`（DeletionGate） | 已落地 |
@@ -830,7 +830,55 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - **宿主/同步路径**（`@aervox/host-agent`、`apps/api`）：store 透传期望值并把 `FencingMismatchError` 转译为 `LeaseLostError`；`adapter-turn.ts` 携带 claim fencing；`failTurnWithError`（未 claim）携带 `expectedFencingToken=0`。
 - 测试：`@aervox/database` 150（`event-fencing.test.ts` 5：正确通过 / 恢复器抢占（过期租约 fencing+1→Interrupted）后旧期望被拒且零污染 / attempt 不存在拒绝 / 终态仅 done 放行 / CancelRequested 可写）；`@aervox/agent-loop` 121（`executor-fencing.test.ts` 4：内存守卫 + 工具执行中被抢占 → `failed(lease_lost)`、无 tool_result/done/error 迟到事件、不写终态）；`@aervox/host-agent` 62（`sqlite-execution-store-fencing.test.ts` 3：桥接正确 / 失配转译 LeaseLostError / 未携带保持兼容）；`@aervox/api` 229 无回归；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
-### 16.23 落地进展（CR-022：Turn 级完全访问）
+### 16.23 落地进展（阶段 3c+-B2：长调用周期心跳续租）
+
+2026-08-28 落地（对应 §11.2「长模型/工具调用期间由 Host 续租」「续租失败立即停止产生新副作用」）：
+
+- **心跳器**（`packages/agent-loop/src/lease-heartbeat.ts` `LeaseHeartbeat`）：claim 后按固定间隔（默认 = 租约 TTL/2 = 30s）经既有 `renewAttemptLease` CAS 续租；`renew ok=false`（被抢占/恢复器已递增 fencing 或已终态）→ 判定 `lost` 并幂等单播订阅回调；传输/瞬时故障不判死（丢失必须以 CAS 语义为准），下一心跳重试。
+- **executor 接线**（`executor.ts`）：`ExecuteTurnOptions` 增 `leaseTtlMs`（默认 60_000，与数据库层一致）/ `leaseHeartbeatIntervalMs`（默认 TTL/2，0 关闭）；claim 后启动、`try/finally` 兜底停止（无定时器泄漏、终态后不续租）；Provider 长流 chunk 间 `throwIfLost` 检查点；长工具调用注册 `onLost → AbortController.abort` 中止在途工具，且工具 catch 内 `heartbeat.lost` 直接收口 `lease_lost`（不写结果事件）。宿主零改动（复用 CAS 续租）。
+- 效果：`ask_user_question`（最长 120s）等长调用不再因租约超时被恢复器误判为僵尸原地收敛；真被抢占时心跳探知后立即中止，与 B1 事件写入 fencing 双层兜底。
+- 测试：`@aervox/agent-loop` 131（新增 `lease-heartbeat.test.ts` 5：单元 lost 判定/幂等多播/stop 后停更 + 集成——120ms 长工具调用期间续租 ≥3 且 Turn 正常完成 / 中途 `simulatePreemption`（fencing+1）→ 心跳续租失败 → 在途工具 abort → `failed(lease_lost)` 且无迟到事件/不写终态 / `leaseHeartbeatIntervalMs=0` 时仅 Step 首部探活）；`@aervox/database` 151、`@aervox/host-agent` 64、`@aervox/api` 230 无回归；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.24 落地进展（阶段 3c+-B3：工具 replay 声明 + 未知结果三态政策 + 合成结果注入）
+
+2026-08-28 落地（对应 §11.3 行 4/5「按工具 `replay: never/safe` 和幂等声明选择合成结果、人工确认或收敛」与 §3c+「unknown outcome 收敛和工具 replay 声明」关闭；人工确认路径留待后续基于 UQ-01 的恢复交互）：
+
+- **数据面**（`@aervox/database`）：`tool_registrations.replay` 列（`safe`/`never`/NULL=未声明，fail-closed），新库建列 + 旧库 `addColumnIfMissing` 幂等补齐；`registerTool` 读写 replay；`listToolExecutionsByTurn` LEFT JOIN tool_registrations 返回 replay（恢复裁决数据面就绪）。
+- **恢复裁决**（`resume.ts`）：`ResumeExecutionLike` 增 replay；批次聚合改为按 executionId 的 step 段归批（含同 Step 崩溃残留 `tool_request`——「工具意图已提交」边界，§11.3 行 5）；三态政策——批次含结果未确定（`pending`/`outcome_unknown`）且相关工具**全部**声明 `replay: safe` → 返回 `reason: "synthesized"` + 合成清单（`pending`→`not_started` / `outcome_unknown`→`outcome_unknown`）；`pending_approval` **永远收敛**（等待授权是业务语义，不可被合成绕过）；未声明 / `never` → fail-closed 收敛（保持原语义）。
+- **恢复执行**（`sqlite-resume-source.ts`）：传入 replay；`synthesized` 时向重建上下文注入合成 tool 消息（`TOOL_NOT_STARTED` / `TOOL_OUTCOME_UNKNOWN` + executionId），指导续跑模型不再重复执行副作用后继续原 Attempt；**合成结果只进重建上下文，不写事件/账本**——事件流保持仅权威提交边界（§12.2）。
+- **注册链路**（`apps/api`）：`POST /v1/tools` 支持 `replay` 枚举校验透传。
+- 测试：`@aervox/database` 151（`tool-registry.test.ts` replay 存取矩阵）；`@aervox/agent-loop` 131（`resume-decision.test.ts` 6→11：synthesized 双形态 / 未声明与 never 收敛 / pending_approval 不绕过 / 多未确定项全 listing）；`@aervox/host-agent` 64（`sqlite-resume-source.test.ts` +2：replay:safe + pending → 产出含 TOOL_NOT_STARTED 合成 tool 消息；replay:never → 收敛不产出）；`@aervox/api` 230（tools-plugins replay 透传 + 非法 400）；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.25 落地进展（阶段 3c+-B4：工具结果入口校验 + 流式可中断 + 模型调用重试）
+
+2026-08-28 落地（对应 §9「工具结果进入模型前做大小、敏感数据、Prompt injection 和来源检查」、§10 `maxModelRetries`「仅首个可见片段前且无副作用」、§11.1「取消后丢弃失去 fencing 的迟到 chunk」的流式面）：
+
+- **结果入口校验**（`tool-result-safe.ts` `inspectToolResult`）：工具输出回填上下文前做大小截断（默认 8000 字符，可配）+ Prompt injection 启发式（中英双语典型越权样本，保守匹配）。注入命中 → 以受控摘要 `blocked_tool_injection` 替代完整内容（fail-closed，样本不进模型）；超长 → 截断后回填。敏感数据分级/来源分类（DATA_PRIVACY/audit 体系）为后续扩展点。
+- **流式可中断**（`executor.ts`）：Provider 流 chunk 间隙 ≥100ms 节流执行 `prematureTermination`（取消 / 删除撤权水位 / 总时长预算），命中即提前终止迭代收敛——流式期间用户取消/删除不再等整 Step 结束（§11.1 迟到 chunk 丢弃）。
+- **模型调用重试**（`executor.ts` `ExecuteTurnOptions.maxModelRetries`，默认 1，0 关闭）：仅「首个可见片段前且无副作用」（首 Step 且 `textAccumulator` 为空）允许重试一次；已有 delta/事件、租约丢失（LeaseLostError/heartbeat.lost）一律不重试。
+- 测试：`@aervox/agent-loop` 143（新增 `tool-result-safe.test.ts` 5：注入中英双语命中/超长截断/自定义上限/正常透传；`executor-b4.test.ts` 7：回填注入被摘要替代且原文不进上下文、超长截断回填、正常透传、首调用抛错自动重试一次完成、`maxModelRetries=0` 持续失败仅调一次、流式第二 chunk 前取消收敛且后续文本不产出）；`@aervox/database` 151、`@aervox/host-agent` 64、`@aervox/api` 232 无回归；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.26 落地进展（阶段 3c+-B4-D：跨包原子写对）
+
+2026-08-29 落地（对应 §12.2「ToolExecution 结果 + result event」「Turn 终态 + done」原子提交）：
+
+- **Port 扩展**（`packages/agent-loop/src/ports.ts`）：`ExecutionStorePort` 新增 `recordToolOutcome`（工具结果账本收口 + tool_result 事件原子）与 `finalizeAttemptWithEvent`（终态 CAS + done/error 事件原子）；in-memory 实现同语义。
+- **数据库原子事务**（`@aervox/database`）：`recordToolOutcomeAtomically` / `finalizeAttemptWithEventAtomically` —— BEGIN IMMEDIATE 内先做 fencing+状态守卫（前者守卫失败抛 `FencingMismatchError` 无部分写入；后者终态 CAS 失败返回 false 不写事件，杜绝孤儿 done/error）。
+- **executor 接线**（`executor.ts`）：工具结果收口（executed/rejected/timeout_error/duplicate）改走 `recordToolOutcome`（duplicate 账本无预留行时插入独立记录）；5 处终态路径（Cancelled / Completed / Interrupted×2 / Failed(tools_disabled) / catch error+Failed）全部改走 `finalizeAttemptWithEvent`，CAS 失败按 contested 收敛。
+- **宿主桥接**（`sqlite-execution-store.ts`）：转译 `FencingMismatchError`→`LeaseLostError`（与 appendEvent 同语义）。
+- 测试：`@aervox/database` 154（新增 `atomic-write-pairs.test.ts` 3：同事务收口+事件 / fencing 失配抛错且无部分写入 / 终态+done 同事务且二次提交 false 不写第二个 done）；`@aervox/agent-loop` 143 无回归（cancel 终态竞态用例改 override `finalizeAttemptWithEvent`；duplicate 账本独立留痕保持）；`@aervox/host-agent` 65（`sqlite-execution-store-fencing.test.ts` +2：原子桥接 + 转译 + CAS false）；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.27 落地进展（阶段 3c+-E：授权快照幂等 + 安全片段/Draft 原子化）
+
+2026-08-29 落地（对应 §12.2「ToolInvocation + 授权快照 + 幂等预留」「安全片段 + TurnStreamEvent + Draft prefix」）：
+
+- **授权快照幂等**（`@aervox/database` `recordToolApproval`）：同 `(toolName, argumentsHash)` 已存在 `pending` 授权则复用既有行，不重复插入——授权匹配键跨 turn 复用（schema 约定），重复写工具意图不产生多行待决授权；`granted/denied` 后新请求才新建。
+- **安全片段表**（`@aervox/database` `schema/safe-segments.ts` `safe_segments`）：`turn_id`/`attempt_id`/`sequence`/`text`/`committed`(0|1 可见前缀)/`stream_event_id`（关联 turn_stream_events）+ 租户列，`(turn_id, sequence)` 唯一；init 建表与索引。
+- **原子提交**（`recordSafeSegmentAtomically`）：BEGIN IMMEDIATE 内 fencing+状态守卫（同 appendEvent fenced 语义）→ 同事务插入 safe_segments（committed=1）与 delta 事件并回填事件关联，崩溃不把片段与事件拆散；守卫失配抛 `FencingMismatchError` 无部分写入。`listCommittedSegments` 按 sequence 升序返回可见前缀（中断恢复/可见前缀重建）。
+- **executor 接入**（`executor.ts`）：两处 delta 写入（无工具 isFinal / 有工具 isFinal:false）改走 `recordSafeSegment` 原子提交——每个可见片段与其事件同生共死；`ports.ts` 增 `recordSafeSegment`/可选 `listCommittedSegments`；in-memory 同语义 + `safeSegments` 断言钩子；host-agent store 委托 + `FencingMismatchError`→`LeaseLostError` 转译。
+- 测试：`@aervox/database` 160（新增 `segment-approval.test.ts` 6：E1 幂等复用/不同 hash 新建/已决后新请求新建；E2 同事务写入+事件关联 / fencing 失配无部分写入 / 可见前缀升序）；`@aervox/agent-loop` 143 无回归；`@aervox/host-agent` 65（fencing 桥接 +1 recordSafeSegment 原子+可见前缀+失配转译）；`@aervox/api` 230 无回归；`mise tasks run ci-code`（17 tasks）+ check:boundary 零违规。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.28 落地进展（CR-022：Turn 级完全访问）
 
 2026-08-29 落地（对应 §9 工具审批决策）：
 

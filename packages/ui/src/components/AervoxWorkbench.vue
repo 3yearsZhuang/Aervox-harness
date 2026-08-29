@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, nextTick, onMounted, onUnmounted, ref, watch, type Component} from 'vue'
+import {type Component, computed, nextTick, onMounted, onUnmounted, ref, watch} from 'vue'
 import {
   Bell,
   BookOpen,
@@ -30,12 +30,12 @@ import {
   ShieldCheck,
   Sparkles,
   Sun,
-  Volume2,
   TimerReset,
+  Volume2,
   X,
 } from 'lucide-vue-next'
 import {streamAervoxTurn, submitQuestionAnswers, useAervoxApi, useAervoxVoiceInput} from '@aervox/api-client'
-import type {AskUserQuestionAnswerItem, ToolApprovalMode, UserQuestionRequiredEventData} from '@aervox/contracts'
+import type {AskUserQuestionAnswerItem, ExtractedTerm, ToolApprovalMode, UserQuestionRequiredEventData} from '@aervox/contracts'
 import PetHero from './PetHero.vue'
 import PluginManagerPanel from './plugin/PluginManagerPanel.vue'
 import Live2DPet from './Live2DPet.vue'
@@ -43,6 +43,10 @@ import PersonaManagerPanel from './persona/PersonaManagerPanel.vue'
 import LocalVoiceConfigPanel from './voice/LocalVoiceConfigPanel.vue'
 import LLMConfigPanel from './llm/LLMConfigPanel.vue'
 import UserQuestionComposer from './UserQuestionComposer.vue'
+import TermExploreDialog from './TermExploreDialog.vue'
+import { renderMarkdown } from '../utils/markdown'
+import { petReact } from '../live2d/petReactions'
+import { MizukiExpression, MizukiMotion } from '../live2d/model'
 
 type Platform = 'desktop' | 'web'
 type Speaker = 'assistant' | 'user'
@@ -52,15 +56,6 @@ interface StoryLine {
   speaker: Speaker
   text: string
   state?: 'streaming' | 'complete' | 'error'
-}
-
-type CompanionModeId = 'companion' | 'quick' | 'deep' | 'chat'
-
-interface CompanionMode {
-  id: CompanionModeId
-  label: string
-  hint: string
-  prefix: string
 }
 
 type CardId = 'study' | 'todo' | 'timer' | 'history' | 'review' | 'mistake' | 'diary' | 'notifications'
@@ -109,6 +104,11 @@ const questionStartTime = ref<number>(0)
 const activeQuestion = ref<UserQuestionRequiredEventData | null>(null)
 const questionSubmitting = ref(false)
 const currentTurnId = ref<string | null>(null)
+
+// CAP-007 / CAP-002: 术语抽取与追问探索弹窗
+const currentExtractedTerms = ref<ExtractedTerm[]>([])
+const exploreDialogOpen = ref(false)
+const selectedTerm = ref<ExtractedTerm | null>(null)
 const practiceBusy = ref(false)
 const practiceError = ref<string | null>(null)
 const mistakeFilter = ref<'active' | 'mastered' | 'dismissed' | 'all'>('active')
@@ -123,7 +123,7 @@ const planBusyId = ref<string | null>(null)
 const planDrafts = ref<Record<string, {endDate: string; dailyAvailableMinutes: number}>>({})
 const input = ref('')
 const isComposing = ref(false)
-const activeModeId = ref<CompanionModeId>('companion')
+const composerPlaceholder = '和思隅聊聊学习或任何事…'
 const cardSlots = ref<Array<CardId | null>>([null, null])
 const timerSeconds = ref(25 * 60)
 const timerRunning = ref(false)
@@ -132,6 +132,7 @@ const isDark = ref(false)
 const assistantDisplayName = ref(props.assistantName)
 const enterToSend = ref(true)
 const compactMode = ref(false)
+const studyModeEnabled = ref(false)
 const timerMinutes = ref(25)
 const desktopCompanionEnabled = ref(props.showCompanion)
 const dailyReminder = ref(true)
@@ -189,15 +190,6 @@ const settingCategories = [
   {id: 'plugins', label: '插件', description: '插件配置与页面', icon: Puzzle},
 ] as const
 
-const companionModes: CompanionMode[] = [
-  {id: 'companion', label: '陪学讲解', hint: '逐步讲解，适合卡住的时候', prefix: '[模式：陪学讲解] '},
-  {id: 'quick', label: '快问快答', hint: '简短直接，先给结论', prefix: '[模式：快问快答] '},
-  {id: 'deep', label: '深度拆解', hint: '展开原理与关联知识', prefix: '[模式：深度拆解] '},
-  {id: 'chat', label: '自由聊天', hint: '无固定结构的日常对话', prefix: ''},
-]
-
-const activeMode = computed(() => companionModes.find((mode) => mode.id === activeModeId.value) ?? companionModes[0])
-
 const activeMistakeCount = computed(() => mistakes.value.filter((item) => item.status === 'active').length)
 
 const cardCatalog = computed<CardDefinition[]>(() => [
@@ -225,13 +217,44 @@ const menuItems: Array<{ id: string; label: string; icon: Component; action: () 
   {id: 'settings', label: '设置', icon: Settings, action: () => {settingsOpen.value = true}},
 ]
 
+/** Live2D 操作反馈动作池：按语义挑选 Mizuki 动作子集，随机取用避免重复 */
+const PET_MOTION_POOLS = {
+  glad: [MizukiMotion.w_cute_glad01, MizukiMotion.w_cute_glad03, MizukiMotion.w_adult_glad01, MizukiMotion.w_happy_glad01, MizukiMotion.w_normal_glad01],
+  nod: [MizukiMotion.w_cute_nod01, MizukiMotion.w_normal_nod01, MizukiMotion.w_adult_nod01, MizukiMotion.w_happy_nod01],
+  think: [MizukiMotion.w_adult_think01, MizukiMotion.w_adult_think02],
+  shake: [MizukiMotion.w_normal_shakehead01, MizukiMotion.w_happy_shakehead01, MizukiMotion.w_cute_shakehead01],
+  greet: [MizukiMotion.w_normal_greeting01, MizukiMotion.w_cute_poseforward02],
+  forward: [MizukiMotion.w_cute_forward01, MizukiMotion.w_normal_forward01, MizukiMotion.w_happy_forward01],
+  tilthead: [MizukiMotion.w_normal_tilthead01, MizukiMotion.w_cute_tilthead01, MizukiMotion.w_adult_tilthead01],
+  sad: [MizukiMotion.w_normal_sad01, MizukiMotion.w_happy_sad01, MizukiMotion.w_cool_sad01],
+} as const
+
+type PetReactionKind = keyof typeof PET_MOTION_POOLS
+
+/** 按语义派发桌宠反馈：动作 + 表情 + 看向目标 + 说话 */
+function petReactKind(kind: PetReactionKind, options: {expression?: MizukiExpression; lookAtEl?: string | Element; speak?: string; lookDuration?: number} = {}) {
+  const pool = PET_MOTION_POOLS[kind]
+  petReact({
+    motion: pool[Math.floor(Math.random() * pool.length)],
+    expression: options.expression,
+    lookAtEl: options.lookAtEl,
+    lookDuration: options.lookDuration,
+    speak: options.speak,
+  })
+}
+
 function toggleMenu() {
   menuOpen.value = !menuOpen.value
+  if (menuOpen.value) petReactKind('greet', {lookAtEl: '.menu-pill', lookDuration: 3200})
+  else petReactKind('nod')
 }
 
 /** 收起态点击胶囊任意区域（含边缘空白）均可展开 */
 function handlePillClick() {
-  if (!menuOpen.value) menuOpen.value = true
+  if (!menuOpen.value) {
+    menuOpen.value = true
+    petReactKind('greet', {lookAtEl: '.menu-pill', lookDuration: 3200})
+  }
 }
 
 function runMenuAction(action: () => void) {
@@ -267,21 +290,41 @@ const latestAssistantLine = computed<StoryLine | null>(() => {
 const historyViewport = ref<HTMLElement | null>(null)
 
 watch(historyOpen, async (open) => {
-  if (!open) return
-  await nextTick()
-  historyViewport.value?.scrollTo({top: historyViewport.value.scrollHeight})
+  if (open) {
+    petReactKind('think', {expression: MizukiExpression.face_notice_01, lookAtEl: '.history-overlay', lookDuration: 3200})
+    await nextTick()
+    historyViewport.value?.scrollTo({top: historyViewport.value.scrollHeight})
+  } else {
+    petReactKind('nod')
+  }
+})
+
+/** 设置弹窗开合的桌宠反馈：开启时看向弹窗、关闭时点头 */
+watch(settingsOpen, async (open) => {
+  if (open) {
+    petReactKind('tilthead', {expression: MizukiExpression.face_notice_01})
+    await nextTick()
+    petReact({lookAtEl: '.el-dialog.settings-dialog', lookDuration: 3600})
+  } else {
+    petReactKind('nod')
+  }
 })
 
 function handleHistoryEscape(event: KeyboardEvent) {
   if (event.key === 'Escape' && historyOpen.value) historyOpen.value = false
 }
 
+function openTermExplore(term: ExtractedTerm) {
+  selectedTerm.value = term
+  exploreDialogOpen.value = true
+}
+
 async function sendMessage(value = input.value) {
   const text = value.trim()
   if (!text || streaming.value) return
 
-  // 模式前缀随消息发送（自由聊天无前缀），对话记录仍展示用户原文。
-  const modePrefix = activeMode.value.prefix
+  // 若开启学习模式则自动附带学习模式前缀触发专属启发式教学 Prompt，对话记录仍展示用户原文。
+  const modePrefix = studyModeEnabled.value ? '[模式：学习模式] ' : ''
   const outgoing = modePrefix && !text.startsWith(modePrefix) ? modePrefix + text : text
 
   const assistantLine = createStoryLine('assistant', '', 'streaming')
@@ -289,8 +332,11 @@ async function sendMessage(value = input.value) {
   input.value = ''
   streaming.value = true
   activeQuestion.value = null
+  petReactKind('think', {lookAtEl: '.message-panel'})
   await scrollStoryToBottom()
 
+  /** 流式期间每 1.2s 驱动一次口型，让桌宠"开口说话" */
+  let lastSpeakAt = 0
   try {
     await streamAervoxTurn(
       outgoing,
@@ -298,16 +344,25 @@ async function sendMessage(value = input.value) {
         onDelta: (delta) => {
           assistantLine.text += delta
           void scrollStoryToBottom()
+          const now = Date.now()
+          if (now - lastSpeakAt > 1200 && delta.trim()) {
+            lastSpeakAt = now
+            petReact({speak: delta})
+          }
         },
         onDone: () => {
           assistantLine.state = 'complete'
           activeQuestion.value = null
           if (!assistantLine.text) assistantLine.text = '这次没有收到可展示的回答，请再试一次。'
+          petReactKind('glad', {expression: MizukiExpression.face_smile_01, speak: assistantLine.text})
         },
         onUserQuestion: (qData) => {
           activeQuestion.value = qData
           currentTurnId.value = qData.turnId
           void scrollStoryToBottom()
+        },
+        onTermsExtracted: (tData) => {
+          currentExtractedTerms.value = tData.terms
         },
       },
       {toolApprovalMode: toolApprovalMode.value},
@@ -315,6 +370,7 @@ async function sendMessage(value = input.value) {
   } catch (error) {
     assistantLine.state = 'error'
     assistantLine.text = error instanceof Error ? `连接失败：${error.message}` : '连接失败，请稍后重试。'
+    petReactKind('sad', {expression: MizukiExpression.face_sad_01})
   } finally {
     streaming.value = false
     if (!input.value.trim()) composerOpen.value = false
@@ -337,6 +393,7 @@ async function handleQuestionSubmit(answers: AskUserQuestionAnswerItem[]) {
 
 function expandComposer() {
   composerOpen.value = true
+  petReactKind('tilthead', {lookAtEl: '.composer-dock'})
   void nextTick(() => composerTextarea.value?.focus())
 }
 
@@ -654,6 +711,8 @@ function nextPracticeQuestion() {
 
 function toggleTimer() {
   timerRunning.value = !timerRunning.value
+  if (timerRunning.value) petReactKind('nod', {expression: MizukiExpression.face_serious_01})
+  else petReactKind('tilthead', {expression: MizukiExpression.face_smile_01})
 }
 
 function resetTimer() {
@@ -700,8 +759,7 @@ function calculateMinutesFromEvent(event: MouseEvent | TouchEvent): number | nul
   if (deg < 0) deg += 360
   // 360 度对应 60 分钟
   const rawMin = (deg / 360) * 60
-  const clamped = Math.max(1, Math.min(60, Math.round(rawMin)))
-  return clamped
+  return Math.max(1, Math.min(60, Math.round(rawMin)))
 }
 
 function handleDialPointerDown(event: MouseEvent | TouchEvent) {
@@ -774,31 +832,22 @@ function handleComposerInputOrKey() {
   }
 }
 
-function setMode(id: CompanionModeId) {
-  activeModeId.value = id
-  localStorage.setItem('aervox-composer-mode', id)
-}
-
 function isCardPicked(id: CardId) {
   return cardSlots.value.includes(id)
 }
 
-function handleCardCommand(slot: number, command: unknown) {
-  if (command === '__clear__') {
-    selectCard(slot, null)
-    return
-  }
-  if (typeof command === 'string' && cardCatalog.value.some((card) => card.id === command)) {
-    selectCard(slot, command as CardId)
-  }
-}
-
-function selectCard(slot: number, id: CardId | null) {
+function selectCard(slot: number, id: CardId | null, event?: MouseEvent) {
   cardSlots.value = cardSlots.value.map((current, index) => index === slot ? id : current)
   localStorage.setItem('aervox-side-cards', JSON.stringify(cardSlots.value))
+  // 桌宠反馈：看向被操作的那个卡片槽位，选功能时开心、移除时摇头
+  const slotEl = (event?.target as HTMLElement | null)?.closest?.('.side-card-slot') ?? undefined
+  if (id) petReactKind('glad', {expression: MizukiExpression.face_smile_03, lookAtEl: slotEl, lookDuration: 3600})
+  else petReactKind('shake', {expression: MizukiExpression.face_trouble_01, lookAtEl: slotEl})
 }
 
-function activateCard(card: CardDefinition) {
+function activateCard(card: CardDefinition, event?: MouseEvent | KeyboardEvent) {
+  const cardEl = (event?.currentTarget as HTMLElement | null)?.closest?.('.side-card') ?? undefined
+  petReactKind('forward', {expression: MizukiExpression.face_notice_01, lookAtEl: cardEl})
   card.action()
 }
 
@@ -848,12 +897,24 @@ async function toggleVoiceInput() {
   }
 }
 
+function toggleStudyMode() {
+  studyModeEnabled.value = !studyModeEnabled.value
+  if (studyModeEnabled.value) petReactKind('glad', {expression: MizukiExpression.face_smile_01, lookAtEl: '.floating-study-switch-wrap'})
+  else petReactKind('shake', {expression: MizukiExpression.face_normal_01, lookAtEl: '.floating-study-switch-wrap'})
+  if (!studyModeEnabled.value) {
+    currentExtractedTerms.value = []
+    exploreDialogOpen.value = false
+  }
+  saveSettings()
+}
+
 function saveSettings() {
   const settings = {
     theme: isDark.value ? 'dark' : 'light',
     assistantName: assistantDisplayName.value.trim() || props.assistantName,
     enterToSend: enterToSend.value,
     compactMode: compactMode.value,
+    studyModeEnabled: studyModeEnabled.value,
     timerMinutes: timerMinutes.value,
     desktopCompanionEnabled: desktopCompanionEnabled.value,
     dailyReminder: dailyReminder.value,
@@ -889,6 +950,7 @@ onMounted(() => {
       assistantName: string
       enterToSend: boolean
       compactMode: boolean
+      studyModeEnabled: boolean
       timerMinutes: number
       desktopCompanionEnabled: boolean
       dailyReminder: boolean
@@ -896,6 +958,7 @@ onMounted(() => {
     if (savedSettings.assistantName) assistantDisplayName.value = savedSettings.assistantName
     if (typeof savedSettings.enterToSend === 'boolean') enterToSend.value = savedSettings.enterToSend
     if (typeof savedSettings.compactMode === 'boolean') compactMode.value = savedSettings.compactMode
+    if (typeof savedSettings.studyModeEnabled === 'boolean') studyModeEnabled.value = savedSettings.studyModeEnabled
     if (typeof savedSettings.timerMinutes === 'number' && savedSettings.timerMinutes >= 1 && savedSettings.timerMinutes <= 60) timerMinutes.value = savedSettings.timerMinutes
     if (typeof savedSettings.desktopCompanionEnabled === 'boolean') desktopCompanionEnabled.value = savedSettings.desktopCompanionEnabled
     if (typeof savedSettings.dailyReminder === 'boolean') dailyReminder.value = savedSettings.dailyReminder
@@ -903,9 +966,6 @@ onMounted(() => {
   } catch {
     // Ignore malformed local preferences and use defaults.
   }
-
-  const savedMode = localStorage.getItem('aervox-composer-mode')
-  if (savedMode && companionModes.some((mode) => mode.id === savedMode)) activeModeId.value = savedMode as CompanionModeId
 
   const savedToolApprovalMode = sessionStorage.getItem('aervox-tool-approval-mode')
   if (savedToolApprovalMode === 'full_access') toolApprovalMode.value = 'full_access'
@@ -962,9 +1022,31 @@ onUnmounted(() => {
       </Live2DPet>
     </div>
 
-    <button v-if="isWeb" class="floating-settings" type="button" aria-label="打开设置" @click="settingsOpen = true">
-      <Settings :size="19" />
-    </button>
+    <div class="floating-top-actions">
+      <label
+        class="floating-study-switch-wrap"
+        :class="{on: studyModeEnabled}"
+        :title="studyModeEnabled ? '学习模式已开启（点击关闭）' : '学习模式已关闭（点击开启）'"
+      >
+        <BookOpen :size="15" class="study-switch-icon" />
+        <span class="study-switch-label">学习模式</span>
+        <button
+          type="button"
+          role="switch"
+          class="study-switch-track"
+          :class="{ active: studyModeEnabled }"
+          :aria-checked="studyModeEnabled"
+          :aria-label="studyModeEnabled ? '关闭学习模式' : '开启学习模式'"
+          @click="toggleStudyMode"
+        >
+          <span class="study-switch-thumb" />
+        </button>
+      </label>
+
+      <button v-if="isWeb" class="floating-settings" type="button" aria-label="打开设置" @click="settingsOpen = true">
+        <Settings :size="19" />
+      </button>
+    </div>
 
     <nav ref="menuPillRef" class="menu-pill" :class="{open: menuOpen}" aria-label="主导航" @click="handlePillClick">
       <button
@@ -999,8 +1081,8 @@ onUnmounted(() => {
             role="region"
             tabindex="0"
             :aria-label="`打开${card.label}`"
-            @click="activateCard(card)"
-            @keydown.enter="activateCard(card)"
+            @click="activateCard(card, $event)"
+            @keydown.enter="activateCard(card, $event)"
           >
             <header class="side-card-head">
               <span class="side-card-icon"><component :is="card.icon" :size="24" /></span>
@@ -1008,19 +1090,9 @@ onUnmounted(() => {
                 <strong>{{ card.label }}</strong>
                 <small>{{ card.description }}</small>
               </span>
-              <el-dropdown trigger="click" @command="(id: unknown) => handleCardCommand(slotIndex, id)">
-                <button class="side-card-swap" type="button" aria-label="更换卡片功能" @click.stop>
-                  <LayoutGrid :size="15" />
-                </button>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item v-for="option in cardCatalog" :key="option.id" :command="option.id" :disabled="isCardPicked(option.id) && option.id !== card.id">
-                      <span class="side-card-option"><component :is="option.icon" :size="15" /> {{ option.label }}</span>
-                    </el-dropdown-item>
-                    <el-dropdown-item divided command="__clear__">清空此卡片</el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
+              <button class="side-card-remove" type="button" aria-label="移除此卡片" @click.stop="selectCard(slotIndex, null, $event)">
+                <X :size="15" />
+              </button>
             </header>
             <p class="side-card-summary">{{ card.summary() }}</p>
             <footer class="side-card-foot">
@@ -1030,22 +1102,28 @@ onUnmounted(() => {
           </article>
         </template>
 
-        <el-dropdown v-else trigger="click" @command="(id: unknown) => handleCardCommand(slotIndex, id)">
-          <button class="side-card side-card-placeholder" type="button" aria-label="为此卡片选择功能">
-            <span class="side-card-icon"><Plus :size="24" /></span>
+        <div v-else class="side-card side-card-placeholder" role="group" aria-label="为此卡片选择功能">
+          <header class="side-card-head">
+            <span class="side-card-icon"><Plus :size="17" /></span>
             <span class="side-card-title">
               <strong>选择功能</strong>
               <small>把常用工具放到这里</small>
             </span>
-          </button>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item v-for="option in cardCatalog" :key="option.id" :command="option.id" :disabled="isCardPicked(option.id)">
-                <span class="side-card-option"><component :is="option.icon" :size="15" /> {{ option.label }}</span>
-              </el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
+          </header>
+          <div class="side-card-grid">
+            <button
+              v-for="option in cardCatalog"
+              :key="option.id"
+              type="button"
+              class="side-card-grid-item"
+              :disabled="isCardPicked(option.id)"
+              @click="selectCard(slotIndex, option.id, $event)"
+            >
+              <component :is="option.icon" :size="15" />
+              <span>{{ option.label }}</span>
+            </button>
+          </div>
+        </div>
       </div>
     </aside>
 
@@ -1058,7 +1136,13 @@ onUnmounted(() => {
             :class="latestAssistantLine.state"
           >
             <span class="message-speaker">{{ assistantDisplayName }}</span>
-            <span class="message-text">{{ latestAssistantLine.text || '正在连接 Aervox…' }}<i v-if="latestAssistantLine.state === 'streaming'" class="stream-cursor" aria-hidden="true" /></span>
+            <span v-if="latestAssistantLine.state === 'streaming'" class="message-text">
+              <span class="markdown-body" v-html="renderMarkdown(latestAssistantLine.text)" />
+              <i class="stream-cursor" aria-hidden="true" />
+            </span>
+            <span v-else class="message-text">
+              <span class="markdown-body" v-html="renderMarkdown(latestAssistantLine.text || '正在连接 Aervox…')" />
+            </span>
           </p>
           <p v-else class="message-line">
             <span class="message-speaker">{{ assistantDisplayName }}</span>
@@ -1072,6 +1156,23 @@ onUnmounted(() => {
             :submitting="questionSubmitting"
             @submit="handleQuestionSubmit"
           />
+
+          <!-- CAP-007 / CAP-002: 术语高亮芯片栏（仅在学习模式下展示） -->
+          <div v-if="studyModeEnabled && currentExtractedTerms.length > 0 && !streaming" class="message-terms-bar">
+            <span class="terms-bar-title"><Sparkles :size="13" /> 核心概念：</span>
+            <button
+              v-for="t in currentExtractedTerms"
+              :key="t.text"
+              type="button"
+              class="term-chip"
+              :class="t.relation"
+              title="点击查看名词解释与深度追问"
+              @click="openTermExplore(t)"
+            >
+              <span>{{ t.text }}</span>
+              <small>{{ t.relation === 'background' ? '深挖' : '对比' }}</small>
+            </button>
+          </div>
         </div>
         <button class="message-history-entry" type="button" @click="historyOpen = true">
           <History :size="14" />
@@ -1082,8 +1183,8 @@ onUnmounted(() => {
       <section class="composer-dock" :class="{open: composerOpen}" @focusout="handleDockFocusOut">
         <button v-if="!composerOpen" class="composer-collapsed" type="button" @click="expandComposer">
           <MessageCircle :size="16" />
-          <span class="composer-collapsed-hint">{{ streaming ? '思隅正在回应…' : '点击输入消息' }}</span>
-          <span class="composer-mode-chip">{{ activeMode.label }}</span>
+          <span class="composer-collapsed-hint">{{ streaming ? '思隅正在回应…' : (studyModeEnabled ? '输入学习问题或卡点（学习模式已开启）…' : '点击输入消息…') }}</span>
+          <span v-if="studyModeEnabled" class="composer-mode-chip">学习模式</span>
           <span class="composer-access-chip" :class="{full: toolApprovalMode === 'full_access'}">
             <ShieldAlert v-if="toolApprovalMode === 'full_access'" :size="12" />
             <ShieldCheck v-else :size="12" />
@@ -1093,21 +1194,6 @@ onUnmounted(() => {
         </button>
 
         <form v-else class="composer-expanded" @submit.prevent="sendMessage()">
-          <div class="composer-modes" role="radiogroup" aria-label="对话模式">
-            <button
-              v-for="mode in companionModes"
-              :key="mode.id"
-              type="button"
-              class="composer-mode"
-              :class="{active: activeModeId === mode.id}"
-              :title="mode.hint"
-              :aria-pressed="activeModeId === mode.id"
-              @mousedown.prevent
-              @click="setMode(mode.id)"
-            >
-              {{ mode.label }}
-            </button>
-          </div>
           <label class="sr-only" for="aervox-composer">输入要发送给思隅的内容</label>
           <textarea
             id="aervox-composer"
@@ -1115,7 +1201,7 @@ onUnmounted(() => {
             v-model="input"
             rows="3"
             :disabled="streaming"
-            :placeholder="activeMode.hint + '…'"
+            :placeholder="studyModeEnabled ? '告诉我你正在学什么，或者把卡住的地方发来（逐步引导与启发式解答）…' : composerPlaceholder"
             @keydown.enter="handleComposerEnter"
             @input="handleComposerInputOrKey"
             @compositionstart="handleCompositionStart"
@@ -1178,7 +1264,10 @@ onUnmounted(() => {
           <div ref="historyViewport" class="vn-history-list">
             <p v-for="line in story" :key="line.id" class="vn-history-line" :class="line.speaker">
               <span class="vn-history-speaker">{{ line.speaker === 'assistant' ? assistantDisplayName : '你' }}</span>
-              <span class="vn-history-text">{{ line.text || (line.speaker === 'assistant' ? '…' : '') }}</span>
+              <span class="vn-history-text">
+                <span v-if="line.speaker === 'assistant'" class="markdown-body" v-html="renderMarkdown(line.text || '…')" />
+                <template v-else>{{ line.text }}</template>
+              </span>
             </p>
             <p v-if="story.length === 0" class="vn-history-empty">还没有对话记录，先和思隅说句话吧。</p>
           </div>
@@ -1551,6 +1640,7 @@ onUnmounted(() => {
               <span><strong>对话</strong><small>调整你与思隅交流的输入与展示方式</small></span>
             </div>
             <label class="settings-field"><span><strong>助手称呼</strong><small>工作台中显示的名字</small></span><input v-model="assistantDisplayName" maxlength="12" @change="saveSettings" /></label>
+            <label class="settings-row settings-choice-row"><span><strong>学习模式</strong><small>启用专属苏格拉底启发式教学与防剧透规则</small></span><input v-model="studyModeEnabled" type="checkbox" class="settings-switch" @change="saveSettings" /></label>
             <label class="settings-row settings-choice-row"><span><strong>回车发送</strong><small>关闭后，回车只换行</small></span><input v-model="enterToSend" type="checkbox" class="settings-switch" @change="saveSettings" /></label>
           </div>
           <LLMConfigPanel v-else-if="settingsCategory === 'model'" class="settings-section" />
@@ -1569,6 +1659,12 @@ onUnmounted(() => {
       </div>
     </el-dialog>
 
+    <!-- CAP-007 / CAP-002: 术语名词解释弹窗 -->
+    <TermExploreDialog
+      v-model="exploreDialogOpen"
+      :term="selectedTerm"
+      :context-text="latestAssistantLine?.text"
+    />
     <el-dialog
       v-model="fullAccessDialogOpen"
       title="启用完全访问？"

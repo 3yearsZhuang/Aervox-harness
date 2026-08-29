@@ -662,6 +662,8 @@ export interface ToolExecutionModel {
   error?: string | null;
   startedAt: string;
   finishedAt: string;
+  /** B3：工具注册的 replay 声明（join tool_registrations；NULL=未声明） */
+  replay?: string | null;
 }
 
 /** 工具授权账本行（tool_approvals，阶段 3a） */
@@ -2057,6 +2059,8 @@ export interface IExtensionRepository {
       permissions?: unknown;
       installSource?: string;
       enabled?: number;
+      configSchemaJson?: unknown;
+      configSchemaVersion?: number;
     },
   ): Promise<PluginModel>;
   listPlugins(): Promise<PluginModel[]>;
@@ -2327,6 +2331,8 @@ export interface ToolRegistrationModel {
   category: string; // memory/search/learning/diary/system/external
   /** PET-05 安全级别：read_only / write_with_approval / privileged */
   safetyLevel: string;
+  /** B3：结果未知恢复复议声明（"never" | "safe"；NULL=未声明，收敛） */
+  replay?: string | null;
   requiredPermissionsJson?: unknown;
   inputSchemaJson?: unknown;
   builtin: number; // 0 | 1
@@ -2348,6 +2354,8 @@ export interface IToolRegistryRepository {
       description: string;
       category: string;
       safetyLevel?: string;
+      /** B3：结果未知恢复复议声明（"never" | "safe"；省略=未声明，收敛） */
+      replay?: string;
       requiredPermissions?: unknown;
       inputSchema?: unknown;
       builtin?: boolean;
