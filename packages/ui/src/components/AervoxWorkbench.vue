@@ -555,10 +555,10 @@ async function sendMessage(value = input.value, options?: { quizMode?: boolean; 
   const displayText = text || '（发送了附件）'
   const outgoingText = text || '请查看我上传的附件。'
 
-  // 若开启学习模式则自动附带学习模式前缀触发专属启发式教学 Prompt，对话记录仍展示用户原文。
-  // 刷题触发时刷题前缀优先于学习模式前缀：本回合由刷题规范接管教学规则。
+  // 若开启专注模式则自动附带专注模式前缀触发专属启发式教学 Prompt，对话记录仍展示用户原文。
+  // 刷题触发时刷题前缀优先于专注模式前缀：本回合由刷题规范接管教学规则。
   const quizPrefix = options?.quizMode ? '[模式：刷题模式] ' : ''
-  const modePrefix = quizPrefix || (studyModeEnabled.value ? '[模式：学习模式] ' : '')
+  const modePrefix = quizPrefix || (studyModeEnabled.value ? '[模式：专注模式] ' : '')
   const outgoing = modePrefix && !outgoingText.startsWith(modePrefix) ? modePrefix + outgoingText : outgoingText
 
   const assistantLine = createStoryLine('assistant', '', 'streaming')
@@ -1517,17 +1517,17 @@ onUnmounted(() => {
       <label
         class="floating-study-switch-wrap"
         :class="{on: studyModeEnabled}"
-        :title="studyModeEnabled ? '学习模式已开启（点击关闭）' : '学习模式已关闭（点击开启）'"
+        :title="studyModeEnabled ? '专注模式已开启（点击关闭）' : '专注模式已关闭（点击开启）'"
       >
         <BookOpen :size="15" class="study-switch-icon" />
-        <span class="study-switch-label">学习模式</span>
+        <span class="study-switch-label">专注模式</span>
         <button
           type="button"
           role="switch"
           class="study-switch-track"
           :class="{ active: studyModeEnabled }"
           :aria-checked="studyModeEnabled"
-          :aria-label="studyModeEnabled ? '关闭学习模式' : '开启学习模式'"
+          :aria-label="studyModeEnabled ? '关闭专注模式' : '开启专注模式'"
           @click="toggleStudyMode"
         >
           <span class="study-switch-thumb" />
@@ -1676,7 +1676,7 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- CAP-007 / CAP-002: 术语高亮芯片栏（仅在学习模式下展示） -->
+          <!-- CAP-007 / CAP-002: 术语高亮芯片栏（仅在专注模式下展示） -->
           <div v-if="studyModeEnabled && currentExtractedTerms.length > 0 && !streaming" class="message-terms-bar">
             <div class="terms-bar-label">
               <Sparkles :size="13" />
@@ -1707,8 +1707,8 @@ onUnmounted(() => {
       <section class="composer-dock" :class="{open: composerOpen}" @focusout="handleDockFocusOut">
         <button v-if="!composerOpen" class="composer-collapsed" type="button" @click="expandComposer">
           <MessageCircle :size="16" />
-          <span class="composer-collapsed-hint">{{ streaming ? '思隅正在回应…' : (studyModeEnabled ? '输入学习问题或卡点（学习模式已开启）…' : '点击输入消息…') }}</span>
-          <span v-if="studyModeEnabled" class="composer-mode-chip">学习模式</span>
+          <span class="composer-collapsed-hint">{{ streaming ? '思隅正在回应…' : (studyModeEnabled ? '输入学习问题或卡点（专注模式已开启）…' : '点击输入消息…') }}</span>
+          <span v-if="studyModeEnabled" class="composer-mode-chip">专注模式</span>
           <span class="composer-access-chip" :class="{full: toolApprovalMode === 'full_access', proactive: proactiveActive}">
             <component :is="accessChipIcon" :size="12" />
             {{ accessChipLabel }}
@@ -2505,7 +2505,7 @@ onUnmounted(() => {
               <span><strong>对话</strong><small>调整你与思隅交流的输入与展示方式</small></span>
             </div>
             <label class="settings-field"><span><strong>助手称呼</strong><small>工作台中显示的名字</small></span><input v-model="assistantDisplayName" maxlength="12" @change="saveSettings" /></label>
-            <label class="settings-row settings-choice-row"><span><strong>学习模式</strong><small>启用专属苏格拉底启发式教学与防剧透规则</small></span><input v-model="studyModeEnabled" type="checkbox" class="settings-switch" @change="saveSettings" /></label>
+            <label class="settings-row settings-choice-row"><span><strong>专注模式</strong><small>启用专属苏格拉底启发式教学与防剧透规则</small></span><input v-model="studyModeEnabled" type="checkbox" class="settings-switch" @change="saveSettings" /></label>
             <label class="settings-row settings-choice-row"><span><strong>回车发送</strong><small>关闭后，回车只换行</small></span><input v-model="enterToSend" type="checkbox" class="settings-switch" @change="saveSettings" /></label>
           </div>
           <LLMConfigPanel v-else-if="settingsCategory === 'model'" class="settings-section" />
