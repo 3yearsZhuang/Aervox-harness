@@ -54,6 +54,15 @@ export function registerConversationModule(ctx: ModuleContext): void {
         name: s.name,
         description: s.description,
       })),
+    // 人格提示词摘要：激活人格时由其覆盖系统默认名称/设定并约束技能白名单。
+    // persona 模块在 conversation 之后注册，这里惰性读取 ctx；读取失败按无人格兜底。
+    personaLoader: async (tenant) => {
+      try {
+        return await ctx.personaService?.describeActivePersonaSummary(tenant);
+      } catch {
+        return undefined;
+      }
+    },
     // 5c：Subagent 委托执行器（request 级 tenant 绑定；子任务独立 turn/attempt 落库审计）
     subagentFactory: (tenant) =>
       createSqliteSubagentPort({
