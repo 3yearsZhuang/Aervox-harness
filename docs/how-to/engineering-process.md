@@ -5,8 +5,8 @@
 
 > 文档编号：AVX-GUIDE-001（合并 AVX-GUIDE-001/003/004）  
 > 类型：How-to
-> 版本：v0.2
-> 更新日期：2026-08-28
+> 版本：v0.3
+> 更新日期：2026-08-29
 > 状态：Draft  
 > 关联：[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md) · [运行、值班与演练手册](../reference/operations.md) · [文档治理与事实源规范](../reference/document-governance.md) · [文档写作规范](../reference/standards/doc-standards.md)
 
@@ -16,7 +16,7 @@
 
 ### 1.1 适用场景
 
-- 为 `Mapped` 的 CAP（如 `CAP-001/007/010~033`）补齐详细行为；
+- 为 `Mapped` 的 CAP（如 `CAP-001/007/010~035`）补齐详细行为；
 - 为既有能力新增、修改或废弃需求。
 
 ### 1.2 步骤

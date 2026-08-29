@@ -4,13 +4,13 @@
 - 修改人：3yearszhuang · 2026-08-29
 
 > 文档编号：AVX-SEC-001  
-> 版本：v0.2（CAP-033 主动智能模式）
+> 版本：v0.3（CAP-033～035 主动智能与外部连接）
 > 更新日期：2026-08-29
-> 关联：[架构设计](ARCHITECTURE.md) · [数据与隐私](DATA_PRIVACY.md) · [CR-023](changes/CR-023-proactive-local-intelligence-mode.md)
+> 关联：[架构设计](ARCHITECTURE.md) · [数据与隐私](DATA_PRIVACY.md) · [CR-023](changes/CR-023-proactive-local-intelligence-mode.md) · [CR-024](changes/CR-024-proactive-intelligence-suite-integrations.md)
 
 ## 1. 范围与资产
 
-范围包括 Web/API/Worker、SQLite、Redis/BullMQ、S3、独立故障域 `RecoveryControlLedger`、模型/身份/通知供应商、Electron、P2 插件/外部同步、P3 组织权限和 CAP-033 主动智能模式本地 Host。关键资产：凭据、私人会话、作答、记忆、日记、附件、安全事件、同意、撤权/删除 deny 控制事件、模型上下文、组织角色、全量画像原始捕获、画像声明、动作授权、后台状态和本地导出。
+范围包括 Web/API/Worker、SQLite、Redis/BullMQ、S3、独立故障域 `RecoveryControlLedger`、模型/身份/通知供应商、Electron、P2 插件/外部同步、P3 组织权限、CAP-033 主动智能模式本地 Host，以及 CAP-034/035 的 Home Assistant 和小米健康连接。关键资产新增 HA Token、实体/服务白名单、小米 OAuth 凭据、睡眠与心率样本。
 
 尚未进入生产启用范围：未成年人、CAP-033 尚未接入的平台设备捕获/全量文件 watcher、社区私信、市场支付和任意第三方插件执行；本分支已启用本地 Vault、Aervox activity/operation 与剪贴板采集、画像提炼、动作授权和后台 heartbeat 的测试路径，真实能力扩大前必须完成本模型扩展与专项门禁。
 
@@ -26,6 +26,8 @@
 8. CAP-033 本地私密存储/处理器 ↔ 普通业务数据库、远程模型/Embedding、日志/分析/备份和用户导出目标。
 9. CAP-033 主动动作 Host ↔ 本地文件、浏览器/家居、外部消息和特权系统 API。
 10. CAP-033 loopback 控制面 ↔ owner-only `proactive-access.token`（私密目录 `0600`）、HTTP 传输和 redirect/代理路径。
+11. CAP-034 本地连接网关 ↔ 私网 Home Assistant REST/WebSocket、实体目录和 service 调用。
+12. CAP-035 本地连接网关 ↔ 用户获准的小米开放平台 HTTPS/OAuth 与每日健康汇总。
 
 ## 3. 威胁登记（STRIDE）
 
@@ -49,6 +51,8 @@
 | TM-016 | Spoofing/Repudiation | 伪造设备/Host/activation epoch 或重放后台恢复，绕过用户通知和撤权 | 签名 Host、设备绑定、heartbeat/expiry、版本和 grant hash、审计回执、恢复竞争 CAS | `TC-SEC-PRO-HOST-001`、`TC-RES-PRO-LIFECYCLE-001` |
 | TM-017 | Disclosure | 全量画像导出、云同步目录或备份误带密钥、凭据、Secure Input 或已删除内容 | 导出 manifest/checksum、字段过滤、目标提示、密钥隔离、删除 tombstone 不可恢复 | `TC-PRIV-PRO-EXPORT-001`、`TC-SEC-PRO-LOCAL-001` |
 | TM-018 | Spoofing/Disclosure | 非本机进程伪造 CAP-033 控制请求，或 token 经日志/代理/重定向泄露 | owner-only token、`0600` 文件权限、字面 loopback 校验、禁止 redirect、请求不写入日志/导出 | `TC-SEC-PRO-AUTH-001`、`TC-SEC-PRO-LOCAL-001` |
+| TM-019 | Spoofing/Elevation | 恶意 HA 地址通过 DNS/redirect 访问公网或本机敏感服务，未授权实体/服务被模型控制 | 仅私网/回环/`.local`、DNS 全地址校验、redirect 拒绝、实体默认禁用、service 白名单、`action.external` 动作授权 | `TC-SEC-HA-SSRF-001`、`TC-SEC-HA-ACTION-001`；HA 侧 LLAT 仍需用户撤销 |
+| TM-020 | Disclosure/Supply chain | 小米 Token、Client Secret、睡眠/心率或完整供应商响应进入日志、模型、导出，或使用未获准的私有接口 | Vault 加密、凭据零回显、只存规范化每日指标、HTTPS、官方开放平台配置声明、连接级删除 | `TC-PRIV-EXT-CREDENTIAL-001`、`TC-PRIV-HEALTH-001`；厂商政策与账号资格仍是外部风险 |
 
 ## 4. 数据流安全规则
 
@@ -65,5 +69,6 @@
 - 跨工作区、管理员、组织、插件、附件、Prompt injection 和 Electron IPC 测试通过；
 - 删除、导出、备份恢复、Redis 重建和供应商故障演练通过；
 - CAP-033 设备捕获、后台恢复、全动作授权、本地出网阻断、七天提炼清理和导出删除的新增数据流已经加入本威胁模型，专项测试仍是启用前置；未成年人、社区、市场、支付或机构能力仍须各自扩展模型。
+- CAP-034/035 发布前必须完成 HA SSRF/重连/白名单、外部凭据零回显、小米真实厂商沙箱和健康连接级删除验证；当前本地集成测试不替代厂商审批或生产安全评审。
 
 本文件仍为评审候选，目标部署/供应商确定后必须重新评分概率和影响。
