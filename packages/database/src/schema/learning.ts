@@ -274,44 +274,94 @@ export const practiceReports = sqliteTable(
   }),
 );
 
-// ============ CAP-017 考试日计划 ============
+// ============ CAP-017 学习规划（里程碑 + 任务路线图，参考 OpenMAIC PBL planner） ============
 
 /**
- * 学习计划（CAP-017）
+ * 学习规划（CAP-017 重构）
  *
- * 可修改日期、范围、休息日和可用时间。
- * 滚动调整不删除已完成记录。
- * 预测无法完成时展示取舍和降级计划。
+ * 由单次 LLM 结构化生成的学习路线图：主题 → 里程碑 → 任务。
+ * 任务勾选驱动里程碑推进（全部任务完成 → 里程碑 completed，下一里程碑 active）。
  */
-export const studyPlans = sqliteTable(
-  "study_plans",
+export const learningPlans = sqliteTable(
+  "learning_plans",
   {
     id: text("id").primaryKey(),
     ...tenantColumns,
-    /** → learning_goals.id */
-    goalId: text("goal_id"),
-    /** 计划标题 */
+    /** 用户输入的学习主题 */
+    topic: text("topic").notNull(),
+    /** 学习水平："beginner" | "intermediate" | "advanced" */
+    level: text("level").notNull().default("beginner"),
+    /** 规划标题（AI 生成） */
     title: text("title").notNull(),
-    /** 开始日期 ISO-8601 */
-    startDate: text("start_date").notNull(),
-    /** 结束日期 ISO-8601（考试日） */
-    endDate: text("end_date").notNull(),
-    /** 休息日 JSON: ["2026-09-01", ...] */
-    restDays: text("rest_days", { mode: "json" }).notNull().default([]),
-    /** 每日可用时间（分钟） */
-    dailyAvailableMinutes: integer("daily_available_minutes").notNull().default(120),
-    /** 计划状态 */
-    status: text("status").notNull().default("active"), // "active" | "completed" | "archived"
-    /** 预测完成状态 */
-    completionPrediction: text("completion_prediction"), // "on_track" | "at_risk" | "cannot_complete"
-    /** 降级计划（无法完成时的取舍建议） */
-    degradationPlan: text("degradation_plan", { mode: "json" }),
-    /** 滚动调整次数（不删除已完成记录） */
-    revisionCount: integer("revision_count").notNull().default(0),
+    /** 规划描述（AI 生成，说明学习产出） */
+    description: text("description").notNull(),
+    /** 学习目标（AI 生成，掌握的能力） */
+    learningObjective: text("learning_objective").notNull(),
+    /** 能力收获（AI 生成，3-5 条学习者视角短语） */
+    gains: text("gains", { mode: "json" }).notNull().default([]),
+    /** 每日可用时间（分钟，生成输入快照） */
+    dailyAvailableMinutes: integer("daily_available_minutes").notNull().default(25),
+    /** 规划状态 */
+    status: text("status").notNull().default("active"), // "active" | "archived"
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("study_plans_tenant_idx").on(table.workspaceId, table.subjectUserId),
-    goalIdx: index("study_plans_goal_idx").on(table.goalId),
+    tenantIdx: index("learning_plans_tenant_idx").on(table.workspaceId, table.subjectUserId),
+  }),
+);
+
+/** 规划里程碑（学习阶段） */
+export const planMilestones = sqliteTable(
+  "plan_milestones",
+  {
+    id: text("id").primaryKey(),
+    ...tenantColumns,
+    /** → learning_plans.id */
+    planId: text("plan_id")
+      .notNull()
+      .references(() => learningPlans.id, { onDelete: "cascade" }),
+    /** 里程碑序号（从 0 开始） */
+    order: integer("sort_order").notNull(),
+    title: text("title").notNull(),
+    description: text("description"),
+    /** 开场引导（这一阶段要做什么） */
+    briefing: text("briefing"),
+    /** 完成标准（怎样算走完这一阶段） */
+    completionCriteria: text("completion_criteria"),
+    /** 阶段收尾（完成后说什么） */
+    debrief: text("debrief"),
+    /** 里程碑状态（locked 随前置里程碑完成推进为 active） */
+    status: text("status").notNull().default("active"), // "locked" | "active" | "completed"
+    ...timestampColumns,
+  },
+  (table) => ({
+    tenantIdx: index("plan_milestones_tenant_idx").on(table.workspaceId, table.subjectUserId),
+    planIdx: index("plan_milestones_plan_idx").on(table.planId),
+  }),
+);
+
+/** 里程碑下的具体任务 */
+export const planTasks = sqliteTable(
+  "plan_tasks",
+  {
+    id: text("id").primaryKey(),
+    ...tenantColumns,
+    /** → plan_milestones.id */
+    milestoneId: text("milestone_id")
+      .notNull()
+      .references(() => planMilestones.id, { onDelete: "cascade" }),
+    /** 任务序号（里程碑内从 0 开始） */
+    order: integer("sort_order").notNull(),
+    title: text("title").notNull(),
+    description: text("description"),
+    /** 提示（引导不代做） */
+    hints: text("hints", { mode: "json" }).notNull().default([]),
+    /** 任务状态 */
+    status: text("status").notNull().default("todo"), // "todo" | "done"
+    ...timestampColumns,
+  },
+  (table) => ({
+    tenantIdx: index("plan_tasks_tenant_idx").on(table.workspaceId, table.subjectUserId),
+    milestoneIdx: index("plan_tasks_milestone_idx").on(table.milestoneId),
   }),
 );

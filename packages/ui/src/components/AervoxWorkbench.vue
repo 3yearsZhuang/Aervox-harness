@@ -102,7 +102,7 @@ interface StoryLine {
   attachments?: StoryLineAttachment[]
 }
 
-type CardId = 'study' | 'todo' | 'timer' | 'history' | 'review' | 'mistake' | 'quiz' | 'diary' | 'notifications'
+type CardId = 'study' | 'todo' | 'timer' | 'history' | 'mistake' | 'quiz'
 
 interface CardDefinition {
   id: CardId
@@ -129,12 +129,8 @@ const todoOpen = ref(false)
 const timerOpen = ref(false)
 const studyOpen = ref(false)
 const mistakeOpen = ref(false)
-const studyCategory = ref<'practice' | 'goals' | 'review' | 'plans' | 'diary'>('practice')
 const settingsOpen = ref(false)
 const settingsCategory = ref<'tools' | 'appearance' | 'conversation' | 'model' | 'persona' | 'notifications' | 'voice' | 'plugins' | 'proactive'>('tools')
-const newGoalTopic = ref('')
-const newGoalLevel = ref<'beginner' | 'intermediate' | 'advanced'>('beginner')
-const newGoalMinutes = ref(25)
 const showArchivedGoals = ref(false)
 const goalBusyId = ref<string | null>(null)
 const practiceSession = ref<{sessionId: string; items: Array<{id: string; prompt: string}>; nextQuestionIndex?: number} | null>(null)
@@ -177,10 +173,12 @@ const selectedMistakeIds = ref<string[]>([])
 const mistakeBusyId = ref<string | null>(null)
 const mistakeInsightDrafts = ref<Record<string, {reasonCode: string; note: string}>>({})
 const reviewBusyId = ref<string | null>(null)
-const newPlanTitle = ref('')
-const newPlanEndDate = ref('')
+const newPlanTopic = ref('')
+const newPlanLevel = ref<'beginner' | 'intermediate' | 'advanced'>('beginner')
+const newPlanMinutes = ref(25)
+const planGenerating = ref(false)
 const planBusyId = ref<string | null>(null)
-const planDrafts = ref<Record<string, {endDate: string; dailyAvailableMinutes: number}>>({})
+const planError = ref<string | null>(null)
 const input = ref('')
 const isComposing = ref(false)
 const composerPlaceholder = '和思隅聊聊学习或任何事…'
@@ -245,13 +243,10 @@ const {
   completedReviews,
   reviewSummary,
   mistakes,
-  studyPlans,
-  notifications,
-  todayDiary,
+  learningPlans,
   activePracticeSession,
   error: apiError,
 } = api
-const { loadTodayDiary } = api
 let nextStoryId = 2
 
 const isWeb = computed(() => props.platform === 'web')
@@ -316,15 +311,12 @@ const settingCategories = [
 const activeMistakeCount = computed(() => mistakes.value.filter((item) => item.status === 'active').length)
 
 const cardCatalog = computed<CardDefinition[]>(() => [
-  {id: 'study', label: '今日学习', description: '学习目标 · 复习 · 练习 · 日记', icon: BookOpen, summary: () => `${goals.value.length} 个目标 · ${dueReviews.value.length} 项复习`, action: () => openTool('study')},
+  {id: 'study', label: '学习规划', description: 'AI 生成里程碑式学习路线图', icon: BookOpen, summary: () => `${learningPlans.value.length} 份进行中规划`, action: () => openTool('study')},
   {id: 'mistake', label: '错题本', description: '针对性练习未掌握的题', icon: Puzzle, summary: () => `${activeMistakeCount.value} 题待掌握`, action: () => openTool('mistake')},
   {id: 'quiz', label: '刷题模式', description: 'AI 现场出题，答错自动进错题本', icon: ClipboardList, summary: () => activePracticeSession.value ? '进行中的练习' : 'AI 出题 · 即时判定', action: () => startQuiz()},
   {id: 'todo', label: '待办清单', description: '勾选完成今天的待办事项', icon: ListTodo, summary: () => `待完成 ${unfinishedTodos.value.length} 件`, action: () => openTool('todo')},
   {id: 'timer', label: '番茄钟', description: '专注计时，劳逸结合', icon: Clock3, summary: () => timerRunning.value ? `${formattedTime.value} 专注中` : `${formattedTime.value} 待开始`, action: () => openTool('timer')},
   {id: 'history', label: '对话回看', description: '回顾与思隅的历史对话', icon: History, summary: () => `${story.value.length} 条对话记录`, action: () => openTool('history')},
-  {id: 'review', label: '待复习', description: '间隔复习到期内容', icon: RotateCcw, summary: () => `${dueReviews.value.length} 项到期`, action: () => openTool('study', 'review')},
-  {id: 'diary', label: '今日日记', description: 'AI 汇总的学习日记', icon: NotebookPen, summary: () => todayDiary.value?.title ?? '生成后在这里展示', action: () => openTool('study', 'diary')},
-  {id: 'notifications', label: '提醒', description: '学习节奏与日常通知', icon: Bell, summary: () => `${notifications.value.length} 条提醒`, action: () => openTool('study', 'diary')},
 ])
 
 const slotCards = computed(() => cardSlots.value.map((id) => id ? cardCatalog.value.find((card) => card.id === id) ?? null : null))
@@ -386,7 +378,7 @@ const menuPillRef = ref<HTMLElement | null>(null)
 
 /** 主导航：全部映射到既有功能（全部为居中弹窗），不引入新能力 */
 const menuItems: Array<{ id: string; label: string; icon: Component; action: () => void }> = [
-  {id: 'study', label: '学习', icon: BookOpen, action: () => openTool('study')},
+  {id: 'study', label: '规划', icon: BookOpen, action: () => openTool('study')},
   {id: 'mistake', label: '错题本', icon: Puzzle, action: () => openTool('mistake')},
   {id: 'todo', label: '待办', icon: ListTodo, action: () => openTool('todo')},
   {id: 'timer', label: '番茄钟', icon: Clock3, action: () => openTool('timer')},
@@ -395,7 +387,7 @@ const menuItems: Array<{ id: string; label: string; icon: Component; action: () 
 
 /** 功能弹窗左侧导航：五个功能统一入口，当前弹窗高亮，点击即切换 */
 const toolNavItems: Array<{ id: ToolId; label: string; description: string; icon: Component }> = [
-  {id: 'study', label: '今日学习', description: '目标 · 复习 · 练习 · 日记', icon: BookOpen},
+  {id: 'study', label: '学习规划', description: 'AI 生成学习路线图', icon: BookOpen},
   {id: 'mistake', label: '错题本', description: '针对性重练未掌握题', icon: Puzzle},
   {id: 'todo', label: '待办清单', description: '勾选完成今天的待办', icon: ListTodo},
   {id: 'timer', label: '番茄钟', description: '专注计时，劳逸结合', icon: Clock3},
@@ -776,8 +768,6 @@ async function sendMessage(value = input.value, options?: { quizMode?: boolean; 
           activeQuestion.value = null
           if (!liveAssistantLine.text) liveAssistantLine.text = '这次没有收到可展示的回答，请再试一次。'
           petReactKind('glad', {expression: MizukiExpression.face_smile_01, speak: liveAssistantLine.text})
-          // CAP-009：对话触发可能已生成/改写日记，回合结束后刷新今日日记卡片
-          void loadTodayDiary()
         },
         onUserQuestion: (qData) => {
           activeQuestion.value = qData
@@ -1223,7 +1213,7 @@ async function exportProactiveData(includeRaw: boolean) {
 }
 
 /** 打开（或切换到）指定功能弹窗：同一时间只保留一个功能弹窗 */
-function openTool(target: ToolId, category?: 'practice' | 'goals' | 'review' | 'plans' | 'diary') {
+function openTool(target: ToolId) {
   recordProactiveActivity('aervox.operation', 'workbench.tool_opened', undefined, {target})
   settingsOpen.value = false
   studyOpen.value = false
@@ -1232,7 +1222,6 @@ function openTool(target: ToolId, category?: 'practice' | 'goals' | 'review' | '
   timerOpen.value = false
   historyOpen.value = false
   if (target === 'study') {
-    if (category) studyCategory.value = category
     studyOpen.value = true
   } else if (target === 'mistake') {
     mistakeOpen.value = true
@@ -1252,23 +1241,6 @@ function addTodo() {
   newTodo.value = ''
 }
 
-async function submitNewGoal() {
-  const topic = newGoalTopic.value.trim()
-  if (!topic) return
-  try {
-    await api.createGoal({topic, level: newGoalLevel.value, availableMinutes: newGoalMinutes.value})
-    newGoalTopic.value = ''
-    newGoalLevel.value = 'beginner'
-    newGoalMinutes.value = 25
-  } catch (error) {
-    console.error('创建学习目标失败', error)
-  }
-}
-
-function goalStatusLabel(status: string) {
-  return ({active: '进行中', paused: '已暂停', completed: '已完成', archived: '已归档'} as Record<string, string>)[status] ?? status
-}
-
 async function reloadGoals() {
   await api.loadAll(showArchivedGoals.value)
   if (!practiceSession.value && activePracticeSession.value) {
@@ -1276,26 +1248,32 @@ async function reloadGoals() {
   }
 }
 
-async function setGoalStatus(goalId: string, status: 'active' | 'paused' | 'completed') {
+/** 待办同步：进行中/暂停中的目标（勾选完成 / 暂停继续均回写后端状态） */
+const syncGoals = computed(() => goals.value.filter((goal) => goal.status === 'active' || goal.status === 'paused'))
+
+/** 待办同步：到期复习（勾选 = 记得；「忘了」作为旁侧按钮，保留间隔复习数据质量） */
+const syncReviewCount = computed(() => dueReviews.value.length)
+
+/** 待办同步合并计数（本地待办 + 学习同步待完成数） */
+const syncedTodoCount = computed(() => syncGoals.value.length + syncReviewCount.value)
+
+async function completeGoalFromTodo(goalId: string) {
   goalBusyId.value = goalId
   try {
-    await api.updateGoal(goalId, {status})
-    await reloadGoals()
-  } catch (error) {
-    console.error('更新学习目标失败', error)
+    await api.updateGoal(goalId, {status: 'completed'})
+  } catch {
+    console.error('更新学习目标失败')
   } finally {
     goalBusyId.value = null
   }
 }
 
-async function archiveGoal(goalId: string) {
-  if (!window.confirm('归档后目标将从默认列表隐藏，但学习记录仍会保留。确定归档吗？')) return
+async function toggleGoalPausedFromTodo(goalId: string, next: 'active' | 'paused') {
   goalBusyId.value = goalId
   try {
-    await api.archiveGoal(goalId)
-    await reloadGoals()
-  } catch (error) {
-    console.error('归档学习目标失败', error)
+    await api.updateGoal(goalId, {status: next})
+  } catch {
+    console.error('更新学习目标失败')
   } finally {
     goalBusyId.value = null
   }
@@ -1337,20 +1315,6 @@ function restorePracticeSession(session: {sessionId: string; items: Array<{id: s
   practiceSubmission.value = null
   practiceFeedback.value = null
   questionStartTime.value = Date.now()
-}
-
-async function startPractice() {
-  practiceBusy.value = true
-  practiceError.value = null
-  practiceReport.value = null
-  practiceFeedback.value = null
-  try {
-    restorePracticeSession(await api.startPracticeSession())
-  } catch (error) {
-    practiceError.value = error instanceof Error ? '当前没有可练习的题目，请先创建题目。' : '启动练习失败，请稍后再试。'
-  } finally {
-    practiceBusy.value = false
-  }
 }
 
 async function submitPracticeAnswer() {
@@ -1452,39 +1416,54 @@ async function completeReview(reviewId: string, isCorrect: boolean) {
   }
 }
 
-async function submitStudyPlan() {
-  if (!newPlanTitle.value.trim() || !newPlanEndDate.value) return
-  planBusyId.value = 'new'
+/** 生成学习规划：单次 AI 调用，busy 态覆盖等待期 */
+async function generatePlan() {
+  const topic = newPlanTopic.value.trim()
+  if (!topic || planGenerating.value) return
+  planGenerating.value = true
+  planError.value = null
   try {
-    await api.createStudyPlan({ title: newPlanTitle.value.trim(), startDate: new Date().toISOString().slice(0, 10), endDate: newPlanEndDate.value })
-    newPlanTitle.value = ''
-    newPlanEndDate.value = ''
+    await api.generateLearningPlan({topic, level: newPlanLevel.value, dailyMinutes: newPlanMinutes.value})
+    newPlanTopic.value = ''
+  } catch (error) {
+    const message = error instanceof Error ? error.message : ''
+    planError.value = message.includes('llm_disabled')
+      ? '尚未配置 LLM，请先在「设置 → 模型与服务」完成配置。'
+      : message.includes('plan_generation_failed')
+        ? '模型未能产出有效的学习规划，请换个主题描述再试。'
+        : '生成学习规划失败，请稍后重试。'
+  } finally {
+    planGenerating.value = false
+  }
+}
+
+/** 勾选规划任务（done ⇄ todo），后端负责里程碑自动推进 */
+async function togglePlanTask(task: {id: string; status: string}) {
+  planBusyId.value = task.id
+  planError.value = null
+  try {
+    await api.setPlanTaskStatus(task.id, task.status === 'done' ? 'todo' : 'done')
   } catch {
-    practiceError.value = '学习计划没有保存，请稍后重试。'
-  } finally { planBusyId.value = null }
+    planError.value = '任务状态没有保存，请稍后重试。'
+  } finally {
+    planBusyId.value = null
+  }
 }
 
-async function setPlanPrediction(planId: string, prediction: 'on_track' | 'at_risk') {
+async function archivePlan(planId: string) {
+  if (!window.confirm('归档后规划将从列表隐藏，但完成记录仍会保留。确定归档吗？')) return
   planBusyId.value = planId
-  try { await api.updateStudyPlanPrediction(planId, prediction) } catch { practiceError.value = '计划状态没有保存，请稍后重试。' } finally { planBusyId.value = null }
-}
-
-function planDraft(plan: {id: string; endDate: string; dailyAvailableMinutes: number}) {
-  return planDrafts.value[plan.id] ?? {endDate: plan.endDate, dailyAvailableMinutes: plan.dailyAvailableMinutes}
-}
-
-async function saveStudyPlan(plan: {id: string; endDate: string; dailyAvailableMinutes: number}) {
-  const draft = planDraft(plan)
-  planBusyId.value = plan.id
   try {
-    await api.updateStudyPlan(plan.id, draft)
-    delete planDrafts.value[plan.id]
-  } catch { practiceError.value = '计划调整没有保存，请稍后重试。' } finally { planBusyId.value = null }
+    await api.archiveLearningPlan(planId)
+  } catch {
+    planError.value = '规划归档失败，请稍后重试。'
+  } finally {
+    planBusyId.value = null
+  }
 }
 
-async function archiveStudyPlan(planId: string) {
-  planBusyId.value = planId
-  try { await api.archiveStudyPlan(planId) } catch { practiceError.value = '计划归档失败，请稍后重试。' } finally { planBusyId.value = null }
+function planMilestoneStatusLabel(status: string) {
+  return ({active: '进行中', completed: '已完成', locked: '未解锁'} as Record<string, string>)[status] ?? status
 }
 
 function nextPracticeQuestion() {
@@ -2043,7 +2022,7 @@ onUnmounted(() => {
                   <Clock3 :size="15" />
                   <span>开始专注</span>
                 </button>
-                <button type="button" class="side-card-grid-item" @click.stop="openTool('study')">
+                <button type="button" class="side-card-grid-item" @click.stop="openTool('mistake')">
                   <Puzzle :size="15" />
                   <span>错题重练</span>
                 </button>
@@ -2359,7 +2338,7 @@ onUnmounted(() => {
             <input id="new-todo" v-model="newTodo" placeholder="添加一件小事" />
             <button type="submit" aria-label="添加待办"><Plus :size="20" /></button>
           </form>
-          <div class="todo-summary">已完成 {{ completedTodoCount }} 件 · 待完成 {{ unfinishedTodos.length }} 件</div>
+          <div class="todo-summary">已完成 {{ completedTodoCount }} 件 · 待完成 {{ unfinishedTodos.length + syncedTodoCount }} 件（含学习同步）</div>
           <div class="todo-list">
             <label v-for="todo in todos" :key="todo.id" class="todo-item" :class="{done: todo.done}">
               <input v-model="todo.done" type="checkbox" />
@@ -2367,6 +2346,40 @@ onUnmounted(() => {
               <Check v-if="todo.done" :size="18" />
             </label>
             <p v-if="todos.length === 0" class="drawer-empty">暂无待办，先从一件五分钟能完成的小事开始。</p>
+          </div>
+
+          <!-- 学习同步：进行中目标 + 到期复习（勾选回写后端状态） -->
+          <div v-if="syncGoals.length > 0 || dueReviews.length > 0" class="settings-section" style="margin-top: 18px;">
+            <h4>学习同步 <small>{{ syncedTodoCount }}</small></h4>
+            <ul class="study-list">
+              <li v-for="goal in syncGoals" :key="goal.id">
+                <label class="todo-item" :class="{done: goal.status === 'completed'}">
+                  <input
+                    type="checkbox"
+                    :disabled="goalBusyId === goal.id"
+                    @change="completeGoalFromTodo(goal.id)"
+                  />
+                  <span>目标：{{ goal.topic }} · {{ goal.availableMinutes }} 分钟/天</span>
+                </label>
+                <div class="goal-actions">
+                  <button v-if="goal.status === 'active'" type="button" :disabled="goalBusyId === goal.id" @click="toggleGoalPausedFromTodo(goal.id, 'paused')"><Pause :size="14" />暂停</button>
+                  <button v-else type="button" :disabled="goalBusyId === goal.id" @click="toggleGoalPausedFromTodo(goal.id, 'active')"><Play :size="14" />继续</button>
+                </div>
+              </li>
+              <li v-for="item in dueReviews" :key="item.id">
+                <label class="todo-item">
+                  <input
+                    type="checkbox"
+                    :disabled="reviewBusyId === item.id"
+                    @change="completeReview(item.id, true)"
+                  />
+                  <span>复习：知识点 #{{ item.knowledgeId }} · 间隔 {{ item.intervalDays }} 天</span>
+                </label>
+                <div class="goal-actions">
+                  <button type="button" :disabled="reviewBusyId === item.id" @click="completeReview(item.id, false)"><RotateCcw :size="14" />忘了</button>
+                </div>
+              </li>
+            </ul>
           </div>
         </div>
       </div>
@@ -2485,7 +2498,7 @@ onUnmounted(() => {
 
     <el-dialog
       v-model="studyOpen"
-      title="今日学习"
+      title="学习规划"
       class="study-dialog single-panel-dialog"
       width="min(860px, calc(100vw - 28px))"
       align-center
@@ -2508,228 +2521,79 @@ onUnmounted(() => {
         <div class="single-dialog-detail">
         <p v-if="apiError" class="drawer-error">{{ apiError }}</p>
 
-        <div class="study-subnav-tabs" aria-label="学习子模块切换">
-          <button
-            type="button"
-            class="study-subnav-btn"
-            :class="{active: studyCategory === 'practice'}"
-            @click="studyCategory = 'practice'"
-          >
-            <Sparkles :size="14" />
-            <span>快速练习</span>
-          </button>
-          <button
-            type="button"
-            class="study-subnav-btn"
-            :class="{active: studyCategory === 'goals'}"
-            @click="studyCategory = 'goals'"
-          >
-            <BookOpen :size="14" />
-            <span>目标 <small v-if="goals.length" class="subnav-badge">{{ goals.length }}</small></span>
-          </button>
-          <button
-            type="button"
-            class="study-subnav-btn"
-            :class="{active: studyCategory === 'review'}"
-            @click="studyCategory = 'review'"
-          >
-            <RotateCcw :size="14" />
-            <span>复习 <small v-if="dueReviews.length" class="subnav-badge highlight">{{ dueReviews.length }}</small></span>
-          </button>
-          <button
-            type="button"
-            class="study-subnav-btn"
-            :class="{active: studyCategory === 'plans'}"
-            @click="studyCategory = 'plans'"
-          >
-            <LayoutGrid :size="14" />
-            <span>计划 <small v-if="studyPlans.length" class="subnav-badge">{{ studyPlans.length }}</small></span>
-          </button>
-          <button
-            type="button"
-            class="study-subnav-btn"
-            :class="{active: studyCategory === 'diary'}"
-            @click="studyCategory = 'diary'"
-          >
-            <NotebookPen :size="14" />
-            <span>日记提醒</span>
-          </button>
-        </div>
-
-          <!-- 快速练习 -->
-          <div v-if="studyCategory === 'practice'" class="settings-section">
-            <div class="settings-section-heading">
-              <span class="heading-icon-wrap"><Sparkles :size="18" /></span>
-              <span><strong>快速练习</strong><small>每次 3 题自测，即时反馈，巩固所学</small></span>
-            </div>
-            <div class="study-section-title-row">
-              <span class="study-section-desc">轻量随堂检测，支持生成练习报告并根据准确率自适应推荐难度</span>
-              <button class="practice-start" type="button" :disabled="practiceBusy" @click="startPractice">
-                <Sparkles :size="15" />{{ practiceSession ? '继续当前练习' : '开始 3 题练习' }}
-              </button>
-            </div>
-            <p v-if="practiceError" class="drawer-error">{{ practiceError }}</p>
-            <article v-if="practiceReport" class="practice-report">
-              <strong>本次练习完成</strong>
-              <p>已作答 {{ practiceReport.answeredCount }}/{{ practiceReport.questionCount }} 题 · 正确 {{ practiceReport.correctCount }} · 错误 {{ practiceReport.incorrectCount }} · 待确认 {{ practiceReport.unverifiableCount }}</p>
-              <p v-if="practiceReport.accuracy !== null">可判定题正确率：{{ Math.round(practiceReport.accuracy * 100) }}%</p>
-              <p v-if="practiceReport.avgTimeSpentSec !== null">平均用时：{{ practiceReport.avgTimeSpentSec }} 秒</p>
-              <div class="practice-guidance" :class="`difficulty-${practiceReport.guidance.difficulty}`">
-                <strong>
-                  {{ practiceReport.guidance.difficulty === 'ease' ? '📉 建议降低难度' : practiceReport.guidance.difficulty === 'increase' ? '📈 建议提高难度' : '➡️ 保持当前难度' }}
-                </strong>
-                <small>{{ practiceReport.guidance.message }}</small>
-              </div>
-              <small>{{ practiceReport.remainingCount > 0 ? `还有 ${practiceReport.remainingCount} 题未作答；` : '' }}{{ practiceReport.nextStep === 'review_scheduled' ? '错题已进入后续复习。' : practiceReport.nextStep === 'await_review' ? '待确认题暂不计入掌握度。' : '继续保持这个节奏。' }}</small>
-            </article>
-            <article v-else-if="practiceSession && practiceReadyToComplete" class="practice-panel">
-              <strong>本次答案已保存</strong>
-              <p>你可以结束练习并查看本次报告。</p>
-              <button type="button" :disabled="practiceBusy" @click="finishPractice">生成练习报告</button>
-            </article>
-            <article v-else-if="currentPracticeQuestion" class="practice-panel">
-              <small>第 {{ practiceIndex + 1 }}/{{ practiceSession?.items.length }} 题</small>
-              <strong>{{ currentPracticeQuestion.prompt }}</strong>
-              <form v-if="!practiceFeedback" @submit.prevent="submitPracticeAnswer">
-                <label class="sr-only" for="practice-answer">你的答案</label>
-                <input id="practice-answer" v-model="practiceAnswer" placeholder="输入你的答案" :disabled="practiceBusy" />
-                <button type="submit" :disabled="practiceBusy || !practiceAnswer.trim()">提交答案</button>
-              </form>
-              <div v-else class="practice-feedback">
-                <p>{{ practiceFeedback.judgement === 'correct' ? '回答正确。' : practiceFeedback.judgement === 'incorrect' ? '这题暂不正确，已安排后续复习。' : '这题需要进一步确认，暂不计入掌握度。' }}</p>
-                <button type="button" :disabled="practiceBusy" @click="nextPracticeQuestion">{{ practiceIndex + 1 === practiceSession?.items.length ? '查看报告' : '下一题' }}</button>
-              </div>
-              <button class="practice-end" type="button" :disabled="practiceBusy" @click="finishPractice">提前结束并查看报告</button>
-            </article>
-            <p v-else class="study-empty">每次 3 题，答完立即反馈；也可以随时结束并查看报告。</p>
-          </div>
-
-          <!-- 学习目标 -->
-          <div v-else-if="studyCategory === 'goals'" class="settings-section">
+          <!-- AI 学习规划生成 -->
+          <div class="settings-section">
             <div class="settings-section-heading">
               <span class="heading-icon-wrap"><BookOpen :size="18" /></span>
-              <span><strong>学习目标</strong><small>管理学习主题、难度与每日时间规划</small></span>
+              <span><strong>AI 学习规划</strong><small>输入主题，生成「里程碑 + 任务」的项目式学习路线图</small></span>
             </div>
-            <div class="study-section-title-row">
-              <h4>目标列表 <small>{{ goals.length }}</small></h4>
-              <label class="study-archive-toggle"><input v-model="showArchivedGoals" type="checkbox" @change="reloadGoals" />显示归档</label>
-            </div>
-            <form class="study-goal-form" @submit.prevent="submitNewGoal">
-              <label class="sr-only" for="new-goal">添加学习目标</label>
-              <input id="new-goal" v-model="newGoalTopic" placeholder="例如：掌握二叉树遍历" />
-              <select v-model="newGoalLevel" aria-label="学习水平">
+            <form class="study-goal-form" @submit.prevent="generatePlan">
+              <label class="sr-only" for="new-plan-topic">学习主题</label>
+              <input id="new-plan-topic" v-model="newPlanTopic" placeholder="例如：用 Vue 写一个番茄钟应用" :disabled="planGenerating" />
+              <select v-model="newPlanLevel" aria-label="学习水平" :disabled="planGenerating">
                 <option value="beginner">入门</option>
                 <option value="intermediate">进阶</option>
                 <option value="advanced">熟练</option>
               </select>
-              <select v-model.number="newGoalMinutes" aria-label="每日可用时间">
+              <select v-model.number="newPlanMinutes" aria-label="每日可用时间" :disabled="planGenerating">
                 <option :value="15">15 分钟</option>
                 <option :value="25">25 分钟</option>
                 <option :value="45">45 分钟</option>
                 <option :value="60">60 分钟</option>
               </select>
-              <button type="submit" aria-label="创建学习目标"><Plus :size="18" /></button>
+              <button type="submit" class="practice-start" :disabled="planGenerating || !newPlanTopic.trim()">
+                <Sparkles :size="15" />{{ planGenerating ? '正在生成…' : 'AI 生成规划' }}
+              </button>
             </form>
-            <ul class="study-list">
-              <li v-for="goal in goals" :key="goal.id">
-                <div class="goal-item-heading"><span class="study-item-title">{{ goal.topic }}</span><span class="goal-status" :class="`is-${goal.status}`">{{ goalStatusLabel(goal.status) }}</span></div>
-                <small>{{ goal.level === 'beginner' ? '入门' : goal.level === 'intermediate' ? '进阶' : '熟练' }} · {{ goal.availableMinutes }} 分钟/天</small>
-                <div v-if="goal.status !== 'archived'" class="goal-actions">
-                  <button v-if="goal.status === 'active'" type="button" :disabled="goalBusyId === goal.id" @click="setGoalStatus(goal.id, 'paused')"><Pause :size="14" />暂停</button>
-                  <button v-else-if="goal.status === 'paused'" type="button" :disabled="goalBusyId === goal.id" @click="setGoalStatus(goal.id, 'active')"><Play :size="14" />继续</button>
-                  <button v-if="goal.status !== 'completed'" type="button" :disabled="goalBusyId === goal.id" @click="setGoalStatus(goal.id, 'completed')"><Check :size="14" />完成</button>
-                  <button v-if="goal.status === 'completed'" type="button" :disabled="goalBusyId === goal.id" @click="setGoalStatus(goal.id, 'active')"><RotateCcw :size="14" />重新开始</button>
-                  <button type="button" class="danger" :disabled="goalBusyId === goal.id" @click="archiveGoal(goal.id)"><X :size="14" />归档</button>
-                </div>
-              </li>
-              <li v-if="goals.length === 0" class="study-empty">暂无学习目标，先添加一个想完成的主题。</li>
-            </ul>
+            <p v-if="planError" class="drawer-error">{{ planError }}</p>
+            <p class="study-section-desc">生成后按里程碑推进：勾选任务即可，完成一个阶段自动解锁下一阶段。</p>
           </div>
 
-          <!-- 复习管理 -->
-          <div v-else-if="studyCategory === 'review'" class="settings-section">
-            <div class="settings-section-heading">
-              <span class="heading-icon-wrap"><RotateCcw :size="18" /></span>
-              <span><strong>复习管理</strong><small>艾宾浩斯间隔复习与历史结果跟踪</small></span>
-            </div>
-            <h4>待复习 <small>{{ dueReviews.length }}</small></h4>
-            <p v-if="reviewSummary" class="drawer-intro">今日 {{ reviewSummary.dueTodayCount }} 项 · 逾期 {{ reviewSummary.overdueCount }} 项 · 约 {{ reviewSummary.estimatedMinutes }} 分钟</p>
-            <ul class="study-list">
-              <li v-for="item in dueReviews" :key="item.id">
-                <span class="study-item-title">知识点 #{{ item.knowledgeId }}</span>
-                <small>到期 {{ item.dueAt.slice(0, 10) }} · 间隔 {{ item.intervalDays }} 天 · 规则 v{{ item.schedulerVersion }}</small>
-                <div class="goal-actions">
-                  <button type="button" :disabled="reviewBusyId === item.id" @click="completeReview(item.id, true)"><Check :size="14" />记得</button>
-                  <button type="button" :disabled="reviewBusyId === item.id" @click="completeReview(item.id, false)"><RotateCcw :size="14" />忘了</button>
+          <!-- 我的规划列表 -->
+          <div class="settings-section">
+            <h4>我的规划 <small>{{ learningPlans.length }}</small></h4>
+            <ul class="study-list plan-list">
+              <li v-for="plan in learningPlans" :key="plan.id" class="plan-card">
+                <div class="goal-item-heading">
+                  <span class="study-item-title">{{ plan.title }}</span>
+                  <span class="goal-status">{{ plan.dailyAvailableMinutes }} 分钟/天</span>
                 </div>
-              </li>
-              <li v-if="dueReviews.length === 0" class="study-empty">今天没有到期复习，可以继续当前目标。</li>
-            </ul>
-
-            <h4 style="margin-top: 16px;">最近复习记录 <small>{{ completedReviews.length }}</small></h4>
-            <ul class="study-list">
-              <li v-for="item in completedReviews" :key="item.id">
-                <span class="study-item-title">知识点 #{{ item.knowledgeId }}</span>
-                <small>{{ item.completionIsCorrect === true ? '记得' : item.completionIsCorrect === false ? '忘了' : '旧记录' }} · {{ item.updatedAt?.slice(0, 10) }}<template v-if="item.nextReviewId"> · 下一项 #{{ item.nextReviewId }}</template></small>
-              </li>
-              <li v-if="completedReviews.length === 0" class="study-empty">完成复习后，这里会保留最近记录。</li>
-            </ul>
-          </div>
-
-          <!-- 学习计划 -->
-          <div v-else-if="studyCategory === 'plans'" class="settings-section">
-            <div class="settings-section-heading">
-              <span class="heading-icon-wrap"><LayoutGrid :size="18" /></span>
-              <span><strong>学习计划</strong><small>设立阶段目标、倒计时与进度风险预测</small></span>
-            </div>
-            <h4>计划列表 <small>{{ studyPlans.length }}</small></h4>
-            <form class="study-goal-form" @submit.prevent="submitStudyPlan">
-              <input v-model="newPlanTitle" placeholder="例如：期末考试复习" aria-label="计划名称" />
-              <input v-model="newPlanEndDate" type="date" aria-label="计划结束日期" />
-              <button type="submit" :disabled="planBusyId === 'new'" aria-label="创建学习计划"><Plus :size="18" /></button>
-            </form>
-            <ul class="study-list">
-              <li v-for="plan in studyPlans" :key="plan.id">
-                <div class="goal-item-heading"><span class="study-item-title">{{ plan.title }}</span><span class="goal-status">{{ plan.completionPrediction === 'at_risk' ? '需调整' : plan.completionPrediction === 'cannot_complete' ? '无法按期完成' : '进行中' }}</span></div>
-                <small>{{ plan.startDate }} 至 {{ plan.endDate }} · {{ plan.dailyAvailableMinutes }} 分钟/天 · 已调整 {{ plan.revisionCount }} 次</small>
-                <div class="study-goal-form">
-                  <input :value="planDraft(plan).endDate" type="date" aria-label="调整结束日期" @input="planDrafts[plan.id] = {...planDraft(plan), endDate: ($event.target as HTMLInputElement).value}" />
-                  <input :value="planDraft(plan).dailyAvailableMinutes" type="number" min="0" aria-label="调整每日可用时间" @input="planDrafts[plan.id] = {...planDraft(plan), dailyAvailableMinutes: Number(($event.target as HTMLInputElement).value)}" />
-                  <button type="button" :disabled="planBusyId === plan.id" @click="saveStudyPlan(plan)">调整</button>
+                <p class="plan-description">{{ plan.description }}</p>
+                <p class="plan-objective">学习目标：{{ plan.learningObjective }}</p>
+                <div class="plan-gains">
+                  <span v-for="gain in plan.gains" :key="gain" class="subnav-badge">{{ gain }}</span>
+                </div>
+                <div v-for="milestone in plan.milestones" :key="milestone.id" class="plan-milestone" :class="`is-${milestone.status}`">
+                  <div class="plan-milestone-heading">
+                    <span class="study-item-title">{{ milestone.order + 1 }}. {{ milestone.title }}</span>
+                    <span class="goal-status" :class="{'is-completed': milestone.status === 'completed'}">{{ planMilestoneStatusLabel(milestone.status) }}</span>
+                  </div>
+                  <small v-if="milestone.completionCriteria">完成标准：{{ milestone.completionCriteria }}</small>
+                  <label
+                    v-for="task in milestone.tasks"
+                    :key="task.id"
+                    class="plan-task"
+                    :class="{done: task.status === 'done', locked: milestone.status === 'locked'}"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="task.status === 'done'"
+                      :disabled="planBusyId === task.id || milestone.status === 'locked'"
+                      @change="togglePlanTask(task)"
+                    />
+                    <span>
+                      <strong>{{ task.title }}</strong>
+                      <small v-if="task.description">{{ task.description }}</small>
+                      <small v-if="task.hints.length" class="plan-hints">提示：{{ task.hints.join('；') }}</small>
+                    </span>
+                  </label>
                 </div>
                 <div class="goal-actions">
-                  <button type="button" :disabled="planBusyId === plan.id" @click="setPlanPrediction(plan.id, 'on_track')"><Check :size="14" />进度正常</button>
-                  <button type="button" :disabled="planBusyId === plan.id" @click="setPlanPrediction(plan.id, 'at_risk')">标记风险</button>
-                  <button type="button" class="danger" :disabled="planBusyId === plan.id" @click="archiveStudyPlan(plan.id)"><X :size="14" />归档</button>
+                  <button type="button" class="danger" :disabled="planBusyId === plan.id" @click="archivePlan(plan.id)"><X :size="14" />归档</button>
                 </div>
               </li>
-              <li v-if="studyPlans.length === 0" class="study-empty">还没有学习计划，先设定一个结束日期。</li>
+              <li v-if="learningPlans.length === 0" class="study-empty">还没有学习规划，输入主题让 AI 生成一份路线图。</li>
             </ul>
-          </div>
-
-          <!-- 学习日记与提醒 -->
-          <div v-else-if="studyCategory === 'diary'" class="settings-section">
-            <div class="settings-section-heading">
-              <span class="heading-icon-wrap"><NotebookPen :size="18" /></span>
-              <span><strong>学习日记与提醒</strong><small>智能总结每日进展与日程节奏</small></span>
-            </div>
-            <h4>今日日记 <small v-if="todayDiary">{{ todayDiary.status }}</small></h4>
-            <article v-if="todayDiary" class="study-diary">
-              <strong>{{ todayDiary.title }}</strong>
-              <p>{{ todayDiary.content }}</p>
-            </article>
-            <p v-else class="study-empty">今日日记将在 Worker 生成后显示。</p>
-
-            <template v-if="dailyReminder">
-              <h4 style="margin-top: 18px;">日常提醒 <small>{{ notifications.length }}</small></h4>
-              <ul class="study-list">
-                <li v-for="notification in notifications" :key="notification.id">
-                  <span class="study-item-title">{{ notification.type }} 提醒</span>
-                  <small>{{ notification.channel }} · {{ notification.status }}</small>
-                </li>
-                <li v-if="notifications.length === 0" class="study-empty">暂无提醒。</li>
-              </ul>
-            </template>
           </div>
       </div>
       </div>
@@ -2803,6 +2667,40 @@ onUnmounted(() => {
           </div>
 
           <p v-if="practiceError" class="drawer-error">{{ practiceError }}</p>
+
+          <!-- 练习作答面板（错题重练原地作答；自 fast practice 迁入） -->
+          <article v-if="practiceReport" class="practice-report">
+            <strong>本次练习完成</strong>
+            <p>已作答 {{ practiceReport.answeredCount }}/{{ practiceReport.questionCount }} 题 · 正确 {{ practiceReport.correctCount }} · 错误 {{ practiceReport.incorrectCount }} · 待确认 {{ practiceReport.unverifiableCount }}</p>
+            <p v-if="practiceReport.accuracy !== null">可判定题正确率：{{ Math.round(practiceReport.accuracy * 100) }}%</p>
+            <p v-if="practiceReport.avgTimeSpentSec !== null">平均用时：{{ practiceReport.avgTimeSpentSec }} 秒</p>
+            <div class="practice-guidance" :class="`difficulty-${practiceReport.guidance.difficulty}`">
+              <strong>
+                {{ practiceReport.guidance.difficulty === 'ease' ? '📉 建议降低难度' : practiceReport.guidance.difficulty === 'increase' ? '📈 建议提高难度' : '➡️ 保持当前难度' }}
+              </strong>
+              <small>{{ practiceReport.guidance.message }}</small>
+            </div>
+            <small>{{ practiceReport.remainingCount > 0 ? `还有 ${practiceReport.remainingCount} 题未作答；` : '' }}{{ practiceReport.nextStep === 'review_scheduled' ? '错题已进入后续复习。' : practiceReport.nextStep === 'await_review' ? '待确认题暂不计入掌握度。' : '继续保持这个节奏。' }}</small>
+          </article>
+          <article v-else-if="practiceSession && practiceReadyToComplete" class="practice-panel">
+            <strong>本次答案已保存</strong>
+            <p>你可以结束练习并查看本次报告。</p>
+            <button type="button" :disabled="practiceBusy" @click="finishPractice">生成练习报告</button>
+          </article>
+          <article v-else-if="currentPracticeQuestion" class="practice-panel">
+            <small>第 {{ practiceIndex + 1 }}/{{ practiceSession?.items.length }} 题</small>
+            <strong>{{ currentPracticeQuestion.prompt }}</strong>
+            <form v-if="!practiceFeedback" @submit.prevent="submitPracticeAnswer">
+              <label class="sr-only" for="practice-answer">你的答案</label>
+              <input id="practice-answer" v-model="practiceAnswer" placeholder="输入你的答案" :disabled="practiceBusy" />
+              <button type="submit" :disabled="practiceBusy || !practiceAnswer.trim()">提交答案</button>
+            </form>
+            <div v-else class="practice-feedback">
+              <p>{{ practiceFeedback.judgement === 'correct' ? '回答正确。' : practiceFeedback.judgement === 'incorrect' ? '这题暂不正确，已安排后续复习。' : '这题需要进一步确认，暂不计入掌握度。' }}</p>
+              <button type="button" :disabled="practiceBusy" @click="nextPracticeQuestion">{{ practiceIndex + 1 === practiceSession?.items.length ? '查看报告' : '下一题' }}</button>
+            </div>
+            <button class="practice-end" type="button" :disabled="practiceBusy" @click="finishPractice">提前结束并查看报告</button>
+          </article>
 
           <ul class="study-list mistake-list">
             <li v-for="item in visibleMistakes" :key="item.questionId">
@@ -2879,7 +2777,7 @@ onUnmounted(() => {
             <div class="quick-tools">
               <button type="button" @click="openTool('study')">
                 <BookOpen :size="19" />
-                <span><strong>今日学习</strong><small>{{ goals.length }} 个目标 · {{ dueReviews.length }} 项复习</small></span>
+                <span><strong>学习规划</strong><small>{{ learningPlans.length }} 份进行中规划</small></span>
               </button>
               <button type="button" @click="openTool('mistake')">
                 <Puzzle :size="19" />
@@ -3068,7 +2966,7 @@ onUnmounted(() => {
               <span class="heading-icon-wrap"><Bell :size="18" /></span>
               <span><strong>提醒</strong><small>控制学习过程中的轻量通知与节奏提醒</small></span>
             </div>
-            <label class="settings-row settings-choice-row"><span><strong>学习提醒</strong><small>允许工作台显示复习和目标提醒</small></span><input v-model="dailyReminder" type="checkbox" class="settings-switch" @change="saveSettings" /></label>
+
             <div class="settings-note"><Check :size="16" />设置会自动保存在当前设备</div>
           </div>
           <LocalVoiceConfigPanel v-else-if="settingsCategory === 'voice'" class="settings-section" />
