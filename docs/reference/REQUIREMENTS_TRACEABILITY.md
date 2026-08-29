@@ -301,6 +301,7 @@
 
 | 多能力 E2E 与 Playwright 测试基建 | CAP-010~017/019 | `e2e/`（`preferences`/`message-edit-delete`/`practice-flow`/`mistake-book`/`session-recovery.spec.ts`）、`playwright.config.ts`、`package.json`（`test:e2e`；`@playwright/test` 根 workspace devDep） | 2026-08-28 | playwright 用例（依赖本地 dev server）；根 workspace typecheck | 原生 |
 | 能力注册表状态同步：CAP-010~019 主仓交付裁定（CR-019） | 基础设施（文档治理） | [CR-019](changes/CR-019-capability-registry-status-sync.md)、`docs/reference/capability-registry.md`（P1 表移除候选 + 转主仓交付说明）、`docs/DOC_REGISTRY.md`、`docs/README.md`、`README.md` | 2026-08-28 | `mise tasks run ci-docs`；`git diff --check` | 原生 |
+| 刷题模式闭环（学习模式关键词 / 前端「刷题」按钮触发 → AI 经 `ask_user_question` 现场出题 → 判定后 `record_practice_attempt` 落库 → incorrect 自动进错题本） | CAP-003/004/016 | `packages/agent-loop`（`ports.ts` `PracticeAttemptPort`、`practice-attempt-tool.ts` `record_practice_attempt` 工具、`base-prompt.ts` `QUIZ_MODE_SYSTEM_PROMPT` + `quizMode` 选项 + 工具指引、`index.ts` 导出）、`packages/config`（`scripted-quiz` LoopProvider 枚举）、`apps/api`（`conversation/agent-executor.ts` 刷题模式检测（`[模式：刷题模式]` 前缀或学习模式关键词命中）+ 工具 Contribution 接线、`conversation/practice-attempt-port.ts` SQLite 落库适配、`conversation/{routes,index}.ts` 端口注入）、`packages/ui`（`AervoxWorkbench.vue` 悬浮「刷题」按钮 + 模式前缀组装、`theme/workbench.css` 按钮样式） | 2026-08-29 | `@aervox/agent-loop` `practice-attempt-tool.test.ts`（参数校验/端口透传/incorrect 进错题本）；`@aervox/api` `quiz-mode.test.ts`（刷题前缀 Turn：tool_request/tool_result 事件 + incorrect 作答 `GET /v1/mistakes` 入库）；ci-code 全量 | 原生 |
 
 ## 5. 原子需求字段模板
 

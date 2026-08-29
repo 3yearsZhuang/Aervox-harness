@@ -9,6 +9,7 @@ import type { ModuleContext } from "../context.js";
 import {
   SqliteAgentInboxRepository,
   SqliteConversationRepository,
+  SqliteLearningRepository,
   SqlitePlatformRepository,
   SqlitePrivacyRepository,
   SqliteSkillRegistryRepository,
@@ -19,6 +20,7 @@ import { createSqliteSubagentPort, SqliteExecutionStore } from "@aervox/host-age
 import { buildLoopProvider } from "./agent-executor.js";
 import { registerConversationRoutes } from "./routes.js";
 import { UserQuestionCoordinator } from "./user-question-coordinator.js";
+import { createPracticeAttemptPortFactory } from "./practice-attempt-port.js";
 
 export function registerConversationModule(ctx: ModuleContext): void {
   const { app, db, toolRuntime, llmConfigService, workflows } = ctx;
@@ -57,5 +59,7 @@ export function registerConversationModule(ctx: ModuleContext): void {
     workflows,
     platformRepo,
     userQuestionCoordinator,
+    // CAP-016：刷题模式作答落库端口（模块自管 learning 仓储，按 request tenant 绑定）
+    practiceAttemptFactory: createPracticeAttemptPortFactory(new SqliteLearningRepository(db)),
   });
 }

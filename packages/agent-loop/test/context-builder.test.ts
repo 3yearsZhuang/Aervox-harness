@@ -127,6 +127,30 @@ describe("基础系统提示词与工具指引 (Base System Prompt & Tool Guidan
     expect(prompt).toContain("活泼幽默");
   });
 
+  it("buildBaseSystemPrompt：默认不注入刷题模式规范", async () => {
+    const { buildBaseSystemPrompt } = await import("../src/base-prompt.js");
+    const prompt = buildBaseSystemPrompt({ assistantName: "思隅" });
+
+    expect(prompt).not.toContain("刷题模式核心规范");
+  });
+
+  it("buildBaseSystemPrompt：开启 quizMode 时注入刷题闭环规范并登记工具指引", async () => {
+    const { buildBaseSystemPrompt } = await import("../src/base-prompt.js");
+    const prompt = buildBaseSystemPrompt({
+      assistantName: "考官思隅",
+      studyMode: true,
+      quizMode: true,
+    });
+
+    expect(prompt).toContain("刷题模式核心规范");
+    expect(prompt).toContain("record_practice_attempt");
+    expect(prompt).toContain("ask_user_question");
+    // 刷题段置后于学习模式段（覆盖「不直接给答案」规则）
+    expect(prompt.indexOf("学习模式核心教学原则")).toBeLessThan(
+      prompt.indexOf("刷题模式核心规范"),
+    );
+  });
+
   it("createComposedContextBuilder：baseSystemPrompt 置于最前并支持与 skills 组合", async () => {
     const builder = createComposedContextBuilder({
       base: defaultContextBuilder,

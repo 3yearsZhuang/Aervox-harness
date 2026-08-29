@@ -51,6 +51,8 @@ export interface ConversationRouteDeps {
   platformRepo?: SqlitePlatformRepository;
   /** UQ-01：向用户提问会话协调器 */
   userQuestionCoordinator?: UserQuestionCoordinator;
+  /** CAP-016：刷题模式作答落库端口工厂（request 级 tenant 绑定） */
+  practiceAttemptFactory?: (tenant: import("@aervox/database").TenantContext) => import("@aervox/agent-loop").PracticeAttemptPort;
 }
 
 export function registerConversationRoutes(
@@ -131,6 +133,7 @@ export function registerConversationRoutes(
     const attemptId = `atp_${turnId}`;
     await conversationRepo.createTurnAttempt(tenant, turnId, { id: attemptId, attempt: 1 });
     const uqPort = deps.userQuestionCoordinator ? deps.userQuestionCoordinator.createPort(tenant) : undefined;
+    const practiceAttemptPort = deps.practiceAttemptFactory ? deps.practiceAttemptFactory(tenant) : undefined;
     await runLoopTurnOnce(
       conversationRepo,
       tenant,
@@ -158,6 +161,8 @@ export function registerConversationRoutes(
         platformRepo: deps.platformRepo,
         // UQ-01: 向用户提问端口
         userQuestionPort: uqPort,
+        // CAP-016: 刷题模式作答落库端口
+        practiceAttemptPort,
       },
     );
 

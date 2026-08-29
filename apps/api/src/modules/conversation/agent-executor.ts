@@ -14,6 +14,7 @@ import {
   createSubagentToolProvider,
   createWorkflowToolProvider,
   createAskUserQuestionToolProvider,
+  createPracticeAttemptToolProvider,
   createSummaryCompaction,
   defaultContextBuilder,
   executeTurn,
@@ -21,6 +22,7 @@ import {
 import type {
   InboxPort,
   ModelProviderPort,
+  PracticeAttemptPort,
   ReplayStep,
   SkillDescriptor,
   SubagentPort,
@@ -259,6 +261,28 @@ export const API_PRIVILEGED_SCRIPT: readonly ReplayStep[] = [
   },
 ];
 
+/** CAP-016 刷题闭环脚本（AERVOX_LOOP_PROVIDER=scripted-quiz；record_practice_attempt 落库验证） */
+export const API_QUIZ_SCRIPT: readonly ReplayStep[] = [
+  {
+    text: "我来记录本次作答。",
+    toolCalls: [
+      {
+        id: "call_quiz_1",
+        name: "record_practice_attempt",
+        arguments: {
+          prompt: "1 + 1 等于几？",
+          questionType: "short_answer",
+          userAnswer: "3",
+          correctAnswer: "2",
+          judgement: "incorrect",
+          explanation: "基础加法：1 + 1 = 2。",
+        },
+      },
+    ],
+  },
+  { text: "答错了，正确答案是 2。", toolCalls: [] },
+];
+
 /** 迁移期接线：把 Loop 未完成/配置失败写为 error 事件 + Failed 终态（不抛到 HTTP 层） */
 async function failTurnWithError(
   store: SqliteExecutionStore,
@@ -300,6 +324,7 @@ export async function buildLoopProvider(
   if (mode === "scripted") return createScriptedProvider(API_TOOL_SCRIPT);
   if (mode === "scripted-write") return createScriptedProvider(API_WRITE_SCRIPT);
   if (mode === "scripted-privileged") return createScriptedProvider(API_PRIVILEGED_SCRIPT);
+  if (mode === "scripted-quiz") return createScriptedProvider(API_QUIZ_SCRIPT);
   if (mode === "llm") {
     if (!llmConfigService) {
       throw new Error("llm_provider_unavailable: LLMConfigService 未接线");
@@ -351,6 +376,8 @@ export async function runLoopTurnOnce(
     platformRepo?: import("@aervox/database").SqlitePlatformRepository;
     /** UQ-01：向用户提问协调端口（挂起与唤醒） */
     userQuestionPort?: UserQuestionPort;
+    /** CAP-016：刷题模式作答落库端口（AI 判定后写 questions + question_attempts） */
+    practiceAttemptPort?: PracticeAttemptPort;
   } = {},
 ): Promise<void> {
   // 阶段 7（ADR-017）：Step 级 ModelRun + 每 Turn ContextManifest 快照落库（委托 platform 域）
@@ -411,6 +438,9 @@ export async function runLoopTurnOnce(
   if (deps.userQuestionPort) {
     contribution.push(createAskUserQuestionToolProvider({ userQuestionPort: deps.userQuestionPort }));
   }
+  if (deps.practiceAttemptPort) {
+    contribution.push(createPracticeAttemptToolProvider({ practiceAttemptPort: deps.practiceAttemptPort }));
+  }
   const contributionProvider =
     contribution.length > 0
       ? createApprovalGatedToolProvider(composeToolProviders(contribution), tenant, repo)
@@ -426,6 +456,10 @@ export async function runLoopTurnOnce(
     input.userMessage.includes("[模式：学习模式]") ||
     input.userMessage.includes("[模式：陪学讲解]") ||
     input.userMessage.includes("[模式：深度拆解]");
+  // CAP-016 刷题模式触发：按钮前缀（任何模式生效）或 学习模式下的刷题关键词（避免日常聊天误触发）
+  const hasQuizPrefix = input.userMessage.includes("[模式：刷题模式]");
+  const quizKeywords = /来几道题|来几道|刷题|出几道题|考考我|出题/;
+  const isQuizMode = hasQuizPrefix || (isStudyMode && quizKeywords.test(input.userMessage));
   // 5b：默认启用 Base System Prompt（含核心工具指引）与 Skill 渐进披露；压缩 seam 默认关闭，
   // 设置 AERVOX_LOOP_COMPACTION=rule 启用内置规则式摘要。
   const contextBuilder = createComposedContextBuilder({
@@ -434,6 +468,7 @@ export async function runLoopTurnOnce(
       assistantName: "思隅 (Aervox)",
       activeTools: tools?.tools,
       studyMode: isStudyMode,
+      quizMode: isQuizMode,
     },
     skills: deps.skills,
     ...(loadApiConfig().loopCompaction === "rule"
