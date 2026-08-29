@@ -1865,18 +1865,6 @@ onUnmounted(() => {
         </button>
       </label>
 
-      <button
-        type="button"
-        class="floating-quiz-btn"
-        :disabled="streaming"
-        aria-label="开始刷题"
-        title="开始刷题：AI 现场出题，答错自动进错题本"
-        @click="startQuiz"
-      >
-        <ClipboardList :size="15" />
-        <span class="quiz-btn-label">刷题</span>
-      </button>
-
       <button v-if="isWeb" class="floating-settings" type="button" aria-label="打开设置" @click="settingsOpen = true">
         <Settings :size="19" />
       </button>
