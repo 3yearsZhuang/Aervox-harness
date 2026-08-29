@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, nextTick, onMounted, onUnmounted, ref, watch, type Component} from 'vue'
+import {type Component, computed, nextTick, onMounted, onUnmounted, ref, watch} from 'vue'
 import {
   Bell,
   BookOpen,
@@ -30,8 +30,8 @@ import {
   ShieldCheck,
   Sparkles,
   Sun,
-  Volume2,
   TimerReset,
+  Volume2,
   X,
 } from 'lucide-vue-next'
 import {streamAervoxTurn, submitQuestionAnswers, useAervoxApi, useAervoxVoiceInput} from '@aervox/api-client'
@@ -698,8 +698,7 @@ function calculateMinutesFromEvent(event: MouseEvent | TouchEvent): number | nul
   if (deg < 0) deg += 360
   // 360 度对应 60 分钟
   const rawMin = (deg / 360) * 60
-  const clamped = Math.max(1, Math.min(60, Math.round(rawMin)))
-  return clamped
+  return Math.max(1, Math.min(60, Math.round(rawMin)))
 }
 
 function handleDialPointerDown(event: MouseEvent | TouchEvent) {
@@ -774,16 +773,6 @@ function handleComposerInputOrKey() {
 
 function isCardPicked(id: CardId) {
   return cardSlots.value.includes(id)
-}
-
-function handleCardCommand(slot: number, command: unknown) {
-  if (command === '__clear__') {
-    selectCard(slot, null)
-    return
-  }
-  if (typeof command === 'string' && cardCatalog.value.some((card) => card.id === command)) {
-    selectCard(slot, command as CardId)
-  }
 }
 
 function selectCard(slot: number, id: CardId | null) {
@@ -1031,19 +1020,9 @@ onUnmounted(() => {
                 <strong>{{ card.label }}</strong>
                 <small>{{ card.description }}</small>
               </span>
-              <el-dropdown trigger="click" :placement="slotIndex === 0 ? 'bottom-start' : 'top-start'" :popper-options="{modifiers: [{name: 'flip', enabled: false}]}" @command="(id: unknown) => handleCardCommand(slotIndex, id)">
-                <button class="side-card-swap" type="button" aria-label="更换卡片功能" @click.stop>
-                  <LayoutGrid :size="15" />
-                </button>
-                <template #dropdown>
-                  <el-dropdown-menu class="side-card-menu">
-                    <el-dropdown-item v-for="option in cardCatalog" :key="option.id" :command="option.id" :disabled="isCardPicked(option.id) && option.id !== card.id">
-                      <span class="side-card-option"><component :is="option.icon" :size="15" /> {{ option.label }}</span>
-                    </el-dropdown-item>
-                    <el-dropdown-item divided command="__clear__">清空此卡片</el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
+              <button class="side-card-remove" type="button" aria-label="移除此卡片" @click.stop="selectCard(slotIndex, null)">
+                <X :size="15" />
+              </button>
             </header>
             <p class="side-card-summary">{{ card.summary() }}</p>
             <footer class="side-card-foot">
@@ -1053,22 +1032,28 @@ onUnmounted(() => {
           </article>
         </template>
 
-        <el-dropdown v-else trigger="click" :placement="slotIndex === 0 ? 'bottom-start' : 'top-start'" :popper-options="{modifiers: [{name: 'flip', enabled: false}]}" @command="(id: unknown) => handleCardCommand(slotIndex, id)">
-          <button class="side-card side-card-placeholder" type="button" aria-label="为此卡片选择功能">
-            <span class="side-card-icon"><Plus :size="24" /></span>
+        <div v-else class="side-card side-card-placeholder" role="group" aria-label="为此卡片选择功能">
+          <header class="side-card-head">
+            <span class="side-card-icon"><Plus :size="17" /></span>
             <span class="side-card-title">
               <strong>选择功能</strong>
               <small>把常用工具放到这里</small>
             </span>
-          </button>
-          <template #dropdown>
-            <el-dropdown-menu class="side-card-menu">
-              <el-dropdown-item v-for="option in cardCatalog" :key="option.id" :command="option.id" :disabled="isCardPicked(option.id)">
-                <span class="side-card-option"><component :is="option.icon" :size="15" /> {{ option.label }}</span>
-              </el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
+          </header>
+          <div class="side-card-grid">
+            <button
+              v-for="option in cardCatalog"
+              :key="option.id"
+              type="button"
+              class="side-card-grid-item"
+              :disabled="isCardPicked(option.id)"
+              @click="selectCard(slotIndex, option.id)"
+            >
+              <component :is="option.icon" :size="15" />
+              <span>{{ option.label }}</span>
+            </button>
+          </div>
+        </div>
       </div>
     </aside>
 
