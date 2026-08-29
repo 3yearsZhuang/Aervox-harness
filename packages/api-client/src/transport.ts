@@ -8,6 +8,7 @@ import type {
   AskUserQuestionAnswerItem,
   PetCommand,
   TermsExtractedEventData,
+  ToolApprovalMode,
   TurnStreamEvent,
   UserQuestionRequiredEventData,
 } from '@aervox/contracts';
@@ -23,10 +24,14 @@ export interface TurnCallbacks {
   onTermsExtracted?: (data: TermsExtractedEventData) => void;
 }
 
+export interface StreamTurnOptions {
+  toolApprovalMode?: ToolApprovalMode;
+}
+
 /** 两端能力的最小契约：普通请求 + Turn 流式 + 问答提交 */
 export interface AervoxTransport {
   request<T = unknown>(method: string, path: string, body?: unknown, options?: { headers?: Record<string, string> }): Promise<T>;
-  streamTurn(sessionId: string, content: string, callbacks: TurnCallbacks): Promise<void>;
+  streamTurn(sessionId: string, content: string, callbacks: TurnCallbacks, options?: StreamTurnOptions): Promise<void>;
   submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[]): Promise<void>;
 }
 
@@ -119,11 +124,20 @@ export function createFetchTransport(apiBase: string, workspaceId?: string, user
     return (await res.json()) as T;
   };
 
-  const streamTurn = async (sessionId: string, content: string, callbacks: TurnCallbacks): Promise<void> => {
+  const streamTurn = async (
+    sessionId: string,
+    content: string,
+    callbacks: TurnCallbacks,
+    options: StreamTurnOptions = {},
+  ): Promise<void> => {
     const turn = await request<{ turnId: string }>(
       'POST',
       `/v1/sessions/${encodeURIComponent(sessionId)}/turns`,
-      { message: { content, contentType: 'text' }, clientVersion: 'aervox-api-client@0.1' },
+      {
+        message: { content, contentType: 'text' },
+        clientVersion: 'aervox-api-client@0.1',
+        toolApprovalMode: options.toolApprovalMode ?? 'ask',
+      },
     );
     await consumeSse(turn.turnId, callbacks);
   };

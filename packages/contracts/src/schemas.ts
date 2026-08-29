@@ -208,12 +208,16 @@ export const petCommandSchema = z.object({
 export const emoteEventDataSchema = petCommandSchema;
 
 /** 创建 Turn 请求体最小字段（§2.1） */
+export const toolApprovalModeSchema = z.enum(["ask", "full_access"]);
+
 export const createTurnRequestSchema = z.object({
   message: z.object({
     content: z.string().min(1),
     contentType: z.enum(["text", "markdown"]),
   }),
   clientVersion: z.string().min(1),
+  /** Turn 级工具授权策略；full_access 仅预授权普通写工具，不放行 privileged。 */
+  toolApprovalMode: toolApprovalModeSchema.default("ask"),
   references: z
     .array(
       z.object({

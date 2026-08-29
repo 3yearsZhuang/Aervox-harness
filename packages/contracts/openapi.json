@@ -92,6 +92,14 @@
             "type": "string",
             "minLength": 1
           },
+          "toolApprovalMode": {
+            "type": "string",
+            "enum": [
+              "ask",
+              "full_access"
+            ],
+            "default": "ask"
+          },
           "references": {
             "type": "array",
             "items": {
@@ -4142,6 +4150,14 @@
                   "clientVersion": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "toolApprovalMode": {
+                    "type": "string",
+                    "enum": [
+                      "ask",
+                      "full_access"
+                    ],
+                    "default": "ask"
                   },
                   "references": {
                     "type": "array",

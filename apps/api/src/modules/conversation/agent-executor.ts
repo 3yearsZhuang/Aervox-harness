@@ -36,8 +36,104 @@ import type { SqliteConversationRepository, TenantContext } from "@aervox/databa
 import { loadApiConfig } from "@aervox/config";
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
+import { getRequestToolApprovalMode } from "../../shared/tool-approval-policy.js";
 
 /** SqliteExecutionStore 组合根适配由 @aervox/host-agent 提供（见上方 import），API 不再自维护 SQLite 执行存储 */
+
+/** 自动授权决策人前缀；显式授权查询排除该类记录，避免关闭完全访问后泄漏。 */
+export const FULL_ACCESS_DECIDER_PREFIX = "permission:full_access:";
+
+type ToolApprovalRepository = Pick<
+  SqliteConversationRepository,
+  "recordToolApproval" | "decideToolApproval" | "findGrantedToolApproval"
+>;
+
+async function findExplicitToolApproval(
+  repo: ToolApprovalRepository,
+  tenant: TenantContext,
+  input: { toolName: string; argumentsHash: string },
+) {
+  return repo.findGrantedToolApproval(tenant, {
+    ...input,
+    excludeDecidedByPrefix: FULL_ACCESS_DECIDER_PREFIX,
+  });
+}
+
+async function recordFullAccessApproval(
+  repo: ToolApprovalRepository,
+  tenant: TenantContext,
+  input: {
+    turnId: string;
+    attemptId: string;
+    toolName: string;
+    argumentsHash: string;
+    toolVersion?: string | null;
+  },
+): Promise<boolean> {
+  const approval = await repo.recordToolApproval(tenant, {
+    ...input,
+    requester: tenant.subjectUserId,
+    state: "pending",
+  });
+  const actor = tenant.actorId ?? tenant.subjectUserId;
+  const granted = await repo.decideToolApproval(
+    tenant,
+    approval.id,
+    "granted",
+    `${FULL_ACCESS_DECIDER_PREFIX}${actor}`,
+  );
+  return granted !== null;
+}
+
+/**
+ * 给静态 Contribution 工具补齐通用写工具授权门：
+ * readOnly 直接执行；写工具命中显式授权或本 Turn 完全访问后执行。
+ */
+export function createApprovalGatedToolProvider(
+  provider: ToolProviderPort,
+  tenant: TenantContext,
+  repo: ToolApprovalRepository,
+): ToolProviderPort {
+  const specs = new Map(provider.tools.map((tool) => [tool.name, tool]));
+  return {
+    tools: provider.tools,
+    async execute(input: ToolExecutionInput): Promise<ToolExecutionResult> {
+      const spec = specs.get(input.name);
+      if (!spec || spec.readOnly) return provider.execute(input);
+
+      const argumentsHash = stableStringify(input.arguments);
+      const granted = await findExplicitToolApproval(repo, tenant, {
+        toolName: input.name,
+        argumentsHash,
+      });
+      if (granted) return provider.execute(input);
+
+      if (getRequestToolApprovalMode(tenant) === "full_access") {
+        const recorded = await recordFullAccessApproval(repo, tenant, {
+          turnId: input.turnId,
+          attemptId: input.attemptId,
+          toolName: input.name,
+          argumentsHash,
+        });
+        if (!recorded) return { ok: false, error: "full_access_approval_not_recorded" };
+        return provider.execute(input);
+      }
+
+      const approval = await repo.recordToolApproval(tenant, {
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        toolName: input.name,
+        argumentsHash,
+        requester: tenant.subjectUserId,
+        state: "pending",
+      });
+      return {
+        ok: false,
+        needsApproval: { approvalId: approval.id, toolName: input.name, argumentsHash },
+      };
+    },
+  };
+}
 
 /**
  * 把主仓 ToolRuntime（tool_registrations + handler）适配为 agent-loop 的 ToolProviderPort：
@@ -75,11 +171,31 @@ export function createRuntimeToolProvider(
       // privileged 与 write 同流程；「仅管理员可批准」由路由 decideToolApproval 的管理员校验把关（3b）。
       if (tool.safetyLevel === "write_with_approval" || tool.safetyLevel === "privileged") {
         const hash = stableStringify(input.arguments);
-        const granted = await deps.conversationRepo.findGrantedToolApproval(tenant, {
+        const granted = await findExplicitToolApproval(deps.conversationRepo, tenant, {
           toolName: tool.name,
           argumentsHash: hash,
         });
         if (granted) {
+          try {
+            const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: true });
+            return { ok: true, output };
+          } catch (err) {
+            return { ok: false, error: errorMessage(err) };
+          }
+        }
+        // 完全访问只预授权普通写工具；privileged 仍必须经独立管理员通道。
+        if (
+          tool.safetyLevel === "write_with_approval" &&
+          getRequestToolApprovalMode(tenant) === "full_access"
+        ) {
+          const recorded = await recordFullAccessApproval(deps.conversationRepo, tenant, {
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            toolName: tool.name,
+            argumentsHash: hash,
+            toolVersion: tool.updatedAt,
+          });
+          if (!recorded) return { ok: false, error: "full_access_approval_not_recorded" };
           try {
             const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: true });
             return { ok: true, output };
@@ -295,22 +411,21 @@ export async function runLoopTurnOnce(
   if (deps.userQuestionPort) {
     contribution.push(createAskUserQuestionToolProvider({ userQuestionPort: deps.userQuestionPort }));
   }
-  let tools: ToolProviderPort | undefined;
-  if (deps.toolRuntime) {
-    const runtimeProvider = createRuntimeToolProvider(deps.toolRuntime, tenant, { conversationRepo: repo });
-    tools =
-      contribution.length > 0
-        ? composeToolProviders(contribution, { fallback: runtimeProvider })
-        : runtimeProvider;
-  } else if (contribution.length > 0) {
-    tools = composeToolProviders(contribution);
-  }
+  const contributionProvider =
+    contribution.length > 0
+      ? createApprovalGatedToolProvider(composeToolProviders(contribution), tenant, repo)
+      : undefined;
+  const runtimeProvider = deps.toolRuntime
+    ? createRuntimeToolProvider(deps.toolRuntime, tenant, { conversationRepo: repo })
+    : undefined;
+  const tools = contributionProvider && runtimeProvider
+    ? composeToolProviders([contributionProvider], { fallback: runtimeProvider })
+    : contributionProvider ?? runtimeProvider;
   // 识别当前消息是否带学习模式前缀或标识，动态决定是否注入学习模式专属 Prompt
   const isStudyMode =
     input.userMessage.includes("[模式：学习模式]") ||
     input.userMessage.includes("[模式：陪学讲解]") ||
     input.userMessage.includes("[模式：深度拆解]");
-
   // 5b：默认启用 Base System Prompt（含核心工具指引）与 Skill 渐进披露；压缩 seam 默认关闭，
   // 设置 AERVOX_LOOP_COMPACTION=rule 启用内置规则式摘要。
   const contextBuilder = createComposedContextBuilder({

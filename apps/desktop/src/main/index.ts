@@ -9,7 +9,11 @@ function isTheme(value: unknown): value is 'light' | 'dark' {
     return value === 'light' || value === 'dark'
 }
 
-function isTurnRequest(value: unknown): value is {requestId: string; content: string} {
+function isTurnRequest(value: unknown): value is {
+    requestId: string
+    content: string
+    toolApprovalMode?: 'ask' | 'full_access'
+} {
     if (!value || typeof value !== 'object') return false
     const request = value as Record<string, unknown>
     return typeof request.requestId === 'string'
@@ -17,11 +21,15 @@ function isTurnRequest(value: unknown): value is {requestId: string; content: st
         && typeof request.content === 'string'
         && request.content.trim().length > 0
         && request.content.length <= 20_000
+        && (request.toolApprovalMode === undefined
+            || request.toolApprovalMode === 'ask'
+            || request.toolApprovalMode === 'full_access')
 }
 
 async function streamAervoxTurn(event: Electron.IpcMainEvent, payload: unknown) {
     if (!isTurnRequest(payload)) return
     const {requestId, content} = payload
+    const toolApprovalMode = payload.toolApprovalMode ?? 'ask'
     const apiBaseUrl = (process.env.AERVOX_API_URL ?? 'http://127.0.0.1:3000').replace(/\/$/, '')
     const sessionId = process.env.AERVOX_SESSION_ID?.trim()
     const send = (message: Record<string, unknown>) => {
@@ -46,6 +54,7 @@ async function streamAervoxTurn(event: Electron.IpcMainEvent, payload: unknown) 
             body: JSON.stringify({
                 message: {content, contentType: 'text'},
                 clientVersion: '@aervox/desktop/0.2.0',
+                toolApprovalMode,
                 references: [],
             }),
         })

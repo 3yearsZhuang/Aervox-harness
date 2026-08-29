@@ -5,7 +5,7 @@
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
-> 文档版本：v1.0
+> 文档版本：v1.1
 > 文档状态：评审候选（Review Candidate）  
 > 更新日期：2026-08-29
 > 产品需求来源：[PRD.md](PRD.md)
@@ -233,6 +233,8 @@
 
 | Agent Harness Loop 阶段 3b：privileged 管理员通道 | CAP-002/007/020 + 基础设施 | `apps/api`（`createRuntimeToolProvider` privileged 收敛为授权命中→执行/未批准→待决；`POST /v1/turns/:id/tool-approvals` 管理员校验 `x-admin-user-id` ∈ `AERVOX_ADMIN_IDS` 否则 403；`scripted-privileged` Provider 脚本；`API_PRIVILEGED_SCRIPT`）、`packages/database`（`getToolApproval`）、`docs/reference/agent-harness-loop.md`（§16.10） | 2026-08-28 | `@aervox/api` 101（conversation-privileged 3：未批准待决/非管理员 403/管理员 grant 执行）；`@aervox/database` 122；ci-code 全量 | 原生 |
 
+| Turn 级完全访问开关（CR-022：普通写工具预授权 + privileged 管理员门保留） | CAP-002/007/020 + 基础设施 | `packages/contracts`（`toolApprovalModeSchema`）、`apps/api/src/shared/tool-approval-policy.ts`、`apps/api/src/modules/conversation/agent-executor.ts`（动态 ToolRuntime + 静态 Contribution 授权门）、`packages/database/src/repositories/sqlite/conversation-repository.ts`（排除自动授权前缀）、`packages/api-client/src/`、`packages/ui/src/components/AervoxWorkbench.vue`、`apps/desktop/src/{main,preload,renderer}/` | 2026-08-29 | `@aervox/api` 233（`conversation-approval` 4、`conversation-privileged` 4、`tool-approval-policy` 2）；`@aervox/api-client` 15（`transport` 2，含 `full_access` 请求体透传）；Contracts/API/API Client/UI/Desktop typecheck；OpenAPI 生成；ci-code/ci-docs | 原生 |
+
 | Agent Harness Loop 阶段 3c：恢复裁决基础设施（decideResume + findResumeCandidates） | CAP-002/007 + 基础设施 | `packages/agent-loop/src/resume.ts`（`decideResume` 纯函数：最后工具批次全 executed 且无终态→resume；终态/混合/未知/无结果收敛）、`packages/database`（`findResumeCandidates`：过期 Running + executed 工具 + 无 done）、`apps/worker`（recovery cycle 候选观测日志，行为不变）、`docs/reference/agent-harness-loop.md`（§16.11） | 2026-08-28 | `@aervox/agent-loop` 56（resume-decision 6 矩阵）；`@aervox/database` 125（候选 3：命中/终态排除/未知排除）；`ci-code` 全量。**续跑执行接线待阶段 4 host-agent** | 原生 |
 
 | Agent Harness Loop 阶段 4a：内嵌异步 Host + SQLite ExecutionStore 迁移 + Observability 注入 | CAP-002/007 + 基础设施 | `packages/host-agent`（`sqlite-execution-store.ts`：自 apps/api 迁移的组合根适配，API 同步路径与异步 Host 共用；`agent-host.ts`：轮询/claim 委托 executeTurn/并发上限+背压/优雅停机 drain/processed/running；`agent-host` 接 `@aervox/observability`：turn.completed、fencing.denials、duration_ms 直方图、审计 entry，Noop 兜底不抛错）、`apps/api`（`agent-executor.ts` 删除本地 130 行 SqliteExecutionStore 副本，改引 `@aervox/host-agent`）、`docs/reference/agent-harness-loop.md`（§16.12） | 2026-08-28 | `@aervox/host-agent` 12（agent-host 6：轮询/背压/CAS 跳过/drain/观测打点×2；store 冒烟 3）；`@aervox/api` 101 无回归；ci-code 全量 | 原生 |
@@ -424,6 +426,7 @@ DoR 不允许以“开发中再确定”代替。确需并行探索的内容应�
 | `DATA-MEM-001` | 记忆来源链与投影 | CAP-005 | `Specified` | [PRD 数据规则](PRD.md#prd-data) | `AC-DATA-MEM-001` | `TC-INTEG-MEM-001` |
 | `DATA-DIA-001` | 日记版本/来源/缓冲 | CAP-009 | `Specified` | [PRD 数据模型](PRD.md#prd-data) | `AC-DATA-DIA-001` | `TC-INTEG-DIA-001` |
 | `FR-STREAM-001` | Turn 流式响应、恢复与取消 | CAP-002/007/008 | `Specified` | [SRS 流式需求](SRS.md#srs-fr-stream)、[流式协议](STREAMING_PROTOCOL.md) | `AC-FR-STREAM-001-01～05` | `TC-CONTRACT-STREAM-001`、`TC-RES-STREAM-001`、`TC-SEC-STREAM-001`、`TC-E2E-STREAM-001` |
+| `BR-CONV-001` | 工具执行授权与完全访问边界 | CAP-002/007/020 | `Specified` | [SRS 代码执行边界](SRS.md#br-conv-001-代码执行边界)、[CR-022](changes/CR-022-full-access-tool-permission.md)、[Agent Harness Loop §9](agent-harness-loop.md#9-工具执行管线) | `AC-BR-CONV-001-01～06` | `TC-SEC-CONV-001`、`TC-RES-CONV-001`、`TC-API-CONV-APPROVAL-001`、`TC-API-CONV-PRIV-001`、`TC-E2E-CONV-PERM-001` |
 | `FR-PRC-001` | 练习题组、作答判定与错题派生 | CAP-003/004 | `Specified` | [SRS 练习需求](SRS.md#fr-prc-001-练习判定与错题)、[CR-008](changes/CR-008-practice-session-contract.md) | `AC-FR-PRC-001-01～07` | `TC-UNIT-PRC-001`、`TC-API-PRC-001`、`TC-INTEG-PRC-001`、`TC-E2E-PRC-001` |
 | `DATA-STREAM-001` | Turn 事件保留、撤回与删除 | CAP-002/007/008/013 | `Specified` | [SRS 跨域规则](SRS.md#srs-data-stream)、[流式协议](STREAMING_PROTOCOL.md#5-重连保留与断点恢复) | `AC-DATA-STREAM-001-01～02` | `TC-PRIV-STREAM-001`、`TC-INTEG-STREAM-RET-001` |
 | `DATA-DEL-001` | 删除传播与账本 | CAP-005/009/013/026/027 | `Specified` | [删除 SLA](DATA_PRIVACY.md#privacy-deletion-sla) | `AC-DATA-DEL-001` | `TC-PRIV-DEL-001` |
@@ -524,6 +527,7 @@ DoR 不允许以“开发中再确定”代替。确需并行探索的内容应�
 | `RISK-009` | 参考代码、生成内容、题库、论文或市场内容侵权 | `CAP-011/020/021/023/024/029/031` | 3 | 4 | 12 | 许可证清单、来源记录、版权审核、下架和申诉流程 | Open |
 | `RISK-010` | 模型延迟、调用成本或供应商故障破坏核心体验 | `CAP-002/003/005/009/012` | 4 | 4 | 16 | 模型路由、预算、缓存、超时降级、限流和供应商替换 | Open |
 | `RISK-011` | P0-P3 范围持续扩张，导致核心闭环和安全基础延期 | `CAP-001`～`CAP-032` | 5 | 4 | 20 | 阶段基线、DoR、变更控制、容量预算和退出条件 | Open |
+| `RISK-012` | 完全访问被误开启，或自动授权在关闭后被跨模式复用，导致未确认写操作 | `CAP-002/007/020` | 3 | 5 | 15 | 默认关闭、风险确认、Turn 级快照、自动授权独立标记且关闭后排除、privileged 保留管理员门、双端可见状态 | Open |
 
 风险关闭必须提供风险已经消失或降低到可接受级别的证据。接受风险必须记录接受理由、有效期限和重新评估触发条件。
 

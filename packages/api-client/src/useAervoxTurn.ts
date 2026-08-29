@@ -8,6 +8,7 @@ import type {
   AskUserQuestionAnswerItem,
   PetCommand,
   TermsExtractedEventData,
+  ToolApprovalMode,
   UserQuestionRequiredEventData,
   TermExploreRequest,
   TermExploreResponse,
@@ -24,8 +25,12 @@ export interface StreamAervoxTurnCallbacks {
   onTermsExtracted?: (data: TermsExtractedEventData) => void;
 }
 
-export async function streamAervoxTurn(content: string, callbacks: StreamAervoxTurnCallbacks): Promise<void> {
-  await getTransport().streamTurn(getSessionId(), content, callbacks);
+export async function streamAervoxTurn(
+  content: string,
+  callbacks: StreamAervoxTurnCallbacks,
+  options: { toolApprovalMode?: ToolApprovalMode } = {},
+): Promise<void> {
+  await getTransport().streamTurn(getSessionId(), content, callbacks, options);
 }
 
 export async function submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[]): Promise<void> {
