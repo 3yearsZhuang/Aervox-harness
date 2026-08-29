@@ -45,6 +45,8 @@ import LLMConfigPanel from './llm/LLMConfigPanel.vue'
 import UserQuestionComposer from './UserQuestionComposer.vue'
 import TermExploreDialog from './TermExploreDialog.vue'
 import { renderMarkdown } from '../utils/markdown'
+import { petReact } from '../live2d/petReactions'
+import { MizukiExpression, MizukiMotion } from '../live2d/model'
 
 type Platform = 'desktop' | 'web'
 type Speaker = 'assistant' | 'user'
@@ -215,13 +217,44 @@ const menuItems: Array<{ id: string; label: string; icon: Component; action: () 
   {id: 'settings', label: '设置', icon: Settings, action: () => {settingsOpen.value = true}},
 ]
 
+/** Live2D 操作反馈动作池：按语义挑选 Mizuki 动作子集，随机取用避免重复 */
+const PET_MOTION_POOLS = {
+  glad: [MizukiMotion.w_cute_glad01, MizukiMotion.w_cute_glad03, MizukiMotion.w_adult_glad01, MizukiMotion.w_happy_glad01, MizukiMotion.w_normal_glad01],
+  nod: [MizukiMotion.w_cute_nod01, MizukiMotion.w_normal_nod01, MizukiMotion.w_adult_nod01, MizukiMotion.w_happy_nod01],
+  think: [MizukiMotion.w_adult_think01, MizukiMotion.w_adult_think02],
+  shake: [MizukiMotion.w_normal_shakehead01, MizukiMotion.w_happy_shakehead01, MizukiMotion.w_cute_shakehead01],
+  greet: [MizukiMotion.w_normal_greeting01, MizukiMotion.w_cute_poseforward02],
+  forward: [MizukiMotion.w_cute_forward01, MizukiMotion.w_normal_forward01, MizukiMotion.w_happy_forward01],
+  tilthead: [MizukiMotion.w_normal_tilthead01, MizukiMotion.w_cute_tilthead01, MizukiMotion.w_adult_tilthead01],
+  sad: [MizukiMotion.w_normal_sad01, MizukiMotion.w_happy_sad01, MizukiMotion.w_cool_sad01],
+} as const
+
+type PetReactionKind = keyof typeof PET_MOTION_POOLS
+
+/** 按语义派发桌宠反馈：动作 + 表情 + 看向目标 + 说话 */
+function petReactKind(kind: PetReactionKind, options: {expression?: MizukiExpression; lookAtEl?: string | Element; speak?: string; lookDuration?: number} = {}) {
+  const pool = PET_MOTION_POOLS[kind]
+  petReact({
+    motion: pool[Math.floor(Math.random() * pool.length)],
+    expression: options.expression,
+    lookAtEl: options.lookAtEl,
+    lookDuration: options.lookDuration,
+    speak: options.speak,
+  })
+}
+
 function toggleMenu() {
   menuOpen.value = !menuOpen.value
+  if (menuOpen.value) petReactKind('greet', {lookAtEl: '.menu-pill', lookDuration: 3200})
+  else petReactKind('nod')
 }
 
 /** 收起态点击胶囊任意区域（含边缘空白）均可展开 */
 function handlePillClick() {
-  if (!menuOpen.value) menuOpen.value = true
+  if (!menuOpen.value) {
+    menuOpen.value = true
+    petReactKind('greet', {lookAtEl: '.menu-pill', lookDuration: 3200})
+  }
 }
 
 function runMenuAction(action: () => void) {
@@ -257,9 +290,24 @@ const latestAssistantLine = computed<StoryLine | null>(() => {
 const historyViewport = ref<HTMLElement | null>(null)
 
 watch(historyOpen, async (open) => {
-  if (!open) return
-  await nextTick()
-  historyViewport.value?.scrollTo({top: historyViewport.value.scrollHeight})
+  if (open) {
+    petReactKind('think', {expression: MizukiExpression.face_notice_01, lookAtEl: '.history-overlay', lookDuration: 3200})
+    await nextTick()
+    historyViewport.value?.scrollTo({top: historyViewport.value.scrollHeight})
+  } else {
+    petReactKind('nod')
+  }
+})
+
+/** 设置弹窗开合的桌宠反馈：开启时看向弹窗、关闭时点头 */
+watch(settingsOpen, async (open) => {
+  if (open) {
+    petReactKind('tilthead', {expression: MizukiExpression.face_notice_01})
+    await nextTick()
+    petReact({lookAtEl: '.el-dialog.settings-dialog', lookDuration: 3600})
+  } else {
+    petReactKind('nod')
+  }
 })
 
 function handleHistoryEscape(event: KeyboardEvent) {
@@ -284,8 +332,11 @@ async function sendMessage(value = input.value) {
   input.value = ''
   streaming.value = true
   activeQuestion.value = null
+  petReactKind('think', {lookAtEl: '.message-panel'})
   await scrollStoryToBottom()
 
+  /** 流式期间每 1.2s 驱动一次口型，让桌宠"开口说话" */
+  let lastSpeakAt = 0
   try {
     await streamAervoxTurn(
       outgoing,
@@ -293,11 +344,17 @@ async function sendMessage(value = input.value) {
         onDelta: (delta) => {
           assistantLine.text += delta
           void scrollStoryToBottom()
+          const now = Date.now()
+          if (now - lastSpeakAt > 1200 && delta.trim()) {
+            lastSpeakAt = now
+            petReact({speak: delta})
+          }
         },
         onDone: () => {
           assistantLine.state = 'complete'
           activeQuestion.value = null
           if (!assistantLine.text) assistantLine.text = '这次没有收到可展示的回答，请再试一次。'
+          petReactKind('glad', {expression: MizukiExpression.face_smile_01, speak: assistantLine.text})
         },
         onUserQuestion: (qData) => {
           activeQuestion.value = qData
@@ -313,6 +370,7 @@ async function sendMessage(value = input.value) {
   } catch (error) {
     assistantLine.state = 'error'
     assistantLine.text = error instanceof Error ? `连接失败：${error.message}` : '连接失败，请稍后重试。'
+    petReactKind('sad', {expression: MizukiExpression.face_sad_01})
   } finally {
     streaming.value = false
     if (!input.value.trim()) composerOpen.value = false
@@ -335,6 +393,7 @@ async function handleQuestionSubmit(answers: AskUserQuestionAnswerItem[]) {
 
 function expandComposer() {
   composerOpen.value = true
+  petReactKind('tilthead', {lookAtEl: '.composer-dock'})
   void nextTick(() => composerTextarea.value?.focus())
 }
 
@@ -652,6 +711,8 @@ function nextPracticeQuestion() {
 
 function toggleTimer() {
   timerRunning.value = !timerRunning.value
+  if (timerRunning.value) petReactKind('nod', {expression: MizukiExpression.face_serious_01})
+  else petReactKind('tilthead', {expression: MizukiExpression.face_smile_01})
 }
 
 function resetTimer() {
@@ -775,12 +836,18 @@ function isCardPicked(id: CardId) {
   return cardSlots.value.includes(id)
 }
 
-function selectCard(slot: number, id: CardId | null) {
+function selectCard(slot: number, id: CardId | null, event?: MouseEvent) {
   cardSlots.value = cardSlots.value.map((current, index) => index === slot ? id : current)
   localStorage.setItem('aervox-side-cards', JSON.stringify(cardSlots.value))
+  // 桌宠反馈：看向被操作的那个卡片槽位，选功能时开心、移除时摇头
+  const slotEl = (event?.target as HTMLElement | null)?.closest?.('.side-card-slot') ?? undefined
+  if (id) petReactKind('glad', {expression: MizukiExpression.face_smile_03, lookAtEl: slotEl, lookDuration: 3600})
+  else petReactKind('shake', {expression: MizukiExpression.face_trouble_01, lookAtEl: slotEl})
 }
 
-function activateCard(card: CardDefinition) {
+function activateCard(card: CardDefinition, event?: MouseEvent | KeyboardEvent) {
+  const cardEl = (event?.currentTarget as HTMLElement | null)?.closest?.('.side-card') ?? undefined
+  petReactKind('forward', {expression: MizukiExpression.face_notice_01, lookAtEl: cardEl})
   card.action()
 }
 
@@ -832,6 +899,8 @@ async function toggleVoiceInput() {
 
 function toggleStudyMode() {
   studyModeEnabled.value = !studyModeEnabled.value
+  if (studyModeEnabled.value) petReactKind('glad', {expression: MizukiExpression.face_smile_01, lookAtEl: '.floating-study-switch-wrap'})
+  else petReactKind('shake', {expression: MizukiExpression.face_normal_01, lookAtEl: '.floating-study-switch-wrap'})
   if (!studyModeEnabled.value) {
     currentExtractedTerms.value = []
     exploreDialogOpen.value = false
@@ -1012,8 +1081,8 @@ onUnmounted(() => {
             role="region"
             tabindex="0"
             :aria-label="`打开${card.label}`"
-            @click="activateCard(card)"
-            @keydown.enter="activateCard(card)"
+            @click="activateCard(card, $event)"
+            @keydown.enter="activateCard(card, $event)"
           >
             <header class="side-card-head">
               <span class="side-card-icon"><component :is="card.icon" :size="24" /></span>
@@ -1021,7 +1090,7 @@ onUnmounted(() => {
                 <strong>{{ card.label }}</strong>
                 <small>{{ card.description }}</small>
               </span>
-              <button class="side-card-remove" type="button" aria-label="移除此卡片" @click.stop="selectCard(slotIndex, null)">
+              <button class="side-card-remove" type="button" aria-label="移除此卡片" @click.stop="selectCard(slotIndex, null, $event)">
                 <X :size="15" />
               </button>
             </header>
@@ -1048,7 +1117,7 @@ onUnmounted(() => {
               type="button"
               class="side-card-grid-item"
               :disabled="isCardPicked(option.id)"
-              @click="selectCard(slotIndex, option.id)"
+              @click="selectCard(slotIndex, option.id, $event)"
             >
               <component :is="option.icon" :size="15" />
               <span>{{ option.label }}</span>

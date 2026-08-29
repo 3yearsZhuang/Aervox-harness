@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import type { PetCommand } from '@aervox/contracts'
 import { AervoxLive2DController } from '../live2d/controller'
+import { PET_REACT_EVENT, resolveLookAtElement, type PetReactionDetail } from '../live2d/petReactions'
 import { DEFAULT_AERVOX_MODEL, MIZUKI_EXPRESSIONS, MIZUKI_MOTIONS, type Live2DPose } from '../live2d/model'
 
 const canvasHost = ref<HTMLDivElement | null>(null)
@@ -16,6 +17,12 @@ function exposeApi() {
     playMotion: (motion: string) => controller?.playNamedMotion('Motion', motion) ?? false,
     playExpression: (expression: string) => controller?.playFacialByName(expression),
     playPose: (pose: Live2DPose) => controller?.playPose(pose),
+    lookAt: (target: string | Element) => {
+      const element = resolveLookAtElement(target)
+      if (!element) return
+      const rect = element.getBoundingClientRect()
+      controller?.focusViewportPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+    },
   }
 }
 
@@ -26,6 +33,30 @@ function onCommand(command: PetCommand) {
   if (command.type === 'react') controller.playFirstAvailableMotion(/react|tap|touch|idle/i)
   if (command.type === 'speak' && command.text) controller.speakText(command.text)
   if (command.type === 'move' && typeof command.x === 'number' && typeof command.y === 'number') controller.setFocus(command.x, command.y)
+}
+
+/**
+ * 操作反馈：动作 + 表情 + 看向目标元素 + 说话口型。
+ * 视线不做全程鼠标跟随（快速移动会鬼畜），只在用户操作（如点击卡片）时看向对应元素，
+ * 到时后回到中心，待机期间由控制器做轻微视线游移。
+ */
+const handlePetReact = (event: Event) => {
+  const detail = (event as CustomEvent<PetReactionDetail>).detail
+  if (!controller || !detail) return
+  const element = resolveLookAtElement(detail.lookAtEl)
+  if (element) {
+    const rect = element.getBoundingClientRect()
+    const duration = detail.lookDuration ?? 2600
+    controller.focusViewportPoint(rect.left + rect.width / 2, rect.top + rect.height / 2, duration)
+    if (duration > 0) {
+      window.setTimeout(() => {
+        controller?.focusViewportCenter()
+      }, duration)
+    }
+  }
+  if (detail.motion) controller.playNamedMotion('Motion', detail.motion)
+  if (detail.expression) controller.playFacialByName(detail.expression)
+  if (detail.speak) controller.speakText(detail.speak)
 }
 
 onMounted(async () => {
@@ -42,9 +73,11 @@ onMounted(async () => {
     console.warn('[Aervox] Live2D unavailable; using fallback', error)
     status.value = 'error'
   }
+  window.addEventListener(PET_REACT_EVENT, handlePetReact)
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener(PET_REACT_EVENT, handlePetReact)
   controller?.destroy()
   controller = null
   if (typeof window !== 'undefined') delete (window as Window & { aervoxLive2D?: unknown }).aervoxLive2D
