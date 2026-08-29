@@ -5,7 +5,7 @@
  * - delegate 端到端：创建独立子 turn/attempt 落库（可审计），嵌套执行后终态 Completed、
  *   子任务正文（delta）聚合回 resultText，subagent_runs 行收口；
  * - 幂等：同父执行键（parentAttemptId + parentExecutionId）重复 delegate 复用既有子任务；
- * - 递归防护：childTools 含 subagent.delegate/workflow.run 时 fail-closed 拒绝；
+ * - 递归防护：childTools 含 subagent_delegate/workflow_run 时 fail-closed 拒绝；
  * - 子任务失败（工具环境缺失 fail-closed）：run 行 Failed + error。
  */
 import { beforeEach, describe, expect, it } from "vitest";
@@ -94,7 +94,7 @@ describe("SqliteSubagentPort（子任务委托执行器）", () => {
     expect(attempts.filter((a) => a.status === "Running" || a.status === "Completed")).toHaveLength(1);
   });
 
-  it("递归防护：childTools 含 subagent.delegate 时 delegate 拒绝（fail-closed）", async () => {
+  it("递归防护：childTools 含 subagent_delegate 时 delegate 拒绝（fail-closed）", async () => {
     const subagent = createSqliteSubagentPort({
       tenant,
       store: new SqliteExecutionStore(repo, tenant),
@@ -109,7 +109,7 @@ describe("SqliteSubagentPort（子任务委托执行器）", () => {
         },
       },
     });
-    await expect(subagent.delegate(delegateInput)).rejects.toThrow(/must not contain subagent.delegate/);
+    await expect(subagent.delegate(delegateInput)).rejects.toThrow(/must not contain subagent_delegate/);
     // 拒绝发生在落库前：无子任务产生
     await expect(runRepo.listRunsByTurn(tenant, "turn_parent")).resolves.toEqual([]);
   });

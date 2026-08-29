@@ -3,7 +3,7 @@
  *
  * 覆盖 AVX-HAR-001 §13 阶段 5c + ADR-017「独立 Tool/Provider Contribution、不改核心」：
  * - composeToolProviders：多 provider 并集合并；重名组装期报错；execute 按名路由；未命中 fail-closed；
- * - createSubagentToolProvider：缺省无工具（退化安全）；暴露 `subagent.delegate`（写类）并委托 SubagentPort；
+ * - createSubagentToolProvider：缺省无工具（退化安全）；暴露 `subagent_delegate`（写类）并委托 SubagentPort；
  *   执行失败/输入非法以既有 tool_result 失败语义返回；
  * - createWorkflowToolProvider：TS 步骤定义顺序执行、输出传递；步骤失败定位收敛；未注册 workflow fail-closed。
  */
@@ -86,7 +86,7 @@ describe("5c createSubagentToolProvider", () => {
     expect(createSubagentToolProvider().tools).toEqual([]);
   });
 
-  it("注入后暴露 subagent.delegate（写类 readOnly=false），委托成功透传子任务结果", async () => {
+  it("注入后暴露 subagent_delegate（写类 readOnly=false），委托成功透传子任务结果", async () => {
     const calls: Array<{ task: string; executionId: string }> = [];
     const subagent: SubagentPort = {
       async delegate(input) {
@@ -159,7 +159,7 @@ describe("5c createWorkflowToolProvider", () => {
     expect(createWorkflowToolProvider([]).tools).toEqual([]);
   });
 
-  it("贡献 workflow.run（写类）并顺序执行、步骤输出传递", async () => {
+  it("贡献 workflow_run（写类）并顺序执行、步骤输出传递", async () => {
     const provider = createWorkflowToolProvider(defs);
     expect(provider.tools).toEqual([expect.objectContaining({ name: WORKFLOW_RUN_TOOL, readOnly: false })]);
     await expect(provider.execute(call(WORKFLOW_RUN_TOOL, { name: "chain", input: 3 }))).resolves.toEqual({

@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/database — Subagent 运行关联（subagent_runs）
  *
  * 规则依据：AVX-HAR-001 §13 阶段 5 / 5c「Subagent/Workflow Contribution」：
- * - Leader Loop 在 Step 调用 `subagent.delegate`，宿主创建独立子 turn/attempt 落库（可审计/恢复）；
+ * - Leader Loop 在 Step 调用 `subagent_delegate`，宿主创建独立子 turn/attempt 落库（可审计/恢复）；
  * - 本表承载父子关联（parentAttemptId + parentExecutionId 幂等，崩溃/重试不重复创建子任务）
  *   与结果摘要（子任务完整事件在子 turn 下审计，不入本表）；
  * - 租户隔离与既有域一致（workspace_id + subject_user_id）。

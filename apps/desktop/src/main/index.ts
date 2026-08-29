@@ -1,5 +1,6 @@
 import {app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, screen} from 'electron'
 import {join} from 'node:path'
+import {resolveDesktopSessionId} from './runtime-config.js'
 
 let mainWindow: BrowserWindow | null = null
 let petWindow: BrowserWindow | null = null
@@ -31,13 +32,12 @@ async function streamAervoxTurn(event: Electron.IpcMainEvent, payload: unknown) 
     const {requestId, content} = payload
     const toolApprovalMode = payload.toolApprovalMode ?? 'ask'
     const apiBaseUrl = (process.env.AERVOX_API_URL ?? 'http://127.0.0.1:3000').replace(/\/$/, '')
-    const sessionId = process.env.AERVOX_SESSION_ID?.trim()
+    const sessionId = resolveDesktopSessionId(process.env.AERVOX_SESSION_ID)
     const send = (message: Record<string, unknown>) => {
         if (!event.sender.isDestroyed()) event.sender.send('aervox:turn:event', {requestId, ...message})
     }
 
     try {
-        if (!sessionId) throw new Error('请先配置 AERVOX_SESSION_ID')
         const headers: Record<string, string> = {
             Accept: 'application/json',
             'Content-Type': 'application/json',

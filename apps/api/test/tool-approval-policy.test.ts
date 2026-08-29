@@ -45,7 +45,7 @@ describe("Turn 级工具授权策略", () => {
     await createTurn("turn_ask", "attempt_ask");
     const execute = vi.fn(async () => ({ ok: true, output: { done: true } }));
     const provider: ToolProviderPort = {
-      tools: [{ name: "workflow.run", description: "run", readOnly: false }],
+      tools: [{ name: "workflow_run", description: "run", readOnly: false }],
       execute,
     };
     setRequestToolApprovalMode(tenant, "ask");
@@ -54,11 +54,11 @@ describe("Turn 级工具授权策略", () => {
       turnId: "turn_ask",
       attemptId: "attempt_ask",
       invocationId: "call_ask",
-      name: "workflow.run",
+      name: "workflow_run",
       arguments: { name: "demo" },
     });
 
-    expect(result.needsApproval?.toolName).toBe("workflow.run");
+    expect(result.needsApproval?.toolName).toBe("workflow_run");
     expect(execute).not.toHaveBeenCalled();
     expect((await repo.listToolApprovalsByTurn(tenant, "turn_ask"))[0]?.state).toBe("pending");
   });
@@ -67,7 +67,7 @@ describe("Turn 级工具授权策略", () => {
     await createTurn("turn_full", "attempt_full");
     const execute = vi.fn(async () => ({ ok: true, output: { done: true } }));
     const provider: ToolProviderPort = {
-      tools: [{ name: "subagent.delegate", description: "delegate", readOnly: false }],
+      tools: [{ name: "subagent_delegate", description: "delegate", readOnly: false }],
       execute,
     };
     const gated = createApprovalGatedToolProvider(provider, tenant, repo);
@@ -77,7 +77,7 @@ describe("Turn 级工具授权策略", () => {
       turnId: "turn_full",
       attemptId: "attempt_full",
       invocationId: "call_full",
-      name: "subagent.delegate",
+      name: "subagent_delegate",
       arguments: { task: "demo" },
     });
 
@@ -93,7 +93,7 @@ describe("Turn 级工具授权策略", () => {
       turnId: "turn_ask_after",
       attemptId: "attempt_ask_after",
       invocationId: "call_ask_after",
-      name: "subagent.delegate",
+      name: "subagent_delegate",
       arguments: { task: "demo" },
     });
 
