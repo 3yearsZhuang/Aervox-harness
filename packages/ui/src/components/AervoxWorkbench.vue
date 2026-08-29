@@ -48,8 +48,8 @@ import {
   Volume2,
   X,
 } from 'lucide-vue-next'
-import {streamAervoxTurn, submitQuestionAnswers, uploadAervoxAttachment, useAervoxApi, useAervoxVoiceInput} from '@aervox/api-client'
-import type {AskUserQuestionAnswerItem, AttachmentPurpose, ExtractedTerm, ToolApprovalMode, TurnAttachmentRef, UserQuestionRequiredEventData} from '@aervox/contracts'
+import {decideToolApproval, streamAervoxTurn, submitQuestionAnswers, uploadAervoxAttachment, useAervoxApi, useAervoxVoiceInput} from '@aervox/api-client'
+import type {AskUserQuestionAnswerItem, AttachmentPurpose, ExtractedTerm, ToolApprovalMode, ToolApprovalRequiredEventData, TurnAttachmentRef, UserQuestionRequiredEventData} from '@aervox/contracts'
 import {allowedMediaTypesSchema, MAX_ATTACHMENT_SIZE} from '@aervox/contracts'
 import type {
   ProfileAuthorizationRequest,
@@ -141,6 +141,18 @@ const currentTurnId = ref<string | null>(null)
 // UQ-01: 侧边提问卡（第一槽临时覆盖）的本地多选暂存
 const questionCardSelected = ref<string[]>([])
 
+// PET-05: 写工具审批待决（授权后重发相同请求命中已授予权限）
+const pendingApproval = ref<(ToolApprovalRequiredEventData & { turnId: string; outgoing: string }) | null>(null)
+const approvalBusy = ref(false)
+const approvalToolLabels: Record<string, string> = {
+  aervox_diary_write: '把今天的日记写进日记本',
+  aervox_memory_store: '保存一条长期记忆',
+}
+const approvalToolLabel = computed(() => {
+  const name = pendingApproval.value?.toolName ?? ''
+  return approvalToolLabels[name] ?? `执行工具 ${name}`
+})
+
 // CAP-007 / CAP-002: 术语抽取与追问探索弹窗
 const currentExtractedTerms = ref<ExtractedTerm[]>([])
 const exploreDialogOpen = ref(false)
@@ -213,6 +225,7 @@ const {
   activePracticeSession,
   error: apiError,
 } = api
+const { loadTodayDiary } = api
 let nextStoryId = 2
 
 const isWeb = computed(() => props.platform === 'web')
@@ -623,7 +636,7 @@ function openTermExplore(term: ExtractedTerm) {
   exploreDialogOpen.value = true
 }
 
-async function sendMessage(value = input.value, options?: { quizMode?: boolean }) {
+async function sendMessage(value = input.value, options?: { quizMode?: boolean; resend?: boolean }) {
   const text = value.trim()
   if ((!text && pendingAttachments.value.length === 0) || streaming.value) return
 
@@ -653,12 +666,17 @@ async function sendMessage(value = input.value, options?: { quizMode?: boolean }
   const outgoing = modePrefix && !outgoingText.startsWith(modePrefix) ? modePrefix + outgoingText : outgoingText
 
   const assistantLine = createStoryLine('assistant', '', 'streaming')
-  const userLine = createStoryLine('user', displayText)
-  if (attachmentRefs.length > 0) {
-    userLine.attachments = pendingAttachments.value.map((item) => ({name: item.name, mediaType: item.mediaType, previewUrl: item.previewUrl}))
-    clearPendingAttachments()
+  // 授权重发不重复展示用户气泡（原文已在对话记录中）
+  if (options?.resend) {
+    story.value.push(assistantLine)
+  } else {
+    const userLine = createStoryLine('user', displayText)
+    if (attachmentRefs.length > 0) {
+      userLine.attachments = pendingAttachments.value.map((item) => ({name: item.name, mediaType: item.mediaType, previewUrl: item.previewUrl}))
+      clearPendingAttachments()
+    }
+    story.value.push(userLine, assistantLine)
   }
-  story.value.push(userLine, assistantLine)
   input.value = ''
   streaming.value = true
   activeQuestion.value = null
@@ -691,6 +709,8 @@ async function sendMessage(value = input.value, options?: { quizMode?: boolean }
           activeQuestion.value = null
           if (!assistantLine.text) assistantLine.text = '这次没有收到可展示的回答，请再试一次。'
           petReactKind('glad', {expression: MizukiExpression.face_smile_01, speak: assistantLine.text})
+          // CAP-009：对话触发可能已生成/改写日记，回合结束后刷新今日日记卡片
+          void loadTodayDiary()
         },
         onUserQuestion: (qData) => {
           activeQuestion.value = qData
@@ -701,6 +721,10 @@ async function sendMessage(value = input.value, options?: { quizMode?: boolean }
         },
         onTermsExtracted: (tData) => {
           currentExtractedTerms.value = tData.terms
+        },
+        onToolApproval: (aData) => {
+          pendingApproval.value = {...aData, outgoing}
+          void scrollStoryToBottom()
         },
       },
       {toolApprovalMode: toolApprovalMode.value, attachments: attachmentRefs},
@@ -713,6 +737,26 @@ async function sendMessage(value = input.value, options?: { quizMode?: boolean }
     streaming.value = false
     if (!input.value.trim()) composerOpen.value = false
     await scrollStoryToBottom()
+  }
+}
+
+/** PET-05：提交写工具授权决定；批准后重发相同请求命中已授予权限 */
+async function handleApprovalDecision(decision: 'granted' | 'denied') {
+  const pending = pendingApproval.value
+  if (!pending || approvalBusy.value) return
+  approvalBusy.value = true
+  try {
+    await decideToolApproval(pending.turnId, pending.approvalId, decision)
+    pendingApproval.value = null
+    if (decision === 'granted') {
+      await sendMessage(pending.outgoing, {resend: true})
+    } else if (streaming.value) {
+      streaming.value = false
+    }
+  } catch (err) {
+    console.error('提交授权决定失败', err)
+  } finally {
+    approvalBusy.value = false
   }
 }
 
@@ -1852,6 +1896,22 @@ onUnmounted(() => {
             :submitting="questionSubmitting"
             @submit="handleQuestionSubmit"
           />
+
+          <!-- PET-05: 写工具授权确认（如写日记落库前） -->
+          <div v-if="pendingApproval" class="tool-approval-card">
+            <div class="tool-approval-text">
+              <strong>{{ assistantDisplayName }}请求执行写操作</strong>
+              <span>{{ approvalToolLabel }} — 需要你的确认后才会执行。</span>
+            </div>
+            <div class="tool-approval-actions">
+              <button type="button" :disabled="approvalBusy" @click="handleApprovalDecision('granted')">
+                <Check :size="14" /> 批准
+              </button>
+              <button type="button" class="secondary" :disabled="approvalBusy" @click="handleApprovalDecision('denied')">
+                <X :size="14" /> 拒绝
+              </button>
+            </div>
+          </div>
 
           <!-- CAP-007 / CAP-002: 术语高亮芯片栏（仅在学习模式下展示） -->
           <div v-if="studyModeEnabled && currentExtractedTerms.length > 0 && !streaming" class="message-terms-bar">

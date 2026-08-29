@@ -888,6 +888,66 @@
   word-break: break-word;
 }
 
+/* PET-05: 写工具授权确认卡片（与消息流同栏） */
+.tool-approval-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(8px, 1vw, 14px);
+  padding: clamp(10px, 1.4vh, 14px) clamp(12px, 1.6vw, 16px);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--glass-bg);
+}
+
+.tool-approval-text {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.tool-approval-text strong {
+  color: var(--text-primary);
+  font-size: clamp(12px, 1.1vh, 14px);
+}
+
+.tool-approval-text span {
+  color: var(--text-secondary);
+  font-size: clamp(11px, 1vh, 13px);
+}
+
+.tool-approval-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.tool-approval-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 13px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--accent-contrast, #fff);
+  font-size: clamp(11px, 1vh, 13px);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tool-approval-actions button.secondary {
+  background: transparent;
+  border-color: var(--border-strong);
+  color: var(--text-secondary);
+}
+
+.tool-approval-actions button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+
 .message-line.user .message-speaker {
   color: var(--text-muted);
 }
