@@ -1,7 +1,7 @@
 # 从哪开始（新成员 / AI Agent 入口）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-29
+- 修改人：kikoyida · 2026-08-29
 
 > 文档编号：AVX-DOC-002  
 > 版本：v1.0
@@ -25,7 +25,7 @@ docs/
   templates/             # 新建文档模板（How-to / Reference / Explanation）
   reference/             # 参考类（AVX-PRD/SRS/SAD/TRC/SPC/DB/DATA/AIQ/SEC/QA/OPS 等）
     adr/                 # ADR-001~019 + 索引
-    changes/             # CR-002～024
+    changes/             # CR-002～026
     standards/           # 文档写作规范（AVX-STD-001）· 术语表（AVX-TERM-001）
     diagrams/            # 数据库 ERD（.mmd）
     PRD.md · ARCHITECTURE.md · SRS.md · REQUIREMENTS_TRACEABILITY.md
