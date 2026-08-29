@@ -293,7 +293,10 @@ export function createRuntimeToolProvider(
               authorization.action.id,
               async () => {
                 try {
-                  const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: true });
+                  const output = await runtime.callTool(tenant, tool.id, input.arguments, {
+                    approval: true,
+                    proactiveAuthorization: true,
+                  });
                   return { ok: true, output };
                 } catch (error) {
                   return { ok: false, error: errorMessage(error) };

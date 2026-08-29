@@ -2,6 +2,7 @@
 import {type Component, computed, nextTick, onMounted, onUnmounted, ref, watch} from 'vue'
 import {
   AlertTriangle,
+  Activity,
   Bell,
   BookOpen,
   BrainCircuit,
@@ -11,13 +12,17 @@ import {
   ChevronRight,
   ChevronUp,
   Clock3,
+  CalendarDays,
   Database,
   Download,
   FileText,
+  Gauge,
   Heart,
+  Home,
   History,
   Image as ImageIcon,
   LayoutGrid,
+  Link2,
   ListTodo,
   Menu,
   MessageCircle,
@@ -34,6 +39,7 @@ import {
   Plus,
   Puzzle,
   RotateCcw,
+  Route,
   RefreshCw,
   Send,
   Settings,
@@ -43,8 +49,11 @@ import {
   Sun,
   TimerReset,
   Trash2,
+  Users,
   Volume2,
+  Workflow,
   X,
+  Zap,
 } from 'lucide-vue-next'
 import {streamAervoxTurn, submitQuestionAnswers, uploadAervoxAttachment, useAervoxApi, useAervoxVoiceInput} from '@aervox/api-client'
 import type {AskUserQuestionAnswerItem, AttachmentPurpose, ExtractedTerm, ToolApprovalMode, TurnAttachmentRef, UserQuestionRequiredEventData} from '@aervox/contracts'
@@ -55,6 +64,9 @@ import type {
   ProfileDesiredState,
   ProfilePersistenceUpdate,
   ProactiveDesktopBridge,
+  ProactiveHealthSampleView,
+  ProactiveHomeEntityView,
+  ProactiveIntelligenceDashboard,
   ProactiveProfileClaimView,
   ProactiveProfileStatus,
 } from '@aervox/contracts/proactive'
@@ -178,6 +190,20 @@ const proactiveBackground = ref(true)
 const proactiveBusy = ref(false)
 const proactiveError = ref<string | null>(null)
 const proactiveNotice = ref<string | null>(null)
+const proactiveDashboard = ref<ProactiveIntelligenceDashboard | null>(null)
+const proactiveView = ref<'overview' | 'integrations'>('overview')
+const homeAssistantForm = ref({displayName: '家庭', endpoint: 'http://homeassistant.local:8123', accessToken: ''})
+const xiaomiHealthForm = ref({
+  displayName: '小米运动健康',
+  apiBaseUrl: '',
+  accessToken: '',
+  refreshToken: '',
+  tokenEndpoint: '',
+  clientId: '',
+  clientSecret: '',
+  dailyPath: '/v1/health/daily',
+})
+const homeEntityOpsDrafts = ref<Record<string, string>>({})
 const newTodo = ref('')
 const storyViewport = ref<HTMLElement | null>(null)
 const todos = ref<Array<{id: number; text: string; done: boolean}>>([])
@@ -222,6 +248,26 @@ function recordProactiveActivity(
   void proactiveBridge()?.recordActivity(source, {eventType, payloadText, metadata}).catch(() => undefined)
 }
 const proactiveActive = computed(() => proactiveStatus.value?.effectiveState === 'active')
+const homeAssistantConnections = computed(() => proactiveDashboard.value?.connections.filter((item) => item.provider === 'home_assistant') ?? [])
+const xiaomiHealthConnections = computed(() => proactiveDashboard.value?.connections.filter((item) => item.provider === 'xiaomi_health') ?? [])
+const homeAssistantEntities = computed(() => proactiveDashboard.value?.homeEntities ?? [])
+const proactiveIntelligenceCapabilities = computed(() => {
+  const dashboard = proactiveDashboard.value
+  return [
+    {id: 'timeline', label: '统一个人时间线', icon: History, count: dashboard?.timeline.length ?? 0},
+    {id: 'projects', label: '项目与意图图谱', icon: Route, count: dashboard?.projects.length ?? 0},
+    {id: 'workflows', label: '操作流程学习', icon: Workflow, count: dashboard?.workflows.length ?? 0},
+    {id: 'triggers', label: '情境主动触发', icon: Zap, count: dashboard?.triggers.length ?? 0},
+    {id: 'verification', label: '计划执行验证', icon: Check, count: dashboard?.verifications.length ?? 0},
+    {id: 'conflicts', label: '画像冲突纠正', icon: AlertTriangle, count: dashboard?.conflicts.length ?? 0},
+    {id: 'preparations', label: '主动准备包', icon: Sparkles, count: dashboard?.preparations.length ?? 0},
+    {id: 'attention', label: '注意力与疲劳', icon: Gauge, count: dashboard?.attention.length ?? 0},
+    {id: 'drift', label: '行为漂移检测', icon: Activity, count: dashboard?.drift.length ?? 0},
+    {id: 'relationships', label: '关系与沟通上下文', icon: Users, count: dashboard?.relationships.length ?? 0},
+    {id: 'scenes', label: '本地场景模型', icon: Home, count: dashboard?.scenes.length ?? 0},
+    {id: 'reviews', label: '每日与每周回顾', icon: CalendarDays, count: dashboard?.reviews.length ?? 0},
+  ]
+})
 const accessChipLabel = computed(() => proactiveActive.value ? '主动智能模式' : toolApprovalMode.value === 'full_access' ? '完全访问' : '操作需确认')
 const accessChipIcon = computed(() => proactiveActive.value ? BrainCircuit : toolApprovalMode.value === 'full_access' ? ShieldAlert : ShieldCheck)
 // Web always presents its companion; the desktop-only preference must not
@@ -690,18 +736,164 @@ async function refreshProactiveStatus() {
     return
   }
   try {
-    const [status, claims] = await Promise.all([
+    const [status, claims, dashboard] = await Promise.all([
       bridge.getStatus(toolApprovalMode.value),
       bridge.listClaims().catch(() => []),
+      bridge.getIntelligenceDashboard().catch(() => null),
     ])
     proactiveStatus.value = status
     proactiveClaims.value = claims
+    proactiveDashboard.value = dashboard
+    if (dashboard) {
+      homeEntityOpsDrafts.value = Object.fromEntries(
+        dashboard.homeEntities.map((entity) => [entity.id, entity.allowedOps.join(', ')]),
+      )
+    }
     proactiveAutostart.value = proactiveStatus.value.persistence.autostart
     proactiveBackground.value = proactiveStatus.value.persistence.background
     proactiveError.value = null
   } catch (error) {
     proactiveError.value = error instanceof Error ? error.message : '无法读取主动智能状态'
   }
+}
+
+function integrationTime(value: string | null | undefined): string {
+  if (!value) return '尚未同步'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString('zh-CN', {hour12: false})
+}
+
+function healthMetricLabel(sample: ProactiveHealthSampleView): string {
+  return {
+    steps: '步数',
+    sleep_minutes: '睡眠',
+    resting_heart_rate: '静息心率',
+  }[sample.metric] ?? sample.metric
+}
+
+function healthMetricValue(sample: ProactiveHealthSampleView): string {
+  if (sample.metric === 'sleep_minutes') return `${Math.floor(sample.value / 60)} 小时 ${sample.value % 60} 分`
+  return `${sample.value} ${sample.unit === 'count' ? '步' : sample.unit}`
+}
+
+async function connectHomeAssistant() {
+  const bridge = proactiveBridge()
+  if (!bridge || !proactiveActive.value || !homeAssistantForm.value.endpoint.trim() || !homeAssistantForm.value.accessToken.trim()) return
+  proactiveBusy.value = true
+  proactiveError.value = null
+  proactiveNotice.value = null
+  try {
+    await bridge.connectHomeAssistant({
+      displayName: homeAssistantForm.value.displayName.trim() || '家庭',
+      endpoint: homeAssistantForm.value.endpoint.trim(),
+      accessToken: homeAssistantForm.value.accessToken,
+      subscriptionEnabled: true,
+    })
+    homeAssistantForm.value.accessToken = ''
+    proactiveNotice.value = 'Home Assistant 已连接并完成实体同步'
+    await refreshProactiveStatus()
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : 'Home Assistant 连接失败'
+  } finally {
+    proactiveBusy.value = false
+  }
+}
+
+async function connectXiaomiHealth() {
+  const bridge = proactiveBridge()
+  if (!bridge || !proactiveActive.value || !xiaomiHealthForm.value.apiBaseUrl.trim() || !xiaomiHealthForm.value.accessToken.trim()) return
+  proactiveBusy.value = true
+  proactiveError.value = null
+  proactiveNotice.value = null
+  try {
+    await bridge.connectXiaomiHealth({
+      displayName: xiaomiHealthForm.value.displayName.trim() || '小米运动健康',
+      apiBaseUrl: xiaomiHealthForm.value.apiBaseUrl.trim(),
+      accessToken: xiaomiHealthForm.value.accessToken,
+      refreshToken: xiaomiHealthForm.value.refreshToken.trim() || undefined,
+      tokenEndpoint: xiaomiHealthForm.value.tokenEndpoint.trim() || undefined,
+      clientId: xiaomiHealthForm.value.clientId.trim() || undefined,
+      clientSecret: xiaomiHealthForm.value.clientSecret,
+      dailyPath: xiaomiHealthForm.value.dailyPath.trim() || undefined,
+      scopes: ['steps', 'sleep', 'resting_heart_rate'],
+    })
+    xiaomiHealthForm.value.accessToken = ''
+    xiaomiHealthForm.value.refreshToken = ''
+    xiaomiHealthForm.value.clientSecret = ''
+    proactiveNotice.value = '小米运动健康已连接并完成今日同步'
+    await refreshProactiveStatus()
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : '小米运动健康连接失败'
+  } finally {
+    proactiveBusy.value = false
+  }
+}
+
+async function syncProactiveConnection(provider: string, connectionId: string) {
+  const bridge = proactiveBridge()
+  if (!bridge) return
+  proactiveBusy.value = true
+  proactiveError.value = null
+  try {
+    if (provider === 'home_assistant') await bridge.syncHomeAssistant(connectionId)
+    else await bridge.syncXiaomiHealth(connectionId)
+    proactiveNotice.value = '同步完成'
+    await refreshProactiveStatus()
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : '外部连接同步失败'
+  } finally {
+    proactiveBusy.value = false
+  }
+}
+
+async function deleteProactiveConnection(provider: string, connectionId: string, displayName: string) {
+  const bridge = proactiveBridge()
+  if (!bridge || !window.confirm(`撤销“${displayName}”并删除本地凭据与缓存数据？`)) return
+  proactiveBusy.value = true
+  proactiveError.value = null
+  try {
+    if (provider === 'home_assistant') await bridge.deleteHomeAssistant(connectionId)
+    else await bridge.deleteXiaomiHealth(connectionId)
+    proactiveNotice.value = `已撤销 ${displayName}`
+    await refreshProactiveStatus()
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : '外部连接撤销失败'
+  } finally {
+    proactiveBusy.value = false
+  }
+}
+
+async function updateHomeEntity(entity: ProactiveHomeEntityView, patch: {enabled?: boolean; allowedOps?: string[]}) {
+  const bridge = proactiveBridge()
+  if (!bridge) return
+  proactiveBusy.value = true
+  proactiveError.value = null
+  try {
+    const updated = await bridge.configureHomeAssistantEntity(entity.connectionId, entity.entityId, patch)
+    if (proactiveDashboard.value) {
+      proactiveDashboard.value = {
+        ...proactiveDashboard.value,
+        homeEntities: proactiveDashboard.value.homeEntities.map((item) => item.id === updated.id ? updated : item),
+      }
+    }
+    homeEntityOpsDrafts.value[updated.id] = updated.allowedOps.join(', ')
+  } catch (error) {
+    proactiveError.value = error instanceof Error ? error.message : 'Home Assistant 实体授权更新失败'
+  } finally {
+    proactiveBusy.value = false
+  }
+}
+
+function toggleHomeEntity(entity: ProactiveHomeEntityView, event: Event) {
+  void updateHomeEntity(entity, {enabled: (event.target as HTMLInputElement).checked})
+}
+
+function saveHomeEntityOps(entity: ProactiveHomeEntityView) {
+  const allowedOps = (homeEntityOpsDrafts.value[entity.id] ?? '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+  void updateHomeEntity(entity, {allowedOps})
 }
 
 function proactiveClaimStateLabel(state: ProactiveProfileClaimView['state']): string {
@@ -2130,31 +2322,102 @@ onUnmounted(() => {
                 <input v-model="proactiveBackground" type="checkbox" class="settings-switch" :disabled="proactiveBusy" @change="setProactivePersistence({background: proactiveBackground})" />
               </div>
 
-              <div class="proactive-capability-heading"><strong>全量画像来源与动作</strong><small>每项状态来自 OS 或已接入适配器；“待验证”不会被当作已授权。</small></div>
-              <ul class="proactive-capability-list">
-                <li v-for="capability in proactiveStatus?.capabilities ?? []" :key="capability.id" class="proactive-capability-item">
-                  <span class="proactive-capability-marker" :class="capabilityStatusClass(capability.osStatus)" aria-hidden="true"><Check v-if="capability.osStatus === 'granted'" :size="13" /><AlertTriangle v-else :size="13" /></span>
-                  <span class="proactive-capability-copy"><strong>{{ capability.label }}</strong><small>{{ capability.description }}<template v-if="capability.reason"> · {{ capability.reason }}</template></small></span>
-                  <span class="proactive-capability-state" :class="capabilityStatusClass(capability.osStatus)">{{ capabilityStatusLabel(capability.osStatus) }}</span>
-                  <span class="proactive-capability-actions">
-                    <button v-if="capability.canRequest && capability.osStatus !== 'granted'" type="button" class="proactive-request-button" :disabled="proactiveBusy" @click="requestProactiveCapability(capability)">请求系统权限</button>
-                    <button v-if="proactiveStatus?.desiredState === 'enabled' || proactiveStatus?.desiredState === 'paused'" type="button" class="proactive-delete-button" :disabled="proactiveBusy" :aria-label="`撤销并删除${capability.label}`" title="撤销并删除此来源" @click="deleteProactiveSource(capability)"><Trash2 :size="13" /></button>
-                  </span>
-                </li>
-                <li v-if="!proactiveStatus" class="study-empty">等待桌面 Host 返回能力快照。</li>
-              </ul>
-              <div class="proactive-capability-heading"><strong>本地画像记忆</strong><small>推断可由你确认或拒绝；被拒绝的声明不会进入后续个性化上下文。</small></div>
-              <ul class="proactive-claim-list">
-                <li v-for="claim in proactiveClaims" :key="claim.id" class="proactive-claim-item">
-                  <span class="proactive-claim-copy"><strong>{{ claim.content }}</strong><small>{{ claim.claimType }} · 置信度 {{ claim.confidence }} · {{ proactiveClaimStateLabel(claim.state) }}</small></span>
-                  <span class="proactive-claim-actions">
-                    <button type="button" :class="{active: claim.state === 'confirmed'}" :disabled="proactiveBusy" title="确认这条画像记忆" aria-label="确认画像记忆" @click="updateProactiveClaimState(claim, 'confirmed')"><Check :size="14" /></button>
-                    <button type="button" :class="{rejected: claim.state === 'rejected'}" :disabled="proactiveBusy" title="拒绝这条画像记忆" aria-label="拒绝画像记忆" @click="updateProactiveClaimState(claim, 'rejected')"><X :size="14" /></button>
-                  </span>
-                </li>
-                <li v-if="proactiveClaims.length === 0" class="study-empty">尚未形成画像记忆。</li>
-              </ul>
-              <div class="settings-note proactive-retention-note"><Database :size="16" />原始屏幕、音频、输入、剪贴板和文件副本最多保留 7 天，并在成功提炼为用户记忆后才删除；控制面与画像数据留在本机。</div>
+              <div class="settings-segmented proactive-view-tabs" role="tablist" aria-label="主动智能视图">
+                <button type="button" role="tab" :aria-selected="proactiveView === 'overview'" :class="{active: proactiveView === 'overview'}" @click="proactiveView = 'overview'"><BrainCircuit :size="15" />能力概览</button>
+                <button type="button" role="tab" :aria-selected="proactiveView === 'integrations'" :class="{active: proactiveView === 'integrations'}" @click="proactiveView = 'integrations'"><Link2 :size="15" />外部连接</button>
+              </div>
+
+              <template v-if="proactiveView === 'overview'">
+                <div class="proactive-capability-heading"><strong>主动智能能力</strong><small>数字表示当前本地 Vault 中可用于该能力的记录数。</small></div>
+                <ul class="proactive-intelligence-grid">
+                  <li v-for="capability in proactiveIntelligenceCapabilities" :key="capability.id" :class="{active: capability.count > 0}">
+                    <component :is="capability.icon" :size="17" />
+                    <span><strong>{{ capability.label }}</strong><small>{{ capability.count > 0 ? `${capability.count} 条本地记录` : '等待形成数据' }}</small></span>
+                    <b>{{ capability.count }}</b>
+                  </li>
+                </ul>
+
+                <div class="proactive-capability-heading"><strong>全量画像来源与动作</strong><small>每项状态来自 OS 或已接入适配器；“待验证”不会被当作已授权。</small></div>
+                <ul class="proactive-capability-list">
+                  <li v-for="capability in proactiveStatus?.capabilities ?? []" :key="capability.id" class="proactive-capability-item">
+                    <span class="proactive-capability-marker" :class="capabilityStatusClass(capability.osStatus)" aria-hidden="true"><Check v-if="capability.osStatus === 'granted'" :size="13" /><AlertTriangle v-else :size="13" /></span>
+                    <span class="proactive-capability-copy"><strong>{{ capability.label }}</strong><small>{{ capability.description }}<template v-if="capability.reason"> · {{ capability.reason }}</template></small></span>
+                    <span class="proactive-capability-state" :class="capabilityStatusClass(capability.osStatus)">{{ capabilityStatusLabel(capability.osStatus) }}</span>
+                    <span class="proactive-capability-actions">
+                      <button v-if="capability.canRequest && capability.osStatus !== 'granted'" type="button" class="proactive-request-button" :disabled="proactiveBusy" @click="requestProactiveCapability(capability)">请求系统权限</button>
+                      <button v-if="proactiveStatus?.desiredState === 'enabled' || proactiveStatus?.desiredState === 'paused'" type="button" class="proactive-delete-button" :disabled="proactiveBusy" :aria-label="`撤销并删除${capability.label}`" title="撤销并删除此来源" @click="deleteProactiveSource(capability)"><Trash2 :size="13" /></button>
+                    </span>
+                  </li>
+                  <li v-if="!proactiveStatus" class="study-empty">等待桌面 Host 返回能力快照。</li>
+                </ul>
+                <div class="proactive-capability-heading"><strong>本地画像记忆</strong><small>推断可由你确认或拒绝；被拒绝的声明不会进入后续个性化上下文。</small></div>
+                <ul class="proactive-claim-list">
+                  <li v-for="claim in proactiveClaims" :key="claim.id" class="proactive-claim-item">
+                    <span class="proactive-claim-copy"><strong>{{ claim.content }}</strong><small>{{ claim.claimType }} · 置信度 {{ claim.confidence }} · {{ proactiveClaimStateLabel(claim.state) }}</small></span>
+                    <span class="proactive-claim-actions">
+                      <button type="button" :class="{active: claim.state === 'confirmed'}" :disabled="proactiveBusy" title="确认这条画像记忆" aria-label="确认画像记忆" @click="updateProactiveClaimState(claim, 'confirmed')"><Check :size="14" /></button>
+                      <button type="button" :class="{rejected: claim.state === 'rejected'}" :disabled="proactiveBusy" title="拒绝这条画像记忆" aria-label="拒绝画像记忆" @click="updateProactiveClaimState(claim, 'rejected')"><X :size="14" /></button>
+                    </span>
+                  </li>
+                  <li v-if="proactiveClaims.length === 0" class="study-empty">尚未形成画像记忆。</li>
+                </ul>
+                <div class="settings-note proactive-retention-note"><Database :size="16" />原始屏幕、音频、输入、剪贴板和文件副本最多保留 7 天，并在成功提炼为用户记忆后才删除；控制面与画像数据留在本机。</div>
+              </template>
+
+              <template v-else>
+                <section class="proactive-integration-section">
+                  <div class="proactive-capability-heading"><strong>Home Assistant</strong><small>局域网状态订阅与实体级服务授权。</small></div>
+                  <form class="proactive-integration-form" @submit.prevent="connectHomeAssistant">
+                    <label><span>名称</span><input v-model="homeAssistantForm.displayName" autocomplete="off" /></label>
+                    <label class="wide"><span>实例地址</span><input v-model="homeAssistantForm.endpoint" inputmode="url" autocomplete="url" /></label>
+                    <label class="wide"><span>长期访问令牌</span><input v-model="homeAssistantForm.accessToken" type="password" autocomplete="off" /></label>
+                    <button type="submit" :disabled="proactiveBusy || !proactiveActive"><Link2 :size="15" />连接</button>
+                  </form>
+                  <ul class="proactive-connection-list">
+                    <li v-for="connection in homeAssistantConnections" :key="connection.id">
+                      <span><strong>{{ connection.displayName }}</strong><small>{{ connection.endpoint }} · {{ integrationTime(connection.lastSyncAt) }}</small></span>
+                      <em :class="`is-${connection.state}`">{{ connection.state }}</em>
+                      <button type="button" title="立即同步" aria-label="立即同步 Home Assistant" :disabled="proactiveBusy" @click="syncProactiveConnection(connection.provider, connection.id)"><RefreshCw :size="14" /></button>
+                      <button type="button" title="撤销连接" aria-label="撤销 Home Assistant 连接" :disabled="proactiveBusy" @click="deleteProactiveConnection(connection.provider, connection.id, connection.displayName)"><Trash2 :size="14" /></button>
+                    </li>
+                    <li v-if="homeAssistantConnections.length === 0" class="study-empty">尚未连接 Home Assistant。</li>
+                  </ul>
+                  <ul v-if="homeAssistantEntities.length > 0" class="proactive-entity-list">
+                    <li v-for="entity in homeAssistantEntities" :key="entity.id">
+                      <input :checked="entity.enabled" type="checkbox" class="settings-switch" :disabled="proactiveBusy" :aria-label="`授权 ${entity.displayName ?? entity.entityId}`" @change="toggleHomeEntity(entity, $event)" />
+                      <span><strong>{{ entity.displayName ?? entity.entityId }}</strong><small>{{ entity.entityId }} · {{ entity.state.state ?? 'unknown' }}</small></span>
+                      <input v-model="homeEntityOpsDrafts[entity.id]" class="proactive-ops-input" placeholder="turn_on, turn_off" :disabled="proactiveBusy || !entity.enabled" @change="saveHomeEntityOps(entity)" />
+                    </li>
+                  </ul>
+                </section>
+
+                <section class="proactive-integration-section">
+                  <div class="proactive-capability-heading"><strong>小米运动健康</strong><small>使用用户自有的官方开放平台配置同步步数、睡眠与静息心率。</small></div>
+                  <form class="proactive-integration-form" @submit.prevent="connectXiaomiHealth">
+                    <label><span>名称</span><input v-model="xiaomiHealthForm.displayName" autocomplete="off" /></label>
+                    <label class="wide"><span>API 地址</span><input v-model="xiaomiHealthForm.apiBaseUrl" inputmode="url" autocomplete="url" /></label>
+                    <label><span>Access Token</span><input v-model="xiaomiHealthForm.accessToken" type="password" autocomplete="off" /></label>
+                    <label><span>Refresh Token</span><input v-model="xiaomiHealthForm.refreshToken" type="password" autocomplete="off" /></label>
+                    <label class="wide"><span>Token Endpoint</span><input v-model="xiaomiHealthForm.tokenEndpoint" inputmode="url" autocomplete="off" /></label>
+                    <label><span>Client ID</span><input v-model="xiaomiHealthForm.clientId" autocomplete="off" /></label>
+                    <label><span>Client Secret</span><input v-model="xiaomiHealthForm.clientSecret" type="password" autocomplete="off" /></label>
+                    <label class="wide"><span>每日汇总路径</span><input v-model="xiaomiHealthForm.dailyPath" autocomplete="off" /></label>
+                    <button type="submit" :disabled="proactiveBusy || !proactiveActive"><Heart :size="15" />连接</button>
+                  </form>
+                  <ul class="proactive-connection-list">
+                    <li v-for="connection in xiaomiHealthConnections" :key="connection.id">
+                      <span><strong>{{ connection.displayName }}</strong><small>{{ integrationTime(connection.lastSyncAt) }}</small></span>
+                      <em :class="`is-${connection.state}`">{{ connection.state }}</em>
+                      <button type="button" title="同步今日健康数据" aria-label="同步今日健康数据" :disabled="proactiveBusy" @click="syncProactiveConnection(connection.provider, connection.id)"><RefreshCw :size="14" /></button>
+                      <button type="button" title="撤销连接" aria-label="撤销小米运动健康连接" :disabled="proactiveBusy" @click="deleteProactiveConnection(connection.provider, connection.id, connection.displayName)"><Trash2 :size="14" /></button>
+                    </li>
+                    <li v-if="xiaomiHealthConnections.length === 0" class="study-empty">尚未连接小米运动健康。</li>
+                  </ul>
+                  <ul v-if="proactiveDashboard?.health.length" class="proactive-health-list">
+                    <li v-for="sample in proactiveDashboard.health" :key="sample.id"><span>{{ healthMetricLabel(sample) }}</span><strong>{{ healthMetricValue(sample) }}</strong><small>{{ sample.localDate }}</small></li>
+                  </ul>
+                </section>
+              </template>
             </template>
           </div>
           <div v-else-if="settingsCategory === 'appearance'" class="settings-section">

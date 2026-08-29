@@ -5,7 +5,7 @@
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
-> 文档版本：v1.5
+> 文档版本：v1.6
 > 文档状态：评审候选（Review Candidate）  
 > 更新日期：2026-08-29
 > 产品需求来源：[PRD.md](PRD.md)
@@ -47,7 +47,7 @@
 
 | 前缀 | 对象 | 示例 |
 |---|---|---|
-| `CAP` | 生命周期能力；当前固定为 `CAP-001`～`CAP-033` | `CAP-005` 四段式记忆与记忆树 |
+| `CAP` | 生命周期能力；当前固定为 `CAP-001`～`CAP-035` | `CAP-005` 四段式记忆与记忆树 |
 | `US` | 用户故事 | `US-LRN-001` 创建学习目标 |
 | `FR` | 功能需求 | `FR-REV-001` 生成到期复习项 |
 | `BR` | 业务规则或状态转换规则 | `BR-MEM-003` 禁止临时记忆直接晋升系统记忆 |
@@ -83,15 +83,15 @@
 
 ### 3.3 编号规则
 
-- `CAP-001`～`CAP-033` 与 PRD 功能地图一一对应，禁止复用或重新排序。
+- `CAP-001`～`CAP-035` 与 PRD 功能地图一一对应，禁止复用或重新排序。
 - 其他 ID 在各领域内单调递增；标题变化不改变 ID。
 - 需求拆分时，原 ID 标为 `Deprecated`，通过 `replacedBy` 指向新 ID。
 - 需求合并时，保留全部旧 ID，并通过 `supersededBy` 指向合并后的 ID。
 - 优先级、目标版本和状态属于字段，不是 ID 的组成部分。
 
-## 4. CAP-001～CAP-033 覆盖矩阵（全部能力状态唯一速览）
+## 4. CAP-001～CAP-035 覆盖矩阵（全部能力状态唯一速览）
 
-本矩阵是全部 33 个 CAP 的**唯一一眼速览**（DoR 细分原 §4.1 已并入本表；批次顺序见[能力拆分路线](../explanation/roadmap.md)）。当前状态依据 PRD 中是否已有独立、可测试的详细行为和验收条件判定。
+本矩阵是全部 35 个 CAP 的**唯一一眼速览**（DoR 细分原 §4.1 已并入本表；批次顺序见[能力拆分路线](../explanation/roadmap.md)）。当前状态依据 PRD 中是否已有独立、可测试的详细行为和验收条件判定。
 
 - `当前状态`：`Mapped`＝未完整规格；`Specified`＝已规格未过 DoR。`Specified` 仍不等于 `Ready`，进入开发前必须继续拆分原子需求并通过 DoR；
 - `DoR 就绪`：按 [§6 Definition of Ready](#6-definition-of-ready) 评估；未规格 CAP 为 `—`，进入 `Specified` 后回填；
@@ -132,11 +132,13 @@
 | `CAP-030` | 主动提醒深化 | `P3 · R5` | `Mapped` | — | — | [P3 验收原则](PRD.md#prd-cap-028-033) | 补触发优先级、频控、去重、解释、免打扰、跨端和退订验收 |
 | `CAP-031` | 内容与技能市场 | `P3 · R5` | `Mapped` | — | — | [P3 验收原则](PRD.md#prd-cap-028-033) | 补商品、版本、审核、结算、退款、下架、许可证和供应链治理 |
 | `CAP-032` | 机构与监护模式 | `P3 · R5` | `Mapped` | — | — | [P3 验收原则](PRD.md#prd-cap-028-033) | 补组织角色、邀请/移除、授权报表、最小可见、审计和监护同意 |
-| `CAP-033` | 全域感知与个人画像（主动智能模式） | `P3 · R5` | `Specified` | Not Ready | ✔（本地 Vault/授权 lease/动作运行时/部分来源采集/Worker 提炼/导出） | [PRD CAP-033](PRD.md#prd-cap-033)、[CR-023](changes/CR-023-proactive-local-intelligence-mode.md)、[ADR-018](adr/ADR-018-proactive-local-privacy-host.md) | 已接入 Aervox activity/operation、剪贴板、屏幕、浏览器历史元数据、显式文件根和本地提炼/画像上下文；应用活动正文、通信、音视频、位置、传感器等仍 limited，且全链本地证明、生产 OS Broker 和专项 TC 未闭合，保持 `Not Ready` |
+| `CAP-033` | 全域感知与个人画像（主动智能模式） | `P3 · R5` | `Specified` | Not Ready | ✔（本地 Vault、十二项派生、授权动作、部分来源、导出） | [PRD CAP-033](PRD.md#prd-cap-033)、[CR-023](changes/CR-023-proactive-local-intelligence-mode.md)、[CR-024](changes/CR-024-proactive-intelligence-suite-integrations.md)、[ADR-018](adr/ADR-018-proactive-local-privacy-host.md) | 十二项本地派生、日/周回顾和仪表盘已验证；应用活动正文、通信、音视频、位置等平台 Provider、生产 OS Broker 和全链本地证明仍未闭合，保持 `Not Ready` |
+| `CAP-034` | Home Assistant 家庭环境连接 | `P3 · R5` | `Specified` | Not Ready | ✔ | [PRD CAP-034](PRD.md#prd-cap-034)、[CR-024](changes/CR-024-proactive-intelligence-suite-integrations.md)、[ADR-019](adr/ADR-019-proactive-integrations-local-gateway.md) | REST/WS Client、私网校验、实体/service 白名单、Agent 工具、动作审计与撤销删除已验证；生产重连、OAuth 和 HA 版本矩阵仍待门禁 |
+| `CAP-035` | 运动健康信号连接 | `P3 · R5` | `Specified` | Not Ready | ✔ | [PRD CAP-035](PRD.md#prd-cap-035)、[CR-024](changes/CR-024-proactive-intelligence-suite-integrations.md)、[ADR-019](adr/ADR-019-proactive-integrations-local-gateway.md) | 小米官方开放平台通用适配、Token 刷新、每日指标、只读工具与撤销删除已验证；厂商账号审批、真实沙箱契约和长期兼容测试仍待完成 |
 
 矩阵状态按 §12 维护规则更新：`Verified` 证据核实与 `Released` 状态确认留痕；任何状态变化必须在变更记录中留下日期与修改人。
 
-**DoR 清单逐项结论（[§6](#6-definition-of-ready) 12 项）**：当前 14 个 `Specified` CAP 均未全部满足（`CAP-018` 与 `CAP-033` 尚未完成 DoR 评估，进入开发批次前补齐）。共性未满足项：
+**DoR 清单逐项结论（[§6](#6-definition-of-ready) 12 项）**：当前 16 个 `Specified` CAP 均未全部满足（`CAP-018`、`CAP-033`～`CAP-035` 尚未完成 DoR 评估，进入发布批次前补齐）。共性未满足项：
 
 - `TC-*` 为稳定占位 ID，无关联代码/CI/人工证据（见[测试策略 §6](TEST_STRATEGY.md#6-当前阻断)）；
 - API/数据实体/状态转换/UX 原型评审未完成；
@@ -244,6 +246,8 @@
 | Turn 级完全访问开关（CR-022：普通写工具预授权 + CAP-033 全动作授权扩展） | CAP-002/007/020/033 + 基础设施 | `packages/contracts`（`toolApprovalModeSchema`）、`apps/api/src/shared/tool-approval-policy.ts`、`apps/api/src/modules/conversation/agent-executor.ts`（动态 ToolRuntime + 静态 Contribution 授权门）、`packages/database/src/repositories/sqlite/conversation-repository.ts`（排除自动授权前缀）、`packages/api-client/src/`、`packages/ui/src/components/AervoxWorkbench.vue`、`apps/desktop/src/{main,preload,renderer}/` | 2026-08-29 | `@aervox/api` 233（`conversation-approval` 4、`conversation-privileged` 4、`tool-approval-policy` 2）；`@aervox/api-client` 15（`transport` 2，含 `full_access` 请求体透传）；Contracts/API/API Client/UI/Desktop typecheck；OpenAPI 生成；ci-code/ci-docs | 原生 |
 
 | CAP-033 主动智能模式数据面、部分来源采集与桌面 Host（CR-023） | CAP-033 + CAP-002/005/007/008/009/010/012/013/018/020/022/023/024/026/027/030 + Agent Host/Inbox/OS 权限/隐私/本地存储基础设施 | `packages/database/src/schema/proactive.ts`、`packages/database/src/schema/init.ts`、`packages/database/src/repositories/{types,sqlite/proactive-profile-repository}.ts`、`packages/database/src/{client,proactive-vault-auth,proactive-vault-crypto}.ts`、`apps/api/src/modules/proactive/`、`apps/worker/src/{proactive-profile-worker,proactive-distiller}.ts`、`packages/ui/src/proactive/`、`apps/desktop/src/main/{proactive-host,proactive-source-adapters}.ts`、`apps/desktop/src/preload/domains/proactive-api.ts` | 2026-08-29 | 本地 Vault/加密、授权/lease/loopback token、action authorizer、Aervox activity/operation、clipboard、screen/browser/file adapter、Worker 提炼、本地画像上下文、来源级删除、导出和 heartbeat 已实现；聚焦测试覆盖 Database/API/Worker/Desktop adapters，Contracts OpenAPI build 通过。应用活动正文、通信/音视频/位置/传感器 provider、全链本地证明和生产门禁仍待实现 | 原生 |
+
+| 主动智能十二能力 + Home Assistant + 小米运动健康（CR-024） | CAP-033/034/035 + CAP-002/005/007/010/018/020/022/027/030 | `packages/database/src/schema/proactive-intelligence.ts`、`packages/database/src/repositories/sqlite/proactive-intelligence-repository.ts`、`apps/api/src/modules/proactive/{intelligence-routes,integration-manager,integration-routes,integration-tools,home-assistant-client,xiaomi-health-client}.ts`、`apps/worker/src/proactive-intelligence-worker.ts`、`packages/contracts/src/{proactive,proactive-schemas,openapi}.ts`、`packages/ui/src/components/AervoxWorkbench.vue`、`apps/desktop/src/{main/index,preload/domains/proactive-api}.ts` | 2026-08-29 | Database 2 个主动智能仓储用例、API 3 个集成用例、Worker 1 个十二能力端到端用例；API/Database/Worker 全量测试通过；Contracts/UI/Desktop/API/Worker typecheck 与 OpenAPI 生成通过 | 原生 |
 
 | CAP-033 主动动作安全加固（授权指纹服务端派生 + 动作状态机 + 租约感知采集门禁） | CAP-033 + 基础设施（安全/隐私） | `packages/database/src/repositories/sqlite/proactive-profile-repository.ts`（`createAction` 服务端从真实 granted grant 版本派生 `actionGrantRevision`，忽略客户端伪造；`updateAction` 增加动作状态机约束：pending→approved→running→executed，未决动作不得直接置执行态、终态不可变）、`apps/api/src/modules/proactive/routes.ts`（state 端点转发状态机错误为 409）、`apps/desktop/src/main/proactive-host.ts`（`shouldCollect`/`shouldKeepAlive` 纳入激活租约有效性：租约过期或未建立即挂起，防止挂断后继续采集剪贴板/屏幕等敏感源） | 2026-08-29 | `@aervox/database` proactive-profile 6（新增：伪造授权指纹被忽略+派生指纹、pending 直接 executed/running 被拒、approved 二次批准被拒、终态不可变、全链合法前进行）；`@aervox/api` 255 全量无回归；`@aervox/api-client` 18、`@aervox/agent-loop` 146、`@aervox/worker` 7 无回归；Desktop/UI/API/Database/Worker typecheck + build | 原生 |
 | Agent Harness Loop 阶段 3c：恢复裁决基础设施（decideResume + findResumeCandidates） | CAP-002/007 + 基础设施 | `packages/agent-loop/src/resume.ts`（`decideResume` 纯函数：最后工具批次全 executed 且无终态→resume；终态/混合/未知/无结果收敛）、`packages/database`（`findResumeCandidates`：过期 Running + executed 工具 + 无 done）、`apps/worker`（recovery cycle 候选观测日志，行为不变）、`docs/reference/agent-harness-loop.md`（§16.11） | 2026-08-28 | `@aervox/agent-loop` 56（resume-decision 6 矩阵）；`@aervox/database` 125（候选 3：命中/终态排除/未知排除）；`ci-code` 全量。**续跑执行接线待阶段 4 host-agent** | 原生 |
@@ -421,18 +425,18 @@ DoR 不允许以“开发中再确定”代替。确需并行探索的内容应�
 
 | 需求 ID | 类别 | Parent CAP | 当前状态 | 规范/来源 | AC | 测试/证据 |
 |---|---|---|---|---|---|---|
-| `NFR-AVAIL-001` | 可用性 | CAP-001～033 | `Specified` | [PRD NFR](PRD.md#prd-nfr) | `AC-NFR-AVAIL-001` | `TC-PERF-AVAIL-001` |
-| `NFR-PERF-001` | 性能 | CAP-001～033 | `Specified` | [PRD NFR](PRD.md#prd-nfr)、[流式协议](STREAMING_PROTOCOL.md) | `AC-NFR-PERF-001` | `TC-PERF-API-001`、`TC-CONTRACT-STREAM-001` |
-| `NFR-SCALE-001` | 容量 | CAP-001～033 | `Specified` | [PRD NFR](PRD.md#prd-nfr) | `AC-NFR-SCALE-001` | `TC-PERF-SCALE-001` |
+| `NFR-AVAIL-001` | 可用性 | CAP-001～035 | `Specified` | [PRD NFR](PRD.md#prd-nfr) | `AC-NFR-AVAIL-001` | `TC-PERF-AVAIL-001` |
+| `NFR-PERF-001` | 性能 | CAP-001～035 | `Specified` | [PRD NFR](PRD.md#prd-nfr)、[流式协议](STREAMING_PROTOCOL.md) | `AC-NFR-PERF-001` | `TC-PERF-API-001`、`TC-CONTRACT-STREAM-001` |
+| `NFR-SCALE-001` | 容量 | CAP-001～035 | `Specified` | [PRD NFR](PRD.md#prd-nfr) | `AC-NFR-SCALE-001` | `TC-PERF-SCALE-001` |
 | `NFR-REL-001` | 可靠性/幂等 | CAP-002/003/005/009/013 | `Specified` | [PRD NFR](PRD.md#prd-nfr) | `AC-NFR-REL-001` | `TC-RES-RETRY-001` |
 | `NFR-JOB-001` | 后台任务 SLA | CAP-006/009/030 | `Specified` | [SRS](SRS.md#srs-nfr) | `AC-NFR-JOB-001` | `TC-INTEG-JOB-001` |
-| `NFR-DR-001` | 灾备 | CAP-001～033 | `Specified` | [SRS](SRS.md#srs-nfr)、[架构灾备](ARCHITECTURE.md#arch-nfr) | `AC-NFR-DR-001` | `TC-RES-DR-001`、`TC-RES-LEDGER-001` |
+| `NFR-DR-001` | 灾备 | CAP-001～035 | `Specified` | [SRS](SRS.md#srs-nfr)、[架构灾备](ARCHITECTURE.md#arch-nfr) | `AC-NFR-DR-001` | `TC-RES-DR-001`、`TC-RES-LEDGER-001` |
 | `NFR-A11Y-001` | 无障碍 | CAP-001/002/003/009 | `Specified` | [PRD NFR](PRD.md#prd-nfr) | `AC-NFR-A11Y-001` | `TC-A11Y-CORE-001` |
 | `NFR-COMPAT-001` | 兼容性 | CAP-001/018/027 | `Mapped` | [PRD NFR](PRD.md#prd-nfr) | `AC-NFR-COMPAT-001` | `TC-E2E-COMPAT-001` |
 | `NFR-I18N-001` | 国际化/时区 | CAP-006/009/030 | `Specified` | [PRD NFR](PRD.md#prd-nfr) | `AC-NFR-I18N-001` | `TC-INTEG-TZ-001` |
-| `NFR-SEC-001` | 安全 | CAP-001～033 | `Specified` | [SRS](SRS.md#srs-nfr)、[数据隐私](DATA_PRIVACY.md#privacy-security) | `AC-NFR-SEC-001` | `TC-SEC-BASELINE-001` |
+| `NFR-SEC-001` | 安全 | CAP-001～035 | `Specified` | [SRS](SRS.md#srs-nfr)、[数据隐私](DATA_PRIVACY.md#privacy-security) | `AC-NFR-SEC-001` | `TC-SEC-BASELINE-001` |
 | `NFR-PRIV-001` | 隐私 | CAP-005/009/013/027 | `Specified` | [数据隐私](DATA_PRIVACY.md#privacy-gates) | `AC-NFR-PRIV-001` | `TC-PRIV-DEL-001` |
-| `NFR-OBS-001` | 可观测性 | CAP-001～033 | `Mapped` | [架构告警](ARCHITECTURE.md#arch-nfr) | `AC-NFR-OBS-001` | `TC-OPS-OBS-001` |
+| `NFR-OBS-001` | 可观测性 | CAP-001～035 | `Mapped` | [架构告警](ARCHITECTURE.md#arch-nfr) | `AC-NFR-OBS-001` | `TC-OPS-OBS-001` |
 | `AIQ-TEACH-001` | 教学正确性与提示层级 | CAP-002/003/007 | `Specified` | [AI 质量](AI_QUALITY_SAFETY.md#ai-teach) | `AC-AIQ-TEACH-001` | `TC-AIEVAL-LRN-001` |
 | `AIQ-MEM-001` | 记忆压缩/晋升/来源 | CAP-005/015 | `Specified` | [AI 记忆](AI_QUALITY_SAFETY.md#ai-memory) | `AC-AIQ-MEM-001` | `TC-AIEVAL-MEM-001` |
 | `AIQ-DIA-001` | 日记事实与时间窗口 | CAP-009 | `Specified` | [AI 日记](AI_QUALITY_SAFETY.md#ai-diary) | `AC-AIQ-DIA-001` | `TC-AIEVAL-DIA-001` |
@@ -465,9 +469,9 @@ DoR 不允许以“开发中再确定”代替。确需并行探索的内容应�
 | `FR-PRC-001` | 练习题组、作答判定与错题派生 | CAP-003/004 | `Specified` | [SRS 练习需求](SRS.md#fr-prc-001-练习判定与错题)、[CR-008](changes/CR-008-practice-session-contract.md) | `AC-FR-PRC-001-01～07` | `TC-UNIT-PRC-001`、`TC-API-PRC-001`、`TC-INTEG-PRC-001`、`TC-E2E-PRC-001` |
 | `DATA-STREAM-001` | Turn 事件保留、撤回与删除 | CAP-002/007/008/013 | `Specified` | [SRS 跨域规则](SRS.md#srs-data-stream)、[流式协议](STREAMING_PROTOCOL.md#5-重连保留与断点恢复) | `AC-DATA-STREAM-001-01～02` | `TC-PRIV-STREAM-001`、`TC-INTEG-STREAM-RET-001` |
 | `DATA-DEL-001` | 删除传播与账本 | CAP-005/009/013/026/027 | `Specified` | [删除 SLA](DATA_PRIVACY.md#privacy-deletion-sla) | `AC-DATA-DEL-001` | `TC-PRIV-DEL-001` |
-| `BR-CTRL-001` | 独立恢复控制账本一致性 | CAP-001～033 | `Specified` | [SRS 控制规则](SRS.md#srs-br-ctrl) | `AC-BR-CTRL-001-01～03` | `TC-RES-LEDGER-001`、`TC-SEC-REVOKE-001` |
+| `BR-CTRL-001` | 独立恢复控制账本一致性 | CAP-001～035 | `Specified` | [SRS 控制规则](SRS.md#srs-br-ctrl) | `AC-BR-CTRL-001-01～03` | `TC-RES-LEDGER-001`、`TC-SEC-REVOKE-001` |
 | `SEC-PLG-001` | 插件最小权限/沙箱 | CAP-020/031 | `Mapped` | [架构插件边界](ARCHITECTURE.md#arch-ai-security) | `AC-SEC-PLG-001` | `TC-SEC-PLUG-001` |
-| `SEC-TEN-001` | 工作区/数据主体/组织隔离 | CAP-001～033 | `Specified` | [SRS 租户隔离](SRS.md#srs-sec-ten)、[数据安全控制](DATA_PRIVACY.md#privacy-security) | `AC-SEC-TEN-001-01～03` | `TC-SEC-TENANT-001`、`TC-INTEG-RLS-001` |
+| `SEC-TEN-001` | 工作区/数据主体/组织隔离 | CAP-001～035 | `Specified` | [SRS 租户隔离](SRS.md#srs-sec-ten)、[数据安全控制](DATA_PRIVACY.md#privacy-security) | `AC-SEC-TEN-001-01～03` | `TC-SEC-TENANT-001`、`TC-INTEG-RLS-001` |
 | `PRIV-CONS-001` | 分 purpose 同意与撤销 | CAP-009/020/023/027 | `Specified` | [同意与偏好](DATA_PRIVACY.md#privacy-consent) | `AC-PRIV-CONS-001` | `TC-PRIV-CONSENT-001` |
 | `PRIV-RET-001` | 召回/历史/备份期限分离 | CAP-005/009/013 | `Specified` | [召回与保留](DATA_PRIVACY.md#privacy-retention) | `AC-PRIV-RET-001` | `TC-PRIV-RET-001` |
 | `OPS-QUEUE-001` | 至少一次队列与 DLQ | CAP-005/009/012/020 | `Mapped` | [架构运行约束](ARCHITECTURE.md#arch-consistency) | `AC-OPS-QUEUE-001` | `TC-RES-QUEUE-001` |
@@ -561,7 +565,7 @@ DoR 不允许以“开发中再确定”代替。确需并行探索的内容应�
 | `RISK-008` | 未成年人、情绪/健康内容和监护可见范围不合规 | `CAP-008/028/032` | 3 | 5 | 15 | 成人首发边界、独立年龄方案、最小可见和法务评审 | Open |
 | `RISK-009` | 参考代码、生成内容、题库、论文或市场内容侵权 | `CAP-011/020/021/023/024/029/031` | 3 | 4 | 12 | 许可证清单、来源记录、版权审核、下架和申诉流程 | Open |
 | `RISK-010` | 模型延迟、调用成本或供应商故障破坏核心体验 | `CAP-002/003/005/009/012` | 4 | 4 | 16 | 模型路由、预算、缓存、超时降级、限流和供应商替换 | Open |
-| `RISK-011` | P0-P3 范围持续扩张，导致核心闭环和安全基础延期 | `CAP-001`～`CAP-033` | 5 | 4 | 20 | 阶段基线、DoR、变更控制、容量预算和退出条件 | Open |
+| `RISK-011` | P0-P3 范围持续扩张，导致核心闭环和安全基础延期 | `CAP-001`～`CAP-035` | 5 | 4 | 20 | 阶段基线、DoR、变更控制、容量预算和退出条件 | Open |
 | `RISK-012` | 完全访问被误开启，或自动授权在关闭后被跨模式复用，导致未确认写操作 | `CAP-002/007/020/033` | 3 | 5 | 15 | 默认关闭、风险确认、Turn 级快照、CAP-033 独立全动作授权快照、授权关闭后排除、双端可见状态 | Open |
 | `RISK-013` | 广域设备/应用捕获、私人文档或画像推断未经独立授权被记录，或经远程存储/模型/向量/日志离开本机；全动作授权被滥用或原始副本未按七天/提炼规则清理 | `CAP-002/005/007/008/009/012/013/018/020/022/023/024/026/027/030/033` + Agent Host/Inbox 基础设施 | 4 | 5 | 20 | 版本化完整画像与动作 Consent、OS Permission Broker 与签名 Host、强制本地私密存储与 Provider 校验、未授权来源 fail closed、`local_only` 传播、七天捕获提炼门、动作目标/修订审计、撤权零召回、导出/删除门禁 | Open |
 

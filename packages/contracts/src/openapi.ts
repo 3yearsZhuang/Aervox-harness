@@ -132,6 +132,9 @@ import {
   inboxItemResponseSchema,
 } from "./inbox-schemas.js";
 import {
+  homeAssistantCallServiceSchema,
+  homeAssistantConnectionRequestSchema,
+  homeAssistantEntityPatchSchema,
   proactiveActionRequestSchema,
   proactiveActivationRequestSchema,
   proactiveAuthorizeRequestSchema,
@@ -140,9 +143,13 @@ import {
   proactiveDesiredStateRequestSchema,
   proactiveExportRequestSchema,
   proactiveExportResponseSchema,
+  proactiveConnectionResponseSchema,
+  proactiveIntelligenceDashboardSchema,
   proactiveObservationRequestSchema,
+  proactiveSyncDateSchema,
   proactiveSourceGrantInputSchema,
   proactiveStatusResponseSchema,
+  xiaomiHealthConnectionRequestSchema,
 } from "./proactive-schemas.js";
 
 const registry = new OpenAPIRegistry();
@@ -244,6 +251,12 @@ registry.register("ProactiveActionRequest", proactiveActionRequestSchema);
 registry.register("ProactiveExportRequest", proactiveExportRequestSchema);
 registry.register("ProactiveStatusResponse", proactiveStatusResponseSchema);
 registry.register("ProactiveExportResponse", proactiveExportResponseSchema);
+registry.register("ProactiveConnectionResponse", proactiveConnectionResponseSchema);
+registry.register("ProactiveIntelligenceDashboard", proactiveIntelligenceDashboardSchema);
+registry.register("HomeAssistantConnectionRequest", homeAssistantConnectionRequestSchema);
+registry.register("HomeAssistantEntityPatch", homeAssistantEntityPatchSchema);
+registry.register("HomeAssistantCallService", homeAssistantCallServiceSchema);
+registry.register("XiaomiHealthConnectionRequest", xiaomiHealthConnectionRequestSchema);
 
 const sessionIdParam = z.object({ sessionId: z.string().min(1) });
 const turnIdParam = z.object({ turnId: z.string().min(1) });
@@ -256,6 +269,8 @@ const proactiveHeaders = scopeHeaders.extend({
   "X-Aervox-Proactive-Token": z.string().min(32),
 });
 const proactiveSourceGrantIdParam = z.object({ sourceGrantId: z.string().min(1) });
+const proactiveConnectionIdParam = z.object({ id: z.string().min(1) });
+const proactiveHomeEntityParam = z.object({ id: z.string().min(1), entityId: z.string().min(3) });
 
 registry.registerPath({
   method: "post",
@@ -374,6 +389,86 @@ registry.registerPath({
   tags: ["Proactive"],
   request: { headers: proactiveHeaders, body: { content: { "application/json": { schema: proactiveExportRequestSchema } } } },
   responses: { 200: { description: "Checksummed export", content: { "application/json": { schema: proactiveExportResponseSchema } } } },
+});
+registry.registerPath({
+  method: "get",
+  path: "/v1/proactive/intelligence/dashboard",
+  summary: "读取十二项主动智能能力的本地仪表盘",
+  tags: ["Proactive Intelligence"],
+  request: {headers: proactiveHeaders},
+  responses: {200: {description: "Local intelligence dashboard", content: {"application/json": {schema: proactiveIntelligenceDashboardSchema}}}},
+});
+registry.registerPath({
+  method: "get",
+  path: "/v1/proactive/integrations",
+  summary: "列出已配置的本地外部连接（不返回凭据）",
+  tags: ["Proactive Integrations"],
+  request: {headers: proactiveHeaders},
+  responses: {200: {description: "Redacted integration list", content: {"application/json": {schema: z.object({items: z.array(proactiveConnectionResponseSchema)})}}}},
+});
+registry.registerPath({
+  method: "post",
+  path: "/v1/proactive/integrations/home-assistant",
+  summary: "连接并同步 Home Assistant",
+  tags: ["Proactive Integrations"],
+  request: {headers: proactiveHeaders, body: {content: {"application/json": {schema: homeAssistantConnectionRequestSchema}}}},
+  responses: {201: {description: "Home Assistant connected"}, 400: {description: "Connection or endpoint validation failed"}, 403: {description: "device.sensors grant is not active"}},
+});
+registry.registerPath({
+  method: "post",
+  path: "/v1/proactive/integrations/home-assistant/{id}/sync",
+  summary: "同步 Home Assistant 实体目录并恢复事件订阅",
+  tags: ["Proactive Integrations"],
+  request: {headers: proactiveHeaders, params: proactiveConnectionIdParam},
+  responses: {200: {description: "Home Assistant synchronized"}},
+});
+registry.registerPath({
+  method: "patch",
+  path: "/v1/proactive/integrations/home-assistant/{id}/entities/{entityId}",
+  summary: "更新 Home Assistant 实体和服务白名单",
+  tags: ["Proactive Integrations"],
+  request: {headers: proactiveHeaders, params: proactiveHomeEntityParam, body: {content: {"application/json": {schema: homeAssistantEntityPatchSchema}}}},
+  responses: {200: {description: "Entity authorization updated"}, 404: {description: "Entity not found"}},
+});
+registry.registerPath({
+  method: "post",
+  path: "/v1/proactive/integrations/home-assistant/{id}/call-service",
+  summary: "在主动动作授权与实体白名单内调用 Home Assistant 服务",
+  tags: ["Proactive Integrations"],
+  request: {headers: proactiveHeaders, params: proactiveConnectionIdParam, body: {content: {"application/json": {schema: homeAssistantCallServiceSchema}}}},
+  responses: {200: {description: "Service called and action audited"}, 403: {description: "Action, entity, or service is not authorized"}},
+});
+registry.registerPath({
+  method: "delete",
+  path: "/v1/proactive/integrations/home-assistant/{id}",
+  summary: "撤销 Home Assistant 并删除本地凭据和缓存",
+  tags: ["Proactive Integrations"],
+  request: {headers: proactiveHeaders, params: proactiveConnectionIdParam},
+  responses: {204: {description: "Connection removed"}, 404: {description: "Connection not found"}},
+});
+registry.registerPath({
+  method: "post",
+  path: "/v1/proactive/integrations/xiaomi-health",
+  summary: "连接并同步小米运动健康每日汇总",
+  tags: ["Proactive Integrations"],
+  request: {headers: proactiveHeaders, body: {content: {"application/json": {schema: xiaomiHealthConnectionRequestSchema}}}},
+  responses: {201: {description: "Xiaomi Health connected"}, 400: {description: "Provider configuration or connection validation failed"}, 403: {description: "restricted.profile grant is not active"}},
+});
+registry.registerPath({
+  method: "post",
+  path: "/v1/proactive/integrations/xiaomi-health/{id}/sync",
+  summary: "同步指定日期的小米运动健康汇总",
+  tags: ["Proactive Integrations"],
+  request: {headers: proactiveHeaders, params: proactiveConnectionIdParam, body: {content: {"application/json": {schema: proactiveSyncDateSchema}}}},
+  responses: {200: {description: "Health data synchronized"}},
+});
+registry.registerPath({
+  method: "delete",
+  path: "/v1/proactive/integrations/xiaomi-health/{id}",
+  summary: "撤销小米运动健康并删除本地凭据和样本",
+  tags: ["Proactive Integrations"],
+  request: {headers: proactiveHeaders, params: proactiveConnectionIdParam},
+  responses: {204: {description: "Connection removed"}, 404: {description: "Connection not found"}},
 });
 
 registry.registerPath({

@@ -145,6 +145,83 @@ export interface ProactiveProfileClaimView {
   readonly updatedAt: string
 }
 
+export interface ProactiveConnectionView {
+  readonly id: string
+  readonly provider: 'home_assistant' | 'xiaomi_health' | string
+  readonly displayName: string
+  readonly endpoint?: string | null
+  readonly state: string
+  readonly lastSyncAt?: string | null
+  readonly lastError?: string | null
+  readonly hasCredential: boolean
+  readonly settings: Record<string, unknown>
+}
+
+export interface ProactiveHomeEntityView {
+  readonly id: string
+  readonly connectionId: string
+  readonly entityId: string
+  readonly domain: string
+  readonly displayName?: string | null
+  readonly deviceClass?: string | null
+  readonly allowedOps: string[]
+  readonly state: Record<string, unknown>
+  readonly enabled: boolean
+  readonly sensitive: boolean
+  readonly lastSeenAt?: string | null
+}
+
+export interface ProactiveHealthSampleView {
+  readonly id: string
+  readonly connectionId: string
+  readonly metric: string
+  readonly localDate: string
+  readonly value: number
+  readonly unit: string
+  readonly sensitivity: string
+  readonly source: string
+}
+
+export interface ProactiveIntelligenceDashboard {
+  readonly timeline: Array<{id: string; title: string; sourceKey: string; eventType: string; occurredAt: string}>
+  readonly projects: Array<{id: string; title: string; status: string; priority: number; confidence: number}>
+  readonly commitments: Array<{id: string; content: string; status: string; dueAt?: string | null}>
+  readonly workflows: Array<{id: string; name: string; state: string; evidenceCount: number}>
+  readonly triggers: Array<{id: string; triggerType: string; reason?: string | null; occurredAt: string}>
+  readonly verifications: Array<{id: string; actionId: string; status: string; verifiedAt?: string | null}>
+  readonly conflicts: Array<{id: string; reason: string; status: string}>
+  readonly preparations: Array<{id: string; title: string; status: string}>
+  readonly attention: Array<{id: string; focusScore: number; fatigueScore: number; recommendation?: string | null}>
+  readonly drift: Array<{id: string; signalType: string; severity: number; explanation?: string | null}>
+  readonly relationships: Array<{id: string; displayName: string; relationshipType: string; confidence: number}>
+  readonly scenes: Array<{id: string; sceneType: string; applicationId?: string | null; capturedAt: string}>
+  readonly reviews: Array<{id: string; periodType: string; periodStart: string; periodEnd: string; summary: string}>
+  readonly connections: ProactiveConnectionView[]
+  readonly homeEntities: ProactiveHomeEntityView[]
+  readonly health: ProactiveHealthSampleView[]
+}
+
+export interface HomeAssistantConnectionInput {
+  readonly displayName?: string
+  readonly endpoint: string
+  readonly accessToken: string
+  readonly subscriptionEnabled?: boolean
+  readonly entities?: Array<{entityId: string; enabled?: boolean; sensitive?: boolean; allowedOps?: string[]}>
+}
+
+export interface XiaomiHealthConnectionInput {
+  readonly displayName?: string
+  readonly apiBaseUrl: string
+  readonly accessToken: string
+  readonly refreshToken?: string
+  readonly tokenEndpoint?: string
+  readonly clientId?: string
+  readonly clientSecret?: string
+  readonly dailyPath?: string
+  readonly scopes?: string[]
+  readonly localDate?: string
+}
+
 export interface ProactiveDesktopBridge {
   getStatus(toolApprovalMode: 'ask' | 'full_access'): Promise<ProactiveProfileStatus>
   authorize(request: ProfileAuthorizationRequest, toolApprovalMode: 'ask' | 'full_access'): Promise<ProactiveProfileStatus>
@@ -155,6 +232,14 @@ export interface ProactiveDesktopBridge {
   recordActivity(source: 'aervox.activity' | 'aervox.operation', capture: ProactiveActivityCapture): Promise<boolean>
   listClaims(): Promise<readonly ProactiveProfileClaimView[]>
   updateClaimState(claimId: string, state: Extract<ProactiveProfileClaimState, 'confirmed' | 'rejected'>): Promise<ProactiveProfileClaimView>
+  getIntelligenceDashboard(): Promise<ProactiveIntelligenceDashboard>
+  connectHomeAssistant(input: HomeAssistantConnectionInput): Promise<unknown>
+  syncHomeAssistant(connectionId: string): Promise<unknown>
+  configureHomeAssistantEntity(connectionId: string, entityId: string, patch: {enabled?: boolean; sensitive?: boolean; allowedOps?: string[]}): Promise<ProactiveHomeEntityView>
+  deleteHomeAssistant(connectionId: string): Promise<boolean>
+  connectXiaomiHealth(input: XiaomiHealthConnectionInput): Promise<unknown>
+  syncXiaomiHealth(connectionId: string, localDate?: string): Promise<unknown>
+  deleteXiaomiHealth(connectionId: string): Promise<boolean>
   exportData(includeRaw?: boolean): Promise<ProactiveExportResult | null>
   shouldKeepAlive(): Promise<boolean>
   onStatusChange(callback: (status: ProactiveProfileStatus) => void): () => void
