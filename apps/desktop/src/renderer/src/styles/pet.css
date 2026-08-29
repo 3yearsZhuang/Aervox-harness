@@ -117,6 +117,19 @@ html, body, #pet-app {
     overflow: hidden
 }
 
+/* 快捷对话回复气泡：容纳长回复，内部滚动代替行数截断，可点击提前关闭 */
+.pet-bubble.pet-bubble-reply {
+    cursor: pointer
+}
+
+.pet-bubble.pet-bubble-reply p {
+    display: block;
+    -webkit-line-clamp: unset;
+    max-height: clamp(120px, 34vh, 210px);
+    overflow-y: auto;
+    scrollbar-width: thin
+}
+
 /* VN 气泡分支选择肢 */
 .pet-choices {
     display: flex;
@@ -157,13 +170,24 @@ html, body, #pet-app {
     transform: translateX(-50%) translateY(-6px)
 }
 
-/* ---------- 底部功能坞：图标 + 文字胶囊按钮（背板虚化承托模型腿部） ---------- */
+/* ---------- 底部功能坞：常驻条（快捷输入 + 展开开关）+ 向上展开的按钮胶囊 ---------- */
 
-.pet-dock {
+/* 常驻容器：居中锚点，内部纵向排布（功能坞在上、输入条在下） */
+.pet-dock-wrap {
     position: absolute;
     bottom: clamp(10px, 3vh, 20px);
     left: 50%;
     z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    max-width: calc(100% - 16px);
+    transform: translateX(-50%);
+}
+
+.pet-dock {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 3px;
@@ -174,8 +198,67 @@ html, body, #pet-app {
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     box-shadow: 0 2px 12px rgba(23, 32, 54, .1), inset 0 1px 0 rgba(255, 255, 255, .18);
-    transform: translateX(-50%);
     -webkit-app-region: no-drag
+}
+
+/* 功能坞向上展开/收起过渡 */
+.pet-dock-slide-enter-active,
+.pet-dock-slide-leave-active {
+    transition: opacity .22s ease, transform .22s ease
+}
+
+.pet-dock-slide-enter-from,
+.pet-dock-slide-leave-to {
+    opacity: 0;
+    transform: translateY(8px)
+}
+
+/* 常驻底部条：快捷输入 + 展开开关 */
+.pet-dock-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px;
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    background: var(--glass-bg-strong);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: 0 2px 12px rgba(23, 32, 54, .1), inset 0 1px 0 rgba(255, 255, 255, .18);
+    -webkit-app-region: no-drag
+}
+
+.pet-quick-input {
+    width: 172px;
+    height: 30px;
+    padding: 0 12px;
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--glass-bg) 60%, transparent);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 11.5px;
+    outline: none;
+    transition: border-color .18s ease, background-color .18s ease
+}
+
+.pet-quick-input::placeholder {
+    color: var(--text-muted)
+}
+
+.pet-quick-input:focus {
+    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+    background: color-mix(in srgb, var(--glass-bg-strong) 85%, transparent)
+}
+
+.pet-quick-input:disabled {
+    opacity: .6
+}
+
+.pet-dock-toggle {
+    width: 32px;
+    justify-content: center;
+    padding: 0
 }
 
 /* 坞顶高光条：与主工作台液态玻璃一致 */
@@ -226,7 +309,7 @@ html, body, #pet-app {
     box-shadow: 0 2px 8px color-mix(in srgb, #c25549 16%, transparent)
 }
 
-/* 窄窗回退：仅图标 */
+/* 窄窗回退：仅图标，输入框收窄 */
 @media (max-width: 272px) {
     .pet-dock-btn span {
         display: none
@@ -234,6 +317,10 @@ html, body, #pet-app {
 
     .pet-dock-btn {
         padding: 0 10px
+    }
+
+    .pet-quick-input {
+        width: 120px
     }
 }
 
