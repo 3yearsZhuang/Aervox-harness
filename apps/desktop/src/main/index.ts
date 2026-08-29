@@ -781,7 +781,7 @@ function createMainWindow() {
         backgroundColor: '#f5f7f4',
         frame: false,
         autoHideMenuBar: true,
-        title: 'Fairy Agent',
+        title: 'Aervox｜思隅',
         webPreferences: {
             preload: join(__dirname, '../preload/index.js'),
             contextIsolation: true,

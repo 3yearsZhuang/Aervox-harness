@@ -10,6 +10,8 @@ export { default as PluginPageDialog } from './components/plugin/PluginPageDialo
 export { default as PluginConfigForm } from './components/plugin/PluginConfigForm.vue';
 export { default as PluginConfigFieldInput } from './components/plugin/PluginConfigFieldInput.vue';
 export { default as Live2DPet } from './components/Live2DPet.vue';
+export { default as AervoxBrandMark } from './components/AervoxBrandMark.vue';
+export { default as AervoxCompanionMark } from './components/AervoxCompanionMark.vue';
 export * from './live2d/model';
 export { default as PersonaManagerPanel } from './components/persona/PersonaManagerPanel.vue';
 export { default as PersonaEditDialog } from './components/persona/PersonaEditDialog.vue';

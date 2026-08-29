@@ -1,7 +1,7 @@
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：MoeJiyun233 · 2026-08-29
+- 修改人：kikoyida · 2026-08-29
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
@@ -155,6 +155,7 @@
 
 | 落地实现 | 关联 CAP | 实现位置 | 日期 | 验证 | 来源 |
 |---|---|---|---|---|---|
+| Aervox 品牌主标 03 与思隅角色副标 A2（共享 SVG/Vue 组件、桌面标题栏、首次启动页、Live2D 回退、Web/Desktop favicon） | CAP-001/018/019 | `packages/ui/src/{assets/brand,components/AervoxBrandMark.vue,components/AervoxCompanionMark.vue,index.ts}`、`apps/desktop/src/{main/index.ts,renderer/index.html,renderer/public/aervox-mark.svg,renderer/src/components/{AppTitlebar,OnboardingFlow}.vue}`、`apps/web/{index.html,public/aervox-mark.svg}` | 2026-08-29 | SVG XML 解析；`git diff --check`；UI/Web/Desktop build 待本机 mise 启动器修复后复验 | 原生 |
 | 桌面端首次启动引导（四步序章、Live2D、模型测试/保存、快速开始与版本化完成标记） | CAP-001/018 | `apps/desktop/src/renderer/src/{App.vue,onboarding-model.ts,onboarding-state.ts,components/OnboardingFlow.vue}`、`apps/desktop/test/{onboarding-model,onboarding-state}.test.ts` | 2026-08-29 | Desktop 单元测试（首次启动、严格完成标记、完成写入、提供商预设、模型配置校验）；Desktop build/typecheck | 原生（视觉结论见 `CR-024` 与原型提交 `050f1f0`） |
 | 错题本聚合、掌握标记与错题重练 | CAP-003/004 | `apps/api/src/modules/learning/routes.ts`、`packages/database/src/repositories/{types,sqlite/learning-repository}.ts`、`packages/api-client/src/useAervoxApi.ts`、`packages/ui/src/components/AervoxWorkbench.vue` | 2026-08-26 | `mistake-book.test.ts` 集成测试；API/API Client/UI 类型检查 | 原生 |
 | 练习会话与结果报告 | CAP-003/004/006 | `apps/api/src/modules/learning/routes.ts`、`packages/database/src/schema/learning.ts`、`packages/database/src/repositories/sqlite/learning-repository.ts`、`packages/api-client/src/useAervoxApi.ts`、`packages/ui/src/components/AervoxWorkbench.vue` | 2026-08-26 | `practice-session.test.ts` 集成测试；学习路由类型检查 | 原生 |
