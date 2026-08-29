@@ -435,6 +435,23 @@ export const diaryWriteToolOutputSchema = z.object({
   generatedBy: z.enum(["llm", "template"]),
 });
 
+/** 日记历史回看列表响应（GET /v1/diaries?limit=） */
+export const diaryListResponseSchema = z.object({
+  items: z.array(diarySchema),
+});
+
+/** 每日按需生成/取回响应（POST /v1/diaries/generate-today） */
+export const diaryGenerateTodayOutputSchema = z.object({
+  diaryId: z.string().min(1),
+  localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  title: z.string(),
+  content: z.string(),
+  /** existing=当日已有直接返回（幂等）；created=本次生成新建；rewritten=当日已有且本次改写 */
+  mode: z.enum(["created", "rewritten", "existing"]),
+  generatedBy: z.enum(["llm", "template"]),
+  materialCount: z.number().int(),
+});
+
 /** PET-05 写工具审批待决事件负载（tool_approval_required；CR-024 补充公开契约） */
 export const toolApprovalRequiredEventDataSchema = z.object({
   approvalId: z.string().min(1),

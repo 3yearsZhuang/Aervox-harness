@@ -508,6 +508,8 @@ export interface IDiaryRepository {
     },
   ): Promise<{ diary: DiaryModel; cycle: DiaryCycleModel }>;
   getDiaryByDate(tenant: TenantContext, localDate: string): Promise<DiaryModel | null>;
+  /** 历史回看：按日期倒序返回最近 limit 篇日记 */
+  listDiaries(tenant: TenantContext, limit: number): Promise<DiaryModel[]>;
   // MVP+ 补齐（PRD §8）：计划主实体 / 版本 / 段落来源 / 素材缓冲
   createDiarySchedule(
     tenant: TenantContext,
@@ -520,9 +522,13 @@ export interface IDiaryRepository {
       bufferMinutes?: number;
       contentScopes?: unknown;
       quietHours?: unknown;
+      enabled?: number;
+      nextRunAt?: string;
     },
   ): Promise<DiaryScheduleModel>;
   getDiarySchedule(tenant: TenantContext, id: string): Promise<DiaryScheduleModel | null>;
+  /** 默认每日计划幂等查询：返回该租户首个启用且 cutoffRule=daily 的计划（无返回 null） */
+  getActiveDailySchedule(tenant: TenantContext): Promise<DiaryScheduleModel | null>;
   createDiaryVersion(
     tenant: TenantContext,
     version: { id: string; diaryId: string; perspective: string; content: string; modelRunId?: string | null },

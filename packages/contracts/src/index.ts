@@ -23,6 +23,8 @@ import {
   diarySchema,
   diaryWriteToolInputSchema,
   diaryWriteToolOutputSchema,
+  diaryListResponseSchema,
+  diaryGenerateTodayOutputSchema,
   toolApprovalRequiredEventDataSchema,
   messageEventDataSchema,
   petCommandSchema,
@@ -151,6 +153,8 @@ export type MemoryStoreToolOutput = z.infer<typeof memoryStoreToolOutputSchema>;
 export type Diary = z.infer<typeof diarySchema>;
 export type DiaryWriteToolInput = z.infer<typeof diaryWriteToolInputSchema>;
 export type DiaryWriteToolOutput = z.infer<typeof diaryWriteToolOutputSchema>;
+export type DiaryListResponse = z.infer<typeof diaryListResponseSchema>;
+export type DiaryGenerateTodayOutput = z.infer<typeof diaryGenerateTodayOutputSchema>;
 export type ToolApprovalRequiredEventData = z.infer<typeof toolApprovalRequiredEventDataSchema>;
 export type PluginMetadata = z.infer<typeof pluginMetadataSchema>;
 export type PluginConfigField = z.infer<typeof pluginConfigFieldSchema>;

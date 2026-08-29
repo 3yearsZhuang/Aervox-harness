@@ -14,6 +14,7 @@ import { createDatabase,
   SqliteOutboxRepository,
   SqlitePlatformRepository,
   SqliteDiaryRepository,
+  SqliteLLMConfigRepository,
   SqlitePrivacyRepository,
   SqliteLearningRepository,
   SqliteMemoryCompactionRepository,
@@ -51,6 +52,7 @@ const defaultTickMs = config.tickMs;
 const outboxRepo = new SqliteOutboxRepository(db);
 const platformRepo = new SqlitePlatformRepository(db);
 const diaryRepo = new SqliteDiaryRepository(db);
+const llmConfigRepo = new SqliteLLMConfigRepository(db);
 const privacyRepo = new SqlitePrivacyRepository(db);
 const learningRepo = new SqliteLearningRepository(db);
 const compactionRepo = new SqliteMemoryCompactionRepository(db);
@@ -85,7 +87,7 @@ const tasks: WorkerTask[] = [
   {
     name: "diary",
     intervalMs: taskInterval("diary"),
-    run: () => runDiaryGenerationCycle({ db, diaryRepo, platformRepo, outboxRepo, workerId }),
+    run: () => runDiaryGenerationCycle({ db, diaryRepo, llmConfigRepo, platformRepo, outboxRepo, workerId }),
   },
   {
     name: "deletion",

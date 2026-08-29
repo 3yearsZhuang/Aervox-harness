@@ -15,6 +15,7 @@
     "@aervox/config": "workspace:*",
     "@aervox/contracts": "workspace:*",
     "@aervox/database": "workspace:*",
+    "@aervox/diary": "workspace:*",
     "@aervox/host-agent": "workspace:*",
     "@aervox/practice-review": "workspace:*",
     "@fastify/cors": "^11.3.0",

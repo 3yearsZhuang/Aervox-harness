@@ -57,8 +57,9 @@ import {
   X,
   Zap,
 } from 'lucide-vue-next'
-import {decideToolApproval, streamAervoxTurn, submitQuestionAnswers, uploadAervoxAttachment, useAervoxApi, useAervoxVoiceInput} from '@aervox/api-client'
+import {decideToolApproval, streamAervoxTurn, submitQuestionAnswers, uploadAervoxAttachment, useAervoxApi, useAervoxDiary, useAervoxVoiceInput} from '@aervox/api-client'
 import type {AskUserQuestionAnswerItem, AttachmentPurpose, ExtractedTerm, ToolApprovalMode, ToolApprovalRequiredEventData, TurnAttachmentRef, UserQuestionRequiredEventData} from '@aervox/contracts'
+import type {DiaryDto, GenerateTodayResultDto} from '@aervox/api-client'
 import {allowedMediaTypesSchema, MAX_ATTACHMENT_SIZE} from '@aervox/contracts'
 import type {
   ProfileAuthorizationRequest,
@@ -102,7 +103,7 @@ interface StoryLine {
   attachments?: StoryLineAttachment[]
 }
 
-type CardId = 'study' | 'todo' | 'timer' | 'history' | 'mistake' | 'quiz'
+type CardId = 'study' | 'todo' | 'timer' | 'history' | 'mistake' | 'quiz' | 'diary'
 
 interface CardDefinition {
   id: CardId
@@ -129,6 +130,7 @@ const todoOpen = ref(false)
 const timerOpen = ref(false)
 const studyOpen = ref(false)
 const mistakeOpen = ref(false)
+const diaryOpen = ref(false)
 const settingsOpen = ref(false)
 const settingsCategory = ref<'tools' | 'appearance' | 'conversation' | 'model' | 'persona' | 'notifications' | 'voice' | 'plugins' | 'proactive'>('tools')
 const showArchivedGoals = ref(false)
@@ -235,8 +237,105 @@ const story = ref<StoryLine[]>([
 ])
 const api = useAervoxApi()
 const voiceInput = useAervoxVoiceInput()
+const diaryApi = useAervoxDiary()
 const composerTextarea = ref<HTMLTextAreaElement | null>(null)
 const voiceInputError = ref<string | null>(null)
+
+// ============ 日记（AI 每日日记 · 首开卡片 · 菜单回看） ============
+interface DiaryView {
+  localDate: string
+  title: string
+  content: string
+  generatedBy: 'llm' | 'template'
+  materialCount: number
+  mode: 'created' | 'rewritten' | 'existing'
+}
+const TEMPLATE_MARKER = '（本篇为非 LLM 模式的模板日记'
+const toDiaryView = (result: GenerateTodayResultDto): DiaryView => ({
+  localDate: result.localDate,
+  title: result.title,
+  content: result.content,
+  generatedBy: result.generatedBy,
+  materialCount: result.materialCount,
+  mode: result.mode,
+})
+const toDiaryViewFromRow = (row: DiaryDto): DiaryView => ({
+  localDate: row.localDate,
+  title: row.title,
+  content: row.content,
+  generatedBy: row.content.includes(TEMPLATE_MARKER) ? 'template' : 'llm',
+  materialCount: 0,
+  mode: 'existing',
+})
+const todayLocalDate = (): string =>
+  new Intl.DateTimeFormat('en-CA', {year: 'numeric', month: '2-digit', day: '2-digit'}).format(new Date())
+const todayDiary = ref<GenerateTodayResultDto | null>(null)
+const viewingDiary = ref<DiaryView | null>(null)
+const diaryHistory = ref<DiaryDto[]>([])
+const diaryBusy = ref(false)
+const diaryError = ref<string | null>(null)
+/** 首开临时覆盖前的第一槽原始值（移除临时日记卡时恢复，避免污染持久化配置） */
+let diarySlotRestore: CardId | null | undefined = undefined
+/** 对话框正文：去掉「标题：…」首行，避免与卡片标题重复渲染 */
+const diaryDisplayContent = computed(() =>
+  (viewingDiary.value?.content ?? '').replace(/^标题[：:].*\n\n/, '').replace(/^标题[：:].*\n/, ''),
+)
+
+async function loadDiaryHistory() {
+  try {
+    diaryHistory.value = await diaryApi.listDiaries(30)
+  } catch {
+    diaryHistory.value = []
+  }
+}
+
+/** 打开日记本：幂等取回今日日记（当日已有则原样返回），并载入历史列表 */
+async function openDiary() {
+  diaryOpen.value = true
+  diaryBusy.value = true
+  diaryError.value = null
+  try {
+    const result = await diaryApi.generateToday()
+    todayDiary.value = result
+    viewingDiary.value = result ? toDiaryView(result) : null
+  } catch (error) {
+    diaryError.value = error instanceof Error ? error.message : '日记加载失败'
+  } finally {
+    diaryBusy.value = false
+  }
+  await loadDiaryHistory()
+}
+
+/** 历史回看：按日期加载单篇 */
+async function selectDiaryDate(localDate: string) {
+  if (viewingDiary.value?.localDate === localDate) return
+  diaryBusy.value = true
+  diaryError.value = null
+  try {
+    const row = await diaryApi.getDiaryByDate(localDate)
+    viewingDiary.value = toDiaryViewFromRow(row)
+  } catch (error) {
+    diaryError.value = error instanceof Error ? error.message : '日记加载失败'
+  } finally {
+    diaryBusy.value = false
+  }
+}
+
+/** 手动「让思思现在写」：当日已有 → 改写（rewrite 版本），无 → 新建 */
+async function generateDiaryNow() {
+  diaryBusy.value = true
+  diaryError.value = null
+  try {
+    const result = await diaryApi.generateToday({rewrite: true})
+    todayDiary.value = result
+    viewingDiary.value = toDiaryView(result)
+  } catch (error) {
+    diaryError.value = error instanceof Error ? error.message : '生成失败'
+  } finally {
+    diaryBusy.value = false
+  }
+  await loadDiaryHistory()
+}
 const {
   goals,
   dueReviews,
@@ -317,6 +416,7 @@ const cardCatalog = computed<CardDefinition[]>(() => [
   {id: 'todo', label: '待办清单', description: '勾选完成今天的待办事项', icon: ListTodo, summary: () => `待完成 ${unfinishedTodos.value.length} 件`, action: () => openTool('todo')},
   {id: 'timer', label: '番茄钟', description: '专注计时，劳逸结合', icon: Clock3, summary: () => timerRunning.value ? `${formattedTime.value} 专注中` : `${formattedTime.value} 待开始`, action: () => openTool('timer')},
   {id: 'history', label: '对话回看', description: '回顾与思隅的历史对话', icon: History, summary: () => `${story.value.length} 条对话记录`, action: () => openTool('history')},
+  {id: 'diary', label: '今日日记', description: 'AI 按今天记忆写的日记', icon: NotebookPen, summary: () => todayDiary.value?.title ?? 'AI 每日日记', action: () => openTool('diary')},
 ])
 
 const slotCards = computed(() => cardSlots.value.map((id) => id ? cardCatalog.value.find((card) => card.id === id) ?? null : null))
@@ -383,15 +483,17 @@ const menuItems: Array<{ id: string; label: string; icon: Component; action: () 
   {id: 'todo', label: '待办', icon: ListTodo, action: () => openTool('todo')},
   {id: 'timer', label: '番茄钟', icon: Clock3, action: () => openTool('timer')},
   {id: 'history', label: '回看', icon: History, action: () => openTool('history')},
+  {id: 'diary', label: '日记', icon: NotebookPen, action: () => openTool('diary')},
 ]
 
-/** 功能弹窗左侧导航：五个功能统一入口，当前弹窗高亮，点击即切换 */
+/** 功能弹窗左侧导航：功能统一入口，当前弹窗高亮，点击即切换 */
 const toolNavItems: Array<{ id: ToolId; label: string; description: string; icon: Component }> = [
   {id: 'study', label: '学习规划', description: 'AI 生成学习路线图', icon: BookOpen},
   {id: 'mistake', label: '错题本', description: '针对性重练未掌握题', icon: Puzzle},
   {id: 'todo', label: '待办清单', description: '勾选完成今天的待办', icon: ListTodo},
   {id: 'timer', label: '番茄钟', description: '专注计时，劳逸结合', icon: Clock3},
   {id: 'history', label: '对话回看', description: '回顾历史对话记录', icon: History},
+  {id: 'diary', label: '日记本', description: 'AI 每日日记与历史回看', icon: NotebookPen},
 ]
 
 /** Live2D 操作反馈动作池：按语义挑选 Mizuki 动作子集，随机取用避免重复 */
@@ -906,7 +1008,7 @@ function resetFullAccessConfirmation() {
   fullAccessAcknowledged.value = false
 }
 
-type ToolId = 'study' | 'mistake' | 'todo' | 'timer' | 'history'
+type ToolId = 'study' | 'mistake' | 'todo' | 'timer' | 'history' | 'diary'
 
 function capabilityStatusLabel(status: ProfileCapabilityState['osStatus']): string {
   return {
@@ -1258,6 +1360,7 @@ function openTool(target: ToolId) {
   todoOpen.value = false
   timerOpen.value = false
   historyOpen.value = false
+  diaryOpen.value = false
   if (target === 'study') {
     studyOpen.value = true
   } else if (target === 'mistake') {
@@ -1266,6 +1369,8 @@ function openTool(target: ToolId) {
     todoOpen.value = true
   } else if (target === 'timer') {
     timerOpen.value = true
+  } else if (target === 'diary') {
+    void openDiary()
   } else {
     historyOpen.value = true
   }
@@ -1652,6 +1757,15 @@ function isCardPicked(id: CardId) {
 }
 
 function selectCard(slot: number, id: CardId | null, event?: MouseEvent) {
+  // 移除首开临时覆盖的日记卡：恢复覆盖前配置（并以恢复值落盘，等价于未覆盖前的持久化），不把覆盖本身写入
+  if (slot === 0 && id === null && cardSlots.value[0] === 'diary' && diarySlotRestore !== undefined) {
+    cardSlots.value = cardSlots.value.map((current, index) => index === 0 ? diarySlotRestore : current) as Array<CardId | null>
+    diarySlotRestore = undefined
+    localStorage.setItem('aervox-side-cards', JSON.stringify(cardSlots.value))
+    const slotEl = (event?.target as HTMLElement | null)?.closest?.('.side-card-slot') ?? undefined
+    petReactKind('shake', {expression: MizukiExpression.face_trouble_01, lookAtEl: slotEl})
+    return
+  }
   cardSlots.value = cardSlots.value.map((current, index) => index === slot ? id : current)
   localStorage.setItem('aervox-side-cards', JSON.stringify(cardSlots.value))
   // 桌宠反馈：看向被操作的那个卡片槽位，选功能时开心、移除时摇头
@@ -1810,6 +1924,25 @@ onMounted(() => {
 
   // 学习模式开启时刷新页面：仍按「今日学习 + 番茄钟」呈现，并记录快照供退出恢复
   if (studyModeEnabled.value) applyStudyCardLayout()
+
+  // 每日首开：当天未展示过则取回/生成今日日记，并把「日记」临时覆盖到第一卡片槽
+  // （仅存内存、写入 localStorage；次日不会自动出现，刷新回落用户自选配置）
+  void (async () => {
+    if (studyModeEnabled.value) return
+    const marker = `aervox-diary-first-open-${todayLocalDate()}`
+    if (localStorage.getItem(marker)) return
+    try {
+      const result = await diaryApi.generateToday()
+      if (result?.content) {
+        todayDiary.value = result
+        if (diarySlotRestore === undefined) diarySlotRestore = cardSlots.value[0]
+        cardSlots.value[0] = 'diary'
+      }
+      localStorage.setItem(marker, '1')
+    } catch {
+      // 失败不写标记：当天再次打开应用时重试
+    }
+  })()
 
   if (isWeb.value) {
     const saved = localStorage.getItem('aervox-theme')
@@ -2785,6 +2918,60 @@ onUnmounted(() => {
       </div>
     </el-dialog>
 
+    <el-dialog
+      v-model="diaryOpen"
+      title="日记本"
+      class="diary-dialog"
+      width="min(860px, calc(100vw - 28px))"
+      align-center
+    >
+      <div class="tool-dialog-layout">
+        <nav class="tool-sidebar" aria-label="功能导航">
+          <button
+            v-for="item in toolNavItems"
+            :key="item.id"
+            type="button"
+            :class="{active: item.id === 'diary'}"
+            :aria-current="item.id === 'diary' ? 'true' : undefined"
+            @click="item.id !== 'diary' && openTool(item.id)"
+          >
+            <component :is="item.icon" :size="18" />
+            <span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span>
+          </button>
+        </nav>
+        <div class="tool-dialog-content">
+          <p class="drawer-intro">思思根据今天我们一起聊过、记下和做过的事，替你写一篇日记。</p>
+          <div class="diary-actions">
+            <button type="button" class="diary-generate-btn" :disabled="diaryBusy" @click="generateDiaryNow">
+              <NotebookPen v-if="!diaryBusy" :size="16" />
+              <span>{{ diaryBusy ? '思思正在写…' : (viewingDiary ? '让思思改写今天的' : '让思思现在写') }}</span>
+            </button>
+          </div>
+          <p v-if="diaryError" class="drawer-empty" role="alert">{{ diaryError }}</p>
+          <article v-if="viewingDiary" class="diary-card">
+            <header class="diary-head">
+              <strong>{{ viewingDiary.title }}</strong>
+              <small class="diary-meta">{{ viewingDiary.localDate }} · {{ viewingDiary.generatedBy === 'template' ? '模板生成' : '思思手写' }}</small>
+            </header>
+            <div class="markdown-body diary-body" v-html="renderMarkdown(diaryDisplayContent)" />
+          </article>
+          <p v-else-if="!diaryBusy" class="drawer-empty">今天还没有日记，点上面的按钮让思思写一篇。</p>
+
+          <div v-if="diaryHistory.length > 0" class="settings-section" style="margin-top: 20px;">
+            <h4>历史日记 <small>{{ diaryHistory.length }}</small></h4>
+            <ul class="diary-history-list">
+              <li v-for="item in diaryHistory" :key="item.localDate">
+                <button type="button" :class="{active: viewingDiary?.localDate === item.localDate}" @click="selectDiaryDate(item.localDate)">
+                  <span class="diary-history-date">{{ item.localDate }}</span>
+                  <span class="diary-history-title">{{ item.title }}</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
+
     <el-dialog v-model="settingsOpen" title="设置" class="settings-dialog" width="min(860px, calc(100vw - 28px))" align-center>
       <div class="settings-layout">
         <nav class="settings-categories" aria-label="设置分类">
@@ -2819,6 +3006,10 @@ onUnmounted(() => {
               <button type="button" @click="openTool('history')">
                 <History :size="19" />
                 <span><strong>对话回看</strong><small>{{ story.length }} 条对话记录</small></span>
+              </button>
+              <button type="button" @click="openTool('diary')">
+                <NotebookPen :size="19" />
+                <span><strong>日记本</strong><small>AI 每日日记与历史回看</small></span>
               </button>
             </div>
           </div>
