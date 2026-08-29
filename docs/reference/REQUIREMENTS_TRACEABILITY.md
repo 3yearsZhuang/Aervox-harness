@@ -100,12 +100,12 @@
 | 能力 ID | 能力 | 优先级 · 交付阶段 | 当前状态 | DoR 就绪 | 落地 | PRD 依据 | 达到下一状态所需工作 |
 |---|---|---|---|---|---|---|---|
 | `CAP-001` | 桌宠入口 | `P0 · R1` | `Specified` | Not Ready | ✔ | [首页工作台](PRD.md#prd-home)、[视觉小说式对话形态](PRD.md#prd-conversation-ui)、[CR-005](changes/CR-005-shared-workbench-web-without-pet.md)、[CR-007](changes/CR-007-live2d-sekai-viewer-pet.md) | 进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready`；Web/Desktop 表现层边界按 CR-005/CR-007 验证 |
-| `CAP-002` | 学习目标与对话 | `P0 · R1` | `Specified` | Not Ready | — | [学习目标](PRD.md#prd-cap-002)、[引导式学习对话](PRD.md#prd-cap-007) | 拆分 `FR/BR/AC`，明确会话状态、并发修改、归档和恢复规则 |
+| `CAP-002` | 学习目标与对话 | `P0 · R1` | `Specified` | Not Ready | ✔ | [学习目标](PRD.md#prd-cap-002)、[引导式学习对话](PRD.md#prd-cap-007) | 拆分 `FR/BR/AC`，明确会话状态、并发修改、归档和恢复规则 |
 | `CAP-003` | 互动刷题 | `P0 · R1` | `Specified` | Not Ready | — | [互动练习与错题本](PRD.md#prd-cap-003-004) | 已由 [CR-008](changes/CR-008-practice-session-contract.md) 与 [CR-013](changes/CR-013-practice-session-recovery.md) 补齐题目选择、快照、恢复、幂等和完成边界；新增 CR-020 guidance E2E + 错因筛选 E2E + 刷题闭环 E2E；仍需评审证据后推进 Ready |
 | `CAP-004` | 错题本 | `P0 · R1` | `Specified` | Not Ready | — | [互动练习与错题本](PRD.md#prd-cap-003-004)、[CR-009](changes/CR-009-mistake-book-dismissal.md)、[CR-018](changes/CR-018-mistake-insight-workflow.md) | 错因记录与筛选已进入实现；仍需补重复题合并的产品决策，以及 E2E 与评审证据 |
 | `CAP-005` | 四段式记忆与记忆树 | `P0 · R1–R2` | `Specified` | Not Ready | ✔ | [四段式记忆与记忆树](PRD.md#prd-cap-005) | 拆分各层状态转换、TTL、压缩、冲突、删除、重建和迁移测试 |
 | `CAP-006` | 间隔重复 | `P0 · R1` | `Specified` | Not Ready | — | [间隔复习](PRD.md#prd-cap-006)、[CR-010](changes/CR-010-review-completion-idempotency.md)、[CR-011](changes/CR-011-timezone-safe-review-scheduling.md) | AC-FR-REV-001-03 已闭环（DST·跨时区·逾期汇总全覆盖）；仍需长期算法升级和批量历史重算策略 |
-| `CAP-007` | 文本与代码答疑 | `P0 · R1` | `Specified` | Not Ready | — | [引导式学习对话](PRD.md#prd-cap-007) | 进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready`（讲解触发复用 `FR-CONV-001`） |
+| `CAP-007` | 文本与代码答疑 | `P0 · R1` | `Specified` | Not Ready | ✔ | [引导式学习对话](PRD.md#prd-cap-007) | 进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready`（讲解触发复用 `FR-CONV-001`） |
 | `CAP-008` | 情绪价值与安全陪伴 | `P0 · R1` | `Specified` | Not Ready | — | [关系与情绪边界](PRD.md#prd-safety-boundary)、[轻量陪伴](PRD.md#prd-cap-008) | 固定风险分级、地区化求助入口、审计、误报处置和安全回归集 |
 | `CAP-009` | AI 每日日记 | `P0 · R1.5` | `Specified` | Not Ready | ✔ | [AI 每日日记](PRD.md#prd-cap-009)、[日记与记忆层的关系](PRD.md#prd-diary-memory) | 补定时任务幂等、重试、版本冲突、来源快照、通知和时区边界测试 |
 | `CAP-010` | 人格问卷与基础偏好 | `P0 · R1.5` | `Specified` | Not Ready | ✔ | [全生命周期功能地图](PRD.md#prd-cap-map)、[P0 最低验收](PRD.md#prd-cap-001-010-013) | 实现已落地（PR #64 §4.2）；进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready` |
@@ -282,6 +282,7 @@
 
 | 人格问卷与基础偏好（CAP-010：人格偏好评测 + 5 条 API） | CAP-010 | `packages/database/src/schema/preferences.ts` + `repositories/sqlite/preferences-repository.ts`、`packages/contracts/src/schemas.ts`（`personaPreferencesSchema`/`toneSchema` 等枚举）、`apps/api/src/modules/preferences/`（`/v1/preferences` 5 路由） | 2026-08-28 | `@aervox/api` `preferences.test.ts` 7（BR-PER-001 未配置中性默认等）；Database/API typecheck；ci-code 全量 | 原生 |
 
+| 术语抽取、流式回填与追问探索（CAP-007 / CAP-002） | CAP-007/002 | `plugins/study-companion/`、`plugins/term-explorer/`、`packages/practice-review/src/terms.ts`、`packages/contracts/src/{schemas,openapi}.ts`、`apps/api/src/modules/{terms,conversation}/`、`packages/api-client/src/{transport,useAervoxTurn}.ts`、`packages/ui/src/components/{AervoxWorkbench.vue,TermExploreDialog.vue}`、`packages/ui/src/theme/workbench.css` | 2026-08-28 | `terms.test.ts` 单元测试；`terms-explore.test.ts` / `study-term-plugins.test.ts` 集成测试；UI/Web/Desktop build + typecheck | 原生 + `AVX-PLUG-001` 插件 Bundle 规范 |
 | 学习资料整理（CAP-011：资料 CRUD + 版本回溯 + 来源/许可台账 + JSON/Markdown 导出） | CAP-011 | `packages/database/src/schema/study-materials.ts`（`study_materials`/`material_versions`/`material_sources` + 索引）+ `repositories/sqlite/study-material-repository.ts`、`packages/contracts/src/schemas.ts`（materialType/status/sourceType/licenseStatus 枚举）、`apps/api/src/modules/study-materials/` | 2026-08-28 | `@aervox/api` `study-materials.test.ts` 10（版本回溯/来源台账/导出）；Database/API typecheck；ci-code 全量 | 原生 |
 
 | 多模态答疑（CAP-012：附件元数据 + OCR 解析 + crop + RFC 5987 文件名编码） | CAP-012 | `packages/database/src/schema/content.ts`（attachment metadata + `content_parse_results`）+ `repositories/sqlite/content-repository.ts`、`packages/contracts/src/schemas.ts`（attachmentPurpose/allowedMediaTypes/`OCR_CONFIDENCE_THRESHOLD`）、`apps/api/src/modules/content/routes.ts`（附件/解析/裁剪/转文本） | 2026-08-28 | `@aervox/api` `multimodal-qna.test.ts` 8（置信度阈值/裁剪/RFC5987 文件名）；Database/API typecheck；ci-code 全量 | 原生 |
