@@ -219,13 +219,16 @@ describe("CAP-033 proactive API", () => {
       },
     });
     expect(action.statusCode).toBe(201);
-    expect(action.json().actionGrantRevision).toBe("actions-v1");
+    // 服务端从真实 granted grant 派生授权指纹，客户端传入值被忽略
+    expect(action.json().actionGrantRevision).toMatch(/^action\.local@\d+$/);
+    expect(action.json().actionGrantRevision).not.toBe("actions-v1");
 
     const exported = await app.inject({ method: "GET", url: "/v1/proactive/export", headers });
     expect(exported.statusCode).toBe(200);
     expect(exported.json().manifest.checksum).toMatch(/^[a-f0-9]{64}$/);
     expect(exported.json().data.processingBoundary).toBeUndefined();
-    expect(exported.json().data.actions[0].actionGrantRevision).toBe("actions-v1");
+    expect(exported.json().data.actions[0].actionGrantRevision).toMatch(/^action\.local@\d+$/);
+    expect(exported.json().data.actions[0].actionGrantRevision).not.toBe("actions-v1");
   });
 
   it("keeps proactive rows in an injected local vault instead of the main database", async () => {

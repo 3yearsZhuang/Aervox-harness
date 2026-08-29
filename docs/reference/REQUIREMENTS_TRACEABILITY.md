@@ -1,7 +1,7 @@
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：MoeJiyun233 · 2026-08-29
+- 修改人：3yearszhuang · 2026-08-29
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
@@ -245,6 +245,7 @@
 
 | CAP-033 主动智能模式数据面、部分来源采集与桌面 Host（CR-023） | CAP-033 + CAP-002/005/007/008/009/010/012/013/018/020/022/023/024/026/027/030 + Agent Host/Inbox/OS 权限/隐私/本地存储基础设施 | `packages/database/src/schema/proactive.ts`、`packages/database/src/schema/init.ts`、`packages/database/src/repositories/{types,sqlite/proactive-profile-repository}.ts`、`packages/database/src/{client,proactive-vault-auth,proactive-vault-crypto}.ts`、`apps/api/src/modules/proactive/`、`apps/worker/src/{proactive-profile-worker,proactive-distiller}.ts`、`packages/ui/src/proactive/`、`apps/desktop/src/main/{proactive-host,proactive-source-adapters}.ts`、`apps/desktop/src/preload/domains/proactive-api.ts` | 2026-08-29 | 本地 Vault/加密、授权/lease/loopback token、action authorizer、Aervox activity/operation、clipboard、screen/browser/file adapter、Worker 提炼、本地画像上下文、来源级删除、导出和 heartbeat 已实现；聚焦测试覆盖 Database/API/Worker/Desktop adapters，Contracts OpenAPI build 通过。应用活动正文、通信/音视频/位置/传感器 provider、全链本地证明和生产门禁仍待实现 | 原生 |
 
+| CAP-033 主动动作安全加固（授权指纹服务端派生 + 动作状态机 + 租约感知采集门禁） | CAP-033 + 基础设施（安全/隐私） | `packages/database/src/repositories/sqlite/proactive-profile-repository.ts`（`createAction` 服务端从真实 granted grant 版本派生 `actionGrantRevision`，忽略客户端伪造；`updateAction` 增加动作状态机约束：pending→approved→running→executed，未决动作不得直接置执行态、终态不可变）、`apps/api/src/modules/proactive/routes.ts`（state 端点转发状态机错误为 409）、`apps/desktop/src/main/proactive-host.ts`（`shouldCollect`/`shouldKeepAlive` 纳入激活租约有效性：租约过期或未建立即挂起，防止挂断后继续采集剪贴板/屏幕等敏感源） | 2026-08-29 | `@aervox/database` proactive-profile 6（新增：伪造授权指纹被忽略+派生指纹、pending 直接 executed/running 被拒、approved 二次批准被拒、终态不可变、全链合法前进行）；`@aervox/api` 255 全量无回归；`@aervox/api-client` 18、`@aervox/agent-loop` 146、`@aervox/worker` 7 无回归；Desktop/UI/API/Database/Worker typecheck + build | 原生 |
 | Agent Harness Loop 阶段 3c：恢复裁决基础设施（decideResume + findResumeCandidates） | CAP-002/007 + 基础设施 | `packages/agent-loop/src/resume.ts`（`decideResume` 纯函数：最后工具批次全 executed 且无终态→resume；终态/混合/未知/无结果收敛）、`packages/database`（`findResumeCandidates`：过期 Running + executed 工具 + 无 done）、`apps/worker`（recovery cycle 候选观测日志，行为不变）、`docs/reference/agent-harness-loop.md`（§16.11） | 2026-08-28 | `@aervox/agent-loop` 56（resume-decision 6 矩阵）；`@aervox/database` 125（候选 3：命中/终态排除/未知排除）；`ci-code` 全量。**续跑执行接线待阶段 4 host-agent** | 原生 |
 
 | Agent Harness Loop 阶段 4a：内嵌异步 Host + SQLite ExecutionStore 迁移 + Observability 注入 | CAP-002/007 + 基础设施 | `packages/host-agent`（`sqlite-execution-store.ts`：自 apps/api 迁移的组合根适配，API 同步路径与异步 Host 共用；`agent-host.ts`：轮询/claim 委托 executeTurn/并发上限+背压/优雅停机 drain/processed/running；`agent-host` 接 `@aervox/observability`：turn.completed、fencing.denials、duration_ms 直方图、审计 entry，Noop 兜底不抛错）、`apps/api`（`agent-executor.ts` 删除本地 130 行 SqliteExecutionStore 副本，改引 `@aervox/host-agent`）、`docs/reference/agent-harness-loop.md`（§16.12） | 2026-08-28 | `@aervox/host-agent` 12（agent-host 6：轮询/背压/CAS 跳过/drain/观测打点×2；store 冒烟 3）；`@aervox/api` 101 无回归；ci-code 全量 | 原生 |

@@ -1620,6 +1620,13 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     if (missingScopes.length > 0) {
       throw new DomainConflictError(`action grant missing: ${missingScopes.join(",")}`);
     }
+    // 授权指纹由服务端从真实 granted grant 版本派生，禁止调用方伪造 actionGrantRevision
+    const actionGrantRevision = scopes
+      .map((scope) => {
+        const grant = grants.find((grant) => grant.sourceKey === scope);
+        return `${scope}@${grant?.grantVersion ?? 1}`;
+      })
+      .join("+");
     if (input.activationLeaseId) {
       const lease = await this.getLease(tenant, input.activationLeaseId);
       if (!lease || lease.revisionId !== revision.id) throw new NotFoundInTenantError("activation lease not found");
@@ -1637,7 +1644,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
         target: this.encrypt(input.target, "action", input.id) ?? "",
         requestJson: this.encrypt(stringify(input.request), "action", input.id) ?? "{}",
         authorizationScope: input.authorizationScope,
-        actionGrantRevision: input.actionGrantRevision,
+        actionGrantRevision,
         state: "pending",
         requestedBy: input.requestedBy,
         approvedBy: null,
@@ -1703,6 +1710,21 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
       )
       .limit(1);
     if (!existing) return null;
+    // 动作状态机约束：approved 只能来自 pending；running/executed 只能从 approved 前进。
+    // 调用方不能把未决动作直接置为执行态，也不能二次批准已批准动作。
+    const ALLOWED_TRANSITIONS: Record<string, readonly string[]> = {
+      pending: ["approved", "denied", "revoked"],
+      approved: ["running", "revoked", "failed"],
+      running: ["executed", "failed", "revoked"],
+      executed: [],
+      denied: [],
+      failed: ["revoked"],
+      revoked: [],
+    };
+    const allowed = ALLOWED_TRANSITIONS[existing.state] ?? [];
+    if (!allowed.includes(input.state)) {
+      throw new DomainConflictError(`state transition ${existing.state} -> ${input.state} not allowed`);
+    }
     const now = new Date().toISOString();
     const terminal = ["executed", "denied", "failed", "revoked"].includes(input.state);
     const [updated] = await this.db

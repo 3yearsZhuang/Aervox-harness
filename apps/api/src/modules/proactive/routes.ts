@@ -513,14 +513,22 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
     const { actionId } = req.params as { actionId: string };
     const body = objectBody(req.body);
     if (!validActionState(body.state)) return reply.code(400).send({ error: "invalid action state" });
-    const action = await repo.updateAction(resolveTenant(req), actionId, {
-      state: body.state,
-      actorId: actorFor(req),
-      outcome: body.outcome,
-      error: optionalString(body.error) ?? null,
-    });
-    if (!action) return reply.code(404).send({ error: "proactive action not found" });
-    return action;
+    const tenant = resolveTenant(req);
+    try {
+      const action = await repo.updateAction(tenant, actionId, {
+        state: body.state,
+        actorId: actorFor(req),
+        outcome: body.outcome,
+        error: optionalString(body.error) ?? null,
+      });
+      if (!action) return reply.code(404).send({ error: "proactive action not found" });
+      return action;
+    } catch (error) {
+      if (error instanceof Error && /state transition/i.test(error.message)) {
+        return reply.code(409).send({ error: error.message });
+      }
+      throw error;
+    }
   });
 
   app.get("/v1/proactive/audit", async (req) => ({

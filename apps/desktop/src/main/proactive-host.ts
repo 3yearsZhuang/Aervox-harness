@@ -237,6 +237,13 @@ export function createProactiveHost(input: ProactiveHostDependencies = {}): Proa
     trustLocalDevHost: input.trustLocalDevHost ?? process.env.AERVOX_TRUST_LOCAL_DEV_HOST === '1',
   }
   let state = emptyState(dependencies.hostId)
+
+  /** 采集/保活要求激活租约仍然有效：租约过期或未建立即视为挂起，防止挂断后继续采集 */
+  const activationLeaseActive = (): boolean => {
+    const activation = state.activation
+    if (!activation) return false
+    return new Date(activation.expiresAt).getTime() > Date.now()
+  }
   let initialized = false
   let initializationPromise: Promise<void> | undefined
   let mutationQueue = Promise.resolve()
@@ -514,10 +521,10 @@ export function createProactiveHost(input: ProactiveHostDependencies = {}): Proa
       })
     },
     shouldCollect() {
-      return state.fullAccessEnabled && state.desiredState === 'enabled'
+      return state.fullAccessEnabled && state.desiredState === 'enabled' && activationLeaseActive()
     },
     shouldKeepAlive() {
-      return state.fullAccessEnabled && state.persistence.background && state.desiredState === 'enabled'
+      return state.fullAccessEnabled && state.persistence.background && state.desiredState === 'enabled' && activationLeaseActive()
     },
   }
 

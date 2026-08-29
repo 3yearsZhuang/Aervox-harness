@@ -166,7 +166,9 @@ describe("CAP-033 proactive profile repository", () => {
       requestedBy: "usr_pro",
       external: true,
     });
-    expect(action.actionGrantRevision).toBe("grant-v2");
+    // 授权指纹由服务端从真实 granted grant 版本派生，客户端传入值被忽略
+    expect(action.actionGrantRevision).toMatch(/^action\.external@\d+$/);
+    expect(action.actionGrantRevision).not.toBe("grant-v2");
     expect((await repository.updateAction(tenant, action.id, { state: "approved", actorId: "usr_pro" }))?.approvedBy).toBe("usr_pro");
     await repository.updateAction(tenant, action.id, { state: "failed", error: "private target failed" });
     const rawClaim = await client.execute("SELECT subject_key, content, evidence_refs_json FROM proactive_profile_claims WHERE id = 'claim-1'");
@@ -221,5 +223,42 @@ describe("CAP-033 proactive profile repository", () => {
       sourceKey: "device.app_activity",
     });
     expect(await repository.listObservations(otherTenant)).toHaveLength(0);
+  });
+
+  it("rejects client-forged action grant revisions and enforces the action state machine", async () => {
+    const repository = new SqliteProactiveProfileRepository(db);
+    const profile = await repository.confirmProfile(tenant, {
+      id: "profile_sm",
+      deviceId: "device-sm",
+      actorId: "usr_pro",
+      sources: allGrantedSources("profile_sm"),
+    });
+    // 客户端传入伪造授权指纹被忽略，改为服务端派生
+    const first = await repository.createAction(tenant, {
+      id: "action-sm-1",
+      revisionId: profile.revision.id,
+      actionType: "file.write",
+      target: "/tmp/sm.txt",
+      request: { content: "x" },
+      authorizationScope: "action.local",
+      actionGrantRevision: "forged-revision",
+      requestedBy: "usr_pro",
+    });
+    expect(first.actionGrantRevision).toMatch(/^action\.local@\d+$/);
+    expect(first.actionGrantRevision).not.toBe("forged-revision");
+    // pending 不能直接置 running/executed
+    await expect(repository.updateAction(tenant, "action-sm-1", { state: "executed", actorId: "attacker" }))
+      .rejects.toThrow(/state transition/);
+    // 未批准的 action 也不能直接置 running
+    await expect(repository.updateAction(tenant, "action-sm-1", { state: "running", actorId: "attacker" }))
+      .rejects.toThrow(/state transition/);
+    // 合法路径：pending -> approved -> running -> executed
+    await repository.updateAction(tenant, "action-sm-1", { state: "approved", actorId: "usr_pro" });
+    await repository.updateAction(tenant, "action-sm-1", { state: "running", actorId: "usr_pro" });
+    const executed = await repository.updateAction(tenant, "action-sm-1", { state: "executed", actorId: "usr_pro", outcome: { ok: true } });
+    expect(executed?.state).toBe("executed");
+    // 终态不可再变
+    await expect(repository.updateAction(tenant, "action-sm-1", { state: "revoked", actorId: "usr_pro" }))
+      .rejects.toThrow(/state transition/);
   });
 });
