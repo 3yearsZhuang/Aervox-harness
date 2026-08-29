@@ -601,12 +601,12 @@ export async function runLoopTurnOnce(
   const tools = contributionProvider && runtimeProvider
     ? composeToolProviders([contributionProvider], { fallback: runtimeProvider })
     : contributionProvider ?? runtimeProvider;
-  // 识别当前消息是否带学习模式前缀或标识，动态决定是否注入学习模式专属 Prompt
+  // 识别当前消息是否带专注模式前缀或标识，动态决定是否注入专注模式专属 Prompt
   const isStudyMode =
-    input.userMessage.includes("[模式：学习模式]") ||
+    input.userMessage.includes("[模式：专注模式]") ||
     input.userMessage.includes("[模式：陪学讲解]") ||
     input.userMessage.includes("[模式：深度拆解]");
-  // CAP-016 刷题模式触发：按钮前缀（任何模式生效）或 学习模式下的刷题关键词（避免日常聊天误触发）
+  // CAP-016 刷题模式触发：按钮前缀（任何模式生效）或 专注模式下的刷题关键词（避免日常聊天误触发）
   const hasQuizPrefix = input.userMessage.includes("[模式：刷题模式]");
   const quizKeywords = /来几道题|来几道|刷题|出几道题|考考我|出题/;
   const isQuizMode = hasQuizPrefix || (isStudyMode && quizKeywords.test(input.userMessage));
@@ -655,7 +655,7 @@ export async function runLoopTurnOnce(
   if (result.status === "completed") {
     await repo.updateTurnStatus(tenant, input.turnId, "Completed");
 
-    // CAP-007 / CAP-002: 仅在学习模式下，后处理阶段异步抽取文本中的术语并写入 turn_stream_events (terms_extracted)
+    // CAP-007 / CAP-002: 仅在专注模式下，后处理阶段异步抽取文本中的术语并写入 turn_stream_events (terms_extracted)
     if (isStudyMode) {
       try {
         const events = await repo.getStreamEvents(tenant, input.turnId, 0);

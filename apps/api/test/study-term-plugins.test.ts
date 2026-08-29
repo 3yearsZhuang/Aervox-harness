@@ -34,7 +34,7 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
     await cleanup();
   });
 
-  it("学习模式插件 (aervox-study-companion)：Bundle 结构完整且可成功安装并注册 Config Schema", async () => {
+  it("专注模式插件 (aervox-study-companion)：Bundle 结构完整且可成功安装并注册 Config Schema", async () => {
     const root = path.resolve(__dirname, "../../..");
     const manifestPath = path.resolve(root, "plugins/study-companion/plugin.manifest.json");
     const schemaPath = path.resolve(root, "plugins/study-companion/config.schema.json");

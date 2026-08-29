@@ -6,7 +6,7 @@
     "displayName": "概念下钻与术语探索",
     "publisher": "aervox-official",
     "version": "1.0.0",
-    "description": "CAP-007: 专用于学习模式的两阶段术语提取、深度原理拆解、横向对比发散与独立会话分支探索插件。",
+    "description": "CAP-007: 专用于专注模式的两阶段术语提取、深度原理拆解、横向对比发散与独立会话分支探索插件。",
     "license": "MIT"
   },
   "spec": {

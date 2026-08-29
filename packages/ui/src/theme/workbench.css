@@ -81,7 +81,7 @@
   min-height: 0;
 }
 
-/* ---------- 悬浮顶栏：学习模式开关 + 设置按钮 ---------- */
+/* ---------- 悬浮顶栏：专注模式开关 + 设置按钮 ---------- */
 
 .floating-top-actions {
   position: absolute;
@@ -93,7 +93,7 @@
   gap: clamp(8px, 1vw, 12px);
 }
 
-/* 学习模式切换开关：玻璃胶囊（图标 + 文案 + 轨道） */
+/* 专注模式切换开关：玻璃胶囊（图标 + 文案 + 轨道） */
 .floating-study-switch-wrap {
   display: inline-flex;
   align-items: center;
@@ -1064,7 +1064,7 @@
   }
 }
 
-/* 核心概念标签栏（学习模式 · 渐变光泽卡片与芯片） */
+/* 核心概念标签栏（专注模式 · 渐变光泽卡片与芯片） */
 .message-terms-bar {
   display: flex;
   flex-wrap: wrap;
@@ -3745,7 +3745,7 @@
     height: 26px;
   }
 
-  /* 窄视口：学习模式开关去文字，只留图标 + 轨道，避免与左侧菜单胶囊拥挤 */
+  /* 窄视口：专注模式开关去文字，只留图标 + 轨道，避免与左侧菜单胶囊拥挤 */
   .study-switch-label {
     display: none;
   }

@@ -87,16 +87,16 @@ export interface BaseSystemPromptOptions {
   personaPrompt?: string;
   activeTools?: ToolSpec[];
   customGuidance?: ToolGuidance[];
-  /** 学习模式开关：注入专属苏格拉底启发式教学与防剧透规则 */
+  /** 专注模式开关：注入专属苏格拉底启发式教学与防剧透规则 */
   studyMode?: boolean;
-  /** 刷题模式开关：注入刷题出题-判定-落库闭环规则（优先于学习模式教学规则） */
+  /** 刷题模式开关：注入刷题出题-判定-落库闭环规则（优先于专注模式教学规则） */
   quizMode?: boolean;
 }
 
-/** 学习模式专属系统提示词规则定义 */
+/** 专注模式专属系统提示词规则定义 */
 export const STUDY_MODE_SYSTEM_PROMPT = `
-# 学习模式核心教学原则 (Study Mode & Pedagogical Guidelines)
-当前已开启【学习模式】。在此模式下，你是一位循序渐进、注重启发思考的专属导师。
+# 专注模式核心教学原则 (Focus Mode & Pedagogical Guidelines)
+当前已开启【专注模式】。在此模式下，你是一位循序渐进、注重启发思考的专属导师。
 即便当前配置了个性化人格设定（名称、称呼、语气习惯），你也必须严格遵循以下最高优先级的教学原则：
 
 1. **苏格拉底式启发引导 (Socratic Guidance)**：
@@ -141,7 +141,7 @@ export const QUIZ_MODE_SYSTEM_PROMPT = `
    - 全部题目完成后输出本轮统计（对/错数、薄弱知识点）与简短学习建议，然后正常结束回合。
 
 5. **规则优先级 (Priority)**：
-   - 刷题期间本规范优先于学习模式的苏格拉底式「不直接给答案」规则——刷题目的就是检验，
+   - 刷题期间本规范优先于专注模式的苏格拉底式「不直接给答案」规则——刷题目的就是检验，
      判定之后必须给出正确答案与解析。
 `.trim();
 
@@ -178,12 +178,12 @@ export function buildBaseSystemPrompt(options: BaseSystemPromptOptions = {}): st
     }
   }
 
-  // 注入学习模式专属教学规范（若开启）
+  // 注入专注模式专属教学规范（若开启）
   if (options.studyMode) {
     sections.push(``, STUDY_MODE_SYSTEM_PROMPT);
   }
 
-  // 注入刷题模式专属规范（若开启；置后于学习模式段以覆盖「不直接给答案」教学规则）
+  // 注入刷题模式专属规范（若开启；置后于专注模式段以覆盖「不直接给答案」教学规则）
   if (options.quizMode) {
     sections.push(``, QUIZ_MODE_SYSTEM_PROMPT);
   }
