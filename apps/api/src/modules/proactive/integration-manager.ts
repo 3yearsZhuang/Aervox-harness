@@ -102,7 +102,14 @@ export class ProactiveIntegrationManager {
   async assertSourceActive(tenant: TenantContext, sourceKey: "device.sensors" | "restricted.profile") {
     const status = await this.profileRepo.getEffectiveStatus(tenant);
     const grant = status.sources.find((item) => item.sourceKey === sourceKey);
-    if (status.effectiveState !== "active" || !status.revision || grant?.state !== "granted") {
+    // 这两个来源没有 OS Provider，桌面 Host 永远无法上报 granted；外部连接
+    // 本身就是用户对该来源的显式授权（连接需 active 模式 + 明文凭据，删除
+    // 连接即撤权并清理缓存）。因此只要求主动智能整体处于 active，且用户未
+    // 显式撤销/拒绝该来源；grant 行仍作为数据溯源引用返回。
+    if (status.effectiveState !== "active" || !status.revision || !grant) {
+      throw new Error(`proactive_source_not_active:${sourceKey}`);
+    }
+    if (grant.state === "revoked" || grant.state === "denied") {
       throw new Error(`proactive_source_not_active:${sourceKey}`);
     }
     return {revision: status.revision, grant};

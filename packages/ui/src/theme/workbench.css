@@ -3184,6 +3184,10 @@
   white-space: normal;
 }
 
+.proactive-status-banner small.proactive-suspend-hint {
+  color: var(--warning, #c97a00);
+}
+
 .proactive-status-banner.is-active {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   background: color-mix(in srgb, var(--accent-soft) 80%, var(--bg-main));

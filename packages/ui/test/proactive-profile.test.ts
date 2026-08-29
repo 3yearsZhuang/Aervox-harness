@@ -30,7 +30,11 @@ describe('CAP-033 profile authorization contract', () => {
     expect(PROFILE_SOURCE_IDS).toContain('action.external')
     expect(PROFILE_SOURCE_IDS).toContain('action.privileged')
     expect(PROFILE_SOURCE_IDS).toContain('action.irreversible')
-    expect(PROFILE_CAPABILITY_CATALOG.every((entry) => entry.required)).toBe(true)
+    // 当前版本支持的来源必须全部必需；无平台 Provider 的来源（通信/位置/
+    // 传感器/敏感资料）保持可见但不阻塞最小激活集。
+    const pendingProviders = ['external.communication', 'device.location', 'device.sensors', 'restricted.profile']
+    expect(PROFILE_CAPABILITY_CATALOG.filter((entry) => !pendingProviders.includes(entry.id)).every((entry) => entry.required)).toBe(true)
+    expect(PROFILE_CAPABILITY_CATALOG.filter((entry) => pendingProviders.includes(entry.id)).every((entry) => !entry.required)).toBe(true)
   })
 
   it('requires an actual granted snapshot for every required source', () => {
@@ -38,6 +42,22 @@ describe('CAP-033 profile authorization contract', () => {
     expect(hasAllRequiredProfileCapabilities(snapshot)).toBe(true)
     snapshot[0] = {...snapshot[0], osStatus: 'unknown'}
     expect(hasAllRequiredProfileCapabilities(snapshot)).toBe(false)
+  })
+
+  it('keeps platform-pending sources from blocking active', () => {
+    const snapshot = capabilities().map((capability) => (
+      ['external.communication', 'device.location', 'device.sensors', 'restricted.profile'].includes(capability.id)
+        ? {...capability, osStatus: 'unknown' as const, reason: 'source_adapter_not_connected'}
+        : capability
+    ))
+    expect(hasAllRequiredProfileCapabilities(snapshot)).toBe(true)
+    expect(deriveProfileEffectiveState({
+      desiredState: 'enabled',
+      toolApprovalMode: 'full_access',
+      host: readyHost,
+      activation,
+      capabilities: snapshot,
+    })).toBe('active')
   })
 
   it('keeps tool, desired, host and OS state axes separate', () => {
