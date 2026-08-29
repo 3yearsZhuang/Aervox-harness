@@ -677,6 +677,10 @@ async function sendMessage(value = input.value, options?: { quizMode?: boolean; 
     }
     story.value.push(userLine, assistantLine)
   }
+  // 关键：push 后从 reactive 数组取回代理引用（resend 与普通发送两个分支的最后一条都是 assistantLine）；
+  // 若继续持有原始对象，onDelta/onDone 的赋值将绕过代理 set trap，不触发响应式更新
+  // （novelSentences 等 computed 依赖代理的 .text/.state，收不到通知就会永远停在空值）。
+  const liveAssistantLine: StoryLine = story.value[story.value.length - 1]
   input.value = ''
   streaming.value = true
   activeQuestion.value = null
@@ -696,7 +700,7 @@ async function sendMessage(value = input.value, options?: { quizMode?: boolean; 
       outgoing,
       {
         onDelta: (delta) => {
-          assistantLine.text += delta
+          liveAssistantLine.text += delta
           void scrollStoryToBottom()
           const now = Date.now()
           if (now - lastSpeakAt > 1200 && delta.trim()) {
@@ -705,10 +709,10 @@ async function sendMessage(value = input.value, options?: { quizMode?: boolean; 
           }
         },
         onDone: () => {
-          assistantLine.state = 'complete'
+          liveAssistantLine.state = 'complete'
           activeQuestion.value = null
-          if (!assistantLine.text) assistantLine.text = '这次没有收到可展示的回答，请再试一次。'
-          petReactKind('glad', {expression: MizukiExpression.face_smile_01, speak: assistantLine.text})
+          if (!liveAssistantLine.text) liveAssistantLine.text = '这次没有收到可展示的回答，请再试一次。'
+          petReactKind('glad', {expression: MizukiExpression.face_smile_01, speak: liveAssistantLine.text})
           // CAP-009：对话触发可能已生成/改写日记，回合结束后刷新今日日记卡片
           void loadTodayDiary()
         },
@@ -730,8 +734,9 @@ async function sendMessage(value = input.value, options?: { quizMode?: boolean; 
       {toolApprovalMode: toolApprovalMode.value, attachments: attachmentRefs},
     )
   } catch (error) {
-    assistantLine.state = 'error'
-    assistantLine.text = error instanceof Error ? `连接失败：${error.message}` : '连接失败，请稍后重试。'
+    console.error('对话流式失败', error)
+    liveAssistantLine.state = 'error'
+    liveAssistantLine.text = error instanceof Error ? `连接失败：${error.message}` : '连接失败，请稍后重试。'
     petReactKind('sad', {expression: MizukiExpression.face_sad_01})
   } finally {
     streaming.value = false
