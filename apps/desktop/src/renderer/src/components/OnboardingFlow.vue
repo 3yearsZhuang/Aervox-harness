@@ -28,6 +28,24 @@ const connectionMessage = ref('配置完成后可先测试连接')
 const error = ref<string | null>(null)
 const progress = computed(() => `${String(step.value).padStart(2, '0')} / 04`)
 const currentPreset = computed(() => llm.presetProviders.find((item) => item.id === draft.value.providerType))
+/** 步骤 2 · 六能力辐射图节点（取材自产品宣讲包 P02） */
+const webNodes = [
+  {label: '学习', x: 310, y: 62, delay: '.55s'},
+  {label: '陪伴', x: 508, y: 165, delay: '.68s'},
+  {label: '记忆', x: 508, y: 395, delay: '.81s'},
+  {label: '日记', x: 310, y: 498, delay: '.94s'},
+  {label: '工具', x: 112, y: 395, delay: '1.07s'},
+  {label: '主动智能', x: 112, y: 165, delay: '1.2s'},
+]
+/** 步骤 3 · 学习闭环六步（取材自产品宣讲包 P04） */
+const learningPipeline = [
+  {title: '确认目标', desc: '先想清楚要掌握什么'},
+  {title: '分层提示', desc: '以提示搭出台阶，而不是直接给答案'},
+  {title: '用户作答', desc: '思考发生在用户这边'},
+  {title: '即时反馈', desc: '对在哪、错在哪，当场知道'},
+  {title: '错题复习', desc: '在遗忘之前再次相遇'},
+  {title: '形成记忆', desc: '知识沉淀，进步有轨迹'},
+]
 const timers: number[] = []
 
 function goTo(next: number) {
@@ -166,35 +184,40 @@ onBeforeUnmount(() => {
           <h2>智能，不应只在<br>你开口之后发生。</h2>
           <p>它观察上下文，保留值得记住的片段，<br>在恰当的时刻主动靠近一步。</p>
         </div>
-        <div class="memory-trail">
-          <article><small>08:40 · 今日</small><strong>你似乎一直在回避那项难题。</strong><span>需要我帮你把第一步拆小一点吗？</span></article>
-          <article><small>21:16 · 昨日</small><strong>一次被理解的停顿</strong><span>不是所有沉默都需要被填满。</span></article>
-          <article><small>JOURNAL · 片段</small><strong>“成长不是被记录，<br>而是被重新看见。”</strong></article>
+        <div class="capability-web" role="img" aria-label="思隅连接学习、陪伴、记忆、日记、工具与主动智能">
+          <svg viewBox="0 0 620 560">
+            <g class="web-links" stroke="#79a9ff" stroke-width="1.5" opacity=".55">
+              <line x1="310" y1="280" x2="310" y2="62"/><line x1="310" y1="280" x2="508" y2="165"/>
+              <line x1="310" y1="280" x2="508" y2="395"/><line x1="310" y1="280" x2="310" y2="498"/>
+              <line x1="310" y1="280" x2="112" y2="395"/><line x1="310" y1="280" x2="112" y2="165"/>
+            </g>
+            <circle cx="310" cy="280" r="92" fill="#79a9ff" opacity=".1"/>
+            <circle class="web-core" cx="310" cy="280" r="68" fill="#f5efe7"/>
+            <text class="web-core-name" x="310" y="272" text-anchor="middle">思隅</text>
+            <text class="web-core-en" x="310" y="303" text-anchor="middle">AERVOX</text>
+            <g v-for="node in webNodes" :key="node.label" class="web-node" :style="{'--d': node.delay}">
+              <circle :cx="node.x" :cy="node.y" r="48"/>
+              <text :x="node.x" :y="node.y + 6" text-anchor="middle">{{ node.label }}</text>
+            </g>
+          </svg>
+          <p class="web-caption"><span>SIX CAPABILITIES</span>六个原生能力，共享同一个持续成长的记忆体</p>
         </div>
       </section>
 
       <section v-else-if="step === 3" key="capability" class="stage capability-stage">
         <div class="capability-copy">
-          <p class="eyebrow">NATIVE CAPABILITIES</p>
-          <h2>陪伴生活，<br>也陪你成为自己。</h2>
-          <p>原生能力与开放生态，在同一个桌面空间里自然发生。</p>
+          <p class="eyebrow">LEARNING LOOP · 学习闭环</p>
+          <h2>从一个问题，<br>走向一次真正的掌握。</h2>
+          <p>思隅陪你走完完整的闭环，让知识持续沉淀，让进步拥有自己的轨迹。</p>
         </div>
 
-        <div class="desktop-evidence" aria-label="Aervox 桌面工作台示意">
-          <aside class="evidence-nav"><b>✦</b><span class="is-active">今日</span><span>对话</span><span>学习</span><span>记忆</span><small>···</small></aside>
-          <div class="evidence-main">
-            <header><span>夜色正好，Rex</span><i>陪伴模式 · 在线</i></header>
-            <div class="focus-line"><small>NEXT MOMENT</small><strong>继续昨天未完成的学习计划</strong><button type="button">开始</button></div>
-            <div class="evidence-dialogue"><i>✦</i><p>我整理了昨晚的薄弱知识点。今晚只练三题，也足够向前。</p></div>
-            <footer>和 Aervox 说点什么… <b>↑</b></footer>
+        <div class="learning-pipeline" aria-label="学习闭环六步">
+          <div v-for="(lp, i) in learningPipeline" :key="lp.title" class="lp-step" :style="{'--d': `${0.15 * i + 0.2}s`}">
+            <b>{{ String(i + 1).padStart(2, '0') }}</b>
+            <strong>{{ lp.title }}</strong>
+            <span>{{ lp.desc }}</span>
           </div>
         </div>
-
-        <ol class="capability-list">
-          <li><b>01</b><div><strong>有海马体的 Agent</strong><span>以审视式日记沉淀长期记忆，主动赋能成长。</span></div></li>
-          <li><b>02</b><div><strong>生活与成长原生能力</strong><span>学习、日程、Home Assistant 与穿戴设备感知。</span></div></li>
-          <li><b>03</b><div><strong>不设上限的开放生态</strong><span>兼容 DSH 与 pi 插件生态，把能力交还给用户。</span></div></li>
-        </ol>
       </section>
 
       <section v-else key="model" class="stage model-stage">
@@ -295,8 +318,29 @@ onBeforeUnmount(() => {
 .primary-action,.save-action { display:flex; align-items:center; justify-content:space-between; width:210px; height:52px; padding:0 18px 0 22px; border:1px solid rgba(220,235,255,.29); border-radius:3px 18px 3px 3px; color:#f7f2eb; background:linear-gradient(125deg,rgba(122,165,239,.28),rgba(152,118,222,.22)); box-shadow:inset 1px 1px 0 rgba(255,255,255,.16),0 18px 46px rgba(0,3,12,.26); backdrop-filter:blur(17px) saturate(1.3); font:inherit; font-size:13px; letter-spacing:.08em; cursor:pointer; transition:transform .35s ease,background .35s ease; }.primary-action:hover,.save-action:hover { transform:translateY(-3px); background:linear-gradient(125deg,rgba(122,165,239,.42),rgba(152,118,222,.34)); }.primary-action i,.save-action i { font-size:18px; font-style:normal; }
 .character-scene { position:absolute; top:7%; right:0; bottom:0; width:52%; }.character-halo { position:absolute; top:7%; left:10%; width:75%; aspect-ratio:1; border:1px solid rgba(203,224,255,.11); border-radius:50%; box-shadow:0 0 0 55px rgba(171,205,255,.025),0 0 0 140px rgba(171,205,255,.014),inset 0 0 120px rgba(115,168,240,.08); }.character-halo::after { content:""; position:absolute; inset:14%; border:1px solid rgba(224,198,155,.1); border-radius:50%; }.character-glass { position:absolute; top:9%; right:7%; width:62%; height:82%; border:1px solid rgba(218,234,255,.21); border-radius:130px 130px 8px 8px; background:linear-gradient(135deg,rgba(182,213,255,.07),rgba(255,240,211,.035)); box-shadow:inset 1px 1px 0 rgba(255,255,255,.14),0 35px 100px rgba(0,3,12,.3); backdrop-filter:blur(5px); transform:perspective(900px) rotateY(-5deg); }.welcome-character { position:absolute; z-index:2; inset:2% 0 5% 4%; filter:drop-shadow(0 24px 40px rgba(0,0,0,.3)); }.character-fallback { position:absolute; right:22%; bottom:10%; width:190px; height:430px; border-radius:52% 48% 20% 20%; background:linear-gradient(120deg,#273a5e,#111829); box-shadow:0 -55px 0 -7px #17223a; }.character-fallback i { position:absolute; right:-34px; top:10px; width:130px; height:260px; border-radius:60% 20% 70% 30%; background:#121b30; transform:rotate(-12deg); }.character-caption { position:absolute; z-index:4; right:7%; bottom:10%; width:260px; margin:0; padding:16px 18px; border:1px solid rgba(223,235,255,.16); border-radius:2px 14px 2px 2px; color:rgba(226,233,245,.72); background:rgba(9,20,38,.32); box-shadow:inset 1px 1px 0 rgba(255,255,255,.1); backdrop-filter:blur(16px); font-size:11px; line-height:1.7; }.character-caption span { display:block; margin-bottom:4px; color:rgba(225,198,153,.62); font-size:8px; letter-spacing:.2em; }
 .constellation { position:absolute; inset:0; background-image:radial-gradient(circle at 17% 19%,rgba(255,255,255,.45) 0 1px,transparent 1.5px),radial-gradient(circle at 58% 14%,rgba(158,196,255,.35) 0 1px,transparent 1.5px),radial-gradient(circle at 78% 73%,rgba(255,234,199,.24) 0 1px,transparent 1.5px); background-size:280px 250px,360px 300px,410px 350px; mask-image:linear-gradient(90deg,transparent,#000 35%,#000); opacity:.7; }
-.idea-stage { background:radial-gradient(ellipse 55% 65% at 75% 48%,rgba(88,134,205,.18),transparent 70%); }.idea-rings { position:absolute; left:38%; top:-26%; width:70vw; height:70vw; border:1px solid rgba(196,220,255,.09); border-radius:50%; transform:rotate(-12deg); }.idea-rings::before,.idea-rings i { content:""; position:absolute; inset:12%; border:1px solid rgba(196,220,255,.07); border-radius:50%; }.idea-rings i:nth-child(2) { inset:27%; border-color:rgba(225,199,157,.08); }.idea-statement { position:absolute; left:7.8vw; top:21%; z-index:2; }.idea-statement h2,.capability-copy h2 { font-size:clamp(44px,5vw,75px); line-height:1.1; }.idea-statement > p:last-child,.capability-copy > p:last-child,.model-copy > p:last-of-type { margin:30px 0 0; color:var(--muted); font-size:13px; line-height:1.85; }.memory-trail { position:absolute; right:7vw; top:18%; bottom:17%; width:min(40vw,540px); display:flex; flex-direction:column; justify-content:center; gap:14px; }.memory-trail::before { content:""; position:absolute; top:0; bottom:0; left:17px; width:1px; background:linear-gradient(transparent,rgba(204,224,255,.24),transparent); }.memory-trail article { position:relative; margin-left:38px; padding:18px 21px; border:1px solid rgba(216,232,255,.15); border-radius:2px 18px 2px 2px; background:linear-gradient(125deg,rgba(199,221,255,.08),rgba(107,139,188,.025)); box-shadow:inset 1px 1px 0 rgba(255,255,255,.09),0 19px 55px rgba(0,3,12,.17); backdrop-filter:blur(18px); }.memory-trail article::before { content:""; position:absolute; left:-27px; top:28px; width:10px; height:10px; border:1px solid rgba(212,229,255,.45); border-radius:50%; background:#172b4a; box-shadow:0 0 20px rgba(116,165,239,.45); }.memory-trail small,.memory-trail span { display:block; color:rgba(207,219,237,.45); font-size:9px; letter-spacing:.09em; }.memory-trail strong { display:block; margin:8px 0 5px; color:rgba(244,240,233,.9); font-size:14px; font-weight:520; line-height:1.6; }
-.capability-stage { background:radial-gradient(ellipse 45% 70% at 69% 50%,rgba(79,126,202,.2),transparent 72%); }.capability-copy { position:absolute; z-index:3; left:6vw; top:15%; width:41vw; }.capability-copy > p:last-child { max-width:320px; }.desktop-evidence { position:absolute; left:35%; top:11%; width:54%; height:51%; display:grid; grid-template-columns:78px 1fr; overflow:hidden; border:1px solid rgba(217,233,255,.2); border-radius:16px 5px 16px 5px; background:linear-gradient(145deg,rgba(24,38,62,.72),rgba(7,15,29,.78)); box-shadow:inset 1px 1px 0 rgba(255,255,255,.1),0 38px 100px rgba(0,2,9,.42),0 0 80px rgba(91,145,225,.08); backdrop-filter:blur(23px); transform:perspective(1400px) rotateY(-4deg); }.desktop-evidence::after { content:""; position:absolute; inset:0; pointer-events:none; background:linear-gradient(120deg,rgba(255,255,255,.08),transparent 28%); }.evidence-nav { display:flex; flex-direction:column; align-items:center; gap:12px; padding:20px 10px; border-right:1px solid rgba(218,232,255,.08); background:rgba(3,9,18,.35); color:rgba(206,218,238,.42); font-size:9px; }.evidence-nav b { margin-bottom:15px; color:#a9c6ff; font-size:16px; }.evidence-nav span { width:100%; padding:8px 0; border-radius:5px; text-align:center; }.evidence-nav .is-active { color:#f1f4fa; background:rgba(165,197,246,.11); }.evidence-nav small { margin-top:auto; }.evidence-main { position:relative; padding:22px 24px; }.evidence-main header { display:flex; justify-content:space-between; font-size:11px; }.evidence-main header i { color:rgba(201,216,239,.4); font-size:8px; font-style:normal; }.focus-line { position:relative; margin-top:34px; padding:17px; border:1px solid rgba(217,232,255,.09); border-radius:9px; background:rgba(205,225,255,.045); }.focus-line small { display:block; color:#86aefa; font-size:7px; letter-spacing:.15em; }.focus-line strong { display:block; margin-top:7px; font-size:12px; font-weight:540; }.focus-line button { position:absolute; right:14px; bottom:14px; border:0; border-radius:5px; padding:6px 12px; color:#eaf1ff; background:#376ec9; font:inherit; font-size:9px; }.evidence-dialogue { display:flex; gap:12px; margin-top:17px; color:rgba(224,232,245,.68); font-size:10px; line-height:1.7; }.evidence-dialogue i { color:#9dbbf4; font-style:normal; }.evidence-dialogue p { margin:0; }.evidence-main footer { position:absolute; right:24px; bottom:17px; left:24px; display:flex; justify-content:space-between; padding:10px 12px; border:1px solid rgba(220,233,255,.08); border-radius:7px; color:rgba(205,218,239,.34); background:rgba(214,230,255,.04); font-size:9px; }.evidence-main footer b { color:#9bbaff; }.capability-list { position:absolute; right:7vw; bottom:11%; left:38%; display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:0; padding:0; list-style:none; }.capability-list li { display:flex; gap:12px; min-height:82px; padding:15px; border-top:1px solid rgba(219,233,255,.18); background:linear-gradient(180deg,rgba(209,228,255,.055),transparent); }.capability-list li > b { color:rgba(225,198,153,.55); font-size:9px; font-weight:600; }.capability-list strong,.capability-list span { display:block; }.capability-list strong { margin-bottom:8px; font-size:11px; font-weight:560; }.capability-list span { color:rgba(208,220,239,.46); font-size:9px; line-height:1.65; }
+.idea-stage { background:radial-gradient(ellipse 55% 65% at 75% 48%,rgba(88,134,205,.18),transparent 70%); }.idea-rings { position:absolute; left:38%; top:-26%; width:70vw; height:70vw; border:1px solid rgba(196,220,255,.09); border-radius:50%; transform:rotate(-12deg); }.idea-rings::before,.idea-rings i { content:""; position:absolute; inset:12%; border:1px solid rgba(196,220,255,.07); border-radius:50%; }.idea-rings i:nth-child(2) { inset:27%; border-color:rgba(225,199,157,.08); }.idea-statement { position:absolute; left:7.8vw; top:21%; z-index:2; }.idea-statement h2,.capability-copy h2 { font-size:clamp(44px,5vw,75px); line-height:1.1; }.idea-statement > p:last-child,.capability-copy > p:last-child,.model-copy > p:last-of-type { margin:30px 0 0; color:var(--muted); font-size:13px; line-height:1.85; }
+.capability-stage { background:radial-gradient(ellipse 45% 70% at 69% 50%,rgba(79,126,202,.2),transparent 72%); }.capability-copy { position:absolute; z-index:3; left:6vw; top:15%; width:41vw; }.capability-copy > p:last-child { max-width:320px; }
+/* —— 步骤 2 · 六能力辐射图（取材自产品宣讲包 P02） —— */
+.capability-web { position:absolute; right:6vw; top:50%; width:min(44vw,620px); transform:translateY(-50%); }
+.capability-web svg { display:block; width:100%; height:auto; overflow:visible; }
+.web-links line { stroke-dasharray:330; stroke-dashoffset:330; animation:web-draw 1s ease forwards; }
+.web-core { transform-box:fill-box; transform-origin:center; animation:web-pop .7s cubic-bezier(.2,.8,.2,1) .25s both; }
+.web-core-name { font-size:28px; font-weight:300; fill:#101d30; }
+.web-core-en { font-size:12px; letter-spacing:3px; fill:#101d30; opacity:.6; }
+.web-node { opacity:0; transform-box:fill-box; transform-origin:center; animation:web-pop .6s cubic-bezier(.2,.8,.2,1) var(--d,0s) forwards; }
+.web-node circle { fill:#0d1b33; stroke:#8fb3cc; stroke-width:1.5; }
+.web-node text { fill:#dbe7fb; font-size:17px; font-weight:300; }
+.web-caption { display:flex; align-items:center; gap:10px; margin:18px 0 0; color:rgba(207,219,237,.55); font-size:11px; letter-spacing:.06em; }
+.web-caption span { color:rgba(225,198,153,.6); font-size:9px; letter-spacing:.2em; }
+/* —— 步骤 3 · 学习闭环（取材自产品宣讲包 P04） —— */
+.learning-pipeline { position:absolute; right:6vw; top:50%; width:min(42vw,560px); display:grid; grid-template-columns:repeat(2,1fr); gap:20px 26px; transform:translateY(-50%); }
+.lp-step { padding-top:13px; border-top:1px solid rgba(121,169,255,.32); opacity:0; animation:lp-in .6s ease var(--d,0s) forwards; }
+.lp-step b { display:block; color:rgba(225,198,153,.55); font-size:10px; font-weight:600; font-style:italic; }
+.lp-step strong { display:block; margin:7px 0 5px; color:rgba(244,240,233,.92); font-size:15px; font-weight:560; letter-spacing:.01em; }
+.lp-step span { display:block; color:rgba(208,220,239,.52); font-size:10px; line-height:1.65; }
+@keyframes web-draw { to { stroke-dashoffset:0; } }
+@keyframes web-pop { from { opacity:0; transform:scale(.72); } to { opacity:1; transform:scale(1); } }
+@keyframes lp-in { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
 .model-stage { background:radial-gradient(ellipse 52% 70% at 72% 47%,rgba(96,143,215,.22),transparent 70%); }.model-copy { position:absolute; left:7.8vw; top:25%; width:35vw; }.model-copy h2 { font-size:clamp(43px,4.6vw,70px); }.quiet-action { margin-top:38px; padding:0 0 9px; border:0; border-bottom:1px solid rgba(222,232,248,.25); color:rgba(222,231,245,.52); background:transparent; font:inherit; font-size:10px; letter-spacing:.08em; cursor:pointer; }.quiet-action:hover { color:#fff; }.model-console { position:absolute; right:9vw; top:15%; width:min(39vw,510px); padding:31px 34px 34px; overflow:hidden; border:1px solid rgba(220,235,255,.22); border-radius:4px 25px 4px 4px; background:linear-gradient(135deg,rgba(190,216,255,.11),rgba(13,27,49,.34)); box-shadow:inset 1px 1px 0 rgba(255,255,255,.14),0 35px 100px rgba(0,2,10,.34); backdrop-filter:blur(25px) saturate(1.25); }.console-shine { position:absolute; top:-1px; left:45px; width:140px; height:1px; background:linear-gradient(90deg,transparent,#e4c698,transparent); box-shadow:0 0 15px rgba(224,192,143,.38); }.model-console header { display:flex; justify-content:space-between; margin-bottom:29px; color:rgba(218,229,246,.55); font-size:8px; letter-spacing:.18em; }.model-console header i { color:rgba(218,229,246,.32); font-style:normal; }.model-console label { display:block; margin-top:21px; }.model-console label > span { display:block; margin-bottom:8px; color:rgba(219,228,243,.55); font-size:9px; }.model-console select,.model-console input { box-sizing:border-box; width:100%; height:44px; outline:0; border:1px solid rgba(218,233,255,.13); border-radius:7px; color:#eef3fb; background:rgba(3,10,21,.28); font:inherit; font-size:11px; }.model-console select { padding:0 13px; }.model-console option { color:#172038; }.secret-field { position:relative; }.secret-field input { padding:0 70px 0 13px; letter-spacing:.09em; }.secret-field i { position:absolute; top:16px; right:12px; color:rgba(179,204,245,.48); font-size:8px; font-style:normal; }.connection-state { display:flex; justify-content:space-between; margin:17px 0 27px; color:rgba(206,220,241,.42); font-size:8px; }.connection-state span i { display:inline-block; width:5px; height:5px; margin-right:6px; border-radius:50%; background:#70d2b2; box-shadow:0 0 11px rgba(112,210,178,.75); }.save-action { width:100%; }
 .model-console { right:7vw; top:8%; width:min(42vw,550px); padding:25px 30px 28px; }
 .model-console header { margin-bottom:18px; }
@@ -325,6 +369,6 @@ onBeforeUnmount(() => {
 @keyframes grain { 0%{transform:translate(0)}25%{transform:translate(2%,-3%)}50%{transform:translate(-3%,2%)}75%{transform:translate(3%,3%)}100%{transform:translate(-2%,-2%)} }
 @keyframes drift { to { transform:translate3d(3vw,-2vh,0) scale(1.08); } }
 @keyframes orbit { to { transform:rotate(360deg); } }
-@media (max-width:950px) { .welcome-copy{left:6vw}.character-scene{width:49%}.idea-statement{left:6vw}.memory-trail{right:4vw;width:44vw}.capability-copy{left:4vw}.desktop-evidence{left:33%;width:62%}.capability-list{left:35%;right:4vw}.model-copy{left:6vw}.model-console{right:6vw;width:43vw} }
-@media (prefers-reduced-motion:reduce) { .film-grain,.ambient,.launch-emblem::before,.launch-emblem::after,.launch-emblem i { animation:none; }.scene-enter-active,.scene-leave-active { transition-duration:.01ms; } }
+@media (max-width:950px) { .welcome-copy{left:6vw}.character-scene{width:49%}.idea-statement{left:6vw}.capability-web{right:4vw;width:48vw}.capability-copy{left:4vw;width:44vw}.learning-pipeline{right:4vw;width:48vw}.model-copy{left:6vw}.model-console{right:6vw;width:43vw} }
+@media (prefers-reduced-motion:reduce) { .film-grain,.ambient,.launch-emblem::before,.launch-emblem::after,.launch-emblem i { animation:none; }.scene-enter-active,.scene-leave-active { transition-duration:.01ms; }.web-links line,.web-core,.web-node,.lp-step { animation:none !important; opacity:1 !important; transform:none !important; stroke-dashoffset:0 !important; } }
 </style>
