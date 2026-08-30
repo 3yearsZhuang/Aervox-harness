@@ -1,11 +1,13 @@
 # ADR-004 业务状态 + Outbox + 幂等队列
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-31
 
 - 状态：Proposed
 - 日期：2026-08-23
 - 关联：`NFR-REL-001`、`OPS-QUEUE-001`、`CAP-005/009/013`
+
+> 更新日期：2026-08-31
 
 ## Context
 
@@ -50,3 +52,9 @@
 - 事务提交/回滚与 Outbox 原子性测试（`TC-INTEG-JOB-001`）；
 - 重复投递、崩溃恢复与 DLQ 重放测试（`TC-RES-QUEUE-001`）；
 - Redis 丢失重建与删除任务幂等测试（`TC-PRIV-DEL-001`）。
+
+## 验收差距复核（2026-08-31）
+
+- **已满足**：Outbox/幂等作业已落地（`outbox-worker`、`diary.published` 等；#124 登记）。
+- **未满足**：`TC-INTEG-JOB-001`/`TC-RES-QUEUE-001` 自动化缺失（`apps/worker` 无 outbox 专项测试）；Redis 丢失重建与删除任务幂等演练未执行。
+- **推进路径**：补 outbox 原子性/重复投递/DLQ 重放专项测试后走 G2 评审。

@@ -1,11 +1,12 @@
 # Aervox｜思隅 软件需求规格（SRS）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-29
+- 修改人：3yearszhuang · 2026-08-31
 
 > 文档编号：AVX-SRS-001  
+> 类型：Reference  
 > 版本：v1.0（CAP-033～035 主动智能与外部信号原子需求）
-> 更新日期：2026-08-29
+> 更新日期：2026-08-31
 > 状态：Review Candidate  
 > 产品事实源：[PRD](PRD.md)  
 > 追踪矩阵：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)

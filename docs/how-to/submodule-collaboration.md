@@ -1,11 +1,12 @@
 # 操作指南：可选模块的 submodule 初始化与协作规范（How-to）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：3yearszhuang · 2026-08-31
 
 > 文档编号：AVX-GUIDE-003  
+> 类型：How-To  
 > 版本：v0.2  
-> 更新日期：2026-08-28  
+> 更新日期：2026-08-31
 > 状态：Draft  
 > 关联：[能力注册表](../reference/capability-registry.md) · [能力组合与可选化目录规范](../reference/capability-composition.md) · [文档索引](../README.md)
 

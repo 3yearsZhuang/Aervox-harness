@@ -1,7 +1,7 @@
 # ADR-017 冻结 ContextManifest / ModelRun / AgentStep 关联与 Inbox 数据模型
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：3yearszhuang · 2026-08-31
 
 - 状态：Proposed
 - 日期：2026-08-28
@@ -9,6 +9,8 @@
 
 - 关联：`AVX-HAR-001 §7.1/§7.2/§2.1/§4`（Context 组装与 AgentInboxItem）、`AVX-HAR-001 §13 阶段 5`（Inbox、压缩与高级能力）、`ADR-016`（底座边界冻结）、`ADR-005`（Provider Port）、`CAP-002/007`、NFR-DATA
 - 前置决策：[ADR-016](ADR-016-base-boundaries.md) 已把 `packages/agent-loop` 限定为不得导入 `@aervox/database`/Drizzle/SQLite，本 ADR 冻结的是**数据所有权分层**（模型/记录归属）与 **shop 关系基数**，两者正交。
+
+> 更新日期：2026-08-31
 
 ## Context
 
@@ -105,3 +107,8 @@ TurnAttempt
 - `@aervox/agent-loop`：`ExecutionStorePort.recordModelRun`（每 Step 一条，attemptId/stepId 关联）/ `recordContextManifest`（每 Turn 首 Step，snapshot=messages）——可观测副作用，不进入控制流（扩展点接入，同 recordToolExecution）。
 - API 接线：conversation 注入 `SqlitePlatformRepository` 落库（Step 级 model_runs + manifest 快照 + attach 关联回写）。
 - Verification evidence 对应：`context-manifest.test.ts`（executor Step 级写入）与 `platform-modelrun.test.ts`（Expand 幂等/仓储）已落地。
+
+## 验收差距复核（2026-08-31）
+
+- **已满足**：阶段 7/5a 落地（`model_runs.attempt_id/step_id`、`context_manifests.snapshot_json`、`agent_inbox_items` 与 claim/ack 消费；§16.20 登记）；`check:boundary` 零违规。
+- **未满足**：按文档头约定，接受仍待 G2 架构与数据门禁。

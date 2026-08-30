@@ -1,12 +1,14 @@
 # CR-004 人格插件 SQLite 持久化（复用主仓 @aervox/database）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：3yearszhuang · 2026-08-31
 
 - 状态：Proposed
 - 提出人 / 日期：KashiwagiEri233 / 2026-08-25
 - 目标版本：当前开发阶段（MVP 前，本地开发 / 集成测试优先）
 - 关联：`CAP-019`、`CAP-020`、`CR-003`、`ADR-003`、`AVX-CAP-001`、`AVX-DB-001`
+
+> 更新日期：2026-08-31
 
 ## 变更原因与证据
 

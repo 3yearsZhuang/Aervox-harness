@@ -1,10 +1,10 @@
 # Aervox 架构决策记录（ADR）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-29
+- 修改人：3yearszhuang · 2026-08-31
 
 > 状态：评审候选  
-> 更新日期：2026-08-29
+> 更新日期：2026-08-31
 > 架构基线摘要：[ARCHITECTURE.md 第 11 节](../ARCHITECTURE.md#11-首批-adr)  
 > ADR 文件编号与评审登记以本文件为准
 
@@ -27,7 +27,7 @@ ADR 记录难以逆转、影响多个模块或改变数据/运维边界的技术
 | ADR-011 | Proposed | 日记周期、计划修订与连续窗口 | [ADR-011](ADR-011-diary-cycle-schedule-revision.md) |
 | ADR-012 | Proposed | 可恢复流式协议、输出安全门与部分响应持久化 | [ADR-012](ADR-012-streaming-safety-persistence.md) |
 | ADR-013 | Proposed | 独立恢复控制账本与撤权先行 | [ADR-013](ADR-013-recovery-control-ledger.md) |
-| ADR-014 | Proposed | 演进式模块化单体：apps/api 按领域模块组织 | [ADR-014](ADR-014-modular-monolith-structure.md) |
+| ADR-014 | Accepted | 演进式模块化单体：apps/api 按领域模块组织 | [ADR-014](ADR-014-modular-monolith-structure.md) |
 | ADR-015 | Proposed | Vue 全栈单栈：Web 复用桌面端技术族，替代 ADR-002 Web 基线 | [ADR-015](ADR-015-vue-full-stack.md) |
 | ADR-016 | Accepted | 底座边界冻结：Kernel Substrate 与能力层依赖边界，`scripts/import-boundary.mjs` 机器校验 | [ADR-016](ADR-016-base-boundaries.md) |
 | ADR-017 | Proposed | ContextManifest/ModelRun/AgentStep 关联（ModelRun 唯一父级，新增 attemptId/stepId）+ AgentInboxItem 数据模型与 claim/ack 消费 | [ADR-017](ADR-017-context-manifest-modelrun-step.md) |

@@ -14,16 +14,16 @@
 | 文档编号 | 文档 | 最后核验 | 核验节奏 | 陈旧信号 |
 |---|---|---|---|---|
 | `AVX-PRD-001` | [PRD](reference/PRD.md) | 2026-08-29 | 每次版本立项 / G0 | CAP 范围或优先级变更未建立 `CR-*` |
-| `AVX-SRS-001` | [SRS](reference/SRS.md) | 2026-08-29 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
-| `AVX-SAD-001` | [架构设计](reference/ARCHITECTURE.md) | 2026-08-29 | G2 评审 + 架构变更 | 新增 ADR/技术基线变化未同步 |
-| `ADR-001~019` | [ADR 索引](reference/adr/README.md) | 2026-08-29 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
-| `AVX-SPC-001` | [流式协议](reference/STREAMING_PROTOCOL.md) | 2026-08-29 | OpenAPI/事件 schema 变更 | `packages/contracts` 版本高于文档描述 |
-| `AVX-DB-001` | [数据库设计与双引擎契约](reference/DATABASE.md) | 2026-08-29 | Schema/仓储接口/迁移计划变更 | 仓储接口签名或租户隔离模式/PG 切换计划与实现不一致 |
+| `AVX-SRS-001` | [SRS](reference/SRS.md) | 2026-08-31 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
+| `AVX-SAD-001` | [架构设计](reference/ARCHITECTURE.md) | 2026-08-31 | G2 评审 + 架构变更 | 新增 ADR/技术基线变化未同步 |
+| `ADR-001~019` | [ADR 索引](reference/adr/README.md) | 2026-08-31 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
+| `AVX-SPC-001` | [流式协议](reference/STREAMING_PROTOCOL.md) | 2026-08-31 | OpenAPI/事件 schema 变更 | `packages/contracts` 版本高于文档描述 |
+| `AVX-DB-001` | [数据库设计与双引擎契约](reference/DATABASE.md) | 2026-08-31 | Schema/仓储接口/迁移计划变更 | 仓储接口签名或租户隔离模式/PG 切换计划与实现不一致 |
 | `AVX-DATA-001` | [数据与隐私](reference/DATA_PRIVACY.md) | 2026-08-29 | 每季度 + 数据流变更 | 新增数据实体/用途/保留未评审 |
 | `AVX-AIQ-001` | [AI 质量与安全](reference/AI_QUALITY_SAFETY.md) | 2026-08-29 | 模型/Prompt/算法变更 + AI 评估 | ModelRun/PromptVersion 更新未同步 |
-| `AVX-SEC-001` | [威胁模型](reference/THREAT_MODEL.md) | 2026-08-29 | 每季度 + 信任边界变更 | 新增数据流/信任边界未加入威胁模型 |
-| `AVX-QA-001` | [测试策略](reference/TEST_STRATEGY.md) | 2026-08-29 | G1/G4 门禁 | AC/TC 状态变化未回填 |
-| `AVX-OPS-001` | [运行、值班与演练手册](reference/operations.md) | 2026-08-26 | 每季度演练 + 每次发布 + 值班变更 | 演练日期超期、告警/拓扑变化或联系人未更新 |
+| `AVX-SEC-001` | [威胁模型](reference/THREAT_MODEL.md) | 2026-08-31 | 每季度 + 信任边界变更 | 新增数据流/信任边界未加入威胁模型 |
+| `AVX-QA-001` | [测试策略](reference/TEST_STRATEGY.md) | 2026-08-31 | G1/G4 门禁 | AC/TC 状态变化未回填 |
+| `AVX-OPS-001` | [运行、值班与演练手册](reference/operations.md) | 2026-08-31 | 每季度演练 + 每次发布 + 值班变更 | 演练日期超期、告警/拓扑变化或联系人未更新 |
 | `AVX-TRC-001` | [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) | 2026-08-31 | 版本立项 / G1 / G4 / 落地登记 | CAP/AC/TC 状态或追踪关系变化未回填；§4.2 落地登记与实现不符 |
 | `AVX-GUIDE-001~003` | [操作指南](how-to) | 2026-08-29 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
 | `AVX-CAP-REG-001` | [能力注册表](reference/capability-registry.md) | 2026-08-29 | 每次自选状态 / 模块变更 | 交付载体、启用方式或已注册模块与实现/CR 不一致 |
@@ -31,10 +31,10 @@
 | `ADR-018` | [CAP-033 本地私密存储与主动智能 Host](reference/adr/ADR-018-proactive-local-privacy-host.md) | 2026-08-29 | CAP-033 本地存储、OS Permission Broker、动作授权或后台生命周期变更 | Host 签名/设备绑定、local-only、全动作授权、七天提炼清理或恢复门禁与实现不一致 |
 | `ADR-019` | [主动智能外部连接本地网关](reference/adr/ADR-019-proactive-integrations-local-gateway.md) | 2026-08-29 | HA/健康连接、凭据隔离、工具白名单或撤销语义变更 | REST/WS、OAuth、实体/service 白名单、健康最小化或连接删除与实现不一致 |
 | `AVX-HAR-001` | [Agent Harness Loop 设计与落地规范](reference/agent-harness-loop.md) | 2026-08-31 | G2 评审 + Agent Loop/Provider/工具/持久化边界变更 | Turn/Attempt/Step、Provider、Tool、Inbox、恢复或 Profile 语义与实现/ADR 不一致 |
-| `AVX-WEB-001` | [Web 工作台实现规划](explanation/web-implementation.md) | 2026-08-28 | Web 端实现或技术基线变更 | `apps/web` 结构与 ADR-015/规划不一致 |
-| `CR-002` | [Fairy Agent Electron 桌面端](reference/changes/CR-002-fairy-desktop-module.md) | 2026-08-24 | CAP-018 桌面端实现或安全边界变更 | Electron 端目录、契约边界、测试证据或回滚条件与实现不符 |
-| `CR-003` | [SQLite 业务真源与 PG 兼容](reference/changes/CR-003-sqlite-primary-pg-compat.md) | 2026-08-24 | 数据真源 / 仓储抽象变更 | 仓储接口或 PG 切换计划与实现不符 |
-| `CR-004` | [人格插件 SQLite 持久化](reference/changes/CR-004-persona-sqlite-persistence.md) | 2026-08-25 | 数据库 schema / Port / 模块指针变更 | 表、Port 或 CR 状态与实现不一致 |
+| `AVX-WEB-001` | [Web 工作台实现规划](explanation/web-implementation.md) | 2026-08-31 | Web 端实现或技术基线变更 | `apps/web` 结构与 ADR-015/规划不一致 |
+| `CR-002` | [Fairy Agent Electron 桌面端](reference/changes/CR-002-fairy-desktop-module.md) | 2026-08-31 | CAP-018 桌面端实现或安全边界变更 | Electron 端目录、契约边界、测试证据或回滚条件与实现不符 |
+| `CR-003` | [SQLite 业务真源与 PG 兼容](reference/changes/CR-003-sqlite-primary-pg-compat.md) | 2026-08-31 | 数据真源 / 仓储抽象变更 | 仓储接口或 PG 切换计划与实现不符 |
+| `CR-004` | [人格插件 SQLite 持久化](reference/changes/CR-004-persona-sqlite-persistence.md) | 2026-08-31 | 数据库 schema / Port / 模块指针变更 | 表、Port 或 CR 状态与实现不一致 |
 | `CR-005` | [共享工作台与 Web 无桌宠表现层](reference/changes/CR-005-shared-workbench-web-without-pet.md) | 2026-08-25 | 端形态与共享 UI 边界变更 | Electron/Web 目录、共享组件契约或回滚条件与实现不符 |
 | `CR-006` | [插件配置解析与可视化](reference/changes/CR-006-plugin-config-and-pages.md) | 2026-08-26 | 插件配置/Page 机制变更 | 代码与 Config/Page 规范或安全边界不一致 |
 | `CR-007` | [可替换 Live2D 桌宠渲染层](reference/changes/CR-007-live2d-sekai-viewer-pet.md) | 2026-08-26 | 桌宠渲染、模型资产或桌面依赖变更 | Live2D 资产许可、回退行为、资源预算或实现与 CR 不一致 |

@@ -1,11 +1,12 @@
 # Aervox｜思隅 运行、值班与演练手册
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-31
 
 > 文档编号：AVX-OPS-001（合并 RUNBOOK + ONCALL + DRILL_TEMPLATE）  
+> 类型：Reference  
 > 版本：v0.1（评审候选）  
-> 更新日期：2026-08-26  
+> 更新日期：2026-08-31
 > 状态：Review Candidate  
 > 关联：[架构设计](ARCHITECTURE.md) · [数据与隐私](DATA_PRIVACY.md) · [威胁模型](THREAT_MODEL.md)
 

@@ -1,12 +1,14 @@
 # ADR-014 演进式模块化单体：apps/api 目录结构
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-29
+- 修改人：3yearszhuang · 2026-08-31
 
-- 状态：Proposed
+- 状态：Accepted（2026-08-31）
 - 日期：2026-08-25
 
 - 关联：`CAP-001～035`、`ADR-001`（模块化单体决策的细化）、`AVX-SAD-001 §3`
+
+> 更新日期：2026-08-31
 
 ## Context
 
@@ -206,8 +208,10 @@ registerLearningModule(app, db);
 
 ## Verification evidence
 
-- `pnpm build`：TypeScript 编译无错误；
-- `pnpm typecheck`：类型检查零 warning；
-- `pnpm test`：集成测试全部通过（API 路由行为保持不变）；
-- `mise tasks run ci-docs`：文档 lint 0 issue；
-- ESLint `import-graph` 规则验证：模块 `routes.ts` 不能 import 其他模块的仓储。
+- [x] `pnpm build`：TypeScript 编译无错误（2026-08-31 `ci-code` 全量通过）；
+- [x] `pnpm typecheck`：类型检查零 warning（2026-08-31 `ci-code` 全量通过）；
+- [x] `pnpm test`：集成测试全部通过（2026-08-31 复核；同日登记修复的 diary `todayWindow` 时区缺陷与本文结构证据无关）；
+- [x] `mise tasks run ci-docs`：文档 lint 0 issue（2026-08-31 全仓文档元数据清账后 0 warning）；
+- [x] 依赖边界机器校验：`node scripts/import-boundary.mjs` 零违规（5 条规则，常驻 `ci-code` 的 `check:boundary`；模块 `routes.ts` 不得 import 其他模块仓储由 AST 规则强制）。
+
+五项证据均为常驻 CI 门禁而非一次性演练：`modules/*` 自管仓储与边界规则已固化于每日门禁，结构回退会被 CI 拦截。2026-08-31 决策状态置为 `Accepted`（ADR 索引与架构摘要表同步）。

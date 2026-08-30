@@ -1,12 +1,14 @@
 # ADR-015 Vue 全栈单栈：Web 复用桌面端技术族
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-31
 
 - 状态：Proposed（替代 `ADR-002`）
 - 日期：2026-08-25
 
 - 关联：`ADR-002`（Superseded）、`ADR-014`、`CAP-001/002/009/018`、`NFR-PERF-001`、`NFR-COMPAT-001`、`AVX-WEB-001`
+
+> 更新日期：2026-08-31
 
 ## Context
 
@@ -57,3 +59,9 @@ ADR-002 将 Web 层基线定为 React 19/Vite 7；但首版桌面端 `apps/deskt
 - Web 端默认不注入桌面桥时正确降级为浏览器 Fetch（含 SSE 流式消费）；
 - SSE 断线重连（`Last-Event-ID`）与重复去重测试（沿用 `TC-RES-STREAM-001`）；
 - Playwright 覆盖学习闭环与对话流式核心流程（沿用 `TC-E2E-STREAM-001`、`TC-E2E-COMPAT-001`）。
+
+## 验收差距复核（2026-08-31）
+
+- **已满足**：`apps/web` 构建 + `ci-code` 全绿；无桌面桥时浏览器降级。
+- **未满足**：`TC-RES-STREAM-001` 客户端重连（Last-Event-ID）测试；Playwright E2E 未引入（`TC-E2E-STREAM-001`/`TC-E2E-COMPAT-001` 未落地）。
+- **推进路径**：引入 Playwright 基线后走 G2 评审。

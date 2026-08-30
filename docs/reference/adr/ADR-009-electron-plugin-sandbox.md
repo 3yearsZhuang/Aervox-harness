@@ -1,11 +1,13 @@
 # ADR-009 Electron 最小权限壳与进程外插件
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-29
+- 修改人：3yearszhuang · 2026-08-31
 
 - 状态：Proposed（R3/P2 前必须 Accepted）
 - 日期：2026-08-23
 - 关联：`CAP-018/020/031/033`、`SEC-PLG-001`、`SEC-PRO-001/002`、`RISK-006/RISK-013`
+
+> 更新日期：2026-08-31
 
 ## Context
 
@@ -53,3 +55,9 @@ Electron 启用 `contextIsolation`、关闭 `nodeIntegration`、schema 化 IPC�
 - 恶意包、资源耗尽、撤权与 kill switch 测试（`TC-SEC-DESKTOP-001`）；
 - 无插件核心端 Playwright 流程回归（`TC-E2E-COMPAT-001`）。
 - CAP-033 一方 Privacy Host 的签名/设备绑定、全动作授权、后台恢复、撤权和本地出网阻断测试（`TC-SEC-PRO-HOST-001`、`TC-SEC-PRO-ACTION-001`）。
+
+## 验收差距复核（2026-08-31）
+
+- **已满足**：无插件核心端完整可用（conversation 全链与删除传播测试）。
+- **未满足**：`TC-SEC-DESKTOP-001` 未登记；`TC-SEC-PLUG-001` 沙箱逃逸/Prompt injection 矩阵未建（插件运行时未实现，P2）。
+- **推进路径**：插件运行时立项时验收（死线：R3/P2 前）。

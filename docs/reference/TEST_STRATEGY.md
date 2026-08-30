@@ -1,11 +1,12 @@
 # Aervox｜思隅 测试策略
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-29
+- 修改人：3yearszhuang · 2026-08-31
 
 > 文档编号：AVX-QA-001  
+> 类型：Reference  
 > 版本：v0.3（CAP-033 主动智能模式）
-> 更新日期：2026-08-29
+> 更新日期：2026-08-31
 > 状态：Review Candidate  
 > 关联：[SRS](SRS.md) · [需求追踪](REQUIREMENTS_TRACEABILITY.md) · [AI 质量](AI_QUALITY_SAFETY.md) · [CR-023](changes/CR-023-proactive-local-intelligence-mode.md)
 

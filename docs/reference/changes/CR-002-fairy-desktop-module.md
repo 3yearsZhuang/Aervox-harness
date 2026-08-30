@@ -1,7 +1,9 @@
 # CR-002 引入 Fairy Agent Electron 桌面端
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：3yearszhuang · 2026-08-31
+
+> 更新日期：2026-08-31
 
 - 状态：More Evidence Required
 - 提出人 / 日期：Codex / 2026-08-24

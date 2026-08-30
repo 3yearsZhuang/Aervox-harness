@@ -1,11 +1,13 @@
 # ADR-012 可恢复 Turn 流式协议、输出安全门与部分响应持久化
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-31
 
 - 状态：Proposed
 - 日期：2026-08-24
 - 关联：`CAP-002/007/008`、`NFR-PERF-001`、`NFR-REL-001`、`NFR-SEC-001`、`NFR-OBS-001`、`AIQ-TEACH-001`、`AIQ-SAFE-001`、`BR-CTRL-001`
+
+> 更新日期：2026-08-31
 
 ## Context
 
@@ -180,3 +182,9 @@ Running/Finalizing
 - 日记、记忆、评分等高完整性产物不产生渐进可见片段的集成测试；
 - TTFT 分解、数据库写放大、100 并发流、代理空闲超时和 2 倍峰值压测；
 - 证明只有 `Completed` Turn 会产生记忆/掌握度/日记来源 Outbox 的端到端测试。
+
+## 验收差距复核（2026-08-31）
+
+- **已满足**：OpenAPI 契约测试（`openapi-contract.test.ts`）；CR-027 活流、重放高水位、幂等与取消闭环。
+- **未满足**：撤权/删除中断流并发、同键异 payload、跨 Session 幂等冲突与 Provider chunk 泄漏安全专项。
+- **推进路径**：CR-027 后续安全批次补齐。

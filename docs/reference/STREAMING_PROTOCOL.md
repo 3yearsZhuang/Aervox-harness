@@ -1,11 +1,12 @@
 # Aervox｜思隅 Turn 流式协议（SPC）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-29
+- 修改人：3yearszhuang · 2026-08-31
 
 > 文档编号：AVX-SPC-001  
+> 类型：Reference  
 > 版本：v0.3（评审候选）  
-> 更新日期：2026-08-29  
+> 更新日期：2026-08-31
 > 状态：Review Candidate  
 > 关联：`ADR-002`、`ADR-012`、`CR-019`、`CR-022`、`CR-027`、`NFR-PERF-001`、`NFR-REL-001`、`NFR-SEC-001`
 

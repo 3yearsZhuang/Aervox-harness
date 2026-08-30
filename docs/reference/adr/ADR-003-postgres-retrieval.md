@@ -1,11 +1,13 @@
 # ADR-003 仓储抽象架构：SQLite 业务真源与 FTS5/Vector Port
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-31
 
 - 状态：Proposed
 - 日期：2026-08-24
 - 关联：`CAP-005/015/026/027`、`DATA-MEM-001`、`NFR-SCALE-001`、`ADR-008`
+
+> 更新日期：2026-08-31
 
 ## Context
 
@@ -59,3 +61,9 @@
 - 记忆树递归 CTE 投影测试；
 - 日记周期 CAS 乐观锁与并发 lease 测试；
 - Litestream 灾备与备份恢复演练。
+
+## 验收差距复核（2026-08-31）
+
+- **已满足**：SQLite 真源稳定运行，PG 兼容边界由 `CR-003`（Accepted）规划约束。
+- **未满足**：PG 双引擎未实现；`TC-SEC-TENANT-001`/PG 侧 `TC-PRIV-DEL-001` 等自动化与 Litestream 灾备演练未执行。
+- **推进路径**：PG 切换工程立项时按本清单验收。
