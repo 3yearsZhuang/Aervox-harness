@@ -1,11 +1,13 @@
 # ADR-005 内部 Provider Port 包裹 AI SDK
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-31
 
 - 状态：Proposed
 - 日期：2026-08-23
 - 关联：`AIQ-TEACH-001`、`AIQ-MEM-001`、`AIQ-DIA-001`、`RISK-010`
+
+> 更新日期：2026-08-31
 
 ## Context
 
@@ -50,3 +52,9 @@ Provider adapter 按版本并行；新模型先离线评估、灰度，再切路
 - ProviderPort 契约测试与固定回放（`TC-CONTRACT-STREAM-001`）；
 - 供应商故障、结构化输出失败与降级测试（`TC-RES-DEGRADE-001`）；
 - 成本/地区声明与 AI Eval 门槛（`TC-AIEVAL-LRN-001` 等）。
+
+## 验收差距复核（2026-08-31）
+
+- **已满足**：ProviderPort 契约与 OpenAI 兼容流测试（`@aervox/agent-loop` 阶段 2e）；CR-027 活流与空闲超时。
+- **未满足**：`TC-RES-DEGRADE-001` 故障/结构化输出失败/降级矩阵；`TC-AIEVAL-LRN-001` 等 AI Eval 门槛未建立。
+- **推进路径**：降级注入测试与 AI Eval 基线落地后走 G2 评审。

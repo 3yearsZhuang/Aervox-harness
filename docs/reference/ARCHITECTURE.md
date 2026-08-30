@@ -1,12 +1,12 @@
 # Aervox｜思隅 系统架构设计（SAD）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-29
+- 修改人：3yearszhuang · 2026-08-31
 
 > 文档编号：AVX-SAD-001  
 > 类型：Explanation  
 > 版本：v0.3（CAP-033～035 主动智能与本地连接网关）
-> 更新日期：2026-08-29
+> 更新日期：2026-08-31
 > 状态：Review Candidate  
 > 关联 PRD：[PRD.md](PRD.md) · 追踪：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
 
@@ -388,7 +388,7 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 | ADR-011 | 日记不可变周期、计划修订、cursor 连续性、迟到事件与 lease/fencing |
 | ADR-012 | POST Turn + GET SSE、分段安全门、重连去重与部分响应持久化 |
 | ADR-013 | 独立恢复控制账本与撤权先行 |
-| ADR-014 | 演进式模块化单体：apps/api 按领域模块组织，自管仓储 + 进程内事件总线 |
+| ADR-014 | Accepted — 演进式模块化单体：apps/api 按领域模块组织，自管仓储 + 进程内事件总线 |
 | ADR-015 | Vue 全栈单栈：Web 复用桌面端技术族，替代 ADR-002 的 Web 基线 |
 | ADR-016 | Accepted — 底座边界冻结：Kernel Substrate 与能力层依赖边界，`scripts/import-boundary.mjs` 机器校验 |
 | ADR-018 | Proposed — CAP-033 本地私密存储、受信主动智能 Host、OS Permission Broker、全动作授权与后台生命周期 |
