@@ -2,6 +2,7 @@
   "name": "aervox-harness",
   "version": "0.1.0",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "packageManager": "pnpm@11.22.0",
   "engines": {
     "node": ">=22.19"
