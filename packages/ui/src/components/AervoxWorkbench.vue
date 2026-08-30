@@ -1311,7 +1311,10 @@ async function setProactivePersistence(update: ProfilePersistenceUpdate) {
 
 async function requestProactiveCapability(capability: ProfileCapabilityState) {
   const bridge = proactiveBridge()
-  if (!bridge || isWeb.value || !capability.canRequest) return
+  // canRequest 之外，user_revoked 的来源也允许重新请求：requestCapability
+  // 会清除撤销记录，适配器/Host 探测随即可恢复 granted。
+  if (!bridge || isWeb.value) return
+  if (!capability.canRequest && capability.reason !== 'user_revoked') return
   proactiveBusy.value = true
   proactiveError.value = null
   try {
@@ -1338,6 +1341,51 @@ async function deleteProactiveSource(capability: ProfileCapabilityState) {
   } finally {
     proactiveBusy.value = false
   }
+}
+
+function canToggleProactiveCapability(capability: ProfileCapabilityState): boolean {
+  if (capability.osStatus === 'granted') {
+    const desired = proactiveStatus.value?.desiredState
+    return desired === 'enabled' || desired === 'paused'
+  }
+  return capability.canRequest || capability.reason === 'user_revoked'
+}
+
+function proactiveCapabilitySwitchDisabled(capability: ProfileCapabilityState): boolean {
+  return proactiveBusy.value || !canToggleProactiveCapability(capability)
+}
+
+function proactiveCapabilitySwitchTitle(capability: ProfileCapabilityState): string {
+  if (capability.osStatus === 'granted') return '关闭将撤销该来源并删除其本地捕获与画像证据'
+  if (capability.canRequest) return '开启将请求系统权限或适配器授权'
+  if (capability.reason === 'user_revoked') return '重新开启将清除撤销记录并恢复该来源'
+  if (capability.id.startsWith('action.')) return '主动操作能力随授权向导统一确认，不能单独开启'
+  return '等待平台接入，暂时无法单独开启'
+}
+
+/**
+ * 开关即授权：开启=请求能力（requestCapability 清除撤销记录并触发 OS 授权），
+ * 关闭=撤销并删除该来源本地数据。background.persistent 的授权事实源是
+ * persistence.background，走常驻设置而非来源删除。操作后按服务端最新状态
+ * 回写开关；确认弹窗取消或失败时自然回滚。
+ */
+async function toggleProactiveCapability(capability: ProfileCapabilityState, event: Event) {
+  const input = event.target as HTMLInputElement
+  const bridge = proactiveBridge()
+  if (!bridge || isWeb.value || proactiveBusy.value || !canToggleProactiveCapability(capability)) {
+    input.checked = capability.osStatus === 'granted'
+    return
+  }
+  if (input.checked) {
+    await requestProactiveCapability(capability)
+  } else if (capability.id === 'background.persistent') {
+    proactiveBackground.value = false
+    await setProactivePersistence({background: false})
+  } else {
+    await deleteProactiveSource(capability)
+  }
+  const updated = proactiveStatus.value?.capabilities.find((item) => item.id === capability.id)
+  input.checked = updated?.osStatus === 'granted'
 }
 
 async function exportProactiveData(includeRaw: boolean) {
@@ -3081,15 +3129,22 @@ onUnmounted(() => {
                   </li>
                 </ul>
 
-                <div class="proactive-capability-heading"><strong>全量画像来源与动作</strong><small>每项状态来自 OS 或已接入适配器；“待验证”不会被当作已授权。</small></div>
+                <div class="proactive-capability-heading"><strong>全量画像来源与动作</strong><small>每项状态来自 OS 或已接入适配器；“待验证”不会被当作已授权。开关仅对可请求或已授权的来源可用；关闭已授权来源会撤销并删除其本地数据。</small></div>
                 <ul class="proactive-capability-list">
                   <li v-for="capability in proactiveStatus?.capabilities ?? []" :key="capability.id" class="proactive-capability-item">
                     <span class="proactive-capability-marker" :class="capabilityStatusClass(capability.osStatus)" aria-hidden="true"><Check v-if="capability.osStatus === 'granted'" :size="13" /><AlertTriangle v-else :size="13" /></span>
                     <span class="proactive-capability-copy"><strong>{{ capability.label }}</strong><small>{{ capability.description }}<template v-if="capability.reason"> · {{ capability.reason }}</template></small></span>
                     <span class="proactive-capability-state" :class="capabilityStatusClass(capability.osStatus)">{{ capabilityStatusLabel(capability.osStatus) }}</span>
                     <span class="proactive-capability-actions">
-                      <button v-if="capability.canRequest && capability.osStatus !== 'granted'" type="button" class="proactive-request-button" :disabled="proactiveBusy" @click="requestProactiveCapability(capability)">请求系统权限</button>
-                      <button v-if="proactiveStatus?.desiredState === 'enabled' || proactiveStatus?.desiredState === 'paused'" type="button" class="proactive-delete-button" :disabled="proactiveBusy" :aria-label="`撤销并删除${capability.label}`" title="撤销并删除此来源" @click="deleteProactiveSource(capability)"><Trash2 :size="13" /></button>
+                      <input
+                        type="checkbox"
+                        class="settings-switch proactive-capability-switch"
+                        :checked="capability.osStatus === 'granted'"
+                        :disabled="proactiveCapabilitySwitchDisabled(capability)"
+                        :title="proactiveCapabilitySwitchTitle(capability)"
+                        :aria-label="`${capability.label}授权开关`"
+                        @change="toggleProactiveCapability(capability, $event)"
+                      />
                     </span>
                   </li>
                   <li v-if="!proactiveStatus" class="study-empty">等待桌面 Host 返回能力快照。</li>
