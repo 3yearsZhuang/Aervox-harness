@@ -11,7 +11,7 @@
     "typecheck": "vue-tsc --noEmit"
   },
   "keywords": ["electron", "vue", "typescript", "element-plus", "desktop-pet"],
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "dependencies": {
     "@aervox/api-client": "workspace:*",
