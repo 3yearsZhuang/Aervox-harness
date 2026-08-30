@@ -32,7 +32,7 @@ import type {
   UserQuestionPort,
   WorkflowDefinition,
 } from "@aervox/agent-loop";
-import { SqliteExecutionStore } from "@aervox/host-agent";
+import { SqliteExecutionStore, runAdapterTurn } from "@aervox/host-agent";
 import { extractTerms } from "@aervox/practice-review";
 import type {
   IProactiveProfileRepository,
@@ -42,6 +42,7 @@ import type {
 import { loadApiConfig } from "@aervox/config";
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
+import { resolveDshTurnAdapter } from "./dsh-adapter.js";
 import { getRequestToolApprovalMode } from "../../shared/tool-approval-policy.js";
 import {
   PROACTIVE_ACTION_DECIDER_PREFIX,
@@ -412,6 +413,7 @@ async function failTurnWithError(
   turnId: string,
   attemptId: string,
   message: string,
+  code = "MODEL_UNAVAILABLE",
 ): Promise<void> {
   await store.appendEvent({
     turnId,
@@ -419,7 +421,7 @@ async function failTurnWithError(
     sequence: await store.nextSequence(turnId),
     eventType: "error",
     data: {
-      code: "MODEL_UNAVAILABLE",
+      code,
       retryable: false,
       message,
       lastSequence: Math.max(0, (await store.nextSequence(turnId)) - 1),
@@ -429,6 +431,96 @@ async function failTurnWithError(
     expectedFencingToken: 0,
   }).catch(() => undefined);
   await store.finalizeAttempt({ turnId, attemptId, status: "Failed" }).catch(() => undefined);
+}
+
+/** 识别当前消息是否带专注模式前缀或标识（专注/陪学讲解/深度拆解） */
+export function isStudyModeMessage(userMessage: string): boolean {
+  return (
+    userMessage.includes("[模式：专注模式]") ||
+    userMessage.includes("[模式：陪学讲解]") ||
+    userMessage.includes("[模式：深度拆解]")
+  );
+}
+
+/**
+ * CAP-007 / CAP-002：专注模式 Turn 完成后的增强后处理——抽取文本中的术语并写入
+ * turn_stream_events（terms_extracted）。属增强步骤，异常吞掉不影响 Turn 完成态。
+ */
+async function extractStudyTerms(
+  repo: SqliteConversationRepository,
+  tenant: TenantContext,
+  input: { turnId: string; userMessage: string },
+): Promise<void> {
+  if (!isStudyModeMessage(input.userMessage)) return;
+  try {
+    const events = await repo.getStreamEvents(tenant, input.turnId, 0);
+    let fullAssistantText = "";
+    let lastSeq = 0;
+    let lastMessageId: string | undefined;
+
+    for (const ev of events) {
+      if (ev.sequence > lastSeq) lastSeq = ev.sequence;
+      if (ev.eventType === "message" && (ev.data as { messageId?: string }).messageId) {
+        lastMessageId = (ev.data as { messageId?: string }).messageId;
+      }
+      if (ev.eventType === "delta" && typeof (ev.data as { text?: string }).text === "string") {
+        fullAssistantText += (ev.data as { text?: string }).text;
+      }
+    }
+
+    let terms = fullAssistantText.trim().length > 0 ? await extractTerms(fullAssistantText) : [];
+    if (terms.length === 0 && input.userMessage) {
+      terms = await extractTerms(input.userMessage);
+    }
+    if (terms.length > 0) {
+      await repo.appendStreamEvent(tenant, {
+        id: `tme_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+        turnId: input.turnId,
+        sequence: lastSeq + 1,
+        eventType: "terms_extracted",
+        payloadVersion: 1,
+        data: {
+          turnId: input.turnId,
+          messageId: lastMessageId,
+          terms,
+        },
+      });
+    }
+  } catch {
+    // 术语抽取属于增强后处理，吞掉异常防止影响 Turn 最终完成态
+  }
+}
+
+/**
+ * ADR-010 阶段 6f：整 Turn 交已准入的 DSH Adapter 执行（runAdapterTurn：claim →
+ * adapter 事件映射既有契约落库 → finalize；SSE 契约零改动）。
+ * 终态对齐 turns 表：Completed/Interrupted/Failed 回写；skipped（claim 失败重复投递）不覆盖；
+ * 准入失败（子模块缺失/固定 SHA 漂移）fail-closed 写 error 事件 + Failed，不静默回退 native。
+ */
+async function runDshAdapterTurn(
+  repo: SqliteConversationRepository,
+  tenant: TenantContext,
+  store: SqliteExecutionStore,
+  input: { turnId: string; sessionId: string; attemptId: string; userMessage: string },
+): Promise<void> {
+  const resolved = await resolveDshTurnAdapter();
+  if (!resolved.ok) {
+    await failTurnWithError(store, input.turnId, input.attemptId, resolved.reason, "ADAPTER_UNAVAILABLE");
+    await repo.updateTurnStatus(tenant, input.turnId, "Failed").catch(() => undefined);
+    return;
+  }
+  const result = await runAdapterTurn(store, resolved.driver, {
+    turnId: input.turnId,
+    sessionId: input.sessionId,
+    attemptId: input.attemptId,
+    userMessage: input.userMessage,
+  });
+  if (result.status === "Completed") {
+    await repo.updateTurnStatus(tenant, input.turnId, "Completed");
+    await extractStudyTerms(repo, tenant, input);
+  } else if (result.status === "Failed" || result.status === "Interrupted") {
+    await repo.updateTurnStatus(tenant, input.turnId, result.status).catch(() => undefined);
+  }
 }
 
 /**
@@ -552,6 +644,13 @@ export async function runLoopTurnOnce(
       : undefined,
   );
 
+  // ADR-010 阶段 6f：AERVOX_LOOP_DRIVER=dsh → 整 Turn 走 DSH 进程外 Adapter
+  // （自带 Agent 循环与模型回合，Provider/工具/上下文组合全部跳过；未就绪 fail-closed 不回退 native）。
+  if (loadApiConfig().loopDriver === "dsh") {
+    await runDshAdapterTurn(repo, tenant, store, input);
+    return;
+  }
+
   let provider: ModelProviderPort;
   let proactiveProfilePrompt = "";
   try {
@@ -608,10 +707,7 @@ export async function runLoopTurnOnce(
     ? composeToolProviders([contributionProvider], { fallback: runtimeProvider })
     : contributionProvider ?? runtimeProvider;
   // 识别当前消息是否带专注模式前缀或标识，动态决定是否注入专注模式专属 Prompt
-  const isStudyMode =
-    input.userMessage.includes("[模式：专注模式]") ||
-    input.userMessage.includes("[模式：陪学讲解]") ||
-    input.userMessage.includes("[模式：深度拆解]");
+  const isStudyMode = isStudyModeMessage(input.userMessage);
   // CAP-016 刷题模式触发：按钮前缀（任何模式生效）或 专注模式下的刷题关键词（避免日常聊天误触发）
   const hasQuizPrefix = input.userMessage.includes("[模式：刷题模式]");
   const quizKeywords = /来几道题|来几道|刷题|出几道题|考考我|出题/;
@@ -667,46 +763,6 @@ export async function runLoopTurnOnce(
   // 以 Loop 结果对齐 turns 状态；skipped（幂等保护）不覆盖。
   if (result.status === "completed") {
     await repo.updateTurnStatus(tenant, input.turnId, "Completed");
-
-    // CAP-007 / CAP-002: 仅在专注模式下，后处理阶段异步抽取文本中的术语并写入 turn_stream_events (terms_extracted)
-    if (isStudyMode) {
-      try {
-        const events = await repo.getStreamEvents(tenant, input.turnId, 0);
-        let fullAssistantText = "";
-        let lastSeq = 0;
-        let lastMessageId: string | undefined;
-
-        for (const ev of events) {
-          if (ev.sequence > lastSeq) lastSeq = ev.sequence;
-          if (ev.eventType === "message" && (ev.data as { messageId?: string }).messageId) {
-            lastMessageId = (ev.data as { messageId?: string }).messageId;
-          }
-          if (ev.eventType === "delta" && typeof (ev.data as { text?: string }).text === "string") {
-            fullAssistantText += (ev.data as { text?: string }).text;
-          }
-        }
-
-        let terms = fullAssistantText.trim().length > 0 ? await extractTerms(fullAssistantText) : [];
-        if (terms.length === 0 && input.userMessage) {
-          terms = await extractTerms(input.userMessage);
-        }
-        if (terms.length > 0) {
-          await repo.appendStreamEvent(tenant, {
-            id: `tme_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
-            turnId: input.turnId,
-            sequence: lastSeq + 1,
-            eventType: "terms_extracted",
-            payloadVersion: 1,
-            data: {
-              turnId: input.turnId,
-              messageId: lastMessageId,
-              terms,
-            },
-          });
-        }
-      } catch (err) {
-        // 术语抽取属于增强后处理，吞掉异常防止影响 Turn 最终完成态
-      }
-    }
+    await extractStudyTerms(repo, tenant, input);
   }
 }

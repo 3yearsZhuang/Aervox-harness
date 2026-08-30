@@ -1,12 +1,12 @@
 # 教程：迁移已集成能力并接入 DSH/pi
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：3yearszhuang · 2026-08-31
 
 > 文档编号：AVX-TUT-002  
 > 类型：Tutorials  
 > 版本：v0.2
-> 更新日期：2026-08-28
+> 更新日期：2026-08-31
 > 状态：Review Candidate  
 > 关联：[能力组合与可选化目录规范](../reference/capability-composition.md)、[参考项目能力迁移与借鉴评估](../explanation/reference-design-transfer.md)、[ADR-009](../reference/adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](../reference/adr/ADR-010-dsh-pi-adapters.md)、[需求追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)
 
@@ -399,7 +399,7 @@ mise tasks run ci-docs
 | Deletion zero recall | 索引、缓存、视图和外部副本清理 |
 | Core no-plugin E2E | 不安装 DSH/pi 时学习、导出和删除仍通过 |
 
-将实现登记到[需求追踪基线 §4.2](../reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。来源字段使用 `native` 或[参考设计迁移登记](../explanation/reference-design-transfer.md#61-落地登记唯一真源)中的编号（Agent Loop 使用 `DSH-01` 或 `PI-01`）；当前 DSH/pi Adapter 仍是 `Planned`，不可登记为已完成。
+将实现登记到[需求追踪基线 §4.2](../reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。来源字段使用 `native` 或[参考设计迁移登记](../explanation/reference-design-transfer.md#61-落地登记唯一真源)中的编号（Agent Loop 使用 `DSH-01` 或 `PI-01`）；当前 pi Adapter 仍是 `Planned`，不可登记为已完成；DSH Adapter 已可经 `AERVOX_LOOP_DRIVER=dsh` 整 Turn 接入（ADR-010 阶段 6f，见 [agent-harness-loop §16.29](../reference/agent-harness-loop.md)），但库内 Cordis 容器组装仍为 P2 工程项。
 
 ## 常见错误
 

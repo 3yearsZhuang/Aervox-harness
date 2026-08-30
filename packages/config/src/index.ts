@@ -16,6 +16,17 @@ export type LoopProvider =
   | "llm";
 
 /**
+ * Loop Driver 选择（AERVOX_LOOP_DRIVER，默认 native）：
+ * - native（默认）：进程内 executeTurn，模型 Provider 由 AERVOX_LOOP_PROVIDER 选择；
+ * - dsh：整 Turn 走 DSH 进程外 Adapter（ADR-010 阶段 6f），自带 Agent 循环与模型回合，
+ *   AERVOX_LOOP_PROVIDER 不参与。准入前置：reference/deepseek-harness 子模块固定 SHA
+ *   复核通过（AERVOX_DSH_REPO_ROOT 可显式指定仓库根）；模型回合需 DEEPSEEK_API_KEY
+ *   或 DSH_LLM_BASE_URL（OpenAI 兼容端点）。未就绪 fail-closed（Turn Failed，不回退 native）。
+ *   pi 为保留项：真 pi Adapter 落地前不进枚举，配置期即 fail-fast。
+ */
+export type ApiLoopDriver = "native" | "dsh";
+
+/**
  * Turn 执行模式（AERVOX_TURN_EXECUTION）：
  * - background（默认）：POST /turns 落库后立即返回，Agent Loop 后台执行，
  *   客户端经 SSE 活流（重放 + tail）观察进度——深度思考等长回合不再阻塞 HTTP 响应；
@@ -49,6 +60,8 @@ export interface ApiConfig {
   port: number;
   /** Agent Loop 模型 Provider（AERVOX_LOOP_PROVIDER，默认 llm） */
   loopProvider: LoopProvider;
+  /** Loop Driver（AERVOX_LOOP_DRIVER，默认 native；dsh = 整 Turn 进程外 DSH Adapter） */
+  loopDriver: ApiLoopDriver;
   /** Turn 执行模式（AERVOX_TURN_EXECUTION，默认 background） */
   turnExecution: TurnExecution;
   /** Context 压缩方式：rule | off（AERVOX_LOOP_COMPACTION，默认 off） */
@@ -108,6 +121,7 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
       ["replay", "scripted", "scripted-write", "scripted-privileged", "scripted-quiz", "llm"] as const,
       "llm",
     ),
+    loopDriver: requireEnum("AERVOX_LOOP_DRIVER", env.AERVOX_LOOP_DRIVER, ["native", "dsh"] as const, "native"),
     turnExecution: requireEnum(
       "AERVOX_TURN_EXECUTION",
       env.AERVOX_TURN_EXECUTION,

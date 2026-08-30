@@ -131,11 +131,15 @@ export function localDateToday(now = new Date()): string {
   }).format(now);
 }
 
-/** 当日窗口：本地零点（ISO 近似，按本地日期前缀过滤）至当前时刻 */
+/** 当日窗口：本地零点（换算为 UTC ISO，与 createdAt 的 toISOString 存储格式对齐）至当前时刻。
+ *  不得用本地零点的无时区字符串「近似」：UTC+8 等东半球时区在本地 0 点至 UTC 零点之间
+ *  本地日期超前 UTC 日期，字符串比较会把当天消息全部排除（缺陷：diary 素材 materialCount=0）。 */
 export function todayWindow(now = new Date()): { startIso: string; endIso: string } {
   const localDate = localDateToday(now);
+  const [year, month, day] = localDate.split("-").map(Number);
+  const localMidnight = new Date(year!, month! - 1, day!, 0, 0, 0, 0);
   return {
-    startIso: `${localDate}T00:00:00`,
+    startIso: localMidnight.toISOString(),
     endIso: now.toISOString(),
   };
 }
