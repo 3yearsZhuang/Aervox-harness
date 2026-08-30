@@ -1,11 +1,12 @@
 # Aervox｜思隅 数据库设计与双引擎契约（DBC）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-29
+- 修改人：3yearszhuang · 2026-08-31
 
 > 文档编号：AVX-DB-001  
+> 类型：Reference  
 > 版本：v0.10（CAP-020 MCP 预设服务器接入）
-> 更新日期：2026-08-29
+> 更新日期：2026-08-31
 > 状态：Review Candidate  
 > 关联：`CR-003`、`CR-023`、`ADR-003`、`ADR-004`、`ADR-007`、`ADR-011`、`ADR-012`、`ADR-013`、`AVX-SPC-001`、`AVX-PRD-001`、`NFR-SCALE-001`、`NFR-SEC-001`
 
