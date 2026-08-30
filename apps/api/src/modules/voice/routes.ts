@@ -7,8 +7,11 @@ import {
   voiceSynthesisRequestSchema,
   voiceInputConfigSchema,
   voiceTranscribeRequestSchema,
+  remoteVoiceConfigSchema,
+  voiceRemoteTestConnectionRequestSchema,
 } from "@aervox/contracts";
 import { resolveTenant } from "../../shared/tenant.js";
+import { GptSovitsRemoteProvider } from "./gpt-sovits.js";
 import type { VoiceService } from "./service.js";
 
 function asBase64(bytes: Uint8Array): string {
@@ -82,6 +85,59 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
         message: error instanceof Error ? error.message : "Invalid local voice config",
       });
     }
+  });
+
+  // GET /v1/voice/remote/config — 读取当前租户在线语音模型配置（CR-028）
+  app.get("/v1/voice/remote/config", async (request) => {
+    const tenant = resolveTenant(request);
+    return service.getRemoteConfig(tenant);
+  });
+
+  // PUT /v1/voice/remote/config — 保存在线语音模型配置（endpoint 必须为合法 http(s) URL）
+  app.put("/v1/voice/remote/config", async (request, reply) => {
+    const parsed = remoteVoiceConfigSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({
+        code: "INVALID_VOICE_REMOTE_CONFIG",
+        message: "Invalid remote voice config",
+        details: parsed.error.issues,
+      });
+    }
+    const tenant = resolveTenant(request);
+    try {
+      const cfg = await service.setRemoteConfig(tenant, parsed.data);
+      return cfg;
+    } catch (error) {
+      return reply.code(400).send({
+        code: "INVALID_VOICE_REMOTE_CONFIG",
+        message: error instanceof Error ? error.message : "Invalid remote voice config",
+      });
+    }
+  });
+
+  // POST /v1/voice/remote/test-connection — 在线语音服务连通性测试（CR-028，对齐 /v1/llm/test-connection 先例）
+  app.post("/v1/voice/remote/test-connection", async (request, reply) => {
+    const parsed = voiceRemoteTestConnectionRequestSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({
+        code: "INVALID_REQUEST",
+        message: "Invalid test connection request",
+        details: parsed.error.issues,
+      });
+    }
+    const probe = new GptSovitsRemoteProvider("voice-remote-test-probe", {
+      endpoint: parsed.data.endpoint,
+      protocol: "http",
+      modelId: parsed.data.modelId,
+      ...(parsed.data.apiKey ? { secretRef: parsed.data.apiKey } : {}),
+    });
+    const startedAt = Date.now();
+    const health = await probe.healthCheck();
+    return {
+      ok: health.status === "healthy",
+      latencyMs: Date.now() - startedAt,
+      message: health.message ?? (health.status === "healthy" ? "服务可达" : "服务不可用"),
+    };
   });
 
   // GET /v1/voice/input/config — 读取离线语音输入配置（CR-016）

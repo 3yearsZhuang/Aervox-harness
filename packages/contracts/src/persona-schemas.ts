@@ -125,6 +125,63 @@ export const localVoiceConfigResponseSchema = z.object({
     .default({}),
 });
 
+/** GPT-SoVITS api_v2 支持的文本语言（/tts 的 text_lang 参数） */
+export const voiceTextLangSchema = z.enum(["auto", "zh", "en", "ja", "ko", "yue"]);
+
+/**
+ * 在线语音模型（GPT-SoVITS 远程 API）配置（CR-028）。
+ * endpoint 为 api_v2 服务 base URL（如 http://127.0.0.1:9880）；
+ * refAudioPath 是 GPT-SoVITS 机器上的参考音频路径，不是本机路径。
+ */
+export const remoteVoiceConfigSchema = z.object({
+  enabled: z.boolean(),
+  providerId: z.string().min(1).default("gpt-sovits-remote"),
+  endpoint: z.string().min(1),
+  apiKey: z.string().optional(),
+  modelId: z.string().min(1),
+  speakerId: z.string().min(1).optional(),
+  textLang: voiceTextLangSchema.optional(),
+  refAudioPath: z.string().min(1).optional(),
+  promptText: z.string().min(1).optional(),
+  promptLang: voiceTextLangSchema.optional(),
+  auxRefAudioPaths: z.array(z.string().min(1)).optional(),
+  speedFactor: z.number().min(0.6).max(1.65).optional(),
+  settings: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+});
+
+/** 在线语音模型配置读取响应（缺省时按 env 给出默认值） */
+export const remoteVoiceConfigResponseSchema = z.object({
+  enabled: z.boolean(),
+  providerId: z.string().min(1),
+  endpoint: z.string().optional(),
+  apiKey: z.string().optional(),
+  modelId: z.string().min(1),
+  speakerId: z.string().optional(),
+  textLang: voiceTextLangSchema.optional(),
+  refAudioPath: z.string().optional(),
+  promptText: z.string().optional(),
+  promptLang: voiceTextLangSchema.optional(),
+  auxRefAudioPaths: z.array(z.string()).optional(),
+  speedFactor: z.number().optional(),
+  settings: z
+    .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+    .default({}),
+});
+
+/** 在线语音服务连通性测试请求（对齐 llmTestConnectionRequestSchema 先例） */
+export const voiceRemoteTestConnectionRequestSchema = z.object({
+  endpoint: z.string().min(1),
+  apiKey: z.string().optional(),
+  modelId: z.string().min(1).default("default-remote"),
+});
+
+/** 在线语音服务连通性测试响应 */
+export const voiceRemoteTestConnectionResponseSchema = z.object({
+  ok: z.boolean(),
+  latencyMs: z.number().int().nonnegative(),
+  message: z.string(),
+});
+
 /** 离线语音输入引擎类型（CR-016） */
 export const voiceInputEngineTypeSchema = z.enum(["sensevoice-local", "whisper-compatible"]);
 

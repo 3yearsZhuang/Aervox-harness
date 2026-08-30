@@ -193,7 +193,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   ctx.skillManager = registerSkillsModule(ctx);
   registerPreferencesModule(ctx);
   registerStudyMaterialModule(ctx);
-  registerPersonaModule(ctx);
+  ctx.personaService = registerPersonaModule(ctx);
   registerInboxModule(ctx);
   registerTermsModule(ctx);
 

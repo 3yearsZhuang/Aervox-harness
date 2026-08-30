@@ -79,6 +79,7 @@ import PluginManagerPanel from './plugin/PluginManagerPanel.vue'
 import Live2DPet from './Live2DPet.vue'
 import PersonaManagerPanel from './persona/PersonaManagerPanel.vue'
 import LocalVoiceConfigPanel from './voice/LocalVoiceConfigPanel.vue'
+import RemoteVoiceConfigPanel from './voice/RemoteVoiceConfigPanel.vue'
 import LLMConfigPanel from './llm/LLMConfigPanel.vue'
 import UserQuestionComposer from './UserQuestionComposer.vue'
 import TermExploreDialog from './TermExploreDialog.vue'
@@ -136,6 +137,8 @@ const mistakeOpen = ref(false)
 const diaryOpen = ref(false)
 const settingsOpen = ref(false)
 const settingsCategory = ref<'tools' | 'appearance' | 'conversation' | 'model' | 'persona' | 'notifications' | 'voice' | 'plugins' | 'proactive'>('tools')
+/** 语音设置子页签：本地模型 / 在线模型（CR-028） */
+const voiceMode = ref<'local' | 'online'>('local')
 const showArchivedGoals = ref(false)
 const goalBusyId = ref<string | null>(null)
 const practiceSession = ref<{sessionId: string; items: Array<{id: string; prompt: string}>; nextQuestionIndex?: number} | null>(null)
@@ -406,7 +409,7 @@ const settingCategories = [
   {id: 'model', label: '模型与服务', description: '大语言模型与供应商配置', icon: Bot},
   {id: 'persona', label: '人格设定', description: '管理人格角色设定', icon: Heart},
   {id: 'notifications', label: '提醒', description: '学习节奏与通知', icon: Bell},
-  {id: 'voice', label: '语音', description: '本地语音模型配置', icon: Volume2},
+  {id: 'voice', label: '语音', description: '本地与在线语音模型配置', icon: Volume2},
   {id: 'plugins', label: '插件', description: '插件配置与页面', icon: Puzzle},
 ] as const
 
@@ -3193,7 +3196,28 @@ onUnmounted(() => {
 
             <div class="settings-note"><Check :size="16" />设置会自动保存在当前设备</div>
           </div>
-          <LocalVoiceConfigPanel v-else-if="settingsCategory === 'voice'" class="settings-section" />
+          <div v-else-if="settingsCategory === 'voice'" class="settings-section">
+            <div class="settings-section-heading">
+              <span class="heading-icon-wrap"><Volume2 :size="18" /></span>
+              <span><strong>语音</strong><small>配置本地或在线语音模型</small></span>
+            </div>
+            <div class="voice-mode-toggle">
+              <button
+                type="button"
+                class="voice-mode-btn"
+                :class="{active: voiceMode === 'local'}"
+                @click="voiceMode = 'local'"
+              >本地模型</button>
+              <button
+                type="button"
+                class="voice-mode-btn"
+                :class="{active: voiceMode === 'online'}"
+                @click="voiceMode = 'online'"
+              >在线模型</button>
+            </div>
+            <LocalVoiceConfigPanel v-if="voiceMode === 'local'" />
+            <RemoteVoiceConfigPanel v-else />
+          </div>
           <PluginManagerPanel v-else class="settings-section" />
         </section>
       </div>

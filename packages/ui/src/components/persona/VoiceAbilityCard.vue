@@ -39,7 +39,7 @@ const speakerId = ref('')
 
 onMounted(async () => {
   try {
-    voices.value = await api.loadLocalVoices()
+    voices.value = await api.loadVoices()
   } catch {
     voices.value = []
   }
@@ -66,6 +66,15 @@ function syncFromProp(): void {
 }
 
 const desktopOnly = computed(() => !api.canPickDirectory())
+
+/** 模型下拉变化时，把 providerId 同步为所选模型的来源（本地/在线） */
+function onModelChange(): void {
+  const selected = voices.value.find((v) => v.modelId === modelId.value)
+  if (selected) {
+    providerId.value = selected.providerId
+  }
+  push()
+}
 
 /** 选择音色文件夹（取其目录名作为 speakerId） */
 async function pickSpeakerFolder(): Promise<void> {
@@ -156,10 +165,12 @@ async function preview(): Promise<void> {
         <select
           v-model="modelId"
           class="voice-select"
-          @change="push"
+          @change="onModelChange"
         >
           <option value="" disabled>选择语音模型</option>
-          <option v-for="v in voices" :key="v.modelId" :value="v.modelId">{{ v.displayName }}</option>
+          <option v-for="v in voices" :key="v.modelId" :value="v.modelId">
+            {{ v.displayName }}{{ v.source === 'remote' ? '（在线）' : '' }}
+          </option>
           <option v-if="modelId && !voices.some((v) => v.modelId === modelId)" :value="modelId">
             {{ modelId }}（自定义）
           </option>
@@ -204,7 +215,7 @@ async function preview(): Promise<void> {
       </div>
 
       <p v-if="previewError" class="voice-hint voice-error">{{ previewError }}</p>
-      <p v-else-if="voices.length === 0" class="voice-hint">暂无本地语音模型，请先在设置中配置语音</p>
+      <p v-else-if="voices.length === 0" class="voice-hint">暂无可用语音模型，请先在设置中配置语音</p>
     </div>
   </div>
 </template>

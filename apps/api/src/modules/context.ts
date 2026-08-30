@@ -18,6 +18,7 @@ import type { LLMConfigService } from "./llm/service.js";
 import type { VoiceService } from "./voice/service.js";
 import type { SkillManager } from "./skills/skill-manager.js";
 import type { ProactiveActionAuthorizer } from "./proactive/action-authorizer.js";
+import type { PersonaService } from "./persona/service.js";
 
 export interface ModuleContext {
   app: FastifyInstance;
@@ -40,6 +41,8 @@ export interface ModuleContext {
   voiceService?: VoiceService;
   /** Skill 管理器（skills 模块填充；persona 读取） */
   skillManager?: SkillManager;
+  /** Persona 服务（persona 模块填充；conversation 读取人格提示词摘要） */
+  personaService?: PersonaService;
   /** 阶段 5c：已注册 Workflow 定义清单（conversation 读取） */
   workflows?: WorkflowDefinition[];
   /** Skill 内容落盘根目录（缺省 <repo>/data/skills） */

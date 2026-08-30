@@ -15,6 +15,30 @@ export interface LocalVoiceConfigDto {
   settings?: Record<string, string | number | boolean>;
 }
 
+/** 在线语音模型配置（对应 GET/PUT /v1/voice/remote/config；CR-028） */
+export interface RemoteVoiceConfigDto {
+  enabled: boolean;
+  providerId: string;
+  endpoint?: string;
+  apiKey?: string;
+  modelId: string;
+  speakerId?: string;
+  textLang?: 'auto' | 'zh' | 'en' | 'ja' | 'ko' | 'yue';
+  refAudioPath?: string;
+  promptText?: string;
+  promptLang?: 'auto' | 'zh' | 'en' | 'ja' | 'ko' | 'yue';
+  auxRefAudioPaths?: string[];
+  speedFactor?: number;
+  settings?: Record<string, string | number | boolean>;
+}
+
+/** 在线语音服务连通性测试结果（POST /v1/voice/remote/test-connection） */
+export interface VoiceRemoteTestConnectionResultDto {
+  ok: boolean;
+  latencyMs: number;
+  message: string;
+}
+
 /** 语音模型（GET /v1/voice/models 条目） */
 export interface VoiceModelDto {
   providerId: string;
@@ -30,6 +54,7 @@ export interface VoiceSynthesisInput {
   modelId: string;
   speakerId?: string;
   text: string;
+  settings?: Record<string, string | number | boolean>;
 }
 
 /** 语音合成结果（audioBase64 → Blob → <audio> 播放） */
@@ -69,12 +94,38 @@ export function useAervoxVoice() {
     );
   };
 
+  /** 列出全部可用语音模型（本地 + 在线；CR-028） */
+  const loadVoices = async (source?: 'local' | 'remote'): Promise<VoiceModelDto[]> => {
+    const res = await transport.request<{ models: VoiceModelDto[] }>('GET', '/v1/voice/models');
+    const models = res.models ?? [];
+    return source ? models.filter((m) => m.source === source && m.available) : models.filter((m) => m.available);
+  };
+
+  /** 读取在线语音模型配置（CR-028） */
+  const getRemoteConfig = async (): Promise<RemoteVoiceConfigDto> =>
+    transport.request<RemoteVoiceConfigDto>('GET', '/v1/voice/remote/config');
+
+  /** 保存在线语音模型配置（endpoint 必须为合法 http(s) URL） */
+  const saveRemoteConfig = async (body: RemoteVoiceConfigDto): Promise<RemoteVoiceConfigDto> =>
+    transport.request<RemoteVoiceConfigDto>('PUT', '/v1/voice/remote/config', body);
+
+  /** 在线语音服务连通性测试 */
+  const testRemoteConnection = async (
+    body: Pick<RemoteVoiceConfigDto, 'endpoint' | 'apiKey' | 'modelId'>,
+  ): Promise<VoiceRemoteTestConnectionResultDto> =>
+    transport.request<VoiceRemoteTestConnectionResultDto>(
+      'POST',
+      '/v1/voice/remote/test-connection',
+      body,
+    );
+
   /** 试听：合成一段语音并返回 base64 音频 */
   const synthesize = async (input: VoiceSynthesisInput): Promise<VoiceSynthesisResultDto> => {
     const body = {
       providerId: input.providerId,
       modelId: input.modelId,
       ...(input.speakerId ? { speakerId: input.speakerId } : {}),
+      ...(input.settings ? { settings: input.settings } : {}),
       text: input.text,
     };
     return transport.request<VoiceSynthesisResultDto>('POST', '/v1/voice/synthesize', body);
@@ -90,6 +141,10 @@ export function useAervoxVoice() {
     getConfig,
     saveConfig,
     loadLocalVoices,
+    loadVoices,
+    getRemoteConfig,
+    saveRemoteConfig,
+    testRemoteConnection,
     synthesize,
     pickDirectory,
     canPickDirectory,

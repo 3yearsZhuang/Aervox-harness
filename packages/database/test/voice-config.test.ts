@@ -9,6 +9,7 @@ import {
   initDatabaseSchema,
   SqliteVoiceConfigRepository,
   SqliteVoiceInputConfigRepository,
+  SqliteVoiceRemoteConfigRepository,
   type AervoxDatabase,
   type TenantContext,
 } from "../src/index.js";
@@ -169,5 +170,101 @@ describe("语音输入 (ASR) 配置仓储 (CR-016)", () => {
     expect(configA?.apiKey).toBe("sk-whisper");
     expect(configB?.engineType).toBe("sensevoice-local");
     expect(configB?.enabled).toBe(0);
+  });
+});
+
+describe("在线语音配置仓储 (CR-028 · GPT-SoVITS 远程 API)", () => {
+  let db: AervoxDatabase;
+  let client: Client;
+  let cleanup: () => Promise<void>;
+  let repo: SqliteVoiceRemoteConfigRepository;
+
+  beforeEach(async () => {
+    const res = await createInMemoryDatabase();
+    db = res.db;
+    client = res.client;
+    cleanup = res.cleanup;
+    await initDatabaseSchema(client);
+    repo = new SqliteVoiceRemoteConfigRepository(db);
+  });
+
+  afterEach(async () => {
+    await cleanup();
+  });
+
+  it("空配置返回 null", async () => {
+    expect(await repo.getConfig(tenantA)).toBeNull();
+  });
+
+  it("save → get 回显（含 api_v2 参数），并按租户隔离", async () => {
+    const saved = await repo.saveConfig(tenantA, {
+      enabled: true,
+      providerId: "gpt-sovits-remote",
+      endpoint: "http://127.0.0.1:9880",
+      apiKey: "sk-voice",
+      modelId: "firefly-remote",
+      speakerId: "spk-firefly",
+      textLang: "zh",
+      refAudioPath: "D:/gpt-sovits/voice/ref.wav",
+      promptText: "我还知道你们经常在银河各地到处旅行.",
+      promptLang: "zh",
+      auxRefAudioPaths: ["D:/gpt-sovits/voice/aux1.wav", "D:/gpt-sovits/voice/aux2.wav"],
+      speedFactor: 1.1,
+      settings: {},
+    });
+    expect(saved.enabled).toBe(1);
+    expect(saved.endpoint).toBe("http://127.0.0.1:9880");
+    expect(saved.modelId).toBe("firefly-remote");
+    expect(saved.textLang).toBe("zh");
+    expect(saved.promptText).toBe("我还知道你们经常在银河各地到处旅行.");
+    expect(saved.promptLang).toBe("zh");
+    expect(saved.speedFactor).toBe(1.1);
+
+    const read = await repo.getConfig(tenantA);
+    expect(read?.apiKey).toBe("sk-voice");
+    expect(read?.refAudioPath).toBe("D:/gpt-sovits/voice/ref.wav");
+    expect(read?.auxRefAudioPathsJson).toEqual([
+      "D:/gpt-sovits/voice/aux1.wav",
+      "D:/gpt-sovits/voice/aux2.wav",
+    ]);
+    expect(await repo.getConfig(tenantB)).toBeNull();
+  });
+
+  it("更新覆盖并保持每租户一行", async () => {
+    await repo.saveConfig(tenantA, {
+      enabled: true,
+      providerId: "gpt-sovits-remote",
+      endpoint: "http://127.0.0.1:9880",
+      modelId: "v1",
+      textLang: "zh",
+    });
+    await repo.saveConfig(tenantA, {
+      enabled: false,
+      providerId: "gpt-sovits-remote",
+      endpoint: "http://127.0.0.1:9910",
+      modelId: "v2",
+      speedFactor: 0.8,
+    });
+    const read = await repo.getConfig(tenantA);
+    expect(read?.endpoint).toBe("http://127.0.0.1:9910");
+    expect(read?.modelId).toBe("v2");
+    expect(read?.textLang).toBeNull();
+    expect(read?.enabled).toBe(0);
+    expect(read?.speedFactor).toBe(0.8);
+  });
+
+  it("缺省字段可空：apiKey/textLang/refAudioPath 未提供", async () => {
+    await repo.saveConfig(tenantA, {
+      enabled: true,
+      providerId: "gpt-sovits-remote",
+      endpoint: "http://127.0.0.1:9880",
+      modelId: "default-remote",
+    });
+    const read = await repo.getConfig(tenantA);
+    expect(read?.apiKey).toBeNull();
+    expect(read?.textLang).toBeNull();
+    expect(read?.refAudioPath).toBeNull();
+    expect(read?.auxRefAudioPathsJson).toBeNull();
+    expect(read?.settingsJson).toEqual({});
   });
 });
