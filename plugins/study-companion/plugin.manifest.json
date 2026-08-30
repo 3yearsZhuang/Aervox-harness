@@ -7,7 +7,7 @@
     "publisher": "aervox-official",
     "version": "1.0.0",
     "description": "CAP-002: 学习目标管理与苏格拉底启发式教学引导插件，支持防剧透与循序渐进点拨。",
-    "license": "MIT"
+    "license": "AGPL-3.0-or-later"
   },
   "spec": {
     "config": {

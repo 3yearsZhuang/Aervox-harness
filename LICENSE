@@ -7,7 +7,7 @@ by the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 
 This license applies to the source code of this repository (directories
-apps/, packages/, scripts/ and configuration files). The documentation
+apps/, packages/, plugins/, e2e/, scripts/ and configuration files). The documentation
 (docs/, README.md, AGENTS.md) is licensed separately under the Creative
 Commons Attribution-NonCommercial-ShareAlike 4.0 International License;
 see the file docs/LICENSE in this repository.

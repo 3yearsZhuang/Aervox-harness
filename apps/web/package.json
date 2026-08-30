@@ -1,6 +1,7 @@
 {
   "name": "@aervox/web",
   "version": "0.1.0",
+  "license": "AGPL-3.0-or-later",
   "private": true,
   "type": "module",
   "description": "Aervox Vue 3 web workbench (Vue full-stack monolith, see ADR-015).",
