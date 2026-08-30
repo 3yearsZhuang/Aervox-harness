@@ -95,6 +95,10 @@ import {
   voiceInputModelStatusSchema,
   voiceInputModelDownloadRequestSchema,
   voiceInputModelDownloadResponseSchema,
+  remoteVoiceConfigSchema,
+  remoteVoiceConfigResponseSchema,
+  voiceRemoteTestConnectionRequestSchema,
+  voiceRemoteTestConnectionResponseSchema,
 } from "./persona-schemas.js";
 import {
   pluginConfigSchemaOpenApi,
@@ -250,6 +254,10 @@ registry.register("VoiceTranscribeResponse", voiceTranscribeResponseSchema);
 registry.register("VoiceInputModelStatus", voiceInputModelStatusSchema);
 registry.register("VoiceInputModelDownloadRequest", voiceInputModelDownloadRequestSchema);
 registry.register("VoiceInputModelDownloadResponse", voiceInputModelDownloadResponseSchema);
+registry.register("RemoteVoiceConfig", remoteVoiceConfigSchema);
+registry.register("RemoteVoiceConfigResponse", remoteVoiceConfigResponseSchema);
+registry.register("VoiceRemoteTestConnectionRequest", voiceRemoteTestConnectionRequestSchema);
+registry.register("VoiceRemoteTestConnectionResponse", voiceRemoteTestConnectionResponseSchema);
 
 registry.register("CreateInboxItemRequest", createInboxItemRequestSchema);
 registry.register("InboxItem", inboxItemResponseSchema);
@@ -714,6 +722,10 @@ registry.registerPath({ method: "get", path: "/v1/voice/models", summary: "列�
 registry.registerPath({ method: "post", path: "/v1/voice/synthesize", summary: "GPT-SoVITS 语音合成", tags: ["Voice"], request: { body: { content: { "application/json": { schema: voiceSynthesisRequestSchema } } } }, responses: { 200: { description: "Audio artifact", content: { "application/json": { schema: voiceSynthesisResponseSchema } } }, 503: { description: "VOICE_PROVIDER_UNAVAILABLE" } } });
 registry.registerPath({ method: "get", path: "/v1/voice/config", summary: "读取本地语音模型配置", tags: ["Voice"], request: { headers: scopeHeaders }, responses: { 200: { description: "Local voice config", content: { "application/json": { schema: localVoiceConfigResponseSchema } } } } });
 registry.registerPath({ method: "put", path: "/v1/voice/config", summary: "保存本地语音模型配置", tags: ["Voice"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: localVoiceConfigSchema } } } }, responses: { 200: { description: "Local voice config", content: { "application/json": { schema: localVoiceConfigResponseSchema } } }, 400: { description: "INVALID_VOICE_CONFIG / modelPath 不在白名单" }, 503: { description: "VOICE_PROVIDER_UNAVAILABLE" } } });
+
+registry.registerPath({ method: "get", path: "/v1/voice/remote/config", summary: "读取在线语音模型（GPT-SoVITS 远程 API）配置", tags: ["Voice"], request: { headers: scopeHeaders }, responses: { 200: { description: "Remote voice config", content: { "application/json": { schema: remoteVoiceConfigResponseSchema } } } } });
+registry.registerPath({ method: "put", path: "/v1/voice/remote/config", summary: "保存在线语音模型配置", tags: ["Voice"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: remoteVoiceConfigSchema } } } }, responses: { 200: { description: "Remote voice config", content: { "application/json": { schema: remoteVoiceConfigResponseSchema } } }, 400: { description: "INVALID_VOICE_REMOTE_CONFIG / endpoint 非法" } } });
+registry.registerPath({ method: "post", path: "/v1/voice/remote/test-connection", summary: "在线语音服务连通性测试", tags: ["Voice"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: voiceRemoteTestConnectionRequestSchema } } } }, responses: { 200: { description: "Test connection result", content: { "application/json": { schema: voiceRemoteTestConnectionResponseSchema } } }, 400: { description: "INVALID_REQUEST" } } });
 
 registry.registerPath({ method: "get", path: "/v1/voice/input/config", summary: "读取离线语音输入配置", tags: ["Voice"], request: { headers: scopeHeaders }, responses: { 200: { description: "Voice input config", content: { "application/json": { schema: voiceInputConfigResponseSchema } } } } });
 registry.registerPath({ method: "put", path: "/v1/voice/input/config", summary: "保存离线语音输入配置", tags: ["Voice"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: voiceInputConfigSchema } } } }, responses: { 200: { description: "Voice input config", content: { "application/json": { schema: voiceInputConfigResponseSchema } } }, 400: { description: "INVALID_VOICE_INPUT_CONFIG / modelPath 不在白名单" } } });

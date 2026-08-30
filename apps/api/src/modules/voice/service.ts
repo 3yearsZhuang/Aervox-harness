@@ -5,8 +5,9 @@ import type { TenantContext } from "@aervox/database";
 import type {
   IVoiceConfigRepository,
   IVoiceInputConfigRepository,
+  IVoiceRemoteConfigRepository,
 } from "@aervox/database";
-import { GptSovitsLocalProvider, validateLocalPath } from "./gpt-sovits.js";
+import { GptSovitsLocalProvider, GptSovitsRemoteProvider, validateLocalPath } from "./gpt-sovits.js";
 import {
   SenseVoiceLocalProvider,
   WhisperCompatibleProvider,
@@ -29,6 +30,24 @@ export interface LocalVoiceConfig {
   modelPath?: string;
   modelId: string;
   speakerId?: string;
+  settings?: Record<string, string | number | boolean>;
+}
+
+/** 在线语音模型配置（CR-028 · GPT-SoVITS 远程 API，WebUI 设置读写） */
+export interface RemoteVoiceConfig {
+  enabled: boolean;
+  providerId: string;
+  /** api_v2 服务 base URL（env 未配置且未持久化时缺省） */
+  endpoint?: string;
+  apiKey?: string;
+  modelId: string;
+  speakerId?: string;
+  textLang?: string;
+  refAudioPath?: string;
+  promptText?: string;
+  promptLang?: string;
+  auxRefAudioPaths?: string[];
+  speedFactor?: number;
   settings?: Record<string, string | number | boolean>;
 }
 
@@ -87,10 +106,47 @@ function normalizeVoiceInputConfig(model: {
   };
 }
 
+function normalizeRemoteConfig(model: {
+  enabled: number;
+  providerId: string;
+  endpoint: string;
+  apiKey: string | null;
+  modelId: string;
+  speakerId: string | null;
+  textLang: string | null;
+  refAudioPath: string | null;
+  promptText: string | null;
+  promptLang: string | null;
+  auxRefAudioPathsJson: unknown;
+  speedFactor: number | null;
+  settingsJson: unknown;
+}): RemoteVoiceConfig {
+  return {
+    enabled: model.enabled === 1,
+    providerId: model.providerId,
+    endpoint: model.endpoint,
+    ...(model.apiKey ? { apiKey: model.apiKey } : {}),
+    modelId: model.modelId,
+    ...(model.speakerId ? { speakerId: model.speakerId } : {}),
+    ...(model.textLang ? { textLang: model.textLang } : {}),
+    ...(model.refAudioPath ? { refAudioPath: model.refAudioPath } : {}),
+    ...(model.promptText ? { promptText: model.promptText } : {}),
+    ...(model.promptLang ? { promptLang: model.promptLang } : {}),
+    ...(Array.isArray(model.auxRefAudioPathsJson) && model.auxRefAudioPathsJson.length > 0
+      ? { auxRefAudioPaths: model.auxRefAudioPathsJson as string[] }
+      : {}),
+    ...(model.speedFactor !== null && model.speedFactor !== undefined
+      ? { speedFactor: model.speedFactor }
+      : {}),
+    settings: (model.settingsJson as Record<string, string | number | boolean> | undefined) ?? {},
+  };
+}
+
 export class VoiceService {
   private readonly providers = new Map<string, VoiceProviderPort>();
   private readonly asrProviders = new Map<string, ASRProviderPort>();
   private readonly localProviderId = "gpt-sovits-local";
+  private readonly remoteProviderId = "gpt-sovits-remote";
   private readonly defaultAsrProviderId = "sensevoice-local";
 
   constructor(
@@ -98,6 +154,7 @@ export class VoiceService {
     private readonly configRepository?: IVoiceConfigRepository,
     initialAsrProviders: ASRProviderPort[] = [],
     private readonly inputConfigRepository?: IVoiceInputConfigRepository,
+    private readonly remoteConfigRepository?: IVoiceRemoteConfigRepository,
   ) {
     for (const provider of initialProviders) {
       this.providers.set(provider.id, provider);
@@ -137,6 +194,10 @@ export class VoiceService {
 
   private getLocalProvider(): GptSovitsLocalProvider | undefined {
     return this.providers.get(this.localProviderId) as GptSovitsLocalProvider | undefined;
+  }
+
+  private getRemoteProvider(): GptSovitsRemoteProvider | undefined {
+    return this.providers.get(this.remoteProviderId) as GptSovitsRemoteProvider | undefined;
   }
 
   private getSenseVoiceProvider(): SenseVoiceLocalProvider | undefined {
@@ -257,6 +318,104 @@ export class VoiceService {
       modelPath: saved.modelPath ?? null,
       modelId: saved.modelId,
       speakerId: saved.speakerId ?? null,
+      settingsJson: saved.settingsJson,
+    });
+  }
+
+  /** 读取当前租户的在线语音配置；未持久化时按远程 provider 当前生效值给出默认（CR-028） */
+  async getRemoteConfig(tenant: TenantContext): Promise<RemoteVoiceConfig> {
+    const stored = this.remoteConfigRepository
+      ? await this.remoteConfigRepository.getConfig(tenant)
+      : null;
+    if (stored) {
+      return normalizeRemoteConfig({
+        enabled: stored.enabled,
+        providerId: stored.providerId,
+        endpoint: stored.endpoint,
+        apiKey: stored.apiKey ?? null,
+        modelId: stored.modelId,
+        speakerId: stored.speakerId ?? null,
+        textLang: stored.textLang ?? null,
+        refAudioPath: stored.refAudioPath ?? null,
+        promptText: stored.promptText ?? null,
+        promptLang: stored.promptLang ?? null,
+        auxRefAudioPathsJson: stored.auxRefAudioPathsJson,
+        speedFactor: stored.speedFactor ?? null,
+        settingsJson: stored.settingsJson,
+      });
+    }
+    const remote = this.getRemoteProvider();
+    return {
+      enabled: false,
+      providerId: this.remoteProviderId,
+      ...(remote?.defaultEndpoint ? { endpoint: remote.defaultEndpoint } : {}),
+      modelId: remote?.defaultModelId ?? "default-remote",
+      settings: {},
+    };
+  }
+
+  /** 保存当前租户的在线语音配置：endpoint 合法性校验 → 持久化 → 同步远程 provider 生效配置（CR-028） */
+  async setRemoteConfig(tenant: TenantContext, cfg: RemoteVoiceConfig): Promise<RemoteVoiceConfig> {
+    const remote = this.getRemoteProvider();
+    if (!remote) {
+      throw new Error("Remote GPT-SoVITS provider is not registered");
+    }
+    if (!cfg.endpoint) {
+      throw new Error("INVALID_VOICE_REMOTE_CONFIG: endpoint is required");
+    }
+    try {
+      const parsed = new URL(cfg.endpoint);
+      if (!["http:", "https:"].includes(parsed.protocol)) {
+        throw new Error("protocol must be http(s)");
+      }
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "invalid URL";
+      throw new Error(`INVALID_VOICE_REMOTE_CONFIG: endpoint URL 非法（${reason}）`);
+    }
+    remote.reconfigure({
+      endpoint: cfg.endpoint,
+      modelId: cfg.modelId,
+      ...(cfg.apiKey !== undefined ? { secretRef: cfg.apiKey } : {}),
+      ...(cfg.textLang !== undefined ? { textLang: cfg.textLang } : {}),
+      ...(cfg.refAudioPath !== undefined ? { refAudioPath: cfg.refAudioPath } : {}),
+      ...(cfg.promptText !== undefined ? { promptText: cfg.promptText } : {}),
+      ...(cfg.promptLang !== undefined ? { promptLang: cfg.promptLang } : {}),
+      ...(cfg.auxRefAudioPaths !== undefined ? { auxRefAudioPaths: cfg.auxRefAudioPaths } : {}),
+      ...(cfg.speedFactor !== undefined ? { speedFactor: cfg.speedFactor } : {}),
+    });
+
+    if (!this.remoteConfigRepository) {
+      return cfg;
+    }
+
+    const saved = await this.remoteConfigRepository.saveConfig(tenant, {
+      enabled: cfg.enabled,
+      providerId: cfg.providerId,
+      endpoint: cfg.endpoint,
+      apiKey: cfg.apiKey ?? null,
+      modelId: cfg.modelId,
+      speakerId: cfg.speakerId ?? null,
+      textLang: cfg.textLang ?? null,
+      refAudioPath: cfg.refAudioPath ?? null,
+      promptText: cfg.promptText ?? null,
+      promptLang: cfg.promptLang ?? null,
+      auxRefAudioPaths: cfg.auxRefAudioPaths ?? null,
+      speedFactor: cfg.speedFactor ?? null,
+      settings: cfg.settings,
+    });
+    return normalizeRemoteConfig({
+      enabled: saved.enabled,
+      providerId: saved.providerId,
+      endpoint: saved.endpoint,
+      apiKey: saved.apiKey ?? null,
+      modelId: saved.modelId,
+      speakerId: saved.speakerId ?? null,
+      textLang: saved.textLang ?? null,
+      refAudioPath: saved.refAudioPath ?? null,
+      promptText: saved.promptText ?? null,
+      promptLang: saved.promptLang ?? null,
+      auxRefAudioPathsJson: saved.auxRefAudioPathsJson,
+      speedFactor: saved.speedFactor ?? null,
       settingsJson: saved.settingsJson,
     });
   }

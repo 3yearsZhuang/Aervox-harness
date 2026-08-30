@@ -7,6 +7,7 @@ import { loadApiConfig } from "@aervox/config";
 import {
   SqliteVoiceConfigRepository,
   SqliteVoiceInputConfigRepository,
+  SqliteVoiceRemoteConfigRepository,
 } from "@aervox/database";
 import type { VoiceProviderPort, ASRProviderPort } from "./types.js";
 import { GptSovitsLocalProvider, GptSovitsRemoteProvider } from "./gpt-sovits.js";
@@ -72,11 +73,13 @@ export function registerVoiceModule(
   const { app, db } = ctx;
   const configRepository = new SqliteVoiceConfigRepository(db);
   const inputConfigRepository = new SqliteVoiceInputConfigRepository(db);
+  const remoteConfigRepository = new SqliteVoiceRemoteConfigRepository(db);
   const service = new VoiceService(
     options.providers ?? createDefaultVoiceProviders(),
     configRepository,
     options.asrProviders ?? createDefaultASRProviders(),
     inputConfigRepository,
+    remoteConfigRepository,
   );
   registerVoiceRoutes(app, service);
   return service;

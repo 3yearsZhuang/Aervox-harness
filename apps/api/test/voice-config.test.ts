@@ -7,11 +7,16 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { createServer, type AddressInfo } from "node:http";
 import { createInMemoryDatabase, type AervoxDatabase } from "@aervox/database";
 import type { Client } from "@libsql/client";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../src/app.js";
-import { GptSovitsLocalProvider, SenseVoiceLocalProvider } from "../src/modules/voice/index.js";
+import {
+  GptSovitsLocalProvider,
+  GptSovitsRemoteProvider,
+  SenseVoiceLocalProvider,
+} from "../src/modules/voice/index.js";
 
 const headers = {
   "x-workspace-id": "ws_voice",
@@ -41,6 +46,11 @@ describe("语音配置路由 (Voice Config)", () => {
             modelId: "default-local",
             modelPath: root,
             allowedRoots: [root],
+          }),
+          new GptSovitsRemoteProvider("gpt-sovits-remote", {
+            endpoint: "http://127.0.0.1:9880",
+            protocol: "http",
+            modelId: "default-remote",
           }),
         ],
         asrProviders: [
@@ -238,5 +248,101 @@ describe("语音配置路由 (Voice Config)", () => {
     });
     expect(res.statusCode).toBe(400);
     expect(res.json().code).toBe("INVALID_VOICE_INPUT_CONFIG");
+  });
+
+  it("GET /v1/voice/remote/config 缺省：按远程 provider 当前生效值返回默认（CR-028）", async () => {
+    const res = await app.inject({ method: "GET", url: "/v1/voice/remote/config", headers });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.enabled).toBe(false);
+    expect(body.providerId).toBe("gpt-sovits-remote");
+    expect(body.endpoint).toBe("http://127.0.0.1:9880");
+    expect(body.modelId).toBe("default-remote");
+  });
+
+  it("PUT /v1/voice/remote/config 保存 → GET 回显 + provider 生效 + 租户隔离（CR-028）", async () => {
+    const put = await app.inject({
+      method: "PUT",
+      url: "/v1/voice/remote/config",
+      headers,
+      payload: {
+        enabled: true,
+        endpoint: "http://127.0.0.1:9910",
+        modelId: "firefly-remote",
+        textLang: "zh",
+        refAudioPath: "D:/gpt-sovits/voice/ref.wav",
+        speedFactor: 1.1,
+      },
+    });
+    expect(put.statusCode).toBe(200);
+    const saved = put.json();
+    expect(saved.endpoint).toBe("http://127.0.0.1:9910");
+    expect(saved.modelId).toBe("firefly-remote");
+    expect(saved.textLang).toBe("zh");
+    expect(saved.speedFactor).toBe(1.1);
+
+    const get = await app.inject({ method: "GET", url: "/v1/voice/remote/config", headers });
+    expect(get.json().endpoint).toBe("http://127.0.0.1:9910");
+
+    // 另一租户仍是默认（隔离）
+    const other = await app.inject({
+      method: "GET",
+      url: "/v1/voice/remote/config",
+      headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" },
+    });
+    expect(other.json().endpoint).toBe("http://127.0.0.1:9880");
+
+    // 保存后远程 provider 生效：/v1/voice/models 中 remote 模型 ID 已更新
+    const models = await app.inject({ method: "GET", url: "/v1/voice/models", headers });
+    const remote = models.json().models.find(
+      (m: { providerId: string }) => m.providerId === "gpt-sovits-remote",
+    );
+    expect(remote.modelId).toBe("firefly-remote");
+  });
+
+  it("PUT /v1/voice/remote/config 拒绝非法 endpoint（CR-028）", async () => {
+    const res = await app.inject({
+      method: "PUT",
+      url: "/v1/voice/remote/config",
+      headers,
+      payload: { enabled: true, endpoint: "not-a-url", modelId: "firefly-remote" },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("INVALID_VOICE_REMOTE_CONFIG");
+  });
+
+  it("POST /v1/voice/remote/test-connection 服务可达时返回 ok（CR-028）", async () => {
+    const server = createServer((_req, res) => {
+      res.statusCode = 404;
+      res.end("no route");
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    try {
+      const { port } = server.address() as AddressInfo;
+      const res = await app.inject({
+        method: "POST",
+        url: "/v1/voice/remote/test-connection",
+        headers,
+        payload: { endpoint: `http://127.0.0.1:${port}`, modelId: "default-remote" },
+      });
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      // 根路径 404 也说明服务可达
+      expect(body.ok).toBe(true);
+      expect(typeof body.latencyMs).toBe("number");
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
+  it("POST /v1/voice/remote/test-connection 服务不可达时返回 ok=false（CR-028）", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/voice/remote/test-connection",
+      headers,
+      payload: { endpoint: "http://127.0.0.1:59999", modelId: "default-remote" },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().ok).toBe(false);
   });
 });

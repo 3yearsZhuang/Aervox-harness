@@ -192,6 +192,34 @@ export class PersonaService {
     return active ? selectionToDomain(active) : null;
   }
 
+  /**
+   * 当前激活人格的提示词摘要（名称 + systemPromptAppend + 技能白名单）。
+   * 供对话系统提示词做「人格覆盖默认身份/设定」使用；无激活人格或记录缺失时返回 undefined。
+   */
+  async describeActivePersonaSummary(
+    tenant: TenantContext,
+  ): Promise<{ name?: string; prompt?: string; allowedSkillNames?: string[] } | undefined> {
+    const active = await this.getActivePersona(tenant);
+    if (!active) return undefined;
+    const personaRecord = await this.deps.personaRepo.getPersona(tenant, active.personaId);
+    const revisionRecord = await this.deps.personaRepo.getPersonaRevision(
+      tenant,
+      active.personaId,
+      active.revisionId,
+    );
+    if (!personaRecord || !revisionRecord) return undefined;
+    const persona = personaToDomain(personaRecord);
+    const revision = revisionToDomain(revisionRecord);
+    const allowed = revision.config.allowedSkillNames;
+    return {
+      name: persona.name,
+      prompt: revision.config.systemPromptAppend.trim() || undefined,
+      ...(Array.isArray(allowed) && allowed.length > 0
+        ? { allowedSkillNames: allowed }
+        : {}),
+    };
+  }
+
   async saveTurnContext(
     tenant: TenantContext,
     context: PersonaContextSnapshot & { id?: string; turnId: string },

@@ -2909,6 +2909,38 @@
   font-weight: 700;
 }
 
+/* 语音设置子页签：本地模型 / 在线模型（CR-028） */
+.voice-mode-toggle {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  width: fit-content;
+}
+
+.voice-mode-btn {
+  padding: 6px 16px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color .16s ease, color .16s ease;
+}
+
+.voice-mode-btn:hover {
+  color: var(--text-primary);
+}
+
+.voice-mode-btn.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 .quick-tools {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

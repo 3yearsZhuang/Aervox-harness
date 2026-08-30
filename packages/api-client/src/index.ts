@@ -60,6 +60,8 @@ export {
   canPickDirectory,
   basenameOf,
   type LocalVoiceConfigDto,
+  type RemoteVoiceConfigDto,
+  type VoiceRemoteTestConnectionResultDto,
   type VoiceModelDto,
   type VoiceSynthesisInput,
   type VoiceSynthesisResultDto,

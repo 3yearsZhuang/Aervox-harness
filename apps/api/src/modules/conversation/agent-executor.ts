@@ -494,6 +494,8 @@ export async function runLoopTurnOnce(
     inbox?: InboxPort;
     /** 5b：渐进披露的 Skill 清单（name+description；模型按需读取全文；缺省不注入） */
     skills?: SkillDescriptor[];
+    /** 当前激活人格摘要：名称/设定/技能白名单优先于系统默认（无人格时不注入） */
+    persona?: { name?: string; prompt?: string; allowedSkillNames?: string[] };
     /**
      * 5c：Subagent 委托执行器工厂（request 级 tenant 绑定后创建 SubagentPort）。
      * 注入时 `subagent_delegate` 进入工具清单；缺失则不被贡献（行为与既有一致）。
@@ -616,15 +618,22 @@ export async function runLoopTurnOnce(
   const isQuizMode = hasQuizPrefix || (isStudyMode && quizKeywords.test(input.userMessage));
   // 5b：默认启用 Base System Prompt（含核心工具指引）与 Skill 渐进披露；压缩 seam 默认关闭，
   // 设置 AERVOX_LOOP_COMPACTION=rule 启用内置规则式摘要。
+  // 人格覆盖：激活人格时，其名称/设定覆盖系统默认身份，其技能白名单过滤渐进披露清单。
+  const personaAllowedSkills = deps.persona?.allowedSkillNames;
+  const disclosedSkills =
+    personaAllowedSkills && deps.skills
+      ? deps.skills.filter((s) => personaAllowedSkills.includes(s.name))
+      : deps.skills;
   let contextBuilder = createComposedContextBuilder({
     base: defaultContextBuilder,
     baseSystemPrompt: {
-      assistantName: "思隅 (Aervox)",
+      assistantName: deps.persona?.name || "思隅 (Aervox)",
+      personaPrompt: deps.persona?.prompt,
       activeTools: tools?.tools,
       studyMode: isStudyMode,
       quizMode: isQuizMode,
     },
-    skills: deps.skills,
+    skills: disclosedSkills,
     ...(loadApiConfig().loopCompaction === "rule"
       ? { compaction: createSummaryCompaction() }
       : {}),

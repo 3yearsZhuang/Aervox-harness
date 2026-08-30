@@ -1,7 +1,7 @@
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-29
+- 修改人：MoeJiyun233 · 2026-08-29
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
@@ -201,6 +201,7 @@
 | 语音目录选择（CR-014 阶段 3：模型路径与音色支持手输 + 系统「选择文件夹」并存） | CAP-019/020 | `apps/desktop/src/{main/index.ts,preload/domains/dialog-api.ts,preload/index.ts}`、`packages/api-client/src/useAervoxVoice.ts`、`packages/ui/src/components/{voice/LocalVoiceConfigPanel,persona/VoiceAbilityCard}.vue` | 2026-08-28 | API Client/UI/Web/Desktop typecheck + build | 原生 |
 | WebUI 大语言模型与供应商配置（CR-015：设置配置 + 连通性测试 + 租户持久化） | CAP-020 / ADR-005 | `packages/database/src/schema/llm.ts`、`repositories/sqlite/llm-config-repository.ts`、`packages/contracts/src/llm-schemas.ts`、`apps/api/src/modules/llm/`、`packages/api-client/src/useAervoxLLM.ts`、`packages/ui/src/components/llm/LLMConfigPanel.vue`、`packages/ui/src/components/AervoxWorkbench.vue` | 2026-08-28 | Database/API 单测与集成测试（`llm-config.test.ts`）；API Client/UI/Web typecheck + build | 原生 |
 | 离线语音输入 ASR（CR-016：SenseVoice/Whisper 双模式 + 句子级断句 + 键盘自停） | CAP-019/020 / ADR-005 | `packages/database/src/schema/voice.ts`、`repositories/sqlite/voice-input-config-repository.ts`、`packages/contracts/src/persona-schemas.ts`、`apps/api/src/modules/voice/`、`packages/api-client/src/{voice-input-recorder.ts,useAervoxVoiceInput.ts}`、`packages/ui/src/components/{voice/LocalVoiceConfigPanel.vue,AervoxWorkbench.vue}` | 2026-08-28 | Database/API 单测与集成测试（`voice-config.test.ts`, `voice-input.test.ts`）；API Client/UI/Web typecheck + build；PR #57 安全/契约整改（转写 503 不吞错误 + endpoint 校验）+ 全库吞错误专项排查（见 CR-016 核查记录） | 原生（借鉴 dsh-voice-local） |
+| 在线语音模型配置（CR-028：GPT-SoVITS 远程 API 设置配置 + api_v2 协议适配 + 连通性测试） | CAP-019/020 / ADR-005 | `packages/database/src/schema/voice.ts`、`repositories/sqlite/voice-remote-config-repository.ts`、`packages/contracts/src/{persona-schemas,openapi}.ts`、`apps/api/src/modules/voice/`、`packages/api-client/src/useAervoxVoice.ts`、`packages/ui/src/components/{voice/RemoteVoiceConfigPanel.vue,theme/workbench.css,AervoxWorkbench.vue}` | 2026-08-29 | Database/API 单测与集成测试（`voice.test.ts`, `voice-config.test.ts`）；API Client 单测；Contracts/Database/API/API Client/UI build + typecheck | 原生 |
 | Codex Pets 兼容：9 状态 spritesheet 协议（manifest + 8×9 atlas 渲染 + 工具状态驱动） | CAP-001/018 | `packages/contracts/src/schemas.ts`（`petSheet*`/`petManifest`）、`packages/ui/src/components/SpritePet.vue`、`apps/api/src/modules/tools/mcp.ts`（`derivePetSheetState`） | 2026-08-26 | typecheck + API 集成测试 + ci-code | 原生（外部协议兼容） |
 | Skill 契约与存储（注册表 + Neo 生命周期表 + 幂等仓储） | CAP-020 | `packages/contracts/src/schemas.ts`（Skill 契约）、`packages/database/src/schema/skills.ts`、`repositories/sqlite/skill-registry-repository.ts`、`skill-lifecycle-repository.ts` | 2026-08-26 | 单测 | `Skill`（借鉴 AstrBot） |
 | Skill 管理模块与 API（zip 安装 + 渐进式披露 prompt） | CAP-020 | `apps/api/src/modules/skills/`（`zip.ts`/`skill-manager.ts`/`skill-prompt.ts`/`routes.ts`） | 2026-08-26 | API 集成测试 | `Skill`（借鉴 AstrBot） |

@@ -146,16 +146,30 @@ export const QUIZ_MODE_SYSTEM_PROMPT = `
 `.trim();
 
 /**
+ * 全局输出格式规则（置于系统提示词末尾，优先级高于人格风格偏好）
+ */
+export const OUTPUT_STYLE_RULES = `# 输出格式 (Output Style)
+1. 禁止使用任何 emoji 表情符号（聊天、解释、总结、转述一律不用）。
+2. 聊天内容使用纯文本，不使用 Markdown 语法：不用标题（#）、加粗/斜体星号、列表符号（- 或 *）、表格与代码块围栏。
+3. 需要条理化时，用「1.」「2.」等纯文本编号或自然分段表达；需要给出代码时直接给出代码文本行，不加围栏。`.trim();
+
+/**
  * 构建系统根提示词 (Base System Prompt)
  */
 export function buildBaseSystemPrompt(options: BaseSystemPromptOptions = {}): string {
   const name = options.assistantName || "思隅 (Aervox)";
   const guidanceList = [...BASE_TOOL_GUIDANCE, ...(options.customGuidance || [])];
+  const hasPersona = Boolean(options.personaPrompt?.trim());
 
   const sections: string[] = [
     `# 身份与角色`,
     `你是 ${name}，一个专注陪伴、学习辅助与任务执行的主动智能助手。`,
     `你的职责是帮助用户高效学习、管理知识、规划任务，并在必要时协助执行各项工具操作。`,
+    ...(hasPersona
+      ? [
+          `注意：若下方「人格设定」对名称、称呼、性格、语气、行为风格或可用技能另有定义，以人格设定为准，本节仅作缺省兜底。`,
+        ]
+      : []),
     ``,
     `# 工具使用规范与约束 (Tool Usage & Constraints)`,
     `1. **工具可用性判断**：你只能调用当前会话明确提供的工具。严禁臆造或调用未在当前 schema 中声明的工具。`,
@@ -188,10 +202,17 @@ export function buildBaseSystemPrompt(options: BaseSystemPromptOptions = {}): st
     sections.push(``, QUIZ_MODE_SYSTEM_PROMPT);
   }
 
-  // 拼接自定义人格提示词（如有）
+  // 拼接自定义人格提示词（如有）：人格设定优先于默认身份与风格（安全策略除外）
   if (options.personaPrompt && options.personaPrompt.trim().length > 0) {
-    sections.push(``, `# 人格与风格偏好 (Persona Settings)`, options.personaPrompt.trim());
+    sections.push(
+      ``,
+      `# 人格设定 (Persona Settings · 最高优先级：覆盖默认身份、名称、称呼与风格；安全与数据策略除外)`,
+      options.personaPrompt.trim(),
+    );
   }
+
+  // 全局输出格式规则（置末，具有最强约束力）
+  sections.push(``, OUTPUT_STYLE_RULES);
 
   return sections.join("\n");
 }

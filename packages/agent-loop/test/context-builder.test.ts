@@ -113,6 +113,36 @@ describe("基础系统提示词与工具指引 (Base System Prompt & Tool Guidan
     expect(prompt).not.toContain("专注模式核心教学原则");
   });
 
+  it("buildBaseSystemPrompt：注入人格时声明人格设定优先于默认身份与风格", async () => {
+    const { buildBaseSystemPrompt } = await import("../src/base-prompt.js");
+    const withPersona = buildBaseSystemPrompt({
+      assistantName: "流萤",
+      personaPrompt: "你是流萤，星穹列车的乘员",
+    });
+    expect(withPersona).toContain("以人格设定为准");
+    expect(withPersona).toContain("最高优先级");
+
+    const withoutPersona = buildBaseSystemPrompt({ assistantName: "思隅" });
+    expect(withoutPersona).not.toContain("以人格设定为准");
+  });
+
+  it("buildBaseSystemPrompt：始终注入输出格式规则（禁 emoji 与禁 Markdown）", async () => {
+    const { buildBaseSystemPrompt } = await import("../src/base-prompt.js");
+    const withPersona = buildBaseSystemPrompt({ assistantName: "思隅", personaPrompt: "活泼" });
+    const withoutPersona = buildBaseSystemPrompt({ assistantName: "思隅" });
+    for (const prompt of [withPersona, withoutPersona]) {
+      expect(prompt).toContain("输出格式 (Output Style)");
+      expect(prompt).toContain("禁止使用任何 emoji");
+      expect(prompt).toContain("不使用 Markdown 语法");
+      // 输出格式规则位于人格设定之后（末尾最强约束）
+      if (prompt.includes("人格设定")) {
+        expect(prompt.indexOf("输出格式 (Output Style)")).toBeGreaterThan(
+          prompt.indexOf("人格设定"),
+        );
+      }
+    }
+  });
+
   it("buildBaseSystemPrompt：开启 studyMode 时注入苏格拉底启发式教学与防剧透规则", async () => {
     const { buildBaseSystemPrompt } = await import("../src/base-prompt.js");
     const prompt = buildBaseSystemPrompt({
