@@ -16,6 +16,7 @@ describe("loadApiConfig（缺陷 E）", () => {
     const cfg = loadApiConfig({});
     expect(cfg.port).toBe(3000);
     expect(cfg.loopProvider).toBe("llm");
+    expect(cfg.loopDriver).toBe("native");
     expect(cfg.loopCompaction).toBe("off");
     expect(cfg.adminIds).toEqual([]);
     expect(cfg.gptSovits).toMatchObject({ protocol: "http", modelId: "default-remote", allowedRoots: [] });
@@ -27,6 +28,7 @@ describe("loadApiConfig（缺陷 E）", () => {
     const cfg = loadApiConfig({
       PORT: "8080",
       AERVOX_LOOP_PROVIDER: "scripted",
+      AERVOX_LOOP_DRIVER: "dsh",
       AERVOX_LOOP_COMPACTION: "rule",
       AERVOX_ADMIN_IDS: "admin_1, admin_2 ",
       GPT_SOVITS_ALLOWED_ROOTS: "/a:/b",
@@ -38,6 +40,7 @@ describe("loadApiConfig（缺陷 E）", () => {
     });
     expect(cfg.port).toBe(8080);
     expect(cfg.loopProvider).toBe("scripted");
+    expect(cfg.loopDriver).toBe("dsh");
     expect(cfg.loopCompaction).toBe("rule");
     expect(cfg.adminIds).toEqual(["admin_1", "admin_2"]);
     expect(cfg.gptSovits.allowedRoots).toEqual(["/a", "/b"]);
@@ -56,6 +59,9 @@ describe("loadApiConfig（缺陷 E）", () => {
     expect(() => loadApiConfig({ AERVOX_LOOP_COMPACTION: "bogus" })).toThrow(
       /AERVOX_LOOP_COMPACTION=bogus/,
     );
+    // pi 为保留项：真 pi Adapter 落地前不进枚举（fail-fast，防静默无效果）
+    expect(() => loadApiConfig({ AERVOX_LOOP_DRIVER: "pi" })).toThrow(/AERVOX_LOOP_DRIVER=pi/);
+    expect(() => loadApiConfig({ AERVOX_LOOP_DRIVER: "bogus" })).toThrow(/AERVOX_LOOP_DRIVER=bogus/);
     expect(() => loadApiConfig({ GPT_SOVITS_PROTOCOL: "ftp" })).toThrow(/GPT_SOVITS_PROTOCOL=ftp/);
   });
 });

@@ -3,6 +3,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { buildDiarySystemPrompt, buildDiaryUserPrompt } from "../src/prompts.js";
+import { localDateToday, todayWindow } from "../src/generation.js";
 import { renderTemplateDiary } from "../src/template.js";
 import type { DiaryMaterial } from "../src/material.js";
 
@@ -62,5 +63,23 @@ describe("renderTemplateDiary", () => {
     expect(draft.materialCount).toBe(5); // 2 消息 + 1 记忆 + 1 目标 + 练习（total>0 计 1）
     expect(draft.content).toContain("今天我还悄悄记下了 1 件与你有关的事");
     expect(draft.content).toContain("练习了 3 道题");
+  });
+});
+
+describe("todayWindow", () => {
+  it("startIso 为规范 UTC ISO（本地零点换算），与 createdAt 的 toISOString 存储对齐", () => {
+    const now = new Date();
+    const window = todayWindow(now);
+    // 规范化 UTC 串（旧缺陷实现返回无时区本地串 "YYYY-MM-DDT00:00:00"，无法与 UTC 存储做字符串比较）
+    expect(window.startIso).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    expect(new Date(window.startIso).toISOString()).toBe(window.startIso);
+    expect(window.endIso).toMatch(/Z$/);
+    // 换算回本地时区即当日零点（日期标签与 localDateToday 一致）
+    const start = new Date(window.startIso);
+    expect(start.getHours()).toBe(0);
+    expect(start.getMinutes()).toBe(0);
+    expect(localDateToday(start)).toBe(localDateToday(now));
+    // 窗口有序：当前时刻消息必然落在窗口内
+    expect(window.startIso <= window.endIso).toBe(true);
   });
 });

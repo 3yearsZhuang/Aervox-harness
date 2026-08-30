@@ -1,12 +1,12 @@
 # Agent Harness Loop 设计与落地规范
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：kikoyida · 2026-08-29
+- 修改人：3yearszhuang · 2026-08-31
 
 > 文档编号：AVX-HAR-001  
 > 类型：Reference  
 > 版本：v0.5
-> 更新日期：2026-08-29
+> 更新日期：2026-08-31
 > 状态：Review Candidate  
 > 关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[ADR-016](adr/ADR-016-base-boundaries.md)、[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md)、[CR-012](changes/CR-012-agent-harness-loop.md)、[CR-021](changes/CR-021-ask-user-question-capability.md)、[CR-022](changes/CR-022-full-access-tool-permission.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
@@ -48,7 +48,7 @@ Agent Harness Loop 是驱动一次 Agent Turn 的执行能力：它领取已持�
 
 ### 2.2 当前缺口
 
-当前 API 已可通过 `AERVOX_LOOP_PROVIDER=replay|scripted|scripted-write|llm` 执行原生 Loop，SSE 从持久化 `turn_stream_events` 重放；阶段 2e/3a/3b-A/3b-B 已覆盖真实 OpenAI 兼容流、写工具审批、lease TTL/续租、过期抢占、fencing 和 Worker 恢复。仍缺少异步 Outbox 驱动、完整分段安全门、Step/ModelRun/ContextManifest 持久化关联、Inbox、3c+ 生产级副作用恢复和外部 DSH/pi Driver；客户端 `for (;;)`/`while (true)` 只读取 SSE，不是 Agent Loop。
+当前 API 已可通过 `AERVOX_LOOP_PROVIDER=replay|scripted|scripted-write|llm` 执行原生 Loop，SSE 从持久化 `turn_stream_events` 重放；阶段 2e/3a/3b-A/3b-B 已覆盖真实 OpenAI 兼容流、写工具审批、lease TTL/续租、过期抢占、fencing 和 Worker 恢复。仍缺少异步 Outbox 驱动、完整分段安全门、Step/ModelRun/ContextManifest 持久化关联、Inbox、3c+ 生产级副作用恢复；外部 Driver 方面 DSH 已可经 `AERVOX_LOOP_DRIVER=dsh` 整 Turn 接入（§16.29，库内 Cordis 容器组装仍为 P2），pi 待真 Adapter；客户端 `for (;;)`/`while (true)` 只读取 SSE，不是 Agent Loop。
 
 仍需补齐的核心能力包括：
 
@@ -70,7 +70,7 @@ Agent Harness Loop 是 Profile 可选择的业务执行 Capability，不属于�
 
 Resolver 不变量：对话能力一旦启用，且某个 Turn 需要执行模型—工具流程，Profile 必须且只能解析出一个兼容的 `LoopDriverPort`。可以不安装 DSH 或 pi，但不能出现“有 Conversation 能力却没有 Native/Replay/其他 Loop Driver”，也不能同时激活两个竞争性的 Driver。模型 Provider 可以有多个候选，但每个 Step 最终只能绑定一个已解析的 Model Provider。
 
-当前实现尚未落地 Profile Resolver，而是通过 `AERVOX_LOOP_PROVIDER` 在 API 组合根选择 Replay、Scripted 或 OpenAI 兼容 Provider；该环境变量开关是迁移机制，不是最终的 Loop Driver 组合模型。
+当前实现尚未落地 Profile Resolver，而是通过 `AERVOX_LOOP_PROVIDER` 在 API 组合根选择 Replay、Scripted 或 OpenAI 兼容 Provider；Driver 侧另有 `AERVOX_LOOP_DRIVER`（native | dsh）选择整 Turn 进程外 DSH Adapter（§16.29）；两个环境变量开关是迁移机制，不是最终的 Loop Driver 组合模型。
 
 无论选择哪一种 Driver，以下 Kernel 不变量不变：
 
@@ -897,6 +897,15 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 2026-08-29 已落地部分路径：独立加密本地 Vault、owner-only `proactive-access.token`（`0600`）与字面 loopback/redirect 拒绝、版本化 ProfileRevision/SourceGrant/ActivationLease、`FullProfileActionGrant` 工具门、Aervox activity/operation 与剪贴板采集、确定性本地提炼 Worker、来源级撤销删除、导出和后台 heartbeat。系统应用、浏览器、屏幕、文件、通信、音视频、位置和传感器适配器仍未全部接入；本地 Provider 出网证明、生产 OS Broker、全量删除传播和专项门禁继续阻断 CAP-033 的 `Ready`。
 
 验证证据：`@aervox/database` 162 tests、`@aervox/api` 241 tests、`@aervox/worker` 6 tests、Contracts OpenAPI build 已通过；完整端到端和平台权限矩阵待补齐。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+### 16.29 落地进展（阶段 6f：AERVOX_LOOP_DRIVER=dsh API 接线）
+
+2026-08-31 落地（承接 §16.21 骨架，把 DSH Adapter 从「仅测试消费」推进到 API 组合根可开关；ADR-010 实施进展 6f 同步）：
+
+- **配置**（`packages/config`）：`ApiLoopDriver = "native" | "dsh"`（`AERVOX_LOOP_DRIVER`，默认 native，启动期枚举校验；pi 为保留项不进枚举，配置期 fail-fast 防静默无效果）；
+- **解析器**（`apps/api/src/modules/conversation/dsh-adapter.ts`）：`resolveDshTurnAdapter` lazy 单例——缓存已准入 stdio handle（逐 Turn ping-pong 复用，不重复 spawn）与 probe 禁用态（后续 Turn 快速失败）；repoRoot 取 `AERVOX_DSH_REPO_ROOT`，缺省从 cwd 向上查找 `reference/deepseek-harness`；准入即 `probeDSHReference`（gitlink 固定 SHA + MIT），未就绪不 spawn；
+- **接线**（`apps/api/src/modules/conversation/agent-executor.ts`）：`runLoopTurnOnce` dsh 分支 → `runDshAdapterTurn` → `runAdapterTurn` 整 Turn 执行（claim → 事件映射既有契约落库 → finalize；Provider/工具/上下文组合全部跳过）；终态对齐 turns 表（Completed/Interrupted/Failed 回写，skipped 不覆盖）；准入失败 fail-closed（`ADAPTER_UNAVAILABLE` error 事件 + Failed，不静默回退 native）；专注模式 terms 抽取抽为 `extractStudyTerms` 供原生与 adapter 双路径复用；
+- **测试**：`apps/api/test/conversation-dsh.test.ts` 4（准入失败 fail-closed 不回退 native / 禁用态缓存快速失败 / resolver `submodule_missing` reason / `it.runIf` 子模块就绪 + 本地兼容端点整 Turn message→delta→done Completed 机器验证）；`@aervox/config` 6（loopDriver 缺省/覆盖/pi·bogus fail-fast）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
 ## 17. 回滚策略
 
