@@ -1,11 +1,13 @@
 # ADR-011 日记周期、计划修订与连续窗口
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-31
 
 - 状态：Proposed
 - 日期：2026-08-24
 - 关联：`CAP-009`、`FR-DIA-001`、`DATA-DIA-001`、`NFR-JOB-001`、`NFR-I18N-001`、`OPS-QUEUE-001`、`RISK-004/005`、`ADR-013`
+
+> 更新日期：2026-08-31
 
 ## Context
 
@@ -179,3 +181,9 @@ Buffer 只保存来源引用和获单独授权的最小临时快照。撤权或�
 - 两个并发首 Cycle、predecessor 分叉、同 cutoff Planned 重算、`SuppressedCandidate` 不推进任何 cursor 的竞态测试；
 - 宽限期内迟到、宽限期后迟到、早于窗口下界和历史外部导入测试；
 - 指标和告警覆盖 cursor 停滞、重叠拒绝、同日碰撞、逾期周期、重复供应商调用、Buffer 过期和 DLQ。
+
+## 验收差距复核（2026-08-31）
+
+- **已满足**：diary cycle CAS/发布事务与 on-demand 路径测试（diary-repository、CR-026）。
+- **未满足**：窗口 coverage 链性质测试、DST gap/fold 与 tzdata 升级、重复 Job/lease 过期/Redis 丢失矩阵、停机补跑清单。
+- **推进路径**：CAP-009 阶段 2（定时任务硬化）时补齐。

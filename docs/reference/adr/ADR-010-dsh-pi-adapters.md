@@ -7,6 +7,8 @@
 - 日期：2026-08-23
 - 关联：`CAP-020`、`CAP-027`、`RISK-006/010`
 
+> 更新日期：2026-08-31
+
 ## Context
 
 本文中的 `DSH` 专指 DeepSeek Harness（`reference/deepseek-harness`）。`dsh-synapse` 是运行在 DSH 上的独立 Web 视图插件，不是 DSH 本体；它展示了会话分支和画布投影的价值。pi/DSH 展示了可替换模型与扩展接口，但它们版本快速变化，运行时/插件权限和数据所有权不应成为 Aervox 核心依赖。BaiShou-Next 为 AGPLv3，不能未经许可复制或链接。
@@ -65,3 +67,9 @@
 - **6d DSH 真 Turn 接通骨架**（`createDSHAdapterDriver` + `test/fixtures/dsh-turn-runner.mjs`）：固定 SHA 复核通过后 spawn runner 走 stdio 协议；模型回合为真实 LLM（OpenAI 兼容直连，`DEEPSEEK_API_KEY` 或 `DSH_LLM_BASE_URL` 指向任意兼容端点），输出 delta→batch(全结论)→done（all-results-conclude 收敛）；缺前置返回指引性 `dsh_unconfigured`，host 失败自动禁用；本地兼容端点用例整回合机器验证（无外部网络）。DSH 库内 Agent 循环（Cordis 容器）替换仍以参考仓库构建产物为前置（P2 工程项）。
 - **6e 库内产物接入证据**（`DSH_LIB_MODE=1` 探测）：`reference/deepseek-harness` 已完成 `pnpm install && pnpm build:lib:host`（本地构建通过），runner 动态 import `packages/core/agent/lib/index.js` 成功并验证公开导出面（`AgentRegistry`/`assembleContextFor`/`installModelSelection`/`emitAgentEvent` 等）——「库内 Agent 循环可加载」的机器证据（`it.runIf(refLibBuilt)` 产物存在时执行）。完整 Cordis 容器组装（llm/model/session/persistence/tools 等 service 注入并驱动 headless turn）仍为 P2 工程项：范围在 DSH 的 inbox/driver 驱动模型之上，非应用层脚本级。
 - **6f API 接线开关（AERVOX_LOOP_DRIVER）**（2026-08-31）：`@aervox/config` 新增 `loopDriver`（`native | dsh`，启动期枚举校验；pi 为保留项不进枚举 fail-fast）；`apps/api` `runLoopTurnOnce` 在 dsh 模式整 Turn 走 `runAdapterTurn`（claim → 事件映射既有契约落库 → finalize；Provider/工具/上下文组合全部跳过，SSE 契约零改动），`dsh-adapter.ts` 解析器进程内缓存已准入 stdio handle 与 probe 禁用态（repoRoot 取 `AERVOX_DSH_REPO_ROOT`，缺省从 cwd 向上查找）；准入失败 fail-closed（`ADAPTER_UNAVAILABLE` error 事件 + Failed，不静默回退 native）。runner 仍为「协议 + 真实模型回合」骨架，完整 Cordis 容器组装不变仍为 P2。
+
+## 验收差距复核（2026-08-31）
+
+- **已满足**：固定 SHA 复核与许可证白名单（阶段 6/6c：`adapter-contract`/`stdio-adapter`/`dsh-reference` 测试）；无适配器核心流程（conversation-loop）与删除传播（conversation-deletion）测试。
+- **未满足**：`dsh-synapse` 画布/内容分离与完整插件越权矩阵（画布未实现）。
+- **推进路径**：DSH 库内 Cordis 组装（P2）与画布立项时闭环（死线：P2 前）。
