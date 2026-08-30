@@ -1,13 +1,13 @@
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-29
+- 修改人：3yearszhuang · 2026-08-30
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
 > 文档版本：v1.9
 > 文档状态：评审候选（Review Candidate）  
-> 更新日期：2026-08-29
+> 更新日期：2026-08-30
 > 产品需求来源：[PRD.md](PRD.md)
 > 适用范围：原型、MVP、MVP+、P1、桌面阶段、P2、P3 及后续维护版本
 
@@ -155,6 +155,7 @@
 
 | 落地实现 | 关联 CAP | 实现位置 | 日期 | 验证 | 来源 |
 |---|---|---|---|---|---|
+| 开源许可声明统一为 AGPL-3.0-or-later（源码根 `LICENSE` 自 a82f042 起已是 AGPLv3；本次对齐声明面残留：桌面端与两个官方插件清单 MIT → AGPL-3.0-or-later，根与全部 workspace 子包补齐 SPDX `license` 字段；`LICENSE` 前言目录枚举补 `plugins/`、`e2e/`；文档 CC BY-NC-SA 4.0 双许可不变） | 基础设施 | 根 `package.json`、`apps/{api,web,worker,mobile,desktop}/package.json`、`packages/{agent-loop,api-client,config,contracts,database,diary,host-agent,observability,practice-review,ui}/package.json`、`plugins/{term-explorer,study-companion}/plugin.manifest.json`、`LICENSE`（前言）、`docs/reference/REQUIREMENTS_TRACEABILITY.md`（本行） | 2026-08-30 | 全部改动 JSON 以 node `JSON.parse` 校验通过；`mise tasks run ci-docs` 显式退出码 0；`mise tasks run ci-code` 全量 | 原生 |
 | Turn 流活性治理：创建/执行解耦（后台执行）、SSE 重放+轮询 tail+心跳、思考增量 reasoning_delta 双格式透传（reasoning_content/reasoning）、provider 与客户端空闲超时语义、桌面取消闭环 | CAP-013/019 | `packages/config/src/index.ts`、`packages/agent-loop/src/{types,executor,openai-compat-provider}.ts`、`packages/contracts/src/{schemas,openapi,index}.ts`、`apps/api/src/modules/conversation/{routes,agent-executor}.ts`、`packages/api-client/src/{transport,desktop-transport,useAervoxTurn}.ts`、`apps/desktop/src/{main/index.ts,preload/index.ts,preload/domains/aervox-api.ts,renderer/src/env.d.ts}`、`packages/ui/src/components/AervoxWorkbench.vue`、`packages/contracts/openapi.json` | 2026-08-29 | `openai-compat-provider.test.ts`（双格式透出/不混入正文/空闲超时）、`executor.test.ts`（reasoning_delta 落库序号连续）、`desktop-transport.test.ts`（空闲重置/超时取消/onReasoning）、`conversation-loop.test.ts`（background/inline 语义）、`conversation-cancel.test.ts`；全仓 build/typecheck/test | 原生（供应商流格式调研与设计见 `CR-027`） |
 | Aervox 品牌主标 03 与思隅角色副标 A2（共享 SVG/Vue 组件、桌面标题栏、首次启动页、Live2D 回退、Web/Desktop favicon） | CAP-001/018/019 | `packages/ui/src/{assets/brand,components/AervoxBrandMark.vue,components/AervoxCompanionMark.vue,index.ts}`、`apps/desktop/src/{main/index.ts,renderer/index.html,renderer/public/aervox-mark.svg,renderer/src/components/{AppTitlebar,OnboardingFlow}.vue}`、`apps/web/{index.html,public/aervox-mark.svg}`、`packages/ui/src/env.d.ts`（`*.png` 模块类型声明） | 2026-08-29 | SVG XML 解析；UI build（`vue-tsc`）经 PR #126 冲突消解分支复验通过 | 原生 |
 | 桌面端首次启动引导（四步序章、Live2D、模型测试/保存、快速开始、版本化完成标记与设置内回放入口） | CAP-001/018 | `apps/desktop/src/renderer/src/{App.vue,onboarding-model.ts,onboarding-state.ts,components/OnboardingFlow.vue}`、`packages/ui/src/components/AervoxWorkbench.vue`（设置 → 外观 → 重看新手引导，经 `replay-onboarding` 事件回放）、`apps/desktop/test/{onboarding-model,onboarding-state}.test.ts` | 2026-08-29 | Desktop 单元测试（首次启动、严格完成标记、完成写入、提供商预设、模型配置校验）；Desktop/UI typecheck 与 build | 原生（视觉结论见 `CR-024` 与原型提交 `050f1f0`） |

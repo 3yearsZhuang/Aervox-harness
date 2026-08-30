@@ -1,6 +1,7 @@
 {
   "name": "@aervox/host-agent",
   "version": "0.1.0",
+  "license": "AGPL-3.0-or-later",
   "private": true,
   "type": "module",
   "description": "Aervox in-process Agent Loop host (poll/claim/backpressure/drain) + SQLite ExecutionStore composition adapter. Phase 4; deployment seam for standalone apps/agent.",
