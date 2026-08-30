@@ -125,8 +125,8 @@ const props = withDefaults(defineProps<{
   assistantName: '思隅',
 })
 
-/** 引导回放：由宿主应用（桌面端 App.vue）监听后重新挂载 OnboardingFlow */
-const emit = defineEmits<{ 'replay-onboarding': [] }>()
+/** 引导回放与内嵌完整产品介绍：均由宿主应用（桌面端 App.vue）监听处理 */
+const emit = defineEmits<{ 'replay-onboarding': [], 'open-intro-deck': [] }>()
 
 const composerOpen = ref(false)
 const historyOpen = ref(false)
@@ -3230,6 +3230,10 @@ onUnmounted(() => {
             <div v-if="!isWeb" class="settings-row settings-choice-row">
               <span><strong>重看新手引导</strong><small>重新播放首次启动的相遇序章，回放期间会暂时离开工作台</small></span>
               <button type="button" class="settings-replay-action" @click="emit('replay-onboarding')"><PlayCircle :size="15" />回放</button>
+            </div>
+            <div v-if="!isWeb" class="settings-row settings-choice-row">
+              <span><strong>完整产品介绍</strong><small>内嵌播放 10 页产品叙事（约 8 分钟），随时可以关闭</small></span>
+              <button type="button" class="settings-replay-action" @click="emit('open-intro-deck')"><PlayCircle :size="15" />观看</button>
             </div>
           </div>
           <div v-else-if="settingsCategory === 'conversation'" class="settings-section">
