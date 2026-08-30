@@ -2488,6 +2488,54 @@ export interface IToolRegistryRepository {
   ): Promise<ToolRegistrationModel[]>;
 }
 
+// ============ MCP 服务器连接配置域（CAP-020，与 T-04 工具注册表对齐）============
+
+/** MCP 服务器连接配置模型（系统级，无租户列；token 为本地敏感数据） */
+export interface McpServerModel {
+  id: string;
+  name: string;
+  /** streamable_http / sse（预留） */
+  transport: string;
+  endpointUrl: string;
+  /** bearer / none */
+  authType: string;
+  token: string | null;
+  enabled: number; // 0 | 1
+  isPreset: number; // 0 | 1
+  /** disconnected / connected / error */
+  status: string;
+  lastSyncAt: string | null;
+  lastError: string | null;
+  toolCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IMcpServerRepository {
+  /** 写入/更新服务器连接配置（幂等：同 id 覆盖，token 未提供时保留原值） */
+  upsertServer(server: {
+    id: string;
+    name: string;
+    transport: string;
+    endpointUrl: string;
+    authType: string;
+    token?: string | null;
+    enabled?: boolean;
+    isPreset?: boolean;
+  }): Promise<McpServerModel>;
+  getServer(id: string): Promise<McpServerModel | null>;
+  listServers(): Promise<McpServerModel[]>;
+  listEnabledServers(): Promise<McpServerModel[]>;
+  setToken(id: string, token: string | null): Promise<McpServerModel | null>;
+  setEnabled(id: string, enabled: boolean): Promise<McpServerModel | null>;
+  /** 更新连接状态（connected / error / disconnected；error 时附原因） */
+  setStatus(id: string, status: string, lastError?: string | null): Promise<McpServerModel | null>;
+  /** 记录一次成功同步（时间 + 工具数，清空 lastError） */
+  markSynced(id: string, toolCount: number): Promise<McpServerModel | null>;
+  /** 删除服务器配置（预设不可删，由调用方把关） */
+  deleteServer(id: string): Promise<boolean>;
+}
+
 // ============ Persona / Skills / MCP / 上下文快照域（CAP-019/CAP-020）============
 
 /** 人格（与 @aervox/mod-persona 领域类型结构一致，但由主仓数据库拥有模型） */

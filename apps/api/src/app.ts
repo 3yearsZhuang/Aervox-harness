@@ -32,6 +32,7 @@ import { registerMemoryModule } from "./modules/memory/index.js";
 import { registerKnowledgeModule } from "./modules/knowledge/index.js";
 import { registerBranchModule } from "./modules/branch/index.js";
 import { registerToolsModule } from "./modules/tools/index.js";
+import { registerMcpModule, type McpModuleOptions } from "./modules/mcp/index.js";
 import { registerPluginsModule } from "./modules/plugins/index.js";
 import { registerPersonaModule } from "./modules/persona/index.js";
 import { registerPreferencesModule } from "./modules/preferences/index.js";
@@ -67,6 +68,8 @@ export interface BuildAppOptions {
   attachmentsRoot?: string;
   /** 语音服务配置（如测试注入 mock provider） */
   voiceOptions?: VoiceModuleOptions;
+  /** MCP 预设模块配置（如测试注入 fake fetch） */
+  mcpOptions?: McpModuleOptions;
   /** LLM 模型服务配置 */
   llmOptions?: LLMServiceOptions;
   /** 阶段 5c：已注册 Workflow 定义清单（贡献 workflow_run 工具 + GET /v1/workflows） */
@@ -171,6 +174,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   // 先注册「被依赖」模块并填充共享服务（依赖方经 ctx 读取；顺序显式）：
   // tools → llm 必须早于 conversation（Agent Loop 依赖）；voice/skills 早于 persona
   ctx.toolRuntime = registerToolsModule(ctx);
+  // MCP 预设模块：复用 toolRuntime 注册远程工具（依赖 tools 先行装配）
+  registerMcpModule(ctx, options.mcpOptions);
   ctx.llmConfigService = registerLLMModule(ctx, options.llmOptions);
   registerProactiveModule(ctx, {
     db: proactiveDb,

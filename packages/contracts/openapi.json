@@ -1834,6 +1834,247 @@
           "killSwitch"
         ]
       },
+      "McpPresetServer": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "transport": {
+            "type": "string",
+            "enum": [
+              "streamable_http",
+              "sse"
+            ]
+          },
+          "endpointUrl": {
+            "type": "string",
+            "minLength": 1
+          },
+          "authType": {
+            "type": "string",
+            "enum": [
+              "bearer",
+              "none"
+            ]
+          },
+          "protocolVersion": {
+            "type": "string",
+            "minLength": 1
+          },
+          "homepage": {
+            "type": "string",
+            "minLength": 1
+          },
+          "docsUrl": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tokenApplyUrl": {
+            "type": "string",
+            "minLength": 1
+          },
+          "regionNote": {
+            "type": "string"
+          },
+          "rateLimitNote": {
+            "type": "string"
+          },
+          "sourceUrl": {
+            "type": "string",
+            "minLength": 1
+          },
+          "configured": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "disconnected",
+              "connected",
+              "error"
+            ]
+          },
+          "toolCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokenConfigured": {
+            "type": "boolean"
+          },
+          "tokenMasked": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastSyncAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastError": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "transport",
+          "endpointUrl",
+          "authType",
+          "protocolVersion",
+          "homepage",
+          "docsUrl",
+          "tokenApplyUrl",
+          "sourceUrl",
+          "configured",
+          "enabled",
+          "status",
+          "toolCount",
+          "tokenConfigured"
+        ]
+      },
+      "McpServerConfig": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "transport": {
+            "type": "string",
+            "enum": [
+              "streamable_http",
+              "sse"
+            ]
+          },
+          "endpointUrl": {
+            "type": "string",
+            "minLength": 1
+          },
+          "authType": {
+            "type": "string",
+            "enum": [
+              "bearer",
+              "none"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "isPreset": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "disconnected",
+              "connected",
+              "error"
+            ]
+          },
+          "toolCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokenConfigured": {
+            "type": "boolean"
+          },
+          "tokenMasked": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastSyncAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastError": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "transport",
+          "endpointUrl",
+          "authType",
+          "enabled",
+          "isPreset",
+          "status",
+          "toolCount",
+          "tokenConfigured",
+          "lastSyncAt",
+          "lastError",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "McpServerToolEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "safetyLevel": {
+            "type": "string",
+            "minLength": 1
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "inputSchema": {}
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "safetyLevel",
+          "enabled"
+        ]
+      },
       "VoiceModel": {
         "type": "object",
         "properties": {
@@ -11066,6 +11307,759 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/v1/mcp/presets": {
+      "get": {
+        "summary": "列出预设 MCP 服务器（含本机接入状态）",
+        "tags": [
+          "MCP"
+        ],
+        "responses": {
+          "200": {
+            "description": "Presets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "presets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "description": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "transport": {
+                            "type": "string",
+                            "enum": [
+                              "streamable_http",
+                              "sse"
+                            ]
+                          },
+                          "endpointUrl": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "authType": {
+                            "type": "string",
+                            "enum": [
+                              "bearer",
+                              "none"
+                            ]
+                          },
+                          "protocolVersion": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "homepage": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "docsUrl": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "tokenApplyUrl": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "regionNote": {
+                            "type": "string"
+                          },
+                          "rateLimitNote": {
+                            "type": "string"
+                          },
+                          "sourceUrl": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "configured": {
+                            "type": "boolean"
+                          },
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "disconnected",
+                              "connected",
+                              "error"
+                            ]
+                          },
+                          "toolCount": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "tokenConfigured": {
+                            "type": "boolean"
+                          },
+                          "tokenMasked": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "lastSyncAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "lastError": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "description",
+                          "transport",
+                          "endpointUrl",
+                          "authType",
+                          "protocolVersion",
+                          "homepage",
+                          "docsUrl",
+                          "tokenApplyUrl",
+                          "sourceUrl",
+                          "configured",
+                          "enabled",
+                          "status",
+                          "toolCount",
+                          "tokenConfigured"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "presets"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/mcp/servers": {
+      "get": {
+        "summary": "列出已配置 MCP 服务器（token 脱敏）",
+        "tags": [
+          "MCP"
+        ],
+        "responses": {
+          "200": {
+            "description": "Servers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "servers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "transport": {
+                            "type": "string",
+                            "enum": [
+                              "streamable_http",
+                              "sse"
+                            ]
+                          },
+                          "endpointUrl": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "authType": {
+                            "type": "string",
+                            "enum": [
+                              "bearer",
+                              "none"
+                            ]
+                          },
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "isPreset": {
+                            "type": "boolean"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "disconnected",
+                              "connected",
+                              "error"
+                            ]
+                          },
+                          "toolCount": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "tokenConfigured": {
+                            "type": "boolean"
+                          },
+                          "tokenMasked": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "lastSyncAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "lastError": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "transport",
+                          "endpointUrl",
+                          "authType",
+                          "enabled",
+                          "isPreset",
+                          "status",
+                          "toolCount",
+                          "tokenConfigured",
+                          "lastSyncAt",
+                          "lastError",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "servers"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/mcp/servers/{serverId}/tools": {
+      "get": {
+        "summary": "列出 MCP 服务器已同步工具",
+        "tags": [
+          "MCP"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "serverId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tools",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tools": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "safetyLevel": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "inputSchema": {}
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "description",
+                          "safetyLevel",
+                          "enabled"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "tools"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "MCP server not connected"
+          }
+        }
+      }
+    },
+    "/v1/mcp/servers/{serverId}/connect": {
+      "post": {
+        "summary": "接入预设 MCP 服务器（携带 Token 并同步工具）",
+        "tags": [
+          "MCP"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "serverId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Connected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "server": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "transport": {
+                          "type": "string",
+                          "enum": [
+                            "streamable_http",
+                            "sse"
+                          ]
+                        },
+                        "endpointUrl": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "authType": {
+                          "type": "string",
+                          "enum": [
+                            "bearer",
+                            "none"
+                          ]
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "isPreset": {
+                          "type": "boolean"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "disconnected",
+                            "connected",
+                            "error"
+                          ]
+                        },
+                        "toolCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "tokenConfigured": {
+                          "type": "boolean"
+                        },
+                        "tokenMasked": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastSyncAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastError": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "transport",
+                        "endpointUrl",
+                        "authType",
+                        "enabled",
+                        "isPreset",
+                        "status",
+                        "toolCount",
+                        "tokenConfigured",
+                        "lastSyncAt",
+                        "lastError",
+                        "createdAt",
+                        "updatedAt"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "server"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown preset"
+          },
+          "502": {
+            "description": "MCP_UPSTREAM_ERROR"
+          }
+        }
+      }
+    },
+    "/v1/mcp/servers/{serverId}/sync": {
+      "post": {
+        "summary": "重新同步 MCP 服务器工具",
+        "tags": [
+          "MCP"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "serverId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Synced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "server": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "transport": {
+                          "type": "string",
+                          "enum": [
+                            "streamable_http",
+                            "sse"
+                          ]
+                        },
+                        "endpointUrl": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "authType": {
+                          "type": "string",
+                          "enum": [
+                            "bearer",
+                            "none"
+                          ]
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "isPreset": {
+                          "type": "boolean"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "disconnected",
+                            "connected",
+                            "error"
+                          ]
+                        },
+                        "toolCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "tokenConfigured": {
+                          "type": "boolean"
+                        },
+                        "tokenMasked": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastSyncAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastError": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "transport",
+                        "endpointUrl",
+                        "authType",
+                        "enabled",
+                        "isPreset",
+                        "status",
+                        "toolCount",
+                        "tokenConfigured",
+                        "lastSyncAt",
+                        "lastError",
+                        "createdAt",
+                        "updatedAt"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "server"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "MCP server not connected"
+          },
+          "502": {
+            "description": "MCP_UPSTREAM_ERROR"
+          }
+        }
+      }
+    },
+    "/v1/mcp/servers/{serverId}/disconnect": {
+      "post": {
+        "summary": "断开 MCP 服务器并注销同步工具",
+        "tags": [
+          "MCP"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "serverId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Disconnected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "server": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "transport": {
+                          "type": "string",
+                          "enum": [
+                            "streamable_http",
+                            "sse"
+                          ]
+                        },
+                        "endpointUrl": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "authType": {
+                          "type": "string",
+                          "enum": [
+                            "bearer",
+                            "none"
+                          ]
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "isPreset": {
+                          "type": "boolean"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "disconnected",
+                            "connected",
+                            "error"
+                          ]
+                        },
+                        "toolCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "tokenConfigured": {
+                          "type": "boolean"
+                        },
+                        "tokenMasked": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastSyncAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastError": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "transport",
+                        "endpointUrl",
+                        "authType",
+                        "enabled",
+                        "isPreset",
+                        "status",
+                        "toolCount",
+                        "tokenConfigured",
+                        "lastSyncAt",
+                        "lastError",
+                        "createdAt",
+                        "updatedAt"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "server"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "MCP server not connected"
           }
         }
       }

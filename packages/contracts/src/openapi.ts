@@ -101,6 +101,12 @@ import {
   voiceRemoteTestConnectionResponseSchema,
 } from "./persona-schemas.js";
 import {
+  mcpPresetServerSchema,
+  mcpServerConfigSchema,
+  mcpConnectServerRequestSchema,
+  mcpServerToolEntrySchema,
+} from "./mcp-schemas.js";
+import {
   pluginConfigSchemaOpenApi,
   pluginConfigSnapshotSchema,
   pluginConfigUpdateRequestSchema,
@@ -200,6 +206,9 @@ registry.register("CreatePersonaRequest", createPersonaRequestSchema);
 registry.register("UpdatePersonaRequest", updatePersonaRequestSchema);
 registry.register("SkillSummary", skillSummarySchema);
 registry.register("McpTool", mcpToolSchema);
+registry.register("McpPresetServer", mcpPresetServerSchema);
+registry.register("McpServerConfig", mcpServerConfigSchema);
+registry.register("McpServerToolEntry", mcpServerToolEntrySchema);
 registry.register("VoiceModel", voiceModelSchema);
 registry.register("VoiceSynthesisRequest", voiceSynthesisRequestSchema);
 registry.register("VoiceSynthesisResponse", voiceSynthesisResponseSchema);
@@ -718,6 +727,12 @@ for (const action of ["enable", "disable"] as const) registry.registerPath({
 });
 registry.registerPath({ method: "delete", path: "/v1/skills/{skillName}", summary: "删除工作区 Skill", tags: ["Skills"], request: { params: skillNameParam, headers: scopeHeaders }, responses: { 200: { description: "Deleted" } } });
 registry.registerPath({ method: "get", path: "/v1/mcp/tools", summary: "列出 MCP 工具", tags: ["MCP"], request: { headers: scopeHeaders }, responses: { 200: { description: "MCP tools", content: { "application/json": { schema: z.object({ tools: z.array(mcpToolSchema) }) } } } } });
+registry.registerPath({ method: "get", path: "/v1/mcp/presets", summary: "列出预设 MCP 服务器（含本机接入状态）", tags: ["MCP"], responses: { 200: { description: "Presets", content: { "application/json": { schema: z.object({ presets: z.array(mcpPresetServerSchema) }) } } } } });
+registry.registerPath({ method: "get", path: "/v1/mcp/servers", summary: "列出已配置 MCP 服务器（token 脱敏）", tags: ["MCP"], responses: { 200: { description: "Servers", content: { "application/json": { schema: z.object({ servers: z.array(mcpServerConfigSchema) }) } } } } });
+registry.registerPath({ method: "get", path: "/v1/mcp/servers/{serverId}/tools", summary: "列出 MCP 服务器已同步工具", tags: ["MCP"], request: { params: z.object({ serverId: z.string().min(1) }) }, responses: { 200: { description: "Tools", content: { "application/json": { schema: z.object({ tools: z.array(mcpServerToolEntrySchema) }) } } }, 404: { description: "MCP server not connected" } } });
+registry.registerPath({ method: "post", path: "/v1/mcp/servers/{serverId}/connect", summary: "接入预设 MCP 服务器（携带 Token 并同步工具）", tags: ["MCP"], request: { params: z.object({ serverId: z.string().min(1) }), body: { content: { "application/json": { schema: mcpConnectServerRequestSchema } } } }, responses: { 200: { description: "Connected", content: { "application/json": { schema: z.object({ server: mcpServerConfigSchema }) } } }, 404: { description: "Unknown preset" }, 502: { description: "MCP_UPSTREAM_ERROR" } } });
+registry.registerPath({ method: "post", path: "/v1/mcp/servers/{serverId}/sync", summary: "重新同步 MCP 服务器工具", tags: ["MCP"], request: { params: z.object({ serverId: z.string().min(1) }) }, responses: { 200: { description: "Synced", content: { "application/json": { schema: z.object({ server: mcpServerConfigSchema }) } } }, 404: { description: "MCP server not connected" }, 502: { description: "MCP_UPSTREAM_ERROR" } } });
+registry.registerPath({ method: "post", path: "/v1/mcp/servers/{serverId}/disconnect", summary: "断开 MCP 服务器并注销同步工具", tags: ["MCP"], request: { params: z.object({ serverId: z.string().min(1) }) }, responses: { 200: { description: "Disconnected", content: { "application/json": { schema: z.object({ server: mcpServerConfigSchema }) } } }, 404: { description: "MCP server not connected" } } });
 registry.registerPath({ method: "get", path: "/v1/voice/models", summary: "列出 GPT-SoVITS 模型", tags: ["Voice"], responses: { 200: { description: "Voice models", content: { "application/json": { schema: z.object({ models: z.array(voiceModelSchema) }) } } } } });
 registry.registerPath({ method: "post", path: "/v1/voice/synthesize", summary: "GPT-SoVITS 语音合成", tags: ["Voice"], request: { body: { content: { "application/json": { schema: voiceSynthesisRequestSchema } } } }, responses: { 200: { description: "Audio artifact", content: { "application/json": { schema: voiceSynthesisResponseSchema } } }, 503: { description: "VOICE_PROVIDER_UNAVAILABLE" } } });
 registry.registerPath({ method: "get", path: "/v1/voice/config", summary: "读取本地语音模型配置", tags: ["Voice"], request: { headers: scopeHeaders }, responses: { 200: { description: "Local voice config", content: { "application/json": { schema: localVoiceConfigResponseSchema } } } } });

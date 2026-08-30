@@ -14,6 +14,7 @@ import {
 import { useAervoxTools, type ToolRegistrationDto } from '@aervox/api-client'
 import ToolCallDialog from './ToolCallDialog.vue'
 import McpRegisterDialog from './McpRegisterDialog.vue'
+import McpPresetServers from './McpPresetServers.vue'
 
 const api = useAervoxTools()
 const { tools, loading, error, loadTools, setToolEnabled, unregisterTool } = api
@@ -106,6 +107,8 @@ async function handleDelete(tool: ToolRegistrationDto): Promise<void> {
         </button>
       </div>
     </div>
+
+    <McpPresetServers @changed="loadTools" />
 
     <div v-if="loading" class="tab-loading">加载工具注册表中…</div>
     <p v-else-if="error" class="tab-empty">{{ error }}</p>

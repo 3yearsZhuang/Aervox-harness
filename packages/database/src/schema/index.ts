@@ -20,6 +20,7 @@ export * from "./content.js";
 export * from "./ecosystem.js";
 export * from "./persona.js";
 export * from "./tool-registry.js";
+export * from "./mcp.js";
 export * from "./skills.js";
 export * from "./init.js";
 export * from "./plugin-config.js";
