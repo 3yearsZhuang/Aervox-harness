@@ -548,7 +548,9 @@ function parseProactiveActivity(value: unknown): {
 
 function broadcastProactiveStatus(status: unknown) {
     for (const window of [mainWindow, petWindow]) {
-        if (!window?.isDestroyed()) window.webContents.send('proactive:status:changed', status)
+        // 窗口可能尚未创建或已关闭（null/destroyed）；可选链守卫在这里会把
+        // null 也放进分支（!undefined === true），必须显式排除 null。
+        if (window && !window.isDestroyed()) window.webContents.send('proactive:status:changed', status)
     }
 }
 
@@ -782,7 +784,7 @@ async function uploadAttachment(_event: Electron.IpcMainInvokeEvent, payload: un
 
 function broadcastTheme() {
     for (const window of [mainWindow, petWindow]) {
-        if (!window?.isDestroyed()) { // @ts-ignore
+        if (window && !window.isDestroyed()) {
             window.webContents.send('theme:changed', appTheme)
         }
     }
