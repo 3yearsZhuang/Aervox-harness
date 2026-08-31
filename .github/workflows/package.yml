@@ -1,0 +1,99 @@
+# 桌面端自动打包：三平台构建安装包并（tag 推送时）发布 GitHub Release。
+# 触发：推 v* 标签（正式发布），或手动 workflow_dispatch（仅出 artifact 不发 Release）。
+# 产物：macOS dmg/zip（arm64+x64）、Windows nsis exe（x64）、Linux AppImage（x64）。
+# 本地等价命令：./aervox package（产物 apps/desktop/release/）。
+# 注意：当前 dev 阶段未配置签名证书——macOS identity null 跳过 codesign，
+# Windows/Linux 不签名；正式分发前需接入 Developer ID + 公证（electron-builder.yml）。
+name: Package
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: package-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: Build installer (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            artifact-glob: |
+              apps/desktop/release/*.dmg
+              apps/desktop/release/*.zip
+          - os: windows-latest
+            artifact-glob: |
+              apps/desktop/release/*.exe
+          - os: ubuntu-latest
+            artifact-glob: |
+              apps/desktop/release/*.AppImage
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # mise 在 Windows runner 支持有限，打包链路统一 setup-node + pnpm/action-setup
+      # （node 24 / pnpm 11.22.0 与 mise.toml 锁定一致，pnpm 版本读 packageManager 字段）
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache turbo
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/turbo-cache
+          key: turbo-package-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            turbo-package-${{ runner.os }}-
+
+      - name: Cache electron binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/electron
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Build desktop bundle
+        env:
+          TURBO_CACHE_DIR: ${{ runner.temp }}/turbo-cache
+        run: pnpm exec turbo run build --filter=@aervox/desktop
+
+      # --publish never：发布统一走下方 gh-release 步骤，避免 electron-builder
+      # 内建 GitHub publisher 对 tag 与 package.json 版本一致的强约束
+      - name: Package installers
+        env:
+          TURBO_CACHE_DIR: ${{ runner.temp }}/turbo-cache
+        run: pnpm --filter @aervox/desktop exec electron-builder --publish never --config electron-builder.yml
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aervox-desktop-${{ matrix.os }}
+          path: ${{ matrix.artifact-glob }}
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.artifact-glob }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

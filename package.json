@@ -15,11 +15,13 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:e2e": "playwright test",
-    "check:boundary": "node scripts/import-boundary.mjs && node --test scripts/import-boundary.test.mjs"
+    "check:boundary": "node scripts/import-boundary.mjs && node --test scripts/import-boundary.test.mjs",
+    "dist:desktop": "turbo run build --filter=@aervox/desktop && pnpm --filter @aervox/desktop dist:pack"
   },
   "devDependencies": {
     "@babel/parser": "^8.0.4",
     "@playwright/test": "1.62.1",
+    "electron-builder": "^26.15.3",
     "playwright": "^1.62.1",
     "sharp": "^0.35.4",
     "turbo": "2.10.11",
