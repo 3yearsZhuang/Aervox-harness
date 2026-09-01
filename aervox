@@ -34,6 +34,7 @@ HELP="$(
                                  worker    = 仅 Worker(后台任务)
                                  api       = 仅 API(3000)
   mobile                       构建 Web 产物并同步 Capacitor 壳(cap sync web)
+  package                      打包桌面端安装包(electron-builder, 产物 apps/desktop/release/)
   clean                        清理构建产物 dist/out/.turbo(保留 node_modules)
   ci                           本地门禁: ci-code(install+build+typecheck+test) + ci-docs(lint)
   help, -h, --help             显示本帮助
@@ -140,6 +141,13 @@ cmd_mobile() {
   ok "移动壳已同步(webDir: apps/web/dist)"
 }
 
+cmd_package() {
+  ensure_deps
+  info "打包桌面端（构建 + electron-builder，产物在 apps/desktop/release/）…"
+  run pnpm dist:desktop
+  ok "打包完成：apps/desktop/release/"
+}
+
 cmd_clean() {
   info "清理构建产物(保留 node_modules)…"
   rm -rf apps/*/dist apps/*/out packages/*/dist node_modules/.turbo
@@ -162,6 +170,7 @@ case "$CMD" in
   setup)                   cmd_setup ;;
   dev)                     cmd_dev "${1:-full}" ;;
   mobile)                  cmd_mobile ;;
+  package)                 cmd_package ;;
   clean)                   cmd_clean ;;
   ci)                      cmd_ci ;;
   *)                       fail "未知命令: ${CMD}（运行 aervox help 查看用法）" ;;

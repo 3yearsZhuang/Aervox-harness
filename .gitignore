@@ -1,6 +1,8 @@
 node_modules/
 dist/
 out/
+# electron-builder 打包产物（./aervox package / CI Package 工作流）
+apps/desktop/release/
 .turbo/
 .vite/
 .cache/
