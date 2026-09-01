@@ -37,3 +37,9 @@ apps/web/public/live2d-test/
 # Playwright E2E artifacts
 test-results/
 playwright-report/
+
+# 本地杂项防误提交（曾出现于工作区并被误 add 过的类型）
+*.psd
+package-lock.json
+app.js
+*.inspect.ndjson
