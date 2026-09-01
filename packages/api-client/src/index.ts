@@ -71,6 +71,8 @@ export {
   type VoiceModelDto,
   type VoiceSynthesisInput,
   type VoiceSynthesisResultDto,
+  type VoicePresetDto,
+  type VoicePresetListDto,
 } from './useAervoxVoice';
 export {
   useAervoxLLM,
@@ -80,6 +82,8 @@ export {
   type LLMTestConnectionInput,
   type LLMTestConnectionResultDto,
   type PresetProviderInfo,
+  type LLMPresetDto,
+  type LLMPresetListDto,
 } from './useAervoxLLM';
 export {
   useAervoxVoiceInput,

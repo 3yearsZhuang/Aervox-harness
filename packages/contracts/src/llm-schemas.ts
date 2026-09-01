@@ -55,6 +55,29 @@ export const llmTestConnectionResponseSchema = z.object({
   availableModels: z.array(z.string()).optional(),
 });
 
+/** LLM 配置预设条目（多预设：含名称与激活标记） */
+export const llmPresetSchema = llmConfigResponseSchema.extend({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  isActive: z.boolean(),
+});
+
+/** LLM 配置预设列表响应 */
+export const llmPresetListResponseSchema = z.object({
+  presets: z.array(llmPresetSchema),
+  activeId: z.string().nullable(),
+});
+
+/** 新建 LLM 配置预设请求 */
+export const llmCreatePresetRequestSchema = z.object({
+  name: z.string().min(1).max(32),
+  config: llmConfigSchema,
+});
+
+export type LLMPreset = z.infer<typeof llmPresetSchema>;
+export type LLMPresetListResponse = z.infer<typeof llmPresetListResponseSchema>;
+export type LLMCreatePresetRequest = z.infer<typeof llmCreatePresetRequestSchema>;
+
 export type LLMProviderType = z.infer<typeof llmProviderTypeSchema>;
 export type LLMConfig = z.infer<typeof llmConfigSchema>;
 export type LLMConfigResponse = z.infer<typeof llmConfigResponseSchema>;
