@@ -7,7 +7,7 @@
 > 类型：Reference  
 > 文档版本：v1.9
 > 文档状态：评审候选（Review Candidate）  
-> 更新日期：2026-08-31
+> 更新日期：2026-09-01
 > 产品需求来源：[PRD.md](PRD.md)
 > 适用范围：原型、MVP、MVP+、P1、桌面阶段、P2、P3 及后续维护版本
 
@@ -348,6 +348,7 @@
 | Skill zip 安装条目路径规范化修复（加载技能报 `Invalid zip: unsafe entry path`：Windows 工具与 `zip -r x.zip .` 打包的 `./` 前缀条目被误拒；顺带堵住反斜杠条目绕过 `..` 校验的穿越洞） | CAP-020 | `apps/api/src/modules/skills/zip.ts`（新增 `normalizeEntryPath`：反斜杠统一为 /、去除 `./` 段与空段，目录判定移到规范化前，全部段被消除的条目（根 `./`）跳过；`isPathSafe` 在规范化后仅拒绝 `..` 段与盘符）、`apps/api/test/skills.test.ts`（+2：`./` 前缀与反斜杠条目正常安装、反斜杠穿越拒绝） | 2026-08-29 | `@aervox/api` `skills.test.ts` 18/18；`mise tasks run ci-code` 全量；ci-docs | 原生 |
 | Skill 显式名称目录穿越加固（`POST /v1/skills` 显式 `name` 传 `.` / `..` 时 `destDir = path.join(skillsRoot, name)` 逃逸到 skillsRoot 上一级；#128 审核中发现的相邻面） | CAP-020 | `apps/api/src/modules/skills/skill-manager.ts`（`SKILL_NAME_RE` 负向先行排除整名 `.` / `..`）、`packages/contracts/src/schemas.ts`（`skillNameSchema` 正则同步，消息注明不得为 `.` / `..`）、`packages/contracts/openapi.json`（重新生成，2 处 pattern）、`apps/api/test/skills.test.ts`（+1：显式 name `.` / `..` 均 400） | 2026-08-29 | `@aervox/api` `skills.test.ts` 19/19；contracts build 重生成 `openapi.json` 无关 diff 为零；ci-code / ci-docs 显式退出码 0 | 原生 |
 | 预设 MCP 接入（麦当劳中国官方 MCP 作为首个出厂预设：`mcp_servers` 系统级连接配置、自研 Streamable HTTP JSON-RPC 客户端、工具同步落 `tool_registrations` 并代理调用、Token 本地保存且 API 脱敏回传、扩展中心「预设 MCP 服务」一键接入 UI） | CAP-020 | `packages/database/src/schema/mcp.ts`、`schema/init.ts`（`mcp_servers` DDL）、`repositories/{types,sqlite/mcp-server-repository}.ts`、`packages/contracts/src/{mcp-schemas.ts,openapi.ts,index.ts}`、`packages/contracts/openapi.json`、`apps/api/src/modules/mcp/{presets,client,service,routes,index}.ts`、`apps/api/src/app.ts`、`packages/api-client/src/{useAervoxMcp.ts,index.ts}`、`packages/ui/src/components/plugin/{McpPresetServers.vue,McpToolsTab.vue}`、`packages/ui/src/index.ts`、`apps/api/test/{mcp-client,mcp-preset}.test.ts`、`docs/reference/DATABASE.md`（v0.10） | 2026-08-29 | `@aervox/api` `mcp-client.test.ts`（SSE 响应提取/握手幂等/401·429·JSON-RPC 错误映射/Bearer 头/PET-05 前缀分级/Token 脱敏）+ `mcp-preset.test.ts`（预设档案/无 Token 502/接入→同步→分级→调用→断开全流程/重复接入复用 Token/上游 401→502/未知服务器 404）；`@aervox/contracts` build 生成 `openapi.json` | 原生（接入档案信息来源：官方仓库 `M-China/mcd-mcp-server` README 与文档站 open.mcd.cn/mcp/doc，见 `presets.ts` 注释） |
+| 工作台信息架构重构：主导航收敛为「工具管理/学习能力/主动智能/详细设置」四个一级入口 | `CAP-001` + 基础设施（工作台壳层；主动智能入口承接 `CAP-033`） | `packages/ui/src/components/AervoxWorkbench.vue`（menu-pill 6 项收敛为 4 项；原 5 个功能弹窗（待办/番茄钟/对话回看/日记/学习规划+错题本 6 入口）合并为「工具管理」（todo/timer/history/diary 子页切换 + 回看视觉小说层直通）与「学习能力」（study/mistake 子页切换）两个分组弹窗；`openTool` 重写为分组路由 + `switchToolView`；主动智能/详细设置经 `openSettingsCategory` 带分类打开设置弹窗；对话回看保持独立视觉小说 overlay；卡片目录/设置快捷工具区调用点零改动）、`packages/ui/src/theme/workbench.css`（弹窗选择器组 todo/timer→tools/learning；timer 子页居中改 `.content-centered`） | 2026-09-01 | `@aervox/ui` `vue-tsc` 零错误；Vue SFC 模板解析 0 错误；`@aervox/desktop` + `@aervox/web` 构建通过；ci-code 22/22 全量 | 原生 |
 
 ## 5. 原子需求字段模板
 
