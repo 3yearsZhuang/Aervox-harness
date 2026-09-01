@@ -7,10 +7,19 @@
     "dev": "node scripts/generate-icons.mjs && electron-vite dev",
     "build": "vue-tsc --noEmit && node scripts/generate-icons.mjs && electron-vite build",
     "start": "electron-vite preview",
+    "dist": "pnpm run build && pnpm run dist:pack",
+    "dist:pack": "electron-builder --config electron-builder.yml",
+    "dist:dir": "pnpm run build && electron-builder --dir --config electron-builder.yml",
     "test": "vitest run",
     "typecheck": "vue-tsc --noEmit"
   },
-  "keywords": ["electron", "vue", "typescript", "element-plus", "desktop-pet"],
+  "keywords": [
+    "electron",
+    "vue",
+    "typescript",
+    "element-plus",
+    "desktop-pet"
+  ],
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "dependencies": {
@@ -30,5 +39,6 @@
     "electron-vite": "^3.1.0",
     "typescript": "^5.8.3",
     "vue-tsc": "^2.2.12"
-  }
+  },
+  "author": "3yearsZhuang"
 }

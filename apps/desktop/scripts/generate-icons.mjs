@@ -30,7 +30,17 @@ async function main() {
   const ico = buildIco(pngBuffers);
   writeFileSync(join(buildDir, "icon.ico"), ico);
 
-  console.log(`Generated icon.ico (${ico.length} bytes) and icon.png (${bigPng.length} bytes) in ${buildDir}`);
+  // 打包源图：macOS icns 需 ≥512 源（electron-builder 由 1024 PNG 自动转 icns），
+  // 高密度渲染后缩到目标尺寸，避免上采样模糊；Linux 取 512。
+  for (const [name, size] of [["icon-512.png", 512], ["icon-1024.png", 1024]]) {
+    const png = await sharp(svgBuffer, { density: 2400 })
+      .resize(size, size)
+      .png()
+      .toBuffer();
+    writeFileSync(join(buildDir, name), png);
+  }
+
+  console.log(`Generated icon.ico (${ico.length} bytes), icon.png (${bigPng.length} bytes), icon-512.png and icon-1024.png in ${buildDir}`);
 }
 
 function buildIco(entries) {

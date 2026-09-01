@@ -1,0 +1,42 @@
+# CAP-001 桌面端打包配置：electron-vite 产物（out/）→ electron-builder 分发
+# 本地：./aervox package 或 pnpm dist:desktop；CI：.github/workflows/package.yml（tag v* 触发并发布 Release）
+# 图标由 scripts/generate-icons.mjs 在 build 前生成：mac 用 icon-1024.png 自动转
+# icns，win 用 icon.ico，linux 用 icon-512.png；icon.ico 另经 extraResources
+# 放入 resources/，主进程打包态窗口图标（src/main/index.ts）依赖该路径。
+appId: com.aervox.desktop
+productName: Aervox
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**
+extraResources:
+  - from: build/icon.ico
+    to: icon.ico
+asar: true
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+# 开发/CI 阶段无签名证书：identity null 跳过 macOS codesign，
+# 正式分发前需接入 Developer ID + 公证（届时移除该行）。
+mac:
+  category: public.app-category.productivity
+  icon: build/icon-1024.png
+  identity: null
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+linux:
+  icon: build/icon-512.png
+  category: Utility
+  target:
+    - target: AppImage
+      arch: [x64]
