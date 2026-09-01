@@ -229,12 +229,21 @@ function mediaCapabilityStatus(
 
 export function createProactiveHost(input: ProactiveHostDependencies = {}): ProactiveHost {
   const defaults = defaultDependencies()
+  const isPackaged = defaults.isPackaged
   const dependencies = {
     ...defaults,
     ...input,
+    isPackaged,
     statePath: input.statePath ?? defaultStatePath(),
     hostId: input.hostId ?? `desktop-${randomUUID()}`,
-    trustLocalDevHost: input.trustLocalDevHost ?? process.env.AERVOX_TRUST_LOCAL_DEV_HOST === '1',
+    // 开发信任规则（显式关闭优先）：
+    // - AERVOX_TRUST_LOCAL_DEV_HOST=0 → 强制不受信（恢复挂起，等同 `aervox dev` 显式关闭）；
+    // - 显式 1 → 信任；未设置时：开发构建（未打包）默认信任本地未签名 Host，
+    //   与 `aervox dev full/desktop` 的默认语义一致，避免启动方式不同导致信任判定差异。
+    trustLocalDevHost: input.trustLocalDevHost
+      ?? (process.env.AERVOX_TRUST_LOCAL_DEV_HOST === '0'
+        ? false
+        : process.env.AERVOX_TRUST_LOCAL_DEV_HOST === '1' || !isPackaged),
   }
   let state = emptyState(dependencies.hostId)
 
