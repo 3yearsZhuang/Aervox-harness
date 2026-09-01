@@ -30,6 +30,21 @@ export interface PluginPageDto extends PluginPage {
   id: string;
 }
 
+/** 安装插件入参（POST /v1/plugins；tools/skills 为插件声明清单，随安装注册） */
+export interface PluginInstallInputDto {
+  id: string;
+  publisher: string;
+  version: string;
+  checksum?: string;
+  signature?: string | null;
+  permissions?: unknown;
+  installSource?: string;
+  /** 声明工具：每项含 name/description/category，安装时以 `<pluginId>.<name>` 注册进工具注册表 */
+  tools?: unknown[];
+  /** 声明技能：每项含 name/content（SKILL.md 全文），安装时落盘并只读注册 */
+  skills?: Array<{ name: string; description?: string; content: string }>;
+}
+
 export function useAervoxPlugins() {
   const transport = getTransport();
   const plugins = ref<PluginSummaryDto[]>([]);
@@ -89,6 +104,13 @@ export function useAervoxPlugins() {
     await transport.request('PATCH', `/v1/plugins/${encodeURIComponent(pluginId)}`, { enabled });
   };
 
+  /** 安装插件：登记声明并联动工具/技能注册（API 幂等），成功后刷新列表 */
+  const installPlugin = async (input: PluginInstallInputDto): Promise<PluginSummaryDto> => {
+    const res = await transport.request<PluginSummaryDto>('POST', '/v1/plugins', input);
+    await loadPlugins();
+    return res;
+  };
+
   return {
     plugins,
     loading,
@@ -100,5 +122,6 @@ export function useAervoxPlugins() {
     resetConfig,
     listPages,
     setPluginEnabled,
+    installPlugin,
   };
 }

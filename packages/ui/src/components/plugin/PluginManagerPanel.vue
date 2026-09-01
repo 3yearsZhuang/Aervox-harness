@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import {onMounted, ref} from 'vue'
-import {Puzzle, Settings, LayoutGrid, Zap, Wrench} from 'lucide-vue-next'
+import {Puzzle, Settings, LayoutGrid, Zap, Wrench, PackagePlus} from 'lucide-vue-next'
 import {useAervoxPlugins, type PluginPageDto, type PluginSummaryDto} from '@aervox/api-client'
 import PluginConfigDialog from './PluginConfigDialog.vue'
+import PluginInstallDialog from './PluginInstallDialog.vue'
 import PluginPageDialog from './PluginPageDialog.vue'
 import SkillManagerTab from './SkillManagerTab.vue'
 import McpToolsTab from './McpToolsTab.vue'
@@ -18,6 +19,7 @@ const pageTarget = ref<PluginSummaryDto | null>(null)
 const pageOpen = ref(false)
 const pageTargetPage = ref<PluginPageDto | null>(null)
 const pageBusy = ref<string | null>(null)
+const installOpen = ref(false)
 
 /** 已提供 Page 资源的插件 ID 集合（无页面时隐藏「页面」按钮） */
 const pluginsWithPages = ref<Set<string>>(new Set())
@@ -124,9 +126,16 @@ function openConfigFromPage(): void {
 
     <!-- Tab 1: 插件管理 -->
     <div v-if="currentTab === 'plugins'" class="plugins-tab-content">
+      <div class="plugins-toolbar">
+        <span class="plugins-count">已安装 <strong>{{ plugins.length }}</strong> 个插件</span>
+        <button type="button" class="btn-install" @click="installOpen = true">
+          <PackagePlus :size="15" />
+          <span>安装插件</span>
+        </button>
+      </div>
       <div v-if="loading" class="pcfg-loading">加载插件…</div>
       <p v-else-if="error" class="plugin-empty">{{ api.error.value }}</p>
-      <p v-else-if="plugins.length === 0" class="plugin-empty">还没有安装插件。插件安装后，可在这里配置与打开页面。</p>
+      <p v-else-if="plugins.length === 0" class="plugin-empty">还没有安装插件。点击右上角「安装插件」登记声明，或把插件 Bundle 放入 data/plugins 后重启。</p>
 
       <div v-else class="plugin-list">
         <article v-for="plugin in plugins" :key="plugin.id" class="plugin-card">
@@ -160,6 +169,11 @@ function openConfigFromPage(): void {
     <!-- Tab 3: MCP / 工具管理 -->
     <McpToolsTab v-else-if="currentTab === 'mcp'" />
 
+    <PluginInstallDialog
+      :open="installOpen"
+      @close="installOpen = false"
+      @installed="refresh"
+    />
     <PluginConfigDialog
       :open="configOpen"
       :plugin="configTarget"
@@ -215,6 +229,37 @@ function openConfigFromPage(): void {
 .plugins-tab-content {
   display: grid;
   gap: 14px;
+}
+.plugins-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.plugins-count {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.plugins-count strong {
+  color: var(--text-primary);
+}
+.btn-install {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-install:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
 }
 .plugin-empty { padding: 26px 0; text-align: center; color: var(--text-muted); font-size: 11px; }
 .plugin-list { display: grid; gap: 10px; }
