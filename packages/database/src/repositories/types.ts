@@ -2296,11 +2296,15 @@ export interface IPersonaPreferencesRepository {
 
 // ============ 语音输出配置（系统核心能力 · CR-011 阶段 1：本地语音模型配置）============
 
-/** 本地语音模型配置模型（voice_configs 行；每租户一行） */
+/** 本地语音模型配置模型（voice_configs 行；每租户多行，至多一行激活） */
 export interface LocalVoiceConfigModel {
   id: string;
   workspaceId: string;
   subjectUserId: string;
+  /** 预设名称（多预设切换用） */
+  name?: string;
+  /** 是否激活（0/1） */
+  isActive?: number;
   enabled: number;
   providerId: string;
   modelPath?: string | null;
@@ -2322,19 +2326,33 @@ export interface LocalVoiceConfigSaveInput {
 }
 
 export interface IVoiceConfigRepository {
-  /** 读取当前租户的本地语音配置（不存在返回 null） */
+  /** 读取当前租户激活的本地语音配置（无激活行时回退第一条；不存在返回 null） */
   getConfig(tenant: TenantContext): Promise<LocalVoiceConfigModel | null>;
-  /** upsert：存在则更新，不存在则插入；返回保存后的模型 */
+  /** upsert 到激活行（无激活行则插入并激活）；返回保存后的模型 */
   saveConfig(tenant: TenantContext, input: LocalVoiceConfigSaveInput): Promise<LocalVoiceConfigModel>;
+  /** 列出全部预设（含激活标记） */
+  listPresets(tenant: TenantContext): Promise<LocalVoiceConfigModel[]>;
+  /** 新建预设（默认不激活，除非该租户尚无任何预设） */
+  createPreset(tenant: TenantContext, name: string, input: LocalVoiceConfigSaveInput): Promise<LocalVoiceConfigModel>;
+  /** 更新指定预设（保留激活状态） */
+  updatePreset(tenant: TenantContext, presetId: string, input: LocalVoiceConfigSaveInput): Promise<LocalVoiceConfigModel | null>;
+  /** 激活指定预设（事务内取消该租户其它激活）；预设不存在返回 null */
+  activatePreset(tenant: TenantContext, presetId: string): Promise<LocalVoiceConfigModel | null>;
+  /** 删除预设；若删除的是激活行则提升剩余第一条为激活 */
+  deletePreset(tenant: TenantContext, presetId: string): Promise<boolean>;
 }
 
 // ============ 语音输出配置（CR-028：在线语音模型 · GPT-SoVITS 远程 API）============
 
-/** 在线语音模型配置模型（voice_remote_configs 行；每租户一行） */
+/** 在线语音模型配置模型（voice_remote_configs 行；每租户多行，至多一行激活） */
 export interface RemoteVoiceConfigModel {
   id: string;
   workspaceId: string;
   subjectUserId: string;
+  /** 预设名称（多预设切换用） */
+  name?: string;
+  /** 是否激活（0/1） */
+  isActive?: number;
   enabled: number;
   providerId: string;
   endpoint: string;
@@ -2370,10 +2388,20 @@ export interface RemoteVoiceConfigSaveInput {
 }
 
 export interface IVoiceRemoteConfigRepository {
-  /** 读取当前租户的在线语音配置（不存在返回 null） */
+  /** 读取当前租户激活的在线语音配置（无激活行时回退第一条；不存在返回 null） */
   getConfig(tenant: TenantContext): Promise<RemoteVoiceConfigModel | null>;
-  /** upsert：存在则更新，不存在则插入；返回保存后的模型 */
+  /** upsert 到激活行（无激活行则插入并激活）；返回保存后的模型 */
   saveConfig(tenant: TenantContext, input: RemoteVoiceConfigSaveInput): Promise<RemoteVoiceConfigModel>;
+  /** 列出全部预设（含激活标记） */
+  listPresets(tenant: TenantContext): Promise<RemoteVoiceConfigModel[]>;
+  /** 新建预设（默认不激活，除非该租户尚无任何预设） */
+  createPreset(tenant: TenantContext, name: string, input: RemoteVoiceConfigSaveInput): Promise<RemoteVoiceConfigModel>;
+  /** 更新指定预设（保留激活状态） */
+  updatePreset(tenant: TenantContext, presetId: string, input: RemoteVoiceConfigSaveInput): Promise<RemoteVoiceConfigModel | null>;
+  /** 激活指定预设（事务内取消该租户其它激活）；预设不存在返回 null */
+  activatePreset(tenant: TenantContext, presetId: string): Promise<RemoteVoiceConfigModel | null>;
+  /** 删除预设；若删除的是激活行则提升剩余第一条为激活 */
+  deletePreset(tenant: TenantContext, presetId: string): Promise<boolean>;
 }
 
 // ============ CR-016 离线语音输入 (ASR) 配置持久化 ============
@@ -2382,6 +2410,10 @@ export interface VoiceInputConfigModel {
   id: string;
   workspaceId: string;
   subjectUserId: string;
+  /** 预设名称（多预设切换用） */
+  name?: string;
+  /** 是否激活（0/1） */
+  isActive?: number;
   enabled: number;
   engineType: string;
   modelPath?: string | null;
@@ -2408,11 +2440,23 @@ export interface VoiceInputConfigSaveInput {
 }
 
 export interface IVoiceInputConfigRepository {
+  /** 读取当前租户激活的语音输入配置（无激活行时回退第一条；不存在返回 null） */
   getConfig(tenant: TenantContext): Promise<VoiceInputConfigModel | null>;
+  /** upsert 到激活行（无激活行则插入并激活）；返回保存后的模型 */
   saveConfig(
     tenant: TenantContext,
     input: VoiceInputConfigSaveInput,
   ): Promise<VoiceInputConfigModel>;
+  /** 列出全部预设（含激活标记） */
+  listPresets(tenant: TenantContext): Promise<VoiceInputConfigModel[]>;
+  /** 新建预设（默认不激活，除非该租户尚无任何预设） */
+  createPreset(tenant: TenantContext, name: string, input: VoiceInputConfigSaveInput): Promise<VoiceInputConfigModel>;
+  /** 更新指定预设（保留激活状态） */
+  updatePreset(tenant: TenantContext, presetId: string, input: VoiceInputConfigSaveInput): Promise<VoiceInputConfigModel | null>;
+  /** 激活指定预设（事务内取消该租户其它激活）；预设不存在返回 null */
+  activatePreset(tenant: TenantContext, presetId: string): Promise<VoiceInputConfigModel | null>;
+  /** 删除预设；若删除的是激活行则提升剩余第一条为激活 */
+  deletePreset(tenant: TenantContext, presetId: string): Promise<boolean>;
 }
 
 // ============ T-04 工具注册表 + AST-04 门控 + PET-05 安全级别 ============
@@ -2876,6 +2920,10 @@ export interface LLMConfigModel {
   id: string;
   workspaceId: string;
   subjectUserId: string;
+  /** 预设名称（多预设切换用） */
+  name?: string;
+  /** 是否激活（0/1） */
+  isActive?: number;
   enabled: number;
   providerType: string;
   baseUrl: string;
@@ -2900,11 +2948,23 @@ export interface LLMConfigSaveInput {
 }
 
 export interface ILLMConfigRepository {
+  /** 读取当前租户激活的 LLM 配置（无激活行时回退第一条；不存在返回 null） */
   getConfig(tenant: TenantContext): Promise<LLMConfigModel | null>;
+  /** upsert 到激活行（无激活行则插入并激活）；返回保存后的模型 */
   saveConfig(
     tenant: TenantContext,
     input: LLMConfigSaveInput,
   ): Promise<LLMConfigModel>;
+  /** 列出全部预设（含激活标记） */
+  listPresets(tenant: TenantContext): Promise<LLMConfigModel[]>;
+  /** 新建预设（默认不激活，除非该租户尚无任何预设） */
+  createPreset(tenant: TenantContext, name: string, input: LLMConfigSaveInput): Promise<LLMConfigModel>;
+  /** 更新指定预设（保留激活状态） */
+  updatePreset(tenant: TenantContext, presetId: string, input: LLMConfigSaveInput): Promise<LLMConfigModel | null>;
+  /** 激活指定预设（事务内取消该租户其它激活）；预设不存在返回 null */
+  activatePreset(tenant: TenantContext, presetId: string): Promise<LLMConfigModel | null>;
+  /** 删除预设；若删除的是激活行则提升剩余第一条为激活 */
+  deletePreset(tenant: TenantContext, presetId: string): Promise<boolean>;
 }
 
 // ============ CAP-033 主动智能模式：广域本地画像数据面 ============

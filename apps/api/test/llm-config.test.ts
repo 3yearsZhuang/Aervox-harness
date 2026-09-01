@@ -144,4 +144,115 @@ describe("LLM Config API (CR-012)", () => {
     expect(res.headers["access-control-allow-methods"]).toContain("DELETE");
     expect(res.headers["access-control-allow-methods"]).toContain("PATCH");
   });
+
+  // ---- 多预设（与人格设定同款：列表/新建/激活/删除） ----
+
+  it("GET /v1/llm/presets 列出预设（初始为空）", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/v1/llm/presets",
+      headers: { "x-workspace-id": "ws_api_test", "x-user-id": "usr_api_test" },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload);
+    expect(body.presets).toEqual([]);
+    expect(body.activeId).toBeNull();
+  });
+
+  it("POST /v1/llm/presets 新建预设并激活，切换与删除闭环", async () => {
+    const headers = { "x-workspace-id": "ws_api_test", "x-user-id": "usr_api_test" };
+
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/v1/llm/presets",
+      headers,
+      payload: {
+        name: "本地 Ollama",
+        config: {
+          enabled: true,
+          providerType: "ollama",
+          baseUrl: "http://127.0.0.1:11434/v1",
+          modelId: "llama3.2",
+          temperature: 0.7,
+          maxTokens: 4096,
+        },
+      },
+    });
+    expect(createRes.statusCode).toBe(201);
+    const created = JSON.parse(createRes.payload);
+    expect(created.name).toBe("本地 Ollama");
+    expect(created.isActive).toBe(true);
+
+    const create2Res = await app.inject({
+      method: "POST",
+      url: "/v1/llm/presets",
+      headers,
+      payload: {
+        name: "DeepSeek Chat",
+        config: {
+          enabled: true,
+          providerType: "deepseek",
+          baseUrl: "https://api.deepseek.com/v1",
+          apiKey: "sk-test",
+          modelId: "deepseek-chat",
+          temperature: 0.5,
+          maxTokens: 8192,
+        },
+      },
+    });
+    expect(create2Res.statusCode).toBe(201);
+    const second = JSON.parse(create2Res.payload);
+    expect(second.isActive).toBe(false);
+
+    // 列表：两个预设，活跃为第一个
+    const listRes = await app.inject({ method: "GET", url: "/v1/llm/presets", headers });
+    const listBody = JSON.parse(listRes.payload);
+    expect(listBody.presets).toHaveLength(2);
+    expect(listBody.activeId).toBe(created.id);
+
+    // 激活第二个
+    const activateRes = await app.inject({
+      method: "POST",
+      url: `/v1/llm/presets/${second.id}/activate`,
+      headers,
+    });
+    expect(activateRes.statusCode).toBe(200);
+    expect(JSON.parse(activateRes.payload).isActive).toBe(true);
+
+    // getConfig 应读取激活的第二个预设
+    const configRes = await app.inject({ method: "GET", url: "/v1/llm/config", headers });
+    expect(JSON.parse(configRes.payload).modelId).toBe("deepseek-chat");
+
+    // 删除非激活的第一个
+    const deleteRes = await app.inject({
+      method: "DELETE",
+      url: `/v1/llm/presets/${created.id}`,
+      headers,
+    });
+    expect(deleteRes.statusCode).toBe(200);
+    expect(JSON.parse(deleteRes.payload).deleted).toBe(true);
+
+    const finalList = await app.inject({ method: "GET", url: "/v1/llm/presets", headers });
+    expect(JSON.parse(finalList.payload).presets).toHaveLength(1);
+  });
+
+  it("激活不存在的预设返回 404", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/llm/presets/not-exist/activate",
+      headers: { "x-workspace-id": "ws_api_test", "x-user-id": "usr_api_test" },
+    });
+    expect(res.statusCode).toBe(404);
+    expect(JSON.parse(res.payload).code).toBe("PRESET_NOT_FOUND");
+  });
+
+  it("新建预设非法 payload 返回 400", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/llm/presets",
+      headers: { "x-workspace-id": "ws_api_test", "x-user-id": "usr_api_test" },
+      payload: { name: "", config: {} },
+    });
+    expect(res.statusCode).toBe(400);
+  });
 });

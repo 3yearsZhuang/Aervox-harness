@@ -4186,6 +4186,254 @@
           "message"
         ]
       },
+      "LLMPreset": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "providerType": {
+            "type": "string",
+            "enum": [
+              "ollama",
+              "deepseek",
+              "openai",
+              "anthropic",
+              "custom_openai"
+            ]
+          },
+          "baseUrl": {
+            "type": "string",
+            "minLength": 1
+          },
+          "apiKey": {
+            "type": "string"
+          },
+          "modelId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "temperature": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2,
+            "default": 0.7
+          },
+          "maxTokens": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "default": 4096
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "default": {}
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "providerType",
+          "baseUrl",
+          "modelId",
+          "id",
+          "name",
+          "isActive"
+        ]
+      },
+      "LLMPresetListResponse": {
+        "type": "object",
+        "properties": {
+          "presets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "providerType": {
+                  "type": "string",
+                  "enum": [
+                    "ollama",
+                    "deepseek",
+                    "openai",
+                    "anthropic",
+                    "custom_openai"
+                  ]
+                },
+                "baseUrl": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "apiKey": {
+                  "type": "string"
+                },
+                "modelId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "temperature": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 2,
+                  "default": 0.7
+                },
+                "maxTokens": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "default": 4096
+                },
+                "settings": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "boolean"
+                      }
+                    ]
+                  },
+                  "default": {}
+                },
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "isActive": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "enabled",
+                "providerType",
+                "baseUrl",
+                "modelId",
+                "id",
+                "name",
+                "isActive"
+              ]
+            }
+          },
+          "activeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "presets",
+          "activeId"
+        ]
+      },
+      "LLMCreatePresetRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "config": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "providerType": {
+                "type": "string",
+                "enum": [
+                  "ollama",
+                  "deepseek",
+                  "openai",
+                  "anthropic",
+                  "custom_openai"
+                ]
+              },
+              "baseUrl": {
+                "type": "string",
+                "minLength": 1
+              },
+              "apiKey": {
+                "type": "string"
+              },
+              "modelId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "temperature": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 2,
+                "default": 0.7
+              },
+              "maxTokens": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "default": 4096
+              },
+              "settings": {
+                "type": "object",
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "enabled",
+              "providerType",
+              "baseUrl",
+              "modelId"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "config"
+        ]
+      },
       "VoiceInputConfig": {
         "type": "object",
         "properties": {
@@ -4664,6 +4912,483 @@
           "ok",
           "latencyMs",
           "message"
+        ]
+      },
+      "VoicePreset": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "local": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "providerId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "modelPath": {
+                "type": "string"
+              },
+              "modelId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "speakerId": {
+                "type": "string"
+              },
+              "settings": {
+                "type": "object",
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                },
+                "default": {}
+              }
+            },
+            "required": [
+              "enabled",
+              "providerId",
+              "modelId"
+            ]
+          },
+          "remote": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "providerId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "endpoint": {
+                "type": "string"
+              },
+              "apiKey": {
+                "type": "string"
+              },
+              "modelId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "speakerId": {
+                "type": "string"
+              },
+              "textLang": {
+                "type": "string",
+                "enum": [
+                  "auto",
+                  "zh",
+                  "en",
+                  "ja",
+                  "ko",
+                  "yue"
+                ]
+              },
+              "refAudioPath": {
+                "type": "string"
+              },
+              "promptText": {
+                "type": "string"
+              },
+              "promptLang": {
+                "type": "string",
+                "enum": [
+                  "auto",
+                  "zh",
+                  "en",
+                  "ja",
+                  "ko",
+                  "yue"
+                ]
+              },
+              "auxRefAudioPaths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "speedFactor": {
+                "type": "number"
+              },
+              "settings": {
+                "type": "object",
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                },
+                "default": {}
+              }
+            },
+            "required": [
+              "enabled",
+              "providerId",
+              "modelId"
+            ]
+          },
+          "input": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "engineType": {
+                "type": "string",
+                "enum": [
+                  "sensevoice-local",
+                  "whisper-compatible"
+                ]
+              },
+              "modelPath": {
+                "type": "string"
+              },
+              "modelId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "endpoint": {
+                "type": "string"
+              },
+              "apiKey": {
+                "type": "string"
+              },
+              "autoStopOnKeyboard": {
+                "type": "boolean",
+                "default": true
+              },
+              "vadSilenceThresholdMs": {
+                "type": "integer",
+                "default": 700
+              },
+              "settings": {
+                "type": "object",
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                },
+                "default": {}
+              }
+            },
+            "required": [
+              "enabled",
+              "engineType",
+              "modelId"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "isActive",
+          "local",
+          "remote",
+          "input"
+        ]
+      },
+      "VoicePresetListResponse": {
+        "type": "object",
+        "properties": {
+          "presets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "isActive": {
+                  "type": "boolean"
+                },
+                "local": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "providerId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "modelPath": {
+                      "type": "string"
+                    },
+                    "modelId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "speakerId": {
+                      "type": "string"
+                    },
+                    "settings": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ]
+                      },
+                      "default": {}
+                    }
+                  },
+                  "required": [
+                    "enabled",
+                    "providerId",
+                    "modelId"
+                  ]
+                },
+                "remote": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "providerId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "endpoint": {
+                      "type": "string"
+                    },
+                    "apiKey": {
+                      "type": "string"
+                    },
+                    "modelId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "speakerId": {
+                      "type": "string"
+                    },
+                    "textLang": {
+                      "type": "string",
+                      "enum": [
+                        "auto",
+                        "zh",
+                        "en",
+                        "ja",
+                        "ko",
+                        "yue"
+                      ]
+                    },
+                    "refAudioPath": {
+                      "type": "string"
+                    },
+                    "promptText": {
+                      "type": "string"
+                    },
+                    "promptLang": {
+                      "type": "string",
+                      "enum": [
+                        "auto",
+                        "zh",
+                        "en",
+                        "ja",
+                        "ko",
+                        "yue"
+                      ]
+                    },
+                    "auxRefAudioPaths": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "speedFactor": {
+                      "type": "number"
+                    },
+                    "settings": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ]
+                      },
+                      "default": {}
+                    }
+                  },
+                  "required": [
+                    "enabled",
+                    "providerId",
+                    "modelId"
+                  ]
+                },
+                "input": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "engineType": {
+                      "type": "string",
+                      "enum": [
+                        "sensevoice-local",
+                        "whisper-compatible"
+                      ]
+                    },
+                    "modelPath": {
+                      "type": "string"
+                    },
+                    "modelId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "endpoint": {
+                      "type": "string"
+                    },
+                    "apiKey": {
+                      "type": "string"
+                    },
+                    "autoStopOnKeyboard": {
+                      "type": "boolean",
+                      "default": true
+                    },
+                    "vadSilenceThresholdMs": {
+                      "type": "integer",
+                      "default": 700
+                    },
+                    "settings": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ]
+                      },
+                      "default": {}
+                    }
+                  },
+                  "required": [
+                    "enabled",
+                    "engineType",
+                    "modelId"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "isActive",
+                "local",
+                "remote",
+                "input"
+              ]
+            }
+          },
+          "activeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "presets",
+          "activeId"
+        ]
+      },
+      "VoiceCreatePresetRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "local",
+              "remote",
+              "input"
+            ]
+          }
+        },
+        "required": [
+          "name"
         ]
       },
       "CreateInboxItemRequest": {
@@ -13498,6 +14223,928 @@
         }
       }
     },
+    "/v1/voice/presets": {
+      "get": {
+        "summary": "列出语音配置预设（含激活标记）",
+        "tags": [
+          "Voice"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Voice presets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "presets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "isActive": {
+                            "type": "boolean"
+                          },
+                          "local": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "enabled": {
+                                "type": "boolean"
+                              },
+                              "providerId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "modelPath": {
+                                "type": "string"
+                              },
+                              "modelId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "speakerId": {
+                                "type": "string"
+                              },
+                              "settings": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "boolean"
+                                    }
+                                  ]
+                                },
+                                "default": {}
+                              }
+                            },
+                            "required": [
+                              "enabled",
+                              "providerId",
+                              "modelId"
+                            ]
+                          },
+                          "remote": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "enabled": {
+                                "type": "boolean"
+                              },
+                              "providerId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "endpoint": {
+                                "type": "string"
+                              },
+                              "apiKey": {
+                                "type": "string"
+                              },
+                              "modelId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "speakerId": {
+                                "type": "string"
+                              },
+                              "textLang": {
+                                "type": "string",
+                                "enum": [
+                                  "auto",
+                                  "zh",
+                                  "en",
+                                  "ja",
+                                  "ko",
+                                  "yue"
+                                ]
+                              },
+                              "refAudioPath": {
+                                "type": "string"
+                              },
+                              "promptText": {
+                                "type": "string"
+                              },
+                              "promptLang": {
+                                "type": "string",
+                                "enum": [
+                                  "auto",
+                                  "zh",
+                                  "en",
+                                  "ja",
+                                  "ko",
+                                  "yue"
+                                ]
+                              },
+                              "auxRefAudioPaths": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "speedFactor": {
+                                "type": "number"
+                              },
+                              "settings": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "boolean"
+                                    }
+                                  ]
+                                },
+                                "default": {}
+                              }
+                            },
+                            "required": [
+                              "enabled",
+                              "providerId",
+                              "modelId"
+                            ]
+                          },
+                          "input": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "enabled": {
+                                "type": "boolean"
+                              },
+                              "engineType": {
+                                "type": "string",
+                                "enum": [
+                                  "sensevoice-local",
+                                  "whisper-compatible"
+                                ]
+                              },
+                              "modelPath": {
+                                "type": "string"
+                              },
+                              "modelId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "endpoint": {
+                                "type": "string"
+                              },
+                              "apiKey": {
+                                "type": "string"
+                              },
+                              "autoStopOnKeyboard": {
+                                "type": "boolean",
+                                "default": true
+                              },
+                              "vadSilenceThresholdMs": {
+                                "type": "integer",
+                                "default": 700
+                              },
+                              "settings": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "boolean"
+                                    }
+                                  ]
+                                },
+                                "default": {}
+                              }
+                            },
+                            "required": [
+                              "enabled",
+                              "engineType",
+                              "modelId"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "isActive",
+                          "local",
+                          "remote",
+                          "input"
+                        ]
+                      }
+                    },
+                    "activeId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "presets",
+                    "activeId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "新建语音配置预设",
+        "tags": [
+          "Voice"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "local",
+                      "remote",
+                      "input"
+                    ]
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created preset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "isActive": {
+                      "type": "boolean"
+                    },
+                    "local": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "providerId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "modelPath": {
+                          "type": "string"
+                        },
+                        "modelId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "speakerId": {
+                          "type": "string"
+                        },
+                        "settings": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "boolean"
+                              }
+                            ]
+                          },
+                          "default": {}
+                        }
+                      },
+                      "required": [
+                        "enabled",
+                        "providerId",
+                        "modelId"
+                      ]
+                    },
+                    "remote": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "providerId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "endpoint": {
+                          "type": "string"
+                        },
+                        "apiKey": {
+                          "type": "string"
+                        },
+                        "modelId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "speakerId": {
+                          "type": "string"
+                        },
+                        "textLang": {
+                          "type": "string",
+                          "enum": [
+                            "auto",
+                            "zh",
+                            "en",
+                            "ja",
+                            "ko",
+                            "yue"
+                          ]
+                        },
+                        "refAudioPath": {
+                          "type": "string"
+                        },
+                        "promptText": {
+                          "type": "string"
+                        },
+                        "promptLang": {
+                          "type": "string",
+                          "enum": [
+                            "auto",
+                            "zh",
+                            "en",
+                            "ja",
+                            "ko",
+                            "yue"
+                          ]
+                        },
+                        "auxRefAudioPaths": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "speedFactor": {
+                          "type": "number"
+                        },
+                        "settings": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "boolean"
+                              }
+                            ]
+                          },
+                          "default": {}
+                        }
+                      },
+                      "required": [
+                        "enabled",
+                        "providerId",
+                        "modelId"
+                      ]
+                    },
+                    "input": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "engineType": {
+                          "type": "string",
+                          "enum": [
+                            "sensevoice-local",
+                            "whisper-compatible"
+                          ]
+                        },
+                        "modelPath": {
+                          "type": "string"
+                        },
+                        "modelId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "endpoint": {
+                          "type": "string"
+                        },
+                        "apiKey": {
+                          "type": "string"
+                        },
+                        "autoStopOnKeyboard": {
+                          "type": "boolean",
+                          "default": true
+                        },
+                        "vadSilenceThresholdMs": {
+                          "type": "integer",
+                          "default": 700
+                        },
+                        "settings": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "boolean"
+                              }
+                            ]
+                          },
+                          "default": {}
+                        }
+                      },
+                      "required": [
+                        "enabled",
+                        "engineType",
+                        "modelId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "isActive",
+                    "local",
+                    "remote",
+                    "input"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_VOICE_PRESET"
+          }
+        }
+      }
+    },
+    "/v1/voice/presets/{presetId}/activate": {
+      "post": {
+        "summary": "激活语音配置预设",
+        "tags": [
+          "Voice"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "presetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Activated preset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "isActive": {
+                      "type": "boolean"
+                    },
+                    "local": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "providerId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "modelPath": {
+                          "type": "string"
+                        },
+                        "modelId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "speakerId": {
+                          "type": "string"
+                        },
+                        "settings": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "boolean"
+                              }
+                            ]
+                          },
+                          "default": {}
+                        }
+                      },
+                      "required": [
+                        "enabled",
+                        "providerId",
+                        "modelId"
+                      ]
+                    },
+                    "remote": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "providerId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "endpoint": {
+                          "type": "string"
+                        },
+                        "apiKey": {
+                          "type": "string"
+                        },
+                        "modelId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "speakerId": {
+                          "type": "string"
+                        },
+                        "textLang": {
+                          "type": "string",
+                          "enum": [
+                            "auto",
+                            "zh",
+                            "en",
+                            "ja",
+                            "ko",
+                            "yue"
+                          ]
+                        },
+                        "refAudioPath": {
+                          "type": "string"
+                        },
+                        "promptText": {
+                          "type": "string"
+                        },
+                        "promptLang": {
+                          "type": "string",
+                          "enum": [
+                            "auto",
+                            "zh",
+                            "en",
+                            "ja",
+                            "ko",
+                            "yue"
+                          ]
+                        },
+                        "auxRefAudioPaths": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "speedFactor": {
+                          "type": "number"
+                        },
+                        "settings": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "boolean"
+                              }
+                            ]
+                          },
+                          "default": {}
+                        }
+                      },
+                      "required": [
+                        "enabled",
+                        "providerId",
+                        "modelId"
+                      ]
+                    },
+                    "input": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "engineType": {
+                          "type": "string",
+                          "enum": [
+                            "sensevoice-local",
+                            "whisper-compatible"
+                          ]
+                        },
+                        "modelPath": {
+                          "type": "string"
+                        },
+                        "modelId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "endpoint": {
+                          "type": "string"
+                        },
+                        "apiKey": {
+                          "type": "string"
+                        },
+                        "autoStopOnKeyboard": {
+                          "type": "boolean",
+                          "default": true
+                        },
+                        "vadSilenceThresholdMs": {
+                          "type": "integer",
+                          "default": 700
+                        },
+                        "settings": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "boolean"
+                              }
+                            ]
+                          },
+                          "default": {}
+                        }
+                      },
+                      "required": [
+                        "enabled",
+                        "engineType",
+                        "modelId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "isActive",
+                    "local",
+                    "remote",
+                    "input"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PRESET_NOT_FOUND"
+          }
+        }
+      }
+    },
+    "/v1/voice/presets/{presetId}": {
+      "delete": {
+        "summary": "删除语音配置预设",
+        "tags": [
+          "Voice"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "presetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "deleted"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PRESET_NOT_FOUND"
+          }
+        }
+      }
+    },
     "/v1/llm/config": {
       "get": {
         "summary": "读取大语言模型与供应商配置",
@@ -13893,6 +15540,557 @@
           },
           "400": {
             "description": "INVALID_REQUEST"
+          }
+        }
+      }
+    },
+    "/v1/llm/presets": {
+      "get": {
+        "summary": "列出大语言模型配置预设（含激活标记）",
+        "tags": [
+          "LLM"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "LLM presets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "presets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "providerType": {
+                            "type": "string",
+                            "enum": [
+                              "ollama",
+                              "deepseek",
+                              "openai",
+                              "anthropic",
+                              "custom_openai"
+                            ]
+                          },
+                          "baseUrl": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "apiKey": {
+                            "type": "string"
+                          },
+                          "modelId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "temperature": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 2,
+                            "default": 0.7
+                          },
+                          "maxTokens": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "default": 4096
+                          },
+                          "settings": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "boolean"
+                                }
+                              ]
+                            },
+                            "default": {}
+                          },
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "isActive": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "enabled",
+                          "providerType",
+                          "baseUrl",
+                          "modelId",
+                          "id",
+                          "name",
+                          "isActive"
+                        ]
+                      }
+                    },
+                    "activeId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "presets",
+                    "activeId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "新建大语言模型配置预设",
+        "tags": [
+          "LLM"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32
+                  },
+                  "config": {
+                    "type": "object",
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "providerType": {
+                        "type": "string",
+                        "enum": [
+                          "ollama",
+                          "deepseek",
+                          "openai",
+                          "anthropic",
+                          "custom_openai"
+                        ]
+                      },
+                      "baseUrl": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "apiKey": {
+                        "type": "string"
+                      },
+                      "modelId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "temperature": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 2,
+                        "default": 0.7
+                      },
+                      "maxTokens": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "default": 4096
+                      },
+                      "settings": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "boolean"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "enabled",
+                      "providerType",
+                      "baseUrl",
+                      "modelId"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "config"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created preset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "providerType": {
+                      "type": "string",
+                      "enum": [
+                        "ollama",
+                        "deepseek",
+                        "openai",
+                        "anthropic",
+                        "custom_openai"
+                      ]
+                    },
+                    "baseUrl": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "apiKey": {
+                      "type": "string"
+                    },
+                    "modelId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "temperature": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 2,
+                      "default": 0.7
+                    },
+                    "maxTokens": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "default": 4096
+                    },
+                    "settings": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ]
+                      },
+                      "default": {}
+                    },
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "isActive": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "enabled",
+                    "providerType",
+                    "baseUrl",
+                    "modelId",
+                    "id",
+                    "name",
+                    "isActive"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_LLM_PRESET"
+          }
+        }
+      }
+    },
+    "/v1/llm/presets/{presetId}/activate": {
+      "post": {
+        "summary": "激活大语言模型配置预设",
+        "tags": [
+          "LLM"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "presetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Activated preset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "providerType": {
+                      "type": "string",
+                      "enum": [
+                        "ollama",
+                        "deepseek",
+                        "openai",
+                        "anthropic",
+                        "custom_openai"
+                      ]
+                    },
+                    "baseUrl": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "apiKey": {
+                      "type": "string"
+                    },
+                    "modelId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "temperature": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 2,
+                      "default": 0.7
+                    },
+                    "maxTokens": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "default": 4096
+                    },
+                    "settings": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ]
+                      },
+                      "default": {}
+                    },
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "isActive": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "enabled",
+                    "providerType",
+                    "baseUrl",
+                    "modelId",
+                    "id",
+                    "name",
+                    "isActive"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PRESET_NOT_FOUND"
+          }
+        }
+      }
+    },
+    "/v1/llm/presets/{presetId}": {
+      "delete": {
+        "summary": "删除大语言模型配置预设",
+        "tags": [
+          "LLM"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "presetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "deleted"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PRESET_NOT_FOUND"
           }
         }
       }

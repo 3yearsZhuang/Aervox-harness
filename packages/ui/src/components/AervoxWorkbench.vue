@@ -79,8 +79,7 @@ import PetHero from './PetHero.vue'
 import PluginManagerPanel from './plugin/PluginManagerPanel.vue'
 import Live2DPet from './Live2DPet.vue'
 import PersonaManagerPanel from './persona/PersonaManagerPanel.vue'
-import LocalVoiceConfigPanel from './voice/LocalVoiceConfigPanel.vue'
-import RemoteVoiceConfigPanel from './voice/RemoteVoiceConfigPanel.vue'
+import VoicePresetManagerPanel from './voice/VoicePresetManagerPanel.vue'
 import LLMConfigPanel from './llm/LLMConfigPanel.vue'
 import UserQuestionComposer from './UserQuestionComposer.vue'
 import TermExploreDialog from './TermExploreDialog.vue'
@@ -137,8 +136,8 @@ const learningOpen = ref(false)
 const activeLearningView = ref<'study' | 'mistake'>('study')
 const settingsOpen = ref(false)
 const settingsCategory = ref<'tools' | 'appearance' | 'conversation' | 'model' | 'persona' | 'notifications' | 'voice' | 'plugins' | 'proactive'>('tools')
-/** 语音设置子页签：本地模型 / 在线模型（CR-028） */
-const voiceMode = ref<'local' | 'online'>('local')
+/** 设置弹窗作用域：siyu=「你的思隅」限定 4 分类；detail=「详细设置」其余分类 */
+const settingsScope = ref<'siyu' | 'detail'>('detail')
 const showArchivedGoals = ref(false)
 const goalBusyId = ref<string | null>(null)
 const practiceSession = ref<{sessionId: string; items: Array<{id: string; prompt: string}>; nextQuestionIndex?: number} | null>(null)
@@ -401,16 +400,21 @@ const formattedTime = computed(() => {
   return `${minutes}:${seconds}`
 })
 const settingCategories = [
-  {id: 'tools', label: '快捷工具', description: '学习面板与小工具', icon: LayoutGrid},
-  {id: 'proactive', label: '主动智能', description: '全量画像与本地权限', icon: BrainCircuit},
-  {id: 'appearance', label: '外观', description: '主题与界面密度', icon: Sun},
-  {id: 'conversation', label: '对话', description: '称呼与输入方式', icon: MessageCircle},
-  {id: 'model', label: '模型与服务', description: '大语言模型与供应商配置', icon: Bot},
-  {id: 'persona', label: '人格设定', description: '管理人格角色设定', icon: Heart},
-  {id: 'notifications', label: '提醒', description: '学习节奏与通知', icon: Bell},
-  {id: 'voice', label: '语音', description: '本地与在线语音模型配置', icon: Volume2},
-  {id: 'plugins', label: '插件', description: '插件配置与页面', icon: Puzzle},
+  {id: 'tools', label: '快捷工具', description: '学习面板与小工具', icon: LayoutGrid, scope: 'detail' as const},
+  {id: 'proactive', label: '主动智能', description: '全量画像与本地权限', icon: BrainCircuit, scope: 'detail' as const},
+  {id: 'appearance', label: '外观', description: '主题与界面密度', icon: Sun, scope: 'detail' as const},
+  {id: 'conversation', label: '对话', description: '称呼与输入方式', icon: MessageCircle, scope: 'siyu' as const},
+  {id: 'model', label: '模型与服务', description: '大语言模型与供应商配置', icon: Bot, scope: 'siyu' as const},
+  {id: 'persona', label: '人格设定', description: '管理人格角色设定', icon: Heart, scope: 'siyu' as const},
+  {id: 'notifications', label: '提醒', description: '学习节奏与通知', icon: Bell, scope: 'detail' as const},
+  {id: 'voice', label: '语音', description: '本地与在线语音模型配置', icon: Volume2, scope: 'siyu' as const},
+  {id: 'plugins', label: '插件', description: '插件配置与页面', icon: Puzzle, scope: 'detail' as const},
 ] as const
+
+/** 按作用域过滤后的设置分类 */
+const scopedSettingCategories = computed(() =>
+  settingCategories.filter((c) => c.scope === settingsScope.value),
+)
 
 const activeMistakeCount = computed(() => mistakes.value.filter((item) => item.status === 'active').length)
 
@@ -481,12 +485,13 @@ watch(activeQuestion, (value) => {
 const menuOpen = ref(false)
 const menuPillRef = ref<HTMLElement | null>(null)
 
-/** 主导航：四个一级入口（工具管理/学习能力/主动智能/详细设置），不引入新能力 */
+/** 主导航：五个一级入口（工具管理/学习能力/主动智能/详细设置/你的思隅） */
 const menuItems: Array<{ id: string; label: string; icon: Component; action: () => void }> = [
   {id: 'tools', label: '工具管理', icon: LayoutGrid, action: () => openTool('todo')},
   {id: 'learning', label: '学习能力', icon: GraduationCap, action: () => openTool('study')},
   {id: 'proactive', label: '主动智能', icon: BrainCircuit, action: () => openSettingsCategory('proactive')},
   {id: 'settings', label: '详细设置', icon: Settings, action: () => openSettingsCategory('tools')},
+  {id: 'siyu', label: '你的思隅', icon: Heart, action: () => openSettingsCategory('conversation')},
 ]
 
 /** 工具管理弹窗左侧导航：工具子页切换，当前子页高亮 */
@@ -1436,10 +1441,17 @@ function switchToolView(target: 'todo' | 'timer' | 'history' | 'diary') {
   }
 }
 
-/** 主导航一级入口：带分类打开设置弹窗（主动智能/详细设置共用弹窗） */
+/** 主导航一级入口：带分类与作用域打开设置弹窗（你的思隅/详细设置/主动智能共用弹窗） */
 function openSettingsCategory(category: typeof settingsCategory.value) {
   settingsCategory.value = category
+  const scope = settingCategories.find((c) => c.id === category)?.scope ?? 'detail'
+  settingsScope.value = scope
   openSettings()
+}
+
+/** 分类切换时同步作用域（仅限当前作用域内互相切换） */
+function switchSettingsCategory(category: typeof settingsCategory.value) {
+  settingsCategory.value = category
 }
 
 function addTodo() {
@@ -2981,10 +2993,10 @@ onUnmounted(() => {
     <!-- 独立错题本弹窗 -->
 
 
-    <el-dialog v-model="settingsOpen" title="设置" class="settings-dialog" width="min(860px, calc(100vw - 28px))" align-center>
+    <el-dialog v-model="settingsOpen" :title="settingsScope === 'siyu' ? '你的思隅' : '设置'" class="settings-dialog" width="min(860px, calc(100vw - 28px))" align-center>
       <div class="settings-layout">
         <nav class="settings-categories" aria-label="设置分类">
-          <button v-for="category in settingCategories" :key="category.id" type="button" :class="{active: settingsCategory === category.id}" @click="settingsCategory = category.id">
+          <button v-for="category in scopedSettingCategories" :key="category.id" type="button" :class="{active: settingsCategory === category.id}" @click="switchSettingsCategory(category.id)">
             <component :is="category.icon" :size="18" />
             <span><strong>{{ category.label }}</strong><small>{{ category.description }}</small></span>
           </button>
@@ -3213,24 +3225,9 @@ onUnmounted(() => {
           <div v-else-if="settingsCategory === 'voice'" class="settings-section">
             <div class="settings-section-heading">
               <span class="heading-icon-wrap"><Volume2 :size="18" /></span>
-              <span><strong>语音</strong><small>配置本地或在线语音模型</small></span>
+              <span><strong>语音</strong><small>多预设保存与切换本地或在线语音模型</small></span>
             </div>
-            <div class="voice-mode-toggle">
-              <button
-                type="button"
-                class="voice-mode-btn"
-                :class="{active: voiceMode === 'local'}"
-                @click="voiceMode = 'local'"
-              >本地模型</button>
-              <button
-                type="button"
-                class="voice-mode-btn"
-                :class="{active: voiceMode === 'online'}"
-                @click="voiceMode = 'online'"
-              >在线模型</button>
-            </div>
-            <LocalVoiceConfigPanel v-if="voiceMode === 'local'" />
-            <RemoteVoiceConfigPanel v-else />
+            <VoicePresetManagerPanel />
           </div>
           <PluginManagerPanel v-else class="settings-section" />
         </section>

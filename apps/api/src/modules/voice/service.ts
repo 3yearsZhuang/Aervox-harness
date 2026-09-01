@@ -67,10 +67,10 @@ export interface VoiceInputConfig {
 function normalizeLocalConfig(model: {
   enabled: number;
   providerId: string;
-  modelPath: string | null;
+  modelPath?: string | null;
   modelId: string;
-  speakerId: string | null;
-  settingsJson: unknown;
+  speakerId?: string | null;
+  settingsJson?: unknown;
 }): LocalVoiceConfig {
   return {
     enabled: model.enabled === 1,
@@ -85,13 +85,13 @@ function normalizeLocalConfig(model: {
 function normalizeVoiceInputConfig(model: {
   enabled: number;
   engineType: string;
-  modelPath: string | null;
+  modelPath?: string | null;
   modelId: string;
-  endpoint: string | null;
-  apiKey: string | null;
+  endpoint?: string | null;
+  apiKey?: string | null;
   autoStopOnKeyboard: number;
   vadSilenceThresholdMs: number;
-  settingsJson: unknown;
+  settingsJson?: unknown;
 }): VoiceInputConfig {
   return {
     enabled: model.enabled === 1,
@@ -110,16 +110,16 @@ function normalizeRemoteConfig(model: {
   enabled: number;
   providerId: string;
   endpoint: string;
-  apiKey: string | null;
+  apiKey?: string | null;
   modelId: string;
-  speakerId: string | null;
-  textLang: string | null;
-  refAudioPath: string | null;
-  promptText: string | null;
-  promptLang: string | null;
-  auxRefAudioPathsJson: unknown;
-  speedFactor: number | null;
-  settingsJson: unknown;
+  speakerId?: string | null;
+  textLang?: string | null;
+  refAudioPath?: string | null;
+  promptText?: string | null;
+  promptLang?: string | null;
+  auxRefAudioPathsJson?: unknown;
+  speedFactor?: number | null;
+  settingsJson?: unknown;
 }): RemoteVoiceConfig {
   return {
     enabled: model.enabled === 1,
@@ -574,6 +574,233 @@ export class VoiceService {
       });
     }
     return result;
+  }
+
+  // ---- 多预设管理（与人格设定同款：列表/新建/激活/删除；聚合本地输出/在线输出/输入三表） ----
+
+  /** 列出全部语音配置预设（含激活标记与三块配置） */
+  async listVoicePresets(tenant: TenantContext): Promise<{
+    presets: Array<{
+      id: string;
+      name: string;
+      isActive: boolean;
+      local: LocalVoiceConfig | null;
+      remote: RemoteVoiceConfig | null;
+      input: VoiceInputConfig | null;
+    }>;
+    activeId: string | null;
+  }> {
+    const [locals, remotes, inputs] = await Promise.all([
+      this.configRepository?.listPresets(tenant) ?? [],
+      this.remoteConfigRepository?.listPresets(tenant) ?? [],
+      this.inputConfigRepository?.listPresets(tenant) ?? [],
+    ]);
+
+    // 按 name 聚合三表中的预设（id 以首个出现的表为准）
+    const order: string[] = [];
+    const aggregates = new Map<
+      string,
+      {
+        name: string;
+        id: string;
+        isActive: boolean;
+        local: LocalVoiceConfig | null;
+        remote: RemoteVoiceConfig | null;
+        input: VoiceInputConfig | null;
+      }
+    >();
+    const upsert = (
+      name: string,
+      id: string,
+      isActive: boolean,
+      block: { kind: "local" | "remote" | "input"; config: LocalVoiceConfig | RemoteVoiceConfig | VoiceInputConfig },
+    ) => {
+      if (!aggregates.has(name)) {
+        aggregates.set(name, { name, id, isActive, local: null, remote: null, input: null });
+        order.push(name);
+      }
+      const entry = aggregates.get(name)!;
+      if (isActive) entry.isActive = true;
+      if (block.kind === "local") entry.local = block.config as LocalVoiceConfig;
+      else if (block.kind === "remote") entry.remote = block.config as RemoteVoiceConfig;
+      else entry.input = block.config as VoiceInputConfig;
+    };
+
+    for (const row of locals) {
+      upsert(row.name ?? row.id, row.id, row.isActive === 1, {
+        kind: "local" as const,
+        config: normalizeLocalConfig(row),
+      });
+    }
+    for (const row of remotes) {
+      upsert(row.name ?? row.id, row.id, row.isActive === 1, {
+        kind: "remote" as const,
+        config: normalizeRemoteConfig(row),
+      });
+    }
+    for (const row of inputs) {
+      upsert(row.name ?? row.id, row.id, row.isActive === 1, {
+        kind: "input" as const,
+        config: normalizeVoiceInputConfig(row),
+      });
+    }
+
+    const presets = order.map((name) => aggregates.get(name)!);
+    const active = presets.find((p) => p.isActive) ?? null;
+    return { presets, activeId: active?.id ?? null };
+  }
+
+  /** 新建语音配置预设：在三表（若可用）各建同名占位行，保证后续保存端点按名对齐 */
+  async createVoicePreset(
+    tenant: TenantContext,
+    name: string,
+  ): Promise<{ id: string; name: string; isActive: boolean }> {
+    const trimmed = name.trim() || "默认配置";
+    const localRepo = this.configRepository;
+    const remoteRepo = this.remoteConfigRepository;
+    const inputRepo = this.inputConfigRepository;
+
+    let id = "";
+    let isActive = false;
+    if (localRepo) {
+      const created = await localRepo.createPreset(tenant, trimmed, {
+        enabled: true,
+        providerId: this.localProviderId,
+        modelId: "",
+        settings: {},
+      });
+      id = created.id;
+      isActive = created.isActive === 1;
+    }
+    if (remoteRepo) {
+      const created = await remoteRepo.createPreset(tenant, trimmed, {
+        enabled: true,
+        providerId: this.remoteProviderId,
+        endpoint: "",
+        modelId: "",
+      });
+      if (!id) id = created.id;
+      if (created.isActive === 1) isActive = true;
+    }
+    if (inputRepo) {
+      const created = await inputRepo.createPreset(tenant, trimmed, {
+        enabled: true,
+        engineType: "sensevoice-local",
+        modelId: "sensevoice-small",
+      });
+      if (!id) id = created.id;
+      if (created.isActive === 1) isActive = true;
+    }
+    // 若任一表尚无预设，首个预设自动激活（createPreset 已处理），此处同步其余表首行激活
+    if (!id) {
+      throw new Error("No voice config repository available");
+    }
+    return { id, name: trimmed, isActive };
+  }
+
+  /** 激活指定语音配置预设（对三表中同名行激活；不存在同名行时跳过该表） */
+  async activateVoicePreset(
+    tenant: TenantContext,
+    presetId: string,
+  ): Promise<{ id: string; name: string; isActive: boolean } | null> {
+    let activated:
+      | { id: string; name?: string; isActive?: number }
+      | null = null;
+    if (this.configRepository) {
+      const row = await this.configRepository.activatePreset(tenant, presetId);
+      activated = row;
+    }
+    if (!activated && this.remoteConfigRepository) {
+      const row = await this.remoteConfigRepository.activatePreset(tenant, presetId);
+      activated = row;
+    }
+    if (!activated && this.inputConfigRepository) {
+      const row = await this.inputConfigRepository.activatePreset(tenant, presetId);
+      activated = row;
+    }
+    if (!activated) return null;
+    // 同步激活其它表中的同名行
+    const name = activated.name ?? "默认配置";
+    await Promise.all([
+      this.configRepository
+        ? this.configRepository.listPresets(tenant).then((rows) =>
+            Promise.all(
+              rows.filter((r) => r.name === name && r.id !== activated!.id).map((r) =>
+                this.configRepository!.activatePreset(tenant, r.id),
+              ),
+            ),
+          )
+        : [],
+      this.remoteConfigRepository
+        ? this.remoteConfigRepository.listPresets(tenant).then((rows) =>
+            Promise.all(
+              rows.filter((r) => r.name === name && r.id !== activated!.id).map((r) =>
+                this.remoteConfigRepository!.activatePreset(tenant, r.id),
+              ),
+            ),
+          )
+        : [],
+      this.inputConfigRepository
+        ? this.inputConfigRepository.listPresets(tenant).then((rows) =>
+            Promise.all(
+              rows.filter((r) => r.name === name && r.id !== activated!.id).map((r) =>
+                this.inputConfigRepository!.activatePreset(tenant, r.id),
+              ),
+            ),
+          )
+        : [],
+    ]);
+    return { id: activated.id, name, isActive: Boolean(activated.isActive) };
+  }
+
+  /** 删除指定语音配置预设（三表中同名行均删除） */
+  async deleteVoicePreset(tenant: TenantContext, presetId: string): Promise<boolean> {
+    const nameResults = await Promise.all([
+      this.configRepository
+        ? this.configRepository
+            .listPresets(tenant)
+            .then((rows) => rows.find((r) => r.id === presetId)?.name ?? null)
+        : Promise.resolve(null),
+      this.remoteConfigRepository
+        ? this.remoteConfigRepository
+            .listPresets(tenant)
+            .then((rows) => rows.find((r) => r.id === presetId)?.name ?? null)
+        : Promise.resolve(null),
+      this.inputConfigRepository
+        ? this.inputConfigRepository
+            .listPresets(tenant)
+            .then((rows) => rows.find((r) => r.id === presetId)?.name ?? null)
+        : Promise.resolve(null),
+    ]);
+    const name = nameResults.find((n) => n !== null) ?? null;
+    if (!name) return false;
+
+    const byName = async <T extends { name?: string; id: string }>(
+      rows: T[],
+      remove: (id: string) => Promise<boolean>,
+    ): Promise<boolean> => {
+      const targets = rows.filter((r) => r.name === name && r.id !== presetId);
+      if (targets.length === 0) {
+        return rows.some((r) => r.id === presetId) ? ((await remove(presetId)), true) : false;
+      }
+      await Promise.all(targets.map((t) => remove(t.id)));
+      // 也删除传入的 presetId 行本身（同名但 id 不同的情况可能已涵盖）
+      if (rows.some((r) => r.id === presetId)) await remove(presetId);
+      return true;
+    };
+
+    await Promise.all([
+      this.configRepository
+        ? this.configRepository.listPresets(tenant).then((rows) => byName(rows, (id) => this.configRepository!.deletePreset(tenant, id)))
+        : Promise.resolve(false),
+      this.remoteConfigRepository
+        ? this.remoteConfigRepository.listPresets(tenant).then((rows) => byName(rows, (id) => this.remoteConfigRepository!.deletePreset(tenant, id)))
+        : Promise.resolve(false),
+      this.inputConfigRepository
+        ? this.inputConfigRepository.listPresets(tenant).then((rows) => byName(rows, (id) => this.inputConfigRepository!.deletePreset(tenant, id)))
+        : Promise.resolve(false),
+    ]);
+    return true;
   }
 }
 

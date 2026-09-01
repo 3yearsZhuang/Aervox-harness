@@ -9,6 +9,7 @@ import {
   voiceTranscribeRequestSchema,
   remoteVoiceConfigSchema,
   voiceRemoteTestConnectionRequestSchema,
+  voiceCreatePresetRequestSchema,
 } from "@aervox/contracts";
 import { resolveTenant } from "../../shared/tenant.js";
 import { GptSovitsRemoteProvider } from "./gpt-sovits.js";
@@ -215,5 +216,57 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
         message: error instanceof Error ? error.message : "转写异常",
       });
     }
+  });
+
+  // ---- 多预设管理（与人格设定同款：列表/新建/激活/删除） ----
+
+  // GET /v1/voice/presets — 列出全部语音配置预设（含激活标记与三块配置）
+  app.get("/v1/voice/presets", async (request) => {
+    const tenant = resolveTenant(request);
+    return service.listVoicePresets(tenant);
+  });
+
+  // POST /v1/voice/presets — 新建语音配置预设
+  app.post("/v1/voice/presets", async (request, reply) => {
+    const parsed = voiceCreatePresetRequestSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({
+        code: "INVALID_VOICE_PRESET",
+        message: "Invalid voice preset payload",
+        details: parsed.error.issues,
+      });
+    }
+    const tenant = resolveTenant(request);
+    try {
+      const created = await service.createVoicePreset(tenant, parsed.data.name);
+      return reply.code(201).send(created);
+    } catch (error) {
+      return reply.code(400).send({
+        code: "INVALID_VOICE_PRESET",
+        message: error instanceof Error ? error.message : "Invalid voice preset",
+      });
+    }
+  });
+
+  // POST /v1/voice/presets/:presetId/activate — 激活指定语音配置预设
+  app.post("/v1/voice/presets/:presetId/activate", async (request, reply) => {
+    const { presetId } = request.params as { presetId: string };
+    const tenant = resolveTenant(request);
+    const activated = await service.activateVoicePreset(tenant, presetId);
+    if (!activated) {
+      return reply.code(404).send({ code: "PRESET_NOT_FOUND", message: "Voice preset not found" });
+    }
+    return activated;
+  });
+
+  // DELETE /v1/voice/presets/:presetId — 删除指定语音配置预设
+  app.delete("/v1/voice/presets/:presetId", async (request, reply) => {
+    const { presetId } = request.params as { presetId: string };
+    const tenant = resolveTenant(request);
+    const deleted = await service.deleteVoicePreset(tenant, presetId);
+    if (!deleted) {
+      return reply.code(404).send({ code: "PRESET_NOT_FOUND", message: "Voice preset not found" });
+    }
+    return { deleted: true, presetId };
   });
 }

@@ -253,6 +253,35 @@ export const voiceInputModelDownloadResponseSchema = z.object({
   status: voiceInputModelStatusSchema,
 });
 
+/** 语音配置预设条目（多预设：本地输出/在线输出/输入共享 id+name+isActive） */
+export const voicePresetSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  isActive: z.boolean(),
+  /** 本地语音输出配置（可空表示该预设未配置本地模式） */
+  local: localVoiceConfigResponseSchema.nullable(),
+  /** 在线语音输出配置（可空表示该预设未配置在线模式） */
+  remote: remoteVoiceConfigResponseSchema.nullable(),
+  /** 语音输入 (ASR) 配置（可空表示该预设未配置输入） */
+  input: voiceInputConfigResponseSchema.nullable(),
+});
+
+/** 语音配置预设列表响应 */
+export const voicePresetListResponseSchema = z.object({
+  presets: z.array(voicePresetSchema),
+  activeId: z.string().nullable(),
+});
+
+/** 新建语音配置预设请求 */
+export const voiceCreatePresetRequestSchema = z.object({
+  name: z.string().min(1).max(32),
+  kind: z.enum(["local", "remote", "input"]).optional(),
+});
+
+export type VoicePreset = z.infer<typeof voicePresetSchema>;
+export type VoicePresetListResponse = z.infer<typeof voicePresetListResponseSchema>;
+export type VoiceCreatePresetRequest = z.infer<typeof voiceCreatePresetRequestSchema>;
+
 export const createPersonaRequestSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
