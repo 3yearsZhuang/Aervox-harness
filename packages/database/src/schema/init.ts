@@ -1842,12 +1842,14 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     CREATE INDEX IF NOT EXISTS material_sources_tenant_idx ON material_sources(workspace_id, subject_user_id);
   `);
 
-  // CR-011 语音输出配置（系统核心能力 · 本地语音模型配置）：每租户一行本地语音模型
+  // CR-011 语音输出配置（系统核心能力 · 本地语音模型配置）：每租户多行（多预设，至多一行激活）
   await client.execute(`
     CREATE TABLE IF NOT EXISTS voice_configs (
       id TEXT PRIMARY KEY,
       workspace_id TEXT NOT NULL,
       subject_user_id TEXT NOT NULL,
+      name TEXT NOT NULL DEFAULT '默认配置',
+      is_active INTEGER NOT NULL DEFAULT 1,
       enabled INTEGER NOT NULL DEFAULT 1,
       provider_id TEXT NOT NULL,
       model_path TEXT,
@@ -1858,16 +1860,24 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       updated_at TEXT NOT NULL
     );
   `);
+  await addColumnIfMissing(client, "voice_configs", "name", "name TEXT NOT NULL DEFAULT '默认配置'");
+  await addColumnIfMissing(client, "voice_configs", "is_active", "is_active INTEGER NOT NULL DEFAULT 1");
+  await client.execute(`DROP INDEX IF EXISTS voice_configs_tenant_unique_idx;`);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS voice_configs_tenant_unique_idx ON voice_configs(workspace_id, subject_user_id);
+    CREATE INDEX IF NOT EXISTS voice_configs_tenant_idx ON voice_configs(workspace_id, subject_user_id);
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS voice_configs_tenant_active_idx ON voice_configs(workspace_id, subject_user_id) WHERE is_active = 1;
   `);
 
-  // CR-012 大语言模型与供应商配置（WebUI 设置与运行时模型路由）：每租户一行
+  // CR-012 大语言模型与供应商配置（WebUI 设置与运行时模型路由）：每租户多行（多预设，至多一行激活）
   await client.execute(`
     CREATE TABLE IF NOT EXISTS llm_configs (
       id TEXT PRIMARY KEY,
       workspace_id TEXT NOT NULL,
       subject_user_id TEXT NOT NULL,
+      name TEXT NOT NULL DEFAULT '默认配置',
+      is_active INTEGER NOT NULL DEFAULT 1,
       enabled INTEGER NOT NULL DEFAULT 1,
       provider_type TEXT NOT NULL DEFAULT 'ollama',
       base_url TEXT NOT NULL,
@@ -1880,15 +1890,23 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       updated_at TEXT NOT NULL
     );
   `);
+  await addColumnIfMissing(client, "llm_configs", "name", "name TEXT NOT NULL DEFAULT '默认配置'");
+  await addColumnIfMissing(client, "llm_configs", "is_active", "is_active INTEGER NOT NULL DEFAULT 1");
+  await client.execute(`DROP INDEX IF EXISTS llm_configs_tenant_unique_idx;`);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS llm_configs_tenant_unique_idx ON llm_configs(workspace_id, subject_user_id);
+    CREATE INDEX IF NOT EXISTS llm_configs_tenant_idx ON llm_configs(workspace_id, subject_user_id);
   `);
-// CR-016 离线语音输入 (ASR) 配置持久化：每租户一行
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS llm_configs_tenant_active_idx ON llm_configs(workspace_id, subject_user_id) WHERE is_active = 1;
+  `);
+// CR-016 离线语音输入 (ASR) 配置持久化：每租户多行（多预设，至多一行激活）
   await client.execute(`
     CREATE TABLE IF NOT EXISTS voice_input_configs (
       id TEXT PRIMARY KEY,
       workspace_id TEXT NOT NULL,
       subject_user_id TEXT NOT NULL,
+      name TEXT NOT NULL DEFAULT '默认配置',
+      is_active INTEGER NOT NULL DEFAULT 1,
       enabled INTEGER NOT NULL DEFAULT 1,
       engine_type TEXT NOT NULL DEFAULT 'sensevoice-local',
       model_path TEXT,
@@ -1902,16 +1920,24 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       updated_at TEXT NOT NULL
     );
   `);
+  await addColumnIfMissing(client, "voice_input_configs", "name", "name TEXT NOT NULL DEFAULT '默认配置'");
+  await addColumnIfMissing(client, "voice_input_configs", "is_active", "is_active INTEGER NOT NULL DEFAULT 1");
+  await client.execute(`DROP INDEX IF EXISTS voice_input_configs_tenant_unique_idx;`);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS voice_input_configs_tenant_unique_idx ON voice_input_configs(workspace_id, subject_user_id);
+    CREATE INDEX IF NOT EXISTS voice_input_configs_tenant_idx ON voice_input_configs(workspace_id, subject_user_id);
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS voice_input_configs_tenant_active_idx ON voice_input_configs(workspace_id, subject_user_id) WHERE is_active = 1;
   `);
 
-  // CR-028 在线语音模型（GPT-SoVITS 远程 API）配置持久化：每租户一行
+  // CR-028 在线语音模型（GPT-SoVITS 远程 API）配置持久化：每租户多行（多预设，至多一行激活）
   await client.execute(`
     CREATE TABLE IF NOT EXISTS voice_remote_configs (
       id TEXT PRIMARY KEY,
       workspace_id TEXT NOT NULL,
       subject_user_id TEXT NOT NULL,
+      name TEXT NOT NULL DEFAULT '默认配置',
+      is_active INTEGER NOT NULL DEFAULT 1,
       enabled INTEGER NOT NULL DEFAULT 1,
       provider_id TEXT NOT NULL DEFAULT 'gpt-sovits-remote',
       endpoint TEXT NOT NULL,
@@ -1929,8 +1955,14 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       updated_at TEXT NOT NULL
     );
   `);
+  await addColumnIfMissing(client, "voice_remote_configs", "name", "name TEXT NOT NULL DEFAULT '默认配置'");
+  await addColumnIfMissing(client, "voice_remote_configs", "is_active", "is_active INTEGER NOT NULL DEFAULT 1");
+  await client.execute(`DROP INDEX IF EXISTS voice_remote_configs_tenant_unique_idx;`);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS voice_remote_configs_tenant_unique_idx ON voice_remote_configs(workspace_id, subject_user_id);
+    CREATE INDEX IF NOT EXISTS voice_remote_configs_tenant_idx ON voice_remote_configs(workspace_id, subject_user_id);
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS voice_remote_configs_tenant_active_idx ON voice_remote_configs(workspace_id, subject_user_id) WHERE is_active = 1;
   `);
   // 9dbfecb 后补列：早期版本建的表缺 prompt_text/prompt_lang，幂等补齐
   await addColumnIfMissing(client, "voice_remote_configs", "prompt_text", "prompt_text TEXT");

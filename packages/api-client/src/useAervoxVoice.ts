@@ -65,6 +65,35 @@ export interface VoiceSynthesisResultDto {
   audioBase64: string;
 }
 
+/** 语音配置预设条目（多预设：本地输出/在线输出/输入共享 id+name+isActive） */
+export interface VoicePresetDto {
+  id: string;
+  name: string;
+  isActive: boolean;
+  local: LocalVoiceConfigDto | null;
+  remote: RemoteVoiceConfigDto | null;
+  input: VoiceInputConfigRefDto | null;
+}
+
+/** 语音输入 (ASR) 配置引用（与 useAervoxVoiceInput 的 VoiceInputConfigDto 结构兼容） */
+export interface VoiceInputConfigRefDto {
+  enabled: boolean;
+  engineType: string;
+  modelPath?: string;
+  modelId: string;
+  endpoint?: string;
+  apiKey?: string;
+  autoStopOnKeyboard: boolean;
+  vadSilenceThresholdMs: number;
+  settings?: Record<string, string | number | boolean>;
+}
+
+/** 语音配置预设列表响应 */
+export interface VoicePresetListDto {
+  presets: VoicePresetDto[];
+  activeId: string | null;
+}
+
 /** 取路径的最后一段（目录名），用作本地音色标识（如 /a/b/spk1 → spk1） */
 export function basenameOf(path: string): string {
   return path.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? path;
@@ -137,6 +166,25 @@ export function useAervoxVoice() {
     return (await window.fairyDesktop!.pickDirectory!()) ?? null;
   };
 
+  /** 列出语音配置预设（含激活标记与三块配置） */
+  const listPresets = async (): Promise<VoicePresetListDto> =>
+    transport.request<VoicePresetListDto>('GET', '/v1/voice/presets');
+
+  /** 新建语音配置预设（仅登记名称，三表同步占位） */
+  const createPreset = async (name: string): Promise<VoicePresetDto> =>
+    transport.request<VoicePresetDto>('POST', '/v1/voice/presets', { name });
+
+  /** 激活指定语音配置预设 */
+  const activatePreset = async (presetId: string): Promise<VoicePresetDto> =>
+    transport.request<VoicePresetDto>(
+      'POST',
+      `/v1/voice/presets/${encodeURIComponent(presetId)}/activate`,
+    );
+
+  /** 删除指定语音配置预设（三表中同名行均删除） */
+  const deletePreset = async (presetId: string): Promise<unknown> =>
+    transport.request<unknown>('DELETE', `/v1/voice/presets/${encodeURIComponent(presetId)}`);
+
   return {
     getConfig,
     saveConfig,
@@ -149,5 +197,9 @@ export function useAervoxVoice() {
     pickDirectory,
     canPickDirectory,
     basenameOf,
+    listPresets,
+    createPreset,
+    activatePreset,
+    deletePreset,
   };
 }

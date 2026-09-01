@@ -23,6 +23,19 @@ export interface LLMConfigDto {
   settings?: Record<string, string | number | boolean>;
 }
 
+/** LLM 配置预设条目（多预设：含名称与激活标记） */
+export interface LLMPresetDto extends LLMConfigDto {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
+
+/** LLM 配置预设列表响应 */
+export interface LLMPresetListDto {
+  presets: LLMPresetDto[];
+  activeId: string | null;
+}
+
 export interface LLMTestConnectionInput {
   providerType: LLMProviderType;
   baseUrl: string;
@@ -127,10 +140,33 @@ export function useAervoxLLM() {
   ): Promise<LLMTestConnectionResultDto> =>
     transport.request<LLMTestConnectionResultDto>('POST', '/v1/llm/test-connection', input);
 
+  /** 列出大语言模型配置预设（含激活标记） */
+  const listPresets = async (): Promise<LLMPresetListDto> =>
+    transport.request<LLMPresetListDto>('GET', '/v1/llm/presets');
+
+  /** 新建大语言模型配置预设 */
+  const createPreset = async (name: string, config: LLMConfigDto): Promise<LLMPresetDto> =>
+    transport.request<LLMPresetDto>('POST', '/v1/llm/presets', {
+      name,
+      config: toLLMConfigRequest(config),
+    });
+
+  /** 激活指定大语言模型配置预设 */
+  const activatePreset = async (presetId: string): Promise<LLMPresetDto> =>
+    transport.request<LLMPresetDto>('POST', `/v1/llm/presets/${encodeURIComponent(presetId)}/activate`);
+
+  /** 删除指定大语言模型配置预设 */
+  const deletePreset = async (presetId: string): Promise<unknown> =>
+    transport.request<unknown>('DELETE', `/v1/llm/presets/${encodeURIComponent(presetId)}`);
+
   return {
     getConfig,
     saveConfig,
     testConnection,
+    listPresets,
+    createPreset,
+    activatePreset,
+    deletePreset,
     presetProviders: PRESET_PROVIDERS,
   };
 }

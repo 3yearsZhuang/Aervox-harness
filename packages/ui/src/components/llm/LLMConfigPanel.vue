@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Bot,
   Check,
@@ -7,12 +8,16 @@ import {
   ChevronUp,
   Eye,
   EyeOff,
+  Plus,
   RotateCcw,
+  Sparkles,
+  Trash2,
   Zap,
 } from 'lucide-vue-next'
 import {
   useAervoxLLM,
   type LLMConfigDto,
+  type LLMPresetDto,
   type LLMProviderType,
   type LLMTestConnectionResultDto,
 } from '@aervox/api-client'
@@ -28,6 +33,12 @@ const showAdvanced = ref(false)
 const testBusy = ref(false)
 const testResult = ref<LLMTestConnectionResultDto | null>(null)
 const error = ref<string | null>(null)
+
+/** 多预设：全部预设 + 当前激活 */
+const presets = ref<LLMPresetDto[]>([])
+const presetsLoading = ref(false)
+const activePresetId = ref<string | null>(null)
+const busyPresetId = ref<string | null>(null)
 
 const draft = computed<LLMConfigDto>({
   get() {
@@ -53,8 +64,12 @@ const currentPreset = computed(() => {
   return api.presetProviders.find((p) => p.id === draft.value.providerType)
 })
 
+const activePreset = computed(() => {
+  return presets.value.find((p) => p.id === activePresetId.value) ?? null
+})
+
 onMounted(async () => {
-  await loadConfig()
+  await Promise.all([loadConfig(), loadPresets()])
   loading.value = false
 })
 
@@ -63,6 +78,69 @@ async function loadConfig(): Promise<void> {
     config.value = await api.getConfig()
   } catch (e) {
     error.value = e instanceof Error ? e.message : '读取大语言模型配置失败'
+  }
+}
+
+/** 加载全部预设并同步激活标记 */
+async function loadPresets(): Promise<void> {
+  presetsLoading.value = true
+  try {
+    const res = await api.listPresets()
+    presets.value = res.presets ?? []
+    activePresetId.value = res.activeId ?? null
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : '加载模型预设失败'
+  } finally {
+    presetsLoading.value = false
+  }
+}
+
+/** 新建预设：输入名称后创建并自动激活 */
+async function handleCreatePreset(): Promise<void> {
+  try {
+    const { value } = await ElMessageBox.prompt('为新的模型配置预设起个名字（例如「本地 Ollama」「DeepSeek Chat」）', '新建模型预设', {
+      confirmButtonText: '创建',
+      cancelButtonText: '取消',
+      inputPattern: /\S+/,
+      inputErrorMessage: '名称不能为空',
+      inputValue: `配置 ${presets.value.length + 1}`,
+    })
+    const created = await api.createPreset(value.trim(), draft.value)
+    ElMessage.success(`已创建预设「${created.name}」并设为当前`)
+    await Promise.all([loadPresets(), loadConfig()])
+  } catch {
+    // cancelled
+  }
+}
+
+/** 激活指定预设并加载其配置 */
+async function handleActivatePreset(preset: LLMPresetDto): Promise<void> {
+  if (preset.isActive) return
+  busyPresetId.value = preset.id
+  try {
+    await api.activatePreset(preset.id)
+    ElMessage.success(`已切换当前模型为「${preset.name}」`)
+    await Promise.all([loadPresets(), loadConfig()])
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : '激活预设失败')
+  } finally {
+    busyPresetId.value = null
+  }
+}
+
+/** 删除预设 */
+async function handleDeletePreset(preset: LLMPresetDto): Promise<void> {
+  try {
+    await ElMessageBox.confirm(`确定删除模型预设「${preset.name}」吗？`, '删除确认', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    await api.deletePreset(preset.id)
+    ElMessage.success('模型预设已删除')
+    await Promise.all([loadPresets(), loadConfig()])
+  } catch {
+    // cancelled
   }
 }
 
@@ -141,6 +219,7 @@ async function handleSave(): Promise<void> {
       settings: draft.value.settings ?? {},
     })
     savedFlash.value = true
+    await loadPresets()
     setTimeout(() => {
       savedFlash.value = false
     }, 1600)
@@ -157,6 +236,50 @@ async function handleSave(): Promise<void> {
     <div class="settings-section-heading">
       <span class="heading-icon-wrap"><Bot :size="18" /></span>
       <span><strong>模型与服务</strong><small>配置大语言模型供应商与运行时调用参数</small></span>
+    </div>
+
+    <!-- 多预设：卡片列表（对齐人格设定同款交互） -->
+    <div v-if="presetsLoading" class="pcfg-loading">加载模型预设…</div>
+    <div v-else class="llm-preset-header">
+      <strong class="llm-preset-title">模型预设</strong>
+      <button type="button" class="llm-preset-add-btn" @click="handleCreatePreset">
+        <Plus :size="15" />新建预设
+      </button>
+    </div>
+    <div v-if="!presetsLoading" class="llm-preset-grid">
+      <article
+        v-for="preset in presets"
+        :key="preset.id"
+        class="llm-preset-card"
+        :class="{active: preset.id === activePresetId}"
+      >
+        <div class="llm-preset-card-head">
+          <strong class="llm-preset-name">{{ preset.name }}</strong>
+          <span v-if="preset.id === activePresetId" class="llm-preset-active-badge">
+            <Sparkles :size="11" />当前
+          </span>
+        </div>
+        <small class="llm-preset-meta">
+          {{ preset.providerType }} · {{ preset.modelId }}
+        </small>
+        <div class="llm-preset-actions">
+          <button
+            v-if="preset.id !== activePresetId"
+            type="button"
+            class="llm-preset-action"
+            :disabled="busyPresetId === preset.id"
+            @click="handleActivatePreset(preset)"
+          >设为当前</button>
+          <button
+            type="button"
+            class="llm-preset-action danger"
+            :disabled="busyPresetId === preset.id"
+            @click="handleDeletePreset(preset)"
+          >
+            <Trash2 :size="12" />删除
+          </button>
+        </div>
+      </article>
     </div>
 
     <div v-if="loading" class="pcfg-loading">加载模型配置…</div>
@@ -319,6 +442,127 @@ async function handleSave(): Promise<void> {
 </template>
 
 <style scoped>
+.llm-preset-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 4px 0 10px;
+}
+
+.llm-preset-title {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.llm-preset-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.llm-preset-add-btn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.llm-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.llm-preset-card {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg-main);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.llm-preset-card.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.llm-preset-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.llm-preset-name {
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.llm-preset-active-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.llm-preset-meta {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.llm-preset-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.llm-preset-action {
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.llm-preset-action:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.llm-preset-action.danger:hover:not(:disabled) {
+  border-color: var(--danger, #e5484d);
+  color: var(--danger, #e5484d);
+}
+
+.llm-preset-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .llm-select-field,
 .llm-input-field {
   width: min(380px, 58%);

@@ -99,6 +99,9 @@ import {
   remoteVoiceConfigResponseSchema,
   voiceRemoteTestConnectionRequestSchema,
   voiceRemoteTestConnectionResponseSchema,
+  voicePresetSchema,
+  voicePresetListResponseSchema,
+  voiceCreatePresetRequestSchema,
 } from "./persona-schemas.js";
 import {
   mcpPresetServerSchema,
@@ -137,8 +140,11 @@ import {
 } from "./practice-schemas.js";
 
 import {
+  llmCreatePresetRequestSchema,
   llmConfigResponseSchema,
   llmConfigSchema,
+  llmPresetListResponseSchema,
+  llmPresetSchema,
   llmTestConnectionRequestSchema,
   llmTestConnectionResponseSchema,
 } from "./llm-schemas.js";
@@ -255,6 +261,9 @@ registry.register("LLMConfig", llmConfigSchema);
 registry.register("LLMConfigResponse", llmConfigResponseSchema);
 registry.register("LLMTestConnectionRequest", llmTestConnectionRequestSchema);
 registry.register("LLMTestConnectionResponse", llmTestConnectionResponseSchema);
+registry.register("LLMPreset", llmPresetSchema);
+registry.register("LLMPresetListResponse", llmPresetListResponseSchema);
+registry.register("LLMCreatePresetRequest", llmCreatePresetRequestSchema);
 
 registry.register("VoiceInputConfig", voiceInputConfigSchema);
 registry.register("VoiceInputConfigResponse", voiceInputConfigResponseSchema);
@@ -267,6 +276,9 @@ registry.register("RemoteVoiceConfig", remoteVoiceConfigSchema);
 registry.register("RemoteVoiceConfigResponse", remoteVoiceConfigResponseSchema);
 registry.register("VoiceRemoteTestConnectionRequest", voiceRemoteTestConnectionRequestSchema);
 registry.register("VoiceRemoteTestConnectionResponse", voiceRemoteTestConnectionResponseSchema);
+registry.register("VoicePreset", voicePresetSchema);
+registry.register("VoicePresetListResponse", voicePresetListResponseSchema);
+registry.register("VoiceCreatePresetRequest", voiceCreatePresetRequestSchema);
 
 registry.register("CreateInboxItemRequest", createInboxItemRequestSchema);
 registry.register("InboxItem", inboxItemResponseSchema);
@@ -748,9 +760,19 @@ registry.registerPath({ method: "get", path: "/v1/voice/input/model/status", sum
 registry.registerPath({ method: "post", path: "/v1/voice/input/model/download", summary: "触发离线语音输入模型下载", tags: ["Voice"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: voiceInputModelDownloadRequestSchema } } } }, responses: { 200: { description: "Download started", content: { "application/json": { schema: voiceInputModelDownloadResponseSchema } } }, 400: { description: "INVALID_DOWNLOAD_REQUEST" } } });
 registry.registerPath({ method: "post", path: "/v1/voice/transcribe", summary: "语音识别转写 (ASR)", tags: ["Voice"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: voiceTranscribeRequestSchema } } } }, responses: { 200: { description: "Transcription result", content: { "application/json": { schema: voiceTranscribeResponseSchema } } }, 400: { description: "INVALID_AUDIO" }, 503: { description: "VOICE_INPUT_PROVIDER_UNAVAILABLE" } } });
 
+registry.registerPath({ method: "get", path: "/v1/voice/presets", summary: "列出语音配置预设（含激活标记）", tags: ["Voice"], request: { headers: scopeHeaders }, responses: { 200: { description: "Voice presets", content: { "application/json": { schema: voicePresetListResponseSchema } } } } });
+registry.registerPath({ method: "post", path: "/v1/voice/presets", summary: "新建语音配置预设", tags: ["Voice"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: voiceCreatePresetRequestSchema } } } }, responses: { 201: { description: "Created preset", content: { "application/json": { schema: voicePresetSchema } } }, 400: { description: "INVALID_VOICE_PRESET" } } });
+registry.registerPath({ method: "post", path: "/v1/voice/presets/{presetId}/activate", summary: "激活语音配置预设", tags: ["Voice"], request: { headers: scopeHeaders, params: z.object({ presetId: z.string().min(1) }) }, responses: { 200: { description: "Activated preset", content: { "application/json": { schema: voicePresetSchema } } }, 404: { description: "PRESET_NOT_FOUND" } } });
+registry.registerPath({ method: "delete", path: "/v1/voice/presets/{presetId}", summary: "删除语音配置预设", tags: ["Voice"], request: { headers: scopeHeaders, params: z.object({ presetId: z.string().min(1) }) }, responses: { 200: { description: "Deleted", content: { "application/json": { schema: z.object({ deleted: z.boolean() }) } } }, 404: { description: "PRESET_NOT_FOUND" } } });
+
 registry.registerPath({ method: "get", path: "/v1/llm/config", summary: "读取大语言模型与供应商配置", tags: ["LLM"], request: { headers: scopeHeaders }, responses: { 200: { description: "LLM config", content: { "application/json": { schema: llmConfigResponseSchema } } } } });
 registry.registerPath({ method: "put", path: "/v1/llm/config", summary: "保存大语言模型与供应商配置", tags: ["LLM"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: llmConfigSchema } } } }, responses: { 200: { description: "LLM config", content: { "application/json": { schema: llmConfigResponseSchema } } }, 400: { description: "INVALID_LLM_CONFIG" } } });
 registry.registerPath({ method: "post", path: "/v1/llm/test-connection", summary: "测试大模型供应商连通性", tags: ["LLM"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: llmTestConnectionRequestSchema } } } }, responses: { 200: { description: "Test connection result", content: { "application/json": { schema: llmTestConnectionResponseSchema } } }, 400: { description: "INVALID_REQUEST" } } });
+
+registry.registerPath({ method: "get", path: "/v1/llm/presets", summary: "列出大语言模型配置预设（含激活标记）", tags: ["LLM"], request: { headers: scopeHeaders }, responses: { 200: { description: "LLM presets", content: { "application/json": { schema: llmPresetListResponseSchema } } } } });
+registry.registerPath({ method: "post", path: "/v1/llm/presets", summary: "新建大语言模型配置预设", tags: ["LLM"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: llmCreatePresetRequestSchema } } } }, responses: { 201: { description: "Created preset", content: { "application/json": { schema: llmPresetSchema } } }, 400: { description: "INVALID_LLM_PRESET" } } });
+registry.registerPath({ method: "post", path: "/v1/llm/presets/{presetId}/activate", summary: "激活大语言模型配置预设", tags: ["LLM"], request: { headers: scopeHeaders, params: z.object({ presetId: z.string().min(1) }) }, responses: { 200: { description: "Activated preset", content: { "application/json": { schema: llmPresetSchema } } }, 404: { description: "PRESET_NOT_FOUND" } } });
+registry.registerPath({ method: "delete", path: "/v1/llm/presets/{presetId}", summary: "删除大语言模型配置预设", tags: ["LLM"], request: { headers: scopeHeaders, params: z.object({ presetId: z.string().min(1) }) }, responses: { 200: { description: "Deleted", content: { "application/json": { schema: z.object({ deleted: z.boolean() }) } } }, 404: { description: "PRESET_NOT_FOUND" } } });
 
 const pluginIdParam = z.object({ pluginId: z.string().min(1) });
 const pluginPageParam = pluginIdParam.extend({ pageId: z.string().min(1) });
