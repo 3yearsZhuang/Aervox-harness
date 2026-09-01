@@ -2523,8 +2523,8 @@
 .el-dialog,
 .settings-dialog,
 .single-panel-dialog,
-.todo-dialog,
-.timer-dialog,
+.tools-dialog,
+.learning-dialog,
 .persona-edit-dialog,
 .plugin-config-dialog,
 .plugin-page-dialog {
@@ -2546,8 +2546,8 @@
 /* 弹窗高度与内容滚动控制：所有功能弹窗统一尺寸 */
 .el-dialog.settings-dialog,
 .el-dialog.single-panel-dialog,
-.el-dialog.todo-dialog,
-.el-dialog.timer-dialog {
+.el-dialog.tools-dialog,
+.el-dialog.learning-dialog {
   height: min(640px, calc(100vh - 48px)) !important;
   max-height: min(640px, calc(100vh - 48px)) !important;
   display: flex !important;
@@ -2556,15 +2556,15 @@
 
 .settings-dialog .el-dialog__header,
 .single-panel-dialog .el-dialog__header,
-.todo-dialog .el-dialog__header,
-.timer-dialog .el-dialog__header {
+.tools-dialog .el-dialog__header,
+.learning-dialog .el-dialog__header {
   flex: 0 0 auto;
 }
 
 .settings-dialog .el-dialog__body,
 .single-panel-dialog .el-dialog__body,
-.todo-dialog .el-dialog__body,
-.timer-dialog .el-dialog__body {
+.tools-dialog .el-dialog__body,
+.learning-dialog .el-dialog__body {
   flex: 1;
   min-height: 0;
   padding: 0;
@@ -2589,8 +2589,8 @@
   scrollbar-color: var(--border-strong) transparent;
 }
 
-/* 番茄钟内容较少：在统一尺寸的弹窗内居中展示 */
-.timer-dialog .tool-dialog-content {
+/* 番茄钟子页内容较少：在统一尺寸的弹窗内居中展示 */
+.tool-dialog-content.content-centered {
   display: flex;
   flex-direction: column;
   justify-content: center;

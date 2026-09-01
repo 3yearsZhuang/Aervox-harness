@@ -14,6 +14,7 @@ import {
   CircleHelp,
   ClipboardList,
   Clock3,
+  GraduationCap,
   CalendarDays,
   Database,
   Download,
@@ -130,11 +131,10 @@ const emit = defineEmits<{ 'replay-onboarding': [], 'open-intro-deck': [] }>()
 
 const composerOpen = ref(false)
 const historyOpen = ref(false)
-const todoOpen = ref(false)
-const timerOpen = ref(false)
-const studyOpen = ref(false)
-const mistakeOpen = ref(false)
-const diaryOpen = ref(false)
+const toolsOpen = ref(false)
+const activeToolView = ref<'todo' | 'timer' | 'history' | 'diary'>('todo')
+const learningOpen = ref(false)
+const activeLearningView = ref<'study' | 'mistake'>('study')
 const settingsOpen = ref(false)
 const settingsCategory = ref<'tools' | 'appearance' | 'conversation' | 'model' | 'persona' | 'notifications' | 'voice' | 'plugins' | 'proactive'>('tools')
 /** 语音设置子页签：本地模型 / 在线模型（CR-028） */
@@ -297,7 +297,6 @@ async function loadDiaryHistory() {
 
 /** 打开日记本：幂等取回今日日记（当日已有则原样返回），并载入历史列表 */
 async function openDiary() {
-  diaryOpen.value = true
   diaryBusy.value = true
   diaryError.value = null
   try {
@@ -482,24 +481,26 @@ watch(activeQuestion, (value) => {
 const menuOpen = ref(false)
 const menuPillRef = ref<HTMLElement | null>(null)
 
-/** 主导航：全部映射到既有功能（全部为居中弹窗），不引入新能力 */
+/** 主导航：四个一级入口（工具管理/学习能力/主动智能/详细设置），不引入新能力 */
 const menuItems: Array<{ id: string; label: string; icon: Component; action: () => void }> = [
-  {id: 'study', label: '规划', icon: BookOpen, action: () => openTool('study')},
-  {id: 'mistake', label: '错题本', icon: Puzzle, action: () => openTool('mistake')},
-  {id: 'todo', label: '待办', icon: ListTodo, action: () => openTool('todo')},
-  {id: 'timer', label: '番茄钟', icon: Clock3, action: () => openTool('timer')},
-  {id: 'history', label: '回看', icon: History, action: () => openTool('history')},
-  {id: 'diary', label: '日记', icon: NotebookPen, action: () => openTool('diary')},
+  {id: 'tools', label: '工具管理', icon: LayoutGrid, action: () => openTool('todo')},
+  {id: 'learning', label: '学习能力', icon: GraduationCap, action: () => openTool('study')},
+  {id: 'proactive', label: '主动智能', icon: BrainCircuit, action: () => openSettingsCategory('proactive')},
+  {id: 'settings', label: '详细设置', icon: Settings, action: () => openSettingsCategory('tools')},
 ]
 
-/** 功能弹窗左侧导航：功能统一入口，当前弹窗高亮，点击即切换 */
-const toolNavItems: Array<{ id: ToolId; label: string; description: string; icon: Component }> = [
-  {id: 'study', label: '学习规划', description: 'AI 生成学习路线图', icon: BookOpen},
-  {id: 'mistake', label: '错题本', description: '针对性重练未掌握题', icon: Puzzle},
+/** 工具管理弹窗左侧导航：工具子页切换，当前子页高亮 */
+const toolsNavItems: Array<{ id: 'todo' | 'timer' | 'history' | 'diary'; label: string; description: string; icon: Component }> = [
   {id: 'todo', label: '待办清单', description: '勾选完成今天的待办', icon: ListTodo},
   {id: 'timer', label: '番茄钟', description: '专注计时，劳逸结合', icon: Clock3},
-  {id: 'history', label: '对话回看', description: '回顾历史对话记录', icon: History},
+  {id: 'history', label: '对话回看', description: '视觉小说式回看完整对话', icon: History},
   {id: 'diary', label: '日记本', description: 'AI 每日日记与历史回看', icon: NotebookPen},
+]
+
+/** 学习能力弹窗左侧导航：学习子页切换，当前子页高亮 */
+const learningNavItems: Array<{ id: 'study' | 'mistake'; label: string; description: string; icon: Component }> = [
+  {id: 'study', label: '学习规划', description: 'AI 生成学习路线图', icon: BookOpen},
+  {id: 'mistake', label: '错题本', description: '针对性重练未掌握题', icon: Puzzle},
 ]
 
 /** Live2D 操作反馈动作池：按语义挑选 Mizuki 动作子集，随机取用避免重复 */
@@ -1405,29 +1406,40 @@ async function exportProactiveData(includeRaw: boolean) {
   }
 }
 
-/** 打开（或切换到）指定功能弹窗：同一时间只保留一个功能弹窗 */
+/** 打开（或切换到）指定功能：学习功能归「学习能力」弹窗，其余归「工具管理」弹窗；同一时间只保留一个功能弹窗 */
 function openTool(target: ToolId) {
   recordProactiveActivity('aervox.operation', 'workbench.tool_opened', undefined, {target})
   settingsOpen.value = false
-  studyOpen.value = false
-  mistakeOpen.value = false
-  todoOpen.value = false
-  timerOpen.value = false
-  historyOpen.value = false
-  diaryOpen.value = false
-  if (target === 'study') {
-    studyOpen.value = true
-  } else if (target === 'mistake') {
-    mistakeOpen.value = true
-  } else if (target === 'todo') {
-    todoOpen.value = true
-  } else if (target === 'timer') {
-    timerOpen.value = true
-  } else if (target === 'diary') {
+  toolsOpen.value = false
+  learningOpen.value = false
+  if (target === 'study' || target === 'mistake') {
+    activeLearningView.value = target
+    learningOpen.value = true
+    return
+  }
+  activeToolView.value = target
+  toolsOpen.value = true
+  if (target === 'diary') {
     void openDiary()
-  } else {
+  } else if (target === 'history') {
     historyOpen.value = true
   }
+}
+
+/** 工具管理弹窗内子页切换：日记懒加载当日内容，回看直接展开视觉小说层 */
+function switchToolView(target: 'todo' | 'timer' | 'history' | 'diary') {
+  activeToolView.value = target
+  if (target === 'diary') {
+    void openDiary()
+  } else if (target === 'history') {
+    historyOpen.value = true
+  }
+}
+
+/** 主导航一级入口：带分类打开设置弹窗（主动智能/详细设置共用弹窗） */
+function openSettingsCategory(category: typeof settingsCategory.value) {
+  settingsCategory.value = category
+  openSettings()
 }
 
 function addTodo() {
@@ -2523,27 +2535,28 @@ onUnmounted(() => {
     </Teleport>
 
     <el-dialog
-      v-model="todoOpen"
-      title="待办清单"
-      class="todo-dialog"
+      v-model="toolsOpen"
+      title="工具管理"
+      class="tools-dialog"
       width="min(860px, calc(100vw - 28px))"
       align-center
     >
       <div class="tool-dialog-layout">
-        <nav class="tool-sidebar" aria-label="功能导航">
+        <nav class="tool-sidebar" aria-label="工具导航">
           <button
-            v-for="item in toolNavItems"
+            v-for="item in toolsNavItems"
             :key="item.id"
             type="button"
-            :class="{active: item.id === 'todo'}"
-            :aria-current="item.id === 'todo' ? 'true' : undefined"
-            @click="item.id !== 'todo' && openTool(item.id)"
+            :class="{active: item.id === activeToolView}"
+            :aria-current="item.id === activeToolView ? 'true' : undefined"
+            @click="switchToolView(item.id)"
           >
             <component :is="item.icon" :size="18" />
             <span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span>
           </button>
         </nav>
-        <div class="tool-dialog-content">
+        <div class="tool-dialog-content" :class="{'content-centered': activeToolView === 'timer'}">
+          <template v-if="activeToolView === 'todo'">
           <p class="drawer-intro">用小任务保持节奏，不需要一次完成所有事情。</p>
           <form class="todo-form" @submit.prevent="addTodo">
             <label class="sr-only" for="new-todo">添加待办</label>
@@ -2593,32 +2606,8 @@ onUnmounted(() => {
               </li>
             </ul>
           </div>
-        </div>
-      </div>
-    </el-dialog>
-
-    <el-dialog
-      v-model="timerOpen"
-      title="番茄钟"
-      class="timer-dialog"
-      width="min(860px, calc(100vw - 28px))"
-      align-center
-    >
-      <div class="tool-dialog-layout">
-        <nav class="tool-sidebar" aria-label="功能导航">
-          <button
-            v-for="item in toolNavItems"
-            :key="item.id"
-            type="button"
-            :class="{active: item.id === 'timer'}"
-            :aria-current="item.id === 'timer' ? 'true' : undefined"
-            @click="item.id !== 'timer' && openTool(item.id)"
-          >
-            <component :is="item.icon" :size="18" />
-            <span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span>
-          </button>
-        </nav>
-        <div class="tool-dialog-content">
+          </template>
+          <template v-else-if="activeToolView === 'timer'">
         <div class="timer-panel">
           <div
             class="timer-dial-wrapper"
@@ -2704,33 +2693,74 @@ onUnmounted(() => {
             </button>
           </div>
         </div>
+          </template>
+          <template v-else-if="activeToolView === 'history'">
+            <p class="drawer-intro">完整上下文回看：视觉小说式滚动浏览与思隅的全部对话。</p>
+            <div class="diary-actions">
+              <button type="button" class="diary-generate-btn" @click="historyOpen = true">
+                <History :size="16" />
+                <span>打开对话回看（{{ story.length }} 条记录）</span>
+              </button>
+            </div>
+          </template>
+          <template v-else-if="activeToolView === 'diary'">
+          <p class="drawer-intro">思思根据今天我们一起聊过、记下和做过的事，替你写一篇日记。</p>
+          <div class="diary-actions">
+            <button type="button" class="diary-generate-btn" :disabled="diaryBusy" @click="generateDiaryNow">
+              <NotebookPen v-if="!diaryBusy" :size="16" />
+              <span>{{ diaryBusy ? '思思正在写…' : (viewingDiary ? '让思思改写今天的' : '让思思现在写') }}</span>
+            </button>
+          </div>
+          <p v-if="diaryError" class="drawer-empty" role="alert">{{ diaryError }}</p>
+          <article v-if="viewingDiary" class="diary-card">
+            <header class="diary-head">
+              <strong>{{ viewingDiary.title }}</strong>
+              <small class="diary-meta">{{ viewingDiary.localDate }} · {{ viewingDiary.generatedBy === 'template' ? '模板生成' : '思思手写' }}</small>
+            </header>
+            <div class="markdown-body diary-body" v-html="renderMarkdown(diaryDisplayContent)" />
+          </article>
+          <p v-else-if="!diaryBusy" class="drawer-empty">今天还没有日记，点上面的按钮让思思写一篇。</p>
+
+          <div v-if="diaryHistory.length > 0" class="settings-section" style="margin-top: 20px;">
+            <h4>历史日记 <small>{{ diaryHistory.length }}</small></h4>
+            <ul class="diary-history-list">
+              <li v-for="item in diaryHistory" :key="item.localDate">
+                <button type="button" :class="{active: viewingDiary?.localDate === item.localDate}" @click="selectDiaryDate(item.localDate)">
+                  <span class="diary-history-date">{{ item.localDate }}</span>
+                  <span class="diary-history-title">{{ item.title }}</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+          </template>
         </div>
       </div>
     </el-dialog>
 
     <el-dialog
-      v-model="studyOpen"
-      title="学习规划"
-      class="study-dialog single-panel-dialog"
+      v-model="learningOpen"
+      title="学习能力"
+      class="learning-dialog single-panel-dialog"
       width="min(860px, calc(100vw - 28px))"
       align-center
       @open="reloadGoals"
     >
       <div class="tool-dialog-layout">
-        <nav class="tool-sidebar" aria-label="功能导航">
+        <nav class="tool-sidebar" aria-label="学习导航">
           <button
-            v-for="item in toolNavItems"
+            v-for="item in learningNavItems"
             :key="item.id"
             type="button"
-            :class="{active: item.id === 'study'}"
-            :aria-current="item.id === 'study' ? 'true' : undefined"
-            @click="item.id !== 'study' && openTool(item.id)"
+            :class="{active: item.id === activeLearningView}"
+            :aria-current="item.id === activeLearningView ? 'true' : undefined"
+            @click="activeLearningView = item.id"
           >
             <component :is="item.icon" :size="18" />
             <span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span>
           </button>
         </nav>
-        <div class="single-dialog-detail">
+        <div class="tool-dialog-content">
+          <div v-if="activeLearningView === 'study'" class="single-dialog-detail">
         <p v-if="apiError" class="drawer-error">{{ apiError }}</p>
 
           <!-- AI 学习规划生成 -->
@@ -2807,34 +2837,8 @@ onUnmounted(() => {
               <li v-if="learningPlans.length === 0" class="study-empty">还没有学习规划，输入主题让 AI 生成一份路线图。</li>
             </ul>
           </div>
-      </div>
-      </div>
-    </el-dialog>
-
-    <!-- 独立错题本弹窗 -->
-    <el-dialog
-      v-model="mistakeOpen"
-      title="错题本"
-      class="mistake-dialog single-panel-dialog"
-      width="min(860px, calc(100vw - 28px))"
-      align-center
-      @open="reloadGoals"
-    >
-      <div class="tool-dialog-layout">
-        <nav class="tool-sidebar" aria-label="功能导航">
-          <button
-            v-for="item in toolNavItems"
-            :key="item.id"
-            type="button"
-            :class="{active: item.id === 'mistake'}"
-            :aria-current="item.id === 'mistake' ? 'true' : undefined"
-            @click="item.id !== 'mistake' && openTool(item.id)"
-          >
-            <component :is="item.icon" :size="18" />
-            <span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span>
-          </button>
-        </nav>
-        <div class="single-dialog-detail">
+          </div>
+          <div v-else-if="activeLearningView === 'mistake'" class="single-dialog-detail">
         <div class="settings-section">
           <div class="settings-section-heading">
             <span class="heading-icon-wrap"><Puzzle :size="18" /></span>
@@ -2968,63 +2972,14 @@ onUnmounted(() => {
             </li>
           </ul>
         </div>
-      </div>
-      </div>
-    </el-dialog>
-
-    <el-dialog
-      v-model="diaryOpen"
-      title="日记本"
-      class="diary-dialog"
-      width="min(860px, calc(100vw - 28px))"
-      align-center
-    >
-      <div class="tool-dialog-layout">
-        <nav class="tool-sidebar" aria-label="功能导航">
-          <button
-            v-for="item in toolNavItems"
-            :key="item.id"
-            type="button"
-            :class="{active: item.id === 'diary'}"
-            :aria-current="item.id === 'diary' ? 'true' : undefined"
-            @click="item.id !== 'diary' && openTool(item.id)"
-          >
-            <component :is="item.icon" :size="18" />
-            <span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span>
-          </button>
-        </nav>
-        <div class="tool-dialog-content">
-          <p class="drawer-intro">思思根据今天我们一起聊过、记下和做过的事，替你写一篇日记。</p>
-          <div class="diary-actions">
-            <button type="button" class="diary-generate-btn" :disabled="diaryBusy" @click="generateDiaryNow">
-              <NotebookPen v-if="!diaryBusy" :size="16" />
-              <span>{{ diaryBusy ? '思思正在写…' : (viewingDiary ? '让思思改写今天的' : '让思思现在写') }}</span>
-            </button>
-          </div>
-          <p v-if="diaryError" class="drawer-empty" role="alert">{{ diaryError }}</p>
-          <article v-if="viewingDiary" class="diary-card">
-            <header class="diary-head">
-              <strong>{{ viewingDiary.title }}</strong>
-              <small class="diary-meta">{{ viewingDiary.localDate }} · {{ viewingDiary.generatedBy === 'template' ? '模板生成' : '思思手写' }}</small>
-            </header>
-            <div class="markdown-body diary-body" v-html="renderMarkdown(diaryDisplayContent)" />
-          </article>
-          <p v-else-if="!diaryBusy" class="drawer-empty">今天还没有日记，点上面的按钮让思思写一篇。</p>
-
-          <div v-if="diaryHistory.length > 0" class="settings-section" style="margin-top: 20px;">
-            <h4>历史日记 <small>{{ diaryHistory.length }}</small></h4>
-            <ul class="diary-history-list">
-              <li v-for="item in diaryHistory" :key="item.localDate">
-                <button type="button" :class="{active: viewingDiary?.localDate === item.localDate}" @click="selectDiaryDate(item.localDate)">
-                  <span class="diary-history-date">{{ item.localDate }}</span>
-                  <span class="diary-history-title">{{ item.title }}</span>
-                </button>
-              </li>
-            </ul>
           </div>
         </div>
       </div>
     </el-dialog>
+
+
+    <!-- 独立错题本弹窗 -->
+
 
     <el-dialog v-model="settingsOpen" title="设置" class="settings-dialog" width="min(860px, calc(100vw - 28px))" align-center>
       <div class="settings-layout">
