@@ -1,4 +1,10 @@
 {
+  // 抽象基类配置：仅供各包 tsconfig extends，不可直接作为 `tsc -p` 目标。
+  // 本配置无 outDir —— 直接对它运行 tsc 会把 .js/.d.ts/.d.ts.map 输出到
+  // 每个源文件旁边，与同名 .ts 并存并可能被 vitest/tsx 优先解析。
+  // `include: []` 使其被误用时直接报「无输入文件」而非静默污染 src/。
+  // 子配置均自带 include，会整体覆写本字段（include 不参与合并），故无副作用。
+  "include": [],
   "compilerOptions": {
     "target": "ES2023",
     "module": "NodeNext",
