@@ -9,6 +9,9 @@
     ".": "./src/index.ts",
     "./proactive": "./src/proactive/profile-authorization.ts",
     "./live2d/layout": "./src/live2d/layout.ts",
+    "./live2d/model": "./src/live2d/model.ts",
+    "./live2d/controller": "./src/live2d/controller.ts",
+    "./live2d/petReactions": "./src/live2d/petReactions.ts",
     "./theme": "./src/theme/index.css"
   },
   "scripts": {

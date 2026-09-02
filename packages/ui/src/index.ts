@@ -19,6 +19,8 @@ export { default as Live2DPet } from './components/Live2DPet.vue';
 export { default as AervoxBrandMark } from './components/AervoxBrandMark.vue';
 export { default as AervoxCompanionMark } from './components/AervoxCompanionMark.vue';
 export * from './live2d/model';
+export * from './live2d/controller';
+export * from './live2d/petReactions';
 export { default as PersonaManagerPanel } from './components/persona/PersonaManagerPanel.vue';
 export { default as PersonaEditDialog } from './components/persona/PersonaEditDialog.vue';
 export { default as VoiceAbilityCard } from './components/persona/VoiceAbilityCard.vue';

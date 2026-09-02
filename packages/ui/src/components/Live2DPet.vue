@@ -5,9 +5,12 @@ import { AervoxLive2DController } from '../live2d/controller'
 import { PET_REACT_EVENT, resolveLookAtElement, type PetReactionDetail } from '../live2d/petReactions'
 import { DEFAULT_AERVOX_MODEL, MIZUKI_EXPRESSIONS, MIZUKI_MOTIONS, type Live2DPose } from '../live2d/model'
 
+const emit = defineEmits<{ onSpeak: [text: string] }>()
+
 const canvasHost = ref<HTMLDivElement | null>(null)
 const status = ref<'loading' | 'ready' | 'error'>('loading')
 let controller: AervoxLive2DController | null = null
+let removePetCommandListener: (() => void) | null = null
 
 function exposeApi() {
   if (typeof window === 'undefined') return
@@ -29,9 +32,16 @@ function exposeApi() {
 function onCommand(command: PetCommand) {
   if (!controller) return
   if (command.type === 'emote' && command.emote) controller.playExpressionByName(command.emote)
-  if (command.type === 'gesture' && command.gesture) controller.playFirstAvailableMotion(new RegExp(command.gesture, 'i'))
+  if (command.type === 'gesture' && command.gesture) {
+    const patterns: Record<string, RegExp> = { wave: /wave|greeting/i, nod: /nod|yes/i, shake: /shake|no/i, stretch: /stretch/i, yawn: /yawn/i }
+    controller.playFirstAvailableMotion(patterns[command.gesture] ?? new RegExp(command.gesture, 'i'))
+  }
   if (command.type === 'react') controller.playFirstAvailableMotion(/react|tap|touch|idle/i)
-  if (command.type === 'speak' && command.text) controller.speakText(command.text)
+  if (command.type === 'speak' && command.text) {
+    controller.speakText(command.text)
+    // 气泡展示是宿主职责：speak 文本由 emit 上抛，宿主决定是否展示
+    emit('onSpeak', command.text)
+  }
   if (command.type === 'move' && typeof command.x === 'number' && typeof command.y === 'number') controller.setFocus(command.x, command.y)
 }
 
@@ -68,6 +78,9 @@ onMounted(async () => {
   try {
     await controller.load(DEFAULT_AERVOX_MODEL)
     exposeApi()
+    // 桌面端专属：桌宠独立窗口通过 preload 桥下发 PetCommand
+    // （web 工作台无 fairyDesktop，特性探测自动跳过）
+    removePetCommandListener = (window as Window & { fairyDesktop?: { onPetCommand: (callback: (command: unknown) => void) => () => void } }).fairyDesktop?.onPetCommand((value: unknown) => onCommand(value as PetCommand)) ?? null
     status.value = 'ready'
   } catch (error) {
     console.warn('[Aervox] Live2D unavailable; using fallback', error)
@@ -77,6 +90,8 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  removePetCommandListener?.()
+  removePetCommandListener = null
   window.removeEventListener(PET_REACT_EVENT, handlePetReact)
   controller?.destroy()
   controller = null

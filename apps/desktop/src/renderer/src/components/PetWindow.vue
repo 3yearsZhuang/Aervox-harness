@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import {ChevronDown, ChevronUp, Hand, Smile, X} from 'lucide-vue-next'
 import {onBeforeUnmount, onMounted, ref} from 'vue'
-import {PetHero} from '@aervox/ui'
+import {Live2DPet, PetHero} from '@aervox/ui'
 import {streamAervoxTurn, submitQuestionAnswers} from '@aervox/api-client'
 import type {AskUserQuestionAnswerItem, UserQuestionRequiredEventData} from '@aervox/contracts'
 import {replyBubbleDurationMs, stripMarkdownForBubble} from '../quick-chat'
 import {pickPetButtonPose, type PetButtonPose, type PetButtonPoseKind} from '../pet-button-poses'
-import Live2DPet from './Live2DPet.vue'
 
 const bubbleText = ref('')
 const activeQuestion = ref<UserQuestionRequiredEventData | null>(null)
@@ -172,6 +171,11 @@ const onBubble = (event: Event) => {
 }
 const onPetQuestion = (event: Event) => handleQuestionPrompt((event as CustomEvent<UserQuestionRequiredEventData>).detail)
 
+/** ui 共享 Live2DPet 的 speak 事件 → 桌宠窗口气泡（宿主职责，沿用 aervox:pet-bubble 窗口事件契约） */
+const onSpeak = (text: string) => {
+    window.dispatchEvent(new CustomEvent('aervox:pet-bubble', {detail: text}))
+}
+
 onMounted(() => {
     window.addEventListener('aervox:pet-bubble', onBubble)
     window.addEventListener('aervox:pet-question', onPetQuestion)
@@ -211,7 +215,7 @@ onBeforeUnmount(() => {
     </transition>
     <div class="pet-stage">
       <div class="pet-character">
-        <Live2DPet>
+        <Live2DPet @onSpeak="onSpeak">
           <template #fallback>
             <span class="pet-hero-scale"><PetHero /></span>
           </template>
