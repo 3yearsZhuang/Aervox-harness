@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import {computed, onBeforeUnmount, onMounted, ref} from 'vue'
 import {useAervoxLLM, type LLMConfigDto, type LLMProviderType} from '@aervox/api-client'
-import {AervoxBrandMark, AervoxCompanionMark} from '@aervox/ui'
-import Live2DPet from '@/components/Live2DPet.vue'
+import {AervoxBrandMark, AervoxCompanionMark, Live2DPet} from '@aervox/ui'
 import {applyOnboardingProvider, validateOnboardingModel} from '@/onboarding-model'
 
 const emit = defineEmits<{complete: []}>()
