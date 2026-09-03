@@ -1,13 +1,13 @@
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-01
+- 修改人：3yearszhuang · 2026-09-03
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
 > 文档版本：v1.9
 > 文档状态：评审候选（Review Candidate）  
-> 更新日期：2026-09-01
+> 更新日期：2026-09-03
 > 产品需求来源：[PRD.md](PRD.md)
 > 适用范围：原型、MVP、MVP+、P1、桌面阶段、P2、P3 及后续维护版本
 
@@ -155,6 +155,7 @@
 
 | 落地实现 | 关联 CAP | 实现位置 | 日期 | 验证 | 来源 |
 |---|---|---|---|---|---|
+| Live2D 桌宠渲染层收敛为 `@aervox/ui` 单一实现：删除 desktop 侧 `live2d/{model,controller}.ts` 与 `components/Live2DPet.vue` 双份副本（合计 −552 行）；`packages/ui` 补 `mergeExternalMotionData` 导出、`index.ts` 增导出 `live2d/{controller,petReactions}`、`package.json` 补对应 exports 子路径（否则 `Vite` 报 `Missing specifier`）；组件合入 emote 直传（去自映射恒等冗余表）、gesture 语义正则保序回退、`onSpeak` emit 与 `fairyDesktop.onPetCommand` 特性探测桥，气泡展示归宿主 `PetWindow`（ui 组件保持平台中立，Web 无死事件） | CAP-001/018 | `packages/ui/src/live2d/{model,controller}.ts`、`packages/ui/src/components/Live2DPet.vue`、`packages/ui/src/index.ts`、`packages/ui/package.json`、`apps/desktop/src/renderer/src/{pet-button-poses.ts,components/{PetWindow,OnboardingFlow}.vue}`、`apps/desktop/test/pet-motion-merge.test.ts` | 2026-09-03 | `@aervox/ui` 与 `@aervox/desktop` 各自 `vue-tsc --noEmit` 均 0 错误；`packages/ui` Vitest 9/9、`apps/desktop` Vitest 30/30 通过（含 `pet-motion-merge` 3 项真实资产用例） | 原生（收敛 `CR-007` 遗留的双份实现，见本表 2026-08-26 行；待机表现因 `diversifyIdleGroup`/`IDLE_HAND_STYLES`/`wanderGaze` 更丰富，属体验增强非缺陷） |
 | 模型 / 语音多预设与「你的思隅」设置页（CR-029）：`llm_configs` 与三张语音表升级为每租户多行（`name`+`is_active`，部分唯一激活索引，`init.ts` 幂等迁移 DROP 旧租户唯一索引）；新增 `/v1/llm/presets`、`/v1/voice/presets` 列表/新建/激活/删除端点（语音预设聚合本地/在线/输入三表按名对齐）；保留旧读写端点语义（激活配置）供运行时调用方零侵入；前端「模型与服务」「语音」面板改卡片式预设管理；侧边菜单第五项「你的思隅」限定展示「对话/人格设定/模型与服务/语音」4 分类 | CAP-020 | `packages/database/src/schema/{llm,voice,init}.ts`、`packages/database/src/repositories/{types,sqlite/{llm-config,voice-config,voice-input-config,voice-remote-config}-repository}.ts`、`packages/contracts/src/{llm-schemas,persona-schemas,openapi,index}.ts`、`packages/contracts/openapi.json`、`apps/api/src/modules/{llm,voice}/{service,routes}.ts`、`packages/api-client/src/{index,useAervoxLLM,useAervoxVoice}.ts`、`packages/ui/src/components/{llm/LLMConfigPanel.vue,voice/VoicePresetManagerPanel.vue,AervoxWorkbench.vue}`、`packages/database/test/llm-config.test.ts`、`apps/api/test/llm-config.test.ts` | 2026-08-28 | `packages/database/test/llm-config.test.ts`（新增 5 项预设用例：首项自动激活/激活切换 getConfig/激活不存在返回 null/删除激活项提升首条/删空返回 null）与 `apps/api/test/llm-config.test.ts`（新增 4 项预设 API 用例：初始空列表/新建激活切换删除闭环/404/400）通过；全仓 `mise tasks run ci-code` 22 任务通过 | 原生 |
 | 开源许可声明统一为 AGPL-3.0-or-later（源码根 `LICENSE` 自 a82f042 起已是 AGPLv3；本次对齐声明面残留：桌面端与两个官方插件清单 MIT → AGPL-3.0-or-later，根与全部 workspace 子包补齐 SPDX `license` 字段；`LICENSE` 前言目录枚举补 `plugins/`、`e2e/`；文档 CC BY-NC-SA 4.0 双许可不变） | 基础设施 | 根 `package.json`、`apps/{api,web,worker,mobile,desktop}/package.json`、`packages/{agent-loop,api-client,config,contracts,database,diary,host-agent,observability,practice-review,ui}/package.json`、`plugins/{term-explorer,study-companion}/plugin.manifest.json`、`LICENSE`（前言）、`docs/reference/REQUIREMENTS_TRACEABILITY.md`（本行） | 2026-08-30 | 全部改动 JSON 以 node `JSON.parse` 校验通过；`mise tasks run ci-docs` 显式退出码 0；`mise tasks run ci-code` 全量 | 原生 |
 | Turn 流活性治理：创建/执行解耦（后台执行）、SSE 重放+轮询 tail+心跳、思考增量 reasoning_delta 双格式透传（reasoning_content/reasoning）、provider 与客户端空闲超时语义、桌面取消闭环 | CAP-013/019 | `packages/config/src/index.ts`、`packages/agent-loop/src/{types,executor,openai-compat-provider}.ts`、`packages/contracts/src/{schemas,openapi,index}.ts`、`apps/api/src/modules/conversation/{routes,agent-executor}.ts`、`packages/api-client/src/{transport,desktop-transport,useAervoxTurn}.ts`、`apps/desktop/src/{main/index.ts,preload/index.ts,preload/domains/aervox-api.ts,renderer/src/env.d.ts}`、`packages/ui/src/components/AervoxWorkbench.vue`、`packages/contracts/openapi.json` | 2026-08-29 | `openai-compat-provider.test.ts`（双格式透出/不混入正文/空闲超时）、`executor.test.ts`（reasoning_delta 落库序号连续）、`desktop-transport.test.ts`（空闲重置/超时取消/onReasoning）、`conversation-loop.test.ts`（background/inline 语义）、`conversation-cancel.test.ts`；全仓 build/typecheck/test | 原生（供应商流格式调研与设计见 `CR-027`） |
