@@ -189,7 +189,7 @@ export async function fetchModel3Json(model: AervoxLive2DModel): Promise<Resolve
 
 interface ExternalMotionData { motions?: string[]; expressions?: string[] }
 
-async function mergeExternalMotionData(asset: ResolvedCubismAsset, metadataUrl: string, options: { includeExpressions: boolean }): Promise<void> {
+export async function mergeExternalMotionData(asset: ResolvedCubismAsset, metadataUrl: string, options: { includeExpressions: boolean }): Promise<void> {
   const url = new URL(metadataUrl, asset.manifestUrl)
   if (url.origin !== new URL(asset.manifestUrl).origin || !url.href.startsWith(asset.baseUrl)) {
     throw new Error('Live2D metadata must stay inside the model directory')

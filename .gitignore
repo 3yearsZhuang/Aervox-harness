@@ -43,3 +43,23 @@ playwright-report/
 package-lock.json
 app.js
 *.inspect.ndjson
+
+# WorkBuddy 本地工作目录（memory / 技能 / 会话态，不应入库）
+.workbuddy/
+
+# tsc 产物误入 src/ 的提交兜底（根因护栏见 tsconfig.base.json 的 "include": []）
+# 编译产物与同名 .ts 并存时，vitest/tsx 会优先解析到过期的 .js ——
+# 表现为「行为与源码不符」且不报任何错。此处只做提交层面的兜底，不替代根因护栏。
+packages/*/src/**/*.js
+packages/*/src/**/*.d.ts
+packages/*/src/**/*.js.map
+packages/*/src/**/*.d.ts.map
+apps/*/src/**/*.js
+apps/*/src/**/*.d.ts
+apps/*/src/**/*.js.map
+apps/*/src/**/*.d.ts.map
+
+# 例外：手写类型声明与 vendored 运行库（新增此类文件仍需显式 git add -f）
+!**/env.d.ts
+!**/sherpa-onnx-node.d.ts
+!**/*.min.js

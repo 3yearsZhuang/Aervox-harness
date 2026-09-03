@@ -2,8 +2,8 @@ import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { mergeExternalMotionData } from '../src/renderer/src/live2d/model.js'
-import type { CubismModel3Json, ResolvedCubismAsset } from '../src/renderer/src/live2d/model.js'
+import { mergeExternalMotionData } from '@aervox/ui/live2d/model'
+import type { CubismModel3Json, ResolvedCubismAsset } from '@aervox/ui/live2d/model'
 
 const modelRoot = fileURLToPath(new URL('../src/renderer/public/live2d/mizuki', import.meta.url))
 const manifestUrl = 'https://pet.local/live2d/mizuki/mizuki.model3.json'

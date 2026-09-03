@@ -5,7 +5,7 @@
  * 点击时随机取用避免连续点击动作重复；无 Live2D 桥（PetHero 回退）时由
  * 调用方 optional-chain 静默跳过。
  */
-import {MizukiExpression, MizukiMotion} from './live2d/model'
+import {MizukiExpression, MizukiMotion} from '@aervox/ui/live2d/model'
 
 export interface PetButtonPose {
     motion: MizukiMotion
