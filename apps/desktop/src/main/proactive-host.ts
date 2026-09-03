@@ -19,18 +19,13 @@ import {
   PROFILE_CAPABILITY_CATALOG,
   deriveProfileEffectiveState,
 } from '@aervox/contracts/proactive'
+import type {ProactiveCapabilityProbeResult} from './proactive-source-adapters'
 
 const STATE_VERSION = 1 as const
 const ACTIVATION_TTL_MS = 5 * 60 * 1000
 
 type MediaType = 'microphone' | 'camera' | 'screen'
 type MediaAccessValue = 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown'
-
-export interface ProactiveCapabilityProbeResult {
-  status: ProfileOsStatus
-  reason?: string
-  canRequest?: boolean
-}
 
 interface PersistedProactiveState {
   version: typeof STATE_VERSION
