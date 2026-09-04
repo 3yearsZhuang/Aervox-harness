@@ -5,7 +5,7 @@
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
-> 文档版本：v1.12
+> 文档版本：v1.13
 > 文档状态：评审候选（Review Candidate）  
 > 更新日期：2026-09-04
 > 产品需求来源：[PRD.md](PRD.md)
@@ -355,6 +355,8 @@
 | CAP-020 扩展中心：插件管理页「安装插件」表单入口（表单直装，声明式 tools/skills 随装注册） | `CAP-020` + 基础设施 | `packages/api-client/src/useAervoxPlugins.ts`（`installPlugin`：POST /v1/plugins 载荷透传 + 安装后列表自动刷新，`PluginInstallInputDto`）、`packages/ui/src/components/plugin/plugin-install-form.ts`（`validatePluginInstallForm` 纯函数校验：必填三元组/JSON 合法性/tools 数组元素 name/skills name+content 规范化）、`packages/ui/src/components/plugin/PluginInstallDialog.vue`（新弹窗：id/publisher/version + 权限/工具/技能 JSON 声明，installSource=manual）、`packages/ui/src/components/plugin/PluginManagerPanel.vue`（插件 Tab 工具栏「安装插件」按钮 + 空状态指引更新）、`packages/ui/test/plugin-install-form.test.ts` 5、`packages/api-client/test/plugins.test.ts` 1 | 2026-09-01 | `@aervox/ui` 9 用例（新增表单校验 5）+ `@aervox/api-client` 26（新增 installPlugin 1）；安装端点复用既有 `POST /v1/plugins`（`plugin-config.test.ts`/`skills.test.ts` 已覆盖）；`@aervox/ui` `vue-tsc` 零错误；ci-code 全量 | 原生 |
 | W-15 Live2D 桌宠模型资产单源收敛（REFACTOR-PLAN W-15） | CAP-033 + 基础设施（资产收敛） | `packages/live2d/`（`@aervox/live2d`：`mizuki/` 模型资源单份真源 303 文件 6.3M + `scripts/copy-assets.mjs` 构建期拷贝），`packages/public/`（`@aervox/public`：`aervox-mark.svg` 两端 favicon + `aervox-intro/` desktop 产品介绍页真源 + `scripts/copy-assets.mjs`），`.gitmodules`（移除 2 条 live2d-mizuki submodule 指针），`apps/{web,desktop}/package.json`（依赖 `@aervox/live2d` + `@aervox/public`，turbo `^build` 触发拷贝），`.gitignore`（`apps/*/public/live2d/` 拷贝产物不入库） | 2026-09-04 | web `vite build`：dist 含 mizuki 303 文件 + svg、无 intro（desktop 专属正确）；desktop `electron-vite build`：out 含 mizuki 303 + svg + intro 7 文件；两端 `vue-tsc` 0 错误；Vitest 30/30 通过；ci-docs 0 warning | 原生 |
 | W-16 `reference/` 设计输入子仓库浅克隆（REFACTOR-PLAN W-16） | 基础设施（仓库体积 / CI 效率） | `.gitmodules`（8 个 `reference/*` 设计输入子仓库全部追加 `shallow = true`：deepseek-harness / pi / baishou-next / dsh-synapse / AstrBot / Petra / OpenMAIC / archify；合计约 4.4G 全量历史，其中 baishou-next 2.8G、deepseek-harness 1.4G 占大头）、`docs/getting-started.md`（第 7 步补 shallow 说明：新 clone 只取 pinned commit 单层历史，CI `submodules: recursive` 同样受益；已完整 clone 的历史不自动缩减，需手动 `git submodule update --init --depth 1`；设计输入按需 init、不参与构建）、`README.md`（第 105 行同步 W-15 事实：Live2D 资产真源改为 `packages/live2d/mizuki`，不再经 git submodule） | 2026-09-04 | `git config -f .gitmodules --get-regexp "submodule\..*\.shallow"` 8 条全部 `true`；`git submodule status` 8 个 pinned commit 未变（`4d877c9`/`9a28ca3`/`b629b29`/`06dd052`/`d95bae0`/`b150a55`/`a323f76`/`c49906e`）；ci-docs 0 warning | 原生 |
+
+| W-17 `artifacts/` 目录治理（REFACTOR-PLAN W-17） | 基础设施（仓库资产治理） | `README.md`（仓库结构段补充 `artifacts/` 用途说明：pitch-preview 含 Midnight Galaxy 与 Tech Innovation 两版 PPT 及预览图，非代码资产、不参与构建与打包，仅供对外推介取用）、`artifacts/pitch-preview/`（已入库、零源码引用；onboarding PR #111 `7d42cf2` 误提交，主题与产品不符，裁定保留并显式说明用途）、`.gitignore`（已豁免，不参与打包） | 2026-09-04 | `git grep -r "pitch-preview" apps packages modules` 零源码引用（仅 README 与文档引用）；README 仓库结构段含 `artifacts/` 说明；ci-docs 0 warning | 原生 |
 
 ## 5. 原子需求字段模板
 
