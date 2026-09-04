@@ -75,7 +75,7 @@
 | `AVX-EXPL-007` | [运动与健康数据接入评估](explanation/health-data-integration-assessment.md) | 2026-08-29 | 移动端形态 / 数据隐私 / 苹果或小米接入政策变更 | 接入路径、敏感分级或阶段结论与 CR-024 / DATA_PRIVACY 不一致 |
 | `AVX-EXPL-008` | [主动智能模式设计方案](explanation/proactive-intelligence-mode.md) | 2026-08-29 | CR-023/CAP-033、完全访问、全量画像、OS 能力授权、特权观察 Host、本地处理、动作授权、CAP-022/026/027/030 变更 | 四维状态、完整画像 manifest、平台能力清单、OS grant、本地出网边界、七天提炼保留、动作授权、阻断项或实现门禁与基线不一致 |
 | `AVX-DOC-001` | [文档索引](README.md) | 2026-08-29 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
-| `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-08-29 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |
+| `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-09-04 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |
 
 ## 维护规则
 

@@ -1,7 +1,7 @@
 # Aervox｜思隅
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-31
+- 修改人：3yearszhuang · 2026-09-04
 
 更好上手的"主动智能" Agent：以桌宠为入口，视觉小说 + 工作台双形态交互，承载陪伴与学习双重任务。TypeScript 全栈 monorepo 交付：Fastify API + Worker + 桌面 / Web / 移动端共享同一契约，SQLite 为业务真源。产品定义、工程规范与契约事实源一律在 [docs/](docs/README.md)，本 README 只做索引与速查。
 
@@ -68,7 +68,8 @@ packages/
   api-client/   Web/Desktop 共享 API 客户端（Turn/SSE、设置、收件箱）
   ui/           Web/Desktop 共享 UI 组件与 composables
   practice-review/  复习排期 @aervox/practice-review（CAP-006，幂等 + 时区安全调度）
-reference/      参考仓库子模块（deepseek-harness / pi / baishou-next / dsh-synapse / AstrBot / Petra，仅设计验证）
+reference/      参考仓库子模块（deepseek-harness / pi / baishou-next / dsh-synapse / AstrBot / Petra / OpenMAIC / archify，仅设计验证；已配置 shallow = true，按需 init）
+artifacts/      对外推介材料（pitch-preview：Midnight Galaxy 与 Tech Innovation 两版 PPT 及预览图），非代码资产、不参与构建与打包，仅供对外介绍取用
 docs/            按 Diátaxis 四分类组织；_meta 存放文档治理机器策略
 AGENTS.md        AI 协作入口（薄入口，深链 docs/；被 AI 编码工具自动加载）
 ```
@@ -102,7 +103,7 @@ AERVOX_API_URL='http://127.0.0.1:3000' AERVOX_SESSION_ID='<现有会话 ID>' pnp
 
 - **CSS 骨架**（`PetHero`）：静态 DOM + CSS 变换表达 emote/gesture，无外部素材依赖；
 - **Codex Pets 兼容精灵图**（`SpritePet`）：消费 Codex Pets 9 状态 spritesheet（`pet.json` + 8×9 atlas），工具调用结果经 `/v1/tools/:id/call` 的 `sheetState` 驱动姿态（成功 `waving` / 失败 `failed`）；
-- **Live2D 桌宠**（CR-007，可替换渲染层）：Web 工作台与 Electron 独立桌宠窗口经 git submodule 加载 Live2D 模型资产（如 `apps/web/public/live2d`），加载失败回退 CSS 骨架；沉浸式桌宠工作台重构（雾蓝主题 + 液态玻璃菜单 + Live2D 满高对齐）已落地（#70）。
+- **Live2D 桌宠**（CR-007，可替换渲染层）：Web 工作台与 Electron 独立桌宠窗口加载 Live2D 模型资产（真源 `packages/live2d/mizuki`，构建期拷贝至两端 `public/live2d/`，W-15 收敛后不再经 git submodule），加载失败回退 CSS 骨架；沉浸式桌宠工作台重构（雾蓝主题 + 液态玻璃菜单 + Live2D 满高对齐）已落地（#70）。
 
 ### 环境变量
 

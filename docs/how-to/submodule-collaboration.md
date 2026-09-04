@@ -66,7 +66,7 @@ git add .gitmodules modules/<name>
 ```
 
 1. 在[能力注册表](../reference/capability-registry.md)声明状态/启用方式/接口边界/关联 ADR。
-2. 更新根 `pnpm-workspace.yaml` 打包范围（需含 `modules/*`) 并在主 app 声明 `workspace:*` 依赖。
+2. 更新根 `pnpm-workspace.yaml` 打包范围（若尚未声明 `modules/*`，先加回该条目；当前仓库未声明，属 ADR-001/AVX-CAP-001 预留的可选能力 submodule 宿主机制）并在主 app 声明 `workspace:*` 依赖。
 
 > 新增模块属于机制变更类，需同步更新文档登记表核验日期。
 

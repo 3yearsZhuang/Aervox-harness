@@ -1,0 +1,12 @@
+{
+  "name": "@aervox/live2d",
+  "version": "0.1.0",
+  "license": "AGPL-3.0-or-later",
+  "private": true,
+  "type": "module",
+  "description": "Aervox Live2D 桌宠模型资源包：mizuki 模型单份真源，构建期拷贝至 desktop/web 的 public 目录（W-15 收敛）。",
+  "files": ["mizuki"],
+  "scripts": {
+    "build": "node scripts/copy-assets.mjs"
+  }
+}
