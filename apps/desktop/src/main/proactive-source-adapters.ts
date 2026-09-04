@@ -1372,11 +1372,8 @@ export function createProactiveSourceAdapters(
   };
 }
 
-/** Explicit alias used by callers that want to emphasize Electron wiring. */
-export const createElectronProactiveSourceAdapters = createProactiveSourceAdapters;
-
 /** Build a host-compatible probe callback without granting unsupported sources. */
-export function createProactiveCapabilityProbe(
+function createProactiveCapabilityProbe(
   adapters: ProactiveSourceAdapters,
 ): (sourceId: ProfileSourceId) => Promise<ProactiveCapabilityProbeResult | undefined> {
   return async (sourceId) => {
