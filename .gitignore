@@ -34,6 +34,10 @@ data/
 apps/desktop/src/renderer/public/live2d-test/
 apps/web/public/live2d-test/
 
+# 构建期拷贝的 Live2D 桌宠模型产物（真源：packages/live2d/mizuki，W-15 收敛）
+apps/desktop/src/renderer/public/live2d/
+apps/web/public/live2d/
+
 # Playwright E2E artifacts
 test-results/
 playwright-report/
