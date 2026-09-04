@@ -68,7 +68,8 @@ packages/
   api-client/   Web/Desktop 共享 API 客户端（Turn/SSE、设置、收件箱）
   ui/           Web/Desktop 共享 UI 组件与 composables
   practice-review/  复习排期 @aervox/practice-review（CAP-006，幂等 + 时区安全调度）
-reference/      参考仓库子模块（deepseek-harness / pi / baishou-next / dsh-synapse / AstrBot / Petra，仅设计验证）
+reference/      参考仓库子模块（deepseek-harness / pi / baishou-next / dsh-synapse / AstrBot / Petra / OpenMAIC / archify，仅设计验证；已配置 shallow = true，按需 init）
+artifacts/      对外推介材料（pitch-preview：Midnight Galaxy 与 Tech Innovation 两版 PPT 及预览图），非代码资产、不参与构建与打包，仅供对外介绍取用
 docs/            按 Diátaxis 四分类组织；_meta 存放文档治理机器策略
 AGENTS.md        AI 协作入口（薄入口，深链 docs/；被 AI 编码工具自动加载）
 ```
