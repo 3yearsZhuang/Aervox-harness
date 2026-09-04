@@ -1,24 +1,32 @@
 [submodule "reference/deepseek-harness"]
 	path = reference/deepseek-harness
 	url = https://github.com/deepseek-ai/deepseek-harness
+	shallow = true
 [submodule "reference/pi"]
 	path = reference/pi
 	url = https://github.com/earendil-works/pi
+	shallow = true
 [submodule "reference/baishou-next"]
 	path = reference/baishou-next
 	url = https://github.com/foxletters-hq/BaiShou-Next.git
+	shallow = true
 [submodule "reference/dsh-synapse"]
 	path = reference/dsh-synapse
 	url = https://github.com/liangmianya/dsh-synapse.git
+	shallow = true
 [submodule "reference/AstrBot"]
 	path = reference/AstrBot
 	url = https://github.com/AstrBotDevs/AstrBot.git
+	shallow = true
 [submodule "reference/Petra"]
 	path = reference/Petra
 	url = https://github.com/Wumiu/Petra.git
+	shallow = true
 [submodule "reference/OpenMAIC"]
 	path = reference/OpenMAIC
 	url = https://github.com/THU-MAIC/OpenMAIC.git
+	shallow = true
 [submodule "reference/archify"]
 	path = reference/archify
 	url = https://github.com/tt-a1i/archify
+	shallow = true

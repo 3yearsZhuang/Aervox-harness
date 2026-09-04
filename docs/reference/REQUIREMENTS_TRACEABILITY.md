@@ -5,7 +5,7 @@
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
-> 文档版本：v1.11
+> 文档版本：v1.12
 > 文档状态：评审候选（Review Candidate）  
 > 更新日期：2026-09-04
 > 产品需求来源：[PRD.md](PRD.md)
@@ -354,6 +354,7 @@
 | 工作台信息架构重构：主导航收敛为「工具管理/学习能力/主动智能/详细设置」四个一级入口 | `CAP-001` + 基础设施（工作台壳层；主动智能入口承接 `CAP-033`） | `packages/ui/src/components/AervoxWorkbench.vue`（menu-pill 6 项收敛为 4 项；原 5 个功能弹窗（待办/番茄钟/对话回看/日记/学习规划+错题本 6 入口）合并为「工具管理」（todo/timer/history/diary 子页切换 + 回看视觉小说层直通）与「学习能力」（study/mistake 子页切换）两个分组弹窗；`openTool` 重写为分组路由 + `switchToolView`；主动智能/详细设置经 `openSettingsCategory` 带分类打开设置弹窗；对话回看保持独立视觉小说 overlay；卡片目录/设置快捷工具区调用点零改动）、`packages/ui/src/theme/workbench.css`（弹窗选择器组 todo/timer→tools/learning；timer 子页居中改 `.content-centered`） | 2026-09-01 | `@aervox/ui` `vue-tsc` 零错误；Vue SFC 模板解析 0 错误；`@aervox/desktop` + `@aervox/web` 构建通过；ci-code 22/22 全量 | 原生 |
 | CAP-020 扩展中心：插件管理页「安装插件」表单入口（表单直装，声明式 tools/skills 随装注册） | `CAP-020` + 基础设施 | `packages/api-client/src/useAervoxPlugins.ts`（`installPlugin`：POST /v1/plugins 载荷透传 + 安装后列表自动刷新，`PluginInstallInputDto`）、`packages/ui/src/components/plugin/plugin-install-form.ts`（`validatePluginInstallForm` 纯函数校验：必填三元组/JSON 合法性/tools 数组元素 name/skills name+content 规范化）、`packages/ui/src/components/plugin/PluginInstallDialog.vue`（新弹窗：id/publisher/version + 权限/工具/技能 JSON 声明，installSource=manual）、`packages/ui/src/components/plugin/PluginManagerPanel.vue`（插件 Tab 工具栏「安装插件」按钮 + 空状态指引更新）、`packages/ui/test/plugin-install-form.test.ts` 5、`packages/api-client/test/plugins.test.ts` 1 | 2026-09-01 | `@aervox/ui` 9 用例（新增表单校验 5）+ `@aervox/api-client` 26（新增 installPlugin 1）；安装端点复用既有 `POST /v1/plugins`（`plugin-config.test.ts`/`skills.test.ts` 已覆盖）；`@aervox/ui` `vue-tsc` 零错误；ci-code 全量 | 原生 |
 | W-15 Live2D 桌宠模型资产单源收敛（REFACTOR-PLAN W-15） | CAP-033 + 基础设施（资产收敛） | `packages/live2d/`（`@aervox/live2d`：`mizuki/` 模型资源单份真源 303 文件 6.3M + `scripts/copy-assets.mjs` 构建期拷贝），`packages/public/`（`@aervox/public`：`aervox-mark.svg` 两端 favicon + `aervox-intro/` desktop 产品介绍页真源 + `scripts/copy-assets.mjs`），`.gitmodules`（移除 2 条 live2d-mizuki submodule 指针），`apps/{web,desktop}/package.json`（依赖 `@aervox/live2d` + `@aervox/public`，turbo `^build` 触发拷贝），`.gitignore`（`apps/*/public/live2d/` 拷贝产物不入库） | 2026-09-04 | web `vite build`：dist 含 mizuki 303 文件 + svg、无 intro（desktop 专属正确）；desktop `electron-vite build`：out 含 mizuki 303 + svg + intro 7 文件；两端 `vue-tsc` 0 错误；Vitest 30/30 通过；ci-docs 0 warning | 原生 |
+| W-16 `reference/` 设计输入子仓库浅克隆（REFACTOR-PLAN W-16） | 基础设施（仓库体积 / CI 效率） | `.gitmodules`（8 个 `reference/*` 设计输入子仓库全部追加 `shallow = true`：deepseek-harness / pi / baishou-next / dsh-synapse / AstrBot / Petra / OpenMAIC / archify；合计约 4.4G 全量历史，其中 baishou-next 2.8G、deepseek-harness 1.4G 占大头）、`docs/getting-started.md`（第 7 步补 shallow 说明：新 clone 只取 pinned commit 单层历史，CI `submodules: recursive` 同样受益；已完整 clone 的历史不自动缩减，需手动 `git submodule update --init --depth 1`；设计输入按需 init、不参与构建）、`README.md`（第 105 行同步 W-15 事实：Live2D 资产真源改为 `packages/live2d/mizuki`，不再经 git submodule） | 2026-09-04 | `git config -f .gitmodules --get-regexp "submodule\..*\.shallow"` 8 条全部 `true`；`git submodule status` 8 个 pinned commit 未变（`4d877c9`/`9a28ca3`/`b629b29`/`06dd052`/`d95bae0`/`b150a55`/`a323f76`/`c49906e`）；ci-docs 0 warning | 原生 |
 
 ## 5. 原子需求字段模板
 
