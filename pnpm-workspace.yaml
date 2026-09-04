@@ -1,9 +1,6 @@
 packages:
   - "apps/*"
   - "packages/*"
-  # 预留：ADR-014 规划的模块化宿主目录（业务模块自管 routes + 依赖注入），
-  # 目录尚未创建；pnpm 对不存在的通配目录无副作用，保留以待迁移落地。
-  - "modules/*"
 
 # pnpm 11：允许 esbuild / electron 构建脚本（下载平台二进制），显式阻断 better-sqlite3 原生编译（@aervox/database 实际使用 @libsql/client）
 # electron-winstaller 为 electron-builder 传递依赖（仅 Squirrel 目标使用，本项目用 NSIS），不执行安装脚本
