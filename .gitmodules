@@ -25,3 +25,6 @@
 [submodule "reference/OpenMAIC"]
 	path = reference/OpenMAIC
 	url = https://github.com/THU-MAIC/OpenMAIC.git
+[submodule "reference/archify"]
+	path = reference/archify
+	url = https://github.com/tt-a1i/archify
