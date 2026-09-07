@@ -19,6 +19,7 @@ import {
 } from "../../schema/index.js";
 import { assertTenantContext, type TenantContext } from "../../tenant.js";
 import { FencingMismatchError } from "../../errors.js";
+import { readSessionHistory } from "./session-history.js";
 import type {
   IConversationRepository,
   SessionModel,
@@ -34,6 +35,10 @@ import type {
 
 export class SqliteConversationRepository implements IConversationRepository {
   constructor(private readonly db: AervoxDatabase) {}
+
+  getSessionHistory(tenant: TenantContext, input: { sessionId: string; beforeTurnId: string }) {
+    return readSessionHistory(this.db, tenant, input);
+  }
 
   async createSession(tenant: TenantContext, title: string): Promise<SessionModel> {
     assertTenantContext(tenant);
