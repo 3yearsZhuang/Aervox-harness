@@ -238,6 +238,7 @@ export interface MemoryRecordModel {
   category?: string; // identity/preference/habit/schedule/relationship/event/other
   keywordsJson?: string | null;
   lastUsedAt?: string | null;
+  verificationStatus?: string;
   createdAt: string;
   updatedAt: string;
 }

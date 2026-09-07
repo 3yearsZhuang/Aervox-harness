@@ -51,6 +51,7 @@ import {
   isLiteralLoopbackUrl,
   loadProactiveProfilePrompt,
 } from "../proactive/profile-context.js";
+import { buildMemoryContext, type MemoryRecallPort } from "./memory-recall.js";
 
 /** SqliteExecutionStore 组合根适配由 @aervox/host-agent 提供（见上方 import），API 不再自维护 SQLite 执行存储 */
 
@@ -607,6 +608,8 @@ export async function runLoopTurnOnce(
     proactiveActionAuthorizer?: ProactiveActionAuthorizer;
     /** CAP-033：本地画像声明来源；仅在有效且本地模型准入时注入。 */
     proactiveRepository?: IProactiveProfileRepository;
+    /** CAP-005：普通长期记忆 FTS + 向量混合召回。 */
+    memoryRecall?: MemoryRecallPort;
   } = {},
 ): Promise<void> {
   // 阶段 7（ADR-017）：Step 级 ModelRun + 每 Turn ContextManifest 快照落库（委托 platform 域）
@@ -720,6 +723,7 @@ export async function runLoopTurnOnce(
       ? deps.skills.filter((s) => personaAllowedSkills.includes(s.name))
       : deps.skills;
   let history: ReturnType<SqliteConversationRepository["getSessionHistory"]> | undefined;
+  let memoryContext: Promise<string | null> | undefined;
   let contextBuilder = createComposedContextBuilder({
     base: {
       async build(context) {
@@ -728,6 +732,12 @@ export async function runLoopTurnOnce(
           beforeTurnId: input.turnId,
         });
         const previous = await history;
+        memoryContext ??= deps.memoryRecall
+          ? deps.memoryRecall.recall(tenant, input.userMessage)
+              .then(buildMemoryContext)
+              .catch(() => null)
+          : Promise.resolve(null);
+        const recalled = await memoryContext;
         const index = context.messages.findIndex((message) => message.role !== "system");
         const insertion = index < 0 ? context.messages.length : index;
         return {
@@ -736,6 +746,7 @@ export async function runLoopTurnOnce(
           messages: [
             ...context.messages.slice(0, insertion),
             ...previous,
+            ...(recalled ? [{ role: "system" as const, content: recalled }] : []),
             ...context.messages.slice(insertion),
           ],
         };
