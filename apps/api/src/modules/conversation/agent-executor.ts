@@ -16,7 +16,6 @@ import {
   createAskUserQuestionToolProvider,
   createPracticeAttemptToolProvider,
   createSummaryCompaction,
-  defaultContextBuilder,
   executeTurn,
 } from "@aervox/agent-loop";
 import type {
@@ -720,8 +719,28 @@ export async function runLoopTurnOnce(
     personaAllowedSkills && deps.skills
       ? deps.skills.filter((s) => personaAllowedSkills.includes(s.name))
       : deps.skills;
+  let history: ReturnType<SqliteConversationRepository["getSessionHistory"]> | undefined;
   let contextBuilder = createComposedContextBuilder({
-    base: defaultContextBuilder,
+    base: {
+      async build(context) {
+        history ??= repo.getSessionHistory(tenant, {
+          sessionId: input.sessionId,
+          beforeTurnId: input.turnId,
+        });
+        const previous = await history;
+        const index = context.messages.findIndex((message) => message.role !== "system");
+        const insertion = index < 0 ? context.messages.length : index;
+        return {
+          turnId: context.turnId,
+          sessionId: context.sessionId,
+          messages: [
+            ...context.messages.slice(0, insertion),
+            ...previous,
+            ...context.messages.slice(insertion),
+          ],
+        };
+      },
+    },
     baseSystemPrompt: {
       assistantName: deps.persona?.name || "思隅 (Aervox)",
       personaPrompt: deps.persona?.prompt,
