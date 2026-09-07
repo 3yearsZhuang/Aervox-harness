@@ -113,9 +113,17 @@ describe("T-04/PET-05 工具系统接线", () => {
     expect(res.statusCode).toBe(200);
     expect(res.json().isError).toBeUndefined();
     const text = res.json().content[0].text as string;
-    const result = JSON.parse(text) as { memoryId: string; isCandidate: boolean };
+    const result = JSON.parse(text) as { memoryId: string; isCandidate: boolean; embeddingStatus: string };
     expect(result.memoryId).toBeTruthy();
     expect(result.isCandidate).toBe(false);
+    expect(result.embeddingStatus).toBe("indexed");
+    const embeddings = await client.execute({
+      sql: "SELECT model_id, dimension FROM memory_embeddings WHERE memory_id = ?",
+      args: [result.memoryId],
+    });
+    expect(embeddings.rows).toHaveLength(1);
+    expect(embeddings.rows[0]?.model_id).toBe("aervox-local-feature-hash-v1-256");
+    expect(Number(embeddings.rows[0]?.dimension)).toBe(256);
 
     const memories = await app.inject({
       method: "GET",

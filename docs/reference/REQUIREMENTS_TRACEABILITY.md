@@ -1,13 +1,13 @@
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：kikoyida · 2026-09-07
+- 修改人：kikoyida · 2026-09-08
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
 > 文档版本：v1.15
 > 文档状态：评审候选（Review Candidate）  
-> 更新日期：2026-09-07
+> 更新日期：2026-09-08
 > 产品需求来源：[PRD.md](PRD.md)
 > 适用范围：原型、MVP、MVP+、P1、桌面阶段、P2、P3 及后续维护版本
 
@@ -217,6 +217,7 @@
 | 已集成能力迁移与 DSH/pi 接入教程文档化 | CAP-020/027 | `docs/tutorials/migrate-integrated-capabilities.md`（AVX-TUT-002） | 2026-08-26 | ci-docs | `DSH-01` + `PI-01` + 原生 |
 | Agent Harness Loop 目标规范与迁移计划文档化 | CAP-002/005/007/008/019/020/027 + 基础设施 | `docs/reference/agent-harness-loop.md`（AVX-HAR-001）、`docs/reference/changes/CR-012-agent-harness-loop.md` | 2026-08-28 | ci-docs | `DSH-01` + `PI-01` + 原生 |
 | 跨 Turn 会话历史接入模型上下文 | CAP-002/013 | `packages/database/src/repositories/sqlite/session-history.ts`、`apps/api/src/modules/conversation/agent-executor.ts`、`packages/host-agent/src/sqlite-resume-source.ts` | 2026-09-07 | API `conversation-history.test.ts` 3 项检查实际模型请求；Database `session-history.test.ts` 7 项覆盖隔离、顺序、删除/脱敏、版本和预算；Host `sqlite-resume-source.test.ts` 6 项覆盖续跑历史；全仓 build/typecheck 与 ci-docs 通过 | 原生 |
+| 普通记忆默认向量化与对话混合召回 | CAP-002/005/013 | `apps/api/src/modules/tools/embedding-provider.ts`（默认本地特征哈希）、`tools/{index,runtime,memory-store-tool}.ts`（写入接线）、`conversation/{memory-recall,agent-executor,index,routes}.ts`（FTS + 向量 RRF 召回并注入 ContextBuilder）、`packages/database/src/repositories/types.ts`（校验状态读取） | 2026-09-08 | API `tools-plugins.test.ts` 验证默认写入 256 维向量；`conversation-history.test.ts` 验证已确认记忆进入实际模型请求、未确认推断不召回；相关 build/typecheck 与 ci-docs | 原生（复用 T-02/T-05） |
 | Live2D/共享静态资产 workspace 锁文件同步 | 基础设施 | `pnpm-lock.yaml`（补齐 `apps/desktop`、`apps/web` 对 `@aervox/live2d`、`@aervox/public` 的 workspace importer，并登记两个包 importer） | 2026-09-07 | `mise x -- pnpm install --frozen-lockfile` 通过；相关依赖构建 8/8 通过 | 原生 |
 | 文档治理与事实源标准化（AVX-DOC-GOV-001 / CR-017） | 基础设施（文档治理） | `docs/reference/document-governance.md`、`docs/_meta/document-policy.json`、`scripts/docs-governance.mjs`、`mise.toml`、`.github/workflows/docs.yml`；同步 `docs/README.md`、`docs/DOC_REGISTRY.md`、`docs/getting-started.md`、`docs/reference/standards/doc-standards.md`、`README.md`、`CONTRIBUTING.md`、`AGENTS.md` | 2026-08-28 | `mise tasks run docs-validate`；`mise tasks run ci-docs`；`git diff --check` | 原生 |
 | 文档登记强度分级（L1 编辑性 / L2 内容更新 / L3 结构性） | 基础设施（文档治理） | [doc-standards §3.1](standards/doc-standards.md#31-改动等级与同步要求)、`docs/DOC_REGISTRY.md` 维护规则、`AGENTS.md` 硬约束 | 2026-08-26 | ci-docs | 原生 |
