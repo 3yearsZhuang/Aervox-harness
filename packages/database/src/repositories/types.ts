@@ -70,7 +70,17 @@ export interface OutboxEventModel {
   publishedAt?: string | null;
 }
 
+export interface SessionHistoryMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export interface IConversationRepository {
+  /** 当前轮之前、同租户同会话的有界安全历史；不含当前输入。 */
+  getSessionHistory(
+    tenant: TenantContext,
+    input: { sessionId: string; beforeTurnId: string },
+  ): Promise<SessionHistoryMessage[]>;
   createSession(tenant: TenantContext, title: string): Promise<SessionModel>;
   getSession(tenant: TenantContext, sessionId: string): Promise<SessionModel | null>;
   getOrCreateSession(tenant: TenantContext, sessionId: string, title?: string): Promise<SessionModel>;
@@ -228,6 +238,7 @@ export interface MemoryRecordModel {
   category?: string; // identity/preference/habit/schedule/relationship/event/other
   keywordsJson?: string | null;
   lastUsedAt?: string | null;
+  verificationStatus?: string;
   createdAt: string;
   updatedAt: string;
 }

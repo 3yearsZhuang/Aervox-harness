@@ -51,6 +51,11 @@ export class ToolRuntime {
     });
   }
 
+  /** 与写入侧共享的向量空间，供对话召回查询复用。 */
+  getEmbeddingProvider(): MemoryEmbeddingProvider | null {
+    return this.deps.embeddingProvider ?? null;
+  }
+
   /** 补充插件/扩展 handler（工具注册表条目需另行 registerTool 持久化） */
   registerHandler(toolId: string, handler: ToolHandler): void {
     this.handlers.set(toolId, handler);

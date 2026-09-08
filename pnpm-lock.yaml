@@ -93,6 +93,12 @@ importers:
       '@aervox/contracts':
         specifier: workspace:^
         version: link:../../packages/contracts
+      '@aervox/live2d':
+        specifier: workspace:*
+        version: link:../../packages/live2d
+      '@aervox/public':
+        specifier: workspace:*
+        version: link:../../packages/public
       '@aervox/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -149,6 +155,12 @@ importers:
       '@aervox/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@aervox/live2d':
+        specifier: workspace:*
+        version: link:../../packages/live2d
+      '@aervox/public':
+        specifier: workspace:*
+        version: link:../../packages/public
       '@aervox/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -337,6 +349,8 @@ importers:
         specifier: 4.0.18
         version: 4.0.18(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
 
+  packages/live2d: {}
+
   packages/observability:
     devDependencies:
       typescript:
@@ -354,6 +368,8 @@ importers:
       vitest:
         specifier: 4.0.18
         version: 4.0.18(@types/node@24.13.3)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
+
+  packages/public: {}
 
   packages/ui:
     devDependencies:
