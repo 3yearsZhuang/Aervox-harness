@@ -12,7 +12,10 @@ import {
 } from "@aervox/database";
 import { registerToolRoutes } from "./routes.js";
 import { ToolRuntime } from "./runtime.js";
-import type { MemoryEmbeddingProvider } from "./embedding-provider.js";
+import {
+  LocalFeatureHashEmbeddingProvider,
+  type MemoryEmbeddingProvider,
+} from "./embedding-provider.js";
 
 export interface RegisterToolsModuleOptions {
   /** 生产环境注入真实 embedding 服务；未注入时记忆工具向量降级 skipped */
@@ -27,13 +30,16 @@ export function registerToolsModule(
   const registry = new SqliteToolRegistryRepository(db);
   const memoryRepo = new SqliteMemoryRepository(db, client);
   const embeddingRepo = new SqliteMemoryEmbeddingRepository(db);
+  const embeddingProvider = options.embeddingProvider === undefined
+    ? new LocalFeatureHashEmbeddingProvider()
+    : options.embeddingProvider;
 
   const runtime = new ToolRuntime({
     registry,
     memoryRepo,
     embeddingRepo,
     client,
-    embeddingProvider: options.embeddingProvider ?? null,
+    embeddingProvider,
   });
 
   // 同步登记内置工具（幂等；enabled 保持既有开关）

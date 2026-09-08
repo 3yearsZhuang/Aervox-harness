@@ -45,6 +45,7 @@ import { registerLLMModule, type LLMServiceOptions } from "./modules/llm/index.j
 import { registerProactiveModule } from "./modules/proactive/index.js";
 import type { ModuleContext } from "./modules/context.js";
 import type { ToolRuntime } from "./modules/tools/runtime.js";
+import type { MemoryEmbeddingProvider } from "./modules/tools/embedding-provider.js";
 import { createAuthHook, type AuthConfig } from "./shared/auth.js";
 import { createToolApprovalPolicyHook } from "./shared/tool-approval-policy.js";
 import { ApiError, type ApiErrorCode } from "./shared/errors.js";
@@ -72,6 +73,8 @@ export interface BuildAppOptions {
   mcpOptions?: McpModuleOptions;
   /** LLM 模型服务配置 */
   llmOptions?: LLMServiceOptions;
+  /** 长期记忆向量 Provider；undefined 使用本地特征哈希，null 显式关闭向量通道。 */
+  embeddingProvider?: MemoryEmbeddingProvider | null;
   /** 阶段 5c：已注册 Workflow 定义清单（贡献 workflow_run 工具 + GET /v1/workflows） */
   workflows?: WorkflowDefinition[];
   /** 认证配置（缺省从环境加载：AERVOX_AUTH_MODE / AERVOX_AUTH_TOKEN） */
@@ -173,7 +176,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
 
   // 先注册「被依赖」模块并填充共享服务（依赖方经 ctx 读取；顺序显式）：
   // tools → llm 必须早于 conversation（Agent Loop 依赖）；voice/skills 早于 persona
-  ctx.toolRuntime = registerToolsModule(ctx);
+  ctx.toolRuntime = registerToolsModule(ctx, { embeddingProvider: options.embeddingProvider });
   // MCP 预设模块：复用 toolRuntime 注册远程工具（依赖 tools 先行装配）
   registerMcpModule(ctx, options.mcpOptions);
   ctx.llmConfigService = registerLLMModule(ctx, options.llmOptions);

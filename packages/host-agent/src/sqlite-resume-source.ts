@@ -49,6 +49,11 @@ export function createSqliteResumeSource(deps: SqliteResumeSourceDeps): TurnSour
         const decision = decideResume(events as never, executions as never);
         if (!decision.resume) continue; // 非可续 → 交由既有恢复语义收敛
         const rebuilt = buildResumeHistory({ userMessage: c.userMessage, events: events as never });
+        const previous = await repo.getSessionHistory(tenant, {
+          sessionId: c.sessionId,
+          beforeTurnId: c.turnId,
+        });
+        rebuilt.history.unshift(...previous);
         // B3：结果未确定但工具声明 replay:safe → 注入合成结果（TOOL_NOT_STARTED /
         // TOOL_OUTCOME_UNKNOWN）为 tool 消息，指导模型不再重复执行副作用后继续原 Attempt。
         // 合成结果仅存在于重建上下文，不写事件/账本——保持事件流只含权威提交边界（§11.3）。

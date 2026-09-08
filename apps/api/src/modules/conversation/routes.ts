@@ -27,6 +27,7 @@ import { runLoopTurnOnce } from "./agent-executor.js";
 import { UserQuestionCoordinator } from "./user-question-coordinator.js";
 import { loadApiConfig } from "@aervox/config";
 import type { ProactiveActionAuthorizer } from "../proactive/action-authorizer.js";
+import type { MemoryRecallPort } from "./memory-recall.js";
 
 let seq = 0;
 const nextTurnId = (): string => `turn_${Date.now().toString(36)}_${(++seq).toString(36)}`;
@@ -62,6 +63,8 @@ export interface ConversationRouteDeps {
   proactiveActionAuthorizer?: ProactiveActionAuthorizer;
   /** CAP-033：本地画像上下文来源。 */
   proactiveRepository?: import("@aervox/database").IProactiveProfileRepository;
+  /** CAP-005：普通长期记忆混合召回，按 request tenant 绑定。 */
+  memoryRecall?: MemoryRecallPort;
 }
 
 export function registerConversationRoutes(
@@ -190,6 +193,7 @@ export function registerConversationRoutes(
         practiceAttemptPort,
         proactiveActionAuthorizer: deps.proactiveActionAuthorizer,
         proactiveRepository: deps.proactiveRepository,
+        memoryRecall: deps.memoryRecall,
       },
     );
     if (loadApiConfig().turnExecution === "inline") {

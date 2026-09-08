@@ -97,6 +97,31 @@ describe("SqliteResumeSource（续跑候选源）", () => {
     repo = new SqliteConversationRepository(db);
   });
 
+  it("续跑携带此前会话历史，并保留本轮权威工具结果", async () => {
+    await repo.getOrCreateSession(tenant, "ses_src");
+    await repo.createTurnWithOutbox(tenant,
+      { id: "previous", sessionId: "ses_src", idempotencyKey: "previous", status: "Completed" },
+      { id: "previous_user", content: "我叫小庄" });
+    await repo.appendStreamEvent(tenant, {
+      id: "previous_delta", turnId: "previous", sequence: 1, eventType: "delta",
+      safetyDecision: "approved", data: { messageId: "previous_assistant", text: "好的，小庄。" },
+    });
+    await repo.appendStreamEvent(tenant, {
+      id: "previous_done", turnId: "previous", sequence: 2, eventType: "done",
+      safetyDecision: "approved",
+      data: { messageId: "previous_assistant", status: "Completed", isComplete: true },
+    });
+    await seedExpiredAttemptWithCommittedTool();
+    const source = createSqliteResumeSource({ repo, client });
+    const [candidate] = await source.listClaimable(10);
+    expect(candidate?.resume?.history.slice(0, 3)).toEqual([
+      { role: "user", content: "我叫小庄" },
+      { role: "assistant", content: "好的，小庄。" },
+      { role: "user", content: "帮我查复习计划" },
+    ]);
+    expect(candidate?.resume?.history.at(-1)?.role).toBe("tool");
+  });
+
   it("命中可续候选：产出携带 resume 上下文的 ClaimableTurn", async () => {
     await seedExpiredAttemptWithCommittedTool();
     const source = createSqliteResumeSource({ repo, client });

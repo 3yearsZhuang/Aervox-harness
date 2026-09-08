@@ -1,12 +1,12 @@
 # Agent Harness Loop 设计与落地规范
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-08-31
+- 修改人：kikoyida · 2026-09-08
 
 > 文档编号：AVX-HAR-001  
 > 类型：Reference  
 > 版本：v0.5
-> 更新日期：2026-08-31
+> 更新日期：2026-09-08
 > 状态：Review Candidate  
 > 关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[ADR-016](adr/ADR-016-base-boundaries.md)、[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md)、[CR-012](changes/CR-012-agent-harness-loop.md)、[CR-021](changes/CR-021-ask-user-question-capability.md)、[CR-022](changes/CR-022-full-access-tool-permission.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
@@ -250,6 +250,10 @@ function shouldConcludeToolBatch(
 5. 本 Step 可见工具 schema；
 6. 上一 Step 的规范化工具结果；
 7. 当前可消费 inbox item。
+
+当前 API 的跨 Turn 历史由会话仓储读取，并在固定系统提示词后、本轮输入前注入，每轮执行只读取一次。范围为同租户、同 Session、当前 Turn 插入之前的最近 20 个已完成非子任务 Turn；采用最新有效用户版本及完成 Attempt 的已批准助手正文，不包含工具原始结果或思考过程。删除、脱敏、不完整或未通过安全门的轮次不进入历史；32000 字符预算按完整对话轮保留近期内容，不生成摘要。SQLite 适配器使用插入序号区分同毫秒 Turn，后续数据库适配需保持同等顺序边界。恢复器复用同一读取规则，再追加当前 Turn 的权威事件重建历史；子任务仍保持上下文隔离。超出窗口的对话仍需后续摘要策略。
+
+普通长期记忆由独立召回来源进入 ContextBuilder：当前用户消息使用与写入侧相同的 embedding provider 生成查询向量，与租户隔离的 `memories_fts` 结果并行检索，经 RRF 融合后最多回读 5 条权威记录。只允许 `verified`、未删除、`long_term` 记录进入模型上下文；召回失败按无记忆降级，不阻断 Turn。默认 Provider 是 256 维本地特征哈希，只提供词面和局部相似度、无需联网；生产可注入语义 embedding provider，并由 `modelId` 隔离向量空间。召回正文上限 4000 字符，以不可信数据形式注入，不能作为系统指令、工具调用或授权。
 
 每个来源必须进入 ContextManifest，记录来源 ID/版本、purpose、权限快照、截断/压缩方式和内容 hash。原始 Restricted 内容默认不进入日志。目标模型是“一次 ModelRun 对应一个不可变 Manifest，多个来源对应多行 manifest entries”；当前表通过 `modelRunId` 间接表达该关系，没有 `stepId`/`attemptId`，且当前 Loop 尚未创建 ModelRun/Manifest 记录，因此在 ADR/数据库迁移中必须冻结是否新增这两个关联字段（推荐新增 `attemptId`、`stepId`，并以 ModelRun 作为唯一父级），以及每个 Step/ModelRun 的 cardinality，不能继续用“按 Step/ModelRun 固化”这一含糊表述。
 
