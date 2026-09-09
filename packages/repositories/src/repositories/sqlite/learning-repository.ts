@@ -35,7 +35,7 @@ import type {
   LearningPlanModel,
   PlanMilestoneModel,
   PlanTaskModel,
-} from "../types.js";
+} from "../types/index.js";
 
 export class SqliteLearningRepository implements ILearningRepository {
   constructor(private readonly db: AervoxDatabase) {}

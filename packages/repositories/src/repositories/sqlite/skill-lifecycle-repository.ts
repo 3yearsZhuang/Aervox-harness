@@ -25,7 +25,7 @@ import type {
   SkillCandidateModel,
   SkillPayloadModel,
   SkillReleaseModel,
-} from "../types.js";
+} from "../types/index.js";
 
 export class SqliteSkillLifecycleRepository implements ISkillLifecycleRepository {
   constructor(private readonly db: AervoxDatabase) {}

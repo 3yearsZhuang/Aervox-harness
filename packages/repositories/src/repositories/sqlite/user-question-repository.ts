@@ -15,7 +15,7 @@ import type {
   IUserQuestionRepository,
   PendingUserQuestionModel,
   PendingUserQuestionUpsertInput,
-} from "../types.js";
+} from "../types/index.js";
 
 type PendingRow = typeof pendingUserQuestions.$inferSelect;
 

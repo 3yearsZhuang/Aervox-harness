@@ -15,7 +15,7 @@ import type {
   AgentInboxEnqueueInput,
   AgentInboxItemModel,
   IAgentInboxRepository,
-} from "../types.js";
+} from "../types/index.js";
 
 type InboxRow = typeof agentInboxItems.$inferSelect;
 

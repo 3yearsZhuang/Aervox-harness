@@ -26,7 +26,7 @@ import type {
   AuditRecordModel,
   ToolPolicyModel,
   EvalSetModel,
-} from "../types.js";
+} from "../types/index.js";
 
 export class SqlitePlatformRepository implements IPlatformRepository {
   constructor(private readonly db: AervoxDatabase) {}

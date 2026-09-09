@@ -1,12 +1,12 @@
 # Aervox｜思隅 数据库设计与双引擎契约（DBC）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-31
+- 修改人：3yearszhuang · 2026-09-09
 
 > 文档编号：AVX-DB-001  
 > 类型：Reference  
-> 版本：v0.10（CAP-020 MCP 预设服务器接入）
-> 更新日期：2026-08-31
+> 版本：v0.11（W-19 阶段 4：持久层拆分与表/DDL 引用重定向）
+> 更新日期：2026-09-09
 > 状态：Review Candidate  
 > 关联：`CR-003`、`CR-023`、`ADR-003`、`ADR-004`、`ADR-007`、`ADR-011`、`ADR-012`、`ADR-013`、`AVX-SPC-001`、`AVX-PRD-001`、`NFR-SCALE-001`、`NFR-SEC-001`
 
@@ -30,6 +30,7 @@
 | v0.8 | 2026-08-29 | CAP-033 主动智能模式数据面新增授权修订、来源 grant、激活租约、原始捕获、画像声明、动作和本地审计表；补七天提炼清理、local-only 边界和导出/撤权契约 |
 | v0.9 | 2026-08-29 | CR-024 新增十二项主动智能派生、Home Assistant 连接/实体和小米健康每日样本共 17 张本地表；补凭据加密、白名单、同步、导出与连接级删除 |
 | v0.10 | 2026-08-29 | CAP-020 MCP 预设接入：新增系统级 `mcp_servers` 连接配置表（transport/endpoint/本地 Token 不回显/同步状态）与 `IMcpServerRepository`；同步出的远程工具以 `mcp__<serverId>__<toolName>` 命名落 `tool_registrations`（PET-05 分级），预设首项为麦当劳中国官方 MCP（mcd-mcp，Streamable HTTP） |
+| v0.11 | 2026-09-09 | W-19 阶段 4：持久层去巨型文件，文档中表结构与 DDL 初始化路径重定向至 `@aervox/schema` 与 `@aervox/repositories` |
 
 ---
 
@@ -67,7 +68,7 @@
 
 ### 2.1 SQLite 共享真源路径约定
 
-- **共享真源文件**：所有进程（API、Worker、未来端侧）默认使用同一文件 `<repo>/data/aervox.db`。路径由 `packages/database/src/client.ts` 的 `createDatabase` 经 `import.meta.url` 定位仓库根后计算，源码与编译产物（`dist`）均解析到同一位置，避免各包各自落库导致数据不互通。
+- **共享真源文件**：所有进程（API、Worker、未来端侧）默认使用同一文件 `<repo>/data/aervox.db`。路径由 `packages/repositories/src/client.ts` 的 `createDatabase` 经 `import.meta.url` 定位仓库根后计算，源码与编译产物（`dist`）均解析到同一位置，避免各包各自落库导致数据不互通。
 - **自动建目录**：`createDatabase` 在 `createClient`（libsql 构造时即打开文件）之前自动 `fs.mkdirSync(data/, { recursive: true })`，首次启动无需手工创建。
 - **覆盖优先级**：`config.url` > `DATABASE_URL` 环境变量 > 默认共享路径。临时隔离/测试仍可显式传 `url` 或设 `DATABASE_URL`。
 - **多进程并发**：SQLite WAL 模式（`PRAGMA journal_mode=WAL; synchronous=NORMAL; busy_timeout`）支持 API / Worker 多进程同时读写同一文件；写事务由 SQLite 串行化 + 仓储层 lease/fencing（§9）兜底。
@@ -503,7 +504,7 @@ erDiagram
 
 ### 3.1 租户列与时间列约定
 
-[schema/common.ts](../../packages/database/src/schema/common.ts#L6-L17) 定义的 `tenantColumns` 与 `timestampColumns` 通过 Drizzle 展开在所有业务表上，避免遗漏：
+[schema/common.ts](../../packages/schema/src/common.ts#L6-L17) 定义的 `tenantColumns` 与 `timestampColumns` 通过 Drizzle 展开在所有业务表上，避免遗漏：
 
 - `tenantColumns = (workspace_id TEXT NOT NULL, subject_user_id TEXT NOT NULL)`：每个仓储方法首个参数必须是 `TenantContext`；`assertTenantContext` 在执行 SQL 前先校验非空且格式合法。
 - `timestampColumns = (created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`：全部 ISO8601 UTC 字符串，默认通过 `$defaultFn(() => new Date().toISOString())` 在 ORM 层写入；**不得使用数据库服务器 `CURRENT_TIMESTAMP`**，避免与应用时区漂移。
@@ -917,7 +918,7 @@ flowchart TB
 
 ## 7. Repository / Vector Search Port 接口签名契约
 
-严禁破坏性变更；新增参数必须带默认值，新增方法必须与旧方法共存至少一个阶段。签名定义见 [packages/database/src/repositories/types.ts](../../packages/database/src/repositories/types.ts#L1-L242)：
+严禁破坏性变更；新增参数必须带默认值，新增方法必须与旧方法共存至少一个阶段。签名定义见 [packages/repositories/src/repositories/types/index.ts](../../packages/repositories/src/repositories/types/index.ts#L1-L242)：
 
 | Port 接口 | 关键方法 | 不变量 |
 |---|---|---|
@@ -1019,15 +1020,15 @@ flowchart TB
 
 ## 13. 参考与落地代码
 
-- 真源 schema：[packages/database/src/schema/](../../packages/database/src/schema)
-- CAP-033 主动智能控制/捕获 schema：[proactive.ts](../../packages/database/src/schema/proactive.ts)；CAP-033～035 派生与连接 schema：[proactive-intelligence.ts](../../packages/database/src/schema/proactive-intelligence.ts)；初始化：[init.ts](../../packages/database/src/schema/init.ts)
-- 连接与共享库路径：[client.ts](../../packages/database/src/client.ts#L21-L23)（`createDatabase` 默认 `<repo>/data/aervox.db`，见 §2.1）
-- 公共列定义：[common.ts](../../packages/database/src/schema/common.ts#L6-L17)
-- DDL 初始化脚本：[init.ts](../../packages/database/src/schema/init.ts#L9-L219)
-- Repository Port 签名：[repositories/types.ts](../../packages/database/src/repositories/types.ts#L1-L242)
-- SQLite 对话仓储：[conversation-repository.ts](../../packages/database/src/repositories/sqlite/conversation-repository.ts#L59-L80)
-- FTS5 集成：[search/fts.ts](../../packages/database/src/search/fts.ts#L12-L104)
-- 向量检索 Port：[search/vector-port.ts](../../packages/database/src/search/vector-port.ts#L8-L109)
+- 真源 schema：[packages/schema/src/](../../packages/schema/src)
+- CAP-033 主动智能控制/捕获 schema：[proactive.ts](../../packages/schema/src/proactive.ts)；CAP-033～035 派生与连接 schema：[proactive-intelligence.ts](../../packages/schema/src/proactive-intelligence.ts)；初始化：[init.ts](../../packages/repositories/src/schema/ddl/index.ts)
+- 连接与共享库路径：[client.ts](../../packages/repositories/src/client.ts#L21-L23)（`createDatabase` 默认 `<repo>/data/aervox.db`，见 §2.1）
+- 公共列定义：[common.ts](../../packages/schema/src/common.ts#L6-L17)
+- DDL 初始化脚本：[init.ts](../../packages/repositories/src/schema/ddl/index.ts#L9-L219)
+- Repository Port 签名：[repositories/types.ts](../../packages/repositories/src/repositories/types/index.ts#L1-L242)
+- SQLite 对话仓储：[conversation-repository.ts](../../packages/repositories/src/repositories/sqlite/conversation-repository.ts#L59-L80)
+- FTS5 集成：[search/fts.ts](../../packages/repositories/src/search/fts.ts#L12-L104)
+- 向量检索 Port：[search/vector-port.ts](../../packages/repositories/src/search/vector-port.ts#L8-L109)
 - 变更请求：[CR-003 SQLite 真源 + PG 兼容](changes/CR-003-sqlite-primary-pg-compat.md)
 - 架构决策：[ADR-003 仓储抽象与 PostgreSQL 检索](adr/ADR-003-postgres-retrieval.md)
 - Outbox 契约：[ADR-004 Outbox + 幂等作业](adr/ADR-004-outbox-idempotent-jobs.md)
@@ -1165,7 +1166,7 @@ flowchart TB
 | ProactiveAction | P3 | 已落表 | `proactive_actions`；local/external/privileged/irreversible 动作授权与结果 |
 | ProactiveAuditEvent | P3 | 已落表 | `proactive_audit_events`；授权、恢复、动作、撤权、导出和删除审计 |
 
-上述表已在 `packages/database/src/schema/proactive.ts` 和 `schema/init.ts` 建立结构/初始化骨架；完整采集适配器、Provider 本地证明、删除 Worker 和双引擎迁移仍待实现，不能据此宣称 CAP-033 已发布。
+上述表已在 `packages/schema/src/proactive.ts` 和 `packages/repositories/src/schema/ddl/index.ts` 建立结构/初始化骨架；完整采集适配器、Provider 本地证明、删除 Worker 和双引擎迁移仍待实现，不能据此宣称 CAP-033 已发布。
 
 ### 14.10 主动智能派生与外部连接域（CAP-033～035）
 
@@ -1179,7 +1180,7 @@ flowchart TB
 | HomeEntity | 已落表 | `proactive_home_entities`；`connectionId+entityId` 唯一，默认 `enabled=false`，保存 service 白名单与受限状态属性 |
 | HealthSample | 已落表 | `proactive_health_samples`；`tenant+connection+metric+localDate` 唯一，只保存步数、睡眠分钟、静息心率和最小元数据 |
 
-实现真源：[proactive-intelligence.ts](../../packages/database/src/schema/proactive-intelligence.ts)、[proactive-intelligence-repository.ts](../../packages/database/src/repositories/sqlite/proactive-intelligence-repository.ts) 与 [init.ts](../../packages/database/src/schema/init.ts)。连接删除先停止运行时，再删除 `proactive_external_connections` 及对应 HA 实体/健康样本；导出不包含连接凭据。
+实现真源：[proactive-intelligence.ts](../../packages/schema/src/proactive-intelligence.ts)、[proactive-intelligence-repository.ts](../../packages/repositories/src/repositories/sqlite/proactive-intelligence-repository.ts) 与 [init.ts](../../packages/repositories/src/schema/ddl/index.ts)。连接删除先停止运行时，再删除 `proactive_external_connections` 及对应 HA 实体/健康样本；导出不包含连接凭据。
 
 ### 14.10 未覆盖结论与下一步
 
@@ -1187,4 +1188,4 @@ flowchart TB
 - **MVP（R1）+ MVP+（R1.5）优先队列已完成**：学习/反馈/会话补齐/溯源/记忆/平台/安全/隐私/埋点/内容/日记域实体全部落表（含 ToolPolicy/AnalyticsEvent/EvalSet、DiarySchedule 等日记域补表、Attachment/EmbeddingIndex、Persona/Skills/MCP 6 张人格域表）。
 - **P1（R2）已完成**：`MemoryNode`/`MemoryEdgeEvidence`/`MemoryAlgorithm`（记忆树投影独立化，memory_edges/overrides 已迁移到节点级）、`ConversationBranch`、`KnowledgeRelation` 已全部落表。
 - **P2/P3 扩展已完成**：`ExternalSource`、`Plugin`/`PluginGrant`、`CommunityContent`、`Organization` 已全部落表（为生态/社区功能预留）。
-- 每张新表上线前必须在 [schema/](../../packages/database/src/schema) 建表、在 [repositories/types.ts](../../packages/database/src/repositories/types.ts) 补 Port 签名、在 §11 登记 TC，并同步更新本文档 ERD 与本文清单状态。
+- 每张新表上线前必须在 [schema/](../../packages/schema/src) 建表、在 [repositories/types.ts](../../packages/repositories/src/repositories/types/index.ts) 补 Port 签名、在 §11 登记 TC，并同步更新本文档 ERD 与本文清单状态。

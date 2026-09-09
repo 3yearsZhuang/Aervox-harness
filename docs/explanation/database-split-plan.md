@@ -5,7 +5,7 @@
 
 > 文档编号：AVX-EXPL-009
 > 类型：Explanation
-> 版本：v0.4
+> 版本：v0.5
 > 更新日期：2026-09-09
 > 状态：Review Candidate
 > 关联：[文档索引](../README.md)、[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md)、[ADR-014 演进式模块化单体](../reference/adr/ADR-014-modular-monolith-structure.md)
@@ -79,11 +79,13 @@ REFACTOR-PLAN 给出的自然切分是 `@aervox/schema` + `@aervox/repositories`
 
 - 把 `packages/database/src/repositories/` 平移到 `@aervox/repositories`，同样用 re-export 保持对外接口不变。
 
-### 阶段 4：去巨型文件
+### 阶段 4：去巨型文件 ✅ 已完成（PR #159，2026-09-09）
 
-- `repositories/types.ts`（3,378 行）按仓储域拆分，与 `schema/` 表文件一一对应。
-- `schema/init.ts`（2,581 行）按表域拆分 DDL，或抽 `migrations/` 目录。
-- 风险最高，需单独立 PR，配足类型 / 测试回归。
+- `repositories/types.ts`（3,378 行）→ `repositories/types/`（34 个域文件 + `index.ts` barrel，合计 3,489 行含 barrel 导入），按仓储域拆分，与 `schema/` 表文件一一对应；公开类型经 barrel 聚合，导出集合逐字节等价。
+- `schema/init.ts`（2,581 行）→ `schema/ddl/`（37 个域文件 + `common.ts` + `index.ts` barrel，合计 2,822 行含 barrel 导入）；`initDatabaseSchema` / `initLedgerSchema` 经 barrel 聚合导出，DDL 文本逐字节不变（`CREATE` 语句 256 条 = 原 256 条，含 122 张表）；控制流（`addColumnIfMissing` 幂等补齐、`model_runs` / `context_manifests` 条件迁移、`proactiveIntelligenceDdl` 数组 + `for` 循环）完整保留在对应域文件内。
+- 导入方更新：`packages/repositories/src/index.ts` 与 `repositories/index.ts` 的 barrel 指向；33 个 `repositories/sqlite/*.ts` 的 `../types.js` → `../types/index.js`；`repositories/sqlite/recovery-ledger-repository.ts` 的 `../../schema/init.js` → `../../schema/ddl/index.js`（唯一内部直引 `init.ts` 的文件）。
+- 验证：`@aervox/repositories` typecheck 通过；37 测试文件 / 192 测试全绿；`schema` → `repositories` → `database` 三包 `tsc` 构建成功且 `apps/host-agent`（67 passed / 1 skipped）、`apps/worker`（10 passed）经 built dist 跑通，证明公开导出路径未变、拆分对消费者透明；全仓 `packages/**`（排除 `dist`）及 `apps/**` 源码无 `schema/init.js` / `repositories/types.js` 残留引用；DDL 语句计数与原 `init.ts` 完全一致（256 = 256）。
+- 风险最高，单独立 PR，配足类型 / 测试回归。注：`apps/api` 全量并行测试在本沙箱出现 `LibsqlError: CLIENT_CLOSED` 未处理拒绝（集中在测试拆卸期关闭 libsql client 后仍 pending 的查询），属测试基础设施在并发压力下的抖动，与本次文件重组无关（错误栈落在未改动的 built `dist/write-retry.js` / `client`，且 `worker` / `host-agent` 经同一 dist 全绿）；以 `--no-file-parallelism` 串行复跑可显著降低发生频次。
 
 ### 阶段 5：切消费面（清理兼容包的前置）
 

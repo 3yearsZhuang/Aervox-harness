@@ -7,7 +7,7 @@ import { eq, and, desc } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { feedback } from "@aervox/schema";
 import { assertTenantContext, type TenantContext } from "../../tenant.js";
-import type { IFeedbackRepository, FeedbackModel } from "../types.js";
+import type { IFeedbackRepository, FeedbackModel } from "../types/index.js";
 
 export class SqliteFeedbackRepository implements IFeedbackRepository {
   constructor(private readonly db: AervoxDatabase) {}

@@ -2,7 +2,7 @@ import { and, desc, eq, inArray, isNull, lt, notLike, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { messages, messageVersions, turns, turnStreamEvents } from "@aervox/schema";
 import { assertTenantContext, type TenantContext } from "../../tenant.js";
-import type { SessionHistoryMessage } from "../types.js";
+import type { SessionHistoryMessage } from "../types/index.js";
 
 const MAX_HISTORY_TURNS = 20;
 const MAX_HISTORY_CHARACTERS = 32_000;
