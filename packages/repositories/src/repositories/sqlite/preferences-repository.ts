@@ -12,7 +12,7 @@ import { assertTenantContext, type TenantContext } from "../../tenant.js";
 import type {
   IPersonaPreferencesRepository,
   PersonaPreferencesModel,
-} from "../types.js";
+} from "../types/index.js";
 
 export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRepository {
   constructor(private readonly db: AervoxDatabase) {}

@@ -13,7 +13,7 @@ import type {
   AttachmentModel,
   AttachmentParseResultModel,
   EmbeddingIndexModel,
-} from "../types.js";
+} from "../types/index.js";
 
 export class SqliteContentRepository implements IContentRepository {
   constructor(private readonly db: AervoxDatabase) {}

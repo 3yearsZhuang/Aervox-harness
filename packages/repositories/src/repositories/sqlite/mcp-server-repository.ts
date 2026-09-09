@@ -7,7 +7,7 @@
 import { eq } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { mcpServers } from "@aervox/schema";
-import type { IMcpServerRepository, McpServerModel } from "../types.js";
+import type { IMcpServerRepository, McpServerModel } from "../types/index.js";
 
 export class SqliteMcpServerRepository implements IMcpServerRepository {
   constructor(private readonly db: AervoxDatabase) {}

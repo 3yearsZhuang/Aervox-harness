@@ -24,7 +24,7 @@ import type {
   DiaryVersionModel,
   DiaryParagraphSourceModel,
   DiaryMaterialBufferModel,
-} from "../types.js";
+} from "../types/index.js";
 
 export class SqliteDiaryRepository implements IDiaryRepository {
   constructor(private readonly db: AervoxDatabase) {}

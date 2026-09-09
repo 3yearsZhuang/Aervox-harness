@@ -12,7 +12,7 @@ import type {
   IVoiceRemoteConfigRepository,
   RemoteVoiceConfigSaveInput,
   RemoteVoiceConfigModel,
-} from "../types.js";
+} from "../types/index.js";
 
 function rowToModel(row: typeof voiceRemoteConfigs.$inferSelect): RemoteVoiceConfigModel {
   return {

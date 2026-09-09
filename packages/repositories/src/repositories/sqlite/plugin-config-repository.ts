@@ -21,7 +21,7 @@ import type {
   PluginConfigSaveInput,
   PluginPageModel,
   PluginSecretModel,
-} from "../types.js";
+} from "../types/index.js";
 
 export class SqlitePluginConfigRepository implements IPluginConfigRepository {
   constructor(private readonly db: AervoxDatabase) {}
