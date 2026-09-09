@@ -5,7 +5,7 @@
 
 > 文档编号：AVX-EXPL-009
 > 类型：Explanation
-> 版本：v0.2
+> 版本：v0.3
 > 更新日期：2026-09-09
 > 状态：Review Candidate
 > 关联：[文档索引](../README.md)、[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md)、[ADR-014 演进式模块化单体](../reference/adr/ADR-014-modular-monolith-structure.md)
@@ -95,24 +95,59 @@ REFACTOR-PLAN 给出的自然切分是 `@aervox/schema` + `@aervox/repositories`
 - 当 `@aervox/database` 对消费方零引用后，删除该兼容组合包及其 re-export 层，仓库只保留 `@aervox/schema` + `@aervox/repositories`。
 - 此阶段是兼容包的**退出条件**：兼容包仅用于拆分期间的平滑过渡，最终态不含 `@aervox/database`。此阶段启动前须 `grep` 全仓确认无 `@aervox/database` 残留 import，并更新 `pnpm-workspace.yaml` / 相关 `package.json`。
 
-## 5. 待调研点（阶段 1 前置）
+## 5. 依赖方向调研结论（阶段 1 输入）
 
-1. **schema ↔ contracts 耦合**：`schema/*.ts` 对 `@aervox/contracts` 的 import 数量与方向，是否形成 `contracts → schema → repositories` 干净依赖链。
-2. **search / sync / migration 归属**：三者依赖 schema 还是 repository？决定归 `@aervox/repositories`、`@aervox/schema`，还是保留在 `@aervox/database` 作组合包。
-3. **client.ts 注入面**：`AervoxDatabase` / client 是否被 schema 或 repository 反向引用（决定是否触发方向 B 的 `database-core`）。
-4. **循环依赖风险**：平移后是否出现 `schema` ↔ `repositories` 双向 import（Drizzle 下 schema 通常不依赖 repository，但需确认 `init.ts` / 触发器等边界）。
+> 2026-09-09 实测，基于对 `packages/database/src` 全量 import 方向的静态分析，取代原「待调研点」。
+
+### 5.1 依赖方向图
+
+依赖方向统一自上而下（上层依赖下层），整体**无环**：
+
+```text
+L0 叶子/工具层   errors · write-retry · session-lock · token-usage · proactive-vault-*
+                 ▲                        ▲
+L1 类型/表结构    tenant ──▶ errors        schema/*.ts（35 表 + common，仅依赖 drizzle-orm）
+                 ▲                        ▲          ▲
+L2 组合/服务      search/* ──▶ tenant     client ──▶ schema/index + write-retry
+                 ▲                        ▲
+L3 建表          schema/init.ts ──▶ search/fts.ts（越层边）+ @libsql/client(type)
+                 ▲
+L4 数据访问       repositories/sqlite/* ──▶ schema/index + client(type) + tenant + errors
+                 sync/* · migration/* ──▶ @libsql/client(type)（独立，仅此依赖）
+```
+
+### 5.2 四个调研点结论
+
+1. **schema ↔ contracts 耦合：不存在**。`@aervox/contracts` 在 `src` 内 **0 处 import**（仅 `skills.ts`、`proactive.ts` 两处注释提及），但 `package.json` 仍声明 `workspace:*` —— **声明未用的死依赖**，阶段 1 顺手移除。schema 是纯 Drizzle 表定义层，只依赖 `drizzle-orm/sqlite-core` 与同级 `common.js`。
+
+2. **search / sync / migration 归属**：三者都**不依赖 schema 对象**，仅依赖 `@libsql/client`（`type Client`）；search 额外依赖 `tenant.js`。它们是与仓储同层的「原生 SQL / FTS / 迁移」能力，随 `@aervox/repositories` 一起走，**不留在 schema 侧**。
+
+3. **client.ts 注入面**：`AervoxDatabase = LibSQLDatabase<typeof schema>`，client 在**类型层面依赖 schema**，同时被 35 个仓储以 `type AervoxDatabase` 引用。client 是「schema 之上、仓储之下」的组合根，归属 `@aervox/repositories`，**不属 schema**（否则构成 schema → client → schema 环）。
+
+4. **循环依赖风险**：表文件（`schema/*.ts` 除 `init.ts`）零反向依赖，无环。**唯一越层边是 `schema/init.ts → search/fts.ts`**（`initFtsTables`）——非环，但属「schema 反向依赖 search」的越层引用，拆分时须处理（见 5.3）。
+
+### 5.3 拆分边界（方案 A 落定后）
+
+| 目标包 | 内容 | 依赖 |
+|---|---|---|
+| `@aervox/schema` | `schema/*.ts`（35 表 + `common.ts` + `index.ts`） | `drizzle-orm` |
+| `@aervox/repositories` | `repositories/` + `client.ts` + `errors.ts` + `tenant.ts` + `write-retry.ts` + `session-lock.ts` + `token-usage.ts` + `search/` + `sync/` + `migration/` + `schema/init.ts` | `@aervox/schema` + `drizzle-orm` + `@libsql/client` |
+
+**关键处理点**：`schema/init.ts` 依赖 `search/fts.ts`（建 FTS 表），故 `init.ts` **不随 schema 平移**，改归 `@aervox/repositories` 侧（与 client/search 同层），消除 schema → search 越层反向边。
+
+**附**：`@aervox/contracts` 死依赖在阶段 1 移除（或按 §4.2 另行登记）。
 
 ## 6. 决策待办
 
-| # | 事项 | 选项 |
+| # | 事项 | 结论 |
 |---|---|---|
 | 1 | 拆分方向 | ✅ 已定：A（两包） |
 | 2 | `@aervox/database` 是否保留为兼容组合包 | ✅ 已定：保留为过渡态兼容包，阶段 6 清理退出 |
-| 3 | 巨型文件拆分是否纳入本次 | 纳入（阶段 4）/ 先只做结构平移，巨型文件后续另立 |
-| 4 | 是否与 ADR-014 `modules/` 迁移联动 | 独立推进 / 等 ADR-014 落地后联动 |
+| 3 | 巨型文件拆分是否纳入本次 | ✅ 已定：纳入本次（阶段 4 去巨型文件） |
+| 4 | 是否与 ADR-014 `modules/` 迁移联动 | ✅ 已定：与 ADR-014 `modules/` 迁移联动推进 |
 
 ## 7. 下一步建议
 
-1. 阶段 0（立项登记 + 基线冻结）。
-2. 跑第 5 节依赖调研，产出一份依赖方向图，作为阶段 1 输入。
-3. 方向已定：A（两包）+ 保留过渡态兼容包（阶段 6 清理）；巨型文件是否纳入本次（#3）待定，确认后进入阶段 1。
+1. 阶段 0：立项登记（§4.2 新增 W-19 行）+ 基线冻结（`mise tasks run ci-code` 全绿）。
+2. 阶段 1：建包壳 + 落地依赖方向图结论（含移除 `@aervox/contracts` 死依赖、`init.ts` 归 repositories 侧）。
+3. 阶段 2 起：按 5.3 边界平移 schema（`init.ts` 除外）→ 平移 repositories → 去巨型文件 → 切消费面 → 清理兼容包，与 ADR-014 `modules/` 迁移联动推进（阶段 5 与之并收口）。
