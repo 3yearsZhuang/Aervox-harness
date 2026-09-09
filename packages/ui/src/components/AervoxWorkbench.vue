@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted } from 'vue';
 import type { Platform } from '../composables/useWorkbenchLayout';
 import PetHero from './PetHero.vue';
 import Live2DPet from './Live2DPet.vue';
-import TermExploreDialog from './TermExploreDialog.vue';
+import { registerStudyModeModule } from '../modules/study-mode';
 import WorkbenchHeader from './workbench/WorkbenchHeader.vue';
 import PomodoroToast from './workbench/PomodoroToast.vue';
 import WorkbenchNavPill from './workbench/WorkbenchNavPill.vue';
@@ -48,6 +48,7 @@ const emit = defineEmits<{
 
 const registry = useUIRegistry();
 provideUIRegistry(registry);
+registerStudyModeModule(registry);
 
 // 1. Proactive Composable
 const proactive = useWorkbenchProactive({
@@ -405,13 +406,6 @@ onUnmounted(() => {
       :show-companion="showCompanion"
       @replay-onboarding="emit('replay-onboarding')"
       @open-intro-deck="emit('open-intro-deck')"
-    />
-
-    <!-- 术语名词解释弹窗 -->
-    <TermExploreDialog
-      v-model="conversation.exploreDialogOpen.value"
-      :term="conversation.selectedTerm.value"
-      :context-text="conversation.latestAssistantLine.value?.text"
     />
   </section>
 </template>

@@ -25,6 +25,9 @@ export { default as ExtensionSlot } from './components/extension/ExtensionSlot.v
 export * from './registry/types';
 export * from './registry/ui-registry';
 
+// 专注模式第一方功能模块
+export * from './modules/study-mode';
+
 // 领域 Composables
 export * from './composables/useWorkbenchLayout';
 export * from './composables/useWorkbenchTimer';
