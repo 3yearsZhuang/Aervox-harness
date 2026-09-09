@@ -39,6 +39,7 @@ declare global {
           attachments?: TurnAttachmentRef[];
           /** CR-027：渲染层生成的请求 ID，供 cancelTurn 定位主进程在途请求 */
           requestId?: string;
+          metadata?: Record<string, unknown>;
         },
         callback: (message: unknown) => void,
       ) => () => void;
@@ -81,7 +82,7 @@ export const desktopTransport: AervoxTransport = {
   ): Promise<void> {
     const bridge = window.fairyDesktop;
     if (!bridge) throw new Error('fairyDesktop 桥不可用，请通过 Electron 启动应用。');
-    await streamTurnViaBridge(bridge, content, options.toolApprovalMode ?? 'ask', callbacks, options.attachments);
+    await streamTurnViaBridge(bridge, content, options.toolApprovalMode ?? 'ask', callbacks, options.attachments, options.metadata);
   },
 
   async submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[]): Promise<void> {
@@ -128,6 +129,7 @@ function streamTurnViaBridge(
   toolApprovalMode: ToolApprovalMode,
   callbacks: TurnCallbacks,
   attachments?: TurnAttachmentRef[],
+  metadata?: Record<string, unknown>,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -154,7 +156,7 @@ function streamTurnViaBridge(
     };
     armIdleTimer();
 
-    stop = bridge.streamTurn(content, { toolApprovalMode, attachments, requestId }, (message) => {
+    stop = bridge.streamTurn(content, { toolApprovalMode, attachments, requestId, metadata }, (message) => {
       armIdleTimer();
       if (!message || typeof message !== 'object') return;
       const envelope = message as { type?: unknown; event?: unknown; message?: unknown };

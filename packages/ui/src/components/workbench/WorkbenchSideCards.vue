@@ -4,7 +4,7 @@ import ExtensionSlot from '../extension/ExtensionSlot.vue';
 import { useWorkbenchContext } from '../../composables/workbench-context';
 
 const { layout, timer, cards } = useWorkbenchContext();
-const { assistantDisplayName, studyModeEnabled, openTool } = layout;
+const { assistantDisplayName, focusModeEnabled, studyModeEnabled, openTool } = layout;
 const {
   timerRunning,
   timerMinutes,
@@ -120,8 +120,8 @@ const {
                 </button>
               </div>
             </div>
-            <!-- 学习模式下的今日学习富卡片 -->
-            <div v-if="card.id === 'study' && studyModeEnabled" class="side-card-grid side-card-actions">
+            <!-- 专注/学习模式下的今日学习富卡片 -->
+            <div v-if="card.id === 'study' && (focusModeEnabled || studyModeEnabled)" class="side-card-grid side-card-actions">
               <button type="button" class="side-card-grid-item" @click.stop="openDailyProblem()">
                 <CircleHelp :size="15" />
                 <span>每日一题</span>

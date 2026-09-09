@@ -246,6 +246,8 @@ export const createTurnRequestSchema = z.object({
       }),
     )
     .optional(),
+  /** Turn 级可选结构化元数据（例如指定运行模式 mode: 'study' | 'quiz' 等） */
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 /** 创建 Turn 成功响应（§2.1） */

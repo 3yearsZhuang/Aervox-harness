@@ -4,7 +4,7 @@
   "schemaVersion": 1,
   "fields": [
     {
-      "key": "autoEnableStudyMode",
+      "key": "autoEnableFocusMode",
       "type": "boolean",
       "label": "默认开启专注模式",
       "description": "新会话是否默认进入苏格拉底启发式教学模式",

@@ -172,6 +172,7 @@ export function registerConversationRoutes(
         sessionId,
         attemptId,
         userMessage,
+        metadata: parsed.data.metadata,
       },
       {
         toolRuntime: deps.toolRuntime,

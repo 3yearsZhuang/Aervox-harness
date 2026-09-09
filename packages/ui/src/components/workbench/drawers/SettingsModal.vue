@@ -37,9 +37,11 @@ import { useWorkbenchContext } from '../../../composables/workbench-context';
 const props = withDefaults(
   defineProps<{
     showCompanion?: boolean;
+    focusModeAvailable?: boolean;
     studyModeAvailable?: boolean;
   }>(),
   {
+    focusModeAvailable: undefined,
     studyModeAvailable: true,
   },
 );
@@ -51,23 +53,29 @@ const emit = defineEmits<{
 
 const { layout, timer, cards, conversation, proactive, pluginRuntime } = useWorkbenchContext();
 
-const isStudyModeAvailable = computed(() => {
-  if (typeof props.studyModeAvailable === 'boolean') {
+const isFocusModeAvailable = computed(() => {
+  if (typeof props.focusModeAvailable === 'boolean') {
+    return props.focusModeAvailable;
+  }
+  if (typeof props.studyModeAvailable === 'boolean' && props.studyModeAvailable !== true) {
     return props.studyModeAvailable;
   }
-  return pluginRuntime?.isPluginAvailable('study-mode') ?? true;
+  return pluginRuntime?.isPluginAvailable('focus-mode') ?? pluginRuntime?.isPluginAvailable('study-mode') ?? true;
 });
+const isStudyModeAvailable = isFocusModeAvailable;
 
-function handleStudyModeChange(checked: boolean) {
-  if (isStudyModeAvailable.value === false) return;
-  layout.setStudyModeEnabled(checked);
+function handleFocusModeChange(checked: boolean) {
+  if (isFocusModeAvailable.value === false) return;
+  layout.setFocusModeEnabled(checked);
 }
+const handleStudyModeChange = handleFocusModeChange;
 
 
 const {
   isWeb,
   isDark,
   compactMode,
+  focusModeEnabled,
   studyModeEnabled,
   enterToSend,
   desktopCompanionEnabled,
@@ -385,16 +393,15 @@ function handleSettingsClosed(): void {
           <label class="settings-row settings-choice-row">
             <span>
               <strong>专注模式</strong>
-              <small>{{ isStudyModeAvailable === false ? '插件已停用，需先在扩展中心启用 study-mode' : '启用专属苏格拉底启发式教学与防剧透规则' }}</small>
+              <small>{{ isFocusModeAvailable === false ? '插件已停用，需先在扩展中心启用 focus-mode' : '启用专属苏格拉底启发式教学与防剧透规则' }}</small>
             </span>
             <input
-              :checked="studyModeEnabled"
-              :disabled="isStudyModeAvailable === false"
+              :checked="focusModeEnabled"
+              :disabled="isFocusModeAvailable === false"
               type="checkbox"
               class="settings-switch"
-              @change="handleStudyModeChange(($event.target as HTMLInputElement).checked)"
+              @change="handleFocusModeChange(($event.target as HTMLInputElement).checked)"
             />
-
           </label>
           <label class="settings-row settings-choice-row"><span><strong>回车发送</strong><small>关闭后，回车只换行</small></span><input v-model="enterToSend" type="checkbox" class="settings-switch" @change="saveSettings(timerMinutes)" /></label>
         </div>

@@ -27,7 +27,7 @@ const emit = defineEmits<{
 }>();
 
 const { layout, composer, conversation, proactive, sendMessage } = useWorkbenchContext();
-const { isWeb, studyModeEnabled, enterToSend, openSettingsCategory } = layout;
+const { isWeb, focusModeEnabled, studyModeEnabled, enterToSend, openSettingsCategory } = layout;
 const {
   input,
   composerOpen,
@@ -105,12 +105,12 @@ function handleVoiceTrigger() {
         {{
           streaming
             ? '思隅正在回应…'
-            : studyModeEnabled
+            : (focusModeEnabled || studyModeEnabled)
               ? '输入学习问题或卡点（专注模式已开启）…'
               : '点击输入消息…'
         }}
       </span>
-      <span v-if="studyModeEnabled" class="composer-mode-chip">专注模式</span>
+      <span v-if="focusModeEnabled || studyModeEnabled" class="composer-mode-chip">专注模式</span>
       <span class="composer-access-chip" :class="{ full: toolApprovalMode === 'full_access', proactive: proactiveActive }">
         <component :is="accessChipIcon" :size="12" />
         {{ accessChipLabel }}
@@ -135,7 +135,7 @@ function handleVoiceTrigger() {
         ref="composerTextarea"
         v-model="input"
         rows="3"
-        :placeholder="studyModeEnabled ? '输入学习问题或卡点（专注模式已开启，将引导探索而非直接给答案）…' : composerPlaceholder"
+        :placeholder="(focusModeEnabled || studyModeEnabled) ? '输入学习问题或卡点（专注模式已开启，将引导探索而非直接给答案）…' : composerPlaceholder"
         :disabled="streaming"
         @keydown.enter="handleComposerEnter"
         @input="handleComposerInputOrKey"

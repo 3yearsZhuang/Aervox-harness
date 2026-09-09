@@ -41,7 +41,8 @@ export function splitIntoSentences(text: string): string[] {
 }
 
 export function useWorkbenchConversation(options: {
-  studyModeEnabled: Ref<boolean>;
+  focusModeEnabled?: Ref<boolean>;
+  studyModeEnabled?: Ref<boolean>;
   recordActivity: (source: 'aervox.activity' | 'aervox.operation', eventType: string, payloadText?: string, metadata?: Record<string, unknown>) => void;
   onRefreshProactiveStatus?: () => Promise<void>;
 }) {
