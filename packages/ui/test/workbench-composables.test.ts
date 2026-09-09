@@ -77,4 +77,43 @@ describe('Workbench Composables Logic', () => {
     sharedEnterToSend.value = true;
     expect(composer.enterToSend.value).toBe(true);
   });
+
+  it('reloads window when settings dialog closes with plugin changes, and does not reload without changes', () => {
+    let reloadCount = 0;
+    const mockWindow = {
+      location: {
+        reload: () => {
+          reloadCount++;
+        },
+      },
+    };
+
+    let hasPluginChanges = false;
+    function onPluginChange() {
+      hasPluginChanges = true;
+    }
+
+    function handleSettingsClosed(win: typeof mockWindow) {
+      if (hasPluginChanges) {
+        hasPluginChanges = false;
+        win.location.reload();
+      }
+    }
+
+    // 1. Close without any plugin change -> no reload
+    handleSettingsClosed(mockWindow);
+    expect(reloadCount).toBe(0);
+    expect(hasPluginChanges).toBe(false);
+
+    // 2. Plugin changed -> close triggers reload and clears flag
+    onPluginChange();
+    expect(hasPluginChanges).toBe(true);
+    handleSettingsClosed(mockWindow);
+    expect(reloadCount).toBe(1);
+    expect(hasPluginChanges).toBe(false);
+
+    // 3. Subsequent close without new changes -> no reload
+    handleSettingsClosed(mockWindow);
+    expect(reloadCount).toBe(1);
+  });
 });

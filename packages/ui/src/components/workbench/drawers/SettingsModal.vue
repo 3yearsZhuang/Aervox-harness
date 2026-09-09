@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import {
   AlertTriangle,
   Bell,
@@ -113,6 +114,21 @@ const {
   proactiveCapabilitySwitchTitle,
   exportProactiveData,
 } = proactive;
+
+const hasPluginChanges = ref(false);
+
+function onPluginChange(): void {
+  hasPluginChanges.value = true;
+}
+
+function handleSettingsClosed(): void {
+  if (hasPluginChanges.value) {
+    hasPluginChanges.value = false;
+    if (typeof window !== 'undefined' && typeof window.location?.reload === 'function') {
+      window.location.reload();
+    }
+  }
+}
 </script>
 
 <template>
@@ -122,6 +138,7 @@ const {
     class="settings-dialog"
     width="min(860px, calc(100vw - 28px))"
     align-center
+    @closed="handleSettingsClosed"
   >
     <div class="settings-layout">
       <nav class="settings-categories" aria-label="设置分类">
@@ -364,7 +381,7 @@ const {
           </div>
           <VoicePresetManagerPanel />
         </div>
-        <PluginManagerPanel v-else class="settings-section" />
+        <PluginManagerPanel v-else class="settings-section" @change="onPluginChange" />
       </section>
     </div>
   </el-dialog>
