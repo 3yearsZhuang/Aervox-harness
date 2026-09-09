@@ -82,6 +82,11 @@ export const BASE_TOOL_GUIDANCE: readonly ToolGuidance[] = [
   },
 ];
 
+export interface StudyModeConfigOptions {
+  strictAntiSpoiler?: boolean;
+  scaffoldingSteps?: number;
+}
+
 export interface BaseSystemPromptOptions {
   assistantName?: string;
   personaPrompt?: string;
@@ -89,23 +94,31 @@ export interface BaseSystemPromptOptions {
   customGuidance?: ToolGuidance[];
   /** 专注模式开关：注入专属苏格拉底启发式教学与防剧透规则 */
   studyMode?: boolean;
+  /** 专注模式细化配置：严格防剧透与分步脚手架步数 */
+  studyModeConfig?: StudyModeConfigOptions;
   /** 刷题模式开关：注入刷题出题-判定-落库闭环规则（优先于专注模式教学规则） */
   quizMode?: boolean;
 }
 
-/** 专注模式专属系统提示词规则定义 */
-export const STUDY_MODE_SYSTEM_PROMPT = `
+/** 动态构建专注模式专属系统提示词规则 */
+export function buildStudyModePrompt(config?: StudyModeConfigOptions): string {
+  const steps = config?.scaffoldingSteps ?? 3;
+  const isStrict = Boolean(config?.strictAntiSpoiler);
+
+  const antiSpoilerText = isStrict
+    ? `- 面对用户的疑难提问、作业或练习，**严禁直接给出整段最终答案或现成代码解法**。\n   - 【严格防剧透模式开启】：即便用户直接索要现成答案、表示放弃思考或催促，也绝对不要直接给出，必须通过概念拆解、反问或提示引导其作答。`
+    : `- 面对用户的疑难提问、作业或练习，**严禁直接给出整段最终答案或现成代码解法**。\n   - 优先识别用户的卡点，提供思路点拨、概念梳理、关键线索或第一步切入方向。\n   - 引导用户自行推导出下一步，鼓励用户尝试作答。`;
+
+  return `
 # 专注模式核心教学原则 (Focus Mode & Pedagogical Guidelines)
 当前已开启【专注模式】。在此模式下，你是一位循序渐进、注重启发思考的专属导师。
 即便当前配置了个性化人格设定（名称、称呼、语气习惯），你也必须严格遵循以下最高优先级的教学原则：
 
 1. **苏格拉底式启发引导 (Socratic Guidance)**：
-   - 面对用户的疑难提问、作业或练习，**严禁直接给出整段最终答案或现成代码解法**。
-   - 优先识别用户的卡点，提供思路点拨、概念梳理、关键线索或第一步切入方向。
-   - 引导用户自行推导出下一步，鼓励用户尝试作答。
+   ${antiSpoilerText}
 
 2. **循序渐进与分步拆解 (Step-by-step Scaffolding)**：
-   - 将复杂知识点或长推导链条拆解为 2~3 个连贯的小步骤。
+   - 将复杂知识点或长推导链条拆解为 ${steps} 个连贯的小步骤。
    - 每次只聚焦并推进一个关键子问题，避免单次输出信息过载。
    - 在每一步结尾附带一个简明的思考或确认问题，邀请用户互动。
 
@@ -116,6 +129,10 @@ export const STUDY_MODE_SYSTEM_PROMPT = `
 4. **人格与教学平衡 (Persona & Pedagogical Balance)**：
    - 保持你既定的人格口吻、称呼与陪伴温度，但教学规范（不直接剧透、循序渐进、启发作答）具有最高约束力。
 `.trim();
+}
+
+/** 专注模式默认专属系统提示词（兼容既有静态引用） */
+export const STUDY_MODE_SYSTEM_PROMPT = buildStudyModePrompt();
 
 /** 刷题模式专属系统提示词规则定义（CAP-016 刷题闭环） */
 export const QUIZ_MODE_SYSTEM_PROMPT = `
@@ -194,7 +211,7 @@ export function buildBaseSystemPrompt(options: BaseSystemPromptOptions = {}): st
 
   // 注入专注模式专属教学规范（若开启）
   if (options.studyMode) {
-    sections.push(``, STUDY_MODE_SYSTEM_PROMPT);
+    sections.push(``, buildStudyModePrompt(options.studyModeConfig));
   }
 
   // 注入刷题模式专属规范（若开启；置后于专注模式段以覆盖「不直接给答案」教学规则）

@@ -6,44 +6,49 @@
 import type { Client } from "@libsql/client";
 import { initFtsTables } from "../search/fts.js";
 
-const tableColumnsCache = new Map<string, Set<string>>();
+const clientTableColumns = new WeakMap<Client, Map<string, Set<string>>>();
 
-async function addColumnIfMissing(
+/**
+ * 幂等补齐缺失列辅助函数：
+ * - 仅当列不存在时执行 ALTER TABLE ADD COLUMN；
+ * - 仅忽略明确识别的 duplicate column 异常；对语法、锁、磁盘或连接错误继续抛出；
+ * - 列缓存通过 WeakMap<Client, ...> 按客户端隔离，避免多库并发时跨库污染。
+ */
+export async function addColumnIfMissing(
   client: Client,
   table: string,
   column: string,
   definition: string,
 ): Promise<void> {
+  let tableColumnsCache = clientTableColumns.get(client);
+  if (!tableColumnsCache) {
+    tableColumnsCache = new Map<string, Set<string>>();
+    clientTableColumns.set(client, tableColumnsCache);
+  }
+
   let cols = tableColumnsCache.get(table);
   if (!cols) {
-    try {
-      const columns = await client.execute(`PRAGMA table_info(${table})`);
-      cols = new Set(columns.rows.map((row) => String(row.name)));
-      tableColumnsCache.set(table, cols);
-    } catch {
-      return;
-    }
+    const columns = await client.execute(`PRAGMA table_info(${table})`);
+    cols = new Set(columns.rows.map((row) => String(row.name)));
+    tableColumnsCache.set(table, cols);
   }
   if (cols.has(column)) return;
   try {
     await client.execute(`ALTER TABLE ${table} ADD COLUMN ${definition}`);
     cols.add(column);
-  } catch {
-    // 忽略并发冲突或已存在异常
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/duplicate column/i.test(msg)) {
+      cols.add(column);
+      return;
+    }
+    throw err;
   }
 }
 
 export async function initDatabaseSchema(client: Client): Promise<void> {
-  tableColumnsCache.clear();
-  let inTx = false;
-  try {
-    await client.execute("BEGIN IMMEDIATE;");
-    inTx = true;
-  } catch {
-    // 若调用方已在外层事务中或不支持显式事务，平滑退回自动提交模式
-  }
+  clientTableColumns.set(client, new Map<string, Set<string>>());
 
-  try {
   // 1. 会话与 Turn
   await client.execute(`
     CREATE TABLE IF NOT EXISTS sessions (
@@ -2576,17 +2581,6 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       ON proactive_health_samples(workspace_id, subject_user_id, connection_id, metric, local_date);`,
   ];
   for (const ddl of proactiveIntelligenceDdl) await client.execute(ddl);
-
-  if (inTx) {
-    await client.execute("COMMIT;");
-    inTx = false;
-  }
-  } catch (err) {
-    if (inTx) {
-      await client.execute("ROLLBACK;").catch(() => {});
-    }
-    throw err;
-  }
 }
 
 /**

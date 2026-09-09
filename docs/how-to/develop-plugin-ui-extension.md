@@ -81,18 +81,19 @@ function handleTranslate() {
 </template>
 ```
 
-2. **在插件入口注册插槽项**：
+1. **在插件入口注册插槽项**：
 
 ```ts
 import { uiRegistry } from '@aervox/ui';
 import MyTranslateButton from './MyTranslateButton.vue';
 
-// 注册至输入框工具栏
+// 注册至输入框工具栏（可使用 registerSlotItem 或 registerSlotComponent）
 const unregister = uiRegistry.registerSlotItem('composer:toolbar-actions', {
   id: 'my-translate-plugin:toolbar-btn',
   component: MyTranslateButton,
   priority: 10, // 数值越大越靠左/靠前
 });
+// 亦可使用三参数形式：uiRegistry.registerSlotComponent('composer:toolbar-actions', MyTranslateButton, { id: '...', priority: 10 });
 
 // 在插件停用或卸载时调用注销函数
 export function onDeactivate() {
@@ -100,14 +101,14 @@ export function onDeactivate() {
 }
 ```
 
-3. **可选插槽清单**：
-   - 顶部操作区：`workbench:header-actions`
-   - 主导航胶囊：`nav:menu-items`
+1. **可选插槽清单（ExtensionSlotName）**：
+   - 顶部操作区前置/后置：`header:before` / `header:actions`
+   - 主导航胶囊展开区：`nav:menu-items`
    - 侧边卡槽区：`sidecards:widgets`
    - 对话流顶部/底部：`conversation:top` / `conversation:bottom`
    - 单条消息气泡操作：`message:bubble-actions`
    - 输入框底座工具栏/底栏：`composer:toolbar-actions` / `composer:bottom-bar`
-   - 系统设置分类/面板：`settings:tabs` / `settings:panels`
+   - 系统设置分类页签：`settings:tabs`
 
 ## 3. 任务二：消费与联动宿主工作台状态
 
@@ -148,16 +149,18 @@ import type { ComposerContractProps } from '@aervox/ui';
 const props = withDefaults(defineProps<ComposerContractProps>(), {
   input: '',
   streaming: false,
+  isComposing: false,
   enterToSend: true,
+  placeholder: '请输入消息…',
 });
 
 const emit = defineEmits<{
   (e: 'update:input', value: string): void;
-  (e: 'send', text: string): void;
+  (e: 'send', text?: string, options?: { quizMode?: boolean; resend?: boolean }): void;
 }>();
 
 function handleSubmit() {
-  if (props.streaming || !props.input.trim()) return;
+  if (props.streaming || props.isComposing || !props.input.trim()) return;
 
   // 单通道派发原则：若宿主传递了 onSend，只调用回调，不重复 emit
   if (props.onSend) {
@@ -182,7 +185,7 @@ function handleSubmit() {
 </template>
 ```
 
-2. **注册组件替换**：
+1. **注册组件替换**：
 
 ```ts
 import { uiRegistry } from '@aervox/ui';
@@ -191,7 +194,7 @@ import CustomComposer from './CustomComposer.vue';
 uiRegistry.overrideComponent('ComposerDock', CustomComposer);
 ```
 
-3. **防重入规范（高危陷阱）**：
+1. **防重入规范（高危陷阱）**：
    - 必须遵守**单通道派发原则**：若检测到 `props.onSend` 回调，则只执行该回调；未检测到时才回退至 `emit('send')`。切勿同时调用两者，否则会导致带附件消息的并发双重提交；
    - 宿主端已具备 `isSendingMessage` 互斥锁与 `attachmentUploading` 守卫，但插件端仍应在 UI 上将提交按钮置灰（`:disabled="streaming"`）。
 

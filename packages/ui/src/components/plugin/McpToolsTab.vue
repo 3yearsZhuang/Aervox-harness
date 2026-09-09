@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from '../../utils/element'
 import {
   Play,
   Plus,
@@ -99,6 +99,11 @@ function handleRegistered(): void {
   emit('change')
   void loadTools()
 }
+
+function handlePresetChanged(): void {
+  emit('change')
+  void loadTools()
+}
 </script>
 
 <template>
@@ -119,7 +124,7 @@ function handleRegistered(): void {
       </div>
     </div>
 
-    <McpPresetServers @changed="loadTools" />
+    <McpPresetServers @changed="handlePresetChanged" />
 
     <div v-if="loading" class="tab-loading">加载工具注册表中…</div>
     <p v-else-if="error" class="tab-empty">{{ error }}</p>

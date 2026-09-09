@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage } from '../../utils/element'
 import { BookOpen, Copy, Check } from 'lucide-vue-next'
 import { renderMarkdown } from '../../utils/markdown'
 import { useAervoxSkills, type SkillDto } from '@aervox/api-client'

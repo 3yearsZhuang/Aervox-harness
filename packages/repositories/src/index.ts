@@ -17,4 +17,9 @@ export * from "./token-usage.js";
 export * from "./migration/index.js";
 export * from "./sync/index.js";
 export * from "./repositories/index.js";
-export * from "./schema/init.js";
+export {
+  addColumnIfMissing,
+  initDatabaseSchema,
+  initLedgerSchema,
+} from "./schema/init.js";
+

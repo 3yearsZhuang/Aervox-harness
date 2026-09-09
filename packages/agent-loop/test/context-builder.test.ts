@@ -157,6 +157,20 @@ describe("基础系统提示词与工具指引 (Base System Prompt & Tool Guidan
     expect(prompt).toContain("活泼幽默");
   });
 
+  it("buildBaseSystemPrompt：支持自定义 studyModeConfig 脚手架步数与严格防剧透", async () => {
+    const { buildBaseSystemPrompt } = await import("../src/base-prompt.js");
+    const prompt = buildBaseSystemPrompt({
+      studyMode: true,
+      studyModeConfig: {
+        scaffoldingSteps: 4,
+        strictAntiSpoiler: true,
+      },
+    });
+
+    expect(prompt).toContain("拆解为 4 个连贯的小步骤");
+    expect(prompt).toContain("【严格防剧透模式开启】");
+  });
+
   it("buildBaseSystemPrompt：默认不注入刷题模式规范", async () => {
     const { buildBaseSystemPrompt } = await import("../src/base-prompt.js");
     const prompt = buildBaseSystemPrompt({ assistantName: "思隅" });

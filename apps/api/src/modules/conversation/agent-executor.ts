@@ -33,12 +33,46 @@ import type {
 } from "@aervox/agent-loop";
 import { SqliteExecutionStore, runAdapterTurn } from "@aervox/host-agent";
 import { extractTerms } from "@aervox/practice-review";
-import type {
-  IProactiveProfileRepository,
-  SqliteConversationRepository,
-  TenantContext,
+import {
+  type IProactiveProfileRepository,
+  type SqliteConversationRepository,
+  type TenantContext,
+  SqlitePluginConfigRepository,
 } from "@aervox/database";
 import { loadApiConfig } from "@aervox/config";
+
+export interface StudyModeRuntimeConfig {
+  autoEnableStudyMode?: boolean;
+  strictAntiSpoiler?: boolean;
+  scaffoldingSteps?: number;
+  maxExtractedTerms?: number;
+  enableJudgePass?: boolean;
+  defaultExploreKind?: string;
+}
+
+export async function loadStudyModeRuntimeConfig(
+  repo: SqliteConversationRepository,
+  tenant: TenantContext,
+  pluginConfigRepo?: SqlitePluginConfigRepository,
+): Promise<StudyModeRuntimeConfig | null> {
+  try {
+    const configRepo =
+      pluginConfigRepo ??
+      ((repo as unknown as { db?: import("@aervox/database").AervoxDatabase }).db
+        ? new SqlitePluginConfigRepository(
+            (repo as unknown as { db: import("@aervox/database").AervoxDatabase }).db,
+          )
+        : null);
+    if (!configRepo) return null;
+    const model = await configRepo.getConfig(tenant, "study-mode");
+    if (!model?.valuesJson) return null;
+    return (typeof model.valuesJson === "string"
+      ? JSON.parse(model.valuesJson)
+      : model.valuesJson) as StudyModeRuntimeConfig;
+  } catch {
+    return null;
+  }
+}
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
 import { resolveDshTurnAdapter } from "./dsh-adapter.js";
@@ -450,6 +484,7 @@ async function extractStudyTerms(
   repo: SqliteConversationRepository,
   tenant: TenantContext,
   input: { turnId: string; userMessage: string },
+  studyConfig?: StudyModeRuntimeConfig | null,
 ): Promise<void> {
   if (!isStudyModeMessage(input.userMessage)) return;
   try {
@@ -468,9 +503,17 @@ async function extractStudyTerms(
       }
     }
 
-    let terms = fullAssistantText.trim().length > 0 ? await extractTerms(fullAssistantText) : [];
+    const extractOptions = {
+      maxTerms: studyConfig?.maxExtractedTerms ?? 8,
+      enableJudgePass: studyConfig?.enableJudgePass ?? true,
+    };
+
+    let terms =
+      fullAssistantText.trim().length > 0
+        ? await extractTerms(fullAssistantText, extractOptions)
+        : [];
     if (terms.length === 0 && input.userMessage) {
-      terms = await extractTerms(input.userMessage);
+      terms = await extractTerms(input.userMessage, extractOptions);
     }
     if (terms.length > 0) {
       await repo.appendStreamEvent(tenant, {
@@ -502,6 +545,7 @@ async function runDshAdapterTurn(
   tenant: TenantContext,
   store: SqliteExecutionStore,
   input: { turnId: string; sessionId: string; attemptId: string; userMessage: string },
+  studyConfig?: StudyModeRuntimeConfig | null,
 ): Promise<void> {
   const resolved = await resolveDshTurnAdapter();
   if (!resolved.ok) {
@@ -517,7 +561,7 @@ async function runDshAdapterTurn(
   });
   if (result.status === "Completed") {
     await repo.updateTurnStatus(tenant, input.turnId, "Completed");
-    await extractStudyTerms(repo, tenant, input);
+    await extractStudyTerms(repo, tenant, input, studyConfig);
   } else if (result.status === "Failed" || result.status === "Interrupted") {
     await repo.updateTurnStatus(tenant, input.turnId, result.status).catch(() => undefined);
   }
@@ -610,8 +654,17 @@ export async function runLoopTurnOnce(
     proactiveRepository?: IProactiveProfileRepository;
     /** CAP-005：普通长期记忆 FTS + 向量混合召回。 */
     memoryRecall?: MemoryRecallPort;
+    /** 插件配置仓储：读取专注模式等插件运行时配置 */
+    pluginConfigRepo?: SqlitePluginConfigRepository;
   } = {},
 ): Promise<void> {
+  // 识别当前消息是否带专注模式前缀或标识，动态决定是否注入专注模式专属 Prompt 与术语配置
+  const isStudyMode = isStudyModeMessage(input.userMessage);
+  let studyConfig: StudyModeRuntimeConfig | null = null;
+  if (isStudyMode) {
+    studyConfig = await loadStudyModeRuntimeConfig(repo, tenant, deps.pluginConfigRepo);
+  }
+
   // 阶段 7（ADR-017）：Step 级 ModelRun + 每 Turn ContextManifest 快照落库（委托 platform 域）
   const store = new SqliteExecutionStore(
     repo,
@@ -649,7 +702,7 @@ export async function runLoopTurnOnce(
   // ADR-010 阶段 6f：AERVOX_LOOP_DRIVER=dsh → 整 Turn 走 DSH 进程外 Adapter
   // （自带 Agent 循环与模型回合，Provider/工具/上下文组合全部跳过；未就绪 fail-closed 不回退 native）。
   if (loadApiConfig().loopDriver === "dsh") {
-    await runDshAdapterTurn(repo, tenant, store, input);
+    await runDshAdapterTurn(repo, tenant, store, input, studyConfig);
     return;
   }
 
@@ -708,8 +761,6 @@ export async function runLoopTurnOnce(
   const tools = contributionProvider && runtimeProvider
     ? composeToolProviders([contributionProvider], { fallback: runtimeProvider })
     : contributionProvider ?? runtimeProvider;
-  // 识别当前消息是否带专注模式前缀或标识，动态决定是否注入专注模式专属 Prompt
-  const isStudyMode = isStudyModeMessage(input.userMessage);
   // CAP-016 刷题模式触发：按钮前缀（任何模式生效）或 专注模式下的刷题关键词（避免日常聊天误触发）
   const hasQuizPrefix = input.userMessage.includes("[模式：刷题模式]");
   const quizKeywords = /来几道题|来几道|刷题|出几道题|考考我|出题/;
@@ -757,6 +808,12 @@ export async function runLoopTurnOnce(
       personaPrompt: deps.persona?.prompt,
       activeTools: tools?.tools,
       studyMode: isStudyMode,
+      studyModeConfig: studyConfig
+        ? {
+            strictAntiSpoiler: studyConfig.strictAntiSpoiler,
+            scaffoldingSteps: studyConfig.scaffoldingSteps,
+          }
+        : undefined,
       quizMode: isQuizMode,
     },
     skills: disclosedSkills,
@@ -793,6 +850,6 @@ export async function runLoopTurnOnce(
   // 以 Loop 结果对齐 turns 状态；skipped（幂等保护）不覆盖。
   if (result.status === "completed") {
     await repo.updateTurnStatus(tenant, input.turnId, "Completed");
-    await extractStudyTerms(repo, tenant, input);
+    await extractStudyTerms(repo, tenant, input, studyConfig);
   }
 }

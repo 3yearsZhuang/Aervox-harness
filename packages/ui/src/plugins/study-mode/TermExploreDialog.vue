@@ -6,8 +6,8 @@ import {
   X,
   Loader2,
 } from 'lucide-vue-next';
-import { exploreTerm } from '@aervox/api-client';
-import type { ExtractedTerm, TermExploreResponse } from '@aervox/contracts';
+import { exploreTerm, useAervoxPlugins } from '@aervox/api-client';
+import type { ExtractedTerm, TermExploreResponse, TermExploreKind } from '@aervox/contracts';
 import { renderMarkdown } from '../../utils/markdown';
 
 const props = defineProps<{
@@ -15,6 +15,7 @@ const props = defineProps<{
   term: ExtractedTerm | null;
   contextText?: string;
   sessionId?: string;
+  defaultKind?: TermExploreKind;
 }>();
 
 const emit = defineEmits<{
@@ -30,9 +31,26 @@ async function fetchExploreData() {
   loading.value = true;
   error.value = null;
   try {
+    let exploreKind: TermExploreKind = props.defaultKind ?? 'child';
+    if (!props.defaultKind) {
+      try {
+        const pluginApi = useAervoxPlugins();
+        const configSnapshot = await pluginApi.getConfig('study-mode');
+        const configuredKind = configSnapshot?.values?.defaultExploreKind;
+        if (
+          configuredKind === 'child' ||
+          configuredKind === 'related' ||
+          configuredKind === 'branch'
+        ) {
+          exploreKind = configuredKind;
+        }
+      } catch {
+        // 插件未就绪时使用兜底
+      }
+    }
     const res = await exploreTerm({
       term: props.term.text,
-      kind: 'child',
+      kind: exploreKind,
       context: props.contextText,
       sessionId: props.sessionId,
     });

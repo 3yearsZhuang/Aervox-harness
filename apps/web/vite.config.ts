@@ -12,12 +12,15 @@ export default defineConfig({
     port: Number(process.env.AERVOX_WEB_PORT) || 5173,
   },
   build: {
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 500,
     rollupOptions: {
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            if (id.includes('pixi.js') || id.includes('@sekai-world/pixi-live2d-display-mulmotion')) {
+            if (id.includes('@sekai-world/pixi-live2d-display-mulmotion')) {
+              return 'vendor-live2d'
+            }
+            if (id.includes('pixi.js')) {
               return 'vendor-pixi'
             }
             if (id.includes('element-plus')) {
