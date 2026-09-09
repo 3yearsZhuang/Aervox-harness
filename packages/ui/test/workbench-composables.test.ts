@@ -78,4 +78,3 @@ describe('Workbench Composables Logic', () => {
     expect(composer.enterToSend.value).toBe(true);
   });
 });
-

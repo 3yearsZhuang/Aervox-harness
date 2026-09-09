@@ -4241,4 +4241,3 @@
   background: color-mix(in srgb, var(--danger, #e05252) 12%, transparent);
   border: 1px dashed color-mix(in srgb, var(--danger, #e05252) 30%, transparent);
 }
-

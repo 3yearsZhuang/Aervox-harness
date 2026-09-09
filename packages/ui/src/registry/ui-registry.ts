@@ -86,4 +86,3 @@ export function provideUIRegistry(registry: UIRegistry = defaultUIRegistry): voi
 export function useUIRegistry(): UIRegistry {
   return inject(UI_REGISTRY_KEY, defaultUIRegistry);
 }
-

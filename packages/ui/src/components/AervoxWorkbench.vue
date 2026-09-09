@@ -112,24 +112,29 @@ const cards = useWorkbenchCards({
   recordActivity: proactive.recordProactiveActivity,
 });
 
+let isSendingMessage = false;
+
 // 统一整合发送消息逻辑
 async function sendMessage(value = composer.input.value, options?: { quizMode?: boolean; resend?: boolean }) {
+  if (isSendingMessage) return;
   const text = value.trim();
-  if ((!text && composer.pendingAttachments.value.length === 0) || conversation.streaming.value) return;
+  if ((!text && composer.pendingAttachments.value.length === 0) || conversation.streaming.value || composer.attachmentUploading.value) return;
 
-  let attachmentRefs: TurnAttachmentRef[] = [];
-  if (composer.pendingAttachments.value.length > 0) {
-    composer.attachmentUploading.value = true;
-    try {
-      attachmentRefs = await composer.uploadPendingAttachments();
-    } catch (error) {
-      composer.attachmentError.value = error instanceof Error ? `附件上传失败：${error.message}` : '附件上传失败，请重试。';
-      petReactKind('sad', { expression: MizukiExpression.face_trouble_01, lookAtEl: '.composer-attachments' });
-      return;
-    } finally {
-      composer.attachmentUploading.value = false;
+  isSendingMessage = true;
+  try {
+    let attachmentRefs: TurnAttachmentRef[] = [];
+    if (composer.pendingAttachments.value.length > 0) {
+      composer.attachmentUploading.value = true;
+      try {
+        attachmentRefs = await composer.uploadPendingAttachments();
+      } catch (error) {
+        composer.attachmentError.value = error instanceof Error ? `附件上传失败：${error.message}` : '附件上传失败，请重试。';
+        petReactKind('sad', { expression: MizukiExpression.face_trouble_01, lookAtEl: '.composer-attachments' });
+        return;
+      } finally {
+        composer.attachmentUploading.value = false;
+      }
     }
-  }
 
   const displayText = text || '（发送了附件）';
   const outgoingText = text || '请查看我上传的附件。';
@@ -231,6 +236,9 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
     conversation.streaming.value = false;
     if (!composer.input.value.trim()) composer.composerOpen.value = false;
     await conversation.scrollStoryToBottom();
+  }
+  } finally {
+    isSendingMessage = false;
   }
 }
 

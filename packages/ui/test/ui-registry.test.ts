@@ -46,4 +46,3 @@ describe('UIRegistry', () => {
     expect(registry.getComponent('Composer', DefaultComp)).toBe(CustomComp);
   });
 });
-
