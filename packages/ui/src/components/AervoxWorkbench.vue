@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue';
+import { computed, defineAsyncComponent, onMounted, onUnmounted } from 'vue';
 import type { Platform } from '../composables/useWorkbenchLayout';
 import PetHero from './PetHero.vue';
-import Live2DPet from './Live2DPet.vue';
 import { registerStudyModePlugin } from '../plugins/study-mode';
 import WorkbenchHeader from './workbench/WorkbenchHeader.vue';
 import PomodoroToast from './workbench/PomodoroToast.vue';
@@ -10,10 +9,12 @@ import WorkbenchNavPill from './workbench/WorkbenchNavPill.vue';
 import WorkbenchSideCards from './workbench/WorkbenchSideCards.vue';
 import ConversationConsole from './workbench/ConversationConsole.vue';
 import ComposerDock from './workbench/ComposerDock.vue';
-import ToolsDrawer from './workbench/drawers/ToolsDrawer.vue';
-import LearningDrawer from './workbench/drawers/LearningDrawer.vue';
-import HistoryDrawer from './workbench/drawers/HistoryDrawer.vue';
-import SettingsModal from './workbench/drawers/SettingsModal.vue';
+
+const Live2DPet = defineAsyncComponent(() => import('./Live2DPet.vue'));
+const ToolsDrawer = defineAsyncComponent(() => import('./workbench/drawers/ToolsDrawer.vue'));
+const LearningDrawer = defineAsyncComponent(() => import('./workbench/drawers/LearningDrawer.vue'));
+const HistoryDrawer = defineAsyncComponent(() => import('./workbench/drawers/HistoryDrawer.vue'));
+const SettingsModal = defineAsyncComponent(() => import('./workbench/drawers/SettingsModal.vue'));
 
 import { useWorkbenchLayout } from '../composables/useWorkbenchLayout';
 import { useWorkbenchTimer } from '../composables/useWorkbenchTimer';
