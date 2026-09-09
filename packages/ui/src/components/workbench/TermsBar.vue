@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import StudyTermsBar from '../../modules/study-mode/StudyTermsBar.vue';
+import StudyTermsBar from '../../plugins/study-mode/StudyTermsBar.vue';
 </script>
 
 <template>
