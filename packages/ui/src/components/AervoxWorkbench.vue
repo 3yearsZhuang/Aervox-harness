@@ -23,7 +23,7 @@ import { useWorkbenchCards, todayLocalDate, type CardId } from '../composables/u
 import { useWorkbenchProactive, proactiveBridge } from '../composables/useWorkbenchProactive';
 import { provideWorkbenchContext } from '../composables/workbench-context';
 import { useUIRegistry, provideUIRegistry } from '../registry/ui-registry';
-import { streamAervoxTurn } from '@aervox/api-client';
+import { streamAervoxTurn, useAervoxPlugins } from '@aervox/api-client';
 import type { TurnAttachmentRef } from '@aervox/contracts';
 import { MizukiExpression } from '../live2d/model';
 import { petReact, petReactKind } from '../live2d/petReactions';
@@ -48,7 +48,7 @@ const emit = defineEmits<{
 
 const registry = useUIRegistry();
 provideUIRegistry(registry);
-registerStudyModePlugin(registry);
+let unregisterStudyMode: (() => void) | null = registerStudyModePlugin(registry);
 
 // 1. Proactive Composable
 const proactive = useWorkbenchProactive({
@@ -348,6 +348,23 @@ onMounted(() => {
     void proactive.refreshProactiveStatus();
   }
 
+  void (async () => {
+    try {
+      const pluginApi = useAervoxPlugins();
+      await pluginApi.loadPlugins();
+      const studyPlugin = pluginApi.plugins.value.find((p) => p.id === 'study-mode');
+      if (studyPlugin && studyPlugin.enabled === 0) {
+        unregisterStudyMode?.();
+        unregisterStudyMode = null;
+        if (layout.studyModeEnabled.value) {
+          layout.studyModeEnabled.value = false;
+        }
+      }
+    } catch {
+      // Ignore plugin sync failures in offline/mock environments
+    }
+  })();
+
   void conversation.scrollStoryToBottom();
 
   document.addEventListener('click', layout.handleMenuDocumentClick);
@@ -355,6 +372,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  unregisterStudyMode?.();
   document.removeEventListener('click', layout.handleMenuDocumentClick);
   document.removeEventListener('keydown', layout.handleHistoryEscape);
   window.removeEventListener('aervox:open-settings', layout.openSettings);

@@ -46,7 +46,11 @@ onMounted(() => {
 async function toggleEnabled(plugin: PluginSummaryDto): Promise<void> {
   try {
     await setPluginEnabled(plugin.id, plugin.enabled !== 1)
-    await refresh()
+    if (typeof window !== 'undefined' && typeof window.location?.reload === 'function') {
+      window.location.reload()
+    } else {
+      await refresh()
+    }
   } catch (e) {
     console.error('切换插件状态失败', e)
   }
