@@ -26,7 +26,7 @@ import type {
   IUserQuestionRepository,
   SqliteConversationRepository,
   TenantContext,
-} from "@aervox/database";
+} from "@aervox/repositories";
 
 interface PendingQuestionSession {
   turnId: string;

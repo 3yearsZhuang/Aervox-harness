@@ -14,8 +14,8 @@ import type {
   ProactiveClaimState,
   ProactiveDesiredState,
   ProactiveSourceGrantState,
-} from "@aervox/database";
-import { FULL_PROFILE_SOURCE_MANIFEST } from "@aervox/database";
+} from "@aervox/repositories";
+import { FULL_PROFILE_SOURCE_MANIFEST } from "@aervox/schema";
 import { resolveTenant } from "../../shared/tenant.js";
 
 let sequence = 0;

@@ -11,9 +11,8 @@ import {
   memoryRecords,
   messageVersions,
   questionAttempts,
-  type AervoxDatabase,
-  type TenantContext,
-} from "@aervox/database";
+} from "@aervox/schema";
+import type { AervoxDatabase, TenantContext } from "@aervox/repositories";
 
 export interface DiaryMaterialMessage {
   role: "user" | "assistant";

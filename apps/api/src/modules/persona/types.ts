@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/api — 系统级 Persona 领域类型与校验
  */
 import { createHash } from "node:crypto";
-import type { TenantContext } from "@aervox/database";
+import type { TenantContext } from "@aervox/repositories";
 
 export const PERSONA_SCHEMA_VERSION = 1;
 

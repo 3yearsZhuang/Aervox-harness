@@ -4,7 +4,7 @@
  * analyticsSubjectId 使用伪名化标识，不保存无必要正文。
  */
 import type { FastifyInstance } from "fastify";
-import type { SqliteAnalyticsRepository } from "@aervox/database";
+import type { SqliteAnalyticsRepository } from "@aervox/repositories";
 import { resolveTenant } from "../../shared/tenant.js";
 
 let seq = 0;

@@ -44,9 +44,6 @@ importers:
       '@aervox/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@aervox/database':
-        specifier: workspace:*
-        version: link:../../packages/database
       '@aervox/diary':
         specifier: workspace:*
         version: link:../../packages/diary
@@ -56,6 +53,12 @@ importers:
       '@aervox/practice-review':
         specifier: workspace:*
         version: link:../../packages/practice-review
+      '@aervox/repositories':
+        specifier: workspace:*
+        version: link:../../packages/repositories
+      '@aervox/schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
       '@fastify/cors':
         specifier: ^11.3.0
         version: 11.3.0
@@ -204,12 +207,15 @@ importers:
       '@aervox/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@aervox/database':
-        specifier: workspace:*
-        version: link:../../packages/database
       '@aervox/diary':
         specifier: workspace:*
         version: link:../../packages/diary
+      '@aervox/repositories':
+        specifier: workspace:*
+        version: link:../../packages/repositories
+      '@aervox/schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
       '@libsql/client':
         specifier: ^0.14.0
         version: 0.14.0
@@ -298,9 +304,12 @@ importers:
       '@aervox/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@aervox/database':
+      '@aervox/repositories':
         specifier: workspace:*
-        version: link:../database
+        version: link:../repositories
+      '@aervox/schema':
+        specifier: workspace:*
+        version: link:../schema
       drizzle-orm:
         specifier: ^0.39.3
         version: 0.39.3(@libsql/client@0.14.0)
@@ -320,12 +329,15 @@ importers:
       '@aervox/agent-loop':
         specifier: workspace:*
         version: link:../agent-loop
-      '@aervox/database':
-        specifier: workspace:*
-        version: link:../database
       '@aervox/observability':
         specifier: workspace:*
         version: link:../observability
+      '@aervox/repositories':
+        specifier: workspace:*
+        version: link:../repositories
+      '@aervox/schema':
+        specifier: workspace:*
+        version: link:../schema
       '@libsql/client':
         specifier: ^0.14.0
         version: 0.14.0

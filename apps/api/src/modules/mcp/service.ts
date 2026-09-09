@@ -10,7 +10,7 @@
  *   其余（下单、领券、写地址等有副作用）一律 write_with_approval；
  * - Token 只落本地库，API 一律脱敏回传（CR-004「不导出 MCP 凭据」）。
  */
-import type { SqliteMcpServerRepository, McpServerModel } from "@aervox/database";
+import type { SqliteMcpServerRepository, McpServerModel } from "@aervox/repositories";
 import { NotFoundError } from "../../shared/errors.js";
 import type { ToolRuntime } from "../tools/runtime.js";
 import { McpHttpClient, McpUpstreamError, type McpRemoteTool } from "./client.js";

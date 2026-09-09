@@ -8,7 +8,7 @@ import type {
   IProactiveProfileRepository,
   ProactiveActionModel,
   TenantContext,
-} from "@aervox/database";
+} from "@aervox/repositories";
 
 export const PROACTIVE_ACTION_DECIDER_PREFIX = "permission:proactive_action:";
 

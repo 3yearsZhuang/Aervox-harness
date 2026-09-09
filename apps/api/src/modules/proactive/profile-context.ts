@@ -3,7 +3,7 @@ import type {
   IProactiveProfileRepository,
   ProactiveProfileClaimModel,
   TenantContext,
-} from "@aervox/database";
+} from "@aervox/repositories";
 
 export function isLiteralLoopbackUrl(value: string): boolean {
   try {

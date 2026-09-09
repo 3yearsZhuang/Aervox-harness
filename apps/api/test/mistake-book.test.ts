@@ -5,7 +5,7 @@ import {
   initDatabaseSchema,
   SqliteLearningRepository,
   type AervoxDatabase,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 import { registerLearningRoutes } from "../src/modules/learning/routes.js";
 

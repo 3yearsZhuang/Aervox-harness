@@ -15,7 +15,7 @@ import {
   SqlitePlatformRepository,
   SqliteSkillRegistryRepository,
   SqliteToolRegistryRepository,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import { registerPluginRoutes } from "./routes.js";
 import { PluginService } from "./service.js";
 import { PluginConfigService } from "./config-service.js";

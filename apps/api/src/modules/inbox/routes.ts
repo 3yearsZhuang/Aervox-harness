@@ -10,7 +10,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import { createInboxItemRequestSchema } from "@aervox/contracts";
-import type { SqliteAgentInboxRepository, SqliteExtensionRepository } from "@aervox/database";
+import type { SqliteAgentInboxRepository, SqliteExtensionRepository } from "@aervox/repositories";
 import { resolveTenant } from "../../shared/tenant.js";
 
 let seq = 0;

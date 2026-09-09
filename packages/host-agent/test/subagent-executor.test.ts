@@ -18,7 +18,7 @@ import {
   SqliteSubagentRunRepository,
   type AervoxDatabase,
   type TenantContext,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import { createScriptedProvider, SUBAGENT_DELEGATE_TOOL } from "@aervox/agent-loop";
 import type { Client } from "@libsql/client";
 

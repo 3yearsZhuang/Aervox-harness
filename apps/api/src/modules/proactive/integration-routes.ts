@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import type {
   SqliteProactiveIntelligenceRepository,
   SqliteProactiveProfileRepository,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import { resolveTenant } from "../../shared/tenant.js";
 import { ForbiddenError, NotFoundError, ValidationError } from "../../shared/errors.js";
 import { ProactiveActionAuthorizer } from "./action-authorizer.js";

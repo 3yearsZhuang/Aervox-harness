@@ -1,7 +1,7 @@
 import type {
   SqliteProactiveIntelligenceRepository,
   TenantContext,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import type { ToolRuntime } from "../tools/runtime.js";
 import { ProactiveActionAuthorizer } from "./action-authorizer.js";
 import { ProactiveIntegrationManager } from "./integration-manager.js";

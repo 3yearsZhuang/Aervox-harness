@@ -5,7 +5,7 @@
  * CreateTurn body 固化本次 Turn 策略，并以 request-scoped TenantContext 对象为键传给执行层。
  */
 import type { FastifyReply, FastifyRequest } from "fastify";
-import type { TenantContext } from "@aervox/database";
+import type { TenantContext } from "@aervox/repositories";
 import type { ToolApprovalMode } from "@aervox/contracts";
 import { resolveTenant } from "./tenant.js";
 

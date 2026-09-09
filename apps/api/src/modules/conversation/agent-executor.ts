@@ -37,7 +37,7 @@ import type {
   IProactiveProfileRepository,
   SqliteConversationRepository,
   TenantContext,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import { loadApiConfig } from "@aervox/config";
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
@@ -599,7 +599,7 @@ export async function runLoopTurnOnce(
      * 阶段 7：ModelRun/ContextManifest 落库口（可选委托 SqlitePlatformRepository；
      * 缺省不记录，兼容既有行为）。Step 级可追溯写入不进 Loop 控制流。
      */
-    platformRepo?: import("@aervox/database").SqlitePlatformRepository;
+    platformRepo?: import("@aervox/repositories").SqlitePlatformRepository;
     /** UQ-01：向用户提问协调端口（挂起与唤醒） */
     userQuestionPort?: UserQuestionPort;
     /** CAP-016：刷题模式作答落库端口（AI 判定后写 questions + question_attempts） */

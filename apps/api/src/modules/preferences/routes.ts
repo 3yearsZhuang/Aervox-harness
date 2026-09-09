@@ -4,7 +4,7 @@
  * 覆盖：FR-PER-001（问卷/跳过）、FR-PER-002（修改/重置）、BR-PER-001（中性默认值）、BR-PER-002（安全覆盖）
  */
 import type { FastifyInstance } from "fastify";
-import type { IPersonaPreferencesRepository } from "@aervox/database";
+import type { IPersonaPreferencesRepository } from "@aervox/repositories";
 import {
   savePersonaPreferencesSchema,
   updatePersonaPreferencesSchema,

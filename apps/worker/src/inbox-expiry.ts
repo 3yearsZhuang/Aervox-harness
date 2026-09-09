@@ -6,7 +6,7 @@
  * - pending 过期：从未被消费，直接作废；
  * - claimed 过期：消费中崩溃未 ack，不再重放（避免陈旧注入）。
  */
-import type { SqliteAgentInboxRepository } from "@aervox/database";
+import type { SqliteAgentInboxRepository } from "@aervox/repositories";
 
 export interface InboxExpiryContext {
   inboxRepo: SqliteAgentInboxRepository;

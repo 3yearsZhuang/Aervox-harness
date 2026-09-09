@@ -6,14 +6,19 @@
  * - 管理员（x-admin-user-id ∈ AERVOX_ADMIN_IDS）grant → 重发命中授权并执行；
  * - 非管理员 grant → 403 admin_required。
  */
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { FULL_PROFILE_SOURCE_MANIFEST } from "@aervox/schema";
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach } from "vitest";
 import {
   createInMemoryDatabase,
-  FULL_PROFILE_SOURCE_MANIFEST,
   SqliteProactiveProfileRepository,
   SqliteToolRegistryRepository,
   type AervoxDatabase,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";
 

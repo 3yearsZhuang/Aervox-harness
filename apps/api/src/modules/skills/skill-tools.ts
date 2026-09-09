@@ -9,7 +9,7 @@
  * 规则依据：reference/AstrBot shipyard_neo/neo_skills.py 的 astrbot_skill_* 工具形态；
  * handler 在 ToolRuntime 存在时绑定，缺省仅登记元数据（运行时接线阶段生效）。
  */
-import type { SqliteSkillRegistryRepository, SqliteToolRegistryRepository } from "@aervox/database";
+import type { SqliteSkillRegistryRepository, SqliteToolRegistryRepository } from "@aervox/repositories";
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { SkillLifecycleService } from "./lifecycle.js";
 

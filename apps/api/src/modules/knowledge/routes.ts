@@ -8,7 +8,7 @@
  * - 知识图谱查询（仅 active 关系）
  */
 import type { FastifyInstance } from "fastify";
-import type { SqliteLearningRepository } from "@aervox/database";
+import type { SqliteLearningRepository } from "@aervox/repositories";
 import {
   createKnowledgeRelationSchema,
   correctRelationSchema,

@@ -11,7 +11,7 @@ import {
   createInMemoryDatabase,
   SqliteSubagentRunRepository,
   type AervoxDatabase,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import type { WorkflowDefinition } from "@aervox/agent-loop";
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";

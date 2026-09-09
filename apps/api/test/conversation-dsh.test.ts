@@ -9,7 +9,7 @@
  * - resolver 进程内缓存语义：禁用态缓存后同进程重复 Turn 快速失败。
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createInMemoryDatabase } from "@aervox/database";
+import { createInMemoryDatabase } from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
 import { resetDshTurnAdapterForTests, resolveDshTurnAdapter } from "../src/modules/conversation/dsh-adapter.js";
 import { dirname, join } from "node:path";

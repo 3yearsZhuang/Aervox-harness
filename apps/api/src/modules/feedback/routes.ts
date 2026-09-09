@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/api — 反馈域路由
  */
 import type { FastifyInstance } from "fastify";
-import type { SqliteFeedbackRepository } from "@aervox/database";
+import type { SqliteFeedbackRepository } from "@aervox/repositories";
 import { resolveTenant } from "../../shared/tenant.js";
 
 let seq = 0;

@@ -8,7 +8,7 @@ import {
   SqliteVoiceConfigRepository,
   SqliteVoiceInputConfigRepository,
   SqliteVoiceRemoteConfigRepository,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import type { VoiceProviderPort, ASRProviderPort } from "./types.js";
 import { GptSovitsLocalProvider, GptSovitsRemoteProvider } from "./gpt-sovits.js";
 import { SenseVoiceLocalProvider, WhisperCompatibleProvider } from "./asr-providers.js";

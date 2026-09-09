@@ -10,7 +10,7 @@
 import type { FastifyInstance } from "fastify";
 import path from "node:path";
 import fsp from "node:fs/promises";
-import type { SqliteContentRepository } from "@aervox/database";
+import type { SqliteContentRepository } from "@aervox/repositories";
 import {
   createAttachmentSchema,
   parseAttachmentSchema,
