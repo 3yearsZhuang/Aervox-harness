@@ -276,6 +276,9 @@ importers:
 
   packages/database:
     dependencies:
+      '@aervox/schema':
+        specifier: workspace:*
+        version: link:../schema
       '@libsql/client':
         specifier: ^0.14.0
         version: 0.14.0
