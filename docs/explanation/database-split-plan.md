@@ -5,7 +5,7 @@
 
 > 文档编号：AVX-EXPL-009
 > 类型：Explanation
-> 版本：v0.1
+> 版本：v0.2
 > 更新日期：2026-09-09
 > 状态：Review Candidate
 > 关联：[文档索引](../README.md)、[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md)、[ADR-014 演进式模块化单体](../reference/adr/ADR-014-modular-monolith-structure.md)
@@ -49,15 +49,15 @@ REFACTOR-PLAN 给出的自然切分是 `@aervox/schema` + `@aervox/repositories`
 
 | 方向 | 切分 | 优点 | 代价 / 风险 |
 |---|---|---|---|
-| **A. 两包最小拆（推荐）** | `@aervox/schema`（表定义 + `init.ts`）/ `@aervox/repositories`（仓储接口 + SQLite 实现；search/sync/migration 视调研归位） | 贴合 REFACTOR-PLAN 原方案；schema 与 repository 天然分层；改动面集中在两个巨型文件 | 需建立 `@aervox/database` 兼容 re-export 层，避免消费方全部改 import |
+| **A. 两包最小拆（已选定）** | `@aervox/schema`（表定义 + `init.ts`）/ `@aervox/repositories`（仓储接口 + SQLite 实现；search/sync/migration 视调研归位） | 贴合 REFACTOR-PLAN 原方案；schema 与 repository 天然分层；改动面集中在两个巨型文件 | 需建立 `@aervox/database` 兼容 re-export 层，避免消费方全部改 import |
 | **B. 三包拆** | `@aervox/schema` / `@aervox/repositories` / `@aervox/database-core`（client/errors/tenant 等基础设施） | 职责最纯粹 | 包数增加，`database-core` 内容少而杂、边界难划清；性价比低 |
 | **C. 按业务域拆** | 每域一包（`@aervox/schema-conversation`、`@aervox/repo-conversation` …） | 最贴合 ADR-014「按模块拆分」终态 | 与 ADR-014 的 `apps/api/src/modules/` 拆法重复（模块层在 api 侧，不在 database 侧）；包爆炸、跨域 schema 外键耦合难解；**现阶段不建议** |
 
-**推荐 A**：REFACTOR-PLAN 既定方向的最小实现，schema/repository 分层是共识边界，且能用兼容 re-export 把消费方改动压到最低。
+**已选定 A**（2026-09-09）：REFACTOR-PLAN 既定方向的最小实现，schema/repository 分层是共识边界，且能用兼容 re-export 把消费方改动压到最低。兼容包 `@aervox/database` 定位为**拆分期间的过渡态**，最终在阶段 6 清理退出，非长期驻留。
 
 ## 4. 方向 A 的分阶段落点
 
-> 顺序原则：先「无行为的结构平移」，再「去巨型文件」，最后「切消费面」。任一步都可停在绿 CI 状态。
+> 顺序原则：先「无行为的结构平移」，再「去巨型文件」，再「切消费面」，最后「清理兼容包」。任一步都可停在绿 CI 状态。
 
 ### 阶段 0：冻结基线 + 立项登记
 
@@ -85,10 +85,15 @@ REFACTOR-PLAN 给出的自然切分是 `@aervox/schema` + `@aervox/repositories`
 - `schema/init.ts`（2,581 行）按表域拆分 DDL，或抽 `migrations/` 目录。
 - 风险最高，需单独立 PR，配足类型 / 测试回归。
 
-### 阶段 5：切消费面（可选，收益后置）
+### 阶段 5：切消费面（清理兼容包的前置）
 
-- 逐步把 `apps/api` 等消费方 import 从 `@aervox/database` 收窄到 `@aervox/schema` / `@aervox/repositories`。
+- 逐步把 `apps/api` 等消费方 import 从 `@aervox/database` 收窄到 `@aervox/schema` / `@aervox/repositories`，直至 `@aervox/database` 零消费。
 - 仅在阶段 4 稳定后启动；若 ADR-014 的 `modules/` 迁移同步推进，此步可与之一并收口。
+
+### 阶段 6：清理兼容包（过渡态收尾）
+
+- 当 `@aervox/database` 对消费方零引用后，删除该兼容组合包及其 re-export 层，仓库只保留 `@aervox/schema` + `@aervox/repositories`。
+- 此阶段是兼容包的**退出条件**：兼容包仅用于拆分期间的平滑过渡，最终态不含 `@aervox/database`。此阶段启动前须 `grep` 全仓确认无 `@aervox/database` 残留 import，并更新 `pnpm-workspace.yaml` / 相关 `package.json`。
 
 ## 5. 待调研点（阶段 1 前置）
 
@@ -101,8 +106,8 @@ REFACTOR-PLAN 给出的自然切分是 `@aervox/schema` + `@aervox/repositories`
 
 | # | 事项 | 选项 |
 |---|---|---|
-| 1 | 拆分方向 | A（两包，推荐）/ B（三包）/ C（按域，不推荐） |
-| 2 | `@aervox/database` 是否保留为兼容组合包 | 保留 re-export（推荐，消费方零改动）/ 直接删除并全量改 import |
+| 1 | 拆分方向 | ✅ 已定：A（两包） |
+| 2 | `@aervox/database` 是否保留为兼容组合包 | ✅ 已定：保留为过渡态兼容包，阶段 6 清理退出 |
 | 3 | 巨型文件拆分是否纳入本次 | 纳入（阶段 4）/ 先只做结构平移，巨型文件后续另立 |
 | 4 | 是否与 ADR-014 `modules/` 迁移联动 | 独立推进 / 等 ADR-014 落地后联动 |
 
@@ -110,4 +115,4 @@ REFACTOR-PLAN 给出的自然切分是 `@aervox/schema` + `@aervox/repositories`
 
 1. 阶段 0（立项登记 + 基线冻结）。
 2. 跑第 5 节依赖调研，产出一份依赖方向图，作为阶段 1 输入。
-3. 方向 A + 保留兼容包 + 巨型文件后置拆分，是最小风险组合，待确认后进入阶段 1。
+3. 方向已定：A（两包）+ 保留过渡态兼容包（阶段 6 清理）；巨型文件是否纳入本次（#3）待定，确认后进入阶段 1。
