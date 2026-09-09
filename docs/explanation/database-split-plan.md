@@ -5,7 +5,7 @@
 
 > 文档编号：AVX-EXPL-009
 > 类型：Explanation
-> 版本：v0.3
+> 版本：v0.4
 > 更新日期：2026-09-09
 > 状态：Review Candidate
 > 关联：[文档索引](../README.md)、[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md)、[ADR-014 演进式模块化单体](../reference/adr/ADR-014-modular-monolith-structure.md)
@@ -59,10 +59,10 @@ REFACTOR-PLAN 给出的自然切分是 `@aervox/schema` + `@aervox/repositories`
 
 > 顺序原则：先「无行为的结构平移」，再「去巨型文件」，再「切消费面」，最后「清理兼容包」。任一步都可停在绿 CI 状态。
 
-### 阶段 0：冻结基线 + 立项登记
+### 阶段 0：立项 + 冻结基线
 
-- 在追踪基线 §4.2 新增 W-19 行（状态：规划中）。
-- 无代码改动；确认 `mise tasks run ci-code` 全绿作为拆分前基线。
+- 立项：本规划文档（AVX-EXPL-009）合入 `main`，W-19 正式立项。§4.2 的落地登记留待阶段 2 起实际平移时逐阶段补记（§4.2 只登记已落地改动，不登记规划）。
+- 冻结基线：记录拆分起始 commit（本阶段合入后 `main` 的 HEAD），并确认 `CI` 全绿作为拆分前基线。无代码改动。
 
 ### 阶段 1：建包壳 + 依赖图梳理
 
@@ -73,7 +73,7 @@ REFACTOR-PLAN 给出的自然切分是 `@aervox/schema` + `@aervox/repositories`
 
 - 把 `packages/database/src/schema/` 整体平移到 `@aervox/schema`，文件内容不变。
 - `@aervox/database` 以 `export * from "@aervox/schema"` 做 re-export，**消费方 import 不变**。
-- `schema/init.ts`（2,581 行）建议先平移后拆分，避免「平移 + 拆分」混在一个变更点。
+- `schema/init.ts` 不随 schema 平移（见 5.3：它依赖 `search/fts.ts`，归 `@aervox/repositories` 侧）。
 
 ### 阶段 3：迁移 `repositories/`（平移）
 
