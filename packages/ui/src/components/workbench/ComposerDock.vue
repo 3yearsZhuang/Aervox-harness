@@ -153,10 +153,10 @@ function handleVoiceTrigger() {
       <div class="composer-footer">
         <div class="composer-ops">
           <button
-            class="composer-op-btn"
+            class="composer-op-btn composer-access-btn"
             type="button"
             :title="toolApprovalMode === 'full_access' ? '当前已开启完全访问（点击切换）' : '当前处于普通授权模式（点击开启完全访问）'"
-            :class="{ active: toolApprovalMode === 'full_access' }"
+            :class="{ active: toolApprovalMode === 'full_access', full: toolApprovalMode === 'full_access' }"
             :aria-pressed="toolApprovalMode === 'full_access'"
             :disabled="streaming"
             @click="toggleToolApprovalMode"
@@ -177,9 +177,10 @@ function handleVoiceTrigger() {
             <span>{{ proactiveActive ? '主动智能生效中' : '主动智能模式' }}</span>
           </button>
           <button
-            class="composer-op-btn"
+            class="composer-op-btn composer-attachment-btn"
             type="button"
             title="上传附件（图片 / PDF / 文档 / 音频，单文件 ≤10MB）"
+            :class="{ uploading: attachmentUploading }"
             :disabled="streaming || attachmentUploading || pendingAttachments.length >= 10"
             @click="handleAttachmentTrigger"
           >
@@ -188,10 +189,10 @@ function handleVoiceTrigger() {
             <span v-if="pendingAttachments.length > 0" class="composer-op-count">{{ pendingAttachments.length }}</span>
           </button>
           <button
-            class="composer-op-btn"
+            class="composer-op-btn composer-voice-btn"
             type="button"
             :title="voiceInput.isListening.value ? '点击停止语音输入' : '语音输入（点击开始录音）'"
-            :class="{ active: voiceInput.isListening.value }"
+            :class="{ active: voiceInput.isListening.value, recording: voiceInput.isListening.value }"
             :aria-pressed="voiceInput.isListening.value"
             :disabled="streaming"
             @click="handleVoiceTrigger"
