@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import type { ProactiveProfileClaimModel } from "@aervox/database";
+import type { ProactiveProfileClaimModel } from "@aervox/repositories";
 import { buildLoopProvider } from "../src/modules/conversation/agent-executor.js";
 import {
   buildProactiveProfilePrompt,

@@ -5,9 +5,9 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { eq } from "drizzle-orm";
+import { diarySchedules } from "@aervox/schema";
 import {
   createInMemoryDatabase,
-  diarySchedules,
   initDatabaseSchema,
   SqliteDiaryRepository,
   SqliteLLMConfigRepository,
@@ -15,7 +15,7 @@ import {
   SqliteOutboxRepository,
   SqlitePlatformRepository,
   type AervoxDatabase,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 import { runDiaryGenerationCycle } from "../src/diary-generator.js";
 

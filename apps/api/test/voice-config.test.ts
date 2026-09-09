@@ -8,7 +8,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createServer, type AddressInfo } from "node:http";
-import { createInMemoryDatabase, type AervoxDatabase } from "@aervox/database";
+import { createInMemoryDatabase, type AervoxDatabase } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../src/app.js";

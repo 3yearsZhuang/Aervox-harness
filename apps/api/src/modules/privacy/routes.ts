@@ -4,7 +4,7 @@
  * 删除传播与 RecoveryControlLedger 内部账本由 Worker 处理，不对外暴露。
  */
 import type { FastifyInstance } from "fastify";
-import type { SqlitePrivacyRepository } from "@aervox/database";
+import type { SqlitePrivacyRepository } from "@aervox/repositories";
 import { resolveTenant } from "../../shared/tenant.js";
 
 let seq = 0;

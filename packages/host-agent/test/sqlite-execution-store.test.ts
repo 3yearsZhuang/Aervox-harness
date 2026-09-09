@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/host-agent — SqliteExecutionStore 适配冒烟（阶段 4a）
  *
  * 验证宿主适配在真实 SQLite 上的最小回路：claim → append/list → finalize / CAS 失败跳过。
- * 深度行为（租约、fencing、工具预留）由 @aervox/database conversation-* 测试覆盖，此处只做宿主侧桥接验证。
+ * 深度行为（租约、fencing、工具预留）由 @aervox/repositories conversation-* 测试覆盖，此处只做宿主侧桥接验证。
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { SqliteExecutionStore } from "../src/index.js";
@@ -12,7 +12,7 @@ import {
   SqliteConversationRepository,
   type AervoxDatabase,
   type TenantContext,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 
 const tenant: TenantContext = { workspaceId: "ws_host", subjectUserId: "usr_host" };

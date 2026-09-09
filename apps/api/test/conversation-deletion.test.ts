@@ -6,7 +6,7 @@
  * - 追平（request completed）后：新 Turn 正常完成。
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createInMemoryDatabase, SqliteConversationRepository, SqlitePrivacyRepository, type AervoxDatabase, type TenantContext } from "@aervox/database";
+import { createInMemoryDatabase, SqliteConversationRepository, SqlitePrivacyRepository, type AervoxDatabase, type TenantContext } from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";

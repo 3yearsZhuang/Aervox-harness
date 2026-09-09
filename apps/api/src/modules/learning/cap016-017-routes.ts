@@ -9,7 +9,7 @@
  * 原 CAP-017 学习计划路由已被「学习规划」（OpenMAIC planner 单次结构化生成）替换，见 plan-routes.ts。
  */
 import type { FastifyInstance } from "fastify";
-import type { SqliteLearningRepository } from "@aervox/database";
+import type { SqliteLearningRepository } from "@aervox/repositories";
 import { createPracticeReportSchema } from "@aervox/contracts";
 import { resolveTenant } from "../../shared/tenant.js";
 

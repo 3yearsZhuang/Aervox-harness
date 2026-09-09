@@ -5,7 +5,7 @@
  * （插件 x-plugin-id 身份校验）。规则依据 §7.2 + ADR-017。
  */
 import type { ModuleContext } from "../context.js";
-import { SqliteAgentInboxRepository, SqliteExtensionRepository } from "@aervox/database";
+import { SqliteAgentInboxRepository, SqliteExtensionRepository } from "@aervox/repositories";
 import { registerInboxRoutes } from "./routes.js";
 
 export function registerInboxModule(ctx: ModuleContext): void {

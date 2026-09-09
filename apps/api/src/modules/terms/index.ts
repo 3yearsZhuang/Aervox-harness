@@ -4,7 +4,7 @@
  * 符合 ADR-014 演进式模块化单体与 AVX-PLUG-001 插件规范。
  */
 import type { ModuleContext } from "../context.js";
-import { SqliteConversationRepository } from "@aervox/database";
+import { SqliteConversationRepository } from "@aervox/repositories";
 import { registerTermsRoutes } from "./routes.js";
 
 export function registerTermsModule(ctx: ModuleContext): void {

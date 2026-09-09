@@ -7,7 +7,7 @@
  * - BR-LRN-001 事实核验、版权与删除传播（来源许可证，核验状态，删除失效引用）
  */
 import type { FastifyInstance } from "fastify";
-import type { IStudyMaterialRepository } from "@aervox/database";
+import type { IStudyMaterialRepository } from "@aervox/repositories";
 import {
   createStudyMaterialSchema,
   editStudyMaterialSchema,

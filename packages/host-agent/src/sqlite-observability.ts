@@ -2,10 +2,10 @@
  * Aervox｜思隅 @aervox/host-agent — SQLite 持久化可观测性门面（缺陷5）
  *
  * 由编排者（API / Worker / 独立应用）在组合根创建并注入 createAgentHost：
- * - audit：落 @aervox/database 的 audit_logs 表（对齐 AuditEntry；写入失败仅记录不抛错，
- *   与接口约定「实现不抛异常」一致）；
- * - log：结构化输出到 console（实现不依赖具体日志后端）；
- * - metrics：进程内累计采样 + flush no-op（配额/远端导出由后续接入，属于可选增强）。
+ * - audit：落 @aervox/schema 的 audit_logs 表（对齐 AuditEntry；写入失败仅记录不抛错，
+ *   不阻断主流程）。
+ *
+ * 契约：只消费抽象端口或基础设施，无 agent-loop 反向依赖。
  */
 import type {
   AuditEntry,
@@ -16,8 +16,8 @@ import type {
   MetricSample,
   Observability,
 } from "@aervox/observability";
-import type { AervoxDatabase } from "@aervox/database";
-import { auditLogs } from "@aervox/database";
+import type { AervoxDatabase } from "@aervox/repositories";
+import { auditLogs } from "@aervox/schema";
 
 let seqCounter = 0;
 const nextAuditId = (): string => `aud_${Date.now().toString(36)}_${(++seqCounter).toString(36)}`;

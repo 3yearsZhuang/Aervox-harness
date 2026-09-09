@@ -15,7 +15,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { SqliteSkillRegistryRepository, SkillRegistrationModel } from "@aervox/database";
+import type { SqliteSkillRegistryRepository, SkillRegistrationModel } from "@aervox/repositories";
 import { buildSkillsPrompt } from "@aervox/agent-loop";
 import { unzip } from "./zip.js";
 

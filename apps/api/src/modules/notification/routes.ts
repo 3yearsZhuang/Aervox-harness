@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/api — 通知域路由（用户侧）
  */
 import type { FastifyInstance } from "fastify";
-import type { SqlitePlatformRepository } from "@aervox/database";
+import type { SqlitePlatformRepository } from "@aervox/repositories";
 import { resolveTenant } from "../../shared/tenant.js";
 
 export function registerNotificationRoutes(

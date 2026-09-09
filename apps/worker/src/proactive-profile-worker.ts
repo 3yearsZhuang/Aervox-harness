@@ -9,11 +9,13 @@ import {
   proactiveCaptures,
   proactiveProfileRevisions,
   proactiveSourceGrants,
-  type AervoxDatabase,
-  type IProactiveProfileRepository,
-  type ProactiveCaptureModel,
-  type TenantContext,
-} from "@aervox/database";
+} from "@aervox/schema";
+import type {
+  AervoxDatabase,
+  IProactiveProfileRepository,
+  ProactiveCaptureModel,
+  TenantContext,
+} from "@aervox/repositories";
 import type { ProactiveCaptureDistiller } from "./proactive-distiller.js";
 
 export interface ProactiveProfileWorkerContext {

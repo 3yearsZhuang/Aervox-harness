@@ -1,12 +1,12 @@
 # `packages/database` 拆分规划（W-19）
 
 - 提出人：3yearszhuang · 2026-09-09
-- 修改人：3yearszhuang · 2026-09-09
+- 修改人：3yearszhuang · 2026-09-10
 
 > 文档编号：AVX-EXPL-009
 > 类型：Explanation
-> 版本：v0.5
-> 更新日期：2026-09-09
+> 版本：v0.6
+> 更新日期：2026-09-10
 > 状态：Review Candidate
 > 关联：[文档索引](../README.md)、[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md)、[ADR-014 演进式模块化单体](../reference/adr/ADR-014-modular-monolith-structure.md)
 
@@ -87,10 +87,11 @@ REFACTOR-PLAN 给出的自然切分是 `@aervox/schema` + `@aervox/repositories`
 - 验证：`@aervox/repositories` typecheck 通过；37 测试文件 / 192 测试全绿；`schema` → `repositories` → `database` 三包 `tsc` 构建成功且 `apps/host-agent`（67 passed / 1 skipped）、`apps/worker`（10 passed）经 built dist 跑通，证明公开导出路径未变、拆分对消费者透明；全仓 `packages/**`（排除 `dist`）及 `apps/**` 源码无 `schema/init.js` / `repositories/types.js` 残留引用；DDL 语句计数与原 `init.ts` 完全一致（256 = 256）。
 - 风险最高，单独立 PR，配足类型 / 测试回归。注：`apps/api` 全量并行测试在本沙箱出现 `LibsqlError: CLIENT_CLOSED` 未处理拒绝（集中在测试拆卸期关闭 libsql client 后仍 pending 的查询），属测试基础设施在并发压力下的抖动，与本次文件重组无关（错误栈落在未改动的 built `dist/write-retry.js` / `client`，且 `worker` / `host-agent` 经同一 dist 全绿）；以 `--no-file-parallelism` 串行复跑可显著降低发生频次。
 
-### 阶段 5：切消费面（清理兼容包的前置）
+### 阶段 5：切消费面（清理兼容包的前置） ✅ 已完成（2026-09-10）
 
-- 逐步把 `apps/api` 等消费方 import 从 `@aervox/database` 收窄到 `@aervox/schema` / `@aervox/repositories`，直至 `@aervox/database` 零消费。
-- 仅在阶段 4 稳定后启动；若 ADR-014 的 `modules/` 迁移同步推进，此步可与之一并收口。
+- 4 个消费包（`packages/diary`、`packages/host-agent`、`apps/worker`、`apps/api`）全部移除对 `@aervox/database` 的 `package.json` 依赖，转为直接依赖 `@aervox/schema` 与 `@aervox/repositories`。
+- 全仓源码与测试（共 130+ 文件，含 `apps/api` 119 文件、`apps/worker` 15 文件、`packages/host-agent` 9 文件、`packages/diary` 2 文件）对 `@aervox/database` 的所有 import 语句收窄并重定向至 `@aervox/schema`（表定义/字段清单）与 `@aervox/repositories`（仓储接口/SQLite 实现/基础设施客户端）。
+- 验证：`check:boundary` 14/14 规则通过；全仓 19 个工作区包 `turbo run build` 与 `turbo run typecheck` 0 报错；`@aervox/diary`（5/5）、`@aervox/host-agent`（67 passed / 1 skipped）、`@aervox/worker`（10/10）、`@aervox/api`（48 文件 / 322 测试）、`@aervox/repositories`（37 文件 / 192 测试）全量通过；除 `packages/database` 兼容包自身外，全仓源码与测试 `git grep 'from "@aervox/database"'` 彻底归零，为阶段 6 彻底删除兼容包达成退出条件。
 
 ### 阶段 6：清理兼容包（过渡态收尾）
 

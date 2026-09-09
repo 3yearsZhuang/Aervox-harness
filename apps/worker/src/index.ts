@@ -23,7 +23,7 @@ import { createDatabase,
   SqliteProactiveProfileRepository,
   createProactiveVaultDatabase,
   loadProactiveVaultCipher,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import { loadWorkerConfig } from "@aervox/config";
 import { runOutboxCycle } from "./outbox-worker.js";
 import { runReviewNotificationCycle } from "./review-notifier.js";

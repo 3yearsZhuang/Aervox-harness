@@ -4,7 +4,7 @@
  * 默认实现是确定性的本地规则处理，不调用 LLM/Embedding/网络。它把原始捕获转换为
  * 带来源证据的画像记忆候选，并在持久化前剔除凭据与私钥材料。
  */
-import type { ProactiveCaptureModel } from "@aervox/database";
+import type { ProactiveCaptureModel } from "@aervox/repositories";
 
 export interface DistilledProfileMemory {
   claimType: string;

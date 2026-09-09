@@ -15,7 +15,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   createInMemoryDatabase,
   type AervoxDatabase,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createInMemoryDatabase, SqliteSkillRegistryRepository, type AervoxDatabase } from "@aervox/database";
+import { createInMemoryDatabase, SqliteSkillRegistryRepository, type AervoxDatabase } from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
@@ -179,7 +179,7 @@ it("阶段 5b：注册 active Skill 后创建 Turn 仍成功（skillLoader 接�
       const turnId = created.json().turnId as string;
 
       // 不经 SSE 屏障直接查库：inline 下 POST 返回即已终态
-      const repo = new (await import("@aervox/database")).SqliteConversationRepository(db);
+      const repo = new (await import("@aervox/repositories")).SqliteConversationRepository(db);
       const attempts = await repo.listTurnAttempts(
         { workspaceId: "ws_loop", subjectUserId: "usr_loop" },
         turnId,

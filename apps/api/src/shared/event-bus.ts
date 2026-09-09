@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/api — 进程内事件总线
  *
  * 定位声明（缺陷2修正）：本总线当前**未被任何领域模块使用**——跨域副作用一律走
- * 持久化的 Outbox 表（@aervox/database + apps/worker 消费），保证进程崩溃后可重放。
+ * 持久化的 Outbox 表（@aervox/repositories + apps/worker 消费），保证进程崩溃后可重放。
  * 本总线仅保留为进程内测试与"未来拆服务"的实验通道；若未来将其替换为消息队列
  * （NATS/Redis Streams），需补充持久化、顺序与重放语义（缺陷6：payload 已被类型
  * 约束为 JSON 可序列化值，可直接进入队列）。

@@ -8,7 +8,7 @@
  * - next-turn 消费闭环：followup 在创建新 Turn 时注入为输入。
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createInMemoryDatabase, type AervoxDatabase } from "@aervox/database";
+import { createInMemoryDatabase, type AervoxDatabase } from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";

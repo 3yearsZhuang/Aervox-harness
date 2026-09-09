@@ -16,7 +16,7 @@ import {
   SqliteUserQuestionRepository,
   type AervoxDatabase,
   type TenantContext,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 import { UserQuestionCoordinator } from "../src/modules/conversation/user-question-coordinator.js";
 import type { AskUserQuestionPortRequest } from "@aervox/agent-loop";

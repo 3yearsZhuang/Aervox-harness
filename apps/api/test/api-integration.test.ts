@@ -3,7 +3,7 @@ import {
   createInMemoryDatabase,
   SqliteLearningRepository,
   type AervoxDatabase,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
@@ -740,7 +740,7 @@ describe("API 集成测试：用户侧域路由", () => {
 
   it("通知列表：经仓储创建后经 API 可见", async () => {
     // 通过仓储直插一条通知，验证 GET /v1/notifications 可见
-    const { SqlitePlatformRepository } = await import("@aervox/database");
+    const { SqlitePlatformRepository } = await import("@aervox/repositories");
     const platform = new SqlitePlatformRepository(db);
     await platform.createNotification(
       { workspaceId: "ws_it", subjectUserId: "usr_it" },
@@ -775,7 +775,7 @@ describe("API 集成测试：用户侧域路由", () => {
 
   it("P1 知识关系：创建 + 按知识点查询 + 租户隔离", async () => {
     // 通过仓储创建知识点，再经 API 建关系
-    const { SqliteLearningRepository } = await import("@aervox/database");
+    const { SqliteLearningRepository } = await import("@aervox/repositories");
     const learning = new SqliteLearningRepository(db);
     const tenant = { workspaceId: "ws_it", subjectUserId: "usr_it" };
     await learning.createKnowledgeItem(tenant, { id: "ki_a", concept: "导数" });
@@ -806,7 +806,7 @@ describe("API 集成测试：用户侧域路由", () => {
   });
 
   it("P1 会话地图分支：创建 + 按父会话列出", async () => {
-    const { SqliteConversationRepository } = await import("@aervox/database");
+    const { SqliteConversationRepository } = await import("@aervox/repositories");
     const conv = new SqliteConversationRepository(db);
     const tenant = { workspaceId: "ws_it", subjectUserId: "usr_it" };
     const parent = await conv.createSession(tenant, "Parent");

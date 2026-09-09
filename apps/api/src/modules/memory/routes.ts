@@ -4,7 +4,7 @@
  * 记忆树投影独立化后，投影节点面向用户侧可读/可建。
  */
 import type { FastifyInstance } from "fastify";
-import type { SqliteMemoryRepository } from "@aervox/database";
+import type { SqliteMemoryRepository } from "@aervox/repositories";
 import { resolveTenant } from "../../shared/tenant.js";
 
 let seq = 0;

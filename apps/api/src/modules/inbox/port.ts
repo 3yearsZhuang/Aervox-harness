@@ -3,7 +3,7 @@
  *
  * 组合根适配（ADR-016 分层）：API 组合根持有 SQLite 仓储，按请求租户绑定后
  * 提供给 agent-loop 消费（每 Step claim next-step → 注入上下文 → ack）。
- * agent-loop 应用层不导入 @aervox/database。
+ * agent-loop 应用层不导入 @aervox/repositories。
  */
 import type {
   AgentInboxCommand,
@@ -13,7 +13,7 @@ import type {
   AgentInboxItemStatus,
   InboxPort,
 } from "@aervox/agent-loop";
-import type { AgentInboxItemModel, SqliteAgentInboxRepository, TenantContext } from "@aervox/database";
+import type { AgentInboxItemModel, SqliteAgentInboxRepository, TenantContext } from "@aervox/repositories";
 
 let seq = 0;
 const nextId = (): string => `ibx_${Date.now().toString(36)}_${(++seq).toString(36)}`;

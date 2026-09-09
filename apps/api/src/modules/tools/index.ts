@@ -9,7 +9,7 @@ import {
   SqliteMemoryRepository,
   SqliteMemoryEmbeddingRepository,
   SqliteToolRegistryRepository,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import { registerToolRoutes } from "./routes.js";
 import { ToolRuntime } from "./runtime.js";
 import {

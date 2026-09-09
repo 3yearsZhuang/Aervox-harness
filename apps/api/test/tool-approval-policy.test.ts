@@ -4,7 +4,7 @@ import {
   initDatabaseSchema,
   SqliteConversationRepository,
   type AervoxDatabase,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import type { ToolProviderPort } from "@aervox/agent-loop";
 import {
   createApprovalGatedToolProvider,

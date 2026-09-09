@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { createInMemoryDatabase, SqliteLLMConfigRepository, type AervoxDatabase } from "@aervox/database";
+import { createInMemoryDatabase, SqliteLLMConfigRepository, type AervoxDatabase } from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";
 

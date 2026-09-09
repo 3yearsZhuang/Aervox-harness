@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/api — 工具系统 + 插件运行时集成测试（T-04 / AST-04 / PET-05 / CAP-020）
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createInMemoryDatabase, initDatabaseSchema, type AervoxDatabase } from "@aervox/database";
+import { createInMemoryDatabase, initDatabaseSchema, type AervoxDatabase } from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
 import { derivePetSheetState } from "../src/modules/tools/mcp.js";
 import type { FastifyInstance } from "fastify";

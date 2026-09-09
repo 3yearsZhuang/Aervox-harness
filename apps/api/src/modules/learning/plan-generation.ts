@@ -8,8 +8,8 @@
  */
 import { createOpenAICompatProvider } from "@aervox/agent-loop";
 import type { ModelProviderPort, ModelRequest } from "@aervox/agent-loop";
-import type { AervoxDatabase, TenantContext, LearningPlanModel } from "@aervox/database";
-import type { ILearningRepository } from "@aervox/database";
+import type { AervoxDatabase, TenantContext, LearningPlanModel } from "@aervox/repositories";
+import type { ILearningRepository } from "@aervox/repositories";
 import type { LLMConfigService } from "../llm/service.js";
 
 /** 单次规划生成的模型端口（宿主注入；测试注入确定性实现） */

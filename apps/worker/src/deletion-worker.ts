@@ -10,11 +10,13 @@ import { and, eq, inArray } from "drizzle-orm";
 import {
   deletionRequests,
   deletionTargets,
-  type AervoxDatabase,
-  type SqlitePrivacyRepository,
-  type SqlitePlatformRepository,
-  type TenantContext,
-} from "@aervox/database";
+} from "@aervox/schema";
+import type {
+  AervoxDatabase,
+  SqlitePrivacyRepository,
+  SqlitePlatformRepository,
+  TenantContext,
+} from "@aervox/repositories";
 
 export interface DeletionWorkerContext {
   db: AervoxDatabase;
