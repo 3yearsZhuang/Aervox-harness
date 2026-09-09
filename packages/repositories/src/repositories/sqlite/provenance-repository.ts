@@ -23,7 +23,7 @@ import type {
   MemoryRevisionModel,
   MemoryEvidenceModel,
   MemoryEventModel,
-} from "../types.js";
+} from "../types/index.js";
 
 export class SqliteProvenanceRepository implements IProvenanceRepository {
   constructor(private readonly db: AervoxDatabase) {}

@@ -16,7 +16,7 @@ import type {
   ISubagentRunRepository,
   SubagentRunCreateInput,
   SubagentRunModel,
-} from "../types.js";
+} from "../types/index.js";
 
 type RunRow = typeof subagentRuns.$inferSelect;
 

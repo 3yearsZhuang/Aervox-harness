@@ -21,7 +21,7 @@ import type {
   PluginGrantModel,
   CommunityContentModel,
   OrganizationModel,
-} from "../types.js";
+} from "../types/index.js";
 
 export class SqliteExtensionRepository implements IExtensionRepository {
   constructor(private readonly db: AervoxDatabase) {}

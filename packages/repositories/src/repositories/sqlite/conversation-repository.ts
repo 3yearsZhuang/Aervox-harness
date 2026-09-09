@@ -31,7 +31,7 @@ import type {
   TurnStreamEventModel,
   ToolExecutionModel,
   ToolApprovalModel,
-} from "../types.js";
+} from "../types/index.js";
 
 export class SqliteConversationRepository implements IConversationRepository {
   constructor(private readonly db: AervoxDatabase) {}

@@ -7,7 +7,7 @@ import { eq, and, desc } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { safetyIncidents } from "@aervox/schema";
 import { assertTenantContext, type TenantContext } from "../../tenant.js";
-import type { ISafetyRepository, SafetyIncidentModel } from "../types.js";
+import type { ISafetyRepository, SafetyIncidentModel } from "../types/index.js";
 
 export class SqliteSafetyRepository implements ISafetyRepository {
   constructor(private readonly db: AervoxDatabase) {}

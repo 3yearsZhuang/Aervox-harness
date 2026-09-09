@@ -24,7 +24,7 @@ import type {
   PersonaTurnContextModel,
   PersonaSwitchLogModel,
   PersonaMemoryScopeModel,
-} from "../types.js";
+} from "../types/index.js";
 
 export class SqlitePersonaRepository implements IPersonaRepository {
   constructor(private readonly db: AervoxDatabase) {}

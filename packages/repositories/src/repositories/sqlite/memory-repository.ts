@@ -23,7 +23,7 @@ import type {
   MemoryEdgeEvidenceModel,
   MemoryAlgorithmModel,
   MemoryTreeNode,
-} from "../types.js";
+} from "../types/index.js";
 
 export class SqliteMemoryRepository implements IMemoryRepository {
   constructor(

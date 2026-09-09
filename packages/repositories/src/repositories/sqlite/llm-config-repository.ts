@@ -13,7 +13,7 @@ import type {
   ILLMConfigRepository,
   LLMConfigSaveInput,
   LLMConfigModel,
-} from "../types.js";
+} from "../types/index.js";
 
 function rowToModel(row: typeof llmConfigs.$inferSelect): LLMConfigModel {
   return {

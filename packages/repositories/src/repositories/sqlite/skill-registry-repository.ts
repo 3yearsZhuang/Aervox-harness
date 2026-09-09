@@ -13,7 +13,7 @@
 import { eq } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { skillRegistrations } from "@aervox/schema";
-import type { ISkillRegistryRepository, SkillRegistrationModel } from "../types.js";
+import type { ISkillRegistryRepository, SkillRegistrationModel } from "../types/index.js";
 
 export class SqliteSkillRegistryRepository implements ISkillRegistryRepository {
   constructor(private readonly db: AervoxDatabase) {}

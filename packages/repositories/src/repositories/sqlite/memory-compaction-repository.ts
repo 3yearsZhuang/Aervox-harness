@@ -13,7 +13,7 @@ import { assertTenantContext, type TenantContext } from "../../tenant.js";
 import type {
   IMemoryCompactionRepository,
   MemoryCompactionMarkerModel,
-} from "../types.js";
+} from "../types/index.js";
 
 export class SqliteMemoryCompactionRepository implements IMemoryCompactionRepository {
   constructor(private readonly db: AervoxDatabase) {}

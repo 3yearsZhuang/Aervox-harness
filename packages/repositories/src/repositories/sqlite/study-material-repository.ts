@@ -16,7 +16,7 @@ import type {
   StudyMaterialModel,
   MaterialVersionModel,
   MaterialSourceModel,
-} from "../types.js";
+} from "../types/index.js";
 
 export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
   constructor(private readonly db: AervoxDatabase) {}
