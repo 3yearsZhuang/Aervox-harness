@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { FileText, History, Image as ImageIcon, Music, X } from 'lucide-vue-next';
+import ExtensionSlot from '../../extension/ExtensionSlot.vue';
 import { useWorkbenchContext } from '../../../composables/workbench-context';
 import { renderMarkdown } from '../../../utils/markdown';
 
@@ -36,6 +37,11 @@ function attachmentIconFor(mediaType: string) {
                   <span>{{ att.name }}</span>
                 </span>
               </span>
+              <ExtensionSlot
+                name="message:bubble-actions"
+                :context="{ message: line, text: line.text, speaker: line.speaker }"
+                wrapper-class="vn-history-bubble-actions-slot"
+              />
             </span>
           </p>
           <p v-if="story.length === 0" class="vn-history-empty">还没有对话记录，先和思隅说句话吧。</p>

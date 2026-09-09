@@ -69,6 +69,11 @@ export class UIRegistry {
   }
 }
 
+/** 创建独立的 UI 注册表实例 */
+export function createUIRegistry(): UIRegistry {
+  return new UIRegistry();
+}
+
 /** 全局单例注册表 */
 export const defaultUIRegistry = new UIRegistry();
 
@@ -81,3 +86,4 @@ export function provideUIRegistry(registry: UIRegistry = defaultUIRegistry): voi
 export function useUIRegistry(): UIRegistry {
   return inject(UI_REGISTRY_KEY, defaultUIRegistry);
 }
+

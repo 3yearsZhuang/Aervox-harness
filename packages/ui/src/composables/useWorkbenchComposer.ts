@@ -62,10 +62,11 @@ export function useWorkbenchComposer(options: {
   onSendMessage: (value?: string) => Promise<void>;
   streaming: Ref<boolean>;
   fullAccessDialogOpen: Ref<boolean>;
+  enterToSend?: Ref<boolean>;
 }) {
   const input = ref('');
   const isComposing = ref(false);
-  const enterToSend = ref(true);
+  const enterToSend = options.enterToSend ?? ref(true);
   const composerOpen = ref(false);
   const composerPlaceholder = '和思隅聊聊学习或任何事…';
   const composerTextarea = ref<HTMLTextAreaElement | null>(null);

@@ -19,6 +19,9 @@ export interface ExtensionComponentRegistration {
   props?: Record<string, unknown>;
 }
 
+export type RegisteredSlotComponent = ExtensionComponentRegistration;
+
+
 export interface RegisterSlotOptions {
   id?: string;
   priority?: number;
@@ -34,4 +37,7 @@ export interface ComposerContractProps {
   onSend: (text?: string, options?: { quizMode?: boolean; resend?: boolean }) => Promise<void>;
   onVoiceTrigger?: () => void;
   onAttachmentPicker?: () => void;
+  'onUpdate:input'?: (value: string) => void;
+  onUpdateInput?: (value: string) => void;
 }
+

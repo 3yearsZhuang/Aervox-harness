@@ -58,6 +58,7 @@ const proactive = useWorkbenchProactive({
 // 2. Layout Composable
 const layout = useWorkbenchLayout(props, {
   recordActivity: proactive.recordProactiveActivity,
+  getTimerMinutes: () => timer.timerMinutes.value,
   onStudyModeChange: (enabled) => {
     if (enabled) {
       cards.applyStudyCardLayout();
@@ -93,6 +94,7 @@ const composer = useWorkbenchComposer({
   onSendMessage: (value) => sendMessage(value),
   streaming: conversation.streaming,
   fullAccessDialogOpen: conversation.fullAccessDialogOpen,
+  enterToSend: layout.enterToSend,
 });
 
 // 6. Cards Composable
@@ -249,6 +251,11 @@ const resolvedComposerComponent = computed(() => {
   return registry.getComponent('ComposerDock', ComposerDock);
 });
 
+function handleComposerInputUpdate(val: string) {
+  composer.input.value = val;
+}
+
+
 let removeProactiveStatusListener: (() => void) | undefined;
 
 onMounted(() => {
@@ -266,7 +273,7 @@ onMounted(() => {
       dailyReminder: boolean;
     }>;
     if (savedSettings.assistantName) layout.assistantDisplayName.value = savedSettings.assistantName;
-    if (typeof savedSettings.enterToSend === 'boolean') composer.enterToSend.value = savedSettings.enterToSend;
+    if (typeof savedSettings.enterToSend === 'boolean') layout.enterToSend.value = savedSettings.enterToSend;
     if (typeof savedSettings.compactMode === 'boolean') layout.compactMode.value = savedSettings.compactMode;
     if (typeof savedSettings.studyModeEnabled === 'boolean') layout.studyModeEnabled.value = savedSettings.studyModeEnabled;
     if (typeof savedSettings.timerMinutes === 'number' && savedSettings.timerMinutes >= 1 && savedSettings.timerMinutes <= 60) {
@@ -366,7 +373,21 @@ onUnmounted(() => {
 
     <div class="immersive-console">
       <ConversationConsole />
-      <component :is="resolvedComposerComponent" />
+      <component
+        :is="resolvedComposerComponent"
+        :input="composer.input.value"
+        :streaming="conversation.streaming.value"
+        :is-composing="composer.isComposing.value"
+        :enter-to-send="layout.enterToSend.value"
+        :placeholder="composer.composerPlaceholder"
+        :on-send="sendMessage"
+        :on-voice-trigger="composer.toggleVoiceInput"
+        :on-attachment-picker="composer.triggerAttachmentPicker"
+        @update:input="handleComposerInputUpdate"
+        @send="sendMessage"
+        @voice-trigger="composer.toggleVoiceInput"
+        @attachment-picker="composer.triggerAttachmentPicker"
+      />
     </div>
 
     <ToolsDrawer />

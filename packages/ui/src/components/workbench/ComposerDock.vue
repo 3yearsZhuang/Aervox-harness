@@ -14,7 +14,17 @@ import {
 } from 'lucide-vue-next';
 import ExtensionSlot from '../extension/ExtensionSlot.vue';
 import ComposerAttachments from './ComposerAttachments.vue';
+import type { ComposerContractProps } from '../../registry/types';
 import { useWorkbenchContext } from '../../composables/workbench-context';
+
+const props = defineProps<Partial<ComposerContractProps>>();
+
+const emit = defineEmits<{
+  (e: 'update:input', value: string): void;
+  (e: 'send', text?: string, options?: { quizMode?: boolean; resend?: boolean }): void;
+  (e: 'voice-trigger'): void;
+  (e: 'attachment-picker'): void;
+}>();
 
 const { layout, composer, conversation, proactive, sendMessage } = useWorkbenchContext();
 const { isWeb, studyModeEnabled, enterToSend, openSettingsCategory } = layout;
@@ -60,7 +70,12 @@ const accessChipIcon = computed(() =>
 );
 
 function onFormSubmit() {
-  void sendMessage();
+  if (props.onSend) {
+    void props.onSend(input.value);
+  } else {
+    void sendMessage();
+  }
+  emit('send', input.value);
 }
 </script>
 

@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { defineComponent, h } from 'vue';
-import { UIRegistry } from '../src/registry/ui-registry';
+import { UIRegistry, createUIRegistry } from '../src/registry/ui-registry';
 
 describe('UIRegistry', () => {
+  it('creates registry via createUIRegistry factory', () => {
+    const registry = createUIRegistry();
+    expect(registry).toBeInstanceOf(UIRegistry);
+    const Comp = defineComponent({ render: () => h('div', 'Bubble Action') });
+    registry.registerSlotComponent('message:bubble-actions', Comp, { id: 'bubble-action-1' });
+    expect(registry.getSlotComponents('message:bubble-actions')).toHaveLength(1);
+  });
+
   it('registers and orders slot components by priority', () => {
     const registry = new UIRegistry();
     const CompA = defineComponent({ render: () => h('div', 'A') });
@@ -38,3 +46,4 @@ describe('UIRegistry', () => {
     expect(registry.getComponent('Composer', DefaultComp)).toBe(CustomComp);
   });
 });
+
