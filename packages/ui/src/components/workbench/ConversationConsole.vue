@@ -2,7 +2,6 @@
 import { ChevronDown, ChevronRight, ChevronUp, History } from 'lucide-vue-next';
 import ExtensionSlot from '../extension/ExtensionSlot.vue';
 import ToolApprovalCard from './ToolApprovalCard.vue';
-import TermsBar from './TermsBar.vue';
 import { useWorkbenchContext } from '../../composables/workbench-context';
 import { renderMarkdown } from '../../utils/markdown';
 
@@ -81,7 +80,6 @@ const {
       </p>
 
       <ToolApprovalCard />
-      <TermsBar />
     </div>
 
     <button class="message-history-entry" type="button" @click="historyOpen = true">
