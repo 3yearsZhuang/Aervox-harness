@@ -1,13 +1,13 @@
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：kikoyida · 2026-09-08
+- 修改人：linge · 2026-09-09
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
 > 文档版本：v1.15
 > 文档状态：评审候选（Review Candidate）  
-> 更新日期：2026-09-08
+> 更新日期：2026-09-09
 > 产品需求来源：[PRD.md](PRD.md)
 > 适用范围：原型、MVP、MVP+、P1、桌面阶段、P2、P3 及后续维护版本
 
@@ -363,6 +363,7 @@
 | W-17 `artifacts/` 目录治理（REFACTOR-PLAN W-17） | 基础设施（仓库资产治理） | `README.md`（仓库结构段补充 `artifacts/` 用途说明：pitch-preview 含 Midnight Galaxy 与 Tech Innovation 两版 PPT 及预览图，非代码资产、不参与构建与打包，仅供对外推介取用）、`artifacts/pitch-preview/`（已入库、零源码引用；onboarding PR #111 `7d42cf2` 误提交，主题与产品不符，裁定保留并显式说明用途）、`.gitignore`（已豁免，不参与打包） | 2026-09-04 | `git grep -r "pitch-preview" apps packages modules` 零源码引用（仅 README 与文档引用）；README 仓库结构段含 `artifacts/` 说明；ci-docs 0 warning | 原生 |
 
 | W-18 移除 repo-root `modules/*` 悬空声明（REFACTOR-PLAN W-18） | 基础设施（仓库结构治理） | `pnpm-workspace.yaml`（删除 repo-root `modules/*` 通配与误归因 ADR-014 的注释；ADR-014 实际指 `apps/api/src/modules/`，已存在且重度使用；repo-root host 归 ADR-001/AVX-CAP-001 的可选能力 submodule 宿主，当前零实例、唯一实例 `modules/persona-plugin` 已在去模块化收尾中移除）、`docs/how-to/submodule-collaboration.md`（第 3 步补「若未声明 `modules/*` 先加回」说明，消除文档与现状漂移） | 2026-09-04 | `pnpm-workspace.yaml` 无 `modules/*` 条目；`git ls-files modules/` 无输出（目录不存在）；ci.yml 的 `modules/**` 仅作 PR/push 触发条件，移除声明不影响流水线；docs-validate 0 warning | 原生 |
+| 工作台 UI 全面组件化与插件插槽注入/组件替换体系 | CAP-001/020 / ADR-009 / ADR-015 | `packages/ui/src/components/{AervoxWorkbench.vue,extension/ExtensionSlot.vue,workbench/*}`、`packages/ui/src/composables/*`、`packages/ui/src/registry/*`、`refactor-plan.md` | 2026-09-09 | `@aervox/ui` 单元测试 16/16 全绿（`ui-registry.test.ts`、`workbench-composables.test.ts` 等）；`@aervox/ui` 与 `@aervox/desktop` 类型检查零错误；`@aervox/web` 生产构建通过 | 原生 |
 
 ## 5. 原子需求字段模板
 

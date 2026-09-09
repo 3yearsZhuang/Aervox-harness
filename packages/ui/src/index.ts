@@ -4,6 +4,36 @@ export { default as SpritePet } from './components/SpritePet.vue';
 export { default as MessageBubble } from './components/MessageBubble.vue';
 export { default as UserQuestionComposer } from './components/UserQuestionComposer.vue';
 export { default as AervoxWorkbench } from './components/AervoxWorkbench.vue';
+
+// 核心组件拆解导出
+export { default as WorkbenchHeader } from './components/workbench/WorkbenchHeader.vue';
+export { default as PomodoroToast } from './components/workbench/PomodoroToast.vue';
+export { default as WorkbenchNavPill } from './components/workbench/WorkbenchNavPill.vue';
+export { default as WorkbenchSideCards } from './components/workbench/WorkbenchSideCards.vue';
+export { default as ConversationConsole } from './components/workbench/ConversationConsole.vue';
+export { default as ToolApprovalCard } from './components/workbench/ToolApprovalCard.vue';
+export { default as TermsBar } from './components/workbench/TermsBar.vue';
+export { default as ComposerDock } from './components/workbench/ComposerDock.vue';
+export { default as ComposerAttachments } from './components/workbench/ComposerAttachments.vue';
+export { default as ToolsDrawer } from './components/workbench/drawers/ToolsDrawer.vue';
+export { default as LearningDrawer } from './components/workbench/drawers/LearningDrawer.vue';
+export { default as HistoryDrawer } from './components/workbench/drawers/HistoryDrawer.vue';
+export { default as SettingsModal } from './components/workbench/drawers/SettingsModal.vue';
+
+// 扩展系统与插槽组件
+export { default as ExtensionSlot } from './components/extension/ExtensionSlot.vue';
+export * from './registry/types';
+export * from './registry/ui-registry';
+
+// 领域 Composables
+export * from './composables/useWorkbenchLayout';
+export * from './composables/useWorkbenchTimer';
+export * from './composables/useWorkbenchComposer';
+export * from './composables/useWorkbenchConversation';
+export * from './composables/useWorkbenchCards';
+export * from './composables/useWorkbenchProactive';
+export * from './composables/workbench-context';
+
 export { default as PluginManagerPanel } from './components/plugin/PluginManagerPanel.vue';
 export { default as PluginConfigDialog } from './components/plugin/PluginConfigDialog.vue';
 export { default as PluginPageDialog } from './components/plugin/PluginPageDialog.vue';
