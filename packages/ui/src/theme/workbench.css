@@ -4224,3 +4224,21 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.extension-slot-fallback {
+  display: inline-flex;
+  align-items: center;
+}
+
+.extension-fallback-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--danger, #e05252);
+  background: color-mix(in srgb, var(--danger, #e05252) 12%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--danger, #e05252) 30%, transparent);
+}
+

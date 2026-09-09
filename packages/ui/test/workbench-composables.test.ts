@@ -31,4 +31,51 @@ describe('Workbench Composables Logic', () => {
     expect(DIAL_RADIUS).toBe(80);
     expect(DIAL_CIRCUMFERENCE).toBeCloseTo(2 * Math.PI * 80, 4);
   });
+
+  it('preserves custom timer minutes when toggling study mode', async () => {
+    const storage: Record<string, string> = {};
+    const mockLocalStorage = {
+      getItem: (k: string) => storage[k] ?? null,
+      setItem: (k: string, v: string) => { storage[k] = v; },
+    };
+    const origStorage = globalThis.localStorage;
+    Object.defineProperty(globalThis, 'localStorage', { value: mockLocalStorage, configurable: true });
+
+    try {
+      let currentTimerMinutes = 45;
+      const { useWorkbenchLayout } = await import('../src/composables/useWorkbenchLayout');
+      const layout = useWorkbenchLayout(
+        { platform: 'web', showCompanion: true, assistantName: '思隅' },
+        {
+          recordActivity: () => {},
+          getTimerMinutes: () => currentTimerMinutes,
+        },
+      );
+
+      layout.toggleStudyMode();
+      const saved = JSON.parse(storage['aervox-settings'] || '{}');
+      expect(saved.timerMinutes).toBe(45);
+      expect(saved.studyModeEnabled).toBe(true);
+    } finally {
+      Object.defineProperty(globalThis, 'localStorage', { value: origStorage, configurable: true });
+    }
+  });
+
+  it('shares enterToSend state between layout and composer', async () => {
+    const { ref } = await import('vue');
+    const { useWorkbenchComposer } = await import('../src/composables/useWorkbenchComposer');
+    const sharedEnterToSend = ref(false);
+
+    const composer = useWorkbenchComposer({
+      onSendMessage: async () => {},
+      streaming: ref(false),
+      fullAccessDialogOpen: ref(false),
+      enterToSend: sharedEnterToSend,
+    });
+
+    expect(composer.enterToSend.value).toBe(false);
+    sharedEnterToSend.value = true;
+    expect(composer.enterToSend.value).toBe(true);
+  });
 });
+

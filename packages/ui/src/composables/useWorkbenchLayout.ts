@@ -42,6 +42,7 @@ export function useWorkbenchLayout(props: {
 }, options: {
   onStudyModeChange?: (enabled: boolean) => void;
   onOpenDiary?: () => void;
+  getTimerMinutes?: () => number;
   recordActivity: (source: 'aervox.activity' | 'aervox.operation', eventType: string, payloadText?: string, metadata?: Record<string, unknown>) => void;
 }) {
   const isWeb = computed(() => props.platform === 'web');
@@ -175,13 +176,14 @@ export function useWorkbenchLayout(props: {
   }
 
   function saveSettings(timerMinutesVal?: number) {
+    const resolvedTimerMinutes = timerMinutesVal ?? options.getTimerMinutes?.() ?? 25;
     const settings = {
       theme: isDark.value ? 'dark' : 'light',
       assistantName: assistantDisplayName.value.trim() || props.assistantName,
       enterToSend: enterToSend.value,
       compactMode: compactMode.value,
       studyModeEnabled: studyModeEnabled.value,
-      timerMinutes: timerMinutesVal ?? 25,
+      timerMinutes: resolvedTimerMinutes,
       desktopCompanionEnabled: desktopCompanionEnabled.value,
       dailyReminder: dailyReminder.value,
     };

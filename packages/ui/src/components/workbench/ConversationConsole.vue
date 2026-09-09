@@ -65,6 +65,17 @@ const {
               <span class="novel-next-badge">+{{ queuedSentenceCount }}</span>
               <ChevronRight :size="13" />
             </button>
+            <ExtensionSlot
+              name="message:bubble-actions"
+              :context="{
+                message: latestAssistantLine,
+                text: latestAssistantLine?.text,
+                sentence: novelDisplayText,
+                index: novelIndex,
+                sentences: novelSentences,
+              }"
+              wrapper-class="novel-bubble-actions-slot"
+            />
           </span>
         </span>
       </p>
