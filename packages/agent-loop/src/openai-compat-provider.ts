@@ -118,7 +118,7 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
             model: config.modelId,
             messages: toOpenAIMessages(request.context.messages, encodeName, { lastStepReasoning }),
             stream: true,
-            temperature: config.temperature ?? 0.7,
+            temperature: request.temperature ?? config.temperature ?? 0.7,
             ...(config.maxTokens ? { max_tokens: config.maxTokens } : {}),
             ...(request.tools?.length
               ? {

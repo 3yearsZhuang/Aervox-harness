@@ -45,4 +45,25 @@ describe('UIRegistry', () => {
     registry.overrideComponent('Composer', CustomComp);
     expect(registry.getComponent('Composer', DefaultComp)).toBe(CustomComp);
   });
+
+  it('registers message transformers and executes them by priority order', () => {
+    const registry = createUIRegistry();
+
+    registry.registerMessageTransformer('step1', (text) => `[step1:${text}]`, 10);
+    registry.registerMessageTransformer('step2', (text) => `[step2:${text}]`, 50);
+    registry.registerMessageTransformer('step3', (text) => `[step3:${text}]`, 30);
+
+    // Execution order: step2 (50) -> step3 (30) -> step1 (10)
+    // text="hi" -> "[step2:hi]" -> "[step3:[step2:hi]]" -> "[step1:[step3:[step2:hi]]]"
+    expect(registry.transformMessage('hi')).toBe('[step1:[step3:[step2:hi]]]');
+  });
+
+  it('unregisters message transformers correctly', () => {
+    const registry = createUIRegistry();
+    const unregister = registry.registerMessageTransformer('prefix', (text) => `prefix_${text}`);
+
+    expect(registry.transformMessage('msg')).toBe('prefix_msg');
+    unregister();
+    expect(registry.transformMessage('msg')).toBe('msg');
+  });
 });

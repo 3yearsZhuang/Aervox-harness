@@ -11,7 +11,7 @@ import type {
 export class UIRegistry {
   private slots = shallowReactive<Record<string, ExtensionComponentRegistration[]>>({});
   private componentOverrides = shallowReactive<Record<string, Component>>({});
-  private messageTransformers = shallowReactive<Record<string, MessageTransformer>>({});
+  private messageTransformers = shallowReactive<Record<string, { transformer: MessageTransformer; priority: number }>>({});
 
   /** 向指定插槽注册扩展组件 */
   registerSlotComponent(
@@ -90,9 +90,9 @@ export class UIRegistry {
     return this.componentOverrides[name] ?? fallback;
   }
 
-  /** 注册消息前缀/内容变换拦截器 */
-  registerMessageTransformer(id: string, transformer: MessageTransformer): () => void {
-    this.messageTransformers[id] = transformer;
+  /** 注册消息前缀/内容变换拦截器（支持指定 priority 优先级，降序执行） */
+  registerMessageTransformer(id: string, transformer: MessageTransformer, priority = 0): () => void {
+    this.messageTransformers[id] = { transformer, priority };
     return () => this.unregisterMessageTransformer(id);
   }
 
@@ -101,12 +101,15 @@ export class UIRegistry {
     delete this.messageTransformers[id];
   }
 
-  /** 执行已注册的消息变换管道 */
+  /** 执行已注册的消息变换管道（按优先级降序排序） */
   transformMessage(message: string, context?: MessageTransformContext): string {
     let result = message;
-    for (const transformer of Object.values(this.messageTransformers)) {
+    const sorted = Object.values(this.messageTransformers)
+      .slice()
+      .sort((a, b) => b.priority - a.priority);
+    for (const item of sorted) {
       try {
-        result = transformer(result, context);
+        result = item.transformer(result, context);
       } catch (err) {
         console.error(`[UIRegistry] Message transformer error:`, err);
       }

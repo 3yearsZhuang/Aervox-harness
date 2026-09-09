@@ -27,7 +27,15 @@ export const aervoxApi = {
             if (type === 'closed' || type === 'error') ipcRenderer.removeListener('aervox:turn:event', listener)
         }
         ipcRenderer.on('aervox:turn:event', listener)
-        ipcRenderer.send('aervox:turn:start', {requestId, content, toolApprovalMode: options.toolApprovalMode, attachments: options.attachments, metadata: options.metadata})
+        let safeMetadata: Record<string, unknown> | undefined
+        if (options.metadata) {
+            try {
+                safeMetadata = JSON.parse(JSON.stringify(options.metadata))
+            } catch {
+                safeMetadata = undefined
+            }
+        }
+        ipcRenderer.send('aervox:turn:start', {requestId, content, toolApprovalMode: options.toolApprovalMode, attachments: options.attachments, metadata: safeMetadata})
         return () => ipcRenderer.removeListener('aervox:turn:event', listener)
     },
     /** CR-027：通知主进程中止在途 Turn 请求（渲染层空闲超时或 UI 主动放弃时调用） */

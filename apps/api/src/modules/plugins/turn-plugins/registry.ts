@@ -7,6 +7,17 @@ export class ServerTurnPluginRegistry {
   private readonly plugins = new Map<string, ServerTurnPlugin>();
 
   register(plugin: ServerTurnPlugin): void {
+    // 别名去重与互斥：若已注册 focus-mode，则忽略旧别名 study-mode 与 quiz-mode 的重复注册；
+    // 反之，若新注册 focus-mode，则自动清理先前已注册的别名，防止执行翻倍
+    if (plugin.id === "study-mode" || plugin.id === "quiz-mode") {
+      if (this.plugins.has("focus-mode")) {
+        return;
+      }
+    }
+    if (plugin.id === "focus-mode") {
+      this.plugins.delete("study-mode");
+      this.plugins.delete("quiz-mode");
+    }
     this.plugins.set(plugin.id, plugin);
   }
 

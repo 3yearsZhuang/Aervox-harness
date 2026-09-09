@@ -50,6 +50,19 @@ import {
   executeAfterTurnPlugins,
   type TurnPluginContext,
 } from "../plugins/turn-plugins/index.js";
+import type { ToolRuntime } from "../tools/runtime.js";
+import type { LLMConfigService } from "../llm/service.js";
+import { resolveDshTurnAdapter } from "./dsh-adapter.js";
+import { getRequestToolApprovalMode } from "../../shared/tool-approval-policy.js";
+import {
+  PROACTIVE_ACTION_DECIDER_PREFIX,
+  type ProactiveActionAuthorizer,
+} from "../proactive/action-authorizer.js";
+import {
+  isLiteralLoopbackUrl,
+  loadProactiveProfilePrompt,
+} from "../proactive/profile-context.js";
+import { buildMemoryContext, type MemoryRecallPort } from "./memory-recall.js";
 
 // 专注模式与向后兼容导出：底层实现已解耦下沉至 plugins/turn-plugins/focus-mode.ts
 export {
@@ -78,6 +91,7 @@ export function createLLMCallable(provider: ModelProviderPort): LLMCallable {
         turnId: callId,
         attemptId: `atp_${callId}`,
         step: 1,
+        temperature: options?.temperature,
         context: {
           turnId: callId,
           sessionId: `ses_${callId}`,
@@ -92,19 +106,6 @@ export function createLLMCallable(provider: ModelProviderPort): LLMCallable {
     },
   };
 }
-import type { ToolRuntime } from "../tools/runtime.js";
-import type { LLMConfigService } from "../llm/service.js";
-import { resolveDshTurnAdapter } from "./dsh-adapter.js";
-import { getRequestToolApprovalMode } from "../../shared/tool-approval-policy.js";
-import {
-  PROACTIVE_ACTION_DECIDER_PREFIX,
-  type ProactiveActionAuthorizer,
-} from "../proactive/action-authorizer.js";
-import {
-  isLiteralLoopbackUrl,
-  loadProactiveProfilePrompt,
-} from "../proactive/profile-context.js";
-import { buildMemoryContext, type MemoryRecallPort } from "./memory-recall.js";
 
 /** SqliteExecutionStore 组合根适配由 @aervox/host-agent 提供（见上方 import），API 不再自维护 SQLite 执行存储 */
 
@@ -619,11 +620,10 @@ export async function runLoopTurnOnce(
     pluginConfigRepo?: IPluginConfigRepository;
   } = {},
 ): Promise<void> {
+  const repoDb = (repo as unknown as { db?: AervoxDatabase })?.db;
   const extRepo =
     deps.extensionRepo ??
-    ((repo as unknown as { db?: AervoxDatabase }).db
-      ? new SqliteExtensionRepository((repo as unknown as { db: AervoxDatabase }).db)
-      : null);
+    (repoDb ? new SqliteExtensionRepository(repoDb) : null);
 
   const turnPluginCtx: TurnPluginContext = {
     turnId: input.turnId,
