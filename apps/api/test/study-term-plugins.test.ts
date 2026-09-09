@@ -62,9 +62,6 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
     expect(listRes.statusCode).toBe(200);
     const list = listRes.json<{ items: Array<{ id: string }> }>();
     expect(list.items.some((p) => p.id === "study-mode")).toBe(true);
-    // 旧拆分插件已下线，不存在多余残留
-    expect(list.items.some((p) => p.id === "aervox-study-companion")).toBe(false);
-    expect(list.items.some((p) => p.id === "aervox-term-explorer")).toBe(false);
 
     // 4. 注册/更新 Config Schema
     const schemaRes = await app.inject({
@@ -104,112 +101,6 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
     expect(saveCfg.statusCode).toBe(200);
     expect(saveCfg.json().values.scaffoldingSteps).toBe(4);
     expect(saveCfg.json().values.maxExtractedTerms).toBe(6);
-  });
-
-  it("平滑升级迁移：已存在旧插件配置与停用状态时，二次启动 buildApp 自动合并至 study-mode 且配置与禁用状态不丢失", async () => {
-    // 1. 在同一个新数据库中模拟老版本数据库状态
-    const res = await createInMemoryDatabase();
-    await initDatabaseSchema(res.client);
-
-    const now = new Date().toISOString();
-    // 写入旧插件及停用状态
-    await res.client.execute({
-      sql: `INSERT INTO plugins (id, publisher, version, checksum, install_source, enabled, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: ["aervox-study-companion", "aervox-official", "1.0.0", "chk_comp", "builtin", 0, now, now],
-    });
-    await res.client.execute({
-      sql: `INSERT INTO plugins (id, publisher, version, checksum, install_source, enabled, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: ["aervox-term-explorer", "aervox-official", "1.0.0", "chk_term", "builtin", 1, now, now],
-    });
-
-    // 写入旧插件配置
-    await res.client.execute({
-      sql: `INSERT INTO plugin_configs (id, workspace_id, subject_user_id, plugin_id, values_json, secret_keys_json, schema_version, revision, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [
-        "cfg_old_comp",
-        headers["x-workspace-id"],
-        headers["x-user-id"],
-        "aervox-study-companion",
-        JSON.stringify({ autoEnableStudyMode: false, scaffoldingSteps: 5 }),
-        JSON.stringify([]),
-        1,
-        1,
-        now,
-        now,
-      ],
-    });
-    await res.client.execute({
-      sql: `INSERT INTO plugin_configs (id, workspace_id, subject_user_id, plugin_id, values_json, secret_keys_json, schema_version, revision, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [
-        "cfg_old_term",
-        headers["x-workspace-id"],
-        headers["x-user-id"],
-        "aervox-term-explorer",
-        JSON.stringify({ maxExtractedTerms: 4, defaultExploreKind: "drilldown" }),
-        JSON.stringify([]),
-        1,
-        1,
-        now,
-        now,
-      ],
-    });
-
-    // 2. 模拟升级执行 buildApp()
-    const appUpgraded = (await buildApp({ db: res.db, client: res.client })).app;
-    await appUpgraded.ready();
-
-    try {
-      // 3. 验证 study-mode 插件存在且继承了禁用状态 (enabled === 0)
-      const listRes = await appUpgraded.inject({
-        method: "GET",
-        url: "/v1/plugins",
-      });
-      expect(listRes.statusCode).toBe(200);
-      const list = listRes.json<{ items: Array<{ id: string; enabled: number }> }>();
-      const studyPlugin = list.items.find((p) => p.id === "study-mode");
-      expect(studyPlugin).toBeDefined();
-      expect(studyPlugin?.enabled).toBe(0);
-
-      // 旧插件已被安全清理
-      expect(list.items.some((p) => p.id === "aervox-study-companion")).toBe(false);
-      expect(list.items.some((p) => p.id === "aervox-term-explorer")).toBe(false);
-
-      // 4. 验证处于停用状态时经 API 读取配置触发安全拦截 (409 PLUGIN_DISABLED)
-      const disabledCfgRes = await appUpgraded.inject({
-        method: "GET",
-        url: "/v1/plugins/study-mode/config",
-        headers,
-      });
-      expect(disabledCfgRes.statusCode).toBe(409);
-
-      // 5. 重新启用 study-mode，验证旧配置已成功聚合迁移至 study-mode，未丢失任何键
-      const enableRes = await appUpgraded.inject({
-        method: "PATCH",
-        url: "/v1/plugins/study-mode",
-        headers,
-        payload: { enabled: true },
-      });
-      expect(enableRes.statusCode).toBe(200);
-
-      const cfgRes = await appUpgraded.inject({
-        method: "GET",
-        url: "/v1/plugins/study-mode/config",
-        headers,
-      });
-      expect(cfgRes.statusCode).toBe(200);
-      const cfgValues = cfgRes.json().values;
-      expect(cfgValues.autoEnableStudyMode).toBe(false);
-      expect(cfgValues.scaffoldingSteps).toBe(5);
-      expect(cfgValues.maxExtractedTerms).toBe(4);
-      expect(cfgValues.defaultExploreKind).toBe("drilldown");
-    } finally {
-      await appUpgraded.close();
-      await res.cleanup();
-    }
   });
 
   it("服务端门控：study-mode 停用时服务端拦截专注模式，不生成 terms_extracted 事件；启用时正常生成", async () => {

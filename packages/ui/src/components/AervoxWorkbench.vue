@@ -2,7 +2,7 @@
 import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue';
 import type { Platform } from '../composables/useWorkbenchLayout';
 import PetHero from './PetHero.vue';
-import { registerStudyModePlugin } from '../plugins/study-mode';
+import { createWorkbenchPluginRuntime } from '../plugins';
 import WorkbenchHeader from './workbench/WorkbenchHeader.vue';
 import PomodoroToast from './workbench/PomodoroToast.vue';
 import WorkbenchNavPill from './workbench/WorkbenchNavPill.vue';
@@ -49,7 +49,7 @@ const emit = defineEmits<{
 
 const registry = useUIRegistry();
 provideUIRegistry(registry);
-let unregisterStudyMode: (() => void) | null = registerStudyModePlugin(registry);
+
 
 // 1. Proactive Composable
 const proactive = useWorkbenchProactive({
@@ -114,8 +114,6 @@ const cards = useWorkbenchCards({
   recordActivity: proactive.recordProactiveActivity,
 });
 
-const studyPluginAvailable = ref(true);
-
 // 抽屉与弹窗组件懒挂载守卫（首次打开时才挂载对应异步组件实例，消除首屏初始加载开销）
 const toolsMounted = ref(false);
 const learningMounted = ref(false);
@@ -154,10 +152,14 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
   const displayText = text || '（发送了附件）';
   const outgoingText = text || '请查看我上传的附件。';
 
-  const quizPrefix = options?.quizMode ? '[模式：刷题模式] ' : '';
-  const isStudyActive = studyPluginAvailable.value && layout.studyModeEnabled.value;
-  const modePrefix = quizPrefix || (isStudyActive ? '[模式：专注模式] ' : '');
-  const outgoing = modePrefix && !outgoingText.startsWith(modePrefix) ? modePrefix + outgoingText : outgoingText;
+  let outgoing = outgoingText;
+  if (options?.quizMode) {
+    const quizPrefix = '[模式：刷题模式] ';
+    outgoing = outgoing.startsWith(quizPrefix) ? outgoing : quizPrefix + outgoing;
+  } else {
+    outgoing = registry.transformMessage(outgoing, { quizMode: false });
+  }
+
 
   const assistantLine = conversation.createStoryLine('assistant', '', 'streaming');
 
@@ -258,8 +260,11 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
   }
 }
 
+// 插件运行时管理
+let pluginRuntime: ReturnType<typeof createWorkbenchPluginRuntime> | undefined;
+
 // 提供全局上下文供所有子组件和插件使用
-provideWorkbenchContext({
+const workbenchContext = {
   layout,
   timer,
   composer,
@@ -267,8 +272,15 @@ provideWorkbenchContext({
   cards,
   proactive,
   registry,
+  get pluginRuntime() {
+    return pluginRuntime;
+  },
   sendMessage,
-});
+};
+provideWorkbenchContext(workbenchContext);
+
+pluginRuntime = createWorkbenchPluginRuntime(registry, () => workbenchContext);
+
 
 // 组件替换支持（允许插件通过 uiRegistry.overrideComponent('ComposerDock', CustomComp) 替换输入底座）
 const resolvedComposerComponent = computed(() => {
@@ -367,36 +379,7 @@ onMounted(() => {
     try {
       const pluginApi = useAervoxPlugins();
       await pluginApi.loadPlugins();
-      const studyPlugin = pluginApi.plugins.value.find((p) => p.id === 'study-mode');
-      if (studyPlugin && studyPlugin.enabled === 0) {
-        studyPluginAvailable.value = false;
-        unregisterStudyMode?.();
-        unregisterStudyMode = null;
-        if (layout.studyModeEnabled.value) {
-          layout.setStudyModeEnabled(false);
-        }
-      } else if (studyPlugin && (studyPlugin.enabled === 1 || studyPlugin.enabled === undefined)) {
-        studyPluginAvailable.value = true;
-        const savedSettingsRaw = localStorage.getItem('aervox-settings');
-        let hasSavedStudySetting = false;
-        if (savedSettingsRaw) {
-          try {
-            hasSavedStudySetting = 'studyModeEnabled' in JSON.parse(savedSettingsRaw);
-          } catch {
-            // ignore malformed settings
-          }
-        }
-        if (!hasSavedStudySetting) {
-          try {
-            const configSnapshot = await pluginApi.getConfig('study-mode');
-            if (configSnapshot?.values?.autoEnableStudyMode !== undefined) {
-              layout.setStudyModeEnabled(Boolean(configSnapshot.values.autoEnableStudyMode));
-            }
-          } catch {
-            // 忽略配置读取异常
-          }
-        }
-      }
+      await pluginRuntime?.sync(pluginApi.plugins.value, (id) => pluginApi.getConfig(id));
     } catch {
       // Ignore plugin sync failures in offline/mock environments
     }
@@ -409,8 +392,9 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  unregisterStudyMode?.();
+  pluginRuntime?.destroy();
   document.removeEventListener('click', layout.handleMenuDocumentClick);
+
   document.removeEventListener('keydown', layout.handleHistoryEscape);
   window.removeEventListener('aervox:open-settings', layout.openSettings);
   removeProactiveStatusListener?.();
@@ -460,9 +444,9 @@ onUnmounted(() => {
     <SettingsModal
       v-if="settingsMounted"
       :show-companion="showCompanion"
-      :study-mode-available="studyPluginAvailable"
       @replay-onboarding="emit('replay-onboarding')"
       @open-intro-deck="emit('open-intro-deck')"
     />
+
   </section>
 </template>
