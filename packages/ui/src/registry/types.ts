@@ -49,3 +49,10 @@ export interface ComposerContractProps {
   'onUpdate:input'?: (value: string) => void;
   onUpdateInput?: (value: string) => void;
 }
+
+export interface MessageTransformContext {
+  quizMode?: boolean;
+  [key: string]: unknown;
+}
+
+export type MessageTransformer = (message: string, context?: MessageTransformContext) => string;

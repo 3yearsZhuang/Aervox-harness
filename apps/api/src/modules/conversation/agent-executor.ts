@@ -108,18 +108,25 @@ export async function loadStudyModeRuntimeConfig(
 export function createLLMCallable(provider: ModelProviderPort): LLMCallable {
   return {
     async generate(prompt: string, options?: { systemPrompt?: string; temperature?: number }): Promise<string> {
-      const messages: ModelMessage[] = [];
+      const messages: Array<{ role: "system" | "user" | "assistant" | "tool"; content: string }> = [];
       if (options?.systemPrompt) {
         messages.push({ role: "system", content: options.systemPrompt });
       }
       messages.push({ role: "user", content: prompt });
       let text = "";
+      const callId = `llm_${Date.now().toString(36)}`;
       for await (const chunk of provider.stream({
-        messages,
-        temperature: options?.temperature ?? 0.1,
+        turnId: callId,
+        attemptId: `atp_${callId}`,
+        step: 1,
+        context: {
+          turnId: callId,
+          sessionId: `ses_${callId}`,
+          messages,
+        },
       })) {
-        if (chunk.delta) {
-          text += chunk.delta;
+        if (chunk.text) {
+          text += chunk.text;
         }
       }
       return text;

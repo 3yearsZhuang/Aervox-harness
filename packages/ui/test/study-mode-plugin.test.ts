@@ -7,7 +7,9 @@ import {
   StudyModeSwitch,
   StudyTermsBar,
   TermExploreDialog,
-} from '../src/plugins/study-mode';
+  createWorkbenchPluginRuntime,
+} from '../src/plugins';
+
 
 describe('StudyModePlugin', () => {
   it('exports all plugin components', () => {
@@ -51,5 +53,76 @@ describe('StudyModePlugin', () => {
 
     const termsMatches = registry.getSlotComponents('conversation:bottom').filter((item) => item.id === 'study-mode:terms-bar');
     expect(termsMatches).toHaveLength(1);
+  });
+
+  it('transforms messages via message transformer based on mode state', () => {
+    const registry = createUIRegistry();
+    const studyModeEnabled = { value: false };
+    const mockContext = {
+      layout: { studyModeEnabled },
+    } as any;
+
+    const unregister = registerStudyModePlugin(registry, mockContext);
+
+    // Initial disabled state
+    expect(registry.transformMessage('请讲解算法')).toBe('请讲解算法');
+
+    // Enabled state
+    studyModeEnabled.value = true;
+    expect(registry.transformMessage('请讲解算法')).toBe('[模式：专注模式] 请讲解算法');
+
+    // Quiz mode bypasses focus prefix
+    expect(registry.transformMessage('请出两道题', { quizMode: true })).toBe('请出两道题');
+
+    // Unregister removes transformer
+    unregister();
+    expect(registry.transformMessage('请讲解算法')).toBe('请讲解算法');
+  });
+
+  it('integrates with createWorkbenchPluginRuntime for zero-hardcode lifecycle & config sync', async () => {
+    const registry = createUIRegistry();
+    const studyModeEnabled = { value: false };
+    const mockContext = {
+      layout: {
+        studyModeEnabled,
+        setStudyModeEnabled: (val: boolean) => {
+          studyModeEnabled.value = val;
+        },
+      },
+    } as any;
+
+    const runtime = createWorkbenchPluginRuntime(registry, () => mockContext);
+
+    // Initial setup: study-mode is active in slots
+    expect(runtime.isPluginAvailable('study-mode')).toBe(true);
+    expect(registry.getSlotComponents('header:actions').some((item) => item.id === 'study-mode:header-switch')).toBe(true);
+
+    // Sync config: autoEnableStudyMode activates study mode
+    await runtime.sync(
+      [{ id: 'study-mode', enabled: 1 }],
+      async () => ({ values: { autoEnableStudyMode: true } }),
+    );
+    expect(studyModeEnabled.value).toBe(true);
+
+    // Sync disabling: plugin disabled -> unmounts slot & calls onDisable
+    await runtime.sync(
+      [{ id: 'study-mode', enabled: 0 }],
+      async () => ({ values: {} }),
+    );
+    expect(runtime.isPluginAvailable('study-mode')).toBe(false);
+    expect(registry.getSlotComponents('header:actions').some((item) => item.id === 'study-mode:header-switch')).toBe(false);
+    expect(registry.getSlotComponents('conversation:bottom').some((item) => item.id === 'study-mode:terms-bar')).toBe(false);
+    expect(studyModeEnabled.value).toBe(false);
+
+    // Sync enabling again: slot remounts
+    await runtime.sync(
+      [{ id: 'study-mode', enabled: 1 }],
+      async () => ({ values: {} }),
+    );
+    expect(runtime.isPluginAvailable('study-mode')).toBe(true);
+    expect(registry.getSlotComponents('header:actions').some((item) => item.id === 'study-mode:header-switch')).toBe(true);
+
+    runtime.destroy();
+    expect(registry.getSlotComponents('header:actions')).toHaveLength(0);
   });
 });

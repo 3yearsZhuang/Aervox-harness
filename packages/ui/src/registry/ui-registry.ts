@@ -4,11 +4,14 @@ import type {
   ExtensionComponentRegistration,
   RegisterSlotOptions,
   SlotItemConfig,
+  MessageTransformer,
+  MessageTransformContext,
 } from './types';
 
 export class UIRegistry {
   private slots = shallowReactive<Record<string, ExtensionComponentRegistration[]>>({});
   private componentOverrides = shallowReactive<Record<string, Component>>({});
+  private messageTransformers = shallowReactive<Record<string, MessageTransformer>>({});
 
   /** 向指定插槽注册扩展组件 */
   registerSlotComponent(
@@ -87,13 +90,40 @@ export class UIRegistry {
     return this.componentOverrides[name] ?? fallback;
   }
 
-  /** 重置所有插槽和替换 */
+  /** 注册消息前缀/内容变换拦截器 */
+  registerMessageTransformer(id: string, transformer: MessageTransformer): () => void {
+    this.messageTransformers[id] = transformer;
+    return () => this.unregisterMessageTransformer(id);
+  }
+
+  /** 注销指定消息变换拦截器 */
+  unregisterMessageTransformer(id: string): void {
+    delete this.messageTransformers[id];
+  }
+
+  /** 执行已注册的消息变换管道 */
+  transformMessage(message: string, context?: MessageTransformContext): string {
+    let result = message;
+    for (const transformer of Object.values(this.messageTransformers)) {
+      try {
+        result = transformer(result, context);
+      } catch (err) {
+        console.error(`[UIRegistry] Message transformer error:`, err);
+      }
+    }
+    return result;
+  }
+
+  /** 重置所有插槽、替换与消息变换器 */
   clear(): void {
     for (const key of Object.keys(this.slots)) {
       delete this.slots[key];
     }
     for (const key of Object.keys(this.componentOverrides)) {
       delete this.componentOverrides[key];
+    }
+    for (const key of Object.keys(this.messageTransformers)) {
+      delete this.messageTransformers[key];
     }
   }
 }

@@ -6,6 +6,7 @@ import type { WorkbenchConversationComposable } from './useWorkbenchConversation
 import type { WorkbenchCardsComposable } from './useWorkbenchCards';
 import type { WorkbenchProactiveComposable } from './useWorkbenchProactive';
 import type { UIRegistry } from '../registry/ui-registry';
+import type { WorkbenchPluginRuntime } from '../plugins/plugin-runtime';
 
 export interface WorkbenchContext {
   layout: WorkbenchLayoutComposable;
@@ -15,8 +16,10 @@ export interface WorkbenchContext {
   cards: WorkbenchCardsComposable;
   proactive: WorkbenchProactiveComposable;
   registry: UIRegistry;
+  pluginRuntime?: WorkbenchPluginRuntime;
   sendMessage: (value?: string, options?: { quizMode?: boolean; resend?: boolean }) => Promise<void>;
 }
+
 
 export const WORKBENCH_CONTEXT_KEY: InjectionKey<WorkbenchContext> = Symbol('AERVOX_WORKBENCH_CONTEXT');
 
