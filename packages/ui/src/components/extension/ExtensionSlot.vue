@@ -60,4 +60,3 @@ onErrorCaptured((err, instance, info) => {
     </template>
   </div>
 </template>
-

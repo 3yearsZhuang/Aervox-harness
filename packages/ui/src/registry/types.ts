@@ -40,4 +40,3 @@ export interface ComposerContractProps {
   'onUpdate:input'?: (value: string) => void;
   onUpdateInput?: (value: string) => void;
 }
-

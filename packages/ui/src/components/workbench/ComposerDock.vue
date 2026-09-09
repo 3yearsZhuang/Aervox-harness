@@ -73,9 +73,27 @@ function onFormSubmit() {
   if (props.onSend) {
     void props.onSend(input.value);
   } else {
+    emit('send', input.value);
     void sendMessage();
   }
-  emit('send', input.value);
+}
+
+function handleAttachmentTrigger() {
+  if (props.onAttachmentPicker) {
+    props.onAttachmentPicker();
+  } else {
+    emit('attachment-picker');
+    triggerAttachmentPicker();
+  }
+}
+
+function handleVoiceTrigger() {
+  if (props.onVoiceTrigger) {
+    props.onVoiceTrigger();
+  } else {
+    emit('voice-trigger');
+    toggleVoiceInput();
+  }
 }
 </script>
 
@@ -163,7 +181,7 @@ function onFormSubmit() {
             type="button"
             title="上传附件（图片 / PDF / 文档 / 音频，单文件 ≤10MB）"
             :disabled="streaming || attachmentUploading || pendingAttachments.length >= 10"
-            @click="triggerAttachmentPicker"
+            @click="handleAttachmentTrigger"
           >
             <Paperclip :size="15" />
             <span>{{ attachmentUploading ? '上传中…' : '附件' }}</span>
@@ -176,7 +194,7 @@ function onFormSubmit() {
             :class="{ active: voiceInput.isListening.value }"
             :aria-pressed="voiceInput.isListening.value"
             :disabled="streaming"
-            @click="toggleVoiceInput"
+            @click="handleVoiceTrigger"
           >
             <Mic v-if="!voiceInput.isListening.value" :size="15" />
             <MicOff v-else :size="15" />
