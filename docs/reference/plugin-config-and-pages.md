@@ -26,9 +26,14 @@ sources:
 # 插件 Config、Page 与 UI 扩展规范
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：codex · 2026-09-10
+- 修改人：linge · 2026-09-10
 
-关联：[CR-006](changes/CR-006-plugin-config-and-pages.md)、[能力组合与可选化目录规范](capability-composition.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-015](adr/ADR-015-vue-full-stack.md)、[AI 质量与安全规范](AI_QUALITY_SAFETY.md)
+> 文档编号：AVX-PLUG-001
+> 类型：Reference
+> 版本：v0.2
+> 更新日期：2026-09-10
+> 状态：Review Candidate
+> 关联：[CR-006](changes/CR-006-plugin-config-and-pages.md)、[能力组合与可选化目录规范](capability-composition.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-015](adr/ADR-015-vue-full-stack.md)、[AI 质量与安全规范](AI_QUALITY_SAFETY.md)
 
 本文是插件配置、沙箱页面与前端 UI 扩展的运行时契约与实现规范。设计参考 [AstrBot 插件配置指南](https://docs.astrbot.app/dev/star/guides/plugin-config.html) 与 [插件页面指南](https://docs.astrbot.app/dev/star/guides/plugin-pages.html)（AGPLv3，仅借鉴公开设计），结合 Aervox 自有 ADR-009、ADR-015 与 AVX-CAP-001 规范，提供后端 Config Schema v1、受限 iframe 沙箱 Page，以及工作台前端插槽注入（Extension Slots）与契约化核心组件替换（Component Overrides）。
 
@@ -234,14 +239,12 @@ uiRegistry.overrideComponent('ComposerDock', CustomComposer);
 
 ```ts
 export interface ComposerContractProps {
-  input?: string;
-  streaming?: boolean;
-  isComposing?: boolean;
-  enterToSend?: boolean;
+  input: string;
+  streaming: boolean;
+  isComposing: boolean;
+  enterToSend: boolean;
   placeholder?: string;
-  toolApprovalMode?: 'confirm' | 'full_access';
-  proactiveActive?: boolean;
-  onSend?: (text: string) => void | Promise<void>;
+  onSend: (text?: string, options?: { quizMode?: boolean; resend?: boolean }) => Promise<void>;
   onVoiceTrigger?: () => void;
   onAttachmentPicker?: () => void;
   'onUpdate:input'?: (value: string) => void;

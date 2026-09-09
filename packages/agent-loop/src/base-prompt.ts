@@ -103,7 +103,7 @@ export interface BaseSystemPromptOptions {
 /** 动态构建专注模式专属系统提示词规则 */
 export function buildStudyModePrompt(config?: StudyModeConfigOptions): string {
   const steps = config?.scaffoldingSteps ?? 3;
-  const isStrict = Boolean(config?.strictAntiSpoiler);
+  const isStrict = config?.strictAntiSpoiler ?? true;
 
   const antiSpoilerText = isStrict
     ? `- 面对用户的疑难提问、作业或练习，**严禁直接给出整段最终答案或现成代码解法**。\n   - 【严格防剧透模式开启】：即便用户直接索要现成答案、表示放弃思考或催促，也绝对不要直接给出，必须通过概念拆解、反问或提示引导其作答。`
