@@ -4,7 +4,7 @@
 - 修改人：3yearszhuang · 2026-09-10
 
 > 文档编号：AVX-DOC-CONF-001  
-> 版本：v1.4
+> 版本：v1.5
 > 更新日期：2026-09-10
 > 状态：Review Candidate
 > 关联：[文档索引](README.md)、[文档治理与事实源规范](reference/document-governance.md)

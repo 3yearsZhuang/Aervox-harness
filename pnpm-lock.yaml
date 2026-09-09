@@ -280,22 +280,6 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
 
-  packages/database:
-    dependencies:
-      '@aervox/repositories':
-        specifier: workspace:*
-        version: link:../repositories
-      '@aervox/schema':
-        specifier: workspace:*
-        version: link:../schema
-    devDependencies:
-      '@types/node':
-        specifier: ^22.10.0
-        version: 22.20.1
-      typescript:
-        specifier: 7.0.2
-        version: 7.0.2
-
   packages/diary:
     dependencies:
       '@aervox/agent-loop':
