@@ -23,7 +23,7 @@ import type {
   SubagentRunResult,
   ToolProviderPort,
 } from "@aervox/agent-loop";
-import type { ISubagentRunRepository, SqliteConversationRepository, TenantContext } from "@aervox/database";
+import type { ISubagentRunRepository, SqliteConversationRepository, TenantContext } from "@aervox/repositories";
 import type { SqliteExecutionStore } from "./sqlite-execution-store.js";
 
 export interface SqliteSubagentPortDeps {

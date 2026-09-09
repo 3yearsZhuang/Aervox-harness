@@ -5,7 +5,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import { createLearningGoalSchema, updateLearningGoalSchema, updateMistakeRequestSchema } from "@aervox/contracts";
-import type { SqliteLearningRepository } from "@aervox/database";
+import type { SqliteLearningRepository } from "@aervox/repositories";
 import { resolveTenant } from "../../shared/tenant.js";
 import { createReviewItem, getLocalDayBounds, getPracticeGuidance, getPracticeSessionProgress, normalizeMistakeNote, updateAfterAnswer } from "@aervox/practice-review";
 

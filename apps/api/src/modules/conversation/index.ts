@@ -15,7 +15,7 @@ import {
   SqliteSkillRegistryRepository,
   SqliteSubagentRunRepository,
   SqliteUserQuestionRepository,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import { createSqliteSubagentPort, SqliteExecutionStore } from "@aervox/host-agent";
 import { buildLoopProvider } from "./agent-executor.js";
 import { registerConversationRoutes } from "./routes.js";

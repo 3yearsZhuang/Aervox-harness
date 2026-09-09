@@ -4,7 +4,7 @@ import type {
   SqliteProactiveIntelligenceRepository,
   SqliteProactiveProfileRepository,
   TenantContext,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import { HomeAssistantClient, type HomeAssistantEntityState } from "./home-assistant-client.js";
 import { XiaomiHealthClient, type XiaomiHealthDailySample } from "./xiaomi-health-client.js";
 

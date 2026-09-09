@@ -15,8 +15,8 @@ import type {
   IPlatformRepository,
   PluginModel,
   TenantContext,
-} from "@aervox/database";
-import { SqliteExtensionRepository } from "@aervox/database";
+} from "@aervox/repositories";
+import { SqliteExtensionRepository } from "@aervox/repositories";
 import { pluginPageSchema } from "@aervox/contracts";
 import crypto from "node:crypto";
 import { PluginBundleStore } from "./bundle-store.js";

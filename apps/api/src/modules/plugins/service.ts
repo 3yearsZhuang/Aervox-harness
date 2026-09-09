@@ -21,7 +21,7 @@ import {
   SqliteToolRegistryRepository,
   type PluginModel,
   type TenantContext,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import { isValidSkillName, parseFrontmatter } from "../skills/skill-manager.js";
 
 /** 插件声明的工具（安装时注册进 tool_registrations） */

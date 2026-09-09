@@ -7,7 +7,7 @@
  * - 仅在专注模式 / 学习上下文中被激活调用
  */
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import type { SqliteConversationRepository } from "@aervox/database";
+import type { SqliteConversationRepository } from "@aervox/repositories";
 import { termExploreRequestSchema } from "@aervox/contracts";
 import { resolveTenant } from "../../shared/tenant.js";
 

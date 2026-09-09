@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/host-agent — B1：SqliteExecutionStore 事件写入 fencing 桥接（3c+）
  *
- * 宿主适配把 @aervox/database 的 FencingMismatchError 转译为 Loop 的 LeaseLostError，
+ * 宿主适配把 @aervox/repositories 的 FencingMismatchError 转译为 Loop 的 LeaseLostError，
  * 使 executor 可识别「被抢占」并立即收敛。未携带期望值时保持既有无校验行为。
  */
 import { beforeEach, describe, expect, it } from "vitest";
@@ -13,7 +13,7 @@ import {
   SqliteConversationRepository,
   type AervoxDatabase,
   type TenantContext,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 
 const tenant: TenantContext = { workspaceId: "ws_fhost", subjectUserId: "usr_fhost" };

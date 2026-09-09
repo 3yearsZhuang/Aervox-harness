@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { FULL_PROFILE_SOURCE_MANIFEST } from "@aervox/schema";
 import {
   createInMemoryDatabase,
   createProactiveVaultCipher,
-  FULL_PROFILE_SOURCE_MANIFEST,
   initDatabaseSchema,
   SqliteProactiveIntelligenceRepository,
   SqliteProactiveProfileRepository,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import { runProactiveIntelligenceCycle } from "../src/proactive-intelligence-worker.js";
 
 const tenant = {workspaceId: "ws_intelligence_worker", subjectUserId: "usr_intelligence_worker"} as const;

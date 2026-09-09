@@ -5,7 +5,7 @@ import type {
   LLMPresetListResponse,
   LLMProviderType,
 } from "@aervox/contracts";
-import type { SqliteLLMConfigRepository, TenantContext } from "@aervox/database";
+import type { SqliteLLMConfigRepository, TenantContext } from "@aervox/repositories";
 import type { LLMServiceOptions, TestConnectionParams, TestConnectionResult } from "./types.js";
 
 const DEFAULT_CONFIGS: Record<LLMProviderType, { baseUrl: string; modelId: string }> = {

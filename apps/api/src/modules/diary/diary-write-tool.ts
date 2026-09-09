@@ -5,7 +5,7 @@
  * 行为与契约对齐 packages/contracts diaryWriteToolInputSchema/Output；
  * 全部生成/发布逻辑收敛到 DiaryApplicationService（REST 首开路径复用同源能力）。
  */
-import type { TenantContext } from "@aervox/database";
+import type { TenantContext } from "@aervox/repositories";
 import type { DiaryWriteToolInput, DiaryWriteToolOutput } from "@aervox/contracts";
 import type { DiaryApplicationService } from "./application.js";
 

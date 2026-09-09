@@ -6,7 +6,7 @@
  * - rewriteTodayDiary：手动「让思思现在写」/对话触发——当日已有落 rewrite 版本并推进主行，否则新建；
  * - ensureDefaultSchedule：懒创建租户默认每日计划（Worker 定时路径兜底）。
  */
-import type { SqliteDiaryRepository, TenantContext } from "@aervox/database";
+import type { SqliteDiaryRepository, TenantContext } from "@aervox/repositories";
 import {
   DiaryGenerationService,
   generateDiaryId,

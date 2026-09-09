@@ -10,12 +10,12 @@
  * - 候选写入默认 verificationStatus=unverified，用户确认后才晋升；
  * - 向量生成依赖注入 provider；未注入时降级为仅索引 FTS（embeddingStatus=skipped）。
  */
-import { indexMemoryFts, type TenantContext } from "@aervox/database";
+import { indexMemoryFts, type TenantContext } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 import {
   SqliteMemoryRepository,
   SqliteMemoryEmbeddingRepository,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import type {
   MemoryStoreToolInput,
   MemoryStoreToolOutput,

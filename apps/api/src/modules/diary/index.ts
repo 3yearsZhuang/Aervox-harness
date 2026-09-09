@@ -7,7 +7,7 @@
  * 生成能力统一来自 @aervox/diary（与 Worker 定时路径共用单源）。
  */
 import type { ModuleContext } from "../context.js";
-import { SqliteDiaryRepository } from "@aervox/database";
+import { SqliteDiaryRepository } from "@aervox/repositories";
 import { registerDiaryRoutes } from "./routes.js";
 import { DiaryWriteTool } from "./diary-write-tool.js";
 import { DiaryApplicationService } from "./application.js";

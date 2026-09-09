@@ -4,7 +4,7 @@ import {
   createProactiveVaultCipher,
   initDatabaseSchema,
   SqliteProactiveProfileRepository,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import { createRuleBasedProactiveDistiller } from "../src/proactive-distiller.js";
 import { runProactiveProfileCycle } from "../src/proactive-profile-worker.js";
 

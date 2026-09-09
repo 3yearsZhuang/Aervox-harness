@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp, type BuildAppOptions } from "../src/app.js";
-import { createInMemoryDatabase } from "@aervox/database";
+import { createInMemoryDatabase } from "@aervox/repositories";
 import { loadAuthConfig } from "../src/shared/auth.js";
 
 async function buildWith(auth: BuildAppOptions["auth"]) {

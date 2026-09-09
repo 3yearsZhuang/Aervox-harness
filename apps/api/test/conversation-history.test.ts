@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ModelRequest, PromptMessage } from "@aervox/agent-loop";
-import { createInMemoryDatabase } from "@aervox/database";
+import { createInMemoryDatabase } from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
 
 const captured = vi.hoisted(() => ({ requests: [] as ModelRequest[], useTool: false }));

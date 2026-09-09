@@ -14,7 +14,7 @@
 import type {
   SqliteMemoryCompactionRepository,
   SqliteOutboxRepository,
-} from "@aervox/database";
+} from "@aervox/repositories";
 
 export const COMPACTION_EVENT_TYPE = "memory.compaction.requested";
 

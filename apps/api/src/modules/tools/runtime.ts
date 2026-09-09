@@ -15,7 +15,7 @@ import {
   SqliteToolRegistryRepository,
   type ToolRegistrationModel,
   type TenantContext,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 import type { MemoryEmbeddingProvider } from "./embedding-provider.js";
 import { MemoryStoreTool } from "./memory-store-tool.js";

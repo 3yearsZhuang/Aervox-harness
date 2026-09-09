@@ -11,7 +11,7 @@
 import type { ClaimableTurn, TurnSourcePort } from "./agent-host.js";
 import { decideResume } from "@aervox/agent-loop";
 import { buildResumeHistory } from "@aervox/agent-loop";
-import type { SqliteConversationRepository, TenantContext } from "@aervox/database";
+import type { SqliteConversationRepository, TenantContext } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 
 export interface SqliteResumeSourceDeps {

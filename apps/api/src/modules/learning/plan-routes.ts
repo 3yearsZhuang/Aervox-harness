@@ -4,7 +4,7 @@
  * 生成（单次 LLM 调用内完成）/ 列表 / 详情 / 任务勾选（含里程碑推进）/ 归档。
  */
 import type { FastifyInstance } from "fastify";
-import type { SqliteLearningRepository } from "@aervox/database";
+import type { SqliteLearningRepository } from "@aervox/repositories";
 import { generateLearningPlanSchema, updatePlanTaskStatusSchema } from "@aervox/contracts";
 import { resolveTenant } from "../../shared/tenant.js";
 import type { LearningPlanGenerationService } from "./plan-generation.js";

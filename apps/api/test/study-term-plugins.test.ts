@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { createInMemoryDatabase, initDatabaseSchema, type AervoxDatabase } from "@aervox/database";
+import { createInMemoryDatabase, initDatabaseSchema, type AervoxDatabase } from "@aervox/repositories";
 import { pluginManifestSchema, pluginConfigSchema } from "@aervox/contracts";
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";

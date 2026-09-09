@@ -5,13 +5,13 @@
  * 到 ctx.db 仅用于本地开发/测试，调用方不应把该回退当作远程安全边界。
  */
 import { timingSafeEqual } from "node:crypto";
-import type { AervoxDatabase, ProactiveVaultCipher } from "@aervox/database";
+import type { AervoxDatabase, ProactiveVaultCipher } from "@aervox/repositories";
 import type { ModuleContext } from "../context.js";
 import {
   SqlitePrivacyRepository,
   SqliteProactiveIntelligenceRepository,
   SqliteProactiveProfileRepository,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import { registerProactiveRoutes } from "./routes.js";
 import { ProactiveActionAuthorizer } from "./action-authorizer.js";
 import { registerProactiveIntelligenceRoutes } from "./intelligence-routes.js";

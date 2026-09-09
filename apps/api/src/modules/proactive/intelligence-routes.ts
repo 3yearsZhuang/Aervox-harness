@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import type {
   SqliteProactiveIntelligenceRepository,
   SqliteProactiveProfileRepository,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import { resolveTenant } from "../../shared/tenant.js";
 
 let sequence = 0;

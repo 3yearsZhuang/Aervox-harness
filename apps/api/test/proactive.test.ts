@@ -1,10 +1,15 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { FULL_PROFILE_SOURCE_MANIFEST } from "@aervox/schema";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it } from "vitest";
 import {
   createInMemoryDatabase,
   createProactiveVaultCipher,
-  FULL_PROFILE_SOURCE_MANIFEST,
   type AervoxDatabase,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 import { buildApp } from "../src/app.js";
 

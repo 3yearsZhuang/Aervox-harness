@@ -10,7 +10,7 @@ import {
   SqliteSkillLifecycleRepository,
   SqliteSkillRegistryRepository,
   SqliteToolRegistryRepository,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import { registerSkillRoutes } from "./routes.js";
 import { SkillManager } from "./skill-manager.js";
 import { SkillLifecycleService } from "./lifecycle.js";

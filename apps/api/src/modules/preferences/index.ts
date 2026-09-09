@@ -4,7 +4,7 @@
  * 自管仓储实例化。
  */
 import type { ModuleContext } from "../context.js";
-import { SqlitePersonaPreferencesRepository } from "@aervox/database";
+import { SqlitePersonaPreferencesRepository } from "@aervox/repositories";
 import { registerPreferencesRoutes } from "./routes.js";
 
 export function registerPreferencesModule(ctx: ModuleContext): void {

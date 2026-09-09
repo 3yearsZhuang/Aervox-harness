@@ -3,7 +3,7 @@
  */
 import { createHash } from "node:crypto";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
-import type { TenantContext, SqlitePersonaRepository, SkillRegistrationModel } from "@aervox/database";
+import type { TenantContext, SqlitePersonaRepository, SkillRegistrationModel } from "@aervox/repositories";
 import type { SkillManager } from "../skills/skill-manager.js";
 import {
   assertNonEmpty,

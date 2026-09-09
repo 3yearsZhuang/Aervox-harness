@@ -6,7 +6,8 @@
  * - 无 payload 时 payload 列为 NULL；emit 调用不抛异常（接口约定）。
  */
 import { describe, expect, it } from "vitest";
-import { auditLogs, createInMemoryDatabase, initDatabaseSchema } from "@aervox/database";
+import { auditLogs } from "@aervox/schema";
+import { createInMemoryDatabase, initDatabaseSchema } from "@aervox/repositories";
 import { createSqliteObservability } from "../src/index.js";
 
 describe("SqliteObservability（audit 落库）", () => {

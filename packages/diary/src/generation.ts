@@ -7,7 +7,7 @@
  */
 import { createOpenAICompatProvider } from "@aervox/agent-loop";
 import type { ModelProviderPort, ModelRequest } from "@aervox/agent-loop";
-import type { AervoxDatabase, SqliteLLMConfigRepository, TenantContext } from "@aervox/database";
+import type { AervoxDatabase, SqliteLLMConfigRepository, TenantContext } from "@aervox/repositories";
 import { collectDiaryMaterial, diaryMaterialCount } from "./material.js";
 import { buildDiarySystemPrompt, buildDiaryUserPrompt } from "./prompts.js";
 import { renderTemplateDiary, type DiaryDraft } from "./template.js";

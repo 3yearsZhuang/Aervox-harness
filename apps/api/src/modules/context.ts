@@ -10,8 +10,8 @@
  */
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
-import type { AervoxDatabase, ProactiveVaultCipher } from "@aervox/database";
-import type { IProactiveProfileRepository, SqliteProactiveIntelligenceRepository } from "@aervox/database";
+import type { AervoxDatabase, ProactiveVaultCipher } from "@aervox/repositories";
+import type { IProactiveProfileRepository, SqliteProactiveIntelligenceRepository } from "@aervox/repositories";
 import type { WorkflowDefinition } from "@aervox/agent-loop";
 import type { ToolRuntime } from "./tools/runtime.js";
 import type { LLMConfigService } from "./llm/service.js";

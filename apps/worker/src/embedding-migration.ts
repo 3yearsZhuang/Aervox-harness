@@ -13,7 +13,7 @@ import {
   SqliteMemoryEmbeddingRepository,
   type AervoxDatabase,
   type TenantContext,
-} from "@aervox/database";
+} from "@aervox/repositories";
 
 /** 向量生成能力（注入真实 embedding 服务；未注入时循环诚实跳过） */
 export interface MemoryEmbeddingProvider {

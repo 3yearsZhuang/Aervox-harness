@@ -3,12 +3,14 @@ import { createHash } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import {
   proactiveProfileRevisions,
-  type AervoxDatabase,
-  type SqlitePlatformRepository,
-  type SqliteProactiveIntelligenceRepository,
-  type SqliteProactiveProfileRepository,
-  type TenantContext,
-} from "@aervox/database";
+} from "@aervox/schema";
+import type {
+  AervoxDatabase,
+  SqlitePlatformRepository,
+  SqliteProactiveIntelligenceRepository,
+  SqliteProactiveProfileRepository,
+  TenantContext,
+} from "@aervox/repositories";
 
 const hash = (value: string): string => createHash("sha256").update(value).digest("hex").slice(0, 20);
 const id = (prefix: string, value: string): string => `${prefix}_${hash(value)}`;

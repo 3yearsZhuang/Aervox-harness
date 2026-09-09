@@ -12,13 +12,15 @@
 import { and, eq, sql } from "drizzle-orm";
 import {
   diarySchedules,
-  type AervoxDatabase,
-  type SqliteDiaryRepository,
-  type SqliteLLMConfigRepository,
-  type SqlitePlatformRepository,
-  type SqliteOutboxRepository,
-  type TenantContext,
-} from "@aervox/database";
+} from "@aervox/schema";
+import type {
+  AervoxDatabase,
+  SqliteDiaryRepository,
+  SqliteLLMConfigRepository,
+  SqlitePlatformRepository,
+  SqliteOutboxRepository,
+  TenantContext,
+} from "@aervox/repositories";
 import {
   collectDiaryMaterial,
   createLlmDiaryModelPort,

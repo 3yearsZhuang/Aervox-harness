@@ -8,7 +8,7 @@
  * - 分支树查询（递归获取所有子分支）
  */
 import type { FastifyInstance } from "fastify";
-import type { SqliteConversationRepository } from "@aervox/database";
+import type { SqliteConversationRepository } from "@aervox/repositories";
 import { createBranchSchema, updateBranchLayoutSchema } from "@aervox/contracts";
 import { resolveTenant } from "../../shared/tenant.js";
 

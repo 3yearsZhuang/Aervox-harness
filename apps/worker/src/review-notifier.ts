@@ -9,10 +9,12 @@
 import { and, eq, lte } from "drizzle-orm";
 import {
   reviewItems,
-  type AervoxDatabase,
-  type SqlitePlatformRepository,
-  type SqliteLearningRepository,
-} from "@aervox/database";
+} from "@aervox/schema";
+import type {
+  AervoxDatabase,
+  SqlitePlatformRepository,
+  SqliteLearningRepository,
+} from "@aervox/repositories";
 
 export interface ReviewNotifierContext {
   db: AervoxDatabase;

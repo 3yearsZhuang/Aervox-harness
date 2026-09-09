@@ -1,11 +1,17 @@
-import { createServer, type Server } from "node:http";
+import { FULL_PROFILE_SOURCE_MANIFEST } from "@aervox/schema";
+import {
+  createServer,
+  type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it } from "vitest";
 import {
   createInMemoryDatabase,
-  FULL_PROFILE_SOURCE_MANIFEST,
   type AervoxDatabase,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 import { buildApp } from "../src/app.js";
 

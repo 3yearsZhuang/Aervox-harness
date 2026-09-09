@@ -4,7 +4,7 @@
  * 规则依据：ADR-004 Outbox + 幂等作业。
  * 跨租户消费 pending 事件，逐条审计后标记发布；失败进入 retry/dead_letter。
  */
-import type { SqliteOutboxRepository, SqlitePlatformRepository } from "@aervox/database";
+import type { SqliteOutboxRepository, SqlitePlatformRepository } from "@aervox/repositories";
 
 export interface OutboxCycleContext {
   outboxRepo: SqliteOutboxRepository;

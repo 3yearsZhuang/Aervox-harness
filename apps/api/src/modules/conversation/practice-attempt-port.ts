@@ -10,7 +10,7 @@
  * 作答路由逻辑）；错题本派生不依赖 knowledgeId，可正常工作。
  */
 import type { PracticeAttemptPort, PracticeAttemptPortRequest } from "@aervox/agent-loop";
-import type { SqliteLearningRepository, TenantContext } from "@aervox/database";
+import type { SqliteLearningRepository, TenantContext } from "@aervox/repositories";
 
 let seq = 0;
 const id = (prefix: string): string =>

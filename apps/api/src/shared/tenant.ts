@@ -9,7 +9,7 @@
  * 该缓存值。仅当中间件未运行（单元测试直调 / 旧调用方）时回退 header 解析。
  */
 import type { FastifyRequest } from "fastify";
-import type { TenantContext } from "@aervox/database";
+import type { TenantContext } from "@aervox/repositories";
 
 const TENANT_KEY = Symbol("aervox.tenant");
 

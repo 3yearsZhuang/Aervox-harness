@@ -6,7 +6,7 @@
  * （依赖 ctx.toolRuntime）。
  */
 import type { ModuleContext } from "../context.js";
-import { SqliteMcpServerRepository } from "@aervox/database";
+import { SqliteMcpServerRepository } from "@aervox/repositories";
 import { registerMcpRoutes } from "./routes.js";
 import { McpService } from "./service.js";
 

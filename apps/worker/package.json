@@ -14,8 +14,9 @@
   "dependencies": {
     "@aervox/agent-loop": "workspace:*",
     "@aervox/config": "workspace:*",
-    "@aervox/database": "workspace:*",
     "@aervox/diary": "workspace:*",
+    "@aervox/repositories": "workspace:*",
+    "@aervox/schema": "workspace:*",
     "@libsql/client": "^0.14.0",
     "drizzle-orm": "^0.39.3"
   },

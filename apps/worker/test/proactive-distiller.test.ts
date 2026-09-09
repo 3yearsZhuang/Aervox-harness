@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ProactiveCaptureModel } from "@aervox/database";
+import type { ProactiveCaptureModel } from "@aervox/repositories";
 import {
   createRuleBasedProactiveDistiller,
   redactCredentialMaterial,

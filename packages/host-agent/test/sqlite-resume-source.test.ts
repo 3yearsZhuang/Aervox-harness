@@ -14,7 +14,7 @@ import {
   SqliteToolRegistryRepository,
   type AervoxDatabase,
   type TenantContext,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 
 const tenant: TenantContext = { workspaceId: "ws_src", subjectUserId: "usr_src" };

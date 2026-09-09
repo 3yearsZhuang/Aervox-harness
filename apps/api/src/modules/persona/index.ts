@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/api — 系统级 Persona 领域模块（CAP-019/CAP-020）
  */
 import type { ModuleContext } from "../context.js";
-import { SqlitePersonaRepository } from "@aervox/database";
+import { SqlitePersonaRepository } from "@aervox/repositories";
 import { PersonaService } from "./service.js";
 import { registerPersonaRoutes } from "./routes.js";
 

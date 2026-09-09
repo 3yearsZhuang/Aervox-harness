@@ -5,7 +5,7 @@ import {
   createInMemoryDatabase,
   NotFoundInTenantError,
   TenantAccessViolationError,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import {
   ConflictError,
   ForbiddenError,

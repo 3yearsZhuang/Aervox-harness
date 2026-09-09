@@ -5,8 +5,8 @@ import {
   SqliteMemoryVectorSearchAdapter,
   createHybridSearchStorage,
   type TenantContext,
-} from "@aervox/database";
-import type { AervoxDatabase } from "@aervox/database";
+} from "@aervox/repositories";
+import type { AervoxDatabase } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 import type { MemoryEmbeddingProvider } from "../tools/embedding-provider.js";
 

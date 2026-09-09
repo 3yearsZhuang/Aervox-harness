@@ -12,7 +12,7 @@ import type {
   SkillRegistrationModel,
   SqlitePersonaRepository,
   TenantContext,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import type { SkillManager } from "../skills/skill-manager.js";
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { VoiceService } from "../voice/service.js";

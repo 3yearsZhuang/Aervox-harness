@@ -17,7 +17,7 @@ import {
   loadProactiveVaultCipher,
   type AervoxDatabase,
   type ProactiveVaultCipher,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 import type { WorkflowDefinition } from "@aervox/agent-loop";
 import { registerConversationModule } from "./modules/conversation/index.js";
@@ -49,7 +49,7 @@ import type { MemoryEmbeddingProvider } from "./modules/tools/embedding-provider
 import { createAuthHook, type AuthConfig } from "./shared/auth.js";
 import { createToolApprovalPolicyHook } from "./shared/tool-approval-policy.js";
 import { ApiError, type ApiErrorCode } from "./shared/errors.js";
-import { DatabaseError } from "@aervox/database";
+import { DatabaseError } from "@aervox/repositories";
 
 export interface BuildAppOptions {
   /** 注入既有数据库（如内存库）；缺省时使用 createDatabase() */

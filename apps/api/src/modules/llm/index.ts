@@ -1,5 +1,5 @@
 import type { ModuleContext } from "../context.js";
-import { SqliteLLMConfigRepository } from "@aervox/database";
+import { SqliteLLMConfigRepository } from "@aervox/repositories";
 import { LLMConfigService } from "./service.js";
 import { registerLLMRoutes } from "./routes.js";
 import type { LLMServiceOptions } from "./types.js";

@@ -21,7 +21,7 @@
  */
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { resolveTenant, setRequestTenant } from "./tenant.js";
-import type { TenantContext } from "@aervox/database";
+import type { TenantContext } from "@aervox/repositories";
 
 export type AuthMode = "open" | "token";
 

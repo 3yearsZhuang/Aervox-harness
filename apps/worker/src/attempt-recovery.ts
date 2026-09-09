@@ -7,8 +7,8 @@
  *
  * 规则依据：AVX-HAR-001 §11.3 恢复。
  */
-import { SqliteConversationRepository } from "@aervox/database";
-import type { AervoxDatabase } from "@aervox/database";
+import { SqliteConversationRepository } from "@aervox/repositories";
+import type { AervoxDatabase } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 
 export async function runAttemptRecoveryCycle(opts: {

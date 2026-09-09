@@ -5,7 +5,7 @@
  */
 import path from "node:path";
 import type { ModuleContext } from "../context.js";
-import { SqliteContentRepository } from "@aervox/database";
+import { SqliteContentRepository } from "@aervox/repositories";
 import { registerContentRoutes } from "./routes.js";
 
 /** 附件二进制默认落盘根目录：<repo>/data/attachments（测试可注入临时目录） */

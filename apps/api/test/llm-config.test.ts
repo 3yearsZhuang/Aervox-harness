@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../src/app.js";
-import { createInMemoryDatabase, type AervoxDatabase } from "@aervox/database";
+import { createInMemoryDatabase, type AervoxDatabase } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 
 describe("LLM Config API (CR-012)", () => {

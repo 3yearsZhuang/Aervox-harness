@@ -6,7 +6,7 @@
  * Token 脱敏不回传 → 断开注销 → 上游 401 映射 502。
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createInMemoryDatabase, initDatabaseSchema, type AervoxDatabase } from "@aervox/database";
+import { createInMemoryDatabase, initDatabaseSchema, type AervoxDatabase } from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";

@@ -1,12 +1,12 @@
 /**
  * Aervox｜思隅 @aervox/api — 系统级语音服务
  */
-import type { TenantContext } from "@aervox/database";
+import type { TenantContext } from "@aervox/repositories";
 import type {
   IVoiceConfigRepository,
   IVoiceInputConfigRepository,
   IVoiceRemoteConfigRepository,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import { GptSovitsLocalProvider, GptSovitsRemoteProvider, validateLocalPath } from "./gpt-sovits.js";
 import {
   SenseVoiceLocalProvider,

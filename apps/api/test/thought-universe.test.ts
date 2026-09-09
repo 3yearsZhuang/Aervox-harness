@@ -13,7 +13,7 @@ import {
   createInMemoryDatabase,
   SqliteLearningRepository,
   type AervoxDatabase,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";

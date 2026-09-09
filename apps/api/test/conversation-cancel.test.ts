@@ -7,7 +7,7 @@
  * - 不存在 Turn 返回 404。
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createInMemoryDatabase, SqliteConversationRepository, type AervoxDatabase, type TenantContext } from "@aervox/database";
+import { createInMemoryDatabase, SqliteConversationRepository, type AervoxDatabase, type TenantContext } from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";

@@ -22,7 +22,7 @@ import type {
   SkillReleaseModel,
   SqliteSkillLifecycleRepository,
   SqliteSkillRegistryRepository,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import { parseFrontmatter } from "./skill-manager.js";
 
 export interface SkillLifecycleDeps {

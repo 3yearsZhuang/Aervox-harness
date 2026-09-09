@@ -5,7 +5,7 @@
  * （POST /v1/diaries/generate-today 会懒创建租户默认每日计划激活定时链路）。
  */
 import type { FastifyInstance } from "fastify";
-import type { SqliteDiaryRepository } from "@aervox/database";
+import type { SqliteDiaryRepository } from "@aervox/repositories";
 import { resolveTenant } from "../../shared/tenant.js";
 import type { DiaryApplicationService } from "./application.js";
 
