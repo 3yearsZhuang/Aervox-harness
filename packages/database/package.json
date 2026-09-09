@@ -26,7 +26,6 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
-    "@aervox/contracts": "workspace:*",
     "@libsql/client": "^0.14.0",
     "drizzle-orm": "^0.39.3"
   },
