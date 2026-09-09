@@ -13,6 +13,10 @@ import {
 import { useAervoxSkills, type SkillDto } from '@aervox/api-client'
 import SkillContentDialog from './SkillContentDialog.vue'
 
+const emit = defineEmits<{
+  'change': []
+}>()
+
 const api = useAervoxSkills()
 const { skills, loading, error, loadSkills, setSkillActive, installSkillZip, deleteSkill } = api
 
@@ -52,6 +56,7 @@ async function toggleActive(skill: SkillDto): Promise<void> {
   busySkillId.value = skill.id || skill.name
   try {
     await setSkillActive(skill.id || skill.name, nextActive)
+    emit('change')
     ElMessage.success(`已${nextActive ? '启用' : '停用'}技能「${skill.name}」`)
   } catch (e) {
     ElMessage.error(e instanceof Error ? e.message : '切换技能状态失败')
@@ -78,6 +83,7 @@ async function handleDelete(skill: SkillDto): Promise<void> {
     )
     busySkillId.value = skill.id || skill.name
     await deleteSkill(skill.id || skill.name)
+    emit('change')
     ElMessage.success('技能已删除')
   } catch (e) {
     if (e !== 'cancel') {
@@ -107,6 +113,7 @@ async function handleFileSelected(event: Event): Promise<void> {
     }
     const base64 = btoa(binary)
     await installSkillZip(base64, { overwrite: false })
+    emit('change')
     ElMessage.success('技能包安装成功')
   } catch (e) {
     const msg = e instanceof Error ? e.message : '安装技能失败'
@@ -129,6 +136,7 @@ async function handleFileSelected(event: Event): Promise<void> {
         }
         const base64 = btoa(binary)
         await installSkillZip(base64, { overwrite: true })
+        emit('change')
         ElMessage.success('已覆盖并成功安装技能')
       } catch {
         // user cancelled
