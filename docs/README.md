@@ -1,11 +1,11 @@
 # Aervox｜思隅 产品与工程文档索引
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：MoeJiyun233 · 2026-08-29
+- 修改人：linge · 2026-09-09
 
 > 文档编号：AVX-DOC-001  
-> 版本：v1.3
-> 更新日期：2026-08-29
+> 版本：v1.4
+> 更新日期：2026-09-09
 > 状态：Review Candidate
 
 本目录把产品目标、可测试需求、架构决策、数据权利和 AI 质量分开维护，避免单一 PRD 同时承担所有细节。所有上线范围必须能从用户价值追踪到需求、设计、测试和发布证据。
@@ -29,7 +29,8 @@
 | [能力组合与可选化目录规范](reference/capability-composition.md)（AVX-CAP-001） | 所有业务能力最终如何通过 Manifest、Provider、Adapter 和 Profile 自由组合 | 目标目录、Kernel 不变量、依赖解析、生命周期、DSH/pi 适配与迁移验收 |
 | [Agent Harness Loop 设计与落地规范](reference/agent-harness-loop.md)（AVX-HAR-001） | 一次 Agent Turn 如何经过 Context、模型、工具、多 Step、取消恢复并安全终止 | Loop 状态机、Port、持久化、工具管线、限额、DSH/pi Driver 与分阶段迁移 |
 | [能力注册表](reference/capability-registry.md)（AVX-CAP-REG-001） | 哪些能力纳入自选机制、以什么方式启用、当前处于哪个状态 | 交付载体与启用方式、CAP 分类与已注册模块登记；判定规则与交付机制见 AVX-CAP-001 |
-| [插件 Config 与 Page 规范](reference/plugin-config-and-pages.md)（AVX-PLUG-001） | 插件配置如何声明、校验、可视化，Page 如何安全承载 | Config Schema v1、配置存储/API、Page Bridge 与安全边界（CR-006） |
+| [插件 Config、Page 与 UI 扩展规范](reference/plugin-config-and-pages.md)（AVX-PLUG-001） | 插件配置如何声明、校验、可视化，Page 如何安全承载，前端 UI 插槽与核心组件替换契约 | Config Schema v1、配置存储/API、Page Bridge、UI 插槽注入与组件替换契约（CR-006） |
+| [操作指南：开发工作台 UI 扩展插件](how-to/develop-plugin-ui-extension.md)（AVX-GUIDE-004） | 插件开发者如何向工作台插槽注入自定义操作或替换输入底座 | 插槽注册 API、优先级、Workbench Context 消费与防重入契约 |
 | [操作指南](how-to) | 怎么新增/修改需求、写 ADR、过发布会门禁、做季度演练、管可选模块 submodule；贡献者流程见根级 [CONTRIBUTING](../CONTRIBUTING.md) | 任务型流程（工程与发布流程合一）；规则以对应专项文档为事实源 |
 | [文档生命周期登记表](DOC_REGISTRY.md) | 每份文档何时核验、多久复核、什么信号表示陈旧 | 核验节奏/陈旧信号；独立于索引维护 |
 | [文档治理与事实源规范](reference/document-governance.md)（AVX-DOC-GOV-001） | 文档如何分类、标记状态、确定唯一事实源并触发复核 | 分类、事实源矩阵、元数据、状态模型、owner、复核触发器与分阶段迁移 |
@@ -61,7 +62,7 @@
 
 桌面端首次启动体验见 [CR-025：桌面端首次启动引导](reference/changes/CR-025-desktop-first-run-onboarding.md)：Electron 首次启动通过四步窗口内序章介绍产品，复用 Live2D 与 CR-015 模型配置能力，并用版本化本机标记控制后续跳过。
 
-最近的插件能力变更见 [CR-006：插件配置解析与可视化](reference/changes/CR-006-plugin-config-and-pages.md)：新增插件 Config Schema v1、配置持久化/API 与受限 Page Bridge（规范见 [AVX-PLUG-001](reference/plugin-config-and-pages.md)）。
+最近的插件能力变更见 [CR-006：插件配置解析与可视化](reference/changes/CR-006-plugin-config-and-pages.md)：新增插件 Config Schema v1、配置持久化/API、受限 Page Bridge 与工作台 UI 扩展插槽/组件替换契约（规范见 [AVX-PLUG-001](reference/plugin-config-and-pages.md)，开发指南见 [AVX-GUIDE-004](how-to/develop-plugin-ui-extension.md)）。
 
 学习域练习会话的规格补全见 [CR-008：练习会话与作答契约补全](reference/changes/CR-008-practice-session-contract.md)：明确题组快照、重复提交、会话结束和租户隔离的验收边界；仍待 DoR 评审。
 
