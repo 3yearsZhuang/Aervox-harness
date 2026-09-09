@@ -7,8 +7,8 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.2.0
-updated_at: 2026-09-09
-reviewed_at: 2026-09-09
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 review_triggers:
   - packages/ui/src/registry/**
@@ -26,12 +26,12 @@ sources:
 # 插件 Config、Page 与 UI 扩展规范
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：linge · 2026-09-09
+- 修改人：linge · 2026-09-10
 
 > 文档编号：AVX-PLUG-001
 > 类型：Reference
 > 版本：v0.2
-> 更新日期：2026-09-09
+> 更新日期：2026-09-10
 > 状态：Review Candidate
 > 关联：[CR-006](changes/CR-006-plugin-config-and-pages.md)、[能力组合与可选化目录规范](capability-composition.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-015](adr/ADR-015-vue-full-stack.md)、[AI 质量与安全规范](AI_QUALITY_SAFETY.md)
 
@@ -239,14 +239,12 @@ uiRegistry.overrideComponent('ComposerDock', CustomComposer);
 
 ```ts
 export interface ComposerContractProps {
-  input?: string;
-  streaming?: boolean;
-  isComposing?: boolean;
-  enterToSend?: boolean;
+  input: string;
+  streaming: boolean;
+  isComposing: boolean;
+  enterToSend: boolean;
   placeholder?: string;
-  toolApprovalMode?: 'confirm' | 'full_access';
-  proactiveActive?: boolean;
-  onSend?: (text: string) => void | Promise<void>;
+  onSend: (text?: string, options?: { quizMode?: boolean; resend?: boolean }) => Promise<void>;
   onVoiceTrigger?: () => void;
   onAttachmentPicker?: () => void;
   'onUpdate:input'?: (value: string) => void;

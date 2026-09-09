@@ -65,6 +65,10 @@ export interface ConversationRouteDeps {
   proactiveRepository?: import("@aervox/database").IProactiveProfileRepository;
   /** CAP-005：普通长期记忆混合召回，按 request tenant 绑定。 */
   memoryRecall?: MemoryRecallPort;
+  /** 插件仓储：用于检查 study-mode 等插件启用状态 */
+  extensionRepo?: import("@aervox/database").IExtensionRepository;
+  /** 插件配置仓储：用于加载 study-mode 等运行时配置 */
+  pluginConfigRepo?: import("@aervox/database").IPluginConfigRepository;
 }
 
 export function registerConversationRoutes(
@@ -194,6 +198,8 @@ export function registerConversationRoutes(
         proactiveActionAuthorizer: deps.proactiveActionAuthorizer,
         proactiveRepository: deps.proactiveRepository,
         memoryRecall: deps.memoryRecall,
+        extensionRepo: deps.extensionRepo,
+        pluginConfigRepo: deps.pluginConfigRepo,
       },
     );
     if (loadApiConfig().turnExecution === "inline") {

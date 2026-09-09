@@ -32,11 +32,15 @@ import type {
   WorkflowDefinition,
 } from "@aervox/agent-loop";
 import { SqliteExecutionStore, runAdapterTurn } from "@aervox/host-agent";
-import { extractTerms } from "@aervox/practice-review";
+import { extractTerms, type LLMCallable } from "@aervox/practice-review";
 import {
+  type AervoxDatabase,
+  type IExtensionRepository,
+  type IPluginConfigRepository,
   type IProactiveProfileRepository,
   type SqliteConversationRepository,
   type TenantContext,
+  SqliteExtensionRepository,
   SqlitePluginConfigRepository,
 } from "@aervox/database";
 import { loadApiConfig } from "@aervox/config";
@@ -48,30 +52,79 @@ export interface StudyModeRuntimeConfig {
   maxExtractedTerms?: number;
   enableJudgePass?: boolean;
   defaultExploreKind?: string;
+  showTermTips?: boolean;
 }
 
+/** 专注模式 Schema 规范默认值（对齐 plugins/study-mode/config.schema.json） */
+export const DEFAULT_STUDY_MODE_CONFIG: Required<StudyModeRuntimeConfig> = {
+  autoEnableStudyMode: false,
+  strictAntiSpoiler: true,
+  scaffoldingSteps: 3,
+  maxExtractedTerms: 3,
+  defaultExploreKind: "socratic",
+  showTermTips: true,
+  enableJudgePass: false,
+};
+
 export async function loadStudyModeRuntimeConfig(
-  repo: SqliteConversationRepository,
-  tenant: TenantContext,
-  pluginConfigRepo?: SqlitePluginConfigRepository,
-): Promise<StudyModeRuntimeConfig | null> {
-  try {
-    const configRepo =
+  repoOrTenant: SqliteConversationRepository | TenantContext,
+  tenantOrRepo?: TenantContext | IPluginConfigRepository | null,
+  pluginConfigRepo?: IPluginConfigRepository | null,
+): Promise<StudyModeRuntimeConfig> {
+  let tenant: TenantContext;
+  let configRepo: IPluginConfigRepository | null | undefined;
+  if ("workspaceId" in repoOrTenant && "subjectUserId" in repoOrTenant) {
+    tenant = repoOrTenant as TenantContext;
+    configRepo = tenantOrRepo as IPluginConfigRepository | null | undefined;
+  } else {
+    tenant = tenantOrRepo as TenantContext;
+    configRepo =
       pluginConfigRepo ??
-      ((repo as unknown as { db?: import("@aervox/database").AervoxDatabase }).db
-        ? new SqlitePluginConfigRepository(
-            (repo as unknown as { db: import("@aervox/database").AervoxDatabase }).db,
-          )
-        : null);
-    if (!configRepo) return null;
-    const model = await configRepo.getConfig(tenant, "study-mode");
-    if (!model?.valuesJson) return null;
-    return (typeof model.valuesJson === "string"
-      ? JSON.parse(model.valuesJson)
-      : model.valuesJson) as StudyModeRuntimeConfig;
-  } catch {
-    return null;
+      ((repoOrTenant as unknown as { db?: AervoxDatabase }).db
+        ? new SqlitePluginConfigRepository((repoOrTenant as unknown as { db: AervoxDatabase }).db)
+        : undefined);
   }
+
+  const defaults: StudyModeRuntimeConfig = { ...DEFAULT_STUDY_MODE_CONFIG };
+  if (!configRepo) return defaults;
+  try {
+    const model = await configRepo.getConfig(tenant, "study-mode");
+    if (!model?.valuesJson) return defaults;
+    const stored =
+      typeof model.valuesJson === "string"
+        ? JSON.parse(model.valuesJson)
+        : model.valuesJson;
+    if (!stored || typeof stored !== "object") return defaults;
+    return {
+      ...defaults,
+      ...stored,
+    };
+  } catch {
+    return defaults;
+  }
+}
+
+/** 将 ModelProviderPort 适配为 practice-review 所需的 LLMCallable 接口 */
+export function createLLMCallable(provider: ModelProviderPort): LLMCallable {
+  return {
+    async generate(prompt: string, options?: { systemPrompt?: string; temperature?: number }): Promise<string> {
+      const messages: ModelMessage[] = [];
+      if (options?.systemPrompt) {
+        messages.push({ role: "system", content: options.systemPrompt });
+      }
+      messages.push({ role: "user", content: prompt });
+      let text = "";
+      for await (const chunk of provider.stream({
+        messages,
+        temperature: options?.temperature ?? 0.1,
+      })) {
+        if (chunk.delta) {
+          text += chunk.delta;
+        }
+      }
+      return text;
+    },
+  };
 }
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
@@ -485,6 +538,7 @@ async function extractStudyTerms(
   tenant: TenantContext,
   input: { turnId: string; userMessage: string },
   studyConfig?: StudyModeRuntimeConfig | null,
+  llm?: LLMCallable | null,
 ): Promise<void> {
   if (!isStudyModeMessage(input.userMessage)) return;
   try {
@@ -504,8 +558,9 @@ async function extractStudyTerms(
     }
 
     const extractOptions = {
-      maxTerms: studyConfig?.maxExtractedTerms ?? 8,
-      enableJudgePass: studyConfig?.enableJudgePass ?? true,
+      llm: llm ?? undefined,
+      maxTerms: studyConfig?.maxExtractedTerms ?? DEFAULT_STUDY_MODE_CONFIG.maxExtractedTerms,
+      enableJudgePass: studyConfig?.enableJudgePass ?? DEFAULT_STUDY_MODE_CONFIG.enableJudgePass,
     };
 
     let terms =
@@ -545,7 +600,9 @@ async function runDshAdapterTurn(
   tenant: TenantContext,
   store: SqliteExecutionStore,
   input: { turnId: string; sessionId: string; attemptId: string; userMessage: string },
+  isStudyMode: boolean,
   studyConfig?: StudyModeRuntimeConfig | null,
+  llm?: LLMCallable | null,
 ): Promise<void> {
   const resolved = await resolveDshTurnAdapter();
   if (!resolved.ok) {
@@ -561,7 +618,9 @@ async function runDshAdapterTurn(
   });
   if (result.status === "Completed") {
     await repo.updateTurnStatus(tenant, input.turnId, "Completed");
-    await extractStudyTerms(repo, tenant, input, studyConfig);
+    if (isStudyMode) {
+      await extractStudyTerms(repo, tenant, input, studyConfig, llm);
+    }
   } else if (result.status === "Failed" || result.status === "Interrupted") {
     await repo.updateTurnStatus(tenant, input.turnId, result.status).catch(() => undefined);
   }
@@ -654,15 +713,32 @@ export async function runLoopTurnOnce(
     proactiveRepository?: IProactiveProfileRepository;
     /** CAP-005：普通长期记忆 FTS + 向量混合召回。 */
     memoryRecall?: MemoryRecallPort;
+    /** 插件仓储：用于检查 study-mode 等插件启用状态 */
+    extensionRepo?: IExtensionRepository;
     /** 插件配置仓储：读取专注模式等插件运行时配置 */
-    pluginConfigRepo?: SqlitePluginConfigRepository;
+    pluginConfigRepo?: IPluginConfigRepository;
   } = {},
 ): Promise<void> {
-  // 识别当前消息是否带专注模式前缀或标识，动态决定是否注入专注模式专属 Prompt 与术语配置
-  const isStudyMode = isStudyModeMessage(input.userMessage);
+  // 服务端插件启用状态与消息前缀双重门控：
+  // 必须满足 study-mode 插件存在且启用 (enabled === 1)，同时消息包含专注模式标识，才激活专注模式
+  const hasStudyPrefix = isStudyModeMessage(input.userMessage);
+  let isStudyMode = false;
   let studyConfig: StudyModeRuntimeConfig | null = null;
-  if (isStudyMode) {
-    studyConfig = await loadStudyModeRuntimeConfig(repo, tenant, deps.pluginConfigRepo);
+
+  if (hasStudyPrefix) {
+    const extRepo =
+      deps.extensionRepo ??
+      ((repo as unknown as { db?: AervoxDatabase }).db
+        ? new SqliteExtensionRepository((repo as unknown as { db: AervoxDatabase }).db)
+        : null);
+
+    const studyPlugin = extRepo ? await extRepo.getPlugin("study-mode").catch(() => null) : null;
+    const isPluginEnabled = extRepo ? studyPlugin?.enabled === 1 : true;
+
+    if (isPluginEnabled) {
+      isStudyMode = true;
+      studyConfig = await loadStudyModeRuntimeConfig(repo, tenant, deps.pluginConfigRepo);
+    }
   }
 
   // 阶段 7（ADR-017）：Step 级 ModelRun + 每 Turn ContextManifest 快照落库（委托 platform 域）
@@ -702,7 +778,16 @@ export async function runLoopTurnOnce(
   // ADR-010 阶段 6f：AERVOX_LOOP_DRIVER=dsh → 整 Turn 走 DSH 进程外 Adapter
   // （自带 Agent 循环与模型回合，Provider/工具/上下文组合全部跳过；未就绪 fail-closed 不回退 native）。
   if (loadApiConfig().loopDriver === "dsh") {
-    await runDshAdapterTurn(repo, tenant, store, input, studyConfig);
+    let dshLlm: LLMCallable | undefined;
+    if (deps.llmConfigService && loadApiConfig().loopProvider === "llm") {
+      try {
+        const p = await buildLoopProvider(tenant, deps.llmConfigService);
+        dshLlm = createLLMCallable(p);
+      } catch {
+        // ignore
+      }
+    }
+    await runDshAdapterTurn(repo, tenant, store, input, isStudyMode, studyConfig, dshLlm);
     return;
   }
 
@@ -850,6 +935,9 @@ export async function runLoopTurnOnce(
   // 以 Loop 结果对齐 turns 状态；skipped（幂等保护）不覆盖。
   if (result.status === "completed") {
     await repo.updateTurnStatus(tenant, input.turnId, "Completed");
-    await extractStudyTerms(repo, tenant, input, studyConfig);
+    if (isStudyMode) {
+      const llm = provider ? createLLMCallable(provider) : undefined;
+      await extractStudyTerms(repo, tenant, input, studyConfig, llm);
+    }
   }
 }

@@ -22,4 +22,3 @@ export {
   initDatabaseSchema,
   initLedgerSchema,
 } from "./schema/init.js";
-

@@ -61,7 +61,7 @@
 | `CR-027` | [Turn 流活性治理：执行解耦、SSE 活流与思考增量透传](reference/changes/CR-027-turn-stream-liveness.md) | 2026-08-29 | 流式协议建流语义、思考事件类型、客户端超时/取消语义变更 | STREAMING_PROTOCOL、OpenAPI、Agent Loop/Provider、API Client/桌面桥或 Workbench 与实现不一致 |
 | `CR-028` | [在线语音模型配置](reference/changes/CR-028-voice-remote-model-config.md) | 2026-08-29 | `CAP-019/020` 在线语音模型配置、api_v2 协议或设置 UI 变更 | 表、契约、Voice 模块远程 provider 或设置「语音」子页签与实现不一致 |
 | `CR-029` | [模型 / 语音多预设与「你的思隅」设置页](reference/changes/CR-029-presets-and-siyu-settings.md) | 2026-08-28 | `CAP-020` 模型/语音多预设存储、预设 API、设置页导航或面板交互变更 | 表结构、OpenAPI、LLM/Voice service 或「你的思隅」设置页与实现不一致 |
-| `AVX-PLUG-001` | [插件 Config、Page 与 UI 扩展规范](reference/plugin-config-and-pages.md) | 2026-09-09 | CR-006 / 插件机制与 UI 扩展变更 | Manifest、Config Schema、Page Bridge、UI 插槽或组件替换契约与实现不一致 |
+| `AVX-PLUG-001` | [插件 Config、Page 与 UI 扩展规范](reference/plugin-config-and-pages.md) | 2026-09-10 | CR-006 / 插件机制与 UI 扩展变更 | Manifest、Config Schema、Page Bridge、UI 插槽或组件替换契约与实现不一致 |
 | `AVX-DOC-GOV-001` | [文档治理与事实源规范](reference/document-governance.md) | 2026-08-28 | 文档分类、状态、事实源、复核触发或迁移策略变更 | 策略 JSON、校验器、索引、登记表或写作规范与治理基线不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 2026-08-28 | 写作规则、模板或季度评审 | 新文档未使用规范元数据/签名，或 Vale 规则与术语表不一致 |
 | `AVX-TERM-001` | [术语表](reference/standards/terminology.md) | 2026-08-28 | 术语新增/变更 | 新增缩写未登记，或正文拼写与「禁写」列不一致 |

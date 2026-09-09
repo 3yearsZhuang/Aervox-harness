@@ -7,7 +7,7 @@ describe("Schema 初始化与列迁移安全 (Issue 4 & 5)", () => {
     const { client, cleanup } = await createInMemoryDatabase();
     try {
       await client.execute(`CREATE TABLE test_table (id TEXT PRIMARY KEY);`);
-      
+
       // 首次添加
       await addColumnIfMissing(client, "test_table", "new_col", "new_col TEXT");
       const info1 = await client.execute(`PRAGMA table_info(test_table)`);
