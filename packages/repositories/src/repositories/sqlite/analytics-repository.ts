@@ -7,7 +7,7 @@ import { eq, and, desc } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { analyticsEvents } from "@aervox/schema";
 import { assertTenantContext, type TenantContext } from "../../tenant.js";
-import type { IAnalyticsRepository, AnalyticsEventModel } from "../types.js";
+import type { IAnalyticsRepository, AnalyticsEventModel } from "../types/index.js";
 
 export class SqliteAnalyticsRepository implements IAnalyticsRepository {
   constructor(private readonly db: AervoxDatabase) {}

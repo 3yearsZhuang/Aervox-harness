@@ -12,7 +12,7 @@ import type {
   IVoiceInputConfigRepository,
   VoiceInputConfigSaveInput,
   VoiceInputConfigModel,
-} from "../types.js";
+} from "../types/index.js";
 
 function rowToModel(row: typeof voiceInputConfigs.$inferSelect): VoiceInputConfigModel {
   return {

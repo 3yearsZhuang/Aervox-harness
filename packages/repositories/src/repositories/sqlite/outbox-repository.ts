@@ -7,7 +7,7 @@ import { eq, and, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { outboxEvents } from "@aervox/schema";
 import { assertTenantContext, type TenantContext } from "../../tenant.js";
-import type { IOutboxRepository, OutboxEventModel } from "../types.js";
+import type { IOutboxRepository, OutboxEventModel } from "../types/index.js";
 
 export class SqliteOutboxRepository implements IOutboxRepository {
   constructor(private readonly db: AervoxDatabase) {}

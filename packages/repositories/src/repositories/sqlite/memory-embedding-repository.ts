@@ -10,7 +10,7 @@ import type { AervoxDatabase } from "../../client.js";
 import { memoryEmbeddings } from "@aervox/schema";
 import { assertTenantContext, type TenantContext } from "../../tenant.js";
 import { cosineSimilarity } from "../../search/vector-port.js";
-import type { IMemoryEmbeddingRepository } from "../types.js";
+import type { IMemoryEmbeddingRepository } from "../types/index.js";
 
 /** 把 JSON 字符串还原为 number[]；非法数据视为空向量 */
 function parseVector(json: string | null): number[] {

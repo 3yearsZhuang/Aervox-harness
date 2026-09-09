@@ -1,13 +1,13 @@
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：kikoyida · 2026-09-08
+- 修改人：3yearszhuang · 2026-09-09
 
 > 文档编号：AVX-TRC-001  
 > 类型：Reference  
-> 文档版本：v1.15
+> 文档版本：v1.16
 > 文档状态：评审候选（Review Candidate）  
-> 更新日期：2026-09-08
+> 更新日期：2026-09-09
 > 产品需求来源：[PRD.md](PRD.md)
 > 适用范围：原型、MVP、MVP+、P1、桌面阶段、P2、P3 及后续维护版本
 
@@ -363,6 +363,8 @@
 | W-17 `artifacts/` 目录治理（REFACTOR-PLAN W-17） | 基础设施（仓库资产治理） | `README.md`（仓库结构段补充 `artifacts/` 用途说明：pitch-preview 含 Midnight Galaxy 与 Tech Innovation 两版 PPT 及预览图，非代码资产、不参与构建与打包，仅供对外推介取用）、`artifacts/pitch-preview/`（已入库、零源码引用；onboarding PR #111 `7d42cf2` 误提交，主题与产品不符，裁定保留并显式说明用途）、`.gitignore`（已豁免，不参与打包） | 2026-09-04 | `git grep -r "pitch-preview" apps packages modules` 零源码引用（仅 README 与文档引用）；README 仓库结构段含 `artifacts/` 说明；ci-docs 0 warning | 原生 |
 
 | W-18 移除 repo-root `modules/*` 悬空声明（REFACTOR-PLAN W-18） | 基础设施（仓库结构治理） | `pnpm-workspace.yaml`（删除 repo-root `modules/*` 通配与误归因 ADR-014 的注释；ADR-014 实际指 `apps/api/src/modules/`，已存在且重度使用；repo-root host 归 ADR-001/AVX-CAP-001 的可选能力 submodule 宿主，当前零实例、唯一实例 `modules/persona-plugin` 已在去模块化收尾中移除）、`docs/how-to/submodule-collaboration.md`（第 3 步补「若未声明 `modules/*` 先加回」说明，消除文档与现状漂移） | 2026-09-04 | `pnpm-workspace.yaml` 无 `modules/*` 条目；`git ls-files modules/` 无输出（目录不存在）；ci.yml 的 `modules/**` 仅作 PR/push 触发条件，移除声明不影响流水线；docs-validate 0 warning | 原生 |
+
+| W-19 阶段 4：`packages/database` 持久层去巨型文件（机械拆分 + barrel，零行为变更） | 基础设施（W-19 包拆分） | `packages/repositories/src/repositories/types/`（`34` 域文件 + `index.ts` barrel，取代 `repositories/types.ts` `3,378` 行）、`packages/repositories/src/schema/ddl/`（`37` 域文件 + `common.ts` + `index.ts` barrel，取代 `schema/init.ts` `2,581` 行）、`packages/repositories/src/{index.ts,repositories/index.ts}`、`packages/repositories/src/repositories/sqlite/*.ts`（`33` 文件 `../types.js`→`../types/index.js`）、`packages/repositories/src/repositories/sqlite/recovery-ledger-repository.ts`（`../../schema/init.js`→`../../schema/ddl/index.js`） | 2026-09-09 | `@aervox/repositories` typecheck + `37` 测试文件 / `192` 测试全绿；`schema`/`repositories`/`database` 三包 `tsc` 构建成功；`apps/host-agent` 经 built dist `67 passed` / `1 skipped`、`apps/worker` `10 passed`（含 `initDatabaseSchema`/`initLedgerSchema` 经 barrel 导出等价、拆分对消费者透明）；DDL 语句计数 `256` = 原 `256`（`122` 张表逐字节等价）；`apps/api` 全量并行测试在本沙箱现 `CLIENT_CLOSED` 测试拆卸抖动（错误栈落未改动 built `dist/write-retry.js`/`client`，非逻辑回归；`--no-file-parallelism` 串行复跑可降频），不影响本次文件重组正确性 | 原生 |
 
 ## 5. 原子需求字段模板
 

@@ -35,7 +35,7 @@ import type {
   ProactiveProfileRevisionModel,
   ProactiveSourceGrantModel,
   ProactiveSourceDeletionResult,
-} from "../types.js";
+} from "../types/index.js";
 
 const RETENTION_DAYS = 7;
 const DEFAULT_LEASE_TTL_MS = 5 * 60 * 1000;

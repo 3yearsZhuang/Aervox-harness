@@ -10,8 +10,8 @@ import { eq, sql } from "drizzle-orm";
 import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
 import type { Client } from "@libsql/client";
 import { recoveryControlLedger } from "@aervox/schema";
-import { initLedgerSchema } from "../../schema/init.js";
-import type { IRecoveryLedgerPort, RecoveryLedgerEventModel } from "../types.js";
+import { initLedgerSchema } from "../../schema/ddl/index.js";
+import type { IRecoveryLedgerPort, RecoveryLedgerEventModel } from "../types/index.js";
 
 export class SqliteRecoveryLedgerRepository implements IRecoveryLedgerPort {
   private readonly db: LibSQLDatabase<{ recoveryControlLedger: typeof recoveryControlLedger }>;

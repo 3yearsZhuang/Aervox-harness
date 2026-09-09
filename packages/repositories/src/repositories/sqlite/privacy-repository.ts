@@ -12,7 +12,7 @@ import type {
   ConsentGrantModel,
   DeletionRequestModel,
   DeletionTargetModel,
-} from "../types.js";
+} from "../types/index.js";
 
 export class SqlitePrivacyRepository implements IPrivacyRepository {
   constructor(private readonly db: AervoxDatabase) {}
