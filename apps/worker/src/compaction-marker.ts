@@ -11,9 +11,10 @@
  * 规则依据：docs/explanation/reference-design-transfer.md §3.3（先写后投递：
  * 仅在完整响应持久化后投递该事件）。
  */
-import type {
-  SqliteMemoryCompactionRepository,
-  SqliteOutboxRepository,
+import {
+  type SqliteMemoryCompactionRepository,
+  type SqliteOutboxRepository,
+  LOCAL_TENANT_CONTEXT,
 } from "@aervox/database";
 
 export const COMPACTION_EVENT_TYPE = "memory.compaction.requested";
@@ -38,7 +39,7 @@ export async function runCompactionMarkerCycle(ctx: CompactionMarkerContext): Pr
   for (const event of events) {
     if (event.eventType !== COMPACTION_EVENT_TYPE) continue;
 
-    const tenant = { workspaceId: event.workspaceId, subjectUserId: event.subjectUserId };
+    const tenant = LOCAL_TENANT_CONTEXT;
     const payload = (event.payload ?? {}) as {
       memoryId?: string;
       snapshotId?: string;

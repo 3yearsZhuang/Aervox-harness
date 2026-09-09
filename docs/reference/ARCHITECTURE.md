@@ -1,12 +1,12 @@
 # Aervox｜思隅 系统架构设计（SAD）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-31
+- 修改人：linge · 2026-09-10
 
 > 文档编号：AVX-SAD-001  
 > 类型：Explanation  
-> 版本：v0.3（CAP-033～035 主动智能与本地连接网关）
-> 更新日期：2026-08-31
+> 版本：v0.4（CR-030 确立 SQLite 永久纯本地真源并移除多租户）
+> 更新日期：2026-09-10
 > 状态：Review Candidate  
 > 关联 PRD：[PRD.md](PRD.md) · 追踪：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
 
@@ -105,7 +105,7 @@ apps/api/test/                       # 集成测试
 | 路由函数签名 | `routes.ts` 导出函数接收**该模块专属的仓储实例**，而非全局 `RepoContainer` |
 | shared 严格受限 | `shared/` 只放跨 2 个以上模块的通用工具，禁止放业务逻辑 |
 | 跨模块通信 | 仅限 `shared/event-bus.ts` 的 pub/sub + `shared/` 中的纯工具函数直接调用 |
-| 单一数据库 | 仍是一个 SQLite/PostgreSQL 实例，通过表前缀做逻辑分区 |
+| 单一数据库 | 仍是一个 SQLite (LibSQL) 实例，通过表前缀做逻辑分区 |
 | 对外入口唯一 | 每个模块只有 `index.ts` 对外可见，`routes.ts` 内部函数不被其他模块引用 |
 
 **模块与仓储对应关系**：
@@ -400,7 +400,7 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 
 ### 11.1 技术版本冻结规则
 
-本文中的 Node 24 LTS、TypeScript 6.x、Vue/Vite/Fastify/Zod、PostgreSQL、AI SDK 等是目标基线（React 相关基线已随 ADR-015 更新为 Vue），不是尚未存在 `package.json`/lockfile 时的可构建证明。G2 前必须：
+本文中的 Node 24 LTS、TypeScript 6.x、Vue/Vite/Fastify/Zod、SQLite (LibSQL)、AI SDK 等是目标基线（React 相关基线已随 ADR-015 更新为 Vue），不是尚未存在 `package.json`/lockfile 时的可构建证明。G2 前必须：
 
 - 验证实际发布日期、LTS/支持周期、peer dependency、Node ABI、Electron 和参考适配器兼容；
 - 在根 `package.json`、`packageManager`、`engines`、lockfile、容器 digest 和 CI matrix 中精确冻结版本；

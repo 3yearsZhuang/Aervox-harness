@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
-import type {
-  IntelligenceConnectionSecret,
-  SqliteProactiveIntelligenceRepository,
-  SqliteProactiveProfileRepository,
-  TenantContext,
+import {
+  LOCAL_TENANT_CONTEXT,
+  type IntelligenceConnectionSecret,
+  type SqliteProactiveIntelligenceRepository,
+  type SqliteProactiveProfileRepository,
+  type TenantContext,
 } from "@aervox/database";
 import { HomeAssistantClient, type HomeAssistantEntityState } from "./home-assistant-client.js";
 import { XiaomiHealthClient, type XiaomiHealthDailySample } from "./xiaomi-health-client.js";
@@ -372,7 +373,7 @@ export class ProactiveIntegrationManager {
     try {
       const connections = await this.intelligenceRepo.listActiveConnectionSecrets();
       for (const connection of connections) {
-        const tenant = {workspaceId: connection.workspaceId, subjectUserId: connection.subjectUserId};
+        const tenant = LOCAL_TENANT_CONTEXT;
         try {
           if (connection.provider === "home_assistant") {
             await this.syncHomeAssistant(tenant, connection.id);

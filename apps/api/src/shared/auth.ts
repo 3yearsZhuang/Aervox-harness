@@ -20,8 +20,7 @@
  *   AERVOX_AUTH_ACTOR     token 模式绑定的操作者标识（可选：管理员/教师/监护人/插件）
  */
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { resolveTenant, setRequestTenant } from "./tenant.js";
-import type { TenantContext } from "@aervox/database";
+import { resolveTenant, setRequestTenant, type ApiTenantContext } from "./tenant.js";
 
 export type AuthMode = "open" | "token";
 
@@ -51,41 +50,46 @@ export function loadAuthConfig(env: NodeJS.ProcessEnv = process.env): AuthConfig
   };
 }
 
-/**
- * 构造认证 onRequest hook（async，非回调式）。
- * - open：resolveTenant 统一解析并缓存租户上下文（header + 默认回退）后放行；
- * - token：Bearer token 缺失/不匹配 → 401；
- *   匹配 → 租户身份来自服务端配置（绑定），缺失→500 fail-closed，存在→注入请求并忽略请求头。
- */
+/** Fastify onRequest 钩子：执行认证与租户绑定 */
 export function createAuthHook(config: AuthConfig = loadAuthConfig()) {
-  return async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
+  return async function authenticate(req: FastifyRequest, reply: FastifyReply): Promise<void> {
     if (config.mode === "open") {
+      // open 模式：仍统一解析/缓存租户，保持业务代码单源
       resolveTenant(req);
       return;
     }
-    const header = req.headers.authorization ?? "";
-    const token = header.startsWith("Bearer ") ? header.slice("Bearer ".length).trim() : "";
-    if (!config.token || token.length === 0 || token !== config.token) {
-      reply.code(401).send({
-        error: "unauthorized",
-        code: "AUTH_UNAUTHORIZED",
-        message: "missing or invalid bearer token",
+
+    // token 模式：校验 Authorization
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      await reply.status(401).send({
+        code: "UNAUTHORIZED",
+        message: "missing or malformed Authorization header (expected 'Bearer <token>')",
       });
       return;
     }
-    // 令牌与租户绑定：租户身份只来自配置，缺失即视为服务端配置错误 → fail-closed
+
+    const provided = authHeader.slice(7).trim();
+    if (!config.token || provided !== config.token) {
+      await reply.status(401).send({
+        code: "UNAUTHORIZED",
+        message: "invalid bearer token",
+      });
+      return;
+    }
+
+    // fail-closed：未配置绑定租户则阻断（防止误把生产跑在空配置上）
     if (!config.workspaceId || !config.subjectUserId) {
-      reply.code(500).send({
-        error: "auth_not_configured",
+      await reply.status(500).send({
         code: "AUTH_NOT_CONFIGURED",
         message: "token mode requires AERVOX_AUTH_WORKSPACE and AERVOX_AUTH_USER",
       });
       return;
     }
-    const tenant: TenantContext = {
+    const tenant: ApiTenantContext = {
       workspaceId: config.workspaceId,
       subjectUserId: config.subjectUserId,
-      ...(config.actorId ? { actorId: config.actorId } : {}),
+      actorId: config.actorId ?? config.subjectUserId,
     };
     setRequestTenant(req, tenant);
   };

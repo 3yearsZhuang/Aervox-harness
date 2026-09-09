@@ -11,26 +11,33 @@
 import type { FastifyRequest } from "fastify";
 import type { TenantContext } from "@aervox/database";
 
+export interface ApiTenantContext extends TenantContext {
+  workspaceId: string;
+  subjectUserId: string;
+  actorId: string;
+}
+
 const TENANT_KEY = Symbol("aervox.tenant");
 
 /** 从请求头解析租户上下文（纯函数；缺失时回退默认值，便于本地联调） */
-export function parseTenantHeaders(req: FastifyRequest): TenantContext {
+export function parseTenantHeaders(req: FastifyRequest): ApiTenantContext {
   const actorId = req.headers["x-actor-id"] as string | undefined;
+  const subjectUserId = (req.headers["x-user-id"] as string) ?? "usr_default";
   return {
     workspaceId: (req.headers["x-workspace-id"] as string) ?? "ws_default",
-    subjectUserId: (req.headers["x-user-id"] as string) ?? "usr_default",
-    ...(actorId ? { actorId } : {}),
+    subjectUserId,
+    actorId: actorId ?? subjectUserId,
   };
 }
 
 /** 认证中间件校验通过后写入的已验证租户上下文 */
-export function setRequestTenant(req: FastifyRequest, context: TenantContext): void {
+export function setRequestTenant(req: FastifyRequest, context: ApiTenantContext): void {
   (req as unknown as Record<PropertyKey, unknown>)[TENANT_KEY] = context;
 }
 
 /** 读取请求上已缓存的租户上下文（可能未设置） */
-export function getRequestTenant(req: FastifyRequest): TenantContext | undefined {
-  return (req as unknown as Record<PropertyKey, unknown>)[TENANT_KEY] as TenantContext | undefined;
+export function getRequestTenant(req: FastifyRequest): ApiTenantContext | undefined {
+  return (req as unknown as Record<PropertyKey, unknown>)[TENANT_KEY] as ApiTenantContext | undefined;
 }
 
 /**
@@ -38,7 +45,7 @@ export function getRequestTenant(req: FastifyRequest): TenantContext | undefined
  * 优先返回认证中间件写入的已验证上下文；中间件未运行时回退 header 解析
  * （并缓存），保持既有测试与直调语义不变。
  */
-export function resolveTenant(req: FastifyRequest): TenantContext {
+export function resolveTenant(req: FastifyRequest): ApiTenantContext {
   const cached = getRequestTenant(req);
   if (cached) return cached;
   const context = parseTenantHeaders(req);

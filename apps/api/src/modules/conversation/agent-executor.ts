@@ -141,7 +141,7 @@ async function recordAutomaticApproval(
 ): Promise<boolean> {
   const approval = await repo.recordToolApproval(tenant, {
     ...input,
-    requester: tenant.subjectUserId,
+    requester: tenant.subjectUserId ?? "local_user",
     state: "pending",
   });
   const actor = tenant.actorId ?? tenant.subjectUserId;
@@ -248,7 +248,7 @@ export function createApprovalGatedToolProvider(
         attemptId: input.attemptId,
         toolName: input.name,
         argumentsHash,
-        requester: tenant.subjectUserId,
+        requester: tenant.subjectUserId ?? "local_user",
         state: "pending",
       });
       return {
@@ -387,7 +387,7 @@ export function createRuntimeToolProvider(
           attemptId: input.attemptId,
           toolName: tool.name,
           argumentsHash: hash,
-          requester: tenant.subjectUserId,
+          requester: tenant.subjectUserId ?? "local_user",
           state: "pending",
           toolVersion: tool.updatedAt,
         });

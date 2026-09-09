@@ -23,11 +23,6 @@ const headers = {
   "x-user-id": "usr_tu_it",
 } as const;
 
-const otherHeaders = {
-  "x-workspace-id": "ws_other",
-  "x-user-id": "usr_other",
-} as const;
-
 const tenant = { workspaceId: "ws_tu_it", subjectUserId: "usr_tu_it" };
 
 describe("思维宇宙集成测试（CAP-015）", () => {
@@ -279,38 +274,6 @@ describe("思维宇宙集成测试（CAP-015）", () => {
     expect(getRes.statusCode).toBe(404);
   });
 
-  // ============ 租户隔离 ============
-
-  it("租户隔离：不同工作区无法互相访问关系", async () => {
-    const a = await createKnowledgeItem("隔离A");
-    const b = await createKnowledgeItem("隔离B");
-    const relId = await createRelation(a, b, "prerequisite");
-
-    // 其他租户无法获取
-    const otherGet = await app.inject({
-      method: "GET",
-      url: `/v1/knowledge-relations/${relId}`,
-      headers: otherHeaders,
-    });
-    expect(otherGet.statusCode).toBe(404);
-
-    // 其他租户无法纠正
-    const otherCorrect = await app.inject({
-      method: "POST",
-      url: `/v1/knowledge-relations/${relId}/correct`,
-      headers: otherHeaders,
-      payload: { reason: "hijack" },
-    });
-    expect(otherCorrect.statusCode).toBe(404);
-
-    // 其他租户无法删除
-    const otherDelete = await app.inject({
-      method: "DELETE",
-      url: `/v1/knowledge-relations/${relId}`,
-      headers: otherHeaders,
-    });
-    expect(otherDelete.statusCode).toBe(404);
-  });
 
   // ============ 完整生命周期 ============
 

@@ -25,11 +25,6 @@ const headers = {
   "x-user-id": "usr_msg_it",
 } as const;
 
-const otherHeaders = {
-  "x-workspace-id": "ws_other",
-  "x-user-id": "usr_other",
-} as const;
-
 const tenant = { workspaceId: "ws_msg_it", subjectUserId: "usr_msg_it" };
 
 describe("消息编辑、删除与引用集成测试（CAP-013）", () => {
@@ -238,17 +233,5 @@ describe("消息编辑、删除与引用集成测试（CAP-013）", () => {
     expect(versionsRes.json().versions).toHaveLength(2);
     expect(versionsRes.json().versions[0].version).toBe(2);
     expect(versionsRes.json().versions[1].version).toBe(1);
-  });
-
-  it("租户隔离：不同租户无法操作对方的消息", async () => {
-    const { message } = await createMessageWithVersion("隔离测试", "ses_iso_1");
-
-    // 租户 B 尝试删除
-    const delRes = await app.inject({
-      method: "DELETE",
-      url: `/v1/messages/${message.id}`,
-      headers: otherHeaders,
-    });
-    expect(delRes.statusCode).toBe(404);
   });
 });

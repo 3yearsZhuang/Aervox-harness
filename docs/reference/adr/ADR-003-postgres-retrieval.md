@@ -1,38 +1,38 @@
 # ADR-003 仓储抽象架构：SQLite 业务真源与 FTS5/Vector Port
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-31
+- 修改人：linge · 2026-09-10
 
-- 状态：Proposed
+- 状态：Superseded by CR-030
 - 日期：2026-08-24
-- 关联：`CAP-005/015/026/027`、`DATA-MEM-001`、`NFR-SCALE-001`、`ADR-008`
+- 关联：`CAP-005/015/026/027`、`DATA-MEM-001`、`NFR-SCALE-001`、`ADR-008`、`CR-030`
 
-> 更新日期：2026-08-31
+> 更新日期：2026-09-10
 
 ## Context
 
-系统需要强事务、租户隔离、来源外键、记忆树递归查询、全文检索和向量召回。为了兼顾本地极简部署、测试效率与未来多引擎扩展能力，数据持久层需要具备清晰的仓储抽象（Repository / Port 模式）。
+系统需要强事务、来源外键、记忆树递归查询、全文检索和向量召回。项目定位为 100% 纯本地、单用户桌面与本地运行时，不再保留云端多租户与 PostgreSQL 切换路径。
 
 ## Decision drivers
 
-- 业务数据、来源链和删除传播需要强事务与多租户隔离保障；
+- 业务数据、来源链和删除传播需要强事务；
 - 记忆树需要层级递归查询（`WITH RECURSIVE`），全文与向量检索必须作为可重建的派生索引；
-- 避免重型外部数据库基础设施（如外置 PG / Docker / Testcontainers）阻塞本地开发与 CI 流程；
-- 保持仓储接口解耦，使 SQLite 与未来云端分布式引擎共享统一领域契约。
+- 避免外部数据库依赖，保障纯本地零依赖运行；
+- 彻底移除多租户与云端 PG 抽象，简化数据模型与仓储层接口。
 
 ## Considered options
 
-1. **SQLite (WAL 模式) + Repository Port + FTS5/Vector Port**：单机零外部依赖、秒级测试、内置 FTS5 与 `WITH RECURSIVE`，派生向量通过 Port 解耦（选定）。
-2. **PostgreSQL 17+ 强绑定**：提供原生 RLS 和 pgvector，但本地部署和 CI 依赖外部 Docker 实例，增加单机/桌面端接入复杂度。
-3. **双真源同步**：同时在端侧和云端维护两套事实库，冲突处理与密钥管理成本过高。
+1. **SQLite (WAL 模式) 纯本地单机库**：单机零外部依赖、秒级测试、内置 FTS5 与 `WITH RECURSIVE`，派生向量通过 Port 解耦（选定 · CR-030）。
+2. **PostgreSQL 17+ 强绑定**：增加单机/桌面端复杂度，已废弃。
+3. **双真源同步**：维护成本过高，已废弃。
 
 ## Decision
 
-**阶段化决策**：当前开发阶段（MVP 前，本地开发 / 集成测试优先）以 **SQLite (LibSQL) + Drizzle ORM** 作为业务真源与 `@aervox/database` 实现；待完成全部设计目标（多端/云端同步、组织级权限与 RLS、合规边界、大规模检索）后再评估启用 PostgreSQL。切换依赖仓储 Port 与 Drizzle 多方言，不改变上层业务逻辑（见 [CR-003](../changes/CR-003-sqlite-primary-pg-compat.md)）。
+**终态决策（CR-030）**：以 **SQLite (LibSQL) + Drizzle ORM** 作为唯一、永久的本地业务真源；废弃 PostgreSQL 切换规划，同时从表结构、DDL 与仓储接口中彻底剥离多租户（`workspace_id` / `subject_user_id`）概念。
 
 具体实现要点：
 
-1. **多租户隔离**：通过 `TenantContext` 在仓储层强制注入 `(workspaceId, subjectUserId)` 过滤，结合底层 SQLite 复合外键与唯一索引作为安全兜底。
+1. **纯单用户本地数据**：去除租户隔离列与 `TenantContext` 约束，数据物理归属于本地 SQLite 文件（`<repo>/data/aervox.db` 与 Local Vault）。
 2. **递归查询**：利用 SQLite 3.8.3+ 原生 `WITH RECURSIVE` CTE 投影系统记忆树。
 3. **全文与向量检索**：内置 SQLite FTS5 虚表处理全文检索；向量检索通过 `VectorSearchPort` 解耦，派生索引可随意清空或离线重建。
 4. **灾备与恢复**：单机通过 Litestream 实现 SQLite WAL 秒级流式备份与 PITR；删除与撤权事实源由独立的 `RecoveryControlLedger` 保障。

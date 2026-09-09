@@ -18,6 +18,7 @@ import {
   type SqlitePlatformRepository,
   type SqliteOutboxRepository,
   type TenantContext,
+  LOCAL_TENANT_CONTEXT,
 } from "@aervox/database";
 import {
   collectDiaryMaterial,
@@ -64,10 +65,7 @@ export async function runDiaryGenerationCycle(ctx: DiaryGeneratorContext): Promi
 
   let generated = 0;
   for (const schedule of schedules) {
-    const tenant: TenantContext = {
-      workspaceId: schedule.workspaceId,
-      subjectUserId: schedule.subjectUserId,
-    };
+    const tenant: TenantContext = LOCAL_TENANT_CONTEXT;
     // 服务器本地日期（与按需路径同一日期语义，避免同日错位）
     const localDate = localDateToday(new Date());
 

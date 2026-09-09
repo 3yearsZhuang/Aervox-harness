@@ -25,11 +25,6 @@ const headers = {
   "x-user-id": "usr_mm_it",
 } as const;
 
-const otherHeaders = {
-  "x-workspace-id": "ws_other",
-  "x-user-id": "usr_other",
-} as const;
-
 describe("多模态答疑集成测试（CAP-012）", () => {
   let app: FastifyInstance;
   let db: AervoxDatabase;
@@ -366,47 +361,6 @@ describe("多模态答疑集成测试（CAP-012）", () => {
     expect(reDelete.statusCode).toBe(404);
   });
 
-  // ============ 租户隔离 ============
-
-  it("租户隔离：不同工作区/用户无法互相访问附件", async () => {
-    const create = await app.inject({
-      method: "POST",
-      url: "/v1/attachments",
-      headers,
-      payload: {
-        objectKey: "uploads/iso.png",
-        mediaType: "image/png",
-        size: 100000,
-        purpose: "question",
-      },
-    });
-    const attachmentId = create.json().id;
-
-    // 其他租户无法访问
-    const otherGet = await app.inject({
-      method: "GET",
-      url: `/v1/attachments/${attachmentId}`,
-      headers: otherHeaders,
-    });
-    expect(otherGet.statusCode).toBe(404);
-
-    // 其他租户无法解析
-    const otherParse = await app.inject({
-      method: "POST",
-      url: `/v1/attachments/${attachmentId}/parse`,
-      headers: otherHeaders,
-      payload: {},
-    });
-    expect(otherParse.statusCode).toBe(404);
-
-    // 其他租户无法删除
-    const otherDelete = await app.inject({
-      method: "DELETE",
-      url: `/v1/attachments/${attachmentId}`,
-      headers: otherHeaders,
-    });
-    expect(otherDelete.statusCode).toBe(404);
-  });
 
   // ============ 解析历史追溯 ============
 

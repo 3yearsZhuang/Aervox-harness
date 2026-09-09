@@ -213,7 +213,7 @@ export async function importPersonaBundle(input: {
   missingDependencies: string[];
 }> {
   const files = unzipSync(input.bytes);
-  const preview = previewPersonaBundle(input.bytes, input.tenant.workspaceId);
+  const preview = previewPersonaBundle(input.bytes, input.tenant.workspaceId ?? "default");
   const skillZipBytes = files["skills/skills.zip"];
   let installedSkills: SkillRegistrationModel[] = [];
 
@@ -261,8 +261,8 @@ export async function importPersonaBundle(input: {
   return {
     persona: {
       id: created.persona.id,
-      workspaceId: created.persona.workspaceId,
-      subjectUserId: created.persona.subjectUserId,
+      workspaceId: input.tenant.workspaceId ?? "default",
+      subjectUserId: input.tenant.subjectUserId ?? "default",
       name: created.persona.name,
       description: created.persona.description,
       source: created.persona.source as PersonaSource,

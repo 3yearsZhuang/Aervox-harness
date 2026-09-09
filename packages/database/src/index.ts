@@ -1,9 +1,21 @@
 /**
- * Aervox｜思隅 @aervox/database — 兼容组合包（W-19 过渡态）
- *
- * W-19 阶段 3 后，本包为纯兼容 re-export：表结构在 `@aervox/schema`，
- * 数据访问层在 `@aervox/repositories`。保留本包以维持消费方
- * `import {...} from "@aervox/database"` 的既有路径不变，最终在阶段 6 清理。
+ * Aervox｜思隅 @aervox/database — 纯本地数据访问层（Schema + 仓储 + 基础设施）
  */
-export * from "@aervox/schema";
-export * from "@aervox/repositories";
+export * from "./schema/index.js";
+export * from "./client.js";
+export * from "./proactive-vault-crypto.js";
+export * from "./proactive-vault-auth.js";
+export * from "./errors.js";
+export * from "./tenant.js";
+export * from "./search/index.js";
+export * from "./write-retry.js";
+export * from "./session-lock.js";
+export * from "./token-usage.js";
+export * from "./migration/index.js";
+export * from "./sync/index.js";
+export * from "./repositories/index.js";
+export {
+  addColumnIfMissing,
+  initDatabaseSchema,
+  initLedgerSchema,
+} from "./schema/init.js";

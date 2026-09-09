@@ -25,11 +25,6 @@ const headers = {
   "x-user-id": "usr_mat_it",
 } as const;
 
-const otherHeaders = {
-  "x-workspace-id": "ws_other",
-  "x-user-id": "usr_other",
-} as const;
-
 describe("学习资料集成测试（CAP-011）", () => {
   let app: FastifyInstance;
   let db: AervoxDatabase;
@@ -262,22 +257,6 @@ describe("学习资料集成测试（CAP-011）", () => {
     expect(edit2.statusCode).toBe(409);
   });
 
-  it("租户隔离", async () => {
-    const create = await app.inject({
-      method: "POST",
-      url: "/v1/study-materials",
-      headers,
-      payload: { type: "code", title: "隔离", content: "code" },
-    });
-    const materialId = create.json().id;
-
-    const otherRes = await app.inject({
-      method: "GET",
-      url: `/v1/study-materials/${materialId}`,
-      headers: otherHeaders,
-    });
-    expect(otherRes.statusCode).toBe(404);
-  });
 
   it("按目标筛选资料列表", async () => {
     const goalId = "goal_test_1";

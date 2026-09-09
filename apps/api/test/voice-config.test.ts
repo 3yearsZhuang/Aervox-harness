@@ -86,7 +86,7 @@ describe("语音配置路由 (Voice Config)", () => {
     expect(body.modelPath).toBe(root);
   });
 
-  it("PUT 合法配置：保存 → GET 回显 + 本地 provider 生效 + 租户隔离", async () => {
+  it("PUT 合法配置：保存 → GET 回显 + 本地 provider 生效", async () => {
     const put = await app.inject({
       method: "PUT",
       url: "/v1/voice/config",
@@ -104,14 +104,6 @@ describe("语音配置路由 (Voice Config)", () => {
     const get = await app.inject({ method: "GET", url: "/v1/voice/config", headers });
     expect(get.json().modelId).toBe("gpt-sovits-v2");
     expect(get.json().modelPath).toBe(root);
-
-    // 另一租户仍是默认（隔离）
-    const other = await app.inject({
-      method: "GET",
-      url: "/v1/voice/config",
-      headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" },
-    });
-    expect(other.json().modelId).toBe("default-local");
   });
 
   it("PUT 白名单外路径返回 400", async () => {
@@ -260,7 +252,7 @@ describe("语音配置路由 (Voice Config)", () => {
     expect(body.modelId).toBe("default-remote");
   });
 
-  it("PUT /v1/voice/remote/config 保存 → GET 回显 + provider 生效 + 租户隔离（CR-028）", async () => {
+  it("PUT /v1/voice/remote/config 保存 → GET 回显 + provider 生效（CR-028）", async () => {
     const put = await app.inject({
       method: "PUT",
       url: "/v1/voice/remote/config",
@@ -283,14 +275,6 @@ describe("语音配置路由 (Voice Config)", () => {
 
     const get = await app.inject({ method: "GET", url: "/v1/voice/remote/config", headers });
     expect(get.json().endpoint).toBe("http://127.0.0.1:9910");
-
-    // 另一租户仍是默认（隔离）
-    const other = await app.inject({
-      method: "GET",
-      url: "/v1/voice/remote/config",
-      headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" },
-    });
-    expect(other.json().endpoint).toBe("http://127.0.0.1:9880");
 
     // 保存后远程 provider 生效：/v1/voice/models 中 remote 模型 ID 已更新
     const models = await app.inject({ method: "GET", url: "/v1/voice/models", headers });

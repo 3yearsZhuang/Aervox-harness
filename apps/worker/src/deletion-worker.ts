@@ -14,6 +14,7 @@ import {
   type SqlitePrivacyRepository,
   type SqlitePlatformRepository,
   type TenantContext,
+  LOCAL_TENANT_CONTEXT,
 } from "@aervox/database";
 
 export interface DeletionWorkerContext {
@@ -25,7 +26,7 @@ export interface DeletionWorkerContext {
 
 const ACTIVE = ["pending", "in_progress"] as const;
 
-/** 单次删除传播轮询；返回已完成的删除请求数 */
+/** 单次删除扫描与传播周期 */
 export async function runDeletionCycle(ctx: DeletionWorkerContext): Promise<number> {
   const requests = await ctx.db
     .select()
@@ -35,10 +36,7 @@ export async function runDeletionCycle(ctx: DeletionWorkerContext): Promise<numb
 
   let completed = 0;
   for (const request of requests) {
-    const tenant: TenantContext = {
-      workspaceId: request.workspaceId,
-      subjectUserId: request.subjectUserId,
-    };
+    const tenant: TenantContext = LOCAL_TENANT_CONTEXT;
     try {
       // 标记请求为处理中（幂等）
       await ctx.privacyRepo.updateDeletionRequestStatus(tenant, request.id, "in_progress");

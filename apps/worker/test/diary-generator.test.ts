@@ -110,8 +110,7 @@ describe("Worker 日记定时生成", () => {
     // 把计划游标重置为到期，模拟「按需路径先写好日记、定时兜底随后触发」的重复窗口
     const [sched] = await db
       .select()
-      .from(diarySchedules)
-      .where(eq(diarySchedules.workspaceId, tenant.workspaceId));
+      .from(diarySchedules);
     expect(sched).toBeDefined();
     await db
       .update(diarySchedules)

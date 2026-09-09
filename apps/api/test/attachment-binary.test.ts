@@ -19,11 +19,6 @@ const headers = {
   "x-user-id": "usr_att_bin",
 } as const;
 
-const otherHeaders = {
-  "x-workspace-id": "ws_other",
-  "x-user-id": "usr_other",
-} as const;
-
 describe("多模态输入：原始二进制上传（CAP-012 扩展）", () => {
   let app: FastifyInstance;
   let db: AervoxDatabase;
@@ -109,7 +104,7 @@ describe("多模态输入：原始二进制上传（CAP-012 扩展）", () => {
     expect(empty.statusCode).toBe(400);
   });
 
-  it("附件内容可回读且租户隔离", async () => {
+  it("附件内容可回读", async () => {
     const payload = Buffer.from("fake-png-bytes-2");
     const create = await app.inject({
       method: "POST",
@@ -128,13 +123,6 @@ describe("多模态输入：原始二进制上传（CAP-012 扩展）", () => {
     expect(content.statusCode).toBe(200);
     expect(content.headers["content-type"]).toBe("image/png");
     expect(content.rawPayload.byteLength).toBe(payload.byteLength);
-
-    const other = await app.inject({
-      method: "GET",
-      url: `/v1/attachments/${attachmentId}/content`,
-      headers: otherHeaders,
-    });
-    expect(other.statusCode).toBe(404);
 
     const missing = await app.inject({
       method: "GET",

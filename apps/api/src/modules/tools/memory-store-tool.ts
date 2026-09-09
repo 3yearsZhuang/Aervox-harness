@@ -61,7 +61,7 @@ export class MemoryStoreTool {
     void record;
 
     // 3. 同步 FTS（即便无向量，检索窗口内仍可被召回）
-    await indexMemoryFts(client, tenant, { id: memoryId, content: input.content });
+    await indexMemoryFts(client, { id: memoryId, content: input.content });
 
     // 4. 尝试生成向量；provider 未注入时诚实降级
     let embeddingStatus: MemoryStoreToolOutput["embeddingStatus"] = "skipped";

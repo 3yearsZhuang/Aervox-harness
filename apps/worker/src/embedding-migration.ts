@@ -13,6 +13,7 @@ import {
   SqliteMemoryEmbeddingRepository,
   type AervoxDatabase,
   type TenantContext,
+  LOCAL_TENANT_CONTEXT,
 } from "@aervox/database";
 
 /** 向量生成能力（注入真实 embedding 服务；未注入时循环诚实跳过） */
@@ -40,25 +41,21 @@ const id = (prefix: string): string =>
   `${prefix}_${Date.now().toString(36)}_${(++seq).toString(36)}`;
 
 interface MissingMemoryRow {
-  workspace_id: string;
-  subject_user_id: string;
   memory_id: string;
   content: string;
 }
 
-/** 跨租户扫描缺向量记忆：memory_records LEFT JOIN memory_embeddings（按 memory_id 关联） */
+/** 扫描缺向量记忆：memory_records LEFT JOIN memory_embeddings（按 memory_id 关联） */
 async function findMemoriesMissingEmbeddings(
   client: Client,
   limit: number,
 ): Promise<MissingMemoryRow[]> {
   const res = await client.execute({
     sql: `
-      SELECT r.workspace_id, r.subject_user_id, r.id AS memory_id, r.content
+      SELECT r.id AS memory_id, r.content
       FROM memory_records r
       LEFT JOIN memory_embeddings e
         ON e.memory_id = r.id
-        AND e.workspace_id = r.workspace_id
-        AND e.subject_user_id = r.subject_user_id
       WHERE r.is_deleted = 0
         AND r.layer IN ('short_term', 'long_term')
         AND e.id IS NULL
@@ -68,8 +65,6 @@ async function findMemoriesMissingEmbeddings(
     args: [limit],
   });
   return res.rows.map((row) => ({
-    workspace_id: String(row.workspace_id),
-    subject_user_id: String(row.subject_user_id),
     memory_id: String(row.memory_id),
     content: String(row.content),
   }));
@@ -84,42 +79,23 @@ export async function runEmbeddingMigrationCycle(
   const missing = await findMemoriesMissingEmbeddings(ctx.client, ctx.limit ?? 50);
   if (missing.length === 0) return 0;
 
-  // 按租户分组批量写入（insertBatch 自带分批 + 重试 + 进度回调）
-  const byTenant = new Map<string, MissingMemoryRow[]>();
-  for (const row of missing) {
-    const key = `${row.workspace_id}:${row.subject_user_id}`;
-    const list = byTenant.get(key) ?? [];
-    list.push(row);
-    byTenant.set(key, list);
-  }
+  const tenant: TenantContext = LOCAL_TENANT_CONTEXT;
+  const items = await Promise.all(
+    missing.map(async (row) => ({
+      id: id("emb"),
+      memoryId: row.memory_id,
+      vector: await ctx.provider!.embed(row.content),
+      modelId: ctx.provider!.modelId,
+      sourceCreatedAt: new Date().toISOString(),
+    })),
+  );
 
-  let migrated = 0;
-  const total = missing.length;
-
-  for (const [key, rows] of byTenant) {
-    if (ctx.abortSignal?.aborted) break;
-    const sep = key.indexOf(":");
-    const workspaceId = key.slice(0, sep);
-    const subjectUserId = key.slice(sep + 1);
-    const tenant: TenantContext = { workspaceId, subjectUserId };
-
-    const items = await Promise.all(
-      rows.map(async (row) => ({
-        id: id("emb"),
-        memoryId: row.memory_id,
-        vector: await ctx.provider!.embed(row.content),
-        modelId: ctx.provider!.modelId,
-        sourceCreatedAt: new Date().toISOString(),
-      })),
-    );
-
-    await ctx.embeddingRepo.insertBatch(tenant, items, {
-      batchSize: 25,
-      maxRetries: 3,
-    });
-    migrated += items.length;
-    ctx.onProgress?.({ current: migrated, total });
-  }
-
-  return migrated;
+  await ctx.embeddingRepo.insertBatch(tenant, items, {
+    batchSize: 25,
+    maxRetries: 3,
+    progressCallback: (progress) => {
+      ctx.onProgress?.(progress);
+    },
+  });
+  return items.length;
 }

@@ -43,7 +43,7 @@ export function createSqliteMemoryRecall(deps: {
       const queryVector = deps.embeddingProvider
         ? await deps.embeddingProvider.embed(query).catch(() => [])
         : [];
-      const hits = await search.search(tenant, {
+      const hits = await search.search({
         queryText: query,
         queryVector,
         topK: 12,

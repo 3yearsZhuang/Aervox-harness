@@ -17,11 +17,6 @@ const headers = {
   "x-user-id": "usr_pref_it",
 } as const;
 
-const otherHeaders = {
-  "x-workspace-id": "ws_other",
-  "x-user-id": "usr_other",
-} as const;
-
 describe("偏好 API 集成测试（CAP-010）", () => {
   let app: FastifyInstance;
   let db: AervoxDatabase;
@@ -138,24 +133,6 @@ describe("偏好 API 集成测试（CAP-010）", () => {
     expect(body.skipped).toBe(false);
   });
 
-  it("租户隔离：不同租户互不干扰", async () => {
-    // 租户 A 填写问卷
-    await app.inject({
-      method: "POST",
-      url: "/v1/preferences",
-      headers,
-      payload: { tone: "friendly", proactiveness: "high", addressForm: "casual", reminderCadence: "frequent" },
-    });
-
-    // 租户 B 仍是默认值
-    const res = await app.inject({
-      method: "GET",
-      url: "/v1/preferences",
-      headers: otherHeaders,
-    });
-    expect(res.statusCode).toBe(200);
-    expect(res.json().version).toBe(0);
-  });
 
   it("拒绝无效枚举值", async () => {
     const res = await app.inject({

@@ -158,7 +158,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
     }
     const tenant = resolveTenant(request);
     try {
-      return service.previewBundle(fromBase64(parsed.data.bundleBase64), tenant.workspaceId);
+      return service.previewBundle(fromBase64(parsed.data.bundleBase64), tenant.workspaceId ?? "default");
     } catch (error) {
       return sendError(
         reply,

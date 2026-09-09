@@ -15,10 +15,10 @@
 |---|---|---|---|---|
 | `AVX-PRD-001` | [PRD](reference/PRD.md) | 2026-08-29 | 每次版本立项 / G0 | CAP 范围或优先级变更未建立 `CR-*` |
 | `AVX-SRS-001` | [SRS](reference/SRS.md) | 2026-08-31 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
-| `AVX-SAD-001` | [架构设计](reference/ARCHITECTURE.md) | 2026-08-31 | G2 评审 + 架构变更 | 新增 ADR/技术基线变化未同步 |
+| `AVX-SAD-001` | [架构设计](reference/ARCHITECTURE.md) | 2026-09-10 | G2 评审 + 架构变更 | 新增 ADR/技术基线变化未同步 |
 | `ADR-001~019` | [ADR 索引](reference/adr/README.md) | 2026-08-31 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
 | `AVX-SPC-001` | [流式协议](reference/STREAMING_PROTOCOL.md) | 2026-08-31 | OpenAPI/事件 schema 变更 | `packages/contracts` 版本高于文档描述 |
-| `AVX-DB-001` | [数据库设计与双引擎契约](reference/DATABASE.md) | 2026-08-31 | Schema/仓储接口/迁移计划变更 | 仓储接口签名或租户隔离模式/PG 切换计划与实现不一致 |
+| `AVX-DB-001` | [数据库设计与纯本地契约](reference/DATABASE.md) | 2026-09-10 | Schema/仓储接口/迁移计划变更 | 仓储接口签名或纯本地单用户模式/SQLite 永久真源与实现不一致 |
 | `AVX-DATA-001` | [数据与隐私](reference/DATA_PRIVACY.md) | 2026-08-29 | 每季度 + 数据流变更 | 新增数据实体/用途/保留未评审 |
 | `AVX-AIQ-001` | [AI 质量与安全](reference/AI_QUALITY_SAFETY.md) | 2026-08-29 | 模型/Prompt/算法变更 + AI 评估 | ModelRun/PromptVersion 更新未同步 |
 | `AVX-SEC-001` | [威胁模型](reference/THREAT_MODEL.md) | 2026-08-31 | 每季度 + 信任边界变更 | 新增数据流/信任边界未加入威胁模型 |
@@ -34,7 +34,7 @@
 | `AVX-HAR-001` | [Agent Harness Loop 设计与落地规范](reference/agent-harness-loop.md) | 2026-09-08 | G2 评审 + Agent Loop/Provider/工具/持久化边界变更 | Turn/Attempt/Step、Provider、Tool、Inbox、恢复或 Profile 语义与实现/ADR 不一致 |
 | `AVX-WEB-001` | [Web 工作台实现规划](explanation/web-implementation.md) | 2026-08-31 | Web 端实现或技术基线变更 | `apps/web` 结构与 ADR-015/规划不一致 |
 | `CR-002` | [Fairy Agent Electron 桌面端](reference/changes/CR-002-fairy-desktop-module.md) | 2026-08-31 | CAP-018 桌面端实现或安全边界变更 | Electron 端目录、契约边界、测试证据或回滚条件与实现不符 |
-| `CR-003` | [SQLite 业务真源与 PG 兼容](reference/changes/CR-003-sqlite-primary-pg-compat.md) | 2026-08-31 | 数据真源 / 仓储抽象变更 | 仓储接口或 PG 切换计划与实现不符 |
+| `CR-003` | [SQLite 业务真源与 PG 兼容](reference/changes/CR-003-sqlite-primary-pg-compat.md) | 2026-09-10 | 数据真源 / 仓储抽象变更 | 仓储接口或 PG 切换计划与实现不符 |
 | `CR-004` | [人格插件 SQLite 持久化](reference/changes/CR-004-persona-sqlite-persistence.md) | 2026-08-31 | 数据库 schema / Port / 模块指针变更 | 表、Port 或 CR 状态与实现不一致 |
 | `CR-005` | [共享工作台与 Web 无桌宠表现层](reference/changes/CR-005-shared-workbench-web-without-pet.md) | 2026-08-25 | 端形态与共享 UI 边界变更 | Electron/Web 目录、共享组件契约或回滚条件与实现不符 |
 | `CR-006` | [插件配置解析与可视化](reference/changes/CR-006-plugin-config-and-pages.md) | 2026-08-26 | 插件配置/Page 机制变更 | 代码与 Config/Page 规范或安全边界不一致 |
@@ -61,6 +61,7 @@
 | `CR-027` | [Turn 流活性治理：执行解耦、SSE 活流与思考增量透传](reference/changes/CR-027-turn-stream-liveness.md) | 2026-08-29 | 流式协议建流语义、思考事件类型、客户端超时/取消语义变更 | STREAMING_PROTOCOL、OpenAPI、Agent Loop/Provider、API Client/桌面桥或 Workbench 与实现不一致 |
 | `CR-028` | [在线语音模型配置](reference/changes/CR-028-voice-remote-model-config.md) | 2026-08-29 | `CAP-019/020` 在线语音模型配置、api_v2 协议或设置 UI 变更 | 表、契约、Voice 模块远程 provider 或设置「语音」子页签与实现不一致 |
 | `CR-029` | [模型 / 语音多预设与「你的思隅」设置页](reference/changes/CR-029-presets-and-siyu-settings.md) | 2026-08-28 | `CAP-020` 模型/语音多预设存储、预设 API、设置页导航或面板交互变更 | 表结构、OpenAPI、LLM/Voice service 或「你的思隅」设置页与实现不一致 |
+| `CR-030` | [确立 SQLite 为永久纯本地真源，废弃 PostgreSQL 支持并移除多租户结构](reference/changes/CR-030-pure-local-sqlite-database.md) | 2026-09-10 | 持久层架构变更、废除 PostgreSQL、移除多租户结构与完全本地化 | 数据库表结构、DDL、仓储接口或本地单机单用户边界不一致 |
 | `AVX-PLUG-001` | [插件 Config、Page 与 UI 扩展规范](reference/plugin-config-and-pages.md) | 2026-09-10 | CR-006 / 插件机制与 UI 扩展变更 | Manifest、Config Schema、Page Bridge、UI 插槽或组件替换契约与实现不一致 |
 | `AVX-DOC-GOV-001` | [文档治理与事实源规范](reference/document-governance.md) | 2026-08-28 | 文档分类、状态、事实源、复核触发或迁移策略变更 | 策略 JSON、校验器、索引、登记表或写作规范与治理基线不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 2026-08-28 | 写作规则、模板或季度评审 | 新文档未使用规范元数据/签名，或 Vale 规则与术语表不一致 |
@@ -76,7 +77,7 @@
 | `AVX-EXPL-007` | [运动与健康数据接入评估](explanation/health-data-integration-assessment.md) | 2026-08-29 | 移动端形态 / 数据隐私 / 苹果或小米接入政策变更 | 接入路径、敏感分级或阶段结论与 CR-024 / DATA_PRIVACY 不一致 |
 | `AVX-EXPL-008` | [主动智能模式设计方案](explanation/proactive-intelligence-mode.md) | 2026-08-29 | CR-023/CAP-033、完全访问、全量画像、OS 能力授权、特权观察 Host、本地处理、动作授权、CAP-022/026/027/030 变更 | 四维状态、完整画像 manifest、平台能力清单、OS grant、本地出网边界、七天提炼保留、动作授权、阻断项或实现门禁与基线不一致 |
 | `AVX-EXPL-009` | [`packages/database` 拆分规划](explanation/database-split-plan.md) | 2026-09-09 | `packages/database` schema/仓储接口、包结构或拆分方向变更 | 拆分方向、包边界、re-export 兼容层或分阶段落点与实现/ADR-014/追踪基线 §4.2 不一致 |
-| `AVX-DOC-001` | [文档索引](README.md) | 2026-09-09 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
+| `AVX-DOC-001` | [文档索引](README.md) | 2026-09-10 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
 | `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-09-04 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |
 
 ## 维护规则

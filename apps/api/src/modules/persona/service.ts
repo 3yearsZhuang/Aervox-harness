@@ -44,8 +44,8 @@ import {
 function personaToDomain(model: PersonaModel): Persona {
   return {
     id: model.id,
-    workspaceId: model.workspaceId,
-    subjectUserId: model.subjectUserId,
+    workspaceId: "default",
+    subjectUserId: "default",
     name: model.name,
     description: model.description,
     source: model.source as PersonaSource,
@@ -73,8 +73,8 @@ function revisionToDomain(model: PersonaRevisionModel): PersonaRevision {
 function selectionToDomain(model: ActivePersonaSelectionModel): ActivePersonaSelection {
   return {
     id: model.id,
-    workspaceId: model.workspaceId,
-    subjectUserId: model.subjectUserId,
+    workspaceId: "default",
+    subjectUserId: "default",
     personaId: model.personaId,
     revisionId: model.revisionId,
     selectedAt: model.selectedAt,
@@ -226,8 +226,6 @@ export class PersonaService {
   ): Promise<PersonaTurnContextModel> {
     return this.deps.personaRepo.saveTurnContext(tenant, {
       id: context.id ?? `ptc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-      workspaceId: tenant.workspaceId,
-      subjectUserId: tenant.subjectUserId,
       turnId: context.turnId,
       personaId: context.personaId,
       revisionId: context.revisionId,

@@ -104,7 +104,7 @@ export class PluginConfigService {
     await this.deps.auditRepo.createAuditRecord(tenant, {
       id: `aud_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
       actorType: "user",
-      actorId: tenant.actorId ?? tenant.subjectUserId,
+      actorId: tenant.actorId ?? tenant.subjectUserId ?? "local_user",
       action,
       subjectType: "plugin",
       subjectId: pluginId,

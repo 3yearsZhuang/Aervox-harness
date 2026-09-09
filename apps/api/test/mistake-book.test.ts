@@ -90,14 +90,7 @@ describe("错题本与重练", () => {
       .toHaveLength(2);
   });
 
-  it("隔离其他租户并拒绝无效重练范围", async () => {
-    const otherList = await app.inject({
-      method: "GET",
-      url: "/v1/mistakes?status=all",
-      headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" },
-    });
-    expect(otherList.json().items).toEqual([]);
-
+  it("拒绝无效重练范围", async () => {
     const invalid = await app.inject({
       method: "POST",
       url: "/v1/mistakes/repractice",
@@ -131,7 +124,7 @@ describe("错题本与重练", () => {
     expect((await app.inject({ method: "POST", url: "/v1/mistakes/repractice", headers, payload: { questionIds: [questionId] } })).statusCode).toBe(201);
   });
 
-it("保存错因说明并支持错因筛选，不改变作答历史或租户边界", async () => {
+  it("保存错因说明并支持错因筛选，不改变作答历史", async () => {
     const question = await app.inject({
       method: "POST",
       url: "/v1/questions",
@@ -158,7 +151,6 @@ it("保存错因说明并支持错因筛选，不改变作答历史或租户边�
     const filtered = await app.inject({ method: "GET", url: "/v1/mistakes?reasonCode=careless", headers });
     expect(filtered.json().items).toEqual([expect.objectContaining({ questionId, reasonCode: "careless" })]);
     expect((await app.inject({ method: "GET", url: `/v1/questions/${questionId}/attempts`, headers })).json().items).toHaveLength(1);
-    expect((await app.inject({ method: "GET", url: "/v1/mistakes?reasonCode=careless", headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" } })).json().items).toEqual([]);
 
     const cleared = await app.inject({
       method: "PATCH",

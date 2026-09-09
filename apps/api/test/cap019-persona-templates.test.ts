@@ -12,11 +12,6 @@ const headers = {
   "x-user-id": "usr_cap019",
 } as const;
 
-const otherHeaders = {
-  "x-workspace-id": "ws_cap019_other",
-  "x-user-id": "usr_cap019_other",
-} as const;
-
 async function createPersona(
   app: FastifyInstance,
   hdrs: Record<string, string>,
@@ -367,84 +362,7 @@ describe("CAP-019: 多人格模板 — 审核、切换、回滚、记忆隔离/�
     expect(res.statusCode).toBe(404);
   });
 
-  // ---- 租户隔离 ----
 
-  it("切换历史按租户隔离", async () => {
-    const p1 = await createPersona(app, headers, "TenantA");
-    const p2 = await createPersona(app, otherHeaders, "TenantB");
-
-    await app.inject({
-      method: "POST",
-      url: `/v1/personas/${p1.personaId}/activate`,
-      headers,
-      payload: {},
-    });
-
-    await app.inject({
-      method: "POST",
-      url: `/v1/personas/${p2.personaId}/activate`,
-      headers: otherHeaders,
-      payload: {},
-    });
-
-    const historyA = await app.inject({
-      method: "GET",
-      url: "/v1/personas/switch-history",
-      headers,
-    });
-    const historyB = await app.inject({
-      method: "GET",
-      url: "/v1/personas/switch-history",
-      headers: otherHeaders,
-    });
-
-    // 各租户只能看到自己的切换记录
-    expect(historyA.json().history.every((h: { personaId: string }) => h.personaId === p1.personaId)).toBe(true);
-    expect(historyB.json().history.every((h: { personaId: string }) => h.personaId === p2.personaId)).toBe(true);
-  });
-
-  it("审核状态按租户隔离", async () => {
-    const p1 = await createPersona(app, headers, "ReviewA");
-
-    // 租户 A 审核
-    await app.inject({
-      method: "POST",
-      url: `/v1/personas/${p1.personaId}/review`,
-      headers,
-      payload: { reviewStatus: "approved", reviewNotes: "approved by A" },
-    });
-
-    // 租户 B 无法看到 p1
-    const crossTenant = await app.inject({
-      method: "GET",
-      url: `/v1/personas/${p1.personaId}`,
-      headers: otherHeaders,
-    });
-    expect(crossTenant.statusCode).toBe(404);
-  });
-
-  it("记忆范围按租户隔离", async () => {
-    const p1 = await createPersona(app, headers, "MemScopeA");
-
-    await app.inject({
-      method: "PUT",
-      url: `/v1/personas/${p1.personaId}/memory-scope`,
-      headers,
-      payload: {
-        memoryPolicy: "shared",
-        sharedCategories: ["diary"],
-        confirmed: true,
-      },
-    });
-
-    // 租户 B 无法访问
-    const crossRes = await app.inject({
-      method: "GET",
-      url: `/v1/personas/${p1.personaId}/memory-scope`,
-      headers: otherHeaders,
-    });
-    expect(crossRes.statusCode).toBe(404);
-  });
 
   // ---- 共享安全边界验证 ----
 

@@ -55,8 +55,6 @@ export async function collectDiaryMaterial(
     .from(messageVersions)
     .where(
       and(
-        eq(messageVersions.workspaceId, tenant.workspaceId),
-        eq(messageVersions.subjectUserId, tenant.subjectUserId),
         inArray(messageVersions.role, ["user", "assistant"]),
         isNull(messageVersions.supersededAt),
         eq(messageVersions.isRedacted, 0),
@@ -78,8 +76,6 @@ export async function collectDiaryMaterial(
     .from(memoryRecords)
     .where(
       and(
-        eq(memoryRecords.workspaceId, tenant.workspaceId),
-        eq(memoryRecords.subjectUserId, tenant.subjectUserId),
         eq(memoryRecords.isDeleted, 0),
         gte(memoryRecords.createdAt, window.startIso),
         lte(memoryRecords.createdAt, window.endIso),
@@ -98,8 +94,6 @@ export async function collectDiaryMaterial(
     .from(learningGoals)
     .where(
       and(
-        eq(learningGoals.workspaceId, tenant.workspaceId),
-        eq(learningGoals.subjectUserId, tenant.subjectUserId),
         inArray(learningGoals.status, ["active", "paused", "completed"]),
       ),
     )
@@ -111,8 +105,6 @@ export async function collectDiaryMaterial(
     .from(questionAttempts)
     .where(
       and(
-        eq(questionAttempts.workspaceId, tenant.workspaceId),
-        eq(questionAttempts.subjectUserId, tenant.subjectUserId),
         gte(questionAttempts.createdAt, window.startIso),
         lte(questionAttempts.createdAt, window.endIso),
       ),

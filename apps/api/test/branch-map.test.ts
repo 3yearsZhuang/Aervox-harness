@@ -23,11 +23,6 @@ const headers = {
   "x-user-id": "usr_br_it",
 } as const;
 
-const otherHeaders = {
-  "x-workspace-id": "ws_other",
-  "x-user-id": "usr_other",
-} as const;
-
 const tenant = { workspaceId: "ws_br_it", subjectUserId: "usr_br_it" };
 
 describe("层级对话与会话地图集成测试（CAP-014）", () => {
@@ -320,44 +315,7 @@ describe("层级对话与会话地图集成测试（CAP-014）", () => {
     expect(getAfterClear.json().title).toBe("布局分支");
   });
 
-  // ============ 租户隔离 ============
 
-  it("租户隔离：不同工作区无法互相访问分支", async () => {
-    const parentId = await createSession("主对话");
-    const childId = await createSession("子对话");
-
-    const createRes = await app.inject({
-      method: "POST",
-      url: `/v1/sessions/${parentId}/branches`,
-      headers,
-      payload: { childSessionId: childId, title: "隔离测试" },
-    });
-    const branchId = createRes.json().id;
-
-    // 其他租户无法获取分支
-    const otherGet = await app.inject({
-      method: "GET",
-      url: `/v1/branches/${branchId}`,
-      headers: otherHeaders,
-    });
-    expect(otherGet.statusCode).toBe(404);
-
-    // 其他租户无法合并
-    const otherMerge = await app.inject({
-      method: "POST",
-      url: `/v1/branches/${branchId}/merge`,
-      headers: otherHeaders,
-    });
-    expect(otherMerge.statusCode).toBe(404);
-
-    // 其他租户无法删除
-    const otherDelete = await app.inject({
-      method: "DELETE",
-      url: `/v1/branches/${branchId}`,
-      headers: otherHeaders,
-    });
-    expect(otherDelete.statusCode).toBe(404);
-  });
 
   // ============ 完整生命周期 ============
 

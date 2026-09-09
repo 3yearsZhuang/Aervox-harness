@@ -1,11 +1,11 @@
 # CR-003 采用 SQLite 作为当前开发阶段业务真源（保留 PostgreSQL 兼容）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-31
+- 修改人：linge · 2026-09-10
 
-> 更新日期：2026-08-31
+> 更新日期：2026-09-10
 
-- 状态：Accepted
+- 状态：Superseded by CR-030
 - 提出人 / 日期：KashiwagiEri233 / 2026-08-24
 - 目标版本：当前开发阶段（MVP 前，本地开发 / 集成测试优先）
 - 变更原因与证据：本地开发与集成测试需要零外部依赖、毫秒级 In-Memory 数据库；`@aervox/database` 以 SQLite（LibSQL）+ Drizzle + Repository Port 落地会话/日记/记忆/Outbox 持久化与租户隔离，集成测试已验证。

@@ -4,7 +4,11 @@
  * 规则依据：ADR-004 Outbox + 幂等作业。
  * 跨租户消费 pending 事件，逐条审计后标记发布；失败进入 retry/dead_letter。
  */
-import type { SqliteOutboxRepository, SqlitePlatformRepository } from "@aervox/database";
+import {
+  type SqliteOutboxRepository,
+  type SqlitePlatformRepository,
+  LOCAL_TENANT_CONTEXT,
+} from "@aervox/database";
 
 export interface OutboxCycleContext {
   outboxRepo: SqliteOutboxRepository;
@@ -20,7 +24,7 @@ const id = (prefix: string): string =>
 export async function runOutboxCycle(ctx: OutboxCycleContext): Promise<number> {
   const events = await ctx.outboxRepo.fetchPendingEvents(50);
   for (const event of events) {
-    const tenant = { workspaceId: event.workspaceId, subjectUserId: event.subjectUserId };
+    const tenant = LOCAL_TENANT_CONTEXT;
     try {
       // 消费骨架：写入审计后标记发布（具体下游处理按 eventType 扩展）
       await ctx.platformRepo.createAuditRecord(tenant, {

@@ -1,20 +1,16 @@
-# Aervox｜思隅 数据库设计与双引擎契约（DBC）
+# Aervox｜思隅 数据库设计与纯本地契约（DBC）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：linge · 2026-09-09
+- 修改人：linge · 2026-09-10
 
 > 文档编号：AVX-DB-001  
 > 类型：Reference  
-> 版本：v0.10（CAP-020 MCP 预设服务器接入）
-> 更新日期：2026-08-31
-> 状态：Review Candidate  
-> 关联：`CR-003`、`CR-023`、`ADR-003`、`ADR-004`、`ADR-007`、`ADR-011`、`ADR-012`、`ADR-013`、`AVX-SPC-001`、`AVX-PRD-001`、`NFR-SCALE-001`、`NFR-SEC-001`
+> 版本：v1.0（CR-030 确立 SQLite 永久纯本地真源并移除多租户）
+> 更新日期：2026-09-10
+> 状态：Approved  
+> 关联：`CR-030`、`CR-003`、`CR-023`、`ADR-003`、`ADR-004`、`ADR-007`、`ADR-011`、`ADR-012`、`ADR-013`、`AVX-SPC-001`、`AVX-PRD-001`、`NFR-SCALE-001`、`NFR-SEC-001`
 
-本文是持久化层的可执行契约：**数据真源、租户隔离边界、双引擎字段语义同构、派生索引生命周期、迁移 Expand/Contract 三阶段和删除传播不变量**。实现必须从同一份 `packages/database` Drizzle schema 生成双方言 DDL、Repository Port 类型和契约测试，不能只依赖本文件中的示例。
-
-当前开发阶段（MVP 前，本地开发/集成测试优先）以 **SQLite (LibSQL) + WAL 模式** 为业务真源；待完成全部设计目标后评估启用 **PostgreSQL 17+** 为生产真源。切换仅需新增 PG 驱动适配器，不改变上层业务代码（见 [CR-003](changes/CR-003-sqlite-primary-pg-compat.md)）。
-
-> 范围说明：本文档的 ERD（§3/§4/§5）只承载**当前已实现或已建模的 SQLite/PG 表**，是可执行契约；PRD §8 的全生命周期数据模型覆盖清单（含阶段与实现状态）见 [§14](#14-prd-全量数据模型覆盖清单)，未落表的实体属于规划 backlog，不代表已进入实现。
+本文是持久化层的可执行契约：**数据真源、本地优先边界、字段语义、派生索引生命周期和删除传播不变量**。持久层以 **SQLite (LibSQL) + WAL 模式** 为唯一、永久的数据真源（见 [CR-030](changes/CR-030-pure-local-sqlite-database.md)），不再保留向 PostgreSQL 切换的规划，全库无多租户列（`workspace_id` / `subject_user_id`），完全服务于单机个人桌面与本地运行时。
 
 ## 文档变更记录
 
@@ -30,38 +26,38 @@
 | v0.8 | 2026-08-29 | CAP-033 主动智能模式数据面新增授权修订、来源 grant、激活租约、原始捕获、画像声明、动作和本地审计表；补七天提炼清理、local-only 边界和导出/撤权契约 |
 | v0.9 | 2026-08-29 | CR-024 新增十二项主动智能派生、Home Assistant 连接/实体和小米健康每日样本共 17 张本地表；补凭据加密、白名单、同步、导出与连接级删除 |
 | v0.10 | 2026-08-29 | CAP-020 MCP 预设接入：新增系统级 `mcp_servers` 连接配置表（transport/endpoint/本地 Token 不回显/同步状态）与 `IMcpServerRepository`；同步出的远程工具以 `mcp__<serverId>__<toolName>` 命名落 `tool_registrations`（PET-05 分级），预设首项为麦当劳中国官方 MCP（mcd-mcp，Streamable HTTP） |
+| v1.0 | 2026-09-10 | CR-030 架构精简：确立 SQLite 为永久纯本地真源，废弃 PostgreSQL 支持，全表移除 `(workspace_id, subject_user_id)` 租户列，仓储层移除 `TenantContext` 约束与应用层 RLS |
 
 ---
 
 ## 1. 适用范围与不变量
 
-1. **真源唯一**：业务事实源是各领域业务表（sessions/turns/message_versions/memory/diaries/outbox）。FTS 全文索引、向量索引、缓存和事件重放日志都是可重建的派生索引，不得承载不可再生的业务状态。
-2. **租户隔离双保险**：所有业务表携带 `(workspace_id, subject_user_id)` 复合租户列；SQLite 阶段由仓储层 `assertTenantContext` 强制注入并配合数据库复合唯一/外键兜底；PostgreSQL 阶段额外启用原生 RLS 策略作为数据库级强制隔离。绕过仓储接口的裸 SQL 调用在任何阶段均属违规。
+1. **真源唯一且纯本地**：业务事实源是各领域业务表（sessions/turns/message_versions/memory/diaries/outbox），物理存储于本地 SQLite 单文件。FTS 全文索引、向量索引、缓存和事件重放日志都是可重建的派生索引，不得承载不可再生的业务状态。
+2. **纯单用户模式（无多租户）**：全库无多租户列（`workspace_id` / `subject_user_id`），无需应用层 RLS 与租户断言注入。数据安全性完全依靠本地文件系统权限与物理隔离保障。
 3. **删除即零召回**：业务删除或撤权必须在同一事务中删除事实源和派生索引（FTS、向量、缓存）；下游 Outbox 事件必须显式带上 redacted/reason 而非依赖异步清理。删除后立即不得通过搜索、推荐、记忆召回再现原文。
-4. **外键级联不越过租户边界**：所有外键引用使用 `(tenant_cols + fk_col)` 语义对齐，防止跨租户的孤儿行误删。
+4. **外键级联与完整性**：业务外键引用对齐级联删除规则，级联关系在本地数据库内一致保障。
 5. **Port 接口是唯一消费边界**：应用代码只能依赖 `IConversationRepository`、`IMemoryRepository`、`IDiaryRepository`、`IOutboxRepository` 和 `IVectorSearchPort`。消费者不得引入方言特定类型、直接读/写 FTS 虚表或向量存储。
-6. **字段名零重命名、语义零漂移**：SQLite → PostgreSQL 的迁移仅做**类型自然升级**（TEXT→UUID/TIMESTAMPTZ/JSONB/BOOLEAN），不做字段重命名或业务语义改写；新列必须可空或带默认；破坏性变更必须走版本号和 `CR-*`。
-7. **SQLite 阶段不启用用户注册**：用户域（workspaces/users/credentials/workspace_members/user_profiles）5 张表仅在 PostgreSQL 阶段创建。SQLite 阶段 `subject_user_id` 视为本地标识字符串，不关联凭证或组织角色。
-8. **CAP-033 私密数据隔离**：主动智能模式的授权、来源、捕获、画像、动作、租约和审计表必须显式带 `processing_boundary=local_only`，不写入普通远程同步/分析旁路；原始捕获按七天且完成记忆提炼后才允许清理。
-9. **CAP-033 全动作授权溯源**：每个主动动作必须绑定用户确认的 `FullProfileActionGrant`、授权修订、目标 scope、设备租约和 deny 水位；数据库层不得把模型请求或普通 Turn 自动授权当作动作授权。
-10. **CAP-034/035 外部连接最小化**：连接凭据与私密设置使用本地 Vault cipher；HA 实体默认禁用并保存 service 白名单；健康只保存规范化每日指标。删除连接必须同时删除凭据和对应实体缓存/健康样本。
+6. **本地单机演进**：放弃向 PostgreSQL 升级或双引擎迁移策略，任何破坏性字段变更走版本号和 `CR-*`。
+7. **用户注册不启用**：单用户桌面形态，不维护云端用户注册表（users/workspaces/credentials）。
+8. **CAP-033 私密数据隔离**：主动智能模式的授权、来源、捕获、画像、动作、租约和审计表保留本地 Local Vault 分离存储或独立库，原始捕获按七天且完成记忆提炼后清理。
+9. **CAP-033 全动作授权溯源**：每个主动动作必须绑定用户确认的 `FullProfileActionGrant`、授权修订、目标 scope、设备租约和 deny 水位。
+10. **CAP-034/035 外部连接最小化**：连接凭据与私密设置使用本地 Vault cipher；HA 实体默认禁用并保存 service 白名单；健康只保存规范化每日指标。
 
 ---
 
-## 2. 数据库选型总览与阶段策略
+## 2. 数据库选型策略（SQLite 永久真源 · CR-030）
 
-| 维度 | SQLite（当前真源 · CR-003） | PostgreSQL（生产真源 · 后续启用） |
-|---|---|---|
-| 部署形态 | 本地单文件或内存；零外部依赖 | 独立数据库实例 / 托管服务 |
-| 方言驱动 | `@libsql/client` + `drizzle-orm/sqlite-core` | `pg` / `postgres.js` + `drizzle-orm/pg-core` |
-| 事务 | 单写多读、WAL 模式、保存点 | MVCC、SERIALIZABLE 可选、advisory lock |
-| 递归查询 | SQLite 3.8.3+ `WITH RECURSIVE` CTE | 原生 `WITH RECURSIVE`，CTE 语义等价 |
-| 全文检索 | FTS5 虚表 `messages_fts` / `memories_fts`（可重建） | 原生 `tsvector + GIN`，trigger 同步 `to_tsvector('zhparser', ...)` |
-| 向量检索 | `InMemoryVectorSearchAdapter`（内存 Port，零依赖，可重建） | `pgvector` 扩展 `VECTOR(n)` + HNSW / ivfflat 持久化索引 |
-| 租户隔离 | 应用层 `TenantContext` 强注入 + 唯一/外键兜底 | 应用层同等校验 + 数据库原生 `ROW LEVEL SECURITY` 双保险 |
-| 用户注册 | 范围外（CR-003 明确不实现） | users / credentials / workspace_members / user_profiles 5 张表上线 |
-| 并发控制 | SQLite 级联 write 串行化 + lease/fencing token；Worker 竞争 | `SELECT ... FOR UPDATE SKIP LOCKED` + advisory lock；原生并发 |
-| 典型部署位置 | API / Worker / 端侧共享 `<repo>/data/aervox.db`（见 §2.1） | 云端生产实例、多端共享真源 |
+| 维度 | SQLite（永久真源 · CR-030） |
+|---|---|
+| 部署形态 | 本地单文件或内存；零外部依赖 |
+| 方言驱动 | `@libsql/client` + `drizzle-orm/sqlite-core` |
+| 事务 | 单写多读、WAL 模式、保存点 |
+| 递归查询 | SQLite 3.8.3+ `WITH RECURSIVE` CTE |
+| 全文检索 | FTS5 虚表 `messages_fts` / `memories_fts`（可重建） |
+| 向量检索 | `InMemoryVectorSearchAdapter`（内存 Port，零依赖，可重建） |
+| 租户模型 | 纯单用户本地数据，无租户隔离列 |
+| 并发控制 | SQLite 级联 write 串行化 + lease/fencing token；Worker 竞争 |
+| 典型部署位置 | API / Worker / 端侧共享 `<repo>/data/aervox.db`（见 §2.1） |
 
 > 全量覆盖：上表只描述已落库/已建模表。PRD §8 全生命周期数据模型的逐实体覆盖清单（阶段 × 实现状态）见 [§14](#14-prd-全量数据模型覆盖清单)。
 
@@ -501,11 +497,10 @@ erDiagram
     memory_records }o--|| memories_fts : "同步/可重建虚表"
 ```
 
-### 3.1 租户列与时间列约定
+### 3.1 时间列与纯本地单用户约定
 
-[schema/common.ts](../../packages/schema/src/common.ts#L6-L17) 定义的 `tenantColumns` 与 `timestampColumns` 通过 Drizzle 展开在所有业务表上，避免遗漏：
+[schema/common.ts](../../packages/database/src/schema/common.ts#L6-L11) 定义了标准 `timestampColumns`，并通过 Drizzle 展开在所有业务表上（CR-030 已彻底移除 `tenantColumns` 多租户列）：
 
-- `tenantColumns = (workspace_id TEXT NOT NULL, subject_user_id TEXT NOT NULL)`：每个仓储方法首个参数必须是 `TenantContext`；`assertTenantContext` 在执行 SQL 前先校验非空且格式合法。
 - `timestampColumns = (created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`：全部 ISO8601 UTC 字符串，默认通过 `$defaultFn(() => new Date().toISOString())` 在 ORM 层写入；**不得使用数据库服务器 `CURRENT_TIMESTAMP`**，避免与应用时区漂移。
 - 时间类字段命名规则：生成时刻用 `created_at`、修改用 `updated_at`、发生/事件时刻用 `occurred_at`、计划窗口用 `cutoff_at`、失效用 `expires_at`、发布用 `published_at`。不可混用。
 
@@ -917,7 +912,7 @@ flowchart TB
 
 ## 7. Repository / Vector Search Port 接口签名契约
 
-严禁破坏性变更；新增参数必须带默认值，新增方法必须与旧方法共存至少一个阶段。签名定义见 [packages/repositories/src/repositories/types.ts](../../packages/repositories/src/repositories/types.ts#L1-L242)：
+严禁破坏性变更；新增参数必须带默认值，新增方法必须与旧方法共存至少一个阶段。签名定义见 [packages/database/src/repositories/types.ts](../../packages/database/src/repositories/types.ts)：
 
 | Port 接口 | 关键方法 | 不变量 |
 |---|---|---|
@@ -1019,15 +1014,15 @@ flowchart TB
 
 ## 13. 参考与落地代码
 
-- 真源 schema：[packages/schema/src/](../../packages/schema/src)
-- CAP-033 主动智能控制/捕获 schema：[proactive.ts](../../packages/schema/src/proactive.ts)；CAP-033～035 派生与连接 schema：[proactive-intelligence.ts](../../packages/schema/src/proactive-intelligence.ts)；初始化：[init.ts](../../packages/repositories/src/schema/init.ts)
-- 连接与共享库路径：[client.ts](../../packages/repositories/src/client.ts#L21-L23)（`createDatabase` 默认 `<repo>/data/aervox.db`，见 §2.1）
-- 公共列定义：[common.ts](../../packages/schema/src/common.ts#L6-L17)
-- DDL 初始化脚本：[init.ts](../../packages/repositories/src/schema/init.ts#L9-L219)
-- Repository Port 签名：[repositories/types.ts](../../packages/repositories/src/repositories/types.ts#L1-L242)
-- SQLite 对话仓储：[conversation-repository.ts](../../packages/repositories/src/repositories/sqlite/conversation-repository.ts#L59-L80)
-- FTS5 集成：[search/fts.ts](../../packages/repositories/src/search/fts.ts#L12-L104)
-- 向量检索 Port：[search/vector-port.ts](../../packages/repositories/src/search/vector-port.ts#L8-L109)
+- 真源 schema：[packages/database/src/schema/](../../packages/database/src/schema)
+- CAP-033 主动智能控制/捕获 schema：[proactive.ts](../../packages/database/src/schema/proactive.ts)；CAP-033～035 派生与连接 schema：[proactive-intelligence.ts](../../packages/database/src/schema/proactive-intelligence.ts)；初始化：[init.ts](../../packages/database/src/schema/init.ts)
+- 连接与共享库路径：[client.ts](../../packages/database/src/client.ts)（`createDatabase` 默认 `<repo>/data/aervox.db`，见 §2.1）
+- 公共列定义：[common.ts](../../packages/database/src/schema/common.ts#L6-L11)
+- DDL 初始化脚本：[init.ts](../../packages/database/src/schema/init.ts)
+- Repository Port 签名：[repositories/types.ts](../../packages/database/src/repositories/types.ts)
+- SQLite 对话仓储：[conversation-repository.ts](../../packages/database/src/repositories/sqlite/conversation-repository.ts)
+- FTS5 集成：[search/fts.ts](../../packages/database/src/search/fts.ts)
+- 向量检索 Port：[search/vector-port.ts](../../packages/database/src/search/vector-port.ts)
 - 变更请求：[CR-003 SQLite 真源 + PG 兼容](changes/CR-003-sqlite-primary-pg-compat.md)
 - 架构决策：[ADR-003 仓储抽象与 PostgreSQL 检索](adr/ADR-003-postgres-retrieval.md)
 - Outbox 契约：[ADR-004 Outbox + 幂等作业](adr/ADR-004-outbox-idempotent-jobs.md)
@@ -1179,7 +1174,7 @@ flowchart TB
 | HomeEntity | 已落表 | `proactive_home_entities`；`connectionId+entityId` 唯一，默认 `enabled=false`，保存 service 白名单与受限状态属性 |
 | HealthSample | 已落表 | `proactive_health_samples`；`tenant+connection+metric+localDate` 唯一，只保存步数、睡眠分钟、静息心率和最小元数据 |
 
-实现真源：[proactive-intelligence.ts](../../packages/schema/src/proactive-intelligence.ts)、[proactive-intelligence-repository.ts](../../packages/repositories/src/repositories/sqlite/proactive-intelligence-repository.ts) 与 [init.ts](../../packages/repositories/src/schema/init.ts)。连接删除先停止运行时，再删除 `proactive_external_connections` 及对应 HA 实体/健康样本；导出不包含连接凭据。
+实现真源：[proactive-intelligence.ts](../../packages/database/src/schema/proactive-intelligence.ts)、[proactive-intelligence-repository.ts](../../packages/database/src/repositories/sqlite/proactive-intelligence-repository.ts) 与 [init.ts](../../packages/database/src/schema/init.ts)。连接删除先停止运行时，再删除 `proactive_external_connections` 及对应 HA 实体/健康样本；导出不包含连接凭据。
 
 ### 14.10 未覆盖结论与下一步
 
@@ -1187,4 +1182,4 @@ flowchart TB
 - **MVP（R1）+ MVP+（R1.5）优先队列已完成**：学习/反馈/会话补齐/溯源/记忆/平台/安全/隐私/埋点/内容/日记域实体全部落表（含 ToolPolicy/AnalyticsEvent/EvalSet、DiarySchedule 等日记域补表、Attachment/EmbeddingIndex、Persona/Skills/MCP 6 张人格域表）。
 - **P1（R2）已完成**：`MemoryNode`/`MemoryEdgeEvidence`/`MemoryAlgorithm`（记忆树投影独立化，memory_edges/overrides 已迁移到节点级）、`ConversationBranch`、`KnowledgeRelation` 已全部落表。
 - **P2/P3 扩展已完成**：`ExternalSource`、`Plugin`/`PluginGrant`、`CommunityContent`、`Organization` 已全部落表（为生态/社区功能预留）。
-- 每张新表上线前必须在 [schema/](../../packages/schema/src) 建表、在 [repositories/types.ts](../../packages/repositories/src/repositories/types.ts) 补 Port 签名、在 §11 登记 TC，并同步更新本文档 ERD 与本文清单状态。
+- 每张新表上线前必须在 [schema/](../../packages/database/src/schema) 建表、在 [repositories/types.ts](../../packages/database/src/repositories/types.ts) 补 Port 签名、在 §11 登记 TC，并同步更新本文档 ERD 与本文清单状态。

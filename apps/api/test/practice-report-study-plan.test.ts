@@ -23,11 +23,6 @@ const headers = {
   "x-user-id": "usr_pr_it",
 } as const;
 
-const otherHeaders = {
-  "x-workspace-id": "ws_other",
-  "x-user-id": "usr_other",
-} as const;
-
 describe("自适应刷题报告（CAP-016）", () => {
   let app: FastifyInstance;
   let db: AervoxDatabase;
@@ -138,23 +133,5 @@ describe("自适应刷题报告（CAP-016）", () => {
       headers,
     });
     expect(listRes.json().items.length).toBe(2); // 原始 + reset
-  });
-
-  it("租户隔离：不同工作区无法互相访问报告", async () => {
-    const reportRes = await app.inject({
-      method: "POST",
-      url: "/v1/practice-reports",
-      headers,
-      payload: { sessionId: "sess_iso", totalQuestions: 5, correctCount: 3, incorrectCount: 2 },
-    });
-    const reportId = reportRes.json().id;
-
-    // 其他租户无法获取报告
-    const otherReport = await app.inject({
-      method: "GET",
-      url: `/v1/practice-reports/${reportId}`,
-      headers: otherHeaders,
-    });
-    expect(otherReport.statusCode).toBe(404);
   });
 });
