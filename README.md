@@ -1,7 +1,7 @@
 # Aervox｜思隅
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-04
+- 修改人：3yearszhuang · 2026-09-10
 
 更好上手的"主动智能" Agent：以桌宠为入口，视觉小说 + 工作台双形态交互，承载陪伴与学习双重任务。TypeScript 全栈 monorepo 交付：Fastify API + Worker + 桌面 / Web / 移动端共享同一契约，SQLite 为业务真源。产品定义、工程规范与契约事实源一律在 [docs/](docs/README.md)，本 README 只做索引与速查。
 
@@ -64,7 +64,8 @@ packages/
   diary/        日记生成共享包（素材窗口 / 模板 / Prompt 构建，@aervox/diary）
   observability/   可观测性接口与指标（阶段 2a）
   contracts/    Zod 契约事实源 → OpenAPI 3.1（流式协议 / 学习域 / 插件 Config/Page / Persona）
-  database/     SQLite 真源 + 仓储 / FTS5 / 向量检索 Port / 迁移服务
+  schema/       Drizzle 表结构与实体模式定义（@aervox/schema）
+  repositories/ 数据访问层与多租户仓储 / FTS5 / 向量检索 Port / 迁移服务（@aervox/repositories）
   api-client/   Web/Desktop 共享 API 客户端（Turn/SSE、设置、收件箱）
   ui/           Web/Desktop 共享 UI 组件与 composables
   practice-review/  复习排期 @aervox/practice-review（CAP-006，幂等 + 时区安全调度）

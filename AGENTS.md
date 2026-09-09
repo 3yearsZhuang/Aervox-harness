@@ -1,7 +1,7 @@
 # AGENTS.md — AI 协作指南（薄入口）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：3yearszhuang · 2026-09-10
 
 本文件是 AI 编码 Agent 的进入点：只索引、不复制，权威内容一律深链至 `docs/`，避免双源漂移。详细规则见 [从哪开始](docs/getting-started.md)（面向新成员或 Agent 的完整 onboarding）、[文档治理规范](docs/reference/document-governance.md)与[文档写作规范](docs/reference/standards/doc-standards.md)。
 
@@ -23,7 +23,7 @@ Aervox｜思隅：更好上手的"主动智能" Agent——以桌宠为入口，
 - 工具版本以 [mise.toml](mise.toml) 为唯一真源（node 24 / pnpm / vale）；不要用系统自带 Node 跑 `.ts` 脚本，统一 `mise x -- <cmd>`；
 - 中间件一律 async/await、不用回调式；路由文件在中间件重构期间不许改动；
 - 依赖安装：新增依赖统一 `pnpm add -w <pkg>`（开发依赖 `-Dw`）装到根 workspace，禁止子包单独加依赖造成版本分裂；
-- SQLite/libsql 事务与读一致：写操作走写者连接；事务提交后其它连接存在读快照滞后，测试断言须用写者连接自身；事务内不嵌套、不长时间持锁；libsql 0.4.x 事务 BEGIN 阶段不会自动重试（详见 [ADR-003](docs/reference/adr/ADR-003-postgres-retrieval.md) 与 `packages/database`）；
+- SQLite/libsql 事务与读一致：写操作走写者连接；事务提交后其它连接存在读快照滞后，测试断言须用写者连接自身；事务内不嵌套、不长时间持锁；libsql 0.4.x 事务 BEGIN 阶段不会自动重试（详见 [ADR-003](docs/reference/adr/ADR-003-postgres-retrieval.md) 与 `packages/repositories`）；
 - OpenAPI 契约：`zod-to-openapi` 固定 v9，用 `OpenApiGeneratorV31` 而非 `generateDocument`；`extendZodWithOpenApi` 必须在任何 schema 定义前调用，否则 `.openapi()` 不可用（生成逻辑在 `packages/contracts`）；
 - 修改文档前先读[文档治理规范](docs/reference/document-governance.md)与[文档写作规范](docs/reference/standards/doc-standards.md)：新文档使用 canonical YAML front matter，并在标题下第一位置维护 `- 提出人：<账号> · <日期>` / `- 修改人：<账号> · <日期>` 点阵签名；每次改动文档必须更新 `修改人` 账号与日期（提出人填首次建立者，修改人填最近变更者），禁止只改内容不动签名（见[文档写作规范 §2](docs/reference/standards/doc-standards.md#2-文档头元数据)）。仅结构性改动（新增文档、目录迁移、编号/类型/事实源变更）须同步 [DOC_REGISTRY.md](docs/DOC_REGISTRY.md) 与[文档索引](docs/README.md)，编辑性/内容更新只过 ci-docs 并更新核验日期（登记强度见[改动等级 §3.1](docs/reference/standards/doc-standards.md#31-改动等级与同步要求)）；
 - 术语唯一：以术语表「规范写法」为准；提交文档前跑 `mise tasks run ci-docs`（Markdown lint + Vale + `docs-validate`，仓库链接检查在 CI）；

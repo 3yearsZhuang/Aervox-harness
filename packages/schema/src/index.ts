@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/schema — 表结构汇总导出
  *
  * W-19 拆分产物：Drizzle 表定义层，仅依赖 drizzle-orm。
- * `init.ts`（DDL 初始化，依赖 search/fts）保留在 `@aervox/database` 侧，不在此导出。
+ * DDL 初始化（依赖 search/fts）位于 `@aervox/repositories` 侧，不在此导出。
  */
 export * from "./common.js";
 export * from "./conversations.js";
