@@ -574,6 +574,7 @@ function isTurnRequest(value: unknown): value is {
     content: string
     toolApprovalMode?: 'ask' | 'full_access'
     attachments?: Array<{attachmentId: string; name?: string; mediaType?: string}>
+    metadata?: Record<string, unknown>
 } {
     if (!value || typeof value !== 'object') return false
     const request = value as Record<string, unknown>
@@ -587,6 +588,8 @@ function isTurnRequest(value: unknown): value is {
             || request.toolApprovalMode === 'full_access')
         && (request.attachments === undefined
             || (Array.isArray(request.attachments) && request.attachments.length <= 20 && request.attachments.every(isTurnAttachment)))
+        && (request.metadata === undefined
+            || (request.metadata !== null && typeof request.metadata === 'object' && !Array.isArray(request.metadata)))
 }
 
 /** CR-027：在途 Turn 请求的中止控制器（requestId → controller），供渲染层空闲超时/主动放弃时中止上游 */
@@ -627,6 +630,7 @@ async function streamAervoxTurn(event: Electron.IpcMainEvent, payload: unknown) 
                 clientVersion: '@aervox/desktop/0.2.0',
                 toolApprovalMode,
                 references: [],
+                ...(payload.metadata ? { metadata: payload.metadata } : {}),
             }),
             signal: controller.signal,
         })

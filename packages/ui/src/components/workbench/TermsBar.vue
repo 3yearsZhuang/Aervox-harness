@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import StudyTermsBar from '../../plugins/study-mode/StudyTermsBar.vue';
+import FocusTermsBar from '../../plugins/focus-mode/FocusTermsBar.vue';
 </script>
 
 <template>
-  <StudyTermsBar />
+  <FocusTermsBar />
 </template>

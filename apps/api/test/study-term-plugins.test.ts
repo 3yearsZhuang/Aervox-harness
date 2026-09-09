@@ -36,11 +36,11 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
     await cleanup();
   });
 
-  it("专注模式综合插件 (study-mode)：整合启发式教学与概念下钻，Bundle 结构完整且可成功安装并注册 Config Schema", async () => {
+  it("专注模式综合插件 (focus-mode)：整合启发式教学与概念下钻，Bundle 结构完整且可成功安装并注册 Config Schema", async () => {
     const root = path.resolve(__dirname, "../../..");
-    const manifestPath = path.resolve(root, "plugins/study-mode/plugin.manifest.json");
-    const schemaPath = path.resolve(root, "plugins/study-mode/config.schema.json");
-    const skillPath = path.resolve(root, "plugins/study-mode/SKILL.md");
+    const manifestPath = path.resolve(root, "plugins/focus-mode/plugin.manifest.json");
+    const schemaPath = path.resolve(root, "plugins/focus-mode/config.schema.json");
+    const skillPath = path.resolve(root, "plugins/focus-mode/SKILL.md");
 
     const manifest = JSON.parse(await fs.readFile(manifestPath, "utf-8"));
     const schema = JSON.parse(await fs.readFile(schemaPath, "utf-8"));
@@ -48,20 +48,20 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
 
     // 1. 验证 Manifest 符合 Zod 契约
     const parsedManifest = pluginManifestSchema.parse(manifest);
-    expect(parsedManifest.metadata.id).toBe("study-mode");
+    expect(parsedManifest.metadata.id).toBe("focus-mode");
 
     // 2. 验证 Config Schema 符合 Zod 契约，整合启发式教学与概念下钻全部 6 项字段
     const parsedSchema = pluginConfigSchema.parse(schema);
     expect(parsedSchema.fields.length).toBe(6);
 
-    // 3. 验证启动内置插件已预装 study-mode
+    // 3. 验证启动内置插件已预装 focus-mode
     const listRes = await app.inject({
       method: "GET",
       url: "/v1/plugins",
     });
     expect(listRes.statusCode).toBe(200);
     const list = listRes.json<{ items: Array<{ id: string }> }>();
-    expect(list.items.some((p) => p.id === "study-mode")).toBe(true);
+    expect(list.items.some((p) => p.id === "focus-mode")).toBe(true);
 
     // 4. 注册/更新 Config Schema
     const schemaRes = await app.inject({
@@ -79,7 +79,7 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
     });
     expect(getCfg.statusCode).toBe(200);
     const snapshot = getCfg.json();
-    expect(snapshot.values.autoEnableStudyMode).toBe(true);
+    expect(snapshot.values.autoEnableFocusMode).toBe(true);
     expect(snapshot.values.maxExtractedTerms).toBe(8);
 
     const saveCfg = await app.inject({
@@ -89,7 +89,7 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
       payload: {
         revision: snapshot.revision,
         values: {
-          autoEnableStudyMode: false,
+          autoEnableFocusMode: false,
           strictAntiSpoiler: true,
           scaffoldingSteps: 4,
           maxExtractedTerms: 6,
@@ -228,5 +228,28 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
     expect(calls.length).toBe(2);
     expect(terms.length).toBe(3);
     expect(terms.map((t) => t.text)).toEqual(["Dijkstra", "A*搜索", "Bellman-Ford"]);
+  });
+
+  it("结构化元数据 Turn（metadata.mode = study）：无需消息前缀即可被 studyModeTurnPlugin 识别并注入提示词", async () => {
+    const { studyModeTurnPlugin, isStudyModeMessage } = await import("../src/modules/plugins/turn-plugins/study-mode.js");
+
+    expect(isStudyModeMessage("纯净的用户提问", { mode: "study" })).toBe(true);
+    expect(isStudyModeMessage("纯净的用户提问", {})).toBe(false);
+
+    const dummyCtx = {
+      turnId: "t_test",
+      sessionId: "s_test",
+      attemptId: "atp_test",
+      userMessage: "请问什么是快速排序？",
+      tenant: { workspaceId: "ws_plugin_test", subjectUserId: "usr_plugin_test" },
+      repo: null as any,
+      metadata: { mode: "study" },
+    };
+
+    const result = await studyModeTurnPlugin.beforeTurn?.(dummyCtx, { scaffoldingSteps: 4 });
+    expect(result?.extraSections).toBeDefined();
+    expect(result?.extraSections?.[0]).toContain("专注模式核心教学原则");
+    expect(result?.extraSections?.[0]).toContain("4 个连贯的小步骤");
+    expect(result?.state?.isStudyMode).toBe(true);
   });
 });

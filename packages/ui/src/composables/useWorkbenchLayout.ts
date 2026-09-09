@@ -52,7 +52,8 @@ export function useWorkbenchLayout(props: {
 
   const isDark = ref(false);
   const compactMode = ref(false);
-  const studyModeEnabled = ref(false);
+  const focusModeEnabled = ref(false);
+  const studyModeEnabled = focusModeEnabled;
   const enterToSend = ref(true);
   const dailyReminder = ref(true);
 
@@ -163,10 +164,10 @@ export function useWorkbenchLayout(props: {
     settingsCategory.value = category;
   }
 
-  function setStudyModeEnabled(enabled: boolean) {
-    if (studyModeEnabled.value === enabled) return;
-    studyModeEnabled.value = enabled;
-    options.recordActivity('aervox.operation', 'conversation.study_mode_changed', undefined, { enabled });
+  function setFocusModeEnabled(enabled: boolean) {
+    if (focusModeEnabled.value === enabled) return;
+    focusModeEnabled.value = enabled;
+    options.recordActivity('aervox.operation', 'conversation.focus_mode_changed', undefined, { enabled });
     if (enabled) {
       petReactKind('glad', { expression: MizukiExpression.face_smile_01, lookAtEl: '.floating-study-switch-wrap' });
     } else {
@@ -176,9 +177,13 @@ export function useWorkbenchLayout(props: {
     saveSettings();
   }
 
-  function toggleStudyMode() {
-    setStudyModeEnabled(!studyModeEnabled.value);
+  const setStudyModeEnabled = setFocusModeEnabled;
+
+  function toggleFocusMode() {
+    setFocusModeEnabled(!focusModeEnabled.value);
   }
+
+  const toggleStudyMode = toggleFocusMode;
 
   function saveSettings(timerMinutesVal?: number) {
     const resolvedTimerMinutes = timerMinutesVal ?? options.getTimerMinutes?.() ?? 25;
@@ -187,6 +192,7 @@ export function useWorkbenchLayout(props: {
       assistantName: assistantDisplayName.value.trim() || props.assistantName,
       enterToSend: enterToSend.value,
       compactMode: compactMode.value,
+      focusModeEnabled: focusModeEnabled.value,
       studyModeEnabled: studyModeEnabled.value,
       timerMinutes: resolvedTimerMinutes,
       desktopCompanionEnabled: desktopCompanionEnabled.value,
@@ -216,6 +222,7 @@ export function useWorkbenchLayout(props: {
     showCompanionEnabled,
     isDark,
     compactMode,
+    focusModeEnabled,
     studyModeEnabled,
     enterToSend,
     dailyReminder,
@@ -242,7 +249,9 @@ export function useWorkbenchLayout(props: {
     openSettings,
     openSettingsCategory,
     switchSettingsCategory,
+    toggleFocusMode,
     toggleStudyMode,
+    setFocusModeEnabled,
     setStudyModeEnabled,
     saveSettings,
     applyTheme,

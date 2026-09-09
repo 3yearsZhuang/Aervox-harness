@@ -86,6 +86,7 @@ const timer = useWorkbenchTimer({
 
 // 4. Conversation Composable
 const conversation = useWorkbenchConversation({
+  focusModeEnabled: layout.focusModeEnabled,
   studyModeEnabled: layout.studyModeEnabled,
   recordActivity: proactive.recordProactiveActivity,
   onRefreshProactiveStatus: proactive.refreshProactiveStatus,
@@ -152,13 +153,11 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
   const displayText = text || '（发送了附件）';
   const outgoingText = text || '请查看我上传的附件。';
 
-  let outgoing = outgoingText;
-  if (options?.quizMode) {
-    const quizPrefix = '[模式：刷题模式] ';
-    outgoing = outgoing.startsWith(quizPrefix) ? outgoing : quizPrefix + outgoing;
-  } else {
-    outgoing = registry.transformMessage(outgoing, { quizMode: false });
-  }
+  const activeMode = options?.quizMode ? 'quiz' : (layout.focusModeEnabled.value ? 'focus' : undefined);
+  const outgoing = registry.transformMessage(outgoingText, {
+    quizMode: Boolean(options?.quizMode),
+    useMetadata: Boolean(activeMode),
+  });
 
 
   const assistantLine = conversation.createStoryLine('assistant', '', 'streaming');
@@ -186,6 +185,7 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
   petReactKind('think', { lookAtEl: '.message-panel' });
   await conversation.scrollStoryToBottom();
   proactive.recordProactiveActivity('aervox.activity', 'conversation.turn_submitted', text, {
+    focusModeEnabled: layout.focusModeEnabled.value,
     studyModeEnabled: layout.studyModeEnabled.value,
     toolApprovalMode: conversation.toolApprovalMode.value,
     characterCount: text.length,
@@ -196,6 +196,10 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
   let thinkingVisible = false;
 
   try {
+    const turnMetadata = options?.quizMode
+      ? { mode: 'focus', intent: 'quiz' }
+      : (layout.focusModeEnabled.value ? { mode: 'focus' } : undefined);
+
     await streamAervoxTurn(
       outgoing,
       {
@@ -243,7 +247,11 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
           void conversation.scrollStoryToBottom();
         },
       },
-      { toolApprovalMode: conversation.toolApprovalMode.value, attachments: attachmentRefs },
+      {
+        toolApprovalMode: conversation.toolApprovalMode.value,
+        attachments: attachmentRefs.length > 0 ? attachmentRefs : undefined,
+        metadata: turnMetadata,
+      },
     );
   } catch (error) {
     console.error('对话流式失败', error);
@@ -303,6 +311,7 @@ onMounted(() => {
       assistantName: string;
       enterToSend: boolean;
       compactMode: boolean;
+      focusModeEnabled: boolean;
       studyModeEnabled: boolean;
       timerMinutes: number;
       desktopCompanionEnabled: boolean;
@@ -311,7 +320,11 @@ onMounted(() => {
     if (savedSettings.assistantName) layout.assistantDisplayName.value = savedSettings.assistantName;
     if (typeof savedSettings.enterToSend === 'boolean') layout.enterToSend.value = savedSettings.enterToSend;
     if (typeof savedSettings.compactMode === 'boolean') layout.compactMode.value = savedSettings.compactMode;
-    if (typeof savedSettings.studyModeEnabled === 'boolean') layout.studyModeEnabled.value = savedSettings.studyModeEnabled;
+    if (typeof savedSettings.focusModeEnabled === 'boolean') {
+      layout.focusModeEnabled.value = savedSettings.focusModeEnabled;
+    } else if (typeof savedSettings.studyModeEnabled === 'boolean') {
+      layout.focusModeEnabled.value = savedSettings.studyModeEnabled;
+    }
     if (typeof savedSettings.timerMinutes === 'number' && savedSettings.timerMinutes >= 1 && savedSettings.timerMinutes <= 60) {
       timer.timerMinutes.value = savedSettings.timerMinutes;
     }
@@ -337,10 +350,10 @@ onMounted(() => {
     // Ignore malformed card preferences
   }
 
-  if (layout.studyModeEnabled.value) cards.applyStudyCardLayout();
+  if (layout.focusModeEnabled.value) cards.applyStudyCardLayout();
 
   void (async () => {
-    if (layout.studyModeEnabled.value) return;
+    if (layout.focusModeEnabled.value) return;
     const marker = `aervox-diary-first-open-${todayLocalDate()}`;
     if (localStorage.getItem(marker)) return;
     try {

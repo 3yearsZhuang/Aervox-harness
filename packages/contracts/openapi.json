@@ -142,6 +142,10 @@
                 "sourceVersion"
               ]
             }
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {}
           }
         },
         "required": [
@@ -6862,6 +6866,10 @@
                         "sourceVersion"
                       ]
                     }
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
                   }
                 },
                 "required": [

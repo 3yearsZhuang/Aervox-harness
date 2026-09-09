@@ -157,3 +157,5 @@ export async function registerPluginsModule(ctx: ModuleContext): Promise<void> {
   const builtinRoot = defaultBuiltinPluginsSourceRoot();
   await syncBuiltinPlugins(builtinRoot, service, configService);
 }
+
+export * from "./turn-plugins/index.js";

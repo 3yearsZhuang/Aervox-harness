@@ -1,6 +1,7 @@
 import { ref } from 'vue';
 import type { UIRegistry } from '../registry/ui-registry';
 import type { WorkbenchContext } from '../composables/workbench-context';
+import { focusModePluginDefinition } from './focus-mode';
 import { studyModePluginDefinition } from './study-mode';
 
 export interface BuiltinUIPlugin {
@@ -20,7 +21,7 @@ export interface WorkbenchPluginRuntime {
 }
 
 export const defaultBuiltinPlugins: BuiltinUIPlugin[] = [
-  studyModePluginDefinition,
+  focusModePluginDefinition,
 ];
 
 /**
@@ -60,10 +61,14 @@ export function createWorkbenchPluginRuntime(
     const context = getContext();
 
     for (const def of customPlugins) {
-      const match = plugins.find((p) => p.id === def.id);
+      const match = plugins.find(
+        (p) => p.id === def.id || (def.id === 'focus-mode' && p.id === 'study-mode') || (def.id === 'study-mode' && p.id === 'focus-mode'),
+      );
       const isEnabled = match ? match.enabled !== 0 : true;
 
       availablePlugins.value[def.id] = isEnabled;
+      if (def.id === 'focus-mode') availablePlugins.value['study-mode'] = isEnabled;
+      if (def.id === 'study-mode') availablePlugins.value['focus-mode'] = isEnabled;
 
       if (!isEnabled) {
         // 插件停用：注销其注册的所有插槽及拦截器
@@ -98,7 +103,10 @@ export function createWorkbenchPluginRuntime(
         // 通用拉取配置并分发给插件自身处理（宿主零硬编码感知具体字段）
         if (def.onConfig) {
           try {
-            const snapshot = await getConfig(def.id);
+            let snapshot = await getConfig(def.id);
+            if (!snapshot?.values && def.id === 'focus-mode') {
+              snapshot = await getConfig('study-mode');
+            }
             if (snapshot?.values) {
               await def.onConfig(snapshot.values, context);
             }
@@ -111,6 +119,12 @@ export function createWorkbenchPluginRuntime(
   }
 
   function isPluginAvailable(pluginId: string): boolean {
+    if (pluginId === 'study-mode' && availablePlugins.value['focus-mode'] !== undefined) {
+      return availablePlugins.value['focus-mode'];
+    }
+    if (pluginId === 'focus-mode' && availablePlugins.value['study-mode'] !== undefined) {
+      return availablePlugins.value['study-mode'];
+    }
     return availablePlugins.value[pluginId] ?? true;
   }
 
