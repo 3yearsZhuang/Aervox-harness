@@ -5,7 +5,7 @@
 
 > 文档编号：AVX-EXPL-009
 > 类型：Explanation
-> 版本：v0.6
+> 版本：v0.7
 > 更新日期：2026-09-10
 > 状态：Review Candidate
 > 关联：[文档索引](../README.md)、[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md)、[ADR-014 演进式模块化单体](../reference/adr/ADR-014-modular-monolith-structure.md)
@@ -93,10 +93,13 @@ REFACTOR-PLAN 给出的自然切分是 `@aervox/schema` + `@aervox/repositories`
 - 全仓源码与测试（共 130+ 文件，含 `apps/api` 119 文件、`apps/worker` 15 文件、`packages/host-agent` 9 文件、`packages/diary` 2 文件）对 `@aervox/database` 的所有 import 语句收窄并重定向至 `@aervox/schema`（表定义/字段清单）与 `@aervox/repositories`（仓储接口/SQLite 实现/基础设施客户端）。
 - 验证：`check:boundary` 14/14 规则通过；全仓 19 个工作区包 `turbo run build` 与 `turbo run typecheck` 0 报错；`@aervox/diary`（5/5）、`@aervox/host-agent`（67 passed / 1 skipped）、`@aervox/worker`（10/10）、`@aervox/api`（48 文件 / 322 测试）、`@aervox/repositories`（37 文件 / 192 测试）全量通过；除 `packages/database` 兼容包自身外，全仓源码与测试 `git grep 'from "@aervox/database"'` 彻底归零，为阶段 6 彻底删除兼容包达成退出条件。
 
-### 阶段 6：清理兼容包（过渡态收尾）
+### 阶段 6：清理兼容包（过渡态收尾） ✅ 已完成（2026-09-10）
 
-- 当 `@aervox/database` 对消费方零引用后，删除该兼容组合包及其 re-export 层，仓库只保留 `@aervox/schema` + `@aervox/repositories`。
-- 此阶段是兼容包的**退出条件**：兼容包仅用于拆分期间的平滑过渡，最终态不含 `@aervox/database`。此阶段启动前须 `grep` 全仓确认无 `@aervox/database` 残留 import，并更新 `pnpm-workspace.yaml` / 相关 `package.json`。
+- 彻底删除 `packages/database/` 目录及其全部过渡态 re-export 代码（`src/index.ts`、`package.json`、`tsconfig.json`）。
+- 更新 `pnpm-workspace.yaml` 注释，并通过 `pnpm install --lockfile-only` 从 `pnpm-lock.yaml` 剪除 `packages/database`，工作区包数收敛至 18 个。
+- 升级 `scripts/import-boundary.mjs` 健身函数规则（`agent-loop-no-db`、`ui-client-no-db`、`capability-layer-no-db-no-host` 禁止 `^@aervox\/(database|schema|repositories)($|\/)`），并在 `scripts/import-boundary.test.mjs` 中更新跨包相对引用自测为真实存在的 `../../repositories/src/index.js`。
+- 同步更新 `README.md` 与 `AGENTS.md` 中的仓库结构与底座包引用。
+- 验证：`check:boundary` 14/14 全绿；18 个工作区包 `turbo run build` 与 `turbo run typecheck` 0 报错；全套核心测试全绿；全仓除历史文档提及外 `@aervox/database` 源码/配置 0 残留。持久层正式落地 `@aervox/schema` + `@aervox/repositories` 双包最终态架构，W-19 重构圆满闭环结项！
 
 ## 5. 依赖方向调研结论（阶段 1 输入）
 
@@ -140,17 +143,20 @@ L4 数据访问       repositories/sqlite/* ──▶ schema/index + client(type
 
 **附**：`@aervox/contracts` 死依赖在阶段 1 移除（或按 §4.2 另行登记）。
 
-## 6. 决策待办
+## 6. 决策与落地结论
 
-| # | 事项 | 结论 |
+| # | 事项 | 结论与执行状态 |
 |---|---|---|
-| 1 | 拆分方向 | ✅ 已定：A（两包） |
-| 2 | `@aervox/database` 是否保留为兼容组合包 | ✅ 已定：保留为过渡态兼容包，阶段 6 清理退出 |
-| 3 | 巨型文件拆分是否纳入本次 | ✅ 已定：纳入本次（阶段 4 去巨型文件） |
-| 4 | 是否与 ADR-014 `modules/` 迁移联动 | ✅ 已定：与 ADR-014 `modules/` 迁移联动推进 |
+| 1 | 拆分方向 | ✅ 已落地：方案 A（`@aervox/schema` + `@aervox/repositories` 双包） |
+| 2 | `@aervox/database` 是否保留为兼容组合包 | ✅ 已执行完毕：过渡态保留经阶段 5 切消费面后，阶段 6 彻底清理退出 |
+| 3 | 巨型文件拆分是否纳入本次 | ✅ 已落地：阶段 4 完成 `types.ts` 与 `init.ts` 按域拆分 |
+| 4 | 是否与 ADR-014 `modules/` 迁移联动 | ✅ 已执行：阶段 5 消费方切面与 ADR-014 消费路径平滑对齐 |
 
-## 7. 下一步建议
+## 7. 执行总结
 
-1. 阶段 0：立项登记（§4.2 新增 W-19 行）+ 基线冻结（`mise tasks run ci-code` 全绿）。
-2. 阶段 1：建包壳 + 落地依赖方向图结论（含移除 `@aervox/contracts` 死依赖、`init.ts` 归 repositories 侧）。
-3. 阶段 2 起：按 5.3 边界平移 schema（`init.ts` 除外）→ 平移 repositories → 去巨型文件 → 切消费面 → 清理兼容包，与 ADR-014 `modules/` 迁移联动推进（阶段 5 与之并收口）。
+本规划定义的所有阶段（阶段 0 ~ 阶段 6）已全部按既定节奏闭环实施：
+
+1. 阶段 0 ~ 阶段 3：立项基线、包壳构建与表定义/仓储能力平移；
+2. 阶段 4：持久层两大巨型文件（5,959 行）按领域彻底拆解，消除心智负担；
+3. 阶段 5：全仓 4 个消费包依赖与 import 彻底切断，兼容包达成 0 消费退出条件；
+4. 阶段 6：彻底移除 `packages/database`，收口底座依赖边界规则与门禁，W-19 重构圆满结项。

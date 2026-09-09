@@ -86,9 +86,9 @@ test("export ... from 与纯模板字符串 import() 均覆盖", () => {
   assert.deepEqual(v("packages/agent-loop/src/index.ts", templateLit), ["agent-loop-no-db"]);
 });
 
-test("相对路径跨包引用可解析并判定（agent-loop → ../database 落库违规）", () => {
-  // packages/agent-loop/src/x.ts → ../../database/src/index.ts 解析为 packages/database → @aervox/database
-  const src = `import { AervoxDatabase } from "../../database/src/index.js";`;
+test("相对路径跨包引用可解析并判定（agent-loop → ../repositories 落库违规）", () => {
+  // packages/agent-loop/src/x.ts → ../../repositories/src/index.ts 解析为 packages/repositories → @aervox/repositories
+  const src = `import { AervoxDatabase } from "../../repositories/src/index.js";`;
   assert.deepEqual(v("packages/agent-loop/src/executor.ts", src), ["agent-loop-no-db"]);
 });
 

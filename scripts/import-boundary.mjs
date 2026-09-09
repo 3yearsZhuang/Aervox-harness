@@ -10,7 +10,7 @@
  *
  * 底座分层（自底向上）：
  *   L0  packages/contracts    —— 纯契约，最底层
- *   L1  packages/database     —— 数据真源 + Outbox/Audit（允许依赖 contracts）
+ *   L1  packages/schema / packages/repositories —— 数据真源 + Outbox/Audit（允许依赖 contracts）
  *   L1  packages/agent-loop   —— Agent 执行底座（Port/执行器，禁触数据库）
  *   L2  packages/api-client / packages/ui —— 传输与表现底座（禁触数据库）
  *   L3  apps/*                —— 宿主 Shell（单向消费上述底座）
@@ -47,7 +47,7 @@ export const RULES = [
     docRef: "AVX-HAR-001 §16.2",
     fromDir: /^packages\/agent-loop\//,
     forbid: [
-      { pattern: /^@aervox\/database($|\/)/, label: "database（schema/仓储）" },
+      { pattern: /^@aervox\/(database|schema|repositories)($|\/)/, label: "数据库/模式/仓储" },
       { pattern: /^@libsql\//, label: "@libsql/client" },
       { pattern: /^drizzle-orm($|\/)/, label: "drizzle-orm" },
     ],
@@ -65,7 +65,7 @@ export const RULES = [
     docRef: "ADR-016 · AVX-CAP-001",
     fromDir: /^packages\/(ui|api-client)\//,
     forbid: [
-      { pattern: /^@aervox\/database($|\/)/, label: "database（schema/仓储）" },
+      { pattern: /^@aervox\/(database|schema|repositories)($|\/)/, label: "数据库/模式/仓储" },
       { pattern: /^@libsql\//, label: "@libsql/client" },
       { pattern: /^drizzle-orm($|\/)/, label: "drizzle-orm" },
     ],
@@ -75,7 +75,7 @@ export const RULES = [
     docRef: "AVX-CAP-001 · ADR-016",
     fromDir: /^(capabilities|providers|adapters|modules)\//,
     forbid: [
-      { pattern: /^@aervox\/database($|\/)/, label: "database（schema/仓储）" },
+      { pattern: /^@aervox\/(database|schema|repositories)($|\/)/, label: "数据库/模式/仓储" },
       { pattern: /^@libsql\//, label: "@libsql/client" },
       { pattern: /^drizzle-orm($|\/)/, label: "drizzle-orm" },
       { pattern: /^@aervox\/(api|worker|web|desktop|mobile)$/, label: "宿主 Shell 包" },
