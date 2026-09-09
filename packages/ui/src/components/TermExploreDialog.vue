@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ExtractedTerm } from '@aervox/contracts';
-import TermExploreDialog from '../modules/study-mode/TermExploreDialog.vue';
+import TermExploreDialog from '../plugins/study-mode/TermExploreDialog.vue';
 
 defineProps<{
   modelValue: boolean;

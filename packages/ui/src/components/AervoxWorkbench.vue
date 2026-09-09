@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted } from 'vue';
 import type { Platform } from '../composables/useWorkbenchLayout';
 import PetHero from './PetHero.vue';
 import Live2DPet from './Live2DPet.vue';
-import { registerStudyModeModule } from '../modules/study-mode';
+import { registerStudyModePlugin } from '../plugins/study-mode';
 import WorkbenchHeader from './workbench/WorkbenchHeader.vue';
 import PomodoroToast from './workbench/PomodoroToast.vue';
 import WorkbenchNavPill from './workbench/WorkbenchNavPill.vue';
@@ -48,7 +48,7 @@ const emit = defineEmits<{
 
 const registry = useUIRegistry();
 provideUIRegistry(registry);
-registerStudyModeModule(registry);
+registerStudyModePlugin(registry);
 
 // 1. Proactive Composable
 const proactive = useWorkbenchProactive({

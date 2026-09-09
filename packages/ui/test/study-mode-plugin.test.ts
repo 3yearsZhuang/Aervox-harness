@@ -1,22 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import { createUIRegistry } from '../src/registry/ui-registry';
 import {
+  registerStudyModePlugin,
   registerStudyModeModule,
+  registerStudyCompanionPlugin,
   StudyModeSwitch,
   StudyTermsBar,
   TermExploreDialog,
-} from '../src/modules/study-mode';
+} from '../src/plugins/study-mode';
 
-describe('StudyModeModule', () => {
-  it('exports all module components', () => {
+describe('StudyModePlugin', () => {
+  it('exports all plugin components', () => {
     expect(StudyModeSwitch).toBeDefined();
     expect(StudyTermsBar).toBeDefined();
     expect(TermExploreDialog).toBeDefined();
+    expect(registerStudyModePlugin).toBeDefined();
+    expect(registerStudyModeModule).toBe(registerStudyModePlugin);
+    expect(registerStudyCompanionPlugin).toBe(registerStudyModePlugin);
   });
 
   it('registers header switch and terms bar into proper slots with priorities', () => {
     const registry = createUIRegistry();
-    const unregister = registerStudyModeModule(registry);
+    const unregister = registerStudyModePlugin(registry);
 
     const headerActions = registry.getSlotComponents('header:actions');
     const headerSwitch = headerActions.find((item) => item.id === 'study-mode:header-switch');
@@ -38,8 +43,8 @@ describe('StudyModeModule', () => {
 
   it('is idempotent when registered multiple times', () => {
     const registry = createUIRegistry();
-    registerStudyModeModule(registry);
-    registerStudyModeModule(registry);
+    registerStudyModePlugin(registry);
+    registerStudyModePlugin(registry);
 
     const headerMatches = registry.getSlotComponents('header:actions').filter((item) => item.id === 'study-mode:header-switch');
     expect(headerMatches).toHaveLength(1);
