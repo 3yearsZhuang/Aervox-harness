@@ -70,8 +70,21 @@ function parseInline(text: string): string {
   return out;
 }
 
+const mdCache = new Map<string, string>();
+const MAX_MD_CACHE_ENTRIES = 500;
+
+export function clearMarkdownCache(): void {
+  mdCache.clear();
+}
+
 export function renderMarkdown(markdown: string): string {
   if (!markdown) return '';
+  const cached = mdCache.get(markdown);
+  if (cached !== undefined) {
+    mdCache.delete(markdown);
+    mdCache.set(markdown, cached);
+    return cached;
+  }
 
   const lines = markdown.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
   const htmlChunks: string[] = [];
@@ -205,5 +218,14 @@ export function renderMarkdown(markdown: string): string {
   flushList();
   flushQuote();
 
-  return htmlChunks.join('\n');
+  const rendered = htmlChunks.join('\n');
+  if (mdCache.size >= MAX_MD_CACHE_ENTRIES) {
+    const oldestKey = mdCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      mdCache.delete(oldestKey);
+    }
+  }
+  mdCache.set(markdown, rendered);
+
+  return rendered;
 }

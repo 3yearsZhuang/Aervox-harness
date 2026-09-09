@@ -138,8 +138,11 @@ export async function createDatabase(
     try {
       await client.execute("PRAGMA journal_mode = WAL;");
       await client.execute("PRAGMA synchronous = NORMAL;");
+      await client.execute("PRAGMA cache_size = -64000;");
+      await client.execute("PRAGMA temp_store = MEMORY;");
+      await client.execute("PRAGMA mmap_size = 268435456;");
     } catch {
-      // 特殊环境忽略 WAL
+      // 特殊环境忽略 WAL 与性能 PRAGMA
     }
   }
 

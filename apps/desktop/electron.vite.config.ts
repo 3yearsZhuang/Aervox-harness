@@ -21,10 +21,29 @@ export default defineConfig({
     // AERVOX_DESKTOP_PORT：本地端口被系统保留段占用时覆盖；默认 5174（被占用时 vite 自动顺延）
     server: { port: Number(process.env.AERVOX_DESKTOP_PORT) || 5174 },
     build: {
+      chunkSizeWarningLimit: 1000,
       rollupOptions: {
         input: {
           index: resolve('src/renderer/index.html'),
           pet: resolve('src/renderer/pet.html'),
+        },
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              if (id.includes('pixi.js') || id.includes('@sekai-world/pixi-live2d-display-mulmotion')) {
+                return 'vendor-pixi'
+              }
+              if (id.includes('element-plus')) {
+                return 'vendor-element'
+              }
+              if (id.includes('lucide-vue-next')) {
+                return 'vendor-icons'
+              }
+              if (id.includes('vue')) {
+                return 'vendor-vue'
+              }
+            }
+          },
         },
       },
     },

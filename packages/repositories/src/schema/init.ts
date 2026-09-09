@@ -6,18 +6,44 @@
 import type { Client } from "@libsql/client";
 import { initFtsTables } from "../search/fts.js";
 
+const tableColumnsCache = new Map<string, Set<string>>();
+
 async function addColumnIfMissing(
   client: Client,
   table: string,
   column: string,
   definition: string,
 ): Promise<void> {
-  const columns = await client.execute(`PRAGMA table_info(${table})`);
-  if (columns.rows.some((row) => String(row.name) === column)) return;
-  await client.execute(`ALTER TABLE ${table} ADD COLUMN ${definition}`);
+  let cols = tableColumnsCache.get(table);
+  if (!cols) {
+    try {
+      const columns = await client.execute(`PRAGMA table_info(${table})`);
+      cols = new Set(columns.rows.map((row) => String(row.name)));
+      tableColumnsCache.set(table, cols);
+    } catch {
+      return;
+    }
+  }
+  if (cols.has(column)) return;
+  try {
+    await client.execute(`ALTER TABLE ${table} ADD COLUMN ${definition}`);
+    cols.add(column);
+  } catch {
+    // 忽略并发冲突或已存在异常
+  }
 }
 
 export async function initDatabaseSchema(client: Client): Promise<void> {
+  tableColumnsCache.clear();
+  let inTx = false;
+  try {
+    await client.execute("BEGIN IMMEDIATE;");
+    inTx = true;
+  } catch {
+    // 若调用方已在外层事务中或不支持显式事务，平滑退回自动提交模式
+  }
+
+  try {
   // 1. 会话与 Turn
   await client.execute(`
     CREATE TABLE IF NOT EXISTS sessions (
@@ -2550,6 +2576,17 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       ON proactive_health_samples(workspace_id, subject_user_id, connection_id, metric, local_date);`,
   ];
   for (const ddl of proactiveIntelligenceDdl) await client.execute(ddl);
+
+  if (inTx) {
+    await client.execute("COMMIT;");
+    inTx = false;
+  }
+  } catch (err) {
+    if (inTx) {
+      await client.execute("ROLLBACK;").catch(() => {});
+    }
+    throw err;
+  }
 }
 
 /**

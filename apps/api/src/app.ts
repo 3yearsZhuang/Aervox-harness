@@ -156,8 +156,13 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   });
 
-  // 契约骨架：暴露由 @aervox/contracts 生成的 OpenAPI 3.1 文档
-  app.get("/openapi.json", async () => openApiDocument);
+  // 契约骨架：暴露由 @aervox/contracts 生成的 OpenAPI 3.1 文档（预序列化并添加 1 小时客户端缓存头）
+  const openApiSerialized = JSON.stringify(openApiDocument);
+  app.get("/openapi.json", async (_req, reply) => {
+    reply.header("Content-Type", "application/json; charset=utf-8");
+    reply.header("Cache-Control", "public, max-age=3600");
+    return openApiSerialized;
+  });
 
 // 模块装配上下文：基础设施 + 构建期配置；共享服务按注册顺序填充
   const ctx: ModuleContext = {
