@@ -163,16 +163,21 @@ export function useWorkbenchLayout(props: {
     settingsCategory.value = category;
   }
 
-  function toggleStudyMode() {
-    studyModeEnabled.value = !studyModeEnabled.value;
-    options.recordActivity('aervox.operation', 'conversation.study_mode_changed', undefined, { enabled: studyModeEnabled.value });
-    if (studyModeEnabled.value) {
+  function setStudyModeEnabled(enabled: boolean) {
+    if (studyModeEnabled.value === enabled) return;
+    studyModeEnabled.value = enabled;
+    options.recordActivity('aervox.operation', 'conversation.study_mode_changed', undefined, { enabled });
+    if (enabled) {
       petReactKind('glad', { expression: MizukiExpression.face_smile_01, lookAtEl: '.floating-study-switch-wrap' });
     } else {
       petReactKind('shake', { expression: MizukiExpression.face_normal_01, lookAtEl: '.floating-study-switch-wrap' });
     }
-    options.onStudyModeChange?.(studyModeEnabled.value);
+    options.onStudyModeChange?.(enabled);
     saveSettings();
+  }
+
+  function toggleStudyMode() {
+    setStudyModeEnabled(!studyModeEnabled.value);
   }
 
   function saveSettings(timerMinutesVal?: number) {
@@ -238,6 +243,7 @@ export function useWorkbenchLayout(props: {
     openSettingsCategory,
     switchSettingsCategory,
     toggleStudyMode,
+    setStudyModeEnabled,
     saveSettings,
     applyTheme,
     setTheme,

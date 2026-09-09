@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage } from '../../utils/element'
 import { Plus, Wrench } from 'lucide-vue-next'
 import { useAervoxTools } from '@aervox/api-client'
 

@@ -22,6 +22,8 @@ import { PluginConfigService } from "./config-service.js";
 import { registerPluginConfigRoutes } from "./config-routes.js";
 import { PluginBundleStore } from "./bundle-store.js";
 import { DEFAULT_SKILLS_ROOT } from "../skills/skill-manager.js";
+import { migrateStudyPlugins } from "./migration.js";
+import type { AervoxDatabase } from "@aervox/repositories";
 
 const defaultPluginsRoot = (): string => {
   const repoRoot = path.resolve(import.meta.dirname, "../../../../..");
@@ -40,7 +42,15 @@ async function syncBuiltinPlugins(
   sourceRoot: string,
   service: PluginService,
   configService: PluginConfigService,
+  db?: AervoxDatabase,
 ): Promise<void> {
+  if (db) {
+    try {
+      await migrateStudyPlugins(db);
+    } catch {
+      // 迁移异常静默降级，避免阻塞启动
+    }
+  }
   try {
     const entries = await fs.readdir(sourceRoot, { withFileTypes: true });
     const diskPluginIds = new Set<string>();
@@ -155,5 +165,5 @@ export async function registerPluginsModule(ctx: ModuleContext): Promise<void> {
 
   // 同步内置插件目录（plugins/）
   const builtinRoot = defaultBuiltinPluginsSourceRoot();
-  await syncBuiltinPlugins(builtinRoot, service, configService);
+  await syncBuiltinPlugins(builtinRoot, service, configService, db);
 }

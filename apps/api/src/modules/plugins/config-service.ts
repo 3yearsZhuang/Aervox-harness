@@ -102,7 +102,8 @@ export class PluginConfigService {
   // ── Schema ──────────────────────────────────────────────
 
   async registerConfigSchema(pluginId: string, input: unknown): Promise<unknown> {
-    const plugin = await this.requirePlugin(pluginId);
+    const plugin = await this.deps.extensionRepo.getPlugin(pluginId);
+    if (!plugin) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
     let fields: ReturnType<typeof parseConfigSchema>;
     try {
       fields = parseConfigSchema(input);
@@ -123,7 +124,8 @@ export class PluginConfigService {
   }
 
   async getConfigSchema(pluginId: string): Promise<{ schemaVersion: number; fields: unknown[] }> {
-    const plugin = await this.requirePlugin(pluginId);
+    const plugin = await this.deps.extensionRepo.getPlugin(pluginId);
+    if (!plugin) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
     if (!plugin.configSchemaJson) {
       throw new PluginConfigError(404, "PLUGIN_CONFIG_SCHEMA_NOT_FOUND", "plugin has no config schema");
     }

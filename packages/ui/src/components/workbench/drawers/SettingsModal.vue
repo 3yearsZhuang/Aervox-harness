@@ -33,14 +33,25 @@ import PluginManagerPanel from '../../plugin/PluginManagerPanel.vue';
 import ExtensionSlot from '../../extension/ExtensionSlot.vue';
 import { useWorkbenchContext } from '../../../composables/workbench-context';
 
-defineProps<{
-  showCompanion?: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    showCompanion?: boolean;
+    studyModeAvailable?: boolean;
+  }>(),
+  {
+    studyModeAvailable: true,
+  },
+);
 
 const emit = defineEmits<{
   'replay-onboarding': [];
   'open-intro-deck': [];
 }>();
+
+function handleStudyModeChange(checked: boolean) {
+  if (props.studyModeAvailable === false) return;
+  layout.setStudyModeEnabled(checked);
+}
 
 const { layout, timer, cards, conversation, proactive } = useWorkbenchContext();
 
@@ -362,7 +373,19 @@ function handleSettingsClosed(): void {
             <span><strong>对话</strong><small>调整你与思隅交流的输入与展示方式</small></span>
           </div>
           <label class="settings-field"><span><strong>助手称呼</strong><small>工作台中显示的名字</small></span><input v-model="assistantDisplayName" maxlength="12" @change="saveSettings(timerMinutes)" /></label>
-          <label class="settings-row settings-choice-row"><span><strong>专注模式</strong><small>启用专属苏格拉底启发式教学与防剧透规则</small></span><input v-model="studyModeEnabled" type="checkbox" class="settings-switch" @change="saveSettings(timerMinutes)" /></label>
+          <label class="settings-row settings-choice-row">
+            <span>
+              <strong>专注模式</strong>
+              <small>{{ props.studyModeAvailable === false ? '插件已停用，需先在扩展中心启用 study-mode' : '启用专属苏格拉底启发式教学与防剧透规则' }}</small>
+            </span>
+            <input
+              :checked="studyModeEnabled"
+              :disabled="props.studyModeAvailable === false"
+              type="checkbox"
+              class="settings-switch"
+              @change="handleStudyModeChange(($event.target as HTMLInputElement).checked)"
+            />
+          </label>
           <label class="settings-row settings-choice-row"><span><strong>回车发送</strong><small>关闭后，回车只换行</small></span><input v-model="enterToSend" type="checkbox" class="settings-switch" @change="saveSettings(timerMinutes)" /></label>
         </div>
         <LLMConfigPanel v-else-if="settingsCategory === 'model'" class="settings-section" />

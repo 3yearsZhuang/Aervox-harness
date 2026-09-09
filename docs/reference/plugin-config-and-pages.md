@@ -163,7 +163,8 @@ Page 能力声明（`plugin.manifest.json` 的 `spec.pages[].capabilities`）：
 
 | 插槽名称 | 挂载组件与位置 | 典型用途与设计意图 |
 |---|---|---|
-| `workbench:header-actions` | `WorkbenchHeader.vue` 右侧操作区 | 插件全局快捷动作按钮、状态常驻指示芯片 |
+| `header:before` | `WorkbenchHeader.vue` 左侧操作区前置 | 标题/标识前置插件图标、状态胶囊 |
+| `header:actions` | `WorkbenchHeader.vue` 右侧操作区 | 插件全局快捷动作按钮、状态常驻指示芯片 |
 | `nav:menu-items` | `WorkbenchNavPill.vue` 胶囊展开区 | 插件主功能入口、独立视图抽屉触发器 |
 | `sidecards:widgets` | `WorkbenchSideCards.vue` 侧边卡槽区 | 自定义常驻卡片、插件信息监控面板、辅助小工具 |
 | `conversation:top` | `ConversationConsole.vue` 顶部区域 | 会话级全局公告横幅、置顶任务卡、引导信息 |
@@ -172,16 +173,15 @@ Page 能力声明（`plugin.manifest.json` 的 `spec.pages[].capabilities`）：
 | `composer:toolbar-actions` | `ComposerDock.vue` 输入坞工具栏 | 输入框左下角附件/语音旁的小工具按钮 |
 | `composer:bottom-bar` | `ComposerDock.vue` 输入坞最底部 | 针对当前输入内容的辅助提示横幅或快捷模板栏 |
 | `settings:tabs` | `SettingsModal.vue` 左侧或顶部分类项 | 插件在系统设置中的独立分类页签 |
-| `settings:panels` | `SettingsModal.vue` 主内容展示区 | 插件在系统设置中对应的配置控制面板 |
 
 ### 4.2 注册接口与生命周期
 
-插件通过工作台提供的单例或依赖注入 `uiRegistry` 注册插槽组件：
+插件通过工作台提供的单例或依赖注入 `uiRegistry` 注册插槽组件（支持 `registerSlotComponent` 与 `registerSlotItem` 别名，且支持对象参数或组件+选项双签名）：
 
 ```ts
 import { uiRegistry, type ExtensionSlotName, type SlotItem } from '@aervox/ui';
 
-// 注册插槽组件，返回注销函数
+// 方式一：对象参数形式注册插槽组件（registerSlotItem / registerSlotComponent 均支持）
 const unregister = uiRegistry.registerSlotItem(
   'composer:toolbar-actions',
   {
@@ -191,6 +191,9 @@ const unregister = uiRegistry.registerSlotItem(
     props: { title: '自定义翻译' }, // 可选静态 Props
   },
 );
+
+// 方式二：三参数形式
+// const unregister = uiRegistry.registerSlotComponent('composer:toolbar-actions', MyPluginButton, { id: 'my-plugin-tool-btn', priority: 10 });
 
 // 插件卸载或停用时调用清理
 unregister();

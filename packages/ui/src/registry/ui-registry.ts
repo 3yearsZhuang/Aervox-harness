@@ -3,6 +3,7 @@ import type {
   ExtensionSlotName,
   ExtensionComponentRegistration,
   RegisterSlotOptions,
+  SlotItemConfig,
 } from './types';
 
 export class UIRegistry {
@@ -12,21 +13,40 @@ export class UIRegistry {
   /** 向指定插槽注册扩展组件 */
   registerSlotComponent(
     slot: ExtensionSlotName,
-    component: Component,
+    componentOrItem: Component | SlotItemConfig,
     options: RegisterSlotOptions = {},
   ): () => void {
-    const rawComponent = markRaw(component);
+    let rawComponent: Component;
+    let finalOptions: RegisterSlotOptions = options;
+
+    if (
+      componentOrItem &&
+      typeof componentOrItem === 'object' &&
+      'component' in componentOrItem &&
+      Boolean((componentOrItem as SlotItemConfig).component)
+    ) {
+      const item = componentOrItem as SlotItemConfig;
+      rawComponent = markRaw(item.component);
+      finalOptions = {
+        id: item.id ?? options.id,
+        priority: item.priority ?? options.priority,
+        props: item.props ?? options.props,
+      };
+    } else {
+      rawComponent = markRaw(componentOrItem as Component);
+    }
+
     const existing = this.slots[slot] ? [...this.slots[slot]] : [];
 
-    const id = options.id ?? `ext_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    const priority = options.priority ?? 0;
+    const id = finalOptions.id ?? `ext_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const priority = finalOptions.priority ?? 0;
 
     const filtered = existing.filter((item) => item.id !== id);
     filtered.push({
       id,
       component: rawComponent,
       priority,
-      props: options.props,
+      props: finalOptions.props,
     });
 
     // 按 priority 降序排序（数字越大越靠前）
@@ -35,6 +55,15 @@ export class UIRegistry {
 
     // 返回注销函数
     return () => this.unregisterSlotComponent(slot, id);
+  }
+
+  /** 向指定插槽注册扩展组件（registerSlotComponent 别名，对齐文档契约） */
+  registerSlotItem(
+    slot: ExtensionSlotName,
+    componentOrItem: Component | SlotItemConfig,
+    options: RegisterSlotOptions = {},
+  ): () => void {
+    return this.registerSlotComponent(slot, componentOrItem, options);
   }
 
   /** 注销指定插槽的扩展组件 */
@@ -77,7 +106,10 @@ export function createUIRegistry(): UIRegistry {
 /** 全局单例注册表 */
 export const defaultUIRegistry = new UIRegistry();
 
-const UI_REGISTRY_KEY: InjectionKey<UIRegistry> = Symbol('AERVOX_UI_REGISTRY');
+/** 单例别名（对齐插件开发文档） */
+export const uiRegistry = defaultUIRegistry;
+
+export const UI_REGISTRY_KEY: InjectionKey<UIRegistry> = Symbol('AERVOX_UI_REGISTRY');
 
 export function provideUIRegistry(registry: UIRegistry = defaultUIRegistry): void {
   provide(UI_REGISTRY_KEY, registry);

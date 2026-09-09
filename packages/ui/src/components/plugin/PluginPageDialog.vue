@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {computed, nextTick, onBeforeUnmount, ref, watch} from 'vue'
-import {ElMessage} from 'element-plus'
+import {ElMessage} from '../../utils/element'
 import {getApiBase, useAervoxPlugins, type PluginPageDto, type PluginSummaryDto} from '@aervox/api-client'
 import type {PluginConfigSnapshot} from '@aervox/contracts'
 

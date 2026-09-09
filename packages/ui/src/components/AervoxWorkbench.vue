@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onMounted, onUnmounted } from 'vue';
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue';
 import type { Platform } from '../composables/useWorkbenchLayout';
 import PetHero from './PetHero.vue';
 import { registerStudyModePlugin } from '../plugins/study-mode';
@@ -114,6 +114,19 @@ const cards = useWorkbenchCards({
   recordActivity: proactive.recordProactiveActivity,
 });
 
+const studyPluginAvailable = ref(true);
+
+// 抽屉与弹窗组件懒挂载守卫（首次打开时才挂载对应异步组件实例，消除首屏初始加载开销）
+const toolsMounted = ref(false);
+const learningMounted = ref(false);
+const historyMounted = ref(false);
+const settingsMounted = ref(false);
+
+watch(() => layout.toolsOpen.value, (open) => { if (open) toolsMounted.value = true; }, { immediate: true });
+watch(() => layout.learningOpen.value, (open) => { if (open) learningMounted.value = true; }, { immediate: true });
+watch(() => layout.historyOpen.value, (open) => { if (open) historyMounted.value = true; }, { immediate: true });
+watch(() => layout.settingsOpen.value, (open) => { if (open) settingsMounted.value = true; }, { immediate: true });
+
 let isSendingMessage = false;
 
 // 统一整合发送消息逻辑
@@ -142,7 +155,8 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
   const outgoingText = text || '请查看我上传的附件。';
 
   const quizPrefix = options?.quizMode ? '[模式：刷题模式] ' : '';
-  const modePrefix = quizPrefix || (layout.studyModeEnabled.value ? '[模式：专注模式] ' : '');
+  const isStudyActive = studyPluginAvailable.value && layout.studyModeEnabled.value;
+  const modePrefix = quizPrefix || (isStudyActive ? '[模式：专注模式] ' : '');
   const outgoing = modePrefix && !outgoingText.startsWith(modePrefix) ? modePrefix + outgoingText : outgoingText;
 
   const assistantLine = conversation.createStoryLine('assistant', '', 'streaming');
@@ -355,10 +369,32 @@ onMounted(() => {
       await pluginApi.loadPlugins();
       const studyPlugin = pluginApi.plugins.value.find((p) => p.id === 'study-mode');
       if (studyPlugin && studyPlugin.enabled === 0) {
+        studyPluginAvailable.value = false;
         unregisterStudyMode?.();
         unregisterStudyMode = null;
         if (layout.studyModeEnabled.value) {
-          layout.studyModeEnabled.value = false;
+          layout.setStudyModeEnabled(false);
+        }
+      } else if (studyPlugin && (studyPlugin.enabled === 1 || studyPlugin.enabled === undefined)) {
+        studyPluginAvailable.value = true;
+        const savedSettingsRaw = localStorage.getItem('aervox-settings');
+        let hasSavedStudySetting = false;
+        if (savedSettingsRaw) {
+          try {
+            hasSavedStudySetting = 'studyModeEnabled' in JSON.parse(savedSettingsRaw);
+          } catch {
+            // ignore malformed settings
+          }
+        }
+        if (!hasSavedStudySetting) {
+          try {
+            const configSnapshot = await pluginApi.getConfig('study-mode');
+            if (configSnapshot?.values?.autoEnableStudyMode !== undefined) {
+              layout.setStudyModeEnabled(Boolean(configSnapshot.values.autoEnableStudyMode));
+            }
+          } catch {
+            // 忽略配置读取异常
+          }
         }
       }
     } catch {
@@ -418,11 +454,13 @@ onUnmounted(() => {
       />
     </div>
 
-    <ToolsDrawer />
-    <LearningDrawer />
-    <HistoryDrawer />
+    <ToolsDrawer v-if="toolsMounted" />
+    <LearningDrawer v-if="learningMounted" />
+    <HistoryDrawer v-if="historyMounted" />
     <SettingsModal
+      v-if="settingsMounted"
       :show-companion="showCompanion"
+      :study-mode-available="studyPluginAvailable"
       @replay-onboarding="emit('replay-onboarding')"
       @open-intro-deck="emit('open-intro-deck')"
     />

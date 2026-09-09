@@ -20,13 +20,22 @@ export interface ExtensionComponentRegistration {
 }
 
 export type RegisteredSlotComponent = ExtensionComponentRegistration;
-
+export type RegisteredSlotItem = RegisteredSlotComponent;
 
 export interface RegisterSlotOptions {
   id?: string;
   priority?: number;
   props?: Record<string, unknown>;
 }
+
+export interface SlotItemConfig {
+  id?: string;
+  component: Component;
+  priority?: number;
+  props?: Record<string, unknown>;
+}
+
+export type SlotItem = RegisterSlotOptions | SlotItemConfig;
 
 export interface ComposerContractProps {
   input: string;

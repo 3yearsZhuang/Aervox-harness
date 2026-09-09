@@ -5,6 +5,8 @@ export { default as MessageBubble } from './components/MessageBubble.vue';
 export { default as UserQuestionComposer } from './components/UserQuestionComposer.vue';
 export { default as AervoxWorkbench } from './components/AervoxWorkbench.vue';
 
+import { defineAsyncComponent } from 'vue';
+
 // 核心组件拆解导出
 export { default as WorkbenchHeader } from './components/workbench/WorkbenchHeader.vue';
 export { default as PomodoroToast } from './components/workbench/PomodoroToast.vue';
@@ -15,10 +17,10 @@ export { default as ToolApprovalCard } from './components/workbench/ToolApproval
 export { default as TermsBar } from './components/workbench/TermsBar.vue';
 export { default as ComposerDock } from './components/workbench/ComposerDock.vue';
 export { default as ComposerAttachments } from './components/workbench/ComposerAttachments.vue';
-export { default as ToolsDrawer } from './components/workbench/drawers/ToolsDrawer.vue';
-export { default as LearningDrawer } from './components/workbench/drawers/LearningDrawer.vue';
-export { default as HistoryDrawer } from './components/workbench/drawers/HistoryDrawer.vue';
-export { default as SettingsModal } from './components/workbench/drawers/SettingsModal.vue';
+export const ToolsDrawer = defineAsyncComponent(() => import('./components/workbench/drawers/ToolsDrawer.vue'));
+export const LearningDrawer = defineAsyncComponent(() => import('./components/workbench/drawers/LearningDrawer.vue'));
+export const HistoryDrawer = defineAsyncComponent(() => import('./components/workbench/drawers/HistoryDrawer.vue'));
+export const SettingsModal = defineAsyncComponent(() => import('./components/workbench/drawers/SettingsModal.vue'));
 
 // 扩展系统与插槽组件
 export { default as ExtensionSlot } from './components/extension/ExtensionSlot.vue';
@@ -49,11 +51,10 @@ export { default as McpToolsTab } from './components/plugin/McpToolsTab.vue';
 export { default as ToolCallDialog } from './components/plugin/ToolCallDialog.vue';
 export { default as McpRegisterDialog } from './components/plugin/McpRegisterDialog.vue';
 export { default as McpPresetServers } from './components/plugin/McpPresetServers.vue';
-export { default as Live2DPet } from './components/Live2DPet.vue';
+export const Live2DPet = defineAsyncComponent(() => import('./components/Live2DPet.vue'));
 export { default as AervoxBrandMark } from './components/AervoxBrandMark.vue';
 export { default as AervoxCompanionMark } from './components/AervoxCompanionMark.vue';
 export * from './live2d/model';
-export * from './live2d/controller';
 export * from './live2d/petReactions';
 export { default as PersonaManagerPanel } from './components/persona/PersonaManagerPanel.vue';
 export { default as PersonaEditDialog } from './components/persona/PersonaEditDialog.vue';
