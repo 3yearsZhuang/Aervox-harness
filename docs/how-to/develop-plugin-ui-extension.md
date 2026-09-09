@@ -6,12 +6,15 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.1.0
-updated_at: 2026-09-09
-reviewed_at: 2026-09-09
+version: 0.2.0
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 review_triggers:
+  - plugins/**
+  - apps/api/src/modules/plugins/**
   - packages/ui/src/registry/**
+  - packages/ui/src/plugins/**
   - packages/ui/src/components/extension/**
   - packages/ui/src/components/workbench/ComposerDock.vue
 sources:
@@ -21,19 +24,25 @@ sources:
   - docs/reference/adr/ADR-015-vue-full-stack.md
 ---
 
-# 操作指南：开发工作台 UI 扩展插件（How-to）
+# 操作指南：开发 Aervox 扩展插件（How-to）
 
 - 提出人：linge · 2026-09-09
-- 修改人：linge · 2026-09-09
+- 修改人：linge · 2026-09-10
 
 > 文档编号：AVX-GUIDE-004
 > 类型：How-to
-> 版本：v0.1.0
-> 更新日期：2026-09-09
+> 版本：v0.2.0
+> 更新日期：2026-09-10
 > 状态：Review Candidate
 > 关联：[插件 Config、Page 与 UI 扩展规范](../reference/plugin-config-and-pages.md) · [能力组合与可选化目录规范](../reference/capability-composition.md) · [ADR-009](../reference/adr/ADR-009-electron-plugin-sandbox.md) · [ADR-015](../reference/adr/ADR-015-vue-full-stack.md)
 
-本指南指导插件开发者如何基于 Aervox 前端 UI 扩展体系开发扩展插件。内容包括：如何在 10 个预设插槽中注入自定义 Vue 组件、如何读取与联动宿主工作台状态，以及如何安全替换工作台核心表现层（如输入底座 ComposerDock）。
+本指南指导插件开发者如何基于 Aervox 插件体系开发扩展插件。涵盖全栈插件生命周期：
+
+1. **插件 Bundle 结构与配置 Schema**；
+2. **服务端 Turn 插件与提示词动态插槽（`extraSections`）注入**；
+3. **结构化元数据通信（消除纯文本前缀污染）**；
+4. **前端 UI 插槽注入与工作台状态联动**；
+5. **核心交互层替换与安全门禁验证**。
 
 ## 1. 概念与双轨安全边界
 
@@ -44,13 +53,145 @@ sources:
 
 规范定义见 [插件 Config、Page 与 UI 扩展规范](../reference/plugin-config-and-pages.md)。
 
-## 2. 任务一：向指定插槽注入自定义操作
+## 2. 任务一：声明插件 Bundle 与配置模型
 
 ### 2.1 适用场景
 
+为系统增加一个可独立分发、可启停并在系统设置中提供可视化配置表单的插件。
+
+### 2.2 目录约定
+
+在 `plugins/<plugin-id>/` 下建立标准 Bundle 目录：
+
+```text
+plugins/my-helper/
+├── plugin.manifest.json   # 插件基础元数据与能力声明
+├── config.schema.json     # 可视化配置 Schema（v1 规范）
+└── SKILL.md               # 渐进披露给 Agent 的技能指导（可选）
+```
+
+### 2.3 编写 `config.schema.json`
+
+基于 PluginConfigSchema v1 声明类型安全的可视化配置，系统设置面板将自动渲染对应的控制表单：
+
+```json
+{
+  "apiVersion": "aervox.dev/v1",
+  "kind": "PluginConfigSchema",
+  "schemaVersion": 1,
+  "fields": [
+    {
+      "key": "strictGuidance",
+      "type": "boolean",
+      "label": "严格引导模式",
+      "description": "开启后禁止直接给出最终答案，引导用户自主思考",
+      "default": true
+    },
+    {
+      "key": "scaffoldingSteps",
+      "type": "integer",
+      "label": "拆解步骤深度",
+      "description": "复杂知识点拆解的小步骤数（建议 2~5）",
+      "default": 3,
+      "validation": { "minimum": 1, "maximum": 10 }
+    }
+  ]
+}
+```
+
+## 3. 任务二：开发服务端 Turn 插件与提示词切面注入
+
+### 3.1 适用场景
+
+当插件需要影响 Agent 的推理行为、注入专属领域知识/教学原则，或者在回合结束后执行异步分析与沉淀时接入。
+
+### 3.2 架构硬约束（纯净底座红线）
+
+- **禁止修改 `base-prompt.ts`**：`packages/agent-loop/src/base-prompt.ts` 必须保持纯净通用，严禁将特定业务或插件逻辑以 `if (isMyPlugin)` 等形式硬编码侵入；
+- **统一经由 `extraSections` 注入**：所有专属模式提示词一律在 `beforeTurn` 阶段动态构造并通过 `extraSections: string[]` 返回。
+
+### 3.3 编写服务端 Turn 插件
+
+在 `apps/api/src/modules/plugins/turn-plugins/<plugin-id>.ts` 编写服务端插件：
+
+```ts
+import type {
+  AfterTurnContext,
+  BeforeTurnResult,
+  ServerTurnPlugin,
+  TurnPluginContext,
+} from './types.js';
+
+export const myHelperTurnPlugin: ServerTurnPlugin = {
+  id: 'my-helper',
+
+  /** 前置切面：根据请求元数据与租户配置动态决定是否注入专属提示词 */
+  async beforeTurn(ctx: TurnPluginContext, configValues?: Record<string, unknown>): Promise<BeforeTurnResult | void> {
+    // 1. 检查请求元数据是否触发本插件（推荐）
+    const isTriggered = ctx.metadata?.mode === 'my-helper';
+    if (!isTriggered) return;
+
+    // 2. 读取系统自动注入的租户配置（未配置时自动回退默认值）
+    const isStrict = typeof configValues?.strictGuidance === 'boolean' ? configValues.strictGuidance : true;
+    const steps = typeof configValues?.scaffoldingSteps === 'number' ? configValues.scaffoldingSteps : 3;
+
+    // 3. 构建专属提示词片段
+    const promptSection = `
+# 我的助手核心原则
+1. 采用分步拆解引导，当前拆解深度为 ${steps} 步。
+2. ${isStrict ? '【严格模式】：绝对不要直接输出最终答案。' : '提供思路提示并引导用户探索。'}
+`.trim();
+
+    return {
+      extraSections: [promptSection],
+    };
+  },
+
+  /** 后置切面：回合终态后异步执行增强逻辑（不阻塞主响应流） */
+  async afterTurn(ctx: AfterTurnContext, configValues?: Record<string, unknown>): Promise<void> {
+    if (ctx.status !== 'Completed') return;
+
+    // 可通过 ctx.llm 独立执行轻量单步语义抽取、记忆沉淀或打点
+    // 异常会被外层安全拦截，不影响主会话状态
+  },
+};
+```
+
+编排器会自动对接 `IExtensionRepository` 检查当前租户是否启用该插件（`enabled === 1`），并自动加载 `IPluginConfigRepository` 的配置传入 `configValues`。
+
+## 4. 任务三：前端结构化元数据协同（消除纯文本污染）
+
+### 4.1 适用场景
+
+当客户端与插件协同发起带有特定模式或意图的对话时，传递领域控制信息。
+
+### 4.2 最佳实践
+
+**严禁**通过字符串拼接的方式在用户消息文本中硬塞 `[模式：xxx]` 等技术标签。统一使用结构化 `metadata`：
+
+```ts
+import { useWorkbenchContext } from '@aervox/ui';
+
+const { sendMessage } = useWorkbenchContext();
+
+// 发送带有插件模式的纯净消息
+await sendMessage('我想复习第二章的内容', {
+  metadata: {
+    mode: 'my-helper',
+    focusTopic: 'chapter-2',
+  },
+});
+```
+
+服务端在 `TurnPluginContext.metadata` 中直接获取此对象，用户的历史消息记录与展示流保持绝对纯净。
+
+## 5. 任务四：向指定插槽注入自定义操作
+
+### 5.1 适用场景
+
 为工作台添加快捷按钮、扩展小工具或自定义指示卡片，例如在输入框工具栏添加「一键翻译」按钮。
 
-### 2.2 步骤
+### 5.2 步骤
 
 1. **编写自定义 Vue 组件**：
 
@@ -110,7 +251,7 @@ export function onDeactivate() {
    - 输入框底座工具栏/底栏：`composer:toolbar-actions` / `composer:bottom-bar`
    - 系统设置分类页签：`settings:tabs`
 
-## 3. 任务二：消费与联动宿主工作台状态
+## 6. 任务五：消费与联动宿主工作台状态
 
 插件组件可通过 `useWorkbenchContext()` 依赖注入安全获取宿主状态：
 
@@ -118,26 +259,26 @@ export function onDeactivate() {
 import { useWorkbenchContext } from '@aervox/ui';
 
 const {
-  layout,       // layout.studyModeEnabled 开关专注模式，layout.openTool 打开工具箱
+  layout,       // layout.focusModeEnabled 开关专注模式（兼容 studyModeEnabled），layout.openTool 打开抽屉
   timer,        // timer.timerRunning, timer.formattedTime 番茄钟状态
   composer,     // composer.input, composer.pendingAttachments 输入内容与附件列表
   conversation, // conversation.story 历史会话，conversation.streaming 流式中标记
-  sendMessage,  // sendMessage('消息内容') 主动触发一次消息发送
+  sendMessage,  // sendMessage('消息内容', { metadata: { ... } }) 主动触发一次消息发送
 } = useWorkbenchContext();
 ```
 
 注意事项：
 
-- 优先消费只读状态，通过暴露的受控方法（如 `sendMessage`、`layout.openTool`）变更状态；
+- 优先消费只读状态，通过暴露的受控方法（如 `sendMessage`、`layout.setFocusModeEnabled`）变更状态；
 - 禁止直接修改非自身持有的深层只读属性。
 
-## 4. 任务三：替换核心表现层组件（Component Overrides）
+## 7. 任务六：替换核心表现层组件（Component Overrides）
 
-### 4.1 适用场景
+### 7.1 适用场景
 
 当需要完全定制聊天输入坞的交互形式（例如多模态画板输入、代码专用输入器）时，可以替换内置的 `ComposerDock`。
 
-### 4.2 步骤
+### 7.2 步骤
 
 1. **编写替换组件，遵循 `ComposerContractProps` 契约**：
 
@@ -156,7 +297,7 @@ const props = withDefaults(defineProps<ComposerContractProps>(), {
 
 const emit = defineEmits<{
   (e: 'update:input', value: string): void;
-  (e: 'send', text?: string, options?: { quizMode?: boolean; resend?: boolean }): void;
+  (e: 'send', text?: string, options?: { resend?: boolean }): void;
 }>();
 
 function handleSubmit() {
@@ -198,7 +339,7 @@ uiRegistry.overrideComponent('ComposerDock', CustomComposer);
    - 必须遵守**单通道派发原则**：若检测到 `props.onSend` 回调，则只执行该回调；未检测到时才回退至 `emit('send')`。切勿同时调用两者，否则会导致带附件消息的并发双重提交；
    - 宿主端已具备 `isSendingMessage` 互斥锁与 `attachmentUploading` 守卫，但插件端仍应在 UI 上将提交按钮置灰（`:disabled="streaming"`）。
 
-## 5. 错误隔离与容错机制
+## 8. 错误隔离与容错机制
 
 工作台插槽内置了 Vue `onErrorCaptured` 容错隔离沙盒（`ExtensionSlotItem`）：
 
@@ -206,17 +347,24 @@ uiRegistry.overrideComponent('ComposerDock', CustomComposer);
 - 出错组件会被卸载并自动显示降级占位徽标；
 - 插件开发者在控制台可观察到详细错误调用栈以便调试。
 
-## 6. 验证与门禁检查
+## 9. 验证与门禁检查
 
 完成开发后，执行以下命令进行本地验证：
 
 ```bash
-# UI 单元测试
-pnpm --filter @aervox/ui test
+# 1. UI 扩展单元测试
+mise x -- pnpm --filter @aervox/ui test
 
-# 类型检查
-pnpm --filter @aervox/ui typecheck
+# 2. 服务端插件与 API 集成测试
+mise x -- pnpm --filter @aervox/api test
 
-# 生产环境构建验证
-pnpm --filter @aervox/web build
+# 3. TypeScript 全仓类型检查
+mise x -- pnpm --filter @aervox/ui typecheck
+mise x -- pnpm --filter @aervox/api typecheck
+
+# 4. 架构依赖边界守卫
+node scripts/import-boundary.mjs
+
+# 5. 文档与治理门禁
+mise tasks run ci-docs
 ```

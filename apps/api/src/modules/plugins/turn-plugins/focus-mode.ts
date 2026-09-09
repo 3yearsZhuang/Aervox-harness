@@ -42,10 +42,10 @@ export const DEFAULT_FOCUS_MODE_CONFIG: Required<FocusModeRuntimeConfig> = {
   autoEnableStudyMode: true,
   strictAntiSpoiler: true,
   scaffoldingSteps: 3,
-  maxExtractedTerms: 3,
-  defaultExploreKind: "socratic",
+  maxExtractedTerms: 8,
+  defaultExploreKind: "child",
   showTermTips: true,
-  enableJudgePass: false,
+  enableJudgePass: true,
 };
 
 export const DEFAULT_STUDY_MODE_CONFIG = DEFAULT_FOCUS_MODE_CONFIG;

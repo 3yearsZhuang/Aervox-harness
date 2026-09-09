@@ -56,3 +56,9 @@ export interface MessageTransformContext {
 }
 
 export type MessageTransformer = (message: string, context?: MessageTransformContext) => string;
+
+export interface MessageTransformerRegistration {
+  id: string;
+  transformer: MessageTransformer;
+  priority: number;
+}

@@ -36,13 +36,21 @@ export function registerFocusModePlugin(
     priority: 50,
   });
 
-  const unregisterTransformer = registry.registerMessageTransformer('focus-mode:prefix', (text, options) => {
-    if (options?.quizMode || options?.useMetadata) return text;
-    if (context?.layout?.focusModeEnabled?.value ?? context?.layout?.studyModeEnabled?.value) {
-      return `[模式：专注模式] ${text}`;
-    }
-    return text;
-  });
+  const unregisterTransformer = registry.registerMessageTransformer(
+    'focus-mode:prefix',
+    (text, options) => {
+      if (options?.quizMode || options?.useMetadata) return text;
+      if (context?.layout?.focusModeEnabled?.value ?? context?.layout?.studyModeEnabled?.value) {
+        const prefix = '[模式：专注模式] ';
+        if (text.startsWith(prefix) || text.startsWith('[模式：专注模式]')) {
+          return text;
+        }
+        return `${prefix}${text}`;
+      }
+      return text;
+    },
+    100,
+  );
 
   return () => {
     unregisterSwitch();

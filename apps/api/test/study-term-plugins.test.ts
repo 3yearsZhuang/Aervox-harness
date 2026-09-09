@@ -174,10 +174,10 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
     expect(config).toEqual(DEFAULT_STUDY_MODE_CONFIG);
     expect(config.strictAntiSpoiler).toBe(true);
     expect(config.scaffoldingSteps).toBe(3);
-    expect(config.maxExtractedTerms).toBe(3);
-    expect(config.defaultExploreKind).toBe("socratic");
+    expect(config.maxExtractedTerms).toBe(8);
+    expect(config.defaultExploreKind).toBe("child");
     expect(config.showTermTips).toBe(true);
-    expect(config.enableJudgePass).toBe(false);
+    expect(config.enableJudgePass).toBe(true);
 
     // 2. buildStudyModePrompt 当 config 为空或 strictAntiSpoiler 为 undefined 时默认开启严格防剧透
     const defaultPrompt = buildStudyModePrompt();
@@ -251,5 +251,60 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
     expect(result?.extraSections?.[0]).toContain("专注模式核心教学原则");
     expect(result?.extraSections?.[0]).toContain("4 个连贯的小步骤");
     expect(result?.state?.isStudyMode).toBe(true);
+  });
+
+  it("createLLMCallable 适配器：正确透传 temperature 参数与 systemPrompt", async () => {
+    const { createLLMCallable } = await import("../src/modules/conversation/agent-executor.js");
+    let capturedRequest: any;
+    const mockProvider = {
+      id: "mock",
+      async *stream(request: any) {
+        capturedRequest = request;
+        yield { text: "mock result", isFinal: true };
+      },
+    };
+
+    const callable = createLLMCallable(mockProvider);
+    const result = await callable.generate("user prompt", {
+      systemPrompt: "system prompt",
+      temperature: 0.2,
+    });
+
+    expect(result).toBe("mock result");
+    expect(capturedRequest).toBeDefined();
+    expect(capturedRequest.temperature).toBe(0.2);
+    expect(capturedRequest.context.messages).toEqual([
+      { role: "system", content: "system prompt" },
+      { role: "user", content: "user prompt" },
+    ]);
+  });
+
+  it("ServerTurnPluginRegistry：注册别名插件与主插件时自动互斥去重，杜绝 getAll() 实例翻倍", async () => {
+    const { ServerTurnPluginRegistry } = await import("../src/modules/plugins/turn-plugins/registry.js");
+    const reg = new ServerTurnPluginRegistry();
+
+    const focusPlugin = { id: "focus-mode" };
+    const studyPlugin = { id: "study-mode" };
+    const quizPlugin = { id: "quiz-mode" };
+
+    // 先注册 focus-mode，再尝试注册别名 study-mode 与 quiz-mode
+    reg.register(focusPlugin);
+    reg.register(studyPlugin);
+    reg.register(quizPlugin);
+
+    expect(reg.getAll()).toHaveLength(1);
+    expect(reg.getAll()[0].id).toBe("focus-mode");
+    expect(reg.get("study-mode")?.id).toBe("focus-mode");
+    expect(reg.get("quiz-mode")?.id).toBe("focus-mode");
+
+    // 反向测试：若先注册 study-mode，后注册 focus-mode，自动清理旧别名
+    const reg2 = new ServerTurnPluginRegistry();
+    reg2.register(studyPlugin);
+    expect(reg2.getAll()).toHaveLength(1);
+    expect(reg2.getAll()[0].id).toBe("study-mode");
+
+    reg2.register(focusPlugin);
+    expect(reg2.getAll()).toHaveLength(1);
+    expect(reg2.getAll()[0].id).toBe("focus-mode");
   });
 });

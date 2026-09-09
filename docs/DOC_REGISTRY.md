@@ -26,7 +26,7 @@
 | `AVX-OPS-001` | [运行、值班与演练手册](reference/operations.md) | 2026-08-31 | 每季度演练 + 每次发布 + 值班变更 | 演练日期超期、告警/拓扑变化或联系人未更新 |
 | `AVX-TRC-001` | [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) | 2026-09-10 | 版本立项 / G1 / G4 / 落地登记 | CAP/AC/TC 状态或追踪关系变化未回填；§4.2 落地登记与实现不符 |
 | `AVX-GUIDE-001~003` | [操作指南](how-to) | 2026-08-29 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
-| `AVX-GUIDE-004` | [操作指南：开发工作台 UI 扩展插件](how-to/develop-plugin-ui-extension.md) | 2026-09-09 | 规则变更或季度评审 | 插槽清单、组件替换契约或上下文 API 与实现不符 |
+| `AVX-GUIDE-004` | [操作指南：开发 Aervox 扩展插件](how-to/develop-plugin-ui-extension.md) | 2026-09-10 | 规则变更或季度评审 | Bundle 结构、Turn 插件契约、插槽清单、组件替换契约或上下文 API 与实现不符 |
 | `AVX-CAP-REG-001` | [能力注册表](reference/capability-registry.md) | 2026-08-29 | 每次自选状态 / 模块变更 | 交付载体、启用方式或已注册模块与实现/CR 不一致 |
 | `AVX-CAP-001` | [能力组合与可选化目录规范](reference/capability-composition.md) | 2026-08-29 | G2 评审 + 能力宿主/适配器机制变更 | Manifest、Profile、Provider、Adapter、Kernel 边界与实现或 ADR/CR 不一致 |
 | `ADR-018` | [CAP-033 本地私密存储与主动智能 Host](reference/adr/ADR-018-proactive-local-privacy-host.md) | 2026-08-29 | CAP-033 本地存储、OS Permission Broker、动作授权或后台生命周期变更 | Host 签名/设备绑定、local-only、全动作授权、七天提炼清理或恢复门禁与实现不一致 |

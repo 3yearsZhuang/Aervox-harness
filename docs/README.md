@@ -30,7 +30,7 @@
 | [Agent Harness Loop 设计与落地规范](reference/agent-harness-loop.md)（AVX-HAR-001） | 一次 Agent Turn 如何经过 Context、模型、工具、多 Step、取消恢复并安全终止 | Loop 状态机、Port、持久化、工具管线、限额、DSH/pi Driver 与分阶段迁移 |
 | [能力注册表](reference/capability-registry.md)（AVX-CAP-REG-001） | 哪些能力纳入自选机制、以什么方式启用、当前处于哪个状态 | 交付载体与启用方式、CAP 分类与已注册模块登记；判定规则与交付机制见 AVX-CAP-001 |
 | [插件 Config、Page 与 UI 扩展规范](reference/plugin-config-and-pages.md)（AVX-PLUG-001） | 插件配置如何声明、校验、可视化，Page 如何安全承载，前端 UI 插槽与核心组件替换契约 | Config Schema v1、配置存储/API、Page Bridge、UI 插槽注入与组件替换契约（CR-006） |
-| [操作指南：开发工作台 UI 扩展插件](how-to/develop-plugin-ui-extension.md)（AVX-GUIDE-004） | 插件开发者如何向工作台插槽注入自定义操作或替换输入底座 | 插槽注册 API、优先级、Workbench Context 消费与防重入契约 |
+| [操作指南：开发 Aervox 扩展插件](how-to/develop-plugin-ui-extension.md)（AVX-GUIDE-004） | 插件开发者如何编写 Bundle、服务端 Turn 插件（提示词切面注入）与工作台 UI 扩展 | Bundle 目录、ServerTurnPlugin 契约、插槽注册 API、Workbench Context 消费与防重入契约 |
 | [操作指南](how-to) | 怎么新增/修改需求、写 ADR、过发布会门禁、做季度演练、管可选模块 submodule；贡献者流程见根级 [CONTRIBUTING](../CONTRIBUTING.md) | 任务型流程（工程与发布流程合一）；规则以对应专项文档为事实源 |
 | [文档生命周期登记表](DOC_REGISTRY.md) | 每份文档何时核验、多久复核、什么信号表示陈旧 | 核验节奏/陈旧信号；独立于索引维护 |
 | [文档治理与事实源规范](reference/document-governance.md)（AVX-DOC-GOV-001） | 文档如何分类、标记状态、确定唯一事实源并触发复核 | 分类、事实源矩阵、元数据、状态模型、owner、复核触发器与分阶段迁移 |

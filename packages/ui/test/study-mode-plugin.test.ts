@@ -77,6 +77,10 @@ describe('FocusModePlugin (and StudyMode compatibility)', () => {
     focusModeEnabled.value = true;
     expect(registry.transformMessage('请讲解算法')).toBe('[模式：专注模式] 请讲解算法');
 
+    // Idempotent: already has prefix
+    expect(registry.transformMessage('[模式：专注模式] 请讲解算法')).toBe('[模式：专注模式] 请讲解算法');
+    expect(registry.transformMessage('[模式：专注模式]请讲解算法')).toBe('[模式：专注模式]请讲解算法');
+
     // Quiz mode bypasses focus prefix
     expect(registry.transformMessage('请出两道题', { quizMode: true })).toBe('请出两道题');
 
@@ -133,5 +137,49 @@ describe('FocusModePlugin (and StudyMode compatibility)', () => {
 
     runtime.destroy();
     expect(registry.getSlotComponents('header:actions')).toHaveLength(0);
+  });
+
+  it('prevents concurrent config sync race condition from overwriting disabled state', async () => {
+    const registry = createUIRegistry();
+    const focusModeEnabled = { value: false };
+    const mockContext = {
+      layout: {
+        focusModeEnabled,
+        setFocusModeEnabled: (val: boolean) => {
+          focusModeEnabled.value = val;
+        },
+      },
+    } as any;
+
+    const runtime = createWorkbenchPluginRuntime(registry, () => mockContext);
+
+    // First sync takes time to fetch config
+    let resolveFirstConfig: (val: any) => void;
+    const firstConfigPromise = new Promise((resolve) => {
+      resolveFirstConfig = resolve;
+    });
+
+    const sync1 = runtime.sync(
+      [{ id: 'focus-mode', enabled: 1 }],
+      () => firstConfigPromise as any,
+    );
+
+    // Immediately trigger a second sync that disables the plugin
+    const sync2 = runtime.sync(
+      [{ id: 'focus-mode', enabled: 0 }],
+      async () => ({ values: {} }),
+    );
+    await sync2;
+
+    expect(focusModeEnabled.value).toBe(false);
+    expect(runtime.isPluginAvailable('focus-mode')).toBe(false);
+
+    // Now let the first config return
+    resolveFirstConfig!({ values: { autoEnableFocusMode: true } });
+    await sync1;
+
+    // Stale sync must NOT re-activate focus mode
+    expect(focusModeEnabled.value).toBe(false);
+    expect(runtime.isPluginAvailable('focus-mode')).toBe(false);
   });
 });

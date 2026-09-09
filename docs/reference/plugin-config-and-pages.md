@@ -158,11 +158,73 @@ Page 能力声明（`plugin.manifest.json` 的 `spec.pages[].capabilities`）：
 - `host.notify`：显示宿主通知；
 - `host.close`：关闭 Page 弹窗。
 
-## 4. 前端 UI 插槽扩展规范（UI Extension Slots）
+## 4. 服务端会话回合插件体系（Server Turn Plugin Pipeline）
+
+除了只读的 UI 呈现与受限 Page，深度参与 AI 交互与业务逻辑闭环的插件需接入服务端会话回合插件体系（Server Turn Plugin）。
+
+### 4.1 核心契约与执行生命周期
+
+服务端回合插件运行于 Fastify API 服务的会话执行主循环（`apps/api/src/modules/plugins/turn-plugins/`），契约接口定义如下：
+
+```ts
+export interface ServerTurnPlugin {
+  id: string;
+  beforeTurn?: (
+    ctx: TurnPluginContext,
+    configValues?: Record<string, unknown>,
+  ) => Promise<BeforeTurnResult | void> | BeforeTurnResult | void;
+  afterTurn?: (
+    ctx: AfterTurnContext,
+    configValues?: Record<string, unknown>,
+    beforeResult?: BeforeTurnResult,
+  ) => Promise<void> | void;
+}
+```
+
+插件执行生命周期划分为两个核心切面：
+
+1. **`beforeTurn` 前置切面**：
+   - 在 Agent Loop 组装上下文与调用模型之前执行；
+   - 接收会话上下文（`turnId`、`sessionId`、`userMessage`、`metadata`、`tenant` 等）以及当前租户的插件配置载荷（`configValues`）；
+   - 负责动态构造并返回系统提示词扩展段（`extraSections: string[]`）以及模式控制标记（`quizMode`、`allowQuizTrigger`）；
+   - 单个插件在 `beforeTurn` 抛出未捕获异常将被执行器捕获并记录警告日志，绝不阻断核心回合创建。
+
+2. **`afterTurn` 后置切面**：
+   - 在回合达成终态（如 `status === "Completed"`）且主文本流排空后异步分发执行；
+   - 接收包含 `llm`（轻量级 LLM 可调用对象，用于独立单步语义分析）、`status` 以及 `beforeResult` 的后置上下文；
+   - 典型用于执行轻量异步增强：关键术语抽取（`terms_extracted` 事件）、知识图谱沉淀、错题归因审计等；
+   - 异步后处理完全运行在响应返回之后，不增加用户等待延迟，异常自动隔离。
+
+### 4.2 提示词动态插槽机制（Dynamic Extra Sections）
+
+为了防止模型核心底座退化为臃肿的大单体，系统确立了**纯净底座与切面扩展**的绝对边界：
+
+- **底座零污染红线**：`packages/agent-loop/src/base-prompt.ts` 为完全通用的系统根提示词底座，严禁在其中硬编码或内嵌任何特定插件、教学法或业务模式的分支逻辑（如严禁在底座添加 `if (isFocusMode)` 或包含特定模式词）；
+- **动态切面注入**：所有模式特有提示词（如专注模式苏格拉底教学原则、严格防剧透脚手架规则、出题考官判定契约）一律由插件在 `beforeTurn` 中通过 `extraSections: string[]` 返回；
+- **确定性层级顺序**：`agent-executor.ts` 会将收集到的 `extraSections` 插入到通用工具使用规范之后、个性化人格设定与全局输出格式之前，确保全局输出格式规范（禁 emoji / 纯文本）始终保持最高约束力。
+
+### 4.3 租户配置与运行时门控（Gating & Config Injection）
+
+回合插件编排器（`executeBeforeTurnPlugins` 与 `executeAfterTurnPlugins`）在调用插件前自动执行多租户安全门控：
+
+1. **启停门控**：向 `IExtensionRepository` 检查当前租户下该插件的激活状态（`record.enabled === 1`）。未安装或处于禁用状态的插件自动跳过执行；
+2. **配置自动注入**：向 `IPluginConfigRepository` 读取当前租户保存的配置 JSON，反序列化后作为 `configValues` 参数直接传入切面函数。插件开发者无需在插件代码中直接处理数据库查询与连接；
+3. **别名与平滑迁移**：插件注册表与编排器内置别名映射能力（例如 `focus-mode` 与旧版 `study-mode`）。当插件改名或版本演进时，系统双向解析状态与配置，保证已有用户数据与客户端调用不中断。
+
+### 4.4 结构化请求元数据契约（Structured Request Metadata）
+
+在插件交互触发方面，系统废弃易产生文本污染的硬编码前缀（如旧版在聊天文本中拼接 `[模式：xxx]`）：
+
+- 前端在调用 `POST /v1/turns` 时，通过可选的 `metadata: Record<string, unknown>` 字段传递插件意图（例如 `{ mode: 'focus', intent: 'quiz' }`）；
+- `metadata` 直接送入 `TurnPluginContext.metadata`；
+- 插件的 `beforeTurn` 优先检查结构化元数据识别意图；仅在兼容旧客户端时才保留文本前缀回退识别；
+- 用户的原始消息正文（`userMessage`）保持纯净，不在历史记录与展示界面中残留技术标记。
+
+## 5. 前端 UI 插槽扩展规范（UI Extension Slots）
 
 工作台采用声明式插槽容器（`ExtensionSlot`）承载多插件并存的 UI 扩展需求。
 
-### 4.1 插槽架构与清单
+### 5.1 插槽架构与清单
 
 插槽使用 Vue 响应式状态进行按需渲染。工作台在核心交互层内置了 10 个标准命名插槽：
 
@@ -179,7 +241,7 @@ Page 能力声明（`plugin.manifest.json` 的 `spec.pages[].capabilities`）：
 | `composer:bottom-bar` | `ComposerDock.vue` 输入坞最底部 | 针对当前输入内容的辅助提示横幅或快捷模板栏 |
 | `settings:tabs` | `SettingsModal.vue` 左侧或顶部分类项 | 插件在系统设置中的独立分类页签 |
 
-### 4.2 注册接口与生命周期
+### 5.2 注册接口与生命周期
 
 插件通过工作台提供的单例或依赖注入 `uiRegistry` 注册插槽组件（支持 `registerSlotComponent` 与 `registerSlotItem` 别名，且支持对象参数或组件+选项双签名）：
 
@@ -210,11 +272,11 @@ unregister();
 - 排序按 `priority` 降序排列；相同时保持注册先后顺序；
 - 注销函数必须在插件卸载、热重载或停用时调用，避免内存泄漏与无效渲染。
 
-## 5. 核心组件替换契约（Component Overrides）
+## 6. 核心组件替换契约（Component Overrides）
 
 当插件需要深度定制或整体替换工作台核心表现层（例如深度定制的输入框交互）时，使用组件替换体系。
 
-### 5.1 替换机制
+### 6.1 替换机制
 
 插件调用 `overrideComponent` 注册目标组件实现：
 
@@ -231,7 +293,7 @@ uiRegistry.overrideComponent('ComposerDock', CustomComposer);
 - 宿主通过 `registry.getComponent(name, DefaultComponent)` 解析当前渲染组件；
 - 当存在合法替换组件时优先使用插件提供物；当无替换或替换被注销时自动平滑回退至内置默认实现。
 
-### 5.2 ComposerContractProps 契约规范
+### 6.2 ComposerContractProps 契约规范
 
 被替换组件必须严格遵守强类型策略契约，确保数据流、流式状态与发送通道不被破坏。
 
@@ -259,9 +321,37 @@ export interface ComposerContractProps {
 - **单通道派发原则**：若宿主传入了 `props.onSend` / `props.onAttachmentPicker` / `props.onVoiceTrigger` 等回调函数，组件在相应触发时**仅调用该回调**，不得在同一次交互中再次触发 `emit('send')` 或执行默认逻辑，防止多通道重复提交；
 - **宿主并发互斥保护**：宿主 `sendMessage` 内置 `isSendingMessage` 锁与 `attachmentUploading` 守卫，跨越异步附件上传到 SSE 结束的全周期，彻底阻断并发连击。
 
-## 6. 宿主上下文注入与容灾隔离（Workbench Context & Error Boundaries）
+### 6.3 消息变换管道（Message Transformers）
 
-### 6.1 工作台上下文依赖注入
+当插件需要修饰、过滤或动态增强用户发送的消息内容时，通过 `uiRegistry.registerMessageTransformer` 挂载至发送管道。对于模式意图声明，优先采用结构化 `metadata` 传递；文本前缀变换仅作为兼容后备方案。
+
+契约接口定义（位于 `packages/ui/src/registry/types.ts`）：
+
+```ts
+export interface MessageTransformContext {
+  quizMode?: boolean;
+  [key: string]: unknown;
+}
+
+export type MessageTransformer = (message: string, context?: MessageTransformContext) => string;
+
+// 注册消息变换拦截器（支持可选 priority 优先级，降序执行）
+const unregister = uiRegistry.registerMessageTransformer('my-plugin:prefix', (text, context) => {
+  if (context?.quizMode) return text;
+  const prefix = '[模式：专属模式] ';
+  return text.startsWith(prefix) ? text : `${prefix}${text}`;
+}, 100);
+```
+
+执行原则与安全约束：
+
+- **幂等性原则**：变换器必须支持重复处理幂等，针对静态前缀必须通过 `startsWith` 防御，避免重发或二次管道流转时前缀重复堆叠；
+- **确定性执行序**：宿主执行 `registry.transformMessage(message, context)` 时严格按照 `priority` 降序串行流水线执行；
+- **容错隔离**：单个变换器执行抛出异常时由宿主捕获告警，保证核心发送通道不被阻断。
+
+## 7. 宿主上下文注入与容灾隔离（Workbench Context & Error Boundaries）
+
+### 7.1 工作台上下文依赖注入
 
 工作台通过 Vue `provideWorkbenchContext()` / `useWorkbenchContext()` 向深层子组件及插件暴露受控领域状态：
 
@@ -269,7 +359,7 @@ export interface ComposerContractProps {
 import { useWorkbenchContext } from '@aervox/ui';
 
 const {
-  layout,       // 布局与弹窗：studyModeEnabled, enterToSend, openTool, etc.
+  layout,       // 布局与弹窗：focusModeEnabled (兼容 studyModeEnabled), enterToSend, openTool, etc.
   timer,        // 番茄钟状态：timerRunning, formattedTime, timerMinutes
   composer,     // 输入状态与附件队列：input, pendingAttachments, clearPendingAttachments
   conversation, // 对话流状态：story, streaming, activeQuestion, pendingApproval
@@ -281,14 +371,14 @@ const {
 
 插件组件应将其作为只读或调用受控方法，禁止直接修改非自身持有的内部只读属性。
 
-### 6.2 双轨安全模型
+### 7.2 双轨安全模型
 
 遵循 `ADR-009` 与 `CR-006`，系统建立双轨运行机制：
 
 - **第一方 / 受信扩展**：由系统或官方签名分发的组件，可直接作为 Vue 原生组件注册至 `uiRegistry`，在主工作台上下文内渲染；
 - **第三方外部插件**：出于安全边界隔离要求，严禁直接向主 DOM 树挂载未经审计的代码。第三方插件只能使用 `PluginPageDialog` 沙箱，通过受限 iframe 与 Bridge SDK 进行交互。
 
-### 6.3 错误隔离沙盒（Error Boundaries）
+### 7.3 错误隔离沙盒（Error Boundaries）
 
 为杜绝插件异常引发主工作台白屏或交互瘫痪，插槽系统具备运行时错误隔离能力：
 
@@ -297,9 +387,13 @@ const {
 - 发生错误的插件组件 ID 将被自动计入 `failedComponentIds` 集合并被卸载，原位置降级展示警告占位徽标；
 - 单个插槽插件崩溃完全不影响工作台主对话、计时器及其他插件的正常运转。
 
-## 7. 验证
+## 8. 验证
 
+- `apps/api/test/study-term-plugins.test.ts`：验证 `ServerTurnPlugin` 门控、配置注入、`extraSections` 提示词切面注入与异步术语抽取；
+- `apps/api/test/quiz-mode.test.ts`：验证统一 `focus-mode` 结构化元数据触发、出题与答题判定落库；
+- `packages/agent-loop/test/context-builder.test.ts`：验证 Base Prompt 纯净底座与 `extraSections` 顺序注入；
 - `packages/ui/test/ui-registry.test.ts`：验证 `createUIRegistry` 工厂、插槽注册、优先级排序、组件替换与注销；
+- `packages/ui/test/study-mode-plugin.test.ts`：验证第一方 UI 插件加载与槽位挂载；
 - `packages/ui/test/workbench-composables.test.ts`：验证 Layout 与 Composer 间 `enterToSend` 状态同步、番茄钟自定义时长持久化等；
 - `packages/database/test/plugin-config.test.ts`：租户隔离、CAS、reset、secret 状态、Page 元数据；
 - `apps/api/test/plugin-config.test.ts`：Schema 注册/校验、保存/回显保护、409 冲突、重置、Page 资源与路径穿越、Bridge SDK、卸载清理；

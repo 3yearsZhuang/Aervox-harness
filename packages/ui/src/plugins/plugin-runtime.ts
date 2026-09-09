@@ -40,6 +40,7 @@ export function createWorkbenchPluginRuntime(
 
   const activeCleanups = new Map<string, () => void>();
   const availablePlugins = ref<Record<string, boolean>>({});
+  let currentSyncSeq = 0;
 
   // 默认启动所有内置插件（若离线/无网络环境下保持默认可用体验）
   for (const plugin of customPlugins) {
@@ -58,6 +59,7 @@ export function createWorkbenchPluginRuntime(
     plugins: Array<{ id: string; enabled?: number }>,
     getConfig: (pluginId: string) => Promise<{ values?: Record<string, unknown> } | null>,
   ): Promise<void> {
+    const syncSeq = ++currentSyncSeq;
     const context = getContext();
 
     for (const def of customPlugins) {
@@ -107,7 +109,8 @@ export function createWorkbenchPluginRuntime(
             if (!snapshot?.values && def.id === 'focus-mode') {
               snapshot = await getConfig('study-mode');
             }
-            if (snapshot?.values) {
+            // 并发防竞态校验：仅当本轮 sync 为最新且该插件当前仍处于启用状态时才生效
+            if (syncSeq === currentSyncSeq && availablePlugins.value[def.id] && snapshot?.values) {
               await def.onConfig(snapshot.values, context);
             }
           } catch {
@@ -129,6 +132,7 @@ export function createWorkbenchPluginRuntime(
   }
 
   function destroy(): void {
+    currentSyncSeq++;
     for (const cleanup of activeCleanups.values()) {
       try {
         cleanup();
