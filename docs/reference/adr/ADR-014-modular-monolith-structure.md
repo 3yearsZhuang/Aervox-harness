@@ -1,3 +1,16 @@
+---
+id: ADR-014
+type: reference
+scope: decision
+owner: maintainers
+doc_status: approved
+decision_status: accepted
+version: 0.1.0
+updated_at: 2026-08-31
+reviewed_at: 2026-08-31
+review_interval_days: 90
+---
+
 # ADR-014 演进式模块化单体：apps/api 目录结构
 
 - 提出人：3yearszhuang · 2026-08-26
@@ -7,8 +20,6 @@
 - 日期：2026-08-25
 
 - 关联：`CAP-001～035`、`ADR-001`（模块化单体决策的细化）、`AVX-SAD-001 §3`
-
-> 更新日期：2026-08-31
 
 ## Context
 

@@ -1,3 +1,16 @@
+---
+id: ADR-013
+type: reference
+scope: decision
+owner: maintainers
+doc_status: review-candidate
+decision_status: proposed
+version: 0.1.0
+updated_at: 2026-08-31
+reviewed_at: 2026-08-31
+review_interval_days: 90
+---
+
 # ADR-013 独立恢复控制账本与撤权先行
 
 - 提出人：3yearszhuang · 2026-08-26
@@ -6,8 +19,6 @@
 - 状态：Proposed
 - 日期：2026-08-24
 - 关联：`NFR-DR-001`、`NFR-SEC-001`、`NFR-PRIV-001`、`RISK-004/005`、`ADR-004`、`ADR-011`、`ADR-012`
-
-> 更新日期：2026-08-31
 
 ## Context
 
