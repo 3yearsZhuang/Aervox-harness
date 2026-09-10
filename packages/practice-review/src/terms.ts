@@ -24,6 +24,8 @@ export interface ExtractTermsOptions {
   llm?: LLMCallable;
   maxTerms?: number;
   enableHeuristicFallback?: boolean;
+  /** 是否启用二阶段 LLM 质检复核（默认 true，若为 false 则跳过复核） */
+  enableJudgePass?: boolean;
 }
 
 /** 通用词/停用词黑名单（不具有技术下钻或概念对比价值的词） */
@@ -197,7 +199,12 @@ export async function extractTerms(
   fullText: string,
   options: ExtractTermsOptions = {},
 ): Promise<ExtractedTerm[]> {
-  const { llm, maxTerms = 8, enableHeuristicFallback = true } = options;
+  const {
+    llm,
+    maxTerms = 8,
+    enableHeuristicFallback = true,
+    enableJudgePass = true,
+  } = options;
   if (!fullText || typeof fullText !== "string" || fullText.trim().length === 0) {
     return [];
   }
@@ -226,8 +233,8 @@ export async function extractTerms(
 
       candidates = parseTermsFromJSON(response);
 
-      // 阶段 2: LLM 复核 (_llm_judge) — 当候选词 > 5 时进行质检过滤
-      if (candidates.length > 5) {
+      // 阶段 2: LLM 复核 (_llm_judge) — 仅当 enableJudgePass 开启且候选词 > 5 时进行质检过滤
+      if (enableJudgePass && candidates.length > 5) {
         const judgeSystemPrompt = `你是一位严苛的技术质检员。
 请对以下候选术语进行严格筛选，剔除过于泛化、无实际技术深度或容易产生歧义的词汇，只保留真正值得作为知识点追问下钻或对比学习的高价值名词。
 只返回筛选后保留的 JSON 数组。`;

@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/agent-loop — record_practice_attempt 工具提供者（CAP-016 刷题闭环）
  *
- * 刷题模式下 AI 判定用户作答后，通过本工具将不可变学习事实落库：
+ * 练习或自测场景下 AI 判定用户作答后，通过本工具将不可变学习事实落库：
  * - 声明 record_practice_attempt 工具（readOnly: true，与 ask_user_question 同款先例——
  *   持久化的是用户自己作答产生的学习事实，非破坏性写，无需逐次审批门）；
  * - 模型侧参数：prompt / questionType? / userAnswer / correctAnswer / judgement / explanation? / knowledgeConcept?；
@@ -22,7 +22,7 @@ const JUDGEMENTS = ["correct", "incorrect", "partial"] as const;
 export const RECORD_PRACTICE_ATTEMPT_SPEC: ToolSpec = {
   name: RECORD_PRACTICE_ATTEMPT_TOOL,
   description:
-    "刷题模式下记录一次用户作答与判定结果（每题必调）。参数: { prompt: 题干, questionType?: 'choice'|'short_answer'|'fill_blank', userAnswer: 用户原始回答, correctAnswer: 标准答案, judgement: 'correct'|'incorrect'|'partial', explanation?: 解析, knowledgeConcept?: 知识点概念 }。judgement 为 incorrect 的作答会自动进入错题本。",
+    "记录一次用户作答与判定结果（每题必调）。参数: { prompt: 题干, questionType?: 'choice'|'short_answer'|'fill_blank', userAnswer: 用户原始回答, correctAnswer: 标准答案, judgement: 'correct'|'incorrect'|'partial', explanation?: 解析, knowledgeConcept?: 知识点概念 }。judgement 为 incorrect 的作答会自动进入错题本。",
   // 学习事实（用户自己作答产生）持久化，非破坏性；与 ask_user_question 持久化事件的先例一致，免逐次审批门。
   readOnly: true,
   parameters: {

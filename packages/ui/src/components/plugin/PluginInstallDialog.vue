@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage } from '../../utils/element'
 import { PackagePlus } from 'lucide-vue-next'
 import { useAervoxPlugins } from '@aervox/api-client'
 import { validatePluginInstallForm } from './plugin-install-form'

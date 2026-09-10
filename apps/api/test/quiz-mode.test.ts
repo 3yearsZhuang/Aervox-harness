@@ -114,6 +114,52 @@ describe("CAP-016 刷题模式闭环", () => {
     expect(mistakes[0].wrongCount).toBe(1);
   });
 
+  it("结构化元数据 Turn（metadata.mode = quiz）：无前缀纯净消息亦可成功触发刷题模式", async () => {
+    const created = await app.inject({
+      method: "POST",
+      url: "/v1/sessions/ses_quiz_meta/turns",
+      headers,
+      payload: {
+        message: { content: "请考考我数学题", contentType: "text" },
+        clientVersion: "it-quiz",
+        references: [],
+        metadata: { mode: "quiz" },
+      },
+    });
+    expect(created.statusCode).toBe(201);
+    const turnId = created.json().turnId as string;
+
+    const eventsRes = await app.inject({ method: "GET", url: `/v1/turns/${turnId}/events`, headers });
+    const parsed = parseSse(eventsRes.body);
+    const types = parsed.map((e) => e.eventType);
+
+    expect(types).toContain("tool_request");
+    expect(types).toContain("tool_result");
+  });
+
+  it("统一专注模式元数据 Turn（metadata.mode = focus, intent = quiz）：无前缀纯净消息亦可成功触发出题闭环", async () => {
+    const created = await app.inject({
+      method: "POST",
+      url: "/v1/sessions/ses_focus_quiz_meta/turns",
+      headers,
+      payload: {
+        message: { content: "请考考我数学题", contentType: "text" },
+        clientVersion: "it-quiz",
+        references: [],
+        metadata: { mode: "focus", intent: "quiz" },
+      },
+    });
+    expect(created.statusCode).toBe(201);
+    const turnId = created.json().turnId as string;
+
+    const eventsRes = await app.inject({ method: "GET", url: `/v1/turns/${turnId}/events`, headers });
+    const parsed = parseSse(eventsRes.body);
+    const types = parsed.map((e) => e.eventType);
+
+    expect(types).toContain("tool_request");
+    expect(types).toContain("tool_result");
+  });
+
   it("端口适配层：correct 作答落库但不进入错题本", async () => {
     const learningRepo = new SqliteLearningRepository(db);
     const factory = createPracticeAttemptPortFactory(learningRepo);

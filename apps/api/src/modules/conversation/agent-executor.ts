@@ -32,13 +32,24 @@ import type {
   WorkflowDefinition,
 } from "@aervox/agent-loop";
 import { SqliteExecutionStore, runAdapterTurn } from "@aervox/host-agent";
-import { extractTerms } from "@aervox/practice-review";
-import type {
-  IProactiveProfileRepository,
-  SqliteConversationRepository,
-  TenantContext,
+import type { LLMCallable } from "@aervox/practice-review";
+import {
+  type AervoxDatabase,
+  type IExtensionRepository,
+  type IPluginConfigRepository,
+  type IProactiveProfileRepository,
+  type SqliteConversationRepository,
+  type TenantContext,
+  SqliteExtensionRepository,
+  SqlitePluginConfigRepository,
 } from "@aervox/repositories";
 import { loadApiConfig } from "@aervox/config";
+import {
+  defaultServerTurnPluginRegistry,
+  executeBeforeTurnPlugins,
+  executeAfterTurnPlugins,
+  type TurnPluginContext,
+} from "../plugins/turn-plugins/index.js";
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
 import { resolveDshTurnAdapter } from "./dsh-adapter.js";
@@ -52,6 +63,49 @@ import {
   loadProactiveProfilePrompt,
 } from "../proactive/profile-context.js";
 import { buildMemoryContext, type MemoryRecallPort } from "./memory-recall.js";
+
+// 专注模式与向后兼容导出：底层实现已解耦下沉至 plugins/turn-plugins/focus-mode.ts
+export {
+  loadFocusModeRuntimeConfig,
+  DEFAULT_FOCUS_MODE_CONFIG,
+  isFocusModeMessage,
+  type FocusModeRuntimeConfig,
+  loadStudyModeRuntimeConfig,
+  DEFAULT_STUDY_MODE_CONFIG,
+  isStudyModeMessage,
+  type StudyModeRuntimeConfig,
+} from "../plugins/turn-plugins/focus-mode.js";
+
+/** 将 ModelProviderPort 适配为 practice-review 所需的 LLMCallable 接口 */
+export function createLLMCallable(provider: ModelProviderPort): LLMCallable {
+  return {
+    async generate(prompt: string, options?: { systemPrompt?: string; temperature?: number }): Promise<string> {
+      const messages: Array<{ role: "system" | "user" | "assistant" | "tool"; content: string }> = [];
+      if (options?.systemPrompt) {
+        messages.push({ role: "system", content: options.systemPrompt });
+      }
+      messages.push({ role: "user", content: prompt });
+      let text = "";
+      const callId = `llm_${Date.now().toString(36)}`;
+      for await (const chunk of provider.stream({
+        turnId: callId,
+        attemptId: `atp_${callId}`,
+        step: 1,
+        temperature: options?.temperature,
+        context: {
+          turnId: callId,
+          sessionId: `ses_${callId}`,
+          messages,
+        },
+      })) {
+        if (chunk.text) {
+          text += chunk.text;
+        }
+      }
+      return text;
+    },
+  };
+}
 
 /** SqliteExecutionStore 组合根适配由 @aervox/host-agent 提供（见上方 import），API 不再自维护 SQLite 执行存储 */
 
@@ -433,64 +487,6 @@ async function failTurnWithError(
   await store.finalizeAttempt({ turnId, attemptId, status: "Failed" }).catch(() => undefined);
 }
 
-/** 识别当前消息是否带专注模式前缀或标识（专注/陪学讲解/深度拆解） */
-export function isStudyModeMessage(userMessage: string): boolean {
-  return (
-    userMessage.includes("[模式：专注模式]") ||
-    userMessage.includes("[模式：陪学讲解]") ||
-    userMessage.includes("[模式：深度拆解]")
-  );
-}
-
-/**
- * CAP-007 / CAP-002：专注模式 Turn 完成后的增强后处理——抽取文本中的术语并写入
- * turn_stream_events（terms_extracted）。属增强步骤，异常吞掉不影响 Turn 完成态。
- */
-async function extractStudyTerms(
-  repo: SqliteConversationRepository,
-  tenant: TenantContext,
-  input: { turnId: string; userMessage: string },
-): Promise<void> {
-  if (!isStudyModeMessage(input.userMessage)) return;
-  try {
-    const events = await repo.getStreamEvents(tenant, input.turnId, 0);
-    let fullAssistantText = "";
-    let lastSeq = 0;
-    let lastMessageId: string | undefined;
-
-    for (const ev of events) {
-      if (ev.sequence > lastSeq) lastSeq = ev.sequence;
-      if (ev.eventType === "message" && (ev.data as { messageId?: string }).messageId) {
-        lastMessageId = (ev.data as { messageId?: string }).messageId;
-      }
-      if (ev.eventType === "delta" && typeof (ev.data as { text?: string }).text === "string") {
-        fullAssistantText += (ev.data as { text?: string }).text;
-      }
-    }
-
-    let terms = fullAssistantText.trim().length > 0 ? await extractTerms(fullAssistantText) : [];
-    if (terms.length === 0 && input.userMessage) {
-      terms = await extractTerms(input.userMessage);
-    }
-    if (terms.length > 0) {
-      await repo.appendStreamEvent(tenant, {
-        id: `tme_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
-        turnId: input.turnId,
-        sequence: lastSeq + 1,
-        eventType: "terms_extracted",
-        payloadVersion: 1,
-        data: {
-          turnId: input.turnId,
-          messageId: lastMessageId,
-          terms,
-        },
-      });
-    }
-  } catch {
-    // 术语抽取属于增强后处理，吞掉异常防止影响 Turn 最终完成态
-  }
-}
-
 /**
  * ADR-010 阶段 6f：整 Turn 交已准入的 DSH Adapter 执行（runAdapterTurn：claim →
  * adapter 事件映射既有契约落库 → finalize；SSE 契约零改动）。
@@ -501,7 +497,14 @@ async function runDshAdapterTurn(
   repo: SqliteConversationRepository,
   tenant: TenantContext,
   store: SqliteExecutionStore,
-  input: { turnId: string; sessionId: string; attemptId: string; userMessage: string },
+  input: {
+    turnId: string;
+    sessionId: string;
+    attemptId: string;
+    userMessage: string;
+    systemPrompt?: string;
+  },
+  onFinalized?: (status: "Completed" | "Failed" | "Interrupted") => Promise<void>,
 ): Promise<void> {
   const resolved = await resolveDshTurnAdapter();
   if (!resolved.ok) {
@@ -514,12 +517,14 @@ async function runDshAdapterTurn(
     sessionId: input.sessionId,
     attemptId: input.attemptId,
     userMessage: input.userMessage,
+    systemPrompt: input.systemPrompt,
   });
   if (result.status === "Completed") {
     await repo.updateTurnStatus(tenant, input.turnId, "Completed");
-    await extractStudyTerms(repo, tenant, input);
+    await onFinalized?.("Completed");
   } else if (result.status === "Failed" || result.status === "Interrupted") {
     await repo.updateTurnStatus(tenant, input.turnId, result.status).catch(() => undefined);
+    await onFinalized?.(result.status);
   }
 }
 
@@ -576,7 +581,13 @@ export async function buildLoopProvider(
 export async function runLoopTurnOnce(
   repo: SqliteConversationRepository,
   tenant: TenantContext,
-  input: { turnId: string; sessionId: string; attemptId: string; userMessage: string },
+  input: {
+    turnId: string;
+    sessionId: string;
+    attemptId: string;
+    userMessage: string;
+    metadata?: Record<string, unknown>;
+  },
   deps: {
     toolRuntime?: ToolRuntime;
     llmConfigService?: LLMConfigService;
@@ -610,8 +621,34 @@ export async function runLoopTurnOnce(
     proactiveRepository?: IProactiveProfileRepository;
     /** CAP-005：普通长期记忆 FTS + 向量混合召回。 */
     memoryRecall?: MemoryRecallPort;
+    /** 插件仓储：用于检查 study-mode 等插件启用状态 */
+    extensionRepo?: IExtensionRepository;
+    /** 插件配置仓储：读取专注模式等插件运行时配置 */
+    pluginConfigRepo?: IPluginConfigRepository;
   } = {},
 ): Promise<void> {
+  const repoDb = (repo as unknown as { db?: AervoxDatabase })?.db;
+  const extRepo =
+    deps.extensionRepo ??
+    (repoDb ? new SqliteExtensionRepository(repoDb) : null);
+
+  const turnPluginCtx: TurnPluginContext = {
+    turnId: input.turnId,
+    sessionId: input.sessionId,
+    attemptId: input.attemptId,
+    userMessage: input.userMessage,
+    tenant,
+    repo,
+    metadata: input.metadata,
+  };
+
+  const beforeTurnExec = await executeBeforeTurnPlugins(
+    defaultServerTurnPluginRegistry,
+    turnPluginCtx,
+    extRepo,
+    deps.pluginConfigRepo,
+  );
+
   // 阶段 7（ADR-017）：Step 级 ModelRun + 每 Turn ContextManifest 快照落库（委托 platform 域）
   const store = new SqliteExecutionStore(
     repo,
@@ -649,7 +686,30 @@ export async function runLoopTurnOnce(
   // ADR-010 阶段 6f：AERVOX_LOOP_DRIVER=dsh → 整 Turn 走 DSH 进程外 Adapter
   // （自带 Agent 循环与模型回合，Provider/工具/上下文组合全部跳过；未就绪 fail-closed 不回退 native）。
   if (loadApiConfig().loopDriver === "dsh") {
-    await runDshAdapterTurn(repo, tenant, store, input);
+    let dshLlm: LLMCallable | undefined;
+    if (deps.llmConfigService && loadApiConfig().loopProvider === "llm") {
+      try {
+        const p = await buildLoopProvider(tenant, deps.llmConfigService);
+        dshLlm = createLLMCallable(p);
+      } catch {
+        // ignore
+      }
+    }
+    const dshInput = {
+      ...input,
+      ...(beforeTurnExec.extraSections.length > 0
+        ? { systemPrompt: beforeTurnExec.extraSections.join("\n\n") }
+        : {}),
+    };
+    await runDshAdapterTurn(repo, tenant, store, dshInput, async (status) => {
+      await executeAfterTurnPlugins(
+        defaultServerTurnPluginRegistry,
+        { ...turnPluginCtx, status, llm: dshLlm },
+        extRepo,
+        deps.pluginConfigRepo,
+        beforeTurnExec.pluginResults,
+      );
+    });
     return;
   }
 
@@ -708,12 +768,6 @@ export async function runLoopTurnOnce(
   const tools = contributionProvider && runtimeProvider
     ? composeToolProviders([contributionProvider], { fallback: runtimeProvider })
     : contributionProvider ?? runtimeProvider;
-  // 识别当前消息是否带专注模式前缀或标识，动态决定是否注入专注模式专属 Prompt
-  const isStudyMode = isStudyModeMessage(input.userMessage);
-  // CAP-016 刷题模式触发：按钮前缀（任何模式生效）或 专注模式下的刷题关键词（避免日常聊天误触发）
-  const hasQuizPrefix = input.userMessage.includes("[模式：刷题模式]");
-  const quizKeywords = /来几道题|来几道|刷题|出几道题|考考我|出题/;
-  const isQuizMode = hasQuizPrefix || (isStudyMode && quizKeywords.test(input.userMessage));
   // 5b：默认启用 Base System Prompt（含核心工具指引）与 Skill 渐进披露；压缩 seam 默认关闭，
   // 设置 AERVOX_LOOP_COMPACTION=rule 启用内置规则式摘要。
   // 人格覆盖：激活人格时，其名称/设定覆盖系统默认身份，其技能白名单过滤渐进披露清单。
@@ -756,8 +810,7 @@ export async function runLoopTurnOnce(
       assistantName: deps.persona?.name || "思隅 (Aervox)",
       personaPrompt: deps.persona?.prompt,
       activeTools: tools?.tools,
-      studyMode: isStudyMode,
-      quizMode: isQuizMode,
+      extraSections: beforeTurnExec.extraSections,
     },
     skills: disclosedSkills,
     ...(loadApiConfig().loopCompaction === "rule"
@@ -793,6 +846,13 @@ export async function runLoopTurnOnce(
   // 以 Loop 结果对齐 turns 状态；skipped（幂等保护）不覆盖。
   if (result.status === "completed") {
     await repo.updateTurnStatus(tenant, input.turnId, "Completed");
-    await extractStudyTerms(repo, tenant, input);
+    const llm = provider ? createLLMCallable(provider) : undefined;
+    await executeAfterTurnPlugins(
+      defaultServerTurnPluginRegistry,
+      { ...turnPluginCtx, status: "Completed", llm },
+      extRepo,
+      deps.pluginConfigRepo,
+      beforeTurnExec.pluginResults,
+    );
   }
 }

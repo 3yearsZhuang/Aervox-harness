@@ -73,13 +73,26 @@ export class PluginConfigService {
     return out;
   }
 
+  private async findPlugin(pluginId: string): Promise<{ plugin: PluginModel; resolvedId: string } | null> {
+    let plugin = await this.deps.extensionRepo.getPlugin(pluginId);
+    if (plugin) return { plugin, resolvedId: pluginId };
+    if (pluginId === "study-mode") {
+      plugin = await this.deps.extensionRepo.getPlugin("focus-mode");
+      if (plugin) return { plugin, resolvedId: "focus-mode" };
+    } else if (pluginId === "focus-mode") {
+      plugin = await this.deps.extensionRepo.getPlugin("study-mode");
+      if (plugin) return { plugin, resolvedId: "study-mode" };
+    }
+    return null;
+  }
+
   private async requirePlugin(pluginId: string): Promise<PluginModel> {
-    const plugin = await this.deps.extensionRepo.getPlugin(pluginId);
-    if (!plugin) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
-    if (plugin.enabled !== 1) {
+    const found = await this.findPlugin(pluginId);
+    if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
+    if (found.plugin.enabled !== 1) {
       throw new PluginConfigError(409, "PLUGIN_DISABLED", `plugin disabled: ${pluginId}`);
     }
-    return plugin;
+    return found.plugin;
   }
 
   private async audit(
@@ -102,7 +115,9 @@ export class PluginConfigService {
   // ── Schema ──────────────────────────────────────────────
 
   async registerConfigSchema(pluginId: string, input: unknown): Promise<unknown> {
-    const plugin = await this.requirePlugin(pluginId);
+    const found = await this.findPlugin(pluginId);
+    if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
+    const { plugin, resolvedId } = found;
     let fields: ReturnType<typeof parseConfigSchema>;
     try {
       fields = parseConfigSchema(input);
@@ -114,7 +129,7 @@ export class PluginConfigService {
       );
     }
     const updated = await this.deps.extensionRepo.setPluginConfigSchema(
-      pluginId,
+      resolvedId,
       fields,
       plugin.configSchemaVersion ?? 1,
     );
@@ -123,7 +138,9 @@ export class PluginConfigService {
   }
 
   async getConfigSchema(pluginId: string): Promise<{ schemaVersion: number; fields: unknown[] }> {
-    const plugin = await this.requirePlugin(pluginId);
+    const found = await this.findPlugin(pluginId);
+    if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
+    const { plugin } = found;
     if (!plugin.configSchemaJson) {
       throw new PluginConfigError(404, "PLUGIN_CONFIG_SCHEMA_NOT_FOUND", "plugin has no config schema");
     }
@@ -136,10 +153,18 @@ export class PluginConfigService {
   // ── 配置 ──────────────────────────────────────────────
 
   async getConfig(tenant: TenantContext, pluginId: string): Promise<PluginConfigSnapshot> {
-    await this.requirePlugin(pluginId);
-    const schema = await this.getConfigSchema(pluginId);
-    const stored = await this.deps.configRepo.getConfig(tenant, pluginId);
-    const secretStates = await this.deps.secretRepo.listStates(tenant, pluginId);
+    const found = await this.findPlugin(pluginId);
+    if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
+    if (found.plugin.enabled !== 1) {
+      throw new PluginConfigError(409, "PLUGIN_DISABLED", `plugin disabled: ${pluginId}`);
+    }
+    const targetId = found.resolvedId;
+    const schema = await this.getConfigSchema(targetId);
+    let stored = await this.deps.configRepo.getConfig(tenant, targetId);
+    if (!stored && targetId !== pluginId) {
+      stored = await this.deps.configRepo.getConfig(tenant, pluginId);
+    }
+    const secretStates = await this.deps.secretRepo.listStates(tenant, targetId);
     const fields = schema.fields as Parameters<typeof validateValues>[0];
     const values = stored?.valuesJson as Record<string, unknown> | undefined;
     const { defaults } = diffSchema(fields, (values ?? {}) as Record<string, unknown>);
@@ -159,10 +184,18 @@ export class PluginConfigService {
     pluginId: string,
     body: { revision: number; values?: Record<string, unknown>; secretValues?: Record<string, string | null> },
   ): Promise<PluginConfigSnapshot> {
-    await this.requirePlugin(pluginId);
-    const schema = await this.getConfigSchema(pluginId);
+    const found = await this.findPlugin(pluginId);
+    if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
+    if (found.plugin.enabled !== 1) {
+      throw new PluginConfigError(409, "PLUGIN_DISABLED", `plugin disabled: ${pluginId}`);
+    }
+    const targetId = found.resolvedId;
+    const schema = await this.getConfigSchema(targetId);
     const fields = schema.fields as Parameters<typeof validateValues>[0];
-    const stored = await this.deps.configRepo.getConfig(tenant, pluginId);
+    let stored = await this.deps.configRepo.getConfig(tenant, targetId);
+    if (!stored && targetId !== pluginId) {
+      stored = await this.deps.configRepo.getConfig(tenant, pluginId);
+    }
 
     // 合并当前值（缺省字段保留原值）
     const previous = stored?.valuesJson as Record<string, unknown> | undefined;
@@ -177,17 +210,17 @@ export class PluginConfigService {
       if (field.type !== "secret") continue;
       const op = body.secretValues?.[field.key];
       if (op === null) {
-        await this.deps.secretRepo.delete(tenant, pluginId, field.key);
+        await this.deps.secretRepo.delete(tenant, targetId, field.key);
       } else if (typeof op === "string") {
-        await this.deps.secretRepo.put(tenant, { pluginId, fieldKey: field.key, value: op });
+        await this.deps.secretRepo.put(tenant, { pluginId: targetId, fieldKey: field.key, value: op });
       }
     }
-    const secretStates = await this.deps.secretRepo.listStates(tenant, pluginId);
+    const secretStates = await this.deps.secretRepo.listStates(tenant, targetId);
     const secretKeys = secretStates.map((s) => s.fieldKey);
     const secretFields = this.buildSecretFields(fields, secretStates);
 
     const { saved, conflict } = await this.deps.configRepo.saveConfig(tenant, {
-      pluginId,
+      pluginId: targetId,
       schemaVersion: schema.schemaVersion,
       expectedRevision: body.revision,
       values,
@@ -210,12 +243,17 @@ export class PluginConfigService {
   }
 
   async resetConfig(tenant: TenantContext, pluginId: string): Promise<PluginConfigSnapshot> {
-    await this.requirePlugin(pluginId);
-    const schema = await this.getConfigSchema(pluginId);
+    const found = await this.findPlugin(pluginId);
+    if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
+    if (found.plugin.enabled !== 1) {
+      throw new PluginConfigError(409, "PLUGIN_DISABLED", `plugin disabled: ${pluginId}`);
+    }
+    const targetId = found.resolvedId;
+    const schema = await this.getConfigSchema(targetId);
     const fields = schema.fields as Parameters<typeof validateValues>[0];
     const defaults = applyDefaults(fields);
-    await this.deps.secretRepo.deleteAllForPlugin(pluginId);
-    const saved = await this.deps.configRepo.resetConfig(tenant, pluginId, schema.schemaVersion, defaults);
+    await this.deps.secretRepo.deleteAllForPlugin(targetId);
+    const saved = await this.deps.configRepo.resetConfig(tenant, targetId, schema.schemaVersion, defaults);
     await this.audit(tenant, "plugin.config.reset", pluginId, { revision: saved.revision });
     return {
       pluginId,

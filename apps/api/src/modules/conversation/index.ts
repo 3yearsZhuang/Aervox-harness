@@ -9,8 +9,10 @@ import type { ModuleContext } from "../context.js";
 import {
   SqliteAgentInboxRepository,
   SqliteConversationRepository,
+  SqliteExtensionRepository,
   SqliteLearningRepository,
   SqlitePlatformRepository,
+  SqlitePluginConfigRepository,
   SqlitePrivacyRepository,
   SqliteSkillRegistryRepository,
   SqliteSubagentRunRepository,
@@ -39,6 +41,8 @@ export function registerConversationModule(ctx: ModuleContext): void {
   const subagentRunRepo = new SqliteSubagentRunRepository(db);
   // 阶段 7：ModelRun/ContextManifest 落库口（Step 级可追溯写入）
   const platformRepo = new SqlitePlatformRepository(db);
+  const extensionRepo = new SqliteExtensionRepository(db);
+  const pluginConfigRepo = new SqlitePluginConfigRepository(db);
   const userQuestionCoordinator = new UserQuestionCoordinator(
     conversationRepo,
     // 缺陷 C：挂起提问持久化到 pending_user_questions，进程重启后仍可作答/查询
@@ -48,6 +52,8 @@ export function registerConversationModule(ctx: ModuleContext): void {
     toolRuntime,
     llmConfigService,
     privacyRepo,
+    extensionRepo,
+    pluginConfigRepo,
     inboxRepo: new SqliteAgentInboxRepository(db),
     // 5b：Skill 渐进披露（activeOnly 清单 → name+description）
     skillLoader: async () =>

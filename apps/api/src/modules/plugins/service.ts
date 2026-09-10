@@ -133,14 +133,24 @@ export class PluginService {
 
   /** 启停插件 + 联动其工具 enabled 与技能 active */
   async setEnabled(id: string, enabled: boolean): Promise<PluginModel | null> {
-    const updated = await this.deps.extensionRepo.setPluginEnabled(id, enabled);
+    let targetId = id;
+    let updated = await this.deps.extensionRepo.setPluginEnabled(targetId, enabled);
+    if (!updated) {
+      if (id === "study-mode") {
+        targetId = "focus-mode";
+        updated = await this.deps.extensionRepo.setPluginEnabled(targetId, enabled);
+      } else if (id === "focus-mode") {
+        targetId = "study-mode";
+        updated = await this.deps.extensionRepo.setPluginEnabled(targetId, enabled);
+      }
+    }
     if (!updated) return null;
     const tools = await this.deps.registry.listTools();
-    for (const tool of tools.filter((t) => t.pluginId === id)) {
+    for (const tool of tools.filter((t) => t.pluginId === targetId || t.pluginId === id)) {
       await this.deps.registry.setEnabled(tool.id, enabled);
     }
     const skills = await this.deps.skillRegistry.listSkills();
-    for (const skill of skills.filter((s) => s.pluginId === id)) {
+    for (const skill of skills.filter((s) => s.pluginId === targetId || s.pluginId === id)) {
       await this.deps.skillRegistry.setActive(skill.id, enabled);
     }
     return updated;

@@ -45,7 +45,7 @@ const out = (msg) => {
 out({ kind: "hello", manifest });
 
 /** 单次模型回合（真实 LLM；OpenAI 兼容，DSH 同款协议） */
-async function modelTurn({ userMessage }) {
+async function modelTurn({ userMessage, systemPrompt }) {
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
@@ -54,7 +54,10 @@ async function modelTurn({ userMessage }) {
     },
     body: JSON.stringify({
       model: modelId,
-      messages: [{ role: "user", content: userMessage }],
+      messages: [
+        ...(systemPrompt ? [{ role: "system", content: systemPrompt }] : []),
+        { role: "user", content: userMessage },
+      ],
       max_tokens: 256,
       stream: false,
     }),
@@ -83,7 +86,10 @@ rl.on("line", async (raw) => {
     return;
   }
   try {
-    const text = await modelTurn({ userMessage: msg.request.userMessage });
+    const text = await modelTurn({
+      userMessage: msg.request.userMessage,
+      systemPrompt: msg.request.systemPrompt,
+    });
     out({ kind: "event", id, event: { type: "delta", text } });
     out({ kind: "batch", id, concludes: [true] });
     out({ kind: "done", id });

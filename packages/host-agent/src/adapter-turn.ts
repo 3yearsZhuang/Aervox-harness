@@ -27,6 +27,8 @@ export interface AdapterTurnInput {
   sessionId: string;
   attemptId: string;
   userMessage: string;
+  /** Host 已审核的系统提示词；原样透传给进程外 Adapter。 */
+  systemPrompt?: string;
   /** 可注入的工具 schema（透传给 adapter；缺省无） */
   tools?: import("@aervox/agent-loop").ToolSpec[];
 }
@@ -49,7 +51,7 @@ export async function runAdapterTurn(
   adapter: AdapterDriverPort,
   input: AdapterTurnInput,
 ): Promise<AdapterTurnResult> {
-  const { turnId, sessionId, attemptId, userMessage, tools } = input;
+  const { turnId, sessionId, attemptId, userMessage, systemPrompt, tools } = input;
 
   // 1) claim（CAS + fencing；expected=0 —— 全新 Attempt 语义与 executeTurn 一致）
   const claim = await store.claimTurnAttempt({ turnId, attemptId, expectedFencingToken: 0 });
@@ -83,7 +85,7 @@ export async function runAdapterTurn(
     await append(sequence++, "message", { messageId, role: "assistant", contentType: "text", isComplete: false });
 
     // 3) adapter 整 Turn 执行 + 事件映射（映射既有事件类型，SSE 契约稳定）
-    const request: AdapterRequest = { turnId, sessionId, attemptId, userMessage, tools };
+    const request: AdapterRequest = { turnId, sessionId, attemptId, userMessage, systemPrompt, tools };
     const { events, decision, protocolError } = await drainAdapterDriver(adapter, request);
 
     let toolSeq = 0;

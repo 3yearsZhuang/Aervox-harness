@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.4.0
+version: 1.5.0
 updated_at: 2026-09-10
 reviewed_at: 2026-09-10
 review_interval_days: 90
@@ -15,7 +15,7 @@ review_interval_days: 90
 # Aervox｜思隅 产品与工程文档索引
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-10
+- 修改人：codex · 2026-09-10
 
 本目录把产品目标、可测试需求、架构决策、数据权利和 AI 质量分开维护，避免单一 PRD 同时承担所有细节。所有上线范围必须能从用户价值追踪到需求、设计、测试和发布证据。
 
@@ -42,7 +42,8 @@ review_interval_days: 90
 | [Agent Harness Loop 设计与落地规范](reference/agent-harness-loop.md)（AVX-HAR-001） | 一次 Agent Turn 如何经过 Context、模型、工具、多 Step、取消恢复并安全终止 | Loop 状态机、Port、持久化、工具管线、限额、DSH/pi Driver 与分阶段迁移 |
 | [Agent Loop 落地进展追溯](reference/agent-loop-rollout-history.md)（AVX-HAR-002） | Agent Harness Loop 各阶段（2b 至 6f）详细的代码落位、数据表、测试用例与历史进展追溯 | 取消闭环、预算闸门、工具幂等、可观测性、三级恢复、收件箱、Context 压缩、Subagent 贡献与 DSH 适配 |
 | [能力注册表](reference/capability-registry.md)（AVX-CAP-REG-001） | 哪些能力纳入自选机制、以什么方式启用、当前处于哪个状态 | 交付载体与启用方式、CAP 分类与已注册模块登记；判定规则与交付机制见 AVX-CAP-001 |
-| [插件 Config 与 Page 规范](reference/plugin-config-and-pages.md)（AVX-PLUG-001） | 插件配置如何声明、校验、可视化，Page 如何安全承载 | Config Schema v1、配置存储/API、Page Bridge 与安全边界（CR-006） |
+| [插件 Config、Page 与 UI 扩展规范](reference/plugin-config-and-pages.md)（AVX-PLUG-001） | 插件配置、Server Turn 生命周期与工作台扩展如何声明和执行 | Config Schema、Page Bridge、Turn 管道、UI 插槽、组件替换与安全边界 |
+| [开发 Aervox 扩展插件](how-to/develop-plugin-ui-extension.md)（AVX-GUIDE-004） | 如何实现贯穿服务端 Turn 与工作台 UI 的插件 | Bundle、配置、动态提示词、结构化元数据、UI 插槽与验证步骤 |
 | [操作指南](how-to/README.md)（AVX-HOW-001） | 怎么新增/修改需求、写 ADR、过发布会门禁、做季度演练、管可选模块 submodule；贡献者流程见根级 [CONTRIBUTING](../CONTRIBUTING.md) | 任务型流程导航与操作指引（工程流程、写 ADR、submodule 协作）；规则以对应专项文档为事实源 |
 | [暂存提案](proposals) | 尚未进入基线的方案是什么 | 待补充证据（More Evidence Required）或未采纳的技术探索提案；不承载已批准规则 |
 | [已归档记录](archive) | 历史变更与已退役决策的原始记录是什么 | 已完成或已退役的历史变更；变更经发布周期后迁移留存，避免混淆当前活跃规范 |

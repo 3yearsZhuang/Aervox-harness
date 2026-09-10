@@ -11,4 +11,30 @@ export default defineConfig({
     // AERVOX_WEB_PORT：本地端口被系统保留段（如 Windows WinNAT excludedportrange）占用时覆盖；默认 5173
     port: Number(process.env.AERVOX_WEB_PORT) || 5173,
   },
+  build: {
+    chunkSizeWarningLimit: 500,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('@sekai-world/pixi-live2d-display-mulmotion')) {
+              return 'vendor-live2d'
+            }
+            if (id.includes('pixi.js')) {
+              return 'vendor-pixi'
+            }
+            if (id.includes('element-plus')) {
+              return 'vendor-element'
+            }
+            if (id.includes('lucide-vue-next')) {
+              return 'vendor-icons'
+            }
+            if (id.includes('vue')) {
+              return 'vendor-vue'
+            }
+          }
+        },
+      },
+    },
+  },
 })

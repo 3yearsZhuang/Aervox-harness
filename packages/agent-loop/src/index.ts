@@ -20,3 +20,5 @@ export * from "./practice-attempt-tool.js";
 export * from "./resume.js";
 export * from "./lease-heartbeat.js";
 export * from "./tool-result-safe.js";
+export * from "./study-mode-prompt.js";
+export * from "./focus-mode-prompt.js";

@@ -35,7 +35,7 @@ export interface StreamAervoxTurnCallbacks {
 export async function streamAervoxTurn(
   content: string,
   callbacks: StreamAervoxTurnCallbacks,
-  options: { toolApprovalMode?: ToolApprovalMode; attachments?: TurnAttachmentRef[] } = {},
+  options: { toolApprovalMode?: ToolApprovalMode; attachments?: TurnAttachmentRef[]; metadata?: Record<string, unknown> } = {},
 ): Promise<void> {
   await getTransport().streamTurn(getSessionId(), content, callbacks, options);
 }

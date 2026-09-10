@@ -143,42 +143,85 @@ describe("基础系统提示词与工具指引 (Base System Prompt & Tool Guidan
     }
   });
 
-  it("buildBaseSystemPrompt：开启 studyMode 时注入苏格拉底启发式教学与防剧透规则", async () => {
-    const { buildBaseSystemPrompt } = await import("../src/base-prompt.js");
-    const prompt = buildBaseSystemPrompt({
-      assistantName: "导师思隅",
-      studyMode: true,
-      personaPrompt: "活泼幽默",
-    });
+  it("buildFocusModePrompt：构建苏格拉底启发式教学与防剧透规则", async () => {
+    const { buildFocusModePrompt } = await import("../src/focus-mode-prompt.js");
+    const prompt = buildFocusModePrompt();
 
     expect(prompt).toContain("专注模式核心教学原则");
     expect(prompt).toContain("苏格拉底式启发引导");
     expect(prompt).toContain("循序渐进与分步拆解");
-    expect(prompt).toContain("活泼幽默");
   });
 
-  it("buildBaseSystemPrompt：默认不注入刷题模式规范", async () => {
+  it("buildFocusModePrompt：支持自定义脚手架步数与严格防剧透", async () => {
+    const { buildFocusModePrompt } = await import("../src/focus-mode-prompt.js");
+    const prompt = buildFocusModePrompt({
+      scaffoldingSteps: 4,
+      strictAntiSpoiler: true,
+    });
+
+    expect(prompt).toContain("拆解为 4 个连贯的小步骤");
+    expect(prompt).toContain("【严格防剧透模式开启】");
+  });
+
+  it("QUIZ_MODE_SYSTEM_PROMPT：定义刷题出题与判定闭环规范并包含工具指引要求", async () => {
+    const { QUIZ_MODE_SYSTEM_PROMPT } = await import("../src/focus-mode-prompt.js");
+    expect(QUIZ_MODE_SYSTEM_PROMPT).toContain("专注模式·刷题核心规范");
+    expect(QUIZ_MODE_SYSTEM_PROMPT).toContain("record_practice_attempt");
+    expect(QUIZ_MODE_SYSTEM_PROMPT).toContain("ask_user_question");
+  });
+
+  it("buildBaseSystemPrompt：作为纯净底座，默认不包含专注模式或刷题模式内容", async () => {
     const { buildBaseSystemPrompt } = await import("../src/base-prompt.js");
     const prompt = buildBaseSystemPrompt({ assistantName: "思隅" });
 
-    expect(prompt).not.toContain("刷题模式核心规范");
+    expect(prompt).not.toContain("专注模式核心教学原则");
+    expect(prompt).not.toContain("刷题核心规范");
+    expect(prompt).not.toContain("刷题模式下");
+    expect(prompt).not.toContain("非刷题场景");
   });
 
-  it("buildBaseSystemPrompt：开启 quizMode 时注入刷题闭环规范并登记工具指引", async () => {
+  it("buildBaseSystemPrompt：支持 extraSections 注入扩展规则段（如专注模式与刷题规范）并保持顺序", async () => {
     const { buildBaseSystemPrompt } = await import("../src/base-prompt.js");
+    const { buildFocusModePrompt, QUIZ_MODE_SYSTEM_PROMPT } = await import("../src/focus-mode-prompt.js");
+    const customSection = "### 自定义扩展规则\n遵循某种特殊业务规则。";
     const prompt = buildBaseSystemPrompt({
-      assistantName: "考官思隅",
-      studyMode: true,
-      quizMode: true,
+      assistantName: "思隅",
+      extraSections: [
+        buildFocusModePrompt({ scaffoldingSteps: 5 }),
+        customSection,
+        QUIZ_MODE_SYSTEM_PROMPT,
+      ],
+      personaPrompt: "专业严谨",
     });
 
-    expect(prompt).toContain("刷题模式核心规范");
-    expect(prompt).toContain("record_practice_attempt");
-    expect(prompt).toContain("ask_user_question");
-    // 刷题段置后于专注模式段（覆盖「不直接给答案」规则）
-    expect(prompt.indexOf("专注模式核心教学原则")).toBeLessThan(
-      prompt.indexOf("刷题模式核心规范"),
+    expect(prompt).toContain("拆解为 5 个连贯的小步骤");
+    expect(prompt).toContain("自定义扩展规则");
+    expect(prompt).toContain("专注模式·刷题核心规范");
+    // 验证相对顺序：extraSections -> personaPrompt -> outputStyle
+    expect(prompt.indexOf("拆解为 5 个连贯的小步骤")).toBeLessThan(
+      prompt.indexOf("自定义扩展规则"),
     );
+    expect(prompt.indexOf("自定义扩展规则")).toBeLessThan(
+      prompt.indexOf("专注模式·刷题核心规范"),
+    );
+    expect(prompt.indexOf("专注模式·刷题核心规范")).toBeLessThan(
+      prompt.indexOf("# 人格设定"),
+    );
+    expect(prompt.indexOf("# 人格设定")).toBeLessThan(
+      prompt.indexOf("输出格式"),
+    );
+  });
+
+  it("study-mode-prompt：可独立引入并构建不同配置的专注模式提示词", async () => {
+    const { buildStudyModePrompt, STUDY_MODE_SYSTEM_PROMPT } = await import(
+      "../src/study-mode-prompt.js"
+    );
+
+    expect(STUDY_MODE_SYSTEM_PROMPT).toContain("专注模式核心教学原则");
+    const relaxed = buildStudyModePrompt({ strictAntiSpoiler: false, scaffoldingSteps: 2 });
+    expect(relaxed).toContain("拆解为 2 个连贯的小步骤");
+    expect(relaxed).not.toContain("【严格防剧透模式开启】");
+    expect(relaxed).toContain("优先识别用户的卡点");
   });
 
   it("createComposedContextBuilder：baseSystemPrompt 置于最前并支持与 skills 组合", async () => {

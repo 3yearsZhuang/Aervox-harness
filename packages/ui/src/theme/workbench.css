@@ -1537,19 +1537,124 @@
   gap: 12px;
 }
 
+.composer-ops {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.composer-op-btn {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 64%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-soft) 78%, transparent);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 550;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: color .16s ease, border-color .16s ease, background-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+
+.composer-op-btn:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--bg-hover) 88%, transparent);
+}
+
+.composer-op-btn:active:not(:disabled) {
+  transform: scale(.98);
+}
+
+.composer-op-btn:disabled {
+  cursor: not-allowed;
+  opacity: .48;
+}
+
+/* 授权/模式切换按钮状态 */
+.composer-op-btn.composer-access-btn.active,
+.composer-op-btn.composer-access-btn.full,
+.composer-op-btn.full {
+  border-color: color-mix(in srgb, var(--danger, #dc2626) 42%, transparent);
+  background: color-mix(in srgb, var(--danger, #dc2626) 10%, transparent);
+  color: var(--danger, #dc2626);
+}
+
+.composer-op-btn.composer-access-btn.active:hover:not(:disabled),
+.composer-op-btn.composer-access-btn.full:hover:not(:disabled),
+.composer-op-btn.full:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--danger, #dc2626) 65%, transparent);
+  background: color-mix(in srgb, var(--danger, #dc2626) 16%, transparent);
+}
+
+/* 主动智能按钮状态 */
+.composer-op-btn.composer-proactive-btn.active {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+}
+
+.composer-op-btn.composer-proactive-btn.active:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 75%, transparent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+/* 语音按钮录音状态 */
+.composer-op-btn.composer-voice-btn.active,
+.composer-op-btn.composer-voice-btn.recording {
+  border-color: #ef4444;
+  background: color-mix(in srgb, #ef4444 14%, transparent);
+  color: #ef4444;
+  animation: aervox-voice-pulse 1.8s ease-in-out infinite;
+}
+
+.composer-op-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--accent);
+  color: #fff;
+  line-height: 1;
+}
+
+@keyframes aervox-voice-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, .25);
+  }
+}
+
+/* 兼容历史组件与扩展插槽中的按钮 */
 .permission-toggle {
   min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  min-height: 38px;
+  min-height: 32px;
   padding: 0 11px;
   border: 1px solid color-mix(in srgb, var(--border) 64%, transparent);
   border-radius: 8px;
   background: color-mix(in srgb, var(--bg-soft) 78%, transparent);
   color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 650;
+  font-size: 11.5px;
+  font-weight: 600;
   cursor: pointer;
   transition: color .16s ease, border-color .16s ease, background-color .16s ease;
 }
@@ -1570,20 +1675,69 @@
   opacity: .5;
 }
 
+/* ---------- 右侧操作区与发送按钮 ---------- */
+
 .composer-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  flex: 0 0 auto;
 }
 
-.composer-actions button {
-  width: clamp(40px, 4.8vh, 46px);
-  height: clamp(40px, 4.8vh, 46px);
+.composer-shortcut-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.composer-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 24%, transparent);
+  transition: background-color .16s ease, transform .16s ease, box-shadow .16s ease, opacity .16s ease;
+}
+
+.composer-send:hover:not(:disabled) {
+  background: var(--accent-hover);
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--accent) 34%, transparent);
+}
+
+.composer-send:active:not(:disabled) {
+  transform: scale(.97);
+}
+
+.composer-send:disabled {
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: .42;
+  transform: none;
+}
+
+.composer-actions .voice-input-btn,
+.composer-actions .attachment-picker-btn,
+.composer-actions .composer-collapse-btn {
+  width: clamp(34px, 4.2vh, 40px);
+  height: clamp(34px, 4.2vh, 40px);
   flex: 0 0 auto;
   display: grid;
   place-items: center;
   padding: 0;
-  border-radius: 13px;
+  border-radius: 10px;
   cursor: pointer;
 }
 
@@ -1642,19 +1796,6 @@
   border-radius: 50%;
   background: #ef4444;
   animation: aervox-blink 1s ease-in-out infinite;
-}
-
-.composer-actions button[type="submit"] {
-  border: 0;
-  background: var(--accent);
-  color: #fff;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 18%, transparent);
-}
-
-.composer-actions button[type="submit"]:disabled {
-  box-shadow: none;
-  cursor: not-allowed;
-  opacity: .42;
 }
 
 .composer-actions .composer-collapse-btn {
@@ -1876,6 +2017,8 @@
   display: grid;
   gap: 6px;
   margin: 0;
+  content-visibility: auto;
+  contain-intrinsic-size: 0 42px;
 }
 
 .vn-history-speaker {
@@ -3872,7 +4015,22 @@
   }
 
   .composer-footer {
-    align-items: stretch;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .composer-ops {
+    flex: 1 1 auto;
+  }
+
+  .composer-actions {
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+
+  .composer-shortcut-hint {
+    display: none;
   }
 
   .permission-toggle {
@@ -4223,4 +4381,21 @@
   color: var(--text-primary);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.extension-slot-fallback {
+  display: inline-flex;
+  align-items: center;
+}
+
+.extension-fallback-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--danger, #e05252);
+  background: color-mix(in srgb, var(--danger, #e05252) 12%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--danger, #e05252) 30%, transparent);
 }

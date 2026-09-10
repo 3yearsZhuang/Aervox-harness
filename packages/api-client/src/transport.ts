@@ -35,6 +35,8 @@ export interface StreamTurnOptions {
   toolApprovalMode?: ToolApprovalMode;
   /** 多模态输入：随消息发送的附件引用（先经 uploadAttachment 上传取得 id） */
   attachments?: TurnAttachmentRef[];
+  /** Turn 级可选元数据（如 mode: 'study' | 'quiz'） */
+  metadata?: Record<string, unknown>;
 }
 
 /** 附件上传入参（CAP-012 多模态输入） */
@@ -200,6 +202,7 @@ export function createFetchTransport(apiBase: string, workspaceId?: string, user
           message,
           clientVersion: 'aervox-api-client@0.1',
           toolApprovalMode: options.toolApprovalMode ?? 'ask',
+          ...(options.metadata ? { metadata: options.metadata } : {}),
         },
         { signal: controller.signal },
       );

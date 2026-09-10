@@ -129,6 +129,8 @@ export interface ModelRequest {
   context: PromptContext;
   /** 阶段 2e：当前可执行的只读工具 schema（供真实模型生成 tool_calls） */
   tools?: ToolSpec[];
+  /** 采样温度覆盖值（缺省回退 Provider 配置或默认 0.7） */
+  temperature?: number;
 }
 
 /** Provider 流输出分块：文本增量 +（阶段 2）一次 Step 末的工具请求集合 */
