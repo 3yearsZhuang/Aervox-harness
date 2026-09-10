@@ -1,14 +1,23 @@
+---
+id: CR-006
+type: reference
+scope: change
+owner: maintainers
+doc_status: review-candidate
+decision_status: accepted
+delivery_status: implemented
+version: 0.1.0
+updated_at: 2026-08-26
+reviewed_at: 2026-08-26
+review_interval_days: 90
+---
+
 # CR-006 插件配置解析与可视化（Config + Page）
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-26
 
-> 文档编号：CR-006
-> 类型：Reference
-> 版本：v0.1
-> 更新日期：2026-08-26
-> 状态：Review Candidate
-> 关联：[插件 Config 与 Page 规范](../plugin-config-and-pages.md)、[能力组合与可选化目录规范](../capability-composition.md)、[ADR-009](../adr/ADR-009-electron-plugin-sandbox.md)、[需求追踪基线](../REQUIREMENTS_TRACEABILITY.md)
+关联：[插件 Config 与 Page 规范](../plugin-config-and-pages.md)、[能力组合与可选化目录规范](../capability-composition.md)、[ADR-009](../adr/ADR-009-electron-plugin-sandbox.md)、[需求追踪基线](../REQUIREMENTS_TRACEABILITY.md)
 
 - 状态：Implemented（待发布评审）
 - 提出人 / 日期：Codex / 2026-08-26

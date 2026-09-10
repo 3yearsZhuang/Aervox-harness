@@ -1,14 +1,23 @@
+---
+id: CR-008
+type: reference
+scope: change
+owner: maintainers
+doc_status: review-candidate
+decision_status: proposed
+delivery_status: implemented
+version: 0.1.0
+updated_at: 2026-08-27
+reviewed_at: 2026-08-27
+review_interval_days: 90
+---
+
 # CR-008 练习会话与作答契约补全
 
 - 提出人：kikoyida · 2026-08-27
 - 修改人：kikoyida · 2026-08-27
 
-> 文档编号：CR-008
-> 类型：Reference
-> 版本：v0.1
-> 更新日期：2026-08-27
-> 状态：Review Candidate
-> 关联：[SRS](../SRS.md)、[需求追踪](../REQUIREMENTS_TRACEABILITY.md)、[测试策略](../TEST_STRATEGY.md)
+关联：[SRS](../SRS.md)、[需求追踪](../REQUIREMENTS_TRACEABILITY.md)、[测试策略](../TEST_STRATEGY.md)
 
 ## 变更
 

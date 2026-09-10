@@ -1,14 +1,23 @@
+---
+id: CR-013
+type: reference
+scope: change
+owner: maintainers
+doc_status: review-candidate
+decision_status: proposed
+delivery_status: implemented
+version: 0.1.0
+updated_at: 2026-08-28
+reviewed_at: 2026-08-28
+review_interval_days: 90
+---
+
 # CR-013 活跃练习会话恢复与续答
 
 - 提出人：kikoyida · 2026-08-28
 - 修改人：kikoyida · 2026-08-28
 
-> 文档编号：CR-013
-> 类型：Reference
-> 版本：v0.2
-> 更新日期：2026-08-28
-> 状态：Review Candidate
-> 关联：[SRS](../SRS.md)、[需求追踪](../REQUIREMENTS_TRACEABILITY.md)
+关联：[SRS](../SRS.md)、[需求追踪](../REQUIREMENTS_TRACEABILITY.md)
 
 ## 变更
 
