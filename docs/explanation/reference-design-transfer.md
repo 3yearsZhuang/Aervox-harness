@@ -1,14 +1,23 @@
+---
+id: AVX-EXPL-002
+type: explanation
+scope: baseline
+owner: maintainers
+doc_status: review-candidate
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 0.7.0
+updated_at: 2026-08-28
+reviewed_at: 2026-08-28
+review_interval_days: 90
+---
+
 # 参考项目能力迁移与借鉴评估
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-28
 
-> 文档编号：AVX-EXPL-002
-> 类型：Explanation
-> 版本：v0.7
-> 更新日期：2026-08-28
-> 状态：Review Candidate
-> 关联：[参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[数据库设计与双引擎契约](../reference/DATABASE.md)、[能力注册表](../reference/capability-registry.md)、[Agent Harness Loop 规范](../reference/agent-harness-loop.md)、[AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)
+关联：[参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[数据库设计与双引擎契约](../reference/DATABASE.md)、[能力注册表](../reference/capability-registry.md)、[Agent Harness Loop 规范](../reference/agent-harness-loop.md)、[AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)
 
 ## 1. 评估范围与判定框架
 

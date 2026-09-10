@@ -1,14 +1,23 @@
+---
+id: AVX-GUIDE-003
+type: how-to
+scope: guide
+owner: maintainers
+doc_status: draft
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 0.2.0
+updated_at: 2026-08-31
+reviewed_at: 2026-08-31
+review_interval_days: 90
+---
+
 # 操作指南：可选模块的 submodule 初始化与协作规范（How-to）
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-31
 
-> 文档编号：AVX-GUIDE-003  
-> 类型：How-To  
-> 版本：v0.2  
-> 更新日期：2026-08-31
-> 状态：Draft  
-> 关联：[能力注册表](../reference/capability-registry.md) · [能力组合与可选化目录规范](../reference/capability-composition.md) · [文档索引](../README.md)
+关联：[能力注册表](../reference/capability-registry.md) · [能力组合与可选化目录规范](../reference/capability-composition.md) · [文档索引](../README.md)
 
 本指南回答"引入 `modules/*` 之后的 clone、初始化、增删、升级和协作流程"，是[能力注册表](../reference/capability-registry.md)（交付载体与启用方式登记）与[能力组合与可选化目录规范](../reference/capability-composition.md)（机制与判定准则）的落地操作手册。机制决定与门禁以它们为准，本文件只给步骤与规范，不重复规则。
 

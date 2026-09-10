@@ -1,14 +1,23 @@
+---
+id: AVX-EXPL-003
+type: explanation
+scope: baseline
+owner: maintainers
+doc_status: draft
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 0.1.0
+updated_at: 2026-08-26
+reviewed_at: 2026-08-26
+review_interval_days: 90
+---
+
 # 桌宠角色设定文档化与多人格模板组织
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-26
 
-> 文档编号：AVX-EXPL-003
-> 类型：Explanation
-> 版本：v0.1
-> 更新日期：2026-08-26
-> 状态：Draft
-> 关联：[参考项目能力迁移与借鉴评估](reference-design-transfer.md)、[架构设计](../reference/ARCHITECTURE.md)、[AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)、[文档写作规范](../reference/standards/doc-standards.md)
+关联：[参考项目能力迁移与借鉴评估](reference-design-transfer.md)、[架构设计](../reference/ARCHITECTURE.md)、[AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)、[文档写作规范](../reference/standards/doc-standards.md)
 
 本文回答 Aervox 桌宠 IP（CAP-019）的「角色是谁、长什么样、话怎么说、边界在哪」为何以及如何被文档化、版本化并通过评审冻结维护。它不写具体某一套人设的完整文案，只讲组织方式、字段结构与维护流程；具体契约字段以代码侧 schema 与 AI 质量规范为准。
 
