@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.1.0
+version: 0.2.0
 updated_at: 2026-09-10
 reviewed_at: 2026-09-10
 review_interval_days: 90
@@ -15,7 +15,7 @@ review_interval_days: 90
 # Aervox 架构决策记录（ADR）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-10
+- 修改人：codex · 2026-09-10
 
 架构基线摘要：[ARCHITECTURE.md 第 11 节](../ARCHITECTURE.md#11-首批-adr)
 
@@ -29,12 +29,12 @@ ADR 记录难以逆转、影响多个模块或改变数据/运维边界的技术
 |---|---|---|---|
 | ADR-001 | Accepted | 模块化单体 + Worker，而非 MVP 微服务 | [ADR-001](ADR-001-modular-monolith.md) |
 | ADR-002 | Superseded by ADR-015 | React/Vite + Fastify + OpenAPI/SSE（Web 基线已改，已归档） | [ADR-002](ADR-002-web-api-contract.md) |
-| ADR-003 | Accepted | 仓储抽象架构：SQLite 业务真源与 FTS5/Vector Port | [ADR-003](ADR-003-postgres-retrieval.md) |
+| ADR-003 | Accepted（经 CR-030 修订） | SQLite 永久本地真源；Schema/Repository 分层与 FTS5/Vector Port | [ADR-003](ADR-003-postgres-retrieval.md) |
 | ADR-004 | Accepted | 业务状态 + Outbox + 幂等队列 | [ADR-004](ADR-004-outbox-idempotent-jobs.md) |
 | ADR-005 | Accepted | 内部 Provider Port 包裹 AI SDK | [ADR-005](ADR-005-provider-port.md) |
 | ADR-006 | Accepted | AI 召回期限与用户历史保留期限分离 | [ADR-006](ADR-006-recall-retention.md) |
 | ADR-007 | Accepted | 系统记忆树是长期记忆的可重建投影 | [ADR-007](ADR-007-memory-tree-projection.md) |
-| ADR-008 | Accepted | Cloud-first，P2 增加本地/自托管 Port | [ADR-008](ADR-008-cloud-first-local-port.md) |
+| ADR-008 | Superseded by CR-030 | 历史 Cloud-first 与本地/自托管 Port 方案 | [ADR-008](ADR-008-cloud-first-local-port.md) |
 | ADR-009 | Accepted | Electron 最小权限壳；插件进程外运行 | [ADR-009](ADR-009-electron-plugin-sandbox.md) |
 | ADR-010 | Accepted | DSH/pi 仅为可选适配器 | [ADR-010](ADR-010-dsh-pi-adapters.md) |
 | ADR-011 | Accepted | 日记周期、计划修订与连续窗口 | [ADR-011](ADR-011-diary-cycle-schedule-revision.md) |

@@ -6,18 +6,18 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.7.0
-updated_at: 2026-08-28
-reviewed_at: 2026-08-28
+version: 0.8.0
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 ---
 
 # 参考项目能力迁移与借鉴评估
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：codex · 2026-09-10
 
-关联：[参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[数据库设计与双引擎契约](../reference/DATABASE.md)、[能力注册表](../reference/capability-registry.md)、[Agent Harness Loop 规范](../reference/agent-harness-loop.md)、[AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)
+关联：[参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[SQLite 本地单用户数据库契约](../reference/DATABASE.md)、[能力注册表](../reference/capability-registry.md)、[Agent Harness Loop 规范](../reference/agent-harness-loop.md)、[AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)
 
 ## 1. 评估范围与判定框架
 
@@ -48,21 +48,21 @@ review_interval_days: 90
 
 | 编号 | 设计 | 判定 | 落点 | 关联需求 |
 |---|---|---|---|---|
-| T-01 | SQLite 写路径 busy 重试（指数退避） | A | `packages/database` 写路径 | WAL 多进程并发（DATABASE.md） |
-| T-02 | FTS + 向量 RRF 混合检索 + JS 余弦降级 | A | `packages/database/src/search` | 记忆召回窗口 |
+| T-01 | SQLite 写路径 busy 重试（指数退避） | A | `packages/repositories` 写路径 | WAL 多进程并发（DATABASE.md） |
+| T-02 | FTS + 向量 RRF 混合检索 + JS 余弦降级 | A | `packages/repositories/src/search` | 记忆召回窗口 |
 | T-03 | 上下文压缩标记（snapshotId 写回会话） | A | 临时→短期整理链路 | PRD §7.5 记忆验收标准 |
 | T-04 | 工具注册表 + 主动记忆工具 | A | AI 运行时工具系统 | CAP-020、记忆晋升候选 |
-| T-05 | Embedding 独立存储 + 可中止的迁移控制 | A | `memory_embeddings` 独立表 | 双引擎向量规划（ADR-003） |
+| T-05 | Embedding 独立存储 + 可中止的迁移控制 | A | `memory_embeddings` 独立表 | SQLite Vector Port（ADR-003） |
 | T-06 | 数据库迁移服务（journal + 旧库补齐） | B | 存储层演进 | DATABASE.md 迁移三阶段 |
 | T-07 | 桌面 preload 按域划分 IPC API | B | `apps/desktop` | 桌面端功能扩展 |
 | T-08 | 桌宠角色设定文档化 | B | 文档组织 | 桌宠 IP、CAP-019 |
 | T-09 | Git 作为数据版本/同步层 | B | 本地优先与导出 | PRD §15.2 决策 4 |
 | T-10 | Token 用量分账（缓存/非缓存） | B | `ModelRun` 埋点 | AI 质量与安全规范 |
-| T-11 | 多工作区 vault 双库模型 | C | — | 与单库多租户冲突 |
+| T-11 | 多工作区 vault 双库模型 | C | — | 与 CR-030 本地单用户边界冲突 |
 | T-12 | Expo 移动端与 WebView 日记编辑器 | C | — | 与 ADR-015（Capacitor）冲突 |
 | T-13 | 云同步/局域网快传/定价/更新器 | C | — | 商业化能力不在当前路线 |
 | AST-01 | 会话级写锁（引用计数回收、按事件循环隔离） | A | 会话写路径进程内锁 | 与 T-01 互补 |
-| AST-02 | 向量库 Port 批量/重试/进度回调接口形态 | A | T-05 落地时对齐 Port 语义 | 双引擎向量规划（ADR-003） |
+| AST-02 | 向量库 Port 批量/重试/进度回调接口形态 | A | T-05 落地时对齐 Port 语义 | SQLite Vector Port（ADR-003） |
 | AST-03 | 人设字段化 + 逐级解析 + 默认兜底 | B | 随 CAP-019 立项 | 桌宠 IP、CAP-019、T-08 |
 | AST-04 | 插件元数据模型 + 工具配置条件门控 | B | CAP-020 插件权限模型 | T-04 |
 | AST-05 | Pipeline Stage 显式顺序 + 迁移完成标记 | B | Worker/中间件管线演进 | T-06 |
@@ -75,23 +75,23 @@ review_interval_days: 90
 | PET-03 | 自主行为引擎参数化（活动频率三档/躲避/待机） | B | 桌面端角色行为 | T-07、桌宠 IP |
 | PET-04 | 表现驱动数据对象 + 视图接口分离 | B | 桌宠表现层抽象 | 桌宠 IP、CAP-019 |
 | PET-05 | AI 工具只读白名单与提示词使用原则 | B | 工具链安全规范 | AI 质量与安全规范 |
-| Skill | Skill 能力（Anthropic Skills 渐进式披露 + Neo 生命周期） | B→已落地 | `apps/api/src/modules/skills/`、`packages/database` 技能表 | CAP-020 |
+| Skill | Skill 能力（Anthropic Skills 渐进式披露 + Neo 生命周期） | B→已落地 | `apps/api/src/modules/skills/`、`packages/repositories` 技能表 | CAP-020 |
 
 ## 3. A 类：建议落地
 
 ### 3.1 T-01 SQLite 写路径 busy 重试
 
-BaiShou-Next 对 `database is locked` / `sqlite_busy` 错误做指数退避重试（参考 `reference/baishou-next/packages/database/src/sqlite-busy.util.ts`）。Aervox 的 API、Worker、Desktop 共用同一 `data/aervox.db`（WAL 模式），多进程写竞争是既有风险点。
+BaiShou-Next 对 `database is locked` / `sqlite_busy` 错误做指数退避重试（参考 `reference/baishou-next/packages/repositories/src/sqlite-busy.util.ts`）。Aervox 的 API、Worker、Desktop 共用同一 `data/aervox.db`（WAL 模式），多进程写竞争是既有风险点。
 
-落点：在 `packages/database` 封装统一的写入重试工具，对所有事务性写操作包一层；重试参数（初始退避、最大次数）可配置。此为纯函数级自研，风险低，可在任意批次排期。
+落点：在 `packages/repositories` 封装统一的写入重试工具，对所有事务性写操作包一层；重试参数（初始退避、最大次数）可配置。此为纯函数级自研，风险低，可在任意批次排期。
 
 ### 3.2 T-02 混合检索（FTS + 向量 RRF）
 
 BaiShou-Next 并行执行 FTS 粗筛与向量细筛，用 RRF（Reciprocal Rank Fusion）融合排序，支持 `ftsWeight/vectorWeight` 权重；任一通道不可用时降级返回另一通道结果；在无原生向量库时用 JS 遍历余弦相似度兜底（参考 `reference/baishou-next/packages/ai/src/rag/hybrid-search.ts` 及其 service）。
 
-Aervox 已具备两块输入：FTS5 虚表（`memory_records_fts` 等）与内存向量 Port（`packages/database/src/search/vector-port.ts` 的 `InMemoryVectorSearchAdapter`），目前尚未融合。
+Aervox 已具备两块输入：FTS5 虚表（`memory_records_fts` 等）与内存向量 Port（`packages/repositories/src/search/vector-port.ts` 的 `InMemoryVectorSearchAdapter`），目前尚未融合。
 
-落点：在 `packages/database/src/search` 新增混合检索服务，复用现有 `IVectorSearchPort` 与 FTS5，输出统一召回结果。这是记忆召回窗口期检索的第一步，也是后续 pgvector 切换时仅替换 Port 实现的边界。
+落点：在 `packages/repositories/src/search` 新增混合检索服务，复用现有 `IVectorSearchPort` 与 FTS5，输出统一召回结果。这是记忆召回窗口期检索的第一步，也是后续 pgvector 切换时仅替换 Port 实现的边界。
 
 ### 3.3 T-03 上下文压缩标记
 
@@ -112,9 +112,9 @@ Aervox 的 CAP-020 技能插件系统尚未落地，记忆生成链路也未接�
 
 ### 3.5 T-05 Embedding 独立存储与可中止迁移
 
-BaiShou-Next 将 embedding 存独立表 `memory_embeddings`（含 `dimension/modelId/sourceCreatedAt`），不塞进业务表；模型升级走独立迁移（快照备份 → 重新 embedding），并用全局 abort 控制支持中途取消（参考 `reference/baishou-next/packages/database/src/schema/vectors.ts` 与 `packages/ai/src/rag/embedding-migration.ts`、`migration-control.ts`）。
+BaiShou-Next 将 embedding 存独立表 `memory_embeddings`（含 `dimension/modelId/sourceCreatedAt`），不塞进业务表；模型升级走独立迁移（快照备份 → 重新 embedding），并用全局 abort 控制支持中途取消（参考 `reference/baishou-next/packages/schema/src/vectors.ts` 与 `packages/ai/src/rag/embedding-migration.ts`、`migration-control.ts`）。
 
-Aervox 双引擎规划（ADR-003/CR-003）当前方案是 `memory_records.embedding` 可空列。独立表方案更优：换 embedding 模型不动业务表、SQLite 侧即可先行落地而非等 PG。此改动涉及已批准文档（DATABASE.md/ADR-003），落地时需按[变更控制](../reference/REQUIREMENTS_TRACEABILITY.md#11-变更控制)建立变更请求，并保留"可中止 + 断点续跑"约束，避免长迁移阻塞 Worker。
+Aervox 已经采用 `memory_embeddings` 独立表与 SQLite Vector Port；换 embedding 模型不修改业务事实表。后续改动仍需保留“可中止 + 断点续跑”约束，避免长迁移阻塞 Worker，并遵循 CR-030 的备份和 staging 原则。
 
 ### 3.6 AST-01 会话级写锁
 
@@ -152,9 +152,9 @@ Petra 的 `MemoryEntry` 显式区分 `source: user_said | ai_inferred`，并以 
 
 ### 4.1 T-06 数据库迁移服务
 
-BaiShou-Next 用迁移 journal（`_journal.json`）+ 启动时旧库列补齐（`AGENT_DB_COLUMN_PATCHES`）管理 SQLite 演进（参考 `reference/baishou-next/packages/database/src/migration.service.ts`）。Aervox 目前仅 `CREATE TABLE IF NOT EXISTS`，表结构变更靠手动迁移，是已知痛点。
+BaiShou-Next 用迁移 journal（`_journal.json`）+ 启动时旧库列补齐（`AGENT_DB_COLUMN_PATCHES`）管理 SQLite 演进（参考 `reference/baishou-next/packages/repositories/src/migration.service.ts`）。Aervox 目前仅 `CREATE TABLE IF NOT EXISTS`，表结构变更靠手动迁移，是已知痛点。
 
-暂不落地原因：Aervox 的 DATABASE.md 已规划 Expand/Contract 三阶段迁移，属结构性改造，需与 PG 双引擎切换一并设计，不宜单独插入。借鉴其迁移 journal 与"旧库兼容回填"两处的处理手法。
+该思路已部分落地为迁移 journal；CR-030 的破坏性去租户化不复用原地补列模式，而是借鉴“显式状态 + 可重入”，在备份后构建 staging 新库并原子换库。
 
 ### 4.2 T-07 桌面 preload 按域划分 IPC
 
@@ -228,7 +228,7 @@ Aervox 自研落地（AGPLv3 仅借鉴设计，不复制源码）：
 
 | 设计 | 原因 |
 |---|---|
-| 多工作区 vault 双库模型与 registry/影子索引 | 与 Aervox 单库多租户行级模型冲突，仅保留"注册表 + 可重建索引"的思想启示 |
+| 多工作区 vault 双库模型与 registry/影子索引 | 与 CR-030 本地单用户模型冲突，仅保留“注册表 + 可重建索引”的思想启示 |
 | Expo 移动端、tab/设置路由、WebView 内嵌日记编辑器 | ADR-015 已定 Capacitor + Web 复用路线，栈不同不迁移 |
 | 云同步、局域网快传、定价、更新器、Windows 安装器 | 商业化与桌面基建能力，不在当前 P0/P1 路线内 |
 | 事件驱动的 agent-part 前端 UI（React 专属 hooks） | Aervox 前端为 Vue 单栈（ADR-015），不跨栈移植组件 |
@@ -241,7 +241,7 @@ Aervox 自研落地（AGPLv3 仅借鉴设计，不复制源码）：
 
 以"见效快、不改结构、先服务现有痛点"为原则分四批，此后按需接线：
 
-1. **第一批（低风险，独立可排）**：T-01 busy 重试 → AST-01 会话级写锁 → T-02 混合检索。三者都是 `packages/database`/写路径内收口改动，直接解除多进程锁风险并打通记忆召回首链路。
+1. **第一批（低风险，独立可排）**：T-01 busy 重试 → AST-01 会话级写锁 → T-02 混合检索。三者都是 `packages/repositories`/写路径内收口改动，直接解除多进程锁风险并打通记忆召回首链路。
 2. **第二批（需要契约与 Worker 配合）**：T-03 压缩标记 → T-05 embedding 独立表（对照 AST-02 对齐 Port 语义）→ PET-01 表现指令字段、PET-02 记忆条目字段（随契约冻结对照）。涉及记忆溯源与运行时代价，先冻结 `packages/contracts` 相关 schema 再实现。
 3. **第三批（随 CAP 排期）**：T-04 工具系统随 CAP-020 立项（对照 AST-04 元数据模型，安全对照 PET-05 白名单）；AST-03 人设解析链随 CAP-019 立项（对照 T-08 文档化）；PET-03 自主行为、PET-04 表现驱动抽象随桌面端功能扩展引入；T-06～T-10、AST-05 按对应功能阶段引入。
 4. **第四批（运行时接线）**：为第一批至第三批已落地的契约/存储接通真实调用链——T-04 tools 运行时与 `/v1/tools` 路由、T-03/T-05 Worker 异步消费、PET-01 前端 emote 消费、CAP-020 插件运行时、T-06 迁移服务与 AST-05 完成标记、T-09 快照与 T-10 分账（详见 §6.1）。
@@ -254,27 +254,27 @@ Aervox 自研落地（AGPLv3 仅借鉴设计，不复制源码）：
 |---|---|---|---|---|---|
 | `DSH-01` | B（目标已文档化） | Agent Loop 阶段 0 前 | 2026-08-28 | `docs/reference/agent-harness-loop.md`（AVX-HAR-001）、`docs/reference/changes/CR-012-agent-harness-loop.md` | 已固化 Turn/Step、typed event、工具管线和 Adapter 边界；DSH 运行时尚未接入，不能标记为已实现 |
 | `PI-01` | B（目标已文档化） | Agent Loop 阶段 0 前 | 2026-08-28 | `docs/reference/agent-harness-loop.md`（AVX-HAR-001）、`docs/reference/changes/CR-012-agent-harness-loop.md` | 已固化 outer/inner loop、Inbox、lease/fencing 和进程外 Host 约束；pi 运行时尚未接入，不能标记为已实现 |
-| T-03 | A | 第二批 | 2026-08-26 | `packages/database/src/schema/memory-compaction.ts`、`repositories/sqlite/memory-compaction-repository.ts` | `memory_compaction_markers` 表 + 幂等仓储 |
-| T-05 | A | 第二批 | 2026-08-26 | `packages/database/src/schema/embeddings.ts`、`repositories/sqlite/memory-embedding-repository.ts` | `memory_embeddings` 独立表 + 批量/重试/余弦检索（对照 AST-02） |
+| T-03 | A | 第二批 | 2026-08-26 | `packages/schema/src/memory-compaction.ts`、`repositories/sqlite/memory-compaction-repository.ts` | `memory_compaction_markers` 表 + 幂等仓储 |
+| T-05 | A | 第二批 | 2026-08-26 | `packages/schema/src/embeddings.ts`、`repositories/sqlite/memory-embedding-repository.ts` | `memory_embeddings` 独立表 + 批量/重试/余弦检索（对照 AST-02） |
 | PET-01 | A | 第二批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（`petCommandSchema`/`emoteEventDataSchema`） | SSE 表现指令契约预留 |
-| PET-02 | A | 第二批 | 2026-08-26 | `packages/database/src/schema/memories.ts`、`repositories/types.ts` | 记忆条目字段 `source`/`category`/`keywordsJson`/`lastUsedAt` |
-| T-04 | A | 第三批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（工具注册表契约）、`packages/database/src/schema/tool-registry.ts`、`repositories/sqlite/tool-registry-repository.ts` | 工具注册表 + 主动记忆契约 + 幂等/过滤/门控导出 |
-| AST-04 | B→已落地雏形 | 第三批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（`pluginMetadataSchema`、`toolGatingConditionSchema`）、`packages/database/src/schema/tool-registry.ts` | 插件元数据字段 + 工具条件门控（CAP-020 雏形） |
+| PET-02 | A | 第二批 | 2026-08-26 | `packages/schema/src/memories.ts`、`repositories/types.ts` | 记忆条目字段 `source`/`category`/`keywordsJson`/`lastUsedAt` |
+| T-04 | A | 第三批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（工具注册表契约）、`packages/schema/src/tool-registry.ts`、`repositories/sqlite/tool-registry-repository.ts` | 工具注册表 + 主动记忆契约 + 幂等/过滤/门控导出 |
+| AST-04 | B→已落地雏形 | 第三批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（`pluginMetadataSchema`、`toolGatingConditionSchema`）、`packages/schema/src/tool-registry.ts` | 插件元数据字段 + 工具条件门控（CAP-020 雏形） |
 | PET-05 | B→已落地雏形 | 第三批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（`toolSafetyLevelSchema`） | 工具安全级别（read_only 白名单）有线 |
 | T-08 | B→已落地 | 第三批 | 2026-08-26 | `docs/explanation/persona-organization.md`（AVX-EXPL-003） | 桌宠角色设定独立成文档（核心概念/外形/提示词边界/识别边界），按人设目录版本化（CAP-019） |
 | T-04 | A（运行时接线） | 第四批 | 2026-08-26 | `apps/api/src/modules/tools/`（`runtime.ts`/`memory-store-tool.ts`/`mcp.ts`/`routes.ts`） | MemoryStoreTool 运行时 + ToolRuntime + `/v1/tools` 路由 + MCP 形态 listTools/callTool；PET-05 在调用侧强制授权 |
 | T-03 | A（消费接线） | 第四批 | 2026-08-26 | `apps/worker/src/compaction-marker.ts` | 消费 outbox `memory.compaction.requested` 事件异步落库压缩标记 + 审计（先写后投递） |
 | T-05 | A（迁移接线） | 第四批 | 2026-08-26 | `apps/worker/src/embedding-migration.ts` | 扫描缺向量记忆 → 批量生成 → insertBatch；可中止 + 进度回调；provider 未注入诚实跳过 |
-| T-06 | B→已落地 | 第四批 | 2026-08-26 | `packages/database/src/migration/migration-service.ts` | 迁移 journal（`_migration_journal`）+ 幂等重入 + 旧库列补齐纳入迁移步骤 |
-| AST-05 | B→已落地雏形 | 第四批 | 2026-08-26 | `packages/database/src/migration/migration-service.ts`（完成标记）、`apps/worker/src/pipeline.ts` | `isMigrationCompleted` 双条件幂等 + `PIPELINE_STAGES` 显式顺序 + 短路语义 |
-| T-09 | B→已落地 | 第四批 | 2026-08-26 | `packages/database/src/sync/git-snapshot.ts` | 行级快照导出/恢复 + 快照命名约定；git 提交/回滚由宿主（CLI/桌面）按需调用 |
-| T-10 | B→已落地 | 第四批 | 2026-08-26 | `packages/database/src/token-usage.ts` | Token 用量分账（非缓存/缓存读/缓存写），兼容 OpenAI/旧形态 |
+| T-06 | B→已落地 | 第四批 | 2026-08-26 | `packages/repositories/src/migration/migration-service.ts` | 迁移 journal（`_migration_journal`）+ 幂等重入 + 旧库列补齐纳入迁移步骤 |
+| AST-05 | B→已落地雏形 | 第四批 | 2026-08-26 | `packages/repositories/src/migration/migration-service.ts`（完成标记）、`apps/worker/src/pipeline.ts` | `isMigrationCompleted` 双条件幂等 + `PIPELINE_STAGES` 显式顺序 + 短路语义 |
+| T-09 | B→已落地 | 第四批 | 2026-08-26 | `packages/repositories/src/sync/git-snapshot.ts` | 行级快照导出/恢复 + 快照命名约定；git 提交/回滚由宿主（CLI/桌面）按需调用 |
+| T-10 | B→已落地 | 第四批 | 2026-08-26 | `packages/repositories/src/token-usage.ts` | Token 用量分账（非缓存/缓存读/缓存写），兼容 OpenAI/旧形态 |
 | PET-01 | A（前端消费） | 第四批 | 2026-08-26 | `packages/api-client/src/transport.ts`、`desktop-transport.ts`、`useAervoxTurn.ts`、`packages/ui/src/components/PetHero.vue` | emote 事件透传 + `PetHero` activeEmote/activeGesture 消费 |
 | PET-01 | A（Live2D 表现接线） | 第四批 | 2026-08-26 | `packages/ui/src/live2d/{model,controller}.ts`、`packages/ui/src/components/Live2DPet.vue`、`apps/desktop/src/renderer/src/components/PetWindow.vue` | model3.json 兼容加载、动作/表情 Enum 与 API、SSE 表现命令映射；Web 工作台显示 Live2D，Electron 主工作台隐藏左侧区域，独立桌宠窗口保留 Live2D |
 | AST-04 | B→已落地（运行时） | 第四批 | 2026-08-26 | `apps/api/src/modules/plugins/` | CAP-020 插件运行时：安装/启停/卸载 + 工具注册联动 + 权限授予/撤销/查询 |
-| AST-08 | B→已落地 | 第六批 | 2026-08-26 | `packages/contracts/src/plugin-config-schemas.ts`、`packages/database/src/schema/plugin-config.ts`、`apps/api/src/modules/plugins/config-*.ts` | 插件 Config Schema v1：声明式解析/默认值/校验/secret 状态/租户持久化/CAS（CR-006） |
+| AST-08 | B→已落地 | 第六批 | 2026-08-26 | `packages/contracts/src/plugin-config-schemas.ts`、`packages/schema/src/plugin-config.ts`、`apps/api/src/modules/plugins/config-*.ts` | 插件 Config Schema v1：声明式解析/默认值/校验/secret 状态/租户持久化/CAS（CR-006） |
 | AST-09 | B→已落地 | 第六批 | 2026-08-26 | `apps/api/src/modules/plugins/bundle-store.ts`、`bridge-sdk.ts`、`packages/ui/src/components/plugin/` | 插件 Page：本地 Bundle 静态资源 + 沙箱 iframe + Host Bridge（config.read/write、notify、close） |
-| Skill | B→已落地（契约+存储） | 第五批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（Skill 契约）、`packages/database/src/schema/skills.ts`、`repositories/sqlite/skill-registry-repository.ts`、`skill-lifecycle-repository.ts` | `skill_registrations` + `skill_payloads`/`skill_candidates`/`skill_releases` 四表 + 幂等/门控导出/生命周期仓储 |
+| Skill | B→已落地（契约+存储） | 第五批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（Skill 契约）、`packages/schema/src/skills.ts`、`repositories/sqlite/skill-registry-repository.ts`、`skill-lifecycle-repository.ts` | `skill_registrations` + `skill_payloads`/`skill_candidates`/`skill_releases` 四表 + 幂等/门控导出/生命周期仓储 |
 | Skill | B→已落地（管理 + 生命周期运行时） | 第五批 | 2026-08-26 | `apps/api/src/modules/skills/`（`zip.ts`/`skill-manager.ts`/`skill-prompt.ts`/`lifecycle.ts`/`routes.ts`/`skill-tools.ts`） | zip 安装（安全校验）+ 渐进式披露 prompt + Neo 生命周期（payload→candidate→evaluate→promote→rollback/sync）+ `aervox_skill_*` 工具（PET-05 安全级别） |
 | Skill | B→已落地（插件联动） | 第五批 | 2026-08-26 | `apps/api/src/modules/plugins/service.ts` | 插件声明技能只读注册（source=plugin/readonly/pluginId）+ 启停/卸载联动 |
 
@@ -295,7 +295,7 @@ Aervox 自研落地（AGPLv3 仅借鉴设计，不复制源码）：
 
 - [PRD §15 参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[§15.1 参考实现要求](../reference/PRD.md#151-参考实现要求)
 - [文档索引 §6 参考项目](../README.md#6-参考项目)
-- [数据库设计与双引擎契约](../reference/DATABASE.md)
+- [SQLite 本地单用户数据库契约](../reference/DATABASE.md)
 - [能力注册表](../reference/capability-registry.md)（AVX-CAP-REG-001）
 - [Agent Harness Loop 设计与落地规范](../reference/agent-harness-loop.md)（AVX-HAR-001）
 - DeepSeek Harness 固定 commit `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`（MIT，仅以 `DSH-01` 借鉴 Agent Loop 设计，不作为运行时依赖）

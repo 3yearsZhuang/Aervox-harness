@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.2.1
-updated_at: 2026-08-29
-reviewed_at: 2026-08-29
+version: 0.2.2
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 ---
 
 # ESP32-S3-WROOM-2-N32R16V 硬件延伸方案
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-29
+- 修改人：codex · 2026-09-10
 
 关联：[PRD](../reference/PRD.md)、[架构设计](../reference/ARCHITECTURE.md)、[数据与隐私规范](../reference/DATA_PRIVACY.md)、[威胁模型](../reference/THREAT_MODEL.md)、[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md)
 
@@ -100,7 +100,7 @@ ESP32-S3 物理桌宠
 
 ### 4.1 API/Worker
 
-API/Worker 继续拥有 Turn/SSE、学习记录、通知、同意、撤销、删除和设备绑定事实。设备不能通过自报的 `workspaceId` 或 `subjectUserId` 获取权限，网关必须由认证主体、绑定关系和设备凭据解析授权。
+API/Worker 继续拥有 Turn/SSE、学习记录、通知、同意、撤销、删除和设备绑定事实。设备不能通过自报的租户字段获取权限，网关必须由本机认证主体、绑定关系和设备凭据解析授权。
 
 ### 4.2 Electron DeviceHost
 

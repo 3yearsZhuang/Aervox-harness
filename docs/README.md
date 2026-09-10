@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.5.0
+version: 1.6.0
 updated_at: 2026-09-10
 reviewed_at: 2026-09-10
 review_interval_days: 90
@@ -29,8 +29,8 @@ review_interval_days: 90
 | [主动智能与外部信号需求规格](reference/srs-proactive-intelligence.md)（AVX-SRS-002） | CAP-033 全域感知与个人画像、CAP-034 Home Assistant 连接与 CAP-035 运动健康信号连接原子需求规格 | 授权、观察、画像、后台、动作、派生能力、连接器、DATA/AIQ/SEC/PRIV/OPS 要求 |
 | [架构设计](reference/ARCHITECTURE.md) | 系统如何实现和演进 | TypeScript 全栈选型、C4、模块/数据所有权、部署、可靠性、安全和 ADR |
 | [流式协议契约](reference/STREAMING_PROTOCOL.md) | Turn 创建、SSE 事件、幂等、重连、取消和部分响应如何保持一致 | OpenAPI 配套的机器可验证事件 envelope、状态机、游标、保留和安全持久化规则 |
-| [数据库设计与双引擎契约](reference/DATABASE.md) | SQLite ↔ PostgreSQL 双引擎真源切换、租户隔离、仓储 Port、迁移三阶段与删除传播规则 | Drizzle schema 生成双方言 DDL、Repository/Vector Search Port 签名、Expand/Contract 迁移与 TC 门禁 |
-| [数据库数据模型覆盖矩阵](reference/database-coverage-matrix.md)（AVX-DB-002） | PRD §8 全生命周期实体在 SQLite/PG 双引擎中的落表与建模状态覆盖清册 | 逐实体阶段标注、对应数据库表、仓储 Port、DDL 初始化与 PRD 数据模型映射 |
+| [SQLite 本地单用户数据库契约](reference/DATABASE.md) | SQLite 永久本地真源、Schema/Repository 双包、无租户目标、破坏性迁移与删除传播规则 | 机器事实源、Repository Port、CR-030 staging/原子换库、回滚与 TC 门禁 |
+| [数据库数据模型覆盖矩阵](reference/database-coverage-matrix.md)（AVX-DB-002） | PRD §8 实体在 SQLite 中的落表状态和 CR-030 过渡状态 | 逐实体阶段、对应表、仓储 Port、DDL 初始化与 PRD 数据模型映射 |
 | [需求追踪与交付标准](reference/REQUIREMENTS_TRACEABILITY.md) | 每条需求是否完整、由谁负责、怎样证明交付，以及代码落地完成情况 | ID、状态、DoR/DoD、CAP 映射、测试证据、发布门禁、风险和变更控制；§4.1 建议交付批次；§4.2 落地实现登记 |
 | [数据与隐私规范](reference/DATA_PRIVACY.md) | 数据为什么收集、何时召回/保留/删除、谁能访问 | 数据分类、同意、来源链、保留表、删除传播、导出和审计 |
 | [AI 质量与安全规范](reference/AI_QUALITY_SAFETY.md) | 模型、记忆和日记怎样达到可复现质量与安全门槛 | 模型运行记录、评估集、记忆压缩、日记事实性、安全分类和回滚 |
@@ -55,6 +55,7 @@ review_interval_days: 90
 | [CR-024 主动智能能力套件与外部环境连接](reference/changes/CR-024-proactive-intelligence-suite-integrations.md) | 十二项主动智能能力与 HA/小米健康如何进入产品基线 | 已接受差量、实现位置、验证和回滚；关联 CAP-033～035 |
 | [CR-028 在线语音模型配置](reference/changes/CR-028-voice-remote-model-config.md) | 设置 UI 如何配置在线语音模型（GPT-SoVITS 远程 API）并按 api_v2 协议合成 | 远程配置持久化与热生效、`/v1/voice/remote/*` 端点、api_v2 请求体与连通性测试；关联 CAP-019/020 |
 | [CR-029 模型/语音多预设与「你的思隅」设置页](reference/changes/CR-029-presets-and-siyu-settings.md) | 「模型与服务」「语音」如何像「人格设定」一样保存与切换多套预设，「你的思隅」如何收纳四个设置项 | 四表多行预设计构、`/v1/llm/presets` 与 `/v1/voice/presets` 端点、侧边第五项导航与 4 分类限定；关联 CAP-020 |
+| [CR-030 SQLite 永久本地单用户真源与去租户化](reference/changes/CR-030-pure-local-sqlite-database.md) | 为什么取消 PostgreSQL/多租户，以及破坏性迁移如何避免静默丢失 | Accepted 决策；停写、备份、显式范围选择、staging、校验、原子换库与 rollback；D1～D3 尚待实现 |
 | [ADR-019 主动智能外部连接本地网关](reference/adr/ADR-019-proactive-integrations-local-gateway.md) | 外部连接为何使用本地网关、加密凭据和受控工具 | 已接受的 HA REST/WS、小米 OAuth/每日指标、白名单与撤销边界 |
 | [文档写作规范](reference/standards/doc-standards.md)（AVX-STD-001） | 每份文档如何使用模板、命名、写作并通过门禁 | 写作体例、签名、命名、风格基线、Vale 术语门禁与模板族；治理规则见 AVX-DOC-GOV-001 |
 | [术语表](reference/standards/terminology.md)（AVX-TERM-001） | 项目术语的唯一含义与规范写法 | 缩写/产品名唯一语义；Vale 依据「禁写」列自动校验 |
