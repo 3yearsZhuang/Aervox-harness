@@ -1,15 +1,25 @@
+---
+id: AVX-SRS-001
+type: reference
+scope: baseline
+owner: maintainers
+doc_status: review-candidate
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 1.0.0
+updated_at: 2026-08-31
+reviewed_at: 2026-08-31
+review_interval_days: 90
+---
+
 # Aervox｜思隅 软件需求规格（SRS）
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-31
 
-> 文档编号：AVX-SRS-001  
-> 类型：Reference  
-> 版本：v1.0（CAP-033～035 主动智能与外部信号原子需求）
-> 更新日期：2026-08-31
-> 状态：Review Candidate  
-> 产品事实源：[PRD](PRD.md)  
-> 追踪矩阵：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
+产品事实源：[PRD](PRD.md)
+
+追踪矩阵：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
 
 本文件把 PRD 的产品能力拆成可以交给设计、工程和 QA 评审的原子需求。它不是实现代码，也不替代 OpenAPI、数据库迁移或测试用例。所有未列入本文件的 P1/P2/P3 行为，仍必须在进入开发前补充并通过 `Ready` 门禁。
 

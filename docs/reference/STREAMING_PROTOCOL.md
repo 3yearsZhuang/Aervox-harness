@@ -1,14 +1,23 @@
+---
+id: AVX-SPC-001
+type: reference
+scope: baseline
+owner: maintainers
+doc_status: review-candidate
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 0.3.0
+updated_at: 2026-08-31
+reviewed_at: 2026-08-31
+review_interval_days: 90
+---
+
 # Aervox｜思隅 Turn 流式协议（SPC）
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-31
 
-> 文档编号：AVX-SPC-001  
-> 类型：Reference  
-> 版本：v0.3（评审候选）  
-> 更新日期：2026-08-31
-> 状态：Review Candidate  
-> 关联：`ADR-002`、`ADR-012`、`CR-019`、`CR-022`、`CR-027`、`NFR-PERF-001`、`NFR-REL-001`、`NFR-SEC-001`
+关联：`ADR-002`、`ADR-012`、`CR-019`、`CR-022`、`CR-027`、`NFR-PERF-001`、`NFR-REL-001`、`NFR-SEC-001`
 
 本文是对话流式 API 和客户端行为的可执行契约。OpenAPI 3.1 描述 HTTP 资源、鉴权和错误；本文件描述 SSE 事件 envelope、状态机、重连、取消、幂等和持久化顺序。实现必须从同一份 `packages/contracts` schema 生成服务端校验、客户端类型和契约测试，不能只依赖本文件中的示例。
 

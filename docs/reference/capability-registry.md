@@ -1,14 +1,23 @@
+---
+id: AVX-CAP-REG-001
+type: reference
+scope: baseline
+owner: maintainers
+doc_status: review-candidate
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 0.3.0
+updated_at: 2026-08-29
+reviewed_at: 2026-08-29
+review_interval_days: 90
+---
+
 # 能力注册表（交付与自选状态登记）
 
 - 提出人：3yearszhuang · 2026-08-28
 - 修改人：3yearszhuang · 2026-08-29
 
-> 文档编号：AVX-CAP-REG-001  
-> 类型：Reference  
-> 版本：v0.3
-> 更新日期：2026-08-29
-> 状态：Review Candidate  
-> 关联：[能力组合与可选化目录规范](capability-composition.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)、[submodule 协作指南](../how-to/submodule-collaboration.md)、[文档索引](../README.md)
+关联：[能力组合与可选化目录规范](capability-composition.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)、[submodule 协作指南](../how-to/submodule-collaboration.md)、[文档索引](../README.md)
 
 本表是"哪些能力纳入自选机制、以什么方式启用、当前处于哪个状态"的唯一登记处。判定规则由[能力组合与可选化目录规范](capability-composition.md)的[边界判定](capability-composition.md#核心与可选的边界判定)裁决，落地操作与门禁见 [submodule 协作指南](../how-to/submodule-collaboration.md)。需求语义、优先级与交付状态以[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)为准，本表只登记**交付载体与启用方式**，不替代该基线。
 

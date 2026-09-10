@@ -1,14 +1,23 @@
+---
+id: AVX-SAD-001
+type: reference
+scope: baseline
+owner: maintainers
+doc_status: review-candidate
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 0.3.0
+updated_at: 2026-08-31
+reviewed_at: 2026-08-31
+review_interval_days: 90
+---
+
 # Aervox｜思隅 系统架构设计（SAD）
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-31
 
-> 文档编号：AVX-SAD-001  
-> 类型：Explanation  
-> 版本：v0.3（CAP-033～035 主动智能与本地连接网关）
-> 更新日期：2026-08-31
-> 状态：Review Candidate  
-> 关联 PRD：[PRD.md](PRD.md) · 追踪：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
+关联 PRD：[PRD.md](PRD.md) · 追踪：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
 
 本文回答“系统如何实现、怎样扩展和怎样在故障/删除/模型变更下保持正确”。产品目标和用户级验收以 PRD 为准；本文件不能扩大 PRD 已批准的权限、数据用途或生命周期范围。
 

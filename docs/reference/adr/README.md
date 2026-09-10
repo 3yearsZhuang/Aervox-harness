@@ -1,12 +1,25 @@
+---
+id: ADR-001~019
+type: reference
+scope: decision
+owner: maintainers
+doc_status: review-candidate
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 0.1.0
+updated_at: 2026-08-31
+reviewed_at: 2026-08-31
+review_interval_days: 90
+---
+
 # Aervox 架构决策记录（ADR）
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-31
 
-> 状态：评审候选  
-> 更新日期：2026-08-31
-> 架构基线摘要：[ARCHITECTURE.md 第 11 节](../ARCHITECTURE.md#11-首批-adr)  
-> ADR 文件编号与评审登记以本文件为准
+架构基线摘要：[ARCHITECTURE.md 第 11 节](../ARCHITECTURE.md#11-首批-adr)
+
+ADR 文件编号与评审登记以本文件为准
 
 ADR 记录难以逆转、影响多个模块或改变数据/运维边界的技术决策。编号一经分配不复用；被替代时保留原文并标记 `Superseded by ADR-###`。分类、状态维度和 canonical 元数据规则以[文档治理与事实源规范](../document-governance.md)为准，本文只维护 ADR 导航和决策摘要。
 
