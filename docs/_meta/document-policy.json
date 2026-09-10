@@ -33,6 +33,14 @@
     "templates": {
       "type": "template",
       "answers": "新文档的最小结构是什么"
+    },
+    "proposals": {
+      "type": "reference",
+      "answers": "未采纳或待补充证据的技术与架构方案"
+    },
+    "archive": {
+      "type": "reference",
+      "answers": "已完成或已退役的历史变更与决策记录"
     }
   },
   "documentStatus": [
@@ -94,7 +102,8 @@
       "docs/reference/STREAMING_PROTOCOL.md"
     ],
     "database": [
-      "packages/database/",
+      "packages/schema/",
+      "packages/repositories/",
       "docs/reference/DATABASE.md"
     ],
     "changeDeltas": [
@@ -131,7 +140,8 @@
       "docs/reference/STREAMING_PROTOCOL.md"
     ],
     "database": [
-      "packages/database/**",
+      "packages/schema/**",
+      "packages/repositories/**",
       "docs/reference/DATABASE.md"
     ],
     "agentLoop": [

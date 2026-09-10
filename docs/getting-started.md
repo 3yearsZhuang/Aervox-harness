@@ -1,11 +1,11 @@
 # 从哪开始（新成员 / AI Agent 入口）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-04
+- 修改人：3yearszhuang · 2026-09-10
 
 > 文档编号：AVX-DOC-002  
 > 版本：v1.0
-> 更新日期：2026-09-04
+> 更新日期：2026-09-10
 > 状态：Review Candidate  
 > 关联：[文档索引](README.md)（AVX-DOC-001）
 
@@ -23,6 +23,8 @@ docs/
   how-to/                # 操作指南（AVX-GUIDE-*）
   explanation/           # 概念讲解（AVX-EXPL-*）/ 实现规划 / 能力拆分路线
   templates/             # 新建文档模板（How-to / Reference / Explanation）
+  proposals/             # 暂存提案（未采纳或待补充证据的技术与架构方案）
+  archive/               # 已归档记录（已完成或已退役的历史变更与决策记录）
   reference/             # 参考类（AVX-PRD/SRS/SAD/TRC/SPC/DB/DATA/AIQ/SEC/QA/OPS 等）
     adr/                 # ADR-001~019 + 索引
     changes/             # CR-002～026
