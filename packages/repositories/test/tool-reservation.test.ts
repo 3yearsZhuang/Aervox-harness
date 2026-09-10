@@ -172,8 +172,6 @@ describe("3c 恢复候选（findResumeCandidates）", () => {
       attemptId: "atp_resume",
       turnId: "turn_resume",
       sessionId: "ses_resume",
-      workspaceId: "ws_resv",
-      subjectUserId: "usr_resv",
       lastSequence: 1,
       fencingToken: 1, // claim（0→1）后崩溃，续跑 claim 预期
     });

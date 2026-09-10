@@ -10,14 +10,13 @@
  */
 import { sqliteTable, text, integer, real, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
-import { tenantColumns, timestampColumns } from "./common.js";
+import { timestampColumns } from "./common.js";
 
 /** 本地语音模型配置预设（租户级；每租户多行，至多一行激活） */
 export const voiceConfigs = sqliteTable(
   "voice_configs",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     /** 预设名称（多预设切换用，默认「默认配置」） */
     name: text("name").notNull().default("默认配置"),
     /** 是否为当前激活预设（0/1；每租户至多一行 =1） */
@@ -37,11 +36,8 @@ export const voiceConfigs = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("voice_configs_tenant_idx").on(table.workspaceId, table.subjectUserId),
-    tenantActiveIdx: uniqueIndex("voice_configs_tenant_active_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-    ).where(sql`${table.isActive} = 1`),
+
+
   }),
 );
 
@@ -50,7 +46,6 @@ export const voiceInputConfigs = sqliteTable(
   "voice_input_configs",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     /** 预设名称（多预设切换用，默认「默认配置」） */
     name: text("name").notNull().default("默认配置"),
     /** 是否为当前激活预设（0/1；每租户至多一行 =1） */
@@ -76,11 +71,8 @@ export const voiceInputConfigs = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("voice_input_configs_tenant_idx").on(table.workspaceId, table.subjectUserId),
-    tenantActiveIdx: uniqueIndex("voice_input_configs_tenant_active_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-    ).where(sql`${table.isActive} = 1`),
+
+
   }),
 );
 
@@ -89,7 +81,6 @@ export const voiceRemoteConfigs = sqliteTable(
   "voice_remote_configs",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     /** 预设名称（多预设切换用，默认「默认配置」） */
     name: text("name").notNull().default("默认配置"),
     /** 是否为当前激活预设（0/1；每租户至多一行 =1） */
@@ -123,10 +114,7 @@ export const voiceRemoteConfigs = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("voice_remote_configs_tenant_idx").on(table.workspaceId, table.subjectUserId),
-    tenantActiveIdx: uniqueIndex("voice_remote_configs_tenant_active_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-    ).where(sql`${table.isActive} = 1`),
+
+
   }),
 );

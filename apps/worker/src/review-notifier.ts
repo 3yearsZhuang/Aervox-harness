@@ -34,8 +34,6 @@ export async function runReviewNotificationCycle(ctx: ReviewNotifierContext): Pr
   // 跨租户只读：查询到期且未处理的复习项（仅调度字段）
   const dueItems = await ctx.db
     .select({
-      workspaceId: reviewItems.workspaceId,
-      subjectUserId: reviewItems.subjectUserId,
       id: reviewItems.id,
       knowledgeId: reviewItems.knowledgeId,
       dueAt: reviewItems.dueAt,
@@ -45,7 +43,7 @@ export async function runReviewNotificationCycle(ctx: ReviewNotifierContext): Pr
     .limit(100);
 
   for (const item of dueItems) {
-    const tenant = { workspaceId: item.workspaceId, subjectUserId: item.subjectUserId };
+    const tenant = { workspaceId: "local", subjectUserId: "local" };
     await ctx.platformRepo.createNotification(tenant, {
       id: id("ntf"),
       type: "review",

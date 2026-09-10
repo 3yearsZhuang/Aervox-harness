@@ -21,8 +21,8 @@ export interface IRecoveryLedgerPort {
 
 export interface ExternalSourceModel {
   id: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   provider: string;
   externalId: string;
   permissionScope: string;
@@ -49,8 +49,8 @@ export interface PluginModel {
 
 export interface PluginGrantModel {
   id: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   pluginId: string;
   permission: string;
   scope: string;
@@ -62,8 +62,8 @@ export interface PluginGrantModel {
 
 export interface CommunityContentModel {
   id: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   authorId: string;
   type: string;
   status: string;
@@ -75,8 +75,8 @@ export interface CommunityContentModel {
 
 export interface OrganizationModel {
   id: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   ownerId: string;
   memberScope: string;
   policyVersion: string;

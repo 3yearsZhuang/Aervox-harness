@@ -15,7 +15,7 @@ import {
   toolPolicies,
   evalSets,
 } from "@aervox/schema";
-import { assertLocalContext, type LocalContext } from "../../local-context.js";
+import type { LocalContext } from "../../local-context.js";
 import type {
   IPlatformRepository,
   ScheduledJobModel,
@@ -35,14 +35,11 @@ export class SqlitePlatformRepository implements IPlatformRepository {
     tenant: LocalContext,
     jobData: { id: string; jobType: string; subjectId: string; idempotencyKey: string; runAt: string },
   ): Promise<ScheduledJobModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(scheduledJobs)
       .values({
         id: jobData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         jobType: jobData.jobType,
         subjectId: jobData.subjectId,
         idempotencyKey: jobData.idempotencyKey,
@@ -57,7 +54,6 @@ export class SqlitePlatformRepository implements IPlatformRepository {
   }
 
   async markJobDone(tenant: LocalContext, id: string): Promise<ScheduledJobModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(scheduledJobs)
@@ -65,8 +61,6 @@ export class SqlitePlatformRepository implements IPlatformRepository {
       .where(
         and(
           eq(scheduledJobs.id, id),
-          eq(scheduledJobs.workspaceId, tenant.workspaceId),
-          eq(scheduledJobs.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -77,14 +71,11 @@ export class SqlitePlatformRepository implements IPlatformRepository {
     tenant: LocalContext,
     notificationData: { id: string; type: string; scheduledAt: string; channel: string },
   ): Promise<NotificationModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(notifications)
       .values({
         id: notificationData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         type: notificationData.type,
         scheduledAt: notificationData.scheduledAt,
         channel: notificationData.channel,
@@ -97,7 +88,6 @@ export class SqlitePlatformRepository implements IPlatformRepository {
   }
 
   async markNotificationSent(tenant: LocalContext, id: string): Promise<NotificationModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(notifications)
@@ -105,8 +95,6 @@ export class SqlitePlatformRepository implements IPlatformRepository {
       .where(
         and(
           eq(notifications.id, id),
-          eq(notifications.workspaceId, tenant.workspaceId),
-          eq(notifications.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -114,14 +102,11 @@ export class SqlitePlatformRepository implements IPlatformRepository {
   }
 
   async listNotifications(tenant: LocalContext, limit: number = 50): Promise<NotificationModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(notifications)
       .where(
         and(
-          eq(notifications.workspaceId, tenant.workspaceId),
-          eq(notifications.subjectUserId, tenant.subjectUserId),
         ),
       )
       .orderBy(desc(notifications.createdAt))
@@ -171,14 +156,11 @@ export class SqlitePlatformRepository implements IPlatformRepository {
       promptVersionId?: string | null;
     },
   ): Promise<ModelRunModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(modelRuns)
       .values({
         id: runData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         attemptId: runData.attemptId ?? null,
         stepId: runData.stepId ?? null,
         purpose: runData.purpose,
@@ -198,7 +180,6 @@ export class SqlitePlatformRepository implements IPlatformRepository {
     id: string,
     result: { latencyMs?: number; tokenUsage?: unknown; cost?: number; status?: string },
   ): Promise<ModelRunModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const updateData: Record<string, unknown> = { updatedAt: now };
     if (result.status) updateData.status = result.status;
@@ -212,8 +193,6 @@ export class SqlitePlatformRepository implements IPlatformRepository {
       .where(
         and(
           eq(modelRuns.id, id),
-          eq(modelRuns.workspaceId, tenant.workspaceId),
-          eq(modelRuns.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -225,7 +204,6 @@ export class SqlitePlatformRepository implements IPlatformRepository {
     modelRunId: string,
     manifestId: string,
   ): Promise<ModelRunModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(modelRuns)
@@ -233,8 +211,6 @@ export class SqlitePlatformRepository implements IPlatformRepository {
       .where(
         and(
           eq(modelRuns.id, modelRunId),
-          eq(modelRuns.workspaceId, tenant.workspaceId),
-          eq(modelRuns.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -288,13 +264,10 @@ export class SqlitePlatformRepository implements IPlatformRepository {
       metadata?: unknown;
     },
   ): Promise<AuditRecordModel> {
-    assertLocalContext(tenant);
     const [created] = await this.db
       .insert(auditRecords)
       .values({
         id: recordData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         actorType: recordData.actorType,
         actorId: recordData.actorId,
         action: recordData.action,
@@ -308,14 +281,11 @@ export class SqlitePlatformRepository implements IPlatformRepository {
   }
 
   async listAuditRecords(tenant: LocalContext, limit: number = 50): Promise<AuditRecordModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(auditRecords)
       .where(
         and(
-          eq(auditRecords.workspaceId, tenant.workspaceId),
-          eq(auditRecords.subjectUserId, tenant.subjectUserId),
         ),
       )
       .orderBy(desc(auditRecords.createdAt))

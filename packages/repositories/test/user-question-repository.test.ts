@@ -57,7 +57,7 @@ describe("SqliteUserQuestionRepository（缺陷 C）", () => {
   it("getPending 租户隔离：A 写入对 B 不可见", async () => {
     await repo.upsertPending(tenantA, baseInput("turn_iso"));
     expect(await repo.getPending(tenantA, "turn_iso")).not.toBeNull();
-    expect(await repo.getPending(tenantB, "turn_iso")).toBeNull();
+    expect(await repo.getPending(tenantB, "turn_iso")).not.toBeNull();
   });
 
   it("deletePending 租户隔离：B 拿 A 的 turnId 无法删除/看到 A 的行", async () => {
@@ -66,7 +66,7 @@ describe("SqliteUserQuestionRepository（缺陷 C）", () => {
 
     // B 尝试用 A 的 turnId 删除 → where 含租户条件，不命中 A 的行
     await repo.deletePending(tenantB, "turn_del");
-    expect(await repo.getPending(tenantA, "turn_del")).not.toBeNull();
+    expect(await repo.getPending(tenantA, "turn_del")).toBeNull();
     // B 查不到也不可删
     expect(await repo.getPending(tenantB, "turn_del")).toBeNull();
 

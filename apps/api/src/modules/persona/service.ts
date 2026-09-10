@@ -44,8 +44,8 @@ import {
 function personaToDomain(model: PersonaModel): Persona {
   return {
     id: model.id,
-    workspaceId: model.workspaceId,
-    subjectUserId: model.subjectUserId,
+    workspaceId: "local",
+    subjectUserId: "local",
     name: model.name,
     description: model.description,
     source: model.source as PersonaSource,
@@ -73,8 +73,8 @@ function revisionToDomain(model: PersonaRevisionModel): PersonaRevision {
 function selectionToDomain(model: ActivePersonaSelectionModel): ActivePersonaSelection {
   return {
     id: model.id,
-    workspaceId: model.workspaceId,
-    subjectUserId: model.subjectUserId,
+    workspaceId: "local",
+    subjectUserId: "local",
     personaId: model.personaId,
     revisionId: model.revisionId,
     selectedAt: model.selectedAt,

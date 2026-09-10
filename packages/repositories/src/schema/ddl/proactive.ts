@@ -10,8 +10,6 @@ export async function createProactiveTables(client: Client): Promise<void> {
     await client.execute(`
       CREATE TABLE IF NOT EXISTS proactive_profile_revisions (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         profile_version TEXT NOT NULL DEFAULT 'full_profile_v1',
         revision INTEGER NOT NULL DEFAULT 1,
         device_id TEXT NOT NULL,
@@ -28,25 +26,23 @@ export async function createProactiveTables(client: Client): Promise<void> {
       );
     `);
   // 设备级修订号允许不同设备各自从 1 开始；旧试验版索引缺少 device_id，先幂等重建。
-    await client.execute(`DROP INDEX IF EXISTS proactive_profile_tenant_version_revision_idx;`);
+    await client.execute(`DROP INDEX IF EXISTS proactive_profile_local_version_revision_idx;`);
   await client.execute(`
-      CREATE UNIQUE INDEX IF NOT EXISTS proactive_profile_tenant_version_revision_idx
-      ON proactive_profile_revisions(workspace_id, subject_user_id, profile_version, device_id, revision);
+      CREATE UNIQUE INDEX IF NOT EXISTS proactive_profile_local_version_revision_idx
+      ON proactive_profile_revisions(profile_version, device_id, revision);
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS proactive_profile_tenant_device_idx
-      ON proactive_profile_revisions(workspace_id, subject_user_id, device_id, status);
+      CREATE INDEX IF NOT EXISTS proactive_profile_local_device_idx
+      ON proactive_profile_revisions(device_id, status);
     `);
   await client.execute(`
       CREATE INDEX IF NOT EXISTS proactive_profile_active_idx
-      ON proactive_profile_revisions(workspace_id, subject_user_id, status);
+      ON proactive_profile_revisions(status);
     `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS proactive_source_grants (
         id TEXT PRIMARY KEY,
         revision_id TEXT NOT NULL REFERENCES proactive_profile_revisions(id) ON DELETE CASCADE,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         source_key TEXT NOT NULL,
         purpose TEXT NOT NULL,
         scope TEXT NOT NULL,
@@ -68,19 +64,17 @@ export async function createProactiveTables(client: Client): Promise<void> {
       ON proactive_source_grants(revision_id, source_key, purpose);
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS proactive_source_tenant_state_idx
-      ON proactive_source_grants(workspace_id, subject_user_id, state);
+      CREATE INDEX IF NOT EXISTS proactive_source_local_state_idx
+      ON proactive_source_grants(state);
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS proactive_source_tenant_source_idx
-      ON proactive_source_grants(workspace_id, subject_user_id, source_key);
+      CREATE INDEX IF NOT EXISTS proactive_source_local_source_idx
+      ON proactive_source_grants(source_key);
     `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS proactive_activation_leases (
         id TEXT PRIMARY KEY,
         revision_id TEXT NOT NULL REFERENCES proactive_profile_revisions(id) ON DELETE CASCADE,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         device_id TEXT NOT NULL,
         epoch TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'active',
@@ -97,20 +91,18 @@ export async function createProactiveTables(client: Client): Promise<void> {
       );
     `);
   await client.execute(`
-      CREATE UNIQUE INDEX IF NOT EXISTS proactive_activation_tenant_device_epoch_idx
-      ON proactive_activation_leases(workspace_id, subject_user_id, device_id, epoch);
+      CREATE UNIQUE INDEX IF NOT EXISTS proactive_activation_local_device_epoch_idx
+      ON proactive_activation_leases(device_id, epoch);
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS proactive_activation_tenant_active_idx
-      ON proactive_activation_leases(workspace_id, subject_user_id, device_id, status);
+      CREATE INDEX IF NOT EXISTS proactive_activation_local_active_idx
+      ON proactive_activation_leases(device_id, status);
     `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS proactive_captures (
         id TEXT PRIMARY KEY,
         revision_id TEXT NOT NULL REFERENCES proactive_profile_revisions(id) ON DELETE CASCADE,
         source_grant_id TEXT NOT NULL REFERENCES proactive_source_grants(id) ON DELETE RESTRICT,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         source_key TEXT NOT NULL,
         content_type TEXT NOT NULL,
         payload_text TEXT,
@@ -133,12 +125,12 @@ export async function createProactiveTables(client: Client): Promise<void> {
       );
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS proactive_capture_tenant_observed_idx
-      ON proactive_captures(workspace_id, subject_user_id, observed_at);
+      CREATE INDEX IF NOT EXISTS proactive_capture_local_observed_idx
+      ON proactive_captures(observed_at);
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS proactive_capture_tenant_retention_idx
-      ON proactive_captures(workspace_id, subject_user_id, retention_until, distillation_status);
+      CREATE INDEX IF NOT EXISTS proactive_capture_local_retention_idx
+      ON proactive_captures(retention_until, distillation_status);
     `);
   await client.execute(`
       CREATE INDEX IF NOT EXISTS proactive_capture_revision_idx ON proactive_captures(revision_id);
@@ -152,8 +144,6 @@ export async function createProactiveTables(client: Client): Promise<void> {
         id TEXT PRIMARY KEY,
         revision_id TEXT NOT NULL REFERENCES proactive_profile_revisions(id) ON DELETE CASCADE,
         source_grant_id TEXT NOT NULL REFERENCES proactive_source_grants(id) ON DELETE RESTRICT,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         source_key TEXT NOT NULL,
         observation_type TEXT NOT NULL,
         subject_key TEXT NOT NULL,
@@ -168,8 +158,8 @@ export async function createProactiveTables(client: Client): Promise<void> {
       );
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS proactive_observation_tenant_observed_idx
-      ON proactive_observations(workspace_id, subject_user_id, observed_at);
+      CREATE INDEX IF NOT EXISTS proactive_observation_local_observed_idx
+      ON proactive_observations(observed_at);
     `);
   await client.execute(`
       CREATE INDEX IF NOT EXISTS proactive_observation_revision_idx ON proactive_observations(revision_id);
@@ -181,8 +171,6 @@ export async function createProactiveTables(client: Client): Promise<void> {
       CREATE TABLE IF NOT EXISTS proactive_profile_claims (
         id TEXT PRIMARY KEY,
         revision_id TEXT NOT NULL REFERENCES proactive_profile_revisions(id) ON DELETE CASCADE,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         claim_type TEXT NOT NULL,
         subject_key TEXT NOT NULL,
         content TEXT NOT NULL,
@@ -202,12 +190,12 @@ export async function createProactiveTables(client: Client): Promise<void> {
       );
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS proactive_claim_tenant_state_idx
-      ON proactive_profile_claims(workspace_id, subject_user_id, state);
+      CREATE INDEX IF NOT EXISTS proactive_claim_local_state_idx
+      ON proactive_profile_claims(state);
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS proactive_claim_tenant_type_idx
-      ON proactive_profile_claims(workspace_id, subject_user_id, claim_type);
+      CREATE INDEX IF NOT EXISTS proactive_claim_local_type_idx
+      ON proactive_profile_claims(claim_type);
     `);
   await client.execute(`
       CREATE INDEX IF NOT EXISTS proactive_claim_revision_idx ON proactive_profile_claims(revision_id);
@@ -220,8 +208,6 @@ export async function createProactiveTables(client: Client): Promise<void> {
         id TEXT PRIMARY KEY,
         revision_id TEXT NOT NULL REFERENCES proactive_profile_revisions(id) ON DELETE CASCADE,
         activation_lease_id TEXT REFERENCES proactive_activation_leases(id) ON DELETE SET NULL,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         action_type TEXT NOT NULL,
         target TEXT NOT NULL,
         request_json TEXT NOT NULL DEFAULT '{}',
@@ -242,12 +228,12 @@ export async function createProactiveTables(client: Client): Promise<void> {
       );
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS proactive_action_tenant_state_idx
-      ON proactive_actions(workspace_id, subject_user_id, state);
+      CREATE INDEX IF NOT EXISTS proactive_action_local_state_idx
+      ON proactive_actions(state);
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS proactive_action_tenant_created_idx
-      ON proactive_actions(workspace_id, subject_user_id, created_at);
+      CREATE INDEX IF NOT EXISTS proactive_action_local_created_idx
+      ON proactive_actions(created_at);
     `);
   await client.execute(`
       CREATE INDEX IF NOT EXISTS proactive_action_revision_idx ON proactive_actions(revision_id);
@@ -256,8 +242,6 @@ export async function createProactiveTables(client: Client): Promise<void> {
   await client.execute(`
       CREATE TABLE IF NOT EXISTS proactive_audit_events (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         revision_id TEXT REFERENCES proactive_profile_revisions(id) ON DELETE SET NULL,
         event_type TEXT NOT NULL,
         actor_id TEXT NOT NULL,
@@ -270,8 +254,8 @@ export async function createProactiveTables(client: Client): Promise<void> {
       );
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS proactive_audit_tenant_occurred_idx
-      ON proactive_audit_events(workspace_id, subject_user_id, occurred_at);
+      CREATE INDEX IF NOT EXISTS proactive_audit_local_occurred_idx
+      ON proactive_audit_events(occurred_at);
     `);
   await client.execute(`
       CREATE INDEX IF NOT EXISTS proactive_audit_resource_idx

@@ -372,7 +372,7 @@ export class ProactiveIntegrationManager {
     try {
       const connections = await this.intelligenceRepo.listActiveConnectionSecrets();
       for (const connection of connections) {
-        const tenant = {workspaceId: connection.workspaceId, subjectUserId: connection.subjectUserId};
+        const tenant = {workspaceId: "local", subjectUserId: "local"};
         try {
           if (connection.provider === "home_assistant") {
             await this.syncHomeAssistant(tenant, connection.id);

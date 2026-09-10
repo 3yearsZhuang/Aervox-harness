@@ -7,8 +7,7 @@ export async function addColumnIfMissing(
   client: Client,
   table: string,
   column: string,
-  definition: string,
-): Promise<void> {
+  definition: string): Promise<void> {
   const columns = await client.execute(`PRAGMA table_info(${table})`);
   if (columns.rows.some((row) => String(row.name) === column)) return;
   await client.execute(`ALTER TABLE ${table} ADD COLUMN ${definition}`);

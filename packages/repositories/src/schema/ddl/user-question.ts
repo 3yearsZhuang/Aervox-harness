@@ -13,15 +13,10 @@ export async function createUserQuestionTables(client: Client): Promise<void> {
         questions_json TEXT NOT NULL,
         timeout_ms INTEGER NOT NULL,
         expires_at TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL
+        created_at TEXT NOT NULL
       );
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS pending_user_questions_tenant_idx ON pending_user_questions(workspace_id, subject_user_id);
-    `);
-  await client.execute(`
-      CREATE INDEX IF NOT EXISTS pending_user_questions_tenant_expires_idx ON pending_user_questions(workspace_id, subject_user_id, expires_at);
+      CREATE INDEX IF NOT EXISTS pending_user_questions_local_expires_idx ON pending_user_questions(expires_at);
     `);
 }

@@ -9,8 +9,6 @@ export async function createEcosystemTables(client: Client): Promise<void> {
     await client.execute(`
       CREATE TABLE IF NOT EXISTS external_sources (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         provider TEXT NOT NULL,
         external_id TEXT NOT NULL,
         permission_scope TEXT NOT NULL,
@@ -21,7 +19,7 @@ export async function createEcosystemTables(client: Client): Promise<void> {
       );
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS external_sources_tenant_provider_idx ON external_sources(workspace_id, subject_user_id, provider);
+      CREATE INDEX IF NOT EXISTS external_sources_local_provider_idx ON external_sources(provider);
     `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS plugins (
@@ -43,8 +41,6 @@ export async function createEcosystemTables(client: Client): Promise<void> {
   await client.execute(`
       CREATE TABLE IF NOT EXISTS plugin_grants (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         plugin_id TEXT NOT NULL REFERENCES plugins(id) ON DELETE CASCADE,
         permission TEXT NOT NULL,
         scope TEXT NOT NULL,
@@ -55,13 +51,11 @@ export async function createEcosystemTables(client: Client): Promise<void> {
       );
     `);
   await client.execute(`
-      CREATE UNIQUE INDEX IF NOT EXISTS plugin_grants_tenant_plugin_perm_idx ON plugin_grants(workspace_id, subject_user_id, plugin_id, permission) WHERE revoked_at IS NULL;
+      CREATE UNIQUE INDEX IF NOT EXISTS plugin_grants_local_plugin_perm_idx ON plugin_grants(plugin_id, permission) WHERE revoked_at IS NULL;
     `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS community_contents (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         author_id TEXT NOT NULL,
         type TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'draft',
@@ -72,22 +66,14 @@ export async function createEcosystemTables(client: Client): Promise<void> {
       );
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS community_contents_tenant_idx ON community_contents(workspace_id, subject_user_id);
-    `);
-  await client.execute(`
       CREATE TABLE IF NOT EXISTS organizations (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         owner_id TEXT NOT NULL,
         member_scope TEXT NOT NULL DEFAULT 'institution',
         policy_version TEXT NOT NULL,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
-    `);
-  await client.execute(`
-      CREATE INDEX IF NOT EXISTS organizations_tenant_idx ON organizations(workspace_id, subject_user_id);
     `);
   // AST-04 插件元数据列补齐（旧库 addColumnIfMissing 兼容）
     await addColumnIfMissing(client, "plugins", "display_name", "display_name TEXT");

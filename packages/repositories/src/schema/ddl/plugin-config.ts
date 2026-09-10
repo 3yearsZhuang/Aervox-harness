@@ -7,8 +7,6 @@ export async function createPluginConfigTables(client: Client): Promise<void> {
   await client.execute(`
       CREATE TABLE IF NOT EXISTS plugin_configs (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         plugin_id TEXT NOT NULL,
         values_json TEXT NOT NULL,
         secret_keys_json TEXT NOT NULL,
@@ -20,13 +18,11 @@ export async function createPluginConfigTables(client: Client): Promise<void> {
       );
     `);
   await client.execute(`
-      CREATE UNIQUE INDEX IF NOT EXISTS plugin_configs_tenant_plugin_idx ON plugin_configs(workspace_id, subject_user_id, plugin_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS plugin_configs_local_plugin_idx ON plugin_configs(plugin_id);
     `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS plugin_config_secrets (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         plugin_id TEXT NOT NULL,
         field_key TEXT NOT NULL,
         value_json TEXT NOT NULL,
@@ -36,7 +32,7 @@ export async function createPluginConfigTables(client: Client): Promise<void> {
       );
     `);
   await client.execute(`
-      CREATE UNIQUE INDEX IF NOT EXISTS plugin_config_secrets_tenant_plugin_field_idx ON plugin_config_secrets(workspace_id, subject_user_id, plugin_id, field_key);
+      CREATE UNIQUE INDEX IF NOT EXISTS plugin_config_secrets_local_plugin_field_idx ON plugin_config_secrets(plugin_id, field_key);
     `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS plugin_pages (

@@ -76,7 +76,7 @@ describe("阶段 5a Agent 收件箱（agent_inbox_items）", () => {
       sourceActor: "user",
       payload: { text: "C" },
     });
-    expect(otherTenant.id).toBe("inb_3");
+    expect(otherTenant.id).toBe("inb_1");
   });
 
   it("claim next-step：按 sessionId+attemptId 过滤 pending；claim 后再次 claim 不重复返回（CAS 单赢）", async () => {
@@ -208,7 +208,7 @@ describe("阶段 5a Agent 收件箱（agent_inbox_items）", () => {
       attemptId: "atp_1",
       type: "next-step",
     });
-    expect(claimedB).toHaveLength(0);
+    expect(claimedB.map((item) => item.id)).toEqual(["inb_1"]);
   });
 
   it("next-turn：不绑定 attemptId，按 sessionId+type 领取（followup 排队为新 Turn 输入）", async () => {

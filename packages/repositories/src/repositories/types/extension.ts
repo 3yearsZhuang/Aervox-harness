@@ -53,8 +53,8 @@ export interface IExtensionRepository {
 
 export interface PluginConfigModel {
   id: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   pluginId: string;
   /** 非敏感配置值 */
   valuesJson: unknown;
@@ -69,8 +69,8 @@ export interface PluginConfigModel {
 
 export interface PluginSecretModel {
   id: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   pluginId: string;
   fieldKey: string;
   valueJson: unknown;

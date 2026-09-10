@@ -5,10 +5,9 @@
  * 每租户一行，neut 默认值由 API 层保证。
  */
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
-import { tenantColumns, timestampColumns } from "./common.js";
+import { timestampColumns } from "./common.js";
 
 export const personaPreferences = sqliteTable("persona_preferences", {
-  ...tenantColumns,
   id: text("id").primaryKey(),
 
   /** FR-PER-001：语气 — "friendly" | "neutral" | "formal" */

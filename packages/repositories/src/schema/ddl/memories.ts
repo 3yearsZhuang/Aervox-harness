@@ -9,8 +9,6 @@ export async function createMemoriesTables(client: Client): Promise<void> {
     await client.execute(`
       CREATE TABLE IF NOT EXISTS memory_records (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         layer TEXT NOT NULL,
         type TEXT NOT NULL,
         content TEXT NOT NULL,
@@ -28,7 +26,7 @@ export async function createMemoriesTables(client: Client): Promise<void> {
       );
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS memory_records_tenant_layer_idx ON memory_records(workspace_id, subject_user_id, layer, is_deleted);
+      CREATE INDEX IF NOT EXISTS memory_records_local_layer_idx ON memory_records(layer, is_deleted);
     `);
   // PET-02 记忆条目字段（新库建列；旧库走下方 addColumnIfMissing 补齐）
     await addColumnIfMissing(client, "memory_records", "source", "source TEXT NOT NULL DEFAULT 'user_said'");
@@ -39,8 +37,6 @@ export async function createMemoriesTables(client: Client): Promise<void> {
     await client.execute(`
       CREATE TABLE IF NOT EXISTS memory_nodes (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         canonical_parent_id TEXT,
         label TEXT NOT NULL,
         node_type TEXT NOT NULL DEFAULT 'concept',
@@ -52,16 +48,11 @@ export async function createMemoriesTables(client: Client): Promise<void> {
       );
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS memory_nodes_tenant_idx ON memory_nodes(workspace_id, subject_user_id);
-    `);
-  await client.execute(`
       CREATE INDEX IF NOT EXISTS memory_nodes_parent_idx ON memory_nodes(canonical_parent_id);
     `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS memory_edges (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         from_node_id TEXT NOT NULL REFERENCES memory_nodes(id) ON DELETE CASCADE,
         to_node_id TEXT NOT NULL REFERENCES memory_nodes(id) ON DELETE CASCADE,
         relation_type TEXT NOT NULL,
@@ -72,7 +63,7 @@ export async function createMemoriesTables(client: Client): Promise<void> {
       );
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS memory_edges_tenant_from_idx ON memory_edges(workspace_id, subject_user_id, from_node_id);
+      CREATE INDEX IF NOT EXISTS memory_edges_local_from_idx ON memory_edges(from_node_id);
     `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS memory_edge_evidence (
@@ -89,8 +80,6 @@ export async function createMemoriesTables(client: Client): Promise<void> {
   await client.execute(`
       CREATE TABLE IF NOT EXISTS memory_projection_overrides (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         node_id TEXT NOT NULL REFERENCES memory_nodes(id) ON DELETE CASCADE,
         operation TEXT NOT NULL,
         label TEXT,

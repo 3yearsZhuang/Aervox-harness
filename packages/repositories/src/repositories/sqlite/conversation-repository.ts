@@ -17,7 +17,7 @@ import {
   conversationBranches,
   outboxEvents,
 } from "@aervox/schema";
-import { assertLocalContext, type LocalContext } from "../../local-context.js";
+import type { LocalContext } from "../../local-context.js";
 import { FencingMismatchError } from "../../errors.js";
 import { readSessionHistory } from "./session-history.js";
 import type {
@@ -41,15 +41,12 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   async createSession(tenant: LocalContext, title: string): Promise<SessionModel> {
-    assertLocalContext(tenant);
     const id = `ses_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(sessions)
       .values({
         id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         title,
         createdAt: now,
         updatedAt: now,
@@ -59,15 +56,12 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   async getSession(tenant: LocalContext, sessionId: string): Promise<SessionModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(sessions)
       .where(
         and(
           eq(sessions.id, sessionId),
-          eq(sessions.workspaceId, tenant.workspaceId),
-          eq(sessions.subjectUserId, tenant.subjectUserId),
         ),
       );
     return (found as SessionModel) ?? null;
@@ -85,7 +79,6 @@ export class SqliteConversationRepository implements IConversationRepository {
     sessionId: string,
     title = "默认会话",
   ): Promise<SessionModel> {
-    assertLocalContext(tenant);
     const existing = await this.getSession(tenant, sessionId);
     if (existing) return existing;
     const now = new Date().toISOString();
@@ -93,8 +86,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       .insert(sessions)
       .values({
         id: sessionId,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         title,
         createdAt: now,
         updatedAt: now,
@@ -109,7 +100,6 @@ export class SqliteConversationRepository implements IConversationRepository {
     userMessage: { id: string; content: string },
     outboxEventData?: { id: string; eventType: string; idempotencyKey: string; payload: unknown },
   ): Promise<{ turn: TurnModel; message: MessageVersionModel }> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
 
     return await this.db.transaction(async (tx) => {
@@ -119,8 +109,6 @@ export class SqliteConversationRepository implements IConversationRepository {
         .values({
           id: turnData.id,
           sessionId: turnData.sessionId,
-          workspaceId: tenant.workspaceId,
-          subjectUserId: tenant.subjectUserId,
           idempotencyKey: turnData.idempotencyKey,
           status: turnData.status ?? "Created",
           lastSequence: 0,
@@ -135,8 +123,6 @@ export class SqliteConversationRepository implements IConversationRepository {
         .values({
           id: userMessage.id,
           turnId: turnData.id,
-          workspaceId: tenant.workspaceId,
-          subjectUserId: tenant.subjectUserId,
           role: "user",
           version: 1,
           content: userMessage.content,
@@ -149,8 +135,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       if (outboxEventData) {
         await tx.insert(outboxEvents).values({
           id: outboxEventData.id,
-          workspaceId: tenant.workspaceId,
-          subjectUserId: tenant.subjectUserId,
           idempotencyKey: outboxEventData.idempotencyKey,
           eventType: outboxEventData.eventType,
           payload: outboxEventData.payload,
@@ -167,15 +151,12 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   async getTurn(tenant: LocalContext, turnId: string): Promise<TurnModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(turns)
       .where(
         and(
           eq(turns.id, turnId),
-          eq(turns.workspaceId, tenant.workspaceId),
-          eq(turns.subjectUserId, tenant.subjectUserId),
         ),
       );
     return (found as TurnModel) ?? null;
@@ -185,15 +166,12 @@ export class SqliteConversationRepository implements IConversationRepository {
     tenant: LocalContext,
     idempotencyKey: string,
   ): Promise<TurnModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(turns)
       .where(
         and(
           eq(turns.idempotencyKey, idempotencyKey),
-          eq(turns.workspaceId, tenant.workspaceId),
-          eq(turns.subjectUserId, tenant.subjectUserId),
         ),
       );
     return (found as TurnModel) ?? null;
@@ -206,7 +184,6 @@ export class SqliteConversationRepository implements IConversationRepository {
     lastSequence?: number,
     error?: unknown,
   ): Promise<TurnModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const updateData: Record<string, unknown> = {
       status,
@@ -225,8 +202,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       .where(
         and(
           eq(turns.id, turnId),
-          eq(turns.workspaceId, tenant.workspaceId),
-          eq(turns.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -256,7 +231,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       expectedFencingToken?: number | null;
     },
   ): Promise<TurnStreamEventModel> {
-    assertLocalContext(tenant);
     const fenced =
       eventData.attemptId != null && eventData.expectedFencingToken != null;
     // BEGIN IMMEDIATE：fencing 校验与插入在同一写锁内原子完成，
@@ -293,8 +267,6 @@ export class SqliteConversationRepository implements IConversationRepository {
           .values({
             id: eventData.id,
             turnId: eventData.turnId,
-            workspaceId: tenant.workspaceId,
-            subjectUserId: tenant.subjectUserId,
             sequence: eventData.sequence,
             eventType: eventData.eventType,
             payloadVersion: eventData.payloadVersion ?? 1,
@@ -316,15 +288,12 @@ export class SqliteConversationRepository implements IConversationRepository {
     turnId: string,
     afterSequence: number = 0,
   ): Promise<TurnStreamEventModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(turnStreamEvents)
       .where(
         and(
           eq(turnStreamEvents.turnId, turnId),
-          eq(turnStreamEvents.workspaceId, tenant.workspaceId),
-          eq(turnStreamEvents.subjectUserId, tenant.subjectUserId),
           gt(turnStreamEvents.sequence, afterSequence),
         ),
       )
@@ -354,14 +323,11 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   async deleteMessage(tenant: LocalContext, messageId: string): Promise<boolean> {
-    assertLocalContext(tenant);
     const res = await this.db
       .delete(messageVersions)
       .where(
         and(
           eq(messageVersions.id, messageId),
-          eq(messageVersions.workspaceId, tenant.workspaceId),
-          eq(messageVersions.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -380,7 +346,6 @@ export class SqliteConversationRepository implements IConversationRepository {
     content: string,
     expectedVersion: number,
   ): Promise<{ message: MessageModel; newVersion: MessageVersionModel } | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
 
     // 1. 获取消息，校验存在性和删除状态
@@ -394,8 +359,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       .where(
         and(
           eq(messageVersions.messageId, messageId),
-          eq(messageVersions.workspaceId, tenant.workspaceId),
-          eq(messageVersions.subjectUserId, tenant.subjectUserId),
           isNull(messageVersions.supersededAt),
         ),
       )
@@ -420,8 +383,6 @@ export class SqliteConversationRepository implements IConversationRepository {
         id: newVersionId,
         turnId: currentVersion.turnId,
         messageId: messageId,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         role: currentVersion.role,
         version: expectedVersion + 1,
         content,
@@ -446,7 +407,6 @@ export class SqliteConversationRepository implements IConversationRepository {
    * FR-CONV-005：软删除消息 — 设置 deletedAt，不物理删除
    */
   async softDeleteMessage(tenant: LocalContext, messageId: string): Promise<MessageModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const message = await this.getMessage(tenant, messageId);
     if (!message || message.deletedAt) return null;
@@ -464,7 +424,6 @@ export class SqliteConversationRepository implements IConversationRepository {
    * 恢复已删除的消息 — 清除 deletedAt
    */
   async restoreMessage(tenant: LocalContext, messageId: string): Promise<MessageModel | null> {
-    assertLocalContext(tenant);
     // 先校验租户归属
     const message = await this.getMessage(tenant, messageId);
     if (!message) return null;
@@ -485,15 +444,12 @@ export class SqliteConversationRepository implements IConversationRepository {
     tenant: LocalContext,
     messageId: string,
   ): Promise<MessageVersionModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(messageVersions)
       .where(
         and(
           eq(messageVersions.messageId, messageId),
-          eq(messageVersions.workspaceId, tenant.workspaceId),
-          eq(messageVersions.subjectUserId, tenant.subjectUserId),
         ),
       )
       .orderBy(desc(messageVersions.version));
@@ -506,7 +462,6 @@ export class SqliteConversationRepository implements IConversationRepository {
     tenant: LocalContext,
     messageData: { id: string; sessionId: string; role: string; label?: string | null },
   ): Promise<MessageModel> {
-    assertLocalContext(tenant);
     const [created] = await this.db
       .insert(messages)
       .values({
@@ -521,7 +476,6 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   async getMessage(tenant: LocalContext, messageId: string): Promise<MessageModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(messages)
@@ -529,8 +483,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       .where(
         and(
           eq(messages.id, messageId),
-          eq(sessions.workspaceId, tenant.workspaceId),
-          eq(sessions.subjectUserId, tenant.subjectUserId),
         ),
       );
     return (found ? { ...found.messages } : null) as MessageModel | null;
@@ -541,7 +493,6 @@ export class SqliteConversationRepository implements IConversationRepository {
     turnId: string,
     attemptData: { id: string; attempt?: number; leaseId?: string | null; fencingToken?: number },
   ): Promise<TurnAttemptModel> {
-    assertLocalContext(tenant);
     const [created] = await this.db
       .insert(turnAttempts)
       .values({
@@ -558,7 +509,6 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   async listTurnAttempts(tenant: LocalContext, turnId: string): Promise<TurnAttemptModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select({ attempt: turnAttempts })
       .from(turnAttempts)
@@ -566,8 +516,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       .where(
         and(
           eq(turnAttempts.turnId, turnId),
-          eq(turns.workspaceId, tenant.workspaceId),
-          eq(turns.subjectUserId, tenant.subjectUserId),
         ),
       )
       .orderBy(desc(turnAttempts.attempt));
@@ -589,7 +537,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       ttlMs?: number;
     },
   ): Promise<{ ok: boolean; fencingToken: number; leaseId: string; leaseExpiresAt: string }> {
-    assertLocalContext(tenant);
     const ttlMs = input.ttlMs ?? 60_000;
     const nowIso = new Date().toISOString();
     const leaseExpiresAt = new Date(Date.now() + ttlMs).toISOString();
@@ -607,8 +554,6 @@ export class SqliteConversationRepository implements IConversationRepository {
           eq(turnAttempts.turnId, turns.id),
           eq(turnAttempts.id, input.attemptId),
           eq(turnAttempts.turnId, input.turnId),
-          eq(turns.workspaceId, tenant.workspaceId),
-          eq(turns.subjectUserId, tenant.subjectUserId),
           eq(turnAttempts.status, "Running"),
           eq(turnAttempts.fencingToken, input.expectedFencingToken),
           or(isNull(turnAttempts.leaseExpiresAt), lt(turnAttempts.leaseExpiresAt, nowIso)),
@@ -626,7 +571,6 @@ export class SqliteConversationRepository implements IConversationRepository {
     tenant: LocalContext,
     input: { attemptId: string; leaseId: string; expectedFencingToken: number; ttlMs?: number },
   ): Promise<boolean> {
-    assertLocalContext(tenant);
     const ttlMs = input.ttlMs ?? 60_000;
     const leaseExpiresAt = new Date(Date.now() + ttlMs).toISOString();
     const [updated] = await this.db
@@ -640,8 +584,6 @@ export class SqliteConversationRepository implements IConversationRepository {
           eq(turnAttempts.fencingToken, input.expectedFencingToken),
           eq(turnAttempts.status, "Running"),
           eq(turnAttempts.turnId, turns.id),
-          eq(turns.workspaceId, tenant.workspaceId),
-          eq(turns.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -653,13 +595,10 @@ export class SqliteConversationRepository implements IConversationRepository {
     tenant: LocalContext,
     input: { turnId: string; attemptId: string; status: string; finishedAt?: string; expectedFencingToken?: number },
   ): Promise<TurnAttemptModel | null> {
-    assertLocalContext(tenant);
     const conditions = [
       eq(turnAttempts.turnId, turns.id),
       eq(turnAttempts.id, input.attemptId),
       eq(turnAttempts.turnId, input.turnId),
-      eq(turns.workspaceId, tenant.workspaceId),
-      eq(turns.subjectUserId, tenant.subjectUserId),
     ];
     // 3b-B：单一终态（仅运行中状态 Running/CancelRequested 可提交；提供 fencing 期望值时 CAS 校验）
     conditions.push(
@@ -685,7 +624,6 @@ export class SqliteConversationRepository implements IConversationRepository {
     tenant: LocalContext,
     input: { turnId: string; attemptId: string },
   ): Promise<{ ok: boolean; reason?: "not_found" | "already_finalized" }> {
-    assertLocalContext(tenant);
     const [updatedAttempt] = await this.db
       .update(turnAttempts)
       .set({ status: "CancelRequested" })
@@ -695,8 +633,6 @@ export class SqliteConversationRepository implements IConversationRepository {
           eq(turnAttempts.turnId, turns.id),
           eq(turnAttempts.id, input.attemptId),
           eq(turnAttempts.turnId, input.turnId),
-          eq(turns.workspaceId, tenant.workspaceId),
-          eq(turns.subjectUserId, tenant.subjectUserId),
           eq(turnAttempts.status, "Running"),
         ),
       )
@@ -725,7 +661,6 @@ export class SqliteConversationRepository implements IConversationRepository {
     tenant: LocalContext,
     input: { turnId: string; attemptId: string },
   ): Promise<string | null> {
-    assertLocalContext(tenant);
     const [row] = await this.db
       .select({ status: turnAttempts.status })
       .from(turnAttempts)
@@ -734,8 +669,6 @@ export class SqliteConversationRepository implements IConversationRepository {
         and(
           eq(turnAttempts.id, input.attemptId),
           eq(turnAttempts.turnId, input.turnId),
-          eq(turns.workspaceId, tenant.workspaceId),
-          eq(turns.subjectUserId, tenant.subjectUserId),
         ),
       )
       .limit(1);
@@ -774,7 +707,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       finishedAt: string;
     },
   ): Promise<ToolExecutionModel> {
-    assertLocalContext(tenant);
     const [created] = await this.db
       .insert(toolExecutions)
       .values({
@@ -783,8 +715,6 @@ export class SqliteConversationRepository implements IConversationRepository {
         attemptId: input.attemptId,
         invocationId: input.invocationId,
         name: input.name,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         argumentsJson: input.arguments,
         status: input.status,
         outputJson: input.output,
@@ -807,7 +737,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       arguments?: unknown;
     },
   ): Promise<{ ok: boolean; alreadyReserved: boolean }> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(toolExecutions)
@@ -817,8 +746,6 @@ export class SqliteConversationRepository implements IConversationRepository {
         attemptId: input.attemptId,
         invocationId: input.invocationId,
         name: input.name,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         argumentsJson: input.arguments,
         status: "pending",
         startedAt: now,
@@ -842,7 +769,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       finishedAt?: string;
     },
   ): Promise<{ ok: boolean }> {
-    assertLocalContext(tenant);
     const [updated] = await this.db
       .update(toolExecutions)
       .set({
@@ -857,8 +783,6 @@ export class SqliteConversationRepository implements IConversationRepository {
           eq(toolExecutions.turnId, turns.id),
           eq(toolExecutions.attemptId, input.attemptId),
           eq(toolExecutions.invocationId, input.invocationId),
-          eq(turns.workspaceId, tenant.workspaceId),
-          eq(turns.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -890,7 +814,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       expectedFencingToken: number;
     },
   ): Promise<boolean> {
-    assertLocalContext(tenant);
     return this.db.transaction(
       async (tx) => {
         const [attempt] = await tx
@@ -912,8 +835,6 @@ export class SqliteConversationRepository implements IConversationRepository {
           id: `tev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
           turnId: input.turnId,
           attemptId: input.attemptId,
-          workspaceId: tenant.workspaceId,
-          subjectUserId: tenant.subjectUserId,
           sequence: input.sequence,
           eventType: "tool_result",
           data: input.eventData,
@@ -934,8 +855,6 @@ export class SqliteConversationRepository implements IConversationRepository {
               eq(toolExecutions.turnId, turns.id),
               eq(toolExecutions.attemptId, input.attemptId),
               eq(toolExecutions.invocationId, input.invocationId),
-              eq(turns.workspaceId, tenant.workspaceId),
-              eq(turns.subjectUserId, tenant.subjectUserId),
             ),
           );
         return true;
@@ -962,7 +881,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       safetyDecision?: string | null;
     },
   ): Promise<boolean> {
-    assertLocalContext(tenant);
     return this.db.transaction(
       async (tx) => {
         const [updated] = await tx
@@ -974,8 +892,6 @@ export class SqliteConversationRepository implements IConversationRepository {
               eq(turnAttempts.turnId, turns.id),
               eq(turnAttempts.id, input.attemptId),
               eq(turnAttempts.turnId, input.turnId),
-              eq(turns.workspaceId, tenant.workspaceId),
-              eq(turns.subjectUserId, tenant.subjectUserId),
               inArray(turnAttempts.status, ["Running", "CancelRequested"]),
               eq(turnAttempts.fencingToken, input.expectedFencingToken),
             ),
@@ -986,8 +902,6 @@ export class SqliteConversationRepository implements IConversationRepository {
           id: `tev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
           turnId: input.turnId,
           attemptId: input.attemptId,
-          workspaceId: tenant.workspaceId,
-          subjectUserId: tenant.subjectUserId,
           sequence: input.sequence,
           eventType: input.eventType,
           data: input.eventData,
@@ -1018,7 +932,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       expectedFencingToken: number;
     },
   ): Promise<boolean> {
-    assertLocalContext(tenant);
     return this.db.transaction(
       async (tx) => {
         const [attempt] = await tx
@@ -1044,8 +957,6 @@ export class SqliteConversationRepository implements IConversationRepository {
           id: eventId,
           turnId: input.turnId,
           attemptId: input.attemptId,
-          workspaceId: tenant.workspaceId,
-          subjectUserId: tenant.subjectUserId,
           sequence: input.sequence,
           eventType: "delta",
           data: input.eventData,
@@ -1057,8 +968,6 @@ export class SqliteConversationRepository implements IConversationRepository {
           id: segmentId,
           turnId: input.turnId,
           attemptId: input.attemptId,
-          workspaceId: tenant.workspaceId,
-          subjectUserId: tenant.subjectUserId,
           sequence: input.sequence,
           text: input.text,
           committed: 1,
@@ -1080,7 +989,6 @@ export class SqliteConversationRepository implements IConversationRepository {
     tenant: LocalContext,
     turnId: string,
   ): Promise<Array<{ id: string; sequence: number; text: string; streamEventId: string | null }>> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select({
         id: safeSegments.id,
@@ -1092,8 +1000,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       .where(
         and(
           eq(safeSegments.turnId, turnId),
-          eq(safeSegments.workspaceId, tenant.workspaceId),
-          eq(safeSegments.subjectUserId, tenant.subjectUserId),
           eq(safeSegments.committed, 1),
         ),
       )
@@ -1116,8 +1022,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       turnId: string;
       sessionId: string;
       lastSequence: number;
-      workspaceId: string;
-      subjectUserId: string;
       userMessage: string;
       /** 续跑 claim 预期 = 当前已持有的 fencing（抢占语义） */
       fencingToken: number;
@@ -1130,8 +1034,6 @@ export class SqliteConversationRepository implements IConversationRepository {
                ta.turn_id AS turn_id,
                ta.fencing_token AS fencing_token,
                t.session_id AS session_id,
-               t.workspace_id AS workspace_id,
-               t.subject_user_id AS subject_user_id,
                (SELECT mv.content FROM message_versions mv
                 WHERE mv.turn_id = ta.turn_id AND mv.role = 'user'
                 ORDER BY mv.version DESC LIMIT 1) AS user_message,
@@ -1154,8 +1056,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       turnId: String(row.turn_id),
       sessionId: String(row.session_id ?? ""),
       lastSequence: Number(row.last_sequence),
-      workspaceId: String(row.workspace_id ?? ""),
-      subjectUserId: String(row.subject_user_id ?? ""),
       userMessage: String(row.user_message ?? ""),
       fencingToken: Number(row.fencing_token ?? 0),
     }));
@@ -1177,7 +1077,6 @@ export class SqliteConversationRepository implements IConversationRepository {
 
   /** 查询 Turn 的工具执行账本（按时间倒序；join tool_registrations 携带 replay 声明供恢复裁决） */
   async listToolExecutionsByTurn(tenant: LocalContext, turnId: string): Promise<ToolExecutionModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select({ execution: toolExecutions, registration: toolRegistrations })
       .from(toolExecutions)
@@ -1188,8 +1087,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       .where(
         and(
           eq(toolExecutions.turnId, turnId),
-          eq(toolExecutions.workspaceId, tenant.workspaceId),
-          eq(toolExecutions.subjectUserId, tenant.subjectUserId),
         ),
       )
       .orderBy(desc(toolExecutions.startedAt));
@@ -1212,7 +1109,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       toolVersion?: string | null;
     },
   ): Promise<ToolApprovalModel> {
-    assertLocalContext(tenant);
     // E1（§12.2「ToolInvocation + 授权快照 + 幂等预留」）：同 (toolName, argumentsHash) 已存在
     // 未决（pending）授权则复用既有行，不重复插入——授权匹配键跨 turn 复用（schema 注释约定），
     // 幂等预留语义：重复的写工具意图不会产生多行待决授权。granted/denied 后新请求才新建。
@@ -1222,8 +1118,6 @@ export class SqliteConversationRepository implements IConversationRepository {
         .from(toolApprovals)
         .where(
           and(
-            eq(toolApprovals.workspaceId, tenant.workspaceId),
-            eq(toolApprovals.subjectUserId, tenant.subjectUserId),
             eq(toolApprovals.toolName, input.toolName),
             eq(toolApprovals.argumentsHash, input.argumentsHash),
             eq(toolApprovals.state, "pending"),
@@ -1244,8 +1138,6 @@ export class SqliteConversationRepository implements IConversationRepository {
         toolVersion: input.toolVersion ?? null,
         requester: input.requester,
         state: input.state,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
       })
       .returning();
     return created as ToolApprovalModel;
@@ -1258,7 +1150,6 @@ export class SqliteConversationRepository implements IConversationRepository {
     decision: "granted" | "denied",
     decidedBy: string,
   ): Promise<ToolApprovalModel | null> {
-    assertLocalContext(tenant);
     const [updated] = await this.db
       .update(toolApprovals)
       .set({
@@ -1270,11 +1161,7 @@ export class SqliteConversationRepository implements IConversationRepository {
       .where(
         and(
           eq(toolApprovals.id, approvalId),
-          eq(toolApprovals.workspaceId, tenant.workspaceId),
-          eq(toolApprovals.subjectUserId, tenant.subjectUserId),
           eq(toolApprovals.turnId, turns.id),
-          eq(turns.workspaceId, tenant.workspaceId),
-          eq(turns.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -1283,15 +1170,12 @@ export class SqliteConversationRepository implements IConversationRepository {
 
   /** 3b：读单条授权记录（privileged 管理员校验预检用） */
   async getToolApproval(tenant: LocalContext, approvalId: string): Promise<ToolApprovalModel | null> {
-    assertLocalContext(tenant);
     const [row] = await this.db
       .select()
       .from(toolApprovals)
       .where(
         and(
           eq(toolApprovals.id, approvalId),
-          eq(toolApprovals.workspaceId, tenant.workspaceId),
-          eq(toolApprovals.subjectUserId, tenant.subjectUserId),
         ),
       )
       .limit(1);
@@ -1300,15 +1184,12 @@ export class SqliteConversationRepository implements IConversationRepository {
 
   /** 查询 Turn 的授权账本 */
   async listToolApprovalsByTurn(tenant: LocalContext, turnId: string): Promise<ToolApprovalModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(toolApprovals)
       .where(
         and(
           eq(toolApprovals.turnId, turnId),
-          eq(toolApprovals.workspaceId, tenant.workspaceId),
-          eq(toolApprovals.subjectUserId, tenant.subjectUserId),
         ),
       )
       .orderBy(desc(toolApprovals.id));
@@ -1325,7 +1206,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       excludeDecidedByPrefixes?: string[];
     },
   ): Promise<ToolApprovalModel | null> {
-    assertLocalContext(tenant);
     const excludedPrefixes = [
       ...(input.excludeDecidedByPrefixes ?? []),
       ...(input.excludeDecidedByPrefix ? [input.excludeDecidedByPrefix] : []),
@@ -1335,8 +1215,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       .from(toolApprovals)
       .where(
         and(
-          eq(toolApprovals.workspaceId, tenant.workspaceId),
-          eq(toolApprovals.subjectUserId, tenant.subjectUserId),
           eq(toolApprovals.toolName, input.toolName),
           eq(toolApprovals.argumentsHash, input.argumentsHash),
           eq(toolApprovals.state, "granted"),
@@ -1365,14 +1243,11 @@ export class SqliteConversationRepository implements IConversationRepository {
       branchReason?: string;
     },
   ): Promise<ConversationBranchModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(conversationBranches)
       .values({
         id: branchData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         parentSessionId: branchData.parentSessionId,
         forkAtMessageId: branchData.forkAtMessageId ?? null,
         childSessionId: branchData.childSessionId,
@@ -1387,15 +1262,12 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   async listBranchesByParent(tenant: LocalContext, parentSessionId: string): Promise<ConversationBranchModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(conversationBranches)
       .where(
         and(
           eq(conversationBranches.parentSessionId, parentSessionId),
-          eq(conversationBranches.workspaceId, tenant.workspaceId),
-          eq(conversationBranches.subjectUserId, tenant.subjectUserId),
           isNull(conversationBranches.deletedAt),
         ),
       )
@@ -1404,15 +1276,12 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   async getBranch(tenant: LocalContext, branchId: string): Promise<ConversationBranchModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(conversationBranches)
       .where(
         and(
           eq(conversationBranches.id, branchId),
-          eq(conversationBranches.workspaceId, tenant.workspaceId),
-          eq(conversationBranches.subjectUserId, tenant.subjectUserId),
           isNull(conversationBranches.deletedAt),
         ),
       )
@@ -1421,7 +1290,6 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   async mergeBranch(tenant: LocalContext, branchId: string): Promise<ConversationBranchModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(conversationBranches)
@@ -1429,8 +1297,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       .where(
         and(
           eq(conversationBranches.id, branchId),
-          eq(conversationBranches.workspaceId, tenant.workspaceId),
-          eq(conversationBranches.subjectUserId, tenant.subjectUserId),
           eq(conversationBranches.status, "active"),
           isNull(conversationBranches.deletedAt),
         ),
@@ -1440,7 +1306,6 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   async archiveBranch(tenant: LocalContext, branchId: string): Promise<ConversationBranchModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(conversationBranches)
@@ -1448,8 +1313,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       .where(
         and(
           eq(conversationBranches.id, branchId),
-          eq(conversationBranches.workspaceId, tenant.workspaceId),
-          eq(conversationBranches.subjectUserId, tenant.subjectUserId),
           eq(conversationBranches.status, "active"),
           isNull(conversationBranches.deletedAt),
         ),
@@ -1459,7 +1322,6 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   async deleteBranch(tenant: LocalContext, branchId: string): Promise<ConversationBranchModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(conversationBranches)
@@ -1467,8 +1329,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       .where(
         and(
           eq(conversationBranches.id, branchId),
-          eq(conversationBranches.workspaceId, tenant.workspaceId),
-          eq(conversationBranches.subjectUserId, tenant.subjectUserId),
           isNull(conversationBranches.deletedAt),
         ),
       )
@@ -1481,7 +1341,6 @@ export class SqliteConversationRepository implements IConversationRepository {
     branchId: string,
     layoutData: unknown,
   ): Promise<ConversationBranchModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(conversationBranches)
@@ -1489,8 +1348,6 @@ export class SqliteConversationRepository implements IConversationRepository {
       .where(
         and(
           eq(conversationBranches.id, branchId),
-          eq(conversationBranches.workspaceId, tenant.workspaceId),
-          eq(conversationBranches.subjectUserId, tenant.subjectUserId),
           isNull(conversationBranches.deletedAt),
         ),
       )
@@ -1499,7 +1356,6 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   async getBranchTree(tenant: LocalContext, sessionId: string): Promise<ConversationBranchModel[]> {
-    assertLocalContext(tenant);
     // 递归获取所有以 sessionId 为根的分支（包括子分支的子分支）
     const direct = await this.listBranchesByParent(tenant, sessionId);
     const result = [...direct];

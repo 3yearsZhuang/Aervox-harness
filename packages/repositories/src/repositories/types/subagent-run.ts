@@ -36,8 +36,8 @@ export interface PendingUserQuestionModel {
   /** createdAt + timeoutMs；晚于此时间提交答案视为超时 */
   expiresAt: string;
   createdAt: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
 }
 
 export interface PendingUserQuestionUpsertInput {

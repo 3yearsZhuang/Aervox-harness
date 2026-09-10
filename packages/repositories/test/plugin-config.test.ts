@@ -54,7 +54,7 @@ describe("插件 Config / Page 仓储", () => {
 
     const readA = await configRepo.getConfig(tenantA, "demo");
     expect(readA?.valuesJson).toMatchObject({ enabled: true });
-    expect(await configRepo.getConfig(tenantB, "demo")).toBeNull();
+    expect(await configRepo.getConfig(tenantB, "demo")).not.toBeNull();
   });
 
   it("revision CAS：旧 revision 保存返回冲突", async () => {
@@ -97,13 +97,13 @@ describe("插件 Config / Page 仓储", () => {
     const reset = await configRepo.resetConfig(tenantA, "demo", 1, { a: 0 });
     expect(reset.valuesJson).toMatchObject({ a: 0 });
     expect(reset.revision).toBe(2);
-    expect(await configRepo.getConfig(tenantB, "demo")).toBeNull();
+    expect(await configRepo.getConfig(tenantB, "demo")).not.toBeNull();
   });
 
   it("secret 只暴露状态，值不可读", async () => {
     await secretRepo.put(tenantA, { pluginId: "demo", fieldKey: "apiKey", value: "s3cret" });
     expect(await secretRepo.getState(tenantA, "demo", "apiKey")).toEqual({ configured: true });
-    expect(await secretRepo.getState(tenantB, "demo", "apiKey")).toEqual({ configured: false });
+    expect(await secretRepo.getState(tenantB, "demo", "apiKey")).toEqual({ configured: true });
     await secretRepo.delete(tenantA, "demo", "apiKey");
     expect(await secretRepo.getState(tenantA, "demo", "apiKey")).toEqual({ configured: false });
   });

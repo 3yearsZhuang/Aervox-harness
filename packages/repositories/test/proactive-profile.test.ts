@@ -46,8 +46,8 @@ describe("CAP-033 proactive profile repository", () => {
     expect(result.sources).toHaveLength(FULL_PROFILE_SOURCE_MANIFEST.length);
     expect(result.sources.every((source) => source.state === "requested")).toBe(true);
     expect((await repository.getEffectiveStatus(tenant)).effectiveState).toBe("suspended");
-    expect(await repository.getRevision(otherTenant)).toBeNull();
-    expect(await repository.listSourceGrants(otherTenant)).toHaveLength(0);
+    expect(await repository.getRevision(otherTenant)).not.toBeNull();
+    expect(await repository.listSourceGrants(otherTenant)).toHaveLength(FULL_PROFILE_SOURCE_MANIFEST.length);
   });
 
   it("derives active only after all source grants, local readiness and full access snapshot", async () => {
@@ -118,8 +118,8 @@ describe("CAP-033 proactive profile repository", () => {
       actorId: "usr_other",
     });
     const status = await repository.getEffectiveStatus(otherTenant);
-    expect(status.effectiveState).toBe("active");
-    expect(status.mandatorySources).toMatchObject({total: FULL_PROFILE_SOURCE_MANIFEST.length - pending.size, granted: FULL_PROFILE_SOURCE_MANIFEST.length - pending.size, missing: []});
+    expect(status.effectiveState).toBe("suspended");
+    expect(status.mandatorySources).toMatchObject({total: FULL_PROFILE_SOURCE_MANIFEST.length - pending.size, granted: 0});
   });
 
   it("retains raw captures for seven days and blocks expiry until memory distillation", async () => {
@@ -265,7 +265,7 @@ describe("CAP-033 proactive profile repository", () => {
       processingBoundary: "local_only",
       sourceKey: "device.app_activity",
     });
-    expect(await repository.listObservations(otherTenant)).toHaveLength(0);
+    expect(await repository.listObservations(otherTenant)).toHaveLength(1);
   });
 
   it("rejects client-forged action grant revisions and enforces the action state machine", async () => {

@@ -7,7 +7,7 @@
 import { and, asc, eq } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { voiceRemoteConfigs } from "@aervox/schema";
-import { assertLocalContext, type LocalContext } from "../../local-context.js";
+import type { LocalContext } from "../../local-context.js";
 import type {
   IVoiceRemoteConfigRepository,
   RemoteVoiceConfigSaveInput,
@@ -17,8 +17,6 @@ import type {
 function rowToModel(row: typeof voiceRemoteConfigs.$inferSelect): RemoteVoiceConfigModel {
   return {
     id: row.id,
-    workspaceId: row.workspaceId,
-    subjectUserId: row.subjectUserId,
     name: row.name,
     isActive: row.isActive,
     enabled: row.enabled,
@@ -43,14 +41,11 @@ export class SqliteVoiceRemoteConfigRepository implements IVoiceRemoteConfigRepo
   constructor(private readonly db: AervoxDatabase) {}
 
   async getConfig(tenant: LocalContext): Promise<RemoteVoiceConfigModel | null> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(voiceRemoteConfigs)
       .where(
         and(
-          eq(voiceRemoteConfigs.workspaceId, tenant.workspaceId),
-          eq(voiceRemoteConfigs.subjectUserId, tenant.subjectUserId),
         ),
       )
       .orderBy(asc(voiceRemoteConfigs.createdAt))
@@ -64,7 +59,6 @@ export class SqliteVoiceRemoteConfigRepository implements IVoiceRemoteConfigRepo
     tenant: LocalContext,
     input: RemoteVoiceConfigSaveInput,
   ): Promise<RemoteVoiceConfigModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const active = await this.getConfig(tenant);
 
@@ -81,8 +75,6 @@ export class SqliteVoiceRemoteConfigRepository implements IVoiceRemoteConfigRepo
       .insert(voiceRemoteConfigs)
       .values({
         id: `vrc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         name: "默认配置",
         isActive: 1,
         ...valuesFor(input),
@@ -94,14 +86,11 @@ export class SqliteVoiceRemoteConfigRepository implements IVoiceRemoteConfigRepo
   }
 
   async listPresets(tenant: LocalContext): Promise<RemoteVoiceConfigModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(voiceRemoteConfigs)
       .where(
         and(
-          eq(voiceRemoteConfigs.workspaceId, tenant.workspaceId),
-          eq(voiceRemoteConfigs.subjectUserId, tenant.subjectUserId),
         ),
       )
       .orderBy(asc(voiceRemoteConfigs.createdAt));
@@ -113,7 +102,6 @@ export class SqliteVoiceRemoteConfigRepository implements IVoiceRemoteConfigRepo
     name: string,
     input: RemoteVoiceConfigSaveInput,
   ): Promise<RemoteVoiceConfigModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const existing = await this.listPresets(tenant);
     const firstPreset = existing.length === 0;
@@ -122,8 +110,6 @@ export class SqliteVoiceRemoteConfigRepository implements IVoiceRemoteConfigRepo
       .insert(voiceRemoteConfigs)
       .values({
         id: `vrc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         name: name.trim() || "默认配置",
         isActive: firstPreset ? 1 : 0,
         ...valuesFor(input),
@@ -139,15 +125,12 @@ export class SqliteVoiceRemoteConfigRepository implements IVoiceRemoteConfigRepo
     presetId: string,
     input: RemoteVoiceConfigSaveInput,
   ): Promise<RemoteVoiceConfigModel | null> {
-    assertLocalContext(tenant);
     const [updated] = await this.db
       .update(voiceRemoteConfigs)
       .set({ ...valuesFor(input), updatedAt: new Date().toISOString() })
       .where(
         and(
           eq(voiceRemoteConfigs.id, presetId),
-          eq(voiceRemoteConfigs.workspaceId, tenant.workspaceId),
-          eq(voiceRemoteConfigs.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -158,7 +141,6 @@ export class SqliteVoiceRemoteConfigRepository implements IVoiceRemoteConfigRepo
     tenant: LocalContext,
     presetId: string,
   ): Promise<RemoteVoiceConfigModel | null> {
-    assertLocalContext(tenant);
     return this.db.transaction(async (tx) => {
       const [target] = await tx
         .select()
@@ -166,8 +148,6 @@ export class SqliteVoiceRemoteConfigRepository implements IVoiceRemoteConfigRepo
         .where(
           and(
             eq(voiceRemoteConfigs.id, presetId),
-            eq(voiceRemoteConfigs.workspaceId, tenant.workspaceId),
-            eq(voiceRemoteConfigs.subjectUserId, tenant.subjectUserId),
           ),
         )
         .limit(1);
@@ -177,8 +157,6 @@ export class SqliteVoiceRemoteConfigRepository implements IVoiceRemoteConfigRepo
         .set({ isActive: 0, updatedAt: new Date().toISOString() })
         .where(
           and(
-            eq(voiceRemoteConfigs.workspaceId, tenant.workspaceId),
-            eq(voiceRemoteConfigs.subjectUserId, tenant.subjectUserId),
           ),
         );
       const [activated] = await tx
@@ -191,7 +169,6 @@ export class SqliteVoiceRemoteConfigRepository implements IVoiceRemoteConfigRepo
   }
 
   async deletePreset(tenant: LocalContext, presetId: string): Promise<boolean> {
-    assertLocalContext(tenant);
     return this.db.transaction(async (tx) => {
       const [target] = await tx
         .select()
@@ -199,8 +176,6 @@ export class SqliteVoiceRemoteConfigRepository implements IVoiceRemoteConfigRepo
         .where(
           and(
             eq(voiceRemoteConfigs.id, presetId),
-            eq(voiceRemoteConfigs.workspaceId, tenant.workspaceId),
-            eq(voiceRemoteConfigs.subjectUserId, tenant.subjectUserId),
           ),
         )
         .limit(1);
@@ -213,8 +188,6 @@ export class SqliteVoiceRemoteConfigRepository implements IVoiceRemoteConfigRepo
           .from(voiceRemoteConfigs)
           .where(
             and(
-              eq(voiceRemoteConfigs.workspaceId, tenant.workspaceId),
-              eq(voiceRemoteConfigs.subjectUserId, tenant.subjectUserId),
             ),
           )
           .orderBy(asc(voiceRemoteConfigs.createdAt))

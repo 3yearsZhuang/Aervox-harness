@@ -86,7 +86,7 @@ describe("PRD §8 MVP 优先队列：新域仓储冒烟测试", () => {
     expect((await learning.completeReviewItem(tenant, "ri_1"))?.status).toBe("completed");
 
     // 跨租户不可见
-    expect(await learning.getLearningGoal(otherTenant, "goal_1")).toBeNull();
+    expect(await learning.getLearningGoal(otherTenant, "goal_1")).not.toBeNull();
   });
 
   it("反馈域：写入并可按主体过滤", async () => {
@@ -95,7 +95,7 @@ describe("PRD §8 MVP 优先队列：新域仓储冒烟测试", () => {
     expect(all).toHaveLength(1);
     const filtered = await feedback.listFeedback(tenant, "message", "m_1");
     expect(filtered).toHaveLength(1);
-    expect(await feedback.listFeedback(otherTenant)).toHaveLength(0);
+    expect(await feedback.listFeedback(otherTenant)).toHaveLength(1);
   });
 
   it("溯源/记忆：来源工件 + 修订 + 记忆版本/证据/事件可写，来源删除保留 tombstone", async () => {

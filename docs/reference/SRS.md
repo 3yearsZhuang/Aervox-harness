@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.2.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 1.3.0
+updated_at: 2026-09-11
+reviewed_at: 2026-09-11
 review_interval_days: 90
 ---
 
@@ -458,7 +458,7 @@ review_interval_days: 90
 ### SEC-TEN-001 工作区/数据主体隔离（已替代）
 
 - **状态**：Superseded by `SEC-LOC-001`（[CR-030](changes/CR-030-pure-local-sqlite-database.md)）。
-- **迁移期**：在 CR-030 D2 完成前，现有租户校验仍作为旧 Schema 的兼容保护，不得提前删除后继续对外提供非 loopback open API。
+- **当前实现**：CR-030 D2 已完成去租户化，`LocalContext` 不再参与数据库授权或过滤；API 仍必须遵守 loopback 默认监听与非 loopback token 认证门禁。
 
 <a id="srs-sec-local"></a>
 

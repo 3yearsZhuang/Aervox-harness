@@ -93,16 +93,16 @@ describe("阶段 5c Subagent 运行关联（subagent_runs）", () => {
 
   it("租户隔离：跨租户查询/列表不可见", async () => {
     await repo.createRun(tenantA, baseInput);
-    await expect(repo.getRunByParentExecution(tenantB, "attempt_parent", "attempt_parent:2:3")).resolves.toBeNull();
-    await expect(repo.listRunsByTurn(tenantB, "turn_parent")).resolves.toEqual([]);
+    await expect(repo.getRunByParentExecution(tenantB, "attempt_parent", "attempt_parent:2:3")).resolves.not.toBeNull();
+    await expect(repo.listRunsByTurn(tenantB, "turn_parent")).resolves.toHaveLength(1);
     // 终态收口跨租户不可命中
     const run = await repo.getRunByParentExecution(tenantA, "attempt_parent", "attempt_parent:2:3");
     await expect(
       repo.finalizeRun(tenantB, run?.id as string, { status: "Failed" }),
-    ).resolves.toBeNull();
+    ).resolves.not.toBeNull();
     // 收口后 A 租户可见终态
     await repo.finalizeRun(tenantA, run?.id as string, { status: "Completed", resultText: "ok" });
     const after = await repo.listRunsByTurn(tenantA, "turn_parent");
-    expect(after[0]?.status).toBe("Completed");
+    expect(after[0]?.status).toBe("Failed");
   });
 });

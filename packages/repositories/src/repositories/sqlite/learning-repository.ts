@@ -20,7 +20,7 @@ import {
   planMilestones,
   planTasks,
 } from "@aervox/schema";
-import { assertLocalContext, type LocalContext } from "../../local-context.js";
+import type { LocalContext } from "../../local-context.js";
 import type {
   ILearningRepository,
   LearningGoalModel,
@@ -51,14 +51,11 @@ export class SqliteLearningRepository implements ILearningRepository {
       idempotencyKey?: string | null;
     },
   ): Promise<LearningGoalModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(learningGoals)
       .values({
         id: goalData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         topic: goalData.topic,
         level: goalData.level ?? "beginner",
         availableMinutes: goalData.availableMinutes ?? 0,
@@ -81,14 +78,11 @@ export class SqliteLearningRepository implements ILearningRepository {
       idempotencyKey: string;
     },
   ): Promise<{ goal: LearningGoalModel; created: boolean }> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const inserted = await this.db
       .insert(learningGoals)
       .values({
         id: goalData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         topic: goalData.topic,
         level: goalData.level ?? "beginner",
         availableMinutes: goalData.availableMinutes ?? 0,
@@ -106,8 +100,6 @@ export class SqliteLearningRepository implements ILearningRepository {
       .from(learningGoals)
       .where(
         and(
-          eq(learningGoals.workspaceId, tenant.workspaceId),
-          eq(learningGoals.subjectUserId, tenant.subjectUserId),
           eq(learningGoals.idempotencyKey, goalData.idempotencyKey),
         ),
       );
@@ -116,34 +108,26 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async getLearningGoal(tenant: LocalContext, id: string): Promise<LearningGoalModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(learningGoals)
       .where(
         and(
           eq(learningGoals.id, id),
-          eq(learningGoals.workspaceId, tenant.workspaceId),
-          eq(learningGoals.subjectUserId, tenant.subjectUserId),
         ),
       );
     return (found as LearningGoalModel) ?? null;
   }
 
   async listLearningGoals(tenant: LocalContext, includeArchived = false): Promise<LearningGoalModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(learningGoals)
       .where(
         includeArchived
           ? and(
-              eq(learningGoals.workspaceId, tenant.workspaceId),
-              eq(learningGoals.subjectUserId, tenant.subjectUserId),
             )
           : and(
-              eq(learningGoals.workspaceId, tenant.workspaceId),
-              eq(learningGoals.subjectUserId, tenant.subjectUserId),
               ne(learningGoals.status, "archived"),
             ),
       )
@@ -156,15 +140,12 @@ export class SqliteLearningRepository implements ILearningRepository {
     id: string,
     goalData: { topic?: string; level?: string; availableMinutes?: number; status?: string },
   ): Promise<LearningGoalModel | null> {
-    assertLocalContext(tenant);
     const [updated] = await this.db
       .update(learningGoals)
       .set({ ...goalData, updatedAt: new Date().toISOString() })
       .where(
         and(
           eq(learningGoals.id, id),
-          eq(learningGoals.workspaceId, tenant.workspaceId),
-          eq(learningGoals.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -181,14 +162,11 @@ export class SqliteLearningRepository implements ILearningRepository {
       knowledgeId?: string | null;
     },
   ): Promise<QuestionModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(questions)
       .values({
         id: questionData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         sourceArtifactId: questionData.sourceArtifactId ?? null,
         knowledgeId: questionData.knowledgeId ?? null,
         prompt: questionData.prompt,
@@ -202,29 +180,23 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async getQuestion(tenant: LocalContext, id: string): Promise<QuestionModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(questions)
       .where(
         and(
           eq(questions.id, id),
-          eq(questions.workspaceId, tenant.workspaceId),
-          eq(questions.subjectUserId, tenant.subjectUserId),
         ),
       );
     return (found as QuestionModel) ?? null;
   }
 
   async listActiveQuestions(tenant: LocalContext, limit: number): Promise<QuestionModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(questions)
       .where(
         and(
-          eq(questions.workspaceId, tenant.workspaceId),
-          eq(questions.subjectUserId, tenant.subjectUserId),
           eq(questions.status, "active"),
         ),
       )
@@ -237,14 +209,11 @@ export class SqliteLearningRepository implements ILearningRepository {
     tenant: LocalContext,
     session: { id: string; questionCount: number; questionIds: string[] },
   ): Promise<PracticeSessionModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(practiceSessions)
       .values({
         id: session.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         questionCount: session.questionCount,
         questionIds: session.questionIds,
         status: "active",
@@ -256,29 +225,23 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async getPracticeSession(tenant: LocalContext, sessionId: string): Promise<PracticeSessionModel | null> {
-    assertLocalContext(tenant);
     const [session] = await this.db
       .select()
       .from(practiceSessions)
       .where(
         and(
           eq(practiceSessions.id, sessionId),
-          eq(practiceSessions.workspaceId, tenant.workspaceId),
-          eq(practiceSessions.subjectUserId, tenant.subjectUserId),
         ),
       );
     return (session as PracticeSessionModel) ?? null;
   }
 
   async getLatestActivePracticeSession(tenant: LocalContext): Promise<PracticeSessionModel | null> {
-    assertLocalContext(tenant);
     const [session] = await this.db
       .select()
       .from(practiceSessions)
       .where(
         and(
-          eq(practiceSessions.workspaceId, tenant.workspaceId),
-          eq(practiceSessions.subjectUserId, tenant.subjectUserId),
           eq(practiceSessions.status, "active"),
         ),
       )
@@ -288,15 +251,12 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async completePracticeSession(tenant: LocalContext, sessionId: string): Promise<PracticeSessionModel | null> {
-    assertLocalContext(tenant);
     const [updated] = await this.db
       .update(practiceSessions)
       .set({ status: "completed", endedAt: new Date().toISOString() })
       .where(
         and(
           eq(practiceSessions.id, sessionId),
-          eq(practiceSessions.workspaceId, tenant.workspaceId),
-          eq(practiceSessions.subjectUserId, tenant.subjectUserId),
           eq(practiceSessions.status, "active"),
         ),
       )
@@ -321,13 +281,10 @@ export class SqliteLearningRepository implements ILearningRepository {
       timeSpentSec?: number;
     },
   ): Promise<QuestionAttemptModel> {
-    assertLocalContext(tenant);
     const [created] = await this.db
       .insert(questionAttempts)
       .values({
         id: attemptData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         sessionId: attemptData.sessionId,
         questionId: attemptData.questionId,
         answer: attemptData.answer,
@@ -343,15 +300,12 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async listAttemptsByQuestion(tenant: LocalContext, questionId: string): Promise<QuestionAttemptModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(questionAttempts)
       .where(
         and(
           eq(questionAttempts.questionId, questionId),
-          eq(questionAttempts.workspaceId, tenant.workspaceId),
-          eq(questionAttempts.subjectUserId, tenant.subjectUserId),
         ),
       )
       .orderBy(questionAttempts.createdAt);
@@ -359,15 +313,12 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async listAttemptsBySession(tenant: LocalContext, sessionId: string): Promise<QuestionAttemptModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(questionAttempts)
       .where(
         and(
           eq(questionAttempts.sessionId, sessionId),
-          eq(questionAttempts.workspaceId, tenant.workspaceId),
-          eq(questionAttempts.subjectUserId, tenant.subjectUserId),
         ),
       )
       .orderBy(questionAttempts.createdAt);
@@ -378,7 +329,6 @@ export class SqliteLearningRepository implements ILearningRepository {
     tenant: LocalContext,
     status: "active" | "mastered" | "dismissed" | "all" = "active",
   ): Promise<MistakeItemModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select({
         questionId: questions.id,
@@ -394,12 +344,10 @@ export class SqliteLearningRepository implements ILearningRepository {
       .from(questionAttempts)
       .innerJoin(questions, eq(questionAttempts.questionId, questions.id))
       .leftJoin(knowledgeItems, eq(questions.knowledgeId, knowledgeItems.id))
-      .leftJoin(mistakeDispositions, and(eq(mistakeDispositions.questionId, questions.id), eq(mistakeDispositions.workspaceId, tenant.workspaceId), eq(mistakeDispositions.subjectUserId, tenant.subjectUserId)))
-      .leftJoin(mistakeInsights, and(eq(mistakeInsights.questionId, questions.id), eq(mistakeInsights.workspaceId, tenant.workspaceId), eq(mistakeInsights.subjectUserId, tenant.subjectUserId)))
+      .leftJoin(mistakeDispositions, eq(mistakeDispositions.questionId, questions.id))
+      .leftJoin(mistakeInsights, eq(mistakeInsights.questionId, questions.id))
       .where(
         and(
-          eq(questionAttempts.workspaceId, tenant.workspaceId),
-          eq(questionAttempts.subjectUserId, tenant.subjectUserId),
           eq(questionAttempts.judgement, "incorrect"),
         ),
       )
@@ -431,10 +379,9 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async setMistakeDisposition(tenant: LocalContext, item: { id: string; questionId: string; status: "active" | "dismissed" }): Promise<void> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
-    await this.db.insert(mistakeDispositions).values({ ...item, ...tenant, createdAt: now, updatedAt: now }).onConflictDoUpdate({
-      target: [mistakeDispositions.workspaceId, mistakeDispositions.subjectUserId, mistakeDispositions.questionId],
+    await this.db.insert(mistakeDispositions).values({ ...item, createdAt: now, updatedAt: now }).onConflictDoUpdate({
+      target: mistakeDispositions.questionId,
       set: {
         status: item.status,
         // reason/note 已废弃（CR-018 统一至 mistake_insights 标准枚举，见 §4.2），不再写入
@@ -447,19 +394,15 @@ export class SqliteLearningRepository implements ILearningRepository {
     tenant: LocalContext,
     item: { id: string; questionId: string; reasonCode: "concept_gap" | "calculation" | "careless" | "misread" | "other"; note?: string | null },
   ): Promise<void> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
-    await this.db.insert(mistakeInsights).values({ ...item, ...tenant, createdAt: now, updatedAt: now }).onConflictDoUpdate({
-      target: [mistakeInsights.workspaceId, mistakeInsights.subjectUserId, mistakeInsights.questionId],
+    await this.db.insert(mistakeInsights).values({ ...item, createdAt: now, updatedAt: now }).onConflictDoUpdate({
+      target: mistakeInsights.questionId,
       set: { reasonCode: item.reasonCode, note: item.note ?? null, updatedAt: now },
     });
   }
 
   async clearMistakeInsight(tenant: LocalContext, questionId: string): Promise<void> {
-    assertLocalContext(tenant);
     await this.db.delete(mistakeInsights).where(and(
-      eq(mistakeInsights.workspaceId, tenant.workspaceId),
-      eq(mistakeInsights.subjectUserId, tenant.subjectUserId),
       eq(mistakeInsights.questionId, questionId),
     ));
   }
@@ -469,14 +412,11 @@ export class SqliteLearningRepository implements ILearningRepository {
     questionId: string,
     idempotencyKey: string,
   ): Promise<QuestionAttemptModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(questionAttempts)
       .where(
         and(
-          eq(questionAttempts.workspaceId, tenant.workspaceId),
-          eq(questionAttempts.subjectUserId, tenant.subjectUserId),
           eq(questionAttempts.questionId, questionId),
           eq(questionAttempts.idempotencyKey, idempotencyKey),
         ),
@@ -499,15 +439,12 @@ export class SqliteLearningRepository implements ILearningRepository {
       timeSpentSec?: number;
     },
   ): Promise<{ attempt: QuestionAttemptModel; created: boolean }> {
-    assertLocalContext(tenant);
     const findExisting = async (): Promise<QuestionAttemptModel | null> => {
       const [found] = await this.db
         .select()
         .from(questionAttempts)
         .where(
           and(
-            eq(questionAttempts.workspaceId, tenant.workspaceId),
-            eq(questionAttempts.subjectUserId, tenant.subjectUserId),
             eq(questionAttempts.questionId, attemptData.questionId),
             eq(questionAttempts.idempotencyKey, attemptData.idempotencyKey),
           ),
@@ -523,8 +460,6 @@ export class SqliteLearningRepository implements ILearningRepository {
         .insert(questionAttempts)
         .values({
           id: attemptData.id,
-          workspaceId: tenant.workspaceId,
-          subjectUserId: tenant.subjectUserId,
           sessionId: attemptData.sessionId,
           questionId: attemptData.questionId,
           answer: attemptData.answer,
@@ -558,14 +493,11 @@ export class SqliteLearningRepository implements ILearningRepository {
       mastery?: number;
     },
   ): Promise<KnowledgeItemModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(knowledgeItems)
       .values({
         id: itemData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         concept: itemData.concept,
         sourceStatus: itemData.sourceStatus ?? "inferred",
         masteryState: itemData.masteryState ?? "unknown",
@@ -582,15 +514,12 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async getKnowledgeItem(tenant: LocalContext, id: string): Promise<KnowledgeItemModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(knowledgeItems)
       .where(
         and(
           eq(knowledgeItems.id, id),
-          eq(knowledgeItems.workspaceId, tenant.workspaceId),
-          eq(knowledgeItems.subjectUserId, tenant.subjectUserId),
         ),
       );
     return (found as KnowledgeItemModel) ?? null;
@@ -602,7 +531,6 @@ export class SqliteLearningRepository implements ILearningRepository {
     masteryState: string,
     basis?: unknown,
   ): Promise<KnowledgeItemModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const updateData: Record<string, unknown> = { masteryState, updatedAt: now };
     if (basis !== undefined) updateData.masteryBasis = basis;
@@ -612,8 +540,6 @@ export class SqliteLearningRepository implements ILearningRepository {
       .where(
         and(
           eq(knowledgeItems.id, id),
-          eq(knowledgeItems.workspaceId, tenant.workspaceId),
-          eq(knowledgeItems.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -632,15 +558,12 @@ export class SqliteLearningRepository implements ILearningRepository {
       masteryBasis: unknown;
     },
   ): Promise<KnowledgeItemModel | null> {
-    assertLocalContext(tenant);
     const [updated] = await this.db
       .update(knowledgeItems)
       .set({ ...state, updatedAt: new Date().toISOString() })
       .where(
         and(
           eq(knowledgeItems.id, id),
-          eq(knowledgeItems.workspaceId, tenant.workspaceId),
-          eq(knowledgeItems.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -651,14 +574,11 @@ export class SqliteLearningRepository implements ILearningRepository {
     tenant: LocalContext,
     itemData: { id: string; knowledgeId: string; dueAt: string; intervalDays?: number; schedulerVersion?: number; timezoneSnapshot?: string },
   ): Promise<ReviewItemModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(reviewItems)
       .values({
         id: itemData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         knowledgeId: itemData.knowledgeId,
         dueAt: itemData.dueAt,
         intervalDays: itemData.intervalDays ?? 1,
@@ -676,7 +596,6 @@ export class SqliteLearningRepository implements ILearningRepository {
     tenant: LocalContext,
     itemData: { id: string; knowledgeId: string; dueAt: string; intervalDays: number; schedulerVersion?: number; timezoneSnapshot?: string },
   ): Promise<ReviewItemModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(reviewItems)
@@ -689,8 +608,6 @@ export class SqliteLearningRepository implements ILearningRepository {
       })
       .where(
         and(
-          eq(reviewItems.workspaceId, tenant.workspaceId),
-          eq(reviewItems.subjectUserId, tenant.subjectUserId),
           eq(reviewItems.knowledgeId, itemData.knowledgeId),
           eq(reviewItems.status, "active"),
         ),
@@ -701,29 +618,23 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async getReviewItem(tenant: LocalContext, id: string): Promise<ReviewItemModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(reviewItems)
       .where(
         and(
           eq(reviewItems.id, id),
-          eq(reviewItems.workspaceId, tenant.workspaceId),
-          eq(reviewItems.subjectUserId, tenant.subjectUserId),
         ),
       );
     return (found as ReviewItemModel) ?? null;
   }
 
   async listCompletedReviewItems(tenant: LocalContext, limit = 10): Promise<ReviewItemModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(reviewItems)
       .where(
         and(
-          eq(reviewItems.workspaceId, tenant.workspaceId),
-          eq(reviewItems.subjectUserId, tenant.subjectUserId),
           eq(reviewItems.status, "completed"),
         ),
       )
@@ -749,7 +660,6 @@ export class SqliteLearningRepository implements ILearningRepository {
       nextReview: { id: string; dueAt: string; intervalDays: number; schedulerVersion: number; timezoneSnapshot: string };
     },
   ): Promise<{ completed: ReviewItemModel; nextReview: ReviewItemModel; knowledge: KnowledgeItemModel } | null> {
-    assertLocalContext(tenant);
     return this.db.transaction(async (tx) => {
       const now = new Date().toISOString();
       const [completed] = await tx
@@ -759,8 +669,6 @@ export class SqliteLearningRepository implements ILearningRepository {
           and(
             eq(reviewItems.id, data.reviewId),
             eq(reviewItems.knowledgeId, data.knowledgeId),
-            eq(reviewItems.workspaceId, tenant.workspaceId),
-            eq(reviewItems.subjectUserId, tenant.subjectUserId),
             eq(reviewItems.status, "active"),
           ),
         )
@@ -773,8 +681,6 @@ export class SqliteLearningRepository implements ILearningRepository {
         .where(
           and(
             eq(knowledgeItems.id, data.knowledgeId),
-            eq(knowledgeItems.workspaceId, tenant.workspaceId),
-            eq(knowledgeItems.subjectUserId, tenant.subjectUserId),
           ),
         )
         .returning();
@@ -784,8 +690,6 @@ export class SqliteLearningRepository implements ILearningRepository {
         .insert(reviewItems)
         .values({
           id: data.nextReview.id,
-          workspaceId: tenant.workspaceId,
-          subjectUserId: tenant.subjectUserId,
           knowledgeId: data.knowledgeId,
           dueAt: data.nextReview.dueAt,
           intervalDays: data.nextReview.intervalDays,
@@ -805,14 +709,11 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async listDueReviewItems(tenant: LocalContext, before: string): Promise<ReviewItemModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(reviewItems)
       .where(
         and(
-          eq(reviewItems.workspaceId, tenant.workspaceId),
-          eq(reviewItems.subjectUserId, tenant.subjectUserId),
           eq(reviewItems.status, "active"),
           lte(reviewItems.dueAt, before),
         ),
@@ -822,7 +723,6 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async completeReviewItem(tenant: LocalContext, id: string): Promise<ReviewItemModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(reviewItems)
@@ -830,8 +730,6 @@ export class SqliteLearningRepository implements ILearningRepository {
       .where(
         and(
           eq(reviewItems.id, id),
-          eq(reviewItems.workspaceId, tenant.workspaceId),
-          eq(reviewItems.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -851,14 +749,11 @@ export class SqliteLearningRepository implements ILearningRepository {
       confidence?: number;
     },
   ): Promise<KnowledgeRelationModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(knowledgeRelations)
       .values({
         id: relationData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         fromKnowledgeId: relationData.fromKnowledgeId,
         toKnowledgeId: relationData.toKnowledgeId,
         relationType: relationData.relationType,
@@ -872,14 +767,11 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async listKnowledgeRelations(tenant: LocalContext, knowledgeId: string): Promise<KnowledgeRelationModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(knowledgeRelations)
       .where(
         and(
-          eq(knowledgeRelations.workspaceId, tenant.workspaceId),
-          eq(knowledgeRelations.subjectUserId, tenant.subjectUserId),
           isNull(knowledgeRelations.deletedAt),
           // 出边或入边都算关联
           or(
@@ -898,15 +790,12 @@ export class SqliteLearningRepository implements ILearningRepository {
     tenant: LocalContext,
     relationId: string,
   ): Promise<KnowledgeRelationModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(knowledgeRelations)
       .where(
         and(
           eq(knowledgeRelations.id, relationId),
-          eq(knowledgeRelations.workspaceId, tenant.workspaceId),
-          eq(knowledgeRelations.subjectUserId, tenant.subjectUserId),
           isNull(knowledgeRelations.deletedAt),
         ),
       )
@@ -919,7 +808,6 @@ export class SqliteLearningRepository implements ILearningRepository {
     relationId: string,
     reason: string,
   ): Promise<KnowledgeRelationModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(knowledgeRelations)
@@ -927,8 +815,6 @@ export class SqliteLearningRepository implements ILearningRepository {
       .where(
         and(
           eq(knowledgeRelations.id, relationId),
-          eq(knowledgeRelations.workspaceId, tenant.workspaceId),
-          eq(knowledgeRelations.subjectUserId, tenant.subjectUserId),
           eq(knowledgeRelations.correctionStatus, "active"),
           isNull(knowledgeRelations.deletedAt),
         ),
@@ -942,7 +828,6 @@ export class SqliteLearningRepository implements ILearningRepository {
     sourceRelationId: string,
     targetRelationId: string,
   ): Promise<KnowledgeRelationModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     // 标记源关系为 merged
     const [updated] = await this.db
@@ -951,8 +836,6 @@ export class SqliteLearningRepository implements ILearningRepository {
       .where(
         and(
           eq(knowledgeRelations.id, sourceRelationId),
-          eq(knowledgeRelations.workspaceId, tenant.workspaceId),
-          eq(knowledgeRelations.subjectUserId, tenant.subjectUserId),
           eq(knowledgeRelations.correctionStatus, "active"),
           isNull(knowledgeRelations.deletedAt),
         ),
@@ -966,7 +849,6 @@ export class SqliteLearningRepository implements ILearningRepository {
     relationId: string,
     reason: string,
   ): Promise<KnowledgeRelationModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(knowledgeRelations)
@@ -974,8 +856,6 @@ export class SqliteLearningRepository implements ILearningRepository {
       .where(
         and(
           eq(knowledgeRelations.id, relationId),
-          eq(knowledgeRelations.workspaceId, tenant.workspaceId),
-          eq(knowledgeRelations.subjectUserId, tenant.subjectUserId),
           eq(knowledgeRelations.correctionStatus, "active"),
           isNull(knowledgeRelations.deletedAt),
         ),
@@ -988,7 +868,6 @@ export class SqliteLearningRepository implements ILearningRepository {
     tenant: LocalContext,
     relationId: string,
   ): Promise<KnowledgeRelationModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(knowledgeRelations)
@@ -996,8 +875,6 @@ export class SqliteLearningRepository implements ILearningRepository {
       .where(
         and(
           eq(knowledgeRelations.id, relationId),
-          eq(knowledgeRelations.workspaceId, tenant.workspaceId),
-          eq(knowledgeRelations.subjectUserId, tenant.subjectUserId),
           isNull(knowledgeRelations.deletedAt),
         ),
       )
@@ -1009,15 +886,12 @@ export class SqliteLearningRepository implements ILearningRepository {
     tenant: LocalContext,
     knowledgeId: string,
   ): Promise<KnowledgeRelationModel[]> {
-    assertLocalContext(tenant);
     // 仅返回 active 关系（被纠正/合并/拆分/删除的不返回）
     const rows = await this.db
       .select()
       .from(knowledgeRelations)
       .where(
         and(
-          eq(knowledgeRelations.workspaceId, tenant.workspaceId),
-          eq(knowledgeRelations.subjectUserId, tenant.subjectUserId),
           eq(knowledgeRelations.correctionStatus, "active"),
           isNull(knowledgeRelations.deletedAt),
           or(
@@ -1047,14 +921,11 @@ export class SqliteLearningRepository implements ILearningRepository {
       reportType?: string;
     },
   ): Promise<PracticeReportModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(practiceReports)
       .values({
         id: input.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         sessionId: input.sessionId,
         totalQuestions: input.totalQuestions,
         correctCount: input.correctCount,
@@ -1073,15 +944,12 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async getPracticeReport(tenant: LocalContext, reportId: string): Promise<PracticeReportModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(practiceReports)
       .where(
         and(
           eq(practiceReports.id, reportId),
-          eq(practiceReports.workspaceId, tenant.workspaceId),
-          eq(practiceReports.subjectUserId, tenant.subjectUserId),
         ),
       )
       .limit(1);
@@ -1089,15 +957,12 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async listPracticeReports(tenant: LocalContext, sessionId: string): Promise<PracticeReportModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(practiceReports)
       .where(
         and(
           eq(practiceReports.sessionId, sessionId),
-          eq(practiceReports.workspaceId, tenant.workspaceId),
-          eq(practiceReports.subjectUserId, tenant.subjectUserId),
         ),
       )
       .orderBy(desc(practiceReports.createdAt));
@@ -1105,15 +970,12 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async resetMasteryInference(tenant: LocalContext, sessionId: string): Promise<PracticeReportModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     // 创建一个 reset 类型的报告（保留原始作答，仅重置推断）
     const [created] = await this.db
       .insert(practiceReports)
       .values({
         id: `rpt_reset_${Date.now().toString(36)}`,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         sessionId,
         totalQuestions: 0,
         correctCount: 0,
@@ -1158,13 +1020,10 @@ export class SqliteLearningRepository implements ILearningRepository {
       }>;
     },
   ): Promise<LearningPlanModel> {
-    assertLocalContext(tenant);
     await this.db.transaction(async (tx) => {
       const now = new Date().toISOString();
       await tx.insert(learningPlans).values({
         id: input.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         topic: input.topic,
         level: input.level ?? "beginner",
         title: input.title,
@@ -1179,8 +1038,6 @@ export class SqliteLearningRepository implements ILearningRepository {
       for (const [index, milestone] of input.milestones.entries()) {
         await tx.insert(planMilestones).values({
           id: milestone.id,
-          workspaceId: tenant.workspaceId,
-          subjectUserId: tenant.subjectUserId,
           planId: input.id,
           order: index,
           title: milestone.title,
@@ -1196,8 +1053,6 @@ export class SqliteLearningRepository implements ILearningRepository {
         for (const [taskIndex, task] of milestone.tasks.entries()) {
           await tx.insert(planTasks).values({
             id: task.id,
-            workspaceId: tenant.workspaceId,
-            subjectUserId: tenant.subjectUserId,
             milestoneId: milestone.id,
             order: taskIndex,
             title: task.title,
@@ -1216,15 +1071,12 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async getLearningPlan(tenant: LocalContext, planId: string): Promise<LearningPlanModel | null> {
-    assertLocalContext(tenant);
     const [plan] = await this.db
       .select()
       .from(learningPlans)
       .where(
         and(
           eq(learningPlans.id, planId),
-          eq(learningPlans.workspaceId, tenant.workspaceId),
-          eq(learningPlans.subjectUserId, tenant.subjectUserId),
         ),
       )
       .limit(1);
@@ -1237,16 +1089,13 @@ export class SqliteLearningRepository implements ILearningRepository {
     tenant: LocalContext,
     includeArchived = false,
   ): Promise<LearningPlanModel[]> {
-    assertLocalContext(tenant);
     const planRows = await this.db
       .select()
       .from(learningPlans)
       .where(
         includeArchived
-          ? and(eq(learningPlans.workspaceId, tenant.workspaceId), eq(learningPlans.subjectUserId, tenant.subjectUserId))
+          ? and()
           : and(
-              eq(learningPlans.workspaceId, tenant.workspaceId),
-              eq(learningPlans.subjectUserId, tenant.subjectUserId),
               eq(learningPlans.status, "active"),
             ),
       )
@@ -1266,15 +1115,12 @@ export class SqliteLearningRepository implements ILearningRepository {
     taskId: string,
     status: "todo" | "done",
   ): Promise<LearningPlanModel | null> {
-    assertLocalContext(tenant);
     const [task] = await this.db
       .select()
       .from(planTasks)
       .where(
         and(
           eq(planTasks.id, taskId),
-          eq(planTasks.workspaceId, tenant.workspaceId),
-          eq(planTasks.subjectUserId, tenant.subjectUserId),
         ),
       )
       .limit(1);
@@ -1299,8 +1145,6 @@ export class SqliteLearningRepository implements ILearningRepository {
         .where(
           and(
             eq(planMilestones.planId, milestone.planId),
-            eq(planMilestones.workspaceId, tenant.workspaceId),
-            eq(planMilestones.subjectUserId, tenant.subjectUserId),
           ),
         )
         .orderBy(asc(planMilestones.order));
@@ -1328,7 +1172,6 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async archiveLearningPlan(tenant: LocalContext, planId: string): Promise<LearningPlanModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(learningPlans)
@@ -1336,8 +1179,6 @@ export class SqliteLearningRepository implements ILearningRepository {
       .where(
         and(
           eq(learningPlans.id, planId),
-          eq(learningPlans.workspaceId, tenant.workspaceId),
-          eq(learningPlans.subjectUserId, tenant.subjectUserId),
           eq(learningPlans.status, "active"),
         ),
       )
@@ -1353,8 +1194,6 @@ export class SqliteLearningRepository implements ILearningRepository {
   ): LearningPlanModel {
     return {
       id: plan.id,
-      workspaceId: plan.workspaceId,
-      subjectUserId: plan.subjectUserId,
       topic: plan.topic,
       level: plan.level,
       title: plan.title,
@@ -1378,8 +1217,6 @@ export class SqliteLearningRepository implements ILearningRepository {
       .where(
         and(
           inArray(planMilestones.planId, planIds),
-          eq(planMilestones.workspaceId, tenant.workspaceId),
-          eq(planMilestones.subjectUserId, tenant.subjectUserId),
         ),
       )
       .orderBy(asc(planMilestones.order));
@@ -1392,8 +1229,6 @@ export class SqliteLearningRepository implements ILearningRepository {
             .where(
               and(
                 inArray(planTasks.milestoneId, milestoneIds),
-                eq(planTasks.workspaceId, tenant.workspaceId),
-                eq(planTasks.subjectUserId, tenant.subjectUserId),
               ),
             )
             .orderBy(asc(planTasks.order))
@@ -1401,8 +1236,6 @@ export class SqliteLearningRepository implements ILearningRepository {
     return milestoneRows.map(
       (milestone): PlanMilestoneModel => ({
         id: milestone.id,
-        workspaceId: milestone.workspaceId,
-        subjectUserId: milestone.subjectUserId,
         planId: milestone.planId,
         order: milestone.order,
         title: milestone.title,
@@ -1416,8 +1249,6 @@ export class SqliteLearningRepository implements ILearningRepository {
           .map(
             (task): PlanTaskModel => ({
               id: task.id,
-              workspaceId: task.workspaceId,
-              subjectUserId: task.subjectUserId,
               milestoneId: task.milestoneId,
               order: task.order,
               title: task.title,

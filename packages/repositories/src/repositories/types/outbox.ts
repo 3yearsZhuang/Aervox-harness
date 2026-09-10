@@ -48,8 +48,8 @@ export interface ToolExecutionModel {
   attemptId: string;
   invocationId: string;
   name: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   argumentsJson?: unknown;
   status: string;
   outputJson?: unknown;
@@ -71,8 +71,8 @@ export interface ToolApprovalModel {
   state: "pending" | "granted" | "denied";
   decidedBy?: string | null;
   decidedAt?: string | null;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
 }
 
 export interface AgentInboxItemModel {
@@ -90,8 +90,8 @@ export interface AgentInboxItemModel {
   claimedAt?: string | null;
   ackedAt?: string | null;
   expiresAt?: string | null;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   createdAt: string;
   updatedAt: string;
 }

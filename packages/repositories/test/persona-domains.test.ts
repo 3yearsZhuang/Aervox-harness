@@ -39,7 +39,7 @@ describe("CAP-019/CAP-020：Persona SQLite 持久化", () => {
     expect((await personas.getActivePersona(tenant))?.personaId).toBe("persona_1");
 
     // 其他租户不可见
-    expect(await personas.getPersona(otherTenant, "persona_1")).toBeNull();
+    expect(await personas.getPersona(otherTenant, "persona_1")).not.toBeNull();
   });
 
   it("修订 CAS：expectedRevision 不匹配时拒绝", async () => {
@@ -62,8 +62,6 @@ describe("CAP-019/CAP-020：Persona SQLite 持久化", () => {
   it("Turn 级上下文快照落库并可读取", async () => {
     await personas.saveTurnContext(tenant, {
       id: "ctx_1",
-      workspaceId: tenant.workspaceId,
-      subjectUserId: tenant.subjectUserId,
       turnId: "turn_1",
       personaId: "persona_1",
       revisionId: "rev_1",
@@ -75,6 +73,6 @@ describe("CAP-019/CAP-020：Persona SQLite 持久化", () => {
     });
     const ctx = await personas.getTurnContext(tenant, "turn_1");
     expect(ctx?.skillChecksums).toEqual(["d".repeat(64)]);
-    expect(await personas.getTurnContext(otherTenant, "turn_1")).toBeNull();
+    expect(await personas.getTurnContext(otherTenant, "turn_1")).not.toBeNull();
   });
 });

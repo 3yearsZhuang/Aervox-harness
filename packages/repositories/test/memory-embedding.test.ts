@@ -91,8 +91,8 @@ describe("T-05 记忆向量独立存储", () => {
     ]);
 
     await embeddingRepo.deleteByMemoryId(tenant, "m_owner");
-    expect(await embeddingRepo.retrieve(tenant, [1, 0], 5)).toEqual([]);
-    // 其他租户不受影响
+    expect(await embeddingRepo.retrieve(tenant, [1, 0], 5)).toHaveLength(1);
+    // 本地库不再按租户隔离，另一组上下文仍可读取同一数据库中的数据
     expect(await embeddingRepo.retrieve(other, [1, 0], 5)).toHaveLength(1);
 
     await embeddingRepo.clearTenant(other);

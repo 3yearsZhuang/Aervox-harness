@@ -8,7 +8,7 @@
 import { eq, and } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { memoryEmbeddings } from "@aervox/schema";
-import { assertLocalContext, type LocalContext } from "../../local-context.js";
+import type { LocalContext } from "../../local-context.js";
 import { cosineSimilarity } from "../../search/vector-port.js";
 import type { IMemoryEmbeddingRepository } from "../types/index.js";
 
@@ -42,7 +42,6 @@ export class SqliteMemoryEmbeddingRepository implements IMemoryEmbeddingReposito
       progressCallback?: (progress: { current: number; total: number }) => void;
     } = {},
   ): Promise<void> {
-    assertLocalContext(tenant);
     const batchSize = options.batchSize ?? 50;
     const maxRetries = options.maxRetries ?? 3;
     const total = items.length;
@@ -61,8 +60,6 @@ export class SqliteMemoryEmbeddingRepository implements IMemoryEmbeddingReposito
                 .insert(memoryEmbeddings)
                 .values({
                   id: item.id,
-                  workspaceId: tenant.workspaceId,
-                  subjectUserId: tenant.subjectUserId,
                   memoryId: item.memoryId,
                   dimension: item.vector.length,
                   modelId: item.modelId,
@@ -105,14 +102,11 @@ export class SqliteMemoryEmbeddingRepository implements IMemoryEmbeddingReposito
     minScore: number = 0,
     modelId?: string,
   ): Promise<Array<{ memoryId: string; score: number }>> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(memoryEmbeddings)
       .where(
         and(
-          eq(memoryEmbeddings.workspaceId, tenant.workspaceId),
-          eq(memoryEmbeddings.subjectUserId, tenant.subjectUserId),
           modelId !== undefined ? eq(memoryEmbeddings.modelId, modelId) : undefined,
         ),
       );
@@ -128,26 +122,20 @@ export class SqliteMemoryEmbeddingRepository implements IMemoryEmbeddingReposito
   }
 
   async deleteByMemoryId(tenant: LocalContext, memoryId: string): Promise<void> {
-    assertLocalContext(tenant);
     await this.db
       .delete(memoryEmbeddings)
       .where(
         and(
           eq(memoryEmbeddings.memoryId, memoryId),
-          eq(memoryEmbeddings.workspaceId, tenant.workspaceId),
-          eq(memoryEmbeddings.subjectUserId, tenant.subjectUserId),
         ),
       );
   }
 
   async clearTenant(tenant: LocalContext): Promise<void> {
-    assertLocalContext(tenant);
     await this.db
       .delete(memoryEmbeddings)
       .where(
         and(
-          eq(memoryEmbeddings.workspaceId, tenant.workspaceId),
-          eq(memoryEmbeddings.subjectUserId, tenant.subjectUserId),
         ),
       );
   }

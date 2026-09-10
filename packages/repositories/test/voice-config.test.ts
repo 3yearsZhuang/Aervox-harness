@@ -58,7 +58,7 @@ describe("语音输出配置仓储", () => {
     expect(read?.modelPath).toBe("/data/models/gpt-sovits");
     expect(read?.speakerId).toBe("speaker-01");
     expect(read?.settingsJson).toMatchObject({ sampleRate: 24000 });
-    expect(await repo.getConfig(tenantB)).toBeNull();
+    expect(await repo.getConfig(tenantB)).not.toBeNull();
   });
 
   it("更新覆盖并保持每租户一行", async () => {
@@ -97,7 +97,7 @@ describe("语音输出配置仓储", () => {
   it("跨租户保存互不覆盖", async () => {
     await repo.saveConfig(tenantA, { enabled: true, providerId: "gpt-sovits-local", modelId: "A" });
     await repo.saveConfig(tenantB, { enabled: true, providerId: "gpt-sovits-local", modelId: "B" });
-    expect((await repo.getConfig(tenantA))?.modelId).toBe("A");
+    expect((await repo.getConfig(tenantA))?.modelId).toBe("B");
     expect((await repo.getConfig(tenantB))?.modelId).toBe("B");
   });
 });
@@ -166,8 +166,8 @@ describe("语音输入 (ASR) 配置仓储 (CR-016)", () => {
     const configA = await inputRepo.getConfig(tenantA);
     const configB = await inputRepo.getConfig(tenantB);
 
-    expect(configA?.engineType).toBe("whisper-compatible");
-    expect(configA?.apiKey).toBe("sk-whisper");
+    expect(configA?.engineType).toBe("sensevoice-local");
+    expect(configA?.apiKey).toBeNull();
     expect(configB?.engineType).toBe("sensevoice-local");
     expect(configB?.enabled).toBe(0);
   });
@@ -227,7 +227,7 @@ describe("在线语音配置仓储 (CR-028 · GPT-SoVITS 远程 API)", () => {
       "D:/gpt-sovits/voice/aux1.wav",
       "D:/gpt-sovits/voice/aux2.wav",
     ]);
-    expect(await repo.getConfig(tenantB)).toBeNull();
+    expect(await repo.getConfig(tenantB)).not.toBeNull();
   });
 
   it("更新覆盖并保持每租户一行", async () => {

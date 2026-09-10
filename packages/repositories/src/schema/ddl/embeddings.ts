@@ -8,8 +8,6 @@ export async function createEmbeddingsTables(client: Client): Promise<void> {
     await client.execute(`
       CREATE TABLE IF NOT EXISTS memory_embeddings (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         memory_id TEXT NOT NULL REFERENCES memory_records(id) ON DELETE CASCADE,
         dimension INTEGER NOT NULL,
         model_id TEXT NOT NULL,
@@ -21,9 +19,6 @@ export async function createEmbeddingsTables(client: Client): Promise<void> {
       );
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS memory_embeddings_tenant_idx ON memory_embeddings(workspace_id, subject_user_id);
-    `);
-  await client.execute(`
       CREATE INDEX IF NOT EXISTS memory_embeddings_memory_idx ON memory_embeddings(memory_id);
     `);
   await client.execute(`
@@ -31,6 +26,6 @@ export async function createEmbeddingsTables(client: Client): Promise<void> {
     `);
   await client.execute(`
       CREATE UNIQUE INDEX IF NOT EXISTS memory_embeddings_memory_model_idx
-      ON memory_embeddings(workspace_id, subject_user_id, memory_id, model_id);
+      ON memory_embeddings(memory_id, model_id);
     `);
 }

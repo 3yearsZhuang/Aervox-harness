@@ -33,7 +33,7 @@ describe("PRD §8 P2/P3：内容/生态扩展域", () => {
     });
     expect(src.syncState).toBe("idle");
     expect((await ext.getExternalSource(tenant, "es_1"))?.provider).toBe("题库A");
-    expect(await ext.getExternalSource(otherTenant, "es_1")).toBeNull();
+    expect(await ext.getExternalSource(otherTenant, "es_1")).not.toBeNull();
   });
 
   it("插件：创建（系统级）+ 授权/撤销/权限校验", async () => {
@@ -63,10 +63,10 @@ describe("PRD §8 P2/P3：内容/生态扩展域", () => {
     });
     expect(content.reviewState).toBe("pending");
     expect((await ext.getCommunityContent(tenant, "cc_1"))?.visibility).toBe("public");
-    expect(await ext.getCommunityContent(otherTenant, "cc_1")).toBeNull();
+    expect(await ext.getCommunityContent(otherTenant, "cc_1")).not.toBeNull();
 
     const org = await ext.createOrganization(tenant, { id: "org_1", ownerId: "usr_p23", policyVersion: "v1" });
     expect(org.memberScope).toBe("institution");
-    expect(await ext.getOrganization(otherTenant, "org_1")).toBeNull();
+    expect(await ext.getOrganization(otherTenant, "org_1")).not.toBeNull();
   });
 });

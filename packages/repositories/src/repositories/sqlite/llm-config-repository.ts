@@ -8,7 +8,7 @@
 import { and, asc, eq } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { llmConfigs } from "@aervox/schema";
-import { assertLocalContext, type LocalContext } from "../../local-context.js";
+import type { LocalContext } from "../../local-context.js";
 import type {
   ILLMConfigRepository,
   LLMConfigSaveInput,
@@ -18,8 +18,6 @@ import type {
 function rowToModel(row: typeof llmConfigs.$inferSelect): LLMConfigModel {
   return {
     id: row.id,
-    workspaceId: row.workspaceId,
-    subjectUserId: row.subjectUserId,
     name: row.name,
     isActive: row.isActive,
     enabled: row.enabled,
@@ -39,14 +37,11 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async getConfig(tenant: LocalContext): Promise<LLMConfigModel | null> {
-    assertLocalContext(tenant);
     const tenantRows = await this.db
       .select()
       .from(llmConfigs)
       .where(
         and(
-          eq(llmConfigs.workspaceId, tenant.workspaceId),
-          eq(llmConfigs.subjectUserId, tenant.subjectUserId),
         ),
       )
       .orderBy(asc(llmConfigs.createdAt))
@@ -60,7 +55,6 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
     tenant: LocalContext,
     input: LLMConfigSaveInput,
   ): Promise<LLMConfigModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const active = await this.getConfig(tenant);
 
@@ -80,8 +74,6 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
       .insert(llmConfigs)
       .values({
         id: `llm_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         name: "默认配置",
         isActive: 1,
         ...valuesFor(input),
@@ -93,14 +85,11 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
   }
 
   async listPresets(tenant: LocalContext): Promise<LLMConfigModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(llmConfigs)
       .where(
         and(
-          eq(llmConfigs.workspaceId, tenant.workspaceId),
-          eq(llmConfigs.subjectUserId, tenant.subjectUserId),
         ),
       )
       .orderBy(asc(llmConfigs.createdAt));
@@ -112,7 +101,6 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
     name: string,
     input: LLMConfigSaveInput,
   ): Promise<LLMConfigModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const existing = await this.listPresets(tenant);
     const firstPreset = existing.length === 0;
@@ -121,8 +109,6 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
       .insert(llmConfigs)
       .values({
         id: `llm_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         name: name.trim() || "默认配置",
         isActive: firstPreset ? 1 : 0,
         ...valuesFor(input),
@@ -138,15 +124,12 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
     presetId: string,
     input: LLMConfigSaveInput,
   ): Promise<LLMConfigModel | null> {
-    assertLocalContext(tenant);
     const [updated] = await this.db
       .update(llmConfigs)
       .set({ ...valuesFor(input), updatedAt: new Date().toISOString() })
       .where(
         and(
           eq(llmConfigs.id, presetId),
-          eq(llmConfigs.workspaceId, tenant.workspaceId),
-          eq(llmConfigs.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -157,7 +140,6 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
     tenant: LocalContext,
     presetId: string,
   ): Promise<LLMConfigModel | null> {
-    assertLocalContext(tenant);
     return this.db.transaction(async (tx) => {
       const [target] = await tx
         .select()
@@ -165,8 +147,6 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
         .where(
           and(
             eq(llmConfigs.id, presetId),
-            eq(llmConfigs.workspaceId, tenant.workspaceId),
-            eq(llmConfigs.subjectUserId, tenant.subjectUserId),
           ),
         )
         .limit(1);
@@ -176,8 +156,6 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
         .set({ isActive: 0, updatedAt: new Date().toISOString() })
         .where(
           and(
-            eq(llmConfigs.workspaceId, tenant.workspaceId),
-            eq(llmConfigs.subjectUserId, tenant.subjectUserId),
           ),
         );
       const [activated] = await tx
@@ -190,7 +168,6 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
   }
 
   async deletePreset(tenant: LocalContext, presetId: string): Promise<boolean> {
-    assertLocalContext(tenant);
     return this.db.transaction(async (tx) => {
       const [target] = await tx
         .select()
@@ -198,8 +175,6 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
         .where(
           and(
             eq(llmConfigs.id, presetId),
-            eq(llmConfigs.workspaceId, tenant.workspaceId),
-            eq(llmConfigs.subjectUserId, tenant.subjectUserId),
           ),
         )
         .limit(1);
@@ -212,8 +187,6 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
           .from(llmConfigs)
           .where(
             and(
-              eq(llmConfigs.workspaceId, tenant.workspaceId),
-              eq(llmConfigs.subjectUserId, tenant.subjectUserId),
             ),
           )
           .orderBy(asc(llmConfigs.createdAt))

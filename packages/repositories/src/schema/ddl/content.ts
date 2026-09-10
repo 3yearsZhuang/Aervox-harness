@@ -9,8 +9,6 @@ export async function createContentTables(client: Client): Promise<void> {
     await client.execute(`
       CREATE TABLE IF NOT EXISTS attachments (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         object_key TEXT NOT NULL,
         media_type TEXT NOT NULL,
         size INTEGER NOT NULL DEFAULT 0,
@@ -21,9 +19,6 @@ export async function createContentTables(client: Client): Promise<void> {
         updated_at TEXT NOT NULL
       );
     `);
-  await client.execute(`
-      CREATE INDEX IF NOT EXISTS attachments_tenant_idx ON attachments(workspace_id, subject_user_id);
-    `);
   // CAP-012：扩展 attachments 表（用途声明、解析状态、幂等键）
     await addColumnIfMissing(client, "attachments", "purpose", "purpose TEXT");
   await addColumnIfMissing(client, "attachments", "parse_status", "parse_status TEXT NOT NULL DEFAULT 'pending'");
@@ -32,8 +27,6 @@ export async function createContentTables(client: Client): Promise<void> {
     await client.execute(`
       CREATE TABLE IF NOT EXISTS attachment_parse_results (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         attachment_id TEXT NOT NULL REFERENCES attachments(id) ON DELETE CASCADE,
         parse_status TEXT NOT NULL DEFAULT 'pending',
         parsed_text TEXT,
@@ -51,18 +44,13 @@ export async function createContentTables(client: Client): Promise<void> {
       CREATE INDEX IF NOT EXISTS attachment_parse_results_attachment_idx ON attachment_parse_results(attachment_id);
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS attachment_parse_results_tenant_idx ON attachment_parse_results(workspace_id, subject_user_id);
-    `);
-  await client.execute(`
       CREATE UNIQUE INDEX IF NOT EXISTS attachment_parse_results_idem_idx
-      ON attachment_parse_results(workspace_id, subject_user_id, idempotency_key)
+      ON attachment_parse_results(idempotency_key)
       WHERE idempotency_key IS NOT NULL;
     `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS embedding_indexes (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         source_artifact_id TEXT NOT NULL,
         source_revision_id TEXT NOT NULL,
         model_id TEXT NOT NULL,
@@ -72,9 +60,6 @@ export async function createContentTables(client: Client): Promise<void> {
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
-    `);
-  await client.execute(`
-      CREATE INDEX IF NOT EXISTS embedding_indexes_tenant_idx ON embedding_indexes(workspace_id, subject_user_id);
     `);
   await client.execute(`
       CREATE INDEX IF NOT EXISTS embedding_indexes_source_idx ON embedding_indexes(source_artifact_id);

@@ -39,7 +39,7 @@ export function createSqliteResumeSource(deps: SqliteResumeSourceDeps): TurnSour
       const candidates = await repo.findResumeCandidates(client);
       const turns: ClaimableTurn[] = [];
       for (const c of candidates.slice(0, limit)) {
-        const tenant: LocalContext = { workspaceId: c.workspaceId, subjectUserId: c.subjectUserId };
+        const tenant: LocalContext = { workspaceId: "local", subjectUserId: "local" };
         const events = await repo.getStreamEvents(tenant, c.turnId);
         const executions = (await repo.listToolExecutionsByTurn(tenant, c.turnId)).map((r) => ({
           invocationId: r.invocationId,

@@ -2,14 +2,13 @@
  * Aervox｜思隅 @aervox/database — 人格与上下文快照实体表（CAP-019/CAP-020）
  */
 import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
-import { tenantColumns, timestampColumns } from "./common.js";
+import { timestampColumns } from "./common.js";
 
 /** 人格（多人格模板，CAP-019）；删除采用归档而非物理删除 */
 export const personas = sqliteTable(
   "personas",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     name: text("name").notNull(),
     description: text("description").notNull().default(""),
     source: text("source").notNull().default("user_created"), // "builtin" | "user_created" | "imported"
@@ -24,7 +23,7 @@ export const personas = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("personas_tenant_idx").on(table.workspaceId, table.subjectUserId),
+
   }),
 );
 
@@ -55,7 +54,6 @@ export const personaSelections = sqliteTable(
   "persona_selections",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     personaId: text("persona_id")
       .notNull()
       .references(() => personas.id, { onDelete: "cascade" }),
@@ -64,10 +62,7 @@ export const personaSelections = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantUniqueIdx: uniqueIndex("persona_selections_tenant_unique_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-    ),
+
   }),
 );
 
@@ -76,7 +71,6 @@ export const personaTurnContexts = sqliteTable(
   "persona_turn_contexts",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     turnId: text("turn_id").notNull(),
     personaId: text("persona_id").notNull(),
     revisionId: text("revision_id").notNull(),
@@ -88,15 +82,7 @@ export const personaTurnContexts = sqliteTable(
     createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
   },
   (table) => ({
-    tenantTurnIdx: uniqueIndex("persona_turn_contexts_tenant_turn_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.turnId,
-    ),
-    tenantIdx: index("persona_turn_contexts_tenant_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-    ),
+    turnUniqueIdx: uniqueIndex("persona_turn_contexts_turn_unique_idx").on(table.turnId),
   }),
 );
 
@@ -109,7 +95,6 @@ export const personaSwitchLogs = sqliteTable(
   "persona_switch_logs",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     /** 切换到的目标人格 ID */
     personaId: text("persona_id").notNull(),
     /** 目标修订 ID */
@@ -125,15 +110,8 @@ export const personaSwitchLogs = sqliteTable(
     switchedAt: text("switched_at").notNull().$defaultFn(() => new Date().toISOString()),
   },
   (table) => ({
-    tenantIdx: index("persona_switch_logs_tenant_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-    ),
-    tenantPersonaIdx: index("persona_switch_logs_tenant_persona_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.personaId,
-    ),
+
+
   }),
 );
 
@@ -147,7 +125,6 @@ export const personaMemoryScopes = sqliteTable(
   "persona_memory_scopes",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     personaId: text("persona_id")
       .notNull()
       .references(() => personas.id, { onDelete: "cascade" }),
@@ -162,10 +139,6 @@ export const personaMemoryScopes = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantPersonaUniqueIdx: uniqueIndex("persona_memory_scopes_tenant_persona_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.personaId,
-    ),
+
   }),
 );

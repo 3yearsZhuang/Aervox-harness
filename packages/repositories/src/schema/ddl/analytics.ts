@@ -8,8 +8,6 @@ export async function createAnalyticsTables(client: Client): Promise<void> {
     await client.execute(`
       CREATE TABLE IF NOT EXISTS analytics_events (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         event_name TEXT NOT NULL,
         event_schema_version INTEGER NOT NULL DEFAULT 1,
         occurred_at TEXT NOT NULL,
@@ -19,7 +17,7 @@ export async function createAnalyticsTables(client: Client): Promise<void> {
       );
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS analytics_events_tenant_event_idx ON analytics_events(workspace_id, subject_user_id, event_name, occurred_at);
+      CREATE INDEX IF NOT EXISTS analytics_events_local_event_idx ON analytics_events(event_name, occurred_at);
     `);
   await client.execute(`
       CREATE INDEX IF NOT EXISTS analytics_events_subject_idx ON analytics_events(analytics_subject_id);

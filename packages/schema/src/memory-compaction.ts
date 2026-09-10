@@ -14,7 +14,7 @@
  * 自研实现）。
  */
 import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
-import { tenantColumns, timestampColumns } from "./common.js";
+import { timestampColumns } from "./common.js";
 import { memoryRecords } from "./memories.js";
 
 /** 上下文压缩标记表（T-03） */
@@ -22,7 +22,6 @@ export const memoryCompactionMarkers = sqliteTable(
   "memory_compaction_markers",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     memoryId: text("memory_id")
       .notNull()
       .references(() => memoryRecords.id, { onDelete: "cascade" }),
@@ -47,9 +46,6 @@ export const memoryCompactionMarkers = sqliteTable(
       table.memoryId,
       table.snapshotId,
     ),
-    tenantIdx: index("memory_compaction_markers_tenant_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-    ),
+
   }),
 );

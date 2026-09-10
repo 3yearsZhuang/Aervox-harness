@@ -10,7 +10,7 @@
  * - `stream_event_id`：关联的 turn_stream_events.id（同事务写入，可回溯）。
  */
 import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
-import { tenantColumns, timestampColumns } from "./common.js";
+import { timestampColumns } from "./common.js";
 import { turns } from "./conversations.js";
 
 /** 安全片段（分段安全门的持久化产物；turn 内 sequence 单调） */
@@ -22,7 +22,6 @@ export const safeSegments = sqliteTable(
       .notNull()
       .references(() => turns.id, { onDelete: "cascade" }),
     attemptId: text("attempt_id"), // → turn_attempts.id（可空）
-    ...tenantColumns,
     /** 事件流内序号（与 turn_stream_events.sequence 对齐） */
     sequence: integer("sequence").notNull(),
     /** 已提交的安全片段文本（增量 delta） */
@@ -40,7 +39,7 @@ export const safeSegments = sqliteTable(
       table.committed,
     ),
     attemptIdx: index("safe_segments_attempt_idx").on(table.attemptId),
-    tenantIdx: index("safe_segments_tenant_idx").on(table.workspaceId, table.subjectUserId),
+
   }),
 );
 
