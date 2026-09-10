@@ -4,17 +4,17 @@ type: reference
 scope: decision
 owner: maintainers
 doc_status: review-candidate
-decision_status: proposed
+decision_status: accepted
 version: 0.1.0
-updated_at: 2026-08-31
-reviewed_at: 2026-08-31
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 ---
 
 # ADR-006 AI 召回期限与历史保留期限分离
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-31
+- 修改人：3yearszhuang · 2026-09-10
 
 - 状态：Proposed
 - 日期：2026-08-23

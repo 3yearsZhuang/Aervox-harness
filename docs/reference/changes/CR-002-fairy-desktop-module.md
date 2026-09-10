@@ -4,18 +4,18 @@ type: reference
 scope: change
 owner: maintainers
 doc_status: review-candidate
-decision_status: more-evidence-required
+decision_status: accepted
 delivery_status: implemented
 version: 0.1.0
-updated_at: 2026-08-31
-reviewed_at: 2026-08-31
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 ---
 
 # CR-002 引入 Fairy Agent Electron 桌面端
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-31
+- 修改人：3yearszhuang · 2026-09-10
 
 - 状态：More Evidence Required
 - 提出人 / 日期：Codex / 2026-08-24

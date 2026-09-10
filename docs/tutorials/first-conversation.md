@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.1.0
-updated_at: 2026-08-25
-reviewed_at: 2026-08-25
+version: 0.2.0
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 ---
 
 # 教程：构建并运行你的第一个对话
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-09-10
 
 关联：[从哪开始](../getting-started.md)、[流式协议契约](../reference/STREAMING_PROTOCOL.md)
 
@@ -88,6 +88,7 @@ curl -N http://127.0.0.1:3000/v1/turns/<turnId>/events
 
 ## 下一步
 
+- 动手编写扩展：[教程：编写自定义 Agent 工具](create-agent-tool.md)；
 - 按 [从哪开始](../getting-started.md) 的阅读顺序浏览；
 - 想理解消息端到端如何流转，见 [数据流总览](../explanation/data-flow-overview.md)；
 - 写文档前先过一遍 [文档写作规范](../reference/standards/doc-standards.md)。

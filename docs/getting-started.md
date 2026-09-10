@@ -89,3 +89,9 @@ demos/                   # 纯前端原型，非交付物
 - 文档冲突：停止相关发布，按[文档索引的权威顺序](README.md#2-权威顺序与冲突处理)仲裁；
 - 生产问题：按[运行、值班与演练手册](reference/operations.md)升级；
 - 变更请求：走[变更流程](reference/REQUIREMENTS_TRACEABILITY.md#113-变更流程)。
+
+## 6. 下一步
+
+- 开始动手：[教程：构建并运行第一个对话](tutorials/first-conversation.md)；
+- 了解架构：[架构设计](reference/ARCHITECTURE.md) 与 [数据流总览](explanation/data-flow-overview.md)；
+- 需求与落地状态：[需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md)。

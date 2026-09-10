@@ -4,11 +4,11 @@ type: reference
 scope: change
 owner: maintainers
 doc_status: review-candidate
-decision_status: proposed
+decision_status: accepted
 delivery_status: implemented
 version: 0.1.0
-updated_at: 2026-08-28
-reviewed_at: 2026-08-28
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 review_triggers:
   - docs/**
@@ -23,7 +23,7 @@ sources:
 # CR-017 文档治理与事实源标准化
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：3yearszhuang · 2026-09-10
 
 关联：[文档治理规范](../document-governance.md)、[文档写作规范](../standards/doc-standards.md)、[生命周期登记表](../../DOC_REGISTRY.md)、[文档索引](../../README.md)
 

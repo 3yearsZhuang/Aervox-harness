@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.18.0
+version: 1.20.0
 updated_at: 2026-09-10
 reviewed_at: 2026-09-10
 review_interval_days: 90
@@ -101,7 +101,7 @@ review_interval_days: 90
 
 ## 4. CAP-001～CAP-035 覆盖矩阵（全部能力状态唯一速览）
 
-本矩阵是全部 35 个 CAP 的**唯一一眼速览**（DoR 细分原 §4.1 已并入本表；批次顺序见[能力拆分路线](../explanation/roadmap.md)）。当前状态依据 PRD 中是否已有独立、可测试的详细行为和验收条件判定。
+本矩阵是全部 35 个 CAP 的**唯一一眼速览**（DoR 细分已并入本表；批次顺序见 [§4.1 建议交付批次与拆分原则](#41-建议交付批次与拆分原则)）。当前状态依据 PRD 中是否已有独立、可测试的详细行为和验收条件判定。
 
 - `当前状态`：`Mapped`＝未完整规格；`Specified`＝已规格未过 DoR。`Specified` 仍不等于 `Ready`，进入开发前必须继续拆分原子需求并通过 DoR；
 - `DoR 就绪`：按 [§6 Definition of Ready](#6-definition-of-ready) 评估；未规格 CAP 为 `—`，进入 `Specified` 后回填；
@@ -157,14 +157,37 @@ review_interval_days: 90
 
 满足 DoR 的路径：按[工程与发布流程 §1](../how-to/engineering-process.md#1-新增与修改需求)补齐字段与证据，在对应批次启动时逐 CAP 关闭上述阻断项并推进 `Ready`。
 
+### 4.1 建议交付批次与拆分原则
+
+本节吸收并合并原[能力拆分路线（已归档）](../archive/roadmap.md)（AVX-EXPL-004）的批次规划与拆分指导原则，回答“能力按什么批次进入规格化与开发”。
+
+#### 1. 拆分原则
+
+- CAP 从 `Mapped` 转 `Specified` 应只发生在临近开发批次时；P1/P2/P3 保持 `Mapped` 是正常的，进入对应阶段前再原子化（规则见 [SRS §6](SRS.md#6-p1p2p3-规格化规则)）；
+- 拆分只服务临近开发批次，不为“清空 Mapped”提前拆远期 P2/P3；
+- 高风险/合规项（CAP-010 安全边界、CAP-013 删除传播）优先固定验收；
+- 共享基础设施的 CAP（011/012 附件管线）合并拆分，避免重复设计；
+- CAP-033 作为独立生命周期能力排在第五批后段，依赖 CAP-005/018/020/022/024/026/027/030 及本地权限/存储 ADR；它的全量来源、后台恢复、全动作授权和七天提炼保留必须单独通过 DoR；
+- CAP-034/035 作为 CAP-033 的运行时连接能力排在同批次，HA 需通过私网/白名单/重连门禁，小米健康需通过厂商账号、真实沙箱和 Restricted 数据门禁；
+- 每个 CAP 拆分按[工程与发布流程 §1](../how-to/engineering-process.md#1-新增与修改需求)执行，拆分后更新本基线核验日期。
+
+#### 2. 建议批次
+
+| 批次 | 阶段 | 建议顺序 | 说明 |
+|---|---|---|---|
+| 第一批 | R1 MVP（已完成） | CAP-001/002/003/004/005/006/007/008/009 | 已全部 `Specified`，进入 DoR/Ready |
+| 第二批 | R1.5 MVP+（P0） | CAP-010 → CAP-013 → CAP-011 → CAP-012 | 010 依赖少且固定安全边界；013 衔接删除传播；011/012 共享附件/OCR 管线合并拆分 |
+| 第三批 | R2/R3（P1） | CAP-014 → CAP-015 → CAP-016/017 → CAP-019；CAP-018 独立排期 | 按依赖序：014 依赖对话、015 依赖记忆、016 依赖刷题数据、019 依赖 010 |
+| 第四批 | R4（P2） | CAP-020/027 优先（依赖 ADR-009/010/008），其余按 R4 立项 | 插件、本地优先、第三方接入、推荐等 |
+| 第五批 | R5（P3） | CAP-028~035 | 社区/市场/机构、主动智能模式与外部环境信号；CAP-033～035 依赖桌面 Host、工具授权、本地存储和连接网关，进入 R5 前完成生产门禁 |
+
 ### 4.2 落地实现登记
 
 本节是**整个项目**代码落地完成情况的追踪事实源（约束见 [AGENTS.md](../../AGENTS.md)）。凡已合并的实现，无论是否完成 DoR/DoD 门禁，均须在此登记；门禁状态（§4 矩阵的 `当前状态` 列）仍按 §6/§7 单独推进，两者不互相替代。未登记的落地视为未闭环、提交打回。
 
 登记规则：`关联 CAP` 表实现所属能力；`验证` 表已通过的自动化验证（测试/typecheck）；`来源` 标注参考设计（`T-*`/`AST-*`/`PET-*`/`DSH-01`/`PI-01`，细则见 [参考设计迁移文档 §6.1](../explanation/reference-design-transfer.md#61-落地登记唯一真源)）或原生实现。
 
-| 落地实现 | 关联 CAP | 实现位置 | 日期 | 验证 | 来源 |
-|---|---|---|---|---|---|
+| 全仓文档审计与治理清理冲刺（P0/P1/P2/P3 治理推进）：批量推进 21 篇 CR 与 15 篇 ADR 决策状态至 accepted；归档 5 篇历史/已决文档（ADR-002、database-split-plan、health-data 与 home-assistant 评估、roadmap）至 `docs/archive/` 并保留迁移存根；更新 `scripts/docs-governance.mjs` 支持归档目录免除活跃登记；大文件模块化拆分（DATABASE.md 拆分出 database-coverage-matrix.md、agent-harness-loop.md 拆分出 agent-loop-rollout-history.md、PRD.md 拆分出 prd-cap-acceptance.md）；路线图建议批次合并至 REQUIREMENTS_TRACEABILITY.md §4.1；补建 how-to/README.md 导航索引页；补全 `docs/README.md`、`docs/DOC_REGISTRY.md` 索引缺失并对齐核验日期；修复 Vale 术语校验提示路径；为 `docs/getting-started.md` 与 ADR-019 补全下一步实操与归档反向引用 | 基础设施（文档治理） | `docs/reference/changes/CR-*.md`、`docs/reference/adr/ADR-*.md`、`docs/archive/*.md`、`docs/explanation/*.md`、`docs/reference/DATABASE.md`、`docs/reference/database-coverage-matrix.md`、`docs/reference/agent-harness-loop.md`、`docs/reference/agent-loop-rollout-history.md`、`docs/reference/PRD.md`、`docs/reference/prd-cap-acceptance.md`、`docs/how-to/README.md`、`docs/DOC_REGISTRY.md`、`docs/README.md`、`docs/getting-started.md`、`scripts/docs-governance.mjs`、`.vale/styles/Project/Terms.yml` | 2026-09-10 | `mise tasks run ci-docs` 严格门禁全通过（Markdown lint 0 问题 + Vale prose check 0 错误 + docs-governance --strict 0 warning / 0 error） | 原生 |
 | Live2D 桌宠渲染层收敛为 `@aervox/ui` 单一实现：删除 desktop 侧 `live2d/{model,controller}.ts` 与 `components/Live2DPet.vue` 双份副本（合计 −552 行）；`packages/ui` 补 `mergeExternalMotionData` 导出、`index.ts` 增导出 `live2d/{controller,petReactions}`、`package.json` 补对应 exports 子路径（否则 `Vite` 报 `Missing specifier`）；组件合入 emote 直传（去自映射恒等冗余表）、gesture 语义正则保序回退、`onSpeak` emit 与 `fairyDesktop.onPetCommand` 特性探测桥，气泡展示归宿主 `PetWindow`（ui 组件保持平台中立，Web 无死事件） | CAP-001/018 | `packages/ui/src/live2d/{model,controller}.ts`、`packages/ui/src/components/Live2DPet.vue`、`packages/ui/src/index.ts`、`packages/ui/package.json`、`apps/desktop/src/renderer/src/{pet-button-poses.ts,components/{PetWindow,OnboardingFlow}.vue}`、`apps/desktop/test/pet-motion-merge.test.ts` | 2026-09-03 | `@aervox/ui` 与 `@aervox/desktop` 各自 `vue-tsc --noEmit` 均 0 错误；`packages/ui` Vitest 9/9、`apps/desktop` Vitest 30/30 通过（含 `pet-motion-merge` 3 项真实资产用例） | 原生（收敛 `CR-007` 遗留的双份实现，见本表 2026-08-26 行；待机表现因 `diversifyIdleGroup`/`IDLE_HAND_STYLES`/`wanderGaze` 更丰富，属体验增强非缺陷） |
 | 模型 / 语音多预设与「你的思隅」设置页（CR-029）：`llm_configs` 与三张语音表升级为每租户多行（`name`+`is_active`，部分唯一激活索引，`init.ts` 幂等迁移 DROP 旧租户唯一索引）；新增 `/v1/llm/presets`、`/v1/voice/presets` 列表/新建/激活/删除端点（语音预设聚合本地/在线/输入三表按名对齐）；保留旧读写端点语义（激活配置）供运行时调用方零侵入；前端「模型与服务」「语音」面板改卡片式预设管理；侧边菜单第五项「你的思隅」限定展示「对话/人格设定/模型与服务/语音」4 分类 | CAP-020 | `packages/database/src/schema/{llm,voice,init}.ts`、`packages/database/src/repositories/{types,sqlite/{llm-config,voice-config,voice-input-config,voice-remote-config}-repository}.ts`、`packages/contracts/src/{llm-schemas,persona-schemas,openapi,index}.ts`、`packages/contracts/openapi.json`、`apps/api/src/modules/{llm,voice}/{service,routes}.ts`、`packages/api-client/src/{index,useAervoxLLM,useAervoxVoice}.ts`、`packages/ui/src/components/{llm/LLMConfigPanel.vue,voice/VoicePresetManagerPanel.vue,AervoxWorkbench.vue}`、`packages/database/test/llm-config.test.ts`、`apps/api/test/llm-config.test.ts` | 2026-08-28 | `packages/database/test/llm-config.test.ts`（新增 5 项预设用例：首项自动激活/激活切换 getConfig/激活不存在返回 null/删除激活项提升首条/删空返回 null）与 `apps/api/test/llm-config.test.ts`（新增 4 项预设 API 用例：初始空列表/新建激活切换删除闭环/404/400）通过；全仓 `mise tasks run ci-code` 22 任务通过 | 原生 |
 | 开源许可声明统一为 AGPL-3.0-or-later（源码根 `LICENSE` 自 a82f042 起已是 AGPLv3；本次对齐声明面残留：桌面端与两个官方插件清单 MIT → AGPL-3.0-or-later，根与全部 workspace 子包补齐 SPDX `license` 字段；`LICENSE` 前言目录枚举补 `plugins/`、`e2e/`；文档 CC BY-NC-SA 4.0 双许可不变） | 基础设施 | 根 `package.json`、`apps/{api,web,worker,mobile,desktop}/package.json`、`packages/{agent-loop,api-client,config,contracts,database,diary,host-agent,observability,practice-review,ui}/package.json`、`plugins/{term-explorer,study-companion}/plugin.manifest.json`、`LICENSE`（前言）、`docs/reference/REQUIREMENTS_TRACEABILITY.md`（本行） | 2026-08-30 | 全部改动 JSON 以 node `JSON.parse` 校验通过；`mise tasks run ci-docs` 显式退出码 0；`mise tasks run ci-code` 全量 | 原生 |
@@ -331,6 +354,8 @@ review_interval_days: 90
 | 文档元数据治理 Batch W-04：18 份核心 Reference 规范向 Canonical Front Matter 迁移 | 基础设施（文档治理） | `docs/reference/` 18 份核心规范（`AI_QUALITY_SAFETY.md`、`ARCHITECTURE.md`、`DATABASE.md`、`DATA_PRIVACY.md`、`PRD.md`、`REQUIREMENTS_TRACEABILITY.md`、`SRS.md`、`STREAMING_PROTOCOL.md`、`TEST_STRATEGY.md`、`THREAT_MODEL.md`、`adr/README.md`、`agent-harness-loop.md`、`capability-composition.md`、`capability-registry.md`、`operations.md`、`plugin-config-and-pages.md`、`standards/doc-standards.md`、`standards/terminology.md`）与 `scripts/docs-governance.mjs` | 2026-09-10 | `node scripts/docs-governance.mjs --strict` 验证 legacy 计数 33→15、canonical 计数 51→69、零 duplicate_ids/missing_links/broken_anchors/registry_date_mismatches/registry_missing；`mise tasks run ci-docs` 全通 | 原生 |
 | 文档元数据治理 Batch W-05：剩余 15 份文档（Explanation/Tutorials/How-to/根导航）向 Canonical Front Matter 迁移 | 基础设施（文档治理） | `docs/explanation/` (7 份)、`docs/tutorials/` (2 份)、`docs/how-to/` (3 份)、`docs/getting-started.md`、`docs/README.md`、`docs/DOC_REGISTRY.md` 与 `docs/reference/REQUIREMENTS_TRACEABILITY.md` | 2026-09-10 | `node scripts/docs-governance.mjs --strict` 验证全仓 legacy 文档数归 0、canonical 达 83、零 duplicate_ids/missing_links/broken_anchors/registry_date_mismatches/registry_missing；`mise tasks run ci-docs` 全通 | 原生 |
 | 文档门禁收口 W-07：切换 ci-docs 默认以 --strict 模式运行 | 基础设施（文档治理） | `mise.toml`（`docs-validate` 任务增加 `--strict` 参数）与 `docs/reference/REQUIREMENTS_TRACEABILITY.md` | 2026-09-10 | `mise tasks run ci-docs` 默认以 strict 模式执行，输出确认 `mode=strict`，全仓 90 份文档零 warning 零 error 通过 | 原生 |
+| SRS 拆分子规格 W-06：拆分主动智能与外部信号规格（AVX-SRS-002）并精简主规格 | CAP-033/034/035 + 基础设施（文档治理） | `docs/reference/srs-proactive-intelligence.md`（新建 AVX-SRS-002）、`docs/reference/SRS.md`（精简 §8 与 §9 为指针并保留兼容锚点，升级 v1.1.0）、`docs/DOC_REGISTRY.md`、`docs/README.md`、`docs/reference/REQUIREMENTS_TRACEABILITY.md` | 2026-09-10 | `mise tasks run ci-docs`（严格校验 0 错误、0 警告、0 坏链与坏锚点）；全量门禁校验通过 | 原生 |
+| 元治理细节闭环 W-15：CHANGELOG 入口补充、提案生命周期明确与写作规范自检加固 | 基础设施（文档治理） | `CHANGELOG.md`（新建根目录单源指针）、`docs/reference/document-governance.md`（明确 proposal 生命周期与迁移归档路径）、`docs/reference/standards/doc-standards.md`（owner 示例校准为 maintainers、模板友好链接与兼容锚点）、`docs/tutorials/first-conversation.md`（「下一步」链接补全）、`docs/DOC_REGISTRY.md`、`docs/reference/REQUIREMENTS_TRACEABILITY.md` | 2026-09-10 | `mise tasks run ci-docs` 严格校验 100% 通过（0 warning 0 error）；双门禁验证通过 | 原生 |
 | 渲染能力裁定 W-11：保留 `SpritePet.vue` 作为低资源/像素风/Codex Pets 兼容预留能力 | CAP-001/018 + 基础设施 | `packages/ui/src/components/SpritePet.vue` 与 `packages/ui/src/index.ts`（经审计裁定保留组件及其导出，作为 Live2D 的轻量像素风无 WebGL 降级与 Codex Pets 姿态兼容层） | 2026-09-10 | `pnpm --filter @aervox/ui build` 与 `vue-tsc` 通过；组件与导出完好 | 原生 + 借鉴 Codex Pets 规范 |
 | 移动载体裁定 W-14：保留 apps/mobile 作为 ADR-015 移动端 Capacitor 打包宿主 | CAP-018 + 基础设施 | `apps/mobile/`（经审计裁定保留 Capacitor 移动宿主工程配置，负责后续 `@aervox/web` 的移动端 WebView 打包，不含额外脱轨业务逻辑） | 2026-09-10 | Workspace 依赖解析与构建契约正常，对齐 ADR-015 移动端落地规划 | 原生 |
 | 学习资料整理（CAP-011：资料 CRUD + 版本回溯 + 来源/许可台账 + JSON/Markdown 导出） | CAP-011 | `packages/database/src/schema/study-materials.ts`（`study_materials`/`material_versions`/`material_sources` + 索引）+ `repositories/sqlite/study-material-repository.ts`、`packages/contracts/src/schemas.ts`（materialType/status/sourceType/licenseStatus 枚举）、`apps/api/src/modules/study-materials/` | 2026-08-28 | `@aervox/api` `study-materials.test.ts` 10（版本回溯/来源台账/导出）；Database/API typecheck；ci-code 全量 | 原生 |
@@ -517,27 +542,27 @@ DoR 不允许以“开发中再确定”代替。确需并行探索的内容应�
 | `DATA-DIA-001` | 日记版本/来源/缓冲 | CAP-009 | `Specified` | [PRD 数据模型](PRD.md#prd-data) | `AC-DATA-DIA-001` | `TC-INTEG-DIA-001` |
 | `FR-STREAM-001` | Turn 流式响应、恢复与取消 | CAP-002/007/008 | `Specified` | [SRS 流式需求](SRS.md#srs-fr-stream)、[流式协议](STREAMING_PROTOCOL.md) | `AC-FR-STREAM-001-01～05` | `TC-CONTRACT-STREAM-001`、`TC-RES-STREAM-001`、`TC-SEC-STREAM-001`、`TC-E2E-STREAM-001` |
 | `BR-CONV-001` | 工具执行授权与完全访问边界 | CAP-002/007/020/033 | `Specified` | [SRS 代码执行边界](SRS.md#br-conv-001-代码执行边界)、[CR-022](changes/CR-022-full-access-tool-permission.md)、[CR-023](changes/CR-023-proactive-local-intelligence-mode.md)、[Agent Harness Loop §9](agent-harness-loop.md#9-工具执行管线) | `AC-BR-CONV-001-01～07` | `TC-SEC-CONV-001`、`TC-RES-CONV-001`、`TC-API-CONV-APPROVAL-001`、`TC-API-CONV-PRIV-001`、`TC-E2E-CONV-PERM-001`、`TC-SEC-PRO-ACTION-001` |
-| `FR-PRO-001` | 全量画像授权包与主动智能激活 | CAP-033 | `Specified` | [SRS CAP-033](SRS.md#srs-pro-001-全量画像授权与激活)、[CR-023](changes/CR-023-proactive-local-intelligence-mode.md) | `AC-FR-PRO-001-01～04` | `TC-API-PRO-001`、`TC-E2E-PRO-001` |
-| `FR-PRO-002` | 全量来源观察与持续 watcher | CAP-033/012/023/024/026 | `Specified` | [SRS CAP-033](SRS.md#fr-pro-002-全量来源观察) | `AC-FR-PRO-002-01～03` | `TC-INTEG-PRO-SOURCE-001`、`TC-SEC-PRO-SOURCE-001` |
-| `FR-PRO-003` | 本地画像推断与记忆提炼 | CAP-033/005/022 | `Specified` | [SRS CAP-033](SRS.md#fr-pro-003-本地画像与记忆提炼) | `AC-FR-PRO-003-01～04` | `TC-AIEVAL-PRO-001`、`TC-INTEG-PRO-MEM-001` |
-| `FR-PRO-004` | 后台生命周期与重启恢复 | CAP-033/018/027 | `Specified` | [SRS CAP-033](SRS.md#fr-pro-004-后台生命周期与恢复) | `AC-FR-PRO-004-01～03` | `TC-RES-PRO-LIFECYCLE-001`、`TC-E2E-PRO-LIFECYCLE-001` |
-| `FR-PRO-005` | 全量主动动作执行 | CAP-033/002/007/020/030 | `Specified` | [SRS CAP-033](SRS.md#fr-pro-005-主动动作执行) | `AC-FR-PRO-005-01～04` | `TC-SEC-PRO-ACTION-001`、`TC-E2E-PRO-ACTION-001` |
-| `FR-PRO-006` | 暂停、撤权与删除传播 | CAP-033/005/013/026/027 | `Specified` | [SRS CAP-033](SRS.md#fr-pro-006-暂停撤权与删除) | `AC-FR-PRO-006-01～04` | `TC-PRIV-PRO-REVOKE-001`、`TC-RES-PRO-REVOKE-001`、`apps/api/test/proactive.test.ts`（来源级 revoke/delete：撤销 consent、scrub capture、删 observation/claim、撤销动作） |
-| `FR-PRO-007` | 主动画像本地导出 | CAP-033/026/027 | `Specified` | [SRS CAP-033](SRS.md#fr-pro-007-主动画像导出) | `AC-FR-PRO-007-01～03` | `TC-API-PRO-EXPORT-001`、`TC-PRIV-PRO-EXPORT-001` |
-| `BR-PRO-001` | 主动智能四轴状态与完全访问前置 | CAP-033/002/007/018/020 | `Specified` | [SRS CAP-033](SRS.md#br-pro-001-激活前置与状态) | `AC-BR-PRO-001-01～03` | `TC-UNIT-PRO-STATE-001`、`TC-E2E-PRO-STATE-001` |
-| `BR-PRO-002` | 来源/动作授权修订与独立撤销 | CAP-033/020/023/027 | `Specified` | [SRS CAP-033](SRS.md#br-pro-002-授权修订与撤销) | `AC-BR-PRO-002-01～03` | `TC-SEC-PRO-GRANT-001`、`TC-PRIV-PRO-CONSENT-001` |
-| `BR-PRO-003` | `local_only` 溯源与禁止远程降级 | CAP-033/005/022/026/027 | `Specified` | [SRS CAP-033](SRS.md#br-pro-003-本地处理边界) | `AC-BR-PRO-003-01～03` | `TC-SEC-PRO-LOCAL-001`、`TC-RES-PRO-LOCAL-001` |
-| `BR-PRO-004` | 原始副本七天保留与记忆提炼门 | CAP-033/005/026 | `Specified` | [SRS CAP-033](SRS.md#br-pro-004-原始副本保留与提炼) | `AC-BR-PRO-004-01～03` | `TC-INTEG-PRO-RETENTION-001`、`TC-PRIV-PRO-RETENTION-001` |
-| `BR-PRO-005` | 全动作授权快照与执行审计 | CAP-033/002/007/020 | `Specified` | [SRS CAP-033](SRS.md#br-pro-005-全动作授权快照) | `AC-BR-PRO-005-01～03` | `TC-SEC-PRO-ACTION-001`、`TC-INTEG-PRO-AUDIT-001` |
-| `BR-PRO-006` | 后台恢复通知与用户可见状态 | CAP-033/010/018/030 | `Specified` | [SRS CAP-033](SRS.md#br-pro-006-后台恢复与通知) | `AC-BR-PRO-006-01～03` | `TC-E2E-PRO-NOTICE-001`、`TC-RES-PRO-LIFECYCLE-001` |
-| `DATA-PRO-001` | CAP-033 控制面、来源、捕获、画像和动作实体 | CAP-033 | `Specified` | [SRS CAP-033](SRS.md#srs-pro-data) | `AC-DATA-PRO-001-01～03` | `TC-INTEG-PRO-SCHEMA-001`、`TC-SEC-TENANT-001` |
-| `AIQ-PRO-001` | 画像推断证据、状态与记忆提炼质量 | CAP-033/005/022 | `Specified` | [SRS CAP-033](SRS.md#aiq-pro-001-画像推断质量) | `AC-AIQ-PRO-001-01～03` | `TC-AIEVAL-PRO-001`、`TC-AIEVAL-MEM-001` |
-| `SEC-PRO-001` | 受信 Host、OS Permission Broker、权限回执与 loopback token | CAP-033/018/020 | `Specified` | [SRS CAP-033](SRS.md#sec-pro-001-受信-host-与-os-权限) | `AC-SEC-PRO-001-01～04` | `TC-SEC-PRO-HOST-001`、`TC-SEC-PRO-SOURCE-001`、`TC-SEC-PRO-AUTH-001` |
-| `SEC-PRO-002` | 主动动作越权与 Prompt injection 隔离 | CAP-033/002/007/020 | `Specified` | [SRS CAP-033](SRS.md#sec-pro-002-主动动作越权隔离) | `AC-SEC-PRO-002-01～03` | `TC-SEC-PRO-ACTION-001`、`TC-SEC-PROMPT-001` |
-| `PRIV-PRO-001` | 全量画像与动作独立同意 | CAP-033/008/009/010/020/023/027 | `Specified` | [SRS CAP-033](SRS.md#priv-pro-001-全量画像同意) | `AC-PRIV-PRO-001-01～03` | `TC-PRIV-PRO-CONSENT-001`、`TC-E2E-PRO-001` |
-| `PRIV-PRO-002` | 主动数据本地持久化与不出云 | CAP-033/026/027 | `Specified` | [SRS CAP-033](SRS.md#priv-pro-002-本地持久化与不出云) | `AC-PRIV-PRO-002-01～03` | `TC-SEC-PRO-LOCAL-001`、`TC-PRIV-PRO-EXPORT-001` |
-| `PRIV-PRO-003` | 七天保留、撤权删除与导出权利 | CAP-033/005/013/026/027 | `Specified` | [SRS CAP-033](SRS.md#priv-pro-003-保留删除与导出) | `AC-PRIV-PRO-003-01～03` | `TC-PRIV-PRO-RETENTION-001`、`TC-PRIV-PRO-REVOKE-001` |
-| `OPS-PRO-001` | 后台 Host 心跳、崩溃恢复与状态收敛 | CAP-033/018/027/030 | `Specified` | [SRS CAP-033](SRS.md#ops-pro-001-后台运行与恢复) | `AC-OPS-PRO-001-01～03` | `TC-RES-PRO-LIFECYCLE-001`、`TC-PERF-PRO-001` |
+| `FR-PRO-001` | 全量画像授权包与主动智能激活 | CAP-033 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#srs-pro-001-全量画像授权与激活)、[CR-023](changes/CR-023-proactive-local-intelligence-mode.md) | `AC-FR-PRO-001-01～04` | `TC-API-PRO-001`、`TC-E2E-PRO-001` |
+| `FR-PRO-002` | 全量来源观察与持续 watcher | CAP-033/012/023/024/026 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#fr-pro-002-全量来源观察) | `AC-FR-PRO-002-01～03` | `TC-INTEG-PRO-SOURCE-001`、`TC-SEC-PRO-SOURCE-001` |
+| `FR-PRO-003` | 本地画像推断与记忆提炼 | CAP-033/005/022 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#fr-pro-003-本地画像与记忆提炼) | `AC-FR-PRO-003-01～04` | `TC-AIEVAL-PRO-001`、`TC-INTEG-PRO-MEM-001` |
+| `FR-PRO-004` | 后台生命周期与重启恢复 | CAP-033/018/027 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#fr-pro-004-后台生命周期与恢复) | `AC-FR-PRO-004-01～03` | `TC-RES-PRO-LIFECYCLE-001`、`TC-E2E-PRO-LIFECYCLE-001` |
+| `FR-PRO-005` | 全量主动动作执行 | CAP-033/002/007/020/030 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#fr-pro-005-主动动作执行) | `AC-FR-PRO-005-01～04` | `TC-SEC-PRO-ACTION-001`、`TC-E2E-PRO-ACTION-001` |
+| `FR-PRO-006` | 暂停、撤权与删除传播 | CAP-033/005/013/026/027 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#fr-pro-006-暂停撤权与删除) | `AC-FR-PRO-006-01～04` | `TC-PRIV-PRO-REVOKE-001`、`TC-RES-PRO-REVOKE-001`、`apps/api/test/proactive.test.ts`（来源级 revoke/delete：撤销 consent、scrub capture、删 observation/claim、撤销动作） |
+| `FR-PRO-007` | 主动画像本地导出 | CAP-033/026/027 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#fr-pro-007-主动画像导出) | `AC-FR-PRO-007-01～03` | `TC-API-PRO-EXPORT-001`、`TC-PRIV-PRO-EXPORT-001` |
+| `BR-PRO-001` | 主动智能四轴状态与完全访问前置 | CAP-033/002/007/018/020 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#br-pro-001-激活前置与状态) | `AC-BR-PRO-001-01～03` | `TC-UNIT-PRO-STATE-001`、`TC-E2E-PRO-STATE-001` |
+| `BR-PRO-002` | 来源/动作授权修订与独立撤销 | CAP-033/020/023/027 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#br-pro-002-授权修订与撤销) | `AC-BR-PRO-002-01～03` | `TC-SEC-PRO-GRANT-001`、`TC-PRIV-PRO-CONSENT-001` |
+| `BR-PRO-003` | `local_only` 溯源与禁止远程降级 | CAP-033/005/022/026/027 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#br-pro-003-本地处理边界) | `AC-BR-PRO-003-01～03` | `TC-SEC-PRO-LOCAL-001`、`TC-RES-PRO-LOCAL-001` |
+| `BR-PRO-004` | 原始副本七天保留与记忆提炼门 | CAP-033/005/026 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#br-pro-004-原始副本保留与提炼) | `AC-BR-PRO-004-01～03` | `TC-INTEG-PRO-RETENTION-001`、`TC-PRIV-PRO-RETENTION-001` |
+| `BR-PRO-005` | 全动作授权快照与执行审计 | CAP-033/002/007/020 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#br-pro-005-全动作授权快照) | `AC-BR-PRO-005-01～03` | `TC-SEC-PRO-ACTION-001`、`TC-INTEG-PRO-AUDIT-001` |
+| `BR-PRO-006` | 后台恢复通知与用户可见状态 | CAP-033/010/018/030 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#br-pro-006-后台恢复与通知) | `AC-BR-PRO-006-01～03` | `TC-E2E-PRO-NOTICE-001`、`TC-RES-PRO-LIFECYCLE-001` |
+| `DATA-PRO-001` | CAP-033 控制面、来源、捕获、画像和动作实体 | CAP-033 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#srs-pro-data) | `AC-DATA-PRO-001-01～03` | `TC-INTEG-PRO-SCHEMA-001`、`TC-SEC-TENANT-001` |
+| `AIQ-PRO-001` | 画像推断证据、状态与记忆提炼质量 | CAP-033/005/022 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#aiq-pro-001-画像推断质量) | `AC-AIQ-PRO-001-01～03` | `TC-AIEVAL-PRO-001`、`TC-AIEVAL-MEM-001` |
+| `SEC-PRO-001` | 受信 Host、OS Permission Broker、权限回执与 loopback token | CAP-033/018/020 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#sec-pro-001-受信-host-与-os-权限) | `AC-SEC-PRO-001-01～04` | `TC-SEC-PRO-HOST-001`、`TC-SEC-PRO-SOURCE-001`、`TC-SEC-PRO-AUTH-001` |
+| `SEC-PRO-002` | 主动动作越权与 Prompt injection 隔离 | CAP-033/002/007/020 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#sec-pro-002-主动动作越权隔离) | `AC-SEC-PRO-002-01～03` | `TC-SEC-PRO-ACTION-001`、`TC-SEC-PROMPT-001` |
+| `PRIV-PRO-001` | 全量画像与动作独立同意 | CAP-033/008/009/010/020/023/027 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#priv-pro-001-全量画像同意) | `AC-PRIV-PRO-001-01～03` | `TC-PRIV-PRO-CONSENT-001`、`TC-E2E-PRO-001` |
+| `PRIV-PRO-002` | 主动数据本地持久化与不出云 | CAP-033/026/027 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#priv-pro-002-本地持久化与不出云) | `AC-PRIV-PRO-002-01～03` | `TC-SEC-PRO-LOCAL-001`、`TC-PRIV-PRO-EXPORT-001` |
+| `PRIV-PRO-003` | 七天保留、撤权删除与导出权利 | CAP-033/005/013/026/027 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#priv-pro-003-保留删除与导出) | `AC-PRIV-PRO-003-01～03` | `TC-PRIV-PRO-RETENTION-001`、`TC-PRIV-PRO-REVOKE-001` |
+| `OPS-PRO-001` | 后台 Host 心跳、崩溃恢复与状态收敛 | CAP-033/018/027/030 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#ops-pro-001-后台运行与恢复) | `AC-OPS-PRO-001-01～03` | `TC-RES-PRO-LIFECYCLE-001`、`TC-PERF-PRO-001` |
 | `FR-PRC-001` | 练习题组、作答判定与错题派生 | CAP-003/004 | `Specified` | [SRS 练习需求](SRS.md#fr-prc-001-练习判定与错题)、[CR-008](changes/CR-008-practice-session-contract.md) | `AC-FR-PRC-001-01～07` | `TC-UNIT-PRC-001`、`TC-API-PRC-001`、`TC-INTEG-PRC-001`、`TC-E2E-PRC-001` |
 | `DATA-STREAM-001` | Turn 事件保留、撤回与删除 | CAP-002/007/008/013 | `Specified` | [SRS 跨域规则](SRS.md#srs-data-stream)、[流式协议](STREAMING_PROTOCOL.md#5-重连保留与断点恢复) | `AC-DATA-STREAM-001-01～02` | `TC-PRIV-STREAM-001`、`TC-INTEG-STREAM-RET-001` |
 | `DATA-DEL-001` | 删除传播与账本 | CAP-005/009/013/026/027 | `Specified` | [删除 SLA](DATA_PRIVACY.md#privacy-deletion-sla) | `AC-DATA-DEL-001` | `TC-PRIV-DEL-001` |

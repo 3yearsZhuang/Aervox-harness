@@ -7,15 +7,15 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.2.0
-updated_at: 2026-08-28
-reviewed_at: 2026-08-28
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 ---
 
 # 文档写作规范（Docs-as-Code × Diátaxis）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：3yearszhuang · 2026-09-10
 
 关联：[文档治理与事实源规范](../document-governance.md)、[文档索引](../../README.md)、[生命周期登记表](../../DOC_REGISTRY.md)、[术语表](terminology.md)
 
@@ -61,7 +61,7 @@ review_interval_days: 90
 id: AVX-STD-001
 type: reference
 scope: baseline
-owner: docs
+owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
@@ -110,13 +110,16 @@ ADR 另填 `decision_status`；CR 同时填写 `decision_status` 与 `delivery_s
 
 ## 4. 写作风格基线
 
-- 正文使用中文；代码、标识符、命令与术语表中的规范写法保留原文；
-- 结论先行：每节第一句给出结论或目标，再展开；
-- 术语唯一：以 [术语表](terminology.md) 为准，交由 Vale 自动校验（第 5 节）；
-- 禁用形容词验收（"智能、自然、友好"等），用可验证描述表达（对齐 [文档索引 §5](../../README.md#5-专业基线自检)）；
-- 引用同仓库文档一律使用相对链接，锚点变更须同步更新引用；不引用外部临时链接充当事实源。
+- 语言：简体中文；技术术语保留英文规范形式（以[术语表](terminology.md)为准）；
+- 标点：中文句段使用全角中文标点（`，` `。` `：` `；` `！` `？` `（）` `【】`）；代码片段、文件名、英文缩写使用半角；
+- 编号与分级：二级标题 `## 1.`、三级标题 `### 1.1`；列表项使用 `-`；
+- 代码块：必须标注语言标识符（`ts` `bash` `yaml` `json` `text` 等），禁止裸 ``` 块；
+- 引用与警告：使用 GitHub 风格警告块（`> [!NOTE]`、`> [!WARNING]`、`> [!IMPORTANT]` 等）；
+- 相对链接：一律使用相对于当前文件的相对路径，严禁使用本地绝对路径；锚点引用必须可达。
 
-## 5. Vale 术语门禁
+<a id="5-vale-术语门禁"></a>
+
+## 5. Vale 术语与风格检查
 
 - 配置：根目录 [.vale.ini](../../../.vale.ini) + `.vale/styles/`（Vocab 词典 + `Project/Terms.yml` 检查规则）；
 - 本地：`mise tasks run docs-lint-prose`（等价 `vale --minAlertLevel=error docs README.md CONTRIBUTING.md AGENTS.md`）；
@@ -127,9 +130,9 @@ ADR 另填 `decision_status`；CR 同时填写 `decision_status` 与 `delivery_s
 
 | 文档类 | 模板 | 场景 |
 |---|---|---|
-| How-to | [../../templates/how-to.md](../../templates/how-to.md) | 操作指南 |
-| Reference | [../../templates/reference.md](../../templates/reference.md) | 契约、策略、数据库等规范 |
-| Explanation | [../../templates/explanation.md](../../templates/explanation.md) | 概念讲解、数据流总览 |
+| How-to | [How-to 指南模板](../../templates/how-to.md) | 操作指南 |
+| Reference | [Reference 规范模板](../../templates/reference.md) | 契约、策略、数据库等规范 |
+| Explanation | [Explanation 概念阐释模板](../../templates/explanation.md) | 概念讲解、数据流总览 |
 | ADR | [写 ADR 指南](../../how-to/write-adr.md) + [ADR 索引](../adr/README.md) | 架构决策记录 |
 
 - 提交前自检第 3 步会校验全部相对链接，任何目录迁移后先跑链接检查再推送。

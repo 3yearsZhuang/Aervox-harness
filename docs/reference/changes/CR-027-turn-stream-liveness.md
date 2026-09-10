@@ -4,11 +4,11 @@ type: reference
 scope: change
 owner: architecture
 doc_status: review-candidate
-decision_status: proposed
+decision_status: accepted
 delivery_status: implemented
 version: 0.1.0
-updated_at: 2026-08-29
-reviewed_at: 2026-08-29
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 sources:
   - docs/reference/STREAMING_PROTOCOL.md
@@ -19,7 +19,7 @@ sources:
 # CR-027 Turn 流活性治理：执行解耦、SSE 活流与思考增量透传
 
 - 提出人：3yearszhuang · 2026-08-29
-- 修改人：3yearszhuang · 2026-08-29
+- 修改人：3yearszhuang · 2026-09-10
 
 关联：[流式协议](../STREAMING_PROTOCOL.md)、[需求追踪基线 §4.2](../REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)
 

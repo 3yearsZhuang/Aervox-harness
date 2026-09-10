@@ -4,18 +4,18 @@ type: reference
 scope: change
 owner: maintainers
 doc_status: review-candidate
-decision_status: proposed
+decision_status: accepted
 delivery_status: implemented
 version: 0.1.0
-updated_at: 2026-08-28
-reviewed_at: 2026-08-28
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 ---
 
 # CR-012 Agent Harness Loop 目标规范与迁移基线
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：3yearszhuang · 2026-09-10
 
 关联：[Agent Harness Loop 规范](../agent-harness-loop.md)、[架构设计](../ARCHITECTURE.md)、[流式协议](../STREAMING_PROTOCOL.md)、[ADR-009](../adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](../adr/ADR-010-dsh-pi-adapters.md)、[能力组合规范](../capability-composition.md)、[需求追踪](../REQUIREMENTS_TRACEABILITY.md)
 

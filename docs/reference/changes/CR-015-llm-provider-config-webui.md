@@ -4,18 +4,18 @@ type: reference
 scope: change
 owner: maintainers
 doc_status: review-candidate
-decision_status: proposed
+decision_status: accepted
 delivery_status: implemented
 version: 0.1.0
-updated_at: 2026-08-28
-reviewed_at: 2026-08-28
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 ---
 
 # CR-015 WebUI 大语言模型与供应商配置（设置 + 连通性测试 + 租户持久化）
 
 - 提出人：Antigravity · 2026-08-28
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：3yearszhuang · 2026-09-10
 
 关联：[需求追踪基线](../REQUIREMENTS_TRACEABILITY.md)、[ADR-005 内部 Provider Port](../adr/ADR-005-provider-port.md)、[CR-014 WebUI 语音配置](../changes/CR-014-voice-config-webui.md)
 

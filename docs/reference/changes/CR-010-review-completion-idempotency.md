@@ -4,18 +4,18 @@ type: reference
 scope: change
 owner: maintainers
 doc_status: review-candidate
-decision_status: proposed
+decision_status: accepted
 delivery_status: implemented
 version: 0.1.0
-updated_at: 2026-08-27
-reviewed_at: 2026-08-27
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 ---
 
 # CR-010 复习完成幂等与结果重放
 
 - 提出人：kikoyida · 2026-08-27
-- 修改人：kikoyida · 2026-08-27
+- 修改人：3yearszhuang · 2026-09-10
 
 关联：[SRS](../SRS.md)、[需求追踪](../REQUIREMENTS_TRACEABILITY.md)
 

@@ -4,11 +4,11 @@ type: reference
 scope: change
 owner: architecture
 doc_status: review-candidate
-decision_status: proposed
+decision_status: accepted
 delivery_status: implemented
 version: 0.1.0
-updated_at: 2026-08-28
-reviewed_at: 2026-08-28
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 sources:
   - docs/reference/agent-harness-loop.md
@@ -19,7 +19,7 @@ sources:
 # CR-021 向用户询问（ask_user_question）能力接入
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：3yearszhuang · 2026-09-10
 
 关联：[Agent Harness Loop](../agent-harness-loop.md)、[流式协议](../STREAMING_PROTOCOL.md)、[需求追踪基线](../REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)
 

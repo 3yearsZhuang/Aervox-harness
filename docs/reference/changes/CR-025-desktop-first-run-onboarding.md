@@ -4,11 +4,11 @@ type: reference
 scope: change
 owner: desktop
 doc_status: review-candidate
-decision_status: proposed
+decision_status: accepted
 delivery_status: implemented
 version: 0.1.0
-updated_at: 2026-08-29
-reviewed_at: 2026-08-29
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 sources:
   - docs/reference/PRD.md
@@ -21,7 +21,7 @@ sources:
 # CR-025 桌面端首次启动引导
 
 - 提出人：kikoyida · 2026-08-29
-- 修改人：kikoyida · 2026-08-29
+- 修改人：3yearszhuang · 2026-09-10
 
 关联：[PRD CAP-001/018](../PRD.md#prd-cap-map)、[需求追踪](../REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)、[CR-007](CR-007-live2d-sekai-viewer-pet.md)、[CR-015](CR-015-llm-provider-config-webui.md)
 

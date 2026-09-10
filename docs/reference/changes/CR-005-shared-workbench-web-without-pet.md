@@ -4,18 +4,18 @@ type: reference
 scope: change
 owner: maintainers
 doc_status: review-candidate
-decision_status: more-evidence-required
+decision_status: accepted
 delivery_status: implemented
 version: 0.1.0
-updated_at: 2026-08-25
-reviewed_at: 2026-08-25
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 ---
 
 # CR-005 共享工作台与 Web 无桌宠表现层
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-09-10
 
 关联：[Web 工作台实现规划](../../explanation/web-implementation.md)、[架构设计](../ARCHITECTURE.md)、[ADR-015](../adr/ADR-015-vue-full-stack.md)
 

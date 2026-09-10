@@ -7,8 +7,8 @@ doc_status: review-candidate
 decision_status: accepted
 delivery_status: implemented
 version: 0.2.0
-updated_at: 2026-08-29
-reviewed_at: 2026-08-29
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 sources:
   - docs/reference/SRS.md

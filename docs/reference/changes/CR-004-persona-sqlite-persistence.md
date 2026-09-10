@@ -4,18 +4,18 @@ type: reference
 scope: change
 owner: maintainers
 doc_status: review-candidate
-decision_status: proposed
+decision_status: accepted
 delivery_status: implemented
 version: 0.1.0
-updated_at: 2026-08-31
-reviewed_at: 2026-08-31
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 ---
 
 # CR-004 人格插件 SQLite 持久化（复用主仓 @aervox/database）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-31
+- 修改人：3yearszhuang · 2026-09-10
 
 - 状态：Proposed
 - 提出人 / 日期：KashiwagiEri233 / 2026-08-25
