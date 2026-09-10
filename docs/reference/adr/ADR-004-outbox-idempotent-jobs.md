@@ -1,3 +1,16 @@
+---
+id: ADR-004
+type: reference
+scope: decision
+owner: maintainers
+doc_status: review-candidate
+decision_status: proposed
+version: 0.1.0
+updated_at: 2026-08-31
+reviewed_at: 2026-08-31
+review_interval_days: 90
+---
+
 # ADR-004 业务状态 + Outbox + 幂等队列
 
 - 提出人：3yearszhuang · 2026-08-26
@@ -6,8 +19,6 @@
 - 状态：Proposed
 - 日期：2026-08-23
 - 关联：`NFR-REL-001`、`OPS-QUEUE-001`、`CAP-005/009/013`
-
-> 更新日期：2026-08-31
 
 ## Context
 

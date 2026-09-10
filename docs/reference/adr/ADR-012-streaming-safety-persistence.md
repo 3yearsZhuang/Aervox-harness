@@ -1,3 +1,16 @@
+---
+id: ADR-012
+type: reference
+scope: decision
+owner: maintainers
+doc_status: review-candidate
+decision_status: proposed
+version: 0.1.0
+updated_at: 2026-08-31
+reviewed_at: 2026-08-31
+review_interval_days: 90
+---
+
 # ADR-012 可恢复 Turn 流式协议、输出安全门与部分响应持久化
 
 - 提出人：3yearszhuang · 2026-08-26
@@ -6,8 +19,6 @@
 - 状态：Proposed
 - 日期：2026-08-24
 - 关联：`CAP-002/007/008`、`NFR-PERF-001`、`NFR-REL-001`、`NFR-SEC-001`、`NFR-OBS-001`、`AIQ-TEACH-001`、`AIQ-SAFE-001`、`BR-CTRL-001`
-
-> 更新日期：2026-08-31
 
 ## Context
 

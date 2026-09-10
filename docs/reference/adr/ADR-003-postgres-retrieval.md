@@ -1,3 +1,16 @@
+---
+id: ADR-003
+type: reference
+scope: decision
+owner: maintainers
+doc_status: review-candidate
+decision_status: proposed
+version: 0.1.0
+updated_at: 2026-08-31
+reviewed_at: 2026-08-31
+review_interval_days: 90
+---
+
 # ADR-003 仓储抽象架构：SQLite 业务真源与 FTS5/Vector Port
 
 - 提出人：3yearszhuang · 2026-08-26
@@ -6,8 +19,6 @@
 - 状态：Proposed
 - 日期：2026-08-24
 - 关联：`CAP-005/015/026/027`、`DATA-MEM-001`、`NFR-SCALE-001`、`ADR-008`
-
-> 更新日期：2026-08-31
 
 ## Context
 

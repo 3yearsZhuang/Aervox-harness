@@ -1,3 +1,16 @@
+---
+id: ADR-017
+type: reference
+scope: decision
+owner: maintainers
+doc_status: review-candidate
+decision_status: proposed
+version: 0.1.0
+updated_at: 2026-08-31
+reviewed_at: 2026-08-31
+review_interval_days: 90
+---
+
 # ADR-017 冻结 ContextManifest / ModelRun / AgentStep 关联与 Inbox 数据模型
 
 - 提出人：3yearszhuang · 2026-08-28
@@ -9,8 +22,6 @@
 
 - 关联：`AVX-HAR-001 §7.1/§7.2/§2.1/§4`（Context 组装与 AgentInboxItem）、`AVX-HAR-001 §13 阶段 5`（Inbox、压缩与高级能力）、`ADR-016`（底座边界冻结）、`ADR-005`（Provider Port）、`CAP-002/007`、NFR-DATA
 - 前置决策：[ADR-016](ADR-016-base-boundaries.md) 已把 `packages/agent-loop` 限定为不得导入 `@aervox/database`/Drizzle/SQLite，本 ADR 冻结的是**数据所有权分层**（模型/记录归属）与 **shop 关系基数**，两者正交。
-
-> 更新日期：2026-08-31
 
 ## Context
 

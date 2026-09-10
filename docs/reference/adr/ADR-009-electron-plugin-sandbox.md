@@ -1,3 +1,16 @@
+---
+id: ADR-009
+type: reference
+scope: decision
+owner: maintainers
+doc_status: review-candidate
+decision_status: proposed
+version: 0.1.0
+updated_at: 2026-08-31
+reviewed_at: 2026-08-31
+review_interval_days: 90
+---
+
 # ADR-009 Electron 最小权限壳与进程外插件
 
 - 提出人：3yearszhuang · 2026-08-26
@@ -6,8 +19,6 @@
 - 状态：Proposed（R3/P2 前必须 Accepted）
 - 日期：2026-08-23
 - 关联：`CAP-018/020/031/033`、`SEC-PLG-001`、`SEC-PRO-001/002`、`RISK-006/RISK-013`
-
-> 更新日期：2026-08-31
 
 ## Context
 

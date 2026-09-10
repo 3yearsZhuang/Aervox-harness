@@ -1,3 +1,16 @@
+---
+id: ADR-015
+type: reference
+scope: decision
+owner: maintainers
+doc_status: review-candidate
+decision_status: proposed
+version: 0.1.0
+updated_at: 2026-08-31
+reviewed_at: 2026-08-31
+review_interval_days: 90
+---
+
 # ADR-015 Vue 全栈单栈：Web 复用桌面端技术族
 
 - 提出人：3yearszhuang · 2026-08-26
@@ -7,8 +20,6 @@
 - 日期：2026-08-25
 
 - 关联：`ADR-002`（Superseded）、`ADR-014`、`CAP-001/002/009/018`、`NFR-PERF-001`、`NFR-COMPAT-001`、`AVX-WEB-001`
-
-> 更新日期：2026-08-31
 
 ## Context
 

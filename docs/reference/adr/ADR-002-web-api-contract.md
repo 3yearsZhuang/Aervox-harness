@@ -1,3 +1,16 @@
+---
+id: ADR-002
+type: reference
+scope: decision
+owner: maintainers
+doc_status: superseded
+decision_status: rejected
+version: 0.1.0
+updated_at: 2026-08-31
+reviewed_at: 2026-08-31
+review_interval_days: 90
+---
+
 # ADR-002 React/Vite + Fastify + OpenAPI/SSE
 
 - 提出人：3yearszhuang · 2026-08-26
@@ -8,8 +21,6 @@
 - 状态：Superseded by ADR-015（原为 Proposed）
 - 日期：2026-08-23（2026-08-25 标记 Superseded）
 - 关联：`NFR-PERF-001`、`NFR-COMPAT-001`、`CAP-001/002/009/018`
-
-> 更新日期：2026-08-31
 
 ## Context
 

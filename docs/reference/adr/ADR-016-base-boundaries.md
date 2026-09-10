@@ -1,3 +1,16 @@
+---
+id: ADR-016
+type: reference
+scope: decision
+owner: maintainers
+doc_status: approved
+decision_status: accepted
+version: 0.1.0
+updated_at: 2026-08-31
+reviewed_at: 2026-08-31
+review_interval_days: 90
+---
+
 # ADR-016 底座边界冻结：Kernel Substrate 与能力层的依赖边界
 
 - 提出人：3yearszhuang · 2026-08-28
@@ -8,8 +21,6 @@
 - 接受日期：2026-08-28（G2 架构与数据门禁）
 
 - 关联：`CAP-001～035`、`ADR-001`（模块化单体）、`ADR-014`（演进式模块化单体）、`AVX-CAP-001`（能力组合与可选化目录规范）、`AVX-HAR-001 §16.2`（Loop 架构验收）、`ADR-018`（CAP-033 主动智能 Host）、`ADR-019`（主动智能连接网关）
-
-> 更新日期：2026-08-31
 
 ## Context
 

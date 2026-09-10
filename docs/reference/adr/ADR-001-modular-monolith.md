@@ -1,3 +1,16 @@
+---
+id: ADR-001
+type: reference
+scope: decision
+owner: maintainers
+doc_status: review-candidate
+decision_status: proposed
+version: 0.1.0
+updated_at: 2026-08-31
+reviewed_at: 2026-08-31
+review_interval_days: 90
+---
+
 # ADR-001 模块化单体 + 独立 Worker
 
 - 提出人：3yearszhuang · 2026-08-26
@@ -7,8 +20,6 @@
 - 日期：2026-08-23
 
 - 关联：`CAP-001～035`、`NFR-REL-001`、`NFR-SCALE-001`、`OPS-QUEUE-001`、`RISK-011`
-
-> 更新日期：2026-08-31
 
 ## Context
 

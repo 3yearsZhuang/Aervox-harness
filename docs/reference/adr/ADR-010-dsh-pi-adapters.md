@@ -1,3 +1,16 @@
+---
+id: ADR-010
+type: reference
+scope: decision
+owner: maintainers
+doc_status: review-candidate
+decision_status: proposed
+version: 0.1.0
+updated_at: 2026-08-31
+reviewed_at: 2026-08-31
+review_interval_days: 90
+---
+
 # ADR-010 DSH/pi 仅为可选适配器
 
 - 提出人：3yearszhuang · 2026-08-26
@@ -6,8 +19,6 @@
 - 状态：Proposed（P2 前必须 Accepted）
 - 日期：2026-08-23
 - 关联：`CAP-020`、`CAP-027`、`RISK-006/010`
-
-> 更新日期：2026-08-31
 
 ## Context
 
