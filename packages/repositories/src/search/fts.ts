@@ -13,8 +13,6 @@ export async function initFtsTables(client: Client): Promise<void> {
   await client.execute(`
     CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
       id UNINDEXED,
-      workspace_id UNINDEXED,
-      subject_user_id UNINDEXED,
       content,
       tokenize = 'unicode61'
     );
@@ -23,8 +21,6 @@ export async function initFtsTables(client: Client): Promise<void> {
   await client.execute(`
     CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
       id UNINDEXED,
-      workspace_id UNINDEXED,
-      subject_user_id UNINDEXED,
       content,
       tokenize = 'unicode61'
     );
@@ -41,13 +37,10 @@ export async function indexMessageFts(
 ): Promise<void> {
   assertLocalContext(tenant);
   // 先清理旧索引（若存在），再插入新索引
+  await client.execute({ sql: `DELETE FROM messages_fts WHERE id = ?`, args: [message.id] });
   await client.execute({
-    sql: `DELETE FROM messages_fts WHERE id = ? AND workspace_id = ? AND subject_user_id = ?`,
-    args: [message.id, tenant.workspaceId, tenant.subjectUserId],
-  });
-  await client.execute({
-    sql: `INSERT INTO messages_fts(id, workspace_id, subject_user_id, content) VALUES (?, ?, ?, ?)`,
-    args: [message.id, tenant.workspaceId, tenant.subjectUserId, message.content],
+    sql: `INSERT INTO messages_fts(id, content) VALUES (?, ?)`,
+    args: [message.id, message.content],
   });
 }
 
@@ -60,10 +53,7 @@ export async function deleteMessageFts(
   messageId: string,
 ): Promise<void> {
   assertLocalContext(tenant);
-  await client.execute({
-    sql: `DELETE FROM messages_fts WHERE id = ? AND workspace_id = ? AND subject_user_id = ?`,
-    args: [messageId, tenant.workspaceId, tenant.subjectUserId],
-  });
+  await client.execute({ sql: `DELETE FROM messages_fts WHERE id = ?`, args: [messageId] });
 }
 
 export interface FtsSearchResult {
@@ -72,7 +62,7 @@ export interface FtsSearchResult {
 }
 
 /**
- * 在租户隔离下执行 FTS5 全文搜索
+ * 在本地单用户索引中执行 FTS5 全文搜索
  */
 export async function searchMessagesFts(
   client: Client,
@@ -89,12 +79,10 @@ export async function searchMessagesFts(
       SELECT id, rank AS score
       FROM messages_fts
       WHERE messages_fts MATCH ?
-        AND workspace_id = ?
-        AND subject_user_id = ?
       ORDER BY rank
       LIMIT ?;
     `,
-    args: [sanitized, tenant.workspaceId, tenant.subjectUserId, limit],
+    args: [sanitized, limit],
   });
 
   return res.rows.map((row) => ({
@@ -112,13 +100,10 @@ export async function indexMemoryFts(
   memory: { id: string; content: string },
 ): Promise<void> {
   assertLocalContext(tenant);
+  await client.execute({ sql: `DELETE FROM memories_fts WHERE id = ?`, args: [memory.id] });
   await client.execute({
-    sql: `DELETE FROM memories_fts WHERE id = ? AND workspace_id = ? AND subject_user_id = ?`,
-    args: [memory.id, tenant.workspaceId, tenant.subjectUserId],
-  });
-  await client.execute({
-    sql: `INSERT INTO memories_fts(id, workspace_id, subject_user_id, content) VALUES (?, ?, ?, ?)`,
-    args: [memory.id, tenant.workspaceId, tenant.subjectUserId, memory.content],
+    sql: `INSERT INTO memories_fts(id, content) VALUES (?, ?)`,
+    args: [memory.id, memory.content],
   });
 }
 
@@ -131,14 +116,11 @@ export async function deleteMemoryFts(
   memoryId: string,
 ): Promise<void> {
   assertLocalContext(tenant);
-  await client.execute({
-    sql: `DELETE FROM memories_fts WHERE id = ? AND workspace_id = ? AND subject_user_id = ?`,
-    args: [memoryId, tenant.workspaceId, tenant.subjectUserId],
-  });
+  await client.execute({ sql: `DELETE FROM memories_fts WHERE id = ?`, args: [memoryId] });
 }
 
 /**
- * 在租户隔离下对记忆执行 FTS5 全文搜索
+ * 在本地单用户索引中对记忆执行 FTS5 全文搜索
  */
 export async function searchMemoriesFts(
   client: Client,
@@ -155,12 +137,10 @@ export async function searchMemoriesFts(
       SELECT id, rank AS score
       FROM memories_fts
       WHERE memories_fts MATCH ?
-        AND workspace_id = ?
-        AND subject_user_id = ?
       ORDER BY rank
       LIMIT ?;
     `,
-    args: [sanitized, tenant.workspaceId, tenant.subjectUserId, limit],
+    args: [sanitized, limit],
   });
 
   return res.rows.map((row) => ({

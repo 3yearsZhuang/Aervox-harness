@@ -37,10 +37,7 @@ export async function runDeletionCycle(ctx: DeletionWorkerContext): Promise<numb
 
   let completed = 0;
   for (const request of requests) {
-    const tenant: LocalContext = {
-      workspaceId: request.workspaceId,
-      subjectUserId: request.subjectUserId,
-    };
+    const tenant: LocalContext = { workspaceId: "local", subjectUserId: "local" };
     try {
       // 标记请求为处理中（幂等）
       await ctx.privacyRepo.updateDeletionRequestStatus(tenant, request.id, "in_progress");

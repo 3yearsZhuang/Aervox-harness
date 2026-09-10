@@ -4,13 +4,12 @@
  * 缺陷 C：UserQuestionCoordinator 的挂起提问原先只在进程内存，进程重启后内存态
  * 丢失、客户端回答 409、Turn 永久悬挂。本仓储提供持久化真源：
  * - upsert 幂等（turnId 主键，ON CONFLICT DO UPDATE 覆盖为同一次提问的最新状态）；
- * - 租户隔离（workpsace/subject 条件 + assertLocalContext）；
- * - delete 只允许删除属于本租户的行（防止跨租户驱动数据）。
+ * - turnId 主键保证本地实例内幂等；数据库不再承载租户条件。
  */
 import { eq, and } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { pendingUserQuestions } from "@aervox/schema";
-import { assertLocalContext, type LocalContext } from "../../local-context.js";
+import type { LocalContext } from "../../local-context.js";
 import type {
   IUserQuestionRepository,
   PendingUserQuestionModel,
@@ -27,15 +26,12 @@ const toModel = (row: PendingRow): PendingUserQuestionModel => ({
   timeoutMs: row.timeoutMs,
   expiresAt: row.expiresAt,
   createdAt: row.createdAt,
-  workspaceId: row.workspaceId,
-  subjectUserId: row.subjectUserId,
 });
 
 export class SqliteUserQuestionRepository implements IUserQuestionRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async upsertPending(tenant: LocalContext, input: PendingUserQuestionUpsertInput): Promise<void> {
-    assertLocalContext(tenant);
     await this.db
       .insert(pendingUserQuestions)
       .values({
@@ -46,8 +42,6 @@ export class SqliteUserQuestionRepository implements IUserQuestionRepository {
         timeoutMs: input.timeoutMs,
         expiresAt: input.expiresAt,
         createdAt: input.createdAt,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
       })
       .onConflictDoUpdate({
         target: pendingUserQuestions.turnId,
@@ -58,36 +52,28 @@ export class SqliteUserQuestionRepository implements IUserQuestionRepository {
           timeoutMs: input.timeoutMs,
           expiresAt: input.expiresAt,
           createdAt: input.createdAt,
-          workspaceId: tenant.workspaceId,
-          subjectUserId: tenant.subjectUserId,
         },
       });
   }
 
   async getPending(tenant: LocalContext, turnId: string): Promise<PendingUserQuestionModel | null> {
-    assertLocalContext(tenant);
     const [row] = await this.db
       .select()
       .from(pendingUserQuestions)
       .where(
         and(
           eq(pendingUserQuestions.turnId, turnId),
-          eq(pendingUserQuestions.workspaceId, tenant.workspaceId),
-          eq(pendingUserQuestions.subjectUserId, tenant.subjectUserId),
         ),
       );
     return row ? toModel(row) : null;
   }
 
   async deletePending(tenant: LocalContext, turnId: string): Promise<void> {
-    assertLocalContext(tenant);
     await this.db
       .delete(pendingUserQuestions)
       .where(
         and(
           eq(pendingUserQuestions.turnId, turnId),
-          eq(pendingUserQuestions.workspaceId, tenant.workspaceId),
-          eq(pendingUserQuestions.subjectUserId, tenant.subjectUserId),
         ),
       );
   }

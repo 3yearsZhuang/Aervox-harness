@@ -8,7 +8,7 @@
  * - 外部插件不能直接修改 Session 日志，只能提交受限 inbox command。
  */
 import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
-import { tenantColumns, timestampColumns } from "./common.js";
+import { timestampColumns } from "./common.js";
 
 export const agentInboxItems = sqliteTable(
   "agent_inbox_items",
@@ -35,20 +35,11 @@ export const agentInboxItems = sqliteTable(
     claimedAt: text("claimed_at"),
     ackedAt: text("acked_at"),
     expiresAt: text("expires_at"),
-    ...tenantColumns,
     ...timestampColumns,
   },
   (table) => ({
-    tenantSessionIdx: index("agent_inbox_tenant_session_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.sessionId,
-    ),
+
     statusIdx: index("agent_inbox_status_idx").on(table.status),
-    tenantIdempotencyIdx: uniqueIndex("agent_inbox_tenant_idempotency_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.idempotencyKey,
-    ),
+
   }),
 );

@@ -21,19 +21,17 @@ export async function createAgentInboxTables(client: Client): Promise<void> {
         claimed_at TEXT,
         acked_at TEXT,
         expires_at TEXT,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS agent_inbox_tenant_session_idx ON agent_inbox_items(workspace_id, subject_user_id, session_id);
+      CREATE INDEX IF NOT EXISTS agent_inbox_local_session_idx ON agent_inbox_items(session_id);
     `);
   await client.execute(`
       CREATE INDEX IF NOT EXISTS agent_inbox_status_idx ON agent_inbox_items(status);
     `);
   await client.execute(`
-      CREATE UNIQUE INDEX IF NOT EXISTS agent_inbox_tenant_idempotency_idx ON agent_inbox_items(workspace_id, subject_user_id, idempotency_key);
+      CREATE UNIQUE INDEX IF NOT EXISTS agent_inbox_local_idempotency_idx ON agent_inbox_items(idempotency_key);
     `);
 }

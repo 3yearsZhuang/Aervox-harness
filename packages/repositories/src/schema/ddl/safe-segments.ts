@@ -10,8 +10,6 @@ export async function createSafeSegmentsTables(client: Client): Promise<void> {
         id TEXT PRIMARY KEY,
         turn_id TEXT NOT NULL REFERENCES turns(id) ON DELETE CASCADE,
         attempt_id TEXT,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         sequence INTEGER NOT NULL,
         text TEXT NOT NULL,
         committed INTEGER NOT NULL DEFAULT 0,

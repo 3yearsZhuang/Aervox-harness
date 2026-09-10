@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, isNull, lt, notLike, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { messages, messageVersions, turns, turnStreamEvents } from "@aervox/schema";
-import { assertLocalContext, type LocalContext } from "../../local-context.js";
+import type { LocalContext } from "../../local-context.js";
 import type { SessionHistoryMessage } from "../types/index.js";
 
 const MAX_HISTORY_TURNS = 20;
@@ -23,22 +23,17 @@ export async function readSessionHistory(
   tenant: LocalContext,
   input: { sessionId: string; beforeTurnId: string },
 ): Promise<SessionHistoryMessage[]> {
-  assertLocalContext(tenant);
   const [current] = await db.select({
     position: sql<number>`rowid`,
     idempotencyKey: turns.idempotencyKey,
   }).from(turns).where(and(
     eq(turns.id, input.beforeTurnId),
     eq(turns.sessionId, input.sessionId),
-    eq(turns.workspaceId, tenant.workspaceId),
-    eq(turns.subjectUserId, tenant.subjectUserId),
   ));
   if (!current || current.idempotencyKey.startsWith("subagent:")) return [];
 
   const previous = await db.select({ id: turns.id }).from(turns).where(and(
     eq(turns.sessionId, input.sessionId),
-    eq(turns.workspaceId, tenant.workspaceId),
-    eq(turns.subjectUserId, tenant.subjectUserId),
     eq(turns.status, "Completed"),
     notLike(turns.idempotencyKey, "subagent:%"),
     lt(sql`rowid`, current.position),
@@ -49,15 +44,11 @@ export async function readSessionHistory(
   // 最新版本必须先选出再判断脱敏，不能退回旧版本泄漏已删除内容。
   const versions = await db.select().from(messageVersions).where(and(
     inArray(messageVersions.turnId, turnIds),
-    eq(messageVersions.workspaceId, tenant.workspaceId),
-    eq(messageVersions.subjectUserId, tenant.subjectUserId),
     eq(messageVersions.role, "user"),
     isNull(messageVersions.supersededAt),
   )).orderBy(desc(messageVersions.version));
   const events = await db.select().from(turnStreamEvents).where(and(
     inArray(turnStreamEvents.turnId, turnIds),
-    eq(turnStreamEvents.workspaceId, tenant.workspaceId),
-    eq(turnStreamEvents.subjectUserId, tenant.subjectUserId),
     inArray(turnStreamEvents.eventType, ["message", "delta", "done", "redacted"]),
   )).orderBy(turnStreamEvents.sequence);
   const identityIds = new Set<string>();

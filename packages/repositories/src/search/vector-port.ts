@@ -29,7 +29,7 @@ export interface IVectorSearchPort {
     minScore?: number,
   ): Promise<VectorSearchResult[]>;
   delete(tenant: LocalContext, id: string): Promise<void>;
-  clearTenant(tenant: LocalContext): Promise<void>;
+  clearAll(tenant: LocalContext): Promise<void>;
 }
 
 /**
@@ -55,22 +55,15 @@ export function cosineSimilarity(a: number[], b: number[]): number {
  * 内存向量检索适配器（用于单机轻量运行、快速测试与零外部依赖环境）
  */
 export class InMemoryVectorSearchAdapter implements IVectorSearchPort {
-  // key: `${workspaceId}:${subjectUserId}` -> Map<id, VectorItem>
-  private store = new Map<string, Map<string, VectorItem>>();
+  private readonly store = new Map<string, VectorItem>();
 
-  private getTenantStore(tenant: LocalContext): Map<string, VectorItem> {
+  private getLocalStore(tenant: LocalContext): Map<string, VectorItem> {
     assertLocalContext(tenant);
-    const key = `${tenant.workspaceId}:${tenant.subjectUserId}`;
-    let map = this.store.get(key);
-    if (!map) {
-      map = new Map();
-      this.store.set(key, map);
-    }
-    return map;
+    return this.store;
   }
 
   async upsert(tenant: LocalContext, items: VectorItem[]): Promise<void> {
-    const map = this.getTenantStore(tenant);
+    const map = this.getLocalStore(tenant);
     for (const item of items) {
       map.set(item.id, item);
     }
@@ -82,7 +75,7 @@ export class InMemoryVectorSearchAdapter implements IVectorSearchPort {
     topK: number = 10,
     minScore: number = 0.0,
   ): Promise<VectorSearchResult[]> {
-    const map = this.getTenantStore(tenant);
+    const map = this.getLocalStore(tenant);
     const results: VectorSearchResult[] = [];
 
     for (const [id, item] of map.entries()) {
@@ -97,13 +90,12 @@ export class InMemoryVectorSearchAdapter implements IVectorSearchPort {
   }
 
   async delete(tenant: LocalContext, id: string): Promise<void> {
-    const map = this.getTenantStore(tenant);
+    const map = this.getLocalStore(tenant);
     map.delete(id);
   }
 
-  async clearTenant(tenant: LocalContext): Promise<void> {
+  async clearAll(tenant: LocalContext): Promise<void> {
     assertLocalContext(tenant);
-    const key = `${tenant.workspaceId}:${tenant.subjectUserId}`;
-    this.store.delete(key);
+    this.store.clear();
   }
 }

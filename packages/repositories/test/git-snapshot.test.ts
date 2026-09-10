@@ -12,8 +12,8 @@ describe("T-09 数据版本快照", () => {
     try {
       // 写入一行数据
       await db1.client.execute({
-        sql: `INSERT INTO sessions(id, workspace_id, subject_user_id, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
-        args: ["s1", "ws_snap", "usr_snap", "snapshot session", "2026-08-26T00:00:00.000Z", "2026-08-26T00:00:00.000Z"],
+        sql: `INSERT INTO sessions(id, title, created_at, updated_at) VALUES (?, ?, ?, ?)`,
+        args: ["s1", "snapshot session", "2026-08-26T00:00:00.000Z", "2026-08-26T00:00:00.000Z"],
       });
 
       // 导出快照

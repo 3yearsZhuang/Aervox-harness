@@ -10,7 +10,7 @@ import {
   materialVersions,
   materialSources,
 } from "@aervox/schema";
-import { assertLocalContext, type LocalContext } from "../../local-context.js";
+import type { LocalContext } from "../../local-context.js";
 import type {
   IStudyMaterialRepository,
   StudyMaterialModel,
@@ -33,14 +33,11 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
       idempotencyKey?: string;
     },
   ): Promise<StudyMaterialModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(studyMaterials)
       .values({
         id: input.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         goalId: input.goalId ?? null,
         type: input.type,
         title: input.title,
@@ -54,15 +51,12 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
   }
 
   async get(tenant: LocalContext, id: string): Promise<StudyMaterialModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(studyMaterials)
       .where(
         and(
           eq(studyMaterials.id, id),
-          eq(studyMaterials.workspaceId, tenant.workspaceId),
-          eq(studyMaterials.subjectUserId, tenant.subjectUserId),
           isNull(studyMaterials.deletedAt),
         ),
       )
@@ -71,15 +65,12 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
   }
 
   async listByGoal(tenant: LocalContext, goalId: string): Promise<StudyMaterialModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(studyMaterials)
       .where(
         and(
           eq(studyMaterials.goalId, goalId),
-          eq(studyMaterials.workspaceId, tenant.workspaceId),
-          eq(studyMaterials.subjectUserId, tenant.subjectUserId),
           isNull(studyMaterials.deletedAt),
         ),
       )
@@ -88,14 +79,11 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
   }
 
   async listByTenant(tenant: LocalContext): Promise<StudyMaterialModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(studyMaterials)
       .where(
         and(
-          eq(studyMaterials.workspaceId, tenant.workspaceId),
-          eq(studyMaterials.subjectUserId, tenant.subjectUserId),
           isNull(studyMaterials.deletedAt),
         ),
       )
@@ -108,15 +96,12 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
     id: string,
     status: string,
   ): Promise<StudyMaterialModel | null> {
-    assertLocalContext(tenant);
     const [updated] = await this.db
       .update(studyMaterials)
       .set({ status, updatedAt: new Date().toISOString() })
       .where(
         and(
           eq(studyMaterials.id, id),
-          eq(studyMaterials.workspaceId, tenant.workspaceId),
-          eq(studyMaterials.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -124,7 +109,6 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
   }
 
   async softDelete(tenant: LocalContext, id: string): Promise<StudyMaterialModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(studyMaterials)
@@ -132,8 +116,6 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
       .where(
         and(
           eq(studyMaterials.id, id),
-          eq(studyMaterials.workspaceId, tenant.workspaceId),
-          eq(studyMaterials.subjectUserId, tenant.subjectUserId),
           isNull(studyMaterials.deletedAt),
         ),
       )
@@ -145,15 +127,12 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
     tenant: LocalContext,
     key: string,
   ): Promise<StudyMaterialModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(studyMaterials)
       .where(
         and(
           eq(studyMaterials.idempotencyKey, key),
-          eq(studyMaterials.workspaceId, tenant.workspaceId),
-          eq(studyMaterials.subjectUserId, tenant.subjectUserId),
         ),
       )
       .limit(1);
@@ -172,7 +151,6 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
       author?: string;
     },
   ): Promise<MaterialVersionModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
 
     // 查找当前最大版本号
@@ -184,8 +162,6 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
       .values({
         id: input.id,
         materialId: input.materialId,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         version: maxVersion + 1,
         content: input.content,
         format: input.format ?? "markdown",
@@ -204,15 +180,12 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
   }
 
   async getVersion(tenant: LocalContext, versionId: string): Promise<MaterialVersionModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(materialVersions)
       .where(
         and(
           eq(materialVersions.id, versionId),
-          eq(materialVersions.workspaceId, tenant.workspaceId),
-          eq(materialVersions.subjectUserId, tenant.subjectUserId),
         ),
       )
       .limit(1);
@@ -220,15 +193,12 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
   }
 
   async listVersions(tenant: LocalContext, materialId: string): Promise<MaterialVersionModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(materialVersions)
       .where(
         and(
           eq(materialVersions.materialId, materialId),
-          eq(materialVersions.workspaceId, tenant.workspaceId),
-          eq(materialVersions.subjectUserId, tenant.subjectUserId),
         ),
       )
       .orderBy(desc(materialVersions.version));
@@ -241,7 +211,6 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
     content: string,
     expectedVersion: number,
   ): Promise<MaterialVersionModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
 
     // 获取当前活跃版本
@@ -264,8 +233,6 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
       .values({
         id: newVersionId,
         materialId,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         version: expectedVersion + 1,
         content,
         format: currentVersion.format,
@@ -297,15 +264,12 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
       verificationStatus?: string;
     },
   ): Promise<MaterialSourceModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(materialSources)
       .values({
         id: input.id,
         materialVersionId: input.materialVersionId,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         sourceType: input.sourceType,
         sourceUri: input.sourceUri ?? null,
         sourceTitle: input.sourceTitle ?? null,
@@ -319,15 +283,12 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
   }
 
   async listSources(tenant: LocalContext, materialVersionId: string): Promise<MaterialSourceModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(materialSources)
       .where(
         and(
           eq(materialSources.materialVersionId, materialVersionId),
-          eq(materialSources.workspaceId, tenant.workspaceId),
-          eq(materialSources.subjectUserId, tenant.subjectUserId),
         ),
       )
       .orderBy(materialSources.createdAt);
@@ -335,7 +296,6 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
   }
 
   async invalidateSources(tenant: LocalContext, materialVersionId: string): Promise<number> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const result = await this.db
       .update(materialSources)
@@ -343,8 +303,6 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
       .where(
         and(
           eq(materialSources.materialVersionId, materialVersionId),
-          eq(materialSources.workspaceId, tenant.workspaceId),
-          eq(materialSources.subjectUserId, tenant.subjectUserId),
           isNull(materialSources.invalidatedAt),
         ),
       );

@@ -367,9 +367,9 @@ describe("CAP-019: 多人格模板 — 审核、切换、回滚、记忆隔离/�
     expect(res.statusCode).toBe(404);
   });
 
-  // ---- 租户隔离 ----
+  // ---- 本地上下文兼容 ----
 
-  it("切换历史按租户隔离", async () => {
+  it("切换历史在本地实例内共享", async () => {
     const p1 = await createPersona(app, headers, "TenantA");
     const p2 = await createPersona(app, otherHeaders, "TenantB");
 
@@ -398,12 +398,13 @@ describe("CAP-019: 多人格模板 — 审核、切换、回滚、记忆隔离/�
       headers: otherHeaders,
     });
 
-    // 各租户只能看到自己的切换记录
-    expect(historyA.json().history.every((h: { personaId: string }) => h.personaId === p1.personaId)).toBe(true);
-    expect(historyB.json().history.every((h: { personaId: string }) => h.personaId === p2.personaId)).toBe(true);
+    expect(historyB.json().history).toEqual(historyA.json().history);
+    expect(historyA.json().history.map((h: { personaId: string }) => h.personaId)).toEqual(
+      expect.arrayContaining([p1.personaId, p2.personaId]),
+    );
   });
 
-  it("审核状态按租户隔离", async () => {
+  it("审核状态在本地实例内共享", async () => {
     const p1 = await createPersona(app, headers, "ReviewA");
 
     // 租户 A 审核
@@ -414,16 +415,17 @@ describe("CAP-019: 多人格模板 — 审核、切换、回滚、记忆隔离/�
       payload: { reviewStatus: "approved", reviewNotes: "approved by A" },
     });
 
-    // 租户 B 无法看到 p1
+    // 兼容 Header 不再形成数据库隔离边界
     const crossTenant = await app.inject({
       method: "GET",
       url: `/v1/personas/${p1.personaId}`,
       headers: otherHeaders,
     });
-    expect(crossTenant.statusCode).toBe(404);
+    expect(crossTenant.statusCode).toBe(200);
+    expect(crossTenant.json().persona.reviewStatus).toBe("approved");
   });
 
-  it("记忆范围按租户隔离", async () => {
+  it("记忆范围在本地实例内共享", async () => {
     const p1 = await createPersona(app, headers, "MemScopeA");
 
     await app.inject({
@@ -437,13 +439,14 @@ describe("CAP-019: 多人格模板 — 审核、切换、回滚、记忆隔离/�
       },
     });
 
-    // 租户 B 无法访问
+    // 兼容 Header 可访问同一本地记录
     const crossRes = await app.inject({
       method: "GET",
       url: `/v1/personas/${p1.personaId}/memory-scope`,
       headers: otherHeaders,
     });
-    expect(crossRes.statusCode).toBe(404);
+    expect(crossRes.statusCode).toBe(200);
+    expect(crossRes.json().memoryPolicy).toBe("shared");
   });
 
   // ---- 共享安全边界验证 ----

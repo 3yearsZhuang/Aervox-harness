@@ -10,7 +10,7 @@
 import { eq, and, isNull, sql, or, inArray } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { agentInboxItems } from "@aervox/schema";
-import { assertLocalContext, type LocalContext } from "../../local-context.js";
+import type { LocalContext } from "../../local-context.js";
 import type {
   AgentInboxEnqueueInput,
   AgentInboxItemModel,
@@ -34,21 +34,18 @@ const toModel = (row: InboxRow): AgentInboxItemModel => ({
   claimedAt: row.claimedAt ?? null,
   ackedAt: row.ackedAt ?? null,
   expiresAt: row.expiresAt ?? null,
-  workspaceId: row.workspaceId,
-  subjectUserId: row.subjectUserId,
   createdAt: row.createdAt,
   updatedAt: row.updatedAt,
 });
 
 /** 幂等键归一化（租户内唯一；同 key 不同 payload 视为重复提交，保留既有项） */
 const tenantIdempotencyKey = (tenant: LocalContext, key: string): string =>
-  `${tenant.workspaceId}:${tenant.subjectUserId}:${key}`;
+  key;
 
 export class SqliteAgentInboxRepository implements IAgentInboxRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async enqueue(tenant: LocalContext, input: AgentInboxEnqueueInput): Promise<AgentInboxItemModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const consumeBoundary = input.consumeBoundary ?? (input.type === "followup" ? "next-turn" : "next-step");
     const key = tenantIdempotencyKey(tenant, input.idempotencyKey);
@@ -73,8 +70,6 @@ export class SqliteAgentInboxRepository implements IAgentInboxRepository {
         claimedAt: null,
         ackedAt: null,
         expiresAt: input.expiresAt ?? null,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         createdAt: now,
         updatedAt: now,
       })
@@ -90,12 +85,9 @@ export class SqliteAgentInboxRepository implements IAgentInboxRepository {
     tenant: LocalContext,
     input: { sessionId: string; attemptId?: string | null; type: "next-turn" | "next-step"; limit?: number },
   ): Promise<AgentInboxItemModel[]> {
-    assertLocalContext(tenant);
     const limit = input.limit ?? 20;
     const now = new Date().toISOString();
     const where = and(
-      eq(agentInboxItems.workspaceId, tenant.workspaceId),
-      eq(agentInboxItems.subjectUserId, tenant.subjectUserId),
       eq(agentInboxItems.sessionId, input.sessionId),
       eq(agentInboxItems.consumeBoundary, input.type),
       eq(agentInboxItems.status, "pending"),
@@ -127,8 +119,6 @@ export class SqliteAgentInboxRepository implements IAgentInboxRepository {
           and(
             eq(agentInboxItems.id, row.id),
             eq(agentInboxItems.status, "pending"),
-            eq(agentInboxItems.workspaceId, tenant.workspaceId),
-            eq(agentInboxItems.subjectUserId, tenant.subjectUserId),
           ),
         )
         .returning();
@@ -138,7 +128,6 @@ export class SqliteAgentInboxRepository implements IAgentInboxRepository {
   }
 
   async acknowledge(tenant: LocalContext, itemIds: string[]): Promise<void> {
-    assertLocalContext(tenant);
     if (itemIds.length === 0) return;
     const ackedAt = new Date().toISOString();
     for (const id of itemIds) {
@@ -148,8 +137,6 @@ export class SqliteAgentInboxRepository implements IAgentInboxRepository {
         .where(
           and(
             eq(agentInboxItems.id, id),
-            eq(agentInboxItems.workspaceId, tenant.workspaceId),
-            eq(agentInboxItems.subjectUserId, tenant.subjectUserId),
             eq(agentInboxItems.status, "claimed"),
           ),
         );
@@ -163,8 +150,6 @@ export class SqliteAgentInboxRepository implements IAgentInboxRepository {
       .from(agentInboxItems)
       .where(
         and(
-          eq(agentInboxItems.workspaceId, tenant.workspaceId),
-          eq(agentInboxItems.subjectUserId, tenant.subjectUserId),
           eq(agentInboxItems.idempotencyKey, key),
         ),
       )
@@ -173,7 +158,7 @@ export class SqliteAgentInboxRepository implements IAgentInboxRepository {
   }
 
   /**
-   * ADR-017 兜底回收：跨租户把所有 expiresAt < now 且仍 pending/claimed 的项置为 expired。
+   * ADR-017 兜底回收：把本地所有 expiresAt < now 且仍 pending/claimed 的项置为 expired。
    * - pending 过期：从未被消费，直接到期作废；
    * - claimed 过期：消费中崩溃未 ack 的项不再重放（避免陈旧注入）。
    * 批量上限 200，Worker 轮询可重复调用。

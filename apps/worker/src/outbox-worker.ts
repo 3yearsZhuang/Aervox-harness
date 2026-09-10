@@ -20,7 +20,7 @@ const id = (prefix: string): string =>
 export async function runOutboxCycle(ctx: OutboxCycleContext): Promise<number> {
   const events = await ctx.outboxRepo.fetchPendingEvents(50);
   for (const event of events) {
-    const tenant = { workspaceId: event.workspaceId, subjectUserId: event.subjectUserId };
+    const tenant = { workspaceId: "local", subjectUserId: "local" };
     try {
       // 消费骨架：写入审计后标记发布（具体下游处理按 eventType 扩展）
       await ctx.platformRepo.createAuditRecord(tenant, {

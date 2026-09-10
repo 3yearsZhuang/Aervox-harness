@@ -15,9 +15,7 @@ export async function createToolApprovalsTables(client: Client): Promise<void> {
         requester TEXT NOT NULL,
         state TEXT NOT NULL DEFAULT 'pending',
         decided_by TEXT,
-        decided_at TEXT,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL
+        decided_at TEXT
       );
     `);
   await client.execute(`

@@ -7,16 +7,16 @@ import type { LocalContext } from "../../local-context.js";
 export interface IUserQuestionRepository {
   /** 幂等写入挂起会话（同 turnId 覆盖）；供提问时调用 */
   upsertPending(tenant: LocalContext, input: PendingUserQuestionUpsertInput): Promise<void>;
-  /** 按 turn 查询挂起会话（租户隔离）；无则 null */
+  /** 按 turn 查询本地挂起会话；无则 null */
   getPending(tenant: LocalContext, turnId: string): Promise<PendingUserQuestionModel | null>;
-  /** 会话完成/超时后清除（租户隔离；仅删除属于本租户的行） */
+  /** 会话完成/超时后按 turnId 清除 */
   deletePending(tenant: LocalContext, turnId: string): Promise<void>;
 }
 
 export interface LearningGoalModel {
   id: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   topic: string;
   level: string;
   availableMinutes: number;
@@ -28,8 +28,8 @@ export interface LearningGoalModel {
 
 export interface QuestionModel {
   id: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   sourceArtifactId?: string | null;
   knowledgeId?: string | null;
   prompt: string;
@@ -41,8 +41,8 @@ export interface QuestionModel {
 
 export interface QuestionAttemptModel {
   id: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   sessionId: string;
   questionId: string;
   answer: string;
@@ -69,8 +69,8 @@ export interface MistakeItemModel {
 
 export interface PracticeSessionModel {
   id: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   questionCount: number;
   questionIds: string[];
   status: string;
@@ -80,8 +80,8 @@ export interface PracticeSessionModel {
 
 export interface KnowledgeItemModel {
   id: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   concept: string;
   sourceStatus: string;
   masteryState: string;
@@ -96,8 +96,8 @@ export interface KnowledgeItemModel {
 
 export interface ReviewItemModel {
   id: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   knowledgeId: string;
   dueAt: string;
   intervalDays: number;

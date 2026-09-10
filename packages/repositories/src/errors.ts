@@ -21,19 +21,19 @@ export abstract class DatabaseError extends Error {
   }
 }
 
-/** 在租户范围内未找到资源 → 上层应映射 404 */
-export class NotFoundInTenantError extends DatabaseError {
-  constructor(message = "resource not found in tenant") {
+/** 仓储中未找到资源 → 上层应映射 404 */
+export class RepositoryNotFoundError extends DatabaseError {
+  constructor(message = "resource not found") {
     super("NOT_FOUND", message);
-    this.name = "NotFoundInTenantError";
+    this.name = "RepositoryNotFoundError";
   }
 }
 
-/** 跨租户/越权访问 → 上层应映射 403 */
-export class TenantAccessViolationError extends DatabaseError {
-  constructor(message = "cross-tenant access violation") {
+/** 本地资源越权访问 → 上层应映射 403 */
+export class RepositoryAccessViolationError extends DatabaseError {
+  constructor(message = "local resource access violation") {
     super("FORBIDDEN", message);
-    this.name = "TenantAccessViolationError";
+    this.name = "RepositoryAccessViolationError";
   }
 }
 

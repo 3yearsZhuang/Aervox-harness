@@ -261,8 +261,8 @@ export async function importPersonaBundle(input: {
   return {
     persona: {
       id: created.persona.id,
-      workspaceId: created.persona.workspaceId,
-      subjectUserId: created.persona.subjectUserId,
+      workspaceId: "local",
+      subjectUserId: "local",
       name: created.persona.name,
       description: created.persona.description,
       source: created.persona.source as PersonaSource,

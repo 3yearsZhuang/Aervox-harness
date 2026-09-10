@@ -8,8 +8,6 @@ export async function createPlatformTables(client: Client): Promise<void> {
     await client.execute(`
       CREATE TABLE IF NOT EXISTS scheduled_jobs (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         job_type TEXT NOT NULL,
         subject_id TEXT NOT NULL,
         idempotency_key TEXT NOT NULL,
@@ -21,16 +19,14 @@ export async function createPlatformTables(client: Client): Promise<void> {
       );
     `);
   await client.execute(`
-      CREATE UNIQUE INDEX IF NOT EXISTS scheduled_jobs_tenant_idempotency_idx ON scheduled_jobs(workspace_id, subject_user_id, idempotency_key);
+      CREATE UNIQUE INDEX IF NOT EXISTS scheduled_jobs_local_idempotency_idx ON scheduled_jobs(idempotency_key);
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS scheduled_jobs_tenant_run_idx ON scheduled_jobs(workspace_id, subject_user_id, run_at);
+      CREATE INDEX IF NOT EXISTS scheduled_jobs_local_run_idx ON scheduled_jobs(run_at);
     `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS notifications (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         type TEXT NOT NULL,
         scheduled_at TEXT NOT NULL,
         sent_at TEXT,
@@ -39,9 +35,6 @@ export async function createPlatformTables(client: Client): Promise<void> {
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
-    `);
-  await client.execute(`
-      CREATE INDEX IF NOT EXISTS notifications_tenant_idx ON notifications(workspace_id, subject_user_id);
     `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS prompt_versions (
@@ -61,8 +54,6 @@ export async function createPlatformTables(client: Client): Promise<void> {
   await client.execute(`
       CREATE TABLE IF NOT EXISTS model_runs (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         attempt_id TEXT,
         step_id INTEGER,
         purpose TEXT NOT NULL,
@@ -88,10 +79,7 @@ export async function createPlatformTables(client: Client): Promise<void> {
       await client.execute("ALTER TABLE model_runs ADD COLUMN step_id INTEGER;");
     }
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS model_runs_tenant_idx ON model_runs(workspace_id, subject_user_id);
-    `);
-  await client.execute(`
-      CREATE INDEX IF NOT EXISTS model_runs_tenant_attempt_idx ON model_runs(workspace_id, subject_user_id, attempt_id);
+      CREATE INDEX IF NOT EXISTS model_runs_local_attempt_idx ON model_runs(attempt_id);
     `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS context_manifests (
@@ -118,8 +106,6 @@ export async function createPlatformTables(client: Client): Promise<void> {
   await client.execute(`
       CREATE TABLE IF NOT EXISTS audit_records (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         actor_type TEXT NOT NULL,
         actor_id TEXT NOT NULL,
         action TEXT NOT NULL,
@@ -130,7 +116,7 @@ export async function createPlatformTables(client: Client): Promise<void> {
       );
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS audit_records_tenant_actor_idx ON audit_records(workspace_id, subject_user_id, actor_id);
+      CREATE INDEX IF NOT EXISTS audit_records_local_actor_idx ON audit_records(actor_id);
     `);
   await client.execute(`
       CREATE INDEX IF NOT EXISTS audit_records_subject_idx ON audit_records(subject_type, subject_id);

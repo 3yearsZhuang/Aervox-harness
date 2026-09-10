@@ -6,7 +6,7 @@
  * - 分支生命周期（合并、归档、删除）
  * - 会话地图布局（布局数据更新，布局丢失不影响会话内容）
  * - 分支树递归查询
- * - 租户隔离
+ * - CR-030 本地单用户上下文共享
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
@@ -320,9 +320,9 @@ describe("层级对话与会话地图集成测试（CAP-014）", () => {
     expect(getAfterClear.json().title).toBe("布局分支");
   });
 
-  // ============ 租户隔离 ============
+  // ============ 本地上下文兼容 ============
 
-  it("租户隔离：不同工作区无法互相访问分支", async () => {
+  it("不同兼容上下文共享同一本地分支", async () => {
     const parentId = await createSession("主对话");
     const childId = await createSession("子对话");
 
@@ -334,29 +334,29 @@ describe("层级对话与会话地图集成测试（CAP-014）", () => {
     });
     const branchId = createRes.json().id;
 
-    // 其他租户无法获取分支
+    // 兼容 Header 不再形成数据库隔离边界
     const otherGet = await app.inject({
       method: "GET",
       url: `/v1/branches/${branchId}`,
       headers: otherHeaders,
     });
-    expect(otherGet.statusCode).toBe(404);
+    expect(otherGet.statusCode).toBe(200);
 
-    // 其他租户无法合并
+    // 同一本地实例可通过另一兼容上下文继续操作
     const otherMerge = await app.inject({
       method: "POST",
       url: `/v1/branches/${branchId}/merge`,
       headers: otherHeaders,
     });
-    expect(otherMerge.statusCode).toBe(404);
+    expect(otherMerge.statusCode).toBe(200);
 
-    // 其他租户无法删除
+    // 删除同样作用于同一本地记录
     const otherDelete = await app.inject({
       method: "DELETE",
       url: `/v1/branches/${branchId}`,
       headers: otherHeaders,
     });
-    expect(otherDelete.statusCode).toBe(404);
+    expect(otherDelete.statusCode).toBe(200);
   });
 
   // ============ 完整生命周期 ============

@@ -3,7 +3,7 @@
  *
  * 覆盖：
  * - POST /v1/attachments/binary：原始二进制上传（合法类型/非法类型/空体）
- * - GET /v1/attachments/:id/content：附件回读（Content-Type / 404 / 租户隔离）
+ * - GET /v1/attachments/:id/content：附件回读（Content-Type / 404 / 本地上下文共享）
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -109,7 +109,7 @@ describe("多模态输入：原始二进制上传（CAP-012 扩展）", () => {
     expect(empty.statusCode).toBe(400);
   });
 
-  it("附件内容可回读且租户隔离", async () => {
+  it("附件内容可由同一本地实例的兼容上下文回读", async () => {
     const payload = Buffer.from("fake-png-bytes-2");
     const create = await app.inject({
       method: "POST",
@@ -134,7 +134,8 @@ describe("多模态输入：原始二进制上传（CAP-012 扩展）", () => {
       url: `/v1/attachments/${attachmentId}/content`,
       headers: otherHeaders,
     });
-    expect(other.statusCode).toBe(404);
+    expect(other.statusCode).toBe(200);
+    expect(other.rawPayload.byteLength).toBe(payload.byteLength);
 
     const missing = await app.inject({
       method: "GET",

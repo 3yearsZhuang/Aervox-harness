@@ -6,7 +6,7 @@
  * 不将主动画像数据写入 outbox 或远程同步表。
  */
 import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
-import { tenantColumns, timestampColumns } from "./common.js";
+import { timestampColumns } from "./common.js";
 
 /**
  * 当前版本完整画像授权包的来源清单。它是能力 manifest 的默认基线，
@@ -43,7 +43,6 @@ export const proactiveProfileRevisions = sqliteTable(
   "proactive_profile_revisions",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     profileVersion: text("profile_version").notNull().default("full_profile_v1"),
     revision: integer("revision").notNull().default(1),
     deviceId: text("device_id").notNull(),
@@ -58,20 +57,9 @@ export const proactiveProfileRevisions = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantVersionRevisionIdx: uniqueIndex("proactive_profile_tenant_version_revision_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.profileVersion,
-      table.deviceId,
-      table.revision,
-    ),
-    tenantDeviceIdx: index("proactive_profile_tenant_device_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.deviceId,
-      table.status,
-    ),
-    activeIdx: index("proactive_profile_active_idx").on(table.workspaceId, table.subjectUserId, table.status),
+
+
+    activeIdx: index("proactive_profile_active_idx").on(table.status),
   }),
 );
 
@@ -83,7 +71,6 @@ export const proactiveSourceGrants = sqliteTable(
     revisionId: text("revision_id")
       .notNull()
       .references(() => proactiveProfileRevisions.id, { onDelete: "cascade" }),
-    ...tenantColumns,
     sourceKey: text("source_key").notNull(),
     purpose: text("purpose").notNull(),
     scope: text("scope").notNull(),
@@ -104,16 +91,8 @@ export const proactiveSourceGrants = sqliteTable(
       table.sourceKey,
       table.purpose,
     ),
-    tenantStateIdx: index("proactive_source_tenant_state_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.state,
-    ),
-    tenantSourceIdx: index("proactive_source_tenant_source_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.sourceKey,
-    ),
+
+
   }),
 );
 
@@ -125,7 +104,6 @@ export const proactiveActivationLeases = sqliteTable(
     revisionId: text("revision_id")
       .notNull()
       .references(() => proactiveProfileRevisions.id, { onDelete: "cascade" }),
-    ...tenantColumns,
     deviceId: text("device_id").notNull(),
     epoch: text("epoch").notNull(),
     status: text("status").notNull().default("active"), // active|expired|ended|revoked
@@ -140,18 +118,8 @@ export const proactiveActivationLeases = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantDeviceEpochIdx: uniqueIndex("proactive_activation_tenant_device_epoch_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.deviceId,
-      table.epoch,
-    ),
-    tenantActiveIdx: index("proactive_activation_tenant_active_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.deviceId,
-      table.status,
-    ),
+
+
   }),
 );
 
@@ -166,7 +134,6 @@ export const proactiveCaptures = sqliteTable(
     sourceGrantId: text("source_grant_id")
       .notNull()
       .references(() => proactiveSourceGrants.id, { onDelete: "restrict" }),
-    ...tenantColumns,
     sourceKey: text("source_key").notNull(),
     contentType: text("content_type").notNull(),
     payloadText: text("payload_text"),
@@ -187,17 +154,8 @@ export const proactiveCaptures = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantObservedIdx: index("proactive_capture_tenant_observed_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.observedAt,
-    ),
-    tenantRetentionIdx: index("proactive_capture_tenant_retention_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.retentionUntil,
-      table.distillationStatus,
-    ),
+
+
     revisionIdx: index("proactive_capture_revision_idx").on(table.revisionId),
   }),
 );
@@ -213,7 +171,6 @@ export const proactiveObservations = sqliteTable(
     sourceGrantId: text("source_grant_id")
       .notNull()
       .references(() => proactiveSourceGrants.id, { onDelete: "restrict" }),
-    ...tenantColumns,
     sourceKey: text("source_key").notNull(),
     observationType: text("observation_type").notNull(),
     subjectKey: text("subject_key").notNull(),
@@ -226,11 +183,7 @@ export const proactiveObservations = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantObservedIdx: index("proactive_observation_tenant_observed_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.observedAt,
-    ),
+
     revisionIdx: index("proactive_observation_revision_idx").on(table.revisionId),
     sourceIdx: index("proactive_observation_source_idx").on(table.sourceGrantId),
   }),
@@ -244,7 +197,6 @@ export const proactiveProfileClaims = sqliteTable(
     revisionId: text("revision_id")
       .notNull()
       .references(() => proactiveProfileRevisions.id, { onDelete: "cascade" }),
-    ...tenantColumns,
     claimType: text("claim_type").notNull(),
     subjectKey: text("subject_key").notNull(),
     content: text("content").notNull(),
@@ -262,16 +214,8 @@ export const proactiveProfileClaims = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantStateIdx: index("proactive_claim_tenant_state_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.state,
-    ),
-    tenantTypeIdx: index("proactive_claim_tenant_type_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.claimType,
-    ),
+
+
     revisionIdx: index("proactive_claim_revision_idx").on(table.revisionId),
   }),
 );
@@ -287,7 +231,6 @@ export const proactiveActions = sqliteTable(
     activationLeaseId: text("activation_lease_id").references(() => proactiveActivationLeases.id, {
       onDelete: "set null",
     }),
-    ...tenantColumns,
     actionType: text("action_type").notNull(),
     target: text("target").notNull(),
     requestJson: text("request_json").notNull().default("{}"),
@@ -306,26 +249,17 @@ export const proactiveActions = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantStateIdx: index("proactive_action_tenant_state_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.state,
-    ),
-    tenantCreatedIdx: index("proactive_action_tenant_created_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.createdAt,
-    ),
+
+
     revisionIdx: index("proactive_action_revision_idx").on(table.revisionId),
   }),
 );
 
-/** 主动智能模式生命周期/权限变更审计（租户隔离且不写远程 outbox） */
+/** 主动智能模式生命周期/权限变更审计（本地单用户边界且不写远程 outbox） */
 export const proactiveAuditEvents = sqliteTable(
   "proactive_audit_events",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     revisionId: text("revision_id").references(() => proactiveProfileRevisions.id, { onDelete: "set null" }),
     eventType: text("event_type").notNull(),
     actorId: text("actor_id").notNull(),
@@ -337,11 +271,7 @@ export const proactiveAuditEvents = sqliteTable(
     createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
   },
   (table) => ({
-    tenantOccurredIdx: index("proactive_audit_tenant_occurred_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.occurredAt,
-    ),
+
     resourceIdx: index("proactive_audit_resource_idx").on(table.resourceType, table.resourceId),
   }),
 );

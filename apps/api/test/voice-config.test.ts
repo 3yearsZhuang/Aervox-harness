@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/api — 语音配置路由集成测试（CR-011 阶段 1 · 本地语音模型配置）
  *
- * 覆盖：GET/PUT /v1/voice/config、modelPath 白名单校验（400）、保存后本地 provider 生效、租户隔离。
+ * 覆盖：GET/PUT /v1/voice/config、modelPath 白名单校验（400）、保存后本地 provider 生效、上下文共享。
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -86,7 +86,7 @@ describe("语音配置路由 (Voice Config)", () => {
     expect(body.modelPath).toBe(root);
   });
 
-  it("PUT 合法配置：保存 → GET 回显 + 本地 provider 生效 + 租户隔离", async () => {
+  it("PUT 合法配置：保存 → GET 回显 + 本地 provider 生效 + 上下文共享", async () => {
     const put = await app.inject({
       method: "PUT",
       url: "/v1/voice/config",
@@ -105,13 +105,13 @@ describe("语音配置路由 (Voice Config)", () => {
     expect(get.json().modelId).toBe("gpt-sovits-v2");
     expect(get.json().modelPath).toBe(root);
 
-    // 另一租户仍是默认（隔离）
+    // 另一兼容上下文读取同一本地配置
     const other = await app.inject({
       method: "GET",
       url: "/v1/voice/config",
       headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" },
     });
-    expect(other.json().modelId).toBe("default-local");
+    expect(other.json().modelId).toBe("gpt-sovits-v2");
   });
 
   it("PUT 白名单外路径返回 400", async () => {
@@ -260,7 +260,7 @@ describe("语音配置路由 (Voice Config)", () => {
     expect(body.modelId).toBe("default-remote");
   });
 
-  it("PUT /v1/voice/remote/config 保存 → GET 回显 + provider 生效 + 租户隔离（CR-028）", async () => {
+  it("PUT /v1/voice/remote/config 保存 → GET 回显 + provider 生效 + 上下文共享（CR-028）", async () => {
     const put = await app.inject({
       method: "PUT",
       url: "/v1/voice/remote/config",
@@ -284,13 +284,13 @@ describe("语音配置路由 (Voice Config)", () => {
     const get = await app.inject({ method: "GET", url: "/v1/voice/remote/config", headers });
     expect(get.json().endpoint).toBe("http://127.0.0.1:9910");
 
-    // 另一租户仍是默认（隔离）
+    // 另一兼容上下文读取同一本地配置
     const other = await app.inject({
       method: "GET",
       url: "/v1/voice/remote/config",
       headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" },
     });
-    expect(other.json().endpoint).toBe("http://127.0.0.1:9880");
+    expect(other.json().endpoint).toBe("http://127.0.0.1:9910");
 
     // 保存后远程 provider 生效：/v1/voice/models 中 remote 模型 ID 已更新
     const models = await app.inject({ method: "GET", url: "/v1/voice/models", headers });

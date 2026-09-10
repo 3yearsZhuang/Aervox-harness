@@ -8,8 +8,6 @@ export async function createFeedbackTables(client: Client): Promise<void> {
     await client.execute(`
       CREATE TABLE IF NOT EXISTS feedback (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         actor_id TEXT NOT NULL,
         subject_type TEXT NOT NULL,
         subject_id TEXT NOT NULL,
@@ -20,8 +18,5 @@ export async function createFeedbackTables(client: Client): Promise<void> {
     `);
   await client.execute(`
       CREATE INDEX IF NOT EXISTS feedback_subject_idx ON feedback(subject_type, subject_id);
-    `);
-  await client.execute(`
-      CREATE INDEX IF NOT EXISTS feedback_tenant_idx ON feedback(workspace_id, subject_user_id);
     `);
 }

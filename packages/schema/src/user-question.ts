@@ -9,7 +9,6 @@
  * - Questions 存 JSON；answered 后删除该行（事件流 user_question_answered 为留痕）。
  */
 import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
-import { tenantColumns } from "./common.js";
 
 export const pendingUserQuestions = sqliteTable(
   "pending_user_questions",
@@ -23,18 +22,10 @@ export const pendingUserQuestions = sqliteTable(
     /** 超时语义唯一真源：createdAt + timeoutMs */
     expiresAt: text("expires_at").notNull(),
     createdAt: text("created_at").notNull(),
-    ...tenantColumns,
   },
   (table) => ({
-    tenantIdx: index("pending_user_questions_tenant_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-    ),
-    tenantExpiresIdx: index("pending_user_questions_tenant_expires_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.expiresAt,
-    ),
+
+
   }),
 );
 

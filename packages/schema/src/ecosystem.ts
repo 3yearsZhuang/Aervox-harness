@@ -9,14 +9,13 @@
  */
 import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
-import { tenantColumns, timestampColumns } from "./common.js";
+import { timestampColumns } from "./common.js";
 
 /** 第三方题库/文献同步来源（P2 · CAP-023） */
 export const externalSources = sqliteTable(
   "external_sources",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     provider: text("provider").notNull(), // 第三方题库/文献平台
     externalId: text("external_id").notNull(), // 第三方资源 ID
     permissionScope: text("permission_scope").notNull(), // 授权范围
@@ -25,11 +24,7 @@ export const externalSources = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantProviderIdx: index("external_sources_tenant_provider_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.provider,
-    ),
+
   }),
 );
 
@@ -64,7 +59,6 @@ export const pluginGrants = sqliteTable(
   "plugin_grants",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     pluginId: text("plugin_id")
       .notNull()
       .references(() => plugins.id, { onDelete: "cascade" }),
@@ -76,9 +70,7 @@ export const pluginGrants = sqliteTable(
   },
   (table) => ({
     // 未撤销的授权唯一；撤销后可重新授予
-    tenantPluginPermActiveIdx: uniqueIndex("plugin_grants_tenant_plugin_perm_idx")
-      .on(table.workspaceId, table.subjectUserId, table.pluginId, table.permission)
-      .where(sql`${table.revokedAt} IS NULL`),
+
   }),
 );
 
@@ -87,7 +79,6 @@ export const communityContents = sqliteTable(
   "community_contents",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     authorId: text("author_id").notNull(),
     type: text("type").notNull(), // "question_pack" | "knowledge_card" | "persona" | "web_page"
     status: text("status").notNull().default("draft"), // "draft" | "published" | "archived"
@@ -96,10 +87,7 @@ export const communityContents = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("community_contents_tenant_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-    ),
+
   }),
 );
 
@@ -108,13 +96,12 @@ export const organizations = sqliteTable(
   "organizations",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     ownerId: text("owner_id").notNull(),
     memberScope: text("member_scope").notNull().default("institution"), // "school" | "institution" | "guardian"
     policyVersion: text("policy_version").notNull(),
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("organizations_tenant_idx").on(table.workspaceId, table.subjectUserId),
+
   }),
 );

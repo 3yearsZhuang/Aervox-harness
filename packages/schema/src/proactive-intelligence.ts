@@ -5,13 +5,12 @@
  * metadata columns while all records preserve the local_only processing boundary.
  */
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
-import { tenantColumns, timestampColumns } from "./common.js";
+import { timestampColumns } from "./common.js";
 
 export const proactiveTimelineEvents = sqliteTable(
   "proactive_timeline_events",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     revisionId: text("revision_id").notNull(),
     sourceGrantId: text("source_grant_id"),
     sourceKey: text("source_key").notNull(),
@@ -29,21 +28,9 @@ export const proactiveTimelineEvents = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantOccurredIdx: index("proactive_timeline_tenant_occurred_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.occurredAt,
-    ),
-    tenantSubjectIdx: index("proactive_timeline_tenant_subject_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.subjectKey,
-    ),
-    tenantChecksumIdx: uniqueIndex("proactive_timeline_tenant_checksum_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.checksum,
-    ),
+
+
+
   }),
 );
 
@@ -51,7 +38,6 @@ export const proactiveProjects = sqliteTable(
   "proactive_projects",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     revisionId: text("revision_id").notNull(),
     title: text("title").notNull(),
     objective: text("objective"),
@@ -66,16 +52,8 @@ export const proactiveProjects = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantStatusIdx: index("proactive_project_tenant_status_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.status,
-    ),
-    tenantActivityIdx: index("proactive_project_tenant_activity_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.lastActivityAt,
-    ),
+
+
   }),
 );
 
@@ -83,7 +61,6 @@ export const proactiveRelationships = sqliteTable(
   "proactive_relationships",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     revisionId: text("revision_id").notNull(),
     relationshipType: text("relationship_type").notNull().default("contact"),
     displayName: text("display_name").notNull(),
@@ -96,11 +73,7 @@ export const proactiveRelationships = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantStateIdx: index("proactive_relationship_tenant_state_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.state,
-    ),
+
   }),
 );
 
@@ -108,7 +81,6 @@ export const proactiveCommitments = sqliteTable(
   "proactive_commitments",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     revisionId: text("revision_id").notNull(),
     projectId: text("project_id"),
     relationshipId: text("relationship_id"),
@@ -121,12 +93,7 @@ export const proactiveCommitments = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantDueIdx: index("proactive_commitment_tenant_due_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.status,
-      table.dueAt,
-    ),
+
   }),
 );
 
@@ -134,7 +101,6 @@ export const proactiveWorkflowTemplates = sqliteTable(
   "proactive_workflow_templates",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     revisionId: text("revision_id").notNull(),
     name: text("name").notNull(),
     description: text("description"),
@@ -149,11 +115,7 @@ export const proactiveWorkflowTemplates = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantStateIdx: index("proactive_workflow_tenant_state_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.state,
-    ),
+
   }),
 );
 
@@ -161,7 +123,6 @@ export const proactiveTriggerRules = sqliteTable(
   "proactive_trigger_rules",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     revisionId: text("revision_id").notNull(),
     name: text("name").notNull(),
     triggerType: text("trigger_type").notNull(),
@@ -175,11 +136,7 @@ export const proactiveTriggerRules = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantEnabledIdx: index("proactive_trigger_rule_tenant_enabled_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.enabled,
-    ),
+
   }),
 );
 
@@ -187,7 +144,6 @@ export const proactiveTriggerEvents = sqliteTable(
   "proactive_trigger_events",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     revisionId: text("revision_id").notNull(),
     ruleId: text("rule_id"),
     triggerType: text("trigger_type").notNull(),
@@ -200,11 +156,7 @@ export const proactiveTriggerEvents = sqliteTable(
     createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
   },
   (table) => ({
-    tenantOccurredIdx: index("proactive_trigger_event_tenant_occurred_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.occurredAt,
-    ),
+
   }),
 );
 
@@ -212,7 +164,6 @@ export const proactiveActionVerifications = sqliteTable(
   "proactive_action_verifications",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     actionId: text("action_id").notNull(),
     expectedJson: text("expected_json").notNull().default("{}"),
     observedJson: text("observed_json"),
@@ -224,11 +175,7 @@ export const proactiveActionVerifications = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantActionIdx: uniqueIndex("proactive_action_verification_tenant_action_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.actionId,
-    ),
+
   }),
 );
 
@@ -236,7 +183,6 @@ export const proactiveClaimConflicts = sqliteTable(
   "proactive_claim_conflicts",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     revisionId: text("revision_id").notNull(),
     primaryClaimId: text("primary_claim_id").notNull(),
     conflictingClaimId: text("conflicting_claim_id").notNull(),
@@ -248,11 +194,7 @@ export const proactiveClaimConflicts = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantStatusIdx: index("proactive_claim_conflict_tenant_status_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.status,
-    ),
+
     claimPairIdx: uniqueIndex("proactive_claim_conflict_pair_idx").on(
       table.primaryClaimId,
       table.conflictingClaimId,
@@ -264,7 +206,6 @@ export const proactivePreparationBundles = sqliteTable(
   "proactive_preparation_bundles",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     revisionId: text("revision_id").notNull(),
     projectId: text("project_id"),
     commitmentId: text("commitment_id"),
@@ -277,12 +218,7 @@ export const proactivePreparationBundles = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantAvailableIdx: index("proactive_preparation_tenant_available_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.status,
-      table.availableAt,
-    ),
+
   }),
 );
 
@@ -290,7 +226,6 @@ export const proactiveAttentionStates = sqliteTable(
   "proactive_attention_states",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     revisionId: text("revision_id").notNull(),
     windowStart: text("window_start").notNull(),
     windowEnd: text("window_end").notNull(),
@@ -304,11 +239,7 @@ export const proactiveAttentionStates = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantWindowIdx: index("proactive_attention_tenant_window_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.windowEnd,
-    ),
+
   }),
 );
 
@@ -316,7 +247,6 @@ export const proactiveDriftSignals = sqliteTable(
   "proactive_drift_signals",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     revisionId: text("revision_id").notNull(),
     signalType: text("signal_type").notNull(),
     projectId: text("project_id"),
@@ -330,11 +260,7 @@ export const proactiveDriftSignals = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantStateIdx: index("proactive_drift_tenant_state_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.state,
-    ),
+
   }),
 );
 
@@ -342,7 +268,6 @@ export const proactiveSceneSnapshots = sqliteTable(
   "proactive_scene_snapshots",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     revisionId: text("revision_id").notNull(),
     sceneType: text("scene_type").notNull(),
     applicationId: text("application_id"),
@@ -353,16 +278,8 @@ export const proactiveSceneSnapshots = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantCapturedIdx: index("proactive_scene_tenant_captured_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.capturedAt,
-    ),
-    tenantChecksumIdx: uniqueIndex("proactive_scene_tenant_checksum_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.checksum,
-    ),
+
+
   }),
 );
 
@@ -370,7 +287,6 @@ export const proactiveReviewReports = sqliteTable(
   "proactive_review_reports",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     revisionId: text("revision_id").notNull(),
     periodType: text("period_type").notNull(),
     periodStart: text("period_start").notNull(),
@@ -382,13 +298,7 @@ export const proactiveReviewReports = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantPeriodIdx: uniqueIndex("proactive_review_tenant_period_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.periodType,
-      table.periodStart,
-      table.periodEnd,
-    ),
+
   }),
 );
 
@@ -396,7 +306,6 @@ export const proactiveExternalConnections = sqliteTable(
   "proactive_external_connections",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     revisionId: text("revision_id").notNull(),
     provider: text("provider").notNull(),
     displayName: text("display_name").notNull(),
@@ -412,12 +321,7 @@ export const proactiveExternalConnections = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantProviderIdx: index("proactive_connection_tenant_provider_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.provider,
-      table.state,
-    ),
+
   }),
 );
 
@@ -426,7 +330,6 @@ export const proactiveHomeEntities = sqliteTable(
   {
     id: text("id").primaryKey(),
     connectionId: text("connection_id").notNull(),
-    ...tenantColumns,
     entityId: text("entity_id").notNull(),
     domain: text("domain").notNull(),
     displayName: text("display_name"),
@@ -443,11 +346,7 @@ export const proactiveHomeEntities = sqliteTable(
       table.connectionId,
       table.entityId,
     ),
-    tenantEnabledIdx: index("proactive_home_tenant_enabled_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.enabled,
-    ),
+
   }),
 );
 
@@ -456,7 +355,6 @@ export const proactiveHealthSamples = sqliteTable(
   {
     id: text("id").primaryKey(),
     connectionId: text("connection_id").notNull(),
-    ...tenantColumns,
     metric: text("metric").notNull(),
     localDate: text("local_date").notNull(),
     value: integer("value").notNull(),
@@ -469,12 +367,6 @@ export const proactiveHealthSamples = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantMetricDateIdx: uniqueIndex("proactive_health_tenant_metric_date_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.connectionId,
-      table.metric,
-      table.localDate,
-    ),
+
   }),
 );

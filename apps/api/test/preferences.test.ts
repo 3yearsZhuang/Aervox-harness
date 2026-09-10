@@ -138,8 +138,8 @@ describe("偏好 API 集成测试（CAP-010）", () => {
     expect(body.skipped).toBe(false);
   });
 
-  it("租户隔离：不同租户互不干扰", async () => {
-    // 租户 A 填写问卷
+  it("不同兼容上下文共享本地偏好", async () => {
+    // 通过一个兼容上下文填写问卷
     await app.inject({
       method: "POST",
       url: "/v1/preferences",
@@ -147,14 +147,20 @@ describe("偏好 API 集成测试（CAP-010）", () => {
       payload: { tone: "friendly", proactiveness: "high", addressForm: "casual", reminderCadence: "frequent" },
     });
 
-    // 租户 B 仍是默认值
+    // 另一兼容上下文读取同一本地偏好
     const res = await app.inject({
       method: "GET",
       url: "/v1/preferences",
       headers: otherHeaders,
     });
     expect(res.statusCode).toBe(200);
-    expect(res.json().version).toBe(0);
+    expect(res.json()).toMatchObject({
+      version: 1,
+      tone: "friendly",
+      proactiveness: "high",
+      addressForm: "casual",
+      reminderCadence: "frequent",
+    });
   });
 
   it("拒绝无效枚举值", async () => {

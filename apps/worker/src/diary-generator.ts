@@ -66,10 +66,7 @@ export async function runDiaryGenerationCycle(ctx: DiaryGeneratorContext): Promi
 
   let generated = 0;
   for (const schedule of schedules) {
-    const tenant: LocalContext = {
-      workspaceId: schedule.workspaceId,
-      subjectUserId: schedule.subjectUserId,
-    };
+    const tenant: LocalContext = { workspaceId: "local", subjectUserId: "local" };
     // 服务器本地日期（与按需路径同一日期语义，避免同日错位）
     const localDate = localDateToday(new Date());
 

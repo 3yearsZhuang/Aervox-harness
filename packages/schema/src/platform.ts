@@ -8,14 +8,13 @@
  * 采用单向 FK（context_manifests.model_run_id）+ 应用层维护 model_runs.context_manifest_id。
  */
 import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
-import { tenantColumns, timestampColumns } from "./common.js";
+import { timestampColumns } from "./common.js";
 
 /** 计划任务可见状态 */
 export const scheduledJobs = sqliteTable(
   "scheduled_jobs",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     jobType: text("job_type").notNull(), // "diary" | "memory" | "ocr" | "embedding" | "notification"
     subjectId: text("subject_id").notNull(),
     idempotencyKey: text("idempotency_key").notNull(),
@@ -25,16 +24,8 @@ export const scheduledJobs = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdemIdx: uniqueIndex("scheduled_jobs_tenant_idempotency_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.idempotencyKey,
-    ),
-    tenantRunIdx: index("scheduled_jobs_tenant_run_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.runAt,
-    ),
+
+
   }),
 );
 
@@ -43,7 +34,6 @@ export const notifications = sqliteTable(
   "notifications",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     type: text("type").notNull(), // "review" | "diary" | "scheduled"
     scheduledAt: text("scheduled_at").notNull(),
     sentAt: text("sent_at"),
@@ -52,7 +42,7 @@ export const notifications = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("notifications_tenant_idx").on(table.workspaceId, table.subjectUserId),
+
   }),
 );
 
@@ -81,7 +71,6 @@ export const modelRuns = sqliteTable(
   "model_runs",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     /** 阶段 7（ADR-017 Expand）：Attempt/Step 关联（可追溯粒度；存量数据经慢启动回填，不回填==空） */
     attemptId: text("attempt_id"),
     stepId: integer("step_id"),
@@ -97,12 +86,8 @@ export const modelRuns = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("model_runs_tenant_idx").on(table.workspaceId, table.subjectUserId),
-    tenantAttemptIdx: index("model_runs_tenant_attempt_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.attemptId,
-    ),
+
+
   }),
 );
 
@@ -134,7 +119,6 @@ export const auditRecords = sqliteTable(
   "audit_records",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     actorType: text("actor_type").notNull(), // "system" | "user" | "admin" | "plugin"
     actorId: text("actor_id").notNull(),
     action: text("action").notNull(),
@@ -144,11 +128,7 @@ export const auditRecords = sqliteTable(
     createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
   },
   (table) => ({
-    tenantActorIdx: index("audit_records_tenant_actor_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.actorId,
-    ),
+
     subjectIdx: index("audit_records_subject_idx").on(table.subjectType, table.subjectId),
   }),
 );

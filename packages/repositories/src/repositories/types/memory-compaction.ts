@@ -42,8 +42,8 @@ export interface IMemoryCompactionRepository {
 
 export interface MemoryEmbeddingModel {
   id: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   memoryId: string;
   dimension: number;
   modelId: string;

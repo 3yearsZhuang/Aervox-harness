@@ -5,10 +5,10 @@
  * - Leader Loop 在 Step 调用 `subagent_delegate`，宿主创建独立子 turn/attempt 落库（可审计/恢复）；
  * - 本表承载父子关联（parentAttemptId + parentExecutionId 幂等，崩溃/重试不重复创建子任务）
  *   与结果摘要（子任务完整事件在子 turn 下审计，不入本表）；
- * - 租户隔离与既有域一致（workspace_id + subject_user_id）。
+ * - 通过父 Turn/Attempt/Execution 关联保证幂等与可恢复；数据库不再承载租户列。
  */
-import { sqliteTable, text, index, uniqueIndex } from "drizzle-orm/sqlite-core";
-import { tenantColumns, timestampColumns } from "./common.js";
+import { sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { timestampColumns } from "./common.js";
 
 export const subagentRuns = sqliteTable(
   "subagent_runs",
@@ -32,25 +32,7 @@ export const subagentRuns = sqliteTable(
     resultText: text("result_text"),
     error: text("error"),
     finishedAt: text("finished_at"),
-    ...tenantColumns,
     ...timestampColumns,
   },
-  (table) => ({
-    tenantParentIdx: index("subagent_runs_tenant_parent_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.parentTurnId,
-    ),
-    tenantSessionIdx: index("subagent_runs_tenant_session_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.sessionId,
-    ),
-    tenantParentExecIdx: uniqueIndex("subagent_runs_tenant_parent_exec_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.parentAttemptId,
-      table.parentExecutionId,
-    ),
-  }),
+  () => ({}),
 );

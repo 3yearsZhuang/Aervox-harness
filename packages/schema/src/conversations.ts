@@ -4,19 +4,18 @@
  * 规则依据：docs/reference/STREAMING_PROTOCOL.md + ADR-012
  */
 import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
-import { tenantColumns, timestampColumns } from "./common.js";
+import { timestampColumns } from "./common.js";
 
 /** 会话表 */
 export const sessions = sqliteTable(
   "sessions",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     title: text("title").notNull(),
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("sessions_tenant_idx").on(table.workspaceId, table.subjectUserId),
+
   }),
 );
 
@@ -28,7 +27,6 @@ export const turns = sqliteTable(
     sessionId: text("session_id")
       .notNull()
       .references(() => sessions.id, { onDelete: "cascade" }),
-    ...tenantColumns,
     idempotencyKey: text("idempotency_key").notNull(),
     status: text("status").notNull().default("Created"),
     lastSequence: integer("last_sequence").notNull().default(0),
@@ -43,11 +41,7 @@ export const turns = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdempotencyIdx: uniqueIndex("turns_tenant_idempotency_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.idempotencyKey,
-    ),
+
     sessionIdx: index("turns_session_idx").on(table.sessionId),
   }),
 );
@@ -80,7 +74,6 @@ export const messageVersions = sqliteTable(
       .notNull()
       .references(() => turns.id, { onDelete: "cascade" }),
     messageId: text("message_id"), // → messages.id（可空；存量数据后迁移，应用层维护）
-    ...tenantColumns,
     role: text("role").notNull(), // "user" | "assistant" | "system"
     version: integer("version").notNull().default(1),
     content: text("content").notNull(),
@@ -93,10 +86,7 @@ export const messageVersions = sqliteTable(
       table.turnId,
       table.version,
     ),
-    tenantIdx: index("message_versions_tenant_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-    ),
+
   }),
 );
 
@@ -109,7 +99,6 @@ export const turnStreamEvents = sqliteTable(
       .notNull()
       .references(() => turns.id, { onDelete: "cascade" }),
     attemptId: text("attempt_id"), // → turn_attempts.id（可空）
-    ...tenantColumns,
     sequence: integer("sequence").notNull(),
     eventType: text("event_type").notNull(), // "message" | "delta" | "done" | "error" | "redacted"
     payloadVersion: integer("payload_version").notNull().default(1),
@@ -162,7 +151,6 @@ export const conversationBranches = sqliteTable(
   "conversation_branches",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     parentSessionId: text("parent_session_id")
       .notNull()
       .references(() => sessions.id, { onDelete: "cascade" }),
@@ -186,10 +174,7 @@ export const conversationBranches = sqliteTable(
   },
   (table) => ({
     parentIdx: index("conversation_branches_parent_idx").on(table.parentSessionId),
-    tenantIdx: index("conversation_branches_tenant_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-    ),
+
     statusIdx: index("conversation_branches_status_idx").on(table.status),
   }),
 );

@@ -8,8 +8,6 @@ export async function createProvenanceTables(client: Client): Promise<void> {
     await client.execute(`
       CREATE TABLE IF NOT EXISTS source_artifacts (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         kind TEXT NOT NULL,
         owner_module TEXT NOT NULL,
         current_revision_id TEXT,
@@ -22,7 +20,7 @@ export async function createProvenanceTables(client: Client): Promise<void> {
       );
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS source_artifacts_tenant_kind_idx ON source_artifacts(workspace_id, subject_user_id, kind);
+      CREATE INDEX IF NOT EXISTS source_artifacts_local_kind_idx ON source_artifacts(kind);
     `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS source_revisions (

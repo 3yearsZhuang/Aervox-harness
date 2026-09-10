@@ -7,8 +7,8 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 2.0.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+updated_at: 2026-09-11
+reviewed_at: 2026-09-11
 review_interval_days: 30
 review_triggers:
   - packages/schema/**
@@ -37,9 +37,9 @@ sources:
 每张表的完整定义。逐实体覆盖状态见[数据库数据模型覆盖矩阵](database-coverage-matrix.md)。
 
 > [!IMPORTANT]
-> [CR-030](changes/CR-030-pure-local-sqlite-database.md) 的决策已经 Accepted，但交付状态仍为
-> Planned。当前代码在 D2 完成前仍包含旧租户列和 `TenantContext`；不得把本文目标契约解释为
-> 当前二进制已经完成去租户化。
+> [CR-030](changes/CR-030-pure-local-sqlite-database.md) 的决策为 Accepted、交付状态为
+> Implemented。最终 Schema/DDL 和数据库消费者已完成去租户化；`LocalContext` 仅作为不参与持久化的
+> 兼容调用参数保留，生产发布仍受迁移编排、回滚演练和完整 DSH 环境门禁约束。
 
 ## 1. 适用范围与不变量
 
@@ -208,7 +208,8 @@ planned -> quiesced -> backup_verified -> scope_selected
 | `TC-RES-LEDGER-001` | 账本失败/重复/乱序/缺口/PITR 水位均 fail closed |
 
 D1～D3 每阶段都必须运行 `mise tasks run ci-code` 与 `mise tasks run ci-docs`，并把实现位置、夹具和执行证据
-登记到 `REQUIREMENTS_TRACEABILITY.md`。只有 D3 完成后，CR-030 的 `delivery_status` 才能改为 `implemented`。
+登记到 `REQUIREMENTS_TRACEABILITY.md`。CR-030 当前已达到 `implemented`；完整运行编排和发布演练通过后才能改为
+`released`。
 
 ## 12. 兼容、回滚与未来变更
 
@@ -223,6 +224,6 @@ D1～D3 每阶段都必须运行 `mise tasks run ci-code` 与 `mise tasks run ci
 | CR-030 阶段 | 状态 | 说明 |
 |---|---|---|
 | D0 决策基线 | 本 PR 交付 | 文档、需求、安全、隐私、测试和架构同步 |
-| D1 迁移器与安全入口 | Planned | 预检、备份、范围选择、staging、原子换库、loopback 守卫 |
-| D2 Schema/Repository 去租户 | Planned | 删除租户列、索引、TenantContext 和调用方参数 |
-| D3 清理与发布 | Planned | 删除兼容层，完成全量迁移/回滚演练并更新交付状态 |
+| D1 迁移器与安全入口 | Implemented | 预检、备份清单、范围选择、staging、校验、原子换库和 loopback 守卫已落地；运行编排与故障注入演练为发布前门禁 |
+| D2 Schema/Repository 去租户 | Implemented | 最终 Schema/DDL、Repository、API、Worker 和 Host Agent 不再读写租户列；`LocalContext` 仅保留兼容签名 |
+| D3 清理与发布 | Implemented | 静态审计、旧测试迁移和文档登记完成；完整 DSH 环境、停写协调与 rollback 保留仍需发布前复核 |

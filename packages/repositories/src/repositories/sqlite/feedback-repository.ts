@@ -6,7 +6,7 @@
 import { eq, and, desc } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { feedback } from "@aervox/schema";
-import { assertLocalContext, type LocalContext } from "../../local-context.js";
+import type { LocalContext } from "../../local-context.js";
 import type { IFeedbackRepository, FeedbackModel } from "../types/index.js";
 
 export class SqliteFeedbackRepository implements IFeedbackRepository {
@@ -23,13 +23,10 @@ export class SqliteFeedbackRepository implements IFeedbackRepository {
       note?: string | null;
     },
   ): Promise<FeedbackModel> {
-    assertLocalContext(tenant);
     const [created] = await this.db
       .insert(feedback)
       .values({
         id: feedbackData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         actorId: feedbackData.actorId,
         subjectType: feedbackData.subjectType,
         subjectId: feedbackData.subjectId,
@@ -46,10 +43,7 @@ export class SqliteFeedbackRepository implements IFeedbackRepository {
     subjectType?: string,
     subjectId?: string,
   ): Promise<FeedbackModel[]> {
-    assertLocalContext(tenant);
     const conditions = [
-      eq(feedback.workspaceId, tenant.workspaceId),
-      eq(feedback.subjectUserId, tenant.subjectUserId),
     ];
     if (subjectType && subjectId) {
       conditions.push(eq(feedback.subjectType, subjectType), eq(feedback.subjectId, subjectId));

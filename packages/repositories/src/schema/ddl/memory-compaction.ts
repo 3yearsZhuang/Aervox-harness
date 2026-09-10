@@ -8,8 +8,6 @@ export async function createMemoryCompactionTables(client: Client): Promise<void
     await client.execute(`
       CREATE TABLE IF NOT EXISTS memory_compaction_markers (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         memory_id TEXT NOT NULL REFERENCES memory_records(id) ON DELETE CASCADE,
         snapshot_id TEXT NOT NULL,
         covered_up_to_message_id TEXT,
@@ -25,9 +23,5 @@ export async function createMemoryCompactionTables(client: Client): Promise<void
   await client.execute(`
       CREATE UNIQUE INDEX IF NOT EXISTS memory_compaction_markers_memory_snapshot_idx
       ON memory_compaction_markers(memory_id, snapshot_id);
-    `);
-  await client.execute(`
-      CREATE INDEX IF NOT EXISTS memory_compaction_markers_tenant_idx
-      ON memory_compaction_markers(workspace_id, subject_user_id);
     `);
 }

@@ -6,7 +6,6 @@
  * 由 agent-loop 的 ExecutionStorePort.recordToolExecution 落库（阶段 2d）。
  */
 import { sqliteTable, text, index, uniqueIndex } from "drizzle-orm/sqlite-core";
-import { tenantColumns } from "./common.js";
 import { turns } from "./conversations.js";
 
 /** Agent Loop 工具执行账本（副作用证据；attempt 内 invocationId 唯一） */
@@ -21,7 +20,6 @@ export const toolExecutions = sqliteTable(
     /** 模型请求中的工具调用 ID（attempt 内唯一） */
     invocationId: text("invocation_id").notNull(),
     name: text("name").notNull(),
-    ...tenantColumns,
     /** 请求参数（JSON） */
     argumentsJson: text("arguments_json", { mode: "json" }),
     /** executed / rejected / duplicate / timeout_error */
@@ -35,7 +33,7 @@ export const toolExecutions = sqliteTable(
   (table) => ({
     turnIdx: index("tool_executions_turn_idx").on(table.turnId),
     attemptIdx: index("tool_executions_attempt_idx").on(table.attemptId),
-    tenantIdx: index("tool_executions_tenant_idx").on(table.workspaceId, table.subjectUserId),
+
     /** 2c：幂等预留唯一键（attempt+invocation；对应 init 的 CREATE UNIQUE INDEX 幂等补齐） */
     attemptInvocationIdx: uniqueIndex("tool_executions_attempt_invocation_idx").on(table.attemptId, table.invocationId),
   }),

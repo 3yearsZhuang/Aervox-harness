@@ -12,14 +12,13 @@
  * 3. material_sources — 引用来源（区分模型生成 vs 外部引用，含许可证和核验状态）
  */
 import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
-import { tenantColumns, timestampColumns } from "./common.js";
+import { timestampColumns } from "./common.js";
 
 /** 学习资料身份表 */
 export const studyMaterials = sqliteTable(
   "study_materials",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     /** 关联学习目标（可选） */
     goalId: text("goal_id"),
     /** 资料类型: "explanation" | "mindmap" | "exercises" | "reading" | "code" */
@@ -37,7 +36,7 @@ export const studyMaterials = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("study_materials_tenant_idx").on(table.workspaceId, table.subjectUserId),
+
     goalIdx: index("study_materials_goal_idx").on(table.goalId),
   }),
 );
@@ -50,7 +49,6 @@ export const materialVersions = sqliteTable(
     materialId: text("material_id")
       .notNull()
       .references(() => studyMaterials.id, { onDelete: "cascade" }),
-    ...tenantColumns,
     /** 版本号，从 1 递增 */
     version: integer("version").notNull().default(1),
     /** 资料正文（Markdown 或 JSON） */
@@ -68,7 +66,7 @@ export const materialVersions = sqliteTable(
       table.materialId,
       table.version,
     ),
-    tenantIdx: index("material_versions_tenant_idx").on(table.workspaceId, table.subjectUserId),
+
   }),
 );
 
@@ -80,7 +78,6 @@ export const materialSources = sqliteTable(
     materialVersionId: text("material_version_id")
       .notNull()
       .references(() => materialVersions.id, { onDelete: "cascade" }),
-    ...tenantColumns,
     /** 来源类型: "model"（模型生成） | "external"（外部引用） */
     sourceType: text("source_type").notNull(),
     /** 来源 URI（外部引用时填写） */
@@ -97,6 +94,6 @@ export const materialSources = sqliteTable(
   },
   (table) => ({
     versionIdx: index("material_sources_version_idx").on(table.materialVersionId),
-    tenantIdx: index("material_sources_tenant_idx").on(table.workspaceId, table.subjectUserId),
+
   }),
 );

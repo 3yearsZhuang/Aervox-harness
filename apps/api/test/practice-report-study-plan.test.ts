@@ -5,7 +5,7 @@
  * - 报告创建（区分观测与推断）
  * - 报告查询
  * - 重置推断（保留原始作答）
- * - 租户隔离
+ * - CR-030 本地单用户上下文共享
  *
  * 注：原 CAP-017 学习计划用例已随 study-plans 移除，学习规划由 learning-plan.test.ts 覆盖。
  */
@@ -140,7 +140,7 @@ describe("自适应刷题报告（CAP-016）", () => {
     expect(listRes.json().items.length).toBe(2); // 原始 + reset
   });
 
-  it("租户隔离：不同工作区无法互相访问报告", async () => {
+  it("不同兼容上下文共享本地报告", async () => {
     const reportRes = await app.inject({
       method: "POST",
       url: "/v1/practice-reports",
@@ -149,12 +149,13 @@ describe("自适应刷题报告（CAP-016）", () => {
     });
     const reportId = reportRes.json().id;
 
-    // 其他租户无法获取报告
+    // 兼容 Header 不再形成数据库隔离边界
     const otherReport = await app.inject({
       method: "GET",
       url: `/v1/practice-reports/${reportId}`,
       headers: otherHeaders,
     });
-    expect(otherReport.statusCode).toBe(404);
+    expect(otherReport.statusCode).toBe(200);
+    expect(otherReport.json().id).toBe(reportId);
   });
 });

@@ -83,7 +83,7 @@ describe("Persona API：SQLite 持久化 + Skills/MCP/Voice", () => {
     expect(exported.json().skillNames).toEqual(["alpha"]);
     expect(exported.json().bundleBase64).toBeTruthy();
 
-    // 导入到另一租户
+    // 通过另一兼容上下文导入到同一本地实例
     const otherHeaders = { "x-workspace-id": "ws_persona2", "x-user-id": "usr_persona2" };
     const imported = await app.inject({
       method: "POST",

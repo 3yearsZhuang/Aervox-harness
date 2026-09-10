@@ -7,7 +7,7 @@
 import { eq, and, desc, isNull, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { attachments, attachmentParseResults, embeddingIndexes } from "@aervox/schema";
-import { assertLocalContext, type LocalContext } from "../../local-context.js";
+import type { LocalContext } from "../../local-context.js";
 import type {
   IContentRepository,
   AttachmentModel,
@@ -33,14 +33,11 @@ export class SqliteContentRepository implements IContentRepository {
       idempotencyKey?: string | null;
     },
   ): Promise<AttachmentModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(attachments)
       .values({
         id: attachmentData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         objectKey: attachmentData.objectKey,
         mediaType: attachmentData.mediaType,
         size: attachmentData.size ?? 0,
@@ -57,15 +54,12 @@ export class SqliteContentRepository implements IContentRepository {
   }
 
   async getAttachment(tenant: LocalContext, id: string): Promise<AttachmentModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(attachments)
       .where(
         and(
           eq(attachments.id, id),
-          eq(attachments.workspaceId, tenant.workspaceId),
-          eq(attachments.subjectUserId, tenant.subjectUserId),
           isNull(attachments.deletedAt),
         ),
       )
@@ -74,7 +68,6 @@ export class SqliteContentRepository implements IContentRepository {
   }
 
   async softDeleteAttachment(tenant: LocalContext, id: string): Promise<AttachmentModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(attachments)
@@ -82,8 +75,6 @@ export class SqliteContentRepository implements IContentRepository {
       .where(
         and(
           eq(attachments.id, id),
-          eq(attachments.workspaceId, tenant.workspaceId),
-          eq(attachments.subjectUserId, tenant.subjectUserId),
           isNull(attachments.deletedAt),
         ),
       )
@@ -95,15 +86,12 @@ export class SqliteContentRepository implements IContentRepository {
     tenant: LocalContext,
     key: string,
   ): Promise<AttachmentModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(attachments)
       .where(
         and(
           eq(attachments.idempotencyKey, key),
-          eq(attachments.workspaceId, tenant.workspaceId),
-          eq(attachments.subjectUserId, tenant.subjectUserId),
           isNull(attachments.deletedAt),
         ),
       )
@@ -127,14 +115,11 @@ export class SqliteContentRepository implements IContentRepository {
       idempotencyKey?: string;
     },
   ): Promise<AttachmentParseResultModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(attachmentParseResults)
       .values({
         id: input.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         attachmentId: input.attachmentId,
         parseStatus: input.parseStatus ?? "pending",
         parsedText: input.parsedText ?? null,
@@ -162,15 +147,12 @@ export class SqliteContentRepository implements IContentRepository {
     tenant: LocalContext,
     attachmentId: string,
   ): Promise<AttachmentParseResultModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(attachmentParseResults)
       .where(
         and(
           eq(attachmentParseResults.attachmentId, attachmentId),
-          eq(attachmentParseResults.workspaceId, tenant.workspaceId),
-          eq(attachmentParseResults.subjectUserId, tenant.subjectUserId),
           isNull(attachmentParseResults.supersededAt),
         ),
       )
@@ -183,15 +165,12 @@ export class SqliteContentRepository implements IContentRepository {
     tenant: LocalContext,
     key: string,
   ): Promise<AttachmentParseResultModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(attachmentParseResults)
       .where(
         and(
           eq(attachmentParseResults.idempotencyKey, key),
-          eq(attachmentParseResults.workspaceId, tenant.workspaceId),
-          eq(attachmentParseResults.subjectUserId, tenant.subjectUserId),
         ),
       )
       .limit(1);
@@ -202,15 +181,12 @@ export class SqliteContentRepository implements IContentRepository {
     tenant: LocalContext,
     attachmentId: string,
   ): Promise<AttachmentParseResultModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(attachmentParseResults)
       .where(
         and(
           eq(attachmentParseResults.attachmentId, attachmentId),
-          eq(attachmentParseResults.workspaceId, tenant.workspaceId),
-          eq(attachmentParseResults.subjectUserId, tenant.subjectUserId),
         ),
       )
       .orderBy(desc(attachmentParseResults.createdAt));
@@ -218,7 +194,6 @@ export class SqliteContentRepository implements IContentRepository {
   }
 
   async supersedeParseResult(tenant: LocalContext, parseResultId: string): Promise<void> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     await this.db
       .update(attachmentParseResults)
@@ -226,15 +201,12 @@ export class SqliteContentRepository implements IContentRepository {
       .where(
         and(
           eq(attachmentParseResults.id, parseResultId),
-          eq(attachmentParseResults.workspaceId, tenant.workspaceId),
-          eq(attachmentParseResults.subjectUserId, tenant.subjectUserId),
           isNull(attachmentParseResults.supersededAt),
         ),
       );
   }
 
   async invalidateParseResults(tenant: LocalContext, attachmentId: string): Promise<number> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const result = await this.db
       .update(attachmentParseResults)
@@ -242,8 +214,6 @@ export class SqliteContentRepository implements IContentRepository {
       .where(
         and(
           eq(attachmentParseResults.attachmentId, attachmentId),
-          eq(attachmentParseResults.workspaceId, tenant.workspaceId),
-          eq(attachmentParseResults.subjectUserId, tenant.subjectUserId),
           isNull(attachmentParseResults.supersededAt),
         ),
       );
@@ -264,14 +234,11 @@ export class SqliteContentRepository implements IContentRepository {
       status?: string;
     },
   ): Promise<EmbeddingIndexModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(embeddingIndexes)
       .values({
         id: indexData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         sourceArtifactId: indexData.sourceArtifactId,
         sourceRevisionId: indexData.sourceRevisionId,
         modelId: indexData.modelId,
@@ -286,14 +253,11 @@ export class SqliteContentRepository implements IContentRepository {
   }
 
   async listEmbeddingIndexes(tenant: LocalContext, sourceArtifactId: string): Promise<EmbeddingIndexModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(embeddingIndexes)
       .where(
         and(
-          eq(embeddingIndexes.workspaceId, tenant.workspaceId),
-          eq(embeddingIndexes.subjectUserId, tenant.subjectUserId),
           eq(embeddingIndexes.sourceArtifactId, sourceArtifactId),
         ),
       )

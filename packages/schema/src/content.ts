@@ -5,14 +5,13 @@
  * CAP-012 扩展：用途声明、解析管线、OCR 置信度、裁剪/转文字
  */
 import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
-import { tenantColumns, timestampColumns } from "./common.js";
+import { timestampColumns } from "./common.js";
 
 /** 附件元数据（图片/论文/试卷/导出文件；业务库不存大对象正文） */
 export const attachments = sqliteTable(
   "attachments",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     objectKey: text("object_key").notNull(), // 对象存储 Key
     mediaType: text("media_type").notNull(),
     size: integer("size").notNull().default(0),
@@ -28,7 +27,7 @@ export const attachments = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("attachments_tenant_idx").on(table.workspaceId, table.subjectUserId),
+
   }),
 );
 
@@ -42,7 +41,6 @@ export const attachmentParseResults = sqliteTable(
   "attachment_parse_results",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     /** → attachments.id */
     attachmentId: text("attachment_id")
       .notNull()
@@ -67,12 +65,8 @@ export const attachmentParseResults = sqliteTable(
   },
   (table) => ({
     attachmentIdx: index("attachment_parse_results_attachment_idx").on(table.attachmentId),
-    tenantIdx: index("attachment_parse_results_tenant_idx").on(table.workspaceId, table.subjectUserId),
-    idemIdx: uniqueIndex("attachment_parse_results_idem_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.idempotencyKey,
-    ),
+
+    idemIdx: uniqueIndex("attachment_parse_results_idem_idx").on(table.idempotencyKey),
   }),
 );
 
@@ -81,7 +75,6 @@ export const embeddingIndexes = sqliteTable(
   "embedding_indexes",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     sourceArtifactId: text("source_artifact_id").notNull(), // → source_artifacts.id
     sourceRevisionId: text("source_revision_id").notNull(),
     modelId: text("model_id").notNull(),
@@ -91,7 +84,7 @@ export const embeddingIndexes = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("embedding_indexes_tenant_idx").on(table.workspaceId, table.subjectUserId),
+
     sourceIdx: index("embedding_indexes_source_idx").on(table.sourceArtifactId),
   }),
 );

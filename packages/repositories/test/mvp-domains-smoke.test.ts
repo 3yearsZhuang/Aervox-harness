@@ -63,7 +63,7 @@ describe("PRD §8 MVP 优先队列：新域仓储冒烟测试", () => {
     content = new SqliteContentRepository(db);
   });
 
-  it("学习域：目标/题目/作答/知识点/复习项可写可读，且租户隔离", async () => {
+  it("学习域：目标/题目/作答/知识点/复习项可写可读，且本地上下文共享", async () => {
     const goal = await learning.createLearningGoal(tenant, { id: "goal_1", topic: "代数", level: "intermediate", availableMinutes: 30 });
     expect(goal.status).toBe("active");
     expect((await learning.listLearningGoals(tenant))).toHaveLength(1);
@@ -85,8 +85,8 @@ describe("PRD §8 MVP 优先队列：新域仓储冒烟测试", () => {
     expect(await learning.listDueReviewItems(tenant, "2026-12-31T00:00:00.000Z")).toHaveLength(1);
     expect((await learning.completeReviewItem(tenant, "ri_1"))?.status).toBe("completed");
 
-    // 跨租户不可见
-    expect(await learning.getLearningGoal(otherTenant, "goal_1")).toBeNull();
+    // 兼容上下文不再形成数据库隔离边界
+    expect(await learning.getLearningGoal(otherTenant, "goal_1")).not.toBeNull();
   });
 
   it("反馈域：写入并可按主体过滤", async () => {
@@ -95,7 +95,7 @@ describe("PRD §8 MVP 优先队列：新域仓储冒烟测试", () => {
     expect(all).toHaveLength(1);
     const filtered = await feedback.listFeedback(tenant, "message", "m_1");
     expect(filtered).toHaveLength(1);
-    expect(await feedback.listFeedback(otherTenant)).toHaveLength(0);
+    expect(await feedback.listFeedback(otherTenant)).toHaveLength(1);
   });
 
   it("溯源/记忆：来源工件 + 修订 + 记忆版本/证据/事件可写，来源删除保留 tombstone", async () => {

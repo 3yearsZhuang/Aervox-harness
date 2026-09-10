@@ -7,8 +7,6 @@ export async function createWorkspaceSkillsTables(client: Client): Promise<void>
   await client.execute(`
       CREATE TABLE IF NOT EXISTS workspace_skills (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         name TEXT NOT NULL,
         description TEXT NOT NULL,
         license TEXT,
@@ -29,9 +27,6 @@ export async function createWorkspaceSkillsTables(client: Client): Promise<void>
       );
     `);
   await client.execute(`
-      CREATE UNIQUE INDEX IF NOT EXISTS workspace_skills_tenant_name_unique_idx ON workspace_skills(workspace_id, subject_user_id, name);
-    `);
-  await client.execute(`
-      CREATE INDEX IF NOT EXISTS workspace_skills_tenant_idx ON workspace_skills(workspace_id, subject_user_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS workspace_skills_local_name_unique_idx ON workspace_skills(name);
     `);
 }

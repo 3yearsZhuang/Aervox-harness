@@ -8,8 +8,6 @@ export async function createPrivacyTables(client: Client): Promise<void> {
     await client.execute(`
       CREATE TABLE IF NOT EXISTS consent_grants (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         actor_id TEXT NOT NULL,
         purpose TEXT NOT NULL,
         scope TEXT NOT NULL,
@@ -20,13 +18,11 @@ export async function createPrivacyTables(client: Client): Promise<void> {
       );
     `);
   await client.execute(`
-      CREATE UNIQUE INDEX IF NOT EXISTS consent_grants_tenant_purpose_scope_idx ON consent_grants(workspace_id, subject_user_id, purpose, scope) WHERE revoked_at IS NULL;
+      CREATE UNIQUE INDEX IF NOT EXISTS consent_grants_local_purpose_scope_idx ON consent_grants(purpose, scope) WHERE revoked_at IS NULL;
     `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS deletion_requests (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         scope TEXT NOT NULL,
         idempotency_key TEXT NOT NULL,
         requested_at TEXT NOT NULL,
@@ -41,7 +37,7 @@ export async function createPrivacyTables(client: Client): Promise<void> {
       );
     `);
   await client.execute(`
-      CREATE UNIQUE INDEX IF NOT EXISTS deletion_requests_tenant_idempotency_idx ON deletion_requests(workspace_id, subject_user_id, idempotency_key);
+      CREATE UNIQUE INDEX IF NOT EXISTS deletion_requests_local_idempotency_idx ON deletion_requests(idempotency_key);
     `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS deletion_targets (

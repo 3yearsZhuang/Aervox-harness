@@ -9,22 +9,15 @@ export async function createConversationsTables(client: Client): Promise<void> {
     await client.execute(`
       CREATE TABLE IF NOT EXISTS sessions (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         title TEXT NOT NULL,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS sessions_tenant_idx ON sessions(workspace_id, subject_user_id);
-    `);
-  await client.execute(`
       CREATE TABLE IF NOT EXISTS turns (
         id TEXT PRIMARY KEY,
         session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         idempotency_key TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'Created',
         last_sequence INTEGER NOT NULL DEFAULT 0,
@@ -39,7 +32,7 @@ export async function createConversationsTables(client: Client): Promise<void> {
       );
     `);
   await client.execute(`
-      CREATE UNIQUE INDEX IF NOT EXISTS turns_tenant_idempotency_idx ON turns(workspace_id, subject_user_id, idempotency_key);
+      CREATE UNIQUE INDEX IF NOT EXISTS turns_local_idempotency_idx ON turns(idempotency_key);
     `);
   // CAP-013：为存量 turns 表补充 quote_message_id 列（迁移）
     await client.execute(`ALTER TABLE turns ADD COLUMN quote_message_id TEXT;`).catch(() => {});
@@ -51,8 +44,6 @@ export async function createConversationsTables(client: Client): Promise<void> {
         id TEXT PRIMARY KEY,
         turn_id TEXT NOT NULL REFERENCES turns(id) ON DELETE CASCADE,
         message_id TEXT,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         role TEXT NOT NULL,
         version INTEGER NOT NULL DEFAULT 1,
         content TEXT NOT NULL,
@@ -65,15 +56,10 @@ export async function createConversationsTables(client: Client): Promise<void> {
       CREATE UNIQUE INDEX IF NOT EXISTS message_versions_turn_ver_idx ON message_versions(turn_id, version);
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS message_versions_tenant_idx ON message_versions(workspace_id, subject_user_id);
-    `);
-  await client.execute(`
       CREATE TABLE IF NOT EXISTS turn_stream_events (
         id TEXT PRIMARY KEY,
         turn_id TEXT NOT NULL REFERENCES turns(id) ON DELETE CASCADE,
         attempt_id TEXT,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         sequence INTEGER NOT NULL,
         event_type TEXT NOT NULL,
         payload_version INTEGER NOT NULL DEFAULT 1,
@@ -123,8 +109,6 @@ export async function createConversationsTables(client: Client): Promise<void> {
     await client.execute(`
       CREATE TABLE IF NOT EXISTS conversation_branches (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         parent_session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
         fork_at_message_id TEXT,
         child_session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
@@ -134,9 +118,6 @@ export async function createConversationsTables(client: Client): Promise<void> {
     `);
   await client.execute(`
       CREATE INDEX IF NOT EXISTS conversation_branches_parent_idx ON conversation_branches(parent_session_id);
-    `);
-  await client.execute(`
-      CREATE INDEX IF NOT EXISTS conversation_branches_tenant_idx ON conversation_branches(workspace_id, subject_user_id);
     `);
   // CAP-014：扩展分支表（标题、原因、状态、布局、软删除）
     await addColumnIfMissing(client, "conversation_branches", "title", "title TEXT");

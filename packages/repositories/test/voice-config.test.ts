@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 语音输出配置仓储测试（CR-011 阶段 1 · 本地语音模型配置）
  *
- * 覆盖：空→save→get 回显、更新覆盖（upsert 每租户一行）、租户隔离。
+ * 覆盖：空→save→get 回显、更新覆盖（本地单例配置）、兼容上下文共享。
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
@@ -41,7 +41,7 @@ describe("语音输出配置仓储", () => {
     expect(await repo.getConfig(tenantA)).toBeNull();
   });
 
-  it("save → get 回显，并按租户隔离", async () => {
+  it("save → get 回显，并由本地上下文共享", async () => {
     const saved = await repo.saveConfig(tenantA, {
       enabled: true,
       providerId: "gpt-sovits-local",
@@ -58,10 +58,10 @@ describe("语音输出配置仓储", () => {
     expect(read?.modelPath).toBe("/data/models/gpt-sovits");
     expect(read?.speakerId).toBe("speaker-01");
     expect(read?.settingsJson).toMatchObject({ sampleRate: 24000 });
-    expect(await repo.getConfig(tenantB)).toBeNull();
+    expect(await repo.getConfig(tenantB)).not.toBeNull();
   });
 
-  it("更新覆盖并保持每租户一行", async () => {
+  it("更新覆盖并保持本地单例配置", async () => {
     await repo.saveConfig(tenantA, {
       enabled: true,
       providerId: "gpt-sovits-local",
@@ -94,10 +94,10 @@ describe("语音输出配置仓储", () => {
     expect(read?.settingsJson).toEqual({});
   });
 
-  it("跨租户保存互不覆盖", async () => {
+  it("不同兼容上下文保存时后写覆盖本地配置", async () => {
     await repo.saveConfig(tenantA, { enabled: true, providerId: "gpt-sovits-local", modelId: "A" });
     await repo.saveConfig(tenantB, { enabled: true, providerId: "gpt-sovits-local", modelId: "B" });
-    expect((await repo.getConfig(tenantA))?.modelId).toBe("A");
+    expect((await repo.getConfig(tenantA))?.modelId).toBe("B");
     expect((await repo.getConfig(tenantB))?.modelId).toBe("B");
   });
 });
@@ -148,7 +148,7 @@ describe("语音输入 (ASR) 配置仓储 (CR-016)", () => {
     expect(read).toEqual(saved);
   });
 
-  it("支持 whisper-compatible 模式且租户隔离", async () => {
+  it("支持 whisper-compatible 模式且不同兼容上下文共享配置", async () => {
     await inputRepo.saveConfig(tenantA, {
       enabled: true,
       engineType: "whisper-compatible",
@@ -166,8 +166,8 @@ describe("语音输入 (ASR) 配置仓储 (CR-016)", () => {
     const configA = await inputRepo.getConfig(tenantA);
     const configB = await inputRepo.getConfig(tenantB);
 
-    expect(configA?.engineType).toBe("whisper-compatible");
-    expect(configA?.apiKey).toBe("sk-whisper");
+    expect(configA?.engineType).toBe("sensevoice-local");
+    expect(configA?.apiKey).toBeNull();
     expect(configB?.engineType).toBe("sensevoice-local");
     expect(configB?.enabled).toBe(0);
   });
@@ -196,7 +196,7 @@ describe("在线语音配置仓储 (CR-028 · GPT-SoVITS 远程 API)", () => {
     expect(await repo.getConfig(tenantA)).toBeNull();
   });
 
-  it("save → get 回显（含 api_v2 参数），并按租户隔离", async () => {
+  it("save → get 回显（含 api_v2 参数），并由本地上下文共享", async () => {
     const saved = await repo.saveConfig(tenantA, {
       enabled: true,
       providerId: "gpt-sovits-remote",
@@ -227,10 +227,10 @@ describe("在线语音配置仓储 (CR-028 · GPT-SoVITS 远程 API)", () => {
       "D:/gpt-sovits/voice/aux1.wav",
       "D:/gpt-sovits/voice/aux2.wav",
     ]);
-    expect(await repo.getConfig(tenantB)).toBeNull();
+    expect(await repo.getConfig(tenantB)).not.toBeNull();
   });
 
-  it("更新覆盖并保持每租户一行", async () => {
+  it("更新覆盖并保持本地单例配置", async () => {
     await repo.saveConfig(tenantA, {
       enabled: true,
       providerId: "gpt-sovits-remote",

@@ -65,8 +65,8 @@ export interface IContentRepository {
 
 export interface StudyMaterialModel {
   id: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   goalId?: string | null;
   type: string;
   title: string;
@@ -81,8 +81,8 @@ export interface StudyMaterialModel {
 export interface MaterialVersionModel {
   id: string;
   materialId: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   version: number;
   content: string;
   format: string;
@@ -94,8 +94,8 @@ export interface MaterialVersionModel {
 export interface MaterialSourceModel {
   id: string;
   materialVersionId: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   sourceType: string;
   sourceUri?: string | null;
   sourceTitle?: string | null;

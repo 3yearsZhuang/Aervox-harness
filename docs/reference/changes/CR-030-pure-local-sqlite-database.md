@@ -5,10 +5,10 @@ scope: change
 owner: maintainers
 doc_status: review-candidate
 decision_status: accepted
-delivery_status: planned
-version: 1.0.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+delivery_status: implemented
+version: 1.1.0
+updated_at: 2026-09-11
+reviewed_at: 2026-09-11
 review_interval_days: 30
 review_triggers:
   - packages/schema/**
@@ -135,12 +135,12 @@ planned
 
 | 阶段 | 交付 | 退出条件 |
 |---|---|---|
-| D0 决策基线 | 本 CR 与 PRD/SRS/架构/安全/隐私/测试同步 | 文档门禁通过，决策为 Accepted、交付为 Planned |
-| D1 迁移器与安全入口 | 预检、备份、范围选择、staging、校验、原子换库；API loopback 守卫 | 故障注入和多范围夹具全部 fail closed，可恢复原库 |
-| D2 Schema 与仓储去租户 | `packages/schema` 删除租户列；`packages/repositories` 删除 TenantContext 和租户条件 | 全仓源码无租户签名；最终 DDL、Repository 和消费者门禁通过 |
-| D3 清理与发布 | 删除兼容读取、旧测试和过渡开关，完成可读导出/回滚演练 | 全量代码/文档门禁、迁移演练和安全评审通过 |
+| D0 决策基线 | 本 CR 与 PRD/SRS/架构/安全/隐私/测试同步 | 文档门禁通过，决策为 Accepted |
+| D1 迁移器与安全入口 | 预检、备份清单、范围选择、staging、校验、原子换库和 API loopback 守卫 | 迁移状态机、范围扫描、备份校验、staging/换库和启动 fail-closed 代码与定向测试已落地 |
+| D2 Schema 与仓储去租户 | `packages/schema`、最终 DDL、Repository 和消费者删除租户列及查询条件 | Schema/DDL/Repository/Worker/API/Host Agent 构建与仓储 203 项测试通过；`LocalContext` 仅作为不参与持久化的兼容调用参数保留 |
+| D3 清理与发布 | 静态审计、旧测试迁移、文档登记和发布前门禁说明 | 数据库边界已清理并完成文档登记；生产停写编排、跨故障点演练、rollback 保留策略和完整 DSH 环境验证仍是发布前门禁 |
 
-不得把 D0 的决策批准登记成 D2/D3 已实现。每一阶段必须在需求追踪基线追加实现位置与机器证据。
+每一阶段必须在需求追踪基线追加实现位置与机器证据；实现状态与发布状态必须分开登记，不得用未完成的发布演练替代实现证据。
 
 ## 6. 验证要求
 
@@ -150,6 +150,13 @@ planned
 - 冲突夹具：重复业务键、孤儿外键和损坏 JSON 必须输出报告并保持原库不变。
 - 网络安全：默认监听为 loopback；open auth + 非 loopback 组合启动失败。
 - 回归：对话、日记、记忆、插件、主动智能、Outbox、删除传播、导出和恢复测试通过。
+
+## 6.1 本次实现证据与剩余门禁
+
+- 已验证：`@aervox/schema`、`@aervox/repositories`、`@aervox/api`、`@aervox/worker` 构建与定向测试；仓储 41 个测试文件共 203 项、API 48 个测试文件共 329 项通过（1 项 DSH 环境探测跳过）、Worker 4 个测试文件共 10 项通过；全仓 `turbo run build` 通过。
+- 已落地：最终 Schema/DDL、FTS5 与内存向量适配器不再包含 `workspace_id`、`subject_user_id`、租户复合索引或租户分区 key；仓储查询和模型映射不再使用租户条件；旧库迁移输入仅在 CR-030 扫描和 staging 复制阶段读取。
+- 兼容边界：`LocalContext` 与 `workspaceId`/`subjectUserId` 仍存在于部分 Port 和调用方签名，但只用于保持调用兼容或迁移范围输入，不构成数据库安全边界，也不写入最终库。
+- 发布前门禁：当前临时工作树缺少 DSH 参考子模块，`host-agent` 的 DSH 探测测试无法执行；跨进程停写协调、生产 FTS 重建与 rollback 保留需要在完整运行编排中复核。上述限制不影响本次 Schema/Repository 去租户化实现，但阻止将 CR 标记为 `released`。
 
 ## 7. 替代关系
 

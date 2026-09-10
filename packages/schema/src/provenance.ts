@@ -10,7 +10,7 @@
  * - 来源删除后保留最少 tombstone（不含已删内容），MemoryEvidence 不得随来源级联删除。
  */
 import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
-import { tenantColumns, timestampColumns } from "./common.js";
+import { timestampColumns } from "./common.js";
 import { memoryRecords } from "./memories.js";
 
 /** 统一来源工件（消息/作答/附件/日记/外部来源的真实外键端点） */
@@ -18,7 +18,6 @@ export const sourceArtifacts = sqliteTable(
   "source_artifacts",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     kind: text("kind").notNull(), // "message" | "question_attempt" | "attachment" | "diary" | "external"
     ownerModule: text("owner_module").notNull(), // 责任模块
     currentRevisionId: text("current_revision_id"), // → source_revisions.id（应用层维护，避免循环外键）
@@ -29,11 +28,7 @@ export const sourceArtifacts = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantKindIdx: index("source_artifacts_tenant_kind_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.kind,
-    ),
+
   }),
 );
 

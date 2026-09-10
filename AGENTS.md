@@ -7,7 +7,7 @@
 
 ## 这是什么仓库
 
-Aervox｜思隅：更好上手的"主动智能" Agent——以桌宠为入口，视觉小说 + 工作台双形态交互，承载陪伴与学习双重任务。TypeScript 全栈 monorepo（Vue 全栈单栈，ADR-015）：Fastify API（:3000）+ Worker（Outbox / 复习 / 日记 / 删除）+ 桌面端 / Web + SQLite 永久本地单用户真源（CR-030；去租户化 D1～D3 尚待实现）。
+Aervox｜思隅：更好上手的"主动智能" Agent——以桌宠为入口，视觉小说 + 工作台双形态交互，承载陪伴与学习双重任务。TypeScript 全栈 monorepo（Vue 全栈单栈，ADR-015）：Fastify API（:3000）+ Worker（Outbox / 复习 / 日记 / 删除）+ 桌面端 / Web + SQLite 永久本地单用户真源（CR-030；去租户化 D1～D3 已实现，发布前仍需完整迁移演练）。
 
 ## 必读顺序（按需取读，不必通读）
 

@@ -111,7 +111,7 @@ describe("Worker 日记定时生成", () => {
     const [sched] = await db
       .select()
       .from(diarySchedules)
-      .where(eq(diarySchedules.workspaceId, tenant.workspaceId));
+      .limit(1);
     expect(sched).toBeDefined();
     await db
       .update(diarySchedules)

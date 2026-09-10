@@ -38,7 +38,7 @@ export async function runCompactionMarkerCycle(ctx: CompactionMarkerContext): Pr
   for (const event of events) {
     if (event.eventType !== COMPACTION_EVENT_TYPE) continue;
 
-    const tenant = { workspaceId: event.workspaceId, subjectUserId: event.subjectUserId };
+    const tenant = { workspaceId: "local", subjectUserId: "local" };
     const payload = (event.payload ?? {}) as {
       memoryId?: string;
       snapshotId?: string;

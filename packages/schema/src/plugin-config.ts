@@ -8,14 +8,13 @@
  */
 import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
-import { tenantColumns, timestampColumns } from "./common.js";
+import { timestampColumns } from "./common.js";
 
 /** 插件配置快照（租户级；secret 只记录已配置状态，不存明文） */
 export const pluginConfigs = sqliteTable(
   "plugin_configs",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     pluginId: text("plugin_id").notNull(),
     /** 非敏感配置值（JSON 对象） */
     valuesJson: text("values_json", { mode: "json" }).notNull(),
@@ -30,11 +29,6 @@ export const pluginConfigs = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantPluginIdx: uniqueIndex("plugin_configs_tenant_plugin_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.pluginId,
-    ),
   }),
 );
 
@@ -43,7 +37,6 @@ export const pluginConfigSecrets = sqliteTable(
   "plugin_config_secrets",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     pluginId: text("plugin_id").notNull(),
     fieldKey: text("field_key").notNull(),
     /** 加密后的值/引用（本地实现直接存值，接口永不回显） */
@@ -52,12 +45,7 @@ export const pluginConfigSecrets = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantPluginFieldIdx: uniqueIndex("plugin_config_secrets_tenant_plugin_field_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.pluginId,
-      table.fieldKey,
-    ),
+    pluginFieldUniqueIdx: uniqueIndex("plugin_config_secrets_plugin_field_unique_idx").on(table.pluginId, table.fieldKey),
   }),
 );
 

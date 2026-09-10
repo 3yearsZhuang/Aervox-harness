@@ -4,7 +4,7 @@
  * 覆盖：
  * - 生成核心：JSON 提取 / 结构校验 / hydrate / 带 gaps 定向重试 / 模板降级
  * - 路由：generate → list → get → patch 任务勾选（里程碑推进）→ archive
- * - 租户隔离与入参校验
+ * - CR-030 本地单用户上下文共享与入参校验
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
@@ -318,7 +318,7 @@ describe("学习规划路由（/v1/learning-plans）", () => {
     expect(withArchived.json().items).toHaveLength(1);
   });
 
-  it("租户隔离：其他工作区不可访问规划的详情、任务与归档", async () => {
+  it("不同兼容上下文共享本地规划的详情、任务与归档", async () => {
     const created = await app.inject({
       method: "POST",
       url: "/v1/learning-plans/generate",
@@ -333,7 +333,7 @@ describe("学习规划路由（/v1/learning-plans）", () => {
       url: `/v1/learning-plans/${plan.id}`,
       headers: otherHeaders,
     });
-    expect(otherGet.statusCode).toBe(404);
+    expect(otherGet.statusCode).toBe(200);
 
     const otherPatch = await app.inject({
       method: "PATCH",
@@ -341,17 +341,16 @@ describe("学习规划路由（/v1/learning-plans）", () => {
       headers: otherHeaders,
       payload: { status: "done" },
     });
-    expect(otherPatch.statusCode).toBe(404);
+    expect(otherPatch.statusCode).toBe(200);
 
     const otherArchive = await app.inject({
       method: "POST",
       url: `/v1/learning-plans/${plan.id}/archive`,
       headers: otherHeaders,
     });
-    expect(otherArchive.statusCode).toBe(404);
+    expect(otherArchive.statusCode).toBe(200);
 
-    // 其他租户列表为空
-    const otherList = await app.inject({ method: "GET", url: "/v1/learning-plans", headers: otherHeaders });
-    expect(otherList.json().items).toHaveLength(0);
+    const otherList = await app.inject({ method: "GET", url: "/v1/learning-plans?includeArchived=true", headers: otherHeaders });
+    expect(otherList.json().items).toHaveLength(1);
   });
 });

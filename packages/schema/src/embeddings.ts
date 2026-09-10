@@ -10,7 +10,7 @@
  * schema/vectors.ts 的字段形态，自研实现）。
  */
 import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
-import { tenantColumns, timestampColumns } from "./common.js";
+import { timestampColumns } from "./common.js";
 import { memoryRecords } from "./memories.js";
 
 /** 记忆向量存储表（T-05） */
@@ -18,7 +18,6 @@ export const memoryEmbeddings = sqliteTable(
   "memory_embeddings",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     memoryId: text("memory_id")
       .notNull()
       .references(() => memoryRecords.id, { onDelete: "cascade" }),
@@ -35,10 +34,7 @@ export const memoryEmbeddings = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("memory_embeddings_tenant_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-    ),
+
     memoryIdx: index("memory_embeddings_memory_idx").on(table.memoryId),
     modelIdx: index("memory_embeddings_model_idx").on(table.modelId),
   }),

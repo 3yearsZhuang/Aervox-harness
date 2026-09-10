@@ -14,8 +14,8 @@ export interface ISafetyRepository {
 
 export interface ConsentGrantModel {
   id: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   actorId: string;
   purpose: string;
   scope: string;
@@ -27,8 +27,8 @@ export interface ConsentGrantModel {
 
 export interface DeletionRequestModel {
   id: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   scope: string;
   idempotencyKey: string;
   requestedAt: string;

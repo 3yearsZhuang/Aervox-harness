@@ -8,7 +8,7 @@
  * memory_records.canonical_parent_id 保留为记录层内联（旧适配器兼容），投影层以 memory_nodes 为准。
  */
 import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
-import { tenantColumns, timestampColumns } from "./common.js";
+import { timestampColumns } from "./common.js";
 import { memoryRevisions } from "./provenance.js";
 
 /** 记忆记录表（四段记忆：临时/短期/长期/系统） */
@@ -16,7 +16,6 @@ export const memoryRecords = sqliteTable(
   "memory_records",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     layer: text("layer").notNull(), // "ephemeral" | "short_term" | "long_term" | "system"
     type: text("type").notNull(), // "user_fact" | "user_preference" | "learning_event" | "inference"
     content: text("content").notNull(),
@@ -42,12 +41,7 @@ export const memoryRecords = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantLayerIdx: index("memory_records_tenant_layer_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.layer,
-      table.isDeleted,
-    ),
+
     parentIdx: index("memory_records_parent_idx").on(table.canonicalParentId),
   }),
 );
@@ -57,7 +51,6 @@ export const memoryNodes = sqliteTable(
   "memory_nodes",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     canonicalParentId: text("canonical_parent_id"), // 自引用 → memory_nodes.id（投影树父节点）
     label: text("label").notNull(),
     nodeType: text("node_type").notNull().default("concept"), // "concept" | "topic" | "goal" | "relation"
@@ -67,7 +60,7 @@ export const memoryNodes = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("memory_nodes_tenant_idx").on(table.workspaceId, table.subjectUserId),
+
     parentIdx: index("memory_nodes_parent_idx").on(table.canonicalParentId),
   }),
 );
@@ -77,7 +70,6 @@ export const memoryEdges = sqliteTable(
   "memory_edges",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     fromNodeId: text("from_node_id")
       .notNull()
       .references(() => memoryNodes.id, { onDelete: "cascade" }),
@@ -91,11 +83,7 @@ export const memoryEdges = sqliteTable(
     createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
   },
   (table) => ({
-    tenantFromIdx: index("memory_edges_tenant_from_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.fromNodeId,
-    ),
+
   }),
 );
 
@@ -123,7 +111,6 @@ export const memoryProjectionOverrides = sqliteTable(
   "memory_projection_overrides",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     nodeId: text("node_id")
       .notNull()
       .references(() => memoryNodes.id, { onDelete: "cascade" }),

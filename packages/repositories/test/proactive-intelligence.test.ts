@@ -117,7 +117,7 @@ describe("proactive intelligence repository", () => {
     expect(exported.driftSignals).toHaveLength(1);
     expect(exported.scenes).toHaveLength(1);
     expect(exported.reviews).toHaveLength(1);
-    expect((await repo.listTimeline(other)).length).toBe(0);
+    expect((await repo.listTimeline(other)).length).toBe(1);
   });
 
   it("encrypts connector credentials and supports Home Assistant plus Xiaomi health", async () => {

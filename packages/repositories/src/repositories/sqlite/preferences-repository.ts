@@ -1,14 +1,14 @@
 /**
  * Aervox｜思隅 @aervox/database — 用户偏好 SQLite 仓储实现（CAP-010 人格问卷与基础偏好）
  *
- * - 每租户一行，upsert 语义；
+ * - 本地实例一行，upsert 语义；
  * - update 仅更新传参列，version 自动递增；
  * - reset 恢复中性默认值。
  */
 import { eq, and, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { personaPreferences } from "@aervox/schema";
-import { assertLocalContext, type LocalContext } from "../../local-context.js";
+import type { LocalContext } from "../../local-context.js";
 import type {
   IPersonaPreferencesRepository,
   PersonaPreferencesModel,
@@ -18,14 +18,11 @@ export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRe
   constructor(private readonly db: AervoxDatabase) {}
 
   async get(tenant: LocalContext): Promise<PersonaPreferencesModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(personaPreferences)
       .where(
         and(
-          eq(personaPreferences.workspaceId, tenant.workspaceId),
-          eq(personaPreferences.subjectUserId, tenant.subjectUserId),
         ),
       )
       .limit(1);
@@ -43,15 +40,12 @@ export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRe
       skipped?: boolean;
     },
   ): Promise<PersonaPreferencesModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
 
     const [created] = await this.db
       .insert(personaPreferences)
       .values({
         id: `pref_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         tone: (input.tone ?? "neutral") as "friendly" | "neutral" | "formal",
         proactiveness: (input.proactiveness ?? "medium") as "low" | "medium" | "high",
         addressForm: (input.addressForm ?? "none") as "casual" | "formal" | "none",
@@ -62,7 +56,7 @@ export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRe
         updatedAt: now,
       })
       .onConflictDoUpdate({
-        target: [personaPreferences.workspaceId, personaPreferences.subjectUserId],
+        target: personaPreferences.id,
         set: {
           tone: (input.tone ?? "neutral") as "friendly" | "neutral" | "formal",
           proactiveness: (input.proactiveness ?? "medium") as "low" | "medium" | "high",
@@ -88,7 +82,6 @@ export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRe
       reminderCadence?: string;
     },
   ): Promise<PersonaPreferencesModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
 
     const setValues: Record<string, unknown> = {
@@ -106,8 +99,6 @@ export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRe
       .set(setValues)
       .where(
         and(
-          eq(personaPreferences.workspaceId, tenant.workspaceId),
-          eq(personaPreferences.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -121,7 +112,6 @@ export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRe
   }
 
   async reset(tenant: LocalContext): Promise<PersonaPreferencesModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
 
     const [updated] = await this.db
@@ -137,8 +127,6 @@ export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRe
       })
       .where(
         and(
-          eq(personaPreferences.workspaceId, tenant.workspaceId),
-          eq(personaPreferences.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -154,8 +142,6 @@ export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRe
     const r = row as Record<string, unknown>;
     return {
       id: r.id as string,
-      workspaceId: r.workspaceId as string,
-      subjectUserId: r.subjectUserId as string,
       tone: r.tone as string,
       proactiveness: r.proactiveness as string,
       addressForm: r.addressForm as string,

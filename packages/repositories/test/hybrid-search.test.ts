@@ -129,7 +129,7 @@ describe("T-02 混合检索（FTS + 向量 RRF 融合）", () => {
     expect(results[0]!.source).toBe("hybrid");
   });
 
-  it("租户隔离：其他租户无召回", async () => {
+  it("不同兼容上下文共享本地 FTS 召回", async () => {
     await indexMessageFts(client, tenant, { id: "mango", content: "苹果 派" });
     const hybrid = createHybridSearchStorage({ domain: "message", client, vectorPort });
     const service = new HybridSearchService(hybrid, "message");
@@ -139,7 +139,9 @@ describe("T-02 混合检索（FTS + 向量 RRF 融合）", () => {
       queryVector: V.apple,
       limit: 5,
     });
-    expect(results).toEqual([]);
+    expect(results).toEqual([
+      expect.objectContaining({ id: "mango", source: "fts" }),
+    ]);
   });
 
   it("limit 生效：只返回 topK 上限的条数", async () => {

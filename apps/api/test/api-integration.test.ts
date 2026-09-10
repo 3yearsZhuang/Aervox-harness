@@ -41,7 +41,7 @@ describe("API 集成测试：用户侧域路由", () => {
     await cleanup();
   });
 
-  it("学习目标：创建 + 列表 + 租户隔离", async () => {
+  it("学习目标：创建 + 列表 + 本地上下文共享", async () => {
     const create = await app.inject({
       method: "POST",
       url: "/v1/learning/goals",
@@ -59,7 +59,7 @@ describe("API 集成测试：用户侧域路由", () => {
       url: "/v1/learning/goals",
       headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" },
     });
-    expect(otherList.json().items).toHaveLength(0);
+    expect(otherList.json().items).toHaveLength(1);
   });
 
   it("学习目标：拒绝空主题和非法可用时长", async () => {
@@ -304,7 +304,7 @@ describe("API 集成测试：用户侧域路由", () => {
     expect(knowledge.json()).toMatchObject({ correctCount: 1, wrongCount: 0, correctStreak: 1, mastery: 0.1 });
   });
 
-  it("练习题组：默认返回 3 题，并限制题目数量和租户", async () => {
+  it("练习题组：默认返回 3 题，并限制题目数量", async () => {
     for (const prompt of ["题目一", "题目二", "题目三", "题目四"]) {
       const question = await app.inject({
         method: "POST",
@@ -330,7 +330,7 @@ describe("API 集成测试：用户侧域路由", () => {
       url: "/v1/practice/questions",
       headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" },
     });
-    expect(otherTenant.json().items).toHaveLength(0);
+    expect(otherTenant.json().items).toHaveLength(3);
   });
 
   it("练习会话：启动、逐题作答、提前结束后汇总结果", async () => {
@@ -384,7 +384,8 @@ describe("API 集成测试：用户侧域路由", () => {
       url: `/v1/practice/sessions/${sessionId}/report`,
       headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" },
     });
-    expect(foreignReport.statusCode).toBe(404);
+    expect(foreignReport.statusCode).toBe(200);
+    expect(foreignReport.json().sessionId).toBe(sessionId);
   });
 
   it("复习项：到期列表（先经仓储创建到期项）", async () => {
@@ -492,7 +493,7 @@ describe("API 集成测试：用户侧域路由", () => {
       url: "/v1/review-items/history",
       headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" },
     });
-    expect(otherHistory.json().items).toHaveLength(0);
+    expect(otherHistory.json().items).toHaveLength(2);
     expect((await app.inject({ method: "GET", url: "/v1/review-items/history?limit=0", headers })).statusCode).toBe(400);
     expect((await app.inject({
       method: "POST",
@@ -752,7 +753,7 @@ describe("API 集成测试：用户侧域路由", () => {
     expect(list.json().items).toHaveLength(1);
   });
 
-  it("P1 记忆投影节点：创建 + 列表 + 租户隔离", async () => {
+  it("P1 记忆投影节点：创建 + 列表 + 本地上下文共享", async () => {
     const create = await app.inject({
       method: "POST",
       url: "/v1/memory/nodes",
@@ -770,10 +771,10 @@ describe("API 集成测试：用户侧域路由", () => {
       url: "/v1/memory/nodes",
       headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" },
     });
-    expect(other.json().items).toHaveLength(0);
+    expect(other.json().items).toHaveLength(1);
   });
 
-  it("P1 知识关系：创建 + 按知识点查询 + 租户隔离", async () => {
+  it("P1 知识关系：创建 + 按知识点查询 + 本地上下文共享", async () => {
     // 通过仓储创建知识点，再经 API 建关系
     const { SqliteLearningRepository } = await import("@aervox/repositories");
     const learning = new SqliteLearningRepository(db);
@@ -802,7 +803,7 @@ describe("API 集成测试：用户侧域路由", () => {
       url: "/v1/knowledge-relations?knowledgeId=ki_a",
       headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" },
     });
-    expect(other.json().items).toHaveLength(0);
+    expect(other.json().items).toHaveLength(1);
   });
 
   it("P1 会话地图分支：创建 + 按父会话列出", async () => {

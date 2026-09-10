@@ -22,8 +22,8 @@ export interface IAnalyticsRepository {
 
 export interface AttachmentModel {
   id: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   objectKey: string;
   mediaType: string;
   size: number;
@@ -42,8 +42,8 @@ export interface AttachmentModel {
 
 export interface AttachmentParseResultModel {
   id: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   attachmentId: string;
   parseStatus: string;
   parsedText?: string | null;
@@ -59,8 +59,8 @@ export interface AttachmentParseResultModel {
 
 export interface EmbeddingIndexModel {
   id: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   sourceArtifactId: string;
   sourceRevisionId: string;
   modelId: string;

@@ -21,7 +21,7 @@ export interface IAgentInboxRepository {
   acknowledge(tenant: LocalContext, itemIds: string[]): Promise<void>;
   /** 按 idempotencyKey 查询（API 幂等返回用） */
   getByIdempotencyKey(tenant: LocalContext, idempotencyKey: string): Promise<AgentInboxItemModel | null>;
-  /** 过期回收（跨租户，Worker 轮询）：expiresAt < now 且 status ∈ pending/claimed → expired；返回回收条数 */
+  /** 过期回收（Worker 轮询）：本地 expiresAt < now 且 status ∈ pending/claimed → expired；返回回收条数 */
   expireOverdue(now?: string): Promise<number>;
 }
 
@@ -40,8 +40,8 @@ export interface SubagentRunModel {
   resultText?: string | null;
   error?: string | null;
   finishedAt?: string | null;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   createdAt: string;
   updatedAt: string;
 }

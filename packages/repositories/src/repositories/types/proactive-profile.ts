@@ -26,8 +26,8 @@ export type ProactiveActionState =
 
 export interface ProactiveProfileRevisionModel {
   id: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   profileVersion: string;
   revision: number;
   deviceId: string;
@@ -46,8 +46,8 @@ export interface ProactiveProfileRevisionModel {
 export interface ProactiveSourceGrantModel {
   id: string;
   revisionId: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   sourceKey: string;
   purpose: string;
   scope: string;
@@ -67,8 +67,8 @@ export interface ProactiveSourceGrantModel {
 export interface ProactiveActivationLeaseModel {
   id: string;
   revisionId: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   deviceId: string;
   epoch: string;
   status: ProactiveActivationStatus;
@@ -88,8 +88,8 @@ export interface ProactiveCaptureModel {
   id: string;
   revisionId: string;
   sourceGrantId: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   sourceKey: string;
   contentType: string;
   payloadText?: string | null;
@@ -115,8 +115,8 @@ export interface ProactiveBehaviorObservationModel {
   id: string;
   revisionId: string;
   sourceGrantId: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   sourceKey: string;
   observationType: string;
   subjectKey: string;
@@ -133,8 +133,8 @@ export interface ProactiveBehaviorObservationModel {
 export interface ProactiveProfileClaimModel {
   id: string;
   revisionId: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   claimType: string;
   subjectKey: string;
   content: string;
@@ -157,8 +157,8 @@ export interface ProactiveActionModel {
   id: string;
   revisionId: string;
   activationLeaseId?: string | null;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   actionType: string;
   target: string;
   request: unknown;
@@ -180,8 +180,8 @@ export interface ProactiveActionModel {
 
 export interface ProactiveAuditEventModel {
   id: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   revisionId?: string | null;
   eventType: string;
   actorId: string;
@@ -195,8 +195,8 @@ export interface ProactiveAuditEventModel {
 
 export interface ProactiveConsentModel {
   id: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   actorId: string;
   purpose: string;
   scope: string;
@@ -220,7 +220,6 @@ export interface ProactiveEffectiveStatus {
 export interface ProactiveExportSnapshot {
   exportedAt: string;
   schemaVersion: string;
-  tenant: { workspaceId: string; subjectUserId: string };
   profileRevisions: ProactiveProfileRevisionModel[];
   sourceGrants: ProactiveSourceGrantModel[];
   activationLeases: ProactiveActivationLeaseModel[];

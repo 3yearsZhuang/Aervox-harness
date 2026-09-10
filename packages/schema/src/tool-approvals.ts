@@ -8,7 +8,6 @@
  * - 撤权 = 工具停用后 runtimes 层 enabled 校验（fail-closed），此处不级联外表。
  */
 import { sqliteTable, text, index } from "drizzle-orm/sqlite-core";
-import { tenantColumns } from "./common.js";
 import { turns } from "./conversations.js";
 
 export const toolApprovals = sqliteTable(
@@ -30,11 +29,10 @@ export const toolApprovals = sqliteTable(
     state: text("state").notNull().default("pending"),
     decidedBy: text("decided_by"),
     decidedAt: text("decided_at"),
-    ...tenantColumns,
   },
   (table) => ({
     matchIdx: index("tool_approvals_match_idx").on(table.toolName, table.argumentsHash, table.state),
     turnIdx: index("tool_approvals_turn_idx").on(table.turnId),
-    tenantIdx: index("tool_approvals_tenant_idx").on(table.workspaceId, table.subjectUserId),
+
   }),
 );

@@ -8,8 +8,6 @@ export async function createStudyMaterialsTables(client: Client): Promise<void> 
     await client.execute(`
       CREATE TABLE IF NOT EXISTS study_materials (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         goal_id TEXT,
         type TEXT NOT NULL,
         title TEXT NOT NULL,
@@ -22,17 +20,12 @@ export async function createStudyMaterialsTables(client: Client): Promise<void> 
       );
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS study_materials_tenant_idx ON study_materials(workspace_id, subject_user_id);
-    `);
-  await client.execute(`
       CREATE INDEX IF NOT EXISTS study_materials_goal_idx ON study_materials(goal_id);
     `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS material_versions (
         id TEXT PRIMARY KEY,
         material_id TEXT NOT NULL REFERENCES study_materials(id) ON DELETE CASCADE,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         version INTEGER NOT NULL DEFAULT 1,
         content TEXT NOT NULL,
         format TEXT NOT NULL DEFAULT 'markdown',
@@ -45,14 +38,9 @@ export async function createStudyMaterialsTables(client: Client): Promise<void> 
       CREATE UNIQUE INDEX IF NOT EXISTS material_versions_mat_ver_idx ON material_versions(material_id, version);
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS material_versions_tenant_idx ON material_versions(workspace_id, subject_user_id);
-    `);
-  await client.execute(`
       CREATE TABLE IF NOT EXISTS material_sources (
         id TEXT PRIMARY KEY,
         material_version_id TEXT NOT NULL REFERENCES material_versions(id) ON DELETE CASCADE,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         source_type TEXT NOT NULL,
         source_uri TEXT,
         source_title TEXT,
@@ -65,8 +53,5 @@ export async function createStudyMaterialsTables(client: Client): Promise<void> 
     `);
   await client.execute(`
       CREATE INDEX IF NOT EXISTS material_sources_version_idx ON material_sources(material_version_id);
-    `);
-  await client.execute(`
-      CREATE INDEX IF NOT EXISTS material_sources_tenant_idx ON material_sources(workspace_id, subject_user_id);
     `);
 }

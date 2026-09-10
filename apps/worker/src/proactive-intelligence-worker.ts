@@ -52,8 +52,6 @@ export interface ProactiveIntelligenceCycleResult {
 async function activeProfiles(ctx: ProactiveIntelligenceCycleContext) {
   return ctx.db.select({
     id: proactiveProfileRevisions.id,
-    workspaceId: proactiveProfileRevisions.workspaceId,
-    subjectUserId: proactiveProfileRevisions.subjectUserId,
   }).from(proactiveProfileRevisions).where(and(
     eq(proactiveProfileRevisions.status, "active"),
     eq(proactiveProfileRevisions.desiredState, "enabled"),
@@ -70,7 +68,7 @@ export async function runProactiveIntelligenceCycle(
   };
 
   for (const profile of await activeProfiles(ctx)) {
-    const tenant: LocalContext = {workspaceId: profile.workspaceId, subjectUserId: profile.subjectUserId};
+    const tenant: LocalContext = {workspaceId: "local", subjectUserId: "local"};
     result.tenants += 1;
     const observations = await ctx.profileRepo.listObservations(tenant, {revisionId: profile.id, limit: 500});
     const actions = await ctx.profileRepo.listActions(tenant, {revisionId: profile.id, limit: 500});

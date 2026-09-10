@@ -15,7 +15,7 @@ import {
   personaSwitchLogs,
   personaMemoryScopes,
 } from "@aervox/schema";
-import { assertLocalContext, type LocalContext } from "../../local-context.js";
+import type { LocalContext } from "../../local-context.js";
 import type {
   ActivePersonaSelectionModel,
   IPersonaRepository,
@@ -30,14 +30,11 @@ export class SqlitePersonaRepository implements IPersonaRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async listPersonas(tenant: LocalContext): Promise<PersonaModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(personas)
       .where(
         and(
-          eq(personas.workspaceId, tenant.workspaceId),
-          eq(personas.subjectUserId, tenant.subjectUserId),
           eq(personas.status, "active"),
         ),
       )
@@ -46,29 +43,24 @@ export class SqlitePersonaRepository implements IPersonaRepository {
   }
 
   async getPersona(tenant: LocalContext, personaId: string): Promise<PersonaModel | null> {
-    assertLocalContext(tenant);
     const [row] = await this.db
       .select()
       .from(personas)
       .where(
         and(
           eq(personas.id, personaId),
-          eq(personas.workspaceId, tenant.workspaceId),
-          eq(personas.subjectUserId, tenant.subjectUserId),
         ),
       );
     return (row as PersonaModel) ?? null;
   }
 
   async listPersonaRevisions(tenant: LocalContext, personaId: string): Promise<PersonaRevisionModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(personaRevisions)
       .where(
         and(
           eq(personaRevisions.personaId, personaId),
-          sql`${personaRevisions.personaId} IN (SELECT id FROM personas WHERE workspace_id = ${tenant.workspaceId} AND subject_user_id = ${tenant.subjectUserId})`,
         ),
       )
       .orderBy(desc(personaRevisions.revision));
@@ -80,7 +72,6 @@ export class SqlitePersonaRepository implements IPersonaRepository {
     personaId: string,
     revisionId?: string,
   ): Promise<PersonaRevisionModel | null> {
-    assertLocalContext(tenant);
     const revisions = await this.listPersonaRevisions(tenant, personaId);
     if (revisionId) return revisions.find((r) => r.id === revisionId) ?? null;
     return revisions[0] ?? null;
@@ -113,7 +104,6 @@ export class SqlitePersonaRepository implements IPersonaRepository {
       checksum: string;
     },
   ): Promise<{ persona: PersonaModel; revision: PersonaRevisionModel }> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     return this.db.transaction(async (tx) => {
       const revisionId = `personarev_${randomUUID()}`;
@@ -122,8 +112,6 @@ export class SqlitePersonaRepository implements IPersonaRepository {
         .insert(personas)
         .values({
           id: data.id,
-          workspaceId: tenant.workspaceId,
-          subjectUserId: tenant.subjectUserId,
           name: data.name,
           description: data.description ?? "",
           source: data.source ?? "user_created",
@@ -162,7 +150,6 @@ export class SqlitePersonaRepository implements IPersonaRepository {
       checksum: string;
     },
   ): Promise<{ persona: PersonaModel; revision: PersonaRevisionModel } | null> {
-    assertLocalContext(tenant);
     const existing = await this.getPersona(tenant, data.personaId);
     if (!existing) return null;
     const currentRevision = await this.getPersonaRevision(tenant, data.personaId);
@@ -194,8 +181,6 @@ export class SqlitePersonaRepository implements IPersonaRepository {
         .where(
           and(
             eq(personas.id, data.personaId),
-            eq(personas.workspaceId, tenant.workspaceId),
-            eq(personas.subjectUserId, tenant.subjectUserId),
           ),
         )
         .returning();
@@ -204,7 +189,6 @@ export class SqlitePersonaRepository implements IPersonaRepository {
   }
 
   async deletePersona(tenant: LocalContext, personaId: string): Promise<boolean> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(personas)
@@ -212,8 +196,6 @@ export class SqlitePersonaRepository implements IPersonaRepository {
       .where(
         and(
           eq(personas.id, personaId),
-          eq(personas.workspaceId, tenant.workspaceId),
-          eq(personas.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -223,8 +205,6 @@ export class SqlitePersonaRepository implements IPersonaRepository {
       .delete(personaSelections)
       .where(
         and(
-          eq(personaSelections.workspaceId, tenant.workspaceId),
-          eq(personaSelections.subjectUserId, tenant.subjectUserId),
           eq(personaSelections.personaId, personaId),
         ),
       );
@@ -236,7 +216,6 @@ export class SqlitePersonaRepository implements IPersonaRepository {
     personaId: string,
     revisionId?: string,
   ): Promise<ActivePersonaSelectionModel | null> {
-    assertLocalContext(tenant);
     const persona = await this.getPersona(tenant, personaId);
     if (!persona || persona.status !== "active") return null;
     const revision = await this.getPersonaRevision(tenant, personaId, revisionId ?? persona.currentRevisionId);
@@ -270,8 +249,6 @@ export class SqlitePersonaRepository implements IPersonaRepository {
       .insert(personaSelections)
       .values({
         id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         personaId,
         revisionId: revision.id,
         selectedAt: now,
@@ -291,14 +268,11 @@ export class SqlitePersonaRepository implements IPersonaRepository {
   }
 
   async getActivePersona(tenant: LocalContext): Promise<ActivePersonaSelectionModel | null> {
-    assertLocalContext(tenant);
     const [row] = await this.db
       .select()
       .from(personaSelections)
       .where(
         and(
-          eq(personaSelections.workspaceId, tenant.workspaceId),
-          eq(personaSelections.subjectUserId, tenant.subjectUserId),
         ),
       );
     return (row as ActivePersonaSelectionModel) ?? null;
@@ -308,14 +282,11 @@ export class SqlitePersonaRepository implements IPersonaRepository {
     tenant: LocalContext,
     context: PersonaTurnContextModel,
   ): Promise<PersonaTurnContextModel> {
-    assertLocalContext(tenant);
     const now = context.createdAt ?? new Date().toISOString();
     const [row] = await this.db
       .insert(personaTurnContexts)
       .values({
         id: context.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         turnId: context.turnId,
         personaId: context.personaId,
         revisionId: context.revisionId,
@@ -327,7 +298,7 @@ export class SqlitePersonaRepository implements IPersonaRepository {
         createdAt: now,
       })
       .onConflictDoUpdate({
-        target: [personaTurnContexts.workspaceId, personaTurnContexts.subjectUserId, personaTurnContexts.turnId],
+        target: personaTurnContexts.turnId,
         set: {
           personaId: context.personaId,
           revisionId: context.revisionId,
@@ -343,15 +314,12 @@ export class SqlitePersonaRepository implements IPersonaRepository {
   }
 
   async getTurnContext(tenant: LocalContext, turnId: string): Promise<PersonaTurnContextModel | null> {
-    assertLocalContext(tenant);
     const [row] = await this.db
       .select()
       .from(personaTurnContexts)
       .where(
         and(
           eq(personaTurnContexts.turnId, turnId),
-          eq(personaTurnContexts.workspaceId, tenant.workspaceId),
-          eq(personaTurnContexts.subjectUserId, tenant.subjectUserId),
         ),
       );
     return (row as PersonaTurnContextModel) ?? null;
@@ -365,7 +333,6 @@ export class SqlitePersonaRepository implements IPersonaRepository {
     reviewStatus: "pending_review" | "approved" | "rejected",
     reviewNotes?: string,
   ): Promise<PersonaModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(personas)
@@ -378,8 +345,6 @@ export class SqlitePersonaRepository implements IPersonaRepository {
       .where(
         and(
           eq(personas.id, personaId),
-          eq(personas.workspaceId, tenant.workspaceId),
-          eq(personas.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -391,7 +356,6 @@ export class SqlitePersonaRepository implements IPersonaRepository {
     personaId: string,
     revisionId: string,
   ): Promise<{ persona: PersonaModel; revision: PersonaRevisionModel } | null> {
-    assertLocalContext(tenant);
     const revision = await this.getPersonaRevision(tenant, personaId, revisionId);
     if (!revision) return null;
     const now = new Date().toISOString();
@@ -404,8 +368,6 @@ export class SqlitePersonaRepository implements IPersonaRepository {
       .where(
         and(
           eq(personas.id, personaId),
-          eq(personas.workspaceId, tenant.workspaceId),
-          eq(personas.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -424,14 +386,11 @@ export class SqlitePersonaRepository implements IPersonaRepository {
       regressionNotes?: string | null;
     },
   ): Promise<PersonaSwitchLogModel> {
-    assertLocalContext(tenant);
     const id = `pswitch_${randomUUID()}`;
     const [row] = await this.db
       .insert(personaSwitchLogs)
       .values({
         id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         personaId: data.personaId,
         revisionId: data.revisionId,
         previousPersonaId: data.previousPersonaId ?? null,
@@ -448,10 +407,7 @@ export class SqlitePersonaRepository implements IPersonaRepository {
     tenant: LocalContext,
     personaId?: string,
   ): Promise<PersonaSwitchLogModel[]> {
-    assertLocalContext(tenant);
     const conditions = [
-      eq(personaSwitchLogs.workspaceId, tenant.workspaceId),
-      eq(personaSwitchLogs.subjectUserId, tenant.subjectUserId),
     ];
     if (personaId) {
       conditions.push(eq(personaSwitchLogs.personaId, personaId));
@@ -466,14 +422,11 @@ export class SqlitePersonaRepository implements IPersonaRepository {
   }
 
   async getMemoryScope(tenant: LocalContext, personaId: string): Promise<PersonaMemoryScopeModel | null> {
-    assertLocalContext(tenant);
     const [row] = await this.db
       .select()
       .from(personaMemoryScopes)
       .where(
         and(
-          eq(personaMemoryScopes.workspaceId, tenant.workspaceId),
-          eq(personaMemoryScopes.subjectUserId, tenant.subjectUserId),
           eq(personaMemoryScopes.personaId, personaId),
         ),
       );
@@ -490,7 +443,6 @@ export class SqlitePersonaRepository implements IPersonaRepository {
       confirmedAt?: string | null;
     },
   ): Promise<PersonaMemoryScopeModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const existing = await this.getMemoryScope(tenant, personaId);
     if (existing) {
@@ -512,8 +464,6 @@ export class SqlitePersonaRepository implements IPersonaRepository {
       .insert(personaMemoryScopes)
       .values({
         id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         personaId,
         memoryPolicy: data.memoryPolicy,
         sharedPersonaIds: data.sharedPersonaIds ?? [],
