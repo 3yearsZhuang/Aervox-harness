@@ -1,14 +1,23 @@
+---
+id: AVX-TUT-002
+type: tutorial
+scope: guide
+owner: maintainers
+doc_status: review-candidate
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 0.2.0
+updated_at: 2026-08-31
+reviewed_at: 2026-08-31
+review_interval_days: 90
+---
+
 # 教程：迁移已集成能力并接入 DSH/pi
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-31
 
-> 文档编号：AVX-TUT-002  
-> 类型：Tutorials  
-> 版本：v0.2
-> 更新日期：2026-08-31
-> 状态：Review Candidate  
-> 关联：[能力组合与可选化目录规范](../reference/capability-composition.md)、[参考项目能力迁移与借鉴评估](../explanation/reference-design-transfer.md)、[ADR-009](../reference/adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](../reference/adr/ADR-010-dsh-pi-adapters.md)、[需求追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)
+关联：[能力组合与可选化目录规范](../reference/capability-composition.md)、[参考项目能力迁移与借鉴评估](../explanation/reference-design-transfer.md)、[ADR-009](../reference/adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](../reference/adr/ADR-010-dsh-pi-adapters.md)、[需求追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)
 
 本教程带维护者把当前仓库中的 Aervox 工具、插件和技能能力迁移到可组合宿主，并设计一个受限的 DSH（DeepSeek Harness）与 pi 接入。教程终点是一个可解析、激活、停用和回滚的 Profile。当前仓库尚未实现 `adapters/dsh`、`adapters/pi` 或进程外 Host；相关步骤标为目标/实验，不得当作已完成集成。
 

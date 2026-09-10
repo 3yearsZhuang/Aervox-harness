@@ -1,13 +1,23 @@
+---
+id: AVX-DOC-002
+type: tutorial
+scope: guide
+owner: maintainers
+doc_status: review-candidate
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 1.0.0
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
+review_interval_days: 90
+---
+
 # 从哪开始（新成员 / AI Agent 入口）
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-09-10
 
-> 文档编号：AVX-DOC-002  
-> 版本：v1.0
-> 更新日期：2026-09-10
-> 状态：Review Candidate  
-> 关联：[文档索引](README.md)（AVX-DOC-001）
+关联：[文档索引](README.md)（AVX-DOC-001）
 
 面向新成员或首次接触本仓库的 AI Agent：仓库里有什么、从哪里看、提交前自检什么。规则详情以各专项文档为准。
 

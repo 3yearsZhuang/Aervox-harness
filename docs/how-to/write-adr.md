@@ -1,14 +1,23 @@
+---
+id: AVX-GUIDE-002
+type: how-to
+scope: guide
+owner: maintainers
+doc_status: draft
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 0.2.0
+updated_at: 2026-08-28
+reviewed_at: 2026-08-28
+review_interval_days: 90
+---
+
 # 操作指南：撰写与批准 ADR（How-to）
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-28
 
-> 文档编号：AVX-GUIDE-002  
-> 类型：How-to
-> 版本：v0.2
-> 更新日期：2026-08-28
-> 状态：Draft  
-> 关联：[ADR 索引](../reference/adr/README.md)
+关联：[ADR 索引](../reference/adr/README.md)
 
 本指南回答“何时写 ADR、怎么写、如何推进到 Accepted”。模板与状态规则以[ADR 索引](../reference/adr/README.md)为准。
 

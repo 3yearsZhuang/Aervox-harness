@@ -1,14 +1,23 @@
+---
+id: AVX-WEB-001
+type: explanation
+scope: baseline
+owner: maintainers
+doc_status: review-candidate
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 0.1.0
+updated_at: 2026-08-31
+reviewed_at: 2026-08-31
+review_interval_days: 90
+---
+
 # Web 工作台实现规划（Vue 单栈）
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-31
 
-> 文档编号：AVX-WEB-001  
-> 类型：Explanation  
-> 版本：v0.1（规划候选）  
-> 更新日期：2026-08-31
-> 状态：Review Candidate  
-> 关联：[ADR-015](../reference/adr/ADR-015-vue-full-stack.md)（Web 技术基线）· [ADR-014](../reference/adr/ADR-014-modular-monolith-structure.md)（apps/api 模块组织）· [架构设计](../reference/ARCHITECTURE.md) · [PRD](../reference/PRD.md)
+关联：[ADR-015](../reference/adr/ADR-015-vue-full-stack.md)（Web 技术基线）· [ADR-014](../reference/adr/ADR-014-modular-monolith-structure.md)（apps/api 模块组织）· [架构设计](../reference/ARCHITECTURE.md) · [PRD](../reference/PRD.md)
 
 本文规划 `apps/web` 的实现路径：作为 Vue 全栈单栈的一员，最大化复用 `apps/desktop` 的 renderer 资产，并严格通过 `@aervox/contracts` + `@aervox/api` 消费后端能力。
 

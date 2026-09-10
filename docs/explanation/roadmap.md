@@ -1,14 +1,23 @@
+---
+id: AVX-EXPL-004
+type: explanation
+scope: baseline
+owner: maintainers
+doc_status: review-candidate
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 0.3.0
+updated_at: 2026-08-29
+reviewed_at: 2026-08-29
+review_interval_days: 90
+---
+
 # 能力拆分路线（建议批次）
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-29
 
-> 文档编号：AVX-EXPL-004
-> 类型：Explanation
-> 版本：v0.3
-> 更新日期：2026-08-29
-> 状态：Review Candidate
-> 关联：[文档索引](../README.md)、[SRS §6](../reference/SRS.md#6-p1p2p3-规格化规则)、[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md)、[工程与发布流程 §1](../how-to/engineering-process.md#1-新增与修改需求)
+关联：[文档索引](../README.md)、[SRS §6](../reference/SRS.md#6-p1p2p3-规格化规则)、[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md)、[工程与发布流程 §1](../how-to/engineering-process.md#1-新增与修改需求)
 
 本文从[文档索引 §4](../README.md#4-更新与评审节奏)拆分而来，回答"能力按什么批次进入规格化与开发"。CAP 状态与优先级的唯一事实源是[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md)；本页只给建议批次与拆分节奏，不重复登记。
 

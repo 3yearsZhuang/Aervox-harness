@@ -1,13 +1,23 @@
+---
+id: AVX-DOC-CONF-001
+type: reference
+scope: baseline
+owner: maintainers
+doc_status: review-candidate
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 1.5.0
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
+review_interval_days: 90
+---
+
 # 文档生命周期登记表（核验节奏与陈旧信号）
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-09-10
 
-> 文档编号：AVX-DOC-CONF-001  
-> 版本：v1.5
-> 更新日期：2026-09-10
-> 状态：Review Candidate
-> 关联：[文档索引](README.md)、[文档治理与事实源规范](reference/document-governance.md)
+关联：[文档索引](README.md)、[文档治理与事实源规范](reference/document-governance.md)
 
 本表只跟踪关键文档的最后核验时间、核验节奏与陈旧信号；分类、状态、事实源和复核触发规则以[文档治理与事实源规范](reference/document-governance.md)为准。`最后核验` 默认取文档头的核验日期；兼容期未单列核验日期时取更新日期。文档体系总览与权威顺序见[文档索引](README.md)。
 
@@ -42,7 +52,9 @@
 | `AVX-QA-001` | [测试策略](reference/TEST_STRATEGY.md) | 2026-08-31 | G1/G4 门禁 | AC/TC 状态变化未回填 |
 | `AVX-OPS-001` | [运行、值班与演练手册](reference/operations.md) | 2026-08-31 | 每季度演练 + 每次发布 + 值班变更 | 演练日期超期、告警/拓扑变化或联系人未更新 |
 | `AVX-TRC-001` | [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) | 2026-09-10 | 版本立项 / G1 / G4 / 落地登记 | CAP/AC/TC 状态或追踪关系变化未回填；§4.2 落地登记与实现不符 |
-| `AVX-GUIDE-001~003` | [操作指南](how-to) | 2026-08-29 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
+| `AVX-GUIDE-001` | [工程与发布流程](how-to/engineering-process.md) | 2026-08-29 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
+| `AVX-GUIDE-002` | [撰写与批准 ADR](how-to/write-adr.md) | 2026-08-28 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
+| `AVX-GUIDE-003` | [submodule 初始化与协作规范](how-to/submodule-collaboration.md) | 2026-08-31 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
 | `AVX-CAP-REG-001` | [能力注册表](reference/capability-registry.md) | 2026-08-29 | 每次自选状态 / 模块变更 | 交付载体、启用方式或已注册模块与实现/CR 不一致 |
 | `AVX-CAP-001` | [能力组合与可选化目录规范](reference/capability-composition.md) | 2026-08-29 | G2 评审 + 能力宿主/适配器机制变更 | Manifest、Profile、Provider、Adapter、Kernel 边界与实现或 ADR/CR 不一致 |
 | `ADR-018` | [CAP-033 本地私密存储与主动智能 Host](reference/adr/ADR-018-proactive-local-privacy-host.md) | 2026-08-29 | CAP-033 本地存储、OS Permission Broker、动作授权或后台生命周期变更 | Host 签名/设备绑定、local-only、全动作授权、七天提炼清理或恢复门禁与实现不一致 |
