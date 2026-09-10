@@ -3,7 +3,7 @@
  *
  * 覆盖：独立 Tool/Provider Contribution 接线（buildApp options.workflows 透传）+ 端点：
  * - GET /v1/workflows：返回已注册 Workflow 元数据；未注册返回空数组；
- * - GET /v1/turns/:turnId/subagents：子任务审计（仓储已有运行行），租户隔离；
+ * - GET /v1/turns/:turnId/subagents：子任务审计（仓储已有运行行），本地上下文共享；
  * - 注册 Workflow 后创建 Turn 仍成功（workflow 工具贡献不破坏 Loop）。
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -84,7 +84,7 @@ describe("阶段 5c Subagent/Workflow Contribution API", () => {
     }
   });
 
-  it("GET /v1/turns/:turnId/subagents：返回子任务审计记录且租户隔离", async () => {
+  it("GET /v1/turns/:turnId/subagents：返回本地共享的子任务审计记录", async () => {
     const runRepo = new SqliteSubagentRunRepository(db);
     await runRepo.createRun(
       { workspaceId: "ws_subroute", subjectUserId: "usr_subroute" },
@@ -112,13 +112,14 @@ describe("阶段 5c Subagent/Workflow Contribution API", () => {
     expect(body.runs[0].status).toBe("Completed");
     expect(body.runs[0].resultText).toBe("已总结");
 
-    // 跨租户不可见（空列表而非泄露）
+    // 兼容 Header 不再形成数据库隔离边界
     const other = await app.inject({
       method: "GET",
       url: "/v1/turns/turn_api/subagents",
       headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" },
     });
-    expect(other.json().runs).toEqual([]);
+    expect(other.json().runs).toHaveLength(1);
+    expect(other.json().runs[0].id).toBe("subrun_api");
   });
 
   it("注册 Workflow 后创建 Turn 仍成功（workflow_run 工具贡献不破坏 Loop）", async () => {

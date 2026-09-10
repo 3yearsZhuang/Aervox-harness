@@ -24,7 +24,7 @@ describe("PRD §8 P2/P3：内容/生态扩展域", () => {
     ext = new SqliteExtensionRepository(db);
   });
 
-  it("外部来源：创建 + 查询 + 租户隔离", async () => {
+  it("外部来源：创建 + 查询 + 本地上下文共享", async () => {
     const src = await ext.createExternalSource(tenant, {
       id: "es_1",
       provider: "题库A",
@@ -55,7 +55,7 @@ describe("PRD §8 P2/P3：内容/生态扩展域", () => {
     expect(await ext.hasPluginPermission(tenant, "flashcards", "review:read")).toBe(false);
   });
 
-  it("社区内容 + 机构：创建 + 查询 + 租户隔离", async () => {
+  it("社区内容 + 机构：创建 + 查询 + 本地上下文共享", async () => {
     const content = await ext.createCommunityContent(tenant, {
       id: "cc_1",
       authorId: "usr_p23",

@@ -7,9 +7,9 @@ import type { LocalContext } from "../../local-context.js";
 export interface IUserQuestionRepository {
   /** 幂等写入挂起会话（同 turnId 覆盖）；供提问时调用 */
   upsertPending(tenant: LocalContext, input: PendingUserQuestionUpsertInput): Promise<void>;
-  /** 按 turn 查询挂起会话（租户隔离）；无则 null */
+  /** 按 turn 查询本地挂起会话；无则 null */
   getPending(tenant: LocalContext, turnId: string): Promise<PendingUserQuestionModel | null>;
-  /** 会话完成/超时后清除（租户隔离；仅删除属于本租户的行） */
+  /** 会话完成/超时后按 turnId 清除 */
   deletePending(tenant: LocalContext, turnId: string): Promise<void>;
 }
 

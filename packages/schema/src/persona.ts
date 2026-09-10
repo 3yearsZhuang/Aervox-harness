@@ -49,7 +49,7 @@ export const personaRevisions = sqliteTable(
   }),
 );
 
-/** 当前激活人格（每租户一条条件唯一，通过 upsert 维护） */
+/** 当前激活人格（本地实例一条，通过 upsert 维护） */
 export const personaSelections = sqliteTable(
   "persona_selections",
   {

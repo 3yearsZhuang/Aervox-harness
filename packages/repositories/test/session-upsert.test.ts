@@ -44,7 +44,7 @@ describe("TC-CONV-SESSION-001: getOrCreateSession 修复 Turn 外键依赖", () 
     expect(second.title).toBe("标题A");
   });
 
-  it("租户隔离: 会话按租户可见,他租户不可见", async () => {
+  it("会话在不同兼容上下文中指向同一本地记录", async () => {
     await repo.getOrCreateSession(tenantA, "desktop-demo");
     const bobView = await repo.getSession(tenantB, "desktop-demo");
     expect(bobView).not.toBeNull();

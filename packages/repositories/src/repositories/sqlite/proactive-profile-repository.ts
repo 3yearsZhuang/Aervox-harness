@@ -18,7 +18,7 @@ import {
   proactiveObservations,
   proactiveSourceGrants,
 } from "@aervox/schema";
-import { DomainConflictError, NotFoundInTenantError } from "../../errors.js";
+import { DomainConflictError, RepositoryNotFoundError } from "../../errors.js";
 import type { LocalContext } from "../../local-context.js";
 import type { ProactiveVaultCipher } from "../../proactive-vault-crypto.js";
 import type {
@@ -805,7 +805,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     input: Parameters<IProactiveProfileRepository["createActivationLease"]>[1],
   ): Promise<ProactiveActivationLeaseModel> {
     const revision = await this.getRevision(tenant, input.revisionId);
-    if (!revision) throw new NotFoundInTenantError("proactive profile revision not found");
+    if (!revision) throw new RepositoryNotFoundError("proactive profile revision not found");
     const now = new Date().toISOString();
     const expiresAt = datePlusMs(now, input.ttlMs ?? DEFAULT_LEASE_TTL_MS);
     await this.db
@@ -1049,7 +1049,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
       return toCapture(existingCapture, true, this.cipher);
     }
     const revision = await this.getRevision(tenant, input.revisionId);
-    if (!revision) throw new NotFoundInTenantError("proactive profile revision not found");
+    if (!revision) throw new RepositoryNotFoundError("proactive profile revision not found");
     if (revision.status !== "active" || revision.desiredState !== "enabled") {
       throw new DomainConflictError("proactive profile is not accepting captures");
     }
@@ -1065,7 +1065,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
         ),
       )
       .limit(1);
-    if (!source) throw new NotFoundInTenantError("proactive source grant not found");
+    if (!source) throw new RepositoryNotFoundError("proactive source grant not found");
     if (source.state !== "granted") throw new DomainConflictError("source grant is not active");
     const ingestedAt = asIso(input.ingestedAt);
     const observedAt = asIso(input.observedAt ?? ingestedAt);
@@ -1140,7 +1140,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     input: Parameters<IProactiveProfileRepository["createObservation"]>[1],
   ): Promise<ProactiveBehaviorObservationModel> {
     const revision = await this.getRevision(tenant, input.revisionId);
-    if (!revision) throw new NotFoundInTenantError("proactive profile revision not found");
+    if (!revision) throw new RepositoryNotFoundError("proactive profile revision not found");
     if (revision.status !== "active" || revision.desiredState !== "enabled") {
       throw new DomainConflictError("proactive profile is not accepting observations");
     }
@@ -1155,7 +1155,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
         ),
       )
       .limit(1);
-    if (!source) throw new NotFoundInTenantError("proactive source grant not found");
+    if (!source) throw new RepositoryNotFoundError("proactive source grant not found");
     if (source.state !== "granted") throw new DomainConflictError("source grant is not active");
     const now = new Date().toISOString();
     const observedAt = asIso(input.observedAt);
@@ -1351,7 +1351,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     input: Parameters<IProactiveProfileRepository["createClaim"]>[1],
   ): Promise<ProactiveProfileClaimModel> {
     const revision = await this.getRevision(tenant, input.revisionId);
-    if (!revision) throw new NotFoundInTenantError("proactive profile revision not found");
+    if (!revision) throw new RepositoryNotFoundError("proactive profile revision not found");
     const evidenceCaptureIds = [...new Set(input.evidenceCaptureIds ?? [])];
     if (evidenceCaptureIds.length > 0) {
       const evidenceRows = await this.db
@@ -1463,7 +1463,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   ): Promise<ProactiveActionModel> {
     if (!input.authorizationScope.trim()) throw new DomainConflictError("authorizationScope is required");
     const revision = await this.getRevision(tenant, input.revisionId);
-    if (!revision) throw new NotFoundInTenantError("proactive profile revision not found");
+    if (!revision) throw new RepositoryNotFoundError("proactive profile revision not found");
     const scopes = parseActionScopes(input.authorizationScope);
     if (scopes.length === 0 || scopes.some((scope) => !ACTION_SCOPES.has(scope))) {
       throw new DomainConflictError("authorizationScope contains an unsupported action scope");
@@ -1482,7 +1482,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
       .join("+");
     if (input.activationLeaseId) {
       const lease = await this.getLease(tenant, input.activationLeaseId);
-      if (!lease || lease.revisionId !== revision.id) throw new NotFoundInTenantError("activation lease not found");
+      if (!lease || lease.revisionId !== revision.id) throw new RepositoryNotFoundError("activation lease not found");
     }
     const now = new Date().toISOString();
     const [created] = await this.db

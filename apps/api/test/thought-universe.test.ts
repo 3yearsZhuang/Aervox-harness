@@ -6,7 +6,7 @@
  * - 纠正关系（corrected 停止用于讲解和推荐）
  * - 合并、拆分、删除关系
  * - 知识图谱查询（activeOnly 区分活跃 vs 历史）
- * - 租户隔离
+ * - CR-030 本地单用户上下文共享
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
@@ -279,37 +279,37 @@ describe("思维宇宙集成测试（CAP-015）", () => {
     expect(getRes.statusCode).toBe(404);
   });
 
-  // ============ 租户隔离 ============
+  // ============ 本地上下文兼容 ============
 
-  it("租户隔离：不同工作区无法互相访问关系", async () => {
+  it("不同兼容上下文共享并可操作本地关系", async () => {
     const a = await createKnowledgeItem("隔离A");
     const b = await createKnowledgeItem("隔离B");
     const relId = await createRelation(a, b, "prerequisite");
 
-    // 其他租户无法获取
+    // 兼容 Header 不再形成数据库隔离边界
     const otherGet = await app.inject({
       method: "GET",
       url: `/v1/knowledge-relations/${relId}`,
       headers: otherHeaders,
     });
-    expect(otherGet.statusCode).toBe(404);
+    expect(otherGet.statusCode).toBe(200);
 
-    // 其他租户无法纠正
+    // 同一本地实例可通过另一兼容上下文纠正
     const otherCorrect = await app.inject({
       method: "POST",
       url: `/v1/knowledge-relations/${relId}/correct`,
       headers: otherHeaders,
       payload: { reason: "hijack" },
     });
-    expect(otherCorrect.statusCode).toBe(404);
+    expect(otherCorrect.statusCode).toBe(200);
 
-    // 其他租户无法删除
+    // 删除同样作用于同一本地记录
     const otherDelete = await app.inject({
       method: "DELETE",
       url: `/v1/knowledge-relations/${relId}`,
       headers: otherHeaders,
     });
-    expect(otherDelete.statusCode).toBe(404);
+    expect(otherDelete.statusCode).toBe(200);
   });
 
   // ============ 完整生命周期 ============

@@ -158,7 +158,7 @@ export class SqliteAgentInboxRepository implements IAgentInboxRepository {
   }
 
   /**
-   * ADR-017 兜底回收：跨租户把所有 expiresAt < now 且仍 pending/claimed 的项置为 expired。
+   * ADR-017 兜底回收：把本地所有 expiresAt < now 且仍 pending/claimed 的项置为 expired。
    * - pending 过期：从未被消费，直接到期作废；
    * - claimed 过期：消费中崩溃未 ack 的项不再重放（避免陈旧注入）。
    * 批量上限 200，Worker 轮询可重复调用。

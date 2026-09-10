@@ -6,7 +6,7 @@
  * - claim/ack（pending → claimed → acknowledged）；claimed 未 ack 不被重复 claim（CAS 单赢）；
  * - next-step 需 attemptId 定位；next-turn 忽略 attemptId；
  * - 过期项不 claim；
- * - 租户隔离（不同 workspace/subject 互不可见）。
+ * - CR-030 下兼容上下文共享同一本地 inbox。
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import {
@@ -193,7 +193,7 @@ describe("阶段 5a Agent 收件箱（agent_inbox_items）", () => {
     expect(claimed.map((i) => i.id)).toEqual(["inb_2"]);
   });
 
-  it("租户隔离：tenantB 无法 claim tenantA 的 inbox 项", async () => {
+  it("不同兼容上下文可 claim 同一本地 inbox 项", async () => {
     await repo.enqueue(tenantA, {
       id: "inb_1",
       idempotencyKey: "idem_1",
@@ -271,7 +271,7 @@ describe("阶段 5a Agent 收件箱（agent_inbox_items）", () => {
     expect(claimed.map((i) => i.id)).toEqual(["inb_3"]);
   });
 
-  it("expireOverdue 跨租户：不同租户的过期项一并回收；二次调用不再回收", async () => {
+  it("expireOverdue 回收不同兼容上下文写入的过期项；二次调用不再回收", async () => {
     const past = new Date(Date.now() - 60_000).toISOString();
     await repo.enqueue(tenantA, {
       id: "inb_A",

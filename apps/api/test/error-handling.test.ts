@@ -3,8 +3,8 @@ import type { FastifyInstance } from "fastify";
 import { buildApp } from "../src/app.js";
 import {
   createInMemoryDatabase,
-  NotFoundInTenantError,
-  TenantAccessViolationError,
+  RepositoryNotFoundError,
+  RepositoryAccessViolationError,
 } from "@aervox/repositories";
 import {
   ConflictError,
@@ -29,8 +29,8 @@ describe("统一错误序列化（缺陷6）", () => {
       if (kind === "validation") throw new ValidationError("bad input");
       if (kind === "conflict") throw new ConflictError("already exists");
       if (kind === "forbidden") throw new ForbiddenError("no permission");
-      if (kind === "db-not-found") throw new NotFoundInTenantError("memory not found in tenant");
-      if (kind === "db-forbidden") throw new TenantAccessViolationError("cross-tenant access violation");
+      if (kind === "db-not-found") throw new RepositoryNotFoundError("memory not found");
+      if (kind === "db-forbidden") throw new RepositoryAccessViolationError("local resource access violation");
       reply.code(200).send({ ok: true });
     });
     await app.ready();
@@ -81,23 +81,23 @@ describe("统一错误序列化（缺陷6）", () => {
     });
   });
 
-  it("数据层 NotFoundInTenantError → 404 而非 500（缺陷 B）", async () => {
+  it("数据层 RepositoryNotFoundError → 404 而非 500（缺陷 B）", async () => {
     const res = await app.inject({ method: "GET", url: "/__test/db-not-found" });
     expect(res.statusCode).toBe(404);
     expect(JSON.parse(res.payload)).toEqual({
-      error: "NotFoundInTenantError",
+      error: "RepositoryNotFoundError",
       code: "NOT_FOUND",
-      message: "memory not found in tenant",
+      message: "memory not found",
     });
   });
 
-  it("数据层 TenantAccessViolationError → 403 而非 500（缺陷 B）", async () => {
+  it("数据层 RepositoryAccessViolationError → 403 而非 500（缺陷 B）", async () => {
     const res = await app.inject({ method: "GET", url: "/__test/db-forbidden" });
     expect(res.statusCode).toBe(403);
     expect(JSON.parse(res.payload)).toEqual({
-      error: "TenantAccessViolationError",
+      error: "RepositoryAccessViolationError",
       code: "FORBIDDEN",
-      message: "cross-tenant access violation",
+      message: "local resource access violation",
     });
   });
 

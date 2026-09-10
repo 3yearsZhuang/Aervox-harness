@@ -33,7 +33,7 @@ describe("练习会话报告", () => {
     await cleanup();
   });
 
-  it("按会话汇总已答、未答、正确率和后续动作，并隔离其他租户", async () => {
+  it("按会话汇总已答、未答、正确率和后续动作，并由本地上下文共享", async () => {
     for (const [prompt, answer] of [["1 + 1 = ?", "2"], ["2 + 2 = ?", "4"], ["3 + 3 = ?", "6"]]) {
       expect(
         (await app.inject({ method: "POST", url: "/v1/questions", headers, payload: { prompt, answerSpec: { answer } } })).statusCode,
@@ -77,7 +77,8 @@ describe("练习会话报告", () => {
       url: `/v1/practice/sessions/${sessionId}/report`,
       headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" },
     });
-    expect(otherTenant.statusCode).toBe(404);
+    expect(otherTenant.statusCode).toBe(200);
+    expect(otherTenant.json().sessionId).toBe(sessionId);
   });
 
   it("题目不足时不创建不完整的练习会话", async () => {
@@ -113,7 +114,8 @@ describe("练习会话报告", () => {
       url: "/v1/practice/sessions/active",
       headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" },
     });
-    expect(otherTenant.statusCode).toBe(404);
+    expect(otherTenant.statusCode).toBe(200);
+    expect(otherTenant.json().sessionId).toBe(sessionId);
 
     expect((await app.inject({ method: "POST", url: `/v1/practice/sessions/${sessionId}/complete`, headers })).statusCode).toBe(200);
     expect((await app.inject({ method: "GET", url: "/v1/practice/sessions/active", headers })).statusCode).toBe(404);
@@ -354,7 +356,7 @@ describe("练习会话报告", () => {
     expect(second.json().totalHintsUsed).toBe(first.json().totalHintsUsed);
   });
 
-  it("CR-019：租户隔离：其他租户无法读取会话报告与 guidance", async () => {
+  it("CR-030：不同兼容上下文可读取同一本地会话报告与 guidance", async () => {
     for (const [prompt, answer] of [["q1", "a1"], ["q2", "a2"], ["q3", "a3"]]) {
       await app.inject({ method: "POST", url: "/v1/questions", headers, payload: { prompt, answerSpec: { answer } } });
     }
@@ -366,6 +368,7 @@ describe("练习会话报告", () => {
       url: `/v1/practice/sessions/${sessionId}/report`,
       headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" },
     });
-    expect(otherTenant.statusCode).toBe(404);
+    expect(otherTenant.statusCode).toBe(200);
+    expect(otherTenant.json().sessionId).toBe(sessionId);
   });
 });

@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 挂起提问会话仓储测试（缺陷 C）
  *
- * 覆盖：upsert 幂等覆盖 / getPending 租户隔离 / deletePending 只删本租户行。
+ * 覆盖：upsert 幂等覆盖 / 本地上下文共享 / deletePending 按 turnId 删除。
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import {
@@ -54,23 +54,23 @@ describe("SqliteUserQuestionRepository（缺陷 C）", () => {
     expect(stored!.timeoutMs).toBe(30_000);
   });
 
-  it("getPending 租户隔离：A 写入对 B 不可见", async () => {
+  it("getPending：A 写入对兼容上下文 B 可见", async () => {
     await repo.upsertPending(tenantA, baseInput("turn_iso"));
     expect(await repo.getPending(tenantA, "turn_iso")).not.toBeNull();
     expect(await repo.getPending(tenantB, "turn_iso")).not.toBeNull();
   });
 
-  it("deletePending 租户隔离：B 拿 A 的 turnId 无法删除/看到 A 的行", async () => {
-    // turnId 全局唯一主键（与 turns.id 惯例一致）：A 创建自己的挂起
+  it("deletePending：B 可按 turnId 删除 A 写入的本地记录", async () => {
+    // turnId 是本地实例全局唯一主键（与 turns.id 惯例一致）
     await repo.upsertPending(tenantA, baseInput("turn_del"));
 
-    // B 尝试用 A 的 turnId 删除 → where 含租户条件，不命中 A 的行
+    // 兼容上下文不再形成数据库隔离边界
     await repo.deletePending(tenantB, "turn_del");
     expect(await repo.getPending(tenantA, "turn_del")).toBeNull();
-    // B 查不到也不可删
+    // 删除后任一上下文均查不到
     expect(await repo.getPending(tenantB, "turn_del")).toBeNull();
 
-    // A 自己可正常删除
+    // 重复删除保持幂等
     await repo.deletePending(tenantA, "turn_del");
     expect(await repo.getPending(tenantA, "turn_del")).toBeNull();
   });

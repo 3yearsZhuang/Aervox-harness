@@ -24,7 +24,7 @@ describe("CAP-019/CAP-020：Persona SQLite 持久化", () => {
     personas = new SqlitePersonaRepository(db);
   });
 
-  it("创建人格 + 不可变修订 + 激活（每租户唯一）", async () => {
+  it("创建人格 + 不可变修订 + 激活（本地实例唯一）", async () => {
     const created = await personas.createPersona(tenant, {
       id: "persona_1",
       name: "Tutor",
@@ -38,7 +38,7 @@ describe("CAP-019/CAP-020：Persona SQLite 持久化", () => {
     expect(active?.personaId).toBe("persona_1");
     expect((await personas.getActivePersona(tenant))?.personaId).toBe("persona_1");
 
-    // 其他租户不可见
+    // 另一兼容上下文读取同一本地人格
     expect(await personas.getPersona(otherTenant, "persona_1")).not.toBeNull();
   });
 

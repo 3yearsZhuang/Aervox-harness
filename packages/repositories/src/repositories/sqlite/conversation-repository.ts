@@ -1008,7 +1008,7 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   /**
-   * 3c/4b：恢复候选查询（跨租户，供 worker 观测 + host-agent 续跑执行）。
+   * 3c/4b：本地恢复候选查询（供 worker 观测 + host-agent 续跑执行）。
    *
    * 命中条件：过期 Running Attempt + 存在 executed 工具执行 + 无 done 终态事件
    * （§11.3 首范式「工具结果已权威提交但尚未注入」）。

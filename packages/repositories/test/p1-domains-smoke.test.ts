@@ -33,7 +33,7 @@ describe("PRD §8 P1（R2）：记忆树投影独立化 + 会话地图 + 知识�
     learning = new SqliteLearningRepository(db);
   });
 
-  it("记忆投影节点：可创建层级节点树，且租户隔离", async () => {
+  it("记忆投影节点：可创建层级节点树，且本地上下文共享", async () => {
     const root = await memory.createNode(tenant, { id: "node_root", label: "自然科学" });
     expect(root.nodeType).toBe("concept");
 
@@ -45,7 +45,7 @@ describe("PRD §8 P1（R2）：记忆树投影独立化 + 会话地图 + 知识�
     expect(child.canonicalParentId).toBe("node_root");
     expect((await memory.getNode(tenant, "node_physics"))?.label).toBe("物理学");
 
-    // 跨租户不可见
+    // 兼容上下文不再形成数据库隔离边界
     expect(await memory.getNode(otherTenant, "node_root")).not.toBeNull();
   });
 
@@ -80,7 +80,7 @@ describe("PRD §8 P1（R2）：记忆树投影独立化 + 会话地图 + 知识�
     expect(active?.thresholds).toEqual({ minConfidence: 70 });
   });
 
-  it("会话地图分支：创建并按父会话列出，且租户隔离", async () => {
+  it("会话地图分支：创建并按父会话列出，且本地上下文共享", async () => {
     const parent = await conversation.createSession(tenant, "Parent Session");
     const child = await conversation.createSession(tenant, "Child Session");
     const branch = await conversation.createConversationBranch(tenant, {
@@ -97,7 +97,7 @@ describe("PRD §8 P1（R2）：记忆树投影独立化 + 会话地图 + 知识�
     expect(await conversation.listBranchesByParent(otherTenant, parent.id)).toHaveLength(1);
   });
 
-  it("思维宇宙知识关系：创建并按知识点列出，且租户隔离", async () => {
+  it("思维宇宙知识关系：创建并按知识点列出，且本地上下文共享", async () => {
     const k1 = await learning.createKnowledgeItem(tenant, { id: "ki_a", concept: "导数" });
     const k2 = await learning.createKnowledgeItem(tenant, { id: "ki_b", concept: "极限" });
     const rel = await learning.createKnowledgeRelation(tenant, {

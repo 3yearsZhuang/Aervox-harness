@@ -5,7 +5,7 @@ import type { Client } from "@libsql/client";
 import { addColumnIfMissing } from "./common.js";
 
 export async function createLlmTables(client: Client): Promise<void> {
-  // CR-012 大语言模型与供应商配置（WebUI 设置与运行时模型路由）：每租户多行（多预设，至多一行激活）
+  // CR-012 大语言模型与供应商配置（WebUI 设置与运行时模型路由）：本地实例多行（多预设，至多一行激活）
     await client.execute(`
       CREATE TABLE IF NOT EXISTS llm_configs (
         id TEXT PRIMARY KEY,

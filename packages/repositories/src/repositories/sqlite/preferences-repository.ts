@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 用户偏好 SQLite 仓储实现（CAP-010 人格问卷与基础偏好）
  *
- * - 每租户一行，upsert 语义；
+ * - 本地实例一行，upsert 语义；
  * - update 仅更新传参列，version 自动递增；
  * - reset 恢复中性默认值。
  */

@@ -34,7 +34,7 @@ export interface IMemoryEmbeddingRepository {
     modelId?: string,
   ): Promise<Array<{ memoryId: string; score: number }>>;
   deleteByMemoryId(tenant: LocalContext, memoryId: string): Promise<void>;
-  clearTenant(tenant: LocalContext): Promise<void>;
+  clearAll(tenant: LocalContext): Promise<void>;
 }
 
 export interface DiaryModel {

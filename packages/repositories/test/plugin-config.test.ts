@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 插件 Config / Page 仓储测试（CR-006）
  *
- * 覆盖：租户隔离、revision CAS、reset、secret 状态、Page 元数据幂等、卸载清理。
+ * 覆盖：本地上下文共享、revision CAS、reset、secret 状态、Page 元数据幂等、卸载清理。
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
@@ -41,7 +41,7 @@ describe("插件 Config / Page 仓储", () => {
     await cleanup();
   });
 
-  it("保存/读取配置并按租户隔离", async () => {
+  it("保存/读取配置并由本地上下文共享", async () => {
     const saved = await configRepo.saveConfig(tenantA, {
       pluginId: "demo",
       schemaVersion: 1,

@@ -9,7 +9,7 @@
  * - BR-EXT-001 AC-01：低置信标记，不自动入题
  * - BR-EXT-001 AC-02：幂等重试不重复产生解析结果
  * - BR-EXT-002 AC-01：删除附件失效所有派生物
- * - 租户隔离
+ * - CR-030 本地单用户上下文共享
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
@@ -366,9 +366,9 @@ describe("多模态答疑集成测试（CAP-012）", () => {
     expect(reDelete.statusCode).toBe(404);
   });
 
-  // ============ 租户隔离 ============
+  // ============ 本地上下文兼容 ============
 
-  it("租户隔离：不同工作区/用户无法互相访问附件", async () => {
+  it("不同兼容上下文共享并可操作本地附件", async () => {
     const create = await app.inject({
       method: "POST",
       url: "/v1/attachments",
@@ -382,30 +382,30 @@ describe("多模态答疑集成测试（CAP-012）", () => {
     });
     const attachmentId = create.json().id;
 
-    // 其他租户无法访问
+    // 兼容 Header 不再形成数据库隔离边界
     const otherGet = await app.inject({
       method: "GET",
       url: `/v1/attachments/${attachmentId}`,
       headers: otherHeaders,
     });
-    expect(otherGet.statusCode).toBe(404);
+    expect(otherGet.statusCode).toBe(200);
 
-    // 其他租户无法解析
+    // 同一本地实例可通过另一兼容上下文解析
     const otherParse = await app.inject({
       method: "POST",
       url: `/v1/attachments/${attachmentId}/parse`,
       headers: otherHeaders,
       payload: {},
     });
-    expect(otherParse.statusCode).toBe(404);
+    expect(otherParse.statusCode).toBe(201);
 
-    // 其他租户无法删除
+    // 删除同样作用于同一本地记录
     const otherDelete = await app.inject({
       method: "DELETE",
       url: `/v1/attachments/${attachmentId}`,
       headers: otherHeaders,
     });
-    expect(otherDelete.statusCode).toBe(404);
+    expect(otherDelete.statusCode).toBe(200);
   });
 
   // ============ 解析历史追溯 ============

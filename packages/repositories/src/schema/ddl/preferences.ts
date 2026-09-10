@@ -4,7 +4,7 @@
 import type { Client } from "@libsql/client";
 
 export async function createPreferencesTables(client: Client): Promise<void> {
-  // CAP-010 人格问卷与基础偏好（FR-PER-001/002）：每租户一行
+  // CAP-010 人格问卷与基础偏好（FR-PER-001/002）：本地实例一行
     await client.execute(`
       CREATE TABLE IF NOT EXISTS persona_preferences (
         id TEXT PRIMARY KEY,

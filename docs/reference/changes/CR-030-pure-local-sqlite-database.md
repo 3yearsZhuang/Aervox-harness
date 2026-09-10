@@ -153,8 +153,8 @@ planned
 
 ## 6.1 本次实现证据与剩余门禁
 
-- 已验证：`@aervox/schema`、`@aervox/repositories`、`@aervox/worker` 构建与定向测试；仓储 41 个测试文件共 203 项、Worker 4 个测试文件共 10 项通过；全仓 `turbo run build` 通过。
-- 已落地：最终 Schema/DDL 不再包含 `workspace_id`、`subject_user_id` 或租户复合索引；仓储查询和模型映射不再使用租户条件；旧库迁移输入仅在 CR-030 扫描和 staging 复制阶段读取。
+- 已验证：`@aervox/schema`、`@aervox/repositories`、`@aervox/api`、`@aervox/worker` 构建与定向测试；仓储 41 个测试文件共 203 项、API 48 个测试文件共 329 项通过（1 项 DSH 环境探测跳过）、Worker 4 个测试文件共 10 项通过；全仓 `turbo run build` 通过。
+- 已落地：最终 Schema/DDL、FTS5 与内存向量适配器不再包含 `workspace_id`、`subject_user_id`、租户复合索引或租户分区 key；仓储查询和模型映射不再使用租户条件；旧库迁移输入仅在 CR-030 扫描和 staging 复制阶段读取。
 - 兼容边界：`LocalContext` 与 `workspaceId`/`subjectUserId` 仍存在于部分 Port 和调用方签名，但只用于保持调用兼容或迁移范围输入，不构成数据库安全边界，也不写入最终库。
 - 发布前门禁：当前临时工作树缺少 DSH 参考子模块，`host-agent` 的 DSH 探测测试无法执行；跨进程停写协调、生产 FTS 重建与 rollback 保留需要在完整运行编排中复核。上述限制不影响本次 Schema/Repository 去租户化实现，但阻止将 CR 标记为 `released`。
 

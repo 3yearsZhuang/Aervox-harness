@@ -5,7 +5,7 @@ import type { Client } from "@libsql/client";
 import { addColumnIfMissing } from "./common.js";
 
 export async function createVoiceTables(client: Client): Promise<void> {
-  // CR-011 语音输出配置（系统核心能力 · 本地语音模型配置）：每租户多行（多预设，至多一行激活）
+  // CR-011 语音输出配置（系统核心能力 · 本地语音模型配置）：本地实例多行（多预设，至多一行激活）
     await client.execute(`
       CREATE TABLE IF NOT EXISTS voice_configs (
         id TEXT PRIMARY KEY,
@@ -24,7 +24,7 @@ export async function createVoiceTables(client: Client): Promise<void> {
   await addColumnIfMissing(client, "voice_configs", "name", "name TEXT NOT NULL DEFAULT '默认配置'");
   await addColumnIfMissing(client, "voice_configs", "is_active", "is_active INTEGER NOT NULL DEFAULT 1");
   await client.execute(`DROP INDEX IF EXISTS voice_configs_local_unique_idx;`);
-  // CR-016 离线语音输入 (ASR) 配置持久化：每租户多行（多预设，至多一行激活）
+  // CR-016 离线语音输入 (ASR) 配置持久化：本地实例多行（多预设，至多一行激活）
     await client.execute(`
       CREATE TABLE IF NOT EXISTS voice_input_configs (
         id TEXT PRIMARY KEY,
@@ -46,7 +46,7 @@ export async function createVoiceTables(client: Client): Promise<void> {
   await addColumnIfMissing(client, "voice_input_configs", "name", "name TEXT NOT NULL DEFAULT '默认配置'");
   await addColumnIfMissing(client, "voice_input_configs", "is_active", "is_active INTEGER NOT NULL DEFAULT 1");
   await client.execute(`DROP INDEX IF EXISTS voice_input_configs_local_unique_idx;`);
-  // CR-028 在线语音模型（GPT-SoVITS 远程 API）配置持久化：每租户多行（多预设，至多一行激活）
+  // CR-028 在线语音模型（GPT-SoVITS 远程 API）配置持久化：本地实例多行（多预设，至多一行激活）
     await client.execute(`
       CREATE TABLE IF NOT EXISTS voice_remote_configs (
         id TEXT PRIMARY KEY,

@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 插件 Config / Page SQLite 仓储实现（CAP-020 扩展 · CR-006）
  *
- * - 配置按 (workspaceId, subjectUserId, pluginId) 租户隔离，revision 做乐观 CAS；
+ * - 配置按 pluginId 在本地实例唯一，revision 做乐观 CAS；
  * - secret 值与配置分开存储，接口只暴露配置状态；生产应替换为加密 SecretStore Port；
  * - Page 元数据为系统级（生命周期归插件，启停/卸载联动由 API 层处理）。
  */

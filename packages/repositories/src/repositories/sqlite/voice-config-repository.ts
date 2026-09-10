@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 语音输出配置 SQLite 仓储实现（CR-011 阶段 1 · 本地语音模型配置）
  *
- * - 配置按 (workspaceId, subjectUserId) 租户隔离，每租户多行（多预设），至多一行激活；
+ * - 配置属于本地单用户实例，可保存多个预设，至多一行激活；
  * - 本地 provider 固定 gpt-sovits-local；modelPath 白名单校验由 API 层负责。
  */
 import { and, asc, eq } from "drizzle-orm";

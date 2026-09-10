@@ -15,7 +15,7 @@ import {
   memoryRecords,
 } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
-import { NotFoundInTenantError } from "../../errors.js";
+import { RepositoryNotFoundError } from "../../errors.js";
 import type {
   IProvenanceRepository,
   SourceArtifactModel,
@@ -67,7 +67,7 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
     revisionData: { id: string; checksum: string; content?: string | null },
   ): Promise<SourceRevisionModel> {
     const artifact = await this.getSourceArtifact(tenant, artifactId);
-    if (!artifact) throw new NotFoundInTenantError(`Source artifact ${artifactId} not found in tenant`);
+    if (!artifact) throw new RepositoryNotFoundError(`Source artifact ${artifactId} not found`);
     const [created] = await this.db
       .insert(sourceRevisions)
       .values({
@@ -120,7 +120,7 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
           eq(memoryRecords.id, revisionData.memoryId),
         ),
       );
-    if (!memory) throw new NotFoundInTenantError(`Memory ${revisionData.memoryId} not found in tenant`);
+    if (!memory) throw new RepositoryNotFoundError(`Memory ${revisionData.memoryId} not found`);
     const [created] = await this.db
       .insert(memoryRevisions)
       .values({
@@ -213,7 +213,7 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
           eq(memoryRecords.id, eventData.memoryId),
         ),
       );
-    if (!memory) throw new NotFoundInTenantError(`Memory ${eventData.memoryId} not found in tenant`);
+    if (!memory) throw new RepositoryNotFoundError(`Memory ${eventData.memoryId} not found`);
     const [created] = await this.db
       .insert(memoryEvents)
       .values({

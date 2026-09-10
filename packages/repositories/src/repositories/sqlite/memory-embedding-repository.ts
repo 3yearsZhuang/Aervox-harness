@@ -131,13 +131,9 @@ export class SqliteMemoryEmbeddingRepository implements IMemoryEmbeddingReposito
       );
   }
 
-  async clearTenant(tenant: LocalContext): Promise<void> {
-    await this.db
-      .delete(memoryEmbeddings)
-      .where(
-        and(
-        ),
-      );
+  async clearAll(tenant: LocalContext): Promise<void> {
+    void tenant;
+    await this.db.delete(memoryEmbeddings);
   }
 }
 
@@ -180,7 +176,7 @@ export class SqliteMemoryVectorSearchAdapter {
     await this.repo.deleteByMemoryId(tenant, id);
   }
 
-  async clearTenant(tenant: LocalContext): Promise<void> {
-    await this.repo.clearTenant(tenant);
+  async clearAll(tenant: LocalContext): Promise<void> {
+    await this.repo.clearAll(tenant);
   }
 }

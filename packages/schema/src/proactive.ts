@@ -255,7 +255,7 @@ export const proactiveActions = sqliteTable(
   }),
 );
 
-/** 主动智能模式生命周期/权限变更审计（租户隔离且不写远程 outbox） */
+/** 主动智能模式生命周期/权限变更审计（本地单用户边界且不写远程 outbox） */
 export const proactiveAuditEvents = sqliteTable(
   "proactive_audit_events",
   {

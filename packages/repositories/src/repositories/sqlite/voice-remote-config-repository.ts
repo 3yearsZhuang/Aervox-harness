@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 在线语音配置 SQLite 仓储实现（CR-028 · GPT-SoVITS 远程 API）
  *
- * - 配置按 (workspaceId, subjectUserId) 租户隔离，每租户多行（多预设），至多一行激活；
+ * - 配置属于本地单用户实例，可保存多个预设，至多一行激活；
  * - 在线 provider 固定 gpt-sovits-remote；endpoint 合法性由 API 层校验。
  */
 import { and, asc, eq } from "drizzle-orm";

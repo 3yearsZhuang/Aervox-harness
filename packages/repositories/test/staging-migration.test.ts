@@ -19,8 +19,8 @@ describe("CR-030 staging and atomic swap", () => {
       const staging = await createDatabase({ url: `file:${stagingPath}` });
       await source.client.execute("CREATE TABLE parents (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, subject_user_id TEXT NOT NULL)");
       await source.client.execute("CREATE TABLE children (id TEXT PRIMARY KEY, parent_id TEXT NOT NULL REFERENCES parents(id), workspace_id TEXT NOT NULL, subject_user_id TEXT NOT NULL)");
-      await staging.client.execute("CREATE TABLE parents (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, subject_user_id TEXT NOT NULL)");
-      await staging.client.execute("CREATE TABLE children (id TEXT PRIMARY KEY, parent_id TEXT NOT NULL REFERENCES parents(id), workspace_id TEXT NOT NULL, subject_user_id TEXT NOT NULL)");
+      await staging.client.execute("CREATE TABLE parents (id TEXT PRIMARY KEY)");
+      await staging.client.execute("CREATE TABLE children (id TEXT PRIMARY KEY, parent_id TEXT NOT NULL REFERENCES parents(id))");
       await source.client.execute("INSERT INTO parents VALUES ('p1','w1','u1'),('p2','w2','u2')");
       await source.client.execute("INSERT INTO children VALUES ('c1','p1','w1','u1'),('c2','p2','w2','u2')");
       const result = await buildCr030Staging({
@@ -31,6 +31,10 @@ describe("CR-030 staging and atomic swap", () => {
       expect(result.copiedRowsByTable.parents).toBe(1);
       expect(result.copiedRowsByTable.children).toBe(1);
       await validateCr030Staging(staging.client, { parents: 1, children: 1 });
+      const parentColumns = await staging.client.execute("PRAGMA table_info(parents)");
+      expect(parentColumns.rows.map((row) => row.name)).toEqual(["id"]);
+      const childRows = await staging.client.execute("SELECT id, parent_id FROM children");
+      expect(childRows.rows).toMatchObject([{ id: "c1", parent_id: "p1" }]);
       source.client.close();
       staging.client.close();
     } finally {

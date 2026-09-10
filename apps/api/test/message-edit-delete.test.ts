@@ -8,7 +8,7 @@
  * - FR-CONV-005：软删除 + 影响预览
  * - 恢复已删除消息
  * - 版本历史查询
- * - 租户隔离
+ * - CR-030 本地单用户上下文共享
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
@@ -240,15 +240,15 @@ describe("消息编辑、删除与引用集成测试（CAP-013）", () => {
     expect(versionsRes.json().versions[1].version).toBe(1);
   });
 
-  it("租户隔离：不同租户无法操作对方的消息", async () => {
+  it("不同兼容上下文共享并可操作本地消息", async () => {
     const { message } = await createMessageWithVersion("隔离测试", "ses_iso_1");
 
-    // 租户 B 尝试删除
+    // 兼容 Header 不再形成数据库隔离边界
     const delRes = await app.inject({
       method: "DELETE",
       url: `/v1/messages/${message.id}`,
       headers: otherHeaders,
     });
-    expect(delRes.statusCode).toBe(404);
+    expect(delRes.statusCode).toBe(200);
   });
 });

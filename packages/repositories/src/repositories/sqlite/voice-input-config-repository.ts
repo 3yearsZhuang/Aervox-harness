@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/database — 语音输入配置 SQLite 仓储实现（CR-016）
  *
- * - 配置按 (workspaceId, subjectUserId) 租户隔离，每租户多行（多预设），至多一行激活；
+ * - 配置属于本地单用户实例，可保存多个预设，至多一行激活；
  * - 支持 SenseVoice 本地模型 / OpenAI Whisper 兼容端点配置。
  */
 import { and, asc, eq } from "drizzle-orm";

@@ -262,7 +262,7 @@ describe("学习资料集成测试（CAP-011）", () => {
     expect(edit2.statusCode).toBe(409);
   });
 
-  it("租户隔离", async () => {
+  it("不同兼容上下文共享本地学习资料", async () => {
     const create = await app.inject({
       method: "POST",
       url: "/v1/study-materials",
@@ -276,7 +276,8 @@ describe("学习资料集成测试（CAP-011）", () => {
       url: `/v1/study-materials/${materialId}`,
       headers: otherHeaders,
     });
-    expect(otherRes.statusCode).toBe(404);
+    expect(otherRes.statusCode).toBe(200);
+    expect(otherRes.json().id).toBe(materialId);
   });
 
   it("按目标筛选资料列表", async () => {
