@@ -15,7 +15,7 @@ review_interval_days: 90
 # Aervox｜思隅 Turn 流式协议（SPC）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：codex · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-11
 
 关联：`ADR-002`、`ADR-012`、`CR-019`、`CR-022`、`CR-027`、`CR-030`、`NFR-PERF-001`、`NFR-REL-001`、`NFR-SEC-001`
 

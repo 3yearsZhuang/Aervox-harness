@@ -15,7 +15,7 @@ review_interval_days: 90
 # 能力注册表（交付与自选状态登记）
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：codex · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-11
 
 关联：[能力组合与可选化目录规范](capability-composition.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)、[submodule 协作指南](../how-to/submodule-collaboration.md)、[文档索引](../README.md)
 

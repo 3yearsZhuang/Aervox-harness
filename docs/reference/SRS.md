@@ -15,7 +15,7 @@ review_interval_days: 90
 # Aervox｜思隅 软件需求规格（SRS）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：codex · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-11
 
 产品事实源：[PRD](PRD.md)
 

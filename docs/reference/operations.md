@@ -15,7 +15,7 @@ review_interval_days: 90
 # Aervox｜思隅 运行、值班与演练手册
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：codex · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-11
 
 关联：[架构设计](ARCHITECTURE.md) · [数据与隐私](DATA_PRIVACY.md) · [威胁模型](THREAT_MODEL.md)
 

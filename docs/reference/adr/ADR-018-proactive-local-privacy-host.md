@@ -22,7 +22,7 @@ sources:
 # ADR-018 CAP-033 本地私密存储与主动智能 Host
 
 - 提出人：3yearszhuang · 2026-08-29
-- 修改人：codex · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-11
 
 关联：[CR-023](../changes/CR-023-proactive-local-intelligence-mode.md)、[主动智能设计方案](../../explanation/proactive-intelligence-mode.md)、[数据与隐私](../DATA_PRIVACY.md)、[威胁模型](../THREAT_MODEL.md)、[数据库契约](../DATABASE.md)
 
