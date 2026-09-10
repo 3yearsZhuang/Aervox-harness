@@ -7,8 +7,8 @@ doc_status: review-candidate
 decision_status: accepted
 delivery_status: planned
 version: 0.3.0
-updated_at: 2026-08-29
-reviewed_at: 2026-08-29
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 60
 sources:
   - docs/explanation/proactive-intelligence-mode.md

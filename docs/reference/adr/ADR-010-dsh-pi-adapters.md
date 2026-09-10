@@ -4,17 +4,17 @@ type: reference
 scope: decision
 owner: maintainers
 doc_status: review-candidate
-decision_status: proposed
+decision_status: accepted
 version: 0.1.0
-updated_at: 2026-08-31
-reviewed_at: 2026-08-31
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 ---
 
 # ADR-010 DSH/pi 仅为可选适配器
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-31
+- 修改人：3yearszhuang · 2026-09-10
 
 - 状态：Proposed（P2 前必须 Accepted）
 - 日期：2026-08-23

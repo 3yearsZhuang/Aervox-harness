@@ -1,0 +1,45 @@
+---
+id: AVX-EXPL-004
+type: explanation
+scope: baseline
+owner: maintainers
+doc_status: review-candidate
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 0.3.0
+updated_at: 2026-08-29
+reviewed_at: 2026-08-29
+review_interval_days: 90
+---
+
+# 能力拆分路线（建议批次）
+
+- 提出人：3yearszhuang · 2026-08-26
+- 修改人：3yearszhuang · 2026-08-29
+
+关联：[文档索引](../README.md)、[SRS §6](../reference/SRS.md#6-p1p2p3-规格化规则)、[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md)、[工程与发布流程 §1](../how-to/engineering-process.md#1-新增与修改需求)
+
+本文从[文档索引 §4](../README.md#4-更新与评审节奏)拆分而来，回答"能力按什么批次进入规格化与开发"。CAP 状态与优先级的唯一事实源是[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md)；本页只给建议批次与拆分节奏，不重复登记。
+
+## 1. 拆分原则
+
+CAP 从 `Mapped` 转 `Specified` 应只发生在临近开发批次时；P1/P2/P3 保持 `Mapped` 是正常的，进入对应阶段前再原子化（规则见 [SRS §6](../reference/SRS.md#6-p1p2p3-规格化规则)）。
+
+## 2. 建议批次
+
+| 批次 | 阶段 | 建议顺序 | 说明 |
+|---|---|---|---|
+| 第一批 | R1 MVP（已完成） | CAP-001/002/003/004/005/006/007/008/009 | 已全部 `Specified`，进入 DoR/Ready |
+| 第二批 | R1.5 MVP+（P0） | CAP-010 → CAP-013 → CAP-011 → CAP-012 | 010 依赖少且固定安全边界；013 衔接删除传播；011/012 共享附件/OCR 管线合并拆分 |
+| 第三批 | R2/R3（P1） | CAP-014 → CAP-015 → CAP-016/017 → CAP-019；CAP-018 独立排期 | 按依赖序：014 依赖对话、015 依赖记忆、016 依赖刷题数据、019 依赖 010 |
+| 第四批 | R4（P2） | CAP-020/027 优先（依赖 ADR-009/010/008），其余按 R4 立项 | 插件、本地优先、第三方接入、推荐等 |
+| 第五批 | R5（P3） | CAP-028~035 | 社区/市场/机构、主动智能模式与外部环境信号；CAP-033～035 依赖桌面 Host、工具授权、本地存储和连接网关，进入 R5 前完成生产门禁 |
+
+关键建议：
+
+- 拆分只服务临近开发批次，不为"清空 Mapped"提前拆远期 P2/P3；
+- 高风险/合规项（CAP-010 安全边界、CAP-013 删除传播）优先固定验收；
+- 共享基础设施的 CAP（011/012 附件管线）合并拆分，避免重复设计；
+- CAP-033 作为独立生命周期能力排在第五批后段，依赖 CAP-005/018/020/022/024/026/027/030 及本地权限/存储 ADR；它的全量来源、后台恢复、全动作授权和七天提炼保留必须单独通过 DoR；
+- CAP-034/035 作为 CAP-033 的运行时连接能力排在同批次，HA 需通过私网/白名单/重连门禁，小米健康需通过厂商账号、真实沙箱和 Restricted 数据门禁；
+- 每个 CAP 拆分按[工程与发布流程 §1](../how-to/engineering-process.md#1-新增与修改需求)执行，拆分后更新[追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)核验日期。

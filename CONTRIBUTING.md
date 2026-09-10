@@ -1,7 +1,7 @@
 # 贡献指南 · Contributing to Aervox
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：3yearszhuang · 2026-09-10
 
 > [简体中文](#简体中文) · English
 
