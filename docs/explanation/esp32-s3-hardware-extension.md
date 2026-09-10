@@ -1,15 +1,23 @@
+---
+id: AVX-EXPL-005
+type: explanation
+scope: baseline
+owner: maintainers
+doc_status: review-candidate
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 0.2.1
+updated_at: 2026-08-29
+reviewed_at: 2026-08-29
+review_interval_days: 90
+---
+
 # ESP32-S3-WROOM-2-N32R16V 硬件延伸方案
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-29
 
-> 文档编号：AVX-EXPL-005
-> 类型：Explanation
-> 版本：v0.2.1
-> 更新日期：2026-08-29
-> 状态：Review Candidate
-> 责任角色：技术负责人（待指定）
-> 关联：[PRD](../reference/PRD.md)、[架构设计](../reference/ARCHITECTURE.md)、[数据与隐私规范](../reference/DATA_PRIVACY.md)、[威胁模型](../reference/THREAT_MODEL.md)、[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md)
+关联：[PRD](../reference/PRD.md)、[架构设计](../reference/ARCHITECTURE.md)、[数据与隐私规范](../reference/DATA_PRIVACY.md)、[威胁模型](../reference/THREAT_MODEL.md)、[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md)
 
 本文恢复并完善 ESP32-S3 硬件延伸提案，说明如何把 `ESP32-S3-WROOM-2-N32R16V` 做成 Aervox｜思隅的物理桌宠终端。本文是评审输入，不是已批准的生产规格、设备协议、固件安全标准或新增 CAP。
 

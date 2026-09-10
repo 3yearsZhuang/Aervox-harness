@@ -1,14 +1,23 @@
+---
+id: AVX-EXPL-001
+type: explanation
+scope: baseline
+owner: maintainers
+doc_status: review-candidate
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 0.1.0
+updated_at: 2026-08-25
+reviewed_at: 2026-08-25
+review_interval_days: 90
+---
+
 # 数据流总览：一次对话如何流动
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-26
 
-> 文档编号：AVX-EXPL-001
-> 类型：Explanation
-> 版本：v0.1
-> 更新日期：2026-08-25
-> 状态：Review Candidate
-> 关联：[架构设计](../reference/ARCHITECTURE.md)、[流式协议契约](../reference/STREAMING_PROTOCOL.md)、[数据库契约](../reference/DATABASE.md)
+关联：[架构设计](../reference/ARCHITECTURE.md)、[流式协议契约](../reference/STREAMING_PROTOCOL.md)、[数据库契约](../reference/DATABASE.md)
 
 本文讲解"消息从发出到落库、再到异步产物（提醒/日记/删除）如何流动"，只讲因果与权衡；需要精确字段与状态机时跳到对应契约。
 

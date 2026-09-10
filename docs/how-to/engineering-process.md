@@ -1,14 +1,23 @@
+---
+id: AVX-GUIDE-001
+type: how-to
+scope: guide
+owner: maintainers
+doc_status: draft
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 0.3.0
+updated_at: 2026-08-29
+reviewed_at: 2026-08-29
+review_interval_days: 90
+---
+
 # 操作指南：工程与发布流程（How-to）
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-29
 
-> 文档编号：AVX-GUIDE-001（合并 AVX-GUIDE-001/003/004）  
-> 类型：How-to
-> 版本：v0.3
-> 更新日期：2026-08-29
-> 状态：Draft  
-> 关联：[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md) · [运行、值班与演练手册](../reference/operations.md) · [文档治理与事实源规范](../reference/document-governance.md) · [文档写作规范](../reference/standards/doc-standards.md)
+关联：[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md) · [运行、值班与演练手册](../reference/operations.md) · [文档治理与事实源规范](../reference/document-governance.md) · [文档写作规范](../reference/standards/doc-standards.md)
 
 本指南合并《新增与修改需求》《过发布门禁 G0~G6》《执行季度恢复演练》三份操作指南：§1 回答如何把 CAP 拆成可开发的原子需求并过 DoR；§2 回答每个版本/能力如何按 G0~G6 推进到发布；§3 回答如何按季度执行恢复演练并留证。需求规则与字段以[追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)为准；文档改动的分类、状态和登记按[文档治理规范](../reference/document-governance.md)执行。
 

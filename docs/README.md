@@ -1,12 +1,21 @@
+---
+id: AVX-DOC-001
+type: reference
+scope: baseline
+owner: maintainers
+doc_status: review-candidate
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 1.3.0
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
+review_interval_days: 90
+---
+
 # Aervox｜思隅 产品与工程文档索引
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-09-10
-
-> 文档编号：AVX-DOC-001  
-> 版本：v1.3
-> 更新日期：2026-09-10
-> 状态：Review Candidate
 
 本目录把产品目标、可测试需求、架构决策、数据权利和 AI 质量分开维护，避免单一 PRD 同时承担所有细节。所有上线范围必须能从用户价值追踪到需求、设计、测试和发布证据。
 
