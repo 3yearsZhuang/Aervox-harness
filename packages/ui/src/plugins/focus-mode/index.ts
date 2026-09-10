@@ -99,4 +99,3 @@ export const studyModePluginDefinition: BuiltinUIPlugin = {
   ...focusModePluginDefinition,
   id: 'study-mode',
 };
-
