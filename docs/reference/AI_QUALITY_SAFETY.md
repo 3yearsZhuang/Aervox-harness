@@ -1,13 +1,23 @@
+---
+id: AVX-AIQ-001
+type: reference
+scope: baseline
+owner: maintainers
+doc_status: review-candidate
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 0.3.0
+updated_at: 2026-08-29
+reviewed_at: 2026-08-29
+review_interval_days: 90
+---
+
 # Aervox｜思隅 AI 质量与安全规范
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-29
 
-> 文档编号：AVX-AIQ-001  
-> 类型：Reference  
-> 版本：v0.3（CAP-033 主动智能模式）
-> 更新日期：2026-08-29
-> 关联文档：[PRD](PRD.md) · [架构设计](ARCHITECTURE.md) · [流式协议](STREAMING_PROTOCOL.md) · [数据与隐私](DATA_PRIVACY.md) · [需求追踪](REQUIREMENTS_TRACEABILITY.md) · [CR-023](changes/CR-023-proactive-local-intelligence-mode.md)
+关联文档：[PRD](PRD.md) · [架构设计](ARCHITECTURE.md) · [流式协议](STREAMING_PROTOCOL.md) · [数据与隐私](DATA_PRIVACY.md) · [需求追踪](REQUIREMENTS_TRACEABILITY.md) · [CR-023](changes/CR-023-proactive-local-intelligence-mode.md)
 
 本文规定教学回答、模型编排、四段记忆、AI 每日日记和安全响应的可复现质量门槛。它把“模型看起来不错”转换为版本化评估、人工判定、运行监控、降级和回滚要求。
 

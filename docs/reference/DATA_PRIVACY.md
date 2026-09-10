@@ -1,13 +1,23 @@
+---
+id: AVX-DATA-001
+type: reference
+scope: baseline
+owner: maintainers
+doc_status: review-candidate
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 0.3.0
+updated_at: 2026-08-29
+reviewed_at: 2026-08-29
+review_interval_days: 90
+---
+
 # Aervox｜思隅 数据与隐私规范
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-29
 
-> 文档编号：AVX-DATA-001  
-> 类型：Reference  
-> 版本：v0.3（CAP-033～035 主动智能与外部信号）
-> 更新日期：2026-08-29
-> 关联文档：[PRD](PRD.md) · [架构设计](ARCHITECTURE.md) · [AI 质量与安全](AI_QUALITY_SAFETY.md) · [CR-023](changes/CR-023-proactive-local-intelligence-mode.md)
+关联文档：[PRD](PRD.md) · [架构设计](ARCHITECTURE.md) · [AI 质量与安全](AI_QUALITY_SAFETY.md) · [CR-023](changes/CR-023-proactive-local-intelligence-mode.md)
 
 本文定义数据用途、分类、授权、AI 召回期限、用户可见保留期限、删除传播、导出和审计基线。目标地区和正式保留期限须在上线前经安全/隐私与法务评审批准；下表中的默认值是工程设计基线，不替代地区法律意见。
 
