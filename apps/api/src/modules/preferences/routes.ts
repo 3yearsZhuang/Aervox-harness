@@ -9,7 +9,7 @@ import {
   savePersonaPreferencesSchema,
   updatePersonaPreferencesSchema,
 } from "@aervox/contracts";
-import { resolveTenant } from "../../shared/tenant.js";
+import { resolveLocalContext } from "../../shared/local-context.js";
 
 export function registerPreferencesRoutes(
   app: FastifyInstance,
@@ -17,7 +17,7 @@ export function registerPreferencesRoutes(
 ): void {
   // GET /v1/preferences — 获取当前偏好（FR-PER-001）
   app.get("/v1/preferences", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const prefs = await repo.get(tenant);
     if (!prefs) {
       // BR-PER-001：未配置时返回中性默认值
@@ -36,7 +36,7 @@ export function registerPreferencesRoutes(
 
   // POST /v1/preferences — 首次填写问卷或跳过（FR-PER-001）
   app.post("/v1/preferences", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const parsed = savePersonaPreferencesSchema.safeParse(req.body);
     if (!parsed.success) {
       return reply.status(400).send({ error: "Validation failed", details: parsed.error.issues });
@@ -51,7 +51,7 @@ export function registerPreferencesRoutes(
 
   // PATCH /v1/preferences — 单项或多项修改（FR-PER-002）
   app.patch("/v1/preferences", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const parsed = updatePersonaPreferencesSchema.safeParse(req.body);
     if (!parsed.success) {
       return reply.status(400).send({ error: "Validation failed", details: parsed.error.issues });
@@ -63,7 +63,7 @@ export function registerPreferencesRoutes(
 
   // POST /v1/preferences/reset — 重置为中性默认值（FR-PER-002）
   app.post("/v1/preferences/reset", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const prefs = await repo.reset(tenant);
     return reply.send(prefs);
   });

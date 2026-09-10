@@ -14,7 +14,7 @@ import {
   correctRelationSchema,
   mergeRelationsSchema,
 } from "@aervox/contracts";
-import { resolveTenant } from "../../shared/tenant.js";
+import { resolveLocalContext } from "../../shared/local-context.js";
 
 let seq = 0;
 const nextId = (): string => `kr_${Date.now().toString(36)}_${(++seq).toString(36)}`;
@@ -25,7 +25,7 @@ export function registerKnowledgeRoutes(
 ): void {
   // GET /v1/knowledge-relations — 查询知识关系（含历史）
   app.get("/v1/knowledge-relations", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { knowledgeId, activeOnly } = req.query as {
       knowledgeId?: string;
       activeOnly?: string;
@@ -46,7 +46,7 @@ export function registerKnowledgeRoutes(
 
   // POST /v1/knowledge-relations — 创建知识关系
   app.post("/v1/knowledge-relations", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const parsed = createKnowledgeRelationSchema.safeParse(req.body);
     if (!parsed.success) {
       return reply.status(400).send({ error: "Validation failed", details: parsed.error.issues });
@@ -65,7 +65,7 @@ export function registerKnowledgeRoutes(
 
   // GET /v1/knowledge-relations/:id — 获取关系详情
   app.get("/v1/knowledge-relations/:relationId", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { relationId } = req.params as { relationId: string };
     const relation = await learningRepo.getKnowledgeRelation(tenant, relationId);
     if (!relation) {
@@ -76,7 +76,7 @@ export function registerKnowledgeRoutes(
 
   // POST /v1/knowledge-relations/:id/correct — 纠正关系
   app.post("/v1/knowledge-relations/:relationId/correct", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { relationId } = req.params as { relationId: string };
     const parsed = correctRelationSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -92,7 +92,7 @@ export function registerKnowledgeRoutes(
 
   // POST /v1/knowledge-relations/:id/merge — 合并关系
   app.post("/v1/knowledge-relations/:relationId/merge", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { relationId } = req.params as { relationId: string };
     const parsed = mergeRelationsSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -112,7 +112,7 @@ export function registerKnowledgeRoutes(
 
   // POST /v1/knowledge-relations/:id/split — 拆分关系
   app.post("/v1/knowledge-relations/:relationId/split", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { relationId } = req.params as { relationId: string };
     const parsed = correctRelationSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -128,7 +128,7 @@ export function registerKnowledgeRoutes(
 
   // DELETE /v1/knowledge-relations/:id — 软删除关系
   app.delete("/v1/knowledge-relations/:relationId", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { relationId } = req.params as { relationId: string };
     const deleted = await learningRepo.deleteKnowledgeRelation(tenant, relationId);
     if (!deleted) {

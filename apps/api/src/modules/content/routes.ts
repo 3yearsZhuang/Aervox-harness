@@ -21,7 +21,7 @@ import {
   MAX_ATTACHMENT_SIZE,
   OCR_CONFIDENCE_THRESHOLD,
 } from "@aervox/contracts";
-import { resolveTenant } from "../../shared/tenant.js";
+import { resolveLocalContext } from "../../shared/local-context.js";
 
 let seq = 0;
 const nextId = (prefix: string): string => `${prefix}_${Date.now().toString(36)}_${(++seq).toString(36)}`;
@@ -73,7 +73,7 @@ export function registerContentRoutes(
 
   // POST /v1/attachments — 上传附件（FR-EXT-001 AC-01）
   app.post("/v1/attachments", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const parsed = createAttachmentSchema.safeParse(req.body);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -125,7 +125,7 @@ export function registerContentRoutes(
       "/v1/attachments/binary",
       { bodyLimit: MAX_ATTACHMENT_SIZE },
       async (req, reply) => {
-        const tenant = resolveTenant(req);
+        const tenant = resolveLocalContext(req);
         const query = (req.query ?? {}) as Record<string, string | undefined>;
         const fileName = sanitizeFileName(query.fileName ?? "");
         const mediaType = query.mediaType ?? "";
@@ -179,7 +179,7 @@ export function registerContentRoutes(
 
   // GET /v1/attachments/:id/content — 回读附件二进制（预览/回放）
   app.get("/v1/attachments/:attachmentId/content", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { attachmentId } = req.params as { attachmentId: string };
     const attachment = await contentRepo.getAttachment(tenant, attachmentId);
     if (!attachment) {
@@ -200,7 +200,7 @@ export function registerContentRoutes(
 
   // GET /v1/attachments/:id — 获取附件详情 + 当前解析结果
   app.get("/v1/attachments/:attachmentId", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { attachmentId } = req.params as { attachmentId: string };
     const attachment = await contentRepo.getAttachment(tenant, attachmentId);
     if (!attachment) {
@@ -214,7 +214,7 @@ export function registerContentRoutes(
 
   // POST /v1/attachments/:id/parse — 触发解析（FR-EXT-002 AC-01, BR-EXT-001 AC-02）
   app.post("/v1/attachments/:attachmentId/parse", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { attachmentId } = req.params as { attachmentId: string };
     const parsed = parseAttachmentSchema.safeParse(req.body ?? {});
     if (!parsed.success) {
@@ -265,7 +265,7 @@ export function registerContentRoutes(
 
   // PATCH /v1/attachments/:id/parse/crop — 裁剪解析结果（FR-EXT-002 AC-01）
   app.patch("/v1/attachments/:attachmentId/parse/crop", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { attachmentId } = req.params as { attachmentId: string };
     const parsed = cropParseResultSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -299,7 +299,7 @@ export function registerContentRoutes(
 
   // POST /v1/attachments/:id/parse/convert-text — 转文字（BR-EXT-001 AC-01）
   app.post("/v1/attachments/:attachmentId/parse/convert-text", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { attachmentId } = req.params as { attachmentId: string };
     const parsed = convertToTextSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -332,7 +332,7 @@ export function registerContentRoutes(
 
   // GET /v1/attachments/:id/parse/history — 解析历史
   app.get("/v1/attachments/:attachmentId/parse/history", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { attachmentId } = req.params as { attachmentId: string };
     const attachment = await contentRepo.getAttachment(tenant, attachmentId);
     if (!attachment) {
@@ -346,7 +346,7 @@ export function registerContentRoutes(
 
   // DELETE /v1/attachments/:id — 删除附件及派生物（BR-EXT-002 AC-01）
   app.delete("/v1/attachments/:attachmentId", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { attachmentId } = req.params as { attachmentId: string };
 
     // 失效所有解析结果（OCR/缩略图/向量等派生物）

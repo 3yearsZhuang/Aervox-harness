@@ -3,7 +3,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import type { SqlitePlatformRepository } from "@aervox/repositories";
-import { resolveTenant } from "../../shared/tenant.js";
+import { resolveLocalContext } from "../../shared/local-context.js";
 
 export function registerNotificationRoutes(
   app: FastifyInstance,
@@ -11,6 +11,6 @@ export function registerNotificationRoutes(
 ): void {
   app.get("/v1/notifications", async (req) => {
     const { limit } = req.query as { limit?: string };
-    return { items: await platformRepo.listNotifications(resolveTenant(req), Number(limit ?? 50)) };
+    return { items: await platformRepo.listNotifications(resolveLocalContext(req), Number(limit ?? 50)) };
   });
 }

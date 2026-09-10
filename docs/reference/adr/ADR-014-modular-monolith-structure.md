@@ -5,9 +5,9 @@ scope: decision
 owner: maintainers
 doc_status: approved
 decision_status: accepted
-version: 0.2.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 0.2.1
+updated_at: 2026-09-11
+reviewed_at: 2026-09-11
 review_interval_days: 90
 ---
 
@@ -210,12 +210,12 @@ registerLearningModule(app, db);
 1. 创建 `modules/`、`shared/` 目录；
 2. 逐模块迁移：将 `routes/*.ts` 移到 `modules/*/routes.ts`，改写函数签名为接收单一仓储；
 3. 为每个模块创建 `index.ts`（包含仓储实例化和路由注册）；
-4. 创建 `shared/tenant.ts`（从根目录迁移）、`shared/event-bus.ts`、`shared/errors.ts`；
+4. 创建 `shared/local-context.ts`、`shared/event-bus.ts`、`shared/errors.ts`；
 5. 重构 `app.ts`，替换路由注册为模块注册；
 6. 删除 `container.ts`；
 7. 验证 `pnpm build` + `pnpm typecheck` + `pnpm test` 全部通过。
 
-回滚：Git 历史回溯到变更前的 commit，恢复原 `routes/`、`container.ts`、`tenant.ts` 结构。
+回滚：Git 历史回溯到变更前的 commit，恢复原 `routes/` 与 `container.ts` 结构。
 
 ## Verification evidence
 

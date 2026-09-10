@@ -107,9 +107,9 @@ describe("Agent Loop 阶段 3a：写工具审批通道", () => {
     expect(approvals).toHaveLength(1);
     expect(approvals[0]).toMatchObject({
       state: "granted",
-      requester: tenant.subjectUserId,
+      requester: "local",
     });
-    expect(approvals[0]!.decidedBy).toBe(`permission:full_access:${tenant.subjectUserId}`);
+    expect(approvals[0]!.decidedBy).toBe("permission:full_access:local");
 
     // 完全访问是 Turn 级策略；恢复 ask 后，同参数不得命中自动授权记录。
     const askTurn = await createTurn("ask");

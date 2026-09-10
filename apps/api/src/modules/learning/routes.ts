@@ -6,7 +6,7 @@
 import type { FastifyInstance } from "fastify";
 import { createLearningGoalSchema, updateLearningGoalSchema, updateMistakeRequestSchema } from "@aervox/contracts";
 import type { SqliteLearningRepository } from "@aervox/repositories";
-import { resolveTenant } from "../../shared/tenant.js";
+import { resolveLocalContext } from "../../shared/local-context.js";
 import { createReviewItem, getLocalDayBounds, getPracticeGuidance, getPracticeSessionProgress, normalizeMistakeNote, updateAfterAnswer } from "@aervox/practice-review";
 
 let seq = 0;
@@ -73,7 +73,7 @@ function practiceReport(sessionId: string, attempted: Array<{ judgement: string;
 
 async function practiceSessionResumePayload(
   learningRepo: SqliteLearningRepository,
-  tenant: ReturnType<typeof resolveTenant>,
+  tenant: ReturnType<typeof resolveLocalContext>,
   session: { id: string; questionIds: string[]; startedAt: string },
 ) {
   const items = await Promise.all(session.questionIds.map((questionId) => learningRepo.getQuestion(tenant, questionId)));
@@ -96,7 +96,7 @@ export function registerLearningRoutes(
 ): void {
   // 学习目标
   app.post("/v1/learning/goals", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const parsed = createLearningGoalSchema.safeParse(req.body);
     if (!parsed.success) {
       return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? "invalid request" });
@@ -119,12 +119,12 @@ export function registerLearningRoutes(
 
   app.get("/v1/learning/goals", async (req) => {
     const includeArchived = (req.query as { includeArchived?: string }).includeArchived === "true";
-    return { items: await learningRepo.listLearningGoals(resolveTenant(req), includeArchived) };
+    return { items: await learningRepo.listLearningGoals(resolveLocalContext(req), includeArchived) };
   });
 
   app.get("/v1/learning/goals/:goalId", async (req, reply) => {
     const { goalId } = req.params as { goalId: string };
-    const goal = await learningRepo.getLearningGoal(resolveTenant(req), goalId);
+    const goal = await learningRepo.getLearningGoal(resolveLocalContext(req), goalId);
     if (!goal) return reply.code(404).send({ error: "goal not found" });
     return goal;
   });
@@ -135,7 +135,7 @@ export function registerLearningRoutes(
     if (!parsed.success) {
       return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? "invalid request" });
     }
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const existing = await learningRepo.getLearningGoal(tenant, goalId);
     if (!existing || existing.status === "archived") {
       return reply.code(404).send({ error: "goal not found" });
@@ -145,7 +145,7 @@ export function registerLearningRoutes(
   });
 
   app.delete("/v1/learning/goals/:goalId", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { goalId } = req.params as { goalId: string };
     const existing = await learningRepo.getLearningGoal(tenant, goalId);
     if (!existing || existing.status === "archived") {
@@ -157,7 +157,7 @@ export function registerLearningRoutes(
 
   // 题目
   app.post("/v1/questions", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const body = (req.body ?? {}) as {
       prompt?: string;
       answerSpec?: unknown;
@@ -180,7 +180,7 @@ export function registerLearningRoutes(
 
   app.get("/v1/questions/:questionId", async (req, reply) => {
     const { questionId } = req.params as { questionId: string };
-    const question = await learningRepo.getQuestion(resolveTenant(req), questionId);
+    const question = await learningRepo.getQuestion(resolveLocalContext(req), questionId);
     if (!question) return reply.code(404).send({ error: "question not found" });
     return question;
   });
@@ -191,11 +191,11 @@ export function registerLearningRoutes(
     if (!Number.isInteger(count) || count < 3 || count > 5) {
       return reply.code(400).send({ error: "count must be an integer from 3 to 5" });
     }
-    return { items: await learningRepo.listActiveQuestions(resolveTenant(req), count) };
+    return { items: await learningRepo.listActiveQuestions(resolveLocalContext(req), count) };
   });
 
   app.post("/v1/practice/sessions", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const countValue = (req.body as { count?: unknown } | undefined)?.count ?? 3;
     if (typeof countValue !== "number" || !Number.isInteger(countValue) || countValue < 3 || countValue > 5) {
       return reply.code(400).send({ error: "count must be an integer from 3 to 5" });
@@ -220,7 +220,7 @@ export function registerLearningRoutes(
   });
 
   app.get("/v1/practice/sessions/active", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const session = await learningRepo.getLatestActivePracticeSession(tenant);
     if (!session) return reply.code(404).send({ error: "practice session not found" });
     const payload = await practiceSessionResumePayload(learningRepo, tenant, session);
@@ -230,7 +230,7 @@ export function registerLearningRoutes(
 
   app.get("/v1/practice/sessions/:sessionId/report", async (req, reply) => {
     const { sessionId } = req.params as { sessionId: string };
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const session = await learningRepo.getPracticeSession(tenant, sessionId);
     if (!session) return reply.code(404).send({ error: "practice session not found" });
     const attempts = await learningRepo.listAttemptsBySession(tenant, sessionId);
@@ -239,7 +239,7 @@ export function registerLearningRoutes(
 
   app.post("/v1/practice/sessions/:sessionId/complete", async (req, reply) => {
     const { sessionId } = req.params as { sessionId: string };
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const session = await learningRepo.completePracticeSession(tenant, sessionId);
     if (!session) return reply.code(404).send({ error: "practice session not found" });
     const attempts = await learningRepo.listAttemptsBySession(tenant, sessionId);
@@ -248,7 +248,7 @@ export function registerLearningRoutes(
 
   // 作答（不可变学习事实）
   app.post("/v1/questions/:questionId/attempts", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { questionId } = req.params as { questionId: string };
     const body = (req.body ?? {}) as {
       sessionId?: string;
@@ -359,7 +359,7 @@ export function registerLearningRoutes(
 
   app.get("/v1/questions/:questionId/attempts", async (req) => {
     const { questionId } = req.params as { questionId: string };
-    return { items: await learningRepo.listAttemptsByQuestion(resolveTenant(req), questionId) };
+    return { items: await learningRepo.listAttemptsByQuestion(resolveLocalContext(req), questionId) };
   });
 
   // 错题本（由不可变作答事实派生，不复制原始答案）
@@ -373,7 +373,7 @@ export function registerLearningRoutes(
       return reply.code(400).send({ error: "reasonCode is invalid" });
     }
     let items = await learningRepo.listMistakes(
-      resolveTenant(req),
+      resolveLocalContext(req),
       status as "active" | "mastered" | "dismissed" | "all",
     );
     // 按知识点筛选
@@ -400,7 +400,7 @@ export function registerLearningRoutes(
   });
 
   app.patch("/v1/mistakes/:questionId", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { questionId } = req.params as { questionId: string };
     const parsed = updateMistakeRequestSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? "invalid request" });
@@ -444,7 +444,7 @@ export function registerLearningRoutes(
   });
 
   app.post("/v1/mistakes/repractice", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const requested = (req.body as { questionIds?: unknown } | undefined)?.questionIds;
     if (requested !== undefined && (!Array.isArray(requested) || requested.some((value) => typeof value !== "string"))) {
       return reply.code(400).send({ error: "questionIds must be an array of strings" });
@@ -478,7 +478,7 @@ export function registerLearningRoutes(
   // 知识点
   app.get("/v1/knowledge-items/:knowledgeId", async (req, reply) => {
     const { knowledgeId } = req.params as { knowledgeId: string };
-    const item = await learningRepo.getKnowledgeItem(resolveTenant(req), knowledgeId);
+    const item = await learningRepo.getKnowledgeItem(resolveLocalContext(req), knowledgeId);
     if (!item) return reply.code(404).send({ error: "knowledge item not found" });
     return item;
   });
@@ -487,7 +487,7 @@ export function registerLearningRoutes(
   app.get("/v1/review-items", async (req) => {
     const dueBefore =
       ((req.query as { dueBefore?: string }).dueBefore ?? new Date().toISOString());
-    return { items: await learningRepo.listDueReviewItems(resolveTenant(req), dueBefore) };
+    return { items: await learningRepo.listDueReviewItems(resolveLocalContext(req), dueBefore) };
   });
 
   app.get("/v1/review-items/summary", async (req, reply) => {
@@ -501,7 +501,7 @@ export function registerLearningRoutes(
     if (!validTimeZone(timeZone)) {
       return reply.code(400).send({ error: "timeZone must be a valid IANA time zone" });
     }
-    const items = await learningRepo.listDueReviewItems(resolveTenant(req), dueBefore);
+    const items = await learningRepo.listDueReviewItems(resolveLocalContext(req), dueBefore);
     const { start } = getLocalDayBounds(now, timeZone);
     const overdueCount = items.filter((item) => Date.parse(item.dueAt) < start.getTime()).length;
     return {
@@ -520,11 +520,11 @@ export function registerLearningRoutes(
     if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
       return reply.code(400).send({ error: "limit must be an integer between 1 and 50" });
     }
-    return { items: await learningRepo.listCompletedReviewItems(resolveTenant(req), limit) };
+    return { items: await learningRepo.listCompletedReviewItems(resolveLocalContext(req), limit) };
   });
 
   app.post("/v1/review-items/:reviewId/complete", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { reviewId } = req.params as { reviewId: string };
     const body = (req.body ?? {}) as { isCorrect?: boolean; timeZone?: string };
     if (typeof body.isCorrect !== "boolean") {

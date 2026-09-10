@@ -5,7 +5,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import type { SqliteMemoryRepository } from "@aervox/repositories";
-import { resolveTenant } from "../../shared/tenant.js";
+import { resolveLocalContext } from "../../shared/local-context.js";
 
 let seq = 0;
 const id = (): string => `node_${Date.now().toString(36)}_${(++seq).toString(36)}`;
@@ -15,11 +15,11 @@ export function registerMemoryRoutes(
   memoryRepo: SqliteMemoryRepository,
 ): void {
   app.get("/v1/memory/nodes", async (req) => {
-    return { items: await memoryRepo.listNodesByTenant(resolveTenant(req)) };
+    return { items: await memoryRepo.listNodesByTenant(resolveLocalContext(req)) };
   });
 
   app.post("/v1/memory/nodes", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const body = (req.body ?? {}) as {
       label?: string;
       nodeType?: string;

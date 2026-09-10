@@ -6,7 +6,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import type { SqliteDiaryRepository } from "@aervox/repositories";
-import { resolveTenant } from "../../shared/tenant.js";
+import { resolveLocalContext } from "../../shared/local-context.js";
 import type { DiaryApplicationService } from "./application.js";
 
 let seq = 0;
@@ -23,13 +23,13 @@ export function registerDiaryRoutes(
   app.get("/v1/diaries", async (req, reply) => {
     const { localDate, limit } = req.query as { localDate?: string; limit?: string };
     if (localDate) {
-      const diary = await diaryRepo.getDiaryByDate(resolveTenant(req), localDate);
+      const diary = await diaryRepo.getDiaryByDate(resolveLocalContext(req), localDate);
       if (!diary) return reply.code(404).send({ error: "diary not found" });
       return diary;
     }
     const parsedLimit = limit ? Number.parseInt(limit, 10) : 30;
     const items = await diaryRepo.listDiaries(
-      resolveTenant(req),
+      resolveLocalContext(req),
       Number.isFinite(parsedLimit) ? parsedLimit : 30,
     );
     return { items };
@@ -37,7 +37,7 @@ export function registerDiaryRoutes(
 
   // 每日按需生成/取回：默认只建（当日已有则原样返回）；rewrite=true 时改写
   app.post("/v1/diaries/generate-today", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const body = (req.body ?? {}) as { rewrite?: boolean; focus?: string };
     await service.ensureDefaultSchedule(tenant);
     const result = body.rewrite
@@ -48,7 +48,7 @@ export function registerDiaryRoutes(
 
   // 创建/查询日记计划
   app.post("/v1/diaries/schedules", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const body = (req.body ?? {}) as {
       scheduleEpochId?: string;
       activeFrom?: string;
@@ -78,7 +78,7 @@ export function registerDiaryRoutes(
 
   app.get("/v1/diaries/schedules/:scheduleId", async (req, reply) => {
     const { scheduleId } = req.params as { scheduleId: string };
-    const schedule = await diaryRepo.getDiarySchedule(resolveTenant(req), scheduleId);
+    const schedule = await diaryRepo.getDiarySchedule(resolveLocalContext(req), scheduleId);
     if (!schedule) return reply.code(404).send({ error: "schedule not found" });
     return schedule;
   });

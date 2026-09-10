@@ -11,7 +11,7 @@
 import type { FastifyInstance } from "fastify";
 import type { SqliteLearningRepository } from "@aervox/repositories";
 import { createPracticeReportSchema } from "@aervox/contracts";
-import { resolveTenant } from "../../shared/tenant.js";
+import { resolveLocalContext } from "../../shared/local-context.js";
 
 let seq = 0;
 const nextId = (prefix: string): string =>
@@ -25,7 +25,7 @@ export function registerCap016017Routes(
 
   // POST /v1/practice-reports — 创建练习报告
   app.post("/v1/practice-reports", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const parsed = createPracticeReportSchema.safeParse(req.body);
     if (!parsed.success) {
       return reply.status(400).send({ error: "Validation failed", details: parsed.error.issues });
@@ -48,7 +48,7 @@ export function registerCap016017Routes(
 
   // GET /v1/practice-reports/:id — 获取报告
   app.get("/v1/practice-reports/:reportId", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { reportId } = req.params as { reportId: string };
     const report = await learningRepo.getPracticeReport(tenant, reportId);
     if (!report) {
@@ -59,7 +59,7 @@ export function registerCap016017Routes(
 
   // GET /v1/practice-sessions/:sessionId/reports — 按会话查报告
   app.get("/v1/practice-sessions/:sessionId/reports", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { sessionId } = req.params as { sessionId: string };
     const items = await learningRepo.listPracticeReports(tenant, sessionId);
     return reply.send({ items });
@@ -67,7 +67,7 @@ export function registerCap016017Routes(
 
   // POST /v1/practice-sessions/:sessionId/reset-inference — 重置推断
   app.post("/v1/practice-sessions/:sessionId/reset-inference", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { sessionId } = req.params as { sessionId: string };
     const report = await learningRepo.resetMasteryInference(tenant, sessionId);
     return reply.status(201).send(report);

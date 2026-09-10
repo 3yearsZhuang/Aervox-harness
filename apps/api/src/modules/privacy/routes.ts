@@ -5,7 +5,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import type { SqlitePrivacyRepository } from "@aervox/repositories";
-import { resolveTenant } from "../../shared/tenant.js";
+import { resolveLocalContext } from "../../shared/local-context.js";
 
 let seq = 0;
 const id = (prefix: string): string =>
@@ -16,7 +16,7 @@ export function registerPrivacyRoutes(
   privacyRepo: SqlitePrivacyRepository,
 ): void {
   app.post("/v1/consent", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const body = (req.body ?? {}) as {
       actorId?: string;
       purpose?: string;
@@ -38,7 +38,7 @@ export function registerPrivacyRoutes(
 
   app.post("/v1/consent/:grantId/revoke", async (req, reply) => {
     const { grantId } = req.params as { grantId: string };
-    const grant = await privacyRepo.revokeConsent(resolveTenant(req), grantId);
+    const grant = await privacyRepo.revokeConsent(resolveLocalContext(req), grantId);
     if (!grant) return reply.code(404).send({ error: "consent grant not found" });
     return grant;
   });
@@ -46,12 +46,12 @@ export function registerPrivacyRoutes(
   app.get("/v1/consent", async (req) => {
     const { purpose, scope } = req.query as { purpose?: string; scope?: string };
     if (!purpose || !scope) return { active: false };
-    const active = await privacyRepo.hasActiveConsent(resolveTenant(req), purpose, scope);
+    const active = await privacyRepo.hasActiveConsent(resolveLocalContext(req), purpose, scope);
     return { purpose, scope, active };
   });
 
   app.post("/v1/deletions", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const body = (req.body ?? {}) as {
       scope?: string;
       idempotencyKey?: string;

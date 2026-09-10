@@ -11,7 +11,7 @@
  * - GET      /v1/plugin-pages/bridge.js           Page Bridge SDK。
  */
 import type { FastifyInstance } from "fastify";
-import { resolveTenant } from "../../shared/tenant.js";
+import { resolveLocalContext } from "../../shared/local-context.js";
 import { BRIDGE_SDK } from "./bridge-sdk.js";
 import { PluginConfigError, type PluginConfigService } from "./config-service.js";
 
@@ -45,7 +45,7 @@ export function registerPluginConfigRoutes(app: FastifyInstance, service: Plugin
   // ── 配置 ──────────────────────────────────────────
   app.get("/v1/plugins/:pluginId/config", async (req, reply) => {
     const { pluginId } = req.params as { pluginId: string };
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     try {
       return await service.getConfig(tenant, pluginId);
     } catch (error) {
@@ -55,7 +55,7 @@ export function registerPluginConfigRoutes(app: FastifyInstance, service: Plugin
 
   app.put("/v1/plugins/:pluginId/config", async (req, reply) => {
     const { pluginId } = req.params as { pluginId: string };
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const body = (req.body ?? {}) as {
       revision?: number;
       values?: Record<string, unknown>;
@@ -77,7 +77,7 @@ export function registerPluginConfigRoutes(app: FastifyInstance, service: Plugin
 
   app.post("/v1/plugins/:pluginId/config/reset", async (req, reply) => {
     const { pluginId } = req.params as { pluginId: string };
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     try {
       return await service.resetConfig(tenant, pluginId);
     } catch (error) {

@@ -21,7 +21,7 @@ import type {
 } from "@aervox/repositories";
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
-import { resolveTenant } from "../../shared/tenant.js";
+import { resolveLocalContext } from "../../shared/local-context.js";
 import { createTenantInboxPort } from "../inbox/port.js";
 import { runLoopTurnOnce } from "./agent-executor.js";
 import { UserQuestionCoordinator } from "./user-question-coordinator.js";
@@ -93,7 +93,7 @@ export function registerConversationRoutes(
       (req.headers["idempotency-key"] as string) ||
       `idem_${Date.now().toString(36)}_${(++seq).toString(36)}`;
 
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
 
     // 确保会话存在（turns.session_id 外键引用 sessions）
     await conversationRepo.getOrCreateSession(tenant, sessionId, "Aervox 会话");
@@ -224,7 +224,7 @@ export function registerConversationRoutes(
   // 事件排空后结束。深度思考等长回合期间客户端始终有数据流入，不再出现整段静默。
   app.get("/v1/turns/:turnId/events", async (req, reply) => {
     const { turnId } = req.params as { turnId: string };
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const origin = (req.headers.origin as string | undefined) ?? "*";
     reply.hijack();
     const raw = reply.raw;
@@ -332,7 +332,7 @@ export function registerConversationRoutes(
   // POST /v1/turns/{turnId}/cancel — 取消 Turn（AVX-HAR-001 §11.1：Attempt CAS 置 CancelRequested，executor 检查点中止）
   app.post("/v1/turns/:turnId/cancel", async (req, reply) => {
     const { turnId } = req.params as { turnId: string };
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const attempts = await conversationRepo.listTurnAttempts(tenant, turnId);
     const running = attempts.find((a) => a.status === "Running");
     if (!running) {
@@ -357,7 +357,7 @@ export function registerConversationRoutes(
   // POST /v1/turns/{turnId}/questions/answers — 提交对向用户询问的回答 (UQ-01)
   app.post("/v1/turns/:turnId/questions/answers", async (req, reply) => {
     const { turnId } = req.params as { turnId: string };
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     if (!deps.userQuestionCoordinator) {
       return reply.code(404).send({ error: "user_questions_disabled" });
     }
@@ -390,7 +390,7 @@ export function registerConversationRoutes(
     if (!deps.userQuestionCoordinator) {
       return reply.code(404).send({ error: "user_questions_disabled" });
     }
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const pending = await deps.userQuestionCoordinator.getPending(tenant, turnId);
     if (!pending) {
       return reply.send({ turnId, pending: false, questions: [] });
@@ -401,7 +401,7 @@ export function registerConversationRoutes(
   // POST /v1/turns/{turnId}/tool-approvals — 写工具授权决定（阶段 3a：grant / deny；3b：privileged 仅管理员可批准）
   app.post("/v1/turns/:turnId/tool-approvals", async (req, reply) => {
     const { turnId } = req.params as { turnId: string };
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const body = (req.body ?? {}) as { approvalId?: string; decision?: string; decidedBy?: string };
     if (!body.approvalId || (body.decision !== "granted" && body.decision !== "denied")) {
       return reply.code(400).send({ error: "approvalId and decision (granted|denied) are required" });
@@ -444,7 +444,7 @@ export function registerConversationRoutes(
   // 阶段 5c：子任务审计（subagent_runs；租户隔离；返回父 Turn 委托的全部子任务运行记录）
   app.get("/v1/turns/:turnId/subagents", async (req, reply) => {
     const { turnId } = req.params as { turnId: string };
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     if (!deps.subagentRunRepo) {
       return reply.code(404).send({ error: "subagent_runs_disabled" });
     }
@@ -464,7 +464,7 @@ export function registerConversationRoutes(
 
   // POST /v1/messages — 创建消息身份（身份与版本分离的写链路）
   app.post("/v1/messages", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const body = (req.body ?? {}) as { sessionId?: string; role?: string; label?: string };
     if (!body.sessionId || !body.role) {
       return reply.code(400).send({ error: "sessionId and role are required" });
@@ -483,7 +483,7 @@ export function registerConversationRoutes(
   // PATCH /v1/messages/:messageId — 编辑消息（FR-CONV-004）
   app.patch("/v1/messages/:messageId", async (req, reply) => {
     const { messageId } = req.params as { messageId: string };
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const parsed = editMessageSchema.safeParse(req.body);
     if (!parsed.success) {
       return reply.code(400).send({ error: "Validation failed", details: parsed.error.issues });
@@ -513,7 +513,7 @@ export function registerConversationRoutes(
   // DELETE /v1/messages/:messageId — 软删除消息（FR-CONV-005）
   app.delete("/v1/messages/:messageId", async (req, reply) => {
     const { messageId } = req.params as { messageId: string };
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
 
     const deleted = await conversationRepo.softDeleteMessage(tenant, messageId);
     if (!deleted) {
@@ -526,7 +526,7 @@ export function registerConversationRoutes(
   // GET /v1/messages/:messageId/delete-impact — 删除影响预览（FR-CONV-005）
   app.get("/v1/messages/:messageId/delete-impact", async (req, reply) => {
     const { messageId } = req.params as { messageId: string };
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
 
     const message = await conversationRepo.getMessage(tenant, messageId);
     if (!message) {
@@ -559,7 +559,7 @@ export function registerConversationRoutes(
   // POST /v1/messages/:messageId/restore — 恢复已删除消息
   app.post("/v1/messages/:messageId/restore", async (req, reply) => {
     const { messageId } = req.params as { messageId: string };
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
 
     const restored = await conversationRepo.restoreMessage(tenant, messageId);
     if (!restored) {
@@ -572,7 +572,7 @@ export function registerConversationRoutes(
   // GET /v1/messages/:messageId/versions — 消息版本历史（FR-CONV-004）
   app.get("/v1/messages/:messageId/versions", async (req, reply) => {
     const { messageId } = req.params as { messageId: string };
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
 
     const versions = await conversationRepo.listMessageVersions(tenant, messageId);
     return reply.send({ messageId, versions });

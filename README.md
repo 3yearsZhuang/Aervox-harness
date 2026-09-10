@@ -114,7 +114,6 @@ AERVOX_API_URL='http://127.0.0.1:3000' AERVOX_SESSION_ID='<现有会话 ID>' pnp
 | <br />       | `AERVOX_LOOP_DRIVER`                   | Turn 执行驱动：`native`（默认）/ `dsh`（整 Turn 走 DSH 进程外 Adapter，准入失败 fail-closed，见 [ADR-010](docs/reference/adr/ADR-010-dsh-pi-adapters.md)） |
 | Web / Mobile | `VITE_API_URL`                         | API 地址（默认 `http://127.0.0.1:3000`）                                                                                             |
 | <br />       | `VITE_SESSION_ID`                      | 会话 ID（默认 `web_default`）                                                                                                        |
-| <br />       | `VITE_WORKSPACE_ID` / `VITE_USER_ID`   | 可选租户头（缺省回退默认租户）                                                                                                                |
 | Desktop      | `AERVOX_API_URL` / `AERVOX_SESSION_ID` | 见上方桌面端小节                                                                                                                       |
 | 数据           | `DATABASE_URL`                         | SQLite 真源路径；API / Worker / 端侧默认共享 `<repo>/data/aervox.db`（详见 [AVX-DB-001 §3](docs/reference/DATABASE.md#3-本地存储拓扑)） |
 

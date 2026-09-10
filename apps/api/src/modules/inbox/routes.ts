@@ -11,7 +11,7 @@
 import type { FastifyInstance } from "fastify";
 import { createInboxItemRequestSchema } from "@aervox/contracts";
 import type { SqliteAgentInboxRepository, SqliteExtensionRepository } from "@aervox/repositories";
-import { resolveTenant } from "../../shared/tenant.js";
+import { resolveLocalContext } from "../../shared/local-context.js";
 
 let seq = 0;
 const nextId = (): string => `ibx_${Date.now().toString(36)}_${(++seq).toString(36)}`;
@@ -27,7 +27,7 @@ export interface InboxRouteDeps {
 export function registerInboxRoutes(app: FastifyInstance, deps: InboxRouteDeps): void {
   app.post("/v1/sessions/:sessionId/inbox", async (req, reply) => {
     const { sessionId } = req.params as { sessionId: string };
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
 
     // 请求体校验（type/payload/幂等键/consumeBoundary 一致性）
     const parsed = createInboxItemRequestSchema.safeParse(req.body);

@@ -9,7 +9,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import type { SqliteConversationRepository } from "@aervox/repositories";
 import { termExploreRequestSchema } from "@aervox/contracts";
-import { resolveTenant } from "../../shared/tenant.js";
+import { resolveLocalContext } from "../../shared/local-context.js";
 
 let seq = 0;
 
@@ -18,7 +18,7 @@ export function registerTermsRoutes(
   conversationRepo: SqliteConversationRepository,
 ): void {
   const handleTermExplore = async (req: FastifyRequest, reply: FastifyReply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const parsed = termExploreRequestSchema.safeParse(req.body);
     if (!parsed.success) {
       return reply.code(400).send({ error: "Invalid explore request", details: parsed.error.issues });

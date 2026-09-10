@@ -42,7 +42,7 @@ review_interval_days: 90
 | `ADR-011` | [日记周期与会话总结调度修订](reference/adr/ADR-011-diary-cycle-schedule-revision.md) | 2026-09-10 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
 | `ADR-012` | [流式协议安全持久化与部分响应恢复](reference/adr/ADR-012-streaming-safety-persistence.md) | 2026-09-10 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
 | `ADR-013` | [恢复控制账本：撤权拦截与确定性恢复](reference/adr/ADR-013-recovery-control-ledger.md) | 2026-09-10 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
-| `ADR-014` | [演进式模块化单体架构与模块目录组织](reference/adr/ADR-014-modular-monolith-structure.md) | 2026-09-10 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
+| `ADR-014` | [演进式模块化单体架构与模块目录组织](reference/adr/ADR-014-modular-monolith-structure.md) | 2026-09-11 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
 | `ADR-015` | [Vue 全栈单栈方案](reference/adr/ADR-015-vue-full-stack.md) | 2026-09-10 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
 | `ADR-016` | [底座边界冻结与依赖规则门禁](reference/adr/ADR-016-base-boundaries.md) | 2026-08-31 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
 | `ADR-017` | [上下文清单、模型运行记录与多步执行持久化](reference/adr/ADR-017-context-manifest-modelrun-step.md) | 2026-09-10 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
@@ -66,7 +66,7 @@ review_interval_days: 90
 | `ADR-019` | [主动智能外部连接本地网关](reference/adr/ADR-019-proactive-integrations-local-gateway.md) | 2026-08-29 | HA/健康连接、凭据隔离、工具白名单或撤销语义变更 | REST/WS、OAuth、实体/service 白名单、健康最小化或连接删除与实现不一致 |
 | `AVX-HAR-001` | [Agent Harness Loop 设计与落地规范](reference/agent-harness-loop.md) | 2026-09-10 | G2 评审 + Agent Loop/Provider/工具/持久化边界变更 | Turn/Attempt/Step、Provider、Tool、Inbox、恢复或 Profile 语义与实现/ADR 不一致 |
 | `AVX-HAR-002` | [Agent Loop 分阶段落地进展与追溯历史](reference/agent-loop-rollout-history.md) | 2026-09-10 | 各阶段代码落位、表结构或测试矩阵变更 | 落地条目、测试覆盖映射或包路径与实现不一致 |
-| `AVX-WEB-001` | [Web 工作台实现规划](explanation/web-implementation.md) | 2026-08-31 | Web 端实现或技术基线变更 | `apps/web` 结构与 ADR-015/规划不一致 |
+| `AVX-WEB-001` | [Web 工作台实现规划](explanation/web-implementation.md) | 2026-09-11 | Web 端实现或技术基线变更 | `apps/web` 结构与 ADR-015/规划不一致 |
 | `CR-002` | [Fairy Agent Electron 桌面端](reference/changes/CR-002-fairy-desktop-module.md) | 2026-09-10 | CAP-018 桌面端实现或安全边界变更 | Electron 端目录、契约边界、测试证据或回滚条件与实现不符 |
 | `CR-003` | [SQLite 当前真源与历史 PG 兼容方案（已替代）](reference/changes/CR-003-sqlite-primary-pg-compat.md) | 2026-09-10 | 数据真源 / 仓储抽象变更 | Superseded 状态或历史范围与 CR-030 冲突 |
 | `CR-004` | [人格插件 SQLite 持久化](reference/changes/CR-004-persona-sqlite-persistence.md) | 2026-09-10 | 数据库 schema / Port / 模块指针变更 | 表、Port 或 CR 状态与实现不一致 |
