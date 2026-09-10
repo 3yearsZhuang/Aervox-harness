@@ -7,6 +7,12 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**", "out/**"]
     },
+    "@aervox/live2d#build": {
+      "cache": false
+    },
+    "@aervox/public#build": {
+      "cache": false
+    },
     "dev": {
       "dependsOn": ["^build"],
       "cache": false,
