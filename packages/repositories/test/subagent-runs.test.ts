@@ -4,8 +4,8 @@
  * 覆盖 AVX-HAR-001 §13 阶段 5c：
  * - createRun 幂等：同 parentAttemptId + parentExecutionId 返回既有行（崩溃/重试不重复落库）；
  * - finalizeRun：仅 Running 可收口终态（status/resultText/finishedAt）；非 Running 返回 null；
- * - listRunsByTurn：父 Turn 子任务审计列表（租户隔离）；
- * - 租户隔离：跨租户不可见（查/列均按 workspace+subject 绑定）。
+ * - listRunsByTurn：父 Turn 子任务审计列表；
+ * - CR-030 下兼容上下文共享同一本地运行记录。
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import {
@@ -91,18 +91,18 @@ describe("阶段 5c Subagent 运行关联（subagent_runs）", () => {
     expect(runs.map((r) => r.id)).toEqual(["subrun_1", "subrun_2"]);
   });
 
-  it("租户隔离：跨租户查询/列表不可见", async () => {
+  it("不同兼容上下文共享查询、列表和终态收口", async () => {
     await repo.createRun(tenantA, baseInput);
-    await expect(repo.getRunByParentExecution(tenantB, "attempt_parent", "attempt_parent:2:3")).resolves.toBeNull();
-    await expect(repo.listRunsByTurn(tenantB, "turn_parent")).resolves.toEqual([]);
-    // 终态收口跨租户不可命中
+    await expect(repo.getRunByParentExecution(tenantB, "attempt_parent", "attempt_parent:2:3")).resolves.not.toBeNull();
+    await expect(repo.listRunsByTurn(tenantB, "turn_parent")).resolves.toHaveLength(1);
+    // 另一兼容上下文可收口同一本地运行记录
     const run = await repo.getRunByParentExecution(tenantA, "attempt_parent", "attempt_parent:2:3");
     await expect(
       repo.finalizeRun(tenantB, run?.id as string, { status: "Failed" }),
-    ).resolves.toBeNull();
-    // 收口后 A 租户可见终态
+    ).resolves.not.toBeNull();
+    // 收口后原上下文可见相同终态
     await repo.finalizeRun(tenantA, run?.id as string, { status: "Completed", resultText: "ok" });
     const after = await repo.listRunsByTurn(tenantA, "turn_parent");
-    expect(after[0]?.status).toBe("Completed");
+    expect(after[0]?.status).toBe("Failed");
   });
 });

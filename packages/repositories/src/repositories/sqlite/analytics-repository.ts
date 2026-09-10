@@ -6,7 +6,7 @@
 import { eq, and, desc } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { analyticsEvents } from "@aervox/schema";
-import { assertLocalContext, type LocalContext } from "../../local-context.js";
+import type { LocalContext } from "../../local-context.js";
 import type { IAnalyticsRepository, AnalyticsEventModel } from "../types/index.js";
 
 export class SqliteAnalyticsRepository implements IAnalyticsRepository {
@@ -24,13 +24,10 @@ export class SqliteAnalyticsRepository implements IAnalyticsRepository {
       privacyClass?: string;
     },
   ): Promise<AnalyticsEventModel> {
-    assertLocalContext(tenant);
     const [created] = await this.db
       .insert(analyticsEvents)
       .values({
         id: eventData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         eventName: eventData.eventName,
         eventSchemaVersion: eventData.eventSchemaVersion ?? 1,
         occurredAt: eventData.occurredAt ?? new Date().toISOString(),
@@ -47,14 +44,11 @@ export class SqliteAnalyticsRepository implements IAnalyticsRepository {
     analyticsSubjectId: string,
     limit: number = 100,
   ): Promise<AnalyticsEventModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(analyticsEvents)
       .where(
         and(
-          eq(analyticsEvents.workspaceId, tenant.workspaceId),
-          eq(analyticsEvents.subjectUserId, tenant.subjectUserId),
           eq(analyticsEvents.analyticsSubjectId, analyticsSubjectId),
         ),
       )

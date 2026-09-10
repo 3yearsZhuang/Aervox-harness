@@ -3,15 +3,15 @@
  *
  * 规则依据：AVX-HAR-001 §13 阶段 5c + ADR-017：高级能力经扩展点接入，不改 Loop 核心；
  * 子任务以独立 turn/attempt 落库审计，本表承载父子溯源与结果摘要：
- * - createRun 幂等：tenant + parentAttemptId + parentExecutionId 唯一（Host 幂等键语义），
+ * - createRun 幂等：parentAttemptId + parentExecutionId 唯一（Host 幂等键语义），
  *   崩溃/重试回查既有行，不重复创建子任务；
  * - finalizeRun 仅 Running 可收口终态（CAS 式状态推进，防并发重复收口）；
- * - 查询一律绑定租户（assertLocalContext + workspace/subject 条件）。
+ * - 查询按父 Turn/Attempt/Execution 关联；本地单用户数据库不再使用租户条件。
  */
 import { eq, and } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { subagentRuns } from "@aervox/schema";
-import { assertLocalContext, type LocalContext } from "../../local-context.js";
+import type { LocalContext } from "../../local-context.js";
 import type {
   ISubagentRunRepository,
   SubagentRunCreateInput,
@@ -34,8 +34,6 @@ const toModel = (row: RunRow): SubagentRunModel => ({
   resultText: row.resultText ?? null,
   error: row.error ?? null,
   finishedAt: row.finishedAt ?? null,
-  workspaceId: row.workspaceId,
-  subjectUserId: row.subjectUserId,
   createdAt: row.createdAt,
   updatedAt: row.updatedAt,
 });
@@ -44,7 +42,6 @@ export class SqliteSubagentRunRepository implements ISubagentRunRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async createRun(tenant: LocalContext, input: SubagentRunCreateInput): Promise<SubagentRunModel> {
-    assertLocalContext(tenant);
     const existing = await this.getRunByParentExecution(tenant, input.parentAttemptId, input.parentExecutionId);
     if (existing) return existing;
     const now = new Date().toISOString();
@@ -64,8 +61,6 @@ export class SqliteSubagentRunRepository implements ISubagentRunRepository {
         resultText: null,
         error: null,
         finishedAt: null,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         createdAt: now,
         updatedAt: now,
       })
@@ -81,7 +76,6 @@ export class SqliteSubagentRunRepository implements ISubagentRunRepository {
     runId: string,
     input: { status: string; resultText?: string | null; error?: string | null },
   ): Promise<SubagentRunModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [row] = await this.db
       .update(subagentRuns)
@@ -95,8 +89,6 @@ export class SqliteSubagentRunRepository implements ISubagentRunRepository {
       .where(
         and(
           eq(subagentRuns.id, runId),
-          eq(subagentRuns.workspaceId, tenant.workspaceId),
-          eq(subagentRuns.subjectUserId, tenant.subjectUserId),
           eq(subagentRuns.status, "Running"),
         ),
       )
@@ -109,14 +101,11 @@ export class SqliteSubagentRunRepository implements ISubagentRunRepository {
     parentAttemptId: string,
     parentExecutionId: string,
   ): Promise<SubagentRunModel | null> {
-    assertLocalContext(tenant);
     const [row] = await this.db
       .select()
       .from(subagentRuns)
       .where(
         and(
-          eq(subagentRuns.workspaceId, tenant.workspaceId),
-          eq(subagentRuns.subjectUserId, tenant.subjectUserId),
           eq(subagentRuns.parentAttemptId, parentAttemptId),
           eq(subagentRuns.parentExecutionId, parentExecutionId),
         ),
@@ -126,14 +115,11 @@ export class SqliteSubagentRunRepository implements ISubagentRunRepository {
   }
 
   async listRunsByTurn(tenant: LocalContext, parentTurnId: string): Promise<SubagentRunModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(subagentRuns)
       .where(
         and(
-          eq(subagentRuns.workspaceId, tenant.workspaceId),
-          eq(subagentRuns.subjectUserId, tenant.subjectUserId),
           eq(subagentRuns.parentTurnId, parentTurnId),
         ),
       )

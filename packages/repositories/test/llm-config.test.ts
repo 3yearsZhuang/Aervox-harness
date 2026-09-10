@@ -42,8 +42,6 @@ describe("SqliteLLMConfigRepository (CR-012)", () => {
     });
 
     expect(saved).toBeDefined();
-    expect(saved.workspaceId).toBe(tenantA.workspaceId);
-    expect(saved.subjectUserId).toBe(tenantA.subjectUserId);
     expect(saved.enabled).toBe(1);
     expect(saved.providerType).toBe("ollama");
     expect(saved.baseUrl).toBe("http://127.0.0.1:11434/v1");
@@ -88,7 +86,7 @@ describe("SqliteLLMConfigRepository (CR-012)", () => {
     expect(retrieved?.modelId).toBe("deepseek-chat");
   });
 
-  it("不同租户配置严格隔离", async () => {
+  it("本地配置以最后一次保存为准", async () => {
     await repo.saveConfig(tenantA, {
       enabled: true,
       providerType: "openai",
@@ -110,8 +108,8 @@ describe("SqliteLLMConfigRepository (CR-012)", () => {
     const configA = await repo.getConfig(tenantA);
     const configB = await repo.getConfig(tenantB);
 
-    expect(configA?.providerType).toBe("openai");
-    expect(configA?.apiKey).toBe("sk-tenant-a");
+    expect(configA?.providerType).toBe("anthropic");
+    expect(configA?.apiKey).toBe("sk-tenant-b");
     expect(configB?.providerType).toBe("anthropic");
     expect(configB?.apiKey).toBe("sk-tenant-b");
   });

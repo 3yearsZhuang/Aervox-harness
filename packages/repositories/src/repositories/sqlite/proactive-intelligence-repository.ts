@@ -21,7 +21,7 @@ import {
   proactiveTriggerRules,
   proactiveWorkflowTemplates,
 } from "@aervox/schema";
-import { assertLocalContext, type LocalContext } from "../../local-context.js";
+import type { LocalContext } from "../../local-context.js";
 
 const MAX_LIMIT = 500;
 const limitOf = (value: number | undefined, fallback = 100): number =>
@@ -129,8 +129,6 @@ export interface IntelligenceTriggerRule {
 
 export interface IntelligenceConnection {
   id: string;
-  workspaceId: string;
-  subjectUserId: string;
   revisionId: string;
   provider: "home_assistant" | "xiaomi_health" | string;
   displayName: string;
@@ -193,22 +191,17 @@ export class SqliteProactiveIntelligenceRepository {
     tenant: LocalContext,
     input: Omit<IntelligenceTimelineEvent, "createdAt">,
   ): Promise<IntelligenceTimelineEvent> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [existing] = await this.db
       .select()
       .from(proactiveTimelineEvents)
       .where(and(
-        eq(proactiveTimelineEvents.workspaceId, tenant.workspaceId),
-        eq(proactiveTimelineEvents.subjectUserId, tenant.subjectUserId),
         eq(proactiveTimelineEvents.checksum, input.checksum),
       ))
       .limit(1);
     if (existing) return this.timelineModel(existing);
     const [created] = await this.db.insert(proactiveTimelineEvents).values({
       id: input.id,
-      workspaceId: tenant.workspaceId,
-      subjectUserId: tenant.subjectUserId,
       revisionId: input.revisionId,
       sourceGrantId: input.sourceGrantId ?? null,
       sourceKey: input.sourceKey,
@@ -234,10 +227,7 @@ export class SqliteProactiveIntelligenceRepository {
     tenant: LocalContext,
     options: { from?: string; to?: string; sourceKey?: string; projectId?: string; limit?: number } = {},
   ): Promise<IntelligenceTimelineEvent[]> {
-    assertLocalContext(tenant);
     const conditions = [
-      eq(proactiveTimelineEvents.workspaceId, tenant.workspaceId),
-      eq(proactiveTimelineEvents.subjectUserId, tenant.subjectUserId),
     ];
     if (options.from) conditions.push(gte(proactiveTimelineEvents.occurredAt, options.from));
     if (options.to) conditions.push(lte(proactiveTimelineEvents.occurredAt, options.to));
@@ -253,7 +243,6 @@ export class SqliteProactiveIntelligenceRepository {
     tenant: LocalContext,
     input: Omit<IntelligenceProject, "createdAt" | "updatedAt">,
   ): Promise<IntelligenceProject> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const values = {
       revisionId: input.revisionId,
@@ -271,15 +260,11 @@ export class SqliteProactiveIntelligenceRepository {
     };
     const [existing] = await this.db.select().from(proactiveProjects).where(and(
       eq(proactiveProjects.id, input.id),
-      eq(proactiveProjects.workspaceId, tenant.workspaceId),
-      eq(proactiveProjects.subjectUserId, tenant.subjectUserId),
     )).limit(1);
     const [row] = existing
       ? await this.db.update(proactiveProjects).set(values).where(eq(proactiveProjects.id, input.id)).returning()
       : await this.db.insert(proactiveProjects).values({
         id: input.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         createdAt: now,
         ...values,
       }).returning();
@@ -288,8 +273,7 @@ export class SqliteProactiveIntelligenceRepository {
   }
 
   async listProjects(tenant: LocalContext, status?: string, limit?: number): Promise<IntelligenceProject[]> {
-    assertLocalContext(tenant);
-    const conditions = [eq(proactiveProjects.workspaceId, tenant.workspaceId), eq(proactiveProjects.subjectUserId, tenant.subjectUserId)];
+    const conditions = [];
     if (status) conditions.push(eq(proactiveProjects.status, status));
     const rows = await this.db.select().from(proactiveProjects).where(and(...conditions))
       .orderBy(desc(proactiveProjects.lastActivityAt)).limit(limitOf(limit));
@@ -300,7 +284,6 @@ export class SqliteProactiveIntelligenceRepository {
     id: string; revisionId: string; relationshipType: string; displayName: string; notes?: string | null;
     state?: string; confidence?: number; lastInteractionAt?: string | null; sourceGrantIds?: string[];
   }) {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const values = {
       revisionId: input.revisionId,
@@ -314,31 +297,24 @@ export class SqliteProactiveIntelligenceRepository {
       processingBoundary: "local_only",
       updatedAt: now,
     };
-    const [existing] = await this.db.select().from(proactiveRelationships).where(and(
-      eq(proactiveRelationships.id, input.id), eq(proactiveRelationships.workspaceId, tenant.workspaceId),
-      eq(proactiveRelationships.subjectUserId, tenant.subjectUserId),
-    )).limit(1);
+    const [existing] = await this.db.select().from(proactiveRelationships).where(eq(proactiveRelationships.id, input.id)).limit(1);
     const [row] = existing
       ? await this.db.update(proactiveRelationships).set(values).where(eq(proactiveRelationships.id, input.id)).returning()
-      : await this.db.insert(proactiveRelationships).values({id: input.id, workspaceId: tenant.workspaceId, subjectUserId: tenant.subjectUserId, createdAt: now, ...values}).returning();
+      : await this.db.insert(proactiveRelationships).values({id: input.id, createdAt: now, ...values}).returning();
     if (!row) throw new Error("failed to upsert proactive relationship");
     return this.relationshipModel(row);
   }
 
   async listRelationships(tenant: LocalContext, limit?: number) {
-    assertLocalContext(tenant);
     const rows = await this.db.select().from(proactiveRelationships).where(and(
-      eq(proactiveRelationships.workspaceId, tenant.workspaceId),
-      eq(proactiveRelationships.subjectUserId, tenant.subjectUserId),
     )).orderBy(desc(proactiveRelationships.lastInteractionAt)).limit(limitOf(limit));
     return rows.map((row) => this.relationshipModel(row));
   }
 
   async createCommitment(tenant: LocalContext, input: Omit<IntelligenceCommitment, "createdAt" | "updatedAt">): Promise<IntelligenceCommitment> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [row] = await this.db.insert(proactiveCommitments).values({
-      id: input.id, workspaceId: tenant.workspaceId, subjectUserId: tenant.subjectUserId,
+      id: input.id,
       revisionId: input.revisionId, projectId: input.projectId ?? null, relationshipId: input.relationshipId ?? null,
       content: this.encrypt(input.content, "commitment", input.id) ?? "", status: input.status,
       importance: input.importance, dueAt: input.dueAt ?? null, sourceTimelineId: input.sourceTimelineId ?? null,
@@ -349,17 +325,12 @@ export class SqliteProactiveIntelligenceRepository {
   }
 
   async updateCommitmentStatus(tenant: LocalContext, id: string, status: string) {
-    assertLocalContext(tenant);
-    const [row] = await this.db.update(proactiveCommitments).set({status, updatedAt: new Date().toISOString()}).where(and(
-      eq(proactiveCommitments.id, id), eq(proactiveCommitments.workspaceId, tenant.workspaceId),
-      eq(proactiveCommitments.subjectUserId, tenant.subjectUserId),
-    )).returning();
+    const [row] = await this.db.update(proactiveCommitments).set({status, updatedAt: new Date().toISOString()}).where(eq(proactiveCommitments.id, id)).returning();
     return row ? this.commitmentModel(row) : null;
   }
 
   async listCommitments(tenant: LocalContext, options: { status?: string; dueBefore?: string; limit?: number } = {}) {
-    assertLocalContext(tenant);
-    const conditions = [eq(proactiveCommitments.workspaceId, tenant.workspaceId), eq(proactiveCommitments.subjectUserId, tenant.subjectUserId)];
+    const conditions = [];
     if (options.status) conditions.push(eq(proactiveCommitments.status, options.status));
     if (options.dueBefore) conditions.push(lte(proactiveCommitments.dueAt, options.dueBefore));
     const rows = await this.db.select().from(proactiveCommitments).where(and(...conditions))
@@ -368,7 +339,6 @@ export class SqliteProactiveIntelligenceRepository {
   }
 
   async upsertWorkflow(tenant: LocalContext, input: Omit<IntelligenceWorkflow, "createdAt" | "updatedAt">): Promise<IntelligenceWorkflow> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const values = {
       revisionId: input.revisionId, name: this.encrypt(input.name, "workflow", input.id) ?? "",
@@ -378,20 +348,16 @@ export class SqliteProactiveIntelligenceRepository {
       evidenceCount: input.evidenceCount, successCount: input.successCount, failureCount: input.failureCount,
       lastObservedAt: input.lastObservedAt ?? null, processingBoundary: "local_only", updatedAt: now,
     };
-    const [existing] = await this.db.select().from(proactiveWorkflowTemplates).where(and(
-      eq(proactiveWorkflowTemplates.id, input.id), eq(proactiveWorkflowTemplates.workspaceId, tenant.workspaceId),
-      eq(proactiveWorkflowTemplates.subjectUserId, tenant.subjectUserId),
-    )).limit(1);
+    const [existing] = await this.db.select().from(proactiveWorkflowTemplates).where(eq(proactiveWorkflowTemplates.id, input.id)).limit(1);
     const [row] = existing
       ? await this.db.update(proactiveWorkflowTemplates).set(values).where(eq(proactiveWorkflowTemplates.id, input.id)).returning()
-      : await this.db.insert(proactiveWorkflowTemplates).values({id: input.id, workspaceId: tenant.workspaceId, subjectUserId: tenant.subjectUserId, createdAt: now, ...values}).returning();
+      : await this.db.insert(proactiveWorkflowTemplates).values({id: input.id, createdAt: now, ...values}).returning();
     if (!row) throw new Error("failed to upsert proactive workflow");
     return this.workflowModel(row);
   }
 
   async listWorkflows(tenant: LocalContext, state?: string, limit?: number): Promise<IntelligenceWorkflow[]> {
-    assertLocalContext(tenant);
-    const conditions = [eq(proactiveWorkflowTemplates.workspaceId, tenant.workspaceId), eq(proactiveWorkflowTemplates.subjectUserId, tenant.subjectUserId)];
+    const conditions = [];
     if (state) conditions.push(eq(proactiveWorkflowTemplates.state, state));
     const rows = await this.db.select().from(proactiveWorkflowTemplates).where(and(...conditions))
       .orderBy(desc(proactiveWorkflowTemplates.evidenceCount)).limit(limitOf(limit));
@@ -399,7 +365,6 @@ export class SqliteProactiveIntelligenceRepository {
   }
 
   async upsertTriggerRule(tenant: LocalContext, input: Omit<IntelligenceTriggerRule, "createdAt" | "updatedAt">): Promise<IntelligenceTriggerRule> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const values = {
       revisionId: input.revisionId, name: this.encrypt(input.name, "trigger-rule", input.id) ?? "",
@@ -408,20 +373,16 @@ export class SqliteProactiveIntelligenceRepository {
       cooldownSeconds: input.cooldownSeconds, quietHoursJson: JSON.stringify(input.quietHours ?? {}),
       lastTriggeredAt: input.lastTriggeredAt ?? null, processingBoundary: "local_only", updatedAt: now,
     };
-    const [existing] = await this.db.select().from(proactiveTriggerRules).where(and(
-      eq(proactiveTriggerRules.id, input.id), eq(proactiveTriggerRules.workspaceId, tenant.workspaceId),
-      eq(proactiveTriggerRules.subjectUserId, tenant.subjectUserId),
-    )).limit(1);
+    const [existing] = await this.db.select().from(proactiveTriggerRules).where(eq(proactiveTriggerRules.id, input.id)).limit(1);
     const [row] = existing
       ? await this.db.update(proactiveTriggerRules).set(values).where(eq(proactiveTriggerRules.id, input.id)).returning()
-      : await this.db.insert(proactiveTriggerRules).values({id: input.id, workspaceId: tenant.workspaceId, subjectUserId: tenant.subjectUserId, createdAt: now, ...values}).returning();
+      : await this.db.insert(proactiveTriggerRules).values({id: input.id, createdAt: now, ...values}).returning();
     if (!row) throw new Error("failed to upsert proactive trigger rule");
     return this.triggerRuleModel(row);
   }
 
   async listTriggerRules(tenant: LocalContext, enabled?: boolean): Promise<IntelligenceTriggerRule[]> {
-    assertLocalContext(tenant);
-    const conditions = [eq(proactiveTriggerRules.workspaceId, tenant.workspaceId), eq(proactiveTriggerRules.subjectUserId, tenant.subjectUserId)];
+    const conditions = [];
     if (enabled !== undefined) conditions.push(eq(proactiveTriggerRules.enabled, enabled));
     const rows = await this.db.select().from(proactiveTriggerRules).where(and(...conditions)).orderBy(asc(proactiveTriggerRules.name));
     return rows.map((row) => this.triggerRuleModel(row));
@@ -431,10 +392,9 @@ export class SqliteProactiveIntelligenceRepository {
     id: string; revisionId: string; ruleId?: string | null; triggerType: string; cause?: unknown;
     decision: string; reason?: string | null; actionId?: string | null; occurredAt?: string;
   }) {
-    assertLocalContext(tenant);
     const occurredAt = input.occurredAt ?? new Date().toISOString();
     const [row] = await this.db.insert(proactiveTriggerEvents).values({
-      id: input.id, workspaceId: tenant.workspaceId, subjectUserId: tenant.subjectUserId,
+      id: input.id,
       revisionId: input.revisionId, ruleId: input.ruleId ?? null, triggerType: input.triggerType,
       causeJson: this.encrypt(stringify(input.cause), "trigger-event", input.id) ?? "{}", decision: input.decision,
       reason: this.encrypt(input.reason, "trigger-event", input.id), actionId: input.actionId ?? null,
@@ -444,9 +404,7 @@ export class SqliteProactiveIntelligenceRepository {
   }
 
   async listTriggerEvents(tenant: LocalContext, limit?: number) {
-    assertLocalContext(tenant);
     const rows = await this.db.select().from(proactiveTriggerEvents).where(and(
-      eq(proactiveTriggerEvents.workspaceId, tenant.workspaceId), eq(proactiveTriggerEvents.subjectUserId, tenant.subjectUserId),
     )).orderBy(desc(proactiveTriggerEvents.occurredAt)).limit(limitOf(limit));
     return rows.map((row) => this.triggerEventModel(row));
   }
@@ -455,7 +413,6 @@ export class SqliteProactiveIntelligenceRepository {
     id: string; actionId: string; expected?: unknown; observed?: unknown; status: string;
     attemptCount?: number; verifiedAt?: string | null; error?: string | null;
   }) {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const values = {
       expectedJson: this.encrypt(stringify(input.expected), "verification", input.id) ?? "{}",
@@ -463,10 +420,7 @@ export class SqliteProactiveIntelligenceRepository {
       status: input.status, attemptCount: input.attemptCount ?? 0, verifiedAt: input.verifiedAt ?? null,
       error: this.encrypt(input.error, "verification", input.id), processingBoundary: "local_only", updatedAt: now,
     };
-    const [existing] = await this.db.select().from(proactiveActionVerifications).where(and(
-      eq(proactiveActionVerifications.actionId, input.actionId), eq(proactiveActionVerifications.workspaceId, tenant.workspaceId),
-      eq(proactiveActionVerifications.subjectUserId, tenant.subjectUserId),
-    )).limit(1);
+    const [existing] = await this.db.select().from(proactiveActionVerifications).where(eq(proactiveActionVerifications.id, input.id)).limit(1);
     const id = existing?.id ?? input.id;
     const encryptedValues = id === input.id ? values : {
       ...values,
@@ -476,13 +430,12 @@ export class SqliteProactiveIntelligenceRepository {
     };
     const [row] = existing
       ? await this.db.update(proactiveActionVerifications).set(encryptedValues).where(eq(proactiveActionVerifications.id, id)).returning()
-      : await this.db.insert(proactiveActionVerifications).values({id, actionId: input.actionId, workspaceId: tenant.workspaceId, subjectUserId: tenant.subjectUserId, createdAt: now, ...encryptedValues}).returning();
+      : await this.db.insert(proactiveActionVerifications).values({id, actionId: input.actionId, createdAt: now, ...encryptedValues}).returning();
     return row ? this.verificationModel(row) : null;
   }
 
   async listActionVerifications(tenant: LocalContext, status?: string) {
-    assertLocalContext(tenant);
-    const conditions = [eq(proactiveActionVerifications.workspaceId, tenant.workspaceId), eq(proactiveActionVerifications.subjectUserId, tenant.subjectUserId)];
+    const conditions = [];
     if (status) conditions.push(eq(proactiveActionVerifications.status, status));
     const rows = await this.db.select().from(proactiveActionVerifications).where(and(...conditions)).orderBy(desc(proactiveActionVerifications.updatedAt));
     return rows.map((row) => this.verificationModel(row));
@@ -491,17 +444,14 @@ export class SqliteProactiveIntelligenceRepository {
   async createClaimConflict(tenant: LocalContext, input: {
     id: string; revisionId: string; primaryClaimId: string; conflictingClaimId: string; reason: string;
   }) {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [existing] = await this.db.select().from(proactiveClaimConflicts).where(and(
       eq(proactiveClaimConflicts.primaryClaimId, input.primaryClaimId),
       eq(proactiveClaimConflicts.conflictingClaimId, input.conflictingClaimId),
-      eq(proactiveClaimConflicts.workspaceId, tenant.workspaceId),
-      eq(proactiveClaimConflicts.subjectUserId, tenant.subjectUserId),
     )).limit(1);
     if (existing) return this.conflictModel(existing);
     const [row] = await this.db.insert(proactiveClaimConflicts).values({
-      id: input.id, workspaceId: tenant.workspaceId, subjectUserId: tenant.subjectUserId,
+      id: input.id,
       revisionId: input.revisionId, primaryClaimId: input.primaryClaimId, conflictingClaimId: input.conflictingClaimId,
       reason: this.encrypt(input.reason, "claim-conflict", input.id) ?? "", status: "open", resolution: null,
       resolvedAt: null, processingBoundary: "local_only", createdAt: now, updatedAt: now,
@@ -510,17 +460,15 @@ export class SqliteProactiveIntelligenceRepository {
   }
 
   async resolveClaimConflict(tenant: LocalContext, id: string, resolution: string) {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [row] = await this.db.update(proactiveClaimConflicts).set({
       status: "resolved", resolution: this.encrypt(resolution, "claim-conflict", id), resolvedAt: now, updatedAt: now,
-    }).where(and(eq(proactiveClaimConflicts.id, id), eq(proactiveClaimConflicts.workspaceId, tenant.workspaceId), eq(proactiveClaimConflicts.subjectUserId, tenant.subjectUserId))).returning();
+    }).where(and(eq(proactiveClaimConflicts.id, id), )).returning();
     return row ? this.conflictModel(row) : null;
   }
 
   async listClaimConflicts(tenant: LocalContext, status?: string) {
-    assertLocalContext(tenant);
-    const conditions = [eq(proactiveClaimConflicts.workspaceId, tenant.workspaceId), eq(proactiveClaimConflicts.subjectUserId, tenant.subjectUserId)];
+    const conditions = [];
     if (status) conditions.push(eq(proactiveClaimConflicts.status, status));
     const rows = await this.db.select().from(proactiveClaimConflicts).where(and(...conditions)).orderBy(desc(proactiveClaimConflicts.createdAt));
     return rows.map((row) => this.conflictModel(row));
@@ -530,10 +478,9 @@ export class SqliteProactiveIntelligenceRepository {
     id: string; revisionId: string; projectId?: string | null; commitmentId?: string | null;
     title: string; bundle: unknown; status?: string; availableAt?: string; expiresAt?: string | null;
   }) {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [row] = await this.db.insert(proactivePreparationBundles).values({
-      id: input.id, workspaceId: tenant.workspaceId, subjectUserId: tenant.subjectUserId, revisionId: input.revisionId,
+      id: input.id, revisionId: input.revisionId,
       projectId: input.projectId ?? null, commitmentId: input.commitmentId ?? null,
       title: this.encrypt(input.title, "preparation", input.id) ?? "",
       bundleJson: this.encrypt(stringify(input.bundle), "preparation", input.id) ?? "{}", status: input.status ?? "ready",
@@ -544,8 +491,7 @@ export class SqliteProactiveIntelligenceRepository {
   }
 
   async listPreparations(tenant: LocalContext, status?: string, limit?: number) {
-    assertLocalContext(tenant);
-    const conditions = [eq(proactivePreparationBundles.workspaceId, tenant.workspaceId), eq(proactivePreparationBundles.subjectUserId, tenant.subjectUserId)];
+    const conditions = [];
     if (status) conditions.push(eq(proactivePreparationBundles.status, status));
     const rows = await this.db.select().from(proactivePreparationBundles).where(and(...conditions)).orderBy(desc(proactivePreparationBundles.availableAt)).limit(limitOf(limit));
     return rows.map((row) => this.preparationModel(row));
@@ -555,10 +501,9 @@ export class SqliteProactiveIntelligenceRepository {
     id: string; revisionId: string; windowStart: string; windowEnd: string; focusScore: number; fatigueScore: number;
     contextSwitches?: number; errorSignals?: number; recommendation?: string | null; evidence?: unknown[];
   }) {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [row] = await this.db.insert(proactiveAttentionStates).values({
-      id: input.id, workspaceId: tenant.workspaceId, subjectUserId: tenant.subjectUserId, revisionId: input.revisionId,
+      id: input.id, revisionId: input.revisionId,
       windowStart: input.windowStart, windowEnd: input.windowEnd, focusScore: input.focusScore, fatigueScore: input.fatigueScore,
       contextSwitches: input.contextSwitches ?? 0, errorSignals: input.errorSignals ?? 0,
       recommendation: this.encrypt(input.recommendation, "attention", input.id),
@@ -569,9 +514,7 @@ export class SqliteProactiveIntelligenceRepository {
   }
 
   async listAttentionStates(tenant: LocalContext, limit?: number) {
-    assertLocalContext(tenant);
     const rows = await this.db.select().from(proactiveAttentionStates).where(and(
-      eq(proactiveAttentionStates.workspaceId, tenant.workspaceId), eq(proactiveAttentionStates.subjectUserId, tenant.subjectUserId),
     )).orderBy(desc(proactiveAttentionStates.windowEnd)).limit(limitOf(limit));
     return rows.map((row) => this.attentionModel(row));
   }
@@ -580,10 +523,9 @@ export class SqliteProactiveIntelligenceRepository {
     id: string; revisionId: string; signalType: string; projectId?: string | null; expected?: unknown; actual?: unknown;
     severity: number; state?: string; explanation?: string | null; detectedAt?: string;
   }) {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [row] = await this.db.insert(proactiveDriftSignals).values({
-      id: input.id, workspaceId: tenant.workspaceId, subjectUserId: tenant.subjectUserId, revisionId: input.revisionId,
+      id: input.id, revisionId: input.revisionId,
       signalType: input.signalType, projectId: input.projectId ?? null,
       expectedJson: this.encrypt(stringify(input.expected), "drift", input.id) ?? "{}",
       actualJson: this.encrypt(stringify(input.actual), "drift", input.id) ?? "{}",
@@ -594,8 +536,7 @@ export class SqliteProactiveIntelligenceRepository {
   }
 
   async listDriftSignals(tenant: LocalContext, state?: string, limit?: number) {
-    assertLocalContext(tenant);
-    const conditions = [eq(proactiveDriftSignals.workspaceId, tenant.workspaceId), eq(proactiveDriftSignals.subjectUserId, tenant.subjectUserId)];
+    const conditions = [];
     if (state) conditions.push(eq(proactiveDriftSignals.state, state));
     const rows = await this.db.select().from(proactiveDriftSignals).where(and(...conditions)).orderBy(desc(proactiveDriftSignals.detectedAt)).limit(limitOf(limit));
     return rows.map((row) => this.driftModel(row));
@@ -605,15 +546,13 @@ export class SqliteProactiveIntelligenceRepository {
     id: string; revisionId: string; sceneType: string; applicationId?: string | null; payload?: unknown;
     checksum: string; capturedAt?: string;
   }) {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [existing] = await this.db.select().from(proactiveSceneSnapshots).where(and(
-      eq(proactiveSceneSnapshots.workspaceId, tenant.workspaceId), eq(proactiveSceneSnapshots.subjectUserId, tenant.subjectUserId),
       eq(proactiveSceneSnapshots.checksum, input.checksum),
     )).limit(1);
     if (existing) return this.sceneModel(existing);
     const [row] = await this.db.insert(proactiveSceneSnapshots).values({
-      id: input.id, workspaceId: tenant.workspaceId, subjectUserId: tenant.subjectUserId, revisionId: input.revisionId,
+      id: input.id, revisionId: input.revisionId,
       sceneType: input.sceneType, applicationId: input.applicationId ?? null,
       payloadJson: this.encrypt(stringify(input.payload), "scene", input.id) ?? "{}", checksum: input.checksum,
       capturedAt: input.capturedAt ?? now, processingBoundary: "local_only", createdAt: now, updatedAt: now,
@@ -622,9 +561,7 @@ export class SqliteProactiveIntelligenceRepository {
   }
 
   async listScenes(tenant: LocalContext, limit?: number) {
-    assertLocalContext(tenant);
     const rows = await this.db.select().from(proactiveSceneSnapshots).where(and(
-      eq(proactiveSceneSnapshots.workspaceId, tenant.workspaceId), eq(proactiveSceneSnapshots.subjectUserId, tenant.subjectUserId),
     )).orderBy(desc(proactiveSceneSnapshots.capturedAt)).limit(limitOf(limit));
     return rows.map((row) => this.sceneModel(row));
   }
@@ -633,10 +570,8 @@ export class SqliteProactiveIntelligenceRepository {
     id: string; revisionId: string; periodType: string; periodStart: string; periodEnd: string;
     summary: string; metrics?: unknown; recommendations?: unknown[];
   }) {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [existing] = await this.db.select().from(proactiveReviewReports).where(and(
-      eq(proactiveReviewReports.workspaceId, tenant.workspaceId), eq(proactiveReviewReports.subjectUserId, tenant.subjectUserId),
       eq(proactiveReviewReports.periodType, input.periodType), eq(proactiveReviewReports.periodStart, input.periodStart),
       eq(proactiveReviewReports.periodEnd, input.periodEnd),
     )).limit(1);
@@ -649,14 +584,12 @@ export class SqliteProactiveIntelligenceRepository {
     };
     const [row] = existing
       ? await this.db.update(proactiveReviewReports).set(values).where(eq(proactiveReviewReports.id, id)).returning()
-      : await this.db.insert(proactiveReviewReports).values({id, workspaceId: tenant.workspaceId, subjectUserId: tenant.subjectUserId, periodType: input.periodType, periodStart: input.periodStart, periodEnd: input.periodEnd, createdAt: now, ...values}).returning();
+      : await this.db.insert(proactiveReviewReports).values({id, periodType: input.periodType, periodStart: input.periodStart, periodEnd: input.periodEnd, createdAt: now, ...values}).returning();
     return row ? this.reviewModel(row) : null;
   }
 
   async listReviews(tenant: LocalContext, limit?: number) {
-    assertLocalContext(tenant);
     const rows = await this.db.select().from(proactiveReviewReports).where(and(
-      eq(proactiveReviewReports.workspaceId, tenant.workspaceId), eq(proactiveReviewReports.subjectUserId, tenant.subjectUserId),
     )).orderBy(desc(proactiveReviewReports.periodEnd)).limit(limitOf(limit));
     return rows.map((row) => this.reviewModel(row));
   }
@@ -666,12 +599,8 @@ export class SqliteProactiveIntelligenceRepository {
     authType: string; credential?: Record<string, unknown>; scopes?: string[]; settings?: Record<string, unknown>;
     state?: string; lastSyncAt?: string | null; lastError?: string | null;
   }): Promise<IntelligenceConnection> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
-    const [existing] = await this.db.select().from(proactiveExternalConnections).where(and(
-      eq(proactiveExternalConnections.id, input.id), eq(proactiveExternalConnections.workspaceId, tenant.workspaceId),
-      eq(proactiveExternalConnections.subjectUserId, tenant.subjectUserId),
-    )).limit(1);
+    const [existing] = await this.db.select().from(proactiveExternalConnections).where(eq(proactiveExternalConnections.id, input.id)).limit(1);
     const values = {
       revisionId: input.revisionId, provider: input.provider,
       displayName: this.encrypt(input.displayName, "connection", input.id) ?? "",
@@ -689,25 +618,20 @@ export class SqliteProactiveIntelligenceRepository {
     };
     const [row] = existing
       ? await this.db.update(proactiveExternalConnections).set(values).where(eq(proactiveExternalConnections.id, input.id)).returning()
-      : await this.db.insert(proactiveExternalConnections).values({id: input.id, workspaceId: tenant.workspaceId, subjectUserId: tenant.subjectUserId, createdAt: now, ...values}).returning();
+      : await this.db.insert(proactiveExternalConnections).values({id: input.id, createdAt: now, ...values}).returning();
     if (!row) throw new Error("failed to upsert proactive connection");
     return this.connectionModel(row);
   }
 
   async listConnections(tenant: LocalContext, provider?: string): Promise<IntelligenceConnection[]> {
-    assertLocalContext(tenant);
-    const conditions = [eq(proactiveExternalConnections.workspaceId, tenant.workspaceId), eq(proactiveExternalConnections.subjectUserId, tenant.subjectUserId)];
+    const conditions = [];
     if (provider) conditions.push(eq(proactiveExternalConnections.provider, provider));
     const rows = await this.db.select().from(proactiveExternalConnections).where(and(...conditions)).orderBy(asc(proactiveExternalConnections.provider));
     return rows.map((row) => this.connectionModel(row));
   }
 
   async getConnectionSecret(tenant: LocalContext, id: string): Promise<IntelligenceConnectionSecret | null> {
-    assertLocalContext(tenant);
-    const [row] = await this.db.select().from(proactiveExternalConnections).where(and(
-      eq(proactiveExternalConnections.id, id), eq(proactiveExternalConnections.workspaceId, tenant.workspaceId),
-      eq(proactiveExternalConnections.subjectUserId, tenant.subjectUserId),
-    )).limit(1);
+    const [row] = await this.db.select().from(proactiveExternalConnections).where(eq(proactiveExternalConnections.id, id)).limit(1);
     return row ? {...this.connectionModel(row), credential: parseJson(this.decrypt(row.credentialJson, "connection", row.id), {})} : null;
   }
 
@@ -719,19 +643,15 @@ export class SqliteProactiveIntelligenceRepository {
   }
 
   async updateConnectionState(tenant: LocalContext, id: string, state: string, patch: {lastSyncAt?: string | null; lastError?: string | null} = {}) {
-    assertLocalContext(tenant);
     const [row] = await this.db.update(proactiveExternalConnections).set({
       state, lastSyncAt: patch.lastSyncAt, lastError: this.encrypt(patch.lastError, "connection", id), updatedAt: new Date().toISOString(),
-    }).where(and(eq(proactiveExternalConnections.id, id), eq(proactiveExternalConnections.workspaceId, tenant.workspaceId), eq(proactiveExternalConnections.subjectUserId, tenant.subjectUserId))).returning();
+    }).where(and(eq(proactiveExternalConnections.id, id), )).returning();
     return row ? this.connectionModel(row) : null;
   }
 
   async deleteConnection(tenant: LocalContext, id: string): Promise<boolean> {
-    assertLocalContext(tenant);
     const owned = and(
       eq(proactiveExternalConnections.id, id),
-      eq(proactiveExternalConnections.workspaceId, tenant.workspaceId),
-      eq(proactiveExternalConnections.subjectUserId, tenant.subjectUserId),
     );
     const [connection] = await this.db.select({id: proactiveExternalConnections.id})
       .from(proactiveExternalConnections).where(owned).limit(1);
@@ -740,13 +660,9 @@ export class SqliteProactiveIntelligenceRepository {
     await this.db.delete(proactiveExternalConnections).where(owned);
     await this.db.delete(proactiveHomeEntities).where(and(
       eq(proactiveHomeEntities.connectionId, id),
-      eq(proactiveHomeEntities.workspaceId, tenant.workspaceId),
-      eq(proactiveHomeEntities.subjectUserId, tenant.subjectUserId),
     ));
     await this.db.delete(proactiveHealthSamples).where(and(
       eq(proactiveHealthSamples.connectionId, id),
-      eq(proactiveHealthSamples.workspaceId, tenant.workspaceId),
-      eq(proactiveHealthSamples.subjectUserId, tenant.subjectUserId),
     ));
     return true;
   }
@@ -755,11 +671,9 @@ export class SqliteProactiveIntelligenceRepository {
     id: string; connectionId: string; entityId: string; domain: string; displayName?: string | null;
     deviceClass?: string | null; allowedOps?: string[]; state?: unknown; enabled?: boolean; sensitive?: boolean; lastSeenAt?: string;
   }) {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [existing] = await this.db.select().from(proactiveHomeEntities).where(and(
       eq(proactiveHomeEntities.connectionId, input.connectionId), eq(proactiveHomeEntities.entityId, input.entityId),
-      eq(proactiveHomeEntities.workspaceId, tenant.workspaceId), eq(proactiveHomeEntities.subjectUserId, tenant.subjectUserId),
     )).limit(1);
     const id = existing?.id ?? input.id;
     const values = {
@@ -774,13 +688,12 @@ export class SqliteProactiveIntelligenceRepository {
     };
     const [row] = existing
       ? await this.db.update(proactiveHomeEntities).set(values).where(eq(proactiveHomeEntities.id, id)).returning()
-      : await this.db.insert(proactiveHomeEntities).values({id, connectionId: input.connectionId, entityId: input.entityId, workspaceId: tenant.workspaceId, subjectUserId: tenant.subjectUserId, createdAt: now, ...values}).returning();
+      : await this.db.insert(proactiveHomeEntities).values({id, connectionId: input.connectionId, entityId: input.entityId, createdAt: now, ...values}).returning();
     return row ? this.homeEntityModel(row) : null;
   }
 
   async listHomeEntities(tenant: LocalContext, connectionId?: string, enabled?: boolean) {
-    assertLocalContext(tenant);
-    const conditions = [eq(proactiveHomeEntities.workspaceId, tenant.workspaceId), eq(proactiveHomeEntities.subjectUserId, tenant.subjectUserId)];
+    const conditions = [];
     if (connectionId) conditions.push(eq(proactiveHomeEntities.connectionId, connectionId));
     if (enabled !== undefined) conditions.push(eq(proactiveHomeEntities.enabled, enabled));
     const rows = await this.db.select().from(proactiveHomeEntities).where(and(...conditions)).orderBy(asc(proactiveHomeEntities.entityId));
@@ -788,12 +701,9 @@ export class SqliteProactiveIntelligenceRepository {
   }
 
   async getHomeEntity(tenant: LocalContext, connectionId: string, entityId: string) {
-    assertLocalContext(tenant);
     const [row] = await this.db.select().from(proactiveHomeEntities).where(and(
       eq(proactiveHomeEntities.connectionId, connectionId),
       eq(proactiveHomeEntities.entityId, entityId),
-      eq(proactiveHomeEntities.workspaceId, tenant.workspaceId),
-      eq(proactiveHomeEntities.subjectUserId, tenant.subjectUserId),
     )).limit(1);
     return row ? this.homeEntityModel(row) : null;
   }
@@ -802,10 +712,8 @@ export class SqliteProactiveIntelligenceRepository {
     id: string; connectionId: string; metric: string; localDate: string; value: number; unit: string;
     sensitivity?: string; source?: string; metadata?: unknown; observedAt?: string;
   }) {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [existing] = await this.db.select().from(proactiveHealthSamples).where(and(
-      eq(proactiveHealthSamples.workspaceId, tenant.workspaceId), eq(proactiveHealthSamples.subjectUserId, tenant.subjectUserId),
       eq(proactiveHealthSamples.connectionId, input.connectionId), eq(proactiveHealthSamples.metric, input.metric),
       eq(proactiveHealthSamples.localDate, input.localDate),
     )).limit(1);
@@ -817,13 +725,12 @@ export class SqliteProactiveIntelligenceRepository {
     };
     const [row] = existing
       ? await this.db.update(proactiveHealthSamples).set(values).where(eq(proactiveHealthSamples.id, id)).returning()
-      : await this.db.insert(proactiveHealthSamples).values({id, connectionId: input.connectionId, metric: input.metric, localDate: input.localDate, workspaceId: tenant.workspaceId, subjectUserId: tenant.subjectUserId, createdAt: now, ...values}).returning();
+      : await this.db.insert(proactiveHealthSamples).values({id, connectionId: input.connectionId, metric: input.metric, localDate: input.localDate, createdAt: now, ...values}).returning();
     return row ? this.healthSampleModel(row) : null;
   }
 
   async listHealthSamples(tenant: LocalContext, options: {connectionId?: string; metric?: string; from?: string; to?: string; limit?: number} = {}) {
-    assertLocalContext(tenant);
-    const conditions = [eq(proactiveHealthSamples.workspaceId, tenant.workspaceId), eq(proactiveHealthSamples.subjectUserId, tenant.subjectUserId)];
+    const conditions = [];
     if (options.connectionId) conditions.push(eq(proactiveHealthSamples.connectionId, options.connectionId));
     if (options.metric) conditions.push(eq(proactiveHealthSamples.metric, options.metric));
     if (options.from) conditions.push(gte(proactiveHealthSamples.localDate, options.from));
@@ -950,7 +857,7 @@ export class SqliteProactiveIntelligenceRepository {
 
   private connectionModel(row: typeof proactiveExternalConnections.$inferSelect): IntelligenceConnection {
     const credential = this.decrypt(row.credentialJson, "connection", row.id);
-    return {id: row.id, workspaceId: row.workspaceId, subjectUserId: row.subjectUserId, revisionId: row.revisionId,
+    return {id: row.id, revisionId: row.revisionId,
       provider: row.provider, displayName: this.decrypt(row.displayName, "connection", row.id) ?? "", endpoint: row.endpoint,
       authType: row.authType, scopes: parseJson(row.scopesJson, []), settings: parseJson(this.decrypt(row.settingsJson, "connection", row.id), {}),
       state: row.state, lastSyncAt: row.lastSyncAt, lastError: this.decrypt(row.lastError, "connection", row.id),

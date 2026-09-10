@@ -8,8 +8,6 @@ export async function createOutboxTables(client: Client): Promise<void> {
     await client.execute(`
       CREATE TABLE IF NOT EXISTS outbox_events (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         control_event_id TEXT,
         idempotency_key TEXT NOT NULL,
         event_type TEXT NOT NULL,
@@ -22,6 +20,6 @@ export async function createOutboxTables(client: Client): Promise<void> {
       );
     `);
   await client.execute(`
-      CREATE UNIQUE INDEX IF NOT EXISTS outbox_tenant_idempotency_idx ON outbox_events(workspace_id, subject_user_id, idempotency_key);
+      CREATE UNIQUE INDEX IF NOT EXISTS outbox_local_idempotency_idx ON outbox_events(idempotency_key);
     `);
 }

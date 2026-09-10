@@ -14,7 +14,7 @@ import {
   memoryAlgorithms,
   memoryProjectionOverrides,
 } from "@aervox/schema";
-import { assertLocalContext, type LocalContext } from "../../local-context.js";
+import type { LocalContext } from "../../local-context.js";
 import type {
   IMemoryRepository,
   MemoryRecordModel,
@@ -48,14 +48,11 @@ export class SqliteMemoryRepository implements IMemoryRepository {
       verificationStatus?: string;
     },
   ): Promise<MemoryRecordModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(memoryRecords)
       .values({
         id: recordData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         layer: recordData.layer,
         type: recordData.type,
         content: recordData.content,
@@ -79,15 +76,12 @@ export class SqliteMemoryRepository implements IMemoryRepository {
   }
 
   async getRecord(tenant: LocalContext, id: string): Promise<MemoryRecordModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(memoryRecords)
       .where(
         and(
           eq(memoryRecords.id, id),
-          eq(memoryRecords.workspaceId, tenant.workspaceId),
-          eq(memoryRecords.subjectUserId, tenant.subjectUserId),
           eq(memoryRecords.isDeleted, 0),
         ),
       );
@@ -95,14 +89,11 @@ export class SqliteMemoryRepository implements IMemoryRepository {
   }
 
   async listRecordsByLayer(tenant: LocalContext, layer: string): Promise<MemoryRecordModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(memoryRecords)
       .where(
         and(
-          eq(memoryRecords.workspaceId, tenant.workspaceId),
-          eq(memoryRecords.subjectUserId, tenant.subjectUserId),
           eq(memoryRecords.layer, layer),
           eq(memoryRecords.isDeleted, 0),
         ),
@@ -121,13 +112,10 @@ export class SqliteMemoryRepository implements IMemoryRepository {
       visibilityScope?: string;
     },
   ): Promise<MemoryEdgeModel> {
-    assertLocalContext(tenant);
     const [created] = await this.db
       .insert(memoryEdges)
       .values({
         id: edgeData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         fromNodeId: edgeData.fromNodeId,
         toNodeId: edgeData.toNodeId,
         relationType: edgeData.relationType,
@@ -144,40 +132,39 @@ export class SqliteMemoryRepository implements IMemoryRepository {
     tenant: LocalContext,
     rootRecordId?: string | null,
   ): Promise<MemoryTreeNode[]> {
-    assertLocalContext(tenant);
 
     // 使用 SQLite WITH RECURSIVE CTE 递归查询整棵树
     const rootCondition = rootRecordId
       ? "id = ?"
       : "(canonical_parent_id IS NULL OR canonical_parent_id = '')";
 
-    const baseArgs: InValue[] = [tenant.workspaceId, tenant.subjectUserId];
+    const baseArgs: InValue[] = [];
     if (rootRecordId) {
       baseArgs.push(rootRecordId);
     }
-    const recursiveArgs: InValue[] = [tenant.workspaceId, tenant.subjectUserId];
+    const recursiveArgs: InValue[] = [];
 
     const querySql = `
       WITH RECURSIVE memory_tree AS (
         SELECT
-          id, workspace_id, subject_user_id, layer, type, content,
+          id, layer, type, content,
           canonical_parent_id, source_turn_id, version, is_deleted,
           created_at, updated_at,
           0 AS depth,
           id AS path
         FROM memory_records
-        WHERE workspace_id = ? AND subject_user_id = ? AND is_deleted = 0
+        WHERE is_deleted = 0
           AND ${rootCondition}
         UNION ALL
         SELECT
-          c.id, c.workspace_id, c.subject_user_id, c.layer, c.type, c.content,
+          c.id, c.layer, c.type, c.content,
           c.canonical_parent_id, c.source_turn_id, c.version, c.is_deleted,
           c.created_at, c.updated_at,
           p.depth + 1 AS depth,
           p.path || '/' || c.id AS path
         FROM memory_records c
         JOIN memory_tree p ON c.canonical_parent_id = p.id
-        WHERE c.workspace_id = ? AND c.subject_user_id = ? AND c.is_deleted = 0
+        WHERE c.is_deleted = 0
       )
       SELECT * FROM memory_tree ORDER BY depth ASC, created_at ASC;
     `;
@@ -194,8 +181,6 @@ export class SqliteMemoryRepository implements IMemoryRepository {
     }> = res.rows.map((row) => ({
       record: {
         id: String(row.id),
-        workspaceId: String(row.workspace_id),
-        subjectUserId: String(row.subject_user_id),
         layer: String(row.layer),
         type: String(row.type),
         content: String(row.content),
@@ -238,7 +223,6 @@ export class SqliteMemoryRepository implements IMemoryRepository {
   }
 
   async softDeleteRecord(tenant: LocalContext, id: string): Promise<boolean> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(memoryRecords)
@@ -246,8 +230,6 @@ export class SqliteMemoryRepository implements IMemoryRepository {
       .where(
         and(
           eq(memoryRecords.id, id),
-          eq(memoryRecords.workspaceId, tenant.workspaceId),
-          eq(memoryRecords.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -267,14 +249,11 @@ export class SqliteMemoryRepository implements IMemoryRepository {
       projectionVersion?: number;
     },
   ): Promise<MemoryNodeModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(memoryNodes)
       .values({
         id: nodeData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         canonicalParentId: nodeData.canonicalParentId ?? null,
         label: nodeData.label,
         nodeType: nodeData.nodeType ?? "concept",
@@ -289,29 +268,23 @@ export class SqliteMemoryRepository implements IMemoryRepository {
   }
 
   async getNode(tenant: LocalContext, id: string): Promise<MemoryNodeModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(memoryNodes)
       .where(
         and(
           eq(memoryNodes.id, id),
-          eq(memoryNodes.workspaceId, tenant.workspaceId),
-          eq(memoryNodes.subjectUserId, tenant.subjectUserId),
         ),
       );
     return (found as MemoryNodeModel) ?? null;
   }
 
   async listNodesByTenant(tenant: LocalContext): Promise<MemoryNodeModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(memoryNodes)
       .where(
         and(
-          eq(memoryNodes.workspaceId, tenant.workspaceId),
-          eq(memoryNodes.subjectUserId, tenant.subjectUserId),
         ),
       )
       .orderBy(memoryNodes.updatedAt);

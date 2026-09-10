@@ -22,7 +22,7 @@ export interface ISubagentRunRepository {
     parentAttemptId: string,
     parentExecutionId: string,
   ): Promise<SubagentRunModel | null>;
-  /** 父 Turn 的全部子任务运行（API 审计端点，租户隔离） */
+  /** 父 Turn 的全部本地子任务运行（API 审计端点） */
   listRunsByTurn(tenant: LocalContext, parentTurnId: string): Promise<SubagentRunModel[]>;
 }
 
@@ -36,8 +36,8 @@ export interface PendingUserQuestionModel {
   /** createdAt + timeoutMs；晚于此时间提交答案视为超时 */
   expiresAt: string;
   createdAt: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
 }
 
 export interface PendingUserQuestionUpsertInput {

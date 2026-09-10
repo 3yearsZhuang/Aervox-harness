@@ -14,8 +14,8 @@ import {
   memoryEvents,
   memoryRecords,
 } from "@aervox/schema";
-import { assertLocalContext, type LocalContext } from "../../local-context.js";
-import { NotFoundInTenantError } from "../../errors.js";
+import type { LocalContext } from "../../local-context.js";
+import { RepositoryNotFoundError } from "../../errors.js";
 import type {
   IProvenanceRepository,
   SourceArtifactModel,
@@ -32,14 +32,11 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
     tenant: LocalContext,
     artifactData: { id: string; kind: string; ownerModule: string; occurredAt: string; ingestedAt: string },
   ): Promise<SourceArtifactModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(sourceArtifacts)
       .values({
         id: artifactData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         kind: artifactData.kind,
         ownerModule: artifactData.ownerModule,
         occurredAt: artifactData.occurredAt,
@@ -53,15 +50,12 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
   }
 
   async getSourceArtifact(tenant: LocalContext, id: string): Promise<SourceArtifactModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(sourceArtifacts)
       .where(
         and(
           eq(sourceArtifacts.id, id),
-          eq(sourceArtifacts.workspaceId, tenant.workspaceId),
-          eq(sourceArtifacts.subjectUserId, tenant.subjectUserId),
         ),
       );
     return (found as SourceArtifactModel) ?? null;
@@ -72,9 +66,8 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
     artifactId: string,
     revisionData: { id: string; checksum: string; content?: string | null },
   ): Promise<SourceRevisionModel> {
-    assertLocalContext(tenant);
     const artifact = await this.getSourceArtifact(tenant, artifactId);
-    if (!artifact) throw new NotFoundInTenantError(`Source artifact ${artifactId} not found in tenant`);
+    if (!artifact) throw new RepositoryNotFoundError(`Source artifact ${artifactId} not found`);
     const [created] = await this.db
       .insert(sourceRevisions)
       .values({
@@ -94,7 +87,6 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
     artifactId: string,
     revisionId: string,
   ): Promise<SourceArtifactModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(sourceArtifacts)
@@ -102,8 +94,6 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
       .where(
         and(
           eq(sourceArtifacts.id, artifactId),
-          eq(sourceArtifacts.workspaceId, tenant.workspaceId),
-          eq(sourceArtifacts.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -121,7 +111,6 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
       algorithmVersion?: string | null;
     },
   ): Promise<MemoryRevisionModel> {
-    assertLocalContext(tenant);
     // 记忆必须属于当前租户
     const [memory] = await this.db
       .select()
@@ -129,11 +118,9 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
       .where(
         and(
           eq(memoryRecords.id, revisionData.memoryId),
-          eq(memoryRecords.workspaceId, tenant.workspaceId),
-          eq(memoryRecords.subjectUserId, tenant.subjectUserId),
         ),
       );
-    if (!memory) throw new NotFoundInTenantError(`Memory ${revisionData.memoryId} not found in tenant`);
+    if (!memory) throw new RepositoryNotFoundError(`Memory ${revisionData.memoryId} not found`);
     const [created] = await this.db
       .insert(memoryRevisions)
       .values({
@@ -154,7 +141,6 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
     memoryId: string,
     revisionId: string,
   ): Promise<boolean> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(memoryRecords)
@@ -162,8 +148,6 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
       .where(
         and(
           eq(memoryRecords.id, memoryId),
-          eq(memoryRecords.workspaceId, tenant.workspaceId),
-          eq(memoryRecords.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -171,7 +155,6 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
   }
 
   async listMemoryRevisions(tenant: LocalContext, memoryId: string): Promise<MemoryRevisionModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select({ rev: memoryRevisions })
       .from(memoryRevisions)
@@ -179,8 +162,6 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
       .where(
         and(
           eq(memoryRevisions.memoryId, memoryId),
-          eq(memoryRecords.workspaceId, tenant.workspaceId),
-          eq(memoryRecords.subjectUserId, tenant.subjectUserId),
         ),
       )
       .orderBy(memoryRevisions.createdAt);
@@ -197,7 +178,6 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
       sourceRange?: string | null;
     },
   ): Promise<MemoryEvidenceModel> {
-    assertLocalContext(tenant);
     const [created] = await this.db
       .insert(memoryEvidence)
       .values({
@@ -225,18 +205,15 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
       actorType?: string;
     },
   ): Promise<MemoryEventModel> {
-    assertLocalContext(tenant);
     const [memory] = await this.db
       .select()
       .from(memoryRecords)
       .where(
         and(
           eq(memoryRecords.id, eventData.memoryId),
-          eq(memoryRecords.workspaceId, tenant.workspaceId),
-          eq(memoryRecords.subjectUserId, tenant.subjectUserId),
         ),
       );
-    if (!memory) throw new NotFoundInTenantError(`Memory ${eventData.memoryId} not found in tenant`);
+    if (!memory) throw new RepositoryNotFoundError(`Memory ${eventData.memoryId} not found`);
     const [created] = await this.db
       .insert(memoryEvents)
       .values({
@@ -254,7 +231,6 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
   }
 
   async listMemoryEvents(tenant: LocalContext, memoryId: string): Promise<MemoryEventModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select({ ev: memoryEvents })
       .from(memoryEvents)
@@ -262,8 +238,6 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
       .where(
         and(
           eq(memoryEvents.memoryId, memoryId),
-          eq(memoryRecords.workspaceId, tenant.workspaceId),
-          eq(memoryRecords.subjectUserId, tenant.subjectUserId),
         ),
       )
       .orderBy(desc(memoryEvents.createdAt));

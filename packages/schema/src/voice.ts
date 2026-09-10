@@ -3,24 +3,23 @@
  *
  * 规则依据：docs/reference/voice/*（阶段 1：WebUI 设置中配置本地语音模型，CR-011）。
  *
- * voice_configs：工作区+用户作用域的本地语音模型配置，每租户多行（多预设）。
- * 每行 = 一个命名预设（name），同一租户至多一个预设 is_active=1（部分唯一索引保证）。
+ * voice_configs：本地单用户实例的语音模型配置，可保存多个预设。
+ * 每行 = 一个命名预设（name），本地实例至多一个预设 is_active=1（部分唯一索引保证）。
  * 用于保存 gpt-sovits-local 本地模型的 provider/modelPath/modelId/speakerId 等运行时配置，
  * 使其可从 WebUI 设置中读写并在保存后同步到本地 provider（reconfigure）。
  */
 import { sqliteTable, text, integer, real, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
-import { tenantColumns, timestampColumns } from "./common.js";
+import { timestampColumns } from "./common.js";
 
-/** 本地语音模型配置预设（租户级；每租户多行，至多一行激活） */
+/** 本地语音模型配置预设（本地实例多行，至多一行激活） */
 export const voiceConfigs = sqliteTable(
   "voice_configs",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     /** 预设名称（多预设切换用，默认「默认配置」） */
     name: text("name").notNull().default("默认配置"),
-    /** 是否为当前激活预设（0/1；每租户至多一行 =1） */
+    /** 是否为当前激活预设（0/1；本地实例至多一行 =1） */
     isActive: integer("is_active").notNull().default(1),
     /** 是否启用语音输出（0/1） */
     enabled: integer("enabled").notNull().default(1),
@@ -37,23 +36,19 @@ export const voiceConfigs = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("voice_configs_tenant_idx").on(table.workspaceId, table.subjectUserId),
-    tenantActiveIdx: uniqueIndex("voice_configs_tenant_active_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-    ).where(sql`${table.isActive} = 1`),
+
+
   }),
 );
 
-/** 离线语音输入 (ASR) 配置文件预设（租户级；每租户多行，至多一行激活，CR-016） */
+/** 离线语音输入 (ASR) 配置文件预设（本地实例多行，至多一行激活，CR-016） */
 export const voiceInputConfigs = sqliteTable(
   "voice_input_configs",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     /** 预设名称（多预设切换用，默认「默认配置」） */
     name: text("name").notNull().default("默认配置"),
-    /** 是否为当前激活预设（0/1；每租户至多一行 =1） */
+    /** 是否为当前激活预设（0/1；本地实例至多一行 =1） */
     isActive: integer("is_active").notNull().default(1),
     /** 是否启用语音输入（0/1） */
     enabled: integer("enabled").notNull().default(1),
@@ -76,23 +71,19 @@ export const voiceInputConfigs = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("voice_input_configs_tenant_idx").on(table.workspaceId, table.subjectUserId),
-    tenantActiveIdx: uniqueIndex("voice_input_configs_tenant_active_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-    ).where(sql`${table.isActive} = 1`),
+
+
   }),
 );
 
-/** 在线语音模型（GPT-SoVITS 远程 API）配置文件预设（租户级；每租户多行，至多一行激活，CR-028） */
+/** 在线语音模型（GPT-SoVITS 远程 API）配置文件预设（本地实例多行，至多一行激活，CR-028） */
 export const voiceRemoteConfigs = sqliteTable(
   "voice_remote_configs",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     /** 预设名称（多预设切换用，默认「默认配置」） */
     name: text("name").notNull().default("默认配置"),
-    /** 是否为当前激活预设（0/1；每租户至多一行 =1） */
+    /** 是否为当前激活预设（0/1；本地实例至多一行 =1） */
     isActive: integer("is_active").notNull().default(1),
     /** 是否启用在线语音输出（0/1） */
     enabled: integer("enabled").notNull().default(1),
@@ -123,10 +114,7 @@ export const voiceRemoteConfigs = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("voice_remote_configs_tenant_idx").on(table.workspaceId, table.subjectUserId),
-    tenantActiveIdx: uniqueIndex("voice_remote_configs_tenant_active_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-    ).where(sql`${table.isActive} = 1`),
+
+
   }),
 );

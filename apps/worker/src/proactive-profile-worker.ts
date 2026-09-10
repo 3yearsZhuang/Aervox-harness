@@ -66,21 +66,17 @@ export async function runProactiveProfileCycle(
   const candidates = await ctx.db
     .select({
       id: proactiveCaptures.id,
-      workspaceId: proactiveCaptures.workspaceId,
-      subjectUserId: proactiveCaptures.subjectUserId,
     })
     .from(proactiveCaptures)
     .innerJoin(
       proactiveProfileRevisions,
       and(eq(proactiveProfileRevisions.id, proactiveCaptures.revisionId),
-        eq(proactiveProfileRevisions.workspaceId, proactiveCaptures.workspaceId),
-        eq(proactiveProfileRevisions.subjectUserId, proactiveCaptures.subjectUserId)),
+      ),
     )
     .innerJoin(
       proactiveSourceGrants,
       and(eq(proactiveSourceGrants.id, proactiveCaptures.sourceGrantId),
-        eq(proactiveSourceGrants.workspaceId, proactiveCaptures.workspaceId),
-        eq(proactiveSourceGrants.subjectUserId, proactiveCaptures.subjectUserId)),
+      ),
     )
     .where(
       and(
@@ -103,10 +99,7 @@ export async function runProactiveProfileCycle(
   let distilled = 0;
   let failed = 0;
   for (const candidate of candidates) {
-    const tenant: LocalContext = {
-      workspaceId: candidate.workspaceId,
-      subjectUserId: candidate.subjectUserId,
-    };
+    const tenant: LocalContext = { workspaceId: "local", subjectUserId: "local" };
     try {
       const capture = await loadCapture(ctx.repo, tenant, candidate.id);
       if (!capture) continue;

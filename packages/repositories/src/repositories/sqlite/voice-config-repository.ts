@@ -1,13 +1,13 @@
 /**
  * Aervox｜思隅 @aervox/database — 语音输出配置 SQLite 仓储实现（CR-011 阶段 1 · 本地语音模型配置）
  *
- * - 配置按 (workspaceId, subjectUserId) 租户隔离，每租户多行（多预设），至多一行激活；
+ * - 配置属于本地单用户实例，可保存多个预设，至多一行激活；
  * - 本地 provider 固定 gpt-sovits-local；modelPath 白名单校验由 API 层负责。
  */
 import { and, asc, eq } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { voiceConfigs } from "@aervox/schema";
-import { assertLocalContext, type LocalContext } from "../../local-context.js";
+import type { LocalContext } from "../../local-context.js";
 import type {
   IVoiceConfigRepository,
   LocalVoiceConfigSaveInput,
@@ -17,8 +17,6 @@ import type {
 function rowToModel(row: typeof voiceConfigs.$inferSelect): LocalVoiceConfigModel {
   return {
     id: row.id,
-    workspaceId: row.workspaceId,
-    subjectUserId: row.subjectUserId,
     name: row.name,
     isActive: row.isActive,
     enabled: row.enabled,
@@ -36,14 +34,11 @@ export class SqliteVoiceConfigRepository implements IVoiceConfigRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async getConfig(tenant: LocalContext): Promise<LocalVoiceConfigModel | null> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(voiceConfigs)
       .where(
         and(
-          eq(voiceConfigs.workspaceId, tenant.workspaceId),
-          eq(voiceConfigs.subjectUserId, tenant.subjectUserId),
         ),
       )
       .orderBy(asc(voiceConfigs.createdAt))
@@ -57,7 +52,6 @@ export class SqliteVoiceConfigRepository implements IVoiceConfigRepository {
     tenant: LocalContext,
     input: LocalVoiceConfigSaveInput,
   ): Promise<LocalVoiceConfigModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const active = await this.getConfig(tenant);
 
@@ -74,8 +68,6 @@ export class SqliteVoiceConfigRepository implements IVoiceConfigRepository {
       .insert(voiceConfigs)
       .values({
         id: `vc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         name: "默认配置",
         isActive: 1,
         ...valuesFor(input),
@@ -87,14 +79,11 @@ export class SqliteVoiceConfigRepository implements IVoiceConfigRepository {
   }
 
   async listPresets(tenant: LocalContext): Promise<LocalVoiceConfigModel[]> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(voiceConfigs)
       .where(
         and(
-          eq(voiceConfigs.workspaceId, tenant.workspaceId),
-          eq(voiceConfigs.subjectUserId, tenant.subjectUserId),
         ),
       )
       .orderBy(asc(voiceConfigs.createdAt));
@@ -106,7 +95,6 @@ export class SqliteVoiceConfigRepository implements IVoiceConfigRepository {
     name: string,
     input: LocalVoiceConfigSaveInput,
   ): Promise<LocalVoiceConfigModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const existing = await this.listPresets(tenant);
     const firstPreset = existing.length === 0;
@@ -115,8 +103,6 @@ export class SqliteVoiceConfigRepository implements IVoiceConfigRepository {
       .insert(voiceConfigs)
       .values({
         id: `vc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         name: name.trim() || "默认配置",
         isActive: firstPreset ? 1 : 0,
         ...valuesFor(input),
@@ -132,15 +118,12 @@ export class SqliteVoiceConfigRepository implements IVoiceConfigRepository {
     presetId: string,
     input: LocalVoiceConfigSaveInput,
   ): Promise<LocalVoiceConfigModel | null> {
-    assertLocalContext(tenant);
     const [updated] = await this.db
       .update(voiceConfigs)
       .set({ ...valuesFor(input), updatedAt: new Date().toISOString() })
       .where(
         and(
           eq(voiceConfigs.id, presetId),
-          eq(voiceConfigs.workspaceId, tenant.workspaceId),
-          eq(voiceConfigs.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -151,7 +134,6 @@ export class SqliteVoiceConfigRepository implements IVoiceConfigRepository {
     tenant: LocalContext,
     presetId: string,
   ): Promise<LocalVoiceConfigModel | null> {
-    assertLocalContext(tenant);
     return this.db.transaction(async (tx) => {
       const [target] = await tx
         .select()
@@ -159,8 +141,6 @@ export class SqliteVoiceConfigRepository implements IVoiceConfigRepository {
         .where(
           and(
             eq(voiceConfigs.id, presetId),
-            eq(voiceConfigs.workspaceId, tenant.workspaceId),
-            eq(voiceConfigs.subjectUserId, tenant.subjectUserId),
           ),
         )
         .limit(1);
@@ -170,8 +150,6 @@ export class SqliteVoiceConfigRepository implements IVoiceConfigRepository {
         .set({ isActive: 0, updatedAt: new Date().toISOString() })
         .where(
           and(
-            eq(voiceConfigs.workspaceId, tenant.workspaceId),
-            eq(voiceConfigs.subjectUserId, tenant.subjectUserId),
           ),
         );
       const [activated] = await tx
@@ -184,7 +162,6 @@ export class SqliteVoiceConfigRepository implements IVoiceConfigRepository {
   }
 
   async deletePreset(tenant: LocalContext, presetId: string): Promise<boolean> {
-    assertLocalContext(tenant);
     return this.db.transaction(async (tx) => {
       const [target] = await tx
         .select()
@@ -192,8 +169,6 @@ export class SqliteVoiceConfigRepository implements IVoiceConfigRepository {
         .where(
           and(
             eq(voiceConfigs.id, presetId),
-            eq(voiceConfigs.workspaceId, tenant.workspaceId),
-            eq(voiceConfigs.subjectUserId, tenant.subjectUserId),
           ),
         )
         .limit(1);
@@ -206,8 +181,6 @@ export class SqliteVoiceConfigRepository implements IVoiceConfigRepository {
           .from(voiceConfigs)
           .where(
             and(
-              eq(voiceConfigs.workspaceId, tenant.workspaceId),
-              eq(voiceConfigs.subjectUserId, tenant.subjectUserId),
             ),
           )
           .orderBy(asc(voiceConfigs.createdAt))

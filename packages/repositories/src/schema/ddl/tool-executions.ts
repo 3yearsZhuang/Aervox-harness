@@ -11,8 +11,6 @@ export async function createToolExecutionsTables(client: Client): Promise<void> 
         attempt_id TEXT NOT NULL,
         invocation_id TEXT NOT NULL,
         name TEXT NOT NULL,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         arguments_json TEXT,
         status TEXT NOT NULL,
         output_json TEXT,
@@ -26,9 +24,6 @@ export async function createToolExecutionsTables(client: Client): Promise<void> 
     `);
   await client.execute(`
       CREATE INDEX IF NOT EXISTS tool_executions_attempt_idx ON tool_executions(attempt_id);
-    `);
-  await client.execute(`
-      CREATE INDEX IF NOT EXISTS tool_executions_tenant_idx ON tool_executions(workspace_id, subject_user_id);
     `);
   // 2c：幂等预留唯一键（attempt+invocation；旧库经下方 CREATE UNIQUE INDEX 幂等补齐）
     await client.execute(`

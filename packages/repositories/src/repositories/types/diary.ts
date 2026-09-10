@@ -95,8 +95,8 @@ export interface IDiaryRepository {
 
 export interface DiaryScheduleModel {
   id: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   enabled: number;
   scheduleEpochId: string;
   activeFrom: string;
@@ -136,8 +136,8 @@ export interface DiaryParagraphSourceModel {
 export interface DiaryMaterialBufferModel {
   id: string;
   cycleId: string;
-  workspaceId: string;
-  subjectUserId: string;
+  workspaceId?: string;
+  subjectUserId?: string;
   sourceArtifactId: string;
   sourceRevisionId: string;
   occurredAt: string;

@@ -5,9 +5,9 @@ scope: decision
 owner: maintainers
 doc_status: review-candidate
 decision_status: accepted
-version: 0.2.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 0.3.0
+updated_at: 2026-09-11
+reviewed_at: 2026-09-11
 review_interval_days: 90
 ---
 
@@ -79,4 +79,4 @@ review_interval_days: 90
 
 - **已满足**：SQLite 真源、Schema/Repository 双包和 Repository Port 已稳定运行。
 - **已终止**：PostgreSQL 双引擎、组织级 RLS 和长期租户兼容目标由 CR-030 取消。
-- **待完成**：CR-030 D1～D3 的安全迁移、去租户化和回滚演练。
+- **当前状态**：CR-030 D1～D3 的迁移基础能力、去租户化和安全入口已实现；完整运行编排、故障注入和 rollback 演练仍是发布前门禁，未恢复 PostgreSQL 演进目标。

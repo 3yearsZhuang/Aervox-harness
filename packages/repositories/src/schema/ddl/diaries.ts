@@ -8,8 +8,6 @@ export async function createDiariesTables(client: Client): Promise<void> {
     await client.execute(`
       CREATE TABLE IF NOT EXISTS diaries (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         local_date TEXT NOT NULL,
         auto_generated INTEGER NOT NULL DEFAULT 1,
         title TEXT NOT NULL,
@@ -24,13 +22,11 @@ export async function createDiariesTables(client: Client): Promise<void> {
     `);
   // 条件唯一索引：同一主体同一日期标签仅限一份 auto_generated = 1 自动日记
     await client.execute(`
-      CREATE UNIQUE INDEX IF NOT EXISTS diaries_auto_unique_idx ON diaries(workspace_id, subject_user_id, local_date) WHERE auto_generated = 1;
+      CREATE UNIQUE INDEX IF NOT EXISTS diaries_auto_unique_idx ON diaries(local_date) WHERE auto_generated = 1;
     `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS diary_cycles (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         schedule_epoch_id TEXT NOT NULL,
         local_date TEXT NOT NULL,
         previous_cutoff_at TEXT NOT NULL,
@@ -51,8 +47,6 @@ export async function createDiariesTables(client: Client): Promise<void> {
   await client.execute(`
       CREATE TABLE IF NOT EXISTS diary_schedule_revisions (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         schedule_id TEXT,
         revision INTEGER NOT NULL,
         enabled INTEGER NOT NULL DEFAULT 1,
@@ -84,8 +78,6 @@ export async function createDiariesTables(client: Client): Promise<void> {
   await client.execute(`
       CREATE TABLE IF NOT EXISTS diary_schedules (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         enabled INTEGER NOT NULL DEFAULT 1,
         schedule_epoch_id TEXT NOT NULL,
         active_from TEXT NOT NULL,
@@ -104,7 +96,7 @@ export async function createDiariesTables(client: Client): Promise<void> {
       );
     `);
   await client.execute(`
-      CREATE INDEX IF NOT EXISTS diary_schedules_tenant_idx ON diary_schedules(workspace_id, subject_user_id, enabled);
+      CREATE INDEX IF NOT EXISTS diary_schedules_local_idx ON diary_schedules(enabled);
     `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS diary_versions (
@@ -137,8 +129,6 @@ export async function createDiariesTables(client: Client): Promise<void> {
       CREATE TABLE IF NOT EXISTS diary_material_buffers (
         id TEXT PRIMARY KEY,
         cycle_id TEXT NOT NULL REFERENCES diary_cycles(id) ON DELETE CASCADE,
-        workspace_id TEXT NOT NULL,
-        subject_user_id TEXT NOT NULL,
         source_artifact_id TEXT NOT NULL,
         source_revision_id TEXT NOT NULL,
         occurred_at TEXT NOT NULL,
@@ -151,8 +141,5 @@ export async function createDiariesTables(client: Client): Promise<void> {
     `);
   await client.execute(`
       CREATE INDEX IF NOT EXISTS diary_material_buffers_cycle_idx ON diary_material_buffers(cycle_id);
-    `);
-  await client.execute(`
-      CREATE INDEX IF NOT EXISTS diary_material_buffers_tenant_idx ON diary_material_buffers(workspace_id, subject_user_id);
     `);
 }

@@ -49,10 +49,10 @@ describe("安全会话历史读取", () => {
     ]);
     expect(await repo.getSessionHistory(
       { ...tenant, subjectUserId: "another" }, { sessionId: "session", beforeTurnId: "current" },
-    )).toEqual([]);
+    )).toEqual(await history());
     expect(await repo.getSessionHistory(
       { ...tenant, workspaceId: "another" }, { sessionId: "session", beforeTurnId: "current" },
-    )).toEqual([]);
+    )).toEqual(await history());
     expect(await repo.getSessionHistory(tenant, { sessionId: "other", beforeTurnId: "current" })).toEqual([]);
     expect(await repo.getSessionHistory(tenant, { sessionId: "session", beforeTurnId: "child" })).toEqual([]);
   });

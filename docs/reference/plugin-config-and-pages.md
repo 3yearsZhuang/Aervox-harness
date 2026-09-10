@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.3.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 0.4.0
+updated_at: 2026-09-11
+reviewed_at: 2026-09-11
 review_interval_days: 90
 review_triggers:
   - packages/ui/src/registry/**
@@ -79,7 +79,7 @@ Schema 升级规则：
 
 ## 2. 配置存储与 API
 
-目标配置按 `pluginId` 持久化；CR-030 D2 完成前，当前实现仍暂时保留旧租户列作为迁移兼容字段：
+目标配置按 `pluginId` 持久化；CR-030 D2 完成后，最终表结构不再包含租户列，调用层的 `LocalContext` 仅为兼容参数：
 
 - `plugin_configs`：非敏感配置值、secret 键列表、schemaVersion、revision、orphanedValues；
 - `plugin_config_secrets`：secret 字段（本地默认实现存储值但不对外回显；生产必须注入加密 SecretStore Port）；

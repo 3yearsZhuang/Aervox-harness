@@ -6,7 +6,7 @@
 import { eq, and, sql, inArray } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { consentGrants, deletionRequests, deletionTargets } from "@aervox/schema";
-import { assertLocalContext, type LocalContext } from "../../local-context.js";
+import type { LocalContext } from "../../local-context.js";
 import type {
   IPrivacyRepository,
   ConsentGrantModel,
@@ -28,13 +28,10 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
       grantedAt?: string;
     },
   ): Promise<ConsentGrantModel> {
-    assertLocalContext(tenant);
     const [created] = await this.db
       .insert(consentGrants)
       .values({
         id: grantData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         actorId: grantData.actorId,
         purpose: grantData.purpose,
         scope: grantData.scope,
@@ -47,15 +44,12 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
   }
 
   async revokeConsent(tenant: LocalContext, id: string, revokedAt?: string): Promise<ConsentGrantModel | null> {
-    assertLocalContext(tenant);
     const [updated] = await this.db
       .update(consentGrants)
       .set({ revokedAt: revokedAt ?? new Date().toISOString() })
       .where(
         and(
           eq(consentGrants.id, id),
-          eq(consentGrants.workspaceId, tenant.workspaceId),
-          eq(consentGrants.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -63,14 +57,11 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
   }
 
   async hasActiveConsent(tenant: LocalContext, purpose: string, scope: string): Promise<boolean> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(consentGrants)
       .where(
         and(
-          eq(consentGrants.workspaceId, tenant.workspaceId),
-          eq(consentGrants.subjectUserId, tenant.subjectUserId),
           eq(consentGrants.purpose, purpose),
           eq(consentGrants.scope, scope),
           sql`${consentGrants.revokedAt} IS NULL`,
@@ -81,14 +72,11 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
 
   /** 2d：该租户是否存在未完成的删除/撤权请求（删除/撤权水位未追平；AVX-HAR-001 §11.3 fail-closed 闸门数据源） */
   async hasPendingDeletionRequest(tenant: LocalContext): Promise<boolean> {
-    assertLocalContext(tenant);
     const rows = await this.db
       .select({ id: deletionRequests.id })
       .from(deletionRequests)
       .where(
         and(
-          eq(deletionRequests.workspaceId, tenant.workspaceId),
-          eq(deletionRequests.subjectUserId, tenant.subjectUserId),
           inArray(deletionRequests.status, ["pending", "in_progress"]),
         ),
       )
@@ -106,14 +94,11 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
       ownerModule: string;
     },
   ): Promise<DeletionRequestModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(deletionRequests)
       .values({
         id: requestData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         scope: requestData.scope,
         idempotencyKey: requestData.idempotencyKey,
         requestedAt: requestData.requestedAt ?? now,
@@ -128,15 +113,12 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
   }
 
   async getDeletionRequest(tenant: LocalContext, id: string): Promise<DeletionRequestModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(deletionRequests)
       .where(
         and(
           eq(deletionRequests.id, id),
-          eq(deletionRequests.workspaceId, tenant.workspaceId),
-          eq(deletionRequests.subjectUserId, tenant.subjectUserId),
         ),
       );
     return (found as DeletionRequestModel) ?? null;
@@ -148,7 +130,6 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
     status: string,
     patch?: { lastError?: string | null; lastVerifiedAt?: string; attemptCount?: number },
   ): Promise<DeletionRequestModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const updateData: Record<string, unknown> = { status, updatedAt: now };
     if (patch?.lastError !== undefined) updateData.lastError = patch.lastError;
@@ -160,8 +141,6 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
       .where(
         and(
           eq(deletionRequests.id, id),
-          eq(deletionRequests.workspaceId, tenant.workspaceId),
-          eq(deletionRequests.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();

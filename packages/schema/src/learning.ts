@@ -5,14 +5,13 @@
  */
 import { sqliteTable, text, integer, real, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
-import { tenantColumns, timestampColumns } from "./common.js";
+import { timestampColumns } from "./common.js";
 
 /** 学习目标（CAP-002） */
 export const learningGoals = sqliteTable(
   "learning_goals",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     topic: text("topic").notNull(),
     level: text("level").notNull().default("beginner"), // "beginner" | "intermediate" | "advanced"
     availableMinutes: integer("available_minutes").notNull().default(0),
@@ -21,10 +20,8 @@ export const learningGoals = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("learning_goals_tenant_idx").on(table.workspaceId, table.subjectUserId),
-    tenantIdempotencyIdx: uniqueIndex("learning_goals_tenant_idempotency_idx")
-      .on(table.workspaceId, table.subjectUserId, table.idempotencyKey)
-      .where(sql`${table.idempotencyKey} IS NOT NULL`),
+
+
   }),
 );
 
@@ -33,7 +30,6 @@ export const questions = sqliteTable(
   "questions",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     sourceArtifactId: text("source_artifact_id"), // → source_artifacts.id（应用层维护，来源未落库前允许为空）
     knowledgeId: text("knowledge_id").references(() => knowledgeItems.id),
     prompt: text("prompt").notNull(),
@@ -42,7 +38,7 @@ export const questions = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("questions_tenant_idx").on(table.workspaceId, table.subjectUserId),
+
     sourceIdx: index("questions_source_artifact_idx").on(table.sourceArtifactId),
     knowledgeIdx: index("questions_knowledge_idx").on(table.knowledgeId),
   }),
@@ -55,7 +51,6 @@ export const questionAttempts = sqliteTable(
   "question_attempts",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     sessionId: text("session_id").notNull(), // 会话标识（学习事实不可随会话删除级联）
     questionId: text("question_id")
       .notNull()
@@ -77,10 +72,8 @@ export const questionAttempts = sqliteTable(
       table.sessionId,
       table.questionId,
     ),
-    tenantIdx: index("question_attempts_tenant_idx").on(table.workspaceId, table.subjectUserId),
-    tenantQuestionIdempotencyIdx: uniqueIndex("question_attempts_tenant_question_idempotency_idx")
-      .on(table.workspaceId, table.subjectUserId, table.questionId, table.idempotencyKey)
-      .where(sql`${table.idempotencyKey} IS NOT NULL`),
+
+
   }),
 );
 
@@ -89,7 +82,6 @@ export const mistakeDispositions = sqliteTable(
   "mistake_dispositions",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     questionId: text("question_id").notNull().references(() => questions.id),
     status: text("status").notNull().default("active"), // "active" | "dismissed"
     reason: text("reason"), // 错因标签（用户标注的错误原因）
@@ -97,11 +89,7 @@ export const mistakeDispositions = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantQuestionIdx: uniqueIndex("mistake_dispositions_tenant_question_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.questionId,
-    ),
+    questionUniqueIdx: uniqueIndex("mistake_dispositions_question_unique_idx").on(table.questionId),
   }),
 );
 
@@ -110,18 +98,13 @@ export const mistakeInsights = sqliteTable(
   "mistake_insights",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     questionId: text("question_id").notNull().references(() => questions.id),
     reasonCode: text("reason_code").notNull(), // concept_gap | calculation | careless | misread | other
     note: text("note"),
     ...timestampColumns,
   },
   (table) => ({
-    tenantQuestionIdx: uniqueIndex("mistake_insights_tenant_question_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.questionId,
-    ),
+    questionUniqueIdx: uniqueIndex("mistake_insights_question_unique_idx").on(table.questionId),
   }),
 );
 
@@ -130,7 +113,6 @@ export const practiceSessions = sqliteTable(
   "practice_sessions",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     questionCount: integer("question_count").notNull(),
     questionIds: text("question_ids", { mode: "json" }).notNull(),
     status: text("status").notNull().default("active"), // "active" | "completed"
@@ -138,7 +120,7 @@ export const practiceSessions = sqliteTable(
     endedAt: text("ended_at"),
   },
   (table) => ({
-    tenantIdx: index("practice_sessions_tenant_idx").on(table.workspaceId, table.subjectUserId),
+
   }),
 );
 
@@ -147,7 +129,6 @@ export const knowledgeItems = sqliteTable(
   "knowledge_items",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     concept: text("concept").notNull(),
     sourceStatus: text("source_status").notNull().default("inferred"), // "observed" | "inferred" | "verified"
     masteryState: text("mastery_state").notNull().default("unknown"), // "unknown" | "learning" | "reviewing" | "mastered"
@@ -159,7 +140,7 @@ export const knowledgeItems = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("knowledge_items_tenant_idx").on(table.workspaceId, table.subjectUserId),
+
   }),
 );
 
@@ -168,7 +149,6 @@ export const reviewItems = sqliteTable(
   "review_items",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     knowledgeId: text("knowledge_id")
       .notNull()
       .references(() => knowledgeItems.id, { onDelete: "cascade" }),
@@ -182,14 +162,8 @@ export const reviewItems = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantKnowledgeActiveIdx: uniqueIndex("review_items_tenant_knowledge_active_idx")
-      .on(table.workspaceId, table.subjectUserId, table.knowledgeId)
-      .where(sql`${table.status} = 'active'`),
-    tenantDueIdx: index("review_items_tenant_due_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.dueAt,
-    ),
+
+
   }),
 );
 
@@ -203,7 +177,6 @@ export const knowledgeRelations = sqliteTable(
   "knowledge_relations",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     fromKnowledgeId: text("from_knowledge_id")
       .notNull()
       .references(() => knowledgeItems.id, { onDelete: "cascade" }),
@@ -224,11 +197,7 @@ export const knowledgeRelations = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantFromIdx: index("knowledge_relations_tenant_from_idx").on(
-      table.workspaceId,
-      table.subjectUserId,
-      table.fromKnowledgeId,
-    ),
+
     correctionIdx: index("knowledge_relations_correction_idx").on(table.correctionStatus),
   }),
 );
@@ -245,7 +214,6 @@ export const practiceReports = sqliteTable(
   "practice_reports",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     /** → practice_sessions.id */
     sessionId: text("session_id").notNull(),
     /** 观测：总题数 */
@@ -269,7 +237,7 @@ export const practiceReports = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("practice_reports_tenant_idx").on(table.workspaceId, table.subjectUserId),
+
     sessionIdx: index("practice_reports_session_idx").on(table.sessionId),
   }),
 );
@@ -286,7 +254,6 @@ export const learningPlans = sqliteTable(
   "learning_plans",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     /** 用户输入的学习主题 */
     topic: text("topic").notNull(),
     /** 学习水平："beginner" | "intermediate" | "advanced" */
@@ -306,7 +273,7 @@ export const learningPlans = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("learning_plans_tenant_idx").on(table.workspaceId, table.subjectUserId),
+
   }),
 );
 
@@ -315,7 +282,6 @@ export const planMilestones = sqliteTable(
   "plan_milestones",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     /** → learning_plans.id */
     planId: text("plan_id")
       .notNull()
@@ -335,7 +301,7 @@ export const planMilestones = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("plan_milestones_tenant_idx").on(table.workspaceId, table.subjectUserId),
+
     planIdx: index("plan_milestones_plan_idx").on(table.planId),
   }),
 );
@@ -345,7 +311,6 @@ export const planTasks = sqliteTable(
   "plan_tasks",
   {
     id: text("id").primaryKey(),
-    ...tenantColumns,
     /** → plan_milestones.id */
     milestoneId: text("milestone_id")
       .notNull()
@@ -361,7 +326,7 @@ export const planTasks = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("plan_tasks_tenant_idx").on(table.workspaceId, table.subjectUserId),
+
     milestoneIdx: index("plan_tasks_milestone_idx").on(table.milestoneId),
   }),
 );

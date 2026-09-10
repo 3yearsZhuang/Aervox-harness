@@ -13,7 +13,7 @@ import {
   communityContents,
   organizations,
 } from "@aervox/schema";
-import { assertLocalContext, type LocalContext } from "../../local-context.js";
+import type { LocalContext } from "../../local-context.js";
 import type {
   IExtensionRepository,
   ExternalSourceModel,
@@ -30,14 +30,11 @@ export class SqliteExtensionRepository implements IExtensionRepository {
     tenant: LocalContext,
     sourceData: { id: string; provider: string; externalId: string; permissionScope: string; syncState?: string },
   ): Promise<ExternalSourceModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(externalSources)
       .values({
         id: sourceData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         provider: sourceData.provider,
         externalId: sourceData.externalId,
         permissionScope: sourceData.permissionScope,
@@ -50,15 +47,12 @@ export class SqliteExtensionRepository implements IExtensionRepository {
   }
 
   async getExternalSource(tenant: LocalContext, id: string): Promise<ExternalSourceModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(externalSources)
       .where(
         and(
           eq(externalSources.id, id),
-          eq(externalSources.workspaceId, tenant.workspaceId),
-          eq(externalSources.subjectUserId, tenant.subjectUserId),
         ),
       );
     return (found as ExternalSourceModel) ?? null;
@@ -163,14 +157,11 @@ export class SqliteExtensionRepository implements IExtensionRepository {
     tenant: LocalContext,
     grantData: { id: string; pluginId: string; permission: string; scope: string; grantedAt?: string },
   ): Promise<PluginGrantModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(pluginGrants)
       .values({
         id: grantData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         pluginId: grantData.pluginId,
         permission: grantData.permission,
         scope: grantData.scope,
@@ -183,7 +174,6 @@ export class SqliteExtensionRepository implements IExtensionRepository {
   }
 
   async revokePluginGrant(tenant: LocalContext, id: string): Promise<PluginGrantModel | null> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(pluginGrants)
@@ -191,8 +181,6 @@ export class SqliteExtensionRepository implements IExtensionRepository {
       .where(
         and(
           eq(pluginGrants.id, id),
-          eq(pluginGrants.workspaceId, tenant.workspaceId),
-          eq(pluginGrants.subjectUserId, tenant.subjectUserId),
         ),
       )
       .returning();
@@ -200,14 +188,11 @@ export class SqliteExtensionRepository implements IExtensionRepository {
   }
 
   async hasPluginPermission(tenant: LocalContext, pluginId: string, permission: string): Promise<boolean> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(pluginGrants)
       .where(
         and(
-          eq(pluginGrants.workspaceId, tenant.workspaceId),
-          eq(pluginGrants.subjectUserId, tenant.subjectUserId),
           eq(pluginGrants.pluginId, pluginId),
           eq(pluginGrants.permission, permission),
           // 未撤销的授权视为有效（libsql file 后端读快照偶发滞后，沿用 sql IS NULL 既有约定）
@@ -222,14 +207,11 @@ export class SqliteExtensionRepository implements IExtensionRepository {
     tenant: LocalContext,
     contentData: { id: string; authorId: string; type: string; status?: string; reviewState?: string; visibility?: string },
   ): Promise<CommunityContentModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(communityContents)
       .values({
         id: contentData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         authorId: contentData.authorId,
         type: contentData.type,
         status: contentData.status ?? "draft",
@@ -243,15 +225,12 @@ export class SqliteExtensionRepository implements IExtensionRepository {
   }
 
   async getCommunityContent(tenant: LocalContext, id: string): Promise<CommunityContentModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(communityContents)
       .where(
         and(
           eq(communityContents.id, id),
-          eq(communityContents.workspaceId, tenant.workspaceId),
-          eq(communityContents.subjectUserId, tenant.subjectUserId),
         ),
       );
     return (found as CommunityContentModel) ?? null;
@@ -261,14 +240,11 @@ export class SqliteExtensionRepository implements IExtensionRepository {
     tenant: LocalContext,
     orgData: { id: string; ownerId: string; memberScope?: string; policyVersion: string },
   ): Promise<OrganizationModel> {
-    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(organizations)
       .values({
         id: orgData.id,
-        workspaceId: tenant.workspaceId,
-        subjectUserId: tenant.subjectUserId,
         ownerId: orgData.ownerId,
         memberScope: orgData.memberScope ?? "institution",
         policyVersion: orgData.policyVersion,
@@ -280,15 +256,12 @@ export class SqliteExtensionRepository implements IExtensionRepository {
   }
 
   async getOrganization(tenant: LocalContext, id: string): Promise<OrganizationModel | null> {
-    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(organizations)
       .where(
         and(
           eq(organizations.id, id),
-          eq(organizations.workspaceId, tenant.workspaceId),
-          eq(organizations.subjectUserId, tenant.subjectUserId),
         ),
       );
     return (found as OrganizationModel) ?? null;
