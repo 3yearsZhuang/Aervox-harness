@@ -15,7 +15,7 @@ review_interval_days: 90
 # Aervox｜思隅 AI 质量与安全规范
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：codex · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-11
 
 关联文档：[PRD](PRD.md) · [架构设计](ARCHITECTURE.md) · [流式协议](STREAMING_PROTOCOL.md) · [数据与隐私](DATA_PRIVACY.md) · [需求追踪](REQUIREMENTS_TRACEABILITY.md) · [CR-023](changes/CR-023-proactive-local-intelligence-mode.md)
 

@@ -1,7 +1,7 @@
 # Aervox｜思隅
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：codex · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-11
 
 更好上手的"主动智能" Agent：以桌宠为入口，视觉小说 + 工作台双形态交互，承载陪伴与学习双重任务。TypeScript 全栈 monorepo 交付：Fastify API + Worker + 桌面 / Web / 移动端共享同一契约，SQLite 为业务真源。产品定义、工程规范与契约事实源一律在 [docs/](docs/README.md)，本 README 只做索引与速查。
 

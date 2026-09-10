@@ -15,7 +15,7 @@ review_interval_days: 90
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：codex · 2026-09-11
+- 修改人：3yearszhuang · 2026-09-11
 
 产品需求来源：[PRD.md](PRD.md)
 
@@ -412,6 +412,7 @@ review_interval_days: 90
 | W-02 ADR 元数据批量迁移（REFACTOR-PLAN W-02） | 基础设施（文档治理） | `docs/reference/adr/` 下 17 份遗留 ADR 文档（`ADR-001`～`ADR-017`）全面转换为规范 YAML front matter；声明机器字段 `decision_status`（明确 `ADR-014`/`ADR-016` 为 `accepted`、`ADR-002` 为 `rejected`+`superseded`、其余为 `proposed`）；同步在 `docs/DOC_REGISTRY.md` 补齐 17 份独立登记项（`registry_missing=0`） | 2026-09-10 | `node scripts/docs-governance.mjs --strict`（strict 错误数由 50 降至 33，全仓 19 份 ADR 全部 100% canonical）；`mise tasks run ci-docs` 全通（Markdown lint 90 文件 0 issues、Vale 0 警告、治理指标全 0） | 原生 |
 | PR-169 冲突重整：工作台组件化、UI 插槽与 Server Turn Plugin 管道 | CAP-001/002/007/016/020 + 基础设施 | `packages/ui/src/{components/workbench,components/extension,composables,registry,plugins}/`（工作台拆分、UI 插槽与 focus-mode）、`apps/api/src/modules/plugins/turn-plugins/`（beforeTurn/afterTurn 管道）、`packages/{agent-loop,host-agent}`（进程外 Adapter 系统提示词透传）、`apps/api/src/modules/plugins/config-service.ts`（兼容别名统一解析）、`turbo.json`（跨包静态资产复制任务禁用缓存，确保冷/热缓存均生成消费端资源）、`docs/{how-to/develop-plugin-ui-extension.md,reference/plugin-config-and-pages.md}` | 2026-09-10 | UI/API/Agent Loop/Host Agent 单测；删除消费端生成资产后重跑 Desktop 构建与测试；`mise tasks run ci-code`；`mise tasks run ci-docs` | 原生 |
 | CR-030 D0：SQLite 永久本地单用户真源与去租户化决策基线 | CAP-005/015/026/027/033～035、SEC-LOC-001、DATA-PRO-001、NFR-SEC/PRIV/DR-001 | `docs/reference/changes/CR-030-pure-local-sqlite-database.md`；同步 `PRD.md`、`prd-cap-acceptance.md`、`SRS.md`、`srs-proactive-intelligence.md`、`ARCHITECTURE.md`、`DATABASE.md`、`database-coverage-matrix.md`、`DATA_PRIVACY.md`、`AI_QUALITY_SAFETY.md`、`THREAT_MODEL.md`、`TEST_STRATEGY.md`、`operations.md`、ADR-003/008、CR-003 与导航/登记 | 2026-09-11 | `mise tasks run ci-docs`；文档冲突扫描；CR-030 decision=accepted、delivery=planned；D1～D3 不得登记为已实现；`SEC-TEN-001` 已标记 Deprecated 并由 `SEC-LOC-001` 替代 | 原生 |
+| CR-030 D1 基础切片：迁移 sidecar 状态机、启动中间态 fail-closed、旧租户范围扫描与显式选择 | CR-030 / SEC-LOC-001 / NFR-REL-001 | `packages/repositories/src/migration/cr030-migration.ts`、`packages/repositories/src/migration/index.ts`、`packages/repositories/test/cr030-migration.test.ts` | 2026-09-11 | `mise x -- pnpm --filter @aervox/schema build`；`mise x -- pnpm --filter @aervox/repositories typecheck`；CR-030 定向 Vitest 3 tests；D1 备份、staging、校验和原子换库仍未完成 | 原生 |
 
 ## 5. 原子需求字段模板
 

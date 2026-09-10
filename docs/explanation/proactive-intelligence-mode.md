@@ -43,7 +43,7 @@ sources:
 # 主动智能模式设计方案
 
 - 提出人：3yearszhuang · 2026-08-29
-- 修改人：codex · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-11
 
 关联：[CR-023](../reference/changes/CR-023-proactive-local-intelligence-mode.md)、[CR-022 完全访问](../reference/changes/CR-022-full-access-tool-permission.md)、[需求追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)、[数据与隐私](../reference/DATA_PRIVACY.md)
 

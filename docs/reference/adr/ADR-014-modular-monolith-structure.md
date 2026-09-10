@@ -14,7 +14,7 @@ review_interval_days: 90
 # ADR-014 演进式模块化单体：apps/api 目录结构
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：codex · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-11
 
 - 状态：Accepted（2026-08-31）
 - 日期：2026-08-25

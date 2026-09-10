@@ -15,7 +15,7 @@ review_interval_days: 90
 # 术语表（唯一含义与规范写法）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：codex · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-11
 
 关联：[文档写作规范](doc-standards.md)
 

@@ -16,7 +16,7 @@ review_interval_days: 90
 # ADR-016 底座边界冻结：Kernel Substrate 与能力层的依赖边界
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：codex · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-11
 
 - 状态：Accepted
 - 日期：2026-08-28

@@ -1,7 +1,7 @@
 # AGENTS.md — AI 协作指南（薄入口）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：codex · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-11
 
 本文件是 AI 编码 Agent 的进入点：只索引、不复制，权威内容一律深链至 `docs/`，避免双源漂移。详细规则见 [从哪开始](docs/getting-started.md)（面向新成员或 Agent 的完整 onboarding）、[文档治理规范](docs/reference/document-governance.md)与[文档写作规范](docs/reference/standards/doc-standards.md)。
 

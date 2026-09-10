@@ -15,7 +15,7 @@ review_interval_days: 90
 # ADR-008 Cloud-first 与本地/自托管 Port
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：codex · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-11
 
 - 状态：Superseded by [CR-030](../changes/CR-030-pure-local-sqlite-database.md)
 - 日期：2026-08-23

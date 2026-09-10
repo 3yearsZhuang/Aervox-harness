@@ -14,7 +14,7 @@ review_interval_days: 90
 # ADR-003 仓储抽象架构：SQLite 业务真源与 FTS5/Vector Port
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：codex · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-11
 
 - 状态：Accepted（经 [CR-030](../changes/CR-030-pure-local-sqlite-database.md) 修订）
 - 日期：2026-08-24

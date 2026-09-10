@@ -15,7 +15,7 @@ review_interval_days: 90
 # Aervox｜思隅 数据与隐私规范
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：codex · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-11
 
 关联文档：[PRD](PRD.md) · [架构设计](ARCHITECTURE.md) · [AI 质量与安全](AI_QUALITY_SAFETY.md) · [CR-023](changes/CR-023-proactive-local-intelligence-mode.md) · [CR-030](changes/CR-030-pure-local-sqlite-database.md)
 
