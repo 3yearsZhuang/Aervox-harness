@@ -1,11 +1,11 @@
 # Aervox｜思隅 产品与工程文档索引
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：MoeJiyun233 · 2026-08-29
+- 修改人：3yearszhuang · 2026-09-10
 
 > 文档编号：AVX-DOC-001  
 > 版本：v1.3
-> 更新日期：2026-08-29
+> 更新日期：2026-09-10
 > 状态：Review Candidate
 
 本目录把产品目标、可测试需求、架构决策、数据权利和 AI 质量分开维护，避免单一 PRD 同时承担所有细节。所有上线范围必须能从用户价值追踪到需求、设计、测试和发布证据。
@@ -31,6 +31,8 @@
 | [能力注册表](reference/capability-registry.md)（AVX-CAP-REG-001） | 哪些能力纳入自选机制、以什么方式启用、当前处于哪个状态 | 交付载体与启用方式、CAP 分类与已注册模块登记；判定规则与交付机制见 AVX-CAP-001 |
 | [插件 Config 与 Page 规范](reference/plugin-config-and-pages.md)（AVX-PLUG-001） | 插件配置如何声明、校验、可视化，Page 如何安全承载 | Config Schema v1、配置存储/API、Page Bridge 与安全边界（CR-006） |
 | [操作指南](how-to) | 怎么新增/修改需求、写 ADR、过发布会门禁、做季度演练、管可选模块 submodule；贡献者流程见根级 [CONTRIBUTING](../CONTRIBUTING.md) | 任务型流程（工程与发布流程合一）；规则以对应专项文档为事实源 |
+| [暂存提案](proposals) | 尚未进入基线的方案是什么 | 待补充证据（More Evidence Required）或未采纳的技术探索提案；不承载已批准规则 |
+| [已归档记录](archive) | 历史变更与已退役决策的原始记录是什么 | 已完成或已退役的历史变更；变更经发布周期后迁移留存，避免混淆当前活跃规范 |
 | [文档生命周期登记表](DOC_REGISTRY.md) | 每份文档何时核验、多久复核、什么信号表示陈旧 | 核验节奏/陈旧信号；独立于索引维护 |
 | [文档治理与事实源规范](reference/document-governance.md)（AVX-DOC-GOV-001） | 文档如何分类、标记状态、确定唯一事实源并触发复核 | 分类、事实源矩阵、元数据、状态模型、owner、复核触发器与分阶段迁移 |
 | [从这里开始](getting-started.md)（AVX-DOC-002，见[§7](#7-从哪开始)） | 新成员/Agent 从哪看起、提交前自检什么 | 导航型；不承载规则 |
