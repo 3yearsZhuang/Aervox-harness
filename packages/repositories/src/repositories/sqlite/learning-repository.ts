@@ -20,7 +20,7 @@ import {
   planMilestones,
   planTasks,
 } from "@aervox/schema";
-import { assertTenantContext, type TenantContext } from "../../tenant.js";
+import { assertLocalContext, type LocalContext } from "../../local-context.js";
 import type {
   ILearningRepository,
   LearningGoalModel,
@@ -41,7 +41,7 @@ export class SqliteLearningRepository implements ILearningRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async createLearningGoal(
-    tenant: TenantContext,
+    tenant: LocalContext,
     goalData: {
       id: string;
       topic: string;
@@ -51,7 +51,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       idempotencyKey?: string | null;
     },
   ): Promise<LearningGoalModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(learningGoals)
@@ -72,7 +72,7 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async createLearningGoalIdempotent(
-    tenant: TenantContext,
+    tenant: LocalContext,
     goalData: {
       id: string;
       topic: string;
@@ -81,7 +81,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       idempotencyKey: string;
     },
   ): Promise<{ goal: LearningGoalModel; created: boolean }> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const inserted = await this.db
       .insert(learningGoals)
@@ -115,8 +115,8 @@ export class SqliteLearningRepository implements ILearningRepository {
     return { goal: existing as LearningGoalModel, created: false };
   }
 
-  async getLearningGoal(tenant: TenantContext, id: string): Promise<LearningGoalModel | null> {
-    assertTenantContext(tenant);
+  async getLearningGoal(tenant: LocalContext, id: string): Promise<LearningGoalModel | null> {
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(learningGoals)
@@ -130,8 +130,8 @@ export class SqliteLearningRepository implements ILearningRepository {
     return (found as LearningGoalModel) ?? null;
   }
 
-  async listLearningGoals(tenant: TenantContext, includeArchived = false): Promise<LearningGoalModel[]> {
-    assertTenantContext(tenant);
+  async listLearningGoals(tenant: LocalContext, includeArchived = false): Promise<LearningGoalModel[]> {
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(learningGoals)
@@ -152,11 +152,11 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async updateLearningGoal(
-    tenant: TenantContext,
+    tenant: LocalContext,
     id: string,
     goalData: { topic?: string; level?: string; availableMinutes?: number; status?: string },
   ): Promise<LearningGoalModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [updated] = await this.db
       .update(learningGoals)
       .set({ ...goalData, updatedAt: new Date().toISOString() })
@@ -172,7 +172,7 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async createQuestion(
-    tenant: TenantContext,
+    tenant: LocalContext,
     questionData: {
       id: string;
       prompt: string;
@@ -181,7 +181,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       knowledgeId?: string | null;
     },
   ): Promise<QuestionModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(questions)
@@ -201,8 +201,8 @@ export class SqliteLearningRepository implements ILearningRepository {
     return created as QuestionModel;
   }
 
-  async getQuestion(tenant: TenantContext, id: string): Promise<QuestionModel | null> {
-    assertTenantContext(tenant);
+  async getQuestion(tenant: LocalContext, id: string): Promise<QuestionModel | null> {
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(questions)
@@ -216,8 +216,8 @@ export class SqliteLearningRepository implements ILearningRepository {
     return (found as QuestionModel) ?? null;
   }
 
-  async listActiveQuestions(tenant: TenantContext, limit: number): Promise<QuestionModel[]> {
-    assertTenantContext(tenant);
+  async listActiveQuestions(tenant: LocalContext, limit: number): Promise<QuestionModel[]> {
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(questions)
@@ -234,10 +234,10 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async createPracticeSession(
-    tenant: TenantContext,
+    tenant: LocalContext,
     session: { id: string; questionCount: number; questionIds: string[] },
   ): Promise<PracticeSessionModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(practiceSessions)
@@ -255,8 +255,8 @@ export class SqliteLearningRepository implements ILearningRepository {
     return created as PracticeSessionModel;
   }
 
-  async getPracticeSession(tenant: TenantContext, sessionId: string): Promise<PracticeSessionModel | null> {
-    assertTenantContext(tenant);
+  async getPracticeSession(tenant: LocalContext, sessionId: string): Promise<PracticeSessionModel | null> {
+    assertLocalContext(tenant);
     const [session] = await this.db
       .select()
       .from(practiceSessions)
@@ -270,8 +270,8 @@ export class SqliteLearningRepository implements ILearningRepository {
     return (session as PracticeSessionModel) ?? null;
   }
 
-  async getLatestActivePracticeSession(tenant: TenantContext): Promise<PracticeSessionModel | null> {
-    assertTenantContext(tenant);
+  async getLatestActivePracticeSession(tenant: LocalContext): Promise<PracticeSessionModel | null> {
+    assertLocalContext(tenant);
     const [session] = await this.db
       .select()
       .from(practiceSessions)
@@ -287,8 +287,8 @@ export class SqliteLearningRepository implements ILearningRepository {
     return (session as PracticeSessionModel) ?? null;
   }
 
-  async completePracticeSession(tenant: TenantContext, sessionId: string): Promise<PracticeSessionModel | null> {
-    assertTenantContext(tenant);
+  async completePracticeSession(tenant: LocalContext, sessionId: string): Promise<PracticeSessionModel | null> {
+    assertLocalContext(tenant);
     const [updated] = await this.db
       .update(practiceSessions)
       .set({ status: "completed", endedAt: new Date().toISOString() })
@@ -308,7 +308,7 @@ export class SqliteLearningRepository implements ILearningRepository {
 
   /** 每次答题为不可变学习事实，仅追加不更新 */
   async recordAttempt(
-    tenant: TenantContext,
+    tenant: LocalContext,
     attemptData: {
       id: string;
       sessionId: string;
@@ -321,7 +321,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       timeSpentSec?: number;
     },
   ): Promise<QuestionAttemptModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [created] = await this.db
       .insert(questionAttempts)
       .values({
@@ -342,8 +342,8 @@ export class SqliteLearningRepository implements ILearningRepository {
     return created as QuestionAttemptModel;
   }
 
-  async listAttemptsByQuestion(tenant: TenantContext, questionId: string): Promise<QuestionAttemptModel[]> {
-    assertTenantContext(tenant);
+  async listAttemptsByQuestion(tenant: LocalContext, questionId: string): Promise<QuestionAttemptModel[]> {
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(questionAttempts)
@@ -358,8 +358,8 @@ export class SqliteLearningRepository implements ILearningRepository {
     return rows as QuestionAttemptModel[];
   }
 
-  async listAttemptsBySession(tenant: TenantContext, sessionId: string): Promise<QuestionAttemptModel[]> {
-    assertTenantContext(tenant);
+  async listAttemptsBySession(tenant: LocalContext, sessionId: string): Promise<QuestionAttemptModel[]> {
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(questionAttempts)
@@ -375,10 +375,10 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async listMistakes(
-    tenant: TenantContext,
+    tenant: LocalContext,
     status: "active" | "mastered" | "dismissed" | "all" = "active",
   ): Promise<MistakeItemModel[]> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const rows = await this.db
       .select({
         questionId: questions.id,
@@ -430,8 +430,8 @@ export class SqliteLearningRepository implements ILearningRepository {
     return [...grouped.values()].filter((item) => status === "all" || item.status === status);
   }
 
-  async setMistakeDisposition(tenant: TenantContext, item: { id: string; questionId: string; status: "active" | "dismissed" }): Promise<void> {
-    assertTenantContext(tenant);
+  async setMistakeDisposition(tenant: LocalContext, item: { id: string; questionId: string; status: "active" | "dismissed" }): Promise<void> {
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     await this.db.insert(mistakeDispositions).values({ ...item, ...tenant, createdAt: now, updatedAt: now }).onConflictDoUpdate({
       target: [mistakeDispositions.workspaceId, mistakeDispositions.subjectUserId, mistakeDispositions.questionId],
@@ -444,10 +444,10 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async setMistakeInsight(
-    tenant: TenantContext,
+    tenant: LocalContext,
     item: { id: string; questionId: string; reasonCode: "concept_gap" | "calculation" | "careless" | "misread" | "other"; note?: string | null },
   ): Promise<void> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     await this.db.insert(mistakeInsights).values({ ...item, ...tenant, createdAt: now, updatedAt: now }).onConflictDoUpdate({
       target: [mistakeInsights.workspaceId, mistakeInsights.subjectUserId, mistakeInsights.questionId],
@@ -455,8 +455,8 @@ export class SqliteLearningRepository implements ILearningRepository {
     });
   }
 
-  async clearMistakeInsight(tenant: TenantContext, questionId: string): Promise<void> {
-    assertTenantContext(tenant);
+  async clearMistakeInsight(tenant: LocalContext, questionId: string): Promise<void> {
+    assertLocalContext(tenant);
     await this.db.delete(mistakeInsights).where(and(
       eq(mistakeInsights.workspaceId, tenant.workspaceId),
       eq(mistakeInsights.subjectUserId, tenant.subjectUserId),
@@ -465,11 +465,11 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async getAttemptByIdempotencyKey(
-    tenant: TenantContext,
+    tenant: LocalContext,
     questionId: string,
     idempotencyKey: string,
   ): Promise<QuestionAttemptModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(questionAttempts)
@@ -486,7 +486,7 @@ export class SqliteLearningRepository implements ILearningRepository {
 
   /** 幂等作答：先查后插，依赖 (tenant, question, idempotency_key) 唯一索引并发兜底；重复返回已有记录与 created=false */
   async recordAttemptIdempotent(
-    tenant: TenantContext,
+    tenant: LocalContext,
     attemptData: {
       id: string;
       sessionId: string;
@@ -499,7 +499,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       timeSpentSec?: number;
     },
   ): Promise<{ attempt: QuestionAttemptModel; created: boolean }> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const findExisting = async (): Promise<QuestionAttemptModel | null> => {
       const [found] = await this.db
         .select()
@@ -546,7 +546,7 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async createKnowledgeItem(
-    tenant: TenantContext,
+    tenant: LocalContext,
     itemData: {
       id: string;
       concept: string;
@@ -558,7 +558,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       mastery?: number;
     },
   ): Promise<KnowledgeItemModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(knowledgeItems)
@@ -581,8 +581,8 @@ export class SqliteLearningRepository implements ILearningRepository {
     return created as KnowledgeItemModel;
   }
 
-  async getKnowledgeItem(tenant: TenantContext, id: string): Promise<KnowledgeItemModel | null> {
-    assertTenantContext(tenant);
+  async getKnowledgeItem(tenant: LocalContext, id: string): Promise<KnowledgeItemModel | null> {
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(knowledgeItems)
@@ -597,12 +597,12 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async updateMastery(
-    tenant: TenantContext,
+    tenant: LocalContext,
     id: string,
     masteryState: string,
     basis?: unknown,
   ): Promise<KnowledgeItemModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const updateData: Record<string, unknown> = { masteryState, updatedAt: now };
     if (basis !== undefined) updateData.masteryBasis = basis;
@@ -621,7 +621,7 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async updatePracticeState(
-    tenant: TenantContext,
+    tenant: LocalContext,
     id: string,
     state: {
       correctCount: number;
@@ -632,7 +632,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       masteryBasis: unknown;
     },
   ): Promise<KnowledgeItemModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [updated] = await this.db
       .update(knowledgeItems)
       .set({ ...state, updatedAt: new Date().toISOString() })
@@ -648,10 +648,10 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async createReviewItem(
-    tenant: TenantContext,
+    tenant: LocalContext,
     itemData: { id: string; knowledgeId: string; dueAt: string; intervalDays?: number; schedulerVersion?: number; timezoneSnapshot?: string },
   ): Promise<ReviewItemModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(reviewItems)
@@ -673,10 +673,10 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async scheduleReviewItem(
-    tenant: TenantContext,
+    tenant: LocalContext,
     itemData: { id: string; knowledgeId: string; dueAt: string; intervalDays: number; schedulerVersion?: number; timezoneSnapshot?: string },
   ): Promise<ReviewItemModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(reviewItems)
@@ -700,8 +700,8 @@ export class SqliteLearningRepository implements ILearningRepository {
     return this.createReviewItem(tenant, itemData);
   }
 
-  async getReviewItem(tenant: TenantContext, id: string): Promise<ReviewItemModel | null> {
-    assertTenantContext(tenant);
+  async getReviewItem(tenant: LocalContext, id: string): Promise<ReviewItemModel | null> {
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(reviewItems)
@@ -715,8 +715,8 @@ export class SqliteLearningRepository implements ILearningRepository {
     return (found as ReviewItemModel) ?? null;
   }
 
-  async listCompletedReviewItems(tenant: TenantContext, limit = 10): Promise<ReviewItemModel[]> {
-    assertTenantContext(tenant);
+  async listCompletedReviewItems(tenant: LocalContext, limit = 10): Promise<ReviewItemModel[]> {
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(reviewItems)
@@ -733,7 +733,7 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async completeReviewAndSchedule(
-    tenant: TenantContext,
+    tenant: LocalContext,
     data: {
       reviewId: string;
       knowledgeId: string;
@@ -749,7 +749,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       nextReview: { id: string; dueAt: string; intervalDays: number; schedulerVersion: number; timezoneSnapshot: string };
     },
   ): Promise<{ completed: ReviewItemModel; nextReview: ReviewItemModel; knowledge: KnowledgeItemModel } | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     return this.db.transaction(async (tx) => {
       const now = new Date().toISOString();
       const [completed] = await tx
@@ -804,8 +804,8 @@ export class SqliteLearningRepository implements ILearningRepository {
     });
   }
 
-  async listDueReviewItems(tenant: TenantContext, before: string): Promise<ReviewItemModel[]> {
-    assertTenantContext(tenant);
+  async listDueReviewItems(tenant: LocalContext, before: string): Promise<ReviewItemModel[]> {
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(reviewItems)
@@ -821,8 +821,8 @@ export class SqliteLearningRepository implements ILearningRepository {
     return rows as ReviewItemModel[];
   }
 
-  async completeReviewItem(tenant: TenantContext, id: string): Promise<ReviewItemModel | null> {
-    assertTenantContext(tenant);
+  async completeReviewItem(tenant: LocalContext, id: string): Promise<ReviewItemModel | null> {
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(reviewItems)
@@ -841,7 +841,7 @@ export class SqliteLearningRepository implements ILearningRepository {
   // ============ P1（R2 · CAP-015）：思维宇宙知识关系 ============
 
   async createKnowledgeRelation(
-    tenant: TenantContext,
+    tenant: LocalContext,
     relationData: {
       id: string;
       fromKnowledgeId: string;
@@ -851,7 +851,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       confidence?: number;
     },
   ): Promise<KnowledgeRelationModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(knowledgeRelations)
@@ -871,8 +871,8 @@ export class SqliteLearningRepository implements ILearningRepository {
     return created as KnowledgeRelationModel;
   }
 
-  async listKnowledgeRelations(tenant: TenantContext, knowledgeId: string): Promise<KnowledgeRelationModel[]> {
-    assertTenantContext(tenant);
+  async listKnowledgeRelations(tenant: LocalContext, knowledgeId: string): Promise<KnowledgeRelationModel[]> {
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(knowledgeRelations)
@@ -895,10 +895,10 @@ export class SqliteLearningRepository implements ILearningRepository {
   // ============ CAP-015 思维宇宙 ============
 
   async getKnowledgeRelation(
-    tenant: TenantContext,
+    tenant: LocalContext,
     relationId: string,
   ): Promise<KnowledgeRelationModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(knowledgeRelations)
@@ -915,11 +915,11 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async correctKnowledgeRelation(
-    tenant: TenantContext,
+    tenant: LocalContext,
     relationId: string,
     reason: string,
   ): Promise<KnowledgeRelationModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(knowledgeRelations)
@@ -938,11 +938,11 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async mergeKnowledgeRelations(
-    tenant: TenantContext,
+    tenant: LocalContext,
     sourceRelationId: string,
     targetRelationId: string,
   ): Promise<KnowledgeRelationModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     // 标记源关系为 merged
     const [updated] = await this.db
@@ -962,11 +962,11 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async splitKnowledgeRelation(
-    tenant: TenantContext,
+    tenant: LocalContext,
     relationId: string,
     reason: string,
   ): Promise<KnowledgeRelationModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(knowledgeRelations)
@@ -985,10 +985,10 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async deleteKnowledgeRelation(
-    tenant: TenantContext,
+    tenant: LocalContext,
     relationId: string,
   ): Promise<KnowledgeRelationModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(knowledgeRelations)
@@ -1006,10 +1006,10 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async getActiveKnowledgeGraph(
-    tenant: TenantContext,
+    tenant: LocalContext,
     knowledgeId: string,
   ): Promise<KnowledgeRelationModel[]> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     // 仅返回 active 关系（被纠正/合并/拆分/删除的不返回）
     const rows = await this.db
       .select()
@@ -1033,7 +1033,7 @@ export class SqliteLearningRepository implements ILearningRepository {
   // ============ CAP-016 练习报告 ============
 
   async createPracticeReport(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: {
       id: string;
       sessionId: string;
@@ -1047,7 +1047,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       reportType?: string;
     },
   ): Promise<PracticeReportModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(practiceReports)
@@ -1072,8 +1072,8 @@ export class SqliteLearningRepository implements ILearningRepository {
     return created as PracticeReportModel;
   }
 
-  async getPracticeReport(tenant: TenantContext, reportId: string): Promise<PracticeReportModel | null> {
-    assertTenantContext(tenant);
+  async getPracticeReport(tenant: LocalContext, reportId: string): Promise<PracticeReportModel | null> {
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(practiceReports)
@@ -1088,8 +1088,8 @@ export class SqliteLearningRepository implements ILearningRepository {
     return (found as PracticeReportModel) ?? null;
   }
 
-  async listPracticeReports(tenant: TenantContext, sessionId: string): Promise<PracticeReportModel[]> {
-    assertTenantContext(tenant);
+  async listPracticeReports(tenant: LocalContext, sessionId: string): Promise<PracticeReportModel[]> {
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(practiceReports)
@@ -1104,8 +1104,8 @@ export class SqliteLearningRepository implements ILearningRepository {
     return rows as PracticeReportModel[];
   }
 
-  async resetMasteryInference(tenant: TenantContext, sessionId: string): Promise<PracticeReportModel> {
-    assertTenantContext(tenant);
+  async resetMasteryInference(tenant: LocalContext, sessionId: string): Promise<PracticeReportModel> {
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     // 创建一个 reset 类型的报告（保留原始作答，仅重置推断）
     const [created] = await this.db
@@ -1132,7 +1132,7 @@ export class SqliteLearningRepository implements ILearningRepository {
   // ============ CAP-017 学习规划（里程碑 + 任务路线图） ============
 
   async createLearningPlan(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: {
       id: string;
       topic: string;
@@ -1158,7 +1158,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       }>;
     },
   ): Promise<LearningPlanModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     await this.db.transaction(async (tx) => {
       const now = new Date().toISOString();
       await tx.insert(learningPlans).values({
@@ -1215,8 +1215,8 @@ export class SqliteLearningRepository implements ILearningRepository {
     return created;
   }
 
-  async getLearningPlan(tenant: TenantContext, planId: string): Promise<LearningPlanModel | null> {
-    assertTenantContext(tenant);
+  async getLearningPlan(tenant: LocalContext, planId: string): Promise<LearningPlanModel | null> {
+    assertLocalContext(tenant);
     const [plan] = await this.db
       .select()
       .from(learningPlans)
@@ -1234,10 +1234,10 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async listLearningPlans(
-    tenant: TenantContext,
+    tenant: LocalContext,
     includeArchived = false,
   ): Promise<LearningPlanModel[]> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const planRows = await this.db
       .select()
       .from(learningPlans)
@@ -1262,11 +1262,11 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   async setPlanTaskStatus(
-    tenant: TenantContext,
+    tenant: LocalContext,
     taskId: string,
     status: "todo" | "done",
   ): Promise<LearningPlanModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [task] = await this.db
       .select()
       .from(planTasks)
@@ -1327,8 +1327,8 @@ export class SqliteLearningRepository implements ILearningRepository {
     return this.getLearningPlan(tenant, milestone.planId);
   }
 
-  async archiveLearningPlan(tenant: TenantContext, planId: string): Promise<LearningPlanModel | null> {
-    assertTenantContext(tenant);
+  async archiveLearningPlan(tenant: LocalContext, planId: string): Promise<LearningPlanModel | null> {
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(learningPlans)
@@ -1370,7 +1370,7 @@ export class SqliteLearningRepository implements ILearningRepository {
   }
 
   /** 聚合指定规划的里程碑（含任务，按 sort_order 排序） */
-  private async listPlanMilestones(tenant: TenantContext, planIds: string[]) {
+  private async listPlanMilestones(tenant: LocalContext, planIds: string[]) {
     if (planIds.length === 0) return [];
     const milestoneRows = await this.db
       .select()

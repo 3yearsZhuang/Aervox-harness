@@ -4,7 +4,7 @@
  * 为会话消息与记忆提供无外置搜索引擎依赖的本地全文检索能力。
  */
 import type { Client } from "@libsql/client";
-import { assertTenantContext, type TenantContext } from "../tenant.js";
+import { assertLocalContext, type LocalContext } from "../local-context.js";
 
 /**
  * 初始化 FTS5 全文检索引擎虚表
@@ -36,10 +36,10 @@ export async function initFtsTables(client: Client): Promise<void> {
  */
 export async function indexMessageFts(
   client: Client,
-  tenant: TenantContext,
+  tenant: LocalContext,
   message: { id: string; content: string },
 ): Promise<void> {
-  assertTenantContext(tenant);
+  assertLocalContext(tenant);
   // 先清理旧索引（若存在），再插入新索引
   await client.execute({
     sql: `DELETE FROM messages_fts WHERE id = ? AND workspace_id = ? AND subject_user_id = ?`,
@@ -56,10 +56,10 @@ export async function indexMessageFts(
  */
 export async function deleteMessageFts(
   client: Client,
-  tenant: TenantContext,
+  tenant: LocalContext,
   messageId: string,
 ): Promise<void> {
-  assertTenantContext(tenant);
+  assertLocalContext(tenant);
   await client.execute({
     sql: `DELETE FROM messages_fts WHERE id = ? AND workspace_id = ? AND subject_user_id = ?`,
     args: [messageId, tenant.workspaceId, tenant.subjectUserId],
@@ -76,11 +76,11 @@ export interface FtsSearchResult {
  */
 export async function searchMessagesFts(
   client: Client,
-  tenant: TenantContext,
+  tenant: LocalContext,
   query: string,
   limit: number = 20,
 ): Promise<FtsSearchResult[]> {
-  assertTenantContext(tenant);
+  assertLocalContext(tenant);
   const sanitized = query.replace(/[^\p{L}\p{N}\s]/gu, " ").trim();
   if (!sanitized) return [];
 
@@ -108,10 +108,10 @@ export async function searchMessagesFts(
  */
 export async function indexMemoryFts(
   client: Client,
-  tenant: TenantContext,
+  tenant: LocalContext,
   memory: { id: string; content: string },
 ): Promise<void> {
-  assertTenantContext(tenant);
+  assertLocalContext(tenant);
   await client.execute({
     sql: `DELETE FROM memories_fts WHERE id = ? AND workspace_id = ? AND subject_user_id = ?`,
     args: [memory.id, tenant.workspaceId, tenant.subjectUserId],
@@ -127,10 +127,10 @@ export async function indexMemoryFts(
  */
 export async function deleteMemoryFts(
   client: Client,
-  tenant: TenantContext,
+  tenant: LocalContext,
   memoryId: string,
 ): Promise<void> {
-  assertTenantContext(tenant);
+  assertLocalContext(tenant);
   await client.execute({
     sql: `DELETE FROM memories_fts WHERE id = ? AND workspace_id = ? AND subject_user_id = ?`,
     args: [memoryId, tenant.workspaceId, tenant.subjectUserId],
@@ -142,11 +142,11 @@ export async function deleteMemoryFts(
  */
 export async function searchMemoriesFts(
   client: Client,
-  tenant: TenantContext,
+  tenant: LocalContext,
   query: string,
   limit: number = 20,
 ): Promise<FtsSearchResult[]> {
-  assertTenantContext(tenant);
+  assertLocalContext(tenant);
   const sanitized = query.replace(/[^\p{L}\p{N}\s]/gu, " ").trim();
   if (!sanitized) return [];
 

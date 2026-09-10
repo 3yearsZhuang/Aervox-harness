@@ -2,11 +2,11 @@
  * Aervox｜思隅 @aervox/repositories — content 仓储类型（自 types.ts 机械拆分）
  */
 import type { AttachmentModel, AttachmentParseResultModel, EmbeddingIndexModel } from "./analytics.js";
-import type { TenantContext } from "../../tenant.js";
+import type { LocalContext } from "../../local-context.js";
 
 export interface IContentRepository {
   createAttachment(
-    tenant: TenantContext,
+    tenant: LocalContext,
     attachment: {
       id: string;
       objectKey: string;
@@ -18,14 +18,14 @@ export interface IContentRepository {
       idempotencyKey?: string | null;
     },
   ): Promise<AttachmentModel>;
-  getAttachment(tenant: TenantContext, id: string): Promise<AttachmentModel | null>;
+  getAttachment(tenant: LocalContext, id: string): Promise<AttachmentModel | null>;
   /** CAP-012 BR-EXT-002：软删除附件 */
-  softDeleteAttachment(tenant: TenantContext, id: string): Promise<AttachmentModel | null>;
+  softDeleteAttachment(tenant: LocalContext, id: string): Promise<AttachmentModel | null>;
   /** CAP-012 BR-EXT-001：幂等键查询 */
-  getAttachmentByIdempotencyKey(tenant: TenantContext, key: string): Promise<AttachmentModel | null>;
+  getAttachmentByIdempotencyKey(tenant: LocalContext, key: string): Promise<AttachmentModel | null>;
   /** CAP-012 FR-EXT-002：创建解析结果 */
   createParseResult(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: {
       id: string;
       attachmentId: string;
@@ -39,17 +39,17 @@ export interface IContentRepository {
     },
   ): Promise<AttachmentParseResultModel>;
   /** CAP-012 FR-EXT-002：获取当前（未取代）解析结果 */
-  getActiveParseResult(tenant: TenantContext, attachmentId: string): Promise<AttachmentParseResultModel | null>;
+  getActiveParseResult(tenant: LocalContext, attachmentId: string): Promise<AttachmentParseResultModel | null>;
   /** CAP-012 BR-EXT-001 AC-02：幂等键查询解析结果 */
-  getParseResultByIdempotencyKey(tenant: TenantContext, key: string): Promise<AttachmentParseResultModel | null>;
+  getParseResultByIdempotencyKey(tenant: LocalContext, key: string): Promise<AttachmentParseResultModel | null>;
   /** CAP-012 FR-EXT-002：列出租户内附件的所有解析结果 */
-  listParseResults(tenant: TenantContext, attachmentId: string): Promise<AttachmentParseResultModel[]>;
+  listParseResults(tenant: LocalContext, attachmentId: string): Promise<AttachmentParseResultModel[]>;
   /** CAP-012 FR-EXT-002：取代旧解析结果（裁剪/转文字时） */
-  supersedeParseResult(tenant: TenantContext, parseResultId: string): Promise<void>;
+  supersedeParseResult(tenant: LocalContext, parseResultId: string): Promise<void>;
   /** CAP-012 BR-EXT-002：失效所有解析结果（删除附件时） */
-  invalidateParseResults(tenant: TenantContext, attachmentId: string): Promise<number>;
+  invalidateParseResults(tenant: LocalContext, attachmentId: string): Promise<number>;
   createEmbeddingIndex(
-    tenant: TenantContext,
+    tenant: LocalContext,
     index: {
       id: string;
       sourceArtifactId: string;
@@ -60,7 +60,7 @@ export interface IContentRepository {
       status?: string;
     },
   ): Promise<EmbeddingIndexModel>;
-  listEmbeddingIndexes(tenant: TenantContext, sourceArtifactId: string): Promise<EmbeddingIndexModel[]>;
+  listEmbeddingIndexes(tenant: LocalContext, sourceArtifactId: string): Promise<EmbeddingIndexModel[]>;
 }
 
 export interface StudyMaterialModel {

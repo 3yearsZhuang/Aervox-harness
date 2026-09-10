@@ -9,7 +9,7 @@ import {
   HybridSearchService,
   createHybridSearchStorage,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "../src/index.js";
 
 describe("T-05 记忆向量独立存储", () => {
@@ -18,8 +18,8 @@ describe("T-05 记忆向量独立存储", () => {
   let memoryRepo: SqliteMemoryRepository;
   let embeddingRepo: SqliteMemoryEmbeddingRepository;
 
-  const tenant: TenantContext = { workspaceId: "ws_1", subjectUserId: "usr_1" };
-  const other: TenantContext = { workspaceId: "ws_9", subjectUserId: "usr_9" };
+  const tenant: LocalContext = { workspaceId: "ws_1", subjectUserId: "usr_1" };
+  const other: LocalContext = { workspaceId: "ws_9", subjectUserId: "usr_9" };
 
   beforeEach(async () => {
     const res = await createInMemoryDatabase();

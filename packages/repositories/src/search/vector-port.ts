@@ -3,7 +3,7 @@
  *
  * 解耦向量检索与具体向量数据库，使得派生向量索引可随意清空、离线重建。
  */
-import { assertTenantContext, type TenantContext } from "../tenant.js";
+import { assertLocalContext, type LocalContext } from "../local-context.js";
 
 export interface VectorItem {
   readonly id: string;
@@ -21,15 +21,15 @@ export interface VectorSearchResult {
  * 向量检索核心 Port 接口
  */
 export interface IVectorSearchPort {
-  upsert(tenant: TenantContext, items: VectorItem[]): Promise<void>;
+  upsert(tenant: LocalContext, items: VectorItem[]): Promise<void>;
   search(
-    tenant: TenantContext,
+    tenant: LocalContext,
     queryVector: number[],
     topK: number,
     minScore?: number,
   ): Promise<VectorSearchResult[]>;
-  delete(tenant: TenantContext, id: string): Promise<void>;
-  clearTenant(tenant: TenantContext): Promise<void>;
+  delete(tenant: LocalContext, id: string): Promise<void>;
+  clearTenant(tenant: LocalContext): Promise<void>;
 }
 
 /**
@@ -58,8 +58,8 @@ export class InMemoryVectorSearchAdapter implements IVectorSearchPort {
   // key: `${workspaceId}:${subjectUserId}` -> Map<id, VectorItem>
   private store = new Map<string, Map<string, VectorItem>>();
 
-  private getTenantStore(tenant: TenantContext): Map<string, VectorItem> {
-    assertTenantContext(tenant);
+  private getTenantStore(tenant: LocalContext): Map<string, VectorItem> {
+    assertLocalContext(tenant);
     const key = `${tenant.workspaceId}:${tenant.subjectUserId}`;
     let map = this.store.get(key);
     if (!map) {
@@ -69,7 +69,7 @@ export class InMemoryVectorSearchAdapter implements IVectorSearchPort {
     return map;
   }
 
-  async upsert(tenant: TenantContext, items: VectorItem[]): Promise<void> {
+  async upsert(tenant: LocalContext, items: VectorItem[]): Promise<void> {
     const map = this.getTenantStore(tenant);
     for (const item of items) {
       map.set(item.id, item);
@@ -77,7 +77,7 @@ export class InMemoryVectorSearchAdapter implements IVectorSearchPort {
   }
 
   async search(
-    tenant: TenantContext,
+    tenant: LocalContext,
     queryVector: number[],
     topK: number = 10,
     minScore: number = 0.0,
@@ -96,13 +96,13 @@ export class InMemoryVectorSearchAdapter implements IVectorSearchPort {
     return results.slice(0, topK);
   }
 
-  async delete(tenant: TenantContext, id: string): Promise<void> {
+  async delete(tenant: LocalContext, id: string): Promise<void> {
     const map = this.getTenantStore(tenant);
     map.delete(id);
   }
 
-  async clearTenant(tenant: TenantContext): Promise<void> {
-    assertTenantContext(tenant);
+  async clearTenant(tenant: LocalContext): Promise<void> {
+    assertLocalContext(tenant);
     const key = `${tenant.workspaceId}:${tenant.subjectUserId}`;
     this.store.delete(key);
   }

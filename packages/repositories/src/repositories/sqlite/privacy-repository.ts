@@ -6,7 +6,7 @@
 import { eq, and, sql, inArray } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { consentGrants, deletionRequests, deletionTargets } from "@aervox/schema";
-import { assertTenantContext, type TenantContext } from "../../tenant.js";
+import { assertLocalContext, type LocalContext } from "../../local-context.js";
 import type {
   IPrivacyRepository,
   ConsentGrantModel,
@@ -18,7 +18,7 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async grantConsent(
-    tenant: TenantContext,
+    tenant: LocalContext,
     grantData: {
       id: string;
       actorId: string;
@@ -28,7 +28,7 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
       grantedAt?: string;
     },
   ): Promise<ConsentGrantModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [created] = await this.db
       .insert(consentGrants)
       .values({
@@ -46,8 +46,8 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
     return created as ConsentGrantModel;
   }
 
-  async revokeConsent(tenant: TenantContext, id: string, revokedAt?: string): Promise<ConsentGrantModel | null> {
-    assertTenantContext(tenant);
+  async revokeConsent(tenant: LocalContext, id: string, revokedAt?: string): Promise<ConsentGrantModel | null> {
+    assertLocalContext(tenant);
     const [updated] = await this.db
       .update(consentGrants)
       .set({ revokedAt: revokedAt ?? new Date().toISOString() })
@@ -62,8 +62,8 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
     return (updated as ConsentGrantModel) ?? null;
   }
 
-  async hasActiveConsent(tenant: TenantContext, purpose: string, scope: string): Promise<boolean> {
-    assertTenantContext(tenant);
+  async hasActiveConsent(tenant: LocalContext, purpose: string, scope: string): Promise<boolean> {
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(consentGrants)
@@ -80,8 +80,8 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
   }
 
   /** 2d：该租户是否存在未完成的删除/撤权请求（删除/撤权水位未追平；AVX-HAR-001 §11.3 fail-closed 闸门数据源） */
-  async hasPendingDeletionRequest(tenant: TenantContext): Promise<boolean> {
-    assertTenantContext(tenant);
+  async hasPendingDeletionRequest(tenant: LocalContext): Promise<boolean> {
+    assertLocalContext(tenant);
     const rows = await this.db
       .select({ id: deletionRequests.id })
       .from(deletionRequests)
@@ -97,7 +97,7 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
   }
 
   async createDeletionRequest(
-    tenant: TenantContext,
+    tenant: LocalContext,
     requestData: {
       id: string;
       scope: string;
@@ -106,7 +106,7 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
       ownerModule: string;
     },
   ): Promise<DeletionRequestModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(deletionRequests)
@@ -127,8 +127,8 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
     return created as DeletionRequestModel;
   }
 
-  async getDeletionRequest(tenant: TenantContext, id: string): Promise<DeletionRequestModel | null> {
-    assertTenantContext(tenant);
+  async getDeletionRequest(tenant: LocalContext, id: string): Promise<DeletionRequestModel | null> {
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(deletionRequests)
@@ -143,12 +143,12 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
   }
 
   async updateDeletionRequestStatus(
-    tenant: TenantContext,
+    tenant: LocalContext,
     id: string,
     status: string,
     patch?: { lastError?: string | null; lastVerifiedAt?: string; attemptCount?: number },
   ): Promise<DeletionRequestModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const updateData: Record<string, unknown> = { status, updatedAt: now };
     if (patch?.lastError !== undefined) updateData.lastError = patch.lastError;

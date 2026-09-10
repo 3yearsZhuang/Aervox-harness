@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, isNull, lt, notLike, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { messages, messageVersions, turns, turnStreamEvents } from "@aervox/schema";
-import { assertTenantContext, type TenantContext } from "../../tenant.js";
+import { assertLocalContext, type LocalContext } from "../../local-context.js";
 import type { SessionHistoryMessage } from "../types/index.js";
 
 const MAX_HISTORY_TURNS = 20;
@@ -20,10 +20,10 @@ function payload(value: unknown): Record<string, unknown> {
  */
 export async function readSessionHistory(
   db: AervoxDatabase,
-  tenant: TenantContext,
+  tenant: LocalContext,
   input: { sessionId: string; beforeTurnId: string },
 ): Promise<SessionHistoryMessage[]> {
-  assertTenantContext(tenant);
+  assertLocalContext(tenant);
   const [current] = await db.select({
     position: sql<number>`rowid`,
     idempotencyKey: turns.idempotencyKey,

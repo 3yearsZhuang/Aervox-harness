@@ -15,13 +15,13 @@ import {
   SqliteConversationRepository,
   SqliteUserQuestionRepository,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 import { UserQuestionCoordinator } from "../src/modules/conversation/user-question-coordinator.js";
 import type { AskUserQuestionPortRequest } from "@aervox/agent-loop";
 
-const tenant: TenantContext = { workspaceId: "ws_uq", subjectUserId: "usr_uq" };
+const tenant: LocalContext = { workspaceId: "ws_uq", subjectUserId: "usr_uq" };
 
 const askReq = (turnId: string, timeoutMs = 60_000): AskUserQuestionPortRequest => ({
   turnId,

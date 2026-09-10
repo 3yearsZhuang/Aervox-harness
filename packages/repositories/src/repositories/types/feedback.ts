@@ -2,11 +2,11 @@
  * Aervox｜思隅 @aervox/repositories — feedback 仓储类型（自 types.ts 机械拆分）
  */
 import type { FeedbackModel } from "./learning.js";
-import type { TenantContext } from "../../tenant.js";
+import type { LocalContext } from "../../local-context.js";
 
 export interface IFeedbackRepository {
   createFeedback(
-    tenant: TenantContext,
+    tenant: LocalContext,
     feedbackData: {
       id: string;
       actorId: string;
@@ -16,7 +16,7 @@ export interface IFeedbackRepository {
       note?: string | null;
     },
   ): Promise<FeedbackModel>;
-  listFeedback(tenant: TenantContext, subjectType?: string, subjectId?: string): Promise<FeedbackModel[]>;
+  listFeedback(tenant: LocalContext, subjectType?: string, subjectId?: string): Promise<FeedbackModel[]>;
 }
 
 export interface SourceArtifactModel {

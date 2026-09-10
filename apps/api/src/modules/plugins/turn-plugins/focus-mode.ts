@@ -12,7 +12,7 @@ import type {
   IExtensionRepository,
   IPluginConfigRepository,
   SqliteConversationRepository,
-  TenantContext,
+  LocalContext,
 } from "@aervox/repositories";
 import { extractTerms, type LLMCallable } from "@aervox/practice-review";
 import {
@@ -98,21 +98,21 @@ export const parseStudyConfig = parseFocusConfig;
  * 加载并解析 focus-mode 插件配置（自动回退 study-mode）。
  */
 export async function loadFocusModeRuntimeConfig(
-  tenantOrRepo: TenantContext | IExtensionRepository | SqliteConversationRepository,
-  configRepoOrTenant?: IPluginConfigRepository | TenantContext | null,
+  tenantOrRepo: LocalContext | IExtensionRepository | SqliteConversationRepository,
+  configRepoOrTenant?: IPluginConfigRepository | LocalContext | null,
   maybeConfigRepo?: IPluginConfigRepository | null,
 ): Promise<FocusModeRuntimeConfig> {
-  let tenant: TenantContext;
+  let tenant: LocalContext;
   let configRepo: IPluginConfigRepository | null | undefined;
 
   if (
     configRepoOrTenant &&
     typeof (configRepoOrTenant as IPluginConfigRepository).getConfig === "function"
   ) {
-    tenant = tenantOrRepo as TenantContext;
+    tenant = tenantOrRepo as LocalContext;
     configRepo = configRepoOrTenant as IPluginConfigRepository;
   } else {
-    tenant = configRepoOrTenant as TenantContext;
+    tenant = configRepoOrTenant as LocalContext;
     configRepo = maybeConfigRepo;
   }
 
@@ -184,7 +184,7 @@ export const isQuizModeMessage = isQuizTriggered;
  */
 export async function extractFocusTerms(
   repo: SqliteConversationRepository,
-  tenant: TenantContext,
+  tenant: LocalContext,
   input: { turnId: string; userMessage: string; metadata?: Record<string, unknown> | null },
   focusConfig?: FocusModeRuntimeConfig | null,
   llm?: LLMCallable | null,

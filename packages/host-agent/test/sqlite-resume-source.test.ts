@@ -13,11 +13,11 @@ import {
   SqliteConversationRepository,
   SqliteToolRegistryRepository,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 
-const tenant: TenantContext = { workspaceId: "ws_src", subjectUserId: "usr_src" };
+const tenant: LocalContext = { workspaceId: "ws_src", subjectUserId: "usr_src" };
 
 describe("SqliteResumeSource（续跑候选源）", () => {
   let db: AervoxDatabase;

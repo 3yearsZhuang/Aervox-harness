@@ -6,14 +6,14 @@
 import { eq, and, desc } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { analyticsEvents } from "@aervox/schema";
-import { assertTenantContext, type TenantContext } from "../../tenant.js";
+import { assertLocalContext, type LocalContext } from "../../local-context.js";
 import type { IAnalyticsRepository, AnalyticsEventModel } from "../types/index.js";
 
 export class SqliteAnalyticsRepository implements IAnalyticsRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async recordEvent(
-    tenant: TenantContext,
+    tenant: LocalContext,
     eventData: {
       id: string;
       eventName: string;
@@ -24,7 +24,7 @@ export class SqliteAnalyticsRepository implements IAnalyticsRepository {
       privacyClass?: string;
     },
   ): Promise<AnalyticsEventModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [created] = await this.db
       .insert(analyticsEvents)
       .values({
@@ -43,11 +43,11 @@ export class SqliteAnalyticsRepository implements IAnalyticsRepository {
   }
 
   async listEventsBySubject(
-    tenant: TenantContext,
+    tenant: LocalContext,
     analyticsSubjectId: string,
     limit: number = 100,
   ): Promise<AnalyticsEventModel[]> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(analyticsEvents)

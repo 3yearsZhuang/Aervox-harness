@@ -12,7 +12,7 @@ import {
   initDatabaseSchema,
   SqliteLearningRepository,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
 import {
@@ -36,7 +36,7 @@ const otherHeaders = {
   "x-user-id": "usr_other",
 } as const;
 
-const tenant: TenantContext = { workspaceId: "ws_plan_it", subjectUserId: "usr_plan_it" };
+const tenant: LocalContext = { workspaceId: "ws_plan_it", subjectUserId: "usr_plan_it" };
 
 /** 一份可通过结构校验的最小合法规划输出 */
 const validPlanOutput = {

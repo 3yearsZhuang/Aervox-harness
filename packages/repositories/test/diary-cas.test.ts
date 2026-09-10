@@ -4,7 +4,7 @@ import {
   initDatabaseSchema,
   SqliteDiaryRepository,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "../src/index.js";
 import type { Client } from "@libsql/client";
 
@@ -13,7 +13,7 @@ describe("ADR-011: 日记周期 CAS 乐观锁与条件唯一索引测试", () =>
   let client: Client;
   let repo: SqliteDiaryRepository;
 
-  const tenant: TenantContext = {
+  const tenant: LocalContext = {
     workspaceId: "ws_diary_test",
     subjectUserId: "usr_david",
   };

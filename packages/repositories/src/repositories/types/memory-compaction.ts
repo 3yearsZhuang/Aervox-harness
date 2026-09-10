@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/repositories — memory-compaction 仓储类型（自 types.ts 机械拆分）
  */
 import type { MemoryCompactionMarkerModel } from "./memory.js";
-import type { TenantContext } from "../../tenant.js";
+import type { LocalContext } from "../../local-context.js";
 
 export interface IMemoryCompactionRepository {
   /**
@@ -10,7 +10,7 @@ export interface IMemoryCompactionRepository {
    * 由调用方保证在「完整响应持久化后」（先写后投递时序）调用。
    */
   upsertMarker(
-    tenant: TenantContext,
+    tenant: LocalContext,
     marker: {
       id: string;
       memoryId: string;
@@ -23,11 +23,11 @@ export interface IMemoryCompactionRepository {
       summaryDurationMs?: number | null;
     },
   ): Promise<MemoryCompactionMarkerModel>;
-  getMarkerBySnapshotId(tenant: TenantContext, snapshotId: string): Promise<MemoryCompactionMarkerModel | null>;
-  listMarkersByMemoryId(tenant: TenantContext, memoryId: string): Promise<MemoryCompactionMarkerModel[]>;
+  getMarkerBySnapshotId(tenant: LocalContext, snapshotId: string): Promise<MemoryCompactionMarkerModel | null>;
+  listMarkersByMemoryId(tenant: LocalContext, memoryId: string): Promise<MemoryCompactionMarkerModel[]>;
   /** 写 memory_events 审计（action = "compressed" 等） */
   recordEvent(
-    tenant: TenantContext,
+    tenant: LocalContext,
     event: {
       id: string;
       memoryId: string;

@@ -7,7 +7,7 @@
 import type {
   IProactiveProfileRepository,
   ProactiveActionModel,
-  TenantContext,
+  LocalContext,
 } from "@aervox/repositories";
 
 export const PROACTIVE_ACTION_DECIDER_PREFIX = "permission:proactive_action:";
@@ -77,7 +77,7 @@ export class ProactiveActionAuthorizer {
   constructor(private readonly repository: IProactiveProfileRepository) {}
 
   async authorize(
-    tenant: TenantContext,
+    tenant: LocalContext,
     descriptor: ProactiveToolActionDescriptor,
   ): Promise<ProactiveActionAuthorization> {
     const scopes = resolveProactiveActionScopes(descriptor);
@@ -124,14 +124,14 @@ export class ProactiveActionAuthorizer {
     return { authorized: true, action: approved, scopes, decidedBy };
   }
 
-  async markRunning(tenant: TenantContext, actionId: string): Promise<void> {
+  async markRunning(tenant: LocalContext, actionId: string): Promise<void> {
     await this.repository.updateAction(tenant, actionId, {
       state: "running",
       actorId: "proactive-action-runtime",
     });
   }
 
-  async markExecuted(tenant: TenantContext, actionId: string, outcome: unknown): Promise<void> {
+  async markExecuted(tenant: LocalContext, actionId: string, outcome: unknown): Promise<void> {
     await this.repository.updateAction(tenant, actionId, {
       state: "executed",
       actorId: "proactive-action-runtime",
@@ -139,7 +139,7 @@ export class ProactiveActionAuthorizer {
     });
   }
 
-  async markFailed(tenant: TenantContext, actionId: string, error: string): Promise<void> {
+  async markFailed(tenant: LocalContext, actionId: string, error: string): Promise<void> {
     await this.repository.updateAction(tenant, actionId, {
       state: "failed",
       actorId: "proactive-action-runtime",

@@ -11,7 +11,7 @@
  * 使用方式：按域（message/memory）构造 HybridSearchStorage，注入 FTS 与向量两个
  * 通道；服务本身与具体表/向量库解耦，后续切 pgvector 时仅替换通道实现。
  */
-import { assertTenantContext, type TenantContext } from "../tenant.js";
+import { assertLocalContext, type LocalContext } from "../local-context.js";
 
 /** 检索域：会话消息 / 记忆 */
 export type HybridSearchDomain = "message" | "memory";
@@ -52,9 +52,9 @@ export interface HybridSearchHit {
 
 /** 混合检索所需的两个通道实现 */
 export interface HybridSearchStorage {
-  ftsSearch(tenant: TenantContext, queryText: string, topK: number): Promise<HybridChannelHit[]>;
+  ftsSearch(tenant: LocalContext, queryText: string, topK: number): Promise<HybridChannelHit[]>;
   vectorSearch(
-    tenant: TenantContext,
+    tenant: LocalContext,
     queryVector: number[],
     topK: number,
     minScore?: number,
@@ -75,8 +75,8 @@ export class HybridSearchService {
     private readonly domain: HybridSearchDomain,
   ) {}
 
-  async search(tenant: TenantContext, input: HybridSearchInput): Promise<HybridSearchHit[]> {
-    assertTenantContext(tenant);
+  async search(tenant: LocalContext, input: HybridSearchInput): Promise<HybridSearchHit[]> {
+    assertLocalContext(tenant);
     const topK = input.topK ?? 20;
     const limit = input.limit ?? 10;
     const ftsWeight = input.ftsWeight ?? 0.6;
@@ -186,7 +186,7 @@ export function createHybridSearchStorage(opts: {
   const { domain, client, vectorPort } = opts;
 
   async function ftsSearch(
-    tenant: TenantContext,
+    tenant: LocalContext,
     queryText: string,
     topK: number,
   ): Promise<HybridChannelHit[]> {
@@ -199,7 +199,7 @@ export function createHybridSearchStorage(opts: {
   }
 
   async function vectorSearch(
-    tenant: TenantContext,
+    tenant: LocalContext,
     queryVector: number[],
     topK: number,
     minScore?: number,

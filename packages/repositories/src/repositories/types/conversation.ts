@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/repositories — conversation 仓储类型（自 types.ts 机械拆分）
  */
 import type { MessageModel, TurnAttemptModel } from "./outbox.js";
-import type { TenantContext } from "../../tenant.js";
+import type { LocalContext } from "../../local-context.js";
 
 export interface SessionModel {
   id: string;
@@ -77,29 +77,29 @@ export interface SessionHistoryMessage {
 export interface IConversationRepository {
   /** 当前轮之前、同租户同会话的有界安全历史；不含当前输入。 */
   getSessionHistory(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: { sessionId: string; beforeTurnId: string },
   ): Promise<SessionHistoryMessage[]>;
-  createSession(tenant: TenantContext, title: string): Promise<SessionModel>;
-  getSession(tenant: TenantContext, sessionId: string): Promise<SessionModel | null>;
-  getOrCreateSession(tenant: TenantContext, sessionId: string, title?: string): Promise<SessionModel>;
+  createSession(tenant: LocalContext, title: string): Promise<SessionModel>;
+  getSession(tenant: LocalContext, sessionId: string): Promise<SessionModel | null>;
+  getOrCreateSession(tenant: LocalContext, sessionId: string, title?: string): Promise<SessionModel>;
   createTurnWithOutbox(
-    tenant: TenantContext,
+    tenant: LocalContext,
     turn: { id: string; sessionId: string; idempotencyKey: string; status?: string },
     userMessage: { id: string; content: string },
     outboxEvent?: { id: string; eventType: string; idempotencyKey: string; payload: unknown },
   ): Promise<{ turn: TurnModel; message: MessageVersionModel }>;
-  getTurn(tenant: TenantContext, turnId: string): Promise<TurnModel | null>;
-  getTurnByIdempotencyKey(tenant: TenantContext, idempotencyKey: string): Promise<TurnModel | null>;
+  getTurn(tenant: LocalContext, turnId: string): Promise<TurnModel | null>;
+  getTurnByIdempotencyKey(tenant: LocalContext, idempotencyKey: string): Promise<TurnModel | null>;
   updateTurnStatus(
-    tenant: TenantContext,
+    tenant: LocalContext,
     turnId: string,
     status: string,
     lastSequence?: number,
     error?: unknown,
   ): Promise<TurnModel | null>;
   appendStreamEvent(
-    tenant: TenantContext,
+    tenant: LocalContext,
     event: {
       id: string;
       turnId: string;
@@ -121,55 +121,55 @@ export interface IConversationRepository {
     },
   ): Promise<TurnStreamEventModel>;
   getStreamEvents(
-    tenant: TenantContext,
+    tenant: LocalContext,
     turnId: string,
     afterSequence?: number,
   ): Promise<TurnStreamEventModel[]>;
-  deleteMessage(tenant: TenantContext, messageId: string): Promise<boolean>;
+  deleteMessage(tenant: LocalContext, messageId: string): Promise<boolean>;
   // MVP 补齐（PRD §8）：Message 身份表 / TurnAttempt
   createMessage(
-    tenant: TenantContext,
+    tenant: LocalContext,
     message: { id: string; sessionId: string; role: string; label?: string | null },
   ): Promise<MessageModel>;
-  getMessage(tenant: TenantContext, messageId: string): Promise<MessageModel | null>;
+  getMessage(tenant: LocalContext, messageId: string): Promise<MessageModel | null>;
   // CAP-013：消息编辑、软删除、版本历史、恢复
   editMessage(
-    tenant: TenantContext,
+    tenant: LocalContext,
     messageId: string,
     content: string,
     expectedVersion: number,
   ): Promise<{ message: MessageModel; newVersion: MessageVersionModel } | null>;
-  softDeleteMessage(tenant: TenantContext, messageId: string): Promise<MessageModel | null>;
-  restoreMessage(tenant: TenantContext, messageId: string): Promise<MessageModel | null>;
-  listMessageVersions(tenant: TenantContext, messageId: string): Promise<MessageVersionModel[]>;
+  softDeleteMessage(tenant: LocalContext, messageId: string): Promise<MessageModel | null>;
+  restoreMessage(tenant: LocalContext, messageId: string): Promise<MessageModel | null>;
+  listMessageVersions(tenant: LocalContext, messageId: string): Promise<MessageVersionModel[]>;
   createTurnAttempt(
-    tenant: TenantContext,
+    tenant: LocalContext,
     turnId: string,
     attempt: { id: string; attempt?: number; leaseId?: string | null; fencingToken?: number },
   ): Promise<TurnAttemptModel>;
-  listTurnAttempts(tenant: TenantContext, turnId: string): Promise<TurnAttemptModel[]>;
+  listTurnAttempts(tenant: LocalContext, turnId: string): Promise<TurnAttemptModel[]>;
   /** 2b：用户取消请求位（CAS：仅 Running → CancelRequested，同步 turns 至 Cancelled 若未终态） */
   requestCancelTurnAttempt(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: { turnId: string; attemptId: string },
   ): Promise<{ ok: boolean; reason?: "not_found" | "already_finalized" }>;
   /** 2b：读取 Attempt 当前状态（executor 取消检查点） */
-  getTurnAttemptStatus(tenant: TenantContext, input: { turnId: string; attemptId: string }): Promise<string | null>;
+  getTurnAttemptStatus(tenant: LocalContext, input: { turnId: string; attemptId: string }): Promise<string | null>;
   /** 2c：幂等预留（attempt+invocation 唯一；ON CONFLICT DO NOTHING） */
   reserveToolExecution(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: { turnId: string; attemptId: string; invocationId: string; name: string; arguments?: unknown },
   ): Promise<{ ok: boolean; alreadyReserved: boolean }>;
   /** 2c：以权威结果收口预留行 */
   updateToolExecutionResult(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: { turnId: string; attemptId: string; invocationId: string; status: string; output?: unknown; error?: string; finishedAt?: string },
   ): Promise<{ ok: boolean }>;
   /** 2c：崩溃释放后将遗留 pending 预留标记为 outcome_unknown（§11.3） */
   markPendingOutcomeUnknown(client: import("@libsql/client").Client): Promise<number>;
   // P1（R2 · CAP-014）：会话地图与替代解法分支
   createConversationBranch(
-    tenant: TenantContext,
+    tenant: LocalContext,
     branch: {
       id: string;
       parentSessionId: string;
@@ -179,23 +179,23 @@ export interface IConversationRepository {
       branchReason?: string;
     },
   ): Promise<ConversationBranchModel>;
-  listBranchesByParent(tenant: TenantContext, parentSessionId: string): Promise<ConversationBranchModel[]>;
+  listBranchesByParent(tenant: LocalContext, parentSessionId: string): Promise<ConversationBranchModel[]>;
   /** CAP-014：获取分支详情 */
-  getBranch(tenant: TenantContext, branchId: string): Promise<ConversationBranchModel | null>;
+  getBranch(tenant: LocalContext, branchId: string): Promise<ConversationBranchModel | null>;
   /** CAP-014：合并分支回主线 */
-  mergeBranch(tenant: TenantContext, branchId: string): Promise<ConversationBranchModel | null>;
+  mergeBranch(tenant: LocalContext, branchId: string): Promise<ConversationBranchModel | null>;
   /** CAP-014：归档分支 */
-  archiveBranch(tenant: TenantContext, branchId: string): Promise<ConversationBranchModel | null>;
+  archiveBranch(tenant: LocalContext, branchId: string): Promise<ConversationBranchModel | null>;
   /** CAP-014：软删除分支 */
-  deleteBranch(tenant: TenantContext, branchId: string): Promise<ConversationBranchModel | null>;
+  deleteBranch(tenant: LocalContext, branchId: string): Promise<ConversationBranchModel | null>;
   /** CAP-014：更新布局数据（布局丢失不影响会话内容） */
   updateBranchLayout(
-    tenant: TenantContext,
+    tenant: LocalContext,
     branchId: string,
     layoutData: unknown,
   ): Promise<ConversationBranchModel | null>;
   /** CAP-014：获取会话地图（所有分支树） */
-  getBranchTree(tenant: TenantContext, sessionId: string): Promise<ConversationBranchModel[]>;
+  getBranchTree(tenant: LocalContext, sessionId: string): Promise<ConversationBranchModel[]>;
 }
 
 export interface ConversationBranchModel {

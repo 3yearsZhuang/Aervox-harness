@@ -7,7 +7,7 @@ import {
   SqliteConversationRepository,
   SqliteLearningRepository,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "../src/index.js";
 import type { Client } from "@libsql/client";
 
@@ -19,8 +19,8 @@ describe("PRD §8 P1（R2）：记忆树投影独立化 + 会话地图 + 知识�
   let conversation: SqliteConversationRepository;
   let learning: SqliteLearningRepository;
 
-  const tenant: TenantContext = { workspaceId: "ws_p1", subjectUserId: "usr_p1" };
-  const otherTenant: TenantContext = { workspaceId: "ws_other", subjectUserId: "usr_other" };
+  const tenant: LocalContext = { workspaceId: "ws_p1", subjectUserId: "usr_p1" };
+  const otherTenant: LocalContext = { workspaceId: "ws_other", subjectUserId: "usr_other" };
 
   beforeEach(async () => {
     const res = await createInMemoryDatabase();

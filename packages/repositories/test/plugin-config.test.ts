@@ -11,12 +11,12 @@ import {
   SqlitePluginPageRepository,
   SqlitePluginSecretRepository,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "../src/index.js";
 import type { Client } from "@libsql/client";
 
-const tenantA: TenantContext = { workspaceId: "ws_a", subjectUserId: "usr_a" };
-const tenantB: TenantContext = { workspaceId: "ws_b", subjectUserId: "usr_b" };
+const tenantA: LocalContext = { workspaceId: "ws_a", subjectUserId: "usr_a" };
+const tenantB: LocalContext = { workspaceId: "ws_b", subjectUserId: "usr_b" };
 
 describe("插件 Config / Page 仓储", () => {
   let db: AervoxDatabase;

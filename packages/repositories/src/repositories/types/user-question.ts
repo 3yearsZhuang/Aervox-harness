@@ -2,15 +2,15 @@
  * Aervox｜思隅 @aervox/repositories — user-question 仓储类型（自 types.ts 机械拆分）
  */
 import type { PendingUserQuestionModel, PendingUserQuestionUpsertInput } from "./subagent-run.js";
-import type { TenantContext } from "../../tenant.js";
+import type { LocalContext } from "../../local-context.js";
 
 export interface IUserQuestionRepository {
   /** 幂等写入挂起会话（同 turnId 覆盖）；供提问时调用 */
-  upsertPending(tenant: TenantContext, input: PendingUserQuestionUpsertInput): Promise<void>;
+  upsertPending(tenant: LocalContext, input: PendingUserQuestionUpsertInput): Promise<void>;
   /** 按 turn 查询挂起会话（租户隔离）；无则 null */
-  getPending(tenant: TenantContext, turnId: string): Promise<PendingUserQuestionModel | null>;
+  getPending(tenant: LocalContext, turnId: string): Promise<PendingUserQuestionModel | null>;
   /** 会话完成/超时后清除（租户隔离；仅删除属于本租户的行） */
-  deletePending(tenant: TenantContext, turnId: string): Promise<void>;
+  deletePending(tenant: LocalContext, turnId: string): Promise<void>;
 }
 
 export interface LearningGoalModel {

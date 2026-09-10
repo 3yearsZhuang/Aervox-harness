@@ -8,7 +8,7 @@
 import { eq, and, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { personaPreferences } from "@aervox/schema";
-import { assertTenantContext, type TenantContext } from "../../tenant.js";
+import { assertLocalContext, type LocalContext } from "../../local-context.js";
 import type {
   IPersonaPreferencesRepository,
   PersonaPreferencesModel,
@@ -17,8 +17,8 @@ import type {
 export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
-  async get(tenant: TenantContext): Promise<PersonaPreferencesModel | null> {
-    assertTenantContext(tenant);
+  async get(tenant: LocalContext): Promise<PersonaPreferencesModel | null> {
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(personaPreferences)
@@ -34,7 +34,7 @@ export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRe
   }
 
   async save(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: {
       tone?: string;
       proactiveness?: string;
@@ -43,7 +43,7 @@ export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRe
       skipped?: boolean;
     },
   ): Promise<PersonaPreferencesModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
 
     const [created] = await this.db
@@ -80,7 +80,7 @@ export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRe
   }
 
   async update(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: {
       tone?: string;
       proactiveness?: string;
@@ -88,7 +88,7 @@ export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRe
       reminderCadence?: string;
     },
   ): Promise<PersonaPreferencesModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
 
     const setValues: Record<string, unknown> = {
@@ -120,8 +120,8 @@ export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRe
     return this.toModel(updated);
   }
 
-  async reset(tenant: TenantContext): Promise<PersonaPreferencesModel> {
-    assertTenantContext(tenant);
+  async reset(tenant: LocalContext): Promise<PersonaPreferencesModel> {
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
 
     const [updated] = await this.db

@@ -6,15 +6,15 @@ import {
   SqliteProactiveProfileRepository,
   createProactiveVaultCipher,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "../src/index.js";
 import type { Client } from "@libsql/client";
 
 describe("CAP-033 proactive profile repository", () => {
   let db: AervoxDatabase;
   let client: Client;
-  const tenant: TenantContext = { workspaceId: "ws_pro", subjectUserId: "usr_pro" };
-  const otherTenant: TenantContext = { workspaceId: "ws_other", subjectUserId: "usr_other" };
+  const tenant: LocalContext = { workspaceId: "ws_pro", subjectUserId: "usr_pro" };
+  const otherTenant: LocalContext = { workspaceId: "ws_other", subjectUserId: "usr_other" };
 
   beforeEach(async () => {
     const result = await createInMemoryDatabase();

@@ -19,7 +19,7 @@ import type {
   SqliteLLMConfigRepository,
   SqlitePlatformRepository,
   SqliteOutboxRepository,
-  TenantContext,
+  LocalContext,
 } from "@aervox/repositories";
 import {
   collectDiaryMaterial,
@@ -66,7 +66,7 @@ export async function runDiaryGenerationCycle(ctx: DiaryGeneratorContext): Promi
 
   let generated = 0;
   for (const schedule of schedules) {
-    const tenant: TenantContext = {
+    const tenant: LocalContext = {
       workspaceId: schedule.workspaceId,
       subjectUserId: schedule.subjectUserId,
     };

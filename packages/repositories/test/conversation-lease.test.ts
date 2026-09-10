@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { createInMemoryDatabase, initDatabaseSchema, SqliteConversationRepository, type AervoxDatabase, type TenantContext } from "../src/index.js";
+import { createInMemoryDatabase, initDatabaseSchema, SqliteConversationRepository, type AervoxDatabase, type LocalContext } from "../src/index.js";
 import type { Client } from "@libsql/client";
 
-const tenant: TenantContext = { workspaceId: "ws_lease", subjectUserId: "usr_lease" };
+const tenant: LocalContext = { workspaceId: "ws_lease", subjectUserId: "usr_lease" };
 
 describe("3b-A 租约 TTL 与续租", () => {
   let db: AervoxDatabase;

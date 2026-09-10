@@ -17,12 +17,12 @@ import {
   SqliteConversationRepository,
   SqliteSubagentRunRepository,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "@aervox/repositories";
 import { createScriptedProvider, SUBAGENT_DELEGATE_TOOL } from "@aervox/agent-loop";
 import type { Client } from "@libsql/client";
 
-const tenant: TenantContext = { workspaceId: "ws_subag", subjectUserId: "usr_subag" };
+const tenant: LocalContext = { workspaceId: "ws_subag", subjectUserId: "usr_subag" };
 
 describe("SqliteSubagentPort（子任务委托执行器）", () => {
   let db: AervoxDatabase;

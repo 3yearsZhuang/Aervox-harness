@@ -2,11 +2,11 @@
  * Aervox｜思隅 @aervox/repositories — outbox 仓储类型（自 types.ts 机械拆分）
  */
 import type { OutboxEventModel } from "./conversation.js";
-import type { TenantContext } from "../../tenant.js";
+import type { LocalContext } from "../../local-context.js";
 
 export interface IOutboxRepository {
   insertEvent(
-    tenant: TenantContext,
+    tenant: LocalContext,
     event: {
       id: string;
       idempotencyKey: string;
