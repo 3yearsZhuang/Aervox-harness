@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.6.0
+version: 0.7.0
 updated_at: 2026-09-10
 reviewed_at: 2026-09-10
 review_interval_days: 90
@@ -15,7 +15,7 @@ review_interval_days: 90
 # Agent Harness Loop 设计与落地规范
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-09-10
+- 修改人：codex · 2026-09-10
 
 关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[Agent Loop 落地进展追溯](agent-loop-rollout-history.md)（AVX-HAR-002）、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[ADR-016](adr/ADR-016-base-boundaries.md)、[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md)、[CR-012](changes/CR-012-agent-harness-loop.md)、[CR-021](changes/CR-021-ask-user-question-capability.md)、[CR-022](changes/CR-022-full-access-tool-permission.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
@@ -274,7 +274,7 @@ function shouldConcludeToolBatch(
 | `steer` | 修改当前执行的下一 Step 输入 | 是 | `next-step`；不能改写已提交事件 |
 | `inject` | 添加下一次模型请求可见的上下文 | 否 | `next-step` 或 `next-turn` |
 
-所有 inbox item 必须绑定 `(workspaceId, subjectUserId, sessionId)`、来源 actor、幂等键和状态；消费采用 claim/ack，崩溃后可以安全重放。外部插件不能直接修改 Session 日志，只能提交受限 inbox command。
+CR-030 D2 后，所有 inbox item 必须绑定 `sessionId`、来源 actor、来源修订、幂等键和状态；消费采用 claim/ack，崩溃后可以安全重放。外部插件不能直接修改 Session 日志，只能提交受限 inbox command。
 
 ## 8. Provider 调用
 
@@ -415,7 +415,7 @@ agent.turn.failed
 agent.attempt.lease-expired
 ```
 
-跨进程事件通过 Outbox，包含 `workspaceId`、`subjectUserId`、`turnId`、`attemptId`、`stepId`、`idempotencyKey`、`occurredAt` 和 `payloadVersion`。内部事件不等于客户端 SSE；只有经过公开契约筛选的事件才能成为 TurnStreamEvent。
+跨进程事件通过 Outbox，包含 `turnId`、`attemptId`、`stepId`、来源/授权修订、`idempotencyKey`、`occurredAt` 和 `payloadVersion`。内部事件不等于客户端 SSE；只有经过公开契约筛选的事件才能成为 TurnStreamEvent。
 
 当前 `apps/api` 创建 Turn 时写入的事件名仍是 `turn.created`，而目标 Loop 消费事件名为 `agent.turn.requested`。迁移期间必须保留兼容映射：Outbox consumer 同时接受两种事件，按同一个 `(turnId, idempotencyKey)` 去重，并将旧事件投影为 `agent.turn.requested`；新生产者切换后再经过一个完整的重试保留窗口，才能停止消费 `turn.created`。不能只修改事件字符串而不更新消费者和回放夹具。
 

@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.21.0
+version: 1.22.0
 updated_at: 2026-09-10
 reviewed_at: 2026-09-10
 review_interval_days: 90
@@ -136,7 +136,7 @@ review_interval_days: 90
 | `CAP-024` | 文献阅读与发散 | `P2 · R4` | `Mapped` | — | — | [P2 验收原则](PRD.md#prd-cap-020-027) | 补解析格式、引用定位、长文分段、版权、模型上下文和失败恢复 |
 | `CAP-025` | 线下试卷扫描 | `P2 · R4` | `Mapped` | — | — | [P2 验收原则](PRD.md#prd-cap-020-027) | 补图像质量、分题/批改识别、人工校正、置信度和附件删除 |
 | `CAP-026` | 收藏空间与知识库 | `P2 · R4` | `Mapped` | — | ✔ | [P2 验收原则](PRD.md#prd-cap-020-027) | 补收藏状态、去重、检索、标签、来源失效、导入导出和容量限制 |
-| `CAP-027` | 本地优先与多工作区 | `P2 · R4` | `Mapped` | — | ✔ | [P2 验收原则](PRD.md#prd-cap-020-027) | 补存储格式、工作区隔离、同步冲突、加密、备份恢复和版本迁移 |
+| `CAP-027` | 本地数据主权与可移植性 | `P2 · R4` | `Specified` | Not Ready | ✔ | [P2 验收原则](PRD.md#prd-cap-020-027)、[CR-030](changes/CR-030-pure-local-sqlite-database.md) | D0 已批准本地单用户 SQLite、导出、备份、恢复和显式破坏性迁移；D1～D3 迁移器、回滚和安全门禁完成前保持 Not Ready |
 | `CAP-028` | 社区互助 | `P3 · R5` | `Mapped` | — | — | [P3 验收原则](PRD.md#prd-cap-028-033) | 补角色、发布/回答状态机、信誉、举报申诉、审核 SLA 和未成年保护 |
 | `CAP-029` | 名词解释网页 | `P3 · R5` | `Mapped` | — | — | [P3 验收原则](PRD.md#prd-cap-028-033) | 补发布、更新、撤回、来源失效、SEO/分享、隐私预览和版权规则 |
 | `CAP-030` | 主动提醒深化 | `P3 · R5` | `Mapped` | — | — | [P3 验收原则](PRD.md#prd-cap-028-033) | 补触发优先级、频控、去重、解释、免打扰、跨端和退订验收 |
@@ -411,6 +411,7 @@ review_interval_days: 90
 | W-03/W-06 CR 元数据批量迁移与状态语义修正（REFACTOR-PLAN W-03/W-06） | 基础设施（文档治理） | `docs/reference/changes/` 下 16 份遗留 CR 文档（`CR-002`～`CR-016`、`CR-029`）全面转换为规范 YAML front matter；拆分机器字段 `doc_status` 与 `decision_status` / `delivery_status`，修正 `CR-002`/`005`/`007` 的 `more-evidence-required` 决策语义与 `CR-003` 的 `accepted` 决策状态 | 2026-09-10 | `node scripts/docs-governance.mjs --strict`（strict 错误数由 66 降至 50，16 份 CR 遗留头格式错误彻底归零）；`mise tasks run ci-docs` 全通（Markdown lint 90 文件 0 issues、Vale 0 警告、治理指标全 0） | 原生 |
 | W-02 ADR 元数据批量迁移（REFACTOR-PLAN W-02） | 基础设施（文档治理） | `docs/reference/adr/` 下 17 份遗留 ADR 文档（`ADR-001`～`ADR-017`）全面转换为规范 YAML front matter；声明机器字段 `decision_status`（明确 `ADR-014`/`ADR-016` 为 `accepted`、`ADR-002` 为 `rejected`+`superseded`、其余为 `proposed`）；同步在 `docs/DOC_REGISTRY.md` 补齐 17 份独立登记项（`registry_missing=0`） | 2026-09-10 | `node scripts/docs-governance.mjs --strict`（strict 错误数由 50 降至 33，全仓 19 份 ADR 全部 100% canonical）；`mise tasks run ci-docs` 全通（Markdown lint 90 文件 0 issues、Vale 0 警告、治理指标全 0） | 原生 |
 | PR-169 冲突重整：工作台组件化、UI 插槽与 Server Turn Plugin 管道 | CAP-001/002/007/016/020 + 基础设施 | `packages/ui/src/{components/workbench,components/extension,composables,registry,plugins}/`（工作台拆分、UI 插槽与 focus-mode）、`apps/api/src/modules/plugins/turn-plugins/`（beforeTurn/afterTurn 管道）、`packages/{agent-loop,host-agent}`（进程外 Adapter 系统提示词透传）、`apps/api/src/modules/plugins/config-service.ts`（兼容别名统一解析）、`turbo.json`（跨包静态资产复制任务禁用缓存，确保冷/热缓存均生成消费端资源）、`docs/{how-to/develop-plugin-ui-extension.md,reference/plugin-config-and-pages.md}` | 2026-09-10 | UI/API/Agent Loop/Host Agent 单测；删除消费端生成资产后重跑 Desktop 构建与测试；`mise tasks run ci-code`；`mise tasks run ci-docs` | 原生 |
+| CR-030 D0：SQLite 永久本地单用户真源与去租户化决策基线 | CAP-005/015/026/027/033～035、SEC-LOC-001、DATA-PRO-001、NFR-SEC/PRIV/DR-001 | `docs/reference/changes/CR-030-pure-local-sqlite-database.md`；同步 `PRD.md`、`prd-cap-acceptance.md`、`SRS.md`、`srs-proactive-intelligence.md`、`ARCHITECTURE.md`、`DATABASE.md`、`database-coverage-matrix.md`、`DATA_PRIVACY.md`、`AI_QUALITY_SAFETY.md`、`THREAT_MODEL.md`、`TEST_STRATEGY.md`、`operations.md`、ADR-003/008、CR-003 与导航/登记 | 2026-09-10 | `mise tasks run ci-docs`；文档冲突扫描；CR-030 decision=accepted、delivery=planned；D1～D3 不得登记为已实现 | 原生 |
 
 ## 5. 原子需求字段模板
 

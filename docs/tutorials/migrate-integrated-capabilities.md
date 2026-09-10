@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.2.0
-updated_at: 2026-08-31
-reviewed_at: 2026-08-31
+version: 0.3.0
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 ---
 
 # 教程：迁移已集成能力并接入 DSH/pi
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-31
+- 修改人：codex · 2026-09-10
 
 关联：[能力组合与可选化目录规范](../reference/capability-composition.md)、[参考项目能力迁移与借鉴评估](../explanation/reference-design-transfer.md)、[ADR-009](../reference/adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](../reference/adr/ADR-010-dsh-pi-adapters.md)、[需求追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)
 
@@ -60,7 +60,7 @@ mise x -- pnpm install --frozen-lockfile
 | `apps/api/src/app.ts` | 组合根 | `packages/host-api/` + `profiles/` |
 | 尚不存在 | DSH/Pi 外部运行时翻译层 | `adapters/dsh/`、`adapters/pi/` |
 
-迁移期间保留旧 HTTP 路由、表和 `@aervox/database` 兼容出口；新入口通过契约测试后才删除旧入口。
+迁移期间保留旧 HTTP 路由和表结构；新入口通过契约、数据导出和回滚测试后才删除旧入口。CR-030 的 D2/D3 完成后不再保留 `@aervox/database` 兼容出口。
 
 ## 第一步：迁移一个原生能力
 
@@ -401,7 +401,7 @@ mise tasks run ci-docs
 | Manifest schema | 必填字段、版本、来源、checksum |
 | Capability graph | `requires/provides/conflicts` 和拓扑排序 |
 | Lifecycle | activate、disable、revoke、uninstall、disposer 幂等 |
-| Port contract | SQLite 与未来 PostgreSQL Provider 语义一致 |
+| Port contract | SQLite 本地 Repository/Provider 语义一致；未来远程服务需另立 CR/ADR |
 | DSH adapter contract | Plugin、事件、超时、候选写入、无 DSH 回退 |
 | pi adapter security | 外部进程、Project Trust、权限、kill switch、文件隔离 |
 | Profile reproducibility | 同一 Profile + lock 得到同一 activation plan |

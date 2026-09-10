@@ -6,31 +6,31 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.3.0
-updated_at: 2026-08-31
-reviewed_at: 2026-08-31
+version: 0.4.0
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 威胁模型
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-31
+- 修改人：codex · 2026-09-10
 
-关联：[架构设计](ARCHITECTURE.md) · [数据与隐私](DATA_PRIVACY.md) · [CR-023](changes/CR-023-proactive-local-intelligence-mode.md) · [CR-024](changes/CR-024-proactive-intelligence-suite-integrations.md)
+关联：[架构设计](ARCHITECTURE.md) · [数据与隐私](DATA_PRIVACY.md) · [CR-023](changes/CR-023-proactive-local-intelligence-mode.md) · [CR-024](changes/CR-024-proactive-intelligence-suite-integrations.md) · [CR-030](changes/CR-030-pure-local-sqlite-database.md)
 
 ## 1. 范围与资产
 
-范围包括 Web/API/Worker、SQLite、Redis/BullMQ、S3、独立故障域 `RecoveryControlLedger`、模型/身份/通知供应商、Electron、P2 插件/外部同步、P3 组织权限、CAP-033 主动智能模式本地 Host，以及 CAP-034/035 的 Home Assistant 和小米健康连接。关键资产新增 HA Token、实体/服务白名单、小米 OAuth 凭据、睡眠与心率样本。
+范围包括本机 Web/API/Worker、SQLite、独立故障域 `RecoveryControlLedger`、模型/通知供应商、Electron、插件/外部连接、CAP-033 主动智能模式本地 Host，以及 CAP-034/035 的 Home Assistant 和小米健康连接。关键资产包括本地数据库与备份、迁移状态清单、HA Token、实体/服务白名单、小米 OAuth 凭据、睡眠与心率样本。
 
 尚未进入生产启用范围：未成年人、CAP-033 尚未接入的平台设备捕获/全量文件 watcher、社区私信、市场支付和任意第三方插件执行；本分支已启用本地 Vault、Aervox activity/operation 与剪贴板采集、画像提炼、动作授权和后台 heartbeat 的测试路径，真实能力扩大前必须完成本模型扩展与专项门禁。
 
 ## 2. 信任边界
 
-1. 用户客户端 ↔ CDN/WAF/API。
-2. API/Worker ↔ SQLite/Redis/S3；业务库 ↔ 独立 `RecoveryControlLedger` 是不能假定原子提交的跨故障域边界。
-3. Aervox ↔ OIDC/AI/通知/分析供应商。
-4. 用户工作区 ↔ 其他工作区/组织管理员。
+1. 当前操作系统用户/桌面 renderer ↔ 本机 API；loopback ↔ 非 loopback 监听是显式安全边界。
+2. API/Worker ↔ SQLite/本地对象目录；业务库 ↔ 独立 `RecoveryControlLedger` 是不能假定原子提交的跨故障域边界。
+3. Aervox ↔ AI/通知/分析供应商。
+4. 当前操作系统用户的数据目录 ↔ 其他本机用户和未认证局域网客户端。
 5. 核心应用 ↔ 外部内容、OAuth 集成、插件/DSH/pi/MCP。
 6. Electron renderer ↔ preload/主进程/操作系统。
 7. CAP-033 受信观察 Host/后台 helper ↔ 操作系统权限、文件系统、浏览器/通信连接器和设备传感器。
@@ -44,10 +44,10 @@ review_interval_days: 90
 
 | ID | 类别 | 威胁与影响 | 主要控制 | 验证/残余风险 |
 |---|---|---|---|---|
-| TM-001 | Spoofing | 会话劫持、伪造身份或重放写请求 | OIDC、Secure/HttpOnly/SameSite Cookie、PKCE、CSRF、nonce、幂等键 | `TC-SEC-AUTH-001`；身份供应商故障需降级为只读 |
+| TM-001 | Spoofing | 非本机客户端伪造会话、窃取本地 token 或重放写请求 | 默认 loopback、非 loopback 强制 token、CSRF/nonce、幂等键、token 不入日志 | `TC-SEC-LOCAL-API-001`、`TC-SEC-AUTH-001`；远程开关配置错误为阻断 |
 | TM-002 | Tampering | 修改消息版本、记忆证据、日记来源或删除状态 | 不可变版本、外键、checksum、事务 Outbox、审计 | `TC-INTEG-SOURCE-001`；管理员权限仍需最小化 |
 | TM-003 | Repudiation | 管理员/插件否认访问、用户删除无证据 | AuditRecord、ConsentGrant、DeletionTarget、模型/Prompt 版本 | `TC-SEC-AUDIT-001`；审计不能包含原文 |
-| TM-004 | Information disclosure | 跨工作区、数据主体、组织或插件泄漏私人内容 | `(workspaceId,subjectUserId)` + RLS/复合外键、`actorId` 分离、字段级授权、默认无插件权限、脱敏日志 | `TC-SEC-TENANT-001`；配置错误为严重阻断 |
+| TM-004 | Information disclosure | API 监听所有网卡、数据目录权限过宽或插件越权导致私人内容泄漏 | loopback 默认、open auth 禁止非 loopback、用户目录 ACL、`actorId`/Grant 分离、默认无插件权限、脱敏日志 | `TC-SEC-LOCAL-API-001`、`TC-SEC-LOCAL-FS-001`；配置错误为严重阻断 |
 | TM-005 | Denial of service | 流式会话、OCR、日记或插件耗尽模型/队列/CPU | WAF/限流、配额、队列隔离、超时、熔断、预算门槛 | `TC-PERF-ABUSE-001`；供应商级故障用备用/只读降级 |
 | TM-006 | Elevation | Prompt injection 或插件提升工具/文件/网络权限 | 信任层隔离、ToolPolicy、进程外沙箱、allowlist、kill switch | `TC-SEC-PROMPT-001`、`TC-SEC-PLUG-001` |
 | TM-007 | Disclosure | 模型/监控供应商保留或训练私人内容 | Provider 审查、用途同意、最小 ContextManifest、关闭训练、合同删除 | `TC-PRIV-PROVIDER-001`；无合格供应商则不启用该用途 |
@@ -64,6 +64,7 @@ review_interval_days: 90
 | TM-018 | Spoofing/Disclosure | 非本机进程伪造 CAP-033 控制请求，或 token 经日志/代理/重定向泄露 | owner-only token、`0600` 文件权限、字面 loopback 校验、禁止 redirect、请求不写入日志/导出 | `TC-SEC-PRO-AUTH-001`、`TC-SEC-PRO-LOCAL-001` |
 | TM-019 | Spoofing/Elevation | 恶意 HA 地址通过 DNS/redirect 访问公网或本机敏感服务，未授权实体/服务被模型控制 | 仅私网/回环/`.local`、DNS 全地址校验、redirect 拒绝、实体默认禁用、service 白名单、`action.external` 动作授权 | `TC-SEC-HA-SSRF-001`、`TC-SEC-HA-ACTION-001`；HA 侧 LLAT 仍需用户撤销 |
 | TM-020 | Disclosure/Supply chain | 小米 Token、Client Secret、睡眠/心率或完整供应商响应进入日志、模型、导出，或使用未获准的私有接口 | Vault 加密、凭据零回显、只存规范化每日指标、HTTPS、官方开放平台配置声明、连接级删除 | `TC-PRIV-EXT-CREDENTIAL-001`、`TC-PRIV-HEALTH-001`；厂商政策与账号资格仍是外部风险 |
+| TM-021 | Tampering/Disclosure | CR-030 迁移中断、选错数据范围、静默去重或原地删列导致数据不可恢复 | 停写锁、一致性备份、显式范围选择、staging 新库、冲突 fail closed、完整性/行数校验、原子换库和 rollback 包 | `TC-MIG-CR030-*`；新库产生写入后回滚需用户确认且可能丢失新数据 |
 
 ## 4. 数据流安全规则
 

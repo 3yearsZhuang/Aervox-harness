@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.3.0
+version: 0.4.0
 updated_at: 2026-09-10
 reviewed_at: 2026-09-10
 review_interval_days: 90
@@ -15,7 +15,7 @@ review_interval_days: 90
 # 术语表（唯一含义与规范写法）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-10
+- 修改人：codex · 2026-09-10
 
 关联：[文档写作规范](doc-standards.md)
 
@@ -55,7 +55,8 @@ review_interval_days: 90
 | Manifest | 描述能力身份、依赖、权限、数据和入口的机器可读声明 | `Manifest` |
 | Profile / Bundle / Overlay | 运行组合 / 分发集合 / 配置覆盖层 | `Profile` / `Bundle` / `Overlay` |
 | Contribution | Plugin/Extension 向 Host 提交的受限 Tool、Provider、Event 或 UI 能力 | `Contribution` |
-| 双引擎 | SQLite 与 PostgreSQL 互为切换的数据真源模式 | `双引擎`；禁 `双主`/`多主` |
+| 本地单用户数据库 | 归属于当前操作系统用户、默认只经 loopback API 访问的一份 SQLite 真源 | `本地单用户 SQLite`；不写 `本地多租户` |
+| 双引擎（历史） | CR-003 曾规划的 SQLite/PostgreSQL 切换模式，已由 CR-030 终止 | 仅在历史文档中使用 `双引擎`；当前设计禁用 |
 | 迁移三阶段 | Expand → Migrate → Contract 的表结构演进 | `Expand/Contract 迁移` |
 | 删除传播 | 删除实体时按引用关系级联清理 | `删除传播` |
 | Outbox | 事务内落表、后台投递的事件模式 | `outbox`（小写英文） |
@@ -76,7 +77,7 @@ review_interval_days: 90
 
 | 术语 | 规范写法 | 禁写 |
 |---|---|---|
-| 数据库 | `SQLite`、`PostgreSQL` | `sqlite`、`postgres` |
+| 数据库 | 当前基线使用 `SQLite`；历史方案可写 `PostgreSQL` | `sqlite`、`postgres` |
 | 模式工具 | `Drizzle` | `drizzle` |
 | 契约工具 | `OpenAPI`、`Zod` | `openapi`、`zod` |
 | 服务框架 | `Fastify`、`Koa` | `fastify`、`koa` |

@@ -6,9 +6,9 @@ owner: product-platform
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.0
-updated_at: 2026-08-29
-reviewed_at: 2026-08-29
+version: 0.5.0
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 60
 review_triggers:
   - docs/reference/PRD.md
@@ -43,7 +43,7 @@ sources:
 # 主动智能模式设计方案
 
 - 提出人：3yearszhuang · 2026-08-29
-- 修改人：3yearszhuang · 2026-08-29
+- 修改人：codex · 2026-09-10
 
 关联：[CR-023](../reference/changes/CR-023-proactive-local-intelligence-mode.md)、[CR-022 完全访问](../reference/changes/CR-022-full-access-tool-permission.md)、[需求追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)、[数据与隐私](../reference/DATA_PRIVACY.md)
 
@@ -332,7 +332,7 @@ RecoveryControlLedger 先追加 revoke/deny
 3. 修订/新增并接受本地私密存储、特权观察 Host 与 OS Permission Broker ADR，关闭 `PRO-BLOCK-002/003/004/006/007/008/009/010/011/012`；
 4. 更新 `DATA_PRIVACY`、`THREAT_MODEL`、`DATABASE` 和导出/删除责任矩阵；
 5. 为记忆工具接入 Consent、候选和证据链，关闭 `PRO-BLOCK-001/005`；
-6. 定义本地出网阻断、远端 Provider 拒绝、`local_only` 边界晋升/合并传播、OS 权限撤销、广域捕获零外传、撤权零召回、导出可读性、跨工作区隔离、特权 helper 逃逸、旁观者数据和本地文件安全测试；
+6. 定义本地出网阻断、远端 Provider 拒绝、`local_only` 边界晋升/合并传播、OS 权限撤销、广域捕获零外传、撤权零召回、导出可读性、跨数据目录隔离、特权 helper 逃逸、旁观者数据和本地文件安全测试；
 7. 评审 UI 授权回执、来源管理、推断纠错、暂停/撤权和导出原型；
 8. 完成控制面、原始捕获、画像、确认后记忆、提醒历史和 ContextManifest 全链路不出本机的出网/存储故障注入验证。
 

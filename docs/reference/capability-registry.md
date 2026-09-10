@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.3.0
-updated_at: 2026-08-29
-reviewed_at: 2026-08-29
+version: 0.4.0
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 ---
 
 # 能力注册表（交付与自选状态登记）
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-08-29
+- 修改人：codex · 2026-09-10
 
 关联：[能力组合与可选化目录规范](capability-composition.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)、[submodule 协作指南](../how-to/submodule-collaboration.md)、[文档索引](../README.md)
 
@@ -46,7 +46,7 @@ review_interval_days: 90
 | CAP | 功能 | 状态 | 启用方式 | 接口/适配边界 | 依赖的 ADR |
 |---|---|---|---|---|---|
 | CAP-020 | 技能/插件系统 | 候选 | 双 | 插件 SDK + 沙箱；MVP 依赖内部稳定 API，不承诺插件兼容（PRD 14.3 末尾） | ADR-009/ADR-010（插件/生态） |
-| CAP-027 | 本地优先/多工作区 | 候选 | 构建 | 工作区隔离、快照/迁移；核心数据可迁移不锁定云端 | ADR-008（本地优先） |
+| CAP-027 | 本地数据主权/可移植性 | 候选 | 构建 | 本地单用户 SQLite、可读导出、备份/恢复与 CR-030 显式迁移 | CR-030；ADR-008 已替代 |
 | CAP-023 | 第三方刷题接入 | 候选 | 运行 | OAuth 授权撤销、同步方向与冲突可见 | — |
 | CAP-024 | 文献阅读与发散 | 候选 | 运行 | 外部内容不可信，防 prompt injection | — |
 | CAP-025 | 线下试卷扫描 | 候选 | 运行 | OCR 低置信不自动入掌握度 | — |
