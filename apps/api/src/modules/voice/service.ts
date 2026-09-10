@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/api — 系统级语音服务
  */
-import type { TenantContext } from "@aervox/repositories";
+import type { LocalContext } from "@aervox/repositories";
 import type {
   IVoiceConfigRepository,
   IVoiceInputConfigRepository,
@@ -224,7 +224,7 @@ export class VoiceService {
 
   /** 转写音频为文本（ASR） */
   async transcribe(
-    tenant: TenantContext,
+    tenant: LocalContext,
     request: ASRTranscribeRequest,
   ): Promise<ASRTranscribeResult> {
     const config = await this.getVoiceInputConfig(tenant);
@@ -255,7 +255,7 @@ export class VoiceService {
   }
 
   /** 读取当前租户的本地语音配置；未持久化时按本地 provider 当前生效值给出默认 */
-  async getLocalConfig(tenant: TenantContext): Promise<LocalVoiceConfig> {
+  async getLocalConfig(tenant: LocalContext): Promise<LocalVoiceConfig> {
     const stored = this.configRepository
       ? await this.configRepository.getConfig(tenant)
       : null;
@@ -280,7 +280,7 @@ export class VoiceService {
   }
 
   /** 保存本地语音配置：modelPath 白名单校验 → 持久化 → 同步本地 provider 生效配置 */
-  async setLocalConfig(tenant: TenantContext, cfg: LocalVoiceConfig): Promise<LocalVoiceConfig> {
+  async setLocalConfig(tenant: LocalContext, cfg: LocalVoiceConfig): Promise<LocalVoiceConfig> {
     const local = this.getLocalProvider();
     if (!local) {
       throw new Error("Local GPT-SoVITS provider is not registered");
@@ -323,7 +323,7 @@ export class VoiceService {
   }
 
   /** 读取当前租户的在线语音配置；未持久化时按远程 provider 当前生效值给出默认（CR-028） */
-  async getRemoteConfig(tenant: TenantContext): Promise<RemoteVoiceConfig> {
+  async getRemoteConfig(tenant: LocalContext): Promise<RemoteVoiceConfig> {
     const stored = this.remoteConfigRepository
       ? await this.remoteConfigRepository.getConfig(tenant)
       : null;
@@ -355,7 +355,7 @@ export class VoiceService {
   }
 
   /** 保存当前租户的在线语音配置：endpoint 合法性校验 → 持久化 → 同步远程 provider 生效配置（CR-028） */
-  async setRemoteConfig(tenant: TenantContext, cfg: RemoteVoiceConfig): Promise<RemoteVoiceConfig> {
+  async setRemoteConfig(tenant: LocalContext, cfg: RemoteVoiceConfig): Promise<RemoteVoiceConfig> {
     const remote = this.getRemoteProvider();
     if (!remote) {
       throw new Error("Remote GPT-SoVITS provider is not registered");
@@ -421,7 +421,7 @@ export class VoiceService {
   }
 
   /** 读取当前租户的离线语音输入 (ASR) 配置 */
-  async getVoiceInputConfig(tenant: TenantContext): Promise<VoiceInputConfig> {
+  async getVoiceInputConfig(tenant: LocalContext): Promise<VoiceInputConfig> {
     const stored = this.inputConfigRepository
       ? await this.inputConfigRepository.getConfig(tenant)
       : null;
@@ -452,7 +452,7 @@ export class VoiceService {
 
   /** 保存当前租户的离线语音输入 (ASR) 配置 */
   async setVoiceInputConfig(
-    tenant: TenantContext,
+    tenant: LocalContext,
     cfg: VoiceInputConfig,
   ): Promise<VoiceInputConfig> {
     const senseVoice = this.getSenseVoiceProvider();
@@ -509,7 +509,7 @@ export class VoiceService {
   }
 
   /** 获取离线语音输入模型状态 */
-  async getVoiceInputModelStatus(tenant: TenantContext): Promise<{
+  async getVoiceInputModelStatus(tenant: LocalContext): Promise<{
     downloaded: boolean;
     downloading: boolean;
     progressPercent: number;
@@ -539,7 +539,7 @@ export class VoiceService {
 
   /** 触发离线语音输入模型下载 */
   async downloadVoiceInputModel(
-    tenant: TenantContext,
+    tenant: LocalContext,
     options?: { targetDir?: string; mirrorUrl?: string },
   ): Promise<{
     accepted: boolean;
@@ -579,7 +579,7 @@ export class VoiceService {
   // ---- 多预设管理（与人格设定同款：列表/新建/激活/删除；聚合本地输出/在线输出/输入三表） ----
 
   /** 列出全部语音配置预设（含激活标记与三块配置） */
-  async listVoicePresets(tenant: TenantContext): Promise<{
+  async listVoicePresets(tenant: LocalContext): Promise<{
     presets: Array<{
       id: string;
       name: string;
@@ -652,7 +652,7 @@ export class VoiceService {
 
   /** 新建语音配置预设：在三表（若可用）各建同名占位行，保证后续保存端点按名对齐 */
   async createVoicePreset(
-    tenant: TenantContext,
+    tenant: LocalContext,
     name: string,
   ): Promise<{ id: string; name: string; isActive: boolean }> {
     const trimmed = name.trim() || "默认配置";
@@ -700,7 +700,7 @@ export class VoiceService {
 
   /** 激活指定语音配置预设（对三表中同名行激活；不存在同名行时跳过该表） */
   async activateVoicePreset(
-    tenant: TenantContext,
+    tenant: LocalContext,
     presetId: string,
   ): Promise<{ id: string; name: string; isActive: boolean } | null> {
     let activated:
@@ -754,7 +754,7 @@ export class VoiceService {
   }
 
   /** 删除指定语音配置预设（三表中同名行均删除） */
-  async deleteVoicePreset(tenant: TenantContext, presetId: string): Promise<boolean> {
+  async deleteVoicePreset(tenant: LocalContext, presetId: string): Promise<boolean> {
     const nameResults = await Promise.all([
       this.configRepository
         ? this.configRepository

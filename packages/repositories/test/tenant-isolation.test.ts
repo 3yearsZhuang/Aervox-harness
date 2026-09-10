@@ -4,7 +4,7 @@ import {
   initDatabaseSchema,
   SqliteConversationRepository,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "../src/index.js";
 import type { Client } from "@libsql/client";
 
@@ -13,12 +13,12 @@ describe("TC-SEC-TENANT-001: 多租户数据隔离测试", () => {
   let client: Client;
   let repo: SqliteConversationRepository;
 
-  const tenantA: TenantContext = {
+  const tenantA: LocalContext = {
     workspaceId: "ws_alpha",
     subjectUserId: "usr_alice",
   };
 
-  const tenantB: TenantContext = {
+  const tenantB: LocalContext = {
     workspaceId: "ws_beta",
     subjectUserId: "usr_bob",
   };
@@ -57,10 +57,10 @@ describe("TC-SEC-TENANT-001: 多租户数据隔离测试", () => {
     expect(bobQueryIdem).toBeNull();
   });
 
-  it("当 TenantContext 缺失或非法时，仓储操作应当抛出强隔离校验异常", async () => {
-    const invalidTenant = { workspaceId: "", subjectUserId: "" } as unknown as TenantContext;
+  it("当 LocalContext 缺失或非法时，仓储操作应当抛出强隔离校验异常", async () => {
+    const invalidTenant = { workspaceId: "", subjectUserId: "" } as unknown as LocalContext;
     await expect(repo.createSession(invalidTenant, "Invalid Session")).rejects.toThrow(
-      "TenantContext.workspaceId must be a non-empty string",
+      "LocalContext.workspaceId must be a non-empty string",
     );
   });
 });

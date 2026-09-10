@@ -15,7 +15,7 @@ import type {
   ToolExecutionStatus,
 } from "@aervox/agent-loop";
 import { LeaseLostError } from "@aervox/agent-loop";
-import type { SqliteConversationRepository, TenantContext } from "@aervox/repositories";
+import type { SqliteConversationRepository, LocalContext } from "@aervox/repositories";
 import { FencingMismatchError } from "@aervox/repositories";
 
 /**
@@ -56,7 +56,7 @@ const toAgentEvent = (row: {
 export class SqliteExecutionStore implements ExecutionStorePort {
   constructor(
     private readonly repo: SqliteConversationRepository,
-    private readonly tenant: TenantContext,
+    private readonly tenant: LocalContext,
     /** 阶段 7：ModelRun/Manifest 落库口（可选；缺省 no-op，兼容既有宿主/测试） */
     private readonly modelRunSink?: ModelRunSink,
   ) {}

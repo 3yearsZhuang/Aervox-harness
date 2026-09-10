@@ -7,7 +7,7 @@
 import { eq, and, desc, isNull, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { attachments, attachmentParseResults, embeddingIndexes } from "@aervox/schema";
-import { assertTenantContext, type TenantContext } from "../../tenant.js";
+import { assertLocalContext, type LocalContext } from "../../local-context.js";
 import type {
   IContentRepository,
   AttachmentModel,
@@ -21,7 +21,7 @@ export class SqliteContentRepository implements IContentRepository {
   // ============ 附件身份 ============
 
   async createAttachment(
-    tenant: TenantContext,
+    tenant: LocalContext,
     attachmentData: {
       id: string;
       objectKey: string;
@@ -33,7 +33,7 @@ export class SqliteContentRepository implements IContentRepository {
       idempotencyKey?: string | null;
     },
   ): Promise<AttachmentModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(attachments)
@@ -56,8 +56,8 @@ export class SqliteContentRepository implements IContentRepository {
     return created as AttachmentModel;
   }
 
-  async getAttachment(tenant: TenantContext, id: string): Promise<AttachmentModel | null> {
-    assertTenantContext(tenant);
+  async getAttachment(tenant: LocalContext, id: string): Promise<AttachmentModel | null> {
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(attachments)
@@ -73,8 +73,8 @@ export class SqliteContentRepository implements IContentRepository {
     return (found as AttachmentModel) ?? null;
   }
 
-  async softDeleteAttachment(tenant: TenantContext, id: string): Promise<AttachmentModel | null> {
-    assertTenantContext(tenant);
+  async softDeleteAttachment(tenant: LocalContext, id: string): Promise<AttachmentModel | null> {
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(attachments)
@@ -92,10 +92,10 @@ export class SqliteContentRepository implements IContentRepository {
   }
 
   async getAttachmentByIdempotencyKey(
-    tenant: TenantContext,
+    tenant: LocalContext,
     key: string,
   ): Promise<AttachmentModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(attachments)
@@ -114,7 +114,7 @@ export class SqliteContentRepository implements IContentRepository {
   // ============ CAP-012 解析结果 ============
 
   async createParseResult(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: {
       id: string;
       attachmentId: string;
@@ -127,7 +127,7 @@ export class SqliteContentRepository implements IContentRepository {
       idempotencyKey?: string;
     },
   ): Promise<AttachmentParseResultModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(attachmentParseResults)
@@ -159,10 +159,10 @@ export class SqliteContentRepository implements IContentRepository {
   }
 
   async getActiveParseResult(
-    tenant: TenantContext,
+    tenant: LocalContext,
     attachmentId: string,
   ): Promise<AttachmentParseResultModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(attachmentParseResults)
@@ -180,10 +180,10 @@ export class SqliteContentRepository implements IContentRepository {
   }
 
   async getParseResultByIdempotencyKey(
-    tenant: TenantContext,
+    tenant: LocalContext,
     key: string,
   ): Promise<AttachmentParseResultModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(attachmentParseResults)
@@ -199,10 +199,10 @@ export class SqliteContentRepository implements IContentRepository {
   }
 
   async listParseResults(
-    tenant: TenantContext,
+    tenant: LocalContext,
     attachmentId: string,
   ): Promise<AttachmentParseResultModel[]> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(attachmentParseResults)
@@ -217,8 +217,8 @@ export class SqliteContentRepository implements IContentRepository {
     return rows as AttachmentParseResultModel[];
   }
 
-  async supersedeParseResult(tenant: TenantContext, parseResultId: string): Promise<void> {
-    assertTenantContext(tenant);
+  async supersedeParseResult(tenant: LocalContext, parseResultId: string): Promise<void> {
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     await this.db
       .update(attachmentParseResults)
@@ -233,8 +233,8 @@ export class SqliteContentRepository implements IContentRepository {
       );
   }
 
-  async invalidateParseResults(tenant: TenantContext, attachmentId: string): Promise<number> {
-    assertTenantContext(tenant);
+  async invalidateParseResults(tenant: LocalContext, attachmentId: string): Promise<number> {
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const result = await this.db
       .update(attachmentParseResults)
@@ -253,7 +253,7 @@ export class SqliteContentRepository implements IContentRepository {
   // ============ 向量索引 ============
 
   async createEmbeddingIndex(
-    tenant: TenantContext,
+    tenant: LocalContext,
     indexData: {
       id: string;
       sourceArtifactId: string;
@@ -264,7 +264,7 @@ export class SqliteContentRepository implements IContentRepository {
       status?: string;
     },
   ): Promise<EmbeddingIndexModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(embeddingIndexes)
@@ -285,8 +285,8 @@ export class SqliteContentRepository implements IContentRepository {
     return created as EmbeddingIndexModel;
   }
 
-  async listEmbeddingIndexes(tenant: TenantContext, sourceArtifactId: string): Promise<EmbeddingIndexModel[]> {
-    assertTenantContext(tenant);
+  async listEmbeddingIndexes(tenant: LocalContext, sourceArtifactId: string): Promise<EmbeddingIndexModel[]> {
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(embeddingIndexes)

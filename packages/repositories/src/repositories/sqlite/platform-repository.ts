@@ -15,7 +15,7 @@ import {
   toolPolicies,
   evalSets,
 } from "@aervox/schema";
-import { assertTenantContext, type TenantContext } from "../../tenant.js";
+import { assertLocalContext, type LocalContext } from "../../local-context.js";
 import type {
   IPlatformRepository,
   ScheduledJobModel,
@@ -32,10 +32,10 @@ export class SqlitePlatformRepository implements IPlatformRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async createScheduledJob(
-    tenant: TenantContext,
+    tenant: LocalContext,
     jobData: { id: string; jobType: string; subjectId: string; idempotencyKey: string; runAt: string },
   ): Promise<ScheduledJobModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(scheduledJobs)
@@ -56,8 +56,8 @@ export class SqlitePlatformRepository implements IPlatformRepository {
     return created as ScheduledJobModel;
   }
 
-  async markJobDone(tenant: TenantContext, id: string): Promise<ScheduledJobModel | null> {
-    assertTenantContext(tenant);
+  async markJobDone(tenant: LocalContext, id: string): Promise<ScheduledJobModel | null> {
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(scheduledJobs)
@@ -74,10 +74,10 @@ export class SqlitePlatformRepository implements IPlatformRepository {
   }
 
   async createNotification(
-    tenant: TenantContext,
+    tenant: LocalContext,
     notificationData: { id: string; type: string; scheduledAt: string; channel: string },
   ): Promise<NotificationModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(notifications)
@@ -96,8 +96,8 @@ export class SqlitePlatformRepository implements IPlatformRepository {
     return created as NotificationModel;
   }
 
-  async markNotificationSent(tenant: TenantContext, id: string): Promise<NotificationModel | null> {
-    assertTenantContext(tenant);
+  async markNotificationSent(tenant: LocalContext, id: string): Promise<NotificationModel | null> {
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(notifications)
@@ -113,8 +113,8 @@ export class SqlitePlatformRepository implements IPlatformRepository {
     return (updated as NotificationModel) ?? null;
   }
 
-  async listNotifications(tenant: TenantContext, limit: number = 50): Promise<NotificationModel[]> {
-    assertTenantContext(tenant);
+  async listNotifications(tenant: LocalContext, limit: number = 50): Promise<NotificationModel[]> {
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(notifications)
@@ -159,7 +159,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
   }
 
   async createModelRun(
-    tenant: TenantContext,
+    tenant: LocalContext,
     runData: {
       id: string;
       /** 阶段 7（ADR-017）：Attempt/Step 关联（Loop Step 级写入；非 Loop 场景省略） */
@@ -171,7 +171,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
       promptVersionId?: string | null;
     },
   ): Promise<ModelRunModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(modelRuns)
@@ -194,11 +194,11 @@ export class SqlitePlatformRepository implements IPlatformRepository {
   }
 
   async completeModelRun(
-    tenant: TenantContext,
+    tenant: LocalContext,
     id: string,
     result: { latencyMs?: number; tokenUsage?: unknown; cost?: number; status?: string },
   ): Promise<ModelRunModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const updateData: Record<string, unknown> = { updatedAt: now };
     if (result.status) updateData.status = result.status;
@@ -221,11 +221,11 @@ export class SqlitePlatformRepository implements IPlatformRepository {
   }
 
   async attachContextManifest(
-    tenant: TenantContext,
+    tenant: LocalContext,
     modelRunId: string,
     manifestId: string,
   ): Promise<ModelRunModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(modelRuns)
@@ -277,7 +277,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
   }
 
   async createAuditRecord(
-    tenant: TenantContext,
+    tenant: LocalContext,
     recordData: {
       id: string;
       actorType: string;
@@ -288,7 +288,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
       metadata?: unknown;
     },
   ): Promise<AuditRecordModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [created] = await this.db
       .insert(auditRecords)
       .values({
@@ -307,8 +307,8 @@ export class SqlitePlatformRepository implements IPlatformRepository {
     return created as AuditRecordModel;
   }
 
-  async listAuditRecords(tenant: TenantContext, limit: number = 50): Promise<AuditRecordModel[]> {
-    assertTenantContext(tenant);
+  async listAuditRecords(tenant: LocalContext, limit: number = 50): Promise<AuditRecordModel[]> {
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(auditRecords)

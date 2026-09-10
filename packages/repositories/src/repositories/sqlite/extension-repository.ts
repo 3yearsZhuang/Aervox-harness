@@ -13,7 +13,7 @@ import {
   communityContents,
   organizations,
 } from "@aervox/schema";
-import { assertTenantContext, type TenantContext } from "../../tenant.js";
+import { assertLocalContext, type LocalContext } from "../../local-context.js";
 import type {
   IExtensionRepository,
   ExternalSourceModel,
@@ -27,10 +27,10 @@ export class SqliteExtensionRepository implements IExtensionRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async createExternalSource(
-    tenant: TenantContext,
+    tenant: LocalContext,
     sourceData: { id: string; provider: string; externalId: string; permissionScope: string; syncState?: string },
   ): Promise<ExternalSourceModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(externalSources)
@@ -49,8 +49,8 @@ export class SqliteExtensionRepository implements IExtensionRepository {
     return created as ExternalSourceModel;
   }
 
-  async getExternalSource(tenant: TenantContext, id: string): Promise<ExternalSourceModel | null> {
-    assertTenantContext(tenant);
+  async getExternalSource(tenant: LocalContext, id: string): Promise<ExternalSourceModel | null> {
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(externalSources)
@@ -160,10 +160,10 @@ export class SqliteExtensionRepository implements IExtensionRepository {
   }
 
   async grantPlugin(
-    tenant: TenantContext,
+    tenant: LocalContext,
     grantData: { id: string; pluginId: string; permission: string; scope: string; grantedAt?: string },
   ): Promise<PluginGrantModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(pluginGrants)
@@ -182,8 +182,8 @@ export class SqliteExtensionRepository implements IExtensionRepository {
     return created as PluginGrantModel;
   }
 
-  async revokePluginGrant(tenant: TenantContext, id: string): Promise<PluginGrantModel | null> {
-    assertTenantContext(tenant);
+  async revokePluginGrant(tenant: LocalContext, id: string): Promise<PluginGrantModel | null> {
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(pluginGrants)
@@ -199,8 +199,8 @@ export class SqliteExtensionRepository implements IExtensionRepository {
     return (updated as PluginGrantModel) ?? null;
   }
 
-  async hasPluginPermission(tenant: TenantContext, pluginId: string, permission: string): Promise<boolean> {
-    assertTenantContext(tenant);
+  async hasPluginPermission(tenant: LocalContext, pluginId: string, permission: string): Promise<boolean> {
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(pluginGrants)
@@ -219,10 +219,10 @@ export class SqliteExtensionRepository implements IExtensionRepository {
   }
 
   async createCommunityContent(
-    tenant: TenantContext,
+    tenant: LocalContext,
     contentData: { id: string; authorId: string; type: string; status?: string; reviewState?: string; visibility?: string },
   ): Promise<CommunityContentModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(communityContents)
@@ -242,8 +242,8 @@ export class SqliteExtensionRepository implements IExtensionRepository {
     return created as CommunityContentModel;
   }
 
-  async getCommunityContent(tenant: TenantContext, id: string): Promise<CommunityContentModel | null> {
-    assertTenantContext(tenant);
+  async getCommunityContent(tenant: LocalContext, id: string): Promise<CommunityContentModel | null> {
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(communityContents)
@@ -258,10 +258,10 @@ export class SqliteExtensionRepository implements IExtensionRepository {
   }
 
   async createOrganization(
-    tenant: TenantContext,
+    tenant: LocalContext,
     orgData: { id: string; ownerId: string; memberScope?: string; policyVersion: string },
   ): Promise<OrganizationModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(organizations)
@@ -279,8 +279,8 @@ export class SqliteExtensionRepository implements IExtensionRepository {
     return created as OrganizationModel;
   }
 
-  async getOrganization(tenant: TenantContext, id: string): Promise<OrganizationModel | null> {
-    assertTenantContext(tenant);
+  async getOrganization(tenant: LocalContext, id: string): Promise<OrganizationModel | null> {
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(organizations)

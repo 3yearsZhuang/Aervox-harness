@@ -6,14 +6,14 @@
 import { eq, and, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { outboxEvents } from "@aervox/schema";
-import { assertTenantContext, type TenantContext } from "../../tenant.js";
+import { assertLocalContext, type LocalContext } from "../../local-context.js";
 import type { IOutboxRepository, OutboxEventModel } from "../types/index.js";
 
 export class SqliteOutboxRepository implements IOutboxRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async insertEvent(
-    tenant: TenantContext,
+    tenant: LocalContext,
     eventData: {
       id: string;
       idempotencyKey: string;
@@ -22,7 +22,7 @@ export class SqliteOutboxRepository implements IOutboxRepository {
       controlEventId?: string | null;
     },
   ): Promise<OutboxEventModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(outboxEvents)

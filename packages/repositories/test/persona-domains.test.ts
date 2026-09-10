@@ -4,7 +4,7 @@ import {
   initDatabaseSchema,
   SqlitePersonaRepository,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "../src/index.js";
 import type { Client } from "@libsql/client";
 
@@ -13,8 +13,8 @@ describe("CAP-019/CAP-020：Persona SQLite 持久化", () => {
   let client: Client;
   let personas: SqlitePersonaRepository;
 
-  const tenant: TenantContext = { workspaceId: "ws_persona", subjectUserId: "usr_persona" };
-  const otherTenant: TenantContext = { workspaceId: "ws_other", subjectUserId: "usr_other" };
+  const tenant: LocalContext = { workspaceId: "ws_persona", subjectUserId: "usr_persona" };
+  const otherTenant: LocalContext = { workspaceId: "ws_other", subjectUserId: "usr_other" };
 
   beforeEach(async () => {
     const res = await createInMemoryDatabase();

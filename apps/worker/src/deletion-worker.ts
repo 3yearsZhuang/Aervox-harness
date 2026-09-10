@@ -15,7 +15,7 @@ import type {
   AervoxDatabase,
   SqlitePrivacyRepository,
   SqlitePlatformRepository,
-  TenantContext,
+  LocalContext,
 } from "@aervox/repositories";
 
 export interface DeletionWorkerContext {
@@ -37,7 +37,7 @@ export async function runDeletionCycle(ctx: DeletionWorkerContext): Promise<numb
 
   let completed = 0;
   for (const request of requests) {
-    const tenant: TenantContext = {
+    const tenant: LocalContext = {
       workspaceId: request.workspaceId,
       subjectUserId: request.subjectUserId,
     };

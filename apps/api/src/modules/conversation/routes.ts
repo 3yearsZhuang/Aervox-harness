@@ -45,10 +45,10 @@ export interface ConversationRouteDeps {
   skillLoader?: () => Promise<SkillDescriptor[]>;
   /** 人格提示词摘要加载器（激活人格的名称/设定/技能白名单，覆盖系统默认） */
   personaLoader?: (
-    tenant: import("@aervox/repositories").TenantContext,
+    tenant: import("@aervox/repositories").LocalContext,
   ) => Promise<{ name?: string; prompt?: string; allowedSkillNames?: string[] } | undefined>;
   /** 5c：Subagent 委托执行器工厂（request 级 tenant 绑定；注入则贡献 subagent_delegate 工具） */
-  subagentFactory?: (tenant: import("@aervox/repositories").TenantContext) => import("@aervox/agent-loop").SubagentPort;
+  subagentFactory?: (tenant: import("@aervox/repositories").LocalContext) => import("@aervox/agent-loop").SubagentPort;
   /** 5c：已注册 Workflow 定义清单（贡献 workflow_run 工具；GET /v1/workflows 元数据） */
   workflows?: import("@aervox/agent-loop").WorkflowDefinition[];
   /** 5c：subagent_runs 仓储（GET /v1/turns/:id/subagents 审计查询） */
@@ -58,7 +58,7 @@ export interface ConversationRouteDeps {
   /** UQ-01：向用户提问会话协调器 */
   userQuestionCoordinator?: UserQuestionCoordinator;
   /** CAP-016：刷题模式作答落库端口工厂（request 级 tenant 绑定） */
-  practiceAttemptFactory?: (tenant: import("@aervox/repositories").TenantContext) => import("@aervox/agent-loop").PracticeAttemptPort;
+  practiceAttemptFactory?: (tenant: import("@aervox/repositories").LocalContext) => import("@aervox/agent-loop").PracticeAttemptPort;
   /** CAP-033：主动智能全动作授权与本地动作账本。 */
   proactiveActionAuthorizer?: ProactiveActionAuthorizer;
   /** CAP-033：本地画像上下文来源。 */

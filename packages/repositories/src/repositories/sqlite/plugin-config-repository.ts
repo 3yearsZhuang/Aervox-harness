@@ -12,7 +12,7 @@ import {
   pluginConfigSecrets,
   pluginPages,
 } from "@aervox/schema";
-import { assertTenantContext, type TenantContext } from "../../tenant.js";
+import { assertLocalContext, type LocalContext } from "../../local-context.js";
 import type {
   IPluginConfigRepository,
   IPluginPageRepository,
@@ -26,8 +26,8 @@ import type {
 export class SqlitePluginConfigRepository implements IPluginConfigRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
-  async getConfig(tenant: TenantContext, pluginId: string): Promise<PluginConfigModel | null> {
-    assertTenantContext(tenant);
+  async getConfig(tenant: LocalContext, pluginId: string): Promise<PluginConfigModel | null> {
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(pluginConfigs)
@@ -43,10 +43,10 @@ export class SqlitePluginConfigRepository implements IPluginConfigRepository {
   }
 
   async saveConfig(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: PluginConfigSaveInput,
   ): Promise<{ saved: PluginConfigModel; conflict: boolean }> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const existing = await this.getConfig(tenant, input.pluginId);
 
@@ -95,12 +95,12 @@ export class SqlitePluginConfigRepository implements IPluginConfigRepository {
   }
 
   async resetConfig(
-    tenant: TenantContext,
+    tenant: LocalContext,
     pluginId: string,
     schemaVersion: number,
     defaults: Record<string, unknown>,
   ): Promise<PluginConfigModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const existing = await this.getConfig(tenant, pluginId);
     if (existing) {
@@ -146,10 +146,10 @@ export class SqlitePluginSecretRepository implements IPluginSecretRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async put(
-    tenant: TenantContext,
+    tenant: LocalContext,
     entry: { pluginId: string; fieldKey: string; value: unknown },
   ): Promise<void> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const existing = await this.getState(tenant, entry.pluginId, entry.fieldKey);
     if (existing.configured) {
@@ -185,11 +185,11 @@ export class SqlitePluginSecretRepository implements IPluginSecretRepository {
   }
 
   async getState(
-    tenant: TenantContext,
+    tenant: LocalContext,
     pluginId: string,
     fieldKey: string,
   ): Promise<{ configured: boolean }> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select({ configured: pluginConfigSecrets.configured })
       .from(pluginConfigSecrets)
@@ -206,10 +206,10 @@ export class SqlitePluginSecretRepository implements IPluginSecretRepository {
   }
 
   async listStates(
-    tenant: TenantContext,
+    tenant: LocalContext,
     pluginId: string,
   ): Promise<Array<{ fieldKey: string; configured: boolean }>> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const rows = await this.db
       .select({ fieldKey: pluginConfigSecrets.fieldKey, configured: pluginConfigSecrets.configured })
       .from(pluginConfigSecrets)
@@ -224,11 +224,11 @@ export class SqlitePluginSecretRepository implements IPluginSecretRepository {
   }
 
   async delete(
-    tenant: TenantContext,
+    tenant: LocalContext,
     pluginId: string,
     fieldKey: string,
   ): Promise<void> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     await this.db
       .delete(pluginConfigSecrets)
       .where(

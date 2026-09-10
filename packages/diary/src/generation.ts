@@ -7,7 +7,7 @@
  */
 import { createOpenAICompatProvider } from "@aervox/agent-loop";
 import type { ModelProviderPort, ModelRequest } from "@aervox/agent-loop";
-import type { AervoxDatabase, SqliteLLMConfigRepository, TenantContext } from "@aervox/repositories";
+import type { AervoxDatabase, SqliteLLMConfigRepository, LocalContext } from "@aervox/repositories";
 import { collectDiaryMaterial, diaryMaterialCount } from "./material.js";
 import { buildDiarySystemPrompt, buildDiaryUserPrompt } from "./prompts.js";
 import { renderTemplateDiary, type DiaryDraft } from "./template.js";
@@ -15,7 +15,7 @@ import { renderTemplateDiary, type DiaryDraft } from "./template.js";
 /** 单次日记生成的模型端口（宿主注入；测试注入确定性实现） */
 export interface DiaryModelPort {
   generate(input: {
-    tenant: TenantContext;
+    tenant: LocalContext;
     system: string;
     user: string;
   }): Promise<string>;
@@ -32,7 +32,7 @@ export interface DiaryLlmConfig {
 
 /** 按租户解析日记 LLM 配置的端口（null = 未启用/不支持，服务层模板降级） */
 export interface DiaryLlmConfigPort {
-  getConfig(tenant: TenantContext): Promise<DiaryLlmConfig | null>;
+  getConfig(tenant: LocalContext): Promise<DiaryLlmConfig | null>;
 }
 
 /** 无配置行时的缺省供应商参数（镜像 apps/api LLMConfigService 的 ollama 预设） */
@@ -155,7 +155,7 @@ export class DiaryGenerationService {
 
   /** 生成一篇日记草稿（素材采集 + 模型调用 / 模板降级） */
   async generate(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: { localDate: string; window: { startIso: string; endIso: string }; focus?: string },
   ): Promise<DiaryDraft> {
     const material = await collectDiaryMaterial(this.deps.db, tenant, input.window);

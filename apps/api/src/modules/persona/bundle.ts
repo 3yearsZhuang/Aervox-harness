@@ -3,7 +3,7 @@
  */
 import { createHash } from "node:crypto";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
-import type { TenantContext, SqlitePersonaRepository, SkillRegistrationModel } from "@aervox/repositories";
+import type { LocalContext, SqlitePersonaRepository, SkillRegistrationModel } from "@aervox/repositories";
 import type { SkillManager } from "../skills/skill-manager.js";
 import {
   assertNonEmpty,
@@ -202,7 +202,7 @@ export function previewPersonaBundle(
 
 export async function importPersonaBundle(input: {
   bytes: Uint8Array;
-  tenant: TenantContext;
+  tenant: LocalContext;
   personaRepo: SqlitePersonaRepository;
   skillManager: SkillManager;
   conflictResolution?: "error" | "replace";

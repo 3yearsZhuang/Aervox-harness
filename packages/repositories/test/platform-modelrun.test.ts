@@ -13,11 +13,11 @@ import {
   initDatabaseSchema,
   SqlitePlatformRepository,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "../src/index.js";
 import type { Client } from "@libsql/client";
 
-const tenant: TenantContext = { workspaceId: "ws_cm", subjectUserId: "usr_cm" };
+const tenant: LocalContext = { workspaceId: "ws_cm", subjectUserId: "usr_cm" };
 
 describe("阶段 7 model_runs / context_manifests（ADR-017 Expand + Step 级关联）", () => {
   let db: AervoxDatabase;

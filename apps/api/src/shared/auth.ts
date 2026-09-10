@@ -21,7 +21,7 @@
  */
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { resolveTenant, setRequestTenant } from "./tenant.js";
-import type { TenantContext } from "@aervox/repositories";
+import type { LocalContext } from "@aervox/repositories";
 import { isIP } from "node:net";
 
 export type AuthMode = "open" | "token";
@@ -92,7 +92,7 @@ export function createAuthHook(config: AuthConfig = loadAuthConfig()) {
       });
       return;
     }
-    const tenant: TenantContext = {
+    const tenant: LocalContext = {
       workspaceId: config.workspaceId,
       subjectUserId: config.subjectUserId,
       ...(config.actorId ? { actorId: config.actorId } : {}),

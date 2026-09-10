@@ -2,24 +2,24 @@
  * Aervox｜思隅 @aervox/api — Turn 级工具授权策略上下文
  *
  * 对话路由在中间件重构期保持不变；preValidation 从已解析的
- * CreateTurn body 固化本次 Turn 策略，并以 request-scoped TenantContext 对象为键传给执行层。
+ * CreateTurn body 固化本次 Turn 策略，并以 request-scoped LocalContext 对象为键传给执行层。
  */
 import type { FastifyReply, FastifyRequest } from "fastify";
-import type { TenantContext } from "@aervox/repositories";
+import type { LocalContext } from "@aervox/repositories";
 import type { ToolApprovalMode } from "@aervox/contracts";
 import { resolveTenant } from "./tenant.js";
 
-const requestModes = new WeakMap<TenantContext, ToolApprovalMode>();
+const requestModes = new WeakMap<LocalContext, ToolApprovalMode>();
 
 export function setRequestToolApprovalMode(
-  tenant: TenantContext,
+  tenant: LocalContext,
   mode: ToolApprovalMode,
 ): void {
   requestModes.set(tenant, mode);
 }
 
 export function getRequestToolApprovalMode(
-  tenant: TenantContext,
+  tenant: LocalContext,
 ): ToolApprovalMode {
   return requestModes.get(tenant) ?? "ask";
 }

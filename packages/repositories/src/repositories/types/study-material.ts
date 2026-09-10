@@ -2,11 +2,11 @@
  * Aervox｜思隅 @aervox/repositories — study-material 仓储类型（自 types.ts 机械拆分）
  */
 import type { MaterialSourceModel, MaterialVersionModel, StudyMaterialModel } from "./content.js";
-import type { TenantContext } from "../../tenant.js";
+import type { LocalContext } from "../../local-context.js";
 
 export interface IStudyMaterialRepository {
   create(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: {
       id: string;
       goalId?: string;
@@ -15,15 +15,15 @@ export interface IStudyMaterialRepository {
       idempotencyKey?: string;
     },
   ): Promise<StudyMaterialModel>;
-  get(tenant: TenantContext, id: string): Promise<StudyMaterialModel | null>;
-  listByGoal(tenant: TenantContext, goalId: string): Promise<StudyMaterialModel[]>;
-  listByTenant(tenant: TenantContext): Promise<StudyMaterialModel[]>;
-  updateStatus(tenant: TenantContext, id: string, status: string): Promise<StudyMaterialModel | null>;
-  softDelete(tenant: TenantContext, id: string): Promise<StudyMaterialModel | null>;
-  getByIdempotencyKey(tenant: TenantContext, key: string): Promise<StudyMaterialModel | null>;
+  get(tenant: LocalContext, id: string): Promise<StudyMaterialModel | null>;
+  listByGoal(tenant: LocalContext, goalId: string): Promise<StudyMaterialModel[]>;
+  listByTenant(tenant: LocalContext): Promise<StudyMaterialModel[]>;
+  updateStatus(tenant: LocalContext, id: string, status: string): Promise<StudyMaterialModel | null>;
+  softDelete(tenant: LocalContext, id: string): Promise<StudyMaterialModel | null>;
+  getByIdempotencyKey(tenant: LocalContext, key: string): Promise<StudyMaterialModel | null>;
 
   createVersion(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: {
       id: string;
       materialId: string;
@@ -32,17 +32,17 @@ export interface IStudyMaterialRepository {
       author?: string;
     },
   ): Promise<MaterialVersionModel>;
-  getVersion(tenant: TenantContext, versionId: string): Promise<MaterialVersionModel | null>;
-  listVersions(tenant: TenantContext, materialId: string): Promise<MaterialVersionModel[]>;
+  getVersion(tenant: LocalContext, versionId: string): Promise<MaterialVersionModel | null>;
+  listVersions(tenant: LocalContext, materialId: string): Promise<MaterialVersionModel[]>;
   editVersion(
-    tenant: TenantContext,
+    tenant: LocalContext,
     materialId: string,
     content: string,
     expectedVersion: number,
   ): Promise<MaterialVersionModel | null>;
 
   addSource(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: {
       id: string;
       materialVersionId: string;
@@ -53,8 +53,8 @@ export interface IStudyMaterialRepository {
       verificationStatus?: string;
     },
   ): Promise<MaterialSourceModel>;
-  listSources(tenant: TenantContext, materialVersionId: string): Promise<MaterialSourceModel[]>;
-  invalidateSources(tenant: TenantContext, materialVersionId: string): Promise<number>;
+  listSources(tenant: LocalContext, materialVersionId: string): Promise<MaterialSourceModel[]>;
+  invalidateSources(tenant: LocalContext, materialVersionId: string): Promise<number>;
 }
 
 export interface SafetyIncidentModel {

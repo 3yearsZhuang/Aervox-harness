@@ -9,7 +9,7 @@ import {
   deleteMessageFts,
   InMemoryVectorSearchAdapter,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "../src/index.js";
 import type { Client } from "@libsql/client";
 
@@ -20,7 +20,7 @@ describe("TC-PRIV-DEL-001: 删除传播与即刻零召回验证测试", () => {
   let memoryRepo: SqliteMemoryRepository;
   let vectorPort: InMemoryVectorSearchAdapter;
 
-  const tenant: TenantContext = {
+  const tenant: LocalContext = {
     workspaceId: "ws_del_verify",
     subjectUserId: "usr_eva",
   };

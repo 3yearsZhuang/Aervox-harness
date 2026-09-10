@@ -2,11 +2,11 @@
  * Aervox｜思隅 @aervox/repositories — provenance 仓储类型（自 types.ts 机械拆分）
  */
 import type { MemoryEventModel, MemoryEvidenceModel, MemoryRevisionModel, SourceArtifactModel, SourceRevisionModel } from "./feedback.js";
-import type { TenantContext } from "../../tenant.js";
+import type { LocalContext } from "../../local-context.js";
 
 export interface IProvenanceRepository {
   createSourceArtifact(
-    tenant: TenantContext,
+    tenant: LocalContext,
     artifact: {
       id: string;
       kind: string;
@@ -15,15 +15,15 @@ export interface IProvenanceRepository {
       ingestedAt: string;
     },
   ): Promise<SourceArtifactModel>;
-  getSourceArtifact(tenant: TenantContext, id: string): Promise<SourceArtifactModel | null>;
+  getSourceArtifact(tenant: LocalContext, id: string): Promise<SourceArtifactModel | null>;
   appendSourceRevision(
-    tenant: TenantContext,
+    tenant: LocalContext,
     artifactId: string,
     revision: { id: string; checksum: string; content?: string | null },
   ): Promise<SourceRevisionModel>;
-  setCurrentRevision(tenant: TenantContext, artifactId: string, revisionId: string): Promise<SourceArtifactModel | null>;
+  setCurrentRevision(tenant: LocalContext, artifactId: string, revisionId: string): Promise<SourceArtifactModel | null>;
   appendMemoryRevision(
-    tenant: TenantContext,
+    tenant: LocalContext,
     revision: {
       id: string;
       memoryId: string;
@@ -33,10 +33,10 @@ export interface IProvenanceRepository {
       algorithmVersion?: string | null;
     },
   ): Promise<MemoryRevisionModel>;
-  setMemoryCurrentRevision(tenant: TenantContext, memoryId: string, revisionId: string): Promise<boolean>;
-  listMemoryRevisions(tenant: TenantContext, memoryId: string): Promise<MemoryRevisionModel[]>;
+  setMemoryCurrentRevision(tenant: LocalContext, memoryId: string, revisionId: string): Promise<boolean>;
+  listMemoryRevisions(tenant: LocalContext, memoryId: string): Promise<MemoryRevisionModel[]>;
   createMemoryEvidence(
-    tenant: TenantContext,
+    tenant: LocalContext,
     evidence: {
       id: string;
       memoryRevisionId: string;
@@ -46,7 +46,7 @@ export interface IProvenanceRepository {
     },
   ): Promise<MemoryEvidenceModel>;
   recordMemoryEvent(
-    tenant: TenantContext,
+    tenant: LocalContext,
     event: {
       id: string;
       memoryId: string;
@@ -57,7 +57,7 @@ export interface IProvenanceRepository {
       actorType?: string;
     },
   ): Promise<MemoryEventModel>;
-  listMemoryEvents(tenant: TenantContext, memoryId: string): Promise<MemoryEventModel[]>;
+  listMemoryEvents(tenant: LocalContext, memoryId: string): Promise<MemoryEventModel[]>;
 }
 
 export interface ScheduledJobModel {

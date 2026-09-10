@@ -4,7 +4,7 @@ import {
   initDatabaseSchema,
   SqliteExtensionRepository,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "../src/index.js";
 import type { Client } from "@libsql/client";
 
@@ -13,8 +13,8 @@ describe("PRD §8 P2/P3：内容/生态扩展域", () => {
   let client: Client;
   let ext: SqliteExtensionRepository;
 
-  const tenant: TenantContext = { workspaceId: "ws_p23", subjectUserId: "usr_p23" };
-  const otherTenant: TenantContext = { workspaceId: "ws_other", subjectUserId: "usr_other" };
+  const tenant: LocalContext = { workspaceId: "ws_p23", subjectUserId: "usr_p23" };
+  const otherTenant: LocalContext = { workspaceId: "ws_other", subjectUserId: "usr_other" };
 
   beforeEach(async () => {
     const res = await createInMemoryDatabase();

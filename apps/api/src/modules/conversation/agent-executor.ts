@@ -39,7 +39,7 @@ import {
   type IPluginConfigRepository,
   type IProactiveProfileRepository,
   type SqliteConversationRepository,
-  type TenantContext,
+  type LocalContext,
   SqliteExtensionRepository,
   SqlitePluginConfigRepository,
 } from "@aervox/repositories";
@@ -119,7 +119,7 @@ type ToolApprovalRepository = Pick<
 
 async function findExplicitToolApproval(
   repo: ToolApprovalRepository,
-  tenant: TenantContext,
+  tenant: LocalContext,
   input: { toolName: string; argumentsHash: string },
 ) {
   return repo.findGrantedToolApproval(tenant, {
@@ -130,7 +130,7 @@ async function findExplicitToolApproval(
 
 async function recordAutomaticApproval(
   repo: ToolApprovalRepository,
-  tenant: TenantContext,
+  tenant: LocalContext,
   input: {
     turnId: string;
     attemptId: string;
@@ -157,7 +157,7 @@ async function recordAutomaticApproval(
 
 async function executeAuthorizedProactiveAction(
   authorizer: ProactiveActionAuthorizer,
-  tenant: TenantContext,
+  tenant: LocalContext,
   actionId: string,
   execute: () => Promise<ToolExecutionResult>,
 ): Promise<ToolExecutionResult> {
@@ -180,7 +180,7 @@ async function executeAuthorizedProactiveAction(
  */
 export function createApprovalGatedToolProvider(
   provider: ToolProviderPort,
-  tenant: TenantContext,
+  tenant: LocalContext,
   repo: ToolApprovalRepository,
   proactiveActionAuthorizer?: ProactiveActionAuthorizer,
 ): ToolProviderPort {
@@ -268,7 +268,7 @@ export function createApprovalGatedToolProvider(
  */
 export function createRuntimeToolProvider(
   runtime: ToolRuntime,
-  tenant: TenantContext,
+  tenant: LocalContext,
   deps: {
     conversationRepo: SqliteConversationRepository;
     proactiveActionAuthorizer?: ProactiveActionAuthorizer;
@@ -495,7 +495,7 @@ async function failTurnWithError(
  */
 async function runDshAdapterTurn(
   repo: SqliteConversationRepository,
-  tenant: TenantContext,
+  tenant: LocalContext,
   store: SqliteExecutionStore,
   input: {
     turnId: string;
@@ -534,7 +534,7 @@ async function runDshAdapterTurn(
  * scripted-write / scripted-privileged / llm（CR-015 真实配置；anthropic 明示不支持）。
  */
 export async function buildLoopProvider(
-  tenant: TenantContext,
+  tenant: LocalContext,
   llmConfigService?: LLMConfigService,
   options: { requireLocalOnly?: boolean } = {},
 ): Promise<ModelProviderPort> {
@@ -580,7 +580,7 @@ export async function buildLoopProvider(
  */
 export async function runLoopTurnOnce(
   repo: SqliteConversationRepository,
-  tenant: TenantContext,
+  tenant: LocalContext,
   input: {
     turnId: string;
     sessionId: string;
@@ -603,7 +603,7 @@ export async function runLoopTurnOnce(
      * 5c：Subagent 委托执行器工厂（request 级 tenant 绑定后创建 SubagentPort）。
      * 注入时 `subagent_delegate` 进入工具清单；缺失则不被贡献（行为与既有一致）。
      */
-    subagentFactory?: (tenant: TenantContext) => SubagentPort;
+    subagentFactory?: (tenant: LocalContext) => SubagentPort;
     /** 5c：已注册 Workflow 定义清单（贡献 `workflow_run` 工具 + GET /v1/workflows 元数据） */
     workflows?: WorkflowDefinition[];
   /**

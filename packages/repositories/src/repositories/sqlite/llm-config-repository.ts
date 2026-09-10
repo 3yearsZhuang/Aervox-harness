@@ -8,7 +8,7 @@
 import { and, asc, eq } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { llmConfigs } from "@aervox/schema";
-import { assertTenantContext, type TenantContext } from "../../tenant.js";
+import { assertLocalContext, type LocalContext } from "../../local-context.js";
 import type {
   ILLMConfigRepository,
   LLMConfigSaveInput,
@@ -38,8 +38,8 @@ function rowToModel(row: typeof llmConfigs.$inferSelect): LLMConfigModel {
 export class SqliteLLMConfigRepository implements ILLMConfigRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
-  async getConfig(tenant: TenantContext): Promise<LLMConfigModel | null> {
-    assertTenantContext(tenant);
+  async getConfig(tenant: LocalContext): Promise<LLMConfigModel | null> {
+    assertLocalContext(tenant);
     const tenantRows = await this.db
       .select()
       .from(llmConfigs)
@@ -57,10 +57,10 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
   }
 
   async saveConfig(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: LLMConfigSaveInput,
   ): Promise<LLMConfigModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const active = await this.getConfig(tenant);
 
@@ -92,8 +92,8 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
     return rowToModel(created!);
   }
 
-  async listPresets(tenant: TenantContext): Promise<LLMConfigModel[]> {
-    assertTenantContext(tenant);
+  async listPresets(tenant: LocalContext): Promise<LLMConfigModel[]> {
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(llmConfigs)
@@ -108,11 +108,11 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
   }
 
   async createPreset(
-    tenant: TenantContext,
+    tenant: LocalContext,
     name: string,
     input: LLMConfigSaveInput,
   ): Promise<LLMConfigModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const existing = await this.listPresets(tenant);
     const firstPreset = existing.length === 0;
@@ -134,11 +134,11 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
   }
 
   async updatePreset(
-    tenant: TenantContext,
+    tenant: LocalContext,
     presetId: string,
     input: LLMConfigSaveInput,
   ): Promise<LLMConfigModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [updated] = await this.db
       .update(llmConfigs)
       .set({ ...valuesFor(input), updatedAt: new Date().toISOString() })
@@ -154,10 +154,10 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
   }
 
   async activatePreset(
-    tenant: TenantContext,
+    tenant: LocalContext,
     presetId: string,
   ): Promise<LLMConfigModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     return this.db.transaction(async (tx) => {
       const [target] = await tx
         .select()
@@ -189,8 +189,8 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
     });
   }
 
-  async deletePreset(tenant: TenantContext, presetId: string): Promise<boolean> {
-    assertTenantContext(tenant);
+  async deletePreset(tenant: LocalContext, presetId: string): Promise<boolean> {
+    assertLocalContext(tenant);
     return this.db.transaction(async (tx) => {
       const [target] = await tx
         .select()

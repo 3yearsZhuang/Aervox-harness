@@ -6,17 +6,17 @@
 import { eq, and, desc } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { safetyIncidents } from "@aervox/schema";
-import { assertTenantContext, type TenantContext } from "../../tenant.js";
+import { assertLocalContext, type LocalContext } from "../../local-context.js";
 import type { ISafetyRepository, SafetyIncidentModel } from "../types/index.js";
 
 export class SqliteSafetyRepository implements ISafetyRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async recordIncident(
-    tenant: TenantContext,
+    tenant: LocalContext,
     incidentData: { id: string; category: string; severity: string; disposition: string; policyVersion: string },
   ): Promise<SafetyIncidentModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [created] = await this.db
       .insert(safetyIncidents)
       .values({
@@ -33,8 +33,8 @@ export class SqliteSafetyRepository implements ISafetyRepository {
     return created as SafetyIncidentModel;
   }
 
-  async listIncidents(tenant: TenantContext, limit: number = 50): Promise<SafetyIncidentModel[]> {
-    assertTenantContext(tenant);
+  async listIncidents(tenant: LocalContext, limit: number = 50): Promise<SafetyIncidentModel[]> {
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(safetyIncidents)

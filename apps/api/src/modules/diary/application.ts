@@ -6,7 +6,7 @@
  * - rewriteTodayDiary：手动「让思思现在写」/对话触发——当日已有落 rewrite 版本并推进主行，否则新建；
  * - ensureDefaultSchedule：懒创建租户默认每日计划（Worker 定时路径兜底）。
  */
-import type { SqliteDiaryRepository, TenantContext } from "@aervox/repositories";
+import type { SqliteDiaryRepository, LocalContext } from "@aervox/repositories";
 import {
   DiaryGenerationService,
   generateDiaryId,
@@ -41,7 +41,7 @@ export class DiaryApplicationService {
   constructor(private readonly deps: DiaryApplicationServiceDeps) {}
 
   /** 幂等取回当日日记：已有直接返回（existing），无则生成并新建（on-demand 周期发布） */
-  async ensureTodayDiary(tenant: TenantContext, focus?: string): Promise<TodayDiaryResult> {
+  async ensureTodayDiary(tenant: LocalContext, focus?: string): Promise<TodayDiaryResult> {
     const now = new Date();
     const localDate = localDateToday(now);
     const existing = await this.deps.diaryRepo.getDiaryByDate(tenant, localDate);
@@ -60,7 +60,7 @@ export class DiaryApplicationService {
   }
 
   /** 手动/对话触发当日日记：已有则改写（rewrite 版本，历史不覆盖），无则新建 */
-  async rewriteTodayDiary(tenant: TenantContext, focus?: string): Promise<TodayDiaryResult> {
+  async rewriteTodayDiary(tenant: LocalContext, focus?: string): Promise<TodayDiaryResult> {
     const now = new Date();
     const localDate = localDateToday(now);
     const existing = await this.deps.diaryRepo.getDiaryByDate(tenant, localDate);
@@ -71,7 +71,7 @@ export class DiaryApplicationService {
   }
 
   /** 懒创建租户默认每日计划（幂等）：Worker 定时路径由此激活，nextRunAt=+24h 防止当日立即重复执行 */
-  async ensureDefaultSchedule(tenant: TenantContext): Promise<void> {
+  async ensureDefaultSchedule(tenant: LocalContext): Promise<void> {
     const existing = await this.deps.diaryRepo.getActiveDailySchedule(tenant);
     if (existing) return;
     const now = new Date();
@@ -89,7 +89,7 @@ export class DiaryApplicationService {
 
   /** 生成草稿并走事务发布（新建 on-demand 周期 + outbox + 版本）；与 Worker 定时路径同协议 */
   private async generateAndPublish(
-    tenant: TenantContext,
+    tenant: LocalContext,
     localDate: string,
     now: Date,
     focus?: string,
@@ -143,7 +143,7 @@ export class DiaryApplicationService {
 
   /** 已有当日日记 → 新版本 + 主行推进（不覆盖历史版本） */
   private async rewriteExisting(
-    tenant: TenantContext,
+    tenant: LocalContext,
     diaryId: string,
     localDate: string,
     now: Date,

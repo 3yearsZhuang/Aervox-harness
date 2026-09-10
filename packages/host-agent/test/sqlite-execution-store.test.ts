@@ -11,11 +11,11 @@ import {
   initDatabaseSchema,
   SqliteConversationRepository,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 
-const tenant: TenantContext = { workspaceId: "ws_host", subjectUserId: "usr_host" };
+const tenant: LocalContext = { workspaceId: "ws_host", subjectUserId: "usr_host" };
 
 describe("SqliteExecutionStore（SQLite 适配冒烟）", () => {
   let db: AervoxDatabase;

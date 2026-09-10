@@ -11,7 +11,7 @@ import type {
   PersonaMemoryScopeModel,
   SkillRegistrationModel,
   SqlitePersonaRepository,
-  TenantContext,
+  LocalContext,
 } from "@aervox/repositories";
 import type { SkillManager } from "../skills/skill-manager.js";
 import type { ToolRuntime } from "../tools/runtime.js";
@@ -91,13 +91,13 @@ export interface PersonaServiceDeps {
 export class PersonaService {
   constructor(private readonly deps: PersonaServiceDeps) {}
 
-  async listPersonas(tenant: TenantContext): Promise<Persona[]> {
+  async listPersonas(tenant: LocalContext): Promise<Persona[]> {
     const list = await this.deps.personaRepo.listPersonas(tenant);
     return list.map(personaToDomain);
   }
 
   async getPersona(
-    tenant: TenantContext,
+    tenant: LocalContext,
     personaId: string,
   ): Promise<{ persona: Persona; revision: PersonaRevision | null; active: boolean } | null> {
     const persona = await this.deps.personaRepo.getPersona(tenant, personaId);
@@ -118,7 +118,7 @@ export class PersonaService {
   }
 
   async getPersonaRevision(
-    tenant: TenantContext,
+    tenant: LocalContext,
     personaId: string,
     revisionId?: string,
   ): Promise<PersonaRevision | null> {
@@ -127,7 +127,7 @@ export class PersonaService {
   }
 
   async createPersona(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: CreatePersonaInput,
   ): Promise<{ persona: Persona; revision: PersonaRevision }> {
     const name = assertNonEmpty(input.name, "name");
@@ -151,7 +151,7 @@ export class PersonaService {
   }
 
   async updatePersona(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: UpdatePersonaInput,
   ): Promise<{ persona: Persona; revision: PersonaRevision } | null> {
     const normalizedConfig = validatePersonaConfig(input.config);
@@ -174,12 +174,12 @@ export class PersonaService {
     };
   }
 
-  async deletePersona(tenant: TenantContext, personaId: string): Promise<boolean> {
+  async deletePersona(tenant: LocalContext, personaId: string): Promise<boolean> {
     return this.deps.personaRepo.deletePersona(tenant, personaId);
   }
 
   async activatePersona(
-    tenant: TenantContext,
+    tenant: LocalContext,
     personaId: string,
     revisionId?: string,
   ): Promise<ActivePersonaSelection | null> {
@@ -187,7 +187,7 @@ export class PersonaService {
     return selected ? selectionToDomain(selected) : null;
   }
 
-  async getActivePersona(tenant: TenantContext): Promise<ActivePersonaSelection | null> {
+  async getActivePersona(tenant: LocalContext): Promise<ActivePersonaSelection | null> {
     const active = await this.deps.personaRepo.getActivePersona(tenant);
     return active ? selectionToDomain(active) : null;
   }
@@ -197,7 +197,7 @@ export class PersonaService {
    * 供对话系统提示词做「人格覆盖默认身份/设定」使用；无激活人格或记录缺失时返回 undefined。
    */
   async describeActivePersonaSummary(
-    tenant: TenantContext,
+    tenant: LocalContext,
   ): Promise<{ name?: string; prompt?: string; allowedSkillNames?: string[] } | undefined> {
     const active = await this.getActivePersona(tenant);
     if (!active) return undefined;
@@ -221,7 +221,7 @@ export class PersonaService {
   }
 
   async saveTurnContext(
-    tenant: TenantContext,
+    tenant: LocalContext,
     context: PersonaContextSnapshot & { id?: string; turnId: string },
   ): Promise<PersonaTurnContextModel> {
     return this.deps.personaRepo.saveTurnContext(tenant, {
@@ -241,14 +241,14 @@ export class PersonaService {
   }
 
   async getTurnContext(
-    tenant: TenantContext,
+    tenant: LocalContext,
     turnId: string,
   ): Promise<PersonaTurnContextModel | null> {
     return this.deps.personaRepo.getTurnContext(tenant, turnId);
   }
 
   async composeSystemPrompt(
-    tenant: TenantContext,
+    tenant: LocalContext,
     coreSystemPrompt: string,
     safetyPolicyPrompt: string,
   ): Promise<{
@@ -332,7 +332,7 @@ export class PersonaService {
     };
   }
 
-  async exportBundle(tenant: TenantContext, personaId: string): Promise<PersonaBundleExportResult> {
+  async exportBundle(tenant: LocalContext, personaId: string): Promise<PersonaBundleExportResult> {
     const personaRecord = await this.deps.personaRepo.getPersona(tenant, personaId);
     if (!personaRecord) throw new Error("Persona not found");
     const revisionRecord = await this.deps.personaRepo.getPersonaRevision(
@@ -367,7 +367,7 @@ export class PersonaService {
   }
 
   async importBundle(
-    tenant: TenantContext,
+    tenant: LocalContext,
     bytes: Uint8Array,
     conflictResolution: "error" | "replace" = "error",
   ): Promise<{
@@ -391,7 +391,7 @@ export class PersonaService {
   // ---- CAP-019: 模板审核、回滚、切换历史、记忆范围 ----
 
   async reviewPersona(
-    tenant: TenantContext,
+    tenant: LocalContext,
     personaId: string,
     reviewStatus: "pending_review" | "approved" | "rejected",
     reviewNotes?: string,
@@ -406,7 +406,7 @@ export class PersonaService {
   }
 
   async rollbackPersona(
-    tenant: TenantContext,
+    tenant: LocalContext,
     personaId: string,
     revisionId: string,
     regressionNotes?: string,
@@ -437,7 +437,7 @@ export class PersonaService {
   }
 
   async getSwitchHistory(
-    tenant: TenantContext,
+    tenant: LocalContext,
     personaId?: string,
   ): Promise<PersonaSwitchLog[]> {
     const logs = await this.deps.personaRepo.getSwitchHistory(tenant, personaId);
@@ -454,7 +454,7 @@ export class PersonaService {
   }
 
   async getMemoryScope(
-    tenant: TenantContext,
+    tenant: LocalContext,
     personaId: string,
   ): Promise<PersonaMemoryScope | null> {
     const scope = await this.deps.personaRepo.getMemoryScope(tenant, personaId);
@@ -482,7 +482,7 @@ export class PersonaService {
   }
 
   async updateMemoryScope(
-    tenant: TenantContext,
+    tenant: LocalContext,
     personaId: string,
     data: {
       memoryPolicy: MemoryPolicy;
@@ -510,7 +510,7 @@ export class PersonaService {
   }
 
   async listPersonaRevisions(
-    tenant: TenantContext,
+    tenant: LocalContext,
     personaId: string,
   ): Promise<PersonaRevision[]> {
     const revisions = await this.deps.personaRepo.listPersonaRevisions(tenant, personaId);

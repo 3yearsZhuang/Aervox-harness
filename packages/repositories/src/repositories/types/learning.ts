@@ -2,11 +2,11 @@
  * Aervox｜思隅 @aervox/repositories — learning 仓储类型（自 types.ts 机械拆分）
  */
 import type { KnowledgeItemModel, LearningGoalModel, MistakeItemModel, PracticeSessionModel, QuestionAttemptModel, QuestionModel, ReviewItemModel } from "./user-question.js";
-import type { TenantContext } from "../../tenant.js";
+import type { LocalContext } from "../../local-context.js";
 
 export interface ILearningRepository {
   createLearningGoal(
-    tenant: TenantContext,
+    tenant: LocalContext,
     goal: {
       id: string;
       topic: string;
@@ -17,7 +17,7 @@ export interface ILearningRepository {
     },
   ): Promise<LearningGoalModel>;
   createLearningGoalIdempotent(
-    tenant: TenantContext,
+    tenant: LocalContext,
     goal: {
       id: string;
       topic: string;
@@ -26,15 +26,15 @@ export interface ILearningRepository {
       idempotencyKey: string;
     },
   ): Promise<{ goal: LearningGoalModel; created: boolean }>;
-  getLearningGoal(tenant: TenantContext, id: string): Promise<LearningGoalModel | null>;
-  listLearningGoals(tenant: TenantContext, includeArchived?: boolean): Promise<LearningGoalModel[]>;
+  getLearningGoal(tenant: LocalContext, id: string): Promise<LearningGoalModel | null>;
+  listLearningGoals(tenant: LocalContext, includeArchived?: boolean): Promise<LearningGoalModel[]>;
   updateLearningGoal(
-    tenant: TenantContext,
+    tenant: LocalContext,
     id: string,
     goal: { topic?: string; level?: string; availableMinutes?: number; status?: string },
   ): Promise<LearningGoalModel | null>;
   createQuestion(
-    tenant: TenantContext,
+    tenant: LocalContext,
     question: {
       id: string;
       prompt: string;
@@ -43,17 +43,17 @@ export interface ILearningRepository {
       knowledgeId?: string | null;
     },
   ): Promise<QuestionModel>;
-  getQuestion(tenant: TenantContext, id: string): Promise<QuestionModel | null>;
-  listActiveQuestions(tenant: TenantContext, limit: number): Promise<QuestionModel[]>;
+  getQuestion(tenant: LocalContext, id: string): Promise<QuestionModel | null>;
+  listActiveQuestions(tenant: LocalContext, limit: number): Promise<QuestionModel[]>;
   createPracticeSession(
-    tenant: TenantContext,
+    tenant: LocalContext,
     session: { id: string; questionCount: number; questionIds: string[] },
   ): Promise<PracticeSessionModel>;
-  getPracticeSession(tenant: TenantContext, sessionId: string): Promise<PracticeSessionModel | null>;
-  getLatestActivePracticeSession(tenant: TenantContext): Promise<PracticeSessionModel | null>;
-  completePracticeSession(tenant: TenantContext, sessionId: string): Promise<PracticeSessionModel | null>;
+  getPracticeSession(tenant: LocalContext, sessionId: string): Promise<PracticeSessionModel | null>;
+  getLatestActivePracticeSession(tenant: LocalContext): Promise<PracticeSessionModel | null>;
+  completePracticeSession(tenant: LocalContext, sessionId: string): Promise<PracticeSessionModel | null>;
   recordAttempt(
-    tenant: TenantContext,
+    tenant: LocalContext,
     attempt: {
       id: string;
       sessionId: string;
@@ -66,25 +66,25 @@ export interface ILearningRepository {
       timeSpentSec?: number;
     },
   ): Promise<QuestionAttemptModel>;
-  listAttemptsByQuestion(tenant: TenantContext, questionId: string): Promise<QuestionAttemptModel[]>;
-  listAttemptsBySession(tenant: TenantContext, sessionId: string): Promise<QuestionAttemptModel[]>;
+  listAttemptsByQuestion(tenant: LocalContext, questionId: string): Promise<QuestionAttemptModel[]>;
+  listAttemptsBySession(tenant: LocalContext, sessionId: string): Promise<QuestionAttemptModel[]>;
   listMistakes(
-    tenant: TenantContext,
+    tenant: LocalContext,
     status?: "active" | "mastered" | "dismissed" | "all",
   ): Promise<MistakeItemModel[]>;
-  setMistakeDisposition(tenant: TenantContext, item: { id: string; questionId: string; status: "active" | "dismissed" }): Promise<void>;
+  setMistakeDisposition(tenant: LocalContext, item: { id: string; questionId: string; status: "active" | "dismissed" }): Promise<void>;
   setMistakeInsight(
-    tenant: TenantContext,
+    tenant: LocalContext,
     item: { id: string; questionId: string; reasonCode: "concept_gap" | "calculation" | "careless" | "misread" | "other"; note?: string | null },
   ): Promise<void>;
-  clearMistakeInsight(tenant: TenantContext, questionId: string): Promise<void>;
+  clearMistakeInsight(tenant: LocalContext, questionId: string): Promise<void>;
   getAttemptByIdempotencyKey(
-    tenant: TenantContext,
+    tenant: LocalContext,
     questionId: string,
     idempotencyKey: string,
   ): Promise<QuestionAttemptModel | null>;
   recordAttemptIdempotent(
-    tenant: TenantContext,
+    tenant: LocalContext,
     attempt: {
       id: string;
       sessionId: string;
@@ -98,7 +98,7 @@ export interface ILearningRepository {
     },
   ): Promise<{ attempt: QuestionAttemptModel; created: boolean }>;
   createKnowledgeItem(
-    tenant: TenantContext,
+    tenant: LocalContext,
     item: {
       id: string;
       concept: string;
@@ -110,10 +110,10 @@ export interface ILearningRepository {
       mastery?: number;
     },
   ): Promise<KnowledgeItemModel>;
-  getKnowledgeItem(tenant: TenantContext, id: string): Promise<KnowledgeItemModel | null>;
-  updateMastery(tenant: TenantContext, id: string, masteryState: string, basis?: unknown): Promise<KnowledgeItemModel | null>;
+  getKnowledgeItem(tenant: LocalContext, id: string): Promise<KnowledgeItemModel | null>;
+  updateMastery(tenant: LocalContext, id: string, masteryState: string, basis?: unknown): Promise<KnowledgeItemModel | null>;
   updatePracticeState(
-    tenant: TenantContext,
+    tenant: LocalContext,
     id: string,
     state: {
       correctCount: number;
@@ -125,17 +125,17 @@ export interface ILearningRepository {
     },
   ): Promise<KnowledgeItemModel | null>;
   scheduleReviewItem(
-    tenant: TenantContext,
+    tenant: LocalContext,
     item: { id: string; knowledgeId: string; dueAt: string; intervalDays: number; schedulerVersion?: number; timezoneSnapshot?: string },
   ): Promise<ReviewItemModel>;
   createReviewItem(
-    tenant: TenantContext,
+    tenant: LocalContext,
     item: { id: string; knowledgeId: string; dueAt: string; intervalDays?: number; schedulerVersion?: number; timezoneSnapshot?: string },
   ): Promise<ReviewItemModel>;
-  getReviewItem(tenant: TenantContext, id: string): Promise<ReviewItemModel | null>;
-  listCompletedReviewItems(tenant: TenantContext, limit?: number): Promise<ReviewItemModel[]>;
+  getReviewItem(tenant: LocalContext, id: string): Promise<ReviewItemModel | null>;
+  listCompletedReviewItems(tenant: LocalContext, limit?: number): Promise<ReviewItemModel[]>;
   completeReviewAndSchedule(
-    tenant: TenantContext,
+    tenant: LocalContext,
     data: {
       reviewId: string;
       knowledgeId: string;
@@ -151,11 +151,11 @@ export interface ILearningRepository {
       nextReview: { id: string; dueAt: string; intervalDays: number; schedulerVersion: number; timezoneSnapshot: string };
     },
   ): Promise<{ completed: ReviewItemModel; nextReview: ReviewItemModel; knowledge: KnowledgeItemModel } | null>;
-  listDueReviewItems(tenant: TenantContext, before: string): Promise<ReviewItemModel[]>;
-  completeReviewItem(tenant: TenantContext, id: string): Promise<ReviewItemModel | null>;
+  listDueReviewItems(tenant: LocalContext, before: string): Promise<ReviewItemModel[]>;
+  completeReviewItem(tenant: LocalContext, id: string): Promise<ReviewItemModel | null>;
   // P1（R2 · CAP-015）：思维宇宙知识关系
   createKnowledgeRelation(
-    tenant: TenantContext,
+    tenant: LocalContext,
     relation: {
       id: string;
       fromKnowledgeId: string;
@@ -165,32 +165,32 @@ export interface ILearningRepository {
       confidence?: number;
     },
   ): Promise<KnowledgeRelationModel>;
-  listKnowledgeRelations(tenant: TenantContext, knowledgeId: string): Promise<KnowledgeRelationModel[]>;
+  listKnowledgeRelations(tenant: LocalContext, knowledgeId: string): Promise<KnowledgeRelationModel[]>;
   /** CAP-015：获取关系详情 */
-  getKnowledgeRelation(tenant: TenantContext, relationId: string): Promise<KnowledgeRelationModel | null>;
+  getKnowledgeRelation(tenant: LocalContext, relationId: string): Promise<KnowledgeRelationModel | null>;
   /** CAP-015：纠正关系 — corrected 状态停止用于讲解和推荐 */
   correctKnowledgeRelation(
-    tenant: TenantContext,
+    tenant: LocalContext,
     relationId: string,
     reason: string,
   ): Promise<KnowledgeRelationModel | null>;
   /** CAP-015：合并两条关系 */
   mergeKnowledgeRelations(
-    tenant: TenantContext,
+    tenant: LocalContext,
     sourceRelationId: string,
     targetRelationId: string,
   ): Promise<KnowledgeRelationModel | null>;
   /** CAP-015：拆分关系（标记为 split，可选创建新关系） */
   splitKnowledgeRelation(
-    tenant: TenantContext,
+    tenant: LocalContext,
     relationId: string,
     reason: string,
   ): Promise<KnowledgeRelationModel | null>;
   /** CAP-015：软删除关系 */
-  deleteKnowledgeRelation(tenant: TenantContext, relationId: string): Promise<KnowledgeRelationModel | null>;
+  deleteKnowledgeRelation(tenant: LocalContext, relationId: string): Promise<KnowledgeRelationModel | null>;
   /** CAP-015：获取知识图谱（仅 active 关系，用于讲解和推荐） */
   getActiveKnowledgeGraph(
-    tenant: TenantContext,
+    tenant: LocalContext,
     knowledgeId: string,
   ): Promise<KnowledgeRelationModel[]>;
 
@@ -198,7 +198,7 @@ export interface ILearningRepository {
 
   /** CAP-016：创建练习报告 */
   createPracticeReport(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: {
       id: string;
       sessionId: string;
@@ -213,12 +213,12 @@ export interface ILearningRepository {
     },
   ): Promise<PracticeReportModel>;
   /** CAP-016：获取练习报告 */
-  getPracticeReport(tenant: TenantContext, reportId: string): Promise<PracticeReportModel | null>;
+  getPracticeReport(tenant: LocalContext, reportId: string): Promise<PracticeReportModel | null>;
   /** CAP-016：按会话查询报告 */
-  listPracticeReports(tenant: TenantContext, sessionId: string): Promise<PracticeReportModel[]>;
+  listPracticeReports(tenant: LocalContext, sessionId: string): Promise<PracticeReportModel[]>;
   /** CAP-016：重置推断（保留原始作答） */
   resetMasteryInference(
-    tenant: TenantContext,
+    tenant: LocalContext,
     sessionId: string,
   ): Promise<PracticeReportModel>;
 
@@ -226,7 +226,7 @@ export interface ILearningRepository {
 
   /** 创建学习规划（事务写入规划 + 里程碑 + 任务） */
   createLearningPlan(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: {
       id: string;
       topic: string;
@@ -253,17 +253,17 @@ export interface ILearningRepository {
     },
   ): Promise<LearningPlanModel>;
   /** 获取规划（聚合里程碑与任务） */
-  getLearningPlan(tenant: TenantContext, planId: string): Promise<LearningPlanModel | null>;
+  getLearningPlan(tenant: LocalContext, planId: string): Promise<LearningPlanModel | null>;
   /** 列出规划 */
-  listLearningPlans(tenant: TenantContext, includeArchived?: boolean): Promise<LearningPlanModel[]>;
+  listLearningPlans(tenant: LocalContext, includeArchived?: boolean): Promise<LearningPlanModel[]>;
   /** 更新任务状态并推进里程碑（任务全 done → 里程碑 completed + 下一里程碑 active） */
   setPlanTaskStatus(
-    tenant: TenantContext,
+    tenant: LocalContext,
     taskId: string,
     status: "todo" | "done",
   ): Promise<LearningPlanModel | null>;
   /** 归档规划 */
-  archiveLearningPlan(tenant: TenantContext, planId: string): Promise<LearningPlanModel | null>;
+  archiveLearningPlan(tenant: LocalContext, planId: string): Promise<LearningPlanModel | null>;
 }
 
 export interface KnowledgeRelationModel {

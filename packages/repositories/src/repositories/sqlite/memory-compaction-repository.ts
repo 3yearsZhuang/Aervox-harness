@@ -9,7 +9,7 @@ import {
   memoryCompactionMarkers,
   memoryEvents,
 } from "@aervox/schema";
-import { assertTenantContext, type TenantContext } from "../../tenant.js";
+import { assertLocalContext, type LocalContext } from "../../local-context.js";
 import type {
   IMemoryCompactionRepository,
   MemoryCompactionMarkerModel,
@@ -19,7 +19,7 @@ export class SqliteMemoryCompactionRepository implements IMemoryCompactionReposi
   constructor(private readonly db: AervoxDatabase) {}
 
   async upsertMarker(
-    tenant: TenantContext,
+    tenant: LocalContext,
     marker: {
       id: string;
       memoryId: string;
@@ -32,7 +32,7 @@ export class SqliteMemoryCompactionRepository implements IMemoryCompactionReposi
       summaryDurationMs?: number | null;
     },
   ): Promise<MemoryCompactionMarkerModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
 
     // 幂等：同 memoryId + snapshotId 已存在则不覆盖（快照不可改写）
@@ -71,10 +71,10 @@ export class SqliteMemoryCompactionRepository implements IMemoryCompactionReposi
   }
 
   async getMarkerBySnapshotId(
-    tenant: TenantContext,
+    tenant: LocalContext,
     snapshotId: string,
   ): Promise<MemoryCompactionMarkerModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(memoryCompactionMarkers)
@@ -90,10 +90,10 @@ export class SqliteMemoryCompactionRepository implements IMemoryCompactionReposi
   }
 
   async listMarkersByMemoryId(
-    tenant: TenantContext,
+    tenant: LocalContext,
     memoryId: string,
   ): Promise<MemoryCompactionMarkerModel[]> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(memoryCompactionMarkers)
@@ -109,7 +109,7 @@ export class SqliteMemoryCompactionRepository implements IMemoryCompactionReposi
   }
 
   async recordEvent(
-    tenant: TenantContext,
+    tenant: LocalContext,
     event: {
       id: string;
       memoryId: string;
@@ -120,7 +120,7 @@ export class SqliteMemoryCompactionRepository implements IMemoryCompactionReposi
       actorType?: string;
     },
   ): Promise<void> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     await this.db.insert(memoryEvents).values({
       id: event.id,
       memoryId: event.memoryId,

@@ -7,11 +7,11 @@
  *   CAS 失败返回 false 且不写事件（杜绝孤儿 done）。
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import { createInMemoryDatabase, initDatabaseSchema, SqliteConversationRepository, type AervoxDatabase, type TenantContext } from "../src/index.js";
+import { createInMemoryDatabase, initDatabaseSchema, SqliteConversationRepository, type AervoxDatabase, type LocalContext } from "../src/index.js";
 import { FencingMismatchError } from "../src/errors.js";
 import type { Client } from "@libsql/client";
 
-const tenant: TenantContext = { workspaceId: "ws_atomic", subjectUserId: "usr_atomic" };
+const tenant: LocalContext = { workspaceId: "ws_atomic", subjectUserId: "usr_atomic" };
 
 describe("B4-D 原子写对", () => {
   let db: AervoxDatabase;

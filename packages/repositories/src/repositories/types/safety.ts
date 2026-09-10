@@ -2,14 +2,14 @@
  * Aervox｜思隅 @aervox/repositories — safety 仓储类型（自 types.ts 机械拆分）
  */
 import type { SafetyIncidentModel } from "./study-material.js";
-import type { TenantContext } from "../../tenant.js";
+import type { LocalContext } from "../../local-context.js";
 
 export interface ISafetyRepository {
   recordIncident(
-    tenant: TenantContext,
+    tenant: LocalContext,
     incident: { id: string; category: string; severity: string; disposition: string; policyVersion: string },
   ): Promise<SafetyIncidentModel>;
-  listIncidents(tenant: TenantContext, limit?: number): Promise<SafetyIncidentModel[]>;
+  listIncidents(tenant: LocalContext, limit?: number): Promise<SafetyIncidentModel[]>;
 }
 
 export interface ConsentGrantModel {

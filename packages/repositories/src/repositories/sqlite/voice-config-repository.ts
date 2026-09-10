@@ -7,7 +7,7 @@
 import { and, asc, eq } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { voiceConfigs } from "@aervox/schema";
-import { assertTenantContext, type TenantContext } from "../../tenant.js";
+import { assertLocalContext, type LocalContext } from "../../local-context.js";
 import type {
   IVoiceConfigRepository,
   LocalVoiceConfigSaveInput,
@@ -35,8 +35,8 @@ function rowToModel(row: typeof voiceConfigs.$inferSelect): LocalVoiceConfigMode
 export class SqliteVoiceConfigRepository implements IVoiceConfigRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
-  async getConfig(tenant: TenantContext): Promise<LocalVoiceConfigModel | null> {
-    assertTenantContext(tenant);
+  async getConfig(tenant: LocalContext): Promise<LocalVoiceConfigModel | null> {
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(voiceConfigs)
@@ -54,10 +54,10 @@ export class SqliteVoiceConfigRepository implements IVoiceConfigRepository {
   }
 
   async saveConfig(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: LocalVoiceConfigSaveInput,
   ): Promise<LocalVoiceConfigModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const active = await this.getConfig(tenant);
 
@@ -86,8 +86,8 @@ export class SqliteVoiceConfigRepository implements IVoiceConfigRepository {
     return rowToModel(created!);
   }
 
-  async listPresets(tenant: TenantContext): Promise<LocalVoiceConfigModel[]> {
-    assertTenantContext(tenant);
+  async listPresets(tenant: LocalContext): Promise<LocalVoiceConfigModel[]> {
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(voiceConfigs)
@@ -102,11 +102,11 @@ export class SqliteVoiceConfigRepository implements IVoiceConfigRepository {
   }
 
   async createPreset(
-    tenant: TenantContext,
+    tenant: LocalContext,
     name: string,
     input: LocalVoiceConfigSaveInput,
   ): Promise<LocalVoiceConfigModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const existing = await this.listPresets(tenant);
     const firstPreset = existing.length === 0;
@@ -128,11 +128,11 @@ export class SqliteVoiceConfigRepository implements IVoiceConfigRepository {
   }
 
   async updatePreset(
-    tenant: TenantContext,
+    tenant: LocalContext,
     presetId: string,
     input: LocalVoiceConfigSaveInput,
   ): Promise<LocalVoiceConfigModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [updated] = await this.db
       .update(voiceConfigs)
       .set({ ...valuesFor(input), updatedAt: new Date().toISOString() })
@@ -148,10 +148,10 @@ export class SqliteVoiceConfigRepository implements IVoiceConfigRepository {
   }
 
   async activatePreset(
-    tenant: TenantContext,
+    tenant: LocalContext,
     presetId: string,
   ): Promise<LocalVoiceConfigModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     return this.db.transaction(async (tx) => {
       const [target] = await tx
         .select()
@@ -183,8 +183,8 @@ export class SqliteVoiceConfigRepository implements IVoiceConfigRepository {
     });
   }
 
-  async deletePreset(tenant: TenantContext, presetId: string): Promise<boolean> {
-    assertTenantContext(tenant);
+  async deletePreset(tenant: LocalContext, presetId: string): Promise<boolean> {
+    assertLocalContext(tenant);
     return this.db.transaction(async (tx) => {
       const [target] = await tx
         .select()

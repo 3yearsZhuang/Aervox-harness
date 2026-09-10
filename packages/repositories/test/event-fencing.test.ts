@@ -7,11 +7,11 @@
  * FencingMismatchError（迟到/被抢占执行器的事件流零污染）。
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import { createInMemoryDatabase, initDatabaseSchema, SqliteConversationRepository, type AervoxDatabase, type TenantContext } from "../src/index.js";
+import { createInMemoryDatabase, initDatabaseSchema, SqliteConversationRepository, type AervoxDatabase, type LocalContext } from "../src/index.js";
 import { FencingMismatchError } from "../src/errors.js";
 import type { Client } from "@libsql/client";
 
-const tenant: TenantContext = { workspaceId: "ws_fence", subjectUserId: "usr_fence" };
+const tenant: LocalContext = { workspaceId: "ws_fence", subjectUserId: "usr_fence" };
 
 describe("B1 事件写入 fencing CAS（appendStreamEvent）", () => {
   let db: AervoxDatabase;

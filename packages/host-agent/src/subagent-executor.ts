@@ -23,12 +23,12 @@ import type {
   SubagentRunResult,
   ToolProviderPort,
 } from "@aervox/agent-loop";
-import type { ISubagentRunRepository, SqliteConversationRepository, TenantContext } from "@aervox/repositories";
+import type { ISubagentRunRepository, SqliteConversationRepository, LocalContext } from "@aervox/repositories";
 import type { SqliteExecutionStore } from "./sqlite-execution-store.js";
 
 export interface SqliteSubagentPortDeps {
   /** 子任务归属租户（与父一致；仓储访问强绑定） */
-  tenant: TenantContext;
+  tenant: LocalContext;
   /** 子任务执行存储（与父同源：事件/工具账本/终态落同一库） */
   store: SqliteExecutionStore;
   /** 建子 turn/attempt（编程式，不触发 API 路由/Outbox——由本执行器直接驱动） */

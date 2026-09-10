@@ -17,7 +17,7 @@ import {
   conversationBranches,
   outboxEvents,
 } from "@aervox/schema";
-import { assertTenantContext, type TenantContext } from "../../tenant.js";
+import { assertLocalContext, type LocalContext } from "../../local-context.js";
 import { FencingMismatchError } from "../../errors.js";
 import { readSessionHistory } from "./session-history.js";
 import type {
@@ -36,12 +36,12 @@ import type {
 export class SqliteConversationRepository implements IConversationRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
-  getSessionHistory(tenant: TenantContext, input: { sessionId: string; beforeTurnId: string }) {
+  getSessionHistory(tenant: LocalContext, input: { sessionId: string; beforeTurnId: string }) {
     return readSessionHistory(this.db, tenant, input);
   }
 
-  async createSession(tenant: TenantContext, title: string): Promise<SessionModel> {
-    assertTenantContext(tenant);
+  async createSession(tenant: LocalContext, title: string): Promise<SessionModel> {
+    assertLocalContext(tenant);
     const id = `ses_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     const now = new Date().toISOString();
     const [created] = await this.db
@@ -58,8 +58,8 @@ export class SqliteConversationRepository implements IConversationRepository {
     return created as SessionModel;
   }
 
-  async getSession(tenant: TenantContext, sessionId: string): Promise<SessionModel | null> {
-    assertTenantContext(tenant);
+  async getSession(tenant: LocalContext, sessionId: string): Promise<SessionModel | null> {
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(sessions)
@@ -81,11 +81,11 @@ export class SqliteConversationRepository implements IConversationRepository {
    * 全局唯一，多租户调用方应自行提供租户限定的 sessionId。
    */
   async getOrCreateSession(
-    tenant: TenantContext,
+    tenant: LocalContext,
     sessionId: string,
     title = "默认会话",
   ): Promise<SessionModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const existing = await this.getSession(tenant, sessionId);
     if (existing) return existing;
     const now = new Date().toISOString();
@@ -104,12 +104,12 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   async createTurnWithOutbox(
-    tenant: TenantContext,
+    tenant: LocalContext,
     turnData: { id: string; sessionId: string; idempotencyKey: string; status?: string },
     userMessage: { id: string; content: string },
     outboxEventData?: { id: string; eventType: string; idempotencyKey: string; payload: unknown },
   ): Promise<{ turn: TurnModel; message: MessageVersionModel }> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
 
     return await this.db.transaction(async (tx) => {
@@ -166,8 +166,8 @@ export class SqliteConversationRepository implements IConversationRepository {
     });
   }
 
-  async getTurn(tenant: TenantContext, turnId: string): Promise<TurnModel | null> {
-    assertTenantContext(tenant);
+  async getTurn(tenant: LocalContext, turnId: string): Promise<TurnModel | null> {
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(turns)
@@ -182,10 +182,10 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   async getTurnByIdempotencyKey(
-    tenant: TenantContext,
+    tenant: LocalContext,
     idempotencyKey: string,
   ): Promise<TurnModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(turns)
@@ -200,13 +200,13 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   async updateTurnStatus(
-    tenant: TenantContext,
+    tenant: LocalContext,
     turnId: string,
     status: string,
     lastSequence?: number,
     error?: unknown,
   ): Promise<TurnModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const updateData: Record<string, unknown> = {
       status,
@@ -234,7 +234,7 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   async appendStreamEvent(
-    tenant: TenantContext,
+    tenant: LocalContext,
     eventData: {
       id: string;
       turnId: string;
@@ -256,7 +256,7 @@ export class SqliteConversationRepository implements IConversationRepository {
       expectedFencingToken?: number | null;
     },
   ): Promise<TurnStreamEventModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const fenced =
       eventData.attemptId != null && eventData.expectedFencingToken != null;
     // BEGIN IMMEDIATE：fencing 校验与插入在同一写锁内原子完成，
@@ -312,11 +312,11 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   async getStreamEvents(
-    tenant: TenantContext,
+    tenant: LocalContext,
     turnId: string,
     afterSequence: number = 0,
   ): Promise<TurnStreamEventModel[]> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(turnStreamEvents)
@@ -333,7 +333,7 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   async recordTurnStreamEvent(
-    tenant: TenantContext,
+    tenant: LocalContext,
     eventData: {
       id?: string;
       turnId: string;
@@ -353,8 +353,8 @@ export class SqliteConversationRepository implements IConversationRepository {
     });
   }
 
-  async deleteMessage(tenant: TenantContext, messageId: string): Promise<boolean> {
-    assertTenantContext(tenant);
+  async deleteMessage(tenant: LocalContext, messageId: string): Promise<boolean> {
+    assertLocalContext(tenant);
     const res = await this.db
       .delete(messageVersions)
       .where(
@@ -375,12 +375,12 @@ export class SqliteConversationRepository implements IConversationRepository {
    * @returns 新版本记录；若消息已删除或版本不匹配则返回 null
    */
   async editMessage(
-    tenant: TenantContext,
+    tenant: LocalContext,
     messageId: string,
     content: string,
     expectedVersion: number,
   ): Promise<{ message: MessageModel; newVersion: MessageVersionModel } | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
 
     // 1. 获取消息，校验存在性和删除状态
@@ -445,8 +445,8 @@ export class SqliteConversationRepository implements IConversationRepository {
   /**
    * FR-CONV-005：软删除消息 — 设置 deletedAt，不物理删除
    */
-  async softDeleteMessage(tenant: TenantContext, messageId: string): Promise<MessageModel | null> {
-    assertTenantContext(tenant);
+  async softDeleteMessage(tenant: LocalContext, messageId: string): Promise<MessageModel | null> {
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const message = await this.getMessage(tenant, messageId);
     if (!message || message.deletedAt) return null;
@@ -463,8 +463,8 @@ export class SqliteConversationRepository implements IConversationRepository {
   /**
    * 恢复已删除的消息 — 清除 deletedAt
    */
-  async restoreMessage(tenant: TenantContext, messageId: string): Promise<MessageModel | null> {
-    assertTenantContext(tenant);
+  async restoreMessage(tenant: LocalContext, messageId: string): Promise<MessageModel | null> {
+    assertLocalContext(tenant);
     // 先校验租户归属
     const message = await this.getMessage(tenant, messageId);
     if (!message) return null;
@@ -482,10 +482,10 @@ export class SqliteConversationRepository implements IConversationRepository {
    * 查询消息的所有版本（按版本号降序）
    */
   async listMessageVersions(
-    tenant: TenantContext,
+    tenant: LocalContext,
     messageId: string,
   ): Promise<MessageVersionModel[]> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(messageVersions)
@@ -503,10 +503,10 @@ export class SqliteConversationRepository implements IConversationRepository {
   // ============ MVP 补齐（PRD §8）：Message 身份 / TurnAttempt ============
 
   async createMessage(
-    tenant: TenantContext,
+    tenant: LocalContext,
     messageData: { id: string; sessionId: string; role: string; label?: string | null },
   ): Promise<MessageModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [created] = await this.db
       .insert(messages)
       .values({
@@ -520,8 +520,8 @@ export class SqliteConversationRepository implements IConversationRepository {
     return created as MessageModel;
   }
 
-  async getMessage(tenant: TenantContext, messageId: string): Promise<MessageModel | null> {
-    assertTenantContext(tenant);
+  async getMessage(tenant: LocalContext, messageId: string): Promise<MessageModel | null> {
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(messages)
@@ -537,11 +537,11 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   async createTurnAttempt(
-    tenant: TenantContext,
+    tenant: LocalContext,
     turnId: string,
     attemptData: { id: string; attempt?: number; leaseId?: string | null; fencingToken?: number },
   ): Promise<TurnAttemptModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [created] = await this.db
       .insert(turnAttempts)
       .values({
@@ -557,8 +557,8 @@ export class SqliteConversationRepository implements IConversationRepository {
     return created as TurnAttemptModel;
   }
 
-  async listTurnAttempts(tenant: TenantContext, turnId: string): Promise<TurnAttemptModel[]> {
-    assertTenantContext(tenant);
+  async listTurnAttempts(tenant: LocalContext, turnId: string): Promise<TurnAttemptModel[]> {
+    assertLocalContext(tenant);
     const rows = await this.db
       .select({ attempt: turnAttempts })
       .from(turnAttempts)
@@ -580,7 +580,7 @@ export class SqliteConversationRepository implements IConversationRepository {
    * 成功后递增 fencing 并绑定新租约（TTL），防止重复执行（AVX-HAR-001 §11.2）。
    */
   async claimTurnAttempt(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: {
       turnId: string;
       attemptId: string;
@@ -589,7 +589,7 @@ export class SqliteConversationRepository implements IConversationRepository {
       ttlMs?: number;
     },
   ): Promise<{ ok: boolean; fencingToken: number; leaseId: string; leaseExpiresAt: string }> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const ttlMs = input.ttlMs ?? 60_000;
     const nowIso = new Date().toISOString();
     const leaseExpiresAt = new Date(Date.now() + ttlMs).toISOString();
@@ -623,10 +623,10 @@ export class SqliteConversationRepository implements IConversationRepository {
 
   /** 3b-A：续租（CAS：leaseId + fencing 匹配且 Running 才刷新 leaseExpiresAt） */
   async renewTurnAttemptLease(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: { attemptId: string; leaseId: string; expectedFencingToken: number; ttlMs?: number },
   ): Promise<boolean> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const ttlMs = input.ttlMs ?? 60_000;
     const leaseExpiresAt = new Date(Date.now() + ttlMs).toISOString();
     const [updated] = await this.db
@@ -650,10 +650,10 @@ export class SqliteConversationRepository implements IConversationRepository {
 
   /** 提交 TurnAttempt 终态（失败/完成/中断），并记录结束时间 */
   async finalizeTurnAttempt(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: { turnId: string; attemptId: string; status: string; finishedAt?: string; expectedFencingToken?: number },
   ): Promise<TurnAttemptModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const conditions = [
       eq(turnAttempts.turnId, turns.id),
       eq(turnAttempts.id, input.attemptId),
@@ -682,10 +682,10 @@ export class SqliteConversationRepository implements IConversationRepository {
 
   /** 2b：用户取消请求位（CAS：仅 Running attempt → CancelRequested，并同步 turns 若未终态） */
   async requestCancelTurnAttempt(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: { turnId: string; attemptId: string },
   ): Promise<{ ok: boolean; reason?: "not_found" | "already_finalized" }> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [updatedAttempt] = await this.db
       .update(turnAttempts)
       .set({ status: "CancelRequested" })
@@ -722,10 +722,10 @@ export class SqliteConversationRepository implements IConversationRepository {
 
   /** 2b：读取 Attempt 当前状态（executor 取消检查点轮询） */
   async getTurnAttemptStatus(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: { turnId: string; attemptId: string },
   ): Promise<string | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [row] = await this.db
       .select({ status: turnAttempts.status })
       .from(turnAttempts)
@@ -760,7 +760,7 @@ export class SqliteConversationRepository implements IConversationRepository {
 
   /** 记录一次工具执行（副作用证据账本，AVX-HAR-001 §12；阶段 2d） */
   async recordToolExecution(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: {
       turnId: string;
       attemptId: string;
@@ -774,7 +774,7 @@ export class SqliteConversationRepository implements IConversationRepository {
       finishedAt: string;
     },
   ): Promise<ToolExecutionModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [created] = await this.db
       .insert(toolExecutions)
       .values({
@@ -798,7 +798,7 @@ export class SqliteConversationRepository implements IConversationRepository {
 
   /** 2c：幂等预留（§9 idempotency reservation；attempt+invocation 唯一，ON CONFLICT DO NOTHING） */
   async reserveToolExecution(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: {
       turnId: string;
       attemptId: string;
@@ -807,7 +807,7 @@ export class SqliteConversationRepository implements IConversationRepository {
       arguments?: unknown;
     },
   ): Promise<{ ok: boolean; alreadyReserved: boolean }> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(toolExecutions)
@@ -831,7 +831,7 @@ export class SqliteConversationRepository implements IConversationRepository {
 
   /** 2c：以权威结果收口预留行（UPDATE by attempt+invocation） */
   async updateToolExecutionResult(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: {
       turnId: string;
       attemptId: string;
@@ -842,7 +842,7 @@ export class SqliteConversationRepository implements IConversationRepository {
       finishedAt?: string;
     },
   ): Promise<{ ok: boolean }> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [updated] = await this.db
       .update(toolExecutions)
       .set({
@@ -872,7 +872,7 @@ export class SqliteConversationRepository implements IConversationRepository {
    * 守卫失配抛 FencingMismatchError（迟到/被抢占执行器被拒）。
    */
   async recordToolOutcomeAtomically(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: {
       turnId: string;
       attemptId: string;
@@ -890,7 +890,7 @@ export class SqliteConversationRepository implements IConversationRepository {
       expectedFencingToken: number;
     },
   ): Promise<boolean> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     return this.db.transaction(
       async (tx) => {
         const [attempt] = await tx
@@ -950,7 +950,7 @@ export class SqliteConversationRepository implements IConversationRepository {
    * 成功才一并插入 done/error 事件；CAS 失败返回 false（不写事件，杜绝孤儿 done）。
    */
   async finalizeAttemptWithEventAtomically(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: {
       turnId: string;
       attemptId: string;
@@ -962,7 +962,7 @@ export class SqliteConversationRepository implements IConversationRepository {
       safetyDecision?: string | null;
     },
   ): Promise<boolean> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     return this.db.transaction(
       async (tx) => {
         const [updated] = await tx
@@ -1007,7 +1007,7 @@ export class SqliteConversationRepository implements IConversationRepository {
    * 守卫失配抛 FencingMismatchError（迟到/被抢占执行器被拒，无部分写入）。
    */
   async recordSafeSegmentAtomically(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: {
       turnId: string;
       attemptId: string;
@@ -1018,7 +1018,7 @@ export class SqliteConversationRepository implements IConversationRepository {
       expectedFencingToken: number;
     },
   ): Promise<boolean> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     return this.db.transaction(
       async (tx) => {
         const [attempt] = await tx
@@ -1077,10 +1077,10 @@ export class SqliteConversationRepository implements IConversationRepository {
    * 供中断恢复（visible-prefix）与可见前缀重建使用。
    */
   async listCommittedSegments(
-    tenant: TenantContext,
+    tenant: LocalContext,
     turnId: string,
   ): Promise<Array<{ id: string; sequence: number; text: string; streamEventId: string | null }>> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const rows = await this.db
       .select({
         id: safeSegments.id,
@@ -1176,8 +1176,8 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   /** 查询 Turn 的工具执行账本（按时间倒序；join tool_registrations 携带 replay 声明供恢复裁决） */
-  async listToolExecutionsByTurn(tenant: TenantContext, turnId: string): Promise<ToolExecutionModel[]> {
-    assertTenantContext(tenant);
+  async listToolExecutionsByTurn(tenant: LocalContext, turnId: string): Promise<ToolExecutionModel[]> {
+    assertLocalContext(tenant);
     const rows = await this.db
       .select({ execution: toolExecutions, registration: toolRegistrations })
       .from(toolExecutions)
@@ -1201,7 +1201,7 @@ export class SqliteConversationRepository implements IConversationRepository {
 
   /** 记录一条工具授权（阶段 3a） */
   async recordToolApproval(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: {
       turnId: string;
       attemptId: string;
@@ -1212,7 +1212,7 @@ export class SqliteConversationRepository implements IConversationRepository {
       toolVersion?: string | null;
     },
   ): Promise<ToolApprovalModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     // E1（§12.2「ToolInvocation + 授权快照 + 幂等预留」）：同 (toolName, argumentsHash) 已存在
     // 未决（pending）授权则复用既有行，不重复插入——授权匹配键跨 turn 复用（schema 注释约定），
     // 幂等预留语义：重复的写工具意图不会产生多行待决授权。granted/denied 后新请求才新建。
@@ -1253,12 +1253,12 @@ export class SqliteConversationRepository implements IConversationRepository {
 
   /** 决定（grant/deny）一条待决授权 */
   async decideToolApproval(
-    tenant: TenantContext,
+    tenant: LocalContext,
     approvalId: string,
     decision: "granted" | "denied",
     decidedBy: string,
   ): Promise<ToolApprovalModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [updated] = await this.db
       .update(toolApprovals)
       .set({
@@ -1282,8 +1282,8 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   /** 3b：读单条授权记录（privileged 管理员校验预检用） */
-  async getToolApproval(tenant: TenantContext, approvalId: string): Promise<ToolApprovalModel | null> {
-    assertTenantContext(tenant);
+  async getToolApproval(tenant: LocalContext, approvalId: string): Promise<ToolApprovalModel | null> {
+    assertLocalContext(tenant);
     const [row] = await this.db
       .select()
       .from(toolApprovals)
@@ -1299,8 +1299,8 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   /** 查询 Turn 的授权账本 */
-  async listToolApprovalsByTurn(tenant: TenantContext, turnId: string): Promise<ToolApprovalModel[]> {
-    assertTenantContext(tenant);
+  async listToolApprovalsByTurn(tenant: LocalContext, turnId: string): Promise<ToolApprovalModel[]> {
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(toolApprovals)
@@ -1317,7 +1317,7 @@ export class SqliteConversationRepository implements IConversationRepository {
 
   /** 匹配已授权记录（toolName + argumentsHash；跨 turn 复用，取最近一条） */
   async findGrantedToolApproval(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: {
       toolName: string;
       argumentsHash: string;
@@ -1325,7 +1325,7 @@ export class SqliteConversationRepository implements IConversationRepository {
       excludeDecidedByPrefixes?: string[];
     },
   ): Promise<ToolApprovalModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const excludedPrefixes = [
       ...(input.excludeDecidedByPrefixes ?? []),
       ...(input.excludeDecidedByPrefix ? [input.excludeDecidedByPrefix] : []),
@@ -1355,7 +1355,7 @@ export class SqliteConversationRepository implements IConversationRepository {
   // ============ P1（R2 · CAP-014）：会话地图分支 ============
 
   async createConversationBranch(
-    tenant: TenantContext,
+    tenant: LocalContext,
     branchData: {
       id: string;
       parentSessionId: string;
@@ -1365,7 +1365,7 @@ export class SqliteConversationRepository implements IConversationRepository {
       branchReason?: string;
     },
   ): Promise<ConversationBranchModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(conversationBranches)
@@ -1386,8 +1386,8 @@ export class SqliteConversationRepository implements IConversationRepository {
     return created as ConversationBranchModel;
   }
 
-  async listBranchesByParent(tenant: TenantContext, parentSessionId: string): Promise<ConversationBranchModel[]> {
-    assertTenantContext(tenant);
+  async listBranchesByParent(tenant: LocalContext, parentSessionId: string): Promise<ConversationBranchModel[]> {
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(conversationBranches)
@@ -1403,8 +1403,8 @@ export class SqliteConversationRepository implements IConversationRepository {
     return rows as ConversationBranchModel[];
   }
 
-  async getBranch(tenant: TenantContext, branchId: string): Promise<ConversationBranchModel | null> {
-    assertTenantContext(tenant);
+  async getBranch(tenant: LocalContext, branchId: string): Promise<ConversationBranchModel | null> {
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(conversationBranches)
@@ -1420,8 +1420,8 @@ export class SqliteConversationRepository implements IConversationRepository {
     return (found as ConversationBranchModel) ?? null;
   }
 
-  async mergeBranch(tenant: TenantContext, branchId: string): Promise<ConversationBranchModel | null> {
-    assertTenantContext(tenant);
+  async mergeBranch(tenant: LocalContext, branchId: string): Promise<ConversationBranchModel | null> {
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(conversationBranches)
@@ -1439,8 +1439,8 @@ export class SqliteConversationRepository implements IConversationRepository {
     return (updated as ConversationBranchModel) ?? null;
   }
 
-  async archiveBranch(tenant: TenantContext, branchId: string): Promise<ConversationBranchModel | null> {
-    assertTenantContext(tenant);
+  async archiveBranch(tenant: LocalContext, branchId: string): Promise<ConversationBranchModel | null> {
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(conversationBranches)
@@ -1458,8 +1458,8 @@ export class SqliteConversationRepository implements IConversationRepository {
     return (updated as ConversationBranchModel) ?? null;
   }
 
-  async deleteBranch(tenant: TenantContext, branchId: string): Promise<ConversationBranchModel | null> {
-    assertTenantContext(tenant);
+  async deleteBranch(tenant: LocalContext, branchId: string): Promise<ConversationBranchModel | null> {
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(conversationBranches)
@@ -1477,11 +1477,11 @@ export class SqliteConversationRepository implements IConversationRepository {
   }
 
   async updateBranchLayout(
-    tenant: TenantContext,
+    tenant: LocalContext,
     branchId: string,
     layoutData: unknown,
   ): Promise<ConversationBranchModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(conversationBranches)
@@ -1498,8 +1498,8 @@ export class SqliteConversationRepository implements IConversationRepository {
     return (updated as ConversationBranchModel) ?? null;
   }
 
-  async getBranchTree(tenant: TenantContext, sessionId: string): Promise<ConversationBranchModel[]> {
-    assertTenantContext(tenant);
+  async getBranchTree(tenant: LocalContext, sessionId: string): Promise<ConversationBranchModel[]> {
+    assertLocalContext(tenant);
     // 递归获取所有以 sessionId 为根的分支（包括子分支的子分支）
     const direct = await this.listBranchesByParent(tenant, sessionId);
     const result = [...direct];

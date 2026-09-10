@@ -1,6 +1,6 @@
 import type {
   SqliteProactiveIntelligenceRepository,
-  TenantContext,
+  LocalContext,
 } from "@aervox/repositories";
 import type { ToolRuntime } from "../tools/runtime.js";
 import { ProactiveActionAuthorizer } from "./action-authorizer.js";
@@ -22,7 +22,7 @@ function optionalText(value: unknown): string | undefined {
 let invocationSequence = 0;
 
 async function executeHomeWrite(
-  tenant: TenantContext,
+  tenant: LocalContext,
   args: Record<string, unknown>,
   alreadyAuthorized: boolean,
   manager: ProactiveIntegrationManager,

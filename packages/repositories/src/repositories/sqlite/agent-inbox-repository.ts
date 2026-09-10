@@ -10,7 +10,7 @@
 import { eq, and, isNull, sql, or, inArray } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { agentInboxItems } from "@aervox/schema";
-import { assertTenantContext, type TenantContext } from "../../tenant.js";
+import { assertLocalContext, type LocalContext } from "../../local-context.js";
 import type {
   AgentInboxEnqueueInput,
   AgentInboxItemModel,
@@ -41,14 +41,14 @@ const toModel = (row: InboxRow): AgentInboxItemModel => ({
 });
 
 /** 幂等键归一化（租户内唯一；同 key 不同 payload 视为重复提交，保留既有项） */
-const tenantIdempotencyKey = (tenant: TenantContext, key: string): string =>
+const tenantIdempotencyKey = (tenant: LocalContext, key: string): string =>
   `${tenant.workspaceId}:${tenant.subjectUserId}:${key}`;
 
 export class SqliteAgentInboxRepository implements IAgentInboxRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
-  async enqueue(tenant: TenantContext, input: AgentInboxEnqueueInput): Promise<AgentInboxItemModel> {
-    assertTenantContext(tenant);
+  async enqueue(tenant: LocalContext, input: AgentInboxEnqueueInput): Promise<AgentInboxItemModel> {
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const consumeBoundary = input.consumeBoundary ?? (input.type === "followup" ? "next-turn" : "next-step");
     const key = tenantIdempotencyKey(tenant, input.idempotencyKey);
@@ -87,10 +87,10 @@ export class SqliteAgentInboxRepository implements IAgentInboxRepository {
   }
 
   async claimForConsumption(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: { sessionId: string; attemptId?: string | null; type: "next-turn" | "next-step"; limit?: number },
   ): Promise<AgentInboxItemModel[]> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const limit = input.limit ?? 20;
     const now = new Date().toISOString();
     const where = and(
@@ -137,8 +137,8 @@ export class SqliteAgentInboxRepository implements IAgentInboxRepository {
     return claimed;
   }
 
-  async acknowledge(tenant: TenantContext, itemIds: string[]): Promise<void> {
-    assertTenantContext(tenant);
+  async acknowledge(tenant: LocalContext, itemIds: string[]): Promise<void> {
+    assertLocalContext(tenant);
     if (itemIds.length === 0) return;
     const ackedAt = new Date().toISOString();
     for (const id of itemIds) {
@@ -156,7 +156,7 @@ export class SqliteAgentInboxRepository implements IAgentInboxRepository {
     }
   }
 
-  async getByIdempotencyKey(tenant: TenantContext, idempotencyKey: string): Promise<AgentInboxItemModel | null> {
+  async getByIdempotencyKey(tenant: LocalContext, idempotencyKey: string): Promise<AgentInboxItemModel | null> {
     const key = tenantIdempotencyKey(tenant, idempotencyKey);
     const [row] = await this.db
       .select()

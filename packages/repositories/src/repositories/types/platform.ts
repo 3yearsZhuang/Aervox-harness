@@ -2,26 +2,26 @@
  * Aervox｜思隅 @aervox/repositories — platform 仓储类型（自 types.ts 机械拆分）
  */
 import type { AuditRecordModel, ContextManifestModel, ModelRunModel, NotificationModel, PromptVersionModel, ScheduledJobModel } from "./provenance.js";
-import type { TenantContext } from "../../tenant.js";
+import type { LocalContext } from "../../local-context.js";
 
 export interface IPlatformRepository {
   createScheduledJob(
-    tenant: TenantContext,
+    tenant: LocalContext,
     job: { id: string; jobType: string; subjectId: string; idempotencyKey: string; runAt: string },
   ): Promise<ScheduledJobModel>;
-  markJobDone(tenant: TenantContext, id: string): Promise<ScheduledJobModel | null>;
+  markJobDone(tenant: LocalContext, id: string): Promise<ScheduledJobModel | null>;
   createNotification(
-    tenant: TenantContext,
+    tenant: LocalContext,
     notification: { id: string; type: string; scheduledAt: string; channel: string },
   ): Promise<NotificationModel>;
-  markNotificationSent(tenant: TenantContext, id: string): Promise<NotificationModel | null>;
-  listNotifications(tenant: TenantContext, limit?: number): Promise<NotificationModel[]>;
+  markNotificationSent(tenant: LocalContext, id: string): Promise<NotificationModel | null>;
+  listNotifications(tenant: LocalContext, limit?: number): Promise<NotificationModel[]>;
   createPromptVersion(
     version: { id: string; purpose: string; version: number; checksum: string; status?: string },
   ): Promise<PromptVersionModel>;
   getPromptVersion(purpose: string, version: number): Promise<PromptVersionModel | null>;
   createModelRun(
-    tenant: TenantContext,
+    tenant: LocalContext,
     run: {
       id: string;
       purpose: string;
@@ -31,11 +31,11 @@ export interface IPlatformRepository {
     },
   ): Promise<ModelRunModel>;
   completeModelRun(
-    tenant: TenantContext,
+    tenant: LocalContext,
     id: string,
     result: { latencyMs?: number; tokenUsage?: unknown; cost?: number; status?: string },
   ): Promise<ModelRunModel | null>;
-  attachContextManifest(tenant: TenantContext, modelRunId: string, manifestId: string): Promise<ModelRunModel | null>;
+  attachContextManifest(tenant: LocalContext, modelRunId: string, manifestId: string): Promise<ModelRunModel | null>;
   createContextManifest(
     manifest: {
       id: string;
@@ -49,7 +49,7 @@ export interface IPlatformRepository {
     },
   ): Promise<ContextManifestModel>;
   createAuditRecord(
-    tenant: TenantContext,
+    tenant: LocalContext,
     record: {
       id: string;
       actorType: string;
@@ -60,7 +60,7 @@ export interface IPlatformRepository {
       metadata?: unknown;
     },
   ): Promise<AuditRecordModel>;
-  listAuditRecords(tenant: TenantContext, limit?: number): Promise<AuditRecordModel[]>;
+  listAuditRecords(tenant: LocalContext, limit?: number): Promise<AuditRecordModel[]>;
   // MVP 补齐（PRD §8）：工具策略 + 评估集（系统级，无租户列）
   createToolPolicy(policy: {
     id: string;

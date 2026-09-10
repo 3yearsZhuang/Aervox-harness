@@ -4,13 +4,13 @@
  * 缺陷 C：UserQuestionCoordinator 的挂起提问原先只在进程内存，进程重启后内存态
  * 丢失、客户端回答 409、Turn 永久悬挂。本仓储提供持久化真源：
  * - upsert 幂等（turnId 主键，ON CONFLICT DO UPDATE 覆盖为同一次提问的最新状态）；
- * - 租户隔离（workpsace/subject 条件 + assertTenantContext）；
+ * - 租户隔离（workpsace/subject 条件 + assertLocalContext）；
  * - delete 只允许删除属于本租户的行（防止跨租户驱动数据）。
  */
 import { eq, and } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { pendingUserQuestions } from "@aervox/schema";
-import { assertTenantContext, type TenantContext } from "../../tenant.js";
+import { assertLocalContext, type LocalContext } from "../../local-context.js";
 import type {
   IUserQuestionRepository,
   PendingUserQuestionModel,
@@ -34,8 +34,8 @@ const toModel = (row: PendingRow): PendingUserQuestionModel => ({
 export class SqliteUserQuestionRepository implements IUserQuestionRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
-  async upsertPending(tenant: TenantContext, input: PendingUserQuestionUpsertInput): Promise<void> {
-    assertTenantContext(tenant);
+  async upsertPending(tenant: LocalContext, input: PendingUserQuestionUpsertInput): Promise<void> {
+    assertLocalContext(tenant);
     await this.db
       .insert(pendingUserQuestions)
       .values({
@@ -64,8 +64,8 @@ export class SqliteUserQuestionRepository implements IUserQuestionRepository {
       });
   }
 
-  async getPending(tenant: TenantContext, turnId: string): Promise<PendingUserQuestionModel | null> {
-    assertTenantContext(tenant);
+  async getPending(tenant: LocalContext, turnId: string): Promise<PendingUserQuestionModel | null> {
+    assertLocalContext(tenant);
     const [row] = await this.db
       .select()
       .from(pendingUserQuestions)
@@ -79,8 +79,8 @@ export class SqliteUserQuestionRepository implements IUserQuestionRepository {
     return row ? toModel(row) : null;
   }
 
-  async deletePending(tenant: TenantContext, turnId: string): Promise<void> {
-    assertTenantContext(tenant);
+  async deletePending(tenant: LocalContext, turnId: string): Promise<void> {
+    assertLocalContext(tenant);
     await this.db
       .delete(pendingUserQuestions)
       .where(

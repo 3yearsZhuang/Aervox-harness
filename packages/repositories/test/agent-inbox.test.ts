@@ -14,12 +14,12 @@ import {
   initDatabaseSchema,
   SqliteAgentInboxRepository,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "../src/index.js";
 import type { Client } from "@libsql/client";
 
-const tenantA: TenantContext = { workspaceId: "ws_inbox_a", subjectUserId: "usr_inbox_a" };
-const tenantB: TenantContext = { workspaceId: "ws_inbox_b", subjectUserId: "usr_inbox_b" };
+const tenantA: LocalContext = { workspaceId: "ws_inbox_a", subjectUserId: "usr_inbox_a" };
+const tenantB: LocalContext = { workspaceId: "ws_inbox_b", subjectUserId: "usr_inbox_b" };
 
 describe("阶段 5a Agent 收件箱（agent_inbox_items）", () => {
   let db: AervoxDatabase;

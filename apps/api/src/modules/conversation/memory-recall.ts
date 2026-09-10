@@ -4,7 +4,7 @@ import {
   SqliteMemoryRepository,
   SqliteMemoryVectorSearchAdapter,
   createHybridSearchStorage,
-  type TenantContext,
+  type LocalContext,
 } from "@aervox/repositories";
 import type { AervoxDatabase } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
@@ -18,7 +18,7 @@ export interface RecalledMemory {
 }
 
 export interface MemoryRecallPort {
-  recall(tenant: TenantContext, query: string): Promise<RecalledMemory[]>;
+  recall(tenant: LocalContext, query: string): Promise<RecalledMemory[]>;
 }
 
 /** SQLite 记忆召回：同租户 FTS + 同模型向量通道，经 RRF 排序后回读权威记录。 */

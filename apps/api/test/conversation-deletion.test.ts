@@ -6,12 +6,12 @@
  * - 追平（request completed）后：新 Turn 正常完成。
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createInMemoryDatabase, SqliteConversationRepository, SqlitePrivacyRepository, type AervoxDatabase, type TenantContext } from "@aervox/repositories";
+import { createInMemoryDatabase, SqliteConversationRepository, SqlitePrivacyRepository, type AervoxDatabase, type LocalContext } from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
 
-const tenant: TenantContext = { workspaceId: "ws_delapi", subjectUserId: "usr_delapi" };
+const tenant: LocalContext = { workspaceId: "ws_delapi", subjectUserId: "usr_delapi" };
 const headers = {
   "x-workspace-id": tenant.workspaceId,
   "x-user-id": tenant.subjectUserId,

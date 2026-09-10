@@ -12,7 +12,7 @@ import {
   createInMemoryDatabase,
   SqliteLearningRepository,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 import type { FastifyInstance } from "fastify";
@@ -27,7 +27,7 @@ const headers = {
   "x-user-id": "usr_quiz",
 } as const;
 
-const tenant: TenantContext = { workspaceId: "ws_quiz", subjectUserId: "usr_quiz" };
+const tenant: LocalContext = { workspaceId: "ws_quiz", subjectUserId: "usr_quiz" };
 
 interface ParsedEvent {
   sequence: number;

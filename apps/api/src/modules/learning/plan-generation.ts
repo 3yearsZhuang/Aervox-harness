@@ -8,14 +8,14 @@
  */
 import { createOpenAICompatProvider } from "@aervox/agent-loop";
 import type { ModelProviderPort, ModelRequest } from "@aervox/agent-loop";
-import type { AervoxDatabase, TenantContext, LearningPlanModel } from "@aervox/repositories";
+import type { AervoxDatabase, LocalContext, LearningPlanModel } from "@aervox/repositories";
 import type { ILearningRepository } from "@aervox/repositories";
 import type { LLMConfigService } from "../llm/service.js";
 
 /** 单次规划生成的模型端口（宿主注入；测试注入确定性实现） */
 export interface PlanModelPort {
   generate(input: {
-    tenant: TenantContext;
+    tenant: LocalContext;
     system: string;
     user: string;
   }): Promise<string>;
@@ -370,7 +370,7 @@ export class LearningPlanGenerationService {
 
   /** 生成学习规划并落库（单次调用 → 校验 → 带 gaps 重试一次 → hydrate → 事务写入） */
   async generate(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: { topic: string; level?: string; dailyMinutes?: number },
   ): Promise<LearningPlanGenerationResult> {
     const level = input.level ?? "beginner";

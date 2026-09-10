@@ -6,7 +6,7 @@ import {
   SqliteMemoryRepository,
   SqliteMemoryCompactionRepository,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "../src/index.js";
 
 describe("T-03 上下文压缩标记", () => {
@@ -15,7 +15,7 @@ describe("T-03 上下文压缩标记", () => {
   let memoryRepo: SqliteMemoryRepository;
   let compactionRepo: SqliteMemoryCompactionRepository;
 
-  const tenant: TenantContext = { workspaceId: "ws_1", subjectUserId: "usr_1" };
+  const tenant: LocalContext = { workspaceId: "ws_1", subjectUserId: "usr_1" };
 
   beforeEach(async () => {
     const res = await createInMemoryDatabase();

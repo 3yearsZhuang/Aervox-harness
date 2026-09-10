@@ -2,7 +2,7 @@
 import type {
   IProactiveProfileRepository,
   ProactiveProfileClaimModel,
-  TenantContext,
+  LocalContext,
 } from "@aervox/repositories";
 
 export function isLiteralLoopbackUrl(value: string): boolean {
@@ -41,7 +41,7 @@ export function buildProactiveProfilePrompt(claims: ProactiveProfileClaimModel[]
 
 export async function loadProactiveProfilePrompt(
   repository: IProactiveProfileRepository,
-  tenant: TenantContext,
+  tenant: LocalContext,
 ): Promise<string> {
   const status = await repository.getEffectiveStatus(tenant);
   if (status.effectiveState !== "active" || !status.revision) return "";

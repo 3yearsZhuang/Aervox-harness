@@ -4,7 +4,7 @@ import {
   initDatabaseSchema,
   SqliteConversationRepository,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "../src/index.js";
 import type { Client } from "@libsql/client";
 
@@ -13,8 +13,8 @@ describe("TC-CONV-SESSION-001: getOrCreateSession 修复 Turn 外键依赖", () 
   let client: Client;
   let repo: SqliteConversationRepository;
 
-  const tenantA: TenantContext = { workspaceId: "ws_alpha", subjectUserId: "usr_alice" };
-  const tenantB: TenantContext = { workspaceId: "ws_beta", subjectUserId: "usr_bob" };
+  const tenantA: LocalContext = { workspaceId: "ws_alpha", subjectUserId: "usr_alice" };
+  const tenantB: LocalContext = { workspaceId: "ws_beta", subjectUserId: "usr_bob" };
 
   beforeEach(async () => {
     const res = await createInMemoryDatabase();

@@ -18,7 +18,7 @@ import {
   SqliteAnalyticsRepository,
   SqliteContentRepository,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "../src/index.js";
 
 describe("PRD §8 MVP 优先队列：新域仓储冒烟测试", () => {
@@ -36,11 +36,11 @@ describe("PRD §8 MVP 优先队列：新域仓储冒烟测试", () => {
   let analytics: SqliteAnalyticsRepository;
   let content: SqliteContentRepository;
 
-  const tenant: TenantContext = {
+  const tenant: LocalContext = {
     workspaceId: "ws_mvp",
     subjectUserId: "usr_mvp",
   };
-  const otherTenant: TenantContext = {
+  const otherTenant: LocalContext = {
     workspaceId: "ws_other",
     subjectUserId: "usr_other",
   };

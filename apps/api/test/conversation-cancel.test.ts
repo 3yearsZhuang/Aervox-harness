@@ -7,12 +7,12 @@
  * - 不存在 Turn 返回 404。
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createInMemoryDatabase, SqliteConversationRepository, type AervoxDatabase, type TenantContext } from "@aervox/repositories";
+import { createInMemoryDatabase, SqliteConversationRepository, type AervoxDatabase, type LocalContext } from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
 
-const tenant: TenantContext = { workspaceId: "ws_cancelapi", subjectUserId: "usr_cancelapi" };
+const tenant: LocalContext = { workspaceId: "ws_cancelapi", subjectUserId: "usr_cancelapi" };
 const headers = {
   "x-workspace-id": tenant.workspaceId,
   "x-user-id": tenant.subjectUserId,

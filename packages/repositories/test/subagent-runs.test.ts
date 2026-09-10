@@ -13,12 +13,12 @@ import {
   initDatabaseSchema,
   SqliteSubagentRunRepository,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "../src/index.js";
 import type { Client } from "@libsql/client";
 
-const tenantA: TenantContext = { workspaceId: "ws_sub_a", subjectUserId: "usr_sub_a" };
-const tenantB: TenantContext = { workspaceId: "ws_sub_b", subjectUserId: "usr_sub_b" };
+const tenantA: LocalContext = { workspaceId: "ws_sub_a", subjectUserId: "usr_sub_a" };
+const tenantB: LocalContext = { workspaceId: "ws_sub_b", subjectUserId: "usr_sub_b" };
 
 describe("阶段 5c Subagent 运行关联（subagent_runs）", () => {
   let db: AervoxDatabase;

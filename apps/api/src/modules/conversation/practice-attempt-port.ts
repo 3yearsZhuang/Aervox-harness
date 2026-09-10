@@ -10,7 +10,7 @@
  * 作答路由逻辑）；错题本派生不依赖 knowledgeId，可正常工作。
  */
 import type { PracticeAttemptPort, PracticeAttemptPortRequest } from "@aervox/agent-loop";
-import type { SqliteLearningRepository, TenantContext } from "@aervox/repositories";
+import type { SqliteLearningRepository, LocalContext } from "@aervox/repositories";
 
 let seq = 0;
 const id = (prefix: string): string =>
@@ -18,8 +18,8 @@ const id = (prefix: string): string =>
 
 export function createPracticeAttemptPortFactory(
   learningRepo: SqliteLearningRepository,
-): (tenant: TenantContext) => PracticeAttemptPort {
-  return (tenant: TenantContext) => ({
+): (tenant: LocalContext) => PracticeAttemptPort {
+  return (tenant: LocalContext) => ({
     recordAttempt: async (req: PracticeAttemptPortRequest) => {
       const question = await learningRepo.createQuestion(tenant, {
         id: id("q"),

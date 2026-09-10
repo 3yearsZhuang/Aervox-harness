@@ -13,7 +13,7 @@ import type {
   AgentInboxItemStatus,
   InboxPort,
 } from "@aervox/agent-loop";
-import type { AgentInboxItemModel, SqliteAgentInboxRepository, TenantContext } from "@aervox/repositories";
+import type { AgentInboxItemModel, SqliteAgentInboxRepository, LocalContext } from "@aervox/repositories";
 
 let seq = 0;
 const nextId = (): string => `ibx_${Date.now().toString(36)}_${(++seq).toString(36)}`;
@@ -40,7 +40,7 @@ const toLoopItem = (item: AgentInboxItemModel): AgentInboxItem => ({
 /** 绑定租户的 InboxPort 实现（供 agent-loop executor 消费 / Host 接线复用） */
 export function createTenantInboxPort(
   repo: SqliteAgentInboxRepository,
-  tenant: TenantContext,
+  tenant: LocalContext,
 ): InboxPort {
   return {
     async enqueue(command: AgentInboxCommand): Promise<AgentInboxItem> {

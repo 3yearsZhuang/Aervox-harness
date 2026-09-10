@@ -5,7 +5,7 @@ import type {
   LLMPresetListResponse,
   LLMProviderType,
 } from "@aervox/contracts";
-import type { SqliteLLMConfigRepository, TenantContext } from "@aervox/repositories";
+import type { SqliteLLMConfigRepository, LocalContext } from "@aervox/repositories";
 import type { LLMServiceOptions, TestConnectionParams, TestConnectionResult } from "./types.js";
 
 const DEFAULT_CONFIGS: Record<LLMProviderType, { baseUrl: string; modelId: string }> = {
@@ -79,14 +79,14 @@ export class LLMConfigService {
     private readonly options: LLMServiceOptions = {},
   ) {}
 
-  async getConfig(tenant: TenantContext): Promise<LLMConfigResponse> {
+  async getConfig(tenant: LocalContext): Promise<LLMConfigResponse> {
     const found = await this.repo.getConfig(tenant);
     if (found) return toResponse(found);
     return getConfiguredDefault(this.options);
   }
 
   /** 列出全部 LLM 配置预设（含激活标记） */
-  async listPresets(tenant: TenantContext): Promise<LLMPresetListResponse> {
+  async listPresets(tenant: LocalContext): Promise<LLMPresetListResponse> {
     const rows = await this.repo.listPresets(tenant);
     const presets = rows.map(toPreset);
     const active = presets.find((p) => p.isActive) ?? null;
@@ -94,7 +94,7 @@ export class LLMConfigService {
   }
 
   /** 新建 LLM 配置预设（首个预设自动激活） */
-  async createPreset(tenant: TenantContext, name: string, config: LLMConfig): Promise<LLMPreset> {
+  async createPreset(tenant: LocalContext, name: string, config: LLMConfig): Promise<LLMPreset> {
     try {
       new URL(config.baseUrl);
     } catch {
@@ -114,17 +114,17 @@ export class LLMConfigService {
   }
 
   /** 激活指定 LLM 配置预设 */
-  async activatePreset(tenant: TenantContext, presetId: string): Promise<LLMPreset | null> {
+  async activatePreset(tenant: LocalContext, presetId: string): Promise<LLMPreset | null> {
     const activated = await this.repo.activatePreset(tenant, presetId);
     return activated ? toPreset(activated) : null;
   }
 
   /** 删除指定 LLM 配置预设（删除激活项时自动提升剩余第一条） */
-  async deletePreset(tenant: TenantContext, presetId: string): Promise<boolean> {
+  async deletePreset(tenant: LocalContext, presetId: string): Promise<boolean> {
     return this.repo.deletePreset(tenant, presetId);
   }
 
-  async saveConfig(tenant: TenantContext, config: LLMConfig): Promise<LLMConfigResponse> {
+  async saveConfig(tenant: LocalContext, config: LLMConfig): Promise<LLMConfigResponse> {
     // 校验 Base URL 格式
     try {
       new URL(config.baseUrl);
