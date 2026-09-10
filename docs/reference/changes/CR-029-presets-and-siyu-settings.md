@@ -1,14 +1,23 @@
+---
+id: CR-029
+type: reference
+scope: change
+owner: maintainers
+doc_status: review-candidate
+decision_status: proposed
+delivery_status: implemented
+version: 0.1.0
+updated_at: 2026-08-28
+reviewed_at: 2026-08-28
+review_interval_days: 90
+---
+
 # CR-029 模型 / 语音多预设与「你的思隅」设置页
 
 - 提出人：3yearszhuang · 2026-08-28
 - 修改人：3yearszhuang · 2026-08-28
 
-> 文档编号：CR-029
-> 类型：Reference
-> 版本：v0.1
-> 更新日期：2026-08-28
-> 状态：Review Candidate
-> 关联：[需求追踪基线](../REQUIREMENTS_TRACEABILITY.md)、[CR-015 WebUI 模型配置](../changes/CR-015-llm-provider-config-webui.md)、[CR-014 WebUI 语音配置](../changes/CR-014-voice-config-webui.md)、[CR-028 在线语音模型配置](../changes/CR-028-voice-remote-model-config.md)
+关联：[需求追踪基线](../REQUIREMENTS_TRACEABILITY.md)、[CR-015 WebUI 模型配置](../changes/CR-015-llm-provider-config-webui.md)、[CR-014 WebUI 语音配置](../changes/CR-014-voice-config-webui.md)、[CR-028 在线语音模型配置](../changes/CR-028-voice-remote-model-config.md)
 
 - 状态：Implemented（待发布评审）
 - 提出人 / 日期：3yearszhuang / 2026-08-28

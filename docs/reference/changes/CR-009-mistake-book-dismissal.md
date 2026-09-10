@@ -1,14 +1,23 @@
+---
+id: CR-009
+type: reference
+scope: change
+owner: maintainers
+doc_status: review-candidate
+decision_status: proposed
+delivery_status: implemented
+version: 0.1.0
+updated_at: 2026-08-27
+reviewed_at: 2026-08-27
+review_interval_days: 90
+---
+
 # CR-009 错题本忽略与恢复规则
 
 - 提出人：kikoyida · 2026-08-27
 - 修改人：kikoyida · 2026-08-27
 
-> 文档编号：CR-009
-> 类型：Reference
-> 版本：v0.1
-> 更新日期：2026-08-27
-> 状态：Review Candidate
-> 关联：[SRS](../SRS.md)、[需求追踪](../REQUIREMENTS_TRACEABILITY.md)、[数据与隐私](../DATA_PRIVACY.md)
+关联：[SRS](../SRS.md)、[需求追踪](../REQUIREMENTS_TRACEABILITY.md)、[数据与隐私](../DATA_PRIVACY.md)
 
 ## 变更
 

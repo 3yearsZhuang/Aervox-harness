@@ -1,14 +1,23 @@
+---
+id: CR-014
+type: reference
+scope: change
+owner: maintainers
+doc_status: review-candidate
+decision_status: proposed
+delivery_status: implemented
+version: 0.1.0
+updated_at: 2026-08-28
+reviewed_at: 2026-08-28
+review_interval_days: 90
+---
+
 # CR-014 WebUI 语音输出配置（设置 + 人格语音；目录选择）
 
 - 提出人：3yearszhuang · 2026-08-28
 - 修改人：3yearszhuang · 2026-08-28
 
-> 文档编号：CR-014
-> 类型：Reference
-> 版本：v0.4
-> 更新日期：2026-08-28
-> 状态：Review Candidate
-> 关联：[需求追踪基线](../REQUIREMENTS_TRACEABILITY.md)、[Persona 重构与独立 Voice 模块](../changes/CR-004-persona-sqlite-persistence.md)、[ADR-003](../adr/ADR-003-postgres-retrieval.md)
+关联：[需求追踪基线](../REQUIREMENTS_TRACEABILITY.md)、[Persona 重构与独立 Voice 模块](../changes/CR-004-persona-sqlite-persistence.md)、[ADR-003](../adr/ADR-003-postgres-retrieval.md)
 
 - 状态：Implemented（待发布评审）
 - 提出人 / 日期：3yearszhuang / 2026-08-28

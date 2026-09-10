@@ -1,9 +1,21 @@
+---
+id: CR-003
+type: reference
+scope: change
+owner: maintainers
+doc_status: review-candidate
+decision_status: accepted
+delivery_status: implemented
+version: 0.1.0
+updated_at: 2026-08-31
+reviewed_at: 2026-08-31
+review_interval_days: 90
+---
+
 # CR-003 采用 SQLite 作为当前开发阶段业务真源（保留 PostgreSQL 兼容）
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-31
-
-> 更新日期：2026-08-31
 
 - 状态：Accepted
 - 提出人 / 日期：KashiwagiEri233 / 2026-08-24

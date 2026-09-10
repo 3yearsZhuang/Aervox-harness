@@ -1,14 +1,23 @@
+---
+id: CR-005
+type: reference
+scope: change
+owner: maintainers
+doc_status: review-candidate
+decision_status: more-evidence-required
+delivery_status: implemented
+version: 0.1.0
+updated_at: 2026-08-25
+reviewed_at: 2026-08-25
+review_interval_days: 90
+---
+
 # CR-005 共享工作台与 Web 无桌宠表现层
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-26
 
-> 文档编号：CR-005
-> 类型：Reference
-> 版本：v0.1
-> 更新日期：2026-08-25
-> 状态：Review Candidate
-> 关联：[Web 工作台实现规划](../../explanation/web-implementation.md)、[架构设计](../ARCHITECTURE.md)、[ADR-015](../adr/ADR-015-vue-full-stack.md)
+关联：[Web 工作台实现规划](../../explanation/web-implementation.md)、[架构设计](../ARCHITECTURE.md)、[ADR-015](../adr/ADR-015-vue-full-stack.md)
 
 - 状态：More Evidence Required
 - 提出人 / 日期：Codex / 2026-08-25
