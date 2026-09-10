@@ -14,7 +14,7 @@ review_interval_days: 90
 # ADR-011 日记周期、计划修订与连续窗口
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：codex · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-11
 
 - 状态：Accepted（经 CR-030 修订数据归属字段）
 - 日期：2026-08-24

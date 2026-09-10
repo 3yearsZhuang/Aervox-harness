@@ -16,7 +16,7 @@ review_interval_days: 90
 # CR-003 采用 SQLite 作为当前开发阶段业务真源（保留 PostgreSQL 兼容）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：codex · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-11
 
 - 状态：Superseded by [CR-030](CR-030-pure-local-sqlite-database.md)
 - 提出人 / 日期：KashiwagiEri233 / 2026-08-24

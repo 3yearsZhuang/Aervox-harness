@@ -20,7 +20,7 @@ sources:
 # 操作指南（How-to Guides）索引
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：codex · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-11
 
 关联：[文档索引](../README.md) · [从哪开始](../getting-started.md) · [文档治理规范](../reference/document-governance.md)
 

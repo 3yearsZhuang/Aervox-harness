@@ -19,7 +19,7 @@ sources:
 # Aervox｜思隅 主动智能模式与外部信号需求规格（SRS 附录）
 
 - 提出人：3yearszhuang · 2026-08-29
-- 修改人：codex · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-11
 
 产品事实源：[PRD.md](PRD.md) · [能力验收标准附录](prd-cap-acceptance.md)
 
