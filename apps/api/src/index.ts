@@ -6,8 +6,11 @@
  */
 import { buildApp } from "./app.js";
 import { loadApiConfig } from "@aervox/config";
+import { assertSafeApiListenHost, loadAuthConfig } from "./shared/auth.js";
 
 const { app } = await buildApp();
 // 缺陷 E：集中类型化配置（PORT 启动期校验）
-const port = loadApiConfig().port;
-await app.listen({ port, host: "0.0.0.0" });
+const config = loadApiConfig();
+const auth = loadAuthConfig();
+assertSafeApiListenHost(config.host, auth.mode);
+await app.listen({ port: config.port, host: config.host });

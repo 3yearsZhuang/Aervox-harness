@@ -15,6 +15,7 @@ describe("loadApiConfig（缺陷 E）", () => {
   it("缺省值：port 3000 / loopProvider llm / compaction off / 白名单空 / voice 默认", () => {
     const cfg = loadApiConfig({});
     expect(cfg.port).toBe(3000);
+    expect(cfg.host).toBe("127.0.0.1");
     expect(cfg.loopProvider).toBe("llm");
     expect(cfg.loopDriver).toBe("native");
     expect(cfg.loopCompaction).toBe("off");
@@ -27,6 +28,7 @@ describe("loadApiConfig（缺陷 E）", () => {
   it("合法覆盖：PORT / LOOP_PROVIDER / COMPACTION / ADMIN_IDS / 语音 provider", () => {
     const cfg = loadApiConfig({
       PORT: "8080",
+      AERVOX_API_HOST: "127.0.0.2",
       AERVOX_LOOP_PROVIDER: "scripted",
       AERVOX_LOOP_DRIVER: "dsh",
       AERVOX_LOOP_COMPACTION: "rule",
@@ -39,6 +41,7 @@ describe("loadApiConfig（缺陷 E）", () => {
       WHISPER_MODEL_ID: "whisper-large",
     });
     expect(cfg.port).toBe(8080);
+    expect(cfg.host).toBe("127.0.0.2");
     expect(cfg.loopProvider).toBe("scripted");
     expect(cfg.loopDriver).toBe("dsh");
     expect(cfg.loopCompaction).toBe("rule");

@@ -22,6 +22,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { resolveTenant, setRequestTenant } from "./tenant.js";
 import type { TenantContext } from "@aervox/repositories";
+import { isIP } from "node:net";
 
 export type AuthMode = "open" | "token";
 
@@ -49,6 +50,15 @@ export function loadAuthConfig(env: NodeJS.ProcessEnv = process.env): AuthConfig
     subjectUserId: env.AERVOX_AUTH_USER?.trim() || undefined,
     actorId: env.AERVOX_AUTH_ACTOR?.trim() || undefined,
   };
+}
+
+export function assertSafeApiListenHost(host: string, mode: AuthMode): void {
+  const normalized = host.trim().toLowerCase().replace(/^\[|\]$/g, "");
+  const loopback = normalized === "localhost" || normalized === "ip6-localhost" ||
+    (isIP(normalized) === 4 && normalized.startsWith("127.")) || normalized === "::1";
+  if (!loopback && mode === "open") {
+    throw new Error("open authentication cannot listen on a non-loopback API host");
+  }
 }
 
 /**
