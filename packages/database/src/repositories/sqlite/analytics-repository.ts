@@ -50,12 +50,7 @@ export class SqliteAnalyticsRepository implements IAnalyticsRepository {
     const rows = await this.db
       .select()
       .from(analyticsEvents)
-      .where(
-        and(
-          
-          eq(analyticsEvents.analyticsSubjectId, analyticsSubjectId),
-        ),
-      )
+      .where(eq(analyticsEvents.analyticsSubjectId, analyticsSubjectId))
       .orderBy(desc(analyticsEvents.occurredAt))
       .limit(limit);
     return rows as AnalyticsEventModel[];

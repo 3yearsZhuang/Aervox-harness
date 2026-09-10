@@ -24,7 +24,7 @@ export const pendingUserQuestions = sqliteTable(
     createdAt: text("created_at").notNull(),
   },
   (table) => ({
-    tenantExpiresIdx: index("pending_user_questions_tenant_expires_idx").on(
+    tenantExpiresIdx: index("pending_user_questions_expires_idx").on(
       table.expiresAt,
     ),
   }),

@@ -110,7 +110,7 @@ export class SqliteMemoryEmbeddingRepository implements IMemoryEmbeddingReposito
       .from(memoryEmbeddings)
       .where(
         and(
-          
+
           modelId !== undefined ? eq(memoryEmbeddings.modelId, modelId) : undefined,
         ),
       );
@@ -129,11 +129,7 @@ export class SqliteMemoryEmbeddingRepository implements IMemoryEmbeddingReposito
 
     await this.db
       .delete(memoryEmbeddings)
-      .where(
-        and(
-          eq(memoryEmbeddings.memoryId, memoryId),
-        ),
-      );
+      .where(eq(memoryEmbeddings.memoryId, memoryId));
   }
 
   async clearTenant(_tenant?: TenantContext): Promise<void> {

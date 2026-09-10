@@ -139,6 +139,25 @@ describe('FocusModePlugin (and StudyMode compatibility)', () => {
     expect(registry.getSlotComponents('header:actions')).toHaveLength(0);
   });
 
+  it('does not re-run a plugin setup when setup has no cleanup return value', async () => {
+    const registry = createUIRegistry();
+    const context = { layout: {} } as any;
+    let setupCount = 0;
+    const plugin = {
+      id: 'void-cleanup-plugin',
+      setup() {
+        setupCount += 1;
+      },
+    };
+    const runtime = createWorkbenchPluginRuntime(registry, () => context, [plugin]);
+
+    await runtime.sync([{ id: plugin.id, enabled: 1 }], async () => null);
+    await runtime.sync([{ id: plugin.id, enabled: 1 }], async () => null);
+
+    expect(setupCount).toBe(1);
+    runtime.destroy();
+  });
+
   it('prevents concurrent config sync race condition from overwriting disabled state', async () => {
     const registry = createUIRegistry();
     const focusModeEnabled = { value: false };

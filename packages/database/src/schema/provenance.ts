@@ -28,7 +28,7 @@ export const sourceArtifacts = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantKindIdx: index("source_artifacts_tenant_kind_idx").on(
+    tenantKindIdx: index("source_artifacts_kind_idx").on(
       table.kind,
     ),
   }),

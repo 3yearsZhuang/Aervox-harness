@@ -5,7 +5,7 @@
 
 > 文档编号：AVX-DB-001  
 > 类型：Reference  
-> 版本：v1.0（CR-030 确立 SQLite 永久纯本地真源并移除多租户）
+> 版本：v1.1（CR-030 落地加固：业务唯一键索引迁移与 PostgreSQL/多租户描述彻底清理）
 > 更新日期：2026-09-10
 > 状态：Approved  
 > 关联：`CR-030`、`CR-003`、`CR-023`、`ADR-003`、`ADR-004`、`ADR-007`、`ADR-011`、`ADR-012`、`ADR-013`、`AVX-SPC-001`、`AVX-PRD-001`、`NFR-SCALE-001`、`NFR-SEC-001`
@@ -26,7 +26,8 @@
 | v0.8 | 2026-08-29 | CAP-033 主动智能模式数据面新增授权修订、来源 grant、激活租约、原始捕获、画像声明、动作和本地审计表；补七天提炼清理、local-only 边界和导出/撤权契约 |
 | v0.9 | 2026-08-29 | CR-024 新增十二项主动智能派生、Home Assistant 连接/实体和小米健康每日样本共 17 张本地表；补凭据加密、白名单、同步、导出与连接级删除 |
 | v0.10 | 2026-08-29 | CAP-020 MCP 预设接入：新增系统级 `mcp_servers` 连接配置表（transport/endpoint/本地 Token 不回显/同步状态）与 `IMcpServerRepository`；同步出的远程工具以 `mcp__<serverId>__<toolName>` 命名落 `tool_registrations`（PET-05 分级），预设首项为麦当劳中国官方 MCP（mcd-mcp，Streamable HTTP） |
-| v1.0 | 2026-09-10 | CR-030 架构精简：确立 SQLite 为永久纯本地真源，废弃 PostgreSQL 支持，全表移除 `(workspace_id, subject_user_id)` 租户列，仓储层移除 `TenantContext` 约束与应用层 RLS |
+| v1.0 | 2026-09-09 | CR-030 架构精简：确立 SQLite 为永久纯本地真源，废弃 PostgreSQL 支持，全表移除 `(workspace_id, subject_user_id)` 租户列，仓储层移除 `TenantContext` 约束与应用层 RLS |
+| v1.1 | 2026-09-10 | CR-030 落地缺陷闭环：显式数据去重与全局业务唯一索引迁移、清理遗留 PostgreSQL RLS 与租户 ERD 描述、确立主库纯本地 SQLite 硬约束 |
 
 ---
 
@@ -65,13 +66,13 @@
 
 - **共享真源文件**：所有进程（API、Worker、未来端侧）默认使用同一文件 `<repo>/data/aervox.db`。路径由 `packages/database/src/client.ts` 的 `createDatabase` 经 `import.meta.url` 定位仓库根后计算，源码与编译产物（`dist`）均解析到同一位置，避免各包各自落库导致数据不互通。
 - **自动建目录**：`createDatabase` 在 `createClient`（libsql 构造时即打开文件）之前自动 `fs.mkdirSync(data/, { recursive: true })`，首次启动无需手工创建。
-- **覆盖优先级**：`config.url` > `DATABASE_URL` 环境变量 > 默认共享路径。临时隔离/测试仍可显式传 `url` 或设 `DATABASE_URL`。
+- **覆盖优先级**：`config.url` > `DATABASE_URL` 环境变量 > 默认共享路径；三者都只接受本地 SQLite 文件路径或 `:memory:`，远程 LibSQL/HTTP URL 会在连接前拒绝。临时隔离/测试仍可显式传 `url`。
 - **多进程并发**：SQLite WAL 模式（`PRAGMA journal_mode=WAL; synchronous=NORMAL; busy_timeout`）支持 API / Worker 多进程同时读写同一文件；写事务由 SQLite 串行化 + 仓储层 lease/fencing（§9）兜底。
 - **初始化幂等**：`initDatabaseSchema` 使用 `CREATE TABLE IF NOT EXISTS`，多进程重复初始化安全。
 
 ### 2.2 CAP-033 本地私密数据面
 
-CAP-033 的 `proactive_*` 表是当前 SQLite 数据面中的独立逻辑域。它们可以与业务库共享 SQLite 进程，但必须由本地 Host 选择本地文件/连接、禁止远程 `DATABASE_URL`、禁止普通 Outbox/分析同步，并在每条记录上保留租户、授权修订和 `processing_boundary`。若部署无法证明本地边界，CAP-033 必须保持挂起。
+CAP-033 的 `proactive_*` 表是当前 SQLite 数据面中的独立逻辑域。它们可以与业务库共享 SQLite 进程，但必须由本地 Host 选择本地文件/连接、禁止远程 `DATABASE_URL`、禁止普通 Outbox/分析同步，并在每条记录上保留授权修订和 `processing_boundary`。若部署无法证明本地边界，CAP-033 必须保持挂起。
 
 当前分支已补 CAP-033 的 8 张控制/捕获表，以及 CR-024 的 17 张主动派生与连接表；已接入授权/lease、动作运行时、部分来源、Worker 提炼、十二项派生、Home Assistant 实体目录、小米健康每日指标、本地画像上下文、连接/来源级删除和导出。剩余签名 Provider 证明、未接入平台来源、生产 HA/OAuth 兼容矩阵和双引擎迁移仍属待实现。生产控制面另要求 owner-only `proactive-access.token`（私密目录 `0600`）、字面 loopback 连接和禁止 redirect；令牌与外部连接凭据不得进入日志或导出。
 
@@ -79,15 +80,13 @@ CAP-033 的 `proactive_*` 表是当前 SQLite 数据面中的独立逻辑域。�
 
 ## 3. SQLite 数据库模型图（当前开发阶段 · LibSQL）
 
-4 个业务域 · 13 张表 · FTS5 全文检索 · WAL 模式 · 租户隔离 (workspace_id, subject_user_id)。
+4 个业务域 · 13 张表 · FTS5 全文检索 · WAL 模式 · 单用户本地数据。
 
 ```mermaid
 erDiagram
     %% ============ ① 会话域 Conversations ============
     sessions {
         TEXT id PK "主键"
-        TEXT workspace_id "租户隔离"
-        TEXT subject_user_id "租户隔离"
         TEXT title "会话标题"
         TEXT created_at "ISO8601 UTC"
         TEXT updated_at "ISO8601 UTC"
@@ -96,9 +95,7 @@ erDiagram
     turns {
         TEXT id PK "主键"
         TEXT session_id FK "→ sessions.id (CASCADE)"
-        TEXT workspace_id "租户隔离"
-        TEXT subject_user_id "租户隔离"
-        TEXT idempotency_key "租户内唯一"
+        TEXT idempotency_key "全局唯一"
         TEXT status "Created/Streaming/Done/Error"
         INTEGER last_sequence "最后事件序号"
         TEXT error "JSON 错误体"
@@ -109,8 +106,6 @@ erDiagram
     message_versions {
         TEXT id PK "主键"
         TEXT turn_id FK "→ turns.id (CASCADE)"
-        TEXT workspace_id ""
-        TEXT subject_user_id ""
         TEXT role "user/assistant/system"
         INTEGER version "同一 turn 内递增"
         TEXT content "消息内容"
@@ -121,9 +116,7 @@ erDiagram
     turn_stream_events {
         TEXT id PK "主键"
         TEXT turn_id FK "→ turns.id (CASCADE)"
-        TEXT workspace_id ""
-        TEXT subject_user_id ""
-        INTEGER sequence "租户内 turn 有序"
+        INTEGER sequence "turn 内有序"
         TEXT event_type "message/delta/done/error/redacted"
         INTEGER payload_version "默认 1"
         TEXT data "JSON 载荷"
@@ -133,8 +126,6 @@ erDiagram
     %% ============ ② 记忆域 Memory ============
     memory_records {
         TEXT id PK "主键"
-        TEXT workspace_id ""
-        TEXT subject_user_id ""
         TEXT layer "四层: ephemeral/short_term/long_term/system"
         TEXT type "user_fact / user_preference / learning_event / inference"
         TEXT content "记忆正文"
@@ -148,8 +139,6 @@ erDiagram
 
     memory_edges {
         TEXT id PK "主键"
-        TEXT workspace_id ""
-        TEXT subject_user_id ""
         TEXT source_id FK "→ memory_records.id (CASCADE)"
         TEXT target_id FK "→ memory_records.id (CASCADE)"
         TEXT relation_type "parent_child / cross_topic / causal / contrast"
@@ -158,8 +147,6 @@ erDiagram
 
     memory_projection_overrides {
         TEXT id PK "主键"
-        TEXT workspace_id ""
-        TEXT subject_user_id ""
         TEXT memory_record_id FK "→ memory_records.id (CASCADE)"
         TEXT override_type "rename / reparent / lock"
         TEXT custom_title "用户自定义标题"
@@ -172,8 +159,6 @@ erDiagram
     %% ============ ③ 日记域 Diary ============
     diaries {
         TEXT id PK "主键"
-        TEXT workspace_id ""
-        TEXT subject_user_id ""
         TEXT local_date "YYYY-MM-DD 日期标签"
         INTEGER auto_generated "1=自动 / 0=手动，条件唯一索引"
         TEXT title ""
@@ -185,8 +170,6 @@ erDiagram
 
     diary_cycles {
         TEXT id PK "主键"
-        TEXT workspace_id ""
-        TEXT subject_user_id ""
         TEXT schedule_epoch_id "来自 schedule_revisions"
         TEXT local_date "归属日期"
         TEXT previous_cutoff_at "前一窗口截止 (ISO)"
@@ -201,8 +184,6 @@ erDiagram
 
     diary_schedule_revisions {
         TEXT id PK "主键"
-        TEXT workspace_id ""
-        TEXT subject_user_id ""
         INTEGER revision "修订号递增"
         INTEGER enabled "0/1"
         TEXT cron_time "Cron 表达式"
@@ -225,10 +206,8 @@ erDiagram
     %% ============ ④ Outbox + 派生索引 ============
     outbox_events {
         TEXT id PK "主键"
-        TEXT workspace_id ""
-        TEXT subject_user_id ""
         TEXT control_event_id "关联 RecoveryControlLedger"
-        TEXT idempotency_key "租户内唯一"
+        TEXT idempotency_key "全局唯一"
         TEXT event_type ""
         TEXT payload "JSON 事件载荷"
         TEXT status "pending/published/failed/dead_letter"
@@ -241,22 +220,16 @@ erDiagram
     %% 派生 FTS5 虚表（可重建，非真源）
     messages_fts {
         TEXT id UNINDEXED "FK → message_versions.id"
-        TEXT workspace_id UNINDEXED
-        TEXT subject_user_id UNINDEXED
         TEXT content "分词内容"
     }
     memories_fts {
         TEXT id UNINDEXED "FK → memory_records.id"
-        TEXT workspace_id UNINDEXED
-        TEXT subject_user_id UNINDEXED
         TEXT content "分词内容"
     }
 
     %% ============ ⑤ Persona / Skills / MCP / 上下文快照（CAP-019/020）============
     personas {
         TEXT id PK "主键"
-        TEXT workspace_id ""
-        TEXT subject_user_id ""
         TEXT name "人格名"
         TEXT description ""
         TEXT source "builtin / user_created / imported"
@@ -277,8 +250,6 @@ erDiagram
 
     persona_selections {
         TEXT id PK "主键"
-        TEXT workspace_id ""
-        TEXT subject_user_id "每租户一行 UNIQUE"
         TEXT persona_id FK "→ personas.id (CASCADE)"
         TEXT revision_id "→ persona_revisions.id"
         TEXT selected_at ""
@@ -288,9 +259,7 @@ erDiagram
 
     workspace_skills {
         TEXT id PK "主键"
-        TEXT workspace_id ""
-        TEXT subject_user_id ""
-        TEXT name "Skill 名（租户内唯一）"
+        TEXT name "Skill 名（全局唯一）"
         TEXT description ""
         TEXT license ""
         TEXT compatibility ""
@@ -311,10 +280,8 @@ erDiagram
 
     mcp_tools {
         TEXT id PK "主键 {serverId}:{toolName}"
-        TEXT workspace_id ""
-        TEXT subject_user_id ""
         TEXT server_id ""
-        TEXT name "serverId+name 租户内唯一"
+        TEXT name "serverId+name 全局唯一"
         TEXT description ""
         TEXT input_schema "JSON"
         TEXT scopes "JSON"
@@ -345,9 +312,7 @@ erDiagram
 
     persona_turn_contexts {
         TEXT id PK "主键"
-        TEXT workspace_id ""
-        TEXT subject_user_id ""
-        TEXT turn_id "turnId 租户内唯一"
+        TEXT turn_id "turnId 全局唯一"
         TEXT persona_id ""
         TEXT revision_id ""
         TEXT revision_checksum ""
@@ -361,8 +326,6 @@ erDiagram
     %% ============ ⑥ CAP-033 主动智能模式本地画像 ==========
     proactive_profile_revisions {
         TEXT id PK "版本化全量画像授权"
-        TEXT workspace_id "租户隔离"
-        TEXT subject_user_id "租户隔离"
         TEXT profile_version "full_profile_v1"
         INTEGER revision "修订号"
         TEXT device_id "设备绑定"
@@ -377,8 +340,6 @@ erDiagram
     proactive_source_grants {
         TEXT id PK "来源授权"
         TEXT revision_id FK "→ proactive_profile_revisions.id"
-        TEXT workspace_id "租户隔离"
-        TEXT subject_user_id "租户隔离"
         TEXT source_key "来源键"
         TEXT purpose "用途"
         TEXT scope "范围"
@@ -508,17 +469,20 @@ erDiagram
 
 | 表 | 索引名称 | 构成 | 类型 | 安全作用 |
 |---|---|---|---|---|
-| sessions | `sessions_tenant_idx` | `(workspace_id, subject_user_id)` | 普通 | 租户列表查询加速 |
-| turns | `turns_tenant_idempotency_idx` | `(workspace_id, subject_user_id, idempotency_key)` | UNIQUE | 幂等重放底线 |
+| turns | `turns_idempotency_idx` | `(idempotency_key)` | UNIQUE | 本地幂等重放底线 |
 | turns | `turns_session_idx` | `(session_id)` | 普通 | 会话内 Turn 列表 |
 | message_versions | `message_versions_turn_ver_idx` | `(turn_id, version)` | UNIQUE | 版本递增、避免跳号 |
-| message_versions | `message_versions_tenant_idx` | `(workspace_id, subject_user_id)` | 普通 | 租户消息搜索 |
 | turn_stream_events | `turn_stream_events_turn_seq_idx` | `(turn_id, sequence)` | UNIQUE | 持久化顺序、SSE 重放高水位 |
-| diaries | `diaries_auto_unique_idx` | `(ws, user, local_date) WHERE auto_generated = 1` | 条件 UNIQUE | 同一天只允许 1 份自动日记 |
-| diary_cycles | `diary_cycles_tenant_idx` | `(ws, user, cutoff_at)` | 普通 | 周期窗口查询 |
-| memory_records | `memory_records_tenant_layer_idx` | `(ws, user, layer, is_deleted)` | 普通 | 记忆分层检索 |
-| outbox_events | `outbox_tenant_idempotency_idx` | `(ws, user, idempotency_key)` | UNIQUE | Outbox 幂等底线 |
+| diaries | `diaries_auto_unique_idx` | `(local_date) WHERE auto_generated = 1` | 条件 UNIQUE | 同一天只允许 1 份自动日记 |
+| diary_cycles | `diary_cycles_cutoff_idx` | `(cutoff_at)` | 普通 | 周期窗口查询 |
+| memory_records | `memory_records_layer_idx` | `(layer, is_deleted)` | 普通 | 记忆分层检索 |
+| outbox_events | `outbox_idempotency_idx` | `(idempotency_key)` | UNIQUE | Outbox 幂等底线 |
 | outbox_events | `outbox_status_idx` | `(status, created_at)` | 普通 | 待发布/死信扫描 |
+| learning_goals | `learning_goals_idempotency_idx` | `(idempotency_key)` | UNIQUE | 学习目标幂等底线 |
+| question_attempts | `question_attempts_question_idempotency_idx` | `(question_id, idempotency_key)` | UNIQUE | 答题尝试幂等约束 |
+| scheduled_jobs | `scheduled_jobs_idempotency_idx` | `(idempotency_key)` | UNIQUE | 定时任务幂等底线 |
+| deletion_requests | `deletion_requests_idempotency_idx` | `(idempotency_key)` | UNIQUE | 删除请求幂等底线 |
+| agent_inbox_items | `agent_inbox_idempotency_idx` | `(idempotency_key)` | UNIQUE | 收件箱入队幂等底线 |
 
 ### 3.3 SQLite 特有实现约束
 
@@ -530,7 +494,9 @@ erDiagram
 
 ---
 
-## 4. PostgreSQL 生产数据库模型图（17+ · 含用户注册 + RLS）
+## 4. PostgreSQL 生产数据库模型图（17+ · 含用户注册 + RLS · 早期历史设计归档）
+
+> **CR-030 架构决议说明**：根据 CR-030 纯本地架构约束，Aervox 现阶段确立 SQLite/libsql 为纯本地唯一真源，取消远程 PostgreSQL/RLS 双引擎演进路线。以下 PostgreSQL 生产模型图及多租户 RLS 设计作为早期历史规划归档保留，不作为当前实现的验收基准。
 
 5 个域 · 用户注册上线 · RLS 行级安全 · pgvector 向量 · 同构业务表 · 组织级 workspace。
 
@@ -884,7 +850,9 @@ flowchart TB
 
 ---
 
-## 6. 字段兼容性矩阵（SQLite → PostgreSQL 自然升级）
+## 6. 字段兼容性矩阵（SQLite → PostgreSQL 自然升级 · 历史参考）
+
+> **CR-030 说明**：本矩阵记录早期 SQLite 到 PostgreSQL 的类型映射与演进评估。在 CR-030 落地后，系统定位于纯本地单租户 SQLite 真源，下表中提及的 `tenant 列` 及远程 PostgreSQL 映射已废弃，仅作历史兼容性参考。
 
 | 维度 | SQLite 当前 | PostgreSQL 生产 | 兼容性分级 | 验证要点 |
 |---|---|---|---|---|
@@ -912,7 +880,7 @@ flowchart TB
 
 ## 7. Repository / Vector Search Port 接口签名契约
 
-严禁破坏性变更；新增参数必须带默认值，新增方法必须与旧方法共存至少一个阶段。签名定义见 [packages/database/src/repositories/types.ts](../../packages/database/src/repositories/types.ts)：
+当前本地实现仍保留已废弃的 `TenantContext` 兼容首参，但该参数不再参与 SQL 过滤；新调用方不应依赖其隔离语义。签名定义见 [packages/database/src/repositories/types.ts](../../packages/database/src/repositories/types.ts)：
 
 | Port 接口 | 关键方法 | 不变量 |
 |---|---|---|
@@ -932,7 +900,7 @@ flowchart TB
 | `content`（消息/记忆/日记全文） | `message_versions` / `memory_records` / `diaries` | 支持 `is_redacted` / `is_deleted`；删除时同步清 FTS + Vector Port；Outbox 事件发 redacted 而非原文 | `TC-PRIV-DEL-001` 删除后搜索/向量/API 零召回 |
 | `password_hash` / `salt` | `user_credentials`（PG 新域） | bcrypt；独立表；RLS 禁止应用层 `SELECT credentials.*`；只读审计账号无 SELECT 权限 | RLS + 权限审计脚本 |
 | `email` / `user_profiles` PII | `users` / `user_profiles`（PG 新域） | RLS 按 `user_id` 隔离；`status=deactivated` 触发删除账本（RecoveryControlLedger），保留最小元数据 | 合规：GDPR 删除请求 → 删除账本 + 审计导出 |
-| `(workspace_id, subject_user_id)` | 所有表 | 仓储层 `assertTenantContext` 强注入 + SQLite 唯一/外键兜底 + PG RLS 双保险 | `TC-SEC-TENANT-001` 租户越权 0 通过 |
+| 本地文件权限 | 所有 SQLite 业务表 | 数据物理驻留本地文件；`TenantContext` 仅为过渡兼容参数，不提供隔离能力 | 本地文件权限与敏感数据边界测试 |
 | CAP-033 原始捕获/画像/动作正文 | `proactive_captures` / `proactive_observations` / `proactive_profile_claims` / `proactive_actions` | `processing_boundary=local_only`、静态加密、grant/revision 外键；捕获按七天且完成记忆提炼后清理；动作绑定 `FullProfileActionGrant`、目标和租约；来源级删除会 scrub 捕获、删除观察/画像并撤销匹配动作 | `TC-SEC-PRO-LOCAL-001`、`TC-PRIV-PRO-RETENTION-001`、`TC-SEC-PRO-ACTION-001`、`apps/api/test/proactive.test.ts` |
 
 ---

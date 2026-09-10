@@ -1,14 +1,16 @@
 # `packages/database` 拆分规划（W-19）
 
 - 提出人：3yearszhuang · 2026-09-09
-- 修改人：3yearszhuang · 2026-09-09
+- 修改人：linge · 2026-09-10
 
 > 文档编号：AVX-EXPL-009
 > 类型：Explanation
-> 版本：v0.4
-> 更新日期：2026-09-09
-> 状态：Review Candidate
-> 关联：[文档索引](../README.md)、[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md)、[ADR-014 演进式模块化单体](../reference/adr/ADR-014-modular-monolith-structure.md)
+> 版本：v0.5
+> 更新日期：2026-09-10
+> 状态：Superseded
+> 关联：[文档索引](../README.md)、[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md)、[ADR-014 演进式模块化单体](../reference/adr/ADR-014-modular-monolith-structure.md)、[CR-030 纯本地 SQLite 数据库架构决议](../reference/changes/CR-030-pure-local-sqlite-database.md)
+>
+> **状态说明（Superseded · 2026-09-10）**：根据 CR-030 架构决议与最新实践，Aervox 现阶段确立 SQLite 为纯本地唯一真源，取消将 `packages/database` 拆分为 `@aervox/schema` 与 `@aervox/repositories` 两个独立包的计划；数据层统一合并并保留在 `@aervox/database` 中进行模块化组织与索引加固。本文仅作为 W-19 早期评估方案归档保留。
 
 本文是 REFACTOR-PLAN 中 W-19（`packages/database` 拆分）的规划产物，回答"这个 23,813 行的持久层包该怎么拆、按什么顺序拆、有哪些前置调研"。它只做拆分方案设计与落点梳理，**不包含代码改动**；实际拆分另起 `feat/` 分支分阶段推进，每一阶段独立 PR、独立可回滚。
 

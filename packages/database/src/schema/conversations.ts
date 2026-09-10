@@ -38,7 +38,7 @@ export const turns = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdempotencyIdx: uniqueIndex("turns_tenant_idempotency_idx").on(
+    tenantIdempotencyIdx: uniqueIndex("turns_idempotency_idx").on(
       table.idempotencyKey,
     ),
     sessionIdx: index("turns_session_idx").on(table.sessionId),

@@ -92,7 +92,7 @@ export class SqliteAgentInboxRepository implements IAgentInboxRepository {
     const limit = input.limit ?? 20;
     const now = new Date().toISOString();
     const where = and(
-      
+
       eq(agentInboxItems.sessionId, input.sessionId),
       eq(agentInboxItems.consumeBoundary, input.type),
       eq(agentInboxItems.status, "pending"),
@@ -154,12 +154,7 @@ export class SqliteAgentInboxRepository implements IAgentInboxRepository {
     const [row] = await this.db
       .select()
       .from(agentInboxItems)
-      .where(
-        and(
-          
-          eq(agentInboxItems.idempotencyKey, key),
-        ),
-      )
+      .where(eq(agentInboxItems.idempotencyKey, key))
       .limit(1);
     return row ? toModel(row) : null;
   }

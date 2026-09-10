@@ -57,12 +57,12 @@ export const proactiveProfileRevisions = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantVersionRevisionIdx: uniqueIndex("proactive_profile_tenant_version_revision_idx").on(
+    tenantVersionRevisionIdx: uniqueIndex("proactive_profile_version_revision_idx").on(
       table.profileVersion,
       table.deviceId,
       table.revision,
     ),
-    tenantDeviceIdx: index("proactive_profile_tenant_device_idx").on(
+    tenantDeviceIdx: index("proactive_profile_device_idx").on(
       table.deviceId,
       table.status,
     ),
@@ -98,10 +98,10 @@ export const proactiveSourceGrants = sqliteTable(
       table.sourceKey,
       table.purpose,
     ),
-    tenantStateIdx: index("proactive_source_tenant_state_idx").on(
+    tenantStateIdx: index("proactive_source_state_idx").on(
       table.state,
     ),
-    tenantSourceIdx: index("proactive_source_tenant_source_idx").on(
+    tenantSourceIdx: index("proactive_source_key_idx").on(
       table.sourceKey,
     ),
   }),
@@ -129,11 +129,11 @@ export const proactiveActivationLeases = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantDeviceEpochIdx: uniqueIndex("proactive_activation_tenant_device_epoch_idx").on(
+    tenantDeviceEpochIdx: uniqueIndex("proactive_activation_device_epoch_idx").on(
       table.deviceId,
       table.epoch,
     ),
-    tenantActiveIdx: index("proactive_activation_tenant_active_idx").on(
+    tenantActiveIdx: index("proactive_activation_active_idx").on(
       table.deviceId,
       table.status,
     ),
@@ -171,10 +171,10 @@ export const proactiveCaptures = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantObservedIdx: index("proactive_capture_tenant_observed_idx").on(
+    tenantObservedIdx: index("proactive_capture_observed_idx").on(
       table.observedAt,
     ),
-    tenantRetentionIdx: index("proactive_capture_tenant_retention_idx").on(
+    tenantRetentionIdx: index("proactive_capture_retention_idx").on(
       table.retentionUntil,
       table.distillationStatus,
     ),
@@ -205,7 +205,7 @@ export const proactiveObservations = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantObservedIdx: index("proactive_observation_tenant_observed_idx").on(
+    tenantObservedIdx: index("proactive_observation_observed_idx").on(
       table.observedAt,
     ),
     revisionIdx: index("proactive_observation_revision_idx").on(table.revisionId),
@@ -238,10 +238,10 @@ export const proactiveProfileClaims = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantStateIdx: index("proactive_claim_tenant_state_idx").on(
+    tenantStateIdx: index("proactive_claim_state_idx").on(
       table.state,
     ),
-    tenantTypeIdx: index("proactive_claim_tenant_type_idx").on(
+    tenantTypeIdx: index("proactive_claim_type_idx").on(
       table.claimType,
     ),
     revisionIdx: index("proactive_claim_revision_idx").on(table.revisionId),
@@ -277,10 +277,10 @@ export const proactiveActions = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantStateIdx: index("proactive_action_tenant_state_idx").on(
+    tenantStateIdx: index("proactive_action_state_idx").on(
       table.state,
     ),
-    tenantCreatedIdx: index("proactive_action_tenant_created_idx").on(
+    tenantCreatedIdx: index("proactive_action_created_idx").on(
       table.createdAt,
     ),
     revisionIdx: index("proactive_action_revision_idx").on(table.revisionId),
@@ -303,7 +303,7 @@ export const proactiveAuditEvents = sqliteTable(
     createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
   },
   (table) => ({
-    tenantOccurredIdx: index("proactive_audit_tenant_occurred_idx").on(
+    tenantOccurredIdx: index("proactive_audit_occurred_idx").on(
       table.occurredAt,
     ),
     resourceIdx: index("proactive_audit_resource_idx").on(table.resourceType, table.resourceId),

@@ -56,11 +56,7 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
     const [found] = await this.db
       .select()
       .from(sourceArtifacts)
-      .where(
-        and(
-          eq(sourceArtifacts.id, id),
-        ),
-      );
+      .where(eq(sourceArtifacts.id, id));
     return (found as SourceArtifactModel) ?? null;
   }
 
@@ -96,11 +92,7 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
     const [updated] = await this.db
       .update(sourceArtifacts)
       .set({ currentRevisionId: revisionId, updatedAt: now })
-      .where(
-        and(
-          eq(sourceArtifacts.id, artifactId),
-        ),
-      )
+      .where(eq(sourceArtifacts.id, artifactId))
       .returning();
     return (updated as SourceArtifactModel) ?? null;
   }
@@ -121,11 +113,7 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
     const [memory] = await this.db
       .select()
       .from(memoryRecords)
-      .where(
-        and(
-          eq(memoryRecords.id, revisionData.memoryId),
-        ),
-      );
+      .where(eq(memoryRecords.id, revisionData.memoryId));
     if (!memory) throw new NotFoundInTenantError(`Memory ${revisionData.memoryId} not found in tenant`);
     const [created] = await this.db
       .insert(memoryRevisions)
@@ -152,11 +140,7 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
     const [updated] = await this.db
       .update(memoryRecords)
       .set({ currentRevisionId: revisionId, updatedAt: now })
-      .where(
-        and(
-          eq(memoryRecords.id, memoryId),
-        ),
-      )
+      .where(eq(memoryRecords.id, memoryId))
       .returning();
     return !!updated;
   }
@@ -167,11 +151,7 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
       .select({ rev: memoryRevisions })
       .from(memoryRevisions)
       .innerJoin(memoryRecords, eq(memoryRevisions.memoryId, memoryRecords.id))
-      .where(
-        and(
-          eq(memoryRevisions.memoryId, memoryId),
-        ),
-      )
+      .where(eq(memoryRevisions.memoryId, memoryId))
       .orderBy(memoryRevisions.createdAt);
     return rows.map((r) => r.rev) as MemoryRevisionModel[];
   }
@@ -218,11 +198,7 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
     const [memory] = await this.db
       .select()
       .from(memoryRecords)
-      .where(
-        and(
-          eq(memoryRecords.id, eventData.memoryId),
-        ),
-      );
+      .where(eq(memoryRecords.id, eventData.memoryId));
     if (!memory) throw new NotFoundInTenantError(`Memory ${eventData.memoryId} not found in tenant`);
     const [created] = await this.db
       .insert(memoryEvents)
@@ -246,11 +222,7 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
       .select({ ev: memoryEvents })
       .from(memoryEvents)
       .innerJoin(memoryRecords, eq(memoryEvents.memoryId, memoryRecords.id))
-      .where(
-        and(
-          eq(memoryEvents.memoryId, memoryId),
-        ),
-      )
+      .where(eq(memoryEvents.memoryId, memoryId))
       .orderBy(desc(memoryEvents.createdAt));
     return rows.map((r) => r.ev) as MemoryEventModel[];
   }

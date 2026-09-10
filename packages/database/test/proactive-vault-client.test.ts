@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   assertLocalSqliteUrl,
+  createDatabase,
   createProactiveVaultDatabase,
   resolveProactiveVaultUrl,
 } from "../src/client.js";
@@ -38,6 +39,12 @@ describe("CAP-033 proactive vault connection boundary", () => {
     delete process.env.AERVOX_PROACTIVE_VAULT_URL;
     expect(resolveProactiveVaultUrl()).toContain("proactive-vault.db");
     expect(resolveProactiveVaultUrl()).not.toContain("example.turso.io");
+  });
+
+  it("rejects a remote main database URL in pure-local mode", async () => {
+    await expect(
+      createDatabase({ url: "https://example.invalid/aervox.db" }),
+    ).rejects.toThrow("requires a local SQLite file URL");
   });
 
   it("rejects a remote proactive vault before opening a connection", async () => {

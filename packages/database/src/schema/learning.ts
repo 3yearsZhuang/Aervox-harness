@@ -20,7 +20,7 @@ export const learningGoals = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdempotencyIdx: uniqueIndex("learning_goals_tenant_idempotency_idx")
+    tenantIdempotencyIdx: uniqueIndex("learning_goals_idempotency_idx")
       .on(table.idempotencyKey)
       .where(sql`${table.idempotencyKey} IS NOT NULL`),
   }),
@@ -72,7 +72,7 @@ export const questionAttempts = sqliteTable(
       table.sessionId,
       table.questionId,
     ),
-    tenantQuestionIdempotencyIdx: uniqueIndex("question_attempts_tenant_question_idempotency_idx")
+    tenantQuestionIdempotencyIdx: uniqueIndex("question_attempts_question_idempotency_idx")
       .on(table.questionId, table.idempotencyKey)
       .where(sql`${table.idempotencyKey} IS NOT NULL`),
   }),
@@ -90,7 +90,7 @@ export const mistakeDispositions = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantQuestionIdx: uniqueIndex("mistake_dispositions_tenant_question_idx").on(
+    tenantQuestionIdx: uniqueIndex("mistake_dispositions_question_idx").on(
       table.questionId,
     ),
   }),
@@ -107,7 +107,7 @@ export const mistakeInsights = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantQuestionIdx: uniqueIndex("mistake_insights_tenant_question_idx").on(
+    tenantQuestionIdx: uniqueIndex("mistake_insights_question_idx").on(
       table.questionId,
     ),
   }),
@@ -161,10 +161,10 @@ export const reviewItems = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantKnowledgeActiveIdx: uniqueIndex("review_items_tenant_knowledge_active_idx")
+    tenantKnowledgeActiveIdx: uniqueIndex("review_items_knowledge_active_idx")
       .on(table.knowledgeId)
       .where(sql`${table.status} = 'active'`),
-    tenantDueIdx: index("review_items_tenant_due_idx").on(
+    tenantDueIdx: index("review_items_due_idx").on(
       table.dueAt,
     ),
   }),
@@ -200,7 +200,7 @@ export const knowledgeRelations = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantFromIdx: index("knowledge_relations_tenant_from_idx").on(
+    tenantFromIdx: index("knowledge_relations_from_idx").on(
       table.fromKnowledgeId,
     ),
     correctionIdx: index("knowledge_relations_correction_idx").on(table.correctionStatus),

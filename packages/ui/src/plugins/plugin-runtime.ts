@@ -38,6 +38,7 @@ export function createWorkbenchPluginRuntime(
   customPlugins: BuiltinUIPlugin[] = defaultBuiltinPlugins,
 ): WorkbenchPluginRuntime {
 
+  const activePlugins = new Set<string>();
   const activeCleanups = new Map<string, () => void>();
   const availablePlugins = ref<Record<string, boolean>>({});
   let currentSyncSeq = 0;
@@ -46,6 +47,7 @@ export function createWorkbenchPluginRuntime(
   for (const plugin of customPlugins) {
     try {
       const unregister = plugin.setup(registry, getContext());
+      activePlugins.add(plugin.id);
       if (typeof unregister === 'function') {
         activeCleanups.set(plugin.id, unregister);
       }
@@ -74,6 +76,7 @@ export function createWorkbenchPluginRuntime(
 
       if (!isEnabled) {
         // 插件停用：注销其注册的所有插槽及拦截器
+        activePlugins.delete(def.id);
         const cleanup = activeCleanups.get(def.id);
         if (cleanup) {
           try {
@@ -91,9 +94,10 @@ export function createWorkbenchPluginRuntime(
         }
       } else {
         // 插件启用：若此前未激活或已被注销，则重新激活
-        if (!activeCleanups.has(def.id)) {
+        if (!activePlugins.has(def.id)) {
           try {
             const unregister = def.setup(registry, context);
+            activePlugins.add(def.id);
             if (typeof unregister === 'function') {
               activeCleanups.set(def.id, unregister);
             }
@@ -141,6 +145,7 @@ export function createWorkbenchPluginRuntime(
       }
     }
     activeCleanups.clear();
+    activePlugins.clear();
   }
 
   return {

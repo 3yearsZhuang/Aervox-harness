@@ -50,11 +50,7 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
     const [updated] = await this.db
       .update(consentGrants)
       .set({ revokedAt: revokedAt ?? new Date().toISOString() })
-      .where(
-        and(
-          eq(consentGrants.id, id),
-        ),
-      )
+      .where(eq(consentGrants.id, id))
       .returning();
     return (updated as ConsentGrantModel) ?? null;
   }
@@ -66,7 +62,7 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
       .from(consentGrants)
       .where(
         and(
-          
+
           eq(consentGrants.purpose, purpose),
           eq(consentGrants.scope, scope),
           sql`${consentGrants.revokedAt} IS NULL`,
@@ -81,12 +77,7 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
     const rows = await this.db
       .select({ id: deletionRequests.id })
       .from(deletionRequests)
-      .where(
-        and(
-          
-          inArray(deletionRequests.status, ["pending", "in_progress"]),
-        ),
-      )
+      .where(inArray(deletionRequests.status, ["pending", "in_progress"]))
       .limit(1);
     return rows.length > 0;
   }
@@ -126,11 +117,7 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
     const [found] = await this.db
       .select()
       .from(deletionRequests)
-      .where(
-        and(
-          eq(deletionRequests.id, id),
-        ),
-      );
+      .where(eq(deletionRequests.id, id));
     return (found as DeletionRequestModel) ?? null;
   }
 
@@ -149,11 +136,7 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
     const [updated] = await this.db
       .update(deletionRequests)
       .set(updateData)
-      .where(
-        and(
-          eq(deletionRequests.id, id),
-        ),
-      )
+      .where(eq(deletionRequests.id, id))
       .returning();
     return (updated as DeletionRequestModel) ?? null;
   }

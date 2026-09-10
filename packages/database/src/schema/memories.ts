@@ -41,7 +41,7 @@ export const memoryRecords = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantLayerIdx: index("memory_records_tenant_layer_idx").on(
+    tenantLayerIdx: index("memory_records_layer_idx").on(
       table.layer,
       table.isDeleted,
     ),
@@ -85,7 +85,7 @@ export const memoryEdges = sqliteTable(
     createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
   },
   (table) => ({
-    tenantFromIdx: index("memory_edges_tenant_from_idx").on(
+    tenantFromIdx: index("memory_edges_from_idx").on(
       table.fromNodeId,
     ),
   }),

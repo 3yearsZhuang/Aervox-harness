@@ -34,12 +34,7 @@ export class SqlitePersonaRepository implements IPersonaRepository {
     const rows = await this.db
       .select()
       .from(personas)
-      .where(
-        and(
-          
-          eq(personas.status, "active"),
-        ),
-      )
+      .where(eq(personas.status, "active"))
       .orderBy(ascPersonaName());
     return rows as PersonaModel[];
   }
@@ -49,11 +44,7 @@ export class SqlitePersonaRepository implements IPersonaRepository {
     const [row] = await this.db
       .select()
       .from(personas)
-      .where(
-        and(
-          eq(personas.id, personaId),
-        ),
-      );
+      .where(eq(personas.id, personaId));
     return (row as PersonaModel) ?? null;
   }
 
@@ -187,11 +178,7 @@ export class SqlitePersonaRepository implements IPersonaRepository {
           currentRevisionId: revisionId,
           updatedAt: now,
         })
-        .where(
-          and(
-            eq(personas.id, data.personaId),
-          ),
-        )
+        .where(eq(personas.id, data.personaId))
         .returning();
       return { persona: persona as PersonaModel, revision: revision as PersonaRevisionModel };
     });
@@ -203,22 +190,13 @@ export class SqlitePersonaRepository implements IPersonaRepository {
     const [updated] = await this.db
       .update(personas)
       .set({ status: "archived", updatedAt: now })
-      .where(
-        and(
-          eq(personas.id, personaId),
-        ),
-      )
+      .where(eq(personas.id, personaId))
       .returning();
     if (!updated) return false;
     // 归档当前激活选择
     await this.db
       .delete(personaSelections)
-      .where(
-        and(
-          
-          eq(personaSelections.personaId, personaId),
-        ),
-      );
+      .where(eq(personaSelections.personaId, personaId));
     return true;
   }
 
@@ -285,11 +263,7 @@ export class SqlitePersonaRepository implements IPersonaRepository {
     const [row] = await this.db
       .select()
       .from(personaSelections)
-      .where(
-        and(
-          
-        ),
-      );
+      ;
     return (row as ActivePersonaSelectionModel) ?? null;
   }
 
@@ -335,11 +309,7 @@ export class SqlitePersonaRepository implements IPersonaRepository {
     const [row] = await this.db
       .select()
       .from(personaTurnContexts)
-      .where(
-        and(
-          eq(personaTurnContexts.turnId, turnId),
-        ),
-      );
+      .where(eq(personaTurnContexts.turnId, turnId));
     return (row as PersonaTurnContextModel) ?? null;
   }
 
@@ -361,11 +331,7 @@ export class SqlitePersonaRepository implements IPersonaRepository {
         reviewedAt: now,
         updatedAt: now,
       })
-      .where(
-        and(
-          eq(personas.id, personaId),
-        ),
-      )
+      .where(eq(personas.id, personaId))
       .returning();
     return (updated as PersonaModel) ?? null;
   }
@@ -385,11 +351,7 @@ export class SqlitePersonaRepository implements IPersonaRepository {
         currentRevisionId: revisionId,
         updatedAt: now,
       })
-      .where(
-        and(
-          eq(personas.id, personaId),
-        ),
-      )
+      .where(eq(personas.id, personaId))
       .returning();
     if (!updated) return null;
     return { persona: updated as PersonaModel, revision };
@@ -431,7 +393,7 @@ export class SqlitePersonaRepository implements IPersonaRepository {
   ): Promise<PersonaSwitchLogModel[]> {
 
     const conditions = [
-      
+
     ];
     if (personaId) {
       conditions.push(eq(personaSwitchLogs.personaId, personaId));
@@ -450,12 +412,7 @@ export class SqlitePersonaRepository implements IPersonaRepository {
     const [row] = await this.db
       .select()
       .from(personaMemoryScopes)
-      .where(
-        and(
-          
-          eq(personaMemoryScopes.personaId, personaId),
-        ),
-      );
+      .where(eq(personaMemoryScopes.personaId, personaId));
     return (row as PersonaMemoryScopeModel) ?? null;
   }
 

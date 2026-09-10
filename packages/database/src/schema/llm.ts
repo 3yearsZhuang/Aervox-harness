@@ -39,6 +39,6 @@ export const llmConfigs = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantActiveIdx: uniqueIndex("llm_configs_tenant_active_idx").on(table.isActive).where(sql`${table.isActive} = 1`),
+    tenantActiveIdx: uniqueIndex("llm_configs_active_idx").on(table.isActive).where(sql`${table.isActive} = 1`),
   }),
 );

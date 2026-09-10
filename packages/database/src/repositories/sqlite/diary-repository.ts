@@ -66,11 +66,7 @@ export class SqliteDiaryRepository implements IDiaryRepository {
     const [found] = await this.db
       .select()
       .from(diaryCycles)
-      .where(
-        and(
-          eq(diaryCycles.id, cycleId),
-        ),
-      );
+      .where(eq(diaryCycles.id, cycleId));
     return (found as DiaryCycleModel) ?? null;
   }
 
@@ -211,12 +207,7 @@ export class SqliteDiaryRepository implements IDiaryRepository {
     const [found] = await this.db
       .select()
       .from(diaries)
-      .where(
-        and(
-          
-          eq(diaries.localDate, localDate),
-        ),
-      );
+      .where(eq(diaries.localDate, localDate));
     return (found as DiaryModel) ?? null;
   }
 
@@ -225,12 +216,7 @@ export class SqliteDiaryRepository implements IDiaryRepository {
     const rows = await this.db
       .select()
       .from(diaries)
-      .where(
-        and(
-          
-        ),
-      )
-      .orderBy(diaries.localDate)
+            .orderBy(diaries.localDate)
       .limit(Math.max(1, Math.min(100, limit)));
     return rows as DiaryModel[];
   }
@@ -281,11 +267,7 @@ export class SqliteDiaryRepository implements IDiaryRepository {
     const [found] = await this.db
       .select()
       .from(diarySchedules)
-      .where(
-        and(
-          eq(diarySchedules.id, id),
-        ),
-      );
+      .where(eq(diarySchedules.id, id));
     return (found as DiaryScheduleModel) ?? null;
   }
 
@@ -296,7 +278,7 @@ export class SqliteDiaryRepository implements IDiaryRepository {
       .from(diarySchedules)
       .where(
         and(
-          
+
           eq(diarySchedules.enabled, 1),
           eq(diarySchedules.cutoffRule, "daily"),
         ),
@@ -320,11 +302,7 @@ export class SqliteDiaryRepository implements IDiaryRepository {
     const [diary] = await this.db
       .select()
       .from(diaries)
-      .where(
-        and(
-          eq(diaries.id, versionData.diaryId),
-        ),
-      );
+      .where(eq(diaries.id, versionData.diaryId));
     if (!diary) throw new Error(`Diary ${versionData.diaryId} not found in tenant`);
     const [created] = await this.db
       .insert(diaryVersions)
@@ -353,11 +331,7 @@ export class SqliteDiaryRepository implements IDiaryRepository {
     const [existing] = await this.db
       .select()
       .from(diaries)
-      .where(
-        and(
-          eq(diaries.id, diaryId),
-        ),
-      );
+      .where(eq(diaries.id, diaryId));
     if (!existing) throw new Error(`Diary ${diaryId} not found in tenant`);
     const now = new Date().toISOString();
     const [updated] = await this.db

@@ -102,12 +102,7 @@ export class SqliteLearningRepository implements ILearningRepository {
     const [existing] = await this.db
       .select()
       .from(learningGoals)
-      .where(
-        and(
-          
-          eq(learningGoals.idempotencyKey, goalData.idempotencyKey),
-        ),
-      );
+      .where(eq(learningGoals.idempotencyKey, goalData.idempotencyKey));
     if (!existing) throw new Error("learning goal idempotency conflict without a stored goal");
     return { goal: existing as LearningGoalModel, created: false };
   }
@@ -117,11 +112,7 @@ export class SqliteLearningRepository implements ILearningRepository {
     const [found] = await this.db
       .select()
       .from(learningGoals)
-      .where(
-        and(
-          eq(learningGoals.id, id),
-        ),
-      );
+      .where(eq(learningGoals.id, id));
     return (found as LearningGoalModel) ?? null;
   }
 
@@ -133,10 +124,10 @@ export class SqliteLearningRepository implements ILearningRepository {
       .where(
         includeArchived
           ? and(
-              
+
             )
           : and(
-              
+
               ne(learningGoals.status, "archived"),
             ),
       )
@@ -153,11 +144,7 @@ export class SqliteLearningRepository implements ILearningRepository {
     const [updated] = await this.db
       .update(learningGoals)
       .set({ ...goalData, updatedAt: new Date().toISOString() })
-      .where(
-        and(
-          eq(learningGoals.id, id),
-        ),
-      )
+      .where(eq(learningGoals.id, id))
       .returning();
     return (updated as LearningGoalModel) ?? null;
   }
@@ -196,11 +183,7 @@ export class SqliteLearningRepository implements ILearningRepository {
     const [found] = await this.db
       .select()
       .from(questions)
-      .where(
-        and(
-          eq(questions.id, id),
-        ),
-      );
+      .where(eq(questions.id, id));
     return (found as QuestionModel) ?? null;
   }
 
@@ -209,12 +192,7 @@ export class SqliteLearningRepository implements ILearningRepository {
     const rows = await this.db
       .select()
       .from(questions)
-      .where(
-        and(
-          
-          eq(questions.status, "active"),
-        ),
-      )
+      .where(eq(questions.status, "active"))
       .orderBy(questions.createdAt)
       .limit(limit);
     return rows as QuestionModel[];
@@ -246,11 +224,7 @@ export class SqliteLearningRepository implements ILearningRepository {
     const [session] = await this.db
       .select()
       .from(practiceSessions)
-      .where(
-        and(
-          eq(practiceSessions.id, sessionId),
-        ),
-      );
+      .where(eq(practiceSessions.id, sessionId));
     return (session as PracticeSessionModel) ?? null;
   }
 
@@ -259,12 +233,7 @@ export class SqliteLearningRepository implements ILearningRepository {
     const [session] = await this.db
       .select()
       .from(practiceSessions)
-      .where(
-        and(
-          
-          eq(practiceSessions.status, "active"),
-        ),
-      )
+      .where(eq(practiceSessions.status, "active"))
       .orderBy(desc(practiceSessions.startedAt))
       .limit(1);
     return (session as PracticeSessionModel) ?? null;
@@ -327,11 +296,7 @@ export class SqliteLearningRepository implements ILearningRepository {
     const rows = await this.db
       .select()
       .from(questionAttempts)
-      .where(
-        and(
-          eq(questionAttempts.questionId, questionId),
-        ),
-      )
+      .where(eq(questionAttempts.questionId, questionId))
       .orderBy(questionAttempts.createdAt);
     return rows as QuestionAttemptModel[];
   }
@@ -341,11 +306,7 @@ export class SqliteLearningRepository implements ILearningRepository {
     const rows = await this.db
       .select()
       .from(questionAttempts)
-      .where(
-        and(
-          eq(questionAttempts.sessionId, sessionId),
-        ),
-      )
+      .where(eq(questionAttempts.sessionId, sessionId))
       .orderBy(questionAttempts.createdAt);
     return rows as QuestionAttemptModel[];
   }
@@ -372,12 +333,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       .leftJoin(knowledgeItems, eq(questions.knowledgeId, knowledgeItems.id))
       .leftJoin(mistakeDispositions, and(eq(mistakeDispositions.questionId, questions.id)))
       .leftJoin(mistakeInsights, and(eq(mistakeInsights.questionId, questions.id)))
-      .where(
-        and(
-          
-          eq(questionAttempts.judgement, "incorrect"),
-        ),
-      )
+      .where(eq(questionAttempts.judgement, "incorrect"))
       .orderBy(desc(questionAttempts.createdAt));
 
     const grouped = new Map<string, MistakeItemModel>();
@@ -432,10 +388,7 @@ export class SqliteLearningRepository implements ILearningRepository {
 
   async clearMistakeInsight(tenant: TenantContext, questionId: string): Promise<void> {
 
-    await this.db.delete(mistakeInsights).where(and(
-      
-      eq(mistakeInsights.questionId, questionId),
-    ));
+    await this.db.delete(mistakeInsights).where(eq(mistakeInsights.questionId, questionId));
   }
 
   async getAttemptByIdempotencyKey(
@@ -449,7 +402,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       .from(questionAttempts)
       .where(
         and(
-          
+
           eq(questionAttempts.questionId, questionId),
           eq(questionAttempts.idempotencyKey, idempotencyKey),
         ),
@@ -479,7 +432,7 @@ export class SqliteLearningRepository implements ILearningRepository {
         .from(questionAttempts)
         .where(
           and(
-            
+
             eq(questionAttempts.questionId, attemptData.questionId),
             eq(questionAttempts.idempotencyKey, attemptData.idempotencyKey),
           ),
@@ -556,11 +509,7 @@ export class SqliteLearningRepository implements ILearningRepository {
     const [found] = await this.db
       .select()
       .from(knowledgeItems)
-      .where(
-        and(
-          eq(knowledgeItems.id, id),
-        ),
-      );
+      .where(eq(knowledgeItems.id, id));
     return (found as KnowledgeItemModel) ?? null;
   }
 
@@ -577,11 +526,7 @@ export class SqliteLearningRepository implements ILearningRepository {
     const [updated] = await this.db
       .update(knowledgeItems)
       .set(updateData)
-      .where(
-        and(
-          eq(knowledgeItems.id, id),
-        ),
-      )
+      .where(eq(knowledgeItems.id, id))
       .returning();
     return (updated as KnowledgeItemModel) ?? null;
   }
@@ -602,11 +547,7 @@ export class SqliteLearningRepository implements ILearningRepository {
     const [updated] = await this.db
       .update(knowledgeItems)
       .set({ ...state, updatedAt: new Date().toISOString() })
-      .where(
-        and(
-          eq(knowledgeItems.id, id),
-        ),
-      )
+      .where(eq(knowledgeItems.id, id))
       .returning();
     return (updated as KnowledgeItemModel) ?? null;
   }
@@ -652,7 +593,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       })
       .where(
         and(
-          
+
           eq(reviewItems.knowledgeId, itemData.knowledgeId),
           eq(reviewItems.status, "active"),
         ),
@@ -667,11 +608,7 @@ export class SqliteLearningRepository implements ILearningRepository {
     const [found] = await this.db
       .select()
       .from(reviewItems)
-      .where(
-        and(
-          eq(reviewItems.id, id),
-        ),
-      );
+      .where(eq(reviewItems.id, id));
     return (found as ReviewItemModel) ?? null;
   }
 
@@ -680,12 +617,7 @@ export class SqliteLearningRepository implements ILearningRepository {
     const rows = await this.db
       .select()
       .from(reviewItems)
-      .where(
-        and(
-          
-          eq(reviewItems.status, "completed"),
-        ),
-      )
+      .where(eq(reviewItems.status, "completed"))
       .orderBy(desc(reviewItems.updatedAt))
       .limit(limit);
     return rows as ReviewItemModel[];
@@ -727,11 +659,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       const [knowledge] = await tx
         .update(knowledgeItems)
         .set({ ...data.practiceState, updatedAt: now })
-        .where(
-          and(
-            eq(knowledgeItems.id, data.knowledgeId),
-          ),
-        )
+        .where(eq(knowledgeItems.id, data.knowledgeId))
         .returning();
       if (!knowledge) throw new Error("review completion references a missing knowledge item");
 
@@ -765,7 +693,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       .from(reviewItems)
       .where(
         and(
-          
+
           eq(reviewItems.status, "active"),
           lte(reviewItems.dueAt, before),
         ),
@@ -780,11 +708,7 @@ export class SqliteLearningRepository implements ILearningRepository {
     const [updated] = await this.db
       .update(reviewItems)
       .set({ status: "completed", updatedAt: now })
-      .where(
-        and(
-          eq(reviewItems.id, id),
-        ),
-      )
+      .where(eq(reviewItems.id, id))
       .returning();
     return (updated as ReviewItemModel) ?? null;
   }
@@ -828,7 +752,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       .from(knowledgeRelations)
       .where(
         and(
-          
+
           isNull(knowledgeRelations.deletedAt),
           // 出边或入边都算关联
           or(
@@ -955,7 +879,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       .from(knowledgeRelations)
       .where(
         and(
-          
+
           eq(knowledgeRelations.correctionStatus, "active"),
           isNull(knowledgeRelations.deletedAt),
           or(
@@ -1014,11 +938,7 @@ export class SqliteLearningRepository implements ILearningRepository {
     const [found] = await this.db
       .select()
       .from(practiceReports)
-      .where(
-        and(
-          eq(practiceReports.id, reportId),
-        ),
-      )
+      .where(eq(practiceReports.id, reportId))
       .limit(1);
     return (found as PracticeReportModel) ?? null;
   }
@@ -1028,11 +948,7 @@ export class SqliteLearningRepository implements ILearningRepository {
     const rows = await this.db
       .select()
       .from(practiceReports)
-      .where(
-        and(
-          eq(practiceReports.sessionId, sessionId),
-        ),
-      )
+      .where(eq(practiceReports.sessionId, sessionId))
       .orderBy(desc(practiceReports.createdAt));
     return rows as PracticeReportModel[];
   }
@@ -1149,11 +1065,7 @@ export class SqliteLearningRepository implements ILearningRepository {
     const [plan] = await this.db
       .select()
       .from(learningPlans)
-      .where(
-        and(
-          eq(learningPlans.id, planId),
-        ),
-      )
+      .where(eq(learningPlans.id, planId))
       .limit(1);
     if (!plan) return null;
     const milestones = await this.listPlanMilestones(tenant, [plan.id]);
@@ -1172,7 +1084,7 @@ export class SqliteLearningRepository implements ILearningRepository {
         includeArchived
           ? and()
           : and(
-              
+
               eq(learningPlans.status, "active"),
             ),
       )
@@ -1196,11 +1108,7 @@ export class SqliteLearningRepository implements ILearningRepository {
     const [task] = await this.db
       .select()
       .from(planTasks)
-      .where(
-        and(
-          eq(planTasks.id, taskId),
-        ),
-      )
+      .where(eq(planTasks.id, taskId))
       .limit(1);
     if (!task) return null;
     const [milestone] = await this.db
@@ -1220,11 +1128,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       const chain = await tx
         .select()
         .from(planMilestones)
-        .where(
-          and(
-            eq(planMilestones.planId, milestone.planId),
-          ),
-        )
+        .where(eq(planMilestones.planId, milestone.planId))
         .orderBy(asc(planMilestones.order));
       const milestoneIds = chain.map((item) => item.id);
       const taskRows =
@@ -1294,11 +1198,7 @@ export class SqliteLearningRepository implements ILearningRepository {
     const milestoneRows = await this.db
       .select()
       .from(planMilestones)
-      .where(
-        and(
-          inArray(planMilestones.planId, planIds),
-        ),
-      )
+      .where(inArray(planMilestones.planId, planIds))
       .orderBy(asc(planMilestones.order));
     const milestoneIds = milestoneRows.map((row) => row.id);
     const taskRows =
@@ -1306,11 +1206,7 @@ export class SqliteLearningRepository implements ILearningRepository {
         ? await this.db
             .select()
             .from(planTasks)
-            .where(
-              and(
-                inArray(planTasks.milestoneId, milestoneIds),
-              ),
-            )
+            .where(inArray(planTasks.milestoneId, milestoneIds))
             .orderBy(asc(planTasks.order))
         : [];
     return milestoneRows.map(

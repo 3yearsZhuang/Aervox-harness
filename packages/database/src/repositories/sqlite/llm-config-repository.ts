@@ -42,12 +42,7 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
     const tenantRows = await this.db
       .select()
       .from(llmConfigs)
-      .where(
-        and(
-          
-        ),
-      )
-      .orderBy(asc(llmConfigs.createdAt))
+            .orderBy(asc(llmConfigs.createdAt))
       .limit(50);
     if (tenantRows.length === 0) return null;
     const active = tenantRows.find((row) => row.isActive === 1) ?? tenantRows[0]!;
@@ -94,12 +89,7 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
     const rows = await this.db
       .select()
       .from(llmConfigs)
-      .where(
-        and(
-          
-        ),
-      )
-      .orderBy(asc(llmConfigs.createdAt));
+            .orderBy(asc(llmConfigs.createdAt));
     return rows.map(rowToModel);
   }
 
@@ -137,11 +127,7 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
     const [updated] = await this.db
       .update(llmConfigs)
       .set({ ...valuesFor(input), updatedAt: new Date().toISOString() })
-      .where(
-        and(
-          eq(llmConfigs.id, presetId),
-        ),
-      )
+      .where(eq(llmConfigs.id, presetId))
       .returning();
     return updated ? rowToModel(updated!) : null;
   }
@@ -155,21 +141,13 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
       const [target] = await tx
         .select()
         .from(llmConfigs)
-        .where(
-          and(
-            eq(llmConfigs.id, presetId),
-          ),
-        )
+        .where(eq(llmConfigs.id, presetId))
         .limit(1);
       if (!target) return null;
       await tx
         .update(llmConfigs)
         .set({ isActive: 0, updatedAt: new Date().toISOString() })
-        .where(
-          and(
-            
-          ),
-        );
+        ;
       const [activated] = await tx
         .update(llmConfigs)
         .set({ isActive: 1, updatedAt: new Date().toISOString() })
@@ -185,11 +163,7 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
       const [target] = await tx
         .select()
         .from(llmConfigs)
-        .where(
-          and(
-            eq(llmConfigs.id, presetId),
-          ),
-        )
+        .where(eq(llmConfigs.id, presetId))
         .limit(1);
       if (!target) return false;
       const wasActive = target.isActive === 1;
@@ -198,12 +172,7 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
         const [first] = await tx
           .select()
           .from(llmConfigs)
-          .where(
-            and(
-              
-            ),
-          )
-          .orderBy(asc(llmConfigs.createdAt))
+                    .orderBy(asc(llmConfigs.createdAt))
           .limit(1);
         if (first) {
           await tx

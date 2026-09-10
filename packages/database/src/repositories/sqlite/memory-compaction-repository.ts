@@ -75,11 +75,7 @@ export class SqliteMemoryCompactionRepository implements IMemoryCompactionReposi
     const [found] = await this.db
       .select()
       .from(memoryCompactionMarkers)
-      .where(
-        and(
-          eq(memoryCompactionMarkers.snapshotId, snapshotId),
-        ),
-      )
+      .where(eq(memoryCompactionMarkers.snapshotId, snapshotId))
       .limit(1);
     return (found as MemoryCompactionMarkerModel) ?? null;
   }
@@ -92,11 +88,7 @@ export class SqliteMemoryCompactionRepository implements IMemoryCompactionReposi
     const rows = await this.db
       .select()
       .from(memoryCompactionMarkers)
-      .where(
-        and(
-          eq(memoryCompactionMarkers.memoryId, memoryId),
-        ),
-      )
+      .where(eq(memoryCompactionMarkers.memoryId, memoryId))
       .orderBy(memoryCompactionMarkers.createdAt);
     return rows as MemoryCompactionMarkerModel[];
   }

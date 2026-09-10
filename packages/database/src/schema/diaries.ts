@@ -129,7 +129,7 @@ export const diarySchedules = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdx: index("diary_schedules_tenant_idx").on(
+    tenantIdx: index("diary_schedules_enabled_idx").on(
       table.enabled,
     ),
   }),

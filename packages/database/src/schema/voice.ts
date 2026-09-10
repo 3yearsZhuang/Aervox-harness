@@ -36,7 +36,7 @@ export const voiceConfigs = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantActiveIdx: uniqueIndex("voice_configs_tenant_active_idx").on(table.isActive).where(sql`${table.isActive} = 1`),
+    tenantActiveIdx: uniqueIndex("voice_configs_active_idx").on(table.isActive).where(sql`${table.isActive} = 1`),
   }),
 );
 
@@ -70,7 +70,7 @@ export const voiceInputConfigs = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantActiveIdx: uniqueIndex("voice_input_configs_tenant_active_idx").on(table.isActive).where(sql`${table.isActive} = 1`),
+    tenantActiveIdx: uniqueIndex("voice_input_configs_active_idx").on(table.isActive).where(sql`${table.isActive} = 1`),
   }),
 );
 
@@ -112,6 +112,6 @@ export const voiceRemoteConfigs = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantActiveIdx: uniqueIndex("voice_remote_configs_tenant_active_idx").on(table.isActive).where(sql`${table.isActive} = 1`),
+    tenantActiveIdx: uniqueIndex("voice_remote_configs_active_idx").on(table.isActive).where(sql`${table.isActive} = 1`),
   }),
 );

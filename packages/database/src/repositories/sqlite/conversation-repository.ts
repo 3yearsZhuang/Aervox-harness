@@ -62,11 +62,7 @@ export class SqliteConversationRepository implements IConversationRepository {
     const [found] = await this.db
       .select()
       .from(sessions)
-      .where(
-        and(
-          eq(sessions.id, sessionId),
-        ),
-      );
+      .where(eq(sessions.id, sessionId));
     return (found as SessionModel) ?? null;
   }
 
@@ -164,11 +160,7 @@ export class SqliteConversationRepository implements IConversationRepository {
     const [found] = await this.db
       .select()
       .from(turns)
-      .where(
-        and(
-          eq(turns.id, turnId),
-        ),
-      );
+      .where(eq(turns.id, turnId));
     return (found as TurnModel) ?? null;
   }
 
@@ -180,11 +172,7 @@ export class SqliteConversationRepository implements IConversationRepository {
     const [found] = await this.db
       .select()
       .from(turns)
-      .where(
-        and(
-          eq(turns.idempotencyKey, idempotencyKey),
-        ),
-      );
+      .where(eq(turns.idempotencyKey, idempotencyKey));
     return (found as TurnModel) ?? null;
   }
 
@@ -211,11 +199,7 @@ export class SqliteConversationRepository implements IConversationRepository {
     const [updated] = await this.db
       .update(turns)
       .set(updateData)
-      .where(
-        and(
-          eq(turns.id, turnId),
-        ),
-      )
+      .where(eq(turns.id, turnId))
       .returning();
     return (updated as TurnModel) ?? null;
   }
@@ -341,11 +325,7 @@ export class SqliteConversationRepository implements IConversationRepository {
 
     const res = await this.db
       .delete(messageVersions)
-      .where(
-        and(
-          eq(messageVersions.id, messageId),
-        ),
-      )
+      .where(eq(messageVersions.id, messageId))
       .returning();
     return res.length > 0;
   }
@@ -468,11 +448,7 @@ export class SqliteConversationRepository implements IConversationRepository {
     const rows = await this.db
       .select()
       .from(messageVersions)
-      .where(
-        and(
-          eq(messageVersions.messageId, messageId),
-        ),
-      )
+      .where(eq(messageVersions.messageId, messageId))
       .orderBy(desc(messageVersions.version));
     return rows as MessageVersionModel[];
   }
@@ -503,11 +479,7 @@ export class SqliteConversationRepository implements IConversationRepository {
       .select()
       .from(messages)
       .innerJoin(sessions, eq(messages.sessionId, sessions.id))
-      .where(
-        and(
-          eq(messages.id, messageId),
-        ),
-      );
+      .where(eq(messages.id, messageId));
     return (found ? { ...found.messages } : null) as MessageModel | null;
   }
 
@@ -538,11 +510,7 @@ export class SqliteConversationRepository implements IConversationRepository {
       .select({ attempt: turnAttempts })
       .from(turnAttempts)
       .innerJoin(turns, eq(turnAttempts.turnId, turns.id))
-      .where(
-        and(
-          eq(turnAttempts.turnId, turnId),
-        ),
-      )
+      .where(eq(turnAttempts.turnId, turnId))
       .orderBy(desc(turnAttempts.attempt));
     return rows.map((r) => r.attempt) as TurnAttemptModel[];
   }
@@ -1130,11 +1098,7 @@ export class SqliteConversationRepository implements IConversationRepository {
         toolRegistrations,
         or(eq(toolRegistrations.id, toolExecutions.name), eq(toolRegistrations.name, toolExecutions.name)),
       )
-      .where(
-        and(
-          eq(toolExecutions.turnId, turnId),
-        ),
-      )
+      .where(eq(toolExecutions.turnId, turnId))
       .orderBy(desc(toolExecutions.startedAt));
     return rows.map((row) => ({
       ...row.execution,
@@ -1165,7 +1129,7 @@ export class SqliteConversationRepository implements IConversationRepository {
         .from(toolApprovals)
         .where(
           and(
-            
+
             eq(toolApprovals.toolName, input.toolName),
             eq(toolApprovals.argumentsHash, input.argumentsHash),
             eq(toolApprovals.state, "pending"),
@@ -1224,11 +1188,7 @@ export class SqliteConversationRepository implements IConversationRepository {
     const [row] = await this.db
       .select()
       .from(toolApprovals)
-      .where(
-        and(
-          eq(toolApprovals.id, approvalId),
-        ),
-      )
+      .where(eq(toolApprovals.id, approvalId))
       .limit(1);
     return (row as ToolApprovalModel) ?? null;
   }
@@ -1239,11 +1199,7 @@ export class SqliteConversationRepository implements IConversationRepository {
     const rows = await this.db
       .select()
       .from(toolApprovals)
-      .where(
-        and(
-          eq(toolApprovals.turnId, turnId),
-        ),
-      )
+      .where(eq(toolApprovals.turnId, turnId))
       .orderBy(desc(toolApprovals.id));
     return rows as ToolApprovalModel[];
   }
@@ -1268,7 +1224,7 @@ export class SqliteConversationRepository implements IConversationRepository {
       .from(toolApprovals)
       .where(
         and(
-          
+
           eq(toolApprovals.toolName, input.toolName),
           eq(toolApprovals.argumentsHash, input.argumentsHash),
           eq(toolApprovals.state, "granted"),

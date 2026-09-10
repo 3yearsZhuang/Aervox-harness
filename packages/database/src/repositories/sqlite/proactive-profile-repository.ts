@@ -322,11 +322,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     const [existing] = await this.db
       .select()
       .from(proactiveProfileRevisions)
-      .where(
-        and(
-          eq(proactiveProfileRevisions.id, input.id),
-        ),
-      )
+      .where(eq(proactiveProfileRevisions.id, input.id))
       .limit(1);
     if (existing) {
       return {
@@ -341,7 +337,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
         .from(proactiveProfileRevisions)
         .where(
           and(
-            
+
             eq(proactiveProfileRevisions.profileVersion, profileVersion),
             eq(proactiveProfileRevisions.deviceId, input.deviceId),
           ),
@@ -356,7 +352,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
         .set({ status: "superseded", updatedAt: now })
         .where(
           and(
-            
+
             eq(proactiveProfileRevisions.profileVersion, profileVersion),
             eq(proactiveProfileRevisions.deviceId, input.deviceId),
             eq(proactiveProfileRevisions.status, "active"),
@@ -445,7 +441,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
           .set({ revokedAt: now })
           .where(
             and(
-              
+
               eq(consentGrants.purpose, "proactive_profile"),
               eq(consentGrants.scope, source.sourceKey),
               sql`${consentGrants.revokedAt} IS NULL`,
@@ -498,7 +494,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
       .from(proactiveProfileRevisions)
       .where(
         and(
-          
+
           eq(proactiveProfileRevisions.profileVersion, profileVersion),
           eq(proactiveProfileRevisions.deviceId, input.deviceId),
         ),
@@ -541,7 +537,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   async getRevision(tenant: TenantContext, revisionId?: string): Promise<ProactiveProfileRevisionModel | null> {
 
     const conditions = [
-      
+
     ];
     if (revisionId) conditions.push(eq(proactiveProfileRevisions.id, revisionId));
     const [row] = await this.db
@@ -558,12 +554,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     const rows = await this.db
       .select()
       .from(proactiveProfileRevisions)
-      .where(
-        and(
-          
-        ),
-      )
-      .orderBy(desc(proactiveProfileRevisions.revision))
+            .orderBy(desc(proactiveProfileRevisions.revision))
       .limit(clampLimit(limit));
     return rows.map((row) => toRevision(row, this.cipher));
   }
@@ -586,11 +577,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
         revokedAt: state === "revoked" ? now : revision.revokedAt ?? null,
         updatedAt: now,
       })
-      .where(
-        and(
-          eq(proactiveProfileRevisions.id, revision.id),
-        ),
-      )
+      .where(eq(proactiveProfileRevisions.id, revision.id))
       .returning();
     if (!updated) return null;
     if (state === "revoked") {
@@ -599,7 +586,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
         .set({ revokedAt: now })
         .where(
           and(
-            
+
             eq(consentGrants.purpose, "proactive_profile"),
             sql`${consentGrants.revokedAt} IS NULL`,
           ),
@@ -620,7 +607,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   async listSourceGrants(tenant: TenantContext, revisionId?: string): Promise<ProactiveSourceGrantModel[]> {
 
     const conditions = [
-      
+
     ];
     if (revisionId) conditions.push(eq(proactiveSourceGrants.revisionId, revisionId));
     const rows = await this.db
@@ -640,11 +627,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     const [existing] = await this.db
       .select()
       .from(proactiveSourceGrants)
-      .where(
-        and(
-          eq(proactiveSourceGrants.id, sourceGrantId),
-        ),
-      )
+      .where(eq(proactiveSourceGrants.id, sourceGrantId))
       .limit(1);
     if (!existing) return null;
     const now = new Date().toISOString();
@@ -660,11 +643,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
         lastVerifiedAt: input.lastVerifiedAt === undefined ? existing.lastVerifiedAt : input.lastVerifiedAt,
         updatedAt: now,
       })
-      .where(
-        and(
-          eq(proactiveSourceGrants.id, sourceGrantId),
-        ),
-      )
+      .where(eq(proactiveSourceGrants.id, sourceGrantId))
       .returning();
     if (!updated) return null;
     if (input.state === "revoked" || input.state === "expired") {
@@ -673,7 +652,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
         .set({ revokedAt: now })
         .where(
           and(
-            
+
             eq(consentGrants.purpose, "proactive_profile"),
             eq(consentGrants.scope, existing.sourceKey),
             sql`${consentGrants.revokedAt} IS NULL`,
@@ -701,11 +680,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     const [source] = await this.db
       .select()
       .from(proactiveSourceGrants)
-      .where(
-        and(
-          eq(proactiveSourceGrants.id, sourceGrantId),
-        ),
-      )
+      .where(eq(proactiveSourceGrants.id, sourceGrantId))
       .limit(1);
     if (!source) return null;
 
@@ -732,40 +707,24 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
 
       const observations = await tx
         .delete(proactiveObservations)
-        .where(
-          and(
-            eq(proactiveObservations.sourceGrantId, sourceGrantId),
-          ),
-        )
+        .where(eq(proactiveObservations.sourceGrantId, sourceGrantId))
         .returning({ id: proactiveObservations.id });
 
       const claimRows = await tx
         .select({ id: proactiveProfileClaims.id, sourceGrantIdsJson: proactiveProfileClaims.sourceGrantIdsJson })
         .from(proactiveProfileClaims)
-        .where(
-          and(
-            eq(proactiveProfileClaims.revisionId, source.revisionId),
-          ),
-        );
+        .where(eq(proactiveProfileClaims.revisionId, source.revisionId));
       const claimIds = claimRows
         .filter((row) => parseJson<string[]>(row.sourceGrantIdsJson, []).includes(sourceGrantId))
         .map((row) => row.id);
       const claims = claimIds.length > 0
         ? await tx.delete(proactiveProfileClaims)
-          .where(
-            and(
-              inArray(proactiveProfileClaims.id, claimIds),
-            ),
-          )
+          .where(inArray(proactiveProfileClaims.id, claimIds))
           .returning({ id: proactiveProfileClaims.id })
         : [];
 
       const actionRows = source.sourceKey.startsWith("action.")
-        ? await tx.select().from(proactiveActions).where(
-          and(
-            eq(proactiveActions.revisionId, source.revisionId),
-          ),
-        )
+        ? await tx.select().from(proactiveActions).where(eq(proactiveActions.revisionId, source.revisionId))
         : [];
       const matchingActions = actionRows.filter((row) =>
         parseActionScopes(row.authorizationScope).includes(source.sourceKey),
@@ -783,27 +742,19 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
             finishedAt: terminal ? action.finishedAt : now,
             updatedAt: now,
           })
-          .where(
-            and(
-              eq(proactiveActions.id, action.id),
-            ),
-          );
+          .where(eq(proactiveActions.id, action.id));
       }
 
       await tx
         .update(proactiveSourceGrants)
         .set({ state: "revoked", revokedAt: now, updatedAt: now })
-        .where(
-          and(
-            eq(proactiveSourceGrants.id, sourceGrantId),
-          ),
-        );
+        .where(eq(proactiveSourceGrants.id, sourceGrantId));
       await tx
         .update(consentGrants)
         .set({ revokedAt: now })
         .where(
           and(
-            
+
             eq(consentGrants.purpose, "proactive_profile"),
             eq(consentGrants.scope, source.sourceKey),
             sql`${consentGrants.revokedAt} IS NULL`,
@@ -845,7 +796,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
       .set({ status: "ended", endedAt: now, endReason: "superseded", updatedAt: now })
       .where(
         and(
-          
+
           eq(proactiveActivationLeases.deviceId, input.deviceId),
           eq(proactiveActivationLeases.status, "active"),
         ),
@@ -893,11 +844,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     const [existing] = await this.db
       .select()
       .from(proactiveActivationLeases)
-      .where(
-        and(
-          eq(proactiveActivationLeases.id, leaseId),
-        ),
-      )
+      .where(eq(proactiveActivationLeases.id, leaseId))
       .limit(1);
     if (!existing) return null;
     const now = new Date().toISOString();
@@ -960,11 +907,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     const [row] = await this.db
       .select()
       .from(proactiveActivationLeases)
-      .where(
-        and(
-          eq(proactiveActivationLeases.id, leaseId),
-        ),
-      )
+      .where(eq(proactiveActivationLeases.id, leaseId))
       .limit(1);
     return row ? toLease(row) : null;
   }
@@ -1012,7 +955,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
       .from(proactiveCaptures)
       .where(
         and(
-          
+
           lte(proactiveCaptures.retentionUntil, now),
           isNull(proactiveCaptures.deletedAt),
           inArray(proactiveCaptures.distillationStatus, ["pending", "failed", "blocked"]),
@@ -1070,11 +1013,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     const [existingCapture] = await this.db
       .select()
       .from(proactiveCaptures)
-      .where(
-        and(
-          eq(proactiveCaptures.id, input.id),
-        ),
-      )
+      .where(eq(proactiveCaptures.id, input.id))
       .limit(1);
     if (existingCapture) {
       if (
@@ -1163,7 +1102,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   ): Promise<ProactiveCaptureModel[]> {
 
     const conditions = [
-      
+
     ];
     if (options?.revisionId) conditions.push(eq(proactiveCaptures.revisionId, options.revisionId));
     if (options?.sourceKey) conditions.push(eq(proactiveCaptures.sourceKey, options.sourceKey));
@@ -1242,7 +1181,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   ): Promise<ProactiveBehaviorObservationModel[]> {
 
     const conditions = [
-      
+
     ];
     if (options?.revisionId) conditions.push(eq(proactiveObservations.revisionId, options.revisionId));
     if (options?.sourceKey) conditions.push(eq(proactiveObservations.sourceKey, options.sourceKey));
@@ -1473,7 +1412,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   ): Promise<ProactiveProfileClaimModel[]> {
 
     const conditions = [
-      
+
     ];
     if (options?.revisionId) conditions.push(eq(proactiveProfileClaims.revisionId, options.revisionId));
     if (options?.state) conditions.push(eq(proactiveProfileClaims.state, options.state));
@@ -1497,11 +1436,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
         rejectedAt: state === "rejected" ? now : null,
         updatedAt: now,
       })
-      .where(
-        and(
-          eq(proactiveProfileClaims.id, claimId),
-        ),
-      )
+      .where(eq(proactiveProfileClaims.id, claimId))
       .returning();
     if (!updated) return null;
     await this.recordAudit(tenant, {
@@ -1590,7 +1525,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   ): Promise<ProactiveActionModel[]> {
 
     const conditions = [
-      
+
     ];
     if (options?.revisionId) conditions.push(eq(proactiveActions.revisionId, options.revisionId));
     if (options?.state) conditions.push(eq(proactiveActions.state, options.state));
@@ -1612,11 +1547,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     const [existing] = await this.db
       .select()
       .from(proactiveActions)
-      .where(
-        and(
-          eq(proactiveActions.id, actionId),
-        ),
-      )
+      .where(eq(proactiveActions.id, actionId))
       .limit(1);
     if (!existing) return null;
     // 动作状态机约束：approved 只能来自 pending；running/executed 只能从 approved 前进。
@@ -1652,11 +1583,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
           : this.encrypt(input.error, "action", actionId) ?? null,
         updatedAt: now,
       })
-      .where(
-        and(
-          eq(proactiveActions.id, actionId),
-        ),
-      )
+      .where(eq(proactiveActions.id, actionId))
       .returning();
     if (!updated) return null;
     await this.recordAudit(tenant, {
@@ -1702,12 +1629,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     const rows = await this.db
       .select()
       .from(proactiveAuditEvents)
-      .where(
-        and(
-          
-        ),
-      )
-      .orderBy(desc(proactiveAuditEvents.occurredAt))
+            .orderBy(desc(proactiveAuditEvents.occurredAt))
       .limit(clampLimit(limit));
     return rows.map(toAudit);
   }
@@ -1749,12 +1671,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     const rows = await this.db
       .select()
       .from(proactiveActivationLeases)
-      .where(
-        and(
-          
-        ),
-      )
-      .orderBy(desc(proactiveActivationLeases.issuedAt))
+            .orderBy(desc(proactiveActivationLeases.issuedAt))
       .limit(MAX_LIST_LIMIT);
     return rows.map(toLease);
   }
@@ -1763,12 +1680,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     const rows = await this.db
       .select()
       .from(consentGrants)
-      .where(
-        and(
-          
-          eq(consentGrants.purpose, "proactive_profile"),
-        ),
-      )
+      .where(eq(consentGrants.purpose, "proactive_profile"))
       .orderBy(desc(consentGrants.grantedAt))
       .limit(MAX_LIST_LIMIT);
     return rows.map((row) => ({
@@ -1788,12 +1700,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     const rows = await this.db
       .select()
       .from(proactiveCaptures)
-      .where(
-        and(
-          
-        ),
-      )
-      .orderBy(desc(proactiveCaptures.observedAt))
+            .orderBy(desc(proactiveCaptures.observedAt))
       .limit(MAX_LIST_LIMIT);
     return rows.map((row) => toCapture(row, includeRaw, this.cipher));
   }

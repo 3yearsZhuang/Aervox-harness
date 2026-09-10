@@ -29,7 +29,7 @@ export const pluginConfigs = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantPluginIdx: uniqueIndex("plugin_configs_tenant_plugin_idx").on(
+    tenantPluginIdx: uniqueIndex("plugin_configs_plugin_idx").on(
       table.pluginId,
     ),
   }),
@@ -48,7 +48,7 @@ export const pluginConfigSecrets = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantPluginFieldIdx: uniqueIndex("plugin_config_secrets_tenant_plugin_field_idx").on(
+    tenantPluginFieldIdx: uniqueIndex("plugin_config_secrets_plugin_field_idx").on(
       table.pluginId,
       table.fieldKey,
     ),

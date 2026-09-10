@@ -38,11 +38,11 @@ export const agentInboxItems = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantSessionIdx: index("agent_inbox_tenant_session_idx").on(
+    tenantSessionIdx: index("agent_inbox_session_idx").on(
       table.sessionId,
     ),
     statusIdx: index("agent_inbox_status_idx").on(table.status),
-    tenantIdempotencyIdx: uniqueIndex("agent_inbox_tenant_idempotency_idx").on(
+    tenantIdempotencyIdx: uniqueIndex("agent_inbox_idempotency_idx").on(
       table.idempotencyKey,
     ),
   }),

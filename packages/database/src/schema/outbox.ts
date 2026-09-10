@@ -20,7 +20,7 @@ export const outboxEvents = sqliteTable(
     publishedAt: text("published_at"),
   },
   (table) => ({
-    tenantIdempotencyIdx: uniqueIndex("outbox_tenant_idempotency_idx").on(
+    tenantIdempotencyIdx: uniqueIndex("outbox_idempotency_idx").on(
       table.idempotencyKey,
     ),
     statusIdx: index("outbox_status_idx").on(table.status, table.createdAt),

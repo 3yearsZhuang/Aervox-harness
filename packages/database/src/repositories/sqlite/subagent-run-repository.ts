@@ -111,7 +111,7 @@ export class SqliteSubagentRunRepository implements ISubagentRunRepository {
       .from(subagentRuns)
       .where(
         and(
-          
+
           eq(subagentRuns.parentAttemptId, parentAttemptId),
           eq(subagentRuns.parentExecutionId, parentExecutionId),
         ),
@@ -125,12 +125,7 @@ export class SqliteSubagentRunRepository implements ISubagentRunRepository {
     const rows = await this.db
       .select()
       .from(subagentRuns)
-      .where(
-        and(
-          
-          eq(subagentRuns.parentTurnId, parentTurnId),
-        ),
-      )
+      .where(eq(subagentRuns.parentTurnId, parentTurnId))
       .orderBy(subagentRuns.createdAt);
     return rows.map(toModel);
   }

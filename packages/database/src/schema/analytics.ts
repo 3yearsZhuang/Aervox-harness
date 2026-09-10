@@ -19,7 +19,7 @@ export const analyticsEvents = sqliteTable(
     privacyClass: text("privacy_class").notNull().default("normal"), // "public" | "normal" | "sensitive"
   },
   (table) => ({
-    tenantEventIdx: index("analytics_events_tenant_event_idx").on(
+    tenantEventIdx: index("analytics_events_event_idx").on(
       table.eventName,
       table.occurredAt,
     ),

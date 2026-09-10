@@ -76,7 +76,7 @@ export const personaTurnContexts = sqliteTable(
     createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
   },
   (table) => ({
-    tenantTurnIdx: uniqueIndex("persona_turn_contexts_tenant_turn_idx").on(
+    tenantTurnIdx: uniqueIndex("persona_turn_contexts_turn_idx").on(
       table.turnId,
     ),
   }),
@@ -106,7 +106,7 @@ export const personaSwitchLogs = sqliteTable(
     switchedAt: text("switched_at").notNull().$defaultFn(() => new Date().toISOString()),
   },
   (table) => ({
-    tenantPersonaIdx: index("persona_switch_logs_tenant_persona_idx").on(
+    tenantPersonaIdx: index("persona_switch_logs_persona_idx").on(
       table.personaId,
     ),
   }),
@@ -136,7 +136,7 @@ export const personaMemoryScopes = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantPersonaUniqueIdx: uniqueIndex("persona_memory_scopes_tenant_persona_idx").on(
+    tenantPersonaUniqueIdx: uniqueIndex("persona_memory_scopes_persona_idx").on(
       table.personaId,
     ),
   }),

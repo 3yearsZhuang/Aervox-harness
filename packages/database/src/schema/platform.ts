@@ -24,10 +24,10 @@ export const scheduledJobs = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantIdemIdx: uniqueIndex("scheduled_jobs_tenant_idempotency_idx").on(
+    tenantIdemIdx: uniqueIndex("scheduled_jobs_idempotency_idx").on(
       table.idempotencyKey,
     ),
-    tenantRunIdx: index("scheduled_jobs_tenant_run_idx").on(
+    tenantRunIdx: index("scheduled_jobs_run_idx").on(
       table.runAt,
     ),
   }),
@@ -87,7 +87,7 @@ export const modelRuns = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantAttemptIdx: index("model_runs_tenant_attempt_idx").on(
+    tenantAttemptIdx: index("model_runs_attempt_idx").on(
       table.attemptId,
     ),
   }),
@@ -130,7 +130,7 @@ export const auditRecords = sqliteTable(
     createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
   },
   (table) => ({
-    tenantActorIdx: index("audit_records_tenant_actor_idx").on(
+    tenantActorIdx: index("audit_records_actor_idx").on(
       table.actorId,
     ),
     subjectIdx: index("audit_records_subject_idx").on(table.subjectType, table.subjectId),

@@ -22,12 +22,7 @@ export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRe
     const [found] = await this.db
       .select()
       .from(personaPreferences)
-      .where(
-        and(
-          
-        ),
-      )
-      .limit(1);
+            .limit(1);
     if (!found) return null;
     return this.toModel(found);
   }
@@ -102,12 +97,7 @@ export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRe
     const [updated] = await this.db
       .update(personaPreferences)
       .set(setValues)
-      .where(
-        and(
-          
-        ),
-      )
-      .returning();
+            .returning();
 
     if (!updated) {
       // 不存在则 upsert（首次修改即创建）
@@ -132,12 +122,7 @@ export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRe
         skipped: false,
         updatedAt: now,
       })
-      .where(
-        and(
-          
-        ),
-      )
-      .returning();
+            .returning();
 
     if (!updated) {
       return this.save(tenant, {});

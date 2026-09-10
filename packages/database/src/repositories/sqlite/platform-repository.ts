@@ -61,11 +61,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
     const [updated] = await this.db
       .update(scheduledJobs)
       .set({ status: "done", updatedAt: now })
-      .where(
-        and(
-          eq(scheduledJobs.id, id),
-        ),
-      )
+      .where(eq(scheduledJobs.id, id))
       .returning();
     return (updated as ScheduledJobModel) ?? null;
   }
@@ -98,11 +94,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
     const [updated] = await this.db
       .update(notifications)
       .set({ status: "sent", sentAt: now, updatedAt: now })
-      .where(
-        and(
-          eq(notifications.id, id),
-        ),
-      )
+      .where(eq(notifications.id, id))
       .returning();
     return (updated as NotificationModel) ?? null;
   }
@@ -112,12 +104,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
     const rows = await this.db
       .select()
       .from(notifications)
-      .where(
-        and(
-          
-        ),
-      )
-      .orderBy(desc(notifications.createdAt))
+            .orderBy(desc(notifications.createdAt))
       .limit(limit);
     return rows as NotificationModel[];
   }
@@ -201,11 +188,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
     const [updated] = await this.db
       .update(modelRuns)
       .set(updateData)
-      .where(
-        and(
-          eq(modelRuns.id, id),
-        ),
-      )
+      .where(eq(modelRuns.id, id))
       .returning();
     return (updated as ModelRunModel) ?? null;
   }
@@ -220,11 +203,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
     const [updated] = await this.db
       .update(modelRuns)
       .set({ contextManifestId: manifestId, updatedAt: now })
-      .where(
-        and(
-          eq(modelRuns.id, modelRunId),
-        ),
-      )
+      .where(eq(modelRuns.id, modelRunId))
       .returning();
     return (updated as ModelRunModel) ?? null;
   }
@@ -299,12 +278,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
     const rows = await this.db
       .select()
       .from(auditRecords)
-      .where(
-        and(
-          
-        ),
-      )
-      .orderBy(desc(auditRecords.createdAt))
+            .orderBy(desc(auditRecords.createdAt))
       .limit(limit);
     return rows as AuditRecordModel[];
   }

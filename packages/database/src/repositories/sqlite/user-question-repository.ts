@@ -66,11 +66,7 @@ export class SqliteUserQuestionRepository implements IUserQuestionRepository {
     const [row] = await this.db
       .select()
       .from(pendingUserQuestions)
-      .where(
-        and(
-          eq(pendingUserQuestions.turnId, turnId),
-        ),
-      );
+      .where(eq(pendingUserQuestions.turnId, turnId));
     return row ? toModel(row) : null;
   }
 
@@ -78,10 +74,6 @@ export class SqliteUserQuestionRepository implements IUserQuestionRepository {
 
     await this.db
       .delete(pendingUserQuestions)
-      .where(
-        and(
-          eq(pendingUserQuestions.turnId, turnId),
-        ),
-      );
+      .where(eq(pendingUserQuestions.turnId, turnId));
   }
 }

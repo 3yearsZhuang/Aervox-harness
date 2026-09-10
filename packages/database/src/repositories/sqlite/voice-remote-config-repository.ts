@@ -46,12 +46,7 @@ export class SqliteVoiceRemoteConfigRepository implements IVoiceRemoteConfigRepo
     const rows = await this.db
       .select()
       .from(voiceRemoteConfigs)
-      .where(
-        and(
-          
-        ),
-      )
-      .orderBy(asc(voiceRemoteConfigs.createdAt))
+            .orderBy(asc(voiceRemoteConfigs.createdAt))
       .limit(50);
     if (rows.length === 0) return null;
     const active = rows.find((row) => row.isActive === 1) ?? rows[0]!;
@@ -95,12 +90,7 @@ export class SqliteVoiceRemoteConfigRepository implements IVoiceRemoteConfigRepo
     const rows = await this.db
       .select()
       .from(voiceRemoteConfigs)
-      .where(
-        and(
-          
-        ),
-      )
-      .orderBy(asc(voiceRemoteConfigs.createdAt));
+            .orderBy(asc(voiceRemoteConfigs.createdAt));
     return rows.map(rowToModel);
   }
 
@@ -138,11 +128,7 @@ export class SqliteVoiceRemoteConfigRepository implements IVoiceRemoteConfigRepo
     const [updated] = await this.db
       .update(voiceRemoteConfigs)
       .set({ ...valuesFor(input), updatedAt: new Date().toISOString() })
-      .where(
-        and(
-          eq(voiceRemoteConfigs.id, presetId),
-        ),
-      )
+      .where(eq(voiceRemoteConfigs.id, presetId))
       .returning();
     return updated ? rowToModel(updated!) : null;
   }
@@ -156,21 +142,13 @@ export class SqliteVoiceRemoteConfigRepository implements IVoiceRemoteConfigRepo
       const [target] = await tx
         .select()
         .from(voiceRemoteConfigs)
-        .where(
-          and(
-            eq(voiceRemoteConfigs.id, presetId),
-          ),
-        )
+        .where(eq(voiceRemoteConfigs.id, presetId))
         .limit(1);
       if (!target) return null;
       await tx
         .update(voiceRemoteConfigs)
         .set({ isActive: 0, updatedAt: new Date().toISOString() })
-        .where(
-          and(
-            
-          ),
-        );
+        ;
       const [activated] = await tx
         .update(voiceRemoteConfigs)
         .set({ isActive: 1, updatedAt: new Date().toISOString() })
@@ -186,11 +164,7 @@ export class SqliteVoiceRemoteConfigRepository implements IVoiceRemoteConfigRepo
       const [target] = await tx
         .select()
         .from(voiceRemoteConfigs)
-        .where(
-          and(
-            eq(voiceRemoteConfigs.id, presetId),
-          ),
-        )
+        .where(eq(voiceRemoteConfigs.id, presetId))
         .limit(1);
       if (!target) return false;
       const wasActive = target.isActive === 1;
@@ -199,12 +173,7 @@ export class SqliteVoiceRemoteConfigRepository implements IVoiceRemoteConfigRepo
         const [first] = await tx
           .select()
           .from(voiceRemoteConfigs)
-          .where(
-            and(
-              
-            ),
-          )
-          .orderBy(asc(voiceRemoteConfigs.createdAt))
+                    .orderBy(asc(voiceRemoteConfigs.createdAt))
           .limit(1);
         if (first) {
           await tx

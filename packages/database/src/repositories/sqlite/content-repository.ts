@@ -177,11 +177,7 @@ export class SqliteContentRepository implements IContentRepository {
     const [found] = await this.db
       .select()
       .from(attachmentParseResults)
-      .where(
-        and(
-          eq(attachmentParseResults.idempotencyKey, key),
-        ),
-      )
+      .where(eq(attachmentParseResults.idempotencyKey, key))
       .limit(1);
     return (found as AttachmentParseResultModel) ?? null;
   }
@@ -194,11 +190,7 @@ export class SqliteContentRepository implements IContentRepository {
     const rows = await this.db
       .select()
       .from(attachmentParseResults)
-      .where(
-        and(
-          eq(attachmentParseResults.attachmentId, attachmentId),
-        ),
-      )
+      .where(eq(attachmentParseResults.attachmentId, attachmentId))
       .orderBy(desc(attachmentParseResults.createdAt));
     return rows as AttachmentParseResultModel[];
   }
@@ -271,12 +263,7 @@ export class SqliteContentRepository implements IContentRepository {
     const rows = await this.db
       .select()
       .from(embeddingIndexes)
-      .where(
-        and(
-          
-          eq(embeddingIndexes.sourceArtifactId, sourceArtifactId),
-        ),
-      )
+      .where(eq(embeddingIndexes.sourceArtifactId, sourceArtifactId))
       .orderBy(desc(embeddingIndexes.updatedAt));
     return rows as EmbeddingIndexModel[];
   }

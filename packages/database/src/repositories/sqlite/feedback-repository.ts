@@ -47,7 +47,7 @@ export class SqliteFeedbackRepository implements IFeedbackRepository {
   ): Promise<FeedbackModel[]> {
 
     const conditions = [
-      
+
     ];
     if (subjectType && subjectId) {
       conditions.push(eq(feedback.subjectType, subjectType), eq(feedback.subjectId, subjectId));

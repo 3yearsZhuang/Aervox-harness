@@ -39,8 +39,6 @@ const defaultProactiveVaultUrl = `file:${path.join(proactiveApplicationDataDir()
 export interface DatabaseConfig {
   /** SQLite 数据库文件路径或 URL（如 "file:aervox.db"） */
   readonly url?: string;
-  /** 认证 Token（如果连接远程 LibSQL/Turso） */
-  readonly authToken?: string;
   /** 事务忙等待超时（毫秒），默认 5000 */
   readonly busyTimeoutMs?: number;
   /** SQLITE_BUSY 指数退避重试配置（T-01），缺省开启（5 次/50ms 起步） */
@@ -55,34 +53,41 @@ export interface ProactiveVaultDatabaseConfig {
 }
 
 /**
- * CAP-033 主动画像正文与控制面必须留在当前设备。
- * 这里在连接建立前拒绝 http(s)/libsql/ws 等远端 transport，避免主库切换时
- * 主动数据静默跟随 DATABASE_URL 出机。
+ * CR-030：Aervox 确立纯本地单机 SQLite 为唯一数据真源。
+ * 这里在连接建立前拒绝 http(s)/libsql/ws 等远端 transport，杜绝数据跟随 DATABASE_URL 出机。
  */
 export function assertLocalSqliteUrl(url: string): void {
   const trimmed = url.trim();
   const normalized = trimmed.toLowerCase();
   if (normalized.length === 0) {
-    throw new Error("proactive vault URL must not be empty");
+    throw new Error("Aervox database URL must not be empty");
   }
   if (normalized.startsWith("file://")) {
     const hostname = new URL(trimmed).hostname.toLowerCase();
     if (hostname && hostname !== "localhost") {
-      throw new Error("proactive vault requires a local SQLite file URL");
+      throw new Error(
+        "Aervox database requires a local SQLite file URL (remote database URLs and auth tokens are forbidden under CR-030)",
+      );
     }
     return;
   }
   if (normalized.startsWith("file:") || normalized === ":memory:") return;
   if (trimmed.startsWith("\\\\") || trimmed.startsWith("//")) {
-    throw new Error("proactive vault requires a local SQLite file URL");
+    throw new Error(
+      "Aervox database requires a local SQLite file URL (remote database URLs and auth tokens are forbidden under CR-030)",
+    );
   }
   if (/^[a-zA-Z]:[\\/]/.test(trimmed)) return;
   if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed) || normalized.includes("://")) {
-    throw new Error("proactive vault requires a local SQLite file URL");
+    throw new Error(
+      "Aervox database requires a local SQLite file URL (remote database URLs and auth tokens are forbidden under CR-030)",
+    );
   }
   // Relative and absolute filesystem paths without a URL scheme are local SQLite paths.
   if (trimmed.length > 0) return;
-  throw new Error("proactive vault requires a local SQLite file URL");
+  throw new Error(
+    "Aervox database requires a local SQLite file URL (remote database URLs and auth tokens are forbidden under CR-030)",
+  );
 }
 
 /** 解析 CAP-033 Vault URL；显式不读取 DATABASE_URL。 */
@@ -114,6 +119,7 @@ export async function createDatabase(
   config: DatabaseConfig = {},
 ): Promise<{ db: AervoxDatabase; client: Client }> {
   const url = config.url ?? process.env.DATABASE_URL ?? defaultDbUrl;
+  assertLocalSqliteUrl(url);
 
   // 先确保文件父目录存在（libsql createClient 构造时即打开文件，必须在其之前创建 <repo>/data）
   if (url.startsWith("file:") || !url.includes("://")) {
@@ -125,25 +131,19 @@ export async function createDatabase(
     }
   }
 
-  const client = createClient({
-    url,
-    authToken: config.authToken ?? process.env.DATABASE_AUTH_TOKEN,
-  });
+  const client = createClient({ url });
 
-  // 非 http 远端模式下执行 SQLite 运行时 PRAGMA 优化
-  if (url.startsWith("file:") || !url.includes("://")) {
-    const timeout = config.busyTimeoutMs ?? 5000;
-    await client.execute(`PRAGMA busy_timeout = ${timeout};`);
-    await client.execute("PRAGMA foreign_keys = ON;");
-    try {
-      await client.execute("PRAGMA journal_mode = WAL;");
-      await client.execute("PRAGMA synchronous = NORMAL;");
-      await client.execute("PRAGMA cache_size = -64000;");
-      await client.execute("PRAGMA temp_store = MEMORY;");
-      await client.execute("PRAGMA mmap_size = 268435456;");
-    } catch {
-      // 特殊环境忽略 WAL 与性能 PRAGMA
-    }
+  const timeout = config.busyTimeoutMs ?? 5000;
+  await client.execute(`PRAGMA busy_timeout = ${timeout};`);
+  await client.execute("PRAGMA foreign_keys = ON;");
+  try {
+    await client.execute("PRAGMA journal_mode = WAL;");
+    await client.execute("PRAGMA synchronous = NORMAL;");
+    await client.execute("PRAGMA cache_size = -64000;");
+    await client.execute("PRAGMA temp_store = MEMORY;");
+    await client.execute("PRAGMA mmap_size = 268435456;");
+  } catch {
+    // 特殊环境忽略 WAL 与性能 PRAGMA
   }
 
   // T-01：写路径统一 busy 退避重试（仅影响写入口，调用方零侵入）

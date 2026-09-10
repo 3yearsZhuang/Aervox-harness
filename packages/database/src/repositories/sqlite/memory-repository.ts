@@ -98,7 +98,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
       .from(memoryRecords)
       .where(
         and(
-          
+
           eq(memoryRecords.layer, layer),
           eq(memoryRecords.isDeleted, 0),
         ),
@@ -235,11 +235,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
     const [updated] = await this.db
       .update(memoryRecords)
       .set({ isDeleted: 1, updatedAt: now })
-      .where(
-        and(
-          eq(memoryRecords.id, id),
-        ),
-      )
+      .where(eq(memoryRecords.id, id))
       .returning();
     return !!updated;
   }
@@ -282,11 +278,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
     const [found] = await this.db
       .select()
       .from(memoryNodes)
-      .where(
-        and(
-          eq(memoryNodes.id, id),
-        ),
-      );
+      .where(eq(memoryNodes.id, id));
     return (found as MemoryNodeModel) ?? null;
   }
 
@@ -295,12 +287,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
     const rows = await this.db
       .select()
       .from(memoryNodes)
-      .where(
-        and(
-          
-        ),
-      )
-      .orderBy(memoryNodes.updatedAt);
+            .orderBy(memoryNodes.updatedAt);
     return rows as MemoryNodeModel[];
   }
 

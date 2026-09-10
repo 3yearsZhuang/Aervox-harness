@@ -31,12 +31,7 @@ export class SqlitePluginConfigRepository implements IPluginConfigRepository {
     const [found] = await this.db
       .select()
       .from(pluginConfigs)
-      .where(
-        and(
-          
-          eq(pluginConfigs.pluginId, pluginId),
-        ),
-      )
+      .where(eq(pluginConfigs.pluginId, pluginId))
       .limit(1);
     return (found as PluginConfigModel) ?? null;
   }
@@ -63,11 +58,7 @@ export class SqlitePluginConfigRepository implements IPluginConfigRepository {
           orphanedValuesJson: input.orphanedValues ?? null,
           updatedAt: now,
         })
-        .where(
-          and(
-            eq(pluginConfigs.id, existing.id),
-          ),
-        )
+        .where(eq(pluginConfigs.id, existing.id))
         .returning();
       return { saved: updated as PluginConfigModel, conflict: false };
     }
@@ -153,7 +144,7 @@ export class SqlitePluginSecretRepository implements IPluginSecretRepository {
         .set({ valueJson: entry.value, configured: 1, updatedAt: now })
         .where(
           and(
-            
+
             eq(pluginConfigSecrets.pluginId, entry.pluginId),
             eq(pluginConfigSecrets.fieldKey, entry.fieldKey),
           ),
@@ -188,7 +179,7 @@ export class SqlitePluginSecretRepository implements IPluginSecretRepository {
       .from(pluginConfigSecrets)
       .where(
         and(
-          
+
           eq(pluginConfigSecrets.pluginId, pluginId),
           eq(pluginConfigSecrets.fieldKey, fieldKey),
         ),
@@ -205,12 +196,7 @@ export class SqlitePluginSecretRepository implements IPluginSecretRepository {
     const rows = await this.db
       .select({ fieldKey: pluginConfigSecrets.fieldKey, configured: pluginConfigSecrets.configured })
       .from(pluginConfigSecrets)
-      .where(
-        and(
-          
-          eq(pluginConfigSecrets.pluginId, pluginId),
-        ),
-      );
+      .where(eq(pluginConfigSecrets.pluginId, pluginId));
     return rows.map((row) => ({ fieldKey: row.fieldKey, configured: row.configured === 1 }));
   }
 
@@ -224,7 +210,7 @@ export class SqlitePluginSecretRepository implements IPluginSecretRepository {
       .delete(pluginConfigSecrets)
       .where(
         and(
-          
+
           eq(pluginConfigSecrets.pluginId, pluginId),
           eq(pluginConfigSecrets.fieldKey, fieldKey),
         ),

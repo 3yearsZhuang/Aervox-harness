@@ -5,6 +5,7 @@
  */
 import type { Client } from "@libsql/client";
 import { initFtsTables } from "../search/fts.js";
+import { runMigrations } from "../migration/migration-service.js";
 
 const clientTableColumns = new WeakMap<Client, Map<string, Set<string>>>();
 
@@ -46,7 +47,534 @@ export async function addColumnIfMissing(
   }
 }
 
+const LEGACY_TENANT_TABLES = [
+  "agent_inbox_items",
+  "analytics_events",
+  "attachments",
+  "attachment_parse_results",
+  "embedding_indexes",
+  "sessions",
+  "turns",
+  "message_versions",
+  "turn_stream_events",
+  "conversation_branches",
+  "diaries",
+  "diary_cycles",
+  "diary_schedule_revisions",
+  "diary_schedules",
+  "diary_material_buffers",
+  "external_sources",
+  "plugin_grants",
+  "community_contents",
+  "organizations",
+  "memory_embeddings",
+  "feedback",
+  "learning_goals",
+  "questions",
+  "question_attempts",
+  "mistake_dispositions",
+  "mistake_insights",
+  "practice_sessions",
+  "knowledge_items",
+  "review_items",
+  "knowledge_relations",
+  "practice_reports",
+  "learning_plans",
+  "plan_milestones",
+  "plan_tasks",
+  "llm_configs",
+  "memory_records",
+  "memory_nodes",
+  "memory_edges",
+  "memory_projection_overrides",
+  "memory_compaction_markers",
+  "outbox_events",
+  "personas",
+  "persona_selections",
+  "persona_turn_contexts",
+  "persona_switch_logs",
+  "persona_memory_scopes",
+  "workspace_skills",
+  "mcp_tools",
+  "scheduled_jobs",
+  "notifications",
+  "model_runs",
+  "audit_records",
+  "plugin_configs",
+  "plugin_config_secrets",
+  "persona_preferences",
+  "consent_grants",
+  "deletion_requests",
+  "proactive_timeline_events",
+  "proactive_projects",
+  "proactive_relationships",
+  "proactive_commitments",
+  "proactive_workflow_templates",
+  "proactive_trigger_rules",
+  "proactive_trigger_events",
+  "proactive_action_verifications",
+  "proactive_claim_conflicts",
+  "proactive_preparation_bundles",
+  "proactive_attention_states",
+  "proactive_drift_signals",
+  "proactive_scene_snapshots",
+  "proactive_review_reports",
+  "proactive_external_connections",
+  "proactive_home_entities",
+  "proactive_health_samples",
+  "proactive_profile_revisions",
+  "proactive_source_grants",
+  "proactive_activation_leases",
+  "proactive_captures",
+  "proactive_observations",
+  "proactive_profile_claims",
+  "proactive_actions",
+  "proactive_audit_events",
+  "source_artifacts",
+  "safe_segments",
+  "safety_incidents",
+  "study_materials",
+  "material_versions",
+  "material_sources",
+  "subagent_runs",
+  "tool_approvals",
+  "tool_executions",
+  "pending_user_questions",
+  "voice_configs",
+  "voice_input_configs",
+  "voice_remote_configs",
+] as const;
+
+const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
+
+const LEGACY_TABLE_REBUILDS: Record<string, { createSql: string; copyColumns: readonly string[] }> = {
+  mistake_dispositions: {
+    createSql: `
+      CREATE TABLE "mistake_dispositions" (
+        id TEXT PRIMARY KEY,
+        question_id TEXT NOT NULL REFERENCES questions(id),
+        status TEXT NOT NULL DEFAULT 'active',
+        reason TEXT,
+        note TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(question_id)
+      )
+    `,
+    copyColumns: ["id", "question_id", "status", "reason", "note", "created_at", "updated_at"],
+  },
+  mistake_insights: {
+    createSql: `
+      CREATE TABLE "mistake_insights" (
+        id TEXT PRIMARY KEY,
+        question_id TEXT NOT NULL REFERENCES questions(id),
+        reason_code TEXT NOT NULL,
+        note TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(question_id)
+      )
+    `,
+    copyColumns: ["id", "question_id", "reason_code", "note", "created_at", "updated_at"],
+  },
+  persona_preferences: {
+    createSql: `
+      CREATE TABLE "persona_preferences" (
+        id TEXT PRIMARY KEY,
+        tone TEXT NOT NULL DEFAULT 'neutral',
+        proactiveness TEXT NOT NULL DEFAULT 'medium',
+        address_form TEXT NOT NULL DEFAULT 'none',
+        reminder_cadence TEXT NOT NULL DEFAULT 'moderate',
+        version INTEGER NOT NULL DEFAULT 1,
+        skipped INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `,
+    copyColumns: [
+      "id",
+      "tone",
+      "proactiveness",
+      "address_form",
+      "reminder_cadence",
+      "version",
+      "skipped",
+      "created_at",
+      "updated_at",
+    ],
+  },
+};
+
+async function rebuildLegacyTable(
+  client: Client,
+  table: string,
+  definition: { createSql: string; copyColumns: readonly string[] },
+): Promise<void> {
+  const tableName = quoteIdentifier(table);
+  const backupTable = quoteIdentifier(`${table}__cr030_legacy`);
+  await client.execute(`DROP TABLE IF EXISTS ${backupTable}`);
+  await client.execute(`ALTER TABLE ${tableName} RENAME TO ${backupTable}`);
+  await client.execute(definition.createSql);
+
+  const oldColumnsResult = await client.execute(`PRAGMA table_info(${backupTable})`);
+  const oldColumns = new Set(oldColumnsResult.rows.map((row) => String(row.name)));
+  const copyColumns = definition.copyColumns.filter((column) => oldColumns.has(column));
+  if (copyColumns.length > 0) {
+    const columns = copyColumns.map(quoteIdentifier).join(", ");
+    await client.execute(`INSERT INTO ${tableName} (${columns}) SELECT ${columns} FROM ${backupTable}`);
+  }
+  await client.execute(`DROP TABLE ${backupTable}`);
+}
+
+/**
+ * CR-030：将旧版租户列从已存在的 SQLite 表中移除。
+ *
+ * CREATE TABLE IF NOT EXISTS 不会改变存量表结构；如果不做这一步，旧表的
+ * workspace_id/subject_user_id NOT NULL 会让新的无租户 INSERT 直接失败。旧的
+ * 租户索引也必须先删除，否则同名的 CREATE INDEX IF NOT EXISTS 不会更新索引定义。
+ */
+async function migrateLegacyTenantColumns(client: Client): Promise<void> {
+  for (const table of LEGACY_TENANT_TABLES) {
+    const tableName = quoteIdentifier(table);
+    const tableInfo = await client.execute(`PRAGMA table_info(${tableName})`);
+    const columns = new Set(tableInfo.rows.map((row) => String(row.name)));
+    const legacyColumns = ["workspace_id", "subject_user_id"].filter((column) => columns.has(column));
+    if (legacyColumns.length === 0) continue;
+
+    const indexes = await client.execute(`PRAGMA index_list(${tableName})`);
+    let requiresRebuild = false;
+    for (const row of indexes.rows) {
+      const indexName = String(row.name);
+      const indexInfo = await client.execute(`PRAGMA index_info(${quoteIdentifier(indexName)})`);
+      const indexedColumns = new Set(indexInfo.rows.map((indexRow) => String(indexRow.name)));
+      if (!legacyColumns.some((column) => indexedColumns.has(column))) continue;
+      if (indexName.startsWith("sqlite_autoindex_")) {
+        requiresRebuild = true;
+        break;
+      }
+      await client.execute(`DROP INDEX ${quoteIdentifier(indexName)}`);
+    }
+
+    if (requiresRebuild) {
+      const definition = LEGACY_TABLE_REBUILDS[table];
+      if (!definition) {
+        throw new Error(`cannot migrate tenant column from inline unique constraint: ${table}`);
+      }
+      await rebuildLegacyTable(client, table, definition);
+      continue;
+    }
+
+    for (const column of legacyColumns) {
+      await client.execute(`ALTER TABLE ${tableName} DROP COLUMN ${quoteIdentifier(column)}`);
+    }
+  }
+}
+
+/**
+ * CR-030 索引深度迁移：
+ * 1. 显式处理存量多租户场景下可能存在的业务唯一键重复记录（重命名冲突键后缀 / 归档非活跃项 / 清理过时行），
+ *    避免创建业务唯一索引时发生 SQLITE_CONSTRAINT 失败；
+ * 2. 显式 DROP 遗留的 *_tenant_* 索引（复合唯一索引与复合查询索引）；
+ * 3. 确立业务键全局唯一索引与无租户单用户查询索引。
+ */
+async function migrateTenantUniqueIndexes(client: Client): Promise<void> {
+  async function tableExists(table: string): Promise<boolean> {
+    const res = await client.execute({
+      sql: "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+      args: [table],
+    });
+    return res.rows.length > 0;
+  }
+
+  async function indexExists(indexName: string): Promise<boolean> {
+    const res = await client.execute({
+      sql: "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?",
+      args: [indexName],
+    });
+    return res.rows.length > 0;
+  }
+
+  // 1. 数据去重：解决存量跨租户重复数据在转换为单一业务键唯一索引时的冲突
+  if (await tableExists("turns")) {
+    await client.execute(`
+      UPDATE turns
+      SET idempotency_key = idempotency_key || '__dup_' || substr(id, 1, 8)
+      WHERE rowid NOT IN (
+        SELECT MAX(rowid) FROM turns WHERE idempotency_key IS NOT NULL GROUP BY idempotency_key
+      ) AND idempotency_key IS NOT NULL;
+    `);
+  }
+
+  if (await tableExists("outbox_events")) {
+    await client.execute(`
+      UPDATE outbox_events
+      SET idempotency_key = idempotency_key || '__dup_' || substr(id, 1, 8)
+      WHERE rowid NOT IN (
+        SELECT MAX(rowid) FROM outbox_events WHERE idempotency_key IS NOT NULL GROUP BY idempotency_key
+      ) AND idempotency_key IS NOT NULL;
+    `);
+  }
+
+  if (await tableExists("learning_goals")) {
+    await client.execute(`
+      UPDATE learning_goals
+      SET idempotency_key = idempotency_key || '__dup_' || substr(id, 1, 8)
+      WHERE rowid NOT IN (
+        SELECT MAX(rowid) FROM learning_goals WHERE idempotency_key IS NOT NULL GROUP BY idempotency_key
+      ) AND idempotency_key IS NOT NULL;
+    `);
+  }
+
+  if (await tableExists("question_attempts")) {
+    await client.execute(`
+      UPDATE question_attempts
+      SET idempotency_key = idempotency_key || '__dup_' || substr(id, 1, 8)
+      WHERE rowid NOT IN (
+        SELECT MAX(rowid) FROM question_attempts WHERE idempotency_key IS NOT NULL GROUP BY question_id, idempotency_key
+      ) AND idempotency_key IS NOT NULL;
+    `);
+  }
+
+  if (await tableExists("scheduled_jobs")) {
+    await client.execute(`
+      UPDATE scheduled_jobs
+      SET idempotency_key = idempotency_key || '__dup_' || substr(id, 1, 8)
+      WHERE rowid NOT IN (
+        SELECT MAX(rowid) FROM scheduled_jobs WHERE idempotency_key IS NOT NULL GROUP BY idempotency_key
+      ) AND idempotency_key IS NOT NULL;
+    `);
+  }
+
+  if (await tableExists("deletion_requests")) {
+    await client.execute(`
+      UPDATE deletion_requests
+      SET idempotency_key = idempotency_key || '__dup_' || substr(id, 1, 8)
+      WHERE rowid NOT IN (
+        SELECT MAX(rowid) FROM deletion_requests WHERE idempotency_key IS NOT NULL GROUP BY idempotency_key
+      ) AND idempotency_key IS NOT NULL;
+    `);
+  }
+
+  if (await tableExists("agent_inbox_items")) {
+    await client.execute(`
+      UPDATE agent_inbox_items
+      SET idempotency_key = idempotency_key || '__dup_' || substr(id, 1, 8)
+      WHERE rowid NOT IN (
+        SELECT MAX(rowid) FROM agent_inbox_items WHERE idempotency_key IS NOT NULL GROUP BY idempotency_key
+      ) AND idempotency_key IS NOT NULL;
+    `);
+  }
+
+  if (await tableExists("diaries")) {
+    await client.execute(`
+      UPDATE diaries
+      SET auto_generated = 0
+      WHERE rowid NOT IN (
+        SELECT MAX(rowid) FROM diaries WHERE auto_generated = 1 GROUP BY local_date
+      ) AND auto_generated = 1;
+    `);
+  }
+
+  if (await tableExists("review_items")) {
+    await client.execute(`
+      UPDATE review_items
+      SET status = 'archived'
+      WHERE rowid NOT IN (
+        SELECT MAX(rowid) FROM review_items WHERE status = 'active' GROUP BY knowledge_id
+      ) AND status = 'active';
+    `);
+  }
+
+  if (await tableExists("consent_grants")) {
+    await client.execute(`
+      UPDATE consent_grants
+      SET revoked_at = datetime('now')
+      WHERE rowid NOT IN (
+        SELECT MAX(rowid) FROM consent_grants WHERE revoked_at IS NULL GROUP BY purpose, scope
+      ) AND revoked_at IS NULL;
+    `);
+  }
+
+  if (await tableExists("plugin_grants")) {
+    await client.execute(`
+      UPDATE plugin_grants
+      SET revoked_at = datetime('now')
+      WHERE rowid NOT IN (
+        SELECT MAX(rowid) FROM plugin_grants WHERE revoked_at IS NULL GROUP BY plugin_id, permission
+      ) AND revoked_at IS NULL;
+    `);
+  }
+
+  if (await tableExists("workspace_skills")) {
+    await client.execute(`
+      UPDATE workspace_skills
+      SET name = name || '__dup_' || substr(id, 1, 8)
+      WHERE rowid NOT IN (
+        SELECT MAX(rowid) FROM workspace_skills GROUP BY name
+      );
+    `);
+  }
+
+  if (await tableExists("mcp_tools")) {
+    await client.execute(`
+      DELETE FROM mcp_tools
+      WHERE rowid NOT IN (
+        SELECT MAX(rowid) FROM mcp_tools GROUP BY server_id, name
+      );
+    `);
+  }
+
+  if (await tableExists("persona_turn_contexts")) {
+    await client.execute(`
+      DELETE FROM persona_turn_contexts
+      WHERE rowid NOT IN (
+        SELECT MAX(rowid) FROM persona_turn_contexts GROUP BY turn_id
+      );
+    `);
+  }
+
+  if (await tableExists("persona_memory_scopes")) {
+    await client.execute(`
+      DELETE FROM persona_memory_scopes
+      WHERE rowid NOT IN (
+        SELECT MAX(rowid) FROM persona_memory_scopes GROUP BY persona_id
+      );
+    `);
+  }
+
+  if (await tableExists("plugin_configs")) {
+    await client.execute(`
+      DELETE FROM plugin_configs
+      WHERE rowid NOT IN (
+        SELECT MAX(rowid) FROM plugin_configs GROUP BY plugin_id
+      );
+    `);
+  }
+
+  if (await tableExists("plugin_config_secrets")) {
+    await client.execute(`
+      DELETE FROM plugin_config_secrets
+      WHERE rowid NOT IN (
+        SELECT MAX(rowid) FROM plugin_config_secrets GROUP BY plugin_id, field_key
+      );
+    `);
+  }
+
+  if (await tableExists("subagent_runs")) {
+    await client.execute(`
+      DELETE FROM subagent_runs
+      WHERE rowid NOT IN (
+        SELECT MAX(rowid) FROM subagent_runs GROUP BY parent_attempt_id, parent_execution_id
+      );
+    `);
+  }
+
+  // 2. 检查 diaries_auto_unique_idx 是否仍为旧版多列复合索引，若是则清理重建
+  if (await indexExists("diaries_auto_unique_idx")) {
+    const info = await client.execute(`PRAGMA index_info("diaries_auto_unique_idx")`);
+    if (info.rows.length > 1) {
+      await client.execute(`DROP INDEX "diaries_auto_unique_idx"`);
+    }
+  }
+
+  // 3. 删除所有旧版包含 _tenant_ 的索引（包含唯一索引与普通索引）
+  const legacyIndexesToDrop = [
+    "turns_tenant_idempotency_idx",
+    "outbox_tenant_idempotency_idx",
+    "learning_goals_tenant_idempotency_idx",
+    "question_attempts_tenant_question_idempotency_idx",
+    "question_attempts_tenant_idempotency_idx",
+    "review_items_tenant_knowledge_active_idx",
+    "review_items_tenant_due_idx",
+    "scheduled_jobs_tenant_idempotency_idx",
+    "scheduled_jobs_tenant_run_idx",
+    "consent_grants_tenant_purpose_scope_idx",
+    "deletion_requests_tenant_idempotency_idx",
+    "plugin_grants_tenant_plugin_perm_idx",
+    "workspace_skills_tenant_name_unique_idx",
+    "mcp_tools_tenant_server_name_idx",
+    "persona_selections_tenant_unique_idx",
+    "persona_turn_contexts_tenant_turn_idx",
+    "persona_switch_logs_tenant_persona_idx",
+    "persona_memory_scopes_tenant_persona_idx",
+    "plugin_configs_tenant_plugin_idx",
+    "plugin_config_secrets_tenant_plugin_field_idx",
+    "voice_configs_tenant_active_idx",
+    "voice_configs_tenant_unique_idx",
+    "llm_configs_tenant_active_idx",
+    "llm_configs_tenant_unique_idx",
+    "voice_input_configs_tenant_active_idx",
+    "voice_input_configs_tenant_unique_idx",
+    "voice_remote_configs_tenant_active_idx",
+    "voice_remote_configs_tenant_unique_idx",
+    "agent_inbox_tenant_idempotency_idx",
+    "agent_inbox_tenant_session_idx",
+    "subagent_runs_tenant_parent_exec_idx",
+    "subagent_runs_tenant_parent_idx",
+    "subagent_runs_tenant_session_idx",
+    "pending_user_questions_tenant_expires_idx",
+    "memory_records_tenant_layer_idx",
+    "memory_edges_tenant_from_idx",
+    "diary_schedules_tenant_idx",
+    "diary_cycles_tenant_idx",
+    "source_artifacts_tenant_kind_idx",
+    "model_runs_tenant_attempt_idx",
+    "audit_records_tenant_actor_idx",
+    "analytics_events_tenant_event_idx",
+    "knowledge_relations_tenant_from_idx",
+    "external_sources_tenant_provider_idx",
+    "proactive_profile_tenant_version_revision_idx",
+    "proactive_profile_tenant_device_idx",
+    "proactive_source_tenant_state_idx",
+    "proactive_source_tenant_source_idx",
+    "proactive_activation_tenant_device_epoch_idx",
+    "proactive_activation_tenant_active_idx",
+    "proactive_capture_tenant_observed_idx",
+    "proactive_capture_tenant_retention_idx",
+    "proactive_observation_tenant_observed_idx",
+    "proactive_claim_tenant_state_idx",
+    "proactive_claim_tenant_type_idx",
+    "proactive_action_tenant_state_idx",
+    "proactive_action_tenant_created_idx",
+    "proactive_audit_tenant_occurred_idx",
+    "proactive_timeline_tenant_checksum_idx",
+    "proactive_timeline_tenant_occurred_idx",
+    "proactive_timeline_tenant_subject_idx",
+    "proactive_project_tenant_status_idx",
+    "proactive_relationship_tenant_state_idx",
+    "proactive_commitment_tenant_due_idx",
+    "proactive_workflow_tenant_state_idx",
+    "proactive_trigger_rule_tenant_enabled_idx",
+    "proactive_trigger_event_tenant_occurred_idx",
+    "proactive_action_verification_tenant_action_idx",
+    "proactive_preparation_tenant_available_idx",
+    "proactive_attention_tenant_window_idx",
+    "proactive_drift_tenant_state_idx",
+    "proactive_scene_tenant_checksum_idx",
+    "proactive_review_tenant_period_idx",
+    "proactive_connection_tenant_provider_idx",
+    "proactive_health_tenant_metric_date_idx",
+  ];
+
+  for (const idx of legacyIndexesToDrop) {
+    await client.execute(`DROP INDEX IF EXISTS ${quoteIdentifier(idx)}`);
+  }
+}
+
 export async function initDatabaseSchema(client: Client): Promise<void> {
+  await runMigrations(client, [
+    {
+      name: "cr-030.remove-legacy-tenant-columns",
+      description: "Remove legacy workspace_id/subject_user_id columns and indexes from local SQLite tables",
+      up: migrateLegacyTenantColumns,
+    },
+    {
+      name: "cr-030.migrate-tenant-unique-indexes",
+      description: "Deduplicate legacy multi-tenant records and migrate compound tenant indexes to global unique indexes",
+      up: migrateTenantUniqueIndexes,
+    },
+  ]);
+
   clientTableColumns.set(client, new Map<string, Set<string>>());
 
   // 1. 会话与 Turn
@@ -76,7 +604,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS turns_tenant_idempotency_idx ON turns(idempotency_key);
+    CREATE UNIQUE INDEX IF NOT EXISTS turns_idempotency_idx ON turns(idempotency_key);
   `);
   // CAP-013：为存量 turns 表补充 quote_message_id 列（迁移）
   await client.execute(`ALTER TABLE turns ADD COLUMN quote_message_id TEXT;`).catch(() => {});
@@ -174,7 +702,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS memory_records_tenant_layer_idx ON memory_records(layer, is_deleted);
+    CREATE INDEX IF NOT EXISTS memory_records_layer_idx ON memory_records(layer, is_deleted);
   `);
   // PET-02 记忆条目字段（新库建列；旧库走下方 addColumnIfMissing 补齐）
   await addColumnIfMissing(client, "memory_records", "source", "source TEXT NOT NULL DEFAULT 'user_said'");
@@ -258,7 +786,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS memory_edges_tenant_from_idx ON memory_edges(from_node_id);
+    CREATE INDEX IF NOT EXISTS memory_edges_from_idx ON memory_edges(from_node_id);
   `);
 
   await client.execute(`
@@ -404,7 +932,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS diary_schedules_tenant_idx ON diary_schedules(enabled);
+    CREATE INDEX IF NOT EXISTS diary_schedules_enabled_idx ON diary_schedules(enabled);
   `);
 
   await client.execute(`
@@ -469,7 +997,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS outbox_tenant_idempotency_idx ON outbox_events(idempotency_key);
+    CREATE UNIQUE INDEX IF NOT EXISTS outbox_idempotency_idx ON outbox_events(idempotency_key);
   `);
 
   // 6. 学习/练习/复习域（PRD §8）
@@ -487,7 +1015,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   `);
   await addColumnIfMissing(client, "learning_goals", "idempotency_key", "idempotency_key TEXT");
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS learning_goals_tenant_idempotency_idx
+    CREATE UNIQUE INDEX IF NOT EXISTS learning_goals_idempotency_idx
     ON learning_goals(idempotency_key)
     WHERE idempotency_key IS NOT NULL;
   `);
@@ -532,9 +1060,9 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await client.execute(`
     CREATE INDEX IF NOT EXISTS question_attempts_session_question_idx ON question_attempts(session_id, question_id);
   `);
-  await client.execute(`DROP INDEX IF EXISTS question_attempts_tenant_idempotency_idx;`);
+  await client.execute(`DROP INDEX IF EXISTS question_attempts_idempotency_idx;`);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS question_attempts_tenant_question_idempotency_idx
+    CREATE UNIQUE INDEX IF NOT EXISTS question_attempts_question_idempotency_idx
     ON question_attempts(question_id, idempotency_key)
     WHERE idempotency_key IS NOT NULL;
   `);
@@ -685,10 +1213,10 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS review_items_tenant_knowledge_active_idx ON review_items(knowledge_id) WHERE status = 'active';
+    CREATE UNIQUE INDEX IF NOT EXISTS review_items_knowledge_active_idx ON review_items(knowledge_id) WHERE status = 'active';
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS review_items_tenant_due_idx ON review_items(due_at);
+    CREATE INDEX IF NOT EXISTS review_items_due_idx ON review_items(due_at);
   `);
   await addColumnIfMissing(client, "review_items", "completion_is_correct", "completion_is_correct INTEGER");
   await addColumnIfMissing(client, "review_items", "next_review_id", "next_review_id TEXT");
@@ -725,7 +1253,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS source_artifacts_tenant_kind_idx ON source_artifacts(kind);
+    CREATE INDEX IF NOT EXISTS source_artifacts_kind_idx ON source_artifacts(kind);
   `);
 
   await client.execute(`
@@ -804,10 +1332,10 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS scheduled_jobs_tenant_idempotency_idx ON scheduled_jobs(idempotency_key);
+    CREATE UNIQUE INDEX IF NOT EXISTS scheduled_jobs_idempotency_idx ON scheduled_jobs(idempotency_key);
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS scheduled_jobs_tenant_run_idx ON scheduled_jobs(run_at);
+    CREATE INDEX IF NOT EXISTS scheduled_jobs_run_idx ON scheduled_jobs(run_at);
   `);
 
   await client.execute(`
@@ -866,7 +1394,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     await client.execute("ALTER TABLE model_runs ADD COLUMN step_id INTEGER;");
   }
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS model_runs_tenant_attempt_idx ON model_runs(attempt_id);
+    CREATE INDEX IF NOT EXISTS model_runs_attempt_idx ON model_runs(attempt_id);
   `);
 
   await client.execute(`
@@ -905,7 +1433,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS audit_records_tenant_actor_idx ON audit_records(actor_id);
+    CREATE INDEX IF NOT EXISTS audit_records_actor_idx ON audit_records(actor_id);
   `);
   await client.execute(`
     CREATE INDEX IF NOT EXISTS audit_records_subject_idx ON audit_records(subject_type, subject_id);
@@ -956,7 +1484,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS consent_grants_tenant_purpose_scope_idx ON consent_grants(purpose, scope) WHERE revoked_at IS NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS consent_grants_purpose_scope_idx ON consent_grants(purpose, scope) WHERE revoked_at IS NULL;
   `);
 
   await client.execute(`
@@ -976,7 +1504,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS deletion_requests_tenant_idempotency_idx ON deletion_requests(idempotency_key);
+    CREATE UNIQUE INDEX IF NOT EXISTS deletion_requests_idempotency_idx ON deletion_requests(idempotency_key);
   `);
 
   await client.execute(`
@@ -1044,7 +1572,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS analytics_events_tenant_event_idx ON analytics_events(event_name, occurred_at);
+    CREATE INDEX IF NOT EXISTS analytics_events_event_idx ON analytics_events(event_name, occurred_at);
   `);
   await client.execute(`
     CREATE INDEX IF NOT EXISTS analytics_events_subject_idx ON analytics_events(analytics_subject_id);
@@ -1150,7 +1678,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS knowledge_relations_tenant_from_idx ON knowledge_relations(from_knowledge_id);
+    CREATE INDEX IF NOT EXISTS knowledge_relations_from_idx ON knowledge_relations(from_knowledge_id);
   `);
   // CAP-015：扩展知识关系表（纠正状态、合并/拆分、软删除）
   await addColumnIfMissing(client, "knowledge_relations", "correction_status", "correction_status TEXT NOT NULL DEFAULT 'active'");
@@ -1175,7 +1703,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS external_sources_tenant_provider_idx ON external_sources(provider);
+    CREATE INDEX IF NOT EXISTS external_sources_provider_idx ON external_sources(provider);
   `);
 
   await client.execute(`
@@ -1209,7 +1737,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS plugin_grants_tenant_plugin_perm_idx ON plugin_grants(plugin_id, permission) WHERE revoked_at IS NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS plugin_grants_plugin_perm_idx ON plugin_grants(plugin_id, permission) WHERE revoked_at IS NULL;
   `);
 
   await client.execute(`
@@ -1297,7 +1825,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS workspace_skills_tenant_name_unique_idx ON workspace_skills(name);
+    CREATE UNIQUE INDEX IF NOT EXISTS workspace_skills_name_idx ON workspace_skills(name);
   `);
   await client.execute(`
     CREATE TABLE IF NOT EXISTS mcp_tools (
@@ -1316,7 +1844,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS mcp_tools_tenant_server_name_idx ON mcp_tools(server_id, name);
+    CREATE UNIQUE INDEX IF NOT EXISTS mcp_tools_server_name_idx ON mcp_tools(server_id, name);
   `);
   await client.execute(`
     CREATE TABLE IF NOT EXISTS persona_turn_contexts (
@@ -1333,7 +1861,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS persona_turn_contexts_tenant_turn_idx ON persona_turn_contexts(turn_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS persona_turn_contexts_turn_idx ON persona_turn_contexts(turn_id);
   `);
   // 4.7 CAP-019 扩展：人格模板审核字段 + 切换日志 + 记忆范围
   await client.execute(`
@@ -1359,7 +1887,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS persona_switch_logs_tenant_persona_idx ON persona_switch_logs(persona_id);
+    CREATE INDEX IF NOT EXISTS persona_switch_logs_persona_idx ON persona_switch_logs(persona_id);
   `);
 
   await client.execute(`
@@ -1375,7 +1903,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS persona_memory_scopes_tenant_persona_idx ON persona_memory_scopes(persona_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS persona_memory_scopes_persona_idx ON persona_memory_scopes(persona_id);
   `);
 
   // 5. 初始化 FTS5 全文检索引擎
@@ -1444,7 +1972,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS plugin_configs_tenant_plugin_idx ON plugin_configs(plugin_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS plugin_configs_plugin_idx ON plugin_configs(plugin_id);
   `);
   await client.execute(`
     CREATE TABLE IF NOT EXISTS plugin_config_secrets (
@@ -1458,7 +1986,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS plugin_config_secrets_tenant_plugin_field_idx ON plugin_config_secrets(plugin_id, field_key);
+    CREATE UNIQUE INDEX IF NOT EXISTS plugin_config_secrets_plugin_field_idx ON plugin_config_secrets(plugin_id, field_key);
   `);
   await client.execute(`
     CREATE TABLE IF NOT EXISTS plugin_pages (
@@ -1649,9 +2177,9 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   `);
   await addColumnIfMissing(client, "voice_configs", "name", "name TEXT NOT NULL DEFAULT '默认配置'");
   await addColumnIfMissing(client, "voice_configs", "is_active", "is_active INTEGER NOT NULL DEFAULT 1");
-  await client.execute(`DROP INDEX IF EXISTS voice_configs_tenant_unique_idx;`);
+  await client.execute(`DROP INDEX IF EXISTS voice_configs_unique_idx;`);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS voice_configs_tenant_active_idx ON voice_configs(is_active) WHERE is_active = 1;
+    CREATE UNIQUE INDEX IF NOT EXISTS voice_configs_active_idx ON voice_configs(is_active) WHERE is_active = 1;
   `);
 
   // CR-012 大语言模型与供应商配置（WebUI 设置与运行时模型路由）：每租户多行（多预设，至多一行激活）
@@ -1674,9 +2202,9 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   `);
   await addColumnIfMissing(client, "llm_configs", "name", "name TEXT NOT NULL DEFAULT '默认配置'");
   await addColumnIfMissing(client, "llm_configs", "is_active", "is_active INTEGER NOT NULL DEFAULT 1");
-  await client.execute(`DROP INDEX IF EXISTS llm_configs_tenant_unique_idx;`);
+  await client.execute(`DROP INDEX IF EXISTS llm_configs_unique_idx;`);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS llm_configs_tenant_active_idx ON llm_configs(is_active) WHERE is_active = 1;
+    CREATE UNIQUE INDEX IF NOT EXISTS llm_configs_active_idx ON llm_configs(is_active) WHERE is_active = 1;
   `);
 // CR-016 离线语音输入 (ASR) 配置持久化：每租户多行（多预设，至多一行激活）
   await client.execute(`
@@ -1699,9 +2227,9 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   `);
   await addColumnIfMissing(client, "voice_input_configs", "name", "name TEXT NOT NULL DEFAULT '默认配置'");
   await addColumnIfMissing(client, "voice_input_configs", "is_active", "is_active INTEGER NOT NULL DEFAULT 1");
-  await client.execute(`DROP INDEX IF EXISTS voice_input_configs_tenant_unique_idx;`);
+  await client.execute(`DROP INDEX IF EXISTS voice_input_configs_unique_idx;`);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS voice_input_configs_tenant_active_idx ON voice_input_configs(is_active) WHERE is_active = 1;
+    CREATE UNIQUE INDEX IF NOT EXISTS voice_input_configs_active_idx ON voice_input_configs(is_active) WHERE is_active = 1;
   `);
 
   // CR-028 在线语音模型（GPT-SoVITS 远程 API）配置持久化：每租户多行（多预设，至多一行激活）
@@ -1729,9 +2257,9 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   `);
   await addColumnIfMissing(client, "voice_remote_configs", "name", "name TEXT NOT NULL DEFAULT '默认配置'");
   await addColumnIfMissing(client, "voice_remote_configs", "is_active", "is_active INTEGER NOT NULL DEFAULT 1");
-  await client.execute(`DROP INDEX IF EXISTS voice_remote_configs_tenant_unique_idx;`);
+  await client.execute(`DROP INDEX IF EXISTS voice_remote_configs_unique_idx;`);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS voice_remote_configs_tenant_active_idx ON voice_remote_configs(is_active) WHERE is_active = 1;
+    CREATE UNIQUE INDEX IF NOT EXISTS voice_remote_configs_active_idx ON voice_remote_configs(is_active) WHERE is_active = 1;
   `);
   // 9dbfecb 后补列：早期版本建的表缺 prompt_text/prompt_lang，幂等补齐
   await addColumnIfMissing(client, "voice_remote_configs", "prompt_text", "prompt_text TEXT");
@@ -1824,13 +2352,13 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS agent_inbox_tenant_session_idx ON agent_inbox_items(session_id);
+    CREATE INDEX IF NOT EXISTS agent_inbox_session_idx ON agent_inbox_items(session_id);
   `);
   await client.execute(`
     CREATE INDEX IF NOT EXISTS agent_inbox_status_idx ON agent_inbox_items(status);
   `);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS agent_inbox_tenant_idempotency_idx ON agent_inbox_items(idempotency_key);
+    CREATE UNIQUE INDEX IF NOT EXISTS agent_inbox_idempotency_idx ON agent_inbox_items(idempotency_key);
   `);
   // 4.8 阶段 5c：Subagent 运行关联（subagent_runs；AVX-HAR-001 §13 阶段 5c）
   await client.execute(`
@@ -1853,13 +2381,13 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS subagent_runs_tenant_parent_idx ON subagent_runs(parent_turn_id);
+    CREATE INDEX IF NOT EXISTS subagent_runs_parent_idx ON subagent_runs(parent_turn_id);
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS subagent_runs_tenant_session_idx ON subagent_runs(session_id);
+    CREATE INDEX IF NOT EXISTS subagent_runs_session_idx ON subagent_runs(session_id);
   `);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS subagent_runs_tenant_parent_exec_idx ON subagent_runs(parent_attempt_id, parent_execution_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS subagent_runs_parent_exec_idx ON subagent_runs(parent_attempt_id, parent_execution_id);
   `);
   // 4.9 缺陷 C：挂起提问会话（pending_user_questions；主键 turnId，expiresAt 为超时唯一真源）
   await client.execute(`
@@ -1874,7 +2402,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS pending_user_questions_tenant_expires_idx ON pending_user_questions(expires_at);
+    CREATE INDEX IF NOT EXISTS pending_user_questions_expires_idx ON pending_user_questions(expires_at);
   `);
 
   // CAP-033 主动智能模式：版本化全量画像授权与本地处理数据面。
@@ -1898,13 +2426,13 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   // 设备级修订号允许不同设备各自从 1 开始；旧试验版索引缺少 device_id，先幂等重建。
-  await client.execute(`DROP INDEX IF EXISTS proactive_profile_tenant_version_revision_idx;`);
+  await client.execute(`DROP INDEX IF EXISTS proactive_profile_version_revision_idx;`);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS proactive_profile_tenant_version_revision_idx
+    CREATE UNIQUE INDEX IF NOT EXISTS proactive_profile_version_revision_idx
     ON proactive_profile_revisions(profile_version, device_id, revision);
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS proactive_profile_tenant_device_idx
+    CREATE INDEX IF NOT EXISTS proactive_profile_device_idx
     ON proactive_profile_revisions(device_id, status);
   `);
   await client.execute(`
@@ -1937,11 +2465,11 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     ON proactive_source_grants(revision_id, source_key, purpose);
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS proactive_source_tenant_state_idx
+    CREATE INDEX IF NOT EXISTS proactive_source_state_idx
     ON proactive_source_grants(state);
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS proactive_source_tenant_source_idx
+    CREATE INDEX IF NOT EXISTS proactive_source_key_idx
     ON proactive_source_grants(source_key);
   `);
 
@@ -1965,11 +2493,11 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS proactive_activation_tenant_device_epoch_idx
+    CREATE UNIQUE INDEX IF NOT EXISTS proactive_activation_device_epoch_idx
     ON proactive_activation_leases(device_id, epoch);
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS proactive_activation_tenant_active_idx
+    CREATE INDEX IF NOT EXISTS proactive_activation_active_idx
     ON proactive_activation_leases(device_id, status);
   `);
 
@@ -2000,11 +2528,11 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS proactive_capture_tenant_observed_idx
+    CREATE INDEX IF NOT EXISTS proactive_capture_observed_idx
     ON proactive_captures(observed_at);
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS proactive_capture_tenant_retention_idx
+    CREATE INDEX IF NOT EXISTS proactive_capture_retention_idx
     ON proactive_captures(retention_until, distillation_status);
   `);
   await client.execute(`
@@ -2034,7 +2562,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS proactive_observation_tenant_observed_idx
+    CREATE INDEX IF NOT EXISTS proactive_observation_observed_idx
     ON proactive_observations(observed_at);
   `);
   await client.execute(`
@@ -2067,11 +2595,11 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS proactive_claim_tenant_state_idx
+    CREATE INDEX IF NOT EXISTS proactive_claim_state_idx
     ON proactive_profile_claims(state);
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS proactive_claim_tenant_type_idx
+    CREATE INDEX IF NOT EXISTS proactive_claim_type_idx
     ON proactive_profile_claims(claim_type);
   `);
   await client.execute(`
@@ -2106,11 +2634,11 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS proactive_action_tenant_state_idx
+    CREATE INDEX IF NOT EXISTS proactive_action_state_idx
     ON proactive_actions(state);
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS proactive_action_tenant_created_idx
+    CREATE INDEX IF NOT EXISTS proactive_action_created_idx
     ON proactive_actions(created_at);
   `);
   await client.execute(`
@@ -2133,7 +2661,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
     );
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS proactive_audit_tenant_occurred_idx
+    CREATE INDEX IF NOT EXISTS proactive_audit_occurred_idx
     ON proactive_audit_events(occurred_at);
   `);
   await client.execute(`
@@ -2151,11 +2679,11 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       project_id TEXT, relationship_id TEXT, checksum TEXT NOT NULL,
       processing_boundary TEXT NOT NULL DEFAULT 'local_only', occurred_at TEXT NOT NULL,
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
-    `CREATE UNIQUE INDEX IF NOT EXISTS proactive_timeline_tenant_checksum_idx
+    `CREATE UNIQUE INDEX IF NOT EXISTS proactive_timeline_checksum_idx
       ON proactive_timeline_events(checksum);`,
-    `CREATE INDEX IF NOT EXISTS proactive_timeline_tenant_occurred_idx
+    `CREATE INDEX IF NOT EXISTS proactive_timeline_occurred_idx
       ON proactive_timeline_events(occurred_at);`,
-    `CREATE INDEX IF NOT EXISTS proactive_timeline_tenant_subject_idx
+    `CREATE INDEX IF NOT EXISTS proactive_timeline_subject_idx
       ON proactive_timeline_events(subject_key);`,
     `CREATE TABLE IF NOT EXISTS proactive_projects (
       id TEXT PRIMARY KEY,
@@ -2164,7 +2692,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       confidence INTEGER NOT NULL DEFAULT 0, due_at TEXT, last_activity_at TEXT,
       source_timeline_ids_json TEXT NOT NULL DEFAULT '[]', processing_boundary TEXT NOT NULL DEFAULT 'local_only',
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
-    `CREATE INDEX IF NOT EXISTS proactive_project_tenant_status_idx
+    `CREATE INDEX IF NOT EXISTS proactive_project_status_idx
       ON proactive_projects(status);`,
     `CREATE TABLE IF NOT EXISTS proactive_relationships (
       id TEXT PRIMARY KEY,
@@ -2172,7 +2700,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       notes TEXT, state TEXT NOT NULL DEFAULT 'active', confidence INTEGER NOT NULL DEFAULT 0,
       last_interaction_at TEXT, source_grant_ids_json TEXT NOT NULL DEFAULT '[]',
       processing_boundary TEXT NOT NULL DEFAULT 'local_only', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
-    `CREATE INDEX IF NOT EXISTS proactive_relationship_tenant_state_idx
+    `CREATE INDEX IF NOT EXISTS proactive_relationship_state_idx
       ON proactive_relationships(state);`,
     `CREATE TABLE IF NOT EXISTS proactive_commitments (
       id TEXT PRIMARY KEY,
@@ -2180,7 +2708,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       status TEXT NOT NULL DEFAULT 'open', importance INTEGER NOT NULL DEFAULT 50,
       due_at TEXT, source_timeline_id TEXT, processing_boundary TEXT NOT NULL DEFAULT 'local_only',
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
-    `CREATE INDEX IF NOT EXISTS proactive_commitment_tenant_due_idx
+    `CREATE INDEX IF NOT EXISTS proactive_commitment_due_idx
       ON proactive_commitments(status, due_at);`,
     `CREATE TABLE IF NOT EXISTS proactive_workflow_templates (
       id TEXT PRIMARY KEY,
@@ -2190,7 +2718,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       success_count INTEGER NOT NULL DEFAULT 0, failure_count INTEGER NOT NULL DEFAULT 0,
       last_observed_at TEXT, processing_boundary TEXT NOT NULL DEFAULT 'local_only',
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
-    `CREATE INDEX IF NOT EXISTS proactive_workflow_tenant_state_idx
+    `CREATE INDEX IF NOT EXISTS proactive_workflow_state_idx
       ON proactive_workflow_templates(state);`,
     `CREATE TABLE IF NOT EXISTS proactive_trigger_rules (
       id TEXT PRIMARY KEY,
@@ -2199,14 +2727,14 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       cooldown_seconds INTEGER NOT NULL DEFAULT 3600, quiet_hours_json TEXT NOT NULL DEFAULT '{}',
       last_triggered_at TEXT, processing_boundary TEXT NOT NULL DEFAULT 'local_only',
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
-    `CREATE INDEX IF NOT EXISTS proactive_trigger_rule_tenant_enabled_idx
+    `CREATE INDEX IF NOT EXISTS proactive_trigger_rule_enabled_idx
       ON proactive_trigger_rules(enabled);`,
     `CREATE TABLE IF NOT EXISTS proactive_trigger_events (
       id TEXT PRIMARY KEY,
       revision_id TEXT NOT NULL, rule_id TEXT, trigger_type TEXT NOT NULL, cause_json TEXT NOT NULL DEFAULT '{}',
       decision TEXT NOT NULL, reason TEXT, action_id TEXT, occurred_at TEXT NOT NULL,
       processing_boundary TEXT NOT NULL DEFAULT 'local_only', created_at TEXT NOT NULL);`,
-    `CREATE INDEX IF NOT EXISTS proactive_trigger_event_tenant_occurred_idx
+    `CREATE INDEX IF NOT EXISTS proactive_trigger_event_occurred_idx
       ON proactive_trigger_events(occurred_at);`,
     `CREATE TABLE IF NOT EXISTS proactive_action_verifications (
       id TEXT PRIMARY KEY,
@@ -2214,7 +2742,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       status TEXT NOT NULL DEFAULT 'pending', attempt_count INTEGER NOT NULL DEFAULT 0,
       verified_at TEXT, error TEXT, processing_boundary TEXT NOT NULL DEFAULT 'local_only',
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
-    `CREATE UNIQUE INDEX IF NOT EXISTS proactive_action_verification_tenant_action_idx
+    `CREATE UNIQUE INDEX IF NOT EXISTS proactive_action_verification_action_idx
       ON proactive_action_verifications(action_id);`,
     `CREATE TABLE IF NOT EXISTS proactive_claim_conflicts (
       id TEXT PRIMARY KEY,
@@ -2228,7 +2756,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       revision_id TEXT NOT NULL, project_id TEXT, commitment_id TEXT, title TEXT NOT NULL,
       bundle_json TEXT NOT NULL DEFAULT '{}', status TEXT NOT NULL DEFAULT 'ready', available_at TEXT NOT NULL,
       expires_at TEXT, processing_boundary TEXT NOT NULL DEFAULT 'local_only', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
-    `CREATE INDEX IF NOT EXISTS proactive_preparation_tenant_available_idx
+    `CREATE INDEX IF NOT EXISTS proactive_preparation_available_idx
       ON proactive_preparation_bundles(status, available_at);`,
     `CREATE TABLE IF NOT EXISTS proactive_attention_states (
       id TEXT PRIMARY KEY,
@@ -2236,7 +2764,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       focus_score INTEGER NOT NULL, fatigue_score INTEGER NOT NULL, context_switches INTEGER NOT NULL DEFAULT 0,
       error_signals INTEGER NOT NULL DEFAULT 0, recommendation TEXT, evidence_json TEXT NOT NULL DEFAULT '[]',
       processing_boundary TEXT NOT NULL DEFAULT 'local_only', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
-    `CREATE INDEX IF NOT EXISTS proactive_attention_tenant_window_idx
+    `CREATE INDEX IF NOT EXISTS proactive_attention_window_idx
       ON proactive_attention_states(window_end);`,
     `CREATE TABLE IF NOT EXISTS proactive_drift_signals (
       id TEXT PRIMARY KEY,
@@ -2244,21 +2772,21 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       expected_json TEXT NOT NULL DEFAULT '{}', actual_json TEXT NOT NULL DEFAULT '{}', severity INTEGER NOT NULL DEFAULT 0,
       state TEXT NOT NULL DEFAULT 'open', explanation TEXT, detected_at TEXT NOT NULL,
       processing_boundary TEXT NOT NULL DEFAULT 'local_only', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
-    `CREATE INDEX IF NOT EXISTS proactive_drift_tenant_state_idx
+    `CREATE INDEX IF NOT EXISTS proactive_drift_state_idx
       ON proactive_drift_signals(state);`,
     `CREATE TABLE IF NOT EXISTS proactive_scene_snapshots (
       id TEXT PRIMARY KEY,
       revision_id TEXT NOT NULL, scene_type TEXT NOT NULL, application_id TEXT,
       payload_json TEXT NOT NULL DEFAULT '{}', checksum TEXT NOT NULL, captured_at TEXT NOT NULL,
       processing_boundary TEXT NOT NULL DEFAULT 'local_only', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
-    `CREATE UNIQUE INDEX IF NOT EXISTS proactive_scene_tenant_checksum_idx
+    `CREATE UNIQUE INDEX IF NOT EXISTS proactive_scene_checksum_idx
       ON proactive_scene_snapshots(checksum);`,
     `CREATE TABLE IF NOT EXISTS proactive_review_reports (
       id TEXT PRIMARY KEY,
       revision_id TEXT NOT NULL, period_type TEXT NOT NULL, period_start TEXT NOT NULL, period_end TEXT NOT NULL,
       summary TEXT NOT NULL, metrics_json TEXT NOT NULL DEFAULT '{}', recommendations_json TEXT NOT NULL DEFAULT '[]',
       processing_boundary TEXT NOT NULL DEFAULT 'local_only', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
-    `CREATE UNIQUE INDEX IF NOT EXISTS proactive_review_tenant_period_idx
+    `CREATE UNIQUE INDEX IF NOT EXISTS proactive_review_period_idx
       ON proactive_review_reports(period_type, period_start, period_end);`,
     `CREATE TABLE IF NOT EXISTS proactive_external_connections (
       id TEXT PRIMARY KEY,
@@ -2266,7 +2794,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       auth_type TEXT NOT NULL, credential_json TEXT NOT NULL DEFAULT '{}', scopes_json TEXT NOT NULL DEFAULT '[]',
       settings_json TEXT NOT NULL DEFAULT '{}', state TEXT NOT NULL DEFAULT 'active', last_sync_at TEXT,
       last_error TEXT, processing_boundary TEXT NOT NULL DEFAULT 'local_only', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
-    `CREATE INDEX IF NOT EXISTS proactive_connection_tenant_provider_idx
+    `CREATE INDEX IF NOT EXISTS proactive_connection_provider_idx
       ON proactive_external_connections(provider, state);`,
     `CREATE TABLE IF NOT EXISTS proactive_home_entities (
       id TEXT PRIMARY KEY, connection_id TEXT NOT NULL,
@@ -2281,7 +2809,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
       sensitivity TEXT NOT NULL DEFAULT 'low', source TEXT NOT NULL DEFAULT 'xiaomi_health',
       metadata_json TEXT NOT NULL DEFAULT '{}', observed_at TEXT NOT NULL,
       processing_boundary TEXT NOT NULL DEFAULT 'local_only', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
-    `CREATE UNIQUE INDEX IF NOT EXISTS proactive_health_tenant_metric_date_idx
+    `CREATE UNIQUE INDEX IF NOT EXISTS proactive_health_metric_date_idx
       ON proactive_health_samples(connection_id, metric, local_date);`,
   ];
   for (const ddl of proactiveIntelligenceDdl) await client.execute(ddl);

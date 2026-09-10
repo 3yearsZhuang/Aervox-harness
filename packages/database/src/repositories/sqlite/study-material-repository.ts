@@ -87,12 +87,7 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
     const rows = await this.db
       .select()
       .from(studyMaterials)
-      .where(
-        and(
-          
-          isNull(studyMaterials.deletedAt),
-        ),
-      )
+      .where(isNull(studyMaterials.deletedAt))
       .orderBy(desc(studyMaterials.createdAt));
     return rows as StudyMaterialModel[];
   }
@@ -106,11 +101,7 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
     const [updated] = await this.db
       .update(studyMaterials)
       .set({ status, updatedAt: new Date().toISOString() })
-      .where(
-        and(
-          eq(studyMaterials.id, id),
-        ),
-      )
+      .where(eq(studyMaterials.id, id))
       .returning();
     return (updated as StudyMaterialModel) ?? null;
   }
@@ -139,11 +130,7 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
     const [found] = await this.db
       .select()
       .from(studyMaterials)
-      .where(
-        and(
-          eq(studyMaterials.idempotencyKey, key),
-        ),
-      )
+      .where(eq(studyMaterials.idempotencyKey, key))
       .limit(1);
     return (found as StudyMaterialModel) ?? null;
   }
@@ -195,11 +182,7 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
     const [found] = await this.db
       .select()
       .from(materialVersions)
-      .where(
-        and(
-          eq(materialVersions.id, versionId),
-        ),
-      )
+      .where(eq(materialVersions.id, versionId))
       .limit(1);
     return (found as MaterialVersionModel) ?? null;
   }
@@ -209,11 +192,7 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
     const rows = await this.db
       .select()
       .from(materialVersions)
-      .where(
-        and(
-          eq(materialVersions.materialId, materialId),
-        ),
-      )
+      .where(eq(materialVersions.materialId, materialId))
       .orderBy(desc(materialVersions.version));
     return rows as MaterialVersionModel[];
   }
@@ -304,11 +283,7 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
     const rows = await this.db
       .select()
       .from(materialSources)
-      .where(
-        and(
-          eq(materialSources.materialVersionId, materialVersionId),
-        ),
-      )
+      .where(eq(materialSources.materialVersionId, materialVersionId))
       .orderBy(materialSources.createdAt);
     return rows as MaterialSourceModel[];
   }

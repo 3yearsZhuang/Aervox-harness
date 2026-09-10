@@ -35,13 +35,13 @@ export const subagentRuns = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantParentIdx: index("subagent_runs_tenant_parent_idx").on(
+    tenantParentIdx: index("subagent_runs_parent_idx").on(
       table.parentTurnId,
     ),
-    tenantSessionIdx: index("subagent_runs_tenant_session_idx").on(
+    tenantSessionIdx: index("subagent_runs_session_idx").on(
       table.sessionId,
     ),
-    tenantParentExecIdx: uniqueIndex("subagent_runs_tenant_parent_exec_idx").on(
+    tenantParentExecIdx: uniqueIndex("subagent_runs_parent_exec_idx").on(
       table.parentAttemptId,
       table.parentExecutionId,
     ),

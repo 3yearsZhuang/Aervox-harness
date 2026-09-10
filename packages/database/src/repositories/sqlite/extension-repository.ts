@@ -53,11 +53,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
     const [found] = await this.db
       .select()
       .from(externalSources)
-      .where(
-        and(
-          eq(externalSources.id, id),
-        ),
-      );
+      .where(eq(externalSources.id, id));
     return (found as ExternalSourceModel) ?? null;
   }
 
@@ -184,11 +180,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
     const [updated] = await this.db
       .update(pluginGrants)
       .set({ revokedAt: now, updatedAt: now })
-      .where(
-        and(
-          eq(pluginGrants.id, id),
-        ),
-      )
+      .where(eq(pluginGrants.id, id))
       .returning();
     return (updated as PluginGrantModel) ?? null;
   }
@@ -200,7 +192,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
       .from(pluginGrants)
       .where(
         and(
-          
+
           eq(pluginGrants.pluginId, pluginId),
           eq(pluginGrants.permission, permission),
           // 未撤销的授权视为有效（libsql file 后端读快照偶发滞后，沿用 sql IS NULL 既有约定）
@@ -239,11 +231,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
     const [found] = await this.db
       .select()
       .from(communityContents)
-      .where(
-        and(
-          eq(communityContents.id, id),
-        ),
-      );
+      .where(eq(communityContents.id, id));
     return (found as CommunityContentModel) ?? null;
   }
 
@@ -273,11 +261,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
     const [found] = await this.db
       .select()
       .from(organizations)
-      .where(
-        and(
-          eq(organizations.id, id),
-        ),
-      );
+      .where(eq(organizations.id, id));
     return (found as OrganizationModel) ?? null;
   }
 }

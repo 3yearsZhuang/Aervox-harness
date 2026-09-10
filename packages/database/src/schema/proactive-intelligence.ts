@@ -28,13 +28,13 @@ export const proactiveTimelineEvents = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantOccurredIdx: index("proactive_timeline_tenant_occurred_idx").on(
+    tenantOccurredIdx: index("proactive_timeline_occurred_idx").on(
       table.occurredAt,
     ),
-    tenantSubjectIdx: index("proactive_timeline_tenant_subject_idx").on(
+    tenantSubjectIdx: index("proactive_timeline_subject_idx").on(
       table.subjectKey,
     ),
-    tenantChecksumIdx: uniqueIndex("proactive_timeline_tenant_checksum_idx").on(
+    tenantChecksumIdx: uniqueIndex("proactive_timeline_checksum_idx").on(
       table.checksum,
     ),
   }),
@@ -58,10 +58,10 @@ export const proactiveProjects = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantStatusIdx: index("proactive_project_tenant_status_idx").on(
+    tenantStatusIdx: index("proactive_project_status_idx").on(
       table.status,
     ),
-    tenantActivityIdx: index("proactive_project_tenant_activity_idx").on(
+    tenantActivityIdx: index("proactive_project_activity_idx").on(
       table.lastActivityAt,
     ),
   }),
@@ -83,7 +83,7 @@ export const proactiveRelationships = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantStateIdx: index("proactive_relationship_tenant_state_idx").on(
+    tenantStateIdx: index("proactive_relationship_state_idx").on(
       table.state,
     ),
   }),
@@ -105,7 +105,7 @@ export const proactiveCommitments = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantDueIdx: index("proactive_commitment_tenant_due_idx").on(
+    tenantDueIdx: index("proactive_commitment_due_idx").on(
       table.status,
       table.dueAt,
     ),
@@ -130,7 +130,7 @@ export const proactiveWorkflowTemplates = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantStateIdx: index("proactive_workflow_tenant_state_idx").on(
+    tenantStateIdx: index("proactive_workflow_state_idx").on(
       table.state,
     ),
   }),
@@ -153,7 +153,7 @@ export const proactiveTriggerRules = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantEnabledIdx: index("proactive_trigger_rule_tenant_enabled_idx").on(
+    tenantEnabledIdx: index("proactive_trigger_rule_enabled_idx").on(
       table.enabled,
     ),
   }),
@@ -175,7 +175,7 @@ export const proactiveTriggerEvents = sqliteTable(
     createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
   },
   (table) => ({
-    tenantOccurredIdx: index("proactive_trigger_event_tenant_occurred_idx").on(
+    tenantOccurredIdx: index("proactive_trigger_event_occurred_idx").on(
       table.occurredAt,
     ),
   }),
@@ -196,7 +196,7 @@ export const proactiveActionVerifications = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantActionIdx: uniqueIndex("proactive_action_verification_tenant_action_idx").on(
+    tenantActionIdx: uniqueIndex("proactive_action_verification_action_idx").on(
       table.actionId,
     ),
   }),
@@ -217,7 +217,7 @@ export const proactiveClaimConflicts = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantStatusIdx: index("proactive_claim_conflict_tenant_status_idx").on(
+    tenantStatusIdx: index("proactive_claim_conflict_status_idx").on(
       table.status,
     ),
     claimPairIdx: uniqueIndex("proactive_claim_conflict_pair_idx").on(
@@ -243,7 +243,7 @@ export const proactivePreparationBundles = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantAvailableIdx: index("proactive_preparation_tenant_available_idx").on(
+    tenantAvailableIdx: index("proactive_preparation_available_idx").on(
       table.status,
       table.availableAt,
     ),
@@ -267,7 +267,7 @@ export const proactiveAttentionStates = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantWindowIdx: index("proactive_attention_tenant_window_idx").on(
+    tenantWindowIdx: index("proactive_attention_window_idx").on(
       table.windowEnd,
     ),
   }),
@@ -290,7 +290,7 @@ export const proactiveDriftSignals = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantStateIdx: index("proactive_drift_tenant_state_idx").on(
+    tenantStateIdx: index("proactive_drift_state_idx").on(
       table.state,
     ),
   }),
@@ -310,10 +310,10 @@ export const proactiveSceneSnapshots = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantCapturedIdx: index("proactive_scene_tenant_captured_idx").on(
+    tenantCapturedIdx: index("proactive_scene_captured_idx").on(
       table.capturedAt,
     ),
-    tenantChecksumIdx: uniqueIndex("proactive_scene_tenant_checksum_idx").on(
+    tenantChecksumIdx: uniqueIndex("proactive_scene_checksum_idx").on(
       table.checksum,
     ),
   }),
@@ -334,7 +334,7 @@ export const proactiveReviewReports = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantPeriodIdx: uniqueIndex("proactive_review_tenant_period_idx").on(
+    tenantPeriodIdx: uniqueIndex("proactive_review_period_idx").on(
       table.periodType,
       table.periodStart,
       table.periodEnd,
@@ -361,7 +361,7 @@ export const proactiveExternalConnections = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantProviderIdx: index("proactive_connection_tenant_provider_idx").on(
+    tenantProviderIdx: index("proactive_connection_provider_idx").on(
       table.provider,
       table.state,
     ),
@@ -389,7 +389,7 @@ export const proactiveHomeEntities = sqliteTable(
       table.connectionId,
       table.entityId,
     ),
-    tenantEnabledIdx: index("proactive_home_tenant_enabled_idx").on(
+    tenantEnabledIdx: index("proactive_home_enabled_idx").on(
       table.enabled,
     ),
   }),
@@ -412,7 +412,7 @@ export const proactiveHealthSamples = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantMetricDateIdx: uniqueIndex("proactive_health_tenant_metric_date_idx").on(
+    tenantMetricDateIdx: uniqueIndex("proactive_health_metric_date_idx").on(
       table.connectionId,
       table.metric,
       table.localDate,

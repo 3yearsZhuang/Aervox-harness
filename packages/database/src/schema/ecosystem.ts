@@ -24,7 +24,7 @@ export const externalSources = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    tenantProviderIdx: index("external_sources_tenant_provider_idx").on(
+    tenantProviderIdx: index("external_sources_provider_idx").on(
       table.provider,
     ),
   }),
@@ -72,7 +72,7 @@ export const pluginGrants = sqliteTable(
   },
   (table) => ({
     // 未撤销的授权唯一；撤销后可重新授予
-    tenantPluginPermActiveIdx: uniqueIndex("plugin_grants_tenant_plugin_perm_idx")
+    tenantPluginPermActiveIdx: uniqueIndex("plugin_grants_plugin_perm_idx")
       .on(table.pluginId, table.permission)
       .where(sql`${table.revokedAt} IS NULL`),
   }),
