@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp, type BuildAppOptions } from "../src/app.js";
 import { createInMemoryDatabase } from "@aervox/repositories";
-import { loadAuthConfig } from "../src/shared/auth.js";
+import { assertSafeApiListenHost, loadAuthConfig } from "../src/shared/auth.js";
 
 async function buildWith(auth: BuildAppOptions["auth"]) {
   const { db, client, cleanup } = await createInMemoryDatabase();
@@ -96,6 +96,12 @@ describe("认证中间件（租户信任模型加固）", () => {
     expect(loadAuthConfig({ AERVOX_AUTH_MODE: "TOKEN", AERVOX_AUTH_TOKEN: "x" }).token).toBe("x");
     expect(loadAuthConfig({ AERVOX_AUTH_MODE: "token" }).token).toBeUndefined();
     expect(loadAuthConfig({ AERVOX_AUTH_MODE: "token" }).mode).toBe("token");
+  });
+
+  it("open 认证禁止非 loopback 监听，token 认证允许显式远程监听", () => {
+    expect(() => assertSafeApiListenHost("127.0.0.1", "open")).not.toThrow();
+    expect(() => assertSafeApiListenHost("0.0.0.0", "open")).toThrow(/non-loopback/);
+    expect(() => assertSafeApiListenHost("0.0.0.0", "token")).not.toThrow();
   });
 
   it("loadAuthConfig：读取 token 模式绑定的租户身份配置", () => {

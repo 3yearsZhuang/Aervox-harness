@@ -58,6 +58,8 @@ export interface AsrConfig {
 export interface ApiConfig {
   /** HTTP 监听端口（PORT，默认 3000） */
   port: number;
+  /** HTTP 监听地址（AERVOX_API_HOST，默认 loopback） */
+  host: string;
   /** Agent Loop 模型 Provider（AERVOX_LOOP_PROVIDER，默认 llm） */
   loopProvider: LoopProvider;
   /** Loop Driver（AERVOX_LOOP_DRIVER，默认 native；dsh = 整 Turn 进程外 DSH Adapter） */
@@ -115,6 +117,7 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
   );
   return {
     port: requirePositiveInt("PORT", env.PORT, 3000),
+    host: env.AERVOX_API_HOST?.trim() || "127.0.0.1",
     loopProvider: requireEnum(
       "AERVOX_LOOP_PROVIDER",
       env.AERVOX_LOOP_PROVIDER,

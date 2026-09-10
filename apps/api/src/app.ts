@@ -7,6 +7,7 @@
  * ModuleContext 提供，装配顺序（tools/llm 先于 conversation、persona 等）显式声明。
  */
 import Fastify from "fastify";
+import path from "node:path";
 import cors from "@fastify/cors";
 import { openApiDocument } from "@aervox/contracts";
 import {
@@ -17,6 +18,8 @@ import {
   loadProactiveVaultCipher,
   type AervoxDatabase,
   type ProactiveVaultCipher,
+  Cr030MigrationStateStore,
+  assertSafeStartup,
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 import type { WorkflowDefinition } from "@aervox/agent-loop";
@@ -79,6 +82,8 @@ export interface BuildAppOptions {
   workflows?: WorkflowDefinition[];
   /** 认证配置（缺省从环境加载：AERVOX_AUTH_MODE / AERVOX_AUTH_TOKEN） */
   auth?: AuthConfig;
+  /** CR-030 sidecar 状态清单路径（测试/维护编排可注入）。 */
+  migrationStatePath?: string;
 }
 
 export interface BuildAppResult {
@@ -94,6 +99,9 @@ export interface BuildAppResult {
 
 export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppResult> {
   const app = Fastify({ logger: false });
+  const migrationStatePath = options.migrationStatePath ?? process.env.AERVOX_CR030_STATE_PATH ??
+    path.join(process.cwd(), "data", "aervox.cr030.migration.json");
+  assertSafeStartup(await new Cr030MigrationStateStore(migrationStatePath).read());
   const { db, client } =
     options.db && options.client ? { db: options.db, client: options.client } : await createDatabase();
   await initDatabaseSchema(client);
