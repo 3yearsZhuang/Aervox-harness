@@ -15,7 +15,7 @@ review_interval_days: 90
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-31
 
-> **Superseded by [ADR-015](ADR-015-vue-full-stack.md)**：Web 层基线改为 Vue 全栈单栈；本记录保留原文，仅备案历史决策。
+> **Superseded by [ADR-015](../reference/adr/ADR-015-vue-full-stack.md)**：Web 层基线改为 Vue 全栈单栈；本记录保留原文，仅备案历史决策。
 
 - 状态：Superseded by ADR-015（原为 Proposed）
 - 日期：2026-08-23（2026-08-25 标记 Superseded）

@@ -86,7 +86,7 @@ HA 是自托管的家庭自动化中心，本地运行，聚合数千种品牌�
 | 主仓工具注册表 | `apps/api/src/modules/tools/runtime.ts`（阶段 2d 起静态接线） | HA 工具在此登记并复用主仓契约，不另起平行注册表 |
 | AgentInboxItem | [AVX-HAR-001 §7.2](../reference/agent-harness-loop.md#72-agentinboxitem)（阶段 5a 已落地） | HA `state_changed` → Inbox `steer/inject`，实现"环境感知的主动对话" |
 | 本地优先 | `ADR-008`、`CAP-027` | 局域网直连 HA，数据不外送云 |
-| Electron Host / ESP32 设备协议 | [ESP32 硬件延伸](esp32-s3-hardware-extension.md)（AVX-EXPL-005） | 未来物理桌宠可作为"执行确认/触发面"，但仍不持有 HA 凭据 |
+| Electron Host / ESP32 设备协议 | [ESP32 硬件延伸](../explanation/esp32-s3-hardware-extension.md)（AVX-EXPL-005） | 未来物理桌宠可作为"执行确认/触发面"，但仍不持有 HA 凭据 |
 | 插件机制 | `CAP-020`、[AVX-PLUG-001](../reference/plugin-config-and-pages.md) | 远期可将 HA 工具集作为可分发插件载体 |
 
 ## 4. 集成方案对比
@@ -256,4 +256,4 @@ HA 事件订阅器（B）── state_changed ──> 授权实体过滤 ──>
 - [Home Assistant Authentication API 官方文档](https://developers.home-assistant.io/docs/auth_api/)
 - [home-assistant-js-websocket（官方客户端库）](https://github.com/home-assistant/home-assistant-js-websocket)
 
-仓库内事实源（外部资料只作产品与 API 事实；范围、权限、数据处理、威胁与门禁以仓库内文档为准）：[AVX-HAR-001](../reference/agent-harness-loop.md)、[能力注册表](../reference/capability-registry.md)、[ADR-008](../reference/adr/ADR-008-cloud-first-local-port.md)、[CR-015](../reference/changes/CR-015-llm-provider-config-webui.md)、[ESP32 硬件延伸](esp32-s3-hardware-extension.md)。
+仓库内事实源（外部资料只作产品与 API 事实；范围、权限、数据处理、威胁与门禁以仓库内文档为准）：[AVX-HAR-001](../reference/agent-harness-loop.md)、[能力注册表](../reference/capability-registry.md)、[ADR-008](../reference/adr/ADR-008-cloud-first-local-port.md)、[CR-015](../reference/changes/CR-015-llm-provider-config-webui.md)、[ESP32 硬件延伸](../explanation/esp32-s3-hardware-extension.md)。
