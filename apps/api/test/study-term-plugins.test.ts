@@ -101,6 +101,25 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
     expect(saveCfg.statusCode).toBe(200);
     expect(saveCfg.json().values.scaffoldingSteps).toBe(4);
     expect(saveCfg.json().values.maxExtractedTerms).toBe(6);
+
+    // 6. 旧别名重置必须作用于实际 focus-mode 配置，而不是创建孤立的 study-mode 配置。
+    const resetCfg = await app.inject({
+      method: "POST",
+      url: "/v1/plugins/study-mode/config/reset",
+      headers,
+    });
+    expect(resetCfg.statusCode).toBe(200);
+    expect(resetCfg.json().values.scaffoldingSteps).toBe(3);
+    expect(resetCfg.json().values.maxExtractedTerms).toBe(8);
+
+    const getAfterAliasReset = await app.inject({
+      method: "GET",
+      url: "/v1/plugins/focus-mode/config",
+      headers,
+    });
+    expect(getAfterAliasReset.statusCode).toBe(200);
+    expect(getAfterAliasReset.json().values.scaffoldingSteps).toBe(3);
+    expect(getAfterAliasReset.json().values.maxExtractedTerms).toBe(8);
   });
 
   it("服务端门控：study-mode 停用时服务端拦截专注模式，不生成 terms_extracted 事件；启用时正常生成", async () => {

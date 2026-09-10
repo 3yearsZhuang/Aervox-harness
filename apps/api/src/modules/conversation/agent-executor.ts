@@ -497,7 +497,13 @@ async function runDshAdapterTurn(
   repo: SqliteConversationRepository,
   tenant: TenantContext,
   store: SqliteExecutionStore,
-  input: { turnId: string; sessionId: string; attemptId: string; userMessage: string },
+  input: {
+    turnId: string;
+    sessionId: string;
+    attemptId: string;
+    userMessage: string;
+    systemPrompt?: string;
+  },
   onFinalized?: (status: "Completed" | "Failed" | "Interrupted") => Promise<void>,
 ): Promise<void> {
   const resolved = await resolveDshTurnAdapter();
@@ -511,6 +517,7 @@ async function runDshAdapterTurn(
     sessionId: input.sessionId,
     attemptId: input.attemptId,
     userMessage: input.userMessage,
+    systemPrompt: input.systemPrompt,
   });
   if (result.status === "Completed") {
     await repo.updateTurnStatus(tenant, input.turnId, "Completed");
@@ -688,7 +695,13 @@ export async function runLoopTurnOnce(
         // ignore
       }
     }
-    await runDshAdapterTurn(repo, tenant, store, input, async (status) => {
+    const dshInput = {
+      ...input,
+      ...(beforeTurnExec.extraSections.length > 0
+        ? { systemPrompt: beforeTurnExec.extraSections.join("\n\n") }
+        : {}),
+    };
+    await runDshAdapterTurn(repo, tenant, store, dshInput, async (status) => {
       await executeAfterTurnPlugins(
         defaultServerTurnPluginRegistry,
         { ...turnPluginCtx, status, llm: dshLlm },

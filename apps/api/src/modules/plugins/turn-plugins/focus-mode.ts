@@ -13,7 +13,7 @@ import type {
   IPluginConfigRepository,
   SqliteConversationRepository,
   TenantContext,
-} from "@aervox/database";
+} from "@aervox/repositories";
 import { extractTerms, type LLMCallable } from "@aervox/practice-review";
 import {
   buildFocusModePrompt,

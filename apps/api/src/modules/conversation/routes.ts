@@ -66,9 +66,9 @@ export interface ConversationRouteDeps {
   /** CAP-005：普通长期记忆混合召回，按 request tenant 绑定。 */
   memoryRecall?: MemoryRecallPort;
   /** 插件仓储：用于检查 study-mode 等插件启用状态 */
-  extensionRepo?: import("@aervox/database").IExtensionRepository;
+  extensionRepo?: import("@aervox/repositories").IExtensionRepository;
   /** 插件配置仓储：用于加载 study-mode 等运行时配置 */
-  pluginConfigRepo?: import("@aervox/database").IPluginConfigRepository;
+  pluginConfigRepo?: import("@aervox/repositories").IPluginConfigRepository;
 }
 
 export function registerConversationRoutes(

@@ -243,12 +243,17 @@ export class PluginConfigService {
   }
 
   async resetConfig(tenant: TenantContext, pluginId: string): Promise<PluginConfigSnapshot> {
-    await this.requirePlugin(pluginId);
-    const schema = await this.getConfigSchema(pluginId);
+    const found = await this.findPlugin(pluginId);
+    if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
+    if (found.plugin.enabled !== 1) {
+      throw new PluginConfigError(409, "PLUGIN_DISABLED", `plugin disabled: ${pluginId}`);
+    }
+    const targetId = found.resolvedId;
+    const schema = await this.getConfigSchema(targetId);
     const fields = schema.fields as Parameters<typeof validateValues>[0];
     const defaults = applyDefaults(fields);
-    await this.deps.secretRepo.deleteAllForPlugin(pluginId);
-    const saved = await this.deps.configRepo.resetConfig(tenant, pluginId, schema.schemaVersion, defaults);
+    await this.deps.secretRepo.deleteAllForPlugin(targetId);
+    const saved = await this.deps.configRepo.resetConfig(tenant, targetId, schema.schemaVersion, defaults);
     await this.audit(tenant, "plugin.config.reset", pluginId, { revision: saved.revision });
     return {
       pluginId,

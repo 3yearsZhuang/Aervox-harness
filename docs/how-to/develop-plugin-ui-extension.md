@@ -27,14 +27,9 @@ sources:
 # 操作指南：开发 Aervox 扩展插件（How-to）
 
 - 提出人：linge · 2026-09-09
-- 修改人：linge · 2026-09-10
+- 修改人：codex · 2026-09-10
 
-> 文档编号：AVX-GUIDE-004
-> 类型：How-to
-> 版本：v0.2.0
-> 更新日期：2026-09-10
-> 状态：Review Candidate
-> 关联：[插件 Config、Page 与 UI 扩展规范](../reference/plugin-config-and-pages.md) · [能力组合与可选化目录规范](../reference/capability-composition.md) · [ADR-009](../reference/adr/ADR-009-electron-plugin-sandbox.md) · [ADR-015](../reference/adr/ADR-015-vue-full-stack.md)
+关联：[插件 Config、Page 与 UI 扩展规范](../reference/plugin-config-and-pages.md) · [能力组合与可选化目录规范](../reference/capability-composition.md) · [ADR-009](../reference/adr/ADR-009-electron-plugin-sandbox.md) · [ADR-015](../reference/adr/ADR-015-vue-full-stack.md)
 
 本指南指导插件开发者如何基于 Aervox 插件体系开发扩展插件。涵盖全栈插件生命周期：
 

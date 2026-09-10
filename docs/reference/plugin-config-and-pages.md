@@ -26,14 +26,9 @@ sources:
 # 插件 Config、Page 与 UI 扩展规范
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：linge · 2026-09-10
+- 修改人：codex · 2026-09-10
 
-> 文档编号：AVX-PLUG-001
-> 类型：Reference
-> 版本：v0.2
-> 更新日期：2026-09-10
-> 状态：Review Candidate
-> 关联：[CR-006](changes/CR-006-plugin-config-and-pages.md)、[能力组合与可选化目录规范](capability-composition.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-015](adr/ADR-015-vue-full-stack.md)、[AI 质量与安全规范](AI_QUALITY_SAFETY.md)
+关联：[CR-006](changes/CR-006-plugin-config-and-pages.md)、[能力组合与可选化目录规范](capability-composition.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-015](adr/ADR-015-vue-full-stack.md)、[AI 质量与安全规范](AI_QUALITY_SAFETY.md)
 
 本文是插件配置、沙箱页面与前端 UI 扩展的运行时契约与实现规范。设计参考 [AstrBot 插件配置指南](https://docs.astrbot.app/dev/star/guides/plugin-config.html) 与 [插件页面指南](https://docs.astrbot.app/dev/star/guides/plugin-pages.html)（AGPLv3，仅借鉴公开设计），结合 Aervox 自有 ADR-009、ADR-015 与 AVX-CAP-001 规范，提供后端 Config Schema v1、受限 iframe 沙箱 Page，以及工作台前端插槽注入（Extension Slots）与契约化核心组件替换（Component Overrides）。
 
@@ -201,6 +196,7 @@ export interface ServerTurnPlugin {
 
 - **底座零污染红线**：`packages/agent-loop/src/base-prompt.ts` 为完全通用的系统根提示词底座，严禁在其中硬编码或内嵌任何特定插件、教学法或业务模式的分支逻辑（如严禁在底座添加 `if (isFocusMode)` 或包含特定模式词）；
 - **动态切面注入**：所有模式特有提示词（如专注模式苏格拉底教学原则、严格防剧透脚手架规则、出题考官判定契约）一律由插件在 `beforeTurn` 中通过 `extraSections: string[]` 返回；
+- **Driver 一致性**：原生 Agent Loop 与 DSH 等进程外 Adapter 必须消费同一组已审核 `extraSections`，不得因切换 Driver 丢失插件安全或教学约束；
 - **确定性层级顺序**：`agent-executor.ts` 会将收集到的 `extraSections` 插入到通用工具使用规范之后、个性化人格设定与全局输出格式之前，确保全局输出格式规范（禁 emoji / 纯文本）始终保持最高约束力。
 
 ### 4.3 租户配置与运行时门控（Gating & Config Injection）
@@ -209,7 +205,7 @@ export interface ServerTurnPlugin {
 
 1. **启停门控**：向 `IExtensionRepository` 检查当前租户下该插件的激活状态（`record.enabled === 1`）。未安装或处于禁用状态的插件自动跳过执行；
 2. **配置自动注入**：向 `IPluginConfigRepository` 读取当前租户保存的配置 JSON，反序列化后作为 `configValues` 参数直接传入切面函数。插件开发者无需在插件代码中直接处理数据库查询与连接；
-3. **别名与平滑迁移**：插件注册表与编排器内置别名映射能力（例如 `focus-mode` 与旧版 `study-mode`）。当插件改名或版本演进时，系统双向解析状态与配置，保证已有用户数据与客户端调用不中断。
+3. **别名与平滑迁移**：插件注册表与编排器内置别名映射能力（例如 `focus-mode` 与旧版 `study-mode`）。读取、保存、重置及 secret 清理都必须先解析到同一真实插件 ID，避免旧别名产生孤立配置。
 
 ### 4.4 结构化请求元数据契约（Structured Request Metadata）
 

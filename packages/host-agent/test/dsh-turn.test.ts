@@ -97,10 +97,12 @@ describe("阶段 6d createDSHAdapterDriver（DSH 真 Turn 接入）", () => {
 
   it("本地兼容端点（mock）：完整真实模型回合 delta→batch→done → concluded（协议路径无外部依赖）", async () => {
     // 本地 chat/completions mock（OpenAI 兼容；验证 runner 的现行模型回合代码路径）
+    let receivedBody: { messages?: Array<{ role?: string; content?: string }> } | undefined;
     const server: Server = createServer((req, res) => {
       let body = "";
       req.on("data", (c) => (body += c));
       req.on("end", () => {
+        receivedBody = JSON.parse(body) as typeof receivedBody;
         res.writeHead(200, { "content-type": "application/json" });
         res.end(
           JSON.stringify({
@@ -119,12 +121,19 @@ describe("阶段 6d createDSHAdapterDriver（DSH 真 Turn 接入）", () => {
       });
       expect(probe.ready).toBe(true);
       closeHandle = handle?.close;
-      const outcome = await drainAdapterDriver(handle!.driver, request);
+      const outcome = await drainAdapterDriver(handle!.driver, {
+        ...request,
+        systemPrompt: "专注模式核心教学原则",
+      });
       expect(outcome.events).toEqual([
         { type: "delta", text: "Agent Harness 的框架价值是把模型循环与安全边界分离。" },
         { type: "batch", concludes: [true] },
       ]);
       expect(outcome.decision).toEqual({ concluded: true });
+      expect(receivedBody?.messages).toEqual([
+        { role: "system", content: "专注模式核心教学原则" },
+        { role: "user", content: request.userMessage },
+      ]);
     } finally {
       await new Promise<void>((r) => server.close(() => r()));
     }

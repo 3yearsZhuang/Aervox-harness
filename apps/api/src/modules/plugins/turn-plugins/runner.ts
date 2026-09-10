@@ -7,7 +7,7 @@
  * 3. 编排并收集各插件的 beforeTurn 提示词与状态标记；
  * 4. 在回合结束后分发 afterTurn 执行增强后处理。
  */
-import type { IExtensionRepository, IPluginConfigRepository } from "@aervox/database";
+import type { IExtensionRepository, IPluginConfigRepository } from "@aervox/repositories";
 import type { ServerTurnPluginRegistry } from "./registry.js";
 import type { AfterTurnContext, BeforeTurnResult, TurnPluginContext } from "./types.js";
 
