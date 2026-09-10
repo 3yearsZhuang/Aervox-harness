@@ -167,11 +167,7 @@ async function getProactiveAccessToken(): Promise<string> {
 
 async function localApiHeaders(): Promise<Record<string, string>> {
     const headers: Record<string, string> = {Accept: 'application/json', 'Content-Type': 'application/json'}
-    const workspaceId = process.env.AERVOX_WORKSPACE_ID?.trim()
-    const userId = process.env.AERVOX_USER_ID?.trim()
     const authToken = process.env.AERVOX_AUTH_TOKEN?.trim()
-    if (workspaceId) headers['x-workspace-id'] = workspaceId
-    if (userId) headers['x-user-id'] = userId
     if (authToken) headers.Authorization = `Bearer ${authToken}`
     headers['x-aervox-proactive-token'] = await getProactiveAccessToken()
     return headers
@@ -615,11 +611,7 @@ async function streamAervoxTurn(event: Electron.IpcMainEvent, payload: unknown) 
             'Content-Type': 'application/json',
             'Idempotency-Key': requestId,
         }
-        const workspaceId = process.env.AERVOX_WORKSPACE_ID?.trim()
-        const userId = process.env.AERVOX_USER_ID?.trim()
         const authToken = process.env.AERVOX_AUTH_TOKEN?.trim()
-        if (workspaceId) headers['x-workspace-id'] = workspaceId
-        if (userId) headers['x-user-id'] = userId
         if (authToken) headers.Authorization = `Bearer ${authToken}`
 
         const createResponse = await fetch(`${apiBaseUrl}/v1/sessions/${encodeURIComponent(sessionId)}/turns`, {
@@ -703,11 +695,7 @@ async function proxyApiRequest(_event: Electron.IpcMainInvokeEvent, payload: unk
     if (!isApiRequest(payload)) return {status: 400, ok: false, json: null, text: 'invalid api request'}
     const method = (payload.method ?? 'GET').toUpperCase()
     const headers: Record<string, string> = {Accept: 'application/json'}
-    const workspaceId = process.env.AERVOX_WORKSPACE_ID?.trim()
-    const userId = process.env.AERVOX_USER_ID?.trim()
     const authToken = process.env.AERVOX_AUTH_TOKEN?.trim()
-    if (workspaceId) headers['x-workspace-id'] = workspaceId
-    if (userId) headers['x-user-id'] = userId
     if (authToken) headers.Authorization = `Bearer ${authToken}`
     const idempotencyKey = payload.headers?.['Idempotency-Key']
     if (typeof idempotencyKey === 'string' && idempotencyKey.length > 0) headers['Idempotency-Key'] = idempotencyKey
@@ -772,10 +760,6 @@ async function uploadAttachment(_event: Electron.IpcMainInvokeEvent, payload: un
     })
     if (payload.idempotencyKey) query.set('idempotencyKey', payload.idempotencyKey)
     const headers: Record<string, string> = {'Content-Type': payload.mediaType}
-    const workspaceId = process.env.AERVOX_WORKSPACE_ID?.trim()
-    const userId = process.env.AERVOX_USER_ID?.trim()
-    if (workspaceId) headers['x-workspace-id'] = workspaceId
-    if (userId) headers['x-user-id'] = userId
 
     const res = await fetch(`${apiBaseUrl}/v1/attachments/binary?${query.toString()}`, {
         method: 'POST',

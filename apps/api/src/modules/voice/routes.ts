@@ -11,7 +11,7 @@ import {
   voiceRemoteTestConnectionRequestSchema,
   voiceCreatePresetRequestSchema,
 } from "@aervox/contracts";
-import { resolveTenant } from "../../shared/tenant.js";
+import { resolveLocalContext } from "../../shared/local-context.js";
 import { GptSovitsRemoteProvider } from "./gpt-sovits.js";
 import type { VoiceService } from "./service.js";
 
@@ -62,7 +62,7 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
 
   // GET /v1/voice/config — 读取当前租户本地语音模型配置（CR-011 阶段 1）
   app.get("/v1/voice/config", async (request) => {
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     return service.getLocalConfig(tenant);
   });
 
@@ -76,7 +76,7 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
         details: parsed.error.issues,
       });
     }
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     try {
       const cfg = await service.setLocalConfig(tenant, parsed.data);
       return cfg;
@@ -90,7 +90,7 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
 
   // GET /v1/voice/remote/config — 读取当前租户在线语音模型配置（CR-028）
   app.get("/v1/voice/remote/config", async (request) => {
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     return service.getRemoteConfig(tenant);
   });
 
@@ -104,7 +104,7 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
         details: parsed.error.issues,
       });
     }
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     try {
       const cfg = await service.setRemoteConfig(tenant, parsed.data);
       return cfg;
@@ -143,7 +143,7 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
 
   // GET /v1/voice/input/config — 读取离线语音输入配置（CR-016）
   app.get("/v1/voice/input/config", async (request) => {
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     return service.getVoiceInputConfig(tenant);
   });
 
@@ -157,7 +157,7 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
         details: parsed.error.issues,
       });
     }
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     try {
       const cfg = await service.setVoiceInputConfig(tenant, parsed.data as any);
       return cfg;
@@ -171,13 +171,13 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
 
   // GET /v1/voice/input/model/status — 读取模型状态
   app.get("/v1/voice/input/model/status", async (request) => {
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     return service.getVoiceInputModelStatus(tenant);
   });
 
   // POST /v1/voice/input/model/download — 触发模型下载
   app.post("/v1/voice/input/model/download", async (request, reply) => {
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     const body = (request.body as { targetDir?: string; mirrorUrl?: string } | undefined) ?? {};
     try {
       const result = await service.downloadVoiceInputModel(tenant, body);
@@ -200,7 +200,7 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
         details: parsed.error.issues,
       });
     }
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     try {
       const audioBuffer = fromBase64(parsed.data.audioBase64);
       const result = await service.transcribe(tenant, {
@@ -222,7 +222,7 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
 
   // GET /v1/voice/presets — 列出全部语音配置预设（含激活标记与三块配置）
   app.get("/v1/voice/presets", async (request) => {
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     return service.listVoicePresets(tenant);
   });
 
@@ -236,7 +236,7 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
         details: parsed.error.issues,
       });
     }
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     try {
       const created = await service.createVoicePreset(tenant, parsed.data.name);
       return reply.code(201).send(created);
@@ -251,7 +251,7 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
   // POST /v1/voice/presets/:presetId/activate — 激活指定语音配置预设
   app.post("/v1/voice/presets/:presetId/activate", async (request, reply) => {
     const { presetId } = request.params as { presetId: string };
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     const activated = await service.activateVoicePreset(tenant, presetId);
     if (!activated) {
       return reply.code(404).send({ code: "PRESET_NOT_FOUND", message: "Voice preset not found" });
@@ -262,7 +262,7 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
   // DELETE /v1/voice/presets/:presetId — 删除指定语音配置预设
   app.delete("/v1/voice/presets/:presetId", async (request, reply) => {
     const { presetId } = request.params as { presetId: string };
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     const deleted = await service.deleteVoicePreset(tenant, presetId);
     if (!deleted) {
       return reply.code(404).send({ code: "PRESET_NOT_FOUND", message: "Voice preset not found" });

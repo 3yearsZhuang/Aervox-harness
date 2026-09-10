@@ -50,7 +50,6 @@ HELP="$(
                                  主动智能可用); 显式设 0 恢复挂起
   Web        VITE_API_URL        API 地址 (默认 http://127.0.0.1:3000)
              VITE_SESSION_ID     会话 ID (默认 web_default)
-             VITE_WORKSPACE_ID / VITE_USER_ID   可选租户头(缺省回退默认租户)
 EOF
 )"
 

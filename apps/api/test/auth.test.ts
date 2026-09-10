@@ -3,6 +3,8 @@ import type { FastifyInstance } from "fastify";
 import { buildApp, type BuildAppOptions } from "../src/app.js";
 import { createInMemoryDatabase } from "@aervox/repositories";
 import { assertSafeApiListenHost, loadAuthConfig } from "../src/shared/auth.js";
+import { resolveLocalContext } from "../src/shared/local-context.js";
+import type { FastifyRequest } from "fastify";
 
 async function buildWith(auth: BuildAppOptions["auth"]) {
   const { db, client, cleanup } = await createInMemoryDatabase();
@@ -11,7 +13,7 @@ async function buildWith(auth: BuildAppOptions["auth"]) {
   return { app, cleanup };
 }
 
-describe("认证中间件（租户信任模型加固）", () => {
+describe("本机 API 认证中间件", () => {
   it("open 模式（默认）免认证放行", async () => {
     const { app, cleanup } = await buildWith(undefined);
     try {
@@ -46,12 +48,10 @@ describe("认证中间件（租户信任模型加固）", () => {
     }
   });
 
-  it("token 模式：正确 token + 已绑定租户配置放行（请求头被忽略）", async () => {
+  it("token 模式：正确 token 直接使用本地单用户上下文", async () => {
     const { app, cleanup } = await buildWith({
       mode: "token",
       token: "s3cret-token",
-      workspaceId: "ws_bound",
-      subjectUserId: "usr_bound",
     });
     try {
       const res = await app.inject({
@@ -59,7 +59,7 @@ describe("认证中间件（租户信任模型加固）", () => {
         url: "/v1/llm/config",
         headers: {
           authorization: "Bearer s3cret-token",
-          // 即使伪造请求头，也不应改变 token 绑定的租户身份
+          // 遗留客户端即使发送旧 Header，也不会改变本地单用户上下文。
           "x-workspace-id": "ws_forged",
           "x-user-id": "usr_forged",
         },
@@ -67,23 +67,6 @@ describe("认证中间件（租户信任模型加固）", () => {
       expect(res.statusCode).toBe(200);
       const body = JSON.parse(res.payload) as { providerType?: string };
       expect(body.providerType).toBe("ollama");
-    } finally {
-      await app.close();
-      await cleanup();
-    }
-  });
-
-  it("token 模式：正确 token 但未绑定租户配置 → 500 fail-closed", async () => {
-    const { app, cleanup } = await buildWith({ mode: "token", token: "s3cret-token" });
-    try {
-      const res = await app.inject({
-        method: "GET",
-        url: "/v1/llm/config",
-        headers: { authorization: "Bearer s3cret-token" },
-      });
-      expect(res.statusCode).toBe(500);
-      const body = JSON.parse(res.payload) as { code?: string };
-      expect(body.code).toBe("AUTH_NOT_CONFIGURED");
     } finally {
       await app.close();
       await cleanup();
@@ -104,16 +87,28 @@ describe("认证中间件（租户信任模型加固）", () => {
     expect(() => assertSafeApiListenHost("0.0.0.0", "token")).not.toThrow();
   });
 
-  it("loadAuthConfig：读取 token 模式绑定的租户身份配置", () => {
+  it("旧租户 Header 不会进入本地上下文", () => {
+    const request = {
+      headers: {
+        "x-workspace-id": "ws_forged",
+        "x-user-id": "usr_forged",
+        "x-actor-id": "actor_forged",
+      },
+    } as unknown as FastifyRequest;
+    expect(resolveLocalContext(request)).toEqual({
+      workspaceId: "local",
+      subjectUserId: "local",
+    });
+  });
+
+  it("loadAuthConfig：只读取 token 与可选审计主体", () => {
     const cfg = loadAuthConfig({
       AERVOX_AUTH_MODE: "TOKEN",
       AERVOX_AUTH_TOKEN: "x",
-      AERVOX_AUTH_WORKSPACE: "ws_cfg",
-      AERVOX_AUTH_USER: "usr_cfg",
       AERVOX_AUTH_ACTOR: "act_cfg",
     });
-    expect(cfg.workspaceId).toBe("ws_cfg");
-    expect(cfg.subjectUserId).toBe("usr_cfg");
+    expect(cfg).not.toHaveProperty("workspaceId");
+    expect(cfg).not.toHaveProperty("subjectUserId");
     expect(cfg.actorId).toBe("act_cfg");
   });
 });

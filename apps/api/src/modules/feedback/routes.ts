@@ -3,7 +3,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import type { SqliteFeedbackRepository } from "@aervox/repositories";
-import { resolveTenant } from "../../shared/tenant.js";
+import { resolveLocalContext } from "../../shared/local-context.js";
 
 let seq = 0;
 const id = (): string => `fb_${Date.now().toString(36)}_${(++seq).toString(36)}`;
@@ -13,7 +13,7 @@ export function registerFeedbackRoutes(
   feedbackRepo: SqliteFeedbackRepository,
 ): void {
   app.post("/v1/feedback", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const body = (req.body ?? {}) as {
       actorId?: string;
       subjectType?: string;
@@ -38,7 +38,7 @@ export function registerFeedbackRoutes(
   app.get("/v1/feedback", async (req) => {
     const q = req.query as { subjectType?: string; subjectId?: string };
     return {
-      items: await feedbackRepo.listFeedback(resolveTenant(req), q.subjectType, q.subjectId),
+      items: await feedbackRepo.listFeedback(resolveLocalContext(req), q.subjectType, q.subjectId),
     };
   });
 }

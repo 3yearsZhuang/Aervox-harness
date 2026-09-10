@@ -10,7 +10,7 @@
  * - GET    /v1/plugins/:id/permissions/:permission 查询权限。
  */
 import type { FastifyInstance } from "fastify";
-import { resolveTenant } from "../../shared/tenant.js";
+import { resolveLocalContext } from "../../shared/local-context.js";
 import type { PluginService } from "./service.js";
 
 let seq = 0;
@@ -81,7 +81,7 @@ export function registerPluginRoutes(app: FastifyInstance, service: PluginServic
   // 授予权限
   app.post("/v1/plugins/:id/grants", async (req, reply) => {
     const { id: pluginId } = req.params as { id: string };
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const body = (req.body ?? {}) as { permission?: string; scope?: string };
     if (!body.permission || !body.scope) {
       return reply.code(400).send({ error: "permission/scope are required" });
@@ -98,7 +98,7 @@ export function registerPluginRoutes(app: FastifyInstance, service: PluginServic
   // 撤销权限
   app.delete("/v1/plugins/:id/grants/:grantId", async (req, reply) => {
     const { grantId } = req.params as { id: string; grantId: string };
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const grant = await service.revoke(tenant, grantId);
     if (!grant) return reply.code(404).send({ error: "grant not found" });
     return grant;
@@ -110,7 +110,7 @@ export function registerPluginRoutes(app: FastifyInstance, service: PluginServic
       id: string;
       permission: string;
     };
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const has = await service.hasPermission(tenant, pluginId, permission);
     return { pluginId, permission, granted: has };
   });

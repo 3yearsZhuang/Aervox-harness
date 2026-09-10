@@ -16,7 +16,7 @@ import type {
   ProactiveSourceGrantState,
 } from "@aervox/repositories";
 import { FULL_PROFILE_SOURCE_MANIFEST } from "@aervox/schema";
-import { resolveTenant } from "../../shared/tenant.js";
+import { resolveLocalContext } from "../../shared/local-context.js";
 
 let sequence = 0;
 function nextId(prefix: string): string {
@@ -40,13 +40,13 @@ function optionalBoolean(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
 }
 
-function actorFor(req: Parameters<typeof resolveTenant>[0]): string {
-  const tenant = resolveTenant(req);
+function actorFor(req: Parameters<typeof resolveLocalContext>[0]): string {
+  const tenant = resolveLocalContext(req);
   return tenant.actorId ?? tenant.subjectUserId;
 }
 
 function idFromRequest(
-  req: Parameters<typeof resolveTenant>[0],
+  req: Parameters<typeof resolveLocalContext>[0],
   prefix: string,
   explicit: unknown,
 ): string {
@@ -103,7 +103,7 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
   const repo = deps.repository;
 
   app.get("/v1/proactive/status", async (req) => {
-    const status = await repo.getEffectiveStatus(resolveTenant(req));
+    const status = await repo.getEffectiveStatus(resolveLocalContext(req));
     return {
       version: "full_profile_v1",
       processingBoundary: "local_only",
@@ -127,14 +127,14 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
   }));
 
   app.get("/v1/proactive/revisions", async (req) => ({
-    items: await repo.listRevisions(resolveTenant(req), safeLimit((req.query as { limit?: unknown }).limit)),
+    items: await repo.listRevisions(resolveLocalContext(req), safeLimit((req.query as { limit?: unknown }).limit)),
   }));
 
   app.post("/v1/proactive/drafts", async (req, reply) => {
     const body = objectBody(req.body);
     const deviceId = requiredString(body.deviceId);
     if (!deviceId) return reply.code(400).send({ error: "deviceId is required" });
-    const draft = await repo.createDraft(resolveTenant(req), {
+    const draft = await repo.createDraft(resolveLocalContext(req), {
       id: idFromRequest(req, "pro_profile", body.id),
       profileVersion: optionalString(body.profileVersion),
       deviceId,
@@ -202,7 +202,7 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
     for (const source of parsedSources) {
       if (!FULL_PROFILE_SOURCE_MANIFEST.some((item) => item.sourceKey === source.sourceKey)) sources.push(source);
     }
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const existed = await repo.getRevision(tenant, profileId);
     const result = await repo.confirmProfile(tenant, {
       id: profileId,
@@ -239,7 +239,7 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
   app.post("/v1/proactive/desired-state", async (req, reply) => {
     const body = objectBody(req.body);
     if (!validDesiredState(body.desiredState)) return reply.code(400).send({ error: "invalid desiredState" });
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const updated = await repo.setDesiredState(
       tenant,
       body.desiredState,
@@ -257,14 +257,14 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
   });
 
   app.get("/v1/proactive/sources", async (req) => ({
-    items: await repo.listSourceGrants(resolveTenant(req), optionalString((req.query as { revisionId?: unknown }).revisionId)),
+    items: await repo.listSourceGrants(resolveLocalContext(req), optionalString((req.query as { revisionId?: unknown }).revisionId)),
   }));
 
   app.patch("/v1/proactive/sources/:sourceGrantId", async (req, reply) => {
     const { sourceGrantId } = req.params as { sourceGrantId: string };
     const body = objectBody(req.body);
     if (!validSourceState(body.state)) return reply.code(400).send({ error: "invalid source state" });
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const updated = await repo.updateSourceGrant(tenant, sourceGrantId, {
       state: body.state,
       metadata: body.metadata,
@@ -280,7 +280,7 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
 
   app.delete("/v1/proactive/sources/:sourceGrantId/data", async (req, reply) => {
     const { sourceGrantId } = req.params as { sourceGrantId: string };
-    const deleted = await repo.deleteSourceData(resolveTenant(req), sourceGrantId, actorFor(req));
+    const deleted = await repo.deleteSourceData(resolveLocalContext(req), sourceGrantId, actorFor(req));
     if (!deleted) return reply.code(404).send({ error: "source grant not found" });
     return deleted;
   });
@@ -291,7 +291,7 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
     const deviceId = requiredString(body.deviceId);
     const epoch = requiredString(body.epoch);
     if (!revisionId || !deviceId || !epoch) return reply.code(400).send({ error: "revisionId, deviceId and epoch are required" });
-    const lease = await repo.createActivationLease(resolveTenant(req), {
+    const lease = await repo.createActivationLease(resolveLocalContext(req), {
       id: idFromRequest(req, "pro_lease", body.id),
       revisionId,
       deviceId,
@@ -308,7 +308,7 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
   app.post("/v1/proactive/activation/:leaseId/heartbeat", async (req, reply) => {
     const { leaseId } = req.params as { leaseId: string };
     const body = objectBody(req.body);
-    const lease = await repo.heartbeatActivationLease(resolveTenant(req), leaseId, {
+    const lease = await repo.heartbeatActivationLease(resolveLocalContext(req), leaseId, {
       ttlMs: typeof body.ttlMs === "number" ? body.ttlMs : undefined,
       localReady: typeof body.localReady === "boolean" ? body.localReady : undefined,
       fullAccessSnapshot: typeof body.fullAccessSnapshot === "boolean" ? body.fullAccessSnapshot : undefined,
@@ -321,7 +321,7 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
   app.post("/v1/proactive/activation/:leaseId/end", async (req, reply) => {
     const { leaseId } = req.params as { leaseId: string };
     const body = objectBody(req.body);
-    const ended = await repo.endActivationLease(resolveTenant(req), leaseId, optionalString(body.reason) ?? "user_requested", actorFor(req));
+    const ended = await repo.endActivationLease(resolveLocalContext(req), leaseId, optionalString(body.reason) ?? "user_requested", actorFor(req));
     if (!ended) return reply.code(404).send({ error: "activation lease not found" });
     return ended;
   });
@@ -330,7 +330,7 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
     const query = req.query as { revisionId?: unknown; sourceKey?: unknown; includeDeleted?: unknown; includeRaw?: unknown; limit?: unknown };
     // payload 正文只有显式 includeRaw=true 才返回；仓储结果在这里再做一次防线。
     const includeRaw = query.includeRaw === "true";
-    const items = await repo.listCaptures(resolveTenant(req), {
+    const items = await repo.listCaptures(resolveLocalContext(req), {
       revisionId: optionalString(query.revisionId),
       sourceKey: optionalString(query.sourceKey),
       includeDeleted: query.includeDeleted === "true",
@@ -352,7 +352,7 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
       return reply.code(400).send({ error: "payload or payloadText is required" });
     }
     const canonicalPayload = body.payload !== undefined ? JSON.stringify(body.payload) : String(body.payloadText);
-    const capture = await repo.createCapture(resolveTenant(req), {
+    const capture = await repo.createCapture(resolveLocalContext(req), {
       id: idFromRequest(req, "pro_capture", body.id),
       revisionId,
       sourceGrantId,
@@ -372,7 +372,7 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
   app.post("/v1/proactive/captures/purge", async (req) => {
     const body = objectBody(req.body);
     const now = optionalString(body.now);
-    return { deleted: await repo.purgeEligibleCaptures(resolveTenant(req), now, typeof body.limit === "number" ? body.limit : undefined) };
+    return { deleted: await repo.purgeEligibleCaptures(resolveLocalContext(req), now, typeof body.limit === "number" ? body.limit : undefined) };
   });
 
   app.post("/v1/proactive/captures/:captureId/distill", async (req, reply) => {
@@ -380,7 +380,7 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
     const body = objectBody(req.body);
     const memoryIds = Array.isArray(body.memoryIds) ? body.memoryIds.filter((id): id is string => typeof id === "string" && id.trim().length > 0) : [];
     if (memoryIds.length === 0) return reply.code(400).send({ error: "memoryIds must contain at least one id" });
-    const capture = await repo.markCaptureDistilled(resolveTenant(req), captureId, memoryIds);
+    const capture = await repo.markCaptureDistilled(resolveLocalContext(req), captureId, memoryIds);
     if (!capture) return reply.code(404).send({ error: "capture not found" });
     const { payloadText: _payloadText, payload: _payload, ...redacted } = capture;
     return redacted;
@@ -389,7 +389,7 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
   app.post("/v1/proactive/captures/:captureId/distillation-failed", async (req, reply) => {
     const { captureId } = req.params as { captureId: string };
     const body = objectBody(req.body);
-    const capture = await repo.markCaptureDistillationFailed(resolveTenant(req), captureId, optionalString(body.reason));
+    const capture = await repo.markCaptureDistillationFailed(resolveLocalContext(req), captureId, optionalString(body.reason));
     if (!capture) return reply.code(404).send({ error: "capture not found" });
     const { payloadText: _payloadText, payload: _payload, ...redacted } = capture;
     return redacted;
@@ -398,7 +398,7 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
   app.get("/v1/proactive/observations", async (req) => {
     const query = req.query as { revisionId?: unknown; sourceKey?: unknown; limit?: unknown };
     return {
-      items: await repo.listObservations(resolveTenant(req), {
+      items: await repo.listObservations(resolveLocalContext(req), {
         revisionId: optionalString(query.revisionId),
         sourceKey: optionalString(query.sourceKey),
         limit: safeLimit(query.limit),
@@ -417,7 +417,7 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
       return reply.code(400).send({ error: "revisionId, sourceGrantId, sourceKey, observationType and subjectKey are required" });
     }
     const payloadCanonical = JSON.stringify(body.payload ?? {});
-    const observation = await repo.createObservation(resolveTenant(req), {
+    const observation = await repo.createObservation(resolveLocalContext(req), {
       id: idFromRequest(req, "pro_observation", body.id),
       revisionId,
       sourceGrantId,
@@ -436,7 +436,7 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
   app.get("/v1/proactive/claims", async (req) => {
     const query = req.query as { revisionId?: unknown; state?: unknown; limit?: unknown };
     return {
-      items: await repo.listClaims(resolveTenant(req), {
+      items: await repo.listClaims(resolveLocalContext(req), {
         revisionId: optionalString(query.revisionId),
         state: validClaimState(query.state) ? query.state : undefined,
         limit: safeLimit(query.limit),
@@ -451,7 +451,7 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
     const subjectKey = requiredString(body.subjectKey);
     const content = requiredString(body.content);
     if (!revisionId || !claimType || !subjectKey || !content) return reply.code(400).send({ error: "revisionId, claimType, subjectKey and content are required" });
-    const claim = await repo.createClaim(resolveTenant(req), {
+    const claim = await repo.createClaim(resolveLocalContext(req), {
       id: idFromRequest(req, "pro_claim", body.id),
       revisionId,
       claimType,
@@ -473,7 +473,7 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
     const { claimId } = req.params as { claimId: string };
     const body = objectBody(req.body);
     if (!validClaimState(body.state)) return reply.code(400).send({ error: "invalid claim state" });
-    const claim = await repo.updateClaimState(resolveTenant(req), claimId, body.state, actorFor(req));
+    const claim = await repo.updateClaimState(resolveLocalContext(req), claimId, body.state, actorFor(req));
     if (!claim) return reply.code(404).send({ error: "profile claim not found" });
     return claim;
   });
@@ -481,7 +481,7 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
   app.get("/v1/proactive/actions", async (req) => {
     const query = req.query as { revisionId?: unknown; state?: unknown; limit?: unknown };
     return {
-      items: await repo.listActions(resolveTenant(req), {
+      items: await repo.listActions(resolveLocalContext(req), {
         revisionId: optionalString(query.revisionId),
         state: validActionState(query.state) ? query.state : undefined,
         limit: safeLimit(query.limit),
@@ -499,7 +499,7 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
     if (!revisionId || !actionType || !target || !authorizationScope || !actionGrantRevision) {
       return reply.code(400).send({ error: "revisionId, actionType, target, authorizationScope and actionGrantRevision are required" });
     }
-    const action = await repo.createAction(resolveTenant(req), {
+    const action = await repo.createAction(resolveLocalContext(req), {
       id: idFromRequest(req, "pro_action", body.id),
       revisionId,
       activationLeaseId: optionalString(body.activationLeaseId) ?? null,
@@ -519,7 +519,7 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
     const { actionId } = req.params as { actionId: string };
     const body = objectBody(req.body);
     if (!validActionState(body.state)) return reply.code(400).send({ error: "invalid action state" });
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     try {
       const action = await repo.updateAction(tenant, actionId, {
         state: body.state,
@@ -538,11 +538,11 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
   });
 
   app.get("/v1/proactive/audit", async (req) => ({
-    items: await repo.listAuditEvents(resolveTenant(req), safeLimit((req.query as { limit?: unknown }).limit)),
+    items: await repo.listAuditEvents(resolveLocalContext(req), safeLimit((req.query as { limit?: unknown }).limit)),
   }));
 
-  async function sendExport(req: Parameters<typeof resolveTenant>[0], reply: { header(name: string, value: string): unknown; send(payload: unknown): unknown }, includeRaw: boolean) {
-    const tenant = resolveTenant(req);
+  async function sendExport(req: Parameters<typeof resolveLocalContext>[0], reply: { header(name: string, value: string): unknown; send(payload: unknown): unknown }, includeRaw: boolean) {
+    const tenant = resolveLocalContext(req);
     await repo.recordAudit(tenant, {
       id: nextId("pro_export_audit"),
       eventType: "export.requested",

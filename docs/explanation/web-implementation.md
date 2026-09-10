@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.1.0
-updated_at: 2026-08-31
-reviewed_at: 2026-08-31
+version: 0.1.1
+updated_at: 2026-09-11
+reviewed_at: 2026-09-11
 review_interval_days: 90
 ---
 
 # Web 工作台实现规划（Vue 单栈）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-31
+- 修改人：3yearszhuang · 2026-09-11
 
 关联：[ADR-015](../reference/adr/ADR-015-vue-full-stack.md)（Web 技术基线）· [ADR-014](../reference/adr/ADR-014-modular-monolith-structure.md)（apps/api 模块组织）· [架构设计](../reference/ARCHITECTURE.md) · [PRD](../reference/PRD.md)
 
@@ -91,7 +91,7 @@ apps/web/
 
 ## 6. 风险与待定项
 
-- **鉴权**：SQLite 阶段无登录，租户由 `x-workspace-id`/`x-user-id` 回退默认；web 上线前需确认如何注入租户头（与 desktop 相同的环境变量）。标识为默认可注入方案先行，正式 auth 随 PG 阶段引入。
+- **鉴权**：CR-030 后 SQLite 是永久本地单用户真源，Web 不再注入租户 Header；API 默认仅监听 loopback，远程监听必须启用 token 认证并通过启动期安全校验。
 - **CORS**：`apps/api` 需为同源或本地开发放开 CORS；在 `buildApp` 中按环境注入（改动 API 骨架，随 M1 处理）。
 - **SSE 重连**：浏览器侧实现须遵循 `Last-Event-ID`（ADR-012），避免重复展示。
 - **双端主题一致性**：Web 与 desktop 共享 `@aervox/ui` 工作台与主题，平台壳差异通过属性适配，避免两套视觉漂移。

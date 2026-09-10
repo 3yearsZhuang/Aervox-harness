@@ -13,7 +13,7 @@ import {
   editStudyMaterialSchema,
   exportFormatSchema,
 } from "@aervox/contracts";
-import { resolveTenant } from "../../shared/tenant.js";
+import { resolveLocalContext } from "../../shared/local-context.js";
 
 let seq = 0;
 
@@ -23,7 +23,7 @@ export function registerStudyMaterialRoutes(
 ): void {
   // POST /v1/study-materials — 生成资料（FR-LRN-002）
   app.post("/v1/study-materials", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const parsed = createStudyMaterialSchema.safeParse(req.body);
     if (!parsed.success) {
       return reply.status(400).send({ error: "Validation failed", details: parsed.error.issues });
@@ -80,7 +80,7 @@ export function registerStudyMaterialRoutes(
 
   // GET /v1/study-materials — 列表（按目标或租户）
   app.get("/v1/study-materials", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { goalId } = req.query as { goalId?: string };
     const materials = goalId
       ? await repo.listByGoal(tenant, goalId)
@@ -90,7 +90,7 @@ export function registerStudyMaterialRoutes(
 
   // GET /v1/study-materials/:id — 获取资料详情
   app.get("/v1/study-materials/:id", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { id } = req.params as { id: string };
     const material = await repo.get(tenant, id);
     if (!material) {
@@ -112,7 +112,7 @@ export function registerStudyMaterialRoutes(
 
   // PATCH /v1/study-materials/:id — 编辑资料（FR-LRN-003）
   app.patch("/v1/study-materials/:id", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { id } = req.params as { id: string };
     const parsed = editStudyMaterialSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -134,7 +134,7 @@ export function registerStudyMaterialRoutes(
 
   // GET /v1/study-materials/:id/versions — 版本历史（FR-LRN-003 AC-01）
   app.get("/v1/study-materials/:id/versions", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { id } = req.params as { id: string };
     const versions = await repo.listVersions(tenant, id);
     return reply.send({ materialId: id, versions });
@@ -142,7 +142,7 @@ export function registerStudyMaterialRoutes(
 
   // POST /v1/study-materials/:id/export — 导出资料（FR-LRN-003 AC-02）
   app.post("/v1/study-materials/:id/export", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { id } = req.params as { id: string };
     const { format = "markdown" } = (req.body ?? {}) as { format?: string };
 
@@ -207,7 +207,7 @@ export function registerStudyMaterialRoutes(
 
   // DELETE /v1/study-materials/:id — 软删除（BR-LRN-001 AC-03）
   app.delete("/v1/study-materials/:id", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const { id } = req.params as { id: string };
     const deleted = await repo.softDelete(tenant, id);
     if (!deleted) {

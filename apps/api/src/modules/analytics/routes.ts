@@ -5,7 +5,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import type { SqliteAnalyticsRepository } from "@aervox/repositories";
-import { resolveTenant } from "../../shared/tenant.js";
+import { resolveLocalContext } from "../../shared/local-context.js";
 
 let seq = 0;
 const id = (): string => `ae_${Date.now().toString(36)}_${(++seq).toString(36)}`;
@@ -15,7 +15,7 @@ export function registerAnalyticsRoutes(
   analyticsRepo: SqliteAnalyticsRepository,
 ): void {
   app.post("/v1/analytics/events", async (req, reply) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const body = (req.body ?? {}) as {
       eventName?: string;
       eventSchemaVersion?: number;
