@@ -54,7 +54,7 @@ review_interval_days: 90
 | `AVX-SEC-001` | [威胁模型](reference/THREAT_MODEL.md) | 2026-09-10 | 每季度 + 信任边界变更 | loopback、文件 ACL 或 CR-030 迁移威胁未加入模型 |
 | `AVX-QA-001` | [测试策略](reference/TEST_STRATEGY.md) | 2026-09-10 | G1/G4 门禁 | 本地安全或 CR-030 故障注入 AC/TC 状态未回填 |
 | `AVX-OPS-001` | [运行、值班与演练手册](reference/operations.md) | 2026-09-10 | 每季度演练 + 每次发布 + 值班变更 | 本地恢复、CR-030 回滚或告警/拓扑变化未更新 |
-| `AVX-TRC-001` | [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) | 2026-09-10 | 版本立项 / G1 / G4 / 落地登记 | CAP/AC/TC 状态或追踪关系变化未回填；§4.2 落地登记与实现不符 |
+| `AVX-TRC-001` | [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) | 2026-09-11 | 版本立项 / G1 / G4 / 落地登记 | CAP/AC/TC 状态或追踪关系变化未回填；§4.2 落地登记与实现不符 |
 | `AVX-HOW-001` | [操作指南索引](how-to/README.md) | 2026-09-10 | 新增指南或操作流程变更 | 指南清单与实际目录不一致 |
 | `AVX-GUIDE-001` | [工程与发布流程](how-to/engineering-process.md) | 2026-08-29 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
 | `AVX-GUIDE-002` | [撰写与批准 ADR](how-to/write-adr.md) | 2026-08-28 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |

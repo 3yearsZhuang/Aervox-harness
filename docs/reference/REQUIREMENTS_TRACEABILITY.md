@@ -7,15 +7,15 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 1.22.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+updated_at: 2026-09-11
+reviewed_at: 2026-09-11
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：codex · 2026-09-10
+- 修改人：codex · 2026-09-11
 
 产品需求来源：[PRD.md](PRD.md)
 
@@ -411,7 +411,7 @@ review_interval_days: 90
 | W-03/W-06 CR 元数据批量迁移与状态语义修正（REFACTOR-PLAN W-03/W-06） | 基础设施（文档治理） | `docs/reference/changes/` 下 16 份遗留 CR 文档（`CR-002`～`CR-016`、`CR-029`）全面转换为规范 YAML front matter；拆分机器字段 `doc_status` 与 `decision_status` / `delivery_status`，修正 `CR-002`/`005`/`007` 的 `more-evidence-required` 决策语义与 `CR-003` 的 `accepted` 决策状态 | 2026-09-10 | `node scripts/docs-governance.mjs --strict`（strict 错误数由 66 降至 50，16 份 CR 遗留头格式错误彻底归零）；`mise tasks run ci-docs` 全通（Markdown lint 90 文件 0 issues、Vale 0 警告、治理指标全 0） | 原生 |
 | W-02 ADR 元数据批量迁移（REFACTOR-PLAN W-02） | 基础设施（文档治理） | `docs/reference/adr/` 下 17 份遗留 ADR 文档（`ADR-001`～`ADR-017`）全面转换为规范 YAML front matter；声明机器字段 `decision_status`（明确 `ADR-014`/`ADR-016` 为 `accepted`、`ADR-002` 为 `rejected`+`superseded`、其余为 `proposed`）；同步在 `docs/DOC_REGISTRY.md` 补齐 17 份独立登记项（`registry_missing=0`） | 2026-09-10 | `node scripts/docs-governance.mjs --strict`（strict 错误数由 50 降至 33，全仓 19 份 ADR 全部 100% canonical）；`mise tasks run ci-docs` 全通（Markdown lint 90 文件 0 issues、Vale 0 警告、治理指标全 0） | 原生 |
 | PR-169 冲突重整：工作台组件化、UI 插槽与 Server Turn Plugin 管道 | CAP-001/002/007/016/020 + 基础设施 | `packages/ui/src/{components/workbench,components/extension,composables,registry,plugins}/`（工作台拆分、UI 插槽与 focus-mode）、`apps/api/src/modules/plugins/turn-plugins/`（beforeTurn/afterTurn 管道）、`packages/{agent-loop,host-agent}`（进程外 Adapter 系统提示词透传）、`apps/api/src/modules/plugins/config-service.ts`（兼容别名统一解析）、`turbo.json`（跨包静态资产复制任务禁用缓存，确保冷/热缓存均生成消费端资源）、`docs/{how-to/develop-plugin-ui-extension.md,reference/plugin-config-and-pages.md}` | 2026-09-10 | UI/API/Agent Loop/Host Agent 单测；删除消费端生成资产后重跑 Desktop 构建与测试；`mise tasks run ci-code`；`mise tasks run ci-docs` | 原生 |
-| CR-030 D0：SQLite 永久本地单用户真源与去租户化决策基线 | CAP-005/015/026/027/033～035、SEC-LOC-001、DATA-PRO-001、NFR-SEC/PRIV/DR-001 | `docs/reference/changes/CR-030-pure-local-sqlite-database.md`；同步 `PRD.md`、`prd-cap-acceptance.md`、`SRS.md`、`srs-proactive-intelligence.md`、`ARCHITECTURE.md`、`DATABASE.md`、`database-coverage-matrix.md`、`DATA_PRIVACY.md`、`AI_QUALITY_SAFETY.md`、`THREAT_MODEL.md`、`TEST_STRATEGY.md`、`operations.md`、ADR-003/008、CR-003 与导航/登记 | 2026-09-10 | `mise tasks run ci-docs`；文档冲突扫描；CR-030 decision=accepted、delivery=planned；D1～D3 不得登记为已实现 | 原生 |
+| CR-030 D0：SQLite 永久本地单用户真源与去租户化决策基线 | CAP-005/015/026/027/033～035、SEC-LOC-001、DATA-PRO-001、NFR-SEC/PRIV/DR-001 | `docs/reference/changes/CR-030-pure-local-sqlite-database.md`；同步 `PRD.md`、`prd-cap-acceptance.md`、`SRS.md`、`srs-proactive-intelligence.md`、`ARCHITECTURE.md`、`DATABASE.md`、`database-coverage-matrix.md`、`DATA_PRIVACY.md`、`AI_QUALITY_SAFETY.md`、`THREAT_MODEL.md`、`TEST_STRATEGY.md`、`operations.md`、ADR-003/008、CR-003 与导航/登记 | 2026-09-11 | `mise tasks run ci-docs`；文档冲突扫描；CR-030 decision=accepted、delivery=planned；D1～D3 不得登记为已实现；`SEC-TEN-001` 已标记 Deprecated 并由 `SEC-LOC-001` 替代 | 原生 |
 
 ## 5. 原子需求字段模板
 
@@ -557,7 +557,7 @@ DoR 不允许以“开发中再确定”代替。确需并行探索的内容应�
 | `BR-PRO-004` | 原始副本七天保留与记忆提炼门 | CAP-033/005/026 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#br-pro-004-原始副本保留与提炼) | `AC-BR-PRO-004-01～03` | `TC-INTEG-PRO-RETENTION-001`、`TC-PRIV-PRO-RETENTION-001` |
 | `BR-PRO-005` | 全动作授权快照与执行审计 | CAP-033/002/007/020 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#br-pro-005-全动作授权快照) | `AC-BR-PRO-005-01～03` | `TC-SEC-PRO-ACTION-001`、`TC-INTEG-PRO-AUDIT-001` |
 | `BR-PRO-006` | 后台恢复通知与用户可见状态 | CAP-033/010/018/030 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#br-pro-006-后台恢复与通知) | `AC-BR-PRO-006-01～03` | `TC-E2E-PRO-NOTICE-001`、`TC-RES-PRO-LIFECYCLE-001` |
-| `DATA-PRO-001` | CAP-033 控制面、来源、捕获、画像和动作实体 | CAP-033 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#srs-pro-data) | `AC-DATA-PRO-001-01～03` | `TC-INTEG-PRO-SCHEMA-001`、`TC-SEC-TENANT-001` |
+| `DATA-PRO-001` | CAP-033 控制面、来源、捕获、画像和动作实体 | CAP-033 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#srs-pro-data) | `AC-DATA-PRO-001-01～03` | `TC-INTEG-PRO-SCHEMA-001`、`TC-SEC-PRO-LOCAL-001` |
 | `AIQ-PRO-001` | 画像推断证据、状态与记忆提炼质量 | CAP-033/005/022 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#aiq-pro-001-画像推断质量) | `AC-AIQ-PRO-001-01～03` | `TC-AIEVAL-PRO-001`、`TC-AIEVAL-MEM-001` |
 | `SEC-PRO-001` | 受信 Host、OS Permission Broker、权限回执与 loopback token | CAP-033/018/020 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#sec-pro-001-受信-host-与-os-权限) | `AC-SEC-PRO-001-01～04` | `TC-SEC-PRO-HOST-001`、`TC-SEC-PRO-SOURCE-001`、`TC-SEC-PRO-AUTH-001` |
 | `SEC-PRO-002` | 主动动作越权与 Prompt injection 隔离 | CAP-033/002/007/020 | `Specified` | [主动智能规格](srs-proactive-intelligence.md#sec-pro-002-主动动作越权隔离) | `AC-SEC-PRO-002-01～03` | `TC-SEC-PRO-ACTION-001`、`TC-SEC-PROMPT-001` |
@@ -570,7 +570,8 @@ DoR 不允许以“开发中再确定”代替。确需并行探索的内容应�
 | `DATA-DEL-001` | 删除传播与账本 | CAP-005/009/013/026/027 | `Specified` | [删除 SLA](DATA_PRIVACY.md#privacy-deletion-sla) | `AC-DATA-DEL-001` | `TC-PRIV-DEL-001` |
 | `BR-CTRL-001` | 独立恢复控制账本一致性 | CAP-001～035 | `Specified` | [SRS 控制规则](SRS.md#srs-br-ctrl) | `AC-BR-CTRL-001-01～03` | `TC-RES-LEDGER-001`、`TC-SEC-REVOKE-001` |
 | `SEC-PLG-001` | 插件最小权限/沙箱 | CAP-020/031 | `Mapped` | [架构插件边界](ARCHITECTURE.md#arch-ai-security) | `AC-SEC-PLG-001` | `TC-SEC-PLUG-001` |
-| `SEC-TEN-001` | 工作区/数据主体/组织隔离 | CAP-001～035 | `Specified` | [SRS 租户隔离](SRS.md#srs-sec-ten)、[数据安全控制](DATA_PRIVACY.md#privacy-security) | `AC-SEC-TEN-001-01～03` | `TC-SEC-TENANT-001`、`TC-INTEG-RLS-001` |
+| `SEC-LOC-001` | 本地单用户数据与 API 边界 | CAP-001～035 | `Specified` | [SRS 本地单用户边界](SRS.md#srs-sec-local)、[CR-030](changes/CR-030-pure-local-sqlite-database.md) | `AC-SEC-LOC-001-01～04` | `TC-SEC-LOCAL-API-001`、`TC-SEC-LOCAL-FS-001`、`TC-SEC-PLUG-001` |
+| `SEC-TEN-001` | 工作区/数据主体/组织隔离 | CAP-001～035 | `Deprecated` | [SRS 租户隔离（已替代）](SRS.md#srs-sec-ten)、[CR-030](changes/CR-030-pure-local-sqlite-database.md)；替代：`SEC-LOC-001` | — | 历史 `TC-SEC-TENANT-001`、`TC-INTEG-RLS-001` 仅保留为迁移期旧 Schema 证据 |
 | `PRIV-CONS-001` | 分 purpose 同意与撤销 | CAP-009/020/023/027 | `Specified` | [同意与偏好](DATA_PRIVACY.md#privacy-consent) | `AC-PRIV-CONS-001` | `TC-PRIV-CONSENT-001` |
 | `PRIV-RET-001` | 召回/历史/备份期限分离 | CAP-005/009/013 | `Specified` | [召回与保留](DATA_PRIVACY.md#privacy-retention) | `AC-PRIV-RET-001` | `TC-PRIV-RET-001` |
 | `OPS-QUEUE-001` | 至少一次队列与 DLQ | CAP-005/009/012/020 | `Mapped` | [架构运行约束](ARCHITECTURE.md#arch-consistency) | `AC-OPS-QUEUE-001` | `TC-RES-QUEUE-001` |
