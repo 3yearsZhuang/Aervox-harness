@@ -2,14 +2,14 @@
  * Aervox｜思隅 @aervox/repositories — persona-preferences 仓储类型（自 types.ts 机械拆分）
  */
 import type { PersonaPreferencesModel } from "./plugin-page.js";
-import type { TenantContext } from "../../tenant.js";
+import type { LocalContext } from "../../local-context.js";
 
 export interface IPersonaPreferencesRepository {
   /** 获取当前租户偏好（不存在返回 null） */
-  get(tenant: TenantContext): Promise<PersonaPreferencesModel | null>;
+  get(tenant: LocalContext): Promise<PersonaPreferencesModel | null>;
   /** 首次填写问卷（跳过或提交四项） */
   save(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: {
       tone?: string;
       proactiveness?: string;
@@ -20,7 +20,7 @@ export interface IPersonaPreferencesRepository {
   ): Promise<PersonaPreferencesModel>;
   /** 单项或多项更新，版本号递增 */
   update(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: {
       tone?: string;
       proactiveness?: string;
@@ -29,7 +29,7 @@ export interface IPersonaPreferencesRepository {
     },
   ): Promise<PersonaPreferencesModel>;
   /** 重置为中性默认值（FR-PER-002） */
-  reset(tenant: TenantContext): Promise<PersonaPreferencesModel>;
+  reset(tenant: LocalContext): Promise<PersonaPreferencesModel>;
 }
 
 export interface LocalVoiceConfigModel {

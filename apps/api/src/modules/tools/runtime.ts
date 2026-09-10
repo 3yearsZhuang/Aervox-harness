@@ -14,7 +14,7 @@ import {
   SqliteMemoryEmbeddingRepository,
   SqliteToolRegistryRepository,
   type ToolRegistrationModel,
-  type TenantContext,
+  type LocalContext,
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 import type { MemoryEmbeddingProvider } from "./embedding-provider.js";
@@ -24,7 +24,7 @@ import { ForbiddenError, NotFoundError } from "../../shared/errors.js";
 /** 工具调用处理器：入参已过注册表校验，返回结果由调用方编码 */
 export interface ToolHandler {
   call(
-    tenant: TenantContext,
+    tenant: LocalContext,
     args: unknown,
     context: { approval: boolean; proactiveAuthorization: boolean },
   ): Promise<unknown>;
@@ -95,7 +95,7 @@ export class ToolRuntime {
 
   /** 调用工具：安全级别 + handler 存在性双重检查 */
   async callTool(
-    tenant: TenantContext,
+    tenant: LocalContext,
     toolId: string,
     args: unknown,
     opts: { approval?: boolean; proactiveAuthorization?: boolean } = {},

@@ -19,7 +19,7 @@ import {
   proactiveSourceGrants,
 } from "@aervox/schema";
 import { DomainConflictError, NotFoundInTenantError } from "../../errors.js";
-import { assertTenantContext, type TenantContext } from "../../tenant.js";
+import { assertLocalContext, type LocalContext } from "../../local-context.js";
 import type { ProactiveVaultCipher } from "../../proactive-vault-crypto.js";
 import type {
   IProactiveProfileRepository,
@@ -319,10 +319,10 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async confirmProfile(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: Parameters<IProactiveProfileRepository["confirmProfile"]>[1],
   ): Promise<{ revision: ProactiveProfileRevisionModel; sources: ProactiveSourceGrantModel[] }> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const profileVersion = input.profileVersion ?? "full_profile_v1";
 
@@ -504,10 +504,10 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async createDraft(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: Parameters<IProactiveProfileRepository["createDraft"]>[1],
   ): Promise<ProactiveProfileRevisionModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const profileVersion = input.profileVersion ?? "full_profile_v1";
     const [latest] = await this.db
@@ -557,8 +557,8 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return toRevision(created, this.cipher);
   }
 
-  async getRevision(tenant: TenantContext, revisionId?: string): Promise<ProactiveProfileRevisionModel | null> {
-    assertTenantContext(tenant);
+  async getRevision(tenant: LocalContext, revisionId?: string): Promise<ProactiveProfileRevisionModel | null> {
+    assertLocalContext(tenant);
     const conditions = [
       eq(proactiveProfileRevisions.workspaceId, tenant.workspaceId),
       eq(proactiveProfileRevisions.subjectUserId, tenant.subjectUserId),
@@ -573,8 +573,8 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return row ? toRevision(row, this.cipher) : null;
   }
 
-  async listRevisions(tenant: TenantContext, limit?: number): Promise<ProactiveProfileRevisionModel[]> {
-    assertTenantContext(tenant);
+  async listRevisions(tenant: LocalContext, limit?: number): Promise<ProactiveProfileRevisionModel[]> {
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(proactiveProfileRevisions)
@@ -590,12 +590,12 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async setDesiredState(
-    tenant: TenantContext,
+    tenant: LocalContext,
     state: Parameters<IProactiveProfileRepository["setDesiredState"]>[1],
     actorId: string,
     revisionId?: string,
   ): Promise<ProactiveProfileRevisionModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const revision = await this.getRevision(tenant, revisionId);
     if (!revision) return null;
     const now = new Date().toISOString();
@@ -641,8 +641,8 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return toRevision(updated, this.cipher);
   }
 
-  async listSourceGrants(tenant: TenantContext, revisionId?: string): Promise<ProactiveSourceGrantModel[]> {
-    assertTenantContext(tenant);
+  async listSourceGrants(tenant: LocalContext, revisionId?: string): Promise<ProactiveSourceGrantModel[]> {
+    assertLocalContext(tenant);
     const conditions = [
       eq(proactiveSourceGrants.workspaceId, tenant.workspaceId),
       eq(proactiveSourceGrants.subjectUserId, tenant.subjectUserId),
@@ -657,11 +657,11 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async updateSourceGrant(
-    tenant: TenantContext,
+    tenant: LocalContext,
     sourceGrantId: string,
     input: Parameters<IProactiveProfileRepository["updateSourceGrant"]>[2],
   ): Promise<ProactiveSourceGrantModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [existing] = await this.db
       .select()
       .from(proactiveSourceGrants)
@@ -723,11 +723,11 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async deleteSourceData(
-    tenant: TenantContext,
+    tenant: LocalContext,
     sourceGrantId: string,
     actorId: string,
   ): Promise<ProactiveSourceDeletionResult | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [source] = await this.db
       .select()
       .from(proactiveSourceGrants)
@@ -879,10 +879,10 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async createActivationLease(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: Parameters<IProactiveProfileRepository["createActivationLease"]>[1],
   ): Promise<ProactiveActivationLeaseModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const revision = await this.getRevision(tenant, input.revisionId);
     if (!revision) throw new NotFoundInTenantError("proactive profile revision not found");
     const now = new Date().toISOString();
@@ -934,11 +934,11 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async heartbeatActivationLease(
-    tenant: TenantContext,
+    tenant: LocalContext,
     leaseId: string,
     input: Parameters<IProactiveProfileRepository["heartbeatActivationLease"]>[2],
   ): Promise<ProactiveActivationLeaseModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [existing] = await this.db
       .select()
       .from(proactiveActivationLeases)
@@ -983,8 +983,8 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return updated ? toLease(updated) : null;
   }
 
-  async endActivationLease(tenant: TenantContext, leaseId: string, reason: string, actorId: string): Promise<ProactiveActivationLeaseModel | null> {
-    assertTenantContext(tenant);
+  async endActivationLease(tenant: LocalContext, leaseId: string, reason: string, actorId: string): Promise<ProactiveActivationLeaseModel | null> {
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(proactiveActivationLeases)
@@ -1011,7 +1011,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return toLease(updated);
   }
 
-  private async getLease(tenant: TenantContext, leaseId: string): Promise<ProactiveActivationLeaseModel | null> {
+  private async getLease(tenant: LocalContext, leaseId: string): Promise<ProactiveActivationLeaseModel | null> {
     const [row] = await this.db
       .select()
       .from(proactiveActivationLeases)
@@ -1026,8 +1026,8 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return row ? toLease(row) : null;
   }
 
-  async getEffectiveStatus(tenant: TenantContext, now = new Date().toISOString()): Promise<ProactiveEffectiveStatus> {
-    assertTenantContext(tenant);
+  async getEffectiveStatus(tenant: LocalContext, now = new Date().toISOString()): Promise<ProactiveEffectiveStatus> {
+    assertLocalContext(tenant);
     const revision = await this.getRevision(tenant);
     if (!revision) {
       return {
@@ -1123,10 +1123,10 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async createCapture(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: Parameters<IProactiveProfileRepository["createCapture"]>[1],
   ): Promise<ProactiveCaptureModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [existingCapture] = await this.db
       .select()
       .from(proactiveCaptures)
@@ -1223,10 +1223,10 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async listCaptures(
-    tenant: TenantContext,
+    tenant: LocalContext,
     options?: Parameters<IProactiveProfileRepository["listCaptures"]>[1],
   ): Promise<ProactiveCaptureModel[]> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const conditions = [
       eq(proactiveCaptures.workspaceId, tenant.workspaceId),
       eq(proactiveCaptures.subjectUserId, tenant.subjectUserId),
@@ -1244,10 +1244,10 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async createObservation(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: Parameters<IProactiveProfileRepository["createObservation"]>[1],
   ): Promise<ProactiveBehaviorObservationModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const revision = await this.getRevision(tenant, input.revisionId);
     if (!revision) throw new NotFoundInTenantError("proactive profile revision not found");
     if (revision.status !== "active" || revision.desiredState !== "enabled") {
@@ -1306,10 +1306,10 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async listObservations(
-    tenant: TenantContext,
+    tenant: LocalContext,
     options?: Parameters<IProactiveProfileRepository["listObservations"]>[1],
   ): Promise<ProactiveBehaviorObservationModel[]> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const conditions = [
       eq(proactiveObservations.workspaceId, tenant.workspaceId),
       eq(proactiveObservations.subjectUserId, tenant.subjectUserId),
@@ -1325,8 +1325,8 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return rows.map((row) => toObservation(row, this.cipher));
   }
 
-  async markCaptureDistilled(tenant: TenantContext, captureId: string, memoryIds: string[]): Promise<ProactiveCaptureModel | null> {
-    assertTenantContext(tenant);
+  async markCaptureDistilled(tenant: LocalContext, captureId: string, memoryIds: string[]): Promise<ProactiveCaptureModel | null> {
+    assertLocalContext(tenant);
     const ids = [...new Set(memoryIds.filter((id) => typeof id === "string" && id.length > 0))];
     if (ids.length === 0) throw new DomainConflictError("at least one memory id is required before capture deletion");
     const now = new Date().toISOString();
@@ -1362,8 +1362,8 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return toCapture(updated, true, this.cipher);
   }
 
-  async markCaptureDistillationFailed(tenant: TenantContext, captureId: string, reason?: string): Promise<ProactiveCaptureModel | null> {
-    assertTenantContext(tenant);
+  async markCaptureDistillationFailed(tenant: LocalContext, captureId: string, reason?: string): Promise<ProactiveCaptureModel | null> {
+    assertLocalContext(tenant);
     const [updated] = await this.db
       .update(proactiveCaptures)
       .set({
@@ -1394,8 +1394,8 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return toCapture(updated, true, this.cipher);
   }
 
-  async purgeEligibleCaptures(tenant?: TenantContext, now = new Date().toISOString(), limit = 200): Promise<number> {
-    if (tenant) assertTenantContext(tenant);
+  async purgeEligibleCaptures(tenant?: LocalContext, now = new Date().toISOString(), limit = 200): Promise<number> {
+    if (tenant) assertLocalContext(tenant);
     const conditions = [
       lte(proactiveCaptures.retentionUntil, now),
       eq(proactiveCaptures.distillationStatus, "distilled"),
@@ -1480,10 +1480,10 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async createClaim(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: Parameters<IProactiveProfileRepository["createClaim"]>[1],
   ): Promise<ProactiveProfileClaimModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const revision = await this.getRevision(tenant, input.revisionId);
     if (!revision) throw new NotFoundInTenantError("proactive profile revision not found");
     const evidenceCaptureIds = [...new Set(input.evidenceCaptureIds ?? [])];
@@ -1552,10 +1552,10 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async listClaims(
-    tenant: TenantContext,
+    tenant: LocalContext,
     options?: Parameters<IProactiveProfileRepository["listClaims"]>[1],
   ): Promise<ProactiveProfileClaimModel[]> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const conditions = [
       eq(proactiveProfileClaims.workspaceId, tenant.workspaceId),
       eq(proactiveProfileClaims.subjectUserId, tenant.subjectUserId),
@@ -1571,8 +1571,8 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return rows.map((row) => toClaim(row, this.cipher));
   }
 
-  async updateClaimState(tenant: TenantContext, claimId: string, state: ProactiveClaimState, actorId: string): Promise<ProactiveProfileClaimModel | null> {
-    assertTenantContext(tenant);
+  async updateClaimState(tenant: LocalContext, claimId: string, state: ProactiveClaimState, actorId: string): Promise<ProactiveProfileClaimModel | null> {
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(proactiveProfileClaims)
@@ -1604,10 +1604,10 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async createAction(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: Parameters<IProactiveProfileRepository["createAction"]>[1],
   ): Promise<ProactiveActionModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     if (!input.authorizationScope.trim()) throw new DomainConflictError("authorizationScope is required");
     const revision = await this.getRevision(tenant, input.revisionId);
     if (!revision) throw new NotFoundInTenantError("proactive profile revision not found");
@@ -1673,10 +1673,10 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async listActions(
-    tenant: TenantContext,
+    tenant: LocalContext,
     options?: Parameters<IProactiveProfileRepository["listActions"]>[1],
   ): Promise<ProactiveActionModel[]> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const conditions = [
       eq(proactiveActions.workspaceId, tenant.workspaceId),
       eq(proactiveActions.subjectUserId, tenant.subjectUserId),
@@ -1693,11 +1693,11 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async updateAction(
-    tenant: TenantContext,
+    tenant: LocalContext,
     actionId: string,
     input: Parameters<IProactiveProfileRepository["updateAction"]>[2],
   ): Promise<ProactiveActionModel | null> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [existing] = await this.db
       .select()
       .from(proactiveActions)
@@ -1765,10 +1765,10 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async recordAudit(
-    tenant: TenantContext,
+    tenant: LocalContext,
     input: Parameters<IProactiveProfileRepository["recordAudit"]>[1],
   ): Promise<ProactiveAuditEventModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(proactiveAuditEvents)
@@ -1791,8 +1791,8 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return toAudit(created);
   }
 
-  async listAuditEvents(tenant: TenantContext, limit?: number): Promise<ProactiveAuditEventModel[]> {
-    assertTenantContext(tenant);
+  async listAuditEvents(tenant: LocalContext, limit?: number): Promise<ProactiveAuditEventModel[]> {
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(proactiveAuditEvents)
@@ -1808,10 +1808,10 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async exportSnapshot(
-    tenant: TenantContext,
+    tenant: LocalContext,
     options?: Parameters<IProactiveProfileRepository["exportSnapshot"]>[1],
   ) {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const includeRaw = options?.includeRaw === true;
     const [revisions, sources, leases, captures, observations, claims, actions, auditEvents, consents] = await Promise.all([
       this.listRevisions(tenant, MAX_LIST_LIMIT),
@@ -1840,7 +1840,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     };
   }
 
-  private async listLeases(tenant: TenantContext): Promise<ProactiveActivationLeaseModel[]> {
+  private async listLeases(tenant: LocalContext): Promise<ProactiveActivationLeaseModel[]> {
     const rows = await this.db
       .select()
       .from(proactiveActivationLeases)
@@ -1855,7 +1855,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return rows.map(toLease);
   }
 
-  private async listProactiveConsents(tenant: TenantContext): Promise<ProactiveConsentModel[]> {
+  private async listProactiveConsents(tenant: LocalContext): Promise<ProactiveConsentModel[]> {
     const rows = await this.db
       .select()
       .from(consentGrants)
@@ -1882,7 +1882,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     }));
   }
 
-  private async listCaptureRows(tenant: TenantContext, includeRaw: boolean): Promise<ProactiveCaptureModel[]> {
+  private async listCaptureRows(tenant: LocalContext, includeRaw: boolean): Promise<ProactiveCaptureModel[]> {
     const rows = await this.db
       .select()
       .from(proactiveCaptures)

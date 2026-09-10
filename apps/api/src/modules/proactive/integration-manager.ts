@@ -3,7 +3,7 @@ import type {
   IntelligenceConnectionSecret,
   SqliteProactiveIntelligenceRepository,
   SqliteProactiveProfileRepository,
-  TenantContext,
+  LocalContext,
 } from "@aervox/repositories";
 import { HomeAssistantClient, type HomeAssistantEntityState } from "./home-assistant-client.js";
 import { XiaomiHealthClient, type XiaomiHealthDailySample } from "./xiaomi-health-client.js";
@@ -99,7 +99,7 @@ export class ProactiveIntegrationManager {
     this.subscriptions.delete(connectionId);
   }
 
-  async assertSourceActive(tenant: TenantContext, sourceKey: "device.sensors" | "restricted.profile") {
+  async assertSourceActive(tenant: LocalContext, sourceKey: "device.sensors" | "restricted.profile") {
     const status = await this.profileRepo.getEffectiveStatus(tenant);
     const grant = status.sources.find((item) => item.sourceKey === sourceKey);
     // 这两个来源没有 OS Provider，桌面 Host 永远无法上报 granted；外部连接
@@ -115,7 +115,7 @@ export class ProactiveIntegrationManager {
     return {revision: status.revision, grant};
   }
 
-  async syncHomeAssistant(tenant: TenantContext, connectionId: string): Promise<{synced: number}> {
+  async syncHomeAssistant(tenant: LocalContext, connectionId: string): Promise<{synced: number}> {
     await this.assertSourceActive(tenant, "device.sensors");
     const connection = await this.requiredConnection(tenant, connectionId, "home_assistant");
     if (!connection.endpoint) throw new Error("home_assistant_endpoint_missing");
@@ -157,7 +157,7 @@ export class ProactiveIntegrationManager {
   }
 
   async syncXiaomiHealth(
-    tenant: TenantContext,
+    tenant: LocalContext,
     connectionId: string,
     localDate = new Date().toISOString().slice(0, 10),
   ): Promise<{synced: number; sample: XiaomiHealthDailySample}> {
@@ -172,7 +172,7 @@ export class ProactiveIntegrationManager {
   }
 
   private async syncXiaomiHealthUnchecked(
-    tenant: TenantContext,
+    tenant: LocalContext,
     connectionId: string,
     localDate: string,
   ): Promise<{synced: number; sample: XiaomiHealthDailySample}> {
@@ -259,7 +259,7 @@ export class ProactiveIntegrationManager {
     return {synced, sample};
   }
 
-  async getHomeAssistantState(tenant: TenantContext, connectionId: string, entityId: string) {
+  async getHomeAssistantState(tenant: LocalContext, connectionId: string, entityId: string) {
     await this.assertSourceActive(tenant, "device.sensors");
     const entity = await this.intelligenceRepo.getHomeEntity(tenant, connectionId, entityId);
     if (!entity?.enabled) throw new Error("home_assistant_entity_not_authorized");
@@ -285,7 +285,7 @@ export class ProactiveIntegrationManager {
   }
 
   async callHomeAssistantService(
-    tenant: TenantContext,
+    tenant: LocalContext,
     connectionId: string,
     entityId: string,
     service: string,
@@ -304,7 +304,7 @@ export class ProactiveIntegrationManager {
     return client.callService(entity.domain, service, {...data, entity_id: entityId});
   }
 
-  async ensureHomeSubscription(tenant: TenantContext, connectionId: string): Promise<void> {
+  async ensureHomeSubscription(tenant: LocalContext, connectionId: string): Promise<void> {
     if (this.subscriptions.has(connectionId)) return;
     await this.assertSourceActive(tenant, "device.sensors");
     const connection = await this.requiredConnection(tenant, connectionId, "home_assistant");
@@ -317,7 +317,7 @@ export class ProactiveIntegrationManager {
   }
 
   private async consumeHomeEvent(
-    tenant: TenantContext,
+    tenant: LocalContext,
     connection: IntelligenceConnectionSecret,
     event: unknown,
   ): Promise<void> {
@@ -388,7 +388,7 @@ export class ProactiveIntegrationManager {
     }
   }
 
-  private async requiredConnection(tenant: TenantContext, id: string, provider: string) {
+  private async requiredConnection(tenant: LocalContext, id: string, provider: string) {
     const connection = await this.intelligenceRepo.getConnectionSecret(tenant, id);
     if (!connection || connection.provider !== provider) throw new Error(`${provider}_connection_not_found`);
     if (connection.state === "revoked") throw new Error(`${provider}_connection_revoked`);

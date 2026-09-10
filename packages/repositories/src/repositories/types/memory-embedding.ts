@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/repositories — memory-embedding 仓储类型（自 types.ts 机械拆分）
  */
 import type { MemoryEmbeddingBatchProgress } from "./memory-compaction.js";
-import type { TenantContext } from "../../tenant.js";
+import type { LocalContext } from "../../local-context.js";
 
 export interface IMemoryEmbeddingRepository {
   /**
@@ -10,7 +10,7 @@ export interface IMemoryEmbeddingRepository {
    * 同一 memoryId 已有向量时覆盖（同 model_id 重算场景），换模型请用不同 model_id。
    */
   insertBatch(
-    tenant: TenantContext,
+    tenant: LocalContext,
     items: Array<{
       id: string;
       memoryId: string;
@@ -27,14 +27,14 @@ export interface IMemoryEmbeddingRepository {
   ): Promise<void>;
   /** 余弦检索 topK（JS 行扫描，SQLite 无原生向量扩展时的兜底） */
   retrieve(
-    tenant: TenantContext,
+    tenant: LocalContext,
     queryVector: number[],
     topK: number,
     minScore?: number,
     modelId?: string,
   ): Promise<Array<{ memoryId: string; score: number }>>;
-  deleteByMemoryId(tenant: TenantContext, memoryId: string): Promise<void>;
-  clearTenant(tenant: TenantContext): Promise<void>;
+  deleteByMemoryId(tenant: LocalContext, memoryId: string): Promise<void>;
+  clearTenant(tenant: LocalContext): Promise<void>;
 }
 
 export interface DiaryModel {

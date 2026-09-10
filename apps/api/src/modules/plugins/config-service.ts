@@ -14,7 +14,7 @@ import type {
   IPluginSecretRepository,
   IPlatformRepository,
   PluginModel,
-  TenantContext,
+  LocalContext,
 } from "@aervox/repositories";
 import { SqliteExtensionRepository } from "@aervox/repositories";
 import { pluginPageSchema } from "@aervox/contracts";
@@ -96,7 +96,7 @@ export class PluginConfigService {
   }
 
   private async audit(
-    tenant: TenantContext,
+    tenant: LocalContext,
     action: string,
     pluginId: string,
     metadata?: unknown,
@@ -152,7 +152,7 @@ export class PluginConfigService {
 
   // ── 配置 ──────────────────────────────────────────────
 
-  async getConfig(tenant: TenantContext, pluginId: string): Promise<PluginConfigSnapshot> {
+  async getConfig(tenant: LocalContext, pluginId: string): Promise<PluginConfigSnapshot> {
     const found = await this.findPlugin(pluginId);
     if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
     if (found.plugin.enabled !== 1) {
@@ -180,7 +180,7 @@ export class PluginConfigService {
   }
 
   async saveConfig(
-    tenant: TenantContext,
+    tenant: LocalContext,
     pluginId: string,
     body: { revision: number; values?: Record<string, unknown>; secretValues?: Record<string, string | null> },
   ): Promise<PluginConfigSnapshot> {
@@ -242,7 +242,7 @@ export class PluginConfigService {
     };
   }
 
-  async resetConfig(tenant: TenantContext, pluginId: string): Promise<PluginConfigSnapshot> {
+  async resetConfig(tenant: LocalContext, pluginId: string): Promise<PluginConfigSnapshot> {
     const found = await this.findPlugin(pluginId);
     if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
     if (found.plugin.enabled !== 1) {

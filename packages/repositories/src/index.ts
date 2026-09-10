@@ -9,7 +9,7 @@ export * from "./client.js";
 export * from "./proactive-vault-crypto.js";
 export * from "./proactive-vault-auth.js";
 export * from "./errors.js";
-export * from "./tenant.js";
+export * from "./local-context.js";
 export * from "./search/index.js";
 export * from "./write-retry.js";
 export * from "./session-lock.js";

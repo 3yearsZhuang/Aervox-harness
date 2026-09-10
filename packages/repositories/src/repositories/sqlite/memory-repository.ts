@@ -14,7 +14,7 @@ import {
   memoryAlgorithms,
   memoryProjectionOverrides,
 } from "@aervox/schema";
-import { assertTenantContext, type TenantContext } from "../../tenant.js";
+import { assertLocalContext, type LocalContext } from "../../local-context.js";
 import type {
   IMemoryRepository,
   MemoryRecordModel,
@@ -32,7 +32,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
   ) {}
 
   async createRecord(
-    tenant: TenantContext,
+    tenant: LocalContext,
     recordData: {
       id: string;
       layer: string;
@@ -48,7 +48,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
       verificationStatus?: string;
     },
   ): Promise<MemoryRecordModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(memoryRecords)
@@ -78,8 +78,8 @@ export class SqliteMemoryRepository implements IMemoryRepository {
     return created as MemoryRecordModel;
   }
 
-  async getRecord(tenant: TenantContext, id: string): Promise<MemoryRecordModel | null> {
-    assertTenantContext(tenant);
+  async getRecord(tenant: LocalContext, id: string): Promise<MemoryRecordModel | null> {
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(memoryRecords)
@@ -94,8 +94,8 @@ export class SqliteMemoryRepository implements IMemoryRepository {
     return (found as MemoryRecordModel) ?? null;
   }
 
-  async listRecordsByLayer(tenant: TenantContext, layer: string): Promise<MemoryRecordModel[]> {
-    assertTenantContext(tenant);
+  async listRecordsByLayer(tenant: LocalContext, layer: string): Promise<MemoryRecordModel[]> {
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(memoryRecords)
@@ -111,7 +111,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
   }
 
   async createEdge(
-    tenant: TenantContext,
+    tenant: LocalContext,
     edgeData: {
       id: string;
       fromNodeId: string;
@@ -121,7 +121,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
       visibilityScope?: string;
     },
   ): Promise<MemoryEdgeModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [created] = await this.db
       .insert(memoryEdges)
       .values({
@@ -141,10 +141,10 @@ export class SqliteMemoryRepository implements IMemoryRepository {
   }
 
   async getTreeProjection(
-    tenant: TenantContext,
+    tenant: LocalContext,
     rootRecordId?: string | null,
   ): Promise<MemoryTreeNode[]> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
 
     // 使用 SQLite WITH RECURSIVE CTE 递归查询整棵树
     const rootCondition = rootRecordId
@@ -237,8 +237,8 @@ export class SqliteMemoryRepository implements IMemoryRepository {
     return roots;
   }
 
-  async softDeleteRecord(tenant: TenantContext, id: string): Promise<boolean> {
-    assertTenantContext(tenant);
+  async softDeleteRecord(tenant: LocalContext, id: string): Promise<boolean> {
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(memoryRecords)
@@ -257,7 +257,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
   // ============ P1（R2）：记忆树投影节点 / 边证据 / 算法版本 ============
 
   async createNode(
-    tenant: TenantContext,
+    tenant: LocalContext,
     nodeData: {
       id: string;
       label: string;
@@ -267,7 +267,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
       projectionVersion?: number;
     },
   ): Promise<MemoryNodeModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(memoryNodes)
@@ -288,8 +288,8 @@ export class SqliteMemoryRepository implements IMemoryRepository {
     return created as MemoryNodeModel;
   }
 
-  async getNode(tenant: TenantContext, id: string): Promise<MemoryNodeModel | null> {
-    assertTenantContext(tenant);
+  async getNode(tenant: LocalContext, id: string): Promise<MemoryNodeModel | null> {
+    assertLocalContext(tenant);
     const [found] = await this.db
       .select()
       .from(memoryNodes)
@@ -303,8 +303,8 @@ export class SqliteMemoryRepository implements IMemoryRepository {
     return (found as MemoryNodeModel) ?? null;
   }
 
-  async listNodesByTenant(tenant: TenantContext): Promise<MemoryNodeModel[]> {
-    assertTenantContext(tenant);
+  async listNodesByTenant(tenant: LocalContext): Promise<MemoryNodeModel[]> {
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(memoryNodes)

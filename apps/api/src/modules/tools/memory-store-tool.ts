@@ -10,7 +10,7 @@
  * - 候选写入默认 verificationStatus=unverified，用户确认后才晋升；
  * - 向量生成依赖注入 provider；未注入时降级为仅索引 FTS（embeddingStatus=skipped）。
  */
-import { indexMemoryFts, type TenantContext } from "@aervox/repositories";
+import { indexMemoryFts, type LocalContext } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 import {
   SqliteMemoryRepository,
@@ -38,7 +38,7 @@ const id = (prefix: string): string =>
 export class MemoryStoreTool {
   constructor(private readonly deps: MemoryStoreToolDeps) {}
 
-  async run(tenant: TenantContext, input: MemoryStoreToolInput): Promise<MemoryStoreToolOutput> {
+  async run(tenant: LocalContext, input: MemoryStoreToolInput): Promise<MemoryStoreToolOutput> {
     const { memoryRepo, embeddingRepo, client } = this.deps;
 
     // 1. 参数落定：asCandidate 由 source 推断（ai_inferred 默认候选）

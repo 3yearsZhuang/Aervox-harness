@@ -8,7 +8,7 @@
 import { eq, and } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { memoryEmbeddings } from "@aervox/schema";
-import { assertTenantContext, type TenantContext } from "../../tenant.js";
+import { assertLocalContext, type LocalContext } from "../../local-context.js";
 import { cosineSimilarity } from "../../search/vector-port.js";
 import type { IMemoryEmbeddingRepository } from "../types/index.js";
 
@@ -27,7 +27,7 @@ export class SqliteMemoryEmbeddingRepository implements IMemoryEmbeddingReposito
   constructor(private readonly db: AervoxDatabase) {}
 
   async insertBatch(
-    tenant: TenantContext,
+    tenant: LocalContext,
     items: Array<{
       id: string;
       memoryId: string;
@@ -42,7 +42,7 @@ export class SqliteMemoryEmbeddingRepository implements IMemoryEmbeddingReposito
       progressCallback?: (progress: { current: number; total: number }) => void;
     } = {},
   ): Promise<void> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const batchSize = options.batchSize ?? 50;
     const maxRetries = options.maxRetries ?? 3;
     const total = items.length;
@@ -99,13 +99,13 @@ export class SqliteMemoryEmbeddingRepository implements IMemoryEmbeddingReposito
   }
 
   async retrieve(
-    tenant: TenantContext,
+    tenant: LocalContext,
     queryVector: number[],
     topK: number = 10,
     minScore: number = 0,
     modelId?: string,
   ): Promise<Array<{ memoryId: string; score: number }>> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const rows = await this.db
       .select()
       .from(memoryEmbeddings)
@@ -127,8 +127,8 @@ export class SqliteMemoryEmbeddingRepository implements IMemoryEmbeddingReposito
     return scored.slice(0, topK);
   }
 
-  async deleteByMemoryId(tenant: TenantContext, memoryId: string): Promise<void> {
-    assertTenantContext(tenant);
+  async deleteByMemoryId(tenant: LocalContext, memoryId: string): Promise<void> {
+    assertLocalContext(tenant);
     await this.db
       .delete(memoryEmbeddings)
       .where(
@@ -140,8 +140,8 @@ export class SqliteMemoryEmbeddingRepository implements IMemoryEmbeddingReposito
       );
   }
 
-  async clearTenant(tenant: TenantContext): Promise<void> {
-    assertTenantContext(tenant);
+  async clearTenant(tenant: LocalContext): Promise<void> {
+    assertLocalContext(tenant);
     await this.db
       .delete(memoryEmbeddings)
       .where(
@@ -164,7 +164,7 @@ export class SqliteMemoryVectorSearchAdapter {
   ) {}
 
   async upsert(
-    tenant: TenantContext,
+    tenant: LocalContext,
     items: Array<{ id: string; vector: number[]; metadata?: Record<string, unknown> }>,
   ): Promise<void> {
     await this.repo.insertBatch(tenant, [
@@ -179,7 +179,7 @@ export class SqliteMemoryVectorSearchAdapter {
   }
 
   async search(
-    tenant: TenantContext,
+    tenant: LocalContext,
     queryVector: number[],
     topK: number,
     minScore = 0,
@@ -188,11 +188,11 @@ export class SqliteMemoryVectorSearchAdapter {
     return hits.map((h) => ({ id: h.memoryId, score: h.score }));
   }
 
-  async delete(tenant: TenantContext, id: string): Promise<void> {
+  async delete(tenant: LocalContext, id: string): Promise<void> {
     await this.repo.deleteByMemoryId(tenant, id);
   }
 
-  async clearTenant(tenant: TenantContext): Promise<void> {
+  async clearTenant(tenant: LocalContext): Promise<void> {
     await this.repo.clearTenant(tenant);
   }
 }

@@ -25,14 +25,14 @@ import type {
 import type {
   IUserQuestionRepository,
   SqliteConversationRepository,
-  TenantContext,
+  LocalContext,
 } from "@aervox/repositories";
 
 interface PendingQuestionSession {
   turnId: string;
   attemptId: string;
   step: number;
-  tenant: TenantContext;
+  tenant: LocalContext;
   questions: AskUserQuestionItem[];
   timeoutMs: number;
   resolve: (result: AskUserQuestionPortResult) => void;
@@ -51,7 +51,7 @@ export class UserQuestionCoordinator {
   ) {}
 
   /** 创建与特定租户绑定的 UserQuestionPort 实例注入 Agent Loop */
-  createPort(tenant: TenantContext): UserQuestionPort {
+  createPort(tenant: LocalContext): UserQuestionPort {
     return {
       ask: (req: AskUserQuestionPortRequest) => this.handleAsk(tenant, req),
     };
@@ -63,7 +63,7 @@ export class UserQuestionCoordinator {
    * 仅当未超时且事件流尚无已作答记录时视为仍挂起。
    */
   async getPending(
-    tenant: TenantContext,
+    tenant: LocalContext,
     turnId: string,
   ): Promise<{ turnId: string; questions: AskUserQuestionItem[]; step: number } | undefined> {
     const session = this.pendingByTurn.get(turnId);
@@ -94,7 +94,7 @@ export class UserQuestionCoordinator {
 
   /** 处理 Loop 侧的提问请求 */
   private async handleAsk(
-    tenant: TenantContext,
+    tenant: LocalContext,
     req: AskUserQuestionPortRequest,
   ): Promise<AskUserQuestionPortResult> {
     const { turnId, attemptId, step, questions, timeoutMs = 60000 } = req;
@@ -207,7 +207,7 @@ export class UserQuestionCoordinator {
 
   /** 客户端提交回答 */
   async submitAnswers(
-    tenant: TenantContext,
+    tenant: LocalContext,
     turnId: string,
     answers: AskUserQuestionAnswerItem[],
   ): Promise<SubmitQuestionAnswersResponse> {
@@ -238,7 +238,7 @@ export class UserQuestionCoordinator {
 
   /** 内存态丢失时：按持久化挂起会话接受回答（幂等、过期降级、留痕） */
   private async submitAnswersFromPersistence(
-    tenant: TenantContext,
+    tenant: LocalContext,
     turnId: string,
     answers: AskUserQuestionAnswerItem[],
   ): Promise<SubmitQuestionAnswersResponse> {
@@ -274,14 +274,14 @@ export class UserQuestionCoordinator {
     };
   }
 
-  private async hasAnswered(tenant: TenantContext, turnId: string): Promise<boolean> {
+  private async hasAnswered(tenant: LocalContext, turnId: string): Promise<boolean> {
     const events = await this.conversationRepo.getStreamEvents(tenant, turnId, 0);
     return events.some((e) => e.eventType === "user_question_answered");
   }
 
   /** 写入 user_question_answered 事件（sequence 在事件流末尾续接） */
   private async writeAnsweredEvent(
-    tenant: TenantContext,
+    tenant: LocalContext,
     turnId: string,
     answers: AskUserQuestionAnswerItem[],
   ): Promise<void> {

@@ -20,7 +20,7 @@ import {
   SqliteSkillRegistryRepository,
   SqliteToolRegistryRepository,
   type PluginModel,
-  type TenantContext,
+  type LocalContext,
 } from "@aervox/repositories";
 import { isValidSkillName, parseFrontmatter } from "../skills/skill-manager.js";
 
@@ -174,19 +174,19 @@ export class PluginService {
 
   /** 授予插件权限 */
   grant(
-    tenant: TenantContext,
+    tenant: LocalContext,
     grant: { id: string; pluginId: string; permission: string; scope: string },
   ) {
     return this.deps.extensionRepo.grantPlugin(tenant, grant);
   }
 
   /** 撤销插件权限 */
-  revoke(tenant: TenantContext, id: string) {
+  revoke(tenant: LocalContext, id: string) {
     return this.deps.extensionRepo.revokePluginGrant(tenant, id);
   }
 
   /** 查询插件是否具备指定权限 */
-  hasPermission(tenant: TenantContext, pluginId: string, permission: string) {
+  hasPermission(tenant: LocalContext, pluginId: string, permission: string) {
     return this.deps.extensionRepo.hasPluginPermission(tenant, pluginId, permission);
   }
 }

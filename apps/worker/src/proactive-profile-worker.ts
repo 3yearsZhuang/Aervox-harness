@@ -14,7 +14,7 @@ import type {
   AervoxDatabase,
   IProactiveProfileRepository,
   ProactiveCaptureModel,
-  TenantContext,
+  LocalContext,
 } from "@aervox/repositories";
 import type { ProactiveCaptureDistiller } from "./proactive-distiller.js";
 
@@ -38,7 +38,7 @@ const clampLimit = (value: number | undefined): number =>
 
 async function loadCapture(
   repo: IProactiveProfileRepository,
-  tenant: TenantContext,
+  tenant: LocalContext,
   captureId: string,
 ): Promise<ProactiveCaptureModel | null> {
   const captures = await repo.listCaptures(tenant, { includeDeleted: false, limit: 500 });
@@ -47,7 +47,7 @@ async function loadCapture(
 
 async function existingMemoryIds(
   repo: IProactiveProfileRepository,
-  tenant: TenantContext,
+  tenant: LocalContext,
   capture: ProactiveCaptureModel,
 ): Promise<string[]> {
   const claims = await repo.listClaims(tenant, { revisionId: capture.revisionId, limit: 500 });
@@ -103,7 +103,7 @@ export async function runProactiveProfileCycle(
   let distilled = 0;
   let failed = 0;
   for (const candidate of candidates) {
-    const tenant: TenantContext = {
+    const tenant: LocalContext = {
       workspaceId: candidate.workspaceId,
       subjectUserId: candidate.subjectUserId,
     };

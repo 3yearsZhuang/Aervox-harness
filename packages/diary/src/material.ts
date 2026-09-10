@@ -12,7 +12,7 @@ import {
   messageVersions,
   questionAttempts,
 } from "@aervox/schema";
-import type { AervoxDatabase, TenantContext } from "@aervox/repositories";
+import type { AervoxDatabase, LocalContext } from "@aervox/repositories";
 
 export interface DiaryMaterialMessage {
   role: "user" | "assistant";
@@ -41,7 +41,7 @@ export interface DiaryMaterial {
 /** 收集 [windowStartIso, windowEndIso] 窗口内的日记素材（跨会话，按租户） */
 export async function collectDiaryMaterial(
   db: AervoxDatabase,
-  tenant: TenantContext,
+  tenant: LocalContext,
   window: { startIso: string; endIso: string },
 ): Promise<DiaryMaterial> {
   // 1. 当日聊天消息：message_versions 当前版本（supersededAt 为空）且未脱敏

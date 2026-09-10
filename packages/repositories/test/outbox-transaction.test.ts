@@ -5,7 +5,7 @@ import {
   SqliteConversationRepository,
   SqliteOutboxRepository,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "../src/index.js";
 import type { Client } from "@libsql/client";
 
@@ -15,7 +15,7 @@ describe("ADR-004: 业务状态与 OutboxEvent 单事务原子落库测试", () 
   let convRepo: SqliteConversationRepository;
   let outboxRepo: SqliteOutboxRepository;
 
-  const tenant: TenantContext = {
+  const tenant: LocalContext = {
     workspaceId: "ws_test",
     subjectUserId: "usr_charlie",
   };

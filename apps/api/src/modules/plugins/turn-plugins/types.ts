@@ -5,7 +5,7 @@
  * 1. beforeTurn: 探测前缀/条件，读取配置，产出动态系统提示词 (extraSections) 与决策标志；
  * 2. afterTurn: Turn 执行完毕后（成功/中断/失败）执行增强后处理（如术语抽取、日志归档等）。
  */
-import type { SqliteConversationRepository, TenantContext } from "@aervox/repositories";
+import type { SqliteConversationRepository, LocalContext } from "@aervox/repositories";
 import type { LLMCallable } from "@aervox/practice-review";
 
 export interface TurnPluginContext {
@@ -13,7 +13,7 @@ export interface TurnPluginContext {
   sessionId: string;
   attemptId: string;
   userMessage: string;
-  tenant: TenantContext;
+  tenant: LocalContext;
   repo: SqliteConversationRepository;
   llm?: LLMCallable | null;
   /** Turn 级结构化元数据（如 mode: 'study' | 'quiz'） */

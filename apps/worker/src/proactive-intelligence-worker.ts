@@ -9,7 +9,7 @@ import type {
   SqlitePlatformRepository,
   SqliteProactiveIntelligenceRepository,
   SqliteProactiveProfileRepository,
-  TenantContext,
+  LocalContext,
 } from "@aervox/repositories";
 
 const hash = (value: string): string => createHash("sha256").update(value).digest("hex").slice(0, 20);
@@ -70,7 +70,7 @@ export async function runProactiveIntelligenceCycle(
   };
 
   for (const profile of await activeProfiles(ctx)) {
-    const tenant: TenantContext = {workspaceId: profile.workspaceId, subjectUserId: profile.subjectUserId};
+    const tenant: LocalContext = {workspaceId: profile.workspaceId, subjectUserId: profile.subjectUserId};
     result.tenants += 1;
     const observations = await ctx.profileRepo.listObservations(tenant, {revisionId: profile.id, limit: 500});
     const actions = await ctx.profileRepo.listActions(tenant, {revisionId: profile.id, limit: 500});

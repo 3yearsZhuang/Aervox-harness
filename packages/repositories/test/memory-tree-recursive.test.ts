@@ -4,7 +4,7 @@ import {
   initDatabaseSchema,
   SqliteMemoryRepository,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "../src/index.js";
 import type { Client } from "@libsql/client";
 
@@ -13,7 +13,7 @@ describe("ADR-007: 记忆树 SQLite WITH RECURSIVE CTE 递归投影测试", () =
   let client: Client;
   let repo: SqliteMemoryRepository;
 
-  const tenant: TenantContext = {
+  const tenant: LocalContext = {
     workspaceId: "ws_knowledge",
     subjectUserId: "usr_student",
   };

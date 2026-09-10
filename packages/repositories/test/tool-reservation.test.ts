@@ -6,10 +6,10 @@
  * - update 收口：执行后以权威状态/结果回写；预留未收口的 pending 在释放后标记 outcome_unknown。
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import { createInMemoryDatabase, initDatabaseSchema, SqliteConversationRepository, type AervoxDatabase, type TenantContext } from "../src/index.js";
+import { createInMemoryDatabase, initDatabaseSchema, SqliteConversationRepository, type AervoxDatabase, type LocalContext } from "../src/index.js";
 import type { Client } from "@libsql/client";
 
-const tenant: TenantContext = { workspaceId: "ws_resv", subjectUserId: "usr_resv" };
+const tenant: LocalContext = { workspaceId: "ws_resv", subjectUserId: "usr_resv" };
 
 describe("2c 工具幂等预留与结果收口", () => {
   let db: AervoxDatabase;

@@ -2,11 +2,11 @@
  * Aervox｜思隅 @aervox/repositories — analytics 仓储类型（自 types.ts 机械拆分）
  */
 import type { AnalyticsEventModel } from "./platform.js";
-import type { TenantContext } from "../../tenant.js";
+import type { LocalContext } from "../../local-context.js";
 
 export interface IAnalyticsRepository {
   recordEvent(
-    tenant: TenantContext,
+    tenant: LocalContext,
     event: {
       id: string;
       eventName: string;
@@ -17,7 +17,7 @@ export interface IAnalyticsRepository {
       privacyClass?: string;
     },
   ): Promise<AnalyticsEventModel>;
-  listEventsBySubject(tenant: TenantContext, analyticsSubjectId: string, limit?: number): Promise<AnalyticsEventModel[]>;
+  listEventsBySubject(tenant: LocalContext, analyticsSubjectId: string, limit?: number): Promise<AnalyticsEventModel[]>;
 }
 
 export interface AttachmentModel {

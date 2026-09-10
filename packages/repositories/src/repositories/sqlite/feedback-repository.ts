@@ -6,14 +6,14 @@
 import { eq, and, desc } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { feedback } from "@aervox/schema";
-import { assertTenantContext, type TenantContext } from "../../tenant.js";
+import { assertLocalContext, type LocalContext } from "../../local-context.js";
 import type { IFeedbackRepository, FeedbackModel } from "../types/index.js";
 
 export class SqliteFeedbackRepository implements IFeedbackRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async createFeedback(
-    tenant: TenantContext,
+    tenant: LocalContext,
     feedbackData: {
       id: string;
       actorId: string;
@@ -23,7 +23,7 @@ export class SqliteFeedbackRepository implements IFeedbackRepository {
       note?: string | null;
     },
   ): Promise<FeedbackModel> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const [created] = await this.db
       .insert(feedback)
       .values({
@@ -42,11 +42,11 @@ export class SqliteFeedbackRepository implements IFeedbackRepository {
   }
 
   async listFeedback(
-    tenant: TenantContext,
+    tenant: LocalContext,
     subjectType?: string,
     subjectId?: string,
   ): Promise<FeedbackModel[]> {
-    assertTenantContext(tenant);
+    assertLocalContext(tenant);
     const conditions = [
       eq(feedback.workspaceId, tenant.workspaceId),
       eq(feedback.subjectUserId, tenant.subjectUserId),

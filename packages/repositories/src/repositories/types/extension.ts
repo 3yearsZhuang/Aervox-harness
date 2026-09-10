@@ -2,14 +2,14 @@
  * Aervox｜思隅 @aervox/repositories — extension 仓储类型（自 types.ts 机械拆分）
  */
 import type { CommunityContentModel, ExternalSourceModel, OrganizationModel, PluginGrantModel, PluginModel } from "./recovery-ledger.js";
-import type { TenantContext } from "../../tenant.js";
+import type { LocalContext } from "../../local-context.js";
 
 export interface IExtensionRepository {
   createExternalSource(
-    tenant: TenantContext,
+    tenant: LocalContext,
     source: { id: string; provider: string; externalId: string; permissionScope: string; syncState?: string },
   ): Promise<ExternalSourceModel>;
-  getExternalSource(tenant: TenantContext, id: string): Promise<ExternalSourceModel | null>;
+  getExternalSource(tenant: LocalContext, id: string): Promise<ExternalSourceModel | null>;
   createPlugin(
     plugin: {
       id: string;
@@ -34,21 +34,21 @@ export interface IExtensionRepository {
   /** CAP-020：卸载插件（需先注销其工具） */
   deletePlugin(id: string): Promise<boolean>;
   grantPlugin(
-    tenant: TenantContext,
+    tenant: LocalContext,
     grant: { id: string; pluginId: string; permission: string; scope: string; grantedAt?: string },
   ): Promise<PluginGrantModel>;
-  revokePluginGrant(tenant: TenantContext, id: string): Promise<PluginGrantModel | null>;
-  hasPluginPermission(tenant: TenantContext, pluginId: string, permission: string): Promise<boolean>;
+  revokePluginGrant(tenant: LocalContext, id: string): Promise<PluginGrantModel | null>;
+  hasPluginPermission(tenant: LocalContext, pluginId: string, permission: string): Promise<boolean>;
   createCommunityContent(
-    tenant: TenantContext,
+    tenant: LocalContext,
     content: { id: string; authorId: string; type: string; status?: string; reviewState?: string; visibility?: string },
   ): Promise<CommunityContentModel>;
-  getCommunityContent(tenant: TenantContext, id: string): Promise<CommunityContentModel | null>;
+  getCommunityContent(tenant: LocalContext, id: string): Promise<CommunityContentModel | null>;
   createOrganization(
-    tenant: TenantContext,
+    tenant: LocalContext,
     org: { id: string; ownerId: string; memberScope?: string; policyVersion: string },
   ): Promise<OrganizationModel>;
-  getOrganization(tenant: TenantContext, id: string): Promise<OrganizationModel | null>;
+  getOrganization(tenant: LocalContext, id: string): Promise<OrganizationModel | null>;
 }
 
 export interface PluginConfigModel {

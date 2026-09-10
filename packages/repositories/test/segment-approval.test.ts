@@ -7,11 +7,11 @@
  *   FencingMismatchError 且无部分写入；listCommittedSegments 返回可见前缀。
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import { createInMemoryDatabase, initDatabaseSchema, SqliteConversationRepository, type AervoxDatabase, type TenantContext } from "../src/index.js";
+import { createInMemoryDatabase, initDatabaseSchema, SqliteConversationRepository, type AervoxDatabase, type LocalContext } from "../src/index.js";
 import { FencingMismatchError } from "../src/errors.js";
 import type { Client } from "@libsql/client";
 
-const tenant: TenantContext = { workspaceId: "ws_e", subjectUserId: "usr_e" };
+const tenant: LocalContext = { workspaceId: "ws_e", subjectUserId: "usr_e" };
 
 describe("E1 授权快照幂等（recordToolApproval）", () => {
   let db: AervoxDatabase;

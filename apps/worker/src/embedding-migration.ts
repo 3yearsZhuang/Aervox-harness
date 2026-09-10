@@ -12,7 +12,7 @@ import type { Client } from "@libsql/client";
 import {
   SqliteMemoryEmbeddingRepository,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "@aervox/repositories";
 
 /** 向量生成能力（注入真实 embedding 服务；未注入时循环诚实跳过） */
@@ -101,7 +101,7 @@ export async function runEmbeddingMigrationCycle(
     const sep = key.indexOf(":");
     const workspaceId = key.slice(0, sep);
     const subjectUserId = key.slice(sep + 1);
-    const tenant: TenantContext = { workspaceId, subjectUserId };
+    const tenant: LocalContext = { workspaceId, subjectUserId };
 
     const items = await Promise.all(
       rows.map(async (row) => ({

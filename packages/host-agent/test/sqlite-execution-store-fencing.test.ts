@@ -12,11 +12,11 @@ import {
   initDatabaseSchema,
   SqliteConversationRepository,
   type AervoxDatabase,
-  type TenantContext,
+  type LocalContext,
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 
-const tenant: TenantContext = { workspaceId: "ws_fhost", subjectUserId: "usr_fhost" };
+const tenant: LocalContext = { workspaceId: "ws_fhost", subjectUserId: "usr_fhost" };
 
 describe("SqliteExecutionStore 事件写入 fencing 桥接", () => {
   let db: AervoxDatabase;

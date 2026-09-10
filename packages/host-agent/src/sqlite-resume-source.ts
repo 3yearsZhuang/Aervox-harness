@@ -11,7 +11,7 @@
 import type { ClaimableTurn, TurnSourcePort } from "./agent-host.js";
 import { decideResume } from "@aervox/agent-loop";
 import { buildResumeHistory } from "@aervox/agent-loop";
-import type { SqliteConversationRepository, TenantContext } from "@aervox/repositories";
+import type { SqliteConversationRepository, LocalContext } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 
 export interface SqliteResumeSourceDeps {
@@ -39,7 +39,7 @@ export function createSqliteResumeSource(deps: SqliteResumeSourceDeps): TurnSour
       const candidates = await repo.findResumeCandidates(client);
       const turns: ClaimableTurn[] = [];
       for (const c of candidates.slice(0, limit)) {
-        const tenant: TenantContext = { workspaceId: c.workspaceId, subjectUserId: c.subjectUserId };
+        const tenant: LocalContext = { workspaceId: c.workspaceId, subjectUserId: c.subjectUserId };
         const events = await repo.getStreamEvents(tenant, c.turnId);
         const executions = (await repo.listToolExecutionsByTurn(tenant, c.turnId)).map((r) => ({
           invocationId: r.invocationId,
