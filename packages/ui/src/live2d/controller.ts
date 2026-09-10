@@ -24,6 +24,7 @@ export class AervoxLive2DController {
   model: Live2DModelType | null = null
   assets: ResolvedCubismAsset | null = null
   private resizeListener: (() => void) | null = null
+  private visibilityListener: (() => void) | null = null
   private idleTimer: number | null = null
   private blinkTimer: number | null = null
   private blinkReleaseTimer: number | null = null
@@ -88,6 +89,15 @@ export class AervoxLive2DController {
       }
       this.resizeListener()
       window.addEventListener('resize', this.resizeListener)
+      this.visibilityListener = () => {
+        if (typeof document === 'undefined') return
+        if (document.hidden) {
+          this.app.stop()
+        } else {
+          this.app.start()
+        }
+      }
+      document.addEventListener('visibilitychange', this.visibilityListener)
       this.model.eventMode = 'static'
       this.model.cursor = 'pointer'
       this.status = 'ready'
@@ -322,6 +332,10 @@ export class AervoxLive2DController {
     if (this.blinkReleaseTimer !== null) window.clearTimeout(this.blinkReleaseTimer)
     if (this.speakingTimer !== null) window.clearInterval(this.speakingTimer)
     if (this.resizeListener) window.removeEventListener('resize', this.resizeListener)
+    if (this.visibilityListener && typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.visibilityListener)
+      this.visibilityListener = null
+    }
     this.model?.destroy({ children: true })
     this.app.destroy(true, { children: true, texture: true, baseTexture: true })
     this.resizeListener = null

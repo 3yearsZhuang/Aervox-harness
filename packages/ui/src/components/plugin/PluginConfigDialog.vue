@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {ref, watch} from 'vue'
-import {ElMessage} from 'element-plus'
+import {ElMessage} from '../../utils/element'
 import type {PluginConfigField} from '@aervox/contracts'
 import {useAervoxPlugins, type PluginSummaryDto} from '@aervox/api-client'
 import PluginConfigForm from './PluginConfigForm.vue'

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from '../../utils/element'
 import {
   Play,
   Plus,
@@ -15,6 +15,10 @@ import { useAervoxTools, type ToolRegistrationDto } from '@aervox/api-client'
 import ToolCallDialog from './ToolCallDialog.vue'
 import McpRegisterDialog from './McpRegisterDialog.vue'
 import McpPresetServers from './McpPresetServers.vue'
+
+const emit = defineEmits<{
+  'change': []
+}>()
 
 const api = useAervoxTools()
 const { tools, loading, error, loadTools, setToolEnabled, unregisterTool } = api
@@ -53,6 +57,7 @@ async function toggleEnabled(tool: ToolRegistrationDto): Promise<void> {
   busyToolId.value = tool.id
   try {
     await setToolEnabled(tool.id, next)
+    emit('change')
     ElMessage.success(`已${next ? '启用' : '停用'}工具「${tool.name}」`)
   } catch (e) {
     ElMessage.error(e instanceof Error ? e.message : '切换工具状态失败')
@@ -79,6 +84,7 @@ async function handleDelete(tool: ToolRegistrationDto): Promise<void> {
     )
     busyToolId.value = tool.id
     await unregisterTool(tool.id)
+    emit('change')
     ElMessage.success('工具已注销')
   } catch (e) {
     if (e !== 'cancel') {
@@ -87,6 +93,16 @@ async function handleDelete(tool: ToolRegistrationDto): Promise<void> {
   } finally {
     busyToolId.value = null
   }
+}
+
+function handleRegistered(): void {
+  emit('change')
+  void loadTools()
+}
+
+function handlePresetChanged(): void {
+  emit('change')
+  void loadTools()
 }
 </script>
 
@@ -108,7 +124,7 @@ async function handleDelete(tool: ToolRegistrationDto): Promise<void> {
       </div>
     </div>
 
-    <McpPresetServers @changed="loadTools" />
+    <McpPresetServers @changed="handlePresetChanged" />
 
     <div v-if="loading" class="tab-loading">加载工具注册表中…</div>
     <p v-else-if="error" class="tab-empty">{{ error }}</p>
@@ -180,7 +196,7 @@ async function handleDelete(tool: ToolRegistrationDto): Promise<void> {
     <McpRegisterDialog
       :open="registerDialogOpen"
       @close="registerDialogOpen = false"
-      @registered="loadTools"
+      @registered="handleRegistered"
     />
   </div>
 </template>

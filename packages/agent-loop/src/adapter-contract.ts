@@ -56,6 +56,8 @@ export interface AdapterRequest {
   sessionId: string;
   attemptId: string;
   userMessage: string;
+  /** Host 已审核的系统提示词；用于保持 native 与进程外 Adapter 的插件语义一致。 */
+  systemPrompt?: string;
   tools?: ToolSpec[];
 }
 

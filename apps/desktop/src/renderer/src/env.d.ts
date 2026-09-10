@@ -39,6 +39,7 @@ interface Window {
         toolApprovalMode: 'ask' | 'full_access'
         attachments?: Array<{attachmentId: string; name?: string; mediaType?: string}>
         requestId?: string
+        metadata?: Record<string, unknown>
       },
       callback: (message: unknown) => void,
     ) => () => void

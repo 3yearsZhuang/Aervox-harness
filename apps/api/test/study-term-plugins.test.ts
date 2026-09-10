@@ -19,6 +19,7 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
   let cleanup: () => Promise<void>;
 
   beforeEach(async () => {
+    process.env.AERVOX_LOOP_PROVIDER = "replay";
     const res = await createInMemoryDatabase();
     db = res.db;
     client = res.client;
@@ -30,15 +31,16 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
   });
 
   afterEach(async () => {
+    delete process.env.AERVOX_LOOP_PROVIDER;
     await app.close();
     await cleanup();
   });
 
-  it("专注模式插件 (aervox-study-companion)：Bundle 结构完整且可成功安装并注册 Config Schema", async () => {
+  it("专注模式综合插件 (focus-mode)：整合启发式教学与概念下钻，Bundle 结构完整且可成功安装并注册 Config Schema", async () => {
     const root = path.resolve(__dirname, "../../..");
-    const manifestPath = path.resolve(root, "plugins/study-companion/plugin.manifest.json");
-    const schemaPath = path.resolve(root, "plugins/study-companion/config.schema.json");
-    const skillPath = path.resolve(root, "plugins/study-companion/SKILL.md");
+    const manifestPath = path.resolve(root, "plugins/focus-mode/plugin.manifest.json");
+    const schemaPath = path.resolve(root, "plugins/focus-mode/config.schema.json");
+    const skillPath = path.resolve(root, "plugins/focus-mode/SKILL.md");
 
     const manifest = JSON.parse(await fs.readFile(manifestPath, "utf-8"));
     const schema = JSON.parse(await fs.readFile(schemaPath, "utf-8"));
@@ -46,20 +48,20 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
 
     // 1. 验证 Manifest 符合 Zod 契约
     const parsedManifest = pluginManifestSchema.parse(manifest);
-    expect(parsedManifest.metadata.id).toBe("aervox-study-companion");
+    expect(parsedManifest.metadata.id).toBe("focus-mode");
 
-    // 2. 验证 Config Schema 符合 Zod 契约
+    // 2. 验证 Config Schema 符合 Zod 契约，整合启发式教学与概念下钻全部 6 项字段
     const parsedSchema = pluginConfigSchema.parse(schema);
-    expect(parsedSchema.fields.length).toBeGreaterThanOrEqual(3);
+    expect(parsedSchema.fields.length).toBe(6);
 
-    // 3. 验证启动内置插件已预装
+    // 3. 验证启动内置插件已预装 focus-mode
     const listRes = await app.inject({
       method: "GET",
       url: "/v1/plugins",
     });
     expect(listRes.statusCode).toBe(200);
     const list = listRes.json<{ items: Array<{ id: string }> }>();
-    expect(list.items.some((p) => p.id === "aervox-study-companion")).toBe(true);
+    expect(list.items.some((p) => p.id === "focus-mode")).toBe(true);
 
     // 4. 注册/更新 Config Schema
     const schemaRes = await app.inject({
@@ -77,7 +79,8 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
     });
     expect(getCfg.statusCode).toBe(200);
     const snapshot = getCfg.json();
-    expect(snapshot.values.autoEnableStudyMode).toBe(true);
+    expect(snapshot.values.autoEnableFocusMode).toBe(true);
+    expect(snapshot.values.maxExtractedTerms).toBe(8);
 
     const saveCfg = await app.inject({
       method: "PUT",
@@ -86,56 +89,241 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
       payload: {
         revision: snapshot.revision,
         values: {
-          autoEnableStudyMode: false,
+          autoEnableFocusMode: false,
           strictAntiSpoiler: true,
           scaffoldingSteps: 4,
+          maxExtractedTerms: 6,
+          enableJudgePass: true,
+          defaultExploreKind: "related",
         },
       },
     });
     expect(saveCfg.statusCode).toBe(200);
     expect(saveCfg.json().values.scaffoldingSteps).toBe(4);
-  });
+    expect(saveCfg.json().values.maxExtractedTerms).toBe(6);
 
-  it("术语探索插件 (aervox-term-explorer)：Bundle 结构完整且可成功安装并注册 Config Schema", async () => {
-    const root = path.resolve(__dirname, "../../..");
-    const manifestPath = path.resolve(root, "plugins/term-explorer/plugin.manifest.json");
-    const schemaPath = path.resolve(root, "plugins/term-explorer/config.schema.json");
-    const skillPath = path.resolve(root, "plugins/term-explorer/SKILL.md");
-
-    const manifest = JSON.parse(await fs.readFile(manifestPath, "utf-8"));
-    const schema = JSON.parse(await fs.readFile(schemaPath, "utf-8"));
-    const skillContent = await fs.readFile(skillPath, "utf-8");
-
-    // 1. 验证 Manifest 与 Schema 符合 Zod 契约
-    const parsedManifest = pluginManifestSchema.parse(manifest);
-    expect(parsedManifest.metadata.id).toBe("aervox-term-explorer");
-    const parsedSchema = pluginConfigSchema.parse(schema);
-    expect(parsedSchema.fields.length).toBeGreaterThanOrEqual(3);
-
-    // 2. 验证启动内置插件已预装
-    const listRes = await app.inject({
-      method: "GET",
-      url: "/v1/plugins",
-    });
-    expect(listRes.statusCode).toBe(200);
-    const list = listRes.json<{ items: Array<{ id: string }> }>();
-    expect(list.items.some((p) => p.id === "aervox-term-explorer")).toBe(true);
-
-    // 3. 注册/更新 Config Schema
-    const schemaRes = await app.inject({
-      method: "PUT",
-      url: `/v1/plugins/${manifest.metadata.id}/config/schema`,
-      payload: schema,
-    });
-    expect(schemaRes.statusCode).toBe(200);
-
-    // 4. 读取配置
-    const getCfg = await app.inject({
-      method: "GET",
-      url: `/v1/plugins/${manifest.metadata.id}/config`,
+    // 6. 旧别名重置必须作用于实际 focus-mode 配置，而不是创建孤立的 study-mode 配置。
+    const resetCfg = await app.inject({
+      method: "POST",
+      url: "/v1/plugins/study-mode/config/reset",
       headers,
     });
-    expect(getCfg.statusCode).toBe(200);
-    expect(getCfg.json().values.maxExtractedTerms).toBe(8);
+    expect(resetCfg.statusCode).toBe(200);
+    expect(resetCfg.json().values.scaffoldingSteps).toBe(3);
+    expect(resetCfg.json().values.maxExtractedTerms).toBe(8);
+
+    const getAfterAliasReset = await app.inject({
+      method: "GET",
+      url: "/v1/plugins/focus-mode/config",
+      headers,
+    });
+    expect(getAfterAliasReset.statusCode).toBe(200);
+    expect(getAfterAliasReset.json().values.scaffoldingSteps).toBe(3);
+    expect(getAfterAliasReset.json().values.maxExtractedTerms).toBe(8);
+  });
+
+  it("服务端门控：study-mode 停用时服务端拦截专注模式，不生成 terms_extracted 事件；启用时正常生成", async () => {
+    const sessionId = "ses_study_gate";
+
+    // 1. 初始状态 study-mode 默认已启用，发送带专注模式前缀消息
+    const turn1Res = await app.inject({
+      method: "POST",
+      url: `/v1/sessions/${sessionId}/turns`,
+      headers,
+      payload: {
+        message: { content: "[模式：专注模式] 请讲解 Dijkstra 算法与 React 架构", contentType: "text" },
+        clientVersion: "it-study",
+        references: [],
+      },
+    });
+    expect(turn1Res.statusCode).toBe(201);
+    const turn1Id = turn1Res.json().turnId;
+
+    const events1Res = await app.inject({
+      method: "GET",
+      url: `/v1/turns/${turn1Id}/events`,
+      headers,
+    });
+    expect(events1Res.statusCode).toBe(200);
+    // 应当包含 terms_extracted 事件
+    expect(events1Res.body).toContain("terms_extracted");
+
+    // 2. 停用 study-mode 插件
+    const disableRes = await app.inject({
+      method: "PATCH",
+      url: "/v1/plugins/study-mode",
+      headers,
+      payload: { enabled: false },
+    });
+    expect(disableRes.statusCode).toBe(200);
+
+    // 3. 在插件停用状态下，外部请求即便带 [模式：专注模式] 前缀，服务端也必须拒绝激活专注模式
+    const turn2Res = await app.inject({
+      method: "POST",
+      url: `/v1/sessions/${sessionId}/turns`,
+      headers,
+      payload: {
+        message: { content: "[模式：专注模式] 请讲解 TypeScript 与 JWT 鉴权", contentType: "text" },
+        clientVersion: "it-study",
+        references: [],
+      },
+    });
+    expect(turn2Res.statusCode).toBe(201);
+    const turn2Id = turn2Res.json().turnId;
+
+    const events2Res = await app.inject({
+      method: "GET",
+      url: `/v1/turns/${turn2Id}/events`,
+      headers,
+    });
+    expect(events2Res.statusCode).toBe(200);
+    // 专注模式未被激活，不应当产出 terms_extracted 事件
+    expect(events2Res.body).not.toContain("terms_extracted");
+  });
+
+  it("配置与提示词默认值对齐：未配置时正确回退 schema 规范默认值，且 prompt 默认开启严格防剧透", async () => {
+    const { loadStudyModeRuntimeConfig, DEFAULT_STUDY_MODE_CONFIG } = await import(
+      "../src/modules/conversation/agent-executor.js"
+    );
+    const { buildStudyModePrompt } = await import("@aervox/agent-loop");
+
+    // 1. 无记录时回退默认配置
+    const tenant = { workspaceId: "ws_default_test", subjectUserId: "usr_default_test" };
+    const config = await loadStudyModeRuntimeConfig(tenant, null);
+    expect(config).toEqual(DEFAULT_STUDY_MODE_CONFIG);
+    expect(config.strictAntiSpoiler).toBe(true);
+    expect(config.scaffoldingSteps).toBe(3);
+    expect(config.maxExtractedTerms).toBe(8);
+    expect(config.defaultExploreKind).toBe("child");
+    expect(config.showTermTips).toBe(true);
+    expect(config.enableJudgePass).toBe(true);
+
+    // 2. buildStudyModePrompt 当 config 为空或 strictAntiSpoiler 为 undefined 时默认开启严格防剧透
+    const defaultPrompt = buildStudyModePrompt();
+    expect(defaultPrompt).toContain("【严格防剧透模式开启】");
+
+    const undefinedConfigPrompt = buildStudyModePrompt({ scaffoldingSteps: 4 });
+    expect(undefinedConfigPrompt).toContain("【严格防剧透模式开启】");
+    expect(undefinedConfigPrompt).toContain("拆解为 4 个连贯的小步骤");
+
+    const relaxedPrompt = buildStudyModePrompt({ strictAntiSpoiler: false });
+    expect(relaxedPrompt).not.toContain("【严格防剧透模式开启】");
+    expect(relaxedPrompt).toContain("优先识别用户的卡点");
+  });
+
+  it("二阶段术语质检裁决：enableJudgePass 开启且候选数 > 5 时，LLM 成功执行初提与复核两阶段调用", async () => {
+    const { extractTerms } = await import("@aervox/practice-review");
+
+    const calls: Array<{ prompt: string; options?: unknown }> = [];
+    const mockLlm = {
+      async generate(prompt: string, options?: { systemPrompt?: string; temperature?: number }): Promise<string> {
+        calls.push({ prompt, options });
+        if (calls.length === 1) {
+          // 阶段 1: 初提返回 6 个候选
+          return JSON.stringify([
+            { text: "Dijkstra", relation: "background", description: "最短路径" },
+            { text: "A*搜索", relation: "related", description: "启发搜索" },
+            { text: "Bellman-Ford", relation: "related", description: "负权图" },
+            { text: "Floyd", relation: "related", description: "多源最短路" },
+            { text: "SPFA", relation: "related", description: "队列优化" },
+            { text: "拓扑排序", relation: "background", description: "有向无环图" },
+          ]);
+        }
+        // 阶段 2: 复核筛选过滤为 3 个高价值术语
+        return JSON.stringify([
+          { text: "Dijkstra", relation: "background", description: "最短路径" },
+          { text: "A*搜索", relation: "related", description: "启发搜索" },
+          { text: "Bellman-Ford", relation: "related", description: "负权图" },
+        ]);
+      },
+    };
+
+    const terms = await extractTerms("关于图论中寻找最短路径的算法说明...", {
+      llm: mockLlm,
+      enableJudgePass: true,
+      maxTerms: 5,
+    });
+
+    expect(calls.length).toBe(2);
+    expect(terms.length).toBe(3);
+    expect(terms.map((t) => t.text)).toEqual(["Dijkstra", "A*搜索", "Bellman-Ford"]);
+  });
+
+  it("结构化元数据 Turn（metadata.mode = study）：无需消息前缀即可被 studyModeTurnPlugin 识别并注入提示词", async () => {
+    const { studyModeTurnPlugin, isStudyModeMessage } = await import("../src/modules/plugins/turn-plugins/study-mode.js");
+
+    expect(isStudyModeMessage("纯净的用户提问", { mode: "study" })).toBe(true);
+    expect(isStudyModeMessage("纯净的用户提问", {})).toBe(false);
+
+    const dummyCtx = {
+      turnId: "t_test",
+      sessionId: "s_test",
+      attemptId: "atp_test",
+      userMessage: "请问什么是快速排序？",
+      tenant: { workspaceId: "ws_plugin_test", subjectUserId: "usr_plugin_test" },
+      repo: null as any,
+      metadata: { mode: "study" },
+    };
+
+    const result = await studyModeTurnPlugin.beforeTurn?.(dummyCtx, { scaffoldingSteps: 4 });
+    expect(result?.extraSections).toBeDefined();
+    expect(result?.extraSections?.[0]).toContain("专注模式核心教学原则");
+    expect(result?.extraSections?.[0]).toContain("4 个连贯的小步骤");
+    expect(result?.state?.isStudyMode).toBe(true);
+  });
+
+  it("createLLMCallable 适配器：正确透传 temperature 参数与 systemPrompt", async () => {
+    const { createLLMCallable } = await import("../src/modules/conversation/agent-executor.js");
+    let capturedRequest: any;
+    const mockProvider = {
+      id: "mock",
+      async *stream(request: any) {
+        capturedRequest = request;
+        yield { text: "mock result", isFinal: true };
+      },
+    };
+
+    const callable = createLLMCallable(mockProvider);
+    const result = await callable.generate("user prompt", {
+      systemPrompt: "system prompt",
+      temperature: 0.2,
+    });
+
+    expect(result).toBe("mock result");
+    expect(capturedRequest).toBeDefined();
+    expect(capturedRequest.temperature).toBe(0.2);
+    expect(capturedRequest.context.messages).toEqual([
+      { role: "system", content: "system prompt" },
+      { role: "user", content: "user prompt" },
+    ]);
+  });
+
+  it("ServerTurnPluginRegistry：注册别名插件与主插件时自动互斥去重，杜绝 getAll() 实例翻倍", async () => {
+    const { ServerTurnPluginRegistry } = await import("../src/modules/plugins/turn-plugins/registry.js");
+    const reg = new ServerTurnPluginRegistry();
+
+    const focusPlugin = { id: "focus-mode" };
+    const studyPlugin = { id: "study-mode" };
+    const quizPlugin = { id: "quiz-mode" };
+
+    // 先注册 focus-mode，再尝试注册别名 study-mode 与 quiz-mode
+    reg.register(focusPlugin);
+    reg.register(studyPlugin);
+    reg.register(quizPlugin);
+
+    expect(reg.getAll()).toHaveLength(1);
+    expect(reg.getAll()[0].id).toBe("focus-mode");
+    expect(reg.get("study-mode")?.id).toBe("focus-mode");
+    expect(reg.get("quiz-mode")?.id).toBe("focus-mode");
+
+    // 反向测试：若先注册 study-mode，后注册 focus-mode，自动清理旧别名
+    const reg2 = new ServerTurnPluginRegistry();
+    reg2.register(studyPlugin);
+    expect(reg2.getAll()).toHaveLength(1);
+    expect(reg2.getAll()[0].id).toBe("study-mode");
+
+    reg2.register(focusPlugin);
+    expect(reg2.getAll()).toHaveLength(1);
+    expect(reg2.getAll()[0].id).toBe("focus-mode");
   });
 });

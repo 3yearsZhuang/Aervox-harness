@@ -11,6 +11,10 @@ import McpToolsTab from './McpToolsTab.vue'
 type ExtensionSubTab = 'plugins' | 'skills' | 'mcp'
 const currentTab = ref<ExtensionSubTab>('plugins')
 
+const emit = defineEmits<{
+  'change': []
+}>()
+
 const api = useAervoxPlugins()
 const {plugins, loading, error, setPluginEnabled, listPages} = api
 const configTarget = ref<PluginSummaryDto | null>(null)
@@ -46,10 +50,21 @@ onMounted(() => {
 async function toggleEnabled(plugin: PluginSummaryDto): Promise<void> {
   try {
     await setPluginEnabled(plugin.id, plugin.enabled !== 1)
+    emit('change')
     await refresh()
   } catch (e) {
     console.error('切换插件状态失败', e)
   }
+}
+
+function handleInstalled(): void {
+  emit('change')
+  void refresh()
+}
+
+function handleConfigSaved(): void {
+  emit('change')
+  void refresh()
 }
 
 function openConfig(plugin: PluginSummaryDto): void {
@@ -164,21 +179,21 @@ function openConfigFromPage(): void {
     </div>
 
     <!-- Tab 2: 技能库管理 -->
-    <SkillManagerTab v-else-if="currentTab === 'skills'" />
+    <SkillManagerTab v-else-if="currentTab === 'skills'" @change="emit('change')" />
 
     <!-- Tab 3: MCP / 工具管理 -->
-    <McpToolsTab v-else-if="currentTab === 'mcp'" />
+    <McpToolsTab v-else-if="currentTab === 'mcp'" @change="emit('change')" />
 
     <PluginInstallDialog
       :open="installOpen"
       @close="installOpen = false"
-      @installed="refresh"
+      @installed="handleInstalled"
     />
     <PluginConfigDialog
       :open="configOpen"
       :plugin="configTarget"
       @close="configOpen = false"
-      @saved="refresh"
+      @saved="handleConfigSaved"
     />
     <PluginPageDialog
       :open="pageOpen"

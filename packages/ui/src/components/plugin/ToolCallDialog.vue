@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage } from '../../utils/element'
 import { Play, ShieldCheck, Terminal } from 'lucide-vue-next'
 import { useAervoxTools, type ToolRegistrationDto } from '@aervox/api-client'
 

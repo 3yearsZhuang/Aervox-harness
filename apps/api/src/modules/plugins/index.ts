@@ -43,6 +43,8 @@ async function syncBuiltinPlugins(
 ): Promise<void> {
   try {
     const entries = await fs.readdir(sourceRoot, { withFileTypes: true });
+    const diskPluginIds = new Set<string>();
+
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
       const pluginDir = path.join(sourceRoot, entry.name);
@@ -69,6 +71,8 @@ async function syncBuiltinPlugins(
       if (!manifest.metadata?.id || !manifest.metadata?.publisher || !manifest.metadata?.version) {
         continue;
       }
+
+      diskPluginIds.add(manifest.metadata.id);
 
       let skillContent = "";
       try {
@@ -101,6 +105,14 @@ async function syncBuiltinPlugins(
         await configService.registerConfigSchema(manifest.metadata.id, schema);
       } catch {
         // 忽略无 Schema 或非法 Schema
+      }
+    }
+
+    // 3. 清理已下线或合并的内置插件（仅清理 installSource 为 builtin 且不再存在于 disk 中的插件）
+    const currentPlugins = await service.listPlugins();
+    for (const p of currentPlugins) {
+      if (p.installSource === "builtin" && !diskPluginIds.has(p.id)) {
+        await service.uninstallPlugin(p.id);
       }
     }
   } catch {
@@ -145,3 +157,5 @@ export async function registerPluginsModule(ctx: ModuleContext): Promise<void> {
   const builtinRoot = defaultBuiltinPluginsSourceRoot();
   await syncBuiltinPlugins(builtinRoot, service, configService);
 }
+
+export * from "./turn-plugins/index.js";
