@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.3.0
-updated_at: 2026-08-31
-reviewed_at: 2026-08-31
+version: 0.4.0
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 系统架构设计（SAD）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-31
+- 修改人：codex · 2026-09-10
 
 关联 PRD：[PRD.md](PRD.md) · 追踪：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
 
@@ -23,13 +23,13 @@ review_interval_days: 90
 
 ## 1. 架构结论
 
-采用 **TypeScript-first 模块化单体 + 独立 Worker/Scheduler**。Web、API、后台任务和桌面壳共享契约、领域类型和 UI；SQLite (WAL 模式) + 仓储抽象是业务真源，Redis 只负责缓存/队列，S3 负责附件；AI、记忆、日记和插件通过稳定的内部 Port 解耦。CAP-033 另由受信本地 Privacy Host/Helper 承担全量观察、画像、后台生命周期和主动动作，主动数据不得进入普通云端数据面；CAP-034/035 通过同机本地连接网关接入家庭环境和规范化健康信号。
+采用 **TypeScript-first 模块化单体 + 独立 Worker/Scheduler**。Web、API、后台任务和桌面壳共享契约、领域类型和 UI；SQLite（WAL 模式）是永久本地单用户业务真源，`@aervox/schema` 与 `@aervox/repositories` 分别承载结构和访问边界；AI、记忆、日记和插件通过稳定内部 Port 解耦。API 默认仅监听 loopback，非 loopback 必须显式启用并强制认证。CAP-033 由受信本地 Privacy Host/Helper 承担全量观察、画像、后台生命周期和主动动作，主动数据不得进入普通远程数据面；CAP-034/035 通过同机本地连接网关接入家庭环境和规范化健康信号。
 
-MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应商成为核心运行时依赖。等 P3 的流量、组织权限或合规边界确实需要拆分时，再通过 ADR 把单一模块提取为服务，并保持业务事件、数据删除和客户端兼容。
+MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应商成为核心运行时依赖。共享数据库多租户、组织权限和 PostgreSQL 演进由 CR-030 取消；未来若重新需要多人协作或远程服务，必须新建 CR/ADR，不能恢复旧租户字段作为捷径。
 
 ## 1.1 插件配置与页面边界（CR-006）
 
-插件配置使用 Aervox Config Schema v1：Schema 随 Bundle 注册并存储在 `plugins` 表，配置值按 `(workspaceId, subjectUserId, pluginId)` 存入 `plugin_configs`，secret 走 `plugin_config_secrets`（生产注入加密 SecretStore Port）。插件 Page 只加载本地 Bundle 静态资源，运行在受限 iframe 中并通过 Host Bridge 读写本插件配置；不开放插件自有后端路由、文件上传、SSE 或直接数据库访问，符合 `ADR-009` 与 `AVX-CAP-001` 的沙箱与最小权限要求。
+插件配置使用 Aervox Config Schema v1：Schema 随 Bundle 注册并存储在 `plugins` 表，配置值按 `pluginId` 存入本地 `plugin_configs`，secret 走 `plugin_config_secrets`（生产注入加密 SecretStore Port）。插件 Page 只加载本地 Bundle 静态资源，运行在受限 iframe 中并通过 Host Bridge 读写本插件配置；不开放插件自有后端路由、文件上传、SSE 或直接数据库访问，符合 `ADR-009` 与 `AVX-CAP-001` 的沙箱与最小权限要求。
 
 ## 2. 技术栈基线
 
@@ -40,7 +40,7 @@ MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应
 | Web | Vue 3、Vite 7、Element Plus（Vue 全栈单栈，见 ADR-015） | Web 复用桌面端 renderer 核心（composables/主题），首发是登录后流式应用；不依赖任何框架私有后端能力 |
 | UI/editor | Element Plus + 定制主题（迁移自 desktop styles）、CodeMirror 6 | 组件共享、键盘可用和 WCAG 2.2 AA |
 | API | Fastify 5、Zod 4、OpenAPI 3.1、POST Turn + GET SSE（Fetch 消费） | 客户端和插件通过契约访问；事件 envelope、重连、取消、幂等和安全持久化遵循[流式协议契约](STREAMING_PROTOCOL.md)；不以 tRPC 锁定消费者 |
-| Database | SQLite (WAL 模式) + Drizzle ORM + Repository Port | 事务、约束、RLS、递归 CTE、全文检索；禁止跨模块直接写表 |
+| Database | SQLite（WAL 模式）+ Drizzle ORM + `@aervox/schema`/`@aervox/repositories` | 事务、约束、递归 CTE、全文检索；当前操作系统用户和本机 API 是安全边界；禁止跨模块直接写表 |
 | Retrieval | SQLite FTS5 + VectorSearchPort（`sqlite-vec`/内存适配） | 记录 embedding 模型/维度/版本，可离线重建；MVP 不引入 Neo4j/独立向量库 |
 | Queue | Redis 7、BullMQ 5 | 至少一次投递、幂等键、重试、指数退避和 DLQ；Redis 不是真源 |
 | Object | S3 兼容存储、短期签名 URL | 上传前后做大小/格式/解压比/病毒扫描；删除遵循数据 SLA |
@@ -61,7 +61,7 @@ packages/
   contracts/ identity-consent/ conversation/ learning/
   practice-review/ memory/ diary/ ai-runtime/ safety/
   content-ingestion/ integrations/ plugin-sdk/
-  database/ observability/ ui/ domain/
+  schema/ repositories/ observability/ ui/ domain/
 ```
 
 ### 3.1 apps/api 内部结构（演进式模块化单体）
@@ -96,7 +96,7 @@ apps/api/src/
 │       ├── routes.ts
 │       └── index.ts
 ├── shared/                          # 跨模块共享（严格限制：只放通用工具）
-│   ├── tenant.ts                    #   租户上下文解析（从请求 Header 提取 TenantContext）
+│   ├── auth.ts                      #   本机认证与 actor 解析；CR-030 后不再创建 TenantContext
 │   ├── event-bus.ts                 #   进程内事件总线（pub/sub，未来可替换为消息队列）
 │   └── errors.ts                    #   共享错误类型（NotFoundError、ValidationError 等）
 ├── app.ts                           #   Fastify 应用工厂：组装模块、注册路由
@@ -114,12 +114,12 @@ apps/api/test/                       # 集成测试
 | 路由函数签名 | `routes.ts` 导出函数接收**该模块专属的仓储实例**，而非全局 `RepoContainer` |
 | shared 严格受限 | `shared/` 只放跨 2 个以上模块的通用工具，禁止放业务逻辑 |
 | 跨模块通信 | 仅限 `shared/event-bus.ts` 的 pub/sub + `shared/` 中的纯工具函数直接调用 |
-| 单一数据库 | 仍是一个 SQLite/PostgreSQL 实例，通过表前缀做逻辑分区 |
+| 单一数据库 | 一个本地 SQLite 实例；Schema 按领域拆文件，安全边界不依赖表前缀或租户列 |
 | 对外入口唯一 | 每个模块只有 `index.ts` 对外可见，`routes.ts` 内部函数不被其他模块引用 |
 
 **模块与仓储对应关系**：
 
-| 模块 | 仓储（来自 `@aervox/database`） | 对应路由前缀 |
+| 模块 | 仓储（来自 `@aervox/repositories`） | 对应路由前缀 |
 |---|---|---|
 | conversation | `SqliteConversationRepository` | `/v1/sessions/*`, `/v1/turns/*`, `/v1/messages` |
 | learning | `SqliteLearningRepository` | `/v1/learning/*`, `/v1/questions/*`, `/v1/review-items/*` |
@@ -154,7 +154,7 @@ apps/api/test/                       # 集成测试
 
 领域模块：
 
-- **Identity & Consent**：账户、工作区、角色、年龄组、同意和设备授权。
+- **Local Profile & Consent**：本地用户档案、年龄组、同意、actor 和设备授权；不提供共享数据库身份租户。
 - **Conversation**：Session、MessageVersion、引用和真实分支；消息是会话内容真源。
 - **Learning**：目标、知识点、计划、掌握度观测/推断。
 - **Practice & Review**：题目、作答、错题和调度器。
@@ -188,7 +188,7 @@ apps/api/test/                       # 集成测试
 [DSH/pi/MCP Plugins]               <-> [Permissioned Adapters]
 ```
 
-用户和工作区数据的控制面始终在 Aervox；身份、模型、通知、外部题库和插件均为外部信任边界。任何外部方只能获得已批准 purpose/scope 的最小数据，且必须支持撤销、故障隔离和审计。
+本地用户数据的控制面始终在 Aervox；模型、通知、外部题库和插件均为外部信任边界。任何外部方只能获得已批准 purpose/scope 的最小数据，且必须支持撤销、故障隔离和审计。
 
 ### 4.2 Containers
 
@@ -234,8 +234,8 @@ Electron Shell
 | 容器 | 关键组件 | 可写数据 | 外部信任边界 |
 |---|---|---|---|
 | Web/Desktop/Mobile | UI、离线草稿、流式渲染、授权界面 | 本地最小草稿/设置 | 浏览器、OS 权限、Electron IPC |
-| API | Auth/Consent、Conversation、Learning、Review、Context Builder、Provider Gateway | SQLite 领域表、Outbox；按 `(workspaceId, subjectUserId)` 做租户边界 | OIDC、AI Provider、对象签名服务 |
-| Worker/Scheduler | Memory、Diary、OCR、Embedding、Notification、Deletion Orchestrator | 各领域模块公开仓储；不得绕过所有权；所有 Job 包含 `workspaceId/subjectUserId` | Redis、对象存储、通知供应商 |
+| API | Local Auth/Consent、Conversation、Learning、Review、Context Builder、Provider Gateway | SQLite 领域表、Outbox；默认仅通过 loopback 提供服务 | AI Provider、本地对象服务 |
+| Worker/Scheduler | Memory、Diary、OCR、Embedding、Notification、Deletion Orchestrator | 各领域模块公开仓储；不得绕过来源、授权和删除状态；Job 以业务实体/来源修订幂等 | 本地队列、对象目录、通知供应商 |
 | Plugin Host（P2） | Manifest、Policy Proxy、Adapter、Kill Switch | 插件自有状态；核心数据只经命令/候选 | 第三方代码和远程 Host |
 | CAP-033 Privacy Host（P3） | signed observation/action Host、OS Permission Broker、activation lease、source adapters | `proactive_*` 本地授权/捕获/画像/动作/审计表；全链 `local_only` | 操作系统、文件/浏览器/通信/设备能力、用户导出目标 |
 | CAP-033～035 主动智能与连接网关（P3） | 十二能力 Worker、Home Assistant REST/WS、小米健康 OAuth/每日同步、ToolRuntime handlers | `proactive_timeline_*`、项目/流程/触发/回顾、外部连接、HA 实体和健康样本；连接凭据加密 | 私网 Home Assistant、用户获准的小米开放平台、桌面设置与 Agent 工具 |
@@ -248,7 +248,7 @@ Electron Shell
 
 | 威胁 | 控制 | 验证 |
 |---|---|---|
-| 跨工作区/组织数据泄露 | 应用鉴权 + TenantContext 仓储强校验、workspaceId 约束、伪匿名分析主体 | `TC-SEC-TENANT-001` |
+| 未认证远程访问或其他本机用户读取私人数据 | loopback 默认、非 loopback 强制 token、用户私有目录 ACL、插件 Grant 和脱敏日志 | `TC-SEC-LOCAL-API-001`、`TC-SEC-LOCAL-FS-001` |
 | Prompt injection/恶意附件 | 不可信上下文分区、工具权限代理、扫描、引用验证 | `TC-SEC-PROMPT-001` |
 | 插件远程代码执行/数据外泄 | 进程外沙箱、默认无权限、签名、Host allowlist、配额和 kill switch | `TC-SEC-PLUG-001` |
 | 删除后数据复活 | `RecoveryControlLedger` 撤权先行、DeletionTargets、零召回验证、恢复前校验水位并按序重放 | `TC-PRIV-DEL-001`、`TC-RES-LEDGER-001` |
@@ -292,12 +292,12 @@ Restore process -> RecoveryControlLedger: verify signature/sequence/watermark + 
 
 ## 5. 关键数据与一致性
 
-- SQLite 事务是跨模块状态变更的边界；数据库迁移使用 expand/contract，API 保持当前及上一版本客户端兼容。
+- SQLite 事务是跨模块状态变更的边界；普通迁移优先 expand/contract。CR-030 是显式例外：停写并从备份构建 staging 新库，校验后原子换库，不执行原地逐表删列。
 - 队列按至少一次投递设计。Job 必须有 `idempotencyKey`、最大尝试次数、可取消状态、DLQ 和人工重放工具。
 - Memory 的 `MemoryRecord` 只保存临时/短期/长期身份和版本；系统记忆树由有效长期记忆构建可重建投影，避免两份永久真源。`MemoryProjectionOverride` 记录用户锁定、改名和父节点调整，重建时先投影再叠加覆盖。
 - 日记使用 `Diary` + 不可变 `DiaryCycle` + `DiaryScheduleRevision` + `DiaryRunAttempt` + `DiaryVersion` + `DiaryParagraphSource`；每个段落带来源版本和生成时权限快照。`DiaryCycle` 以 `occurredAt` 计算窗口，`DiaryMaterialBuffer` 必须关联 `cycleId`；周期终态与 `lastCutoffAt/cursorVersion` 通过 scheduleVersion CAS 在同一事务提交，使用 lease/fencing token 拒绝过期 Worker。
 - 删除、同意撤销和插件/外部授权撤权先以确定性 `controlEventId/idempotencyKey` 追加独立故障域的 `RecoveryControlLedger` 并取得 durable ack，再幂等提交 SQLite 的即时 deny 投影、`DeletionRequest`/Targets 和 Outbox；账本已写而业务提交失败由 reconciler 按 sequence 重放，账本不可用、序列有缺口或水位未追平时受影响范围 fail closed。业务投影不得反向覆盖账本事实；恢复后必须先校验并重放账本、验证零召回/零越权后再开放流量。
-- 所有个人学习状态按 `(workspaceId, subjectUserId)` 隔离；运营者/组织成员作为 `actorId` 另记，不得代替数据主体。
+- 所有个人学习状态归属于当前本地数据库实例；插件、连接器和用户动作使用独立 `actorId`、Grant 与来源修订记录，不得伪装为用户事实。
 - 用户查看历史消息的保留策略与 AI 召回 TTL 分离。临时记忆过期只代表不能进入模型上下文，不代表聊天历史必须被删除。
 
 ## 6. 四段记忆流水线
@@ -337,12 +337,12 @@ Captured
 
 `ProviderPort` 至少支持 `streamText`、`generateObject`、`embed`、`classify`，并声明上下文长度、成本、数据地区和能力。流式协议采用 POST 创建 Turn + GET SSE，事件使用 Turn 内单调 `eventId/sequence` 和 `Last-Event-ID` 重连；供应商输出先进有界分段缓冲，逐段通过安全/结构检查并持久化后才展示。TTFT 从 Turn 持久化接受时刻起计到首个已安全检查且持久化的可见分段，另记端到端首段渲染延迟。每个 `ModelRun` 记录模型、供应商、Prompt、ContextManifest、token、延迟、成本、失败和安全决策；默认不记录完整敏感 Prompt。
 
-附件、网页、插件输出和外部题库都是不可信数据，不能覆盖系统提示或直接触发工具。模型只能请求工具，权限代理根据用户授权、工作区和工具策略作最终决定。CAP-033 主动动作还需校验 `FullProfileActionGrant`、目标 scope、设备 lease 和本地处理证明；用户确认后可覆盖声明的本地、外部、特权和不可逆动作，但模型/插件不能自授。插件默认无数据库、文件、网络、记忆和日记权限；云端插件在容器/microVM 中运行，桌面插件使用受限子进程，Node `vm` 不作为安全沙箱。
+附件、网页、插件输出和外部题库都是不可信数据，不能覆盖系统提示或直接触发工具。模型只能请求工具，权限代理根据用户授权和工具策略作最终决定。CAP-033 主动动作还需校验 `FullProfileActionGrant`、目标 scope、设备 lease 和本地处理证明；用户确认后可覆盖声明的本地、外部、特权和不可逆动作，但模型/插件不能自授。插件默认无数据库、文件、网络、记忆和日记权限；远程插件能力仍需隔离运行，桌面插件使用受限子进程，Node `vm` 不作为安全沙箱。
 
 ## 8. 日记调度与时区
 
-- `DiarySchedule.nextRunAt` 和 `lastCutoffAt` 保存 UTC 时间点，另存 IANA 时区及首次启用的 `initialWindowStart`；Scheduler 每分钟批量锁定到期记录，不为每个用户注册长期 Cron。所有调度、通知和 Job 都必须携带 `(workspaceId, subjectUserId)`。
-- `Diary` 的业务唯一约束为 `(workspaceId, subjectUserId, localDate)`（仅针对 `autoGenerated=true`），保证每个 `localDate` 标签最多一个自动日记身份；这不是本地 00:00～24:00 的素材分片。`DiaryCycle` 是窗口真源，`DiaryRunAttempt` 只表示执行尝试，旧任务必须先校验 `scheduleVersion`。缓冲只能按 `cycleId` 关联，不得以日期标签替代窗口身份。
+- `DiarySchedule.nextRunAt` 和 `lastCutoffAt` 保存 UTC 时间点，另存 IANA 时区及首次启用的 `initialWindowStart`；Scheduler 每分钟批量锁定到期记录，不为每个计划注册长期 Cron。所有调度、通知和 Job 都必须携带业务实体 ID、来源修订与幂等键。
+- `Diary` 的业务唯一约束为 `localDate`（仅针对 `autoGenerated=true`），保证每个本地日期标签最多一个自动日记身份；这不是本地 00:00～24:00 的素材分片。`DiaryCycle` 是窗口真源，`DiaryRunAttempt` 只表示执行尝试，旧任务必须先校验 `scheduleVersion`。缓冲只能按 `cycleId` 关联，不得以日期标签替代窗口身份。
 - 生成前固化 `previousCutoffAt`、`sourceWindowStart`、`sourceWindowEnd`、`cutoffAt`、来源 ID/版本、`occurredAt/ingestedAt` 和权限快照；本次窗口为 `(previousCutoffAt, cutoffAt]`，首次运行为 `[initialWindowStart, cutoffAt]`。`localDate` 只是 `cutoffAt` 在时区快照下的本地日期标签，不要求窗口从本地零点开始。设置默认 30 分钟晚到宽限期：`bufferClosedAt = cutoffAt + 30m`。首版不等待宽限期结束，必须在设定时间后 15 分钟内发布；`bufferClosedAt` 前写入且 `occurredAt` 落在本次窗口的迟到事件只生成用户可见的补写候选，确认后创建新版本；关闭后到达的本窗口事件不自动改写或生成候选。只有 `occurredAt > cutoffAt` 的事件进入下一滚动周期；早于或等于窗口起点的历史迟到事件不得重复分配。滚动窗口素材缓冲不能因为临时记忆过期而丢失当前窗口内已授权素材。
 - 修改时间或时区时，已锁定/已到期运行的 `cutoffAt` 不移动；新计划从上一次 `lastCutoffAt` 之后的第一个合格截止点生效，允许窗口变长或变短但不得重叠或产生空洞。停用结束当前 `scheduleEpochId`；重新启用创建新的周期并以启用时点作为 `initialWindowStart`，默认不回填停用期间素材。
 - DST 缺口取下一个合法时点；重复时间只执行一次。撤销授权会取消未执行任务；保存成功后再发送通知。
@@ -409,7 +409,7 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 
 ### 11.1 技术版本冻结规则
 
-本文中的 Node 24 LTS、TypeScript 6.x、Vue/Vite/Fastify/Zod、PostgreSQL、AI SDK 等是目标基线（React 相关基线已随 ADR-015 更新为 Vue），不是尚未存在 `package.json`/lockfile 时的可构建证明。G2 前必须：
+本文中的 Node 24 LTS、TypeScript 6.x、Vue/Vite/Fastify/Zod、SQLite、AI SDK 等是目标基线（React 相关基线已随 ADR-015 更新为 Vue），不是尚未存在 `package.json`/lockfile 时的可构建证明。G2 前必须：
 
 - 验证实际发布日期、LTS/支持周期、peer dependency、Node ABI、Electron 和参考适配器兼容；
 - 在根 `package.json`、`packageManager`、`engines`、lockfile、容器 digest 和 CI matrix 中精确冻结版本；
@@ -427,7 +427,7 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 ## 12. 架构发布门禁
 
 - C4、数据所有权、威胁模型、容量/成本、备份恢复和删除传播评审通过；
-- OpenAPI/事件契约无破坏性差异，数据库迁移可回滚或有明确 expand/contract 阶段；
+- OpenAPI/事件契约无未批准的破坏性差异；数据库迁移可回滚，或像 CR-030 一样具备已批准的停写、备份、显式范围选择、staging 校验和原子换库协议；
 - 记忆、日记、附件、插件和外部同步均有幂等、撤销、权限和 DLQ 测试；
 - 依赖、许可证、SBOM、Secret scan、漏洞扫描和参考项目许可边界通过；
 - Playwright 覆盖学习闭环、日记、删除、导出和弱网恢复；AI 回归集覆盖教学、安全、来源、过度压缩和删除后零召回；

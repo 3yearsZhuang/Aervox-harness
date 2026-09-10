@@ -1,7 +1,7 @@
 # Aervox｜思隅
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-10
+- 修改人：codex · 2026-09-10
 
 更好上手的"主动智能" Agent：以桌宠为入口，视觉小说 + 工作台双形态交互，承载陪伴与学习双重任务。TypeScript 全栈 monorepo 交付：Fastify API + Worker + 桌面 / Web / 移动端共享同一契约，SQLite 为业务真源。产品定义、工程规范与契约事实源一律在 [docs/](docs/README.md)，本 README 只做索引与速查。
 
@@ -45,7 +45,7 @@
 | 语言/工程 | TypeScript、pnpm + Turborepo、Node 24（mise 管理）                                       |
 | 前端    | Vue 3 + Vite 7 + Element Plus（Web / Electron 桌面端 / Capacitor 移动壳）                  |
 | API   | Fastify 5 + Zod 4 + OpenAPI 3.1；POST Turn + GET SSE 流式；内置 MCP 预设客户端（Streamable HTTP） |
-| 数据    | SQLite (WAL) + Drizzle + 仓储抽象，PG 双引擎兼容规划（[AVX-DB-001](docs/reference/DATABASE.md)） |
+| 数据    | SQLite（WAL）永久本地单用户真源 + Drizzle + Schema/Repository 双包（[AVX-DB-001](docs/reference/DATABASE.md)、[CR-030](docs/reference/changes/CR-030-pure-local-sqlite-database.md)） |
 | 后台    | Worker 进程（Outbox / 复习提醒 / 日记生成 / 删除传播 / 收件箱过期回收 / 恢复裁决 / 主动智能画像与提炼），Redis + BullMQ 待接入 |
 
 ## 仓库结构
@@ -65,7 +65,7 @@ packages/
   observability/   可观测性接口与指标（阶段 2a）
   contracts/    Zod 契约事实源 → OpenAPI 3.1（流式协议 / 学习域 / 插件 Config/Page / Persona）
   schema/       Drizzle 表结构与实体模式定义（@aervox/schema）
-  repositories/ 数据访问层与多租户仓储 / FTS5 / 向量检索 Port / 迁移服务（@aervox/repositories）
+  repositories/ 数据访问层 / FTS5 / 向量检索 Port / CR-030 迁移服务（@aervox/repositories）
   api-client/   Web/Desktop 共享 API 客户端（Turn/SSE、设置、收件箱）
   ui/           Web/Desktop 共享 UI 组件与 composables
   practice-review/  复习排期 @aervox/practice-review（CAP-006，幂等 + 时区安全调度）
@@ -116,7 +116,7 @@ AERVOX_API_URL='http://127.0.0.1:3000' AERVOX_SESSION_ID='<现有会话 ID>' pnp
 | <br />       | `VITE_SESSION_ID`                      | 会话 ID（默认 `web_default`）                                                                                                        |
 | <br />       | `VITE_WORKSPACE_ID` / `VITE_USER_ID`   | 可选租户头（缺省回退默认租户）                                                                                                                |
 | Desktop      | `AERVOX_API_URL` / `AERVOX_SESSION_ID` | 见上方桌面端小节                                                                                                                       |
-| 数据           | `DATABASE_URL`                         | SQLite 真源路径；API / Worker / 端侧默认共享 `<repo>/data/aervox.db`（详见 [AVX-DB-001 §2.1](docs/reference/DATABASE.md#21-sqlite-共享真源路径约定)） |
+| 数据           | `DATABASE_URL`                         | SQLite 真源路径；API / Worker / 端侧默认共享 `<repo>/data/aervox.db`（详见 [AVX-DB-001 §3](docs/reference/DATABASE.md#3-本地存储拓扑)） |
 
 ## 文档与追踪
 

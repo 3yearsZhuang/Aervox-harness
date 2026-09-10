@@ -1,13 +1,13 @@
 # AGENTS.md — AI 协作指南（薄入口）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-10
+- 修改人：codex · 2026-09-10
 
 本文件是 AI 编码 Agent 的进入点：只索引、不复制，权威内容一律深链至 `docs/`，避免双源漂移。详细规则见 [从哪开始](docs/getting-started.md)（面向新成员或 Agent 的完整 onboarding）、[文档治理规范](docs/reference/document-governance.md)与[文档写作规范](docs/reference/standards/doc-standards.md)。
 
 ## 这是什么仓库
 
-Aervox｜思隅：更好上手的"主动智能" Agent——以桌宠为入口，视觉小说 + 工作台双形态交互，承载陪伴与学习双重任务。TypeScript 全栈 monorepo（Vue 全栈单栈，ADR-015）：Fastify API（:3000）+ Worker（Outbox / 复习 / 日记 / 删除）+ 桌面端 / Web + SQLite 真源（PostgreSQL 双引擎切换规划中，CR-003）。
+Aervox｜思隅：更好上手的"主动智能" Agent——以桌宠为入口，视觉小说 + 工作台双形态交互，承载陪伴与学习双重任务。TypeScript 全栈 monorepo（Vue 全栈单栈，ADR-015）：Fastify API（:3000）+ Worker（Outbox / 复习 / 日记 / 删除）+ 桌面端 / Web + SQLite 永久本地单用户真源（CR-030；去租户化 D1～D3 尚待实现）。
 
 ## 必读顺序（按需取读，不必通读）
 

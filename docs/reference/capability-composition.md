@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.0
-updated_at: 2026-08-29
-reviewed_at: 2026-08-29
+version: 0.5.0
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 ---
 
 # Aervox 能力组合与可选化目录规范
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-29
+- 修改人：codex · 2026-09-10
 
 关联：[架构设计](ARCHITECTURE.md)、[ADR-001](adr/ADR-001-modular-monolith.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-014](adr/ADR-014-modular-monolith-structure.md)、[能力注册表](capability-registry.md)、[submodule 协作指南](../how-to/submodule-collaboration.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
@@ -435,7 +435,7 @@ pi 固定参考 commit 为 `c49906ec77788625aacbdc53ebca6fbe65bd20f5`，许可�
 | F | 尚无正式 Adapter | 接入 DSH、pi、MCP 外部 Host |
 | G | `apps/api/src/app.ts` 手工清单 | Profile + Resolver 驱动组合 |
 
-迁移使用兼容 facade 和 Expand/Contract。旧 HTTP 路由、表和 `@aervox/database` 出口只有在新能力通过契约、生命周期和删除测试后才移除。
+迁移使用显式 CR 和可验证的 staging/rollback。旧 HTTP 路由、表和历史 `@aervox/database` 出口只有在新能力通过契约、生命周期、删除和迁移测试后才移除；CR-030 的去租户化不恢复旧兼容包。
 
 ## 验收与机器验证
 

@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.1.0
+version: 0.2.0
 updated_at: 2026-09-10
 reviewed_at: 2026-09-10
 review_interval_days: 90
@@ -18,30 +18,27 @@ sources:
 # Aervox｜思隅 数据库数据模型覆盖矩阵（Database Coverage Matrix）
 
 - 提出人：3yearszhuang · 2026-09-10
-- 修改人：3yearszhuang · 2026-09-10
+- 修改人：codex · 2026-09-10
 
-关联：[数据库设计与双引擎契约](DATABASE.md)（AVX-DB-001）、[产品需求文档 PRD §8](PRD.md#prd-data)（AVX-PRD-001）
+关联：[SQLite 本地单用户数据库契约](DATABASE.md)（AVX-DB-001）、[产品需求文档 PRD §8](PRD.md#prd-data)（AVX-PRD-001）、[CR-030](changes/CR-030-pure-local-sqlite-database.md)
 
-本文从 [数据库设计与双引擎契约 (DATABASE.md)](DATABASE.md) 拆分而来，作为 PRD 全量数据模型在数据库落表状态的完整附录清单。
+本文从 [SQLite 本地单用户数据库契约](DATABASE.md) 拆分而来，作为 PRD 全量数据模型在数据库落表状态的完整附录清单。
 
 ## PRD 全量数据模型覆盖清单
 
 > 本清单以 [PRD §8](PRD.md#prd-data) 为全生命周期基线，逐实体标注**交付阶段**与**实现状态**，用于追踪数据库设计对 PRD 的覆盖。约定：
 >
-> - **阶段**：`MVP`（R1）/ `MVP+`（R1.5）/ `P1`（R2）/ `P2`（R4）/ `P3`（R5）/ `PG`（PostgreSQL 启用后，CR-003 范围外）。
+> - **阶段**：`MVP`（R1）/ `MVP+`（R1.5）/ `P1`（R2）/ `P2`（R4）/ `P3`（R5）；不再包含 PostgreSQL 启用阶段。
 > - **实现状态**：`已落表`（当前 SQLite schema 已有）／ `已建模`（本文档 §3/§4/§5 有规划表或规划列）／ `未落表`（仅 PRD 定义，进入规划 backlog）。
-> - 当前 SQLite 真源在原有业务表基础上包含 8 张 CAP-033 控制/捕获表和 17 张主动派生/连接表（共 84 张业务表，含独立账本 recovery_control_ledger）+ 2 张 FTS5 虚表；本地 Vault、十二项派生、HA/健康连接骨架已落地，生产 OS/出网/厂商兼容门禁、双引擎迁移与完整 TC 仍待补齐，并走 `CR-*`。
+> - CR-030 的目标 Schema 是本地单用户、无租户列的 SQLite；当前代码在 D2 前仍保留旧租户字段。本地 Vault、十二项派生、HA/健康连接骨架已落地，生产 OS/出网/厂商兼容门禁和 CR-030 迁移 TC 仍待补齐。
 
-### 14.1 用户域 Identity（PG 启用后 · CR-003 范围外）
+### 14.1 本地用户档案与同意
 
 | PRD 实体 | 阶段 | 实现状态 | 说明 / 对应表 |
 |---|---|---|---|
-| User | PG | 已建模 | §4 `users`；`subject_user_id` 在 SQLite 阶段为本地标识字符串 |
-| Workspace | PG | 已建模 | §4 `workspaces`；组织级 workspace，SQLite 阶段不建 |
-| WorkspaceMember | PG | 已建模 | §4 `workspace_members`；RBAC 角色边界，P3 组织模式复用 |
-| ConsentGrant | MVP | 已落表 | `consent_grants`（未撤销授权条件唯一）；SQLite 阶段先建，PG 阶段升级 |
-| UserPreference | PG | 未落表 | 时区/语言/人格/提醒/日记/无障碍偏好，独立可版本化；安全规则不可覆盖 |
-| user_profiles | PG | 已建模 | 本文档 §4 新增规划表（PRD 无独立实体），承载人格问卷/偏好 JSONB，不与 PRD §8 冲突 |
+| User | P2 | 未落表 | 可选本地用户档案，不作为共享数据库认证主体 |
+| ConsentGrant | MVP | 已落表 | `consent_grants`（未撤销授权条件唯一）；D2 移除租户列后按 purpose/scope/version 约束 |
+| UserPreference | MVP | 已落表 | 本地时区、语言、人格、提醒、日记和无障碍偏好；安全规则不可覆盖 |
 
 ### 14.2 会话域 Conversations
 
@@ -114,7 +111,7 @@ sources:
 | Notification | MVP | 已落表 | `notifications`（复习/日记/计划提醒，受免打扰与撤销约束） |
 | ScheduledJob | MVP | 已落表 | `scheduled_jobs`（日记/记忆/OCR/嵌入/通知任务可见状态） |
 | ModelRun | MVP | 已落表 | `model_runs`（provider/modelId/promptVersionId/contextManifestId/latency/tokenUsage/cost，不复制敏感 Prompt） |
-| PromptVersion | MVP | 已落表 | `prompt_versions`（系统级无租户列，purpose+version 唯一） |
+| PromptVersion | MVP | 已落表 | `prompt_versions`（purpose+version 唯一） |
 | ContextManifest | MVP | 已落表 | `context_manifests`（sourceArtifact/sourceRevision 外键 + permissionSnapshot） |
 | ToolPolicy | MVP | 已落表 | `tool_policies`（系统级：purpose/toolName/approvalMode/timeoutMs/quota，purpose+toolName+version 唯一） |
 | EvalSet | MVP+ | 已落表 | `eval_sets`（系统级：purpose/version/language/domain/sampleCount/annotationPolicy） |
@@ -131,14 +128,14 @@ sources:
 |---|---|---|---|
 | Persona | P1 | 已落表 | `personas`（name/description/source/status/currentRevisionId，删除=归档） |
 | PersonaRevision | P1 | 已落表 | `persona_revisions`（config JSON + checksum，personaId+revision 唯一，不可变修订） |
-| ActivePersonaSelection | P1 | 已落表 | `persona_selections`（每租户一行条件唯一，激活 upsert） |
+| ActivePersonaSelection | P1 | 已落表 | `persona_selections`（本地单一活动选择，激活 upsert） |
 | WorkspaceSkill | P2 | 已落表 | `workspace_skills`（Anthropic SKILL.md 元数据 + filesJson base64 + checksum；导入不执行脚本） |
-| McpTool | P2 | 已落表 | `mcp_tools`（serverId+name 租户内唯一；授权/健康/kill switch 状态） |
-| McpServer（连接配置） | P2 | 已落表 | `mcp_servers`（系统级无租户列：transport/endpoint/本地 Token 与同步状态；同步出的远程工具以 `mcp__<serverId>__<toolName>` 落 `tool_registrations`，category=external；Port 为 `IMcpServerRepository`） |
-| PersonaTurnContext | P1 | 已落表 | `persona_turn_contexts`（turnId 租户内唯一；revision/prompt checksum + skill/mcp 引用，不含完整 Prompt） |
+| McpTool | P2 | 已落表 | `mcp_tools`（serverId+name 唯一；授权/健康/kill switch 状态） |
+| McpServer（连接配置） | P2 | 已落表 | `mcp_servers`（transport/endpoint/本地 Token 与同步状态；同步出的远程工具以 `mcp__<serverId>__<toolName>` 落 `tool_registrations`，category=external；Port 为 `IMcpServerRepository`） |
+| PersonaTurnContext | P1 | 已落表 | `persona_turn_contexts`（turnId 唯一；revision/prompt checksum + skill/mcp 引用，不含完整 Prompt） |
 
 领域 Port 由主仓 `apps/api/src/modules/persona` 定义（`PersonaRepository` / `SkillRepository` / `McpToolRepository`；原 `modules/persona-plugin` 子模块已于 2026-08-28 移除，去模块化收尾见 §4.2），主仓
-`@aervox/database` 提供 SQLite 实现并通过 `apps/api` 适配器接入；数据库表与 Repository Port 是持久化事实源。
+`@aervox/schema` 提供表结构，`@aervox/repositories` 提供 SQLite 实现并通过 `apps/api` 适配器接入；数据库表与 Repository Port 是持久化事实源。
 
 ### 14.9 主动智能模式域（CAP-033）
 
@@ -153,25 +150,25 @@ sources:
 | ProactiveAction | P3 | 已落表 | `proactive_actions`；local/external/privileged/irreversible 动作授权与结果 |
 | ProactiveAuditEvent | P3 | 已落表 | `proactive_audit_events`；授权、恢复、动作、撤权、导出和删除审计 |
 
-上述表已在 `packages/schema/src/proactive.ts` 和 `packages/repositories/src/schema/ddl/index.ts` 建立结构/初始化骨架；完整采集适配器、Provider 本地证明、删除 Worker 和双引擎迁移仍待实现，不能据此宣称 CAP-033 已发布。
+上述表已在 `packages/schema/src/proactive.ts` 和 `packages/repositories/src/schema/ddl/index.ts` 建立结构/初始化骨架；完整采集适配器、Provider 本地证明、删除 Worker 和 CR-030 破坏性迁移仍待实现，不能据此宣称 CAP-033 已发布。
 
 ### 14.10 主动智能派生与外部连接域（CAP-033～035）
 
 | 逻辑实体 | 状态 | SQLite 真源与约束 |
 |---|---|---|
-| PersonalTimeline / Project / Relationship / Commitment | 已落表 | `proactive_timeline_events`、`proactive_projects`、`proactive_relationships`、`proactive_commitments`；正文加密，按 tenant/revision 隔离 |
+| PersonalTimeline / Project / Relationship / Commitment | 已落表 | `proactive_timeline_events`、`proactive_projects`、`proactive_relationships`、`proactive_commitments`；正文加密，D2 后按 revision/source 关联 |
 | Workflow / TriggerRule / TriggerEvent | 已落表 | `proactive_workflow_templates`、`proactive_trigger_rules`、`proactive_trigger_events`；触发原因本地加密，事件 ID 去重 |
 | ActionVerification / ClaimConflict / PreparationBundle | 已落表 | `proactive_action_verifications`、`proactive_claim_conflicts`、`proactive_preparation_bundles`；关联动作、声明、项目或承诺 |
 | AttentionState / DriftSignal / SceneSnapshot / ReviewReport | 已落表 | `proactive_attention_states`、`proactive_drift_signals`、`proactive_scene_snapshots`、`proactive_review_reports`；支持小时窗口和日/周周期幂等 |
 | ExternalConnection | 已落表 | `proactive_external_connections`；provider/endpoint/scopes 明文最小化，display/settings/error/credential 使用 Vault cipher，API 不回显 credential |
 | HomeEntity | 已落表 | `proactive_home_entities`；`connectionId+entityId` 唯一，默认 `enabled=false`，保存 service 白名单与受限状态属性 |
-| HealthSample | 已落表 | `proactive_health_samples`；`tenant+connection+metric+localDate` 唯一，只保存步数、睡眠分钟、静息心率和最小元数据 |
+| HealthSample | 已落表 | `proactive_health_samples`；`connection+metric+localDate` 唯一，只保存步数、睡眠分钟、静息心率和最小元数据 |
 
 实现真源：[proactive-intelligence.ts](../../packages/schema/src/proactive-intelligence.ts)、[proactive-intelligence-repository.ts](../../packages/repositories/src/repositories/sqlite/proactive-intelligence-repository.ts) 与 [init.ts](../../packages/repositories/src/schema/ddl/index.ts)。连接删除先停止运行时，再删除 `proactive_external_connections` 及对应 HA 实体/健康样本；导出不包含连接凭据。
 
 ### 14.10 未覆盖结论与下一步
 
-- 当前已落表 **85 张业务表** + 2 张 FTS5 虚表（含独立账本 recovery_control_ledger、CAP-033 八张控制/捕获表和 CR-024 十七张派生/连接表），覆盖 PRD §8 除 PG 用户域外的**全部核心与扩展实体**；未落表仅剩：`UserPreference`（PG 级）与 PG 用户域（User/Workspace/WorkspaceMember/user_profiles，CR-003 范围外）。CAP-033～035 的本地 Vault、十二项派生、HA/健康连接、来源/连接级删除和导出已落地；生产 OS/出网/厂商兼容与双引擎迁移仍待完成。
+- 当前已落表 **85 张业务表** + 2 张 FTS5 虚表（含独立账本 recovery_control_ledger、CAP-033 八张控制/捕获表和 CR-024 十七张派生/连接表），覆盖 PRD §8 的核心与扩展实体；D2 前仍有旧租户列/接口，D1～D3 迁移、API loopback 守卫和文件 ACL 门禁仍待完成。CAP-033～035 的本地 Vault、十二项派生、HA/健康连接、来源/连接级删除和导出已落地，但生产 OS/出网/厂商兼容仍需专项门禁。
 - **MVP（R1）+ MVP+（R1.5）优先队列已完成**：学习/反馈/会话补齐/溯源/记忆/平台/安全/隐私/埋点/内容/日记域实体全部落表（含 ToolPolicy/AnalyticsEvent/EvalSet、DiarySchedule 等日记域补表、Attachment/EmbeddingIndex、Persona/Skills/MCP 6 张人格域表）。
 - **P1（R2）已完成**：`MemoryNode`/`MemoryEdgeEvidence`/`MemoryAlgorithm`（记忆树投影独立化，memory_edges/overrides 已迁移到节点级）、`ConversationBranch`、`KnowledgeRelation` 已全部落表。
 - **P2/P3 扩展已完成**：`ExternalSource`、`Plugin`/`PluginGrant`、`CommunityContent`、`Organization` 已全部落表（为生态/社区功能预留）。

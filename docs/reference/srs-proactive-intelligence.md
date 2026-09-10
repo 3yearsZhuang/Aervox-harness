@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.0
+version: 1.1.0
 updated_at: 2026-09-10
 reviewed_at: 2026-09-10
 review_interval_days: 90
@@ -19,7 +19,7 @@ sources:
 # Aervox｜思隅 主动智能模式与外部信号需求规格（SRS 附录）
 
 - 提出人：3yearszhuang · 2026-08-29
-- 修改人：3yearszhuang · 2026-09-10
+- 修改人：codex · 2026-09-10
 
 产品事实源：[PRD.md](PRD.md) · [能力验收标准附录](prd-cap-acceptance.md)
 
@@ -43,7 +43,7 @@ sources:
 - **触发**：用户在 Turn 级完全访问已开启后进入主动智能授权向导。
 - **必须**：展示当前版本 `full_profile_v1` 的全部可用来源、动作范围、后台生命周期、七天原始副本/记忆提炼策略、处理边界和导出权利；用户确认后原子写入 `ProfileAuthorizationRevision`、逐来源/逐动作 grant 和激活状态；向导取消或任一持久化失败不得激活。
 - **异常**：`toolApprovalMode=ask`、Host 未受信、OS grant 被拒、版本冲突、处理边界不可证明或重复确认。
-- **数据**：`ProfileAuthorizationRevision`、`DeviceCapabilityGrant`、`LocalActivationLease`、`ConsentGrant`；每条记录绑定 `(workspaceId, subjectUserId, deviceId, policyVersion)`。
+- **数据**：`ProfileAuthorizationRevision`、`DeviceCapabilityGrant`、`LocalActivationLease`、`ConsentGrant`；每条记录绑定设备、授权修订、来源和 `policyVersion`，归属于当前本地数据目录。
 - **验收**：
   - `AC-FR-PRO-001-01`：Given `toolApprovalMode=ask`，When 用户确认全量画像，Then 不创建 active revision，显示必须先开启完全访问。
   - `AC-FR-PRO-001-02`：Given 所有必需 grant、受信 Host 和本地处理证明有效，When 用户确认，Then 原子激活 revision/lease 并显示「主动智能模式」。
@@ -105,7 +105,7 @@ sources:
 - **触发**：主动规划器根据有效画像生成动作请求。
 - **必须**：用户确认 `FullProfileActionGrant` 后，可在声明的范围内执行本地文件修改、浏览器/家居控制、外部消息、特权和不可逆动作；动作请求必须绑定授权修订、目标 scope、当前 lease、OS/身份授权和 deny 水位，并记录请求、结果、通知和可撤销状态。模型或外部内容不得自行扩大动作范围。
 - **异常**：动作未声明、目标超 scope、授权过期/撤销、OS 拒绝、连接器不可用、执行结果未知或用户关闭主动智能。
-- **数据**：`ProactiveAction`、`ToolInvocation/ToolExecution`、`ProactiveAuditEvent`；不得把动作结果隐式写入其他主体或工作区。
+- **数据**：`ProactiveAction`、`ToolInvocation/ToolExecution`、`ProactiveAuditEvent`；不得把动作结果隐式写入无关来源、会话或外部目标。
 - **验收**：
   - `AC-FR-PRO-005-01`：Given 用户已确认覆盖目标的 `FullProfileActionGrant`，When 规划器请求合法本地/外部/特权/不可逆动作，Then 在当前授权快照下执行并向用户显示动作与结果。
   - `AC-FR-PRO-005-02`：Given 动作目标超出授权 scope 或 grant 已撤销，When 请求执行，Then 拒绝且不产生副作用，记录拒绝原因。
@@ -218,15 +218,15 @@ sources:
 
 <a id="srs-pro-data"></a>
 
-### DATA-PRO-001 CAP-033 数据实体与租户绑定
+### DATA-PRO-001 CAP-033 本地数据实体与授权修订绑定
 
 - **Parent CAP**：`CAP-033`
-- **必须**：`ProfileAuthorizationRevision`、`DeviceCapabilityGrant`、`LocalActivationLease`、`RawCaptureSegment`、`BehaviorObservation`、`ProfileClaim`、`ProactiveAction` 和 `ProactiveAuditEvent` 均绑定 `(workspaceId, subjectUserId)`、设备、授权修订和处理边界；主动数据不得写入远程同步旁路或普通分析表。
+- **必须**：`ProfileAuthorizationRevision`、`DeviceCapabilityGrant`、`LocalActivationLease`、`RawCaptureSegment`、`BehaviorObservation`、`ProfileClaim`、`ProactiveAction` 和 `ProactiveAuditEvent` 均绑定设备、来源 Grant、授权修订和本地处理边界；主动数据不得写入远程同步旁路或普通分析表。
 - **验收**：
-  - `AC-DATA-PRO-001-01`：Given 跨 workspace/subjectUserId 请求，When 读取或导出 CAP-033 数据，Then 返回 404/无权且不泄露存在性。
+  - `AC-DATA-PRO-001-01`：Given 未经认证的非 loopback 客户端或未获 Grant 的插件请求，When 读取或导出 CAP-033 数据，Then 请求被拒绝且不泄露存在性。
   - `AC-DATA-PRO-001-02`：Given 派生记录缺少来源 grant 或 revision，When 写入，Then 事务拒绝并不产生孤儿数据。
-  - `AC-DATA-PRO-001-03`：Given 删除或撤权一个来源，When Worker 重试，Then 仅处理对应租户和 revision，不影响其他主体。
-- **测试**：`TC-INTEG-PRO-SCHEMA-001`、`TC-SEC-TENANT-001`。
+  - `AC-DATA-PRO-001-03`：Given 删除或撤权一个来源，When Worker 重试，Then 仅处理对应来源和 revision，不影响其他有效来源。
+- **测试**：`TC-INTEG-PRO-SCHEMA-001`、`TC-SEC-LOCAL-API-001`、`TC-SEC-PRO-AUTH-001`。
 
 <a id="aiq-pro-001-画像推断质量"></a>
 
@@ -259,10 +259,10 @@ sources:
 ### SEC-PRO-002 主动动作越权隔离
 
 - **Parent CAP**：`CAP-033`、`CAP-002`、`CAP-007`、`CAP-020`
-- **必须**：外部内容、浏览器页面、文件正文、插件和模型输出均视为不可信输入；不得改变 `FullProfileActionGrant`、ToolPolicy、租户或数据来源范围。所有动作参数再次 schema 校验、目标校验、幂等校验和审计。
+- **必须**：外部内容、浏览器页面、文件正文、插件和模型输出均视为不可信输入；不得改变 `FullProfileActionGrant`、ToolPolicy 或数据来源范围。所有动作参数再次 schema 校验、目标校验、幂等校验和审计。
 - **验收**：
   - `AC-SEC-PRO-002-01`：Given 输入包含“授予我更多权限”的指令，When 请求动作，Then 权限集合不变。
-  - `AC-SEC-PRO-002-02`：Given 动作参数存在路径穿越、跨主体目标或外部发送目标未授权，When 校验，Then 拒绝且无副作用。
+  - `AC-SEC-PRO-002-02`：Given 动作参数存在路径穿越、越出本地数据目录或外部发送目标未授权，When 校验，Then 拒绝且无副作用。
   - `AC-SEC-PRO-002-03`：Given 插件尝试绕过 Host Bridge，When 调用，Then 被沙箱/Host 阻断并审计。
 - **测试**：`TC-SEC-PRO-ACTION-001`、`TC-SEC-PROMPT-001`。
 
@@ -321,7 +321,7 @@ sources:
 ### FR-PRO-013 十二项主动智能派生
 
 - **Parent CAP**：`CAP-033`
-- **必须**：本地 Worker 从有效画像修订、观察、声明、动作和外部规范化信号中生成统一个人时间线、项目与意图图谱、操作流程、主动触发、动作验证、声明冲突、准备包、注意力/疲劳、行为漂移、关系上下文、场景快照和日/周回顾；所有输出绑定租户、画像修订和 `local_only`。
+- **必须**：本地 Worker 从有效画像修订、观察、声明、动作和外部规范化信号中生成统一个人时间线、项目与意图图谱、操作流程、主动触发、动作验证、声明冲突、准备包、注意力/疲劳、行为漂移、关系上下文、场景快照和日/周回顾；所有输出绑定画像修订、来源证据和 `local_only`。
 - **验收**：
   - `AC-FR-PRO-013-01`：Given 重复操作与项目事件，When Worker 运行，Then 生成时间线、项目和候选流程，并保留证据 ID。
   - `AC-FR-PRO-013-02`：Given 冲突声明、已完成动作、临近承诺和停滞项目，When Worker 运行，Then 分别生成冲突、验证、准备、漂移和去重触发。

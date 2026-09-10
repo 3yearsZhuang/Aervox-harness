@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.10.0
+version: 0.11.0
 updated_at: 2026-09-10
 reviewed_at: 2026-09-10
 review_interval_days: 90
@@ -15,7 +15,7 @@ review_interval_days: 90
 # Aervox｜思隅 产品需求文档（伴学桌宠）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-10
+- 修改人：codex · 2026-09-10
 
 关联文档：[架构设计](ARCHITECTURE.md) · [需求追踪与交付标准](REQUIREMENTS_TRACEABILITY.md) · [数据与隐私规范](DATA_PRIVACY.md) · [AI 质量与安全规范](AI_QUALITY_SAFETY.md) · [能力验收标准附录](prd-cap-acceptance.md) · [文档索引](../README.md)
 
@@ -34,6 +34,7 @@ review_interval_days: 90
 | v0.8 RC1 | 2026-08-29 | 经 CR-023/用户确认新增 CAP-033「全域感知与个人画像（主动智能模式）」；纳入全量设备来源、后台恢复、7 天原始副本提炼、全动作授权、本地导出与关联能力验收 |
 | v0.9 RC1 | 2026-08-29 | 经 CR-024 新增 CAP-034 Home Assistant 与 CAP-035 小米运动健康连接；CAP-033 补齐十二项主动智能派生能力、日/周回顾和本地仪表盘 |
 | v0.10.0 | 2026-09-10 | 将 §6.9～6.15（P1/P2/P3 与 CAP-033/034/035 验收标准）拆分为独立附录 `prd-cap-acceptance.md`（AVX-PRD-002），主文档保留索引链接并精简主干结构 |
+| v0.11.0 | 2026-09-10 | 经 CR-030 确立本地单用户 SQLite 终态，取消多工作区、云端多租户和 PostgreSQL 演进目标；补充本地 API、备份、迁移与导出边界 |
 
 ## 1. 产品决策摘要
 
@@ -50,7 +51,7 @@ review_interval_days: 90
 
 ### 1.2 产品定位
 
-一个以桌宠式工作台为入口的“学习 + 陪伴”智能体。首发帮助编程初学者完成“设定目标 → 被引导学习 → 练习 → 复习”的闭环；长期扩展到全年龄、多知识领域、多端形态以及内容与插件生态，并始终提供克制、可控的情绪支持。
+一个以桌宠式工作台为入口、归属于当前操作系统用户的“学习 + 陪伴”智能体。首发帮助编程初学者完成“设定目标 → 被引导学习 → 练习 → 复习”的闭环；长期扩展到全年龄、多知识领域、多端形态以及内容与插件生态，并始终提供克制、可控的情绪支持。核心个人数据以本地 SQLite 为永久真源，不提供共享数据库式多租户 SaaS。
 
 ### 1.3 核心假设
 
@@ -177,7 +178,7 @@ review_interval_days: 90
 
 ### 场景 G：技能扩展与本地数据（P2）
 
-用户安装经过审核的学习技能或插件，或选择本地/自托管工作区。系统在明确权限范围内运行扩展，并支持数据迁移、备份、恢复、禁用和卸载。
+用户安装经过审核的学习技能或插件。系统在明确权限范围内运行扩展，并支持本地数据迁移、备份、恢复、可读导出、禁用和卸载。
 
 ### 场景 H：社区互助与内容生态（P3）
 
@@ -271,7 +272,7 @@ review_interval_days: 90
 | CAP-024 | 文献阅读与发散 | P2 | R4 连接智能化 | 导入论文和长文，支持结构化阅读、引用定位、概念分支和关联探索 |
 | CAP-025 | 线下试卷扫描 | P2 | R4 连接智能化 | 扫描整套试卷、分题、识别批改痕迹，生成错因和知识点分析报告 |
 | CAP-026 | 收藏空间与知识库 | P2 | R4 连接智能化 | 收藏对话、资料、网页和用户笔记，支持检索、标签、来源追踪和导出 |
-| CAP-027 | 本地优先与多工作区 | P2 | R4 连接智能化 | 评估本地 SQLite/Markdown、自托管、工作区隔离、快照备份和多端同步 |
+| CAP-027 | 本地数据主权与可移植性 | P2 | R4 连接智能化 | SQLite 本地单用户真源、可读导出、一致性备份、恢复演练和显式迁移；不提供共享数据库多租户 |
 | CAP-028 | 社区互助 | P3 | R5 生态规模化 | 用户发布知识网络、互相答疑、组队和拜师；建立信誉、举报、审核与未成年保护机制 |
 | CAP-029 | 名词解释网页 | P3 | R5 生态规模化 | 将已确认的知识卡生成可分享网页，标注来源、更新时间、作者和 AI 参与程度 |
 | CAP-030 | 主动提醒深化 | P3 | R5 生态规模化 | 根据计划、遗忘、长时间未操作和用户状态主动邀请互动，频率可控且禁止情感施压 |
@@ -412,7 +413,7 @@ MVP 使用一个可解释的最小调度规则：答错或连续答对数为 0 �
 | NFR-A11Y-001 | 无障碍 | 核心 Web 流程达到 WCAG 2.2 AA；支持键盘、可读标签、可见焦点、减少动画、字幕/文本替代和不依赖颜色传达状态 |
 | NFR-COMPAT-001 | 兼容 | 支持 Chrome、Edge、Safari 当前及前一个主版本；移动 Web 保证浏览、对话和答题；桌宠视觉可降级但核心流程不可缺失 |
 | NFR-I18N-001 | 国际化 | 文案、日期、时区、复习日界线和日记生成均不得硬编码为单一语言或 UTC+8；MVP 至少完整支持简体中文 |
-| NFR-SEC-001 | 安全 | Web 上线以 OWASP ASVS L2 为基线；鉴权、限流、CSRF/CSP、对象上传扫描、密钥管理、依赖/许可证扫描和审计日志必须通过发布门禁 |
+| NFR-SEC-001 | 安全 | Web 上线以 OWASP ASVS L2 为基线；本机 API 默认仅监听 loopback，非 loopback 必须显式启用并强制认证；文件权限、鉴权、限流、CSRF/CSP、密钥管理、依赖/许可证扫描和审计必须通过发布门禁 |
 | NFR-PRIV-001 | 隐私 | 数据最小化、用途限定、逐项同意、导出/更正/删除和删除传播必须可验证；分析使用可撤销的伪匿名主体 ID |
 | NFR-OBS-001 | 可观测性 | Web/API/Worker/模型运行使用关联 trace ID；监控错误率、延迟、队列积压、成本、来源验证失败、删除积压和安全分类异常，不记录完整敏感内容 |
 
@@ -458,10 +459,10 @@ AI 不应把所有内容原封不动地永久保存，也不应在第一次总�
 
 | 层级 | AI 默认召回期限 | 用户历史默认保留 | 内容形态 | 默认压缩程度 | 进入/退出规则 |
 |---|---|---|---|---|---|
-| **临时记忆** | 数小时；默认 6 小时，可按会话延长 | 按账户/工作区历史策略保留，直到用户删除、账户删除或适用保留期限到期 | 当前会话的原始消息、用户答案、上下文、情绪表达和工具结果 | **不压缩**；原封不动保存 | 新消息实时写入；召回期限到期后不再自动放入模型上下文，但仍可按用户历史策略查看或导出；异步生成短期记忆 |
+| **临时记忆** | 数小时；默认 6 小时，可按会话延长 | 按本地历史策略保留，直到用户删除、卸载清理或适用保留期限到期 | 当前会话的原始消息、用户答案、上下文、情绪表达和工具结果 | **不压缩**；原封不动保存 | 新消息实时写入；召回期限到期后不再自动放入模型上下文，但仍可按用户历史策略查看或导出；异步生成短期记忆 |
 | **短期记忆** | 数天至数月；默认 7～30 天滚动 | 按用户历史策略保留，独立于 AI 召回期限 | 对临时记忆的第一次整理：事件、目标、尝试、错误、偏好和当前状态 | **轻度压缩**；保留关键细节、时间顺序、因果和例子，不得只剩标签 | 会话结束后异步生成；召回期限到期后停止默认召回但不自动删除历史；重复出现、近期再次使用或用户确认时可延长 |
 | **长期记忆** | 仅在满足权限、相关性和有效性时召回；默认持续至失效或用户关闭 | 默认保留至用户删除、账户删除或适用保留期限到期 | 对短期记忆的稳定事实、能力状态、专注模式、重要偏好和反复出现的经历进行抽象 | **中/高度压缩**；保留结论、证据摘要和必要例外，省略重复叙述 | 按第 7.3 节分类规则晋升；被纠正、过时或长期无证据时降权、合并或归档；失效记忆不得自动召回 |
-| **系统记忆** | 仅在用户授权、当前工作区和相关性条件满足时召回；不因“永久”自动注入所有会话 | 默认保留至用户删除、账户删除或适用保留期限到期 | 长期记忆的树状投影视图：主题、概念、能力、人物/项目、时间和因果关系 | **结构化抽象**；保存节点、边、来源和关系类型，不保存全部原文 | 只从合格的长期记忆生成可重建投影；关系可更新、断开、重建和回溯 |
+| **系统记忆** | 仅在用户授权和相关性条件满足时召回；不因“永久”自动注入所有会话 | 默认保留至用户删除、卸载清理或适用保留期限到期 | 长期记忆的树状投影视图：主题、概念、能力、人物/项目、时间和因果关系 | **结构化抽象**；保存节点、边、来源和关系类型，不保存全部原文 | 只从合格的长期记忆生成可重建投影；关系可更新、断开、重建和回溯 |
 
 这里必须区分两个期限：**AI 召回期限**（`aiRecallUntil`）只决定某条记录何时可以被自动检索并放入模型上下文；**用户历史保留期限**（`userRetentionUntil`）决定记录何时仍可在历史、导出和审计中保留。前者到期不得触发后者的删除，后者到期或用户主动删除时才执行数据清理。用户可以提前要求不再召回、提前删除或同时删除两者；法律保留例外必须在产品中明示。
 
@@ -478,7 +479,7 @@ AI 不应把所有内容原封不动地永久保存，也不应在第一次总�
 
 ### 7.4 记忆树
 
-系统记忆不是独立的事实副本，而是由合格长期记忆生成的、按工作区隔离的**树状投影视图**。业务记忆记录和来源链才是事实来源；树节点、父子层级、排序和折叠状态均应可重建。一条记忆可以投影到多个主题；需要表达跨主题、因果或对比关系时，用显式跨主题边连接，不复制出互相矛盾的孤立事实。
+系统记忆不是独立的事实副本，而是由合格长期记忆生成的本地**树状投影视图**。业务记忆记录和来源链才是事实来源；树节点、父子层级、排序和折叠状态均应可重建。一条记忆可以投影到多个主题；需要表达跨主题、因果或对比关系时，用显式跨主题边连接，不复制出互相矛盾的孤立事实。
 
 建议的树层级：
 
@@ -531,55 +532,53 @@ AI 每日日记是给用户阅读的叙事视图，记忆层是供系统推理�
 
 | 实体 | 关键字段 | 说明 |
 |---|---|---|
-| User | id, ageGroup, locale, status, createdAt | 账户主体；时区、偏好和同意拆为独立可版本化实体 |
-| Workspace | id, ownerId, name, dataRegion, status | 个人、组织、本地或自托管工作区；所有业务数据归属一个工作区 |
-| WorkspaceMember | workspaceId, userId, role, status | P3 组织成员和权限边界；个人工作区也保留统一所有权模型 |
-| ConsentGrant | id, workspaceId, subjectUserId, actorId, purpose, scope, policyVersion, grantedAt, revokedAt | 分别记录日记、模型调用、分析、外部同步和未来设备权限；授权操作者与数据主体分开记录 |
-| UserPreference | id, workspaceId, subjectUserId, key, value, version, updatedAt | 时区、语言、人格、提醒、日记和无障碍偏好；安全规则不可覆盖 |
-| LearningGoal | id, workspaceId, subjectUserId, topic, level, availableMinutes, status | 当前学习目标 |
-| Session | id, workspaceId, subjectUserId, goalId, type, startedAt, endedAt, status | 对话或练习会话；`subjectUserId` 表示实际数据主体，不与组织操作者混淆 |
+| User | id, ageGroup, locale, status, createdAt | 本地用户档案；时区、偏好和同意拆为独立可版本化实体，不用于共享数据库身份认证 |
+| ConsentGrant | id, actorId, purpose, scope, policyVersion, grantedAt, revokedAt | 分别记录日记、模型调用、分析、外部连接和设备权限；授权来源与作用范围分开记录 |
+| UserPreference | id, key, value, version, updatedAt | 时区、语言、人格、提醒、日记和无障碍偏好；安全规则不可覆盖 |
+| LearningGoal | id, topic, level, availableMinutes, status | 当前学习目标 |
+| Session | id, goalId, type, startedAt, endedAt, status | 当前本地用户的对话或练习会话 |
 | Message | id, sessionId, role, currentVersionId, label, createdAt, deletedAt | 消息身份和删除状态 |
 | MessageVersion | id, messageId, content, version, createdAt, supersededAt | 支持编辑、引用、审计和不可变来源定位 |
-| Turn | id, workspaceId, subjectUserId, sessionId, idempotencyKey, requestHash, status, acceptedAt, cancelledAt, completedAt | 一次对话请求的持久化身份；POST 创建与 GET SSE 订阅解耦，同一幂等作用域/键/请求摘要返回同一 Turn |
+| Turn | id, sessionId, idempotencyKey, requestHash, status, acceptedAt, cancelledAt, completedAt | 一次对话请求的持久化身份；POST 创建与 GET SSE 订阅解耦，同一幂等作用域/键/请求摘要返回同一 Turn |
 | TurnAttempt | id, turnId, attempt, leaseId, fencingToken, status, startedAt, finishedAt | Turn 的内部执行尝试；首个可见分段前且无工具副作用时才允许自动重试，客户端不依赖该身份 |
 | TurnStreamEvent | id, turnId, attemptId, sequence, eventType, payloadVersion, content, safetyDecision, visibilityRevision, committedAt | 只有通过分段安全检查并持久化的 `delta` 才能发送；通过稳定 `eventId` 和 `(turnId, sequence)` 支持重连、去重、撤回事件和已展示前缀恢复 |
-| Question | id, workspaceId, subjectUserId, sourceArtifactId, knowledgeId, prompt, answerSpec, status | 生成题、导入题和人工题的统一身份；可选关联一个知识点，来源通过统一来源实体关联 |
-| QuestionAttempt | id, workspaceId, subjectUserId, sessionId, questionId, answer, judgement, evidence, idempotencyKey, createdAt | 每次答题的不可变记录；幂等键在同一工作区、数据主体和题目维度内去重，掌握度是其派生结果 |
-| KnowledgeItem | id, workspaceId, subjectUserId, concept, sourceStatus, masteryState, correctCount, wrongCount, correctStreak, mastery, masteryBasis | 用户可见知识点；作答计数、连续答对与数值掌握度是掌握状态的派生依据 |
-| ReviewItem | id, workspaceId, subjectUserId, knowledgeId, dueAt, intervalDays, schedulerVersion, status | 复习调度项；MVP 的规则版本为数值 `1`，同一工作区/数据主体/知识点的活动项须有唯一约束 |
-| Feedback | id, workspaceId, subjectUserId, actorId, subjectType, subjectId, type, note, createdAt | 对消息、日记、记忆、题目和社区内容的反馈；反馈操作者与被处理数据主体分离 |
-| MemoryRecord | id, workspaceId, subjectUserId, tier, memoryType, sensitivityClass, currentRevisionId, aiRecallUntil, userRetentionUntil, verificationStatus, status | 临时/短期/长期记忆身份；`memoryType` 区分 user_fact/user_preference/learning_event/inference，召回与历史保留独立；系统记忆不在此形成第二真源 |
+| Question | id, sourceArtifactId, knowledgeId, prompt, answerSpec, status | 生成题、导入题和人工题的统一身份；可选关联一个知识点，来源通过统一来源实体关联 |
+| QuestionAttempt | id, sessionId, questionId, answer, judgement, evidence, idempotencyKey, createdAt | 每次答题的不可变记录；幂等键在题目与业务操作维度内去重，掌握度是其派生结果 |
+| KnowledgeItem | id, concept, sourceStatus, masteryState, correctCount, wrongCount, correctStreak, mastery, masteryBasis | 用户可见知识点；作答计数、连续答对与数值掌握度是掌握状态的派生依据 |
+| ReviewItem | id, knowledgeId, dueAt, intervalDays, schedulerVersion, status | 复习调度项；MVP 的规则版本为数值 `1`，同一知识点的活动项须有唯一约束 |
+| Feedback | id, actorId, subjectType, subjectId, type, note, createdAt | 对消息、日记、记忆、题目和社区内容的反馈；记录反馈来源和被处理对象 |
+| MemoryRecord | id, tier, memoryType, sensitivityClass, currentRevisionId, aiRecallUntil, userRetentionUntil, verificationStatus, status | 临时/短期/长期记忆身份；`memoryType` 区分 user_fact/user_preference/learning_event/inference，召回与历史保留独立；系统记忆不在此形成第二真源 |
 | MemoryRevision | id, memoryId, content, confidence, importance, algorithmVersion, createdAt | 压缩、纠错、合并产生新版本，不物理覆盖旧版本 |
-| SourceArtifact / SourceRevision | artifactId, workspaceId, subjectUserId, kind, ownerModule, revisionId, occurredAt, ingestedAt, deletedAt, status | 统一表示消息、作答、附件、日记和外部来源；各来源类型通过共享主键或分类关联表建立真实外键，不使用无法约束的 `sourceType + sourceId` |
+| SourceArtifact / SourceRevision | artifactId, kind, ownerModule, revisionId, occurredAt, ingestedAt, deletedAt, status | 统一表示消息、作答、附件、日记和外部来源；各来源类型通过共享主键或分类关联表建立真实外键，不使用无法约束的 `sourceType + sourceId` |
 | MemoryEvidence | id, memoryRevisionId, sourceArtifactId, sourceRevisionId, sourceRange, status | 可约束的来源关联；来源删除后保留最少 tombstone，不保留已删内容 |
 | MemoryEvent | id, memoryId, action, fromTier, toTier, reason, actorType, createdAt | 生成、晋升、衰减、锁定、冲突、失效和删除审计 |
-| MemoryNode | id, workspaceId, subjectUserId, canonicalParentId, label, nodeType, confidence, status, projectionVersion | 系统记忆的树状投影节点，可由有效长期记忆重建；用户修改不直写投影 |
-| MemoryProjectionOverride | id, workspaceId, subjectUserId, nodeId, operation, label, parentNodeId, actorId, createdAt, status | 保存用户锁定、改名和父节点调整；作为投影重建时的权威输入 |
+| MemoryNode | id, canonicalParentId, label, nodeType, confidence, status, projectionVersion | 系统记忆的树状投影节点，可由有效长期记忆重建；用户修改不直写投影 |
+| MemoryProjectionOverride | id, nodeId, operation, label, parentNodeId, actorId, createdAt, status | 保存用户锁定、改名和父节点调整；作为投影重建时的权威输入 |
 | MemoryEdge | id, fromNodeId, toNodeId, relationType, confidence, visibilityScope, status | 层级边和跨主题关系；证据通过独立关联表连接，避免 ID 数组，并继承来源可见权限 |
 | MemoryEdgeEvidence | edgeId, memoryRevisionId, status | 关系边到长期记忆证据的外键关联 |
-| Diary | id, workspaceId, subjectUserId, localDate, autoGenerated, cycleId, currentVersionId, status | 用户可见叙事身份；自动日记通过 `cycleId` 关联窗口，每个工作区/数据主体/本地日期标签至多一个自动身份 |
-| DiaryScheduleRevision | id, scheduleId, workspaceId, subjectUserId, version, effectiveAt, localTime, timezone, contentScopes, quietHours, status | 不可变的计划修订；旧 Job 必须做版本 CAS 校验 |
-| DiaryCycle | id, scheduleId, scheduleRevisionId, workspaceId, subjectUserId, previousCutoffAt, initialWindowStart, cutoffAt, sourceWindowStart, sourceWindowEnd, localDate, timezoneSnapshot, bufferClosedAt, status, cursorCommittedAt | 不可变的滚动窗口身份；只有 `Published`/明确 `Skipped` 才允许提交 cursor |
+| Diary | id, localDate, autoGenerated, cycleId, currentVersionId, status | 用户可见叙事身份；自动日记通过 `cycleId` 关联窗口，每个本地日期标签至多一个自动身份 |
+| DiaryScheduleRevision | id, scheduleId, version, effectiveAt, localTime, timezone, contentScopes, quietHours, status | 不可变的计划修订；旧 Job 必须做版本 CAS 校验 |
+| DiaryCycle | id, scheduleId, scheduleRevisionId, previousCutoffAt, initialWindowStart, cutoffAt, sourceWindowStart, sourceWindowEnd, localDate, timezoneSnapshot, bufferClosedAt, status, cursorCommittedAt | 不可变的滚动窗口身份；只有 `Published`/明确 `Skipped` 才允许提交 cursor |
 | DiaryRunAttempt | id, cycleId, scheduleRevisionId, leaseId, fencingToken, idempotencyKey, attempt, status, errorCode, startedAt, finishedAt | 每次 Worker 执行尝试；lease/fencing 阻止旧 Worker 覆盖新状态 |
 | DiaryVersion | id, diaryId, perspective, content, modelRunId, createdAt, supersededAt | AI 生成、编辑、重写各自成为版本，不覆盖历史 |
 | DiaryParagraphSource | id, diaryVersionId, paragraphIndex, sourceArtifactId, sourceRevisionId, permissionSnapshot | 段落级来源、版本和生成时权限快照 |
-| DiaryMaterialBuffer | id, cycleId, workspaceId, subjectUserId, sourceArtifactId, sourceRevisionId, occurredAt, ingestedAt, ephemeralSnapshot, permissionSnapshot, expiresAt, status | 用途受限的滚动周期素材缓冲；不能被普通对话召回，临时快照按规则自动清理 |
-| DiarySchedule | id, workspaceId, subjectUserId, enabled, scheduleEpochId, activeFrom, disabledAt, currentRevisionId, nextRunAt, lastCutoffAt, initialWindowStart, cutoffRule, bufferMinutes, contentScopes, quietHours, version | 以 IANA 时区计算连续滚动窗口；修改计划产生不可变修订并保留上次截止点；停用/重新启用开始新的调度周期 |
-| Attachment | id, workspaceId, subjectUserId, objectKey, mediaType, size, scanStatus, sourceLicense, deletedAt | 图片、论文、试卷和导出文件；业务库不存大对象正文 |
-| Notification | id, workspaceId, subjectUserId, type, scheduledAt, sentAt, channel, status | 复习、日记和计划提醒；受免打扰和撤销设置约束 |
-| ScheduledJob | id, workspaceId, subjectUserId, jobType, subjectId, idempotencyKey, runAt, status, attemptCount | 日记、记忆、OCR、嵌入和通知任务的可见状态 |
-| ModelRun | id, workspaceId, subjectUserId, purpose, provider, modelId, promptVersionId, contextManifestId, latency, tokenUsage, cost, status | 记录模型选择、上下文清单、成本和安全结果；默认不复制完整敏感 Prompt |
+| DiaryMaterialBuffer | id, cycleId, sourceArtifactId, sourceRevisionId, occurredAt, ingestedAt, ephemeralSnapshot, permissionSnapshot, expiresAt, status | 用途受限的滚动周期素材缓冲；不能被普通对话召回，临时快照按规则自动清理 |
+| DiarySchedule | id, enabled, scheduleEpochId, activeFrom, disabledAt, currentRevisionId, nextRunAt, lastCutoffAt, initialWindowStart, cutoffRule, bufferMinutes, contentScopes, quietHours, version | 以 IANA 时区计算连续滚动窗口；修改计划产生不可变修订并保留上次截止点；停用/重新启用开始新的调度周期 |
+| Attachment | id, objectKey, mediaType, size, scanStatus, sourceLicense, deletedAt | 图片、论文、试卷和导出文件；业务库不存大对象正文 |
+| Notification | id, type, scheduledAt, sentAt, channel, status | 复习、日记和计划提醒；受免打扰和撤销设置约束 |
+| ScheduledJob | id, jobType, subjectId, idempotencyKey, runAt, status, attemptCount | 日记、记忆、OCR、嵌入和通知任务的可见状态 |
+| ModelRun | id, purpose, provider, modelId, promptVersionId, contextManifestId, latency, tokenUsage, cost, status | 记录模型选择、上下文清单、成本和安全结果；默认不复制完整敏感 Prompt |
 | PromptVersion | id, purpose, version, checksum, status, approvedAt | 教学、记忆、日记和安全提示词独立版本化和回滚 |
 | ContextManifest | id, modelRunId, purpose, sourceArtifactId, sourceRevisionId, selectionReason, permissionSnapshot, tokenBudget | 记录本次模型实际选取的来源和权限，通过统一来源外键定位，不默认复制来源正文 |
 | ToolPolicy | id, purpose, toolName, scope, approvalMode, timeoutMs, quota, version, status | 服务端工具权限、限额和审批策略；模型请求不等于授权 |
 | MemoryAlgorithm | id, stage, schemaVersion, promptVersionId, thresholds, status, approvedAt | 临时→短期→长期→投影的压缩、晋升和衰减规则版本 |
 | EvalSet | id, purpose, version, language, domain, sampleCount, annotationPolicy, status | 教学、记忆、日记和安全评估集的可复现元数据 |
-| EmbeddingIndex | id, workspaceId, subjectUserId, sourceArtifactId, sourceRevisionId, modelId, dimension, indexVersion, status | 向量/全文派生索引元数据；通过统一来源外键定位，来源失效后删除或重建 |
+| EmbeddingIndex | id, sourceArtifactId, sourceRevisionId, modelId, dimension, indexVersion, status | 向量/全文派生索引元数据；通过统一来源外键定位，来源失效后删除或重建 |
 | AnalyticsEvent | id, eventName, eventSchemaVersion, occurredAt, analyticsSubjectId, context, privacyClass | 事件专属 schema；业务 ID 按上下文选填，不保存无必要正文 |
-| OutboxEvent | id, workspaceId, subjectUserId, aggregateType, aggregateId, eventType, payloadVersion, status, createdAt | 与业务变更同事务提交，供 Worker 幂等消费和 Redis 丢失后重放；非个人系统事件可使用显式 system subject |
-| SafetyIncident | id, workspaceId, subjectUserId, category, severity, disposition, policyVersion, createdAt | 安全事件最小化记录；访问受限，不写入普通记忆或分析明细 |
-| AuditRecord | id, workspaceId, subjectUserId, actorType, actorId, action, subjectType, subjectId, metadata, createdAt | 权限、导出、删除、插件、管理员和高风险操作审计；操作者和数据主体不可混用 |
-| DeletionRequest | id, workspaceId, subjectUserId, scope, idempotencyKey, requestedAt, effectiveAt, status, attemptCount, lastError, ownerModule, lastVerifiedAt | 账户/工作区/来源级删除及各存储传播进度；接受后来源始终保持 deny |
+| OutboxEvent | id, aggregateType, aggregateId, eventType, payloadVersion, status, createdAt | 与业务变更同事务提交，供 Worker 幂等消费和 Redis 丢失后重放；非个人系统事件可使用显式 system subject |
+| SafetyIncident | id, category, severity, disposition, policyVersion, createdAt | 安全事件最小化记录；访问受限，不写入普通记忆或分析明细 |
+| AuditRecord | id, actorType, actorId, action, subjectType, subjectId, metadata, createdAt | 权限、导出、删除、插件和高风险操作审计；操作者与作用对象分开记录 |
+| DeletionRequest | id, scope, idempotencyKey, requestedAt, effectiveAt, status, attemptCount, lastError, ownerModule, lastVerifiedAt | 全部本地数据、会话或来源级删除及各存储传播进度；接受后来源始终保持 deny |
 | DeletionTarget | requestId, targetType, targetId, ownerModule, status, attemptCount, verifiedAt, evidenceRef | 删除传播清单的逐下游状态；不包含被删除正文，供清理、验证和重试，不充当独立恢复账本 |
 | RecoveryControlLedger | eventId, idempotencyKey, eventType, workspaceRef, subjectRef, targetRef, occurredAt, sequence, tamperEvidence | 与业务数据库分离凭据、分离故障域的不可变 deny 控制事实源；使用假名化引用记录删除、同意撤销和外部权限撤权，不含用户正文 |
 
@@ -591,10 +590,10 @@ AI 每日日记是给用户阅读的叙事视图，记忆层是供系统推理�
 | KnowledgeRelation | id, fromKnowledgeId, toKnowledgeId, relationType, source, confidence | 思维宇宙和知识网络 |
 | ExternalSource | id, provider, externalId, permissionScope, syncState, revokedAt | 第三方题库、文献和资料同步 |
 | Plugin | id, publisher, version, checksum, signature, permissions, installSource, enabled | 技能和插件生命周期 |
-| PluginGrant | pluginId, workspaceId, permission, scope, grantedAt, revokedAt | 插件权限逐项授予和撤销 |
+| PluginGrant | pluginId, permission, scope, grantedAt, revokedAt | 插件权限逐项授予和撤销 |
 | CommunityContent | id, authorId, type, status, reviewState, visibility | 题包、知识卡、人格和公开网页 |
 | Organization | id, ownerId, memberScope, policyVersion | 学校、机构和监护空间 |
-| ProfileAuthorizationRevision | id, workspaceId, subjectUserId, deviceId, profileVersion, revision, desiredState, processingBoundary, manifest, confirmedAt, revokedAt | CAP-033 的版本化全量画像授权包；设备级、可撤销，新增来源/用途必须重新确认 |
+| ProfileAuthorizationRevision | id, deviceId, profileVersion, revision, desiredState, processingBoundary, manifest, confirmedAt, revokedAt | CAP-033 的版本化全量画像授权包；设备级、可撤销，新增来源/用途必须重新确认 |
 | DeviceCapabilityGrant | id, revisionId, sourceKey, purpose, scope, osCapability, state, mandatory, lastVerifiedAt | 每项来源及 OS 权限回执；可独立撤销，状态不等于产品授权 |
 | LocalActivationLease | id, revisionId, deviceId, epoch, localReady, fullAccessSnapshot, issuedAt, expiresAt, heartbeatAt, status | 受信本地 Host 的主动处理激活租约；过期立即停止主动处理 |
 | RawCaptureSegment | id, revisionId, sourceGrantId, sourceKey, contentType, checksum, observedAt, retentionUntil, distillationStatus, distilledMemoryIds, deletedAt | 原始观察副本；保留七天，完成记忆提炼后才允许清理，独立于普通分析事件 |
@@ -609,13 +608,13 @@ AI 每日日记是给用户阅读的叙事视图，记忆层是供系统推理�
 
 - `Session/MessageVersion/QuestionAttempt` 是学习事实，摘要、掌握度、记忆树和日记均为派生数据；派生数据不得反向覆盖事实来源；
 - 对话流采用“POST 幂等创建 Turn + GET SSE 订阅事件”；每个 SSE 事件有 Turn 内单调 `eventId/sequence`，重连使用 `Last-Event-ID`，取消通过幂等命令终止后续生成。供应商 token 先进入有界分段缓冲，通过逐段安全/结构检查并持久化后才可展示；中断后已展示前缀保留为 `Partial/Interrupted`，在完整响应验证前不得进入记忆、日记、题目或掌握度；
-- 所有个人学习事实、派生记忆、日记、Job 和通知都必须在数据库中可确定唯一的 `(workspaceId, subjectUserId)`；组织管理员、教师、监护人或插件另记 `actorId`，不得被写成数据主体。RLS、复合外键、唯一约束和队列幂等键必须使用同一边界；
+- 所有个人学习事实、派生记忆、日记、Job 和通知都归属于当前本地数据库实例；操作者、插件或外部连接器另记 `actorId`，不得被写成用户事实。唯一约束和队列幂等键以业务实体及来源修订为边界；
 - 记忆证据、日记段落、ContextManifest 和索引通过 `SourceArtifact/SourceRevision` 或类型化关联表建立可验证外键；来源的 `occurredAt` 用于业务窗口归属，`ingestedAt` 用于迟到、重放和数据管道审计，两者不得混用；
 - 系统记忆是长期记忆的可重建树状投影，而不是与 `MemoryRecord` 并列的永久内容副本；
 - 用户对树节点的锁定、改名和父节点调整必须保存在 `MemoryProjectionOverride`，先重建系统投影、再叠加有效覆盖；算法重建不得丢失用户操作，覆盖与已删来源或无效父节点冲突时进入可见待解决状态；
 - `DiaryCycle` 是日记窗口唯一真源，`DiaryScheduleRevision` 是计划快照，`DiaryRunAttempt` 只表示可重试执行，`Diary` 只表示用户可见叙事；周期终态、Outbox 和 `lastCutoffAt/cursorVersion` 必须用 scheduleVersion CAS 在同一事务中提交，并使用 lease/fencing token 拒绝过期 Worker；
 - 来源内容被删除后，立即从模型召回和检索中屏蔽；在线数据库、缓存、全文/向量索引和对象存储在 24 小时内完成清除或重建，备份按已公示周期自然过期；
-- `RecoveryControlLedger` 是删除、同意撤销、插件撤权和外部同步撤权的权威 deny 控制事实源，不能与业务 PostgreSQL 假装共享事务：服务端先以确定性 `eventId/idempotencyKey` 追加账本并取得持久确认，再幂等提交业务数据库状态、DeletionRequest/Outbox 和派生清理。账本已写而业务提交失败时由按 sequence 运行的 reconciler 重放；账本不可用、序列有缺口或应用水位未追平时，受影响范围 fail closed，不能确认操作完成或开放流量。PITR 恢复必须在维护/全局 deny 状态下校验完整性与水位、幂等重放、重建派生数据并完成零召回/零越权验证后才可恢复流量；
+- `RecoveryControlLedger` 是删除、同意撤销、插件撤权和外部同步撤权的权威 deny 控制事实源，不能与业务 SQLite 假装共享事务：服务端先以确定性 `eventId/idempotencyKey` 追加账本并取得持久确认，再幂等提交业务数据库状态、DeletionRequest/Outbox 和派生清理。账本已写而业务提交失败时由按 sequence 运行的 reconciler 重放；账本不可用、序列有缺口或应用水位未追平时，受影响范围 fail closed，不能确认操作完成或开放本地写流量。备份恢复必须在维护/全局 deny 状态下校验完整性与水位、幂等重放、重建派生数据并完成零召回/零越权验证后才可恢复流量；
 - 为证明删除传播可保留不含原文的 tombstone，例如来源类型、不可逆散列、删除时间和处理状态；tombstone 不得用于恢复、推断或展示已删除内容；
 - 各实体的分类、召回期限、业务保留期限、备份期限、删除 SLA、责任模块和验收证据以[数据与隐私规范](DATA_PRIVACY.md)为准，不能仅由数据库 TTL 决定。
 - CAP-033 的原始捕获副本按 `observedAt + 7 天` 计算 `retentionUntil`；达到期限且已写入对应记忆提炼结果后才可物理清理，清理前不得丢失来源哈希、授权修订和记忆证据链。
@@ -696,7 +695,7 @@ AI 每日日记是给用户阅读的叙事视图，记忆层是供系统推理�
 | 日记保留率 | 生成 7 天后仍保留的日记 / 成功生成的日记 | 判断内容质量和持续价值 |
 | 日记事实纠错率 | 被用户标记事实错误的日记 / 被阅读日记 | 监控虚构和错误归纳风险 |
 
-所有分析事件的通用必填字段为 `eventId`、`eventName`、`eventSchemaVersion`、`occurredAt`、伪名化的 `analyticsSubjectId`、客户端版本和平台。`workspaceId` 仅在已有工作区上下文时必填；`sessionId`、`goalId`、`questionId`、`diaryId` 等业务标识仅在事件确实属于相应对象时填写；模型相关事件另须包含模型版本、提示版本和 `modelRunId`。不得用虚构或空占位 ID 满足 schema。用户可拒绝非必要分析埋点，拒绝后只保留安全、计费和可靠性所必需且已最小化的事件。
+所有分析事件的通用必填字段为 `eventId`、`eventName`、`eventSchemaVersion`、`occurredAt`、本地生成且不可反推身份的 `analyticsSubjectId`、客户端版本和平台。`sessionId`、`goalId`、`questionId`、`diaryId` 等业务标识仅在事件确实属于相应对象时填写；模型相关事件另须包含模型版本、提示版本和 `modelRunId`。不得用虚构或空占位 ID 满足 schema。用户可拒绝非必要分析埋点，拒绝后只保留安全和可靠性所必需且已最小化的事件。
 
 ### 11.3 生命周期指标
 
@@ -773,7 +772,7 @@ PRD 只规定用户价值、行为规则和验收结果；可变的实现细节�
 | 运行时/语言 | Node.js 24 LTS；TypeScript 6.x strict；pnpm 11 + Turborepo 2.x | 与参考项目的 Node ≥22.19 兼容；统一前后端类型和构建；版本、lockfile、容器镜像精确锁定 |
 | Web 客户端 | Vue 3 + Vite 7 + Element Plus（Vue 全栈单栈，见 ADR-015）；共享 UI 包 | 登录后流式应用优先客户端渲染；Web 复用桌面端 renderer 核心，避免 React/Vue 双栈；路由和缓存不依赖任何框架私有后端 API |
 | API/契约 | Fastify 5 + Zod 4 + OpenAPI 3.1；POST 创建 Turn + GET SSE | 结构化校验、可生成契约和多语言客户端；SSE 明确事件 ID、`Last-Event-ID`、重放/去重、取消和部分响应持久化；不以 tRPC 锁定未来插件/移动端消费者 |
-| 业务数据 | SQLite (WAL 模式) + Drizzle ORM + 仓储抽象 | 事务、约束、RLS、全文和递归查询满足学习与记忆树；不把 ORM 推断当作数据治理 |
+| 业务数据 | SQLite（WAL 模式）+ Drizzle ORM + Schema/Repository 双包 | 事务、约束、全文和递归查询满足学习与记忆树；本机文件与 API 边界承担访问控制，不把 ORM 推断当作数据治理 |
 | 向量/检索 | SQLite FTS5 + 向量检索 Port（`sqlite-vec`/内存适配） | MVP 不引入独立向量数据库；Embedding 记录模型、维度和版本，可重建 |
 | 队列/缓存 | Redis 7 + BullMQ 5；至少一次投递、幂等 Job、DLQ | 日记、记忆、OCR、嵌入和通知异步化；Redis 不是业务真源 |
 | 附件 | S3 兼容对象存储 + 短期签名 URL + 病毒/内容扫描 | 图片、论文、试卷和导出文件与事务数据分离；对象删除受来源删除 SLA 约束 |

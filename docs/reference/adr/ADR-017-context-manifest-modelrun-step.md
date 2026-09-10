@@ -5,7 +5,7 @@ scope: decision
 owner: maintainers
 doc_status: review-candidate
 decision_status: accepted
-version: 0.1.0
+version: 0.2.0
 updated_at: 2026-09-10
 reviewed_at: 2026-09-10
 review_interval_days: 90
@@ -14,9 +14,9 @@ review_interval_days: 90
 # ADR-017 冻结 ContextManifest / ModelRun / AgentStep 关联与 Inbox 数据模型
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-09-10
+- 修改人：codex · 2026-09-10
 
-- 状态：Proposed
+- 状态：Accepted（经 CR-030 修订目标边界）
 - 日期：2026-08-28
 - 接受日期：（待 G2 架构与数据门禁）
 
@@ -35,7 +35,7 @@ review_interval_days: 90
 
 ## Decision drivers
 
-1. **可追溯性（NFR-DATA）**：每个 ModelRun、ContextManifest、AgentStep、AgentInboxItem 必须能追溯到 `(workspaceId, subjectUserId, sessionId, attemptId[, stepId])`。缺少 `attemptId`/`stepId` 会使恢复、巡检和删除/撤权无法按 Attempt 粒度 fail-closed。
+1. **可追溯性（NFR-DATA）**：每个 ModelRun、ContextManifest、AgentStep、AgentInboxItem 必须能追溯到 `(sessionId, attemptId[, stepId])` 以及适用的来源/授权修订。缺少 `attemptId`/`stepId` 会使恢复、巡检和删除/撤权无法按 Attempt 粒度 fail-closed。
 2. **唯一父级**：`ContextManifest` 唯一父级应为 `ModelRun`（一次模型调用一个 manifest），避免"按 Step/按 ModelRun 固化"两可表述造成的基数漂移；ModelRun 的唯一父级应为 `AgentStep`；AgentStep 的唯一父级应为 TurnAttempt。
 3. **可重放恢复**：inbox 消费采用 claim/ack，崩溃后安全重放，因此必须绑定不可变来源、幂等键和状态字段。
 4. **扩展点接入**：高级能力（压缩/Skill/Subagent）通过扩展点接入，不修改 Loop 核心控制流（AVX-HAR-001 §13 阶段 5 退出条件）；Inbox 只作为 ContextBuilder 的追加输入源，不改 Event 流契约。
@@ -75,7 +75,7 @@ TurnAttempt
 | 字段 | 说明 |
 |---|---|
 | `id` | UUID 幂等键，claim 依赖 |
-| `(workspaceId, subjectUserId, sessionId)` | 租户 + 目标边界（不可变） |
+| `sessionId` + 来源/授权修订 | 本地目标与权限边界（不可变） |
 | `attemptId` / `stepId` | 消费目标（`next-turn`=null / `next-step` 定位 Step） |
 | `type` | `followup`/`steer`/`inject` |
 | `orderingSeq` | 顺序（同目标边界内单调） |

@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.2.0
+version: 0.3.0
 updated_at: 2026-09-10
 reviewed_at: 2026-09-10
 review_interval_days: 90
@@ -21,6 +21,7 @@ sources:
   - docs/reference/adr/ADR-009-electron-plugin-sandbox.md
   - docs/reference/adr/ADR-015-vue-full-stack.md
   - docs/reference/REQUIREMENTS_TRACEABILITY.md
+  - docs/reference/changes/CR-030-pure-local-sqlite-database.md
 ---
 
 # 插件 Config、Page 与 UI 扩展规范
@@ -78,7 +79,7 @@ Schema 升级规则：
 
 ## 2. 配置存储与 API
 
-配置按 `(workspaceId, subjectUserId, pluginId)` 持久化：
+目标配置按 `pluginId` 持久化；CR-030 D2 完成前，当前实现仍暂时保留旧租户列作为迁移兼容字段：
 
 - `plugin_configs`：非敏感配置值、secret 键列表、schemaVersion、revision、orphanedValues；
 - `plugin_config_secrets`：secret 字段（本地默认实现存储值但不对外回显；生产必须注入加密 SecretStore Port）；
@@ -199,12 +200,12 @@ export interface ServerTurnPlugin {
 - **Driver 一致性**：原生 Agent Loop 与 DSH 等进程外 Adapter 必须消费同一组已审核 `extraSections`，不得因切换 Driver 丢失插件安全或教学约束；
 - **确定性层级顺序**：`agent-executor.ts` 会将收集到的 `extraSections` 插入到通用工具使用规范之后、个性化人格设定与全局输出格式之前，确保全局输出格式规范（禁 emoji / 纯文本）始终保持最高约束力。
 
-### 4.3 租户配置与运行时门控（Gating & Config Injection）
+### 4.3 本地配置与运行时门控（Gating & Config Injection）
 
-回合插件编排器（`executeBeforeTurnPlugins` 与 `executeAfterTurnPlugins`）在调用插件前自动执行多租户安全门控：
+回合插件编排器（`executeBeforeTurnPlugins` 与 `executeAfterTurnPlugins`）在调用插件前自动执行本地插件安全门控：
 
-1. **启停门控**：向 `IExtensionRepository` 检查当前租户下该插件的激活状态（`record.enabled === 1`）。未安装或处于禁用状态的插件自动跳过执行；
-2. **配置自动注入**：向 `IPluginConfigRepository` 读取当前租户保存的配置 JSON，反序列化后作为 `configValues` 参数直接传入切面函数。插件开发者无需在插件代码中直接处理数据库查询与连接；
+1. **启停门控**：向 `IExtensionRepository` 检查本地插件的激活状态（`record.enabled === 1`）。未安装或处于禁用状态的插件自动跳过执行；
+2. **配置自动注入**：向 `IPluginConfigRepository` 读取本地保存的配置 JSON，反序列化后作为 `configValues` 参数直接传入切面函数。插件开发者无需在插件代码中直接处理数据库查询与连接；
 3. **别名与平滑迁移**：插件注册表与编排器内置别名映射能力（例如 `focus-mode` 与旧版 `study-mode`）。读取、保存、重置及 secret 清理都必须先解析到同一真实插件 ID，避免旧别名产生孤立配置。
 
 ### 4.4 结构化请求元数据契约（Structured Request Metadata）

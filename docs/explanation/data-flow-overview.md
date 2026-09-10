@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.1.0
-updated_at: 2026-08-25
-reviewed_at: 2026-08-25
+version: 0.2.0
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 ---
 
 # 数据流总览：一次对话如何流动
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
+- 修改人：codex · 2026-09-10
 
 关联：[架构设计](../reference/ARCHITECTURE.md)、[流式协议契约](../reference/STREAMING_PROTOCOL.md)、[数据库契约](../reference/DATABASE.md)
 
@@ -42,17 +42,17 @@ Aervox 是一条"先写后投递"的单向管道：客户端把输入按幂等 T
    - outbox 循环消费待投递事件：写审计记录并标记发布，失败的转 retry/dead_letter（下游投递按 eventType 逐步扩展，[ADR-004](../reference/adr/ADR-004-outbox-idempotent-jobs.md)）；
    - review-notifier 把到期复习的会话生成提醒，并关联 `knowledge_relations` 中的相关知识（对应复习排期，PRD CAP-006）；
    - diary-generator 按日记周期生成日记（[ADR-011](../reference/adr/ADR-011-diary-cycle-schedule-revision.md)）；
-   - deletion 循环按删除请求逐 target 清除并验证（[PRD §8 数据模型](../reference/PRD.md#8-数据模型) 的 DeletionRequest/DeletionTarget + [数据库契约 §8](../reference/DATABASE.md#8-敏感数据与删除传播规则)）。
+   - deletion 循环按删除请求逐 target 清除并验证（[PRD §8 数据模型](../reference/PRD.md#8-数据模型) 的 DeletionRequest/DeletionTarget + [数据库契约 §8](../reference/DATABASE.md#8-删除撤权与恢复)）。
 4. 会话中的记忆节点与知识关系由 memory / knowledge 模块维护（如 `POST /v1/memory/nodes`），供召回与分支查询（[ADR-007](../reference/adr/ADR-007-memory-tree-projection.md)）。
 
 ## 设计权衡
 
 - **为什么先写后投递**：用户请求只做一次落盘，慢副作用交给 Worker；代价是至少一次语义，因此必须配幂等键（[ADR-004](../reference/adr/ADR-004-outbox-idempotent-jobs.md)）。
 - **为什么模块化单体**：1~2 人团队在运维成本与数据一致性间取平衡（[ADR-014](../reference/adr/ADR-014-modular-monolith-structure.md)）；模块只依赖 Port，不跨模块直写表。
-- **为什么 SQLite 为当前真源**：单机一致性与零运维；PostgreSQL 切换已按三阶段立项（[CR-003](../reference/changes/CR-003-sqlite-primary-pg-compat.md)、[数据库契约](../reference/DATABASE.md)）。
+- **为什么 SQLite 是永久真源**：本地单用户产品需要单机一致性、可读备份和零外部数据库运维；PostgreSQL 与多租户切换规划已由 [CR-030](../reference/changes/CR-030-pure-local-sqlite-database.md) 终止。
 
 ## 演进方向
 
-- 双引擎：按 [数据库契约](../reference/DATABASE.md) 的 Expand → Migrate → Contract 三阶段切 PostgreSQL；
+- CR-030：停写并备份旧库，显式选择数据范围，在 staging 新库中去租户化并校验后原子换库；
 - Web 工作台与移动壳复用同一数据层（[ADR-015](../reference/adr/ADR-015-vue-full-stack.md)）；
 - 插件与本地优先能力进入后，本管道增加新的投递目标（[ADR-009](../reference/adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](../reference/adr/ADR-010-dsh-pi-adapters.md)）。

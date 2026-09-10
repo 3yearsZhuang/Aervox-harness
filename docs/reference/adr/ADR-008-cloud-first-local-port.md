@@ -3,9 +3,10 @@ id: ADR-008
 type: reference
 scope: decision
 owner: maintainers
-doc_status: review-candidate
+doc_status: superseded
 decision_status: accepted
-version: 0.1.0
+superseded_by: CR-030
+version: 0.2.0
 updated_at: 2026-09-10
 reviewed_at: 2026-09-10
 review_interval_days: 90
@@ -14,11 +15,14 @@ review_interval_days: 90
 # ADR-008 Cloud-first 与本地/自托管 Port
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-10
+- 修改人：codex · 2026-09-10
 
-- 状态：Proposed
+- 状态：Superseded by [CR-030](../changes/CR-030-pure-local-sqlite-database.md)
 - 日期：2026-08-23
-- 关联：`CAP-027`、`CAP-033`、`NFR-PRIV-001`、`RISK-007`
+- 关联：`CAP-027`、`CAP-033`、`NFR-PRIV-001`、`RISK-007`、`CR-030`
+
+> [!IMPORTANT]
+> 本文以下内容保留为历史决策记录，不再作为当前架构基线。CR-030 已取消 Cloud-first、共享数据库多租户与后续双真源演进，改为永久本地单用户 SQLite。
 
 ## Context
 

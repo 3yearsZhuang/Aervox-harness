@@ -5,7 +5,9 @@ scope: decision
 owner: maintainers
 doc_status: approved
 decision_status: accepted
-version: 0.1.0
+version: 0.2.0
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 updated_at: 2026-08-31
 reviewed_at: 2026-08-31
 review_interval_days: 90
@@ -14,7 +16,7 @@ review_interval_days: 90
 # ADR-016 底座边界冻结：Kernel Substrate 与能力层的依赖边界
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-08-31
+- 修改人：codex · 2026-09-10
 
 - 状态：Accepted
 - 日期：2026-08-28
@@ -27,7 +29,7 @@ review_interval_days: 90
 底座边界此前只存在于文档声明，没有编码层机器校验：
 
 - [AVX-CAP-001](../capability-composition.md) 规定 Kernel Substrate（Composition/Lifecycle、Contract/Protocol、Policy/Consent、Data Rights、Outbox/Audit、Sandbox/Revocation、Observability/Recovery）不可关闭，能力层不得直写核心数据；
-- [AVX-HAR-001 §16.2](../agent-harness-loop.md) 架构验收要求 Loop 应用层不导入 `@aervox/database`/Drizzle/具体 SQLite；
+- [AVX-HAR-001 §16.2](../agent-harness-loop.md) 架构验收要求 Loop 应用层不导入 `@aervox/repositories`/Drizzle/具体 SQLite；
 - [ADR-014](ADR-014-modular-monolith-structure.md) 早已提出"ESLint import 规则进一步强制模块边界"，但从未实施，边界约束仍靠评审自觉。
 
 仓库当前没有 `capabilities/`、`providers/`、`adapters/`、`modules/` 目录，但 AVX-CAP-001 的能力组合目标是既定方向。一旦能力层出现，若无机器校验，"能力直写数据库表/宿主 Shell"的违规只会在评审中偶然被发现。AVX-CAP-001 也已预留本决策："接受该目标前必须建立 ADR-016（或等效决策）"。
@@ -43,7 +45,7 @@ review_interval_days: 90
 
 1. **零改动（仅文档声明）**：拒绝。与现状无差异，漂移风险不消除，不符合"落地即机器验证"的仓库纪律。
 2. **eslint `no-restricted-imports`**：拒绝。仓库无任何 eslint 配置，引入全家桶在 TS 7.0.2 下兼容性未验证；且该规则只按路径 forbid，无法表达"from 目录 × to 包名"的边界矩阵，表达力不足。
-3. **dependency-cruiser**：实测后否决。先以 `-w` 安装 v18.2.0 并配置 forbid 矩阵，但运行告警缺失兼容 TypeScript 转译器（其转译支持为 `>=2.0.0 <7.0.0`）。向 `packages/agent-loop/src` 注入 `import "@aervox/database"` 的真实违规后，扫描仍报零违规——**TS 源文件依赖被漏检，门禁形同虚设**。
+3. **dependency-cruiser**：实测后否决。先以 `-w` 安装 v18.2.0 并配置 forbid 矩阵，但运行告警缺失兼容 TypeScript 转译器（其转译支持为 `>=2.0.0 <7.0.0`）。向 `packages/agent-loop/src` 注入数据库层 import 的真实违规后，扫描仍报零违规——**TS 源文件依赖被漏检，门禁形同虚设**。
 4. **自写边界脚本 + 解析专用依赖（本决策）**：选定。初版正则提取 import 说明符，经漏检验证后升级为 AST（`@babel/parser`，纯 JS、不承担编译、与 TS 版本无关）；规则矩阵与本文健身函数一一对应，避免引入 eslint/dependency-cruiser 类工具链；注入违规样例实测可拦截并返回非零退出码。
 
 ## Decision
@@ -66,9 +68,9 @@ review_interval_days: 90
 | # | 规则 | from | 禁止 import 到 |
 |---|---|---|---|
 | 1 | `contracts-must-be-leaf` | `packages/contracts/` | 任何 `@aervox/*` |
-| 2 | `agent-loop-no-db` | `packages/agent-loop/` | `@aervox/database`、`@libsql/*`、`Drizzle ORM` |
+| 2 | `agent-loop-no-db` | `packages/agent-loop/` | `@aervox/repositories`、`@libsql/*`、`Drizzle ORM` |
 | 3 | `packages-no-host-imports` | `packages/*` 的 `src`/`test` | `@aervox/api\|worker\|web\|desktop\|mobile`、`apps/` |
-| 4 | `ui-client-no-db` | `packages/ui`、`packages/api-client` | `@aervox/database`、`@libsql/*`、`Drizzle ORM` |
+| 4 | `ui-client-no-db` | `packages/ui`、`packages/api-client` | `@aervox/repositories`、`@libsql/*`、`Drizzle ORM` |
 | 5 | `capability-layer-no-db-no-host` | `capabilities/`、`providers/`、`adapters/`、`modules/` | 同 #4 + 宿主 Shell |
 
 ### 落地形态

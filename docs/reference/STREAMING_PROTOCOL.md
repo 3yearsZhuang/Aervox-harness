@@ -6,18 +6,18 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.3.0
-updated_at: 2026-08-31
-reviewed_at: 2026-08-31
+version: 0.4.0
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 Turn 流式协议（SPC）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-31
+- 修改人：codex · 2026-09-10
 
-关联：`ADR-002`、`ADR-012`、`CR-019`、`CR-022`、`CR-027`、`NFR-PERF-001`、`NFR-REL-001`、`NFR-SEC-001`
+关联：`ADR-002`、`ADR-012`、`CR-019`、`CR-022`、`CR-027`、`CR-030`、`NFR-PERF-001`、`NFR-REL-001`、`NFR-SEC-001`
 
 本文是对话流式 API 和客户端行为的可执行契约。OpenAPI 3.1 描述 HTTP 资源、鉴权和错误；本文件描述 SSE 事件 envelope、状态机、重连、取消、幂等和持久化顺序。实现必须从同一份 `packages/contracts` schema 生成服务端校验、客户端类型和契约测试，不能只依赖本文件中的示例。
 
@@ -64,7 +64,7 @@ review_interval_days: 90
 }
 ```
 
-服务端必须先在一个事务中写入 User `MessageVersion`、Turn 和 Outbox，再返回成功。相同幂等作用域、键和请求摘要必须返回原资源；同键不同摘要返回 `409 IDEMPOTENCY_KEY_REUSED`，不得再次调用模型。`workspaceId` 必须由认证主体和 `sessionId` 在服务端解析，不能信任请求体或自定义 Header。
+服务端必须先在一个事务中写入 User `MessageVersion`、Turn 和 Outbox，再返回成功。相同幂等作用域、键和请求摘要必须返回原资源；同键不同摘要返回 `409 IDEMPOTENCY_KEY_REUSED`，不得再次调用模型。CR-030 D2 后不再接受或解析租户 Header；请求只能访问当前本地数据库实例，非 loopback 调用必须通过显式 token 认证。
 
 ### 2.2 读取事件流
 
@@ -162,7 +162,7 @@ Created -> InputChecking -> Running -> Finalizing -> Completed
 | Code | HTTP/流语义 | 客户端动作 |
 |---|---|---|
 | `IDEMPOTENCY_KEY_REUSED` | `409`，不打开新流 | 修正请求键或读取原 Turn |
-| `TURN_NOT_FOUND` | `404` | 停止重连并刷新权限/历史；响应不得泄露跨工作区资源是否存在 |
+| `TURN_NOT_FOUND` | `404` | 停止重连并刷新本地历史；响应不得向未认证远程调用泄露资源是否存在 |
 | `STREAM_CURSOR_EXPIRED` | `410` | 读取 Turn 当前状态和已持久化 MessageVersion；不得自动再次调用模型 |
 | `TURN_CANCELLED` | `error` 后以 `done(status=Cancelled)` 终止 | 标记不完整，不生成派生事实 |
 | `MODEL_TIMEOUT` | 可重试；无可见片段且无副作用时可由新 Attempt 重试 | 显示重试入口，保持原 Turn 幂等 |

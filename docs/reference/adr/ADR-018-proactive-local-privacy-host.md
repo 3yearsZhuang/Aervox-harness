@@ -6,7 +6,7 @@ owner: product-platform
 doc_status: review-candidate
 decision_status: accepted
 delivery_status: planned
-version: 0.1.0
+version: 0.2.0
 updated_at: 2026-09-10
 reviewed_at: 2026-09-10
 review_interval_days: 60
@@ -22,7 +22,7 @@ sources:
 # ADR-018 CAP-033 本地私密存储与主动智能 Host
 
 - 提出人：3yearszhuang · 2026-08-29
-- 修改人：3yearszhuang · 2026-09-10
+- 修改人：codex · 2026-09-10
 
 关联：[CR-023](../changes/CR-023-proactive-local-intelligence-mode.md)、[主动智能设计方案](../../explanation/proactive-intelligence-mode.md)、[数据与隐私](../DATA_PRIVACY.md)、[威胁模型](../THREAT_MODEL.md)、[数据库契约](../DATABASE.md)
 
@@ -48,7 +48,7 @@ CAP-033 需要在用户确认后持续观察设备全部可用来源、形成完
 
 CAP-033 采用受信签名的本地 Privacy Host/Helper 作为唯一主动观察和动作执行宿主，并通过 OS Permission Broker 取得、复核和撤销每项系统能力。Host 维护设备级 `FullProfileGrant`、`FullProfileActionGrant`、activation epoch/heartbeat/expiry 和用户可见状态；普通 Turn 的 `toolApprovalMode=ask|full_access` 仍由 CR-022 独立维护。
 
-主动数据面使用本地加密存储，记录授权修订、来源 grant、捕获、画像声明、动作、租约和审计。所有记录必须绑定 `(workspaceId, subjectUserId, deviceId, revision)` 与 `processingBoundary=local_only`，不得写入远程数据库、远程模型/Embedding、普通分析、错误监控或自动云备份。生产控制面还必须使用私密目录中的 owner-only `proactive-access.token`（文件权限 `0600`），仅接受字面 loopback 请求并拒绝 redirect；令牌不得进入业务表、日志或导出。用户显式导出是唯一允许的数据离开动作。
+主动数据面使用本地加密存储，记录授权修订、来源 grant、捕获、画像声明、动作、租约和审计。所有记录必须绑定 `(deviceId, revision, sourceGrantId)` 与 `processingBoundary=local_only`，不得写入远程数据库、远程模型/Embedding、普通分析、错误监控或自动云备份。生产控制面还必须使用私密目录中的 owner-only `proactive-access.token`（文件权限 `0600`），仅接受字面 loopback 请求并拒绝 redirect；令牌不得进入业务表、日志或导出。用户显式导出是唯一允许的数据离开动作。
 
 `FullProfileActionGrant` 可覆盖 `action.local`、`action.external`、`action.privileged` 和不可逆动作。每次动作仍需校验当前 revision、目标 scope、OS/身份授权、Host lease、deny watermark、幂等键和策略配额，并记录用户可见通知与结果；模型、插件和外部内容不能自行授予或扩大权限。
 
@@ -81,4 +81,4 @@ CAP-033 采用受信签名的本地 Privacy Host/Helper 作为唯一主动观察
 - 本地出网阻断、远程 Provider 拒绝、`local_only` 溯源和故障注入证据；
 - 原始捕获七天/提炼清理、用户提前删除、零召回/零动作和恢复账本测试；
 - `FullProfileActionGrant` 覆盖本地、外部、特权和不可逆动作的目标 scope、幂等、撤权和 Prompt injection 测试；
-- 独立可读导出、密钥/凭据过滤、工作区隔离、备份恢复和用户通知验收。
+- 独立可读导出、密钥/凭据过滤、用户目录隔离、备份恢复和用户通知验收。

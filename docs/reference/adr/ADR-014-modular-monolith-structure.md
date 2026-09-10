@@ -5,16 +5,16 @@ scope: decision
 owner: maintainers
 doc_status: approved
 decision_status: accepted
-version: 0.1.0
-updated_at: 2026-08-31
-reviewed_at: 2026-08-31
+version: 0.2.0
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 ---
 
 # ADR-014 演进式模块化单体：apps/api 目录结构
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-31
+- 修改人：codex · 2026-09-10
 
 - 状态：Accepted（2026-08-31）
 - 日期：2026-08-25
@@ -34,7 +34,7 @@ ADR-001 已确定"模块化单体 + 独立 Worker"的总体方向，但未细化
 - 需要在当前单进程内建立**接近微服务的模块边界**，但不引入微服务的分布式复杂度；
 - 每个模块自管自己的 routes/service/repository，模块间通过受控的事件或接口通信；
 - 为未来"按需拆分"保留 seam：当且仅当某个模块满足拆分条件（团队边界、扩缩容需求、部署独立性）时，迁移成本最小化；
-- 保持对现有 `@aervox/database` 仓储层的兼容，不改变数据库层接口。
+- 保持对 `@aervox/repositories` Repository Port 的稳定边界；CR-030 D2 完成后不再提供 `@aervox/database` 兼容包。
 
 ## Considered options
 
@@ -90,17 +90,17 @@ src/
 | **路由函数签名** | `routes.ts` 中的导出函数接收**该模块专属的仓储实例**，而非 `RepoContainer` |
 | **shared 严格受限** | `shared/` 只放跨 2 个以上模块的通用工具。禁止将业务逻辑放入 shared |
 | **跨模块通信** | 通过 `shared/event-bus.ts` 的进程内 pub/sub；直接函数调用仅限 `shared/` 中的纯工具函数 |
-| **单一数据库** | 仍是一个 SQLite/PostgreSQL 实例，通过表前缀（`conversation_*`、`learning_*` 等）做逻辑分区 |
+| **单一数据库** | 一个本地 SQLite 实例；通过领域表命名和 `@aervox/schema` 文件分区，不引入 PostgreSQL 或共享数据库多租户 |
 | **对外入口唯一** | 每个模块只有 `index.ts` 是对外可见的。`routes.ts` 内部的函数不被其他模块引用 |
 
 ### 模块 index.ts 示例
 
 ```typescript
 // src/modules/conversation/index.ts
-import { SqliteConversationRepository } from "@aervox/database";
+import { SqliteConversationRepository } from "@aervox/repositories";
 import { registerConversationRoutes } from "./routes.js";
 import type { FastifyInstance } from "fastify";
-import type { AervoxDatabase } from "@aervox/database";
+import type { AervoxDatabase } from "@aervox/repositories";
 
 export function registerConversationModule(
   app: FastifyInstance,

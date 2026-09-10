@@ -5,7 +5,7 @@ scope: decision
 owner: maintainers
 doc_status: review-candidate
 decision_status: accepted
-version: 0.1.0
+version: 0.2.0
 updated_at: 2026-09-10
 reviewed_at: 2026-09-10
 review_interval_days: 90
@@ -14,9 +14,9 @@ review_interval_days: 90
 # ADR-012 可恢复 Turn 流式协议、输出安全门与部分响应持久化
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-10
+- 修改人：codex · 2026-09-10
 
-- 状态：Proposed
+- 状态：Accepted（经 CR-030 修订访问边界）
 - 日期：2026-08-24
 - 关联：`CAP-002/007/008`、`NFR-PERF-001`、`NFR-REL-001`、`NFR-SEC-001`、`NFR-OBS-001`、`AIQ-TEACH-001`、`AIQ-SAFE-001`、`BR-CTRL-001`
 
@@ -58,7 +58,7 @@ review_interval_days: 90
 
 1. `POST /v1/sessions/{sessionId}/turns`
    - 请求包含 `Idempotency-Key`、用户消息、客户端版本和可选引用；
-   - `workspaceId` 只能由服务端从 `sessionId` 和认证主体解析，不能信任 Header/body；请求在查幂等记录前必须完成 Session、workspace、purpose 和来源权限校验；
+   - CR-030 D2 后不再接收租户 Header；请求在查幂等记录前必须完成本机认证、Session、purpose、来源和插件 Grant 校验；
    - 服务端先持久化 User Message、Turn、TurnAttempt 和 Outbox，再返回 `turnId`、当前状态和 stream URL；
    - 幂等键作用域至少包含认证主体、workspace、HTTP method、规范化路由和 session；服务端保存规范化请求摘要、响应状态/正文和资源 ID。同一作用域同一键同一摘要返回原响应；同键不同摘要返回 `409 idempotency_key_reused`，不得返回旧资源；并发请求由数据库唯一约束和唯一 Outbox 约束收敛；
    - `Idempotency-Key` 使用可打印 ASCII、长度 1～255，保留期至少覆盖客户端最大重试窗口，过期记录不得被用来探测资源存在性。
@@ -119,7 +119,7 @@ Running/Finalizing
 
 `TurnStreamEvent` 至少包含：
 
-- `workspaceId`、`subjectUserId`、`turnId`、`attemptId`、单调递增 `sequence`、不可变稳定 `eventId`；
+- `turnId`、`attemptId`、单调递增 `sequence`、不可变稳定 `eventId`，以及需要时的来源/授权修订；
 - `eventType`、`payloadVersion`、`createdAt`；
 - 对用户可见片段的内容或内容引用；
 - 安全/结构校验决策引用；
@@ -129,7 +129,7 @@ Running/Finalizing
 
 1. 任何用户可见片段在发送前必须存在已提交的 `TurnStreamEvent`；`delta` 事件按 append-only offset/sequence 重建 Assistant Message，不能靠网络到达顺序覆盖正文。
 2. 同一 Turn 的 sequence 连续且唯一；网络层可以重复发送，客户端按 eventId 去重并用服务端映射的 sequence 检测空洞。
-3. SSE 事件只来自调用者有权访问的 workspace、session 和 purpose；Session、Turn、Message、TurnStreamEvent 使用同 workspace/subject 的复合外键和数据库 RLS。Worker 读取来源时必须再次校验权限和同意，避免排队期间撤权的 TOCTOU；无权访问统一返回不泄露资源存在性的错误。
+3. SSE 事件只来自当前本地数据库中调用者有权访问的 session 和 purpose；Session、Turn、Message、TurnStreamEvent 使用普通外键保持同属关系。Worker 读取来源时必须再次校验 Grant、权限和同意，避免排队期间撤权的 TOCTOU；未认证非 loopback 调用统一返回不泄露资源存在性的错误。
 4. 成员移除、Session ACL/purpose 同意变更、来源删除或撤权必须主动关闭相关现有订阅；在每个业务事件发送前重新检查授权策略版本。已撤回正文不通过改变原 `eventId` 的 payload 隐藏，而是追加带新 sequence、`visibilityRevision` 的公开 `redacted` 事件，其 payload 用 `reason=revoked|deleted|policy_changed` 区分原因；事件 ID 和 payload 不可变。上述 deny/revoke 控制先按 `BR-CTRL-001` 取得独立账本的 durable ack；本地投影水位未追平、账本不可用或存在 sequence 缺口时，相关订阅和正文读取 fail closed。
 5. `Completed`、`Rejected`、`Cancelled`、`Interrupted` 和 `Failed` 都必须在同一事务中更新 Turn，并写入对应的持久 `TurnStreamEvent`。成功终态发送 `done(status=Completed)`；失败、拒绝、取消或中断可先发送诊断 `error`，但随后必须在同一终态事务提交并发送 `done(status=Rejected|Cancelled|Interrupted|Failed)`，客户端只以 `done` 判断流结束。只有事务提交后才能发送终态事件，并按策略提升/封存 Draft；只有 `Completed` Turn 可以生成普通记忆候选、掌握度或日记来源。
 6. `Cancelled/Interrupted/Failed` 的安全前缀可作为用户可见历史保留，但必须标记不完整，默认不能进入学习事实或长期记忆。
