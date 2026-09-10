@@ -30,7 +30,7 @@ ci-docs = "npx markdownlint-cli2 --config .markdownlint-cli2.jsonc 'docs/**/*.md
 docs-lint-prose = "vale --minAlertLevel=error docs README.md AGENTS.md CONTRIBUTING.md"
 
 # 文档 ID、元数据、登记表与本地链接/锚点一致性
-docs-validate = "node scripts/docs-governance.mjs"
+docs-validate = "node scripts/docs-governance.mjs --strict"
 
 # 开发：API + 桌面端（见 package.json scripts.dev:desktop）
 dev-desktop = "pnpm dev:desktop"
