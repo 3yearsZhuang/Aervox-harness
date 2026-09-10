@@ -1,15 +1,23 @@
+---
+id: AVX-PRD-001
+type: reference
+scope: baseline
+owner: maintainers
+doc_status: review-candidate
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 0.9.0
+updated_at: 2026-08-29
+reviewed_at: 2026-08-29
+review_interval_days: 90
+---
+
 # Aervox｜思隅 产品需求文档（伴学桌宠）
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-29
 
-> 文档编号：AVX-PRD-001  
-> 类型：Reference  
-> 版本：v0.9 RC1（CAP-033～035 主动智能与外部信号需求基线）
-> 创建/更新日期：2026-08-29
-> 文档状态：评审候选（Review Candidate）  
-> 首发平台：Web；后续扩展桌面端、移动端和插件生态  
-> 关联文档：[架构设计](ARCHITECTURE.md) · [需求追踪与交付标准](REQUIREMENTS_TRACEABILITY.md) · [数据与隐私规范](DATA_PRIVACY.md) · [AI 质量与安全规范](AI_QUALITY_SAFETY.md) · [文档索引](../README.md)
+关联文档：[架构设计](ARCHITECTURE.md) · [需求追踪与交付标准](REQUIREMENTS_TRACEABILITY.md) · [数据与隐私规范](DATA_PRIVACY.md) · [AI 质量与安全规范](AI_QUALITY_SAFETY.md) · [文档索引](../README.md)
 
 本文件是“为什么做、为谁做、做什么、做到什么程度”的产品需求事实源。系统拆分、框架选型、部署拓扑和实现约束以架构设计为准；需求编号、测试证据和发布门禁以追踪文档为准；数据处理与 AI 质量分别以专项规范为准。文档发生冲突时，先停止相关实施并通过变更流程修订，不能由开发阶段自行解释。
 

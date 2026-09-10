@@ -1,14 +1,23 @@
+---
+id: AVX-OPS-001
+type: reference
+scope: baseline
+owner: maintainers
+doc_status: review-candidate
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 0.1.0
+updated_at: 2026-08-31
+reviewed_at: 2026-08-31
+review_interval_days: 90
+---
+
 # Aervox｜思隅 运行、值班与演练手册
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-31
 
-> 文档编号：AVX-OPS-001（合并 RUNBOOK + ONCALL + DRILL_TEMPLATE）  
-> 类型：Reference  
-> 版本：v0.1（评审候选）  
-> 更新日期：2026-08-31
-> 状态：Review Candidate  
-> 关联：[架构设计](ARCHITECTURE.md) · [数据与隐私](DATA_PRIVACY.md) · [威胁模型](THREAT_MODEL.md)
+关联：[架构设计](ARCHITECTURE.md) · [数据与隐私](DATA_PRIVACY.md) · [威胁模型](THREAT_MODEL.md)
 
 本文档合并原《运行与恢复手册》《值班与升级联系矩阵》《季度恢复演练证据模板》三份文档，覆盖生产故障止损/恢复/验证（§1-§10）、值班角色与升级（§11）、季度演练证据模板（§12）。
 

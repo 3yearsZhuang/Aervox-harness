@@ -1,14 +1,23 @@
+---
+id: AVX-HAR-001
+type: reference
+scope: baseline
+owner: maintainers
+doc_status: review-candidate
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 0.5.0
+updated_at: 2026-09-08
+reviewed_at: 2026-09-08
+review_interval_days: 90
+---
+
 # Agent Harness Loop 设计与落地规范
 
 - 提出人：3yearszhuang · 2026-08-28
 - 修改人：kikoyida · 2026-09-08
 
-> 文档编号：AVX-HAR-001  
-> 类型：Reference  
-> 版本：v0.5
-> 更新日期：2026-09-08
-> 状态：Review Candidate  
-> 关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[ADR-016](adr/ADR-016-base-boundaries.md)、[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md)、[CR-012](changes/CR-012-agent-harness-loop.md)、[CR-021](changes/CR-021-ask-user-question-capability.md)、[CR-022](changes/CR-022-full-access-tool-permission.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
+关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[ADR-016](adr/ADR-016-base-boundaries.md)、[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md)、[CR-012](changes/CR-012-agent-harness-loop.md)、[CR-021](changes/CR-021-ask-user-question-capability.md)、[CR-022](changes/CR-022-full-access-tool-permission.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
 本文规定 Aervox Agent Harness Loop 的职责、状态机、Port、持久化边界、工具执行、取消恢复和分阶段落地路线。当前阶段 0/1/2a-2e/3a/3b-A/3b-B 已有原生实现：`packages/agent-loop` 提供 Replay/Scripted/真实 OpenAI 兼容 Provider、多 Step 工具循环、API/SSE 持久化、工具账本、写工具审批、`ask_user_question` 人机提问交互、lease TTL/续租、过期抢占、fencing 单一终态和 Worker 恢复；3c+ 生产级安全补强、完整 Inbox/ContextManifest 关联、独立 Host 以及 DSH/pi Adapter 仍是后续目标。文中标为“目标”的接口、表和状态转换，只有在对应代码、迁移和契约测试落地后才可视为运行能力。
 

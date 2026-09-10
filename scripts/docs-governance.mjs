@@ -400,7 +400,7 @@ function checkMetadata(metadataByFile, policy) {
       if (expectedType && metadata.fields.type !== expectedType && !(metadata.isNavigation && !metadata.fields.type)) {
         reportError(`${metadata.relative}: type=${metadata.fields.type} 与目录推断的 ${expectedType} 不一致`);
       }
-      if (!/^(?:AVX-[A-Z0-9-]+-\d{3}|ADR-\d{3}|CR-\d{3})$/.test(metadata.id)) {
+      if (!/^(?:AVX-[A-Z0-9-]+-\d{3}|ADR-\d{3}(?:~\d{3})?|CR-\d{3})$/.test(metadata.id)) {
         reportError(`${metadata.relative}: id 格式不符合 AVX/ADR/CR 编号规范：${metadata.id}`);
       }
       if (!/^\d+\.\d+\.\d+$/.test(String(metadata.fields.version ?? ""))) {

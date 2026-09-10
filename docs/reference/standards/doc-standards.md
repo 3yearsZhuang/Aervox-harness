@@ -1,14 +1,23 @@
+---
+id: AVX-STD-001
+type: reference
+scope: baseline
+owner: maintainers
+doc_status: review-candidate
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 0.2.0
+updated_at: 2026-08-28
+reviewed_at: 2026-08-28
+review_interval_days: 90
+---
+
 # 文档写作规范（Docs-as-Code × Diátaxis）
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-08-28
 
-> 文档编号：AVX-STD-001
-> 类型：Reference
-> 版本：v0.2
-> 更新日期：2026-08-28
-> 状态：Review Candidate
-> 关联：[文档治理与事实源规范](../document-governance.md)、[文档索引](../../README.md)、[生命周期登记表](../../DOC_REGISTRY.md)、[术语表](terminology.md)
+关联：[文档治理与事实源规范](../document-governance.md)、[文档索引](../../README.md)、[生命周期登记表](../../DOC_REGISTRY.md)、[术语表](terminology.md)
 
 本规范定义文档如何套用模板、维护标题下签名、命名、写作并通过门禁。文档分类、唯一事实源、状态模型、owner 与复核触发器以[文档治理与事实源规范](../document-governance.md)为唯一事实源；本文不重复定义这些治理规则。
 

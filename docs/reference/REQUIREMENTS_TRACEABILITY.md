@@ -1,15 +1,25 @@
+---
+id: AVX-TRC-001
+type: reference
+scope: baseline
+owner: maintainers
+doc_status: review-candidate
+decision_status: not-applicable
+delivery_status: not-applicable
+version: 1.18.0
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
+review_interval_days: 90
+---
+
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-09-10
 
-> 文档编号：AVX-TRC-001  
-> 类型：Reference  
-> 文档版本：v1.18
-> 文档状态：评审候选（Review Candidate）  
-> 更新日期：2026-09-10
-> 产品需求来源：[PRD.md](PRD.md)
-> 适用范围：原型、MVP、MVP+、P1、桌面阶段、P2、P3 及后续维护版本
+产品需求来源：[PRD.md](PRD.md)
+
+适用范围：原型、MVP、MVP+、P1、桌面阶段、P2、P3 及后续维护版本
 
 ## 1. 目的与使用方式
 
@@ -318,6 +328,7 @@
 | 人格问卷与基础偏好（CAP-010：人格偏好评测 + 5 条 API） | CAP-010 | `packages/database/src/schema/preferences.ts` + `repositories/sqlite/preferences-repository.ts`、`packages/contracts/src/schemas.ts`（`personaPreferencesSchema`/`toneSchema` 等枚举）、`apps/api/src/modules/preferences/`（`/v1/preferences` 5 路由） | 2026-08-28 | `@aervox/api` `preferences.test.ts` 7（BR-PER-001 未配置中性默认等）；Database/API typecheck；ci-code 全量 | 原生 |
 
 | 术语抽取、流式回填与追问探索（CAP-007 / CAP-002） | CAP-007/002 | `plugins/study-companion/`、`plugins/term-explorer/`、`packages/practice-review/src/terms.ts`、`packages/contracts/src/{schemas,openapi}.ts`、`apps/api/src/modules/{terms,conversation}/`、`packages/api-client/src/{transport,useAervoxTurn}.ts`、`packages/ui/src/components/{AervoxWorkbench.vue,TermExploreDialog.vue}`、`packages/ui/src/theme/workbench.css` | 2026-08-28 | `terms.test.ts` 单元测试；`terms-explore.test.ts` / `study-term-plugins.test.ts` 集成测试；UI/Web/Desktop build + typecheck | 原生 + `AVX-PLUG-001` 插件 Bundle 规范 |
+| 文档元数据治理 Batch W-04：18 份核心 Reference 规范向 Canonical Front Matter 迁移 | 基础设施（文档治理） | `docs/reference/` 18 份核心规范（`AI_QUALITY_SAFETY.md`、`ARCHITECTURE.md`、`DATABASE.md`、`DATA_PRIVACY.md`、`PRD.md`、`REQUIREMENTS_TRACEABILITY.md`、`SRS.md`、`STREAMING_PROTOCOL.md`、`TEST_STRATEGY.md`、`THREAT_MODEL.md`、`adr/README.md`、`agent-harness-loop.md`、`capability-composition.md`、`capability-registry.md`、`operations.md`、`plugin-config-and-pages.md`、`standards/doc-standards.md`、`standards/terminology.md`）与 `scripts/docs-governance.mjs` | 2026-09-10 | `node scripts/docs-governance.mjs --strict` 验证 legacy 计数 33→15、canonical 计数 51→69、零 duplicate_ids/missing_links/broken_anchors/registry_date_mismatches/registry_missing；`mise tasks run ci-docs` 全通 | 原生 |
 | 学习资料整理（CAP-011：资料 CRUD + 版本回溯 + 来源/许可台账 + JSON/Markdown 导出） | CAP-011 | `packages/database/src/schema/study-materials.ts`（`study_materials`/`material_versions`/`material_sources` + 索引）+ `repositories/sqlite/study-material-repository.ts`、`packages/contracts/src/schemas.ts`（materialType/status/sourceType/licenseStatus 枚举）、`apps/api/src/modules/study-materials/` | 2026-08-28 | `@aervox/api` `study-materials.test.ts` 10（版本回溯/来源台账/导出）；Database/API typecheck；ci-code 全量 | 原生 |
 
 | 多模态答疑（CAP-012：附件元数据 + OCR 解析 + crop + RFC 5987 文件名编码） | CAP-012 | `packages/database/src/schema/content.ts`（attachment metadata + `content_parse_results`）+ `repositories/sqlite/content-repository.ts`、`packages/contracts/src/schemas.ts`（attachmentPurpose/allowedMediaTypes/`OCR_CONFIDENCE_THRESHOLD`）、`apps/api/src/modules/content/routes.ts`（附件/解析/裁剪/转文本） | 2026-08-28 | `@aervox/api` `multimodal-qna.test.ts` 8（置信度阈值/裁剪/RFC5987 文件名）；Database/API typecheck；ci-code 全量 | 原生 |
