@@ -17,6 +17,23 @@
 | `AVX-SRS-001` | [SRS](reference/SRS.md) | 2026-08-31 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
 | `AVX-SAD-001` | [架构设计](reference/ARCHITECTURE.md) | 2026-08-31 | G2 评审 + 架构变更 | 新增 ADR/技术基线变化未同步 |
 | `ADR-001~019` | [ADR 索引](reference/adr/README.md) | 2026-08-31 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
+| `ADR-001` | [模块化单体架构与 Worker 拆分](reference/adr/ADR-001-modular-monolith.md) | 2026-08-31 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
+| `ADR-002` | [Web 端与 API 契约设计（已由 ADR-015 替代）](reference/adr/ADR-002-web-api-contract.md) | 2026-08-31 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
+| `ADR-003` | [SQLite 业务真源与 FTS5/Vector Port 仓储抽象](reference/adr/ADR-003-postgres-retrieval.md) | 2026-08-31 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
+| `ADR-004` | [Outbox 模式与幂等作业执行](reference/adr/ADR-004-outbox-idempotent-jobs.md) | 2026-08-31 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
+| `ADR-005` | [内部 Provider Port 包裹 AI SDK](reference/adr/ADR-005-provider-port.md) | 2026-08-31 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
+| `ADR-006` | [AI 召回期限与用户历史保留期限分离](reference/adr/ADR-006-recall-retention.md) | 2026-08-31 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
+| `ADR-007` | [记忆树投影：从会话日志重建层次化记忆](reference/adr/ADR-007-memory-tree-projection.md) | 2026-08-31 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
+| `ADR-008` | [Cloud-First 架构与本地存储 Port 预留](reference/adr/ADR-008-cloud-first-local-port.md) | 2026-08-31 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
+| `ADR-009` | [Electron 插件沙箱与主进程安全](reference/adr/ADR-009-electron-plugin-sandbox.md) | 2026-08-31 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
+| `ADR-010` | [DSH/pi 外部模型适配器模式](reference/adr/ADR-010-dsh-pi-adapters.md) | 2026-08-31 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
+| `ADR-011` | [日记周期与会话总结调度修订](reference/adr/ADR-011-diary-cycle-schedule-revision.md) | 2026-08-31 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
+| `ADR-012` | [流式协议安全持久化与部分响应恢复](reference/adr/ADR-012-streaming-safety-persistence.md) | 2026-08-31 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
+| `ADR-013` | [恢复控制账本：撤权拦截与确定性恢复](reference/adr/ADR-013-recovery-control-ledger.md) | 2026-08-31 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
+| `ADR-014` | [演进式模块化单体架构与模块目录组织](reference/adr/ADR-014-modular-monolith-structure.md) | 2026-08-31 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
+| `ADR-015` | [Vue 全栈单栈方案](reference/adr/ADR-015-vue-full-stack.md) | 2026-08-31 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
+| `ADR-016` | [底座边界冻结与依赖规则门禁](reference/adr/ADR-016-base-boundaries.md) | 2026-08-31 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
+| `ADR-017` | [上下文清单、模型运行记录与多步执行持久化](reference/adr/ADR-017-context-manifest-modelrun-step.md) | 2026-08-31 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
 | `AVX-SPC-001` | [流式协议](reference/STREAMING_PROTOCOL.md) | 2026-08-31 | OpenAPI/事件 schema 变更 | `packages/contracts` 版本高于文档描述 |
 | `AVX-DB-001` | [数据库设计与双引擎契约](reference/DATABASE.md) | 2026-09-09 | Schema/仓储接口/迁移计划变更 | 仓储接口签名或租户隔离模式/PG 切换计划与实现不一致 |
 | `AVX-DATA-001` | [数据与隐私](reference/DATA_PRIVACY.md) | 2026-08-29 | 每季度 + 数据流变更 | 新增数据实体/用途/保留未评审 |
