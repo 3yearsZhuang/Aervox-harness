@@ -76,9 +76,6 @@ export interface AervoxTransport {
 export interface AervoxClientConfig {
   /** API 基址，仅 fetchTransport 使用（默认 http://127.0.0.1:3000） */
   apiBase?: string;
-  /** 可选租户头（Web 环境用 VITE_WORKSPACE_ID / VITE_USER_ID 注入） */
-  workspaceId?: string;
-  userId?: string;
   /** 学习调度使用的 IANA 时区；默认读取当前系统时区。 */
   timeZone?: string;
   /** 会话 ID（Web 用 VITE_SESSION_ID，默认 web_default） */
@@ -89,8 +86,6 @@ export interface AervoxClientConfig {
 
 interface RuntimeConfig {
   apiBase: string;
-  workspaceId?: string;
-  userId?: string;
   timeZone: string;
   sessionId: string;
   transport: AervoxTransport;
@@ -108,19 +103,17 @@ let runtime: RuntimeConfig = { ...DEFAULTS };
 export function configureAervoxClient(config: AervoxClientConfig): void {
   runtime = {
     apiBase: config.apiBase?.replace(/\/+$/, '') || runtime.apiBase,
-    workspaceId: config.workspaceId ?? runtime.workspaceId,
-    userId: config.userId ?? runtime.userId,
     timeZone: config.timeZone ?? runtime.timeZone,
     sessionId: config.sessionId ?? runtime.sessionId,
-    transport: config.transport ?? (config.apiBase || config.workspaceId || config.userId
-      ? createFetchTransport(config.apiBase?.replace(/\/+$/, '') || runtime.apiBase, config.workspaceId ?? runtime.workspaceId, config.userId ?? runtime.userId)
+    transport: config.transport ?? (config.apiBase
+      ? createFetchTransport(config.apiBase?.replace(/\/+$/, '') || runtime.apiBase)
       : runtime.transport),
   };
 }
 
 export function getTransport(): AervoxTransport {
   if (!runtime.transport) {
-    runtime.transport = createFetchTransport(runtime.apiBase, runtime.workspaceId, runtime.userId);
+    runtime.transport = createFetchTransport(runtime.apiBase);
   }
   return runtime.transport;
 }
@@ -147,14 +140,8 @@ export function getApiBase(): string {
  */
 export const TURN_STREAM_IDLE_TIMEOUT_MS = 60_000;
 
-export function createFetchTransport(apiBase: string, workspaceId?: string, userId?: string): AervoxTransport {
+export function createFetchTransport(apiBase: string): AervoxTransport {
   const base = apiBase.replace(/\/+$/, '');
-  const tenantHeaders = (): Record<string, string> => {
-    const headers: Record<string, string> = {};
-    if (workspaceId) headers['x-workspace-id'] = workspaceId;
-    if (userId) headers['x-user-id'] = userId;
-    return headers;
-  };
 
   const request = async <T = unknown>(
     method: string,
@@ -164,7 +151,7 @@ export function createFetchTransport(apiBase: string, workspaceId?: string, user
   ): Promise<T> => {
     const res = await fetch(`${base}${path}`, {
       method,
-      headers: { 'Content-Type': 'application/json', ...tenantHeaders(), ...options?.headers },
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
       body: method === 'GET' ? undefined : JSON.stringify(body ?? {}),
       signal: options?.signal,
     });
@@ -227,7 +214,7 @@ export function createFetchTransport(apiBase: string, workspaceId?: string, user
     if (input.idempotencyKey) query.set('idempotencyKey', input.idempotencyKey);
     const res = await fetch(`${base}/v1/attachments/binary?${query.toString()}`, {
       method: 'POST',
-      headers: { 'Content-Type': input.mediaType, ...tenantHeaders() },
+      headers: { 'Content-Type': input.mediaType },
       body: input.file,
     });
     if (!res.ok) throw new Error(`API POST /v1/attachments/binary → HTTP ${res.status}`);

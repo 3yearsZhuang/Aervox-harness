@@ -10,8 +10,6 @@ import './styles.css';
 
 configureAervoxClient({
   apiBase: import.meta.env.VITE_API_URL,
-  workspaceId: import.meta.env.VITE_WORKSPACE_ID,
-  userId: import.meta.env.VITE_USER_ID,
   sessionId: import.meta.env.VITE_SESSION_ID,
 });
 

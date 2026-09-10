@@ -12,7 +12,7 @@
 import type { FastifyInstance } from "fastify";
 import type { ToolRuntime } from "./runtime.js";
 import { listTools as mcplList, callTool as mcplCall } from "./mcp.js";
-import { resolveTenant } from "../../shared/tenant.js";
+import { resolveLocalContext } from "../../shared/local-context.js";
 
 export function registerToolRoutes(app: FastifyInstance, runtime: ToolRuntime): void {
   // 列出注册表全量
@@ -93,7 +93,7 @@ export function registerToolRoutes(app: FastifyInstance, runtime: ToolRuntime): 
   // 调用（MCP 形态）
   app.post("/v1/tools/:id/call", async (req, reply) => {
     const { id } = req.params as { id: string };
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const body = (req.body ?? {}) as { arguments?: unknown; approval?: boolean };
     const result = await mcplCall(runtime, tenant, { name: id, ...body });
     if (result.isError) return reply.code(400).send(result);

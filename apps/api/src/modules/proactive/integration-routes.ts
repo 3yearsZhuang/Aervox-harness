@@ -3,7 +3,7 @@ import type {
   SqliteProactiveIntelligenceRepository,
   SqliteProactiveProfileRepository,
 } from "@aervox/repositories";
-import { resolveTenant } from "../../shared/tenant.js";
+import { resolveLocalContext } from "../../shared/local-context.js";
 import { ForbiddenError, NotFoundError, ValidationError } from "../../shared/errors.js";
 import { ProactiveActionAuthorizer } from "./action-authorizer.js";
 import { HomeAssistantClient } from "./home-assistant-client.js";
@@ -57,7 +57,7 @@ async function authorizeHomeWrite(
   authorizer: ProactiveActionAuthorizer,
   args: unknown,
 ) {
-  const authorization = await authorizer.authorize(resolveTenant(req), {
+  const authorization = await authorizer.authorize(resolveLocalContext(req), {
     turnId: `http:${req.id}`,
     attemptId: `http:${req.id}`,
     invocationId: `http:${req.id}`,
@@ -79,7 +79,7 @@ export function registerProactiveIntegrationRoutes(
   const repo = deps.intelligenceRepo;
 
   app.get("/v1/proactive/integrations", async (req) => {
-    const items = await repo.listConnections(resolveTenant(req));
+    const items = await repo.listConnections(resolveLocalContext(req));
     return {items: items.map((item) => ({
       ...item,
       subscriptionActive: item.provider === "home_assistant" ? deps.manager.subscriptionActive(item.id) : undefined,
@@ -90,7 +90,7 @@ export function registerProactiveIntegrationRoutes(
     const body = bodyOf(req.body);
     const endpoint = requiredText(body.endpoint, "endpoint");
     const accessToken = requiredText(body.accessToken, "accessToken");
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const {revision} = await deps.manager.assertSourceActive(tenant, "device.sensors").catch(mapIntegrationError);
     const client = new HomeAssistantClient({endpoint, accessToken});
     const test = await client.testConnection().catch(mapIntegrationError);
@@ -132,7 +132,7 @@ export function registerProactiveIntegrationRoutes(
   });
 
   app.post("/v1/proactive/integrations/home-assistant/:id/test", async (req) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     await deps.manager.assertSourceActive(tenant, "device.sensors").catch(mapIntegrationError);
     const connection = await repo.getConnectionSecret(tenant, (req.params as {id: string}).id);
     if (!connection || connection.provider !== "home_assistant" || !connection.endpoint) throw new NotFoundError("home_assistant_connection_not_found");
@@ -141,16 +141,16 @@ export function registerProactiveIntegrationRoutes(
   });
 
   app.post("/v1/proactive/integrations/home-assistant/:id/sync", async (req) => {
-    return deps.manager.syncHomeAssistant(resolveTenant(req), (req.params as {id: string}).id).catch(mapIntegrationError);
+    return deps.manager.syncHomeAssistant(resolveLocalContext(req), (req.params as {id: string}).id).catch(mapIntegrationError);
   });
 
   app.get("/v1/proactive/integrations/home-assistant/:id/entities", async (req) => ({
-    items: await repo.listHomeEntities(resolveTenant(req), (req.params as {id: string}).id),
+    items: await repo.listHomeEntities(resolveLocalContext(req), (req.params as {id: string}).id),
   }));
 
   app.patch("/v1/proactive/integrations/home-assistant/:id/entities/:entityId", async (req) => {
     const {id, entityId} = req.params as {id: string; entityId: string};
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const body = bodyOf(req.body);
     const entity = await repo.getHomeEntity(tenant, id, entityId);
     if (!entity) throw new NotFoundError("home_assistant_entity_not_found");
@@ -166,7 +166,7 @@ export function registerProactiveIntegrationRoutes(
 
   app.get("/v1/proactive/integrations/home-assistant/:id/entities/:entityId/state", async (req) => {
     const {id, entityId} = req.params as {id: string; entityId: string};
-    return deps.manager.getHomeAssistantState(resolveTenant(req), id, entityId).catch(mapIntegrationError);
+    return deps.manager.getHomeAssistantState(resolveLocalContext(req), id, entityId).catch(mapIntegrationError);
   });
 
   app.post("/v1/proactive/integrations/home-assistant/:id/call-service", async (req) => {
@@ -175,7 +175,7 @@ export function registerProactiveIntegrationRoutes(
     const entityId = requiredText(body.entityId, "entityId");
     const service = requiredText(body.service, "service");
     const data = inputRecord(body.data);
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const action = await authorizeHomeWrite(req, deps.actionAuthorizer, {connectionId: id, entityId, service, data});
     await deps.actionAuthorizer.markRunning(tenant, action.id);
     try {
@@ -191,7 +191,7 @@ export function registerProactiveIntegrationRoutes(
   app.delete("/v1/proactive/integrations/home-assistant/:id", async (req, reply) => {
     const id = (req.params as {id: string}).id;
     deps.manager.stopConnection(id);
-    const deleted = await repo.deleteConnection(resolveTenant(req), id);
+    const deleted = await repo.deleteConnection(resolveLocalContext(req), id);
     return deleted ? reply.code(204).send() : reply.code(404).send({error: "home_assistant_connection_not_found"});
   });
 
@@ -199,7 +199,7 @@ export function registerProactiveIntegrationRoutes(
     const body = bodyOf(req.body);
     const apiBaseUrl = requiredText(body.apiBaseUrl, "apiBaseUrl");
     const accessToken = requiredText(body.accessToken, "accessToken");
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     const {revision} = await deps.manager.assertSourceActive(tenant, "restricted.profile").catch(mapIntegrationError);
     const client = new XiaomiHealthClient({
       apiBaseUrl,
@@ -236,7 +236,7 @@ export function registerProactiveIntegrationRoutes(
   });
 
   app.post("/v1/proactive/integrations/xiaomi-health/:id/test", async (req) => {
-    const tenant = resolveTenant(req);
+    const tenant = resolveLocalContext(req);
     await deps.manager.assertSourceActive(tenant, "restricted.profile").catch(mapIntegrationError);
     const connection = await repo.getConnectionSecret(tenant, (req.params as {id: string}).id);
     if (!connection || connection.provider !== "xiaomi_health" || !connection.endpoint) throw new NotFoundError("xiaomi_health_connection_not_found");
@@ -254,12 +254,12 @@ export function registerProactiveIntegrationRoutes(
 
   app.post("/v1/proactive/integrations/xiaomi-health/:id/sync", async (req) => {
     const localDate = optionalText(bodyOf(req.body).localDate) ?? new Date().toISOString().slice(0, 10);
-    return deps.manager.syncXiaomiHealth(resolveTenant(req), (req.params as {id: string}).id, localDate).catch(mapIntegrationError);
+    return deps.manager.syncXiaomiHealth(resolveLocalContext(req), (req.params as {id: string}).id, localDate).catch(mapIntegrationError);
   });
 
   app.get("/v1/proactive/integrations/xiaomi-health/:id/samples", async (req) => {
     const query = req.query as Record<string, unknown>;
-    return {items: await repo.listHealthSamples(resolveTenant(req), {
+    return {items: await repo.listHealthSamples(resolveLocalContext(req), {
       connectionId: (req.params as {id: string}).id,
       metric: optionalText(query.metric),
       from: optionalText(query.from),
@@ -268,7 +268,7 @@ export function registerProactiveIntegrationRoutes(
   });
 
   app.delete("/v1/proactive/integrations/xiaomi-health/:id", async (req, reply) => {
-    const deleted = await repo.deleteConnection(resolveTenant(req), (req.params as {id: string}).id);
+    const deleted = await repo.deleteConnection(resolveLocalContext(req), (req.params as {id: string}).id);
     return deleted ? reply.code(204).send() : reply.code(404).send({error: "xiaomi_health_connection_not_found"});
   });
 }

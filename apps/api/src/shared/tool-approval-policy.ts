@@ -7,7 +7,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { LocalContext } from "@aervox/repositories";
 import type { ToolApprovalMode } from "@aervox/contracts";
-import { resolveTenant } from "./tenant.js";
+import { resolveLocalContext } from "./local-context.js";
 
 const requestModes = new WeakMap<LocalContext, ToolApprovalMode>();
 
@@ -30,6 +30,6 @@ export function createToolApprovalPolicyHook() {
     if (req.routeOptions.url !== "/v1/sessions/:sessionId/turns") return;
     const body = (req.body ?? {}) as { toolApprovalMode?: unknown };
     const mode: ToolApprovalMode = body.toolApprovalMode === "full_access" ? "full_access" : "ask";
-    setRequestToolApprovalMode(resolveTenant(req), mode);
+    setRequestToolApprovalMode(resolveLocalContext(req), mode);
   };
 }

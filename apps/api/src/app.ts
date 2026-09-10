@@ -136,7 +136,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
 
   // 统一错误序列化（缺陷6/B）：ApiError/DatabaseError → { error, code, message }；其余保持 Fastify 默认
   // DatabaseError 携带领域语义（NOT_FOUND/FORBIDDEN/CONFLICT），在此映射为 HTTP 状态码，
-  // 避免数据层裸 Error 被当作 500（跨租户越权应 403、租户内缺失应 404、领域冲突应 409）。
+  // 避免数据层裸 Error 被当作 500（资源访问拒绝应 403、资源缺失应 404、领域冲突应 409）。
   const dbCodeToApi: Record<DatabaseError["domainCode"], { code: ApiErrorCode; status: number }> = {
     NOT_FOUND: { code: "NOT_FOUND", status: 404 },
     FORBIDDEN: { code: "FORBIDDEN", status: 403 },

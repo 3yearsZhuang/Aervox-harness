@@ -11,7 +11,7 @@ import {
   updateMemoryScopeRequestSchema,
   updatePersonaRequestSchema,
 } from "@aervox/contracts";
-import { resolveTenant } from "../../shared/tenant.js";
+import { resolveLocalContext } from "../../shared/local-context.js";
 import type { PersonaService } from "./service.js";
 
 function asBase64(bytes: Uint8Array): string {
@@ -35,7 +35,7 @@ function sendError(
 export function registerPersonaRoutes(app: FastifyInstance, service: PersonaService): void {
   // GET /v1/personas
   app.get("/v1/personas", async (request) => {
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     const list = await service.listPersonas(tenant);
     const active = await service.getActivePersona(tenant);
     return { personas: list, active: active ?? null };
@@ -47,7 +47,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
     if (!parsed.success) {
       return sendError(reply, 400, "INVALID_PERSONA", "Invalid persona request", parsed.error.issues);
     }
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     try {
       const created = await service.createPersona(tenant, {
         name: parsed.data.name,
@@ -68,7 +68,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
   // GET /v1/personas/:personaId
   app.get("/v1/personas/:personaId", async (request, reply) => {
     const { personaId } = request.params as { personaId: string };
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     const result = await service.getPersona(tenant, personaId);
     if (!result) return sendError(reply, 404, "PERSONA_NOT_FOUND", "Persona not found");
     return result;
@@ -81,7 +81,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
     if (!parsed.success) {
       return sendError(reply, 400, "INVALID_PERSONA", "Invalid persona update", parsed.error.issues);
     }
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     try {
       const updated = await service.updatePersona(tenant, {
         personaId,
@@ -106,7 +106,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
   // DELETE /v1/personas/:personaId
   app.delete("/v1/personas/:personaId", async (request, reply) => {
     const { personaId } = request.params as { personaId: string };
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     const ok = await service.deletePersona(tenant, personaId);
     if (!ok) return sendError(reply, 404, "PERSONA_NOT_FOUND", "Persona not found");
     return { deleted: true, personaId };
@@ -119,7 +119,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
     if (!parsed.success) {
       return sendError(reply, 400, "INVALID_PERSONA", "Invalid activation request", parsed.error.issues);
     }
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     const selection = await service.activatePersona(tenant, personaId, parsed.data.revisionId);
     if (!selection) return sendError(reply, 404, "PERSONA_NOT_FOUND", "Persona or revision not found");
     return selection;
@@ -128,7 +128,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
   // POST /v1/personas/:personaId/export
   app.post("/v1/personas/:personaId/export", async (request, reply) => {
     const { personaId } = request.params as { personaId: string };
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     try {
       const exported = await service.exportBundle(tenant, personaId);
       const persona = await service.getPersona(tenant, personaId);
@@ -156,7 +156,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
     if (!parsed.success) {
       return sendError(reply, 400, "INVALID_BUNDLE", "Invalid persona bundle request", parsed.error.issues);
     }
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     try {
       return service.previewBundle(fromBase64(parsed.data.bundleBase64), tenant.workspaceId);
     } catch (error) {
@@ -175,7 +175,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
     if (!parsed.success) {
       return sendError(reply, 400, "INVALID_BUNDLE", "Invalid persona bundle request", parsed.error.issues);
     }
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     try {
       const imported = await service.importBundle(
         tenant,
@@ -216,7 +216,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
     if (!parsed.success) {
       return sendError(reply, 400, "INVALID_REVIEW", "Invalid review request", parsed.error.issues);
     }
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     const updated = await service.reviewPersona(
       tenant,
       personaId,
@@ -230,7 +230,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
   // GET /v1/personas/:personaId/revisions — 列出所有修订
   app.get("/v1/personas/:personaId/revisions", async (request, reply) => {
     const { personaId } = request.params as { personaId: string };
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     const persona = await service.getPersona(tenant, personaId);
     if (!persona) return sendError(reply, 404, "PERSONA_NOT_FOUND", "Persona not found");
     const revisions = await service.listPersonaRevisions(tenant, personaId);
@@ -244,7 +244,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
     if (!parsed.success) {
       return sendError(reply, 400, "INVALID_ROLLBACK", "Invalid rollback request", parsed.error.issues);
     }
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     const result = await service.rollbackPersona(
       tenant,
       personaId,
@@ -258,14 +258,14 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
   // GET /v1/personas/:personaId/switch-history — 获取切换历史
   app.get("/v1/personas/:personaId/switch-history", async (request) => {
     const { personaId } = request.params as { personaId: string };
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     const history = await service.getSwitchHistory(tenant, personaId);
     return { history };
   });
 
   // GET /v1/personas/switch-history — 获取全部切换历史
   app.get("/v1/personas/switch-history", async (request) => {
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     const history = await service.getSwitchHistory(tenant);
     return { history };
   });
@@ -273,7 +273,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
   // GET /v1/personas/:personaId/memory-scope — 获取记忆范围配置
   app.get("/v1/personas/:personaId/memory-scope", async (request, reply) => {
     const { personaId } = request.params as { personaId: string };
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     const persona = await service.getPersona(tenant, personaId);
     if (!persona) return sendError(reply, 404, "PERSONA_NOT_FOUND", "Persona not found");
     const scope = await service.getMemoryScope(tenant, personaId);
@@ -287,7 +287,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
     if (!parsed.success) {
       return sendError(reply, 400, "INVALID_MEMORY_SCOPE", "Invalid memory scope request", parsed.error.issues);
     }
-    const tenant = resolveTenant(request);
+    const tenant = resolveLocalContext(request);
     const persona = await service.getPersona(tenant, personaId);
     if (!persona) return sendError(reply, 404, "PERSONA_NOT_FOUND", "Persona not found");
     const scope = await service.updateMemoryScope(tenant, personaId, {

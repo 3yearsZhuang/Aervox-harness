@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/api — 契约骨架与 SQLite 持久化接入
  *
- * 暴露流式协议与用户侧业务路由，基于 @aervox/repositories (SQLite + Drizzle) 实现租户隔离与落库。
+ * 暴露流式协议与用户侧业务路由，基于 @aervox/repositories (SQLite + Drizzle) 实现本地单用户落库。
  * 规则依据：docs/reference/STREAMING_PROTOCOL.md + docs/reference/DATABASE.md + @aervox/contracts。
  */
 import { buildApp } from "./app.js";
