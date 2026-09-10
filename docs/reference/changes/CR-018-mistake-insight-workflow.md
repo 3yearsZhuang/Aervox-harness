@@ -4,11 +4,11 @@ type: reference
 scope: change
 owner: learning
 doc_status: review-candidate
-decision_status: proposed
+decision_status: accepted
 delivery_status: implemented
 version: 0.2.0
-updated_at: 2026-08-28
-reviewed_at: 2026-08-28
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 sources:
   - docs/reference/SRS.md
@@ -18,7 +18,7 @@ sources:
 # CR-018 错题错因记录工作流
 
 - 提出人：kikoyida · 2026-08-28
-- 修改人：kikoyida · 2026-08-28
+- 修改人：3yearszhuang · 2026-09-10
 
 关联：[SRS](../SRS.md#fr-prc-001-练习判定与错题)、[需求追踪](../REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)、[CR-009](CR-009-mistake-book-dismissal.md)
 

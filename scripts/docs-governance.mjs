@@ -124,6 +124,7 @@ function parseMetadata(file, text) {
     : text.split("\n").slice(0, 30).join("\n");
   const fields = frontMatter.fields;
   const isTemplate = relative.startsWith("templates/");
+  const isArchive = relative.startsWith("archive/");
   const isNavigation = relative === "README.md" || relative === "DOC_REGISTRY.md" || relative === "getting-started.md" || relative === "reference/adr/README.md";
   const isAdr = relative.startsWith("reference/adr/") && basename !== "README.md";
   const isChange = relative.startsWith("reference/changes/");
@@ -176,6 +177,7 @@ function parseMetadata(file, text) {
     frontMatter,
     fields,
     isTemplate,
+    isArchive,
     isNavigation,
     isAdr,
     isChange,
@@ -256,6 +258,7 @@ function removeFencedCode(text) {
 
 function checkLinks(metadataByFile) {
   for (const [file, metadata] of metadataByFile) {
+    if (metadata.isArchive) continue;
     const linkText = removeFencedCode(metadata.text);
     for (const match of linkText.matchAll(/\[[^\]]*\]\(([^)]+)\)/g)) {
       const target = parseLinkTarget(match[1]);
@@ -322,7 +325,7 @@ function checkRegistry(metadataByFile) {
   }
 
   for (const [file, metadata] of metadataByFile) {
-    if (metadata.isTemplate || metadata.basename === "LICENSE" || metadata.isNavigation || !metadata.usesCanonicalFrontMatter) continue;
+    if (metadata.isTemplate || metadata.isArchive || metadata.basename === "LICENSE" || metadata.isNavigation || !metadata.usesCanonicalFrontMatter) continue;
     metrics.canonicalFiles += 1;
     if (!registeredPaths.has(file)) {
       metrics.registryMissingEntries += 1;
@@ -361,7 +364,7 @@ function checkMetadata(metadataByFile, policy) {
 
   for (const [file, metadata] of metadataByFile) {
     metrics.markdownFiles += 1;
-    if (metadata.isTemplate || metadata.basename === "LICENSE") continue;
+    if (metadata.isTemplate || metadata.isArchive || metadata.basename === "LICENSE") continue;
     metrics.governedFiles += 1;
 
     if (metadata.id && !metadata.id.includes("###") && !metadata.id.includes("~")) {

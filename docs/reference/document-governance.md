@@ -7,8 +7,8 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.1.0
-updated_at: 2026-08-28
-reviewed_at: 2026-08-28
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 review_triggers:
   - docs/**
@@ -24,7 +24,7 @@ sources:
 # 文档治理与事实源规范
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：3yearszhuang · 2026-09-10
 
 关联：[文档索引](../README.md)、[文档写作规范](standards/doc-standards.md)、[生命周期登记表](../DOC_REGISTRY.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)、[工程与发布流程](../how-to/engineering-process.md)
 
@@ -132,6 +132,7 @@ sources:
 - CR 的 `decision_status` 和 `delivery_status` 不得只写在正文中；必须各有一个机器字段。
 - `superseded` 文档必须填写 `superseded_by`，并在旧文档顶部放迁移链接。
 - “More Evidence Required”只能作为决策状态，不能同时当作文档类型状态。
+- **提案（Proposals）生命周期**：`docs/proposals/` 用于存放尚未进入基线的探索提案（`doc_status: draft` / `scope: proposal`）。提案在经评审决定采纳后，须转写为正式的 ADR（架构决策）或 CR（变更请求）并迁移至 `reference/` 进入基线；若未被采纳或搁置，状态转为 `rejected` 或 `retired`，移入 `docs/archive/` 留存，不留存在生产基线中。
 
 ## 5. 维护责任和更新触发器
 

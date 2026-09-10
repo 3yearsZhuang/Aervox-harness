@@ -4,11 +4,11 @@ type: reference
 scope: change
 owner: maintainers
 doc_status: review-candidate
-decision_status: proposed
+decision_status: accepted
 delivery_status: implemented
 version: 0.1.0
-updated_at: 2026-08-28
-reviewed_at: 2026-08-28
+updated_at: 2026-09-10
+reviewed_at: 2026-09-10
 review_interval_days: 90
 review_triggers:
   - docs/reference/capability-registry.md
@@ -23,7 +23,7 @@ sources:
 # CR-019 能力注册表状态同步：CAP-010~019 主仓交付裁定
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-08-28
+- 修改人：3yearszhuang · 2026-09-10
 
 关联：[能力注册表](../capability-registry.md)、[能力组合规范](../capability-composition.md)、[需求追踪基线](../REQUIREMENTS_TRACEABILITY.md)、[生命周期登记表](../../DOC_REGISTRY.md)
 
