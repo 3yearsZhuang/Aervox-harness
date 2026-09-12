@@ -456,6 +456,38 @@ export class SqliteConversationRepository implements IConversationRepository {
     return rows as MessageVersionModel[];
   }
 
+  /**
+   * 将指定 Turn 下全部消息版本标记为脱敏（CAP-008：危机干预时阻断进入日记与记忆素材）
+   */
+  async redactTurnMessages(tenant: LocalContext, turnId: string): Promise<void> {
+    await this.db
+      .update(messageVersions)
+      .set({ isRedacted: 1 })
+      .where(eq(messageVersions.turnId, turnId));
+  }
+
+  /**
+   * 写入已脱敏的助手消息版本（CAP-008：危机求助固定回复，避免被日记/记忆提取收集）
+   */
+  async appendRedactedAssistantMessage(
+    tenant: LocalContext,
+    input: { id: string; turnId: string; content: string },
+  ): Promise<MessageVersionModel> {
+    const [created] = await this.db
+      .insert(messageVersions)
+      .values({
+        id: input.id,
+        turnId: input.turnId,
+        role: "assistant",
+        version: 2,
+        content: input.content,
+        isRedacted: 1,
+        createdAt: new Date().toISOString(),
+      })
+      .returning();
+    return created as MessageVersionModel;
+  }
+
   // ============ MVP 补齐（PRD §8）：Message 身份 / TurnAttempt ============
 
   async createMessage(

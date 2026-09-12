@@ -6643,6 +6643,106 @@
           "apiBaseUrl",
           "accessToken"
         ]
+      },
+      "SafetyIncident": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "disposition": {
+            "type": "string"
+          },
+          "policyVersion": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "category",
+          "severity",
+          "disposition",
+          "policyVersion",
+          "createdAt"
+        ]
+      },
+      "RegionalHelpline": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "hours": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "phone",
+          "region",
+          "description",
+          "hours"
+        ]
+      },
+      "SafetyResourcesResponse": {
+        "type": "object",
+        "properties": {
+          "policyVersion": {
+            "type": "string"
+          },
+          "helplines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "phone": {
+                  "type": "string"
+                },
+                "region": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "hours": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "phone",
+                "region",
+                "description",
+                "hours"
+              ]
+            }
+          }
+        },
+        "required": [
+          "policyVersion",
+          "helplines"
+        ]
       }
     },
     "parameters": {}
@@ -21428,6 +21528,146 @@
                     "term",
                     "kind",
                     "content"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/safety/resources": {
+      "get": {
+        "summary": "获取危机干预与求助热线资源列表（CAP-008）",
+        "tags": [
+          "Safety"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "region",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Crisis helplines and safety policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "policyVersion": {
+                      "type": "string"
+                    },
+                    "helplines": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "phone": {
+                            "type": "string"
+                          },
+                          "region": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "hours": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "phone",
+                          "region",
+                          "description",
+                          "hours"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "policyVersion",
+                    "helplines"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/safety/incidents": {
+      "get": {
+        "summary": "获取安全事件审计记录列表（CAP-008）",
+        "tags": [
+          "Safety"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Safety incident audit list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "category": {
+                            "type": "string"
+                          },
+                          "severity": {
+                            "type": "string"
+                          },
+                          "disposition": {
+                            "type": "string"
+                          },
+                          "policyVersion": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "category",
+                          "severity",
+                          "disposition",
+                          "policyVersion",
+                          "createdAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
                   ]
                 }
               }

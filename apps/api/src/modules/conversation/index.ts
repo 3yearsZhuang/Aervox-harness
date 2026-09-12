@@ -31,6 +31,7 @@ export function registerConversationModule(ctx: ModuleContext): void {
     db,
     toolRuntime,
     llmConfigService,
+    safetyService,
     workflows,
     proactiveActionAuthorizer,
     proactiveRepository,
@@ -51,6 +52,7 @@ export function registerConversationModule(ctx: ModuleContext): void {
   registerConversationRoutes(app, conversationRepo, {
     toolRuntime,
     llmConfigService,
+    safetyService,
     privacyRepo,
     extensionRepo,
     pluginConfigRepo,

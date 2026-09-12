@@ -20,6 +20,7 @@ import type { SkillManager } from "./skills/skill-manager.js";
 import type { ProactiveActionAuthorizer } from "./proactive/action-authorizer.js";
 import type { PersonaService } from "./persona/service.js";
 import type { Observability } from "@aervox/observability";
+import type { SafetyService } from "./safety/service.js";
 
 export interface ModuleContext {
   app: FastifyInstance;
@@ -40,6 +41,8 @@ export interface ModuleContext {
   toolRuntime?: ToolRuntime;
   /** LLM 配置服务（llm 模块填充；conversation 读取） */
   llmConfigService?: LLMConfigService;
+  /** 安全与危机干预服务（safety 模块填充；conversation 读取） */
+  safetyService?: SafetyService;
   /** 语音服务（voice 模块填充；persona 读取） */
   voiceService?: VoiceService;
   /** Skill 管理器（skills 模块填充；persona 读取） */
