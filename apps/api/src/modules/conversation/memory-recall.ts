@@ -51,9 +51,12 @@ export function createSqliteMemoryRecall(deps: {
         // 空向量与不同维度向量的相似度为 0；正阈值保证失败时干净降级到 FTS。
         minVectorScore: 0.15,
       });
+      if (hits.length === 0) return [];
+      const records = await memoryRepo.getRecordsByIds(tenant, hits.map((h) => h.id));
+      const recordMap = new Map(records.map((r) => [r.id, r]));
       const recalled: RecalledMemory[] = [];
       for (const hit of hits) {
-        const record = await memoryRepo.getRecord(tenant, hit.id);
+        const record = recordMap.get(hit.id);
         if (!record || record.verificationStatus !== "verified" || record.layer !== "long_term") continue;
         recalled.push({
           id: record.id,

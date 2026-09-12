@@ -216,7 +216,7 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
             liveAssistantLine.text = '';
           }
           liveAssistantLine.text += delta;
-          void conversation.scrollStoryToBottom();
+          void conversation.scrollStoryToBottom({ instant: true });
           const now = Date.now();
           if (now - lastSpeakAt > 1200 && delta.trim()) {
             lastSpeakAt = now;
@@ -231,6 +231,7 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
             liveAssistantLine.text = '';
           }
           if (!liveAssistantLine.text) liveAssistantLine.text = '这次没有收到可展示的回答，请再试一次。';
+          void conversation.scrollStoryToBottom();
           petReactKind('glad', { expression: MizukiExpression.face_smile_01, speak: liveAssistantLine.text });
         },
         onUserQuestion: (qData) => {

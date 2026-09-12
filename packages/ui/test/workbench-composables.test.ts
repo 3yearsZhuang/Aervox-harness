@@ -116,4 +116,31 @@ describe('Workbench Composables Logic', () => {
     handleSettingsClosed(mockWindow);
     expect(reloadCount).toBe(1);
   });
+
+  it('scrollStoryToBottom handles instant mode and rAF batching during streaming', async () => {
+    const { useWorkbenchConversation } = await import('../src/composables/useWorkbenchConversation');
+    const conv = useWorkbenchConversation({
+      recordActivity: () => {},
+    });
+
+    let scrollToCalled = 0;
+    const mockViewport = {
+      scrollTop: 0,
+      scrollHeight: 800,
+      scrollTo: () => { scrollToCalled++; },
+      querySelector: () => null,
+    };
+    conv.storyViewport.value = mockViewport as any;
+
+    // instant 模式应使用 scrollTop 赋值，而不是 scrollTo({ behavior: 'smooth' })
+    await conv.scrollStoryToBottom({ instant: true });
+    // 等待微任务/定时器调度
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(mockViewport.scrollTop).toBe(800);
+    expect(scrollToCalled).toBe(0);
+
+    // 非 instant 模式应触发 scrollTo 平滑滚动
+    await conv.scrollStoryToBottom();
+    expect(scrollToCalled).toBe(1);
+  });
 });
