@@ -295,4 +295,50 @@ describe("T-04 工具注册表 + AST-04 门控 + PET-05 安全级别", () => {
     expect(exported[1].id).toBe("tool_mid");
     expect(exported[2].id).toBe("tool_low");
   });
+
+  it("setToolsEnabledByPlugin 与 unregisterToolsByPlugin：批量按插件管理工具", async () => {
+    await repo.registerTool({
+      id: "plugin_tool_1",
+      name: "Tool 1",
+      description: "插件工具 1",
+      category: "system",
+      pluginId: "plugin_x",
+      builtin: false,
+    });
+    await repo.registerTool({
+      id: "plugin_tool_2",
+      name: "Tool 2",
+      description: "插件工具 2",
+      category: "system",
+      pluginId: "plugin_x",
+      builtin: false,
+    });
+    await repo.registerTool({
+      id: "plugin_tool_other",
+      name: "Other Tool",
+      description: "其他插件工具",
+      category: "system",
+      pluginId: "plugin_y",
+      builtin: false,
+    });
+
+    // 1. 批量停用 plugin_x
+    const disabledCount = await repo.setToolsEnabledByPlugin("plugin_x", false);
+    expect(disabledCount).toBe(2);
+    expect((await repo.getTool("plugin_tool_1"))!.enabled).toBe(0);
+    expect((await repo.getTool("plugin_tool_2"))!.enabled).toBe(0);
+    expect((await repo.getTool("plugin_tool_other"))!.enabled).toBe(1);
+
+    // 2. 批量重新启用 plugin_x
+    const enabledCount = await repo.setToolsEnabledByPlugin(["plugin_x"], true);
+    expect(enabledCount).toBe(2);
+    expect((await repo.getTool("plugin_tool_1"))!.enabled).toBe(1);
+
+    // 3. 批量注销 plugin_x 所有工具
+    const deletedCount = await repo.unregisterToolsByPlugin("plugin_x");
+    expect(deletedCount).toBe(2);
+    expect(await repo.getTool("plugin_tool_1")).toBeNull();
+    expect(await repo.getTool("plugin_tool_2")).toBeNull();
+    expect(await repo.getTool("plugin_tool_other")).not.toBeNull();
+  });
 });

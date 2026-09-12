@@ -80,4 +80,41 @@ describe("ADR-007: 记忆树 SQLite WITH RECURSIVE CTE 递归投影测试", () =
     expect(newtonNode.depth).toBe(2);
     expect(newtonNode.path).toBe("mem_root_science/mem_physics/mem_newton");
   });
+
+  it("getRecordsByIds 支持批量单次查询并正确过滤软删除和不存在记录", async () => {
+    const mem1 = await repo.createRecord(tenant, {
+      id: "mem_batch_1",
+      layer: "long_term",
+      type: "user_fact",
+      content: "记忆1",
+    });
+    const mem2 = await repo.createRecord(tenant, {
+      id: "mem_batch_2",
+      layer: "long_term",
+      type: "user_fact",
+      content: "记忆2",
+    });
+    const mem3 = await repo.createRecord(tenant, {
+      id: "mem_batch_3",
+      layer: "long_term",
+      type: "user_fact",
+      content: "记忆3",
+    });
+
+    // 软删除 mem3
+    await repo.softDeleteRecord(tenant, mem3.id);
+
+    // 空数组测试
+    const emptyResult = await repo.getRecordsByIds(tenant, []);
+    expect(emptyResult).toEqual([]);
+
+    // 批量查询测试
+    const records = await repo.getRecordsByIds(tenant, [mem1.id, mem2.id, mem3.id, "mem_non_existent"]);
+    expect(records).toHaveLength(2);
+    const ids = records.map((r) => r.id);
+    expect(ids).toContain(mem1.id);
+    expect(ids).toContain(mem2.id);
+    expect(ids).not.toContain(mem3.id);
+    expect(ids).not.toContain("mem_non_existent");
+  });
 });

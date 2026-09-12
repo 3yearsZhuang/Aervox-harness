@@ -708,6 +708,7 @@ export async function runLoopTurnOnce(
         extRepo,
         deps.pluginConfigRepo,
         beforeTurnExec.pluginResults,
+        beforeTurnExec.snapshots,
       );
     });
     return;
@@ -785,13 +786,12 @@ export async function runLoopTurnOnce(
           sessionId: input.sessionId,
           beforeTurnId: input.turnId,
         });
-        const previous = await history;
         memoryContext ??= deps.memoryRecall
           ? deps.memoryRecall.recall(tenant, input.userMessage)
               .then(buildMemoryContext)
               .catch(() => null)
           : Promise.resolve(null);
-        const recalled = await memoryContext;
+        const [previous, recalled] = await Promise.all([history, memoryContext]);
         const index = context.messages.findIndex((message) => message.role !== "system");
         const insertion = index < 0 ? context.messages.length : index;
         return {
@@ -853,6 +853,7 @@ export async function runLoopTurnOnce(
       extRepo,
       deps.pluginConfigRepo,
       beforeTurnExec.pluginResults,
+      beforeTurnExec.snapshots,
     );
   }
 }

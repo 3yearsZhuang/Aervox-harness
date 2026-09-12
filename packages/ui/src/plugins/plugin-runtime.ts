@@ -62,63 +62,65 @@ export function createWorkbenchPluginRuntime(
     const syncSeq = ++currentSyncSeq;
     const context = getContext();
 
-    for (const def of customPlugins) {
-      const match = plugins.find(
-        (p) => p.id === def.id || (def.id === 'focus-mode' && p.id === 'study-mode') || (def.id === 'study-mode' && p.id === 'focus-mode'),
-      );
-      const isEnabled = match ? match.enabled !== 0 : true;
+    await Promise.all(
+      customPlugins.map(async (def) => {
+        const match = plugins.find(
+          (p) => p.id === def.id || (def.id === 'focus-mode' && p.id === 'study-mode') || (def.id === 'study-mode' && p.id === 'focus-mode'),
+        );
+        const isEnabled = match ? match.enabled !== 0 : true;
 
-      availablePlugins.value[def.id] = isEnabled;
-      if (def.id === 'focus-mode') availablePlugins.value['study-mode'] = isEnabled;
-      if (def.id === 'study-mode') availablePlugins.value['focus-mode'] = isEnabled;
+        availablePlugins.value[def.id] = isEnabled;
+        if (def.id === 'focus-mode') availablePlugins.value['study-mode'] = isEnabled;
+        if (def.id === 'study-mode') availablePlugins.value['focus-mode'] = isEnabled;
 
-      if (!isEnabled) {
-        // 插件停用：注销其注册的所有插槽及拦截器
-        const cleanup = activeCleanups.get(def.id);
-        if (cleanup) {
+        if (!isEnabled) {
+          // 插件停用：注销其注册的所有插槽及拦截器
+          const cleanup = activeCleanups.get(def.id);
+          if (cleanup) {
+            try {
+              cleanup();
+            } catch (err) {
+              console.error(`[PluginRuntime] Error cleaning up plugin "${def.id}":`, err);
+            }
+            activeCleanups.delete(def.id);
+          }
+          // 触发停用钩子
           try {
-            cleanup();
+            def.onDisable?.(context);
           } catch (err) {
-            console.error(`[PluginRuntime] Error cleaning up plugin "${def.id}":`, err);
+            console.error(`[PluginRuntime] Error in onDisable for plugin "${def.id}":`, err);
           }
-          activeCleanups.delete(def.id);
-        }
-        // 触发停用钩子
-        try {
-          def.onDisable?.(context);
-        } catch (err) {
-          console.error(`[PluginRuntime] Error in onDisable for plugin "${def.id}":`, err);
-        }
-      } else {
-        // 插件启用：若此前未激活或已被注销，则重新激活
-        if (!activeCleanups.has(def.id)) {
-          try {
-            const unregister = def.setup(registry, context);
-            if (typeof unregister === 'function') {
-              activeCleanups.set(def.id, unregister);
+        } else {
+          // 插件启用：若此前未激活或已被注销，则重新激活
+          if (!activeCleanups.has(def.id)) {
+            try {
+              const unregister = def.setup(registry, context);
+              if (typeof unregister === 'function') {
+                activeCleanups.set(def.id, unregister);
+              }
+            } catch (err) {
+              console.error(`[PluginRuntime] Error re-activating plugin "${def.id}":`, err);
             }
-          } catch (err) {
-            console.error(`[PluginRuntime] Error re-activating plugin "${def.id}":`, err);
           }
-        }
 
-        // 通用拉取配置并分发给插件自身处理（宿主零硬编码感知具体字段）
-        if (def.onConfig) {
-          try {
-            let snapshot = await getConfig(def.id);
-            if (!snapshot?.values && def.id === 'focus-mode') {
-              snapshot = await getConfig('study-mode');
+          // 通用拉取配置并分发给插件自身处理（宿主零硬编码感知具体字段）
+          if (def.onConfig) {
+            try {
+              let snapshot = await getConfig(def.id);
+              if (!snapshot?.values && def.id === 'focus-mode') {
+                snapshot = await getConfig('study-mode');
+              }
+              // 并发防竞态校验：仅当本轮 sync 为最新且该插件当前仍处于启用状态时才生效
+              if (syncSeq === currentSyncSeq && availablePlugins.value[def.id] && snapshot?.values) {
+                await def.onConfig(snapshot.values, context);
+              }
+            } catch {
+              // 忽略非致命配置拉取异常
             }
-            // 并发防竞态校验：仅当本轮 sync 为最新且该插件当前仍处于启用状态时才生效
-            if (syncSeq === currentSyncSeq && availablePlugins.value[def.id] && snapshot?.values) {
-              await def.onConfig(snapshot.values, context);
-            }
-          } catch {
-            // 忽略非致命配置拉取异常
           }
         }
-      }
-    }
+      }),
+    );
   }
 
   function isPluginAvailable(pluginId: string): boolean {

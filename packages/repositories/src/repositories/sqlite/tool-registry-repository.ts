@@ -10,7 +10,7 @@
  * - 内置工具（builtin = 1）不可注销，只能禁用；
  * - PET-05 safetyLevel 标记只读白名单，read_only 可被 AI 自主调用。
  */
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { toolRegistrations } from "@aervox/schema";
 import type { IToolRegistryRepository, ToolRegistrationModel } from "../types/index.js";
@@ -113,6 +113,18 @@ export class SqliteToolRegistryRepository implements IToolRegistryRepository {
     return (updated as ToolRegistrationModel) ?? null;
   }
 
+  async setToolsEnabledByPlugin(pluginId: string | string[], enabled: boolean): Promise<number> {
+    const pluginIds = Array.isArray(pluginId) ? pluginId.filter(Boolean) : [pluginId];
+    if (pluginIds.length === 0) return 0;
+    const now = new Date().toISOString();
+    const updated = await this.db
+      .update(toolRegistrations)
+      .set({ enabled: enabled ? 1 : 0, updatedAt: now })
+      .where(inArray(toolRegistrations.pluginId, pluginIds))
+      .returning({ id: toolRegistrations.id });
+    return updated.length;
+  }
+
   async unregisterTool(id: string): Promise<boolean> {
     // 内置工具不可注销
     const [tool] = await this.db
@@ -125,6 +137,14 @@ export class SqliteToolRegistryRepository implements IToolRegistryRepository {
 
     await this.db.delete(toolRegistrations).where(eq(toolRegistrations.id, id));
     return true;
+  }
+
+  async unregisterToolsByPlugin(pluginId: string): Promise<number> {
+    const deleted = await this.db
+      .delete(toolRegistrations)
+      .where(and(eq(toolRegistrations.pluginId, pluginId), eq(toolRegistrations.builtin, 0)))
+      .returning({ id: toolRegistrations.id });
+    return deleted.length;
   }
 
   async exportRegistry(

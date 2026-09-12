@@ -24,6 +24,7 @@ export interface IMemoryRepository {
     },
   ): Promise<MemoryRecordModel>;
   getRecord(tenant: LocalContext, id: string): Promise<MemoryRecordModel | null>;
+  getRecordsByIds(tenant: LocalContext, ids: string[]): Promise<MemoryRecordModel[]>;
   listRecordsByLayer(tenant: LocalContext, layer: string): Promise<MemoryRecordModel[]>;
   createEdge(
     tenant: LocalContext,

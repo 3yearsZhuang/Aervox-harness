@@ -89,6 +89,46 @@ describe("CAP-020: Skill 注册表仓储", () => {
     });
     expect(denied.map((s) => s.id)).toEqual(["plain"]);
   });
+
+  it("setSkillsActiveByPlugin 与 removeSkillsByPlugin：批量按插件管理技能", async () => {
+    await repo.registerSkill({
+      id: "skill_1",
+      name: "Skill 1",
+      description: "技能 1",
+      pluginId: "plugin_alpha",
+    });
+    await repo.registerSkill({
+      id: "skill_2",
+      name: "Skill 2",
+      description: "技能 2",
+      pluginId: "plugin_alpha",
+    });
+    await repo.registerSkill({
+      id: "skill_other",
+      name: "Other Skill",
+      description: "其他技能",
+      pluginId: "plugin_beta",
+    });
+
+    // 1. 批量停用 plugin_alpha
+    const deactivatedCount = await repo.setSkillsActiveByPlugin("plugin_alpha", false);
+    expect(deactivatedCount).toBe(2);
+    expect((await repo.getSkill("skill_1"))!.active).toBe(0);
+    expect((await repo.getSkill("skill_2"))!.active).toBe(0);
+    expect((await repo.getSkill("skill_other"))!.active).toBe(1);
+
+    // 2. 批量重新启用
+    const activatedCount = await repo.setSkillsActiveByPlugin(["plugin_alpha"], true);
+    expect(activatedCount).toBe(2);
+    expect((await repo.getSkill("skill_1"))!.active).toBe(1);
+
+    // 3. 批量移除
+    const removedCount = await repo.removeSkillsByPlugin("plugin_alpha");
+    expect(removedCount).toBe(2);
+    expect(await repo.getSkill("skill_1")).toBeNull();
+    expect(await repo.getSkill("skill_2")).toBeNull();
+    expect(await repo.getSkill("skill_other")).not.toBeNull();
+  });
 });
 
 describe("CAP-020: Skill Neo 生命周期仓储", () => {

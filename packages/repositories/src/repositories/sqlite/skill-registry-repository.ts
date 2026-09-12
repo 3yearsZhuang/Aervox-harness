@@ -10,7 +10,7 @@
  * - readonly=1（插件内置）拒绝注销，只允许启停；
  * - exportSkills 按 active + 门控条件过滤，供渐进式披露/运行时消费。
  */
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { skillRegistrations } from "@aervox/schema";
 import type { ISkillRegistryRepository, SkillRegistrationModel } from "../types/index.js";
@@ -114,6 +114,18 @@ export class SqliteSkillRegistryRepository implements ISkillRegistryRepository {
     return (updated as SkillRegistrationModel) ?? null;
   }
 
+  async setSkillsActiveByPlugin(pluginId: string | string[], active: boolean): Promise<number> {
+    const pluginIds = Array.isArray(pluginId) ? pluginId.filter(Boolean) : [pluginId];
+    if (pluginIds.length === 0) return 0;
+    const now = new Date().toISOString();
+    const updated = await this.db
+      .update(skillRegistrations)
+      .set({ active: active ? 1 : 0, updatedAt: now })
+      .where(inArray(skillRegistrations.pluginId, pluginIds))
+      .returning({ id: skillRegistrations.id });
+    return updated.length;
+  }
+
   async unregisterSkill(id: string): Promise<boolean> {
     // readonly 技能（插件内置）不可注销
     const [skill] = await this.db
@@ -139,6 +151,14 @@ export class SqliteSkillRegistryRepository implements ISkillRegistryRepository {
 
     await this.db.delete(skillRegistrations).where(eq(skillRegistrations.id, id));
     return true;
+  }
+
+  async removeSkillsByPlugin(pluginId: string): Promise<number> {
+    const deleted = await this.db
+      .delete(skillRegistrations)
+      .where(eq(skillRegistrations.pluginId, pluginId))
+      .returning({ id: skillRegistrations.id });
+    return deleted.length;
   }
 
   async touchSkill(id: string): Promise<SkillRegistrationModel | null> {

@@ -94,7 +94,34 @@ export function useWorkbenchConversation(options: {
     return { id: nextStoryId++, speaker, text, state };
   }
 
-  async function scrollStoryToBottom() {
+  let scrollRafId: ReturnType<typeof requestAnimationFrame> | ReturnType<typeof setTimeout> | null = null;
+
+  async function scrollStoryToBottom(options?: { instant?: boolean }) {
+    if (options?.instant) {
+      if (scrollRafId !== null) {
+        if (typeof cancelAnimationFrame !== 'undefined' && typeof scrollRafId === 'number') {
+          cancelAnimationFrame(scrollRafId);
+        } else if (typeof clearTimeout !== 'undefined') {
+          clearTimeout(scrollRafId as any);
+        }
+        scrollRafId = null;
+      }
+      const schedule = typeof requestAnimationFrame !== 'undefined'
+        ? requestAnimationFrame
+        : (cb: () => void) => setTimeout(cb, 0);
+
+      scrollRafId = schedule(() => {
+        scrollRafId = null;
+        if (!storyViewport.value) return;
+        storyViewport.value.scrollTop = storyViewport.value.scrollHeight;
+        const sentenceBody = storyViewport.value.querySelector(
+          '.message-novel-text .markdown-body, .message-text > .markdown-body',
+        ) as HTMLElement | null;
+        if (sentenceBody) sentenceBody.scrollTop = sentenceBody.scrollHeight;
+      });
+      return;
+    }
+
     await nextTick();
     storyViewport.value?.scrollTo({ top: storyViewport.value.scrollHeight, behavior: 'smooth' });
     const sentenceBody = storyViewport.value?.querySelector(
