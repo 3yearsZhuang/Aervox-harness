@@ -26,6 +26,8 @@ export const COUNTERS = [
   "agent.sse.reconnects",
   "agent.sse.slow_consumers",
   "agent.sse.cursor_expired",
+  "agent.safety.crisis_intercepted",
+  "agent.safety.distress_guided",
 ] as const;
 
 /** Gauge（当前值） */

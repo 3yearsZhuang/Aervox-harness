@@ -722,6 +722,8 @@ export async function runLoopTurnOnce(
   deps: {
     toolRuntime?: ToolRuntime;
     llmConfigService?: LLMConfigService;
+    /** CAP-008：安全与危机干预服务（危急阻断/资源注入/中度困扰支持） */
+    safetyService?: import("../safety/service.js").SafetyService;
     /** 2d：删除/撤权水位未追平 → Loop fail-closed（AVX-HAR-001 §11.3） */
     deletionGate?: import("@aervox/agent-loop").DeletionGatePort;
     /** 5a-2：受控收件箱消费（每 Step claim next-step → 注入 → ack；缺失时跳过） */
@@ -832,6 +834,123 @@ export async function runLoopTurnOnce(
       : undefined,
   );
   const broadcastingStore = createBroadcastingStore(store);
+
+  // CAP-008：前置安全门禁拦截（Crisis Safety Gate & Emotional Companionship）
+  // 规则依据：PRD §4.3、§6.5、SRS FR-SAFE-001。
+  // crisis_high 立即阻断 LLM 与工具调用，直推固定求助热线应答，消息脱敏（排除日记/记忆），记录安全审计；
+  // distress_moderate 注入温和共情指引至 extraSections，不升级为危机，禁病理诊断与说教。
+  if (deps.safetyService) {
+    const safetyClassification = deps.safetyService.classify(input.userMessage);
+    if (safetyClassification.level === "crisis_high") {
+      deps.observability?.metrics.emit({
+        type: "counter",
+        name: "agent.safety.crisis_intercepted",
+        value: 1,
+      });
+      deps.observability?.log.warn({
+        event: "safety.crisis_intercepted",
+        message: `Turn ${input.turnId} intercepted by crisis safety gate`,
+        fields: {
+          turnId: input.turnId,
+          sessionId: input.sessionId,
+          category: safetyClassification.category,
+          matchedPatterns: safetyClassification.matchedPatterns,
+        },
+      });
+      deps.observability?.audit.emit({
+        eventType: "safety.crisis_intercepted",
+        action: "intercept_crisis",
+        actorId: tenant.subjectUserId ?? "system",
+        scope: input.turnId,
+        payload: {
+          sessionId: input.sessionId,
+          category: safetyClassification.category,
+          policyVersion: deps.safetyService.getPolicyVersion(),
+        },
+      }).catch(() => undefined);
+
+      // 1. 将当前 Turn 的用户输入消息标记为脱敏（isRedacted = 1），彻底阻断进入日记素材与长期记忆
+      await repo.redactTurnMessages(tenant, input.turnId).catch(() => undefined);
+
+      // 2. 生成固定不可篡改、不可被 Persona 或 Prompt 覆盖的地区化危机求助应答
+      const crisisText = deps.safetyService.getCrisisResponse();
+      const assistantMsgId = `msg_${Date.now().toString(36)}_safe`;
+
+      // 3. 写入脱敏的助手危机回复版本（isRedacted = 1），同样绝不进入日记素材收集
+      await repo.appendRedactedAssistantMessage(tenant, {
+        id: assistantMsgId,
+        turnId: input.turnId,
+        content: crisisText,
+      }).catch(() => undefined);
+
+      // 4. 记录安全事件最小化审计记录
+      await deps.safetyService.recordIncident(tenant, {
+        id: `sinc_${input.turnId}`,
+        category: safetyClassification.category,
+        severity: "critical",
+        disposition: "blocked",
+        policyVersion: deps.safetyService.getPolicyVersion(),
+      }).catch(() => undefined);
+
+      // 5. 通过 broadcastingStore 广播 SSE delta + done 事件并以 Completed 终态收口
+      await broadcastingStore.appendEvent({
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        sequence: 1,
+        eventType: "delta",
+        data: {
+          messageId: assistantMsgId,
+          text: crisisText,
+        },
+        safetyDecision: "redacted",
+        expectedFencingToken: 0,
+      }).catch(() => undefined);
+
+      await broadcastingStore.appendEvent({
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        sequence: 2,
+        eventType: "done",
+        data: {
+          status: "Completed",
+          messageId: assistantMsgId,
+          isComplete: true,
+          lastSequence: 2,
+        },
+        safetyDecision: "approved",
+        expectedFencingToken: 0,
+      }).catch(() => undefined);
+
+      await broadcastingStore.finalizeAttempt({
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        status: "Completed",
+      }).catch(() => undefined);
+
+      await repo.updateTurnStatus(tenant, input.turnId, "Completed").catch(() => undefined);
+
+      // 6. 立即退出：绝对阻断大模型调用、工具执行与事后插件（绝不提取记忆、术语或知识点）
+      return;
+    }
+
+    if (safetyClassification.level === "distress_moderate") {
+      deps.observability?.metrics.emit({
+        type: "counter",
+        name: "agent.safety.distress_guided",
+        value: 1,
+      });
+      deps.observability?.log.info({
+        event: "safety.distress_guided",
+        message: `Turn ${input.turnId} emotional companionship distress guidance injected`,
+        fields: {
+          turnId: input.turnId,
+          category: safetyClassification.category,
+        },
+      });
+      // 将中度情绪困扰陪伴指引作为不可覆盖的最高优先级指引注入 extraSections
+      beforeTurnExec.extraSections.unshift(deps.safetyService.getDistressGuidance());
+    }
+  }
 
   // ADR-010 阶段 6f：AERVOX_LOOP_DRIVER=dsh → 整 Turn 走 DSH 进程外 Adapter
   // （自带 Agent 循环与模型回合，Provider/工具/上下文组合全部跳过；未就绪 fail-closed 不回退 native）。

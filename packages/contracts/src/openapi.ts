@@ -173,6 +173,11 @@ import {
   proactiveStatusResponseSchema,
   xiaomiHealthConnectionRequestSchema,
 } from "./proactive-schemas.js";
+import {
+  regionalHelplineSchema,
+  safetyIncidentSchema,
+  safetyResourcesResponseSchema,
+} from "./safety-schemas.js";
 
 const registry = new OpenAPIRegistry();
 
@@ -299,6 +304,9 @@ registry.register("HomeAssistantConnectionRequest", homeAssistantConnectionReque
 registry.register("HomeAssistantEntityPatch", homeAssistantEntityPatchSchema);
 registry.register("HomeAssistantCallService", homeAssistantCallServiceSchema);
 registry.register("XiaomiHealthConnectionRequest", xiaomiHealthConnectionRequestSchema);
+registry.register("SafetyIncident", safetyIncidentSchema);
+registry.register("RegionalHelpline", regionalHelplineSchema);
+registry.register("SafetyResourcesResponse", safetyResourcesResponseSchema);
 
 const sessionIdParam = z.object({ sessionId: z.string().min(1) });
 const turnIdParam = z.object({ turnId: z.string().min(1) });
@@ -951,6 +959,44 @@ registry.registerPath({
     200: {
       description: "探索结果与关联思考问题",
       content: { "application/json": { schema: termExploreResponseSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/safety/resources",
+  summary: "获取危机干预与求助热线资源列表（CAP-008）",
+  tags: ["Safety"],
+  request: {
+    query: z.object({ region: z.string().optional() }),
+  },
+  responses: {
+    200: {
+      description: "Crisis helplines and safety policy",
+      content: { "application/json": { schema: safetyResourcesResponseSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/safety/incidents",
+  summary: "获取安全事件审计记录列表（CAP-008）",
+  tags: ["Safety"],
+  request: {
+    query: z.object({ limit: z.coerce.number().int().min(1).max(100).optional() }),
+  },
+  responses: {
+    200: {
+      description: "Safety incident audit list",
+      content: {
+        "application/json": {
+          schema: z.object({
+            items: z.array(safetyIncidentSchema),
+          }),
+        },
+      },
     },
   },
 });

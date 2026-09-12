@@ -39,6 +39,8 @@ export interface ConversationRouteDeps {
   toolRuntime?: ToolRuntime;
   /** 阶段 2e：AERVOX_LOOP_PROVIDER=llm 时的模型配置来源（CR-015） */
   llmConfigService?: LLMConfigService;
+  /** CAP-008：安全与危机干预服务（危急阻断/资源注入/中度困扰支持） */
+  safetyService?: import("../safety/service.js").SafetyService;
   /** 2d：删除/撤权闸门数据源（缺失时 Loop 不做删除 fail-closed） */
   privacyRepo?: SqlitePrivacyRepository;
   /** 5a-2：受控收件箱（followup 排队为新 Turn 输入；next-step 由 Loop 每 Step 消费） */
@@ -181,6 +183,7 @@ export function registerConversationRoutes(
       {
         toolRuntime: deps.toolRuntime,
         llmConfigService: deps.llmConfigService,
+        safetyService: deps.safetyService,
         // 人格覆盖：激活人格的名称/设定/技能白名单覆盖系统默认（无人格时 undefined 不注入）
         persona: deps.personaLoader ? await deps.personaLoader(tenant) : undefined,
         // 2d：删除/撤权水位未追平 → Loop fail-closed（AVX-HAR-001 §11.3）
