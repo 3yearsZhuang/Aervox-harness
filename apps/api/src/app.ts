@@ -49,7 +49,7 @@ import { registerProactiveModule } from "./modules/proactive/index.js";
 import type { ModuleContext } from "./modules/context.js";
 import type { ToolRuntime } from "./modules/tools/runtime.js";
 import type { MemoryEmbeddingProvider } from "./modules/tools/embedding-provider.js";
-import { createAuthHook, type AuthConfig } from "./shared/auth.js";
+import { assertAuthConfigSafe, createAuthHook, loadAuthConfig, type AuthConfig } from "./shared/auth.js";
 import { createToolApprovalPolicyHook } from "./shared/tool-approval-policy.js";
 import { ApiError, type ApiErrorCode } from "./shared/errors.js";
 import { DatabaseError } from "@aervox/repositories";
@@ -154,8 +154,10 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
     return reply.send(err);
   });
 
-  // 认证前置关口：open=本地免认证；token=强制 Bearer token（校验通过才进入路由与仓储）
-  app.addHook("onRequest", createAuthHook(options.auth));
+  // 认证前置关口：open=本地免认证；token=强制 Bearer token（生产环境强制守卫校验）
+  const authConfig = options.auth ?? loadAuthConfig();
+  assertAuthConfigSafe(authConfig);
+  app.addHook("onRequest", createAuthHook(authConfig));
   app.addHook("preValidation", createToolApprovalPolicyHook());
 
   // CORS：允许本地 Web/移动端跨源访问（生产环境按部署配置收紧 origin）

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp, type BuildAppOptions } from "../src/app.js";
 import { createInMemoryDatabase } from "@aervox/repositories";
-import { assertSafeApiListenHost, loadAuthConfig } from "../src/shared/auth.js";
+import { assertAuthConfigSafe, assertSafeApiListenHost, loadAuthConfig, safeTimingCompare } from "../src/shared/auth.js";
 import { resolveLocalContext } from "../src/shared/local-context.js";
 import type { FastifyRequest } from "fastify";
 
@@ -110,5 +110,83 @@ describe("本机 API 认证中间件", () => {
     expect(cfg).not.toHaveProperty("workspaceId");
     expect(cfg).not.toHaveProperty("subjectUserId");
     expect(cfg.actorId).toBe("act_cfg");
+  });
+});
+
+describe("safeTimingCompare 恒定时间比对（防时序与长度泄露）", () => {
+  it("完全相同的字符串返回 true", () => {
+    expect(safeTimingCompare("secret-token-123", "secret-token-123")).toBe(true);
+    expect(safeTimingCompare("a", "a")).toBe(true);
+    expect(safeTimingCompare("🔑-unicode-token", "🔑-unicode-token")).toBe(true);
+  });
+
+  it("不同内容或不同长度的字符串安全返回 false（不泄露长度与抛出异常）", () => {
+    expect(safeTimingCompare("short", "longer-secret-token")).toBe(false);
+    expect(safeTimingCompare("longer-secret-token", "short")).toBe(false);
+    expect(safeTimingCompare("secret-token-124", "secret-token-123")).toBe(false);
+    expect(safeTimingCompare("secret-token-123-extra", "secret-token-123")).toBe(false);
+    expect(safeTimingCompare("secret-token-12", "secret-token-123")).toBe(false);
+  });
+
+  it("边界输入（空串、null、undefined、非 string）一律安全返回 false", () => {
+    expect(safeTimingCompare("", "")).toBe(false);
+    expect(safeTimingCompare("", "secret")).toBe(false);
+    expect(safeTimingCompare("secret", "")).toBe(false);
+    expect(safeTimingCompare(undefined, "secret")).toBe(false);
+    expect(safeTimingCompare("secret", undefined)).toBe(false);
+    expect(safeTimingCompare(null, "secret")).toBe(false);
+    expect(safeTimingCompare("secret", null)).toBe(false);
+    // @ts-expect-error 故意传入非法类型测试运行时防御
+    expect(safeTimingCompare(123, "secret")).toBe(false);
+    // @ts-expect-error 故意传入非法类型测试运行时防御
+    expect(safeTimingCompare({}, "secret")).toBe(false);
+  });
+});
+
+describe("assertAuthConfigSafe 生产环境防裸奔守卫", () => {
+  it("非生产环境下 open 模式允许通过", () => {
+    expect(() => assertAuthConfigSafe({ mode: "open" }, { NODE_ENV: "development" })).not.toThrow();
+    expect(() => assertAuthConfigSafe({ mode: "open" }, {})).not.toThrow();
+  });
+
+  it("生产环境或 STRICT 模式下，open 模式或缺失 token 抛错拦截", () => {
+    expect(() => assertAuthConfigSafe({ mode: "open" }, { NODE_ENV: "production" })).toThrow(
+      /Security violation/,
+    );
+    expect(() => assertAuthConfigSafe({ mode: "token" }, { NODE_ENV: "production" })).toThrow(
+      /Security violation/,
+    );
+    expect(() =>
+      assertAuthConfigSafe({ mode: "token", token: "" }, { NODE_ENV: "production" }),
+    ).toThrow(/Security violation/);
+    expect(() =>
+      assertAuthConfigSafe({ mode: "open" }, { AERVOX_STRICT_AUTH: "true" }),
+    ).toThrow(/Security violation/);
+  });
+
+  it("生产环境下配置有效 token 时允许通过", () => {
+    expect(() =>
+      assertAuthConfigSafe(
+        { mode: "token", token: "super-secure-token" },
+        { NODE_ENV: "production" },
+      ),
+    ).not.toThrow();
+  });
+
+  it("buildApp 在生产环境且未配 token 时 fail-fast 抛错拒绝启动", async () => {
+    const originalEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const { db, client, cleanup } = await createInMemoryDatabase();
+      try {
+        await expect(buildApp({ db, client, auth: { mode: "open" } })).rejects.toThrow(
+          /Security violation/,
+        );
+      } finally {
+        await cleanup();
+      }
+    } finally {
+      process.env.NODE_ENV = originalEnv;
+    }
   });
 });
