@@ -100,4 +100,99 @@ describe("Turn 级工具授权策略", () => {
     expect(askResult.needsApproval).toBeTruthy();
     expect(execute).toHaveBeenCalledTimes(1);
   });
+
+  it("完全访问下，高危技能晋升工具（aervox_skill_promote）依然强制拦截为 pending 待用户确认", async () => {
+    await createTurn("turn_skill_danger", "attempt_skill_danger");
+    const execute = vi.fn(async () => ({ ok: true, output: { promoted: true } }));
+    const provider: ToolProviderPort = {
+      tools: [{ name: "aervox_skill_promote", description: "promote skill to production", readOnly: false }],
+      execute,
+    };
+    const gated = createApprovalGatedToolProvider(provider, tenant, repo);
+    setRequestToolApprovalMode(tenant, "full_access");
+
+    const result = await gated.execute({
+      turnId: "turn_skill_danger",
+      attemptId: "attempt_skill_danger",
+      invocationId: "call_skill_danger",
+      name: "aervox_skill_promote",
+      arguments: { candidateId: "cand_123" },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.needsApproval?.toolName).toBe("aervox_skill_promote");
+    expect(execute).not.toHaveBeenCalled();
+    const [approval] = await repo.listToolApprovalsByTurn(tenant, "turn_skill_danger");
+    expect(approval?.state).toBe("pending");
+  });
+
+  it("完全访问下，高危物理安防动作（ha_call_service 门锁/报警）强制拦截，普通家电放行", async () => {
+    await createTurn("turn_ha_lock", "attempt_ha_lock");
+    const execute = vi.fn(async () => ({ ok: true, output: { success: true } }));
+    const provider: ToolProviderPort = {
+      tools: [{ name: "ha_call_service", description: "ha service", readOnly: false }],
+      execute,
+    };
+    const gated = createApprovalGatedToolProvider(provider, tenant, repo);
+    setRequestToolApprovalMode(tenant, "full_access");
+
+    // 高危门锁操作：拦截
+    const lockResult = await gated.execute({
+      turnId: "turn_ha_lock",
+      attemptId: "attempt_ha_lock",
+      invocationId: "call_ha_lock",
+      name: "ha_call_service",
+      arguments: {
+        connectionId: "conn_1",
+        entityId: "lock.front_door",
+        service: "unlock",
+      },
+    });
+    expect(lockResult.ok).toBe(false);
+    expect(lockResult.needsApproval?.toolName).toBe("ha_call_service");
+    expect(execute).not.toHaveBeenCalled();
+
+    // 普通家电操作：自动放行
+    await createTurn("turn_ha_light", "attempt_ha_light");
+    const lightResult = await gated.execute({
+      turnId: "turn_ha_light",
+      attemptId: "attempt_ha_light",
+      invocationId: "call_ha_light",
+      name: "ha_call_service",
+      arguments: {
+        connectionId: "conn_1",
+        entityId: "light.living_room",
+        service: "turn_on",
+      },
+    });
+    expect(lightResult.ok).toBe(true);
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it("恶意路径穿越参数（path: ../../etc/passwd）被前置拦截，不产生授权、不执行工具", async () => {
+    await createTurn("turn_malicious", "attempt_malicious");
+    const execute = vi.fn(async () => ({ ok: true, output: { done: true } }));
+    const provider: ToolProviderPort = {
+      tools: [{ name: "read_notes", description: "read notes", readOnly: true }],
+      execute,
+    };
+    const gated = createApprovalGatedToolProvider(provider, tenant, repo);
+
+    const result = await gated.execute({
+      turnId: "turn_malicious",
+      attemptId: "attempt_malicious",
+      invocationId: "call_malicious",
+      name: "read_notes",
+      arguments: {
+        path: "../../etc/passwd",
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("unsafe_tool_arguments");
+    expect(result.error).toContain("path_traversal_sequence");
+    expect(execute).not.toHaveBeenCalled();
+    const approvals = await repo.listToolApprovalsByTurn(tenant, "turn_malicious");
+    expect(approvals).toHaveLength(0);
+  });
 });

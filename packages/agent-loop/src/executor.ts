@@ -21,6 +21,7 @@ import type {
 import { LeaseLostError } from "./errors.js";
 import { LeaseHeartbeat } from "./lease-heartbeat.js";
 import { inspectToolResult } from "./tool-result-safe.js";
+import { inspectToolInput } from "./tool-input-safe.js";
 
 export interface ExecuteTurnInput {
   turnId: string;
@@ -586,32 +587,45 @@ export async function executeTurn(
           const isDiaryWrite = call.name === "aervox_diary_write";
           const effectiveTimeout =
             isAskUser || isDiaryWrite ? Math.max(toolTimeoutMs, 120000) : toolTimeoutMs;
-          try {
-            // 缺陷 D：工具超时通过 AbortController 传播取消信号，底层可感知并清理挂起副作用
-            const cancel = new AbortController();
-            // B2：租约丢失（心跳探知）→ abort 在途工具（即使工具不感知 signal，工具返回后检查点也会收敛）
-            heartbeat?.onLost(() => cancel.abort());
-            const executed = await withTimeout(
-              tools.execute({
-                turnId: input.turnId,
-                attemptId: input.attemptId,
-                invocationId: executionId,
-                name: call.name,
-                arguments: call.arguments,
-                sessionId: input.sessionId,
-                signal: cancel.signal,
-              }),
-              effectiveTimeout,
-              cancel,
-            );
-            result = { id: call.id, name: call.name, ok: executed.ok, output: executed.output, error: executed.error, needsApproval: executed.needsApproval };
-          } catch (err) {
-            // B2：工具执行期间租约已失（心跳探知）→ 立即中止本 Step 交回外层收敛 lease_lost，不写结果事件、不启动新副作用
-            if (heartbeat?.lost) {
-              throw new LeaseLostError("lease lost during tool execution");
+          const inputInspection = inspectToolInput({
+            name: call.name,
+            arguments: call.arguments,
+          });
+          if (!inputInspection.safe) {
+            result = {
+              id: call.id,
+              name: call.name,
+              ok: false,
+              error: `unsafe_tool_arguments: ${inputInspection.reason ?? "validation_failed"}`,
+            };
+          } else {
+            try {
+              // 缺陷 D：工具超时通过 AbortController 传播取消信号，底层可感知并清理挂起副作用
+              const cancel = new AbortController();
+              // B2：租约丢失（心跳探知）→ abort 在途工具（即使工具不感知 signal，工具返回后检查点也会收敛）
+              heartbeat?.onLost(() => cancel.abort());
+              const executed = await withTimeout(
+                tools.execute({
+                  turnId: input.turnId,
+                  attemptId: input.attemptId,
+                  invocationId: executionId,
+                  name: call.name,
+                  arguments: call.arguments,
+                  sessionId: input.sessionId,
+                  signal: cancel.signal,
+                }),
+                effectiveTimeout,
+                cancel,
+              );
+              result = { id: call.id, name: call.name, ok: executed.ok, output: executed.output, error: executed.error, needsApproval: executed.needsApproval };
+            } catch (err) {
+              // B2：工具执行期间租约已失（心跳探知）→ 立即中止本 Step 交回外层收敛 lease_lost，不写结果事件、不启动新副作用
+              if (heartbeat?.lost) {
+                throw new LeaseLostError("lease lost during tool execution");
+              }
+              result = { id: call.id, name: call.name, ok: false, error: err instanceof Error ? err.message : "tool_execution_error" };
+            } finally {
             }
-            result = { id: call.id, name: call.name, ok: false, error: err instanceof Error ? err.message : "tool_execution_error" };
-          } finally {
           }
           // 2c：以权威结果收口预留行（§9：非幂等副作用失败不自动重试）
           const finalStatus: ToolExecutionStatus = result.needsApproval

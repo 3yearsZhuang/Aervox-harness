@@ -6,9 +6,9 @@ owner: architecture
 doc_status: review-candidate
 decision_status: accepted
 delivery_status: implemented
-version: 0.2.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 0.3.0
+updated_at: 2026-09-13
+reviewed_at: 2026-09-13
 review_interval_days: 90
 sources:
   - docs/reference/SRS.md
@@ -19,7 +19,7 @@ sources:
 # CR-022 Turn 级完全访问工具权限开关
 
 - 提出人：3yearszhuang · 2026-08-29
-- 修改人：3yearszhuang · 2026-08-29
+- 修改人：3yearszhuang · 2026-09-13
 
 关联：[软件需求规格](../SRS.md#br-conv-001-代码执行边界)、[Agent Harness Loop](../agent-harness-loop.md#9-工具执行管线)、[需求追踪基线](../REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)
 
@@ -30,7 +30,9 @@ sources:
 ## 决策与语义
 
 - `CreateTurnRequest.toolApprovalMode` 取值为 `ask | full_access`，缺省 `ask`。客户端为每个 Turn 显式传递当前模式，服务端在执行开始前固化本次快照。
-- `full_access` 只自动放行 `write_with_approval`，不修改工具注册表的固有 `safetyLevel`。
+- `full_access` 只自动放行常规可恢复的 `write_with_approval` 工具，不修改工具注册表的固有 `safetyLevel`。
+- **高危不可免审红线（Non-Auto-Approvable Policy）**：即使在 `full_access` 模式下，针对生产技能生命周期修改（`aervox_skill_promote`、`aervox_skill_rollback`、`aervox_skill_sync`）以及物理安防控制（`ha_call_service` 针对门锁 `lock.*`、警报 `alarm_control_panel.*` 等），依然严禁自动免审，强制拦截为 `pending` 状态以待用户显式确认。
+- **参数沙箱与注入拦截（Fail-closed）**：在工具调用前强制经由 `inspectToolInput` 检查，拦截路径穿越（`../`、`..\`、`%2e%2e`）、空字节注入（`\0`）以及高危命令注入，违规请求直接返回拒绝，不予执行、不写授权账本。
 - 普通 `full_access` 下的 `privileged` 仍进入独立管理员审批通道；CAP-033 主动智能模式若存在覆盖当前目标的用户 `FullProfileActionGrant`，可按该授权快照放行 `privileged`、外部和不可逆动作。租户隔离、Consent/撤权、删除水位、工具启停、参数校验、沙箱、超时和配额始终有效。
 - 动态 ToolRuntime 与静态 Subagent/Workflow Contribution 的写工具共用同一授权决策，Provider 组合不得绕过审批门。
 - 运行中的 Turn 禁止切换模式。关闭完全访问只影响后续 Turn，不撤回已开始的副作用。
@@ -53,7 +55,7 @@ sources:
 - 风险：误开启或授权记录跨模式复用可导致未确认写操作；CAP-033 增加全动作授权和后台恢复后，仍追踪为 `RISK-012`，并由独立 revision/target/deny 校验降低风险。
 - 灰度：默认 `ask`，只有客户端显式传入 `full_access` 才启用；旧客户端不传字段时行为不变。
 - 回滚：前端隐藏开关并停止传递 `full_access` 即可恢复全量待授权；历史自动授权因查询排除规则保持惰性，无需数据清理。
-- 验证：`conversation-approval.test.ts`、`conversation-privileged.test.ts`、`tool-approval-policy.test.ts`、API Client `transport.test.ts`、CAP-033 `proactive.test.ts`/`proactive-action-authorizer.test.ts`、Contracts/API/API Client/UI/Desktop typecheck、OpenAPI 生成、`ci-code`、`ci-docs`与双视口浏览器验收。
+- 验证：`conversation-approval.test.ts`、`conversation-privileged.test.ts`、`tool-approval-policy.test.ts`、`conversation-tool-sandbox.test.ts`、`tool-input-safe.test.ts`、API Client `transport.test.ts`、CAP-033 `proactive.test.ts`/`proactive-action-authorizer.test.ts`、Contracts/API/API Client/UI/Desktop typecheck、OpenAPI 生成、`ci-code`、`ci-docs`与双视口浏览器验收。
 
 ## 决策
 

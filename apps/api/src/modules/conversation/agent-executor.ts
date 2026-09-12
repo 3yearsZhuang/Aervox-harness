@@ -17,6 +17,7 @@ import {
   createPracticeAttemptToolProvider,
   createSummaryCompaction,
   executeTurn,
+  inspectToolInput,
 } from "@aervox/agent-loop";
 import type {
   InboxPort,
@@ -54,7 +55,10 @@ import {
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
 import { resolveDshTurnAdapter } from "./dsh-adapter.js";
-import { getRequestToolApprovalMode } from "../../shared/tool-approval-policy.js";
+import {
+  getRequestToolApprovalMode,
+  isToolAutoApprovable,
+} from "../../shared/tool-approval-policy.js";
 import {
   PROACTIVE_ACTION_DECIDER_PREFIX,
   type ProactiveActionAuthorizer,
@@ -189,6 +193,11 @@ export function createApprovalGatedToolProvider(
   return {
     tools: provider.tools,
     async execute(input: ToolExecutionInput): Promise<ToolExecutionResult> {
+      const inspection = inspectToolInput({ name: input.name, arguments: input.arguments });
+      if (!inspection.safe) {
+        return { ok: false, error: `unsafe_tool_arguments: ${inspection.reason ?? "validation_failed"}` };
+      }
+
       const spec = specs.get(input.name);
       if (!spec || spec.readOnly) return provider.execute(input);
 
@@ -199,7 +208,15 @@ export function createApprovalGatedToolProvider(
       });
       if (granted) return provider.execute(input);
 
-      if (getRequestToolApprovalMode(tenant) === "full_access") {
+      const autoApprovable = isToolAutoApprovable(
+        {
+          name: input.name,
+          safetyLevel: spec?.readOnly ? "read_only" : "write_with_approval",
+        },
+        input.arguments,
+      );
+
+      if (getRequestToolApprovalMode(tenant) === "full_access" && autoApprovable) {
         if (proactiveActionAuthorizer) {
           const authorization = await proactiveActionAuthorizer.authorize(tenant, {
             turnId: input.turnId,
@@ -279,6 +296,11 @@ export function createRuntimeToolProvider(
     // 工具清单随注册表动态变化，不在此静态缓存（execute 时实时校验）
     tools: [],
     async execute(input: ToolExecutionInput): Promise<ToolExecutionResult> {
+      const inspection = inspectToolInput({ name: input.name, arguments: input.arguments });
+      if (!inspection.safe) {
+        return { ok: false, error: `unsafe_tool_arguments: ${inspection.reason ?? "validation_failed"}` };
+      }
+
       const errorMessage = (err: unknown): string => (err instanceof Error ? err.message : "tool_execution_error");
       const registrations = await runtime.listTools();
       const tool = registrations.find((t) => t.name === input.name && t.enabled === 1);
@@ -363,10 +385,11 @@ export function createRuntimeToolProvider(
             );
           }
         }
-        // CR-022 fallback：普通写工具可由 Turn full_access 预授权；privileged 无主动授权时仍走管理员通道。
+        // CR-022 fallback：普通写工具可由 Turn full_access 预授权；privileged 与高危非自动免审工具无主动授权时仍走管理员/普通通道。
         if (
           tool.safetyLevel === "write_with_approval" &&
-          getRequestToolApprovalMode(tenant) === "full_access"
+          getRequestToolApprovalMode(tenant) === "full_access" &&
+          isToolAutoApprovable(tool, input.arguments)
         ) {
           const actor = tenant.actorId ?? tenant.subjectUserId;
           const recorded = await recordAutomaticApproval(deps.conversationRepo, tenant, {
