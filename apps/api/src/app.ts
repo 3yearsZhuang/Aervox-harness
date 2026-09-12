@@ -53,6 +53,14 @@ import { assertAuthConfigSafe, createAuthHook, loadAuthConfig, type AuthConfig }
 import { createToolApprovalPolicyHook } from "./shared/tool-approval-policy.js";
 import { ApiError, type ApiErrorCode } from "./shared/errors.js";
 import { DatabaseError } from "@aervox/repositories";
+import {
+  createStandardLogger,
+  createInMemoryMetricsRegistry,
+  noopAudit,
+  type Observability,
+  type InMemoryMetricsRegistry,
+} from "@aervox/observability";
+import { loadApiConfig } from "@aervox/config";
 
 export interface BuildAppOptions {
   /** 注入既有数据库（如内存库）；缺省时使用 createDatabase() */
@@ -84,6 +92,8 @@ export interface BuildAppOptions {
   auth?: AuthConfig;
   /** CR-030 sidecar 状态清单路径（测试/维护编排可注入）。 */
   migrationStatePath?: string;
+  /** 可观测性门面（日志/指标/审计；缺省使用 createStandardLogger + createInMemoryMetricsRegistry） */
+  observability?: Observability;
 }
 
 export interface BuildAppResult {
@@ -92,6 +102,10 @@ export interface BuildAppResult {
   client: Client;
   /** Agent Loop 只读工具提供者宿主（测试注入 handler 用；阶段 2d） */
   toolRuntime: ToolRuntime;
+  /** 全链路可观测性门面 */
+  observability: Observability;
+  /** 内存指标注册表（便于测试断言或监控导出） */
+  metricsRegistry?: InMemoryMetricsRegistry;
   /** CAP-033 主动画像 Vault 连接（与主业务库分离时返回独立连接） */
   proactiveDb?: AervoxDatabase;
   proactiveClient?: Client;
@@ -99,6 +113,21 @@ export interface BuildAppResult {
 
 export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppResult> {
   const app = Fastify({ logger: false });
+  const apiConfig = loadApiConfig();
+  const metricsRegistry =
+    options.observability?.metrics && "toPrometheusText" in options.observability.metrics
+      ? (options.observability.metrics as InMemoryMetricsRegistry)
+      : createInMemoryMetricsRegistry();
+  const observability: Observability =
+    options.observability ?? {
+      log: createStandardLogger({
+        level: apiConfig.logLevel,
+        format: apiConfig.logFormat,
+      }),
+      metrics: metricsRegistry,
+      audit: noopAudit,
+    };
+
   const migrationStatePath = options.migrationStatePath ?? process.env.AERVOX_CR030_STATE_PATH ??
     path.join(process.cwd(), "data", "aervox.cr030.migration.json");
   assertSafeStartup(await new Cr030MigrationStateStore(migrationStatePath).read());
@@ -142,7 +171,27 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
     FORBIDDEN: { code: "FORBIDDEN", status: 403 },
     CONFLICT: { code: "CONFLICT", status: 409 },
   };
-  app.setErrorHandler((err, _req, reply) => {
+  app.setErrorHandler((err: unknown, req, reply) => {
+    const errorObj = err instanceof Error ? err : new Error(String(err));
+    const errRecord = typeof err === "object" && err !== null ? (err as Record<string, unknown>) : {};
+    const statusCode =
+      typeof errRecord.statusCode === "number"
+        ? errRecord.statusCode
+        : reply.statusCode >= 400
+          ? reply.statusCode
+          : 500;
+    observability.log.error({
+      event: "http.request.error",
+      message: `Error handling ${req.method} ${req.url}: ${errorObj.message}`,
+      fields: {
+        method: req.method,
+        url: req.url,
+        error: errorObj.name,
+        code: typeof errRecord.code === "string" ? errRecord.code : undefined,
+        statusCode,
+        stack: errorObj.stack,
+      },
+    });
     if (err instanceof ApiError) {
       return reply.code(err.statusCode).send({ error: err.name, code: err.code, message: err.message });
     }
@@ -151,7 +200,29 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
       return reply.code(mapped.status).send({ error: err.name, code: mapped.code, message: err.message });
     }
     // 非业务异常（schema validation / 5xx）：走 Fastify 默认序列化与状态码
-    return reply.send(err);
+    return reply.send(err as any);
+  });
+
+  // 全链路 HTTP 请求生命周期与耗时可观测性
+  const requestStartTimes = new WeakMap<object, bigint>();
+  app.addHook("onRequest", async (req) => {
+    requestStartTimes.set(req, process.hrtime.bigint());
+  });
+  app.addHook("onResponse", async (req, reply) => {
+    const startTime = requestStartTimes.get(req);
+    const durationMs = startTime
+      ? Number(process.hrtime.bigint() - startTime) / 1_000_000
+      : 0;
+    observability.log.info({
+      event: "http.request.completed",
+      message: `${req.method} ${req.url} ${reply.statusCode} (${durationMs.toFixed(2)}ms)`,
+      fields: {
+        method: req.method,
+        url: req.url,
+        statusCode: reply.statusCode,
+        durationMs: Number(durationMs.toFixed(2)),
+      },
+    });
   });
 
   // 认证前置关口：open=本地免认证；token=强制 Bearer token（生产环境强制守卫校验）
@@ -174,11 +245,28 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
     return openApiSerialized;
   });
 
+  // 指标端点：暴露 Prometheus 格式或 JSON 快照（受全局认证保护）
+  app.get("/v1/metrics", async (req, reply) => {
+    const acceptHeader = req.headers.accept ?? "";
+    const queryFormat = (req.query as { format?: string }).format;
+    const format = queryFormat ?? (acceptHeader.includes("application/json") ? "json" : "prometheus");
+    if (format === "json") {
+      reply.header("Content-Type", "application/json; charset=utf-8");
+      if (metricsRegistry) {
+        return metricsRegistry.getSnapshot();
+      }
+      return { message: "Metrics registry unavailable" };
+    }
+    reply.header("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
+    return metricsRegistry ? metricsRegistry.toPrometheusText() : "";
+  });
+
 // 模块装配上下文：基础设施 + 构建期配置；共享服务按注册顺序填充
   const ctx: ModuleContext = {
     app,
     db,
     client,
+    observability,
     proactiveDb,
     proactiveClient,
     proactiveCipher,
@@ -226,5 +314,14 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
     });
   }
 
-  return { app, db, client, toolRuntime: ctx.toolRuntime!, proactiveDb, proactiveClient };
+  return {
+    app,
+    db,
+    client,
+    toolRuntime: ctx.toolRuntime!,
+    observability,
+    metricsRegistry,
+    proactiveDb,
+    proactiveClient,
+  };
 }

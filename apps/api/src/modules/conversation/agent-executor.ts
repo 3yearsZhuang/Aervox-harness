@@ -46,6 +46,7 @@ import {
   SqlitePluginConfigRepository,
 } from "@aervox/repositories";
 import { loadApiConfig } from "@aervox/config";
+import type { Observability } from "@aervox/observability";
 import {
   defaultServerTurnPluginRegistry,
   executeBeforeTurnPlugins,
@@ -188,25 +189,35 @@ export function createApprovalGatedToolProvider(
   tenant: LocalContext,
   repo: ToolApprovalRepository,
   proactiveActionAuthorizer?: ProactiveActionAuthorizer,
+  observability?: Observability,
 ): ToolProviderPort {
   const specs = new Map(provider.tools.map((tool) => [tool.name, tool]));
   return {
     tools: provider.tools,
     async execute(input: ToolExecutionInput): Promise<ToolExecutionResult> {
+      const emitResult = (res: ToolExecutionResult): ToolExecutionResult => {
+        if (res.ok) {
+          observability?.metrics.emit({ type: "counter", name: "agent.tool.executed", value: 1 });
+        } else {
+          observability?.metrics.emit({ type: "counter", name: "agent.tool.blocked", value: 1 });
+        }
+        return res;
+      };
+
       const inspection = inspectToolInput({ name: input.name, arguments: input.arguments });
       if (!inspection.safe) {
-        return { ok: false, error: `unsafe_tool_arguments: ${inspection.reason ?? "validation_failed"}` };
+        return emitResult({ ok: false, error: `unsafe_tool_arguments: ${inspection.reason ?? "validation_failed"}` });
       }
 
       const spec = specs.get(input.name);
-      if (!spec || spec.readOnly) return provider.execute(input);
+      if (!spec || spec.readOnly) return emitResult(await provider.execute(input));
 
       const argumentsHash = stableStringify(input.arguments);
       const granted = await findExplicitToolApproval(repo, tenant, {
         toolName: input.name,
         argumentsHash,
       });
-      if (granted) return provider.execute(input);
+      if (granted) return emitResult(await provider.execute(input));
 
       const autoApprovable = isToolAutoApprovable(
         {
@@ -241,14 +252,14 @@ export function createApprovalGatedToolProvider(
                 authorization.action.id,
                 "proactive_action_approval_not_recorded",
               );
-              return { ok: false, error: "proactive_action_approval_not_recorded" };
+              return emitResult({ ok: false, error: "proactive_action_approval_not_recorded" });
             }
-            return executeAuthorizedProactiveAction(
+            return emitResult(await executeAuthorizedProactiveAction(
               proactiveActionAuthorizer,
               tenant,
               authorization.action.id,
               () => provider.execute(input),
-            );
+            ));
           }
         }
         const actor = tenant.actorId ?? tenant.subjectUserId;
@@ -258,8 +269,8 @@ export function createApprovalGatedToolProvider(
           toolName: input.name,
           argumentsHash,
         }, `${FULL_ACCESS_DECIDER_PREFIX}${actor}`);
-        if (!recorded) return { ok: false, error: "full_access_approval_not_recorded" };
-        return provider.execute(input);
+        if (!recorded) return emitResult({ ok: false, error: "full_access_approval_not_recorded" });
+        return emitResult(await provider.execute(input));
       }
 
       const approval = await repo.recordToolApproval(tenant, {
@@ -270,10 +281,10 @@ export function createApprovalGatedToolProvider(
         requester: tenant.subjectUserId,
         state: "pending",
       });
-      return {
+      return emitResult({
         ok: false,
         needsApproval: { approvalId: approval.id, toolName: input.name, argumentsHash },
-      };
+      });
     },
   };
 }
@@ -290,31 +301,41 @@ export function createRuntimeToolProvider(
   deps: {
     conversationRepo: SqliteConversationRepository;
     proactiveActionAuthorizer?: ProactiveActionAuthorizer;
+    observability?: Observability;
   },
 ): ToolProviderPort {
   return {
     // 工具清单随注册表动态变化，不在此静态缓存（execute 时实时校验）
     tools: [],
     async execute(input: ToolExecutionInput): Promise<ToolExecutionResult> {
+      const emitResult = (res: ToolExecutionResult): ToolExecutionResult => {
+        if (res.ok) {
+          deps.observability?.metrics.emit({ type: "counter", name: "agent.tool.executed", value: 1 });
+        } else {
+          deps.observability?.metrics.emit({ type: "counter", name: "agent.tool.blocked", value: 1 });
+        }
+        return res;
+      };
+
       const inspection = inspectToolInput({ name: input.name, arguments: input.arguments });
       if (!inspection.safe) {
-        return { ok: false, error: `unsafe_tool_arguments: ${inspection.reason ?? "validation_failed"}` };
+        return emitResult({ ok: false, error: `unsafe_tool_arguments: ${inspection.reason ?? "validation_failed"}` });
       }
 
       const errorMessage = (err: unknown): string => (err instanceof Error ? err.message : "tool_execution_error");
       const registrations = await runtime.listTools();
       const tool = registrations.find((t) => t.name === input.name && t.enabled === 1);
       if (!tool) {
-        return { ok: false, error: `unregistered_tool: ${input.name}` };
+        return emitResult({ ok: false, error: `unregistered_tool: ${input.name}` });
       }
 
       // 只读工具：自主执行
       if (tool.safetyLevel === "read_only") {
         try {
           const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: false });
-          return { ok: true, output };
+          return emitResult({ ok: true, output });
         } catch (err) {
-          return { ok: false, error: errorMessage(err) };
+          return emitResult({ ok: false, error: errorMessage(err) });
         }
       }
 
@@ -329,9 +350,9 @@ export function createRuntimeToolProvider(
         if (granted) {
           try {
             const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: true });
-            return { ok: true, output };
+            return emitResult({ ok: true, output });
           } catch (err) {
-            return { ok: false, error: errorMessage(err) };
+            return emitResult({ ok: false, error: errorMessage(err) });
           }
         }
         // 主动智能模式下，全动作授权包可覆盖普通写、外部、privileged 与不可逆动作；
@@ -365,9 +386,9 @@ export function createRuntimeToolProvider(
                 authorization.action.id,
                 "proactive_action_approval_not_recorded",
               );
-              return { ok: false, error: "proactive_action_approval_not_recorded" };
+              return emitResult({ ok: false, error: "proactive_action_approval_not_recorded" });
             }
-            return executeAuthorizedProactiveAction(
+            return emitResult(await executeAuthorizedProactiveAction(
               deps.proactiveActionAuthorizer,
               tenant,
               authorization.action.id,
@@ -382,7 +403,7 @@ export function createRuntimeToolProvider(
                   return { ok: false, error: errorMessage(error) };
                 }
               },
-            );
+            ));
           }
         }
         // CR-022 fallback：普通写工具可由 Turn full_access 预授权；privileged 与高危非自动免审工具无主动授权时仍走管理员/普通通道。
@@ -399,12 +420,12 @@ export function createRuntimeToolProvider(
             argumentsHash: hash,
             toolVersion: tool.updatedAt,
           }, `${FULL_ACCESS_DECIDER_PREFIX}${actor}`);
-          if (!recorded) return { ok: false, error: "full_access_approval_not_recorded" };
+          if (!recorded) return emitResult({ ok: false, error: "full_access_approval_not_recorded" });
           try {
             const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: true });
-            return { ok: true, output };
+            return emitResult({ ok: true, output });
           } catch (err) {
-            return { ok: false, error: errorMessage(err) };
+            return emitResult({ ok: false, error: errorMessage(err) });
           }
         }
         const approval = await deps.conversationRepo.recordToolApproval(tenant, {
@@ -416,11 +437,11 @@ export function createRuntimeToolProvider(
           state: "pending",
           toolVersion: tool.updatedAt,
         });
-        return { ok: false, needsApproval: { approvalId: approval.id, toolName: tool.name, argumentsHash: hash } };
+        return emitResult({ ok: false, needsApproval: { approvalId: approval.id, toolName: tool.name, argumentsHash: hash } });
       }
 
       // 其它（含不可识别的 safetyLevel）：fail-closed 拒绝
-      return { ok: false, error: `requires_approval: ${tool.id}（未支持的安全级别）` };
+      return emitResult({ ok: false, error: `requires_approval: ${tool.id}（未支持的安全级别）` });
     },
   };
 }
@@ -735,8 +756,26 @@ export async function runLoopTurnOnce(
     extensionRepo?: IExtensionRepository;
     /** 插件配置仓储：读取专注模式等插件运行时配置 */
     pluginConfigRepo?: IPluginConfigRepository;
+    /** 全链路可观测性门面（结构化日志与指标采集） */
+    observability?: Observability;
   } = {},
 ): Promise<void> {
+  const turnStartTime = Date.now();
+  deps.observability?.metrics.emit({
+    type: "counter",
+    name: "agent.turn.started",
+    value: 1,
+  });
+  deps.observability?.log.info({
+    event: "agent.turn.started",
+    message: `Turn ${input.turnId} started`,
+    fields: {
+      turnId: input.turnId,
+      sessionId: input.sessionId,
+      attemptId: input.attemptId,
+    },
+  });
+
   const repoDb = (repo as unknown as { db?: AervoxDatabase })?.db;
   const extRepo =
     deps.extensionRepo ??
@@ -869,12 +908,14 @@ export async function runLoopTurnOnce(
           tenant,
           repo,
           deps.proactiveActionAuthorizer,
+          deps.observability,
         )
       : undefined;
   const runtimeProvider = deps.toolRuntime
     ? createRuntimeToolProvider(deps.toolRuntime, tenant, {
         conversationRepo: repo,
         proactiveActionAuthorizer: deps.proactiveActionAuthorizer,
+        observability: deps.observability,
       })
     : undefined;
   const tools = contributionProvider && runtimeProvider
@@ -954,8 +995,29 @@ export async function runLoopTurnOnce(
     },
     input,
   );
+  const turnDurationMs = Date.now() - turnStartTime;
+  deps.observability?.metrics.emit({
+    type: "histogram",
+    name: "agent.provider.duration_ms",
+    value: turnDurationMs,
+  });
+
   // 以 Loop 结果对齐 turns 状态；skipped（幂等保护）不覆盖。
   if (result.status === "completed") {
+    deps.observability?.metrics.emit({
+      type: "counter",
+      name: "agent.turn.completed",
+      value: 1,
+    });
+    deps.observability?.log.info({
+      event: "agent.turn.completed",
+      message: `Turn ${input.turnId} completed in ${turnDurationMs}ms`,
+      fields: {
+        turnId: input.turnId,
+        sessionId: input.sessionId,
+        durationMs: turnDurationMs,
+      },
+    });
     await repo.updateTurnStatus(tenant, input.turnId, "Completed");
     const llm = provider ? createLLMCallable(provider) : undefined;
     await executeAfterTurnPlugins(
@@ -966,5 +1028,27 @@ export async function runLoopTurnOnce(
       beforeTurnExec.pluginResults,
       beforeTurnExec.snapshots,
     );
+  } else if (result.status === "failed") {
+    deps.observability?.log.error({
+      event: "agent.turn.failed",
+      message: `Turn ${input.turnId} failed: ${result.reason}`,
+      fields: {
+        turnId: input.turnId,
+        sessionId: input.sessionId,
+        durationMs: turnDurationMs,
+        error: result.reason,
+      },
+    });
+  } else {
+    deps.observability?.log.warn({
+      event: "agent.turn.interrupted",
+      message: `Turn ${input.turnId} status=${result.status}`,
+      fields: {
+        turnId: input.turnId,
+        sessionId: input.sessionId,
+        durationMs: turnDurationMs,
+        status: result.status,
+      },
+    });
   }
 }
