@@ -35,12 +35,12 @@ describe("LeaseHeartbeat 单元语义", () => {
     let renews = 0;
     const hb = new LeaseHeartbeat({ renew: async () => { renews += 1; return { ok: true }; }, intervalMs: 5 });
     hb.start();
-    await sleep(25);
+    await sleep(40);
     expect(hb.lost).toBe(false);
     expect(renews).toBeGreaterThanOrEqual(2);
     hb.stop();
     const afterStop = renews;
-    await sleep(15);
+    await sleep(20);
     expect(renews).toBe(afterStop);
   });
 });

@@ -34,6 +34,12 @@ export type ApiLoopDriver = "native" | "dsh";
  */
 export type TurnExecution = "background" | "inline";
 
+/** 日志级别（AERVOX_LOG_LEVEL） */
+export type LogLevel = "debug" | "info" | "warn" | "error";
+
+/** 日志格式（AERVOX_LOG_FORMAT） */
+export type LogFormat = "json" | "pretty";
+
 /** GPT-Sovits 语音输出 provider 配置（voice 模块） */
 export interface GptSovitsConfig {
   modelPath?: string;
@@ -60,6 +66,10 @@ export interface ApiConfig {
   port: number;
   /** HTTP 监听地址（AERVOX_API_HOST，默认 loopback） */
   host: string;
+  /** 日志级别（AERVOX_LOG_LEVEL，默认 info） */
+  logLevel: LogLevel;
+  /** 日志格式（AERVOX_LOG_FORMAT，默认开发 pretty、生产 json） */
+  logFormat: LogFormat;
   /** Agent Loop 模型 Provider（AERVOX_LOOP_PROVIDER，默认 llm） */
   loopProvider: LoopProvider;
   /** Loop Driver（AERVOX_LOOP_DRIVER，默认 native；dsh = 整 Turn 进程外 DSH Adapter） */
@@ -79,6 +89,10 @@ export interface WorkerConfig {
   workerId: string;
   /** 任务默认节拍（WORKER_TICK_MS，默认 5000） */
   tickMs: number;
+  /** 日志级别（AERVOX_LOG_LEVEL，默认 info） */
+  logLevel: LogLevel;
+  /** 日志格式（AERVOX_LOG_FORMAT，默认开发 pretty、生产 json） */
+  logFormat: LogFormat;
   /**
    * 按任务独立节拍覆盖（WORKER_INTERVAL_<NAME>_MS）。
    * 解析失败的 key 回退默认并告警（worker 侧容错语义保留）。
@@ -109,6 +123,7 @@ function requireEnum<T extends string>(name: string, raw: string | undefined, al
 
 /** 加载 @aervox/api 配置（可注入 env 便于测试；默认读取进程环境变量） */
 export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
+  const defaultLogFormat: LogFormat = env.NODE_ENV === "production" ? "json" : "pretty";
   const gptSovitsProtocol = requireEnum(
     "GPT_SOVITS_PROTOCOL",
     env.GPT_SOVITS_PROTOCOL,
@@ -118,6 +133,18 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
   return {
     port: requirePositiveInt("PORT", env.PORT, 3000),
     host: env.AERVOX_API_HOST?.trim() || "127.0.0.1",
+    logLevel: requireEnum(
+      "AERVOX_LOG_LEVEL",
+      env.AERVOX_LOG_LEVEL,
+      ["debug", "info", "warn", "error"] as const,
+      "info",
+    ),
+    logFormat: requireEnum(
+      "AERVOX_LOG_FORMAT",
+      env.AERVOX_LOG_FORMAT,
+      ["json", "pretty"] as const,
+      defaultLogFormat,
+    ),
     loopProvider: requireEnum(
       "AERVOX_LOOP_PROVIDER",
       env.AERVOX_LOOP_PROVIDER,
@@ -161,6 +188,7 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
 
 /** 加载 @aervox/worker 配置（可注入 env 便于测试；默认读取进程环境变量） */
 export function loadWorkerConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
+  const defaultLogFormat: LogFormat = env.NODE_ENV === "production" ? "json" : "pretty";
   const tickMs = requirePositiveInt("WORKER_TICK_MS", env.WORKER_TICK_MS, 5000);
   const intervalOverrides: Record<string, number> = {};
   for (const [key, value] of Object.entries(env)) {
@@ -178,6 +206,18 @@ export function loadWorkerConfig(env: NodeJS.ProcessEnv = process.env): WorkerCo
   return {
     workerId: env.WORKER_ID?.trim() || `worker_${Date.now().toString(36)}`,
     tickMs,
+    logLevel: requireEnum(
+      "AERVOX_LOG_LEVEL",
+      env.AERVOX_LOG_LEVEL,
+      ["debug", "info", "warn", "error"] as const,
+      "info",
+    ),
+    logFormat: requireEnum(
+      "AERVOX_LOG_FORMAT",
+      env.AERVOX_LOG_FORMAT,
+      ["json", "pretty"] as const,
+      defaultLogFormat,
+    ),
     intervalOverrides,
   };
 }

@@ -19,11 +19,14 @@ import type { VoiceService } from "./voice/service.js";
 import type { SkillManager } from "./skills/skill-manager.js";
 import type { ProactiveActionAuthorizer } from "./proactive/action-authorizer.js";
 import type { PersonaService } from "./persona/service.js";
+import type { Observability } from "@aervox/observability";
 
 export interface ModuleContext {
   app: FastifyInstance;
   db: AervoxDatabase;
   client: Client;
+  /** 全链路可观测性门面（结构化日志、指标与审计导出） */
+  observability?: Observability;
   /** CAP-033：独立本地主动画像 Vault（生产与主业务库分离） */
   proactiveDb?: AervoxDatabase;
   proactiveClient?: Client;

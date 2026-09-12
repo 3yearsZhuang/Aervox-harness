@@ -92,5 +92,6 @@ export function registerConversationModule(ctx: ModuleContext): void {
       client: ctx.client,
       embeddingProvider: toolRuntime?.getEmbeddingProvider() ?? null,
     }),
+    observability: ctx.observability,
   });
 }

@@ -29,6 +29,7 @@ import { turnStreamHub } from "./stream-hub.js";
 import { loadApiConfig } from "@aervox/config";
 import type { ProactiveActionAuthorizer } from "../proactive/action-authorizer.js";
 import type { MemoryRecallPort } from "./memory-recall.js";
+import type { Observability } from "@aervox/observability";
 
 let seq = 0;
 const nextTurnId = (): string => `turn_${Date.now().toString(36)}_${(++seq).toString(36)}`;
@@ -70,6 +71,8 @@ export interface ConversationRouteDeps {
   extensionRepo?: import("@aervox/repositories").IExtensionRepository;
   /** 插件配置仓储：用于加载 study-mode 等运行时配置 */
   pluginConfigRepo?: import("@aervox/repositories").IPluginConfigRepository;
+  /** 全链路可观测性门面（结构化日志与指标采集） */
+  observability?: Observability;
 }
 
 export function registerConversationRoutes(
@@ -202,6 +205,7 @@ export function registerConversationRoutes(
         memoryRecall: deps.memoryRecall,
         extensionRepo: deps.extensionRepo,
         pluginConfigRepo: deps.pluginConfigRepo,
+        observability: deps.observability,
       },
     );
     if (loadApiConfig().turnExecution === "inline") {
