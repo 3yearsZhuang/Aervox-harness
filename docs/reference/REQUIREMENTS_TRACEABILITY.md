@@ -7,15 +7,15 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 1.22.0
-updated_at: 2026-09-11
-reviewed_at: 2026-09-11
+updated_at: 2026-09-12
+reviewed_at: 2026-09-12
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-11
+- 修改人：3yearszhuang · 2026-09-12
 
 产品需求来源：[PRD.md](PRD.md)
 
@@ -419,6 +419,7 @@ review_interval_days: 90
 | CR-030 D2 去租户 Schema/DDL 与消费者改造 | CR-030 / SEC-LOC-001 | `packages/schema/src/`、`packages/repositories/src/{schema/ddl,repositories,search}/`、`apps/api/src/`、`apps/worker/src/`、`packages/host-agent/src/`、`packages/diary/src/` | 2026-09-11 | `@aervox/schema`/`@aervox/repositories` build/typecheck；仓储 41 个测试文件 203 项、API 48 个测试文件 330 项、Worker 10 项全绿；最终 Schema/DDL、FTS/向量索引、仓储查询和模型映射无租户列/条件；`LocalContext` 仅保留兼容签名 | 原生 |
 | CR-030 D3 静态审计、测试迁移与发布边界登记 | CR-030 / SEC-LOC-001 / NFR-REL-001 | `packages/schema/src/`、`packages/repositories/src/{schema/ddl,repositories,search}/`、`packages/repositories/test/`、`apps/api/test/`、`docs/reference/changes/CR-030-pure-local-sqlite-database.md`、`docs/reference/REQUIREMENTS_TRACEABILITY.md` | 2026-09-11 | 除旧库迁移输入外，目标源码租户字段审计清零；原租户隔离测试已改为本地共享库语义并重命名；DSH 固定 SHA/许可证/协议探测通过；`mise tasks run ci-docs` 通过；生产迁移与 rollback 演练为 `released` 前门禁 | 原生 |
 | CR-030 D3 本机 API 与客户端入口清理 | CR-030 / SEC-LOC-001 / NFR-SEC-001 | `apps/api/src/shared/{auth,local-context}.ts`、`apps/api/src/modules/`、`packages/api-client/src/transport.ts`、`apps/{web,desktop}/src/`、`apps/api/test/auth.test.ts` | 2026-09-11 | API 固定生成 `{workspaceId: "local", subjectUserId: "local"}` 兼容上下文且不解析租户 Header；删除 `AERVOX_AUTH_WORKSPACE/USER`、`VITE_WORKSPACE_ID/USER_ID` 与桌面/API Client 租户头注入；API、API Client、Web、Desktop build/typecheck/test 与 `ci-docs` | 原生 |
+| A1/A2 API 核心鉴权关口与防时序攻击加固（安全比对与生产防裸奔守卫） | 基础设施（API 边界与认证安全；TM-001/TM-004） | `apps/api/src/shared/auth.ts`、`apps/api/src/modules/proactive/index.ts`、`apps/api/src/app.ts`、`apps/api/test/auth.test.ts` | 2026-09-12 | 引入 `safeTimingCompare`（SHA-256 + `crypto.timingSafeEqual`）消除时序侧信道与密钥长度探测漏洞；替换 API Bearer Token 与 Proactive Device Token 校验；引入 `assertAuthConfigSafe` 生产防裸奔启动守卫（`NODE_ENV=production` 未配 token fail-fast）；`auth.test.ts` 14 项测试全过，API 48 套件 337 测试全过，全仓 `ci-code` 与 `ci-docs` 全通 | 原生 |
 
 ## 5. 原子需求字段模板
 

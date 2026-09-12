@@ -9,9 +9,35 @@
  *   AERVOX_AUTH_TOKEN 通行密钥（mode=token 时必填，建议 >= 32 位随机值）
  *   AERVOX_AUTH_ACTOR 操作者标识（可选，仅用于审计）
  */
+import { createHash, timingSafeEqual } from "node:crypto";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { resolveLocalContext, setRequestLocalContext } from "./local-context.js";
 import { isIP } from "node:net";
+
+/**
+ * 恒定时间安全比对两个敏感字符串（防御时序攻击与长度泄露）。
+ *
+ * 机制：先使用 SHA-256 将输入分别映射为固定 32 字节哈希摘要，再执行
+ * crypto.timingSafeEqual。相比直接比对或提前判断 length，该方法：
+ * 1. 消除由于输入长度不同导致 timingSafeEqual 抛错或提前短路而泄漏密钥长度的隐患；
+ * 2. 执行时间与密钥实际内容与长度均保持恒定。
+ */
+export function safeTimingCompare(
+  candidate: string | undefined | null,
+  expected: string | undefined | null,
+): boolean {
+  if (
+    typeof candidate !== "string" ||
+    typeof expected !== "string" ||
+    candidate.length === 0 ||
+    expected.length === 0
+  ) {
+    return false;
+  }
+  const hashA = createHash("sha256").update(candidate).digest();
+  const hashB = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(hashA, hashB);
+}
 
 export type AuthMode = "open" | "token";
 
@@ -45,9 +71,30 @@ export function assertSafeApiListenHost(host: string, mode: AuthMode): void {
 }
 
 /**
+ * 生产/公网暴露环境安全守卫（防无密裸奔）
+ *
+ * 在 NODE_ENV=production 或 AERVOX_STRICT_AUTH=true 下，强制校验 mode 必须为 token 且 token 非空。
+ * 杜绝生产环境误以 open 模式免认证启动导致本地 Agent 能力与数据库直接暴露。
+ */
+export function assertAuthConfigSafe(
+  config: AuthConfig = loadAuthConfig(),
+  env: NodeJS.ProcessEnv = process.env,
+): void {
+  const isProduction = env.NODE_ENV === "production";
+  const isStrict = env.AERVOX_STRICT_AUTH === "true";
+  if (isProduction || isStrict) {
+    if (config.mode !== "token" || !config.token || config.token.length === 0) {
+      throw new Error(
+        "[auth] Security violation: production mode requires AERVOX_AUTH_MODE=token and non-empty AERVOX_AUTH_TOKEN",
+      );
+    }
+  }
+}
+
+/**
  * 构造认证 onRequest hook（async，非回调式）。
  * - open：创建固定本地上下文后放行；
- * - token：Bearer token 缺失/不匹配 → 401；
+ * - token：Bearer token 缺失/不匹配 → 401（恒定时间安全比对，防御时序与长度泄露）；
  *   匹配 → 注入固定本地上下文，可附带服务端配置的审计 actorId。
  */
 export function createAuthHook(config: AuthConfig = loadAuthConfig()) {
@@ -58,7 +105,7 @@ export function createAuthHook(config: AuthConfig = loadAuthConfig()) {
     }
     const header = req.headers.authorization ?? "";
     const token = header.startsWith("Bearer ") ? header.slice("Bearer ".length).trim() : "";
-    if (!config.token || token.length === 0 || token !== config.token) {
+    if (!config.token || !safeTimingCompare(token, config.token)) {
       reply.code(401).send({
         error: "unauthorized",
         code: "AUTH_UNAUTHORIZED",
