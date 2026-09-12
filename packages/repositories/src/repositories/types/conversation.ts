@@ -142,6 +142,11 @@ export interface IConversationRepository {
   softDeleteMessage(tenant: LocalContext, messageId: string): Promise<MessageModel | null>;
   restoreMessage(tenant: LocalContext, messageId: string): Promise<MessageModel | null>;
   listMessageVersions(tenant: LocalContext, messageId: string): Promise<MessageVersionModel[]>;
+  redactTurnMessages(tenant: LocalContext, turnId: string): Promise<void>;
+  appendRedactedAssistantMessage(
+    tenant: LocalContext,
+    input: { id: string; turnId: string; content: string },
+  ): Promise<MessageVersionModel>;
   createTurnAttempt(
     tenant: LocalContext,
     turnId: string,

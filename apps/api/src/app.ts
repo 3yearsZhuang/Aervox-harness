@@ -46,6 +46,7 @@ import { registerStudyMaterialModule } from "./modules/study-materials/index.js"
 import { registerVoiceModule, type VoiceModuleOptions } from "./modules/voice/index.js";
 import { registerLLMModule, type LLMServiceOptions } from "./modules/llm/index.js";
 import { registerProactiveModule } from "./modules/proactive/index.js";
+import { registerSafetyModule } from "./modules/safety/index.js";
 import type { ModuleContext } from "./modules/context.js";
 import type { ToolRuntime } from "./modules/tools/runtime.js";
 import type { MemoryEmbeddingProvider } from "./modules/tools/embedding-provider.js";
@@ -283,6 +284,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   // MCP 预设模块：复用 toolRuntime 注册远程工具（依赖 tools 先行装配）
   registerMcpModule(ctx, options.mcpOptions);
   ctx.llmConfigService = registerLLMModule(ctx, options.llmOptions);
+  ctx.safetyService = registerSafetyModule(ctx);
   registerProactiveModule(ctx, {
     db: proactiveDb,
     cipher: proactiveCipher,
