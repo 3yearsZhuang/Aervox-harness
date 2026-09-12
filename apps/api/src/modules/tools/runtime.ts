@@ -20,6 +20,7 @@ import type { Client } from "@libsql/client";
 import type { MemoryEmbeddingProvider } from "./embedding-provider.js";
 import { MemoryStoreTool } from "./memory-store-tool.js";
 import { ForbiddenError, NotFoundError } from "../../shared/errors.js";
+import { inspectToolInput } from "@aervox/agent-loop";
 
 /** 工具调用处理器：入参已过注册表校验，返回结果由调用方编码 */
 export interface ToolHandler {
@@ -107,6 +108,12 @@ export class ToolRuntime {
     // PET-05：非只读工具必须显式授权
     if ((tool.safetyLevel ?? "write_with_approval") !== "read_only" && !opts.approval) {
       throw new ForbiddenError(`tool requires approval: ${toolId}（write_with_approval / privileged）`);
+    }
+
+    // B4-B：工具入参沙箱校验（防路径穿越、防空字节、防命令注入）
+    const inspection = inspectToolInput({ name: tool.name, arguments: args });
+    if (!inspection.safe) {
+      throw new ForbiddenError(`unsafe tool arguments: ${inspection.reason ?? "validation_failed"}`);
     }
 
     const handler = this.handlers.get(toolId);
