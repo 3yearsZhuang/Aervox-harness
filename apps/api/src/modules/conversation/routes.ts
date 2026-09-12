@@ -302,16 +302,20 @@ export function registerConversationRoutes(
       void (async () => {
         try {
           const fresh = await conversationRepo.getStreamEvents(tenant, turnId, lastSequence);
+          let sawTerminalEvent = false;
           for (const ev of fresh) {
             writeEventFrame(ev);
             lastSequence = Math.max(lastSequence, ev.sequence);
             lastWriteAt = Date.now();
+            if (ev.eventType === "done" || ev.eventType === "error") {
+              sawTerminalEvent = true;
+            }
           }
           if (Date.now() - lastWriteAt >= TAIL_HEARTBEAT_MS) {
             raw.write(`: ping\n\n`);
             lastWriteAt = Date.now();
           }
-          if (Date.now() - tailStartedAt >= TAIL_MAX_DURATION_MS || (await attemptSettled())) {
+          if (Date.now() - tailStartedAt >= TAIL_MAX_DURATION_MS || sawTerminalEvent || (await attemptSettled())) {
             // 终态后再排空一次（终态提交与 done/error 事件同事务，此处仅兜底）
             const remaining = await conversationRepo.getStreamEvents(tenant, turnId, lastSequence);
             for (const ev of remaining) {

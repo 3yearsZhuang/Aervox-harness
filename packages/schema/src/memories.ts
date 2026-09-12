@@ -43,6 +43,7 @@ export const memoryRecords = sqliteTable(
   (table) => ({
 
     parentIdx: index("memory_records_parent_idx").on(table.canonicalParentId),
+    layerIdx: index("memory_records_layer_idx").on(table.layer, table.isDeleted),
   }),
 );
 
