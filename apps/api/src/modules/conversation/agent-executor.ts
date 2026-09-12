@@ -32,6 +32,7 @@ import type {
   WorkflowDefinition,
 } from "@aervox/agent-loop";
 import { SqliteExecutionStore, runAdapterTurn } from "@aervox/host-agent";
+import { turnStreamHub } from "./stream-hub.js";
 import type { LLMCallable } from "@aervox/practice-review";
 import {
   type AervoxDatabase,
@@ -461,6 +462,92 @@ export const API_QUIZ_SCRIPT: readonly ReplayStep[] = [
   { text: "答错了，正确答案是 2。", toolCalls: [] },
 ];
 
+/** 包装 SqliteExecutionStore，在落盘 SQLite 的同时同步广播给 turnStreamHub（CR-031 实时流式直推） */
+function createBroadcastingStore(baseStore: SqliteExecutionStore): SqliteExecutionStore {
+  return new Proxy(baseStore, {
+    get(target, prop, receiver) {
+      if (prop === "appendEvent") {
+        return async (input: Parameters<SqliteExecutionStore["appendEvent"]>[0]) => {
+          const ev = await target.appendEvent(input);
+          turnStreamHub.publishEvent(input.turnId, {
+            id: ev.eventId,
+            turnId: ev.turnId,
+            sequence: ev.sequence,
+            eventType: ev.eventType,
+            payloadVersion: ev.payloadVersion,
+            occurredAt: ev.occurredAt,
+            data: ev.data,
+          });
+          return ev;
+        };
+      }
+      if (prop === "finalizeAttempt") {
+        return async (input: Parameters<SqliteExecutionStore["finalizeAttempt"]>[0]) => {
+          const res = await target.finalizeAttempt(input);
+          if (res.ok) {
+            turnStreamHub.publishSettled(input.turnId, input.status);
+          }
+          return res;
+        };
+      }
+      if (prop === "finalizeAttemptWithEvent") {
+        return async (input: Parameters<SqliteExecutionStore["finalizeAttemptWithEvent"]>[0]) => {
+          const res = await target.finalizeAttemptWithEvent(input);
+          if (res.ok) {
+            turnStreamHub.publishEvent(input.turnId, {
+              id: `tev_${input.turnId}_${input.sequence}`,
+              turnId: input.turnId,
+              sequence: input.sequence,
+              eventType: input.eventType,
+              payloadVersion: 1,
+              occurredAt: new Date().toISOString(),
+              data: input.eventData,
+            });
+            turnStreamHub.publishSettled(input.turnId, input.status);
+          }
+          return res;
+        };
+      }
+      if (prop === "recordSafeSegment") {
+        return async (input: Parameters<SqliteExecutionStore["recordSafeSegment"]>[0]) => {
+          const res = await target.recordSafeSegment(input);
+          if (res.ok) {
+            turnStreamHub.publishEvent(input.turnId, {
+              id: `tev_${input.turnId}_${input.sequence}`,
+              turnId: input.turnId,
+              sequence: input.sequence,
+              eventType: "delta",
+              payloadVersion: 1,
+              occurredAt: new Date().toISOString(),
+              data: input.eventData,
+            });
+          }
+          return res;
+        };
+      }
+      if (prop === "recordToolOutcome") {
+        return async (input: Parameters<SqliteExecutionStore["recordToolOutcome"]>[0]) => {
+          const res = await target.recordToolOutcome(input);
+          if (res.ok) {
+            turnStreamHub.publishEvent(input.turnId, {
+              id: `tev_${input.turnId}_${input.sequence}`,
+              turnId: input.turnId,
+              sequence: input.sequence,
+              eventType: "tool_result",
+              payloadVersion: 1,
+              occurredAt: new Date().toISOString(),
+              data: input.eventData,
+            });
+          }
+          return res;
+        };
+      }
+      const val = Reflect.get(target, prop, receiver);
+      return typeof val === "function" ? val.bind(target) : val;
+    },
+  });
+}
+
 /** 迁移期接线：把 Loop 未完成/配置失败写为 error 事件 + Failed 终态（不抛到 HTTP 层） */
 async function failTurnWithError(
   store: SqliteExecutionStore,
@@ -682,6 +769,7 @@ export async function runLoopTurnOnce(
         }
       : undefined,
   );
+  const broadcastingStore = createBroadcastingStore(store);
 
   // ADR-010 阶段 6f：AERVOX_LOOP_DRIVER=dsh → 整 Turn 走 DSH 进程外 Adapter
   // （自带 Agent 循环与模型回合，Provider/工具/上下文组合全部跳过；未就绪 fail-closed 不回退 native）。
@@ -701,7 +789,7 @@ export async function runLoopTurnOnce(
         ? { systemPrompt: beforeTurnExec.extraSections.join("\n\n") }
         : {}),
     };
-    await runDshAdapterTurn(repo, tenant, store, dshInput, async (status) => {
+    await runDshAdapterTurn(repo, tenant, broadcastingStore, dshInput, async (status) => {
       await executeAfterTurnPlugins(
         defaultServerTurnPluginRegistry,
         { ...turnPluginCtx, status, llm: dshLlm },
@@ -728,7 +816,7 @@ export async function runLoopTurnOnce(
       proactiveProfilePrompt = await loadProactiveProfilePrompt(deps.proactiveRepository, tenant);
     }
   } catch (err) {
-    await failTurnWithError(store, input.turnId, input.attemptId, err instanceof Error ? err.message : "provider_unavailable");
+    await failTurnWithError(broadcastingStore, input.turnId, input.attemptId, err instanceof Error ? err.message : "provider_unavailable");
     await repo.updateTurnStatus(tenant, input.turnId, "Failed").catch(() => undefined);
     return;
   }
@@ -834,7 +922,7 @@ export async function runLoopTurnOnce(
   }
   const result = await executeTurn(
     {
-      execution: store,
+      execution: broadcastingStore,
       provider,
       contextBuilder,
       tools,

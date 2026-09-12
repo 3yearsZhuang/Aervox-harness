@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.9.0
-updated_at: 2026-09-12
-reviewed_at: 2026-09-12
+version: 1.10.0
+updated_at: 2026-09-13
+reviewed_at: 2026-09-13
 review_interval_days: 90
 ---
 
 # 文档生命周期登记表（核验节奏与陈旧信号）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-12
+- 修改人：3yearszhuang · 2026-09-13
 
 关联：[文档索引](README.md)、[文档治理与事实源规范](reference/document-governance.md)
 
@@ -54,7 +54,7 @@ review_interval_days: 90
 | `AVX-SEC-001` | [威胁模型](reference/THREAT_MODEL.md) | 2026-09-10 | 每季度 + 信任边界变更 | loopback、文件 ACL 或 CR-030 迁移威胁未加入模型 |
 | `AVX-QA-001` | [测试策略](reference/TEST_STRATEGY.md) | 2026-09-10 | G1/G4 门禁 | 本地安全或 CR-030 故障注入 AC/TC 状态未回填 |
 | `AVX-OPS-001` | [运行、值班与演练手册](reference/operations.md) | 2026-09-10 | 每季度演练 + 每次发布 + 值班变更 | 本地恢复、CR-030 回滚或告警/拓扑变化未更新 |
-| `AVX-TRC-001` | [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) | 2026-09-12 | 版本立项 / G1 / G4 / 落地登记 | CAP/AC/TC 状态或追踪关系变化未回填；§4.2 落地登记与实现不符 |
+| `AVX-TRC-001` | [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) | 2026-09-13 | 版本立项 / G1 / G4 / 落地登记 | CAP/AC/TC 状态或追踪关系变化未回填；§4.2 落地登记与实现不符 |
 | `AVX-HOW-001` | [操作指南索引](how-to/README.md) | 2026-09-10 | 新增指南或操作流程变更 | 指南清单与实际目录不一致 |
 | `AVX-GUIDE-001` | [工程与发布流程](how-to/engineering-process.md) | 2026-08-29 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
 | `AVX-GUIDE-002` | [撰写与批准 ADR](how-to/write-adr.md) | 2026-08-28 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
@@ -96,6 +96,7 @@ review_interval_days: 90
 | `CR-028` | [在线语音模型配置](reference/changes/CR-028-voice-remote-model-config.md) | 2026-09-10 | `CAP-019/020` 在线语音模型配置、api_v2 协议或设置 UI 变更 | 表、契约、Voice 模块远程 provider 或设置「语音」子页签与实现不一致 |
 | `CR-029` | [模型 / 语音多预设与「你的思隅」设置页](reference/changes/CR-029-presets-and-siyu-settings.md) | 2026-09-10 | `CAP-020` 模型/语音多预设存储、预设 API、设置页导航或面板交互变更 | 表结构、OpenAPI、LLM/Voice service 或「你的思隅」设置页与实现不一致 |
 | `CR-030` | [SQLite 永久本地单用户真源与去租户化](reference/changes/CR-030-pure-local-sqlite-database.md) | 2026-09-11 | Schema、Repository、API 监听、迁移或回滚变更 | D0～D3 状态、破坏性范围选择、备份/staging/原子换库与实现不一致 |
+| `CR-031` | [Turn 实时流式推送 Pub/Sub 与轮询解耦](reference/changes/CR-031-turn-stream-pubsub-optimization.md) | 2026-09-13 | SSE 推流契约、TurnStreamHub 事件分发或流活性机制变更 | SSE 推流延迟、事件漏推、未解绑泄漏或与 ADR-012/CR-027 不一致 |
 | `AVX-PLUG-001` | [插件 Config、Page 与 UI 扩展规范](reference/plugin-config-and-pages.md) | 2026-09-11 | CR-006 / 插件机制变更 | Manifest、Config Schema、Page Bridge、Turn 管道或 UI 扩展与实现不一致 |
 | `AVX-DOC-GOV-001` | [文档治理与事实源规范](reference/document-governance.md) | 2026-09-10 | 文档分类、状态、事实源、复核触发或迁移策略变更 | 策略 JSON、校验器、索引、登记表或写作规范与治理基线不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 2026-09-10 | 写作规则、模板或季度评审 | 新文档未使用规范元数据/签名，或 Vale 规则与术语表不一致 |
@@ -112,9 +113,9 @@ review_interval_days: 90
 | `AVX-EXPL-007` | [运动与健康数据接入评估（已归档）](explanation/health-data-integration-assessment.md) | 2026-09-10 | 移动端形态 / 数据隐私 / 苹果或小米接入政策变更 | 接入路径、敏感分级或阶段结论与 CR-024 / DATA_PRIVACY 不一致 |
 | `AVX-EXPL-008` | [主动智能模式设计方案](explanation/proactive-intelligence-mode.md) | 2026-09-10 | CR-023/CAP-033、完全访问、全量画像、OS 能力授权、特权观察 Host、本地处理、动作授权、CAP-022/026/027/030 变更 | 四维状态、完整画像 manifest、平台能力清单、OS grant、本地出网边界、七天提炼保留、动作授权、阻断项或实现门禁与基线不一致 |
 | `AVX-EXPL-009` | [`packages/database` 拆分规划（已归档）](explanation/database-split-plan.md) | 2026-09-10 | `packages/database` schema/仓储接口、包结构或拆分方向变更 | 拆分方向、包边界、re-export 兼容层或分阶段落点与实现/ADR-014/追踪基线 §4.2 不一致 |
-| `AVX-DOC-001` | [文档索引](README.md) | 2026-09-11 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
+| `AVX-DOC-001` | [文档索引](README.md) | 2026-09-13 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
 | `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-09-10 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |
-| `AVX-DOC-CONF-001` | [文档生命周期登记表](DOC_REGISTRY.md) | 2026-09-12 | 每季度 + 每次文档集变更 | 登记条目与实际文档集不一致 |
+| `AVX-DOC-CONF-001` | [文档生命周期登记表](DOC_REGISTRY.md) | 2026-09-13 | 每季度 + 每次文档集变更 | 登记条目与实际文档集不一致 |
 
 ## 维护规则
 

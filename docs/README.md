@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.7.0
-updated_at: 2026-09-11
-reviewed_at: 2026-09-11
+version: 1.8.0
+updated_at: 2026-09-13
+reviewed_at: 2026-09-13
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 产品与工程文档索引
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-11
+- 修改人：3yearszhuang · 2026-09-13
 
 本目录把产品目标、可测试需求、架构决策、数据权利和 AI 质量分开维护，避免单一 PRD 同时承担所有细节。所有上线范围必须能从用户价值追踪到需求、设计、测试和发布证据。
 
@@ -56,6 +56,7 @@ review_interval_days: 90
 | [CR-028 在线语音模型配置](reference/changes/CR-028-voice-remote-model-config.md) | 设置 UI 如何配置在线语音模型（GPT-SoVITS 远程 API）并按 api_v2 协议合成 | 远程配置持久化与热生效、`/v1/voice/remote/*` 端点、api_v2 请求体与连通性测试；关联 CAP-019/020 |
 | [CR-029 模型/语音多预设与「你的思隅」设置页](reference/changes/CR-029-presets-and-siyu-settings.md) | 「模型与服务」「语音」如何像「人格设定」一样保存与切换多套预设，「你的思隅」如何收纳四个设置项 | 四表多行预设计构、`/v1/llm/presets` 与 `/v1/voice/presets` 端点、侧边第五项导航与 4 分类限定；关联 CAP-020 |
 | [CR-030 SQLite 永久本地单用户真源与去租户化](reference/changes/CR-030-pure-local-sqlite-database.md) | 为什么取消 PostgreSQL/多租户，以及破坏性迁移如何避免静默丢失 | Accepted、Implemented；停写、备份、显式范围选择、staging、校验、原子换库与 rollback 设计及代码已落地，发布前需完整迁移演练 |
+| [CR-031 Turn 实时流式推送 Pub/Sub 与轮询解耦](reference/changes/CR-031-turn-stream-pubsub-optimization.md) | 为什么引入进程内 TurnStreamHub 消除 400ms SQLite 轮询，如何保证实时流式直推与长连探活 | Accepted、Implemented；写库直推、存量历史重放、缝隙排空与 15s 探活心跳；关联 CAP-001/002/NFR-PERF-001 |
 | [ADR-019 主动智能外部连接本地网关](reference/adr/ADR-019-proactive-integrations-local-gateway.md) | 外部连接为何使用本地网关、加密凭据和受控工具 | 已接受的 HA REST/WS、小米 OAuth/每日指标、白名单与撤销边界 |
 | [文档写作规范](reference/standards/doc-standards.md)（AVX-STD-001） | 每份文档如何使用模板、命名、写作并通过门禁 | 写作体例、签名、命名、风格基线、Vale 术语门禁与模板族；治理规则见 AVX-DOC-GOV-001 |
 | [术语表](reference/standards/terminology.md)（AVX-TERM-001） | 项目术语的唯一含义与规范写法 | 缩写/产品名唯一语义；Vale 依据「禁写」列自动校验 |

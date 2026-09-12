@@ -21,6 +21,7 @@ import {
 } from "@aervox/agent-loop";
 import type { ServerTurnPlugin } from "./types.js";
 import { defaultServerTurnPluginRegistry } from "./registry.js";
+import { turnStreamHub } from "../../conversation/stream-hub.js";
 
 export interface FocusModeRuntimeConfig {
   autoEnableFocusMode?: boolean;
@@ -220,18 +221,21 @@ export async function extractFocusTerms(
       terms = await extractTerms(input.userMessage, extractOptions);
     }
     if (terms.length > 0) {
-      await repo.appendStreamEvent(tenant, {
+      const termEvent = {
         id: `tme_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
         turnId: input.turnId,
         sequence: lastSeq + 1,
         eventType: "terms_extracted",
         payloadVersion: 1,
+        occurredAt: new Date().toISOString(),
         data: {
           turnId: input.turnId,
           messageId: lastMessageId,
           terms,
         },
-      });
+      };
+      await repo.appendStreamEvent(tenant, termEvent);
+      turnStreamHub.publishEvent(input.turnId, termEvent);
     }
   } catch {
     // 术语抽取属于增强后处理，吞掉异常防止影响 Turn 最终完成态
