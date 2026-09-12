@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.23.0
+version: 1.24.0
 updated_at: 2026-09-13
 reviewed_at: 2026-09-13
 review_interval_days: 90
@@ -423,6 +423,7 @@ review_interval_days: 90
 | CAP-020 插件插拔与运行时生命周期性能优化 | CAP-020 + 基础设施 | `packages/ui/src/{components/workbench/drawers/SettingsModal.vue,components/plugin/PluginManagerPanel.vue,plugins/plugin-runtime.ts}`、`apps/api/src/modules/plugins/{service.ts,turn-plugins/runner.ts}`、`apps/api/src/modules/conversation/agent-executor.ts`、`packages/repositories/src/repositories/{types/{tool-registry,skill-registry}.ts,sqlite/{tool-registry-repository,skill-registry-repository}.ts}` | 2026-09-12 | 消除 SettingsModal 关闭时 window.location.reload() 导致的秒级白屏与重载；PluginManagerPanel 乐观更新与 Page 状态缓存避免 409 与网络阻塞；仓储层增加批量启停与清理接口消除 N+1 循环查库；Turn 插件管道复用执行快照消除回合内重复查库；全套单元测试通过；ci-code 全量 | 原生 |
 | CAP-001 / NFR-PERF-001 会话回合上下文构建、记忆检索与前端流式全链路性能优化 | CAP-001 / NFR-PERF-001 / 基础设施 | `packages/schema/src/memories.ts`、`packages/repositories/src/repositories/{types/memory.ts,sqlite/memory-repository.ts}`、`apps/api/src/modules/conversation/{memory-recall.ts,agent-executor.ts,routes.ts}`、`packages/ui/src/{composables/useWorkbenchConversation.ts,components/AervoxWorkbench.vue}` | 2026-09-12 | 仓储层增加 getRecordsByIds 批量查询消除 memory-recall 12 次 N+1 串行查询；agent-executor 中 getSessionHistory 与 memoryRecall 并发流水线化（Promise.all）；SSE routes 增量拉取短路终态事件杜绝重复 Attempt 轮询；前端 useWorkbenchConversation 引入 rAF 批处理与 instant 模式彻底消除流式高频强制回流与平滑滚动动画打断抖动；repositories/api/ui 单元测试全过 | 原生 |
 | CR-031 Turn SSE 实时流式推送 Pub/Sub 内存总线与 400ms 轮询消除 | CAP-001/002/NFR-PERF-001 / ADR-012 | `apps/api/src/modules/conversation/{stream-hub,routes,agent-executor,user-question-coordinator}.ts`、`apps/api/src/modules/plugins/turn-plugins/focus-mode.ts`、`apps/api/test/conversation-stream-pubsub.test.ts`、`docs/reference/changes/CR-031-turn-stream-pubsub-optimization.md` | 2026-09-13 | 引入 `TurnStreamHub` 进程内总线；执行器与协调器写库同时直推；SSE 端点挂载直推订阅 + 存量排空；彻底消除 400ms SQLite WAL 读轮询；降频 15s 探活心跳；3 项 Pub/Sub 专属集成测试 + 10 套件 36 项对话回归测试全绿；ci-code 与 ci-docs 全通 | 原生 |
+| B 阶段安全加固：CR-022 工具沙箱安全与不可绕过策略执行机制 | CAP-002/007/020/033 / TM-006 / TM-015 | `packages/agent-loop/src/{tool-input-safe.ts,executor.ts,index.ts}`、`apps/api/src/shared/tool-approval-policy.ts`、`apps/api/src/modules/conversation/agent-executor.ts`、`apps/api/src/modules/tools/runtime.ts`、`packages/agent-loop/test/tool-input-safe.test.ts`、`apps/api/test/{tool-approval-policy.test.ts,conversation-tool-sandbox.test.ts}` | 2026-09-13 | 建立 `inspectToolInput` 参数沙箱防线（空字节拦截、路径穿越 `../` 与 URL 编码穿越防护、敏感系统目录逃逸防护、高危命令注入启发式拦截）；在 `tool-approval-policy.ts` 建立高危不可免审红线清单（生产技能变更 `aervox_skill_promote/rollback/sync` 与物理安防动作 `ha_call_service lock/alarm` 严禁完全访问自动放行）；在 Agent Loop 执行管线与 ToolRuntime.callTool 双层强制拦截；agent-loop 29 套件 176 测试 + api 对话与沙箱 7 套件 31 测试全绿；ci-code 与 ci-docs 全通 | 原生 |
 
 ## 5. 原子需求字段模板
 
