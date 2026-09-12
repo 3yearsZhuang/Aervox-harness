@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.22.0
-updated_at: 2026-09-12
-reviewed_at: 2026-09-12
+version: 1.23.0
+updated_at: 2026-09-13
+reviewed_at: 2026-09-13
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-12
+- 修改人：3yearszhuang · 2026-09-13
 
 产品需求来源：[PRD.md](PRD.md)
 
@@ -422,6 +422,7 @@ review_interval_days: 90
 | A1/A2 API 核心鉴权关口与防时序攻击加固（安全比对与生产防裸奔守卫） | 基础设施（API 边界与认证安全；TM-001/TM-004） | `apps/api/src/shared/auth.ts`、`apps/api/src/modules/proactive/index.ts`、`apps/api/src/app.ts`、`apps/api/test/auth.test.ts` | 2026-09-12 | 引入 `safeTimingCompare`（SHA-256 + `crypto.timingSafeEqual`）消除时序侧信道与密钥长度探测漏洞；替换 API Bearer Token 与 Proactive Device Token 校验；引入 `assertAuthConfigSafe` 生产防裸奔启动守卫（`NODE_ENV=production` 未配 token fail-fast）；`auth.test.ts` 14 项测试全过，API 48 套件 337 测试全过，全仓 `ci-code` 与 `ci-docs` 全通 | 原生 |
 | CAP-020 插件插拔与运行时生命周期性能优化 | CAP-020 + 基础设施 | `packages/ui/src/{components/workbench/drawers/SettingsModal.vue,components/plugin/PluginManagerPanel.vue,plugins/plugin-runtime.ts}`、`apps/api/src/modules/plugins/{service.ts,turn-plugins/runner.ts}`、`apps/api/src/modules/conversation/agent-executor.ts`、`packages/repositories/src/repositories/{types/{tool-registry,skill-registry}.ts,sqlite/{tool-registry-repository,skill-registry-repository}.ts}` | 2026-09-12 | 消除 SettingsModal 关闭时 window.location.reload() 导致的秒级白屏与重载；PluginManagerPanel 乐观更新与 Page 状态缓存避免 409 与网络阻塞；仓储层增加批量启停与清理接口消除 N+1 循环查库；Turn 插件管道复用执行快照消除回合内重复查库；全套单元测试通过；ci-code 全量 | 原生 |
 | CAP-001 / NFR-PERF-001 会话回合上下文构建、记忆检索与前端流式全链路性能优化 | CAP-001 / NFR-PERF-001 / 基础设施 | `packages/schema/src/memories.ts`、`packages/repositories/src/repositories/{types/memory.ts,sqlite/memory-repository.ts}`、`apps/api/src/modules/conversation/{memory-recall.ts,agent-executor.ts,routes.ts}`、`packages/ui/src/{composables/useWorkbenchConversation.ts,components/AervoxWorkbench.vue}` | 2026-09-12 | 仓储层增加 getRecordsByIds 批量查询消除 memory-recall 12 次 N+1 串行查询；agent-executor 中 getSessionHistory 与 memoryRecall 并发流水线化（Promise.all）；SSE routes 增量拉取短路终态事件杜绝重复 Attempt 轮询；前端 useWorkbenchConversation 引入 rAF 批处理与 instant 模式彻底消除流式高频强制回流与平滑滚动动画打断抖动；repositories/api/ui 单元测试全过 | 原生 |
+| CR-031 Turn SSE 实时流式推送 Pub/Sub 内存总线与 400ms 轮询消除 | CAP-001/002/NFR-PERF-001 / ADR-012 | `apps/api/src/modules/conversation/{stream-hub,routes,agent-executor,user-question-coordinator}.ts`、`apps/api/src/modules/plugins/turn-plugins/focus-mode.ts`、`apps/api/test/conversation-stream-pubsub.test.ts`、`docs/reference/changes/CR-031-turn-stream-pubsub-optimization.md` | 2026-09-13 | 引入 `TurnStreamHub` 进程内总线；执行器与协调器写库同时直推；SSE 端点挂载直推订阅 + 存量排空；彻底消除 400ms SQLite WAL 读轮询；降频 15s 探活心跳；3 项 Pub/Sub 专属集成测试 + 10 套件 36 项对话回归测试全绿；ci-code 与 ci-docs 全通 | 原生 |
 
 ## 5. 原子需求字段模板
 

@@ -25,6 +25,7 @@ import { resolveLocalContext } from "../../shared/local-context.js";
 import { createTenantInboxPort } from "../inbox/port.js";
 import { runLoopTurnOnce } from "./agent-executor.js";
 import { UserQuestionCoordinator } from "./user-question-coordinator.js";
+import { turnStreamHub } from "./stream-hub.js";
 import { loadApiConfig } from "@aervox/config";
 import type { ProactiveActionAuthorizer } from "../proactive/action-authorizer.js";
 import type { MemoryRecallPort } from "./memory-recall.js";
@@ -263,10 +264,16 @@ export function registerConversationRoutes(
 
     let closed = false;
     let tailTimer: ReturnType<typeof setInterval> | undefined;
+    let unsubscribe: (() => void) | undefined;
+
     const finish = (): void => {
       if (closed) return;
       closed = true;
       if (tailTimer) clearInterval(tailTimer);
+      if (unsubscribe) {
+        unsubscribe();
+        unsubscribe = undefined;
+      }
       raw.end();
     };
     req.raw.on("close", finish);
@@ -293,44 +300,63 @@ export function registerConversationRoutes(
       return;
     }
 
-    // 3) 活流 tail：轮询增量 + 心跳，直至 Attempt 终态或超时上限
-    const tailStartedAt = Date.now();
-    let polling = false;
-    tailTimer = setInterval(() => {
-      if (closed || polling) return;
-      polling = true;
-      void (async () => {
+    // 3) CR-031 活流订阅：挂载 turnStreamHub 内存总线（零延迟实时直推，彻底消除 400ms 数据库空轮询）
+    // 订阅前再检查一次存量缝隙，防止重放与挂载之间遗漏事件
+    const fresh = await conversationRepo.getStreamEvents(tenant, turnId, lastSequence);
+    for (const ev of fresh) {
+      if (ev.sequence > lastSequence) {
+        writeEventFrame(ev);
+        lastSequence = ev.sequence;
+        lastWriteAt = Date.now();
+      }
+    }
+
+    if (closed || (await attemptSettled())) {
+      finish();
+      return;
+    }
+
+    unsubscribe = turnStreamHub.subscribe(turnId, {
+      onEvent(ev) {
+        if (closed) return;
+        if (ev.sequence > lastSequence) {
+          writeEventFrame(ev);
+          lastSequence = ev.sequence;
+          lastWriteAt = Date.now();
+        }
+      },
+      async onSettled() {
+        if (closed) return;
         try {
-          const fresh = await conversationRepo.getStreamEvents(tenant, turnId, lastSequence);
-          let sawTerminalEvent = false;
-          for (const ev of fresh) {
-            writeEventFrame(ev);
-            lastSequence = Math.max(lastSequence, ev.sequence);
-            lastWriteAt = Date.now();
-            if (ev.eventType === "done" || ev.eventType === "error") {
-              sawTerminalEvent = true;
-            }
-          }
-          if (Date.now() - lastWriteAt >= TAIL_HEARTBEAT_MS) {
-            raw.write(`: ping\n\n`);
-            lastWriteAt = Date.now();
-          }
-          if (Date.now() - tailStartedAt >= TAIL_MAX_DURATION_MS || sawTerminalEvent || (await attemptSettled())) {
-            // 终态后再排空一次（终态提交与 done/error 事件同事务，此处仅兜底）
-            const remaining = await conversationRepo.getStreamEvents(tenant, turnId, lastSequence);
-            for (const ev of remaining) {
+          // 终态后再排空一次（终态提交与 done/error 事件同事务，此处兜底确保不漏末尾事件）
+          const remaining = await conversationRepo.getStreamEvents(tenant, turnId, lastSequence);
+          for (const ev of remaining) {
+            if (ev.sequence > lastSequence) {
               writeEventFrame(ev);
-              lastSequence = Math.max(lastSequence, ev.sequence);
+              lastSequence = ev.sequence;
             }
-            finish();
           }
         } catch {
-          finish();
+          // ignore
         } finally {
-          polling = false;
+          finish();
         }
-      })();
-    }, TAIL_POLL_INTERVAL_MS);
+      },
+    });
+
+    // 4) 低频纯心跳与超时安全兜底（15 秒一次，不执行任何数据库读操作）
+    const tailStartedAt = Date.now();
+    tailTimer = setInterval(() => {
+      if (closed) return;
+      if (Date.now() - tailStartedAt >= TAIL_MAX_DURATION_MS) {
+        finish();
+        return;
+      }
+      if (Date.now() - lastWriteAt >= TAIL_HEARTBEAT_MS) {
+        raw.write(`: ping\n\n`);
+        lastWriteAt = Date.now();
+      }
+    }, TAIL_HEARTBEAT_MS);
   });
 
   // POST /v1/turns/{turnId}/cancel — 取消 Turn（AVX-HAR-001 §11.1：Attempt CAS 置 CancelRequested，executor 检查点中止）
@@ -355,6 +381,7 @@ export function registerConversationRoutes(
       const latest = attempts[0];
       return reply.code(409).send({ error: res.reason ?? "request_cancel_failed", turnId, status: latest?.status });
     }
+    turnStreamHub.publishSettled(turnId, "Cancelled");
     return reply.send({ turnId, status: "Cancelled", cancelled: true });
   });
 
@@ -435,13 +462,17 @@ export function registerConversationRoutes(
     // 序号 = 当前最大序号 + 1（与执行器/协调器并发追加安全）
     const events = await conversationRepo.getStreamEvents(tenant, turnId, 0);
     const lastSequence = events.reduce((max, event) => Math.max(max, event.sequence), 0);
-    await conversationRepo.appendStreamEvent(tenant, {
+    const approvalEvent = {
       id: `tev_${Date.now().toString(36)}`,
       turnId,
       sequence: lastSequence + 1,
       eventType: body.decision === "granted" ? "tool_approval_granted" : "tool_approval_denied",
+      payloadVersion: 1,
+      occurredAt: new Date().toISOString(),
       data: { approvalId: updated.id, decision: updated.state, toolName: updated.toolName },
-    });
+    };
+    await conversationRepo.appendStreamEvent(tenant, approvalEvent);
+    turnStreamHub.publishEvent(turnId, approvalEvent);
     return reply.send({ approvalId: updated.id, state: updated.state });
   });
 
