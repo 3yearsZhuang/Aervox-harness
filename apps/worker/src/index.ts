@@ -25,6 +25,7 @@ import { createDatabase,
   loadProactiveVaultCipher,
 } from "@aervox/repositories";
 import { loadWorkerConfig } from "@aervox/config";
+import { createStandardLogger } from "@aervox/observability";
 import { runOutboxCycle } from "./outbox-worker.js";
 import { runReviewNotificationCycle } from "./review-notifier.js";
 import { runDiaryGenerationCycle } from "./diary-generator.js";
@@ -37,8 +38,13 @@ import { createRuleBasedProactiveDistiller } from "./proactive-distiller.js";
 import { runProactiveProfileCycle } from "./proactive-profile-worker.js";
 import { runProactiveIntelligenceCycle } from "./proactive-intelligence-worker.js";
 
-// 缺陷 E：集中类型化配置（WORKER_ID / WORKER_TICK_MS / WORKER_INTERVAL_<NAME>_MS；启动期校验）
+// 集中类型化配置（WORKER_ID / WORKER_TICK_MS / WORKER_INTERVAL_<NAME>_MS；启动期校验）
 const config = loadWorkerConfig();
+const logger = createStandardLogger({
+  level: config.logLevel,
+  format: config.logFormat,
+  defaultFields: { service: "worker", workerId: config.workerId },
+});
 
 const { db, client } = await createDatabase();
 await initDatabaseSchema(client);
@@ -125,7 +131,11 @@ const tasks: WorkerTask[] = [
         workerId,
       });
       if (result.failed > 0) {
-        console.warn(`[worker:${workerId}] proactive-profile failed=${result.failed}`);
+        logger.warn({
+          event: "worker.task.warning",
+          message: `proactive-profile failed=${result.failed}`,
+          fields: { task: "proactive-profile", failed: result.failed },
+        });
       }
       return result.distilled + result.purged;
     },
@@ -148,6 +158,17 @@ const tasks: WorkerTask[] = [
   },
 ];
 
+logger.info({
+  event: "worker.started",
+  message: `Worker ${workerId} started with ${tasks.length} tasks`,
+  fields: {
+    workerId,
+    defaultTickMs,
+    taskCount: tasks.length,
+    tasks: tasks.map((t) => ({ name: t.name, intervalMs: t.intervalMs })),
+  },
+});
+
 // 每任务独立节拍器：首次立即执行一次，随后按各自 interval 轮询；
 // 运行中跳过（不重叠）、单任务异常隔离。
 for (const task of tasks) {
@@ -155,13 +176,32 @@ for (const task of tasks) {
   const runOnce = async (): Promise<void> => {
     if (running) return;
     running = true;
+    const startTime = Date.now();
     try {
       const processed = await task.run();
+      const durationMs = Date.now() - startTime;
       if (processed > 0) {
-        console.log(`[worker:${workerId}] ${task.name}=${processed}`);
+        logger.info({
+          event: "worker.task.completed",
+          message: `Task ${task.name} processed ${processed} items (${durationMs}ms)`,
+          fields: {
+            task: task.name,
+            processed,
+            durationMs,
+          },
+        });
       }
     } catch (err) {
-      console.error(`[worker:${workerId}] ${task.name} tick failed:`, err);
+      const errorObj = err instanceof Error ? err : new Error(String(err));
+      logger.error({
+        event: "worker.task.failed",
+        message: `Task ${task.name} tick failed: ${errorObj.message}`,
+        fields: {
+          task: task.name,
+          error: errorObj.name,
+          stack: errorObj.stack,
+        },
+      });
     } finally {
       running = false;
     }

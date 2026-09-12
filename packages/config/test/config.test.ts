@@ -16,6 +16,8 @@ describe("loadApiConfig（缺陷 E）", () => {
     const cfg = loadApiConfig({});
     expect(cfg.port).toBe(3000);
     expect(cfg.host).toBe("127.0.0.1");
+    expect(cfg.logLevel).toBe("info");
+    expect(cfg.logFormat).toBe("pretty");
     expect(cfg.loopProvider).toBe("llm");
     expect(cfg.loopDriver).toBe("native");
     expect(cfg.loopCompaction).toBe("off");
@@ -29,6 +31,8 @@ describe("loadApiConfig（缺陷 E）", () => {
     const cfg = loadApiConfig({
       PORT: "8080",
       AERVOX_API_HOST: "127.0.0.2",
+      AERVOX_LOG_LEVEL: "debug",
+      AERVOX_LOG_FORMAT: "json",
       AERVOX_LOOP_PROVIDER: "scripted",
       AERVOX_LOOP_DRIVER: "dsh",
       AERVOX_LOOP_COMPACTION: "rule",
@@ -42,6 +46,8 @@ describe("loadApiConfig（缺陷 E）", () => {
     });
     expect(cfg.port).toBe(8080);
     expect(cfg.host).toBe("127.0.0.2");
+    expect(cfg.logLevel).toBe("debug");
+    expect(cfg.logFormat).toBe("json");
     expect(cfg.loopProvider).toBe("scripted");
     expect(cfg.loopDriver).toBe("dsh");
     expect(cfg.loopCompaction).toBe("rule");
@@ -74,6 +80,8 @@ describe("loadWorkerConfig（缺陷 E）", () => {
     const cfg = loadWorkerConfig({});
     expect(cfg.workerId).toMatch(/^worker_/);
     expect(cfg.tickMs).toBe(5000);
+    expect(cfg.logLevel).toBe("info");
+    expect(cfg.logFormat).toBe("pretty");
     expect(cfg.intervalOverrides).toEqual({});
   });
 
@@ -81,11 +89,15 @@ describe("loadWorkerConfig（缺陷 E）", () => {
     const cfg = loadWorkerConfig({
       WORKER_ID: "w_1",
       WORKER_TICK_MS: "1000",
+      AERVOX_LOG_LEVEL: "warn",
+      AERVOX_LOG_FORMAT: "json",
       WORKER_INTERVAL_OUTBOX_MS: "3000",
       WORKER_INTERVAL_DIARY_MS: "60000",
     });
     expect(cfg.workerId).toBe("w_1");
     expect(cfg.tickMs).toBe(1000);
+    expect(cfg.logLevel).toBe("warn");
+    expect(cfg.logFormat).toBe("json");
     expect(cfg.intervalOverrides).toEqual({ outbox: 3000, diary: 60000 });
   });
 

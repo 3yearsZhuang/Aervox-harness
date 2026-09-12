@@ -4,3 +4,5 @@
 export * from "./interfaces.js";
 export * from "./metric-names.js";
 export * from "./noop.js";
+export * from "./logger.js";
+export * from "./metrics-registry.js";
