@@ -182,4 +182,42 @@ describe('FocusModePlugin (and StudyMode compatibility)', () => {
     expect(focusModeEnabled.value).toBe(false);
     expect(runtime.isPluginAvailable('focus-mode')).toBe(false);
   });
+
+  it('supports seamless hot-plugging: slot components mount and unmount dynamically in memory without page reload', async () => {
+    const registry = createUIRegistry();
+    const focusModeEnabled = { value: true };
+    const mockContext = {
+      layout: {
+        focusModeEnabled,
+        setFocusModeEnabled: (val: boolean) => {
+          focusModeEnabled.value = val;
+        },
+      },
+    } as any;
+
+    const runtime = createWorkbenchPluginRuntime(registry, () => mockContext);
+
+    // Initial: active
+    expect(registry.getSlotComponents('header:actions').length).toBe(1);
+    expect(registry.getSlotComponents('conversation:bottom').length).toBe(1);
+
+    // Dynamic unplug (disable)
+    await runtime.sync(
+      [{ id: 'focus-mode', enabled: 0 }],
+      async () => ({ values: {} }),
+    );
+    expect(registry.getSlotComponents('header:actions').length).toBe(0);
+    expect(registry.getSlotComponents('conversation:bottom').length).toBe(0);
+    expect(focusModeEnabled.value).toBe(false);
+
+    // Dynamic re-plug (enable)
+    await runtime.sync(
+      [{ id: 'focus-mode', enabled: 1 }],
+      async () => ({ values: {} }),
+    );
+    expect(registry.getSlotComponents('header:actions').length).toBe(1);
+    expect(registry.getSlotComponents('conversation:bottom').length).toBe(1);
+
+    runtime.destroy();
+  });
 });

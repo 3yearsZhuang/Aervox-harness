@@ -145,28 +145,16 @@ export class PluginService {
       }
     }
     if (!updated) return null;
-    const tools = await this.deps.registry.listTools();
-    for (const tool of tools.filter((t) => t.pluginId === targetId || t.pluginId === id)) {
-      await this.deps.registry.setEnabled(tool.id, enabled);
-    }
-    const skills = await this.deps.skillRegistry.listSkills();
-    for (const skill of skills.filter((s) => s.pluginId === targetId || s.pluginId === id)) {
-      await this.deps.skillRegistry.setActive(skill.id, enabled);
-    }
+    const pluginIds = targetId !== id ? [targetId, id] : [id];
+    await this.deps.registry.setToolsEnabledByPlugin(pluginIds, enabled);
+    await this.deps.skillRegistry.setSkillsActiveByPlugin(pluginIds, enabled);
     return updated;
   }
 
   /** 卸载：先注销插件工具与技能（含 readonly），再删插件（grants 级联清理） */
   async uninstallPlugin(id: string): Promise<boolean> {
-    const tools = await this.deps.registry.listTools();
-    for (const tool of tools.filter((t) => t.pluginId === id)) {
-      await this.deps.registry.unregisterTool(tool.id);
-    }
-    const skills = await this.deps.skillRegistry.listSkills();
-    for (const skill of skills.filter((s) => s.pluginId === id)) {
-      await fs.rm(path.join(this.deps.skillsRoot, id, skill.name), { recursive: true, force: true }).catch(() => undefined);
-      await this.deps.skillRegistry.removeSkill(skill.id);
-    }
+    await this.deps.registry.unregisterToolsByPlugin(id);
+    await this.deps.skillRegistry.removeSkillsByPlugin(id);
     await fs.rm(path.join(this.deps.skillsRoot, id), { recursive: true, force: true }).catch(() => undefined);
     if (this.deps.cleanup) await this.deps.cleanup(id);
     return this.deps.extensionRepo.deletePlugin(id);

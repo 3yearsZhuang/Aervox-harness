@@ -708,6 +708,7 @@ export async function runLoopTurnOnce(
         extRepo,
         deps.pluginConfigRepo,
         beforeTurnExec.pluginResults,
+        beforeTurnExec.snapshots,
       );
     });
     return;
@@ -853,6 +854,7 @@ export async function runLoopTurnOnce(
       extRepo,
       deps.pluginConfigRepo,
       beforeTurnExec.pluginResults,
+      beforeTurnExec.snapshots,
     );
   }
 }

@@ -32,6 +32,7 @@ import PersonaManagerPanel from '../../persona/PersonaManagerPanel.vue';
 import VoicePresetManagerPanel from '../../voice/VoicePresetManagerPanel.vue';
 import PluginManagerPanel from '../../plugin/PluginManagerPanel.vue';
 import ExtensionSlot from '../../extension/ExtensionSlot.vue';
+import { useAervoxPlugins } from '@aervox/api-client';
 import { useWorkbenchContext } from '../../../composables/workbench-context';
 
 const props = withDefaults(
@@ -143,17 +144,15 @@ const {
   exportProactiveData,
 } = proactive;
 
-const hasPluginChanges = ref(false);
+const pluginApi = useAervoxPlugins();
 
-function onPluginChange(): void {
-  hasPluginChanges.value = true;
-}
-
-function handleSettingsClosed(): void {
-  if (hasPluginChanges.value) {
-    hasPluginChanges.value = false;
-    if (typeof window !== 'undefined' && typeof window.location?.reload === 'function') {
-      window.location.reload();
+async function onPluginChange(): Promise<void> {
+  if (pluginRuntime) {
+    try {
+      await pluginApi.loadPlugins();
+      await pluginRuntime.sync(pluginApi.plugins.value, (id) => pluginApi.getConfig(id));
+    } catch {
+      // 忽略非致命同步异常
     }
   }
 }
@@ -166,7 +165,6 @@ function handleSettingsClosed(): void {
     class="settings-dialog"
     width="min(860px, calc(100vw - 28px))"
     align-center
-    @closed="handleSettingsClosed"
   >
     <div class="settings-layout">
       <nav class="settings-categories" aria-label="设置分类">

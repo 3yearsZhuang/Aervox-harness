@@ -28,8 +28,12 @@ export interface IToolRegistryRepository {
   listTools(): Promise<ToolRegistrationModel[]>;
   /** 启用/禁用工具（disabledToolIds 操作） */
   setEnabled(id: string, enabled: boolean): Promise<ToolRegistrationModel | null>;
+  /** 批量启用/禁用插件所属工具（O(1) 批量操作） */
+  setToolsEnabledByPlugin(pluginId: string | string[], enabled: boolean): Promise<number>;
   /** 注销工具（内置工具不可注销） */
   unregisterTool(id: string): Promise<boolean>;
+  /** 批量注销插件所属所有非内置工具（O(1) 批量操作） */
+  unregisterToolsByPlugin(pluginId: string): Promise<number>;
   /**
    * 导出工具注册表快照（面向 AI 运行时 / MCP server）
    * 过滤逻辑：enabled = 1 且门控条件通过（门控求值由调用方注入 evaluator）

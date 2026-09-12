@@ -2,6 +2,7 @@
 import {onMounted, ref} from 'vue'
 import {Puzzle, Settings, LayoutGrid, Zap, Wrench, PackagePlus} from 'lucide-vue-next'
 import {useAervoxPlugins, type PluginPageDto, type PluginSummaryDto} from '@aervox/api-client'
+import {useWorkbenchContext} from '../../composables/workbench-context'
 import PluginConfigDialog from './PluginConfigDialog.vue'
 import PluginInstallDialog from './PluginInstallDialog.vue'
 import PluginPageDialog from './PluginPageDialog.vue'
@@ -14,6 +15,13 @@ const currentTab = ref<ExtensionSubTab>('plugins')
 const emit = defineEmits<{
   'change': []
 }>()
+
+let workbenchCtx: ReturnType<typeof useWorkbenchContext> | undefined
+try {
+  workbenchCtx = useWorkbenchContext()
+} catch {
+  // 隔离运行环境（如单元测试）时可能无提供者
+}
 
 const api = useAervoxPlugins()
 const {plugins, loading, error, setPluginEnabled, listPages} = api
@@ -28,19 +36,30 @@ const installOpen = ref(false)
 /** 已提供 Page 资源的插件 ID 集合（无页面时隐藏「页面」按钮） */
 const pluginsWithPages = ref<Set<string>>(new Set())
 
-async function refresh(): Promise<void> {
-  await api.loadPlugins()
-  // 逐个查询插件页面元数据，仅记录有页面的插件
-  const withPages = new Set<string>()
-  await Promise.all(plugins.value.map(async (plugin) => {
-    try {
-      const pages = await listPages(plugin.id)
-      if (pages.length > 0) withPages.add(plugin.id)
-    } catch {
-      // 插件被禁用或页面查询失败时忽略
+async function checkPluginPages(pluginId: string): Promise<void> {
+  try {
+    const pages = await listPages(pluginId)
+    if (pages.length > 0) {
+      pluginsWithPages.value.add(pluginId)
+    } else {
+      pluginsWithPages.value.delete(pluginId)
     }
-  }))
-  pluginsWithPages.value = withPages
+  } catch {
+    // 忽略被禁用或无页面异常
+  }
+}
+
+async function refresh(forceReloadPages = false): Promise<void> {
+  await api.loadPlugins()
+  // 仅在初次加载或显式强制时，对已启用的插件检查页面，避免对已禁用插件产生 409 异常
+  const enabledPlugins = plugins.value.filter((p) => p.enabled === 1)
+  await Promise.all(
+    enabledPlugins.map(async (plugin) => {
+      if (forceReloadPages || !pluginsWithPages.value.has(plugin.id)) {
+        await checkPluginPages(plugin.id)
+      }
+    }),
+  )
 }
 
 onMounted(() => {
@@ -48,23 +67,41 @@ onMounted(() => {
 })
 
 async function toggleEnabled(plugin: PluginSummaryDto): Promise<void> {
+  const previousState = plugin.enabled
+  const nextEnabled = previousState !== 1
+  // 1. 乐观更新当前状态，立即响应用户点击，消除 UI 滞后
+  plugin.enabled = nextEnabled ? 1 : 0
   try {
-    await setPluginEnabled(plugin.id, plugin.enabled !== 1)
+    await setPluginEnabled(plugin.id, nextEnabled)
+    // 2. 触发热插拔同步（若在工作台环境内）
+    if (workbenchCtx?.pluginRuntime) {
+      await workbenchCtx.pluginRuntime.sync(plugins.value, (id) => api.getConfig(id))
+    }
     emit('change')
-    await refresh()
+    // 3. 若新启用插件，异步平滑同步插件 Page 状态
+    if (nextEnabled && !pluginsWithPages.value.has(plugin.id)) {
+      void checkPluginPages(plugin.id)
+    }
   } catch (e) {
+    // 失败回滚
+    plugin.enabled = previousState
     console.error('切换插件状态失败', e)
   }
 }
 
-function handleInstalled(): void {
+async function handleInstalled(): Promise<void> {
   emit('change')
-  void refresh()
+  await refresh(true)
+  if (workbenchCtx?.pluginRuntime) {
+    await workbenchCtx.pluginRuntime.sync(plugins.value, (id) => api.getConfig(id))
+  }
 }
 
-function handleConfigSaved(): void {
+async function handleConfigSaved(): Promise<void> {
   emit('change')
-  void refresh()
+  if (workbenchCtx?.pluginRuntime) {
+    await workbenchCtx.pluginRuntime.sync(plugins.value, (id) => api.getConfig(id))
+  }
 }
 
 function openConfig(plugin: PluginSummaryDto): void {
