@@ -27,6 +27,7 @@ import type {
   SqliteConversationRepository,
   LocalContext,
 } from "@aervox/repositories";
+import { turnStreamHub } from "./stream-hub.js";
 
 interface PendingQuestionSession {
   turnId: string;
@@ -104,18 +105,23 @@ export class UserQuestionCoordinator {
     const events = await this.conversationRepo.getStreamEvents(tenant, turnId, 0);
     const sequence = events.length + 1;
 
-    await this.conversationRepo.appendStreamEvent(tenant, {
+    const uqEvent = {
       id: eventId,
       turnId,
       sequence,
       eventType: "user_question_required",
+      payloadVersion: 1,
+      occurredAt: new Date().toISOString(),
       data: {
         turnId,
         step,
         questions,
         timeoutMs,
       },
-    });
+    };
+
+    await this.conversationRepo.appendStreamEvent(tenant, uqEvent);
+    turnStreamHub.publishEvent(turnId, uqEvent);
 
     // 1.5 持久化挂起会话（缺陷 C）：超时唯一真源 = createdAt + timeoutMs
     const createdAt = new Date().toISOString();
@@ -289,15 +295,20 @@ export class UserQuestionCoordinator {
     const events = await this.conversationRepo.getStreamEvents(tenant, turnId, 0);
     const sequence = events.length + 1;
 
-    await this.conversationRepo.appendStreamEvent(tenant, {
+    const uaEvent = {
       id: eventId,
       turnId,
       sequence,
       eventType: "user_question_answered",
+      payloadVersion: 1,
+      occurredAt: new Date().toISOString(),
       data: {
         turnId,
         answers,
       },
-    });
+    };
+
+    await this.conversationRepo.appendStreamEvent(tenant, uaEvent);
+    turnStreamHub.publishEvent(turnId, uaEvent);
   }
 }
