@@ -1,4 +1,4 @@
-import {app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, Menu, nativeTheme, Notification, powerMonitor, screen, shell, systemPreferences} from 'electron'
+import {app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, Menu, nativeImage, nativeTheme, Notification, powerMonitor, screen, shell, systemPreferences, Tray} from 'electron'
 import {createHash} from 'node:crypto'
 import {chmod, mkdir, readFile, rename, writeFile} from 'node:fs/promises'
 import os from 'node:os'
@@ -9,6 +9,7 @@ import {
     toCapabilityProbe,
     type ProactiveWideSourceId,
 } from './proactive-source-adapters'
+import {startProactiveEventStream, toPetCommands} from './proactive-events'
 import type {
     ProfileAuthorizationRequest,
     ProfileCapabilityState,
@@ -425,6 +426,23 @@ const scheduledWideSources: readonly ProactiveWideSourceId[] = [
     'device.app_activity',
 ]
 
+// CR-032：system.idle_state 元数据级样本（Electron powerMonitor 空闲秒数，60s 节拍，
+// 仿剪贴板直采模式）。payload 仅含 idleSeconds，不含窗口标题等敏感内容。
+async function pollProactiveIdleState(): Promise<void> {
+    if (!proactiveHost.shouldCollect()) return
+    const idleGrant = latestProactiveStatus?.capabilities.find((capability) => capability.id === 'system.idle_state')
+    if (idleGrant?.osStatus !== 'granted') return
+    const idleSeconds = powerMonitor.getSystemIdleTime()
+    const observedAt = new Date().toISOString()
+    const checksum = createHash('sha256').update(`system.idle_state:${observedAt}:${idleSeconds}`, 'utf8').digest('hex')
+    await ingestProactiveCapture('system.idle_state', {
+        payload: {idleSeconds, adapter: 'electron-power-monitor-v1'},
+        contentType: 'application/json',
+        checksum,
+        stableId: true,
+    })
+}
+
 async function pollProactiveWideSources(): Promise<void> {
     if (!proactiveHost.shouldCollect()) return
     const localStatus = await proactiveHost.getStatus('full_access')
@@ -462,7 +480,8 @@ async function pollProactiveWideSources(): Promise<void> {
 function isProfileSourceId(value: unknown): value is ProfileSourceId {
     return typeof value === 'string' && [
         'aervox.activity', 'aervox.operation', 'device.app_activity', 'device.browser_activity',
-        'device.input_content', 'device.clipboard', 'device.screen_capture', 'filesystem.full_disk_watch',
+        'device.input_content', 'device.clipboard', 'device.screen_capture', 'system.idle_state',
+        'filesystem.full_disk_watch',
         'external.communication', 'device.microphone', 'device.camera', 'device.location',
         'device.sensors', 'restricted.profile', 'background.persistent', 'action.local',
         'action.external', 'action.privileged', 'action.irreversible',
@@ -909,14 +928,11 @@ app.whenReady().then(async () => {
         broadcastProactiveStatus(composite)
         return composite
     })
-    ipcMain.handle('proactive:desired-state', async (event, payload: unknown) => {
-        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
-        if (!payload || typeof payload !== 'object') throw new Error('invalid proactive desired state request')
-        const desiredState = (payload as {desiredState?: unknown}).desiredState
-        if (desiredState !== 'enabled' && desiredState !== 'paused' && desiredState !== 'revoked') {
-            throw new Error('invalid proactive desired state')
-        }
-        const toolApprovalMode = readToolApprovalMode(payload)
+    /** CR-032：desired-state 核心逻辑（IPC 与托盘 Kill Switch 共用） */
+    const applyProactiveDesiredState = async (
+        desiredState: 'enabled' | 'paused' | 'revoked',
+        toolApprovalMode: 'ask' | 'full_access' = 'full_access',
+    ): Promise<ProactiveProfileStatus> => {
         const status = await proactiveHost.setDesiredState(desiredState, toolApprovalMode)
         if (await refreshProactiveLocalReady()) {
             const serverStatus = await getProactiveServerStatus()
@@ -931,6 +947,15 @@ app.whenReady().then(async () => {
         const composite = await compositeProactiveStatus(toolApprovalMode)
         broadcastProactiveStatus(composite)
         return composite
+    }
+    ipcMain.handle('proactive:desired-state', async (event, payload: unknown) => {
+        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+        if (!payload || typeof payload !== 'object') throw new Error('invalid proactive desired state request')
+        const desiredState = (payload as {desiredState?: unknown}).desiredState
+        if (desiredState !== 'enabled' && desiredState !== 'paused' && desiredState !== 'revoked') {
+            throw new Error('invalid proactive desired state')
+        }
+        return applyProactiveDesiredState(desiredState, readToolApprovalMode(payload))
     })
     ipcMain.handle('proactive:persistence', async (event, payload: unknown) => {
         if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
@@ -1133,6 +1158,80 @@ app.whenReady().then(async () => {
     setInterval(() => {
         void pollProactiveWideSources().catch(() => undefined)
     }, 5 * 60_000)
+    // CR-032：system.idle_state 元数据采样（60s 节拍，已获授权时才上传）
+    void pollProactiveIdleState().catch(() => undefined)
+    setInterval(() => {
+        void pollProactiveIdleState().catch(() => undefined)
+    }, 60_000)
+
+    // CR-032：主动表现事件常驻 SSE——Worker 派发的主动关怀经 API 直推桌宠
+    startProactiveEventStream({
+        apiBaseUrl,
+        buildHeaders: localApiHeaders,
+        onPresentation: (event) => {
+            for (const command of toPetCommands(event)) {
+                if (petWindow && !petWindow.isDestroyed()) {
+                    petWindow.webContents.send('pet:command', command)
+                }
+            }
+        },
+        log: (message) => console.warn(`[proactive-events] ${message}`),
+    })
+
+    // CR-032：托盘 Kill Switch（ADR-009 全局熔断；一键暂停/恢复全部主动智能调度）
+    let proactiveTray: Tray | null = null
+    const refreshProactiveTrayMenu = (): void => {
+        void (async () => {
+            let desiredState = 'none'
+            try {
+                desiredState = (await compositeProactiveStatus('full_access')).desiredState
+            } catch {
+                // 状态不可用时仍渲染基础菜单
+            }
+            if (!proactiveTray) return
+            proactiveTray.setContextMenu(Menu.buildFromTemplate([
+                {label: '打开 Aervox 工作台', click: () => mainWindow?.show()},
+                {type: 'separator'},
+                {
+                    label: '暂停主动智能（熔断）',
+                    enabled: desiredState === 'enabled',
+                    click: () => {
+                        void applyProactiveDesiredState('paused')
+                            .then(refreshProactiveTrayMenu)
+                            .catch(() => undefined)
+                    },
+                },
+                {
+                    label: '恢复主动智能',
+                    enabled: desiredState === 'paused',
+                    click: () => {
+                        void applyProactiveDesiredState('enabled')
+                            .then(refreshProactiveTrayMenu)
+                            .catch(() => undefined)
+                    },
+                },
+                {type: 'separator'},
+                {label: '退出', click: () => app.quit()},
+            ]))
+        })()
+    }
+    try {
+        const trayIconPaths = [join(app.getAppPath(), 'build', 'icon.png'), join(__dirname, '../../build/icon.png')]
+        let trayIcon = nativeImage.createEmpty()
+        for (const iconPath of trayIconPaths) {
+            const candidate = nativeImage.createFromPath(iconPath)
+            if (!candidate.isEmpty()) {
+                trayIcon = candidate.resize({width: 16, height: 16})
+                break
+            }
+        }
+        proactiveTray = new Tray(trayIcon)
+        proactiveTray.setToolTip('Aervox｜思隅')
+        proactiveTray.on('click', () => mainWindow?.show())
+        refreshProactiveTrayMenu()
+    } catch (error) {
+        console.warn(`[tray] 初始化失败（不影响主功能）: ${error instanceof Error ? error.message : String(error)}`)
+    }
     powerMonitor.on('resume', () => {
         void proactiveHeartbeat(true).catch(() => undefined)
     })
