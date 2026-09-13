@@ -12,6 +12,10 @@ export interface DistilledProfileMemory {
   content: string;
   confidence: number;
   evidenceRefs: Array<{ sourceKey: string; checksum: string; observedAt: string }>;
+  /** CR-032：结构化证据（并入 observation payload，供规则引擎直接求值；如 idleSeconds） */
+  structured?: Record<string, unknown>;
+  /** CR-032：仅观测不提炼 claim（高频元数据级样本，避免 claim 审阅流泛洪） */
+  observationOnly?: boolean;
 }
 
 export interface ProactiveCaptureDistiller {
@@ -27,6 +31,7 @@ const SOURCE_LABELS: Record<string, { claimType: string; label: string }> = {
   "device.input_content": { claimType: "input_habit", label: "输入与操作" },
   "device.clipboard": { claimType: "clipboard_habit", label: "剪贴板" },
   "device.screen_capture": { claimType: "screen_context", label: "屏幕上下文" },
+  "system.idle_state": { claimType: "device_presence_context", label: "系统空闲状态" },
   "filesystem.full_disk_watch": { claimType: "document_context", label: "文件与文档" },
   "external.communication": { claimType: "communication_context", label: "通信资料" },
   "device.microphone": { claimType: "media_context", label: "麦克风" },
@@ -93,6 +98,33 @@ export function createRuleBasedProactiveDistiller(): ProactiveCaptureDistiller {
       };
       const text = captureText(capture);
       const day = capture.observedAt.slice(0, 10);
+
+      // CR-032：idle_state 为元数据级样本，除文本外保留结构化字段供规则引擎求值
+      if (capture.sourceKey === "system.idle_state") {
+        const raw = (capture.payload as {idleSeconds?: unknown} | null)?.idleSeconds;
+        const idleSeconds = typeof raw === "number" && Number.isFinite(raw) && raw >= 0 ? raw : null;
+        const content = idleSeconds !== null
+          ? `${descriptor.label}（${day}）：空闲 ${Math.round(idleSeconds)} 秒`
+          : `${descriptor.label}（${day}）：记录到一次已授权活动，原始内容为空或仅包含被排除的凭据。`;
+        return [
+          {
+            claimType: descriptor.claimType,
+            subjectKey: `${capture.sourceKey}:${day}`,
+            content,
+            confidence: idleSeconds !== null ? 90 : 40,
+            evidenceRefs: [
+              {
+                sourceKey: capture.sourceKey,
+                checksum: capture.checksum,
+                observedAt: capture.observedAt,
+              },
+            ],
+            ...(idleSeconds !== null ? {structured: {idleSeconds}} : {}),
+            observationOnly: true,
+          },
+        ];
+      }
+
       const content = text
         ? `${descriptor.label}（${day}）：${text}`
         : `${descriptor.label}（${day}）：记录到一次已授权活动，原始内容为空或仅包含被排除的凭据。`;

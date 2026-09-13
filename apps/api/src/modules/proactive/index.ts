@@ -16,6 +16,7 @@ import { registerProactiveRoutes } from "./routes.js";
 import { ProactiveActionAuthorizer } from "./action-authorizer.js";
 import { registerProactiveIntelligenceRoutes } from "./intelligence-routes.js";
 import { registerProactiveIntegrationRoutes } from "./integration-routes.js";
+import { registerProactivePresentationRoutes } from "./presentation-routes.js";
 import { ProactiveIntegrationManager } from "./integration-manager.js";
 import { registerProactiveIntegrationTools } from "./integration-tools.js";
 
@@ -60,6 +61,7 @@ export function registerProactiveModule(ctx: ModuleContext, options: ProactiveMo
     });
   }
   registerProactiveRoutes(ctx.app, { repository, privacyRepository });
+  registerProactivePresentationRoutes(ctx.app, { profileRepo: repository });
   registerProactiveIntelligenceRoutes(ctx.app, {
     intelligenceRepo: intelligenceRepository,
     profileRepo: repository,
