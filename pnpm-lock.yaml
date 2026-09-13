@@ -381,6 +381,9 @@ importers:
 
   packages/repositories:
     dependencies:
+      '@aervox/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@aervox/schema':
         specifier: workspace:*
         version: link:../schema

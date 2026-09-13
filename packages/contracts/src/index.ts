@@ -100,6 +100,7 @@ export * from "./inbox-schemas.js";
 export * from "./proactive.js";
 export * from "./proactive-schemas.js";
 export * from "./proactive-dsl-schemas.js";
+export * from "./proactive-budget-schemas.js";
 export * from "./situation-model-schemas.js";
 export * from "./turn-context-schemas.js";
 export * from "./safety-schemas.js";

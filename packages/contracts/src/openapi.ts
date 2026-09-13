@@ -188,6 +188,12 @@ import {
   dslQuotasSchema,
 } from "./proactive-dsl-schemas.js";
 import {
+  proactiveBudgetStateSchema,
+  proactiveFeedbackEventSchema,
+  proactiveReceiptSchema,
+  budgetPolicySchema,
+} from "./proactive-budget-schemas.js";
+import {
   proactiveMemoryReferenceSchema,
   proactiveSafetyPolicySchema,
   proactiveTurnContextSchema,
@@ -329,6 +335,10 @@ registry.register("ProactiveSafetyPolicy", proactiveSafetyPolicySchema);
 registry.register("ProactiveDslRule", proactiveDslRuleSchema);
 registry.register("DslExpression", dslExpressionSchema);
 registry.register("DslQuotas", dslQuotasSchema);
+registry.register("ProactiveBudgetState", proactiveBudgetStateSchema);
+registry.register("ProactiveFeedbackEvent", proactiveFeedbackEventSchema);
+registry.register("ProactiveReceipt", proactiveReceiptSchema);
+registry.register("BudgetPolicy", budgetPolicySchema);
 
 const sessionIdParam = z.object({ sessionId: z.string().min(1) });
 const turnIdParam = z.object({ turnId: z.string().min(1) });

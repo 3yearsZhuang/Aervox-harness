@@ -405,3 +405,67 @@ export const proactiveSituationSnapshots = sqliteTable(
     ),
   }),
 );
+
+/**
+ * CR-033 E2b 注意力预算状态（全局 + 插件各一行）。
+ *
+ * reserveVersion 为 CAS 版本：并发扣减必须按版本比对，防止超发。
+ * 静态冷却/静音/全局硬上限仍由裁决器兜底，本表只承载预算水位。
+ */
+export const proactiveAttentionBudgets = sqliteTable(
+  "proactive_attention_budgets",
+  {
+    id: text("id").primaryKey(),
+    /** global | plugin */
+    scope: text("scope").notNull(),
+    pluginId: text("plugin_id"),
+    budgetUnits: integer("budget_units").notNull(),
+    maxUnits: integer("max_units").notNull(),
+    consecutiveIgnores: integer("consecutive_ignores").notNull().default(0),
+    /** CAS 版本：每次扣减/结算递增 */
+    reserveVersion: integer("reserve_version").notNull().default(0),
+    policyVersion: text("policy_version").notNull().default("budget-policy-v1"),
+    processingBoundary: text("processing_boundary").notNull().default("local_only"),
+    ...timestampColumns,
+  },
+  (table) => ({
+    scopePluginIdx: uniqueIndex("proactive_budget_scope_plugin_idx").on(
+      table.scope,
+      table.pluginId,
+    ),
+  }),
+);
+
+/**
+ * CR-033 E2b 干预回执账本（追加式，仅内核写入）。
+ *
+ * 只保存必要证据摘要（evidenceDigest）、规则/策略版本、抑制原因、
+ * 预算变化与审计引用；不保存无必要的原始敏感内容。
+ */
+export const proactiveInterventionReceipts = sqliteTable(
+  "proactive_intervention_receipts",
+  {
+    id: text("id").primaryKey(),
+    actionId: text("action_id").notNull(),
+    ruleId: text("rule_id").notNull(),
+    pluginId: text("plugin_id"),
+    decision: text("decision").notNull(),
+    suppressionReason: text("suppression_reason"),
+    ruleVersion: text("rule_version").notNull(),
+    policyVersion: text("policy_version").notNull(),
+    evidenceDigest: text("evidence_digest").notNull(),
+    budgetBefore: integer("budget_before").notNull(),
+    budgetAfter: integer("budget_after").notNull(),
+    globalBudgetAfter: integer("global_budget_after").notNull(),
+    auditRef: text("audit_ref"),
+    /** 幂等键：同一干预决策重复写入只保留一条 */
+    idempotencyKey: text("idempotency_key").notNull(),
+    issuedAt: text("issued_at").notNull(),
+    processingBoundary: text("processing_boundary").notNull().default("local_only"),
+    createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => ({
+    idempotencyIdx: uniqueIndex("proactive_receipt_idempotency_idx").on(table.idempotencyKey),
+    actionIdx: index("proactive_receipt_action_idx").on(table.actionId),
+  }),
+);

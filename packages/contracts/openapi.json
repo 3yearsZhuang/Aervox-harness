@@ -7807,6 +7807,254 @@
             "default": 4096
           }
         }
+      },
+      "ProactiveBudgetState": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "enum": [
+              "proactive_budget_v1"
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "global",
+              "plugin"
+            ]
+          },
+          "pluginId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "budgetUnits": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "maxUnits": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "consecutiveIgnores": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reserveVersion": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "policyVersion": {
+            "type": "string",
+            "minLength": 1
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "version",
+          "scope",
+          "pluginId",
+          "budgetUnits",
+          "maxUnits",
+          "consecutiveIgnores",
+          "reserveVersion",
+          "policyVersion",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "ProactiveFeedbackEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "actionId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "opened",
+              "replied",
+              "ignored",
+              "operation_completed",
+              "operation_rejected"
+            ]
+          },
+          "weight": {
+            "type": "number",
+            "minimum": -1,
+            "maximum": 1
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "actionId",
+          "kind",
+          "weight",
+          "occurredAt",
+          "idempotencyKey"
+        ],
+        "additionalProperties": false
+      },
+      "ProactiveReceipt": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "actionId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ruleId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "pluginId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "dispatch",
+              "suppressed_budget",
+              "advisory_only"
+            ]
+          },
+          "suppressionReason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 512
+          },
+          "ruleVersion": {
+            "type": "string",
+            "minLength": 1
+          },
+          "policyVersion": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidenceDigest": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "budgetBefore": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "budgetAfter": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "globalBudgetAfter": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "auditRef": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "issuedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "actionId",
+          "ruleId",
+          "pluginId",
+          "decision",
+          "suppressionReason",
+          "ruleVersion",
+          "policyVersion",
+          "evidenceDigest",
+          "budgetBefore",
+          "budgetAfter",
+          "globalBudgetAfter",
+          "auditRef",
+          "idempotencyKey",
+          "issuedAt"
+        ],
+        "additionalProperties": false
+      },
+      "BudgetPolicy": {
+        "type": "object",
+        "properties": {
+          "initialUnits": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          },
+          "reserveCost": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 20
+          },
+          "positiveRefund": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000,
+            "default": 15
+          },
+          "ignoreThreshold": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 3
+          },
+          "shrinkPercent": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 80
+          },
+          "minDispatchUnits": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000,
+            "default": 1
+          },
+          "advisory": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "additionalProperties": false
       }
     },
     "parameters": {}

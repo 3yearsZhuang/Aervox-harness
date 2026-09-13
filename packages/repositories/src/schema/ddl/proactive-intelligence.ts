@@ -138,6 +138,26 @@ export async function createProactiveIntelligenceTables(client: Client): Promise
         processing_boundary TEXT NOT NULL DEFAULT 'local_only', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
       `CREATE UNIQUE INDEX IF NOT EXISTS proactive_situation_revision_sequence_idx
         ON proactive_situation_snapshots(revision_id, last_event_sequence);`,
+      `CREATE TABLE IF NOT EXISTS proactive_attention_budgets (
+        id TEXT PRIMARY KEY, scope TEXT NOT NULL, plugin_id TEXT,
+        budget_units INTEGER NOT NULL, max_units INTEGER NOT NULL,
+        consecutive_ignores INTEGER NOT NULL DEFAULT 0, reserve_version INTEGER NOT NULL DEFAULT 0,
+        policy_version TEXT NOT NULL DEFAULT 'budget-policy-v1',
+        processing_boundary TEXT NOT NULL DEFAULT 'local_only',
+        created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS proactive_budget_scope_plugin_idx
+        ON proactive_attention_budgets(scope, plugin_id);`,
+      `CREATE TABLE IF NOT EXISTS proactive_intervention_receipts (
+        id TEXT PRIMARY KEY, action_id TEXT NOT NULL, rule_id TEXT NOT NULL, plugin_id TEXT,
+        decision TEXT NOT NULL, suppression_reason TEXT, rule_version TEXT NOT NULL,
+        policy_version TEXT NOT NULL, evidence_digest TEXT NOT NULL,
+        budget_before INTEGER NOT NULL, budget_after INTEGER NOT NULL, global_budget_after INTEGER NOT NULL,
+        audit_ref TEXT, idempotency_key TEXT NOT NULL, issued_at TEXT NOT NULL,
+        processing_boundary TEXT NOT NULL DEFAULT 'local_only', created_at TEXT NOT NULL);`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS proactive_receipt_idempotency_idx
+        ON proactive_intervention_receipts(idempotency_key);`,
+      `CREATE INDEX IF NOT EXISTS proactive_receipt_action_idx
+        ON proactive_intervention_receipts(action_id);`,
     ];
   for (const ddl of proactiveIntelligenceDdl) await client.execute(ddl);
   // CR-032 主动智能插件化：旧库补列后才能建归属索引（顺序不可颠倒，否则旧库升级即崩）
