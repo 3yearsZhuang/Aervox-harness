@@ -829,11 +829,16 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
         ),
       )
       .limit(1);
-    if (sameEpoch) {
-      const [reactivated] = await this.db
-        .update(proactiveActivationLeases)
-        .set({
+    if (sameEpoch) return this.reactivateActivationLease(tenant, input, sameEpoch.id, now, expiresAt);
+    let created: typeof proactiveActivationLeases.$inferSelect | undefined;
+    try {
+      [created] = await this.db
+        .insert(proactiveActivationLeases)
+        .values({
+          id: input.id,
           revisionId: revision.id,
+          deviceId: input.deviceId,
+          epoch: input.epoch,
           status: "active",
           localReady: input.localReady,
           fullAccessSnapshot: input.fullAccessSnapshot,
@@ -843,42 +848,29 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
           endedAt: null,
           endReason: null,
           metadataJson: stringify(input.metadata),
+          createdAt: now,
           updatedAt: now,
         })
-        .where(eq(proactiveActivationLeases.id, sameEpoch.id))
         .returning();
-      if (!reactivated) throw new Error("failed to reactivate proactive activation lease");
-      await this.recordAudit(tenant, {
-        id: `${input.id}_audit_activated`,
-        revisionId: revision.id,
-        eventType: "activation.issued",
-        actorId: input.actorId,
-        resourceType: "activation_lease",
-        resourceId: reactivated.id,
-        payload: { deviceId: input.deviceId, epoch: input.epoch, localReady: input.localReady, reused: true },
-      });
-      return toLease(reactivated);
+    } catch (error) {
+      // 并发竞态：两个 authorize 同帧到达时彼此都查不到对方的未提交行，后插入者
+      // 撞 UNIQUE(device_id, epoch)。捕获后重查复用，保证接口幂等。
+      const constraintCode = (error as {code?: string} | null)?.code ?? "";
+      const message = error instanceof Error ? error.message : String(error);
+      if (!constraintCode.startsWith("SQLITE_CONSTRAINT") || !message.includes("UNIQUE")) throw error;
+      const [raced] = await this.db
+        .select()
+        .from(proactiveActivationLeases)
+        .where(
+          and(
+            eq(proactiveActivationLeases.deviceId, input.deviceId),
+            eq(proactiveActivationLeases.epoch, input.epoch),
+          ),
+        )
+        .limit(1);
+      if (!raced) throw error;
+      return this.reactivateActivationLease(tenant, input, raced.id, now, expiresAt);
     }
-    const [created] = await this.db
-      .insert(proactiveActivationLeases)
-      .values({
-        id: input.id,
-        revisionId: revision.id,
-        deviceId: input.deviceId,
-        epoch: input.epoch,
-        status: "active",
-        localReady: input.localReady,
-        fullAccessSnapshot: input.fullAccessSnapshot,
-        issuedAt: now,
-        expiresAt,
-        heartbeatAt: now,
-        endedAt: null,
-        endReason: null,
-        metadataJson: stringify(input.metadata),
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
     if (!created) throw new Error("failed to create proactive activation lease");
     await this.recordAudit(tenant, {
       id: `${input.id}_audit_activated`,
@@ -890,6 +882,46 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
       payload: { deviceId: input.deviceId, epoch: input.epoch, localReady: input.localReady },
     });
     return toLease(created);
+  }
+
+  /** 复用既有 (device_id, epoch) 租约：重激活并续期，审计标注 reused */
+  private async reactivateActivationLease(
+    tenant: LocalContext,
+    input: Parameters<IProactiveProfileRepository["createActivationLease"]>[1],
+    leaseId: string,
+    now: string,
+    expiresAt: string,
+  ): Promise<ProactiveActivationLeaseModel> {
+    const revision = await this.getRevision(tenant, input.revisionId);
+    if (!revision) throw new RepositoryNotFoundError("proactive profile revision not found");
+    const [reactivated] = await this.db
+      .update(proactiveActivationLeases)
+      .set({
+        revisionId: revision.id,
+        status: "active",
+        localReady: input.localReady,
+        fullAccessSnapshot: input.fullAccessSnapshot,
+        issuedAt: now,
+        expiresAt,
+        heartbeatAt: now,
+        endedAt: null,
+        endReason: null,
+        metadataJson: stringify(input.metadata),
+        updatedAt: now,
+      })
+      .where(eq(proactiveActivationLeases.id, leaseId))
+      .returning();
+    if (!reactivated) throw new Error("failed to reactivate proactive activation lease");
+    await this.recordAudit(tenant, {
+      id: `${input.id}_audit_activated`,
+      revisionId: revision.id,
+      eventType: "activation.issued",
+      actorId: input.actorId,
+      resourceType: "activation_lease",
+      resourceId: reactivated.id,
+      payload: { deviceId: input.deviceId, epoch: input.epoch, localReady: input.localReady, reused: true },
+    });
+    return toLease(reactivated);
   }
 
   async heartbeatActivationLease(

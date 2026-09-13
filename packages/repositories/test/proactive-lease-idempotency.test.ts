@@ -71,6 +71,32 @@ describe("proactive activation lease idempotency", () => {
       });
       expect(third.id).toBe(first.id);
       expect(third.status).toBe("active");
+
+      // 并发双发（桌面 authorize 竞态）：两请求同时通过前置检查时，后者捕获
+      // UNIQUE 冲突并复用前者租约，双双成功且收敛到同一行。
+      const [left, right] = await Promise.all([
+        repository.createActivationLease(tenant, {
+          id: "lease_idem_race_a",
+          revisionId: revision.id,
+          deviceId: "device-idem",
+          epoch: "epoch-idem",
+          localReady: true,
+          fullAccessSnapshot: true,
+          actorId: "usr_idem",
+        }),
+        repository.createActivationLease(tenant, {
+          id: "lease_idem_race_b",
+          revisionId: revision.id,
+          deviceId: "device-idem",
+          epoch: "epoch-idem",
+          localReady: true,
+          fullAccessSnapshot: true,
+          actorId: "usr_idem",
+        }),
+      ]);
+      expect(left.id).toBe(right.id);
+      expect(left.status).toBe("active");
+      expect(right.status).toBe("active");
     } finally {
       await cleanup();
     }
