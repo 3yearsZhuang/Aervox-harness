@@ -17,6 +17,7 @@ import type {
     ProfileSourceId,
     ProactiveProfileStatus,
 } from '@aervox/contracts/proactive'
+import {isProfileSourceId} from '@aervox/contracts/proactive'
 import {resolveDesktopSessionId} from './runtime-config.js'
 
 let mainWindow: BrowserWindow | null = null
@@ -475,17 +476,6 @@ async function pollProactiveWideSources(): Promise<void> {
             })
         }
     }
-}
-
-function isProfileSourceId(value: unknown): value is ProfileSourceId {
-    return typeof value === 'string' && [
-        'aervox.activity', 'aervox.operation', 'device.app_activity', 'device.browser_activity',
-        'device.input_content', 'device.clipboard', 'device.screen_capture', 'system.idle_state',
-        'filesystem.full_disk_watch',
-        'external.communication', 'device.microphone', 'device.camera', 'device.location',
-        'device.sensors', 'restricted.profile', 'background.persistent', 'action.local',
-        'action.external', 'action.privileged', 'action.irreversible',
-    ].includes(value)
 }
 
 function isProfileAuthorizationRequest(value: unknown): value is ProfileAuthorizationRequest {
