@@ -102,6 +102,7 @@ review_interval_days: 90
 | `CR-031` | [Turn 实时流式推送 Pub/Sub 与轮询解耦](reference/changes/CR-031-turn-stream-pubsub-optimization.md) | 2026-09-13 | SSE 推流契约、TurnStreamHub 事件分发或流活性机制变更 | SSE 推流延迟、事件漏推、未解绑泄漏或与 ADR-012/CR-027 不一致 |
 | `CR-032` | [主动智能插件化与触发规则生态架构](reference/changes/CR-032-proactive-intelligence-plugin-ecosystem.md) | 2026-09-13 | `CAP-020/033/034/035/019` 主动智能插件化、触发规则声明、全局防打扰裁决器或桌宠联动契约变更 | 清单 Schema、proactive_trigger_rules 插件关联、Arbitrator 节流或桌宠动作派发与 CR-032 不一致 |
 | `CR-033` | [主动智能终局架构：态势感知内核与预算化干预生态](reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md) | 2026-09-14 | `CAP-033/030/020/019` 主动智能终局北极星：态势投影、规则表达式语言、注意力预算、人格同源与结构化操作域 | 态势投影 schema、规则 DSL、裁决器预算语义、感知事件流或操作域白名单任一与本文不符 |
+| `CR-034` | [本地模型降级阶梯：无 API 接入时的原生能力基线](reference/changes/CR-034-local-model-fallback-ladder.md) | 2026-09-14 | `CAP-020/013/009/033/019` 三层降级阶梯（L0 云端 / L1 本地端点 / L2 规则回应）、降级决策器、能力分级与运行时托管 | 降级层级语义、能力分级边界、决策器切层规则或托管白名单与本文不符 |
 | `CR-035` | [标准 AI 工作台形态：熟悉范式的原生交互壳](reference/changes/CR-035-standard-workbench-mode.md) | 2026-09-14 | `CAP-019/020/013` 标准模式交互壳、会话列表、任务中心、项目上下文与迁移友好设施 | 双形态状态一致性、任务中心只读语义、会话导航契约或导入器净化规则与本文不符 |
 | `AVX-PLUG-001` | [插件 Config、Page 与 UI 扩展规范](reference/plugin-config-and-pages.md) | 2026-09-11 | CR-006 / 插件机制变更 | Manifest、Config Schema、Page Bridge、Turn 管道或 UI 扩展与实现不一致 |
 | `AVX-DOC-GOV-001` | [文档治理与事实源规范](reference/document-governance.md) | 2026-09-10 | 文档分类、状态、事实源、复核触发或迁移策略变更 | 策略 JSON、校验器、索引、登记表或写作规范与治理基线不一致 |
