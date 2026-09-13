@@ -107,7 +107,7 @@ cmd_dev() {
   case "$target" in
     full)
       info "启动全栈: API + Web + Desktop + Worker…"
-      run pnpm dev
+      run pnpm exec turbo run dev --filter=@aervox/api --filter=@aervox/web --filter=@aervox/desktop --filter=@aervox/worker
       ;;
     web)
       info "启动 Web(+5173) + API(+3000)…"
