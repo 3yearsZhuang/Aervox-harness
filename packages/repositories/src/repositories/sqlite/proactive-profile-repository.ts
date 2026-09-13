@@ -817,6 +817,48 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
           eq(proactiveActivationLeases.status, "active"),
         ),
       );
+    // 同一 (device_id, epoch) 幂等复用：宿主重复 authorize（重试/向导二次提交）时
+    // 该行已被上方 supersede 置为 ended，直接重激活而非撞唯一约束抛 500。
+    const [sameEpoch] = await this.db
+      .select()
+      .from(proactiveActivationLeases)
+      .where(
+        and(
+          eq(proactiveActivationLeases.deviceId, input.deviceId),
+          eq(proactiveActivationLeases.epoch, input.epoch),
+        ),
+      )
+      .limit(1);
+    if (sameEpoch) {
+      const [reactivated] = await this.db
+        .update(proactiveActivationLeases)
+        .set({
+          revisionId: revision.id,
+          status: "active",
+          localReady: input.localReady,
+          fullAccessSnapshot: input.fullAccessSnapshot,
+          issuedAt: now,
+          expiresAt,
+          heartbeatAt: now,
+          endedAt: null,
+          endReason: null,
+          metadataJson: stringify(input.metadata),
+          updatedAt: now,
+        })
+        .where(eq(proactiveActivationLeases.id, sameEpoch.id))
+        .returning();
+      if (!reactivated) throw new Error("failed to reactivate proactive activation lease");
+      await this.recordAudit(tenant, {
+        id: `${input.id}_audit_activated`,
+        revisionId: revision.id,
+        eventType: "activation.issued",
+        actorId: input.actorId,
+        resourceType: "activation_lease",
+        resourceId: reactivated.id,
+        payload: { deviceId: input.deviceId, epoch: input.epoch, localReady: input.localReady, reused: true },
+      });
+      return toLease(reactivated);
+    }
     const [created] = await this.db
       .insert(proactiveActivationLeases)
       .values({
