@@ -43,6 +43,8 @@ export const plugins = sqliteTable(
     /** Aervox 插件配置 Schema（CR-006；随 Bundle 注册，系统级） */
     configSchemaJson: text("config_schema_json", { mode: "json" }),
     configSchemaVersion: integer("config_schema_version").notNull().default(1),
+    /** 插件主动智能声明（CR-032；manifest spec.proactive 的 fail-closed 解析结果，随插件生命周期增删） */
+    proactiveSpecJson: text("proactive_spec_json", { mode: "json" }),
     ...timestampColumns,
   },
   (table) => ({

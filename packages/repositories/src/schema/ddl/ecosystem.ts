@@ -53,6 +53,13 @@ export async function createEcosystemTables(client: Client): Promise<void> {
   await client.execute(`
       CREATE UNIQUE INDEX IF NOT EXISTS plugin_grants_local_plugin_perm_idx ON plugin_grants(plugin_id, permission) WHERE revoked_at IS NULL;
     `);
+  // CR-032：感知源授权需按 scope（sourceId）逐项共存，唯一索引放宽到三列；
+  // 旧库幂等替换旧索引（更宽唯一约束对既有数据恒兼容）。
+  await client.execute(`DROP INDEX IF EXISTS plugin_grants_local_plugin_perm_idx;`);
+  await client.execute(`
+      CREATE UNIQUE INDEX IF NOT EXISTS plugin_grants_local_plugin_perm_scope_idx
+        ON plugin_grants(plugin_id, permission, scope) WHERE revoked_at IS NULL;
+    `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS community_contents (
         id TEXT PRIMARY KEY,
@@ -84,4 +91,6 @@ export async function createEcosystemTables(client: Client): Promise<void> {
   await addColumnIfMissing(client, "plugins", "registry_meta_json", "registry_meta_json TEXT");
   await addColumnIfMissing(client, "plugins", "config_schema_json", "config_schema_json TEXT");
   await addColumnIfMissing(client, "plugins", "config_schema_version", "config_schema_version INTEGER NOT NULL DEFAULT 1");
+  // CR-032 主动智能插件化：插件主动声明列（旧库 addColumnIfMissing 兼容）
+  await addColumnIfMissing(client, "plugins", "proactive_spec_json", "proactive_spec_json TEXT");
 }

@@ -39,6 +39,8 @@ export const notifications = sqliteTable(
     sentAt: text("sent_at"),
     channel: text("channel").notNull(), // "push" | "email" | "in_app"
     status: text("status").notNull().default("scheduled"), // "scheduled" | "sent" | "failed" | "dismissed"
+    /** 通知负载（CR-032：主动关怀话术与表现声明；可选） */
+    payloadJson: text("payload_json", { mode: "json" }),
     ...timestampColumns,
   },
   (table) => ({

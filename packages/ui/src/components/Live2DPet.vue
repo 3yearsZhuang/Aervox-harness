@@ -5,7 +5,7 @@ import { AervoxLive2DController } from '../live2d/controller'
 import { PET_REACT_EVENT, resolveLookAtElement, type PetReactionDetail } from '../live2d/petReactions'
 import { DEFAULT_AERVOX_MODEL, MIZUKI_EXPRESSIONS, MIZUKI_MOTIONS, type Live2DPose } from '../live2d/model'
 
-const emit = defineEmits<{ onSpeak: [text: string] }>()
+const emit = defineEmits<{ onSpeak: [text: string, preset?: string] }>()
 
 const canvasHost = ref<HTMLDivElement | null>(null)
 const status = ref<'loading' | 'ready' | 'error'>('loading')
@@ -39,8 +39,9 @@ function onCommand(command: PetCommand) {
   if (command.type === 'react') controller.playFirstAvailableMotion(/react|tap|touch|idle/i)
   if (command.type === 'speak' && command.text) {
     controller.speakText(command.text)
-    // 气泡展示是宿主职责：speak 文本由 emit 上抛，宿主决定是否展示
-    emit('onSpeak', command.text)
+    // 气泡展示是宿主职责：speak 文本由 emit 上抛，宿主决定是否展示；
+    // CR-032 主动插件 speak 可携带气泡预设（宿主映射样式与停留时长）
+    emit('onSpeak', command.text, (command as {preset?: string}).preset)
   }
   if (command.type === 'move' && typeof command.x === 'number' && typeof command.y === 'number') controller.setFocus(command.x, command.y)
 }

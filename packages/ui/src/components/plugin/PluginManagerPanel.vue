@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import {onMounted, ref} from 'vue'
-import {Puzzle, Settings, LayoutGrid, Zap, Wrench, PackagePlus} from 'lucide-vue-next'
-import {useAervoxPlugins, type PluginPageDto, type PluginSummaryDto} from '@aervox/api-client'
+import {computed, onMounted, ref} from 'vue'
+import {Puzzle, Settings, LayoutGrid, Zap, Wrench, PackagePlus, Radar} from 'lucide-vue-next'
+import {useAervoxPlugins, type PluginGrantDto, type PluginPageDto, type PluginSummaryDto} from '@aervox/api-client'
+import {PLUGIN_SENSOR_PERMISSION} from '@aervox/contracts'
 import {useWorkbenchContext} from '../../composables/workbench-context'
 import PluginConfigDialog from './PluginConfigDialog.vue'
 import PluginInstallDialog from './PluginInstallDialog.vue'
@@ -25,6 +26,58 @@ try {
 
 const api = useAervoxPlugins()
 const {plugins, loading, error, setPluginEnabled, listPages} = api
+
+// CR-032：感知源授权——插件声明的 sensors 需在扩展中心显式授权（未授权时内核切断事件输入）
+interface DeclaredSensor {
+  sourceId: string
+  description?: string
+}
+const sensorGrantState = ref<Record<string, PluginGrantDto | null>>({})
+const sensorBusy = ref<string | null>(null)
+
+function declaredSensors(plugin: PluginSummaryDto): DeclaredSensor[] {
+  const spec = plugin.proactiveSpecJson as {sensors?: DeclaredSensor[]} | null | undefined
+  return Array.isArray(spec?.sensors) ? spec!.sensors! : []
+}
+
+const pluginsWithSensors = computed(() =>
+  plugins.value.filter((plugin) => declaredSensors(plugin).length > 0),
+)
+
+async function loadSensorGrants(): Promise<void> {
+  const targets = pluginsWithSensors.value
+  await Promise.all(targets.map(async (plugin) => {
+    try {
+      const grants = await api.listSensorGrants(plugin.id)
+      const next: Record<string, PluginGrantDto | null> = {...sensorGrantState.value}
+      for (const sensor of declaredSensors(plugin)) {
+        next[`${plugin.id}:${sensor.sourceId}`] = grants.find((grant) => grant.scope === sensor.sourceId) ?? null
+      }
+      sensorGrantState.value = next
+    } catch {
+      // 授权查询失败时保持未知态（按钮可重试）
+    }
+  }))
+}
+
+async function toggleSensorGrant(plugin: PluginSummaryDto, sensor: DeclaredSensor): Promise<void> {
+  const key = `${plugin.id}:${sensor.sourceId}`
+  sensorBusy.value = key
+  const current = sensorGrantState.value[key] ?? null
+  try {
+    if (current) {
+      await api.revokeSensorGrant(plugin.id, current.id)
+      sensorGrantState.value = {...sensorGrantState.value, [key]: null}
+    } else {
+      const grant = await api.grantSensor(plugin.id, sensor.sourceId)
+      sensorGrantState.value = {...sensorGrantState.value, [key]: grant}
+    }
+  } catch (e) {
+    console.error('切换感知源授权失败', e)
+  } finally {
+    sensorBusy.value = null
+  }
+}
 const configTarget = ref<PluginSummaryDto | null>(null)
 const configOpen = ref(false)
 const pageTarget = ref<PluginSummaryDto | null>(null)
@@ -64,6 +117,7 @@ async function refresh(forceReloadPages = false): Promise<void> {
 
 onMounted(() => {
   void refresh()
+  void loadSensorGrants()
 })
 
 async function toggleEnabled(plugin: PluginSummaryDto): Promise<void> {
@@ -190,7 +244,7 @@ function openConfigFromPage(): void {
       <p v-else-if="plugins.length === 0" class="plugin-empty">还没有安装插件。点击右上角「安装插件」登记声明，或把插件 Bundle 放入 data/plugins 后重启。</p>
 
       <div v-else class="plugin-list">
-        <article v-for="plugin in plugins" :key="plugin.id" class="plugin-card">
+        <article v-for="plugin in plugins" :key="plugin.id" class="plugin-card plugin-card--proactive">
           <span class="plugin-card-icon"><Puzzle :size="18" /></span>
           <div class="plugin-card-main">
             <strong>{{ plugin.id }}</strong>
@@ -210,6 +264,26 @@ function openConfigFromPage(): void {
             <button v-if="pluginsWithPages.has(plugin.id)" type="button" class="plugin-action" title="页面" :disabled="pageBusy === plugin.id" @click="openPage(plugin)">
               <LayoutGrid :size="15" />页面
             </button>
+          </div>
+          <!-- CR-032：主动感知源授权区（未授权的感知源被内核 fail-closed 拦截） -->
+          <div v-if="declaredSensors(plugin).length > 0" class="sensor-grants">
+            <span class="sensor-grants-title"><Radar :size="12" />主动感知源</span>
+            <label
+              v-for="sensor in declaredSensors(plugin)"
+              :key="sensor.sourceId"
+              class="sensor-grant-row"
+              :title="sensor.description ?? sensor.sourceId"
+            >
+              <code class="sensor-id">{{ sensor.sourceId }}</code>
+              <button
+                type="button"
+                class="settings-switch sensor-grant-toggle"
+                :class="{checked: Boolean(sensorGrantState[`${plugin.id}:${sensor.sourceId}`])}"
+                :disabled="sensorBusy === `${plugin.id}:${sensor.sourceId}`"
+                :aria-label="`${sensorGrantState[`${plugin.id}:${sensor.sourceId}`] ? '撤销' : '授予'} ${plugin.id} 的 ${sensor.sourceId} 感知授权`"
+                @click="toggleSensorGrant(plugin, sensor)"
+              />
+            </label>
           </div>
         </article>
       </div>
@@ -369,4 +443,37 @@ function openConfigFromPage(): void {
   transform: translateY(0) scale(0.97);
 }
 .plugin-action:disabled { opacity: .5; cursor: default; }
+.plugin-card--proactive {
+  flex-wrap: wrap;
+}
+.sensor-grants {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border-top: 1px dashed var(--border);
+}
+.sensor-grants-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.sensor-grant-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-input);
+}
+.sensor-id {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+.sensor-grant-toggle { width: 34px; height: 19px; flex: 0 0 34px; }
 </style>

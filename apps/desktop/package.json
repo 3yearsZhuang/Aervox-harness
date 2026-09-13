@@ -24,7 +24,6 @@
   "type": "module",
   "dependencies": {
     "@aervox/api-client": "workspace:*",
-    "@aervox/contracts": "workspace:^",
     "@aervox/live2d": "workspace:*",
     "@aervox/public": "workspace:*",
     "@aervox/ui": "workspace:*",
@@ -35,6 +34,7 @@
     "vue": "^3.5.21"
   },
   "devDependencies": {
+    "@aervox/contracts": "workspace:^",
     "@types/node": "^22.15.3",
     "@vitejs/plugin-vue": "^6.0.1",
     "electron": "^43.4.1",
