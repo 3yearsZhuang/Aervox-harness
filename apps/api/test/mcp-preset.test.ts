@@ -103,7 +103,7 @@ describe("MCP 预设（mcd-mcp）", () => {
     await cleanup();
   });
 
-  it("预设清单包含麦当劳官方 MCP 接入档案", async () => {
+  it("预设清单包含麦当劳与 DSH 官方 MCP 接入档案", async () => {
     const res = await app.inject({ method: "GET", url: "/v1/mcp/presets" });
     expect(res.statusCode).toBe(200);
     const presets = res.json().presets as Array<Record<string, unknown>>;
@@ -115,6 +115,14 @@ describe("MCP 预设（mcd-mcp）", () => {
     expect(mcd?.tokenApplyUrl).toContain("open.mcd.cn");
     expect(mcd?.configured).toBe(false);
     expect(mcd?.status).toBe("disconnected");
+
+    const dsh = presets.find((p) => p.id === "dsh-mcp");
+    expect(dsh).toBeTruthy();
+    expect(dsh?.endpointUrl).toBe("http://127.0.0.1:3000/v1/mcp/dsh");
+    expect(dsh?.transport).toBe("streamable_http");
+    expect(dsh?.authType).toBe("none");
+    expect(dsh?.configured).toBe(false);
+    expect(dsh?.status).toBe("disconnected");
   });
 
   it("未配置 Token 接入 → 502 MCP_UPSTREAM_ERROR 且状态落 error", async () => {
@@ -282,5 +290,110 @@ describe("MCP 预设（mcd-mcp）", () => {
       payload: { token: "x" },
     });
     expect(res.statusCode).toBe(404);
+  });
+});
+
+describe("DSH 官方 MCP 预设（dsh-mcp）端到端集成", () => {
+  let app: FastifyInstance;
+  let cleanup: () => Promise<void>;
+
+  beforeEach(async () => {
+    const res = await createInMemoryDatabase();
+    cleanup = res.cleanup;
+    await initDatabaseSchema(res.client);
+    const built = await buildApp({ db: res.db, client: res.client });
+    app = built.app;
+    await app.ready();
+  });
+
+  afterEach(async () => {
+    await app.close();
+    await cleanup();
+  });
+
+  it("免密一键接入 → 同步 6 个研发工具（PET-05 安全分级）→ 代理调用 → 断开注销", async () => {
+    // 1. 免密一键接入（无需 token）
+    const connectRes = await app.inject({
+      method: "POST",
+      url: "/v1/mcp/servers/dsh-mcp/connect",
+      headers,
+      payload: {},
+    });
+    expect(connectRes.statusCode).toBe(200);
+    const server = connectRes.json().server;
+    expect(server.status).toBe("connected");
+    expect(server.toolCount).toBe(6);
+    expect(server.enabled).toBe(true);
+    expect(server.authType).toBe("none");
+
+    // 2. 验证已同步工具与 PET-05 安全分级
+    const toolsRes = await app.inject({ method: "GET", url: "/v1/tools", headers });
+    expect(toolsRes.statusCode).toBe(200);
+    const items = toolsRes.json().items as Array<{ id: string; safetyLevel: string; category: string }>;
+    const byId = new Map(items.map((t) => [t.id, t]));
+
+    // 只读工具可被自主调用
+    expect(byId.get("mcp__dsh-mcp__dsh_probe_runtime")?.safetyLevel).toBe("read_only");
+    expect(byId.get("mcp__dsh-mcp__dsh_read_file")?.safetyLevel).toBe("read_only");
+    expect(byId.get("mcp__dsh-mcp__dsh_list_dir")?.safetyLevel).toBe("read_only");
+    expect(byId.get("mcp__dsh-mcp__dsh_search_code")?.safetyLevel).toBe("read_only");
+    // 写/命令工具强制需授权
+    expect(byId.get("mcp__dsh-mcp__dsh_str_replace")?.safetyLevel).toBe("write_with_approval");
+    expect(byId.get("mcp__dsh-mcp__dsh_run_command")?.safetyLevel).toBe("write_with_approval");
+
+    // 3. 代理调用只读工具：通过 /v1/tools/:id/call
+    const callRead = await app.inject({
+      method: "POST",
+      url: "/v1/tools/mcp__dsh-mcp__dsh_read_file/call",
+      headers,
+      payload: { arguments: { path: "package.json", startLine: 1, endLine: 3 } },
+    });
+    expect(callRead.statusCode).toBe(200);
+    const readData = JSON.parse(callRead.json().content[0].text as string) as {
+      content: Array<{ text: string }>;
+      isError: boolean;
+    };
+    expect(readData.isError).toBe(false);
+    expect(readData.content[0].text).toContain("1: {");
+
+    // 4. 写工具未授权阻断（PET-05 返回 400 与 isError）；授权后可正常执行
+    const noApproval = await app.inject({
+      method: "POST",
+      url: "/v1/tools/mcp__dsh-mcp__dsh_run_command/call",
+      headers,
+      payload: { arguments: { command: "node -e 'console.log(123)'" } },
+    });
+    expect(noApproval.statusCode).toBe(400);
+    expect(noApproval.json().isError).toBe(true);
+
+    const approved = await app.inject({
+      method: "POST",
+      url: "/v1/tools/mcp__dsh-mcp__dsh_run_command/call",
+      headers,
+      payload: { arguments: { command: "node -e 'console.log(123)'" }, approval: true },
+    });
+    expect(approved.statusCode).toBe(200);
+    expect(approved.json().content[0].text).toContain("123");
+
+    // 5. 断开连接：注销全部工具
+    const disconnectRes = await app.inject({
+      method: "POST",
+      url: "/v1/mcp/servers/dsh-mcp/disconnect",
+      headers,
+    });
+    expect(disconnectRes.statusCode).toBe(200);
+    expect(disconnectRes.json().server.enabled).toBe(false);
+    expect(disconnectRes.json().server.status).toBe("disconnected");
+
+    const serverTools = await app.inject({
+      method: "GET",
+      url: "/v1/mcp/servers/dsh-mcp/tools",
+      headers,
+    });
+    expect(serverTools.json().tools).toHaveLength(0);
+
+    const registryRes = await app.inject({ method: "GET", url: "/v1/tools", headers });
+    const remainIds = (registryRes.json().items as Array<{ id: string }>).map((t) => t.id);
+    expect(remainIds.some((id) => id.startsWith("mcp__dsh-mcp__"))).toBe(false);
   });
 });

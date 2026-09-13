@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.26.0
+version: 1.26.1
 updated_at: 2026-09-13
 reviewed_at: 2026-09-13
 review_interval_days: 90
@@ -428,6 +428,7 @@ review_interval_days: 90
 | CAP-001 / NFR-PERF-001 会话回合上下文构建、记忆检索与前端流式全链路性能优化 | CAP-001 / NFR-PERF-001 / 基础设施 | `packages/schema/src/memories.ts`、`packages/repositories/src/repositories/{types/memory.ts,sqlite/memory-repository.ts}`、`apps/api/src/modules/conversation/{memory-recall.ts,agent-executor.ts,routes.ts}`、`packages/ui/src/{composables/useWorkbenchConversation.ts,components/AervoxWorkbench.vue}` | 2026-09-12 | 仓储层增加 getRecordsByIds 批量查询消除 memory-recall 12 次 N+1 串行查询；agent-executor 中 getSessionHistory 与 memoryRecall 并发流水线化（Promise.all）；SSE routes 增量拉取短路终态事件杜绝重复 Attempt 轮询；前端 useWorkbenchConversation 引入 rAF 批处理与 instant 模式彻底消除流式高频强制回流与平滑滚动动画打断抖动；repositories/api/ui 单元测试全过 | 原生 |
 | CR-031 Turn SSE 实时流式推送 Pub/Sub 内存总线与 400ms 轮询消除 | CAP-001/002/NFR-PERF-001 / ADR-012 | `apps/api/src/modules/conversation/{stream-hub,routes,agent-executor,user-question-coordinator}.ts`、`apps/api/src/modules/plugins/turn-plugins/focus-mode.ts`、`apps/api/test/conversation-stream-pubsub.test.ts`、`docs/reference/changes/CR-031-turn-stream-pubsub-optimization.md` | 2026-09-13 | 引入 `TurnStreamHub` 进程内总线；执行器与协调器写库同时直推；SSE 端点挂载直推订阅 + 存量排空；彻底消除 400ms SQLite WAL 读轮询；降频 15s 探活心跳；3 项 Pub/Sub 专属集成测试 + 10 套件 36 项对话回归测试全绿；ci-code 与 ci-docs 全通 | 原生 |
 | B 阶段安全加固：CR-022 工具沙箱安全与不可绕过策略执行机制 | CAP-002/007/020/033 / TM-006 / TM-015 | `packages/agent-loop/src/{tool-input-safe.ts,executor.ts,index.ts}`、`apps/api/src/shared/tool-approval-policy.ts`、`apps/api/src/modules/conversation/agent-executor.ts`、`apps/api/src/modules/tools/runtime.ts`、`packages/agent-loop/test/tool-input-safe.test.ts`、`apps/api/test/{tool-approval-policy.test.ts,conversation-tool-sandbox.test.ts}` | 2026-09-13 | 建立 `inspectToolInput` 参数沙箱防线（空字节拦截、路径穿越 `../` 与 URL 编码穿越防护、敏感系统目录逃逸防护、高危命令注入启发式拦截）；在 `tool-approval-policy.ts` 建立高危不可免审红线清单（生产技能变更 `aervox_skill_promote/rollback/sync` 与物理安防动作 `ha_call_service lock/alarm` 严禁完全访问自动放行）；在 Agent Loop 执行管线与 ToolRuntime.callTool 双层强制拦截；agent-loop 29 套件 176 测试 + api 对话与沙箱 7 套件 31 测试全绿；ci-code 与 ci-docs 全通 | 原生 |
+| CAP-020 / ADR-010 方案一：DSH 本地 MCP 桥接与官方预设接入 | CAP-020 / ADR-010 / PET-05 / 基础设施 | `apps/api/src/modules/mcp/{dsh-bridge.ts,presets.ts,service.ts,routes.ts,index.ts}`、`packages/contracts/src/openapi.ts`、`packages/contracts/openapi.json`、`packages/ui/src/components/plugin/McpPresetServers.vue`、`apps/api/test/{mcp-dsh-bridge.test.ts,mcp-preset.test.ts}` | 2026-09-13 | 将 DSH（DeepSeek Harness）核心研发工具（探测、检索、阅读、列目录、受控编辑、命令执行）封装为 Streamable HTTP JSON-RPC 2.0 MCP 桥接器并注册为官方出厂预设服务器（`authType: none` 纯本地免密接入）；落地 PET-05 安全分级（读操作自动放行，写与执行需审批）与沙箱路径逃逸越界防护；建立进程内直通回路消除端口监听依赖；前端扩展中心支持免密一键接入；OpenAPI 契约更新；17 项单测与端到端测试全绿；ci-code 与 ci-docs 全通 | `DSH-01` + 原生 |
 
 ## 5. 原子需求字段模板
 
