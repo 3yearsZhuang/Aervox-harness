@@ -32,6 +32,15 @@ docs-lint-prose = "vale --minAlertLevel=error docs README.md AGENTS.md CONTRIBUT
 # 文档 ID、元数据、登记表与本地链接/锚点一致性
 docs-validate = "node scripts/docs-governance.mjs --strict"
 
+# 自动从文档 Front Matter 同步 DOC_REGISTRY.md 核验日期
+docs-sync = "node scripts/docs-governance.mjs --sync-registry"
+
+# 自动从文档元数据生成 document-catalog.json 机器目录
+docs-catalog = "node scripts/docs-governance.mjs --generate-catalog"
+
+# 检查当前代码变动是否命中任何文档的 review_triggers
+docs-triggers = "node scripts/docs-governance.mjs --check-triggers"
+
 # 开发：API + 桌面端（见 package.json scripts.dev:desktop）
 dev-desktop = "pnpm dev:desktop"
 

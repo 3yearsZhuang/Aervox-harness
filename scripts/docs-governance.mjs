@@ -11,6 +11,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -18,6 +19,9 @@ const rootDir = path.resolve(scriptDir, "..");
 const docsDir = path.join(rootDir, "docs");
 const policyPath = path.join(docsDir, "_meta", "document-policy.json");
 const strict = process.argv.includes("--strict") || process.env.DOCS_GOVERNANCE_STRICT === "1";
+const doSync = process.argv.includes("--sync-registry") || process.argv.includes("--sync");
+const doCatalog = process.argv.includes("--generate-catalog") || process.argv.includes("--catalog");
+const checkTriggers = process.argv.includes("--check-triggers");
 
 const errors = [];
 const warnings = [];
@@ -334,6 +338,128 @@ function checkRegistry(metadataByFile) {
   }
 }
 
+function syncRegistry(metadataByFile) {
+  const registryFile = path.join(docsDir, "DOC_REGISTRY.md");
+  if (!fs.existsSync(registryFile)) {
+    reportError("docs/DOC_REGISTRY.md 不存在");
+    return;
+  }
+  let text = fs.readFileSync(registryFile, "utf8");
+  let updatedCount = 0;
+  const linePattern = /^(\|\s*`([^`]+)`\s*\|\s*\[([^\]]+)\]\(([^)#\s]+)(?:#[^)]*)?\)\s*\|\s*)(\d{4}-\d{2}-\d{2})(\s*\|.*)$/gm;
+  text = text.replace(linePattern, (full, prefix, id, title, relPath, oldDate, suffix) => {
+    const targetFile = path.resolve(docsDir, normalizePath(relPath.trim()));
+    const meta = metadataByFile.get(targetFile);
+    if (!meta || !meta.reviewedAt || !/^\d{4}-\d{2}-\d{2}$/.test(meta.reviewedAt)) {
+      return full;
+    }
+    if (meta.reviewedAt !== oldDate) {
+      updatedCount += 1;
+      return `${prefix}${meta.reviewedAt}${suffix}`;
+    }
+    return full;
+  });
+
+  if (updatedCount > 0) {
+    fs.writeFileSync(registryFile, text, "utf8");
+    console.log(`[docs-sync] 成功同步 DOC_REGISTRY.md 中 ${updatedCount} 处核验日期`);
+  } else {
+    console.log("[docs-sync] DOC_REGISTRY.md 日期已全部与文档核验日期一致");
+  }
+}
+
+function generateCatalog(metadataByFile, policy) {
+  const catalogPath = path.join(docsDir, "_meta", "document-catalog.json");
+  const documents = [];
+  for (const [file, meta] of metadataByFile) {
+    if (meta.isTemplate || meta.basename === "LICENSE") continue;
+    documents.push({
+      id: meta.id || null,
+      title: meta.title,
+      path: meta.relative,
+      type: meta.type,
+      scope: meta.fields.scope || (meta.isArchive ? "archive" : "baseline"),
+      owner: meta.fields.owner || "maintainers",
+      doc_status: meta.documentStatus || "draft",
+      decision_status: meta.decisionStatus || "not-applicable",
+      delivery_status: meta.deliveryStatus || "not-applicable",
+      version: meta.fields.version || null,
+      updated_at: meta.updatedAt || null,
+      reviewed_at: meta.reviewedAt || null,
+      review_interval_days: meta.fields.review_interval_days ? Number(meta.fields.review_interval_days) : Number(policy.defaultReviewIntervalDays),
+      review_triggers: meta.fields.review_triggers || [],
+      sources: meta.fields.sources || [],
+    });
+  }
+  documents.sort((a, b) => a.path.localeCompare(b.path));
+  const output = {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString().slice(0, 10),
+    totalCount: documents.length,
+    documents,
+  };
+  fs.writeFileSync(catalogPath, JSON.stringify(output, null, 2) + "\n", "utf8");
+  console.log(`[docs-catalog] 成功生成 ${relativeToRoot(catalogPath)}，共收录 ${documents.length} 篇文档`);
+}
+
+function matchGlob(filePath, pattern) {
+  const normalizedFile = filePath.split(path.sep).join("/");
+  const normalizedPattern = pattern.trim().split(path.sep).join("/");
+  const regexStr = "^" + normalizedPattern
+    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+    .replace(/\*\*/g, ".*")
+    .replace(/(?<!\.)\*/g, "[^/]*") + "$";
+  return new RegExp(regexStr).test(normalizedFile);
+}
+
+function checkReviewTriggers(metadataByFile) {
+  let changedFiles = [];
+  try {
+    const gitOutput = execSync("git status --porcelain", { cwd: rootDir, encoding: "utf8" });
+    changedFiles = gitOutput
+      .split("\n")
+      .map((line) => line.trim().slice(3).trim())
+      .filter(Boolean);
+  } catch {
+    return;
+  }
+  if (changedFiles.length === 0) return;
+
+  const modifiedDocs = new Set(
+    changedFiles
+      .filter((file) => file.startsWith("docs/"))
+      .map((file) => path.resolve(rootDir, file))
+  );
+
+  const triggeredDocs = new Map();
+  for (const [absDocPath, meta] of metadataByFile) {
+    if (!Array.isArray(meta.fields.review_triggers) || meta.fields.review_triggers.length === 0) continue;
+    for (const trigger of meta.fields.review_triggers) {
+      if (typeof trigger !== "string" || !trigger.trim()) continue;
+      for (const changedFile of changedFiles) {
+        if (matchGlob(changedFile, trigger)) {
+          if (!triggeredDocs.has(meta.relative)) triggeredDocs.set(meta.relative, { absDocPath, triggers: [] });
+          triggeredDocs.get(meta.relative).triggers.push({ changedFile, trigger });
+        }
+      }
+    }
+  }
+
+  if (triggeredDocs.size > 0) {
+    console.log(`[docs-trigger] 检查到 ${triggeredDocs.size} 篇文档命中代码路径变动触发器：`);
+    for (const [docRel, { absDocPath, triggers }] of triggeredDocs) {
+      const isDocUpdated = modifiedDocs.has(absDocPath);
+      const statusText = isDocUpdated ? "（已同步修改 ✅）" : "（未被修改 ⚠️ 建议复核）";
+      console.log(`  - ${docRel} ${statusText}`);
+      for (const { changedFile, trigger } of triggers.slice(0, 2)) {
+        console.log(`    ↳ 变动源: ${changedFile} 命中 [${trigger}]`);
+      }
+    }
+  } else {
+    console.log("[docs-trigger] 当前工作区变动未命中任何文档触发器");
+  }
+}
+
 function validatePolicy(policy) {
   const requiredArrays = ["documentStatus", "decisionStatus", "deliveryStatus"];
   for (const key of requiredArrays) {
@@ -477,12 +603,21 @@ function main() {
   }
   checkMetadata(metadataByFile, policy);
   const linkFiles = new Map(metadataByFile);
-  for (const rootDocument of ["README.md", "AGENTS.md", "CONTRIBUTING.md"]) {
+  for (const rootDocument of ["README.md", "AGENTS.md", "CONTRIBUTING.md", "CHANGELOG.md"]) {
     const file = path.join(rootDir, rootDocument);
     if (!fs.existsSync(file)) continue;
     linkFiles.set(file, { relative: rootDocument, text: fs.readFileSync(file, "utf8") });
   }
   checkLinks(linkFiles);
+  if (doSync) {
+    syncRegistry(metadataByFile);
+  }
+  if (doCatalog) {
+    generateCatalog(metadataByFile, policy);
+  }
+  if (checkTriggers) {
+    checkReviewTriggers(metadataByFile);
+  }
   checkRegistry(metadataByFile);
   finish();
 }
