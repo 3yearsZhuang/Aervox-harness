@@ -15,8 +15,14 @@ sources:
   - docs/reference/srs-proactive-intelligence.md
   - docs/reference/REQUIREMENTS_TRACEABILITY.md
   - docs/reference/changes/CR-023-proactive-local-intelligence-mode.md
+  - docs/reference/changes/CR-024-proactive-intelligence-suite-integrations.md
   - docs/reference/changes/CR-032-proactive-intelligence-plugin-ecosystem.md
+  - docs/reference/adr/ADR-004-outbox-idempotent-jobs.md
   - docs/reference/adr/ADR-009-electron-plugin-sandbox.md
+  - docs/reference/adr/ADR-012-streaming-safety-persistence.md
+  - docs/reference/adr/ADR-017-context-manifest-modelrun-step.md
+  - docs/reference/adr/ADR-018-proactive-local-privacy-host.md
+  - docs/reference/adr/ADR-019-proactive-integrations-local-gateway.md
   - docs/reference/DATA_PRIVACY.md
   - docs/reference/capability-registry.md
 ---
@@ -26,7 +32,7 @@ sources:
 - 提出人：3yearszhuang · 2026-09-14
 - 修改人：3yearszhuang · 2026-09-14
 
-关联：[PRD](../PRD.md) · [主动智能需求规格附录](../srs-proactive-intelligence.md) · [需求追踪基线](../REQUIREMENTS_TRACEABILITY.md#11-变更控制) · [CR-023 主动智能模式](CR-023-proactive-local-intelligence-mode.md) · [CR-032 插件化生态](CR-032-proactive-intelligence-plugin-ecosystem.md) · [ADR-009 插件沙箱](../adr/ADR-009-electron-plugin-sandbox.md) · [数据与隐私](../DATA_PRIVACY.md) · [能力注册表](../capability-registry.md)
+关联：[PRD](../PRD.md) · [主动智能需求规格附录](../srs-proactive-intelligence.md) · [需求追踪基线](../REQUIREMENTS_TRACEABILITY.md#11-变更控制) · [CR-023 主动智能模式](CR-023-proactive-local-intelligence-mode.md) · [CR-024 主动智能集成套件](CR-024-proactive-intelligence-suite-integrations.md) · [CR-032 插件化生态](CR-032-proactive-intelligence-plugin-ecosystem.md) · [ADR-004 幂等任务](../adr/ADR-004-outbox-idempotent-jobs.md) · [ADR-009 插件沙箱](../adr/ADR-009-electron-plugin-sandbox.md) · [ADR-012 流式安全持久化](../adr/ADR-012-streaming-safety-persistence.md) · [ADR-017 上下文清单与模型回合](../adr/ADR-017-context-manifest-modelrun-step.md) · [ADR-018 本地私密存储与主动智能 Host](../adr/ADR-018-proactive-local-privacy-host.md) · [ADR-019 主动集成本地网关](../adr/ADR-019-proactive-integrations-local-gateway.md) · [数据与隐私](../DATA_PRIVACY.md) · [能力注册表](../capability-registry.md)
 
 - 状态：Proposed / Planned
 - 提出人 / 日期：3yearszhuang / 2026-09-14
@@ -79,6 +85,11 @@ CR-032 已落地「插件声明、内核裁决、多端联动」的开放生态�
 - **应然**：每周期（或每事件批）把全部信号归约为**一个只读态势投影**——在场状态、专注/疲劳水位、近期承诺、漂移概况、当前场景、外部连接状态等——以版本化白名单 schema（`situation_model_v1`）暴露；
 - **关键设计**：投影是**规则与 LLM 的唯一视野**：规则表达式只能引用投影字段，主动回合的提示词也只装配投影快照；投影 schema 的演进走受治流程，即 fail-closed 边界从「求值器枚举」上移到「投影 schema」；投影是纯派生物，可随时从事件流重建，不承担真源职责（真源仍是 vault 各表）；
 - **收益**：N×M 耦合收敛为 N→1；「内置 4 规则」与插件规则在同一投影上等价表达，为内置规则数据化铺平道路。
+
+> [!NOTE] F0 语义澄清（2026-09-14）
+> 「SituationModel 是唯一视野」仅指**主动信号视图**：规则表达式与主动回合提示词只装配投影快照。
+> persona revision、safety policy 与获准记忆引用走**独立的 `ContextManifest`**（见 ADR-017），
+> 不并入投影白名单；投影只承载感知/态势信号，不承载人格、安全与记忆引用，避免 P2 与 P5 的语义冲突。
 
 ### 3.3 P3 规则数据化（受限表达式语言）
 
