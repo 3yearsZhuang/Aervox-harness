@@ -53,6 +53,22 @@ export const MCP_PRESETS: McpPresetDefinition[] = [
     rateLimitNote: "每个 Token 每分钟最多 600 次请求，超限返回 429",
     sourceUrl: "https://github.com/M-China/mcd-mcp-server",
   },
+  {
+    id: "dsh-mcp",
+    name: "DeepSeek Harness (DSH)",
+    description:
+      "基于 DeepSeek Harness (DSH) 规范的本地研发工具集：提供代码检索、目录浏览、受控文件编辑、命令执行与运行时状态探测等全套能力。纯本地运行，免密接入。",
+    transport: MCP_PRESET_TRANSPORT.streamableHttp,
+    endpointUrl: "http://127.0.0.1:3000/v1/mcp/dsh",
+    authType: "none",
+    protocolVersion: "2025-06-18",
+    homepage: "https://github.com/deepseek-ai/deepseek-harness",
+    docsUrl: "https://github.com/deepseek-ai/deepseek-harness#readme",
+    tokenApplyUrl: "https://github.com/deepseek-ai/deepseek-harness",
+    regionNote: "纯本地运行，零外部网络依赖",
+    rateLimitNote: "本地进程调用，无速率限制",
+    sourceUrl: "reference/deepseek-harness",
+  },
 ];
 
 export function findMcpPreset(id: string): McpPresetDefinition | undefined {

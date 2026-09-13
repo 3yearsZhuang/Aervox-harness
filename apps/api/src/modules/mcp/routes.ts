@@ -13,9 +13,14 @@
  */
 import type { FastifyInstance } from "fastify";
 import { McpUpstreamError } from "./client.js";
+import type { DshMcpBridge } from "./dsh-bridge.js";
 import type { McpService } from "./service.js";
 
-export function registerMcpRoutes(app: FastifyInstance, service: McpService): void {
+export function registerMcpRoutes(
+  app: FastifyInstance,
+  service: McpService,
+  dshBridge?: DshMcpBridge,
+): void {
   app.get("/v1/mcp/presets", async () => ({ presets: await service.listPresets() }));
 
   app.get("/v1/mcp/servers", async () => ({ servers: await service.listServers() }));
@@ -59,6 +64,21 @@ export function registerMcpRoutes(app: FastifyInstance, service: McpService): vo
       return mapServiceError(reply, err);
     }
   });
+
+  // DSH 本地 MCP 服务端点（Streamable HTTP JSON-RPC 2.0，供本机回路与外部客户端调用）
+  if (dshBridge) {
+    app.get("/v1/mcp/dsh", async () => ({
+      status: "ok",
+      server: "dsh-mcp-server",
+      protocolVersion: "2025-06-18",
+    }));
+
+    app.post("/v1/mcp/dsh", async (req, reply) => {
+      reply.header("Content-Type", "application/json");
+      const result = await dshBridge.handleRpc(req.body);
+      return result;
+    });
+  }
 }
 
 function mapServiceError(reply: {

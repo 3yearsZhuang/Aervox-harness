@@ -14,6 +14,7 @@ import type { SqliteMcpServerRepository, McpServerModel } from "@aervox/reposito
 import { NotFoundError } from "../../shared/errors.js";
 import type { ToolRuntime } from "../tools/runtime.js";
 import { McpHttpClient, McpUpstreamError, type McpRemoteTool } from "./client.js";
+import type { DshMcpBridge } from "./dsh-bridge.js";
 import { MCP_PRESETS, findMcpPreset, type McpPresetDefinition } from "./presets.js";
 
 /** 工具命名空间前缀：mcp__<serverId>__<toolName> */
@@ -33,6 +34,10 @@ const READ_ONLY_TOOL_PREFIXES = [
   "mall-points-",
   "mall-product-",
   "mall-order-",
+  "dsh_read",
+  "dsh_list",
+  "dsh_search",
+  "dsh_probe",
 ] as const;
 
 /** PET-05 安全分级：官方查询/列表类工具 → read_only；其余（下单/领券/写地址）→ 需授权 */
@@ -107,6 +112,8 @@ export interface McpServiceDeps {
   toolRuntime: ToolRuntime;
   /** 测试注入 fake fetch；缺省用全局 fetch */
   fetchImpl?: typeof fetch;
+  /** DSH 本地 MCP 桥接器（用于本地回路免网络端口直调） */
+  dshBridge?: DshMcpBridge;
 }
 
 function toServerDto(row: McpServerModel): McpServerDto {
@@ -273,10 +280,25 @@ export class McpService {
   private getClient(row: McpServerModel): McpHttpClient {
     const cached = this.clients.get(row.id);
     if (cached && cached.matches(row.endpointUrl, row.token)) return cached;
+
+    let fetchImpl = this.deps.fetchImpl;
+    // 本地回路：当未注入自定义 fetchImpl 且目标为本地 dsh 预设端点时，直通内部 bridge
+    if (!fetchImpl && (row.id === "dsh-mcp" || row.endpointUrl.includes("/v1/mcp/dsh")) && this.deps.dshBridge) {
+      const bridge = this.deps.dshBridge;
+      fetchImpl = (async (_url: string | URL | Request, init?: RequestInit) => {
+        const body = typeof init?.body === "string" ? JSON.parse(init.body) : init?.body;
+        const result = await bridge.handleRpc(body);
+        return new Response(JSON.stringify(result), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }) as typeof fetch;
+    }
+
     const client = new McpHttpClient({
       endpointUrl: row.endpointUrl,
       token: row.token,
-      fetchImpl: this.deps.fetchImpl,
+      fetchImpl,
     });
     this.clients.set(row.id, client);
     return client;

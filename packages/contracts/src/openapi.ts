@@ -753,6 +753,52 @@ registry.registerPath({ method: "get", path: "/v1/mcp/servers/{serverId}/tools",
 registry.registerPath({ method: "post", path: "/v1/mcp/servers/{serverId}/connect", summary: "接入预设 MCP 服务器（携带 Token 并同步工具）", tags: ["MCP"], request: { params: z.object({ serverId: z.string().min(1) }), body: { content: { "application/json": { schema: mcpConnectServerRequestSchema } } } }, responses: { 200: { description: "Connected", content: { "application/json": { schema: z.object({ server: mcpServerConfigSchema }) } } }, 404: { description: "Unknown preset" }, 502: { description: "MCP_UPSTREAM_ERROR" } } });
 registry.registerPath({ method: "post", path: "/v1/mcp/servers/{serverId}/sync", summary: "重新同步 MCP 服务器工具", tags: ["MCP"], request: { params: z.object({ serverId: z.string().min(1) }) }, responses: { 200: { description: "Synced", content: { "application/json": { schema: z.object({ server: mcpServerConfigSchema }) } } }, 404: { description: "MCP server not connected" }, 502: { description: "MCP_UPSTREAM_ERROR" } } });
 registry.registerPath({ method: "post", path: "/v1/mcp/servers/{serverId}/disconnect", summary: "断开 MCP 服务器并注销同步工具", tags: ["MCP"], request: { params: z.object({ serverId: z.string().min(1) }) }, responses: { 200: { description: "Disconnected", content: { "application/json": { schema: z.object({ server: mcpServerConfigSchema }) } } }, 404: { description: "MCP server not connected" } } });
+registry.registerPath({ method: "get", path: "/v1/mcp/dsh", summary: "DSH 本地 MCP 服务端点探活", tags: ["MCP"], responses: { 200: { description: "DSH MCP server info", content: { "application/json": { schema: z.object({ status: z.string(), server: z.string(), protocolVersion: z.string() }) } } } } });
+const dshRpcRequestSchema = z.object({
+  jsonrpc: z.string().optional(),
+  id: z.union([z.number(), z.string(), z.null()]).optional(),
+  method: z.string(),
+  params: z.record(z.string(), z.unknown()).optional(),
+});
+
+const dshRpcResponseSchema = z.object({
+  jsonrpc: z.string(),
+  id: z.union([z.number(), z.string(), z.null()]),
+  result: z.unknown().optional(),
+  error: z
+    .object({
+      code: z.number(),
+      message: z.string(),
+      data: z.unknown().optional(),
+    })
+    .optional(),
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/mcp/dsh",
+  summary: "DSH 本地 MCP Streamable HTTP JSON-RPC 2.0 端点",
+  tags: ["MCP"],
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: dshRpcRequestSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "JSON-RPC response",
+      content: {
+        "application/json": {
+          schema: dshRpcResponseSchema,
+        },
+      },
+    },
+  },
+});
 registry.registerPath({ method: "get", path: "/v1/voice/models", summary: "列出 GPT-SoVITS 模型", tags: ["Voice"], responses: { 200: { description: "Voice models", content: { "application/json": { schema: z.object({ models: z.array(voiceModelSchema) }) } } } } });
 registry.registerPath({ method: "post", path: "/v1/voice/synthesize", summary: "GPT-SoVITS 语音合成", tags: ["Voice"], request: { body: { content: { "application/json": { schema: voiceSynthesisRequestSchema } } } }, responses: { 200: { description: "Audio artifact", content: { "application/json": { schema: voiceSynthesisResponseSchema } } }, 503: { description: "VOICE_PROVIDER_UNAVAILABLE" } } });
 registry.registerPath({ method: "get", path: "/v1/voice/config", summary: "读取本地语音模型配置", tags: ["Voice"], request: { headers: scopeHeaders }, responses: { 200: { description: "Local voice config", content: { "application/json": { schema: localVoiceConfigResponseSchema } } } } });
