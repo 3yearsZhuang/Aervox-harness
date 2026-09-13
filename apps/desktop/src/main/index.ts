@@ -24,6 +24,10 @@ let mainWindow: BrowserWindow | null = null
 let petWindow: BrowserWindow | null = null
 let appTheme: 'light' | 'dark' = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
 const apiBaseUrl = (process.env.AERVOX_API_URL ?? 'http://127.0.0.1:3000').replace(/\/$/, '')
+// 诊断开关：AERVOX_RENDERER_DEBUG_PORT=9222 时暴露渲染层 CDP（仅 dev 排查用）
+if (process.env.AERVOX_RENDERER_DEBUG_PORT) {
+    app.commandLine.appendSwitch('remote-debugging-port', process.env.AERVOX_RENDERER_DEBUG_PORT)
+}
 let proactiveLocalReady = false
 const sourceConfigPath = join(app.getPath('userData'), 'proactive', 'source-config.json')
 let proactiveFileRoots = (process.env.AERVOX_PROACTIVE_FILE_ROOTS ?? '')
@@ -762,6 +766,10 @@ async function uploadAttachment(_event: Electron.IpcMainInvokeEvent, payload: un
         throw new Error(`附件大小超出限制（≤10MB）`)
     }
     const apiBaseUrl = (process.env.AERVOX_API_URL ?? 'http://127.0.0.1:3000').replace(/\/$/, '')
+// 诊断开关：AERVOX_RENDERER_DEBUG_PORT=9222 时暴露渲染层 CDP（仅 dev 排查用）
+if (process.env.AERVOX_RENDERER_DEBUG_PORT) {
+    app.commandLine.appendSwitch('remote-debugging-port', process.env.AERVOX_RENDERER_DEBUG_PORT)
+}
     const query = new URLSearchParams({
         fileName: payload.fileName,
         mediaType: payload.mediaType,
