@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.8.0
+version: 1.9.0
 updated_at: 2026-09-13
 reviewed_at: 2026-09-13
 review_interval_days: 90
@@ -21,96 +21,131 @@ review_interval_days: 90
 
 ## 1. 文档体系与事实源
 
+### 产品与需求
+
 | 文档 | 负责回答 | 事实源边界 |
 |---|---|---|
 | [PRD](reference/PRD.md) | 为什么做、为谁做、全生命周期做什么、用户层面如何验收 | 产品定位、场景、CAP-001～CAP-035、优先级、路线和用户级指标 |
 | [能力验收标准附录](reference/prd-cap-acceptance.md)（AVX-PRD-002） | P1/P2/P3 差异化与连接生态能力、主动智能专项能力的验收标准是什么 | 最低可验收结果、DoR 晋级条件、CAP-033/034/035 专项边界 |
 | [SRS](reference/SRS.md)（AVX-SRS-001） | 发布范围内每个行为、异常和业务规则如何原子化 | FR/BR/NFR、Given/When/Then 验收和测试 ID |
 | [主动智能与外部信号需求规格](reference/srs-proactive-intelligence.md)（AVX-SRS-002） | CAP-033 全域感知与个人画像、CAP-034 Home Assistant 连接与 CAP-035 运动健康信号连接原子需求规格 | 授权、观察、画像、后台、动作、派生能力、连接器、DATA/AIQ/SEC/PRIV/OPS 要求 |
+| [需求追踪与交付标准](reference/REQUIREMENTS_TRACEABILITY.md) | 每条需求是否完整、由谁负责、怎样证明交付，以及代码落地完成情况 | ID、状态、DoR/DoD、CAP 映射、测试证据、发布门禁、风险和变更控制；§4.1 建议交付批次；§4.2 落地实现登记 |
+| [能力拆分路线（已归档）](explanation/roadmap.md)（AVX-EXPL-004，见[§4.1](#41-能力拆分路线建议批次)） | CAP 按什么批次、什么顺序进入规格化与开发 | 建议批次与拆分节奏（已并入追踪基线 §4.1）；历史存根 |
+
+### 架构与决策
+
+| 文档 | 负责回答 | 事实源边界 |
+|---|---|---|
 | [架构设计](reference/ARCHITECTURE.md) | 系统如何实现和演进 | TypeScript 全栈选型、C4、模块/数据所有权、部署、可靠性、安全和 ADR |
+| [ADR 索引](reference/adr/README.md) | 为什么选择当前架构、舍弃了什么方案 | 架构决策状态、后果、迁移和回滚边界 |
+| [能力组合与可选化目录规范](reference/capability-composition.md)（AVX-CAP-001） | 所有业务能力最终如何通过 Manifest、Provider、Adapter 和 Profile 自由组合 | 目标目录、Kernel 不变量、依赖解析、生命周期、DSH/pi 适配与迁移验收 |
+| [能力注册表](reference/capability-registry.md)（AVX-CAP-REG-001） | 哪些能力纳入自选机制、以什么方式启用、当前处于哪个状态 | 交付载体与启用方式、CAP 分类与已注册模块登记；判定规则与交付机制见 AVX-CAP-001 |
+
+### Agent 与流式协议
+
+| 文档 | 负责回答 | 事实源边界 |
+|---|---|---|
+| [Agent Harness Loop 设计与落地规范](reference/agent-harness-loop.md)（AVX-HAR-001） | 一次 Agent Turn 如何经过 Context、模型、工具、多 Step、取消恢复并安全终止 | Loop 状态机、Port、持久化、工具管线、限额、DSH/pi Driver 与分阶段迁移 |
+| [Agent Loop 落地进展追溯](reference/agent-loop-rollout-history.md)（AVX-HAR-002） | Agent Harness Loop 各阶段（2b 至 6f）详细的代码落位、数据表、测试用例与历史进展追溯 | 取消闭环、预算闸门、工具幂等、可观测性、三级恢复、收件箱、Context 压缩、Subagent 贡献与 DSH 适配 |
 | [流式协议契约](reference/STREAMING_PROTOCOL.md) | Turn 创建、SSE 事件、幂等、重连、取消和部分响应如何保持一致 | OpenAPI 配套的机器可验证事件 envelope、状态机、游标、保留和安全持久化规则 |
+| [插件 Config、Page 与 UI 扩展规范](reference/plugin-config-and-pages.md)（AVX-PLUG-001） | 插件配置、Server Turn 生命周期与工作台扩展如何声明和执行 | Config Schema、Page Bridge、Turn 管道、UI 插槽、组件替换与安全边界 |
+
+### 数据与隐私
+
+| 文档 | 负责回答 | 事实源边界 |
+|---|---|---|
 | [SQLite 本地单用户数据库契约](reference/DATABASE.md) | SQLite 永久本地真源、Schema/Repository 双包、无租户目标、破坏性迁移与删除传播规则 | 机器事实源、Repository Port、CR-030 staging/原子换库、回滚与 TC 门禁 |
 | [数据库数据模型覆盖矩阵](reference/database-coverage-matrix.md)（AVX-DB-002） | PRD §8 实体在 SQLite 中的落表状态和 CR-030 过渡状态 | 逐实体阶段、对应表、仓储 Port、DDL 初始化与 PRD 数据模型映射 |
-| [需求追踪与交付标准](reference/REQUIREMENTS_TRACEABILITY.md) | 每条需求是否完整、由谁负责、怎样证明交付，以及代码落地完成情况 | ID、状态、DoR/DoD、CAP 映射、测试证据、发布门禁、风险和变更控制；§4.1 建议交付批次；§4.2 落地实现登记 |
 | [数据与隐私规范](reference/DATA_PRIVACY.md) | 数据为什么收集、何时召回/保留/删除、谁能访问 | 数据分类、同意、来源链、保留表、删除传播、导出和审计 |
+
+### 质量、安全与运维
+
+| 文档 | 负责回答 | 事实源边界 |
+|---|---|---|
 | [AI 质量与安全规范](reference/AI_QUALITY_SAFETY.md) | 模型、记忆和日记怎样达到可复现质量与安全门槛 | 模型运行记录、评估集、记忆压缩、日记事实性、安全分类和回滚 |
 | [威胁模型](reference/THREAT_MODEL.md) | 哪些资产和信任边界会受到何种攻击 | 威胁场景、控制、验证、残余风险和安全评审输入 |
 | [测试策略](reference/TEST_STRATEGY.md) | 各类需求怎样验证、哪些路径阻断发布 | 测试分层、P0 必测路径、AI 评估、覆盖门槛和证据要求 |
 | [运行、值班与演练手册](reference/operations.md) | 生产故障怎样止损、恢复和验证；出问题找谁、如何升级；季度演练留什么证 | 告警、事件响应、降级、恢复、回滚、值班与 SEV 升级、演练项与证据字段；G5 门禁引用 |
-| [ADR 索引](reference/adr/README.md) | 为什么选择当前架构、舍弃了什么方案 | 架构决策状态、后果、迁移和回滚边界 |
-| [能力组合与可选化目录规范](reference/capability-composition.md)（AVX-CAP-001） | 所有业务能力最终如何通过 Manifest、Provider、Adapter 和 Profile 自由组合 | 目标目录、Kernel 不变量、依赖解析、生命周期、DSH/pi 适配与迁移验收 |
-| [Agent Harness Loop 设计与落地规范](reference/agent-harness-loop.md)（AVX-HAR-001） | 一次 Agent Turn 如何经过 Context、模型、工具、多 Step、取消恢复并安全终止 | Loop 状态机、Port、持久化、工具管线、限额、DSH/pi Driver 与分阶段迁移 |
-| [Agent Loop 落地进展追溯](reference/agent-loop-rollout-history.md)（AVX-HAR-002） | Agent Harness Loop 各阶段（2b 至 6f）详细的代码落位、数据表、测试用例与历史进展追溯 | 取消闭环、预算闸门、工具幂等、可观测性、三级恢复、收件箱、Context 压缩、Subagent 贡献与 DSH 适配 |
-| [能力注册表](reference/capability-registry.md)（AVX-CAP-REG-001） | 哪些能力纳入自选机制、以什么方式启用、当前处于哪个状态 | 交付载体与启用方式、CAP 分类与已注册模块登记；判定规则与交付机制见 AVX-CAP-001 |
-| [插件 Config、Page 与 UI 扩展规范](reference/plugin-config-and-pages.md)（AVX-PLUG-001） | 插件配置、Server Turn 生命周期与工作台扩展如何声明和执行 | Config Schema、Page Bridge、Turn 管道、UI 插槽、组件替换与安全边界 |
-| [开发 Aervox 扩展插件](how-to/develop-plugin-ui-extension.md)（AVX-GUIDE-004） | 如何实现贯穿服务端 Turn 与工作台 UI 的插件 | Bundle、配置、动态提示词、结构化元数据、UI 插槽与验证步骤 |
-| [操作指南](how-to/README.md)（AVX-HOW-001） | 怎么新增/修改需求、写 ADR、过发布会门禁、做季度演练、管可选模块 submodule；贡献者流程见根级 [CONTRIBUTING](../CONTRIBUTING.md) | 任务型流程导航与操作指引（工程流程、写 ADR、submodule 协作）；规则以对应专项文档为事实源 |
-| [暂存提案](proposals) | 尚未进入基线的方案是什么 | 待补充证据（More Evidence Required）或未采纳的技术探索提案；不承载已批准规则 |
-| [已归档记录](archive) | 历史变更与已退役决策的原始记录是什么 | 已完成或已退役的历史变更；变更经发布周期后迁移留存，避免混淆当前活跃规范 |
-| [文档生命周期登记表](DOC_REGISTRY.md) | 每份文档何时核验、多久复核、什么信号表示陈旧 | 核验节奏/陈旧信号；独立于索引维护 |
-| [文档治理与事实源规范](reference/document-governance.md)（AVX-DOC-GOV-001） | 文档如何分类、标记状态、确定唯一事实源并触发复核 | 分类、事实源矩阵、元数据、状态模型、owner、复核触发器与分阶段迁移 |
-| [从这里开始](getting-started.md)（AVX-DOC-002，见[§7](#7-从哪开始)） | 新成员/Agent 从哪看起、提交前自检什么 | 导航型；不承载规则 |
-| [能力拆分路线（已归档）](explanation/roadmap.md)（AVX-EXPL-004，见[§4.1](#41-能力拆分路线建议批次)） | CAP 按什么批次、什么顺序进入规格化与开发 | 建议批次与拆分节奏（已并入追踪基线 §4.1）；历史存根 |
-| [主动智能模式](explanation/proactive-intelligence-mode.md)（AVX-EXPL-008） | 完全访问上如何以广域画像授权、OS 能力、特权观察 Host、本地私密数据和主动操作组合既有 CAP | 评审提案；不替代 PRD/SRS/DATA_PRIVACY/ADR，不表示运行时已实现 |
-| [CR-024 主动智能能力套件与外部环境连接](reference/changes/CR-024-proactive-intelligence-suite-integrations.md) | 十二项主动智能能力与 HA/小米健康如何进入产品基线 | 已接受差量、实现位置、验证和回滚；关联 CAP-033～035 |
-| [CR-028 在线语音模型配置](reference/changes/CR-028-voice-remote-model-config.md) | 设置 UI 如何配置在线语音模型（GPT-SoVITS 远程 API）并按 api_v2 协议合成 | 远程配置持久化与热生效、`/v1/voice/remote/*` 端点、api_v2 请求体与连通性测试；关联 CAP-019/020 |
-| [CR-029 模型/语音多预设与「你的思隅」设置页](reference/changes/CR-029-presets-and-siyu-settings.md) | 「模型与服务」「语音」如何像「人格设定」一样保存与切换多套预设，「你的思隅」如何收纳四个设置项 | 四表多行预设计构、`/v1/llm/presets` 与 `/v1/voice/presets` 端点、侧边第五项导航与 4 分类限定；关联 CAP-020 |
-| [CR-030 SQLite 永久本地单用户真源与去租户化](reference/changes/CR-030-pure-local-sqlite-database.md) | 为什么取消 PostgreSQL/多租户，以及破坏性迁移如何避免静默丢失 | Accepted、Implemented；停写、备份、显式范围选择、staging、校验、原子换库与 rollback 设计及代码已落地，发布前需完整迁移演练 |
-| [CR-031 Turn 实时流式推送 Pub/Sub 与轮询解耦](reference/changes/CR-031-turn-stream-pubsub-optimization.md) | 为什么引入进程内 TurnStreamHub 消除 400ms SQLite 轮询，如何保证实时流式直推与长连探活 | Accepted、Implemented；写库直推、存量历史重放、缝隙排空与 15s 探活心跳；关联 CAP-001/002/NFR-PERF-001 |
-| [ADR-019 主动智能外部连接本地网关](reference/adr/ADR-019-proactive-integrations-local-gateway.md) | 外部连接为何使用本地网关、加密凭据和受控工具 | 已接受的 HA REST/WS、小米 OAuth/每日指标、白名单与撤销边界 |
-| [文档写作规范](reference/standards/doc-standards.md)（AVX-STD-001） | 每份文档如何使用模板、命名、写作并通过门禁 | 写作体例、签名、命名、风格基线、Vale 术语门禁与模板族；治理规则见 AVX-DOC-GOV-001 |
-| [术语表](reference/standards/terminology.md)（AVX-TERM-001） | 项目术语的唯一含义与规范写法 | 缩写/产品名唯一语义；Vale 依据「禁写」列自动校验 |
+
+### 教程与操作指南
+
+| 文档 | 负责回答 | 事实源边界 |
+|---|---|---|
 | [教程：第一个对话](tutorials/first-conversation.md)（AVX-TUT-001） | 新成员如何从 0 跑到第一条对话 | 可执行步骤与验证 |
 | [教程：迁移已集成能力并接入 DSH/pi](tutorials/migrate-integrated-capabilities.md)（AVX-TUT-002） | 如何把现有 tools/plugins/skills 迁移为可组合能力，并设计 DSH/pi 适配器 | 原生能力迁移、Job Handler、外部 Host、Profile、撤权和回滚演练 |
 | [教程：编写自定义 Agent 工具](tutorials/create-agent-tool.md)（AVX-TUT-003） | 如何为 Aervox Agent 编写一个自定义工具并接入运行时与安全检查 | 工具参数 Schema、ToolHandler 实现、只读/审批安全级别与单测验证 |
+| [操作指南](how-to/README.md)（AVX-HOW-001） | 怎么新增/修改需求、写 ADR、过发布会门禁、做季度演练、管可选模块 submodule；贡献者流程见根级 [CONTRIBUTING](../CONTRIBUTING.md) | 任务型流程导航与操作指引（工程流程、写 ADR、submodule 协作）；规则以对应专项文档为事实源 |
+| [开发 Aervox 扩展插件](how-to/develop-plugin-ui-extension.md)（AVX-GUIDE-004） | 如何实现贯穿服务端 Turn 与工作台 UI 的插件 | Bundle、配置、动态提示词、结构化元数据、UI 插槽与验证步骤 |
+| [操作指南：提出与闭环 CR](how-to/cr-workflow.md)（AVX-GUIDE-005） | 如何为 Aervox 提出、撰写、实施并闭环一个变更请求（CR） | 变更分级、差量分析、CR 模板、回滚预案与 §4.2 落地登记 |
+| [操作指南：执行 SQLite 换库演练](how-to/run-database-migration-drill.md)（AVX-GUIDE-006） | 如何执行 CR-030 破坏性迁移、staging 隔离校验与原子换库回滚 | 不可变备份、单用户数据抽取、双向校验、原子换库与回滚命令 |
+| [操作指南：新增与规格化 CAP 能力](how-to/add-capability.md)（AVX-GUIDE-007） | 如何在 Aervox 中立项、规格化、推进并落地一个全新的 CAP 业务能力 | PRD 场景、SRS 原子需求、AC 验收条件、DoR 门禁与追踪矩阵 |
+
+### 概念与设计方案
+
+| 文档 | 负责回答 | 事实源边界 |
+|---|---|---|
 | [数据流总览](explanation/data-flow-overview.md)（AVX-EXPL-001） | 消息端到端如何流动 | 先写后投递、Worker 周期、记忆/知识写入 |
 | [参考项目能力迁移与借鉴评估](explanation/reference-design-transfer.md)（AVX-EXPL-002） | 参考项目哪些设计值得落地或借鉴 | 判定框架、建议落地清单、落地顺序与 AGPL 边界 |
 | [桌宠角色设定文档化与多人格模板组织](explanation/persona-organization.md)（AVX-EXPL-003） | 桌宠 IP 与多人格模板（CAP-019）的角色如何文档化、版本化并维护 | 角色文档清单、字段化结构（prompt/开场白/语气/技能/错误兜底语）、人设目录与模板版本化、维护责任 |
+| [主动智能模式](explanation/proactive-intelligence-mode.md)（AVX-EXPL-008） | 完全访问上如何以广域画像授权、OS 能力、特权观察 Host、本地私密数据和主动操作组合既有 CAP | 评审提案；不替代 PRD/SRS/DATA_PRIVACY/ADR，不表示运行时已实现 |
 | [ESP32-S3 硬件延伸方案](explanation/esp32-s3-hardware-extension.md)（AVX-EXPL-005） | 如何把 ESP32-S3 做成物理桌宠终端 | 评审输入：硬件边界、表现映射、设备协议与隐私红线；R0 先 USB 不联网 |
 | [Home Assistant 集成评估](explanation/home-assistant-integration-assessment.md)（AVX-EXPL-006） | 如何为 Aervox 引入 Home Assistant 支持 | 候选方案与后续路线；推荐组合已由 CR-024/ADR-019 接受 |
 | [运动与健康数据接入评估](explanation/health-data-integration-assessment.md)（AVX-EXPL-007） | 是否可以接入苹果/小米运动健康数据（步数、睡眠、情绪） | 小米每日指标路径已由 CR-024/ADR-019 接受；苹果与情绪健康仍为评估输入 |
 | [数据库拆分计划](explanation/database-split-plan.md)（AVX-EXPL-009） | `packages/database` 如何拆分为 `@aervox/schema` 与 `@aervox/repositories` | 已完成的六阶段拆分执行记录；架构决策见 ADR-014 |
 | [Web 端实现方案](explanation/web-implementation.md)（AVX-WEB-001） | `apps/web` 工作台如何基于 Vue 单栈复用 Desktop 核心组件 | MVP 范围、里程碑与目录结构；技术栈决策见 ADR-015 |
 
+### 文档治理与生命周期
+
+| 文档 | 负责回答 | 事实源边界 |
+|---|---|---|
+| [文档治理与事实源规范](reference/document-governance.md)（AVX-DOC-GOV-001） | 文档如何分类、标记状态、确定唯一事实源并触发复核 | 分类、事实源矩阵、元数据、状态模型、owner、复核触发器与分阶段迁移 |
+| [文档写作规范](reference/standards/doc-standards.md)（AVX-STD-001） | 每份文档如何使用模板、命名、写作并通过门禁 | 写作体例、签名、命名、风格基线、Vale 术语门禁与模板族；治理规则见 AVX-DOC-GOV-001 |
+| [术语表](reference/standards/terminology.md)（AVX-TERM-001） | 项目术语的唯一含义与规范写法 | 缩写/产品名唯一语义；Vale 依据「禁写」列自动校验 |
+| [文档生命周期登记表](DOC_REGISTRY.md) | 每份文档何时核验、多久复核、什么信号表示陈旧 | 核验节奏/陈旧信号；独立于索引维护 |
+| [从这里开始](getting-started.md)（AVX-DOC-002，见[§7](#7-从哪开始)） | 新成员/Agent 从哪看起、提交前自检什么 | 导航型；不承载规则 |
+| [暂存提案](proposals) | 尚未进入基线的方案是什么 | 待补充证据（More Evidence Required）或未采纳的技术探索提案；不承载已批准规则 |
+| [已归档记录](archive) | 历史变更与已退役决策的原始记录是什么 | 已完成或已退役的历史变更；变更经发布周期后迁移留存，避免混淆当前活跃规范 |
+
 文档分类、状态、事实源与复核触发以[文档治理与事实源规范](reference/document-governance.md)为准；模板、命名、签名和写作门禁见[文档写作规范](reference/standards/doc-standards.md)，术语唯一语义见[术语表](reference/standards/terminology.md)。
 
 当前已提供 [SRS](reference/SRS.md) 原子需求样例、共享 ADR、威胁模型、测试策略、运行手册和基线 NFR/AIQ/DATA/SEC/PRIV/OPS 追踪。每个进入开发的能力仍应逐步补充其专属 API/OpenAPI 片段、UX 原型、数据字典、测试证据和 ADR 关联；这些材料未齐备前，不得把能力地图中的一行视为完整开发规格。
 
-最近的端形态变更见 [CR-005：共享工作台与 Web 无桌宠表现层](reference/changes/CR-005-shared-workbench-web-without-pet.md)：Web 与 Electron 共用 `@aervox/ui` 工作台，Web 不渲染桌宠，Electron 保留桌面壳和桌宠窗口。
+### 变更请求速览
 
-后续表现层变更见 [CR-007：可替换 Live2D 桌宠渲染层](reference/changes/CR-007-live2d-sekai-viewer-pet.md)：Web 工作台重新启用可回退的 Live2D 桌宠；Electron 主工作台保持无左侧桌宠，独立桌宠窗口继续使用 Live2D。
+完整差量、迁移和回滚见各 CR 正文；下表仅为导航索引，不从 CR 正文反推交付状态。
 
-桌面端首次启动体验见 [CR-025：桌面端首次启动引导](reference/changes/CR-025-desktop-first-run-onboarding.md)：Electron 首次启动通过四步窗口内序章介绍产品，复用 Live2D 与 CR-015 模型配置能力，并用版本化本机标记控制后续跳过。
-
-最近的插件能力变更见 [CR-006：插件配置解析与可视化](reference/changes/CR-006-plugin-config-and-pages.md)：新增插件 Config Schema v1、配置持久化/API 与受限 Page Bridge（规范见 [AVX-PLUG-001](reference/plugin-config-and-pages.md)）。
-
-学习域练习会话的规格补全见 [CR-008：练习会话与作答契约补全](reference/changes/CR-008-practice-session-contract.md)：明确题组快照、重复提交、会话结束和租户隔离的验收边界；仍待 DoR 评审。
-
-错题本的处置边界见 [CR-009：错题本忽略与恢复规则](reference/changes/CR-009-mistake-book-dismissal.md)：忽略只影响派生错题展示与重练资格，不删除原始学习事实。
-
-错题本的错因记录边界见 [CR-018：错题错因记录工作流](reference/changes/CR-018-mistake-insight-workflow.md)：用户元数据可按错因筛选与重练，不改写原始作答或派生学习状态。
-
-复习闭环的幂等边界见 [CR-010：复习完成幂等与结果重放](reference/changes/CR-010-review-completion-idempotency.md)：重复完成可重放首次结算，相反判定被拒绝且不重复调度。
-
-复习日期边界见 [CR-011：时区安全的复习调度与逾期汇总](reference/changes/CR-011-timezone-safe-review-scheduling.md)：v2 按 IANA 时区增加本地日历天，并区分今日到期与历史逾期。
-
-Agent 执行核心的当前与目标边界见 [CR-012：Agent Harness Loop](reference/changes/CR-012-agent-harness-loop.md) 与 [AVX-HAR-001](reference/agent-harness-loop.md)：阶段 0、1、2d、2e、3a、3b 已落地，包括 `packages/agent-loop`、API Replay/Scripted/LLM Loop、持久化 SSE、只读工具、写工具审批、工具账本、租约与 Worker 恢复；异步 Outbox Driver、完整上下文持久化、独立 Host 和 DSH/pi Adapter 仍按后续阶段推进。
-
-Turn 流活性边界见 [CR-027：Turn 流活性治理](reference/changes/CR-027-turn-stream-liveness.md)：`POST /turns` 落库即返回（Loop 后台执行，`AERVOX_TURN_EXECUTION=inline` 可回退旧同步语义），SSE 为「重放 + 轮询 tail + 心跳」活流；思考型模型增量以 `reasoning_delta` 事件透传（`reasoning_content`/`reasoning` 双格式）；provider 与客户端超时均为空闲语义，桌面端空闲超时后经 IPC 中止上游在途请求。
-
-工具授权的 Turn 级完全访问开关见 [CR-022](reference/changes/CR-022-full-access-tool-permission.md)：默认仍逐次确认，用户经风险确认后可自动放行普通写工具；CAP-033 另以独立的 `FullProfileActionGrant` 承载用户明确批准的全量主动动作，撤权/删除、租户隔离和平台访问控制仍由各自事实源约束。
-
-本地主动智能能力见 [CR-023](reference/changes/CR-023-proactive-local-intelligence-mode.md)、[CR-024](reference/changes/CR-024-proactive-intelligence-suite-integrations.md) 与 [AVX-EXPL-008](explanation/proactive-intelligence-mode.md)：`CAP-033` 已具备本地 Vault、授权/lease、全动作授权器、部分来源、十二项本地派生、日/周回顾和桌面仪表盘；`CAP-034/035` 已具备 HA 私网 REST/WS、实体/service 白名单、小米健康每日指标和五个 Agent 工具。三项能力仍为 Not Ready，生产 OS Broker、HA 兼容矩阵和小米厂商沙箱/账号审批未完成，尚未 Released。
-
-练习中断恢复边界见 [CR-013：活跃练习会话恢复与续答](reference/changes/CR-013-practice-session-recovery.md)：重开学习界面会恢复同一题组快照和首个未答题，重复启动不会创建第二个活跃会话。
-
-系统语音输出的本地模型配置见 [CR-014：WebUI 语音输出配置](reference/changes/CR-014-voice-config-webui.md)：设置「语音」分类读写本地 `gpt-sovits-local` 模型（模型路径、音色支持手输，桌面端也可经系统「选择文件夹」获得，`modelPath` 受服务端 `allowedRoots` 白名单校验），持久化到 `voice_configs` 表并按租户隔离；人格编辑弹窗新增「语音」能力块，选择 provider/模型/音色并试听，写入 `PersonaRevisionConfig.voice`。
-
-大语言模型供应商配置见 [CR-015：WebUI 模型与服务](reference/changes/CR-015-llm-provider-config-webui.md)：设置「模型与服务」分类持久化 LLM 供应商端点/密钥引用/模型名并支持连通性测试，按租户隔离存储。
-
-文档治理基线见 [CR-017：文档治理与事实源标准化](reference/changes/CR-017-document-governance-standardization.md) 与 [AVX-DOC-GOV-001](reference/document-governance.md)：本轮先建立兼容式元数据、状态分层、事实源矩阵和 `docs-validate` 门禁，不批量搬迁历史文档。
-
-能力注册表状态同步见 [CR-019：CAP-010~019 主仓交付裁定](reference/changes/CR-019-capability-registry-status-sync.md)：已主仓实现交付的能力（层级对话/思维宇宙/自适应刷题/考试日计划/多人格模板）按能力组合不变量转主仓交付，配套追踪基线 §4.2 登记。
+| CR | 标题 | 决策 | 交付 |
+|---|---|---|---|
+| [CR-002](reference/changes/CR-002-fairy-desktop-module.md) | Fairy Agent Electron 桌面端 | Accepted | Implemented |
+| [CR-003](reference/changes/CR-003-sqlite-primary-pg-compat.md) | SQLite 当前真源与历史 PG 兼容方案 | Superseded | — |
+| [CR-004](reference/changes/CR-004-persona-sqlite-persistence.md) | 人格插件 SQLite 持久化 | Accepted | Implemented |
+| [CR-005](reference/changes/CR-005-shared-workbench-web-without-pet.md) | 共享工作台与 Web 无桌宠表现层 | Accepted | Implemented |
+| [CR-006](reference/changes/CR-006-plugin-config-and-pages.md) | 插件配置解析与可视化 | Accepted | Implemented |
+| [CR-007](reference/changes/CR-007-live2d-sekai-viewer-pet.md) | 可替换 Live2D 桌宠渲染层 | Accepted | Implemented |
+| [CR-008](reference/changes/CR-008-practice-session-contract.md) | 练习会话与作答契约补全 | Accepted | Implemented |
+| [CR-009](reference/changes/CR-009-mistake-book-dismissal.md) | 错题本忽略与恢复规则 | Accepted | Implemented |
+| [CR-010](reference/changes/CR-010-review-completion-idempotency.md) | 复习完成幂等与结果重放 | Accepted | Implemented |
+| [CR-011](reference/changes/CR-011-timezone-safe-review-scheduling.md) | 时区安全的复习调度与逾期汇总 | Accepted | Implemented |
+| [CR-012](reference/changes/CR-012-agent-harness-loop.md) | Agent Harness Loop 目标规范与迁移基线 | Accepted | Implemented |
+| [CR-013](reference/changes/CR-013-practice-session-recovery.md) | 活跃练习会话恢复与续答 | Accepted | Implemented |
+| [CR-014](reference/changes/CR-014-voice-config-webui.md) | WebUI 语音输出配置 | Accepted | Implemented |
+| [CR-015](reference/changes/CR-015-llm-provider-config-webui.md) | WebUI 模型与服务 | Accepted | Implemented |
+| [CR-016](reference/changes/CR-016-offline-voice-input-asr.md) | 离线语音输入 | Accepted | Implemented |
+| [CR-017](reference/changes/CR-017-document-governance-standardization.md) | 文档治理与事实源标准化 | Accepted | Implemented |
+| [CR-018](reference/changes/CR-018-mistake-insight-workflow.md) | 错题错因记录工作流 | Accepted | Implemented |
+| [CR-019](reference/changes/CR-019-capability-registry-status-sync.md) | CAP-010~019 主仓交付裁定 | Accepted | Implemented |
+| [CR-020](reference/changes/CR-020-deterministic-practice-guidance.md) | 确定性练习反馈与下一轮建议 | Accepted | Implemented |
+| [CR-021](reference/changes/CR-021-ask-user-question-capability.md) | 向用户询问能力接入 | Accepted | Implemented |
+| [CR-022](reference/changes/CR-022-full-access-tool-permission.md) | Turn 级完全访问工具权限开关 | Accepted | Implemented |
+| [CR-023](reference/changes/CR-023-proactive-local-intelligence-mode.md) | 广域本地主动智能模式（CAP-033） | Accepted | Planned |
+| [CR-024](reference/changes/CR-024-proactive-intelligence-suite-integrations.md) | 主动智能能力套件与外部环境连接 | Accepted | Verified |
+| [CR-025](reference/changes/CR-025-desktop-first-run-onboarding.md) | 桌面端首次启动引导 | Accepted | Implemented |
+| [CR-026](reference/changes/CR-026-on-demand-diary.md) | 对话触发写日记与日记契约补全 | Accepted | Implemented |
+| [CR-027](reference/changes/CR-027-turn-stream-liveness.md) | Turn 流活性治理 | Accepted | Implemented |
+| [CR-028](reference/changes/CR-028-voice-remote-model-config.md) | 在线语音模型配置 | Accepted | Implemented |
+| [CR-029](reference/changes/CR-029-presets-and-siyu-settings.md) | 模型/语音多预设与「你的思隅」设置页 | Accepted | Implemented |
+| [CR-030](reference/changes/CR-030-pure-local-sqlite-database.md) | SQLite 永久本地单用户真源与去租户化 | Accepted | Implemented |
+| [CR-031](reference/changes/CR-031-turn-stream-pubsub-optimization.md) | Turn 实时流式推送 Pub/Sub 与轮询解耦 | Accepted | Implemented |
 
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
 

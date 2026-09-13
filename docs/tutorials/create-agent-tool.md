@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 1.0.1
+updated_at: 2026-09-13
+reviewed_at: 2026-09-13
 review_interval_days: 90
 sources:
   - apps/api/src/modules/tools/runtime.ts
@@ -20,7 +20,7 @@ sources:
 # 教程：编写并注册一个自定义 Agent 工具
 
 - 提出人：3yearszhuang · 2026-09-10
-- 修改人：3yearszhuang · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-13
 
 关联：[Agent Harness Loop 规范](../reference/agent-harness-loop.md) · [工程与发布流程](../how-to/engineering-process.md) · [能力组合规范](../reference/capability-composition.md)
 
@@ -59,16 +59,16 @@ export type EnvSensorQueryArgs = z.infer<typeof EnvSensorQueryArgsSchema>;
 
 ## 3. 步骤 2 · 实现 ToolHandler 处理器
 
-工具处理器必须实现 `ToolHandler` 接口，接收租户上下文（`TenantContext`）、已校验参数及调用上下文（包含 `approval` 与 `proactiveAuthorization` 标记）：
+工具处理器必须实现 `ToolHandler` 接口，接收本地上下文（`LocalContext`）、已校验参数及调用上下文（包含 `approval` 与 `proactiveAuthorization` 标记）：
 
 ```typescript
-import type { TenantContext } from "@aervox/repositories";
+import type { LocalContext } from "@aervox/repositories";
 import type { ToolHandler } from "apps/api/src/modules/tools/runtime.js";
 import { type EnvSensorQueryArgs } from "./env-sensor-schemas.js";
 
 export class EnvSensorQueryHandler implements ToolHandler {
   async call(
-    tenant: TenantContext,
+    localCtx: LocalContext,
     args: unknown,
     context: { approval: boolean; proactiveAuthorization: boolean }
   ): Promise<{ status: string; metric: string; value: number; unit: string }> {
@@ -145,7 +145,7 @@ describe("Custom Tool: aervox_env_sensor_query", () => {
   it("should successfully execute read_only sensor tool", async () => {
     const handler = new EnvSensorQueryHandler();
     const result = await handler.call(
-      { tenantId: "tenant_test" },
+      { actorId: "actor_test" },
       { metric: "temperature" },
       { approval: false, proactiveAuthorization: false }
     );

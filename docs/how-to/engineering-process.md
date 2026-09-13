@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: draft
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.3.0
-updated_at: 2026-08-29
-reviewed_at: 2026-08-29
+version: 0.3.1
+updated_at: 2026-09-13
+reviewed_at: 2026-09-13
 review_interval_days: 90
 ---
 
 # 操作指南：工程与发布流程（How-to）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-29
+- 修改人：3yearszhuang · 2026-09-13
 
 关联：[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md) · [运行、值班与演练手册](../reference/operations.md) · [文档治理与事实源规范](../reference/document-governance.md) · [文档写作规范](../reference/standards/doc-standards.md)
 
@@ -87,8 +87,9 @@ review_interval_days: 90
 
 - SQLite/Litestream 备份恢复与完整性校验；
 - `RecoveryControlLedger` 不可用/缺口/重复/乱序及 reconciler 重放；
-- Redis 丢失后 Outbox/ScheduledJob 重建；
-- S3/对象恢复与 checksum 校验；
+- Outbox/ScheduledJob 进程重启与未完成作业重放；
+- 本地附件/导出目录备份恢复与 checksum 校验；
+- CR-030 本地单用户换库与回滚演练；
 - 模型供应商中断与备用切换；
 - 删除传播与零召回验证；
 - 插件/外部集成 kill switch；

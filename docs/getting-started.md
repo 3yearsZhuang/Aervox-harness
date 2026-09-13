@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 1.0.1
+updated_at: 2026-09-13
+reviewed_at: 2026-09-13
 review_interval_days: 90
 ---
 
 # 从哪开始（新成员 / AI Agent 入口）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-13
 
 关联：[文档索引](README.md)（AVX-DOC-001）
 
@@ -29,7 +29,7 @@ docs/
   DOC_REGISTRY.md        # 文档生命周期登记表（AVX-DOC-CONF-001）
   getting-started.md     # 从哪开始（本文件，AVX-DOC-002）
   _meta/                 # 文档治理机器策略（校验器读取，不承载正文）
-  tutorials/             # 教程（AVX-TUT-001～002）
+  tutorials/             # 教程（AVX-TUT-001～003）
   how-to/                # 操作指南（AVX-GUIDE-*）
   explanation/           # 概念讲解（AVX-EXPL-*）/ 实现规划 / 能力拆分路线
   templates/             # 新建文档模板（How-to / Reference / Explanation）
@@ -37,7 +37,7 @@ docs/
   archive/               # 已归档记录（已完成或已退役的历史变更与决策记录）
   reference/             # 参考类（AVX-PRD/SRS/SAD/TRC/SPC/DB/DATA/AIQ/SEC/QA/OPS 等）
     adr/                 # ADR-001~019 + 索引
-    changes/             # CR-002～026
+    changes/             # CR-002～031
     standards/           # 文档写作规范（AVX-STD-001）· 术语表（AVX-TERM-001）
     diagrams/            # 数据库 ERD（.mmd）
     PRD.md · ARCHITECTURE.md · SRS.md · REQUIREMENTS_TRACEABILITY.md

@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.1.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 1.1.1
+updated_at: 2026-09-13
+reviewed_at: 2026-09-13
 review_interval_days: 90
 sources:
   - docs/reference/PRD.md
@@ -17,7 +17,7 @@ sources:
 # Aervox｜思隅 产品能力验收标准附录（P1/P2/P3 与专项能力）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-11
+- 修改人：3yearszhuang · 2026-09-13
 
 关联文档：[PRD 主文档](PRD.md) · [需求追踪与交付基线](REQUIREMENTS_TRACEABILITY.md) · [软件需求规格（SRS）](SRS.md) · [文档索引](../README.md)
 
