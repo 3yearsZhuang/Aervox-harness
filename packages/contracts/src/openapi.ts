@@ -178,6 +178,15 @@ import {
   safetyIncidentSchema,
   safetyResourcesResponseSchema,
 } from "./safety-schemas.js";
+import {
+  situationModelV1Schema,
+  perceptionEventEnvelopeSchema,
+} from "./situation-model-schemas.js";
+import {
+  proactiveMemoryReferenceSchema,
+  proactiveSafetyPolicySchema,
+  proactiveTurnContextSchema,
+} from "./turn-context-schemas.js";
 
 const registry = new OpenAPIRegistry();
 
@@ -307,6 +316,11 @@ registry.register("XiaomiHealthConnectionRequest", xiaomiHealthConnectionRequest
 registry.register("SafetyIncident", safetyIncidentSchema);
 registry.register("RegionalHelpline", regionalHelplineSchema);
 registry.register("SafetyResourcesResponse", safetyResourcesResponseSchema);
+registry.register("SituationModelV1", situationModelV1Schema);
+registry.register("PerceptionEventEnvelope", perceptionEventEnvelopeSchema);
+registry.register("ProactiveTurnContext", proactiveTurnContextSchema);
+registry.register("ProactiveMemoryReference", proactiveMemoryReferenceSchema);
+registry.register("ProactiveSafetyPolicy", proactiveSafetyPolicySchema);
 
 const sessionIdParam = z.object({ sessionId: z.string().min(1) });
 const turnIdParam = z.object({ turnId: z.string().min(1) });

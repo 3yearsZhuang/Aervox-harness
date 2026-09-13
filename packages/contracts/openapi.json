@@ -6862,6 +6862,643 @@
           "policyVersion",
           "helplines"
         ]
+      },
+      "SituationModelV1": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "enum": [
+              "situation_model_v1"
+            ]
+          },
+          "revisionId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "localOnly": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "watermark": {
+            "type": "object",
+            "properties": {
+              "lastEventSequence": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sourceEpochs": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "rebuiltAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "lastEventSequence",
+              "sourceEpochs",
+              "rebuiltAt"
+            ]
+          },
+          "presence": {
+            "type": "object",
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "idle",
+                  "away",
+                  "unknown"
+                ]
+              },
+              "since": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "lastHeartbeatAt": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "state",
+              "since",
+              "lastHeartbeatAt"
+            ]
+          },
+          "focus": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "windowStart": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "windowEnd": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "focusScore": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "fatigueScore": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "recommendation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 4096
+              }
+            },
+            "required": [
+              "windowStart",
+              "windowEnd",
+              "focusScore",
+              "fatigueScore",
+              "recommendation"
+            ]
+          },
+          "commitments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "content": {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                "status": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "dueAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "id",
+                "content",
+                "status",
+                "dueAt"
+              ]
+            },
+            "maxItems": 64
+          },
+          "drifts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "signalType": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "severity": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "detectedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "signalType",
+                "severity",
+                "detectedAt"
+              ]
+            },
+            "maxItems": 32
+          },
+          "scenes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sceneType": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "applicationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "capturedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "sceneType",
+                "applicationId",
+                "capturedAt"
+              ]
+            },
+            "maxItems": 8
+          },
+          "connections": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "provider": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "state": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "lastSyncAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "id",
+                "provider",
+                "state",
+                "lastSyncAt"
+              ]
+            },
+            "maxItems": 16
+          },
+          "provenance": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "sourceKey": {
+                  "type": "string",
+                  "enum": [
+                    "aervox.activity",
+                    "aervox.operation",
+                    "device.app_activity",
+                    "device.browser_activity",
+                    "device.input_content",
+                    "device.clipboard",
+                    "device.screen_capture",
+                    "system.idle_state",
+                    "filesystem.full_disk_watch",
+                    "external.communication",
+                    "device.microphone",
+                    "device.camera",
+                    "device.location",
+                    "device.sensors",
+                    "restricted.profile",
+                    "background.persistent",
+                    "action.local",
+                    "action.external",
+                    "action.privileged",
+                    "action.irreversible"
+                  ]
+                },
+                "observedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "captureId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "derivation": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "sourceKey",
+                "observedAt"
+              ]
+            }
+          },
+          "redaction": {
+            "type": "object",
+            "properties": {
+              "level": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "redacted",
+                  "omitted"
+                ]
+              },
+              "policyVersion": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "level",
+              "policyVersion"
+            ]
+          },
+          "freshnessMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rebuiltAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "version",
+          "revisionId",
+          "localOnly",
+          "watermark",
+          "presence",
+          "focus",
+          "commitments",
+          "drifts",
+          "scenes",
+          "connections",
+          "provenance",
+          "redaction",
+          "freshnessMs",
+          "rebuiltAt"
+        ],
+        "additionalProperties": false
+      },
+      "PerceptionEventEnvelope": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "enum": [
+              "perception_event_v1"
+            ]
+          },
+          "eventId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "aervox.activity",
+              "aervox.operation",
+              "device.app_activity",
+              "device.browser_activity",
+              "device.input_content",
+              "device.clipboard",
+              "device.screen_capture",
+              "system.idle_state",
+              "filesystem.full_disk_watch",
+              "external.communication",
+              "device.microphone",
+              "device.camera",
+              "device.location",
+              "device.sensors",
+              "restricted.profile",
+              "background.persistent",
+              "action.local",
+              "action.external",
+              "action.privileged",
+              "action.irreversible"
+            ]
+          },
+          "deviceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "activationEpoch": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sourceGrantId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ingestedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "payloadDigest": {
+            "type": "string",
+            "minLength": 1
+          },
+          "schemaVersion": {
+            "type": "string",
+            "enum": [
+              "perception_event_v1"
+            ]
+          },
+          "payload": {},
+          "causal": {
+            "type": "object",
+            "properties": {
+              "parentEventIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "maxItems": 16,
+                "default": []
+              },
+              "causeType": {
+                "type": "string",
+                "enum": [
+                  "edge",
+                  "interval",
+                  "derived",
+                  "external"
+                ]
+              }
+            }
+          }
+        },
+        "required": [
+          "version",
+          "eventId",
+          "idempotencyKey",
+          "source",
+          "deviceId",
+          "activationEpoch",
+          "sourceGrantId",
+          "occurredAt",
+          "ingestedAt",
+          "sequence",
+          "payloadDigest",
+          "schemaVersion"
+        ],
+        "additionalProperties": false
+      },
+      "ProactiveTurnContext": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "enum": [
+              "proactive_turn_context_v1"
+            ]
+          },
+          "personaRevisionId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "personaId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "allowedSkills": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "maxItems": 256,
+            "default": []
+          },
+          "memoryReferences": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "memoryId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "scope": {
+                  "type": "string",
+                  "enum": [
+                    "context",
+                    "evidence"
+                  ]
+                },
+                "policyVersion": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "memoryId",
+                "scope",
+                "policyVersion"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 64,
+            "default": []
+          },
+          "safety": {
+            "type": "object",
+            "properties": {
+              "policyVersion": {
+                "type": "string",
+                "minLength": 1
+              },
+              "classificationLevel": {
+                "type": "string",
+                "enum": [
+                  "normal",
+                  "sensitive",
+                  "crisis"
+                ]
+              },
+              "crisisResponse": {
+                "type": "string",
+                "enum": [
+                  "block",
+                  "fixed_response"
+                ]
+              }
+            },
+            "required": [
+              "policyVersion",
+              "classificationLevel"
+            ],
+            "additionalProperties": false
+          },
+          "untrustedPluginLayer": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "pluginId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "skillOverlayJson": {
+                "type": "string",
+                "maxLength": 16384,
+                "default": "{}"
+              },
+              "personaOverlayEnabled": {
+                "type": "boolean",
+                "default": false
+              }
+            },
+            "default": null,
+            "required": [
+              "pluginId"
+            ],
+            "additionalProperties": false
+          },
+          "localOnly": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "version",
+          "personaRevisionId",
+          "personaId",
+          "safety",
+          "localOnly"
+        ],
+        "additionalProperties": false
+      },
+      "ProactiveMemoryReference": {
+        "type": "object",
+        "properties": {
+          "memoryId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "context",
+              "evidence"
+            ]
+          },
+          "policyVersion": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "memoryId",
+          "scope",
+          "policyVersion"
+        ],
+        "additionalProperties": false
+      },
+      "ProactiveSafetyPolicy": {
+        "type": "object",
+        "properties": {
+          "policyVersion": {
+            "type": "string",
+            "minLength": 1
+          },
+          "classificationLevel": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "sensitive",
+              "crisis"
+            ]
+          },
+          "crisisResponse": {
+            "type": "string",
+            "enum": [
+              "block",
+              "fixed_response"
+            ]
+          }
+        },
+        "required": [
+          "policyVersion",
+          "classificationLevel"
+        ],
+        "additionalProperties": false
       }
     },
     "parameters": {}
