@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.10.0
-updated_at: 2026-09-13
-reviewed_at: 2026-09-13
+version: 1.11.0
+updated_at: 2026-09-14
+reviewed_at: 2026-09-14
 review_interval_days: 90
 ---
 
 # 文档生命周期登记表（核验节奏与陈旧信号）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-13
+- 修改人：3yearszhuang · 2026-09-14
 
 关联：[文档索引](README.md)、[文档治理与事实源规范](reference/document-governance.md)
 
@@ -104,6 +104,9 @@ review_interval_days: 90
 | `CR-033` | [主动智能终局架构：态势感知内核与预算化干预生态](reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md) | 2026-09-14 | `CAP-033/030/020/019` 主动智能终局北极星：态势投影、规则表达式语言、注意力预算、人格同源与结构化操作域 | 态势投影 schema、规则 DSL、裁决器预算语义、感知事件流或操作域白名单任一与本文不符 |
 | `CR-034` | [本地模型降级阶梯：无 API 接入时的原生能力基线](reference/changes/CR-034-local-model-fallback-ladder.md) | 2026-09-14 | `CAP-020/013/009/033/019` 三层降级阶梯（L0 云端 / L1 本地端点 / L2 规则回应）、降级决策器、能力分级与运行时托管 | 降级层级语义、能力分级边界、决策器切层规则或托管白名单与本文不符 |
 | `CR-035` | [标准 AI 工作台形态：熟悉范式的原生交互壳](reference/changes/CR-035-standard-workbench-mode.md) | 2026-09-14 | `CAP-019/020/013` 标准模式交互壳、会话列表、任务中心、项目上下文与迁移友好设施 | 双形态状态一致性、任务中心只读语义、会话导航契约或导入器净化规则与本文不符 |
+| `AVX-PLAN-033` | [CR-033 落地临时计划](CR-033-plan.md) | 2026-09-14 | 对应子 CR 通过 G1 前每 30 天 | 子 CR 拆分、依赖、门禁或回滚建议与 CR-033 基线不一致；子 CR 通过 G1 后应迁移或删除 |
+| `AVX-PLAN-034` | [CR-034 落地临时计划](CR-034-plan.md) | 2026-09-14 | 对应子 CR 通过 G1 前每 30 天 | 子 CR 拆分、Provider 路由、能力分级或托管边界与 CR-034 基线不一致；子 CR 通过 G1 后应迁移或删除 |
+| `AVX-PLAN-035` | [CR-035 落地临时计划](CR-035-plan.md) | 2026-09-14 | 对应子 CR 通过 G1 前每 30 天 | 子 CR 拆分、会话/项目/任务契约或导入边界与 CR-035 基线不一致；子 CR 通过 G1 后应迁移或删除 |
 | `AVX-PLUG-001` | [插件 Config、Page 与 UI 扩展规范](reference/plugin-config-and-pages.md) | 2026-09-11 | CR-006 / 插件机制变更 | Manifest、Config Schema、Page Bridge、Turn 管道或 UI 扩展与实现不一致 |
 | `AVX-DOC-GOV-001` | [文档治理与事实源规范](reference/document-governance.md) | 2026-09-10 | 文档分类、状态、事实源、复核触发或迁移策略变更 | 策略 JSON、校验器、索引、登记表或写作规范与治理基线不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 2026-09-10 | 写作规则、模板或季度评审 | 新文档未使用规范元数据/签名，或 Vale 规则与术语表不一致 |
@@ -120,9 +123,9 @@ review_interval_days: 90
 | `AVX-EXPL-007` | [运动与健康数据接入评估（已归档）](explanation/health-data-integration-assessment.md) | 2026-09-10 | 移动端形态 / 数据隐私 / 苹果或小米接入政策变更 | 接入路径、敏感分级或阶段结论与 CR-024 / DATA_PRIVACY 不一致 |
 | `AVX-EXPL-008` | [主动智能模式设计方案](explanation/proactive-intelligence-mode.md) | 2026-09-10 | CR-023/CAP-033、完全访问、全量画像、OS 能力授权、特权观察 Host、本地处理、动作授权、CAP-022/026/027/030 变更 | 四维状态、完整画像 manifest、平台能力清单、OS grant、本地出网边界、七天提炼保留、动作授权、阻断项或实现门禁与基线不一致 |
 | `AVX-EXPL-009` | [`packages/database` 拆分规划（已归档）](explanation/database-split-plan.md) | 2026-09-10 | `packages/database` schema/仓储接口、包结构或拆分方向变更 | 拆分方向、包边界、re-export 兼容层或分阶段落点与实现/ADR-014/追踪基线 §4.2 不一致 |
-| `AVX-DOC-001` | [文档索引](README.md) | 2026-09-13 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
-| `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-09-13 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |
-| `AVX-DOC-CONF-001` | [文档生命周期登记表](DOC_REGISTRY.md) | 2026-09-13 | 每季度 + 每次文档集变更 | 登记条目与实际文档集不一致 |
+| `AVX-DOC-001` | [文档索引](README.md) | 2026-09-14 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
+| `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-09-14 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |
+| `AVX-DOC-CONF-001` | [文档生命周期登记表](DOC_REGISTRY.md) | 2026-09-14 | 每季度 + 每次文档集变更 | 登记条目与实际文档集不一致 |
 
 ## 维护规则
 
