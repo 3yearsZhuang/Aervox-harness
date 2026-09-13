@@ -108,9 +108,6 @@ importers:
       '@aervox/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
-      '@aervox/contracts':
-        specifier: workspace:^
-        version: link:../../packages/contracts
       '@aervox/live2d':
         specifier: workspace:*
         version: link:../../packages/live2d
@@ -136,6 +133,9 @@ importers:
         specifier: ^3.5.21
         version: 3.5.41(typescript@5.8.3)
     devDependencies:
+      '@aervox/contracts':
+        specifier: workspace:^
+        version: link:../../packages/contracts
       '@types/node':
         specifier: ^22.15.3
         version: 22.20.1
@@ -222,6 +222,9 @@ importers:
       '@aervox/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@aervox/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@aervox/diary':
         specifier: workspace:*
         version: link:../../packages/diary

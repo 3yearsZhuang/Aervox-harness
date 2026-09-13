@@ -6,6 +6,7 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
+import { pluginManifestSchema } from "@aervox/contracts";
 import type { ModuleContext } from "../context.js";
 import {
   SqliteExtensionRepository,
@@ -59,20 +60,16 @@ async function syncBuiltinPlugins(
         continue; // 非插件 Bundle 目录跳过
       }
 
-      let manifest: {
-        metadata?: { id?: string; publisher?: string; version?: string; description?: string };
-      };
-      try {
-        manifest = JSON.parse(manifestRaw);
-      } catch {
+      // CR-032：内置插件清单统一走 zod fail-closed 校验，非法清单（含非法主动声明）整包拒装
+      const parsedManifest = pluginManifestSchema.safeParse(JSON.parse(manifestRaw));
+      if (!parsedManifest.success) {
+        console.warn(`[plugins] builtin manifest rejected (fail-closed): ${entry.name}`);
         continue;
       }
+      const manifest = parsedManifest.data;
+      const pluginId = manifest.metadata.id;
 
-      if (!manifest.metadata?.id || !manifest.metadata?.publisher || !manifest.metadata?.version) {
-        continue;
-      }
-
-      diskPluginIds.add(manifest.metadata.id);
+      diskPluginIds.add(pluginId);
 
       let skillContent = "";
       try {
@@ -83,7 +80,7 @@ async function syncBuiltinPlugins(
 
       // 1. 安装 / 同步插件
       await service.installPlugin({
-        id: manifest.metadata.id,
+        id: pluginId,
         publisher: manifest.metadata.publisher,
         version: manifest.metadata.version,
         installSource: "builtin",
@@ -96,13 +93,14 @@ async function syncBuiltinPlugins(
               },
             ]
           : [],
+        proactiveSpec: manifest.spec.proactive,
       });
 
       // 2. 注册 Schema（若存在）
       try {
         const schemaRaw = await fs.readFile(schemaPath, "utf8");
         const schema = JSON.parse(schemaRaw);
-        await configService.registerConfigSchema(manifest.metadata.id, schema);
+        await configService.registerConfigSchema(pluginId, schema);
       } catch {
         // 忽略无 Schema 或非法 Schema
       }
@@ -142,12 +140,29 @@ export async function registerPluginsModule(ctx: ModuleContext): Promise<void> {
     bundleStore,
   });
 
+  // CR-032：proactive 模块先于本模块注册并填充 ctx.proactiveIntelligenceRepository，
+  // 据此构建插件 → vault 物化规则的级联口（未装配时为 undefined，Worker 物化器兜底）。
+  const intelligenceRepo = ctx.proactiveIntelligenceRepository;
+  const localTenant = {workspaceId: "local", subjectUserId: "local"} as const;
+  const proactiveRuleSync = intelligenceRepo
+    ? {
+        async setRulesEnabledByPlugin(pluginId: string, enabled: boolean): Promise<void> {
+          await intelligenceRepo.setTriggerRulesEnabledByPlugin(localTenant, pluginId, enabled);
+        },
+        async purgePluginProactiveState(pluginId: string): Promise<void> {
+          // 规则即刻拔除；待办动作由 Worker 调度时重验规则存在性而失效，账本留痕
+          await intelligenceRepo.deleteTriggerRulesByPlugin(localTenant, pluginId);
+        },
+      }
+    : undefined;
+
   const service = new PluginService({
     extensionRepo,
     registry,
     skillRegistry,
     skillsRoot: resolvedSkillsRoot,
     cleanup: (pluginId) => configService.cleanupPlugin(pluginId),
+    proactiveRuleSync,
   });
 
   registerPluginRoutes(app, service);

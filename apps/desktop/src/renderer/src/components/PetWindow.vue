@@ -28,20 +28,35 @@ function clearBubbleTimer() {
     }
 }
 
-function showBubble(text: string) {
+// CR-032：主动插件气泡预设注册表（样式类 + 停留时长节奏）
+const BUBBLE_PRESETS: Record<string, {className: string; minMs: number; maxMs: number; perCharMs: number}> = {
+    gentle_care: {className: 'pet-bubble--gentle', minMs: 3_400, maxMs: 6_500, perCharMs: 150},
+    firm_nudge: {className: 'pet-bubble--firm', minMs: 3_000, maxMs: 5_600, perCharMs: 140},
+    cheer: {className: 'pet-bubble--cheer', minMs: 2_600, maxMs: 5_000, perCharMs: 130},
+}
+const bubblePresetClass = ref('')
+
+function showBubble(text: string, preset?: string) {
     if (!text.trim()) return
     bubbleText.value = text
+    const presetConfig = preset ? BUBBLE_PRESETS[preset] : undefined
+    bubblePresetClass.value = presetConfig?.className ?? ''
     clearBubbleTimer()
-    // 展示时长与口型动画节奏一致（650ms ~ 5s）
+    // 展示时长与口型动画节奏一致（650ms ~ 5s；预设可覆盖节奏）
+    const minMs = presetConfig?.minMs ?? 2_600
+    const maxMs = presetConfig?.maxMs ?? 5_000
+    const perCharMs = presetConfig?.perCharMs ?? 120
     bubbleTimer = window.setTimeout(() => {
         bubbleText.value = ''
+        bubblePresetClass.value = ''
         bubbleTimer = null
-    }, Math.min(5_000, Math.max(2_600, text.length * 120)))
+    }, Math.min(maxMs, Math.max(minMs, text.length * perCharMs)))
 }
 
 /** 流式气泡：不设自动消失，由 onDone/onError 调度 */
 function showStreamingBubble(text: string) {
     bubbleText.value = text
+    bubblePresetClass.value = ''
     clearBubbleTimer()
 }
 
@@ -167,13 +182,16 @@ function toggleDock() {
 
 const onBubble = (event: Event) => {
     if (replyBubbleActive.value || questionBubbleActive.value) return
-    showBubble((event as CustomEvent<string>).detail ?? '')
+    const detail = (event as CustomEvent<string | {text?: string; preset?: string}>).detail
+    const text = typeof detail === 'string' ? detail : detail?.text ?? ''
+    const preset = typeof detail === 'string' ? undefined : detail?.preset
+    showBubble(text, preset)
 }
 const onPetQuestion = (event: Event) => handleQuestionPrompt((event as CustomEvent<UserQuestionRequiredEventData>).detail)
 
-/** ui 共享 Live2DPet 的 speak 事件 → 桌宠窗口气泡（宿主职责，沿用 aervox:pet-bubble 窗口事件契约） */
-const onSpeak = (text: string) => {
-    window.dispatchEvent(new CustomEvent('aervox:pet-bubble', {detail: text}))
+/** ui 共享 Live2DPet 的 speak 事件 → 桌宠窗口气泡（宿主职责，沿用 aervox:pet-bubble 窗口事件契约；CR-032 起可携带气泡预设） */
+const onSpeak = (text: string, preset?: string) => {
+    window.dispatchEvent(new CustomEvent('aervox:pet-bubble', {detail: {text, preset}}))
 }
 
 onMounted(() => {
@@ -194,7 +212,7 @@ onBeforeUnmount(() => {
       <section
         v-if="bubbleText"
         class="pet-bubble"
-        :class="{'pet-bubble-reply': replyBubbleActive}"
+        :class="[{'pet-bubble-reply': replyBubbleActive}, bubblePresetClass]"
         aria-live="polite"
         @click.stop="dismissBubble"
       >

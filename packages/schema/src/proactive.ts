@@ -24,6 +24,7 @@ export const FULL_PROFILE_SOURCE_MANIFEST = [
   { sourceKey: "device.input_content", purpose: "profile.observe", osCapability: "os.input", mandatory: true },
   { sourceKey: "device.clipboard", purpose: "profile.observe", osCapability: "os.clipboard", mandatory: true },
   { sourceKey: "device.screen_capture", purpose: "profile.observe", osCapability: "os.screen_capture", mandatory: true },
+  { sourceKey: "system.idle_state", purpose: "profile.observe", osCapability: "system.idle_state", mandatory: false },
   { sourceKey: "filesystem.full_disk_watch", purpose: "profile.observe", osCapability: "os.files", mandatory: true },
   { sourceKey: "external.communication", purpose: "profile.observe", osCapability: "os.communications", mandatory: false },
   { sourceKey: "device.microphone", purpose: "profile.observe", osCapability: "os.microphone", mandatory: true },

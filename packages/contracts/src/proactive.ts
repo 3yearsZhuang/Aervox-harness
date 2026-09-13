@@ -16,6 +16,7 @@ export const PROFILE_SOURCE_IDS = [
   'device.input_content',
   'device.clipboard',
   'device.screen_capture',
+  'system.idle_state',
   'filesystem.full_disk_watch',
   'external.communication',
   'device.microphone',
@@ -222,6 +223,22 @@ export interface XiaomiHealthConnectionInput {
   readonly localDate?: string
 }
 
+/**
+ * 主动表现事件（CR-032 §4.3 第 4 步）：经 GET /v1/proactive/events SSE 直推多端，
+ * 桌面端将其映射为既有 PetCommand（gesture/emote/speak）驱动桌宠动画与气泡。
+ */
+export interface ProactivePresentationEvent {
+  readonly kind: 'proactive.presentation'
+  readonly actionId: string
+  readonly pluginId: string
+  readonly ruleId: string
+  readonly title: string
+  readonly message: string
+  readonly animation?: string
+  readonly bubblePreset?: string
+  readonly occurredAt: string
+}
+
 export interface ProactiveDesktopBridge {
   getStatus(toolApprovalMode: 'ask' | 'full_access'): Promise<ProactiveProfileStatus>
   authorize(request: ProfileAuthorizationRequest, toolApprovalMode: 'ask' | 'full_access'): Promise<ProactiveProfileStatus>
@@ -257,6 +274,7 @@ export const PROFILE_CAPABILITY_CATALOG: readonly Omit<ProfileCapabilityState, '
   {id: 'device.input_content', label: '键鼠与输入', description: '可验证的输入信号；受保护输入始终排除', required: true, canRequest: true},
   {id: 'device.clipboard', label: '剪贴板', description: '剪贴板变更和内容，用于上下文理解', required: true, canRequest: true},
   {id: 'device.screen_capture', label: '屏幕与视觉', description: '屏幕帧、OCR 和视觉上下文', required: true, canRequest: true},
+  {id: 'system.idle_state', label: '系统空闲状态', description: '键鼠空闲时长派生的在场信号，仅元数据不含内容', required: false, canRequest: true},
   {id: 'filesystem.full_disk_watch', label: '文件与目录', description: '用户授权的文件、目录和持续变更', required: true, canRequest: true},
   {id: 'external.communication', label: '通信资料', description: '邮件、消息、联系人和日历连接器；等待平台接入', required: false, canRequest: false},
   {id: 'device.microphone', label: '麦克风', description: '本地音频信号和语音上下文', required: true, canRequest: true},

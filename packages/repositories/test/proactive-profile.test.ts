@@ -82,8 +82,8 @@ describe("CAP-033 proactive profile repository", () => {
   it("derives active once mandatory sources are granted even when platform-pending sources wait", async () => {
     const repository = new SqliteProactiveProfileRepository(db);
     // 未显式传入 sources 时，mandatory 由服务端 manifest 派生：
-    // 通信/位置/传感器/敏感资料 4 项待平台接入，不计入必需集合。
-    const pending = new Set(["external.communication", "device.location", "device.sensors", "restricted.profile"]);
+    // 通信/位置/传感器/敏感资料与 idle_state（CR-032 可选感知源）不计入必需集合。
+    const pending = new Set(["external.communication", "device.location", "device.sensors", "restricted.profile", "system.idle_state"]);
     const fallback = await repository.confirmProfile(tenant, {
       id: "profile_fallback",
       deviceId: "device-a",

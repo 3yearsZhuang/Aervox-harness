@@ -4,9 +4,9 @@ type: reference
 scope: change
 owner: maintainers
 doc_status: review-candidate
-decision_status: proposed
-delivery_status: planned
-version: 0.1.0
+decision_status: accepted
+delivery_status: implemented
+version: 1.0.0
 updated_at: 2026-09-13
 reviewed_at: 2026-09-13
 review_interval_days: 90
@@ -26,7 +26,7 @@ sources:
 
 关联：[PRD](../PRD.md) · [主动智能需求规格附录](../srs-proactive-intelligence.md) · [需求追踪基线](../REQUIREMENTS_TRACEABILITY.md#11-变更控制) · [ADR-009 插件沙箱](../adr/ADR-009-electron-plugin-sandbox.md) · [CR-023 主动智能模式](CR-023-proactive-local-intelligence-mode.md) · [CR-006 插件配置与页面](CR-006-plugin-config-and-pages.md)
 
-- 状态：Proposed / Planned
+- 状态：Accepted / Implemented（2026-09-13）
 - 提出人 / 日期：3yearszhuang / 2026-09-13
 - 目标版本：R2 学习深化与主动智能演进阶段
 - 关联能力：`CAP-020`（插件运行时）、`CAP-033`（主动感知与个人画像）、`CAP-034`（智能家居连接）、`CAP-035`（健康数据连接）、`CAP-019`（桌宠交互与情感表达）
@@ -190,3 +190,40 @@ CREATE INDEX IF NOT EXISTS proactive_trigger_rules_plugin_idx ON proactive_trigg
 - **向后兼容性**：清单中 `spec.proactive` 为可选字段，未声明该字段的传统被动插件与旧版插件完全不受影响；
 - **配置与数据隔离**：所有主动事件、观察与规则依然严格保存在本地 SQLite（WAL 模式）与 `proactive-vault.db` 中，符合 CR-030 纯本地单用户要求；
 - **快速故障隔离**：若某主动插件规则异常高频打扰，用户或系统可通过禁用单插件立刻拔除对应规则，无需重启主服务。
+
+---
+
+## 8. 落地实现记录（2026-09-13）
+
+本 CR 已按切片 S1~S6 全量落地于分支 `feat/cr-032-proactive-plugin-ecosystem`。落地过程对第 4 节的两处技术契约做了实现细化（意图与验收语义不变），记录如下：
+
+### 8.1 实现细化：规则真源采用「声明 + 物化」两段式
+
+§4.2 原文为插件安装时直接写入 vault 的 `proactive_trigger_rules`。落地发现该表位于加密 proactive vault 库且以 `revision_id` 强约束（画像修订轮换需重绑定、敏感列透明加密），由 `PluginService` 直写会引入跨库与加密耦合。落地细化为：
+
+- **声明真源**：插件清单 `spec.proactive` 经 `zod` fail-closed 校验后持久化于主库 `plugins.proactive_spec_json`，随插件生命周期天然增删；
+- **运行时物化**：Worker 每周期把「已启用且感知源授权齐全」的插件声明物化进 `proactive_trigger_rules`（`plugin_id` 标记归属），停用/卸载插件的规则由物化器自动拔除，幽灵规则零残留；冷却起点 `lastTriggeredAt` 由 upsert 的保留语义跨周期存活。
+
+### 8.2 实现细化：主动话术采用 One-shot 组合器
+
+§4.3 原文为「调用 Agent Harness 核心循环」。主动关怀是单轮生成（无工具循环、无多回合状态），完整回合脚手架（session/turn/attempt）为用户发起对话设计，改造量大且引入后台合成回合的语义问题。落地复用日记生成先例：`ProactiveComposer` 装配插件 SKILL.md 全文与触发证据快照，经 OpenAI 兼容 provider 一次性生成，LLM 未启用或失败时按气泡预设模板诚实降级。
+
+### 8.3 各切片落地对照
+
+| 切片 | 主要落点 |
+|---|---|
+| S1 契约 | `packages/contracts`：`pluginManifestSchema.spec` 扩展 `mcpServers` / `skill` / `proactive`（sensors / triggers / petPresentation）；`PROFILE_SOURCE_IDS` 与授权包清单新增 `system.idle_state`；`ProactivePresentationEvent` 契约与 OpenAPI 重生成 |
+| S2 持久层 | `plugins.proactive_spec_json` 与 `proactive_trigger_rules.plugin_id` 补列（`addColumnIfMissing` 幂等）；`plugin_grants` 唯一索引放宽至 `(plugin_id, permission, scope)`；通知表补 `payload_json`；智能仓储新增按插件批量启停 / 删除 / 单条删除 / 冷却写回 / 时间窗事件查询 |
+| S3 生命周期 | `POST /v1/plugins` 与内置插件同步统一走清单 `zod` fail-closed 校验；`ProactiveRuleSyncPort` 级联口（启停级联、卸载清规则）；感知源授权约定 `permission=proactive.sensor`、`scope=sourceId`，`GET /v1/plugins/:id/grants` 列表端点 |
+| S4 裁决与调度 | Worker 新增 `ProactiveArbitrator`（授权 → 冷却 → 静音时段 → 每小时全局频次水位，抑制决策可观测）与规则引擎（内置 4 规则保留并纳入裁决；插件 `system_state` 等类型求值）；主动回合调度：vault `proactive_actions` 账本（`action.local`）+ One-shot 话术 + 主库通知（payload 携带表现声明）；API 新增 `GET /v1/proactive/events` SSE 直推（以账本为队列） |
+| S5 多端表现 | 桌面 `system.idle_state` 采样（`powerMonitor`，60s 节拍，授权门控）；主动事件常驻 SSE 消费器映射为既有 `pet:command` 指令（渲染层近零改动）；气泡预设注册表（`gentle_care` / `firm_nudge` / `cheer`）与动画别名表；托盘 Kill Switch（暂停/恢复主动智能，复用 desiredState 通道）；扩展中心感知源授权区；Web 端主动关怀 Toast |
+| S6 示范插件 | `plugins/health-guard/`（首个携带 `spec.proactive` 的出厂插件：连续久坐 50 分钟且在场即提醒，冷却 30 分钟，桌宠伸懒腰 + 温和关怀气泡） |
+
+### 8.4 验证
+
+- 定向测试：清单契约 fail-closed（未知触发类型 / 未知字段 / 超限规则数拒绝）、生命周期级联（启停 / 卸载清规则、感知源 scope 粒度共存）、裁决器节流与静音抑制、E2E（模拟 idle 观测 → 命中 → 账本 `executed` → 冷却二次周期不重复派发）；
+- 门禁：`mise tasks run ci-code` 全量通过（含 `check:boundary` 零违规）。
+
+### 8.5 需求追踪登记
+
+已在 [需求追踪基线 §4.2](../REQUIREMENTS_TRACEABILITY.md#42-落地实现登记) 登记落地条目，完成闭环。

@@ -1,4 +1,5 @@
 import {ipcRenderer, type IpcRendererEvent} from 'electron'
+import {PROFILE_SOURCE_IDS} from '@aervox/contracts/proactive'
 import type {
   ProfileAuthorizationRequest,
   ProactiveActivityCapture,
@@ -21,13 +22,8 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-const profileSourceIds = new Set([
-  'aervox.activity', 'aervox.operation', 'device.app_activity', 'device.browser_activity',
-  'device.input_content', 'device.clipboard', 'device.screen_capture', 'filesystem.full_disk_watch',
-  'external.communication', 'device.microphone', 'device.camera', 'device.location', 'device.sensors',
-  'restricted.profile', 'background.persistent', 'action.local', 'action.external',
-  'action.privileged', 'action.irreversible',
-])
+// 源清单以 contracts 为唯一真源（CR-032 教训：硬编码副本漏项会把宿主状态整体判非法）
+const profileSourceIds = new Set<string>(PROFILE_SOURCE_IDS)
 const profileDesiredStates = new Set(['none', 'enabled', 'paused', 'revoking', 'revoked'])
 const profileEffectiveStates = new Set(['inactive', 'configuring', 'active', 'limited', 'suspended', 'revoking'])
 const profileOsStatuses = new Set(['granted', 'denied', 'prompt', 'unavailable', 'unknown'])

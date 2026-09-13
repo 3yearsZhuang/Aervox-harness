@@ -2,6 +2,7 @@
  * Aervox｜思隅 @aervox/repositories — proactive-intelligence 表 DDL（自 schema/init.ts 机械拆分）
  */
 import type { Client } from "@libsql/client";
+import { addColumnIfMissing } from "./common.js";
 
 export async function createProactiveIntelligenceTables(client: Client): Promise<void> {
   // CAP-033 intelligence suite + CAP-034 Home Assistant + CAP-035 Xiaomi Health.
@@ -51,7 +52,7 @@ export async function createProactiveIntelligenceTables(client: Client): Promise
       `CREATE INDEX IF NOT EXISTS proactive_workflow_local_state_idx
         ON proactive_workflow_templates(state);`,
       `CREATE TABLE IF NOT EXISTS proactive_trigger_rules (
-        id TEXT PRIMARY KEY, revision_id TEXT NOT NULL, name TEXT NOT NULL, trigger_type TEXT NOT NULL,
+        id TEXT PRIMARY KEY, revision_id TEXT NOT NULL, plugin_id TEXT, name TEXT NOT NULL, trigger_type TEXT NOT NULL,
         condition_json TEXT NOT NULL DEFAULT '{}', action_json TEXT NOT NULL DEFAULT '{}', enabled INTEGER NOT NULL DEFAULT 0,
         cooldown_seconds INTEGER NOT NULL DEFAULT 3600, quiet_hours_json TEXT NOT NULL DEFAULT '{}',
         last_triggered_at TEXT, processing_boundary TEXT NOT NULL DEFAULT 'local_only',
@@ -131,4 +132,9 @@ export async function createProactiveIntelligenceTables(client: Client): Promise
         ON proactive_health_samples(connection_id, metric, local_date);`,
     ];
   for (const ddl of proactiveIntelligenceDdl) await client.execute(ddl);
+  // CR-032 主动智能插件化：旧库补列后才能建归属索引（顺序不可颠倒，否则旧库升级即崩）
+  await addColumnIfMissing(client, "proactive_trigger_rules", "plugin_id", "plugin_id TEXT");
+  await client.execute(
+    `CREATE INDEX IF NOT EXISTS proactive_trigger_rules_plugin_idx ON proactive_trigger_rules(plugin_id);`,
+  );
 }

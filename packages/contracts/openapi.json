@@ -3036,6 +3036,121 @@
                   ]
                 },
                 "maxItems": 50
+              },
+              "mcpServers": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "maxItems": 20
+              },
+              "skill": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "proactive": {
+                "type": "object",
+                "properties": {
+                  "sensors": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "sourceId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "description": {
+                          "type": "string",
+                          "maxLength": 500
+                        }
+                      },
+                      "required": [
+                        "sourceId"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 20,
+                    "default": []
+                  },
+                  "triggers": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "ruleId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64,
+                          "pattern": "^[A-Za-z0-9_-]+$"
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "triggerType": {
+                          "type": "string",
+                          "enum": [
+                            "system_state",
+                            "fatigue_high",
+                            "drift_high",
+                            "health_sleep_low",
+                            "commitment_due"
+                          ]
+                        },
+                        "condition": {
+                          "type": "object",
+                          "additionalProperties": {},
+                          "default": {}
+                        },
+                        "cooldownSeconds": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 604800,
+                          "default": 1800
+                        },
+                        "quietHoursPolicy": {
+                          "type": "string",
+                          "enum": [
+                            "respect_global",
+                            "bypass"
+                          ],
+                          "default": "respect_global"
+                        },
+                        "petPresentation": {
+                          "type": "object",
+                          "properties": {
+                            "animation": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 64
+                            },
+                            "bubblePreset": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 64
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "ruleId",
+                        "name",
+                        "triggerType"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 20,
+                    "default": []
+                  }
+                },
+                "additionalProperties": false
               }
             },
             "default": {}
@@ -5569,6 +5684,7 @@
               "device.input_content",
               "device.clipboard",
               "device.screen_capture",
+              "system.idle_state",
               "filesystem.full_disk_watch",
               "external.communication",
               "device.microphone",
@@ -5698,6 +5814,7 @@
                     "device.input_content",
                     "device.clipboard",
                     "device.screen_capture",
+                    "system.idle_state",
                     "filesystem.full_disk_watch",
                     "external.communication",
                     "device.microphone",
@@ -5855,6 +5972,7 @@
               "device.input_content",
               "device.clipboard",
               "device.screen_capture",
+              "system.idle_state",
               "filesystem.full_disk_watch",
               "external.communication",
               "device.microphone",
@@ -5926,6 +6044,7 @@
               "device.input_content",
               "device.clipboard",
               "device.screen_capture",
+              "system.idle_state",
               "filesystem.full_disk_watch",
               "external.communication",
               "device.microphone",
@@ -7412,6 +7531,7 @@
                             "device.input_content",
                             "device.clipboard",
                             "device.screen_capture",
+                            "system.idle_state",
                             "filesystem.full_disk_watch",
                             "external.communication",
                             "device.microphone",
@@ -7812,6 +7932,7 @@
                       "device.input_content",
                       "device.clipboard",
                       "device.screen_capture",
+                      "system.idle_state",
                       "filesystem.full_disk_watch",
                       "external.communication",
                       "device.microphone",
@@ -7940,6 +8061,7 @@
                       "device.input_content",
                       "device.clipboard",
                       "device.screen_capture",
+                      "system.idle_state",
                       "filesystem.full_disk_watch",
                       "external.communication",
                       "device.microphone",

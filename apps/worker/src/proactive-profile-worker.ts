@@ -132,12 +132,19 @@ export async function runProactiveProfileCycle(
                 content: memory.content,
                 confidence: memory.confidence,
                 evidenceRefs: memory.evidenceRefs,
+                // CR-032：结构化证据直通（idle_state 等元数据级样本）
+                ...(memory.structured ?? {}),
               },
               checksum: capture.checksum,
               algorithmVersion: ctx.distiller.processorId,
               observedAt: capture.observedAt,
               normalizedAt: nowIso,
             });
+          // CR-032：observationOnly 样本（idle_state 等元数据级高频源）不进 claim 审阅流
+          if (memory.observationOnly) {
+            memoryIds.push(observation.id);
+            continue;
+          }
           const claimId = `pclaim_${capture.id}_${index + 1}`;
           const claim = await ctx.repo.createClaim(tenant, {
             id: claimId,

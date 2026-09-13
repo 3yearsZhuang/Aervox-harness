@@ -48,6 +48,18 @@ export interface PluginDeclaredSkill {
   content: string;
 }
 
+/**
+ * CR-032：插件主动规则级联口。由 proactive 域提供 vault 实现（ProactiveRuleSyncPort
+ * 的实现位于模块装配层），插件域不直接触碰加密 vault；未装配时级联静默跳过，
+ * 由 Worker 物化器在下一周期兜底对齐。
+ */
+export interface ProactiveRuleSyncPort {
+  /** 插件启停 → 物化规则批量启停 */
+  setRulesEnabledByPlugin(pluginId: string, enabled: boolean): Promise<void>;
+  /** 插件卸载 → 清除物化规则并撤销待处理主动动作 */
+  purgePluginProactiveState(pluginId: string): Promise<void>;
+}
+
 export interface PluginServiceDeps {
   extensionRepo: SqliteExtensionRepository;
   registry: SqliteToolRegistryRepository;
@@ -56,6 +68,8 @@ export interface PluginServiceDeps {
   skillsRoot: string;
   /** CR-006：卸载时清理插件配置/secret/Page 与 Bundle 目录 */
   cleanup?: (pluginId: string) => Promise<void>;
+  /** CR-032：主动规则级联口（proactive vault 实现） */
+  proactiveRuleSync?: ProactiveRuleSyncPort;
 }
 
 export class PluginService {
@@ -66,7 +80,7 @@ export class PluginService {
     return this.deps.extensionRepo.listPlugins();
   }
 
-  /** 安装：登记插件 + 同步声明工具与技能（幂等） */
+  /** 安装：登记插件 + 同步声明工具与技能（幂等）；proactiveSpec 须已经清单 zod fail-closed 校验 */
   async installPlugin(plugin: {
     id: string;
     publisher: string;
@@ -77,6 +91,8 @@ export class PluginService {
     installSource?: string;
     tools?: PluginDeclaredTool[];
     skills?: PluginDeclaredSkill[];
+    /** CR-032：主动智能声明（pluginProactiveSpecSchema 校验后的结果） */
+    proactiveSpec?: unknown;
   }): Promise<PluginModel> {
     const created = await this.deps.extensionRepo.createPlugin({
       id: plugin.id,
@@ -86,6 +102,8 @@ export class PluginService {
       signature: plugin.signature ?? null,
       permissions: plugin.permissions ?? [],
       installSource: plugin.installSource ?? "registry",
+      // 显式 null 清空旧声明：重装未声明 proactive 的插件不得残留历史声明
+      proactiveSpecJson: plugin.proactiveSpec ?? null,
     });
 
     for (const tool of plugin.tools ?? []) {
@@ -148,6 +166,10 @@ export class PluginService {
     const pluginIds = targetId !== id ? [targetId, id] : [id];
     await this.deps.registry.setToolsEnabledByPlugin(pluginIds, enabled);
     await this.deps.skillRegistry.setSkillsActiveByPlugin(pluginIds, enabled);
+    // CR-032：级联启停该插件的物化主动规则（未装配 Port 时由 Worker 物化器兜底）
+    for (const pluginId of pluginIds) {
+      await this.deps.proactiveRuleSync?.setRulesEnabledByPlugin(pluginId, enabled).catch(() => undefined);
+    }
     return updated;
   }
 
@@ -157,6 +179,8 @@ export class PluginService {
     await this.deps.skillRegistry.removeSkillsByPlugin(id);
     await fs.rm(path.join(this.deps.skillsRoot, id), { recursive: true, force: true }).catch(() => undefined);
     if (this.deps.cleanup) await this.deps.cleanup(id);
+    // CR-032：先清除物化规则与待办动作，再删除插件行（杜绝幽灵规则）
+    await this.deps.proactiveRuleSync?.purgePluginProactiveState(id).catch(() => undefined);
     return this.deps.extensionRepo.deletePlugin(id);
   }
 
@@ -176,5 +200,16 @@ export class PluginService {
   /** 查询插件是否具备指定权限 */
   hasPermission(tenant: LocalContext, pluginId: string, permission: string) {
     return this.deps.extensionRepo.hasPluginPermission(tenant, pluginId, permission);
+  }
+
+  /** CR-032：查询插件是否具备指定 scope 的授权（感知源授权） */
+  hasGrant(tenant: LocalContext, pluginId: string, permission: string, scope: string) {
+    return this.deps.extensionRepo.hasPluginGrant(tenant, pluginId, permission, scope);
+  }
+
+  /** CR-032：列出插件的全部有效感知源授权（撤销需 grantId） */
+  listSensorGrants(tenant: LocalContext, pluginId: string, permission: string) {
+    return this.deps.extensionRepo.listActiveGrantsByPermission(tenant, permission)
+      .then((grants) => grants.filter((grant) => grant.pluginId === pluginId));
   }
 }

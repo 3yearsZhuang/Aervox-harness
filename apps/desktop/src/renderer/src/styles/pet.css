@@ -130,6 +130,34 @@ html, body, #pet-app {
     scrollbar-width: thin
 }
 
+/* CR-032：主动插件气泡预设（gentle_care 温和关怀 / firm_nudge 督促 / cheer 鼓励） */
+.pet-bubble.pet-bubble--gentle {
+    background: linear-gradient(160deg, #fff7ef 0%, #fdeee2 100%);
+    border-color: rgba(214, 148, 96, 0.45)
+}
+
+.pet-bubble.pet-bubble--gentle p {
+    color: #7c5236
+}
+
+.pet-bubble.pet-bubble--firm {
+    background: linear-gradient(160deg, #eef4ff 0%, #dfe9fb 100%);
+    border-color: rgba(86, 118, 178, 0.5)
+}
+
+.pet-bubble.pet-bubble--firm p {
+    color: #3c517a
+}
+
+.pet-bubble.pet-bubble--cheer {
+    background: linear-gradient(160deg, #f0fbf1 0%, #ddf5e2 100%);
+    border-color: rgba(88, 158, 106, 0.5)
+}
+
+.pet-bubble.pet-bubble--cheer p {
+    color: #356348
+}
+
 /* VN 气泡分支选择肢 */
 .pet-choices {
     display: flex;

@@ -43,6 +43,8 @@ export interface PluginModel {
   enabled: number;
   configSchemaJson?: unknown;
   configSchemaVersion?: number;
+  /** 插件主动智能声明（CR-032；manifest spec.proactive 解析结果） */
+  proactiveSpecJson?: unknown;
   createdAt: string;
   updatedAt: string;
 }

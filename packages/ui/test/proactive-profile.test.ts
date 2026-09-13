@@ -30,9 +30,9 @@ describe('CAP-033 profile authorization contract', () => {
     expect(PROFILE_SOURCE_IDS).toContain('action.external')
     expect(PROFILE_SOURCE_IDS).toContain('action.privileged')
     expect(PROFILE_SOURCE_IDS).toContain('action.irreversible')
-    // 当前版本支持的来源必须全部必需；无平台 Provider 的来源（通信/位置/
-    // 传感器/敏感资料）保持可见但不阻塞最小激活集。
-    const pendingProviders = ['external.communication', 'device.location', 'device.sensors', 'restricted.profile']
+    // 可选来源（无平台 Provider 或用户显式授权后才采集，如 CR-032 idle_state）
+    // 保持可见但不阻塞最小激活集。
+    const pendingProviders = ['external.communication', 'device.location', 'device.sensors', 'restricted.profile', 'system.idle_state']
     expect(PROFILE_CAPABILITY_CATALOG.filter((entry) => !pendingProviders.includes(entry.id)).every((entry) => entry.required)).toBe(true)
     expect(PROFILE_CAPABILITY_CATALOG.filter((entry) => pendingProviders.includes(entry.id)).every((entry) => !entry.required)).toBe(true)
   })

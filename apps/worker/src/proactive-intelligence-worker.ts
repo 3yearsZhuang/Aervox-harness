@@ -1,20 +1,50 @@
-/** Deterministic local engine for the twelve proactive intelligence capabilities. */
+/**
+ * Deterministic local engine for the twelve proactive intelligence capabilities.
+ *
+ * CR-032：第 4 步触发调度已插件化——
+ * - 规则真源 = 插件清单声明（主库 plugins.proactive_spec_json）+ 内置规则（plugin_id 为空）；
+ * - 周期开头把启用的插件声明物化进 vault proactive_trigger_rules（plugin_id 标记）；
+ * - 所有候选（内置 + 插件）统一经全局防打扰裁决器（ProactiveArbitrator）裁决；
+ * - 插件规则命中后走主动回合调度：vault proactive_actions 账本 + One-shot 关怀话术
+ *   组合器 + 主库通知（payload 携带表现声明，API 经 SSE 直推多端）。
+ */
 import { createHash } from "node:crypto";
+import fs from "node:fs/promises";
 import { and, eq } from "drizzle-orm";
+import {
+  PLUGIN_SENSOR_PERMISSION,
+  pluginProactiveSpecSchema,
+} from "@aervox/contracts";
+import type { PluginProactiveSpec } from "@aervox/contracts";
 import {
   proactiveProfileRevisions,
 } from "@aervox/schema";
 import type {
   AervoxDatabase,
+  IntelligenceTriggerRule,
+  SqliteExtensionRepository,
+  SqliteLLMConfigRepository,
   SqlitePlatformRepository,
   SqliteProactiveIntelligenceRepository,
   SqliteProactiveProfileRepository,
+  SqliteSkillRegistryRepository,
   LocalContext,
 } from "@aervox/repositories";
+import { arbitrate, DEFAULT_GLOBAL_QUIET_HOURS, DEFAULT_MAX_DISPATCHES_PER_HOUR } from "./proactive-arbitrator.js";
+import {
+  evaluateTriggerRule,
+  materializePluginTriggerRules,
+  type ProactivePluginDeclaration,
+  type RuleEvaluation,
+} from "./proactive-rule-engine.js";
+import { composeProactiveMessage } from "./proactive-composer.js";
 
 const hash = (value: string): string => createHash("sha256").update(value).digest("hex").slice(0, 20);
 const id = (prefix: string, value: string): string => `${prefix}_${hash(value)}`;
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** 插件规则最小冷却下限（秒）：防止 cooldown=0 且条件恒真的规则逐节拍刷屏 */
+const MIN_PLUGIN_COOLDOWN_SECONDS = 60;
 
 function utcWeekRange(now: Date): {start: string; end: string} {
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
@@ -31,6 +61,15 @@ export interface ProactiveIntelligenceCycleContext {
   platformRepo?: SqlitePlatformRepository;
   workerId: string;
   now?: () => Date;
+  /** CR-032：主库插件声明与感知源授权读取（缺省时插件化调度降级关闭） */
+  extensionRepo?: SqliteExtensionRepository;
+  /** CR-032：关怀话术组合器依赖 */
+  llmConfigRepo?: SqliteLLMConfigRepository;
+  skillRegistry?: SqliteSkillRegistryRepository;
+  /** 全局静音窗口（本地时区 HH:mm）；缺省 22:00-07:00 */
+  globalQuietHours?: {start: string; end: string};
+  /** 全局频次水位（次/小时）；缺省 3 */
+  maxDispatchesPerHour?: number;
 }
 
 export interface ProactiveIntelligenceCycleResult {
@@ -47,6 +86,80 @@ export interface ProactiveIntelligenceCycleResult {
   relationships: number;
   scenes: number;
   reviews: number;
+  /** CR-032：本次周期物化的插件规则数 / 实际派发的主动回合数 */
+  materializedRules: number;
+  dispatches: number;
+}
+
+/**
+ * CR-032 §4.3 主动回合调度：命中规则 → vault 账本（pending→approved→running→executed）
+ * → One-shot 关怀话术组合器 → 主库通知（payload 携带表现声明）。
+ * 返回派发结果（含话术与表现声明）；账本/授权失败向上抛出由调用方记录 failed_dispatch。
+ */
+async function dispatchProactiveTurn(
+  ctx: ProactiveIntelligenceCycleContext,
+  tenant: LocalContext,
+  profile: {id: string},
+  rule: IntelligenceTriggerRule,
+  evaluation: RuleEvaluation,
+  declarations: ProactivePluginDeclaration[],
+  now: Date,
+): Promise<{actionId: string; message: string; source: "llm" | "template"; presentation: {animation?: string; bubblePreset?: string} | null}> {
+  const pluginId = rule.pluginId ?? "builtin";
+  const actionSpec = rule.pluginId
+    ? ((rule.action as {presentation?: {animation?: string; bubblePreset?: string} | null} | undefined)?.presentation ?? null)
+    : null;
+  const declaration = declarations.find((item) => item.pluginId === rule.pluginId) ?? null;
+
+  const skillContent = rule.pluginId
+    ? await loadPluginSkillContent(ctx.skillRegistry, undefined, rule.pluginId)
+    : null;
+  const compose = ctx.llmConfigRepo
+    ? await composeProactiveMessage({
+        llmConfigRepo: ctx.llmConfigRepo,
+        input: {
+          tenant,
+          pluginId,
+          pluginName: declaration?.pluginName ?? pluginId,
+          ruleName: rule.name,
+          triggerType: rule.triggerType,
+          evidence: {summary: evaluation.reason, facts: evaluation.cause},
+          skillContent,
+          bubblePreset: actionSpec?.bubblePreset ?? null,
+        },
+      })
+    : {message: evaluation.reason, source: "template" as const};
+
+  const actionId = id("pact", `${profile.id}:${rule.id}:${now.toISOString()}`);
+  const action = await ctx.profileRepo.createAction(tenant, {
+    id: actionId,
+    revisionId: profile.id,
+    actionType: "proactive_dispatch",
+    target: pluginId,
+    request: {ruleId: rule.id, triggerType: rule.triggerType, cause: evaluation.cause},
+    authorizationScope: "action.local",
+    actionGrantRevision: "",
+    requestedBy: rule.pluginId ? `plugin:${rule.pluginId}` : "builtin_rules",
+    reversible: true,
+    external: false,
+  });
+  await ctx.profileRepo.updateAction(tenant, action.id, {state: "approved", actorId: "proactive-arbitrator"});
+  await ctx.profileRepo.updateAction(tenant, action.id, {state: "running", actorId: "proactive-dispatcher"});
+  await ctx.profileRepo.updateAction(tenant, action.id, {
+    state: "executed",
+    actorId: "proactive-dispatcher",
+    outcome: {
+      kind: "plugin_dispatch",
+      pluginId,
+      ruleId: rule.id,
+      title: rule.name,
+      message: compose.message,
+      source: compose.source,
+      presentation: actionSpec,
+      evidence: evaluation.cause,
+    },
+  });
+  return {actionId: action.id, message: compose.message, source: compose.source, presentation: actionSpec};
 }
 
 async function activeProfiles(ctx: ProactiveIntelligenceCycleContext) {
@@ -58,6 +171,61 @@ async function activeProfiles(ctx: ProactiveIntelligenceCycleContext) {
   ));
 }
 
+/** 从主库加载插件主动声明（fail-closed：声明经清单 zod 校验，非法声明跳过该插件） */
+async function loadPluginDeclarations(extensionRepo: SqliteExtensionRepository): Promise<ProactivePluginDeclaration[]> {
+  const [plugins, grants] = await Promise.all([
+    extensionRepo.listPlugins(),
+    extensionRepo.listActiveGrantsByPermission({workspaceId: "local", subjectUserId: "local"}, PLUGIN_SENSOR_PERMISSION),
+  ]);
+  const grantedByPlugin = new Map<string, Set<string>>();
+  for (const grant of grants) {
+    const set = grantedByPlugin.get(grant.pluginId) ?? new Set<string>();
+    set.add(grant.scope);
+    grantedByPlugin.set(grant.pluginId, set);
+  }
+  const declarations: ProactivePluginDeclaration[] = [];
+  for (const plugin of plugins) {
+    const parsed = pluginProactiveSpecSchema.safeParse(plugin.proactiveSpecJson);
+    if (!parsed.success) continue;
+    const spec = parsed.data as PluginProactiveSpec;
+    if (spec.triggers.length === 0) continue;
+    declarations.push({
+      pluginId: plugin.id,
+      pluginName: plugin.id,
+      enabled: plugin.enabled === 1,
+      spec,
+      grantedSensors: grantedByPlugin.get(plugin.id) ?? new Set<string>(),
+    });
+  }
+  return declarations;
+}
+
+/** 读取插件 SKILL.md 全文（主动回合装配插件专有关怀心智） */
+async function loadPluginSkillContent(
+  skillRegistry: SqliteSkillRegistryRepository | undefined,
+  skillsRootHint: string | undefined,
+  pluginId: string,
+): Promise<string | null> {
+  try {
+    const skills = await skillRegistry?.listSkills(true);
+    const registration = skills?.find((skill) => skill.pluginId === pluginId);
+    const contentPath = registration?.contentPath
+      ?? (skillsRootHint ? `${skillsRootHint}/${pluginId}/${pluginId}/SKILL.md` : undefined);
+    if (!contentPath) return null;
+    const content = await fs.readFile(contentPath, "utf8");
+    return content.trim() ? content : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 插件感知源授权复核：声明存在且清单声明的全部感知源均已授权（fail-closed 二次校验） */
+function isDeclarationAuthorized(declarations: ProactivePluginDeclaration[], pluginId: string): boolean {
+  const declaration = declarations.find((item) => item.pluginId === pluginId);
+  if (!declaration) return false;
+  return declaration.spec.sensors.every((sensor) => declaration.grantedSensors.has(sensor.sourceId));
+}
+
 export async function runProactiveIntelligenceCycle(
   ctx: ProactiveIntelligenceCycleContext,
 ): Promise<ProactiveIntelligenceCycleResult> {
@@ -65,6 +233,7 @@ export async function runProactiveIntelligenceCycle(
   const result: ProactiveIntelligenceCycleResult = {
     tenants: 0, timeline: 0, projects: 0, workflows: 0, triggers: 0, verifications: 0,
     conflicts: 0, preparations: 0, attention: 0, drift: 0, relationships: 0, scenes: 0, reviews: 0,
+    materializedRules: 0, dispatches: 0,
   };
 
   for (const profile of await activeProfiles(ctx)) {
@@ -228,14 +397,17 @@ export async function runProactiveIntelligenceCycle(
     // 9. Behaviour drift against declared project activity.
     const projects = await ctx.intelligenceRepo.listProjects(tenant, "active", 200);
     let tenantDriftCount = 0;
+    let maxDriftSeverity = 0;
     for (const project of projects) {
       const last = project.lastActivityAt ? Date.parse(project.lastActivityAt) : 0;
       const inactiveDays = Math.floor((now.getTime() - last) / DAY_MS);
       if (inactiveDays < 3) continue;
+      const severity = Math.min(100, 40 + inactiveDays * 10);
+      maxDriftSeverity = Math.max(maxDriftSeverity, severity);
       await ctx.intelligenceRepo.createDriftSignal(tenant, {
         id: id("drift", `${project.id}:${now.toISOString().slice(0, 10)}`), revisionId: profile.id,
         signalType: "project_stalled", projectId: project.id, expected: {activeWithinDays: 2},
-        actual: {inactiveDays}, severity: Math.min(100, 40 + inactiveDays * 10),
+        actual: {inactiveDays}, severity,
         explanation: `${project.title} has had no observed activity for ${inactiveDays} days`,
       }).catch(() => undefined);
       result.drift += 1;
@@ -258,7 +430,15 @@ export async function runProactiveIntelligenceCycle(
       result.preparations += 1;
     }
 
-    // 4. Context-aware triggers with local records and in-app notification projection.
+    // 4. Context-aware triggers（CR-032 插件化调度：物化 → 求值 → 全局裁决 → 主动回合）
+    const declarations = ctx.extensionRepo ? await loadPluginDeclarations(ctx.extensionRepo) : [];
+    if (ctx.extensionRepo) {
+      const materialization = await materializePluginTriggerRules({
+        intelligenceRepo: ctx.intelligenceRepo, tenant, revisionId: profile.id, declarations, now,
+      });
+      result.materializedRules += materialization.materialized;
+    }
+
     const builtInRules = [
       {id: "commitment_due", name: "Upcoming commitment", triggerType: "commitment_due", condition: {hours: 24}},
       {id: "fatigue_high", name: "High fatigue", triggerType: "fatigue_high", condition: {score: 70}},
@@ -269,32 +449,136 @@ export async function runProactiveIntelligenceCycle(
       await ctx.intelligenceRepo.upsertTriggerRule(tenant, {
         id: `rule_${profile.id}_${rule.id}`, revisionId: profile.id, name: rule.name,
         triggerType: rule.triggerType, condition: rule.condition, action: {kind: "notify"}, enabled: true,
-        cooldownSeconds: 6 * 3600, quietHours: {start: "22:00", end: "07:00"}, lastTriggeredAt: null,
+        cooldownSeconds: 6 * 3600, quietHours: {start: "22:00", end: "07:00"},
+        // undefined：保留裁决器写回的冷却起点（此前每周期清零导致 cooldown 永不生效）
+        lastTriggeredAt: undefined,
       });
     }
-    const triggerCandidates = [
-      ...commitments.map((item) => ({type: "commitment_due", cause: {commitmentId: item.id}, reason: item.content})),
-      ...(fatigueScore >= 70 ? [{type: "fatigue_high", cause: {fatigueScore}, reason: "High context switching or errors"}] : []),
-      ...(tenantDriftCount > 0 ? [{type: "drift_high", cause: {count: tenantDriftCount}, reason: "Project activity differs from plan"}] : []),
-      ...(sleepMinutes !== undefined && sleepMinutes < 360
-        ? [{type: "health_sleep_low", cause: {sleepMinutes}, reason: "Recent sleep duration is below the configured recovery threshold"}]
-        : []),
-    ];
+
     const existingTriggerIds = new Set((await ctx.intelligenceRepo.listTriggerEvents(tenant, 500)).map((event) => event.id));
-    for (const candidate of triggerCandidates) {
-      const eventId = id("trigger", `${profile.id}:${candidate.type}:${now.toISOString().slice(0, 10)}`);
-      if (existingTriggerIds.has(eventId)) continue;
-      await ctx.intelligenceRepo.recordTriggerEvent(tenant, {
-        id: eventId, revisionId: profile.id, ruleId: `rule_${profile.id}_${candidate.type}`,
-        triggerType: candidate.type, cause: candidate.cause, decision: "notify", reason: candidate.reason,
-      });
-      if (ctx.platformRepo) {
-        await ctx.platformRepo.createNotification(tenant, {
-          id: id("notification", eventId), type: `proactive.${candidate.type}`,
-          scheduledAt: now.toISOString(), channel: "in_app",
-        }).catch(() => undefined);
+    const windowStart = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+    let dispatchedInWindow = (await ctx.intelligenceRepo.listTriggerEventsSince(tenant, windowStart, 500))
+      .filter((event) => event.decision === "dispatch").length;
+
+    const signals = {
+      now,
+      fatigueScore,
+      driftSeverity: maxDriftSeverity > 0 ? maxDriftSeverity : undefined,
+      sleepMinutes,
+      dueCommitments: commitments.map((item) => ({id: item.id, content: item.content, dueAt: item.dueAt})),
+      idleSamples: (await ctx.profileRepo.listObservations(tenant, {revisionId: profile.id, sourceKey: "system.idle_state", limit: 200}))
+        .map((item) => {
+          const raw = (item.payload as {idleSeconds?: unknown} | null)?.idleSeconds;
+          return {observedAt: item.observedAt, idleSeconds: typeof raw === "number" ? raw : Number.NaN};
+        })
+        .filter((item) => Number.isFinite(item.idleSeconds))
+        .sort((left, right) => left.observedAt.localeCompare(right.observedAt)),
+    };
+
+    // 候选集：内置规则沿用既有候选逻辑；插件规则读物化规则逐条求值
+    const candidates: Array<{rule: IntelligenceTriggerRule; evaluation: ReturnType<typeof evaluateTriggerRule>}> = [];
+    for (const rule of await ctx.intelligenceRepo.listTriggerRules(tenant, true)) {
+      if (rule.pluginId) {
+        candidates.push({rule, evaluation: evaluateTriggerRule(rule, signals)});
+        continue;
       }
-      result.triggers += 1;
+      // 内置规则候选（行为保持：逐类型条件比对）
+      const builtInHit =
+        (rule.triggerType === "commitment_due" && commitments.length > 0) ||
+        (rule.triggerType === "fatigue_high" && fatigueScore >= 70) ||
+        (rule.triggerType === "drift_high" && tenantDriftCount > 0) ||
+        (rule.triggerType === "health_sleep_low" && sleepMinutes !== undefined && sleepMinutes < 360);
+      if (!builtInHit) continue;
+      const cause =
+        rule.triggerType === "commitment_due" ? {count: commitments.length}
+        : rule.triggerType === "fatigue_high" ? {fatigueScore}
+        : rule.triggerType === "drift_high" ? {count: tenantDriftCount}
+        : {sleepMinutes};
+      candidates.push({
+        rule,
+        evaluation: {
+          hit: true, cause,
+          reason:
+            rule.triggerType === "commitment_due" ? "Upcoming commitment due within 24h"
+            : rule.triggerType === "fatigue_high" ? "High context switching or errors"
+            : rule.triggerType === "drift_high" ? "Project activity differs from plan"
+            : "Recent sleep duration is below the configured recovery threshold",
+        },
+      });
+    }
+
+    for (const {rule, evaluation} of candidates) {
+      const localDate = now.toISOString().slice(0, 10);
+      if (!evaluation.hit) {
+        // 未命中不落事件（与既有行为一致：条件未满足即静默）
+        continue;
+      }
+      const verdict = arbitrate({
+        now,
+        lastTriggeredAt: rule.lastTriggeredAt ?? null,
+        cooldownSeconds: rule.pluginId ? Math.max(rule.cooldownSeconds, MIN_PLUGIN_COOLDOWN_SECONDS) : rule.cooldownSeconds,
+        quietHoursPolicy: rule.pluginId
+          ? (((rule.quietHours as {policy?: string} | null)?.policy === "bypass" ? "bypass" : "respect_global") as "bypass" | "respect_global")
+          : "respect_global",
+        quietHours: null,
+        globalQuietHours: ctx.globalQuietHours ?? DEFAULT_GLOBAL_QUIET_HOURS,
+        authorized: !rule.pluginId || isDeclarationAuthorized(declarations, rule.pluginId),
+        dispatchedInWindow,
+        maxDispatchesPerHour: ctx.maxDispatchesPerHour ?? DEFAULT_MAX_DISPATCHES_PER_HOUR,
+      });
+
+      if (verdict.decision !== "dispatch") {
+        // 抑制决策按 (规则, 决策, 日) 去重落事件，避免逐节拍刷屏
+        const suppressedEventId = id("trigger", `${profile.id}:${rule.id}:${verdict.decision}:${localDate}`);
+        if (!existingTriggerIds.has(suppressedEventId)) {
+          existingTriggerIds.add(suppressedEventId);
+          await ctx.intelligenceRepo.recordTriggerEvent(tenant, {
+            id: suppressedEventId, revisionId: profile.id, ruleId: rule.id,
+            triggerType: rule.triggerType, cause: evaluation.cause, decision: verdict.decision, reason: verdict.reason,
+          });
+        }
+        result.triggers += 1;
+        continue;
+      }
+
+      const dispatchEventId = id("trigger", `${profile.id}:${rule.id}:${now.toISOString()}`);
+      existingTriggerIds.add(dispatchEventId);
+      try {
+        const dispatched = await dispatchProactiveTurn(ctx, tenant, profile, rule, evaluation, declarations, now);
+        await ctx.intelligenceRepo.recordTriggerEvent(tenant, {
+          id: dispatchEventId, revisionId: profile.id, ruleId: rule.id,
+          triggerType: rule.triggerType, cause: evaluation.cause, decision: "dispatch", reason: evaluation.reason,
+          actionId: dispatched.actionId,
+        });
+        await ctx.intelligenceRepo.updateTriggerRuleLastTriggeredAt(tenant, rule.id, now.toISOString());
+        dispatchedInWindow += 1;
+        result.dispatches += 1;
+        result.triggers += 1;
+        if (ctx.platformRepo) {
+          await ctx.platformRepo.createNotification(tenant, {
+            id: id("notification", dispatchEventId), type: `proactive.${rule.triggerType}`,
+            scheduledAt: now.toISOString(), channel: "in_app",
+            payload: {
+              kind: "plugin_dispatch", pluginId: rule.pluginId ?? "builtin", ruleId: rule.id,
+              title: rule.name, triggerType: rule.triggerType,
+              message: dispatched.message, source: dispatched.source, presentation: dispatched.presentation,
+              occurredAt: now.toISOString(),
+            },
+          }).catch(() => undefined);
+        }
+      } catch (error) {
+        // 派发失败（如 vault action.local 授权缺失）按日去重记录，冷却起点不推进以便重试
+        const failedEventId = id("trigger", `${profile.id}:${rule.id}:failed_dispatch:${localDate}`);
+        if (!existingTriggerIds.has(failedEventId)) {
+          existingTriggerIds.add(failedEventId);
+          await ctx.intelligenceRepo.recordTriggerEvent(tenant, {
+            id: failedEventId, revisionId: profile.id, ruleId: rule.id,
+            triggerType: rule.triggerType, cause: evaluation.cause, decision: "failed_dispatch",
+            reason: error instanceof Error ? error.message : String(error),
+          });
+        }
+        result.triggers += 1;
+      }
     }
 
     // 12. Automatic daily review.

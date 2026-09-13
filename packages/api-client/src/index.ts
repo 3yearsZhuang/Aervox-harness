@@ -24,6 +24,7 @@ export {
 export {
   useAervoxPlugins,
   type PluginSummaryDto,
+  type PluginGrantDto,
   type PluginPageDto,
 } from './useAervoxPlugins';
 export {

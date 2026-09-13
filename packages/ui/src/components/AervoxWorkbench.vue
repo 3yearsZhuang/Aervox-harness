@@ -5,6 +5,7 @@ import PetHero from './PetHero.vue';
 import { createWorkbenchPluginRuntime } from '../plugins';
 import WorkbenchHeader from './workbench/WorkbenchHeader.vue';
 import PomodoroToast from './workbench/PomodoroToast.vue';
+import ProactiveToast from './workbench/ProactiveToast.vue';
 import WorkbenchNavPill from './workbench/WorkbenchNavPill.vue';
 import WorkbenchSideCards from './workbench/WorkbenchSideCards.vue';
 import ConversationConsole from './workbench/ConversationConsole.vue';
@@ -430,6 +431,7 @@ onUnmounted(() => {
 
     <WorkbenchHeader />
     <PomodoroToast />
+    <ProactiveToast />
     <WorkbenchNavPill />
     <WorkbenchSideCards />
 

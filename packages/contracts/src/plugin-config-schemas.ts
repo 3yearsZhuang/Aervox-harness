@@ -163,6 +163,79 @@ export const pluginPageSchema = z.object({
   checksum: z.string().optional(),
 });
 
+/**
+ * 插件主动智能感知源声明（CR-032 §4.1）。
+ * 授权门控：用户须在扩展中心授予 plugin_grants（permission=PLUGIN_SENSOR_PERMISSION，
+ * scope=sourceId），内核在未授权时切断该感知源的一切事件输入（fail-closed）。
+ */
+export const pluginProactiveSensorSchema = z
+  .object({
+    sourceId: z.string().min(1).max(128),
+    description: z.string().max(500).optional(),
+  })
+  .strict();
+
+/** 内核具备求值器的触发类型（未知类型在清单校验期即拒绝，杜绝永不触发的死规则） */
+export const pluginProactiveTriggerTypeSchema = z.enum([
+  "system_state",
+  "fatigue_high",
+  "drift_high",
+  "health_sleep_low",
+  "commitment_due",
+]);
+
+/** 插件主动触发规则声明；cooldown / quietHours / 频次水位由内核裁决器统一实施 */
+export const pluginProactiveTriggerSchema = z
+  .object({
+    ruleId: z.string().min(1).max(64).regex(/^[A-Za-z0-9_-]+$/, "ruleId must match [A-Za-z0-9_-]+"),
+    name: z.string().min(1).max(128),
+    triggerType: pluginProactiveTriggerTypeSchema,
+    /** 类型相关条件（system_state: idleMinutesMax / continuousActiveMinutesMin），求值期 fail-closed */
+    condition: z.record(z.string(), z.unknown()).default({}),
+    cooldownSeconds: z.number().int().min(0).max(7 * 24 * 3600).default(1800),
+    quietHoursPolicy: z.enum(["respect_global", "bypass"]).default("respect_global"),
+    /** 桌宠表现声明（动画别名 + 气泡预设），由桌面端解析，未知值安全降级 */
+    petPresentation: z
+      .object({
+        animation: z.string().min(1).max(64).optional(),
+        bubblePreset: z.string().min(1).max(64).optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
+/** 插件主动智能声明命名空间（可选；未声明即为传统被动插件，行为完全不变） */
+export const pluginProactiveSpecSchema = z
+  .object({
+    sensors: z.array(pluginProactiveSensorSchema).max(20).default([]),
+    triggers: z.array(pluginProactiveTriggerSchema).max(20).default([]),
+  })
+  .strict();
+
+export interface PluginProactiveSensor {
+  sourceId: string;
+  description?: string;
+}
+
+export interface PluginProactiveTrigger {
+  ruleId: string;
+  name: string;
+  triggerType: "system_state" | "fatigue_high" | "drift_high" | "health_sleep_low" | "commitment_due";
+  condition: Record<string, unknown>;
+  cooldownSeconds: number;
+  quietHoursPolicy: "respect_global" | "bypass";
+  petPresentation?: {animation?: string; bubblePreset?: string};
+}
+
+export interface PluginProactiveSpec {
+  sensors: PluginProactiveSensor[];
+  triggers: PluginProactiveTrigger[];
+}
+
+/** 插件感知源授权约定：plugin_grants.permission 的固定值，scope 存 sourceId */
+export const PLUGIN_SENSOR_PERMISSION = "proactive.sensor" as const;
+
 /** 插件 Bundle Manifest v1 */
 export const pluginManifestSchema = z.object({
   apiVersion: z.literal("aervox.dev/v1"),
@@ -184,6 +257,12 @@ export const pluginManifestSchema = z.object({
         })
         .optional(),
       pages: z.array(pluginPageSchema).max(50).optional(),
+      /** 绑定的 MCP 服务预设 id（CAP-020 / ADR-010） */
+      mcpServers: z.array(z.string().min(1).max(128)).max(20).optional(),
+      /** Bundle 内技能入口（默认 SKILL.md），用于主动回合装配插件专有心智 */
+      skill: z.string().min(1).max(512).optional(),
+      /** 主动智能声明命名空间（CR-032） */
+      proactive: pluginProactiveSpecSchema.optional(),
     })
     .default({}),
 });

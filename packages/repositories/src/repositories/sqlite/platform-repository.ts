@@ -69,7 +69,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
 
   async createNotification(
     tenant: LocalContext,
-    notificationData: { id: string; type: string; scheduledAt: string; channel: string },
+    notificationData: { id: string; type: string; scheduledAt: string; channel: string; payload?: unknown },
   ): Promise<NotificationModel> {
     const now = new Date().toISOString();
     const [created] = await this.db
@@ -80,6 +80,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
         scheduledAt: notificationData.scheduledAt,
         channel: notificationData.channel,
         status: "scheduled",
+        payloadJson: notificationData.payload ?? null,
         createdAt: now,
         updatedAt: now,
       })

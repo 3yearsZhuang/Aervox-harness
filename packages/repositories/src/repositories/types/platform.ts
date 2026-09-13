@@ -12,7 +12,7 @@ export interface IPlatformRepository {
   markJobDone(tenant: LocalContext, id: string): Promise<ScheduledJobModel | null>;
   createNotification(
     tenant: LocalContext,
-    notification: { id: string; type: string; scheduledAt: string; channel: string },
+    notification: { id: string; type: string; scheduledAt: string; channel: string; payload?: unknown },
   ): Promise<NotificationModel>;
   markNotificationSent(tenant: LocalContext, id: string): Promise<NotificationModel | null>;
   listNotifications(tenant: LocalContext, limit?: number): Promise<NotificationModel[]>;

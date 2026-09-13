@@ -11,6 +11,7 @@
 import { createDatabase,
   initDatabaseSchema,
   SqliteAgentInboxRepository,
+  SqliteExtensionRepository,
   SqliteOutboxRepository,
   SqlitePlatformRepository,
   SqliteDiaryRepository,
@@ -21,6 +22,7 @@ import { createDatabase,
   SqliteMemoryEmbeddingRepository,
   SqliteProactiveIntelligenceRepository,
   SqliteProactiveProfileRepository,
+  SqliteSkillRegistryRepository,
   createProactiveVaultDatabase,
   loadProactiveVaultCipher,
 } from "@aervox/repositories";
@@ -64,6 +66,8 @@ const learningRepo = new SqliteLearningRepository(db);
 const compactionRepo = new SqliteMemoryCompactionRepository(db);
 const embeddingRepo = new SqliteMemoryEmbeddingRepository(db);
 const inboxRepo = new SqliteAgentInboxRepository(db);
+const extensionRepo = new SqliteExtensionRepository(db);
+const skillRegistryRepo = new SqliteSkillRegistryRepository(db);
 const proactiveRepo = new SqliteProactiveProfileRepository(proactiveDb, proactiveCipher);
 const proactiveIntelligenceRepo = new SqliteProactiveIntelligenceRepository(proactiveDb, proactiveCipher);
 const proactiveDistiller = createRuleBasedProactiveDistiller();
@@ -150,10 +154,15 @@ const tasks: WorkerTask[] = [
         intelligenceRepo: proactiveIntelligenceRepo,
         platformRepo,
         workerId,
+        // CR-032：插件化主动调度依赖（插件声明/感知源授权 + 关怀话术组合器 + 插件 SKILL.md）
+        extensionRepo,
+        llmConfigRepo,
+        skillRegistry: skillRegistryRepo,
       });
       return result.timeline + result.projects + result.workflows + result.triggers +
         result.verifications + result.conflicts + result.preparations + result.attention +
-        result.drift + result.relationships + result.scenes + result.reviews;
+        result.drift + result.relationships + result.scenes + result.reviews +
+        result.dispatches;
     },
   },
 ];

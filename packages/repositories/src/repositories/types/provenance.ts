@@ -83,6 +83,8 @@ export interface NotificationModel {
   sentAt?: string | null;
   channel: string;
   status: string;
+  /** 通知负载（CR-032：主动关怀话术与表现声明；可选） */
+  payloadJson?: unknown;
   createdAt: string;
   updatedAt: string;
 }
