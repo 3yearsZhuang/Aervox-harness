@@ -44,12 +44,26 @@ function openTokenDialog(preset: McpPresetDto): void {
   tokenDialogOpen.value = true
 }
 
+async function handleDirectConnect(preset: McpPresetDto): Promise<void> {
+  connecting.value = true
+  try {
+    await api.connectServer(preset.id)
+    ElMessage.success(`已接入「${preset.name}」并同步工具`)
+    emit('changed')
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : '接入失败')
+  } finally {
+    connecting.value = false
+    void loadPresets()
+  }
+}
+
 async function handleConnect(): Promise<void> {
   const preset = activePreset.value
   if (!preset) return
   const token = tokenInput.value.trim()
   if (preset.authType === 'bearer' && !token && !preset.tokenConfigured) {
-    ElMessage.warning('请先在麦当劳 MCP 平台申请 Token 后粘贴到此处')
+    ElMessage.warning(`请先申请「${preset.name}」的 Token 后粘贴到此处`)
     return
   }
   connecting.value = true
@@ -59,7 +73,7 @@ async function handleConnect(): Promise<void> {
     tokenDialogOpen.value = false
     emit('changed')
   } catch (e) {
-    ElMessage.error(e instanceof Error ? e.message : '接入失败，请检查 Token 与网络')
+    ElMessage.error(e instanceof Error ? e.message : '接入失败，请检查配置与状态')
   } finally {
     connecting.value = false
     void loadPresets()
@@ -145,10 +159,11 @@ async function handleDisconnect(preset: McpPresetDto): Promise<void> {
         <button
           type="button"
           class="preset-btn preset-btn-primary"
-          @click="openTokenDialog(preset)"
+          :disabled="connecting"
+          @click="preset.authType === 'none' ? handleDirectConnect(preset) : openTokenDialog(preset)"
         >
           <ShieldCheck :size="14" />
-          <span>{{ preset.configured ? '重新接入' : '接入' }}</span>
+          <span>{{ preset.configured ? '重新接入' : (preset.authType === 'none' ? '一键接入' : '接入') }}</span>
         </button>
         <button
           type="button"
@@ -171,10 +186,10 @@ async function handleDisconnect(preset: McpPresetDto): Promise<void> {
         </button>
         <a
           class="preset-btn preset-link"
-          :href="preset.tokenApplyUrl"
+          :href="preset.tokenApplyUrl || preset.docsUrl || preset.homepage"
           target="_blank"
           rel="noreferrer noopener"
-          title="打开官方平台申请 Token"
+          :title="preset.authType === 'bearer' ? '打开官方平台申请 Token' : '查看官方文档与主页'"
         >
           <ExternalLink :size="14" />
         </a>
@@ -194,13 +209,14 @@ async function handleDisconnect(preset: McpPresetDto): Promise<void> {
           <span class="heading-icon-wrap"><ShieldCheck :size="18" /></span>
           <div class="token-header-text">
             <strong>接入「{{ activePreset?.name }}」</strong>
-            <small>Token 仅保存在本地数据库，接口不会回传原文</small>
+            <small v-if="activePreset?.authType === 'bearer'">Token 仅保存在本地数据库，接口不会回传原文</small>
+            <small v-else>本地免密服务，直接确认即可完成接入与工具同步</small>
           </div>
         </div>
       </template>
 
       <div class="token-body">
-        <div class="field-block">
+        <div v-if="activePreset?.authType === 'bearer'" class="field-block">
           <label class="field-label" for="mcp-token-input">MCP Token</label>
           <input
             id="mcp-token-input"
@@ -212,15 +228,18 @@ async function handleDisconnect(preset: McpPresetDto): Promise<void> {
             maxlength="256"
           />
         </div>
-        <p class="token-hint">
+        <p v-if="activePreset?.authType === 'bearer'" class="token-hint">
           尚无 Token？打开
           <a :href="activePreset?.tokenApplyUrl" target="_blank" rel="noreferrer noopener">
             {{ activePreset?.tokenApplyUrl }}
           </a>
           登录后在「控制台」申请。{{ activePreset?.rateLimitNote }}
         </p>
+        <p v-else class="token-hint">
+          该服务基于本地协议桥接运行，无需配置远端 Token。点击确定后将立即同步本地 DSH 工具。
+        </p>
         <p class="token-hint">
-          接入后将立即同步远程工具清单：查询类工具可被 AI 自主调用，下单/领券等写操作每次都需你确认授权（PET-05）。
+          接入后将立即同步工具清单：只读类工具可被 AI 自主调用，修改与执行类写操作每次都需你确认授权（PET-05）。
         </p>
       </div>
 
