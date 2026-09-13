@@ -149,6 +149,7 @@ review_interval_days: 90
 | [CR-032](reference/changes/CR-032-proactive-intelligence-plugin-ecosystem.md) | 主动智能插件化与触发规则生态架构 | Accepted | Implemented |
 | [CR-033](reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md) | 主动智能终局架构：态势感知内核与预算化干预生态 | Proposed | Planned |
 | [CR-034](reference/changes/CR-034-local-model-fallback-ladder.md) | 本地模型降级阶梯：无 API 接入时的原生能力基线 | Proposed | Planned |
+| [CR-035](reference/changes/CR-035-standard-workbench-mode.md) | 标准 AI 工作台形态：熟悉范式的原生交互壳 | Proposed | Planned |
 
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
 
