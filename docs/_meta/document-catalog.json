@@ -1789,7 +1789,7 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.25.0",
+      "version": "1.26.0",
       "updated_at": "2026-09-13",
       "reviewed_at": "2026-09-13",
       "review_interval_days": 90,
