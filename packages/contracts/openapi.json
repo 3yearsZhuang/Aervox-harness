@@ -7499,6 +7499,314 @@
           "classificationLevel"
         ],
         "additionalProperties": false
+      },
+      "ProactiveDslRule": {
+        "type": "object",
+        "properties": {
+          "dslVersion": {
+            "type": "string",
+            "enum": [
+              "proactive_dsl_v1"
+            ]
+          },
+          "ruleId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "triggerType": {
+            "type": "string",
+            "enum": [
+              "system_state",
+              "fatigue_high",
+              "drift_high",
+              "health_sleep_low",
+              "commitment_due"
+            ]
+          },
+          "condition": {
+            "$ref": "#/components/schemas/DslExpression"
+          },
+          "action": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "plugin_dispatch",
+                  "internal"
+                ]
+              },
+              "pluginId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "presentation": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "quotas": {
+            "type": "object",
+            "properties": {
+              "maxDepth": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 64,
+                "default": 8
+              },
+              "maxNodes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 512,
+                "default": 64
+              },
+              "maxStringLength": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2048,
+                "default": 256
+              },
+              "maxEvalMs": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000,
+                "default": 50
+              },
+              "maxSteps": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65536,
+                "default": 4096
+              }
+            }
+          },
+          "hash": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "dslVersion",
+          "ruleId",
+          "name",
+          "condition",
+          "action"
+        ],
+        "additionalProperties": false
+      },
+      "DslExpression": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "field_ref"
+                ]
+              },
+              "field": {
+                "type": "string",
+                "pattern": "^[a-z][a-zA-Z0-9_.]*$"
+              }
+            },
+            "required": [
+              "op",
+              "field"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "const"
+                ]
+              },
+              "value": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "value"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "eq",
+                  "ne",
+                  "gt",
+                  "gte",
+                  "lt",
+                  "lte"
+                ]
+              },
+              "left": {
+                "$ref": "#/components/schemas/DslExpression"
+              },
+              "right": {
+                "$ref": "#/components/schemas/DslExpression"
+              }
+            },
+            "required": [
+              "op",
+              "left",
+              "right"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "and",
+                  "or",
+                  "not"
+                ]
+              },
+              "operands": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/DslExpression"
+                },
+                "minItems": 1,
+                "maxItems": 8
+              }
+            },
+            "required": [
+              "op",
+              "operands"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "add",
+                  "sub",
+                  "mul",
+                  "div"
+                ]
+              },
+              "left": {
+                "$ref": "#/components/schemas/DslExpression"
+              },
+              "right": {
+                "$ref": "#/components/schemas/DslExpression"
+              }
+            },
+            "required": [
+              "op",
+              "left",
+              "right"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "time_window"
+                ]
+              },
+              "field": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minutes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10080
+              },
+              "threshold": {
+                "type": "number"
+              },
+              "cmp": {
+                "type": "string",
+                "enum": [
+                  "eq",
+                  "ne",
+                  "gt",
+                  "gte",
+                  "lt",
+                  "lte"
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "field",
+              "minutes",
+              "threshold",
+              "cmp"
+            ]
+          }
+        ]
+      },
+      "DslQuotas": {
+        "type": "object",
+        "properties": {
+          "maxDepth": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 64,
+            "default": 8
+          },
+          "maxNodes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 512,
+            "default": 64
+          },
+          "maxStringLength": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2048,
+            "default": 256
+          },
+          "maxEvalMs": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50
+          },
+          "maxSteps": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65536,
+            "default": 4096
+          }
+        }
       }
     },
     "parameters": {}

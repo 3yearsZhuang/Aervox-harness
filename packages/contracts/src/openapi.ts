@@ -183,6 +183,11 @@ import {
   perceptionEventEnvelopeSchema,
 } from "./situation-model-schemas.js";
 import {
+  proactiveDslRuleSchema,
+  dslExpressionSchema,
+  dslQuotasSchema,
+} from "./proactive-dsl-schemas.js";
+import {
   proactiveMemoryReferenceSchema,
   proactiveSafetyPolicySchema,
   proactiveTurnContextSchema,
@@ -321,6 +326,9 @@ registry.register("PerceptionEventEnvelope", perceptionEventEnvelopeSchema);
 registry.register("ProactiveTurnContext", proactiveTurnContextSchema);
 registry.register("ProactiveMemoryReference", proactiveMemoryReferenceSchema);
 registry.register("ProactiveSafetyPolicy", proactiveSafetyPolicySchema);
+registry.register("ProactiveDslRule", proactiveDslRuleSchema);
+registry.register("DslExpression", dslExpressionSchema);
+registry.register("DslQuotas", dslQuotasSchema);
 
 const sessionIdParam = z.object({ sessionId: z.string().min(1) });
 const turnIdParam = z.object({ turnId: z.string().min(1) });
