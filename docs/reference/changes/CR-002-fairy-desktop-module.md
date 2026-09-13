@@ -6,18 +6,18 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: accepted
 delivery_status: implemented
-version: 0.1.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 0.1.1
+updated_at: 2026-09-13
+reviewed_at: 2026-09-13
 review_interval_days: 90
 ---
 
 # CR-002 引入 Fairy Agent Electron 桌面端
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-13
 
-- 状态：More Evidence Required
+- 状态：Accepted / Implemented
 - 提出人 / 日期：Codex / 2026-08-24
 - 目标版本：R3 原型验证（CAP-018）
 - 变更原因与证据：用户要求将本地 `fairy-agent` 的 Electron/Vue 桌面 UI 与桌宠体验接入 Aervox；现已将 UI 源码移植到主仓 `apps/desktop`，原目标仓库仅作为实现来源，不再作为运行时或 Git 子模块依赖。

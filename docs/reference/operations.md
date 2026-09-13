@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.2.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 0.2.1
+updated_at: 2026-09-13
+reviewed_at: 2026-09-13
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 运行、值班与演练手册
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-11
+- 修改人：3yearszhuang · 2026-09-13
 
 关联：[架构设计](ARCHITECTURE.md) · [数据与隐私](DATA_PRIVACY.md) · [威胁模型](THREAT_MODEL.md)
 
@@ -29,7 +29,7 @@ review_interval_days: 90
 | AI Gateway | TTFT P95 ≤ 8 s；教学/安全质量门槛 | 超时、限流、成本、模型/Prompt 回归 |
 | Worker/Queue | 日记首版 95% ≤ 15m；复习/通知 P95 ≤ 5m | queue lag、DLQ、重复结果、worker crash |
 | Data/Deletion | 在线删除 ≤ 24h；删除后零召回 | DeletionTarget 失败/积压、索引残留 |
-| SQLite/S3 | 数据完整、备份可恢复 | 容量、复制延迟、PITR、对象错误 |
+| SQLite/本地存储 | 数据完整、备份可恢复 | 容量、备份可用性、PITR、文件损坏 |
 
 ### 1.1 快速入口
 
@@ -53,7 +53,7 @@ review_interval_days: 90
 - 不得：跳过输入/输出安全分类、使用未评估模型、把失败输出写入记忆/日记/掌握度。
 - 验证：ModelRun、路由比例、TTFT、事实/安全抽检、成本；恢复需渐进放量。
 
-## 4. Redis/队列丢失或积压
+## 4. Outbox/队列积压与 Worker 重启
 
 - 暂停非核心生产者和重复重放；保留 API 核心写入及 SQLite Outbox。
 - 恢复本地队列后按 Outbox/ScheduledJob 水位线重建任务；使用幂等键，检查每个 `localDate` 标签最多一个自动日记身份、复习活动项唯一和删除任务状态。
@@ -64,20 +64,20 @@ review_interval_days: 90
 
 - 进入只读/维护状态，停止 Worker 写入和外部同步；保护当前 WAL/备份证据。
 - 按批准 RPO 选择恢复点，在隔离环境恢复并运行完整性/迁移检查。
-- `RecoveryControlLedger` 是独立故障域的 deny 控制事实源。先在全局 deny/维护状态校验签名、序列连续性、最老备份覆盖范围和业务应用水位；水位缺口、账本不可用或 reconciliation 未完成时保持 fail closed，不开放流量。按 `sequence` 幂等重放删除、撤销的 ConsentGrant、插件权限和外部授权，再重建 Redis、FTS/pgvector 和派生投影。
+- `RecoveryControlLedger` 是独立故障域的 deny 控制事实源。先在全局 deny/维护状态校验签名、序列连续性、最老备份覆盖范围和业务应用水位；水位缺口、账本不可用或 reconciliation 未完成时保持 fail closed，不开放流量。按 `sequence` 幂等重放删除、撤销的 ConsentGrant、插件权限和外部授权，再重建 Outbox 派生状态、FTS 索引和派生投影。
 - 冒烟验证 loopback/认证与数据目录权限、`actorId`/Grant、学习记录、日记唯一性、记忆来源、导出和删除后零召回。
 - 不达 RPO/RTO 时升级 SEV-1 并通知批准角色。
 
-## 6. 对象存储/附件事件
+## 6. 本地附件/导出文件事件
 
-- 立即撤销受影响签名 URL，暂停下载/解析；检查对象版本、扫描状态和来源范围。
+- 立即撤销受影响临时访问凭据，暂停读取/解析；检查文件版本、扫描状态和来源范围。
 - 从可信副本恢复时校验 checksum，重新运行病毒/OCR/来源处理；已删除对象不能恢复为可见状态。
 - 对外泄风险按 SEV-0/1 处置，并触发安全/隐私通知流程。
 
 ## 7. 删除传播失败
 
 - DeletionRequest 一旦接受，来源保持 deny，无论后台状态如何。
-- 定位失败的 DeletionTarget（DB、Redis、FTS/vector、S3、Diary/Memory、供应商、备份）；重试不得恢复访问。
+- 定位失败的 DeletionTarget（DB、Outbox、FTS、本地文件目录、Diary/Memory、供应商、备份）；重试不得恢复访问。
 - 超过 SLA 触发 SEV-1 并同步用户可见状态；外部供应商按合同升级。
 - 完成后运行零召回、对象清单、树投影 diff 和导出缺失状态检查，证据回填请求。
 
@@ -96,7 +96,7 @@ review_interval_days: 90
 
 ## 10. 演练与证据
 
-每季度演练 SQLite 备份恢复/Litestream、RecoveryControlLedger 账本不可用/缺口/重复/乱序及 reconciler、Redis 丢失重建、S3 恢复、模型中断、删除传播、插件 kill switch 和日记跨 DST。记录日期、环境、版本、RPO/RTO、账本水位、fail-closed 结果、偏差和改进项；没有演练证据不能通过 G5。执行步骤见 [工程与发布流程 §3](../how-to/engineering-process.md#3-执行季度恢复演练)，证据记录用 [§12 演练证据模板](#12-季度恢复演练证据模板)。
+每季度演练 SQLite 备份恢复/Litestream、RecoveryControlLedger 账本不可用/缺口/重复/乱序及 reconciler、Outbox 队列重放、本地附件恢复、CR-030 换库与回滚、模型中断、删除传播、插件 kill switch 和日记跨 DST。记录日期、环境、版本、RPO/RTO、账本水位、fail-closed 结果、偏差和改进项；没有演练证据不能通过 G5。执行步骤见 [工程与发布流程 §3](../how-to/engineering-process.md#3-执行季度恢复演练)，证据记录用 [§12 演练证据模板](#12-季度恢复演练证据模板)。
 
 ## 11. 值班与升级联系矩阵
 
@@ -146,8 +146,8 @@ review_interval_days: 90
 |---|---|---|---|---|---|---|---|
 | 1 | SQLite/Litestream 备份恢复与完整性校验 | 恢复演练达到已批准 RPO/RTO | | | | | |
 | 2 | `RecoveryControlLedger` 不可用/缺口/重复/乱序 + reconciler | 按 sequence 幂等重放；账本不可用/缺口时 fail closed | | | | | |
-| 3 | Redis 丢失重建 | 从 Outbox/ScheduledJob 重建，无重复业务结果 | | | | | |
-| 4 | S3/对象恢复与 checksum | 校验通过，不恢复已删除对象 | | | | | |
+| 3 | Outbox 队列进程重启与重放 | 从 Outbox/ScheduledJob 重建，无重复业务结果 | | | | | |
+| 4 | 本地附件恢复与 checksum | 校验通过，不恢复已删除对象 | | | | | |
 | 5 | 模型供应商中断与备用切换 | 切换已评估备用、保留输入；不跳过安全门 | | | | | |
 | 6 | 删除传播与零召回 | 24 小时内清除 Aervox 在线副本/索引/缓存，零召回 | | | | | |
 | 7 | 插件/外部集成 kill switch | 越权即停、保留审计与撤权证据 | | | | | |

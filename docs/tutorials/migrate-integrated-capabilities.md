@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.3.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 0.3.1
+updated_at: 2026-09-13
+reviewed_at: 2026-09-13
 review_interval_days: 90
 ---
 
 # 教程：迁移已集成能力并接入 DSH/pi
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-11
+- 修改人：3yearszhuang · 2026-09-13
 
 关联：[能力组合与可选化目录规范](../reference/capability-composition.md)、[参考项目能力迁移与借鉴评估](../explanation/reference-design-transfer.md)、[ADR-009](../reference/adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](../reference/adr/ADR-010-dsh-pi-adapters.md)、[需求追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)
 
@@ -129,16 +129,18 @@ capabilities/tools-memory-store/
 
 | 角色 | 要回答的问题 | 当前代码示例 |
 |---|---|---|
-| `Definition` | 输入、输出、事件和错误是什么？ | Tool schema、`TenantContext`、事件 envelope |
+| `Definition` | 输入、输出、事件和错误是什么？ | Tool schema、`LocalContext`、事件 envelope |
 | `Provider` | 谁实现能力？ | `ToolRuntime`、`PluginService`、SQLite repository |
 | `Consumer` | 谁触发或展示结果？ | `/v1/tools`、Worker、Web/Desktop |
 
 示意 Port：
 
 ```ts
+import type { LocalContext } from "@aervox/repositories";
+
 export interface MemoryCommandPort {
   proposeCandidate(input: {
-    tenant: TenantContext;
+    localCtx: LocalContext;
     content: string;
     source: "user_said" | "ai_inferred";
     sourceTurnId?: string;
@@ -149,7 +151,7 @@ export interface MemoryCommandPort {
 }
 
 export interface CapabilityContext {
-  readonly tenant: TenantContext;
+  readonly localCtx: LocalContext;
   readonly memory: { commands: MemoryCommandPort };
   readonly policy: { require(permission: string): Promise<void> };
   effect(register: () => Promise<() => Promise<void>> | (() => void)): void;
@@ -425,4 +427,4 @@ mise tasks run ci-docs
 
 ## 下一步
 
-本教程完成后建立 `ADR-016`，明确 Kernel Substrate 的接受边界、`ADR-014` 的过渡期，以及 DSH（DeepSeek Harness）、pi、MCP 和 dsh-synapse 的统一 Adapter 范围。原 `AVX-MOD-001`（可选功能模块化方案）的机制已并入[能力组合与可选化目录规范](../reference/capability-composition.md)作为必选交付机制，功能清单迁至[能力注册表](../reference/capability-registry.md)。在 ADR-016 和相关 `CR-*` 接受前，生产 Profile 不应把外部 DSH/pi 运行时视为核心依赖。
+本教程对齐已接受的 `ADR-016`，明确 Kernel Substrate 的接受边界、`ADR-014` 的演进结构，以及 DSH（DeepSeek Harness）、pi、MCP 和 dsh-synapse 的统一 Adapter 范围。原 `AVX-MOD-001`（可选功能模块化方案）的机制已并入[能力组合与可选化目录规范](../reference/capability-composition.md)作为必选交付机制，功能清单迁至[能力注册表](../reference/capability-registry.md)。在相关 `CR-*` 完整验收前，生产 Profile 不应把外部 DSH/pi 运行时视为核心依赖。

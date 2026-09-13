@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 0.4.1
+updated_at: 2026-09-13
+reviewed_at: 2026-09-13
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 系统架构设计（SAD）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-11
+- 修改人：3yearszhuang · 2026-09-13
 
 关联 PRD：[PRD.md](PRD.md) · 追踪：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
 
@@ -42,8 +42,8 @@ MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应
 | API | Fastify 5、Zod 4、OpenAPI 3.1、POST Turn + GET SSE（Fetch 消费） | 客户端和插件通过契约访问；事件 envelope、重连、取消、幂等和安全持久化遵循[流式协议契约](STREAMING_PROTOCOL.md)；不以 tRPC 锁定消费者 |
 | Database | SQLite（WAL 模式）+ Drizzle ORM + `@aervox/schema`/`@aervox/repositories` | 事务、约束、递归 CTE、全文检索；当前操作系统用户和本机 API 是安全边界；禁止跨模块直接写表 |
 | Retrieval | SQLite FTS5 + VectorSearchPort（`sqlite-vec`/内存适配） | 记录 embedding 模型/维度/版本，可离线重建；MVP 不引入 Neo4j/独立向量库 |
-| Queue | Redis 7、BullMQ 5 | 至少一次投递、幂等键、重试、指数退避和 DLQ；Redis 不是真源 |
-| Object | S3 兼容存储、短期签名 URL | 上传前后做大小/格式/解压比/病毒扫描；删除遵循数据 SLA |
+| Queue | 本地 SQLite Outbox + Worker 轮询 | 至少一次投递、幂等键、重试、指数退避；SQLite Outbox 是持久化真源（CR-030） |
+| Object | 本地文件系统目录（attachments/exports） | 本地安全存储、上传前后做大小/格式/解压比扫描；删除遵循数据 SLA（CR-030） |
 | AI | Vercel AI SDK 6 + 内部 `ProviderPort` | SDK 负责流式表现层，业务通过内部接口调用模型；模型不能直写业务表 |
 | Desktop/mobile | Electron（P1）、Capacitor（后续，打包 web UI） | `contextIsolation`、关闭 `nodeIntegration`、受限 IPC、签名更新包、逐项设备授权；CAP-033 使用独立签名 Privacy Host/OS Permission Broker 管理后台和设备能力；移动端优先 WebView 壳，团队用 RN 仅当细粒化需要原生能力时评估 |
 | Test/observability | Vitest、Playwright、Testing Library、Testcontainers、fast-check、OpenTelemetry、Pino、Prometheus/Grafana、Sentry | 正常 CI 不依赖实时供应商；日志默认不含完整用户内容 |
@@ -199,12 +199,12 @@ Web / Electron / Mobile
           │
        Stateless API instances
         ├── SQLite (business truth + FTS5, WAL mode)
-        ├── Redis/BullMQ (queue/cache)
-        ├── S3 (attachments/exports)
+        ├── SQLite Outbox (transactional queue)
+        ├── Local Filesystem (attachments/exports)
         ├── RecoveryControlLedger (independent immutable control events)
         └── AI Provider Gateway
 
-Scheduler ──> BullMQ ──> Worker pools
+Scheduler ──> SQLite Outbox ──> Worker pools
                          ├── memory
                          ├── diary
                          ├── embedding
@@ -282,7 +282,7 @@ Client -> API: delete source
 API -> RecoveryControlLedger: append immutable deny/revoke event and receive durable ack
 API -> SQLite: idempotent deny projection + DeletionRequest/Targets + Outbox
 API -> Retrieval/Context: immediate deny
-Worker -> DB/Redis/FTS/Vector/S3/Diary/Memory/Suppliers: clear or rebuild
+Worker -> DB/Outbox/FTS/Vector/Files/Diary/Memory/Suppliers: clear or rebuild
 Worker -> Verification: zero-recall + target evidence
 Verification -> DeletionRequest: Completed or Failed + alert
 Restore process -> RecoveryControlLedger: verify signature/sequence/watermark + replay before serving traffic; fail closed on gaps
@@ -371,7 +371,7 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 - G2 前由产品/技术/财务批准 `每有效学习会话成本`、`每活跃用户月成本 P50/P95` 和总月预算；当前数值为待定阻断项，不用缺乏依据的虚假精度填充。
 - 预算达到 70% 触发预测告警，85% 停止非核心高成本任务（自动扩展阅读、批量重写等），100% 只保留已批准的核心模型/固定降级；不得通过降低安全分类或删除能力省钱。
 - Provider 路由记录模型能力、地区、保留、成本、限流和健康状态。超时/5xx/限流达到熔断阈值后切换已评估备用模型；无合格备用时保留输入并显示可重试状态。
-- Redis 丢失时以 SQLite Outbox/ScheduledJob 为真源重建队列；消费者使用幂等键和水位线，重放后执行重复结果检查，不从 Redis 反向恢复业务状态。
+- 队列以 SQLite Outbox/ScheduledJob 为真源；消费者使用幂等键和水位线，重放后执行重复结果检查，崩溃重启后自动从 Outbox 恢复未完成作业。
 
 ## 10. 参考项目适配边界
 
@@ -431,6 +431,6 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 - 记忆、日记、附件、插件和外部同步均有幂等、撤销、权限和 DLQ 测试；
 - 依赖、许可证、SBOM、Secret scan、漏洞扫描和参考项目许可边界通过；
 - Playwright 覆盖学习闭环、日记、删除、导出和弱网恢复；AI 回归集覆盖教学、安全、来源、过度压缩和删除后零召回；
-- 生产演练证明模型供应商中断、Redis 丢失、数据库备份恢复、对象恢复、队列重放和功能开关回滚可执行。
+- 演练证明模型供应商中断、SQLite 备份恢复、原子换库与回滚、本地附件恢复、Outbox 队列重放和功能开关回滚可执行。
 - CAP-033 另须证明本地出网阻断、全量来源授权、七天捕获提炼清理、后台自启/恢复通知、全动作授权/撤权和独立可读导出；ADR-018 接受前不得启用真实广域数据。
 - CAP-034/035 另须证明 HA 重连/版本矩阵、真实 OAuth/LLAT 撤销、小米厂商沙箱契约、凭据零回显和连接级删除；通过前保持 `Not Ready`。

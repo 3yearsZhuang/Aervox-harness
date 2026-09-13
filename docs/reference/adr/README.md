@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.2.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 0.2.1
+updated_at: 2026-09-13
+reviewed_at: 2026-09-13
 review_interval_days: 90
 ---
 
 # Aervox 架构决策记录（ADR）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-11
+- 修改人：3yearszhuang · 2026-09-13
 
 架构基线摘要：[ARCHITECTURE.md 第 11 节](../ARCHITECTURE.md#11-首批-adr)
 
@@ -49,7 +49,7 @@ ADR 记录难以逆转、影响多个模块或改变数据/运维边界的技术
 
 `Proposed` 不代表已经批准。当前独立记录是评审输入，不是 G2 通过证据；每条 ADR 必须补齐备选方案、后果、迁移、回滚和验证证据并经过评审，状态才能改为 `Accepted`。
 
-ADR-011/012 是 2026-08-24 架构一致性审查新增的评审记录；因其状态仍为 `Proposed`，架构设计中的摘要表在决策接受或通过对应 `CR-*` 时再同步，不能把本登记视为已批准实现承诺。
+ADR-011/012 是 2026-08-24 架构一致性审查新增的评审记录，现均已正式接受（Accepted）。
 
 ## 模板
 

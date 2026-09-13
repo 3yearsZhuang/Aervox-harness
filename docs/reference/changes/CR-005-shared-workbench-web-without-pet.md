@@ -6,20 +6,20 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: accepted
 delivery_status: implemented
-version: 0.1.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 0.1.1
+updated_at: 2026-09-13
+reviewed_at: 2026-09-13
 review_interval_days: 90
 ---
 
 # CR-005 共享工作台与 Web 无桌宠表现层
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-13
 
 关联：[Web 工作台实现规划](../../explanation/web-implementation.md)、[架构设计](../ARCHITECTURE.md)、[ADR-015](../adr/ADR-015-vue-full-stack.md)
 
-- 状态：More Evidence Required
+- 状态：Accepted / Implemented
 - 提出人 / 日期：Codex / 2026-08-25
 - 目标版本：R1 MVP / R3 端形态扩展
 - 变更原因与证据：Web 与 Electron 已出现两套不同的工作台实现，导致对话、学习工具、主题和响应式行为漂移；用户明确要求两端 UI 完全同步、优先使用同一套 UI，并要求 Web 不提供桌宠表现层。
