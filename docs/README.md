@@ -148,6 +148,7 @@ review_interval_days: 90
 | [CR-031](reference/changes/CR-031-turn-stream-pubsub-optimization.md) | Turn 实时流式推送 Pub/Sub 与轮询解耦 | Accepted | Implemented |
 | [CR-032](reference/changes/CR-032-proactive-intelligence-plugin-ecosystem.md) | 主动智能插件化与触发规则生态架构 | Accepted | Implemented |
 | [CR-033](reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md) | 主动智能终局架构：态势感知内核与预算化干预生态 | Proposed | Planned |
+| [CR-034](reference/changes/CR-034-local-model-fallback-ladder.md) | 本地模型降级阶梯：无 API 接入时的原生能力基线 | Proposed | Planned |
 
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
 
