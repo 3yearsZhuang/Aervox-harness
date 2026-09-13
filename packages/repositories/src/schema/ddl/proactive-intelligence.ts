@@ -158,6 +158,21 @@ export async function createProactiveIntelligenceTables(client: Client): Promise
         ON proactive_intervention_receipts(idempotency_key);`,
       `CREATE INDEX IF NOT EXISTS proactive_receipt_action_idx
         ON proactive_intervention_receipts(action_id);`,
+      `CREATE TABLE IF NOT EXISTS perception_events (
+        id TEXT PRIMARY KEY, sequence INTEGER NOT NULL, event_id TEXT NOT NULL, idempotency_key TEXT NOT NULL,
+        source TEXT NOT NULL, device_id TEXT NOT NULL, activation_epoch TEXT NOT NULL, source_grant_id TEXT NOT NULL,
+        occurred_at TEXT NOT NULL, ingested_at TEXT NOT NULL, schema_version TEXT NOT NULL DEFAULT 'perception_event_v1',
+        payload_digest TEXT NOT NULL, payload_json TEXT NOT NULL DEFAULT '{}', causal_json TEXT,
+        status TEXT NOT NULL DEFAULT 'ready', local_only INTEGER NOT NULL DEFAULT 1,
+        processing_boundary TEXT NOT NULL DEFAULT 'local_only', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS perception_event_sequence_idx ON perception_events(sequence);`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS perception_event_idempotency_idx ON perception_events(idempotency_key);`,
+      `CREATE INDEX IF NOT EXISTS perception_event_source_idx ON perception_events(source, occurred_at);`,
+      `CREATE TABLE IF NOT EXISTS perception_event_consumers (
+        id TEXT PRIMARY KEY, last_acked_sequence INTEGER NOT NULL DEFAULT 0,
+        cursor_updated_at TEXT NOT NULL, expired INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
+      `CREATE INDEX IF NOT EXISTS perception_consumer_expired_idx ON perception_event_consumers(expired);`,
     ];
   for (const ddl of proactiveIntelligenceDdl) await client.execute(ddl);
   // CR-032 主动智能插件化：旧库补列后才能建归属索引（顺序不可颠倒，否则旧库升级即崩）

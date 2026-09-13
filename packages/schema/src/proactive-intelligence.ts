@@ -469,3 +469,61 @@ export const proactiveInterventionReceipts = sqliteTable(
     actionIdx: index("proactive_receipt_action_idx").on(table.actionId),
   }),
 );
+
+/**
+ * CR-033 E3 本地感知事件流（追加式，跨进程真源）。
+ *
+ * - sequence 为原子单调序列（写者连接内 MAX+1 分配）；
+ * - idempotency_key 全局唯一：重复投递只保留一条；
+ * - payload 摘要入列，原文经 vault 加密；local_only 语义继承 CR-023；
+ * - 桌面端边沿聚合属于 E3 桌面适配器子 CR（Electron + Privacy Host 依赖）。
+ */
+export const perceptionEvents = sqliteTable(
+  "perception_events",
+  {
+    id: text("id").primaryKey(),
+    /** 原子单调序列（跨进程可见的 ingestion 顺序） */
+    sequence: integer("sequence").notNull(),
+    eventId: text("event_id").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    source: text("source").notNull(),
+    deviceId: text("device_id").notNull(),
+    activationEpoch: text("activation_epoch").notNull(),
+    sourceGrantId: text("source_grant_id").notNull(),
+    occurredAt: text("occurred_at").notNull(),
+    ingestedAt: text("ingested_at").notNull(),
+    schemaVersion: text("schema_version").notNull().default("perception_event_v1"),
+    payloadDigest: text("payload_digest").notNull(),
+    payloadJson: text("payload_json").notNull().default("{}"),
+    causalJson: text("causal_json"),
+    /** ready | dead（处理失败进死信，保留待人工 reconciliation） */
+    status: text("status").notNull().default("ready"),
+    localOnly: integer("local_only", { mode: "boolean" }).notNull().default(true),
+    processingBoundary: text("processing_boundary").notNull().default("local_only"),
+    ...timestampColumns,
+  },
+  (table) => ({
+    sequenceIdx: uniqueIndex("perception_event_sequence_idx").on(table.sequence),
+    idempotencyIdx: uniqueIndex("perception_event_idempotency_idx").on(table.idempotencyKey),
+    sourceIdx: index("perception_event_source_idx").on(table.source, table.occurredAt),
+  }),
+);
+
+/**
+ * CR-033 E3 事件流消费者游标（consumer offset / ACK / 重放 / 过期 cursor）。
+ */
+export const perceptionEventConsumers = sqliteTable(
+  "perception_event_consumers",
+  {
+    id: text("id").primaryKey(),
+    /** 已 ACK 的最大 sequence */
+    lastAckedSequence: integer("last_acked_sequence").notNull().default(0),
+    cursorUpdatedAt: text("cursor_updated_at").notNull(),
+    /** 过期标记：过期 consumer 需重置或重建后才能继续消费 */
+    expired: integer("expired", { mode: "boolean" }).notNull().default(false),
+    ...timestampColumns,
+  },
+  (table) => ({
+    expiredIdx: index("perception_consumer_expired_idx").on(table.expired),
+  }),
+);
