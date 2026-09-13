@@ -100,6 +100,7 @@ review_interval_days: 90
 | `CR-029` | [模型 / 语音多预设与「你的思隅」设置页](reference/changes/CR-029-presets-and-siyu-settings.md) | 2026-09-10 | `CAP-020` 模型/语音多预设存储、预设 API、设置页导航或面板交互变更 | 表结构、OpenAPI、LLM/Voice service 或「你的思隅」设置页与实现不一致 |
 | `CR-030` | [SQLite 永久本地单用户真源与去租户化](reference/changes/CR-030-pure-local-sqlite-database.md) | 2026-09-11 | Schema、Repository、API 监听、迁移或回滚变更 | D0～D3 状态、破坏性范围选择、备份/staging/原子换库与实现不一致 |
 | `CR-031` | [Turn 实时流式推送 Pub/Sub 与轮询解耦](reference/changes/CR-031-turn-stream-pubsub-optimization.md) | 2026-09-13 | SSE 推流契约、TurnStreamHub 事件分发或流活性机制变更 | SSE 推流延迟、事件漏推、未解绑泄漏或与 ADR-012/CR-027 不一致 |
+| `CR-032` | [主动智能插件化与触发规则生态架构](reference/changes/CR-032-proactive-intelligence-plugin-ecosystem.md) | 2026-09-13 | `CAP-020/033/034/035/019` 主动智能插件化、触发规则声明、全局防打扰裁决器或桌宠联动契约变更 | 清单 Schema、proactive_trigger_rules 插件关联、Arbitrator 节流或桌宠动作派发与 CR-032 不一致 |
 | `AVX-PLUG-001` | [插件 Config、Page 与 UI 扩展规范](reference/plugin-config-and-pages.md) | 2026-09-11 | CR-006 / 插件机制变更 | Manifest、Config Schema、Page Bridge、Turn 管道或 UI 扩展与实现不一致 |
 | `AVX-DOC-GOV-001` | [文档治理与事实源规范](reference/document-governance.md) | 2026-09-10 | 文档分类、状态、事实源、复核触发或迁移策略变更 | 策略 JSON、校验器、索引、登记表或写作规范与治理基线不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 2026-09-10 | 写作规则、模板或季度评审 | 新文档未使用规范元数据/签名，或 Vale 规则与术语表不一致 |

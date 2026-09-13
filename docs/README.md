@@ -146,6 +146,7 @@ review_interval_days: 90
 | [CR-029](reference/changes/CR-029-presets-and-siyu-settings.md) | 模型/语音多预设与「你的思隅」设置页 | Accepted | Implemented |
 | [CR-030](reference/changes/CR-030-pure-local-sqlite-database.md) | SQLite 永久本地单用户真源与去租户化 | Accepted | Implemented |
 | [CR-031](reference/changes/CR-031-turn-stream-pubsub-optimization.md) | Turn 实时流式推送 Pub/Sub 与轮询解耦 | Accepted | Implemented |
+| [CR-032](reference/changes/CR-032-proactive-intelligence-plugin-ecosystem.md) | 主动智能插件化与触发规则生态架构 | Proposed | Planned |
 
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
 
