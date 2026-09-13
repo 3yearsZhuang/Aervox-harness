@@ -59,8 +59,6 @@ export async function createProactiveIntelligenceTables(client: Client): Promise
         created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
       `CREATE INDEX IF NOT EXISTS proactive_trigger_rule_local_enabled_idx
         ON proactive_trigger_rules(enabled);`,
-      `CREATE INDEX IF NOT EXISTS proactive_trigger_rules_plugin_idx
-        ON proactive_trigger_rules(plugin_id);`,
       `CREATE TABLE IF NOT EXISTS proactive_trigger_events (
         id TEXT PRIMARY KEY, revision_id TEXT NOT NULL, rule_id TEXT, trigger_type TEXT NOT NULL, cause_json TEXT NOT NULL DEFAULT '{}',
         decision TEXT NOT NULL, reason TEXT, action_id TEXT, occurred_at TEXT NOT NULL,
@@ -134,7 +132,7 @@ export async function createProactiveIntelligenceTables(client: Client): Promise
         ON proactive_health_samples(connection_id, metric, local_date);`,
     ];
   for (const ddl of proactiveIntelligenceDdl) await client.execute(ddl);
-  // CR-032 主动智能插件化：旧库补列（新库已由 CREATE TABLE 携带）
+  // CR-032 主动智能插件化：旧库补列后才能建归属索引（顺序不可颠倒，否则旧库升级即崩）
   await addColumnIfMissing(client, "proactive_trigger_rules", "plugin_id", "plugin_id TEXT");
   await client.execute(
     `CREATE INDEX IF NOT EXISTS proactive_trigger_rules_plugin_idx ON proactive_trigger_rules(plugin_id);`,
