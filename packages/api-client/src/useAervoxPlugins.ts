@@ -9,6 +9,7 @@ import type {
   PluginConfigSnapshot,
   PluginPage,
 } from '@aervox/contracts';
+import { PLUGIN_SENSOR_PERMISSION } from '@aervox/contracts';
 import { getTransport } from './transport';
 
 export interface PluginSummaryDto {
@@ -22,8 +23,18 @@ export interface PluginSummaryDto {
   enabled: number;
   configSchemaJson?: unknown;
   configSchemaVersion?: number;
+  /** CR-032：主动智能声明（spec.proactive，含 sensors/triggers） */
+  proactiveSpecJson?: unknown;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface PluginGrantDto {
+  id: string;
+  pluginId: string;
+  permission: string;
+  scope: string;
+  grantedAt: string;
 }
 
 export interface PluginPageDto extends PluginPage {
@@ -43,6 +54,8 @@ export interface PluginInstallInputDto {
   tools?: unknown[];
   /** 声明技能：每项含 name/content（SKILL.md 全文），安装时落盘并只读注册 */
   skills?: Array<{ name: string; description?: string; content: string }>;
+  /** CR-032：主动智能声明（须符合 pluginProactiveSpecSchema，非法值服务端 fail-closed 拒装） */
+  proactiveSpec?: unknown;
 }
 
 export function useAervoxPlugins() {
@@ -104,6 +117,37 @@ export function useAervoxPlugins() {
     await transport.request('PATCH', `/v1/plugins/${encodeURIComponent(pluginId)}`, { enabled });
   };
 
+  /** CR-032：授予插件感知源授权（permission=PLUGIN_SENSOR_PERMISSION，scope=sourceId） */
+  const grantSensor = async (pluginId: string, sourceId: string): Promise<PluginGrantDto> =>
+    transport.request<PluginGrantDto>(
+      'POST',
+      `/v1/plugins/${encodeURIComponent(pluginId)}/grants`,
+      { permission: PLUGIN_SENSOR_PERMISSION, scope: sourceId },
+    );
+
+  /** CR-032：撤销插件感知源授权 */
+  const revokeSensorGrant = async (pluginId: string, grantId: string): Promise<void> => {
+    await transport.request('DELETE', `/v1/plugins/${encodeURIComponent(pluginId)}/grants/${encodeURIComponent(grantId)}`);
+  };
+
+  /** CR-032：列出插件有效感知源授权（撤销需 grantId） */
+  const listSensorGrants = async (pluginId: string): Promise<PluginGrantDto[]> => {
+    const res = await transport.request<{ items: PluginGrantDto[] }>(
+      'GET',
+      `/v1/plugins/${encodeURIComponent(pluginId)}/grants`,
+    );
+    return res.items ?? [];
+  };
+
+  /** CR-032：查询感知源是否已授权 */
+  const hasSensorGrant = async (pluginId: string, sourceId: string): Promise<boolean> => {
+    const res = await transport.request<{ granted: boolean }>(
+      'GET',
+      `/v1/plugins/${encodeURIComponent(pluginId)}/permissions/${PLUGIN_SENSOR_PERMISSION}?scope=${encodeURIComponent(sourceId)}`,
+    );
+    return Boolean(res.granted);
+  };
+
   /** 安装插件：登记声明并联动工具/技能注册（API 幂等），成功后刷新列表 */
   const installPlugin = async (input: PluginInstallInputDto): Promise<PluginSummaryDto> => {
     const res = await transport.request<PluginSummaryDto>('POST', '/v1/plugins', input);
@@ -123,5 +167,9 @@ export function useAervoxPlugins() {
     listPages,
     setPluginEnabled,
     installPlugin,
+    grantSensor,
+    revokeSensorGrant,
+    listSensorGrants,
+    hasSensorGrant,
   };
 }

@@ -2,6 +2,7 @@
  * Aervox｜思隅 @aervox/repositories — platform 表 DDL（自 schema/init.ts 机械拆分）
  */
 import type { Client } from "@libsql/client";
+import { addColumnIfMissing } from "./common.js";
 
 export async function createPlatformTables(client: Client): Promise<void> {
   // 9. 平台/运营域（PRD §8）
@@ -32,10 +33,13 @@ export async function createPlatformTables(client: Client): Promise<void> {
         sent_at TEXT,
         channel TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'scheduled',
+        payload_json TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
     `);
+  // CR-032：通知负载列（旧库 addColumnIfMissing 兼容）
+  await addColumnIfMissing(client, "notifications", "payload_json", "payload_json TEXT");
   await client.execute(`
       CREATE TABLE IF NOT EXISTS prompt_versions (
         id TEXT PRIMARY KEY,

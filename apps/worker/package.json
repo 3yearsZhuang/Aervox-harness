@@ -14,6 +14,7 @@
   "dependencies": {
     "@aervox/agent-loop": "workspace:*",
     "@aervox/config": "workspace:*",
+    "@aervox/contracts": "workspace:*",
     "@aervox/diary": "workspace:*",
     "@aervox/observability": "workspace:*",
     "@aervox/repositories": "workspace:*",

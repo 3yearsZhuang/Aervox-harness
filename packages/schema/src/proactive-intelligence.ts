@@ -124,6 +124,8 @@ export const proactiveTriggerRules = sqliteTable(
   {
     id: text("id").primaryKey(),
     revisionId: text("revision_id").notNull(),
+    /** 归属插件（CR-032 物化模式：Worker 从插件声明同步；内置规则为 NULL） */
+    pluginId: text("plugin_id"),
     name: text("name").notNull(),
     triggerType: text("trigger_type").notNull(),
     conditionJson: text("condition_json").notNull().default("{}"),

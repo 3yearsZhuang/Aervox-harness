@@ -345,6 +345,15 @@ export function createProactiveHost(input: ProactiveHostDependencies = {}): Proa
     if (!customApplied && (catalog.id === 'aervox.activity' || catalog.id === 'aervox.operation')) {
       probe = {status: 'unknown', reason: 'renderer_observation_adapter_not_connected', canRequest: false}
     }
+    if (!customApplied && catalog.id === 'system.idle_state') {
+      // CR-032：powerMonitor 空闲时长无需 OS 授权，仅需用户意愿（授权向导/能力请求即视为同意）
+      const granted = Boolean(state.requestedCapabilities[catalog.id])
+      probe = {
+        status: granted ? 'granted' : 'prompt',
+        reason: granted ? undefined : 'user_consent_required',
+        canRequest: true,
+      }
+    }
     if (!customApplied && catalog.id === 'background.persistent') {
       probe = {
         status: state.persistence.background ? 'granted' : 'denied',

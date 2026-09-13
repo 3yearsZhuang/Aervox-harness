@@ -22,6 +22,7 @@ export interface IExtensionRepository {
       enabled?: number;
       configSchemaJson?: unknown;
       configSchemaVersion?: number;
+      proactiveSpecJson?: unknown;
     },
   ): Promise<PluginModel>;
   listPlugins(): Promise<PluginModel[]>;
@@ -39,6 +40,10 @@ export interface IExtensionRepository {
   ): Promise<PluginGrantModel>;
   revokePluginGrant(tenant: LocalContext, id: string): Promise<PluginGrantModel | null>;
   hasPluginPermission(tenant: LocalContext, pluginId: string, permission: string): Promise<boolean>;
+  /** CR-032：带 scope 的授权检查（感知源授权） */
+  hasPluginGrant(tenant: LocalContext, pluginId: string, permission: string, scope: string): Promise<boolean>;
+  /** CR-032：按 permission 批量列出有效授权（感知源授权矩阵） */
+  listActiveGrantsByPermission(tenant: LocalContext, permission: string): Promise<PluginGrantModel[]>;
   createCommunityContent(
     tenant: LocalContext,
     content: { id: string; authorId: string; type: string; status?: string; reviewState?: string; visibility?: string },

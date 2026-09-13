@@ -238,9 +238,12 @@ describe("CAP-033 proactive API", () => {
 
     const status = await app.inject({ method: "GET", url: "/v1/proactive/status", headers });
     expect(status.json().effectiveState).toBe("active");
+    // mandatory 由服务端 manifest 派生；直接按 manifest 的 mandatory 标志推导
+    //（待平台接入的非必选源不在 pending 集合内时公式依然成立）
+    const mandatoryManifest = FULL_PROFILE_SOURCE_MANIFEST.filter((source) => source.mandatory);
     expect(status.json().mandatorySources).toMatchObject({
-      total: FULL_PROFILE_SOURCE_MANIFEST.length - pending.size,
-      granted: FULL_PROFILE_SOURCE_MANIFEST.length - pending.size,
+      total: mandatoryManifest.length,
+      granted: mandatoryManifest.length,
       missing: [],
     });
     expect(grantedSource).toBeTruthy();

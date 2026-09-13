@@ -10,6 +10,7 @@
  * - GET    /v1/plugins/:id/permissions/:permission 查询权限。
  */
 import type { FastifyInstance } from "fastify";
+import { PLUGIN_SENSOR_PERMISSION, pluginProactiveSpecSchema } from "@aervox/contracts";
 import { resolveLocalContext } from "../../shared/local-context.js";
 import type { PluginService } from "./service.js";
 
@@ -30,6 +31,7 @@ export function registerPluginRoutes(app: FastifyInstance, service: PluginServic
       installSource?: string;
       tools?: unknown;
       skills?: unknown;
+      proactiveSpec?: unknown;
     };
     if (
       !body.id ||
@@ -37,6 +39,18 @@ export function registerPluginRoutes(app: FastifyInstance, service: PluginServic
       !body.version
     ) {
       return reply.code(400).send({ error: "id/publisher/version are required" });
+    }
+    // CR-032：主动声明 fail-closed——非法 spec（含未知触发类型/超限规则数）整包拒装
+    let proactiveSpec: unknown;
+    if (body.proactiveSpec !== undefined) {
+      const parsed = pluginProactiveSpecSchema.safeParse(body.proactiveSpec);
+      if (!parsed.success) {
+        return reply.code(400).send({
+          error: "invalid proactive spec",
+          issues: parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`),
+        });
+      }
+      proactiveSpec = parsed.data;
     }
     const plugin = await service.installPlugin({
       id: body.id,
@@ -48,6 +62,7 @@ export function registerPluginRoutes(app: FastifyInstance, service: PluginServic
       installSource: body.installSource,
       tools: (body.tools ?? undefined) as never,
       skills: (body.skills ?? undefined) as never,
+      proactiveSpec,
     });
     return reply.code(201).send(plugin);
   });
@@ -95,6 +110,14 @@ export function registerPluginRoutes(app: FastifyInstance, service: PluginServic
     return reply.code(201).send(grant);
   });
 
+  // CR-032：列出插件有效感知源授权
+  app.get("/v1/plugins/:id/grants", async (req) => {
+    const { id: pluginId } = req.params as { id: string };
+    const tenant = resolveLocalContext(req);
+    const grants = await service.listSensorGrants(tenant, pluginId, PLUGIN_SENSOR_PERMISSION);
+    return { items: grants };
+  });
+
   // 撤销权限
   app.delete("/v1/plugins/:id/grants/:grantId", async (req, reply) => {
     const { grantId } = req.params as { id: string; grantId: string };
@@ -104,14 +127,17 @@ export function registerPluginRoutes(app: FastifyInstance, service: PluginServic
     return grant;
   });
 
-  // 查询权限
+  // 查询权限（可选 ?scope= 精确到授权范围，CR-032 感知源授权用）
   app.get("/v1/plugins/:id/permissions/:permission", async (req, reply) => {
     const { id: pluginId, permission } = req.params as {
       id: string;
       permission: string;
     };
     const tenant = resolveLocalContext(req);
-    const has = await service.hasPermission(tenant, pluginId, permission);
-    return { pluginId, permission, granted: has };
+    const { scope } = (req.query ?? {}) as { scope?: string };
+    const has = scope
+      ? await service.hasGrant(tenant, pluginId, permission, scope)
+      : await service.hasPermission(tenant, pluginId, permission);
+    return { pluginId, permission, scope: scope ?? null, granted: has };
   });
 }
