@@ -372,3 +372,36 @@ export const proactiveHealthSamples = sqliteTable(
 
   }),
 );
+
+/**
+ * CR-033 E1 SituationModel 投影快照（纯派生物，可从事件流重建）。
+ *
+ * 存储 situation_model_v1 白名单投影的持久化副本；payloadJson 由 vault 加密。
+ * 回填记录标记为 `backfill`，禁止静默合并或以 MAX(rowid) 选胜者。
+ * 读取侧按 active revision、source grant、local_only 与 deny watermark 过滤。
+ */
+export const proactiveSituationSnapshots = sqliteTable(
+  "proactive_situation_snapshots",
+  {
+    id: text("id").primaryKey(),
+    revisionId: text("revision_id").notNull(),
+    schemaVersion: text("schema_version").notNull().default("situation_model_v1"),
+    snapshotJson: text("snapshot_json").notNull(),
+    checksum: text("checksum").notNull(),
+    /** 回填记录标记：backfill | incremental | rebuild */
+    origin: text("origin").notNull().default("incremental"),
+    /** 重建 watermark：消费到的感知事件 SQLite ingestion sequence 上限 */
+    lastEventSequence: integer("last_event_sequence").notNull().default(0),
+    sourceEpochsJson: text("source_epochs_json").notNull().default("{}"),
+    rebuiltAt: text("rebuilt_at"),
+    localOnly: integer("local_only", { mode: "boolean" }).notNull().default(true),
+    processingBoundary: text("processing_boundary").notNull().default("local_only"),
+    ...timestampColumns,
+  },
+  (table) => ({
+    revisionSequenceIdx: uniqueIndex("proactive_situation_revision_sequence_idx").on(
+      table.revisionId,
+      table.lastEventSequence,
+    ),
+  }),
+);

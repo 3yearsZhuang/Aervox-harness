@@ -130,6 +130,14 @@ export async function createProactiveIntelligenceTables(client: Client): Promise
         processing_boundary TEXT NOT NULL DEFAULT 'local_only', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
       `CREATE UNIQUE INDEX IF NOT EXISTS proactive_health_local_metric_date_idx
         ON proactive_health_samples(connection_id, metric, local_date);`,
+      `CREATE TABLE IF NOT EXISTS proactive_situation_snapshots (
+        id TEXT PRIMARY KEY, revision_id TEXT NOT NULL, schema_version TEXT NOT NULL DEFAULT 'situation_model_v1',
+        snapshot_json TEXT NOT NULL, checksum TEXT NOT NULL, origin TEXT NOT NULL DEFAULT 'incremental',
+        last_event_sequence INTEGER NOT NULL DEFAULT 0, source_epochs_json TEXT NOT NULL DEFAULT '{}',
+        rebuilt_at TEXT, local_only INTEGER NOT NULL DEFAULT 1,
+        processing_boundary TEXT NOT NULL DEFAULT 'local_only', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS proactive_situation_revision_sequence_idx
+        ON proactive_situation_snapshots(revision_id, last_event_sequence);`,
     ];
   for (const ddl of proactiveIntelligenceDdl) await client.execute(ddl);
   // CR-032 主动智能插件化：旧库补列后才能建归属索引（顺序不可颠倒，否则旧库升级即崩）
