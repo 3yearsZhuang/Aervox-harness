@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.1
+version: 1.0.2
 updated_at: 2026-09-13
 reviewed_at: 2026-09-13
 review_interval_days: 90
@@ -37,7 +37,7 @@ docs/
   archive/               # 已归档记录（已完成或已退役的历史变更与决策记录）
   reference/             # 参考类（AVX-PRD/SRS/SAD/TRC/SPC/DB/DATA/AIQ/SEC/QA/OPS 等）
     adr/                 # ADR-001~019 + 索引
-    changes/             # CR-002～031
+    changes/             # CR-002～032
     standards/           # 文档写作规范（AVX-STD-001）· 术语表（AVX-TERM-001）
     diagrams/            # 数据库 ERD（.mmd）
     PRD.md · ARCHITECTURE.md · SRS.md · REQUIREMENTS_TRACEABILITY.md
