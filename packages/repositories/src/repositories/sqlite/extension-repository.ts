@@ -70,6 +70,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
       enabled?: number;
       configSchemaJson?: unknown;
       configSchemaVersion?: number;
+      proactiveSpecJson?: unknown;
     },
   ): Promise<PluginModel> {
     const now = new Date().toISOString();
@@ -87,6 +88,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
           ...(pluginData.enabled !== undefined ? { enabled: pluginData.enabled } : {}),
           ...(pluginData.configSchemaJson !== undefined ? { configSchemaJson: pluginData.configSchemaJson } : {}),
           ...(pluginData.configSchemaVersion !== undefined ? { configSchemaVersion: pluginData.configSchemaVersion } : {}),
+          ...(pluginData.proactiveSpecJson !== undefined ? { proactiveSpecJson: pluginData.proactiveSpecJson } : {}),
           updatedAt: now,
         })
         .where(eq(plugins.id, pluginData.id))
@@ -106,6 +108,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
         enabled: pluginData.enabled ?? 1,
         configSchemaJson: pluginData.configSchemaJson ?? null,
         configSchemaVersion: pluginData.configSchemaVersion ?? 1,
+        proactiveSpecJson: pluginData.proactiveSpecJson ?? null,
         createdAt: now,
         updatedAt: now,
       })
@@ -201,6 +204,42 @@ export class SqliteExtensionRepository implements IExtensionRepository {
       )
       .limit(1);
     return !!found;
+  }
+
+  /** CR-032：带 scope 的授权检查（感知源授权 permission=proactive.sensor, scope=sourceId） */
+  async hasPluginGrant(
+    tenant: LocalContext,
+    pluginId: string,
+    permission: string,
+    scope: string,
+  ): Promise<boolean> {
+    const [found] = await this.db
+      .select()
+      .from(pluginGrants)
+      .where(
+        and(
+          eq(pluginGrants.pluginId, pluginId),
+          eq(pluginGrants.permission, permission),
+          eq(pluginGrants.scope, scope),
+          sql`${pluginGrants.revokedAt} IS NULL`,
+        ),
+      )
+      .limit(1);
+    return !!found;
+  }
+
+  /** CR-032：按 permission 批量列出全部有效授权（Worker 物化器一次载入感知源授权矩阵） */
+  async listActiveGrantsByPermission(tenant: LocalContext, permission: string): Promise<PluginGrantModel[]> {
+    const rows = await this.db
+      .select()
+      .from(pluginGrants)
+      .where(
+        and(
+          eq(pluginGrants.permission, permission),
+          sql`${pluginGrants.revokedAt} IS NULL`,
+        ),
+      );
+    return rows as PluginGrantModel[];
   }
 
   async createCommunityContent(

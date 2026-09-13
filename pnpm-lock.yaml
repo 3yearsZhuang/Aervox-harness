@@ -222,6 +222,9 @@ importers:
       '@aervox/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@aervox/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@aervox/diary':
         specifier: workspace:*
         version: link:../../packages/diary

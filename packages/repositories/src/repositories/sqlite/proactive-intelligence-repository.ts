@@ -115,6 +115,8 @@ export interface IntelligenceWorkflow {
 export interface IntelligenceTriggerRule {
   id: string;
   revisionId: string;
+  /** 归属插件（CR-032 物化模式；内置规则为 null） */
+  pluginId?: string | null;
   name: string;
   triggerType: string;
   condition: unknown;
@@ -366,14 +368,17 @@ export class SqliteProactiveIntelligenceRepository {
 
   async upsertTriggerRule(tenant: LocalContext, input: Omit<IntelligenceTriggerRule, "createdAt" | "updatedAt">): Promise<IntelligenceTriggerRule> {
     const now = new Date().toISOString();
+    const [existing] = await this.db.select().from(proactiveTriggerRules).where(eq(proactiveTriggerRules.id, input.id)).limit(1);
     const values = {
-      revisionId: input.revisionId, name: this.encrypt(input.name, "trigger-rule", input.id) ?? "",
+      revisionId: input.revisionId, pluginId: input.pluginId ?? null,
+      name: this.encrypt(input.name, "trigger-rule", input.id) ?? "",
       triggerType: input.triggerType, conditionJson: this.encrypt(stringify(input.condition), "trigger-rule", input.id) ?? "{}",
       actionJson: this.encrypt(stringify(input.action), "trigger-rule", input.id) ?? "{}", enabled: input.enabled,
       cooldownSeconds: input.cooldownSeconds, quietHoursJson: JSON.stringify(input.quietHours ?? {}),
-      lastTriggeredAt: input.lastTriggeredAt ?? null, processingBoundary: "local_only", updatedAt: now,
+      // undefined = 保留现值（物化器周期性 upsert 不得清空冷却状态）；null = 显式清零
+      lastTriggeredAt: input.lastTriggeredAt === undefined ? existing?.lastTriggeredAt ?? null : input.lastTriggeredAt,
+      processingBoundary: "local_only", updatedAt: now,
     };
-    const [existing] = await this.db.select().from(proactiveTriggerRules).where(eq(proactiveTriggerRules.id, input.id)).limit(1);
     const [row] = existing
       ? await this.db.update(proactiveTriggerRules).set(values).where(eq(proactiveTriggerRules.id, input.id)).returning()
       : await this.db.insert(proactiveTriggerRules).values({id: input.id, createdAt: now, ...values}).returning();
@@ -386,6 +391,50 @@ export class SqliteProactiveIntelligenceRepository {
     if (enabled !== undefined) conditions.push(eq(proactiveTriggerRules.enabled, enabled));
     const rows = await this.db.select().from(proactiveTriggerRules).where(and(...conditions)).orderBy(asc(proactiveTriggerRules.name));
     return rows.map((row) => this.triggerRuleModel(row));
+  }
+
+  /** CR-032：按插件列出物化规则（生命周期级联与幽灵规则排查用） */
+  async listTriggerRulesByPlugin(tenant: LocalContext, pluginId: string): Promise<IntelligenceTriggerRule[]> {
+    const rows = await this.db.select().from(proactiveTriggerRules)
+      .where(eq(proactiveTriggerRules.pluginId, pluginId)).orderBy(asc(proactiveTriggerRules.name));
+    return rows.map((row) => this.triggerRuleModel(row));
+  }
+
+  /** CR-032：插件启停级联——批量切换该插件物化规则的 enabled，返回受影响行数 */
+  async setTriggerRulesEnabledByPlugin(tenant: LocalContext, pluginId: string, enabled: boolean): Promise<number> {
+    const rows = await this.db.update(proactiveTriggerRules)
+      .set({enabled, updatedAt: new Date().toISOString()})
+      .where(eq(proactiveTriggerRules.pluginId, pluginId)).returning();
+    return rows.length;
+  }
+
+  /** CR-032：插件卸载级联——清除该插件全部物化规则，杜绝幽灵规则 */
+  async deleteTriggerRulesByPlugin(tenant: LocalContext, pluginId: string): Promise<number> {
+    const rows = await this.db.delete(proactiveTriggerRules)
+      .where(eq(proactiveTriggerRules.pluginId, pluginId)).returning();
+    return rows.length;
+  }
+
+  /** CR-032：删除单条物化规则（声明收敛时清除已消失的触发器） */
+  async deleteTriggerRule(tenant: LocalContext, ruleId: string): Promise<boolean> {
+    const rows = await this.db.delete(proactiveTriggerRules)
+      .where(eq(proactiveTriggerRules.id, ruleId)).returning();
+    return rows.length > 0;
+  }
+
+  /** CR-032 裁决器：规则命中后写回冷却起点 */
+  async updateTriggerRuleLastTriggeredAt(tenant: LocalContext, ruleId: string, lastTriggeredAt: string): Promise<void> {
+    await this.db.update(proactiveTriggerRules)
+      .set({lastTriggeredAt, updatedAt: new Date().toISOString()})
+      .where(eq(proactiveTriggerRules.id, ruleId));
+  }
+
+  /** CR-032 裁决器：时间窗内触发事件（全局频次水位按 decision=dispatched 计数） */
+  async listTriggerEventsSince(tenant: LocalContext, since: string, limit?: number) {
+    const rows = await this.db.select().from(proactiveTriggerEvents)
+      .where(gte(proactiveTriggerEvents.occurredAt, since))
+      .orderBy(desc(proactiveTriggerEvents.occurredAt)).limit(limitOf(limit));
+    return rows.map((row) => this.triggerEventModel(row));
   }
 
   async recordTriggerEvent(tenant: LocalContext, input: {
@@ -796,7 +845,8 @@ export class SqliteProactiveIntelligenceRepository {
   }
 
   private triggerRuleModel(row: typeof proactiveTriggerRules.$inferSelect): IntelligenceTriggerRule {
-    return {id: row.id, revisionId: row.revisionId, name: this.decrypt(row.name, "trigger-rule", row.id) ?? "",
+    return {id: row.id, revisionId: row.revisionId, pluginId: row.pluginId,
+      name: this.decrypt(row.name, "trigger-rule", row.id) ?? "",
       triggerType: row.triggerType, condition: parseJson(this.decrypt(row.conditionJson, "trigger-rule", row.id), {}),
       action: parseJson(this.decrypt(row.actionJson, "trigger-rule", row.id), {}), enabled: bool(row.enabled),
       cooldownSeconds: row.cooldownSeconds, quietHours: parseJson(row.quietHoursJson, {}), lastTriggeredAt: row.lastTriggeredAt,
