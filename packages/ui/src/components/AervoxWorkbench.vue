@@ -19,6 +19,9 @@ const LearningDrawer = defineAsyncComponent(() => import('./workbench/drawers/Le
 const HistoryDrawer = defineAsyncComponent(() => import('./workbench/drawers/HistoryDrawer.vue'));
 const TaskCenterDrawer = defineAsyncComponent(() => import('./workbench/drawers/TaskCenterDrawer.vue'));
 const SettingsModal = defineAsyncComponent(() => import('./workbench/drawers/SettingsModal.vue'));
+const CommandPalette = defineAsyncComponent(() => import('./workbench/CommandPalette.vue'));
+const ProjectManagerModal = defineAsyncComponent(() => import('./workbench/modals/ProjectManagerModal.vue'));
+const ImportSessionModal = defineAsyncComponent(() => import('./workbench/modals/ImportSessionModal.vue'));
 
 import { useWorkbenchLayout } from '../composables/useWorkbenchLayout';
 import { useWorkbenchTimer } from '../composables/useWorkbenchTimer';
@@ -28,7 +31,7 @@ import { useWorkbenchCards, todayLocalDate, type CardId } from '../composables/u
 import { useWorkbenchProactive, proactiveBridge } from '../composables/useWorkbenchProactive';
 import { provideWorkbenchContext } from '../composables/workbench-context';
 import { useUIRegistry, provideUIRegistry } from '../registry/ui-registry';
-import { streamAervoxTurn, useAervoxPlugins, useAervoxSessions } from '@aervox/api-client';
+import { streamAervoxTurn, useAervoxPlugins, useAervoxProjects, useAervoxSessions } from '@aervox/api-client';
 import type { TurnAttachmentRef } from '@aervox/contracts';
 import { MizukiExpression } from '../live2d/model';
 import { petReact, petReactKind } from '../live2d/petReactions';
@@ -121,6 +124,12 @@ const cards = useWorkbenchCards({
 
 // 7. Sessions Composable (CR-035 / W1)
 const sessions = useAervoxSessions();
+// 8. Projects Composable (CR-048 / W3)
+const projects = useAervoxProjects();
+
+const commandPaletteOpen = ref(false);
+const projectManagerOpen = ref(false);
+const importSessionOpen = ref(false);
 
 watch(() => sessions.activeSessionId.value, (newId, oldId) => {
   if (newId && oldId && newId !== oldId && !conversation.streaming.value) {
@@ -134,12 +143,18 @@ const learningMounted = ref(false);
 const historyMounted = ref(false);
 const taskCenterMounted = ref(false);
 const settingsMounted = ref(false);
+const commandPaletteMounted = ref(false);
+const projectManagerMounted = ref(false);
+const importSessionMounted = ref(false);
 
 watch(() => layout.toolsOpen.value, (open) => { if (open) toolsMounted.value = true; }, { immediate: true });
 watch(() => layout.learningOpen.value, (open) => { if (open) learningMounted.value = true; }, { immediate: true });
 watch(() => layout.historyOpen.value, (open) => { if (open) historyMounted.value = true; }, { immediate: true });
 watch(() => layout.taskCenterOpen.value, (open) => { if (open) taskCenterMounted.value = true; }, { immediate: true });
 watch(() => layout.settingsOpen.value, (open) => { if (open) settingsMounted.value = true; }, { immediate: true });
+watch(() => commandPaletteOpen.value, (open) => { if (open) commandPaletteMounted.value = true; }, { immediate: true });
+watch(() => projectManagerOpen.value, (open) => { if (open) projectManagerMounted.value = true; }, { immediate: true });
+watch(() => importSessionOpen.value, (open) => { if (open) importSessionMounted.value = true; }, { immediate: true });
 
 let isSendingMessage = false;
 
@@ -298,6 +313,16 @@ const workbenchContext = {
   proactive,
   registry,
   sessions,
+  projects,
+  openProjectManager: () => {
+    projectManagerOpen.value = true;
+  },
+  openImportSession: () => {
+    importSessionOpen.value = true;
+  },
+  openCommandPalette: () => {
+    commandPaletteOpen.value = true;
+  },
   get pluginRuntime() {
     return pluginRuntime;
   },
@@ -417,6 +442,7 @@ onMounted(() => {
   })();
 
   void sessions.fetchSessions();
+  void projects.fetchProjects();
   void conversation.scrollStoryToBottom();
 
   document.addEventListener('keydown', handleGlobalKeydown);
@@ -429,6 +455,9 @@ function handleGlobalKeydown(e: KeyboardEvent) {
   if (isCmdOrCtrl && (e.key === 'n' || e.key === 'N')) {
     e.preventDefault();
     void sessions.createNewSession('新对话');
+  } else if (isCmdOrCtrl && (e.key === 'k' || e.key === 'K')) {
+    e.preventDefault();
+    commandPaletteOpen.value = !commandPaletteOpen.value;
   } else if (isCmdOrCtrl && e.key === '/') {
     e.preventDefault();
     layout.toggleStandardSidebar();
@@ -567,6 +596,18 @@ onUnmounted(() => {
       :show-companion="showCompanion"
       @replay-onboarding="emit('replay-onboarding')"
       @open-intro-deck="emit('open-intro-deck')"
+    />
+    <CommandPalette
+      v-if="commandPaletteMounted"
+      v-model:open="commandPaletteOpen"
+    />
+    <ProjectManagerModal
+      v-if="projectManagerMounted"
+      v-model:open="projectManagerOpen"
+    />
+    <ImportSessionModal
+      v-if="importSessionMounted"
+      v-model:open="importSessionOpen"
     />
   </section>
 </template>

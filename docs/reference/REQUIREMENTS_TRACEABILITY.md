@@ -7,15 +7,15 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 1.28.0
-updated_at: 2026-09-14
-reviewed_at: 2026-09-14
+updated_at: 2026-09-15
+reviewed_at: 2026-09-15
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-14
+- 修改人：3yearszhuang · 2026-09-15
 
 产品需求来源：[PRD.md](PRD.md)
 
@@ -185,8 +185,9 @@ review_interval_days: 90
 
 本节是**整个项目**代码落地完成情况的追踪事实源（约束见 [AGENTS.md](../../AGENTS.md)）。凡已合并的实现，无论是否完成 DoR/DoD 门禁，均须在此登记；门禁状态（§4 矩阵的 `当前状态` 列）仍按 §6/§7 单独推进，两者不互相替代。未登记的落地视为未闭环、提交打回。
 
-登记规则：`关联 CAP` 表实现所属能力；`验证` 表已通过的自动化验证（测试/typecheck）；`来源` 标注参考设计（`T-*`/`AST-*`/`PET-*`/`DSH-01`/`PI-01`，细则见 [参考设计迁移文档 §6.1](../explanation/reference-design-transfer.md#61-落地登记唯一真源)）或原生实现。
-
+| 落地内容与功能描述 | 关联 CAP | 实现与测试位置 | 日期 | 验证 | 来源 |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| CR-043 / CR-044 / CR-048 本地模型能力分级工具过滤、L2 确定性规则降级响应与项目上下文工作台支持（N2a/N2b/W3 落地闭环）：实现 L1 端点写工具只读白名单过滤（`tool_restricted_in_tier_l1`）与最大 Token 预算削减（2048）；落地 L2 离线确定性规则回应提供商（`RuleResponseProvider` / `rule_response_l2`），诚实离线标头与快捷命令兜底；建立 Projects 领域契约、SQLite 仓储与 REST 端点（`GET/POST/PATCH/DELETE /v1/projects`）、会话项目绑定与导入能力（`POST /v1/sessions/import`，支持标准 JSON、ChatGPT 映射树导入与外键安全解绑）；`@aervox/api-client` 扩展 `useAervoxProjects` 与 `useAervoxSessions.projectId` 过滤；`@aervox/ui` 交付项目管理弹窗、会话导入弹窗、侧边栏项目快速切换与 ⌘K / Ctrl+K 统一命令面板（Command Palette），实现本地优先的多项目与离线降级全链路闭环 | CAP-013/020/033/035 | `packages/contracts/src/{project-schemas,session-schemas,openapi,index}.ts`、`packages/schema/src/{project,conversations,index}.ts`、`packages/repositories/src/{schema/ddl/project,repositories/sqlite/{project-repository,conversation-repository}}.ts`、`apps/api/src/modules/{conversation/{agent-executor,rule-response-provider,routes},project/{routes,index}}`、`packages/api-client/src/{useAervoxProjects,useAervoxSessions,index}.ts`、`packages/ui/src/components/workbench/{CommandPalette.vue,modals/{ProjectManagerModal,ImportSessionModal}.vue,WorkbenchSidebar.vue}`、`packages/ui/src/composables/workbench-context.ts`及对应测试 | 2026-09-15 | Contracts 契约单测 6/6；Repositories 级联与单测 4/4；API 路由、分级过滤与规则回应单测 13/13；API Client 单测 8/8；UI 命令面板测试通过；Web 应用全量打包验证通过 | 原生 |
 | CR-035 标准 AI 工作台形态与原生交互壳（W1/W2 落地闭环，关联 CR-046 / CR-047）：实现多会话契约、REST 接口与纯本地 SQLite 级联管理（GET/POST/PATCH/DELETE /v1/sessions）；`@aervox/api-client` 封装 `useAervoxSessions` 状态管理与 `localStorage` 活跃会话持久化；`@aervox/ui` 交付标准工作台侧栏（`WorkbenchSidebar.vue`，支持新建对话 ⌘N、会话搜索、时间分组、重命名、删除、置顶）、统一任务中心只读抽屉（`TaskCenterDrawer.vue`，聚合学习排期/每日日记/番茄钟/主动规则并展示本地 SQLite WAL 与去租户化状态）、设置中心「交互模式」切换器（标准工作台 ↔ 桌宠陪伴）及全局快捷键；标准模式与陪伴模式共享同一套流式回合、输入底座、人格与安全门禁，桌宠以非阻塞挂件常驻，实现熟悉范式零认知迁移成本 | CAP-013/019/020/033 | `docs/reference/changes/CR-035-standard-workbench-mode.md`、`docs/reference/changes/CR-046-standard-workbench-shell-and-sidebar.md`、`docs/reference/changes/CR-047-mode-selector-and-task-center.md`、`packages/contracts/src/session-schemas.ts`、`packages/repositories/src/repositories/sqlite/conversation-repository.ts`、`apps/api/src/modules/conversation/routes.ts`、`packages/api-client/src/useAervoxSessions.ts`、`packages/ui/src/components/workbench/WorkbenchSidebar.vue`、`packages/ui/src/components/workbench/drawers/TaskCenterDrawer.vue`、`packages/ui/src/components/AervoxWorkbench.vue`、`packages/ui/src/theme/workbench.css`、`packages/contracts/test/session-contract.test.ts`、`packages/repositories/test/session-crud.test.ts`、`apps/api/test/session-routes.test.ts`、`packages/api-client/test/sessions.test.ts`、`packages/ui/test/standard-workbench.test.ts` | 2026-09-14 | Contracts 契约测试 5/5；Repositories 单测 3/3；API 路由单测 5/5；API Client 状态单测 5/5；UI 模式与组件单测 3/3；Web 应用构建全量打包验证通过 | 原生 |
 | CR-034 / CR-042 本地模型路由降级与切回（F0/F1 共享契约与 N1 降级执行器闭环）：实现三层降级（L0 活跃预设 / L1 本地端点 / L2 确定性规则回应）；`@aervox/config` 新增 `model_routing` 等 Feature Flags；`@aervox/contracts` 建立 `CapabilityTier`、`ModelRoutingTier`、`HealthStatus`、`ProbeErrorCategory` 等跨包契约并同步 OpenAPI；`@aervox/schema` 与 `@aervox/repositories` 落地 `llm_health_snapshots` 与 `llm_routing_events` 审计落库；`apps/api` 交付 `LlmHealthProber` 与 `LlmDegradationService`，并在 `agent-executor` 对话流实现无缝降级注入、粘性路由与探测切回 | CAP-020/013/009/033 | `packages/config/src/index.ts`、`packages/contracts/src/{model-routing-schemas,openapi,index}.ts`、`packages/schema/src/{model-routing,index}.ts`、`packages/repositories/src/{repositories/sqlite/model-routing-repository,schema/ddl/model-routing}.ts`、`apps/api/src/modules/llm/{health-prober,degradation-service,index}.ts`、`apps/api/src/modules/conversation/{agent-executor,routes,index}.ts`、`apps/api/src/modules/context.ts`及对应测试 | 2026-09-14 | `packages/config`（3 新测）、`packages/contracts`（7 新测）、`packages/repositories`（2 新测）、`apps/api`（7 新测，全量 391/391）单元测试通过；全仓类型检查通过 | 原生 |
 | 文档复核触发器 Git 状态解析修复：改用 `git status --porcelain=v1 -z --untracked-files=all`，按固定 XY 前缀解析完整路径，兼容路径空格及重命名/复制的新旧路径，修复先 `trim()` 再 `slice(3)` 导致首字符丢失和触发器全量漏报；新增 Node.js 回归测试并纳入文档门禁 | 基础设施（文档治理） | `scripts/docs-governance.mjs`、`scripts/docs-governance.test.mjs`、`mise.toml`、`docs/reference/document-governance.md`、`docs/reference/REQUIREMENTS_TRACEABILITY.md` | 2026-09-14 | `mise exec -- node --test scripts/docs-governance.test.mjs` 3/3；`mise tasks run docs-triggers` 正确识别当前分支 9 篇受影响文档；`mise tasks run ci-docs` | 原生 |

@@ -20,6 +20,10 @@ export {
   type UseAervoxSessionsReturn,
 } from './useAervoxSessions';
 export {
+  useAervoxProjects,
+  type UseAervoxProjectsReturn,
+} from './useAervoxProjects';
+export {
   useAervoxApi,
   type GoalDto,
   type ReviewItemDto,

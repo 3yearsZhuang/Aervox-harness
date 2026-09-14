@@ -34,6 +34,7 @@ import { registerAnalyticsModule } from "./modules/analytics/index.js";
 import { registerMemoryModule } from "./modules/memory/index.js";
 import { registerKnowledgeModule } from "./modules/knowledge/index.js";
 import { registerBranchModule } from "./modules/branch/index.js";
+import { registerProjectModule } from "./modules/project/index.js";
 import { registerToolsModule } from "./modules/tools/index.js";
 import { registerMcpModule, type McpModuleOptions } from "./modules/mcp/index.js";
 import { registerPluginsModule } from "./modules/plugins/index.js";
@@ -303,6 +304,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   registerMemoryModule(ctx);
   registerKnowledgeModule(ctx);
   registerBranchModule(ctx);
+  registerProjectModule(ctx);
   await registerPluginsModule(ctx);
   ctx.voiceService = registerVoiceModule(ctx, options.voiceOptions);
   ctx.skillManager = registerSkillsModule(ctx);

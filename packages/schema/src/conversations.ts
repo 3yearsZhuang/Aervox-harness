@@ -12,10 +12,11 @@ export const sessions = sqliteTable(
   {
     id: text("id").primaryKey(),
     title: text("title").notNull(),
+    projectId: text("project_id"),
     ...timestampColumns,
   },
   (table) => ({
-
+    projectIdx: index("sessions_project_idx").on(table.projectId),
   }),
 );
 
