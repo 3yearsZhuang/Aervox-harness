@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.9.1
+version: 1.10.0
 updated_at: 2026-09-14
 reviewed_at: 2026-09-14
 review_interval_days: 90
@@ -105,6 +105,14 @@ review_interval_days: 90
 | [从这里开始](getting-started.md)（AVX-DOC-002，见[§7](#7-从哪开始)） | 新成员/Agent 从哪看起、提交前自检什么 | 导航型；不承载规则 |
 | [暂存提案](proposals) | 尚未进入基线的方案是什么 | 待补充证据（More Evidence Required）或未采纳的技术探索提案；不承载已批准规则 |
 | [已归档记录](archive) | 历史变更与已退役决策的原始记录是什么 | 已完成或已退役的历史变更；变更经发布周期后迁移留存，避免混淆当前活跃规范 |
+
+### 临时落地计划（非事实源）
+
+为满足 CR-033、CR-034、CR-035 的实施拆分需要，暂时在 `docs/` 根目录保留以下计划文件。它们只提供实施顺序、门禁、验证和回滚建议，不改变原始 CR、CAP 或 ADR 的状态；对应子 CR 通过 G1 后应迁移到正式 CR 或删除。
+
+- [CR-033 落地临时计划](CR-033-plan.md)（AVX-PLAN-033）
+- [CR-034 落地临时计划](CR-034-plan.md)（AVX-PLAN-034）
+- [CR-035 落地临时计划](CR-035-plan.md)（AVX-PLAN-035）
 
 文档分类、状态、事实源与复核触发以[文档治理与事实源规范](reference/document-governance.md)为准；模板、命名、签名和写作门禁见[文档写作规范](reference/standards/doc-standards.md)，术语唯一语义见[术语表](reference/standards/terminology.md)。
 

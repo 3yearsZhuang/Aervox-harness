@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.10.1
+version: 1.11.0
 updated_at: 2026-09-14
 reviewed_at: 2026-09-14
 review_interval_days: 90
@@ -117,6 +117,9 @@ review_interval_days: 90
 | `CR-046` | [标准工作台交互壳与会话侧栏 (W1)](reference/changes/CR-046-standard-workbench-shell-and-sidebar.md) | 2026-09-14 | `CAP-013/019/020` 会话侧栏、多会话 REST 契约、SQLite 级联删除与双模式布局切换变更 | 会话导航、多会话持久化、快捷键或桌宠挂件与本文不符 |
 | `CR-047` | [模式切换器与统一任务中心 (W2)](reference/changes/CR-047-mode-selector-and-task-center.md) | 2026-09-14 | `CAP-002/010/019/033` 交互模式切换器、统一任务中心只读抽屉与后台 Worker 状态深链变更 | 模式切换分段控件、任务中心概览或深链跳转与本文不符 |
 | `CR-048` | [项目上下文绑定与会话迁移设施 (W3)](reference/changes/CR-048-project-context-and-migration-facility.md) | 2026-09-14 | `CAP-026/033` 项目上下文显式绑定、外部会话导入器与命令面板变更 | 项目组织流、外部会话解析安全净化或快捷指令与本文不符 |
+| `AVX-PLAN-033` | [CR-033 落地临时计划](CR-033-plan.md) | 2026-09-14 | 对应子 CR 通过 G1 前每 30 天 | 子 CR 拆分、依赖、门禁或回滚建议与 CR-033 基线不一致；子 CR 通过 G1 后应迁移或删除 |
+| `AVX-PLAN-034` | [CR-034 落地临时计划](CR-034-plan.md) | 2026-09-14 | 对应子 CR 通过 G1 前每 30 天 | 子 CR 拆分、Provider 路由、能力分级或托管边界与 CR-034 基线不一致；子 CR 通过 G1 后应迁移或删除 |
+| `AVX-PLAN-035` | [CR-035 落地临时计划](CR-035-plan.md) | 2026-09-14 | 对应子 CR 通过 G1 前每 30 天 | 子 CR 拆分、会话/项目/任务契约或导入边界与 CR-035 基线不一致；子 CR 通过 G1 后应迁移或删除 |
 | `AVX-PLUG-001` | [插件 Config、Page 与 UI 扩展规范](reference/plugin-config-and-pages.md) | 2026-09-11 | CR-006 / 插件机制变更 | Manifest、Config Schema、Page Bridge、Turn 管道或 UI 扩展与实现不一致 |
 | `AVX-DOC-GOV-001` | [文档治理与事实源规范](reference/document-governance.md) | 2026-09-14 | 文档分类、状态、事实源、复核触发或迁移策略变更 | 策略 JSON、校验器、索引、登记表或写作规范与治理基线不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 2026-09-10 | 写作规则、模板或季度评审 | 新文档未使用规范元数据/签名，或 Vale 规则与术语表不一致 |
@@ -134,7 +137,7 @@ review_interval_days: 90
 | `AVX-EXPL-008` | [主动智能模式设计方案](explanation/proactive-intelligence-mode.md) | 2026-09-10 | CR-023/CAP-033、完全访问、全量画像、OS 能力授权、特权观察 Host、本地处理、动作授权、CAP-022/026/027/030 变更 | 四维状态、完整画像 manifest、平台能力清单、OS grant、本地出网边界、七天提炼保留、动作授权、阻断项或实现门禁与基线不一致 |
 | `AVX-EXPL-009` | [`packages/database` 拆分规划（已归档）](explanation/database-split-plan.md) | 2026-09-10 | `packages/database` schema/仓储接口、包结构或拆分方向变更 | 拆分方向、包边界、re-export 兼容层或分阶段落点与实现/ADR-014/追踪基线 §4.2 不一致 |
 | `AVX-DOC-001` | [文档索引](README.md) | 2026-09-14 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
-| `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-09-13 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |
+| `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-09-14 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |
 | `AVX-DOC-CONF-001` | [文档生命周期登记表](DOC_REGISTRY.md) | 2026-09-14 | 每季度 + 每次文档集变更 | 登记条目与实际文档集不一致 |
 
 ## 维护规则
