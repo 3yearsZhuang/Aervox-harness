@@ -3,6 +3,7 @@ export {
   configureAervoxClient,
   getTransport,
   getSessionId,
+  setSessionId,
   getApiBase,
   createFetchTransport,
   type AervoxTransport,
@@ -13,6 +14,11 @@ export {
   type UploadedAttachment,
 } from './transport';
 export { desktopTransport } from './desktop-transport';
+export {
+  useAervoxSessions,
+  ACTIVE_SESSION_STORAGE_KEY,
+  type UseAervoxSessionsReturn,
+} from './useAervoxSessions';
 export {
   useAervoxApi,
   type GoalDto,

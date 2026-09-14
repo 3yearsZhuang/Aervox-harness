@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.9.1
+version: 1.10.0
 updated_at: 2026-09-14
 reviewed_at: 2026-09-14
 review_interval_days: 90
@@ -106,6 +106,14 @@ review_interval_days: 90
 | [暂存提案](proposals) | 尚未进入基线的方案是什么 | 待补充证据（More Evidence Required）或未采纳的技术探索提案；不承载已批准规则 |
 | [已归档记录](archive) | 历史变更与已退役决策的原始记录是什么 | 已完成或已退役的历史变更；变更经发布周期后迁移留存，避免混淆当前活跃规范 |
 
+### 临时落地计划（非事实源）
+
+为满足 CR-033、CR-034、CR-035 的实施拆分需要，暂时在 `docs/` 根目录保留以下计划文件。它们只提供实施顺序、门禁、验证和回滚建议，不改变原始 CR、CAP 或 ADR 的状态；对应子 CR 通过 G1 后应迁移到正式 CR 或删除。
+
+- [CR-033 落地临时计划](CR-033-plan.md)（AVX-PLAN-033）
+- [CR-034 落地临时计划](CR-034-plan.md)（AVX-PLAN-034）
+- [CR-035 落地临时计划](CR-035-plan.md)（AVX-PLAN-035）
+
 文档分类、状态、事实源与复核触发以[文档治理与事实源规范](reference/document-governance.md)为准；模板、命名、签名和写作门禁见[文档写作规范](reference/standards/doc-standards.md)，术语唯一语义见[术语表](reference/standards/terminology.md)。
 
 当前已提供 [SRS](reference/SRS.md) 原子需求样例、共享 ADR、威胁模型、测试策略、运行手册和基线 NFR/AIQ/DATA/SEC/PRIV/OPS 追踪。每个进入开发的能力仍应逐步补充其专属 API/OpenAPI 片段、UX 原型、数据字典、测试证据和 ADR 关联；这些材料未齐备前，不得把能力地图中的一行视为完整开发规格。
@@ -154,8 +162,15 @@ review_interval_days: 90
 | [CR-039](reference/changes/CR-039-proactive-persona-context-runtime.md) | 主动回合人格同源与安全上下文 | Accepted | Verified |
 | [CR-040](reference/changes/CR-040-structured-operation-domain.md) | 结构化操作域与工具白名单 | Proposed | Planned |
 | [CR-041](reference/changes/CR-041-proactive-operation-proposal-loop.md) | 主动操作提议闭环 | Proposed | Planned |
-| [CR-034](reference/changes/CR-034-local-model-fallback-ladder.md) | 本地模型降级阶梯：无 API 接入时的原生能力基线 | Proposed | Planned |
-| [CR-035](reference/changes/CR-035-standard-workbench-mode.md) | 标准 AI 工作台形态：熟悉范式的原生交互壳 | Proposed | Planned |
+| [CR-034](reference/changes/CR-034-local-model-fallback-ladder.md) | 本地模型降级阶梯：无 API 接入时的原生能力基线 | Accepted | Implemented |
+| [CR-042](reference/changes/CR-042-local-model-routing-and-fallback.md) | 本地模型路由降级与切回 | Accepted | Verified |
+| [CR-043](reference/changes/CR-043-local-model-capability-tiering.md) | 本地模型能力分级与降级提示 | Accepted | Planned |
+| [CR-044](reference/changes/CR-044-deterministic-rule-response.md) | 确定性规则回应与本地工具执行 | Accepted | Planned |
+| [CR-045](reference/changes/CR-045-local-model-runtime-lifecycle-host.md) | 本地运行时生命周期托管 | Accepted | Planned |
+| [CR-035](reference/changes/CR-035-standard-workbench-mode.md) | 标准 AI 工作台形态：熟悉范式的原生交互壳 | Accepted | Implemented |
+| [CR-046](reference/changes/CR-046-standard-workbench-shell-and-sidebar.md) | 标准工作台交互壳与会话侧栏 (W1) | Accepted | Verified |
+| [CR-047](reference/changes/CR-047-mode-selector-and-task-center.md) | 模式切换器与统一任务中心 (W2) | Accepted | Verified |
+| [CR-048](reference/changes/CR-048-project-context-and-migration-facility.md) | 项目上下文绑定与会话迁移设施 (W3) | Proposed | Planned |
 
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
 

@@ -38,6 +38,7 @@ import { createSubagentRunsTables } from "./subagent-runs.js";
 import { createUserQuestionTables } from "./user-question.js";
 import { createProactiveTables } from "./proactive.js";
 import { createProactiveIntelligenceTables } from "./proactive-intelligence.js";
+import { createModelRoutingTables } from "./model-routing.js";
 import { createLedgerTables } from "./ledger.js";
 
 export async function initDatabaseSchema(client: Client): Promise<void> {
@@ -77,6 +78,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await createUserQuestionTables(client);
   await createProactiveTables(client);
   await createProactiveIntelligenceTables(client);
+  await createModelRoutingTables(client);
 }
 
 export async function initLedgerSchema(client: Client): Promise<void> {

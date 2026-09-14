@@ -21,7 +21,8 @@ import { MizukiExpression } from '../live2d/model';
 import { petReact, petReactKind } from '../live2d/petReactions';
 
 export type Platform = 'desktop' | 'web';
-export type ToolId = 'study' | 'mistake' | 'todo' | 'timer' | 'history' | 'diary';
+export type WorkbenchMode = 'companion' | 'standard';
+export type ToolId = 'study' | 'mistake' | 'todo' | 'timer' | 'history' | 'diary' | 'task_center';
 
 export const settingCategories = [
   { id: 'tools', label: '快捷工具', description: '学习面板与小工具', icon: LayoutGrid, scope: 'detail' as const },
@@ -49,6 +50,22 @@ export function useWorkbenchLayout(props: {
   const assistantDisplayName = ref(props.assistantName);
   const desktopCompanionEnabled = ref(props.showCompanion);
   const showCompanionEnabled = computed(() => props.showCompanion && (isWeb.value || desktopCompanionEnabled.value));
+
+  // CR-035: 双模式架构（桌宠陪伴模式 companion ↔ 标准工作台模式 standard）
+  let initialWorkbenchMode: WorkbenchMode = 'companion';
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem('aervox-workbench-mode');
+      if (stored === 'standard' || stored === 'companion') {
+        initialWorkbenchMode = stored;
+      }
+    }
+  } catch {
+    // 忽略异常
+  }
+  const workbenchMode = ref<WorkbenchMode>(initialWorkbenchMode);
+  const standardSidebarCollapsed = ref(false);
+  const taskCenterOpen = ref(false);
 
   const isDark = ref(false);
   const compactMode = ref(false);
@@ -131,6 +148,10 @@ export function useWorkbenchLayout(props: {
       learningOpen.value = true;
       return;
     }
+    if (target === 'task_center') {
+      taskCenterOpen.value = true;
+      return;
+    }
     activeToolView.value = target;
     toolsOpen.value = true;
     if (target === 'diary') {
@@ -185,8 +206,50 @@ export function useWorkbenchLayout(props: {
 
   const toggleStudyMode = toggleFocusMode;
 
+  function switchWorkbenchMode(mode: WorkbenchMode) {
+    if (workbenchMode.value === mode) return;
+    workbenchMode.value = mode;
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('aervox-workbench-mode', mode);
+      }
+    } catch {
+      // 忽略异常
+    }
+    options.recordActivity('aervox.operation', 'workbench.mode_switched', undefined, { mode });
+    if (mode === 'companion') {
+      petReactKind('greet', { lookDuration: 2500 });
+    }
+  }
+
+  function toggleWorkbenchMode() {
+    switchWorkbenchMode(workbenchMode.value === 'companion' ? 'standard' : 'companion');
+  }
+
+  function toggleStandardSidebar() {
+    standardSidebarCollapsed.value = !standardSidebarCollapsed.value;
+  }
+
+  function openTaskCenter() {
+    taskCenterOpen.value = true;
+    options.recordActivity('aervox.operation', 'workbench.task_center_opened', undefined);
+  }
+
+  function closeTaskCenter() {
+    taskCenterOpen.value = false;
+  }
+
+  function toggleTaskCenter() {
+    taskCenterOpen.value = !taskCenterOpen.value;
+    if (taskCenterOpen.value) {
+      options.recordActivity('aervox.operation', 'workbench.task_center_opened', undefined);
+    }
+  }
+
   function saveSettings(timerMinutesVal?: number) {
     const resolvedTimerMinutes = timerMinutesVal ?? options.getTimerMinutes?.() ?? 25;
+    // 注：workbenchMode 单独持久化在 'aervox-workbench-mode'（switchWorkbenchMode 内联写入），
+    // 此处不重复写入 settings JSON，避免双源漂移。
     const settings = {
       theme: isDark.value ? 'dark' : 'light',
       assistantName: assistantDisplayName.value.trim() || props.assistantName,
@@ -220,6 +283,9 @@ export function useWorkbenchLayout(props: {
     assistantDisplayName,
     desktopCompanionEnabled,
     showCompanionEnabled,
+    workbenchMode,
+    standardSidebarCollapsed,
+    taskCenterOpen,
     isDark,
     compactMode,
     focusModeEnabled,
@@ -253,6 +319,12 @@ export function useWorkbenchLayout(props: {
     toggleStudyMode,
     setFocusModeEnabled,
     setStudyModeEnabled,
+    switchWorkbenchMode,
+    toggleWorkbenchMode,
+    toggleStandardSidebar,
+    openTaskCenter,
+    closeTaskCenter,
+    toggleTaskCenter,
     saveSettings,
     applyTheme,
     setTheme,

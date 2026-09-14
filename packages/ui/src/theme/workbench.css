@@ -4399,3 +4399,677 @@
   background: color-mix(in srgb, var(--danger, #e05252) 12%, transparent);
   border: 1px dashed color-mix(in srgb, var(--danger, #e05252) 30%, transparent);
 }
+
+/* ==========================================================================
+   CR-035: 标准工作台模式 (Standard AI Workbench Mode)
+   ========================================================================== */
+
+.aervox-workbench.mode-standard {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+}
+
+/* 侧边栏整体 */
+.workbench-standard-sidebar {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  width: 260px;
+  min-width: 260px;
+  height: 100%;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border-right: 1px solid var(--glass-border);
+  transition: width 0.22s ease, min-width 0.22s ease, margin 0.22s ease, opacity 0.22s ease;
+  user-select: none;
+}
+
+.workbench-standard-sidebar.is-collapsed {
+  width: 0;
+  min-width: 0;
+  margin-left: -260px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 侧边栏头部 */
+.workbench-standard-sidebar .sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 14px 12px;
+}
+
+.workbench-standard-sidebar .brand-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.workbench-standard-sidebar .sidebar-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.workbench-standard-sidebar .sidebar-action-btn:hover {
+  background: rgba(125, 145, 180, 0.14);
+  color: var(--text-primary);
+}
+
+/* 新建对话按钮 */
+.workbench-standard-sidebar .sidebar-new-chat-wrap {
+  padding: 0 12px 10px;
+}
+
+.workbench-standard-sidebar .new-chat-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-strong);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.workbench-standard-sidebar .new-chat-btn:hover {
+  background: color-mix(in srgb, var(--accent, #3b82f6) 12%, var(--glass-bg-strong));
+  border-color: color-mix(in srgb, var(--accent, #3b82f6) 40%, transparent);
+}
+
+.workbench-standard-sidebar .shortcut-kbd {
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(125, 145, 180, 0.15);
+  color: var(--text-muted);
+}
+
+/* 搜索过滤框 */
+.workbench-standard-sidebar .sidebar-search-wrap {
+  position: relative;
+  margin: 0 12px 12px;
+  display: flex;
+  align-items: center;
+}
+
+.workbench-standard-sidebar .search-icon {
+  position: absolute;
+  left: 10px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.workbench-standard-sidebar .sidebar-search-input {
+  width: 100%;
+  height: 30px;
+  padding: 0 28px 0 28px;
+  border-radius: 6px;
+  border: 1px solid var(--glass-border);
+  background: rgba(125, 145, 180, 0.08);
+  color: var(--text-primary);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.workbench-standard-sidebar .sidebar-search-input:focus {
+  border-color: var(--accent, #3b82f6);
+}
+
+.workbench-standard-sidebar .search-clear-btn {
+  position: absolute;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+/* 会话列表区域 */
+.workbench-standard-sidebar .sidebar-sessions-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 8px;
+}
+
+.workbench-standard-sidebar .empty-sessions {
+  padding: 24px 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.workbench-standard-sidebar .session-group {
+  margin-bottom: 14px;
+}
+
+.workbench-standard-sidebar .session-group-title {
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+
+.workbench-standard-sidebar .session-group-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.workbench-standard-sidebar .session-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  margin-bottom: 2px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.workbench-standard-sidebar .session-item:hover {
+  background: rgba(125, 145, 180, 0.12);
+}
+
+.workbench-standard-sidebar .session-item.is-active {
+  background: color-mix(in srgb, var(--accent, #3b82f6) 16%, transparent);
+  color: var(--accent, #3b82f6);
+  font-weight: 500;
+}
+
+.workbench-standard-sidebar .session-leading-icon {
+  flex: none;
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+}
+
+.workbench-standard-sidebar .session-item.is-active .session-leading-icon {
+  color: var(--accent, #3b82f6);
+}
+
+.workbench-standard-sidebar .pin-icon {
+  color: var(--accent, #3b82f6);
+}
+
+.workbench-standard-sidebar .session-title-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.workbench-standard-sidebar .session-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workbench-standard-sidebar .session-hover-actions {
+  display: none;
+  align-items: center;
+  gap: 4px;
+}
+
+.workbench-standard-sidebar .session-item:hover .session-hover-actions,
+.workbench-standard-sidebar .session-item.is-active .session-hover-actions {
+  display: flex;
+}
+
+.workbench-standard-sidebar .session-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.workbench-standard-sidebar .session-action-btn:hover {
+  background: rgba(125, 145, 180, 0.2);
+  color: var(--text-primary);
+}
+
+.workbench-standard-sidebar .session-action-btn.delete-btn:hover {
+  color: var(--danger, #e05252);
+}
+
+.workbench-standard-sidebar .session-rename-form {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.workbench-standard-sidebar .session-rename-input {
+  flex: 1;
+  height: 24px;
+  padding: 0 6px;
+  font-size: 12px;
+  border-radius: 4px;
+  border: 1px solid var(--accent, #3b82f6);
+  background: var(--glass-bg-strong);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.workbench-standard-sidebar .rename-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 4px;
+  background: var(--accent, #3b82f6);
+  color: white;
+  cursor: pointer;
+}
+
+/* 导航链接区域 */
+.workbench-standard-sidebar .sidebar-nav-section {
+  padding: 8px 8px 4px;
+  border-top: 1px solid var(--glass-border);
+}
+
+.workbench-standard-sidebar .sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  margin-bottom: 2px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.workbench-standard-sidebar .sidebar-nav-item:hover {
+  background: rgba(125, 145, 180, 0.12);
+}
+
+.workbench-standard-sidebar .sidebar-nav-item.is-active {
+  background: color-mix(in srgb, var(--accent, #3b82f6) 14%, transparent);
+  color: var(--accent, #3b82f6);
+  font-weight: 500;
+}
+
+/* 侧边栏底部 */
+.workbench-standard-sidebar .sidebar-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-top: 1px solid var(--glass-border);
+}
+
+.workbench-standard-sidebar .mode-switch-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-strong);
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.workbench-standard-sidebar .mode-switch-btn:hover {
+  background: color-mix(in srgb, var(--accent, #3b82f6) 10%, var(--glass-bg-strong));
+  border-color: var(--accent, #3b82f6);
+}
+
+.workbench-standard-sidebar .sparkles-icon {
+  color: #f59e0b;
+}
+
+.workbench-standard-sidebar .theme-toggle-btn {
+  width: 30px;
+  height: 30px;
+}
+
+/* 标准工作台主视图区域 */
+.workbench-standard-main {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.standard-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 52px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  z-index: 10;
+}
+
+.standard-topbar .topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.standard-topbar .topbar-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.standard-topbar .topbar-icon-btn:hover {
+  background: rgba(125, 145, 180, 0.12);
+  color: var(--text-primary);
+}
+
+.standard-topbar .session-active-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.standard-topbar .topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.standard-topbar .topbar-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-strong);
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.standard-topbar .topbar-mode-badge:hover {
+  border-color: var(--accent, #3b82f6);
+  color: var(--accent, #3b82f6);
+}
+
+.standard-topbar .floating-top-actions {
+  position: static;
+}
+
+/* 居中对话主容器 */
+.standard-chat-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 16px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.standard-chat-container .conversation-console {
+  flex: 1;
+  min-height: 0;
+}
+
+.standard-composer-wrap {
+  flex: none;
+  padding-bottom: 16px;
+}
+
+/* 标准模式下的轻量桌宠挂件（非阻塞） */
+.standard-mini-pet-avatar {
+  position: absolute;
+  right: 24px;
+  bottom: 84px;
+  width: 120px;
+  height: 160px;
+  pointer-events: none;
+  z-index: 15;
+  opacity: 0.88;
+  transition: opacity 0.2s ease;
+}
+
+.standard-mini-pet-avatar:hover {
+  opacity: 1;
+}
+
+/* 任务中心抽屉 */
+.task-center-dialog .el-dialog__body {
+  padding: 16px 24px 24px;
+}
+
+.task-center-intro {
+  margin: 0 0 18px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.task-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 640px) {
+  .task-card-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.task-summary-card {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-strong);
+}
+
+.task-summary-card .task-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.task-summary-card .task-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  flex: none;
+}
+
+.task-summary-card .task-card-icon.study-icon {
+  background: rgba(59, 130, 246, 0.12);
+  color: #3b82f6;
+}
+
+.task-summary-card .task-card-icon.diary-icon {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+}
+
+.task-summary-card .task-card-icon.timer-icon {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+}
+
+.task-summary-card .task-card-icon.proactive-icon {
+  background: rgba(139, 92, 246, 0.12);
+  color: #8b5cf6;
+}
+
+.task-summary-card .task-card-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-summary-card .task-card-meta h4 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.task-summary-card .task-status-tag {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(125, 145, 180, 0.12);
+  color: var(--text-muted);
+}
+
+.task-summary-card .task-status-tag.tag-active {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+  font-weight: 500;
+}
+
+.task-summary-card .task-status-tag.tag-success {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.task-summary-card .task-status-tag.tag-running {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  font-weight: 500;
+}
+
+.task-summary-card .task-card-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0 0 14px;
+  flex: 1;
+}
+
+.task-summary-card .task-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-summary-card .task-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  font-size: 12px;
+  color: var(--accent, #3b82f6);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.task-summary-card .task-link-btn:hover {
+  background: color-mix(in srgb, var(--accent, #3b82f6) 12%, transparent);
+}
+
+.task-summary-card .task-sub-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.task-summary-card .task-sub-btn:hover {
+  color: var(--text-primary);
+}
+
+.task-system-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(125, 145, 180, 0.08);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.task-system-status .status-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-system-status .text-success {
+  color: #10b981;
+}
+

@@ -100,7 +100,7 @@ POSIX 权限目标为目录 `0700`、数据库/状态清单/token `0600`；Windo
 | Diary | diary_schedules/revisions、diary_cycles、diary_run_attempts | diaries/versions/paragraph_sources、material_buffer |
 | Content | attachments、content_parse_results、provenance | OCR、全文与向量派生索引 |
 | Plugin/Persona | plugins、plugin_grants、personas/revisions、skills、MCP | plugin_config/secrets/pages、persona_turn_contexts |
-| Platform | consent_grants、audit_records、deletion_requests、outbox_events | model_runs、context_manifests、notifications |
+| Platform | consent_grants、audit_records、deletion_requests、outbox_events | model_runs、context_manifests、notifications、llm_health_snapshots、llm_routing_events |
 | Proactive | profile revisions、device/source grants、activation leases、perception events | captures、observations、claims、actions、SituationModel snapshots、consumer cursors、attention budgets/feedback/receipts |
 
 `User` 仅表示本地用户档案，不是共享数据库认证主体。`actorId` 表示用户动作、插件、连接器或系统任务，
@@ -155,6 +155,14 @@ F0/F1 存储底座，不改变 CR-032 生产读写路径。其 Repository 必须
 - 态势水印清理只删除目标水位之前的快照，重建时快照正文、水印、checksum 和行级字段同步推进；
 - 预算反馈先写幂等账本，再与预算 CAS 更新在同一事务提交；插件预算与全局预算均通过才允许派发；
 - F0/F1 表允许兼容新增，不允许仅因关闭 Feature Flag 而删表；后续运行时接线、迁移和退役旧管线必须由子 CR 批准。
+
+### 6.2 CR-034 / CR-042 本地模型路由与健康探测基础设施
+
+[CR-034](changes/CR-034-local-model-fallback-ladder.md) 与 [CR-042](changes/CR-042-local-model-routing-and-fallback.md) 引入本地模型三层降级（L0 / L1 / L2）与健康探测审计存储。其 Repository `IModelRoutingRepository` 遵循以下原则：
+
+- `llm_health_snapshots` 记录端点探活快照，以 `presetId` 为主键，覆盖延迟、错误类别与时间戳；
+- `llm_routing_events` 记录每次降级与切回事件，保留会话 ID、起止层级、预设、决策原因与元数据，支持按会话或时间倒序审计排查；
+- 写入均通过写者连接完成，与对话回合执行解耦异步排入或事务随行，不阻塞主对话流。
 
 ## 7. FTS、向量与递归查询
 

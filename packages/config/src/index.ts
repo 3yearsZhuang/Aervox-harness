@@ -115,6 +115,51 @@ export function loadProactiveFeatureFlags(env: NodeJS.ProcessEnv = process.env):
   return enabled;
 }
 
+/**
+ * CR-034 F0 阻断项：本地模型降级阶梯子片独立 Feature Flag。
+ *
+ * 每个子 CR 拥有独立开关，可单独回退到 CR-015/029 既有激活配置行为：
+ * - model_routing:      N1 降级决策器、健康探测与 L0/L1 路由切换
+ * - capability_tiering: N2a 能力分级与服务端工具策略
+ * - rule_response:      N2b 对话侧 L2 规则回应
+ * - local_runtime_host: N3 本地运行时生命周期托管（默认关闭）
+ * 环境变量：AERVOX_MODEL_ROUTING 等（默认 off = fail-closed 保留既有行为）。
+ */
+export type ModelRoutingFeatureFlag =
+  | "model_routing"
+  | "capability_tiering"
+  | "rule_response"
+  | "local_runtime_host";
+
+export const MODEL_ROUTING_FEATURE_FLAGS: readonly ModelRoutingFeatureFlag[] = [
+  "model_routing",
+  "capability_tiering",
+  "rule_response",
+  "local_runtime_host",
+] as const;
+
+const MODEL_ROUTING_FLAG_ENV: Record<ModelRoutingFeatureFlag, string> = {
+  model_routing: "AERVOX_MODEL_ROUTING",
+  capability_tiering: "AERVOX_CAPABILITY_TIERING",
+  rule_response: "AERVOX_RULE_RESPONSE",
+  local_runtime_host: "AERVOX_LOCAL_RUNTIME_HOST",
+};
+
+/**
+ * 解析模型路由与降级阶梯 feature flags（可注入 env 便于测试；默认读取进程环境变量）。
+ * 任一 flag 显式置 "1"/"true" 视为开启，否则关闭（fail-closed）。
+ */
+export function loadModelRoutingFeatureFlags(
+  env: NodeJS.ProcessEnv = process.env,
+): ReadonlySet<ModelRoutingFeatureFlag> {
+  const enabled = new Set<ModelRoutingFeatureFlag>();
+  for (const flag of MODEL_ROUTING_FEATURE_FLAGS) {
+    const raw = env[MODEL_ROUTING_FLAG_ENV[flag]]?.trim().toLowerCase();
+    if (raw === "1" || raw === "true") enabled.add(flag);
+  }
+  return enabled;
+}
+
 /** @aervox/api 启动与运行时配置 */
 export interface ApiConfig {
   /** HTTP 监听端口（PORT，默认 3000） */
@@ -139,6 +184,8 @@ export interface ApiConfig {
   asr: AsrConfig;
   /** CR-033 API 侧事件双写等切片开关。 */
   proactiveFeatureFlags: ReadonlySet<ProactiveFeatureFlag>;
+  /** CR-034 模型路由与降级阶梯开关。 */
+  modelRoutingFeatureFlags: ReadonlySet<ModelRoutingFeatureFlag>;
 }
 
 /** @aervox/worker 运行时配置 */
@@ -157,6 +204,8 @@ export interface WorkerConfig {
   intervalOverrides: Record<string, number>;
   /** CR-033 主动智能演进子片 feature flags（默认全关，保留既有行为） */
   proactiveFeatureFlags: ReadonlySet<ProactiveFeatureFlag>;
+  /** CR-034 模型路由与降级阶梯开关。 */
+  modelRoutingFeatureFlags: ReadonlySet<ModelRoutingFeatureFlag>;
 }
 
 /** 拆分逗号/冒号分隔白名单（去空） */
@@ -243,6 +292,7 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
       whisperModelId: env.WHISPER_MODEL_ID?.trim() || "whisper-1",
     },
     proactiveFeatureFlags: loadProactiveFeatureFlags(env),
+    modelRoutingFeatureFlags: loadModelRoutingFeatureFlags(env),
   };
 }
 
@@ -280,5 +330,6 @@ export function loadWorkerConfig(env: NodeJS.ProcessEnv = process.env): WorkerCo
     ),
     intervalOverrides,
     proactiveFeatureFlags: loadProactiveFeatureFlags(env),
+    modelRoutingFeatureFlags: loadModelRoutingFeatureFlags(env),
   };
 }

@@ -4,17 +4,20 @@ import type { Platform } from '../composables/useWorkbenchLayout';
 import PetHero from './PetHero.vue';
 import { createWorkbenchPluginRuntime } from '../plugins';
 import WorkbenchHeader from './workbench/WorkbenchHeader.vue';
+import WorkbenchSidebar from './workbench/WorkbenchSidebar.vue';
 import PomodoroToast from './workbench/PomodoroToast.vue';
 import ProactiveToast from './workbench/ProactiveToast.vue';
 import WorkbenchNavPill from './workbench/WorkbenchNavPill.vue';
 import WorkbenchSideCards from './workbench/WorkbenchSideCards.vue';
 import ConversationConsole from './workbench/ConversationConsole.vue';
 import ComposerDock from './workbench/ComposerDock.vue';
+import { PanelLeft, Sparkles } from 'lucide-vue-next';
 
 const Live2DPet = defineAsyncComponent(() => import('./Live2DPet.vue'));
 const ToolsDrawer = defineAsyncComponent(() => import('./workbench/drawers/ToolsDrawer.vue'));
 const LearningDrawer = defineAsyncComponent(() => import('./workbench/drawers/LearningDrawer.vue'));
 const HistoryDrawer = defineAsyncComponent(() => import('./workbench/drawers/HistoryDrawer.vue'));
+const TaskCenterDrawer = defineAsyncComponent(() => import('./workbench/drawers/TaskCenterDrawer.vue'));
 const SettingsModal = defineAsyncComponent(() => import('./workbench/drawers/SettingsModal.vue'));
 
 import { useWorkbenchLayout } from '../composables/useWorkbenchLayout';
@@ -25,7 +28,7 @@ import { useWorkbenchCards, todayLocalDate, type CardId } from '../composables/u
 import { useWorkbenchProactive, proactiveBridge } from '../composables/useWorkbenchProactive';
 import { provideWorkbenchContext } from '../composables/workbench-context';
 import { useUIRegistry, provideUIRegistry } from '../registry/ui-registry';
-import { streamAervoxTurn, useAervoxPlugins } from '@aervox/api-client';
+import { streamAervoxTurn, useAervoxPlugins, useAervoxSessions } from '@aervox/api-client';
 import type { TurnAttachmentRef } from '@aervox/contracts';
 import { MizukiExpression } from '../live2d/model';
 import { petReact, petReactKind } from '../live2d/petReactions';
@@ -116,15 +119,26 @@ const cards = useWorkbenchCards({
   recordActivity: proactive.recordProactiveActivity,
 });
 
+// 7. Sessions Composable (CR-035 / W1)
+const sessions = useAervoxSessions();
+
+watch(() => sessions.activeSessionId.value, (newId, oldId) => {
+  if (newId && oldId && newId !== oldId && !conversation.streaming.value) {
+    conversation.resetStory();
+  }
+});
+
 // 抽屉与弹窗组件懒挂载守卫（首次打开时才挂载对应异步组件实例，消除首屏初始加载开销）
 const toolsMounted = ref(false);
 const learningMounted = ref(false);
 const historyMounted = ref(false);
+const taskCenterMounted = ref(false);
 const settingsMounted = ref(false);
 
 watch(() => layout.toolsOpen.value, (open) => { if (open) toolsMounted.value = true; }, { immediate: true });
 watch(() => layout.learningOpen.value, (open) => { if (open) learningMounted.value = true; }, { immediate: true });
 watch(() => layout.historyOpen.value, (open) => { if (open) historyMounted.value = true; }, { immediate: true });
+watch(() => layout.taskCenterOpen.value, (open) => { if (open) taskCenterMounted.value = true; }, { immediate: true });
 watch(() => layout.settingsOpen.value, (open) => { if (open) settingsMounted.value = true; }, { immediate: true });
 
 let isSendingMessage = false;
@@ -253,6 +267,7 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
         toolApprovalMode: conversation.toolApprovalMode.value,
         attachments: attachmentRefs.length > 0 ? attachmentRefs : undefined,
         metadata: turnMetadata,
+        sessionId: sessions.activeSessionId.value,
       },
     );
   } catch (error) {
@@ -282,6 +297,7 @@ const workbenchContext = {
   cards,
   proactive,
   registry,
+  sessions,
   get pluginRuntime() {
     return pluginRuntime;
   },
@@ -400,17 +416,30 @@ onMounted(() => {
     }
   })();
 
+  void sessions.fetchSessions();
   void conversation.scrollStoryToBottom();
 
+  document.addEventListener('keydown', handleGlobalKeydown);
   document.addEventListener('click', layout.handleMenuDocumentClick);
   document.addEventListener('keydown', layout.handleHistoryEscape);
 });
 
+function handleGlobalKeydown(e: KeyboardEvent) {
+  const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+  if (isCmdOrCtrl && (e.key === 'n' || e.key === 'N')) {
+    e.preventDefault();
+    void sessions.createNewSession('新对话');
+  } else if (isCmdOrCtrl && e.key === '/') {
+    e.preventDefault();
+    layout.toggleStandardSidebar();
+  }
+}
+
 onUnmounted(() => {
   pluginRuntime?.destroy();
   document.removeEventListener('click', layout.handleMenuDocumentClick);
-
   document.removeEventListener('keydown', layout.handleHistoryEscape);
+  document.removeEventListener('keydown', handleGlobalKeydown);
   window.removeEventListener('aervox:open-settings', layout.openSettings);
   removeProactiveStatusListener?.();
   composer.clearPendingAttachments();
@@ -420,49 +449,124 @@ onUnmounted(() => {
 <template>
   <section
     class="aervox-workbench"
-    :class="[`is-${platform}`, { 'has-companion': layout.showCompanionEnabled.value, 'is-compact': layout.compactMode.value }]"
+    :class="[
+      `is-${platform}`,
+      `mode-${layout.workbenchMode.value}`,
+      {
+        'has-companion': layout.showCompanionEnabled.value,
+        'is-compact': layout.compactMode.value,
+        'sidebar-collapsed': layout.standardSidebarCollapsed.value,
+      }
+    ]"
     :data-aervox-platform="platform"
+    :data-workbench-mode="layout.workbenchMode.value"
   >
-    <div v-if="layout.showCompanionEnabled.value" class="immersive-pet" aria-label="桌宠区域">
-      <Live2DPet>
-        <template #fallback><PetHero /></template>
-      </Live2DPet>
-    </div>
+    <!-- 标准工作台模式 (CR-035 / W1) -->
+    <template v-if="layout.workbenchMode.value === 'standard'">
+      <WorkbenchSidebar />
 
-    <WorkbenchHeader />
-    <PomodoroToast />
-    <ProactiveToast />
-    <WorkbenchNavPill />
-    <WorkbenchSideCards />
+      <main class="workbench-standard-main">
+        <header class="standard-topbar">
+          <div class="topbar-left">
+            <button
+              v-if="layout.standardSidebarCollapsed.value"
+              type="button"
+              class="topbar-icon-btn"
+              title="展开侧边栏 (⌘/)"
+              aria-label="展开侧边栏"
+              @click="layout.toggleStandardSidebar()"
+            >
+              <PanelLeft :size="18" />
+            </button>
+            <h2 class="session-active-title">{{ sessions.activeSession.value?.title || '新对话' }}</h2>
+          </div>
 
-    <div class="immersive-console">
-      <ConversationConsole />
-      <component
-        :is="resolvedComposerComponent"
-        :input="composer.input.value"
-        :streaming="conversation.streaming.value"
-        :is-composing="composer.isComposing.value"
-        :enter-to-send="layout.enterToSend.value"
-        :placeholder="composer.composerPlaceholder"
-        :on-send="sendMessage"
-        :on-voice-trigger="composer.toggleVoiceInput"
-        :on-attachment-picker="composer.triggerAttachmentPicker"
-        @update:input="handleComposerInputUpdate"
-        @send="sendMessage"
-        @voice-trigger="composer.toggleVoiceInput"
-        @attachment-picker="composer.triggerAttachmentPicker"
-      />
-    </div>
+          <div class="topbar-right">
+            <button
+              type="button"
+              class="topbar-mode-badge"
+              title="切换至桌宠陪伴模式"
+              @click="layout.switchWorkbenchMode('companion')"
+            >
+              <Sparkles :size="14" />
+              <span>切换桌宠模式</span>
+            </button>
+            <WorkbenchHeader />
+          </div>
+        </header>
+
+        <div class="standard-chat-container">
+          <ConversationConsole />
+          <div class="standard-composer-wrap">
+            <component
+              :is="resolvedComposerComponent"
+              :input="composer.input.value"
+              :streaming="conversation.streaming.value"
+              :is-composing="composer.isComposing.value"
+              :enter-to-send="layout.enterToSend.value"
+              :placeholder="composer.composerPlaceholder"
+              :on-send="sendMessage"
+              :on-voice-trigger="composer.toggleVoiceInput"
+              :on-attachment-picker="composer.triggerAttachmentPicker"
+              @update:input="handleComposerInputUpdate"
+              @send="sendMessage"
+              @voice-trigger="composer.toggleVoiceInput"
+              @attachment-picker="composer.triggerAttachmentPicker"
+            />
+          </div>
+        </div>
+
+        <div v-if="layout.showCompanionEnabled.value" class="standard-mini-pet-avatar" aria-label="桌宠挂件">
+          <Live2DPet>
+            <template #fallback><PetHero /></template>
+          </Live2DPet>
+        </div>
+      </main>
+    </template>
+
+    <!-- 桌宠陪伴模式 (经典沉浸式双形态) -->
+    <template v-else>
+      <div v-if="layout.showCompanionEnabled.value" class="immersive-pet" aria-label="桌宠区域">
+        <Live2DPet>
+          <template #fallback><PetHero /></template>
+        </Live2DPet>
+      </div>
+
+      <WorkbenchHeader />
+      <PomodoroToast />
+      <ProactiveToast />
+      <WorkbenchNavPill />
+      <WorkbenchSideCards />
+
+      <div class="immersive-console">
+        <ConversationConsole />
+        <component
+          :is="resolvedComposerComponent"
+          :input="composer.input.value"
+          :streaming="conversation.streaming.value"
+          :is-composing="composer.isComposing.value"
+          :enter-to-send="layout.enterToSend.value"
+          :placeholder="composer.composerPlaceholder"
+          :on-send="sendMessage"
+          :on-voice-trigger="composer.toggleVoiceInput"
+          :on-attachment-picker="composer.triggerAttachmentPicker"
+          @update:input="handleComposerInputUpdate"
+          @send="sendMessage"
+          @voice-trigger="composer.toggleVoiceInput"
+          @attachment-picker="composer.triggerAttachmentPicker"
+        />
+      </div>
+    </template>
 
     <ToolsDrawer v-if="toolsMounted" />
     <LearningDrawer v-if="learningMounted" />
     <HistoryDrawer v-if="historyMounted" />
+    <TaskCenterDrawer v-if="taskCenterMounted" />
     <SettingsModal
       v-if="settingsMounted"
       :show-companion="showCompanion"
       @replay-onboarding="emit('replay-onboarding')"
       @open-intro-deck="emit('open-intro-deck')"
     />
-
   </section>
 </template>
