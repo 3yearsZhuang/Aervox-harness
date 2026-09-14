@@ -32,48 +32,52 @@ export const dslLogicOpSchema = z.enum(["and", "or", "not"]);
 /** 算术运算（两元）。 */
 export const dslArithmeticOpSchema = z.enum(["add", "sub", "mul", "div"]);
 
-/** 时间窗函数：以分钟为单位的有界窗口判断（输入为投影字段值 + 窗口参数）。 */
+/** 时间窗函数：投影时间字段距当前时刻与窗口分钟数比较。 */
 export const dslTimeWindowSchema = z.object({
   op: z.literal("time_window"),
   field: z.string().min(1),
   /** 窗口分钟数（有界：1..10080 = 7 天） */
   minutes: z.number().int().min(1).max(10_080),
-  /** 窗口内阈值比较 */
-  threshold: z.number(),
   cmp: dslCompareOpSchema,
-});
+}).strict();
 
 /** 算术节点（两元；除零在求值期不命中而非抛错）。 */
 export const dslArithmeticNodeSchema = z.object({
   op: dslArithmeticOpSchema,
   left: z.lazy(() => dslExpressionSchema),
   right: z.lazy(() => dslExpressionSchema),
-});
+}).strict();
 
-/** 逻辑节点（not 仅一元；and/or 为数组）。 */
+/** 逻辑组节点（and/or 为数组）。 */
 export const dslLogicNodeSchema = z.object({
-  op: dslLogicOpSchema,
+  op: z.enum(["and", "or"]),
   operands: z.array(z.lazy(() => dslExpressionSchema)).min(1).max(8),
-});
+}).strict();
+
+/** not 节点严格一元，避免多余操作数被静默忽略。 */
+export const dslNotNodeSchema = z.object({
+  op: z.literal("not"),
+  operand: z.lazy(() => dslExpressionSchema),
+}).strict();
 
 /** 比较节点（两元）。 */
 export const dslCompareNodeSchema = z.object({
   op: dslCompareOpSchema,
   left: z.lazy(() => dslExpressionSchema),
   right: z.lazy(() => dslExpressionSchema),
-});
+}).strict();
 
 /** 字段引用：只允许引用 situation_model_v1 白名单字段（静态检查确保）。 */
 export const dslFieldRefSchema = z.object({
   op: z.literal("field_ref"),
   field: z.string().regex(/^[a-z][a-zA-Z0-9_.]*$/),
-});
+}).strict();
 
 /** 常量：数字/字符串/布尔。 */
 export const dslConstSchema = z.object({
   op: z.literal("const"),
   value: z.union([z.number(), z.string().max(DSL_DEFAULT_QUOTAS.maxStringLength), z.boolean()]),
-});
+}).strict();
 
 /** 表达式 AST（判别联合，递归）。 */
 export const dslExpressionSchema: z.ZodType<unknown> = z.lazy(() =>
@@ -82,6 +86,7 @@ export const dslExpressionSchema: z.ZodType<unknown> = z.lazy(() =>
     dslConstSchema,
     dslCompareNodeSchema,
     dslLogicNodeSchema,
+    dslNotNodeSchema,
     dslArithmeticNodeSchema,
     dslTimeWindowSchema,
   ]),
@@ -94,7 +99,7 @@ export const dslQuotasSchema = z.object({
   maxStringLength: z.number().int().min(1).max(2048).default(DSL_DEFAULT_QUOTAS.maxStringLength),
   maxEvalMs: z.number().int().min(1).max(1000).default(DSL_DEFAULT_QUOTAS.maxEvalMs),
   maxSteps: z.number().int().min(1).max(65_536).default(DSL_DEFAULT_QUOTAS.maxSteps),
-});
+}).strict();
 
 /**
  * 数据化规则声明（CR-033 §6 内置/插件规则统一为数据）。

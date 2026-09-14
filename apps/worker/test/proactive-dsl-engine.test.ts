@@ -76,7 +76,7 @@ describe("CR-033 E2a DSL 静态检查", () => {
   });
 
   it("canonical hash 对键序不敏感（规范化序列化）", () => {
-    const a = { op: "compare", left: { op: "field_ref", field: "focus.fatigueScore" }, op: "gte", right: { op: "const", value: 60 } };
+    const a = { left: { op: "field_ref", field: "focus.fatigueScore" }, op: "gte", right: { op: "const", value: 60 } };
     const b = { right: { value: 60, op: "const" }, left: { field: "focus.fatigueScore", op: "field_ref" }, op: "gte" };
     expect(canonicalDslHash(a)).toBe(canonicalDslHash(b));
   });
@@ -87,15 +87,15 @@ describe("CR-033 E2a DSL 运行期求值", () => {
     const expr = {
       op: "and",
       operands: [
-        { op: "compare", left: { op: "field_ref", field: "focus.focusScore" }, op: "lt", right: { op: "const", value: 50 } },
-        { op: "compare", left: { op: "field_ref", field: "drifts.count" }, op: "gte", right: { op: "const", value: 1 } },
+        { left: { op: "field_ref", field: "focus.focusScore" }, op: "lt", right: { op: "const", value: 50 } },
+        { left: { op: "field_ref", field: "drifts.count" }, op: "gte", right: { op: "const", value: 1 } },
       ],
     };
     expect(evaluateDslExpression(expr as never, snapshot).hit).toBe(true);
   });
 
   it("未命中：专注不低", () => {
-    const expr = { op: "compare", left: { op: "field_ref", field: "focus.focusScore" }, op: "lt", right: { op: "const", value: 30 } };
+    const expr = { left: { op: "field_ref", field: "focus.focusScore" }, op: "lt", right: { op: "const", value: 30 } };
     expect(evaluateDslExpression(expr as never, snapshot).hit).toBe(false);
   });
 
@@ -115,7 +115,7 @@ describe("CR-033 E2a DSL 运行期求值", () => {
   it("步骤耗尽不命中（资源耗尽 fail-closed）", () => {
     let expr: unknown = { op: "const", value: true };
     for (let index = 0; index < 5; index += 1) {
-      expr = { op: "not", operands: [expr] };
+      expr = { op: "not", operand: expr };
     }
     const result = evaluateDslExpression(expr as never, snapshot, { ...{ maxDepth: 64, maxNodes: 512, maxStringLength: 2048, maxEvalMs: 1000 }, maxSteps: 2 });
     expect(result.hit).toBe(false);
@@ -127,8 +127,20 @@ describe("CR-033 E2a DSL 运行期求值", () => {
       ...snapshot,
       presence: { state: "active", since: new Date(now - 30 * 60_000).toISOString(), lastHeartbeatAt: new Date(now).toISOString() },
     };
-    const expr = { op: "time_window", field: "presence.since", minutes: 60, threshold: 60, cmp: "lte" };
+    const expr = { op: "time_window", field: "presence.since", minutes: 60, cmp: "lte" };
     expect(evaluateDslExpression(expr as never, recentSnapshot).hit).toBe(true);
+  });
+
+  it("not 多操作数与时间窗未知字段均 fail-closed", () => {
+    expect(staticCheckDsl({ op: "not", operands: [{ op: "const", value: true }] } as never).ok)
+      .toBe(false);
+    expect(staticCheckDsl({
+      op: "time_window",
+      field: "presence.since",
+      minutes: 60,
+      threshold: 60,
+      cmp: "lte",
+    } as never).ok).toBe(false);
   });
 
   it("算术表达式求值", () => {

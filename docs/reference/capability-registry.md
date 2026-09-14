@@ -72,9 +72,9 @@ review_interval_days: 90
 CAP-033 与 `CAP-002/005/007/008/009/010/012/013/018/020/022/023/024/026/027/030/034/035` 关联；这些能力仍按各自状态和交付载体维护，CAP-033 不会把它们自动转为可选或已交付。
 
 > [!NOTE] CAP-033 状态统一声明（F0 阻断项，2026-09-14）
-> CAP-033 当前追踪状态为 `Specified`（见 [REQUIREMENTS_TRACEABILITY.md](../REQUIREMENTS_TRACEABILITY.md)），
-> 与其决策依据 [ADR-018](../adr/ADR-018-proactive-local-privacy-host.md) 的 `accepted / planned` 语义对齐——
-> **ADR 决策已接受、交付未开始**，因此 CAP-033 不得声称 `Ready`。
+> CAP-033 当前追踪状态为 `Specified`（见 [REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)），
+> 与其决策依据 [ADR-018](adr/ADR-018-proactive-local-privacy-host.md) 的 `accepted / planned` 语义对齐——
+> **ADR 决策已接受、仅有默认关闭的基础设施，生产交付尚未启用**，因此 CAP-033 不得声称 `Ready`。
 > 在 signed Privacy Host、OS Permission Broker、本地出网证明、撤权删除和恢复证据闭合前，
 > CAP-033 一律维持 `Specified`（非 `Ready`）。
 

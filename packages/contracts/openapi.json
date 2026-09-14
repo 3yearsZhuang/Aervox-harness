@@ -6905,7 +6905,8 @@
               "lastEventSequence",
               "sourceEpochs",
               "rebuiltAt"
-            ]
+            ],
+            "additionalProperties": false
           },
           "presence": {
             "type": "object",
@@ -6935,7 +6936,8 @@
               "state",
               "since",
               "lastHeartbeatAt"
-            ]
+            ],
+            "additionalProperties": false
           },
           "focus": {
             "type": [
@@ -6975,7 +6977,8 @@
               "focusScore",
               "fatigueScore",
               "recommendation"
-            ]
+            ],
+            "additionalProperties": false
           },
           "commitments": {
             "type": "array",
@@ -7007,7 +7010,8 @@
                 "content",
                 "status",
                 "dueAt"
-              ]
+              ],
+              "additionalProperties": false
             },
             "maxItems": 64
           },
@@ -7034,7 +7038,8 @@
                 "signalType",
                 "severity",
                 "detectedAt"
-              ]
+              ],
+              "additionalProperties": false
             },
             "maxItems": 32
           },
@@ -7062,7 +7067,8 @@
                 "sceneType",
                 "applicationId",
                 "capturedAt"
-              ]
+              ],
+              "additionalProperties": false
             },
             "maxItems": 8
           },
@@ -7096,7 +7102,8 @@
                 "provider",
                 "state",
                 "lastSyncAt"
-              ]
+              ],
+              "additionalProperties": false
             },
             "maxItems": 16
           },
@@ -7146,7 +7153,8 @@
               "required": [
                 "sourceKey",
                 "observedAt"
-              ]
+              ],
+              "additionalProperties": false
             }
           },
           "redaction": {
@@ -7171,7 +7179,8 @@
             "required": [
               "level",
               "policyVersion"
-            ]
+            ],
+            "additionalProperties": false
           },
           "freshnessMs": {
             "type": "integer",
@@ -7298,7 +7307,8 @@
                   "external"
                 ]
               }
-            }
+            },
+            "additionalProperties": false
           }
         },
         "required": [
@@ -7333,6 +7343,11 @@
           "personaId": {
             "type": "string",
             "minLength": 1
+          },
+          "personaSystemPrompt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32768
           },
           "allowedSkills": {
             "type": "array",
@@ -7440,6 +7455,7 @@
           "version",
           "personaRevisionId",
           "personaId",
+          "personaSystemPrompt",
           "safety",
           "localOnly"
         ],
@@ -7587,7 +7603,8 @@
                 "maximum": 65536,
                 "default": 4096
               }
-            }
+            },
+            "additionalProperties": false
           },
           "hash": {
             "type": "string",
@@ -7622,7 +7639,8 @@
             "required": [
               "op",
               "field"
-            ]
+            ],
+            "additionalProperties": false
           },
           {
             "type": "object",
@@ -7651,7 +7669,8 @@
             "required": [
               "op",
               "value"
-            ]
+            ],
+            "additionalProperties": false
           },
           {
             "type": "object",
@@ -7678,7 +7697,8 @@
               "op",
               "left",
               "right"
-            ]
+            ],
+            "additionalProperties": false
           },
           {
             "type": "object",
@@ -7687,8 +7707,7 @@
                 "type": "string",
                 "enum": [
                   "and",
-                  "or",
-                  "not"
+                  "or"
                 ]
               },
               "operands": {
@@ -7703,7 +7722,27 @@
             "required": [
               "op",
               "operands"
-            ]
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "not"
+                ]
+              },
+              "operand": {
+                "$ref": "#/components/schemas/DslExpression"
+              }
+            },
+            "required": [
+              "op",
+              "operand"
+            ],
+            "additionalProperties": false
           },
           {
             "type": "object",
@@ -7728,7 +7767,8 @@
               "op",
               "left",
               "right"
-            ]
+            ],
+            "additionalProperties": false
           },
           {
             "type": "object",
@@ -7748,9 +7788,6 @@
                 "minimum": 1,
                 "maximum": 10080
               },
-              "threshold": {
-                "type": "number"
-              },
               "cmp": {
                 "type": "string",
                 "enum": [
@@ -7767,9 +7804,9 @@
               "op",
               "field",
               "minutes",
-              "threshold",
               "cmp"
-            ]
+            ],
+            "additionalProperties": false
           }
         ]
       },
@@ -7806,7 +7843,8 @@
             "maximum": 65536,
             "default": 4096
           }
-        }
+        },
+        "additionalProperties": false
       },
       "ProactiveBudgetState": {
         "type": "object",
@@ -7940,6 +7978,7 @@
             "type": "string",
             "enum": [
               "dispatch",
+              "suppressed_static",
               "suppressed_budget",
               "advisory_only"
             ]

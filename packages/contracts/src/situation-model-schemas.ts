@@ -23,14 +23,14 @@ export const situationModelWatermarkSchema = z.object({
   lastEventSequence: z.number().int().nonnegative(),
   sourceEpochs: z.record(z.string(), z.string().min(1)),
   rebuiltAt: z.string().datetime(),
-});
+}).strict();
 
 /** 在场状态：连续活跃事件边沿聚合后的区间事实（保留 start/end/heartbeat 语义）。 */
 export const situationPresenceSchema = z.object({
   state: z.enum(["active", "idle", "away", "unknown"]),
   since: z.string().datetime(),
   lastHeartbeatAt: z.string().datetime().nullable(),
-});
+}).strict();
 
 /** 专注/疲劳水位：与 proactive_attention_states 窗口语义同构的投影裁剪。 */
 export const situationFocusSchema = z.object({
@@ -39,7 +39,7 @@ export const situationFocusSchema = z.object({
   focusScore: z.number().int().min(0).max(100),
   fatigueScore: z.number().int().min(0).max(100),
   recommendation: z.string().max(SITUATION_MODEL_MAX_RECORD_BYTES).nullable(),
-});
+}).strict();
 
 /** 近期承诺：仅投影获准字段，原始承诺内容仍以 vault 各表为真源。 */
 export const situationCommitmentSchema = z.object({
@@ -47,21 +47,21 @@ export const situationCommitmentSchema = z.object({
   content: z.string().max(SITUATION_MODEL_MAX_RECORD_BYTES),
   status: z.string().min(1),
   dueAt: z.string().datetime().nullable(),
-});
+}).strict();
 
 /** 漂移概况：只投影 severity 与信号类型，不携带完整 expected/actual 载荷。 */
 export const situationDriftSchema = z.object({
   signalType: z.string().min(1),
   severity: z.number().int().min(0).max(100),
   detectedAt: z.string().datetime(),
-});
+}).strict();
 
 /** 当前场景：投影窗口场景快照摘要（含应用标识，不含 payload 原文）。 */
 export const situationSceneSchema = z.object({
   sceneType: z.string().min(1),
   applicationId: z.string().nullable(),
   capturedAt: z.string().datetime(),
-});
+}).strict();
 
 /** 外部连接状态：只投影 state 与最近同步时间，凭据/设置永不入投影。 */
 export const situationConnectionStateSchema = z.object({
@@ -69,7 +69,7 @@ export const situationConnectionStateSchema = z.object({
   provider: z.string().min(1),
   state: z.string().min(1),
   lastSyncAt: z.string().datetime().nullable(),
-});
+}).strict();
 
 /** 字段级 provenance：投影字段的来源源键与捕获时间。 */
 export const situationProvenanceSchema = z.object({
@@ -77,14 +77,14 @@ export const situationProvenanceSchema = z.object({
   observedAt: z.string().datetime(),
   captureId: z.string().min(1).optional(),
   derivation: z.string().min(1).optional(),
-});
+}).strict();
 
 /** redaction 策略：敏感字段在投影中的呈现方式。 */
 export const situationRedactionSchema = z.object({
   level: z.enum(["none", "redacted", "omitted"]),
   policyVersion: z.string().min(1),
   reason: z.string().optional(),
-});
+}).strict();
 
 /**
  * situation_model_v1 只读态势投影。
@@ -150,6 +150,7 @@ export const perceptionEventEnvelopeSchema = z
         parentEventIds: z.array(z.string().min(1)).max(16).default([]),
         causeType: z.enum(["edge", "interval", "derived", "external"]).optional(),
       })
+      .strict()
       .optional(),
   })
   .strict();

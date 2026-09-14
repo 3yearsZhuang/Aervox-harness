@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.1.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 0.1.1
+updated_at: 2026-09-14
+reviewed_at: 2026-09-14
 review_interval_days: 90
 review_triggers:
   - docs/**
@@ -24,7 +24,7 @@ sources:
 # 文档治理与事实源规范
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-14
 
 关联：[文档索引](../README.md)、[文档写作规范](standards/doc-standards.md)、[生命周期登记表](../DOC_REGISTRY.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)、[工程与发布流程](../how-to/engineering-process.md)
 
@@ -149,6 +149,8 @@ sources:
 | Worker、部署、备份或恢复变化 | 架构、operations、威胁模型、数据隐私 | 更新 SLO、演练项和恢复证据 |
 
 文档核验日期和代码提交日期是两个概念：`updated_at` 记录内容变更，`reviewed_at` 记录责任人确认内容仍与事实源一致。没有内容变化但完成核验时只更新 `reviewed_at`。
+
+`mise tasks run docs-triggers` 使用 Git porcelain v1 的 NUL 分隔输出识别当前工作区变动，必须保留路径首字符、空格以及重命名/复制操作的新旧路径。解析行为由 `scripts/docs-governance.test.mjs` 回归测试保护，并纳入 `mise tasks run ci-docs`；触发器输出是复核清单，不自动修改被命中的文档。
 
 ## 6. 索引、登记和生成视图
 

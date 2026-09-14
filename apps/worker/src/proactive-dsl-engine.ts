@@ -11,6 +11,9 @@ import { createHash } from "node:crypto";
 import {
   isSituationDslField,
   normalizeDslAst,
+  dslExpressionSchema,
+  dslQuotasSchema,
+  situationModelV1Schema,
   DSL_DEFAULT_QUOTAS,
   type DslExpression,
   type DslQuotas,
@@ -62,23 +65,34 @@ export function staticCheckDsl(
   expression: DslExpression,
   quotas: DslQuotas = DSL_DEFAULT_QUOTAS,
 ): DslStaticCheckResult {
-  const {nodes, depth} = countAst(expression);
-  if (nodes > quotas.maxNodes || nodes > MAX_NODES) {
-    return {ok: false, reason: `node count ${nodes} exceeds quota ${quotas.maxNodes}`, nodeCount: nodes, depth};
+  const parsedExpression = dslExpressionSchema.safeParse(expression);
+  if (!parsedExpression.success) {
+    return {ok: false, reason: "expression schema validation failed", nodeCount: 0, depth: 0};
   }
-  if (depth > quotas.maxDepth || depth > MAX_DEPTH) {
-    return {ok: false, reason: `depth ${depth} exceeds quota ${quotas.maxDepth}`, nodeCount: nodes, depth};
+  const parsedQuotas = dslQuotasSchema.safeParse(quotas);
+  if (!parsedQuotas.success) {
+    return {ok: false, reason: "quota schema validation failed", nodeCount: 0, depth: 0};
+  }
+  const checkedQuotas = parsedQuotas.data;
+  const checkedExpression = parsedExpression.data;
+  const {nodes, depth} = countAst(checkedExpression);
+  if (nodes > checkedQuotas.maxNodes || nodes > MAX_NODES) {
+    return {ok: false, reason: `node count ${nodes} exceeds quota ${checkedQuotas.maxNodes}`, nodeCount: nodes, depth};
+  }
+  if (depth > checkedQuotas.maxDepth || depth > MAX_DEPTH) {
+    return {ok: false, reason: `depth ${depth} exceeds quota ${checkedQuotas.maxDepth}`, nodeCount: nodes, depth};
   }
   // 字段白名单遍历：所有 field_ref 必须是投影白名单字段
-  const fieldViolation = findUnknownField(expression);
+  const fieldViolation = findUnknownField(checkedExpression);
   if (fieldViolation) {
     return {ok: false, reason: `unknown field: ${fieldViolation}`, nodeCount: nodes, depth};
   }
-  const strViolation = findOversizedString(expression, quotas.maxStringLength);
+  const maxStringLength = Math.min(checkedQuotas.maxStringLength, DSL_DEFAULT_QUOTAS.maxStringLength);
+  const strViolation = findOversizedString(checkedExpression, maxStringLength);
   if (strViolation) {
-    return {ok: false, reason: `string exceeds max length ${quotas.maxStringLength}`, nodeCount: nodes, depth};
+    return {ok: false, reason: `string exceeds max length ${maxStringLength}`, nodeCount: nodes, depth};
   }
-  return {ok: true, nodeCount: nodes, depth, hash: canonicalDslHash(expression)};
+  return {ok: true, nodeCount: nodes, depth, hash: canonicalDslHash(checkedExpression)};
 }
 
 function findUnknownField(node: unknown): string | null {
@@ -139,10 +153,16 @@ export function evaluateDslExpression(
   snapshot: SituationModelV1,
   quotas: DslQuotas = DSL_DEFAULT_QUOTAS,
 ): DslEvalResult {
+  const parsedExpression = dslExpressionSchema.safeParse(expression);
+  const parsedSnapshot = situationModelV1Schema.safeParse(snapshot);
+  const parsedQuotas = dslQuotasSchema.safeParse(quotas);
+  if (!parsedExpression.success || !parsedSnapshot.success || !parsedQuotas.success) {
+    return {hit: false, reason: "runtime schema validation failed"};
+  }
   const startedAt = Date.now();
   let steps = 0;
-  const deadline = quotas.maxEvalMs ?? MAX_EVAL_MS;
-  const stepLimit = quotas.maxSteps ?? MAX_STEPS;
+  const deadline = Math.min(parsedQuotas.data.maxEvalMs, MAX_EVAL_MS);
+  const stepLimit = Math.min(parsedQuotas.data.maxSteps, MAX_STEPS);
 
   const interpret = (node: unknown): unknown => {
     if (++steps > stepLimit) throw new DslFailClosed("step limit exceeded");
@@ -159,7 +179,7 @@ export function evaluateDslExpression(
       }
       case "and": return (record.operands as unknown[]).every((child) => interpret(child) === true);
       case "or": return (record.operands as unknown[]).some((child) => interpret(child) === true);
-      case "not": return interpret((record.operands as unknown[])[0]) !== true;
+      case "not": return interpret(record.operand) !== true;
       case "eq": return interpret(record.left) === interpret(record.right);
       case "ne": return interpret(record.left) !== interpret(record.right);
       case "gt": return compare(record, (a, b) => a > b, interpret);
@@ -177,13 +197,13 @@ export function evaluateDslExpression(
         }
         return left / right;
       }
-      case "time_window": return evalTimeWindow(record, snapshot, startedAt);
+      case "time_window": return evalTimeWindow(record, parsedSnapshot.data, startedAt);
       default: throw new DslFailClosed(`unknown node op: ${String(op)}`);
     }
   };
 
   try {
-    return {hit: interpret(expression) === true, reason: undefined};
+    return {hit: interpret(parsedExpression.data) === true, reason: undefined};
   } catch (error) {
     return {hit: false, reason: error instanceof DslFailClosed ? error.message : "eval failed closed"};
   }
@@ -225,7 +245,7 @@ function evalTimeWindow(
   nowMs: number,
 ): boolean {
   const field = record.field as string;
-  const threshold = record.threshold as number;
+  const minutes = record.minutes as number;
   const cmp = record.cmp as string;
   const raw = resolveField(snapshot, field);
   if (raw === undefined) throw new DslFailClosed(`unknown field in time_window: ${field}`);
@@ -234,10 +254,10 @@ function evalTimeWindow(
   if (timestamp === null) throw new DslFailClosed(`time_window field not a timestamp: ${field}`);
   const diffMinutes = (nowMs - timestamp) / 60_000;
   switch (cmp) {
-    case "lt": return diffMinutes < threshold;
-    case "lte": return diffMinutes <= threshold;
-    case "gt": return diffMinutes > threshold;
-    case "gte": return diffMinutes >= threshold;
+    case "lt": return diffMinutes < minutes;
+    case "lte": return diffMinutes <= minutes;
+    case "gt": return diffMinutes > minutes;
+    case "gte": return diffMinutes >= minutes;
     default: throw new DslFailClosed(`time_window unsupported cmp: ${cmp}`);
   }
 }

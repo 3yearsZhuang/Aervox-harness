@@ -46,6 +46,7 @@ describe("CR-033 E2b arbitrateWithBudget", () => {
       budgetPolicy: { advisory: false },
     });
     expect(verdict.staticVerdict.decision).toBe("suppressed_quiet_hours");
+    expect(verdict.budgetDecision).toBe("suppressed_static");
     expect(verdict.shouldDispatch).toBe(false);
     expect(verdict.receipt.suppressionReason).toContain("quiet hours");
     expect(verdict.receipt.budgetAfter).toBe(verdict.receipt.budgetBefore);
@@ -60,6 +61,17 @@ describe("CR-033 E2b arbitrateWithBudget", () => {
     expect(verdict.shouldDispatch).toBe(false);
     expect(verdict.budgetDecision).toBe("suppressed_budget");
     expect(verdict.receipt.suppressionReason).toContain("below reserve cost");
+  });
+
+  it("全局预算不足时即使插件预算充足也必须抑制", () => {
+    const verdict = arbitrateWithBudget({
+      ...baseInput,
+      globalBudget: { ...baseInput.globalBudget, budgetUnits: 5 },
+      budgetPolicy: { advisory: false },
+    });
+    expect(verdict.shouldDispatch).toBe(false);
+    expect(verdict.budgetDecision).toBe("suppressed_budget");
+    expect(verdict.receipt.globalBudgetAfter).toBe(5);
   });
 
   it("静态放行 + 预算不足 + advisory → 放行但标记 advisory（shadow 比较）", () => {

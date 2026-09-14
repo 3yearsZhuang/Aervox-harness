@@ -470,6 +470,28 @@ export const proactiveInterventionReceipts = sqliteTable(
   }),
 );
 
+/** 预算反馈事件幂等账本：同一反馈只允许影响预算一次。 */
+export const proactiveBudgetFeedbackEvents = sqliteTable(
+  "proactive_budget_feedback_events",
+  {
+    id: text("id").primaryKey(),
+    actionId: text("action_id").notNull(),
+    scope: text("scope").notNull(),
+    pluginId: text("plugin_id"),
+    kind: text("kind").notNull(),
+    weight: integer("weight_millis").notNull(),
+    occurredAt: text("occurred_at").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    processingBoundary: text("processing_boundary").notNull().default("local_only"),
+    createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => ({
+    idempotencyIdx: uniqueIndex("proactive_budget_feedback_idempotency_idx").on(
+      table.idempotencyKey,
+    ),
+  }),
+);
+
 /**
  * CR-033 E3 本地感知事件流（追加式，跨进程真源）。
  *

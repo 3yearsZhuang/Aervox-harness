@@ -6,10 +6,15 @@
  * - 读取按 active revision、source grant、local_only 与 deny watermark 过滤；
  * - 撤权、删除、导出与重建覆盖投影及索引。
  */
-import { and, desc, eq, gte } from "drizzle-orm";
+import { and, desc, eq, gte, lt } from "drizzle-orm";
+import { createHash } from "node:crypto";
 import type { AervoxDatabase } from "../../client.js";
 import type { ProactiveVaultCipher } from "../../proactive-vault-crypto.js";
 import { proactiveSituationSnapshots } from "@aervox/schema";
+import {
+  assertSituationModelSize,
+  situationModelV1Schema,
+} from "@aervox/contracts";
 import type { LocalContext } from "../../local-context.js";
 
 function parseJson<T>(value: string | null | undefined, fallback: T): T {
@@ -85,6 +90,11 @@ export class SqliteProactiveSituationRepository {
     _tenant: LocalContext,
     input: SituationSnapshotInput,
   ): Promise<SituationSnapshot> {
+    if (input.schemaVersion !== "situation_model_v1") {
+      throw new Error(`unsupported situation schema version: ${input.schemaVersion}`);
+    }
+    const validatedSnapshot = situationModelV1Schema.parse(input.snapshot);
+    assertSituationModelSize(validatedSnapshot);
     const now = new Date().toISOString();
     const [existing] = await this.db
       .select()
@@ -96,26 +106,19 @@ export class SqliteProactiveSituationRepository {
       .limit(1);
 
     if (existing) {
-      const [updated] = await this.db
-        .update(proactiveSituationSnapshots)
-        .set({
-          snapshotJson: this.encrypt(stringify(input.snapshot), "situation", input.id) ?? "{}",
-          checksum: input.checksum,
-          origin: input.origin,
-          sourceEpochsJson: stringify(input.sourceEpochs),
-          rebuiltAt: input.rebuiltAt ?? null,
-          updatedAt: now,
-        })
-        .where(eq(proactiveSituationSnapshots.id, existing.id))
-        .returning();
-      return this.snapshotModel(updated!);
+      if (existing.checksum !== input.checksum) {
+        throw new Error(
+          `situation snapshot conflict for ${input.revisionId}@${input.lastEventSequence}`,
+        );
+      }
+      return this.snapshotModel(existing);
     }
 
     const [created] = await this.db.insert(proactiveSituationSnapshots).values({
       id: input.id,
       revisionId: input.revisionId,
       schemaVersion: input.schemaVersion,
-      snapshotJson: this.encrypt(stringify(input.snapshot), "situation", input.id) ?? "{}",
+      snapshotJson: this.encrypt(stringify(validatedSnapshot), "situation", input.id) ?? "{}",
       checksum: input.checksum,
       origin: input.origin,
       lastEventSequence: input.lastEventSequence,
@@ -166,12 +169,31 @@ export class SqliteProactiveSituationRepository {
       .limit(1);
     if (!latest) return;
 
+    const currentSnapshot = situationModelV1Schema.parse(
+      parseJson(this.decrypt(latest.snapshotJson, "situation", latest.id), {}),
+    );
+    const now = new Date().toISOString();
+    const nextSequence = Math.max(latest.lastEventSequence, lastEventSequence);
+    const rebuiltSnapshot = situationModelV1Schema.parse({
+      ...currentSnapshot,
+      watermark: {
+        ...currentSnapshot.watermark,
+        lastEventSequence: nextSequence,
+        rebuiltAt: now,
+      },
+      rebuiltAt: now,
+    });
+    const serialized = stringify(rebuiltSnapshot);
+    const checksum = createHash("sha256").update(serialized).digest("hex");
     await this.db
       .update(proactiveSituationSnapshots)
       .set({
-        lastEventSequence: Math.max(latest.lastEventSequence, lastEventSequence),
+        snapshotJson: this.encrypt(serialized, "situation", latest.id) ?? "{}",
+        checksum,
+        lastEventSequence: nextSequence,
         origin: "rebuild",
-        updatedAt: new Date().toISOString(),
+        rebuiltAt: now,
+        updatedAt: now,
       })
       .where(eq(proactiveSituationSnapshots.id, latest.id));
   }
@@ -195,7 +217,7 @@ export class SqliteProactiveSituationRepository {
       .delete(proactiveSituationSnapshots)
       .where(and(
         eq(proactiveSituationSnapshots.revisionId, revisionId),
-        gte(proactiveSituationSnapshots.lastEventSequence, lastEventSequence),
+        lt(proactiveSituationSnapshots.lastEventSequence, lastEventSequence),
       ))
       .returning({ id: proactiveSituationSnapshots.id });
     return deleted.length;

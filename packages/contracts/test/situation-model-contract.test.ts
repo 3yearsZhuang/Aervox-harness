@@ -129,6 +129,7 @@ describe("ProactiveTurnContextPort 契约（CR-033 F1 / P5）", () => {
     version: "proactive_turn_context_v1",
     personaRevisionId: "persona-rev-1",
     personaId: "persona-1",
+    personaSystemPrompt: "你是思隅，保持亲切、克制和安全。",
     allowedSkills: ["health-guard"],
     memoryReferences: [{ memoryId: "mem-1", scope: "context", policyVersion: "mem-v1" }],
     safety: { policyVersion: "safety-v1", classificationLevel: "normal" },

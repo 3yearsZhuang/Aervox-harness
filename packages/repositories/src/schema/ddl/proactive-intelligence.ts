@@ -158,6 +158,13 @@ export async function createProactiveIntelligenceTables(client: Client): Promise
         ON proactive_intervention_receipts(idempotency_key);`,
       `CREATE INDEX IF NOT EXISTS proactive_receipt_action_idx
         ON proactive_intervention_receipts(action_id);`,
+      `CREATE TABLE IF NOT EXISTS proactive_budget_feedback_events (
+        id TEXT PRIMARY KEY, action_id TEXT NOT NULL, scope TEXT NOT NULL, plugin_id TEXT,
+        kind TEXT NOT NULL, weight_millis INTEGER NOT NULL, occurred_at TEXT NOT NULL,
+        idempotency_key TEXT NOT NULL, processing_boundary TEXT NOT NULL DEFAULT 'local_only',
+        created_at TEXT NOT NULL);`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS proactive_budget_feedback_idempotency_idx
+        ON proactive_budget_feedback_events(idempotency_key);`,
       `CREATE TABLE IF NOT EXISTS perception_events (
         id TEXT PRIMARY KEY, sequence INTEGER NOT NULL, event_id TEXT NOT NULL, idempotency_key TEXT NOT NULL,
         source TEXT NOT NULL, device_id TEXT NOT NULL, activation_epoch TEXT NOT NULL, source_grant_id TEXT NOT NULL,

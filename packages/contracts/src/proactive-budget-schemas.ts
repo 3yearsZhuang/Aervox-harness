@@ -70,6 +70,7 @@ export const proactiveBudgetStateSchema = z
 /** 预算裁决决定（在静态裁决器决定之上叠加）。 */
 export const budgetDecisionSchema = z.enum([
   "dispatch",
+  "suppressed_static",
   "suppressed_budget",
   "advisory_only",
 ]);
@@ -187,15 +188,16 @@ export function applyBudgetFeedback(
     };
   }
   if (feedback.kind === "operation_rejected") {
-    return { ...state, consecutiveIgnores: 0, updatedAt: now };
+    return { ...state, updatedAt: now };
   }
   // 正向反馈：回升（权重缩放），连续忽略清零，上限回归初始值
   const refund = Math.round(policy.positiveRefund * Math.max(0, feedback.weight));
+  const restoredMaxUnits = Math.max(state.maxUnits, policy.initialUnits);
   return {
     ...state,
-    budgetUnits: Math.min(state.maxUnits, state.budgetUnits + refund),
+    budgetUnits: Math.min(restoredMaxUnits, state.budgetUnits + refund),
     consecutiveIgnores: 0,
-    maxUnits: Math.max(state.maxUnits, policy.initialUnits),
+    maxUnits: restoredMaxUnits,
     updatedAt: now,
   };
 }

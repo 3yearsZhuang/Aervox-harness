@@ -129,6 +129,15 @@ describe("CR-033 E2b 预算 repo（CAS / 幂等）", () => {
     expect(row.maxUnits).toBe(80);
   });
 
+  it("反馈幂等：重复事件只影响预算一次", async () => {
+    await repo.getOrInitBudget(tenant, "plugin", "p3", { ignoreThreshold: 1 });
+    const event = feedback("ignored", 1, "fb_idempotent");
+    const first = await repo.applyFeedback(tenant, "plugin", "p3", event, { ignoreThreshold: 1 });
+    const second = await repo.applyFeedback(tenant, "plugin", "p3", event, { ignoreThreshold: 1 });
+    expect((first as { maxUnits: number }).maxUnits).toBe(80);
+    expect((second as { maxUnits: number }).maxUnits).toBe(80);
+  });
+
   it("回执幂等：同幂等键重复写入只保留一条", async () => {
     const base = {
       id: "receipt_1",

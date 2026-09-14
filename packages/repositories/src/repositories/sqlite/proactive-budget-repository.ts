@@ -11,6 +11,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import {
   proactiveAttentionBudgets,
+  proactiveBudgetFeedbackEvents,
   proactiveInterventionReceipts,
 } from "@aervox/schema";
 import {
@@ -199,15 +200,49 @@ export class SqliteProactiveBudgetRepository {
       const state = rowToState(row);
       const next = applyBudgetFeedback(state, feedback, policy ?? DEFAULT_BUDGET_POLICY);
       const id = budgetIdOf(scope, pluginId);
-      const updated = await this.db
-        .update(proactiveAttentionBudgets)
-        .set({ ...stateToRowPatch(next), reserveVersion: sql`${proactiveAttentionBudgets.reserveVersion} + 1` })
-        .where(and(
-          eq(proactiveAttentionBudgets.id, id),
-          eq(proactiveAttentionBudgets.reserveVersion, row.reserveVersion),
-        ))
-        .returning();
-      if (updated.length > 0) return this.toRow(updated[0]!);
+      try {
+        const result = await this.db.transaction(async (tx) => {
+          const [recorded] = await tx
+            .insert(proactiveBudgetFeedbackEvents)
+            .values({
+              id: feedback.id,
+              actionId: feedback.actionId,
+              scope,
+              pluginId,
+              kind: feedback.kind,
+              weight: Math.round(feedback.weight * 1000),
+              occurredAt: feedback.occurredAt,
+              idempotencyKey: feedback.idempotencyKey,
+              createdAt: new Date().toISOString(),
+            })
+            .onConflictDoNothing()
+            .returning({ id: proactiveBudgetFeedbackEvents.id });
+          if (!recorded) {
+            const [current] = await tx
+              .select()
+              .from(proactiveAttentionBudgets)
+              .where(eq(proactiveAttentionBudgets.id, id))
+              .limit(1);
+            return current ? this.toRow(current) : null;
+          }
+          const updated = await tx
+            .update(proactiveAttentionBudgets)
+            .set({
+              ...stateToRowPatch(next),
+              reserveVersion: sql`${proactiveAttentionBudgets.reserveVersion} + 1`,
+            })
+            .where(and(
+              eq(proactiveAttentionBudgets.id, id),
+              eq(proactiveAttentionBudgets.reserveVersion, row.reserveVersion),
+            ))
+            .returning();
+          if (!updated[0]) throw new FeedbackCasConflict();
+          return this.toRow(updated[0]);
+        });
+        if (result) return result;
+      } catch (error) {
+        if (!(error instanceof FeedbackCasConflict)) throw error;
+      }
     }
     return { ok: false, budget: null, reason: "feedback cas retries exhausted" };
   }
@@ -297,3 +332,5 @@ export class SqliteProactiveBudgetRepository {
     };
   }
 }
+
+class FeedbackCasConflict extends Error {}

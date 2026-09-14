@@ -42,6 +42,13 @@ import { runProactiveIntelligenceCycle } from "./proactive-intelligence-worker.j
 
 // 集中类型化配置（WORKER_ID / WORKER_TICK_MS / WORKER_INTERVAL_<NAME>_MS；启动期校验）
 const config = loadWorkerConfig();
+if (config.proactiveFeatureFlags.size > 0) {
+  throw new Error(
+    `[config] CR-033 runtime slices are not wired in the F0/F1 foundation; refusing no-op flags: ${[
+      ...config.proactiveFeatureFlags,
+    ].join(",")}`,
+  );
+}
 const logger = createStandardLogger({
   level: config.logLevel,
   format: config.logFormat,

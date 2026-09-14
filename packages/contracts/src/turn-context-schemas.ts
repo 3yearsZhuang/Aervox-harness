@@ -44,6 +44,8 @@ export const proactiveTurnContextSchema = z
     version: z.literal(PROACTIVE_TURN_CONTEXT_VERSION),
     personaRevisionId: z.string().min(1),
     personaId: z.string().min(1),
+    /** 由对话侧人格管线按 personaRevisionId 解析出的受信系统提示词。 */
+    personaSystemPrompt: z.string().min(1).max(32_768),
     allowedSkills: z.array(z.string().min(1)).max(256).default([]),
     memoryReferences: z.array(proactiveMemoryReferenceSchema).max(64).default([]),
     safety: proactiveSafetyPolicySchema,

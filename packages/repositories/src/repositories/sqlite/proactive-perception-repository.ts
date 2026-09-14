@@ -9,7 +9,7 @@
  * - 事件流不进入普通远程数据面（local_only 强制）。
  */
 import { createHash } from "node:crypto";
-import { and, asc, eq, gt, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gt, lte, min, or, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { perceptionEvents, perceptionEventConsumers } from "@aervox/schema";
 import type { PerceptionEventEnvelope } from "@aervox/contracts";
@@ -73,18 +73,13 @@ export class SqlitePerceptionEventRepository {
       return { ingested: false, duplicate: true, sequence: existing.sequence, reason: "idempotency key already ingested" };
     }
 
-    // 原子 sequence：单写者连接内 MAX+1（SQLite 写锁保证并发安全）
+    // sequence 在 INSERT 单条语句内分配；SQLite 对写语句串行化，避免 SELECT/INSERT 间竞态。
     const now = new Date().toISOString();
-    const [maxRow] = await this.db
-      .select({ maxSeq: sql<number>`COALESCE(MAX(${perceptionEvents.sequence}), 0)` })
-      .from(perceptionEvents);
-    const nextSequence = (maxRow?.maxSeq ?? 0) + 1;
-
     const [created] = await this.db
       .insert(perceptionEvents)
       .values({
         id: envelope.eventId,
-        sequence: nextSequence,
+        sequence: sql<number>`(SELECT COALESCE(MAX(sequence), 0) + 1 FROM perception_events)`,
         eventId: envelope.eventId,
         idempotencyKey: envelope.idempotencyKey,
         source: envelope.source,
@@ -106,13 +101,24 @@ export class SqlitePerceptionEventRepository {
       .returning();
     if (created) return { ingested: true, duplicate: false, sequence: created.sequence };
 
-    // 并发幂等兜底：唯一索引冲突后重读
+    // 并发幂等兜底：主键或幂等唯一索引冲突后重读。
     const [reread] = await this.db
       .select()
       .from(perceptionEvents)
-      .where(eq(perceptionEvents.idempotencyKey, envelope.idempotencyKey))
+      .where(or(
+        eq(perceptionEvents.id, envelope.eventId),
+        eq(perceptionEvents.idempotencyKey, envelope.idempotencyKey),
+      ))
       .limit(1);
-    return { ingested: false, duplicate: true, sequence: reread?.sequence ?? null, reason: "concurrent duplicate" };
+    if (!reread) {
+      return {
+        ingested: false,
+        duplicate: false,
+        sequence: null,
+        reason: "event insert conflict without matching identity",
+      };
+    }
+    return { ingested: false, duplicate: true, sequence: reread.sequence, reason: "concurrent duplicate" };
   }
 
   /** 读取或创建消费者游标（offset=0）。 */
@@ -153,6 +159,13 @@ export class SqlitePerceptionEventRepository {
 
   /** ACK：单调推进 offset（不允许回退）；游标不存在时以该 sequence 建立起点。 */
   async ack(_tenant: LocalContext, consumerId: string, sequence: number): Promise<void> {
+    const [maxRow] = await this.db
+      .select({ maxSeq: sql<number>`COALESCE(MAX(${perceptionEvents.sequence}), 0)` })
+      .from(perceptionEvents);
+    const maxSequence = maxRow?.maxSeq ?? 0;
+    if (!Number.isInteger(sequence) || sequence < 0 || sequence > maxSequence) {
+      throw new Error(`invalid perception ACK ${sequence}; current max sequence is ${maxSequence}`);
+    }
     const now = new Date().toISOString();
     await this.db
       .insert(perceptionEventConsumers)
@@ -231,11 +244,18 @@ export class SqlitePerceptionEventRepository {
     return updated.length > 0;
   }
 
-  /** 保留/压缩：删除已 ACK 且早于指定 sequence 的历史事件（投影可重建）。 */
+  /** 保留/压缩：仅删除所有活跃消费者均已 ACK 的历史事件。 */
   async purgeBeforeSequence(_tenant: LocalContext, sequence: number): Promise<number> {
+    const [cursor] = await this.db
+      .select({ minAck: min(perceptionEventConsumers.lastAckedSequence) })
+      .from(perceptionEventConsumers)
+      .where(eq(perceptionEventConsumers.expired, false));
+    if (cursor?.minAck === null || cursor?.minAck === undefined) return 0;
+    const safeSequence = Math.min(sequence, cursor.minAck);
+    if (safeSequence <= 0) return 0;
     const deleted = await this.db
       .delete(perceptionEvents)
-      .where(lte(perceptionEvents.sequence, sequence))
+      .where(lte(perceptionEvents.sequence, safeSequence))
       .returning({ id: perceptionEvents.id });
     return deleted.length;
   }

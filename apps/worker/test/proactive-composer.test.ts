@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import type { ProactiveTurnContext } from "@aervox/contracts";
 import {
   buildComposerSystemPrompt,
+  buildComposerUserPrompt,
   composeProactiveMessage,
   renderTemplateMessage,
   type ProactiveComposeInput,
@@ -31,6 +32,7 @@ const turnContext: ProactiveTurnContext = {
   version: "proactive_turn_context_v1",
   personaRevisionId: "persona-rev-42",
   personaId: "persona-1",
+  personaSystemPrompt: "你是思隅，保持温柔、克制并尊重用户边界。",
   allowedSkills: ["health-guard"],
   memoryReferences: [{ memoryId: "mem-1", scope: "context", policyVersion: "mem-v1" }],
   safety: { policyVersion: "safety-v1", classificationLevel: "normal" },
@@ -47,7 +49,7 @@ describe("CR-033 P5 proactive persona unification", () => {
     const prompt = buildComposerSystemPrompt({ ...baseInput, turnContext });
     expect(prompt).toContain("persona-rev-42");
     // 叠加未开启：SKILL.md 仅作为场景提示，不直接作为人格注入
-    expect(prompt).toContain("场景提示");
+    expect(prompt).toContain("保持温柔、克制");
     expect(prompt).not.toContain("健身教练");
   });
 
@@ -61,9 +63,10 @@ describe("CR-033 P5 proactive persona unification", () => {
       },
     };
     const prompt = buildComposerSystemPrompt({ ...baseInput, turnContext: ctx });
-    expect(prompt).toContain("场景叠加");
-    expect(prompt).toContain("健身教练");
-    expect(prompt).toContain("不得覆盖系统人格");
+    expect(prompt).not.toContain("健身教练");
+    const userPrompt = buildComposerUserPrompt({ ...baseInput, turnContext: ctx });
+    expect(userPrompt).toContain("不可信数据");
+    expect(userPrompt).toContain("健身教练");
   });
 
   it("crisis 分类走固定安全响应，不调用 LLM（安全服务不可用即保守拒绝）", async () => {

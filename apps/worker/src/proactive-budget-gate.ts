@@ -63,6 +63,7 @@ export function arbitrateWithBudget(input: BudgetGateInput): BudgetGateVerdict {
     decision: BudgetDecision,
     suppressionReason: string | null,
     budgetAfter: number,
+    globalBudgetAfter = input.globalBudget.budgetUnits,
   ): ProactiveReceipt => ({
     id: input.receiptId,
     actionId: input.actionId,
@@ -75,7 +76,7 @@ export function arbitrateWithBudget(input: BudgetGateInput): BudgetGateVerdict {
     evidenceDigest: input.evidenceDigest,
     budgetBefore: input.budget.budgetUnits,
     budgetAfter,
-    globalBudgetAfter: input.globalBudget.budgetUnits,
+    globalBudgetAfter,
     auditRef: input.auditRef ?? null,
     idempotencyKey: input.idempotencyKey,
     issuedAt: input.now.toISOString(),
@@ -85,29 +86,43 @@ export function arbitrateWithBudget(input: BudgetGateInput): BudgetGateVerdict {
   if (staticVerdict.decision !== "dispatch") {
     return {
       staticVerdict,
-      budgetDecision: "dispatch",
+      budgetDecision: "suppressed_static",
       shouldDispatch: false,
       reason: staticVerdict.reason,
-      receipt: buildReceipt("dispatch", staticVerdict.reason, input.budget.budgetUnits),
+      receipt: buildReceipt("suppressed_static", staticVerdict.reason, input.budget.budgetUnits),
     };
   }
 
-  // 静态放行 → 预算裁决
+  // 静态放行 → 插件预算与全局预算必须同时通过。
   const budgetVerdict = decideByBudget(input.budget, policy);
-  const shouldDispatch = budgetVerdict.decision !== "suppressed_budget";
-  const reason = budgetVerdict.decision === "suppressed_budget"
-    ? budgetVerdict.reason
-    : `${staticVerdict.reason}; ${budgetVerdict.reason}`;
+  const globalBudgetVerdict = decideByBudget(input.globalBudget, policy);
+  const suppressedVerdict = budgetVerdict.decision === "suppressed_budget"
+    ? budgetVerdict
+    : globalBudgetVerdict.decision === "suppressed_budget"
+      ? globalBudgetVerdict
+      : null;
+  const advisory = budgetVerdict.decision === "advisory_only" ||
+    globalBudgetVerdict.decision === "advisory_only";
+  const decision: BudgetDecision = suppressedVerdict
+    ? "suppressed_budget"
+    : advisory
+      ? "advisory_only"
+      : "dispatch";
+  const shouldDispatch = decision !== "suppressed_budget";
+  const reason = suppressedVerdict
+    ? suppressedVerdict.reason
+    : `${staticVerdict.reason}; plugin: ${budgetVerdict.reason}; global: ${globalBudgetVerdict.reason}`;
 
   return {
     staticVerdict,
-    budgetDecision: budgetVerdict.decision,
+    budgetDecision: decision,
     shouldDispatch,
     reason,
     receipt: buildReceipt(
-      budgetVerdict.decision,
-      budgetVerdict.decision === "suppressed_budget" ? budgetVerdict.reason : null,
+      decision,
+      suppressedVerdict?.reason ?? null,
       budgetVerdict.budgetAfter,
+      globalBudgetVerdict.budgetAfter,
     ),
   };
 }

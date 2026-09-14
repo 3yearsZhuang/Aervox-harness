@@ -60,6 +60,13 @@ describe("CR-033 E3 感知事件流", () => {
     expect(second.sequence!).toBe(first.sequence! + 1);
   });
 
+  it("并发摄入不同事件不丢失且 sequence 唯一", async () => {
+    const events = Array.from({ length: 16 }, () => envelope());
+    const outcomes = await Promise.all(events.map((event) => repo.ingest(tenant, event)));
+    expect(outcomes.every((outcome) => outcome.ingested)).toBe(true);
+    expect(new Set(outcomes.map((outcome) => outcome.sequence)).size).toBe(events.length);
+  });
+
   it("幂等键重复投递只保留一条", async () => {
     const evt = envelope();
     const first = await repo.ingest(tenant, evt);
@@ -102,6 +109,11 @@ describe("CR-033 E3 感知事件流", () => {
     expect(batch).toHaveLength(0);
   });
 
+  it("ack 不允许跳过尚不存在的未来事件", async () => {
+    const current = await repo.ingest(tenant, envelope());
+    await expect(repo.ack(tenant, "c1", current.sequence! + 1)).rejects.toThrow("invalid perception ACK");
+  });
+
   it("重放不改 offset", async () => {
     await repo.ingest(tenant, envelope());
     await repo.ingest(tenant, envelope());
@@ -134,10 +146,23 @@ describe("CR-033 E3 感知事件流", () => {
 
   it("保留压缩：删除早于指定 sequence 的事件", async () => {
     const first = await repo.ingest(tenant, envelope());
-    await repo.ingest(tenant, envelope());
+    const second = await repo.ingest(tenant, envelope());
+    await repo.ensureConsumer(tenant, "distiller");
+    await repo.ack(tenant, "distiller", first.sequence!);
+    await repo.ensureConsumer(tenant, "projector");
+    await repo.ack(tenant, "projector", second.sequence!);
     const purged = await repo.purgeBeforeSequence(tenant, first.sequence!);
     expect(purged).toBe(1);
     const remaining = await repo.replay(tenant, 0);
     expect(remaining).toHaveLength(1);
+  });
+
+  it("任一活跃消费者未 ACK 时禁止越过其游标压缩", async () => {
+    const first = await repo.ingest(tenant, envelope());
+    const second = await repo.ingest(tenant, envelope());
+    await repo.ack(tenant, "fast", second.sequence!);
+    await repo.ack(tenant, "slow", first.sequence!);
+    expect(await repo.purgeBeforeSequence(tenant, second.sequence!)).toBe(1);
+    expect((await repo.replay(tenant, 0)).map((event) => event.sequence)).toEqual([second.sequence]);
   });
 });

@@ -35,7 +35,30 @@ describe("proactive situation snapshot repository (CR-033 E1)", () => {
     id: "snap_1",
     revisionId: "profile_1",
     schemaVersion: "situation_model_v1",
-    snapshot: { version: "situation_model_v1", presence: { state: "active", since: "2026-09-14T04:00:00.000Z" } },
+    snapshot: {
+      version: "situation_model_v1",
+      revisionId: "profile_1",
+      localOnly: true,
+      watermark: {
+        lastEventSequence: overrides.lastEventSequence ?? 1,
+        sourceEpochs: { "device.clipboard": "epoch-1" },
+        rebuiltAt: "2026-09-14T04:30:00.000Z",
+      },
+      presence: {
+        state: "active",
+        since: "2026-09-14T04:00:00.000Z",
+        lastHeartbeatAt: "2026-09-14T04:30:00.000Z",
+      },
+      focus: null,
+      commitments: [],
+      drifts: [],
+      scenes: [],
+      connections: [],
+      provenance: {},
+      redaction: { level: "none", policyVersion: "redact-v1" },
+      freshnessMs: 0,
+      rebuiltAt: "2026-09-14T04:30:00.000Z",
+    },
     checksum: "checksum-1",
     origin: "incremental" as const,
     lastEventSequence: 1,
@@ -70,10 +93,10 @@ describe("proactive situation snapshot repository (CR-033 E1)", () => {
 
   it("同 (revisionId, lastEventSequence) 幂等：不重复插入", async () => {
     await repo.saveSnapshot(tenant, input());
-    const second = await repo.saveSnapshot(tenant, input({ checksum: "checksum-2" }));
-    expect(second.lastEventSequence).toBe(1);
+    await expect(repo.saveSnapshot(tenant, input({ checksum: "checksum-2" }))).rejects
+      .toThrow("snapshot conflict");
     const latest = await repo.getLatestSnapshot(tenant, "profile_1");
-    expect(latest?.checksum).toBe("checksum-2");
+    expect(latest?.checksum).toBe("checksum-1");
   });
 
   it("markRebuild 仅提升 watermark（不静默合并）", async () => {
@@ -82,6 +105,8 @@ describe("proactive situation snapshot repository (CR-033 E1)", () => {
     const latest = await repo.getLatestSnapshot(tenant, "profile_1");
     expect(latest?.lastEventSequence).toBe(10);
     expect(latest?.origin).toBe("rebuild");
+    expect((latest?.snapshot as { watermark: { lastEventSequence: number } }).watermark.lastEventSequence)
+      .toBe(10);
   });
 
   it("deleteByRevision 撤权/删除传播：投影随删除零召回", async () => {
@@ -93,9 +118,25 @@ describe("proactive situation snapshot repository (CR-033 E1)", () => {
 
   it("revisionId 隔离：不同 revision 的快照不可交叉读取", async () => {
     await repo.saveSnapshot(tenant, input({ revisionId: "profile_1" }));
-    await repo.saveSnapshot(tenant, input({ id: "snap_other", revisionId: "profile_2" }));
+    await repo.saveSnapshot(tenant, input({
+      id: "snap_other",
+      revisionId: "profile_2",
+      snapshot: { ...input().snapshot, revisionId: "profile_2" },
+    }));
     const latest = await repo.getLatestSnapshot(tenant, "profile_2");
     expect(latest?.id).toBe("snap_other");
     expect(await repo.getLatestSnapshot(tenant, "profile_1")).not.toBeNull();
+  });
+
+  it("deleteBeforeWatermark 只删除旧快照并保留水印后的快照", async () => {
+    await repo.saveSnapshot(tenant, input({ id: "snap_1", lastEventSequence: 1 }));
+    await repo.saveSnapshot(tenant, input({
+      id: "snap_2",
+      lastEventSequence: 2,
+      checksum: "checksum-2",
+      snapshot: { ...input().snapshot, watermark: { ...input().snapshot.watermark, lastEventSequence: 2 } },
+    }));
+    expect(await repo.deleteBeforeWatermark(tenant, "profile_1", 2)).toBe(1);
+    expect((await repo.getLatestSnapshot(tenant, "profile_1"))?.id).toBe("snap_2");
   });
 });
