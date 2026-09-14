@@ -29,6 +29,8 @@ export interface BudgetGateInput extends ArbitrationInput {
   budgetPolicy?: Partial<BudgetPolicy>;
   /** 回执关联字段 */
   actionId: string;
+  /** 回执归属插件；内置规则必须显式传 null，预算主体仍可使用 builtin。 */
+  receiptPluginId: string | null;
   ruleId: string;
   ruleVersion: string;
   evidenceDigest: string;
@@ -68,7 +70,7 @@ export function arbitrateWithBudget(input: BudgetGateInput): BudgetGateVerdict {
     id: input.receiptId,
     actionId: input.actionId,
     ruleId: input.ruleId,
-    pluginId: input.budget.pluginId,
+    pluginId: input.receiptPluginId,
     decision,
     suppressionReason,
     ruleVersion: input.ruleVersion,

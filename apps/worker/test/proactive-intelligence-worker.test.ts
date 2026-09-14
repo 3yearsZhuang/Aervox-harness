@@ -5,7 +5,11 @@ import {
   createProactiveVaultCipher,
   initDatabaseSchema,
   SqliteProactiveIntelligenceRepository,
+  SqliteProactiveBudgetRepository,
   SqliteProactiveProfileRepository,
+  SqliteProactiveSituationRepository,
+  SqlitePerceptionEventRepository,
+  perceptionPayloadDigest,
 } from "@aervox/repositories";
 import { runProactiveIntelligenceCycle } from "../src/proactive-intelligence-worker.js";
 
@@ -19,6 +23,9 @@ describe("proactive intelligence worker", () => {
     const cipher = createProactiveVaultCipher(new Uint8Array(32).fill(7), "worker-intelligence");
     const profileRepo = new SqliteProactiveProfileRepository(database.db, cipher);
     const intelligenceRepo = new SqliteProactiveIntelligenceRepository(database.db, cipher);
+    const situationRepo = new SqliteProactiveSituationRepository(database.db, cipher);
+    const budgetRepo = new SqliteProactiveBudgetRepository(database.db);
+    const perceptionRepo = new SqlitePerceptionEventRepository(database.db);
     try {
       const {revision, sources} = await profileRepo.confirmProfile(tenant, {
         id: "profile_intelligence_worker",
@@ -127,15 +134,57 @@ describe("proactive intelligence worker", () => {
         dueAt: "2026-08-30T09:00:00.000Z",
         sourceTimelineId: null,
       });
+      const eventPayload = {
+        revisionId: revision.id,
+        captureId: "capture-perception-worker",
+        contentType: "application/json",
+        checksum: "perception-worker",
+        eventType: "presence.active",
+        idleSeconds: 0,
+        presenceState: "active",
+      };
+      await perceptionRepo.ingest(tenant, {
+        version: "perception_event_v1",
+        eventId: "event-perception-worker",
+        idempotencyKey: "event-perception-worker",
+        source: "system.idle_state",
+        deviceId: revision.deviceId,
+        activationEpoch: lease.epoch,
+        sourceGrantId: sourceByKey.get("system.idle_state")!.id,
+        occurredAt: "2026-08-29T11:59:00.000Z",
+        ingestedAt: "2026-08-29T11:59:00.000Z",
+        sequence: 0,
+        payloadDigest: perceptionPayloadDigest(eventPayload),
+        schemaVersion: "perception_event_v1",
+        payload: eventPayload,
+      });
 
       const result = await runProactiveIntelligenceCycle({
         db: database.db,
         profileRepo,
         intelligenceRepo,
+        situationRepo,
+        budgetRepo,
+        perceptionRepo,
+        proactiveFeatureFlags: new Set(["situation_projection", "proactive_dsl", "attention_budget", "perception_events"]),
         workerId: "worker_intelligence_test",
         now: () => now,
       });
       expect(result).toMatchObject({tenants: 1});
+      expect(result).toMatchObject({projections: 1, parityMismatches: 0});
+      expect(result.budgetReceipts).toBeGreaterThan(0);
+      expect(result.perceptionEvents).toBe(1);
+      expect((await budgetRepo.getOrInitBudget(tenant, "global", null)).budgetUnits).toBeLessThan(100);
+      const situation = await situationRepo.getLatestSnapshot(tenant, revision.id);
+      expect(situation?.origin).toBe("backfill");
+      expect(situation?.snapshot).toMatchObject({
+        version: "situation_model_v1",
+        revisionId: revision.id,
+        commitments: [{id: "commitment_worker"}],
+      });
+      expect(situation?.lastEventSequence).toBe(1);
+      expect(await perceptionRepo.consume(tenant, "proactive-distiller-v1")).toEqual([]);
+      expect(await perceptionRepo.consume(tenant, "situation-projector-v1")).toEqual([]);
       for (const key of [
         "timeline", "projects", "workflows", "triggers", "verifications", "conflicts",
         "preparations", "attention", "drift", "relationships", "scenes", "reviews",

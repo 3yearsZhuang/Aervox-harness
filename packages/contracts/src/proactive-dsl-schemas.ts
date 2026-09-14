@@ -142,6 +142,8 @@ export const SITUATION_DSL_FIELDS = [
   "focus.focusScore",
   "focus.fatigueScore",
   "focus.windowEnd",
+  "health.sleepMinutes",
+  "health.dailySteps",
   "commitments.count",
   "drifts.count",
   "scenes.count",
@@ -153,6 +155,56 @@ export type SituationDslField = (typeof SITUATION_DSL_FIELDS)[number];
 
 export function isSituationDslField(field: string): field is SituationDslField {
   return (SITUATION_DSL_FIELDS as readonly string[]).includes(field);
+}
+
+export interface DslValidationResult {
+  ok: boolean;
+  reason?: string;
+  nodeCount: number;
+  depth: number;
+}
+
+/**
+ * 共享安装期校验：API 与 Worker 使用同一字段白名单及硬配额。
+ * canonical hash 由可信运行时生成，不接受插件提供值作为校验结论。
+ */
+export function validateDslExpression(
+  expression: unknown,
+  quotasInput: unknown = DSL_DEFAULT_QUOTAS,
+): DslValidationResult {
+  const parsedExpression = dslExpressionSchema.safeParse(expression);
+  const parsedQuotas = dslQuotasSchema.safeParse(quotasInput);
+  if (!parsedExpression.success) {
+    return {ok: false, reason: "expression schema validation failed", nodeCount: 0, depth: 0};
+  }
+  if (!parsedQuotas.success) {
+    return {ok: false, reason: "quota schema validation failed", nodeCount: 0, depth: 0};
+  }
+  let nodeCount = 0;
+  let maxDepth = 0;
+  let violation: string | undefined;
+  const walk = (node: unknown, depth: number): void => {
+    nodeCount += 1;
+    maxDepth = Math.max(maxDepth, depth);
+    if (typeof node === "string" && node.length > parsedQuotas.data.maxStringLength) {
+      violation ??= `string exceeds max length ${parsedQuotas.data.maxStringLength}`;
+    }
+    if (!node || typeof node !== "object") return;
+    const record = node as Record<string, unknown>;
+    if (record.op === "field_ref" || record.op === "time_window") {
+      const field = typeof record.field === "string" ? record.field : "";
+      if (!isSituationDslField(field)) violation ??= `unknown field: ${field}`;
+    }
+    for (const value of Array.isArray(node) ? node : Object.values(record)) walk(value, depth + 1);
+  };
+  walk(parsedExpression.data, 0);
+  if (nodeCount > Math.min(parsedQuotas.data.maxNodes, DSL_DEFAULT_QUOTAS.maxNodes)) {
+    violation ??= `node count ${nodeCount} exceeds quota ${parsedQuotas.data.maxNodes}`;
+  }
+  if (maxDepth > Math.min(parsedQuotas.data.maxDepth, DSL_DEFAULT_QUOTAS.maxDepth)) {
+    violation ??= `depth ${maxDepth} exceeds quota ${parsedQuotas.data.maxDepth}`;
+  }
+  return {ok: !violation, reason: violation, nodeCount, depth: maxDepth};
 }
 
 /** 规范化序列化：按节点 op 排序键，保证同一 AST 稳定 hash。 */

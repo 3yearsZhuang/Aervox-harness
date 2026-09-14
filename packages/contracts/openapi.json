@@ -3108,6 +3108,61 @@
                           "additionalProperties": {},
                           "default": {}
                         },
+                        "dsl": {
+                          "type": "object",
+                          "properties": {
+                            "version": {
+                              "type": "string",
+                              "enum": [
+                                "proactive_dsl_v1"
+                              ]
+                            },
+                            "expression": {
+                              "$ref": "#/components/schemas/DslExpression"
+                            },
+                            "quotas": {
+                              "type": "object",
+                              "properties": {
+                                "maxDepth": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 64,
+                                  "default": 8
+                                },
+                                "maxNodes": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 512,
+                                  "default": 64
+                                },
+                                "maxStringLength": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 2048,
+                                  "default": 256
+                                },
+                                "maxEvalMs": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 1000,
+                                  "default": 50
+                                },
+                                "maxSteps": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 65536,
+                                  "default": 4096
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "version",
+                            "expression"
+                          ],
+                          "additionalProperties": false
+                        },
                         "cooldownSeconds": {
                           "type": "integer",
                           "minimum": 0,
@@ -3160,6 +3215,196 @@
           "apiVersion",
           "kind",
           "metadata"
+        ]
+      },
+      "DslExpression": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "field_ref"
+                ]
+              },
+              "field": {
+                "type": "string",
+                "pattern": "^[a-z][a-zA-Z0-9_.]*$"
+              }
+            },
+            "required": [
+              "op",
+              "field"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "const"
+                ]
+              },
+              "value": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "value"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "eq",
+                  "ne",
+                  "gt",
+                  "gte",
+                  "lt",
+                  "lte"
+                ]
+              },
+              "left": {
+                "$ref": "#/components/schemas/DslExpression"
+              },
+              "right": {
+                "$ref": "#/components/schemas/DslExpression"
+              }
+            },
+            "required": [
+              "op",
+              "left",
+              "right"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "and",
+                  "or"
+                ]
+              },
+              "operands": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/DslExpression"
+                },
+                "minItems": 1,
+                "maxItems": 8
+              }
+            },
+            "required": [
+              "op",
+              "operands"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "not"
+                ]
+              },
+              "operand": {
+                "$ref": "#/components/schemas/DslExpression"
+              }
+            },
+            "required": [
+              "op",
+              "operand"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "add",
+                  "sub",
+                  "mul",
+                  "div"
+                ]
+              },
+              "left": {
+                "$ref": "#/components/schemas/DslExpression"
+              },
+              "right": {
+                "$ref": "#/components/schemas/DslExpression"
+              }
+            },
+            "required": [
+              "op",
+              "left",
+              "right"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "time_window"
+                ]
+              },
+              "field": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minutes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10080
+              },
+              "cmp": {
+                "type": "string",
+                "enum": [
+                  "eq",
+                  "ne",
+                  "gt",
+                  "gte",
+                  "lt",
+                  "lte"
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "field",
+              "minutes",
+              "cmp"
+            ],
+            "additionalProperties": false
+          }
         ]
       },
       "PluginPageContext": {
@@ -6980,6 +7225,35 @@
             ],
             "additionalProperties": false
           },
+          "health": {
+            "type": "object",
+            "properties": {
+              "sleepMinutes": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "dailySteps": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "localDate": {
+                "type": "string",
+                "format": "date"
+              }
+            },
+            "required": [
+              "sleepMinutes",
+              "dailySteps",
+              "localDate"
+            ],
+            "additionalProperties": false
+          },
           "commitments": {
             "type": "array",
             "items": {
@@ -7198,6 +7472,7 @@
           "watermark",
           "presence",
           "focus",
+          "health",
           "commitments",
           "drifts",
           "scenes",
@@ -7619,196 +7894,6 @@
           "action"
         ],
         "additionalProperties": false
-      },
-      "DslExpression": {
-        "oneOf": [
-          {
-            "type": "object",
-            "properties": {
-              "op": {
-                "type": "string",
-                "enum": [
-                  "field_ref"
-                ]
-              },
-              "field": {
-                "type": "string",
-                "pattern": "^[a-z][a-zA-Z0-9_.]*$"
-              }
-            },
-            "required": [
-              "op",
-              "field"
-            ],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "op": {
-                "type": "string",
-                "enum": [
-                  "const"
-                ]
-              },
-              "value": {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "string",
-                    "maxLength": 256
-                  },
-                  {
-                    "type": "boolean"
-                  }
-                ]
-              }
-            },
-            "required": [
-              "op",
-              "value"
-            ],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "op": {
-                "type": "string",
-                "enum": [
-                  "eq",
-                  "ne",
-                  "gt",
-                  "gte",
-                  "lt",
-                  "lte"
-                ]
-              },
-              "left": {
-                "$ref": "#/components/schemas/DslExpression"
-              },
-              "right": {
-                "$ref": "#/components/schemas/DslExpression"
-              }
-            },
-            "required": [
-              "op",
-              "left",
-              "right"
-            ],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "op": {
-                "type": "string",
-                "enum": [
-                  "and",
-                  "or"
-                ]
-              },
-              "operands": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/DslExpression"
-                },
-                "minItems": 1,
-                "maxItems": 8
-              }
-            },
-            "required": [
-              "op",
-              "operands"
-            ],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "op": {
-                "type": "string",
-                "enum": [
-                  "not"
-                ]
-              },
-              "operand": {
-                "$ref": "#/components/schemas/DslExpression"
-              }
-            },
-            "required": [
-              "op",
-              "operand"
-            ],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "op": {
-                "type": "string",
-                "enum": [
-                  "add",
-                  "sub",
-                  "mul",
-                  "div"
-                ]
-              },
-              "left": {
-                "$ref": "#/components/schemas/DslExpression"
-              },
-              "right": {
-                "$ref": "#/components/schemas/DslExpression"
-              }
-            },
-            "required": [
-              "op",
-              "left",
-              "right"
-            ],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "op": {
-                "type": "string",
-                "enum": [
-                  "time_window"
-                ]
-              },
-              "field": {
-                "type": "string",
-                "minLength": 1
-              },
-              "minutes": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 10080
-              },
-              "cmp": {
-                "type": "string",
-                "enum": [
-                  "eq",
-                  "ne",
-                  "gt",
-                  "gte",
-                  "lt",
-                  "lte"
-                ]
-              }
-            },
-            "required": [
-              "op",
-              "field",
-              "minutes",
-              "cmp"
-            ],
-            "additionalProperties": false
-          }
-        ]
       },
       "DslQuotas": {
         "type": "object",

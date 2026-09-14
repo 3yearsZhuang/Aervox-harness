@@ -25,6 +25,7 @@ const snapshot: SituationModelV1 = {
   watermark: { lastEventSequence: 128, sourceEpochs: { "device.clipboard": "epoch-1" }, rebuiltAt: "2026-09-14T04:30:00.000Z" },
   presence: { state: "active", since: "2026-09-14T03:30:00.000Z", lastHeartbeatAt: "2026-09-14T04:30:00.000Z" },
   focus: { windowStart: "2026-09-14T04:00:00.000Z", windowEnd: "2026-09-14T04:30:00.000Z", focusScore: 45, fatigueScore: 62, recommendation: null },
+  health: { sleepMinutes: 420, dailySteps: 3200, localDate: "2026-09-14" },
   commitments: [{ id: "c1", content: "review CR", status: "open", dueAt: "2026-09-15T00:00:00.000Z" }],
   drifts: [{ signalType: "deadline_slip", severity: 70, detectedAt: "2026-09-14T04:00:00.000Z" }],
   scenes: [],

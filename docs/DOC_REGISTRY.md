@@ -102,6 +102,12 @@ review_interval_days: 90
 | `CR-031` | [Turn 实时流式推送 Pub/Sub 与轮询解耦](reference/changes/CR-031-turn-stream-pubsub-optimization.md) | 2026-09-13 | SSE 推流契约、TurnStreamHub 事件分发或流活性机制变更 | SSE 推流延迟、事件漏推、未解绑泄漏或与 ADR-012/CR-027 不一致 |
 | `CR-032` | [主动智能插件化与触发规则生态架构](reference/changes/CR-032-proactive-intelligence-plugin-ecosystem.md) | 2026-09-13 | `CAP-020/033/034/035/019` 主动智能插件化、触发规则声明、全局防打扰裁决器或桌宠联动契约变更 | 清单 Schema、proactive_trigger_rules 插件关联、Arbitrator 节流或桌宠动作派发与 CR-032 不一致 |
 | `CR-033` | [主动智能终局架构：态势感知内核与预算化干预生态](reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md) | 2026-09-14 | `CAP-033/030/020/019` 主动智能终局北极星：态势投影、规则表达式语言、注意力预算、人格同源与结构化操作域 | 态势投影 schema、规则 DSL、裁决器预算语义、感知事件流或操作域白名单任一与本文不符 |
+| `CR-036` | [SituationModel 影子投影与内置规则数据化](reference/changes/CR-036-situation-model-shadow-projection.md) | 2026-09-14 | `CAP-033/030` SituationModel 影子投影、内置规则 DSL 化与新旧求值对照 | 投影字段白名单、影子快照或新旧规则对照与实现不一致 |
+| `CR-037` | [主动 DSL 与注意力预算运行时接线](reference/changes/CR-037-proactive-dsl-and-attention-budget-runtime.md) | 2026-09-14 | `CAP-033/030/020` DSL 静态校验、全局/插件双预算原子预留与回执 | DSL fail-closed、预算 CAS、反馈退款或回执账本与实现不一致 |
+| `CR-038` | [感知事件流运行时接线](reference/changes/CR-038-perception-event-runtime.md) | 2026-09-14 | `CAP-033/030` 桌面感知事件、边沿聚合、Worker 双消费者与撤权清理 | 事件 envelope、激活 epoch、ACK 压缩或双跑状态与实现不一致 |
+| `CR-039` | [主动回合人格同源与安全上下文](reference/changes/CR-039-proactive-persona-context-runtime.md) | 2026-09-14 | `CAP-033/019/008` Persona、获准记忆引用与安全分类器同源 | Persona/记忆缺失策略、危机固定响应或插件叠加边界与实现不一致 |
+| `CR-040` | [结构化操作域与工具白名单](reference/changes/CR-040-structured-operation-domain.md) | 2026-09-14 | `CAP-033/020/019` O1 操作工具白名单与授权面 | 白名单、授权等级或不可逆操作确认边界与本文不一致 |
+| `CR-041` | [主动操作提议闭环](reference/changes/CR-041-proactive-operation-proposal-loop.md) | 2026-09-14 | `CAP-033/020/019` O2 提议、确认、执行与回执闭环 | 提议状态机、审批语义、审计或失败补偿与本文不一致 |
 | `CR-034` | [本地模型降级阶梯：无 API 接入时的原生能力基线](reference/changes/CR-034-local-model-fallback-ladder.md) | 2026-09-14 | `CAP-020/013/009/033/019` 三层降级阶梯（L0 云端 / L1 本地端点 / L2 规则回应）、降级决策器、能力分级与运行时托管 | 降级层级语义、能力分级边界、决策器切层规则或托管白名单与本文不符 |
 | `CR-035` | [标准 AI 工作台形态：熟悉范式的原生交互壳](reference/changes/CR-035-standard-workbench-mode.md) | 2026-09-14 | `CAP-019/020/013` 标准模式交互壳、会话列表、任务中心、项目上下文与迁移友好设施 | 双形态状态一致性、任务中心只读语义、会话导航契约或导入器净化规则与本文不符 |
 | `AVX-PLUG-001` | [插件 Config、Page 与 UI 扩展规范](reference/plugin-config-and-pages.md) | 2026-09-11 | CR-006 / 插件机制变更 | Manifest、Config Schema、Page Bridge、Turn 管道或 UI 扩展与实现不一致 |

@@ -196,6 +196,71 @@ describe("CAP-033 proactive API", () => {
     expect((await app.inject({ method: "GET", url: "/v1/proactive/claims", headers })).json().items).toHaveLength(0);
   });
 
+  it("E3 开关开启时校验 activation 并把 capture 双写为最小感知事件", async () => {
+    await app.close();
+    app = (await buildApp({
+      db,
+      client,
+      proactiveFeatureFlags: new Set(["perception_events"]),
+    })).app;
+    const profile = await app.inject({
+      method: "POST",
+      url: "/v1/proactive/authorize",
+      headers,
+      payload: {
+        id: "profile-api-events",
+        deviceId: "device-events",
+        fullAccessConfirmed: true,
+        sources: grantedSources("profile-api-events"),
+      },
+    });
+    const revisionId = profile.json().revision.id;
+    const source = profile.json().sources.find((item: {sourceKey: string}) => item.sourceKey === "system.idle_state");
+    await app.inject({
+      method: "POST",
+      url: "/v1/proactive/activation",
+      headers,
+      payload: {
+        id: "lease-api-events",
+        revisionId,
+        deviceId: "device-events",
+        epoch: "epoch-events",
+        localReady: true,
+        fullAccessSnapshot: true,
+      },
+    });
+    const capture = await app.inject({
+      method: "POST",
+      url: "/v1/proactive/captures",
+      headers,
+      payload: {
+        id: "capture-api-events",
+        revisionId,
+        sourceGrantId: source.id,
+        sourceKey: source.sourceKey,
+        contentType: "application/json",
+        payload: {idleSeconds: 10, presenceState: "active", secret: "must-not-enter-event"},
+        deviceId: "device-events",
+        activationEpoch: "epoch-events",
+      },
+    });
+    expect(capture.statusCode).toBe(201);
+    expect(capture.json().eventSequence).toBe(1);
+    const {SqlitePerceptionEventRepository} = await import("@aervox/repositories");
+    const events = await new SqlitePerceptionEventRepository(db).replay(headers as never, 1);
+    expect(events).toHaveLength(1);
+    expect(events[0]?.payload).toMatchObject({idleSeconds: 10, presenceState: "active"});
+    expect(events[0]?.payload).not.toHaveProperty("secret");
+    const deleted = await app.inject({
+      method: "DELETE",
+      url: `/v1/proactive/sources/${encodeURIComponent(source.id)}/data`,
+      headers,
+    });
+    expect(deleted.statusCode).toBe(200);
+    expect(deleted.json().eventsDeleted).toBe(1);
+    expect(await new SqlitePerceptionEventRepository(db).replay(headers as never, 1)).toEqual([]);
+  });
+
   it("derives mandatory from the server manifest and stays active while platform-pending sources wait", async () => {
     const pending = new Set(["external.communication", "device.location", "device.sensors", "restricted.profile"]);
     const profile = await app.inject({

@@ -10,7 +10,11 @@
  * - GET    /v1/plugins/:id/permissions/:permission 查询权限。
  */
 import type { FastifyInstance } from "fastify";
-import { PLUGIN_SENSOR_PERMISSION, pluginProactiveSpecSchema } from "@aervox/contracts";
+import {
+  PLUGIN_SENSOR_PERMISSION,
+  pluginProactiveSpecSchema,
+  validateDslExpression,
+} from "@aervox/contracts";
 import { resolveLocalContext } from "../../shared/local-context.js";
 import type { PluginService } from "./service.js";
 
@@ -48,6 +52,17 @@ export function registerPluginRoutes(app: FastifyInstance, service: PluginServic
         return reply.code(400).send({
           error: "invalid proactive spec",
           issues: parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`),
+        });
+      }
+      const invalidDsl = parsed.data.triggers
+        .map((trigger) => trigger.dsl
+          ? {ruleId: trigger.ruleId, check: validateDslExpression(trigger.dsl.expression, trigger.dsl.quotas)}
+          : null)
+        .find((item) => item && !item.check.ok);
+      if (invalidDsl) {
+        return reply.code(400).send({
+          error: "invalid proactive DSL",
+          issues: [`${invalidDsl.ruleId}: ${invalidDsl.check.reason ?? "static validation failed"}`],
         });
       }
       proactiveSpec = parsed.data;

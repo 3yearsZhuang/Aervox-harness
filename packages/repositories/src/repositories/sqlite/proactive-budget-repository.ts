@@ -44,6 +44,13 @@ export interface ReserveOutcome {
   reason?: string;
 }
 
+export interface BudgetPairOutcome {
+  ok: boolean;
+  globalBudget: BudgetRow | null;
+  pluginBudget: BudgetRow | null;
+  reason?: string;
+}
+
 function budgetIdOf(scope: BudgetScope, pluginId: string | null): string {
   return scope === "global" ? "budget_global" : `budget_plugin_${pluginId}`;
 }
@@ -158,6 +165,118 @@ export class SqliteProactiveBudgetRepository {
       };
     }
     return { ok: true, budget: this.toRow(updated[0]!) };
+  }
+
+  /**
+   * 全局 + 插件预算原子预留：两条 CAS UPDATE 必须同赢，否则事务整体回滚。
+   * pluginId 使用内核主体（内置规则为 "builtin"），永不接受 null 以免与全局行混用。
+   */
+  async reserveBudgetPair(
+    _tenant: LocalContext,
+    pluginId: string,
+    expected: {globalVersion: number; pluginVersion: number},
+    cost: number,
+  ): Promise<BudgetPairOutcome> {
+    if (!pluginId) throw new Error("plugin budget subject is required");
+    try {
+      const outcome = await this.db.transaction(async (tx) => {
+        const pluginRows = await tx
+          .update(proactiveAttentionBudgets)
+          .set({
+            budgetUnits: sql`${proactiveAttentionBudgets.budgetUnits} - ${cost}`,
+            reserveVersion: sql`${proactiveAttentionBudgets.reserveVersion} + 1`,
+            updatedAt: new Date().toISOString(),
+          })
+          .where(and(
+            eq(proactiveAttentionBudgets.id, budgetIdOf("plugin", pluginId)),
+            eq(proactiveAttentionBudgets.reserveVersion, expected.pluginVersion),
+            sql`${proactiveAttentionBudgets.budgetUnits} >= ${cost}`,
+          ))
+          .returning();
+        if (!pluginRows[0]) throw new BudgetPairConflict("plugin budget CAS conflict or insufficient balance");
+
+        const globalRows = await tx
+          .update(proactiveAttentionBudgets)
+          .set({
+            budgetUnits: sql`${proactiveAttentionBudgets.budgetUnits} - ${cost}`,
+            reserveVersion: sql`${proactiveAttentionBudgets.reserveVersion} + 1`,
+            updatedAt: new Date().toISOString(),
+          })
+          .where(and(
+            eq(proactiveAttentionBudgets.id, budgetIdOf("global", null)),
+            eq(proactiveAttentionBudgets.reserveVersion, expected.globalVersion),
+            sql`${proactiveAttentionBudgets.budgetUnits} >= ${cost}`,
+          ))
+          .returning();
+        if (!globalRows[0]) throw new BudgetPairConflict("global budget CAS conflict or insufficient balance");
+        return {
+          ok: true as const,
+          globalBudget: this.toRow(globalRows[0]),
+          pluginBudget: this.toRow(pluginRows[0]),
+        };
+      });
+      return outcome;
+    } catch (error) {
+      if (!(error instanceof BudgetPairConflict)) throw error;
+      const [globalBudget, pluginBudget] = await Promise.all([
+        this.getBudget("global", null),
+        this.getBudget("plugin", pluginId),
+      ]);
+      return {ok: false, globalBudget, pluginBudget, reason: error.message};
+    }
+  }
+
+  /** 原子退款：只用于双预算预留后派发失败的补偿路径。 */
+  async refundBudgetPair(
+    _tenant: LocalContext,
+    pluginId: string,
+    expected: {globalVersion: number; pluginVersion: number},
+    amount: number,
+  ): Promise<BudgetPairOutcome> {
+    if (!pluginId) throw new Error("plugin budget subject is required");
+    try {
+      const outcome = await this.db.transaction(async (tx) => {
+        const pluginRows = await tx
+          .update(proactiveAttentionBudgets)
+          .set({
+            budgetUnits: sql`MIN(${proactiveAttentionBudgets.maxUnits}, ${proactiveAttentionBudgets.budgetUnits} + ${amount})`,
+            reserveVersion: sql`${proactiveAttentionBudgets.reserveVersion} + 1`,
+            updatedAt: new Date().toISOString(),
+          })
+          .where(and(
+            eq(proactiveAttentionBudgets.id, budgetIdOf("plugin", pluginId)),
+            eq(proactiveAttentionBudgets.reserveVersion, expected.pluginVersion),
+          ))
+          .returning();
+        if (!pluginRows[0]) throw new BudgetPairConflict("plugin budget refund CAS conflict");
+        const globalRows = await tx
+          .update(proactiveAttentionBudgets)
+          .set({
+            budgetUnits: sql`MIN(${proactiveAttentionBudgets.maxUnits}, ${proactiveAttentionBudgets.budgetUnits} + ${amount})`,
+            reserveVersion: sql`${proactiveAttentionBudgets.reserveVersion} + 1`,
+            updatedAt: new Date().toISOString(),
+          })
+          .where(and(
+            eq(proactiveAttentionBudgets.id, budgetIdOf("global", null)),
+            eq(proactiveAttentionBudgets.reserveVersion, expected.globalVersion),
+          ))
+          .returning();
+        if (!globalRows[0]) throw new BudgetPairConflict("global budget refund CAS conflict");
+        return {
+          ok: true as const,
+          globalBudget: this.toRow(globalRows[0]),
+          pluginBudget: this.toRow(pluginRows[0]),
+        };
+      });
+      return outcome;
+    } catch (error) {
+      if (!(error instanceof BudgetPairConflict)) throw error;
+      const [globalBudget, pluginBudget] = await Promise.all([
+        this.getBudget("global", null),
+        this.getBudget("plugin", pluginId),
+      ]);
+      return {ok: false, globalBudget, pluginBudget, reason: error.message};
+    }
   }
 
   /** 失败退款（refund）：回补预算（上限封顶），版本递增。 */
@@ -298,6 +417,15 @@ export class SqliteProactiveBudgetRepository {
     return rows.map((row) => this.receiptModel(row));
   }
 
+  private async getBudget(scope: BudgetScope, pluginId: string | null): Promise<BudgetRow | null> {
+    const [row] = await this.db
+      .select()
+      .from(proactiveAttentionBudgets)
+      .where(eq(proactiveAttentionBudgets.id, budgetIdOf(scope, pluginId)))
+      .limit(1);
+    return row ? this.toRow(row) : null;
+  }
+
   private toRow(row: typeof proactiveAttentionBudgets.$inferSelect): BudgetRow {
     return {
       id: row.id,
@@ -334,3 +462,4 @@ export class SqliteProactiveBudgetRepository {
 }
 
 class FeedbackCasConflict extends Error {}
+class BudgetPairConflict extends Error {}

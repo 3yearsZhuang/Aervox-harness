@@ -1213,6 +1213,22 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     tenant: LocalContext,
     input: Parameters<IProactiveProfileRepository["createObservation"]>[1],
   ): Promise<ProactiveBehaviorObservationModel> {
+    const [existingObservation] = await this.db
+      .select()
+      .from(proactiveObservations)
+      .where(eq(proactiveObservations.id, input.id))
+      .limit(1);
+    if (existingObservation) {
+      if (
+        existingObservation.revisionId !== input.revisionId
+        || existingObservation.sourceGrantId !== input.sourceGrantId
+        || existingObservation.sourceKey !== input.sourceKey
+        || existingObservation.checksum !== input.checksum
+      ) {
+        throw new DomainConflictError("observation idempotency key reused with different content");
+      }
+      return toObservation(existingObservation, this.cipher);
+    }
     const revision = await this.getRevision(tenant, input.revisionId);
     if (!revision) throw new RepositoryNotFoundError("proactive profile revision not found");
     if (revision.status !== "active" || revision.desiredState !== "enabled") {

@@ -5,8 +5,8 @@ scope: change
 owner: maintainers
 doc_status: review-candidate
 decision_status: accepted
-delivery_status: planned
-version: 1.0.0
+delivery_status: implemented
+version: 1.1.0
 updated_at: 2026-09-14
 reviewed_at: 2026-09-14
 review_interval_days: 90
@@ -42,7 +42,7 @@ sources:
 
 关联：[PRD](../PRD.md) · [主动智能需求规格附录](../srs-proactive-intelligence.md) · [需求追踪基线](../REQUIREMENTS_TRACEABILITY.md#11-变更控制) · [CR-023 主动智能模式](CR-023-proactive-local-intelligence-mode.md) · [CR-024 主动智能集成套件](CR-024-proactive-intelligence-suite-integrations.md) · [CR-032 插件化生态](CR-032-proactive-intelligence-plugin-ecosystem.md) · [ADR-004 幂等任务](../adr/ADR-004-outbox-idempotent-jobs.md) · [ADR-009 插件沙箱](../adr/ADR-009-electron-plugin-sandbox.md) · [ADR-012 流式安全持久化](../adr/ADR-012-streaming-safety-persistence.md) · [ADR-017 上下文清单与模型回合](../adr/ADR-017-context-manifest-modelrun-step.md) · [ADR-018 本地私密存储与主动智能 Host](../adr/ADR-018-proactive-local-privacy-host.md) · [ADR-019 主动集成本地网关](../adr/ADR-019-proactive-integrations-local-gateway.md) · [数据与隐私](../DATA_PRIVACY.md) · [能力注册表](../capability-registry.md)
 
-- 状态：Accepted / Planned（F0/F1 基础设施已实现，运行时切换未启用）
+- 状态：Accepted / Implemented（E1、E2、P5 已验证；E3 已实现并处于双跑观察；O1/O2 仍待独立安全评审）
 - 提出人 / 日期：3yearszhuang / 2026-09-14
 - 目标版本：R3 及后续主动智能演进阶段（跨多个交付批次的北极星基线）
 - 关联能力：`CAP-033`（全域感知与个人画像）、`CAP-030`（主动提醒深化）、`CAP-020`（技能/插件系统）、`CAP-019`（桌宠交互与情感表达）、`CAP-034/035`（家庭与健康连接）
@@ -72,15 +72,7 @@ CR-032 已落地「插件声明、内核裁决、多端联动」的开放生态�
 3. 每个后续切片独立开关、默认关闭、未知或未接线开关启动失败；
 4. E1→E2→E3 的主干顺序，以及 O1/O2 必须单独评审的操作域边界。
 
-本次不交付以下行为：
-
-- 不把 CR-032 的五类规则切换到 DSL；
-- 不用预算替换现有静态频控；
-- 不让桌面适配器写入新事件流；
-- 不宣称主动回合已经复用完整对话人格、记忆和安全流水线；
-- 不开放任何结构化操作能力。
-
-因此，F0/F1 代码只能作为后续子 CR 的共享底座，不得通过环境变量静默开启。任何运行时接线都必须同时更新本文交付状态与[落地追踪基线](../REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+本 CR 的 F0/F1 基础设施以及 E1、E2、E3、P5 运行时接线已按子 CR 分阶段落地；E3 尚处于旧管线双跑观察期，尚未宣称完成旧管线退役。O1/O2 不在本次实现范围内，仍须完成独立安全评审和专项验收。任何后续运行时接线都必须同时更新本文交付状态与[落地追踪基线](../REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
 ## 3. 终局设计主张（北极星）
 
@@ -185,11 +177,12 @@ CR-032 已落地「插件声明、内核裁决、多端联动」的开放生态�
 | 阶段 | 当前状态 | 内容 | 启用前验收要点 |
 |---|---|---|---|
 | F0/F1 | 已实现基础设施，默认关闭 | 共享契约、增量表、Repository、纯函数、独立 Feature Flag | 契约和并发/幂等测试；全量双门禁；开关未接线时启动失败，禁止静默空转 |
-| E1 | 未交付 | Worker 生成 `situation_model_v1` 影子投影，并把内置规则改写为数据声明 | 子 CR 获批；既有测试不改即通过；新旧求值逐事件一致；撤权删除与重建演练 |
-| E2 | 未交付 | DSL 与预算接入 CR-032 裁决路径，静态约束继续作为硬底线 | 子 CR 获批；安装期与运行期 fail-closed；全局和插件预算原子预留；反馈幂等；回执一致性 |
-| E3 | 未交付 | 桌面适配器与 MCP 事件桥写事件流，蒸馏和投影改为订阅者 | 子 CR 获批；端到端延迟；边沿聚合；所有活跃消费者 ACK 后才压缩；旧管线双跑后退役 |
-| O1 | 未立项 | 第一组结构化操作原语与白名单授权面 | 专项安全评审；白名单外拒绝；不可逆操作逐项确认 |
-| O2 | 未立项 | 操作目录、提议、确认、执行与回执闭环 | O1 和 E2 已验证；确认语义等价；完整审计与失败补偿 |
+| E1 | 已验证（CR-036） | Worker 生成 `situation_model_v1` 影子投影，并把内置规则改写为数据声明 | 子 CR 获批；既有测试不改即通过；新旧求值逐事件一致；撤权删除与重建演练 |
+| E2 | 已验证（CR-037） | DSL 与预算接入 CR-032 裁决路径，静态约束继续作为硬底线 | 子 CR 获批；安装期与运行期 fail-closed；全局和插件预算原子预留；反馈幂等；回执一致性 |
+| E3 | 已实现，双跑观察（CR-038） | 桌面适配器与 MCP 事件桥写事件流，蒸馏和投影改为订阅者 | 子 CR 获批；端到端延迟；边沿聚合；所有活跃消费者 ACK 后才压缩；旧管线双跑后退役 |
+| P5 | 已验证（CR-039） | 主动回合复用 Persona、获准记忆引用和安全门禁，插件 SKILL 仅作不可信叠加层 | 子 CR 获批；危机固定响应；Persona/记忆缺失 fail-closed；插件层不可覆盖安全语义 |
+| O1 | 已立项，待安全评审（CR-040） | 第一组结构化操作原语与白名单授权面 | 专项安全评审；白名单外拒绝；不可逆操作逐项确认 |
+| O2 | 已立项，待实现（CR-041） | 操作目录、提议、确认、执行与回执闭环 | O1 和 E2 已验证；确认语义等价；完整审计与失败补偿 |
 
 排序原则：E1 → E2 → E3 为主干，每个阶段只能由自己的已接受子 CR 开启对应 Feature Flag。O1 可以与 E2 并行立项，但不得复用本 CR 绕过安全评审；O4 永远不在本 CR 范围内承诺。
 
@@ -238,4 +231,4 @@ CR-032 已落地「插件声明、内核裁决、多端联动」的开放生态�
 - 对 **CAP-030**：本 CR 的 P4 即其「频控、免打扰、可解释」验收的终局实现路径；
 - 对 **CAP-034/035**：外部连接事件在 P1 中成为一等事件源，集成模式不变。
 
-后续各演进切片立项时，以本 CR 为引用基线，各自携带实现级契约、迁移方案、运行时接线、验收证据与回滚窗口。只有对应子 CR 达到 `Accepted / Verified` 后，本文才能推进相应交付状态；F0/F1 的存在不得被解释为 E1/E2/E3 已交付。
+后续各演进切片立项时，以本 CR 为引用基线，各自携带实现级契约、迁移方案、运行时接线、验收证据与回滚窗口。只有对应子 CR 达到 `Accepted / Verified` 后，本文才能推进相应交付状态；E3 在双跑观察完成前不推进为 Verified，O1/O2 必须先完成独立安全评审。

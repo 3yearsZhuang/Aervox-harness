@@ -122,6 +122,41 @@ describe("CR-033 E2b 预算 repo（CAS / 幂等）", () => {
     expect(refunded.budget?.budgetUnits).toBe(100); // maxUnits 封顶
   });
 
+  it("全局与插件预算同一事务原子预留并原子退款", async () => {
+    const global = await repo.getOrInitBudget(tenant, "global", null);
+    const plugin = await repo.getOrInitBudget(tenant, "plugin", "p-pair");
+    const reserved = await repo.reserveBudgetPair(tenant, "p-pair", {
+      globalVersion: global.reserveVersion,
+      pluginVersion: plugin.reserveVersion,
+    }, 20);
+    expect(reserved).toMatchObject({
+      ok: true,
+      globalBudget: {budgetUnits: 80, reserveVersion: 1},
+      pluginBudget: {budgetUnits: 80, reserveVersion: 1},
+    });
+    const refunded = await repo.refundBudgetPair(tenant, "p-pair", {
+      globalVersion: reserved.globalBudget!.reserveVersion,
+      pluginVersion: reserved.pluginBudget!.reserveVersion,
+    }, 20);
+    expect(refunded).toMatchObject({
+      ok: true,
+      globalBudget: {budgetUnits: 100, reserveVersion: 2},
+      pluginBudget: {budgetUnits: 100, reserveVersion: 2},
+    });
+  });
+
+  it("双预算任一 CAS 冲突时全部回滚", async () => {
+    const global = await repo.getOrInitBudget(tenant, "global", null);
+    const plugin = await repo.getOrInitBudget(tenant, "plugin", "p-rollback");
+    const failed = await repo.reserveBudgetPair(tenant, "p-rollback", {
+      globalVersion: global.reserveVersion + 1,
+      pluginVersion: plugin.reserveVersion,
+    }, 20);
+    expect(failed.ok).toBe(false);
+    expect(failed.globalBudget?.budgetUnits).toBe(100);
+    expect(failed.pluginBudget?.budgetUnits).toBe(100);
+  });
+
   it("反馈应用：忽略收缩持久化", async () => {
     await repo.getOrInitBudget(tenant, "plugin", "p2", { ignoreThreshold: 1 });
     const result = await repo.applyFeedback(tenant, "plugin", "p2", feedback("ignored"), { ignoreThreshold: 1 });

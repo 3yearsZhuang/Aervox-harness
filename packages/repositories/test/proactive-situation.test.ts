@@ -50,6 +50,7 @@ describe("proactive situation snapshot repository (CR-033 E1)", () => {
         lastHeartbeatAt: "2026-09-14T04:30:00.000Z",
       },
       focus: null,
+      health: { sleepMinutes: null, dailySteps: null, localDate: "2026-09-14" },
       commitments: [],
       drifts: [],
       scenes: [],
