@@ -31,6 +31,9 @@ export interface DegradationServiceOptions {
 }
 
 export class LlmDegradationService implements ModelRoutingPort {
+  /** 粘滞记录上限：超过后按最旧淘汰，防止长期运行内存无上限增长 */
+  private static readonly MAX_SESSION_TIERS = 512;
+
   private readonly prober: LlmHealthProber;
   private readonly policy: ModelRoutingPolicy;
   /** 会话级粘滞状态记录：sessionId -> { tier, presetId, timestamp } */
@@ -336,13 +339,20 @@ export class LlmDegradationService implements ModelRoutingPort {
       await this.routingRepo.recordRoutingEvent(event).catch(() => undefined);
     }
 
-    // 更新会话粘滞状态
+    // 更新会话粘滞状态（超限淘汰最旧记录，防止 Map 无上限增长）
     if (sessionId) {
+      this.sessionTiers.delete(sessionId);
       this.sessionTiers.set(sessionId, {
         tier: toTier,
         presetId: preset?.id ?? null,
         updatedAt: Date.now(),
       });
+      if (this.sessionTiers.size > LlmDegradationService.MAX_SESSION_TIERS) {
+        const oldestKey = this.sessionTiers.keys().next().value;
+        if (oldestKey !== undefined) {
+          this.sessionTiers.delete(oldestKey);
+        }
+      }
     }
 
     const isLocal = toTier !== "L0" || (preset ? isLiteralLoopbackUrl(preset.baseUrl) : true);

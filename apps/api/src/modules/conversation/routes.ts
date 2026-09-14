@@ -90,9 +90,11 @@ export function registerConversationRoutes(
   app.get("/v1/sessions", async (req, reply) => {
     const tenant = resolveLocalContext(req);
     const { limit, offset } = req.query as { limit?: string; offset?: string };
+    const parsedLimit = limit ? Number.parseInt(limit, 10) : 100;
+    const parsedOffset = offset ? Number.parseInt(offset, 10) : 0;
     const items = await conversationRepo.listSessions(tenant, {
-      limit: limit ? Number(limit) : 100,
-      offset: offset ? Number(offset) : 0,
+      limit: Number.isFinite(parsedLimit) && parsedLimit >= 0 ? parsedLimit : 100,
+      offset: Number.isFinite(parsedOffset) && parsedOffset >= 0 ? parsedOffset : 0,
     });
     return reply.send({ items });
   });

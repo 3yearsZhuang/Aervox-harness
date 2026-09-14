@@ -248,6 +248,8 @@ export function useWorkbenchLayout(props: {
 
   function saveSettings(timerMinutesVal?: number) {
     const resolvedTimerMinutes = timerMinutesVal ?? options.getTimerMinutes?.() ?? 25;
+    // 注：workbenchMode 单独持久化在 'aervox-workbench-mode'（switchWorkbenchMode 内联写入），
+    // 此处不重复写入 settings JSON，避免双源漂移。
     const settings = {
       theme: isDark.value ? 'dark' : 'light',
       assistantName: assistantDisplayName.value.trim() || props.assistantName,
@@ -258,7 +260,6 @@ export function useWorkbenchLayout(props: {
       timerMinutes: resolvedTimerMinutes,
       desktopCompanionEnabled: desktopCompanionEnabled.value,
       dailyReminder: dailyReminder.value,
-      workbenchMode: workbenchMode.value,
     };
     assistantDisplayName.value = settings.assistantName;
     localStorage.setItem('aervox-settings', JSON.stringify(settings));

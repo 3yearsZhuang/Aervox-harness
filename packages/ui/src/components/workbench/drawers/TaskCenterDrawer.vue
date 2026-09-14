@@ -2,21 +2,17 @@
 import { computed } from 'vue';
 import {
   ArrowRight,
-  BookOpen,
   BrainCircuit,
   CheckCircle2,
   Clock3,
   Database,
-  ExternalLink,
   GraduationCap,
   NotebookPen,
-  Sparkles,
-  Timer,
   Zap,
 } from 'lucide-vue-next';
 import { useWorkbenchContext } from '../../../composables/workbench-context';
 
-const { layout, cards, timer, proactive } = useWorkbenchContext();
+const { layout, cards, timer } = useWorkbenchContext();
 const { taskCenterOpen, openTool, openSettingsCategory } = layout;
 
 const diaryStatusText = computed(() => {
