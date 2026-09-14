@@ -10,10 +10,13 @@ export async function createConversationsTables(client: Client): Promise<void> {
       CREATE TABLE IF NOT EXISTS sessions (
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
+        project_id TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
     `);
+  await addColumnIfMissing(client, "sessions", "project_id", "TEXT");
+  await client.execute(`CREATE INDEX IF NOT EXISTS sessions_project_idx ON sessions(project_id);`);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS turns (
         id TEXT PRIMARY KEY,

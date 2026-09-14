@@ -40,14 +40,19 @@ export class SqliteConversationRepository implements IConversationRepository {
     return readSessionHistory(this.db, tenant, input);
   }
 
-  async createSession(tenant: LocalContext, title: string): Promise<SessionModel> {
-    const id = `ses_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  async createSession(
+    _tenant: LocalContext,
+    title: string,
+    options?: { id?: string; projectId?: string | null },
+  ): Promise<SessionModel> {
+    const id = options?.id?.trim() || `ses_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(sessions)
       .values({
         id,
         title,
+        projectId: options?.projectId ?? null,
         createdAt: now,
         updatedAt: now,
       })
@@ -78,6 +83,7 @@ export class SqliteConversationRepository implements IConversationRepository {
     tenant: LocalContext,
     sessionId: string,
     title = "默认会话",
+    projectId?: string | null,
   ): Promise<SessionModel> {
     const existing = await this.getSession(tenant, sessionId);
     if (existing) return existing;
@@ -87,6 +93,7 @@ export class SqliteConversationRepository implements IConversationRepository {
       .values({
         id: sessionId,
         title,
+        projectId: projectId ?? null,
         createdAt: now,
         updatedAt: now,
       })
@@ -96,29 +103,40 @@ export class SqliteConversationRepository implements IConversationRepository {
 
   async listSessions(
     _tenant: LocalContext,
-    options?: { limit?: number; offset?: number },
+    options?: { limit?: number; offset?: number; projectId?: string },
   ): Promise<SessionModel[]> {
-    const rows = await this.db
-      .select()
-      .from(sessions)
-      .orderBy(desc(sessions.updatedAt))
-      .limit(options?.limit ?? 100)
-      .offset(options?.offset ?? 0);
+    const query = this.db.select().from(sessions);
+    const rows = options?.projectId
+      ? await query
+          .where(eq(sessions.projectId, options.projectId))
+          .orderBy(desc(sessions.updatedAt))
+          .limit(options?.limit ?? 100)
+          .offset(options?.offset ?? 0)
+      : await query
+          .orderBy(desc(sessions.updatedAt))
+          .limit(options?.limit ?? 100)
+          .offset(options?.offset ?? 0);
     return rows as SessionModel[];
   }
 
   async renameSession(
     _tenant: LocalContext,
     sessionId: string,
-    title: string,
+    updates: string | { title?: string; projectId?: string | null },
   ): Promise<SessionModel | null> {
     const now = new Date().toISOString();
+    const patch: Record<string, unknown> = { updatedAt: now };
+
+    if (typeof updates === "string") {
+      patch.title = updates;
+    } else {
+      if (updates.title !== undefined) patch.title = updates.title;
+      if (updates.projectId !== undefined) patch.projectId = updates.projectId;
+    }
+
     const [updated] = await this.db
       .update(sessions)
-      .set({
-        title,
-        updatedAt: now,
-      })
+      .set(patch)
       .where(eq(sessions.id, sessionId))
       .returning();
     return (updated as SessionModel) ?? null;
@@ -1437,5 +1455,99 @@ export class SqliteConversationRepository implements IConversationRepository {
       result.push(...children);
     }
     return result;
+  }
+
+  async importSession(
+    _tenant: LocalContext,
+    input: {
+      title?: string;
+      projectId?: string | null;
+      messages: Array<{
+        role: "user" | "assistant" | "system";
+        content: string;
+        createdAt?: string;
+      }>;
+    },
+  ): Promise<{
+    session: SessionModel;
+    turnsCount: number;
+    messagesCount: number;
+  }> {
+    const sessionId = `ses_imp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    const now = new Date().toISOString();
+    const title =
+      input.title?.trim() ||
+      input.messages.find((m) => m.role === "user")?.content.slice(0, 30) ||
+      "导入会话";
+
+    return await this.db.transaction(async (tx) => {
+      const [session] = await tx
+        .insert(sessions)
+        .values({
+          id: sessionId,
+          title,
+          projectId: input.projectId ?? null,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
+
+      let turnIndex = 0;
+      let currentTurnId = "";
+      let versionInTurn = 0;
+      let turnsCount = 0;
+
+      for (let i = 0; i < input.messages.length; i++) {
+        const msg = input.messages[i]!;
+        const msgTime = msg.createdAt || now;
+
+        if (msg.role === "user" || !currentTurnId) {
+          turnIndex++;
+          turnsCount++;
+          currentTurnId = `turn_imp_${Date.now().toString(36)}_${turnIndex}_${Math.random().toString(36).slice(2, 6)}`;
+          versionInTurn = 0;
+
+          await tx.insert(turns).values({
+            id: currentTurnId,
+            sessionId,
+            idempotencyKey: `idem_${currentTurnId}`,
+            status: "Completed",
+            lastSequence: 1,
+            completedAt: msgTime,
+            createdAt: msgTime,
+            updatedAt: msgTime,
+          });
+        }
+
+        versionInTurn++;
+        const messageId = `msg_imp_${Date.now().toString(36)}_${i + 1}_${Math.random().toString(36).slice(2, 6)}`;
+        const versionId = `mv_imp_${Date.now().toString(36)}_${i + 1}_${Math.random().toString(36).slice(2, 6)}`;
+
+        await tx.insert(messages).values({
+          id: messageId,
+          sessionId,
+          role: msg.role,
+          currentVersionId: versionId,
+          createdAt: msgTime,
+        });
+
+        await tx.insert(messageVersions).values({
+          id: versionId,
+          turnId: currentTurnId,
+          messageId,
+          role: msg.role,
+          version: versionInTurn,
+          content: msg.content,
+          isRedacted: 0,
+          createdAt: msgTime,
+        });
+      }
+
+      return {
+        session: session as SessionModel,
+        turnsCount,
+        messagesCount: input.messages.length,
+      };
+    });
   }
 }

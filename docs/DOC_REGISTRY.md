@@ -54,7 +54,7 @@ review_interval_days: 90
 | `AVX-SEC-001` | [威胁模型](reference/THREAT_MODEL.md) | 2026-09-10 | 每季度 + 信任边界变更 | loopback、文件 ACL 或 CR-030 迁移威胁未加入模型 |
 | `AVX-QA-001` | [测试策略](reference/TEST_STRATEGY.md) | 2026-09-10 | G1/G4 门禁 | 本地安全或 CR-030 故障注入 AC/TC 状态未回填 |
 | `AVX-OPS-001` | [运行、值班与演练手册](reference/operations.md) | 2026-09-13 | 每季度演练 + 每次发布 + 值班变更 | 本地恢复、CR-030 回滚或告警/拓扑变化未更新 |
-| `AVX-TRC-001` | [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) | 2026-09-14 | 版本立项 / G1 / G4 / 落地登记 | CAP/AC/TC 状态或追踪关系变化未回填；§4.2 落地登记与实现不符 |
+| `AVX-TRC-001` | [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) | 2026-09-15 | 版本立项 / G1 / G4 / 落地登记 | CAP/AC/TC 状态或追踪关系变化未回填；§4.2 落地登记与实现不符 |
 | `AVX-HOW-001` | [操作指南索引](how-to/README.md) | 2026-09-13 | 新增指南或操作流程变更 | 指南清单与实际目录不一致 |
 | `AVX-GUIDE-001` | [工程与发布流程](how-to/engineering-process.md) | 2026-09-13 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
 | `AVX-GUIDE-002` | [撰写与批准 ADR](how-to/write-adr.md) | 2026-08-28 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
@@ -110,13 +110,13 @@ review_interval_days: 90
 | `CR-041` | [主动操作提议闭环](reference/changes/CR-041-proactive-operation-proposal-loop.md) | 2026-09-14 | `CAP-033/020/019` O2 提议、确认、执行与回执闭环 | 提议状态机、审批语义、审计或失败补偿与本文不一致 |
 | `CR-034` | [本地模型降级阶梯：无 API 接入时的原生能力基线](reference/changes/CR-034-local-model-fallback-ladder.md) | 2026-09-14 | `CAP-020/013/009/033/019` 三层降级阶梯（L0 云端 / L1 本地端点 / L2 规则回应）、降级决策器、能力分级与运行时托管 | 降级层级语义、能力分级边界、决策器切层规则或托管白名单与本文不符 |
 | `CR-042` | [本地模型路由降级与切回](reference/changes/CR-042-local-model-routing-and-fallback.md) | 2026-09-14 | `CAP-020/013/009/033` L0/L1/L2 路由策略、健康探测、粘性路由与切回 | 探活判定、切层状态机、审计事件或 fallback 行为与本文不符 |
-| `CR-043` | [本地模型能力分级与降级提示](reference/changes/CR-043-local-model-capability-tiering.md) | 2026-09-14 | `CAP-020/013` 能力分级、降级前置感知与诚实提示契约 | 提示注入、能力映射或模式状态机与本文不符 |
-| `CR-044` | [确定性规则回应与本地工具执行](reference/changes/CR-044-deterministic-rule-response.md) | 2026-09-14 | `CAP-020/009/033` L2 纯离线规则模板与白名单本地工具引擎 | 规则 DSL、意图路由或工具沙箱与本文不符 |
+| `CR-043` | [本地模型能力分级与降级提示](reference/changes/CR-043-local-model-capability-tiering.md) | 2026-09-15 | `CAP-020/013` 能力分级、降级前置感知与诚实提示契约 | 提示注入、能力映射或模式状态机与本文不符 |
+| `CR-044` | [确定性规则回应与本地工具执行](reference/changes/CR-044-deterministic-rule-response.md) | 2026-09-15 | `CAP-020/009/033` L2 纯离线规则模板与白名单本地工具引擎 | 规则 DSL、意图路由或工具沙箱与本文不符 |
 | `CR-045` | [本地运行时生命周期托管](reference/changes/CR-045-local-model-runtime-lifecycle-host.md) | 2026-09-14 | `CAP-020/018` Ollama/vLLM 本地运行时进程探测与启停托管 | 进程拉起、端口等待或资源限额与本文不符 |
 | `CR-035` | [标准 AI 工作台形态：熟悉范式的原生交互壳](reference/changes/CR-035-standard-workbench-mode.md) | 2026-09-14 | `CAP-019/020/013` 标准模式交互壳、会话列表、任务中心、项目上下文与迁移友好设施 | 双形态状态一致性、任务中心只读语义、会话导航契约或导入器净化规则与本文不符 |
 | `CR-046` | [标准工作台交互壳与会话侧栏 (W1)](reference/changes/CR-046-standard-workbench-shell-and-sidebar.md) | 2026-09-14 | `CAP-013/019/020` 会话侧栏、多会话 REST 契约、SQLite 级联删除与双模式布局切换变更 | 会话导航、多会话持久化、快捷键或桌宠挂件与本文不符 |
 | `CR-047` | [模式切换器与统一任务中心 (W2)](reference/changes/CR-047-mode-selector-and-task-center.md) | 2026-09-14 | `CAP-002/010/019/033` 交互模式切换器、统一任务中心只读抽屉与后台 Worker 状态深链变更 | 模式切换分段控件、任务中心概览或深链跳转与本文不符 |
-| `CR-048` | [项目上下文绑定与会话迁移设施 (W3)](reference/changes/CR-048-project-context-and-migration-facility.md) | 2026-09-14 | `CAP-026/033` 项目上下文显式绑定、外部会话导入器与命令面板变更 | 项目组织流、外部会话解析安全净化或快捷指令与本文不符 |
+| `CR-048` | [项目上下文绑定与会话迁移设施 (W3)](reference/changes/CR-048-project-context-and-migration-facility.md) | 2026-09-15 | `CAP-026/033` 项目上下文显式绑定、外部会话导入器与命令面板变更 | 项目组织流、外部会话解析安全净化或快捷指令与本文不符 |
 | `AVX-PLAN-033` | [CR-033 落地临时计划](CR-033-plan.md) | 2026-09-14 | 对应子 CR 通过 G1 前每 30 天 | 子 CR 拆分、依赖、门禁或回滚建议与 CR-033 基线不一致；子 CR 通过 G1 后应迁移或删除 |
 | `AVX-PLAN-034` | [CR-034 落地临时计划](CR-034-plan.md) | 2026-09-14 | 对应子 CR 通过 G1 前每 30 天 | 子 CR 拆分、Provider 路由、能力分级或托管边界与 CR-034 基线不一致；子 CR 通过 G1 后应迁移或删除 |
 | `AVX-PLAN-035` | [CR-035 落地临时计划](CR-035-plan.md) | 2026-09-14 | 对应子 CR 通过 G1 前每 30 天 | 子 CR 拆分、会话/项目/任务契约或导入边界与 CR-035 基线不一致；子 CR 通过 G1 后应迁移或删除 |

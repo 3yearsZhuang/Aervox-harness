@@ -9,6 +9,7 @@ export interface SessionModel {
   workspaceId?: string;
   subjectUserId?: string;
   title: string;
+  projectId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -80,17 +81,17 @@ export interface IConversationRepository {
     tenant: LocalContext,
     input: { sessionId: string; beforeTurnId: string },
   ): Promise<SessionHistoryMessage[]>;
-  createSession(tenant: LocalContext, title: string): Promise<SessionModel>;
+  createSession(tenant: LocalContext, title: string, options?: { id?: string; projectId?: string | null }): Promise<SessionModel>;
   getSession(tenant: LocalContext, sessionId: string): Promise<SessionModel | null>;
-  getOrCreateSession(tenant: LocalContext, sessionId: string, title?: string): Promise<SessionModel>;
+  getOrCreateSession(tenant: LocalContext, sessionId: string, title?: string, projectId?: string | null): Promise<SessionModel>;
   listSessions(
     tenant: LocalContext,
-    options?: { limit?: number; offset?: number },
+    options?: { limit?: number; offset?: number; projectId?: string },
   ): Promise<SessionModel[]>;
   renameSession(
     tenant: LocalContext,
     sessionId: string,
-    title: string,
+    updates: string | { title?: string; projectId?: string | null },
   ): Promise<SessionModel | null>;
   deleteSession(
     tenant: LocalContext,
@@ -214,6 +215,23 @@ export interface IConversationRepository {
   ): Promise<ConversationBranchModel | null>;
   /** CAP-014：获取会话地图（所有分支树） */
   getBranchTree(tenant: LocalContext, sessionId: string): Promise<ConversationBranchModel[]>;
+  /** CR-048 / W3：导入外部会话记录为本地会话与历史 Turn */
+  importSession(
+    tenant: LocalContext,
+    input: {
+      title?: string;
+      projectId?: string | null;
+      messages: Array<{
+        role: "user" | "assistant" | "system";
+        content: string;
+        createdAt?: string;
+      }>;
+    },
+  ): Promise<{
+    session: SessionModel;
+    turnsCount: number;
+    messagesCount: number;
+  }>;
 }
 
 export interface ConversationBranchModel {

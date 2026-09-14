@@ -58,6 +58,7 @@ import type { LLMConfigService } from "../llm/service.js";
 import type { LlmDegradationService } from "../llm/degradation-service.js";
 import type { ModelRoutingSnapshot } from "@aervox/contracts";
 import { resolveDshTurnAdapter } from "./dsh-adapter.js";
+import { createRuleResponseProvider } from "./rule-response-provider.js";
 import {
   getRequestToolApprovalMode,
   isToolAutoApprovable,
@@ -304,6 +305,7 @@ export function createRuntimeToolProvider(
     conversationRepo: SqliteConversationRepository;
     proactiveActionAuthorizer?: ProactiveActionAuthorizer;
     observability?: Observability;
+    capabilityTier?: string;
   },
 ): ToolProviderPort {
   return {
@@ -339,6 +341,14 @@ export function createRuntimeToolProvider(
         } catch (err) {
           return emitResult({ ok: false, error: errorMessage(err) });
         }
+      }
+
+      // CR-043: L1 降级限制层禁止执行写工具与特权工具
+      if (deps.capabilityTier === "restricted") {
+        return emitResult({
+          ok: false,
+          error: `tool_restricted_in_tier_l1: 工具 ${tool.name} 属于写操作，在 L1 本地降级阶梯下被安全收紧拦截`,
+        });
       }
 
       // 写工具（write_with_approval / privileged）：须已授权（参数哈希匹配 + granted），否则生成待决授权。
@@ -674,6 +684,7 @@ export async function buildLoopProvider(
     sessionId?: string;
     turnId?: string;
     modelRoutingService?: LlmDegradationService;
+    persona?: { name?: string };
   } = {},
 ): Promise<ModelProviderPort> {
   // 缺陷 E：Provider 选择经 @aervox/config 集中解析（AERVOX_LOOP_PROVIDER 启动期枚举校验）；
@@ -696,6 +707,14 @@ export async function buildLoopProvider(
       });
 
       if (snapshot.tier === "L2" || !snapshot.baseUrl || !snapshot.modelId) {
+        if (apiConfig.modelRoutingFeatureFlags.has("rule_response")) {
+          const ruleProvider = createRuleResponseProvider({
+            personaName: options.persona?.name,
+            reason: snapshot.reason,
+          });
+          (ruleProvider as unknown as { routingSnapshot?: ModelRoutingSnapshot }).routingSnapshot = snapshot;
+          return ruleProvider;
+        }
         throw new Error(`model_degraded_l2: ${snapshot.reason}`);
       }
 
@@ -708,13 +727,19 @@ export async function buildLoopProvider(
         ? presets?.presets.find((p) => p.id === snapshot.presetId)
         : null;
 
+      const isL1Tier = snapshot.tier === "L1";
+      const isCapabilityTiering = apiConfig.modelRoutingFeatureFlags.has("capability_tiering");
+      const defaultMaxTokens = isL1Tier && isCapabilityTiering ? 2048 : 4096;
+      const configuredMax = matchedPreset?.maxTokens ?? defaultMaxTokens;
+      const maxTokens = isL1Tier && isCapabilityTiering ? Math.min(configuredMax, 2048) : configuredMax;
+
       const requestTimeoutMs = Number(matchedPreset?.settings?.requestTimeoutMs);
       const provider = createOpenAICompatProvider({
         baseUrl: snapshot.baseUrl,
         apiKey: matchedPreset?.apiKey,
         modelId: snapshot.modelId,
         temperature: matchedPreset?.temperature ?? 0.7,
-        maxTokens: matchedPreset?.maxTokens ?? 4096,
+        maxTokens,
         ...(Number.isFinite(requestTimeoutMs) && requestTimeoutMs > 0 ? { timeoutMs: requestTimeoutMs } : {}),
         redirect: options.requireLocalOnly ? "error" : undefined,
       });
@@ -1041,6 +1066,7 @@ export async function runLoopTurnOnce(
       sessionId: input.sessionId,
       turnId: input.turnId,
       modelRoutingService: deps.modelRoutingService,
+      persona: deps.persona ? { name: deps.persona.name } : undefined,
     });
     provider = loopProvider;
     if (proactiveActive && deps.proactiveRepository) {
@@ -1080,16 +1106,47 @@ export async function runLoopTurnOnce(
           deps.observability,
         )
       : undefined;
+  const apiConfig = loadApiConfig();
+  const routingSnapshot = (provider as unknown as { routingSnapshot?: ModelRoutingSnapshot }).routingSnapshot;
+  const isL1Tier = routingSnapshot?.tier === "L1";
+  const isL2Tier = routingSnapshot?.tier === "L2";
+  const isCapabilityTiering = apiConfig.modelRoutingFeatureFlags.has("capability_tiering");
+
   const runtimeProvider = deps.toolRuntime
     ? createRuntimeToolProvider(deps.toolRuntime, tenant, {
         conversationRepo: repo,
         proactiveActionAuthorizer: deps.proactiveActionAuthorizer,
         observability: deps.observability,
+        capabilityTier: isL1Tier && isCapabilityTiering ? "restricted" : undefined,
       })
     : undefined;
-  const tools = contributionProvider && runtimeProvider
-    ? composeToolProviders([contributionProvider], { fallback: runtimeProvider })
-    : contributionProvider ?? runtimeProvider;
+
+  let tools: ToolProviderPort | undefined;
+  if (!isL2Tier) {
+    const rawTools = contributionProvider && runtimeProvider
+      ? composeToolProviders([contributionProvider], { fallback: runtimeProvider })
+      : contributionProvider ?? runtimeProvider;
+
+    if (rawTools && isL1Tier && isCapabilityTiering) {
+      tools = {
+        get tools() {
+          return (rawTools.tools || []).filter((t) => t.readOnly);
+        },
+        async execute(callInput) {
+          const spec = rawTools.tools?.find((t) => t.name === callInput.name);
+          if (spec && !spec.readOnly) {
+            return {
+              ok: false,
+              error: `tool_restricted_in_tier_l1: 工具 ${callInput.name} 为写操作，在 L1 本地降级阶梯下被安全收紧拦截`,
+            };
+          }
+          return rawTools.execute(callInput);
+        },
+      };
+    } else {
+      tools = rawTools;
+    }
+  }
   // 5b：默认启用 Base System Prompt（含核心工具指引）与 Skill 渐进披露；压缩 seam 默认关闭，
   // 设置 AERVOX_LOOP_COMPACTION=rule 启用内置规则式摘要。
   // 人格覆盖：激活人格时，其名称/设定覆盖系统默认身份，其技能白名单过滤渐进披露清单。
@@ -1153,7 +1210,6 @@ export async function runLoopTurnOnce(
       },
     };
   }
-  const routingSnapshot = (provider as unknown as { routingSnapshot?: ModelRoutingSnapshot }).routingSnapshot;
   const result = await executeTurn(
     {
       execution: broadcastingStore,
