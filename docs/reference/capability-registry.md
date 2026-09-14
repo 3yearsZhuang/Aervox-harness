@@ -15,7 +15,7 @@ review_interval_days: 90
 # 能力注册表（交付与自选状态登记）
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-09-13
+- 修改人：3yearszhuang · 2026-09-14
 
 关联：[能力组合与可选化目录规范](capability-composition.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)、[submodule 协作指南](../how-to/submodule-collaboration.md)、[文档索引](../README.md)
 
@@ -45,7 +45,7 @@ review_interval_days: 90
 
 | CAP | 功能 | 状态 | 启用方式 | 接口/适配边界 | 依赖的 ADR |
 |---|---|---|---|---|---|
-| CAP-020 | 技能/插件系统 | 候选 | 双 | 插件 SDK + 沙箱；MVP 依赖内部稳定 API，不承诺插件兼容（PRD 14.3 末尾）；CR-032 起支持声明式主动触发规则（`spec.proactive`）与感知源授权 | ADR-009/ADR-010（插件/生态）；CR-032 |
+| CAP-020 | 技能/插件系统 | 候选 | 双 | 插件 SDK + 沙箱；MVP 依赖内部稳定 API，不承诺插件兼容（PRD 14.3 末尾）；CR-032 起支持声明式主动触发规则（`spec.proactive`）与感知源授权；CR-034/CR-042 起支持本地模型路由降级阶梯与探活切回 | ADR-009/ADR-010（插件/生态）；CR-032；CR-034 |
 | CAP-027 | 本地数据主权/可移植性 | 候选 | 构建 | 本地单用户 SQLite、可读导出、备份/恢复与 CR-030 显式迁移 | CR-030；ADR-008 已替代 |
 | CAP-023 | 第三方刷题接入 | 候选 | 运行 | OAuth 授权撤销、同步方向与冲突可见 | — |
 | CAP-024 | 文献阅读与发散 | 候选 | 运行 | 外部内容不可信，防 prompt injection | — |

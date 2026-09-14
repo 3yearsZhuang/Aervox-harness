@@ -21,6 +21,7 @@
     "build": "tsc -p tsconfig.json && pnpm generate:openapi",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
     "generate:openapi": "node scripts/generate-openapi.ts"
   },
   "dependencies": {

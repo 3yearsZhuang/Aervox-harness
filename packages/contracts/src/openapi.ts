@@ -204,6 +204,15 @@ import {
   createSessionRequestSchema,
   renameSessionRequestSchema,
 } from "./session-schemas.js";
+import {
+  capabilityTierSchema,
+  modelRoutingTierSchema,
+  healthStatusSchema,
+  healthSnapshotSchema,
+  modelRoutingSnapshotSchema,
+  modelRoutingEventSchema,
+  modelRoutingPolicySchema,
+} from "./model-routing-schemas.js";
 
 const registry = new OpenAPIRegistry();
 
@@ -350,6 +359,13 @@ registry.register("ProactiveBudgetState", proactiveBudgetStateSchema);
 registry.register("ProactiveFeedbackEvent", proactiveFeedbackEventSchema);
 registry.register("ProactiveReceipt", proactiveReceiptSchema);
 registry.register("BudgetPolicy", budgetPolicySchema);
+registry.register("CapabilityTier", capabilityTierSchema);
+registry.register("ModelRoutingTier", modelRoutingTierSchema);
+registry.register("HealthStatus", healthStatusSchema);
+registry.register("HealthSnapshot", healthSnapshotSchema);
+registry.register("ModelRoutingSnapshot", modelRoutingSnapshotSchema);
+registry.register("ModelRoutingEvent", modelRoutingEventSchema);
+registry.register("ModelRoutingPolicy", modelRoutingPolicySchema);
 
 const sessionIdParam = z.object({ sessionId: z.string().min(1) });
 const turnIdParam = z.object({ turnId: z.string().min(1) });

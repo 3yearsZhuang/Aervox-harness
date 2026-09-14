@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-09-14",
-  "totalCount": 114,
+  "totalCount": 118,
   "documents": [
     {
       "id": "ADR-002",
@@ -1674,13 +1674,21 @@
       "scope": "change",
       "owner": "maintainers",
       "doc_status": "review-candidate",
-      "decision_status": "proposed",
-      "delivery_status": "planned",
-      "version": "0.1.0",
+      "decision_status": "accepted",
+      "delivery_status": "implemented",
+      "version": "1.0.0",
       "updated_at": "2026-09-14",
       "reviewed_at": "2026-09-14",
       "review_interval_days": 90,
-      "review_triggers": [],
+      "review_triggers": [
+        "packages/config/src/index.ts",
+        "packages/contracts/src/model-routing-schemas.ts",
+        "packages/schema/src/model-routing.ts",
+        "packages/repositories/src/repositories/sqlite/model-routing-repository.ts",
+        "apps/api/src/modules/llm/health-prober.ts",
+        "apps/api/src/modules/llm/degradation-service.ts",
+        "apps/api/src/modules/conversation/agent-executor.ts"
+      ],
       "sources": [
         "docs/reference/PRD.md",
         "docs/reference/REQUIREMENTS_TRACEABILITY.md",
@@ -1689,6 +1697,10 @@
         "docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md",
         "docs/reference/changes/CR-032-proactive-intelligence-plugin-ecosystem.md",
         "docs/reference/changes/CR-014-voice-config-webui.md",
+        "docs/reference/changes/CR-042-local-model-routing-and-fallback.md",
+        "docs/reference/changes/CR-043-local-model-capability-tiering.md",
+        "docs/reference/changes/CR-044-deterministic-rule-response.md",
+        "docs/reference/changes/CR-045-local-model-runtime-lifecycle-host.md",
         "docs/reference/DATA_PRIVACY.md",
         "docs/reference/capability-registry.md"
       ]
@@ -1857,6 +1869,95 @@
       ]
     },
     {
+      "id": "CR-042",
+      "title": "CR-042 本地模型降级决策与健康路由运行时",
+      "path": "reference/changes/CR-042-local-model-routing-and-fallback.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "accepted",
+      "delivery_status": "verified",
+      "version": "1.0.0",
+      "updated_at": "2026-09-14",
+      "reviewed_at": "2026-09-14",
+      "review_interval_days": 90,
+      "review_triggers": [
+        "apps/api/src/modules/llm/health-prober.ts",
+        "apps/api/src/modules/llm/degradation-service.ts",
+        "packages/contracts/src/model-routing-schemas.ts",
+        "packages/repositories/src/repositories/sqlite/model-routing-repository.ts"
+      ],
+      "sources": [
+        "docs/reference/changes/CR-034-local-model-fallback-ladder.md",
+        "docs/reference/adr/ADR-005-provider-port.md",
+        "docs/reference/changes/CR-015-llm-provider-config-webui.md"
+      ]
+    },
+    {
+      "id": "CR-043",
+      "title": "CR-043 本地模型能力分级与服务端工具收紧",
+      "path": "reference/changes/CR-043-local-model-capability-tiering.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "accepted",
+      "delivery_status": "planned",
+      "version": "0.1.0",
+      "updated_at": "2026-09-14",
+      "reviewed_at": "2026-09-14",
+      "review_interval_days": 90,
+      "review_triggers": [],
+      "sources": [
+        "docs/reference/changes/CR-034-local-model-fallback-ladder.md",
+        "docs/reference/changes/CR-042-local-model-routing-and-fallback.md",
+        "docs/reference/adr/ADR-009-electron-plugin-sandbox.md"
+      ]
+    },
+    {
+      "id": "CR-044",
+      "title": "CR-044 对话侧 L2 确定性规则回应通道",
+      "path": "reference/changes/CR-044-deterministic-rule-response.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "accepted",
+      "delivery_status": "planned",
+      "version": "0.1.0",
+      "updated_at": "2026-09-14",
+      "reviewed_at": "2026-09-14",
+      "review_interval_days": 90,
+      "review_triggers": [],
+      "sources": [
+        "docs/reference/changes/CR-034-local-model-fallback-ladder.md",
+        "docs/reference/changes/CR-042-local-model-routing-and-fallback.md",
+        "docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md"
+      ]
+    },
+    {
+      "id": "CR-045",
+      "title": "CR-045 本地模型运行时生命周期托管",
+      "path": "reference/changes/CR-045-local-model-runtime-lifecycle-host.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "accepted",
+      "delivery_status": "planned",
+      "version": "0.1.0",
+      "updated_at": "2026-09-14",
+      "reviewed_at": "2026-09-14",
+      "review_interval_days": 90,
+      "review_triggers": [],
+      "sources": [
+        "docs/reference/changes/CR-034-local-model-fallback-ladder.md",
+        "docs/reference/changes/CR-042-local-model-routing-and-fallback.md",
+        "docs/reference/DATA_PRIVACY.md"
+      ]
+    },
+    {
       "id": "CR-046",
       "title": "CR-046 标准工作台交互壳与会话侧栏 (W1)",
       "path": "reference/changes/CR-046-standard-workbench-shell-and-sidebar.md",
@@ -1947,9 +2048,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.3.0",
-      "updated_at": "2026-09-11",
-      "reviewed_at": "2026-09-11",
+      "version": "0.4.0",
+      "updated_at": "2026-09-14",
+      "reviewed_at": "2026-09-14",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": [

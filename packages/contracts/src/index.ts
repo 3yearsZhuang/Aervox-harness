@@ -103,6 +103,7 @@ export * from "./proactive-dsl-schemas.js";
 export * from "./proactive-budget-schemas.js";
 export * from "./situation-model-schemas.js";
 export * from "./turn-context-schemas.js";
+export * from "./model-routing-schemas.js";
 export * from "./safety-schemas.js";
 export * from "./safety-classifier.js";
 export * from "./session-schemas.js";
