@@ -130,6 +130,56 @@ export async function createProactiveIntelligenceTables(client: Client): Promise
         processing_boundary TEXT NOT NULL DEFAULT 'local_only', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
       `CREATE UNIQUE INDEX IF NOT EXISTS proactive_health_local_metric_date_idx
         ON proactive_health_samples(connection_id, metric, local_date);`,
+      `CREATE TABLE IF NOT EXISTS proactive_situation_snapshots (
+        id TEXT PRIMARY KEY, revision_id TEXT NOT NULL, schema_version TEXT NOT NULL DEFAULT 'situation_model_v1',
+        snapshot_json TEXT NOT NULL, checksum TEXT NOT NULL, origin TEXT NOT NULL DEFAULT 'incremental',
+        last_event_sequence INTEGER NOT NULL DEFAULT 0, source_epochs_json TEXT NOT NULL DEFAULT '{}',
+        rebuilt_at TEXT, local_only INTEGER NOT NULL DEFAULT 1,
+        processing_boundary TEXT NOT NULL DEFAULT 'local_only', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS proactive_situation_revision_sequence_idx
+        ON proactive_situation_snapshots(revision_id, last_event_sequence);`,
+      `CREATE TABLE IF NOT EXISTS proactive_attention_budgets (
+        id TEXT PRIMARY KEY, scope TEXT NOT NULL, plugin_id TEXT,
+        budget_units INTEGER NOT NULL, max_units INTEGER NOT NULL,
+        consecutive_ignores INTEGER NOT NULL DEFAULT 0, reserve_version INTEGER NOT NULL DEFAULT 0,
+        policy_version TEXT NOT NULL DEFAULT 'budget-policy-v1',
+        processing_boundary TEXT NOT NULL DEFAULT 'local_only',
+        created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS proactive_budget_scope_plugin_idx
+        ON proactive_attention_budgets(scope, plugin_id);`,
+      `CREATE TABLE IF NOT EXISTS proactive_intervention_receipts (
+        id TEXT PRIMARY KEY, action_id TEXT NOT NULL, rule_id TEXT NOT NULL, plugin_id TEXT,
+        decision TEXT NOT NULL, suppression_reason TEXT, rule_version TEXT NOT NULL,
+        policy_version TEXT NOT NULL, evidence_digest TEXT NOT NULL,
+        budget_before INTEGER NOT NULL, budget_after INTEGER NOT NULL, global_budget_after INTEGER NOT NULL,
+        audit_ref TEXT, idempotency_key TEXT NOT NULL, issued_at TEXT NOT NULL,
+        processing_boundary TEXT NOT NULL DEFAULT 'local_only', created_at TEXT NOT NULL);`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS proactive_receipt_idempotency_idx
+        ON proactive_intervention_receipts(idempotency_key);`,
+      `CREATE INDEX IF NOT EXISTS proactive_receipt_action_idx
+        ON proactive_intervention_receipts(action_id);`,
+      `CREATE TABLE IF NOT EXISTS proactive_budget_feedback_events (
+        id TEXT PRIMARY KEY, action_id TEXT NOT NULL, scope TEXT NOT NULL, plugin_id TEXT,
+        kind TEXT NOT NULL, weight_millis INTEGER NOT NULL, occurred_at TEXT NOT NULL,
+        idempotency_key TEXT NOT NULL, processing_boundary TEXT NOT NULL DEFAULT 'local_only',
+        created_at TEXT NOT NULL);`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS proactive_budget_feedback_idempotency_idx
+        ON proactive_budget_feedback_events(idempotency_key);`,
+      `CREATE TABLE IF NOT EXISTS perception_events (
+        id TEXT PRIMARY KEY, sequence INTEGER NOT NULL, event_id TEXT NOT NULL, idempotency_key TEXT NOT NULL,
+        source TEXT NOT NULL, device_id TEXT NOT NULL, activation_epoch TEXT NOT NULL, source_grant_id TEXT NOT NULL,
+        occurred_at TEXT NOT NULL, ingested_at TEXT NOT NULL, schema_version TEXT NOT NULL DEFAULT 'perception_event_v1',
+        payload_digest TEXT NOT NULL, payload_json TEXT NOT NULL DEFAULT '{}', causal_json TEXT,
+        status TEXT NOT NULL DEFAULT 'ready', local_only INTEGER NOT NULL DEFAULT 1,
+        processing_boundary TEXT NOT NULL DEFAULT 'local_only', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS perception_event_sequence_idx ON perception_events(sequence);`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS perception_event_idempotency_idx ON perception_events(idempotency_key);`,
+      `CREATE INDEX IF NOT EXISTS perception_event_source_idx ON perception_events(source, occurred_at);`,
+      `CREATE TABLE IF NOT EXISTS perception_event_consumers (
+        id TEXT PRIMARY KEY, last_acked_sequence INTEGER NOT NULL DEFAULT 0,
+        cursor_updated_at TEXT NOT NULL, expired INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
+      `CREATE INDEX IF NOT EXISTS perception_consumer_expired_idx ON perception_event_consumers(expired);`,
     ];
   for (const ddl of proactiveIntelligenceDdl) await client.execute(ddl);
   // CR-032 主动智能插件化：旧库补列后才能建归属索引（顺序不可颠倒，否则旧库升级即崩）

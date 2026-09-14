@@ -372,3 +372,180 @@ export const proactiveHealthSamples = sqliteTable(
 
   }),
 );
+
+/**
+ * CR-033 E1 SituationModel 投影快照（纯派生物，可从事件流重建）。
+ *
+ * 存储 situation_model_v1 白名单投影的持久化副本；payloadJson 由 vault 加密。
+ * 回填记录标记为 `backfill`，禁止静默合并或以 MAX(rowid) 选胜者。
+ * 读取侧按 active revision、source grant、local_only 与 deny watermark 过滤。
+ */
+export const proactiveSituationSnapshots = sqliteTable(
+  "proactive_situation_snapshots",
+  {
+    id: text("id").primaryKey(),
+    revisionId: text("revision_id").notNull(),
+    schemaVersion: text("schema_version").notNull().default("situation_model_v1"),
+    snapshotJson: text("snapshot_json").notNull(),
+    checksum: text("checksum").notNull(),
+    /** 回填记录标记：backfill | incremental | rebuild */
+    origin: text("origin").notNull().default("incremental"),
+    /** 重建 watermark：消费到的感知事件 SQLite ingestion sequence 上限 */
+    lastEventSequence: integer("last_event_sequence").notNull().default(0),
+    sourceEpochsJson: text("source_epochs_json").notNull().default("{}"),
+    rebuiltAt: text("rebuilt_at"),
+    localOnly: integer("local_only", { mode: "boolean" }).notNull().default(true),
+    processingBoundary: text("processing_boundary").notNull().default("local_only"),
+    ...timestampColumns,
+  },
+  (table) => ({
+    revisionSequenceIdx: uniqueIndex("proactive_situation_revision_sequence_idx").on(
+      table.revisionId,
+      table.lastEventSequence,
+    ),
+  }),
+);
+
+/**
+ * CR-033 E2b 注意力预算状态（全局 + 插件各一行）。
+ *
+ * reserveVersion 为 CAS 版本：并发扣减必须按版本比对，防止超发。
+ * 静态冷却/静音/全局硬上限仍由裁决器兜底，本表只承载预算水位。
+ */
+export const proactiveAttentionBudgets = sqliteTable(
+  "proactive_attention_budgets",
+  {
+    id: text("id").primaryKey(),
+    /** global | plugin */
+    scope: text("scope").notNull(),
+    pluginId: text("plugin_id"),
+    budgetUnits: integer("budget_units").notNull(),
+    maxUnits: integer("max_units").notNull(),
+    consecutiveIgnores: integer("consecutive_ignores").notNull().default(0),
+    /** CAS 版本：每次扣减/结算递增 */
+    reserveVersion: integer("reserve_version").notNull().default(0),
+    policyVersion: text("policy_version").notNull().default("budget-policy-v1"),
+    processingBoundary: text("processing_boundary").notNull().default("local_only"),
+    ...timestampColumns,
+  },
+  (table) => ({
+    scopePluginIdx: uniqueIndex("proactive_budget_scope_plugin_idx").on(
+      table.scope,
+      table.pluginId,
+    ),
+  }),
+);
+
+/**
+ * CR-033 E2b 干预回执账本（追加式，仅内核写入）。
+ *
+ * 只保存必要证据摘要（evidenceDigest）、规则/策略版本、抑制原因、
+ * 预算变化与审计引用；不保存无必要的原始敏感内容。
+ */
+export const proactiveInterventionReceipts = sqliteTable(
+  "proactive_intervention_receipts",
+  {
+    id: text("id").primaryKey(),
+    actionId: text("action_id").notNull(),
+    ruleId: text("rule_id").notNull(),
+    pluginId: text("plugin_id"),
+    decision: text("decision").notNull(),
+    suppressionReason: text("suppression_reason"),
+    ruleVersion: text("rule_version").notNull(),
+    policyVersion: text("policy_version").notNull(),
+    evidenceDigest: text("evidence_digest").notNull(),
+    budgetBefore: integer("budget_before").notNull(),
+    budgetAfter: integer("budget_after").notNull(),
+    globalBudgetAfter: integer("global_budget_after").notNull(),
+    auditRef: text("audit_ref"),
+    /** 幂等键：同一干预决策重复写入只保留一条 */
+    idempotencyKey: text("idempotency_key").notNull(),
+    issuedAt: text("issued_at").notNull(),
+    processingBoundary: text("processing_boundary").notNull().default("local_only"),
+    createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => ({
+    idempotencyIdx: uniqueIndex("proactive_receipt_idempotency_idx").on(table.idempotencyKey),
+    actionIdx: index("proactive_receipt_action_idx").on(table.actionId),
+  }),
+);
+
+/** 预算反馈事件幂等账本：同一反馈只允许影响预算一次。 */
+export const proactiveBudgetFeedbackEvents = sqliteTable(
+  "proactive_budget_feedback_events",
+  {
+    id: text("id").primaryKey(),
+    actionId: text("action_id").notNull(),
+    scope: text("scope").notNull(),
+    pluginId: text("plugin_id"),
+    kind: text("kind").notNull(),
+    weight: integer("weight_millis").notNull(),
+    occurredAt: text("occurred_at").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    processingBoundary: text("processing_boundary").notNull().default("local_only"),
+    createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => ({
+    idempotencyIdx: uniqueIndex("proactive_budget_feedback_idempotency_idx").on(
+      table.idempotencyKey,
+    ),
+  }),
+);
+
+/**
+ * CR-033 E3 本地感知事件流（追加式，跨进程真源）。
+ *
+ * - sequence 为原子单调序列（写者连接内 MAX+1 分配）；
+ * - idempotency_key 全局唯一：重复投递只保留一条；
+ * - payload 摘要入列，原文经 vault 加密；local_only 语义继承 CR-023；
+ * - 桌面端边沿聚合属于 E3 桌面适配器子 CR（Electron + Privacy Host 依赖）。
+ */
+export const perceptionEvents = sqliteTable(
+  "perception_events",
+  {
+    id: text("id").primaryKey(),
+    /** 原子单调序列（跨进程可见的 ingestion 顺序） */
+    sequence: integer("sequence").notNull(),
+    eventId: text("event_id").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    source: text("source").notNull(),
+    deviceId: text("device_id").notNull(),
+    activationEpoch: text("activation_epoch").notNull(),
+    sourceGrantId: text("source_grant_id").notNull(),
+    occurredAt: text("occurred_at").notNull(),
+    ingestedAt: text("ingested_at").notNull(),
+    schemaVersion: text("schema_version").notNull().default("perception_event_v1"),
+    payloadDigest: text("payload_digest").notNull(),
+    payloadJson: text("payload_json").notNull().default("{}"),
+    causalJson: text("causal_json"),
+    /** ready | dead（处理失败进死信，保留待人工 reconciliation） */
+    status: text("status").notNull().default("ready"),
+    localOnly: integer("local_only", { mode: "boolean" }).notNull().default(true),
+    processingBoundary: text("processing_boundary").notNull().default("local_only"),
+    ...timestampColumns,
+  },
+  (table) => ({
+    sequenceIdx: uniqueIndex("perception_event_sequence_idx").on(table.sequence),
+    idempotencyIdx: uniqueIndex("perception_event_idempotency_idx").on(table.idempotencyKey),
+    sourceIdx: index("perception_event_source_idx").on(table.source, table.occurredAt),
+  }),
+);
+
+/**
+ * CR-033 E3 事件流消费者游标（consumer offset / ACK / 重放 / 过期 cursor）。
+ */
+export const perceptionEventConsumers = sqliteTable(
+  "perception_event_consumers",
+  {
+    id: text("id").primaryKey(),
+    /** 已 ACK 的最大 sequence */
+    lastAckedSequence: integer("last_acked_sequence").notNull().default(0),
+    cursorUpdatedAt: text("cursor_updated_at").notNull(),
+    /** 过期标记：过期 consumer 需重置或重建后才能继续消费 */
+    expired: integer("expired", { mode: "boolean" }).notNull().default(false),
+    ...timestampColumns,
+  },
+  (table) => ({
+    expiredIdx: index("perception_consumer_expired_idx").on(table.expired),
+  }),
+);

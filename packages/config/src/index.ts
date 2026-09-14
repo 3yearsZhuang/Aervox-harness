@@ -60,6 +60,61 @@ export interface AsrConfig {
   whisperModelId: string;
 }
 
+/**
+ * CR-033 F0 阻断项之一：主动智能演进子片独立 Feature Flag。
+ *
+ * 每个子 CR 拥有独立开关，可单独回退到 CR-032 基线行为：
+ * - situation_projection: E1 SituationModel 影子投影读取切换
+ * - proactive_dsl:        E2a 受限规则 DSL
+ * - attention_budget:     E2b 注意力预算与回执
+ * - proactive_persona:    P5 主动回合人格/安全/记忆同源
+ * - perception_events:    E3 感知事件流
+ * - operation_catalog:    O1 结构化操作目录
+ * - operation_proposals:  O2 主动提议闭环
+ * 环境变量：AERVOX_PROACTIVE_SITUATION_PROJECTION 等（默认 off = 保留既有行为）。
+ */
+export type ProactiveFeatureFlag =
+  | "situation_projection"
+  | "proactive_dsl"
+  | "attention_budget"
+  | "proactive_persona"
+  | "perception_events"
+  | "operation_catalog"
+  | "operation_proposals";
+
+export const PROACTIVE_FEATURE_FLAGS: readonly ProactiveFeatureFlag[] = [
+  "situation_projection",
+  "proactive_dsl",
+  "attention_budget",
+  "proactive_persona",
+  "perception_events",
+  "operation_catalog",
+  "operation_proposals",
+] as const;
+
+const FLAG_ENV: Record<ProactiveFeatureFlag, string> = {
+  situation_projection: "AERVOX_PROACTIVE_SITUATION_PROJECTION",
+  proactive_dsl: "AERVOX_PROACTIVE_DSL",
+  attention_budget: "AERVOX_PROACTIVE_ATTENTION_BUDGET",
+  proactive_persona: "AERVOX_PROACTIVE_PERSONA",
+  perception_events: "AERVOX_PROACTIVE_PERCEPTION_EVENTS",
+  operation_catalog: "AERVOX_PROACTIVE_OPERATION_CATALOG",
+  operation_proposals: "AERVOX_PROACTIVE_OPERATION_PROPOSALS",
+};
+
+/**
+ * 解析主动智能 feature flags（可注入 env 便于测试；默认读取进程环境变量）。
+ * 任一 flag 显式置 "1"/"true" 视为开启，否则关闭（fail-closed）。
+ */
+export function loadProactiveFeatureFlags(env: NodeJS.ProcessEnv = process.env): ReadonlySet<ProactiveFeatureFlag> {
+  const enabled = new Set<ProactiveFeatureFlag>();
+  for (const flag of PROACTIVE_FEATURE_FLAGS) {
+    const raw = env[FLAG_ENV[flag]]?.trim().toLowerCase();
+    if (raw === "1" || raw === "true") enabled.add(flag);
+  }
+  return enabled;
+}
+
 /** @aervox/api 启动与运行时配置 */
 export interface ApiConfig {
   /** HTTP 监听端口（PORT，默认 3000） */
@@ -82,6 +137,8 @@ export interface ApiConfig {
   adminIds: string[];
   gptSovits: GptSovitsConfig;
   asr: AsrConfig;
+  /** CR-033 API 侧事件双写等切片开关。 */
+  proactiveFeatureFlags: ReadonlySet<ProactiveFeatureFlag>;
 }
 
 /** @aervox/worker 运行时配置 */
@@ -98,6 +155,8 @@ export interface WorkerConfig {
    * 解析失败的 key 回退默认并告警（worker 侧容错语义保留）。
    */
   intervalOverrides: Record<string, number>;
+  /** CR-033 主动智能演进子片 feature flags（默认全关，保留既有行为） */
+  proactiveFeatureFlags: ReadonlySet<ProactiveFeatureFlag>;
 }
 
 /** 拆分逗号/冒号分隔白名单（去空） */
@@ -183,6 +242,7 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
       whisperApiKey: env.WHISPER_API_KEY?.trim() || undefined,
       whisperModelId: env.WHISPER_MODEL_ID?.trim() || "whisper-1",
     },
+    proactiveFeatureFlags: loadProactiveFeatureFlags(env),
   };
 }
 
@@ -219,5 +279,6 @@ export function loadWorkerConfig(env: NodeJS.ProcessEnv = process.env): WorkerCo
       defaultLogFormat,
     ),
     intervalOverrides,
+    proactiveFeatureFlags: loadProactiveFeatureFlags(env),
   };
 }

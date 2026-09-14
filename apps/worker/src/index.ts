@@ -20,8 +20,13 @@ import { createDatabase,
   SqliteLearningRepository,
   SqliteMemoryCompactionRepository,
   SqliteMemoryEmbeddingRepository,
+  SqliteMemoryRepository,
+  SqlitePersonaRepository,
   SqliteProactiveIntelligenceRepository,
+  SqliteProactiveBudgetRepository,
   SqliteProactiveProfileRepository,
+  SqliteProactiveSituationRepository,
+  SqlitePerceptionEventRepository,
   SqliteSkillRegistryRepository,
   createProactiveVaultDatabase,
   loadProactiveVaultCipher,
@@ -42,6 +47,22 @@ import { runProactiveIntelligenceCycle } from "./proactive-intelligence-worker.j
 
 // 集中类型化配置（WORKER_ID / WORKER_TICK_MS / WORKER_INTERVAL_<NAME>_MS；启动期校验）
 const config = loadWorkerConfig();
+const unsupportedProactiveFlags = [...config.proactiveFeatureFlags]
+  .filter((flag) => !["situation_projection", "proactive_dsl", "attention_budget", "proactive_persona", "perception_events"].includes(flag));
+if (unsupportedProactiveFlags.length > 0) {
+  throw new Error(
+    `[config] CR-033 runtime slices are not wired yet; refusing no-op flags: ${unsupportedProactiveFlags.join(",")}`,
+  );
+}
+if (config.proactiveFeatureFlags.has("proactive_dsl") && !config.proactiveFeatureFlags.has("situation_projection")) {
+  throw new Error("[config] AERVOX_PROACTIVE_DSL requires AERVOX_PROACTIVE_SITUATION_PROJECTION");
+}
+if (config.proactiveFeatureFlags.has("attention_budget") && !config.proactiveFeatureFlags.has("proactive_dsl")) {
+  throw new Error("[config] AERVOX_PROACTIVE_ATTENTION_BUDGET requires AERVOX_PROACTIVE_DSL");
+}
+if (config.proactiveFeatureFlags.has("perception_events") && !config.proactiveFeatureFlags.has("situation_projection")) {
+  throw new Error("[config] AERVOX_PROACTIVE_PERCEPTION_EVENTS requires AERVOX_PROACTIVE_SITUATION_PROJECTION");
+}
 const logger = createStandardLogger({
   level: config.logLevel,
   format: config.logFormat,
@@ -65,11 +86,16 @@ const privacyRepo = new SqlitePrivacyRepository(db);
 const learningRepo = new SqliteLearningRepository(db);
 const compactionRepo = new SqliteMemoryCompactionRepository(db);
 const embeddingRepo = new SqliteMemoryEmbeddingRepository(db);
+const memoryRepo = new SqliteMemoryRepository(db, client);
+const personaRepo = new SqlitePersonaRepository(db);
 const inboxRepo = new SqliteAgentInboxRepository(db);
 const extensionRepo = new SqliteExtensionRepository(db);
 const skillRegistryRepo = new SqliteSkillRegistryRepository(db);
 const proactiveRepo = new SqliteProactiveProfileRepository(proactiveDb, proactiveCipher);
 const proactiveIntelligenceRepo = new SqliteProactiveIntelligenceRepository(proactiveDb, proactiveCipher);
+const proactiveSituationRepo = new SqliteProactiveSituationRepository(proactiveDb, proactiveCipher);
+const proactiveBudgetRepo = new SqliteProactiveBudgetRepository(proactiveDb);
+const perceptionRepo = new SqlitePerceptionEventRepository(proactiveDb);
 const proactiveDistiller = createRuleBasedProactiveDistiller();
 
 /** 每任务独立调频：WORKER_INTERVAL_<NAME>_MS 覆盖（由 @aervox/config 解析），缺省 WORKER_TICK_MS */
@@ -152,6 +178,12 @@ const tasks: WorkerTask[] = [
         db: proactiveDb,
         profileRepo: proactiveRepo,
         intelligenceRepo: proactiveIntelligenceRepo,
+        situationRepo: proactiveSituationRepo,
+        budgetRepo: proactiveBudgetRepo,
+        personaRepo,
+        memoryRepo,
+        perceptionRepo,
+        proactiveFeatureFlags: config.proactiveFeatureFlags,
         platformRepo,
         workerId,
         // CR-032：插件化主动调度依赖（插件声明/感知源授权 + 关怀话术组合器 + 插件 SKILL.md）
@@ -162,7 +194,7 @@ const tasks: WorkerTask[] = [
       return result.timeline + result.projects + result.workflows + result.triggers +
         result.verifications + result.conflicts + result.preparations + result.attention +
         result.drift + result.relationships + result.scenes + result.reviews +
-        result.dispatches;
+        result.dispatches + result.projections + result.budgetReceipts + result.perceptionEvents;
     },
   },
 ];

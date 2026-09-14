@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 2.0.0
-updated_at: 2026-09-11
-reviewed_at: 2026-09-11
+version: 2.1.0
+updated_at: 2026-09-14
+reviewed_at: 2026-09-14
 review_interval_days: 30
 review_triggers:
   - packages/schema/**
@@ -25,12 +25,13 @@ sources:
   - docs/reference/PRD.md
   - docs/reference/SRS.md
   - docs/reference/changes/CR-030-pure-local-sqlite-database.md
+  - docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md
 ---
 
 # Aervox｜思隅 SQLite 本地单用户数据库契约
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-11
+- 修改人：3yearszhuang · 2026-09-14
 
 本文规定 Aervox 持久化层的目标契约、机器事实源、关键不变量、破坏性迁移协议和发布门禁。
 字段与 DDL 的机器真源是 `packages/schema` 和 `packages/repositories/src/schema/ddl`；本文不复制
@@ -100,7 +101,7 @@ POSIX 权限目标为目录 `0700`、数据库/状态清单/token `0600`；Windo
 | Content | attachments、content_parse_results、provenance | OCR、全文与向量派生索引 |
 | Plugin/Persona | plugins、plugin_grants、personas/revisions、skills、MCP | plugin_config/secrets/pages、persona_turn_contexts |
 | Platform | consent_grants、audit_records、deletion_requests、outbox_events | model_runs、context_manifests、notifications |
-| Proactive | profile revisions、device/source grants、activation leases | captures、observations、claims、actions、local intelligence surfaces |
+| Proactive | profile revisions、device/source grants、activation leases、perception events | captures、observations、claims、actions、SituationModel snapshots、consumer cursors、attention budgets/feedback/receipts |
 
 `User` 仅表示本地用户档案，不是共享数据库认证主体。`actorId` 表示用户动作、插件、连接器或系统任务，
 用于授权来源和审计，不承担行级租户隔离。
@@ -142,6 +143,18 @@ D2 完成后的 Repository 方法直接接收业务参数，不再把 `tenant` �
 
 迁移期间允许旧接口存在，但 D2 退出条件是全仓源码和测试中的 `TenantContext` 调用归零，不能长期保留
 接受后忽略参数的 no-op 兼容层。
+
+### 6.1 CR-033 F0/F1 主动智能基础设施
+
+[CR-033](changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md) 当前只交付默认关闭的
+F0/F1 存储底座，不改变 CR-032 生产读写路径。其 Repository 必须保持以下不变量：
+
+- 感知事件 sequence 在单条写语句中分配；重复 event ID 或幂等键不得生成第二条事实；
+- 压缩上限不得越过任何未过期消费者的最小 ACK，且消费者不存在时不自动删除；
+- SituationModel 写入前校验版本、结构与大小；同 revision/sequence 不允许用不同 checksum 覆盖；
+- 态势水印清理只删除目标水位之前的快照，重建时快照正文、水印、checksum 和行级字段同步推进；
+- 预算反馈先写幂等账本，再与预算 CAS 更新在同一事务提交；插件预算与全局预算均通过才允许派发；
+- F0/F1 表允许兼容新增，不允许仅因关闭 Feature Flag 而删表；后续运行时接线、迁移和退役旧管线必须由子 CR 批准。
 
 ## 7. FTS、向量与递归查询
 

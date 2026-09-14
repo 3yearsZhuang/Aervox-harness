@@ -16,6 +16,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@aervox/contracts": "workspace:*",
     "@aervox/schema": "workspace:*",
     "@libsql/client": "^0.14.0",
     "drizzle-orm": "^0.39.3"
