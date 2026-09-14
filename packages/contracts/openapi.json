@@ -8179,6 +8179,352 @@
           }
         },
         "additionalProperties": false
+      },
+      "CapabilityTier": {
+        "type": "string",
+        "enum": [
+          "full",
+          "restricted",
+          "minimal"
+        ]
+      },
+      "ModelRoutingTier": {
+        "type": "string",
+        "enum": [
+          "L0",
+          "L1",
+          "L2"
+        ]
+      },
+      "HealthStatus": {
+        "type": "string",
+        "enum": [
+          "unknown",
+          "healthy",
+          "degraded",
+          "unavailable"
+        ]
+      },
+      "HealthSnapshot": {
+        "type": "object",
+        "properties": {
+          "presetId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "providerType": {
+            "type": "string",
+            "enum": [
+              "ollama",
+              "deepseek",
+              "openai",
+              "anthropic",
+              "custom_openai"
+            ]
+          },
+          "endpointIdentity": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "healthy",
+              "degraded",
+              "unavailable"
+            ]
+          },
+          "consecutiveSuccesses": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "consecutiveFailures": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "latencyMs": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "lastProbeAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "lastSuccessAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "lastFailureAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "errorCategory": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "timeout",
+              "network_error",
+              "http_error",
+              "auth_error",
+              "unsupported_protocol",
+              "unknown",
+              null
+            ]
+          },
+          "errorMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cooldownUntil": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "presetId",
+          "providerType",
+          "endpointIdentity",
+          "status",
+          "consecutiveSuccesses",
+          "consecutiveFailures",
+          "latencyMs",
+          "lastProbeAt",
+          "lastSuccessAt",
+          "lastFailureAt",
+          "errorCategory",
+          "errorMessage",
+          "cooldownUntil"
+        ]
+      },
+      "ModelRoutingSnapshot": {
+        "type": "object",
+        "properties": {
+          "tier": {
+            "type": "string",
+            "enum": [
+              "L0",
+              "L1",
+              "L2"
+            ]
+          },
+          "capabilityTier": {
+            "type": "string",
+            "enum": [
+              "full",
+              "restricted",
+              "minimal"
+            ]
+          },
+          "presetId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "presetName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "providerType": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "ollama",
+              "deepseek",
+              "openai",
+              "anthropic",
+              "custom_openai",
+              null
+            ]
+          },
+          "modelId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "baseUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "isLocal": {
+            "type": "boolean"
+          },
+          "localAttestation": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "configRevision": {
+            "type": "string",
+            "minLength": 1
+          },
+          "healthRevision": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stickySession": {
+            "type": "boolean"
+          },
+          "evaluatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "tier",
+          "capabilityTier",
+          "presetId",
+          "presetName",
+          "providerType",
+          "modelId",
+          "baseUrl",
+          "isLocal",
+          "localAttestation",
+          "reason",
+          "configRevision",
+          "healthRevision",
+          "stickySession",
+          "evaluatedAt"
+        ]
+      },
+      "ModelRoutingEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sessionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "turnId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fromTier": {
+            "type": "string",
+            "enum": [
+              "L0",
+              "L1",
+              "L2"
+            ]
+          },
+          "toTier": {
+            "type": "string",
+            "enum": [
+              "L0",
+              "L1",
+              "L2"
+            ]
+          },
+          "fromPresetId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "toPresetId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "sessionId",
+          "turnId",
+          "fromTier",
+          "toTier",
+          "fromPresetId",
+          "toPresetId",
+          "reason",
+          "occurredAt"
+        ]
+      },
+      "ModelRoutingPolicy": {
+        "type": "object",
+        "properties": {
+          "probeIntervalMs": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "default": 30000
+          },
+          "failureThreshold": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "default": 3
+          },
+          "successThreshold": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "default": 2
+          },
+          "probeTimeoutMs": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "default": 5000
+          },
+          "manualLockTier": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "L0",
+              "L1",
+              "L2",
+              null
+            ],
+            "default": null
+          },
+          "autoFallbackEnabled": {
+            "type": "boolean",
+            "default": true
+          }
+        }
       }
     },
     "parameters": {}

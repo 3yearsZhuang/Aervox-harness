@@ -20,6 +20,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json && pnpm generate:openapi",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
     "generate:openapi": "node scripts/generate-openapi.ts"
   },
   "dependencies": {

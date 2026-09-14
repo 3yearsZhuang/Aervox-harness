@@ -154,7 +154,11 @@ review_interval_days: 90
 | [CR-039](reference/changes/CR-039-proactive-persona-context-runtime.md) | 主动回合人格同源与安全上下文 | Accepted | Verified |
 | [CR-040](reference/changes/CR-040-structured-operation-domain.md) | 结构化操作域与工具白名单 | Proposed | Planned |
 | [CR-041](reference/changes/CR-041-proactive-operation-proposal-loop.md) | 主动操作提议闭环 | Proposed | Planned |
-| [CR-034](reference/changes/CR-034-local-model-fallback-ladder.md) | 本地模型降级阶梯：无 API 接入时的原生能力基线 | Proposed | Planned |
+| [CR-034](reference/changes/CR-034-local-model-fallback-ladder.md) | 本地模型降级阶梯：无 API 接入时的原生能力基线 | Accepted | Implemented |
+| [CR-042](reference/changes/CR-042-local-model-routing-and-fallback.md) | 本地模型路由降级与切回 | Accepted | Verified |
+| [CR-043](reference/changes/CR-043-local-model-capability-tiering.md) | 本地模型能力分级与降级提示 | Accepted | Planned |
+| [CR-044](reference/changes/CR-044-deterministic-rule-response.md) | 确定性规则回应与本地工具执行 | Accepted | Planned |
+| [CR-045](reference/changes/CR-045-local-model-runtime-lifecycle-host.md) | 本地运行时生命周期托管 | Accepted | Planned |
 | [CR-035](reference/changes/CR-035-standard-workbench-mode.md) | 标准 AI 工作台形态：熟悉范式的原生交互壳 | Proposed | Planned |
 
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）

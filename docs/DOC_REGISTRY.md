@@ -48,7 +48,7 @@ review_interval_days: 90
 | `ADR-017` | [上下文清单、模型运行记录与多步执行持久化](reference/adr/ADR-017-context-manifest-modelrun-step.md) | 2026-09-10 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
 | `AVX-SPC-001` | [流式协议](reference/STREAMING_PROTOCOL.md) | 2026-09-10 | OpenAPI/事件 schema 变更 | `packages/contracts` 版本高于文档描述 |
 | `AVX-DB-001` | [SQLite 本地单用户数据库契约](reference/DATABASE.md) | 2026-09-14 | Schema/仓储接口/迁移计划变更 | CR-030 目标、当前过渡状态、迁移器或回滚门禁与实现不一致 |
-| `AVX-DB-002` | [数据库数据模型覆盖矩阵](reference/database-coverage-matrix.md) | 2026-09-11 | PRD §8 实体增减或落表状态变更 | 实体落表状态、CR-030 阶段、仓储 Port 或 DDL 初始化与实现不符 |
+| `AVX-DB-002` | [数据库数据模型覆盖矩阵](reference/database-coverage-matrix.md) | 2026-09-14 | PRD §8 实体增减或落表状态变更 | 实体落表状态、CR-030 阶段、仓储 Port 或 DDL 初始化与实现不符 |
 | `AVX-DATA-001` | [数据与隐私](reference/DATA_PRIVACY.md) | 2026-09-10 | 每季度 + 数据流/迁移变更 | 本地目录、导出、备份、破坏性迁移或删除边界未评审 |
 | `AVX-AIQ-001` | [AI 质量与安全](reference/AI_QUALITY_SAFETY.md) | 2026-09-10 | 模型/Prompt/算法变更 + AI 评估 | 本地来源边界、Diary 唯一性或模型上下文规则未同步 |
 | `AVX-SEC-001` | [威胁模型](reference/THREAT_MODEL.md) | 2026-09-10 | 每季度 + 信任边界变更 | loopback、文件 ACL 或 CR-030 迁移威胁未加入模型 |
@@ -109,6 +109,10 @@ review_interval_days: 90
 | `CR-040` | [结构化操作域与工具白名单](reference/changes/CR-040-structured-operation-domain.md) | 2026-09-14 | `CAP-033/020/019` O1 操作工具白名单与授权面 | 白名单、授权等级或不可逆操作确认边界与本文不一致 |
 | `CR-041` | [主动操作提议闭环](reference/changes/CR-041-proactive-operation-proposal-loop.md) | 2026-09-14 | `CAP-033/020/019` O2 提议、确认、执行与回执闭环 | 提议状态机、审批语义、审计或失败补偿与本文不一致 |
 | `CR-034` | [本地模型降级阶梯：无 API 接入时的原生能力基线](reference/changes/CR-034-local-model-fallback-ladder.md) | 2026-09-14 | `CAP-020/013/009/033/019` 三层降级阶梯（L0 云端 / L1 本地端点 / L2 规则回应）、降级决策器、能力分级与运行时托管 | 降级层级语义、能力分级边界、决策器切层规则或托管白名单与本文不符 |
+| `CR-042` | [本地模型路由降级与切回](reference/changes/CR-042-local-model-routing-and-fallback.md) | 2026-09-14 | `CAP-020/013/009/033` L0/L1/L2 路由策略、健康探测、粘性路由与切回 | 探活判定、切层状态机、审计事件或 fallback 行为与本文不符 |
+| `CR-043` | [本地模型能力分级与降级提示](reference/changes/CR-043-local-model-capability-tiering.md) | 2026-09-14 | `CAP-020/013` 能力分级、降级前置感知与诚实提示契约 | 提示注入、能力映射或模式状态机与本文不符 |
+| `CR-044` | [确定性规则回应与本地工具执行](reference/changes/CR-044-deterministic-rule-response.md) | 2026-09-14 | `CAP-020/009/033` L2 纯离线规则模板与白名单本地工具引擎 | 规则 DSL、意图路由或工具沙箱与本文不符 |
+| `CR-045` | [本地运行时生命周期托管](reference/changes/CR-045-local-model-runtime-lifecycle-host.md) | 2026-09-14 | `CAP-020/018` Ollama/vLLM 本地运行时进程探测与启停托管 | 进程拉起、端口等待或资源限额与本文不符 |
 | `CR-035` | [标准 AI 工作台形态：熟悉范式的原生交互壳](reference/changes/CR-035-standard-workbench-mode.md) | 2026-09-14 | `CAP-019/020/013` 标准模式交互壳、会话列表、任务中心、项目上下文与迁移友好设施 | 双形态状态一致性、任务中心只读语义、会话导航契约或导入器净化规则与本文不符 |
 | `AVX-PLUG-001` | [插件 Config、Page 与 UI 扩展规范](reference/plugin-config-and-pages.md) | 2026-09-11 | CR-006 / 插件机制变更 | Manifest、Config Schema、Page Bridge、Turn 管道或 UI 扩展与实现不一致 |
 | `AVX-DOC-GOV-001` | [文档治理与事实源规范](reference/document-governance.md) | 2026-09-14 | 文档分类、状态、事实源、复核触发或迁移策略变更 | 策略 JSON、校验器、索引、登记表或写作规范与治理基线不一致 |
