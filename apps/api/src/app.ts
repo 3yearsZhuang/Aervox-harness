@@ -73,6 +73,7 @@ export interface BuildAppOptions {
   proactiveCipher?: ProactiveVaultCipher;
   /** CAP-033 loopback device token；null 仅供显式测试禁用。 */
   proactiveAccessToken?: string | null;
+  proactiveFeatureFlags?: ReadonlySet<import("@aervox/config").ProactiveFeatureFlag>;
   /** Skill 内容落盘根目录（测试注入临时目录；缺省 <repo>/data/skills） */
   skillsRoot?: string;
   /** 插件 Page Bundle 落盘根目录（测试注入临时目录；缺省 <repo>/data/plugins） */
@@ -289,6 +290,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
     db: proactiveDb,
     cipher: proactiveCipher,
     accessToken: proactiveAccessToken,
+    featureFlags: options.proactiveFeatureFlags ?? apiConfig.proactiveFeatureFlags,
   });
   registerConversationModule(ctx);
   registerLearningModule(ctx);

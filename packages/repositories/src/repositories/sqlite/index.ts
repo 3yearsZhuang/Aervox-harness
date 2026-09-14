@@ -34,3 +34,6 @@ export * from "./subagent-run-repository.js";
 export * from "./user-question-repository.js";
 export * from "./proactive-profile-repository.js";
 export * from "./proactive-intelligence-repository.js";
+export * from "./proactive-situation-repository.js";
+export * from "./proactive-budget-repository.js";
+export * from "./proactive-perception-repository.js";

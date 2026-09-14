@@ -207,6 +207,34 @@ describe("CR-032 主动智能插件生命周期", () => {
     await app.inject({method: "DELETE", url: "/v1/plugins/health-guard", headers});
     expect(await repo.listTriggerRulesByPlugin(tenant, "health-guard")).toHaveLength(0);
   });
+
+  it("安装期拒绝引用 SituationModel 白名单外字段的 DSL", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/v1/plugins",
+      headers,
+      payload: {
+        id: "invalid-dsl",
+        publisher: "aervox-official",
+        version: "1.0.0",
+        proactiveSpec: {
+          sensors: [],
+          triggers: [{
+            ruleId: "unsafe",
+            name: "Unsafe",
+            triggerType: "fatigue_high",
+            condition: {score: 70},
+            dsl: {
+              version: "proactive_dsl_v1",
+              expression: {op: "field_ref", field: "persona.secret"},
+            },
+          }],
+        },
+      },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({error: "invalid proactive DSL"});
+  });
 });
 
 describe("CR-032 清单契约 fail-closed", () => {

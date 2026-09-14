@@ -14,7 +14,11 @@ import type {
   ProactiveClaimState,
   ProactiveDesiredState,
   ProactiveSourceGrantState,
+  SqlitePerceptionEventRepository,
+  SqliteProactiveSituationRepository,
 } from "@aervox/repositories";
+import { perceptionPayloadDigest } from "@aervox/repositories";
+import { isProfileSourceId } from "@aervox/contracts";
 import { FULL_PROFILE_SOURCE_MANIFEST } from "@aervox/schema";
 import { resolveLocalContext } from "../../shared/local-context.js";
 
@@ -93,6 +97,9 @@ export interface ProactiveRouteDeps {
   repository: IProactiveProfileRepository;
   /** CAP-033 consent projection lives in the same local Vault when supplied. */
   privacyRepository?: IPrivacyRepository;
+  perceptionRepository?: SqlitePerceptionEventRepository;
+  situationRepository?: SqliteProactiveSituationRepository;
+  perceptionEventsEnabled?: boolean;
 }
 
 function consentId(revisionId: string, sourceKey: string): string {
@@ -253,6 +260,12 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
         await deps.privacyRepository.revokeConsent(tenant, consentId(updated.id, source.sourceKey));
       }
     }
+    if (body.desiredState === "revoked" && deps.perceptionRepository) {
+      await deps.perceptionRepository.deleteByRevision(tenant, updated.id);
+    }
+    if (body.desiredState === "revoked" && deps.situationRepository) {
+      await deps.situationRepository.deleteByRevision(tenant, updated.id);
+    }
     return updated;
   });
 
@@ -275,14 +288,24 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
     if ((body.state === "revoked" || body.state === "expired") && deps.privacyRepository) {
       await deps.privacyRepository.revokeConsent(tenant, consentId(updated.revisionId, updated.sourceKey));
     }
+    if (body.state === "revoked" || body.state === "expired") {
+      await deps.perceptionRepository?.deleteBySourceGrant(tenant, updated.id);
+      await deps.situationRepository?.deleteByRevision(tenant, updated.revisionId);
+    }
     return updated;
   });
 
   app.delete("/v1/proactive/sources/:sourceGrantId/data", async (req, reply) => {
     const { sourceGrantId } = req.params as { sourceGrantId: string };
-    const deleted = await repo.deleteSourceData(resolveLocalContext(req), sourceGrantId, actorFor(req));
+    const tenant = resolveLocalContext(req);
+    const source = (await repo.listSourceGrants(tenant)).find((item) => item.id === sourceGrantId);
+    const deleted = await repo.deleteSourceData(tenant, sourceGrantId, actorFor(req));
     if (!deleted) return reply.code(404).send({ error: "source grant not found" });
-    return deleted;
+    const eventsDeleted = deps.perceptionRepository
+      ? await deps.perceptionRepository.deleteBySourceGrant(tenant, sourceGrantId)
+      : 0;
+    if (source) await deps.situationRepository?.deleteByRevision(tenant, source.revisionId);
+    return {...deleted, eventsDeleted};
   });
 
   app.post("/v1/proactive/activation", async (req, reply) => {
@@ -351,6 +374,22 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
     if (body.payload === undefined && body.payloadText === undefined) {
       return reply.code(400).send({ error: "payload or payloadText is required" });
     }
+    if (deps.perceptionEventsEnabled) {
+      const deviceId = requiredString(body.deviceId);
+      const activationEpoch = requiredString(body.activationEpoch);
+      if (!deviceId || !activationEpoch || !isProfileSourceId(sourceKey)) {
+        return reply.code(400).send({error: "deviceId, activationEpoch and known sourceKey are required for perception events"});
+      }
+      const status = await repo.getEffectiveStatus(resolveLocalContext(req));
+      if (
+        status.effectiveState !== "active"
+        || status.revision?.id !== revisionId
+        || status.activationLease?.deviceId !== deviceId
+        || status.activationLease.epoch !== activationEpoch
+      ) {
+        return reply.code(409).send({error: "perception event activation context is not active"});
+      }
+    }
     const canonicalPayload = body.payload !== undefined ? JSON.stringify(body.payload) : String(body.payloadText);
     const capture = await repo.createCapture(resolveLocalContext(req), {
       id: idFromRequest(req, "pro_capture", body.id),
@@ -365,8 +404,58 @@ export function registerProactiveRoutes(app: FastifyInstance, deps: ProactiveRou
       observedAt: optionalString(body.observedAt),
       ingestedAt: optionalString(body.ingestedAt),
     });
+    let eventSequence: number | null = null;
+    if (deps.perceptionEventsEnabled) {
+      if (!deps.perceptionRepository) throw new Error("perception_events requires event repository");
+      const deviceId = requiredString(body.deviceId);
+      const activationEpoch = requiredString(body.activationEpoch);
+      if (!deviceId || !activationEpoch || !isProfileSourceId(sourceKey)) {
+        return reply.code(400).send({error: "deviceId, activationEpoch and known sourceKey are required for perception events"});
+      }
+      const tenant = resolveLocalContext(req);
+      const status = await repo.getEffectiveStatus(tenant);
+      if (
+        status.effectiveState !== "active"
+        || status.revision?.id !== revisionId
+        || status.activationLease?.deviceId !== deviceId
+        || status.activationLease.epoch !== activationEpoch
+      ) {
+        return reply.code(409).send({error: "perception event activation context is not active"});
+      }
+      const rawPayload = objectBody(body.payload);
+      const eventPayload = {
+        revisionId,
+        captureId: capture.id,
+        contentType,
+        checksum: capture.checksum,
+        eventType: optionalString(rawPayload.eventType) ?? `${sourceKey}.changed`,
+        ...(sourceKey === "system.idle_state" && typeof rawPayload.idleSeconds === "number"
+          ? {idleSeconds: rawPayload.idleSeconds, presenceState: optionalString(rawPayload.presenceState)}
+          : {}),
+      };
+      const outcome = await deps.perceptionRepository.ingest(tenant, {
+        version: "perception_event_v1",
+        eventId: `perception_${capture.id}`,
+        idempotencyKey: `capture:${capture.id}`,
+        source: sourceKey,
+        deviceId,
+        activationEpoch,
+        sourceGrantId,
+        occurredAt: capture.observedAt,
+        ingestedAt: capture.ingestedAt,
+        sequence: 0,
+        payloadDigest: perceptionPayloadDigest(eventPayload),
+        schemaVersion: "perception_event_v1",
+        payload: eventPayload,
+        causal: {parentEventIds: [], causeType: "edge"},
+      });
+      if (!outcome.ingested && !outcome.duplicate) {
+        throw new Error(`perception event ingestion failed: ${outcome.reason ?? "unknown"}`);
+      }
+      eventSequence = outcome.sequence;
+    }
     const { payloadText: _payloadText, payload: _payload, ...redacted } = capture;
-    return reply.code(201).send(redacted);
+    return reply.code(201).send({...redacted, ...(deps.perceptionEventsEnabled ? {eventSequence} : {})});
   });
 
   app.post("/v1/proactive/captures/purge", async (req) => {

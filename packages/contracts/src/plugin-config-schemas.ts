@@ -6,6 +6,13 @@
  * 但以 Aervox 自有版本化 DSL 作为运行时唯一事实源，不做 AstrBot 格式兼容导入。
  */
 import { z } from "zod";
+import {
+  dslExpressionSchema,
+  dslQuotasSchema,
+  PROACTIVE_DSL_VERSION,
+  type DslExpression,
+  type DslQuotas,
+} from "./proactive-dsl-schemas.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 
 // 必须在任何 schema 创建前调用（与 schemas.ts 保持相同约定）
@@ -192,6 +199,12 @@ export const pluginProactiveTriggerSchema = z
     triggerType: pluginProactiveTriggerTypeSchema,
     /** 类型相关条件（system_state: idleMinutesMax / continuousActiveMinutesMin），求值期 fail-closed */
     condition: z.record(z.string(), z.unknown()).default({}),
+    /** CR-037 E2：可选受限 DSL；缺省时保留 CR-032 triggerType 兼容求值。 */
+    dsl: z.object({
+      version: z.literal(PROACTIVE_DSL_VERSION),
+      expression: dslExpressionSchema,
+      quotas: dslQuotasSchema.optional(),
+    }).strict().optional(),
     cooldownSeconds: z.number().int().min(0).max(7 * 24 * 3600).default(1800),
     quietHoursPolicy: z.enum(["respect_global", "bypass"]).default("respect_global"),
     /** 桌宠表现声明（动画别名 + 气泡预设），由桌面端解析，未知值安全降级 */
@@ -223,6 +236,7 @@ export interface PluginProactiveTrigger {
   name: string;
   triggerType: "system_state" | "fatigue_high" | "drift_high" | "health_sleep_low" | "commitment_due";
   condition: Record<string, unknown>;
+  dsl?: {version: typeof PROACTIVE_DSL_VERSION; expression: DslExpression; quotas?: DslQuotas};
   cooldownSeconds: number;
   quietHoursPolicy: "respect_global" | "bypass";
   petPresentation?: {animation?: string; bubblePreset?: string};

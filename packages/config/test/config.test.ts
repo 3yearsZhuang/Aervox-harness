@@ -9,7 +9,7 @@
  * - 优先级声明一致性（注入 env 与默认）。
  */
 import { describe, expect, it } from "vitest";
-import { loadApiConfig, loadWorkerConfig } from "../src/index.js";
+import { loadApiConfig, loadWorkerConfig, loadProactiveFeatureFlags } from "../src/index.js";
 
 describe("loadApiConfig（缺陷 E）", () => {
   it("缺省值：port 3000 / loopProvider llm / compaction off / 白名单空 / voice 默认", () => {
@@ -106,5 +106,32 @@ describe("loadWorkerConfig（缺陷 E）", () => {
     // 非法覆盖值被忽略（不进入 overrides），不抛错
     const cfg = loadWorkerConfig({ WORKER_INTERVAL_OUTBOX_MS: "abc", WORKER_INTERVAL_DIARY_MS: "-5" });
     expect(cfg.intervalOverrides).toEqual({});
+  });
+});
+
+describe("loadProactiveFeatureFlags（CR-033 F0-4 独立 flag）", () => {
+  it("默认全关：未设置任何 flag 时返回空集（fail-closed，保留 CR-032 行为）", () => {
+    const cfg = loadWorkerConfig({});
+    expect(cfg.proactiveFeatureFlags.size).toBe(0);
+  });
+
+  it("显式 1/true 开启对应 flag", () => {
+    const cfg = loadWorkerConfig({
+      AERVOX_PROACTIVE_SITUATION_PROJECTION: "1",
+      AERVOX_PROACTIVE_PERSONA: "true",
+    });
+    expect(cfg.proactiveFeatureFlags.has("situation_projection")).toBe(true);
+    expect(cfg.proactiveFeatureFlags.has("proactive_persona")).toBe(true);
+    expect(cfg.proactiveFeatureFlags.has("proactive_dsl")).toBe(false);
+  });
+
+  it("大小写不敏感：TRUE/True 均视为开启", () => {
+    const cfg = loadWorkerConfig({ AERVOX_PROACTIVE_DSL: "TRUE" });
+    expect(cfg.proactiveFeatureFlags.has("proactive_dsl")).toBe(true);
+  });
+
+  it("非 1/true 值一律视为关闭（fail-closed）", () => {
+    const cfg = loadWorkerConfig({ AERVOX_PROACTIVE_ATTENTION_BUDGET: "yes" });
+    expect(cfg.proactiveFeatureFlags.has("attention_budget")).toBe(false);
   });
 });

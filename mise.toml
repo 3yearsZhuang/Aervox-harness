@@ -24,7 +24,7 @@ install = "pnpm install --frozen-lockfile"
 ci-code = "pnpm install --frozen-lockfile && pnpm check:boundary && pnpm build && pnpm typecheck && pnpm test"
 
 # 本地文档门禁：Markdown lint + 术语散文 lint + 治理/本地链接校验
-ci-docs = "npx markdownlint-cli2 --config .markdownlint-cli2.jsonc 'docs/**/*.md' 'README.md' 'AGENTS.md' 'CONTRIBUTING.md' && mise tasks run docs-lint-prose && mise tasks run docs-validate"
+ci-docs = "node --test scripts/docs-governance.test.mjs && npx markdownlint-cli2 --config .markdownlint-cli2.jsonc 'docs/**/*.md' 'README.md' 'AGENTS.md' 'CONTRIBUTING.md' && mise tasks run docs-lint-prose && mise tasks run docs-validate"
 
 # 术语/散文一致性（配置见 .vale.ini，错误级别阻断）
 docs-lint-prose = "vale --minAlertLevel=error docs README.md AGENTS.md CONTRIBUTING.md"

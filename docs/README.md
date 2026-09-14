@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.9.0
-updated_at: 2026-09-13
-reviewed_at: 2026-09-13
+version: 1.9.1
+updated_at: 2026-09-14
+reviewed_at: 2026-09-14
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 产品与工程文档索引
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-13
+- 修改人：3yearszhuang · 2026-09-14
 
 本目录把产品目标、可测试需求、架构决策、数据权利和 AI 质量分开维护，避免单一 PRD 同时承担所有细节。所有上线范围必须能从用户价值追踪到需求、设计、测试和发布证据。
 
@@ -147,7 +147,13 @@ review_interval_days: 90
 | [CR-030](reference/changes/CR-030-pure-local-sqlite-database.md) | SQLite 永久本地单用户真源与去租户化 | Accepted | Implemented |
 | [CR-031](reference/changes/CR-031-turn-stream-pubsub-optimization.md) | Turn 实时流式推送 Pub/Sub 与轮询解耦 | Accepted | Implemented |
 | [CR-032](reference/changes/CR-032-proactive-intelligence-plugin-ecosystem.md) | 主动智能插件化与触发规则生态架构 | Accepted | Implemented |
-| [CR-033](reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md) | 主动智能终局架构：态势感知内核与预算化干预生态 | Proposed | Planned |
+| [CR-033](reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md) | 主动智能终局架构：态势感知内核与预算化干预生态 | Accepted | Implemented |
+| [CR-036](reference/changes/CR-036-situation-model-shadow-projection.md) | SituationModel 影子投影与内置规则数据化 | Accepted | Verified |
+| [CR-037](reference/changes/CR-037-proactive-dsl-and-attention-budget-runtime.md) | 主动 DSL 与注意力预算运行时接线 | Accepted | Verified |
+| [CR-038](reference/changes/CR-038-perception-event-runtime.md) | 感知事件流运行时接线 | Accepted | Implemented |
+| [CR-039](reference/changes/CR-039-proactive-persona-context-runtime.md) | 主动回合人格同源与安全上下文 | Accepted | Verified |
+| [CR-040](reference/changes/CR-040-structured-operation-domain.md) | 结构化操作域与工具白名单 | Proposed | Planned |
+| [CR-041](reference/changes/CR-041-proactive-operation-proposal-loop.md) | 主动操作提议闭环 | Proposed | Planned |
 | [CR-034](reference/changes/CR-034-local-model-fallback-ladder.md) | 本地模型降级阶梯：无 API 接入时的原生能力基线 | Proposed | Planned |
 | [CR-035](reference/changes/CR-035-standard-workbench-mode.md) | 标准 AI 工作台形态：熟悉范式的原生交互壳 | Proposed | Planned |
 

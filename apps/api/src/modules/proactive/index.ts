@@ -5,12 +5,15 @@
  * 到 ctx.db 仅用于本地开发/测试，调用方不应把该回退当作远程安全边界。
  */
 import type { AervoxDatabase, ProactiveVaultCipher } from "@aervox/repositories";
+import type { ProactiveFeatureFlag } from "@aervox/config";
 import { safeTimingCompare } from "../../shared/auth.js";
 import type { ModuleContext } from "../context.js";
 import {
   SqlitePrivacyRepository,
   SqliteProactiveIntelligenceRepository,
   SqliteProactiveProfileRepository,
+  SqlitePerceptionEventRepository,
+  SqliteProactiveSituationRepository,
 } from "@aervox/repositories";
 import { registerProactiveRoutes } from "./routes.js";
 import { ProactiveActionAuthorizer } from "./action-authorizer.js";
@@ -24,6 +27,7 @@ export interface ProactiveModuleOptions {
   db?: AervoxDatabase;
   cipher?: ProactiveVaultCipher;
   accessToken?: string | null;
+  featureFlags?: ReadonlySet<ProactiveFeatureFlag>;
 }
 
 export interface ProactiveModuleServices {
@@ -45,6 +49,11 @@ export function registerProactiveModule(ctx: ModuleContext, options: ProactiveMo
     localDb,
     options.cipher ?? ctx.proactiveCipher,
   );
+  const perceptionRepository = new SqlitePerceptionEventRepository(localDb);
+  const situationRepository = new SqliteProactiveSituationRepository(
+    localDb,
+    options.cipher ?? ctx.proactiveCipher,
+  );
   const integrationManager = new ProactiveIntegrationManager(intelligenceRepository, repository);
   ctx.proactiveRepository = repository;
   ctx.proactiveIntelligenceRepository = intelligenceRepository;
@@ -60,7 +69,13 @@ export function registerProactiveModule(ctx: ModuleContext, options: ProactiveMo
       }
     });
   }
-  registerProactiveRoutes(ctx.app, { repository, privacyRepository });
+  registerProactiveRoutes(ctx.app, {
+    repository,
+    privacyRepository,
+    perceptionRepository,
+    situationRepository,
+    perceptionEventsEnabled: options.featureFlags?.has("perception_events") ?? false,
+  });
   registerProactivePresentationRoutes(ctx.app, { profileRepo: repository });
   registerProactiveIntelligenceRoutes(ctx.app, {
     intelligenceRepo: intelligenceRepository,

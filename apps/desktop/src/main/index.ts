@@ -126,7 +126,7 @@ interface ProactiveServerStatus {
     reason: string
     revision: {id: string; deviceId: string} | null
     sources: Array<{id: string; sourceKey: string; state: string}>
-    activationLease: {id: string; epoch: string} | null
+    activationLease: {id: string; epoch: string; deviceId: string} | null
 }
 
 interface ProactiveAuthorizationResponse {
@@ -299,6 +299,8 @@ async function ingestProactiveCapture(
         payload,
         checksum: input.checksum,
         observedAt: new Date().toISOString(),
+        deviceId: status.activationLease?.deviceId,
+        activationEpoch: status.activationLease?.epoch,
     })
     return true
 }
@@ -431,17 +433,23 @@ const scheduledWideSources: readonly ProactiveWideSourceId[] = [
     'device.app_activity',
 ]
 
-// CR-032：system.idle_state 元数据级样本（Electron powerMonitor 空闲秒数，60s 节拍，
-// 仿剪贴板直采模式）。payload 仅含 idleSeconds，不含窗口标题等敏感内容。
+let lastIdlePresenceState: 'active' | 'idle' | 'away' | undefined
+let lastIdleHeartbeatAt = 0
+// CR-038：idle 源端边沿聚合；状态变化立即发，连续状态仅每 5 分钟心跳。
 async function pollProactiveIdleState(): Promise<void> {
     if (!proactiveHost.shouldCollect()) return
     const idleGrant = latestProactiveStatus?.capabilities.find((capability) => capability.id === 'system.idle_state')
     if (idleGrant?.osStatus !== 'granted') return
     const idleSeconds = powerMonitor.getSystemIdleTime()
+    const presenceState = idleSeconds < 60 ? 'active' : idleSeconds < 15 * 60 ? 'idle' : 'away'
+    const nowMs = Date.now()
+    if (presenceState === lastIdlePresenceState && nowMs - lastIdleHeartbeatAt < 5 * 60_000) return
+    lastIdlePresenceState = presenceState
+    lastIdleHeartbeatAt = nowMs
     const observedAt = new Date().toISOString()
-    const checksum = createHash('sha256').update(`system.idle_state:${observedAt}:${idleSeconds}`, 'utf8').digest('hex')
+    const checksum = createHash('sha256').update(`system.idle_state:${presenceState}:${observedAt}`, 'utf8').digest('hex')
     await ingestProactiveCapture('system.idle_state', {
-        payload: {idleSeconds, adapter: 'electron-power-monitor-v1'},
+        payload: {idleSeconds, presenceState, adapter: 'electron-power-monitor-v2'},
         contentType: 'application/json',
         checksum,
         stableId: true,
@@ -1156,11 +1164,11 @@ app.whenReady().then(async () => {
     setInterval(() => {
         void pollProactiveWideSources().catch(() => undefined)
     }, 5 * 60_000)
-    // CR-032：system.idle_state 元数据采样（60s 节拍，已获授权时才上传）
+    // CR-038：5s 检测 + 边沿聚合，状态变化可在秒级进入事件流。
     void pollProactiveIdleState().catch(() => undefined)
     setInterval(() => {
         void pollProactiveIdleState().catch(() => undefined)
-    }, 60_000)
+    }, 5_000)
 
     // CR-032：主动表现事件常驻 SSE——Worker 派发的主动关怀经 API 直推桌宠
     startProactiveEventStream({

@@ -12,21 +12,35 @@ import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import { and, eq } from "drizzle-orm";
 import {
+  DEFAULT_BUDGET_POLICY,
+  isProfileSourceId,
   PLUGIN_SENSOR_PERMISSION,
   pluginProactiveSpecSchema,
 } from "@aervox/contracts";
-import type { PluginProactiveSpec } from "@aervox/contracts";
+import type {
+  PluginProactiveSpec,
+  ProactiveBudgetState,
+  ProactiveReceipt,
+  SituationModelV1,
+} from "@aervox/contracts";
+import type { ProactiveFeatureFlag } from "@aervox/config";
 import {
   proactiveProfileRevisions,
 } from "@aervox/schema";
 import type {
   AervoxDatabase,
+  BudgetRow,
   IntelligenceTriggerRule,
   SqliteExtensionRepository,
   SqliteLLMConfigRepository,
+  SqliteMemoryRepository,
+  SqlitePersonaRepository,
   SqlitePlatformRepository,
   SqliteProactiveIntelligenceRepository,
+  SqliteProactiveBudgetRepository,
   SqliteProactiveProfileRepository,
+  SqliteProactiveSituationRepository,
+  SqlitePerceptionEventRepository,
   SqliteSkillRegistryRepository,
   LocalContext,
 } from "@aervox/repositories";
@@ -38,6 +52,14 @@ import {
   type RuleEvaluation,
 } from "./proactive-rule-engine.js";
 import { composeProactiveMessage } from "./proactive-composer.js";
+import { arbitrateWithBudget } from "./proactive-budget-gate.js";
+import { canonicalDslHash, evaluateDslExpression, staticCheckDsl } from "./proactive-dsl-engine.js";
+import { resolveProactiveTurnContext } from "./proactive-turn-context.js";
+import {
+  BUILTIN_SITUATION_RULES,
+  compareBuiltInRuleParity,
+  projectLegacySituationShadow,
+} from "./proactive-situation-projector.js";
 
 const hash = (value: string): string => createHash("sha256").update(value).digest("hex").slice(0, 20);
 const id = (prefix: string, value: string): string => `${prefix}_${hash(value)}`;
@@ -66,6 +88,13 @@ export interface ProactiveIntelligenceCycleContext {
   /** CR-032：关怀话术组合器依赖 */
   llmConfigRepo?: SqliteLLMConfigRepository;
   skillRegistry?: SqliteSkillRegistryRepository;
+  personaRepo?: SqlitePersonaRepository;
+  memoryRepo?: SqliteMemoryRepository;
+  perceptionRepo?: SqlitePerceptionEventRepository;
+  /** CR-036 E1：默认关闭的 SituationModel 影子投影。 */
+  situationRepo?: SqliteProactiveSituationRepository;
+  budgetRepo?: SqliteProactiveBudgetRepository;
+  proactiveFeatureFlags?: ReadonlySet<ProactiveFeatureFlag>;
   /** 全局静音窗口（本地时区 HH:mm）；缺省 22:00-07:00 */
   globalQuietHours?: {start: string; end: string};
   /** 全局频次水位（次/小时）；缺省 3 */
@@ -89,6 +118,11 @@ export interface ProactiveIntelligenceCycleResult {
   /** CR-032：本次周期物化的插件规则数 / 实际派发的主动回合数 */
   materializedRules: number;
   dispatches: number;
+  /** CR-036 E1：完成影子投影的 profile 数与新旧规则差异数。 */
+  projections: number;
+  parityMismatches: number;
+  budgetReceipts: number;
+  perceptionEvents: number;
 }
 
 /**
@@ -114,21 +148,31 @@ async function dispatchProactiveTurn(
   const skillContent = rule.pluginId
     ? await loadPluginSkillContent(ctx.skillRegistry, undefined, rule.pluginId)
     : null;
-  const compose = ctx.llmConfigRepo
-    ? await composeProactiveMessage({
-        llmConfigRepo: ctx.llmConfigRepo,
-        input: {
-          tenant,
-          pluginId,
-          pluginName: declaration?.pluginName ?? pluginId,
-          ruleName: rule.name,
-          triggerType: rule.triggerType,
-          evidence: {summary: evaluation.reason, facts: evaluation.cause},
-          skillContent,
-          bubblePreset: actionSpec?.bubblePreset ?? null,
-        },
+  const resolvedContext = ctx.proactiveFeatureFlags?.has("proactive_persona")
+    ? await resolveProactiveTurnContext({
+        tenant,
+        personaRepo: ctx.personaRepo!,
+        memoryRepo: ctx.memoryRepo!,
+        skillRegistry: ctx.skillRegistry,
+        evidenceText: `${evaluation.reason}\n${JSON.stringify(evaluation.cause)}`,
+        pluginId: rule.pluginId ?? null,
       })
-    : {message: evaluation.reason, source: "template" as const};
+    : null;
+  const compose = await composeProactiveMessage({
+    llmConfigRepo: ctx.llmConfigRepo,
+    input: {
+      tenant,
+      pluginId,
+      pluginName: declaration?.pluginName ?? pluginId,
+      ruleName: rule.name,
+      triggerType: rule.triggerType,
+      evidence: {summary: evaluation.reason, facts: evaluation.cause},
+      skillContent,
+      bubblePreset: actionSpec?.bubblePreset ?? null,
+      turnContext: resolvedContext?.turnContext,
+      memoryContext: resolvedContext?.memoryContext,
+    },
+  });
 
   const actionId = id("pact", `${profile.id}:${rule.id}:${now.toISOString()}`);
   const action = await ctx.profileRepo.createAction(tenant, {
@@ -226,19 +270,79 @@ function isDeclarationAuthorized(declarations: ProactivePluginDeclaration[], plu
   return declaration.spec.sensors.every((sensor) => declaration.grantedSensors.has(sensor.sourceId));
 }
 
+function budgetState(row: BudgetRow, receiptPluginId: string | null = row.pluginId): ProactiveBudgetState {
+  return {
+    version: "proactive_budget_v1",
+    scope: row.scope as "global" | "plugin",
+    pluginId: receiptPluginId,
+    budgetUnits: row.budgetUnits,
+    maxUnits: row.maxUnits,
+    consecutiveIgnores: row.consecutiveIgnores,
+    reserveVersion: row.reserveVersion,
+    policyVersion: row.policyVersion,
+    updatedAt: row.updatedAt,
+  };
+}
+
 export async function runProactiveIntelligenceCycle(
   ctx: ProactiveIntelligenceCycleContext,
 ): Promise<ProactiveIntelligenceCycleResult> {
+  if (ctx.proactiveFeatureFlags?.has("proactive_dsl") && !ctx.proactiveFeatureFlags.has("situation_projection")) {
+    throw new Error("proactive_dsl requires situation_projection");
+  }
+  if (ctx.proactiveFeatureFlags?.has("attention_budget") && !ctx.proactiveFeatureFlags.has("proactive_dsl")) {
+    throw new Error("attention_budget requires proactive_dsl");
+  }
+  if (ctx.proactiveFeatureFlags?.has("proactive_persona") && (!ctx.personaRepo || !ctx.memoryRepo)) {
+    throw new Error("proactive_persona requires Persona and Memory repositories");
+  }
+  if (ctx.proactiveFeatureFlags?.has("perception_events") && !ctx.proactiveFeatureFlags.has("situation_projection")) {
+    throw new Error("perception_events requires situation_projection");
+  }
   const now = (ctx.now ?? (() => new Date()))();
   const result: ProactiveIntelligenceCycleResult = {
     tenants: 0, timeline: 0, projects: 0, workflows: 0, triggers: 0, verifications: 0,
     conflicts: 0, preparations: 0, attention: 0, drift: 0, relationships: 0, scenes: 0, reviews: 0,
-    materializedRules: 0, dispatches: 0,
+    materializedRules: 0, dispatches: 0, projections: 0, parityMismatches: 0, budgetReceipts: 0,
+    perceptionEvents: 0,
   };
 
   for (const profile of await activeProfiles(ctx)) {
     const tenant: LocalContext = {workspaceId: "local", subjectUserId: "local"};
     result.tenants += 1;
+    let projectionEvents: Awaited<ReturnType<SqlitePerceptionEventRepository["consume"]>> = [];
+    if (ctx.proactiveFeatureFlags?.has("perception_events")) {
+      if (!ctx.perceptionRepo) throw new Error("perception_events requires SqlitePerceptionEventRepository");
+      const distillationEvents = await ctx.perceptionRepo.consume(tenant, "proactive-distiller-v1", 128);
+      for (const event of distillationEvents) {
+        const payload = event.payload && typeof event.payload === "object"
+          ? event.payload as Record<string, unknown>
+          : {};
+        if (payload.revisionId !== profile.id || !isProfileSourceId(event.source)) {
+          await ctx.perceptionRepo.markDead(tenant, event.id);
+          continue;
+        }
+        await ctx.profileRepo.createObservation(tenant, {
+          id: `observation_${event.eventId}`,
+          revisionId: profile.id,
+          sourceGrantId: event.sourceGrantId,
+          sourceKey: event.source,
+          observationType: typeof payload.eventType === "string" ? payload.eventType : `${event.source}.changed`,
+          subjectKey: `device:${event.deviceId}`,
+          payload,
+          checksum: event.payloadDigest,
+          algorithmVersion: "perception-event-v1",
+          observedAt: event.occurredAt,
+          normalizedAt: now.toISOString(),
+        });
+        result.perceptionEvents += 1;
+      }
+      const distillationMax = distillationEvents.at(-1)?.sequence;
+      if (distillationMax !== undefined) {
+        await ctx.perceptionRepo.ack(tenant, "proactive-distiller-v1", distillationMax);
+      }
+      projectionEvents = await ctx.perceptionRepo.consume(tenant, "situation-projector-v1", 128);
+    }
     const observations = await ctx.profileRepo.listObservations(tenant, {revisionId: profile.id, limit: 500});
     const actions = await ctx.profileRepo.listActions(tenant, {revisionId: profile.id, limit: 500});
     const claims = await ctx.profileRepo.listClaims(tenant, {revisionId: profile.id, limit: 500});
@@ -430,6 +534,77 @@ export async function runProactiveIntelligenceCycle(
       result.preparations += 1;
     }
 
+    const idleSamples = (await ctx.profileRepo.listObservations(tenant, {
+      revisionId: profile.id,
+      sourceKey: "system.idle_state",
+      limit: 200,
+    }))
+      .map((item) => {
+        const raw = (item.payload as {idleSeconds?: unknown} | null)?.idleSeconds;
+        return {
+          observedAt: item.observedAt,
+          idleSeconds: typeof raw === "number" ? raw : Number.NaN,
+          captureId: item.id,
+        };
+      })
+      .filter((item) => Number.isFinite(item.idleSeconds))
+      .sort((left, right) => left.observedAt.localeCompare(right.observedAt));
+
+    let situationSnapshot: SituationModelV1 | null = null;
+    if (ctx.proactiveFeatureFlags?.has("situation_projection")) {
+      if (!ctx.situationRepo) {
+        throw new Error("situation_projection requires SqliteProactiveSituationRepository");
+      }
+      const [attentionStates, drifts, scenes, connections] = await Promise.all([
+        ctx.intelligenceRepo.listAttentionStates(tenant, 1),
+        ctx.intelligenceRepo.listDriftSignals(tenant, "open", 32),
+        ctx.intelligenceRepo.listScenes(tenant, 8),
+        ctx.intelligenceRepo.listConnections(tenant),
+      ]);
+      const attention = attentionStates[0] as {
+        windowStart: string;
+        windowEnd: string;
+        focusScore: number;
+        fatigueScore: number;
+        recommendation?: string | null;
+        updatedAt?: string;
+      } | undefined;
+      const projection = await projectLegacySituationShadow(ctx.situationRepo, tenant, {
+        revisionId: profile.id,
+        now,
+        idleSamples,
+        focus: attention ?? null,
+        health: {
+          sleepMinutes,
+          dailySteps,
+          localDate,
+          observedAt: healthSamples.map((item) => item.observedAt).sort().at(-1),
+        },
+        commitments,
+        drifts: drifts as Array<{signalType: string; severity: number; detectedAt: string}>,
+        scenes: scenes as Array<{sceneType: string; applicationId?: string | null; capturedAt: string}>,
+        connections,
+        ...(projectionEvents.length > 0 ? {
+          eventWatermark: {
+            lastEventSequence: projectionEvents.at(-1)!.sequence,
+            sourceEpochs: Object.fromEntries(projectionEvents.map((event) => [event.source, event.activationEpoch])),
+          },
+        } : {}),
+      });
+      situationSnapshot = projection.snapshot;
+      result.projections += 1;
+      result.parityMismatches += compareBuiltInRuleParity({
+        commitment_due: commitments.length > 0,
+        fatigue_high: fatigueScore >= 70,
+        drift_high: tenantDriftCount > 0,
+        health_sleep_low: sleepMinutes !== undefined && sleepMinutes < 360,
+      }, projection.snapshot).length;
+      const projectionMax = projectionEvents.at(-1)?.sequence;
+      if (projectionMax !== undefined && ctx.perceptionRepo) {
+        await ctx.perceptionRepo.ack(tenant, "situation-projector-v1", projectionMax);
+      }
+    }
+
     // 4. Context-aware triggers（CR-032 插件化调度：物化 → 求值 → 全局裁决 → 主动回合）
     const declarations = ctx.extensionRepo ? await loadPluginDeclarations(ctx.extensionRepo) : [];
     if (ctx.extensionRepo) {
@@ -448,7 +623,13 @@ export async function runProactiveIntelligenceCycle(
     for (const rule of builtInRules) {
       await ctx.intelligenceRepo.upsertTriggerRule(tenant, {
         id: `rule_${profile.id}_${rule.id}`, revisionId: profile.id, name: rule.name,
-        triggerType: rule.triggerType, condition: rule.condition, action: {kind: "notify"}, enabled: true,
+        triggerType: rule.triggerType,
+        condition: {
+          legacy: rule.condition,
+          dslVersion: "proactive_dsl_v1",
+          dsl: BUILTIN_SITUATION_RULES[rule.id],
+        },
+        action: {kind: "notify"}, enabled: true,
         cooldownSeconds: 6 * 3600, quietHours: {start: "22:00", end: "07:00"},
         // undefined：保留裁决器写回的冷却起点（此前每周期清零导致 cooldown 永不生效）
         lastTriggeredAt: undefined,
@@ -466,18 +647,38 @@ export async function runProactiveIntelligenceCycle(
       driftSeverity: maxDriftSeverity > 0 ? maxDriftSeverity : undefined,
       sleepMinutes,
       dueCommitments: commitments.map((item) => ({id: item.id, content: item.content, dueAt: item.dueAt})),
-      idleSamples: (await ctx.profileRepo.listObservations(tenant, {revisionId: profile.id, sourceKey: "system.idle_state", limit: 200}))
-        .map((item) => {
-          const raw = (item.payload as {idleSeconds?: unknown} | null)?.idleSeconds;
-          return {observedAt: item.observedAt, idleSeconds: typeof raw === "number" ? raw : Number.NaN};
-        })
-        .filter((item) => Number.isFinite(item.idleSeconds))
-        .sort((left, right) => left.observedAt.localeCompare(right.observedAt)),
+      idleSamples,
     };
 
-    // 候选集：内置规则沿用既有候选逻辑；插件规则读物化规则逐条求值
+    // 候选集：E2 开启时优先读数据化 DSL；无 DSL 的存量插件保留 CR-032 兼容求值。
     const candidates: Array<{rule: IntelligenceTriggerRule; evaluation: ReturnType<typeof evaluateTriggerRule>}> = [];
     for (const rule of await ctx.intelligenceRepo.listTriggerRules(tenant, true)) {
+      if (ctx.proactiveFeatureFlags?.has("proactive_dsl")) {
+        if (!situationSnapshot) throw new Error("proactive_dsl requires an available SituationModel snapshot");
+        const condition = (rule.condition ?? {}) as Record<string, unknown>;
+        const expression = condition.dsl;
+        if (expression !== undefined) {
+          const check = staticCheckDsl(expression);
+          const evaluated = check.ok
+            ? evaluateDslExpression(expression, situationSnapshot, condition.quotas as never)
+            : {hit: false, reason: check.reason ?? "DSL static validation failed"};
+          candidates.push({
+            rule,
+            evaluation: {
+              hit: evaluated.hit,
+              cause: {
+                situationRevisionId: situationSnapshot.revisionId,
+                situationSequence: situationSnapshot.watermark.lastEventSequence,
+                ruleHash: check.hash ?? null,
+              },
+              reason: evaluated.hit
+                ? `SituationModel matched DSL rule ${rule.name}`
+                : evaluated.reason ?? `SituationModel did not match DSL rule ${rule.name}`,
+            },
+          });
+          continue;
+        }
+      }
       if (rule.pluginId) {
         candidates.push({rule, evaluation: evaluateTriggerRule(rule, signals)});
         continue;
@@ -513,7 +714,7 @@ export async function runProactiveIntelligenceCycle(
         // 未命中不落事件（与既有行为一致：条件未满足即静默）
         continue;
       }
-      const verdict = arbitrate({
+      const arbitrationInput = {
         now,
         lastTriggeredAt: rule.lastTriggeredAt ?? null,
         cooldownSeconds: rule.pluginId ? Math.max(rule.cooldownSeconds, MIN_PLUGIN_COOLDOWN_SECONDS) : rule.cooldownSeconds,
@@ -525,17 +726,97 @@ export async function runProactiveIntelligenceCycle(
         authorized: !rule.pluginId || isDeclarationAuthorized(declarations, rule.pluginId),
         dispatchedInWindow,
         maxDispatchesPerHour: ctx.maxDispatchesPerHour ?? DEFAULT_MAX_DISPATCHES_PER_HOUR,
-      });
+      } as const;
+      const staticVerdict = arbitrate(arbitrationInput);
+      let decision: string = staticVerdict.decision;
+      let decisionReason = staticVerdict.reason;
+      let budgetReceipt: ProactiveReceipt | null = null;
+      let reservedBudgets: {
+        subjectId: string;
+        globalVersion: number;
+        pluginVersion: number;
+      } | null = null;
+      let actionDispatched = false;
 
-      if (verdict.decision !== "dispatch") {
+      if (ctx.proactiveFeatureFlags?.has("attention_budget")) {
+        if (!ctx.budgetRepo) throw new Error("attention_budget requires SqliteProactiveBudgetRepository");
+        const subjectId = rule.pluginId ?? "builtin";
+        const [globalRow, pluginRow] = await Promise.all([
+          ctx.budgetRepo.getOrInitBudget(tenant, "global", null),
+          ctx.budgetRepo.getOrInitBudget(tenant, "plugin", subjectId),
+        ]);
+        const dsl = ((rule.condition ?? {}) as Record<string, unknown>).dsl;
+        const ruleVersion = dsl === undefined ? "legacy-trigger-v1" : `proactive_dsl_v1:${canonicalDslHash(dsl)}`;
+        const actionId = id("pact", `${profile.id}:${rule.id}:${now.toISOString()}`);
+        const gate = arbitrateWithBudget({
+          ...arbitrationInput,
+          budget: budgetState(pluginRow, rule.pluginId ?? null),
+          globalBudget: budgetState(globalRow, null),
+          budgetPolicy: {advisory: false},
+          actionId,
+          receiptPluginId: rule.pluginId ?? null,
+          ruleId: rule.id,
+          ruleVersion,
+          evidenceDigest: `sha256:${hash(JSON.stringify(evaluation.cause))}`,
+          receiptId: id("receipt", `${profile.id}:${rule.id}:${now.toISOString()}`),
+          idempotencyKey: `budget:${profile.id}:${rule.id}:${now.toISOString()}`,
+        });
+        decision = gate.shouldDispatch
+          ? "dispatch"
+          : gate.staticVerdict.decision !== "dispatch"
+            ? gate.staticVerdict.decision
+            : "suppressed_budget";
+        decisionReason = gate.reason;
+        budgetReceipt = gate.receipt;
+
+        if (gate.shouldDispatch) {
+          const reserved = await ctx.budgetRepo.reserveBudgetPair(tenant, subjectId, {
+            globalVersion: globalRow.reserveVersion,
+            pluginVersion: pluginRow.reserveVersion,
+          }, DEFAULT_BUDGET_POLICY.reserveCost);
+          if (!reserved.ok || !reserved.globalBudget || !reserved.pluginBudget) {
+            decision = "suppressed_budget";
+            decisionReason = reserved.reason ?? "atomic budget reservation failed";
+            budgetReceipt = {
+              ...gate.receipt,
+              decision: "suppressed_budget",
+              suppressionReason: decisionReason,
+              budgetAfter: reserved.pluginBudget?.budgetUnits ?? pluginRow.budgetUnits,
+              globalBudgetAfter: reserved.globalBudget?.budgetUnits ?? globalRow.budgetUnits,
+            };
+          } else {
+            reservedBudgets = {
+              subjectId,
+              globalVersion: reserved.globalBudget.reserveVersion,
+              pluginVersion: reserved.pluginBudget.reserveVersion,
+            };
+            budgetReceipt = {
+              ...gate.receipt,
+              budgetAfter: reserved.pluginBudget.budgetUnits,
+              globalBudgetAfter: reserved.globalBudget.budgetUnits,
+            };
+          }
+        }
+      }
+
+      if (decision !== "dispatch") {
         // 抑制决策按 (规则, 决策, 日) 去重落事件，避免逐节拍刷屏
-        const suppressedEventId = id("trigger", `${profile.id}:${rule.id}:${verdict.decision}:${localDate}`);
+        const suppressedEventId = id("trigger", `${profile.id}:${rule.id}:${decision}:${localDate}`);
         if (!existingTriggerIds.has(suppressedEventId)) {
           existingTriggerIds.add(suppressedEventId);
           await ctx.intelligenceRepo.recordTriggerEvent(tenant, {
             id: suppressedEventId, revisionId: profile.id, ruleId: rule.id,
-            triggerType: rule.triggerType, cause: evaluation.cause, decision: verdict.decision, reason: verdict.reason,
+            triggerType: rule.triggerType, cause: evaluation.cause, decision, reason: decisionReason,
           });
+          if (budgetReceipt && ctx.budgetRepo) {
+            await ctx.budgetRepo.saveReceipt(tenant, {
+              ...budgetReceipt,
+              id: id("receipt", suppressedEventId),
+              auditRef: suppressedEventId,
+              idempotencyKey: `receipt:${suppressedEventId}`,
+            });
+            result.budgetReceipts += 1;
+          }
         }
         result.triggers += 1;
         continue;
@@ -545,11 +826,20 @@ export async function runProactiveIntelligenceCycle(
       existingTriggerIds.add(dispatchEventId);
       try {
         const dispatched = await dispatchProactiveTurn(ctx, tenant, profile, rule, evaluation, declarations, now);
+        actionDispatched = true;
         await ctx.intelligenceRepo.recordTriggerEvent(tenant, {
           id: dispatchEventId, revisionId: profile.id, ruleId: rule.id,
           triggerType: rule.triggerType, cause: evaluation.cause, decision: "dispatch", reason: evaluation.reason,
           actionId: dispatched.actionId,
         });
+        if (budgetReceipt && ctx.budgetRepo) {
+          await ctx.budgetRepo.saveReceipt(tenant, {
+            ...budgetReceipt,
+            auditRef: dispatchEventId,
+            idempotencyKey: `receipt:${dispatchEventId}`,
+          });
+          result.budgetReceipts += 1;
+        }
         await ctx.intelligenceRepo.updateTriggerRuleLastTriggeredAt(tenant, rule.id, now.toISOString());
         dispatchedInWindow += 1;
         result.dispatches += 1;
@@ -567,6 +857,20 @@ export async function runProactiveIntelligenceCycle(
           }).catch(() => undefined);
         }
       } catch (error) {
+        if (reservedBudgets && ctx.budgetRepo && !actionDispatched) {
+          const refunded = await ctx.budgetRepo.refundBudgetPair(tenant, reservedBudgets.subjectId, {
+            globalVersion: reservedBudgets.globalVersion,
+            pluginVersion: reservedBudgets.pluginVersion,
+          }, DEFAULT_BUDGET_POLICY.reserveCost);
+          if (budgetReceipt && refunded.globalBudget && refunded.pluginBudget) {
+            budgetReceipt = {
+              ...budgetReceipt,
+              suppressionReason: "dispatch failed; atomic budget reservation refunded",
+              budgetAfter: refunded.pluginBudget.budgetUnits,
+              globalBudgetAfter: refunded.globalBudget.budgetUnits,
+            };
+          }
+        }
         // 派发失败（如 vault action.local 授权缺失）按日去重记录，冷却起点不推进以便重试
         const failedEventId = id("trigger", `${profile.id}:${rule.id}:failed_dispatch:${localDate}`);
         if (!existingTriggerIds.has(failedEventId)) {
@@ -576,6 +880,15 @@ export async function runProactiveIntelligenceCycle(
             triggerType: rule.triggerType, cause: evaluation.cause, decision: "failed_dispatch",
             reason: error instanceof Error ? error.message : String(error),
           });
+          if (budgetReceipt && ctx.budgetRepo) {
+            await ctx.budgetRepo.saveReceipt(tenant, {
+              ...budgetReceipt,
+              id: id("receipt", failedEventId),
+              auditRef: failedEventId,
+              idempotencyKey: `receipt:${failedEventId}`,
+            });
+            result.budgetReceipts += 1;
+          }
         }
         result.triggers += 1;
       }

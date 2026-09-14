@@ -102,7 +102,12 @@ export async function materializePluginTriggerRules(ctx: {
         pluginId: declaration.pluginId,
         name: trigger.name,
         triggerType: trigger.triggerType,
-        condition: trigger.condition,
+        condition: trigger.dsl ? {
+          legacy: trigger.condition,
+          dslVersion: trigger.dsl.version,
+          dsl: trigger.dsl.expression,
+          quotas: trigger.dsl.quotas,
+        } : trigger.condition,
         action: {
           kind: "plugin_dispatch",
           pluginId: declaration.pluginId,

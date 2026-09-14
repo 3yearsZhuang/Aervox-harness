@@ -412,14 +412,36 @@ function matchGlob(filePath, pattern) {
   return new RegExp(regexStr).test(normalizedFile);
 }
 
+/**
+ * 解析 `git status --porcelain=v1 -z`，保留带空格路径，并同时返回重命名/复制的
+ * 新旧路径。porcelain 的 XY 状态固定占前两字节，第 3 字节为空格，路径从索引 3 开始。
+ */
+export function parsePorcelainStatus(output) {
+  const records = output.split("\0");
+  const paths = [];
+  for (let index = 0; index < records.length; index += 1) {
+    const record = records[index];
+    if (!record || record.length < 4) continue;
+    const status = record.slice(0, 2);
+    const changedPath = record.slice(3);
+    if (changedPath) paths.push(changedPath);
+    if (status.includes("R") || status.includes("C")) {
+      const originalPath = records[index + 1];
+      if (originalPath) paths.push(originalPath);
+      index += 1;
+    }
+  }
+  return [...new Set(paths)];
+}
+
 function checkReviewTriggers(metadataByFile) {
   let changedFiles = [];
   try {
-    const gitOutput = execSync("git status --porcelain", { cwd: rootDir, encoding: "utf8" });
-    changedFiles = gitOutput
-      .split("\n")
-      .map((line) => line.trim().slice(3).trim())
-      .filter(Boolean);
+    const gitOutput = execSync("git status --porcelain=v1 -z --untracked-files=all", {
+      cwd: rootDir,
+      encoding: "utf8",
+    });
+    changedFiles = parsePorcelainStatus(gitOutput);
   } catch {
     return;
   }
@@ -639,4 +661,6 @@ function finish() {
   }
 }
 
-main();
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main();
+}

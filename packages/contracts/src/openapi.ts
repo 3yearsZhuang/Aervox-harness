@@ -178,6 +178,26 @@ import {
   safetyIncidentSchema,
   safetyResourcesResponseSchema,
 } from "./safety-schemas.js";
+import {
+  situationModelV1Schema,
+  perceptionEventEnvelopeSchema,
+} from "./situation-model-schemas.js";
+import {
+  proactiveDslRuleSchema,
+  dslExpressionSchema,
+  dslQuotasSchema,
+} from "./proactive-dsl-schemas.js";
+import {
+  proactiveBudgetStateSchema,
+  proactiveFeedbackEventSchema,
+  proactiveReceiptSchema,
+  budgetPolicySchema,
+} from "./proactive-budget-schemas.js";
+import {
+  proactiveMemoryReferenceSchema,
+  proactiveSafetyPolicySchema,
+  proactiveTurnContextSchema,
+} from "./turn-context-schemas.js";
 
 const registry = new OpenAPIRegistry();
 
@@ -307,6 +327,18 @@ registry.register("XiaomiHealthConnectionRequest", xiaomiHealthConnectionRequest
 registry.register("SafetyIncident", safetyIncidentSchema);
 registry.register("RegionalHelpline", regionalHelplineSchema);
 registry.register("SafetyResourcesResponse", safetyResourcesResponseSchema);
+registry.register("SituationModelV1", situationModelV1Schema);
+registry.register("PerceptionEventEnvelope", perceptionEventEnvelopeSchema);
+registry.register("ProactiveTurnContext", proactiveTurnContextSchema);
+registry.register("ProactiveMemoryReference", proactiveMemoryReferenceSchema);
+registry.register("ProactiveSafetyPolicy", proactiveSafetyPolicySchema);
+registry.register("ProactiveDslRule", proactiveDslRuleSchema);
+registry.register("DslExpression", dslExpressionSchema);
+registry.register("DslQuotas", dslQuotasSchema);
+registry.register("ProactiveBudgetState", proactiveBudgetStateSchema);
+registry.register("ProactiveFeedbackEvent", proactiveFeedbackEventSchema);
+registry.register("ProactiveReceipt", proactiveReceiptSchema);
+registry.register("BudgetPolicy", budgetPolicySchema);
 
 const sessionIdParam = z.object({ sessionId: z.string().min(1) });
 const turnIdParam = z.object({ turnId: z.string().min(1) });
