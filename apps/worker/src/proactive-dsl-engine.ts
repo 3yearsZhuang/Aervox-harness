@@ -135,6 +135,8 @@ function resolveField(snapshot: SituationModelV1, field: string): unknown {
     case "focus.focusScore": return snapshot.focus?.focusScore;
     case "focus.fatigueScore": return snapshot.focus?.fatigueScore;
     case "focus.windowEnd": return snapshot.focus?.windowEnd;
+    case "health.sleepMinutes": return snapshot.health.sleepMinutes;
+    case "health.dailySteps": return snapshot.health.dailySteps;
     case "commitments.count": return snapshot.commitments?.length ?? 0;
     case "drifts.count": return snapshot.drifts?.length ?? 0;
     case "scenes.count": return snapshot.scenes?.length ?? 0;

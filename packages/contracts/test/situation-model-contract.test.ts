@@ -36,6 +36,7 @@ const validSituation = {
   watermark: validWatermark,
   presence: validPresence,
   focus: null,
+  health: { sleepMinutes: 420, dailySteps: 3200, localDate: "2026-09-14" },
   commitments: [],
   drifts: [],
   scenes: [],

@@ -41,6 +41,13 @@ export const situationFocusSchema = z.object({
   recommendation: z.string().max(SITUATION_MODEL_MAX_RECORD_BYTES).nullable(),
 }).strict();
 
+/** 健康摘要：只暴露恢复规则所需的聚合指标，不携带原始样本或连接凭据。 */
+export const situationHealthSchema = z.object({
+  sleepMinutes: z.number().int().nonnegative().nullable(),
+  dailySteps: z.number().int().nonnegative().nullable(),
+  localDate: z.string().date(),
+}).strict();
+
 /** 近期承诺：仅投影获准字段，原始承诺内容仍以 vault 各表为真源。 */
 export const situationCommitmentSchema = z.object({
   id: z.string().min(1),
@@ -100,6 +107,7 @@ export const situationModelV1Schema = z
     watermark: situationModelWatermarkSchema,
     presence: situationPresenceSchema,
     focus: situationFocusSchema.nullable(),
+    health: situationHealthSchema,
     commitments: z.array(situationCommitmentSchema).max(64),
     drifts: z.array(situationDriftSchema).max(32),
     scenes: z.array(situationSceneSchema).max(8),

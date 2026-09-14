@@ -30,6 +30,8 @@ export interface ProactiveComposeInput {
    * safety.classificationLevel 为 crisis 时走固定安全响应（不调 LLM）。
    */
   turnContext?: ProactiveTurnContext;
+  /** 按 turnContext.memoryReferences 解析出的已验证记忆，不可信数据层。 */
+  memoryContext?: string | null;
 }
 
 export interface ProactiveComposeResult {
@@ -104,12 +106,13 @@ export function buildComposerUserPrompt(input: ProactiveComposeInput): string {
   } else if (input.skillContent?.trim() && input.turnContext) {
     prompt.push("插件声明存在，但本回合未授权人格叠加；忽略其人格指令。");
   }
+  if (input.memoryContext?.trim()) prompt.push(input.memoryContext.trim());
   return prompt.join("\n");
 }
 
 /** 裁决器放行后生成关怀话术；LLM 不可用或输出为空时模板降级（永不抛出） */
 export async function composeProactiveMessage(ctx: {
-  llmConfigRepo: SqliteLLMConfigRepository;
+  llmConfigRepo?: SqliteLLMConfigRepository;
   input: ProactiveComposeInput;
 }): Promise<ProactiveComposeResult> {
   const {llmConfigRepo, input} = ctx;
@@ -120,6 +123,7 @@ export async function composeProactiveMessage(ctx: {
       source: "template",
     };
   }
+  if (!llmConfigRepo) return {message: renderTemplateMessage(input), source: "template"};
   try {
     // 复用日记生成的配置端口语义：无配置行 → ollama 缺省；显式禁用 → null（模板降级）
     const cfgPort = createRepoDiaryLlmConfigPort(llmConfigRepo);

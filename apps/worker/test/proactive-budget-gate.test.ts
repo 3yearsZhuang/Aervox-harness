@@ -20,6 +20,7 @@ const baseInput = {
   dispatchedInWindow: 0,
   maxDispatchesPerHour: 3,
   actionId: "action_1",
+  receiptPluginId: "p1",
   ruleId: "rule_1",
   ruleVersion: "proactive_dsl_v1",
   evidenceDigest: "sha256:digest",

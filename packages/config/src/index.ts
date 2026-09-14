@@ -137,6 +137,8 @@ export interface ApiConfig {
   adminIds: string[];
   gptSovits: GptSovitsConfig;
   asr: AsrConfig;
+  /** CR-033 API 侧事件双写等切片开关。 */
+  proactiveFeatureFlags: ReadonlySet<ProactiveFeatureFlag>;
 }
 
 /** @aervox/worker 运行时配置 */
@@ -240,6 +242,7 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
       whisperApiKey: env.WHISPER_API_KEY?.trim() || undefined,
       whisperModelId: env.WHISPER_MODEL_ID?.trim() || "whisper-1",
     },
+    proactiveFeatureFlags: loadProactiveFeatureFlags(env),
   };
 }
 

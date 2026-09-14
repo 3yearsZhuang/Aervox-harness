@@ -260,6 +260,37 @@ export class SqlitePerceptionEventRepository {
     return deleted.length;
   }
 
+  /** 撤权/删除传播：事件派生事实与来源授权同删，随后由消费者重建投影。 */
+  async deleteBySourceGrant(_tenant: LocalContext, sourceGrantId: string): Promise<number> {
+    const deleted = await this.db
+      .delete(perceptionEvents)
+      .where(eq(perceptionEvents.sourceGrantId, sourceGrantId))
+      .returning({id: perceptionEvents.id});
+    return deleted.length;
+  }
+
+  async deleteByRevision(_tenant: LocalContext, revisionId: string): Promise<number> {
+    const rows = await this.db.select().from(perceptionEvents);
+    const ids = rows
+      .filter((row) => {
+        try {
+          const payload = JSON.parse(row.payloadJson) as {revisionId?: unknown};
+          return payload.revisionId === revisionId;
+        } catch {
+          return false;
+        }
+      })
+      .map((row) => row.id);
+    let deleted = 0;
+    for (const id of ids) {
+      const result = await this.db.delete(perceptionEvents)
+        .where(eq(perceptionEvents.id, id))
+        .returning({id: perceptionEvents.id});
+      deleted += result.length;
+    }
+    return deleted;
+  }
+
   private toRow(row: typeof perceptionEvents.$inferSelect): PerceptionEventRow {
     return {
       id: row.id,
