@@ -110,6 +110,9 @@ review_interval_days: 90
 | `CR-041` | [主动操作提议闭环](reference/changes/CR-041-proactive-operation-proposal-loop.md) | 2026-09-14 | `CAP-033/020/019` O2 提议、确认、执行与回执闭环 | 提议状态机、审批语义、审计或失败补偿与本文不一致 |
 | `CR-034` | [本地模型降级阶梯：无 API 接入时的原生能力基线](reference/changes/CR-034-local-model-fallback-ladder.md) | 2026-09-14 | `CAP-020/013/009/033/019` 三层降级阶梯（L0 云端 / L1 本地端点 / L2 规则回应）、降级决策器、能力分级与运行时托管 | 降级层级语义、能力分级边界、决策器切层规则或托管白名单与本文不符 |
 | `CR-035` | [标准 AI 工作台形态：熟悉范式的原生交互壳](reference/changes/CR-035-standard-workbench-mode.md) | 2026-09-14 | `CAP-019/020/013` 标准模式交互壳、会话列表、任务中心、项目上下文与迁移友好设施 | 双形态状态一致性、任务中心只读语义、会话导航契约或导入器净化规则与本文不符 |
+| `CR-046` | [标准工作台交互壳与会话侧栏 (W1)](reference/changes/CR-046-standard-workbench-shell-and-sidebar.md) | 2026-09-14 | `CAP-013/019/020` 会话侧栏、多会话 REST 契约、SQLite 级联删除与双模式布局切换变更 | 会话导航、多会话持久化、快捷键或桌宠挂件与本文不符 |
+| `CR-047` | [模式切换器与统一任务中心 (W2)](reference/changes/CR-047-mode-selector-and-task-center.md) | 2026-09-14 | `CAP-002/010/019/033` 交互模式切换器、统一任务中心只读抽屉与后台 Worker 状态深链变更 | 模式切换分段控件、任务中心概览或深链跳转与本文不符 |
+| `CR-048` | [项目上下文绑定与会话迁移设施 (W3)](reference/changes/CR-048-project-context-and-migration-facility.md) | 2026-09-14 | `CAP-026/033` 项目上下文显式绑定、外部会话导入器与命令面板变更 | 项目组织流、外部会话解析安全净化或快捷指令与本文不符 |
 | `AVX-PLUG-001` | [插件 Config、Page 与 UI 扩展规范](reference/plugin-config-and-pages.md) | 2026-09-11 | CR-006 / 插件机制变更 | Manifest、Config Schema、Page Bridge、Turn 管道或 UI 扩展与实现不一致 |
 | `AVX-DOC-GOV-001` | [文档治理与事实源规范](reference/document-governance.md) | 2026-09-14 | 文档分类、状态、事实源、复核触发或迁移策略变更 | 策略 JSON、校验器、索引、登记表或写作规范与治理基线不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 2026-09-10 | 写作规则、模板或季度评审 | 新文档未使用规范元数据/签名，或 Vale 规则与术语表不一致 |

@@ -10,6 +10,8 @@ import {
   createTurnRequestSchema,
   editMessageSchema,
   submitQuestionAnswersRequestSchema,
+  createSessionRequestSchema,
+  renameSessionRequestSchema,
 } from "@aervox/contracts";
 import type { SkillDescriptor } from "@aervox/agent-loop";
 import type {
@@ -82,6 +84,60 @@ export function registerConversationRoutes(
   conversationRepo: SqliteConversationRepository,
   deps: ConversationRouteDeps = {},
 ): void {
+  // GET /v1/sessions — 枚举会话列表（按最近更新时间排序）
+  app.get("/v1/sessions", async (req, reply) => {
+    const tenant = resolveLocalContext(req);
+    const { limit, offset } = req.query as { limit?: string; offset?: string };
+    const items = await conversationRepo.listSessions(tenant, {
+      limit: limit ? Number(limit) : 100,
+      offset: offset ? Number(offset) : 0,
+    });
+    return reply.send({ items });
+  });
+
+  // POST /v1/sessions — 创建新会话
+  app.post("/v1/sessions", async (req, reply) => {
+    const tenant = resolveLocalContext(req);
+    const parsed = createSessionRequestSchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "Invalid request", details: parsed.error.issues });
+    }
+    const title = parsed.data.title || "新会话";
+    let session;
+    if (parsed.data.id) {
+      session = await conversationRepo.getOrCreateSession(tenant, parsed.data.id, title);
+    } else {
+      session = await conversationRepo.createSession(tenant, title);
+    }
+    return reply.code(201).send(session);
+  });
+
+  // PATCH /v1/sessions/:sessionId — 重命名会话
+  app.patch("/v1/sessions/:sessionId", async (req, reply) => {
+    const tenant = resolveLocalContext(req);
+    const { sessionId } = req.params as { sessionId: string };
+    const parsed = renameSessionRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "Invalid request", details: parsed.error.issues });
+    }
+    const updated = await conversationRepo.renameSession(tenant, sessionId, parsed.data.title);
+    if (!updated) {
+      return reply.code(404).send({ error: "Session not found" });
+    }
+    return reply.send(updated);
+  });
+
+  // DELETE /v1/sessions/:sessionId — 删除会话（级联删除 turns/messages）
+  app.delete("/v1/sessions/:sessionId", async (req, reply) => {
+    const tenant = resolveLocalContext(req);
+    const { sessionId } = req.params as { sessionId: string };
+    const deleted = await conversationRepo.deleteSession(tenant, sessionId);
+    if (!deleted) {
+      return reply.code(404).send({ error: "Session not found" });
+    }
+    return reply.code(204).send();
+  });
+
   // POST /v1/sessions/{sessionId}/turns — 幂等创建 Turn 并原子写入 Outbox
   app.post("/v1/sessions/:sessionId/turns", async (req, reply) => {
     const { sessionId } = req.params as { sessionId: string };

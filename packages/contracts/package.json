@@ -19,6 +19,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json && pnpm generate:openapi",
+    "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "generate:openapi": "node scripts/generate-openapi.ts"
   },

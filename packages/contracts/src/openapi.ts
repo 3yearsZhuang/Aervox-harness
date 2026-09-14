@@ -198,8 +198,19 @@ import {
   proactiveSafetyPolicySchema,
   proactiveTurnContextSchema,
 } from "./turn-context-schemas.js";
+import {
+  sessionItemSchema,
+  listSessionsResponseSchema,
+  createSessionRequestSchema,
+  renameSessionRequestSchema,
+} from "./session-schemas.js";
 
 const registry = new OpenAPIRegistry();
+
+registry.register("SessionItem", sessionItemSchema);
+registry.register("ListSessionsResponse", listSessionsResponseSchema);
+registry.register("CreateSessionRequest", createSessionRequestSchema);
+registry.register("RenameSessionRequest", renameSessionRequestSchema);
 
 registry.register("CreateLearningGoal", createLearningGoalSchema);
 registry.register("UpdateLearningGoal", updateLearningGoalSchema);
@@ -372,6 +383,77 @@ const proactiveHeaders = scopeHeaders.extend({
 const proactiveSourceGrantIdParam = z.object({ sourceGrantId: z.string().min(1) });
 const proactiveConnectionIdParam = z.object({ id: z.string().min(1) });
 const proactiveHomeEntityParam = z.object({ id: z.string().min(1), entityId: z.string().min(3) });
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/sessions",
+  summary: "枚举会话列表",
+  tags: ["Session"],
+  responses: {
+    200: {
+      description: "会话列表",
+      content: { "application/json": { schema: listSessionsResponseSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/sessions",
+  summary: "创建新会话",
+  tags: ["Session"],
+  request: {
+    body: {
+      content: {
+        "application/json": { schema: createSessionRequestSchema },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "会话创建成功",
+      content: { "application/json": { schema: sessionItemSchema } },
+    },
+    400: { description: "参数不合法" },
+  },
+});
+
+registry.registerPath({
+  method: "patch",
+  path: "/v1/sessions/{sessionId}",
+  summary: "重命名会话",
+  tags: ["Session"],
+  request: {
+    params: sessionIdParam,
+    body: {
+      content: {
+        "application/json": { schema: renameSessionRequestSchema },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "重命名成功",
+      content: { "application/json": { schema: sessionItemSchema } },
+    },
+    400: { description: "参数不合法" },
+    404: { description: "会话不存在" },
+  },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/v1/sessions/{sessionId}",
+  summary: "删除会话",
+  tags: ["Session"],
+  request: {
+    params: sessionIdParam,
+  },
+  responses: {
+    204: { description: "会话删除成功" },
+    404: { description: "会话不存在" },
+  },
+});
 
 registry.registerPath({
   method: "post",

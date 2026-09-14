@@ -4,9 +4,9 @@ type: reference
 scope: change
 owner: maintainers
 doc_status: review-candidate
-decision_status: proposed
-delivery_status: planned
-version: 0.1.0
+decision_status: accepted
+delivery_status: implemented
+version: 1.0.0
 updated_at: 2026-09-14
 reviewed_at: 2026-09-14
 review_interval_days: 90
@@ -24,9 +24,9 @@ sources:
 - 提出人：3yearszhuang · 2026-09-14
 - 修改人：3yearszhuang · 2026-09-14
 
-关联：[PRD](../PRD.md) · [需求追踪基线](../REQUIREMENTS_TRACEABILITY.md#11-变更控制) · [CR-033 主动智能终局架构](CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md) · CR-034 本地模型降级阶梯（提案中） · [CR-032 插件化生态](CR-032-proactive-intelligence-plugin-ecosystem.md) · [CR-006 插件 Config 与 Page](CR-006-plugin-config-and-pages.md) · [能力注册表](../capability-registry.md)
+关联：[PRD](../PRD.md) · [需求追踪基线](../REQUIREMENTS_TRACEABILITY.md#11-变更控制) · [CR-033 主动智能终局架构](CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md) · [CR-034 本地模型降级阶梯](CR-034-local-model-fallback-ladder.md) · [CR-032 插件化生态](CR-032-proactive-intelligence-plugin-ecosystem.md) · [CR-006 插件 Config 与 Page](CR-006-plugin-config-and-pages.md) · [能力注册表](../capability-registry.md)
 
-- 状态：Proposed / Planned
+- 状态：Accepted / Implemented
 - 提出人 / 日期：3yearszhuang / 2026-09-14
 - 目标版本：R3 主动智能演进阶段
 - 关联能力：`CAP-019`（桌宠交互与情感表达）、`CAP-020`（技能/插件系统）、`CAP-013`（流式对话）、`CAP-026`（收藏空间与知识库，远期衔接）、`CAP-033`（主动智能）

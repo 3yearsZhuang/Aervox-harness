@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-13",
-  "totalCount": 101,
+  "generatedAt": "2026-09-14",
+  "totalCount": 114,
   "documents": [
     {
       "id": "ADR-002",
@@ -118,9 +118,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.10.0",
-      "updated_at": "2026-09-13",
-      "reviewed_at": "2026-09-13",
+      "version": "1.10.1",
+      "updated_at": "2026-09-14",
+      "reviewed_at": "2026-09-14",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -335,7 +335,7 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "updated_at": "2026-09-13",
       "reviewed_at": "2026-09-13",
       "review_interval_days": 90,
@@ -535,9 +535,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.9.0",
-      "updated_at": "2026-09-13",
-      "reviewed_at": "2026-09-13",
+      "version": "1.9.1",
+      "updated_at": "2026-09-14",
+      "reviewed_at": "2026-09-14",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -995,9 +995,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.4.1",
-      "updated_at": "2026-09-13",
-      "reviewed_at": "2026-09-13",
+      "version": "0.4.2",
+      "updated_at": "2026-09-14",
+      "reviewed_at": "2026-09-14",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -1603,6 +1603,324 @@
       "sources": []
     },
     {
+      "id": "CR-032",
+      "title": "CR-032 主动智能插件化与触发规则生态架构",
+      "path": "reference/changes/CR-032-proactive-intelligence-plugin-ecosystem.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "accepted",
+      "delivery_status": "implemented",
+      "version": "1.0.0",
+      "updated_at": "2026-09-13",
+      "reviewed_at": "2026-09-13",
+      "review_interval_days": 90,
+      "review_triggers": [],
+      "sources": [
+        "docs/reference/PRD.md",
+        "docs/reference/srs-proactive-intelligence.md",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md",
+        "docs/reference/adr/ADR-009-electron-plugin-sandbox.md",
+        "docs/reference/changes/CR-006-plugin-config-and-pages.md",
+        "docs/reference/changes/CR-023-proactive-local-intelligence-mode.md"
+      ]
+    },
+    {
+      "id": "CR-033",
+      "title": "CR-033 主动智能终局架构：态势感知内核与预算化干预生态",
+      "path": "reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "accepted",
+      "delivery_status": "implemented",
+      "version": "1.1.0",
+      "updated_at": "2026-09-14",
+      "reviewed_at": "2026-09-14",
+      "review_interval_days": 90,
+      "review_triggers": [
+        "packages/contracts/src/situation-model-schemas.ts",
+        "packages/contracts/src/proactive-dsl-schemas.ts",
+        "packages/contracts/src/proactive-budget-schemas.ts",
+        "packages/contracts/src/turn-context-schemas.ts",
+        "packages/schema/src/proactive-intelligence.ts",
+        "packages/repositories/src/repositories/sqlite/proactive-*-repository.ts",
+        "apps/worker/src/proactive-*.ts"
+      ],
+      "sources": [
+        "docs/reference/PRD.md",
+        "docs/reference/srs-proactive-intelligence.md",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md",
+        "docs/reference/changes/CR-023-proactive-local-intelligence-mode.md",
+        "docs/reference/changes/CR-024-proactive-intelligence-suite-integrations.md",
+        "docs/reference/changes/CR-032-proactive-intelligence-plugin-ecosystem.md",
+        "docs/reference/adr/ADR-004-outbox-idempotent-jobs.md",
+        "docs/reference/adr/ADR-009-electron-plugin-sandbox.md",
+        "docs/reference/adr/ADR-012-streaming-safety-persistence.md",
+        "docs/reference/adr/ADR-017-context-manifest-modelrun-step.md",
+        "docs/reference/adr/ADR-018-proactive-local-privacy-host.md",
+        "docs/reference/adr/ADR-019-proactive-integrations-local-gateway.md",
+        "docs/reference/DATA_PRIVACY.md",
+        "docs/reference/capability-registry.md"
+      ]
+    },
+    {
+      "id": "CR-034",
+      "title": "CR-034 本地模型降级阶梯：无 API 接入时的原生能力基线",
+      "path": "reference/changes/CR-034-local-model-fallback-ladder.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "proposed",
+      "delivery_status": "planned",
+      "version": "0.1.0",
+      "updated_at": "2026-09-14",
+      "reviewed_at": "2026-09-14",
+      "review_interval_days": 90,
+      "review_triggers": [],
+      "sources": [
+        "docs/reference/PRD.md",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md",
+        "docs/reference/changes/CR-015-llm-provider-config-webui.md",
+        "docs/reference/adr/ADR-005-provider-port.md",
+        "docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md",
+        "docs/reference/changes/CR-032-proactive-intelligence-plugin-ecosystem.md",
+        "docs/reference/changes/CR-014-voice-config-webui.md",
+        "docs/reference/DATA_PRIVACY.md",
+        "docs/reference/capability-registry.md"
+      ]
+    },
+    {
+      "id": "CR-035",
+      "title": "CR-035 标准 AI 工作台形态：熟悉范式的原生交互壳",
+      "path": "reference/changes/CR-035-standard-workbench-mode.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "accepted",
+      "delivery_status": "implemented",
+      "version": "1.0.0",
+      "updated_at": "2026-09-14",
+      "reviewed_at": "2026-09-14",
+      "review_interval_days": 90,
+      "review_triggers": [],
+      "sources": [
+        "docs/reference/PRD.md",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md",
+        "docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md",
+        "docs/reference/changes/CR-032-proactive-intelligence-plugin-ecosystem.md",
+        "docs/reference/changes/CR-006-plugin-config-and-pages.md",
+        "docs/reference/capability-registry.md"
+      ]
+    },
+    {
+      "id": "CR-036",
+      "title": "CR-036 SituationModel 影子投影与内置规则数据化",
+      "path": "reference/changes/CR-036-situation-model-shadow-projection.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "accepted",
+      "delivery_status": "verified",
+      "version": "1.0.0",
+      "updated_at": "2026-09-14",
+      "reviewed_at": "2026-09-14",
+      "review_interval_days": 90,
+      "review_triggers": [
+        "apps/worker/src/proactive-situation-projector.ts",
+        "packages/contracts/src/situation-model-schemas.ts",
+        "packages/repositories/src/repositories/sqlite/proactive-situation-repository.ts"
+      ],
+      "sources": [
+        "docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md",
+        "docs/reference/srs-proactive-intelligence.md"
+      ]
+    },
+    {
+      "id": "CR-037",
+      "title": "CR-037 受限 DSL 与注意力预算接入裁决链",
+      "path": "reference/changes/CR-037-proactive-dsl-and-attention-budget-runtime.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "accepted",
+      "delivery_status": "verified",
+      "version": "1.0.0",
+      "updated_at": "2026-09-14",
+      "reviewed_at": "2026-09-14",
+      "review_interval_days": 90,
+      "review_triggers": [
+        "apps/worker/src/proactive-dsl-engine.ts",
+        "apps/worker/src/proactive-budget-gate.ts",
+        "packages/repositories/src/repositories/sqlite/proactive-budget-repository.ts",
+        "packages/contracts/src/plugin-config-schemas.ts"
+      ],
+      "sources": [
+        "docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md",
+        "docs/reference/changes/CR-036-situation-model-shadow-projection.md"
+      ]
+    },
+    {
+      "id": "CR-038",
+      "title": "CR-038 感知事件流双写与订阅消费",
+      "path": "reference/changes/CR-038-perception-event-runtime.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "accepted",
+      "delivery_status": "implemented",
+      "version": "1.0.0",
+      "updated_at": "2026-09-14",
+      "reviewed_at": "2026-09-14",
+      "review_interval_days": 90,
+      "review_triggers": [
+        "apps/desktop/src/main/index.ts",
+        "apps/api/src/modules/proactive/routes.ts",
+        "packages/repositories/src/repositories/sqlite/proactive-perception-repository.ts",
+        "apps/worker/src/proactive-intelligence-worker.ts"
+      ],
+      "sources": [
+        "docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md",
+        "docs/reference/changes/CR-036-situation-model-shadow-projection.md"
+      ]
+    },
+    {
+      "id": "CR-039",
+      "title": "CR-039 主动回合人格、记忆与安全上下文同源",
+      "path": "reference/changes/CR-039-proactive-persona-context-runtime.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "accepted",
+      "delivery_status": "verified",
+      "version": "1.0.0",
+      "updated_at": "2026-09-14",
+      "reviewed_at": "2026-09-14",
+      "review_interval_days": 90,
+      "review_triggers": [
+        "apps/worker/src/proactive-turn-context.ts",
+        "apps/worker/src/proactive-composer.ts",
+        "packages/contracts/src/safety-classifier.ts"
+      ],
+      "sources": [
+        "docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md",
+        "docs/reference/AI_QUALITY_SAFETY.md"
+      ]
+    },
+    {
+      "id": "CR-040",
+      "title": "CR-040 结构化操作域与工具白名单",
+      "path": "reference/changes/CR-040-structured-operation-domain.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "proposed",
+      "delivery_status": "planned",
+      "version": "0.1.0",
+      "updated_at": "2026-09-14",
+      "reviewed_at": "2026-09-14",
+      "review_interval_days": 90,
+      "review_triggers": [],
+      "sources": [
+        "docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md",
+        "docs/reference/changes/CR-022-full-access-tool-permission.md"
+      ]
+    },
+    {
+      "id": "CR-041",
+      "title": "CR-041 主动操作提议、确认、执行与回执闭环",
+      "path": "reference/changes/CR-041-proactive-operation-proposal-loop.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "proposed",
+      "delivery_status": "planned",
+      "version": "0.1.0",
+      "updated_at": "2026-09-14",
+      "reviewed_at": "2026-09-14",
+      "review_interval_days": 90,
+      "review_triggers": [],
+      "sources": [
+        "docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md",
+        "docs/reference/changes/CR-037-proactive-dsl-and-attention-budget-runtime.md",
+        "docs/reference/changes/CR-040-structured-operation-domain.md"
+      ]
+    },
+    {
+      "id": "CR-046",
+      "title": "CR-046 标准工作台交互壳与会话侧栏 (W1)",
+      "path": "reference/changes/CR-046-standard-workbench-shell-and-sidebar.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "accepted",
+      "delivery_status": "verified",
+      "version": "1.0.0",
+      "updated_at": "2026-09-14",
+      "reviewed_at": "2026-09-14",
+      "review_interval_days": 90,
+      "review_triggers": [],
+      "sources": [
+        "docs/reference/changes/CR-035-standard-workbench-mode.md",
+        "docs/reference/PRD.md",
+        "docs/reference/DATABASE.md",
+        "docs/reference/capability-registry.md"
+      ]
+    },
+    {
+      "id": "CR-047",
+      "title": "CR-047 模式切换器与统一任务中心 (W2)",
+      "path": "reference/changes/CR-047-mode-selector-and-task-center.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "accepted",
+      "delivery_status": "verified",
+      "version": "1.0.0",
+      "updated_at": "2026-09-14",
+      "reviewed_at": "2026-09-14",
+      "review_interval_days": 90,
+      "review_triggers": [],
+      "sources": [
+        "docs/reference/changes/CR-035-standard-workbench-mode.md",
+        "docs/reference/PRD.md",
+        "docs/reference/capability-registry.md"
+      ]
+    },
+    {
+      "id": "CR-048",
+      "title": "CR-048 项目上下文绑定与会话迁移设施 (W3)",
+      "path": "reference/changes/CR-048-project-context-and-migration-facility.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "proposed",
+      "delivery_status": "planned",
+      "version": "0.1.0",
+      "updated_at": "2026-09-14",
+      "reviewed_at": "2026-09-14",
+      "review_interval_days": 90,
+      "review_triggers": [],
+      "sources": [
+        "docs/reference/changes/CR-035-standard-workbench-mode.md",
+        "docs/reference/PRD.md",
+        "docs/reference/capability-registry.md"
+      ]
+    },
+    {
       "id": "AVX-DATA-001",
       "title": "Aervox｜思隅 数据与隐私规范",
       "path": "reference/DATA_PRIVACY.md",
@@ -1649,9 +1967,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "2.0.0",
-      "updated_at": "2026-09-11",
-      "reviewed_at": "2026-09-11",
+      "version": "2.1.0",
+      "updated_at": "2026-09-14",
+      "reviewed_at": "2026-09-14",
       "review_interval_days": 30,
       "review_triggers": [
         "packages/schema/**",
@@ -1668,7 +1986,8 @@
         "packages/repositories/src/repositories/sqlite/**",
         "docs/reference/PRD.md",
         "docs/reference/SRS.md",
-        "docs/reference/changes/CR-030-pure-local-sqlite-database.md"
+        "docs/reference/changes/CR-030-pure-local-sqlite-database.md",
+        "docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md"
       ]
     },
     {
@@ -1681,9 +2000,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.1.0",
-      "updated_at": "2026-09-10",
-      "reviewed_at": "2026-09-10",
+      "version": "0.1.1",
+      "updated_at": "2026-09-14",
+      "reviewed_at": "2026-09-14",
       "review_interval_days": 90,
       "review_triggers": [
         "docs/**",
@@ -1789,9 +2108,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.26.0",
-      "updated_at": "2026-09-13",
-      "reviewed_at": "2026-09-13",
+      "version": "1.28.0",
+      "updated_at": "2026-09-14",
+      "reviewed_at": "2026-09-14",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []

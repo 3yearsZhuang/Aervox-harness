@@ -155,7 +155,10 @@ review_interval_days: 90
 | [CR-040](reference/changes/CR-040-structured-operation-domain.md) | 结构化操作域与工具白名单 | Proposed | Planned |
 | [CR-041](reference/changes/CR-041-proactive-operation-proposal-loop.md) | 主动操作提议闭环 | Proposed | Planned |
 | [CR-034](reference/changes/CR-034-local-model-fallback-ladder.md) | 本地模型降级阶梯：无 API 接入时的原生能力基线 | Proposed | Planned |
-| [CR-035](reference/changes/CR-035-standard-workbench-mode.md) | 标准 AI 工作台形态：熟悉范式的原生交互壳 | Proposed | Planned |
+| [CR-035](reference/changes/CR-035-standard-workbench-mode.md) | 标准 AI 工作台形态：熟悉范式的原生交互壳 | Accepted | Implemented |
+| [CR-046](reference/changes/CR-046-standard-workbench-shell-and-sidebar.md) | 标准工作台交互壳与会话侧栏 (W1) | Accepted | Verified |
+| [CR-047](reference/changes/CR-047-mode-selector-and-task-center.md) | 模式切换器与统一任务中心 (W2) | Accepted | Verified |
+| [CR-048](reference/changes/CR-048-project-context-and-migration-facility.md) | 项目上下文绑定与会话迁移设施 (W3) | Proposed | Planned |
 
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
 
