@@ -7,6 +7,7 @@ import type { WorkbenchCardsComposable } from './useWorkbenchCards';
 import type { WorkbenchProactiveComposable } from './useWorkbenchProactive';
 import type { UIRegistry } from '../registry/ui-registry';
 import type { WorkbenchPluginRuntime } from '../plugins/plugin-runtime';
+import type { UseAervoxSessionsReturn } from '@aervox/api-client';
 
 export interface WorkbenchContext {
   layout: WorkbenchLayoutComposable;
@@ -17,6 +18,7 @@ export interface WorkbenchContext {
   proactive: WorkbenchProactiveComposable;
   registry: UIRegistry;
   pluginRuntime?: WorkbenchPluginRuntime;
+  sessions: UseAervoxSessionsReturn;
   sendMessage: (value?: string, options?: { quizMode?: boolean; resend?: boolean }) => Promise<void>;
 }
 

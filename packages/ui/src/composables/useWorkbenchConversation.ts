@@ -94,6 +94,21 @@ export function useWorkbenchConversation(options: {
     return { id: nextStoryId++, speaker, text, state };
   }
 
+  function resetStory(greeting?: string) {
+    nextStoryId = 2;
+    story.value = [
+      {
+        id: 1,
+        speaker: 'assistant',
+        text: greeting || '你好，我是思隅。告诉我你正在学什么，或者把卡住的地方直接发来，我们一起拆成下一步。',
+        state: 'complete',
+      },
+    ];
+    activeQuestion.value = null;
+    currentExtractedTerms.value = [];
+    pendingApproval.value = null;
+  }
+
   let scrollRafId: ReturnType<typeof requestAnimationFrame> | ReturnType<typeof setTimeout> | null = null;
 
   async function scrollStoryToBottom(options?: { instant?: boolean }) {
@@ -262,6 +277,7 @@ export function useWorkbenchConversation(options: {
     hasQueuedSentence,
     collapsedSummaryText,
     createStoryLine,
+    resetStory,
     scrollStoryToBottom,
     showNextSentence,
     openTermExplore,

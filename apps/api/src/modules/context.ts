@@ -41,6 +41,8 @@ export interface ModuleContext {
   toolRuntime?: ToolRuntime;
   /** LLM 配置服务（llm 模块填充；conversation 读取） */
   llmConfigService?: LLMConfigService;
+  /** CR-034 模型降级与路由决策服务（llm 模块填充；conversation/proactive 读取） */
+  modelRoutingService?: import("./llm/degradation-service.js").LlmDegradationService;
   /** 安全与危机干预服务（safety 模块填充；conversation 读取） */
   safetyService?: SafetyService;
   /** 语音服务（voice 模块填充；persona 读取） */

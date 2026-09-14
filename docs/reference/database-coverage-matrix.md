@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.3.0
-updated_at: 2026-09-11
-reviewed_at: 2026-09-11
+version: 0.4.0
+updated_at: 2026-09-14
+reviewed_at: 2026-09-14
 review_interval_days: 90
 sources:
   - docs/reference/DATABASE.md
@@ -18,7 +18,7 @@ sources:
 # Aervox｜思隅 数据库数据模型覆盖矩阵（Database Coverage Matrix）
 
 - 提出人：3yearszhuang · 2026-09-10
-- 修改人：3yearszhuang · 2026-09-11
+- 修改人：3yearszhuang · 2026-09-14
 
 关联：[SQLite 本地单用户数据库契约](DATABASE.md)（AVX-DB-001）、[产品需求文档 PRD §8](PRD.md#prd-data)（AVX-PRD-001）、[CR-030](changes/CR-030-pure-local-sqlite-database.md)
 
@@ -121,6 +121,8 @@ sources:
 | DeletionRequest | MVP | 已落表 | `deletion_requests`（scope/idempotencyKey/ownerModule/lastVerifiedAt） |
 | DeletionTarget | MVP | 已落表 | `deletion_targets`（requestId+targetType+targetId 复合主键，不含正文） |
 | RecoveryControlLedger | MVP | 已落表 | `recovery_control_ledger`（独立故障域账本，独立 client/文件，sequence 单调 + idempotency 唯一） |
+| LlmHealthSnapshot | MVP+ | 已落表 | `llm_health_snapshots`（presetId/status/latencyMs/errorCategory/checkedAt，CR-034/CR-042 探活快照） |
+| LlmRoutingEvent | MVP+ | 已落表 | `llm_routing_events`（sessionId/fromTier/toTier/selectedPresetId/reason/meta，CR-034/CR-042 降级切回审计） |
 
 ### 14.8 人格 · 技能 · MCP 域（CAP-019/CAP-020）
 
@@ -168,7 +170,7 @@ sources:
 
 ### 14.10 未覆盖结论与下一步
 
-- 当前已落表 **85 张业务表** + 2 张 FTS5 虚表（含独立账本 recovery_control_ledger、CAP-033 八张控制/捕获表和 CR-024 十七张派生/连接表），覆盖 PRD §8 的核心与扩展实体；最终 Schema/DDL 已无旧租户列，CR-030 D1～D3 的迁移基础能力、API loopback 守卫和去租户数据库边界已实现，完整运行编排和生产故障演练仍需发布前门禁。CAP-033～035 的本地 Vault、十二项派生、HA/健康连接、来源/连接级删除和导出已落地，但生产 OS/出网/厂商兼容仍需专项门禁。
+- 当前已落表 **87 张业务表** + 2 张 FTS5 虚表（含独立账本 recovery_control_ledger、CAP-033 八张控制/捕获表、CR-024 十七张派生/连接表与 CR-034/CR-042 两张模型路由表），覆盖 PRD §8 的核心与扩展实体；最终 Schema/DDL 已无旧租户列，CR-030 D1～D3 的迁移基础能力、API loopback 守卫和去租户数据库边界已实现，完整运行编排和生产故障演练仍需发布前门禁。CAP-033～035 的本地 Vault、十二项派生、HA/健康连接、来源/连接级删除和导出已落地，但生产 OS/出网/厂商兼容仍需专项门禁。
 - **MVP（R1）+ MVP+（R1.5）优先队列已完成**：学习/反馈/会话补齐/溯源/记忆/平台/安全/隐私/埋点/内容/日记域实体全部落表（含 ToolPolicy/AnalyticsEvent/EvalSet、DiarySchedule 等日记域补表、Attachment/EmbeddingIndex、Persona/Skills/MCP 6 张人格域表）。
 - **P1（R2）已完成**：`MemoryNode`/`MemoryEdgeEvidence`/`MemoryAlgorithm`（记忆树投影独立化，memory_edges/overrides 已迁移到节点级）、`ConversationBranch`、`KnowledgeRelation` 已全部落表。
 - **P2/P3 扩展已完成**：`ExternalSource`、`Plugin`/`PluginGrant`、`CommunityContent`、`Organization` 已全部落表（为生态/社区功能预留）。

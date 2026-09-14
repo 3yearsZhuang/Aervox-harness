@@ -35,9 +35,9 @@ export interface StreamAervoxTurnCallbacks {
 export async function streamAervoxTurn(
   content: string,
   callbacks: StreamAervoxTurnCallbacks,
-  options: { toolApprovalMode?: ToolApprovalMode; attachments?: TurnAttachmentRef[]; metadata?: Record<string, unknown> } = {},
+  options: { toolApprovalMode?: ToolApprovalMode; attachments?: TurnAttachmentRef[]; metadata?: Record<string, unknown>; sessionId?: string } = {},
 ): Promise<void> {
-  await getTransport().streamTurn(getSessionId(), content, callbacks, options);
+  await getTransport().streamTurn(options.sessionId ?? getSessionId(), content, callbacks, options);
 }
 
 /** 多模态输入：上传附件二进制（Web 直连 / 桌面经 IPC 桥），返回附件引用 */

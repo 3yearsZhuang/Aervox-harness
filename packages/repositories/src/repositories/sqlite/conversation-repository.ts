@@ -94,6 +94,47 @@ export class SqliteConversationRepository implements IConversationRepository {
     return created as SessionModel;
   }
 
+  async listSessions(
+    _tenant: LocalContext,
+    options?: { limit?: number; offset?: number },
+  ): Promise<SessionModel[]> {
+    const rows = await this.db
+      .select()
+      .from(sessions)
+      .orderBy(desc(sessions.updatedAt))
+      .limit(options?.limit ?? 100)
+      .offset(options?.offset ?? 0);
+    return rows as SessionModel[];
+  }
+
+  async renameSession(
+    _tenant: LocalContext,
+    sessionId: string,
+    title: string,
+  ): Promise<SessionModel | null> {
+    const now = new Date().toISOString();
+    const [updated] = await this.db
+      .update(sessions)
+      .set({
+        title,
+        updatedAt: now,
+      })
+      .where(eq(sessions.id, sessionId))
+      .returning();
+    return (updated as SessionModel) ?? null;
+  }
+
+  async deleteSession(
+    _tenant: LocalContext,
+    sessionId: string,
+  ): Promise<boolean> {
+    const result = await this.db
+      .delete(sessions)
+      .where(eq(sessions.id, sessionId))
+      .returning();
+    return result.length > 0;
+  }
+
   async createTurnWithOutbox(
     tenant: LocalContext,
     turnData: { id: string; sessionId: string; idempotencyKey: string; status?: string },

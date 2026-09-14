@@ -87,6 +87,8 @@ const {
   scopedSettingCategories,
   switchSettingsCategory,
   openTool,
+  workbenchMode,
+  switchWorkbenchMode,
   setTheme,
   saveSettings,
 } = layout;
@@ -369,6 +371,13 @@ async function onPluginChange(): Promise<void> {
           <div class="settings-section-heading">
             <span class="heading-icon-wrap"><Sun :size="18" /></span>
             <span><strong>外观</strong><small>让工作台更符合你的节奏与喜好</small></span>
+          </div>
+          <div class="settings-row settings-choice-row">
+            <span><strong>交互模式</strong><small>切换标准工作台（侧栏多会话）或桌宠陪伴（沉浸式交互）</small></span>
+            <span class="settings-segmented">
+              <button type="button" :class="{ active: workbenchMode === 'companion' }" @click="switchWorkbenchMode('companion')">桌宠陪伴</button>
+              <button type="button" :class="{ active: workbenchMode === 'standard' }" @click="switchWorkbenchMode('standard')">标准工作台</button>
+            </span>
           </div>
           <div class="settings-row settings-choice-row"><span><strong>主题</strong><small>选择工作台的明暗模式</small></span><span class="settings-segmented"><button type="button" :class="{ active: !isDark }" @click="setTheme('light', timerMinutes)"><Sun :size="16" />亮色</button><button type="button" :class="{ active: isDark }" @click="setTheme('dark', timerMinutes)"><Moon :size="16" />暗色</button></span></div>
           <label class="settings-row settings-choice-row"><span><strong>界面密度</strong><small>紧凑模式会减少面板间距</small></span><input v-model="compactMode" type="checkbox" class="settings-switch" @change="saveSettings(timerMinutes)" /></label>

@@ -55,6 +55,8 @@ import {
 } from "../plugins/turn-plugins/index.js";
 import type { ToolRuntime } from "../tools/runtime.js";
 import type { LLMConfigService } from "../llm/service.js";
+import type { LlmDegradationService } from "../llm/degradation-service.js";
+import type { ModelRoutingSnapshot } from "@aervox/contracts";
 import { resolveDshTurnAdapter } from "./dsh-adapter.js";
 import {
   getRequestToolApprovalMode,
@@ -667,17 +669,59 @@ async function runDshAdapterTurn(
 export async function buildLoopProvider(
   tenant: LocalContext,
   llmConfigService?: LLMConfigService,
-  options: { requireLocalOnly?: boolean } = {},
+  options: {
+    requireLocalOnly?: boolean;
+    sessionId?: string;
+    turnId?: string;
+    modelRoutingService?: LlmDegradationService;
+  } = {},
 ): Promise<ModelProviderPort> {
   // 缺陷 E：Provider 选择经 @aervox/config 集中解析（AERVOX_LOOP_PROVIDER 启动期枚举校验）；
   // 每次调用读取，避免模块级缓存导致测试/配置热变失效。
-  const { loopProvider: mode } = loadApiConfig();
+  const apiConfig = loadApiConfig();
+  const { loopProvider: mode } = apiConfig;
   if (mode === "replay") return createReplayProvider();
   if (mode === "scripted") return createScriptedProvider(API_TOOL_SCRIPT);
   if (mode === "scripted-write") return createScriptedProvider(API_WRITE_SCRIPT);
   if (mode === "scripted-privileged") return createScriptedProvider(API_PRIVILEGED_SCRIPT);
   if (mode === "scripted-quiz") return createScriptedProvider(API_QUIZ_SCRIPT);
   if (mode === "llm") {
+    // CR-034: 若开启模型路由且注入了降级决策服务，走降级阶梯
+    if (apiConfig.modelRoutingFeatureFlags.has("model_routing") && options.modelRoutingService) {
+      const snapshot = await options.modelRoutingService.getRoutingSnapshot({
+        sessionId: options.sessionId,
+        turnId: options.turnId,
+        requireLocalOnly: options.requireLocalOnly,
+        tenant,
+      });
+
+      if (snapshot.tier === "L2" || !snapshot.baseUrl || !snapshot.modelId) {
+        throw new Error(`model_degraded_l2: ${snapshot.reason}`);
+      }
+
+      if (options.requireLocalOnly && !snapshot.localAttestation) {
+        throw new Error("proactive_local_provider_required: 主动画像上下文禁止发送到非本机模型端点");
+      }
+
+      const presets = llmConfigService ? await llmConfigService.listPresets(tenant) : null;
+      const matchedPreset = snapshot.presetId
+        ? presets?.presets.find((p) => p.id === snapshot.presetId)
+        : null;
+
+      const requestTimeoutMs = Number(matchedPreset?.settings?.requestTimeoutMs);
+      const provider = createOpenAICompatProvider({
+        baseUrl: snapshot.baseUrl,
+        apiKey: matchedPreset?.apiKey,
+        modelId: snapshot.modelId,
+        temperature: matchedPreset?.temperature ?? 0.7,
+        maxTokens: matchedPreset?.maxTokens ?? 4096,
+        ...(Number.isFinite(requestTimeoutMs) && requestTimeoutMs > 0 ? { timeoutMs: requestTimeoutMs } : {}),
+        redirect: options.requireLocalOnly ? "error" : undefined,
+      });
+      (provider as unknown as { routingSnapshot?: ModelRoutingSnapshot }).routingSnapshot = snapshot;
+      return provider;
+    }
+
     if (!llmConfigService) {
       throw new Error("llm_provider_unavailable: LLMConfigService 未接线");
     }
@@ -722,6 +766,8 @@ export async function runLoopTurnOnce(
   deps: {
     toolRuntime?: ToolRuntime;
     llmConfigService?: LLMConfigService;
+    /** CR-034 模型降级与健康路由决策服务 */
+    modelRoutingService?: LlmDegradationService;
     /** CAP-008：安全与危机干预服务（危急阻断/资源注入/中度困扰支持） */
     safetyService?: import("../safety/service.js").SafetyService;
     /** 2d：删除/撤权水位未追平 → Loop fail-closed（AVX-HAR-001 §11.3） */
@@ -990,9 +1036,13 @@ export async function runLoopTurnOnce(
       ? await deps.proactiveRepository.getEffectiveStatus(tenant)
       : null;
     const proactiveActive = proactiveStatus?.effectiveState === "active";
-    provider = await buildLoopProvider(tenant, deps.llmConfigService, {
+    const loopProvider = await buildLoopProvider(tenant, deps.llmConfigService, {
       requireLocalOnly: proactiveActive,
+      sessionId: input.sessionId,
+      turnId: input.turnId,
+      modelRoutingService: deps.modelRoutingService,
     });
+    provider = loopProvider;
     if (proactiveActive && deps.proactiveRepository) {
       proactiveProfilePrompt = await loadProactiveProfilePrompt(deps.proactiveRepository, tenant);
     }
@@ -1103,6 +1153,7 @@ export async function runLoopTurnOnce(
       },
     };
   }
+  const routingSnapshot = (provider as unknown as { routingSnapshot?: ModelRoutingSnapshot }).routingSnapshot;
   const result = await executeTurn(
     {
       execution: broadcastingStore,
@@ -1111,6 +1162,13 @@ export async function runLoopTurnOnce(
       tools,
       deletionGate: deps.deletionGate,
       inbox: deps.inbox,
+      modelRunMeta: routingSnapshot
+        ? {
+            provider: routingSnapshot.providerType ?? "rule",
+            modelId: routingSnapshot.modelId ?? "rule",
+            purpose: `tier_${routingSnapshot.tier}:${routingSnapshot.reason}`,
+          }
+        : undefined,
     },
     input,
   );

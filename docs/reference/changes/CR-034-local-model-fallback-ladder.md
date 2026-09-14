@@ -4,12 +4,20 @@ type: reference
 scope: change
 owner: maintainers
 doc_status: review-candidate
-decision_status: proposed
-delivery_status: planned
-version: 0.1.0
+decision_status: accepted
+delivery_status: implemented
+version: 1.0.0
 updated_at: 2026-09-14
 reviewed_at: 2026-09-14
 review_interval_days: 90
+review_triggers:
+  - packages/config/src/index.ts
+  - packages/contracts/src/model-routing-schemas.ts
+  - packages/schema/src/model-routing.ts
+  - packages/repositories/src/repositories/sqlite/model-routing-repository.ts
+  - apps/api/src/modules/llm/health-prober.ts
+  - apps/api/src/modules/llm/degradation-service.ts
+  - apps/api/src/modules/conversation/agent-executor.ts
 sources:
   - docs/reference/PRD.md
   - docs/reference/REQUIREMENTS_TRACEABILITY.md
@@ -18,6 +26,10 @@ sources:
   - docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md
   - docs/reference/changes/CR-032-proactive-intelligence-plugin-ecosystem.md
   - docs/reference/changes/CR-014-voice-config-webui.md
+  - docs/reference/changes/CR-042-local-model-routing-and-fallback.md
+  - docs/reference/changes/CR-043-local-model-capability-tiering.md
+  - docs/reference/changes/CR-044-deterministic-rule-response.md
+  - docs/reference/changes/CR-045-local-model-runtime-lifecycle-host.md
   - docs/reference/DATA_PRIVACY.md
   - docs/reference/capability-registry.md
 ---
@@ -29,7 +41,7 @@ sources:
 
 关联：[PRD](../PRD.md) · [需求追踪基线](../REQUIREMENTS_TRACEABILITY.md#11-变更控制) · [CR-015 模型供应商配置](CR-015-llm-provider-config-webui.md) · [ADR-005 Provider Port](../adr/ADR-005-provider-port.md) · [CR-033 主动智能终局架构](CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md) · [CR-032 插件化生态](CR-032-proactive-intelligence-plugin-ecosystem.md) · [CR-014 本地语音配置](CR-014-voice-config-webui.md) · [数据与隐私](../DATA_PRIVACY.md) · [能力注册表](../capability-registry.md)
 
-- 状态：Proposed / Planned
+- 状态：Accepted / Implemented
 - 提出人 / 日期：3yearszhuang / 2026-09-14
 - 目标版本：R3 主动智能演进阶段
 - 关联能力：`CAP-020`（技能/插件系统）、`CAP-013`（流式对话与 Agent Loop）、`CAP-009`（日记）、`CAP-033`（全域感知与个人画像）、`CAP-019`（桌宠交互）
@@ -173,5 +185,12 @@ sources:
 - 对 **CR-032**：主动话术组合器从「读激活配置」改为「向决策器要当前生效配置」，模板降级语义不变；
 - 对 **CR-014/016**：本地语音与本地模型共同构成「无 API 完整体验」的两大本地支柱，模式一致（原生 + 引导 + 白名单）；
 - 对 **CAP-013/009**：对话与日记的降级行为按本 CR 统一，验收随各切片登记至追踪基线 §4.2。
+- 后续 N1/N2/N3 立项时以本 CR 为引用基线，各自携带实现级契约与验收细节。
 
-后续 N1/N2/N3 立项时以本 CR 为引用基线，各自携带实现级契约与验收细节。
+## 11. 落地进展与子 CR 映射
+
+- **F0/F1 共享契约与底座**：已在 `@aervox/config`（独立 Feature Flag）、`@aervox/contracts`（`model-routing-schemas.ts` 与 OpenAPI）、`@aervox/schema`（`llm_health_snapshots` / `llm_routing_events`）、`@aervox/repositories`（`SqliteModelRoutingRepository`）落地。
+- **N1 降级决策器与健康路由**：承接为 [CR-042](CR-042-local-model-routing-and-fallback.md)（Accepted / Verified），落地 `LlmHealthProber` 与 `LlmDegradationService`，支持会话粘滞、迟滞阈值、连续成功恢复回切与诚实标识。
+- **N2a 能力分级与服务端工具收紧**：承接为 [CR-043](CR-043-local-model-capability-tiering.md)（Accepted / Planned）。
+- **N2b 对话侧 L2 确定性规则回应**：承接为 [CR-044](CR-044-deterministic-rule-response.md)（Accepted / Planned）。
+- **N3 本地模型运行时生命周期托管**：承接为 [CR-045](CR-045-local-model-runtime-lifecycle-host.md)（Accepted / Planned）。

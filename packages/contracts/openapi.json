@@ -12,6 +12,97 @@
   ],
   "components": {
     "schemas": {
+      "SessionItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "会话唯一标识符",
+            "example": "ses_m1234_abc"
+          },
+          "title": {
+            "type": "string",
+            "description": "会话标题",
+            "example": "关于微积分极限的讨论"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "会话创建时间（ISO 8601）",
+            "example": "2026-09-14T10:00:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "会话最近更新时间（ISO 8601）",
+            "example": "2026-09-14T10:00:00.000Z"
+          },
+          "isPinned": {
+            "type": "boolean",
+            "description": "是否置顶",
+            "example": false
+          },
+          "group": {
+            "type": "string",
+            "description": "可选分组归类标签",
+            "example": "微积分学习"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ListSessionsResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SessionItem"
+            },
+            "description": "会话列表"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "CreateSessionRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "可选客户端指定的会话 ID",
+            "example": "ses_custom_001"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "会话标题（缺省自动生成）",
+            "example": "新对话"
+          }
+        }
+      },
+      "RenameSessionRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "新的会话标题",
+            "example": "线性代数矩阵论"
+          }
+        },
+        "required": [
+          "title"
+        ]
+      },
       "CreateLearningGoal": {
         "type": "object",
         "properties": {
@@ -8179,6 +8270,352 @@
           }
         },
         "additionalProperties": false
+      },
+      "CapabilityTier": {
+        "type": "string",
+        "enum": [
+          "full",
+          "restricted",
+          "minimal"
+        ]
+      },
+      "ModelRoutingTier": {
+        "type": "string",
+        "enum": [
+          "L0",
+          "L1",
+          "L2"
+        ]
+      },
+      "HealthStatus": {
+        "type": "string",
+        "enum": [
+          "unknown",
+          "healthy",
+          "degraded",
+          "unavailable"
+        ]
+      },
+      "HealthSnapshot": {
+        "type": "object",
+        "properties": {
+          "presetId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "providerType": {
+            "type": "string",
+            "enum": [
+              "ollama",
+              "deepseek",
+              "openai",
+              "anthropic",
+              "custom_openai"
+            ]
+          },
+          "endpointIdentity": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "healthy",
+              "degraded",
+              "unavailable"
+            ]
+          },
+          "consecutiveSuccesses": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "consecutiveFailures": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "latencyMs": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "lastProbeAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "lastSuccessAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "lastFailureAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "errorCategory": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "timeout",
+              "network_error",
+              "http_error",
+              "auth_error",
+              "unsupported_protocol",
+              "unknown",
+              null
+            ]
+          },
+          "errorMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cooldownUntil": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "presetId",
+          "providerType",
+          "endpointIdentity",
+          "status",
+          "consecutiveSuccesses",
+          "consecutiveFailures",
+          "latencyMs",
+          "lastProbeAt",
+          "lastSuccessAt",
+          "lastFailureAt",
+          "errorCategory",
+          "errorMessage",
+          "cooldownUntil"
+        ]
+      },
+      "ModelRoutingSnapshot": {
+        "type": "object",
+        "properties": {
+          "tier": {
+            "type": "string",
+            "enum": [
+              "L0",
+              "L1",
+              "L2"
+            ]
+          },
+          "capabilityTier": {
+            "type": "string",
+            "enum": [
+              "full",
+              "restricted",
+              "minimal"
+            ]
+          },
+          "presetId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "presetName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "providerType": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "ollama",
+              "deepseek",
+              "openai",
+              "anthropic",
+              "custom_openai",
+              null
+            ]
+          },
+          "modelId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "baseUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "isLocal": {
+            "type": "boolean"
+          },
+          "localAttestation": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "configRevision": {
+            "type": "string",
+            "minLength": 1
+          },
+          "healthRevision": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stickySession": {
+            "type": "boolean"
+          },
+          "evaluatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "tier",
+          "capabilityTier",
+          "presetId",
+          "presetName",
+          "providerType",
+          "modelId",
+          "baseUrl",
+          "isLocal",
+          "localAttestation",
+          "reason",
+          "configRevision",
+          "healthRevision",
+          "stickySession",
+          "evaluatedAt"
+        ]
+      },
+      "ModelRoutingEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sessionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "turnId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fromTier": {
+            "type": "string",
+            "enum": [
+              "L0",
+              "L1",
+              "L2"
+            ]
+          },
+          "toTier": {
+            "type": "string",
+            "enum": [
+              "L0",
+              "L1",
+              "L2"
+            ]
+          },
+          "fromPresetId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "toPresetId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "sessionId",
+          "turnId",
+          "fromTier",
+          "toTier",
+          "fromPresetId",
+          "toPresetId",
+          "reason",
+          "occurredAt"
+        ]
+      },
+      "ModelRoutingPolicy": {
+        "type": "object",
+        "properties": {
+          "probeIntervalMs": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "default": 30000
+          },
+          "failureThreshold": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "default": 3
+          },
+          "successThreshold": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "default": 2
+          },
+          "probeTimeoutMs": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "default": 5000
+          },
+          "manualLockTier": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "L0",
+              "L1",
+              "L2",
+              null
+            ],
+            "default": null
+          },
+          "autoFallbackEnabled": {
+            "type": "boolean",
+            "default": true
+          }
+        }
       }
     },
     "parameters": {}
@@ -8292,6 +8729,127 @@
           },
           "404": {
             "description": "Diary not found"
+          }
+        }
+      }
+    },
+    "/v1/sessions": {
+      "get": {
+        "summary": "枚举会话列表",
+        "tags": [
+          "Session"
+        ],
+        "responses": {
+          "200": {
+            "description": "会话列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSessionsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "创建新会话",
+        "tags": [
+          "Session"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSessionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "会话创建成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数不合法"
+          }
+        }
+      }
+    },
+    "/v1/sessions/{sessionId}": {
+      "patch": {
+        "summary": "重命名会话",
+        "tags": [
+          "Session"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "sessionId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameSessionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "重命名成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数不合法"
+          },
+          "404": {
+            "description": "会话不存在"
+          }
+        }
+      },
+      "delete": {
+        "summary": "删除会话",
+        "tags": [
+          "Session"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "sessionId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "会话删除成功"
+          },
+          "404": {
+            "description": "会话不存在"
           }
         }
       }

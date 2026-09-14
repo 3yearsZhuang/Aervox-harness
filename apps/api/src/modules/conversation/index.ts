@@ -52,6 +52,7 @@ export function registerConversationModule(ctx: ModuleContext): void {
   registerConversationRoutes(app, conversationRepo, {
     toolRuntime,
     llmConfigService,
+    modelRoutingService: ctx.modelRoutingService,
     safetyService,
     privacyRepo,
     extensionRepo,

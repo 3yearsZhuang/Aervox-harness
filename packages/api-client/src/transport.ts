@@ -123,6 +123,12 @@ export function getSessionId(): string {
   return runtime.sessionId;
 }
 
+/** 设置当前活跃会话 ID */
+export function setSessionId(sessionId: string): void {
+  runtime.sessionId = sessionId;
+}
+
+
 export function getTimeZone(): string {
   return runtime.timeZone;
 }

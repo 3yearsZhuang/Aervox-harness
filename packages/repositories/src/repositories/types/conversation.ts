@@ -83,6 +83,19 @@ export interface IConversationRepository {
   createSession(tenant: LocalContext, title: string): Promise<SessionModel>;
   getSession(tenant: LocalContext, sessionId: string): Promise<SessionModel | null>;
   getOrCreateSession(tenant: LocalContext, sessionId: string, title?: string): Promise<SessionModel>;
+  listSessions(
+    tenant: LocalContext,
+    options?: { limit?: number; offset?: number },
+  ): Promise<SessionModel[]>;
+  renameSession(
+    tenant: LocalContext,
+    sessionId: string,
+    title: string,
+  ): Promise<SessionModel | null>;
+  deleteSession(
+    tenant: LocalContext,
+    sessionId: string,
+  ): Promise<boolean>;
   createTurnWithOutbox(
     tenant: LocalContext,
     turn: { id: string; sessionId: string; idempotencyKey: string; status?: string },
