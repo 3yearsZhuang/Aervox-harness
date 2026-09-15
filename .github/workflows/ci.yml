@@ -93,14 +93,20 @@ jobs:
       # 可选增强：Turbo Remote Cache（Vercel，条目级跨 PR 共享）。
       # 仅在仓库配置了 TURBO_TOKEN / TURBO_TEAM secrets 时注入；
       # 未配置时 turbo 优雅降级为纯本地（actions/cache）缓存，CI 不受影响。
+      # 注意：secrets context 不允许出现在 step 的 if 条件中（workflow 校验
+      # 会直接失败、0 job 创建），因此是否启用改由脚本内判断。
       - name: Enable Turbo remote cache
-        if: ${{ secrets.TURBO_TOKEN != '' }}
         env:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
         run: |
-          echo "TURBO_TOKEN=$TURBO_TOKEN" >> "$GITHUB_ENV"
-          echo "TURBO_TEAM=$TURBO_TEAM" >> "$GITHUB_ENV"
+          if [ -n "$TURBO_TOKEN" ]; then
+            echo "TURBO_TOKEN=$TURBO_TOKEN" >> "$GITHUB_ENV"
+            echo "TURBO_TEAM=$TURBO_TEAM" >> "$GITHUB_ENV"
+            echo "Turbo remote cache enabled."
+          else
+            echo "Turbo remote cache not configured; using local cache only."
+          fi
 
       - name: Run code gate (build + typecheck + test)
         env:
