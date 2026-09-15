@@ -10,6 +10,7 @@ import {
   FocusTermsBar,
   StudyTermsBar,
   TermExploreDialog,
+  FocusNavMenuItem,
   createWorkbenchPluginRuntime,
 } from '../src/plugins';
 
@@ -21,13 +22,14 @@ describe('FocusModePlugin (and StudyMode compatibility)', () => {
     expect(FocusTermsBar).toBeDefined();
     expect(StudyTermsBar).toBe(FocusTermsBar);
     expect(TermExploreDialog).toBeDefined();
+    expect(FocusNavMenuItem).toBeDefined();
     expect(registerFocusModePlugin).toBeDefined();
     expect(registerStudyModePlugin).toBe(registerFocusModePlugin);
     expect(registerStudyModeModule).toBe(registerFocusModePlugin);
     expect(registerStudyCompanionPlugin).toBe(registerFocusModePlugin);
   });
 
-  it('registers header switch and terms bar into proper slots with priorities', () => {
+  it('registers header switch, terms bar and nav menu item into proper slots with priorities', () => {
     const registry = createUIRegistry();
     const unregister = registerFocusModePlugin(registry);
 
@@ -43,10 +45,36 @@ describe('FocusModePlugin (and StudyMode compatibility)', () => {
     expect(termsBar?.priority).toBe(50);
     expect(termsBar?.component).toBe(FocusTermsBar);
 
+    const navMenuItems = registry.getSlotComponents('nav:menu-items');
+    const navItem = navMenuItems.find((item) => item.id === 'focus-mode:nav-menu-item');
+    expect(navItem).toBeDefined();
+    expect(navItem?.priority).toBe(100);
+    expect(navItem?.component).toBe(FocusNavMenuItem);
+
+    const drawers = registry.getSlotComponents('workbench:drawers');
+    const drawerItem = drawers.find((item) => item.id === 'focus-mode:learning-drawer');
+    expect(drawerItem).toBeDefined();
+    expect(drawerItem?.priority).toBe(100);
+
+    const taskCards = registry.getSlotComponents('taskcenter:cards');
+    const taskCardItem = taskCards.find((item) => item.id === 'focus-mode:task-card');
+    expect(taskCardItem).toBeDefined();
+    expect(taskCardItem?.priority).toBe(100);
+
+    const cards = registry.getCards();
+    expect(cards.map((c) => c.id)).toEqual(['study', 'mistake', 'quiz']);
+    expect(cards[0].priority).toBe(100);
+    expect(cards[1].priority).toBe(90);
+    expect(cards[2].priority).toBe(80);
+
     // Test unregister cleanup
     unregister();
     expect(registry.getSlotComponents('header:actions').find((item) => item.id === 'focus-mode:header-switch')).toBeUndefined();
     expect(registry.getSlotComponents('conversation:bottom').find((item) => item.id === 'focus-mode:terms-bar')).toBeUndefined();
+    expect(registry.getSlotComponents('nav:menu-items').find((item) => item.id === 'focus-mode:nav-menu-item')).toBeUndefined();
+    expect(registry.getSlotComponents('workbench:drawers').find((item) => item.id === 'focus-mode:learning-drawer')).toBeUndefined();
+    expect(registry.getSlotComponents('taskcenter:cards').find((item) => item.id === 'focus-mode:task-card')).toBeUndefined();
+    expect(registry.getCards()).toHaveLength(0);
   });
 
   it('is idempotent when registered multiple times', () => {
@@ -59,6 +87,9 @@ describe('FocusModePlugin (and StudyMode compatibility)', () => {
 
     const termsMatches = registry.getSlotComponents('conversation:bottom').filter((item) => item.id === 'focus-mode:terms-bar');
     expect(termsMatches).toHaveLength(1);
+
+    const navMatches = registry.getSlotComponents('nav:menu-items').filter((item) => item.id === 'focus-mode:nav-menu-item');
+    expect(navMatches).toHaveLength(1);
   });
 
   it('transforms messages via message transformer based on mode state', () => {
@@ -107,6 +138,7 @@ describe('FocusModePlugin (and StudyMode compatibility)', () => {
     expect(runtime.isPluginAvailable('focus-mode')).toBe(true);
     expect(runtime.isPluginAvailable('study-mode')).toBe(true);
     expect(registry.getSlotComponents('header:actions').some((item) => item.id === 'focus-mode:header-switch')).toBe(true);
+    expect(registry.getSlotComponents('nav:menu-items').some((item) => item.id === 'focus-mode:nav-menu-item')).toBe(true);
 
     // Sync config: autoEnableFocusMode activates focus mode
     await runtime.sync(
@@ -124,6 +156,7 @@ describe('FocusModePlugin (and StudyMode compatibility)', () => {
     expect(runtime.isPluginAvailable('study-mode')).toBe(false);
     expect(registry.getSlotComponents('header:actions').some((item) => item.id === 'focus-mode:header-switch')).toBe(false);
     expect(registry.getSlotComponents('conversation:bottom').some((item) => item.id === 'focus-mode:terms-bar')).toBe(false);
+    expect(registry.getSlotComponents('nav:menu-items').some((item) => item.id === 'focus-mode:nav-menu-item')).toBe(false);
     expect(focusModeEnabled.value).toBe(false);
 
     // Sync enabling again with legacy study-mode id: slot remounts
@@ -134,9 +167,11 @@ describe('FocusModePlugin (and StudyMode compatibility)', () => {
     expect(runtime.isPluginAvailable('focus-mode')).toBe(true);
     expect(runtime.isPluginAvailable('study-mode')).toBe(true);
     expect(registry.getSlotComponents('header:actions').some((item) => item.id === 'focus-mode:header-switch')).toBe(true);
+    expect(registry.getSlotComponents('nav:menu-items').some((item) => item.id === 'focus-mode:nav-menu-item')).toBe(true);
 
     runtime.destroy();
     expect(registry.getSlotComponents('header:actions')).toHaveLength(0);
+    expect(registry.getSlotComponents('nav:menu-items')).toHaveLength(0);
   });
 
   it('prevents concurrent config sync race condition from overwriting disabled state', async () => {
@@ -200,6 +235,7 @@ describe('FocusModePlugin (and StudyMode compatibility)', () => {
     // Initial: active
     expect(registry.getSlotComponents('header:actions').length).toBe(1);
     expect(registry.getSlotComponents('conversation:bottom').length).toBe(1);
+    expect(registry.getSlotComponents('nav:menu-items').length).toBe(1);
 
     // Dynamic unplug (disable)
     await runtime.sync(
@@ -208,6 +244,7 @@ describe('FocusModePlugin (and StudyMode compatibility)', () => {
     );
     expect(registry.getSlotComponents('header:actions').length).toBe(0);
     expect(registry.getSlotComponents('conversation:bottom').length).toBe(0);
+    expect(registry.getSlotComponents('nav:menu-items').length).toBe(0);
     expect(focusModeEnabled.value).toBe(false);
 
     // Dynamic re-plug (enable)
@@ -217,6 +254,7 @@ describe('FocusModePlugin (and StudyMode compatibility)', () => {
     );
     expect(registry.getSlotComponents('header:actions').length).toBe(1);
     expect(registry.getSlotComponents('conversation:bottom').length).toBe(1);
+    expect(registry.getSlotComponents('nav:menu-items').length).toBe(1);
 
     runtime.destroy();
   });

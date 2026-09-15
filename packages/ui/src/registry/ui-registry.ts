@@ -1,4 +1,4 @@
-import { shallowReactive, markRaw, type Component, inject, provide, type InjectionKey } from 'vue';
+import { shallowReactive, shallowRef, markRaw, type Component, inject, provide, type InjectionKey } from 'vue';
 import type {
   ExtensionSlotName,
   ExtensionComponentRegistration,
@@ -6,12 +6,14 @@ import type {
   SlotItemConfig,
   MessageTransformer,
   MessageTransformContext,
+  WorkbenchCardContribution,
 } from './types';
 
 export class UIRegistry {
   private slots = shallowReactive<Record<string, ExtensionComponentRegistration[]>>({});
   private componentOverrides = shallowReactive<Record<string, Component>>({});
   private messageTransformers = shallowReactive<Record<string, { transformer: MessageTransformer; priority: number }>>({});
+  private cardList = shallowRef<WorkbenchCardContribution[]>([]);
 
   /** 向指定插槽注册扩展组件 */
   registerSlotComponent(
@@ -117,7 +119,30 @@ export class UIRegistry {
     return result;
   }
 
-  /** 重置所有插槽、替换与消息变换器 */
+  /** 注册功能卡片 */
+  registerCard(card: WorkbenchCardContribution): () => void {
+    const existing = this.cardList.value.filter((item) => item.id !== card.id);
+    const normalized: WorkbenchCardContribution = {
+      ...card,
+      icon: markRaw(card.icon),
+      extraComponent: card.extraComponent ? markRaw(card.extraComponent) : undefined,
+      priority: card.priority ?? 0,
+    };
+    this.cardList.value = [...existing, normalized].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+    return () => this.unregisterCard(card.id);
+  }
+
+  /** 注销功能卡片 */
+  unregisterCard(id: string): void {
+    this.cardList.value = this.cardList.value.filter((item) => item.id !== id);
+  }
+
+  /** 获取所有已注册卡片（按 priority 降序排序） */
+  getCards(): WorkbenchCardContribution[] {
+    return this.cardList.value;
+  }
+
+  /** 重置所有插槽、替换、消息变换器与扩展卡片 */
   clear(): void {
     for (const key of Object.keys(this.slots)) {
       delete this.slots[key];
@@ -128,6 +153,7 @@ export class UIRegistry {
     for (const key of Object.keys(this.messageTransformers)) {
       delete this.messageTransformers[key];
     }
+    this.cardList.value = [];
   }
 }
 

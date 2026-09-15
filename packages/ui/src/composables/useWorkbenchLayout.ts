@@ -26,13 +26,13 @@ export type ToolId = 'study' | 'mistake' | 'todo' | 'timer' | 'history' | 'diary
 
 export const settingCategories = [
   { id: 'tools', label: '快捷工具', description: '学习面板与小工具', icon: LayoutGrid, scope: 'detail' as const },
+  { id: 'model', label: '模型与服务', description: '大语言模型与供应商配置', icon: Bot, scope: 'detail' as const },
+  { id: 'persona', label: '人格设定', description: '管理人格角色设定', icon: Heart, scope: 'detail' as const },
+  { id: 'voice', label: '语音', description: '本地与在线语音模型配置', icon: Volume2, scope: 'detail' as const },
+  { id: 'conversation', label: '对话', description: '称呼与输入方式', icon: MessageCircle, scope: 'detail' as const },
   { id: 'proactive', label: '主动智能', description: '全量画像与本地权限', icon: BrainCircuit, scope: 'detail' as const },
   { id: 'appearance', label: '外观', description: '主题与界面密度', icon: Sun, scope: 'detail' as const },
-  { id: 'conversation', label: '对话', description: '称呼与输入方式', icon: MessageCircle, scope: 'siyu' as const },
-  { id: 'model', label: '模型与服务', description: '大语言模型与供应商配置', icon: Bot, scope: 'siyu' as const },
-  { id: 'persona', label: '人格设定', description: '管理人格角色设定', icon: Heart, scope: 'siyu' as const },
   { id: 'notifications', label: '提醒', description: '学习节奏与通知', icon: Bell, scope: 'detail' as const },
-  { id: 'voice', label: '语音', description: '本地与在线语音模型配置', icon: Volume2, scope: 'siyu' as const },
   { id: 'plugins', label: '插件', description: '插件配置与页面', icon: Puzzle, scope: 'detail' as const },
 ] as const;
 
@@ -94,9 +94,7 @@ export function useWorkbenchLayout(props: {
   const settingsCategory = ref<'tools' | 'appearance' | 'conversation' | 'model' | 'persona' | 'notifications' | 'voice' | 'plugins' | 'proactive'>('tools');
   const settingsScope = ref<'siyu' | 'detail'>('detail');
 
-  const scopedSettingCategories = computed(() =>
-    settingCategories.filter((c) => c.scope === settingsScope.value),
-  );
+  const scopedSettingCategories = computed(() => settingCategories);
 
   const toolsNavItems: Array<{ id: 'todo' | 'timer' | 'history' | 'diary'; label: string; description: string; icon: Component }> = [
     { id: 'todo', label: '待办清单', description: '勾选完成今天的待办', icon: ListTodo },
@@ -156,8 +154,6 @@ export function useWorkbenchLayout(props: {
     toolsOpen.value = true;
     if (target === 'diary') {
       options.onOpenDiary?.();
-    } else if (target === 'history') {
-      historyOpen.value = true;
     }
   }
 
@@ -165,8 +161,6 @@ export function useWorkbenchLayout(props: {
     activeToolView.value = target;
     if (target === 'diary') {
       options.onOpenDiary?.();
-    } else if (target === 'history') {
-      historyOpen.value = true;
     }
   }
 
@@ -176,8 +170,6 @@ export function useWorkbenchLayout(props: {
 
   function openSettingsCategory(category: typeof settingsCategory.value) {
     settingsCategory.value = category;
-    const scope = settingCategories.find((c) => c.id === category)?.scope ?? 'detail';
-    settingsScope.value = scope;
     openSettings();
   }
 

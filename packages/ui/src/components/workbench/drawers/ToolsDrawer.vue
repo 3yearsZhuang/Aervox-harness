@@ -8,10 +8,13 @@ import {
   Plus,
   RotateCcw,
   TimerReset,
+  LayoutGrid,
 } from 'lucide-vue-next';
 import { useWorkbenchContext } from '../../../composables/workbench-context';
 import { renderMarkdown } from '../../../utils/markdown';
 import { DIAL_RADIUS, DIAL_CIRCUMFERENCE } from '../../../composables/useWorkbenchTimer';
+import { AervoxNavDialog } from '../../../primitives';
+
 
 const { layout, timer, cards, conversation } = useWorkbenchContext();
 const {
@@ -61,32 +64,29 @@ const {
 } = cards;
 
 const { story } = conversation;
+
+function openHistoryView() {
+  toolsOpen.value = false;
+  historyOpen.value = true;
+}
 </script>
 
 <template>
-  <el-dialog
+  <AervoxNavDialog
     v-model="toolsOpen"
     title="工具管理"
-    class="tools-dialog"
-    width="min(860px, calc(100vw - 28px))"
-    align-center
+    subtitle="管理小任务、专注计时与日常日记"
+    :icon="LayoutGrid"
+    :items="toolsNavItems"
+    :active-key="activeToolView"
+    :content-centered="activeToolView === 'timer'"
+    nav-aria-label="工具导航"
+    custom-class="tools-dialog"
+    @update:active-key="switchToolView($event as any)"
   >
-    <div class="tool-dialog-layout">
-      <nav class="tool-sidebar" aria-label="工具导航">
-        <button
-          v-for="item in toolsNavItems"
-          :key="item.id"
-          type="button"
-          :class="{ active: item.id === activeToolView }"
-          :aria-current="item.id === activeToolView ? 'true' : undefined"
-          @click="switchToolView(item.id)"
-        >
-          <component :is="item.icon" :size="18" />
-          <span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span>
-        </button>
-      </nav>
-      <div class="tool-dialog-content" :class="{ 'content-centered': activeToolView === 'timer' }">
-        <template v-if="activeToolView === 'todo'">
+    <template #content>
+      <template v-if="activeToolView === 'todo'">
+
           <p class="drawer-intro">用小任务保持节奏，不需要一次完成所有事情。</p>
           <form class="todo-form" @submit.prevent="addTodo">
             <label class="sr-only" for="new-todo">添加待办</label>
@@ -233,7 +233,7 @@ const { story } = conversation;
         <template v-else-if="activeToolView === 'history'">
           <p class="drawer-intro">完整上下文回看：视觉小说式滚动浏览与思隅的全部对话。</p>
           <div class="diary-actions">
-            <button type="button" class="diary-generate-btn" @click="historyOpen = true">
+            <button type="button" class="diary-generate-btn" @click="openHistoryView">
               <History :size="16" />
               <span>打开对话回看（{{ story.length }} 条记录）</span>
             </button>
@@ -270,7 +270,7 @@ const { story } = conversation;
             </ul>
           </div>
         </template>
-      </div>
-    </div>
-  </el-dialog>
-</template>
+      </template>
+    </AervoxNavDialog>
+  </template>
+

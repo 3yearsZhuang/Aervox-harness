@@ -3,12 +3,12 @@ import { ref, watch } from 'vue';
 import {
   BookOpen,
   Sparkles,
-  X,
   Loader2,
 } from 'lucide-vue-next';
 import { exploreTerm, useAervoxPlugins } from '@aervox/api-client';
 import type { ExtractedTerm, TermExploreResponse, TermExploreKind } from '@aervox/contracts';
 import { renderMarkdown } from '../../utils/markdown';
+import { AervoxDialog, AervoxButton } from '../../primitives';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -83,134 +83,58 @@ function close() {
 </script>
 
 <template>
-  <div v-if="modelValue" class="term-dialog-overlay" @click.self="close">
-    <div class="term-dialog-card" role="dialog" aria-modal="true">
-      <!-- 头部 -->
-      <div class="term-dialog-header">
-        <div class="term-dialog-title">
-          <BookOpen :size="16" class="title-icon" />
-          <span>{{ term?.text || '概念解释' }}</span>
-          <span v-if="term?.relation" class="relation-tag" :class="term.relation">
-            {{ term.relation === 'background' ? '深度推导' : '横向对比' }}
-          </span>
-        </div>
-        <button type="button" class="close-btn" aria-label="关闭" @click="close">
-          <X :size="16" />
-        </button>
+  <AervoxDialog
+    :model-value="modelValue"
+    :title="term?.text || '概念解释'"
+    :subtitle="term?.relation === 'background' ? '深度推导' : term?.relation ? '横向对比' : '名词核心拆解与启发引导'"
+    :icon="BookOpen"
+    size="md"
+    @update:model-value="emit('update:modelValue', $event)"
+    @close="close"
+  >
+    <div class="term-dialog-body">
+      <div v-if="loading" class="term-dialog-loading">
+        <Loader2 :size="24" class="spin" />
+        <p>正在生成概念深度拆解与启发引导…</p>
       </div>
 
-      <!-- 内容区 -->
-      <div class="term-dialog-body">
-        <div v-if="loading" class="term-dialog-loading">
-          <Loader2 :size="24" class="spin" />
-          <p>正在生成概念深度拆解与启发引导…</p>
-        </div>
+      <div v-else-if="error" class="term-dialog-error">
+        <p>{{ error }}</p>
+        <AervoxButton variant="secondary" size="sm" @click="fetchExploreData">重试</AervoxButton>
+      </div>
 
-        <div v-else-if="error" class="term-dialog-error">
-          <p>{{ error }}</p>
-          <button type="button" class="retry-btn" @click="fetchExploreData">重试</button>
-        </div>
+      <div v-else-if="exploreResult" class="term-dialog-content">
+        <!-- 概念释义 -->
+        <section class="explore-section">
+          <h4 class="section-label">概念核心</h4>
+          <!-- eslint-disable-next-line vue/no-v-html -->
+          <div class="markdown-body" v-html="renderMarkdown(exploreResult.content)" />
+        </section>
 
-        <div v-else-if="exploreResult" class="term-dialog-content">
-          <!-- 概念释义 -->
-          <section class="explore-section">
-            <h4 class="section-label">概念核心</h4>
-            <!-- eslint-disable-next-line vue/no-v-html -->
-            <div class="markdown-body" v-html="renderMarkdown(exploreResult.content)" />
-          </section>
-
-          <!-- 思考与启发问题 -->
-          <section v-if="exploreResult.relatedQuestions && exploreResult.relatedQuestions.length > 0" class="explore-section">
-            <h4 class="section-label">
-              <Sparkles :size="14" />
-              <span>启发思考</span>
-            </h4>
-            <ul class="followups-list">
-              <li v-for="(item, idx) in exploreResult.relatedQuestions" :key="idx" class="followup-item">
-                {{ item }}
-              </li>
-            </ul>
-          </section>
-        </div>
+        <!-- 思考与启发问题 -->
+        <section v-if="exploreResult.relatedQuestions && exploreResult.relatedQuestions.length > 0" class="explore-section">
+          <h4 class="section-label">
+            <Sparkles :size="14" />
+            <span>启发思考</span>
+          </h4>
+          <ul class="followups-list">
+            <li v-for="(item, idx) in exploreResult.relatedQuestions" :key="idx" class="followup-item">
+              {{ item }}
+            </li>
+          </ul>
+        </section>
       </div>
     </div>
-  </div>
+
+    <template #footer>
+      <AervoxButton variant="primary" @click="close">知道了</AervoxButton>
+    </template>
+  </AervoxDialog>
 </template>
 
 <style scoped>
-.term-dialog-overlay {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  backdrop-filter: blur(2px);
-}
-
-.term-dialog-card {
-  width: 90%;
-  max-width: 520px;
-  max-height: 80vh;
-  background: var(--color-bg-elevated, #ffffff);
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border: 1px solid var(--color-border-subtle, rgba(0, 0, 0, 0.08));
-}
-
-.term-dialog-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--color-border-subtle, #f0f0f0);
-}
-
-.term-dialog-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  font-size: 15px;
-}
-
-.title-icon {
-  color: var(--color-primary, #6366f1);
-}
-
-.relation-tag {
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: normal;
-}
-.relation-tag.background {
-  background: #eff6ff;
-  color: #2563eb;
-}
-.relation-tag.related {
-  background: #fdf2f8;
-  color: #db2777;
-}
-
-.close-btn {
-  border: none;
-  background: none;
-  cursor: pointer;
-  color: #999;
-  padding: 4px;
-  border-radius: 4px;
-}
-.close-btn:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: #333;
-}
-
 .term-dialog-body {
+
   padding: 16px;
   overflow-y: auto;
   font-size: 14px;
