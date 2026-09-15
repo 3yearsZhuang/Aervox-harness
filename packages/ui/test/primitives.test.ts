@@ -128,6 +128,33 @@ describe('UI Primitives Test Suite', () => {
 
       expect(wrapper.find('.aervox-dialog-body').classes()).toContain('is-no-padding');
     });
+
+    it('handles custom height and resets body maxHeight', async () => {
+      const wrapper = mount(AervoxDialog, {
+        props: {
+          modelValue: true,
+          height: '520px',
+        },
+        global: {
+          stubs: {
+            ElDialog: defineComponent({
+              name: 'ElDialog',
+              props: ['modelValue'],
+              setup(props, { slots, attrs }) {
+                return () =>
+                  props.modelValue ? h('div', { class: 'el-dialog-stub', style: attrs.style }, slots.default?.()) : null;
+              },
+            }),
+          },
+        },
+      });
+
+      const stub = wrapper.find('.el-dialog-stub');
+      expect((stub.element as HTMLElement).style.height).toBe('520px');
+      const body = wrapper.find('.aervox-dialog-body');
+      expect((body.element as HTMLElement).style.maxHeight).toBe('none');
+      expect((body.element as HTMLElement).style.height).toBe('100%');
+    });
   });
 
   describe('AervoxNavDialog', () => {
@@ -175,6 +202,30 @@ describe('UI Primitives Test Suite', () => {
 
       expect(wrapper.emitted('update:activeKey')?.[0]).toEqual(['tab-b']);
       expect(wrapper.emitted('change')?.[0]).toEqual(['tab-b']);
+    });
+
+    it('does not constrain .aervox-nav-layout with fixed inline height', async () => {
+      const wrapper = mount(AervoxNavDialog, {
+        props: {
+          modelValue: true,
+          activeKey: 'test',
+          items: [{ id: 'test', label: '测试' }],
+        },
+        global: {
+          stubs: {
+            ElDialog: defineComponent({
+              name: 'ElDialog',
+              props: ['modelValue'],
+              setup(props, { slots }) {
+                return () => (props.modelValue ? h('div', slots.default?.()) : null);
+              },
+            }),
+          },
+        },
+      });
+
+      const navLayout = wrapper.find('.aervox-nav-layout');
+      expect(navLayout.attributes('style')).toBeFalsy();
     });
   });
 

@@ -63,6 +63,7 @@ function selectItem(id: string) {
     :subtitle="subtitle"
     :icon="icon"
     :width="width"
+    :height="height"
     :show-close="showClose"
     size="lg"
     :custom-class="[customClass, 'aervox-nav-dialog'].filter(Boolean).join(' ')"
@@ -77,7 +78,7 @@ function selectItem(id: string) {
       <slot name="header" />
     </template>
 
-    <div class="aervox-nav-layout" :style="{ height }">
+    <div class="aervox-nav-layout">
       <nav class="aervox-nav-sidebar" :aria-label="navAriaLabel">
         <button
           v-for="item in items"
@@ -117,6 +118,8 @@ function selectItem(id: string) {
   display: grid;
   grid-template-columns: 220px 1fr;
   height: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
   overflow: hidden;
   background: var(--bg-main, #fcfdfe);
 }
@@ -129,6 +132,9 @@ function selectItem(id: string) {
   border-right: 1px solid var(--border);
   background: var(--bg-soft, #f2f4f8);
   overflow-y: auto;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
@@ -201,8 +207,11 @@ function selectItem(id: string) {
 }
 
 .aervox-nav-detail {
-  padding: 20px 24px;
+  padding: 20px 24px 32px;
+  height: 100%;
+  min-height: 0;
   overflow-y: auto;
+  box-sizing: border-box;
   background: var(--bg-main, #fcfdfe);
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong, var(--border)) transparent;
@@ -221,6 +230,7 @@ function selectItem(id: string) {
     grid-template-rows: auto 1fr;
   }
   .aervox-nav-sidebar {
+    height: auto;
     flex-direction: row;
     overflow-x: auto;
     border-right: none;

@@ -13,6 +13,7 @@ const props = withDefaults(
     icon?: Component;
     size?: DialogSize;
     width?: string;
+    height?: string;
     showHeader?: boolean;
     showClose?: boolean;
     closeOnClickModal?: boolean;
@@ -30,6 +31,7 @@ const props = withDefaults(
     icon: undefined,
     size: 'md',
     width: '',
+    height: '',
     showHeader: true,
     showClose: true,
     closeOnClickModal: true,
@@ -67,6 +69,22 @@ const resolvedWidth = computed(() => {
   }
 });
 
+const dialogStyle = computed(() => {
+  const styles: Record<string, string> = {};
+  if (props.height) {
+    styles.height = props.height;
+    styles.maxHeight = props.height;
+  }
+  return styles;
+});
+
+const bodyStyle = computed(() => {
+  if (props.height) {
+    return { maxHeight: 'none', height: '100%' };
+  }
+  return { maxHeight: props.bodyMaxHeight };
+});
+
 const dialogClasses = computed(() => [
   'aervox-dialog',
   `aervox-dialog--${props.size}`,
@@ -84,6 +102,7 @@ function handleClose() {
     :model-value="modelValue"
     :title="title"
     :width="resolvedWidth"
+    :style="dialogStyle"
     :class="dialogClasses"
     :show-close="false"
     :close-on-click-modal="closeOnClickModal"
@@ -125,7 +144,7 @@ function handleClose() {
     <div
       class="aervox-dialog-body"
       :class="{ 'is-no-padding': noPadding }"
-      :style="{ maxHeight: bodyMaxHeight }"
+      :style="bodyStyle"
     >
       <slot />
     </div>
@@ -148,9 +167,13 @@ function handleClose() {
   box-shadow: 0 24px 56px -12px rgba(0, 0, 0, 0.28), 0 0 0 1px var(--border);
   overflow: hidden;
   padding: 0;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box;
 }
 
 .el-dialog.aervox-dialog .el-dialog__header {
+  flex: 0 0 auto;
   padding: 16px 20px 14px;
   margin: 0;
   border-bottom: 1px solid var(--border);
@@ -158,12 +181,18 @@ function handleClose() {
 }
 
 .el-dialog.aervox-dialog .el-dialog__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 0;
   color: var(--text-primary);
   background: var(--bg-main, #fcfdfe);
 }
 
 .el-dialog.aervox-dialog .el-dialog__footer {
+  flex: 0 0 auto;
   padding: 12px 20px 16px;
   margin: 0;
   border-top: 1px solid var(--border);
@@ -171,6 +200,8 @@ function handleClose() {
 }
 
 .aervox-dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 18px 20px;
   overflow-y: auto;
   box-sizing: border-box;
@@ -182,6 +213,24 @@ function handleClose() {
 .el-dialog.aervox-nav-dialog .aervox-dialog-body {
   padding: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.el-dialog.aervox-nav-dialog {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.el-dialog.aervox-nav-dialog .el-dialog__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
 }
 
 .aervox-dialog-footer {
