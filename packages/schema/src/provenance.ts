@@ -28,7 +28,7 @@ export const sourceArtifacts = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
+    localKindIdx: index("source_artifacts_local_kind_idx").on(table.kind),
   }),
 );
 

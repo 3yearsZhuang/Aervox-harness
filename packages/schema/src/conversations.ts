@@ -44,6 +44,7 @@ export const turns = sqliteTable(
   (table) => ({
 
     sessionIdx: index("turns_session_idx").on(table.sessionId),
+    localIdempotencyUniqueIdx: uniqueIndex("turns_local_idempotency_idx").on(table.idempotencyKey),
   }),
 );
 
@@ -149,6 +150,7 @@ export const turnAttempts = sqliteTable(
       table.turnId,
       table.attempt,
     ),
+    statusLeaseIdx: index("turn_attempts_status_lease_idx").on(table.status, table.leaseExpiresAt),
   }),
 );
 

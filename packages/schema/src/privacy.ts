@@ -23,7 +23,10 @@ export const consentGrants = sqliteTable(
   },
   (table) => ({
     // 仅未撤销的有效授权唯一；撤销后可重新授予
-
+    localPurposeScopeUniqueIdx: uniqueIndex("consent_grants_local_purpose_scope_idx").on(
+      table.purpose,
+      table.scope,
+    ),
   }),
 );
 
@@ -44,7 +47,10 @@ export const deletionRequests = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
+    localIdempotencyUniqueIdx: uniqueIndex("deletion_requests_local_idempotency_idx").on(
+      table.idempotencyKey,
+    ),
+    statusIdx: index("deletion_requests_status_idx").on(table.status),
   }),
 );
 
