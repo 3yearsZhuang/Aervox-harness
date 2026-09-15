@@ -122,11 +122,12 @@ test.describe("练习流程端到端", () => {
     expect(body.items.some((m: { questionId: string }) => m.questionId === questionIds[1])).toBeTruthy();
   });
 
-  test("8. 租户隔离", async ({ request }) => {
+  test("8. 本地单用户共享（CR-030）", async ({ request }) => {
+    // 去租户化后租户 Header 被完全忽略：任意 Header 都读写同一本地单用户数据
     const other = { "x-workspace-id": "ws_other", "x-user-id": "usr_other" };
     const goals = await request.get(`${baseURL}/v1/learning/goals`, { headers: other });
-    expect((await goals.json()).items).toHaveLength(0);
+    expect((await goals.json()).items.length).toBeGreaterThanOrEqual(1);
     const mistakes = await request.get(`${baseURL}/v1/mistakes`, { headers: other });
-    expect((await mistakes.json()).items).toHaveLength(0);
+    expect((await mistakes.json()).items.length).toBeGreaterThanOrEqual(1);
   });
 });

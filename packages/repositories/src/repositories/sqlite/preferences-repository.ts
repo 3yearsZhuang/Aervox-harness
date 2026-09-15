@@ -1,11 +1,11 @@
 /**
  * Aervox｜思隅 @aervox/database — 用户偏好 SQLite 仓储实现（CAP-010 人格问卷与基础偏好）
  *
- * - 本地实例一行，upsert 语义；
+ * - 本地实例一行（CR-030：固定主键构成单行真源），save 为幂等 upsert；
  * - update 仅更新传参列，version 自动递增；
  * - reset 恢复中性默认值。
  */
-import { eq, and, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { personaPreferences } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
@@ -14,6 +14,9 @@ import type {
   PersonaPreferencesModel,
 } from "../types/index.js";
 
+/** 本地单用户偏好固定主键：保证全表恒为一行，历史多行数据不参与读写。 */
+const LOCAL_PREFERENCE_ID = "pref_local";
+
 export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
@@ -21,10 +24,7 @@ export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRe
     const [found] = await this.db
       .select()
       .from(personaPreferences)
-      .where(
-        and(
-        ),
-      )
+      .where(eq(personaPreferences.id, LOCAL_PREFERENCE_ID))
       .limit(1);
     if (!found) return null;
     return this.toModel(found);
@@ -45,7 +45,7 @@ export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRe
     const [created] = await this.db
       .insert(personaPreferences)
       .values({
-        id: `pref_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
+        id: LOCAL_PREFERENCE_ID,
         tone: (input.tone ?? "neutral") as "friendly" | "neutral" | "formal",
         proactiveness: (input.proactiveness ?? "medium") as "low" | "medium" | "high",
         addressForm: (input.addressForm ?? "none") as "casual" | "formal" | "none",
@@ -97,10 +97,7 @@ export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRe
     const [updated] = await this.db
       .update(personaPreferences)
       .set(setValues)
-      .where(
-        and(
-        ),
-      )
+      .where(eq(personaPreferences.id, LOCAL_PREFERENCE_ID))
       .returning();
 
     if (!updated) {
@@ -125,10 +122,7 @@ export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRe
         skipped: false,
         updatedAt: now,
       })
-      .where(
-        and(
-        ),
-      )
+      .where(eq(personaPreferences.id, LOCAL_PREFERENCE_ID))
       .returning();
 
     if (!updated) {
