@@ -12,5 +12,10 @@ export default defineConfig({
     exclude: ['dist/**', 'node_modules/**'],
     testTimeout: 30_000,
     hookTimeout: 30_000,
+    // 并行度治理：turbo 会同时调度多个包的 vitest 进程，若每个进程再按
+    // 全部 CPU 核数 fork worker，「多包并行 × 文件级并行」叠加会造成 CPU
+    // 与磁盘争抢（上方注释所述单文件 0.5s → 6s+ 抖动的根源）。限制每个
+    // vitest 实例最多使用一半核心，用可控排队换取延迟稳定。
+    maxWorkers: '50%',
   },
 })

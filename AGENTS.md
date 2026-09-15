@@ -81,6 +81,7 @@ Aervox｜思隅：更好上手的“主动智能” Agent——以桌宠为入�
 | 文档门禁 | `mise tasks run ci-docs` | Markdownlint + Vale 术语检查 + 文档治理严格校验 |
 | 单测调试 | `mise x -- pnpm test` | 在受控 mise 环境下执行 Vitest 单元测试 |
 | 增量测试 | `mise x -- pnpm test:affected` | 仅运行相对 `origin/main` 变更包及其全部下游依赖的测试（feature 分支快速验证；先 `git fetch origin main`，合并门禁仍以全量为准） |
+| 单元层测试 | `mise x -- pnpm test:unit` | 仅运行不建库、不起服务的 9 个轻量包（`agent-loop`/`ui`/`desktop` 等，约 22s）；重型集成层（`repositories`/`api`/`worker`/`host-agent`）走全量或增量测试 |
 | 格式化修复 | `npx markdownlint-cli2 --fix <files>` | 自动修复 Markdownlint 可自愈的排版问题 |
 | 术语检查 | `vale --minAlertLevel=error <files>` | 针对指定文件执行 Vale 散文与术语一致性检查 |
 | 注册表自动同步 | `mise tasks run docs-sync` | 自动从文档 Front Matter 读取日期并回写 `docs/DOC_REGISTRY.md` |
