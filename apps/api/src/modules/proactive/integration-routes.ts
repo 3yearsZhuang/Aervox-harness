@@ -79,7 +79,7 @@ export function registerProactiveIntegrationRoutes(
   const repo = deps.intelligenceRepo;
 
   app.get("/v1/proactive/integrations", async (req) => {
-    const items = await repo.listConnections(resolveLocalContext(req));
+    const items = await repo.listConnections(resolveLocalContext(req), undefined, 500);
     return {items: items.map((item) => ({
       ...item,
       subscriptionActive: item.provider === "home_assistant" ? deps.manager.subscriptionActive(item.id) : undefined,
@@ -128,7 +128,7 @@ export function registerProactiveIntegrationRoutes(
       });
     }
     await deps.manager.ensureHomeSubscription(tenant, id).catch(mapIntegrationError);
-    return reply.code(201).send({connection: (await repo.listConnections(tenant, "home_assistant")).find((item) => item.id === id), test, sync});
+    return reply.code(201).send({connection: (await repo.listConnections(tenant, "home_assistant", 500)).find((item) => item.id === id), test, sync});
   });
 
   app.post("/v1/proactive/integrations/home-assistant/:id/test", async (req) => {
@@ -145,7 +145,7 @@ export function registerProactiveIntegrationRoutes(
   });
 
   app.get("/v1/proactive/integrations/home-assistant/:id/entities", async (req) => ({
-    items: await repo.listHomeEntities(resolveLocalContext(req), (req.params as {id: string}).id),
+    items: await repo.listHomeEntities(resolveLocalContext(req), (req.params as {id: string}).id, undefined, 500),
   }));
 
   app.patch("/v1/proactive/integrations/home-assistant/:id/entities/:entityId", async (req) => {
@@ -232,7 +232,7 @@ export function registerProactiveIntegrationRoutes(
       lastError: null,
     });
     const sync = await deps.manager.syncXiaomiHealth(tenant, id, localDate).catch(mapIntegrationError);
-    return reply.code(201).send({connection: (await repo.listConnections(tenant, "xiaomi_health")).find((item) => item.id === id), test, sync});
+    return reply.code(201).send({connection: (await repo.listConnections(tenant, "xiaomi_health", 500)).find((item) => item.id === id), test, sync});
   });
 
   app.post("/v1/proactive/integrations/xiaomi-health/:id/test", async (req) => {

@@ -13,7 +13,9 @@ import {
 import type {
   AervoxDatabase,
   IProactiveProfileRepository,
+  ProactiveBehaviorObservationModel,
   ProactiveCaptureModel,
+  ProactiveProfileClaimModel,
   LocalContext,
 } from "@aervox/repositories";
 import type { ProactiveCaptureDistiller } from "./proactive-distiller.js";
@@ -36,21 +38,10 @@ export interface ProactiveProfileCycleResult {
 const clampLimit = (value: number | undefined): number =>
   Math.max(1, Math.min(200, Math.floor(value ?? 50)));
 
-async function loadCapture(
-  repo: IProactiveProfileRepository,
-  tenant: LocalContext,
-  captureId: string,
-): Promise<ProactiveCaptureModel | null> {
-  const captures = await repo.listCaptures(tenant, { includeDeleted: false, limit: 500 });
-  return captures.find((capture) => capture.id === captureId) ?? null;
-}
-
-async function existingMemoryIds(
-  repo: IProactiveProfileRepository,
-  tenant: LocalContext,
+function existingMemoryIds(
+  claims: ProactiveProfileClaimModel[],
   capture: ProactiveCaptureModel,
-): Promise<string[]> {
-  const claims = await repo.listClaims(tenant, { revisionId: capture.revisionId, limit: 500 });
+): string[] {
   return claims
     .filter((claim) => claim.evidenceCaptureIds.includes(capture.id))
     .map((claim) => claim.id);
@@ -96,25 +87,49 @@ export async function runProactiveProfileCycle(
     .orderBy(asc(proactiveCaptures.ingestedAt))
     .limit(clampLimit(ctx.limit));
 
+  const tenant: LocalContext = { workspaceId: "local", subjectUserId: "local" };
+  // A candidate cycle used to rescan and decrypt the full capture/claim/
+  // observation windows once per candidate. Cache those bounded windows for
+  // the cycle; this changes the hot path from O(candidates * window) reads to
+  // one read per revision/source while preserving the repository's existing
+  // 500-row visibility contract.
+  const captures = candidates.length > 0
+    ? await ctx.repo.listCaptures(tenant, { includeDeleted: false, limit: 500 })
+    : [];
+  const capturesById = new Map(captures.map((capture) => [capture.id, capture]));
+  const claimsByRevision = new Map<string, ProactiveProfileClaimModel[]>();
+  const observationsByKey = new Map<string, ProactiveBehaviorObservationModel[]>();
+  const claimsForRevision = async (revisionId: string): Promise<ProactiveProfileClaimModel[]> => {
+    const cached = claimsByRevision.get(revisionId);
+    if (cached) return cached;
+    const loaded = await ctx.repo.listClaims(tenant, { revisionId, limit: 500 });
+    claimsByRevision.set(revisionId, loaded);
+    return loaded;
+  };
+  const observationsFor = async (revisionId: string, sourceKey: string): Promise<ProactiveBehaviorObservationModel[]> => {
+    const key = `${revisionId}:${sourceKey}`;
+    const cached = observationsByKey.get(key);
+    if (cached) return cached;
+    const loaded = await ctx.repo.listObservations(tenant, { revisionId, sourceKey, limit: 500 });
+    observationsByKey.set(key, loaded);
+    return loaded;
+  };
+
   let distilled = 0;
   let failed = 0;
   for (const candidate of candidates) {
-    const tenant: LocalContext = { workspaceId: "local", subjectUserId: "local" };
     try {
-      const capture = await loadCapture(ctx.repo, tenant, candidate.id);
+      const capture = capturesById.get(candidate.id) ?? null;
       if (!capture) continue;
 
       // Crash recovery: claims may already exist if the previous process stopped between
       // claim creation and capture finalization. Reuse them instead of duplicating memory.
-      let memoryIds = await existingMemoryIds(ctx.repo, tenant, capture);
+      const claims = await claimsForRevision(capture.revisionId);
+      let memoryIds = existingMemoryIds(claims, capture);
       if (memoryIds.length === 0) {
         const memories = await ctx.distiller.distill(capture);
         if (memories.length === 0) throw new Error("local distiller produced no profile memory");
-        const existingObservations = await ctx.repo.listObservations(tenant, {
-          revisionId: capture.revisionId,
-          sourceKey: capture.sourceKey,
-          limit: 500,
-        });
+        const existingObservations = await observationsFor(capture.revisionId, capture.sourceKey);
         memoryIds = [];
         for (let index = 0; index < memories.length; index += 1) {
           const memory = memories[index]!;
@@ -140,6 +155,9 @@ export async function runProactiveProfileCycle(
               observedAt: capture.observedAt,
               normalizedAt: nowIso,
             });
+          if (!existingObservations.some((item) => item.id === observation.id)) {
+            existingObservations.push(observation);
+          }
           // CR-032：observationOnly 样本（idle_state 等元数据级高频源）不进 claim 审阅流
           if (memory.observationOnly) {
             memoryIds.push(observation.id);
@@ -161,6 +179,7 @@ export async function runProactiveProfileCycle(
             ],
             sourceGrantIds: [capture.sourceGrantId],
           });
+          claims.push(claim);
           memoryIds.push(claim.id);
         }
       }

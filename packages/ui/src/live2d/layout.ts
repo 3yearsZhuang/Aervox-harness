@@ -46,13 +46,17 @@ export function fitLive2DModelToViewport(
     ) * 0.55
     model.scale.set(measurementScale)
     model.position.set(width / 2, height / 2)
-    const natural = measureVisibleBounds(app)
+    // Do not read back the entire WebGL framebuffer here.  ReadPixels stalls
+    // the GPU and scans millions of RGBA values on every newly-created model.
+    // The Live2D internal model already exposes drawable vertices in canvas
+    // coordinates, which is enough to calculate stable layout metrics.
+    const natural = measureVisibleBounds(model)
     if (natural) {
       metrics = {
-        width: natural.width / measurementScale,
-        height: natural.height / measurementScale,
-        offsetX: (natural.centerX - width / 2) / measurementScale,
-        offsetY: (natural.centerY - height / 2) / measurementScale,
+        width: natural.width,
+        height: natural.height,
+        offsetX: natural.centerX,
+        offsetY: natural.centerY,
       }
       metricsCache.set(model, metrics)
     }
@@ -74,40 +78,101 @@ export function fitLive2DModelToViewport(
   )
 }
 
-function measureVisibleBounds(app: Application): VisibleBounds | null {
+/**
+ * Calculate the model's visible canvas bounds from Cubism drawable geometry.
+ *
+ * `InternalModel.getDrawableBounds()` (and its vertex fallback) returns
+ * coordinates in the original model canvas space (origin at the top-left).
+ * Converting those bounds to the centered local space used by Pixi gives the
+ * same width/offset contract as the old framebuffer scan without synchronizing
+ * the CPU with the GPU.
+ */
+function measureVisibleBounds(model: Live2DModel): VisibleBounds | null {
   try {
-    app.renderer.render(app.stage)
-    const pixelWidth = app.renderer.width
-    const pixelHeight = app.renderer.height
-    const logicalWidth = app.renderer.screen.width
-    const logicalHeight = app.renderer.screen.height
-    const pixels = app.renderer.extract.pixels()
-    // 仅统计真实可见像素（alpha ≥ 40/255），剔除模型软阴影与
-    // 半透明杂散像素，保证底边对齐的是肉眼可见的“实际像素底部”。
-    const alphaThreshold = 40
-    let minX = pixelWidth
-    let minY = pixelHeight
-    let maxX = -1
-    let maxY = -1
-
-    for (let index = 3, pixel = 0; index < pixels.length; index += 4, pixel += 1) {
-      if (pixels[index] < alphaThreshold) continue
-      const x = pixel % pixelWidth
-      const y = Math.floor(pixel / pixelWidth)
-      minX = Math.min(minX, x)
-      minY = Math.min(minY, y)
-      maxX = Math.max(maxX, x)
-      maxY = Math.max(maxY, y)
+    const internal = model.internalModel as typeof model.internalModel & {
+      getDrawableIDs?: () => string[]
+      getDrawableBounds?: (index: number, bounds?: { x: number; y: number; width: number; height: number }) => {
+        x: number
+        y: number
+        width: number
+        height: number
+      }
+      getDrawableVertices?: (index: number | string) => ArrayLike<number>
+      coreModel?: {
+        getDrawableOpacity?: (index: number) => number
+        getDrawableDynamicFlagIsVisible?: (index: number) => boolean
+      }
+      localTransform?: {
+        a?: number
+        d?: number
+        tx?: number
+        ty?: number
+      }
     }
-    if (maxX < minX || maxY < minY) return null
+    const getDrawableBounds = internal.getDrawableBounds?.bind(internal)
+    const getDrawableVertices = internal.getDrawableVertices?.bind(internal)
+    const drawableIds = internal.getDrawableIDs?.()
+    if ((!getDrawableBounds && !getDrawableVertices) || !drawableIds?.length) return null
 
-    const logicalX = logicalWidth / pixelWidth
-    const logicalY = logicalHeight / pixelHeight
+    const originalWidth = Number(internal.originalWidth)
+    const originalHeight = Number(internal.originalHeight)
+    const modelWidth = Number(internal.width)
+    const modelHeight = Number(internal.height)
+    if (!(originalWidth > 0) || !(originalHeight > 0)) return null
+    const localTransform = internal.localTransform
+    const scaleX = Number(localTransform?.a) || (modelWidth > 0 ? modelWidth / originalWidth : 1)
+    const scaleY = Number(localTransform?.d) || (modelHeight > 0 ? modelHeight / originalHeight : 1)
+    const translateX = Number(localTransform?.tx) || 0
+    const translateY = Number(localTransform?.ty) || 0
+    const core = internal.coreModel
+    let minX = Number.POSITIVE_INFINITY
+    let minY = Number.POSITIVE_INFINITY
+    let maxX = Number.NEGATIVE_INFINITY
+    let maxY = Number.NEGATIVE_INFINITY
+    let consideredDrawables = 0
+    const reusableBounds = { x: 0, y: 0, width: 0, height: 0 }
+
+    for (let index = 0; index < drawableIds.length; index += 1) {
+      // Match the old alpha threshold closely enough to ignore hidden helper
+      // meshes and fully transparent clipping geometry.
+      if (core?.getDrawableDynamicFlagIsVisible?.(index) === false) continue
+      const opacity = core?.getDrawableOpacity?.(index)
+      if (opacity !== undefined && opacity <= 40 / 255) continue
+      consideredDrawables += 1
+      if (getDrawableBounds) {
+        const bounds = getDrawableBounds(index, reusableBounds)
+        const left = (Number(bounds.x) - originalWidth / 2) * scaleX + translateX
+        const right = (Number(bounds.x + bounds.width) - originalWidth / 2) * scaleX + translateX
+        const top = (Number(bounds.y) - originalHeight / 2) * scaleY + translateY
+        const bottom = (Number(bounds.y + bounds.height) - originalHeight / 2) * scaleY + translateY
+        if (![left, right, top, bottom].every(Number.isFinite)) continue
+        minX = Math.min(minX, left, right)
+        minY = Math.min(minY, top, bottom)
+        maxX = Math.max(maxX, left, right)
+        maxY = Math.max(maxY, top, bottom)
+        continue
+      }
+
+      const vertices = getDrawableVertices?.(index)
+      if (!vertices || vertices.length < 2) continue
+      for (let vertex = 0; vertex + 1 < vertices.length; vertex += 2) {
+        const x = (Number(vertices[vertex]) - originalWidth / 2) * scaleX + translateX
+        const y = (Number(vertices[vertex + 1]) - originalHeight / 2) * scaleY + translateY
+        if (!Number.isFinite(x) || !Number.isFinite(y)) continue
+        minX = Math.min(minX, x)
+        minY = Math.min(minY, y)
+        maxX = Math.max(maxX, x)
+        maxY = Math.max(maxY, y)
+      }
+    }
+    if (!consideredDrawables || !Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+      return null
+    }
     return {
-      width: (maxX - minX + 1) * logicalX,
-      height: (maxY - minY + 1) * logicalY,
-      centerX: (minX + maxX + 1) / 2 * logicalX,
-      centerY: (minY + maxY + 1) / 2 * logicalY,
+      width: Math.max(maxX - minX, 1),
+      height: Math.max(maxY - minY, 1),
+      centerX: (minX + maxX) / 2,
+      centerY: (minY + maxY) / 2,
     }
   } catch {
     return null

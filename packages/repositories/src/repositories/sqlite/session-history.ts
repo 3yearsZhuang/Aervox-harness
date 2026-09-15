@@ -51,6 +51,21 @@ export async function readSessionHistory(
     inArray(turnStreamEvents.turnId, turnIds),
     inArray(turnStreamEvents.eventType, ["message", "delta", "done", "redacted"]),
   )).orderBy(turnStreamEvents.sequence);
+  // Index the bounded result set once. The previous implementation scanned
+  // every version/event list for each turn while assembling history, which
+  // made large imported sessions unnecessarily quadratic.
+  const userVersionByTurn = new Map<string, (typeof versions)[number]>();
+  for (const version of versions) {
+    // The query is ordered by version descending; retain the newest eligible
+    // row when legacy data contains more than one non-superseded version.
+    if (!userVersionByTurn.has(version.turnId)) userVersionByTurn.set(version.turnId, version);
+  }
+  const eventsByTurn = new Map<string, (typeof events)[number][]>();
+  for (const event of events) {
+    const turnEvents = eventsByTurn.get(event.turnId) ?? [];
+    turnEvents.push(event);
+    eventsByTurn.set(event.turnId, turnEvents);
+  }
   const identityIds = new Set<string>();
   for (const version of versions) identityIds.add(version.messageId ?? version.id);
   for (const event of events) {
@@ -67,12 +82,12 @@ export async function readSessionHistory(
   const result: SessionHistoryMessage[][] = [];
   let remaining = MAX_HISTORY_CHARACTERS;
   for (const turn of previous) {
-    const user = versions.find((version) => version.turnId === turn.id);
+    const user = userVersionByTurn.get(turn.id);
     if (!user || user.isRedacted !== 0 || !user.content.trim()) continue;
     const userIdentity = identityById.get(user.messageId ?? user.id);
     if (userIdentity?.deletedAt || (user.messageId && !userIdentity)) continue;
     if (userIdentity?.currentVersionId && userIdentity.currentVersionId !== user.id) continue;
-    const turnEvents = events.filter((event) => event.turnId === turn.id);
+    const turnEvents = eventsByTurn.get(turn.id) ?? [];
     // 撤回/脱敏整个历史轮，避免助手复述让已删除信息重新进入上下文。
     if (turnEvents.some((event) => event.eventType === "redacted"
       || event.safetyDecision === "blocked" || event.safetyDecision === "redacted")) continue;

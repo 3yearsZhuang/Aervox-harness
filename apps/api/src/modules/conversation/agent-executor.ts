@@ -581,6 +581,44 @@ function createBroadcastingStore(baseStore: SqliteExecutionStore): SqliteExecuti
           return res;
         };
       }
+      if (prop === "recordSafeSegments") {
+        type SafeSegmentBatchInput = Array<{
+          turnId: string;
+          attemptId: string;
+          sequence: number;
+          text: string;
+          eventData: unknown;
+          safetyDecision: "approved" | "blocked" | "redacted" | "pending";
+          expectedFencingToken: number;
+        }>;
+        const batchTarget = target as SqliteExecutionStore & {
+          recordSafeSegments?: (inputs: SafeSegmentBatchInput) => Promise<{ ok: boolean }>;
+        };
+        return async (inputs: SafeSegmentBatchInput) => {
+          // Keep the proxy compatible with an already-built older host package
+          // while workspace packages are rebuilt in dependency order.
+          const res = batchTarget.recordSafeSegments
+            ? await batchTarget.recordSafeSegments(inputs)
+            : await (async () => {
+                for (const input of inputs) await target.recordSafeSegment(input);
+                return { ok: true };
+              })();
+          if (res.ok) {
+            for (const input of inputs) {
+              turnStreamHub.publishEvent(input.turnId, {
+                id: `tev_${input.turnId}_${input.sequence}`,
+                turnId: input.turnId,
+                sequence: input.sequence,
+                eventType: "delta",
+                payloadVersion: 1,
+                occurredAt: new Date().toISOString(),
+                data: input.eventData,
+              });
+            }
+          }
+          return res;
+        };
+      }
       if (prop === "recordToolOutcome") {
         return async (input: Parameters<SqliteExecutionStore["recordToolOutcome"]>[0]) => {
           const res = await target.recordToolOutcome(input);

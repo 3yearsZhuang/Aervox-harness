@@ -391,6 +391,32 @@ export async function executeTurn(
       const hasToolCalls = toolCalls.length > 0;
       if (stepText) textAccumulator.push(stepText);
 
+      // Providers commonly split one model response into many tiny chunks.
+      // Keep one durable delta per chunk for replay fidelity, but let hosts
+      // commit the whole step in a bounded transaction to avoid a SQLite
+      // BEGIN/fencing round-trip for every token-sized chunk.
+      const persistSafeSegments = async (isFinal: boolean): Promise<void> => {
+        const inputs = chunks
+          .filter((chunk) => chunk.text.length > 0)
+          .map((chunk) => ({
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            sequence: sequence++,
+            text: chunk.text,
+            eventData: { messageId, text: chunk.text, isFinal },
+            safetyDecision: "approved" as const,
+            expectedFencingToken: claimFencingToken,
+          }));
+        if (inputs.length === 0) return;
+        if (execution.recordSafeSegments) {
+          await execution.recordSafeSegments(inputs);
+          return;
+        }
+        for (const segment of inputs) {
+          await execution.recordSafeSegment(segment);
+        }
+      };
+
       // 阶段 7（ADR-017）：Step 级 ModelRun 可追溯写入 + 每 Turn 首个 Step 的 ContextManifest 快照。
       // 可观测副作用（同 recordToolExecution）：写入失败不阻断执行（no-op 宿主天然兼容）。
       try {
@@ -425,19 +451,8 @@ export async function executeTurn(
 
       // 无工具请求 → 正文完成，终止循环
       if (!hasToolCalls) {
-        for (const chunk of chunks) {
-          if (chunk.text.length === 0) continue;
-          // E2（§12.2）：安全片段 + delta 事件原子提交（可见前缀）
-          await execution.recordSafeSegment({
-            turnId: input.turnId,
-            attemptId: input.attemptId,
-            expectedFencingToken: claimFencingToken,
-            sequence: sequence++,
-            text: chunk.text,
-            eventData: { messageId, text: chunk.text, isFinal: true },
-            safetyDecision: "approved",
-          });
-        }
+        // E2（§12.2）：安全片段 + delta 事件原子提交（可见前缀）
+        await persistSafeSegments(true);
         // 2b：检查点 · 自然完成终态提交前（取消优先，杜绝取消后写 Completed done）
         const finalCancel = await prematureTermination(sequence);
         if (finalCancel) return finalCancel;
@@ -456,19 +471,8 @@ export async function executeTurn(
       }
 
       // 工具请求 → 先落文本 delta（未完成），再逐个执行工具
-      for (const chunk of chunks) {
-        if (chunk.text.length === 0) continue;
-        // E2（§12.2）：安全片段 + delta 事件原子提交（可见前缀）
-        await execution.recordSafeSegment({
-          turnId: input.turnId,
-          attemptId: input.attemptId,
-          expectedFencingToken: claimFencingToken,
-          sequence: sequence++,
-          text: chunk.text,
-          eventData: { messageId, text: chunk.text, isFinal: false },
-          safetyDecision: "approved",
-        });
-      }
+      // E2（§12.2）：安全片段 + delta 事件原子提交（可见前缀）
+      await persistSafeSegments(false);
 
       // fail-closed：未配置工具却收到工具请求
       if (!tools) {

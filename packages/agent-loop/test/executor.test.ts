@@ -112,6 +112,9 @@ describe("executeTurn（阶段 1 无工具单 Step）", () => {
     expect(result.status).toBe("completed");
     const events = await store.listEvents("turn_4");
     expect(events.filter((e) => e.eventType === "delta")).toHaveLength(3);
+    // Three provider chunks remain three replayable deltas, but share one
+    // persistence call so a SQLite host does not open three write transactions.
+    expect(store.safeSegmentBatches()).toBe(1);
   });
 
   it("attempt 不可执行（非 Running）时跳过", async () => {
