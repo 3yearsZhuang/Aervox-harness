@@ -239,4 +239,33 @@ describe('Workbench Composables Logic', () => {
       Object.defineProperty(globalThis, 'localStorage', { value: origStorage, configurable: true });
     }
   }, 20000);
+
+  it('does not open historyOpen when switching or opening tool view to history', async () => {
+    const { useWorkbenchLayout } = await import('../src/composables/useWorkbenchLayout');
+    const layout = useWorkbenchLayout(
+      { platform: 'web', showCompanion: true, assistantName: '思隅' },
+      {
+        recordActivity: () => {},
+        getTimerMinutes: () => 25,
+      },
+    );
+
+    expect(layout.historyOpen.value).toBe(false);
+    expect(layout.toolsOpen.value).toBe(false);
+
+    // openTool('history') opens tools modal, but NOT history side drawer
+    layout.openTool('history');
+    expect(layout.toolsOpen.value).toBe(true);
+    expect(layout.activeToolView.value).toBe('history');
+    expect(layout.historyOpen.value).toBe(false);
+
+    // switchToolView('history') does NOT trigger historyOpen
+    layout.switchToolView('todo');
+    expect(layout.activeToolView.value).toBe('todo');
+    expect(layout.historyOpen.value).toBe(false);
+
+    layout.switchToolView('history');
+    expect(layout.activeToolView.value).toBe('history');
+    expect(layout.historyOpen.value).toBe(false);
+  });
 });
