@@ -24,8 +24,7 @@ export const pendingUserQuestions = sqliteTable(
     createdAt: text("created_at").notNull(),
   },
   (table) => ({
-
-
+    localExpiresIdx: index("pending_user_questions_local_expires_idx").on(table.expiresAt),
   }),
 );
 

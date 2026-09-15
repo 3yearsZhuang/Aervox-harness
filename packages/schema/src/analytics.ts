@@ -21,5 +21,6 @@ export const analyticsEvents = sqliteTable(
   (table) => ({
 
     subjectIdx: index("analytics_events_subject_idx").on(table.analyticsSubjectId),
+    localEventIdx: index("analytics_events_local_event_idx").on(table.eventName, table.occurredAt),
   }),
 );

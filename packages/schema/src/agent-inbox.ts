@@ -46,6 +46,9 @@ export const agentInboxItems = sqliteTable(
       table.status,
       table.createdAt,
     ),
-
+    agentInboxLocalIdempotencyUniqueIdx: uniqueIndex("agent_inbox_local_idempotency_idx").on(
+      table.idempotencyKey,
+    ),
+    agentInboxLocalSessionIdx: index("agent_inbox_local_session_idx").on(table.sessionId),
   }),
 );

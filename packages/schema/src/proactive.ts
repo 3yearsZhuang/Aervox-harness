@@ -61,6 +61,15 @@ export const proactiveProfileRevisions = sqliteTable(
 
 
     activeIdx: index("proactive_profile_active_idx").on(table.status),
+    proactiveProfileLocalDeviceIdx: index("proactive_profile_local_device_idx").on(
+      table.deviceId,
+      table.status,
+    ),
+    proactiveProfileLocalVersionRevisionUniqueIdx: uniqueIndex("proactive_profile_local_version_revision_idx").on(
+      table.profileVersion,
+      table.deviceId,
+      table.revision,
+    ),
   }),
 );
 
@@ -92,8 +101,8 @@ export const proactiveSourceGrants = sqliteTable(
       table.sourceKey,
       table.purpose,
     ),
-
-
+    proactiveSourceLocalSourceIdx: index("proactive_source_local_source_idx").on(table.sourceKey),
+    proactiveSourceLocalStateIdx: index("proactive_source_local_state_idx").on(table.state),
   }),
 );
 
@@ -119,8 +128,14 @@ export const proactiveActivationLeases = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
-
+    proactiveActivationLocalActiveIdx: index("proactive_activation_local_active_idx").on(
+      table.deviceId,
+      table.status,
+    ),
+    proactiveActivationLocalDeviceEpochUniqueIdx: uniqueIndex("proactive_activation_local_device_epoch_idx").on(
+      table.deviceId,
+      table.epoch,
+    ),
   }),
 );
 
@@ -167,6 +182,11 @@ export const proactiveCaptures = sqliteTable(
       table.observedAt,
     ),
     revisionIdx: index("proactive_capture_revision_idx").on(table.revisionId),
+    localObservedIdx: index("proactive_capture_local_observed_idx").on(table.observedAt),
+    localRetentionIdx: index("proactive_capture_local_retention_idx").on(
+      table.retentionUntil,
+      table.distillationStatus,
+    ),
   }),
 );
 
@@ -201,6 +221,7 @@ export const proactiveObservations = sqliteTable(
     ),
     revisionIdx: index("proactive_observation_revision_idx").on(table.revisionId),
     sourceIdx: index("proactive_observation_source_idx").on(table.sourceGrantId),
+    localObservedIdx: index("proactive_observation_local_observed_idx").on(table.observedAt),
   }),
 );
 
@@ -235,6 +256,8 @@ export const proactiveProfileClaims = sqliteTable(
       table.updatedAt,
     ),
     revisionIdx: index("proactive_claim_revision_idx").on(table.revisionId),
+    proactiveClaimLocalStateIdx: index("proactive_claim_local_state_idx").on(table.state),
+    proactiveClaimLocalTypeIdx: index("proactive_claim_local_type_idx").on(table.claimType),
   }),
 );
 
@@ -270,6 +293,8 @@ export const proactiveActions = sqliteTable(
 
 
     revisionIdx: index("proactive_action_revision_idx").on(table.revisionId),
+    localCreatedIdx: index("proactive_action_local_created_idx").on(table.createdAt),
+    localStateIdx: index("proactive_action_local_state_idx").on(table.state),
   }),
 );
 
@@ -291,5 +316,8 @@ export const proactiveAuditEvents = sqliteTable(
   (table) => ({
 
     resourceIdx: index("proactive_audit_resource_idx").on(table.resourceType, table.resourceId),
+    proactiveAuditLocalOccurredIdx: index("proactive_audit_local_occurred_idx").on(
+      table.occurredAt,
+    ),
   }),
 );

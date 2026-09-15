@@ -75,6 +75,10 @@ export async function createDiariesTables(client: Client): Promise<void> {
         created_at TEXT NOT NULL
       );
     `);
+  // Schema 已声明但此前从未真正建出：日记周期按 cycle 取尝试记录的查询索引。
+  await client.execute(`
+      CREATE INDEX IF NOT EXISTS diary_run_attempts_cycle_idx ON diary_run_attempts(cycle_id, attempt);
+    `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS diary_schedules (
         id TEXT PRIMARY KEY,
