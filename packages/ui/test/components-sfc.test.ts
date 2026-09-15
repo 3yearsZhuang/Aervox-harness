@@ -241,7 +241,7 @@ describe('Real SFC Component Mounting', () => {
     // Without plugin: 学习能力 should NOT exist
     expect(wrapper.text()).not.toContain('学习能力');
     const nativeItems = wrapper.findAll('.menu-item');
-    expect(nativeItems.map((el) => el.text())).toEqual(['工具管理', '主动智能', '详细设置', '你的思隅']);
+    expect(nativeItems.map((el) => el.text())).toEqual(['工具管理', '主动智能', '设置']);
     expect(nativeItems[0].classes()).not.toContain('is-active');
 
     // Toggle tools open -> tools menu item gains is-active
@@ -255,12 +255,12 @@ describe('Real SFC Component Mounting', () => {
 
     expect(wrapper.text()).toContain('学习能力');
     const allItems = wrapper.findAll('.menu-item');
-    expect(allItems.map((el) => el.text())).toEqual(['工具管理', '主动智能', '详细设置', '你的思隅', '学习能力']);
+    expect(allItems.map((el) => el.text())).toEqual(['工具管理', '主动智能', '设置', '学习能力']);
 
     // Activate study view -> 学习能力 gains is-active
     learningOpen.value = true;
     await wrapper.vm.$nextTick();
-    expect(wrapper.findAll('.menu-item')[4].classes()).toContain('is-active');
+    expect(wrapper.findAll('.menu-item')[3].classes()).toContain('is-active');
 
     // When plugin unregisters: 学习能力 disappears
     unregister();

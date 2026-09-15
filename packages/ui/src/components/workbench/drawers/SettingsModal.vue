@@ -176,7 +176,7 @@ async function onPluginChange(): Promise<void> {
 <template>
   <AervoxNavDialog
     v-model="settingsOpen"
-    :title="settingsScope === 'siyu' ? '你的思隅' : '设置'"
+    title="设置"
     :items="scopedSettingCategories"
     :active-key="settingsCategory"
     nav-aria-label="设置分类"
