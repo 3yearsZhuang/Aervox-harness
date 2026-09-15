@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.2.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 0.3.0
+updated_at: 2026-09-15
+reviewed_at: 2026-09-15
 review_interval_days: 90
 review_triggers:
   - plugins/**
@@ -27,9 +27,9 @@ sources:
 # 操作指南：开发 Aervox 扩展插件（How-to）
 
 - 提出人：linge · 2026-09-09
-- 修改人：3yearszhuang · 2026-09-11
+- 修改人：3yearszhuang · 2026-09-15
 
-关联：[插件 Config、Page 与 UI 扩展规范](../reference/plugin-config-and-pages.md) · [能力组合与可选化目录规范](../reference/capability-composition.md) · [ADR-009](../reference/adr/ADR-009-electron-plugin-sandbox.md) · [ADR-015](../reference/adr/ADR-015-vue-full-stack.md)
+关联：[插件 Config、Page 与 UI 扩展规范](../reference/plugin-config-and-pages.md) · [CR-050](../reference/changes/CR-050-declarative-ui-plugin-registry-and-focus-mode-decoupling.md) · [能力组合与可选化目录规范](../reference/capability-composition.md) · [ADR-009](../reference/adr/ADR-009-electron-plugin-sandbox.md) · [ADR-015](../reference/adr/ADR-015-vue-full-stack.md)
 
 本指南指导插件开发者如何基于 Aervox 插件体系开发扩展插件。涵盖全栈插件生命周期：
 
@@ -245,6 +245,26 @@ export function onDeactivate() {
    - 单条消息气泡操作：`message:bubble-actions`
    - 输入框底座工具栏/底栏：`composer:toolbar-actions` / `composer:bottom-bar`
    - 系统设置分类页签：`settings:tabs`
+   - 工作台顶层功能抽屉：`workbench:drawers`
+   - 统一任务中心业务卡片：`taskcenter:cards`
+
+2. **注册功能卡片（Functional Cards）**：
+   若插件需要向工作台侧边栏（`WorkbenchSideCards`）或设置中心快捷工具栏贡献业务卡片与操作区，可调用 `uiRegistry.registerCard`：
+
+   ```ts
+   import { uiRegistry } from '@aervox/ui';
+
+   const unregisterCard = uiRegistry.registerCard({
+     id: 'my-feature',
+     label: '我的功能',
+     description: '功能简介',
+     icon: MyIcon,
+     summary: () => '状态摘要',
+     action: () => layout.openTool('my-tool'),
+     extraComponent: MyCardActions, // 可选：卡片操作区自定义组件
+     priority: 80, // 可选权重
+   });
+   ```
 
 ## 6. 任务五：消费与联动宿主工作台状态
 

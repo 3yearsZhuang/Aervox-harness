@@ -502,6 +502,98 @@ export function useWorkbenchCards(options: {
     return [...coreCards, ...pluginCards].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
   });
 
+  const QUICK_TOOLS_STORAGE_KEY = 'aervox-quick-tools';
+
+  function loadSavedQuickToolIds(): string[] | null {
+    try {
+      const raw = localStorage.getItem(QUICK_TOOLS_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((item): item is string => typeof item === 'string');
+      }
+    } catch {
+      // 容错处理：忽略非法的 JSON 缓存
+    }
+    return null;
+  }
+
+  function persistQuickToolIds(ids: string[] | null) {
+    try {
+      if (ids === null) {
+        localStorage.removeItem(QUICK_TOOLS_STORAGE_KEY);
+      } else {
+        localStorage.setItem(QUICK_TOOLS_STORAGE_KEY, JSON.stringify(ids));
+      }
+    } catch {
+      // 忽略受限环境下的写入失败
+    }
+  }
+
+  const customQuickToolIds = ref<string[] | null>(loadSavedQuickToolIds());
+
+  // 当前已启用的快捷卡片列表：未自定义时呈现全量已注册卡片；自定义后严格遵循定制顺序并动态过滤未启用的插件卡片
+  const activeQuickCards = computed<CardDefinition[]>(() => {
+    if (customQuickToolIds.value === null) {
+      return cardCatalog.value;
+    }
+    const map = new Map(cardCatalog.value.map((c) => [c.id, c]));
+    const result: CardDefinition[] = [];
+    for (const id of customQuickToolIds.value) {
+      const card = map.get(id);
+      if (card) result.push(card);
+    }
+    return result;
+  });
+
+  // 更多可添加的快捷卡片列表：已注册卡片中未被纳入当前快捷方式的项
+  const availableQuickCards = computed<CardDefinition[]>(() => {
+    if (customQuickToolIds.value === null) {
+      return [];
+    }
+    const activeSet = new Set(customQuickToolIds.value);
+    return cardCatalog.value.filter((card) => !activeSet.has(card.id));
+  });
+
+  function addQuickTool(id: string) {
+    const current = customQuickToolIds.value !== null
+      ? [...customQuickToolIds.value]
+      : cardCatalog.value.map((c) => c.id);
+    if (!current.includes(id)) {
+      current.push(id);
+    }
+    customQuickToolIds.value = current;
+    persistQuickToolIds(current);
+  }
+
+  function removeQuickTool(id: string) {
+    const current = customQuickToolIds.value !== null
+      ? [...customQuickToolIds.value]
+      : cardCatalog.value.map((c) => c.id);
+    const next = current.filter((item) => item !== id);
+    customQuickToolIds.value = next;
+    persistQuickToolIds(next);
+  }
+
+  function moveQuickTool(id: string, direction: 'up' | 'down') {
+    const current = customQuickToolIds.value !== null
+      ? [...customQuickToolIds.value]
+      : cardCatalog.value.map((c) => c.id);
+    const index = current.indexOf(id);
+    if (index === -1) return;
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= current.length) return;
+    const [removed] = current.splice(index, 1);
+    current.splice(targetIndex, 0, removed);
+    customQuickToolIds.value = current;
+    persistQuickToolIds(current);
+  }
+
+  function resetQuickTools() {
+    customQuickToolIds.value = null;
+    persistQuickToolIds(null);
+  }
+
   const slotCards = computed(() => cardSlots.value.map((id) => (id ? cardCatalog.value.find((card) => card.id === id) ?? null : null)));
 
   function isCardPicked(id: CardId) {
@@ -560,6 +652,13 @@ export function useWorkbenchCards(options: {
     cardSlots,
     slotCards,
     cardCatalog,
+    customQuickToolIds,
+    activeQuickCards,
+    availableQuickCards,
+    addQuickTool,
+    removeQuickTool,
+    moveQuickTool,
+    resetQuickTools,
     questionCardData,
     questionCardSelected,
     todayDiary,
