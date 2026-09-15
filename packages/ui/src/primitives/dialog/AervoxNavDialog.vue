@@ -118,6 +118,7 @@ function selectItem(id: string) {
   grid-template-columns: 220px 1fr;
   height: 100%;
   overflow: hidden;
+  background: var(--bg-main, #fcfdfe);
 }
 
 .aervox-nav-sidebar {
@@ -126,7 +127,7 @@ function selectItem(id: string) {
   gap: 4px;
   padding: 14px 12px;
   border-right: 1px solid var(--border);
-  background: var(--bg-card-soft, rgba(0, 0, 0, 0.02));
+  background: var(--bg-soft, #f2f4f8);
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
@@ -202,6 +203,7 @@ function selectItem(id: string) {
 .aervox-nav-detail {
   padding: 20px 24px;
   overflow-y: auto;
+  background: var(--bg-main, #fcfdfe);
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong, var(--border)) transparent;
 }

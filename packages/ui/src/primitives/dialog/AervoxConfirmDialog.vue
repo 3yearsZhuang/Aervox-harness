@@ -142,7 +142,7 @@ function handleConfirm() {
   margin-top: 4px;
   padding: 8px 12px;
   border-radius: 8px;
-  background: var(--bg-card-soft, rgba(0, 0, 0, 0.03));
+  background: var(--bg-soft, rgba(0, 0, 0, 0.03));
   border: 1px solid var(--border);
   font-size: 12px;
   color: var(--text-primary);
