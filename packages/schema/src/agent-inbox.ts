@@ -40,6 +40,12 @@ export const agentInboxItems = sqliteTable(
   (table) => ({
 
     statusIdx: index("agent_inbox_status_idx").on(table.status),
+    claimIdx: index("agent_inbox_claim_idx").on(
+      table.sessionId,
+      table.consumeBoundary,
+      table.status,
+      table.createdAt,
+    ),
 
   }),
 );

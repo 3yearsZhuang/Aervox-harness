@@ -784,6 +784,56 @@ export class SqliteLearningRepository implements ILearningRepository {
     return rows as KnowledgeRelationModel[];
   }
 
+  async listKnowledgeRelationsForKnowledgeIds(
+    tenant: LocalContext,
+    knowledgeIds: string[],
+  ): Promise<Map<string, KnowledgeRelationModel[]>> {
+    const uniqueKnowledgeIds = [...new Set(knowledgeIds.filter((knowledgeId) => knowledgeId.length > 0))];
+    const grouped = new Map<string, KnowledgeRelationModel[]>(
+      uniqueKnowledgeIds.map((knowledgeId) => [knowledgeId, []]),
+    );
+    if (uniqueKnowledgeIds.length === 0) return grouped;
+
+    // Worker 当前每轮最多读取 100 个 review item；分块也让这个仓储方法在其它调用方
+    // 面对 SQLite 的绑定变量上限时保持可用（每块最多 400 个知识点、两组 IN 参数）。
+    const batchSize = 400;
+    const seenByKnowledgeId = new Map<string, Set<string>>();
+    for (const knowledgeId of uniqueKnowledgeIds) {
+      seenByKnowledgeId.set(knowledgeId, new Set());
+    }
+
+    for (let offset = 0; offset < uniqueKnowledgeIds.length; offset += batchSize) {
+      const batch = uniqueKnowledgeIds.slice(offset, offset + batchSize);
+      const rows = await this.db
+        .select()
+        .from(knowledgeRelations)
+        .where(
+          and(
+            isNull(knowledgeRelations.deletedAt),
+            or(
+              inArray(knowledgeRelations.fromKnowledgeId, batch),
+              inArray(knowledgeRelations.toKnowledgeId, batch),
+            ),
+          ),
+        )
+        .orderBy(desc(knowledgeRelations.updatedAt));
+
+      for (const row of rows as KnowledgeRelationModel[]) {
+        // A relation can connect two requested knowledge points. Add it to both
+        // groups, while the set keeps self-relations from being returned twice.
+        for (const knowledgeId of [row.fromKnowledgeId, row.toKnowledgeId]) {
+          const relations = grouped.get(knowledgeId);
+          if (!relations) continue;
+          const seen = seenByKnowledgeId.get(knowledgeId)!;
+          if (seen.has(row.id)) continue;
+          seen.add(row.id);
+          relations.push(row);
+        }
+      }
+    }
+    return grouped;
+  }
+
   // ============ CAP-015 思维宇宙 ============
 
   async getKnowledgeRelation(

@@ -27,7 +27,7 @@ import { resolveLocalContext } from "../../shared/local-context.js";
 import { createTenantInboxPort } from "../inbox/port.js";
 import { runLoopTurnOnce } from "./agent-executor.js";
 import { UserQuestionCoordinator } from "./user-question-coordinator.js";
-import { turnStreamHub } from "./stream-hub.js";
+import { turnStreamHub, type StreamEventFrame } from "./stream-hub.js";
 import { loadApiConfig } from "@aervox/config";
 import type { ProactiveActionAuthorizer } from "../proactive/action-authorizer.js";
 import type { MemoryRecallPort } from "./memory-recall.js";
@@ -290,13 +290,35 @@ export function registerConversationRoutes(
   });
 
   // GET /v1/turns/{turnId}/events — SSE 事件流（CR-027：重放持久事件 + 活流 tail）
-  // 先全量重放已落库 turn_stream_events；若 Attempt 未达终态则持续轮询增量并按节拍发
-  // SSE 注释心跳（`: ping`），直至 Attempt 终态（ Completed/Failed/Interrupted/Cancelled）
+  // 先订阅进程内总线并重放已落库 turn_stream_events；若 Attempt 未达终态则接收实时增量，
+  // 仅按节拍发送 SSE 注释心跳（`: ping`），直至 Attempt 终态（Completed/Failed/Interrupted/Cancelled）
   // 事件排空后结束。深度思考等长回合期间客户端始终有数据流入，不再出现整段静默。
   app.get("/v1/turns/:turnId/events", async (req, reply) => {
     const { turnId } = req.params as { turnId: string };
     const tenant = resolveLocalContext(req);
     const origin = (req.headers.origin as string | undefined) ?? "*";
+    const query = req.query as Record<string, unknown>;
+    const queryCursor = typeof query.after === "string" && query.after.trim() ? query.after.trim() : undefined;
+    const headerValue = req.headers["last-event-id"];
+    const headerCursor = typeof headerValue === "string" && headerValue.trim() ? headerValue.trim() : undefined;
+    if (queryCursor && headerCursor && queryCursor !== headerCursor) {
+      return reply.code(400).send({error: "conflicting_stream_cursors"});
+    }
+    const cursorId = headerCursor ?? queryCursor;
+    const turn = await conversationRepo.getTurn(tenant, turnId);
+    if (!turn) {
+      return reply.code(404).send({error: "turn_not_found"});
+    }
+    // Resolve the cursor against this Turn before hijacking the response. A
+    // single-row lookup keeps reconnect cost independent of the event history.
+    const cursor = cursorId
+      ? await conversationRepo.getStreamEventById(tenant, turnId, cursorId)
+      : null;
+    if (cursorId && !cursor) {
+      return reply.code(410).send({error: "stream_cursor_expired"});
+    }
+    const cursorSequence = cursor?.sequence ?? 0;
+
     reply.hijack();
     const raw = reply.raw;
     raw.writeHead(200, {
@@ -306,7 +328,6 @@ export function registerConversationRoutes(
       "Access-Control-Allow-Credentials": "true",
     });
 
-    const TAIL_POLL_INTERVAL_MS = 400;
     const TAIL_HEARTBEAT_MS = 15_000;
     const TAIL_MAX_DURATION_MS = 10 * 60_000;
 
@@ -335,6 +356,10 @@ export function registerConversationRoutes(
     let closed = false;
     let tailTimer: ReturnType<typeof setInterval> | undefined;
     let unsubscribe: (() => void) | undefined;
+    let replaying = true;
+    let finishing = false;
+    let settledDuringReplay = false;
+    const bufferedEvents: StreamEventFrame[] = [];
 
     const finish = (): void => {
       if (closed) return;
@@ -349,14 +374,22 @@ export function registerConversationRoutes(
     req.raw.on("close", finish);
     raw.on("close", finish);
 
-    // 1) 重放已落库事件（断线重连亦由此恢复全量序列）
-    const persisted = await conversationRepo.getStreamEvents(tenant, turnId, 0);
-    let lastSequence = 0;
+    // 事件按 sequence 去重。广播与存量快照可能包含同一事件，且重放期间
+    // 收到的广播必须先缓存，避免「读快照 → 订阅总线」之间的竞态窗口。
+    let lastSequence = cursorSequence;
     let lastWriteAt = Date.now();
-    for (const ev of persisted) {
+    const writeIfNew = (ev: StreamEventFrame): void => {
+      if (closed || ev.sequence <= lastSequence) return;
       writeEventFrame(ev);
-      lastSequence = Math.max(lastSequence, ev.sequence);
-    }
+      lastSequence = ev.sequence;
+      lastWriteAt = Date.now();
+    };
+
+    const flushBuffered = (): void => {
+      if (bufferedEvents.length === 0) return;
+      const pending = bufferedEvents.splice(0).sort((a, b) => a.sequence - b.sequence);
+      for (const ev of pending) writeIfNew(ev);
+    };
 
     const attemptSettled = async (): Promise<boolean> => {
       const attempts = await conversationRepo.listTurnAttempts(tenant, turnId);
@@ -364,57 +397,68 @@ export function registerConversationRoutes(
       return attempts.length > 0 && attempts.every((a) => terminal.includes(a.status));
     };
 
-    // 2) Attempt 已终态（inline 模式/历史回合）：重放即完整，直接结束（旧语义兼容）
-    if (closed || (await attemptSettled())) {
-      finish();
-      return;
-    }
-
-    // 3) CR-031 活流订阅：挂载 turnStreamHub 内存总线（零延迟实时直推，彻底消除 400ms 数据库空轮询）
-    // 订阅前再检查一次存量缝隙，防止重放与挂载之间遗漏事件
-    const fresh = await conversationRepo.getStreamEvents(tenant, turnId, lastSequence);
-    for (const ev of fresh) {
-      if (ev.sequence > lastSequence) {
-        writeEventFrame(ev);
-        lastSequence = ev.sequence;
-        lastWriteAt = Date.now();
-      }
-    }
-
-    if (closed || (await attemptSettled())) {
-      finish();
-      return;
-    }
-
-    unsubscribe = turnStreamHub.subscribe(turnId, {
-      onEvent(ev) {
-        if (closed) return;
-        if (ev.sequence > lastSequence) {
-          writeEventFrame(ev);
-          lastSequence = ev.sequence;
-          lastWriteAt = Date.now();
-        }
-      },
-      async onSettled() {
-        if (closed) return;
+    let drainPromise: Promise<void> | undefined;
+    const drainAndFinish = (): Promise<void> => {
+      if (drainPromise) return drainPromise;
+      if (closed) return Promise.resolve();
+      finishing = true;
+      drainPromise = (async () => {
         try {
-          // 终态后再排空一次（终态提交与 done/error 事件同事务，此处兜底确保不漏末尾事件）
-          const remaining = await conversationRepo.getStreamEvents(tenant, turnId, lastSequence);
-          for (const ev of remaining) {
-            if (ev.sequence > lastSequence) {
-              writeEventFrame(ev);
-              lastSequence = ev.sequence;
-            }
+          // 终态提交与 done/error 事件通常同事务；这里再读一次数据库，兜底
+          // 覆盖广播顺序差异，并同时排空查询期间到达的总线事件。
+          for (let pass = 0; pass < 2; pass += 1) {
+            const remaining = await conversationRepo.getStreamEvents(tenant, turnId, lastSequence);
+            for (const ev of remaining) writeIfNew(ev);
+            flushBuffered();
+            if (remaining.length === 0 && bufferedEvents.length === 0) break;
           }
         } catch {
-          // ignore
+          // 连接关闭路径不应再向 Fastify 抛出异常。
         } finally {
           finish();
         }
+      })();
+      return drainPromise;
+    };
+
+    // CR-031 活流订阅：先挂载总线，再读取存量快照，彻底消除读快照期间的漏事件窗口。
+    unsubscribe = turnStreamHub.subscribe(turnId, {
+      onEvent(ev) {
+        if (closed) return;
+        if (replaying || finishing) {
+          bufferedEvents.push(ev);
+          return;
+        }
+        writeIfNew(ev);
+      },
+      onSettled() {
+        if (closed) return;
+        if (replaying) {
+          settledDuringReplay = true;
+          return;
+        }
+        void drainAndFinish();
       },
     });
 
-    // 4) 低频纯心跳与超时安全兜底（15 秒一次，不执行任何数据库读操作）
+    try {
+      const persisted = await conversationRepo.getStreamEvents(tenant, turnId, cursorSequence);
+      for (const ev of persisted) writeIfNew(ev);
+      flushBuffered();
+      replaying = false;
+
+      // 终态通知可能在快照读取期间到达；统一走排空路径，避免漏掉尾事件。
+      if (closed || settledDuringReplay || (await attemptSettled())) {
+        await drainAndFinish();
+        return;
+      }
+    } catch {
+      replaying = false;
+      finish();
+      return;
+    }
+
+    // 低频纯心跳与超时安全兜底（15 秒一次，不执行任何数据库读操作）
     const tailStartedAt = Date.now();
     tailTimer = setInterval(() => {
       if (closed) return;

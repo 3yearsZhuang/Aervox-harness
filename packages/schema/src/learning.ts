@@ -197,7 +197,8 @@ export const knowledgeRelations = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
+    fromIdx: index("knowledge_relations_local_from_idx").on(table.fromKnowledgeId),
+    toIdx: index("knowledge_relations_local_to_idx").on(table.toKnowledgeId),
     correctionIdx: index("knowledge_relations_correction_idx").on(table.correctionStatus),
   }),
 );

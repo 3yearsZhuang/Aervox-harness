@@ -26,7 +26,7 @@ const ImportSessionModal = defineAsyncComponent(() => import('./workbench/modals
 import { useWorkbenchLayout } from '../composables/useWorkbenchLayout';
 import { useWorkbenchTimer } from '../composables/useWorkbenchTimer';
 import { useWorkbenchComposer } from '../composables/useWorkbenchComposer';
-import { useWorkbenchConversation } from '../composables/useWorkbenchConversation';
+import { createStreamingDeltaBatcher, useWorkbenchConversation } from '../composables/useWorkbenchConversation';
 import { useWorkbenchCards, todayLocalDate, type CardId } from '../composables/useWorkbenchCards';
 import { useWorkbenchProactive, proactiveBridge } from '../composables/useWorkbenchProactive';
 import { provideWorkbenchContext } from '../composables/workbench-context';
@@ -224,6 +224,14 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
   let lastSpeakAt = 0;
   const thinkingPlaceholder = '思考中…';
   let thinkingVisible = false;
+  const deltaBatch = createStreamingDeltaBatcher((text) => {
+    if (thinkingVisible && !liveAssistantLine.text.replace(thinkingPlaceholder, '')) {
+      thinkingVisible = false;
+      liveAssistantLine.text = '';
+    }
+    liveAssistantLine.text += text;
+    void conversation.scrollStoryToBottom({ instant: true });
+  });
 
   try {
     const turnMetadata = options?.quizMode
@@ -234,6 +242,7 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
       outgoing,
       {
         onReasoning: () => {
+          deltaBatch.flush();
           if (!liveAssistantLine.text) {
             thinkingVisible = true;
             liveAssistantLine.text = thinkingPlaceholder;
@@ -241,12 +250,7 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
           }
         },
         onDelta: (delta) => {
-          if (thinkingVisible && !liveAssistantLine.text.replace(thinkingPlaceholder, '')) {
-            thinkingVisible = false;
-            liveAssistantLine.text = '';
-          }
-          liveAssistantLine.text += delta;
-          void conversation.scrollStoryToBottom({ instant: true });
+          deltaBatch.append(delta);
           const now = Date.now();
           if (now - lastSpeakAt > 1200 && delta.trim()) {
             lastSpeakAt = now;
@@ -254,6 +258,7 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
           }
         },
         onDone: () => {
+          deltaBatch.flush();
           liveAssistantLine.state = 'complete';
           conversation.activeQuestion.value = null;
           if (thinkingVisible && !liveAssistantLine.text.replace(thinkingPlaceholder, '')) {
@@ -265,6 +270,7 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
           petReactKind('glad', { expression: MizukiExpression.face_smile_01, speak: liveAssistantLine.text });
         },
         onUserQuestion: (qData) => {
+          deltaBatch.flush();
           conversation.activeQuestion.value = qData;
           conversation.currentTurnId.value = qData.turnId;
           petReactKind('tilthead', { lookAtEl: '.side-cards', lookDuration: 3200 });
@@ -274,6 +280,7 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
           conversation.currentExtractedTerms.value = tData.terms;
         },
         onToolApproval: (aData) => {
+          deltaBatch.flush();
           conversation.pendingApproval.value = { ...aData, outgoing };
           void conversation.scrollStoryToBottom();
         },
@@ -287,10 +294,12 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
     );
   } catch (error) {
     console.error('对话流式失败', error);
+    deltaBatch.flush();
     liveAssistantLine.state = 'error';
     liveAssistantLine.text = error instanceof Error ? `连接失败：${error.message}` : '连接失败，请稍后重试。';
     petReactKind('sad', { expression: MizukiExpression.face_sad_01 });
   } finally {
+    deltaBatch.flush();
     conversation.streaming.value = false;
     if (!composer.input.value.trim()) composer.composerOpen.value = false;
     await conversation.scrollStoryToBottom();

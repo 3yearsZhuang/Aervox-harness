@@ -90,7 +90,7 @@ export async function materializePluginTriggerRules(ctx: {
       continue;
     }
 
-    const existing = await intelligenceRepo.listTriggerRulesByPlugin(tenant, declaration.pluginId);
+    const existing = await intelligenceRepo.listTriggerRulesByPlugin(tenant, declaration.pluginId, 500);
     const declaredRuleIds = new Set<string>();
 
     for (const trigger of declaration.spec.triggers) {
@@ -131,7 +131,7 @@ export async function materializePluginTriggerRules(ctx: {
 
   // 幽灵规则清理：vault 中仍挂着 plugin_id、但主库已无该插件声明的规则（卸载兜底）
   const declaredPluginIds = new Set(declarations.map((declaration) => declaration.pluginId));
-  for (const rule of await intelligenceRepo.listTriggerRules(tenant)) {
+  for (const rule of await intelligenceRepo.listTriggerRules(tenant, undefined, 500)) {
     if (rule.pluginId && !declaredPluginIds.has(rule.pluginId)) {
       if (await intelligenceRepo.deleteTriggerRule(tenant, rule.id)) removed += 1;
     }

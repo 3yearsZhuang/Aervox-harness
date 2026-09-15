@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.11.0
-updated_at: 2026-09-14
-reviewed_at: 2026-09-14
+version: 1.12.0
+updated_at: 2026-09-15
+reviewed_at: 2026-09-15
 review_interval_days: 90
 ---
 
 # 文档生命周期登记表（核验节奏与陈旧信号）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-14
+- 修改人：3yearszhuang · 2026-09-15
 
 关联：[文档索引](README.md)、[文档治理与事实源规范](reference/document-governance.md)
 
@@ -99,7 +99,7 @@ review_interval_days: 90
 | `CR-028` | [在线语音模型配置](reference/changes/CR-028-voice-remote-model-config.md) | 2026-09-10 | `CAP-019/020` 在线语音模型配置、api_v2 协议或设置 UI 变更 | 表、契约、Voice 模块远程 provider 或设置「语音」子页签与实现不一致 |
 | `CR-029` | [模型 / 语音多预设与「你的思隅」设置页](reference/changes/CR-029-presets-and-siyu-settings.md) | 2026-09-10 | `CAP-020` 模型/语音多预设存储、预设 API、设置页导航或面板交互变更 | 表结构、OpenAPI、LLM/Voice service 或「你的思隅」设置页与实现不一致 |
 | `CR-030` | [SQLite 永久本地单用户真源与去租户化](reference/changes/CR-030-pure-local-sqlite-database.md) | 2026-09-11 | Schema、Repository、API 监听、迁移或回滚变更 | D0～D3 状态、破坏性范围选择、备份/staging/原子换库与实现不一致 |
-| `CR-031` | [Turn 实时流式推送 Pub/Sub 与轮询解耦](reference/changes/CR-031-turn-stream-pubsub-optimization.md) | 2026-09-13 | SSE 推流契约、TurnStreamHub 事件分发或流活性机制变更 | SSE 推流延迟、事件漏推、未解绑泄漏或与 ADR-012/CR-027 不一致 |
+| `CR-031` | [Turn 实时流式推送 Pub/Sub 与轮询解耦](reference/changes/CR-031-turn-stream-pubsub-optimization.md) | 2026-09-15 | SSE 推流契约、TurnStreamHub 事件分发或流活性机制变更 | SSE 推流延迟、事件漏推、未解绑泄漏或与 ADR-012/CR-027 不一致 |
 | `CR-032` | [主动智能插件化与触发规则生态架构](reference/changes/CR-032-proactive-intelligence-plugin-ecosystem.md) | 2026-09-13 | `CAP-020/033/034/035/019` 主动智能插件化、触发规则声明、全局防打扰裁决器或桌宠联动契约变更 | 清单 Schema、proactive_trigger_rules 插件关联、Arbitrator 节流或桌宠动作派发与 CR-032 不一致 |
 | `CR-033` | [主动智能终局架构：态势感知内核与预算化干预生态](reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md) | 2026-09-14 | `CAP-033/030/020/019` 主动智能终局北极星：态势投影、规则表达式语言、注意力预算、人格同源与结构化操作域 | 态势投影 schema、规则 DSL、裁决器预算语义、感知事件流或操作域白名单任一与本文不符 |
 | `CR-036` | [SituationModel 影子投影与内置规则数据化](reference/changes/CR-036-situation-model-shadow-projection.md) | 2026-09-14 | `CAP-033/030` SituationModel 影子投影、内置规则 DSL 化与新旧求值对照 | 投影字段白名单、影子快照或新旧规则对照与实现不一致 |
@@ -127,7 +127,7 @@ review_interval_days: 90
 | `AVX-TUT-001` | [教程：第一个对话](tutorials/first-conversation.md) | 2026-09-10 | 启动命令/端点变更 | 快速开始命令、Turn/SSE 端点与 README/契约不一致 |
 | `AVX-TUT-002` | [教程：迁移已集成能力并接入 DSH/pi](tutorials/migrate-integrated-capabilities.md) | 2026-09-13 | 能力目录、DSH/pi 上游或迁移步骤变更 | 当前实现路径、固定 SHA、权限/隔离边界或验证命令与仓库不一致 |
 | `AVX-TUT-003` | [教程：编写自定义 Agent 工具](tutorials/create-agent-tool.md) | 2026-09-13 | 工具运行时、安全级别或注册表持久化变更 | Schema 定义、安全级别枚举或 Handler 接口与代码不一致 |
-| `AVX-EXPL-001` | [数据流总览](explanation/data-flow-overview.md) | 2026-09-10 | 模块/Worker/路由/数据真源变更 | SQLite 终态、迁移或新增 Worker 循环未入概念地图 |
+| `AVX-EXPL-001` | [数据流总览](explanation/data-flow-overview.md) | 2026-09-15 | 模块/Worker/路由/数据真源变更 | SQLite 终态、迁移或新增 Worker 循环未入概念地图 |
 | `AVX-EXPL-002` | [参考项目能力迁移与借鉴评估](explanation/reference-design-transfer.md) | 2026-09-10 | 参考项目升级或架构变更 | 新增借鉴决策未登记，或参考项目 commit 超出固定清单 |
 | `AVX-EXPL-003` | [桌宠角色设定文档化与多人格模板组织](explanation/persona-organization.md) | 2026-08-26 | 桌宠 IP / CAP-019 立项或人设变更 | 新增/变更角色文档未按字段化结构与模板版本化落地，或识别边界未同步评审 |
 | `AVX-EXPL-004` | [能力拆分路线（已归档）](explanation/roadmap.md) | 2026-09-10 | CAP 批次/依赖变更时 | 批次顺序与追踪基线 CAP 状态或新增 CAP 不一致 |
@@ -138,7 +138,7 @@ review_interval_days: 90
 | `AVX-EXPL-009` | [`packages/database` 拆分规划（已归档）](explanation/database-split-plan.md) | 2026-09-10 | `packages/database` schema/仓储接口、包结构或拆分方向变更 | 拆分方向、包边界、re-export 兼容层或分阶段落点与实现/ADR-014/追踪基线 §4.2 不一致 |
 | `AVX-DOC-001` | [文档索引](README.md) | 2026-09-14 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
 | `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-09-14 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |
-| `AVX-DOC-CONF-001` | [文档生命周期登记表](DOC_REGISTRY.md) | 2026-09-14 | 每季度 + 每次文档集变更 | 登记条目与实际文档集不一致 |
+| `AVX-DOC-CONF-001` | [文档生命周期登记表](DOC_REGISTRY.md) | 2026-09-15 | 每季度 + 每次文档集变更 | 登记条目与实际文档集不一致 |
 
 ## 维护规则
 

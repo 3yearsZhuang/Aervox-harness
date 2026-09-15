@@ -122,7 +122,7 @@ export class ProactiveIntegrationManager {
     const client = new HomeAssistantClient({endpoint: connection.endpoint, accessToken: homeCredential(connection)});
     try {
       const states = await client.listStates();
-      const existing = new Map((await this.intelligenceRepo.listHomeEntities(tenant, connectionId))
+      const existing = new Map((await this.intelligenceRepo.listHomeEntities(tenant, connectionId, undefined, 500))
         .map((entity) => [entity.entityId, entity]));
       for (const state of states) {
         const domain = homeDomain(state.entity_id);
@@ -370,7 +370,7 @@ export class ProactiveIntegrationManager {
     if (this.syncRunning) return;
     this.syncRunning = true;
     try {
-      const connections = await this.intelligenceRepo.listActiveConnectionSecrets();
+      const connections = await this.intelligenceRepo.listActiveConnectionSecrets(undefined, 500);
       for (const connection of connections) {
         const tenant = {workspaceId: "local", subjectUserId: "local"};
         try {

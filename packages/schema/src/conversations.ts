@@ -87,6 +87,11 @@ export const messageVersions = sqliteTable(
       table.turnId,
       table.version,
     ),
+    turnRoleVersionIdx: index("message_versions_turn_role_ver_idx").on(
+      table.turnId,
+      table.role,
+      table.version,
+    ),
 
   }),
 );
@@ -112,6 +117,11 @@ export const turnStreamEvents = sqliteTable(
   (table) => ({
     turnSeqIdx: uniqueIndex("turn_stream_events_turn_seq_idx").on(
       table.turnId,
+      table.sequence,
+    ),
+    turnTypeSequenceIdx: index("turn_stream_events_turn_type_seq_idx").on(
+      table.turnId,
+      table.eventType,
       table.sequence,
     ),
   }),

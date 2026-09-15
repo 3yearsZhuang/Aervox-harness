@@ -139,6 +139,12 @@ export interface IConversationRepository {
     turnId: string,
     afterSequence?: number,
   ): Promise<TurnStreamEventModel[]>;
+  /** 按 Turn 与稳定事件 ID 查询单条流事件，供 SSE 重连游标校验。 */
+  getStreamEventById(
+    tenant: LocalContext,
+    turnId: string,
+    eventId: string,
+  ): Promise<TurnStreamEventModel | null>;
   deleteMessage(tenant: LocalContext, messageId: string): Promise<boolean>;
   // MVP 补齐（PRD §8）：Message 身份表 / TurnAttempt
   createMessage(

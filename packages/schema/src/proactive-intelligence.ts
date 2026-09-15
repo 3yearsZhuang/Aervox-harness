@@ -201,6 +201,11 @@ export const proactiveClaimConflicts = sqliteTable(
       table.primaryClaimId,
       table.conflictingClaimId,
     ),
+    revisionPairIdx: index("proactive_claim_conflict_revision_pair_idx").on(
+      table.revisionId,
+      table.primaryClaimId,
+      table.conflictingClaimId,
+    ),
   }),
 );
 

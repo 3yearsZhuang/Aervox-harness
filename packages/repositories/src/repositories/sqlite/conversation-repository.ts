@@ -33,6 +33,28 @@ import type {
   ToolApprovalModel,
 } from "../types/index.js";
 
+/**
+ * Recovery runs frequently and the host only needs a small work queue. Keep
+ * candidate reads bounded even when a caller forgets to pass a page size.
+ */
+export const MAX_RESUME_CANDIDATE_LIMIT = 100;
+/**
+ * Keep multi-row safe-segment inserts below SQLite/libSQL bind-variable
+ * limits. A model step normally produces far fewer rows; the cap is a guard
+ * for providers that emit unusually fine-grained chunks.
+ */
+const SAFE_SEGMENT_BATCH_SIZE = 32;
+
+/** Turn 内 sequence 唯一，因此可构造跨进程稳定、可重连复用的事件标识。 */
+const streamEventId = (turnId: string, sequence: number): string => `tev_${turnId}_${sequence}`;
+const safeSegmentId = (turnId: string, sequence: number): string => `sseg_${turnId}_${sequence}`;
+
+function normalizeResumeCandidateLimit(limit?: number): number {
+  if (limit === undefined || limit === Infinity) return MAX_RESUME_CANDIDATE_LIMIT;
+  if (!Number.isFinite(limit)) return 0;
+  return Math.max(0, Math.min(MAX_RESUME_CANDIDATE_LIMIT, Math.floor(limit)));
+}
+
 export class SqliteConversationRepository implements IConversationRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
@@ -358,6 +380,22 @@ export class SqliteConversationRepository implements IConversationRepository {
       )
       .orderBy(turnStreamEvents.sequence);
     return rows as TurnStreamEventModel[];
+  }
+
+  async getStreamEventById(
+    tenant: LocalContext,
+    turnId: string,
+    eventId: string,
+  ): Promise<TurnStreamEventModel | null> {
+    const [row] = await this.db
+      .select()
+      .from(turnStreamEvents)
+      .where(and(
+        eq(turnStreamEvents.turnId, turnId),
+        eq(turnStreamEvents.id, eventId),
+      ))
+      .limit(1);
+    return (row as TurnStreamEventModel | undefined) ?? null;
   }
 
   async recordTurnStreamEvent(
@@ -923,7 +961,7 @@ export class SqliteConversationRepository implements IConversationRepository {
           );
         }
         await tx.insert(turnStreamEvents).values({
-          id: `tev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+          id: streamEventId(input.turnId, input.sequence),
           turnId: input.turnId,
           attemptId: input.attemptId,
           sequence: input.sequence,
@@ -990,7 +1028,7 @@ export class SqliteConversationRepository implements IConversationRepository {
           .returning({ id: turnAttempts.id });
         if (!updated) return false;
         await tx.insert(turnStreamEvents).values({
-          id: `tev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+          id: streamEventId(input.turnId, input.sequence),
           turnId: input.turnId,
           attemptId: input.attemptId,
           sequence: input.sequence,
@@ -1040,8 +1078,8 @@ export class SqliteConversationRepository implements IConversationRepository {
             `attempt ${input.attemptId} fencing=${attempt?.fencingToken ?? "?"} status=${attempt?.status ?? "?"} cannot record safe segment`,
           );
         }
-        const segmentId = `sseg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-        const eventId = `tev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+        const segmentId = safeSegmentId(input.turnId, input.sequence);
+        const eventId = streamEventId(input.turnId, input.sequence);
         const now = new Date().toISOString();
         // 1) delta 事件
         await tx.insert(turnStreamEvents).values({
@@ -1066,6 +1104,87 @@ export class SqliteConversationRepository implements IConversationRepository {
           createdAt: now,
           updatedAt: now,
         });
+        return true;
+      },
+      { behavior: "immediate" },
+    );
+  }
+
+  /**
+   * E2 batch variant: retain one `safe_segments`/`delta` row per text chunk,
+   * but validate fencing once and insert the whole chunk set in one transaction.
+   * Large sets are split into bounded statements inside that transaction to
+   * stay within SQLite parameter limits; the complete set remains atomic.
+   */
+  async recordSafeSegmentsAtomically(
+    tenant: LocalContext,
+    inputs: Array<{
+      turnId: string;
+      attemptId: string;
+      sequence: number;
+      text: string;
+      eventData: unknown;
+      safetyDecision?: string | null;
+      expectedFencingToken: number;
+    }>,
+  ): Promise<boolean> {
+    if (inputs.length === 0) return true;
+    return this.db.transaction(
+      async (tx) => {
+        const first = inputs[0]!;
+        const [attempt] = await tx
+          .select({ status: turnAttempts.status, fencingToken: turnAttempts.fencingToken })
+          .from(turnAttempts)
+          .where(
+            and(
+              eq(turnAttempts.id, first.attemptId),
+              eq(turnAttempts.turnId, first.turnId),
+            ),
+          );
+        const running = attempt && (attempt.status === "Running" || attempt.status === "CancelRequested");
+        const sameAttempt = inputs.every((input) =>
+          input.turnId === first.turnId &&
+          input.attemptId === first.attemptId &&
+          input.expectedFencingToken === first.expectedFencingToken,
+        );
+        if (!attempt || attempt.fencingToken !== first.expectedFencingToken || !running || !sameAttempt) {
+          throw new FencingMismatchError(
+            `attempt ${first.attemptId} fencing=${attempt?.fencingToken ?? "?"} status=${attempt?.status ?? "?"} cannot record safe segment batch`,
+          );
+        }
+
+        const now = new Date().toISOString();
+        for (let offset = 0; offset < inputs.length; offset += SAFE_SEGMENT_BATCH_SIZE) {
+          const batch = inputs.slice(offset, offset + SAFE_SEGMENT_BATCH_SIZE);
+          const rows = batch.map((input) => {
+            return {
+              input,
+              eventId: streamEventId(input.turnId, input.sequence),
+              segmentId: safeSegmentId(input.turnId, input.sequence),
+            };
+          });
+          await tx.insert(turnStreamEvents).values(rows.map(({ input, eventId }) => ({
+            id: eventId,
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            sequence: input.sequence,
+            eventType: "delta",
+            data: input.eventData,
+            occurredAt: now,
+            safetyDecision: input.safetyDecision ?? null,
+          })));
+          await tx.insert(safeSegments).values(rows.map(({ input, eventId, segmentId }) => ({
+            id: segmentId,
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            sequence: input.sequence,
+            text: input.text,
+            committed: 1,
+            streamEventId: eventId,
+            createdAt: now,
+            updatedAt: now,
+          })));
+        }
         return true;
       },
       { behavior: "immediate" },
@@ -1107,6 +1226,7 @@ export class SqliteConversationRepository implements IConversationRepository {
    */
   async findResumeCandidates(
     client: import("@libsql/client").Client,
+    limit?: number,
   ): Promise<
     Array<{
       attemptId: string;
@@ -1118,6 +1238,8 @@ export class SqliteConversationRepository implements IConversationRepository {
       fencingToken: number;
     }>
   > {
+    const candidateLimit = normalizeResumeCandidateLimit(limit);
+    if (candidateLimit === 0) return [];
     const now = new Date().toISOString();
     const result = await client.execute({
       sql: `
@@ -1139,8 +1261,10 @@ export class SqliteConversationRepository implements IConversationRepository {
                       WHERE te.attempt_id = ta.id AND te.status = 'executed')
           AND NOT EXISTS (SELECT 1 FROM turn_stream_events e2
                           WHERE e2.turn_id = ta.turn_id AND e2.event_type = 'done')
+        ORDER BY ta.lease_expires_at ASC, ta.id ASC
+        LIMIT ?
       `,
-      args: [now],
+      args: [now, candidateLimit],
     });
     return result.rows.map((row) => ({
       attemptId: String(row.attempt_id),

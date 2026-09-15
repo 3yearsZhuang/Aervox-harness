@@ -209,6 +209,26 @@ describe("CAP-033/034/035 proactive integrations", () => {
     expect(dashboard.json().health).toHaveLength(3);
   });
 
+  it("accepts Fastify string query limits without falling back to an unbounded page", async () => {
+    for (const [id, title] of [["project_limit_1", "First project"], ["project_limit_2", "Second project"]] as const) {
+      const created = await app.inject({
+        method: "POST",
+        url: "/v1/proactive/intelligence/projects",
+        headers,
+        payload: {id, title},
+      });
+      expect(created.statusCode).toBe(201);
+    }
+
+    const limited = await app.inject({
+      method: "GET",
+      url: "/v1/proactive/intelligence/projects?limit=1",
+      headers,
+    });
+    expect(limited.statusCode).toBe(200);
+    expect(limited.json().items).toHaveLength(1);
+  });
+
   it("gates integrations on active mode and explicit revocation instead of unreachable OS grants", async () => {
     const sensorHeaders = {
       "x-workspace-id": "ws_sensor_flow",

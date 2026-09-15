@@ -158,4 +158,55 @@ describe("proactive intelligence repository", () => {
     expect(String(raw.rows[0]?.credential_json)).not.toContain("mi-secret-token");
     expect((await repo.listConnections(tenant))[0]).not.toHaveProperty("credential");
   });
+
+  it("批量时间线写入按 checksum 幂等，并准确返回新增行", async () => {
+    const inputs = [0, 1, 2].map((index) => ({
+      id: `timeline_batch_${index}`,
+      revisionId: "profile_batch",
+      sourceGrantId: null,
+      sourceKey: "aervox.operation",
+      eventType: "tool.opened",
+      subjectKey: `project:${index}`,
+      title: `Project ${index}`,
+      summary: null,
+      payload: {index},
+      privacyClass: "private",
+      projectId: null,
+      relationshipId: null,
+      checksum: `timeline-batch-${index}`,
+      occurredAt: `2026-08-29T0${index}:00:00.000Z`,
+    }));
+
+    await expect(repo.createTimelineEvents(tenant, inputs)).resolves.toHaveLength(3);
+    // 重跑同一批只应命中唯一 checksum，不产生重复行或虚增新增计数。
+    await expect(repo.createTimelineEvents(tenant, inputs)).resolves.toHaveLength(0);
+    await expect(repo.listTimeline(tenant, {limit: 10})).resolves.toHaveLength(3);
+    // 冲突目标限定为 checksum；主键冲突但 checksum 不同不能被静默吞掉。
+    await expect(repo.createTimelineEvent(tenant, {
+      ...inputs[0]!,
+      checksum: "timeline-batch-conflicting-checksum",
+    })).rejects.toThrow();
+  });
+
+  it("批量冲突写入按 claim pair 幂等，并返回实际插入数", async () => {
+    const inputs = [
+      {id: "conflict_batch_1", revisionId: "profile_batch", primaryClaimId: "claim_a", conflictingClaimId: "claim_b", reason: "different"},
+      {id: "conflict_batch_2", revisionId: "profile_batch", primaryClaimId: "claim_a", conflictingClaimId: "claim_c", reason: "different"},
+      // 同一 pair 在同一批次内重复，唯一索引应只保留一行。
+      {id: "conflict_batch_duplicate", revisionId: "profile_batch", primaryClaimId: "claim_a", conflictingClaimId: "claim_b", reason: "duplicate"},
+    ];
+
+    await expect(repo.createClaimConflicts(tenant, inputs)).resolves.toBe(2);
+    await expect(repo.createClaimConflicts(tenant, inputs)).resolves.toBe(0);
+    await expect(repo.listClaimConflicts(tenant)).resolves.toHaveLength(2);
+    await expect(repo.countClaimConflicts(tenant, "open", "profile_batch")).resolves.toBe(2);
+    // 同样不能把主键冲突误判为 claim pair 幂等。
+    await expect(repo.createClaimConflict(tenant, {
+      id: "conflict_batch_1",
+      revisionId: "profile_batch",
+      primaryClaimId: "claim_x",
+      conflictingClaimId: "claim_y",
+      reason: "different pair",
+    })).rejects.toThrow();
+  });
 });

@@ -156,7 +156,16 @@ export const proactiveCaptures = sqliteTable(
   },
   (table) => ({
 
-
+    distillQueueIdx: index("proactive_capture_distill_queue_idx").on(
+      table.distillationStatus,
+      table.deletedAt,
+      table.ingestedAt,
+    ),
+    revisionSourceObservedIdx: index("proactive_capture_revision_source_observed_idx").on(
+      table.revisionId,
+      table.sourceKey,
+      table.observedAt,
+    ),
     revisionIdx: index("proactive_capture_revision_idx").on(table.revisionId),
   }),
 );
@@ -185,6 +194,11 @@ export const proactiveObservations = sqliteTable(
   },
   (table) => ({
 
+    revisionSourceObservedIdx: index("proactive_observation_revision_source_observed_idx").on(
+      table.revisionId,
+      table.sourceKey,
+      table.observedAt,
+    ),
     revisionIdx: index("proactive_observation_revision_idx").on(table.revisionId),
     sourceIdx: index("proactive_observation_source_idx").on(table.sourceGrantId),
   }),
@@ -216,7 +230,10 @@ export const proactiveProfileClaims = sqliteTable(
   },
   (table) => ({
 
-
+    revisionUpdatedIdx: index("proactive_claim_revision_updated_idx").on(
+      table.revisionId,
+      table.updatedAt,
+    ),
     revisionIdx: index("proactive_claim_revision_idx").on(table.revisionId),
   }),
 );

@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { splitIntoSentences } from '../src/composables/useWorkbenchConversation';
+import { describe, expect, it, vi } from 'vitest';
+import { createStreamingDeltaBatcher, splitIntoSentences } from '../src/composables/useWorkbenchConversation';
 import { resolveMediaType, formatAttachmentSize } from '../src/composables/useWorkbenchComposer';
 import { DIAL_RADIUS, DIAL_CIRCUMFERENCE } from '../src/composables/useWorkbenchTimer';
 
@@ -8,6 +8,66 @@ describe('Workbench Composables Logic', () => {
     const text = '你好！ 这是第一句。 这是第二句？ 没错！';
     const sentences = splitIntoSentences(text);
     expect(sentences).toEqual(['你好！', '这是第一句。', '这是第二句？', '没错！']);
+  });
+
+  it('batches streaming deltas into one scheduled flush without losing text', () => {
+    const scheduled: Array<() => void> = [];
+    const cancel = vi.fn();
+    const flushed: string[] = [];
+    const batcher = createStreamingDeltaBatcher(
+      (text) => flushed.push(text),
+      {
+        schedule: (callback) => {
+          scheduled.push(callback);
+          return scheduled.length;
+        },
+        cancel,
+      },
+    );
+
+    batcher.append('第一');
+    batcher.append('段');
+    batcher.append('。');
+    expect(scheduled).toHaveLength(1);
+    expect(flushed).toEqual([]);
+
+    scheduled[0]?.();
+    expect(flushed).toEqual(['第一段。']);
+
+    batcher.append('第二段');
+    expect(scheduled).toHaveLength(2);
+    batcher.flush();
+    expect(flushed).toEqual(['第一段。', '第二段']);
+    expect(cancel).toHaveBeenCalledTimes(1);
+    scheduled[1]?.();
+    expect(flushed).toEqual(['第一段。', '第二段']);
+
+    batcher.append('丢弃');
+    batcher.cancel();
+    expect(cancel).toHaveBeenCalledTimes(2);
+    scheduled[2]?.();
+    expect(flushed).toEqual(['第一段。', '第二段']);
+  });
+
+  it('remains schedulable when a host scheduler invokes callbacks synchronously', () => {
+    const flushed: string[] = [];
+    let scheduleCalls = 0;
+    const batcher = createStreamingDeltaBatcher(
+      (text) => flushed.push(text),
+      {
+        schedule: (callback) => {
+          scheduleCalls += 1;
+          callback();
+          return scheduleCalls;
+        },
+      },
+    );
+
+    batcher.append('a');
+    batcher.append('b');
+
+    expect(scheduleCalls).toBe(2);
+    expect(flushed).toEqual(['a', 'b']);
   });
 
   it('formats attachment size cleanly', () => {

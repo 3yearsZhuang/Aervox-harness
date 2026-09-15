@@ -78,6 +78,8 @@ export async function createProactiveIntelligenceTables(client: Client): Promise
         processing_boundary TEXT NOT NULL DEFAULT 'local_only', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);`,
       `CREATE UNIQUE INDEX IF NOT EXISTS proactive_claim_conflict_pair_idx
         ON proactive_claim_conflicts(primary_claim_id, conflicting_claim_id);`,
+      `CREATE INDEX IF NOT EXISTS proactive_claim_conflict_revision_pair_idx
+        ON proactive_claim_conflicts(revision_id, primary_claim_id, conflicting_claim_id);`,
       `CREATE TABLE IF NOT EXISTS proactive_preparation_bundles (
         id TEXT PRIMARY KEY, revision_id TEXT NOT NULL, project_id TEXT, commitment_id TEXT, title TEXT NOT NULL,
         bundle_json TEXT NOT NULL DEFAULT '{}', status TEXT NOT NULL DEFAULT 'ready', available_at TEXT NOT NULL,
