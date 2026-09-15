@@ -6,9 +6,9 @@ owner: product-platform
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.5.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 0.5.1
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 60
 review_triggers:
   - docs/reference/PRD.md
@@ -43,7 +43,7 @@ sources:
 # 主动智能模式设计方案
 
 - 提出人：3yearszhuang · 2026-08-29
-- 修改人：3yearszhuang · 2026-09-11
+- 修改人：3yearszhuang · 2026-09-16
 
 关联：[CR-023](../reference/changes/CR-023-proactive-local-intelligence-mode.md)、[CR-022 完全访问](../reference/changes/CR-022-full-access-tool-permission.md)、[需求追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)、[数据与隐私](../reference/DATA_PRIVACY.md)
 
@@ -289,7 +289,7 @@ RecoveryControlLedger 先追加 revoke/deny
 | `PRO-BLOCK-001` | `aervox_memory_store` 仍是普通工具注册表路径，尚未完成与 CAP-033 `profile_observation/profile_action` grant 的全链路一致性校验 | 记忆工具执行前校验 purpose/scope；推断只写未验证候选和证据，不直接成为长期事实；已接入的本地提炼器先写 CAP-033 claim |
 | `PRO-BLOCK-002` | CAP-033 已使用独立本地 Vault 和加密 Port，但生产部署仍需证明连接不会回退到远程 `DATABASE_URL`，并完成全量实体准入 | 建立强制本地的私密存储 Port 和连接准入校验，覆盖正文、控制面、确认后记忆与触发历史 |
 | `PRO-BLOCK-003` | CAP-033 确定性本地提炼器已接入；通用 LLM/Embedding/OCR/ASR Provider 仍可指向远端 | 在 ContextBuilder 和处理器入口校验 Provider 身份/进程/传输与出网策略，禁止 redirect/代理转发，非本地 Provider fail closed |
-| `PRO-BLOCK-004` | 当前附件以 objectKey/S3 形态建模 | 为私人文档提供独立本地文件适配器，禁止隐式进入远程对象存储 |
+| `PRO-BLOCK-004` | 当前附件以 `objectKey` 键建模并落盘本地附件目录（无远程对象存储依赖），但尚无面向私人文档的独立适配层 | 为私人文档提供独立本地文件适配器，禁止隐式进入远程对象存储 |
 | `PRO-BLOCK-005` | 已建立独立的 CAP-033 observation/claim 数据面，但 `aervox_memory_store` 与普通分析/审计旁路的隔离仍需验证 | 在 `CAP-022` 下建立用途受限的本地行为来源，不复用分析/审计旁路 |
 | `PRO-BLOCK-006` | 当前桌面端已具备本地 Host、后台 helper/heartbeat 和部分生命周期控制，但系统级观察适配器、生产签名、OS entitlement、功耗和崩溃恢复仍不完整 | 完成受信首方 helper、操作系统 entitlement/usage description、权限降级、后台生命周期和平台测试 |
 | `PRO-BLOCK-007` | CAP-033 已增加 owner-only loopback token；测试注入可显式关闭，生产配置与代理/redirect 禁止仍需部署验证 | 本地私密模式需绑定受信 IPC/loopback + 本地身份，不以开发默认值作为产品边界 |

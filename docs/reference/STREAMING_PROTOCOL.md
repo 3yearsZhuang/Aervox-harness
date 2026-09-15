@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 0.4.1
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 Turn 流式协议（SPC）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-11
+- 修改人：3yearszhuang · 2026-09-16
 
 关联：`ADR-002`、`ADR-012`、`CR-019`、`CR-022`、`CR-027`、`CR-030`、`NFR-PERF-001`、`NFR-REL-001`、`NFR-SEC-001`
 
@@ -25,8 +25,8 @@ review_interval_days: 90
 
 - 普通教学/陪伴对话可以分段流式展示；日记、记忆 Revision、掌握度/评分、题目答案规范、公开内容和工具授权结果必须完整验证后原子发布，不发送渐进片段。
 - Provider 的原始 chunk 只能进入服务端有界缓冲。只有通过 purpose 对应安全/结构/来源检查、已经提交数据库事务的内容才可发送给客户端。
-- 所有业务事件属于一个 `workspaceId` 和 `turnId`。每次重连重新鉴权、检查同意和删除状态；不能用旧连接权限继续重放。
-- 用户可见结果的事实源是持久化 `TurnStreamEvent` 和最终 `MessageVersion`，不是 Redis、内存 buffer 或客户端缓存。
+- 所有业务事件属于一个 `turnId`。每次重连重新鉴权、检查同意和删除状态；不能用旧连接权限继续重放。
+- 用户可见结果的事实源是持久化 `TurnStreamEvent` 和最终 `MessageVersion`，不是内存 buffer 或客户端缓存。
 - `Turn` 是唯一对外资源和流聚合；自动重试由内部 `TurnAttempt` 执行，客户端不得依赖 Attempt 身份或供应商请求 ID。
 
 ## 2. 资源与 HTTP 接口
