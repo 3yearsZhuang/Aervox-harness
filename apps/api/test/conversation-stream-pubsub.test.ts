@@ -17,8 +17,24 @@ import {
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";
 import { turnStreamHub } from "../src/modules/conversation/stream-hub.js";
+import { runLoopTurnOnce } from "../src/modules/conversation/agent-executor.js";
 
 const tenant: LocalContext = { workspaceId: "local", subjectUserId: "local" };
+
+type ParsedSseEvent = {
+  eventId: string;
+  turnId: string;
+  sequence: number;
+  eventType: string;
+  data: unknown;
+};
+
+const parseSse = (body: string): ParsedSseEvent[] =>
+  body
+    .split("\n\n")
+    .map((block) => block.split("\n").find((line) => line.startsWith("data: ")))
+    .filter((line): line is string => Boolean(line))
+    .map((line) => JSON.parse(line.slice(6)) as ParsedSseEvent);
 
 describe("CR-031 Turn 流式推送 Pub/Sub 解耦", () => {
   let app: FastifyInstance;
@@ -209,5 +225,121 @@ describe("CR-031 Turn 流式推送 Pub/Sub 解耦", () => {
     expect(res.statusCode).toBe(200);
     expect(res.headers["content-type"]).toContain("text/event-stream");
     expect(res.body).toContain("done");
+  });
+
+  it("GET /v1/turns/:id/events: 支持 Last-Event-ID/after 游标并拒绝无效游标", async () => {
+    const sessionId = "sess_sse_cursor";
+    const turnId = "turn_sse_cursor_1";
+    const attemptId = "att_cursor";
+    await repo.getOrCreateSession(tenant, sessionId, "SSE Cursor Test");
+    await repo.createTurnWithOutbox(
+      tenant,
+      { id: turnId, sessionId, idempotencyKey: `idem_${turnId}`, status: "Completed" },
+      { id: `msg_${turnId}`, content: "cursor test" },
+    );
+    await repo.createTurnAttempt(tenant, turnId, { id: attemptId, attempt: 1 });
+    await repo.finalizeTurnAttempt(tenant, { turnId, attemptId, status: "Completed" });
+
+    const storedEvents = [
+      { id: `ev_${turnId}_1`, eventType: "delta", data: { text: "one" } },
+      { id: `ev_${turnId}_2`, eventType: "tool_result", data: { ok: true } },
+      { id: `ev_${turnId}_3`, eventType: "done", data: { status: "Completed" } },
+    ] as const;
+    for (const [index, event] of storedEvents.entries()) {
+      await repo.appendStreamEvent(tenant, {
+        id: event.id,
+        turnId,
+        sequence: index + 1,
+        eventType: event.eventType,
+        payloadVersion: 1,
+        data: event.data,
+      });
+    }
+
+    const fromHeader = await app.inject({
+      method: "GET",
+      url: `/v1/turns/${turnId}/events`,
+      headers: { "last-event-id": storedEvents[0].id },
+    });
+    expect(fromHeader.statusCode).toBe(200);
+    const headerEvents = parseSse(fromHeader.body);
+    expect(headerEvents.map((event) => event.eventId)).toEqual([
+      storedEvents[1].id,
+      storedEvents[2].id,
+    ]);
+
+    const fromQuery = await app.inject({
+      method: "GET",
+      url: `/v1/turns/${turnId}/events?after=${encodeURIComponent(storedEvents[1].id)}`,
+    });
+    expect(fromQuery.statusCode).toBe(200);
+    expect(parseSse(fromQuery.body).map((event) => event.eventId)).toEqual([storedEvents[2].id]);
+
+    const conflict = await app.inject({
+      method: "GET",
+      url: `/v1/turns/${turnId}/events?after=${encodeURIComponent(storedEvents[1].id)}`,
+      headers: { "last-event-id": storedEvents[0].id },
+    });
+    expect(conflict.statusCode).toBe(400);
+    expect(conflict.json().error).toBe("conflicting_stream_cursors");
+
+    const expired = await app.inject({
+      method: "GET",
+      url: `/v1/turns/${turnId}/events`,
+      headers: { "last-event-id": "ev_missing" },
+    });
+    expect(expired.statusCode).toBe(410);
+    expect(expired.json().error).toBe("stream_cursor_expired");
+  });
+
+  it("GET /v1/turns/:id/events: 不存在的 Turn 立即返回 404，不建立长连接", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/v1/turns/turn_missing/events",
+    });
+    expect(res.statusCode).toBe(404);
+    expect(res.json().error).toBe("turn_not_found");
+  });
+
+  it("执行器广播事件 ID 与 SQLite 落库 ID 保持一致", async () => {
+    process.env.AERVOX_LOOP_PROVIDER = "scripted";
+    const turnId = "turn_sse_stable_ids";
+    const sessionId = "sess_sse_stable_ids";
+    const attemptId = "att_stable_ids";
+    await repo.getOrCreateSession(tenant, sessionId, "Stable IDs Test");
+    await repo.createTurnWithOutbox(
+      tenant,
+      { id: turnId, sessionId, idempotencyKey: `idem_${turnId}`, status: "Created" },
+      { id: `msg_${turnId}`, content: "stable event ids" },
+    );
+    await repo.createTurnAttempt(tenant, turnId, { id: attemptId, attempt: 1 });
+    const received: Array<{ id: string; sequence: number; eventType: string }> = [];
+    const unsubscribe = turnStreamHub.subscribe(turnId, {
+      onEvent: (event) => received.push({ id: event.id, sequence: event.sequence, eventType: event.eventType }),
+      onSettled: () => undefined,
+    });
+    try {
+      await runLoopTurnOnce(repo, tenant, {
+        turnId,
+        sessionId,
+        attemptId,
+        userMessage: "stable event ids",
+      });
+
+      const persisted = await repo.getStreamEvents(tenant, turnId, 0);
+      expect(persisted.length).toBeGreaterThanOrEqual(3);
+      expect(received.map((event) => event.id)).toEqual(persisted.map((event) => event.id));
+      expect(received.map((event) => event.sequence)).toEqual(persisted.map((event) => event.sequence));
+      expect(received.map((event) => event.eventType)).toEqual(persisted.map((event) => event.eventType));
+      expect(persisted.map((event) => event.id)).toEqual(
+        persisted.map((event) => `tev_${turnId}_${event.sequence}`),
+      );
+      expect(persisted.map((event) => event.eventType)).toContain("delta");
+      expect(persisted.map((event) => event.eventType)).toContain("tool_result");
+      expect(["done", "error"]).toContain(persisted.at(-1)?.eventType);
+    } finally {
+      delete process.env.AERVOX_LOOP_PROVIDER;
+      unsubscribe();
+    }
   });
 });

@@ -4,7 +4,7 @@
  * 系统级审计（无租户列）：可检索本地 Agent 运行审计（turn 完成 / 审批 / 租约事件等）。
  * 字段对齐 @aervox/observability 的 AuditEntry；payload 以 JSON 文本存储。
  */
-import { sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, index } from "drizzle-orm/sqlite-core";
 
 export const auditLogs = sqliteTable("audit_logs", {
   id: text("id").primaryKey(),
@@ -21,4 +21,7 @@ export const auditLogs = sqliteTable("audit_logs", {
   /** 结构化载荷 JSON 文本 */
   payload: text("payload"),
   createdAt: text("created_at").notNull(),
-});
+}, (table) => ({
+  eventCreatedIdx: index("audit_logs_event_created_idx").on(table.eventType, table.createdAt),
+  scopeIdx: index("audit_logs_scope_idx").on(table.scope),
+}));

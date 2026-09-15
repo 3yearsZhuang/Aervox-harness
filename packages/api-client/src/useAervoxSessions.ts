@@ -21,10 +21,13 @@ export interface UseAervoxSessionsReturn {
   activeSession: ComputedRef<SessionItem | null>;
   loading: Ref<boolean>;
   error: Ref<string | null>;
-  fetchSessions: () => Promise<SessionItem[]>;
-  createNewSession: (title?: string, id?: string) => Promise<SessionItem>;
+  fetchSessions: (options?: { projectId?: string | null }) => Promise<SessionItem[]>;
+  createNewSession: (title?: string, id?: string, projectId?: string | null) => Promise<SessionItem>;
   switchSession: (sessionId: string) => void;
-  renameSession: (sessionId: string, title: string) => Promise<SessionItem | null>;
+  renameSession: (
+    sessionId: string,
+    updates: string | { title?: string; projectId?: string | null },
+  ) => Promise<SessionItem | null>;
   deleteSession: (sessionId: string) => Promise<boolean>;
 }
 
@@ -65,11 +68,14 @@ export function useAervoxSessions(): UseAervoxSessionsReturn {
     }
   };
 
-  const fetchSessions = async (): Promise<SessionItem[]> => {
+  const fetchSessions = async (options?: { projectId?: string | null }): Promise<SessionItem[]> => {
     loading.value = true;
     error.value = null;
     try {
-      const res = await getTransport().request<ListSessionsResponse>('GET', '/v1/sessions');
+      const path = options?.projectId
+        ? `/v1/sessions?projectId=${encodeURIComponent(options.projectId)}`
+        : '/v1/sessions';
+      const res = await getTransport().request<ListSessionsResponse>('GET', path);
       sessions.value = res.items ?? [];
 
       // 若列表非空且当前活跃 ID 不在列表中，自动对齐到首个会话
@@ -92,6 +98,7 @@ export function useAervoxSessions(): UseAervoxSessionsReturn {
   const createNewSession = async (
     title = '新对话',
     id?: string,
+    projectId?: string | null,
   ): Promise<SessionItem> => {
     loading.value = true;
     error.value = null;
@@ -99,6 +106,7 @@ export function useAervoxSessions(): UseAervoxSessionsReturn {
       const body: CreateSessionRequest = {
         title: title || '新对话',
         ...(id ? { id } : {}),
+        ...(projectId !== undefined ? { projectId } : {}),
       };
       const created = await getTransport().request<SessionItem>('POST', '/v1/sessions', body);
       // 插入到首位
@@ -112,6 +120,7 @@ export function useAervoxSessions(): UseAervoxSessionsReturn {
       const fallbackSession: SessionItem = {
         id: id || `ses_local_${Date.now()}`,
         title: title || '新对话',
+        projectId: projectId ?? null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -128,10 +137,16 @@ export function useAervoxSessions(): UseAervoxSessionsReturn {
     persistActiveSession(sessionId);
   };
 
-  const renameSession = async (sessionId: string, title: string): Promise<SessionItem | null> => {
-    if (!sessionId || !title.trim()) return null;
+  const renameSession = async (
+    sessionId: string,
+    updates: string | { title?: string; projectId?: string | null },
+  ): Promise<SessionItem | null> => {
+    if (!sessionId) return null;
     try {
-      const body: RenameSessionRequest = { title: title.trim() };
+      const body: RenameSessionRequest =
+        typeof updates === 'string'
+          ? { title: updates.trim() }
+          : updates;
       const updated = await getTransport().request<SessionItem>(
         'PATCH',
         `/v1/sessions/${encodeURIComponent(sessionId)}`,
@@ -148,7 +163,12 @@ export function useAervoxSessions(): UseAervoxSessionsReturn {
       // 本地乐观更新
       const existing = sessions.value.find((s) => s.id === sessionId);
       if (existing) {
-        existing.title = title.trim();
+        if (typeof updates === 'string') {
+          existing.title = updates.trim();
+        } else {
+          if (updates.title !== undefined) existing.title = updates.title;
+          if (updates.projectId !== undefined) existing.projectId = updates.projectId;
+        }
         existing.updatedAt = new Date().toISOString();
         return existing;
       }

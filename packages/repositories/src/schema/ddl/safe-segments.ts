@@ -24,4 +24,8 @@ export async function createSafeSegmentsTables(client: Client): Promise<void> {
   await client.execute(`
       CREATE INDEX IF NOT EXISTS safe_segments_turn_committed_idx ON safe_segments(turn_id, committed);
     `);
+  // Schema 已声明但此前从未真正建出：按 attempt 读取可见前缀（续跑/重放）的查询索引。
+  await client.execute(`
+      CREATE INDEX IF NOT EXISTS safe_segments_attempt_idx ON safe_segments(attempt_id);
+    `);
 }

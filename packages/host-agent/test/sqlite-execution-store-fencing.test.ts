@@ -218,4 +218,50 @@ describe("SqliteExecutionStore 事件写入 fencing 桥接", () => {
       }),
     ).rejects.toThrow(LeaseLostError);
   });
+
+  it("recordSafeSegments：同一 step 的多个 delta 在一次批量事务中落盘", async () => {
+    const { turnId, attemptId } = await nextTurn();
+    const claim = await store.claimTurnAttempt({ turnId, attemptId, expectedFencingToken: 0 });
+    expect(claim.ok).toBe(true);
+    if (!claim.ok) return;
+
+    const start = await store.nextSequence(turnId);
+    const result = await store.recordSafeSegments([
+      {
+        turnId,
+        attemptId,
+        sequence: start,
+        text: "第一块",
+        eventData: { text: "第一块", isFinal: true },
+        safetyDecision: "approved",
+        expectedFencingToken: claim.fencingToken,
+      },
+      {
+        turnId,
+        attemptId,
+        sequence: start + 1,
+        text: "第二块",
+        eventData: { text: "第二块", isFinal: true },
+        safetyDecision: "approved",
+        expectedFencingToken: claim.fencingToken,
+      },
+    ]);
+    expect(result.ok).toBe(true);
+    expect((await store.listEvents(turnId)).filter((event) => event.eventType === "delta")).toHaveLength(2);
+    expect((await store.listCommittedSegments(turnId)).map((segment) => segment.text)).toEqual(["第一块", "第二块"]);
+
+    await expect(
+      store.recordSafeSegments([
+        {
+          turnId,
+          attemptId,
+          sequence: start + 2,
+          text: "迟到",
+          eventData: { text: "迟到" },
+          safetyDecision: "approved",
+          expectedFencingToken: claim.fencingToken + 1,
+        },
+      ]),
+    ).rejects.toThrow(LeaseLostError);
+  });
 });

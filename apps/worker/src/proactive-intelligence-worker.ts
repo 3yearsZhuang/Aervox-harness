@@ -64,6 +64,7 @@ import {
 const hash = (value: string): string => createHash("sha256").update(value).digest("hex").slice(0, 20);
 const id = (prefix: string, value: string): string => `${prefix}_${hash(value)}`;
 const DAY_MS = 24 * 60 * 60 * 1000;
+type TimelineInput = Parameters<SqliteProactiveIntelligenceRepository["createTimelineEvent"]>[1];
 
 /** 插件规则最小冷却下限（秒）：防止 cooldown=0 且条件恒真的规则逐节拍刷屏 */
 const MIN_PLUGIN_COOLDOWN_SECONDS = 60;
@@ -343,14 +344,26 @@ export async function runProactiveIntelligenceCycle(
       }
       projectionEvents = await ctx.perceptionRepo.consume(tenant, "situation-projector-v1", 128);
     }
-    const observations = await ctx.profileRepo.listObservations(tenant, {revisionId: profile.id, limit: 500});
-    const actions = await ctx.profileRepo.listActions(tenant, {revisionId: profile.id, limit: 500});
-    const claims = await ctx.profileRepo.listClaims(tenant, {revisionId: profile.id, limit: 500});
+    const [observations, actions, claims, initialTimeline] = await Promise.all([
+      ctx.profileRepo.listObservations(tenant, {revisionId: profile.id, limit: 500}),
+      ctx.profileRepo.listActions(tenant, {revisionId: profile.id, limit: 500}),
+      ctx.profileRepo.listClaims(tenant, {revisionId: profile.id, limit: 500}),
+      ctx.intelligenceRepo.listTimeline(tenant, {limit: 500}),
+    ]);
 
-    // 1. Unified personal timeline.
+    // 1. Unified personal timeline. Build the delta in memory and write it once;
+    // repeated cycles therefore do no per-row SELECT→INSERT round trips.
+    let timeline = initialTimeline;
+    const knownTimelineChecksums = new Set(initialTimeline.map((event) => event.checksum));
+    const timelineInputs: TimelineInput[] = [];
+    const queueTimeline = (input: TimelineInput): void => {
+      if (knownTimelineChecksums.has(input.checksum)) return;
+      knownTimelineChecksums.add(input.checksum);
+      timelineInputs.push(input);
+    };
     for (const observation of observations) {
       const checksum = `observation:${observation.checksum}`;
-      await ctx.intelligenceRepo.createTimelineEvent(tenant, {
+      queueTimeline({
         id: id("timeline", checksum), revisionId: profile.id, sourceGrantId: observation.sourceGrantId,
         sourceKey: observation.sourceKey, eventType: observation.observationType,
         subjectKey: observation.subjectKey, title: observation.observationType,
@@ -359,21 +372,28 @@ export async function runProactiveIntelligenceCycle(
         payload: observation.payload, privacyClass: observation.sourceKey === "restricted.profile" ? "restricted" : "private",
         projectId: null, relationshipId: null, checksum, occurredAt: observation.observedAt,
       });
-      result.timeline += 1;
     }
     for (const action of actions) {
       const checksum = `action:${action.id}:${action.state}`;
-      await ctx.intelligenceRepo.createTimelineEvent(tenant, {
+      queueTimeline({
         id: id("timeline", checksum), revisionId: profile.id, sourceGrantId: null,
         sourceKey: "proactive.action", eventType: `action.${action.state}`, subjectKey: action.target,
         title: action.actionType, summary: action.error ?? null, payload: {state: action.state, scope: action.authorizationScope},
         privacyClass: "private", projectId: null, relationshipId: null, checksum,
         occurredAt: action.finishedAt ?? action.createdAt,
       });
-      result.timeline += 1;
     }
-
-    const timeline = await ctx.intelligenceRepo.listTimeline(tenant, {limit: 500});
+    if (timelineInputs.length > 0) {
+      const insertedTimeline = await ctx.intelligenceRepo.createTimelineEvents(tenant, timelineInputs);
+      result.timeline += insertedTimeline.length;
+      // A concurrent worker may have won a checksum race. Re-read only in that
+      // uncommon case; the steady-state path uses the in-memory merged view.
+      timeline = insertedTimeline.length === timelineInputs.length
+        ? [...insertedTimeline, ...timeline]
+            .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
+            .slice(0, 500)
+        : await ctx.intelligenceRepo.listTimeline(tenant, {limit: 500});
+    }
     const localDate = now.toISOString().slice(0, 10);
     const healthSamples = await ctx.intelligenceRepo.listHealthSamples(tenant, {
       from: localDate,
@@ -419,6 +439,13 @@ export async function runProactiveIntelligenceCycle(
 
     // 6. Profile conflict detection and correction queue.
     const claimsBySubject = new Map<string, typeof claims>();
+    const pendingConflicts: Array<{
+      id: string;
+      revisionId: string;
+      primaryClaimId: string;
+      conflictingClaimId: string;
+      reason: string;
+    }> = [];
     for (const claim of claims.filter((item) => item.state !== "rejected")) {
       const list = claimsBySubject.get(claim.subjectKey) ?? [];
       list.push(claim);
@@ -430,19 +457,26 @@ export async function runProactiveIntelligenceCycle(
           const left = claimSet[index]!;
           const right = claimSet[next]!;
           if (left.content === right.content) continue;
-          await ctx.intelligenceRepo.createClaimConflict(tenant, {
-            id: id("conflict", `${left.id}:${right.id}`), revisionId: profile.id,
+          const conflictKey = `${left.id}:${right.id}`;
+          pendingConflicts.push({
+            id: id("conflict", conflictKey), revisionId: profile.id,
             primaryClaimId: left.id, conflictingClaimId: right.id,
             reason: `Conflicting claims for ${left.subjectKey}`,
           });
-          result.conflicts += 1;
         }
       }
     }
+    result.conflicts += await ctx.intelligenceRepo.createClaimConflicts(tenant, pendingConflicts);
 
     // 10. Relationship context from communication observations.
     const communications = timeline.filter((event) => event.sourceKey === "external.communication");
-    for (const [subjectKey, events] of new Map(communications.map((event) => [event.subjectKey, communications.filter((item) => item.subjectKey === event.subjectKey)]))) {
+    const communicationsBySubject = new Map<string, typeof communications>();
+    for (const event of communications) {
+      const events = communicationsBySubject.get(event.subjectKey) ?? [];
+      events.push(event);
+      communicationsBySubject.set(event.subjectKey, events);
+    }
+    for (const [subjectKey, events] of communicationsBySubject) {
       await ctx.intelligenceRepo.upsertRelationship(tenant, {
         id: id("relationship", subjectKey), revisionId: profile.id, relationshipType: "contact",
         displayName: subjectKey, notes: `Observed ${events.length} communication events`,
@@ -486,7 +520,7 @@ export async function runProactiveIntelligenceCycle(
     result.attention += 1;
 
     // 5. Action outcome verification.
-    const verifications = await ctx.intelligenceRepo.listActionVerifications(tenant);
+    const verifications = await ctx.intelligenceRepo.listActionVerifications(tenant, undefined, 500);
     const verifiedActions = new Set(verifications.map((item) => item.actionId));
     for (const action of actions.filter((item) => ["executed", "failed"].includes(item.state) && !verifiedActions.has(item.id))) {
       await ctx.intelligenceRepo.upsertActionVerification(tenant, {
@@ -559,7 +593,7 @@ export async function runProactiveIntelligenceCycle(
         ctx.intelligenceRepo.listAttentionStates(tenant, 1),
         ctx.intelligenceRepo.listDriftSignals(tenant, "open", 32),
         ctx.intelligenceRepo.listScenes(tenant, 8),
-        ctx.intelligenceRepo.listConnections(tenant),
+        ctx.intelligenceRepo.listConnections(tenant, undefined, 500),
       ]);
       const attention = attentionStates[0] as {
         windowStart: string;
@@ -652,7 +686,7 @@ export async function runProactiveIntelligenceCycle(
 
     // 候选集：E2 开启时优先读数据化 DSL；无 DSL 的存量插件保留 CR-032 兼容求值。
     const candidates: Array<{rule: IntelligenceTriggerRule; evaluation: ReturnType<typeof evaluateTriggerRule>}> = [];
-    for (const rule of await ctx.intelligenceRepo.listTriggerRules(tenant, true)) {
+    for (const rule of await ctx.intelligenceRepo.listTriggerRules(tenant, true, 500)) {
       if (ctx.proactiveFeatureFlags?.has("proactive_dsl")) {
         if (!situationSnapshot) throw new Error("proactive_dsl requires an available SituationModel snapshot");
         const condition = (rule.condition ?? {}) as Record<string, unknown>;
@@ -920,7 +954,7 @@ export async function runProactiveIntelligenceCycle(
         timelineEvents: weekTimeline.length,
         completedActions: completedActions.length,
         activeProjects: projects.length,
-        openConflicts: (await ctx.intelligenceRepo.listClaimConflicts(tenant, "open")).length,
+        openConflicts: await ctx.intelligenceRepo.countClaimConflicts(tenant, "open", profile.id),
       },
       recommendations: [
         tenantDriftCount > 0 ? "Reconfirm stalled project priorities" : "Keep current project cadence",

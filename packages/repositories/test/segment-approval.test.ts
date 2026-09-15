@@ -143,6 +143,38 @@ describe("E2 安全片段原子化（safe_segments）", () => {
     expect(await repo.listCommittedSegments(tenant, turnId)).toHaveLength(0);
   });
 
+  it("recordSafeSegmentsAtomically：跨分块失败时整批回滚", async () => {
+    const { turnId, attemptId } = await nextTurn();
+    const claim = await repo.claimTurnAttempt(tenant, {
+      turnId,
+      attemptId,
+      expectedFencingToken: 0,
+      leaseId: "lease_e2d",
+      ttlMs: 60_000,
+    });
+    expect(claim.ok).toBe(true);
+    if (!claim.ok) return;
+
+    // 32 行会落在首个受控语句中，第 33 行故意复用 sequence=2，
+    // 触发第二个语句的唯一键冲突。外层事务必须连首个分块一起回滚。
+    const inputs = Array.from({length: 33}, (_, index) => {
+      const sequence = index === 32 ? 2 : index + 2;
+      return {
+        turnId,
+        attemptId,
+        sequence,
+        text: `片段-${index}`,
+        eventData: {text: `片段-${index}`},
+        safetyDecision: "approved" as const,
+        expectedFencingToken: claim.fencingToken,
+      };
+    });
+
+    await expect(repo.recordSafeSegmentsAtomically(tenant, inputs)).rejects.toThrow();
+    expect(await repo.getStreamEvents(tenant, turnId, 0)).toHaveLength(0);
+    expect(await repo.listCommittedSegments(tenant, turnId)).toHaveLength(0);
+  });
+
   it("listCommittedSegments：按 sequence 升序返回可见前缀", async () => {
     const { turnId, attemptId } = await nextTurn();
     const claim = await repo.claimTurnAttempt(tenant, { turnId, attemptId, expectedFencingToken: 0, leaseId: "lease_e2c", ttlMs: 60_000 });

@@ -6,8 +6,12 @@
  * - LeaseHeartbeat 单元语义：续租 ok=false（CAS 丢失）→ lost + 订阅回调；
  * - executor 集成：长工具调用期间周期续租发生（防租约超时被恢复器误判僵尸）；
  *   调用中途被抢占（fencing+1）→ 心跳续租失败 → 在途工具被 abort → 收敛 lease_lost。
+ *
+ * 时序断言约定：单元语义用 `vi.waitFor` 条件轮询，不用「固定 sleep + 计数断言」。
+ * 原因：5ms 心跳与 sleep 同处一个定时器队列，turbo 并行跑全部包时进程会被抢占，
+ * 定时器批量到期后 sleep 先 resolve，固定等待会偶发只观测到 1 次续租而误报失败。
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   createScriptedProvider,
   defaultContextBuilder,
@@ -25,8 +29,9 @@ describe("LeaseHeartbeat 单元语义", () => {
     let fired = 0;
     hb.onLost(() => { fired += 1; });
     hb.start();
-    await sleep(25);
-    expect(hb.lost).toBe(true);
+    await vi.waitFor(() => {
+      expect(hb.lost).toBe(true);
+    }, { timeout: 2_000 });
     expect(fired).toBe(1); // 幂等：不重复多播
     hb.stop();
   });
@@ -35,9 +40,10 @@ describe("LeaseHeartbeat 单元语义", () => {
     let renews = 0;
     const hb = new LeaseHeartbeat({ renew: async () => { renews += 1; return { ok: true }; }, intervalMs: 5 });
     hb.start();
-    await sleep(40);
+    await vi.waitFor(() => {
+      expect(renews).toBeGreaterThanOrEqual(2);
+    }, { timeout: 2_000 });
     expect(hb.lost).toBe(false);
-    expect(renews).toBeGreaterThanOrEqual(2);
     hb.stop();
     const afterStop = renews;
     await sleep(20);

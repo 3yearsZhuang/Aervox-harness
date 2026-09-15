@@ -39,6 +39,10 @@ export async function createPrivacyTables(client: Client): Promise<void> {
   await client.execute(`
       CREATE UNIQUE INDEX IF NOT EXISTS deletion_requests_local_idempotency_idx ON deletion_requests(idempotency_key);
     `);
+  // 删除 Worker 与对话 fail-closed 闸门都按 active status 高频查询。
+  await client.execute(`
+      CREATE INDEX IF NOT EXISTS deletion_requests_status_idx ON deletion_requests(status);
+    `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS deletion_targets (
         request_id TEXT NOT NULL REFERENCES deletion_requests(id) ON DELETE CASCADE,

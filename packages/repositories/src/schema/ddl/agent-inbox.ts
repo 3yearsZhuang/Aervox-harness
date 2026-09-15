@@ -31,6 +31,12 @@ export async function createAgentInboxTables(client: Client): Promise<void> {
   await client.execute(`
       CREATE INDEX IF NOT EXISTS agent_inbox_status_idx ON agent_inbox_items(status);
     `);
+  // claimForConsumption 按会话/边界/状态筛选并按创建时间取最早项；
+  // 复合索引避免高频轮询扫描状态索引后再临时排序。
+  await client.execute(`
+      CREATE INDEX IF NOT EXISTS agent_inbox_claim_idx
+      ON agent_inbox_items(session_id, consume_boundary, status, created_at);
+    `);
   await client.execute(`
       CREATE UNIQUE INDEX IF NOT EXISTS agent_inbox_local_idempotency_idx ON agent_inbox_items(idempotency_key);
     `);

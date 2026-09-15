@@ -33,6 +33,10 @@ export const toolExecutions = sqliteTable(
   (table) => ({
     turnIdx: index("tool_executions_turn_idx").on(table.turnId),
     attemptIdx: index("tool_executions_attempt_idx").on(table.attemptId),
+    attemptStatusIdx: index("tool_executions_attempt_status_idx").on(
+      table.attemptId,
+      table.status,
+    ),
 
     /** 2c：幂等预留唯一键（attempt+invocation；对应 init 的 CREATE UNIQUE INDEX 幂等补齐） */
     attemptInvocationIdx: uniqueIndex("tool_executions_attempt_invocation_idx").on(table.attemptId, table.invocationId),

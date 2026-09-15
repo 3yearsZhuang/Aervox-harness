@@ -38,3 +38,5 @@ export * from "./proactive-situation-repository.js";
 export * from "./proactive-budget-repository.js";
 export * from "./proactive-perception-repository.js";
 export * from "./model-routing-repository.js";
+export * from "./project-repository.js";
+

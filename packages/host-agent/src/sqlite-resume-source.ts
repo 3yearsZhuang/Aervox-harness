@@ -36,9 +36,12 @@ export function createSqliteResumeSource(deps: SqliteResumeSourceDeps): TurnSour
   const { repo, client } = deps;
   return {
     async listClaimable(limit: number): Promise<ClaimableTurn[]> {
-      const candidates = await repo.findResumeCandidates(client);
+      // Push the caller's backpressure limit into SQL; the repository also
+      // applies a hard upper bound so this path never materializes the full
+      // expired-attempt table in memory.
+      const candidates = await repo.findResumeCandidates(client, limit);
       const turns: ClaimableTurn[] = [];
-      for (const c of candidates.slice(0, limit)) {
+      for (const c of candidates) {
         const tenant: LocalContext = { workspaceId: "local", subjectUserId: "local" };
         const events = await repo.getStreamEvents(tenant, c.turnId);
         const executions = (await repo.listToolExecutionsByTurn(tenant, c.turnId)).map((r) => ({
