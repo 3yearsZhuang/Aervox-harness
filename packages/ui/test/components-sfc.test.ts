@@ -152,13 +152,18 @@ describe('Real SFC Component Mounting', () => {
     expect(wrapperWithoutOnSend.emitted('send')![0]).toEqual(['Fallback text']);
   });
 
-  it('FocusNavMenuItem.vue mounts, displays label and triggers runMenuAction with openTool study on click', async () => {
+  it('FocusNavMenuItem.vue mounts, displays label, tooltip and handles active state & click action', async () => {
     const runMenuAction = vi.fn((action: () => void) => action());
     const openTool = vi.fn();
+    const learningOpen = ref(false);
+    const activeLearningView = ref<'study' | 'mistake'>('study');
+
     const mockContext = {
       layout: {
         runMenuAction,
         openTool,
+        learningOpen,
+        activeLearningView,
       },
     } as unknown as WorkbenchContext;
 
@@ -171,15 +176,36 @@ describe('Real SFC Component Mounting', () => {
     });
 
     expect(wrapper.text()).toContain('学习能力');
+    expect(wrapper.attributes('title')).toBe('学习能力');
+    expect(wrapper.classes()).not.toContain('is-active');
+
+    // Activate study drawer
+    learningOpen.value = true;
+    await wrapper.vm.$nextTick();
+    expect(wrapper.classes()).toContain('is-active');
+
+    // Switch to mistake view -> should not be active for study item
+    activeLearningView.value = 'mistake';
+    await wrapper.vm.$nextTick();
+    expect(wrapper.classes()).not.toContain('is-active');
+
+    // Trigger click
     await wrapper.trigger('click');
     expect(runMenuAction).toHaveBeenCalledTimes(1);
     expect(openTool).toHaveBeenCalledWith('study');
   });
 
-  it('WorkbenchNavPill.vue decouples focus mode: no hardcoded 学习能力 without plugin, renders sequentially when registered', async () => {
+  it('WorkbenchNavPill.vue decouples focus mode: handles active states and renders plugin item sequentially', async () => {
     const registry = createUIRegistry();
     const openTool = vi.fn();
     const runMenuAction = vi.fn((action: () => void) => action());
+    const toolsOpen = ref(false);
+    const settingsOpen = ref(false);
+    const settingsCategory = ref('tools');
+    const settingsScope = ref('detail');
+    const learningOpen = ref(false);
+    const activeLearningView = ref<'study' | 'mistake'>('study');
+
     const mockContext = {
       layout: {
         menuOpen: ref(true),
@@ -189,6 +215,12 @@ describe('Real SFC Component Mounting', () => {
         runMenuAction,
         openTool,
         openSettingsCategory: vi.fn(),
+        toolsOpen,
+        settingsOpen,
+        settingsCategory,
+        settingsScope,
+        learningOpen,
+        activeLearningView,
       },
     } as unknown as WorkbenchContext;
 
@@ -205,6 +237,12 @@ describe('Real SFC Component Mounting', () => {
     expect(wrapper.text()).not.toContain('学习能力');
     const nativeItems = wrapper.findAll('.menu-item');
     expect(nativeItems.map((el) => el.text())).toEqual(['工具管理', '主动智能', '详细设置', '你的思隅']);
+    expect(nativeItems[0].classes()).not.toContain('is-active');
+
+    // Toggle tools open -> tools menu item gains is-active
+    toolsOpen.value = true;
+    await wrapper.vm.$nextTick();
+    expect(wrapper.findAll('.menu-item')[0].classes()).toContain('is-active');
 
     // When focus-mode registers: nav:menu-items renders 学习能力 sequentially
     const unregister = registerFocusModePlugin(registry, mockContext);
@@ -214,9 +252,64 @@ describe('Real SFC Component Mounting', () => {
     const allItems = wrapper.findAll('.menu-item');
     expect(allItems.map((el) => el.text())).toEqual(['工具管理', '主动智能', '详细设置', '你的思隅', '学习能力']);
 
+    // Activate study view -> 学习能力 gains is-active
+    learningOpen.value = true;
+    await wrapper.vm.$nextTick();
+    expect(wrapper.findAll('.menu-item')[4].classes()).toContain('is-active');
+
     // When plugin unregisters: 学习能力 disappears
     unregister();
     await wrapper.vm.$nextTick();
     expect(wrapper.text()).not.toContain('学习能力');
+  });
+
+  it('WorkbenchNavPill.vue renders compact fallback badge when a nav slot component fails', async () => {
+    const registry = createUIRegistry();
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const CrashingComponent = defineComponent({
+      setup() {
+        throw new Error('Boom in nav slot');
+      },
+      render() {
+        return h('div', 'broken');
+      },
+    });
+
+    registry.registerSlotComponent('nav:menu-items', CrashingComponent, {
+      id: 'faulty-nav-item',
+      priority: 10,
+    });
+
+    const mockContext = {
+      layout: {
+        menuOpen: ref(true),
+        menuPillRef: ref(null),
+        toggleMenu: vi.fn(),
+        handlePillClick: vi.fn(),
+        runMenuAction: vi.fn(),
+        openTool: vi.fn(),
+        openSettingsCategory: vi.fn(),
+      },
+    } as unknown as WorkbenchContext;
+
+    const wrapper = mount(WorkbenchNavPill, {
+      global: {
+        provide: {
+          [WORKBENCH_CONTEXT_KEY as symbol]: mockContext,
+          [UI_REGISTRY_KEY as symbol]: registry,
+        },
+      },
+    });
+
+    await flushPromises();
+
+    const fallback = wrapper.find('.menu-item-fallback');
+    expect(fallback.exists()).toBe(true);
+    expect(fallback.text()).toContain('⚠️ faulty-nav-item');
+
+    consoleErrorSpy.mockRestore();
+    consoleWarnSpy.mockRestore();
   });
 });
