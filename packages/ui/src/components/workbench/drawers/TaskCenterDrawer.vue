@@ -11,9 +11,11 @@ import {
   Zap,
 } from 'lucide-vue-next';
 import { useWorkbenchContext } from '../../../composables/workbench-context';
+import { AervoxDialog } from '../../../primitives';
 
 const { layout, cards, timer } = useWorkbenchContext();
 const { taskCenterOpen, openTool, openSettingsCategory } = layout;
+
 
 const diaryStatusText = computed(() => {
   if (cards.todayDiary.value?.content) return '今日日记已提炼完成';
@@ -49,13 +51,14 @@ function goToProactive() {
 </script>
 
 <template>
-  <el-dialog
+  <AervoxDialog
     v-model="taskCenterOpen"
     title="统一任务中心"
-    class="task-center-dialog"
-    width="min(760px, calc(100vw - 32px))"
-    align-center
+    subtitle="集中管理本地排期、复习规划、日记提炼与后台守护任务"
+    :icon="Zap"
+    size="lg"
   >
+
     <div class="task-center-body">
       <p class="task-center-intro">
         集中管理本地排期、复习规划、日记提炼与后台守护任务。所有状态均由纯本地 SQLite 驱动。
@@ -176,5 +179,6 @@ function goToProactive() {
         </div>
       </div>
     </div>
-  </el-dialog>
+  </AervoxDialog>
 </template>
+

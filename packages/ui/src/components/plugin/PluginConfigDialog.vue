@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import {ref, watch} from 'vue'
 import {ElMessage} from '../../utils/element'
+import {Puzzle} from 'lucide-vue-next'
 import type {PluginConfigField} from '@aervox/contracts'
 import {useAervoxPlugins, type PluginSummaryDto} from '@aervox/api-client'
+import {AervoxDialog, AervoxButton, aervoxConfirm} from '../../primitives'
 import PluginConfigForm from './PluginConfigForm.vue'
 
 const props = defineProps<{
@@ -88,7 +90,13 @@ async function save(): Promise<void> {
 
 async function reset(): Promise<void> {
   if (!props.plugin) return
-  if (!window.confirm('恢复默认值将清空全部插件配置（含密钥），确定继续吗？')) return
+  const confirmed = await aervoxConfirm({
+    title: '恢复默认配置？',
+    message: '恢复默认值将清空全部插件配置（含密钥），确定继续吗？',
+    variant: 'danger',
+    confirmText: '恢复默认',
+  })
+  if (!confirmed) return
   saving.value = true
   try {
     const snapshot = await api.resetConfig(props.plugin.id)
@@ -107,14 +115,13 @@ async function reset(): Promise<void> {
 </script>
 
 <template>
-  <el-dialog
+  <AervoxDialog
     :model-value="open"
     :title="`${plugin?.id ?? ''} 配置`"
-    class="plugin-config-dialog"
-    width="min(680px, calc(100vw - 28px))"
-    align-center
+    subtitle="管理插件运行参数与密钥"
+    :icon="Puzzle"
+    size="md"
     @close="emit('close')"
-    @closed="emit('close')"
   >
     <div v-if="loading" class="pcfg-loading">加载配置…</div>
     <div v-else-if="issues.length > 0" class="pcfg-issues">
@@ -130,20 +137,14 @@ async function reset(): Promise<void> {
       @update-secret="updateSecret"
     />
     <template #footer>
-      <el-button :disabled="saving" @click="reset">恢复默认</el-button>
-      <el-button @click="emit('close')">取消</el-button>
-      <el-button type="primary" :loading="saving" @click="save">保存</el-button>
+      <AervoxButton variant="secondary" :disabled="saving" @click="reset">恢复默认</AervoxButton>
+      <AervoxButton variant="secondary" @click="emit('close')">取消</AervoxButton>
+      <AervoxButton variant="primary" :loading="saving" @click="save">保存</AervoxButton>
     </template>
-  </el-dialog>
+  </AervoxDialog>
 </template>
 
 <style scoped>
-.plugin-config-dialog :deep(.el-dialog__body) {
-  max-height: 66vh;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
-}
 .pcfg-loading { padding: 30px 0; text-align: center; color: var(--text-muted); font-size: 12px; }
 .pcfg-issues {
   padding: 16px;
@@ -158,3 +159,4 @@ async function reset(): Promise<void> {
   to { opacity: 1; transform: translateY(0); }
 }
 </style>
+

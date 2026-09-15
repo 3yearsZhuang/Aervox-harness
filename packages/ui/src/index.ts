@@ -5,6 +5,10 @@ export { default as MessageBubble } from './components/MessageBubble.vue';
 export { default as UserQuestionComposer } from './components/UserQuestionComposer.vue';
 export { default as AervoxWorkbench } from './components/AervoxWorkbench.vue';
 
+// 基础 UI 控件基座 (UI Primitives)
+export * from './primitives';
+
+
 import { defineAsyncComponent } from 'vue';
 
 // 核心组件拆解导出

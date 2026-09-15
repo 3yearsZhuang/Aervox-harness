@@ -9,6 +9,7 @@ import {
   X,
 } from 'lucide-vue-next';
 import { useWorkbenchContext } from '../../../composables/workbench-context';
+import { AervoxNavDialog } from '../../../primitives';
 
 const { layout, cards } = useWorkbenchContext();
 const {
@@ -66,31 +67,21 @@ async function reloadGoals() {
 </script>
 
 <template>
-  <el-dialog
+  <AervoxNavDialog
     v-model="learningOpen"
     title="学习能力"
-    class="learning-dialog single-panel-dialog"
-    width="min(860px, calc(100vw - 28px))"
-    align-center
+    subtitle="AI 学习规划与错题靶向重练"
+    :icon="BookOpen"
+    :items="learningNavItems"
+    :active-key="activeLearningView"
+    nav-aria-label="学习导航"
+    custom-class="learning-dialog"
+    @update:active-key="activeLearningView = $event as any"
     @open="reloadGoals"
   >
-    <div class="tool-dialog-layout">
-      <nav class="tool-sidebar" aria-label="学习导航">
-        <button
-          v-for="item in learningNavItems"
-          :key="item.id"
-          type="button"
-          :class="{ active: item.id === activeLearningView }"
-          :aria-current="item.id === activeLearningView ? 'true' : undefined"
-          @click="activeLearningView = item.id"
-        >
-          <component :is="item.icon" :size="18" />
-          <span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span>
-        </button>
-      </nav>
-      <div class="tool-dialog-content">
-        <div v-if="activeLearningView === 'study'" class="single-dialog-detail">
-          <p v-if="apiError" class="drawer-error">{{ apiError }}</p>
+    <template #content>
+      <div v-if="activeLearningView === 'study'" class="learning-detail">
+        <p v-if="apiError" class="drawer-error">{{ apiError }}</p>
 
           <!-- AI 学习规划生成 -->
           <div class="settings-section">
@@ -168,8 +159,8 @@ async function reloadGoals() {
           </div>
         </div>
 
-        <div v-else-if="activeLearningView === 'mistake'" class="single-dialog-detail">
-          <div class="settings-section">
+        <div v-else-if="activeLearningView === 'mistake'" class="learning-detail">
+        <div class="settings-section">
             <div class="settings-section-heading">
               <span class="heading-icon-wrap"><Puzzle :size="18" /></span>
               <span><strong>错题管理与重练</strong><small>针对性练习未掌握题目，记录错因洞察</small></span>
@@ -303,7 +294,6 @@ async function reloadGoals() {
             </ul>
           </div>
         </div>
-      </div>
-    </div>
-  </el-dialog>
-</template>
+      </template>
+    </AervoxNavDialog>
+  </template>

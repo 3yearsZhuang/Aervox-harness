@@ -8,8 +8,10 @@ import {
   Store,
   Unplug,
   Zap,
-} from 'lucide-vue-next'
-import { useAervoxMcp, type McpPresetDto } from '@aervox/api-client'
+} from 'lucide-vue-next';
+import { useAervoxMcp, type McpPresetDto } from '@aervox/api-client';
+import { AervoxDialog, AervoxButton } from '../../primitives';
+
 
 const emit = defineEmits<{
   (e: 'changed'): void
@@ -196,25 +198,14 @@ async function handleDisconnect(preset: McpPresetDto): Promise<void> {
       </div>
     </article>
 
-    <el-dialog
+    <AervoxDialog
       :model-value="tokenDialogOpen"
-      class="mcp-token-dialog"
-      width="min(520px, calc(100vw - 28px))"
-      align-center
-      :append-to-body="true"
+      :title="`接入「${activePreset?.name ?? ''}」`"
+      :subtitle="activePreset?.authType === 'bearer' ? 'Token 仅保存在本地数据库，接口不会回传原文' : '本地免密服务，直接确认即可完成接入与工具同步'"
+      :icon="ShieldCheck"
+      size="sm"
       @close="tokenDialogOpen = false"
     >
-      <template #header>
-        <div class="token-header-wrap">
-          <span class="heading-icon-wrap"><ShieldCheck :size="18" /></span>
-          <div class="token-header-text">
-            <strong>接入「{{ activePreset?.name }}」</strong>
-            <small v-if="activePreset?.authType === 'bearer'">Token 仅保存在本地数据库，接口不会回传原文</small>
-            <small v-else>本地免密服务，直接确认即可完成接入与工具同步</small>
-          </div>
-        </div>
-      </template>
-
       <div class="token-body">
         <div v-if="activePreset?.authType === 'bearer'" class="field-block">
           <label class="field-label" for="mcp-token-input">MCP Token</label>
@@ -244,16 +235,19 @@ async function handleDisconnect(preset: McpPresetDto): Promise<void> {
       </div>
 
       <template #footer>
-        <div class="token-footer">
-          <el-button @click="tokenDialogOpen = false">取消</el-button>
-          <button type="button" class="btn-token-submit" :disabled="connecting" @click="handleConnect">
-            <ShieldCheck :size="14" />
-            <span>{{ connecting ? '正在接入…' : '接入并同步' }}</span>
-          </button>
-        </div>
+        <AervoxButton variant="secondary" @click="tokenDialogOpen = false">取消</AervoxButton>
+        <AervoxButton
+          variant="primary"
+          :icon="ShieldCheck"
+          :loading="connecting"
+          @click="handleConnect"
+        >
+          接入并同步
+        </AervoxButton>
       </template>
-    </el-dialog>
+    </AervoxDialog>
   </section>
+
 </template>
 
 <style scoped>
