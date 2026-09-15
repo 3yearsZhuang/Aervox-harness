@@ -68,20 +68,46 @@ jobs:
           key: pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
 
       # 方案 B：持久化 Turbo 本地缓存，按内容哈希跳过未变更包，
-      # 实现"只验证更改部分及其下游"
-      - name: Cache turbo
-        uses: actions/cache@v4
+      # 实现"只验证更改部分及其下游"。
+      # 注意：save key 必须每次运行唯一（附加 run_id）——actions/cache 在
+      # 精确命中既有 key 后不会执行 save，若 key 只含 lockfile 哈希，
+      # lockfile 不变期间代码演进产生的新缓存条目将永远无法写回，
+      # 后续 PR 只能重复真跑已变更的包，缓存形同虚设。
+      - name: Restore turbo cache
+        uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/turbo-cache
-          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.run_id }}
           restore-keys: |
+            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
             turbo-${{ runner.os }}-
 
       - name: Verify submodules
         run: |
           git submodule status --recursive
 
+      # 可选增强：Turbo Remote Cache（Vercel，条目级跨 PR 共享）。
+      # 仅在仓库配置了 TURBO_TOKEN / TURBO_TEAM secrets 时注入；
+      # 未配置时 turbo 优雅降级为纯本地（actions/cache）缓存，CI 不受影响。
+      - name: Enable Turbo remote cache
+        if: ${{ secrets.TURBO_TOKEN != '' }}
+        env:
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+        run: |
+          echo "TURBO_TOKEN=$TURBO_TOKEN" >> "$GITHUB_ENV"
+          echo "TURBO_TEAM=$TURBO_TEAM" >> "$GITHUB_ENV"
+
       - name: Run code gate (build + typecheck + test)
         env:
           TURBO_CACHE_DIR: ${{ runner.temp }}/turbo-cache
         run: mise tasks run ci-code
+
+      # 失败也保存（if: always()）：已成功任务的缓存条目不应随本次
+      # 门禁失败而丢弃；save key 与本次 restore key 一致（run_id 唯一，必然 miss → 必然保存）。
+      - name: Save turbo cache
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: ${{ runner.temp }}/turbo-cache
+          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.run_id }}

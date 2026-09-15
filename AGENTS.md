@@ -1,7 +1,7 @@
 # AGENTS.md — AI 协作指南（薄入口）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-13
+- 修改人：3yearszhuang · 2026-09-15
 
 本文件是所有 AI 编码助手（包括 Antigravity、Claude Code、Cursor、GitHub Copilot、Roo Code、Windsurf 等）的进入点与协作底线协议：
 **只索引，不复制**：权威技术规范、产品定义与架构事实源一律深链至 `docs/`，严禁在入口复制可能变更的业务逻辑，杜绝双源漂移。
@@ -80,6 +80,7 @@ Aervox｜思隅：更好上手的“主动智能” Agent——以桌宠为入�
 | 代码门禁 | `mise tasks run ci-code` | 依赖锁定安装 + 依赖边界检查 + 构建 + 类型检查 + 测试 |
 | 文档门禁 | `mise tasks run ci-docs` | Markdownlint + Vale 术语检查 + 文档治理严格校验 |
 | 单测调试 | `mise x -- pnpm test` | 在受控 mise 环境下执行 Vitest 单元测试 |
+| 增量测试 | `mise x -- pnpm test:affected` | 仅运行相对 `origin/main` 变更包及其全部下游依赖的测试（feature 分支快速验证；先 `git fetch origin main`，合并门禁仍以全量为准） |
 | 格式化修复 | `npx markdownlint-cli2 --fix <files>` | 自动修复 Markdownlint 可自愈的排版问题 |
 | 术语检查 | `vale --minAlertLevel=error <files>` | 针对指定文件执行 Vale 散文与术语一致性检查 |
 | 注册表自动同步 | `mise tasks run docs-sync` | 自动从文档 Front Matter 读取日期并回写 `docs/DOC_REGISTRY.md` |
