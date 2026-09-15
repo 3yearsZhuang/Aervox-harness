@@ -3,12 +3,12 @@ import { ref, watch } from 'vue';
 import {
   BookOpen,
   Sparkles,
-  X,
   Loader2,
 } from 'lucide-vue-next';
 import { exploreTerm, useAervoxPlugins } from '@aervox/api-client';
 import type { ExtractedTerm, TermExploreResponse, TermExploreKind } from '@aervox/contracts';
 import { renderMarkdown } from '../../utils/markdown';
+import { AervoxDialog, AervoxButton } from '../../primitives';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -36,7 +36,7 @@ async function fetchExploreData() {
       try {
         const pluginApi = useAervoxPlugins();
         const configSnapshot = await pluginApi.getConfig('study-mode');
-        const configuredKind = configSnapshot?.values?.defaultExploreKind;
+        const configuredKind = configSnapshot.values?.defaultExploreKind;
         if (
           configuredKind === 'child' ||
           configuredKind === 'related' ||
@@ -63,16 +63,15 @@ async function fetchExploreData() {
 }
 
 watch(
-  () => [props.modelValue, props.term],
-  ([visible, term]) => {
-    if (visible && term) {
+  () => props.modelValue,
+  (open) => {
+    if (open) {
       void fetchExploreData();
     } else {
       exploreResult.value = null;
       error.value = null;
     }
   },
-  { immediate: true },
 );
 
 function handleClose() {
@@ -81,112 +80,38 @@ function handleClose() {
 </script>
 
 <template>
-  <el-dialog
+  <AervoxDialog
     :model-value="modelValue"
-    class="term-explore-dialog"
-    width="min(560px, calc(100vw - 32px))"
-    align-center
-    :show-close="false"
+    :title="term?.text || '名词解释'"
+    :subtitle="term?.description || '核心概念深度解析'"
+    :icon="BookOpen"
+    size="md"
     @update:model-value="emit('update:modelValue', $event)"
+    @close="handleClose"
   >
-    <div class="explore-card">
-      <header class="explore-head">
-        <div class="explore-title-wrap">
-          <div class="explore-badge">
-            <BookOpen :size="13" />
-            <span>名词解释</span>
-          </div>
-          <h3 class="explore-term-title">{{ term?.text }}</h3>
-          <p v-if="term?.description" class="explore-term-desc">{{ term.description }}</p>
-        </div>
-        <button class="explore-close-btn" type="button" aria-label="关闭" @click="handleClose">
-          <X :size="18" />
-        </button>
-      </header>
-
-      <div class="explore-body">
-        <div v-if="loading" class="explore-loading">
-          <Loader2 class="spin-icon" :size="24" />
-          <span>正在生成名词解释…</span>
-        </div>
-
-        <div v-else-if="error" class="explore-error">
-          <p>{{ error }}</p>
-          <button type="button" class="retry-btn" @click="fetchExploreData">重试</button>
-        </div>
-
-        <div v-else-if="exploreResult" class="explore-content">
-          <div class="markdown-body" v-html="renderMarkdown(exploreResult.content)" />
-        </div>
+    <div class="explore-body">
+      <div v-if="loading" class="explore-loading">
+        <Loader2 class="spin-icon" :size="24" />
+        <span>正在生成名词解释…</span>
       </div>
 
-      <footer class="explore-foot">
-        <span class="explore-foot-hint">核心概念解析</span>
-        <button type="button" class="explore-done-btn" @click="handleClose">知道了</button>
-      </footer>
+      <div v-else-if="error" class="explore-error">
+        <p>{{ error }}</p>
+        <AervoxButton variant="secondary" size="sm" @click="fetchExploreData">重试</AervoxButton>
+      </div>
+
+      <div v-else-if="exploreResult" class="explore-content">
+        <div class="markdown-body" v-html="renderMarkdown(exploreResult.content)" />
+      </div>
     </div>
-  </el-dialog>
+
+    <template #footer>
+      <AervoxButton variant="primary" @click="handleClose">知道了</AervoxButton>
+    </template>
+  </AervoxDialog>
 </template>
 
 <style scoped>
-.explore-card {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.explore-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.explore-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 8px;
-  font-size: 11px;
-  font-weight: 700;
-  border-radius: 999px;
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  margin-bottom: 6px;
-}
-
-.explore-term-title {
-  margin: 0;
-  font-size: 1.3rem;
-  font-weight: 750;
-  color: var(--text-primary);
-}
-
-.explore-term-desc {
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.explore-close-btn {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all .18s ease;
-}
-
-.explore-close-btn:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
 .explore-body {
   min-height: 140px;
   max-height: 380px;

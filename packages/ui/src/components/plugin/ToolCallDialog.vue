@@ -3,6 +3,8 @@ import { computed, ref, watch } from 'vue'
 import { ElMessage } from '../../utils/element'
 import { Play, ShieldCheck, Terminal } from 'lucide-vue-next'
 import { useAervoxTools, type ToolRegistrationDto } from '@aervox/api-client'
+import { AervoxDialog, AervoxButton } from '../../primitives'
+
 
 const props = defineProps<{
   open: boolean
@@ -79,24 +81,14 @@ async function handleCall(): Promise<void> {
 </script>
 
 <template>
-  <el-dialog
+  <AervoxDialog
     :model-value="open"
-    class="tool-call-dialog"
-    width="min(720px, calc(100vw - 28px))"
-    align-center
-    :append-to-body="true"
+    :title="`调试调用：${tool?.name || ''}`"
+    :subtitle="`${tool?.id || ''} · ${tool?.safetyLevel || 'write_with_approval'}`"
+    :icon="Terminal"
+    size="lg"
     @close="emit('close')"
   >
-    <template #header>
-      <div class="dialog-header-wrap">
-        <span class="heading-icon-wrap"><Terminal :size="18" /></span>
-        <div class="dialog-header-text">
-          <strong>调试调用：{{ tool?.name }}</strong>
-          <small>{{ tool?.id }} · {{ tool?.safetyLevel || 'write_with_approval' }}</small>
-        </div>
-      </div>
-    </template>
-
     <div class="call-dialog-body">
       <div class="field-block">
         <div class="field-title-row">
@@ -133,23 +125,21 @@ async function handleCall(): Promise<void> {
     </div>
 
     <template #footer>
-      <div class="call-dialog-footer">
-        <el-button @click="emit('close')">关闭</el-button>
-        <button
-          type="button"
-          class="btn-execute"
-          :disabled="calling"
-          @click="handleCall"
-        >
-          <Play :size="14" />
-          <span>{{ calling ? '执行中…' : '执行调用' }}</span>
-        </button>
-      </div>
+      <AervoxButton variant="secondary" @click="emit('close')">关闭</AervoxButton>
+      <AervoxButton
+        variant="primary"
+        :icon="Play"
+        :loading="calling"
+        @click="handleCall"
+      >
+        执行调用
+      </AervoxButton>
     </template>
-  </el-dialog>
+  </AervoxDialog>
 </template>
 
 <style scoped>
+
 .tool-call-dialog :deep(.el-dialog__body) {
   padding: 16px 20px;
 }

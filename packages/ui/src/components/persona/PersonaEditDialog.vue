@@ -7,7 +7,9 @@ import {
   type SkillItemDto,
   type ToolItemDto,
 } from '@aervox/api-client'
+import { AervoxDialog, AervoxButton } from '../../primitives'
 import VoiceAbilityCard, {type VoiceSelectionValue} from './VoiceAbilityCard.vue'
+
 
 const props = defineProps<{
   open: boolean
@@ -218,23 +220,15 @@ async function save() {
 </script>
 
 <template>
-  <el-dialog
+  <AervoxDialog
     :model-value="open"
-    class="persona-edit-dialog"
-    width="min(860px, calc(100vw - 28px))"
-    align-center
-    :append-to-body="true"
+    :title="isEdit ? '编辑人格' : '创建新人格'"
+    :subtitle="isEdit ? '更新人格提示词、能力与工具配置' : '配置新人格的核心设定与可用能力'"
+    :icon="Heart"
+    size="lg"
     @close="emit('close')"
   >
-    <template #header>
-      <div class="dialog-header-wrap">
-        <span class="heading-icon-wrap"><Heart :size="18" /></span>
-        <div class="dialog-header-text">
-          <strong>{{ isEdit ? '编辑人格' : '创建新人格' }}</strong>
-          <small>{{ isEdit ? '更新人格提示词、能力与工具配置' : '配置新人格的核心设定与可用能力' }}</small>
-        </div>
-      </div>
-    </template>
+
 
     <div v-if="loading" class="dialog-loading">正在加载人格配置…</div>
     <div v-else class="persona-form-grid">
@@ -359,76 +353,22 @@ async function save() {
     </div>
 
     <template #footer>
-      <div class="dialog-footer">
-        <button type="button" class="btn-secondary" @click="emit('close')">取消</button>
-        <button type="button" class="btn-primary" :disabled="saving" @click="save">
-          {{ saving ? '保存中…' : '保存' }}
-        </button>
-      </div>
+      <AervoxButton variant="secondary" @click="emit('close')">取消</AervoxButton>
+      <AervoxButton variant="primary" :loading="saving" @click="save">
+        保存
+      </AervoxButton>
     </template>
-  </el-dialog>
+  </AervoxDialog>
 </template>
 
 <style scoped>
-.persona-edit-dialog {
-  --el-dialog-bg-color: var(--bg-main);
-  border-radius: 16px;
-  overflow: hidden;
-}
-
-.persona-edit-dialog :deep(.el-dialog__header) {
-  margin: 0;
-  padding: 16px 22px 14px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-main);
-}
-
-.dialog-header-wrap {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.heading-icon-wrap {
-  width: 34px;
-  height: 34px;
-  flex: 0 0 34px;
-  display: grid;
-  place-items: center;
-  border-radius: 9px;
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.dialog-header-text {
-  display: grid;
-  gap: 2px;
-}
-
-.dialog-header-text strong {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.dialog-header-text small {
-  font-size: 11px;
-  color: var(--text-muted);
-  line-height: 1.4;
-}
-
-.persona-edit-dialog :deep(.el-dialog__body) {
-  max-height: 72vh;
-  overflow-y: auto;
-  padding: 20px 24px;
-}
-
 .dialog-loading {
   padding: 40px 0;
   text-align: center;
   color: var(--text-muted);
   font-size: 13px;
 }
+
 
 .persona-form-grid {
   display: grid;

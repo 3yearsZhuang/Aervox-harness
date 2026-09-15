@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-14",
-  "totalCount": 121,
+  "generatedAt": "2026-09-15",
+  "totalCount": 122,
   "documents": [
     {
       "id": "ADR-002",
@@ -225,8 +225,8 @@
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
       "version": "1.11.0",
-      "updated_at": "2026-09-14",
-      "reviewed_at": "2026-09-14",
+      "updated_at": "2026-09-15",
+      "reviewed_at": "2026-09-15",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -642,8 +642,8 @@
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
       "version": "1.10.0",
-      "updated_at": "2026-09-14",
-      "reviewed_at": "2026-09-14",
+      "updated_at": "2026-09-15",
+      "reviewed_at": "2026-09-15",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -2128,6 +2128,27 @@
       ]
     },
     {
+      "id": "CR-049",
+      "title": "CR-049 UI 基础控件库与全量弹窗控件化",
+      "path": "reference/changes/CR-049-ui-primitives-and-dialog-componentization.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "accepted",
+      "delivery_status": "verified",
+      "version": "1.0.0",
+      "updated_at": "2026-09-15",
+      "reviewed_at": "2026-09-15",
+      "review_interval_days": 90,
+      "review_triggers": [],
+      "sources": [
+        "docs/reference/PRD.md",
+        "docs/reference/ARCHITECTURE.md",
+        "docs/reference/standards/doc-standards.md"
+      ]
+    },
+    {
       "id": "AVX-DATA-001",
       "title": "Aervox｜思隅 数据与隐私规范",
       "path": "reference/DATA_PRIVACY.md",
@@ -2316,8 +2337,8 @@
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
       "version": "1.28.0",
-      "updated_at": "2026-09-14",
-      "reviewed_at": "2026-09-14",
+      "updated_at": "2026-09-15",
+      "reviewed_at": "2026-09-15",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []

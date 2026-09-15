@@ -17,6 +17,7 @@ import {
 import type { UserQuestionRequiredEventData } from '@aervox/contracts';
 import { MizukiExpression } from '../live2d/model';
 import { petReactKind } from '../live2d/petReactions';
+import { aervoxConfirm } from '../primitives';
 
 export type CardId = 'study' | 'todo' | 'timer' | 'history' | 'mistake' | 'quiz' | 'diary';
 
@@ -439,7 +440,13 @@ export function useWorkbenchCards(options: {
   }
 
   async function archivePlan(planId: string) {
-    if (!window.confirm('归档后规划将从列表隐藏，但完成记录仍会保留。确定归档吗？')) return;
+    const confirmed = await aervoxConfirm({
+      title: '归档学习规划',
+      message: '归档后规划将从列表隐藏，但完成记录仍会保留。确定归档吗？',
+      variant: 'danger',
+      confirmText: '归档',
+    });
+    if (!confirmed) return;
     planBusyId.value = planId;
     try {
       await api.archiveLearningPlan(planId);

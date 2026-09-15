@@ -29,6 +29,7 @@ import type {
 } from '@aervox/contracts/proactive';
 import type { ToolApprovalMode } from '@aervox/contracts';
 import { profileStatusLabel } from '@aervox/contracts/proactive';
+import { aervoxConfirm } from '../primitives';
 
 export function proactiveBridge(): ProactiveDesktopBridge | undefined {
   if (typeof window === 'undefined') return undefined;
@@ -253,7 +254,14 @@ export function useWorkbenchProactive(options: {
 
   async function deleteProactiveConnection(provider: string, connectionId: string, displayName: string) {
     const bridge = proactiveBridge();
-    if (!bridge || !window.confirm(`撤销“${displayName}”并删除本地凭据与缓存数据？`)) return;
+    if (!bridge) return;
+    const confirmed = await aervoxConfirm({
+      title: '撤销外部连接',
+      message: `撤销“${displayName}”并删除本地凭据与缓存数据？`,
+      variant: 'danger',
+      confirmText: '撤销并删除',
+    });
+    if (!confirmed) return;
     proactiveBusy.value = true;
     proactiveError.value = null;
     try {
@@ -362,7 +370,15 @@ export function useWorkbenchProactive(options: {
   async function setProactiveDesiredState(desiredState: Extract<ProfileDesiredState, 'enabled' | 'paused' | 'revoked'>) {
     const bridge = proactiveBridge();
     if (!bridge || options.isWeb.value) return;
-    if (desiredState === 'revoked' && !window.confirm('撤销后会立即停止新的观察、召回、分析、提醒和主动任务。已保存的本地数据不会自动删除。确定撤销吗？')) return;
+    if (desiredState === 'revoked') {
+      const confirmed = await aervoxConfirm({
+        title: '撤销主动智能模式',
+        message: '撤销后会立即停止新的观察、召回、分析、提醒和主动任务。已保存的本地数据不会自动删除。确定撤销吗？',
+        variant: 'danger',
+        confirmText: '确认撤销',
+      });
+      if (!confirmed) return;
+    }
     proactiveBusy.value = true;
     proactiveError.value = null;
     try {
@@ -408,7 +424,13 @@ export function useWorkbenchProactive(options: {
   async function deleteProactiveSource(capability: ProfileCapabilityState) {
     const bridge = proactiveBridge();
     if (!bridge || options.isWeb.value) return;
-    if (!window.confirm(`撤销“${capability.label}”并删除其本地捕获、观察和画像证据？此操作不可撤销。`)) return;
+    const confirmed = await aervoxConfirm({
+      title: '撤销来源并删除数据',
+      message: `撤销“${capability.label}”并删除其本地捕获、观察和画像证据？此操作不可撤销。`,
+      variant: 'danger',
+      confirmText: '撤销并删除',
+    });
+    if (!confirmed) return;
     proactiveBusy.value = true;
     proactiveError.value = null;
     proactiveNotice.value = null;
@@ -464,7 +486,15 @@ export function useWorkbenchProactive(options: {
   async function exportProactiveData(includeRaw: boolean) {
     const bridge = proactiveBridge();
     if (!bridge || options.isWeb.value) return;
-    if (includeRaw && !window.confirm('导出文件将包含仍在 7 天保留期内的原始副本。确定继续吗？')) return;
+    if (includeRaw) {
+      const confirmed = await aervoxConfirm({
+        title: '导出主动画像数据',
+        message: '导出文件将包含仍在 7 天保留期内的原始副本。确定继续吗？',
+        variant: 'primary',
+        confirmText: '继续导出',
+      });
+      if (!confirmed) return;
+    }
     proactiveBusy.value = true;
     proactiveError.value = null;
     proactiveNotice.value = null;

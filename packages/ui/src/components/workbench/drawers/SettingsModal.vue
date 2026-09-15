@@ -34,6 +34,7 @@ import PluginManagerPanel from '../../plugin/PluginManagerPanel.vue';
 import ExtensionSlot from '../../extension/ExtensionSlot.vue';
 import { useAervoxPlugins } from '@aervox/api-client';
 import { useWorkbenchContext } from '../../../composables/workbench-context';
+import { AervoxNavDialog, AervoxConfirmDialog, AervoxDialog, AervoxButton } from '../../../primitives';
 
 const props = withDefaults(
   defineProps<{
@@ -161,29 +162,20 @@ async function onPluginChange(): Promise<void> {
 </script>
 
 <template>
-  <el-dialog
+  <AervoxNavDialog
     v-model="settingsOpen"
     :title="settingsScope === 'siyu' ? '你的思隅' : '设置'"
-    class="settings-dialog"
-    width="min(860px, calc(100vw - 28px))"
-    align-center
+    :items="scopedSettingCategories"
+    :active-key="settingsCategory"
+    nav-aria-label="设置分类"
+    custom-class="settings-dialog"
+    @update:active-key="switchSettingsCategory($event as any)"
   >
-    <div class="settings-layout">
-      <nav class="settings-categories" aria-label="设置分类">
-        <button
-          v-for="category in scopedSettingCategories"
-          :key="category.id"
-          type="button"
-          :class="{ active: settingsCategory === category.id }"
-          @click="switchSettingsCategory(category.id)"
-        >
-          <component :is="category.icon" :size="18" />
-          <span><strong>{{ category.label }}</strong><small>{{ category.description }}</small></span>
-        </button>
-        <ExtensionSlot name="settings:tabs" />
-      </nav>
-      <section class="settings-detail">
-        <div v-if="settingsCategory === 'tools'" class="settings-section">
+    <template #nav-footer>
+      <ExtensionSlot name="settings:tabs" />
+    </template>
+    <template #content>
+      <div v-if="settingsCategory === 'tools'" class="settings-section">
           <div class="settings-section-heading">
             <span class="heading-icon-wrap"><LayoutGrid :size="18" /></span>
             <span><strong>快捷工具</strong><small>打开学习面板与常用小工具</small></span>
@@ -429,47 +421,34 @@ async function onPluginChange(): Promise<void> {
           <VoicePresetManagerPanel />
         </div>
         <PluginManagerPanel v-else class="settings-section" @change="onPluginChange" />
-      </section>
-    </div>
-  </el-dialog>
+    </template>
+  </AervoxNavDialog>
 
   <!-- 完全访问确认弹窗 -->
-  <el-dialog
+  <AervoxConfirmDialog
     v-model="conversation.fullAccessDialogOpen.value"
+    v-model:acknowledged="conversation.fullAccessAcknowledged.value"
     title="启用完全访问？"
-    class="permission-confirm-dialog"
-    width="min(500px, calc(100vw - 28px))"
-    align-center
+    :icon="ShieldAlert"
+    message="完全访问会减少确认步骤，允许思隅在当前会话中直接执行普通写操作。"
+    description="管理员级操作、数据撤权、单用户安全隔离与其它安全限制仍然生效。仅在你信任当前任务时开启。"
+    require-acknowledge
+    acknowledge-text="我已了解风险，并愿意继续"
+    confirm-text="启用完全访问"
+    cancel-text="取消"
+    custom-class="permission-confirm-dialog"
+    @confirm="conversation.enableFullAccess"
+    @cancel="conversation.fullAccessDialogOpen.value = false"
     @closed="conversation.resetFullAccessConfirmation"
-  >
-    <div class="permission-confirmation">
-      <span class="permission-confirmation-icon"><ShieldAlert :size="24" /></span>
-      <div>
-        <p>完全访问会减少确认步骤，允许思隅在当前会话中直接执行普通写操作。</p>
-        <small>管理员级操作、数据撤权、租户隔离与其它安全限制仍然生效。仅在你信任当前任务时开启。</small>
-      </div>
-    </div>
-    <label class="permission-acknowledgement">
-      <input v-model="conversation.fullAccessAcknowledged.value" type="checkbox" />
-      <span>我已了解风险，并愿意继续</span>
-    </label>
-    <template #footer>
-      <div class="permission-confirmation-actions">
-        <button type="button" class="permission-cancel" @click="conversation.fullAccessDialogOpen.value = false">取消</button>
-        <button type="button" class="permission-enable" :disabled="!conversation.fullAccessAcknowledged.value" @click="conversation.enableFullAccess">
-          启用完全访问
-        </button>
-      </div>
-    </template>
-  </el-dialog>
+  />
 
   <!-- 主动智能授权向导弹窗 -->
-  <el-dialog
+  <AervoxDialog
     v-model="proactiveDialogOpen"
     title="授权主动智能模式？"
-    class="permission-confirm-dialog proactive-authorization-dialog"
+    :icon="BrainCircuit"
+    custom-class="permission-confirm-dialog proactive-authorization-dialog"
     width="min(620px, calc(100vw - 28px))"
-    align-center
     @closed="resetProactiveAuthorization"
   >
     <div class="permission-confirmation">
@@ -491,13 +470,18 @@ async function onPluginChange(): Promise<void> {
     </label>
     <template #footer>
       <div class="permission-confirmation-actions">
-        <button type="button" class="permission-cancel" @click="proactiveDialogOpen = false">取消</button>
-        <button type="button" class="permission-enable proactive-enable" :disabled="!proactiveAcknowledged || proactiveBusy || toolApprovalMode !== 'full_access'" @click="authorizeProactive">
-          <RefreshCw v-if="proactiveBusy" class="proactive-spinner" :size="15" />
-          <BrainCircuit v-else :size="15" />
+        <AervoxButton variant="secondary" @click="proactiveDialogOpen = false">取消</AervoxButton>
+        <AervoxButton
+          variant="primary"
+          class="proactive-enable"
+          :disabled="!proactiveAcknowledged || proactiveBusy || toolApprovalMode !== 'full_access'"
+          :loading="proactiveBusy"
+          :icon="proactiveBusy ? RefreshCw : BrainCircuit"
+          @click="authorizeProactive"
+        >
           {{ toolApprovalMode === 'full_access' ? '请求权限并启用' : '请先开启完全访问' }}
-        </button>
+        </AervoxButton>
       </div>
     </template>
-  </el-dialog>
+  </AervoxDialog>
 </template>

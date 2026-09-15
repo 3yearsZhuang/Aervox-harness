@@ -7,15 +7,15 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 1.11.0
-updated_at: 2026-09-14
-reviewed_at: 2026-09-14
+updated_at: 2026-09-15
+reviewed_at: 2026-09-15
 review_interval_days: 90
 ---
 
 # 文档生命周期登记表（核验节奏与陈旧信号）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-14
+- 修改人：3yearszhuang · 2026-09-15
 
 关联：[文档索引](README.md)、[文档治理与事实源规范](reference/document-governance.md)
 
@@ -54,7 +54,7 @@ review_interval_days: 90
 | `AVX-SEC-001` | [威胁模型](reference/THREAT_MODEL.md) | 2026-09-10 | 每季度 + 信任边界变更 | loopback、文件 ACL 或 CR-030 迁移威胁未加入模型 |
 | `AVX-QA-001` | [测试策略](reference/TEST_STRATEGY.md) | 2026-09-10 | G1/G4 门禁 | 本地安全或 CR-030 故障注入 AC/TC 状态未回填 |
 | `AVX-OPS-001` | [运行、值班与演练手册](reference/operations.md) | 2026-09-13 | 每季度演练 + 每次发布 + 值班变更 | 本地恢复、CR-030 回滚或告警/拓扑变化未更新 |
-| `AVX-TRC-001` | [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) | 2026-09-14 | 版本立项 / G1 / G4 / 落地登记 | CAP/AC/TC 状态或追踪关系变化未回填；§4.2 落地登记与实现不符 |
+| `AVX-TRC-001` | [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) | 2026-09-15 | 版本立项 / G1 / G4 / 落地登记 | CAP/AC/TC 状态或追踪关系变化未回填；§4.2 落地登记与实现不符 |
 | `AVX-HOW-001` | [操作指南索引](how-to/README.md) | 2026-09-13 | 新增指南或操作流程变更 | 指南清单与实际目录不一致 |
 | `AVX-GUIDE-001` | [工程与发布流程](how-to/engineering-process.md) | 2026-09-13 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
 | `AVX-GUIDE-002` | [撰写与批准 ADR](how-to/write-adr.md) | 2026-08-28 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
@@ -117,6 +117,7 @@ review_interval_days: 90
 | `CR-046` | [标准工作台交互壳与会话侧栏 (W1)](reference/changes/CR-046-standard-workbench-shell-and-sidebar.md) | 2026-09-14 | `CAP-013/019/020` 会话侧栏、多会话 REST 契约、SQLite 级联删除与双模式布局切换变更 | 会话导航、多会话持久化、快捷键或桌宠挂件与本文不符 |
 | `CR-047` | [模式切换器与统一任务中心 (W2)](reference/changes/CR-047-mode-selector-and-task-center.md) | 2026-09-14 | `CAP-002/010/019/033` 交互模式切换器、统一任务中心只读抽屉与后台 Worker 状态深链变更 | 模式切换分段控件、任务中心概览或深链跳转与本文不符 |
 | `CR-048` | [项目上下文绑定与会话迁移设施 (W3)](reference/changes/CR-048-project-context-and-migration-facility.md) | 2026-09-14 | `CAP-026/033` 项目上下文显式绑定、外部会话导入器与命令面板变更 | 项目组织流、外部会话解析安全净化或快捷指令与本文不符 |
+| `CR-049` | [UI 基础控件库与全量弹窗控件化](reference/changes/CR-049-ui-primitives-and-dialog-componentization.md) | 2026-09-15 | `CAP-001/002/019/020/033` UI Primitives 基础控件库、全量业务弹窗控件化与淘汰阻塞式 window.confirm | 弹窗结构、Primitives 导出、非阻塞确认机制或视图控件化规范与本文不符 |
 | `AVX-PLAN-033` | [CR-033 落地临时计划](CR-033-plan.md) | 2026-09-14 | 对应子 CR 通过 G1 前每 30 天 | 子 CR 拆分、依赖、门禁或回滚建议与 CR-033 基线不一致；子 CR 通过 G1 后应迁移或删除 |
 | `AVX-PLAN-034` | [CR-034 落地临时计划](CR-034-plan.md) | 2026-09-14 | 对应子 CR 通过 G1 前每 30 天 | 子 CR 拆分、Provider 路由、能力分级或托管边界与 CR-034 基线不一致；子 CR 通过 G1 后应迁移或删除 |
 | `AVX-PLAN-035` | [CR-035 落地临时计划](CR-035-plan.md) | 2026-09-14 | 对应子 CR 通过 G1 前每 30 天 | 子 CR 拆分、会话/项目/任务契约或导入边界与 CR-035 基线不一致；子 CR 通过 G1 后应迁移或删除 |
@@ -136,9 +137,9 @@ review_interval_days: 90
 | `AVX-EXPL-007` | [运动与健康数据接入评估（已归档）](explanation/health-data-integration-assessment.md) | 2026-09-10 | 移动端形态 / 数据隐私 / 苹果或小米接入政策变更 | 接入路径、敏感分级或阶段结论与 CR-024 / DATA_PRIVACY 不一致 |
 | `AVX-EXPL-008` | [主动智能模式设计方案](explanation/proactive-intelligence-mode.md) | 2026-09-10 | CR-023/CAP-033、完全访问、全量画像、OS 能力授权、特权观察 Host、本地处理、动作授权、CAP-022/026/027/030 变更 | 四维状态、完整画像 manifest、平台能力清单、OS grant、本地出网边界、七天提炼保留、动作授权、阻断项或实现门禁与基线不一致 |
 | `AVX-EXPL-009` | [`packages/database` 拆分规划（已归档）](explanation/database-split-plan.md) | 2026-09-10 | `packages/database` schema/仓储接口、包结构或拆分方向变更 | 拆分方向、包边界、re-export 兼容层或分阶段落点与实现/ADR-014/追踪基线 §4.2 不一致 |
-| `AVX-DOC-001` | [文档索引](README.md) | 2026-09-14 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
+| `AVX-DOC-001` | [文档索引](README.md) | 2026-09-15 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
 | `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-09-14 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |
-| `AVX-DOC-CONF-001` | [文档生命周期登记表](DOC_REGISTRY.md) | 2026-09-14 | 每季度 + 每次文档集变更 | 登记条目与实际文档集不一致 |
+| `AVX-DOC-CONF-001` | [文档生命周期登记表](DOC_REGISTRY.md) | 2026-09-15 | 每季度 + 每次文档集变更 | 登记条目与实际文档集不一致 |
 
 ## 维护规则
 
