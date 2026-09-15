@@ -14,6 +14,8 @@ on:
       - "tsconfig.base.json"
       - "mise.toml"
       - "scripts/**"
+      - "e2e/**"
+      - "playwright.config.ts"
       - ".github/workflows/ci.yml"
   push:
     branches: [main]
@@ -29,6 +31,8 @@ on:
       - "tsconfig.base.json"
       - "mise.toml"
       - "scripts/**"
+      - "e2e/**"
+      - "playwright.config.ts"
       - ".github/workflows/ci.yml"
 
 permissions:
@@ -111,3 +115,66 @@ jobs:
         with:
           path: ${{ runner.temp }}/turbo-cache
           key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.run_id }}
+
+  # E2E（API 级）：spawn 真实 API 进程 + 文件 SQLite 的端到端验证。
+  # 与 build job 并行互不阻塞：代码门禁失败时本 job 仍独立给出 E2E 信号。
+  e2e:
+    name: E2E (API-level Playwright)
+    runs-on: ubuntu-latest
+    # 观察期（非阻塞）：E2E 初入 CI，先以 continue-on-error 收集稳定性数据
+    # （失败仅标注 warning，不拦截 PR）。连续稳定后（约两周零 flaky）改为
+    # false 转为强制门禁。
+    continue-on-error: true
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install mise
+        run: |
+          curl https://mise.run | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Restore mise cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/mise/installs
+            ~/.local/share/mise/cache
+          key: mise-${{ runner.os }}-${{ hashFiles('mise.toml') }}
+
+      - name: Install tools (node + pnpm from mise.toml)
+        run: mise install
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+
+      # 复用 build job 保存的 turbo 缓存（restore-only）：api 及上游依赖
+      # 未变更时构建秒级命中；新缓存条目由 build job 统一回写，本 job 不重复 save。
+      - name: Restore turbo cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/turbo-cache
+          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.run_id }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            turbo-${{ runner.os }}-
+
+      - name: Verify submodules
+        run: |
+          git submodule status --recursive
+
+      # E2E 为纯 API 级测试（Playwright request fixture，无浏览器用例），
+      # 无需 playwright install 安装浏览器二进制。
+      - name: Build API (with dependencies)
+        env:
+          TURBO_CACHE_DIR: ${{ runner.temp }}/turbo-cache
+        run: mise exec -- pnpm exec turbo run build --filter=@aervox/api
+
+      - name: Run E2E tests
+        run: mise exec -- pnpm run test:e2e
