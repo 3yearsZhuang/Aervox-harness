@@ -51,11 +51,30 @@ describe('FocusModePlugin (and StudyMode compatibility)', () => {
     expect(navItem?.priority).toBe(100);
     expect(navItem?.component).toBe(FocusNavMenuItem);
 
+    const drawers = registry.getSlotComponents('workbench:drawers');
+    const drawerItem = drawers.find((item) => item.id === 'focus-mode:learning-drawer');
+    expect(drawerItem).toBeDefined();
+    expect(drawerItem?.priority).toBe(100);
+
+    const taskCards = registry.getSlotComponents('taskcenter:cards');
+    const taskCardItem = taskCards.find((item) => item.id === 'focus-mode:task-card');
+    expect(taskCardItem).toBeDefined();
+    expect(taskCardItem?.priority).toBe(100);
+
+    const cards = registry.getCards();
+    expect(cards.map((c) => c.id)).toEqual(['study', 'mistake', 'quiz']);
+    expect(cards[0].priority).toBe(100);
+    expect(cards[1].priority).toBe(90);
+    expect(cards[2].priority).toBe(80);
+
     // Test unregister cleanup
     unregister();
     expect(registry.getSlotComponents('header:actions').find((item) => item.id === 'focus-mode:header-switch')).toBeUndefined();
     expect(registry.getSlotComponents('conversation:bottom').find((item) => item.id === 'focus-mode:terms-bar')).toBeUndefined();
     expect(registry.getSlotComponents('nav:menu-items').find((item) => item.id === 'focus-mode:nav-menu-item')).toBeUndefined();
+    expect(registry.getSlotComponents('workbench:drawers').find((item) => item.id === 'focus-mode:learning-drawer')).toBeUndefined();
+    expect(registry.getSlotComponents('taskcenter:cards').find((item) => item.id === 'focus-mode:task-card')).toBeUndefined();
+    expect(registry.getCards()).toHaveLength(0);
   });
 
   it('is idempotent when registered multiple times', () => {

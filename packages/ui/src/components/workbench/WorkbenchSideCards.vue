@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ChevronRight, CircleHelp, Clock3, Pause, Play, Plus, Puzzle, TimerReset, X } from 'lucide-vue-next';
+import { ChevronRight, CircleHelp, Pause, Play, Plus, TimerReset, X } from 'lucide-vue-next';
 import ExtensionSlot from '../extension/ExtensionSlot.vue';
 import { useWorkbenchContext } from '../../composables/workbench-context';
 
 const { layout, timer, cards } = useWorkbenchContext();
-const { assistantDisplayName, focusModeEnabled, studyModeEnabled, openTool } = layout;
+const { assistantDisplayName } = layout;
 const {
   timerRunning,
   timerMinutes,
@@ -22,7 +22,6 @@ const {
   selectCard,
   activateCard,
   isCardPicked,
-  openDailyProblem,
 } = cards;
 </script>
 
@@ -120,21 +119,8 @@ const {
                 </button>
               </div>
             </div>
-            <!-- 专注/学习模式下的今日学习富卡片 -->
-            <div v-if="card.id === 'study' && (focusModeEnabled || studyModeEnabled)" class="side-card-grid side-card-actions">
-              <button type="button" class="side-card-grid-item" @click.stop="openDailyProblem()">
-                <CircleHelp :size="15" />
-                <span>每日一题</span>
-              </button>
-              <button type="button" class="side-card-grid-item" @click.stop="openTool('timer')">
-                <Clock3 :size="15" />
-                <span>开始专注</span>
-              </button>
-              <button type="button" class="side-card-grid-item" @click.stop="openTool('mistake')">
-                <Puzzle :size="15" />
-                <span>错题重练</span>
-              </button>
-            </div>
+            <!-- 卡片自定义扩展操作区（由 CardDefinition.extraComponent 动态挂载） -->
+            <component :is="card.extraComponent" v-if="card.extraComponent" />
             <footer class="side-card-foot">
               <span>点击打开</span>
               <ChevronRight :size="15" />

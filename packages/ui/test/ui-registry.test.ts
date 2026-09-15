@@ -66,4 +66,63 @@ describe('UIRegistry', () => {
     unregister();
     expect(registry.transformMessage('msg')).toBe('msg');
   });
+
+  it('registers and orders cards by priority and unregisters cleanly', () => {
+    const registry = createUIRegistry();
+    const DummyIcon = defineComponent({ render: () => h('span', 'icon') });
+    const Extra = defineComponent({ render: () => h('div', 'extra') });
+
+    const unregister1 = registry.registerCard({
+      id: 'card-low',
+      label: '低优先级卡片',
+      description: 'low priority',
+      icon: DummyIcon,
+      summary: () => 'low',
+      action: () => {},
+      priority: 10,
+    });
+
+    const unregister2 = registry.registerCard({
+      id: 'card-high',
+      label: '高优先级卡片',
+      description: 'high priority',
+      icon: DummyIcon,
+      summary: () => 'high',
+      action: () => {},
+      extraComponent: Extra,
+      priority: 100,
+    });
+
+    const cards = registry.getCards();
+    expect(cards).toHaveLength(2);
+    expect(cards[0].id).toBe('card-high');
+    expect(cards[1].id).toBe('card-low');
+    expect(cards[0].extraComponent).toBeDefined();
+
+    // Unregister high
+    unregister2();
+    expect(registry.getCards().map((c) => c.id)).toEqual(['card-low']);
+
+    // Unregister low
+    unregister1();
+    expect(registry.getCards()).toHaveLength(0);
+  });
+
+  it('clears all cards on clear()', () => {
+    const registry = createUIRegistry();
+    const DummyIcon = defineComponent({ render: () => h('span', 'icon') });
+
+    registry.registerCard({
+      id: 'temp-card',
+      label: '临时卡片',
+      description: 'temp',
+      icon: DummyIcon,
+      summary: () => 'temp',
+      action: () => {},
+    });
+
+    expect(registry.getCards()).toHaveLength(1);
+    registry.clear();
+    expect(registry.getCards()).toHaveLength(0);
+  });
 });

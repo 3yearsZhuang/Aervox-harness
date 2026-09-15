@@ -3,6 +3,8 @@ import { mount, flushPromises } from '@vue/test-utils';
 import { ref, computed } from 'vue';
 import { useWorkbenchLayout } from '../src/composables/useWorkbenchLayout';
 import { WORKBENCH_CONTEXT_KEY, type WorkbenchContext } from '../src/composables/workbench-context';
+import { createUIRegistry, UI_REGISTRY_KEY } from '../src/registry/ui-registry';
+import { registerFocusModePlugin } from '../src/plugins';
 import WorkbenchSidebar from '../src/components/workbench/WorkbenchSidebar.vue';
 import TaskCenterDrawer from '../src/components/workbench/drawers/TaskCenterDrawer.vue';
 import type { SessionItem } from '@aervox/contracts';
@@ -155,6 +157,8 @@ describe('Standard Workbench Mode (CR-035 / W1 & W2)', () => {
     const openTool = vi.fn();
     const openSettingsCategory = vi.fn();
 
+    const registry = createUIRegistry();
+
     const mockContext: WorkbenchContext = {
       layout: {
         taskCenterOpen: ref(true),
@@ -182,6 +186,7 @@ describe('Standard Workbench Mode (CR-035 / W1 & W2)', () => {
       global: {
         provide: {
           [WORKBENCH_CONTEXT_KEY as symbol]: mockContext,
+          [UI_REGISTRY_KEY as symbol]: registry,
         },
         stubs: {
           'el-dialog': {
@@ -192,12 +197,23 @@ describe('Standard Workbench Mode (CR-035 / W1 & W2)', () => {
       },
     });
 
-    // 验证各任务卡片渲染
+    // 默认未注册插件时，任务中心只展示核心卡片，不包含硬编码的学习错题卡片（完全解耦）
     expect(wrapper.text()).toContain('统一任务中心');
-    expect(wrapper.text()).toContain('间隔复习与错题排期');
-    expect(wrapper.text()).toContain('3 个待复习');
+    expect(wrapper.text()).not.toContain('间隔复习与错题排期');
     expect(wrapper.text()).toContain('今日日记已提炼完成');
     expect(wrapper.text()).toContain('番茄专注钟');
     expect(wrapper.text()).toContain('本地 SQLite 单库真源 (WAL 模式)');
+
+    // 注册专注模式插件后，声明式注入到 taskcenter:cards 槽位
+    const unregister = registerFocusModePlugin(registry, mockContext);
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.text()).toContain('间隔复习与错题排期');
+    expect(wrapper.text()).toContain('3 个待复习');
+
+    // 卸载插件后，自动清除该卡片
+    unregister();
+    await wrapper.vm.$nextTick();
+    expect(wrapper.text()).not.toContain('间隔复习与错题排期');
   });
 });
