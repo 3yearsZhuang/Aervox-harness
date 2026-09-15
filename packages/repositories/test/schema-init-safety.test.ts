@@ -66,4 +66,67 @@ describe("Schema 初始化与列迁移安全 (Issue 4 & 5)", () => {
       await dbB.cleanup();
     }
   });
+
+  it("initDatabaseSchema: 高频 Worker 扫描索引按旧库重入方式补齐", async () => {
+    const { client, cleanup } = await createInMemoryDatabase();
+    try {
+      await initDatabaseSchema(client);
+
+      const rows = await client.execute(`
+        SELECT name
+        FROM sqlite_master
+        WHERE type = 'index'
+          AND name IN (
+            'outbox_pending_created_idx',
+            'turn_attempts_status_lease_idx',
+            'deletion_requests_status_idx',
+            'review_items_active_due_idx',
+            'agent_inbox_claim_idx',
+            'tool_executions_attempt_status_idx',
+            'turn_stream_events_turn_type_seq_idx',
+            'message_versions_turn_role_ver_idx'
+          )
+        ORDER BY name
+      `);
+      expect(rows.rows.map((row) => String(row.name))).toEqual([
+        "agent_inbox_claim_idx",
+        "deletion_requests_status_idx",
+        "message_versions_turn_role_ver_idx",
+        "outbox_pending_created_idx",
+        "review_items_active_due_idx",
+        "tool_executions_attempt_status_idx",
+        "turn_attempts_status_lease_idx",
+        "turn_stream_events_turn_type_seq_idx",
+      ]);
+
+      // 模拟旧库缺少新索引：重入初始化必须补回索引。
+      await client.execute(`DROP INDEX agent_inbox_claim_idx`);
+      await client.execute(`DROP INDEX tool_executions_attempt_status_idx`);
+      await client.execute(`DROP INDEX turn_stream_events_turn_type_seq_idx`);
+      await client.execute(`DROP INDEX message_versions_turn_role_ver_idx`);
+      await initDatabaseSchema(client);
+      const restored = await client.execute(
+        `SELECT name FROM sqlite_master
+         WHERE type = 'index'
+           AND name IN (
+             'agent_inbox_claim_idx',
+             'tool_executions_attempt_status_idx',
+             'turn_stream_events_turn_type_seq_idx',
+             'message_versions_turn_role_ver_idx'
+           )
+         ORDER BY name`,
+      );
+      expect(restored.rows.map((row) => String(row.name))).toEqual([
+        "agent_inbox_claim_idx",
+        "message_versions_turn_role_ver_idx",
+        "tool_executions_attempt_status_idx",
+        "turn_stream_events_turn_type_seq_idx",
+      ]);
+
+      // 再次初始化必须保持幂等，不重复创建或抛错。
+      await expect(initDatabaseSchema(client)).resolves.toBeUndefined();
+    } finally {
+      await cleanup();
+    }
+  });
 });

@@ -107,6 +107,7 @@ export * from "./model-routing-schemas.js";
 export * from "./safety-schemas.js";
 export * from "./safety-classifier.js";
 export * from "./session-schemas.js";
+export * from "./project-schemas.js";
 export { openApiDocument } from "./openapi.js";
 
 export type TurnStatus = z.infer<typeof turnStatusSchema>;

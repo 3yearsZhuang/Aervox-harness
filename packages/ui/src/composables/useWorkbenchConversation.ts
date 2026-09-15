@@ -40,6 +40,112 @@ export function splitIntoSentences(text: string): string[] {
     .filter(Boolean);
 }
 
+export interface StreamingDeltaBatcherOptions {
+  /** Override the frame scheduler in tests or non-browser hosts. */
+  schedule?: (callback: () => void) => unknown;
+  /** Cancels a callback returned by `schedule`, when supported. */
+  cancel?: (handle: unknown) => void;
+}
+
+/**
+ * Coalesce high-frequency stream chunks into one reactive update per frame.
+ *
+ * A model can emit dozens of deltas between browser paints. Updating the
+ * accumulated message for each chunk makes every computed consumer rescan the
+ * whole response. Keeping the scheduler injectable makes the batching contract
+ * deterministic in unit tests while using rAF in the browser.
+ */
+export function createStreamingDeltaBatcher(
+  onFlush: (text: string) => void,
+  options: StreamingDeltaBatcherOptions = {},
+): {
+  append: (text: string) => void;
+  flush: () => void;
+  cancel: () => void;
+} {
+  const hasAnimationFrame = typeof requestAnimationFrame === 'function';
+  const schedule = options.schedule ?? (hasAnimationFrame
+    ? (callback: () => void) => requestAnimationFrame(() => callback())
+    : (callback: () => void) => setTimeout(callback, 16));
+  const cancelScheduled = options.cancel ?? (options.schedule
+    ? () => undefined
+    : hasAnimationFrame
+      ? (handle: unknown) => {
+          if (typeof cancelAnimationFrame === 'function' && typeof handle === 'number') {
+            cancelAnimationFrame(handle);
+          }
+        }
+      : (handle: unknown) => {
+          if (handle !== undefined && handle !== null) clearTimeout(handle as ReturnType<typeof setTimeout>);
+        });
+
+  let pending: string[] = [];
+  let nextScheduleToken = 0;
+  let scheduledToken: number | null = null;
+  let scheduledHandle: unknown = null;
+
+  const flushPending = () => {
+    if (pending.length === 0) return;
+    const text = pending.join('');
+    pending = [];
+    onFlush(text);
+  };
+
+  const runScheduledFlush = () => {
+    // The token guards against a stale callback that could not be cancelled by
+    // a host scheduler, and also supports schedulers that invoke synchronously.
+    const token = scheduledToken;
+    if (token === null) return;
+    scheduledToken = null;
+    scheduledHandle = null;
+    flushPending();
+  };
+
+  const flush = () => {
+    if (scheduledToken !== null) {
+      const handle = scheduledHandle;
+      scheduledToken = null;
+      scheduledHandle = null;
+      cancelScheduled(handle);
+    }
+    flushPending();
+  };
+
+  const append = (text: string) => {
+    if (!text) return;
+    pending.push(text);
+    if (scheduledToken === null) {
+      const token = ++nextScheduleToken;
+      scheduledToken = token;
+      let handle: unknown;
+      try {
+        handle = schedule(() => {
+          if (scheduledToken !== token) return;
+          runScheduledFlush();
+        });
+      } catch (error) {
+        if (scheduledToken === token) scheduledToken = null;
+        throw error;
+      }
+      // A synchronous scheduler may have already run (and cleared) this token.
+      // Do not let its returned handle poison the next scheduling cycle.
+      if (scheduledToken === token) scheduledHandle = handle;
+    }
+  };
+
+  const cancel = () => {
+    if (scheduledToken !== null) {
+      const handle = scheduledHandle;
+      scheduledToken = null;
+      scheduledHandle = null;
+      cancelScheduled(handle);
+    }
+    pending = [];
+  };
+
+  return { append, flush, cancel };
+}
+
 export function useWorkbenchConversation(options: {
   recordActivity: (source: 'aervox.activity' | 'aervox.operation', eventType: string, payloadText?: string, metadata?: Record<string, unknown>) => void;
   onRefreshProactiveStatus?: () => Promise<void>;

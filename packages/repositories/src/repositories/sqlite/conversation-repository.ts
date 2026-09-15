@@ -33,6 +33,28 @@ import type {
   ToolApprovalModel,
 } from "../types/index.js";
 
+/**
+ * Recovery runs frequently and the host only needs a small work queue. Keep
+ * candidate reads bounded even when a caller forgets to pass a page size.
+ */
+export const MAX_RESUME_CANDIDATE_LIMIT = 100;
+/**
+ * Keep multi-row safe-segment inserts below SQLite/libSQL bind-variable
+ * limits. A model step normally produces far fewer rows; the cap is a guard
+ * for providers that emit unusually fine-grained chunks.
+ */
+const SAFE_SEGMENT_BATCH_SIZE = 32;
+
+/** Turn 内 sequence 唯一，因此可构造跨进程稳定、可重连复用的事件标识。 */
+const streamEventId = (turnId: string, sequence: number): string => `tev_${turnId}_${sequence}`;
+const safeSegmentId = (turnId: string, sequence: number): string => `sseg_${turnId}_${sequence}`;
+
+function normalizeResumeCandidateLimit(limit?: number): number {
+  if (limit === undefined || limit === Infinity) return MAX_RESUME_CANDIDATE_LIMIT;
+  if (!Number.isFinite(limit)) return 0;
+  return Math.max(0, Math.min(MAX_RESUME_CANDIDATE_LIMIT, Math.floor(limit)));
+}
+
 export class SqliteConversationRepository implements IConversationRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
@@ -40,14 +62,19 @@ export class SqliteConversationRepository implements IConversationRepository {
     return readSessionHistory(this.db, tenant, input);
   }
 
-  async createSession(tenant: LocalContext, title: string): Promise<SessionModel> {
-    const id = `ses_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  async createSession(
+    _tenant: LocalContext,
+    title: string,
+    options?: { id?: string; projectId?: string | null },
+  ): Promise<SessionModel> {
+    const id = options?.id?.trim() || `ses_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(sessions)
       .values({
         id,
         title,
+        projectId: options?.projectId ?? null,
         createdAt: now,
         updatedAt: now,
       })
@@ -78,6 +105,7 @@ export class SqliteConversationRepository implements IConversationRepository {
     tenant: LocalContext,
     sessionId: string,
     title = "默认会话",
+    projectId?: string | null,
   ): Promise<SessionModel> {
     const existing = await this.getSession(tenant, sessionId);
     if (existing) return existing;
@@ -87,6 +115,7 @@ export class SqliteConversationRepository implements IConversationRepository {
       .values({
         id: sessionId,
         title,
+        projectId: projectId ?? null,
         createdAt: now,
         updatedAt: now,
       })
@@ -96,29 +125,40 @@ export class SqliteConversationRepository implements IConversationRepository {
 
   async listSessions(
     _tenant: LocalContext,
-    options?: { limit?: number; offset?: number },
+    options?: { limit?: number; offset?: number; projectId?: string },
   ): Promise<SessionModel[]> {
-    const rows = await this.db
-      .select()
-      .from(sessions)
-      .orderBy(desc(sessions.updatedAt))
-      .limit(options?.limit ?? 100)
-      .offset(options?.offset ?? 0);
+    const query = this.db.select().from(sessions);
+    const rows = options?.projectId
+      ? await query
+          .where(eq(sessions.projectId, options.projectId))
+          .orderBy(desc(sessions.updatedAt))
+          .limit(options?.limit ?? 100)
+          .offset(options?.offset ?? 0)
+      : await query
+          .orderBy(desc(sessions.updatedAt))
+          .limit(options?.limit ?? 100)
+          .offset(options?.offset ?? 0);
     return rows as SessionModel[];
   }
 
   async renameSession(
     _tenant: LocalContext,
     sessionId: string,
-    title: string,
+    updates: string | { title?: string; projectId?: string | null },
   ): Promise<SessionModel | null> {
     const now = new Date().toISOString();
+    const patch: Record<string, unknown> = { updatedAt: now };
+
+    if (typeof updates === "string") {
+      patch.title = updates;
+    } else {
+      if (updates.title !== undefined) patch.title = updates.title;
+      if (updates.projectId !== undefined) patch.projectId = updates.projectId;
+    }
+
     const [updated] = await this.db
       .update(sessions)
-      .set({
-        title,
-        updatedAt: now,
-      })
+      .set(patch)
       .where(eq(sessions.id, sessionId))
       .returning();
     return (updated as SessionModel) ?? null;
@@ -340,6 +380,22 @@ export class SqliteConversationRepository implements IConversationRepository {
       )
       .orderBy(turnStreamEvents.sequence);
     return rows as TurnStreamEventModel[];
+  }
+
+  async getStreamEventById(
+    tenant: LocalContext,
+    turnId: string,
+    eventId: string,
+  ): Promise<TurnStreamEventModel | null> {
+    const [row] = await this.db
+      .select()
+      .from(turnStreamEvents)
+      .where(and(
+        eq(turnStreamEvents.turnId, turnId),
+        eq(turnStreamEvents.id, eventId),
+      ))
+      .limit(1);
+    return (row as TurnStreamEventModel | undefined) ?? null;
   }
 
   async recordTurnStreamEvent(
@@ -905,7 +961,7 @@ export class SqliteConversationRepository implements IConversationRepository {
           );
         }
         await tx.insert(turnStreamEvents).values({
-          id: `tev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+          id: streamEventId(input.turnId, input.sequence),
           turnId: input.turnId,
           attemptId: input.attemptId,
           sequence: input.sequence,
@@ -972,7 +1028,7 @@ export class SqliteConversationRepository implements IConversationRepository {
           .returning({ id: turnAttempts.id });
         if (!updated) return false;
         await tx.insert(turnStreamEvents).values({
-          id: `tev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+          id: streamEventId(input.turnId, input.sequence),
           turnId: input.turnId,
           attemptId: input.attemptId,
           sequence: input.sequence,
@@ -1022,8 +1078,8 @@ export class SqliteConversationRepository implements IConversationRepository {
             `attempt ${input.attemptId} fencing=${attempt?.fencingToken ?? "?"} status=${attempt?.status ?? "?"} cannot record safe segment`,
           );
         }
-        const segmentId = `sseg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-        const eventId = `tev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+        const segmentId = safeSegmentId(input.turnId, input.sequence);
+        const eventId = streamEventId(input.turnId, input.sequence);
         const now = new Date().toISOString();
         // 1) delta 事件
         await tx.insert(turnStreamEvents).values({
@@ -1048,6 +1104,87 @@ export class SqliteConversationRepository implements IConversationRepository {
           createdAt: now,
           updatedAt: now,
         });
+        return true;
+      },
+      { behavior: "immediate" },
+    );
+  }
+
+  /**
+   * E2 batch variant: retain one `safe_segments`/`delta` row per text chunk,
+   * but validate fencing once and insert the whole chunk set in one transaction.
+   * Large sets are split into bounded statements inside that transaction to
+   * stay within SQLite parameter limits; the complete set remains atomic.
+   */
+  async recordSafeSegmentsAtomically(
+    tenant: LocalContext,
+    inputs: Array<{
+      turnId: string;
+      attemptId: string;
+      sequence: number;
+      text: string;
+      eventData: unknown;
+      safetyDecision?: string | null;
+      expectedFencingToken: number;
+    }>,
+  ): Promise<boolean> {
+    if (inputs.length === 0) return true;
+    return this.db.transaction(
+      async (tx) => {
+        const first = inputs[0]!;
+        const [attempt] = await tx
+          .select({ status: turnAttempts.status, fencingToken: turnAttempts.fencingToken })
+          .from(turnAttempts)
+          .where(
+            and(
+              eq(turnAttempts.id, first.attemptId),
+              eq(turnAttempts.turnId, first.turnId),
+            ),
+          );
+        const running = attempt && (attempt.status === "Running" || attempt.status === "CancelRequested");
+        const sameAttempt = inputs.every((input) =>
+          input.turnId === first.turnId &&
+          input.attemptId === first.attemptId &&
+          input.expectedFencingToken === first.expectedFencingToken,
+        );
+        if (!attempt || attempt.fencingToken !== first.expectedFencingToken || !running || !sameAttempt) {
+          throw new FencingMismatchError(
+            `attempt ${first.attemptId} fencing=${attempt?.fencingToken ?? "?"} status=${attempt?.status ?? "?"} cannot record safe segment batch`,
+          );
+        }
+
+        const now = new Date().toISOString();
+        for (let offset = 0; offset < inputs.length; offset += SAFE_SEGMENT_BATCH_SIZE) {
+          const batch = inputs.slice(offset, offset + SAFE_SEGMENT_BATCH_SIZE);
+          const rows = batch.map((input) => {
+            return {
+              input,
+              eventId: streamEventId(input.turnId, input.sequence),
+              segmentId: safeSegmentId(input.turnId, input.sequence),
+            };
+          });
+          await tx.insert(turnStreamEvents).values(rows.map(({ input, eventId }) => ({
+            id: eventId,
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            sequence: input.sequence,
+            eventType: "delta",
+            data: input.eventData,
+            occurredAt: now,
+            safetyDecision: input.safetyDecision ?? null,
+          })));
+          await tx.insert(safeSegments).values(rows.map(({ input, eventId, segmentId }) => ({
+            id: segmentId,
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            sequence: input.sequence,
+            text: input.text,
+            committed: 1,
+            streamEventId: eventId,
+            createdAt: now,
+            updatedAt: now,
+          })));
+        }
         return true;
       },
       { behavior: "immediate" },
@@ -1089,6 +1226,7 @@ export class SqliteConversationRepository implements IConversationRepository {
    */
   async findResumeCandidates(
     client: import("@libsql/client").Client,
+    limit?: number,
   ): Promise<
     Array<{
       attemptId: string;
@@ -1100,6 +1238,8 @@ export class SqliteConversationRepository implements IConversationRepository {
       fencingToken: number;
     }>
   > {
+    const candidateLimit = normalizeResumeCandidateLimit(limit);
+    if (candidateLimit === 0) return [];
     const now = new Date().toISOString();
     const result = await client.execute({
       sql: `
@@ -1121,8 +1261,10 @@ export class SqliteConversationRepository implements IConversationRepository {
                       WHERE te.attempt_id = ta.id AND te.status = 'executed')
           AND NOT EXISTS (SELECT 1 FROM turn_stream_events e2
                           WHERE e2.turn_id = ta.turn_id AND e2.event_type = 'done')
+        ORDER BY ta.lease_expires_at ASC, ta.id ASC
+        LIMIT ?
       `,
-      args: [now],
+      args: [now, candidateLimit],
     });
     return result.rows.map((row) => ({
       attemptId: String(row.attempt_id),
@@ -1437,5 +1579,99 @@ export class SqliteConversationRepository implements IConversationRepository {
       result.push(...children);
     }
     return result;
+  }
+
+  async importSession(
+    _tenant: LocalContext,
+    input: {
+      title?: string;
+      projectId?: string | null;
+      messages: Array<{
+        role: "user" | "assistant" | "system";
+        content: string;
+        createdAt?: string;
+      }>;
+    },
+  ): Promise<{
+    session: SessionModel;
+    turnsCount: number;
+    messagesCount: number;
+  }> {
+    const sessionId = `ses_imp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    const now = new Date().toISOString();
+    const title =
+      input.title?.trim() ||
+      input.messages.find((m) => m.role === "user")?.content.slice(0, 30) ||
+      "导入会话";
+
+    return await this.db.transaction(async (tx) => {
+      const [session] = await tx
+        .insert(sessions)
+        .values({
+          id: sessionId,
+          title,
+          projectId: input.projectId ?? null,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
+
+      let turnIndex = 0;
+      let currentTurnId = "";
+      let versionInTurn = 0;
+      let turnsCount = 0;
+
+      for (let i = 0; i < input.messages.length; i++) {
+        const msg = input.messages[i]!;
+        const msgTime = msg.createdAt || now;
+
+        if (msg.role === "user" || !currentTurnId) {
+          turnIndex++;
+          turnsCount++;
+          currentTurnId = `turn_imp_${Date.now().toString(36)}_${turnIndex}_${Math.random().toString(36).slice(2, 6)}`;
+          versionInTurn = 0;
+
+          await tx.insert(turns).values({
+            id: currentTurnId,
+            sessionId,
+            idempotencyKey: `idem_${currentTurnId}`,
+            status: "Completed",
+            lastSequence: 1,
+            completedAt: msgTime,
+            createdAt: msgTime,
+            updatedAt: msgTime,
+          });
+        }
+
+        versionInTurn++;
+        const messageId = `msg_imp_${Date.now().toString(36)}_${i + 1}_${Math.random().toString(36).slice(2, 6)}`;
+        const versionId = `mv_imp_${Date.now().toString(36)}_${i + 1}_${Math.random().toString(36).slice(2, 6)}`;
+
+        await tx.insert(messages).values({
+          id: messageId,
+          sessionId,
+          role: msg.role,
+          currentVersionId: versionId,
+          createdAt: msgTime,
+        });
+
+        await tx.insert(messageVersions).values({
+          id: versionId,
+          turnId: currentTurnId,
+          messageId,
+          role: msg.role,
+          version: versionInTurn,
+          content: msg.content,
+          isRedacted: 0,
+          createdAt: msgTime,
+        });
+      }
+
+      return {
+        session: session as SessionModel,
+        turnsCount,
+        messagesCount: input.messages.length,
+      };
+    });
   }
 }

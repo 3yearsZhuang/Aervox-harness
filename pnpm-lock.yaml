@@ -157,6 +157,9 @@ importers:
 
   apps/mobile:
     dependencies:
+      '@aervox/web':
+        specifier: workspace:*
+        version: link:../web
       '@capacitor/core':
         specifier: ^8.5.0
         version: 8.5.0
