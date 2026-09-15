@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BrainCircuit, GraduationCap, Heart, LayoutGrid, Menu, Settings, X } from 'lucide-vue-next';
+import { BrainCircuit, Heart, LayoutGrid, Menu, Settings, X } from 'lucide-vue-next';
 import ExtensionSlot from '../extension/ExtensionSlot.vue';
 import { useWorkbenchContext } from '../../composables/workbench-context';
 
@@ -16,7 +16,6 @@ const {
 
 const menuItems = [
   { id: 'tools', label: '工具管理', icon: LayoutGrid, action: () => openTool('todo') },
-  { id: 'learning', label: '学习能力', icon: GraduationCap, action: () => openTool('study') },
   { id: 'proactive', label: '主动智能', icon: BrainCircuit, action: () => openSettingsCategory('proactive') },
   { id: 'settings', label: '详细设置', icon: Settings, action: () => openSettingsCategory('tools') },
   { id: 'siyu', label: '你的思隅', icon: Heart, action: () => openSettingsCategory('conversation') },

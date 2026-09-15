@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { ref, defineComponent, h } from 'vue';
 import StudyModeSwitch from '../src/plugins/study-mode/StudyModeSwitch.vue';
+import FocusNavMenuItem from '../src/plugins/focus-mode/FocusNavMenuItem.vue';
+import WorkbenchNavPill from '../src/components/workbench/WorkbenchNavPill.vue';
+import { registerFocusModePlugin } from '../src/plugins';
 import ExtensionSlot from '../src/components/extension/ExtensionSlot.vue';
 import { WORKBENCH_CONTEXT_KEY, type WorkbenchContext } from '../src/composables/workbench-context';
 import { createUIRegistry, UI_REGISTRY_KEY } from '../src/registry/ui-registry';
@@ -147,5 +150,73 @@ describe('Real SFC Component Mounting', () => {
     await wrapperWithoutOnSend.find('.submit-btn').trigger('click');
     expect(wrapperWithoutOnSend.emitted('send')).toBeDefined();
     expect(wrapperWithoutOnSend.emitted('send')![0]).toEqual(['Fallback text']);
+  });
+
+  it('FocusNavMenuItem.vue mounts, displays label and triggers runMenuAction with openTool study on click', async () => {
+    const runMenuAction = vi.fn((action: () => void) => action());
+    const openTool = vi.fn();
+    const mockContext = {
+      layout: {
+        runMenuAction,
+        openTool,
+      },
+    } as unknown as WorkbenchContext;
+
+    const wrapper = mount(FocusNavMenuItem, {
+      global: {
+        provide: {
+          [WORKBENCH_CONTEXT_KEY as symbol]: mockContext,
+        },
+      },
+    });
+
+    expect(wrapper.text()).toContain('学习能力');
+    await wrapper.trigger('click');
+    expect(runMenuAction).toHaveBeenCalledTimes(1);
+    expect(openTool).toHaveBeenCalledWith('study');
+  });
+
+  it('WorkbenchNavPill.vue decouples focus mode: no hardcoded 学习能力 without plugin, renders sequentially when registered', async () => {
+    const registry = createUIRegistry();
+    const openTool = vi.fn();
+    const runMenuAction = vi.fn((action: () => void) => action());
+    const mockContext = {
+      layout: {
+        menuOpen: ref(true),
+        menuPillRef: ref(null),
+        toggleMenu: vi.fn(),
+        handlePillClick: vi.fn(),
+        runMenuAction,
+        openTool,
+        openSettingsCategory: vi.fn(),
+      },
+    } as unknown as WorkbenchContext;
+
+    const wrapper = mount(WorkbenchNavPill, {
+      global: {
+        provide: {
+          [WORKBENCH_CONTEXT_KEY as symbol]: mockContext,
+          [UI_REGISTRY_KEY as symbol]: registry,
+        },
+      },
+    });
+
+    // Without plugin: 学习能力 should NOT exist
+    expect(wrapper.text()).not.toContain('学习能力');
+    const nativeItems = wrapper.findAll('.menu-item');
+    expect(nativeItems.map((el) => el.text())).toEqual(['工具管理', '主动智能', '详细设置', '你的思隅']);
+
+    // When focus-mode registers: nav:menu-items renders 学习能力 sequentially
+    const unregister = registerFocusModePlugin(registry, mockContext);
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.text()).toContain('学习能力');
+    const allItems = wrapper.findAll('.menu-item');
+    expect(allItems.map((el) => el.text())).toEqual(['工具管理', '主动智能', '详细设置', '你的思隅', '学习能力']);
+
+    // When plugin unregisters: 学习能力 disappears
+    unregister();
+    await wrapper.vm.$nextTick();
+    expect(wrapper.text()).not.toContain('学习能力');
   });
 });

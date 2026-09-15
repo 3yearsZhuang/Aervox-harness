@@ -282,6 +282,11 @@
   transition: opacity .16s ease .16s, transform .16s ease .16s, visibility 0s;
 }
 
+.menu-items > .aervox-extension-slot,
+.aervox-extension-slot[data-slot-name="nav:menu-items"] {
+  display: contents;
+}
+
 .menu-item {
   position: relative;
   display: inline-flex;
