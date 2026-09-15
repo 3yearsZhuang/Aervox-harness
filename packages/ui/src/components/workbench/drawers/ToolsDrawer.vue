@@ -64,6 +64,11 @@ const {
 } = cards;
 
 const { story } = conversation;
+
+function openHistoryView() {
+  toolsOpen.value = false;
+  historyOpen.value = true;
+}
 </script>
 
 <template>
@@ -228,7 +233,7 @@ const { story } = conversation;
         <template v-else-if="activeToolView === 'history'">
           <p class="drawer-intro">完整上下文回看：视觉小说式滚动浏览与思隅的全部对话。</p>
           <div class="diary-actions">
-            <button type="button" class="diary-generate-btn" @click="historyOpen = true">
+            <button type="button" class="diary-generate-btn" @click="openHistoryView">
               <History :size="16" />
               <span>打开对话回看（{{ story.length }} 条记录）</span>
             </button>

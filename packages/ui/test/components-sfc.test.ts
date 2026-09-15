@@ -6,6 +6,7 @@ import FocusNavMenuItem from '../src/plugins/focus-mode/FocusNavMenuItem.vue';
 import FocusStudyCardActions from '../src/plugins/focus-mode/FocusStudyCardActions.vue';
 import FocusTaskCenterCard from '../src/plugins/focus-mode/FocusTaskCenterCard.vue';
 import SettingsModal from '../src/components/workbench/drawers/SettingsModal.vue';
+import ToolsDrawer from '../src/components/workbench/drawers/ToolsDrawer.vue';
 import WorkbenchNavPill from '../src/components/workbench/WorkbenchNavPill.vue';
 import WorkbenchSideCards from '../src/components/workbench/WorkbenchSideCards.vue';
 import { registerFocusModePlugin } from '../src/plugins';
@@ -706,5 +707,99 @@ describe('Real SFC Component Mounting', () => {
     await customBtn.trigger('click');
     expect(wrapper.find('.control-center-edit-container').exists()).toBe(false);
     expect(wrapper.find('.quick-tools').exists()).toBe(true);
+  });
+
+  it('ToolsDrawer.vue does not open history side drawer on tab switch, and closes dialog while opening side drawer when button is clicked', async () => {
+    const toolsOpen = ref(true);
+    const historyOpen = ref(false);
+    const activeToolView = ref<'todo' | 'timer' | 'history' | 'diary'>('todo');
+    const switchToolView = vi.fn((target: 'todo' | 'timer' | 'history' | 'diary') => {
+      activeToolView.value = target;
+    });
+
+    const mockContext = {
+      layout: {
+        toolsOpen,
+        historyOpen,
+        activeToolView,
+        toolsNavItems: [
+          { id: 'todo', label: '待办清单', description: '', icon: markRaw(defineComponent({ render: () => h('span') })) },
+          { id: 'history', label: '对话回看', description: '', icon: markRaw(defineComponent({ render: () => h('span') })) },
+        ],
+        switchToolView,
+      },
+      timer: {
+        timerMinutes: ref(25),
+        timerRunning: ref(false),
+        formattedTime: ref('25:00'),
+        timerArcDashoffset: ref(0),
+        thumbAngle: ref(0),
+        toggleTimer: vi.fn(),
+        resetTimer: vi.fn(),
+        selectPresetMinutes: vi.fn(),
+        handleDialPointerDown: vi.fn(),
+      },
+      cards: {
+        todos: ref([]),
+        newTodo: ref(''),
+        unfinishedTodos: ref([]),
+        completedTodoCount: ref(0),
+        syncGoals: ref([]),
+        syncReviewCount: ref(0),
+        syncedTodoCount: ref(0),
+        goalBusyId: ref(null),
+        addTodo: vi.fn(),
+        completeGoalFromTodo: vi.fn(),
+        toggleGoalPausedFromTodo: vi.fn(),
+        todayDiary: ref(null),
+        viewingDiary: ref(null),
+        diaryHistory: ref([]),
+        diaryBusy: ref(false),
+        diaryError: ref(null),
+        diaryDisplayContent: ref(''),
+        generateDiaryNow: vi.fn(),
+        selectDiaryDate: vi.fn(),
+        completeReview: vi.fn(),
+        reviewBusyId: ref(null),
+      },
+      conversation: {
+        story: ref([{ id: '1', speaker: 'assistant', text: '你好' }]),
+      },
+    } as unknown as WorkbenchContext;
+
+    const wrapper = mount(ToolsDrawer, {
+      global: {
+        provide: {
+          [WORKBENCH_CONTEXT_KEY as symbol]: mockContext,
+        },
+        stubs: {
+          'el-dialog': {
+            props: ['title'],
+            template: '<div class="el-dialog-stub"><slot name="header" /><slot /></div>',
+          },
+        },
+      },
+    });
+
+    // 1. Initially activeToolView is 'todo', historyOpen is false
+    expect(historyOpen.value).toBe(false);
+
+    // 2. Switch to 'history' tab
+    activeToolView.value = 'history';
+    await wrapper.vm.$nextTick();
+
+    // Side drawer must NOT be opened when merely viewing history tab
+    expect(historyOpen.value).toBe(false);
+    expect(toolsOpen.value).toBe(true);
+    expect(wrapper.text()).toContain('打开对话回看（1 条记录）');
+
+    // 3. Click "打开对话回看" button
+    const openBtn = wrapper.find('.diary-generate-btn');
+    expect(openBtn.exists()).toBe(true);
+    await openBtn.trigger('click');
+
+    // Dialog closes and side drawer opens
+    expect(toolsOpen.value).toBe(false);
+    expect(historyOpen.value).toBe(true);
   });
 });

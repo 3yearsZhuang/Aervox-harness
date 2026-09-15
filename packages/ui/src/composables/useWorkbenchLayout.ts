@@ -154,8 +154,6 @@ export function useWorkbenchLayout(props: {
     toolsOpen.value = true;
     if (target === 'diary') {
       options.onOpenDiary?.();
-    } else if (target === 'history') {
-      historyOpen.value = true;
     }
   }
 
@@ -163,8 +161,6 @@ export function useWorkbenchLayout(props: {
     activeToolView.value = target;
     if (target === 'diary') {
       options.onOpenDiary?.();
-    } else if (target === 'history') {
-      historyOpen.value = true;
     }
   }
 
