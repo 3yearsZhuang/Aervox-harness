@@ -17,6 +17,9 @@
   --bg-app: #eef1f6;
   --bg-titlebar: #f8fafc;
   --bg-main: #fcfdfe;
+  --bg-card: var(--bg-main);
+  --bg-card-soft: var(--bg-soft);
+  --bg-card-hover: var(--bg-hover);
   --bg-soft: #f2f4f8;
   --bg-hover: #e9edf4;
   --bg-input: #ffffff;
@@ -56,6 +59,9 @@
   --bg-app: #131722;
   --bg-titlebar: #191e2b;
   --bg-main: #1e2432;
+  --bg-card: var(--bg-main);
+  --bg-card-soft: var(--bg-soft);
+  --bg-card-hover: var(--bg-hover);
   --bg-soft: #262d3d;
   --bg-hover: #2c3444;
   --bg-input: #232a38;

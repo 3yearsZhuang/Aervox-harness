@@ -7,15 +7,15 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 1.10.0
-updated_at: 2026-09-14
-reviewed_at: 2026-09-14
+updated_at: 2026-09-15
+reviewed_at: 2026-09-15
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 产品与工程文档索引
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-14
+- 修改人：3yearszhuang · 2026-09-15
 
 本目录把产品目标、可测试需求、架构决策、数据权利和 AI 质量分开维护，避免单一 PRD 同时承担所有细节。所有上线范围必须能从用户价值追踪到需求、设计、测试和发布证据。
 
@@ -171,6 +171,8 @@ review_interval_days: 90
 | [CR-046](reference/changes/CR-046-standard-workbench-shell-and-sidebar.md) | 标准工作台交互壳与会话侧栏 (W1) | Accepted | Verified |
 | [CR-047](reference/changes/CR-047-mode-selector-and-task-center.md) | 模式切换器与统一任务中心 (W2) | Accepted | Verified |
 | [CR-048](reference/changes/CR-048-project-context-and-migration-facility.md) | 项目上下文绑定与会话迁移设施 (W3) | Proposed | Planned |
+| [CR-049](reference/changes/CR-049-ui-primitives-and-dialog-componentization.md) | UI 基础控件库与全量弹窗控件化 | Accepted | Verified |
+| [CR-050](reference/changes/CR-050-declarative-ui-plugin-registry-and-focus-mode-decoupling.md) | 工作台 UI 插件声明式注册层与专注模式彻底解耦 | Accepted | Verified |
 
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
 

@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { ElMessage } from '../../utils/element'
 import { PackagePlus } from 'lucide-vue-next'
 import { useAervoxPlugins } from '@aervox/api-client'
+import { AervoxDialog, AervoxButton } from '../../primitives'
 import { validatePluginInstallForm } from './plugin-install-form'
 
 const props = defineProps<{
@@ -63,24 +64,14 @@ async function handleInstall(): Promise<void> {
 </script>
 
 <template>
-  <el-dialog
+  <AervoxDialog
     :model-value="open"
-    class="plugin-install-dialog"
-    width="min(640px, calc(100vw - 28px))"
-    align-center
-    :append-to-body="true"
+    title="安装插件"
+    subtitle="登记插件声明，声明的工具与技能随安装注册（幂等）"
+    :icon="PackagePlus"
+    size="md"
     @close="emit('close')"
   >
-    <template #header>
-      <div class="dialog-header-wrap">
-        <span class="heading-icon-wrap"><PackagePlus :size="18" /></span>
-        <div class="dialog-header-text">
-          <strong>安装插件</strong>
-          <small>登记插件声明，声明的工具与技能随安装注册（幂等）</small>
-        </div>
-      </div>
-    </template>
-
     <div class="install-dialog-body">
       <div class="form-grid">
         <div class="field-block">
@@ -155,52 +146,21 @@ async function handleInstall(): Promise<void> {
     </div>
 
     <template #footer>
-      <div class="install-dialog-footer">
-        <el-button @click="emit('close')">取消</el-button>
-        <button
-          type="button"
-          class="btn-submit"
-          :disabled="saving"
-          @click="handleInstall"
-        >
-          <PackagePlus :size="14" />
-          <span>{{ saving ? '正在安装…' : '安装插件' }}</span>
-        </button>
-      </div>
+      <AervoxButton variant="secondary" @click="emit('close')">取消</AervoxButton>
+      <AervoxButton
+        variant="primary"
+        :icon="PackagePlus"
+        :loading="saving"
+        @click="handleInstall"
+      >
+        安装插件
+      </AervoxButton>
     </template>
-  </el-dialog>
+  </AervoxDialog>
 </template>
 
 <style scoped>
-.plugin-install-dialog :deep(.el-dialog__body) {
-  padding: 16px 20px;
-}
-.dialog-header-wrap {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.heading-icon-wrap {
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-.dialog-header-text {
-  display: grid;
-  gap: 2px;
-}
-.dialog-header-text strong {
-  font-size: 14px;
-  color: var(--text-primary);
-}
-.dialog-header-text small {
-  font-size: 11px;
-  color: var(--text-muted);
-}
+
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;

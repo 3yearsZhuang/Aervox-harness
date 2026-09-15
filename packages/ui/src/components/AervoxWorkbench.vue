@@ -13,9 +13,10 @@ import ConversationConsole from './workbench/ConversationConsole.vue';
 import ComposerDock from './workbench/ComposerDock.vue';
 import { PanelLeft, Sparkles } from 'lucide-vue-next';
 
+import ExtensionSlot from './extension/ExtensionSlot.vue';
+
 const Live2DPet = defineAsyncComponent(() => import('./Live2DPet.vue'));
 const ToolsDrawer = defineAsyncComponent(() => import('./workbench/drawers/ToolsDrawer.vue'));
-const LearningDrawer = defineAsyncComponent(() => import('./workbench/drawers/LearningDrawer.vue'));
 const HistoryDrawer = defineAsyncComponent(() => import('./workbench/drawers/HistoryDrawer.vue'));
 const TaskCenterDrawer = defineAsyncComponent(() => import('./workbench/drawers/TaskCenterDrawer.vue'));
 const SettingsModal = defineAsyncComponent(() => import('./workbench/drawers/SettingsModal.vue'));
@@ -93,8 +94,6 @@ const timer = useWorkbenchTimer({
 
 // 4. Conversation Composable
 const conversation = useWorkbenchConversation({
-  focusModeEnabled: layout.focusModeEnabled,
-  studyModeEnabled: layout.studyModeEnabled,
   recordActivity: proactive.recordProactiveActivity,
   onRefreshProactiveStatus: proactive.refreshProactiveStatus,
 });
@@ -120,6 +119,7 @@ const cards = useWorkbenchCards({
   },
   onSubmitQuestionAnswers: conversation.handleQuestionSubmit,
   recordActivity: proactive.recordProactiveActivity,
+  registry,
 });
 
 // 7. Sessions Composable (CR-035 / W1)
@@ -139,7 +139,6 @@ watch(() => sessions.activeSessionId.value, (newId, oldId) => {
 
 // 抽屉与弹窗组件懒挂载守卫（首次打开时才挂载对应异步组件实例，消除首屏初始加载开销）
 const toolsMounted = ref(false);
-const learningMounted = ref(false);
 const historyMounted = ref(false);
 const taskCenterMounted = ref(false);
 const settingsMounted = ref(false);
@@ -148,7 +147,6 @@ const projectManagerMounted = ref(false);
 const importSessionMounted = ref(false);
 
 watch(() => layout.toolsOpen.value, (open) => { if (open) toolsMounted.value = true; }, { immediate: true });
-watch(() => layout.learningOpen.value, (open) => { if (open) learningMounted.value = true; }, { immediate: true });
 watch(() => layout.historyOpen.value, (open) => { if (open) historyMounted.value = true; }, { immediate: true });
 watch(() => layout.taskCenterOpen.value, (open) => { if (open) taskCenterMounted.value = true; }, { immediate: true });
 watch(() => layout.settingsOpen.value, (open) => { if (open) settingsMounted.value = true; }, { immediate: true });
@@ -597,7 +595,7 @@ onUnmounted(() => {
     </template>
 
     <ToolsDrawer v-if="toolsMounted" />
-    <LearningDrawer v-if="learningMounted" />
+    <ExtensionSlot name="workbench:drawers" />
     <HistoryDrawer v-if="historyMounted" />
     <TaskCenterDrawer v-if="taskCenterMounted" />
     <SettingsModal

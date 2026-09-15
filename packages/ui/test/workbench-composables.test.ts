@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { ref } from 'vue';
 import { createStreamingDeltaBatcher, splitIntoSentences } from '../src/composables/useWorkbenchConversation';
 import { resolveMediaType, formatAttachmentSize } from '../src/composables/useWorkbenchComposer';
 import { DIAL_RADIUS, DIAL_CIRCUMFERENCE } from '../src/composables/useWorkbenchTimer';
@@ -202,5 +203,129 @@ describe('Workbench Composables Logic', () => {
     // 非 instant 模式应触发 scrollTo 平滑滚动
     await conv.scrollStoryToBottom();
     expect(scrollToCalled).toBe(1);
+  });
+
+  it('useWorkbenchCards dynamically merges cards from UIRegistry and defaults to core cards', async () => {
+    const { useWorkbenchCards } = await import('../src/composables/useWorkbenchCards');
+    const { createUIRegistry } = await import('../src/registry/ui-registry');
+    const { registerFocusModePlugin } = await import('../src/plugins');
+    const registry = createUIRegistry();
+
+    const cards = useWorkbenchCards({
+      activeQuestion: ref(null),
+      timerRunning: ref(false),
+      formattedTime: ref('25:00'),
+      storyCount: ref(0),
+      onOpenTool: vi.fn(),
+      onStartQuiz: vi.fn(),
+      onSubmitQuestionAnswers: vi.fn(),
+      recordActivity: vi.fn(),
+      registry,
+    });
+
+    // 1. Initially without plugin cards: only 4 core cards
+    expect(cards.cardCatalog.value.map((c) => c.id)).toEqual(['todo', 'timer', 'history', 'diary']);
+
+    // 2. When focus-mode registers cards into registry: cardCatalog reactively merges them
+    const unregister = registerFocusModePlugin(registry);
+    expect(cards.cardCatalog.value.map((c) => c.id)).toEqual(['study', 'mistake', 'quiz', 'todo', 'timer', 'history', 'diary']);
+
+    // 3. Focus study card action is present
+    const studyCard = cards.cardCatalog.value.find((c) => c.id === 'study');
+    expect(studyCard?.extraComponent).toBeDefined();
+
+    // 4. When focus-mode unregisters: returns back to core cards
+    unregister();
+    expect(cards.cardCatalog.value.map((c) => c.id)).toEqual(['todo', 'timer', 'history', 'diary']);
+  }, 20000);
+
+  it('supports customizable quick tools with add, remove, reorder, reset and persistence', async () => {
+    const storage: Record<string, string> = {};
+    const mockLocalStorage = {
+      getItem: (k: string) => storage[k] ?? null,
+      setItem: (k: string, v: string) => { storage[k] = v; },
+      removeItem: (k: string) => { delete storage[k]; },
+    };
+    const origStorage = globalThis.localStorage;
+    Object.defineProperty(globalThis, 'localStorage', { value: mockLocalStorage, configurable: true });
+
+    try {
+      const { useWorkbenchCards } = await import('../src/composables/useWorkbenchCards');
+      const { createUIRegistry } = await import('../src/registry/ui-registry');
+      const registry = createUIRegistry();
+
+      const cards = useWorkbenchCards({
+        activeQuestion: ref(null),
+        timerRunning: ref(false),
+        formattedTime: ref('25:00'),
+        storyCount: ref(0),
+        onOpenTool: vi.fn(),
+        onStartQuiz: vi.fn(),
+        onSubmitQuestionAnswers: vi.fn(),
+        recordActivity: vi.fn(),
+        registry,
+      });
+
+      // 1. Initially uncustomized
+      expect(cards.customQuickToolIds.value).toBeNull();
+      expect(cards.activeQuickCards.value.map((c) => c.id)).toEqual(['todo', 'timer', 'history', 'diary']);
+      expect(cards.availableQuickCards.value).toEqual([]);
+
+      // 2. Remove 'timer'
+      cards.removeQuickTool('timer');
+      expect(cards.activeQuickCards.value.map((c) => c.id)).toEqual(['todo', 'history', 'diary']);
+      expect(cards.availableQuickCards.value.map((c) => c.id)).toEqual(['timer']);
+      expect(JSON.parse(storage['aervox-quick-tools'] ?? '[]')).toEqual(['todo', 'history', 'diary']);
+
+      // 3. Reorder: move 'history' up
+      cards.moveQuickTool('history', 'up');
+      expect(cards.activeQuickCards.value.map((c) => c.id)).toEqual(['history', 'todo', 'diary']);
+
+      // 4. Reorder: boundary checks do nothing
+      cards.moveQuickTool('history', 'up'); // already at top
+      expect(cards.activeQuickCards.value.map((c) => c.id)).toEqual(['history', 'todo', 'diary']);
+
+      // 5. Add 'timer' back
+      cards.addQuickTool('timer');
+      expect(cards.activeQuickCards.value.map((c) => c.id)).toEqual(['history', 'todo', 'diary', 'timer']);
+      expect(cards.availableQuickCards.value).toEqual([]);
+
+      // 6. Reset to default
+      cards.resetQuickTools();
+      expect(cards.customQuickToolIds.value).toBeNull();
+      expect(cards.activeQuickCards.value.map((c) => c.id)).toEqual(['todo', 'timer', 'history', 'diary']);
+      expect(storage['aervox-quick-tools']).toBeUndefined();
+    } finally {
+      Object.defineProperty(globalThis, 'localStorage', { value: origStorage, configurable: true });
+    }
+  }, 20000);
+
+  it('does not open historyOpen when switching or opening tool view to history', async () => {
+    const { useWorkbenchLayout } = await import('../src/composables/useWorkbenchLayout');
+    const layout = useWorkbenchLayout(
+      { platform: 'web', showCompanion: true, assistantName: '思隅' },
+      {
+        recordActivity: () => {},
+        getTimerMinutes: () => 25,
+      },
+    );
+
+    expect(layout.historyOpen.value).toBe(false);
+    expect(layout.toolsOpen.value).toBe(false);
+
+    // openTool('history') opens tools modal, but NOT history side drawer
+    layout.openTool('history');
+    expect(layout.toolsOpen.value).toBe(true);
+    expect(layout.activeToolView.value).toBe('history');
+    expect(layout.historyOpen.value).toBe(false);
+
+    // switchToolView('history') does NOT trigger historyOpen
+    layout.switchToolView('todo');
+    expect(layout.activeToolView.value).toBe('todo');
+    expect(layout.historyOpen.value).toBe(false);
+
+    layout.switchToolView('history');
+    expect(layout.activeToolView.value).toBe('history');
+    expect(layout.historyOpen.value).toBe(false);
   });
 });

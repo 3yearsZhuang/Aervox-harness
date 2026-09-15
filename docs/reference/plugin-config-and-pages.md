@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.0
-updated_at: 2026-09-11
-reviewed_at: 2026-09-11
+version: 0.5.0
+updated_at: 2026-09-15
+reviewed_at: 2026-09-15
 review_interval_days: 90
 review_triggers:
   - packages/ui/src/registry/**
@@ -27,9 +27,9 @@ sources:
 # 插件 Config、Page 与 UI 扩展规范
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-11
+- 修改人：3yearszhuang · 2026-09-15
 
-关联：[CR-006](changes/CR-006-plugin-config-and-pages.md)、[能力组合与可选化目录规范](capability-composition.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-015](adr/ADR-015-vue-full-stack.md)、[AI 质量与安全规范](AI_QUALITY_SAFETY.md)
+关联：[CR-006](changes/CR-006-plugin-config-and-pages.md)、[CR-050](changes/CR-050-declarative-ui-plugin-registry-and-focus-mode-decoupling.md)、[能力组合与可选化目录规范](capability-composition.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-015](adr/ADR-015-vue-full-stack.md)、[AI 质量与安全规范](AI_QUALITY_SAFETY.md)
 
 本文是插件配置、沙箱页面与前端 UI 扩展的运行时契约与实现规范。设计参考 [AstrBot 插件配置指南](https://docs.astrbot.app/dev/star/guides/plugin-config.html) 与 [插件页面指南](https://docs.astrbot.app/dev/star/guides/plugin-pages.html)（AGPLv3，仅借鉴公开设计），结合 Aervox 自有 ADR-009、ADR-015 与 AVX-CAP-001 规范，提供后端 Config Schema v1、受限 iframe 沙箱 Page，以及工作台前端插槽注入（Extension Slots）与契约化核心组件替换（Component Overrides）。
 
@@ -223,7 +223,7 @@ export interface ServerTurnPlugin {
 
 ### 5.1 插槽架构与清单
 
-插槽使用 Vue 响应式状态进行按需渲染。工作台在核心交互层内置了 10 个标准命名插槽：
+插槽使用 Vue 响应式状态进行按需渲染。工作台在核心交互层内置了 12 个标准命名插槽：
 
 | 插槽名称 | 挂载组件与位置 | 典型用途与设计意图 |
 |---|---|---|
@@ -237,6 +237,8 @@ export interface ServerTurnPlugin {
 | `composer:toolbar-actions` | `ComposerDock.vue` 输入坞工具栏 | 输入框左下角附件/语音旁的小工具按钮 |
 | `composer:bottom-bar` | `ComposerDock.vue` 输入坞最底部 | 针对当前输入内容的辅助提示横幅或快捷模板栏 |
 | `settings:tabs` | `SettingsModal.vue` 左侧或顶部分类项 | 插件在系统设置中的独立分类页签 |
+| `workbench:drawers` | `AervoxWorkbench.vue` 顶层抽屉容器 | 全局功能抽屉（如学习面板、AI 规划与错题练习） |
+| `taskcenter:cards` | `TaskCenterDrawer.vue` 统一任务中心网格 | 插件业务排期卡片（如间隔复习与错题排期） |
 
 ### 5.2 注册接口与生命周期
 
@@ -268,6 +270,34 @@ unregister();
 - `id` 全局唯一，重复注册相同 `id` 将替换旧组件；
 - 排序按 `priority` 降序排列；相同时保持注册先后顺序；
 - 注销函数必须在插件卸载、热重载或停用时调用，避免内存泄漏与无效渲染。
+
+### 5.3 功能卡片注册与操作区扩展（Functional Cards & Side Cards）
+
+除标准 UI 命名插槽外，工作台卡片系统（`WorkbenchSideCards.vue`、`SettingsModal.vue` 快捷工具栏）同样通过注册层提供声明式能力贡献：
+
+```ts
+import { uiRegistry, type WorkbenchCardContribution } from '@aervox/ui';
+
+const unregisterCard = uiRegistry.registerCard({
+  id: 'study',
+  label: '学习规划',
+  description: 'AI 生成里程碑式学习路线图',
+  icon: BookOpen,
+  summary: () => `${learningPlans.length} 份进行中规划`,
+  action: () => layout.openTool('study'),
+  extraComponent: FocusStudyCardActions, // 可选：卡片操作区自定义组件
+  priority: 100, // 排序权重，默认 0，数值越大展示越靠前
+});
+
+// 卸载时一键注销
+unregisterCard();
+```
+
+规则：
+
+- 卡片按 `priority` 降序与内置原生卡片（待办 `todo`: 70、番茄钟 `timer`: 60、对话回看 `history`: 50、日记 `diary`: 40）动态合并；
+- 插件未注册或已注销时，侧边栏与快捷工具栏完全不包含对应卡片（彻底解耦与宿主零残留）；
+- `extraComponent` 由宿主容器动态通过 `<component :is="card.extraComponent" />` 挂载，宿主无须直接引用插件特定组件。
 
 ## 6. 核心组件替换契约（Component Overrides）
 

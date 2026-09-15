@@ -4,25 +4,25 @@ import { computed, ref } from 'vue';
 import {
   AlertTriangle,
   Bell,
-  BookOpen,
   BrainCircuit,
   Check,
-  Clock3,
+  ChevronDown,
+  ChevronUp,
   Database,
   Download,
   Heart,
-  History,
   LayoutGrid,
   Link2,
-  ListTodo,
   MessageCircle,
+  Minus,
   Moon,
-  NotebookPen,
   PauseCircle,
   PlayCircle,
-  Puzzle,
+  Plus,
   RefreshCw,
+  RotateCcw,
   ShieldAlert,
+  SlidersHorizontal,
   Sun,
   Trash2,
   Volume2,
@@ -33,7 +33,9 @@ import VoicePresetManagerPanel from '../../voice/VoicePresetManagerPanel.vue';
 import PluginManagerPanel from '../../plugin/PluginManagerPanel.vue';
 import ExtensionSlot from '../../extension/ExtensionSlot.vue';
 import { useAervoxPlugins } from '@aervox/api-client';
+import type { CardDefinition } from '../../../composables/useWorkbenchCards';
 import { useWorkbenchContext } from '../../../composables/workbench-context';
+import { AervoxNavDialog, AervoxConfirmDialog, AervoxDialog, AervoxButton } from '../../../primitives';
 
 const props = withDefaults(
   defineProps<{
@@ -43,7 +45,7 @@ const props = withDefaults(
   }>(),
   {
     focusModeAvailable: undefined,
-    studyModeAvailable: true,
+    studyModeAvailable: undefined,
   },
 );
 
@@ -58,7 +60,7 @@ const isFocusModeAvailable = computed(() => {
   if (typeof props.focusModeAvailable === 'boolean') {
     return props.focusModeAvailable;
   }
-  if (typeof props.studyModeAvailable === 'boolean' && props.studyModeAvailable !== true) {
+  if (typeof props.studyModeAvailable === 'boolean') {
     return props.studyModeAvailable;
   }
   return pluginRuntime?.isPluginAvailable('focus-mode') ?? pluginRuntime?.isPluginAvailable('study-mode') ?? true;
@@ -71,6 +73,19 @@ function handleFocusModeChange(checked: boolean) {
 }
 const handleStudyModeChange = handleFocusModeChange;
 
+const activeQuickCards = cards.activeQuickCards ?? cards.cardCatalog;
+const availableQuickCards = cards.availableQuickCards ?? ref<CardDefinition[]>([]);
+const addQuickTool = cards.addQuickTool ?? (() => {});
+const removeQuickTool = cards.removeQuickTool ?? (() => {});
+const moveQuickTool = cards.moveQuickTool ?? (() => {});
+const resetQuickTools = cards.resetQuickTools ?? (() => {});
+
+const isEditingQuickTools = ref(false);
+
+function handleQuickToolClick(card: CardDefinition) {
+  settingsOpen.value = false;
+  card.action();
+}
 
 const {
   isWeb,
@@ -93,10 +108,8 @@ const {
   saveSettings,
 } = layout;
 
-const { formattedTime, timerMinutes } = timer;
-const { todos, unfinishedTodos, activeMistakeCount } = cards;
-const { learningPlans } = cards.api;
-const { story, toolApprovalMode } = conversation;
+const { timerMinutes } = timer;
+const { toolApprovalMode } = conversation;
 
 const {
   proactiveStatus,
@@ -161,60 +174,163 @@ async function onPluginChange(): Promise<void> {
 </script>
 
 <template>
-  <el-dialog
+  <AervoxNavDialog
     v-model="settingsOpen"
-    :title="settingsScope === 'siyu' ? '你的思隅' : '设置'"
-    class="settings-dialog"
-    width="min(860px, calc(100vw - 28px))"
-    align-center
+    title="设置"
+    :items="scopedSettingCategories"
+    :active-key="settingsCategory"
+    nav-aria-label="设置分类"
+    custom-class="settings-dialog"
+    @update:active-key="switchSettingsCategory($event as any)"
   >
-    <div class="settings-layout">
-      <nav class="settings-categories" aria-label="设置分类">
-        <button
-          v-for="category in scopedSettingCategories"
-          :key="category.id"
-          type="button"
-          :class="{ active: settingsCategory === category.id }"
-          @click="switchSettingsCategory(category.id)"
-        >
-          <component :is="category.icon" :size="18" />
-          <span><strong>{{ category.label }}</strong><small>{{ category.description }}</small></span>
-        </button>
-        <ExtensionSlot name="settings:tabs" />
-      </nav>
-      <section class="settings-detail">
-        <div v-if="settingsCategory === 'tools'" class="settings-section">
-          <div class="settings-section-heading">
+    <template #nav-footer>
+      <ExtensionSlot name="settings:tabs" />
+    </template>
+    <template #content>
+      <div v-if="settingsCategory === 'tools'" class="settings-section">
+        <div class="settings-section-heading quick-tools-heading">
+          <div class="quick-tools-heading-title">
             <span class="heading-icon-wrap"><LayoutGrid :size="18" /></span>
-            <span><strong>快捷工具</strong><small>打开学习面板与常用小工具</small></span>
+            <span><strong>快捷工具</strong><small>{{ isEditingQuickTools ? '自定义控制中心中的快捷方式' : '打开学习面板与常用小工具' }}</small></span>
           </div>
-          <div class="quick-tools">
-            <button type="button" @click="openTool('study')">
-              <BookOpen :size="19" />
-              <span><strong>学习规划</strong><small>{{ learningPlans.length }} 份进行中规划</small></span>
+          <div class="quick-tools-actions">
+            <button
+              v-if="isEditingQuickTools"
+              type="button"
+              class="quick-tools-action-btn btn-reset"
+              title="恢复默认快捷方式"
+              @click="resetQuickTools()"
+            >
+              <RotateCcw :size="13" />
+              <span>恢复默认</span>
             </button>
-            <button type="button" @click="openTool('mistake')">
-              <Puzzle :size="19" />
-              <span><strong>错题本</strong><small>{{ activeMistakeCount }} 题待掌握</small></span>
-            </button>
-            <button type="button" @click="openTool('todo')">
-              <ListTodo :size="19" />
-              <span><strong>待办清单</strong><small>{{ unfinishedTodos.length }} 件待完成</small></span>
-            </button>
-            <button type="button" @click="openTool('timer')">
-              <Clock3 :size="19" />
-              <span><strong>番茄钟</strong><small>{{ formattedTime }} 专注计时</small></span>
-            </button>
-            <button type="button" @click="openTool('history')">
-              <History :size="19" />
-              <span><strong>对话回看</strong><small>{{ story.length }} 条对话记录</small></span>
-            </button>
-            <button type="button" @click="openTool('diary')">
-              <NotebookPen :size="19" />
-              <span><strong>日记本</strong><small>AI 每日日记与历史回看</small></span>
+            <button
+              type="button"
+              class="quick-tools-action-btn"
+              :class="{ 'btn-done': isEditingQuickTools }"
+              @click="isEditingQuickTools = !isEditingQuickTools"
+            >
+              <component :is="isEditingQuickTools ? Check : SlidersHorizontal" :size="13" />
+              <span>{{ isEditingQuickTools ? '完成' : '自定义' }}</span>
             </button>
           </div>
         </div>
+
+        <!-- Normal Mode -->
+        <div v-if="!isEditingQuickTools" class="quick-tools">
+          <button
+            v-for="card in activeQuickCards"
+            :key="card.id"
+            type="button"
+            @click="handleQuickToolClick(card)"
+          >
+            <component :is="card.icon" :size="19" />
+            <span><strong>{{ card.label }}</strong><small>{{ card.summary() }}</small></span>
+          </button>
+          <div v-if="activeQuickCards.length === 0" class="quick-tools-empty">
+            <p>暂无启用的快捷工具，点击右上角「自定义」添加快捷方式。</p>
+          </div>
+        </div>
+
+        <!-- Edit Mode (iOS / Android Control Center Style) -->
+        <div v-else class="control-center-edit-container">
+          <!-- Group 1: Included Controls -->
+          <div class="control-center-group">
+            <div class="control-center-group-header">
+              <span>已包含的快捷工具</span>
+              <small>点击减号移除，或调整展示次序</small>
+            </div>
+            <div class="control-center-group-list">
+              <div
+                v-for="(card, idx) in activeQuickCards"
+                :key="card.id"
+                class="control-center-item is-included"
+              >
+                <button
+                  type="button"
+                  class="action-circle-btn btn-minus"
+                  :title="`从控制中心移除 ${card.label}`"
+                  :aria-label="`移除 ${card.label}`"
+                  @click="removeQuickTool(card.id)"
+                >
+                  <Minus :size="14" />
+                </button>
+                <div class="control-center-item-icon">
+                  <component :is="card.icon" :size="18" />
+                </div>
+                <div class="control-center-item-info">
+                  <strong>{{ card.label }}</strong>
+                  <small>{{ card.description }}</small>
+                </div>
+                <div class="control-center-item-order">
+                  <button
+                    type="button"
+                    class="order-btn"
+                    :disabled="idx === 0"
+                    :title="`上移 ${card.label}`"
+                    :aria-label="`上移 ${card.label}`"
+                    @click="moveQuickTool(card.id, 'up')"
+                  >
+                    <ChevronUp :size="14" />
+                  </button>
+                  <button
+                    type="button"
+                    class="order-btn"
+                    :disabled="idx === activeQuickCards.length - 1"
+                    :title="`下移 ${card.label}`"
+                    :aria-label="`下移 ${card.label}`"
+                    @click="moveQuickTool(card.id, 'down')"
+                  >
+                    <ChevronDown :size="14" />
+                  </button>
+                </div>
+              </div>
+              <div v-if="activeQuickCards.length === 0" class="control-center-empty-hint">
+                暂无快捷工具，请从下方「更多可添加的快捷工具」中添加。
+              </div>
+            </div>
+          </div>
+
+          <!-- Group 2: More Available Controls -->
+          <div v-if="availableQuickCards.length > 0" class="control-center-group">
+            <div class="control-center-group-header">
+              <span>更多可添加的快捷工具</span>
+              <small>点击加号添加至控制中心</small>
+            </div>
+            <div class="control-center-group-list">
+              <div
+                v-for="card in availableQuickCards"
+                :key="card.id"
+                class="control-center-item is-available"
+              >
+                <button
+                  type="button"
+                  class="action-circle-btn btn-plus"
+                  :title="`添加 ${card.label} 至控制中心`"
+                  :aria-label="`添加 ${card.label}`"
+                  @click="addQuickTool(card.id)"
+                >
+                  <Plus :size="14" />
+                </button>
+                <div class="control-center-item-icon">
+                  <component :is="card.icon" :size="18" />
+                </div>
+                <div class="control-center-item-info">
+                  <strong>{{ card.label }}</strong>
+                  <small>{{ card.description }}</small>
+                </div>
+                <button
+                  type="button"
+                  class="btn-add-pill"
+                  @click="addQuickTool(card.id)"
+                >
+                  添加
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
         <div v-else-if="settingsCategory === 'proactive'" class="settings-section proactive-settings">
           <div class="settings-section-heading">
             <span class="heading-icon-wrap"><BrainCircuit :size="18" /></span>
@@ -397,14 +513,13 @@ async function onPluginChange(): Promise<void> {
             <span><strong>对话</strong><small>调整你与思隅交流的输入与展示方式</small></span>
           </div>
           <label class="settings-field"><span><strong>助手称呼</strong><small>工作台中显示的名字</small></span><input v-model="assistantDisplayName" maxlength="12" @change="saveSettings(timerMinutes)" /></label>
-          <label class="settings-row settings-choice-row">
+          <label v-if="isFocusModeAvailable" class="settings-row settings-choice-row">
             <span>
               <strong>专注模式</strong>
-              <small>{{ isFocusModeAvailable === false ? '插件已停用，需先在扩展中心启用 focus-mode' : '启用专属苏格拉底启发式教学与防剧透规则' }}</small>
+              <small>启用专属苏格拉底启发式教学与防剧透规则</small>
             </span>
             <input
               :checked="focusModeEnabled"
-              :disabled="isFocusModeAvailable === false"
               type="checkbox"
               class="settings-switch"
               @change="handleFocusModeChange(($event.target as HTMLInputElement).checked)"
@@ -429,47 +544,34 @@ async function onPluginChange(): Promise<void> {
           <VoicePresetManagerPanel />
         </div>
         <PluginManagerPanel v-else class="settings-section" @change="onPluginChange" />
-      </section>
-    </div>
-  </el-dialog>
+    </template>
+  </AervoxNavDialog>
 
   <!-- 完全访问确认弹窗 -->
-  <el-dialog
+  <AervoxConfirmDialog
     v-model="conversation.fullAccessDialogOpen.value"
+    v-model:acknowledged="conversation.fullAccessAcknowledged.value"
     title="启用完全访问？"
-    class="permission-confirm-dialog"
-    width="min(500px, calc(100vw - 28px))"
-    align-center
+    :icon="ShieldAlert"
+    message="完全访问会减少确认步骤，允许思隅在当前会话中直接执行普通写操作。"
+    description="管理员级操作、数据撤权、单用户安全隔离与其它安全限制仍然生效。仅在你信任当前任务时开启。"
+    require-acknowledge
+    acknowledge-text="我已了解风险，并愿意继续"
+    confirm-text="启用完全访问"
+    cancel-text="取消"
+    custom-class="permission-confirm-dialog"
+    @confirm="conversation.enableFullAccess"
+    @cancel="conversation.fullAccessDialogOpen.value = false"
     @closed="conversation.resetFullAccessConfirmation"
-  >
-    <div class="permission-confirmation">
-      <span class="permission-confirmation-icon"><ShieldAlert :size="24" /></span>
-      <div>
-        <p>完全访问会减少确认步骤，允许思隅在当前会话中直接执行普通写操作。</p>
-        <small>管理员级操作、数据撤权、租户隔离与其它安全限制仍然生效。仅在你信任当前任务时开启。</small>
-      </div>
-    </div>
-    <label class="permission-acknowledgement">
-      <input v-model="conversation.fullAccessAcknowledged.value" type="checkbox" />
-      <span>我已了解风险，并愿意继续</span>
-    </label>
-    <template #footer>
-      <div class="permission-confirmation-actions">
-        <button type="button" class="permission-cancel" @click="conversation.fullAccessDialogOpen.value = false">取消</button>
-        <button type="button" class="permission-enable" :disabled="!conversation.fullAccessAcknowledged.value" @click="conversation.enableFullAccess">
-          启用完全访问
-        </button>
-      </div>
-    </template>
-  </el-dialog>
+  />
 
   <!-- 主动智能授权向导弹窗 -->
-  <el-dialog
+  <AervoxDialog
     v-model="proactiveDialogOpen"
     title="授权主动智能模式？"
-    class="permission-confirm-dialog proactive-authorization-dialog"
+    :icon="BrainCircuit"
+    custom-class="permission-confirm-dialog proactive-authorization-dialog"
     width="min(620px, calc(100vw - 28px))"
-    align-center
     @closed="resetProactiveAuthorization"
   >
     <div class="permission-confirmation">
@@ -491,13 +593,18 @@ async function onPluginChange(): Promise<void> {
     </label>
     <template #footer>
       <div class="permission-confirmation-actions">
-        <button type="button" class="permission-cancel" @click="proactiveDialogOpen = false">取消</button>
-        <button type="button" class="permission-enable proactive-enable" :disabled="!proactiveAcknowledged || proactiveBusy || toolApprovalMode !== 'full_access'" @click="authorizeProactive">
-          <RefreshCw v-if="proactiveBusy" class="proactive-spinner" :size="15" />
-          <BrainCircuit v-else :size="15" />
+        <AervoxButton variant="secondary" @click="proactiveDialogOpen = false">取消</AervoxButton>
+        <AervoxButton
+          variant="primary"
+          class="proactive-enable"
+          :disabled="!proactiveAcknowledged || proactiveBusy || toolApprovalMode !== 'full_access'"
+          :loading="proactiveBusy"
+          :icon="proactiveBusy ? RefreshCw : BrainCircuit"
+          @click="authorizeProactive"
+        >
           {{ toolApprovalMode === 'full_access' ? '请求权限并启用' : '请先开启完全访问' }}
-        </button>
+        </AervoxButton>
       </div>
     </template>
-  </el-dialog>
+  </AervoxDialog>
 </template>

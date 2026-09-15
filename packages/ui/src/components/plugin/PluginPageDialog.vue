@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import {computed, nextTick, onBeforeUnmount, ref, watch} from 'vue'
 import {ElMessage} from '../../utils/element'
+import {LayoutGrid} from 'lucide-vue-next'
 import {getApiBase, useAervoxPlugins, type PluginPageDto, type PluginSummaryDto} from '@aervox/api-client'
 import type {PluginConfigSnapshot} from '@aervox/contracts'
+import {AervoxDialog, AervoxButton} from '../../primitives'
+
 
 const props = defineProps<{
   open: boolean
@@ -135,19 +138,27 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <el-dialog
+  <AervoxDialog
     :model-value="open"
     :title="`${plugin?.id ?? ''} · ${page?.id ?? ''}`"
-    class="plugin-page-dialog"
-    width="min(80vw, 1200px)"
-    top="6vh"
+    subtitle="插件独立扩展页面"
+    :icon="LayoutGrid"
+    size="xl"
+    width="min(88vw, 1200px)"
+    body-max-height="78vh"
     @close="close"
-    @closed="close"
   >
     <div class="plugin-page-toolbar">
-      <button type="button" class="plugin-page-tool" @click="postInit">刷新</button>
-      <button v-if="contextCapabilities.includes('config.read') || contextCapabilities.includes('config.write')" type="button" class="plugin-page-tool" @click="emit('openConfig')">设置</button>
-      <button type="button" class="plugin-page-tool" @click="close">关闭</button>
+      <AervoxButton size="sm" variant="secondary" @click="postInit">刷新</AervoxButton>
+      <AervoxButton
+        v-if="contextCapabilities.includes('config.read') || contextCapabilities.includes('config.write')"
+        size="sm"
+        variant="secondary"
+        @click="emit('openConfig')"
+      >
+        设置
+      </AervoxButton>
+      <AervoxButton size="sm" variant="secondary" @click="close">关闭</AervoxButton>
     </div>
     <iframe
       v-if="open && iframeSrc"
@@ -158,12 +169,12 @@ onBeforeUnmount(() => {
       referrerpolicy="no-referrer"
       @load="onIframeLoad"
     />
-  </el-dialog>
+  </AervoxDialog>
 </template>
 
 <style scoped>
-.plugin-page-dialog :deep(.el-dialog__body) { padding: 8px 12px 12px; }
-.plugin-page-toolbar { display: flex; gap: 6px; padding: 0 0 8px; }
+.plugin-page-toolbar { display: flex; gap: 6px; padding: 0 0 10px; }
+
 .plugin-page-tool {
   padding: 5px 11px;
   border: 1px solid var(--border);

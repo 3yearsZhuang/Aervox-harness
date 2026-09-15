@@ -1,12 +1,9 @@
-import { computed, ref, watch, type Component, type Ref } from 'vue';
+import { computed, markRaw, ref, watch, type Component, type Ref } from 'vue';
 import {
-  BookOpen,
-  ClipboardList,
   Clock3,
   History,
   ListTodo,
   NotebookPen,
-  Puzzle,
 } from 'lucide-vue-next';
 import {
   useAervoxApi,
@@ -17,17 +14,15 @@ import {
 import type { UserQuestionRequiredEventData } from '@aervox/contracts';
 import { MizukiExpression } from '../live2d/model';
 import { petReactKind } from '../live2d/petReactions';
+import { aervoxConfirm } from '../primitives';
+import type { UIRegistry } from '../registry/ui-registry';
+import type { WorkbenchCardContribution } from '../registry/types';
+import type { ToolId } from './useWorkbenchLayout';
 
-export type CardId = 'study' | 'todo' | 'timer' | 'history' | 'mistake' | 'quiz' | 'diary';
+export type CardId = string;
 
-export interface CardDefinition {
-  id: CardId;
-  label: string;
-  description: string;
-  icon: Component;
-  summary: () => string;
-  action: () => void;
-}
+export interface CardDefinition extends WorkbenchCardContribution {}
+
 
 export interface DiaryView {
   localDate: string;
@@ -66,10 +61,11 @@ export function useWorkbenchCards(options: {
   timerRunning: Ref<boolean>;
   formattedTime: Ref<string>;
   storyCount: Ref<number>;
-  onOpenTool: (tool: 'study' | 'mistake' | 'todo' | 'timer' | 'history' | 'diary') => void;
+  onOpenTool: (tool: ToolId) => void;
   onStartQuiz: () => void;
   onSubmitQuestionAnswers: (answers: Array<{ id: string; selected: string[] }>) => Promise<void>;
   recordActivity: (source: 'aervox.activity' | 'aervox.operation', eventType: string, payloadText?: string, metadata?: Record<string, unknown>) => void;
+  registry?: UIRegistry;
 }) {
   const api = useAervoxApi();
   const diaryApi = useAervoxDiary();
@@ -439,7 +435,13 @@ export function useWorkbenchCards(options: {
   }
 
   async function archivePlan(planId: string) {
-    if (!window.confirm('归档后规划将从列表隐藏，但完成记录仍会保留。确定归档吗？')) return;
+    const confirmed = await aervoxConfirm({
+      title: '归档学习规划',
+      message: '归档后规划将从列表隐藏，但完成记录仍会保留。确定归档吗？',
+      variant: 'danger',
+      confirmText: '归档',
+    });
+    if (!confirmed) return;
     planBusyId.value = planId;
     try {
       await api.archiveLearningPlan(planId);
@@ -454,16 +456,143 @@ export function useWorkbenchCards(options: {
     return ({ active: '进行中', completed: '已完成', locked: '未解锁' } as Record<string, string>)[status] ?? status;
   }
 
-  // 卡片目录
-  const cardCatalog = computed<CardDefinition[]>(() => [
-    { id: 'study', label: '学习规划', description: 'AI 生成里程碑式学习路线图', icon: BookOpen, summary: () => `${learningPlans.value.length} 份进行中规划`, action: () => options.onOpenTool('study') },
-    { id: 'mistake', label: '错题本', description: '针对性练习未掌握的题', icon: Puzzle, summary: () => `${activeMistakeCount.value} 题待掌握`, action: () => options.onOpenTool('mistake') },
-    { id: 'quiz', label: '刷题模式', description: 'AI 现场出题，答错自动进错题本', icon: ClipboardList, summary: () => activePracticeSession.value ? '进行中的练习' : 'AI 出题 · 即时判定', action: () => options.onStartQuiz() },
-    { id: 'todo', label: '待办清单', description: '勾选完成今天的待办事项', icon: ListTodo, summary: () => `待完成 ${unfinishedTodos.value.length} 件`, action: () => options.onOpenTool('todo') },
-    { id: 'timer', label: '番茄钟', description: '专注计时，劳逸结合', icon: Clock3, summary: () => options.timerRunning.value ? `${options.formattedTime.value} 专注中` : `${options.formattedTime.value} 待开始`, action: () => options.onOpenTool('timer') },
-    { id: 'history', label: '对话回看', description: '回顾与思隅的历史对话', icon: History, summary: () => `${options.storyCount.value} 条对话记录`, action: () => options.onOpenTool('history') },
-    { id: 'diary', label: '今日日记', description: 'AI 按今天记忆写的日记', icon: NotebookPen, summary: () => todayDiary.value?.title ?? 'AI 每日日记', action: () => options.onOpenTool('diary') },
-  ]);
+  // 核心内置卡片
+  const coreCards: CardDefinition[] = [
+    {
+      id: 'todo',
+      label: '待办清单',
+      description: '勾选完成今天的待办事项',
+      icon: ListTodo,
+      summary: () => `待完成 ${unfinishedTodos.value.length} 件`,
+      action: () => options.onOpenTool('todo'),
+      priority: 70,
+    },
+    {
+      id: 'timer',
+      label: '番茄钟',
+      description: '专注计时，劳逸结合',
+      icon: Clock3,
+      summary: () => options.timerRunning.value ? `${options.formattedTime.value} 专注中` : `${options.formattedTime.value} 待开始`,
+      action: () => options.onOpenTool('timer'),
+      priority: 60,
+    },
+    {
+      id: 'history',
+      label: '对话回看',
+      description: '回顾与思隅的历史对话',
+      icon: History,
+      summary: () => `${options.storyCount.value} 条对话记录`,
+      action: () => options.onOpenTool('history'),
+      priority: 50,
+    },
+    {
+      id: 'diary',
+      label: '今日日记',
+      description: 'AI 按今天记忆写的日记',
+      icon: NotebookPen,
+      summary: () => todayDiary.value?.title ?? 'AI 每日日记',
+      action: () => options.onOpenTool('diary'),
+      priority: 40,
+    },
+  ];
+
+  // 卡片目录：内置核心卡片与注册层插件卡片动态合并，按 priority 降序排序
+  const cardCatalog = computed<CardDefinition[]>(() => {
+    const pluginCards = options.registry?.getCards() ?? [];
+    return [...coreCards, ...pluginCards].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+  });
+
+  const QUICK_TOOLS_STORAGE_KEY = 'aervox-quick-tools';
+
+  function loadSavedQuickToolIds(): string[] | null {
+    try {
+      const raw = localStorage.getItem(QUICK_TOOLS_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((item): item is string => typeof item === 'string');
+      }
+    } catch {
+      // 容错处理：忽略非法的 JSON 缓存
+    }
+    return null;
+  }
+
+  function persistQuickToolIds(ids: string[] | null) {
+    try {
+      if (ids === null) {
+        localStorage.removeItem(QUICK_TOOLS_STORAGE_KEY);
+      } else {
+        localStorage.setItem(QUICK_TOOLS_STORAGE_KEY, JSON.stringify(ids));
+      }
+    } catch {
+      // 忽略受限环境下的写入失败
+    }
+  }
+
+  const customQuickToolIds = ref<string[] | null>(loadSavedQuickToolIds());
+
+  // 当前已启用的快捷卡片列表：未自定义时呈现全量已注册卡片；自定义后严格遵循定制顺序并动态过滤未启用的插件卡片
+  const activeQuickCards = computed<CardDefinition[]>(() => {
+    if (customQuickToolIds.value === null) {
+      return cardCatalog.value;
+    }
+    const map = new Map(cardCatalog.value.map((c) => [c.id, c]));
+    const result: CardDefinition[] = [];
+    for (const id of customQuickToolIds.value) {
+      const card = map.get(id);
+      if (card) result.push(card);
+    }
+    return result;
+  });
+
+  // 更多可添加的快捷卡片列表：已注册卡片中未被纳入当前快捷方式的项
+  const availableQuickCards = computed<CardDefinition[]>(() => {
+    if (customQuickToolIds.value === null) {
+      return [];
+    }
+    const activeSet = new Set(customQuickToolIds.value);
+    return cardCatalog.value.filter((card) => !activeSet.has(card.id));
+  });
+
+  function addQuickTool(id: string) {
+    const current = customQuickToolIds.value !== null
+      ? [...customQuickToolIds.value]
+      : cardCatalog.value.map((c) => c.id);
+    if (!current.includes(id)) {
+      current.push(id);
+    }
+    customQuickToolIds.value = current;
+    persistQuickToolIds(current);
+  }
+
+  function removeQuickTool(id: string) {
+    const current = customQuickToolIds.value !== null
+      ? [...customQuickToolIds.value]
+      : cardCatalog.value.map((c) => c.id);
+    const next = current.filter((item) => item !== id);
+    customQuickToolIds.value = next;
+    persistQuickToolIds(next);
+  }
+
+  function moveQuickTool(id: string, direction: 'up' | 'down') {
+    const current = customQuickToolIds.value !== null
+      ? [...customQuickToolIds.value]
+      : cardCatalog.value.map((c) => c.id);
+    const index = current.indexOf(id);
+    if (index === -1) return;
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= current.length) return;
+    const [removed] = current.splice(index, 1);
+    current.splice(targetIndex, 0, removed);
+    customQuickToolIds.value = current;
+    persistQuickToolIds(current);
+  }
+
+  function resetQuickTools() {
+    customQuickToolIds.value = null;
+    persistQuickToolIds(null);
+  }
 
   const slotCards = computed(() => cardSlots.value.map((id) => (id ? cardCatalog.value.find((card) => card.id === id) ?? null : null)));
 
@@ -523,6 +652,13 @@ export function useWorkbenchCards(options: {
     cardSlots,
     slotCards,
     cardCatalog,
+    customQuickToolIds,
+    activeQuickCards,
+    availableQuickCards,
+    addQuickTool,
+    removeQuickTool,
+    moveQuickTool,
+    resetQuickTools,
     questionCardData,
     questionCardSelected,
     todayDiary,
