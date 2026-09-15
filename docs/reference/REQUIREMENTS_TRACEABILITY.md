@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.31.0
+version: 1.32.0
 updated_at: 2026-09-15
 reviewed_at: 2026-09-15
 review_interval_days: 90
@@ -189,6 +189,7 @@ review_interval_days: 90
 
 | 落地内容与功能描述 | 关联 CAP | 实现与测试位置 | 日期 | 验证 | 来源 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| AST-01 会话锁「不同 key 并行」用例确定性改造：`session-lock.test.ts` 原以墙钟断言（3×30ms 并行总耗时 < 80ms），全量测试 CPU 争抢下 `setTimeout` 延迟膨胀导致间歇性失败（首跑失败、重跑通过）；改为 barrier 交叉确定性验证——每个任务进入临界区后等待其他全部 key 的进入信号才结束，锁退化为跨 key 串行时死锁由 2s 兜底超时转失败，零墙钟依赖、不受机器负载影响 | AST-01 会话级写锁（测试稳定性） | `packages/repositories/test/session-lock.test.ts` | 2026-09-15 | 单文件循环 5 次全绿；`turbo run test --force --filter=@aervox/repositories` 全量 50 测试文件通过 | 原生 |
 | CAP-010 偏好仓储单行真源修复与 E2E 去租户化适配（CR-030 收尾）：修复 `SqlitePersonaPreferencesRepository` 去租户化半成品缺陷——`save()` 以随机 id 插入且 `onConflictDoUpdate` target 同为 id 导致永不冲突、每次保存新增一行，`get()` 无序 `limit(1)` 与 `update()`/`reset()` 空 `where` 全表更新；改为固定主键 `pref_local` 构成单行真源（save 幂等 upsert，get/update/reset 显式主键约束，历史孤儿行不参与读写）；E2E 三处因租户 Header 隔离失效而过时的用例同步改写适配：两处「租户隔离」断言改为 CR-030 正向行为（Header 被忽略、数据对本地单用户全局可见），practice-guidance 四场景拆分独立 describe（独立库 + 独立服务），消除 `listActiveQuestions` 按 `createdAt` 正序选题混入旧用例题目导致的断言失真与空会话默认值「假绿」 | CAP-010 | `packages/repositories/src/repositories/sqlite/preferences-repository.ts`、`e2e/{practice-flow,message-edit-delete,practice-guidance-and-insights}.spec.ts` | 2026-09-15 | E2E 全量 45/45 通过（修复前 41/45，缺陷由 E2E 连续多请求状态暴露、集成测试每用例重建内存库无法触达）；`turbo run test --filter=@aervox/repositories --filter=@aervox/api` 集成层 11 任务全通过（repositories 50 测试文件 + api 全量） | 原生 |
 | E2E 测试接入 CI（测试效能基础设施）：`.github/workflows/ci.yml` 新增独立 `e2e` job（与 build job 并行互不阻塞），spawn 真实 API 进程 + 文件 SQLite 运行 Playwright API 级端到端套件（45 用例约 45s）；套件为纯 `request` fixture 无浏览器用例，免 `playwright install` 浏览器二进制；复用 mise / pnpm store / Turbo 缓存（restore-only，新缓存条目由 build job 统一回写）使 api 构建秒级命中；`continue-on-error: true` 观察期非阻塞运行（失败仅标注 warning 不拦截 PR，连续稳定约两周后改为强制门禁）；`timeout-minutes: 15` 防服务进程悬挂耗尽 CI 时长；触发路径补齐 `e2e/**` 与 `playwright.config.ts`（此前 E2E 变更不触发 CI）；AGENTS.md 工具箱速查同步收录 | 基础设施（CI 与 E2E 门禁） | `.github/workflows/ci.yml`、`AGENTS.md`、`docs/reference/REQUIREMENTS_TRACEABILITY.md`（本行） | 2026-09-15 | 本地 `mise x -- pnpm test:e2e` 全量 45/45 通过（44.7s，8 个 spec 文件）；工作流 YAML 语法解析校验通过 | 原生 |
 | Vitest 并行度治理、测试分层快速入口与跨层重复测试审计（测试效能基础设施）：`vitest.shared.ts` 新增 `maxWorkers: '50%'` 限制每个 Vitest 实例的文件级并行 worker 数，消除「turbo 多包并发 × Vitest 全核 fork」叠加争抢导致的单文件 0.5s→6s+ 超时抖动根源，以可控排队换取延迟稳定；根 `package.json` 与 `mise.toml` 新增 `test:unit` / `test-unit` 快速单元层入口，基于重型依赖扫描数据（`@libsql/client` / `createInMemoryDatabase` / `buildApp` 零引用）圈定 9 个纯逻辑轻量包（agent-loop / api-client / config / contracts / desktop / diary / observability / practice-review / ui，共 71 测试文件），与重型集成层（repositories / api / worker / host-agent）解耦，为日常迭代提供秒级反馈通道；同步完成跨层重复测试审计（voice-config / llm-config / plugin-config 三对同主题文件逐对比对），确认 API 层测试严格聚焦 HTTP 语义、安全白名单与编排边界、仓储行为已由 repositories 层等价覆盖，判定零可删重复用例、维持现状不删 | 基础设施（测试效能与稳定性） | `vitest.shared.ts`、`package.json`、`mise.toml`、`AGENTS.md`、`docs/reference/REQUIREMENTS_TRACEABILITY.md`（本行） | 2026-09-15 | `mise x -- pnpm test:unit` 实跑通过（17 任务，9 包 71 测试文件约 22s，`maxWorkers` 半核限制生效）；dry-run 校验 9 包集合命中准确无重型包混入；`mise tasks run ci-docs` 文档门禁通过 | 原生 |

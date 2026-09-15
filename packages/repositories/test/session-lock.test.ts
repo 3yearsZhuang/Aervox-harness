@@ -28,18 +28,38 @@ describe("AST-01 会话级写锁", () => {
 
   it("不同 key 的任务互不阻塞（并行）", async () => {
     const manager = new SessionLockManager();
-    const startedAt = Date.now();
+    const keys = ["a", "b", "c"];
 
-    await Promise.all(
-      ["a", "b", "c"].map((k) =>
-        manager.runExclusive(`session:${k}`, async () => {
-          await sleep(30);
-        }),
+    // 确定性并行验证（barrier 交叉）：每个任务进入临界区后，等待其他
+    // 所有 key 的任务也都进入临界区才结束。若锁退化为跨 key 串行，先
+    // 进入的任务将永远等不到后序信号（后序任务被锁挡在临界区外），
+    // 由兜底超时转为失败。不依赖墙钟，不受 CPU 负载影响（原 80ms
+    // 墙钟断言在全量测试 CPU 争抢下会因 setTimeout 延迟膨胀而 flaky）。
+    const entered = new Map<string, Promise<void>>();
+    const markEntered = new Map<string, () => void>();
+    for (const k of keys) {
+      let resolve!: () => void;
+      entered.set(k, new Promise<void>((r) => (resolve = r)));
+      markEntered.set(k, resolve);
+    }
+
+    const deadlockGuard = sleep(2000).then(() => {
+      throw new Error("不同 key 的任务互相阻塞：锁疑似退化为全局串行");
+    });
+
+    await Promise.race([
+      Promise.all(
+        keys.map((k) =>
+          manager.runExclusive(`session:${k}`, async () => {
+            markEntered.get(k)!();
+            await Promise.all(
+              keys.filter((other) => other !== k).map((other) => entered.get(other)!),
+            );
+          }),
+        ),
       ),
-    );
-
-    // 并行总耗时应显著小于串行 3×30ms
-    expect(Date.now() - startedAt).toBeLessThan(80);
+      deadlockGuard,
+    ]);
   });
 
   it("任务异常不中断队列，异常正确传播", async () => {
