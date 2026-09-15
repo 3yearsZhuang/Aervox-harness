@@ -106,6 +106,28 @@ describe('UI Primitives Test Suite', () => {
       expect(wrapper.find('.test-footer-btn').text()).toBe('确定');
       expect(wrapper.text()).toContain('弹窗测试');
     });
+
+    it('applies is-no-padding class when noPadding is true', async () => {
+      const wrapper = mount(AervoxDialog, {
+        props: {
+          modelValue: true,
+          noPadding: true,
+        },
+        global: {
+          stubs: {
+            ElDialog: defineComponent({
+              name: 'ElDialog',
+              props: ['modelValue'],
+              setup(props, { slots }) {
+                return () => (props.modelValue ? h('div', slots.default?.()) : null);
+              },
+            }),
+          },
+        },
+      });
+
+      expect(wrapper.find('.aervox-dialog-body').classes()).toContain('is-no-padding');
+    });
   });
 
   describe('AervoxNavDialog', () => {
@@ -204,11 +226,14 @@ describe('UI Primitives Test Suite', () => {
   });
 
   describe('AervoxDrawer', () => {
-    it('renders drawer content and triggers close on escape key', async () => {
+    it('renders drawer content, locks body scroll and triggers close on escape key', async () => {
+      document.body.style.overflow = 'auto';
+
       const wrapper = mount(AervoxDrawer, {
         props: {
           modelValue: true,
           title: '抽屉回看',
+          noPadding: true,
         },
         slots: {
           default: '<div class="drawer-inner-content">历史对话</div>',
@@ -218,13 +243,20 @@ describe('UI Primitives Test Suite', () => {
 
       expect(document.body.innerHTML).toContain('抽屉回看');
       expect(document.body.innerHTML).toContain('历史对话');
+      expect(document.body.style.overflow).toBe('hidden');
+      expect(document.querySelector('.drawer-body')?.classList.contains('is-no-padding')).toBe(true);
 
       // Trigger Escape
-      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      const escapeEvent = new KeyboardEvent('keydown', { key: 'Escape' });
+      const stopSpy = vi.spyOn(escapeEvent, 'stopPropagation');
+      window.dispatchEvent(escapeEvent);
+
+      expect(stopSpy).toHaveBeenCalled();
       expect(wrapper.emitted('update:modelValue')?.[0]).toEqual([false]);
       expect(wrapper.emitted('close')).toHaveLength(1);
 
       wrapper.unmount();
+      expect(document.body.style.overflow).toBe('auto');
     });
   });
 

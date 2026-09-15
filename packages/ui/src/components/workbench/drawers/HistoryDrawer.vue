@@ -23,6 +23,7 @@ function attachmentIconFor(mediaType: string) {
     :icon="History"
     width="480px"
     aria-label="对话回看"
+    no-padding
   >
     <div ref="historyViewport" class="vn-history-list">
       <p v-for="line in story" :key="line.id" class="vn-history-line" :class="line.speaker">

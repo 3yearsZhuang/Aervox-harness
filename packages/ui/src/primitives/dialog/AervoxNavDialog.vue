@@ -67,6 +67,7 @@ function selectItem(id: string) {
     size="lg"
     :custom-class="[customClass, 'aervox-nav-dialog'].filter(Boolean).join(' ')"
     body-max-height="none"
+    no-padding
     @update:model-value="emit('update:modelValue', $event)"
     @close="emit('close')"
     @closed="emit('closed')"
