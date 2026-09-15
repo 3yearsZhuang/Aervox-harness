@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { ref } from 'vue';
 import { splitIntoSentences } from '../src/composables/useWorkbenchConversation';
 import { resolveMediaType, formatAttachmentSize } from '../src/composables/useWorkbenchComposer';
 import { DIAL_RADIUS, DIAL_CIRCUMFERENCE } from '../src/composables/useWorkbenchTimer';
@@ -142,5 +143,39 @@ describe('Workbench Composables Logic', () => {
     // 非 instant 模式应触发 scrollTo 平滑滚动
     await conv.scrollStoryToBottom();
     expect(scrollToCalled).toBe(1);
+  });
+
+  it('useWorkbenchCards dynamically merges cards from UIRegistry and defaults to core cards', async () => {
+    const { useWorkbenchCards } = await import('../src/composables/useWorkbenchCards');
+    const { createUIRegistry } = await import('../src/registry/ui-registry');
+    const { registerFocusModePlugin } = await import('../src/plugins');
+    const registry = createUIRegistry();
+
+    const cards = useWorkbenchCards({
+      activeQuestion: ref(null),
+      timerRunning: ref(false),
+      formattedTime: ref('25:00'),
+      storyCount: ref(0),
+      onOpenTool: vi.fn(),
+      onStartQuiz: vi.fn(),
+      onSubmitQuestionAnswers: vi.fn(),
+      recordActivity: vi.fn(),
+      registry,
+    });
+
+    // 1. Initially without plugin cards: only 4 core cards
+    expect(cards.cardCatalog.value.map((c) => c.id)).toEqual(['todo', 'timer', 'history', 'diary']);
+
+    // 2. When focus-mode registers cards into registry: cardCatalog reactively merges them
+    const unregister = registerFocusModePlugin(registry);
+    expect(cards.cardCatalog.value.map((c) => c.id)).toEqual(['study', 'mistake', 'quiz', 'todo', 'timer', 'history', 'diary']);
+
+    // 3. Focus study card action is present
+    const studyCard = cards.cardCatalog.value.find((c) => c.id === 'study');
+    expect(studyCard?.extraComponent).toBeDefined();
+
+    // 4. When focus-mode unregisters: returns back to core cards
+    unregister();
+    expect(cards.cardCatalog.value.map((c) => c.id)).toEqual(['todo', 'timer', 'history', 'diary']);
   });
 });

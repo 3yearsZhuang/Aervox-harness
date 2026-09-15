@@ -1,12 +1,9 @@
-import { computed, ref, watch, type Component, type Ref } from 'vue';
+import { computed, markRaw, ref, watch, type Component, type Ref } from 'vue';
 import {
-  BookOpen,
-  ClipboardList,
   Clock3,
   History,
   ListTodo,
   NotebookPen,
-  Puzzle,
 } from 'lucide-vue-next';
 import {
   useAervoxApi,
@@ -18,17 +15,14 @@ import type { UserQuestionRequiredEventData } from '@aervox/contracts';
 import { MizukiExpression } from '../live2d/model';
 import { petReactKind } from '../live2d/petReactions';
 import { aervoxConfirm } from '../primitives';
+import type { UIRegistry } from '../registry/ui-registry';
+import type { WorkbenchCardContribution } from '../registry/types';
+import type { ToolId } from './useWorkbenchLayout';
 
-export type CardId = 'study' | 'todo' | 'timer' | 'history' | 'mistake' | 'quiz' | 'diary';
+export type CardId = string;
 
-export interface CardDefinition {
-  id: CardId;
-  label: string;
-  description: string;
-  icon: Component;
-  summary: () => string;
-  action: () => void;
-}
+export interface CardDefinition extends WorkbenchCardContribution {}
+
 
 export interface DiaryView {
   localDate: string;
@@ -67,10 +61,11 @@ export function useWorkbenchCards(options: {
   timerRunning: Ref<boolean>;
   formattedTime: Ref<string>;
   storyCount: Ref<number>;
-  onOpenTool: (tool: 'study' | 'mistake' | 'todo' | 'timer' | 'history' | 'diary') => void;
+  onOpenTool: (tool: ToolId) => void;
   onStartQuiz: () => void;
   onSubmitQuestionAnswers: (answers: Array<{ id: string; selected: string[] }>) => Promise<void>;
   recordActivity: (source: 'aervox.activity' | 'aervox.operation', eventType: string, payloadText?: string, metadata?: Record<string, unknown>) => void;
+  registry?: UIRegistry;
 }) {
   const api = useAervoxApi();
   const diaryApi = useAervoxDiary();
@@ -461,16 +456,51 @@ export function useWorkbenchCards(options: {
     return ({ active: '进行中', completed: '已完成', locked: '未解锁' } as Record<string, string>)[status] ?? status;
   }
 
-  // 卡片目录
-  const cardCatalog = computed<CardDefinition[]>(() => [
-    { id: 'study', label: '学习规划', description: 'AI 生成里程碑式学习路线图', icon: BookOpen, summary: () => `${learningPlans.value.length} 份进行中规划`, action: () => options.onOpenTool('study') },
-    { id: 'mistake', label: '错题本', description: '针对性练习未掌握的题', icon: Puzzle, summary: () => `${activeMistakeCount.value} 题待掌握`, action: () => options.onOpenTool('mistake') },
-    { id: 'quiz', label: '刷题模式', description: 'AI 现场出题，答错自动进错题本', icon: ClipboardList, summary: () => activePracticeSession.value ? '进行中的练习' : 'AI 出题 · 即时判定', action: () => options.onStartQuiz() },
-    { id: 'todo', label: '待办清单', description: '勾选完成今天的待办事项', icon: ListTodo, summary: () => `待完成 ${unfinishedTodos.value.length} 件`, action: () => options.onOpenTool('todo') },
-    { id: 'timer', label: '番茄钟', description: '专注计时，劳逸结合', icon: Clock3, summary: () => options.timerRunning.value ? `${options.formattedTime.value} 专注中` : `${options.formattedTime.value} 待开始`, action: () => options.onOpenTool('timer') },
-    { id: 'history', label: '对话回看', description: '回顾与思隅的历史对话', icon: History, summary: () => `${options.storyCount.value} 条对话记录`, action: () => options.onOpenTool('history') },
-    { id: 'diary', label: '今日日记', description: 'AI 按今天记忆写的日记', icon: NotebookPen, summary: () => todayDiary.value?.title ?? 'AI 每日日记', action: () => options.onOpenTool('diary') },
-  ]);
+  // 核心内置卡片
+  const coreCards: CardDefinition[] = [
+    {
+      id: 'todo',
+      label: '待办清单',
+      description: '勾选完成今天的待办事项',
+      icon: ListTodo,
+      summary: () => `待完成 ${unfinishedTodos.value.length} 件`,
+      action: () => options.onOpenTool('todo'),
+      priority: 70,
+    },
+    {
+      id: 'timer',
+      label: '番茄钟',
+      description: '专注计时，劳逸结合',
+      icon: Clock3,
+      summary: () => options.timerRunning.value ? `${options.formattedTime.value} 专注中` : `${options.formattedTime.value} 待开始`,
+      action: () => options.onOpenTool('timer'),
+      priority: 60,
+    },
+    {
+      id: 'history',
+      label: '对话回看',
+      description: '回顾与思隅的历史对话',
+      icon: History,
+      summary: () => `${options.storyCount.value} 条对话记录`,
+      action: () => options.onOpenTool('history'),
+      priority: 50,
+    },
+    {
+      id: 'diary',
+      label: '今日日记',
+      description: 'AI 按今天记忆写的日记',
+      icon: NotebookPen,
+      summary: () => todayDiary.value?.title ?? 'AI 每日日记',
+      action: () => options.onOpenTool('diary'),
+      priority: 40,
+    },
+  ];
+
+  // 卡片目录：内置核心卡片与注册层插件卡片动态合并，按 priority 降序排序
+  const cardCatalog = computed<CardDefinition[]>(() => {
+    const pluginCards = options.registry?.getCards() ?? [];
+    return [...coreCards, ...pluginCards].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+  });
 
   const slotCards = computed(() => cardSlots.value.map((id) => (id ? cardCatalog.value.find((card) => card.id === id) ?? null : null)));
 

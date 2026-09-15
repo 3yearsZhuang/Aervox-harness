@@ -4,23 +4,17 @@ import { computed, ref } from 'vue';
 import {
   AlertTriangle,
   Bell,
-  BookOpen,
   BrainCircuit,
   Check,
-  Clock3,
   Database,
   Download,
   Heart,
-  History,
   LayoutGrid,
   Link2,
-  ListTodo,
   MessageCircle,
   Moon,
-  NotebookPen,
   PauseCircle,
   PlayCircle,
-  Puzzle,
   RefreshCw,
   ShieldAlert,
   Sun,
@@ -33,6 +27,7 @@ import VoicePresetManagerPanel from '../../voice/VoicePresetManagerPanel.vue';
 import PluginManagerPanel from '../../plugin/PluginManagerPanel.vue';
 import ExtensionSlot from '../../extension/ExtensionSlot.vue';
 import { useAervoxPlugins } from '@aervox/api-client';
+import type { CardDefinition } from '../../../composables/useWorkbenchCards';
 import { useWorkbenchContext } from '../../../composables/workbench-context';
 import { AervoxNavDialog, AervoxConfirmDialog, AervoxDialog, AervoxButton } from '../../../primitives';
 
@@ -44,7 +39,7 @@ const props = withDefaults(
   }>(),
   {
     focusModeAvailable: undefined,
-    studyModeAvailable: true,
+    studyModeAvailable: undefined,
   },
 );
 
@@ -59,7 +54,7 @@ const isFocusModeAvailable = computed(() => {
   if (typeof props.focusModeAvailable === 'boolean') {
     return props.focusModeAvailable;
   }
-  if (typeof props.studyModeAvailable === 'boolean' && props.studyModeAvailable !== true) {
+  if (typeof props.studyModeAvailable === 'boolean') {
     return props.studyModeAvailable;
   }
   return pluginRuntime?.isPluginAvailable('focus-mode') ?? pluginRuntime?.isPluginAvailable('study-mode') ?? true;
@@ -72,6 +67,10 @@ function handleFocusModeChange(checked: boolean) {
 }
 const handleStudyModeChange = handleFocusModeChange;
 
+function handleQuickToolClick(card: CardDefinition) {
+  settingsOpen.value = false;
+  card.action();
+}
 
 const {
   isWeb,
@@ -94,10 +93,8 @@ const {
   saveSettings,
 } = layout;
 
-const { formattedTime, timerMinutes } = timer;
-const { todos, unfinishedTodos, activeMistakeCount } = cards;
-const { learningPlans } = cards.api;
-const { story, toolApprovalMode } = conversation;
+const { timerMinutes } = timer;
+const { toolApprovalMode } = conversation;
 
 const {
   proactiveStatus,
@@ -181,29 +178,14 @@ async function onPluginChange(): Promise<void> {
             <span><strong>快捷工具</strong><small>打开学习面板与常用小工具</small></span>
           </div>
           <div class="quick-tools">
-            <button type="button" @click="openTool('study')">
-              <BookOpen :size="19" />
-              <span><strong>学习规划</strong><small>{{ learningPlans.length }} 份进行中规划</small></span>
-            </button>
-            <button type="button" @click="openTool('mistake')">
-              <Puzzle :size="19" />
-              <span><strong>错题本</strong><small>{{ activeMistakeCount }} 题待掌握</small></span>
-            </button>
-            <button type="button" @click="openTool('todo')">
-              <ListTodo :size="19" />
-              <span><strong>待办清单</strong><small>{{ unfinishedTodos.length }} 件待完成</small></span>
-            </button>
-            <button type="button" @click="openTool('timer')">
-              <Clock3 :size="19" />
-              <span><strong>番茄钟</strong><small>{{ formattedTime }} 专注计时</small></span>
-            </button>
-            <button type="button" @click="openTool('history')">
-              <History :size="19" />
-              <span><strong>对话回看</strong><small>{{ story.length }} 条对话记录</small></span>
-            </button>
-            <button type="button" @click="openTool('diary')">
-              <NotebookPen :size="19" />
-              <span><strong>日记本</strong><small>AI 每日日记与历史回看</small></span>
+            <button
+              v-for="card in cards.cardCatalog.value"
+              :key="card.id"
+              type="button"
+              @click="handleQuickToolClick(card)"
+            >
+              <component :is="card.icon" :size="19" />
+              <span><strong>{{ card.label }}</strong><small>{{ card.summary() }}</small></span>
             </button>
           </div>
         </div>
@@ -389,14 +371,13 @@ async function onPluginChange(): Promise<void> {
             <span><strong>对话</strong><small>调整你与思隅交流的输入与展示方式</small></span>
           </div>
           <label class="settings-field"><span><strong>助手称呼</strong><small>工作台中显示的名字</small></span><input v-model="assistantDisplayName" maxlength="12" @change="saveSettings(timerMinutes)" /></label>
-          <label class="settings-row settings-choice-row">
+          <label v-if="isFocusModeAvailable" class="settings-row settings-choice-row">
             <span>
               <strong>专注模式</strong>
-              <small>{{ isFocusModeAvailable === false ? '插件已停用，需先在扩展中心启用 focus-mode' : '启用专属苏格拉底启发式教学与防剧透规则' }}</small>
+              <small>启用专属苏格拉底启发式教学与防剧透规则</small>
             </span>
             <input
               :checked="focusModeEnabled"
-              :disabled="isFocusModeAvailable === false"
               type="checkbox"
               class="settings-switch"
               @change="handleFocusModeChange(($event.target as HTMLInputElement).checked)"

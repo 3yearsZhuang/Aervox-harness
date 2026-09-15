@@ -10,7 +10,9 @@ export type ExtensionSlotName =
   | 'message:bubble-actions'
   | 'composer:toolbar-actions'
   | 'composer:bottom-bar'
-  | 'settings:tabs';
+  | 'settings:tabs'
+  | 'workbench:drawers'
+  | 'taskcenter:cards';
 
 export interface ExtensionComponentRegistration {
   id: string;
@@ -62,3 +64,15 @@ export interface MessageTransformerRegistration {
   transformer: MessageTransformer;
   priority: number;
 }
+
+export interface WorkbenchCardContribution {
+  id: string;
+  label: string;
+  description: string;
+  icon: Component;
+  summary: () => string;
+  action: () => void;
+  extraComponent?: Component;
+  priority?: number;
+}
+

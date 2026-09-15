@@ -283,7 +283,8 @@
 }
 
 .menu-items > .aervox-extension-slot,
-.aervox-extension-slot[data-slot-name="nav:menu-items"] {
+.aervox-extension-slot[data-slot-name="nav:menu-items"],
+.aervox-extension-slot[data-slot-name="workbench:drawers"] {
   display: contents;
 }
 
@@ -4937,6 +4938,11 @@
   grid-template-columns: repeat(2, 1fr);
   gap: 14px;
   margin-bottom: 20px;
+}
+
+.task-card-grid > .aervox-extension-slot,
+.aervox-extension-slot[data-slot-name="taskcenter:cards"] {
+  display: contents;
 }
 
 @media (max-width: 640px) {
