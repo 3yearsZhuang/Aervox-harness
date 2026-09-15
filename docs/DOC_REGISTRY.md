@@ -59,7 +59,7 @@ review_interval_days: 90
 | `AVX-GUIDE-001` | [工程与发布流程](how-to/engineering-process.md) | 2026-09-13 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
 | `AVX-GUIDE-002` | [撰写与批准 ADR](how-to/write-adr.md) | 2026-08-28 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
 | `AVX-GUIDE-003` | [submodule 初始化与协作规范](how-to/submodule-collaboration.md) | 2026-08-31 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
-| `AVX-GUIDE-004` | [开发 Aervox 扩展插件](how-to/develop-plugin-ui-extension.md) | 2026-09-10 | 插件 Bundle、Turn 管道或 UI 扩展契约变更 | 指南与插件运行时、插槽注册表或安全边界不一致 |
+| `AVX-GUIDE-004` | [开发 Aervox 扩展插件](how-to/develop-plugin-ui-extension.md) | 2026-09-15 | 插件 Bundle、Turn 管道或 UI 扩展契约变更 | 指南与插件运行时、插槽注册表或安全边界不一致 |
 | `AVX-GUIDE-005` | [提出、撰写与闭环变更请求（CR）](how-to/cr-workflow.md) | 2026-09-13 | 变更控制规则或模板变更 | 指南与追踪基线 §11、CR 规范或落地登记流程不符 |
 | `AVX-GUIDE-006` | [执行 SQLite 数据库迁移与换库回滚演练](how-to/run-database-migration-drill.md) | 2026-09-13 | 数据库架构或演练流程变更 | 指南与 DATABASE.md、CR-030 契约或 operations.md 演练项不符 |
 | `AVX-GUIDE-007` | [新增与规格化 CAP 业务能力](how-to/add-capability.md) | 2026-09-13 | 需求流程或 CAP 规则变更 | 指南与 PRD、SRS 或追踪基线立项流程不符 |
@@ -118,10 +118,11 @@ review_interval_days: 90
 | `CR-047` | [模式切换器与统一任务中心 (W2)](reference/changes/CR-047-mode-selector-and-task-center.md) | 2026-09-14 | `CAP-002/010/019/033` 交互模式切换器、统一任务中心只读抽屉与后台 Worker 状态深链变更 | 模式切换分段控件、任务中心概览或深链跳转与本文不符 |
 | `CR-048` | [项目上下文绑定与会话迁移设施 (W3)](reference/changes/CR-048-project-context-and-migration-facility.md) | 2026-09-14 | `CAP-026/033` 项目上下文显式绑定、外部会话导入器与命令面板变更 | 项目组织流、外部会话解析安全净化或快捷指令与本文不符 |
 | `CR-049` | [UI 基础控件库与全量弹窗控件化](reference/changes/CR-049-ui-primitives-and-dialog-componentization.md) | 2026-09-15 | `CAP-001/002/019/020/033` UI Primitives 基础控件库、全量业务弹窗控件化与淘汰阻塞式 window.confirm | 弹窗结构、Primitives 导出、非阻塞确认机制或视图控件化规范与本文不符 |
+| `CR-050` | [工作台 UI 插件声明式注册层与专注模式彻底解耦](reference/changes/CR-050-declarative-ui-plugin-registry-and-focus-mode-decoupling.md) | 2026-09-15 | `CAP-001/002/003/016/020` UI 插槽扩展（workbench:drawers、taskcenter:cards）、卡片注册层与专注模式彻底解耦 | 注册层契约、插槽列表、卡片贡献点或解耦规范与本文不符 |
 | `AVX-PLAN-033` | [CR-033 落地临时计划](CR-033-plan.md) | 2026-09-14 | 对应子 CR 通过 G1 前每 30 天 | 子 CR 拆分、依赖、门禁或回滚建议与 CR-033 基线不一致；子 CR 通过 G1 后应迁移或删除 |
 | `AVX-PLAN-034` | [CR-034 落地临时计划](CR-034-plan.md) | 2026-09-14 | 对应子 CR 通过 G1 前每 30 天 | 子 CR 拆分、Provider 路由、能力分级或托管边界与 CR-034 基线不一致；子 CR 通过 G1 后应迁移或删除 |
 | `AVX-PLAN-035` | [CR-035 落地临时计划](CR-035-plan.md) | 2026-09-14 | 对应子 CR 通过 G1 前每 30 天 | 子 CR 拆分、会话/项目/任务契约或导入边界与 CR-035 基线不一致；子 CR 通过 G1 后应迁移或删除 |
-| `AVX-PLUG-001` | [插件 Config、Page 与 UI 扩展规范](reference/plugin-config-and-pages.md) | 2026-09-11 | CR-006 / 插件机制变更 | Manifest、Config Schema、Page Bridge、Turn 管道或 UI 扩展与实现不一致 |
+| `AVX-PLUG-001` | [插件 Config、Page 与 UI 扩展规范](reference/plugin-config-and-pages.md) | 2026-09-15 | CR-006 / 插件机制变更 | Manifest、Config Schema、Page Bridge、Turn 管道或 UI 扩展与实现不一致 |
 | `AVX-DOC-GOV-001` | [文档治理与事实源规范](reference/document-governance.md) | 2026-09-14 | 文档分类、状态、事实源、复核触发或迁移策略变更 | 策略 JSON、校验器、索引、登记表或写作规范与治理基线不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 2026-09-10 | 写作规则、模板或季度评审 | 新文档未使用规范元数据/签名，或 Vale 规则与术语表不一致 |
 | `AVX-TERM-001` | [术语表](reference/standards/terminology.md) | 2026-09-13 | 术语新增/变更 | 新增缩写未登记，或正文拼写与「禁写」列不一致 |

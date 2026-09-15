@@ -6,17 +6,23 @@ import {
   Bell,
   BrainCircuit,
   Check,
+  ChevronDown,
+  ChevronUp,
   Database,
   Download,
   Heart,
   LayoutGrid,
   Link2,
   MessageCircle,
+  Minus,
   Moon,
   PauseCircle,
   PlayCircle,
+  Plus,
   RefreshCw,
+  RotateCcw,
   ShieldAlert,
+  SlidersHorizontal,
   Sun,
   Trash2,
   Volume2,
@@ -66,6 +72,15 @@ function handleFocusModeChange(checked: boolean) {
   layout.setFocusModeEnabled(checked);
 }
 const handleStudyModeChange = handleFocusModeChange;
+
+const activeQuickCards = cards.activeQuickCards ?? cards.cardCatalog;
+const availableQuickCards = cards.availableQuickCards ?? ref<CardDefinition[]>([]);
+const addQuickTool = cards.addQuickTool ?? (() => {});
+const removeQuickTool = cards.removeQuickTool ?? (() => {});
+const moveQuickTool = cards.moveQuickTool ?? (() => {});
+const resetQuickTools = cards.resetQuickTools ?? (() => {});
+
+const isEditingQuickTools = ref(false);
 
 function handleQuickToolClick(card: CardDefinition) {
   settingsOpen.value = false;
@@ -173,22 +188,149 @@ async function onPluginChange(): Promise<void> {
     </template>
     <template #content>
       <div v-if="settingsCategory === 'tools'" class="settings-section">
-          <div class="settings-section-heading">
+        <div class="settings-section-heading quick-tools-heading">
+          <div class="quick-tools-heading-title">
             <span class="heading-icon-wrap"><LayoutGrid :size="18" /></span>
-            <span><strong>快捷工具</strong><small>打开学习面板与常用小工具</small></span>
+            <span><strong>快捷工具</strong><small>{{ isEditingQuickTools ? '自定义控制中心中的快捷方式' : '打开学习面板与常用小工具' }}</small></span>
           </div>
-          <div class="quick-tools">
+          <div class="quick-tools-actions">
             <button
-              v-for="card in cards.cardCatalog.value"
-              :key="card.id"
+              v-if="isEditingQuickTools"
               type="button"
-              @click="handleQuickToolClick(card)"
+              class="quick-tools-action-btn btn-reset"
+              title="恢复默认快捷方式"
+              @click="resetQuickTools()"
             >
-              <component :is="card.icon" :size="19" />
-              <span><strong>{{ card.label }}</strong><small>{{ card.summary() }}</small></span>
+              <RotateCcw :size="13" />
+              <span>恢复默认</span>
+            </button>
+            <button
+              type="button"
+              class="quick-tools-action-btn"
+              :class="{ 'btn-done': isEditingQuickTools }"
+              @click="isEditingQuickTools = !isEditingQuickTools"
+            >
+              <component :is="isEditingQuickTools ? Check : SlidersHorizontal" :size="13" />
+              <span>{{ isEditingQuickTools ? '完成' : '自定义' }}</span>
             </button>
           </div>
         </div>
+
+        <!-- Normal Mode -->
+        <div v-if="!isEditingQuickTools" class="quick-tools">
+          <button
+            v-for="card in activeQuickCards"
+            :key="card.id"
+            type="button"
+            @click="handleQuickToolClick(card)"
+          >
+            <component :is="card.icon" :size="19" />
+            <span><strong>{{ card.label }}</strong><small>{{ card.summary() }}</small></span>
+          </button>
+          <div v-if="activeQuickCards.length === 0" class="quick-tools-empty">
+            <p>暂无启用的快捷工具，点击右上角「自定义」添加快捷方式。</p>
+          </div>
+        </div>
+
+        <!-- Edit Mode (iOS / Android Control Center Style) -->
+        <div v-else class="control-center-edit-container">
+          <!-- Group 1: Included Controls -->
+          <div class="control-center-group">
+            <div class="control-center-group-header">
+              <span>已包含的快捷工具</span>
+              <small>点击减号移除，或调整展示次序</small>
+            </div>
+            <div class="control-center-group-list">
+              <div
+                v-for="(card, idx) in activeQuickCards"
+                :key="card.id"
+                class="control-center-item is-included"
+              >
+                <button
+                  type="button"
+                  class="action-circle-btn btn-minus"
+                  :title="`从控制中心移除 ${card.label}`"
+                  :aria-label="`移除 ${card.label}`"
+                  @click="removeQuickTool(card.id)"
+                >
+                  <Minus :size="14" />
+                </button>
+                <div class="control-center-item-icon">
+                  <component :is="card.icon" :size="18" />
+                </div>
+                <div class="control-center-item-info">
+                  <strong>{{ card.label }}</strong>
+                  <small>{{ card.description }}</small>
+                </div>
+                <div class="control-center-item-order">
+                  <button
+                    type="button"
+                    class="order-btn"
+                    :disabled="idx === 0"
+                    :title="`上移 ${card.label}`"
+                    :aria-label="`上移 ${card.label}`"
+                    @click="moveQuickTool(card.id, 'up')"
+                  >
+                    <ChevronUp :size="14" />
+                  </button>
+                  <button
+                    type="button"
+                    class="order-btn"
+                    :disabled="idx === activeQuickCards.length - 1"
+                    :title="`下移 ${card.label}`"
+                    :aria-label="`下移 ${card.label}`"
+                    @click="moveQuickTool(card.id, 'down')"
+                  >
+                    <ChevronDown :size="14" />
+                  </button>
+                </div>
+              </div>
+              <div v-if="activeQuickCards.length === 0" class="control-center-empty-hint">
+                暂无快捷工具，请从下方「更多可添加的快捷工具」中添加。
+              </div>
+            </div>
+          </div>
+
+          <!-- Group 2: More Available Controls -->
+          <div v-if="availableQuickCards.length > 0" class="control-center-group">
+            <div class="control-center-group-header">
+              <span>更多可添加的快捷工具</span>
+              <small>点击加号添加至控制中心</small>
+            </div>
+            <div class="control-center-group-list">
+              <div
+                v-for="card in availableQuickCards"
+                :key="card.id"
+                class="control-center-item is-available"
+              >
+                <button
+                  type="button"
+                  class="action-circle-btn btn-plus"
+                  :title="`添加 ${card.label} 至控制中心`"
+                  :aria-label="`添加 ${card.label}`"
+                  @click="addQuickTool(card.id)"
+                >
+                  <Plus :size="14" />
+                </button>
+                <div class="control-center-item-icon">
+                  <component :is="card.icon" :size="18" />
+                </div>
+                <div class="control-center-item-info">
+                  <strong>{{ card.label }}</strong>
+                  <small>{{ card.description }}</small>
+                </div>
+                <button
+                  type="button"
+                  class="btn-add-pill"
+                  @click="addQuickTool(card.id)"
+                >
+                  添加
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
         <div v-else-if="settingsCategory === 'proactive'" class="settings-section proactive-settings">
           <div class="settings-section-heading">
             <span class="heading-icon-wrap"><BrainCircuit :size="18" /></span>

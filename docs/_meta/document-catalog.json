@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-09-15",
-  "totalCount": 122,
+  "totalCount": 123,
   "documents": [
     {
       "id": "ADR-002",
@@ -510,9 +510,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.2.0",
-      "updated_at": "2026-09-10",
-      "reviewed_at": "2026-09-10",
+      "version": "0.3.0",
+      "updated_at": "2026-09-15",
+      "reviewed_at": "2026-09-15",
       "review_interval_days": 90,
       "review_triggers": [
         "plugins/**",
@@ -2149,6 +2149,28 @@
       ]
     },
     {
+      "id": "CR-050",
+      "title": "CR-050 工作台 UI 插件声明式注册层与专注模式彻底解耦",
+      "path": "reference/changes/CR-050-declarative-ui-plugin-registry-and-focus-mode-decoupling.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "accepted",
+      "delivery_status": "verified",
+      "version": "1.0.0",
+      "updated_at": "2026-09-15",
+      "reviewed_at": "2026-09-15",
+      "review_interval_days": 90,
+      "review_triggers": [],
+      "sources": [
+        "docs/reference/PRD.md",
+        "docs/reference/ARCHITECTURE.md",
+        "docs/reference/plugin-config-and-pages.md",
+        "docs/reference/standards/doc-standards.md"
+      ]
+    },
+    {
       "id": "AVX-DATA-001",
       "title": "Aervox｜思隅 数据与隐私规范",
       "path": "reference/DATA_PRIVACY.md",
@@ -2271,9 +2293,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.4.0",
-      "updated_at": "2026-09-11",
-      "reviewed_at": "2026-09-11",
+      "version": "0.5.0",
+      "updated_at": "2026-09-15",
+      "reviewed_at": "2026-09-15",
       "review_interval_days": 90,
       "review_triggers": [
         "packages/ui/src/registry/**",
@@ -2336,7 +2358,7 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.28.0",
+      "version": "1.28.1",
       "updated_at": "2026-09-15",
       "reviewed_at": "2026-09-15",
       "review_interval_days": 90,
