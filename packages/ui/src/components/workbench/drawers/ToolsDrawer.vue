@@ -76,6 +76,7 @@ const { story } = conversation;
     :active-key="activeToolView"
     :content-centered="activeToolView === 'timer'"
     nav-aria-label="工具导航"
+    custom-class="tools-dialog"
     @update:active-key="switchToolView($event as any)"
   >
     <template #content>
