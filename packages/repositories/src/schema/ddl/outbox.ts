@@ -22,4 +22,8 @@ export async function createOutboxTables(client: Client): Promise<void> {
   await client.execute(`
       CREATE UNIQUE INDEX IF NOT EXISTS outbox_local_idempotency_idx ON outbox_events(idempotency_key);
     `);
+  // Worker 高频轮询按状态筛选并按创建时间取最早事件；复合索引避免每 tick 全表扫描与排序。
+  await client.execute(`
+      CREATE INDEX IF NOT EXISTS outbox_pending_created_idx ON outbox_events(status, created_at);
+    `);
 }

@@ -10,10 +10,13 @@ export async function createConversationsTables(client: Client): Promise<void> {
       CREATE TABLE IF NOT EXISTS sessions (
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
+        project_id TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
     `);
+  await addColumnIfMissing(client, "sessions", "project_id", "project_id TEXT");
+  await client.execute(`CREATE INDEX IF NOT EXISTS sessions_project_idx ON sessions(project_id);`);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS turns (
         id TEXT PRIMARY KEY,
@@ -55,6 +58,11 @@ export async function createConversationsTables(client: Client): Promise<void> {
   await client.execute(`
       CREATE UNIQUE INDEX IF NOT EXISTS message_versions_turn_ver_idx ON message_versions(turn_id, version);
     `);
+  // 恢复候选按 Turn、角色取最新用户消息；复合索引避免逐候选扫描版本记录。
+  await client.execute(`
+      CREATE INDEX IF NOT EXISTS message_versions_turn_role_ver_idx
+      ON message_versions(turn_id, role, version);
+    `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS turn_stream_events (
         id TEXT PRIMARY KEY,
@@ -72,6 +80,11 @@ export async function createConversationsTables(client: Client): Promise<void> {
     `);
   await client.execute(`
       CREATE UNIQUE INDEX IF NOT EXISTS turn_stream_events_turn_seq_idx ON turn_stream_events(turn_id, sequence);
+    `);
+  // 恢复候选按 Turn 与事件类型检查 done/tool_result，并按 sequence 聚合。
+  await client.execute(`
+      CREATE INDEX IF NOT EXISTS turn_stream_events_turn_type_seq_idx
+      ON turn_stream_events(turn_id, event_type, sequence);
     `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS messages (
@@ -104,7 +117,12 @@ export async function createConversationsTables(client: Client): Promise<void> {
       CREATE UNIQUE INDEX IF NOT EXISTS turn_attempts_turn_attempt_idx ON turn_attempts(turn_id, attempt);
     `);
   // 3b-A：旧库补齐租约过期列（新库已含；ALTER ADD COLUMN 幂等）
-    await addColumnIfMissing(client, "turn_attempts", "lease_expires_at", "lease_expires_at TEXT");
+  await addColumnIfMissing(client, "turn_attempts", "lease_expires_at", "lease_expires_at TEXT");
+  // Worker 每轮扫描 Running 且租约过期的 Attempt；没有该索引会随历史 Attempt 数量线性变慢。
+  await client.execute(`
+      CREATE INDEX IF NOT EXISTS turn_attempts_status_lease_idx
+      ON turn_attempts(status, lease_expires_at);
+    `);
   // 15. P1：会话地图分支 + 知识关系（PRD §8）
     await client.execute(`
       CREATE TABLE IF NOT EXISTS conversation_branches (

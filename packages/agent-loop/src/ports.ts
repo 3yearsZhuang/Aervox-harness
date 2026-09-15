@@ -164,6 +164,23 @@ export interface ExecutionStorePort {
     expectedFencingToken: number;
   }): Promise<{ ok: boolean }>;
 
+  /**
+   * E2 batch variant: persist several safe segments in one host transaction
+   * while retaining one delta event and one sequence number per segment.
+   *
+   * This is optional so older/custom hosts remain compatible; the executor
+   * falls back to recordSafeSegment when it is not provided.
+   */
+  recordSafeSegments?(inputs: Array<{
+    turnId: string;
+    attemptId: string;
+    sequence: number;
+    text: string;
+    eventData: unknown;
+    safetyDecision: SafetyDecision;
+    expectedFencingToken: number;
+  }>): Promise<{ ok: boolean }>;
+
   /** E2：读取 Turn 的已提交安全片段（可见前缀；sequence 升序）。缺省实现返回空（宿主未接时透传）。 */
   listCommittedSegments?(turnId: string): Promise<Array<{ id: string; sequence: number; text: string; streamEventId: string | null }>>;
 }

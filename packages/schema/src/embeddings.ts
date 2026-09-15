@@ -9,7 +9,7 @@
  * 本表是「向量数据本体」（含 dimension/modelId/sourceCreatedAt，参考 baishou-next
  * schema/vectors.ts 的字段形态，自研实现）。
  */
-import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { timestampColumns } from "./common.js";
 import { memoryRecords } from "./memories.js";
 
@@ -37,5 +37,9 @@ export const memoryEmbeddings = sqliteTable(
 
     memoryIdx: index("memory_embeddings_memory_idx").on(table.memoryId),
     modelIdx: index("memory_embeddings_model_idx").on(table.modelId),
+    memoryModelUniqueIdx: uniqueIndex("memory_embeddings_memory_model_idx").on(
+      table.memoryId,
+      table.modelId,
+    ),
   }),
 );

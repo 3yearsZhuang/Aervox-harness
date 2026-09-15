@@ -28,8 +28,7 @@ export interface ModelRunSink {
 }
 
 const now = (): string => new Date().toISOString();
-let seqCounter = 0;
-const nextEventId = (turnId: string): string => `tev_${turnId}_${(++seqCounter).toString(36)}`;
+const nextEventId = (turnId: string, sequence: number): string => `tev_${turnId}_${sequence}`;
 
 const toAgentEvent = (row: {
   id: string;
@@ -111,7 +110,7 @@ export class SqliteExecutionStore implements ExecutionStorePort {
   async appendEvent(input: AgentStreamEventInput): Promise<AgentStreamEvent> {
     try {
       const created = await this.repo.appendStreamEvent(this.tenant, {
-        id: nextEventId(input.turnId),
+        id: nextEventId(input.turnId, input.sequence),
         turnId: input.turnId,
         sequence: input.sequence,
         eventType: input.eventType,
@@ -243,6 +242,28 @@ export class SqliteExecutionStore implements ExecutionStorePort {
     } catch (err) {
       if (err instanceof FencingMismatchError) {
         throw new LeaseLostError(`safe segment rejected: ${err.message}`);
+      }
+      throw err;
+    }
+  }
+
+  /** E2：批量安全片段写入；每个片段仍对应独立 delta/sequence。 */
+  async recordSafeSegments(inputs: Array<{
+    turnId: string;
+    attemptId: string;
+    sequence: number;
+    text: string;
+    eventData: unknown;
+    safetyDecision: import("@aervox/agent-loop").SafetyDecision;
+    expectedFencingToken: number;
+  }>): Promise<{ ok: boolean }> {
+    if (inputs.length === 0) return { ok: true };
+    try {
+      const done = await this.repo.recordSafeSegmentsAtomically(this.tenant, inputs);
+      return { ok: done };
+    } catch (err) {
+      if (err instanceof FencingMismatchError) {
+        throw new LeaseLostError(`safe segment batch rejected: ${err.message}`);
       }
       throw err;
     }

@@ -1,5 +1,5 @@
 /** CAP-033/034/035 local proactive intelligence repository. */
-import { and, asc, desc, eq, gte, lte } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import type { ProactiveVaultCipher } from "../../proactive-vault-crypto.js";
 import {
@@ -81,6 +81,8 @@ export interface IntelligenceProject {
   createdAt: string;
   updatedAt: string;
 }
+
+type TimelineEventInput = Omit<IntelligenceTimelineEvent, "createdAt">;
 
 export interface IntelligenceCommitment {
   id: string;
@@ -191,17 +193,9 @@ export class SqliteProactiveIntelligenceRepository {
 
   async createTimelineEvent(
     tenant: LocalContext,
-    input: Omit<IntelligenceTimelineEvent, "createdAt">,
+    input: TimelineEventInput,
   ): Promise<IntelligenceTimelineEvent> {
     const now = new Date().toISOString();
-    const [existing] = await this.db
-      .select()
-      .from(proactiveTimelineEvents)
-      .where(and(
-        eq(proactiveTimelineEvents.checksum, input.checksum),
-      ))
-      .limit(1);
-    if (existing) return this.timelineModel(existing);
     const [created] = await this.db.insert(proactiveTimelineEvents).values({
       id: input.id,
       revisionId: input.revisionId,
@@ -220,9 +214,47 @@ export class SqliteProactiveIntelligenceRepository {
       occurredAt: input.occurredAt,
       createdAt: now,
       updatedAt: now,
-    }).returning();
-    if (!created) throw new Error("failed to create proactive timeline event");
-    return this.timelineModel(created);
+    }).onConflictDoNothing({target: proactiveTimelineEvents.checksum}).returning();
+    if (created) return this.timelineModel(created);
+    const [existing] = await this.db
+      .select()
+      .from(proactiveTimelineEvents)
+      .where(eq(proactiveTimelineEvents.checksum, input.checksum))
+      .limit(1);
+    if (existing) return this.timelineModel(existing);
+    throw new Error("failed to create proactive timeline event");
+  }
+
+  /**
+   * 批量写入时间线事件。时间线以 checksum 幂等；冲突行由 SQLite 直接忽略，
+   * 避免主动智能周期对每条观察各执行一次 SELECT→INSERT 往返。
+   */
+  async createTimelineEvents(
+    tenant: LocalContext,
+    inputs: TimelineEventInput[],
+  ): Promise<IntelligenceTimelineEvent[]> {
+    if (inputs.length === 0) return [];
+    const now = new Date().toISOString();
+    const rows = await this.db.insert(proactiveTimelineEvents).values(inputs.map((input) => ({
+      id: input.id,
+      revisionId: input.revisionId,
+      sourceGrantId: input.sourceGrantId ?? null,
+      sourceKey: input.sourceKey,
+      eventType: input.eventType,
+      subjectKey: this.encrypt(input.subjectKey, "timeline", input.id) ?? "",
+      title: this.encrypt(input.title, "timeline", input.id) ?? "",
+      summary: this.encrypt(input.summary, "timeline", input.id),
+      payloadJson: this.encrypt(stringify(input.payload), "timeline", input.id) ?? "{}",
+      privacyClass: input.privacyClass,
+      projectId: input.projectId ?? null,
+      relationshipId: input.relationshipId ?? null,
+      checksum: input.checksum,
+      processingBoundary: "local_only" as const,
+      occurredAt: input.occurredAt,
+      createdAt: now,
+      updatedAt: now,
+    }))).onConflictDoNothing({target: proactiveTimelineEvents.checksum}).returning();
+    return rows.map((row) => this.timelineModel(row));
   }
 
   async listTimeline(
@@ -386,17 +418,18 @@ export class SqliteProactiveIntelligenceRepository {
     return this.triggerRuleModel(row);
   }
 
-  async listTriggerRules(tenant: LocalContext, enabled?: boolean): Promise<IntelligenceTriggerRule[]> {
+  async listTriggerRules(tenant: LocalContext, enabled?: boolean, limit?: number): Promise<IntelligenceTriggerRule[]> {
     const conditions = [];
     if (enabled !== undefined) conditions.push(eq(proactiveTriggerRules.enabled, enabled));
-    const rows = await this.db.select().from(proactiveTriggerRules).where(and(...conditions)).orderBy(asc(proactiveTriggerRules.name));
+    const rows = await this.db.select().from(proactiveTriggerRules).where(and(...conditions))
+      .orderBy(asc(proactiveTriggerRules.name)).limit(limitOf(limit));
     return rows.map((row) => this.triggerRuleModel(row));
   }
 
   /** CR-032：按插件列出物化规则（生命周期级联与幽灵规则排查用） */
-  async listTriggerRulesByPlugin(tenant: LocalContext, pluginId: string): Promise<IntelligenceTriggerRule[]> {
+  async listTriggerRulesByPlugin(tenant: LocalContext, pluginId: string, limit?: number): Promise<IntelligenceTriggerRule[]> {
     const rows = await this.db.select().from(proactiveTriggerRules)
-      .where(eq(proactiveTriggerRules.pluginId, pluginId)).orderBy(asc(proactiveTriggerRules.name));
+      .where(eq(proactiveTriggerRules.pluginId, pluginId)).orderBy(asc(proactiveTriggerRules.name)).limit(limitOf(limit));
     return rows.map((row) => this.triggerRuleModel(row));
   }
 
@@ -483,10 +516,11 @@ export class SqliteProactiveIntelligenceRepository {
     return row ? this.verificationModel(row) : null;
   }
 
-  async listActionVerifications(tenant: LocalContext, status?: string) {
+  async listActionVerifications(tenant: LocalContext, status?: string, limit?: number) {
     const conditions = [];
     if (status) conditions.push(eq(proactiveActionVerifications.status, status));
-    const rows = await this.db.select().from(proactiveActionVerifications).where(and(...conditions)).orderBy(desc(proactiveActionVerifications.updatedAt));
+    const rows = await this.db.select().from(proactiveActionVerifications).where(and(...conditions))
+      .orderBy(desc(proactiveActionVerifications.updatedAt)).limit(limitOf(limit));
     return rows.map((row) => this.verificationModel(row));
   }
 
@@ -494,18 +528,54 @@ export class SqliteProactiveIntelligenceRepository {
     id: string; revisionId: string; primaryClaimId: string; conflictingClaimId: string; reason: string;
   }) {
     const now = new Date().toISOString();
-    const [existing] = await this.db.select().from(proactiveClaimConflicts).where(and(
-      eq(proactiveClaimConflicts.primaryClaimId, input.primaryClaimId),
-      eq(proactiveClaimConflicts.conflictingClaimId, input.conflictingClaimId),
-    )).limit(1);
-    if (existing) return this.conflictModel(existing);
     const [row] = await this.db.insert(proactiveClaimConflicts).values({
       id: input.id,
       revisionId: input.revisionId, primaryClaimId: input.primaryClaimId, conflictingClaimId: input.conflictingClaimId,
       reason: this.encrypt(input.reason, "claim-conflict", input.id) ?? "", status: "open", resolution: null,
       resolvedAt: null, processingBoundary: "local_only", createdAt: now, updatedAt: now,
+    }).onConflictDoNothing({
+      target: [proactiveClaimConflicts.primaryClaimId, proactiveClaimConflicts.conflictingClaimId],
     }).returning();
-    return row ? this.conflictModel(row) : null;
+    if (row) return this.conflictModel(row);
+    const [existing] = await this.db.select().from(proactiveClaimConflicts).where(and(
+      eq(proactiveClaimConflicts.primaryClaimId, input.primaryClaimId),
+      eq(proactiveClaimConflicts.conflictingClaimId, input.conflictingClaimId),
+    )).limit(1);
+    return existing ? this.conflictModel(existing) : null;
+  }
+
+  /** 批量写入冲突键；SQLite 负责幂等去重，避免每个 claim pair 一次往返。 */
+  async createClaimConflicts(tenant: LocalContext, inputs: Array<{
+    id: string;
+    revisionId: string;
+    primaryClaimId: string;
+    conflictingClaimId: string;
+    reason: string;
+  }>): Promise<number> {
+    if (inputs.length === 0) return 0;
+    const now = new Date().toISOString();
+    let inserted = 0;
+    // SQLite 的绑定参数有上限；分块保持大画像也能稳定处理。
+    for (let offset = 0; offset < inputs.length; offset += 200) {
+      const chunk = inputs.slice(offset, offset + 200);
+      const rows = await this.db.insert(proactiveClaimConflicts).values(chunk.map((input) => ({
+        id: input.id,
+        revisionId: input.revisionId,
+        primaryClaimId: input.primaryClaimId,
+        conflictingClaimId: input.conflictingClaimId,
+        reason: this.encrypt(input.reason, "claim-conflict", input.id) ?? "",
+        status: "open",
+        resolution: null,
+        resolvedAt: null,
+        processingBoundary: "local_only" as const,
+        createdAt: now,
+        updatedAt: now,
+      }))).onConflictDoNothing({
+        target: [proactiveClaimConflicts.primaryClaimId, proactiveClaimConflicts.conflictingClaimId],
+      }).returning({id: proactiveClaimConflicts.id});
+      inserted += rows.length;
+    }
+    return inserted;
   }
 
   async resolveClaimConflict(tenant: LocalContext, id: string, resolution: string) {
@@ -516,11 +586,40 @@ export class SqliteProactiveIntelligenceRepository {
     return row ? this.conflictModel(row) : null;
   }
 
-  async listClaimConflicts(tenant: LocalContext, status?: string) {
+  async listClaimConflicts(tenant: LocalContext, status?: string, limit?: number) {
     const conditions = [];
     if (status) conditions.push(eq(proactiveClaimConflicts.status, status));
-    const rows = await this.db.select().from(proactiveClaimConflicts).where(and(...conditions)).orderBy(desc(proactiveClaimConflicts.createdAt));
+    const rows = await this.db.select().from(proactiveClaimConflicts).where(and(...conditions))
+      .orderBy(desc(proactiveClaimConflicts.createdAt)).limit(limitOf(limit));
     return rows.map((row) => this.conflictModel(row));
+  }
+
+  /** 仅读取冲突键，不解密 reason/resolution；供周期性去重检查使用。 */
+  async listClaimConflictKeys(tenant: LocalContext, revisionId?: string): Promise<Array<{
+    revisionId: string;
+    primaryClaimId: string;
+    conflictingClaimId: string;
+    status: string;
+  }>> {
+    const conditions = [];
+    if (revisionId) conditions.push(eq(proactiveClaimConflicts.revisionId, revisionId));
+    const rows = await this.db.select({
+      revisionId: proactiveClaimConflicts.revisionId,
+      primaryClaimId: proactiveClaimConflicts.primaryClaimId,
+      conflictingClaimId: proactiveClaimConflicts.conflictingClaimId,
+      status: proactiveClaimConflicts.status,
+    }).from(proactiveClaimConflicts).where(and(...conditions));
+    return rows;
+  }
+
+  /** 统计冲突数量而不实例化/解密全部冲突正文。 */
+  async countClaimConflicts(tenant: LocalContext, status?: string, revisionId?: string): Promise<number> {
+    const conditions = [];
+    if (status) conditions.push(eq(proactiveClaimConflicts.status, status));
+    if (revisionId) conditions.push(eq(proactiveClaimConflicts.revisionId, revisionId));
+    const [row] = await this.db.select({count: sql<number>`count(*)`})
+      .from(proactiveClaimConflicts).where(and(...conditions));
+    return Number(row?.count ?? 0);
   }
 
   async createPreparation(tenant: LocalContext, input: {
@@ -535,7 +634,7 @@ export class SqliteProactiveIntelligenceRepository {
       bundleJson: this.encrypt(stringify(input.bundle), "preparation", input.id) ?? "{}", status: input.status ?? "ready",
       availableAt: input.availableAt ?? now, expiresAt: input.expiresAt ?? null, processingBoundary: "local_only",
       createdAt: now, updatedAt: now,
-    }).returning();
+    }).onConflictDoNothing({target: proactivePreparationBundles.id}).returning();
     return row ? this.preparationModel(row) : null;
   }
 
@@ -558,7 +657,7 @@ export class SqliteProactiveIntelligenceRepository {
       recommendation: this.encrypt(input.recommendation, "attention", input.id),
       evidenceJson: this.encrypt(JSON.stringify(input.evidence ?? []), "attention", input.id) ?? "[]",
       processingBoundary: "local_only", createdAt: now, updatedAt: now,
-    }).returning();
+    }).onConflictDoNothing({target: proactiveAttentionStates.id}).returning();
     return row ? this.attentionModel(row) : null;
   }
 
@@ -580,7 +679,7 @@ export class SqliteProactiveIntelligenceRepository {
       actualJson: this.encrypt(stringify(input.actual), "drift", input.id) ?? "{}",
       severity: input.severity, state: input.state ?? "open", explanation: this.encrypt(input.explanation, "drift", input.id),
       detectedAt: input.detectedAt ?? now, processingBoundary: "local_only", createdAt: now, updatedAt: now,
-    }).returning();
+    }).onConflictDoNothing({target: proactiveDriftSignals.id}).returning();
     return row ? this.driftModel(row) : null;
   }
 
@@ -596,17 +695,15 @@ export class SqliteProactiveIntelligenceRepository {
     checksum: string; capturedAt?: string;
   }) {
     const now = new Date().toISOString();
-    const [existing] = await this.db.select().from(proactiveSceneSnapshots).where(and(
-      eq(proactiveSceneSnapshots.checksum, input.checksum),
-    )).limit(1);
-    if (existing) return this.sceneModel(existing);
     const [row] = await this.db.insert(proactiveSceneSnapshots).values({
       id: input.id, revisionId: input.revisionId,
       sceneType: input.sceneType, applicationId: input.applicationId ?? null,
       payloadJson: this.encrypt(stringify(input.payload), "scene", input.id) ?? "{}", checksum: input.checksum,
       capturedAt: input.capturedAt ?? now, processingBoundary: "local_only", createdAt: now, updatedAt: now,
-    }).returning();
-    return row ? this.sceneModel(row) : null;
+    }).onConflictDoNothing({target: proactiveSceneSnapshots.checksum}).returning();
+    if (row) return this.sceneModel(row);
+    const [existing] = await this.db.select().from(proactiveSceneSnapshots).where(eq(proactiveSceneSnapshots.checksum, input.checksum)).limit(1);
+    return existing ? this.sceneModel(existing) : null;
   }
 
   async listScenes(tenant: LocalContext, limit?: number) {
@@ -672,10 +769,11 @@ export class SqliteProactiveIntelligenceRepository {
     return this.connectionModel(row);
   }
 
-  async listConnections(tenant: LocalContext, provider?: string): Promise<IntelligenceConnection[]> {
+  async listConnections(tenant: LocalContext, provider?: string, limit?: number): Promise<IntelligenceConnection[]> {
     const conditions = [];
     if (provider) conditions.push(eq(proactiveExternalConnections.provider, provider));
-    const rows = await this.db.select().from(proactiveExternalConnections).where(and(...conditions)).orderBy(asc(proactiveExternalConnections.provider));
+    const rows = await this.db.select().from(proactiveExternalConnections).where(and(...conditions))
+      .orderBy(asc(proactiveExternalConnections.provider)).limit(limitOf(limit));
     return rows.map((row) => this.connectionModel(row));
   }
 
@@ -684,10 +782,10 @@ export class SqliteProactiveIntelligenceRepository {
     return row ? {...this.connectionModel(row), credential: parseJson(this.decrypt(row.credentialJson, "connection", row.id), {})} : null;
   }
 
-  async listActiveConnectionSecrets(provider?: string): Promise<IntelligenceConnectionSecret[]> {
+  async listActiveConnectionSecrets(provider?: string, limit?: number): Promise<IntelligenceConnectionSecret[]> {
     const conditions = [eq(proactiveExternalConnections.state, "active")];
     if (provider) conditions.push(eq(proactiveExternalConnections.provider, provider));
-    const rows = await this.db.select().from(proactiveExternalConnections).where(and(...conditions));
+    const rows = await this.db.select().from(proactiveExternalConnections).where(and(...conditions)).limit(limitOf(limit));
     return rows.map((row) => ({...this.connectionModel(row), credential: parseJson(this.decrypt(row.credentialJson, "connection", row.id), {})}));
   }
 
@@ -741,11 +839,12 @@ export class SqliteProactiveIntelligenceRepository {
     return row ? this.homeEntityModel(row) : null;
   }
 
-  async listHomeEntities(tenant: LocalContext, connectionId?: string, enabled?: boolean) {
+  async listHomeEntities(tenant: LocalContext, connectionId?: string, enabled?: boolean, limit?: number) {
     const conditions = [];
     if (connectionId) conditions.push(eq(proactiveHomeEntities.connectionId, connectionId));
     if (enabled !== undefined) conditions.push(eq(proactiveHomeEntities.enabled, enabled));
-    const rows = await this.db.select().from(proactiveHomeEntities).where(and(...conditions)).orderBy(asc(proactiveHomeEntities.entityId));
+    const rows = await this.db.select().from(proactiveHomeEntities).where(and(...conditions))
+      .orderBy(asc(proactiveHomeEntities.entityId)).limit(limitOf(limit));
     return rows.map((row) => this.homeEntityModel(row));
   }
 
@@ -794,11 +893,11 @@ export class SqliteProactiveIntelligenceRepository {
       homeEntities, healthSamples] = await Promise.all([
       this.listTimeline(tenant, {limit: MAX_LIMIT}), this.listProjects(tenant, undefined, MAX_LIMIT),
       this.listCommitments(tenant, {limit: MAX_LIMIT}), this.listRelationships(tenant, MAX_LIMIT),
-      this.listWorkflows(tenant, undefined, MAX_LIMIT), this.listTriggerRules(tenant), this.listTriggerEvents(tenant, MAX_LIMIT),
-      this.listActionVerifications(tenant), this.listClaimConflicts(tenant), this.listPreparations(tenant, undefined, MAX_LIMIT),
+      this.listWorkflows(tenant, undefined, MAX_LIMIT), this.listTriggerRules(tenant, undefined, MAX_LIMIT), this.listTriggerEvents(tenant, MAX_LIMIT),
+      this.listActionVerifications(tenant, undefined, MAX_LIMIT), this.listClaimConflicts(tenant, undefined, MAX_LIMIT), this.listPreparations(tenant, undefined, MAX_LIMIT),
       this.listAttentionStates(tenant, MAX_LIMIT), this.listDriftSignals(tenant, undefined, MAX_LIMIT),
-      this.listScenes(tenant, MAX_LIMIT), this.listReviews(tenant, MAX_LIMIT), this.listConnections(tenant),
-      this.listHomeEntities(tenant), this.listHealthSamples(tenant, {limit: MAX_LIMIT}),
+      this.listScenes(tenant, MAX_LIMIT), this.listReviews(tenant, MAX_LIMIT), this.listConnections(tenant, undefined, MAX_LIMIT),
+      this.listHomeEntities(tenant, undefined, undefined, MAX_LIMIT), this.listHealthSamples(tenant, {limit: MAX_LIMIT}),
     ]);
     return {exportedAt: new Date().toISOString(), timeline, projects, commitments, relationships, workflows,
       triggerRules, triggerEvents, verifications, conflicts, preparations, attentionStates, driftSignals,

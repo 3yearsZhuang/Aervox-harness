@@ -21,6 +21,9 @@ export const outboxEvents = sqliteTable(
   },
   (table) => ({
 
-    statusIdx: index("outbox_status_idx").on(table.status, table.createdAt),
+    statusIdx: index("outbox_pending_created_idx").on(table.status, table.createdAt),
+    outboxLocalIdempotencyUniqueIdx: uniqueIndex("outbox_local_idempotency_idx").on(
+      table.idempotencyKey,
+    ),
   }),
 );

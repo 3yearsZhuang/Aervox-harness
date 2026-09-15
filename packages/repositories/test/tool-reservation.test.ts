@@ -5,8 +5,15 @@
  * - reserve 幂等：attempt+invocation 唯一，重复预留不重复写行（ON CONFLICT DO NOTHING）；
  * - update 收口：执行后以权威状态/结果回写；预留未收口的 pending 在释放后标记 outcome_unknown。
  */
-import { beforeEach, describe, expect, it } from "vitest";
-import { createInMemoryDatabase, initDatabaseSchema, SqliteConversationRepository, type AervoxDatabase, type LocalContext } from "../src/index.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  createInMemoryDatabase,
+  initDatabaseSchema,
+  MAX_RESUME_CANDIDATE_LIMIT,
+  SqliteConversationRepository,
+  type AervoxDatabase,
+  type LocalContext,
+} from "../src/index.js";
 import type { Client } from "@libsql/client";
 
 const tenant: LocalContext = { workspaceId: "ws_resv", subjectUserId: "usr_resv" };
@@ -165,6 +172,45 @@ describe("3c 恢复候选（findResumeCandidates）", () => {
     });
   }
 
+  async function seedOrderedCandidate(id: string, leaseExpiresAt: string): Promise<void> {
+    const sessionId = `ses_${id}`;
+    const turnId = `turn_${id}`;
+    const attemptId = `atp_${id}`;
+    await repo.getOrCreateSession(tenant, sessionId, "恢复候选排序测试");
+    await repo.createTurnWithOutbox(
+      tenant,
+      { id: turnId, sessionId, idempotencyKey: `idem_${id}`, status: "Created" },
+      { id: `msg_${id}`, content: id },
+    );
+    await repo.createTurnAttempt(tenant, turnId, { id: attemptId, attempt: 1 });
+    await client.execute({
+      sql: "UPDATE turn_attempts SET lease_expires_at = ? WHERE id = ?",
+      args: [leaseExpiresAt, attemptId],
+    });
+    await repo.reserveToolExecution(tenant, {
+      turnId,
+      attemptId,
+      invocationId: `${attemptId}:1:1`,
+      name: "notes_search",
+      arguments: {},
+    });
+    await repo.updateToolExecutionResult(tenant, {
+      turnId,
+      attemptId,
+      invocationId: `${attemptId}:1:1`,
+      status: "executed",
+      output: { ok: true },
+    });
+    await repo.appendStreamEvent(tenant, {
+      id: `event_${id}`,
+      turnId,
+      sequence: 1,
+      eventType: "tool_result",
+      data: { executionId: `${attemptId}:1:1`, ok: true },
+      occurredAt: new Date().toISOString(),
+    });
+  }
+
   it("过期 Running + executed 工具 + 无终态事件 → 命中候选（lastSequence=tool_result seq + 续跑数据面）", async () => {
     await seedExecutedToolWithExpiredLease();
     const candidates = await repo.findResumeCandidates(client);
@@ -209,5 +255,32 @@ describe("3c 恢复候选（findResumeCandidates）", () => {
     });
     const candidates = await repo.findResumeCandidates(client);
     expect(candidates).toHaveLength(0);
+  });
+
+  it("按最早过期租约稳定排序，并在 SQL 层遵守请求上限", async () => {
+    await seedOrderedCandidate("late", "2020-01-03T00:00:00.000Z");
+    await seedOrderedCandidate("early", "2020-01-01T00:00:00.000Z");
+    await seedOrderedCandidate("middle", "2020-01-02T00:00:00.000Z");
+
+    const candidates = await repo.findResumeCandidates(client, 2);
+    expect(candidates.map((candidate) => candidate.attemptId)).toEqual([
+      "atp_early",
+      "atp_middle",
+    ]);
+  });
+
+  it("超大 limit 被硬上限封顶，零值不触发数据库查询", async () => {
+    const execute = vi.fn().mockResolvedValue({ rows: [] });
+    const emptyRepo = new SqliteConversationRepository({} as AervoxDatabase);
+    const fakeClient = { execute } as unknown as Client;
+
+    expect(await emptyRepo.findResumeCandidates(fakeClient, Number.MAX_SAFE_INTEGER)).toEqual([]);
+    expect(execute.mock.calls[0]?.[0]).toMatchObject({
+      args: [expect.any(String), MAX_RESUME_CANDIDATE_LIMIT],
+    });
+
+    execute.mockClear();
+    expect(await emptyRepo.findResumeCandidates(fakeClient, 0)).toEqual([]);
+    expect(execute).not.toHaveBeenCalled();
   });
 });

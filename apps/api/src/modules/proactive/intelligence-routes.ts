@@ -10,7 +10,14 @@ let sequence = 0;
 const nextId = (prefix: string): string => `${prefix}_${Date.now().toString(36)}_${(++sequence).toString(36)}`;
 const bodyOf = (value: unknown): Record<string, unknown> => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 const text = (value: unknown): string | undefined => typeof value === "string" && value.trim() ? value.trim() : undefined;
-const number = (value: unknown, fallback = 0): number => typeof value === "number" && Number.isFinite(value) ? value : fallback;
+const number = (value: unknown, fallback = 0): number => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+};
 const stringArray = (value: unknown): string[] => Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 
 async function revisionId(profileRepo: SqliteProactiveProfileRepository, req: Parameters<typeof resolveLocalContext>[0]) {
@@ -34,10 +41,10 @@ export function registerProactiveIntelligenceRoutes(
     const tenant = resolveLocalContext(req);
     const [timeline, projects, commitments, workflows, triggers, verifications, conflicts, preparations, attention, drift, relationships, scenes, reviews, connections, homeEntities, health] = await Promise.all([
       repo.listTimeline(tenant, {limit: 20}), repo.listProjects(tenant, "active", 20), repo.listCommitments(tenant, {status: "open", limit: 20}),
-      repo.listWorkflows(tenant, undefined, 20), repo.listTriggerEvents(tenant, 20), repo.listActionVerifications(tenant),
-      repo.listClaimConflicts(tenant, "open"), repo.listPreparations(tenant, "ready", 20),
+      repo.listWorkflows(tenant, undefined, 20), repo.listTriggerEvents(tenant, 20), repo.listActionVerifications(tenant, undefined, 20),
+      repo.listClaimConflicts(tenant, "open", 50), repo.listPreparations(tenant, "ready", 20),
       repo.listAttentionStates(tenant, 10), repo.listDriftSignals(tenant, "open", 20), repo.listRelationships(tenant, 20),
-      repo.listScenes(tenant, 10), repo.listReviews(tenant, 10), repo.listConnections(tenant), repo.listHomeEntities(tenant), repo.listHealthSamples(tenant, {limit: 20}),
+      repo.listScenes(tenant, 10), repo.listReviews(tenant, 10), repo.listConnections(tenant, undefined, 20), repo.listHomeEntities(tenant, undefined, undefined, 50), repo.listHealthSamples(tenant, {limit: 20}),
     ]);
     return {timeline, projects, commitments, workflows, triggers, verifications, conflicts, preparations, attention, drift, relationships, scenes, reviews, connections, homeEntities, health};
   });
@@ -61,7 +68,10 @@ export function registerProactiveIntelligenceRoutes(
     }));
   });
 
-  app.get("/v1/proactive/intelligence/projects", async (req) => ({items: await repo.listProjects(resolveLocalContext(req), text((req.query as Record<string, unknown>).status))}));
+  app.get("/v1/proactive/intelligence/projects", async (req) => {
+    const query = req.query as Record<string, unknown>;
+    return {items: await repo.listProjects(resolveLocalContext(req), text(query.status), number(query.limit, 100))};
+  });
   app.post("/v1/proactive/intelligence/projects", async (req, reply) => {
     const body = bodyOf(req.body); const title = text(body.title);
     if (!title) return reply.code(400).send({error: "title is required"});
@@ -107,7 +117,14 @@ export function registerProactiveIntelligenceRoutes(
     }));
   });
 
-  app.get("/v1/proactive/intelligence/triggers", async (req) => ({rules: await repo.listTriggerRules(resolveLocalContext(req)), events: await repo.listTriggerEvents(resolveLocalContext(req), number((req.query as Record<string, unknown>).limit, 50))}));
+  app.get("/v1/proactive/intelligence/triggers", async (req) => {
+    const query = req.query as Record<string, unknown>;
+    const limit = number(query.limit, 50);
+    return {
+      rules: await repo.listTriggerRules(resolveLocalContext(req), undefined, limit),
+      events: await repo.listTriggerEvents(resolveLocalContext(req), limit),
+    };
+  });
   app.post("/v1/proactive/intelligence/triggers", async (req, reply) => {
     const body = bodyOf(req.body); const name = text(body.name), triggerType = text(body.triggerType);
     if (!name || !triggerType) return reply.code(400).send({error: "name and triggerType are required"});
@@ -118,7 +135,10 @@ export function registerProactiveIntelligenceRoutes(
     }));
   });
 
-  app.get("/v1/proactive/intelligence/verifications", async (req) => ({items: await repo.listActionVerifications(resolveLocalContext(req), text((req.query as Record<string, unknown>).status))}));
+  app.get("/v1/proactive/intelligence/verifications", async (req) => {
+    const query = req.query as Record<string, unknown>;
+    return {items: await repo.listActionVerifications(resolveLocalContext(req), text(query.status), number(query.limit, 50))};
+  });
   app.post("/v1/proactive/intelligence/verifications", async (req, reply) => {
     const body = bodyOf(req.body); const actionId = text(body.actionId), status = text(body.status);
     if (!actionId || !status) return reply.code(400).send({error: "actionId and status are required"});
@@ -128,16 +148,25 @@ export function registerProactiveIntelligenceRoutes(
     }));
   });
 
-  app.get("/v1/proactive/intelligence/conflicts", async (req) => ({items: await repo.listClaimConflicts(resolveLocalContext(req), text((req.query as Record<string, unknown>).status))}));
+  app.get("/v1/proactive/intelligence/conflicts", async (req) => {
+    const query = req.query as Record<string, unknown>;
+    return {items: await repo.listClaimConflicts(resolveLocalContext(req), text(query.status), number(query.limit, 50))};
+  });
   app.post("/v1/proactive/intelligence/conflicts/:id/resolve", async (req, reply) => {
     const resolution = text(bodyOf(req.body).resolution); if (!resolution) return reply.code(400).send({error: "resolution is required"});
     const item = await repo.resolveClaimConflict(resolveLocalContext(req), (req.params as {id: string}).id, resolution);
     return item ?? reply.code(404).send({error: "conflict not found"});
   });
 
-  app.get("/v1/proactive/intelligence/preparations", async (req) => ({items: await repo.listPreparations(resolveLocalContext(req), text((req.query as Record<string, unknown>).status))}));
+  app.get("/v1/proactive/intelligence/preparations", async (req) => {
+    const query = req.query as Record<string, unknown>;
+    return {items: await repo.listPreparations(resolveLocalContext(req), text(query.status), number(query.limit, 50))};
+  });
   app.get("/v1/proactive/intelligence/attention", async (req) => ({items: await repo.listAttentionStates(resolveLocalContext(req), number((req.query as Record<string, unknown>).limit, 50))}));
-  app.get("/v1/proactive/intelligence/drift", async (req) => ({items: await repo.listDriftSignals(resolveLocalContext(req), text((req.query as Record<string, unknown>).state))}));
+  app.get("/v1/proactive/intelligence/drift", async (req) => {
+    const query = req.query as Record<string, unknown>;
+    return {items: await repo.listDriftSignals(resolveLocalContext(req), text(query.state), number(query.limit, 50))};
+  });
 
   app.get("/v1/proactive/intelligence/relationships", async (req) => ({items: await repo.listRelationships(resolveLocalContext(req), number((req.query as Record<string, unknown>).limit, 100))}));
   app.post("/v1/proactive/intelligence/relationships", async (req, reply) => {

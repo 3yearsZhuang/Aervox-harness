@@ -7,7 +7,7 @@
  *   与结果摘要（子任务完整事件在子 turn 下审计，不入本表）；
  * - 通过父 Turn/Attempt/Execution 关联保证幂等与可恢复；数据库不再承载租户列。
  */
-import { sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { timestampColumns } from "./common.js";
 
 export const subagentRuns = sqliteTable(
@@ -34,5 +34,12 @@ export const subagentRuns = sqliteTable(
     finishedAt: text("finished_at"),
     ...timestampColumns,
   },
-  () => ({}),
+  (table) => ({
+    localParentExecUniqueIdx: uniqueIndex("subagent_runs_local_parent_exec_idx").on(
+      table.parentAttemptId,
+      table.parentExecutionId,
+    ),
+    localParentIdx: index("subagent_runs_local_parent_idx").on(table.parentTurnId),
+    localSessionIdx: index("subagent_runs_local_session_idx").on(table.sessionId),
+  }),
 );

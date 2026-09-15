@@ -205,6 +205,14 @@ import {
   renameSessionRequestSchema,
 } from "./session-schemas.js";
 import {
+  projectItemSchema,
+  listProjectsResponseSchema,
+  createProjectRequestSchema,
+  updateProjectRequestSchema,
+  importSessionRequestSchema,
+  importSessionResponseSchema,
+} from "./project-schemas.js";
+import {
   capabilityTierSchema,
   modelRoutingTierSchema,
   healthStatusSchema,
@@ -220,6 +228,13 @@ registry.register("SessionItem", sessionItemSchema);
 registry.register("ListSessionsResponse", listSessionsResponseSchema);
 registry.register("CreateSessionRequest", createSessionRequestSchema);
 registry.register("RenameSessionRequest", renameSessionRequestSchema);
+
+registry.register("ProjectItem", projectItemSchema);
+registry.register("ListProjectsResponse", listProjectsResponseSchema);
+registry.register("CreateProjectRequest", createProjectRequestSchema);
+registry.register("UpdateProjectRequest", updateProjectRequestSchema);
+registry.register("ImportSessionRequest", importSessionRequestSchema);
+registry.register("ImportSessionResponse", importSessionResponseSchema);
 
 registry.register("CreateLearningGoal", createLearningGoalSchema);
 registry.register("UpdateLearningGoal", updateLearningGoalSchema);
@@ -468,6 +483,100 @@ registry.registerPath({
   responses: {
     204: { description: "会话删除成功" },
     404: { description: "会话不存在" },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/sessions/import",
+  summary: "导入外部会话",
+  tags: ["Session"],
+  request: {
+    body: {
+      content: {
+        "application/json": { schema: importSessionRequestSchema },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "会话导入成功",
+      content: { "application/json": { schema: importSessionResponseSchema } },
+    },
+    400: { description: "导入数据校验失败" },
+  },
+});
+
+const projectIdParam = z.object({ projectId: z.string().min(1) });
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/projects",
+  summary: "枚举项目列表",
+  tags: ["Project"],
+  responses: {
+    200: {
+      description: "项目列表",
+      content: { "application/json": { schema: listProjectsResponseSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/projects",
+  summary: "创建新项目",
+  tags: ["Project"],
+  request: {
+    body: {
+      content: {
+        "application/json": { schema: createProjectRequestSchema },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "项目创建成功",
+      content: { "application/json": { schema: projectItemSchema } },
+    },
+    400: { description: "参数不合法" },
+  },
+});
+
+registry.registerPath({
+  method: "patch",
+  path: "/v1/projects/{projectId}",
+  summary: "更新项目",
+  tags: ["Project"],
+  request: {
+    params: projectIdParam,
+    body: {
+      content: {
+        "application/json": { schema: updateProjectRequestSchema },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "更新成功",
+      content: { "application/json": { schema: projectItemSchema } },
+    },
+    400: { description: "参数不合法" },
+    404: { description: "项目不存在" },
+  },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/v1/projects/{projectId}",
+  summary: "删除项目",
+  tags: ["Project"],
+  request: {
+    params: projectIdParam,
+  },
+  responses: {
+    204: { description: "项目删除成功" },
+    404: { description: "项目不存在" },
   },
 });
 

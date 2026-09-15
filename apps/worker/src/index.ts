@@ -3,8 +3,8 @@
  *
  * 规则依据：docs/reference/DATABASE.md §14 + ADR-004 + ADR-011。
  *
- * 调度模型（缺陷4修正）：每类任务独立节拍器（interval），互不阻塞：
- * - 独立频率：每任务可用 WORKER_INTERVAL_<NAME>_MS 覆盖，缺省回退 WORKER_TICK_MS（默认 5000ms）；
+ * 调度模型：每类任务独立节拍器（interval），互不阻塞：
+ * - 独立频率：每任务可用 WORKER_INTERVAL_<NAME>_MS 覆盖；默认 tick 未改时使用任务级默认频率，显式自定义 tick 仍作为全局回退；
  * - 不重叠：上一轮未结束则跳过本轮（防任务自重叠/堆积），而非排队串行；
  * - 隔离失败：单任务抛错只记录自身日志，不拖垮其它任务与后续轮次。
  */
@@ -44,6 +44,7 @@ import { runInboxExpiryCycle } from "./inbox-expiry.js";
 import { createRuleBasedProactiveDistiller } from "./proactive-distiller.js";
 import { runProactiveProfileCycle } from "./proactive-profile-worker.js";
 import { runProactiveIntelligenceCycle } from "./proactive-intelligence-worker.js";
+import { resolveWorkerTaskInterval } from "./task-scheduling.js";
 
 // 集中类型化配置（WORKER_ID / WORKER_TICK_MS / WORKER_INTERVAL_<NAME>_MS；启动期校验）
 const config = loadWorkerConfig();
@@ -98,9 +99,9 @@ const proactiveBudgetRepo = new SqliteProactiveBudgetRepository(proactiveDb);
 const perceptionRepo = new SqlitePerceptionEventRepository(proactiveDb);
 const proactiveDistiller = createRuleBasedProactiveDistiller();
 
-/** 每任务独立调频：WORKER_INTERVAL_<NAME>_MS 覆盖（由 @aervox/config 解析），缺省 WORKER_TICK_MS */
+/** 每任务独立调频：显式覆盖优先；默认 tick 未改时使用任务级低频默认值。 */
 function taskInterval(name: string): number {
-  return config.intervalOverrides[name] ?? defaultTickMs;
+  return resolveWorkerTaskInterval(name, defaultTickMs, config.intervalOverrides);
 }
 
 interface WorkerTask {
@@ -210,9 +211,10 @@ logger.info({
   },
 });
 
-// 每任务独立节拍器：首次立即执行一次，随后按各自 interval 轮询；
-// 运行中跳过（不重叠）、单任务异常隔离。
-for (const task of tasks) {
+// 每任务独立节拍器：错峰首次执行，随后按各自 interval 轮询；
+// 运行中跳过（不重叠）、单任务异常隔离。错峰避免启动时同时争抢 SQLite 写锁。
+const INITIAL_STAGGER_MS = 250;
+for (const [index, task] of tasks.entries()) {
   let running = false;
   const runOnce = async (): Promise<void> => {
     if (running) return;
@@ -247,7 +249,9 @@ for (const task of tasks) {
       running = false;
     }
   };
-  void runOnce();
+  const initialDelay = Math.min(index * INITIAL_STAGGER_MS, Math.max(0, task.intervalMs - 1));
+  if (initialDelay === 0) void runOnce();
+  else setTimeout(() => { void runOnce(); }, initialDelay);
   setInterval(() => {
     void runOnce();
   }, task.intervalMs);

@@ -12,10 +12,11 @@ export const sessions = sqliteTable(
   {
     id: text("id").primaryKey(),
     title: text("title").notNull(),
+    projectId: text("project_id"),
     ...timestampColumns,
   },
   (table) => ({
-
+    projectIdx: index("sessions_project_idx").on(table.projectId),
   }),
 );
 
@@ -43,6 +44,7 @@ export const turns = sqliteTable(
   (table) => ({
 
     sessionIdx: index("turns_session_idx").on(table.sessionId),
+    localIdempotencyUniqueIdx: uniqueIndex("turns_local_idempotency_idx").on(table.idempotencyKey),
   }),
 );
 
@@ -86,6 +88,11 @@ export const messageVersions = sqliteTable(
       table.turnId,
       table.version,
     ),
+    turnRoleVersionIdx: index("message_versions_turn_role_ver_idx").on(
+      table.turnId,
+      table.role,
+      table.version,
+    ),
 
   }),
 );
@@ -113,6 +120,11 @@ export const turnStreamEvents = sqliteTable(
       table.turnId,
       table.sequence,
     ),
+    turnTypeSequenceIdx: index("turn_stream_events_turn_type_seq_idx").on(
+      table.turnId,
+      table.eventType,
+      table.sequence,
+    ),
   }),
 );
 
@@ -138,6 +150,7 @@ export const turnAttempts = sqliteTable(
       table.turnId,
       table.attempt,
     ),
+    statusLeaseIdx: index("turn_attempts_status_lease_idx").on(table.status, table.leaseExpiresAt),
   }),
 );
 

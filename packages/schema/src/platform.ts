@@ -24,8 +24,10 @@ export const scheduledJobs = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
-
+    localIdempotencyUniqueIdx: uniqueIndex("scheduled_jobs_local_idempotency_idx").on(
+      table.idempotencyKey,
+    ),
+    localRunIdx: index("scheduled_jobs_local_run_idx").on(table.runAt),
   }),
 );
 
@@ -88,8 +90,7 @@ export const modelRuns = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
-
+    localAttemptIdx: index("model_runs_local_attempt_idx").on(table.attemptId),
   }),
 );
 
@@ -132,6 +133,7 @@ export const auditRecords = sqliteTable(
   (table) => ({
 
     subjectIdx: index("audit_records_subject_idx").on(table.subjectType, table.subjectId),
+    localActorIdx: index("audit_records_local_actor_idx").on(table.actorId),
   }),
 );
 

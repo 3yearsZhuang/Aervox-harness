@@ -35,8 +35,8 @@ export interface DslEvalResult {
 
 const MAX_NODES = DSL_DEFAULT_QUOTAS.maxNodes;
 const MAX_DEPTH = DSL_DEFAULT_QUOTAS.maxDepth;
-const MAX_EVAL_MS = DSL_DEFAULT_QUOTAS.maxEvalMs;
-const MAX_STEPS = DSL_DEFAULT_QUOTAS.maxSteps;
+const MAX_EVAL_MS = 1000;
+const MAX_STEPS = 65_536;
 
 /** 计算 canonical hash：规范化 AST → JSON → sha256。 */
 export function canonicalDslHash(node: unknown): string {

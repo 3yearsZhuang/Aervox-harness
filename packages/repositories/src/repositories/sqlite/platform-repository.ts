@@ -88,6 +88,28 @@ export class SqlitePlatformRepository implements IPlatformRepository {
     return created as NotificationModel;
   }
 
+  async createNotificationIdempotent(
+    tenant: LocalContext,
+    notificationData: { id: string; type: string; scheduledAt: string; channel: string; payload?: unknown },
+  ): Promise<{ created: boolean }> {
+    const now = new Date().toISOString();
+    const [created] = await this.db
+      .insert(notifications)
+      .values({
+        id: notificationData.id,
+        type: notificationData.type,
+        scheduledAt: notificationData.scheduledAt,
+        channel: notificationData.channel,
+        status: "scheduled",
+        payloadJson: notificationData.payload ?? null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing({ target: notifications.id })
+      .returning({ id: notifications.id });
+    return { created: Boolean(created) };
+  }
+
   async markNotificationSent(tenant: LocalContext, id: string): Promise<NotificationModel | null> {
     const now = new Date().toISOString();
     const [updated] = await this.db
@@ -279,6 +301,35 @@ export class SqlitePlatformRepository implements IPlatformRepository {
       })
       .returning();
     return created as AuditRecordModel;
+  }
+
+  async createAuditRecordIdempotent(
+    tenant: LocalContext,
+    recordData: {
+      id: string;
+      actorType: string;
+      actorId: string;
+      action: string;
+      subjectType: string;
+      subjectId: string;
+      metadata?: unknown;
+    },
+  ): Promise<{ created: boolean }> {
+    const [created] = await this.db
+      .insert(auditRecords)
+      .values({
+        id: recordData.id,
+        actorType: recordData.actorType,
+        actorId: recordData.actorId,
+        action: recordData.action,
+        subjectType: recordData.subjectType,
+        subjectId: recordData.subjectId,
+        metadata: recordData.metadata ?? null,
+        createdAt: new Date().toISOString(),
+      })
+      .onConflictDoNothing({ target: auditRecords.id })
+      .returning({ id: auditRecords.id });
+    return { created: Boolean(created) };
   }
 
   async listAuditRecords(tenant: LocalContext, limit: number = 50): Promise<AuditRecordModel[]> {

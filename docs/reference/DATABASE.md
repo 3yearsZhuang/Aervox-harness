@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 2.1.0
-updated_at: 2026-09-14
-reviewed_at: 2026-09-14
+version: 2.2.0
+updated_at: 2026-09-15
+reviewed_at: 2026-09-15
 review_interval_days: 30
 review_triggers:
   - packages/schema/**
@@ -31,7 +31,7 @@ sources:
 # Aervox｜思隅 SQLite 本地单用户数据库契约
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-14
+- 修改人：3yearszhuang · 2026-09-15
 
 本文规定 Aervox 持久化层的目标契约、机器事实源、关键不变量、破坏性迁移协议和发布门禁。
 字段与 DDL 的机器真源是 `packages/schema` 和 `packages/repositories/src/schema/ddl`；本文不复制
@@ -63,7 +63,7 @@ sources:
 | 事实 | 机器维护入口 | 约束 |
 |---|---|---|
 | Drizzle 表和字段 | `packages/schema/src/*.ts` | D2 后不得出现 `workspaceId`、`subjectUserId` 或租户复合索引 |
-| SQLite DDL | `packages/repositories/src/schema/ddl/*.ts` | 必须与 Schema 等价并可从空库幂等初始化 |
+| SQLite DDL | `packages/repositories/src/schema/ddl/*.ts` | 必须与 Schema 等价并可从空库幂等初始化；该等价性由 `packages/repositories/test/schema-index-parity.test.ts` 用真实空库的 `PRAGMA index_list/index_info` 对照 Drizzle `getTableConfig` 双向守卫 |
 | Repository Port | `packages/repositories/src/repositories/types/*.ts` | D2 后公开签名不得要求 `TenantContext` |
 | SQLite Repository | `packages/repositories/src/repositories/sqlite/*.ts` | 不得绕过来源、授权、删除和幂等规则 |
 | 连接与路径 | `packages/repositories/src/client.ts` | 只接受本地文件或显式内存 URL；禁止远程 LibSQL URL |

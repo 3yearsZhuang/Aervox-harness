@@ -32,6 +32,7 @@ export class InMemoryExecutionStore implements ExecutionStorePort {
   private readonly contextManifestLog: ContextManifestRecord[] = [];
   private readonly safeSegmentLog: Array<{ turnId: string; attemptId: string; sequence: number; text: string; committed: boolean }> = [];
   private leaseRenewalCount = 0;
+  private safeSegmentBatchCount = 0;
 
   seedAttempt(input: {
     id: string;
@@ -349,12 +350,37 @@ export class InMemoryExecutionStore implements ExecutionStorePort {
     safetyDecision: import("./types.js").SafetyDecision;
     expectedFencingToken: number;
   }): Promise<{ ok: boolean }> {
-    const attempt = this.attempts.get(input.attemptId);
+    return this.recordSafeSegments([input]);
+  }
+
+  /**
+   * E2：批量提交安全片段。内存实现先完成整批 fencing 校验，再追加事件和
+   * visible-prefix 记录，模拟生产仓储的单事务 all-or-none 行为。
+   */
+  async recordSafeSegments(inputs: Array<{
+    turnId: string;
+    attemptId: string;
+    sequence: number;
+    text: string;
+    eventData: unknown;
+    safetyDecision: import("./types.js").SafetyDecision;
+    expectedFencingToken: number;
+  }>): Promise<{ ok: boolean }> {
+    if (inputs.length === 0) return { ok: true };
+    this.safeSegmentBatchCount += 1;
+    const first = inputs[0]!;
+    const attempt = this.attempts.get(first.attemptId);
     const running = attempt && (attempt.status === "Running" || attempt.status === "CancelRequested");
-    if (!attempt || attempt.fencingToken !== input.expectedFencingToken || !running) {
-      throw new LeaseLostError("recordSafeSegment rejected: fencing mismatch");
+    const validBatch = inputs.every((input) =>
+      input.turnId === first.turnId &&
+      input.attemptId === first.attemptId &&
+      input.expectedFencingToken === first.expectedFencingToken,
+    );
+    if (!attempt || attempt.fencingToken !== first.expectedFencingToken || !running || !validBatch) {
+      throw new LeaseLostError("recordSafeSegments rejected: fencing mismatch");
     }
-    await this.appendEvent({
+
+    const events: AgentStreamEvent[] = inputs.map((input) => ({
       turnId: input.turnId,
       attemptId: input.attemptId,
       sequence: input.sequence,
@@ -362,15 +388,27 @@ export class InMemoryExecutionStore implements ExecutionStorePort {
       data: input.eventData,
       safetyDecision: input.safetyDecision,
       expectedFencingToken: input.expectedFencingToken,
-    });
-    this.safeSegmentLog.push({
+      eventId: `tev_${input.turnId}_${input.sequence}`,
+      payloadVersion: 1,
+      occurredAt: new Date(0).toISOString(),
+    }));
+    const list = this.eventsByTurn.get(first.turnId) ?? [];
+    const segments = inputs.map((input) => ({
       turnId: input.turnId,
       attemptId: input.attemptId,
       sequence: input.sequence,
       text: input.text,
       committed: true,
-    });
+    }));
+    list.push(...events);
+    this.eventsByTurn.set(first.turnId, list);
+    this.safeSegmentLog.push(...segments);
     return { ok: true };
+  }
+
+  /** Test hook: number of batch calls made by the executor. */
+  safeSegmentBatches(): number {
+    return this.safeSegmentBatchCount;
   }
 
   /** E2：已提交安全片段（可见前缀；sequence 升序）——测试断言用 */
