@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { BrainCircuit, Heart, LayoutGrid, Menu, Settings, X } from 'lucide-vue-next';
+import { BrainCircuit, LayoutGrid, Menu, Settings, X } from 'lucide-vue-next';
 import ExtensionSlot from '../extension/ExtensionSlot.vue';
 import { useWorkbenchContext } from '../../composables/workbench-context';
 
@@ -32,21 +32,13 @@ const menuItems = computed(() => [
   },
   {
     id: 'settings',
-    label: '详细设置',
+    label: '设置',
     icon: Settings,
     isActive: Boolean(
       layout.settingsOpen?.value &&
-      layout.settingsScope?.value === 'detail' &&
       layout.settingsCategory?.value !== 'proactive',
     ),
     action: () => openSettingsCategory('tools'),
-  },
-  {
-    id: 'siyu',
-    label: '你的思隅',
-    icon: Heart,
-    isActive: Boolean(layout.settingsOpen?.value && layout.settingsScope?.value === 'siyu'),
-    action: () => openSettingsCategory('conversation'),
   },
 ]);
 </script>

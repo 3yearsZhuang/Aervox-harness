@@ -16,7 +16,7 @@ const props = withDefaults(
     title?: string;
     subtitle?: string;
     icon?: Component;
-    items?: NavDialogItem[];
+    items?: readonly NavDialogItem[];
     activeKey: string;
     width?: string;
     height?: string;
