@@ -50,6 +50,15 @@ typecheck = "pnpm typecheck"
 # 运行全部测试
 test = "pnpm test"
 
+# 增量测试：仅运行相对 origin/main 变更的包及其全部下游依赖的测试
+# （feature 分支本地快速验证用；需先 git fetch origin main 保持基准新鲜，
+#   合并前门禁仍以全量 pnpm test 为准）
+test-affected = "pnpm test:affected"
+
+# 快速单元层：仅运行不建库、不起服务的轻量包（纯逻辑 + DOM 组件测试，共 9 包 71 文件）
+# （重型集成层 repositories/api/worker/host-agent 走全量 test 或 test:affected）
+test-unit = "pnpm test:unit"
+
 # 全量构建
 build = "pnpm build"
 

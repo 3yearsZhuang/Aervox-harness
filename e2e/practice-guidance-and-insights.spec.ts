@@ -77,12 +77,32 @@ test.describe("练习报告 guidance E2E（CR-020）", () => {
     expect(body.totalHintsUsed).toBe(0);
     expect(body.accuracy).toBe(1);
   });
+});
+
+// ── 独立库场景 ─────────────────────────────────────────────────────
+// 去租户化（CR-030）后租户 Header 不再隔离数据：共享库中练习会话按
+// createdAt 正序选题会混入其他用例的旧题（作答题不在会话选题内，报告
+// 退化为空会话默认值）。因此以下场景各自使用独立数据库与服务进程。
+
+test.describe("练习报告 guidance — 低正确率（CR-020）", () => {
+  let server: ChildProcess;
+  let baseURL: string;
+  const dbPath = getDbPath("practice-guidance-ease");
+
+  test.beforeAll(async () => {
+    cleanupDb(dbPath);
+    const port = getServerPort();
+    const result = await startServer(port, dbPath);
+    server = result.server;
+    baseURL = result.url;
+  });
+
+  test.afterAll(async () => {
+    stopServer(server);
+    cleanupDb(dbPath);
+  });
 
   test("低正确率 → ease", async ({ request }) => {
-    const tenant = {
-      "x-workspace-id": "ws_e2e_ease",
-      "x-user-id": "usr_e2e_ease",
-    };
     const qIds: string[] = [];
     for (const [prompt, answer] of [
       ["E2E ease 1", "x"],
@@ -90,40 +110,55 @@ test.describe("练习报告 guidance E2E（CR-020）", () => {
       ["E2E ease 3", "z"],
     ]) {
       const q = await request.post(`${baseURL}/v1/questions`, {
-        headers: tenant, data: { prompt, answerSpec: { answer } },
+        headers, data: { prompt, answerSpec: { answer } },
       });
       expect(q.status()).toBe(201);
       qIds.push((await q.json()).id);
     }
 
     const session = await request.post(`${baseURL}/v1/practice/sessions`, {
-      headers: tenant, data: { count: 3 },
+      headers, data: { count: 3 },
     });
     const sessionId = (await session.json()).sessionId;
 
     // 3 题全错
     for (let i = 0; i < 3; i++) {
       await request.post(`${baseURL}/v1/questions/${qIds[i]}/attempts`, {
-        headers: tenant,
+        headers,
         data: { sessionId, answer: "wrong", elapsedSeconds: 30, hintsUsed: 0 },
       });
     }
 
     const report = await request.post(
       `${baseURL}/v1/practice/sessions/${sessionId}/complete`,
-      { headers: tenant },
+      { headers },
     );
     const body = await report.json();
     expect(body.guidance.difficulty).toBe("ease");
     expect(body.guidance.reasonCode).toBe("low_accuracy");
     expect(body.accuracy).toBe(0);
   });
+});
+
+test.describe("练习报告 guidance — 中等正确率（CR-020）", () => {
+  let server: ChildProcess;
+  let baseURL: string;
+  const dbPath = getDbPath("practice-guidance-mid");
+
+  test.beforeAll(async () => {
+    cleanupDb(dbPath);
+    const port = getServerPort();
+    const result = await startServer(port, dbPath);
+    server = result.server;
+    baseURL = result.url;
+  });
+
+  test.afterAll(async () => {
+    stopServer(server);
+    cleanupDb(dbPath);
+  });
 
   test("中等正确率 → maintain", async ({ request }) => {
-    const tenant = {
-      "x-workspace-id": "ws_e2e_mid",
-      "x-user-id": "usr_e2e_mid",
-    };
     const qIds: string[] = [];
     for (const [prompt, answer] of [
       ["E2E mid 1", "p"],
@@ -131,42 +166,57 @@ test.describe("练习报告 guidance E2E（CR-020）", () => {
       ["E2E mid 3", "r"],
     ]) {
       const q = await request.post(`${baseURL}/v1/questions`, {
-        headers: tenant, data: { prompt, answerSpec: { answer } },
+        headers, data: { prompt, answerSpec: { answer } },
       });
       qIds.push((await q.json()).id);
     }
 
     const session = await request.post(`${baseURL}/v1/practice/sessions`, {
-      headers: tenant, data: { count: 3 },
+      headers, data: { count: 3 },
     });
     const sessionId = (await session.json()).sessionId;
 
     // 2 对 1 错（66.7% → maintain）
     await request.post(`${baseURL}/v1/questions/${qIds[0]}/attempts`, {
-      headers: tenant, data: { sessionId, answer: "p", elapsedSeconds: 5, hintsUsed: 0 },
+      headers, data: { sessionId, answer: "p", elapsedSeconds: 5, hintsUsed: 0 },
     });
     await request.post(`${baseURL}/v1/questions/${qIds[1]}/attempts`, {
-      headers: tenant, data: { sessionId, answer: "q", elapsedSeconds: 5, hintsUsed: 0 },
+      headers, data: { sessionId, answer: "q", elapsedSeconds: 5, hintsUsed: 0 },
     });
     await request.post(`${baseURL}/v1/questions/${qIds[2]}/attempts`, {
-      headers: tenant, data: { sessionId, answer: "wrong", elapsedSeconds: 5, hintsUsed: 0 },
+      headers, data: { sessionId, answer: "wrong", elapsedSeconds: 5, hintsUsed: 0 },
     });
 
     const report = await request.post(
       `${baseURL}/v1/practice/sessions/${sessionId}/complete`,
-      { headers: tenant },
+      { headers },
     );
     const body = await report.json();
     expect(body.guidance.difficulty).toBe("maintain");
     expect(body.guidance.reasonCode).toBe("steady_progress");
     expect(body.accuracy).toBeCloseTo(2 / 3, 2);
   });
+});
+
+test.describe("练习报告 guidance — 用时未知（CR-020）", () => {
+  let server: ChildProcess;
+  let baseURL: string;
+  const dbPath = getDbPath("practice-guidance-notime");
+
+  test.beforeAll(async () => {
+    cleanupDb(dbPath);
+    const port = getServerPort();
+    const result = await startServer(port, dbPath);
+    server = result.server;
+    baseURL = result.url;
+  });
+
+  test.afterAll(async () => {
+    stopServer(server);
+    cleanupDb(dbPath);
+  });
 
   test("用时未知时不提高难度", async ({ request }) => {
-    const tenant = {
-      "x-workspace-id": "ws_e2e_notime",
-      "x-user-id": "usr_e2e_notime",
-    };
     const qIds: string[] = [];
     for (const [prompt, answer] of [
       ["E2E notime 1", "m"],
@@ -174,68 +224,83 @@ test.describe("练习报告 guidance E2E（CR-020）", () => {
       ["E2E notime 3", "o"],
     ]) {
       const q = await request.post(`${baseURL}/v1/questions`, {
-        headers: tenant, data: { prompt, answerSpec: { answer } },
+        headers, data: { prompt, answerSpec: { answer } },
       });
       qIds.push((await q.json()).id);
     }
 
     const session = await request.post(`${baseURL}/v1/practice/sessions`, {
-      headers: tenant, data: { count: 3 },
+      headers, data: { count: 3 },
     });
     const sessionId = (await session.json()).sessionId;
 
     // 全对但不传 elapsedSeconds（用时未知）
     for (let i = 0; i < 3; i++) {
       await request.post(`${baseURL}/v1/questions/${qIds[i]}/attempts`, {
-        headers: tenant,
+        headers,
         data: { sessionId, answer: String.fromCharCode(109 + i), hintsUsed: 0 },
       });
     }
 
     const report = await request.post(
       `${baseURL}/v1/practice/sessions/${sessionId}/complete`,
-      { headers: tenant },
+      { headers },
     );
     const body = await report.json();
     // 用时未知 → 不触发 increase，应 maintain
     expect(body.guidance.difficulty).toBe("maintain");
     expect(body.avgTimeSpentSec).toBeNull();
   });
+});
+
+test.describe("练习报告 guidance — GET /report 一致性（CR-020）", () => {
+  let server: ChildProcess;
+  let baseURL: string;
+  const dbPath = getDbPath("practice-guidance-getrep");
+
+  test.beforeAll(async () => {
+    cleanupDb(dbPath);
+    const port = getServerPort();
+    const result = await startServer(port, dbPath);
+    server = result.server;
+    baseURL = result.url;
+  });
+
+  test.afterAll(async () => {
+    stopServer(server);
+    cleanupDb(dbPath);
+  });
 
   test("GET /report 端点与 complete 返回一致", async ({ request }) => {
-    const tenant = {
-      "x-workspace-id": "ws_e2e_getrep",
-      "x-user-id": "usr_e2e_getrep",
-    };
     const qIds: string[] = [];
     for (const answer of ["t", "u", "v"]) {
       const q = await request.post(`${baseURL}/v1/questions`, {
-        headers: tenant, data: { prompt: `E2E getrep ${answer}`, answerSpec: { answer } },
+        headers, data: { prompt: `E2E getrep ${answer}`, answerSpec: { answer } },
       });
       qIds.push((await q.json()).id);
     }
 
     const session = await request.post(`${baseURL}/v1/practice/sessions`, {
-      headers: tenant, data: { count: 3 },
+      headers, data: { count: 3 },
     });
     expect(session.status()).toBe(201);
     const sessionId = (await session.json()).sessionId;
 
     await request.post(`${baseURL}/v1/questions/${qIds[0]}/attempts`, {
-      headers: tenant,
+      headers,
       data: { sessionId, answer: "t", elapsedSeconds: 20, hintsUsed: 0 },
     });
 
     const completeRes = await request.post(
       `${baseURL}/v1/practice/sessions/${sessionId}/complete`,
-      { headers: tenant },
+      { headers },
     );
     const completeBody = await completeRes.json();
 
     // GET 报告
     const getRes = await request.get(
       `${baseURL}/v1/practice/sessions/${sessionId}/report`,
-      { headers: tenant },
+      { headers },
     );
     expect(getRes.status()).toBe(200);
     const getBody = await getRes.json();

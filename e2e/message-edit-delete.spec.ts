@@ -91,10 +91,11 @@ test.describe.serial("消息编辑、删除与引用 E2E（CAP-013）", () => {
     expect((await res.json()).messageId).toBe(messageId);
   });
 
-  test("租户隔离：其他租户无法删除", async ({ request }) => {
+  test("本地单用户共享：任意租户 Header 可删除（CR-030）", async ({ request }) => {
+    // 去租户化后租户 Header 被完全忽略，请求等同本地单用户，删除直接生效
     const res = await request.delete(`${baseURL}/v1/messages/${messageId}`, {
       headers: { "x-workspace-id": "ws_other", "x-user-id": "usr_other" },
     });
-    expect(res.status()).toBe(404);
+    expect(res.status()).toBe(200);
   });
 });
