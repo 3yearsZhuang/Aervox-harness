@@ -45,6 +45,14 @@
             "type": "string",
             "description": "可选分组归类标签",
             "example": "微积分学习"
+          },
+          "projectId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "关联项目唯一标识符",
+            "example": "proj_math_01"
           }
         },
         "required": [
@@ -85,6 +93,14 @@
             "maxLength": 200,
             "description": "会话标题（缺省自动生成）",
             "example": "新对话"
+          },
+          "projectId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "关联项目唯一标识符",
+            "example": "proj_math_01"
           }
         }
       },
@@ -97,10 +113,256 @@
             "maxLength": 200,
             "description": "新的会话标题",
             "example": "线性代数矩阵论"
+          },
+          "projectId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "关联项目唯一标识符（传 null 解绑）",
+            "example": "proj_math_01"
+          },
+          "isPinned": {
+            "type": "boolean",
+            "description": "是否置顶",
+            "example": true
+          }
+        }
+      },
+      "ProjectItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "项目唯一标识符",
+            "example": "proj_math_01"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "项目名称",
+            "example": "微积分与线性代数"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "项目描述",
+            "example": "高等数学复习与例题巩固"
+          },
+          "color": {
+            "type": "string",
+            "description": "项目强调色（十六进制或预设名称）",
+            "example": "#4f46e5"
+          },
+          "icon": {
+            "type": "string",
+            "description": "项目图标标识",
+            "example": "book-open"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "创建时间（ISO 8601）",
+            "example": "2026-09-14T10:00:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "更新时间（ISO 8601）",
+            "example": "2026-09-14T10:00:00.000Z"
+          },
+          "archivedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "归档时间（ISO 8601，未归档为 null）",
+            "example": null
           }
         },
         "required": [
-          "title"
+          "id",
+          "name",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ListProjectsResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectItem"
+            },
+            "description": "项目列表"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "CreateProjectRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "可选客户端指定的项目 ID",
+            "example": "proj_custom_001"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "项目名称",
+            "example": "机器学习实战"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "项目描述",
+            "example": "深度学习与强化学习项目"
+          },
+          "color": {
+            "type": "string",
+            "description": "项目颜色",
+            "example": "#10b981"
+          },
+          "icon": {
+            "type": "string",
+            "description": "项目图标",
+            "example": "cpu"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateProjectRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "项目名称",
+            "example": "高等数学精进"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "项目描述",
+            "example": "例题与期末复习"
+          },
+          "color": {
+            "type": "string",
+            "description": "项目颜色",
+            "example": "#6366f1"
+          },
+          "icon": {
+            "type": "string",
+            "description": "项目图标",
+            "example": "sparkles"
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "是否归档",
+            "example": false
+          }
+        }
+      },
+      "ImportSessionRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "可选导入会话标题",
+            "example": "傅里叶变换探讨（导入）"
+          },
+          "projectId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "可选关联项目 ID",
+            "example": "proj_math_01"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportSessionMessage"
+            },
+            "minItems": 1,
+            "maxItems": 500,
+            "description": "待导入的历史消息序列（上限 500 条）"
+          }
+        },
+        "required": [
+          "messages"
+        ]
+      },
+      "ImportSessionMessage": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant",
+              "system"
+            ],
+            "description": "消息角色",
+            "example": "user"
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1,
+            "description": "消息文本内容",
+            "example": "请讲解一下傅里叶变换的直观含义"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "可选原始时间戳（ISO 8601）",
+            "example": "2026-09-14T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ]
+      },
+      "ImportSessionResponse": {
+        "type": "object",
+        "properties": {
+          "session": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SessionItem"
+              },
+              {
+                "description": "创建成功的会话概要"
+              }
+            ]
+          },
+          "turnsCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "导入并生成的 Turn 轮数",
+            "example": 3
+          },
+          "messagesCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "导入的消息总数",
+            "example": 6
+          }
+        },
+        "required": [
+          "session",
+          "turnsCount",
+          "messagesCount"
         ]
       },
       "CreateLearningGoal": {
@@ -3236,7 +3498,7 @@
                                   "type": "integer",
                                   "minimum": 1,
                                   "maximum": 1000,
-                                  "default": 50
+                                  "default": 250
                                 },
                                 "maxSteps": {
                                   "type": "integer",
@@ -7961,7 +8223,7 @@
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 1000,
-                "default": 50
+                "default": 250
               },
               "maxSteps": {
                 "type": "integer",
@@ -8011,7 +8273,7 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 1000,
-            "default": 50
+            "default": 250
           },
           "maxSteps": {
             "type": "integer",
@@ -8850,6 +9112,159 @@
           },
           "404": {
             "description": "会话不存在"
+          }
+        }
+      }
+    },
+    "/v1/sessions/import": {
+      "post": {
+        "summary": "导入外部会话",
+        "tags": [
+          "Session"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportSessionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "会话导入成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportSessionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "导入数据校验失败"
+          }
+        }
+      }
+    },
+    "/v1/projects": {
+      "get": {
+        "summary": "枚举项目列表",
+        "tags": [
+          "Project"
+        ],
+        "responses": {
+          "200": {
+            "description": "项目列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListProjectsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "创建新项目",
+        "tags": [
+          "Project"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "项目创建成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数不合法"
+          }
+        }
+      }
+    },
+    "/v1/projects/{projectId}": {
+      "patch": {
+        "summary": "更新项目",
+        "tags": [
+          "Project"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProjectRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "更新成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数不合法"
+          },
+          "404": {
+            "description": "项目不存在"
+          }
+        }
+      },
+      "delete": {
+        "summary": "删除项目",
+        "tags": [
+          "Project"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "项目删除成功"
+          },
+          "404": {
+            "description": "项目不存在"
           }
         }
       }

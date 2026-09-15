@@ -28,6 +28,10 @@ export async function createMemoriesTables(client: Client): Promise<void> {
   await client.execute(`
       CREATE INDEX IF NOT EXISTS memory_records_local_layer_idx ON memory_records(layer, is_deleted);
     `);
+  // Schema 已声明但此前从未真正建出：补齐 canonical_parent_id 的父子投影查询索引。
+  await client.execute(`
+      CREATE INDEX IF NOT EXISTS memory_records_parent_idx ON memory_records(canonical_parent_id);
+    `);
   // PET-02 记忆条目字段（新库建列；旧库走下方 addColumnIfMissing 补齐）
     await addColumnIfMissing(client, "memory_records", "source", "source TEXT NOT NULL DEFAULT 'user_said'");
   await addColumnIfMissing(client, "memory_records", "category", "category TEXT NOT NULL DEFAULT 'other'");

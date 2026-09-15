@@ -39,9 +39,11 @@ import { createUserQuestionTables } from "./user-question.js";
 import { createProactiveTables } from "./proactive.js";
 import { createProactiveIntelligenceTables } from "./proactive-intelligence.js";
 import { createModelRoutingTables } from "./model-routing.js";
+import { createProjectTables } from "./project.js";
 import { createLedgerTables } from "./ledger.js";
 
 export async function initDatabaseSchema(client: Client): Promise<void> {
+  await createProjectTables(client);
   await createConversationsTables(client);
   await createMemoriesTables(client);
   await createMemoryCompactionTables(client);

@@ -20,8 +20,9 @@ export const learningGoals = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
-
+    localIdempotencyUniqueIdx: uniqueIndex("learning_goals_local_idempotency_idx").on(
+      table.idempotencyKey,
+    ),
   }),
 );
 
@@ -72,8 +73,10 @@ export const questionAttempts = sqliteTable(
       table.sessionId,
       table.questionId,
     ),
-
-
+    localQuestionIdempotencyUniqueIdx: uniqueIndex("question_attempts_local_question_idempotency_idx").on(
+      table.questionId,
+      table.idempotencyKey,
+    ),
   }),
 );
 
@@ -162,8 +165,11 @@ export const reviewItems = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
-
+    activeDueIdx: index("review_items_active_due_idx").on(table.status, table.dueAt),
+    localDueIdx: index("review_items_local_due_idx").on(table.dueAt),
+    localKnowledgeActiveUniqueIdx: uniqueIndex("review_items_local_knowledge_active_idx").on(
+      table.knowledgeId,
+    ),
   }),
 );
 
@@ -197,7 +203,8 @@ export const knowledgeRelations = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
+    fromIdx: index("knowledge_relations_local_from_idx").on(table.fromKnowledgeId),
+    toIdx: index("knowledge_relations_local_to_idx").on(table.toKnowledgeId),
     correctionIdx: index("knowledge_relations_correction_idx").on(table.correctionStatus),
   }),
 );

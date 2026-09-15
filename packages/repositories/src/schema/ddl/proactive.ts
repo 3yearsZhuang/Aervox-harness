@@ -124,6 +124,11 @@ export async function createProactiveTables(client: Client): Promise<void> {
         updated_at TEXT NOT NULL
       );
     `);
+  // CAP-033 增量迁移：先补齐早期试验库可能缺少的列，再创建依赖这些列
+  // 的扫描索引。这样旧库重入初始化不会在 CREATE INDEX 阶段失败。
+  await addColumnIfMissing(client, "proactive_captures", "distillation_attempt_count", "distillation_attempt_count INTEGER NOT NULL DEFAULT 0");
+  await addColumnIfMissing(client, "proactive_captures", "last_distillation_error", "last_distillation_error TEXT");
+  await addColumnIfMissing(client, "proactive_captures", "retention_blocked_at", "retention_blocked_at TEXT");
   await client.execute(`
       CREATE INDEX IF NOT EXISTS proactive_capture_local_observed_idx
       ON proactive_captures(observed_at);
@@ -135,10 +140,15 @@ export async function createProactiveTables(client: Client): Promise<void> {
   await client.execute(`
       CREATE INDEX IF NOT EXISTS proactive_capture_revision_idx ON proactive_captures(revision_id);
     `);
-  // CAP-033 增量迁移：允许从早期试验版主动表升级到带 retention blocked / attempt 账本的版本。
-    await addColumnIfMissing(client, "proactive_captures", "distillation_attempt_count", "distillation_attempt_count INTEGER NOT NULL DEFAULT 0");
-  await addColumnIfMissing(client, "proactive_captures", "last_distillation_error", "last_distillation_error TEXT");
-  await addColumnIfMissing(client, "proactive_captures", "retention_blocked_at", "retention_blocked_at TEXT");
+  // 画像 Worker 按状态/删除标记扫描待提炼队列，并按摄取时间取最早项。
+  await client.execute(`
+      CREATE INDEX IF NOT EXISTS proactive_capture_distill_queue_idx
+      ON proactive_captures(distillation_status, deleted_at, ingested_at);
+    `);
+  await client.execute(`
+      CREATE INDEX IF NOT EXISTS proactive_capture_revision_source_observed_idx
+      ON proactive_captures(revision_id, source_key, observed_at);
+    `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS proactive_observations (
         id TEXT PRIMARY KEY,
@@ -166,6 +176,10 @@ export async function createProactiveTables(client: Client): Promise<void> {
     `);
   await client.execute(`
       CREATE INDEX IF NOT EXISTS proactive_observation_source_idx ON proactive_observations(source_grant_id);
+    `);
+  await client.execute(`
+      CREATE INDEX IF NOT EXISTS proactive_observation_revision_source_observed_idx
+      ON proactive_observations(revision_id, source_key, observed_at);
     `);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS proactive_profile_claims (
@@ -199,6 +213,10 @@ export async function createProactiveTables(client: Client): Promise<void> {
     `);
   await client.execute(`
       CREATE INDEX IF NOT EXISTS proactive_claim_revision_idx ON proactive_profile_claims(revision_id);
+    `);
+  await client.execute(`
+      CREATE INDEX IF NOT EXISTS proactive_claim_revision_updated_idx
+      ON proactive_profile_claims(revision_id, updated_at);
     `);
   await addColumnIfMissing(client, "proactive_profile_claims", "algorithm_version", "algorithm_version TEXT NOT NULL DEFAULT 'local-profile-v1'");
   await addColumnIfMissing(client, "proactive_profile_claims", "first_observed_at", "first_observed_at TEXT");

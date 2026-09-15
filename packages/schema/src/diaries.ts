@@ -100,7 +100,7 @@ export const diaryRunAttempts = sqliteTable(
     createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
   },
   (table) => ({
-    cycleAttemptIdx: index("diary_attempts_cycle_idx").on(table.cycleId, table.attempt),
+    cycleAttemptIdx: index("diary_run_attempts_cycle_idx").on(table.cycleId, table.attempt),
   }),
 );
 
@@ -125,7 +125,7 @@ export const diarySchedules = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
+    localIdx: index("diary_schedules_local_idx").on(table.enabled),
   }),
 );
 

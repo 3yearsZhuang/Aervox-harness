@@ -8,9 +8,15 @@
       "outputs": ["dist/**", "out/**"]
     },
     "@aervox/live2d#build": {
+      "dependsOn": ["^build"],
       "cache": false
     },
     "@aervox/public#build": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "@aervox/mobile#build": {
+      "dependsOn": ["^build"],
       "cache": false
     },
     "dev": {

@@ -28,9 +28,15 @@ export const proactiveTimelineEvents = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
-
-
+    proactiveTimelineLocalChecksumUniqueIdx: uniqueIndex("proactive_timeline_local_checksum_idx").on(
+      table.checksum,
+    ),
+    proactiveTimelineLocalOccurredIdx: index("proactive_timeline_local_occurred_idx").on(
+      table.occurredAt,
+    ),
+    proactiveTimelineLocalSubjectIdx: index("proactive_timeline_local_subject_idx").on(
+      table.subjectKey,
+    ),
   }),
 );
 
@@ -52,8 +58,7 @@ export const proactiveProjects = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
-
+    localStatusIdx: index("proactive_project_local_status_idx").on(table.status),
   }),
 );
 
@@ -73,7 +78,7 @@ export const proactiveRelationships = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
+    localStateIdx: index("proactive_relationship_local_state_idx").on(table.state),
   }),
 );
 
@@ -93,7 +98,7 @@ export const proactiveCommitments = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
+    localDueIdx: index("proactive_commitment_local_due_idx").on(table.status, table.dueAt),
   }),
 );
 
@@ -115,7 +120,7 @@ export const proactiveWorkflowTemplates = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
+    proactiveWorkflowLocalStateIdx: index("proactive_workflow_local_state_idx").on(table.state),
   }),
 );
 
@@ -138,7 +143,8 @@ export const proactiveTriggerRules = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
+    localEnabledIdx: index("proactive_trigger_rule_local_enabled_idx").on(table.enabled),
+    pluginIdx: index("proactive_trigger_rules_plugin_idx").on(table.pluginId),
   }),
 );
 
@@ -158,7 +164,7 @@ export const proactiveTriggerEvents = sqliteTable(
     createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
   },
   (table) => ({
-
+    localOccurredIdx: index("proactive_trigger_event_local_occurred_idx").on(table.occurredAt),
   }),
 );
 
@@ -177,7 +183,9 @@ export const proactiveActionVerifications = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
+    localActionUniqueIdx: uniqueIndex("proactive_action_verification_local_action_idx").on(
+      table.actionId,
+    ),
   }),
 );
 
@@ -201,6 +209,11 @@ export const proactiveClaimConflicts = sqliteTable(
       table.primaryClaimId,
       table.conflictingClaimId,
     ),
+    revisionPairIdx: index("proactive_claim_conflict_revision_pair_idx").on(
+      table.revisionId,
+      table.primaryClaimId,
+      table.conflictingClaimId,
+    ),
   }),
 );
 
@@ -220,7 +233,10 @@ export const proactivePreparationBundles = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
+    proactivePreparationLocalAvailableIdx: index("proactive_preparation_local_available_idx").on(
+      table.status,
+      table.availableAt,
+    ),
   }),
 );
 
@@ -241,7 +257,9 @@ export const proactiveAttentionStates = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
+    proactiveAttentionLocalWindowIdx: index("proactive_attention_local_window_idx").on(
+      table.windowEnd,
+    ),
   }),
 );
 
@@ -262,7 +280,7 @@ export const proactiveDriftSignals = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
+    proactiveDriftLocalStateIdx: index("proactive_drift_local_state_idx").on(table.state),
   }),
 );
 
@@ -280,8 +298,9 @@ export const proactiveSceneSnapshots = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
-
+    proactiveSceneLocalChecksumUniqueIdx: uniqueIndex("proactive_scene_local_checksum_idx").on(
+      table.checksum,
+    ),
   }),
 );
 
@@ -300,7 +319,11 @@ export const proactiveReviewReports = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
+    proactiveReviewLocalPeriodUniqueIdx: uniqueIndex("proactive_review_local_period_idx").on(
+      table.periodType,
+      table.periodStart,
+      table.periodEnd,
+    ),
   }),
 );
 
@@ -323,7 +346,10 @@ export const proactiveExternalConnections = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
+    proactiveConnectionLocalProviderIdx: index("proactive_connection_local_provider_idx").on(
+      table.provider,
+      table.state,
+    ),
   }),
 );
 
@@ -369,7 +395,11 @@ export const proactiveHealthSamples = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
+    proactiveHealthLocalMetricDateUniqueIdx: uniqueIndex("proactive_health_local_metric_date_idx").on(
+      table.connectionId,
+      table.metric,
+      table.localDate,
+    ),
   }),
 );
 

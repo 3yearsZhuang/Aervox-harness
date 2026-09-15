@@ -216,6 +216,10 @@ export async function createLearningTables(client: Client): Promise<void> {
   await client.execute(`
       CREATE INDEX IF NOT EXISTS review_items_local_due_idx ON review_items(due_at);
     `);
+  // 到期提醒同时约束 status 与 due_at；复合索引避免扫描已完成的历史复习项。
+  await client.execute(`
+      CREATE INDEX IF NOT EXISTS review_items_active_due_idx ON review_items(status, due_at);
+    `);
   await addColumnIfMissing(client, "review_items", "completion_is_correct", "completion_is_correct INTEGER");
   await addColumnIfMissing(client, "review_items", "next_review_id", "next_review_id TEXT");
   await addColumnIfMissing(client, "review_items", "timezone_snapshot", "timezone_snapshot TEXT NOT NULL DEFAULT 'UTC'");
@@ -233,6 +237,9 @@ export async function createLearningTables(client: Client): Promise<void> {
     `);
   await client.execute(`
       CREATE INDEX IF NOT EXISTS knowledge_relations_local_from_idx ON knowledge_relations(from_knowledge_id);
+    `);
+  await client.execute(`
+      CREATE INDEX IF NOT EXISTS knowledge_relations_local_to_idx ON knowledge_relations(to_knowledge_id);
     `);
   // CAP-015：扩展知识关系表（纠正状态、合并/拆分、软删除）
     await addColumnIfMissing(client, "knowledge_relations", "correction_status", "correction_status TEXT NOT NULL DEFAULT 'active'");

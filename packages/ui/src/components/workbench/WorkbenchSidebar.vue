@@ -3,7 +3,10 @@ import { computed, nextTick, ref } from 'vue';
 import {
   Check,
   CheckSquare,
+  Command,
+  Download,
   Edit2,
+  Folder,
   MessageSquare,
   Moon,
   PanelLeft,
@@ -21,7 +24,14 @@ import AervoxBrandMark from '../AervoxBrandMark.vue';
 import { useWorkbenchContext } from '../../composables/workbench-context';
 import type { SessionItem } from '@aervox/contracts';
 
-const { layout, sessions } = useWorkbenchContext();
+const {
+  layout,
+  sessions,
+  projects,
+  openProjectManager,
+  openImportSession,
+  openCommandPalette,
+} = useWorkbenchContext();
 
 const searchQuery = ref('');
 const editingSessionId = ref<string | null>(null);
@@ -83,8 +93,31 @@ const groupedSessions = computed(() => {
   return groups;
 });
 
+const activeProject = computed(() => {
+  if (!projects?.selectedProjectId.value) return null;
+  return projects.projects.value.find((p) => p.id === projects.selectedProjectId.value) ?? null;
+});
+
+async function handleSelectProjectFilter(projectId: string | null) {
+  projects?.selectProject(projectId);
+  await sessions.fetchSessions({ projectId: projectId || undefined });
+}
+
+function getProjectColor(projectId?: string | null): string {
+  if (!projectId || !projects) return '';
+  const p = projects.projects.value.find((item) => item.id === projectId);
+  return p?.color || '#6366f1';
+}
+
+function getProjectName(projectId?: string | null): string {
+  if (!projectId || !projects) return '';
+  const p = projects.projects.value.find((item) => item.id === projectId);
+  return p?.name || '项目';
+}
+
 async function handleCreateSession() {
-  await sessions.createNewSession('新对话');
+  const pId = projects?.selectedProjectId.value || undefined;
+  await sessions.createNewSession('新对话', undefined, pId);
 }
 
 function handleSelectSession(sessionId: string) {
@@ -161,6 +194,65 @@ function toggleTheme() {
       </button>
     </div>
 
+    <!-- 项目上下文与快捷命令栏 (CR-048 / W3) -->
+    <div class="sidebar-project-bar">
+      <!-- 当前项目过滤状态与切换 -->
+      <button
+        type="button"
+        class="project-filter-pill"
+        :class="{ 'is-active': Boolean(activeProject) }"
+        :title="activeProject ? `当前项目：${activeProject.name}（点击管理）` : '全部项目（点击管理）'"
+        @click="openProjectManager?.()"
+      >
+        <span
+          class="project-dot"
+          :style="{ backgroundColor: activeProject?.color || 'var(--text-muted)' }"
+        />
+        <span>{{ activeProject ? activeProject.name : '全部会话' }}</span>
+      </button>
+
+      <!-- 快速动作：项目管理、导入会话、命令面板 -->
+      <div class="sidebar-quick-tools">
+        <button
+          v-if="activeProject"
+          type="button"
+          class="sidebar-mini-icon-btn"
+          title="清除项目筛选"
+          aria-label="清除项目筛选"
+          @click="handleSelectProjectFilter(null)"
+        >
+          <X :size="13" />
+        </button>
+        <button
+          type="button"
+          class="sidebar-mini-icon-btn"
+          title="项目管理"
+          aria-label="项目管理"
+          @click="openProjectManager?.()"
+        >
+          <Folder :size="13" />
+        </button>
+        <button
+          type="button"
+          class="sidebar-mini-icon-btn"
+          title="导入外部会话"
+          aria-label="导入外部会话"
+          @click="openImportSession?.()"
+        >
+          <Download :size="13" />
+        </button>
+        <button
+          type="button"
+          class="sidebar-mini-icon-btn"
+          title="命令面板 (⌘K)"
+          aria-label="命令面板"
+          @click="openCommandPalette?.()"
+        >
+          <Command :size="13" />
+        </button>
+      </div>
+    </div>
+
     <!-- 搜索筛选 -->
     <div class="sidebar-search-wrap">
       <Search :size="14" class="search-icon" />
@@ -230,7 +322,15 @@ function toggleTheme() {
 
             <!-- 常规标题模式 -->
             <div v-else class="session-title-wrap">
-              <span class="session-title" :title="s.title">{{ s.title }}</span>
+              <div class="flex items-center min-w-0 flex-1">
+                <span
+                  v-if="s.projectId && getProjectColor(s.projectId)"
+                  class="session-project-indicator"
+                  :style="{ backgroundColor: getProjectColor(s.projectId) }"
+                  :title="getProjectName(s.projectId)"
+                />
+                <span class="session-title" :title="s.title">{{ s.title }}</span>
+              </div>
               <div class="session-hover-actions">
                 <button
                   type="button"

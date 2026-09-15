@@ -21,7 +21,7 @@ export const DSL_DEFAULT_QUOTAS = {
   maxDepth: 8,
   maxNodes: 64,
   maxStringLength: 256,
-  maxEvalMs: 50,
+  maxEvalMs: 250,
   maxSteps: 4096,
 } as const;
 

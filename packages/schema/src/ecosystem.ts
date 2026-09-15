@@ -24,7 +24,7 @@ export const externalSources = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-
+    localProviderIdx: index("external_sources_local_provider_idx").on(table.provider),
   }),
 );
 
@@ -71,8 +71,13 @@ export const pluginGrants = sqliteTable(
     ...timestampColumns,
   },
   (table) => ({
-    // 未撤销的授权唯一；撤销后可重新授予
-
+    // 未撤销的授权唯一（CR-032：感知源授权需按 scope 逐项共存，唯一键放宽为三列）。
+    // 旧的两列索引 plugin_grants_local_plugin_perm_idx 已由 DDL 主动 DROP，此处不再声明。
+    localPluginPermScopeUniqueIdx: uniqueIndex("plugin_grants_local_plugin_perm_scope_idx").on(
+      table.pluginId,
+      table.permission,
+      table.scope,
+    ),
   }),
 );
 

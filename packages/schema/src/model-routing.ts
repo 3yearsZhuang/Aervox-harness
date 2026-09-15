@@ -5,7 +5,7 @@
  * - llm_health_snapshots: 预设健康探测快照与迟滞状态
  * - llm_routing_events: 切层审计事件追溯
  */
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, sqliteTable, text, index } from "drizzle-orm/sqlite-core";
 import { timestampColumns } from "./common.js";
 
 /** 预设级健康探测状态与迟滞快照 */
@@ -44,4 +44,7 @@ export const llmRoutingEvents = sqliteTable(
     occurredAt: text("occurred_at").notNull(),
     createdAt: text("created_at").notNull(),
   },
+  (table) => ({
+    sessionIdx: index("llm_routing_events_session_idx").on(table.sessionId, table.occurredAt),
+  }),
 );
