@@ -50,16 +50,17 @@ sources:
    - 标准化弹窗头部规范，集成渐变图标胶囊容器（`.heading-icon-wrap`）、主标题、副标题、右侧自定义操作插槽与优雅关闭按钮；
 3. **`AervoxDialog.vue`**：
    - 封装 `ElDialog` 底座，提供 `sm`（480px）、`md`（640px）、`lg`（860px）、`xl`（1020px）响应式尺寸断层；
-   - 规范 `showHeader`、`showClose`、`bodyMaxHeight` 滚动受控容器与 Escape 键盘无障碍关闭；
+   - 规范 `showHeader`、`showClose`、`bodyMaxHeight` 滚动受控容器与 Escape 键盘无障碍关闭；提供 `noPadding` 贴边模式；
 4. **`AervoxNavDialog.vue`**：
    - 提供标准的主从（Master-Detail）双栏导航弹窗底座，统一左侧图标导航项高亮与右侧内容容器滚动；
+   - 默认启用 `no-padding` 贴合边缘，消除内层留白空隙与外层冗余滚动条；
    - 支持移动端响应式折叠为横向滚动标签条，通过 `#nav-footer` 支持外部扩展插槽；
 5. **`AervoxConfirmDialog.vue`**：
    - 统一二次确认模态框，内置风险警示图标与文案，支持 `requireAcknowledge`（必须勾选“我已了解风险”才可确认）以及两态与三态防呆；
 6. **`AervoxDrawer.vue`**：
-   - 规范滑出式抽屉控件，替换存量手写 Teleport 遮罩，支持侧边滑入、动画遮罩与键盘 Esc 监听；
+   - 规范滑出式抽屉控件，替换存量手写 Teleport 遮罩，支持侧边滑入、动画遮罩与键盘 Esc 冒泡阻断；内置页面滚动锁定（`lockScroll`）与 `noPadding` 模式；
 7. **`aervoxConfirm` 交互式确认服务 (`confirm-service.ts`)**：
-   - 封装 Promise 风格的非阻塞确认服务，完全淘汰阻塞主线程的 `window.confirm()`。
+   - 封装 Promise 风格的非阻塞确认服务，完全淘汰阻塞主线程的 `window.confirm()`；定制 `.aervox-message-box` 现代玻璃/圆角视觉风格。
 
 ### 2.2 全量业务视图与组合式逻辑重构
 
@@ -90,8 +91,8 @@ sources:
 
 ## 3. 验证与交付依据
 
-1. **专用单元测试**：在 `packages/ui/test/primitives.test.ts` 中针对 `AervoxButton`、`AervoxDialog`、`AervoxNavDialog`、`AervoxConfirmDialog`、`AervoxDrawer` 及 `aervoxConfirm` 编写完整 8 项单元测试，100% 通过；
-2. **全包回归测试**：`@aervox/ui` 全量 9 个测试套件（47 tests）全部通过；
+1. **专用单元测试**：在 `packages/ui/test/primitives.test.ts` 中针对 `AervoxButton`、`AervoxDialog`、`AervoxNavDialog`、`AervoxConfirmDialog`、`AervoxDrawer` 及 `aervoxConfirm` 编写完整 9 项单元测试，100% 通过；
+2. **全包回归测试**：`@aervox/ui` 全量 9 个测试套件（48 tests）全部通过；
 3. **全仓门禁验证**：
    - 依赖边界检查 `check:boundary` 14 项规则全过；
    - 整个 monorepo 构建与类型检查（Turbo 26 项任务）全部成功；

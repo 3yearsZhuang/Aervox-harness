@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, type Component } from 'vue';
+import { onUnmounted, watch, type Component } from 'vue';
 import { X } from 'lucide-vue-next';
 
 const props = withDefaults(
@@ -10,6 +10,8 @@ const props = withDefaults(
     width?: string;
     placement?: 'right' | 'left';
     showClose?: boolean;
+    noPadding?: boolean;
+    lockScroll?: boolean;
     ariaLabel?: string;
     teleportTo?: string;
   }>(),
@@ -19,6 +21,8 @@ const props = withDefaults(
     width: '440px',
     placement: 'right',
     showClose: true,
+    noPadding: false,
+    lockScroll: true,
     ariaLabel: '抽屉面板',
     teleportTo: 'body',
   },
@@ -36,15 +40,44 @@ function close() {
 
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape' && props.modelValue) {
+    e.stopPropagation();
     close();
   }
 }
 
-onMounted(() => {
-  window.addEventListener('keydown', handleKeydown);
-});
+let prevOverflow = '';
+let isLocked = false;
+
+function applyScrollLock(lock: boolean) {
+  if (!props.lockScroll || typeof document === 'undefined') return;
+  if (lock) {
+    if (!isLocked) {
+      prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      isLocked = true;
+    }
+  } else if (isLocked) {
+    document.body.style.overflow = prevOverflow;
+    isLocked = false;
+  }
+}
+
+watch(
+  () => props.modelValue,
+  (open) => {
+    if (open) {
+      applyScrollLock(true);
+      window.addEventListener('keydown', handleKeydown);
+    } else {
+      applyScrollLock(false);
+      window.removeEventListener('keydown', handleKeydown);
+    }
+  },
+  { immediate: true },
+);
 
 onUnmounted(() => {
+  applyScrollLock(false);
   window.removeEventListener('keydown', handleKeydown);
 });
 </script>
@@ -83,7 +116,7 @@ onUnmounted(() => {
             </slot>
           </header>
 
-          <div class="drawer-body">
+          <div class="drawer-body" :class="{ 'is-no-padding': noPadding }">
             <slot />
           </div>
 
@@ -172,6 +205,12 @@ onUnmounted(() => {
   padding: 16px 20px;
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong, var(--border)) transparent;
+}
+
+.drawer-body.is-no-padding {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .drawer-footer {

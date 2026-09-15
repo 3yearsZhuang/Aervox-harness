@@ -22,6 +22,7 @@ const props = withDefaults(
     alignCenter?: boolean;
     customClass?: string;
     bodyMaxHeight?: string;
+    noPadding?: boolean;
   }>(),
   {
     title: '',
@@ -38,6 +39,7 @@ const props = withDefaults(
     alignCenter: true,
     customClass: '',
     bodyMaxHeight: '66vh',
+    noPadding: false,
   },
 );
 
@@ -120,7 +122,11 @@ function handleClose() {
       </slot>
     </template>
 
-    <div class="aervox-dialog-body" :style="{ maxHeight: bodyMaxHeight }">
+    <div
+      class="aervox-dialog-body"
+      :class="{ 'is-no-padding': noPadding }"
+      :style="{ maxHeight: bodyMaxHeight }"
+    >
       <slot />
     </div>
 
@@ -168,10 +174,59 @@ function handleClose() {
   scrollbar-color: var(--border-strong, var(--border)) transparent;
 }
 
+.aervox-dialog-body.is-no-padding,
+.el-dialog.aervox-nav-dialog .aervox-dialog-body {
+  padding: 0;
+  overflow: hidden;
+}
+
 .aervox-dialog-footer {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
+}
+
+/* 非阻塞确认弹窗（aervoxConfirm）视觉风格微调与统一对齐 */
+.el-message-box.aervox-message-box {
+  border-radius: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  box-shadow: 0 24px 56px -12px rgba(0, 0, 0, 0.28), 0 0 0 1px var(--border);
+  padding: 20px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.el-message-box.aervox-message-box .el-message-box__header {
+  padding-bottom: 12px;
+}
+
+.el-message-box.aervox-message-box .el-message-box__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.el-message-box.aervox-message-box .el-message-box__content {
+  padding: 0 0 20px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.el-message-box.aervox-message-box .el-message-box__btns {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 0;
+}
+
+.el-message-box.aervox-message-box .el-message-box__btns button {
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 16px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 </style>
