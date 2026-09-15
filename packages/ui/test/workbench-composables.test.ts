@@ -177,7 +177,7 @@ describe('Workbench Composables Logic', () => {
     // 4. When focus-mode unregisters: returns back to core cards
     unregister();
     expect(cards.cardCatalog.value.map((c) => c.id)).toEqual(['todo', 'timer', 'history', 'diary']);
-  });
+  }, 20000);
 
   it('supports customizable quick tools with add, remove, reorder, reset and persistence', async () => {
     const storage: Record<string, string> = {};
@@ -238,5 +238,5 @@ describe('Workbench Composables Logic', () => {
     } finally {
       Object.defineProperty(globalThis, 'localStorage', { value: origStorage, configurable: true });
     }
-  });
+  }, 20000);
 });

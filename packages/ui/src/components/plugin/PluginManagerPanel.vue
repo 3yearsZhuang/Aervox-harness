@@ -252,18 +252,32 @@ function openConfigFromPage(): void {
           </div>
           <div class="plugin-card-actions">
             <button
+              v-if="pluginsWithPages.has(plugin.id)"
+              type="button"
+              class="plugin-action"
+              :title="plugin.enabled === 1 ? '页面' : '插件未启用'"
+              :disabled="pageBusy === plugin.id || plugin.enabled !== 1"
+              @click="openPage(plugin)"
+            >
+              <LayoutGrid :size="15" />页面
+            </button>
+            <button
+              v-if="plugin.configSchemaJson"
+              type="button"
+              class="plugin-action"
+              :title="plugin.enabled === 1 ? '配置' : '插件未启用'"
+              :disabled="plugin.enabled !== 1"
+              @click="openConfig(plugin)"
+            >
+              <Settings :size="15" />配置
+            </button>
+            <button
               type="button"
               class="settings-switch plugin-toggle"
               :class="{checked: plugin.enabled === 1}"
               :aria-label="`${plugin.enabled === 1 ? '停用' : '启用'} ${plugin.id}`"
               @click="toggleEnabled(plugin)"
             />
-            <button v-if="plugin.configSchemaJson && plugin.enabled === 1" type="button" class="plugin-action" title="配置" @click="openConfig(plugin)">
-              <Settings :size="15" />配置
-            </button>
-            <button v-if="pluginsWithPages.has(plugin.id)" type="button" class="plugin-action" title="页面" :disabled="pageBusy === plugin.id" @click="openPage(plugin)">
-              <LayoutGrid :size="15" />页面
-            </button>
           </div>
           <!-- CR-032：主动感知源授权区（未授权的感知源被内核 fail-closed 拦截） -->
           <div v-if="declaredSensors(plugin).length > 0" class="sensor-grants">
@@ -442,7 +456,15 @@ function openConfigFromPage(): void {
 .plugin-action:active:not(:disabled) {
   transform: translateY(0) scale(0.97);
 }
-.plugin-action:disabled { opacity: .5; cursor: default; }
+.plugin-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: var(--bg-soft);
+  color: var(--text-muted);
+  border-color: var(--border);
+  box-shadow: none;
+  transform: none;
+}
 .plugin-card--proactive {
   flex-wrap: wrap;
 }
