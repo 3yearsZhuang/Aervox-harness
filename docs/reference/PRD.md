@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.11.1
-updated_at: 2026-09-13
-reviewed_at: 2026-09-13
+version: 0.11.2
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 产品需求文档（伴学桌宠）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-13
+- 修改人：3yearszhuang · 2026-09-16
 
 关联文档：[架构设计](ARCHITECTURE.md) · [需求追踪与交付标准](REQUIREMENTS_TRACEABILITY.md) · [数据与隐私规范](DATA_PRIVACY.md) · [AI 质量与安全规范](AI_QUALITY_SAFETY.md) · [能力验收标准附录](prd-cap-acceptance.md) · [文档索引](../README.md)
 
@@ -35,6 +35,7 @@ review_interval_days: 90
 | v0.9 RC1 | 2026-08-29 | 经 CR-024 新增 CAP-034 Home Assistant 与 CAP-035 小米运动健康连接；CAP-033 补齐十二项主动智能派生能力、日/周回顾和本地仪表盘 |
 | v0.10.0 | 2026-09-10 | 将 §6.9～6.15（P1/P2/P3 与 CAP-033/034/035 验收标准）拆分为独立附录 `prd-cap-acceptance.md`（AVX-PRD-002），主文档保留索引链接并精简主干结构 |
 | v0.11.0 | 2026-09-10 | 经 CR-030 确立本地单用户 SQLite 终态，取消多工作区、云端多租户和 PostgreSQL 演进目标；补充本地 API、备份、迁移与导出边界 |
+| v0.11.2 | 2026-09-16 | 补齐 CR-030 D0 文档同步残留：§14.1 基线表移除 Redis/BullMQ、S3 与 Testcontainers 残留，队列与附件基线对齐本地 SQLite Outbox 与本地附件目录；§8 实体表修正 `OutboxEvent` 重放描述 |
 
 ## 1. 产品决策摘要
 
@@ -575,7 +576,7 @@ AI 每日日记是给用户阅读的叙事视图，记忆层是供系统推理�
 | EvalSet | id, purpose, version, language, domain, sampleCount, annotationPolicy, status | 教学、记忆、日记和安全评估集的可复现元数据 |
 | EmbeddingIndex | id, sourceArtifactId, sourceRevisionId, modelId, dimension, indexVersion, status | 向量/全文派生索引元数据；通过统一来源外键定位，来源失效后删除或重建 |
 | AnalyticsEvent | id, eventName, eventSchemaVersion, occurredAt, analyticsSubjectId, context, privacyClass | 事件专属 schema；业务 ID 按上下文选填，不保存无必要正文 |
-| OutboxEvent | id, aggregateType, aggregateId, eventType, payloadVersion, status, createdAt | 与业务变更同事务提交，供 Worker 幂等消费和 Redis 丢失后重放；非个人系统事件可使用显式 system subject |
+| OutboxEvent | id, aggregateType, aggregateId, eventType, payloadVersion, status, createdAt | 与业务变更同事务提交，供 Worker 幂等消费和崩溃重启后按水位线重放；非个人系统事件可使用显式 system subject |
 | SafetyIncident | id, category, severity, disposition, policyVersion, createdAt | 安全事件最小化记录；访问受限，不写入普通记忆或分析明细 |
 | AuditRecord | id, actorType, actorId, action, subjectType, subjectId, metadata, createdAt | 权限、导出、删除、插件和高风险操作审计；操作者与作用对象分开记录 |
 | DeletionRequest | id, scope, idempotencyKey, requestedAt, effectiveAt, status, attemptCount, lastError, ownerModule, lastVerifiedAt | 全部本地数据、会话或来源级删除及各存储传播进度；接受后来源始终保持 deny |
@@ -774,11 +775,11 @@ PRD 只规定用户价值、行为规则和验收结果；可变的实现细节�
 | API/契约 | Fastify 5 + Zod 4 + OpenAPI 3.1；POST 创建 Turn + GET SSE | 结构化校验、可生成契约和多语言客户端；SSE 明确事件 ID、`Last-Event-ID`、重放/去重、取消和部分响应持久化；不以 tRPC 锁定未来插件/移动端消费者 |
 | 业务数据 | SQLite（WAL 模式）+ Drizzle ORM + Schema/Repository 双包 | 事务、约束、全文和递归查询满足学习与记忆树；本机文件与 API 边界承担访问控制，不把 ORM 推断当作数据治理 |
 | 向量/检索 | SQLite FTS5 + 向量检索 Port（`sqlite-vec`/内存适配） | MVP 不引入独立向量数据库；Embedding 记录模型、维度和版本，可重建 |
-| 队列/缓存 | Redis 7 + BullMQ 5；至少一次投递、幂等 Job、DLQ | 日记、记忆、OCR、嵌入和通知异步化；Redis 不是业务真源 |
-| 附件 | S3 兼容对象存储 + 短期签名 URL + 病毒/内容扫描 | 图片、论文、试卷和导出文件与事务数据分离；对象删除受来源删除 SLA 约束 |
+| 队列/缓存 | 本地 SQLite `Outbox`/`ScheduledJob` + 独立 Worker 轮询；至少一次投递、幂等 Job、DLQ | 日记、记忆、OCR、嵌入和通知异步化；无外部队列/缓存依赖，SQLite Outbox 是持久化真源（CR-030） |
+| 附件 | 本地附件目录（`data/attachments`，manifest + checksum）+ `POST /v1/attachments` 直传 + 病毒/内容扫描 | 图片、论文、试卷和导出文件与事务数据分离；对象删除受来源删除 SLA 约束 |
 | AI 运行时 | Vercel AI SDK 6（表现层）+ 内部 Provider Port；结构化输出、模型路由和安全分类 | 可利用参考项目验证过的生态，同时避免供应商或 Agent 框架成为领域真源；不让模型直接写核心表 |
 | 桌面/移动 | Electron（P1）复用 Web UI；Capacitor（后续）打包 Web UI | 保持 TS 全栈并逐项管理设备权限；桌面必须启用隔离、签名和最小 IPC；移动端优先 WebView 壳，仅当出现明显原生需求时再评估 RN |
-| 测试 | Vitest、Testing Library、Playwright、Testcontainers、fast-check、OpenAPI diff | 覆盖领域规则、真实基础设施、端到端、时区/DST、幂等和删除传播性质 |
+| 测试 | Vitest、Testing Library、Playwright、fast-check、OpenAPI diff | 覆盖领域规则、真实本地存储、端到端、时区/DST、幂等和删除传播性质 |
 | 可观测性 | OpenTelemetry + Pino + Prometheus/Grafana + Sentry | 统一 Web/API/Worker/AI trace；敏感内容默认脱敏，不以第三方 AI 平台作为唯一审计真源 |
 
 架构明确暂不采用：MVP 微服务、Next.js 一体化后端、LangChain/LangGraph 作为核心领域编排、Neo4j、Kafka、Temporal、独立向量数据库和 DSH/pi 运行时硬依赖。若 P3 流量、合规或团队边界证明需要拆分，先以 ADR 说明拆分的模块、数据所有权、回滚和运维成本。

@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.8.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 0.8.1
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 ---
 
 # 参考项目能力迁移与借鉴评估
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-11
+- 修改人：3yearszhuang · 2026-09-16
 
 关联：[参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[SQLite 本地单用户数据库契约](../reference/DATABASE.md)、[能力注册表](../reference/capability-registry.md)、[Agent Harness Loop 规范](../reference/agent-harness-loop.md)、[AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)
 
@@ -91,7 +91,7 @@ BaiShou-Next 并行执行 FTS 粗筛与向量细筛，用 RRF（Reciprocal Rank 
 
 Aervox 已具备两块输入：FTS5 虚表（`memory_records_fts` 等）与内存向量 Port（`packages/repositories/src/search/vector-port.ts` 的 `InMemoryVectorSearchAdapter`），目前尚未融合。
 
-落点：在 `packages/repositories/src/search` 新增混合检索服务，复用现有 `IVectorSearchPort` 与 FTS5，输出统一召回结果。这是记忆召回窗口期检索的第一步，也是后续 pgvector 切换时仅替换 Port 实现的边界。
+落点：在 `packages/repositories/src/search` 新增混合检索服务，复用现有 `IVectorSearchPort` 与 FTS5，输出统一召回结果。这是记忆召回窗口期检索的第一步，也是后续更换向量检索实现（如 `sqlite-vec` 扩展）时仅替换 Port 实现的边界。
 
 ### 3.3 T-03 上下文压缩标记
 
@@ -284,7 +284,7 @@ Aervox 自研落地（AGPLv3 仅借鉴设计，不复制源码）：
 
 | 缺口 | 关联设计 | 说明 |
 |---|---|---|
-| 真实向量库接入 | T-05 | 当前为 SQLite 行扫描 + JS 余弦兜底，未接 pgvector；embedding provider（真实服务）需在生产注入 |
+| 真实向量库接入 | T-05 | 当前为 SQLite 行扫描 + JS 余弦兜底，未接原生向量扩展（如 `sqlite-vec`）；embedding provider（真实服务）需在生产注入 |
 | 压缩摘要由模型生成 | T-03 | Worker 已消费事件落库；`summaryText` 的生成仍待接入摘要模型 |
 | AST-03 人设解析链 | AST-03 | 文档组织已就绪（AVX-EXPL-003），运行时解析链随 CAP-019 立项 |
 | PET-03 / PET-04 桌宠自主行为与表现驱动抽象 | PET-03/04 | 前端已消费 emote 指令，完整行为引擎与 PetDriver 抽象随桌面端功能扩展引入 |

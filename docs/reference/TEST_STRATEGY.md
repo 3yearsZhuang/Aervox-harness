@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 0.4.1
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 测试策略
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-11
+- 修改人：3yearszhuang · 2026-09-16
 
 关联：[SRS](SRS.md) · [需求追踪](REQUIREMENTS_TRACEABILITY.md) · [AI 质量](AI_QUALITY_SAFETY.md) · [CR-023](changes/CR-023-proactive-local-intelligence-mode.md) · [CR-030](changes/CR-030-pure-local-sqlite-database.md)
 
@@ -35,7 +35,7 @@ review_interval_days: 90
 | Contract | OpenAPI/事件 schema diff、Provider/plugin fixtures | API 兼容、SSE framing/重放、模型适配、插件权限、外部同步 |
 | E2E | Playwright | 学习闭环、复习、日记、多日恢复、消息编辑/删除、流式重连/取消、导出、弱网恢复、无障碍 |
 | AI Eval | 版本化 EvalSet + 人工双标 | 教学事实、提示泄露、安全、记忆压缩、日记来源、Prompt injection |
-| Performance/resilience | k6/自选负载工具、故障注入 | 100 并发流式、2 倍峰值、供应商/Redis/DB/S3 故障 |
+| Performance/resilience | k6/自选负载工具、故障注入 | 100 并发流式、2 倍峰值、供应商/DB/本地文件故障 |
 | Security/privacy | ASVS 检查、SAST/DAST/SBOM/Secret scan | loopback/认证、文件 ACL、CSRF/CSP、插件、附件、删除后零召回 |
 
 ## 3. P0 必测路径
@@ -48,7 +48,7 @@ review_interval_days: 90
 6. 首次窗口左闭、常规窗口左开右闭；验证 `occurredAt` 决定周期归属、`ingestedAt` 只决定迟到资格，历史迟到来源不进入当前/下一周期，多日宕机按截止点顺序恢复且不自动合并，空日记与显式跳过状态不同，quiet hours 不改变生成或 cursor。
 7. POST 幂等创建 Turn→GET SSE；覆盖 `Last-Event-ID` 重连、重放与实时订阅交界、重复事件去重、sequence 空洞、游标过期、慢消费者、显式取消、断线、API/Worker 崩溃和过期 Attempt。断言原始供应商 token 不直达客户端，只有通过安全门且已持久化的分段可见，已显示前缀在中断后以 `Partial/Interrupted` 保留且不产生下游记忆/评分/日记来源。
 8. 消息编辑版本、单条/全部本地数据删除、导出、备份恢复后删除不复活；恢复在全局 deny/维护状态下按 `RecoveryControlLedger.sequence` 校验水位、幂等重放，再完成索引重建和零召回/零越权验证后开放本地流量。
-9. 模型超时、Redis 丢失、队列重复投递、索引失败、埋点失败、恢复账本不可用/序列缺口的 fail-closed 降级。
+9. 模型超时、数据库锁定/不可用、队列重复投递、索引失败、埋点失败、恢复账本不可用/序列缺口的 fail-closed 降级。
 
 ### 3.1 并发与状态机断言
 
