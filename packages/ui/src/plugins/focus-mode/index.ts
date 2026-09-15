@@ -5,11 +5,13 @@ import type { BuiltinUIPlugin } from '../plugin-runtime';
 import FocusModeSwitch from './FocusModeSwitch.vue';
 import FocusTermsBar from './FocusTermsBar.vue';
 import TermExploreDialog from './TermExploreDialog.vue';
+import FocusNavMenuItem from './FocusNavMenuItem.vue';
 
 export {
   FocusModeSwitch,
   FocusTermsBar,
   TermExploreDialog,
+  FocusNavMenuItem,
 };
 
 /** 向后兼容导出组件别名 */
@@ -20,6 +22,7 @@ export const StudyTermsBar = FocusTermsBar;
  * 注册专注模式完整第一方前端插件
  * - 注册顶栏开关至 `header:actions`
  * - 注册术语条与名词解释弹窗至 `conversation:bottom`
+ * - 注册主导航学习能力入口至 `nav:menu-items`
  * - 注册专注模式消息前缀变换拦截器（支持元数据协议透传）
  */
 export function registerFocusModePlugin(
@@ -34,6 +37,11 @@ export function registerFocusModePlugin(
   const unregisterTerms = registry.registerSlotComponent('conversation:bottom', FocusTermsBar, {
     id: 'focus-mode:terms-bar',
     priority: 50,
+  });
+
+  const unregisterNavMenu = registry.registerSlotComponent('nav:menu-items', FocusNavMenuItem, {
+    id: 'focus-mode:nav-menu-item',
+    priority: 100,
   });
 
   const unregisterTransformer = registry.registerMessageTransformer(
@@ -55,6 +63,7 @@ export function registerFocusModePlugin(
   return () => {
     unregisterSwitch();
     unregisterTerms();
+    unregisterNavMenu();
     unregisterTransformer();
   };
 }
