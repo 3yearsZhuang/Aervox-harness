@@ -118,7 +118,7 @@ function handleClose() {
   overflow-y: auto;
   padding: 14px 16px;
   border-radius: 12px;
-  background: var(--bg-card);
+  background: var(--bg-main, #fcfdfe);
   border: 1px solid var(--glass-border);
 }
 
@@ -145,19 +145,20 @@ function handleClose() {
 
 .explore-error {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 24px;
-  color: var(--el-color-danger);
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  color: var(--danger);
+  font-size: 13px;
 }
 
 .retry-btn {
   padding: 4px 14px;
   border-radius: 6px;
   border: 1px solid var(--border);
-  background: var(--bg-card);
+  background: var(--bg-main, #fcfdfe);
   cursor: pointer;
 }
 

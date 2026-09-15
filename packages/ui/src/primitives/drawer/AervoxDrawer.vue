@@ -145,7 +145,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--bg-card, #fff);
+  background: var(--bg-main, #fcfdfe);
   box-shadow: 0 0 32px rgba(0, 0, 0, 0.22);
   box-sizing: border-box;
 }

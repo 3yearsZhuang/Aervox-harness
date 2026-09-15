@@ -141,8 +141,9 @@ function handleClose() {
 <style>
 /* 全局覆盖与统一弹窗容器样式（Scoped 样式无法直接作用于 Teleport 后的 el-dialog 根元素） */
 .el-dialog.aervox-dialog {
-  border-radius: 14px;
-  background: var(--bg-card);
+  --el-dialog-bg-color: var(--bg-main, #fcfdfe);
+  background: var(--bg-main, #fcfdfe) !important;
+  border-radius: 16px;
   border: 1px solid var(--border);
   box-shadow: 0 24px 56px -12px rgba(0, 0, 0, 0.28), 0 0 0 1px var(--border);
   overflow: hidden;
@@ -153,17 +154,20 @@ function handleClose() {
   padding: 16px 20px 14px;
   margin: 0;
   border-bottom: 1px solid var(--border);
+  background: var(--bg-main, #fcfdfe);
 }
 
 .el-dialog.aervox-dialog .el-dialog__body {
   padding: 0;
   color: var(--text-primary);
+  background: var(--bg-main, #fcfdfe);
 }
 
 .el-dialog.aervox-dialog .el-dialog__footer {
   padding: 12px 20px 16px;
   margin: 0;
   border-top: 1px solid var(--border);
+  background: var(--bg-main, #fcfdfe);
 }
 
 .aervox-dialog-body {
@@ -189,8 +193,8 @@ function handleClose() {
 
 /* 非阻塞确认弹窗（aervoxConfirm）视觉风格微调与统一对齐 */
 .el-message-box.aervox-message-box {
-  border-radius: 14px;
-  background: var(--bg-card);
+  border-radius: 16px;
+  background: var(--bg-main, #fcfdfe) !important;
   border: 1px solid var(--border);
   box-shadow: 0 24px 56px -12px rgba(0, 0, 0, 0.28), 0 0 0 1px var(--border);
   padding: 20px;

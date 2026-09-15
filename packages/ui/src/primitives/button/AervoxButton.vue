@@ -143,13 +143,13 @@ function handleClick(e: MouseEvent) {
 }
 
 .aervox-btn--secondary {
-  background: var(--bg-card);
+  background: var(--bg-main, #fcfdfe);
   color: var(--text-primary);
   border: 1px solid var(--border);
 }
 
 .aervox-btn--secondary:hover:not(.is-disabled) {
-  background: var(--bg-card-hover, var(--bg-input));
+  background: var(--bg-hover, #e9edf4);
   border-color: var(--border-strong, var(--border));
   transform: translateY(-1px);
 }
