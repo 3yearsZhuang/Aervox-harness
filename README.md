@@ -1,7 +1,7 @@
 # Aervox｜思隅
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-13
+- 修改人：3yearszhuang · 2026-09-16
 
 更好上手的“主动智能” Agent：以桌宠为入口，视觉小说 + 工作台双形态交互，承载陪伴与学习双重任务。基于 TypeScript 全栈 monorepo 交付：Fastify API + 独立 Worker 进程 + 桌面端（Electron）/ Web 端（Vue 3）/ 移动端（Capacitor）共享同一套契约，SQLite (WAL) 永久本地单用户真源。产品定义、工程规范与契约事实源一律在 [docs/](docs/README.md)，本 README 提供全局概览、快速启动与开发速查。
 
@@ -108,7 +108,6 @@ packages/
   observability/    结构化日志、可观测性指标与审计导出接口
 scripts/            文档治理器（docs-governance.mjs）、架构依赖边界校验器（import-boundary.mjs）
 reference/          参考项目子模块（仅做架构验证与设计借鉴；配置 shallow clone，按需检出）
-artifacts/          对外推介演示 PPT 与视觉资源，不参与打包与运行时
 docs/               按 Diátaxis 规范组织的 100+ 篇工程真源文档，_meta 存放治理机器策略
 AGENTS.md           AI 协作专属指南（薄入口，立红线并深链 docs/）
 mise.toml           工具链版本锁定与开发任务编排真源
