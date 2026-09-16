@@ -7,14 +7,14 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.5.0
-updated_at: 2026-09-15
-reviewed_at: 2026-09-15
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 review_triggers:
   - packages/ui/src/registry/**
   - packages/ui/src/components/extension/**
   - packages/ui/src/components/workbench/ComposerDock.vue
-  - apps/api/src/modules/plugins/**
+  - apps/api/src/modules/ecosystem/plugins/**
 sources:
   - docs/reference/changes/CR-006-plugin-config-and-pages.md
   - docs/reference/capability-composition.md
@@ -27,7 +27,7 @@ sources:
 # 插件 Config、Page 与 UI 扩展规范
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-15
+- 修改人：3yearszhuang · 2026-09-16
 
 关联：[CR-006](changes/CR-006-plugin-config-and-pages.md)、[CR-050](changes/CR-050-declarative-ui-plugin-registry-and-focus-mode-decoupling.md)、[能力组合与可选化目录规范](capability-composition.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-015](adr/ADR-015-vue-full-stack.md)、[AI 质量与安全规范](AI_QUALITY_SAFETY.md)
 
@@ -160,7 +160,7 @@ Page 能力声明（`plugin.manifest.json` 的 `spec.pages[].capabilities`）：
 
 ### 4.1 核心契约与执行生命周期
 
-服务端回合插件运行于 Fastify API 服务的会话执行主循环（`apps/api/src/modules/plugins/turn-plugins/`），契约接口定义如下：
+服务端回合插件运行于 Fastify API 服务的会话执行主循环（`apps/api/src/modules/ecosystem/plugins/turn-plugins/`），契约接口定义如下：
 
 ```ts
 export interface ServerTurnPlugin {

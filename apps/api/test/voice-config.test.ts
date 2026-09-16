@@ -16,7 +16,7 @@ import {
   GptSovitsLocalProvider,
   GptSovitsRemoteProvider,
   SenseVoiceLocalProvider,
-} from "../src/modules/voice/index.js";
+} from "../src/modules/platform/voice/index.js";
 
 const headers = {
   "x-workspace-id": "ws_voice",

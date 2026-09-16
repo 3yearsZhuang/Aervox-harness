@@ -7,17 +7,17 @@ doc_status: review-candidate
 decision_status: accepted
 delivery_status: implemented
 version: 1.0.0
-updated_at: 2026-09-14
-reviewed_at: 2026-09-14
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 review_triggers:
   - packages/config/src/index.ts
   - packages/contracts/src/model-routing-schemas.ts
   - packages/schema/src/model-routing.ts
   - packages/repositories/src/repositories/sqlite/model-routing-repository.ts
-  - apps/api/src/modules/llm/health-prober.ts
-  - apps/api/src/modules/llm/degradation-service.ts
-  - apps/api/src/modules/conversation/agent-executor.ts
+  - apps/api/src/modules/ecosystem/llm/health-prober.ts
+  - apps/api/src/modules/ecosystem/llm/degradation-service.ts
+  - apps/api/src/modules/companion/conversation/agent-executor.ts
 sources:
   - docs/reference/PRD.md
   - docs/reference/REQUIREMENTS_TRACEABILITY.md
@@ -37,7 +37,7 @@ sources:
 # CR-034 本地模型降级阶梯：无 API 接入时的原生能力基线
 
 - 提出人：3yearszhuang · 2026-09-14
-- 修改人：3yearszhuang · 2026-09-14
+- 修改人：3yearszhuang · 2026-09-16
 
 关联：[PRD](../PRD.md) · [需求追踪基线](../REQUIREMENTS_TRACEABILITY.md#11-变更控制) · [CR-015 模型供应商配置](CR-015-llm-provider-config-webui.md) · [ADR-005 Provider Port](../adr/ADR-005-provider-port.md) · [CR-033 主动智能终局架构](CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md) · [CR-032 插件化生态](CR-032-proactive-intelligence-plugin-ecosystem.md) · [CR-014 本地语音配置](CR-014-voice-config-webui.md) · [数据与隐私](../DATA_PRIVACY.md) · [能力注册表](../capability-registry.md)
 

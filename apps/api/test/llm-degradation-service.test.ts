@@ -10,8 +10,8 @@ import {
   SqliteModelRoutingRepository,
   type AervoxDatabase,
 } from "@aervox/repositories";
-import { LlmDegradationService } from "../src/modules/llm/degradation-service.js";
-import { LlmHealthProber, type ProbeParams, type ProbeResult } from "../src/modules/llm/health-prober.js";
+import { LlmDegradationService } from "../src/modules/ecosystem/llm/degradation-service.js";
+import { LlmHealthProber, type ProbeParams, type ProbeResult } from "../src/modules/ecosystem/llm/health-prober.js";
 
 const tenant = { workspaceId: "local", subjectUserId: "user_test" };
 

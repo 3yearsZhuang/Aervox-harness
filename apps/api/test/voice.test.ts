@@ -3,7 +3,7 @@ import {
   GptSovitsLocalProvider,
   GptSovitsRemoteProvider,
   VoiceService,
-} from "../src/modules/voice/index.js";
+} from "../src/modules/platform/voice/index.js";
 
 describe("系统级语音模块 (Voice Module)", () => {
   it("Local GPT-SoVITS: 校验模型路径与合成", async () => {

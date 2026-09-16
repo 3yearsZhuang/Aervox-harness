@@ -183,7 +183,7 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
 
   it("配置与提示词默认值对齐：未配置时正确回退 schema 规范默认值，且 prompt 默认开启严格防剧透", async () => {
     const { loadStudyModeRuntimeConfig, DEFAULT_STUDY_MODE_CONFIG } = await import(
-      "../src/modules/plugins/turn-plugins/focus-mode.js"
+      "../src/modules/ecosystem/plugins/turn-plugins/focus-mode.js"
     );
     const { buildStudyModePrompt } = await import("@aervox/agent-loop");
 
@@ -250,7 +250,7 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
   });
 
   it("结构化元数据 Turn（metadata.mode = study）：无需消息前缀即可被 studyModeTurnPlugin 识别并注入提示词", async () => {
-    const { studyModeTurnPlugin, isStudyModeMessage } = await import("../src/modules/plugins/turn-plugins/study-mode.js");
+    const { studyModeTurnPlugin, isStudyModeMessage } = await import("../src/modules/ecosystem/plugins/turn-plugins/study-mode.js");
 
     expect(isStudyModeMessage("纯净的用户提问", { mode: "study" })).toBe(true);
     expect(isStudyModeMessage("纯净的用户提问", {})).toBe(false);
@@ -273,7 +273,7 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
   });
 
   it("createLLMCallable 适配器：正确透传 temperature 参数与 systemPrompt", async () => {
-    const { createLLMCallable } = await import("../src/modules/conversation/llm-adapter.js");
+    const { createLLMCallable } = await import("../src/modules/companion/conversation/llm-adapter.js");
     let capturedRequest: any;
     const mockProvider = {
       id: "mock",
@@ -299,7 +299,7 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
   });
 
   it("ServerTurnPluginRegistry：注册别名插件与主插件时自动互斥去重，杜绝 getAll() 实例翻倍", async () => {
-    const { ServerTurnPluginRegistry } = await import("../src/modules/plugins/turn-plugins/registry.js");
+    const { ServerTurnPluginRegistry } = await import("../src/modules/ecosystem/plugins/turn-plugins/registry.js");
     const reg = new ServerTurnPluginRegistry();
 
     const focusPlugin = { id: "focus-mode", aliases: ["study-mode", "quiz-mode"] };

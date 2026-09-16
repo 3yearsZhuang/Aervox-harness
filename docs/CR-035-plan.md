@@ -7,15 +7,15 @@ doc_status: draft
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.1.0
-updated_at: 2026-09-14
-reviewed_at: 2026-09-14
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 30
 review_triggers:
   - docs/reference/changes/CR-035-standard-workbench-mode.md
   - packages/ui/**
   - packages/api-client/**
-  - apps/api/src/modules/conversation/**
-  - apps/api/src/modules/proactive/**
+  - apps/api/src/modules/companion/conversation/**
+  - apps/api/src/modules/proactive/proactive/**
   - apps/web/**
   - apps/desktop/src/renderer/**
 sources:

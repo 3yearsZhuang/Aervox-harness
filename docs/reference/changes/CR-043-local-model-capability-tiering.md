@@ -7,8 +7,8 @@ doc_status: review-candidate
 decision_status: accepted
 delivery_status: verified
 version: 1.0.0
-updated_at: 2026-09-15
-reviewed_at: 2026-09-15
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 sources:
   - docs/reference/changes/CR-034-local-model-fallback-ladder.md
@@ -19,7 +19,7 @@ sources:
 # CR-043 本地模型能力分级与服务端工具收紧
 
 - 提出人：3yearszhuang · 2026-09-14
-- 修改人：3yearszhuang · 2026-09-15
+- 修改人：3yearszhuang · 2026-09-16
 
 - 状态：Accepted / Verified
 - 关联能力：`CAP-020/013/019`
@@ -36,5 +36,5 @@ sources:
 ## 2. 落地实现与验证
 
 - **契约与模型层**：`packages/contracts/src/model-routing-schemas.ts`（`capabilityTierSchema`）、`packages/config/src/index.ts`（`capability_tiering` 特性开关）；
-- **服务端收紧与装配**：`apps/api/src/modules/conversation/agent-executor.ts`（`createRuntimeToolProvider` 与 L1 动态工具过滤器包装）；
+- **服务端收紧与装配**：`apps/api/src/modules/companion/conversation/agent-executor.ts`（`createRuntimeToolProvider` 与 L1 动态工具过滤器包装）；
 - **自动化测试验证**：`apps/api/test/capability-tiering.test.ts` 3/3 单测全部通过，验证只读工具放行与写工具 fail-closed 阻断。

@@ -7,11 +7,11 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 1.0.1
-updated_at: 2026-09-13
-reviewed_at: 2026-09-13
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 sources:
-  - apps/api/src/modules/tools/runtime.ts
+  - apps/api/src/modules/ecosystem/tools/runtime.ts
   - packages/agent-loop/src/types.ts
   - docs/reference/agent-harness-loop.md
   - docs/how-to/engineering-process.md
@@ -20,7 +20,7 @@ sources:
 # 教程：编写并注册一个自定义 Agent 工具
 
 - 提出人：3yearszhuang · 2026-09-10
-- 修改人：3yearszhuang · 2026-09-13
+- 修改人：3yearszhuang · 2026-09-16
 
 关联：[Agent Harness Loop 规范](../reference/agent-harness-loop.md) · [工程与发布流程](../how-to/engineering-process.md) · [能力组合规范](../reference/capability-composition.md)
 
@@ -63,7 +63,7 @@ export type EnvSensorQueryArgs = z.infer<typeof EnvSensorQueryArgsSchema>;
 
 ```typescript
 import type { LocalContext } from "@aervox/repositories";
-import type { ToolHandler } from "apps/api/src/modules/tools/runtime.js";
+import type { ToolHandler } from "apps/api/src/modules/ecosystem/tools/runtime.js";
 import { type EnvSensorQueryArgs } from "./env-sensor-schemas.js";
 
 export class EnvSensorQueryHandler implements ToolHandler {
@@ -97,7 +97,7 @@ export class EnvSensorQueryHandler implements ToolHandler {
 
 ## 4. 步骤 3 · 注册到 ToolRuntime 与数据库
 
-在应用启动时（`apps/api/src/modules/tools/`），将工具元数据写入持久化注册表，并把 Handler 注入 `ToolRuntime`：
+在应用启动时（`apps/api/src/modules/ecosystem/tools/`），将工具元数据写入持久化注册表，并把 Handler 注入 `ToolRuntime`：
 
 ```typescript
 import type { ToolRuntime } from "./runtime.js";

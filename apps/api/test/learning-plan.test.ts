@@ -22,7 +22,7 @@ import {
   hydratePlan,
   renderTemplatePlan,
   type PlanModelPort,
-} from "../src/modules/learning/plan-generation.js";
+} from "../src/modules/learning/learning/plan-generation.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
 

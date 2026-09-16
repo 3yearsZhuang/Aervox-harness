@@ -174,7 +174,7 @@ review_interval_days: 90
 | [CR-048](reference/changes/CR-048-project-context-and-migration-facility.md) | 项目上下文绑定与会话迁移设施 (W3) | Proposed | Planned |
 | [CR-049](reference/changes/CR-049-ui-primitives-and-dialog-componentization.md) | UI 基础控件库与全量弹窗控件化 | Accepted | Verified |
 | [CR-050](reference/changes/CR-050-declarative-ui-plugin-registry-and-focus-mode-decoupling.md) | 工作台 UI 插件声明式注册层与专注模式彻底解耦 | Accepted | Verified |
-| [CR-052](reference/changes/CR-052-api-module-domain-grouping.md) | apps/api 模块领域分组（25 模块 → 6 域两层结构） | Proposed | Planned |
+| [CR-052](reference/changes/CR-052-api-module-domain-grouping.md) | apps/api 模块领域分组（25 模块 → 6 域两层结构） | Accepted | Implemented |
 
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
 

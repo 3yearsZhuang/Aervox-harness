@@ -7,8 +7,8 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.1.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 sources:
   - docs/reference/agent-harness-loop.md
@@ -17,7 +17,7 @@ sources:
 # Agent Harness Loop 分阶段落地进展与追溯历史
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-16
 
 关联：[Agent Harness Loop 设计与落地规范](agent-harness-loop.md)（AVX-HAR-001）、[CR-012](changes/CR-012-agent-harness-loop.md)、[需求追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)
 
@@ -158,11 +158,11 @@ sources:
 2026-08-28 落地（对应 §13 阶段 5 首条目的 API/插件受控入口与过期兜底；补完 5a 消费闭环的 next-turn 面）：
 
 - **契约**（`packages/contracts`）：新增 `inbox-schemas.ts`（`inboxItemTypeSchema`/`inboxSourceActorSchema`/`inboxConsumeBoundarySchema`/`inboxItemStatusSchema`/`createInboxItemRequestSchema`（type-payload-幂等键，sessionId 可选仅一致性校验）+ `inboxItemResponseSchema`）；`openapi.ts` 注册 `CreateInboxItemRequest`/`InboxItem` 与 `POST /v1/sessions/{sessionId}/inbox` 路径（tags: Inbox）。
-- **API 入口**（`apps/api/src/modules/inbox/`）：
+- **API 入口**（`apps/api/src/modules/companion/inbox/`）：
   - `routes.ts` 统一端点 `POST /v1/sessions/:sessionId/inbox`：服务端强校验（type ∈ followup/steer/inject；consumeBoundary 与 type 一致 followup→next-turn / steer→next-step / inject 皆可；payload 必填）、幂等（同 idempotencyKey 租户内唯一，重复提交返回既有项 200）；
   - sourceActor 由服务端按调用方身份注入，客户端不自报：缺省 `user`；携带 `x-plugin-id` 时校验插件已安装且启用 + 授予 `inbox.command` 权限，否则 403，通过则注入 `plugin`；
   - `port.ts` `createTenantInboxPort`：把 SQLite 仓储适配为 agent-loop `InboxPort`（绑定请求租户，ADR-016 组合根适配）。
-- **消费闭环补完**（`apps/api/src/modules/conversation/`）：
+- **消费闭环补完**（`apps/api/src/modules/companion/conversation/`）：
   - `routes.ts` 创建新 Turn 时对该 session 执行一次 `next-turn` claim 并 ack，把 followup 项注入为新 Turn 输入（payload 字符串合并到 userMessage；已消费不重复注入）；
   - `runLoopTurnOnce` 新增可选 `inbox` 转发给 `executeTurn`（每 Step 消费 next-step：steer/inject 注入上下文）。
 - **过期回收**（`packages/database` + `apps/worker`）：
@@ -318,6 +318,6 @@ sources:
 2026-08-31 落地（承接 §16.21 骨架，把 DSH Adapter 从「仅测试消费」推进到 API 组合根可开关；ADR-010 实施进展 6f 同步）：
 
 - **配置**（`packages/config`）：`ApiLoopDriver = "native" | "dsh"`（`AERVOX_LOOP_DRIVER`，默认 native，启动期枚举校验；pi 为保留项不进枚举，配置期 fail-fast 防静默无效果）；
-- **解析器**（`apps/api/src/modules/conversation/dsh-adapter.ts`）：`resolveDshTurnAdapter` lazy 单例——缓存已准入 stdio handle（逐 Turn ping-pong 复用，不重复 spawn）与 probe 禁用态（后续 Turn 快速失败）；repoRoot 取 `AERVOX_DSH_REPO_ROOT`，缺省从 cwd 向上查找 `reference/deepseek-harness`；准入即 `probeDSHReference`（gitlink 固定 SHA + MIT），未就绪不 spawn；
-- **接线**（`apps/api/src/modules/conversation/agent-executor.ts`）：`runLoopTurnOnce` dsh 分支 → `runDshAdapterTurn` → `runAdapterTurn` 整 Turn 执行（claim → 事件映射既有契约落库 → finalize；Provider/工具/上下文组合全部跳过）；终态对齐 turns 表（Completed/Interrupted/Failed 回写，skipped 不覆盖）；准入失败 fail-closed（`ADAPTER_UNAVAILABLE` error 事件 + Failed，不静默回退 native）；专注模式 terms 抽取抽为 `extractStudyTerms` 供原生与 adapter 双路径复用；
+- **解析器**（`apps/api/src/modules/companion/conversation/dsh-adapter.ts`）：`resolveDshTurnAdapter` lazy 单例——缓存已准入 stdio handle（逐 Turn ping-pong 复用，不重复 spawn）与 probe 禁用态（后续 Turn 快速失败）；repoRoot 取 `AERVOX_DSH_REPO_ROOT`，缺省从 cwd 向上查找 `reference/deepseek-harness`；准入即 `probeDSHReference`（gitlink 固定 SHA + MIT），未就绪不 spawn；
+- **接线**（`apps/api/src/modules/companion/conversation/agent-executor.ts`）：`runLoopTurnOnce` dsh 分支 → `runDshAdapterTurn` → `runAdapterTurn` 整 Turn 执行（claim → 事件映射既有契约落库 → finalize；Provider/工具/上下文组合全部跳过）；终态对齐 turns 表（Completed/Interrupted/Failed 回写，skipped 不覆盖）；准入失败 fail-closed（`ADAPTER_UNAVAILABLE` error 事件 + Failed，不静默回退 native）；专注模式 terms 抽取抽为 `extractStudyTerms` 供原生与 adapter 双路径复用；
 - **测试**：`apps/api/test/conversation-dsh.test.ts` 4（准入失败 fail-closed 不回退 native / 禁用态缓存快速失败 / resolver `submodule_missing` reason / `it.runIf` 子模块就绪 + 本地兼容端点整 Turn message→delta→done Completed 机器验证）；`@aervox/config` 6（loopDriver 缺省/覆盖/pi·bogus fail-fast）。落地登记见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。

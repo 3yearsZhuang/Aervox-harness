@@ -1,0 +1,101 @@
+/**
+ * Aervox｜思隅 @aervox/api — 对话模块入口
+ *
+ * 自管仓储实例化：本模块唯一对外入口，业务路由不依赖任何全局容器。
+ * 阶段 2d/2e/5c：ToolRuntime / LLMConfigService / workflows 等共享依赖由
+ * 模块上下文（ModuleContext）提供（tools/llm 模块在其之前注册并填充）。
+ */
+import type { ModuleContext } from "../../context.js";
+import {
+  SqliteAgentInboxRepository,
+  SqliteConversationRepository,
+  SqliteExtensionRepository,
+  SqliteLearningRepository,
+  SqlitePlatformRepository,
+  SqlitePluginConfigRepository,
+  SqlitePrivacyRepository,
+  SqliteSkillRegistryRepository,
+  SqliteSubagentRunRepository,
+  SqliteUserQuestionRepository,
+} from "@aervox/repositories";
+import { createSqliteSubagentPort, SqliteExecutionStore } from "@aervox/host-agent";
+import { buildLoopProvider } from "./llm-adapter.js";
+import { registerConversationRoutes } from "./routes.js";
+import { UserQuestionCoordinator } from "./user-question-coordinator.js";
+import { createPracticeAttemptPortFactory } from "./practice-attempt-port.js";
+import { createSqliteMemoryRecall } from "./memory-recall.js";
+
+export function registerConversationModule(ctx: ModuleContext): void {
+  const {
+    app,
+    db,
+    toolRuntime,
+    llmConfigService,
+    safetyService,
+    workflows,
+    proactiveActionAuthorizer,
+    proactiveRepository,
+  } = ctx;
+  const conversationRepo = new SqliteConversationRepository(db);
+  const privacyRepo = new SqlitePrivacyRepository(db);
+  const skillRepo = new SqliteSkillRegistryRepository(db);
+  const subagentRunRepo = new SqliteSubagentRunRepository(db);
+  // 阶段 7：ModelRun/ContextManifest 落库口（Step 级可追溯写入）
+  const platformRepo = new SqlitePlatformRepository(db);
+  const extensionRepo = new SqliteExtensionRepository(db);
+  const pluginConfigRepo = new SqlitePluginConfigRepository(db);
+  const userQuestionCoordinator = new UserQuestionCoordinator(
+    conversationRepo,
+    // 缺陷 C：挂起提问持久化到 pending_user_questions，进程重启后仍可作答/查询
+    new SqliteUserQuestionRepository(db),
+  );
+  registerConversationRoutes(app, conversationRepo, {
+    toolRuntime,
+    llmConfigService,
+    modelRoutingService: ctx.modelRoutingService,
+    safetyService,
+    privacyRepo,
+    extensionRepo,
+    pluginConfigRepo,
+    pluginRegistry: ctx.pluginRegistry,
+    inboxRepo: new SqliteAgentInboxRepository(db),
+    // 5b：Skill 渐进披露（activeOnly 清单 → name+description）
+    skillLoader: async () =>
+      (await skillRepo.listSkills(true)).map((s) => ({
+        name: s.name,
+        description: s.description,
+      })),
+    // 人格提示词摘要：激活人格时由其覆盖系统默认名称/设定并约束技能白名单。
+    // persona 模块在 conversation 之后注册，这里惰性读取 ctx；读取失败按无人格兜底。
+    personaLoader: async (tenant) => {
+      try {
+        return await ctx.personaService?.describeActivePersonaSummary(tenant);
+      } catch {
+        return undefined;
+      }
+    },
+    // 5c：Subagent 委托执行器（request 级 tenant 绑定；子任务独立 turn/attempt 落库审计）
+    subagentFactory: (tenant) =>
+      createSqliteSubagentPort({
+        tenant,
+        store: new SqliteExecutionStore(conversationRepo, tenant),
+        conversationRepo,
+        runRepo: subagentRunRepo,
+        providerBuilder: () => buildLoopProvider(tenant, llmConfigService),
+      }),
+    subagentRunRepo,
+    workflows,
+    platformRepo,
+    userQuestionCoordinator,
+    // CAP-016：刷题模式作答落库端口（模块自管 learning 仓储，按 request tenant 绑定）
+    practiceAttemptFactory: createPracticeAttemptPortFactory(new SqliteLearningRepository(db)),
+    proactiveActionAuthorizer,
+    proactiveRepository,
+    memoryRecall: createSqliteMemoryRecall({
+      db,
+      client: ctx.client,
+      embeddingProvider: toolRuntime?.getEmbeddingProvider() ?? null,
+    }),
+    observability: ctx.observability,
+  });
+}

@@ -7,8 +7,8 @@ doc_status: draft
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.1.0
-updated_at: 2026-09-14
-reviewed_at: 2026-09-14
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 30
 review_triggers:
   - docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md
@@ -16,7 +16,7 @@ review_triggers:
   - packages/schema/**
   - packages/repositories/**
   - apps/worker/**
-  - apps/api/src/modules/proactive/**
+  - apps/api/src/modules/proactive/proactive/**
   - apps/desktop/**
 sources:
   - docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md

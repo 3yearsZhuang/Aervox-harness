@@ -7,12 +7,12 @@ doc_status: review-candidate
 decision_status: accepted
 delivery_status: verified
 version: 1.0.0
-updated_at: 2026-09-14
-reviewed_at: 2026-09-14
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 review_triggers:
-  - apps/api/src/modules/llm/health-prober.ts
-  - apps/api/src/modules/llm/degradation-service.ts
+  - apps/api/src/modules/ecosystem/llm/health-prober.ts
+  - apps/api/src/modules/ecosystem/llm/degradation-service.ts
   - packages/contracts/src/model-routing-schemas.ts
   - packages/repositories/src/repositories/sqlite/model-routing-repository.ts
 sources:
@@ -24,7 +24,7 @@ sources:
 # CR-042 本地模型降级决策与健康路由运行时
 
 - 提出人：3yearszhuang · 2026-09-14
-- 修改人：3yearszhuang · 2026-09-14
+- 修改人：3yearszhuang · 2026-09-16
 
 - 状态：Accepted / Verified
 - 关联能力：`CAP-020/013/009/033/019`

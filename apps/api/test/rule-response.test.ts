@@ -5,7 +5,7 @@ import { describe, it, expect } from "vitest";
 import {
   RuleResponseProvider,
   createRuleResponseProvider,
-} from "../src/modules/conversation/rule-response-provider.js";
+} from "../src/modules/companion/conversation/rule-response-provider.js";
 import type { ModelRequest } from "@aervox/agent-loop";
 
 describe("CR-044 N2b: 对话侧 L2 确定性规则回应 Provider", () => {
