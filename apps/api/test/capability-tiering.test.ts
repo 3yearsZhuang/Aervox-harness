@@ -10,7 +10,7 @@ import {
   type AervoxDatabase,
 } from "@aervox/repositories";
 import { ToolRuntime } from "../src/modules/tools/runtime.js";
-import { createRuntimeToolProvider } from "../src/modules/conversation/agent-executor.js";
+import { createRuntimeToolProvider } from "../src/modules/conversation/tool-providers.js";
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
