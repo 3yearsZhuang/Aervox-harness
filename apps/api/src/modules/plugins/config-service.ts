@@ -27,6 +27,10 @@ import {
   validateValues,
   type ConfigIssue,
 } from "./config-schema.js";
+import {
+  type ServerPluginRegistry,
+  defaultServerPluginRegistry,
+} from "./turn-plugins/registry.js";
 
 export interface PluginConfigSnapshot {
   pluginId: string;
@@ -56,6 +60,7 @@ export interface PluginConfigServiceDeps {
   pageRepo: IPluginPageRepository;
   auditRepo: IPlatformRepository;
   bundleStore: PluginBundleStore;
+  pluginRegistry?: ServerPluginRegistry;
 }
 
 export class PluginConfigService {
@@ -76,12 +81,13 @@ export class PluginConfigService {
   private async findPlugin(pluginId: string): Promise<{ plugin: PluginModel; resolvedId: string } | null> {
     let plugin = await this.deps.extensionRepo.getPlugin(pluginId);
     if (plugin) return { plugin, resolvedId: pluginId };
-    if (pluginId === "study-mode") {
-      plugin = await this.deps.extensionRepo.getPlugin("focus-mode");
-      if (plugin) return { plugin, resolvedId: "focus-mode" };
-    } else if (pluginId === "focus-mode") {
-      plugin = await this.deps.extensionRepo.getPlugin("study-mode");
-      if (plugin) return { plugin, resolvedId: "study-mode" };
+
+    const registry = this.deps.pluginRegistry ?? defaultServerPluginRegistry;
+    const candidateIds = registry.getAllAliases(pluginId);
+    for (const cid of candidateIds) {
+      if (cid === pluginId) continue;
+      plugin = await this.deps.extensionRepo.getPlugin(cid);
+      if (plugin) return { plugin, resolvedId: cid };
     }
     return null;
   }

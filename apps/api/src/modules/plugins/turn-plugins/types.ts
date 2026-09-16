@@ -36,8 +36,14 @@ export interface AfterTurnContext extends TurnPluginContext {
 }
 
 export interface ServerTurnPlugin {
-  /** 唯一对应的插件 ID（如 study-mode） */
+  /** 唯一对应的插件 ID（如 focus-mode） */
   id: string;
+
+  /** 插件展示名称（可选） */
+  name?: string;
+
+  /** 历史兼容别名列表（由注册层统一索引解析，如 ['study-mode', 'quiz-mode']） */
+  aliases?: string[];
 
   /**
    * 前置切面：在构建 Agent Loop System Prompt 前执行。
@@ -57,3 +63,6 @@ export interface ServerTurnPlugin {
     beforeResult?: BeforeTurnResult,
   ): Promise<void> | void;
 }
+
+/** 服务端通用插件接口，当前与 ServerTurnPlugin 保持兼容 */
+export type ServerPlugin = ServerTurnPlugin;

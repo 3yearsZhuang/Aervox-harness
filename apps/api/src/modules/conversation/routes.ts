@@ -73,10 +73,12 @@ export interface ConversationRouteDeps {
   proactiveRepository?: import("@aervox/repositories").IProactiveProfileRepository;
   /** CAP-005：普通长期记忆混合召回，按 request tenant 绑定。 */
   memoryRecall?: MemoryRecallPort;
-  /** 插件仓储：用于检查 study-mode 等插件启用状态 */
+  /** 插件仓储：用于检查插件启用状态 */
   extensionRepo?: import("@aervox/repositories").IExtensionRepository;
-  /** 插件配置仓储：用于加载 study-mode 等运行时配置 */
+  /** 插件配置仓储：用于加载插件运行时配置 */
   pluginConfigRepo?: import("@aervox/repositories").IPluginConfigRepository;
+  /** 服务端插件注册表（提供回合插件生命周期与别名解析） */
+  pluginRegistry?: import("../plugins/turn-plugins/registry.js").ServerPluginRegistry;
   /** 全链路可观测性门面（结构化日志与指标采集） */
   observability?: Observability;
 }
@@ -277,6 +279,7 @@ export function registerConversationRoutes(
         memoryRecall: deps.memoryRecall,
         extensionRepo: deps.extensionRepo,
         pluginConfigRepo: deps.pluginConfigRepo,
+        pluginRegistry: deps.pluginRegistry,
         observability: deps.observability,
       },
     );

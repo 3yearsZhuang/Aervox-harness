@@ -246,6 +246,8 @@ export const extractStudyTerms = extractFocusTerms;
 
 export const focusModeTurnPlugin: ServerTurnPlugin = {
   id: "focus-mode",
+  name: "专注学习模式",
+  aliases: ["study-mode", "quiz-mode"],
 
   beforeTurn(ctx, configRaw) {
     const isFocus = isFocusModeMessage(ctx.userMessage, ctx.metadata);
