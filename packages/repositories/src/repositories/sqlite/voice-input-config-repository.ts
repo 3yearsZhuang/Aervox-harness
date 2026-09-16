@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 语音输入配置 SQLite 仓储实现（CR-016）
+ * Aervox｜思隅 @aervox/repositories — 语音输入配置 SQLite 仓储实现（CR-016）
  *
  * - 配置属于本地单用户实例，可保存多个预设，至多一行激活；
  * - 支持 SenseVoice 本地模型 / OpenAI Whisper 兼容端点配置。
@@ -36,7 +36,7 @@ function rowToModel(row: typeof voiceInputConfigs.$inferSelect): VoiceInputConfi
 export class SqliteVoiceInputConfigRepository implements IVoiceInputConfigRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
-  async getConfig(tenant: LocalContext): Promise<VoiceInputConfigModel | null> {
+  async getConfig(ctx: LocalContext): Promise<VoiceInputConfigModel | null> {
     const rows = await this.db
       .select()
       .from(voiceInputConfigs)
@@ -52,11 +52,11 @@ export class SqliteVoiceInputConfigRepository implements IVoiceInputConfigReposi
   }
 
   async saveConfig(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: VoiceInputConfigSaveInput,
   ): Promise<VoiceInputConfigModel> {
     const now = new Date().toISOString();
-    const active = await this.getConfig(tenant);
+    const active = await this.getConfig(ctx);
 
     if (active) {
       const [updated] = await this.db
@@ -81,7 +81,7 @@ export class SqliteVoiceInputConfigRepository implements IVoiceInputConfigReposi
     return rowToModel(created!);
   }
 
-  async listPresets(tenant: LocalContext): Promise<VoiceInputConfigModel[]> {
+  async listPresets(ctx: LocalContext): Promise<VoiceInputConfigModel[]> {
     const rows = await this.db
       .select()
       .from(voiceInputConfigs)
@@ -94,12 +94,12 @@ export class SqliteVoiceInputConfigRepository implements IVoiceInputConfigReposi
   }
 
   async createPreset(
-    tenant: LocalContext,
+    ctx: LocalContext,
     name: string,
     input: VoiceInputConfigSaveInput,
   ): Promise<VoiceInputConfigModel> {
     const now = new Date().toISOString();
-    const existing = await this.listPresets(tenant);
+    const existing = await this.listPresets(ctx);
     const firstPreset = existing.length === 0;
 
     const [created] = await this.db
@@ -117,7 +117,7 @@ export class SqliteVoiceInputConfigRepository implements IVoiceInputConfigReposi
   }
 
   async updatePreset(
-    tenant: LocalContext,
+    ctx: LocalContext,
     presetId: string,
     input: VoiceInputConfigSaveInput,
   ): Promise<VoiceInputConfigModel | null> {
@@ -134,7 +134,7 @@ export class SqliteVoiceInputConfigRepository implements IVoiceInputConfigReposi
   }
 
   async activatePreset(
-    tenant: LocalContext,
+    ctx: LocalContext,
     presetId: string,
   ): Promise<VoiceInputConfigModel | null> {
     return this.db.transaction(async (tx) => {
@@ -164,7 +164,7 @@ export class SqliteVoiceInputConfigRepository implements IVoiceInputConfigReposi
     });
   }
 
-  async deletePreset(tenant: LocalContext, presetId: string): Promise<boolean> {
+  async deletePreset(ctx: LocalContext, presetId: string): Promise<boolean> {
     return this.db.transaction(async (tx) => {
       const [target] = await tx
         .select()

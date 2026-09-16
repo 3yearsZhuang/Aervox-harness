@@ -31,10 +31,10 @@ sources:
   - docs/reference/REQUIREMENTS_TRACEABILITY.md
 ---
 
-# CR-034 落地临时计划：本地模型降级阶梯
+# AVX-PLAN-034 临时计划：CR-034 本地模型降级阶梯实施拆分
 
 - 提出人：3yearszhuang · 2026-09-14
-- 修改人：3yearszhuang · 2026-09-14
+- 修改人：3yearszhuang · 2026-09-16
 
 > [!WARNING]
 > 本文件是临时执行计划，不是 Provider、模型能力或安全策略的事实源。原始提案 [CR-034](reference/changes/CR-034-local-model-fallback-ladder.md) 与 [ADR-005](reference/adr/ADR-005-provider-port.md) 仍是权威基线；本文件不改变 CR-034 的 `Proposed / Planned` 状态。

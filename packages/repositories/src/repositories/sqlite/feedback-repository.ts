@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 质量反馈 SQLite 仓储实现
+ * Aervox｜思隅 @aervox/repositories — 质量反馈 SQLite 仓储实现
  *
  * 规则依据：docs/reference/PRD.md §8（Feedback）
  */
@@ -13,7 +13,7 @@ export class SqliteFeedbackRepository implements IFeedbackRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async createFeedback(
-    tenant: LocalContext,
+    ctx: LocalContext,
     feedbackData: {
       id: string;
       actorId: string;
@@ -39,7 +39,7 @@ export class SqliteFeedbackRepository implements IFeedbackRepository {
   }
 
   async listFeedback(
-    tenant: LocalContext,
+    ctx: LocalContext,
     subjectType?: string,
     subjectId?: string,
   ): Promise<FeedbackModel[]> {

@@ -31,10 +31,10 @@ sources:
   - docs/reference/REQUIREMENTS_TRACEABILITY.md
 ---
 
-# CR-035 落地临时计划：标准 AI 工作台形态
+# AVX-PLAN-035 临时计划：CR-035 标准 AI 工作台形态实施拆分
 
 - 提出人：3yearszhuang · 2026-09-14
-- 修改人：3yearszhuang · 2026-09-14
+- 修改人：3yearszhuang · 2026-09-16
 
 > [!WARNING]
 > 本文件是临时执行计划，不是 UI、API、项目或任务调度的事实源。原始提案 [CR-035](reference/changes/CR-035-standard-workbench-mode.md) 仍是方向基线；本文件不改变 CR-035、CAP-026、CAP-033 或相关 ADR 的状态。

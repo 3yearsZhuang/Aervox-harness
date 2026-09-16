@@ -13,7 +13,7 @@ import {
   type AervoxDatabase,
 } from "../src/index.js";
 
-const tenant = { workspaceId: "ws_sit", subjectUserId: "usr_sit" } as const;
+const ctx = { workspaceId: "ws_sit", subjectUserId: "usr_sit" } as const;
 
 describe("proactive situation snapshot repository (CR-033 E1)", () => {
   let db: AervoxDatabase;
@@ -70,40 +70,40 @@ describe("proactive situation snapshot repository (CR-033 E1)", () => {
   });
 
   it("写投影快照并按 watermark 读回", async () => {
-    const saved = await repo.saveSnapshot(tenant, input());
+    const saved = await repo.saveSnapshot(ctx, input());
     expect(saved.snapshot).toMatchObject({ version: "situation_model_v1" });
     expect(saved.origin).toBe("incremental");
     expect(saved.localOnly).toBe(true);
 
-    const latest = await repo.getLatestSnapshot(tenant, "profile_1");
+    const latest = await repo.getLatestSnapshot(ctx, "profile_1");
     expect(latest?.id).toBe("snap_1");
     expect(latest?.lastEventSequence).toBe(1);
   });
 
   it("deny watermark 过滤：低于水印的快照不可读", async () => {
-    await repo.saveSnapshot(tenant, input());
-    const denied = await repo.getLatestSnapshot(tenant, "profile_1", 99);
+    await repo.saveSnapshot(ctx, input());
+    const denied = await repo.getLatestSnapshot(ctx, "profile_1", 99);
     expect(denied).toBeNull();
   });
 
   it("local_only 之外拒绝：false 的快照不可作为最新读取", async () => {
-    await repo.saveSnapshot(tenant, input({ localOnly: false }));
-    const latest = await repo.getLatestSnapshot(tenant, "profile_1");
+    await repo.saveSnapshot(ctx, input({ localOnly: false }));
+    const latest = await repo.getLatestSnapshot(ctx, "profile_1");
     expect(latest).toBeNull();
   });
 
   it("同 (revisionId, lastEventSequence) 幂等：不重复插入", async () => {
-    await repo.saveSnapshot(tenant, input());
-    await expect(repo.saveSnapshot(tenant, input({ checksum: "checksum-2" }))).rejects
+    await repo.saveSnapshot(ctx, input());
+    await expect(repo.saveSnapshot(ctx, input({ checksum: "checksum-2" }))).rejects
       .toThrow("snapshot conflict");
-    const latest = await repo.getLatestSnapshot(tenant, "profile_1");
+    const latest = await repo.getLatestSnapshot(ctx, "profile_1");
     expect(latest?.checksum).toBe("checksum-1");
   });
 
   it("markRebuild 仅提升 watermark（不静默合并）", async () => {
-    await repo.saveSnapshot(tenant, input({ lastEventSequence: 5 }));
-    await repo.markRebuild(tenant, "profile_1", 10);
-    const latest = await repo.getLatestSnapshot(tenant, "profile_1");
+    await repo.saveSnapshot(ctx, input({ lastEventSequence: 5 }));
+    await repo.markRebuild(ctx, "profile_1", 10);
+    const latest = await repo.getLatestSnapshot(ctx, "profile_1");
     expect(latest?.lastEventSequence).toBe(10);
     expect(latest?.origin).toBe("rebuild");
     expect((latest?.snapshot as { watermark: { lastEventSequence: number } }).watermark.lastEventSequence)
@@ -111,33 +111,33 @@ describe("proactive situation snapshot repository (CR-033 E1)", () => {
   });
 
   it("deleteByRevision 撤权/删除传播：投影随删除零召回", async () => {
-    await repo.saveSnapshot(tenant, input());
-    const n = await repo.deleteByRevision(tenant, "profile_1");
+    await repo.saveSnapshot(ctx, input());
+    const n = await repo.deleteByRevision(ctx, "profile_1");
     expect(n).toBe(1);
-    expect(await repo.getLatestSnapshot(tenant, "profile_1")).toBeNull();
+    expect(await repo.getLatestSnapshot(ctx, "profile_1")).toBeNull();
   });
 
   it("revisionId 隔离：不同 revision 的快照不可交叉读取", async () => {
-    await repo.saveSnapshot(tenant, input({ revisionId: "profile_1" }));
-    await repo.saveSnapshot(tenant, input({
+    await repo.saveSnapshot(ctx, input({ revisionId: "profile_1" }));
+    await repo.saveSnapshot(ctx, input({
       id: "snap_other",
       revisionId: "profile_2",
       snapshot: { ...input().snapshot, revisionId: "profile_2" },
     }));
-    const latest = await repo.getLatestSnapshot(tenant, "profile_2");
+    const latest = await repo.getLatestSnapshot(ctx, "profile_2");
     expect(latest?.id).toBe("snap_other");
-    expect(await repo.getLatestSnapshot(tenant, "profile_1")).not.toBeNull();
+    expect(await repo.getLatestSnapshot(ctx, "profile_1")).not.toBeNull();
   });
 
   it("deleteBeforeWatermark 只删除旧快照并保留水印后的快照", async () => {
-    await repo.saveSnapshot(tenant, input({ id: "snap_1", lastEventSequence: 1 }));
-    await repo.saveSnapshot(tenant, input({
+    await repo.saveSnapshot(ctx, input({ id: "snap_1", lastEventSequence: 1 }));
+    await repo.saveSnapshot(ctx, input({
       id: "snap_2",
       lastEventSequence: 2,
       checksum: "checksum-2",
       snapshot: { ...input().snapshot, watermark: { ...input().snapshot.watermark, lastEventSequence: 2 } },
     }));
-    expect(await repo.deleteBeforeWatermark(tenant, "profile_1", 2)).toBe(1);
-    expect((await repo.getLatestSnapshot(tenant, "profile_1"))?.id).toBe("snap_2");
+    expect(await repo.deleteBeforeWatermark(ctx, "profile_1", 2)).toBe(1);
+    expect((await repo.getLatestSnapshot(ctx, "profile_1"))?.id).toBe("snap_2");
   });
 });

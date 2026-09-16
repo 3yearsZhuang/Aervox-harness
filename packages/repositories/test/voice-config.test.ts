@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 语音输出配置仓储测试（CR-011 阶段 1 · 本地语音模型配置）
+ * Aervox｜思隅 @aervox/repositories — 语音输出配置仓储测试（CR-011 阶段 1 · 本地语音模型配置）
  *
  * 覆盖：空→save→get 回显、更新覆盖（本地单例配置）、兼容上下文共享。
  */

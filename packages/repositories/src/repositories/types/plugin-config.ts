@@ -6,15 +6,15 @@ import type { LocalContext } from "../../local-context.js";
 
 export interface IPluginConfigRepository {
   getConfig(
-    tenant: LocalContext,
+    ctx: LocalContext,
     pluginId: string,
   ): Promise<PluginConfigModel | null>;
   saveConfig(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: PluginConfigSaveInput,
   ): Promise<{ saved: PluginConfigModel; conflict: boolean }>;
   resetConfig(
-    tenant: LocalContext,
+    ctx: LocalContext,
     pluginId: string,
     schemaVersion: number,
     defaults: Record<string, unknown>,

@@ -6,10 +6,10 @@ import type { LocalContext } from "../../local-context.js";
 
 export interface IExtensionRepository {
   createExternalSource(
-    tenant: LocalContext,
+    ctx: LocalContext,
     source: { id: string; provider: string; externalId: string; permissionScope: string; syncState?: string },
   ): Promise<ExternalSourceModel>;
-  getExternalSource(tenant: LocalContext, id: string): Promise<ExternalSourceModel | null>;
+  getExternalSource(ctx: LocalContext, id: string): Promise<ExternalSourceModel | null>;
   createPlugin(
     plugin: {
       id: string;
@@ -35,25 +35,25 @@ export interface IExtensionRepository {
   /** CAP-020：卸载插件（需先注销其工具） */
   deletePlugin(id: string): Promise<boolean>;
   grantPlugin(
-    tenant: LocalContext,
+    ctx: LocalContext,
     grant: { id: string; pluginId: string; permission: string; scope: string; grantedAt?: string },
   ): Promise<PluginGrantModel>;
-  revokePluginGrant(tenant: LocalContext, id: string): Promise<PluginGrantModel | null>;
-  hasPluginPermission(tenant: LocalContext, pluginId: string, permission: string): Promise<boolean>;
+  revokePluginGrant(ctx: LocalContext, id: string): Promise<PluginGrantModel | null>;
+  hasPluginPermission(ctx: LocalContext, pluginId: string, permission: string): Promise<boolean>;
   /** CR-032：带 scope 的授权检查（感知源授权） */
-  hasPluginGrant(tenant: LocalContext, pluginId: string, permission: string, scope: string): Promise<boolean>;
+  hasPluginGrant(ctx: LocalContext, pluginId: string, permission: string, scope: string): Promise<boolean>;
   /** CR-032：按 permission 批量列出有效授权（感知源授权矩阵） */
-  listActiveGrantsByPermission(tenant: LocalContext, permission: string): Promise<PluginGrantModel[]>;
+  listActiveGrantsByPermission(ctx: LocalContext, permission: string): Promise<PluginGrantModel[]>;
   createCommunityContent(
-    tenant: LocalContext,
+    ctx: LocalContext,
     content: { id: string; authorId: string; type: string; status?: string; reviewState?: string; visibility?: string },
   ): Promise<CommunityContentModel>;
-  getCommunityContent(tenant: LocalContext, id: string): Promise<CommunityContentModel | null>;
+  getCommunityContent(ctx: LocalContext, id: string): Promise<CommunityContentModel | null>;
   createOrganization(
-    tenant: LocalContext,
+    ctx: LocalContext,
     org: { id: string; ownerId: string; memberScope?: string; policyVersion: string },
   ): Promise<OrganizationModel>;
-  getOrganization(tenant: LocalContext, id: string): Promise<OrganizationModel | null>;
+  getOrganization(ctx: LocalContext, id: string): Promise<OrganizationModel | null>;
 }
 
 export interface PluginConfigModel {

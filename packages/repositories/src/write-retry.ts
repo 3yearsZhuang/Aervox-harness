@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — SQLite 写竞争重试拦截器（T-01）
+ * Aervox｜思隅 @aervox/repositories — SQLite 写竞争重试拦截器（T-01）
  *
  * 场景：API、Worker、Desktop 共用同一 `data/aervox.db`（WAL 模式），多进程写
  * 竞争是既有风险。client.ts 的 `busy_timeout` 只把 SQLITE_BUSY 的暴露时间推迟到

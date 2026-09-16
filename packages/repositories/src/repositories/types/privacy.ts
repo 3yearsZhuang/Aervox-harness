@@ -6,9 +6,9 @@ import type { LocalContext } from "../../local-context.js";
 
 export interface IPrivacyRepository {
   /** 2d：该租户是否存在未完成的删除/撤权请求（Loop fail-closed 闸门数据源） */
-  hasPendingDeletionRequest(tenant: LocalContext): Promise<boolean>;
+  hasPendingDeletionRequest(ctx: LocalContext): Promise<boolean>;
   grantConsent(
-    tenant: LocalContext,
+    ctx: LocalContext,
     grant: {
       id: string;
       actorId: string;
@@ -18,10 +18,10 @@ export interface IPrivacyRepository {
       grantedAt?: string;
     },
   ): Promise<ConsentGrantModel>;
-  revokeConsent(tenant: LocalContext, id: string, revokedAt?: string): Promise<ConsentGrantModel | null>;
-  hasActiveConsent(tenant: LocalContext, purpose: string, scope: string): Promise<boolean>;
+  revokeConsent(ctx: LocalContext, id: string, revokedAt?: string): Promise<ConsentGrantModel | null>;
+  hasActiveConsent(ctx: LocalContext, purpose: string, scope: string): Promise<boolean>;
   createDeletionRequest(
-    tenant: LocalContext,
+    ctx: LocalContext,
     request: {
       id: string;
       scope: string;
@@ -30,9 +30,9 @@ export interface IPrivacyRepository {
       ownerModule: string;
     },
   ): Promise<DeletionRequestModel>;
-  getDeletionRequest(tenant: LocalContext, id: string): Promise<DeletionRequestModel | null>;
+  getDeletionRequest(ctx: LocalContext, id: string): Promise<DeletionRequestModel | null>;
   updateDeletionRequestStatus(
-    tenant: LocalContext,
+    ctx: LocalContext,
     id: string,
     status: string,
     patch?: { lastError?: string | null; lastVerifiedAt?: string; attemptCount?: number },

@@ -6,10 +6,10 @@ import type { LocalContext } from "../../local-context.js";
 
 export interface ISafetyRepository {
   recordIncident(
-    tenant: LocalContext,
+    ctx: LocalContext,
     incident: { id: string; category: string; severity: string; disposition: string; policyVersion: string },
   ): Promise<SafetyIncidentModel>;
-  listIncidents(tenant: LocalContext, limit?: number): Promise<SafetyIncidentModel[]>;
+  listIncidents(ctx: LocalContext, limit?: number): Promise<SafetyIncidentModel[]>;
 }
 
 export interface ConsentGrantModel {

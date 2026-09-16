@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 内容/资源实体表
+ * Aervox｜思隅 @aervox/schema — 内容/资源实体表
  *
  * 规则依据：docs/reference/PRD.md §8 数据模型（Attachment / EmbeddingIndex）
  * CAP-012 扩展：用途声明、解析管线、OCR 置信度、裁剪/转文字

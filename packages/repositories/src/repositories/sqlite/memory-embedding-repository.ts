@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 记忆向量 SQLite 仓储（T-05）
+ * Aervox｜思隅 @aervox/repositories — 记忆向量 SQLite 仓储（T-05）
  *
  * memory_embeddings 独立表：按 model_id 分版本存储向量，换模型不迁移业务表。
  * 检索走 JS 行扫描 + 余弦（SQLite 无原生向量扩展的兜底），后续 pgvector 仅替换
@@ -27,7 +27,7 @@ export class SqliteMemoryEmbeddingRepository implements IMemoryEmbeddingReposito
   constructor(private readonly db: AervoxDatabase) {}
 
   async insertBatch(
-    tenant: LocalContext,
+    ctx: LocalContext,
     items: Array<{
       id: string;
       memoryId: string;
@@ -96,7 +96,7 @@ export class SqliteMemoryEmbeddingRepository implements IMemoryEmbeddingReposito
   }
 
   async retrieve(
-    tenant: LocalContext,
+    ctx: LocalContext,
     queryVector: number[],
     topK: number = 10,
     minScore: number = 0,
@@ -121,7 +121,7 @@ export class SqliteMemoryEmbeddingRepository implements IMemoryEmbeddingReposito
     return scored.slice(0, topK);
   }
 
-  async deleteByMemoryId(tenant: LocalContext, memoryId: string): Promise<void> {
+  async deleteByMemoryId(ctx: LocalContext, memoryId: string): Promise<void> {
     await this.db
       .delete(memoryEmbeddings)
       .where(
@@ -131,8 +131,8 @@ export class SqliteMemoryEmbeddingRepository implements IMemoryEmbeddingReposito
       );
   }
 
-  async clearAll(tenant: LocalContext): Promise<void> {
-    void tenant;
+  async clearAll(ctx: LocalContext): Promise<void> {
+    void ctx;
     await this.db.delete(memoryEmbeddings);
   }
 }
@@ -148,10 +148,10 @@ export class SqliteMemoryVectorSearchAdapter {
   ) {}
 
   async upsert(
-    tenant: LocalContext,
+    ctx: LocalContext,
     items: Array<{ id: string; vector: number[]; metadata?: Record<string, unknown> }>,
   ): Promise<void> {
-    await this.repo.insertBatch(tenant, [
+    await this.repo.insertBatch(ctx, [
       ...items.map((item) => ({
         id: `vec_${item.id}`,
         memoryId: item.id,
@@ -163,20 +163,20 @@ export class SqliteMemoryVectorSearchAdapter {
   }
 
   async search(
-    tenant: LocalContext,
+    ctx: LocalContext,
     queryVector: number[],
     topK: number,
     minScore = 0,
   ): Promise<Array<{ id: string; score: number; metadata?: Record<string, unknown> }>> {
-    const hits = await this.repo.retrieve(tenant, queryVector, topK, minScore, this.modelId);
+    const hits = await this.repo.retrieve(ctx, queryVector, topK, minScore, this.modelId);
     return hits.map((h) => ({ id: h.memoryId, score: h.score }));
   }
 
-  async delete(tenant: LocalContext, id: string): Promise<void> {
-    await this.repo.deleteByMemoryId(tenant, id);
+  async delete(ctx: LocalContext, id: string): Promise<void> {
+    await this.repo.deleteByMemoryId(ctx, id);
   }
 
-  async clearAll(tenant: LocalContext): Promise<void> {
-    await this.repo.clearAll(tenant);
+  async clearAll(ctx: LocalContext): Promise<void> {
+    await this.repo.clearAll(ctx);
   }
 }

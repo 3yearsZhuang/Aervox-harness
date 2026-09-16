@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 学习资料 SQLite 仓储实现（CAP-011）
+ * Aervox｜思隅 @aervox/repositories — 学习资料 SQLite 仓储实现（CAP-011）
  *
  * 覆盖：FR-LRN-002（资料生成）、FR-LRN-003（编辑/导出）、BR-LRN-001（事实核验/版权/删除传播）
  */
@@ -24,7 +24,7 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
   // ============ 资料身份 ============
 
   async create(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: {
       id: string;
       goalId?: string;
@@ -50,7 +50,7 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
     return created as StudyMaterialModel;
   }
 
-  async get(tenant: LocalContext, id: string): Promise<StudyMaterialModel | null> {
+  async get(ctx: LocalContext, id: string): Promise<StudyMaterialModel | null> {
     const [found] = await this.db
       .select()
       .from(studyMaterials)
@@ -64,7 +64,7 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
     return (found as StudyMaterialModel) ?? null;
   }
 
-  async listByGoal(tenant: LocalContext, goalId: string): Promise<StudyMaterialModel[]> {
+  async listByGoal(ctx: LocalContext, goalId: string): Promise<StudyMaterialModel[]> {
     const rows = await this.db
       .select()
       .from(studyMaterials)
@@ -78,7 +78,7 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
     return rows as StudyMaterialModel[];
   }
 
-  async listByTenant(tenant: LocalContext): Promise<StudyMaterialModel[]> {
+  async listByTenant(ctx: LocalContext): Promise<StudyMaterialModel[]> {
     const rows = await this.db
       .select()
       .from(studyMaterials)
@@ -92,7 +92,7 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
   }
 
   async updateStatus(
-    tenant: LocalContext,
+    ctx: LocalContext,
     id: string,
     status: string,
   ): Promise<StudyMaterialModel | null> {
@@ -108,7 +108,7 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
     return (updated as StudyMaterialModel) ?? null;
   }
 
-  async softDelete(tenant: LocalContext, id: string): Promise<StudyMaterialModel | null> {
+  async softDelete(ctx: LocalContext, id: string): Promise<StudyMaterialModel | null> {
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(studyMaterials)
@@ -124,7 +124,7 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
   }
 
   async getByIdempotencyKey(
-    tenant: LocalContext,
+    ctx: LocalContext,
     key: string,
   ): Promise<StudyMaterialModel | null> {
     const [found] = await this.db
@@ -142,7 +142,7 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
   // ============ 资料版本 ============
 
   async createVersion(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: {
       id: string;
       materialId: string;
@@ -154,7 +154,7 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
     const now = new Date().toISOString();
 
     // 查找当前最大版本号
-    const existing = await this.listVersions(tenant, input.materialId);
+    const existing = await this.listVersions(ctx, input.materialId);
     const maxVersion = existing.length > 0 ? Math.max(...existing.map((v) => v.version)) : 0;
 
     const [created] = await this.db
@@ -179,7 +179,7 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
     return created as MaterialVersionModel;
   }
 
-  async getVersion(tenant: LocalContext, versionId: string): Promise<MaterialVersionModel | null> {
+  async getVersion(ctx: LocalContext, versionId: string): Promise<MaterialVersionModel | null> {
     const [found] = await this.db
       .select()
       .from(materialVersions)
@@ -192,7 +192,7 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
     return (found as MaterialVersionModel) ?? null;
   }
 
-  async listVersions(tenant: LocalContext, materialId: string): Promise<MaterialVersionModel[]> {
+  async listVersions(ctx: LocalContext, materialId: string): Promise<MaterialVersionModel[]> {
     const rows = await this.db
       .select()
       .from(materialVersions)
@@ -206,7 +206,7 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
   }
 
   async editVersion(
-    tenant: LocalContext,
+    ctx: LocalContext,
     materialId: string,
     content: string,
     expectedVersion: number,
@@ -214,7 +214,7 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
     const now = new Date().toISOString();
 
     // 获取当前活跃版本
-    const versions = await this.listVersions(tenant, materialId);
+    const versions = await this.listVersions(ctx, materialId);
     const activeVersions = versions.filter((v) => !v.supersededAt);
     if (activeVersions.length === 0) return null;
     const currentVersion = activeVersions[0]!;
@@ -253,7 +253,7 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
   // ============ 引用来源 ============
 
   async addSource(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: {
       id: string;
       materialVersionId: string;
@@ -282,7 +282,7 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
     return created as MaterialSourceModel;
   }
 
-  async listSources(tenant: LocalContext, materialVersionId: string): Promise<MaterialSourceModel[]> {
+  async listSources(ctx: LocalContext, materialVersionId: string): Promise<MaterialSourceModel[]> {
     const rows = await this.db
       .select()
       .from(materialSources)
@@ -295,7 +295,7 @@ export class SqliteStudyMaterialRepository implements IStudyMaterialRepository {
     return rows as MaterialSourceModel[];
   }
 
-  async invalidateSources(tenant: LocalContext, materialVersionId: string): Promise<number> {
+  async invalidateSources(ctx: LocalContext, materialVersionId: string): Promise<number> {
     const now = new Date().toISOString();
     const result = await this.db
       .update(materialSources)

@@ -242,7 +242,7 @@ export interface ProactiveSourceDeletionResult {
 export interface IProactiveProfileRepository {
   /** 原子确认一套版本化全量画像授权包，并写入逐来源授权回执。 */
   confirmProfile(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: {
       id: string;
       profileVersion?: string;
@@ -267,7 +267,7 @@ export interface IProactiveProfileRepository {
     },
   ): Promise<{ revision: ProactiveProfileRevisionModel; sources: ProactiveSourceGrantModel[] }>;
   createDraft(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: {
       id: string;
       profileVersion?: string;
@@ -276,17 +276,17 @@ export interface IProactiveProfileRepository {
       actorId: string;
     },
   ): Promise<ProactiveProfileRevisionModel>;
-  getRevision(tenant: LocalContext, revisionId?: string): Promise<ProactiveProfileRevisionModel | null>;
-  listRevisions(tenant: LocalContext, limit?: number): Promise<ProactiveProfileRevisionModel[]>;
+  getRevision(ctx: LocalContext, revisionId?: string): Promise<ProactiveProfileRevisionModel | null>;
+  listRevisions(ctx: LocalContext, limit?: number): Promise<ProactiveProfileRevisionModel[]>;
   setDesiredState(
-    tenant: LocalContext,
+    ctx: LocalContext,
     state: ProactiveDesiredState,
     actorId: string,
     revisionId?: string,
   ): Promise<ProactiveProfileRevisionModel | null>;
-  listSourceGrants(tenant: LocalContext, revisionId?: string): Promise<ProactiveSourceGrantModel[]>;
+  listSourceGrants(ctx: LocalContext, revisionId?: string): Promise<ProactiveSourceGrantModel[]>;
   updateSourceGrant(
-    tenant: LocalContext,
+    ctx: LocalContext,
     sourceGrantId: string,
     input: {
       state: ProactiveSourceGrantState;
@@ -296,12 +296,12 @@ export interface IProactiveProfileRepository {
     },
   ): Promise<ProactiveSourceGrantModel | null>;
   deleteSourceData(
-    tenant: LocalContext,
+    ctx: LocalContext,
     sourceGrantId: string,
     actorId: string,
   ): Promise<ProactiveSourceDeletionResult | null>;
   createActivationLease(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: {
       id: string;
       revisionId: string;
@@ -315,14 +315,14 @@ export interface IProactiveProfileRepository {
     },
   ): Promise<ProactiveActivationLeaseModel>;
   heartbeatActivationLease(
-    tenant: LocalContext,
+    ctx: LocalContext,
     leaseId: string,
     input: { ttlMs?: number; localReady?: boolean; fullAccessSnapshot?: boolean; metadata?: unknown },
   ): Promise<ProactiveActivationLeaseModel | null>;
-  endActivationLease(tenant: LocalContext, leaseId: string, reason: string, actorId: string): Promise<ProactiveActivationLeaseModel | null>;
-  getEffectiveStatus(tenant: LocalContext, now?: string): Promise<ProactiveEffectiveStatus>;
+  endActivationLease(ctx: LocalContext, leaseId: string, reason: string, actorId: string): Promise<ProactiveActivationLeaseModel | null>;
+  getEffectiveStatus(ctx: LocalContext, now?: string): Promise<ProactiveEffectiveStatus>;
   createCapture(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: {
       id: string;
       revisionId: string;
@@ -337,9 +337,9 @@ export interface IProactiveProfileRepository {
       ingestedAt?: string;
     },
   ): Promise<ProactiveCaptureModel>;
-  listCaptures(tenant: LocalContext, options?: { revisionId?: string; sourceKey?: string; includeDeleted?: boolean; limit?: number }): Promise<ProactiveCaptureModel[]>;
+  listCaptures(ctx: LocalContext, options?: { revisionId?: string; sourceKey?: string; includeDeleted?: boolean; limit?: number }): Promise<ProactiveCaptureModel[]>;
   createObservation(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: {
       id: string;
       revisionId: string;
@@ -354,12 +354,12 @@ export interface IProactiveProfileRepository {
       normalizedAt?: string;
     },
   ): Promise<ProactiveBehaviorObservationModel>;
-  listObservations(tenant: LocalContext, options?: { revisionId?: string; sourceKey?: string; limit?: number }): Promise<ProactiveBehaviorObservationModel[]>;
-  markCaptureDistilled(tenant: LocalContext, captureId: string, memoryIds: string[]): Promise<ProactiveCaptureModel | null>;
-  markCaptureDistillationFailed(tenant: LocalContext, captureId: string, reason?: string): Promise<ProactiveCaptureModel | null>;
-  purgeEligibleCaptures(tenant?: LocalContext, now?: string, limit?: number): Promise<number>;
+  listObservations(ctx: LocalContext, options?: { revisionId?: string; sourceKey?: string; limit?: number }): Promise<ProactiveBehaviorObservationModel[]>;
+  markCaptureDistilled(ctx: LocalContext, captureId: string, memoryIds: string[]): Promise<ProactiveCaptureModel | null>;
+  markCaptureDistillationFailed(ctx: LocalContext, captureId: string, reason?: string): Promise<ProactiveCaptureModel | null>;
+  purgeEligibleCaptures(ctx?: LocalContext, now?: string, limit?: number): Promise<number>;
   createClaim(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: {
       id: string;
       revisionId: string;
@@ -376,10 +376,10 @@ export interface IProactiveProfileRepository {
       lastObservedAt?: string | null;
     },
   ): Promise<ProactiveProfileClaimModel>;
-  listClaims(tenant: LocalContext, options?: { revisionId?: string; state?: ProactiveClaimState; limit?: number }): Promise<ProactiveProfileClaimModel[]>;
-  updateClaimState(tenant: LocalContext, claimId: string, state: ProactiveClaimState, actorId: string): Promise<ProactiveProfileClaimModel | null>;
+  listClaims(ctx: LocalContext, options?: { revisionId?: string; state?: ProactiveClaimState; limit?: number }): Promise<ProactiveProfileClaimModel[]>;
+  updateClaimState(ctx: LocalContext, claimId: string, state: ProactiveClaimState, actorId: string): Promise<ProactiveProfileClaimModel | null>;
   createAction(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: {
       id: string;
       revisionId: string;
@@ -394,13 +394,13 @@ export interface IProactiveProfileRepository {
       external?: boolean;
     },
   ): Promise<ProactiveActionModel>;
-  listActions(tenant: LocalContext, options?: { revisionId?: string; state?: ProactiveActionState; limit?: number }): Promise<ProactiveActionModel[]>;
+  listActions(ctx: LocalContext, options?: { revisionId?: string; state?: ProactiveActionState; limit?: number }): Promise<ProactiveActionModel[]>;
   updateAction(
-    tenant: LocalContext,
+    ctx: LocalContext,
     actionId: string,
     input: { state: ProactiveActionState; actorId?: string; outcome?: unknown; error?: string | null },
   ): Promise<ProactiveActionModel | null>;
-  recordAudit(tenant: LocalContext, input: { id: string; revisionId?: string | null; eventType: string; actorId: string; resourceType: string; resourceId: string; payload?: unknown }): Promise<ProactiveAuditEventModel>;
-  listAuditEvents(tenant: LocalContext, limit?: number): Promise<ProactiveAuditEventModel[]>;
-  exportSnapshot(tenant: LocalContext, options?: { includeRaw?: boolean }): Promise<ProactiveExportSnapshot>;
+  recordAudit(ctx: LocalContext, input: { id: string; revisionId?: string | null; eventType: string; actorId: string; resourceType: string; resourceId: string; payload?: unknown }): Promise<ProactiveAuditEventModel>;
+  listAuditEvents(ctx: LocalContext, limit?: number): Promise<ProactiveAuditEventModel[]>;
+  exportSnapshot(ctx: LocalContext, options?: { includeRaw?: boolean }): Promise<ProactiveExportSnapshot>;
 }

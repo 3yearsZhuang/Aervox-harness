@@ -15,7 +15,7 @@ describe("ADR-004: 业务状态与 OutboxEvent 单事务原子落库测试", () 
   let convRepo: SqliteConversationRepository;
   let outboxRepo: SqliteOutboxRepository;
 
-  const tenant: LocalContext = {
+  const ctx: LocalContext = {
     workspaceId: "ws_test",
     subjectUserId: "usr_charlie",
   };
@@ -30,10 +30,10 @@ describe("ADR-004: 业务状态与 OutboxEvent 单事务原子落库测试", () 
   });
 
   it("成功创建 Turn 时，Turn、首条消息与 OutboxEvent 在同一事务中原子提交", async () => {
-    const session = await convRepo.createSession(tenant, "Outbox Test Session");
+    const session = await convRepo.createSession(ctx, "Outbox Test Session");
 
     const { turn, message } = await convRepo.createTurnWithOutbox(
-      tenant,
+      ctx,
       { id: "turn_tx_1", sessionId: session.id, idempotencyKey: "idem_tx_1", status: "Running" },
       { id: "msg_tx_1", content: "What is photosynthesis?" },
       {
@@ -60,11 +60,11 @@ describe("ADR-004: 业务状态与 OutboxEvent 单事务原子落库测试", () 
   });
 
   it("若事务内由于唯一索引冲突失败，Turn 与 Outbox 同时回滚", async () => {
-    const session = await convRepo.createSession(tenant, "Rollback Session");
+    const session = await convRepo.createSession(ctx, "Rollback Session");
 
     // 首次创建成功
     await convRepo.createTurnWithOutbox(
-      tenant,
+      ctx,
       { id: "turn_first", sessionId: session.id, idempotencyKey: "idem_conflict" },
       { id: "msg_first", content: "First question" },
       { id: "outbox_first", eventType: "turn.created", idempotencyKey: "idem_c1", payload: {} },
@@ -73,7 +73,7 @@ describe("ADR-004: 业务状态与 OutboxEvent 单事务原子落库测试", () 
     // 再次使用相同的 idempotencyKey 创建，触发唯一索引约束
     await expect(
       convRepo.createTurnWithOutbox(
-        tenant,
+        ctx,
         { id: "turn_duplicate", sessionId: session.id, idempotencyKey: "idem_conflict" },
         { id: "msg_dup", content: "Duplicate" },
         { id: "outbox_dup", eventType: "turn.created", idempotencyKey: "idem_c2", payload: {} },

@@ -13,7 +13,7 @@ describe("ADR-007: 记忆树 SQLite WITH RECURSIVE CTE 递归投影测试", () =
   let client: Client;
   let repo: SqliteMemoryRepository;
 
-  const tenant: LocalContext = {
+  const ctx: LocalContext = {
     workspaceId: "ws_knowledge",
     subjectUserId: "usr_student",
   };
@@ -28,7 +28,7 @@ describe("ADR-007: 记忆树 SQLite WITH RECURSIVE CTE 递归投影测试", () =
 
   it("能够使用递归 CTE 正确查询并组装多层级记忆树", async () => {
     // 1. 根节点：自然科学
-    const root = await repo.createRecord(tenant, {
+    const root = await repo.createRecord(ctx, {
       id: "mem_root_science",
       layer: "system",
       type: "learning_event",
@@ -36,7 +36,7 @@ describe("ADR-007: 记忆树 SQLite WITH RECURSIVE CTE 递归投影测试", () =
     });
 
     // 2. 二级节点：物理学、生物学
-    const physics = await repo.createRecord(tenant, {
+    const physics = await repo.createRecord(ctx, {
       id: "mem_physics",
       layer: "system",
       type: "learning_event",
@@ -44,7 +44,7 @@ describe("ADR-007: 记忆树 SQLite WITH RECURSIVE CTE 递归投影测试", () =
       canonicalParentId: root.id,
     });
 
-    const biology = await repo.createRecord(tenant, {
+    const biology = await repo.createRecord(ctx, {
       id: "mem_biology",
       layer: "system",
       type: "learning_event",
@@ -53,7 +53,7 @@ describe("ADR-007: 记忆树 SQLite WITH RECURSIVE CTE 递归投影测试", () =
     });
 
     // 3. 三级节点：牛顿力学（属于物理学）
-    const newton = await repo.createRecord(tenant, {
+    const newton = await repo.createRecord(ctx, {
       id: "mem_newton",
       layer: "long_term",
       type: "user_fact",
@@ -62,7 +62,7 @@ describe("ADR-007: 记忆树 SQLite WITH RECURSIVE CTE 递归投影测试", () =
     });
 
     // 4. 执行递归投影查询
-    const tree = await repo.getTreeProjection(tenant);
+    const tree = await repo.getTreeProjection(ctx);
     expect(tree).toHaveLength(1);
 
     const rootNode = tree[0]!;
@@ -82,19 +82,19 @@ describe("ADR-007: 记忆树 SQLite WITH RECURSIVE CTE 递归投影测试", () =
   });
 
   it("getRecordsByIds 支持批量单次查询并正确过滤软删除和不存在记录", async () => {
-    const mem1 = await repo.createRecord(tenant, {
+    const mem1 = await repo.createRecord(ctx, {
       id: "mem_batch_1",
       layer: "long_term",
       type: "user_fact",
       content: "记忆1",
     });
-    const mem2 = await repo.createRecord(tenant, {
+    const mem2 = await repo.createRecord(ctx, {
       id: "mem_batch_2",
       layer: "long_term",
       type: "user_fact",
       content: "记忆2",
     });
-    const mem3 = await repo.createRecord(tenant, {
+    const mem3 = await repo.createRecord(ctx, {
       id: "mem_batch_3",
       layer: "long_term",
       type: "user_fact",
@@ -102,14 +102,14 @@ describe("ADR-007: 记忆树 SQLite WITH RECURSIVE CTE 递归投影测试", () =
     });
 
     // 软删除 mem3
-    await repo.softDeleteRecord(tenant, mem3.id);
+    await repo.softDeleteRecord(ctx, mem3.id);
 
     // 空数组测试
-    const emptyResult = await repo.getRecordsByIds(tenant, []);
+    const emptyResult = await repo.getRecordsByIds(ctx, []);
     expect(emptyResult).toEqual([]);
 
     // 批量查询测试
-    const records = await repo.getRecordsByIds(tenant, [mem1.id, mem2.id, mem3.id, "mem_non_existent"]);
+    const records = await repo.getRecordsByIds(ctx, [mem1.id, mem2.id, mem3.id, "mem_non_existent"]);
     expect(records).toHaveLength(2);
     const ids = records.map((r) => r.id);
     expect(ids).toContain(mem1.id);

@@ -41,9 +41,9 @@ import { runCompactionMarkerCycle } from "./compaction-marker.js";
 import { runEmbeddingMigrationCycle } from "./embedding-migration.js";
 import { runAttemptRecoveryCycle } from "./attempt-recovery.js";
 import { runInboxExpiryCycle } from "./inbox-expiry.js";
-import { createRuleBasedProactiveDistiller } from "./proactive-distiller.js";
-import { runProactiveProfileCycle } from "./proactive-profile-worker.js";
-import { runProactiveIntelligenceCycle } from "./proactive-intelligence-worker.js";
+import { createRuleBasedProactiveDistiller } from "./proactive/distiller.js";
+import { runProactiveProfileCycle } from "./proactive/profile-worker.js";
+import { runProactiveIntelligenceCycle } from "./proactive/intelligence-worker.js";
 import { resolveWorkerTaskInterval } from "./task-scheduling.js";
 
 // 集中类型化配置（WORKER_ID / WORKER_TICK_MS / WORKER_INTERVAL_<NAME>_MS；启动期校验）

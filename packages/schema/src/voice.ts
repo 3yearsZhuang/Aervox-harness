@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 语音输出配置持久化（系统核心能力 · 本地语音模型配置）
+ * Aervox｜思隅 @aervox/schema — 语音输出配置持久化（系统核心能力 · 本地语音模型配置）
  *
  * 规则依据：docs/reference/voice/*（阶段 1：WebUI 设置中配置本地语音模型，CR-011）。
  *

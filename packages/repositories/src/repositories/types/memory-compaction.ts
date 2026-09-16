@@ -10,7 +10,7 @@ export interface IMemoryCompactionRepository {
    * 由调用方保证在「完整响应持久化后」（先写后投递时序）调用。
    */
   upsertMarker(
-    tenant: LocalContext,
+    ctx: LocalContext,
     marker: {
       id: string;
       memoryId: string;
@@ -23,11 +23,11 @@ export interface IMemoryCompactionRepository {
       summaryDurationMs?: number | null;
     },
   ): Promise<MemoryCompactionMarkerModel>;
-  getMarkerBySnapshotId(tenant: LocalContext, snapshotId: string): Promise<MemoryCompactionMarkerModel | null>;
-  listMarkersByMemoryId(tenant: LocalContext, memoryId: string): Promise<MemoryCompactionMarkerModel[]>;
+  getMarkerBySnapshotId(ctx: LocalContext, snapshotId: string): Promise<MemoryCompactionMarkerModel | null>;
+  listMarkersByMemoryId(ctx: LocalContext, memoryId: string): Promise<MemoryCompactionMarkerModel[]>;
   /** 写 memory_events 审计（action = "compressed" 等） */
   recordEvent(
-    tenant: LocalContext,
+    ctx: LocalContext,
     event: {
       id: string;
       memoryId: string;

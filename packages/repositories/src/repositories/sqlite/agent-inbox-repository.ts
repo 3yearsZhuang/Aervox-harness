@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — Agent 收件箱（agent_inbox_items）SQLite 仓储
+ * Aervox｜思隅 @aervox/repositories — Agent 收件箱（agent_inbox_items）SQLite 仓储
  *
  * 规则依据：ADR-017「冻结 ContextManifest / ModelRun / AgentStep 关联与 Inbox 数据模型」
  * 与 AVX-HAR-001 §7.2：
@@ -39,18 +39,18 @@ const toModel = (row: InboxRow): AgentInboxItemModel => ({
 });
 
 /** 幂等键归一化（租户内唯一；同 key 不同 payload 视为重复提交，保留既有项） */
-const tenantIdempotencyKey = (tenant: LocalContext, key: string): string =>
+const tenantIdempotencyKey = (ctx: LocalContext, key: string): string =>
   key;
 
 export class SqliteAgentInboxRepository implements IAgentInboxRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
-  async enqueue(tenant: LocalContext, input: AgentInboxEnqueueInput): Promise<AgentInboxItemModel> {
+  async enqueue(ctx: LocalContext, input: AgentInboxEnqueueInput): Promise<AgentInboxItemModel> {
     const now = new Date().toISOString();
     const consumeBoundary = input.consumeBoundary ?? (input.type === "followup" ? "next-turn" : "next-step");
-    const key = tenantIdempotencyKey(tenant, input.idempotencyKey);
+    const key = tenantIdempotencyKey(ctx, input.idempotencyKey);
     // 幂等：已存在同 idempotencyKey 则返回既有项（OK 重复提交）
-    const existing = await this.getByIdempotencyKey(tenant, input.idempotencyKey);
+    const existing = await this.getByIdempotencyKey(ctx, input.idempotencyKey);
     if (existing) return existing;
 
     const [row] = await this.db
@@ -76,13 +76,13 @@ export class SqliteAgentInboxRepository implements IAgentInboxRepository {
       .returning();
     // 并发竞争（唯一键冲突）：查询既有项返回
     if (!row) {
-      return this.getByIdempotencyKey(tenant, input.idempotencyKey) as Promise<AgentInboxItemModel>;
+      return this.getByIdempotencyKey(ctx, input.idempotencyKey) as Promise<AgentInboxItemModel>;
     }
     return toModel(row);
   }
 
   async claimForConsumption(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: { sessionId: string; attemptId?: string | null; type: "next-turn" | "next-step"; limit?: number },
   ): Promise<AgentInboxItemModel[]> {
     const limit = input.limit ?? 20;
@@ -127,7 +127,7 @@ export class SqliteAgentInboxRepository implements IAgentInboxRepository {
     return claimed;
   }
 
-  async acknowledge(tenant: LocalContext, itemIds: string[]): Promise<void> {
+  async acknowledge(ctx: LocalContext, itemIds: string[]): Promise<void> {
     if (itemIds.length === 0) return;
     const ackedAt = new Date().toISOString();
     for (const id of itemIds) {
@@ -143,8 +143,8 @@ export class SqliteAgentInboxRepository implements IAgentInboxRepository {
     }
   }
 
-  async getByIdempotencyKey(tenant: LocalContext, idempotencyKey: string): Promise<AgentInboxItemModel | null> {
-    const key = tenantIdempotencyKey(tenant, idempotencyKey);
+  async getByIdempotencyKey(ctx: LocalContext, idempotencyKey: string): Promise<AgentInboxItemModel | null> {
+    const key = tenantIdempotencyKey(ctx, idempotencyKey);
     const [row] = await this.db
       .select()
       .from(agentInboxItems)

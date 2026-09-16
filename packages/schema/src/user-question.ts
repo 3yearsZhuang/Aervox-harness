@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 挂起提问会话（pending_user_questions）
+ * Aervox｜思隅 @aervox/schema — 挂起提问会话（pending_user_questions）
  *
  * 缺陷 C：UserQuestionCoordinator 的挂起提问原先只在进程内存（Promise + timer），
  * 进程重启/多实例后内存态丢失，客户端提交回答必然 409，Turn 永久悬挂。

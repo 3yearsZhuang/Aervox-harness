@@ -1,0 +1,26 @@
+# 统一 LF 行尾 —— 根治 Windows core.autocrlf 导致的 CRLF 漂移
+# 所有文本文件以 LF 入库/检出（覆盖 autocrlf），docs front matter 解析不再被 CRLF 破坏。
+* text=auto eol=lf
+
+# 二进制与不可安全转换类型：禁止换行规范化
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.wof binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+*.pdf binary
+*.mp4 binary
+*.zip binary
+*.gz binary
+*.sqlite binary
+*.sqlite3 binary
+*.db binary
+*.p12 binary
+*.pfx binary

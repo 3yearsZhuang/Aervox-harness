@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 大语言模型与供应商配置 SQLite 仓储实现（CR-012）
+ * Aervox｜思隅 @aervox/repositories — 大语言模型与供应商配置 SQLite 仓储实现（CR-012）
  *
  * - 配置属于本地单用户实例，可保存多个预设，至多一行激活；
  * - 支持 Ollama / DeepSeek / OpenAI / Anthropic / 自定义 OpenAI 兼容端点参数持久化；
@@ -36,7 +36,7 @@ function rowToModel(row: typeof llmConfigs.$inferSelect): LLMConfigModel {
 export class SqliteLLMConfigRepository implements ILLMConfigRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
-  async getConfig(tenant: LocalContext): Promise<LLMConfigModel | null> {
+  async getConfig(ctx: LocalContext): Promise<LLMConfigModel | null> {
     const tenantRows = await this.db
       .select()
       .from(llmConfigs)
@@ -52,11 +52,11 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
   }
 
   async saveConfig(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: LLMConfigSaveInput,
   ): Promise<LLMConfigModel> {
     const now = new Date().toISOString();
-    const active = await this.getConfig(tenant);
+    const active = await this.getConfig(ctx);
 
     if (active) {
       const [updated] = await this.db
@@ -84,7 +84,7 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
     return rowToModel(created!);
   }
 
-  async listPresets(tenant: LocalContext): Promise<LLMConfigModel[]> {
+  async listPresets(ctx: LocalContext): Promise<LLMConfigModel[]> {
     const rows = await this.db
       .select()
       .from(llmConfigs)
@@ -97,12 +97,12 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
   }
 
   async createPreset(
-    tenant: LocalContext,
+    ctx: LocalContext,
     name: string,
     input: LLMConfigSaveInput,
   ): Promise<LLMConfigModel> {
     const now = new Date().toISOString();
-    const existing = await this.listPresets(tenant);
+    const existing = await this.listPresets(ctx);
     const firstPreset = existing.length === 0;
 
     const [created] = await this.db
@@ -120,7 +120,7 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
   }
 
   async updatePreset(
-    tenant: LocalContext,
+    ctx: LocalContext,
     presetId: string,
     input: LLMConfigSaveInput,
   ): Promise<LLMConfigModel | null> {
@@ -137,7 +137,7 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
   }
 
   async activatePreset(
-    tenant: LocalContext,
+    ctx: LocalContext,
     presetId: string,
   ): Promise<LLMConfigModel | null> {
     return this.db.transaction(async (tx) => {
@@ -167,7 +167,7 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
     });
   }
 
-  async deletePreset(tenant: LocalContext, presetId: string): Promise<boolean> {
+  async deletePreset(ctx: LocalContext, presetId: string): Promise<boolean> {
     return this.db.transaction(async (tx) => {
       const [target] = await tx
         .select()
