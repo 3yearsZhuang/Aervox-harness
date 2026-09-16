@@ -75,7 +75,7 @@ review_interval_days: 90
 | PET-03 | 自主行为引擎参数化（活动频率三档/躲避/待机） | B | 桌面端角色行为 | T-07、桌宠 IP |
 | PET-04 | 表现驱动数据对象 + 视图接口分离 | B | 桌宠表现层抽象 | 桌宠 IP、CAP-019 |
 | PET-05 | AI 工具只读白名单与提示词使用原则 | B | 工具链安全规范 | AI 质量与安全规范 |
-| Skill | Skill 能力（Anthropic Skills 渐进式披露 + Neo 生命周期） | B→已落地 | `apps/api/src/modules/skills/`、`packages/repositories` 技能表 | CAP-020 |
+| Skill | Skill 能力（Anthropic Skills 渐进式披露 + Neo 生命周期） | B→已落地 | `apps/api/src/modules/ecosystem/skills/`、`packages/repositories` 技能表 | CAP-020 |
 
 ## 3. A 类：建议落地
 
@@ -221,7 +221,7 @@ Aervox 自研落地（AGPLv3 仅借鉴设计，不复制源码）：
 
 > 统一说明：远端并入的 persona 模块曾自带租户级 `/v1/skills*` 路由（工作区技能 import/export），
 > 与本节系统级实现同路径冲突。合并时以本节实现为准：`/v1/skills*` 由
-> `apps/api/src/modules/skills/` 统一接管，persona 模块移除其 `/v1/skills*` 路由，
+> `apps/api/src/modules/ecosystem/skills/` 统一接管，persona 模块移除其 `/v1/skills*` 路由，
 > 保留 Persona/MCP/Voice 路由；persona bundle 导入仍向其 `skills` 仓储写入工作区技能。
 
 ## 5. C 类：暂不采用
@@ -262,7 +262,7 @@ Aervox 自研落地（AGPLv3 仅借鉴设计，不复制源码）：
 | AST-04 | B→已落地雏形 | 第三批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（`pluginMetadataSchema`、`toolGatingConditionSchema`）、`packages/schema/src/tool-registry.ts` | 插件元数据字段 + 工具条件门控（CAP-020 雏形） |
 | PET-05 | B→已落地雏形 | 第三批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（`toolSafetyLevelSchema`） | 工具安全级别（read_only 白名单）有线 |
 | T-08 | B→已落地 | 第三批 | 2026-08-26 | `docs/explanation/persona-organization.md`（AVX-EXPL-003） | 桌宠角色设定独立成文档（核心概念/外形/提示词边界/识别边界），按人设目录版本化（CAP-019） |
-| T-04 | A（运行时接线） | 第四批 | 2026-08-26 | `apps/api/src/modules/tools/`（`runtime.ts`/`memory-store-tool.ts`/`mcp.ts`/`routes.ts`） | MemoryStoreTool 运行时 + ToolRuntime + `/v1/tools` 路由 + MCP 形态 listTools/callTool；PET-05 在调用侧强制授权 |
+| T-04 | A（运行时接线） | 第四批 | 2026-08-26 | `apps/api/src/modules/ecosystem/tools/`（`runtime.ts`/`memory-store-tool.ts`/`mcp.ts`/`routes.ts`） | MemoryStoreTool 运行时 + ToolRuntime + `/v1/tools` 路由 + MCP 形态 listTools/callTool；PET-05 在调用侧强制授权 |
 | T-03 | A（消费接线） | 第四批 | 2026-08-26 | `apps/worker/src/compaction-marker.ts` | 消费 outbox `memory.compaction.requested` 事件异步落库压缩标记 + 审计（先写后投递） |
 | T-05 | A（迁移接线） | 第四批 | 2026-08-26 | `apps/worker/src/embedding-migration.ts` | 扫描缺向量记忆 → 批量生成 → insertBatch；可中止 + 进度回调；provider 未注入诚实跳过 |
 | T-06 | B→已落地 | 第四批 | 2026-08-26 | `packages/repositories/src/migration/migration-service.ts` | 迁移 journal（`_migration_journal`）+ 幂等重入 + 旧库列补齐纳入迁移步骤 |
@@ -271,12 +271,12 @@ Aervox 自研落地（AGPLv3 仅借鉴设计，不复制源码）：
 | T-10 | B→已落地 | 第四批 | 2026-08-26 | `packages/repositories/src/token-usage.ts` | Token 用量分账（非缓存/缓存读/缓存写），兼容 OpenAI/旧形态 |
 | PET-01 | A（前端消费） | 第四批 | 2026-08-26 | `packages/api-client/src/transport.ts`、`desktop-transport.ts`、`useAervoxTurn.ts`、`packages/ui/src/components/PetHero.vue` | emote 事件透传 + `PetHero` activeEmote/activeGesture 消费 |
 | PET-01 | A（Live2D 表现接线） | 第四批 | 2026-08-26 | `packages/ui/src/live2d/{model,controller}.ts`、`packages/ui/src/components/Live2DPet.vue`、`apps/desktop/src/renderer/src/components/PetWindow.vue` | model3.json 兼容加载、动作/表情 Enum 与 API、SSE 表现命令映射；Web 工作台显示 Live2D，Electron 主工作台隐藏左侧区域，独立桌宠窗口保留 Live2D |
-| AST-04 | B→已落地（运行时） | 第四批 | 2026-08-26 | `apps/api/src/modules/plugins/` | CAP-020 插件运行时：安装/启停/卸载 + 工具注册联动 + 权限授予/撤销/查询 |
-| AST-08 | B→已落地 | 第六批 | 2026-08-26 | `packages/contracts/src/plugin-config-schemas.ts`、`packages/schema/src/plugin-config.ts`、`apps/api/src/modules/plugins/config-*.ts` | 插件 Config Schema v1：声明式解析/默认值/校验/secret 状态/租户持久化/CAS（CR-006） |
-| AST-09 | B→已落地 | 第六批 | 2026-08-26 | `apps/api/src/modules/plugins/bundle-store.ts`、`bridge-sdk.ts`、`packages/ui/src/components/plugin/` | 插件 Page：本地 Bundle 静态资源 + 沙箱 iframe + Host Bridge（config.read/write、notify、close） |
+| AST-04 | B→已落地（运行时） | 第四批 | 2026-08-26 | `apps/api/src/modules/ecosystem/plugins/` | CAP-020 插件运行时：安装/启停/卸载 + 工具注册联动 + 权限授予/撤销/查询 |
+| AST-08 | B→已落地 | 第六批 | 2026-08-26 | `packages/contracts/src/plugin-config-schemas.ts`、`packages/schema/src/plugin-config.ts`、`apps/api/src/modules/ecosystem/plugins/config-*.ts` | 插件 Config Schema v1：声明式解析/默认值/校验/secret 状态/租户持久化/CAS（CR-006） |
+| AST-09 | B→已落地 | 第六批 | 2026-08-26 | `apps/api/src/modules/ecosystem/plugins/bundle-store.ts`、`bridge-sdk.ts`、`packages/ui/src/components/plugin/` | 插件 Page：本地 Bundle 静态资源 + 沙箱 iframe + Host Bridge（config.read/write、notify、close） |
 | Skill | B→已落地（契约+存储） | 第五批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（Skill 契约）、`packages/schema/src/skills.ts`、`repositories/sqlite/skill-registry-repository.ts`、`skill-lifecycle-repository.ts` | `skill_registrations` + `skill_payloads`/`skill_candidates`/`skill_releases` 四表 + 幂等/门控导出/生命周期仓储 |
-| Skill | B→已落地（管理 + 生命周期运行时） | 第五批 | 2026-08-26 | `apps/api/src/modules/skills/`（`zip.ts`/`skill-manager.ts`/`skill-prompt.ts`/`lifecycle.ts`/`routes.ts`/`skill-tools.ts`） | zip 安装（安全校验）+ 渐进式披露 prompt + Neo 生命周期（payload→candidate→evaluate→promote→rollback/sync）+ `aervox_skill_*` 工具（PET-05 安全级别） |
-| Skill | B→已落地（插件联动） | 第五批 | 2026-08-26 | `apps/api/src/modules/plugins/service.ts` | 插件声明技能只读注册（source=plugin/readonly/pluginId）+ 启停/卸载联动 |
+| Skill | B→已落地（管理 + 生命周期运行时） | 第五批 | 2026-08-26 | `apps/api/src/modules/ecosystem/skills/`（`zip.ts`/`skill-manager.ts`/`skill-prompt.ts`/`lifecycle.ts`/`routes.ts`/`skill-tools.ts`） | zip 安装（安全校验）+ 渐进式披露 prompt + Neo 生命周期（payload→candidate→evaluate→promote→rollback/sync）+ `aervox_skill_*` 工具（PET-05 安全级别） |
+| Skill | B→已落地（插件联动） | 第五批 | 2026-08-26 | `apps/api/src/modules/ecosystem/plugins/service.ts` | 插件声明技能只读注册（source=plugin/readonly/pluginId）+ 启停/卸载联动 |
 
 ### 6.2 待接线缺口（现状如实记录）
 

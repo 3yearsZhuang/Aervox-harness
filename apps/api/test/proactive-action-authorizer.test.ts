@@ -6,7 +6,7 @@ import {
   SqliteProactiveProfileRepository,
   type AervoxDatabase,
 } from "@aervox/repositories";
-import { ProactiveActionAuthorizer } from "../src/modules/proactive/action-authorizer.js";
+import { ProactiveActionAuthorizer } from "../src/modules/proactive/proactive/action-authorizer.js";
 
 const tenant = { workspaceId: "ws_action", subjectUserId: "usr_action" } as const;
 

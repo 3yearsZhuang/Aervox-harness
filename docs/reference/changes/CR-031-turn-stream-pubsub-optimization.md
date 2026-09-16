@@ -7,15 +7,15 @@ doc_status: review-candidate
 decision_status: accepted
 delivery_status: implemented
 version: 0.2.0
-updated_at: 2026-09-15
-reviewed_at: 2026-09-15
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 ---
 
 # CR-031 Turn 实时流式推送 Pub/Sub 与轮询解耦
 
 - 提出人：3yearszhuang · 2026-09-12
-- 修改人：3yearszhuang · 2026-09-15
+- 修改人：3yearszhuang · 2026-09-16
 
 关联：[需求追踪基线](../REQUIREMENTS_TRACEABILITY.md)、[ADR-012 流式执行安全性与恢复](../adr/ADR-012-streaming-safety-persistence.md)、[CR-027 供应商流格式调研与设计](../changes/CR-027-turn-stream-liveness.md)
 
@@ -27,7 +27,7 @@ review_interval_days: 90
 - 当前行为 / 目标行为：
   - 基线：SSE 活流依赖 400ms 定时轮询 SQLite，推流存在 200~400ms 感知抖动与延迟；
   - 目标：
-    1. 在 `apps/api/src/modules/conversation/` 建立进程内 `TurnStreamHub` 事件总线；
+    1. 在 `apps/api/src/modules/companion/conversation/` 建立进程内 `TurnStreamHub` 事件总线；
     2. 执行器（`SqliteExecutionStore` 的代理包装）与协调器（`UserQuestionCoordinator`、插件切面）在写入 SQLite 的同时向总线发布事件，实现 `<10ms` 实时直推；
     3. SSE 连接生命周期升级：建立时先挂载总线实时订阅，再读取 SQLite 存量事件并合并去重；终态通知触发时完成缝隙排空并优雅关闭连接；
     4. 降频心跳：仅保留 15 秒一次的纯 SSE ping 保持长连接探活，不触发任何数据库读操作。

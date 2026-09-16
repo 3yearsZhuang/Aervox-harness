@@ -7,22 +7,22 @@ doc_status: review-candidate
 decision_status: accepted
 delivery_status: implemented
 version: 0.1.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 ---
 
 # CR-014 WebUI 语音输出配置（设置 + 人格语音；目录选择）
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-09-10
+- 修改人：3yearszhuang · 2026-09-16
 
 关联：[需求追踪基线](../REQUIREMENTS_TRACEABILITY.md)、[Persona 重构与独立 Voice 模块](../changes/CR-004-persona-sqlite-persistence.md)、[ADR-003](../adr/ADR-003-postgres-retrieval.md)
 
 - 状态：Implemented（待发布评审）
 - 提出人 / 日期：3yearszhuang / 2026-08-28
 - 目标版本：当前开发阶段（系统语音输出能力）
-- 变更原因与证据：系统语音输出能力（`apps/api/src/modules/voice/`）的本地 provider `GptSovitsLocalProvider` 的 `modelPath/modelId` 由 env 在启动时写死，WebUI 缺少运行时可配置与可持久化的本地语音模型设置；人格编辑弹窗缺少选择语音文件的能力；本地模型路径与音色此前为手输，需改由「选择文件夹」获得。分三阶段落地：阶段 1 设置「语音」分类（本地模型配置 + 白名单 + 持久化）；阶段 2 人格编辑弹窗「语音」能力块（provider/model/speaker + 试听）；阶段 3 模型路径与音色改为系统目录选择（Electron `dialog` 桥 + `pickDirectory`）。参考了既有 Persona 设置的 DB 仓储 + 契约 + UI 组合式 API 落地范式（CR-006/CR-010），原生实现，无外部依赖新增。
+- 变更原因与证据：系统语音输出能力（`apps/api/src/modules/platform/voice/`）的本地 provider `GptSovitsLocalProvider` 的 `modelPath/modelId` 由 env 在启动时写死，WebUI 缺少运行时可配置与可持久化的本地语音模型设置；人格编辑弹窗缺少选择语音文件的能力；本地模型路径与音色此前为手输，需改由「选择文件夹」获得。分三阶段落地：阶段 1 设置「语音」分类（本地模型配置 + 白名单 + 持久化）；阶段 2 人格编辑弹窗「语音」能力块（provider/model/speaker + 试听）；阶段 3 模型路径与音色改为系统目录选择（Electron `dialog` 桥 + `pickDirectory`）。参考了既有 Persona 设置的 DB 仓储 + 契约 + UI 组合式 API 落地范式（CR-006/CR-010），原生实现，无外部依赖新增。
 - 关联能力与需求：`CAP-019/020`（含独立 Voice 模块）
 - 当前行为 / 目标行为：
   - 当前（阶段 1 前）：本地语音模型配置仅能通过 env（`GPT_SOVITS_MODEL_PATH` 等）在启动时设定，无运行时/持久化配置，WebUI 设置无「语音」分类，人格编辑弹窗无语音选择，模型路径与音色需手输；

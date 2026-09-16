@@ -4,8 +4,8 @@ type: reference
 scope: change
 owner: maintainers
 doc_status: review-candidate
-decision_status: proposed
-delivery_status: planned
+decision_status: accepted
+delivery_status: implemented
 version: 0.1.0
 updated_at: 2026-09-16
 reviewed_at: 2026-09-16
@@ -24,7 +24,7 @@ sources:
 
 关联：[ADR-014 演进式模块化单体](../adr/ADR-014-modular-monolith-structure.md) · [需求追踪基线](../REQUIREMENTS_TRACEABILITY.md) · [命名标准 AVX-STD-002](../standards/naming-conventions.md)
 
-- 状态：Proposed
+- 状态：Implemented（PR-C1 `refactor/cr-052-domain-grouping`）
 - 提出人 / 日期：3yearszhuang / 2026-09-16
 - 目标版本：当前开发阶段（C 档目录组织治理）
 - 关联能力：`CAP-001~035`（横向结构治理，不改任何 CAP 行为）
@@ -53,7 +53,7 @@ ADR-014（2026-08-31 Accepted）确立 `modules/<module>/` 单层结构时，API
 | `companion/`（陪伴与对话） | conversation、persona、memory、inbox、branch | 5 | 会话核心、人格、记忆、命令收件箱、消息分支 |
 | `learning/`（学习与练习） | learning、study-materials、terms、diary | 4 | 错题/练习/复习、学习资料、伴学词典、每日反思日记 |
 | `knowledge/`（知识与内容） | knowledge、content、project | 3 | 知识库、内容库、项目上下文（CR-043） |
-| `ecosystem/`（扩展生态） | plugins、tools、mcp、skills | 4 | 插件、工具运行时、MCP、AstrBot 兼容技能 |
+| `ecosystem/`（扩展生态） | plugins、tools、mcp、skills、llm | 5 | 插件、工具运行时、MCP、AstrBot 兼容技能、模型路由与预设 |
 | `proactive/`（主动智能） | proactive、notification | 2 | 主动回合编排、主动关怀通知落库（CR-032） |
 | `platform/`（平台基础） | preferences、privacy、safety、voice、feedback、analytics | 6 | 偏好、隐私、安全门禁、语音、反馈、埋点 |
 
@@ -61,11 +61,11 @@ ADR-014（2026-08-31 Accepted）确立 `modules/<module>/` 单层结构时，API
 
 ### 3.2 代码与配置改动面
 
-1. **目录移动**：`git mv` 25 个模块目录至对应域；
-2. **import 重写**：模块间引用 `../<module>/` → `../<domain>/<module>/`（含测试文件）；模块内部相对引用不变；
-3. **`app.ts`**：注册顺序按域聚合并分组注释；
-4. **`scripts/import-boundary.mjs`**：规则路径模式升级为两层（`modules/<domain>/<module>/`），域不改变既有 14 条边界的语义，仅适配路径形态；
-5. **零改动**：`@aervox/contracts` OpenAPI、路由路径、schema、仓储层、worker、前端。
+1. **目录移动**：`git mv` 25 个模块目录至对应域（三个域内同名模块 knowledge/learning/proactive 经临时路径两步归位）；
+2. **import 重写**：跨域平级引用 `../<module>/` → `../../<domain>/<module>/`（同域保持）；模块内引用平层 `context.ts` / `shared/` 的相对路径按新深度 +1 级；`import.meta.dirname` / `import.meta.url` 解析仓库根的相对层级同步 +1（typecheck 抓不到的运行时 fs 路径，共 4 处：plugins/index.ts ×2、skills/skill-manager.ts、knowledge/content/index.ts）；测试文件 `src/modules/<module>/` → `src/modules/<domain>/<module>/`；
+3. **`app.ts`**：import 按六域分组重排；注册顺序**保持既有依赖序**（Fastify hook/路由注册顺序敏感，tools→llm 先于 conversation、voice/skills 先于 persona），逐行标注域归属注释；
+4. **`scripts/import-boundary.mjs`**：经核实零改动——现有 5 条规则全部按包级 `fromDir`（`packages/*`、根层能力目录）匹配，不涉及 `apps/api/src/modules` 路径形态，两层结构对规则判定透明；
+5. **零改动**：`@aervox/contracts` OpenAPI、路由路径、schema、仓储层、worker、前端、HTTP 契约与测试行为。
 
 ### 3.3 范围外（明确声明）
 
@@ -92,5 +92,5 @@ ADR-014（2026-08-31 Accepted）确立 `modules/<module>/` 单层结构时，API
 1. **PR-C0（本 CR + ADR-014 修订）**：立项文档合入；
 2. **PR-C1**：25 模块 `git mv` + import 重写 + app.ts 聚合 + import-boundary 升级 + ARCHITECTURE.md / getting-started 同步 + §4.2 落地登记。
 
-- 决策：Proposed
+- 决策：Accepted / Implemented
 - 更新的文档和测试：`docs/reference/adr/ADR-014-modular-monolith-structure.md`（0.3.0 修订随本 CR 提案）、`docs/DOC_REGISTRY.md`、`docs/README.md`

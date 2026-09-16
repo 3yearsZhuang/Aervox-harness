@@ -7,8 +7,8 @@ doc_status: review-candidate
 decision_status: accepted
 delivery_status: verified
 version: 1.0.0
-updated_at: 2026-09-15
-reviewed_at: 2026-09-15
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 sources:
   - docs/reference/changes/CR-035-standard-workbench-mode.md
@@ -19,7 +19,7 @@ sources:
 # CR-048 项目上下文绑定与会话迁移设施 (W3)
 
 - 提出人：3yearszhuang · 2026-09-14
-- 修改人：3yearszhuang · 2026-09-15
+- 修改人：3yearszhuang · 2026-09-16
 
 - 状态：Accepted / Verified
 - 关联变更：[CR-035 标准 AI 工作台形态](CR-035-standard-workbench-mode.md) · [CR-046 标准工作台交互壳与会话侧栏](CR-046-standard-workbench-shell-and-sidebar.md) · [CR-047 模式切换器与统一任务中心](CR-047-mode-selector-and-task-center.md)
@@ -48,7 +48,7 @@ sources:
 
 - **契约与架构**：`packages/contracts/src/project-schemas.ts`、`packages/schema/src/project.ts`；
 - **仓储层实现**：`packages/repositories/src/repositories/sqlite/project-repository.ts`（`SqliteProjectRepository`）、`SqliteConversationRepository.importSession`；
-- **服务端路由**：`apps/api/src/modules/project/routes.ts`、`apps/api/src/modules/project/index.ts`；
+- **服务端路由**：`apps/api/src/modules/knowledge/knowledge/project/routes.ts`、`apps/api/src/modules/knowledge/knowledge/project/index.ts`；
 - **客户端与组件**：`packages/api-client/src/useAervoxProjects.ts`、`packages/ui/src/components/workbench/CommandPalette.vue`、`packages/ui/src/components/workbench/modals/ProjectManagerModal.vue`、`packages/ui/src/components/workbench/modals/ImportSessionModal.vue`；
 - **测试覆盖**：
   - 契约测试：`packages/contracts/test/project-contract.test.ts`

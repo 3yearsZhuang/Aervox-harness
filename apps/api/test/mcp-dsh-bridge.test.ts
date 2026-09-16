@@ -11,7 +11,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DshMcpBridge, resolveSafePath } from "../src/modules/mcp/dsh-bridge.js";
+import { DshMcpBridge, resolveSafePath } from "../src/modules/ecosystem/mcp/dsh-bridge.js";
 import { buildApp } from "../src/app.js";
 import { createInMemoryDatabase, initDatabaseSchema } from "@aervox/repositories";
 import type { FastifyInstance } from "fastify";

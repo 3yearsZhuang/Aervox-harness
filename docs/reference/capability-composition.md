@@ -7,15 +7,15 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.5.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 ---
 
 # Aervox 能力组合与可选化目录规范
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-11
+- 修改人：3yearszhuang · 2026-09-16
 
 关联：[架构设计](ARCHITECTURE.md)、[ADR-001](adr/ADR-001-modular-monolith.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-014](adr/ADR-014-modular-monolith-structure.md)、[能力注册表](capability-registry.md)、[submodule 协作指南](../how-to/submodule-collaboration.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
@@ -431,7 +431,7 @@ pi 固定参考 commit 为 `c49906ec77788625aacbdc53ebca6fbe65bd20f5`，许可�
 | B | `apps/api/src/modules/*` | 路由改为 Application Service + Port Consumer |
 | C | `apps/worker/src/*.ts` | cycle 改为可注册 Job Handler |
 | D | `packages/database/src/repositories/sqlite` | 具体实现迁移到 `providers/*` |
-| E | `apps/api/src/modules/tools/plugins/skills` | 注册为原生 Capability |
+| E | `apps/api/src/modules/ecosystem/tools/plugins/skills` | 注册为原生 Capability |
 | F | 尚无正式 Adapter | 接入 DSH、pi、MCP 外部 Host |
 | G | `apps/api/src/app.ts` 手工清单 | Profile + Resolver 驱动组合 |
 

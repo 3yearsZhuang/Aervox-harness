@@ -23,34 +23,41 @@ import {
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 import type { WorkflowDefinition } from "@aervox/agent-loop";
-import { registerConversationModule } from "./modules/conversation/index.js";
-import { registerLearningModule } from "./modules/learning/index.js";
-import { registerFeedbackModule } from "./modules/feedback/index.js";
-import { registerDiaryModule } from "./modules/diary/index.js";
-import { registerContentModule } from "./modules/content/index.js";
-import { registerNotificationModule } from "./modules/notification/index.js";
-import { registerPrivacyModule } from "./modules/privacy/index.js";
-import { registerAnalyticsModule } from "./modules/analytics/index.js";
-import { registerMemoryModule } from "./modules/memory/index.js";
-import { registerKnowledgeModule } from "./modules/knowledge/index.js";
-import { registerBranchModule } from "./modules/branch/index.js";
-import { registerProjectModule } from "./modules/project/index.js";
-import { registerToolsModule } from "./modules/tools/index.js";
-import { registerMcpModule, type McpModuleOptions } from "./modules/mcp/index.js";
-import { registerPluginsModule, defaultServerPluginRegistry, type ServerPluginRegistry } from "./modules/plugins/index.js";
-import { registerPersonaModule } from "./modules/persona/index.js";
-import { registerPreferencesModule } from "./modules/preferences/index.js";
-import { registerSkillsModule } from "./modules/skills/index.js";
-import { registerInboxModule } from "./modules/inbox/index.js";
-import { registerTermsModule } from "./modules/terms/index.js";
-import { registerStudyMaterialModule } from "./modules/study-materials/index.js";
-import { registerVoiceModule, type VoiceModuleOptions } from "./modules/voice/index.js";
-import { registerLLMModule, type LLMServiceOptions } from "./modules/llm/index.js";
-import { registerProactiveModule } from "./modules/proactive/index.js";
-import { registerSafetyModule } from "./modules/safety/index.js";
+// 业务模块（按 ADR-014 0.3.0 六域分组；CR-052）
+// ── companion（陪伴与对话） ──
+import { registerConversationModule } from "./modules/companion/conversation/index.js";
+import { registerBranchModule } from "./modules/companion/branch/index.js";
+import { registerMemoryModule } from "./modules/companion/memory/index.js";
+import { registerInboxModule } from "./modules/companion/inbox/index.js";
+import { registerPersonaModule } from "./modules/companion/persona/index.js";
+// ── learning（学习与练习） ──
+import { registerLearningModule } from "./modules/learning/learning/index.js";
+import { registerTermsModule } from "./modules/learning/terms/index.js";
+import { registerStudyMaterialModule } from "./modules/learning/study-materials/index.js";
+import { registerDiaryModule } from "./modules/learning/diary/index.js";
+// ── knowledge（知识与内容） ──
+import { registerKnowledgeModule } from "./modules/knowledge/knowledge/index.js";
+import { registerContentModule } from "./modules/knowledge/content/index.js";
+import { registerProjectModule } from "./modules/knowledge/project/index.js";
+// ── ecosystem（扩展生态） ──
+import { registerToolsModule } from "./modules/ecosystem/tools/index.js";
+import { registerMcpModule, type McpModuleOptions } from "./modules/ecosystem/mcp/index.js";
+import { registerPluginsModule, defaultServerPluginRegistry, type ServerPluginRegistry } from "./modules/ecosystem/plugins/index.js";
+import { registerSkillsModule } from "./modules/ecosystem/skills/index.js";
+import { registerLLMModule, type LLMServiceOptions } from "./modules/ecosystem/llm/index.js";
+// ── proactive（主动智能） ──
+import { registerProactiveModule } from "./modules/proactive/proactive/index.js";
+import { registerNotificationModule } from "./modules/proactive/notification/index.js";
+// ── platform（平台基础） ──
+import { registerFeedbackModule } from "./modules/platform/feedback/index.js";
+import { registerPrivacyModule } from "./modules/platform/privacy/index.js";
+import { registerAnalyticsModule } from "./modules/platform/analytics/index.js";
+import { registerPreferencesModule } from "./modules/platform/preferences/index.js";
+import { registerVoiceModule, type VoiceModuleOptions } from "./modules/platform/voice/index.js";
+import { registerSafetyModule } from "./modules/platform/safety/index.js";
 import type { ModuleContext } from "./modules/context.js";
-import type { ToolRuntime } from "./modules/tools/runtime.js";
-import type { MemoryEmbeddingProvider } from "./modules/tools/embedding-provider.js";
+import type { ToolRuntime } from "./modules/ecosystem/tools/runtime.js";
+import type { MemoryEmbeddingProvider } from "./modules/ecosystem/tools/embedding-provider.js";
 import { assertAuthConfigSafe, createAuthHook, loadAuthConfig, type AuthConfig } from "./shared/auth.js";
 import { createToolApprovalPolicyHook } from "./shared/tool-approval-policy.js";
 import { ApiError, type ApiErrorCode } from "./shared/errors.js";
@@ -284,38 +291,40 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   };
 
   // 先注册「被依赖」模块并填充共享服务（依赖方经 ctx 读取；顺序显式）：
-  // tools → llm 必须早于 conversation（Agent Loop 依赖）；voice/skills 早于 persona
-  ctx.toolRuntime = registerToolsModule(ctx, { embeddingProvider: options.embeddingProvider });
+  // tools → llm 必须早于 conversation（Agent Loop 依赖）；voice/skills 早于 persona。
+  // 注册顺序保持既有依赖序（Fastify hook/路由顺序敏感，不做域重排）；
+  // 域归属见 import 分组（CR-052 / ADR-014 0.3.0）。
+  ctx.toolRuntime = registerToolsModule(ctx, { embeddingProvider: options.embeddingProvider }); // ecosystem
   // MCP 预设模块：复用 toolRuntime 注册远程工具（依赖 tools 先行装配）
-  registerMcpModule(ctx, options.mcpOptions);
-  ctx.llmConfigService = registerLLMModule(ctx, options.llmOptions);
-  ctx.safetyService = registerSafetyModule(ctx);
-  registerProactiveModule(ctx, {
+  registerMcpModule(ctx, options.mcpOptions); // ecosystem
+  ctx.llmConfigService = registerLLMModule(ctx, options.llmOptions); // ecosystem
+  ctx.safetyService = registerSafetyModule(ctx); // platform
+  registerProactiveModule(ctx, { // proactive
     db: proactiveDb,
     cipher: proactiveCipher,
     accessToken: proactiveAccessToken,
     featureFlags: options.proactiveFeatureFlags ?? apiConfig.proactiveFeatureFlags,
   });
-  registerConversationModule(ctx);
-  registerLearningModule(ctx);
-  registerFeedbackModule(ctx);
-  registerDiaryModule(ctx);
-  registerContentModule(ctx);
-  registerNotificationModule(ctx);
-  registerPrivacyModule(ctx);
-  registerAnalyticsModule(ctx);
-  registerMemoryModule(ctx);
-  registerKnowledgeModule(ctx);
-  registerBranchModule(ctx);
-  registerProjectModule(ctx);
-  await registerPluginsModule(ctx);
-  ctx.voiceService = registerVoiceModule(ctx, options.voiceOptions);
-  ctx.skillManager = registerSkillsModule(ctx);
-  registerPreferencesModule(ctx);
-  registerStudyMaterialModule(ctx);
-  ctx.personaService = registerPersonaModule(ctx);
-  registerInboxModule(ctx);
-  registerTermsModule(ctx);
+  registerConversationModule(ctx); // companion
+  registerLearningModule(ctx); // learning
+  registerFeedbackModule(ctx); // platform
+  registerDiaryModule(ctx); // learning
+  registerContentModule(ctx); // knowledge
+  registerNotificationModule(ctx); // proactive
+  registerPrivacyModule(ctx); // platform
+  registerAnalyticsModule(ctx); // platform
+  registerMemoryModule(ctx); // companion
+  registerKnowledgeModule(ctx); // knowledge
+  registerBranchModule(ctx); // companion
+  registerProjectModule(ctx); // knowledge
+  await registerPluginsModule(ctx); // ecosystem
+  ctx.voiceService = registerVoiceModule(ctx, options.voiceOptions); // platform
+  ctx.skillManager = registerSkillsModule(ctx); // ecosystem
+  registerPreferencesModule(ctx); // platform
+  registerStudyMaterialModule(ctx); // learning
+  ctx.personaService = registerPersonaModule(ctx); // companion
+  registerInboxModule(ctx); // companion
+  registerTermsModule(ctx); // learning
 
   if (ownsProactiveClient) {
     app.addHook("onClose", async () => {

@@ -13,14 +13,14 @@ import type { Client } from "@libsql/client";
 import type { AervoxDatabase, ProactiveVaultCipher } from "@aervox/repositories";
 import type { IProactiveProfileRepository, SqliteProactiveIntelligenceRepository } from "@aervox/repositories";
 import type { WorkflowDefinition } from "@aervox/agent-loop";
-import type { ToolRuntime } from "./tools/runtime.js";
-import type { LLMConfigService } from "./llm/service.js";
-import type { VoiceService } from "./voice/service.js";
-import type { SkillManager } from "./skills/skill-manager.js";
-import type { ProactiveActionAuthorizer } from "./proactive/action-authorizer.js";
-import type { PersonaService } from "./persona/service.js";
+import type { ToolRuntime } from "./ecosystem/tools/runtime.js";
+import type { LLMConfigService } from "./ecosystem/llm/service.js";
+import type { VoiceService } from "./platform/voice/service.js";
+import type { SkillManager } from "./ecosystem/skills/skill-manager.js";
+import type { ProactiveActionAuthorizer } from "./proactive/proactive/action-authorizer.js";
+import type { PersonaService } from "./companion/persona/service.js";
 import type { Observability } from "@aervox/observability";
-import type { SafetyService } from "./safety/service.js";
+import type { SafetyService } from "./platform/safety/service.js";
 
 export interface ModuleContext {
   app: FastifyInstance;
@@ -42,7 +42,7 @@ export interface ModuleContext {
   /** LLM 配置服务（llm 模块填充；conversation 读取） */
   llmConfigService?: LLMConfigService;
   /** CR-034 模型降级与路由决策服务（llm 模块填充；conversation/proactive 读取） */
-  modelRoutingService?: import("./llm/degradation-service.js").LlmDegradationService;
+  modelRoutingService?: import("./ecosystem/llm/degradation-service.js").LlmDegradationService;
   /** 安全与危机干预服务（safety 模块填充；conversation 读取） */
   safetyService?: SafetyService;
   /** 语音服务（voice 模块填充；persona 读取） */
@@ -58,7 +58,7 @@ export interface ModuleContext {
   /** 插件 Page Bundle 落盘根目录（缺省 <repo>/data/plugins） */
   pluginsRoot?: string;
   /** 服务端插件注册表（由 plugins 模块填充；conversation/tools 读取） */
-  pluginRegistry?: import("./plugins/turn-plugins/registry.js").ServerPluginRegistry;
+  pluginRegistry?: import("./ecosystem/plugins/turn-plugins/registry.js").ServerPluginRegistry;
   /** 附件二进制落盘根目录（缺省 <repo>/data/attachments；CAP-012 多模态输入） */
   attachmentsRoot?: string;
 }

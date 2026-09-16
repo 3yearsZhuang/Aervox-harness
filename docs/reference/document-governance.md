@@ -7,8 +7,8 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.1.1
-updated_at: 2026-09-14
-reviewed_at: 2026-09-14
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 review_triggers:
   - docs/**
@@ -24,7 +24,7 @@ sources:
 # 文档治理与事实源规范
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-09-14
+- 修改人：3yearszhuang · 2026-09-16
 
 关联：[文档索引](../README.md)、[文档写作规范](standards/doc-standards.md)、[生命周期登记表](../DOC_REGISTRY.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)、[工程与发布流程](../how-to/engineering-process.md)
 
@@ -104,12 +104,12 @@ doc_status: review-candidate
 decision_status: proposed
 delivery_status: planned
 version: 0.2.0
-updated_at: 2026-08-28
-reviewed_at: 2026-08-28
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 review_triggers:
   - packages/agent-loop/**
-  - apps/api/src/modules/conversation/**
+  - apps/api/src/modules/companion/conversation/**
 sources:
   - docs/reference/REQUIREMENTS_TRACEABILITY.md
 ```

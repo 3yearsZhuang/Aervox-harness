@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.2
+version: 0.4.3
 updated_at: 2026-09-16
 reviewed_at: 2026-09-16
 review_interval_days: 90
@@ -66,40 +66,47 @@ packages/
 
 ### 3.1 apps/api 内部结构（演进式模块化单体）
 
-`apps/api/src/` 采用**按领域模块组织**的结构，每个模块自管路由与仓储实例化，通过 `shared/event-bus.ts` 做进程内跨模块通信：
+`apps/api/src/` 采用**按领域模块组织**的结构（ADR-014 0.3.0 两层分组：25 模块 → 6 域，归属表见 [CR-052 §3.1](changes/CR-052-api-module-domain-grouping.md#31-域归属表25--6)），每个模块自管路由与仓储实例化，通过 `shared/event-bus.ts` 做进程内跨模块通信：
 
 ```text
 apps/api/src/
-├── modules/                        # 业务模块（每个自管 routes + 依赖注入）
-│   ├── conversation/                #   对话模块：Session、Turn、Message、SSE 流式
-│   │   ├── routes.ts
-│   │   └── index.ts
-│   ├── learning/                    #   学习模块：目标、题目、作答、知识点、复习
-│   │   ├── routes.ts
-│   │   └── index.ts
-│   ├── diary/                       #   日记模块：日记查询、计划、窗口调度
-│   │   ├── routes.ts
-│   │   └── index.ts
-│   ├── feedback/                    #   反馈模块：用户反馈记录与查询
-│   │   ├── routes.ts
-│   │   └── index.ts
-│   ├── privacy/                     #   隐私模块：同意授权、撤回、删除请求
-│   │   ├── routes.ts
-│   │   └── index.ts
-│   ├── analytics/                   #   埋点模块：伪匿名事件记录
-│   │   ├── routes.ts
-│   │   └── index.ts
-│   ├── content/                     #   内容模块：附件元数据、引用
-│   │   ├── routes.ts
-│   │   └── index.ts
-│   └── notification/                #   通知模块：通知列表查询
-│       ├── routes.ts
-│       └── index.ts
+├── modules/                        # 业务模块（按领域分组，每个自管 routes + 依赖注入）
+│   ├── companion/                  #   陪伴与对话域
+│   │   ├── conversation/           #     Session、Turn、Message、SSE 流式（Agent Loop 编排）
+│   │   ├── persona/                #     人格设定与画像
+│   │   ├── memory/                 #     长期记忆 FTS + 向量混合召回
+│   │   ├── inbox/                  #     Agent 命令收件箱
+│   │   └── branch/                 #     会话分支（CAP-014 会话地图）
+│   ├── learning/                   #   学习与练习域
+│   │   ├── learning/               #     目标、题目、作答、知识点、复习
+│   │   ├── study-materials/        #     学习资料与附件
+│   │   ├── terms/                  #     伴学术语表
+│   │   └── diary/                  #     每日日记查询、计划、窗口调度
+│   ├── knowledge/                  #   知识与内容域
+│   │   ├── knowledge/              #     知识库
+│   │   ├── content/               #     内容与附件元数据
+│   │   └── project/               #     项目上下文（CR-048）
+│   ├── ecosystem/                  #   扩展生态域
+│   │   ├── plugins/               #     插件系统与内置插件同步
+│   │   ├── tools/                 #     工具运行时
+│   │   ├── mcp/                   #     MCP 集成
+│   │   ├── skills/                #     AstrBot 兼容技能
+│   │   └── llm/                   #     模型路由与预设
+│   ├── proactive/                  #   主动智能域
+│   │   ├── proactive/             #     主动回合编排、集成授权
+│   │   └── notification/          #     主动关怀通知
+│   └── platform/                   #   平台基础域
+│       ├── preferences/           #     偏好
+│       ├── privacy/               #     同意授权、撤回、删除请求
+│       ├── safety/                #     安全门禁
+│       ├── voice/                 #     语音服务
+│       ├── feedback/              #     用户反馈
+│       └── analytics/             #     埋点
 ├── shared/                          # 跨模块共享（严格限制：只放通用工具）
 │   ├── auth.ts                      #   本机认证与 actor 解析；CR-030 后不再创建 TenantContext
 │   ├── event-bus.ts                 #   进程内事件总线（pub/sub，未来可替换为消息队列）
 │   └── errors.ts                    #   共享错误类型（NotFoundError、ValidationError 等）
-├── app.ts                           #   Fastify 应用工厂：组装模块、注册路由
+├── app.ts                           #   Fastify 应用工厂：组装模块、注册路由（按域分组注释）
 └── index.ts                         #   进程入口：创建 app、listen
 
 apps/api/test/                       # 集成测试
@@ -110,8 +117,9 @@ apps/api/test/                       # 集成测试
 
 | 规则 | 说明 |
 |---|---|
-| 模块自管仓储 | 每个 `modules/*/index.ts` 内部实例化该模块的仓储，不引用全局容器 |
-| 路由函数签名 | `routes.ts` 导出函数接收**该模块专属的仓储实例**，而非全局 `RepoContainer` |
+| 领域分组 | `modules/<domain>/<module>/` 两层组织；域目录不承载代码，只承载子模块；归属以 CR-052 §3.1 表为准 |
+| 模块自管仓储 | 每个 `modules/<domain>/<module>/index.ts` 内部实例化该模块的仓储，不引用全局容器 |
+| 路由函数签名 | `routes.ts` 导出函数接收**该模块专属的仓储实例**，而非 `RepoContainer` |
 | shared 严格受限 | `shared/` 只放跨 2 个以上模块的通用工具，禁止放业务逻辑 |
 | 跨模块通信 | 仅限 `shared/event-bus.ts` 的 pub/sub + `shared/` 中的纯工具函数直接调用 |
 | 单一数据库 | 一个本地 SQLite 实例；Schema 按领域拆文件，安全边界不依赖表前缀或租户列 |

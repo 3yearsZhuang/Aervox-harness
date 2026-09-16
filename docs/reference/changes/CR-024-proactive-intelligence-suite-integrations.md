@@ -7,11 +7,11 @@ doc_status: review-candidate
 decision_status: accepted
 delivery_status: verified
 version: 1.0.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 60
 review_triggers:
-  - apps/api/src/modules/proactive/**
+  - apps/api/src/modules/proactive/proactive/**
   - apps/worker/src/proactive-intelligence-worker.ts
   - packages/database/src/schema/proactive-intelligence.ts
   - Home Assistant 或小米开放平台政策变化
@@ -25,7 +25,7 @@ sources:
 # CR-024 主动智能能力套件与外部环境连接
 
 - 提出人：3yearszhuang · 2026-08-29
-- 修改人：3yearszhuang · 2026-08-29
+- 修改人：3yearszhuang · 2026-09-16
 
 本变更接受在 `CAP-033` 下落地十二项主动智能能力，并新增 `CAP-034 Home Assistant 家庭环境连接` 与 `CAP-035 运动健康信号连接`。机器可验证事实源是 `packages/contracts`、`packages/database`、`apps/api/src/modules/proactive`、`apps/worker/src/proactive-intelligence-worker.ts` 及对应测试。
 
