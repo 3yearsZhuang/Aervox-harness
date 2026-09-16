@@ -29,8 +29,8 @@ import {
 } from "@aervox/observability";
 import { collectDiaryMaterial } from "@aervox/diary";
 import { buildApp } from "../src/app.js";
-import { classifySafety } from "../src/modules/safety/classifier.js";
-import { getCrisisHelplines, formatCrisisResponse } from "../src/modules/safety/crisis-resources.js";
+import { classifySafety } from "../src/modules/platform/safety/classifier.js";
+import { getCrisisHelplines, formatCrisisResponse } from "../src/modules/platform/safety/crisis-resources.js";
 import type { FastifyInstance } from "fastify";
 
 const tenant: LocalContext = { workspaceId: "ws_safety", subjectUserId: "usr_safety" };

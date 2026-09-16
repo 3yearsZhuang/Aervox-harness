@@ -71,7 +71,8 @@ src/
 │   │   ├── plugins/
 │   │   ├── tools/
 │   │   ├── mcp/
-│   │   └── skills/
+│   │   ├── skills/
+│   │   └── llm/
 │   ├── proactive/                  #   主动智能域
 │   │   ├── proactive/
 │   │   └── notification/

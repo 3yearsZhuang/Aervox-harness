@@ -19,7 +19,7 @@ import type { FastifyInstance } from "fastify";
 import { buildApp } from "../src/app.js";
 import {
   createPracticeAttemptPortFactory,
-} from "../src/modules/conversation/practice-attempt-port.js";
+} from "../src/modules/companion/conversation/practice-attempt-port.js";
 import { createPracticeAttemptToolProvider, RECORD_PRACTICE_ATTEMPT_TOOL } from "@aervox/agent-loop";
 
 const headers = {

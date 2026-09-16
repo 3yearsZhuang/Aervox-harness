@@ -11,7 +11,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createInMemoryDatabase } from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
-import { resetDshTurnAdapterForTests, resolveDshTurnAdapter } from "../src/modules/conversation/dsh-adapter.js";
+import { resetDshTurnAdapterForTests, resolveDshTurnAdapter } from "../src/modules/companion/conversation/dsh-adapter.js";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer, type Server } from "node:http";

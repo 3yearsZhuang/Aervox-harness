@@ -16,8 +16,8 @@ import {
 } from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";
-import { turnStreamHub } from "../src/modules/conversation/stream-hub.js";
-import { runLoopTurnOnce } from "../src/modules/conversation/agent-executor.js";
+import { turnStreamHub } from "../src/modules/companion/conversation/stream-hub.js";
+import { runLoopTurnOnce } from "../src/modules/companion/conversation/agent-executor.js";
 
 const tenant: LocalContext = { workspaceId: "local", subjectUserId: "local" };
 
