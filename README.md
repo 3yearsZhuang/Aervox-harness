@@ -168,7 +168,7 @@ Aervox 实施严格的 Docs-as-Code 规范，文档按 Diátaxis 四分类组织
 1. **入门指引**：[从哪开始](docs/getting-started.md) · [教程：构建第一个对话](docs/tutorials/first-conversation.md)
 2. **产品与能力真源**：[产品需求说明书 PRD](docs/reference/PRD.md) · [能力注册表](docs/reference/capability-registry.md) · [能力组合规范](docs/reference/capability-composition.md) · [主动智能需求规格](docs/reference/srs-proactive-intelligence.md)
 3. **系统架构与技术选型**：[系统架构设计说明书](docs/reference/ARCHITECTURE.md) · [ADR 架构决策索引](docs/reference/adr/README.md) · [软件需求规格 SRS](docs/reference/SRS.md)
-4. **变更提案（CR）**：[变更请求速览](docs/README.md#变更请求速览) · [提出与闭环 CR 指南](docs/how-to/cr-workflow.md)
+4. **变更提案（CR）**：[提出与闭环 CR 指南](docs/how-to/cr-workflow.md) · [历史 CR 归档说明](docs/README.md#历史变更请求与临时落地计划归档说明)
 5. **契约与数据持久化**：[SQLite 数据库契约](docs/reference/DATABASE.md) · [Agent Harness Loop 规范](docs/reference/agent-harness-loop.md) · [流式协议契约](docs/reference/STREAMING_PROTOCOL.md)
 6. **质量、安全与运维**：[威胁模型](docs/reference/THREAT_MODEL.md) · [测试策略](docs/reference/TEST_STRATEGY.md) · [运行与演练手册](docs/reference/operations.md) · [数据与隐私规范](docs/reference/DATA_PRIVACY.md)
 7. **教程与实战指南**：[编写自定义工具](docs/tutorials/create-agent-tool.md) · [开发扩展插件](docs/how-to/develop-plugin-ui-extension.md) · [SQLite 换库演练](docs/how-to/run-database-migration-drill.md) · [新增 CAP 能力](docs/how-to/add-capability.md)

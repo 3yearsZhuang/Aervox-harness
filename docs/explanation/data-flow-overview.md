@@ -7,15 +7,15 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.3.0
-updated_at: 2026-09-15
-reviewed_at: 2026-09-15
+updated_at: 2026-09-17
+reviewed_at: 2026-09-17
 review_interval_days: 90
 ---
 
 # 数据流总览：一次对话如何流动
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-15
+- 修改人：3yearszhuang · 2026-09-17
 
 关联：[架构设计](../reference/ARCHITECTURE.md)、[流式协议契约](../reference/STREAMING_PROTOCOL.md)、[数据库契约](../reference/DATABASE.md)
 
@@ -50,7 +50,7 @@ Aervox 是一条"先写后投递"的单向管道：客户端把输入按幂等 T
 
 - **为什么先写后投递**：用户请求只做一次落盘，慢副作用交给 Worker；代价是至少一次语义，因此必须配幂等键（[ADR-004](../reference/adr/ADR-004-outbox-idempotent-jobs.md)）。
 - **为什么模块化单体**：1~2 人团队在运维成本与数据一致性间取平衡（[ADR-014](../reference/adr/ADR-014-modular-monolith-structure.md)）；模块只依赖 Port，不跨模块直写表。
-- **为什么 SQLite 是永久真源**：本地单用户产品需要单机一致性、可读备份和零外部数据库运维；PostgreSQL 与多租户切换规划已由 [CR-030](../reference/changes/CR-030-pure-local-sqlite-database.md) 终止。
+- **为什么 SQLite 是永久真源**：本地单用户产品需要单机一致性、可读备份和零外部数据库运维；PostgreSQL 与多租户切换规划已由 `CR-030`（已归档） 终止。
 
 ## 演进方向
 

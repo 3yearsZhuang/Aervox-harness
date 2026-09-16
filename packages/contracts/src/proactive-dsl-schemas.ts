@@ -1,7 +1,7 @@
 /**
  * CR-033 E2a 受限规则 DSL 契约。
  *
- * 规则依据：docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md
+ * 规则依据：CR-033（已归档至归档库）
  * - P3 规则数据化：规则本体是一门极小的确定性表达式语言——只能引用态势投影白名单字段、
  *   纯函数、无 IO、无循环、无任意函数、无模型执行；
  * - 语言冻结在极小集合（比较、逻辑、算术、时间窗函数），刻意不提供图灵完备性；

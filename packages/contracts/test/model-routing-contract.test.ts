@@ -1,7 +1,7 @@
 /**
  * CR-034/CR-042 模型路由契约 fail-closed 单元测试。
  *
- * 规则依据：docs/reference/changes/CR-034-local-model-fallback-ladder.md
+ * 规则依据：CR-034（已归档至归档库）
  * - 降级阶梯：L0 (full) -> L1 (restricted) -> L2 (minimal)
  * - 健康探测：unknown / healthy / degraded / unavailable
  * - 本地回环证明：isLiteralLoopbackUrl 严格防 SSRF / 出网漂移

@@ -15,7 +15,7 @@ review_interval_days: 90
 # Aervox｜思隅 产品与工程文档索引
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-15
+- 修改人：3yearszhuang · 2026-09-17
 
 本目录把产品目标、可测试需求、架构决策、数据权利和 AI 质量分开维护，避免单一 PRD 同时承担所有细节。所有上线范围必须能从用户价值追踪到需求、设计、测试和发布证据。
 
@@ -30,7 +30,7 @@ review_interval_days: 90
 | [SRS](reference/SRS.md)（AVX-SRS-001） | 发布范围内每个行为、异常和业务规则如何原子化 | FR/BR/NFR、Given/When/Then 验收和测试 ID |
 | [主动智能与外部信号需求规格](reference/srs-proactive-intelligence.md)（AVX-SRS-002） | CAP-033 全域感知与个人画像、CAP-034 Home Assistant 连接与 CAP-035 运动健康信号连接原子需求规格 | 授权、观察、画像、后台、动作、派生能力、连接器、DATA/AIQ/SEC/PRIV/OPS 要求 |
 | [需求追踪与交付标准](reference/REQUIREMENTS_TRACEABILITY.md) | 每条需求是否完整、由谁负责、怎样证明交付，以及代码落地完成情况 | ID、状态、DoR/DoD、CAP 映射、测试证据、发布门禁、风险和变更控制；§4.1 建议交付批次；§4.2 落地实现登记 |
-| [能力拆分路线（已归档）](explanation/roadmap.md)（AVX-EXPL-004，见[§4.1](#41-能力拆分路线建议批次)） | CAP 按什么批次、什么顺序进入规格化与开发 | 建议批次与拆分节奏（已并入追踪基线 §4.1）；历史存根 |
+| 能力拆分路线（AVX-EXPL-004，已归档至归档库，见[§4.1](#41-能力拆分路线建议批次)） | CAP 按什么批次、什么顺序进入规格化与开发 | 建议批次与拆分节奏（已并入追踪基线 §4.1）；历史存根 |
 
 ### 架构与决策
 
@@ -89,9 +89,9 @@ review_interval_days: 90
 | [桌宠角色设定文档化与多人格模板组织](explanation/persona-organization.md)（AVX-EXPL-003） | 桌宠 IP 与多人格模板（CAP-019）的角色如何文档化、版本化并维护 | 角色文档清单、字段化结构（prompt/开场白/语气/技能/错误兜底语）、人设目录与模板版本化、维护责任 |
 | [主动智能模式](explanation/proactive-intelligence-mode.md)（AVX-EXPL-008） | 完全访问上如何以广域画像授权、OS 能力、特权观察 Host、本地私密数据和主动操作组合既有 CAP | 评审提案；不替代 PRD/SRS/DATA_PRIVACY/ADR，不表示运行时已实现 |
 | [ESP32-S3 硬件延伸方案](explanation/esp32-s3-hardware-extension.md)（AVX-EXPL-005） | 如何把 ESP32-S3 做成物理桌宠终端 | 评审输入：硬件边界、表现映射、设备协议与隐私红线；R0 先 USB 不联网 |
-| [Home Assistant 集成评估](explanation/home-assistant-integration-assessment.md)（AVX-EXPL-006） | 如何为 Aervox 引入 Home Assistant 支持 | 候选方案与后续路线；推荐组合已由 CR-024/ADR-019 接受 |
-| [运动与健康数据接入评估](explanation/health-data-integration-assessment.md)（AVX-EXPL-007） | 是否可以接入苹果/小米运动健康数据（步数、睡眠、情绪） | 小米每日指标路径已由 CR-024/ADR-019 接受；苹果与情绪健康仍为评估输入 |
-| [数据库拆分计划](explanation/database-split-plan.md)（AVX-EXPL-009） | `packages/database` 如何拆分为 `@aervox/schema` 与 `@aervox/repositories` | 已完成的六阶段拆分执行记录；架构决策见 ADR-014 |
+| Home Assistant 集成评估（已归档）（AVX-EXPL-006） | 如何为 Aervox 引入 Home Assistant 支持 | 候选方案与后续路线；推荐组合已由 CR-024/ADR-019 接受 |
+| 运动与健康数据接入评估（已归档）（AVX-EXPL-007） | 是否可以接入苹果/小米运动健康数据（步数、睡眠、情绪） | 小米每日指标路径已由 CR-024/ADR-019 接受；苹果与情绪健康仍为评估输入 |
+| 数据库拆分计划（已归档）（AVX-EXPL-009） | `packages/database` 如何拆分为 `@aervox/schema` 与 `@aervox/repositories` | 已完成的六阶段拆分执行记录；架构决策见 ADR-014 |
 | [Web 端实现方案](explanation/web-implementation.md)（AVX-WEB-001） | `apps/web` 工作台如何基于 Vue 单栈复用 Desktop 核心组件 | MVP 范围、里程碑与目录结构；技术栈决策见 ADR-015 |
 
 ### 文档治理与生命周期
@@ -105,76 +105,16 @@ review_interval_days: 90
 | [文档生命周期登记表](DOC_REGISTRY.md) | 每份文档何时核验、多久复核、什么信号表示陈旧 | 核验节奏/陈旧信号；独立于索引维护 |
 | [从这里开始](getting-started.md)（AVX-DOC-002，见[§7](#7-从哪开始)） | 新成员/Agent 从哪看起、提交前自检什么 | 导航型；不承载规则 |
 | [暂存提案](proposals) | 尚未进入基线的方案是什么 | 待补充证据（More Evidence Required）或未采纳的技术探索提案；不承载已批准规则 |
-| [已归档记录](archive) | 历史变更与已退役决策的原始记录是什么 | 已完成或已退役的历史变更；变更经发布周期后迁移留存，避免混淆当前活跃规范 |
+| 已归档记录（私有归档库） | 历史变更与已退役决策的原始记录是什么 | 已完成或已退役的历史变更；已整体移入独立私有归档仓库，避免混淆当前活跃规范 |
 
-### 临时落地计划（非事实源）
+### 历史变更请求与临时落地计划归档说明
 
-为满足 CR-033、CR-034、CR-035 的实施拆分需要，暂时在 `docs/` 根目录保留以下计划文件。它们只提供实施顺序、门禁、验证和回滚建议，不改变原始 CR、CAP 或 ADR 的状态；对应子 CR 通过 G1 后应迁移到正式 CR 或删除。
+为保持主仓库文档精炼、避免历史推演过程污染日常检索与 AI 编程上下文，**已确认闭环实施的变更提案（CR-002 至 CR-052，共 50 篇）以及阶段性临时落地计划（CR-033/034/035 plan）已整体归档至独立私有归档仓库 [Aervox-docs-archive](https://github.com/3yearsZhuang/Aervox-docs-archive)**。
 
-- [CR-033 落地临时计划](CR-033-plan.md)（AVX-PLAN-033）
-- [CR-034 落地临时计划](CR-034-plan.md)（AVX-PLAN-034）
-- [CR-035 落地临时计划](CR-035-plan.md)（AVX-PLAN-035）
-
-文档分类、状态、事实源与复核触发以[文档治理与事实源规范](reference/document-governance.md)为准；模板、命名、签名和写作门禁见[文档写作规范](reference/standards/doc-standards.md)，术语唯一语义见[术语表](reference/standards/terminology.md)。
-
-当前已提供 [SRS](reference/SRS.md) 原子需求样例、共享 ADR、威胁模型、测试策略、运行手册和基线 NFR/AIQ/DATA/SEC/PRIV/OPS 追踪。每个进入开发的能力仍应逐步补充其专属 API/OpenAPI 片段、UX 原型、数据字典、测试证据和 ADR 关联；这些材料未齐备前，不得把能力地图中的一行视为完整开发规格。
-
-### 变更请求速览
-
-完整差量、迁移和回滚见各 CR 正文；下表仅为导航索引，不从 CR 正文反推交付状态。
-
-| CR | 标题 | 决策 | 交付 |
-|---|---|---|---|
-| [CR-002](reference/changes/CR-002-fairy-desktop-module.md) | Fairy Agent Electron 桌面端 | Accepted | Implemented |
-| [CR-003](reference/changes/CR-003-sqlite-primary-pg-compat.md) | SQLite 当前真源与历史 PG 兼容方案 | Superseded | — |
-| [CR-004](reference/changes/CR-004-persona-sqlite-persistence.md) | 人格插件 SQLite 持久化 | Accepted | Implemented |
-| [CR-005](reference/changes/CR-005-shared-workbench-web-without-pet.md) | 共享工作台与 Web 无桌宠表现层 | Accepted | Implemented |
-| [CR-006](reference/changes/CR-006-plugin-config-and-pages.md) | 插件配置解析与可视化 | Accepted | Implemented |
-| [CR-007](reference/changes/CR-007-live2d-sekai-viewer-pet.md) | 可替换 Live2D 桌宠渲染层 | Accepted | Implemented |
-| [CR-008](reference/changes/CR-008-practice-session-contract.md) | 练习会话与作答契约补全 | Accepted | Implemented |
-| [CR-009](reference/changes/CR-009-mistake-book-dismissal.md) | 错题本忽略与恢复规则 | Accepted | Implemented |
-| [CR-010](reference/changes/CR-010-review-completion-idempotency.md) | 复习完成幂等与结果重放 | Accepted | Implemented |
-| [CR-011](reference/changes/CR-011-timezone-safe-review-scheduling.md) | 时区安全的复习调度与逾期汇总 | Accepted | Implemented |
-| [CR-012](reference/changes/CR-012-agent-harness-loop.md) | Agent Harness Loop 目标规范与迁移基线 | Accepted | Implemented |
-| [CR-013](reference/changes/CR-013-practice-session-recovery.md) | 活跃练习会话恢复与续答 | Accepted | Implemented |
-| [CR-014](reference/changes/CR-014-voice-config-webui.md) | WebUI 语音输出配置 | Accepted | Implemented |
-| [CR-015](reference/changes/CR-015-llm-provider-config-webui.md) | WebUI 模型与服务 | Accepted | Implemented |
-| [CR-016](reference/changes/CR-016-offline-voice-input-asr.md) | 离线语音输入 | Accepted | Implemented |
-| [CR-017](reference/changes/CR-017-document-governance-standardization.md) | 文档治理与事实源标准化 | Accepted | Implemented |
-| [CR-018](reference/changes/CR-018-mistake-insight-workflow.md) | 错题错因记录工作流 | Accepted | Implemented |
-| [CR-019](reference/changes/CR-019-capability-registry-status-sync.md) | CAP-010~019 主仓交付裁定 | Accepted | Implemented |
-| [CR-020](reference/changes/CR-020-deterministic-practice-guidance.md) | 确定性练习反馈与下一轮建议 | Accepted | Implemented |
-| [CR-021](reference/changes/CR-021-ask-user-question-capability.md) | 向用户询问能力接入 | Accepted | Implemented |
-| [CR-022](reference/changes/CR-022-full-access-tool-permission.md) | Turn 级完全访问工具权限开关 | Accepted | Implemented |
-| [CR-023](reference/changes/CR-023-proactive-local-intelligence-mode.md) | 广域本地主动智能模式（CAP-033） | Accepted | Planned |
-| [CR-024](reference/changes/CR-024-proactive-intelligence-suite-integrations.md) | 主动智能能力套件与外部环境连接 | Accepted | Verified |
-| [CR-025](reference/changes/CR-025-desktop-first-run-onboarding.md) | 桌面端首次启动引导 | Accepted | Implemented |
-| [CR-026](reference/changes/CR-026-on-demand-diary.md) | 对话触发写日记与日记契约补全 | Accepted | Implemented |
-| [CR-027](reference/changes/CR-027-turn-stream-liveness.md) | Turn 流活性治理 | Accepted | Implemented |
-| [CR-028](reference/changes/CR-028-voice-remote-model-config.md) | 在线语音模型配置 | Accepted | Implemented |
-| [CR-029](reference/changes/CR-029-presets-and-siyu-settings.md) | 模型/语音多预设与「你的思隅」设置页 | Accepted | Implemented |
-| [CR-030](reference/changes/CR-030-pure-local-sqlite-database.md) | SQLite 永久本地单用户真源与去租户化 | Accepted | Implemented |
-| [CR-031](reference/changes/CR-031-turn-stream-pubsub-optimization.md) | Turn 实时流式推送 Pub/Sub 与轮询解耦 | Accepted | Implemented |
-| [CR-032](reference/changes/CR-032-proactive-intelligence-plugin-ecosystem.md) | 主动智能插件化与触发规则生态架构 | Accepted | Implemented |
-| [CR-033](reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md) | 主动智能终局架构：态势感知内核与预算化干预生态 | Accepted | Implemented |
-| [CR-036](reference/changes/CR-036-situation-model-shadow-projection.md) | SituationModel 影子投影与内置规则数据化 | Accepted | Verified |
-| [CR-037](reference/changes/CR-037-proactive-dsl-and-attention-budget-runtime.md) | 主动 DSL 与注意力预算运行时接线 | Accepted | Verified |
-| [CR-038](reference/changes/CR-038-perception-event-runtime.md) | 感知事件流运行时接线 | Accepted | Implemented |
-| [CR-039](reference/changes/CR-039-proactive-persona-context-runtime.md) | 主动回合人格同源与安全上下文 | Accepted | Verified |
-| [CR-040](reference/changes/CR-040-structured-operation-domain.md) | 结构化操作域与工具白名单 | Proposed | Planned |
-| [CR-041](reference/changes/CR-041-proactive-operation-proposal-loop.md) | 主动操作提议闭环 | Proposed | Planned |
-| [CR-034](reference/changes/CR-034-local-model-fallback-ladder.md) | 本地模型降级阶梯：无 API 接入时的原生能力基线 | Accepted | Implemented |
-| [CR-042](reference/changes/CR-042-local-model-routing-and-fallback.md) | 本地模型路由降级与切回 | Accepted | Verified |
-| [CR-043](reference/changes/CR-043-local-model-capability-tiering.md) | 本地模型能力分级与降级提示 | Accepted | Planned |
-| [CR-044](reference/changes/CR-044-deterministic-rule-response.md) | 确定性规则回应与本地工具执行 | Accepted | Planned |
-| [CR-045](reference/changes/CR-045-local-model-runtime-lifecycle-host.md) | 本地运行时生命周期托管 | Accepted | Planned |
-| [CR-035](reference/changes/CR-035-standard-workbench-mode.md) | 标准 AI 工作台形态：熟悉范式的原生交互壳 | Accepted | Implemented |
-| [CR-046](reference/changes/CR-046-standard-workbench-shell-and-sidebar.md) | 标准工作台交互壳与会话侧栏 (W1) | Accepted | Verified |
-| [CR-047](reference/changes/CR-047-mode-selector-and-task-center.md) | 模式切换器与统一任务中心 (W2) | Accepted | Verified |
-| [CR-048](reference/changes/CR-048-project-context-and-migration-facility.md) | 项目上下文绑定与会话迁移设施 (W3) | Proposed | Planned |
-| [CR-049](reference/changes/CR-049-ui-primitives-and-dialog-componentization.md) | UI 基础控件库与全量弹窗控件化 | Accepted | Verified |
-| [CR-050](reference/changes/CR-050-declarative-ui-plugin-registry-and-focus-mode-decoupling.md) | 工作台 UI 插件声明式注册层与专注模式彻底解耦 | Accepted | Verified |
-| [CR-052](reference/changes/CR-052-api-module-domain-grouping.md) | apps/api 模块领域分组（25 模块 → 6 域两层结构） | Accepted | Implemented |
+- 主仓库只维护反映当前系统状态的**现行权威真源（Living System Truth）**；
+- 业务需求以 [PRD](reference/PRD.md) 与 [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) 为准；
+- 架构设计与数据库契约以 [架构设计](reference/ARCHITECTURE.md) 与 [数据库契约](reference/DATABASE.md) 为准；
+- 如需回溯历史提案细节或阶段性计划推演，请查阅私有归档仓库 [Aervox-docs-archive](https://github.com/3yearsZhuang/Aervox-docs-archive)。
 
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
 
@@ -210,7 +150,7 @@ review_interval_days: 90
 
 ### 4.1 能力拆分路线（建议批次）
 
-每批 CAP 何时从 `Mapped` 转 `Specified`、按什么顺序拆分进入开发，已整合入[需求追踪基线 §4.1](reference/REQUIREMENTS_TRACEABILITY.md#41-建议交付批次与拆分原则)（历史原文见[能力拆分路线（已归档）](explanation/roadmap.md) AVX-EXPL-004）。拆分的唯一事实源是[追踪基线覆盖矩阵](reference/REQUIREMENTS_TRACEABILITY.md#4-cap-001cap-035-覆盖矩阵全部能力状态唯一速览)。
+每批 CAP 何时从 `Mapped` 转 `Specified`、按什么顺序拆分进入开发，已整合入[需求追踪基线 §4.1](reference/REQUIREMENTS_TRACEABILITY.md#41-建议交付批次与拆分原则)（历史原文见私有归档仓库 AVX-EXPL-004）。拆分的唯一事实源是[追踪基线覆盖矩阵](reference/REQUIREMENTS_TRACEABILITY.md#4-cap-001cap-035-覆盖矩阵全部能力状态唯一速览)。
 
 ## 5. 专业基线自检
 

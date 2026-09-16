@@ -7,15 +7,14 @@ doc_status: review-candidate
 decision_status: accepted
 delivery_status: verified
 version: 1.0.0
-updated_at: 2026-09-16
-reviewed_at: 2026-09-16
+updated_at: 2026-09-17
+reviewed_at: 2026-09-17
 review_interval_days: 60
 review_triggers:
   - apps/api/src/modules/proactive/proactive/integration-*.ts
   - packages/database/src/schema/proactive-intelligence.ts
   - Home Assistant REST/WebSocket 或小米 OAuth 契约变化
 sources:
-  - docs/reference/changes/CR-024-proactive-intelligence-suite-integrations.md
   - docs/reference/adr/ADR-018-proactive-local-privacy-host.md
   - docs/reference/DATA_PRIVACY.md
   - docs/reference/THREAT_MODEL.md
@@ -24,11 +23,11 @@ sources:
 # ADR-019 主动智能外部连接采用本地网关与受控工具
 
 - 提出人：3yearszhuang · 2026-08-29
-- 修改人：3yearszhuang · 2026-09-16
+- 修改人：3yearszhuang · 2026-09-17
 
 ## Context
 
-主动智能需要消费家庭环境和运动健康信号，并在用户授权后控制家庭设备。外部系统既包含局域网 Home Assistant，也包含用户获准使用的小米云 API；二者的凭据、实时性、敏感级别和撤销方式不同，不能直接暴露给 renderer 或模型。前期架构与可行性评估见已归档的[Home Assistant 集成评估](../../archive/home-assistant-integration-assessment.md)与[运动与健康数据接入评估](../../archive/health-data-integration-assessment.md)。
+主动智能需要消费家庭环境和运动健康信号，并在用户授权后控制家庭设备。外部系统既包含局域网 Home Assistant，也包含用户获准使用的小米云 API；二者的凭据、实时性、敏感级别和撤销方式不同，不能直接暴露给 renderer 或模型。前期架构与可行性评估见已移至私有归档仓库的 Home Assistant 集成评估与运动与健康数据接入评估。
 
 ## Decision drivers
 

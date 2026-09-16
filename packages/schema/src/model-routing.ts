@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/schema — 本地模型降级阶梯与健康探测留痕 (CR-034/CR-042)
  *
- * 规则依据：docs/reference/changes/CR-034-local-model-fallback-ladder.md
+ * 规则依据：CR-034（已归档至归档库）
  * - llm_health_snapshots: 预设健康探测快照与迟滞状态
  * - llm_routing_events: 切层审计事件追溯
  */

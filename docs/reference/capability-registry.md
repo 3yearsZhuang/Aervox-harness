@@ -7,15 +7,15 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.4.2
-updated_at: 2026-09-14
-reviewed_at: 2026-09-14
+updated_at: 2026-09-17
+reviewed_at: 2026-09-17
 review_interval_days: 90
 ---
 
 # 能力注册表（交付与自选状态登记）
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-09-14
+- 修改人：3yearszhuang · 2026-09-17
 
 关联：[能力组合与可选化目录规范](capability-composition.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)、[submodule 协作指南](../how-to/submodule-collaboration.md)、[文档索引](../README.md)
 
@@ -39,7 +39,7 @@ review_interval_days: 90
 |---|---|---|---|---|---|
 | CAP-018 | 桌面化 + Live2D | 候选 | 构建 | 主仓 `apps/desktop`（`@aervox/desktop`）提供 Electron/Vue 桌面入口和透明桌宠窗口，通过 `@aervox/contracts` 消费 Turn/SSE；核心数据仍归 Aervox API，Live2D 皮肤保持可替换。该端不再作为 `modules/*` 可选子模块 | ADR-009、CR-002 |
 
-> **已转主仓交付**：CAP-014 层级对话/会话地图、CAP-015 思维宇宙、CAP-016 自适应刷题与报告、CAP-017 考试日计划、CAP-019 多人格模板已于 2026-08-28 随 PR #64 在主仓实现并交付（见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)）。按[能力组合 · 模块化交付不变量](capability-composition.md#交付载体与自选机制必选)（"可选却同仓开发"即视为主仓交付，禁止平行实现），经 [CR-019](changes/CR-019-capability-registry-status-sync.md) 裁定**转主仓交付、移出自选候选**。若未来将其重新纳入自选机制，须重新通过[边界判定](capability-composition.md#核心与可选的边界判定)并另建 `CR-*` 登记。
+> **已转主仓交付**：CAP-014 层级对话/会话地图、CAP-015 思维宇宙、CAP-016 自适应刷题与报告、CAP-017 考试日计划、CAP-019 多人格模板已于 2026-08-28 随 PR #64 在主仓实现并交付（见[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)）。按[能力组合 · 模块化交付不变量](capability-composition.md#交付载体与自选机制必选)（"可选却同仓开发"即视为主仓交付，禁止平行实现），经 `CR-019`（已归档） 裁定**转主仓交付、移出自选候选**。若未来将其重新纳入自选机制，须重新通过[边界判定](capability-composition.md#核心与可选的边界判定)并另建 `CR-*` 登记。
 
 ## P2（R4 连接智能化）
 

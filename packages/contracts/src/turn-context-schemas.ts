@@ -1,7 +1,7 @@
 /**
  * CR-033 F1 共享契约：ProactiveTurnContextPort。
  *
- * 规则依据：docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md
+ * 规则依据：CR-033（已归档至归档库）
  * - P5 人格同源：主动回合复用对话侧 persona revision、记忆召回引用、safety policy；
  * - 插件 SKILL.md 只作为不可信场景叠加层，不能覆盖系统指令、身份、授权或安全策略；
  * - Worker 不直接导入 apps/api，Port 由 API 与 Worker 共享的 contracts 层承载。

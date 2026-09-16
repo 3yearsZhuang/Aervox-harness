@@ -1,7 +1,7 @@
 /**
  * CR-033 E2b 预算化裁决组合器。
  *
- * 规则依据：docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md
+ * 规则依据：CR-033（已归档至归档库）
  * - 静态冷却、静音时段和全局硬上限永远是安全底线：静态裁决（arbitrate）先行，
  *   预算裁决只在静态放行后叠加；
  * - advisory 模式与 CR-032 静态裁决器 shadow 比较（只观测不实际抑制）；
