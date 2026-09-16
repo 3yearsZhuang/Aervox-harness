@@ -6,7 +6,7 @@ import type { LocalContext } from "../../local-context.js";
 
 export interface IMemoryRepository {
   createRecord(
-    tenant: LocalContext,
+    ctx: LocalContext,
     record: {
       id: string;
       layer: string;
@@ -23,25 +23,25 @@ export interface IMemoryRepository {
       verificationStatus?: string;
     },
   ): Promise<MemoryRecordModel>;
-  getRecord(tenant: LocalContext, id: string): Promise<MemoryRecordModel | null>;
-  getRecordsByIds(tenant: LocalContext, ids: string[]): Promise<MemoryRecordModel[]>;
-  listRecordsByLayer(tenant: LocalContext, layer: string): Promise<MemoryRecordModel[]>;
+  getRecord(ctx: LocalContext, id: string): Promise<MemoryRecordModel | null>;
+  getRecordsByIds(ctx: LocalContext, ids: string[]): Promise<MemoryRecordModel[]>;
+  listRecordsByLayer(ctx: LocalContext, layer: string): Promise<MemoryRecordModel[]>;
   createEdge(
-    tenant: LocalContext,
+    ctx: LocalContext,
     edge: { id: string; fromNodeId: string; toNodeId: string; relationType: string; confidence?: number; visibilityScope?: string },
   ): Promise<MemoryEdgeModel>;
   getTreeProjection(
-    tenant: LocalContext,
+    ctx: LocalContext,
     rootRecordId?: string | null,
   ): Promise<MemoryTreeNode[]>;
-  softDeleteRecord(tenant: LocalContext, id: string): Promise<boolean>;
+  softDeleteRecord(ctx: LocalContext, id: string): Promise<boolean>;
   // P1（R2）：记忆树投影节点 / 边证据 / 算法版本
   createNode(
-    tenant: LocalContext,
+    ctx: LocalContext,
     node: { id: string; label: string; nodeType?: string; canonicalParentId?: string | null; confidence?: number; projectionVersion?: number },
   ): Promise<MemoryNodeModel>;
-  getNode(tenant: LocalContext, id: string): Promise<MemoryNodeModel | null>;
-  listNodesByTenant(tenant: LocalContext): Promise<MemoryNodeModel[]>;
+  getNode(ctx: LocalContext, id: string): Promise<MemoryNodeModel | null>;
+  listNodesByTenant(ctx: LocalContext): Promise<MemoryNodeModel[]>;
   createEdgeEvidence(
     evidence: { id: string; edgeId: string; memoryRevisionId: string },
   ): Promise<MemoryEdgeEvidenceModel>;

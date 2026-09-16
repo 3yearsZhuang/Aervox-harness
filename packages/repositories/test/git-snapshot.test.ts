@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — T-09 Git 快照导出/恢复测试
+ * Aervox｜思隅 @aervox/repositories — T-09 Git 快照导出/恢复测试
  */
 import { describe, expect, it } from "vitest";
 import { createInMemoryDatabase, initDatabaseSchema } from "../src/index.js";

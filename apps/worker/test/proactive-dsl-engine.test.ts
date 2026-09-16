@@ -16,7 +16,7 @@ import {
   canonicalDslHash,
   evaluateDslExpression,
   staticCheckDsl,
-} from "../src/proactive-dsl-engine.js";
+} from "../src/proactive/dsl-engine.js";
 
 const snapshot: SituationModelV1 = {
   version: "situation_model_v1",

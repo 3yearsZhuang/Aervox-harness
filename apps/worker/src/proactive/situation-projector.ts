@@ -17,7 +17,7 @@ import type {
   LocalContext,
   SqliteProactiveSituationRepository,
 } from "@aervox/repositories";
-import { evaluateDslExpression, staticCheckDsl } from "./proactive-dsl-engine.js";
+import { evaluateDslExpression, staticCheckDsl } from "./dsl-engine.js";
 
 const LEGACY_SHADOW_EPOCH = "legacy-shadow-v1";
 
@@ -252,10 +252,10 @@ export function legacyInputEpoch(input: LegacySituationProjectionInput): string 
 /** 仅在事实 epoch 变化时追加影子快照；E3 切换前序列只属于 legacy-shadow-v1。 */
 export async function projectLegacySituationShadow(
   repo: SqliteProactiveSituationRepository,
-  tenant: LocalContext,
+  ctx: LocalContext,
   input: LegacySituationProjectionInput,
 ): Promise<ShadowProjectionResult> {
-  const latest = await repo.getLatestSnapshot(tenant, input.revisionId);
+  const latest = await repo.getLatestSnapshot(ctx, input.revisionId);
   const inputEpoch = legacyInputEpoch(input);
   const nextSequence = input.eventWatermark?.lastEventSequence ?? (latest?.lastEventSequence ?? -1) + 1;
   const sameEventWatermark = input.eventWatermark !== undefined
@@ -271,7 +271,7 @@ export async function projectLegacySituationShadow(
   if (sameEventWatermark || latest?.sourceEpochs[LEGACY_SHADOW_EPOCH] === inputEpoch) {
     return {snapshot, persisted: false, checksum, inputEpoch};
   }
-  await repo.saveSnapshot(tenant, {
+  await repo.saveSnapshot(ctx, {
     id: `situation_${input.revisionId}_${inputEpoch.slice(0, 20)}`,
     revisionId: input.revisionId,
     schemaVersion: SITUATION_MODEL_VERSION,

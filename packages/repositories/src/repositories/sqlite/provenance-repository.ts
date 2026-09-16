@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 统一来源链 + 记忆版本/证据/事件 SQLite 仓储实现
+ * Aervox｜思隅 @aervox/repositories — 统一来源链 + 记忆版本/证据/事件 SQLite 仓储实现
  *
  * 规则依据：docs/reference/PRD.md §8（SourceArtifact/SourceRevision/MemoryRevision/MemoryEvidence/MemoryEvent）
  * 不变量：来源删除后保留 tombstone，MemoryEvidence 不随来源级联删除。
@@ -29,7 +29,7 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async createSourceArtifact(
-    tenant: LocalContext,
+    ctx: LocalContext,
     artifactData: { id: string; kind: string; ownerModule: string; occurredAt: string; ingestedAt: string },
   ): Promise<SourceArtifactModel> {
     const now = new Date().toISOString();
@@ -49,7 +49,7 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
     return created as SourceArtifactModel;
   }
 
-  async getSourceArtifact(tenant: LocalContext, id: string): Promise<SourceArtifactModel | null> {
+  async getSourceArtifact(ctx: LocalContext, id: string): Promise<SourceArtifactModel | null> {
     const [found] = await this.db
       .select()
       .from(sourceArtifacts)
@@ -62,11 +62,11 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
   }
 
   async appendSourceRevision(
-    tenant: LocalContext,
+    ctx: LocalContext,
     artifactId: string,
     revisionData: { id: string; checksum: string; content?: string | null },
   ): Promise<SourceRevisionModel> {
-    const artifact = await this.getSourceArtifact(tenant, artifactId);
+    const artifact = await this.getSourceArtifact(ctx, artifactId);
     if (!artifact) throw new RepositoryNotFoundError(`Source artifact ${artifactId} not found`);
     const [created] = await this.db
       .insert(sourceRevisions)
@@ -83,7 +83,7 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
   }
 
   async setCurrentRevision(
-    tenant: LocalContext,
+    ctx: LocalContext,
     artifactId: string,
     revisionId: string,
   ): Promise<SourceArtifactModel | null> {
@@ -101,7 +101,7 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
   }
 
   async appendMemoryRevision(
-    tenant: LocalContext,
+    ctx: LocalContext,
     revisionData: {
       id: string;
       memoryId: string;
@@ -137,7 +137,7 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
   }
 
   async setMemoryCurrentRevision(
-    tenant: LocalContext,
+    ctx: LocalContext,
     memoryId: string,
     revisionId: string,
   ): Promise<boolean> {
@@ -154,7 +154,7 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
     return !!updated;
   }
 
-  async listMemoryRevisions(tenant: LocalContext, memoryId: string): Promise<MemoryRevisionModel[]> {
+  async listMemoryRevisions(ctx: LocalContext, memoryId: string): Promise<MemoryRevisionModel[]> {
     const rows = await this.db
       .select({ rev: memoryRevisions })
       .from(memoryRevisions)
@@ -169,7 +169,7 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
   }
 
   async createMemoryEvidence(
-    tenant: LocalContext,
+    ctx: LocalContext,
     evidenceData: {
       id: string;
       memoryRevisionId: string;
@@ -194,7 +194,7 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
   }
 
   async recordMemoryEvent(
-    tenant: LocalContext,
+    ctx: LocalContext,
     eventData: {
       id: string;
       memoryId: string;
@@ -230,7 +230,7 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
     return created as MemoryEventModel;
   }
 
-  async listMemoryEvents(tenant: LocalContext, memoryId: string): Promise<MemoryEventModel[]> {
+  async listMemoryEvents(ctx: LocalContext, memoryId: string): Promise<MemoryEventModel[]> {
     const rows = await this.db
       .select({ ev: memoryEvents })
       .from(memoryEvents)

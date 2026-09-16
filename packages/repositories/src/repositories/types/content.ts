@@ -6,7 +6,7 @@ import type { LocalContext } from "../../local-context.js";
 
 export interface IContentRepository {
   createAttachment(
-    tenant: LocalContext,
+    ctx: LocalContext,
     attachment: {
       id: string;
       objectKey: string;
@@ -18,14 +18,14 @@ export interface IContentRepository {
       idempotencyKey?: string | null;
     },
   ): Promise<AttachmentModel>;
-  getAttachment(tenant: LocalContext, id: string): Promise<AttachmentModel | null>;
+  getAttachment(ctx: LocalContext, id: string): Promise<AttachmentModel | null>;
   /** CAP-012 BR-EXT-002：软删除附件 */
-  softDeleteAttachment(tenant: LocalContext, id: string): Promise<AttachmentModel | null>;
+  softDeleteAttachment(ctx: LocalContext, id: string): Promise<AttachmentModel | null>;
   /** CAP-012 BR-EXT-001：幂等键查询 */
-  getAttachmentByIdempotencyKey(tenant: LocalContext, key: string): Promise<AttachmentModel | null>;
+  getAttachmentByIdempotencyKey(ctx: LocalContext, key: string): Promise<AttachmentModel | null>;
   /** CAP-012 FR-EXT-002：创建解析结果 */
   createParseResult(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: {
       id: string;
       attachmentId: string;
@@ -39,17 +39,17 @@ export interface IContentRepository {
     },
   ): Promise<AttachmentParseResultModel>;
   /** CAP-012 FR-EXT-002：获取当前（未取代）解析结果 */
-  getActiveParseResult(tenant: LocalContext, attachmentId: string): Promise<AttachmentParseResultModel | null>;
+  getActiveParseResult(ctx: LocalContext, attachmentId: string): Promise<AttachmentParseResultModel | null>;
   /** CAP-012 BR-EXT-001 AC-02：幂等键查询解析结果 */
-  getParseResultByIdempotencyKey(tenant: LocalContext, key: string): Promise<AttachmentParseResultModel | null>;
+  getParseResultByIdempotencyKey(ctx: LocalContext, key: string): Promise<AttachmentParseResultModel | null>;
   /** CAP-012 FR-EXT-002：列出租户内附件的所有解析结果 */
-  listParseResults(tenant: LocalContext, attachmentId: string): Promise<AttachmentParseResultModel[]>;
+  listParseResults(ctx: LocalContext, attachmentId: string): Promise<AttachmentParseResultModel[]>;
   /** CAP-012 FR-EXT-002：取代旧解析结果（裁剪/转文字时） */
-  supersedeParseResult(tenant: LocalContext, parseResultId: string): Promise<void>;
+  supersedeParseResult(ctx: LocalContext, parseResultId: string): Promise<void>;
   /** CAP-012 BR-EXT-002：失效所有解析结果（删除附件时） */
-  invalidateParseResults(tenant: LocalContext, attachmentId: string): Promise<number>;
+  invalidateParseResults(ctx: LocalContext, attachmentId: string): Promise<number>;
   createEmbeddingIndex(
-    tenant: LocalContext,
+    ctx: LocalContext,
     index: {
       id: string;
       sourceArtifactId: string;
@@ -60,7 +60,7 @@ export interface IContentRepository {
       status?: string;
     },
   ): Promise<EmbeddingIndexModel>;
-  listEmbeddingIndexes(tenant: LocalContext, sourceArtifactId: string): Promise<EmbeddingIndexModel[]>;
+  listEmbeddingIndexes(ctx: LocalContext, sourceArtifactId: string): Promise<EmbeddingIndexModel[]>;
 }
 
 export interface StudyMaterialModel {

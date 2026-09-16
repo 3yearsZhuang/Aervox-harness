@@ -6,22 +6,22 @@ import type { LocalContext } from "../../local-context.js";
 
 export interface IPlatformRepository {
   createScheduledJob(
-    tenant: LocalContext,
+    ctx: LocalContext,
     job: { id: string; jobType: string; subjectId: string; idempotencyKey: string; runAt: string },
   ): Promise<ScheduledJobModel>;
-  markJobDone(tenant: LocalContext, id: string): Promise<ScheduledJobModel | null>;
+  markJobDone(ctx: LocalContext, id: string): Promise<ScheduledJobModel | null>;
   createNotification(
-    tenant: LocalContext,
+    ctx: LocalContext,
     notification: { id: string; type: string; scheduledAt: string; channel: string; payload?: unknown },
   ): Promise<NotificationModel>;
-  markNotificationSent(tenant: LocalContext, id: string): Promise<NotificationModel | null>;
-  listNotifications(tenant: LocalContext, limit?: number): Promise<NotificationModel[]>;
+  markNotificationSent(ctx: LocalContext, id: string): Promise<NotificationModel | null>;
+  listNotifications(ctx: LocalContext, limit?: number): Promise<NotificationModel[]>;
   createPromptVersion(
     version: { id: string; purpose: string; version: number; checksum: string; status?: string },
   ): Promise<PromptVersionModel>;
   getPromptVersion(purpose: string, version: number): Promise<PromptVersionModel | null>;
   createModelRun(
-    tenant: LocalContext,
+    ctx: LocalContext,
     run: {
       id: string;
       purpose: string;
@@ -31,11 +31,11 @@ export interface IPlatformRepository {
     },
   ): Promise<ModelRunModel>;
   completeModelRun(
-    tenant: LocalContext,
+    ctx: LocalContext,
     id: string,
     result: { latencyMs?: number; tokenUsage?: unknown; cost?: number; status?: string },
   ): Promise<ModelRunModel | null>;
-  attachContextManifest(tenant: LocalContext, modelRunId: string, manifestId: string): Promise<ModelRunModel | null>;
+  attachContextManifest(ctx: LocalContext, modelRunId: string, manifestId: string): Promise<ModelRunModel | null>;
   createContextManifest(
     manifest: {
       id: string;
@@ -49,7 +49,7 @@ export interface IPlatformRepository {
     },
   ): Promise<ContextManifestModel>;
   createAuditRecord(
-    tenant: LocalContext,
+    ctx: LocalContext,
     record: {
       id: string;
       actorType: string;
@@ -60,7 +60,7 @@ export interface IPlatformRepository {
       metadata?: unknown;
     },
   ): Promise<AuditRecordModel>;
-  listAuditRecords(tenant: LocalContext, limit?: number): Promise<AuditRecordModel[]>;
+  listAuditRecords(ctx: LocalContext, limit?: number): Promise<AuditRecordModel[]>;
   // MVP 补齐（PRD §8）：工具策略 + 评估集（系统级，无租户列）
   createToolPolicy(policy: {
     id: string;

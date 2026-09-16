@@ -139,11 +139,11 @@ export class SqlitePerceptionEventRepository {
 
   /** 消费一批 ready 事件（offset 之后；过期 consumer fail-closed 拒绝）。 */
   async consume(
-    tenant: LocalContext,
+    ctx: LocalContext,
     consumerId: string,
     batchSize = 64,
   ): Promise<Array<PerceptionEventRow>> {
-    const cursor = await this.ensureConsumer(tenant, consumerId);
+    const cursor = await this.ensureConsumer(ctx, consumerId);
     if (cursor.expired) return []; // fail-closed：过期 cursor 必须先重置
     const rows = await this.db
       .select()

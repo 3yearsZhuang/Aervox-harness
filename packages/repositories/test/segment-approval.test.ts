@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — E：授权快照幂等 + 安全片段原子化（§12.2）
+ * Aervox｜思隅 @aervox/repositories — E：授权快照幂等 + 安全片段原子化（§12.2）
  *
  * - recordToolApproval 幂等：同 (toolName, argumentsHash) 已存在 pending 则复用既有行，
  *   不重复插入（授权匹配键跨 turn 复用）；granted/denied 后新请求才新建。
@@ -11,7 +11,7 @@ import { createInMemoryDatabase, initDatabaseSchema, SqliteConversationRepositor
 import { FencingMismatchError } from "../src/errors.js";
 import type { Client } from "@libsql/client";
 
-const tenant: LocalContext = { workspaceId: "ws_e", subjectUserId: "usr_e" };
+const ctx: LocalContext = { workspaceId: "ws_e", subjectUserId: "usr_e" };
 
 describe("E1 授权快照幂等（recordToolApproval）", () => {
   let db: AervoxDatabase;
@@ -24,35 +24,35 @@ describe("E1 授权快照幂等（recordToolApproval）", () => {
     client = res.client;
     await initDatabaseSchema(client);
     repo = new SqliteConversationRepository(db);
-    await repo.getOrCreateSession(tenant, "ses_e1", "E1 授权幂等");
+    await repo.getOrCreateSession(ctx, "ses_e1", "E1 授权幂等");
     await repo.createTurnWithOutbox(
-      tenant,
+      ctx,
       { id: "turn_e1", sessionId: "ses_e1", idempotencyKey: "idem_e1", status: "Created" },
       { id: "msg_e1", content: "x" },
     );
-    await repo.createTurnAttempt(tenant, "turn_e1", { id: "atp_e1", attempt: 1 });
+    await repo.createTurnAttempt(ctx, "turn_e1", { id: "atp_e1", attempt: 1 });
   });
 
   it("同 (toolName, argumentsHash) 重复 pending → 复用既有行，不重复插入", async () => {
-    const first = await repo.recordToolApproval(tenant, {
+    const first = await repo.recordToolApproval(ctx, {
       turnId: "turn_e1", attemptId: "atp_e1", toolName: "aervox_save_note", argumentsHash: "hash_x",
       requester: "usr_e", state: "pending",
     });
-    const second = await repo.recordToolApproval(tenant, {
+    const second = await repo.recordToolApproval(ctx, {
       turnId: "turn_e1", attemptId: "atp_e1", toolName: "aervox_save_note", argumentsHash: "hash_x",
       requester: "usr_e", state: "pending",
     });
     expect(second.id).toBe(first.id); // 复用
-    const all = await repo.listToolApprovalsByTurn(tenant, "turn_e1");
+    const all = await repo.listToolApprovalsByTurn(ctx, "turn_e1");
     expect(all.filter((a) => a.state === "pending")).toHaveLength(1);
   });
 
   it("不同 argumentsHash → 各自新建", async () => {
-    const a = await repo.recordToolApproval(tenant, {
+    const a = await repo.recordToolApproval(ctx, {
       turnId: "turn_e1", attemptId: "atp_e1", toolName: "aervox_save_note", argumentsHash: "hash_1",
       requester: "usr_e", state: "pending",
     });
-    const b = await repo.recordToolApproval(tenant, {
+    const b = await repo.recordToolApproval(ctx, {
       turnId: "turn_e1", attemptId: "atp_e1", toolName: "aervox_save_note", argumentsHash: "hash_2",
       requester: "usr_e", state: "pending",
     });
@@ -60,12 +60,12 @@ describe("E1 授权快照幂等（recordToolApproval）", () => {
   });
 
   it("pending 被决定后（granted）再请求同参数 → 新建新 pending（不复用已决）", async () => {
-    const pending = await repo.recordToolApproval(tenant, {
+    const pending = await repo.recordToolApproval(ctx, {
       turnId: "turn_e1", attemptId: "atp_e1", toolName: "aervox_save_note", argumentsHash: "hash_g",
       requester: "usr_e", state: "pending",
     });
-    await repo.decideToolApproval(tenant, pending.id, "granted", "admin");
-    const again = await repo.recordToolApproval(tenant, {
+    await repo.decideToolApproval(ctx, pending.id, "granted", "admin");
+    const again = await repo.recordToolApproval(ctx, {
       turnId: "turn_e1", attemptId: "atp_e1", toolName: "aervox_save_note", argumentsHash: "hash_g",
       requester: "usr_e", state: "pending",
     });
@@ -84,15 +84,15 @@ describe("E2 安全片段原子化（safe_segments）", () => {
     const n = (++seq).toString(36);
     const turnId = `turn_e2_${n}`;
     const sessionId = `ses_e2_${n}`;
-    await repo.getOrCreateSession(tenant, sessionId, "E2 安全片段");
+    await repo.getOrCreateSession(ctx, sessionId, "E2 安全片段");
     await repo.createTurnWithOutbox(
-      tenant,
+      ctx,
       { id: turnId, sessionId, idempotencyKey: `idem_${turnId}`, status: "Created" },
       { id: `msg_${turnId}`, content: "x" },
       { id: `ob_${turnId}`, eventType: "turn.created", idempotencyKey: `idem_ob_${turnId}`, payload: { turnId } },
     );
     const attemptId = `atp_e2_${n}`;
-    await repo.createTurnAttempt(tenant, turnId, { id: attemptId, attempt: 1 });
+    await repo.createTurnAttempt(ctx, turnId, { id: attemptId, attempt: 1 });
     return { turnId, attemptId };
   };
 
@@ -106,19 +106,19 @@ describe("E2 安全片段原子化（safe_segments）", () => {
 
   it("recordSafeSegmentAtomically：安全片段 + delta 事件同事务写入", async () => {
     const { turnId, attemptId } = await nextTurn();
-    const claim = await repo.claimTurnAttempt(tenant, { turnId, attemptId, expectedFencingToken: 0, leaseId: "lease_e2a", ttlMs: 60_000 });
+    const claim = await repo.claimTurnAttempt(ctx, { turnId, attemptId, expectedFencingToken: 0, leaseId: "lease_e2a", ttlMs: 60_000 });
     expect(claim.ok).toBe(true);
     if (!claim.ok) return;
 
-    const ok = await repo.recordSafeSegmentAtomically(tenant, {
+    const ok = await repo.recordSafeSegmentAtomically(ctx, {
       turnId, attemptId, sequence: 2, text: "第一段", eventData: { text: "第一段", isFinal: false },
       safetyDecision: "approved", expectedFencingToken: claim.fencingToken,
     });
     expect(ok).toBe(true);
 
-    const events = await repo.getStreamEvents(tenant, turnId, 0);
+    const events = await repo.getStreamEvents(ctx, turnId, 0);
     expect(events.some((e) => e.eventType === "delta" && (e.data as { text?: string })?.text === "第一段")).toBe(true);
-    const segments = await repo.listCommittedSegments(tenant, turnId);
+    const segments = await repo.listCommittedSegments(ctx, turnId);
     expect(segments).toHaveLength(1);
     expect(segments[0]).toMatchObject({ sequence: 2, text: "第一段" });
     expect(segments[0]!.streamEventId).toBeTruthy(); // 已关联事件
@@ -126,26 +126,26 @@ describe("E2 安全片段原子化（safe_segments）", () => {
 
   it("recordSafeSegmentAtomically：fencing 失配 → 抛错且无部分写入", async () => {
     const { turnId, attemptId } = await nextTurn();
-    const claim = await repo.claimTurnAttempt(tenant, { turnId, attemptId, expectedFencingToken: 0, leaseId: "lease_e2b", ttlMs: 60_000 });
+    const claim = await repo.claimTurnAttempt(ctx, { turnId, attemptId, expectedFencingToken: 0, leaseId: "lease_e2b", ttlMs: 60_000 });
     expect(claim.ok).toBe(true);
     if (!claim.ok) return;
 
     await expect(
-      repo.recordSafeSegmentAtomically(tenant, {
+      repo.recordSafeSegmentAtomically(ctx, {
         turnId, attemptId, sequence: 2, text: "迟到", eventData: { text: "迟到" },
         safetyDecision: "approved", expectedFencingToken: claim.fencingToken + 100,
       }),
     ).rejects.toThrow(FencingMismatchError);
 
     // 无部分写入：无 delta 事件、无安全片段
-    const events = await repo.getStreamEvents(tenant, turnId, 0);
+    const events = await repo.getStreamEvents(ctx, turnId, 0);
     expect(events.some((e) => e.eventType === "delta")).toBe(false);
-    expect(await repo.listCommittedSegments(tenant, turnId)).toHaveLength(0);
+    expect(await repo.listCommittedSegments(ctx, turnId)).toHaveLength(0);
   });
 
   it("recordSafeSegmentsAtomically：跨分块失败时整批回滚", async () => {
     const { turnId, attemptId } = await nextTurn();
-    const claim = await repo.claimTurnAttempt(tenant, {
+    const claim = await repo.claimTurnAttempt(ctx, {
       turnId,
       attemptId,
       expectedFencingToken: 0,
@@ -170,23 +170,23 @@ describe("E2 安全片段原子化（safe_segments）", () => {
       };
     });
 
-    await expect(repo.recordSafeSegmentsAtomically(tenant, inputs)).rejects.toThrow();
-    expect(await repo.getStreamEvents(tenant, turnId, 0)).toHaveLength(0);
-    expect(await repo.listCommittedSegments(tenant, turnId)).toHaveLength(0);
+    await expect(repo.recordSafeSegmentsAtomically(ctx, inputs)).rejects.toThrow();
+    expect(await repo.getStreamEvents(ctx, turnId, 0)).toHaveLength(0);
+    expect(await repo.listCommittedSegments(ctx, turnId)).toHaveLength(0);
   });
 
   it("listCommittedSegments：按 sequence 升序返回可见前缀", async () => {
     const { turnId, attemptId } = await nextTurn();
-    const claim = await repo.claimTurnAttempt(tenant, { turnId, attemptId, expectedFencingToken: 0, leaseId: "lease_e2c", ttlMs: 60_000 });
+    const claim = await repo.claimTurnAttempt(ctx, { turnId, attemptId, expectedFencingToken: 0, leaseId: "lease_e2c", ttlMs: 60_000 });
     expect(claim.ok).toBe(true);
     if (!claim.ok) return;
     for (const [seqNo, text] of [[2, "第一"], [3, "第二"], [1, "零"]]) {
-      await repo.recordSafeSegmentAtomically(tenant, {
+      await repo.recordSafeSegmentAtomically(ctx, {
         turnId, attemptId, sequence: seqNo, text, eventData: { text }, safetyDecision: "approved",
         expectedFencingToken: claim.fencingToken,
       });
     }
-    const segments = await repo.listCommittedSegments(tenant, turnId);
+    const segments = await repo.listCommittedSegments(ctx, turnId);
     expect(segments.map((s) => s.text)).toEqual(["零", "第一", "第二"]);
   });
 });

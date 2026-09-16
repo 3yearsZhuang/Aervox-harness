@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.3
-updated_at: 2026-09-14
-reviewed_at: 2026-09-14
+version: 1.0.4
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 ---
 
 # 从哪开始（新成员 / AI Agent 入口）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-14
+- 修改人：3yearszhuang · 2026-09-16
 
 关联：[文档索引](README.md)（AVX-DOC-001）
 
@@ -41,7 +41,7 @@ docs/
   reference/             # 参考类（AVX-PRD/SRS/SAD/TRC/SPC/DB/DATA/AIQ/SEC/QA/OPS 等）
     adr/                 # ADR-001~019 + 索引
     changes/             # CR-002～035
-    standards/           # 文档写作规范（AVX-STD-001）· 术语表（AVX-TERM-001）
+    standards/           # 文档写作规范（AVX-STD-001）· 代码与 API 命名规范（AVX-STD-002）· 术语表（AVX-TERM-001）
     diagrams/            # 数据库 ERD（.mmd）
     PRD.md · ARCHITECTURE.md · SRS.md · REQUIREMENTS_TRACEABILITY.md
     capability-composition.md

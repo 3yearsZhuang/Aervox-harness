@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 记忆与记忆树实体表
+ * Aervox｜思隅 @aervox/schema — 记忆与记忆树实体表
  *
  * 规则依据：docs/reference/adr/ADR-007-memory-tree-projection.md + SRS BR-MEM-001/003 + PRD §8
  *

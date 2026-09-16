@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 内容/生态扩展实体表（P2/P3）
+ * Aervox｜思隅 @aervox/schema — 内容/生态扩展实体表（P2/P3）
  *
  * 规则依据：docs/reference/PRD.md §8 数据模型
  * （ExternalSource / Plugin / PluginGrant / CommunityContent / Organization）

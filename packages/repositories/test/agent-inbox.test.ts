@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 阶段 5a Agent 收件箱仓储测试
+ * Aervox｜思隅 @aervox/repositories — 阶段 5a Agent 收件箱仓储测试
  *
  * 覆盖 ADR-017 / AVX-HAR-001 §7.2：
  * - enqueue 幂等（同 idempotencyKey 重复提交返回既有项）；

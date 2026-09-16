@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 挂起提问会话（pending_user_questions）SQLite 仓储
+ * Aervox｜思隅 @aervox/repositories — 挂起提问会话（pending_user_questions）SQLite 仓储
  *
  * 缺陷 C：UserQuestionCoordinator 的挂起提问原先只在进程内存，进程重启后内存态
  * 丢失、客户端回答 409、Turn 永久悬挂。本仓储提供持久化真源：
@@ -31,7 +31,7 @@ const toModel = (row: PendingRow): PendingUserQuestionModel => ({
 export class SqliteUserQuestionRepository implements IUserQuestionRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
-  async upsertPending(tenant: LocalContext, input: PendingUserQuestionUpsertInput): Promise<void> {
+  async upsertPending(ctx: LocalContext, input: PendingUserQuestionUpsertInput): Promise<void> {
     await this.db
       .insert(pendingUserQuestions)
       .values({
@@ -56,7 +56,7 @@ export class SqliteUserQuestionRepository implements IUserQuestionRepository {
       });
   }
 
-  async getPending(tenant: LocalContext, turnId: string): Promise<PendingUserQuestionModel | null> {
+  async getPending(ctx: LocalContext, turnId: string): Promise<PendingUserQuestionModel | null> {
     const [row] = await this.db
       .select()
       .from(pendingUserQuestions)
@@ -68,7 +68,7 @@ export class SqliteUserQuestionRepository implements IUserQuestionRepository {
     return row ? toModel(row) : null;
   }
 
-  async deletePending(tenant: LocalContext, turnId: string): Promise<void> {
+  async deletePending(ctx: LocalContext, turnId: string): Promise<void> {
     await this.db
       .delete(pendingUserQuestions)
       .where(

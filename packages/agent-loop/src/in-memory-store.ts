@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/agent-loop — 内存 Execution Store（阶段 0 测试骨架）
  *
  * 实现 ExecutionStorePort 供契约测试与固定回放夹具使用；生产由宿主以
- * @aervox/database 仓储适配（见 apps/api），两者行为约定以本文件为基准。
+ * @aervox/repositories 仓储适配（见 apps/api），两者行为约定以本文件为基准。
  */
 import type { AgentStreamEvent, AgentStreamEventInput, ExecutionStorePort } from "./ports.js";
 import type {

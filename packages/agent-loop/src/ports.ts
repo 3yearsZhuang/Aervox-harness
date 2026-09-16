@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/agent-loop — Port 契约（阶段 0）
  *
  * Loop 应用层只依赖本端口，不得导入 Drizzle/@libsql 或具体 SQLite 类（AVX-HAR-001 §15 阶段 0）。
- * 宿主持有实现：生产走 @aervox/database 仓储适配，测试走内存实现。
+ * 宿主持有实现：生产走 @aervox/repositories 仓储适配，测试走内存实现。
  */
 import type {
   AgentInboxCommand,
@@ -271,7 +271,7 @@ export interface ContextCompactionPort {
 
 /**
  * 阶段 5a：受控收件箱（ADR-017）。外部插件/用户只能提交受限 inbox command，
- * 消费采用 claim/ack，崩溃后可安全重放。实现由宿主持有（生产走 @aervox/database 仓储，
+ * 消费采用 claim/ack，崩溃后可安全重放。实现由宿主持有（生产走 @aervox/repositories 仓储，
  * 测试走内存实现）；Loop 应用层只依赖本端口。
  */
 export interface InboxPort {

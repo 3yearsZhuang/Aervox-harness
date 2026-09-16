@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 事务 Outbox SQLite 仓储实现
+ * Aervox｜思隅 @aervox/repositories — 事务 Outbox SQLite 仓储实现
  *
  * 规则依据：ADR-004 + ADR-013
  */
@@ -13,7 +13,7 @@ export class SqliteOutboxRepository implements IOutboxRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async insertEvent(
-    tenant: LocalContext,
+    ctx: LocalContext,
     eventData: {
       id: string;
       idempotencyKey: string;

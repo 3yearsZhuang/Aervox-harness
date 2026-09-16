@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 人格与上下文快照实体表（CAP-019/CAP-020）
+ * Aervox｜思隅 @aervox/schema — 人格与上下文快照实体表（CAP-019/CAP-020）
  */
 import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { timestampColumns } from "./common.js";

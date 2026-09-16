@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 内容/生态扩展域 SQLite 仓储实现
+ * Aervox｜思隅 @aervox/repositories — 内容/生态扩展域 SQLite 仓储实现
  *
  * 规则依据：docs/reference/PRD.md §8（ExternalSource/Plugin/PluginGrant/CommunityContent/Organization）
  * P2/P3 扩展实体：先落表为后续生态/社区功能预留。
@@ -27,7 +27,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async createExternalSource(
-    tenant: LocalContext,
+    ctx: LocalContext,
     sourceData: { id: string; provider: string; externalId: string; permissionScope: string; syncState?: string },
   ): Promise<ExternalSourceModel> {
     const now = new Date().toISOString();
@@ -46,7 +46,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
     return created as ExternalSourceModel;
   }
 
-  async getExternalSource(tenant: LocalContext, id: string): Promise<ExternalSourceModel | null> {
+  async getExternalSource(ctx: LocalContext, id: string): Promise<ExternalSourceModel | null> {
     const [found] = await this.db
       .select()
       .from(externalSources)
@@ -157,7 +157,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
   }
 
   async grantPlugin(
-    tenant: LocalContext,
+    ctx: LocalContext,
     grantData: { id: string; pluginId: string; permission: string; scope: string; grantedAt?: string },
   ): Promise<PluginGrantModel> {
     const now = new Date().toISOString();
@@ -176,7 +176,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
     return created as PluginGrantModel;
   }
 
-  async revokePluginGrant(tenant: LocalContext, id: string): Promise<PluginGrantModel | null> {
+  async revokePluginGrant(ctx: LocalContext, id: string): Promise<PluginGrantModel | null> {
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(pluginGrants)
@@ -190,7 +190,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
     return (updated as PluginGrantModel) ?? null;
   }
 
-  async hasPluginPermission(tenant: LocalContext, pluginId: string, permission: string): Promise<boolean> {
+  async hasPluginPermission(ctx: LocalContext, pluginId: string, permission: string): Promise<boolean> {
     const [found] = await this.db
       .select()
       .from(pluginGrants)
@@ -208,7 +208,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
 
   /** CR-032：带 scope 的授权检查（感知源授权 permission=proactive.sensor, scope=sourceId） */
   async hasPluginGrant(
-    tenant: LocalContext,
+    ctx: LocalContext,
     pluginId: string,
     permission: string,
     scope: string,
@@ -229,7 +229,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
   }
 
   /** CR-032：按 permission 批量列出全部有效授权（Worker 物化器一次载入感知源授权矩阵） */
-  async listActiveGrantsByPermission(tenant: LocalContext, permission: string): Promise<PluginGrantModel[]> {
+  async listActiveGrantsByPermission(ctx: LocalContext, permission: string): Promise<PluginGrantModel[]> {
     const rows = await this.db
       .select()
       .from(pluginGrants)
@@ -243,7 +243,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
   }
 
   async createCommunityContent(
-    tenant: LocalContext,
+    ctx: LocalContext,
     contentData: { id: string; authorId: string; type: string; status?: string; reviewState?: string; visibility?: string },
   ): Promise<CommunityContentModel> {
     const now = new Date().toISOString();
@@ -263,7 +263,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
     return created as CommunityContentModel;
   }
 
-  async getCommunityContent(tenant: LocalContext, id: string): Promise<CommunityContentModel | null> {
+  async getCommunityContent(ctx: LocalContext, id: string): Promise<CommunityContentModel | null> {
     const [found] = await this.db
       .select()
       .from(communityContents)
@@ -276,7 +276,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
   }
 
   async createOrganization(
-    tenant: LocalContext,
+    ctx: LocalContext,
     orgData: { id: string; ownerId: string; memberScope?: string; policyVersion: string },
   ): Promise<OrganizationModel> {
     const now = new Date().toISOString();
@@ -294,7 +294,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
     return created as OrganizationModel;
   }
 
-  async getOrganization(tenant: LocalContext, id: string): Promise<OrganizationModel | null> {
+  async getOrganization(ctx: LocalContext, id: string): Promise<OrganizationModel | null> {
     const [found] = await this.db
       .select()
       .from(organizations)

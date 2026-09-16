@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 安全事件实体表
+ * Aervox｜思隅 @aervox/schema — 安全事件实体表
  *
  * 规则依据：docs/reference/PRD.md §8 数据模型（SafetyIncident）
  * 访问受限：不写入普通记忆或分析明细。

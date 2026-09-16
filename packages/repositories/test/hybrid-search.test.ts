@@ -24,7 +24,7 @@ describe("T-02 混合检索（FTS + 向量 RRF 融合）", () => {
   let client: Client;
   let vectorPort: InMemoryVectorSearchAdapter;
 
-  const tenant: LocalContext = { workspaceId: "ws_1", subjectUserId: "usr_1" };
+  const ctx: LocalContext = { workspaceId: "ws_1", subjectUserId: "usr_1" };
   const other: LocalContext = { workspaceId: "ws_9", subjectUserId: "usr_9" };
 
   beforeEach(async () => {
@@ -37,12 +37,12 @@ describe("T-02 混合检索（FTS + 向量 RRF 融合）", () => {
 
   it("双通道命中：RRF 融合排序并标记 hybrid / 单通道来源", async () => {
     // FTS5 unicode61 以空格为分词单元，中文内容需空格分隔；仅 mango 命中"苹果"
-    await indexMessageFts(client, tenant, { id: "mango", content: "苹果 很好吃" });
-    await indexMessageFts(client, tenant, { id: "banana", content: "香蕉 也不错" });
-    await indexMessageFts(client, tenant, { id: "game", content: "游戏 时间到" });
+    await indexMessageFts(client, ctx, { id: "mango", content: "苹果 很好吃" });
+    await indexMessageFts(client, ctx, { id: "banana", content: "香蕉 也不错" });
+    await indexMessageFts(client, ctx, { id: "game", content: "游戏 时间到" });
 
     // 向量：apple 语义最近的是 apple 条目；id 与 FTS 可重叠或不同
-    await vectorPort.upsert(tenant, [
+    await vectorPort.upsert(ctx, [
       { id: "mango", vector: V.apple },
       { id: "apple", vector: V.apple },
       { id: "banana", vector: V.banana },
@@ -51,7 +51,7 @@ describe("T-02 混合检索（FTS + 向量 RRF 融合）", () => {
     const hybrid = createHybridSearchStorage({ domain: "message", client, vectorPort });
     const service = new HybridSearchService(hybrid, "message");
 
-    const results = await service.search(tenant, {
+    const results = await service.search(ctx, {
       queryText: "苹果",
       queryVector: V.apple,
       topK: 10,
@@ -73,14 +73,14 @@ describe("T-02 混合检索（FTS + 向量 RRF 融合）", () => {
   });
 
   it("FTS 通道为空时降级为纯向量结果", async () => {
-    await vectorPort.upsert(tenant, [
+    await vectorPort.upsert(ctx, [
       { id: "apple", vector: V.apple },
       { id: "game", vector: V.game },
     ]);
     const hybrid = createHybridSearchStorage({ domain: "message", client, vectorPort });
     const service = new HybridSearchService(hybrid, "message");
 
-    const results = await service.search(tenant, {
+    const results = await service.search(ctx, {
       queryText: "   ", // 空/纯空白 → FTS 空
       queryVector: V.apple,
       limit: 5,
@@ -92,11 +92,11 @@ describe("T-02 混合检索（FTS + 向量 RRF 融合）", () => {
   });
 
   it("向量通道为空时降级为纯 FTS 结果", async () => {
-    await indexMessageFts(client, tenant, { id: "mango", content: "苹果 派" });
+    await indexMessageFts(client, ctx, { id: "mango", content: "苹果 派" });
     const hybrid = createHybridSearchStorage({ domain: "message", client, vectorPort });
     const service = new HybridSearchService(hybrid, "message");
 
-    const results = await service.search(tenant, {
+    const results = await service.search(ctx, {
       queryText: "苹果",
       queryVector: V.game, // 向量通道无数据 → 空
       limit: 5,
@@ -108,9 +108,9 @@ describe("T-02 混合检索（FTS + 向量 RRF 融合）", () => {
   });
 
   it("memory 域：memories_fts 与向量融合", async () => {
-    await indexMemoryFts(client, tenant, { id: "mem_a", content: "用户喜欢学习 TypeScript" });
-    await indexMemoryFts(client, tenant, { id: "mem_b", content: "用户偏好深色主题" });
-    await vectorPort.upsert(tenant, [
+    await indexMemoryFts(client, ctx, { id: "mem_a", content: "用户喜欢学习 TypeScript" });
+    await indexMemoryFts(client, ctx, { id: "mem_b", content: "用户偏好深色主题" });
+    await vectorPort.upsert(ctx, [
       { id: "mem_a", vector: V.apple },
       { id: "mem_b", vector: V.banana },
     ]);
@@ -118,7 +118,7 @@ describe("T-02 混合检索（FTS + 向量 RRF 融合）", () => {
     const hybrid = createHybridSearchStorage({ domain: "memory", client, vectorPort });
     const service = new HybridSearchService(hybrid, "memory");
 
-    const results = await service.search(tenant, {
+    const results = await service.search(ctx, {
       queryText: "TypeScript",
       queryVector: V.apple,
       limit: 5,
@@ -130,7 +130,7 @@ describe("T-02 混合检索（FTS + 向量 RRF 融合）", () => {
   });
 
   it("不同兼容上下文共享本地 FTS 召回", async () => {
-    await indexMessageFts(client, tenant, { id: "mango", content: "苹果 派" });
+    await indexMessageFts(client, ctx, { id: "mango", content: "苹果 派" });
     const hybrid = createHybridSearchStorage({ domain: "message", client, vectorPort });
     const service = new HybridSearchService(hybrid, "message");
 
@@ -146,12 +146,12 @@ describe("T-02 混合检索（FTS + 向量 RRF 融合）", () => {
 
   it("limit 生效：只返回 topK 上限的条数", async () => {
     for (let i = 0; i < 6; i += 1) {
-      await indexMessageFts(client, tenant, { id: `m${i}`, content: "苹果 每日一学" });
+      await indexMessageFts(client, ctx, { id: `m${i}`, content: "苹果 每日一学" });
     }
     const hybrid = createHybridSearchStorage({ domain: "message", client, vectorPort });
     const service = new HybridSearchService(hybrid, "message");
 
-    const results = await service.search(tenant, { queryText: "苹果", queryVector: V.apple, limit: 3 });
+    const results = await service.search(ctx, { queryText: "苹果", queryVector: V.apple, limit: 3 });
     expect(results.length).toBe(3);
   });
 });

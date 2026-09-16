@@ -8,7 +8,7 @@ import {
   type AervoxDatabase,
 } from "../src/index.js";
 
-const tenant = {workspaceId: "ws_intel", subjectUserId: "usr_intel"} as const;
+const ctx = {workspaceId: "ws_intel", subjectUserId: "usr_intel"} as const;
 const other = {workspaceId: "ws_other", subjectUserId: "usr_other"} as const;
 
 describe("proactive intelligence repository", () => {
@@ -28,7 +28,7 @@ describe("proactive intelligence repository", () => {
   });
 
   it("persists the twelve intelligence surfaces with local-only models", async () => {
-    const timeline = await repo.createTimelineEvent(tenant, {
+    const timeline = await repo.createTimelineEvent(ctx, {
       id: "timeline_1", revisionId: "profile_1", sourceGrantId: "source_1",
       sourceKey: "aervox.operation", eventType: "tool.opened", subjectKey: "project:alpha",
       title: "Opened the Alpha workspace", summary: "Deep work began", payload: {tool: "editor"},
@@ -37,72 +37,72 @@ describe("proactive intelligence repository", () => {
     });
     expect(timeline.title).toContain("Alpha");
 
-    await repo.upsertProject(tenant, {
+    await repo.upsertProject(ctx, {
       id: "project_1", revisionId: "profile_1", title: "Alpha", objective: "Ship Alpha",
       description: "Private project", status: "active", priority: 80, confidence: 90,
       dueAt: "2026-09-10T00:00:00.000Z", lastActivityAt: timeline.occurredAt,
       sourceTimelineIds: [timeline.id],
     });
-    await repo.upsertRelationship(tenant, {
+    await repo.upsertRelationship(ctx, {
       id: "relationship_1", revisionId: "profile_1", relationshipType: "collaborator",
       displayName: "Alice", notes: "Prefers concise updates", confidence: 85,
       lastInteractionAt: timeline.occurredAt, sourceGrantIds: ["source_1"],
     });
-    await repo.createCommitment(tenant, {
+    await repo.createCommitment(ctx, {
       id: "commitment_1", revisionId: "profile_1", projectId: "project_1",
       relationshipId: "relationship_1", content: "Send Alpha update", status: "open",
       importance: 90, dueAt: "2026-08-30T09:00:00.000Z", sourceTimelineId: timeline.id,
     });
-    await repo.upsertWorkflow(tenant, {
+    await repo.upsertWorkflow(ctx, {
       id: "workflow_1", revisionId: "profile_1", name: "Prepare Alpha workspace",
       description: "Open editor and task board", state: "candidate", trigger: {weekday: true},
       steps: [{tool: "editor.open"}, {tool: "tasks.open"}], evidenceCount: 3,
       successCount: 0, failureCount: 0, lastObservedAt: timeline.occurredAt,
     });
-    await repo.upsertTriggerRule(tenant, {
+    await repo.upsertTriggerRule(ctx, {
       id: "rule_1", revisionId: "profile_1", name: "Prepare before commitment",
       triggerType: "commitment_due", condition: {minutesBefore: 30}, action: {kind: "prepare"},
       enabled: true, cooldownSeconds: 1800, quietHours: {start: "22:00", end: "07:00"},
       lastTriggeredAt: null,
     });
-    await repo.recordTriggerEvent(tenant, {
+    await repo.recordTriggerEvent(ctx, {
       id: "trigger_1", revisionId: "profile_1", ruleId: "rule_1", triggerType: "commitment_due",
       cause: {commitmentId: "commitment_1"}, decision: "prepared", reason: "due_soon",
     });
-    await repo.upsertActionVerification(tenant, {
+    await repo.upsertActionVerification(ctx, {
       id: "verification_1", actionId: "action_1", expected: {fileExists: true},
       observed: {fileExists: true}, status: "verified", attemptCount: 1,
       verifiedAt: "2026-08-29T08:01:00.000Z",
     });
-    await repo.createClaimConflict(tenant, {
+    await repo.createClaimConflict(ctx, {
       id: "conflict_1", revisionId: "profile_1", primaryClaimId: "claim_1",
       conflictingClaimId: "claim_2", reason: "same subject has different preferred time",
     });
-    await repo.createPreparation(tenant, {
+    await repo.createPreparation(ctx, {
       id: "preparation_1", revisionId: "profile_1", projectId: "project_1",
       commitmentId: "commitment_1", title: "Alpha briefing", bundle: {timelineIds: [timeline.id]},
     });
-    await repo.createAttentionState(tenant, {
+    await repo.createAttentionState(ctx, {
       id: "attention_1", revisionId: "profile_1", windowStart: "2026-08-29T08:00:00.000Z",
       windowEnd: "2026-08-29T09:00:00.000Z", focusScore: 72, fatigueScore: 28,
       contextSwitches: 3, recommendation: "Continue deep work", evidence: [timeline.id],
     });
-    await repo.createDriftSignal(tenant, {
+    await repo.createDriftSignal(ctx, {
       id: "drift_1", revisionId: "profile_1", signalType: "project_stalled", projectId: "project_1",
       expected: {activeDays: 5}, actual: {activeDays: 1}, severity: 70,
       explanation: "Alpha activity is below the declared plan",
     });
-    await repo.createScene(tenant, {
+    await repo.createScene(ctx, {
       id: "scene_1", revisionId: "profile_1", sceneType: "desktop_work",
       applicationId: "editor", payload: {windows: 2}, checksum: "scene-checksum-1",
     });
-    await repo.upsertReview(tenant, {
+    await repo.upsertReview(ctx, {
       id: "review_1", revisionId: "profile_1", periodType: "daily",
       periodStart: "2026-08-29", periodEnd: "2026-08-29", summary: "Focused on Alpha",
       metrics: {focusMinutes: 60}, recommendations: ["Continue Alpha tomorrow"],
     });
 
-    const exported = await repo.exportSnapshot(tenant);
+    const exported = await repo.exportSnapshot(ctx);
     expect(exported.timeline).toHaveLength(1);
     expect(exported.projects).toHaveLength(1);
     expect(exported.commitments).toHaveLength(1);
@@ -121,42 +121,42 @@ describe("proactive intelligence repository", () => {
   });
 
   it("encrypts connector credentials and supports Home Assistant plus Xiaomi health", async () => {
-    const ha = await repo.upsertConnection(tenant, {
+    const ha = await repo.upsertConnection(ctx, {
       id: "conn_ha", revisionId: "profile_1", provider: "home_assistant",
       displayName: "Home", endpoint: "http://127.0.0.1:8123", authType: "llat",
       credential: {accessToken: "ha-secret-token"}, scopes: ["read", "call_service"],
       settings: {entityAllowlist: ["light.study"]},
     });
     expect(ha.hasCredential).toBe(true);
-    await repo.upsertHomeEntity(tenant, {
+    await repo.upsertHomeEntity(ctx, {
       id: "entity_1", connectionId: ha.id, entityId: "light.study", domain: "light",
       displayName: "Study Light", allowedOps: ["read", "turn_on", "turn_off"],
       state: {state: "off"}, enabled: true,
     });
 
-    const health = await repo.upsertConnection(tenant, {
+    const health = await repo.upsertConnection(ctx, {
       id: "conn_mi", revisionId: "profile_1", provider: "xiaomi_health",
       displayName: "Mi Fitness", endpoint: "https://health.example.test", authType: "oauth2",
       credential: {accessToken: "mi-secret-token", refreshToken: "mi-refresh"},
       scopes: ["steps", "sleep"], settings: {dailyPath: "/v1/daily"},
     });
-    await repo.upsertHealthSample(tenant, {
+    await repo.upsertHealthSample(ctx, {
       id: "health_steps", connectionId: health.id, metric: "steps", localDate: "2026-08-29",
       value: 8123, unit: "count", sensitivity: "low", metadata: {device: "band"},
     });
-    await repo.upsertHealthSample(tenant, {
+    await repo.upsertHealthSample(ctx, {
       id: "health_sleep", connectionId: health.id, metric: "sleep_minutes", localDate: "2026-08-29",
       value: 421, unit: "minute", sensitivity: "medium", metadata: {quality: 82},
     });
 
-    const secret = await repo.getConnectionSecret(tenant, "conn_mi");
+    const secret = await repo.getConnectionSecret(ctx, "conn_mi");
     expect(secret?.credential).toMatchObject({accessToken: "mi-secret-token"});
-    expect((await repo.listHomeEntities(tenant, ha.id, true))[0]).toMatchObject({entityId: "light.study"});
-    expect((await repo.listHealthSamples(tenant, {connectionId: health.id}))).toHaveLength(2);
+    expect((await repo.listHomeEntities(ctx, ha.id, true))[0]).toMatchObject({entityId: "light.study"});
+    expect((await repo.listHealthSamples(ctx, {connectionId: health.id}))).toHaveLength(2);
     const raw = await client.execute("SELECT credential_json FROM proactive_external_connections WHERE id = 'conn_mi'");
     expect(String(raw.rows[0]?.credential_json)).toMatch(/^avxenc:v1:/);
     expect(String(raw.rows[0]?.credential_json)).not.toContain("mi-secret-token");
-    expect((await repo.listConnections(tenant))[0]).not.toHaveProperty("credential");
+    expect((await repo.listConnections(ctx))[0]).not.toHaveProperty("credential");
   });
 
   it("批量时间线写入按 checksum 幂等，并准确返回新增行", async () => {
@@ -177,12 +177,12 @@ describe("proactive intelligence repository", () => {
       occurredAt: `2026-08-29T0${index}:00:00.000Z`,
     }));
 
-    await expect(repo.createTimelineEvents(tenant, inputs)).resolves.toHaveLength(3);
+    await expect(repo.createTimelineEvents(ctx, inputs)).resolves.toHaveLength(3);
     // 重跑同一批只应命中唯一 checksum，不产生重复行或虚增新增计数。
-    await expect(repo.createTimelineEvents(tenant, inputs)).resolves.toHaveLength(0);
-    await expect(repo.listTimeline(tenant, {limit: 10})).resolves.toHaveLength(3);
+    await expect(repo.createTimelineEvents(ctx, inputs)).resolves.toHaveLength(0);
+    await expect(repo.listTimeline(ctx, {limit: 10})).resolves.toHaveLength(3);
     // 冲突目标限定为 checksum；主键冲突但 checksum 不同不能被静默吞掉。
-    await expect(repo.createTimelineEvent(tenant, {
+    await expect(repo.createTimelineEvent(ctx, {
       ...inputs[0]!,
       checksum: "timeline-batch-conflicting-checksum",
     })).rejects.toThrow();
@@ -196,12 +196,12 @@ describe("proactive intelligence repository", () => {
       {id: "conflict_batch_duplicate", revisionId: "profile_batch", primaryClaimId: "claim_a", conflictingClaimId: "claim_b", reason: "duplicate"},
     ];
 
-    await expect(repo.createClaimConflicts(tenant, inputs)).resolves.toBe(2);
-    await expect(repo.createClaimConflicts(tenant, inputs)).resolves.toBe(0);
-    await expect(repo.listClaimConflicts(tenant)).resolves.toHaveLength(2);
-    await expect(repo.countClaimConflicts(tenant, "open", "profile_batch")).resolves.toBe(2);
+    await expect(repo.createClaimConflicts(ctx, inputs)).resolves.toBe(2);
+    await expect(repo.createClaimConflicts(ctx, inputs)).resolves.toBe(0);
+    await expect(repo.listClaimConflicts(ctx)).resolves.toHaveLength(2);
+    await expect(repo.countClaimConflicts(ctx, "open", "profile_batch")).resolves.toBe(2);
     // 同样不能把主键冲突误判为 claim pair 幂等。
-    await expect(repo.createClaimConflict(tenant, {
+    await expect(repo.createClaimConflict(ctx, {
       id: "conflict_batch_1",
       revisionId: "profile_batch",
       primaryClaimId: "claim_x",

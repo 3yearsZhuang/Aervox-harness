@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 插件 Config 与 Page 持久化（CAP-020 扩展）
+ * Aervox｜思隅 @aervox/schema — 插件 Config 与 Page 持久化（CAP-020 扩展）
  *
  * 规则依据：docs/reference/plugin-config-and-pages.md（CR-006）。
  * - plugin_configs：工作区+用户作用域的插件配置值（不含 secret 明文）；

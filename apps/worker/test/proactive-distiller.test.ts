@@ -3,7 +3,7 @@ import type { ProactiveCaptureModel } from "@aervox/repositories";
 import {
   createRuleBasedProactiveDistiller,
   redactCredentialMaterial,
-} from "../src/proactive-distiller.js";
+} from "../src/proactive/distiller.js";
 
 const capture = (overrides: Partial<ProactiveCaptureModel> = {}): ProactiveCaptureModel => ({
   id: "cap_1",

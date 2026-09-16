@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 平台/运营域 SQLite 仓储实现
+ * Aervox｜思隅 @aervox/repositories — 平台/运营域 SQLite 仓储实现
  *
  * 规则依据：docs/reference/PRD.md §8（ScheduledJob/Notification/PromptVersion/ModelRun/ContextManifest/AuditRecord）
  */
@@ -32,7 +32,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async createScheduledJob(
-    tenant: LocalContext,
+    ctx: LocalContext,
     jobData: { id: string; jobType: string; subjectId: string; idempotencyKey: string; runAt: string },
   ): Promise<ScheduledJobModel> {
     const now = new Date().toISOString();
@@ -53,7 +53,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
     return created as ScheduledJobModel;
   }
 
-  async markJobDone(tenant: LocalContext, id: string): Promise<ScheduledJobModel | null> {
+  async markJobDone(ctx: LocalContext, id: string): Promise<ScheduledJobModel | null> {
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(scheduledJobs)
@@ -68,7 +68,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
   }
 
   async createNotification(
-    tenant: LocalContext,
+    ctx: LocalContext,
     notificationData: { id: string; type: string; scheduledAt: string; channel: string; payload?: unknown },
   ): Promise<NotificationModel> {
     const now = new Date().toISOString();
@@ -89,7 +89,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
   }
 
   async createNotificationIdempotent(
-    tenant: LocalContext,
+    ctx: LocalContext,
     notificationData: { id: string; type: string; scheduledAt: string; channel: string; payload?: unknown },
   ): Promise<{ created: boolean }> {
     const now = new Date().toISOString();
@@ -110,7 +110,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
     return { created: Boolean(created) };
   }
 
-  async markNotificationSent(tenant: LocalContext, id: string): Promise<NotificationModel | null> {
+  async markNotificationSent(ctx: LocalContext, id: string): Promise<NotificationModel | null> {
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(notifications)
@@ -124,7 +124,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
     return (updated as NotificationModel) ?? null;
   }
 
-  async listNotifications(tenant: LocalContext, limit: number = 50): Promise<NotificationModel[]> {
+  async listNotifications(ctx: LocalContext, limit: number = 50): Promise<NotificationModel[]> {
     const rows = await this.db
       .select()
       .from(notifications)
@@ -167,7 +167,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
   }
 
   async createModelRun(
-    tenant: LocalContext,
+    ctx: LocalContext,
     runData: {
       id: string;
       /** 阶段 7（ADR-017）：Attempt/Step 关联（Loop Step 级写入；非 Loop 场景省略） */
@@ -199,7 +199,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
   }
 
   async completeModelRun(
-    tenant: LocalContext,
+    ctx: LocalContext,
     id: string,
     result: { latencyMs?: number; tokenUsage?: unknown; cost?: number; status?: string },
   ): Promise<ModelRunModel | null> {
@@ -223,7 +223,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
   }
 
   async attachContextManifest(
-    tenant: LocalContext,
+    ctx: LocalContext,
     modelRunId: string,
     manifestId: string,
   ): Promise<ModelRunModel | null> {
@@ -276,7 +276,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
   }
 
   async createAuditRecord(
-    tenant: LocalContext,
+    ctx: LocalContext,
     recordData: {
       id: string;
       actorType: string;
@@ -304,7 +304,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
   }
 
   async createAuditRecordIdempotent(
-    tenant: LocalContext,
+    ctx: LocalContext,
     recordData: {
       id: string;
       actorType: string;
@@ -332,7 +332,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
     return { created: Boolean(created) };
   }
 
-  async listAuditRecords(tenant: LocalContext, limit: number = 50): Promise<AuditRecordModel[]> {
+  async listAuditRecords(ctx: LocalContext, limit: number = 50): Promise<AuditRecordModel[]> {
     const rows = await this.db
       .select()
       .from(auditRecords)
