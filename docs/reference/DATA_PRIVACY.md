@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 0.4.1
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 数据与隐私规范
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-11
+- 修改人：3yearszhuang · 2026-09-16
 
 关联文档：[PRD](PRD.md) · [架构设计](ARCHITECTURE.md) · [AI 质量与安全](AI_QUALITY_SAFETY.md) · [CR-023](changes/CR-023-proactive-local-intelligence-mode.md) · [CR-030](changes/CR-030-pure-local-sqlite-database.md)
 
@@ -151,10 +151,10 @@ review_interval_days: 90
 | 下游 | 删除动作 | 目标完成时间 | 责任模块 | 验证证据 |
 |---|---|---:|---|---|
 | SQLite 业务记录 | 标记不可用、级联删除或重建派生记录 | 立即阻断；24 小时内完成 | Domain/Data | `TC-PRIV-DEL-001`、DeletionRequest 状态 |
-| Redis 缓存/BullMQ | 取消未执行 Job、清理缓存键、拒绝旧任务 | 立即阻断；1 小时内 | Worker/Platform | 队列扫描、缓存零命中 |
+| SQLite Outbox/ScheduledJob | 取消未执行 Job、清理待处理条目、拒绝旧任务重放 | 立即阻断；1 小时内 | Worker/Platform | 队列扫描、待处理条目清零 |
 | TurnStreamEvent | 清除事件正文、停止重放并追加不含正文的可见性变更事件 | 立即阻断；24 小时内清除正文 | Conversation/Platform | `TC-PRIV-STREAM-001`、事件正文零读取 |
-| FTS/pgvector | 删除或重建索引，更新 embedding 版本 | 24 小时内 | Retrieval/Memory | 删除后零召回测试 |
-| S3 原件/OCR/缩略图/导出 | 撤销签名 URL，删除对象和派生物 | 24 小时内 | Content/Ingestion | Object inventory、checksum 清单 |
+| FTS5/向量索引 | 删除或重建索引，更新 embedding 版本 | 24 小时内 | Retrieval/Memory | 删除后零召回测试 |
+| 本地附件目录原件/OCR/缩略图/导出 | 删除文件和派生物（manifest + checksum 验证） | 24 小时内 | Content/Ingestion | 附件清单、checksum 清单 |
 | 日记/记忆树 | 标记来源失效，重建版本、节点和边 | 24 小时内 | Diary/Memory | 来源链审计、树投影 diff |
 | CAP-033 原始捕获/画像/动作 | 立即停止读取、召回和动作；按七天+提炼规则清理捕获，失效画像和动作引用；来源级删除同步撤销 consent、scrub 捕获、删除观察/画像并撤销匹配动作 | 立即阻断；在线本地副本按清理队列完成 | Proactive Host/Memory | `TC-PRIV-PRO-RETENTION-001`、`TC-PRIV-PRO-REVOKE-001`、`apps/api/test/proactive.test.ts`、零召回/零动作验证 |
 | 模型/外部供应商 | 按合同撤回、删除或停止后续处理 | 依供应商 SLA；不得晚于披露期限 | AI/Privacy | 供应商确认、处理日志 |

@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.1
-updated_at: 2026-09-13
-reviewed_at: 2026-09-13
+version: 0.4.2
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 系统架构设计（SAD）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-13
+- 修改人：3yearszhuang · 2026-09-16
 
 关联 PRD：[PRD.md](PRD.md) · 追踪：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
 
@@ -227,15 +227,15 @@ Electron Shell
 
 该路径不把原始捕获、画像、动作或控制面送入 API、远程 Provider、普通 Outbox、分析或自动云备份；控制面仅接受私密目录 `0600` 的 owner-only `proactive-access.token`、字面 loopback 请求并拒绝 redirect。Host 崩溃、租约过期、OS grant 撤销或本地证明失效时进入 `suspended`，核心学习流程继续可用。
 
-用户消息、答题和权限变更先在 SQLite 事务中落库，同时写 Outbox；API 再流式请求模型。记忆、日记、附件、嵌入和通知异步执行。客户端不能直接调用模型服务；附件通过短期签名 URL 上传，API 在提交前检查授权和扫描状态。
+用户消息、答题和权限变更先在 SQLite 事务中落库，同时写 Outbox；API 再流式请求模型。记忆、日记、附件、嵌入和通知异步执行。客户端不能直接调用模型服务；附件通过 `POST /v1/attachments` 直传并落盘本地附件目录，API 在提交前检查授权和扫描状态。
 
 ### 4.3 关键组件与信任边界
 
 | 容器 | 关键组件 | 可写数据 | 外部信任边界 |
 |---|---|---|---|
 | Web/Desktop/Mobile | UI、离线草稿、流式渲染、授权界面 | 本地最小草稿/设置 | 浏览器、OS 权限、Electron IPC |
-| API | Local Auth/Consent、Conversation、Learning、Review、Context Builder、Provider Gateway | SQLite 领域表、Outbox；默认仅通过 loopback 提供服务 | AI Provider、本地对象服务 |
-| Worker/Scheduler | Memory、Diary、OCR、Embedding、Notification、Deletion Orchestrator | 各领域模块公开仓储；不得绕过来源、授权和删除状态；Job 以业务实体/来源修订幂等 | 本地队列、对象目录、通知供应商 |
+| API | Local Auth/Consent、Conversation、Learning、Review、Context Builder、Provider Gateway | SQLite 领域表、Outbox；默认仅通过 loopback 提供服务 | AI Provider、本地文件系统 |
+| Worker/Scheduler | Memory、Diary、OCR、Embedding、Notification、Deletion Orchestrator | 各领域模块公开仓储；不得绕过来源、授权和删除状态；Job 以业务实体/来源修订幂等 | 本地队列、本地附件目录、通知供应商 |
 | Plugin Host（P2） | Manifest、Policy Proxy、Adapter、Kill Switch | 插件自有状态；核心数据只经命令/候选 | 第三方代码和远程 Host |
 | CAP-033 Privacy Host（P3） | signed observation/action Host、OS Permission Broker、activation lease、source adapters | `proactive_*` 本地授权/捕获/画像/动作/审计表；全链 `local_only` | 操作系统、文件/浏览器/通信/设备能力、用户导出目标 |
 | CAP-033～035 主动智能与连接网关（P3） | 十二能力 Worker、Home Assistant REST/WS、小米健康 OAuth/每日同步、ToolRuntime handlers | `proactive_timeline_*`、项目/流程/触发/回顾、外部连接、HA 实体和健康样本；连接凭据加密 | 私网 Home Assistant、用户获准的小米开放平台、桌面设置与 Agent 工具 |
