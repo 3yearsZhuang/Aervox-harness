@@ -7,8 +7,8 @@ doc_status: review-candidate
 decision_status: accepted
 delivery_status: verified
 version: 1.0.0
-updated_at: 2026-09-15
-reviewed_at: 2026-09-15
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 sources:
   - docs/reference/changes/CR-034-local-model-fallback-ladder.md
@@ -19,7 +19,7 @@ sources:
 # CR-044 对话侧 L2 确定性规则回应通道
 
 - 提出人：3yearszhuang · 2026-09-14
-- 修改人：3yearszhuang · 2026-09-15
+- 修改人：3yearszhuang · 2026-09-16
 
 - 状态：Accepted / Verified
 - 关联能力：`CAP-013/009/019`
@@ -35,6 +35,6 @@ sources:
 
 ## 2. 落地实现与验证
 
-- **核心实现**：`apps/api/src/modules/conversation/rule-response-provider.ts`（`RuleResponseProvider`）；
-- **执行集成**：`apps/api/src/modules/conversation/agent-executor.ts`（在 L2 或模型端点不可用时无缝降级至规则通道）；
+- **核心实现**：`apps/api/src/modules/companion/conversation/rule-response-provider.ts`（`RuleResponseProvider`）；
+- **执行集成**：`apps/api/src/modules/companion/conversation/agent-executor.ts`（在 L2 或模型端点不可用时无缝降级至规则通道）；
 - **自动化测试验证**：`apps/api/test/rule-response.test.ts` 5/5 单测全部通过，验证流式输出、问候、状态说明与元数据。

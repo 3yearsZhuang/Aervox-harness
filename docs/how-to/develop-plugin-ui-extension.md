@@ -7,12 +7,12 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.3.0
-updated_at: 2026-09-15
-reviewed_at: 2026-09-15
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 review_triggers:
   - plugins/**
-  - apps/api/src/modules/plugins/**
+  - apps/api/src/modules/ecosystem/plugins/**
   - packages/ui/src/registry/**
   - packages/ui/src/plugins/**
   - packages/ui/src/components/extension/**
@@ -27,7 +27,7 @@ sources:
 # 操作指南：开发 Aervox 扩展插件（How-to）
 
 - 提出人：linge · 2026-09-09
-- 修改人：3yearszhuang · 2026-09-15
+- 修改人：3yearszhuang · 2026-09-16
 
 关联：[插件 Config、Page 与 UI 扩展规范](../reference/plugin-config-and-pages.md) · [CR-050](../reference/changes/CR-050-declarative-ui-plugin-registry-and-focus-mode-decoupling.md) · [能力组合与可选化目录规范](../reference/capability-composition.md) · [ADR-009](../reference/adr/ADR-009-electron-plugin-sandbox.md) · [ADR-015](../reference/adr/ADR-015-vue-full-stack.md)
 
@@ -107,7 +107,7 @@ plugins/my-helper/
 
 ### 3.3 编写服务端 Turn 插件
 
-在 `apps/api/src/modules/plugins/turn-plugins/<plugin-id>.ts` 编写服务端插件：
+在 `apps/api/src/modules/ecosystem/plugins/turn-plugins/<plugin-id>.ts` 编写服务端插件：
 
 ```ts
 import type {

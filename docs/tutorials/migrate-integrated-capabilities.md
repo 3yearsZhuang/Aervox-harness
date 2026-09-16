@@ -7,15 +7,15 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.3.1
-updated_at: 2026-09-13
-reviewed_at: 2026-09-13
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 ---
 
 # 教程：迁移已集成能力并接入 DSH/pi
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-13
+- 修改人：3yearszhuang · 2026-09-16
 
 关联：[能力组合与可选化目录规范](../reference/capability-composition.md)、[参考项目能力迁移与借鉴评估](../explanation/reference-design-transfer.md)、[ADR-009](../reference/adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](../reference/adr/ADR-010-dsh-pi-adapters.md)、[需求追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)
 
@@ -50,9 +50,9 @@ mise x -- pnpm install --frozen-lockfile
 
 | 当前实现 | 迁移后的职责 | 目标位置 |
 |---|---|---|
-| `apps/api/src/modules/tools/{runtime,memory-store-tool}.ts` | 工具 Definition、用例和 API Consumer | `capabilities/tools/` |
-| `apps/api/src/modules/plugins/{service,index}.ts` | 插件安装态、权限和工具 Provider | `capabilities/plugins/` |
-| `apps/api/src/modules/skills/` | 技能注册、生命周期和声明校验 | `capabilities/skills/` |
+| `apps/api/src/modules/ecosystem/tools/{runtime,memory-store-tool}.ts` | 工具 Definition、用例和 API Consumer | `capabilities/tools/` |
+| `apps/api/src/modules/ecosystem/plugins/{service,index}.ts` | 插件安装态、权限和工具 Provider | `capabilities/plugins/` |
+| `apps/api/src/modules/ecosystem/skills/` | 技能注册、生命周期和声明校验 | `capabilities/skills/` |
 | `packages/contracts/src/schemas.ts` | Manifest、Contribution、事件 schema | `packages/capability-contracts/` |
 | `packages/database/src/schema/tool-registry.ts` | SQLite Provider 内部 schema | `providers/tools/sqlite/` |
 | `packages/database/src/repositories/sqlite/*` | Port 的 SQLite 实现 | `providers/*/sqlite/` |

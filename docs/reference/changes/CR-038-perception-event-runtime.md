@@ -7,12 +7,12 @@ doc_status: review-candidate
 decision_status: accepted
 delivery_status: implemented
 version: 1.0.0
-updated_at: 2026-09-14
-reviewed_at: 2026-09-14
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 review_triggers:
   - apps/desktop/src/main/index.ts
-  - apps/api/src/modules/proactive/routes.ts
+  - apps/api/src/modules/proactive/proactive/routes.ts
   - packages/repositories/src/repositories/sqlite/proactive-perception-repository.ts
   - apps/worker/src/proactive-intelligence-worker.ts
 sources:
@@ -23,7 +23,7 @@ sources:
 # CR-038 感知事件流双写与订阅消费
 
 - 提出人：3yearszhuang · 2026-09-14
-- 修改人：3yearszhuang · 2026-09-14
+- 修改人：3yearszhuang · 2026-09-16
 
 - 状态：Accepted / Implemented（双跑观察中）
 - 关联能力：`CAP-030/033`

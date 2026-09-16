@@ -120,9 +120,9 @@ review_interval_days: 90
 | `CR-049` | [UI 基础控件库与全量弹窗控件化](reference/changes/CR-049-ui-primitives-and-dialog-componentization.md) | 2026-09-15 | `CAP-001/002/019/020/033` UI Primitives 基础控件库、全量业务弹窗控件化与淘汰阻塞式 window.confirm | 弹窗结构、Primitives 导出、非阻塞确认机制或视图控件化规范与本文不符 |
 | `CR-050` | [工作台 UI 插件声明式注册层与专注模式彻底解耦](reference/changes/CR-050-declarative-ui-plugin-registry-and-focus-mode-decoupling.md) | 2026-09-15 | `CAP-001/002/003/016/020` UI 插槽扩展（workbench:drawers、taskcenter:cards）、卡片注册层与专注模式彻底解耦 | 注册层契约、插槽列表、卡片贡献点或解耦规范与本文不符 |
 | `CR-052` | [apps/api 模块领域分组（25 模块 → 6 域两层结构）](reference/changes/CR-052-api-module-domain-grouping.md) | 2026-09-16 | `apps/api/src/modules/` 目录组织、ADR-014 修订、`scripts/import-boundary.mjs` 规则、ARCHITECTURE.md C4 组件图 | 模块域归属、两层目录结构或领域分组规则与实际不符 |
-| `AVX-PLAN-033` | [CR-033 落地临时计划](CR-033-plan.md) | 2026-09-14 | 对应子 CR 通过 G1 前每 30 天 | 子 CR 拆分、依赖、门禁或回滚建议与 CR-033 基线不一致；子 CR 通过 G1 后应迁移或删除 |
-| `AVX-PLAN-034` | [CR-034 落地临时计划](CR-034-plan.md) | 2026-09-14 | 对应子 CR 通过 G1 前每 30 天 | 子 CR 拆分、Provider 路由、能力分级或托管边界与 CR-034 基线不一致；子 CR 通过 G1 后应迁移或删除 |
-| `AVX-PLAN-035` | [CR-035 落地临时计划](CR-035-plan.md) | 2026-09-14 | 对应子 CR 通过 G1 前每 30 天 | 子 CR 拆分、会话/项目/任务契约或导入边界与 CR-035 基线不一致；子 CR 通过 G1 后应迁移或删除 |
+| `AVX-PLAN-033` | [CR-033 落地临时计划](CR-033-plan.md) | 2026-09-16 | 对应子 CR 通过 G1 前每 30 天 | 子 CR 拆分、依赖、门禁或回滚建议与 CR-033 基线不一致；子 CR 通过 G1 后应迁移或删除 |
+| `AVX-PLAN-034` | [CR-034 落地临时计划](CR-034-plan.md) | 2026-09-16 | 对应子 CR 通过 G1 前每 30 天 | 子 CR 拆分、Provider 路由、能力分级或托管边界与 CR-034 基线不一致；子 CR 通过 G1 后应迁移或删除 |
+| `AVX-PLAN-035` | [CR-035 落地临时计划](CR-035-plan.md) | 2026-09-16 | 对应子 CR 通过 G1 前每 30 天 | 子 CR 拆分、会话/项目/任务契约或导入边界与 CR-035 基线不一致；子 CR 通过 G1 后应迁移或删除 |
 | `AVX-PLUG-001` | [插件 Config、Page 与 UI 扩展规范](reference/plugin-config-and-pages.md) | 2026-09-15 | CR-006 / 插件机制变更 | Manifest、Config Schema、Page Bridge、Turn 管道或 UI 扩展与实现不一致 |
 | `AVX-DOC-GOV-001` | [文档治理与事实源规范](reference/document-governance.md) | 2026-09-14 | 文档分类、状态、事实源、复核触发或迁移策略变更 | 策略 JSON、校验器、索引、登记表或写作规范与治理基线不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 2026-09-10 | 写作规则、模板或季度评审 | 新文档未使用规范元数据/签名，或 Vale 规则与术语表不一致 |
