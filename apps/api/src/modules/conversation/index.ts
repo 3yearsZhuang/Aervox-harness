@@ -19,7 +19,7 @@ import {
   SqliteUserQuestionRepository,
 } from "@aervox/repositories";
 import { createSqliteSubagentPort, SqliteExecutionStore } from "@aervox/host-agent";
-import { buildLoopProvider } from "./agent-executor.js";
+import { buildLoopProvider } from "./llm-adapter.js";
 import { registerConversationRoutes } from "./routes.js";
 import { UserQuestionCoordinator } from "./user-question-coordinator.js";
 import { createPracticeAttemptPortFactory } from "./practice-attempt-port.js";

@@ -12,7 +12,7 @@ import {
   type AervoxDatabase,
 } from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
-import { createRuntimeToolProvider } from "../src/modules/conversation/agent-executor.js";
+import { createRuntimeToolProvider } from "../src/modules/conversation/tool-providers.js";
 import type { FastifyInstance } from "fastify";
 
 const headers = {

@@ -17,7 +17,7 @@ import {
 } from "@aervox/repositories";
 import {
   createRuntimeToolProvider,
-} from "../src/modules/conversation/agent-executor.js";
+} from "../src/modules/conversation/tool-providers.js";
 import { setRequestToolApprovalMode } from "../src/shared/tool-approval-policy.js";
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";

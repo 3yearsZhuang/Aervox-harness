@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { ProactiveProfileClaimModel } from "@aervox/repositories";
-import { buildLoopProvider } from "../src/modules/conversation/agent-executor.js";
+import { buildLoopProvider } from "../src/modules/conversation/llm-adapter.js";
 import {
   buildProactiveProfilePrompt,
   isLiteralLoopbackUrl,

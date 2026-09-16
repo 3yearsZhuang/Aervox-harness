@@ -273,7 +273,7 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
   });
 
   it("createLLMCallable 适配器：正确透传 temperature 参数与 systemPrompt", async () => {
-    const { createLLMCallable } = await import("../src/modules/conversation/agent-executor.js");
+    const { createLLMCallable } = await import("../src/modules/conversation/llm-adapter.js");
     let capturedRequest: any;
     const mockProvider = {
       id: "mock",
