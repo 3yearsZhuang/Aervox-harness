@@ -7,8 +7,8 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 2.2.0
-updated_at: 2026-09-15
-reviewed_at: 2026-09-15
+updated_at: 2026-09-17
+reviewed_at: 2026-09-17
 review_interval_days: 30
 review_triggers:
   - packages/schema/**
@@ -24,21 +24,19 @@ sources:
   - packages/repositories/src/repositories/sqlite/**
   - docs/reference/PRD.md
   - docs/reference/SRS.md
-  - docs/reference/changes/CR-030-pure-local-sqlite-database.md
-  - docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md
 ---
 
 # Aervox｜思隅 SQLite 本地单用户数据库契约
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-15
+- 修改人：3yearszhuang · 2026-09-17
 
 本文规定 Aervox 持久化层的目标契约、机器事实源、关键不变量、破坏性迁移协议和发布门禁。
 字段与 DDL 的机器真源是 `packages/schema` 和 `packages/repositories/src/schema/ddl`；本文不复制
 每张表的完整定义。逐实体覆盖状态见[数据库数据模型覆盖矩阵](database-coverage-matrix.md)。
 
 > [!IMPORTANT]
-> [CR-030](changes/CR-030-pure-local-sqlite-database.md) 的决策为 Accepted、交付状态为
+> `CR-030`（已归档） 的决策为 Accepted、交付状态为
 > Implemented。最终 Schema/DDL 和数据库消费者已完成去租户化；`LocalContext` 仅作为不参与持久化的
 > 兼容调用参数保留，生产发布仍受迁移编排、回滚演练和完整 DSH 环境门禁约束。
 
@@ -146,7 +144,7 @@ D2 完成后的 Repository 方法直接接收业务参数，不再把 `tenant` �
 
 ### 6.1 CR-033 F0/F1 主动智能基础设施
 
-[CR-033](changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md) 当前只交付默认关闭的
+`CR-033`（已归档） 当前只交付默认关闭的
 F0/F1 存储底座，不改变 CR-032 生产读写路径。其 Repository 必须保持以下不变量：
 
 - 感知事件 sequence 在单条写语句中分配；重复 event ID 或幂等键不得生成第二条事实；
@@ -158,7 +156,7 @@ F0/F1 存储底座，不改变 CR-032 生产读写路径。其 Repository 必须
 
 ### 6.2 CR-034 / CR-042 本地模型路由与健康探测基础设施
 
-[CR-034](changes/CR-034-local-model-fallback-ladder.md) 与 [CR-042](changes/CR-042-local-model-routing-and-fallback.md) 引入本地模型三层降级（L0 / L1 / L2）与健康探测审计存储。其 Repository `IModelRoutingRepository` 遵循以下原则：
+`CR-034`（已归档） 与 `CR-042`（已归档） 引入本地模型三层降级（L0 / L1 / L2）与健康探测审计存储。其 Repository `IModelRoutingRepository` 遵循以下原则：
 
 - `llm_health_snapshots` 记录端点探活快照，以 `presetId` 为主键，覆盖延迟、错误类别与时间戳；
 - `llm_routing_events` 记录每次降级与切回事件，保留会话 ID、起止层级、预设、决策原因与元数据，支持按会话或时间倒序审计排查；
@@ -181,7 +179,7 @@ F0/F1 存储底座，不改变 CR-032 生产读写路径。其 Repository 必须
 
 ## 9. CR-030 破坏性迁移
 
-迁移实现必须逐项遵守 [CR-030 §4](changes/CR-030-pure-local-sqlite-database.md#4-破坏性迁移协议)：
+迁移实现必须逐项遵守 `CR-030 §4`（已归档）：
 
 ```text
 planned -> quiesced -> backup_verified -> scope_selected

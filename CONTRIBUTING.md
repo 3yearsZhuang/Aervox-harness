@@ -11,7 +11,7 @@
 
 感谢你愿意为 **Aervox｜思隅** 贡献！
 
-Aervox 是一款面向未来的“主动智能” Agent：以桌面伴侣（桌宠）为入口，采用视觉小说 + Web 工作台双形态交互，承载情感陪伴与深度学习双重任务。技术栈为纯正的 TypeScript 全栈 monorepo（Fastify 5 API + 独立后台 Worker + Electron 桌面端 + Vue 3 Web 工作台），底层以纯本地永久单用户 SQLite (WAL 模式) 为唯一真源（[CR-030](docs/reference/changes/CR-030-pure-local-sqlite-database.md)），支持 Model Context Protocol ([MCP](https://modelcontextprotocol.io/)) 出厂预设接入。
+Aervox 是一款面向未来的“主动智能” Agent：以桌面伴侣（桌宠）为入口，采用视觉小说 + Web 工作台双形态交互，承载情感陪伴与深度学习双重任务。技术栈为纯正的 TypeScript 全栈 monorepo（Fastify 5 API + 独立后台 Worker + Electron 桌面端 + Vue 3 Web 工作台），底层以纯本地永久单用户 SQLite (WAL 模式) 为唯一真源（`CR-030`（已归档）），支持 Model Context Protocol ([MCP](https://modelcontextprotocol.io/)) 出厂预设接入。
 
 所有类型的贡献都受到高度欢迎与重视：报告 Bug、完善文档、贡献插件与提出架构优化。动手前请阅读下方指南，它能让协作更加顺畅，也能避免你的 Pull Request 在门禁中被拦截。
 
@@ -208,7 +208,7 @@ Aervox 的插件系统（`CAP-020` / `CR-006`）绝非仅仅是几个零散的�
 
 Thank you for contributing to **Aervox｜Siyu**!
 
-Aervox is an open-source, proactive intelligence desktop agent: featuring a desktop companion (pet) as the primary entrance, utilizing visual-novel + workbench dual-mode interaction, and delivering emotional companionship and in-depth learning. The technical stack is a TypeScript full-stack monorepo (Fastify 5 API + independent background Worker + Electron desktop pet + Vue 3 Web workbench), rooted strictly in a local-only single-user SQLite (WAL mode) database ([CR-030](docs/reference/changes/CR-030-pure-local-sqlite-database.md)) with out-of-the-box Model Context Protocol ([MCP](https://modelcontextprotocol.io/)) preset support.
+Aervox is an open-source, proactive intelligence desktop agent: featuring a desktop companion (pet) as the primary entrance, utilizing visual-novel + workbench dual-mode interaction, and delivering emotional companionship and in-depth learning. The technical stack is a TypeScript full-stack monorepo (Fastify 5 API + independent background Worker + Electron desktop pet + Vue 3 Web workbench), rooted strictly in a local-only single-user SQLite (WAL mode) database (`CR-030`（已归档）) with out-of-the-box Model Context Protocol ([MCP](https://modelcontextprotocol.io/)) preset support.
 
 All contributions are appreciated: reporting bugs, improving docs, contributing plugins, and proposing architectural refactoring. Please read this guide before starting.
 

@@ -7,8 +7,8 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 1.1.1
-updated_at: 2026-09-13
-reviewed_at: 2026-09-13
+updated_at: 2026-09-17
+reviewed_at: 2026-09-17
 review_interval_days: 90
 sources:
   - docs/reference/PRD.md
@@ -17,7 +17,7 @@ sources:
 # Aervox｜思隅 产品能力验收标准附录（P1/P2/P3 与专项能力）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-13
+- 修改人：3yearszhuang · 2026-09-17
 
 关联文档：[PRD 主文档](PRD.md) · [需求追踪与交付基线](REQUIREMENTS_TRACEABILITY.md) · [软件需求规格（SRS）](SRS.md) · [文档索引](../README.md)
 
@@ -44,7 +44,7 @@ P1 需求不得只增加“更聪明的回答”，必须形成用户可感知�
 
 | 能力 | 最低可验收结果 |
 |---|---|
-| CAP-020 技能与插件系统 | 安装前展示发布者、版本、签名、所需权限和数据范围；默认无网络/文件/记忆权限；可逐项撤销、一键禁用/卸载；插件失败或越权不阻断核心流程；插件配置可在设置中按声明式 Schema 可视化编辑（secret 不回显），插件 Page 通过受限 iframe 打开（[CR-006](changes/CR-006-plugin-config-and-pages.md)） |
+| CAP-020 技能与插件系统 | 安装前展示发布者、版本、签名、所需权限和数据范围；默认无网络/文件/记忆权限；可逐项撤销、一键禁用/卸载；插件失败或越权不阻断核心流程；插件配置可在设置中按声明式 Schema 可视化编辑（secret 不回显），插件 Page 通过受限 iframe 打开（`CR-006`（已归档）） |
 | CAP-021 学习路线与视频推荐 | 每项推荐显示来源、适用目标、更新时间和推荐理由；失效内容可报告；用户可关闭个性化并删除推荐历史 |
 | CAP-022 兴趣分析与跨域推荐 | 仅使用已授权行为；每个推断可查看依据、纠正和关闭；敏感属性、危机内容和脆弱状态不得用于商业推荐或定向 |
 | CAP-023 第三方刷题接入 | 授权范围、同步方向、最近同步和冲突状态可见；重复导入幂等；撤销授权后立即停止同步，并允许删除或保留已导入副本 |

@@ -1,7 +1,7 @@
 /**
  * CR-033 E2b 注意力预算与回执契约。
  *
- * 规则依据：docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md
+ * 规则依据：CR-033（已归档至归档库）
  * - P4 预算化干预：全局 + 插件各持注意力预算，干预消耗、回应回升、连续忽略收缩；
  * - 预算执行权永远在内核：插件可建议参数，扣减与拦截只能由裁决器执行；
  * - reserve → dispatch → settle/refund 在同一写者事务内完成，幂等键/CAS 防并发超发；

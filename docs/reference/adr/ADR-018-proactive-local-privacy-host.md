@@ -7,11 +7,10 @@ doc_status: review-candidate
 decision_status: accepted
 delivery_status: planned
 version: 0.2.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+updated_at: 2026-09-17
+reviewed_at: 2026-09-17
 review_interval_days: 60
 sources:
-  - docs/reference/changes/CR-023-proactive-local-intelligence-mode.md
   - docs/explanation/proactive-intelligence-mode.md
   - docs/reference/DATA_PRIVACY.md
   - docs/reference/THREAT_MODEL.md
@@ -22,9 +21,9 @@ sources:
 # ADR-018 CAP-033 本地私密存储与主动智能 Host
 
 - 提出人：3yearszhuang · 2026-08-29
-- 修改人：3yearszhuang · 2026-09-11
+- 修改人：3yearszhuang · 2026-09-17
 
-关联：[CR-023](../changes/CR-023-proactive-local-intelligence-mode.md)、[主动智能设计方案](../../explanation/proactive-intelligence-mode.md)、[数据与隐私](../DATA_PRIVACY.md)、[威胁模型](../THREAT_MODEL.md)、[数据库契约](../DATABASE.md)
+关联：`CR-023`（已归档）、[主动智能设计方案](../../explanation/proactive-intelligence-mode.md)、[数据与隐私](../DATA_PRIVACY.md)、[威胁模型](../THREAT_MODEL.md)、[数据库契约](../DATABASE.md)
 
 ## Context
 

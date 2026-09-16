@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/api — 本地模型降级阶梯决策器服务 (CR-034/CR-042 N1)
  *
- * 规则依据：docs/reference/changes/CR-034-local-model-fallback-ladder.md
+ * 规则依据：CR-034（已归档至归档库）
  * - 会话级粘滞（Session Stickiness）：避免逐回合抖动；
  * - 恢复回切（Recovery Switchback）：连续 N 次成功探测后新回合回切；
  * - 诚实标识与审计追溯：每回合明确标识 L0/L1/L2 及其原因并留痕。

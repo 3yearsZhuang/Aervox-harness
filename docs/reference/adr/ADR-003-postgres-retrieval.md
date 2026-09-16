@@ -6,17 +6,17 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: accepted
 version: 0.3.0
-updated_at: 2026-09-11
-reviewed_at: 2026-09-11
+updated_at: 2026-09-17
+reviewed_at: 2026-09-17
 review_interval_days: 90
 ---
 
 # ADR-003 仓储抽象架构：SQLite 业务真源与 FTS5/Vector Port
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-11
+- 修改人：3yearszhuang · 2026-09-17
 
-- 状态：Accepted（经 [CR-030](../changes/CR-030-pure-local-sqlite-database.md) 修订）
+- 状态：Accepted（经 `CR-030`（已归档） 修订）
 - 日期：2026-08-24
 - 关联：`CAP-005/015/026/027`、`DATA-MEM-001`、`NFR-SCALE-001`、`ADR-008`、`CR-030`
 
@@ -39,7 +39,7 @@ review_interval_days: 90
 
 ## Decision
 
-**终态决策**：以 SQLite（LibSQL）+ Drizzle ORM 作为永久本地业务真源，保留 `@aervox/schema` + `@aervox/repositories` 双包分层；经 [CR-030](../changes/CR-030-pure-local-sqlite-database.md) 移除租户列、`TenantContext` 和 PostgreSQL 演进目标。
+**终态决策**：以 SQLite（LibSQL）+ Drizzle ORM 作为永久本地业务真源，保留 `@aervox/schema` + `@aervox/repositories` 双包分层；经 `CR-030`（已归档） 移除租户列、`TenantContext` 和 PostgreSQL 演进目标。
 
 具体实现要点：
 

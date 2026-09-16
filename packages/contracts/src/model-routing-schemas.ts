@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/contracts — 本地模型降级阶梯与模型路由契约 (CR-034/CR-042)
  *
- * 规则依据：docs/reference/changes/CR-034-local-model-fallback-ladder.md
+ * 规则依据：CR-034（已归档至归档库）
  * 三层降级阶梯：
  * - L0: 云端模型 (full capability)
  * - L1: 本地端点 (restricted capability: 收紧敏感写工具与主动上下文边界)

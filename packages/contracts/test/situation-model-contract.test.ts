@@ -1,7 +1,7 @@
 /**
  * CR-033 F1 共享契约 fail-closed 测试。
  *
- * 规则依据：docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md
+ * 规则依据：CR-033（已归档至归档库）
  * - P2 统一态势投影：白名单 schema、纯派生物可重建、规则与 LLM 的唯一视野；
  * - P1 感知事件化：envelope 幂等键/序列/digest/因果信息；
  * - 契约生成 JSON/OpenAPI schema，未知字段、未知版本与超限输入一律 fail-closed。
