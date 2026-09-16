@@ -23,6 +23,19 @@ import { PluginConfigService } from "./config-service.js";
 import { registerPluginConfigRoutes } from "./config-routes.js";
 import { PluginBundleStore } from "./bundle-store.js";
 import { DEFAULT_SKILLS_ROOT } from "../skills/skill-manager.js";
+import {
+  defaultServerPluginRegistry,
+  defaultServerTurnPluginRegistry,
+  ServerPluginRegistry,
+  ServerTurnPluginRegistry,
+} from "./turn-plugins/registry.js";
+export * from "./turn-plugins/index.js";
+export {
+  defaultServerPluginRegistry,
+  defaultServerTurnPluginRegistry,
+  ServerPluginRegistry,
+  ServerTurnPluginRegistry,
+};
 
 const defaultPluginsRoot = (): string => {
   const repoRoot = path.resolve(import.meta.dirname, "../../../../..");
@@ -119,6 +132,7 @@ async function syncBuiltinPlugins(
 }
 
 export async function registerPluginsModule(ctx: ModuleContext): Promise<void> {
+  ctx.pluginRegistry = defaultServerPluginRegistry;
   const { app, db, skillsRoot, pluginsRoot } = ctx;
   const extensionRepo = new SqliteExtensionRepository(db);
   const registry = new SqliteToolRegistryRepository(db);
@@ -138,6 +152,7 @@ export async function registerPluginsModule(ctx: ModuleContext): Promise<void> {
     pageRepo,
     auditRepo,
     bundleStore,
+    pluginRegistry: defaultServerPluginRegistry,
   });
 
   // CR-032：proactive 模块先于本模块注册并填充 ctx.proactiveIntelligenceRepository，
@@ -163,6 +178,7 @@ export async function registerPluginsModule(ctx: ModuleContext): Promise<void> {
     skillsRoot: resolvedSkillsRoot,
     cleanup: (pluginId) => configService.cleanupPlugin(pluginId),
     proactiveRuleSync,
+    pluginRegistry: defaultServerPluginRegistry,
   });
 
   registerPluginRoutes(app, service);

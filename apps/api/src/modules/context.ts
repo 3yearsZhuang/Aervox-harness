@@ -57,6 +57,8 @@ export interface ModuleContext {
   skillsRoot?: string;
   /** 插件 Page Bundle 落盘根目录（缺省 <repo>/data/plugins） */
   pluginsRoot?: string;
+  /** 服务端插件注册表（由 plugins 模块填充；conversation/tools 读取） */
+  pluginRegistry?: import("./plugins/turn-plugins/registry.js").ServerPluginRegistry;
   /** 附件二进制落盘根目录（缺省 <repo>/data/attachments；CAP-012 多模态输入） */
   attachmentsRoot?: string;
 }

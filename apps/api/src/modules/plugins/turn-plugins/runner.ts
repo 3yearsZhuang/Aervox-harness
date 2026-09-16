@@ -9,7 +9,7 @@
  */
 import type { IExtensionRepository, IPluginConfigRepository } from "@aervox/repositories";
 import type { ServerTurnPluginRegistry } from "./registry.js";
-import type { AfterTurnContext, BeforeTurnResult, TurnPluginContext } from "./types.js";
+import type { AfterTurnContext, BeforeTurnResult, ServerTurnPlugin, TurnPluginContext } from "./types.js";
 
 export interface PluginExecutionSnapshot {
   isEnabled: boolean;
@@ -22,6 +22,52 @@ export interface BeforeTurnExecutionResult {
   quizMode: boolean;
   pluginResults: Map<string, BeforeTurnResult>;
   snapshots?: Map<string, PluginExecutionSnapshot>;
+}
+
+/**
+ * 通用获取插件的所有候选别名（优先主 ID，随后别名）
+ */
+function getPluginCandidateIds(plugin: ServerTurnPlugin, registry?: ServerTurnPluginRegistry): string[] {
+  if (registry && typeof registry.getAllAliases === "function") {
+    return registry.getAllAliases(plugin.id);
+  }
+  const aliases: string[] = plugin.aliases ?? [];
+  return [plugin.id, ...aliases.filter((a: string) => a !== plugin.id)];
+}
+
+/**
+ * 通用解析插件在仓储中的启用状态（按主 ID 与声明别名依次探测）
+ */
+async function resolvePluginEnabled(
+  candidateIds: string[],
+  extRepo: IExtensionRepository,
+): Promise<boolean> {
+  for (const id of candidateIds) {
+    const record = await extRepo.getPlugin(id).catch(() => null);
+    if (record) {
+      return record.enabled === 1;
+    }
+  }
+  return false;
+}
+
+/**
+ * 通用解析插件配置值（按主 ID 与声明别名依次探测）
+ */
+async function resolvePluginConfigValues(
+  candidateIds: string[],
+  configRepo: IPluginConfigRepository,
+  tenant: TurnPluginContext["tenant"],
+): Promise<Record<string, unknown> | undefined> {
+  for (const id of candidateIds) {
+    const model = await configRepo.getConfig(tenant, id).catch(() => null);
+    if (model?.valuesJson) {
+      return typeof model.valuesJson === "string"
+        ? JSON.parse(model.valuesJson)
+        : (model.valuesJson as Record<string, unknown>);
+    }
+  }
+  return undefined;
 }
 
 export async function executeBeforeTurnPlugins(
@@ -38,36 +84,15 @@ export async function executeBeforeTurnPlugins(
 
   for (const plugin of registry.getAll()) {
     try {
+      const candidateIds = getPluginCandidateIds(plugin, registry);
       let isEnabled = true;
       if (extRepo) {
-        const record = await extRepo.getPlugin(plugin.id).catch(() => null);
-        if (record) {
-          isEnabled = record.enabled === 1;
-        } else if (plugin.id === "focus-mode") {
-          const legacy = await extRepo.getPlugin("study-mode").catch(() => null);
-          isEnabled = legacy ? legacy.enabled === 1 : false;
-        } else if (plugin.id === "study-mode") {
-          const modern = await extRepo.getPlugin("focus-mode").catch(() => null);
-          isEnabled = modern ? modern.enabled === 1 : false;
-        } else {
-          isEnabled = false;
-        }
+        isEnabled = await resolvePluginEnabled(candidateIds, extRepo);
       }
 
       let configValues: Record<string, unknown> | undefined;
       if (isEnabled && configRepo) {
-        let model = await configRepo.getConfig(ctx.tenant, plugin.id).catch(() => null);
-        if (!model?.valuesJson && plugin.id === "focus-mode") {
-          model = await configRepo.getConfig(ctx.tenant, "study-mode").catch(() => null);
-        } else if (!model?.valuesJson && plugin.id === "study-mode") {
-          model = await configRepo.getConfig(ctx.tenant, "focus-mode").catch(() => null);
-        }
-        if (model?.valuesJson) {
-          configValues =
-            typeof model.valuesJson === "string"
-              ? JSON.parse(model.valuesJson)
-              : (model.valuesJson as Record<string, unknown>);
-        }
+        configValues = await resolvePluginConfigValues(candidateIds, configRepo, ctx.tenant);
       }
 
       snapshots.set(plugin.id, { isEnabled, configValues });
@@ -132,34 +157,13 @@ export async function executeAfterTurnPlugins(
         isEnabled = snap.isEnabled;
         configValues = snap.configValues;
       } else {
+        const candidateIds = getPluginCandidateIds(plugin, registry);
         if (extRepo) {
-          const record = await extRepo.getPlugin(plugin.id).catch(() => null);
-          if (record) {
-            isEnabled = record.enabled === 1;
-          } else if (plugin.id === "focus-mode") {
-            const legacy = await extRepo.getPlugin("study-mode").catch(() => null);
-            isEnabled = legacy ? legacy.enabled === 1 : false;
-          } else if (plugin.id === "study-mode") {
-            const modern = await extRepo.getPlugin("focus-mode").catch(() => null);
-            isEnabled = modern ? modern.enabled === 1 : false;
-          } else {
-            isEnabled = false;
-          }
+          isEnabled = await resolvePluginEnabled(candidateIds, extRepo);
         }
 
         if (isEnabled && configRepo) {
-          let model = await configRepo.getConfig(ctx.tenant, plugin.id).catch(() => null);
-          if (!model?.valuesJson && plugin.id === "focus-mode") {
-            model = await configRepo.getConfig(ctx.tenant, "study-mode").catch(() => null);
-          } else if (!model?.valuesJson && plugin.id === "study-mode") {
-            model = await configRepo.getConfig(ctx.tenant, "focus-mode").catch(() => null);
-          }
-          if (model?.valuesJson) {
-            configValues =
-              typeof model.valuesJson === "string"
-                ? JSON.parse(model.valuesJson)
-                : (model.valuesJson as Record<string, unknown>);
-          }
+          configValues = await resolvePluginConfigValues(candidateIds, configRepo, ctx.tenant);
         }
       }
 

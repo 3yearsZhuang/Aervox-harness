@@ -37,7 +37,7 @@ import { registerBranchModule } from "./modules/branch/index.js";
 import { registerProjectModule } from "./modules/project/index.js";
 import { registerToolsModule } from "./modules/tools/index.js";
 import { registerMcpModule, type McpModuleOptions } from "./modules/mcp/index.js";
-import { registerPluginsModule } from "./modules/plugins/index.js";
+import { registerPluginsModule, defaultServerPluginRegistry, type ServerPluginRegistry } from "./modules/plugins/index.js";
 import { registerPersonaModule } from "./modules/persona/index.js";
 import { registerPreferencesModule } from "./modules/preferences/index.js";
 import { registerSkillsModule } from "./modules/skills/index.js";
@@ -79,6 +79,8 @@ export interface BuildAppOptions {
   skillsRoot?: string;
   /** 插件 Page Bundle 落盘根目录（测试注入临时目录；缺省 <repo>/data/plugins） */
   pluginsRoot?: string;
+  /** 服务端通用插件注册表（默认使用 defaultServerPluginRegistry） */
+  pluginRegistry?: ServerPluginRegistry;
   /** 附件二进制落盘根目录（测试注入临时目录；缺省 <repo>/data/attachments） */
   attachmentsRoot?: string;
   /** 语音服务配置（如测试注入 mock provider） */
@@ -278,6 +280,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
     skillsRoot: options.skillsRoot,
     pluginsRoot: options.pluginsRoot,
     attachmentsRoot: options.attachmentsRoot,
+    pluginRegistry: options.pluginRegistry ?? defaultServerPluginRegistry,
   };
 
   // 先注册「被依赖」模块并填充共享服务（依赖方经 ctx 读取；顺序显式）：
