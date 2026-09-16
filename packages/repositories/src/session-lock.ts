@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 会话级写锁（AST-01）
+ * Aervox｜思隅 @aervox/repositories — 会话级写锁（AST-01）
  *
  * 场景：API 与 Worker 会写同一会话的 Outbox/MemoryEvent/Turn。T-01 的 busy 重试
  * 解决进程间竞争；进程内同一会话的并发写此前无串行化约束。会话锁与 busy 重试互补：

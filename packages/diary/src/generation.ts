@@ -32,7 +32,7 @@ export interface DiaryLlmConfig {
 
 /** 按租户解析日记 LLM 配置的端口（null = 未启用/不支持，服务层模板降级） */
 export interface DiaryLlmConfigPort {
-  getConfig(tenant: LocalContext): Promise<DiaryLlmConfig | null>;
+  getConfig(ctx: LocalContext): Promise<DiaryLlmConfig | null>;
 }
 
 /** 无配置行时的缺省供应商参数（镜像 apps/api LLMConfigService 的 ollama 预设） */
@@ -44,8 +44,8 @@ export function createRepoDiaryLlmConfigPort(
   repo: SqliteLLMConfigRepository,
 ): DiaryLlmConfigPort {
   return {
-    async getConfig(tenant) {
-      const found = await repo.getConfig(tenant);
+    async getConfig(ctx) {
+      const found = await repo.getConfig(ctx);
       if (!found) {
         return {
           baseUrl: DEFAULT_LLM_BASE_URL,

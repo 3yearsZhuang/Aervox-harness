@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 大语言模型与供应商配置持久化
+ * Aervox｜思隅 @aervox/schema — 大语言模型与供应商配置持久化
  *
  * 规则依据：docs/reference/adr/ADR-005-provider-port.md（CR-012）。
  *

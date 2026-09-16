@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 数据库迁移服务（T-06 接线）
+ * Aervox｜思隅 @aervox/repositories — 数据库迁移服务（T-06 接线）
  *
  * 参照 BaiShou-Next 的迁移 journal + 旧库列补齐手法（AGPLv3，仅借鉴公开设计）：
  * - `_migration_journal` 表记录每次已应用迁移（name + applied_at），幂等重入；

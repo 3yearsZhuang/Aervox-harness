@@ -13,7 +13,7 @@ describe("ADR-011: 日记周期 CAS 乐观锁与条件唯一索引测试", () =>
   let client: Client;
   let repo: SqliteDiaryRepository;
 
-  const tenant: LocalContext = {
+  const ctx: LocalContext = {
     workspaceId: "ws_diary_test",
     subjectUserId: "usr_david",
   };
@@ -27,7 +27,7 @@ describe("ADR-011: 日记周期 CAS 乐观锁与条件唯一索引测试", () =>
   });
 
   it("Worker 通过 CAS 机制竞争领取 Cycle lease，版本不符者被拒绝", async () => {
-    const cycle = await repo.createCycle(tenant, {
+    const cycle = await repo.createCycle(ctx, {
       id: "cycle_20260824",
       scheduleEpochId: "epoch_1",
       localDate: "2026-08-24",
@@ -37,7 +37,7 @@ describe("ADR-011: 日记周期 CAS 乐观锁与条件唯一索引测试", () =>
     expect(cycle.scheduleVersion).toBe(1);
 
     // Worker 1 以版本 1 领取 Cycle
-    const claim1 = await repo.claimCycleWithLease(tenant, {
+    const claim1 = await repo.claimCycleWithLease(ctx, {
       cycleId: cycle.id,
       workerId: "worker_node_1",
       leaseDurationMs: 60000,
@@ -47,7 +47,7 @@ describe("ADR-011: 日记周期 CAS 乐观锁与条件唯一索引测试", () =>
     expect(claim1.newScheduleVersion).toBe(2);
 
     // Worker 2 依然尝试以旧版本 1 领取 Cycle，应当 CAS 失败
-    const claim2 = await repo.claimCycleWithLease(tenant, {
+    const claim2 = await repo.claimCycleWithLease(ctx, {
       cycleId: cycle.id,
       workerId: "worker_node_2",
       leaseDurationMs: 60000,
@@ -57,7 +57,7 @@ describe("ADR-011: 日记周期 CAS 乐观锁与条件唯一索引测试", () =>
   });
 
   it("同一本地日期标签下只允许存在一份 auto_generated = 1 的自动日记", async () => {
-    const cycle = await repo.createCycle(tenant, {
+    const cycle = await repo.createCycle(ctx, {
       id: "cycle_day_1",
       scheduleEpochId: "epoch_1",
       localDate: "2026-08-24",
@@ -66,7 +66,7 @@ describe("ADR-011: 日记周期 CAS 乐观锁与条件唯一索引测试", () =>
     });
 
     // 发布首份自动日记
-    await repo.publishDiaryWithCycle(tenant, {
+    await repo.publishDiaryWithCycle(ctx, {
       cycleId: cycle.id,
       diary: {
         id: "diary_auto_1",
@@ -78,12 +78,12 @@ describe("ADR-011: 日记周期 CAS 乐观锁与条件唯一索引测试", () =>
       expectedScheduleVersion: 1,
     });
 
-    const published = await repo.getDiaryByDate(tenant, "2026-08-24");
+    const published = await repo.getDiaryByDate(ctx, "2026-08-24");
     expect(published).not.toBeNull();
     expect(published!.title).toBe("今日学习记录");
 
     // 再次尝试插入同日期的自动日记应触发 SQLite 条件唯一索引冲突
-    const cycle2 = await repo.createCycle(tenant, {
+    const cycle2 = await repo.createCycle(ctx, {
       id: "cycle_day_2",
       scheduleEpochId: "epoch_1",
       localDate: "2026-08-24",
@@ -92,7 +92,7 @@ describe("ADR-011: 日记周期 CAS 乐观锁与条件唯一索引测试", () =>
     });
 
     await expect(
-      repo.publishDiaryWithCycle(tenant, {
+      repo.publishDiaryWithCycle(ctx, {
         cycleId: cycle2.id,
         diary: {
           id: "diary_auto_duplicate",

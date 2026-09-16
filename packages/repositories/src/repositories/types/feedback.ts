@@ -6,7 +6,7 @@ import type { LocalContext } from "../../local-context.js";
 
 export interface IFeedbackRepository {
   createFeedback(
-    tenant: LocalContext,
+    ctx: LocalContext,
     feedbackData: {
       id: string;
       actorId: string;
@@ -16,7 +16,7 @@ export interface IFeedbackRepository {
       note?: string | null;
     },
   ): Promise<FeedbackModel>;
-  listFeedback(tenant: LocalContext, subjectType?: string, subjectId?: string): Promise<FeedbackModel[]>;
+  listFeedback(ctx: LocalContext, subjectType?: string, subjectId?: string): Promise<FeedbackModel[]>;
 }
 
 export interface SourceArtifactModel {

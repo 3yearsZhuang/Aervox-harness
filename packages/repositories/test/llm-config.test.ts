@@ -91,7 +91,7 @@ describe("SqliteLLMConfigRepository (CR-012)", () => {
       enabled: true,
       providerType: "openai",
       baseUrl: "https://api.openai.com/v1",
-      apiKey: "sk-tenant-a",
+      apiKey: "sk-ctx-a",
       modelId: "gpt-4o",
       temperature: 0.8,
     });
@@ -100,7 +100,7 @@ describe("SqliteLLMConfigRepository (CR-012)", () => {
       enabled: true,
       providerType: "anthropic",
       baseUrl: "https://api.anthropic.com/v1",
-      apiKey: "sk-tenant-b",
+      apiKey: "sk-ctx-b",
       modelId: "claude-3-5-sonnet",
       temperature: 0.3,
     });
@@ -109,9 +109,9 @@ describe("SqliteLLMConfigRepository (CR-012)", () => {
     const configB = await repo.getConfig(tenantB);
 
     expect(configA?.providerType).toBe("anthropic");
-    expect(configA?.apiKey).toBe("sk-tenant-b");
+    expect(configA?.apiKey).toBe("sk-ctx-b");
     expect(configB?.providerType).toBe("anthropic");
-    expect(configB?.apiKey).toBe("sk-tenant-b");
+    expect(configB?.apiKey).toBe("sk-ctx-b");
   });
 
   // ---- 多预设（与人格设定同款：列表/创建/激活/删除） ----

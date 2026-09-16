@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — CAP-033 主动智能模式 SQLite 仓储
+ * Aervox｜思隅 @aervox/repositories — CAP-033 主动智能模式 SQLite 仓储
  *
  * 本仓储是主动画像数据的唯一数据库入口。它不使用 outbox，也不把原始捕获
  * 写入普通 analytics/audit 表；所有读取和写入都强制带租户边界。
@@ -303,7 +303,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async confirmProfile(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: Parameters<IProactiveProfileRepository["confirmProfile"]>[1],
   ): Promise<{ revision: ProactiveProfileRevisionModel; sources: ProactiveSourceGrantModel[] }> {
     const now = new Date().toISOString();
@@ -322,7 +322,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     if (existing) {
       return {
         revision: toRevision(existing, this.cipher),
-        sources: await this.listSourceGrants(tenant, existing.id),
+        sources: await this.listSourceGrants(ctx, existing.id),
       };
     }
 
@@ -471,7 +471,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async createDraft(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: Parameters<IProactiveProfileRepository["createDraft"]>[1],
   ): Promise<ProactiveProfileRevisionModel> {
     const now = new Date().toISOString();
@@ -508,7 +508,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
       })
       .returning();
     if (!created) throw new Error("failed to create proactive profile draft");
-    await this.recordAudit(tenant, {
+    await this.recordAudit(ctx, {
       id: `${input.id}_audit_draft`,
       revisionId: input.id,
       eventType: "profile.draft_created",
@@ -519,7 +519,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return toRevision(created, this.cipher);
   }
 
-  async getRevision(tenant: LocalContext, revisionId?: string): Promise<ProactiveProfileRevisionModel | null> {
+  async getRevision(ctx: LocalContext, revisionId?: string): Promise<ProactiveProfileRevisionModel | null> {
     const conditions = [
     ];
     if (revisionId) conditions.push(eq(proactiveProfileRevisions.id, revisionId));
@@ -532,7 +532,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return row ? toRevision(row, this.cipher) : null;
   }
 
-  async listRevisions(tenant: LocalContext, limit?: number): Promise<ProactiveProfileRevisionModel[]> {
+  async listRevisions(ctx: LocalContext, limit?: number): Promise<ProactiveProfileRevisionModel[]> {
     const rows = await this.db
       .select()
       .from(proactiveProfileRevisions)
@@ -546,12 +546,12 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async setDesiredState(
-    tenant: LocalContext,
+    ctx: LocalContext,
     state: Parameters<IProactiveProfileRepository["setDesiredState"]>[1],
     actorId: string,
     revisionId?: string,
   ): Promise<ProactiveProfileRevisionModel | null> {
-    const revision = await this.getRevision(tenant, revisionId);
+    const revision = await this.getRevision(ctx, revisionId);
     if (!revision) return null;
     const now = new Date().toISOString();
     const [updated] = await this.db
@@ -580,7 +580,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
           ),
         );
     }
-    await this.recordAudit(tenant, {
+    await this.recordAudit(ctx, {
       id: `${revision.id}_audit_state_${Date.now().toString(36)}`,
       revisionId: revision.id,
       eventType: `profile.desired_${state}`,
@@ -592,7 +592,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return toRevision(updated, this.cipher);
   }
 
-  async listSourceGrants(tenant: LocalContext, revisionId?: string): Promise<ProactiveSourceGrantModel[]> {
+  async listSourceGrants(ctx: LocalContext, revisionId?: string): Promise<ProactiveSourceGrantModel[]> {
     const conditions = [
     ];
     if (revisionId) conditions.push(eq(proactiveSourceGrants.revisionId, revisionId));
@@ -605,7 +605,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async updateSourceGrant(
-    tenant: LocalContext,
+    ctx: LocalContext,
     sourceGrantId: string,
     input: Parameters<IProactiveProfileRepository["updateSourceGrant"]>[2],
   ): Promise<ProactiveSourceGrantModel | null> {
@@ -651,7 +651,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
           ),
         );
     }
-    await this.recordAudit(tenant, {
+    await this.recordAudit(ctx, {
       id: `${sourceGrantId}_audit_${Date.now().toString(36)}`,
       revisionId: existing.revisionId,
       eventType: `source.${input.state}`,
@@ -664,7 +664,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async deleteSourceData(
-    tenant: LocalContext,
+    ctx: LocalContext,
     sourceGrantId: string,
     actorId: string,
   ): Promise<ProactiveSourceDeletionResult | null> {
@@ -788,7 +788,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
       };
     });
 
-    await this.recordAudit(tenant, {
+    await this.recordAudit(ctx, {
       id: `${sourceGrantId}_audit_data_deleted_${Date.now().toString(36)}`,
       revisionId: source.revisionId,
       eventType: "source.data_deleted",
@@ -801,10 +801,10 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async createActivationLease(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: Parameters<IProactiveProfileRepository["createActivationLease"]>[1],
   ): Promise<ProactiveActivationLeaseModel> {
-    const revision = await this.getRevision(tenant, input.revisionId);
+    const revision = await this.getRevision(ctx, input.revisionId);
     if (!revision) throw new RepositoryNotFoundError("proactive profile revision not found");
     const now = new Date().toISOString();
     const expiresAt = datePlusMs(now, input.ttlMs ?? DEFAULT_LEASE_TTL_MS);
@@ -829,7 +829,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
         ),
       )
       .limit(1);
-    if (sameEpoch) return this.reactivateActivationLease(tenant, input, sameEpoch.id, now, expiresAt);
+    if (sameEpoch) return this.reactivateActivationLease(ctx, input, sameEpoch.id, now, expiresAt);
     let created: typeof proactiveActivationLeases.$inferSelect | undefined;
     try {
       [created] = await this.db
@@ -869,10 +869,10 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
         )
         .limit(1);
       if (!raced) throw error;
-      return this.reactivateActivationLease(tenant, input, raced.id, now, expiresAt);
+      return this.reactivateActivationLease(ctx, input, raced.id, now, expiresAt);
     }
     if (!created) throw new Error("failed to create proactive activation lease");
-    await this.recordAudit(tenant, {
+    await this.recordAudit(ctx, {
       id: `${input.id}_audit_activated`,
       revisionId: revision.id,
       eventType: "activation.issued",
@@ -886,13 +886,13 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
 
   /** 复用既有 (device_id, epoch) 租约：重激活并续期，审计标注 reused */
   private async reactivateActivationLease(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: Parameters<IProactiveProfileRepository["createActivationLease"]>[1],
     leaseId: string,
     now: string,
     expiresAt: string,
   ): Promise<ProactiveActivationLeaseModel> {
-    const revision = await this.getRevision(tenant, input.revisionId);
+    const revision = await this.getRevision(ctx, input.revisionId);
     if (!revision) throw new RepositoryNotFoundError("proactive profile revision not found");
     const [reactivated] = await this.db
       .update(proactiveActivationLeases)
@@ -912,7 +912,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
       .where(eq(proactiveActivationLeases.id, leaseId))
       .returning();
     if (!reactivated) throw new Error("failed to reactivate proactive activation lease");
-    await this.recordAudit(tenant, {
+    await this.recordAudit(ctx, {
       id: `${input.id}_audit_activated`,
       revisionId: revision.id,
       eventType: "activation.issued",
@@ -925,7 +925,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async heartbeatActivationLease(
-    tenant: LocalContext,
+    ctx: LocalContext,
     leaseId: string,
     input: Parameters<IProactiveProfileRepository["heartbeatActivationLease"]>[2],
   ): Promise<ProactiveActivationLeaseModel | null> {
@@ -947,7 +947,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
           .set({ status: "expired", endedAt: now, endReason: "lease_expired", updatedAt: now })
           .where(eq(proactiveActivationLeases.id, leaseId));
       }
-      return this.getLease(tenant, leaseId);
+      return this.getLease(ctx, leaseId);
     }
     const [updated] = await this.db
       .update(proactiveActivationLeases)
@@ -969,7 +969,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return updated ? toLease(updated) : null;
   }
 
-  async endActivationLease(tenant: LocalContext, leaseId: string, reason: string, actorId: string): Promise<ProactiveActivationLeaseModel | null> {
+  async endActivationLease(ctx: LocalContext, leaseId: string, reason: string, actorId: string): Promise<ProactiveActivationLeaseModel | null> {
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(proactiveActivationLeases)
@@ -982,7 +982,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
       )
       .returning();
     if (!updated) return null;
-    await this.recordAudit(tenant, {
+    await this.recordAudit(ctx, {
       id: `${leaseId}_audit_ended_${Date.now().toString(36)}`,
       revisionId: updated.revisionId,
       eventType: "activation.ended",
@@ -994,7 +994,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return toLease(updated);
   }
 
-  private async getLease(tenant: LocalContext, leaseId: string): Promise<ProactiveActivationLeaseModel | null> {
+  private async getLease(ctx: LocalContext, leaseId: string): Promise<ProactiveActivationLeaseModel | null> {
     const [row] = await this.db
       .select()
       .from(proactiveActivationLeases)
@@ -1007,8 +1007,8 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return row ? toLease(row) : null;
   }
 
-  async getEffectiveStatus(tenant: LocalContext, now = new Date().toISOString()): Promise<ProactiveEffectiveStatus> {
-    const revision = await this.getRevision(tenant);
+  async getEffectiveStatus(ctx: LocalContext, now = new Date().toISOString()): Promise<ProactiveEffectiveStatus> {
+    const revision = await this.getRevision(ctx);
     if (!revision) {
       return {
         desiredState: "none",
@@ -1021,7 +1021,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
         expiredUndistilledCaptures: 0,
       };
     }
-    const sources = await this.listSourceGrants(tenant, revision.id);
+    const sources = await this.listSourceGrants(ctx, revision.id);
     const mandatory = sources.filter((source) => source.mandatory);
     const missing = mandatory.filter((source) => source.state !== "granted").map((source) => source.sourceKey);
     const granted = mandatory.length - missing.length;
@@ -1099,7 +1099,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async createCapture(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: Parameters<IProactiveProfileRepository["createCapture"]>[1],
   ): Promise<ProactiveCaptureModel> {
     const [existingCapture] = await this.db
@@ -1122,7 +1122,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
       }
       return toCapture(existingCapture, true, this.cipher);
     }
-    const revision = await this.getRevision(tenant, input.revisionId);
+    const revision = await this.getRevision(ctx, input.revisionId);
     if (!revision) throw new RepositoryNotFoundError("proactive profile revision not found");
     if (revision.status !== "active" || revision.desiredState !== "enabled") {
       throw new DomainConflictError("proactive profile is not accepting captures");
@@ -1179,7 +1179,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
       .returning();
     if (!created) throw new Error("failed to create proactive capture");
     // 仅记录元数据；绝不将 payload 写入审计。
-    await this.recordAudit(tenant, {
+    await this.recordAudit(ctx, {
       id: `${input.id}_audit_ingested`,
       revisionId: revision.id,
       eventType: "capture.ingested",
@@ -1192,7 +1192,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async listCaptures(
-    tenant: LocalContext,
+    ctx: LocalContext,
     options?: Parameters<IProactiveProfileRepository["listCaptures"]>[1],
   ): Promise<ProactiveCaptureModel[]> {
     const conditions = [
@@ -1210,7 +1210,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async createObservation(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: Parameters<IProactiveProfileRepository["createObservation"]>[1],
   ): Promise<ProactiveBehaviorObservationModel> {
     const [existingObservation] = await this.db
@@ -1229,7 +1229,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
       }
       return toObservation(existingObservation, this.cipher);
     }
-    const revision = await this.getRevision(tenant, input.revisionId);
+    const revision = await this.getRevision(ctx, input.revisionId);
     if (!revision) throw new RepositoryNotFoundError("proactive profile revision not found");
     if (revision.status !== "active" || revision.desiredState !== "enabled") {
       throw new DomainConflictError("proactive profile is not accepting observations");
@@ -1270,7 +1270,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
       })
       .returning();
     if (!created) throw new Error("failed to create proactive observation");
-    await this.recordAudit(tenant, {
+    await this.recordAudit(ctx, {
       id: `${input.id}_audit_normalized`,
       revisionId: revision.id,
       eventType: "observation.normalized",
@@ -1283,7 +1283,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async listObservations(
-    tenant: LocalContext,
+    ctx: LocalContext,
     options?: Parameters<IProactiveProfileRepository["listObservations"]>[1],
   ): Promise<ProactiveBehaviorObservationModel[]> {
     const conditions = [
@@ -1299,7 +1299,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return rows.map((row) => toObservation(row, this.cipher));
   }
 
-  async markCaptureDistilled(tenant: LocalContext, captureId: string, memoryIds: string[]): Promise<ProactiveCaptureModel | null> {
+  async markCaptureDistilled(ctx: LocalContext, captureId: string, memoryIds: string[]): Promise<ProactiveCaptureModel | null> {
     const ids = [...new Set(memoryIds.filter((id) => typeof id === "string" && id.length > 0))];
     if (ids.length === 0) throw new DomainConflictError("at least one memory id is required before capture deletion");
     const now = new Date().toISOString();
@@ -1321,7 +1321,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
       )
       .returning();
     if (!updated) return null;
-    await this.recordAudit(tenant, {
+    await this.recordAudit(ctx, {
       id: `${captureId}_audit_distilled_${Date.now().toString(36)}`,
       revisionId: updated.revisionId,
       eventType: "capture.distilled",
@@ -1333,7 +1333,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return toCapture(updated, true, this.cipher);
   }
 
-  async markCaptureDistillationFailed(tenant: LocalContext, captureId: string, reason?: string): Promise<ProactiveCaptureModel | null> {
+  async markCaptureDistillationFailed(ctx: LocalContext, captureId: string, reason?: string): Promise<ProactiveCaptureModel | null> {
     const [updated] = await this.db
       .update(proactiveCaptures)
       .set({
@@ -1350,7 +1350,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
       )
       .returning();
     if (!updated) return null;
-    await this.recordAudit(tenant, {
+    await this.recordAudit(ctx, {
       id: `${captureId}_audit_distill_failed_${Date.now().toString(36)}`,
       revisionId: updated.revisionId,
       eventType: "capture.distillation_failed",
@@ -1362,7 +1362,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return toCapture(updated, true, this.cipher);
   }
 
-  async purgeEligibleCaptures(tenant?: LocalContext, now = new Date().toISOString(), limit = 200): Promise<number> {
+  async purgeEligibleCaptures(ctx?: LocalContext, now = new Date().toISOString(), limit = 200): Promise<number> {
     const conditions = [
       lte(proactiveCaptures.retentionUntil, now),
       eq(proactiveCaptures.distillationStatus, "distilled"),
@@ -1437,10 +1437,10 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async createClaim(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: Parameters<IProactiveProfileRepository["createClaim"]>[1],
   ): Promise<ProactiveProfileClaimModel> {
-    const revision = await this.getRevision(tenant, input.revisionId);
+    const revision = await this.getRevision(ctx, input.revisionId);
     if (!revision) throw new RepositoryNotFoundError("proactive profile revision not found");
     const evidenceCaptureIds = [...new Set(input.evidenceCaptureIds ?? [])];
     if (evidenceCaptureIds.length > 0) {
@@ -1502,7 +1502,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async listClaims(
-    tenant: LocalContext,
+    ctx: LocalContext,
     options?: Parameters<IProactiveProfileRepository["listClaims"]>[1],
   ): Promise<ProactiveProfileClaimModel[]> {
     const conditions = [
@@ -1518,7 +1518,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return rows.map((row) => toClaim(row, this.cipher));
   }
 
-  async updateClaimState(tenant: LocalContext, claimId: string, state: ProactiveClaimState, actorId: string): Promise<ProactiveProfileClaimModel | null> {
+  async updateClaimState(ctx: LocalContext, claimId: string, state: ProactiveClaimState, actorId: string): Promise<ProactiveProfileClaimModel | null> {
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(proactiveProfileClaims)
@@ -1535,7 +1535,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
       )
       .returning();
     if (!updated) return null;
-    await this.recordAudit(tenant, {
+    await this.recordAudit(ctx, {
       id: `${claimId}_audit_state_${Date.now().toString(36)}`,
       revisionId: updated.revisionId,
       eventType: `claim.${state}`,
@@ -1548,17 +1548,17 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async createAction(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: Parameters<IProactiveProfileRepository["createAction"]>[1],
   ): Promise<ProactiveActionModel> {
     if (!input.authorizationScope.trim()) throw new DomainConflictError("authorizationScope is required");
-    const revision = await this.getRevision(tenant, input.revisionId);
+    const revision = await this.getRevision(ctx, input.revisionId);
     if (!revision) throw new RepositoryNotFoundError("proactive profile revision not found");
     const scopes = parseActionScopes(input.authorizationScope);
     if (scopes.length === 0 || scopes.some((scope) => !ACTION_SCOPES.has(scope))) {
       throw new DomainConflictError("authorizationScope contains an unsupported action scope");
     }
-    const grants = await this.listSourceGrants(tenant, revision.id);
+    const grants = await this.listSourceGrants(ctx, revision.id);
     const missingScopes = scopes.filter((scope) => grants.find((grant) => grant.sourceKey === scope)?.state !== "granted");
     if (missingScopes.length > 0) {
       throw new DomainConflictError(`action grant missing: ${missingScopes.join(",")}`);
@@ -1571,7 +1571,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
       })
       .join("+");
     if (input.activationLeaseId) {
-      const lease = await this.getLease(tenant, input.activationLeaseId);
+      const lease = await this.getLease(ctx, input.activationLeaseId);
       if (!lease || lease.revisionId !== revision.id) throw new RepositoryNotFoundError("activation lease not found");
     }
     const now = new Date().toISOString();
@@ -1601,7 +1601,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
       })
       .returning();
     if (!created) throw new Error("failed to create proactive action");
-    await this.recordAudit(tenant, {
+    await this.recordAudit(ctx, {
       id: `${input.id}_audit_requested`,
       revisionId: revision.id,
       eventType: "action.requested",
@@ -1614,7 +1614,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async listActions(
-    tenant: LocalContext,
+    ctx: LocalContext,
     options?: Parameters<IProactiveProfileRepository["listActions"]>[1],
   ): Promise<ProactiveActionModel[]> {
     const conditions = [
@@ -1631,7 +1631,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async updateAction(
-    tenant: LocalContext,
+    ctx: LocalContext,
     actionId: string,
     input: Parameters<IProactiveProfileRepository["updateAction"]>[2],
   ): Promise<ProactiveActionModel | null> {
@@ -1685,7 +1685,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
       )
       .returning();
     if (!updated) return null;
-    await this.recordAudit(tenant, {
+    await this.recordAudit(ctx, {
       id: `${actionId}_audit_${input.state}_${Date.now().toString(36)}`,
       revisionId: updated.revisionId,
       eventType: `action.${input.state}`,
@@ -1698,7 +1698,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async recordAudit(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: Parameters<IProactiveProfileRepository["recordAudit"]>[1],
   ): Promise<ProactiveAuditEventModel> {
     const now = new Date().toISOString();
@@ -1721,7 +1721,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return toAudit(created);
   }
 
-  async listAuditEvents(tenant: LocalContext, limit?: number): Promise<ProactiveAuditEventModel[]> {
+  async listAuditEvents(ctx: LocalContext, limit?: number): Promise<ProactiveAuditEventModel[]> {
     const rows = await this.db
       .select()
       .from(proactiveAuditEvents)
@@ -1735,20 +1735,20 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   }
 
   async exportSnapshot(
-    tenant: LocalContext,
+    ctx: LocalContext,
     options?: Parameters<IProactiveProfileRepository["exportSnapshot"]>[1],
   ) {
     const includeRaw = options?.includeRaw === true;
     const [revisions, sources, leases, captures, observations, claims, actions, auditEvents, consents] = await Promise.all([
-      this.listRevisions(tenant, MAX_LIST_LIMIT),
-      this.listSourceGrants(tenant),
-      this.listLeases(tenant),
-      this.listCaptureRows(tenant, includeRaw),
-      this.listObservations(tenant, { limit: MAX_LIST_LIMIT }),
-      this.listClaims(tenant, { limit: MAX_LIST_LIMIT }),
-      this.listActions(tenant, { limit: MAX_LIST_LIMIT }),
-      this.listAuditEvents(tenant, MAX_LIST_LIMIT),
-      this.listProactiveConsents(tenant),
+      this.listRevisions(ctx, MAX_LIST_LIMIT),
+      this.listSourceGrants(ctx),
+      this.listLeases(ctx),
+      this.listCaptureRows(ctx, includeRaw),
+      this.listObservations(ctx, { limit: MAX_LIST_LIMIT }),
+      this.listClaims(ctx, { limit: MAX_LIST_LIMIT }),
+      this.listActions(ctx, { limit: MAX_LIST_LIMIT }),
+      this.listAuditEvents(ctx, MAX_LIST_LIMIT),
+      this.listProactiveConsents(ctx),
     ]);
     return {
       exportedAt: new Date().toISOString(),
@@ -1765,7 +1765,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     };
   }
 
-  private async listLeases(tenant: LocalContext): Promise<ProactiveActivationLeaseModel[]> {
+  private async listLeases(ctx: LocalContext): Promise<ProactiveActivationLeaseModel[]> {
     const rows = await this.db
       .select()
       .from(proactiveActivationLeases)
@@ -1778,7 +1778,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return rows.map(toLease);
   }
 
-  private async listProactiveConsents(tenant: LocalContext): Promise<ProactiveConsentModel[]> {
+  private async listProactiveConsents(ctx: LocalContext): Promise<ProactiveConsentModel[]> {
     const rows = await this.db
       .select()
       .from(consentGrants)
@@ -1801,7 +1801,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     }));
   }
 
-  private async listCaptureRows(tenant: LocalContext, includeRaw: boolean): Promise<ProactiveCaptureModel[]> {
+  private async listCaptureRows(ctx: LocalContext, includeRaw: boolean): Promise<ProactiveCaptureModel[]> {
     const rows = await this.db
       .select()
       .from(proactiveCaptures)

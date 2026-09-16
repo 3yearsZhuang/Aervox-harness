@@ -42,9 +42,9 @@ export function createSqliteResumeSource(deps: SqliteResumeSourceDeps): TurnSour
       const candidates = await repo.findResumeCandidates(client, limit);
       const turns: ClaimableTurn[] = [];
       for (const c of candidates) {
-        const tenant: LocalContext = { workspaceId: "local", subjectUserId: "local" };
-        const events = await repo.getStreamEvents(tenant, c.turnId);
-        const executions = (await repo.listToolExecutionsByTurn(tenant, c.turnId)).map((r) => ({
+        const ctx: LocalContext = { workspaceId: "local", subjectUserId: "local" };
+        const events = await repo.getStreamEvents(ctx, c.turnId);
+        const executions = (await repo.listToolExecutionsByTurn(ctx, c.turnId)).map((r) => ({
           invocationId: r.invocationId,
           status: r.status,
           replay: r.replay === "safe" ? ("safe" as const) : r.replay === "never" ? ("never" as const) : null,
@@ -52,7 +52,7 @@ export function createSqliteResumeSource(deps: SqliteResumeSourceDeps): TurnSour
         const decision = decideResume(events as never, executions as never);
         if (!decision.resume) continue; // 非可续 → 交由既有恢复语义收敛
         const rebuilt = buildResumeHistory({ userMessage: c.userMessage, events: events as never });
-        const previous = await repo.getSessionHistory(tenant, {
+        const previous = await repo.getSessionHistory(ctx, {
           sessionId: c.sessionId,
           beforeTurnId: c.turnId,
         });

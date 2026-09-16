@@ -15,7 +15,7 @@ import {
   composeProactiveMessage,
   renderTemplateMessage,
   type ProactiveComposeInput,
-} from "../src/proactive-composer.js";
+} from "../src/proactive/composer.js";
 
 const baseInput: ProactiveComposeInput = {
   tenant: { workspaceId: "ws_p5", subjectUserId: "usr_p5" },

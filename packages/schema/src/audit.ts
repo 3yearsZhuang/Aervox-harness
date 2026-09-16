@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — Agent 可观测性审计日志（缺陷5）
+ * Aervox｜思隅 @aervox/schema — Agent 可观测性审计日志（缺陷5）
  *
  * 系统级审计（无租户列）：可检索本地 Agent 运行审计（turn 完成 / 审批 / 租约事件等）。
  * 字段对齐 @aervox/observability 的 AuditEntry；payload 以 JSON 文本存储。

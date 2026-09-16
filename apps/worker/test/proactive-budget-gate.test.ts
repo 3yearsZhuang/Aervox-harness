@@ -9,7 +9,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { initialBudgetState, DEFAULT_BUDGET_POLICY } from "@aervox/contracts";
-import { arbitrateWithBudget } from "../src/proactive-budget-gate.js";
+import { arbitrateWithBudget } from "../src/proactive/budget-gate.js";
 
 const baseInput = {
   now: new Date("2026-09-14T10:00:00"),

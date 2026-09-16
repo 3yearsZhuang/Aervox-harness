@@ -15,7 +15,7 @@ describe("T-03 上下文压缩标记", () => {
   let memoryRepo: SqliteMemoryRepository;
   let compactionRepo: SqliteMemoryCompactionRepository;
 
-  const tenant: LocalContext = { workspaceId: "ws_1", subjectUserId: "usr_1" };
+  const ctx: LocalContext = { workspaceId: "ws_1", subjectUserId: "usr_1" };
 
   beforeEach(async () => {
     const res = await createInMemoryDatabase();
@@ -27,14 +27,14 @@ describe("T-03 上下文压缩标记", () => {
   });
 
   it("写入标记并可按 snapshotId 溯源", async () => {
-    const memory = await memoryRepo.createRecord(tenant, {
+    const memory = await memoryRepo.createRecord(ctx, {
       id: "mem_1",
       layer: "short_term",
       type: "learning_event",
       content: "短期记忆产物",
     });
 
-    const marker = await compactionRepo.upsertMarker(tenant, {
+    const marker = await compactionRepo.upsertMarker(ctx, {
       id: "cmark_1",
       memoryId: memory.id,
       snapshotId: "snap_001",
@@ -46,7 +46,7 @@ describe("T-03 上下文压缩标记", () => {
     });
 
     expect(marker.snapshotId).toBe("snap_001");
-    const found = await compactionRepo.getMarkerBySnapshotId(tenant, "snap_001");
+    const found = await compactionRepo.getMarkerBySnapshotId(ctx, "snap_001");
     expect(found).not.toBeNull();
     expect(found!.memoryId).toBe("mem_1");
     expect(found!.coveredUpToMessageId).toBe("msg_10");
@@ -54,19 +54,19 @@ describe("T-03 上下文压缩标记", () => {
   });
 
   it("同 memoryId + snapshotId 幂等：不覆盖既有标记", async () => {
-    await memoryRepo.createRecord(tenant, {
+    await memoryRepo.createRecord(ctx, {
       id: "mem_2",
       layer: "short_term",
       type: "learning_event",
       content: "短期记忆产物 B",
     });
-    await compactionRepo.upsertMarker(tenant, {
+    await compactionRepo.upsertMarker(ctx, {
       id: "cmark_2",
       memoryId: "mem_2",
       snapshotId: "snap_002",
       summaryText: "第一版摘要",
     });
-    const second = await compactionRepo.upsertMarker(tenant, {
+    const second = await compactionRepo.upsertMarker(ctx, {
       id: "cmark_2b",
       memoryId: "mem_2",
       snapshotId: "snap_002",
@@ -74,18 +74,18 @@ describe("T-03 上下文压缩标记", () => {
     });
 
     expect(second.summaryText).toBe("第一版摘要");
-    const all = await compactionRepo.listMarkersByMemoryId(tenant, "mem_2");
+    const all = await compactionRepo.listMarkersByMemoryId(ctx, "mem_2");
     expect(all).toHaveLength(1);
   });
 
   it("recordEvent 写入 memory_events 审计（action=compressed）", async () => {
-    await memoryRepo.createRecord(tenant, {
+    await memoryRepo.createRecord(ctx, {
       id: "mem_3",
       layer: "short_term",
       type: "learning_event",
       content: "短期记忆产物 C",
     });
-    await compactionRepo.recordEvent(tenant, {
+    await compactionRepo.recordEvent(ctx, {
       id: "evt_1",
       memoryId: "mem_3",
       action: "compressed",
@@ -105,7 +105,7 @@ describe("T-03 上下文压缩标记", () => {
   });
 
   it("PET-02：createRecord 支持 source/category/keywords/lastUsedAt 字段", async () => {
-    const memory = await memoryRepo.createRecord(tenant, {
+    const memory = await memoryRepo.createRecord(ctx, {
       id: "mem_4",
       layer: "long_term",
       type: "user_preference",
@@ -116,20 +116,20 @@ describe("T-03 上下文压缩标记", () => {
       lastUsedAt: "2026-08-26T10:00:00.000Z",
     });
 
-    const found = await memoryRepo.getRecord(tenant, "mem_4");
+    const found = await memoryRepo.getRecord(ctx, "mem_4");
     expect(found!.source).toBe("ai_inferred");
     expect(found!.category).toBe("habit");
     expect(JSON.parse(found!.keywordsJson!)).toEqual(["番茄工作法", "专注"]);
     expect(found!.lastUsedAt).toBe("2026-08-26T10:00:00.000Z");
 
     // 缺省值：user_said / other
-    const plain = await memoryRepo.createRecord(tenant, {
+    const plain = await memoryRepo.createRecord(ctx, {
       id: "mem_5",
       layer: "long_term",
       type: "user_fact",
       content: "用户叫小明",
     });
-    const plainFound = await memoryRepo.getRecord(tenant, "mem_5");
+    const plainFound = await memoryRepo.getRecord(ctx, "mem_5");
     expect(plainFound!.source).toBe("user_said");
     expect(plainFound!.category).toBe("other");
     expect(plain!.keywordsJson).toBe(null);

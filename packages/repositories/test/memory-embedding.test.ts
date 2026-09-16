@@ -18,7 +18,7 @@ describe("T-05 记忆向量独立存储", () => {
   let memoryRepo: SqliteMemoryRepository;
   let embeddingRepo: SqliteMemoryEmbeddingRepository;
 
-  const tenant: LocalContext = { workspaceId: "ws_1", subjectUserId: "usr_1" };
+  const ctx: LocalContext = { workspaceId: "ws_1", subjectUserId: "usr_1" };
   const other: LocalContext = { workspaceId: "ws_9", subjectUserId: "usr_9" };
 
   beforeEach(async () => {
@@ -32,7 +32,7 @@ describe("T-05 记忆向量独立存储", () => {
 
   it("insertBatch 批量写入 + 进度回调", async () => {
     for (const id of ["m1", "m2", "m3"]) {
-      await memoryRepo.createRecord(tenant, {
+      await memoryRepo.createRecord(ctx, {
         id,
         layer: "long_term",
         type: "user_fact",
@@ -42,7 +42,7 @@ describe("T-05 记忆向量独立存储", () => {
 
     const progress: number[] = [];
     await embeddingRepo.insertBatch(
-      tenant,
+      ctx,
       [
         { id: "emb_1", memoryId: "m1", vector: [1, 0], modelId: "test-emb" },
         { id: "emb_2", memoryId: "m2", vector: [0, 1], modelId: "test-emb" },
@@ -58,40 +58,40 @@ describe("T-05 记忆向量独立存储", () => {
 
   it("retrieve 按余弦相似度排序 + minScore + modelId 过滤", async () => {
     for (const id of ["m1", "m2"]) {
-      await memoryRepo.createRecord(tenant, { id, layer: "long_term", type: "user_fact", content: `记忆 ${id}` });
+      await memoryRepo.createRecord(ctx, { id, layer: "long_term", type: "user_fact", content: `记忆 ${id}` });
     }
-    await embeddingRepo.insertBatch(tenant, [
+    await embeddingRepo.insertBatch(ctx, [
       { id: "emb_1", memoryId: "m1", vector: [1, 0], modelId: "model_a" },
       { id: "emb_2", memoryId: "m2", vector: [0.5, 0.5], modelId: "model_a" },
     ]);
 
-    const hits = await embeddingRepo.retrieve(tenant, [1, 0], 10, 0);
+    const hits = await embeddingRepo.retrieve(ctx, [1, 0], 10, 0);
     expect(hits[0]!.memoryId).toBe("m1");
     expect(hits[0]!.score).toBeCloseTo(1, 6);
     expect(hits[1]!.memoryId).toBe("m2");
     expect(hits[1]!.score).toBeCloseTo(Math.sqrt(0.5), 6);
 
     // minScore 过滤
-    const filtered = await embeddingRepo.retrieve(tenant, [1, 0], 10, 0.8);
+    const filtered = await embeddingRepo.retrieve(ctx, [1, 0], 10, 0.8);
     expect(filtered.map((h) => h.memoryId)).toEqual(["m1"]);
 
     // modelId 过滤：无对应模型时为空
-    const noModel = await embeddingRepo.retrieve(tenant, [1, 0], 10, 0, "model_b");
+    const noModel = await embeddingRepo.retrieve(ctx, [1, 0], 10, 0, "model_b");
     expect(noModel).toEqual([]);
   });
 
   it("deleteByMemoryId 与 clearAll", async () => {
-    await memoryRepo.createRecord(tenant, { id: "m_owner", layer: "long_term", type: "user_fact", content: "x" });
+    await memoryRepo.createRecord(ctx, { id: "m_owner", layer: "long_term", type: "user_fact", content: "x" });
     await memoryRepo.createRecord(other, { id: "m_other", layer: "long_term", type: "user_fact", content: "x" });
-    await embeddingRepo.insertBatch(tenant, [
+    await embeddingRepo.insertBatch(ctx, [
       { id: "emb_1", memoryId: "m_owner", vector: [1, 0], modelId: "m" },
     ]);
     await embeddingRepo.insertBatch(other, [
       { id: "emb_2", memoryId: "m_other", vector: [1, 0], modelId: "m" },
     ]);
 
-    await embeddingRepo.deleteByMemoryId(tenant, "m_owner");
-    expect(await embeddingRepo.retrieve(tenant, [1, 0], 5)).toHaveLength(1);
+    await embeddingRepo.deleteByMemoryId(ctx, "m_owner");
+    expect(await embeddingRepo.retrieve(ctx, [1, 0], 5)).toHaveLength(1);
     // 另一组兼容上下文仍可读取同一数据库中的数据
     expect(await embeddingRepo.retrieve(other, [1, 0], 5)).toHaveLength(1);
 
@@ -100,14 +100,14 @@ describe("T-05 记忆向量独立存储", () => {
   });
 
   it("SqliteMemoryVectorSearchAdapter 可作为 T-02 混合检索的向量通道", async () => {
-    await memoryRepo.createRecord(tenant, { id: "mem_a", layer: "long_term", type: "user_fact", content: "苹果 每日" });
-    await memoryRepo.createRecord(tenant, { id: "mem_b", layer: "long_term", type: "user_fact", content: "游戏 时间" });
+    await memoryRepo.createRecord(ctx, { id: "mem_a", layer: "long_term", type: "user_fact", content: "苹果 每日" });
+    await memoryRepo.createRecord(ctx, { id: "mem_b", layer: "long_term", type: "user_fact", content: "游戏 时间" });
     const { indexMemoryFts } = await import("../src/index.js");
-    await indexMemoryFts(client, tenant, { id: "mem_a", content: "苹果 每日" });
-    await indexMemoryFts(client, tenant, { id: "mem_b", content: "游戏 时间" });
+    await indexMemoryFts(client, ctx, { id: "mem_a", content: "苹果 每日" });
+    await indexMemoryFts(client, ctx, { id: "mem_b", content: "游戏 时间" });
 
     const adapter = new SqliteMemoryVectorSearchAdapter(embeddingRepo, "model_a");
-    await adapter.upsert(tenant, [
+    await adapter.upsert(ctx, [
       { id: "mem_a", vector: [1, 0] },
       { id: "mem_b", vector: [0, 1] },
     ]);
@@ -119,7 +119,7 @@ describe("T-05 记忆向量独立存储", () => {
     });
     const service = new HybridSearchService(storage, "memory");
 
-    const results = await service.search(tenant, {
+    const results = await service.search(ctx, {
       queryText: "苹果",
       queryVector: [1, 0],
       limit: 5,
@@ -131,15 +131,15 @@ describe("T-05 记忆向量独立存储", () => {
   });
 
   it("insertBatch 失败整批重试后在 maxRetries 内成功", async () => {
-    await memoryRepo.createRecord(tenant, { id: "m1", layer: "long_term", type: "user_fact", content: "r" });
+    await memoryRepo.createRecord(ctx, { id: "m1", layer: "long_term", type: "user_fact", content: "r" });
     // 通过进度回调模拟外部波动（无实际失败路径时验证回调幂等推进）
     const cb = vi.fn();
     await embeddingRepo.insertBatch(
-      tenant,
+      ctx,
       [{ id: "emb_1", memoryId: "m1", vector: [1, 0], modelId: "m" }],
       { batchSize: 1, maxRetries: 3, progressCallback: cb },
     );
     expect(cb).toHaveBeenCalledWith({ current: 1, total: 1 });
-    expect(await embeddingRepo.retrieve(tenant, [1, 0], 5)).toHaveLength(1);
+    expect(await embeddingRepo.retrieve(ctx, [1, 0], 5)).toHaveLength(1);
   });
 });

@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — RecoveryControlLedger 独立 deny 账本仓储实现
+ * Aervox｜思隅 @aervox/repositories — RecoveryControlLedger 独立 deny 账本仓储实现
  *
  * 规则依据：docs/reference/PRD.md §8 数据规则 + docs/reference/DATABASE.md §14.7
  *

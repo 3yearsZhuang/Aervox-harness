@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — B1：事件写入 fencing CAS（3c+）
+ * Aervox｜思隅 @aervox/repositories — B1：事件写入 fencing CAS（3c+）
  *
  * 规则依据：AVX-HAR-001 §11.2「事件/工具写入的 fencing 校验」、§12.2 事务边界。
  * appendStreamEvent 携带 expectedFencingToken 时：要求 turn_attempts 存在且
@@ -11,7 +11,7 @@ import { createInMemoryDatabase, initDatabaseSchema, SqliteConversationRepositor
 import { FencingMismatchError } from "../src/errors.js";
 import type { Client } from "@libsql/client";
 
-const tenant: LocalContext = { workspaceId: "ws_fence", subjectUserId: "usr_fence" };
+const ctx: LocalContext = { workspaceId: "ws_fence", subjectUserId: "usr_fence" };
 
 describe("B1 事件写入 fencing CAS（appendStreamEvent）", () => {
   let db: AervoxDatabase;
@@ -22,15 +22,15 @@ describe("B1 事件写入 fencing CAS（appendStreamEvent）", () => {
   const nextTurn = async (): Promise<{ turnId: string; attemptId: string }> => {
     const n = (++seq).toString(36);
     const turnId = `turn_fence_${n}`;
-    await repo.getOrCreateSession(tenant, `ses_fence_${n}`, "fencing 测试");
+    await repo.getOrCreateSession(ctx, `ses_fence_${n}`, "fencing 测试");
     await repo.createTurnWithOutbox(
-      tenant,
+      ctx,
       { id: turnId, sessionId: `ses_fence_${n}`, idempotencyKey: `idem_${turnId}`, status: "Created" },
       { id: `msg_${turnId}`, content: "x" },
       { id: `ob_${turnId}`, eventType: "turn.created", idempotencyKey: `idem_ob_${turnId}`, payload: { turnId } },
     );
     const attemptId = `atp_fence_${n}`;
-    await repo.createTurnAttempt(tenant, turnId, { id: attemptId, attempt: 1 });
+    await repo.createTurnAttempt(ctx, turnId, { id: attemptId, attempt: 1 });
     return { turnId, attemptId };
   };
 
@@ -44,11 +44,11 @@ describe("B1 事件写入 fencing CAS（appendStreamEvent）", () => {
 
   it("运行中 Attempt：claim 后携带正确 fencing 写入通过", async () => {
     const { turnId, attemptId } = await nextTurn();
-    const claim = await repo.claimTurnAttempt(tenant, { turnId, attemptId, expectedFencingToken: 0, leaseId: "lease_f1", ttlMs: 60_000 });
+    const claim = await repo.claimTurnAttempt(ctx, { turnId, attemptId, expectedFencingToken: 0, leaseId: "lease_f1", ttlMs: 60_000 });
     expect(claim.ok).toBe(true);
     if (!claim.ok) return;
 
-    const ev = await repo.appendStreamEvent(tenant, {
+    const ev = await repo.appendStreamEvent(ctx, {
       id: "tev_f1",
       turnId,
       sequence: 1,
@@ -59,7 +59,7 @@ describe("B1 事件写入 fencing CAS（appendStreamEvent）", () => {
     });
     expect(ev.sequence).toBe(1);
     // 未携带期望值（保持无校验兼容路径）也仍可写入
-    const ev2 = await repo.appendStreamEvent(tenant, {
+    const ev2 = await repo.appendStreamEvent(ctx, {
       id: "tev_f1b",
       turnId,
       sequence: 2,
@@ -73,7 +73,7 @@ describe("B1 事件写入 fencing CAS（appendStreamEvent）", () => {
   it("fencing 失配（被恢复器抢占/收敛后递增）：迟到写入被拒绝且零污染", async () => {
     const { turnId, attemptId } = await nextTurn();
     // 租约 TTL 为负 → leaseExpiresAt 已过期，可被恢复器收敛（fencing +1 → Interrupted）
-    const claim = await repo.claimTurnAttempt(tenant, { turnId, attemptId, expectedFencingToken: 0, leaseId: "lease_f2", ttlMs: -1_000 });
+    const claim = await repo.claimTurnAttempt(ctx, { turnId, attemptId, expectedFencingToken: 0, leaseId: "lease_f2", ttlMs: -1_000 });
     expect(claim.ok).toBe(true);
     if (!claim.ok) return;
     expect(claim.fencingToken).toBe(1);
@@ -83,7 +83,7 @@ describe("B1 事件写入 fencing CAS（appendStreamEvent）", () => {
 
     // 旧执行器以 claim 当时的 fencing（1）迟到写入 → 拒绝（恢复器已递增为 2）
     await expect(
-      repo.appendStreamEvent(tenant, {
+      repo.appendStreamEvent(ctx, {
         id: "tev_f2_late",
         turnId,
         sequence: 2,
@@ -94,14 +94,14 @@ describe("B1 事件写入 fencing CAS（appendStreamEvent）", () => {
       }),
     ).rejects.toThrow(FencingMismatchError);
 
-    const events = await repo.getStreamEvents(tenant, turnId, 0);
+    const events = await repo.getStreamEvents(ctx, turnId, 0);
     expect(events).toHaveLength(0); // 事件流零污染
   });
 
   it("attempt 不存在：拒绝并抛 FencingMismatchError", async () => {
     const { turnId } = await nextTurn();
     await expect(
-      repo.appendStreamEvent(tenant, {
+      repo.appendStreamEvent(ctx, {
         id: "tev_f3",
         turnId,
         sequence: 1,
@@ -115,10 +115,10 @@ describe("B1 事件写入 fencing CAS（appendStreamEvent）", () => {
 
   it("终态后：仅收尾 done/error 允许；普通事件（delta）拒绝", async () => {
     const { turnId, attemptId } = await nextTurn();
-    const claim = await repo.claimTurnAttempt(tenant, { turnId, attemptId, expectedFencingToken: 0, leaseId: "lease_f4", ttlMs: 60_000 });
+    const claim = await repo.claimTurnAttempt(ctx, { turnId, attemptId, expectedFencingToken: 0, leaseId: "lease_f4", ttlMs: 60_000 });
     expect(claim.ok).toBe(true);
     if (!claim.ok) return;
-    const finalized = await repo.finalizeTurnAttempt(tenant, {
+    const finalized = await repo.finalizeTurnAttempt(ctx, {
       turnId,
       attemptId,
       status: "Completed",
@@ -128,7 +128,7 @@ describe("B1 事件写入 fencing CAS（appendStreamEvent）", () => {
 
     // 终态下写普通事件 → 拒绝
     await expect(
-      repo.appendStreamEvent(tenant, {
+      repo.appendStreamEvent(ctx, {
         id: "tev_f4_delta",
         turnId,
         sequence: 2,
@@ -140,7 +140,7 @@ describe("B1 事件写入 fencing CAS（appendStreamEvent）", () => {
     ).rejects.toThrow(FencingMismatchError);
 
     // 终态下收尾 done（finalize-then-done 路径）→ 放行
-    const done = await repo.appendStreamEvent(tenant, {
+    const done = await repo.appendStreamEvent(ctx, {
       id: "tev_f4_done",
       turnId,
       sequence: 3,
@@ -154,13 +154,13 @@ describe("B1 事件写入 fencing CAS（appendStreamEvent）", () => {
 
   it("CancelRequested 状态仍可写事件（取消路径）", async () => {
     const { turnId, attemptId } = await nextTurn();
-    const claim = await repo.claimTurnAttempt(tenant, { turnId, attemptId, expectedFencingToken: 0, leaseId: "lease_f5", ttlMs: 60_000 });
+    const claim = await repo.claimTurnAttempt(ctx, { turnId, attemptId, expectedFencingToken: 0, leaseId: "lease_f5", ttlMs: 60_000 });
     expect(claim.ok).toBe(true);
     if (!claim.ok) return;
-    const cancel = await repo.requestCancelTurnAttempt(tenant, { turnId, attemptId });
+    const cancel = await repo.requestCancelTurnAttempt(ctx, { turnId, attemptId });
     expect(cancel.ok).toBe(true);
 
-    const ev = await repo.appendStreamEvent(tenant, {
+    const ev = await repo.appendStreamEvent(ctx, {
       id: "tev_f5",
       turnId,
       sequence: 1,

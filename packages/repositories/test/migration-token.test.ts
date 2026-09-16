@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — T-06 迁移服务 + T-10 Token 分账测试
+ * Aervox｜思隅 @aervox/repositories — T-06 迁移服务 + T-10 Token 分账测试
  */
 import { describe, expect, it } from "vitest";
 import { createInMemoryDatabase } from "../src/client.js";

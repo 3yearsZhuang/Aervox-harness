@@ -100,6 +100,7 @@ review_interval_days: 90
 |---|---|---|
 | [文档治理与事实源规范](reference/document-governance.md)（AVX-DOC-GOV-001） | 文档如何分类、标记状态、确定唯一事实源并触发复核 | 分类、事实源矩阵、元数据、状态模型、owner、复核触发器与分阶段迁移 |
 | [文档写作规范](reference/standards/doc-standards.md)（AVX-STD-001） | 每份文档如何使用模板、命名、写作并通过门禁 | 写作体例、签名、命名、风格基线、Vale 术语门禁与模板族；治理规则见 AVX-DOC-GOV-001 |
+| [代码与 API 命名规范](reference/standards/naming-conventions.md)（AVX-STD-002） | 代码 / API 命名的唯一一致性标准 | 标识符与上下文 `ctx`、路由与 HTTP 语义、包名与目录组织、禁止词与术语开关；陈旧信号见 DOC_REGISTRY |
 | [术语表](reference/standards/terminology.md)（AVX-TERM-001） | 项目术语的唯一含义与规范写法 | 缩写/产品名唯一语义；Vale 依据「禁写」列自动校验 |
 | [文档生命周期登记表](DOC_REGISTRY.md) | 每份文档何时核验、多久复核、什么信号表示陈旧 | 核验节奏/陈旧信号；独立于索引维护 |
 | [从这里开始](getting-started.md)（AVX-DOC-002，见[§7](#7-从哪开始)） | 新成员/Agent 从哪看起、提交前自检什么 | 导航型；不承载规则 |

@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 阶段 2c 工具幂等预留与 unknown outcome 测试
+ * Aervox｜思隅 @aervox/repositories — 阶段 2c 工具幂等预留与 unknown outcome 测试
  *
  * 覆盖 AVX-HAR-001 §9（idempotency reservation）与 §11.3（unknown outcome 不自动重放）：
  * - reserve 幂等：attempt+invocation 唯一，重复预留不重复写行（ON CONFLICT DO NOTHING）；
@@ -16,7 +16,7 @@ import {
 } from "../src/index.js";
 import type { Client } from "@libsql/client";
 
-const tenant: LocalContext = { workspaceId: "ws_resv", subjectUserId: "usr_resv" };
+const ctx: LocalContext = { workspaceId: "ws_resv", subjectUserId: "usr_resv" };
 
 describe("2c 工具幂等预留与结果收口", () => {
   let db: AervoxDatabase;
@@ -29,18 +29,18 @@ describe("2c 工具幂等预留与结果收口", () => {
     client = res.client;
     await initDatabaseSchema(client);
     repo = new SqliteConversationRepository(db);
-    await repo.getOrCreateSession(tenant, "ses_resv", "预留测试");
+    await repo.getOrCreateSession(ctx, "ses_resv", "预留测试");
     await repo.createTurnWithOutbox(
-      tenant,
+      ctx,
       { id: "turn_resv", sessionId: "ses_resv", idempotencyKey: "idem_resv", status: "Created" },
       { id: "msg_resv", content: "x" },
       { id: "ob_resv", eventType: "turn.created", idempotencyKey: "idem_ob_resv", payload: { turnId: "turn_resv", sessionId: "ses_resv" } },
     );
-    await repo.createTurnAttempt(tenant, "turn_resv", { id: "atp_resv", attempt: 1 });
+    await repo.createTurnAttempt(ctx, "turn_resv", { id: "atp_resv", attempt: 1 });
   });
 
   it("reserve 新建预留：status=pending，非 already", async () => {
-    const res = await repo.reserveToolExecution(tenant, {
+    const res = await repo.reserveToolExecution(ctx, {
       turnId: "turn_resv",
       attemptId: "atp_resv",
       invocationId: "call_1",
@@ -48,19 +48,19 @@ describe("2c 工具幂等预留与结果收口", () => {
       arguments: { query: "x" },
     });
     expect(res).toEqual({ ok: true, alreadyReserved: false });
-    const rows = await repo.listToolExecutionsByTurn(tenant, "turn_resv");
+    const rows = await repo.listToolExecutionsByTurn(ctx, "turn_resv");
     expect(rows[0]?.status).toBe("pending");
   });
 
   it("reserve 幂等：同 attempt+invocation 二次预留不重复写行", async () => {
-    await repo.reserveToolExecution(tenant, {
+    await repo.reserveToolExecution(ctx, {
       turnId: "turn_resv",
       attemptId: "atp_resv",
       invocationId: "call_1",
       name: "notes_search",
       arguments: { query: "x" },
     });
-    const again = await repo.reserveToolExecution(tenant, {
+    const again = await repo.reserveToolExecution(ctx, {
       turnId: "turn_resv",
       attemptId: "atp_resv",
       invocationId: "call_1",
@@ -68,19 +68,19 @@ describe("2c 工具幂等预留与结果收口", () => {
       arguments: { query: "x" },
     });
     expect(again).toEqual({ ok: true, alreadyReserved: true });
-    const rows = await repo.listToolExecutionsByTurn(tenant, "turn_resv");
+    const rows = await repo.listToolExecutionsByTurn(ctx, "turn_resv");
     expect(rows).toHaveLength(1);
   });
 
   it("update 收口：预留行以权威结果回写", async () => {
-    await repo.reserveToolExecution(tenant, {
+    await repo.reserveToolExecution(ctx, {
       turnId: "turn_resv",
       attemptId: "atp_resv",
       invocationId: "call_1",
       name: "notes_search",
       arguments: { query: "x" },
     });
-    const updated = await repo.updateToolExecutionResult(tenant, {
+    const updated = await repo.updateToolExecutionResult(ctx, {
       turnId: "turn_resv",
       attemptId: "atp_resv",
       invocationId: "call_1",
@@ -88,21 +88,21 @@ describe("2c 工具幂等预留与结果收口", () => {
       output: { hits: 3 },
     });
     expect(updated.ok).toBe(true);
-    const rows = await repo.listToolExecutionsByTurn(tenant, "turn_resv");
+    const rows = await repo.listToolExecutionsByTurn(ctx, "turn_resv");
     expect(rows).toHaveLength(1); // 仍是同一行
     expect(rows[0]?.status).toBe("executed");
     expect(rows[0]?.outputJson).toEqual({ hits: 3 });
   });
 
   it("释放后 pending 预留标记 outcome_unknown（§11.3 不自动重放）", async () => {
-    await repo.claimTurnAttempt(tenant, {
+    await repo.claimTurnAttempt(ctx, {
       turnId: "turn_resv",
       attemptId: "atp_resv",
       expectedFencingToken: 0,
       leaseId: "lease_r1",
       ttlMs: 1,
     });
-    await repo.reserveToolExecution(tenant, {
+    await repo.reserveToolExecution(ctx, {
       turnId: "turn_resv",
       attemptId: "atp_resv",
       invocationId: "call_1",
@@ -113,7 +113,7 @@ describe("2c 工具幂等预留与结果收口", () => {
     await repo.recoverExpiredAttempts(client); // attempt → Interrupted（fencing+1）
     const marked = await repo.markPendingOutcomeUnknown(client);
     expect(marked).toBeGreaterThanOrEqual(1);
-    const rows = await repo.listToolExecutionsByTurn(tenant, "turn_resv");
+    const rows = await repo.listToolExecutionsByTurn(ctx, "turn_resv");
     expect(rows[0]?.status).toBe("outcome_unknown");
   });
 });
@@ -129,18 +129,18 @@ describe("3c 恢复候选（findResumeCandidates）", () => {
     client = res.client;
     await initDatabaseSchema(client);
     repo = new SqliteConversationRepository(db);
-    await repo.getOrCreateSession(tenant, "ses_resume", "恢复候选测试");
+    await repo.getOrCreateSession(ctx, "ses_resume", "恢复候选测试");
     await repo.createTurnWithOutbox(
-      tenant,
+      ctx,
       { id: "turn_resume", sessionId: "ses_resume", idempotencyKey: "idem_resume", status: "Created" },
       { id: "msg_resume", content: "x" },
       { id: "ob_resume", eventType: "turn.created", idempotencyKey: "idem_ob_resume", payload: { turnId: "turn_resume", sessionId: "ses_resume" } },
     );
-    await repo.createTurnAttempt(tenant, "turn_resume", { id: "atp_resume", attempt: 1 });
+    await repo.createTurnAttempt(ctx, "turn_resume", { id: "atp_resume", attempt: 1 });
   });
 
   async function seedExecutedToolWithExpiredLease(): Promise<void> {
-    await repo.claimTurnAttempt(tenant, {
+    await repo.claimTurnAttempt(ctx, {
       turnId: "turn_resume",
       attemptId: "atp_resume",
       expectedFencingToken: 0,
@@ -148,21 +148,21 @@ describe("3c 恢复候选（findResumeCandidates）", () => {
       ttlMs: 1,
     });
     await new Promise((r) => setTimeout(r, 10));
-    await repo.reserveToolExecution(tenant, {
+    await repo.reserveToolExecution(ctx, {
       turnId: "turn_resume",
       attemptId: "atp_resume",
       invocationId: "atp_resume:1:1",
       name: "notes_write",
       arguments: {},
     });
-    await repo.updateToolExecutionResult(tenant, {
+    await repo.updateToolExecutionResult(ctx, {
       turnId: "turn_resume",
       attemptId: "atp_resume",
       invocationId: "atp_resume:1:1",
       status: "executed",
       output: { ok: true },
     });
-    await repo.appendStreamEvent(tenant, {
+    await repo.appendStreamEvent(ctx, {
       id: "tev_resume_1",
       turnId: "turn_resume",
       sequence: 1,
@@ -176,32 +176,32 @@ describe("3c 恢复候选（findResumeCandidates）", () => {
     const sessionId = `ses_${id}`;
     const turnId = `turn_${id}`;
     const attemptId = `atp_${id}`;
-    await repo.getOrCreateSession(tenant, sessionId, "恢复候选排序测试");
+    await repo.getOrCreateSession(ctx, sessionId, "恢复候选排序测试");
     await repo.createTurnWithOutbox(
-      tenant,
+      ctx,
       { id: turnId, sessionId, idempotencyKey: `idem_${id}`, status: "Created" },
       { id: `msg_${id}`, content: id },
     );
-    await repo.createTurnAttempt(tenant, turnId, { id: attemptId, attempt: 1 });
+    await repo.createTurnAttempt(ctx, turnId, { id: attemptId, attempt: 1 });
     await client.execute({
       sql: "UPDATE turn_attempts SET lease_expires_at = ? WHERE id = ?",
       args: [leaseExpiresAt, attemptId],
     });
-    await repo.reserveToolExecution(tenant, {
+    await repo.reserveToolExecution(ctx, {
       turnId,
       attemptId,
       invocationId: `${attemptId}:1:1`,
       name: "notes_search",
       arguments: {},
     });
-    await repo.updateToolExecutionResult(tenant, {
+    await repo.updateToolExecutionResult(ctx, {
       turnId,
       attemptId,
       invocationId: `${attemptId}:1:1`,
       status: "executed",
       output: { ok: true },
     });
-    await repo.appendStreamEvent(tenant, {
+    await repo.appendStreamEvent(ctx, {
       id: `event_${id}`,
       turnId,
       sequence: 1,
@@ -225,7 +225,7 @@ describe("3c 恢复候选（findResumeCandidates）", () => {
 
   it("存在 done 终态事件 → 不命中", async () => {
     await seedExecutedToolWithExpiredLease();
-    await repo.appendStreamEvent(tenant, {
+    await repo.appendStreamEvent(ctx, {
       id: "tev_resume_done",
       turnId: "turn_resume",
       sequence: 2,
@@ -238,7 +238,7 @@ describe("3c 恢复候选（findResumeCandidates）", () => {
   });
 
   it("无 executed 工具（仅 pending 预留）→ 不命中（结果未知）", async () => {
-    await repo.claimTurnAttempt(tenant, {
+    await repo.claimTurnAttempt(ctx, {
       turnId: "turn_resume",
       attemptId: "atp_resume",
       expectedFencingToken: 0,
@@ -246,7 +246,7 @@ describe("3c 恢复候选（findResumeCandidates）", () => {
       ttlMs: 1,
     });
     await new Promise((r) => setTimeout(r, 10));
-    await repo.reserveToolExecution(tenant, {
+    await repo.reserveToolExecution(ctx, {
       turnId: "turn_resume",
       attemptId: "atp_resume",
       invocationId: "atp_resume:1:1",

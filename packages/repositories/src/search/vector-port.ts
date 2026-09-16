@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 向量检索 Port 接口与适配器
+ * Aervox｜思隅 @aervox/repositories — 向量检索 Port 接口与适配器
  *
  * 解耦向量检索与具体向量数据库，使得派生向量索引可随意清空、离线重建。
  */
@@ -21,15 +21,15 @@ export interface VectorSearchResult {
  * 向量检索核心 Port 接口
  */
 export interface IVectorSearchPort {
-  upsert(tenant: LocalContext, items: VectorItem[]): Promise<void>;
+  upsert(ctx: LocalContext, items: VectorItem[]): Promise<void>;
   search(
-    tenant: LocalContext,
+    ctx: LocalContext,
     queryVector: number[],
     topK: number,
     minScore?: number,
   ): Promise<VectorSearchResult[]>;
-  delete(tenant: LocalContext, id: string): Promise<void>;
-  clearAll(tenant: LocalContext): Promise<void>;
+  delete(ctx: LocalContext, id: string): Promise<void>;
+  clearAll(ctx: LocalContext): Promise<void>;
 }
 
 /**
@@ -57,25 +57,25 @@ export function cosineSimilarity(a: number[], b: number[]): number {
 export class InMemoryVectorSearchAdapter implements IVectorSearchPort {
   private readonly store = new Map<string, VectorItem>();
 
-  private getLocalStore(tenant: LocalContext): Map<string, VectorItem> {
-    assertLocalContext(tenant);
+  private getLocalStore(ctx: LocalContext): Map<string, VectorItem> {
+    assertLocalContext(ctx);
     return this.store;
   }
 
-  async upsert(tenant: LocalContext, items: VectorItem[]): Promise<void> {
-    const map = this.getLocalStore(tenant);
+  async upsert(ctx: LocalContext, items: VectorItem[]): Promise<void> {
+    const map = this.getLocalStore(ctx);
     for (const item of items) {
       map.set(item.id, item);
     }
   }
 
   async search(
-    tenant: LocalContext,
+    ctx: LocalContext,
     queryVector: number[],
     topK: number = 10,
     minScore: number = 0.0,
   ): Promise<VectorSearchResult[]> {
-    const map = this.getLocalStore(tenant);
+    const map = this.getLocalStore(ctx);
     const results: VectorSearchResult[] = [];
 
     for (const [id, item] of map.entries()) {
@@ -89,13 +89,13 @@ export class InMemoryVectorSearchAdapter implements IVectorSearchPort {
     return results.slice(0, topK);
   }
 
-  async delete(tenant: LocalContext, id: string): Promise<void> {
-    const map = this.getLocalStore(tenant);
+  async delete(ctx: LocalContext, id: string): Promise<void> {
+    const map = this.getLocalStore(ctx);
     map.delete(id);
   }
 
-  async clearAll(tenant: LocalContext): Promise<void> {
-    assertLocalContext(tenant);
+  async clearAll(ctx: LocalContext): Promise<void> {
+    assertLocalContext(ctx);
     this.store.clear();
   }
 }

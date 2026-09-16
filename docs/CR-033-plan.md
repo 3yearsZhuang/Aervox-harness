@@ -29,10 +29,10 @@ sources:
   - docs/reference/adr/ADR-019-proactive-integrations-local-gateway.md
 ---
 
-# CR-033 落地临时计划：态势内核与预算化干预
+# AVX-PLAN-033 临时计划：CR-033 态势内核与预算化干预实施拆分
 
 - 提出人：3yearszhuang · 2026-09-14
-- 修改人：3yearszhuang · 2026-09-14
+- 修改人：3yearszhuang · 2026-09-16
 
 > [!WARNING]
 > 本文件是临时执行计划，不是新的产品、架构或 API 事实源。原始提案 [CR-033](reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md) 仍是北极星基线；本文件不改变 CR-033、CAP-033 或任何 ADR 的状态。正式实施前必须拆分子 CR，并以子 CR 的实现级契约替代本文件。

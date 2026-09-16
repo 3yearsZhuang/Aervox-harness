@@ -44,22 +44,22 @@ import type {
   SqliteSkillRegistryRepository,
   LocalContext,
 } from "@aervox/repositories";
-import { arbitrate, DEFAULT_GLOBAL_QUIET_HOURS, DEFAULT_MAX_DISPATCHES_PER_HOUR } from "./proactive-arbitrator.js";
+import { arbitrate, DEFAULT_GLOBAL_QUIET_HOURS, DEFAULT_MAX_DISPATCHES_PER_HOUR } from "./arbitrator.js";
 import {
   evaluateTriggerRule,
   materializePluginTriggerRules,
   type ProactivePluginDeclaration,
   type RuleEvaluation,
-} from "./proactive-rule-engine.js";
-import { composeProactiveMessage } from "./proactive-composer.js";
-import { arbitrateWithBudget } from "./proactive-budget-gate.js";
-import { canonicalDslHash, evaluateDslExpression, staticCheckDsl } from "./proactive-dsl-engine.js";
-import { resolveProactiveTurnContext } from "./proactive-turn-context.js";
+} from "./rule-engine.js";
+import { composeProactiveMessage } from "./composer.js";
+import { arbitrateWithBudget } from "./budget-gate.js";
+import { canonicalDslHash, evaluateDslExpression, staticCheckDsl } from "./dsl-engine.js";
+import { resolveProactiveTurnContext } from "./turn-context.js";
 import {
   BUILTIN_SITUATION_RULES,
   compareBuiltInRuleParity,
   projectLegacySituationShadow,
-} from "./proactive-situation-projector.js";
+} from "./situation-projector.js";
 
 const hash = (value: string): string => createHash("sha256").update(value).digest("hex").slice(0, 20);
 const id = (prefix: string, value: string): string => `${prefix}_${hash(value)}`;

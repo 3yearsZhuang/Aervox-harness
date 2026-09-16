@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 平台/运营实体表
+ * Aervox｜思隅 @aervox/schema — 平台/运营实体表
  *
  * 规则依据：docs/reference/PRD.md §8 数据模型
  * （ScheduledJob / Notification / PromptVersion / ModelRun / ContextManifest / AuditRecord）

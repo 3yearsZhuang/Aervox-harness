@@ -6,10 +6,10 @@ import type { LocalContext } from "../../local-context.js";
 
 export interface IPersonaPreferencesRepository {
   /** 获取当前租户偏好（不存在返回 null） */
-  get(tenant: LocalContext): Promise<PersonaPreferencesModel | null>;
+  get(ctx: LocalContext): Promise<PersonaPreferencesModel | null>;
   /** 首次填写问卷（跳过或提交四项） */
   save(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: {
       tone?: string;
       proactiveness?: string;
@@ -20,7 +20,7 @@ export interface IPersonaPreferencesRepository {
   ): Promise<PersonaPreferencesModel>;
   /** 单项或多项更新，版本号递增 */
   update(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: {
       tone?: string;
       proactiveness?: string;
@@ -29,7 +29,7 @@ export interface IPersonaPreferencesRepository {
     },
   ): Promise<PersonaPreferencesModel>;
   /** 重置为中性默认值（FR-PER-002） */
-  reset(tenant: LocalContext): Promise<PersonaPreferencesModel>;
+  reset(ctx: LocalContext): Promise<PersonaPreferencesModel>;
 }
 
 export interface LocalVoiceConfigModel {

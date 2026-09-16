@@ -5,8 +5,8 @@ import {
   initDatabaseSchema,
   SqliteProactiveProfileRepository,
 } from "@aervox/repositories";
-import { createRuleBasedProactiveDistiller } from "../src/proactive-distiller.js";
-import { runProactiveProfileCycle } from "../src/proactive-profile-worker.js";
+import { createRuleBasedProactiveDistiller } from "../src/proactive/distiller.js";
+import { runProactiveProfileCycle } from "../src/proactive/profile-worker.js";
 
 const tenant = { workspaceId: "ws_pro", subjectUserId: "usr_pro" } as const;
 const oldIngestedAt = "2026-08-20T00:00:00.000Z";

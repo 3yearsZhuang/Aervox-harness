@@ -15,7 +15,7 @@ describe("CR-048 W3: SqliteProjectRepository CRUD and session association", () =
   let projectRepo: SqliteProjectRepository;
   let conversationRepo: SqliteConversationRepository;
 
-  const tenant: LocalContext = { workspaceId: "local", subjectUserId: "local" };
+  const ctx: LocalContext = { workspaceId: "local", subjectUserId: "local" };
 
   beforeEach(async () => {
     const res = await createInMemoryDatabase();
@@ -64,33 +64,33 @@ describe("CR-048 W3: SqliteProjectRepository CRUD and session association", () =
 
   it("会话归属项目与按项目过滤会话", async () => {
     const p = await projectRepo.createProject({ name: "物理竞赛" });
-    const s1 = await conversationRepo.createSession(tenant, "力学第一讲", { projectId: p.id });
-    const s2 = await conversationRepo.createSession(tenant, "无关日常闲聊");
+    const s1 = await conversationRepo.createSession(ctx, "力学第一讲", { projectId: p.id });
+    const s2 = await conversationRepo.createSession(ctx, "无关日常闲聊");
 
     expect(s1.projectId).toBe(p.id);
     expect(s2.projectId).toBeNull();
 
     // 过滤属于该项目的会话
-    const projectSessions = await conversationRepo.listSessions(tenant, { projectId: p.id });
+    const projectSessions = await conversationRepo.listSessions(ctx, { projectId: p.id });
     expect(projectSessions).toHaveLength(1);
     expect(projectSessions[0].id).toBe(s1.id);
 
     // 会话改绑项目
-    const rebound = await conversationRepo.renameSession(tenant, s2.id, { projectId: p.id });
+    const rebound = await conversationRepo.renameSession(ctx, s2.id, { projectId: p.id });
     expect(rebound?.projectId).toBe(p.id);
 
-    const updatedProjectSessions = await conversationRepo.listSessions(tenant, { projectId: p.id });
+    const updatedProjectSessions = await conversationRepo.listSessions(ctx, { projectId: p.id });
     expect(updatedProjectSessions).toHaveLength(2);
   });
 
   it("删除项目自动解绑关联会话（不级联删除会话实体）", async () => {
     const p = await projectRepo.createProject({ name: "待删除项目" });
-    const s = await conversationRepo.createSession(tenant, "会话 A", { projectId: p.id });
+    const s = await conversationRepo.createSession(ctx, "会话 A", { projectId: p.id });
 
     const deleted = await projectRepo.deleteProject(p.id);
     expect(deleted).toBe(true);
 
-    const fetchedSession = await conversationRepo.getSession(tenant, s.id);
+    const fetchedSession = await conversationRepo.getSession(ctx, s.id);
     expect(fetchedSession).not.toBeNull();
     expect(fetchedSession?.projectId).toBeNull();
 

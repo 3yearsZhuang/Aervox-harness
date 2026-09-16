@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 隐私/删除实体表
+ * Aervox｜思隅 @aervox/schema — 隐私/删除实体表
  *
  * 规则依据：docs/reference/PRD.md §8 数据模型
  * （ConsentGrant / DeletionRequest / DeletionTarget）

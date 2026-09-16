@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.0
-updated_at: 2026-09-13
-reviewed_at: 2026-09-13
+version: 1.0.1
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 review_triggers:
   - docs/reference/changes/**
@@ -22,7 +22,7 @@ sources:
 # 操作指南：提出、撰写与闭环变更请求（CR）
 
 - 提出人：3yearszhuang · 2026-09-13
-- 修改人：3yearszhuang · 2026-09-13
+- 修改人：3yearszhuang · 2026-09-16
 
 关联：[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md#11-变更控制) · [文档治理规范](../reference/document-governance.md) · [文档写作规范](../reference/standards/doc-standards.md) · [CR 索引表](../README.md#变更请求速览)
 
@@ -46,21 +46,21 @@ sources:
 | **功能扩展（Minor）** | 新增可选能力、增加端点/工具、界面预设设置项 | **必须建 CR** | 领域模块负责角色 |
 | **缺陷修复（Patch）** | 代码 Bug、文档错别字、单测补全 | 不需要 CR | 提交 PR 走标准 Review |
 
-确认需要提 CR 后，查询 `docs/reference/changes/` 获取下一个未使用的稳定编号（例如 `CR-032`）。编号一经分配不得因废弃或合并而复用。
+确认需要提 CR 后，查询 `docs/reference/changes/` 获取下一个未使用的稳定编号（例如 `CR-051`）。编号一经分配不得因废弃或合并而复用。
 
 ### 第二步：创建 CR 变更文件
 
 在 `docs/reference/changes/` 目录下创建文件，文件名严格遵守命名规范 `CR-###-kebab-case.md`：
 
 ```bash
-touch docs/reference/changes/CR-032-example-feature.md
+touch docs/reference/changes/CR-051-example-feature.md
 ```
 
 在文件头部写入标准 YAML Front Matter 与点阵签名：
 
 ```markdown
 ---
-id: CR-032
+id: CR-051
 type: reference
 scope: change
 owner: maintainers
@@ -76,7 +76,7 @@ sources:
   - docs/reference/REQUIREMENTS_TRACEABILITY.md
 ---
 
-# CR-032 <清晰动宾短语标题>
+# CR-051 <清晰动宾短语标题>
 
 - 提出人：<账号> · 2026-09-13
 - 修改人：<账号> · 2026-09-13

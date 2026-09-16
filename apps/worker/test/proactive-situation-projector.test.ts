@@ -3,7 +3,7 @@ import {
   buildLegacySituationModel,
   compareBuiltInRuleParity,
   legacyInputEpoch,
-} from "../src/proactive-situation-projector.js";
+} from "../src/proactive/situation-projector.js";
 
 const input = {
   revisionId: "revision-1",

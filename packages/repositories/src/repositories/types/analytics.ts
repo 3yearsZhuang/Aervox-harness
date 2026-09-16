@@ -6,7 +6,7 @@ import type { LocalContext } from "../../local-context.js";
 
 export interface IAnalyticsRepository {
   recordEvent(
-    tenant: LocalContext,
+    ctx: LocalContext,
     event: {
       id: string;
       eventName: string;
@@ -17,7 +17,7 @@ export interface IAnalyticsRepository {
       privacyClass?: string;
     },
   ): Promise<AnalyticsEventModel>;
-  listEventsBySubject(tenant: LocalContext, analyticsSubjectId: string, limit?: number): Promise<AnalyticsEventModel[]>;
+  listEventsBySubject(ctx: LocalContext, analyticsSubjectId: string, limit?: number): Promise<AnalyticsEventModel[]>;
 }
 
 export interface AttachmentModel {

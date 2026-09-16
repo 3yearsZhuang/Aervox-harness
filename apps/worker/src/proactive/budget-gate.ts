@@ -19,7 +19,7 @@ import {
   arbitrate,
   type ArbitrationInput,
   type ArbitrationVerdict,
-} from "./proactive-arbitrator.js";
+} from "./arbitrator.js";
 
 export interface BudgetGateInput extends ArbitrationInput {
   /** 插件（或全局）预算当前状态 */

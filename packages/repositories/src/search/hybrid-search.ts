@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 混合检索服务（T-02）
+ * Aervox｜思隅 @aervox/repositories — 混合检索服务（T-02）
  *
  * 并行执行 FTS 粗筛与向量细筛，用纯 RRF（Reciprocal Rank Fusion）融合排序，
  * 避免两类分数尺度不可直接相加的问题；任一通道为空时降级返回另一通道结果。
@@ -52,9 +52,9 @@ export interface HybridSearchHit {
 
 /** 混合检索所需的两个通道实现 */
 export interface HybridSearchStorage {
-  ftsSearch(tenant: LocalContext, queryText: string, topK: number): Promise<HybridChannelHit[]>;
+  ftsSearch(ctx: LocalContext, queryText: string, topK: number): Promise<HybridChannelHit[]>;
   vectorSearch(
-    tenant: LocalContext,
+    ctx: LocalContext,
     queryVector: number[],
     topK: number,
     minScore?: number,
@@ -75,18 +75,18 @@ export class HybridSearchService {
     private readonly domain: HybridSearchDomain,
   ) {}
 
-  async search(tenant: LocalContext, input: HybridSearchInput): Promise<HybridSearchHit[]> {
-    assertLocalContext(tenant);
+  async search(ctx: LocalContext, input: HybridSearchInput): Promise<HybridSearchHit[]> {
+    assertLocalContext(ctx);
     const topK = input.topK ?? 20;
     const limit = input.limit ?? 10;
     const ftsWeight = input.ftsWeight ?? 0.6;
     const vectorWeight = input.vectorWeight ?? 0.4;
 
     const ftsPromise = input.queryText.trim()
-      ? this.storage.ftsSearch(tenant, input.queryText, topK)
+      ? this.storage.ftsSearch(ctx, input.queryText, topK)
       : Promise.resolve([]);
     const vectorPromise = this.storage.vectorSearch(
-      tenant,
+      ctx,
       input.queryVector,
       topK,
       input.minVectorScore,
@@ -186,25 +186,25 @@ export function createHybridSearchStorage(opts: {
   const { domain, client, vectorPort } = opts;
 
   async function ftsSearch(
-    tenant: LocalContext,
+    ctx: LocalContext,
     queryText: string,
     topK: number,
   ): Promise<HybridChannelHit[]> {
     if (domain === "memory") {
       const { searchMemoriesFts } = await import("./fts.js");
-      return searchMemoriesFts(client, tenant, queryText, topK);
+      return searchMemoriesFts(client, ctx, queryText, topK);
     }
     const { searchMessagesFts } = await import("./fts.js");
-    return searchMessagesFts(client, tenant, queryText, topK);
+    return searchMessagesFts(client, ctx, queryText, topK);
   }
 
   async function vectorSearch(
-    tenant: LocalContext,
+    ctx: LocalContext,
     queryVector: number[],
     topK: number,
     minScore?: number,
   ): Promise<HybridChannelHit[]> {
-    const res = await vectorPort.search(tenant, queryVector, topK, minScore);
+    const res = await vectorPort.search(ctx, queryVector, topK, minScore);
     return res.map((r) => ({ id: r.id, score: r.score }));
   }
 

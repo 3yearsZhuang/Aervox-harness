@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.32.0
-updated_at: 2026-09-15
-reviewed_at: 2026-09-15
+version: 1.32.1
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-15
+- 修改人：3yearszhuang · 2026-09-16
 
 产品需求来源：[PRD.md](PRD.md)
 
@@ -189,6 +189,7 @@ review_interval_days: 90
 
 | 落地内容与功能描述 | 关联 CAP | 实现与测试位置 | 日期 | 验证 | 来源 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| AVX-STD-002 命名标准落地与 A 档保守整理（`chore/std-002-naming-conventions`）：新增 `.gitattributes`（`* text=auto eol=lf`）根治 Windows/Mac CRLF 行尾漂移；`apps/worker/src/proactive-*` 10 个扁平文件收拢至 `apps/worker/src/proactive/` 子目录并去前缀；`packages/repositories` 全层 212 处 `tenant` 参数/变量批量重命名为 `ctx`（对齐 `LocalContext` 单用户语义；机械替换经全仓 typecheck 兜底，字段访问/解构、注释/字符串与 `tenantIdempotencyKey` 等复合标识符按红线保留）；清理 30+ 文件 `@aervox/database` 旧包名头注释（统一归一 `@aervox/repositories`）；PRD §14.2 包清单对齐实际 14 包（声明 15 个设想包未单列）；新增命名标准文档 `docs/reference/standards/naming-conventions.md`（AVX-STD-002，含上下文与状态对象、TS 标识符与文件分层、API 路由与 HTTP 语义、包名与目录组织、禁止项与术语开关、门禁与校验共六章）并登记 DOC_REGISTRY / README / getting-started；顺带修复 CR 工作流程模板示例编号撞真实 CR-032（改 CR-051）与 CR-033/034/035 plan 文件 H1 编号撞正式 CR（改 `AVX-PLAN-*`） | 基础设施（命名规范与代码治理） | `.gitattributes`、`apps/worker/src/proactive/`、`packages/repositories/src/**`、`packages/{agent-loop,diary,host-agent}/src/**`、`docs/reference/standards/naming-conventions.md`、`docs/reference/PRD.md`、`docs/DOC_REGISTRY.md`、`docs/README.md`、`docs/getting-started.md`、`docs/how-to/cr-workflow.md`、`docs/CR-033/034/035-plan.md` | 2026-09-16 | 全仓 typecheck 29/29；`rg "\btenant\b" packages/repositories/src` 仅剩 5 行注释/字符串 + 2 处历史方法名 `listByTenant`；`rg "@aervox/database"` 零命中；markdownlint 0 issues、Vale 0 errors、docs-validate passed（214 条既有 legacy warning 容忍）；`@aervox/repositories` 测试 258/260（2 项 Windows 文件锁 EBUSY/EPERM 既存环境失败，非本分支引入） | 原生 |
 | AST-01 会话锁「不同 key 并行」用例确定性改造：`session-lock.test.ts` 原以墙钟断言（3×30ms 并行总耗时 < 80ms），全量测试 CPU 争抢下 `setTimeout` 延迟膨胀导致间歇性失败（首跑失败、重跑通过）；改为 barrier 交叉确定性验证——每个任务进入临界区后等待其他全部 key 的进入信号才结束，锁退化为跨 key 串行时死锁由 2s 兜底超时转失败，零墙钟依赖、不受机器负载影响 | AST-01 会话级写锁（测试稳定性） | `packages/repositories/test/session-lock.test.ts` | 2026-09-15 | 单文件循环 5 次全绿；`turbo run test --force --filter=@aervox/repositories` 全量 50 测试文件通过 | 原生 |
 | CAP-010 偏好仓储单行真源修复与 E2E 去租户化适配（CR-030 收尾）：修复 `SqlitePersonaPreferencesRepository` 去租户化半成品缺陷——`save()` 以随机 id 插入且 `onConflictDoUpdate` target 同为 id 导致永不冲突、每次保存新增一行，`get()` 无序 `limit(1)` 与 `update()`/`reset()` 空 `where` 全表更新；改为固定主键 `pref_local` 构成单行真源（save 幂等 upsert，get/update/reset 显式主键约束，历史孤儿行不参与读写）；E2E 三处因租户 Header 隔离失效而过时的用例同步改写适配：两处「租户隔离」断言改为 CR-030 正向行为（Header 被忽略、数据对本地单用户全局可见），practice-guidance 四场景拆分独立 describe（独立库 + 独立服务），消除 `listActiveQuestions` 按 `createdAt` 正序选题混入旧用例题目导致的断言失真与空会话默认值「假绿」 | CAP-010 | `packages/repositories/src/repositories/sqlite/preferences-repository.ts`、`e2e/{practice-flow,message-edit-delete,practice-guidance-and-insights}.spec.ts` | 2026-09-15 | E2E 全量 45/45 通过（修复前 41/45，缺陷由 E2E 连续多请求状态暴露、集成测试每用例重建内存库无法触达）；`turbo run test --filter=@aervox/repositories --filter=@aervox/api` 集成层 11 任务全通过（repositories 50 测试文件 + api 全量） | 原生 |
 | E2E 测试接入 CI（测试效能基础设施）：`.github/workflows/ci.yml` 新增独立 `e2e` job（与 build job 并行互不阻塞），spawn 真实 API 进程 + 文件 SQLite 运行 Playwright API 级端到端套件（45 用例约 45s）；套件为纯 `request` fixture 无浏览器用例，免 `playwright install` 浏览器二进制；复用 mise / pnpm store / Turbo 缓存（restore-only，新缓存条目由 build job 统一回写）使 api 构建秒级命中；`continue-on-error: true` 观察期非阻塞运行（失败仅标注 warning 不拦截 PR，连续稳定约两周后改为强制门禁）；`timeout-minutes: 15` 防服务进程悬挂耗尽 CI 时长；触发路径补齐 `e2e/**` 与 `playwright.config.ts`（此前 E2E 变更不触发 CI）；AGENTS.md 工具箱速查同步收录 | 基础设施（CI 与 E2E 门禁） | `.github/workflows/ci.yml`、`AGENTS.md`、`docs/reference/REQUIREMENTS_TRACEABILITY.md`（本行） | 2026-09-15 | 本地 `mise x -- pnpm test:e2e` 全量 45/45 通过（44.7s，8 个 spec 文件）；工作流 YAML 语法解析校验通过 | 原生 |

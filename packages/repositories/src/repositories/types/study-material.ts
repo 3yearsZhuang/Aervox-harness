@@ -6,7 +6,7 @@ import type { LocalContext } from "../../local-context.js";
 
 export interface IStudyMaterialRepository {
   create(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: {
       id: string;
       goalId?: string;
@@ -15,15 +15,15 @@ export interface IStudyMaterialRepository {
       idempotencyKey?: string;
     },
   ): Promise<StudyMaterialModel>;
-  get(tenant: LocalContext, id: string): Promise<StudyMaterialModel | null>;
-  listByGoal(tenant: LocalContext, goalId: string): Promise<StudyMaterialModel[]>;
-  listByTenant(tenant: LocalContext): Promise<StudyMaterialModel[]>;
-  updateStatus(tenant: LocalContext, id: string, status: string): Promise<StudyMaterialModel | null>;
-  softDelete(tenant: LocalContext, id: string): Promise<StudyMaterialModel | null>;
-  getByIdempotencyKey(tenant: LocalContext, key: string): Promise<StudyMaterialModel | null>;
+  get(ctx: LocalContext, id: string): Promise<StudyMaterialModel | null>;
+  listByGoal(ctx: LocalContext, goalId: string): Promise<StudyMaterialModel[]>;
+  listByTenant(ctx: LocalContext): Promise<StudyMaterialModel[]>;
+  updateStatus(ctx: LocalContext, id: string, status: string): Promise<StudyMaterialModel | null>;
+  softDelete(ctx: LocalContext, id: string): Promise<StudyMaterialModel | null>;
+  getByIdempotencyKey(ctx: LocalContext, key: string): Promise<StudyMaterialModel | null>;
 
   createVersion(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: {
       id: string;
       materialId: string;
@@ -32,17 +32,17 @@ export interface IStudyMaterialRepository {
       author?: string;
     },
   ): Promise<MaterialVersionModel>;
-  getVersion(tenant: LocalContext, versionId: string): Promise<MaterialVersionModel | null>;
-  listVersions(tenant: LocalContext, materialId: string): Promise<MaterialVersionModel[]>;
+  getVersion(ctx: LocalContext, versionId: string): Promise<MaterialVersionModel | null>;
+  listVersions(ctx: LocalContext, materialId: string): Promise<MaterialVersionModel[]>;
   editVersion(
-    tenant: LocalContext,
+    ctx: LocalContext,
     materialId: string,
     content: string,
     expectedVersion: number,
   ): Promise<MaterialVersionModel | null>;
 
   addSource(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: {
       id: string;
       materialVersionId: string;
@@ -53,8 +53,8 @@ export interface IStudyMaterialRepository {
       verificationStatus?: string;
     },
   ): Promise<MaterialSourceModel>;
-  listSources(tenant: LocalContext, materialVersionId: string): Promise<MaterialSourceModel[]>;
-  invalidateSources(tenant: LocalContext, materialVersionId: string): Promise<number>;
+  listSources(ctx: LocalContext, materialVersionId: string): Promise<MaterialSourceModel[]>;
+  invalidateSources(ctx: LocalContext, materialVersionId: string): Promise<number>;
 }
 
 export interface SafetyIncidentModel {

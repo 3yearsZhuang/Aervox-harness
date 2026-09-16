@@ -6,7 +6,7 @@ import {
   SqlitePersonaRepository,
   SqliteSkillRegistryRepository,
 } from "@aervox/repositories";
-import { resolveProactiveTurnContext } from "../src/proactive-turn-context.js";
+import { resolveProactiveTurnContext } from "../src/proactive/turn-context.js";
 
 const tenant = {workspaceId: "local", subjectUserId: "local"} as const;
 

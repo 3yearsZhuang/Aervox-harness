@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 插件 Config / Page 仓储测试（CR-006）
+ * Aervox｜思隅 @aervox/repositories — 插件 Config / Page 仓储测试（CR-006）
  *
  * 覆盖：本地上下文共享、revision CAS、reset、secret 状态、Page 元数据幂等、卸载清理。
  */

@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — Embedding 独立存储（T-05）
+ * Aervox｜思隅 @aervox/schema — Embedding 独立存储（T-05）
  *
  * 场景：向量数据不塞进业务表（memory_records），独立成 memory_embeddings：
  * 换 embedding 模型不迁移业务表，SQLite 侧先行落地，后续切 pgvector 仅替换

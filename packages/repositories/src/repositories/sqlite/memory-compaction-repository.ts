@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 上下文压缩标记 SQLite 仓储（T-03）
+ * Aervox｜思隅 @aervox/repositories — 上下文压缩标记 SQLite 仓储（T-03）
  *
  * 幂等写入 + 快照溯源不可改写；memory_events 审计联动（action = "compressed"）。
  */
@@ -19,7 +19,7 @@ export class SqliteMemoryCompactionRepository implements IMemoryCompactionReposi
   constructor(private readonly db: AervoxDatabase) {}
 
   async upsertMarker(
-    tenant: LocalContext,
+    ctx: LocalContext,
     marker: {
       id: string;
       memoryId: string;
@@ -66,7 +66,7 @@ export class SqliteMemoryCompactionRepository implements IMemoryCompactionReposi
   }
 
   async getMarkerBySnapshotId(
-    tenant: LocalContext,
+    ctx: LocalContext,
     snapshotId: string,
   ): Promise<MemoryCompactionMarkerModel | null> {
     const [found] = await this.db
@@ -82,7 +82,7 @@ export class SqliteMemoryCompactionRepository implements IMemoryCompactionReposi
   }
 
   async listMarkersByMemoryId(
-    tenant: LocalContext,
+    ctx: LocalContext,
     memoryId: string,
   ): Promise<MemoryCompactionMarkerModel[]> {
     const rows = await this.db
@@ -98,7 +98,7 @@ export class SqliteMemoryCompactionRepository implements IMemoryCompactionReposi
   }
 
   async recordEvent(
-    tenant: LocalContext,
+    ctx: LocalContext,
     event: {
       id: string;
       memoryId: string;

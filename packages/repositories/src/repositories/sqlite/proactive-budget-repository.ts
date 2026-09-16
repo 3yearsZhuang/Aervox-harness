@@ -308,14 +308,14 @@ export class SqliteProactiveBudgetRepository {
 
   /** 应用反馈事件（读-改-写，CAS 重试至多 3 次）。 */
   async applyFeedback(
-    tenant: LocalContext,
+    ctx: LocalContext,
     scope: BudgetScope,
     pluginId: string | null,
     feedback: ProactiveFeedbackEvent,
     policy?: Partial<BudgetPolicy>,
   ): Promise<BudgetRow | ReserveOutcome> {
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      const row = await this.getOrInitBudget(tenant, scope, pluginId, policy);
+      const row = await this.getOrInitBudget(ctx, scope, pluginId, policy);
       const state = rowToState(row);
       const next = applyBudgetFeedback(state, feedback, policy ?? DEFAULT_BUDGET_POLICY);
       const id = budgetIdOf(scope, pluginId);

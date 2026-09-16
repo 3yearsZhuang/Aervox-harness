@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 上下文压缩标记（T-03）
+ * Aervox｜思隅 @aervox/schema — 上下文压缩标记（T-03）
  *
  * 场景：临时→短期整理（上下文压缩）时生成 compaction 标记并落库，按 snapshotId
  * 可溯源被压缩内容、覆盖到的消息锚点与耗时，满足 PRD §7.5「短期记忆必须能查看

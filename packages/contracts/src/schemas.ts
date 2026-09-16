@@ -404,7 +404,7 @@ export const memoryStoreToolOutputSchema = z.object({
   embeddingStatus: z.enum(["indexed", "skipped", "failed"]).optional(),
 });
 
-/** CAP-009 日记主行 DTO（GET /v1/diaries 响应；对齐 @aervox/database DiaryModel） */
+/** CAP-009 日记主行 DTO（GET /v1/diaries 响应；对齐 @aervox/repositories DiaryModel） */
 export const diarySchema = z.object({
   id: z.string().min(1),
   localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

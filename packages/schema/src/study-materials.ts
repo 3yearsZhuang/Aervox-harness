@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 学习资料 Schema（CAP-011 学习资料整理）
+ * Aervox｜思隅 @aervox/schema — 学习资料 Schema（CAP-011 学习资料整理）
  *
  * 覆盖：
  * - FR-LRN-002 资料生成与类型（5 种资料类型）

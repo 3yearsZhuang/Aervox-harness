@@ -6,7 +6,7 @@ import type { LocalContext } from "../../local-context.js";
 
 export interface IProvenanceRepository {
   createSourceArtifact(
-    tenant: LocalContext,
+    ctx: LocalContext,
     artifact: {
       id: string;
       kind: string;
@@ -15,15 +15,15 @@ export interface IProvenanceRepository {
       ingestedAt: string;
     },
   ): Promise<SourceArtifactModel>;
-  getSourceArtifact(tenant: LocalContext, id: string): Promise<SourceArtifactModel | null>;
+  getSourceArtifact(ctx: LocalContext, id: string): Promise<SourceArtifactModel | null>;
   appendSourceRevision(
-    tenant: LocalContext,
+    ctx: LocalContext,
     artifactId: string,
     revision: { id: string; checksum: string; content?: string | null },
   ): Promise<SourceRevisionModel>;
-  setCurrentRevision(tenant: LocalContext, artifactId: string, revisionId: string): Promise<SourceArtifactModel | null>;
+  setCurrentRevision(ctx: LocalContext, artifactId: string, revisionId: string): Promise<SourceArtifactModel | null>;
   appendMemoryRevision(
-    tenant: LocalContext,
+    ctx: LocalContext,
     revision: {
       id: string;
       memoryId: string;
@@ -33,10 +33,10 @@ export interface IProvenanceRepository {
       algorithmVersion?: string | null;
     },
   ): Promise<MemoryRevisionModel>;
-  setMemoryCurrentRevision(tenant: LocalContext, memoryId: string, revisionId: string): Promise<boolean>;
-  listMemoryRevisions(tenant: LocalContext, memoryId: string): Promise<MemoryRevisionModel[]>;
+  setMemoryCurrentRevision(ctx: LocalContext, memoryId: string, revisionId: string): Promise<boolean>;
+  listMemoryRevisions(ctx: LocalContext, memoryId: string): Promise<MemoryRevisionModel[]>;
   createMemoryEvidence(
-    tenant: LocalContext,
+    ctx: LocalContext,
     evidence: {
       id: string;
       memoryRevisionId: string;
@@ -46,7 +46,7 @@ export interface IProvenanceRepository {
     },
   ): Promise<MemoryEvidenceModel>;
   recordMemoryEvent(
-    tenant: LocalContext,
+    ctx: LocalContext,
     event: {
       id: string;
       memoryId: string;
@@ -57,7 +57,7 @@ export interface IProvenanceRepository {
       actorType?: string;
     },
   ): Promise<MemoryEventModel>;
-  listMemoryEvents(tenant: LocalContext, memoryId: string): Promise<MemoryEventModel[]>;
+  listMemoryEvents(ctx: LocalContext, memoryId: string): Promise<MemoryEventModel[]>;
 }
 
 export interface ScheduledJobModel {

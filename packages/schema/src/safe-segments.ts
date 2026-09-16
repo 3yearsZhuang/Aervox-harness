@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 安全片段表（safe_segments，E2）
+ * Aervox｜思隅 @aervox/schema — 安全片段表（safe_segments，E2）
  *
  * 规则依据：AVX-HAR-001 §6「分段安全门」、§12.2「安全片段 + TurnStreamEvent + Draft
  * prefix」原子提交。每个已通过安全门、可对客户端可见的文本片段（delta）持久化为

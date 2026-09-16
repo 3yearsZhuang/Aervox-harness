@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — MCP 服务器连接配置
+ * Aervox｜思隅 @aervox/schema — MCP 服务器连接配置
  *
  * 规则依据：docs/explanation/reference-design-transfer.md §3.4 T-04 工具注册表与
  * docs/reference/capability-composition.md（外部能力经 adapter 形态接入，不拥有核心业务数据）。

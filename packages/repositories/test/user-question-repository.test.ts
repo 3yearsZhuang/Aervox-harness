@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 挂起提问会话仓储测试（缺陷 C）
+ * Aervox｜思隅 @aervox/repositories — 挂起提问会话仓储测试（缺陷 C）
  *
  * 覆盖：upsert 幂等覆盖 / 本地上下文共享 / deletePending 按 turnId 删除。
  */

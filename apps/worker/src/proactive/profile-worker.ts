@@ -18,7 +18,7 @@ import type {
   ProactiveProfileClaimModel,
   LocalContext,
 } from "@aervox/repositories";
-import type { ProactiveCaptureDistiller } from "./proactive-distiller.js";
+import type { ProactiveCaptureDistiller } from "./distiller.js";
 
 export interface ProactiveProfileWorkerContext {
   db: AervoxDatabase;

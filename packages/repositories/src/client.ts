@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 客户端与连接管理
+ * Aervox｜思隅 @aervox/repositories — 客户端与连接管理
  *
  * 基于 @libsql/client (SQLite/LibSQL) + Drizzle ORM，支持文件与内存/临时隔离数据库。
  * 默认启用 WAL 模式、外键约束、busy_timeout 与 synchronous=NORMAL 优化。

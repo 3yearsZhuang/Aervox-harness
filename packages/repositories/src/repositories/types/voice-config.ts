@@ -6,19 +6,19 @@ import type { LocalContext } from "../../local-context.js";
 
 export interface IVoiceConfigRepository {
   /** 读取当前租户激活的本地语音配置（无激活行时回退第一条；不存在返回 null） */
-  getConfig(tenant: LocalContext): Promise<LocalVoiceConfigModel | null>;
+  getConfig(ctx: LocalContext): Promise<LocalVoiceConfigModel | null>;
   /** upsert 到激活行（无激活行则插入并激活）；返回保存后的模型 */
-  saveConfig(tenant: LocalContext, input: LocalVoiceConfigSaveInput): Promise<LocalVoiceConfigModel>;
+  saveConfig(ctx: LocalContext, input: LocalVoiceConfigSaveInput): Promise<LocalVoiceConfigModel>;
   /** 列出全部预设（含激活标记） */
-  listPresets(tenant: LocalContext): Promise<LocalVoiceConfigModel[]>;
+  listPresets(ctx: LocalContext): Promise<LocalVoiceConfigModel[]>;
   /** 新建预设（默认不激活，除非该租户尚无任何预设） */
-  createPreset(tenant: LocalContext, name: string, input: LocalVoiceConfigSaveInput): Promise<LocalVoiceConfigModel>;
+  createPreset(ctx: LocalContext, name: string, input: LocalVoiceConfigSaveInput): Promise<LocalVoiceConfigModel>;
   /** 更新指定预设（保留激活状态） */
-  updatePreset(tenant: LocalContext, presetId: string, input: LocalVoiceConfigSaveInput): Promise<LocalVoiceConfigModel | null>;
+  updatePreset(ctx: LocalContext, presetId: string, input: LocalVoiceConfigSaveInput): Promise<LocalVoiceConfigModel | null>;
   /** 激活指定预设（事务内取消该租户其它激活）；预设不存在返回 null */
-  activatePreset(tenant: LocalContext, presetId: string): Promise<LocalVoiceConfigModel | null>;
+  activatePreset(ctx: LocalContext, presetId: string): Promise<LocalVoiceConfigModel | null>;
   /** 删除预设；若删除的是激活行则提升剩余第一条为激活 */
-  deletePreset(tenant: LocalContext, presetId: string): Promise<boolean>;
+  deletePreset(ctx: LocalContext, presetId: string): Promise<boolean>;
 }
 
 export interface RemoteVoiceConfigModel {

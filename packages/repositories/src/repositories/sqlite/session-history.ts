@@ -20,7 +20,7 @@ function payload(value: unknown): Record<string, unknown> {
  */
 export async function readSessionHistory(
   db: AervoxDatabase,
-  tenant: LocalContext,
+  ctx: LocalContext,
   input: { sessionId: string; beforeTurnId: string },
 ): Promise<SessionHistoryMessage[]> {
   const [current] = await db.select({

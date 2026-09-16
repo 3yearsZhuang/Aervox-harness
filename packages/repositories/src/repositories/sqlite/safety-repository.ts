@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 安全事件 SQLite 仓储实现
+ * Aervox｜思隅 @aervox/repositories — 安全事件 SQLite 仓储实现
  *
  * 规则依据：docs/reference/PRD.md §8（SafetyIncident）；访问受限，不写入普通记忆/分析明细。
  */
@@ -13,7 +13,7 @@ export class SqliteSafetyRepository implements ISafetyRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async recordIncident(
-    tenant: LocalContext,
+    ctx: LocalContext,
     incidentData: { id: string; category: string; severity: string; disposition: string; policyVersion: string },
   ): Promise<SafetyIncidentModel> {
     const [created] = await this.db
@@ -30,7 +30,7 @@ export class SqliteSafetyRepository implements ISafetyRepository {
     return created as SafetyIncidentModel;
   }
 
-  async listIncidents(tenant: LocalContext, limit: number = 50): Promise<SafetyIncidentModel[]> {
+  async listIncidents(ctx: LocalContext, limit: number = 50): Promise<SafetyIncidentModel[]> {
     const rows = await this.db
       .select()
       .from(safetyIncidents)

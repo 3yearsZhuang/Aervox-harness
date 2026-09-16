@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 隐私/删除域 SQLite 仓储实现
+ * Aervox｜思隅 @aervox/repositories — 隐私/删除域 SQLite 仓储实现
  *
  * 规则依据：docs/reference/PRD.md §8（ConsentGrant/DeletionRequest/DeletionTarget）
  */
@@ -18,7 +18,7 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async grantConsent(
-    tenant: LocalContext,
+    ctx: LocalContext,
     grantData: {
       id: string;
       actorId: string;
@@ -43,7 +43,7 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
     return created as ConsentGrantModel;
   }
 
-  async revokeConsent(tenant: LocalContext, id: string, revokedAt?: string): Promise<ConsentGrantModel | null> {
+  async revokeConsent(ctx: LocalContext, id: string, revokedAt?: string): Promise<ConsentGrantModel | null> {
     const [updated] = await this.db
       .update(consentGrants)
       .set({ revokedAt: revokedAt ?? new Date().toISOString() })
@@ -56,7 +56,7 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
     return (updated as ConsentGrantModel) ?? null;
   }
 
-  async hasActiveConsent(tenant: LocalContext, purpose: string, scope: string): Promise<boolean> {
+  async hasActiveConsent(ctx: LocalContext, purpose: string, scope: string): Promise<boolean> {
     const [found] = await this.db
       .select()
       .from(consentGrants)
@@ -71,7 +71,7 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
   }
 
   /** 2d：该租户是否存在未完成的删除/撤权请求（删除/撤权水位未追平；AVX-HAR-001 §11.3 fail-closed 闸门数据源） */
-  async hasPendingDeletionRequest(tenant: LocalContext): Promise<boolean> {
+  async hasPendingDeletionRequest(ctx: LocalContext): Promise<boolean> {
     const rows = await this.db
       .select({ id: deletionRequests.id })
       .from(deletionRequests)
@@ -85,7 +85,7 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
   }
 
   async createDeletionRequest(
-    tenant: LocalContext,
+    ctx: LocalContext,
     requestData: {
       id: string;
       scope: string;
@@ -112,7 +112,7 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
     return created as DeletionRequestModel;
   }
 
-  async getDeletionRequest(tenant: LocalContext, id: string): Promise<DeletionRequestModel | null> {
+  async getDeletionRequest(ctx: LocalContext, id: string): Promise<DeletionRequestModel | null> {
     const [found] = await this.db
       .select()
       .from(deletionRequests)
@@ -125,7 +125,7 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
   }
 
   async updateDeletionRequestStatus(
-    tenant: LocalContext,
+    ctx: LocalContext,
     id: string,
     status: string,
     patch?: { lastError?: string | null; lastVerifiedAt?: string; attemptCount?: number },

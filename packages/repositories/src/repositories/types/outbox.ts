@@ -6,7 +6,7 @@ import type { LocalContext } from "../../local-context.js";
 
 export interface IOutboxRepository {
   insertEvent(
-    tenant: LocalContext,
+    ctx: LocalContext,
     event: {
       id: string;
       idempotencyKey: string;

@@ -19,7 +19,7 @@ describe("PRD §8 P1（R2）：记忆树投影独立化 + 会话地图 + 知识�
   let conversation: SqliteConversationRepository;
   let learning: SqliteLearningRepository;
 
-  const tenant: LocalContext = { workspaceId: "ws_p1", subjectUserId: "usr_p1" };
+  const ctx: LocalContext = { workspaceId: "ws_p1", subjectUserId: "usr_p1" };
   const otherTenant: LocalContext = { workspaceId: "ws_other", subjectUserId: "usr_other" };
 
   beforeEach(async () => {
@@ -34,25 +34,25 @@ describe("PRD §8 P1（R2）：记忆树投影独立化 + 会话地图 + 知识�
   });
 
   it("记忆投影节点：可创建层级节点树，且本地上下文共享", async () => {
-    const root = await memory.createNode(tenant, { id: "node_root", label: "自然科学" });
+    const root = await memory.createNode(ctx, { id: "node_root", label: "自然科学" });
     expect(root.nodeType).toBe("concept");
 
-    const child = await memory.createNode(tenant, {
+    const child = await memory.createNode(ctx, {
       id: "node_physics",
       label: "物理学",
       canonicalParentId: root.id,
     });
     expect(child.canonicalParentId).toBe("node_root");
-    expect((await memory.getNode(tenant, "node_physics"))?.label).toBe("物理学");
+    expect((await memory.getNode(ctx, "node_physics"))?.label).toBe("物理学");
 
     // 兼容上下文不再形成数据库隔离边界
     expect(await memory.getNode(otherTenant, "node_root")).not.toBeNull();
   });
 
   it("节点级记忆边 + 边证据：可创建并关联长期记忆修订", async () => {
-    const a = await memory.createNode(tenant, { id: "node_a", label: "A" });
-    const b = await memory.createNode(tenant, { id: "node_b", label: "B" });
-    const edge = await memory.createEdge(tenant, {
+    const a = await memory.createNode(ctx, { id: "node_a", label: "A" });
+    const b = await memory.createNode(ctx, { id: "node_b", label: "B" });
+    const edge = await memory.createEdge(ctx, {
       id: "edge_1",
       fromNodeId: a.id,
       toNodeId: b.id,
@@ -64,8 +64,8 @@ describe("PRD §8 P1（R2）：记忆树投影独立化 + 会话地图 + 知识�
     expect(edge.visibilityScope).toBe("private");
 
     // 建记忆 + 修订，再挂边证据
-    const record = await memory.createRecord(tenant, { id: "mem_1", layer: "long_term", type: "learning_event", content: "证据内容" });
-    const rev = await provenance.appendMemoryRevision(tenant, { id: "mrev_1", memoryId: record.id, content: "证据内容 v1", confidence: 90 });
+    const record = await memory.createRecord(ctx, { id: "mem_1", layer: "long_term", type: "learning_event", content: "证据内容" });
+    const rev = await provenance.appendMemoryRevision(ctx, { id: "mrev_1", memoryId: record.id, content: "证据内容 v1", confidence: 90 });
     const evidence = await memory.createEdgeEvidence({ id: "eev_1", edgeId: edge.id, memoryRevisionId: rev.id });
     expect(evidence.status).toBe("active");
   });
@@ -81,9 +81,9 @@ describe("PRD §8 P1（R2）：记忆树投影独立化 + 会话地图 + 知识�
   });
 
   it("会话地图分支：创建并按父会话列出，且本地上下文共享", async () => {
-    const parent = await conversation.createSession(tenant, "Parent Session");
-    const child = await conversation.createSession(tenant, "Child Session");
-    const branch = await conversation.createConversationBranch(tenant, {
+    const parent = await conversation.createSession(ctx, "Parent Session");
+    const child = await conversation.createSession(ctx, "Child Session");
+    const branch = await conversation.createConversationBranch(ctx, {
       id: "br_1",
       parentSessionId: parent.id,
       childSessionId: child.id,
@@ -92,15 +92,15 @@ describe("PRD §8 P1（R2）：记忆树投影独立化 + 会话地图 + 知识�
     expect(branch.parentSessionId).toBe(parent.id);
     expect(branch.forkAtMessageId).toBe("msg_fork");
 
-    const branches = await conversation.listBranchesByParent(tenant, parent.id);
+    const branches = await conversation.listBranchesByParent(ctx, parent.id);
     expect(branches).toHaveLength(1);
     expect(await conversation.listBranchesByParent(otherTenant, parent.id)).toHaveLength(1);
   });
 
   it("思维宇宙知识关系：创建并按知识点列出，且本地上下文共享", async () => {
-    const k1 = await learning.createKnowledgeItem(tenant, { id: "ki_a", concept: "导数" });
-    const k2 = await learning.createKnowledgeItem(tenant, { id: "ki_b", concept: "极限" });
-    const rel = await learning.createKnowledgeRelation(tenant, {
+    const k1 = await learning.createKnowledgeItem(ctx, { id: "ki_a", concept: "导数" });
+    const k2 = await learning.createKnowledgeItem(ctx, { id: "ki_b", concept: "极限" });
+    const rel = await learning.createKnowledgeRelation(ctx, {
       id: "kr_1",
       fromKnowledgeId: k1.id,
       toKnowledgeId: k2.id,
@@ -110,7 +110,7 @@ describe("PRD §8 P1（R2）：记忆树投影独立化 + 会话地图 + 知识�
     });
     expect(rel.relationType).toBe("prerequisite");
 
-    const relations = await learning.listKnowledgeRelations(tenant, k1.id);
+    const relations = await learning.listKnowledgeRelations(ctx, k1.id);
     expect(relations).toHaveLength(1);
     expect(await learning.listKnowledgeRelations(otherTenant, k1.id)).toHaveLength(1);
   });

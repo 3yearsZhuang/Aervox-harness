@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 工具授权账本（tool_approvals）
+ * Aervox｜思隅 @aervox/schema — 工具授权账本（tool_approvals）
  *
  * 规则依据：AVX-HAR-001 §15 阶段 3（写工具审批通道）。
  * 写工具（write_with_approval）执行前须有匹配的已授权记录：

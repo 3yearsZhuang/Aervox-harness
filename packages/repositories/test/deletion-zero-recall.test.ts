@@ -20,7 +20,7 @@ describe("TC-PRIV-DEL-001: 删除传播与即刻零召回验证测试", () => {
   let memoryRepo: SqliteMemoryRepository;
   let vectorPort: InMemoryVectorSearchAdapter;
 
-  const tenant: LocalContext = {
+  const ctx: LocalContext = {
     workspaceId: "ws_del_verify",
     subjectUserId: "usr_eva",
   };
@@ -36,43 +36,43 @@ describe("TC-PRIV-DEL-001: 删除传播与即刻零召回验证测试", () => {
   });
 
   it("删除消息后，业务记录、FTS5 全文索引与向量检索立即实现零召回", async () => {
-    const session = await convRepo.createSession(tenant, "Sensitive Session");
+    const session = await convRepo.createSession(ctx, "Sensitive Session");
     const messageId = "msg_sensitive_999";
     const sensitiveText = "My private password reminder is sunshine123";
 
     // 1. 落库业务消息
     await convRepo.createTurnWithOutbox(
-      tenant,
+      ctx,
       { id: "turn_sens_1", sessionId: session.id, idempotencyKey: "idem_sens_1" },
       { id: messageId, content: sensitiveText },
     );
 
     // 2. 建立 FTS5 与 Vector 派生索引
-    await indexMessageFts(client, tenant, { id: messageId, content: sensitiveText });
-    await vectorPort.upsert(tenant, [
+    await indexMessageFts(client, ctx, { id: messageId, content: sensitiveText });
+    await vectorPort.upsert(ctx, [
       { id: messageId, vector: [0.1, 0.9, 0.4], metadata: { content: sensitiveText } },
     ]);
 
     // 3. 验证删除前能够检索召回
-    const ftsBefore = await searchMessagesFts(client, tenant, "sunshine123");
+    const ftsBefore = await searchMessagesFts(client, ctx, "sunshine123");
     expect(ftsBefore).toHaveLength(1);
     expect(ftsBefore[0]!.id).toBe(messageId);
 
-    const vectorBefore = await vectorPort.search(tenant, [0.1, 0.9, 0.4], 5);
+    const vectorBefore = await vectorPort.search(ctx, [0.1, 0.9, 0.4], 5);
     expect(vectorBefore).toHaveLength(1);
     expect(vectorBefore[0]!.id).toBe(messageId);
 
     // 4. 执行删除传播（清除消息、清理 FTS5 虚表、删除向量索引）
-    const deleted = await convRepo.deleteMessage(tenant, messageId);
+    const deleted = await convRepo.deleteMessage(ctx, messageId);
     expect(deleted).toBe(true);
-    await deleteMessageFts(client, tenant, messageId);
-    await vectorPort.delete(tenant, messageId);
+    await deleteMessageFts(client, ctx, messageId);
+    await vectorPort.delete(ctx, messageId);
 
     // 5. 验证删除后：FTS5 与 Vector 零召回
-    const ftsAfter = await searchMessagesFts(client, tenant, "sunshine123");
+    const ftsAfter = await searchMessagesFts(client, ctx, "sunshine123");
     expect(ftsAfter).toHaveLength(0);
 
-    const vectorAfter = await vectorPort.search(tenant, [0.1, 0.9, 0.4], 5);
+    const vectorAfter = await vectorPort.search(ctx, [0.1, 0.9, 0.4], 5);
     expect(vectorAfter).toHaveLength(0);
   });
 });

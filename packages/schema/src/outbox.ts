@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 事务 Outbox 实体表
+ * Aervox｜思隅 @aervox/schema — 事务 Outbox 实体表
  *
  * 规则依据：docs/reference/adr/ADR-004-outbox-idempotent-jobs.md + ADR-013
  */

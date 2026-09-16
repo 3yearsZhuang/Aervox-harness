@@ -13,7 +13,7 @@ import type { Client } from "@libsql/client";
 describe("CAP-033 proactive profile repository", () => {
   let db: AervoxDatabase;
   let client: Client;
-  const tenant: LocalContext = { workspaceId: "ws_pro", subjectUserId: "usr_pro" };
+  const ctx: LocalContext = { workspaceId: "ws_pro", subjectUserId: "usr_pro" };
   const otherTenant: LocalContext = { workspaceId: "ws_other", subjectUserId: "usr_other" };
 
   beforeEach(async () => {
@@ -38,27 +38,27 @@ describe("CAP-033 proactive profile repository", () => {
 
   it("keeps an unacknowledged OS grant requested and isolates tenants", async () => {
     const repository = new SqliteProactiveProfileRepository(db);
-    const result = await repository.confirmProfile(tenant, {
+    const result = await repository.confirmProfile(ctx, {
       id: "profile_requested",
       deviceId: "device-a",
       actorId: "usr_pro",
     });
     expect(result.sources).toHaveLength(FULL_PROFILE_SOURCE_MANIFEST.length);
     expect(result.sources.every((source) => source.state === "requested")).toBe(true);
-    expect((await repository.getEffectiveStatus(tenant)).effectiveState).toBe("suspended");
+    expect((await repository.getEffectiveStatus(ctx)).effectiveState).toBe("suspended");
     expect(await repository.getRevision(otherTenant)).not.toBeNull();
     expect(await repository.listSourceGrants(otherTenant)).toHaveLength(FULL_PROFILE_SOURCE_MANIFEST.length);
   });
 
   it("derives active only after all source grants, local readiness and full access snapshot", async () => {
     const repository = new SqliteProactiveProfileRepository(db);
-    const result = await repository.confirmProfile(tenant, {
+    const result = await repository.confirmProfile(ctx, {
       id: "profile_active",
       deviceId: "device-a",
       actorId: "usr_pro",
       sources: allGrantedSources("profile_active"),
     });
-    const lease = await repository.createActivationLease(tenant, {
+    const lease = await repository.createActivationLease(ctx, {
       id: "lease_active",
       revisionId: result.revision.id,
       deviceId: "device-a",
@@ -68,15 +68,15 @@ describe("CAP-033 proactive profile repository", () => {
       actorId: "usr_pro",
     });
     expect(lease.status).toBe("active");
-    const status = await repository.getEffectiveStatus(tenant);
+    const status = await repository.getEffectiveStatus(ctx);
     expect(status.effectiveState).toBe("active");
     expect(status.mandatorySources.granted).toBe(FULL_PROFILE_SOURCE_MANIFEST.length);
 
-    await repository.updateSourceGrant(tenant, result.sources[0]!.id, {
+    await repository.updateSourceGrant(ctx, result.sources[0]!.id, {
       state: "revoked",
       actorId: "usr_pro",
     });
-    expect((await repository.getEffectiveStatus(tenant)).effectiveState).toBe("limited");
+    expect((await repository.getEffectiveStatus(ctx)).effectiveState).toBe("limited");
   });
 
   it("derives active once mandatory sources are granted even when platform-pending sources wait", async () => {
@@ -84,7 +84,7 @@ describe("CAP-033 proactive profile repository", () => {
     // 未显式传入 sources 时，mandatory 由服务端 manifest 派生：
     // 通信/位置/传感器/敏感资料与 idle_state（CR-032 可选感知源）不计入必需集合。
     const pending = new Set(["external.communication", "device.location", "device.sensors", "restricted.profile", "system.idle_state"]);
-    const fallback = await repository.confirmProfile(tenant, {
+    const fallback = await repository.confirmProfile(ctx, {
       id: "profile_fallback",
       deviceId: "device-a",
       actorId: "usr_pro",
@@ -125,13 +125,13 @@ describe("CAP-033 proactive profile repository", () => {
   it("retains raw captures for seven days and blocks expiry until memory distillation", async () => {
     const cipher = createProactiveVaultCipher(new Uint8Array(32).fill(9), "test-v1");
     const repository = new SqliteProactiveProfileRepository(db, cipher);
-    const profile = await repository.confirmProfile(tenant, {
+    const profile = await repository.confirmProfile(ctx, {
       id: "profile_capture",
       deviceId: "device-a",
       actorId: "usr_pro",
       sources: allGrantedSources("profile_capture"),
     });
-    const capture = await repository.createCapture(tenant, {
+    const capture = await repository.createCapture(ctx, {
       id: "capture-1",
       revisionId: profile.revision.id,
       sourceGrantId: profile.sources[0]!.id,
@@ -144,7 +144,7 @@ describe("CAP-033 proactive profile repository", () => {
     });
     expect(capture.retentionUntil).toBe("2026-08-08T00:00:00.000Z");
     expect(capture.payloadText).toBe("private source text");
-    await expect(repository.createCapture(tenant, {
+    await expect(repository.createCapture(ctx, {
       id: "capture-1",
       revisionId: profile.revision.id,
       sourceGrantId: profile.sources[0]!.id,
@@ -155,7 +155,7 @@ describe("CAP-033 proactive profile repository", () => {
       ingestedAt: "2026-08-01T00:00:00.000Z",
       observedAt: "2026-08-01T00:00:00.000Z",
     })).resolves.toMatchObject({ id: "capture-1" });
-    await expect(repository.createCapture(tenant, {
+    await expect(repository.createCapture(ctx, {
       id: "capture-1",
       revisionId: profile.revision.id,
       sourceGrantId: profile.sources[0]!.id,
@@ -168,28 +168,28 @@ describe("CAP-033 proactive profile repository", () => {
     expect(String(rawCapture.rows[0]?.payload_text)).toMatch(/^avxenc:v1:/);
     expect(String(rawCapture.rows[0]?.payload_text)).not.toContain("private source text");
 
-    expect(await repository.purgeEligibleCaptures(tenant, "2026-08-09T00:00:00.000Z")).toBe(0);
-    expect((await repository.listCaptures(tenant))[0]!.distillationStatus).toBe("blocked");
-    await repository.markCaptureDistilled(tenant, capture.id, ["memory-1"]);
-    expect(await repository.purgeEligibleCaptures(tenant, "2026-08-09T00:00:00.000Z")).toBe(1);
-    const deleted = (await repository.listCaptures(tenant, { includeDeleted: true }))[0]!;
+    expect(await repository.purgeEligibleCaptures(ctx, "2026-08-09T00:00:00.000Z")).toBe(0);
+    expect((await repository.listCaptures(ctx))[0]!.distillationStatus).toBe("blocked");
+    await repository.markCaptureDistilled(ctx, capture.id, ["memory-1"]);
+    expect(await repository.purgeEligibleCaptures(ctx, "2026-08-09T00:00:00.000Z")).toBe(1);
+    const deleted = (await repository.listCaptures(ctx, { includeDeleted: true }))[0]!;
     expect(deleted.distillationStatus).toBe("deleted");
     expect(deleted.payloadText).toBeNull();
 
-    const exported = await repository.exportSnapshot(tenant, { includeRaw: true });
+    const exported = await repository.exportSnapshot(ctx, { includeRaw: true });
     expect(exported.captures[0]!.payloadText).toBeNull();
   });
 
   it("encrypts claim/action content and preserves independent action grant revision", async () => {
     const cipher = createProactiveVaultCipher(new Uint8Array(32).fill(3), "test-v1");
     const repository = new SqliteProactiveProfileRepository(db, cipher);
-    const profile = await repository.confirmProfile(tenant, {
+    const profile = await repository.confirmProfile(ctx, {
       id: "profile_action",
       deviceId: "device-a",
       actorId: "usr_pro",
       sources: allGrantedSources("profile_action"),
     });
-    const claim = await repository.createClaim(tenant, {
+    const claim = await repository.createClaim(ctx, {
       id: "claim-1",
       revisionId: profile.revision.id,
       claimType: "habit",
@@ -198,7 +198,7 @@ describe("CAP-033 proactive profile repository", () => {
       confidence: 80,
     });
     expect(claim.content).toContain("morning");
-    const action = await repository.createAction(tenant, {
+    const action = await repository.createAction(ctx, {
       id: "action-1",
       revisionId: profile.revision.id,
       actionType: "browser.open",
@@ -212,8 +212,8 @@ describe("CAP-033 proactive profile repository", () => {
     // 授权指纹由服务端从真实 granted grant 版本派生，客户端传入值被忽略
     expect(action.actionGrantRevision).toMatch(/^action\.external@\d+$/);
     expect(action.actionGrantRevision).not.toBe("grant-v2");
-    expect((await repository.updateAction(tenant, action.id, { state: "approved", actorId: "usr_pro" }))?.approvedBy).toBe("usr_pro");
-    await repository.updateAction(tenant, action.id, { state: "failed", error: "private target failed" });
+    expect((await repository.updateAction(ctx, action.id, { state: "approved", actorId: "usr_pro" }))?.approvedBy).toBe("usr_pro");
+    await repository.updateAction(ctx, action.id, { state: "failed", error: "private target failed" });
     const rawClaim = await client.execute("SELECT subject_key, content, evidence_refs_json FROM proactive_profile_claims WHERE id = 'claim-1'");
     expect(String(rawClaim.rows[0]?.subject_key)).toMatch(/^avxenc:v1:/);
     expect(String(rawClaim.rows[0]?.content)).toMatch(/^avxenc:v1:/);
@@ -223,17 +223,17 @@ describe("CAP-033 proactive profile repository", () => {
     expect(String(rawAction.rows[0]?.request_json)).toMatch(/^avxenc:v1:/);
     expect(String(rawAction.rows[0]?.error)).toMatch(/^avxenc:v1:/);
     expect(String(rawAction.rows[0]?.target)).not.toContain("example.test");
-    expect((await repository.listAuditEvents(tenant)).some((event) => event.eventType === "action.approved")).toBe(true);
+    expect((await repository.listAuditEvents(ctx)).some((event) => event.eventType === "action.approved")).toBe(true);
     const externalGrant = profile.sources.find((source) => source.sourceKey === "action.external")!;
-    const deletion = await repository.deleteSourceData(tenant, externalGrant.id, tenant.subjectUserId);
+    const deletion = await repository.deleteSourceData(ctx, externalGrant.id, ctx.subjectUserId);
     expect(deletion?.actionsScrubbed).toBe(1);
-    expect((await repository.listActions(tenant))[0]?.target).toBe("[deleted]");
+    expect((await repository.listActions(ctx))[0]?.target).toBe("[deleted]");
   });
 
   it("persists normalized behavior observations with source provenance", async () => {
     const cipher = createProactiveVaultCipher(new Uint8Array(32).fill(5), "obs-v1");
     const repository = new SqliteProactiveProfileRepository(db, cipher);
-    const profile = await repository.confirmProfile(tenant, {
+    const profile = await repository.confirmProfile(ctx, {
       id: "profile-observation",
       deviceId: "device-a",
       actorId: "usr_pro",
@@ -246,7 +246,7 @@ describe("CAP-033 proactive profile repository", () => {
         },
       ],
     });
-    const observation = await repository.createObservation(tenant, {
+    const observation = await repository.createObservation(ctx, {
       id: "observation-1",
       revisionId: profile.revision.id,
       sourceGrantId: profile.sources[0]!.id,
@@ -260,7 +260,7 @@ describe("CAP-033 proactive profile repository", () => {
     const rawObservation = await client.execute("SELECT subject_key, payload_json FROM proactive_observations WHERE id = 'observation-1'");
     expect(String(rawObservation.rows[0]?.subject_key)).toMatch(/^avxenc:v1:/);
     expect(String(rawObservation.rows[0]?.payload_json)).toMatch(/^avxenc:v1:/);
-    expect((await repository.listObservations(tenant))[0]).toMatchObject({
+    expect((await repository.listObservations(ctx))[0]).toMatchObject({
       id: "observation-1",
       processingBoundary: "local_only",
       sourceKey: "device.app_activity",
@@ -270,14 +270,14 @@ describe("CAP-033 proactive profile repository", () => {
 
   it("rejects client-forged action grant revisions and enforces the action state machine", async () => {
     const repository = new SqliteProactiveProfileRepository(db);
-    const profile = await repository.confirmProfile(tenant, {
+    const profile = await repository.confirmProfile(ctx, {
       id: "profile_sm",
       deviceId: "device-sm",
       actorId: "usr_pro",
       sources: allGrantedSources("profile_sm"),
     });
     // 客户端传入伪造授权指纹被忽略，改为服务端派生
-    const first = await repository.createAction(tenant, {
+    const first = await repository.createAction(ctx, {
       id: "action-sm-1",
       revisionId: profile.revision.id,
       actionType: "file.write",
@@ -290,18 +290,18 @@ describe("CAP-033 proactive profile repository", () => {
     expect(first.actionGrantRevision).toMatch(/^action\.local@\d+$/);
     expect(first.actionGrantRevision).not.toBe("forged-revision");
     // pending 不能直接置 running/executed
-    await expect(repository.updateAction(tenant, "action-sm-1", { state: "executed", actorId: "attacker" }))
+    await expect(repository.updateAction(ctx, "action-sm-1", { state: "executed", actorId: "attacker" }))
       .rejects.toThrow(/state transition/);
     // 未批准的 action 也不能直接置 running
-    await expect(repository.updateAction(tenant, "action-sm-1", { state: "running", actorId: "attacker" }))
+    await expect(repository.updateAction(ctx, "action-sm-1", { state: "running", actorId: "attacker" }))
       .rejects.toThrow(/state transition/);
     // 合法路径：pending -> approved -> running -> executed
-    await repository.updateAction(tenant, "action-sm-1", { state: "approved", actorId: "usr_pro" });
-    await repository.updateAction(tenant, "action-sm-1", { state: "running", actorId: "usr_pro" });
-    const executed = await repository.updateAction(tenant, "action-sm-1", { state: "executed", actorId: "usr_pro", outcome: { ok: true } });
+    await repository.updateAction(ctx, "action-sm-1", { state: "approved", actorId: "usr_pro" });
+    await repository.updateAction(ctx, "action-sm-1", { state: "running", actorId: "usr_pro" });
+    const executed = await repository.updateAction(ctx, "action-sm-1", { state: "executed", actorId: "usr_pro", outcome: { ok: true } });
     expect(executed?.state).toBe("executed");
     // 终态不可再变
-    await expect(repository.updateAction(tenant, "action-sm-1", { state: "revoked", actorId: "usr_pro" }))
+    await expect(repository.updateAction(ctx, "action-sm-1", { state: "revoked", actorId: "usr_pro" }))
       .rejects.toThrow(/state transition/);
   });
 });

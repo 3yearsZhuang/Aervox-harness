@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — B4-D：原子写对（§12.2）
+ * Aervox｜思隅 @aervox/repositories — B4-D：原子写对（§12.2）
  *
  * - recordToolOutcomeAtomically：tool_executions 收口 + tool_result 事件同事务，
  *   fencing 失配抛 FencingMismatchError 且无部分写入；
@@ -11,7 +11,7 @@ import { createInMemoryDatabase, initDatabaseSchema, SqliteConversationRepositor
 import { FencingMismatchError } from "../src/errors.js";
 import type { Client } from "@libsql/client";
 
-const tenant: LocalContext = { workspaceId: "ws_atomic", subjectUserId: "usr_atomic" };
+const ctx: LocalContext = { workspaceId: "ws_atomic", subjectUserId: "usr_atomic" };
 
 describe("B4-D 原子写对", () => {
   let db: AervoxDatabase;
@@ -23,15 +23,15 @@ describe("B4-D 原子写对", () => {
     const n = (++seq).toString(36);
     const turnId = `turn_atomic_${n}`;
     const sessionId = `ses_atomic_${n}`;
-    await repo.getOrCreateSession(tenant, sessionId, "原子写对");
+    await repo.getOrCreateSession(ctx, sessionId, "原子写对");
     await repo.createTurnWithOutbox(
-      tenant,
+      ctx,
       { id: turnId, sessionId, idempotencyKey: `idem_${turnId}`, status: "Created" },
       { id: `msg_${turnId}`, content: "x" },
       { id: `ob_${turnId}`, eventType: "turn.created", idempotencyKey: `idem_ob_${turnId}`, payload: { turnId } },
     );
     const attemptId = `atp_atomic_${n}`;
-    await repo.createTurnAttempt(tenant, turnId, { id: attemptId, attempt: 1 });
+    await repo.createTurnAttempt(ctx, turnId, { id: attemptId, attempt: 1 });
     return { turnId, attemptId };
   };
 
@@ -45,10 +45,10 @@ describe("B4-D 原子写对", () => {
 
   it("recordToolOutcomeAtomically：账本收口 + tool_result 事件同事务写入", async () => {
     const { turnId, attemptId } = await nextTurn();
-    await repo.claimTurnAttempt(tenant, { turnId, attemptId, expectedFencingToken: 0, leaseId: "lease_a1", ttlMs: 60_000 });
-    await repo.reserveToolExecution(tenant, { turnId, attemptId, invocationId: "atp_atomic_1:1:1", name: "notes_search", arguments: {} });
+    await repo.claimTurnAttempt(ctx, { turnId, attemptId, expectedFencingToken: 0, leaseId: "lease_a1", ttlMs: 60_000 });
+    await repo.reserveToolExecution(ctx, { turnId, attemptId, invocationId: "atp_atomic_1:1:1", name: "notes_search", arguments: {} });
 
-    const ok = await repo.recordToolOutcomeAtomically(tenant, {
+    const ok = await repo.recordToolOutcomeAtomically(ctx, {
       turnId,
       attemptId,
       sequence: 2,
@@ -65,20 +65,20 @@ describe("B4-D 原子写对", () => {
     expect(ok).toBe(true);
 
     // 账本已收口
-    const executions = await repo.listToolExecutionsByTurn(tenant, turnId);
+    const executions = await repo.listToolExecutionsByTurn(ctx, turnId);
     expect(executions[0]?.status).toBe("executed");
     // 事件已写入
-    const events = await repo.getStreamEvents(tenant, turnId, 0);
+    const events = await repo.getStreamEvents(ctx, turnId, 0);
     expect(events.some((e) => e.eventType === "tool_result")).toBe(true);
   });
 
   it("recordToolOutcomeAtomically：fencing 失配 → 抛错且无部分写入", async () => {
     const { turnId, attemptId } = await nextTurn();
-    await repo.claimTurnAttempt(tenant, { turnId, attemptId, expectedFencingToken: 0, leaseId: "lease_a2", ttlMs: 60_000 });
-    await repo.reserveToolExecution(tenant, { turnId, attemptId, invocationId: "atp_atomic_2:1:1", name: "notes_search", arguments: {} });
+    await repo.claimTurnAttempt(ctx, { turnId, attemptId, expectedFencingToken: 0, leaseId: "lease_a2", ttlMs: 60_000 });
+    await repo.reserveToolExecution(ctx, { turnId, attemptId, invocationId: "atp_atomic_2:1:1", name: "notes_search", arguments: {} });
 
     await expect(
-      repo.recordToolOutcomeAtomically(tenant, {
+      repo.recordToolOutcomeAtomically(ctx, {
         turnId,
         attemptId,
         sequence: 2,
@@ -94,19 +94,19 @@ describe("B4-D 原子写对", () => {
     ).rejects.toThrow(FencingMismatchError);
 
     // 无部分写入：无 tool_result 事件、账本仍 pending
-    const events = await repo.getStreamEvents(tenant, turnId, 0);
+    const events = await repo.getStreamEvents(ctx, turnId, 0);
     expect(events.some((e) => e.eventType === "tool_result")).toBe(false);
-    const executions = await repo.listToolExecutionsByTurn(tenant, turnId);
+    const executions = await repo.listToolExecutionsByTurn(ctx, turnId);
     expect(executions[0]?.status).toBe("pending");
   });
 
   it("finalizeAttemptWithEventAtomically：终态 + done 同事务；CAS 失败不写事件", async () => {
     const { turnId, attemptId } = await nextTurn();
-    const claim = await repo.claimTurnAttempt(tenant, { turnId, attemptId, expectedFencingToken: 0, leaseId: "lease_a3", ttlMs: 60_000 });
+    const claim = await repo.claimTurnAttempt(ctx, { turnId, attemptId, expectedFencingToken: 0, leaseId: "lease_a3", ttlMs: 60_000 });
     expect(claim.ok).toBe(true);
     if (!claim.ok) return;
 
-    const ok = await repo.finalizeAttemptWithEventAtomically(tenant, {
+    const ok = await repo.finalizeAttemptWithEventAtomically(ctx, {
       turnId,
       attemptId,
       status: "Completed",
@@ -118,13 +118,13 @@ describe("B4-D 原子写对", () => {
     });
     expect(ok).toBe(true);
 
-    const events = await repo.getStreamEvents(tenant, turnId, 0);
+    const events = await repo.getStreamEvents(ctx, turnId, 0);
     expect(events.some((e) => e.eventType === "done")).toBe(true);
-    const [attempt] = await repo.listTurnAttempts(tenant, turnId);
+    const [attempt] = await repo.listTurnAttempts(ctx, turnId);
     expect(attempt?.status).toBe("Completed");
 
     // 二次提交（已终态）→ false 且不写第二个 done
-    const again = await repo.finalizeAttemptWithEventAtomically(tenant, {
+    const again = await repo.finalizeAttemptWithEventAtomically(ctx, {
       turnId,
       attemptId,
       status: "Failed",
@@ -135,7 +135,7 @@ describe("B4-D 原子写对", () => {
       safetyDecision: "approved",
     });
     expect(again).toBe(false);
-    const eventsAfter = await repo.getStreamEvents(tenant, turnId, 0);
+    const eventsAfter = await repo.getStreamEvents(ctx, turnId, 0);
     expect(eventsAfter.filter((e) => e.eventType === "error")).toHaveLength(0);
   });
 });

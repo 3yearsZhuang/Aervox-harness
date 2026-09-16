@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 会话与流式协议实体表
+ * Aervox｜思隅 @aervox/schema — 会话与流式协议实体表
  *
  * 规则依据：docs/reference/STREAMING_PROTOCOL.md + ADR-012
  */

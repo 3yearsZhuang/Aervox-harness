@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 插件 Config / Page SQLite 仓储实现（CAP-020 扩展 · CR-006）
+ * Aervox｜思隅 @aervox/repositories — 插件 Config / Page SQLite 仓储实现（CAP-020 扩展 · CR-006）
  *
  * - 配置按 pluginId 在本地实例唯一，revision 做乐观 CAS；
  * - secret 值与配置分开存储，接口只暴露配置状态；生产应替换为加密 SecretStore Port；
@@ -26,7 +26,7 @@ import type {
 export class SqlitePluginConfigRepository implements IPluginConfigRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
-  async getConfig(tenant: LocalContext, pluginId: string): Promise<PluginConfigModel | null> {
+  async getConfig(ctx: LocalContext, pluginId: string): Promise<PluginConfigModel | null> {
     const [found] = await this.db
       .select()
       .from(pluginConfigs)
@@ -40,11 +40,11 @@ export class SqlitePluginConfigRepository implements IPluginConfigRepository {
   }
 
   async saveConfig(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: PluginConfigSaveInput,
   ): Promise<{ saved: PluginConfigModel; conflict: boolean }> {
     const now = new Date().toISOString();
-    const existing = await this.getConfig(tenant, input.pluginId);
+    const existing = await this.getConfig(ctx, input.pluginId);
 
     if (existing) {
       if (input.expectedRevision >= 0 && existing.revision !== input.expectedRevision) {
@@ -87,13 +87,13 @@ export class SqlitePluginConfigRepository implements IPluginConfigRepository {
   }
 
   async resetConfig(
-    tenant: LocalContext,
+    ctx: LocalContext,
     pluginId: string,
     schemaVersion: number,
     defaults: Record<string, unknown>,
   ): Promise<PluginConfigModel> {
     const now = new Date().toISOString();
-    const existing = await this.getConfig(tenant, pluginId);
+    const existing = await this.getConfig(ctx, pluginId);
     if (existing) {
       const [updated] = await this.db
         .update(pluginConfigs)
@@ -135,11 +135,11 @@ export class SqlitePluginSecretRepository implements IPluginSecretRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async put(
-    tenant: LocalContext,
+    ctx: LocalContext,
     entry: { pluginId: string; fieldKey: string; value: unknown },
   ): Promise<void> {
     const now = new Date().toISOString();
-    const existing = await this.getState(tenant, entry.pluginId, entry.fieldKey);
+    const existing = await this.getState(ctx, entry.pluginId, entry.fieldKey);
     if (existing.configured) {
       await this.db
         .update(pluginConfigSecrets)
@@ -169,7 +169,7 @@ export class SqlitePluginSecretRepository implements IPluginSecretRepository {
   }
 
   async getState(
-    tenant: LocalContext,
+    ctx: LocalContext,
     pluginId: string,
     fieldKey: string,
   ): Promise<{ configured: boolean }> {
@@ -187,7 +187,7 @@ export class SqlitePluginSecretRepository implements IPluginSecretRepository {
   }
 
   async listStates(
-    tenant: LocalContext,
+    ctx: LocalContext,
     pluginId: string,
   ): Promise<Array<{ fieldKey: string; configured: boolean }>> {
     const rows = await this.db
@@ -202,7 +202,7 @@ export class SqlitePluginSecretRepository implements IPluginSecretRepository {
   }
 
   async delete(
-    tenant: LocalContext,
+    ctx: LocalContext,
     pluginId: string,
     fieldKey: string,
   ): Promise<void> {

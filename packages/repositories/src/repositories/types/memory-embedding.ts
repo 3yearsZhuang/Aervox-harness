@@ -10,7 +10,7 @@ export interface IMemoryEmbeddingRepository {
    * 同一 memoryId 已有向量时覆盖（同 model_id 重算场景），换模型请用不同 model_id。
    */
   insertBatch(
-    tenant: LocalContext,
+    ctx: LocalContext,
     items: Array<{
       id: string;
       memoryId: string;
@@ -27,14 +27,14 @@ export interface IMemoryEmbeddingRepository {
   ): Promise<void>;
   /** 余弦检索 topK（JS 行扫描，SQLite 无原生向量扩展时的兜底） */
   retrieve(
-    tenant: LocalContext,
+    ctx: LocalContext,
     queryVector: number[],
     topK: number,
     minScore?: number,
     modelId?: string,
   ): Promise<Array<{ memoryId: string; score: number }>>;
-  deleteByMemoryId(tenant: LocalContext, memoryId: string): Promise<void>;
-  clearAll(tenant: LocalContext): Promise<void>;
+  deleteByMemoryId(ctx: LocalContext, memoryId: string): Promise<void>;
+  clearAll(ctx: LocalContext): Promise<void>;
 }
 
 export interface DiaryModel {

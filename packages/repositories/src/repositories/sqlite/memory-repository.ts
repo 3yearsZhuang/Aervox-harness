@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 记忆与记忆树 SQLite 仓储实现
+ * Aervox｜思隅 @aervox/repositories — 记忆与记忆树 SQLite 仓储实现
  *
  * 使用 SQLite 3.8.3+ 原生 WITH RECURSIVE CTE 实现记忆树递归遍历与投影。
  */
@@ -32,7 +32,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
   ) {}
 
   async createRecord(
-    tenant: LocalContext,
+    ctx: LocalContext,
     recordData: {
       id: string;
       layer: string;
@@ -75,7 +75,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
     return created as MemoryRecordModel;
   }
 
-  async getRecord(tenant: LocalContext, id: string): Promise<MemoryRecordModel | null> {
+  async getRecord(ctx: LocalContext, id: string): Promise<MemoryRecordModel | null> {
     const [found] = await this.db
       .select()
       .from(memoryRecords)
@@ -88,7 +88,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
     return (found as MemoryRecordModel) ?? null;
   }
 
-  async getRecordsByIds(tenant: LocalContext, ids: string[]): Promise<MemoryRecordModel[]> {
+  async getRecordsByIds(ctx: LocalContext, ids: string[]): Promise<MemoryRecordModel[]> {
     if (ids.length === 0) return [];
     const rows = await this.db
       .select()
@@ -102,7 +102,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
     return rows as MemoryRecordModel[];
   }
 
-  async listRecordsByLayer(tenant: LocalContext, layer: string): Promise<MemoryRecordModel[]> {
+  async listRecordsByLayer(ctx: LocalContext, layer: string): Promise<MemoryRecordModel[]> {
     const rows = await this.db
       .select()
       .from(memoryRecords)
@@ -116,7 +116,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
   }
 
   async createEdge(
-    tenant: LocalContext,
+    ctx: LocalContext,
     edgeData: {
       id: string;
       fromNodeId: string;
@@ -143,7 +143,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
   }
 
   async getTreeProjection(
-    tenant: LocalContext,
+    ctx: LocalContext,
     rootRecordId?: string | null,
   ): Promise<MemoryTreeNode[]> {
 
@@ -236,7 +236,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
     return roots;
   }
 
-  async softDeleteRecord(tenant: LocalContext, id: string): Promise<boolean> {
+  async softDeleteRecord(ctx: LocalContext, id: string): Promise<boolean> {
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(memoryRecords)
@@ -253,7 +253,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
   // ============ P1（R2）：记忆树投影节点 / 边证据 / 算法版本 ============
 
   async createNode(
-    tenant: LocalContext,
+    ctx: LocalContext,
     nodeData: {
       id: string;
       label: string;
@@ -281,7 +281,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
     return created as MemoryNodeModel;
   }
 
-  async getNode(tenant: LocalContext, id: string): Promise<MemoryNodeModel | null> {
+  async getNode(ctx: LocalContext, id: string): Promise<MemoryNodeModel | null> {
     const [found] = await this.db
       .select()
       .from(memoryNodes)
@@ -293,7 +293,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
     return (found as MemoryNodeModel) ?? null;
   }
 
-  async listNodesByTenant(tenant: LocalContext): Promise<MemoryNodeModel[]> {
+  async listNodesByTenant(ctx: LocalContext): Promise<MemoryNodeModel[]> {
     const rows = await this.db
       .select()
       .from(memoryNodes)

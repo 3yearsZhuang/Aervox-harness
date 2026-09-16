@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — RecoveryControlLedger 独立 deny 账本实体表
+ * Aervox｜思隅 @aervox/schema — RecoveryControlLedger 独立 deny 账本实体表
  *
  * 规则依据：docs/reference/PRD.md §8 数据规则 + docs/reference/DATABASE.md §14.7
  *

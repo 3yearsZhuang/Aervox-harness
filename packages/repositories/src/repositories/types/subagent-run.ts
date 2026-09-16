@@ -9,21 +9,21 @@ export interface ISubagentRunRepository {
    * 幂等创建：同 tenant + parentAttemptId + parentExecutionId 已存在则返回既有行
    * （子任务崩溃/重试不重复落库——Host 幂等键=executionId 语义，AVX-HAR-001 §9）。
    */
-  createRun(tenant: LocalContext, input: SubagentRunCreateInput): Promise<SubagentRunModel>;
+  createRun(ctx: LocalContext, input: SubagentRunCreateInput): Promise<SubagentRunModel>;
   /** 终态收口：status/resultText/error/finishedAt（仅 Running 可收口，返回 null 表示非 Running/缺失） */
   finalizeRun(
-    tenant: LocalContext,
+    ctx: LocalContext,
     runId: string,
     input: { status: string; resultText?: string | null; error?: string | null },
   ): Promise<SubagentRunModel | null>;
   /** 按父执行键回查（重试/幂等复用） */
   getRunByParentExecution(
-    tenant: LocalContext,
+    ctx: LocalContext,
     parentAttemptId: string,
     parentExecutionId: string,
   ): Promise<SubagentRunModel | null>;
   /** 父 Turn 的全部本地子任务运行（API 审计端点） */
-  listRunsByTurn(tenant: LocalContext, parentTurnId: string): Promise<SubagentRunModel[]>;
+  listRunsByTurn(ctx: LocalContext, parentTurnId: string): Promise<SubagentRunModel[]>;
 }
 
 export interface PendingUserQuestionModel {

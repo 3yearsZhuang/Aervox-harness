@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — Subagent 运行关联（subagent_runs）
+ * Aervox｜思隅 @aervox/schema — Subagent 运行关联（subagent_runs）
  *
  * 规则依据：AVX-HAR-001 §13 阶段 5 / 5c「Subagent/Workflow Contribution」：
  * - Leader Loop 在 Step 调用 `subagent_delegate`，宿主创建独立子 turn/attempt 落库（可审计/恢复）；

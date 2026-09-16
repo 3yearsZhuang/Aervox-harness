@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 埋点事件 SQLite 仓储实现
+ * Aervox｜思隅 @aervox/repositories — 埋点事件 SQLite 仓储实现
  *
  * 规则依据：docs/reference/PRD.md §8（AnalyticsEvent）
  */
@@ -13,7 +13,7 @@ export class SqliteAnalyticsRepository implements IAnalyticsRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async recordEvent(
-    tenant: LocalContext,
+    ctx: LocalContext,
     eventData: {
       id: string;
       eventName: string;
@@ -40,7 +40,7 @@ export class SqliteAnalyticsRepository implements IAnalyticsRepository {
   }
 
   async listEventsBySubject(
-    tenant: LocalContext,
+    ctx: LocalContext,
     analyticsSubjectId: string,
     limit: number = 100,
   ): Promise<AnalyticsEventModel[]> {

@@ -16,14 +16,14 @@ import {
   arbitrate,
   DEFAULT_GLOBAL_QUIET_HOURS,
   isWithinQuietHours,
-} from "../src/proactive-arbitrator.js";
+} from "../src/proactive/arbitrator.js";
 import {
   computeIdleFacts,
   evaluateTriggerRule,
   materializePluginTriggerRules,
-} from "../src/proactive-rule-engine.js";
-import { renderTemplateMessage } from "../src/proactive-composer.js";
-import { runProactiveIntelligenceCycle } from "../src/proactive-intelligence-worker.js";
+} from "../src/proactive/rule-engine.js";
+import { renderTemplateMessage } from "../src/proactive/composer.js";
+import { runProactiveIntelligenceCycle } from "../src/proactive/intelligence-worker.js";
 
 const tenant = {workspaceId: "local", subjectUserId: "local"} as const;
 /** 14:30 本地午后时刻（避开全局静音窗口） */

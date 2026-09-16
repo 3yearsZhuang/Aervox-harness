@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — Agent Loop 工具执行账本（tool_executions）
+ * Aervox｜思隅 @aervox/schema — Agent Loop 工具执行账本（tool_executions）
  *
  * 规则依据：docs/reference/agent-harness-loop.md（AVX-HAR-001）§12 副作用证据与持久化边界：
  * 每次工具调用（成功/拒绝/重复/超时）都留下执行证据，用于审计与副作用追溯；
