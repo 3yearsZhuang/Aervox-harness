@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — Token 用量分账工具（T-10 接线）
+ * Aervox｜思隅 @aervox/repositories — Token 用量分账工具（T-10 接线）
  *
  * 参照 BaiShou-Next 的 token usage 分类做法（AGPLv3，仅借鉴「缓存/非缓存分离」
  * 的公开设计，字段命名自研）：把一次模型运行的 token 用量拆为

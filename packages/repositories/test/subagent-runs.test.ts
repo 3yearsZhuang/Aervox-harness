@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 阶段 5c Subagent 运行关联仓储测试
+ * Aervox｜思隅 @aervox/repositories — 阶段 5c Subagent 运行关联仓储测试
  *
  * 覆盖 AVX-HAR-001 §13 阶段 5c：
  * - createRun 幂等：同 parentAttemptId + parentExecutionId 返回既有行（崩溃/重试不重复落库）；

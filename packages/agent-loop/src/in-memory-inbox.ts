@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/agent-loop — 内存 Inbox 实现（阶段 5a 测试骨架）
  *
- * 实现 InboxPort 供单元测试与宿主开发夹具使用；生产由宿主以 @aervox/database
+ * 实现 InboxPort 供单元测试与宿主开发夹具使用；生产由宿主以 @aervox/repositories
  * 仓储适配。行为约定以本文件为基准（ADR-017 claim/ack、幂等、边界过滤）。
  */
 import type { InboxPort } from "./ports.js";

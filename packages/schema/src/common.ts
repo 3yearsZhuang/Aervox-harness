@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 模式公共列与辅助定义
+ * Aervox｜思隅 @aervox/schema — 模式公共列与辅助定义
  */
 import { text } from "drizzle-orm/sqlite-core";
 

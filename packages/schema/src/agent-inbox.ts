@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — Agent 收件箱（agent_inbox_items）
+ * Aervox｜思隅 @aervox/schema — Agent 收件箱（agent_inbox_items）
  *
  * 规则依据：ADR-017「冻结 ContextManifest / ModelRun / AgentStep 关联与 Inbox 数据模型」
  * 与 AVX-HAR-001 §7.2 AgentInboxItem：

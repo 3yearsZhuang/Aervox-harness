@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 用户偏好 Schema（CAP-010 人格问卷与基础偏好）
+ * Aervox｜思隅 @aervox/schema — 用户偏好 Schema（CAP-010 人格问卷与基础偏好）
  *
  * 覆盖：FR-PER-001（语气/主动程度/称呼/提醒节奏）、FR-PER-002（修改与重置）
  * 本地实例一行，neut 默认值由 API 层保证。

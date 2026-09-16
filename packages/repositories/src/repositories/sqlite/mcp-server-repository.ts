@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — MCP 服务器连接配置 SQLite 仓储实现
+ * Aervox｜思隅 @aervox/repositories — MCP 服务器连接配置 SQLite 仓储实现
  *
  * 与 SqliteToolRegistryRepository 对齐：系统级表（无租户列），drizzle 直查。
  * token 仅落本地库，任何方法都不做脱敏——脱敏是 API 层职责（不回传原文）。

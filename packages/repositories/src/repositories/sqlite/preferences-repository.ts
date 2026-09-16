@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 用户偏好 SQLite 仓储实现（CAP-010 人格问卷与基础偏好）
+ * Aervox｜思隅 @aervox/repositories — 用户偏好 SQLite 仓储实现（CAP-010 人格问卷与基础偏好）
  *
  * - 本地实例一行（CR-030：固定主键构成单行真源），save 为幂等 upsert；
  * - update 仅更新传参列，version 自动递增；
@@ -20,7 +20,7 @@ const LOCAL_PREFERENCE_ID = "pref_local";
 export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
-  async get(tenant: LocalContext): Promise<PersonaPreferencesModel | null> {
+  async get(ctx: LocalContext): Promise<PersonaPreferencesModel | null> {
     const [found] = await this.db
       .select()
       .from(personaPreferences)
@@ -31,7 +31,7 @@ export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRe
   }
 
   async save(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: {
       tone?: string;
       proactiveness?: string;
@@ -74,7 +74,7 @@ export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRe
   }
 
   async update(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: {
       tone?: string;
       proactiveness?: string;
@@ -102,13 +102,13 @@ export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRe
 
     if (!updated) {
       // 不存在则 upsert（首次修改即创建）
-      return this.save(tenant, input);
+      return this.save(ctx, input);
     }
 
     return this.toModel(updated);
   }
 
-  async reset(tenant: LocalContext): Promise<PersonaPreferencesModel> {
+  async reset(ctx: LocalContext): Promise<PersonaPreferencesModel> {
     const now = new Date().toISOString();
 
     const [updated] = await this.db
@@ -126,7 +126,7 @@ export class SqlitePersonaPreferencesRepository implements IPersonaPreferencesRe
       .returning();
 
     if (!updated) {
-      return this.save(tenant, {});
+      return this.save(ctx, {});
     }
 
     return this.toModel(updated);

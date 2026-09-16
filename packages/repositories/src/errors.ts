@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 领域错误类型（缺陷 B）
+ * Aervox｜思隅 @aervox/repositories — 领域错误类型（缺陷 B）
  *
  * 数据层抛出的业务异常统一收敛为 DatabaseError 层级，携带 domainCode
  * （NOT_FOUND / FORBIDDEN / CONFLICT），由上层（apps/api）的 setErrorHandler

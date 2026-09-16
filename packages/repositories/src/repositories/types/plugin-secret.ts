@@ -5,20 +5,20 @@ import type { LocalContext } from "../../local-context.js";
 
 export interface IPluginSecretRepository {
   put(
-    tenant: LocalContext,
+    ctx: LocalContext,
     entry: { pluginId: string; fieldKey: string; value: unknown },
   ): Promise<void>;
   getState(
-    tenant: LocalContext,
+    ctx: LocalContext,
     pluginId: string,
     fieldKey: string,
   ): Promise<{ configured: boolean }>;
   listStates(
-    tenant: LocalContext,
+    ctx: LocalContext,
     pluginId: string,
   ): Promise<Array<{ fieldKey: string; configured: boolean }>>;
   delete(
-    tenant: LocalContext,
+    ctx: LocalContext,
     pluginId: string,
     fieldKey: string,
   ): Promise<void>;

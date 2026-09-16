@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 内容/资源域 SQLite 仓储实现
+ * Aervox｜思隅 @aervox/repositories — 内容/资源域 SQLite 仓储实现
  *
  * 规则依据：docs/reference/PRD.md §8（Attachment / EmbeddingIndex）
  * CAP-012 扩展：用途声明、解析管线、OCR 置信度、裁剪/转文字、删除传播
@@ -21,7 +21,7 @@ export class SqliteContentRepository implements IContentRepository {
   // ============ 附件身份 ============
 
   async createAttachment(
-    tenant: LocalContext,
+    ctx: LocalContext,
     attachmentData: {
       id: string;
       objectKey: string;
@@ -53,7 +53,7 @@ export class SqliteContentRepository implements IContentRepository {
     return created as AttachmentModel;
   }
 
-  async getAttachment(tenant: LocalContext, id: string): Promise<AttachmentModel | null> {
+  async getAttachment(ctx: LocalContext, id: string): Promise<AttachmentModel | null> {
     const [found] = await this.db
       .select()
       .from(attachments)
@@ -67,7 +67,7 @@ export class SqliteContentRepository implements IContentRepository {
     return (found as AttachmentModel) ?? null;
   }
 
-  async softDeleteAttachment(tenant: LocalContext, id: string): Promise<AttachmentModel | null> {
+  async softDeleteAttachment(ctx: LocalContext, id: string): Promise<AttachmentModel | null> {
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(attachments)
@@ -83,7 +83,7 @@ export class SqliteContentRepository implements IContentRepository {
   }
 
   async getAttachmentByIdempotencyKey(
-    tenant: LocalContext,
+    ctx: LocalContext,
     key: string,
   ): Promise<AttachmentModel | null> {
     const [found] = await this.db
@@ -102,7 +102,7 @@ export class SqliteContentRepository implements IContentRepository {
   // ============ CAP-012 解析结果 ============
 
   async createParseResult(
-    tenant: LocalContext,
+    ctx: LocalContext,
     input: {
       id: string;
       attachmentId: string;
@@ -144,7 +144,7 @@ export class SqliteContentRepository implements IContentRepository {
   }
 
   async getActiveParseResult(
-    tenant: LocalContext,
+    ctx: LocalContext,
     attachmentId: string,
   ): Promise<AttachmentParseResultModel | null> {
     const [found] = await this.db
@@ -162,7 +162,7 @@ export class SqliteContentRepository implements IContentRepository {
   }
 
   async getParseResultByIdempotencyKey(
-    tenant: LocalContext,
+    ctx: LocalContext,
     key: string,
   ): Promise<AttachmentParseResultModel | null> {
     const [found] = await this.db
@@ -178,7 +178,7 @@ export class SqliteContentRepository implements IContentRepository {
   }
 
   async listParseResults(
-    tenant: LocalContext,
+    ctx: LocalContext,
     attachmentId: string,
   ): Promise<AttachmentParseResultModel[]> {
     const rows = await this.db
@@ -193,7 +193,7 @@ export class SqliteContentRepository implements IContentRepository {
     return rows as AttachmentParseResultModel[];
   }
 
-  async supersedeParseResult(tenant: LocalContext, parseResultId: string): Promise<void> {
+  async supersedeParseResult(ctx: LocalContext, parseResultId: string): Promise<void> {
     const now = new Date().toISOString();
     await this.db
       .update(attachmentParseResults)
@@ -206,7 +206,7 @@ export class SqliteContentRepository implements IContentRepository {
       );
   }
 
-  async invalidateParseResults(tenant: LocalContext, attachmentId: string): Promise<number> {
+  async invalidateParseResults(ctx: LocalContext, attachmentId: string): Promise<number> {
     const now = new Date().toISOString();
     const result = await this.db
       .update(attachmentParseResults)
@@ -223,7 +223,7 @@ export class SqliteContentRepository implements IContentRepository {
   // ============ 向量索引 ============
 
   async createEmbeddingIndex(
-    tenant: LocalContext,
+    ctx: LocalContext,
     indexData: {
       id: string;
       sourceArtifactId: string;
@@ -252,7 +252,7 @@ export class SqliteContentRepository implements IContentRepository {
     return created as EmbeddingIndexModel;
   }
 
-  async listEmbeddingIndexes(tenant: LocalContext, sourceArtifactId: string): Promise<EmbeddingIndexModel[]> {
+  async listEmbeddingIndexes(ctx: LocalContext, sourceArtifactId: string): Promise<EmbeddingIndexModel[]> {
     const rows = await this.db
       .select()
       .from(embeddingIndexes)

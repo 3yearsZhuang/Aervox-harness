@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.11.2
+version: 0.11.3
 updated_at: 2026-09-16
 reviewed_at: 2026-09-16
 review_interval_days: 90
@@ -36,6 +36,7 @@ review_interval_days: 90
 | v0.10.0 | 2026-09-10 | 将 §6.9～6.15（P1/P2/P3 与 CAP-033/034/035 验收标准）拆分为独立附录 `prd-cap-acceptance.md`（AVX-PRD-002），主文档保留索引链接并精简主干结构 |
 | v0.11.0 | 2026-09-10 | 经 CR-030 确立本地单用户 SQLite 终态，取消多工作区、云端多租户和 PostgreSQL 演进目标；补充本地 API、备份、迁移与导出边界 |
 | v0.11.2 | 2026-09-16 | 补齐 CR-030 D0 文档同步残留：§14.1 基线表移除 Redis/BullMQ、S3 与 Testcontainers 残留，队列与附件基线对齐本地 SQLite Outbox 与本地附件目录；§8 实体表修正 `OutboxEvent` 重放描述 |
+| v0.11.3 | 2026-09-16 | §14.2 核心包清单对齐当前 `packages/*` 实际分包：`domain`/`identity-consent`/`conversation`/`learning`/`memory`/`ai-runtime`/`safety`/`content-ingestion`/`integrations`/`plugin-sdk`/`database` 等设想包未单列包名，职责由 `agent-loop`/`repositories`/`schema`/`apps/*` 模块承载；新增命名规范 AVX-STD-002 登记对应关系 |
 
 ## 1. 产品决策摘要
 
@@ -786,7 +787,7 @@ PRD 只规定用户价值、行为规则和验收结果；可变的实现细节�
 
 ### 14.2 领域与进程边界
 
-MVP 使用“模块化单体 + 独立 Worker/Scheduler”部署：`apps/web`、`apps/api`、`apps/worker`；P1 增加 `apps/desktop`，后续可增加 `apps/mobile`。核心包至少包括 `contracts`、`domain`、`identity-consent`、`conversation`、`learning`、`practice-review`、`memory`、`diary`、`ai-runtime`、`safety`、`content-ingestion`、`integrations`、`plugin-sdk`、`database` 和 `observability`。
+MVP 使用“模块化单体 + 独立 Worker/Scheduler”部署：`apps/web`、`apps/api`、`apps/worker`；P1 增加 `apps/desktop`，后续可增加 `apps/mobile`。核心包至少包括 `contracts`、`schema`、`repositories`、`agent-loop`、`diary`、`practice-review`、`config`、`api-client`、`host-agent`、`observability`。命名规划阶段设想的 `domain`、`identity-consent`、`conversation`、`learning`、`memory`、`ai-runtime`、`safety`、`content-ingestion`、`integrations`、`plugin-sdk`、`database` 等独立包未全部单列，对应职责由 `agent-loop`、`repositories`、`schema`、`apps/*` 的模块与子系统承载，实际包清单以 `packages/*` 为事实源（对应关系见[代码与 API 命名规范](standards/naming-conventions.md)）。
 
 会话、学习、练习/复习、记忆、日记、AI 编排、安全、导入、集成/插件分别拥有自己的服务接口和数据访问边界；跨模块通过领域命令、事件和 Outbox 交互，不直接写入对方表。会话消息和答题是事实真源，摘要、掌握度、记忆树和日记只能作为派生结果。
 

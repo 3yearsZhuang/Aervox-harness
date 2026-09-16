@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — T-04 工具注册表 SQLite 仓储实现
+ * Aervox｜思隅 @aervox/repositories — T-04 工具注册表 SQLite 仓储实现
  *
  * 规则依据：docs/explanation/reference-design-transfer.md §3.4 T-04 工具注册表与主动记忆工具
  * 与 §4.7 AST-04 插件元数据与工具配置门控。

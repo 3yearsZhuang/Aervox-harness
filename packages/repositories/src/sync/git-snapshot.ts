@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — Git 数据版本/同步层（T-09 接线）
+ * Aervox｜思隅 @aervox/repositories — Git 数据版本/同步层（T-09 接线）
  *
  * 参照 BaiShou-Next 用 git 提交作为数据版本历史的手法（AGPLv3，仅借鉴公开设计，
  * 具体实现自研）：以数据库行级快照作为版本单元，导出为可读 JSON，再由 git

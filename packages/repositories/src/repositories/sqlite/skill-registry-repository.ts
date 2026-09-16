@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — CAP-020 Skill 注册表 SQLite 仓储实现
+ * Aervox｜思隅 @aervox/repositories — CAP-020 Skill 注册表 SQLite 仓储实现
  *
  * 规则依据：docs/explanation/reference-design-transfer.md（Skill 能力）与
  * reference/AstrBot astrbot/core/skills/skill_manager.py。

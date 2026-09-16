@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — 阶段 7（ADR-017）ModelRun/ContextManifest 迁移与仓储测试
+ * Aervox｜思隅 @aervox/repositories — 阶段 7（ADR-017）ModelRun/ContextManifest 迁移与仓储测试
  *
  * 覆盖：
  * - Expand 迁移幂等：model_runs 新增 attempt_id/step_id、context_manifests 新增 snapshot_json
@@ -17,7 +17,7 @@ import {
 } from "../src/index.js";
 import type { Client } from "@libsql/client";
 
-const tenant: LocalContext = { workspaceId: "ws_cm", subjectUserId: "usr_cm" };
+const ctx: LocalContext = { workspaceId: "ws_cm", subjectUserId: "usr_cm" };
 
 describe("阶段 7 model_runs / context_manifests（ADR-017 Expand + Step 级关联）", () => {
   let db: AervoxDatabase;
@@ -43,7 +43,7 @@ describe("阶段 7 model_runs / context_manifests（ADR-017 Expand + Step 级关
   });
 
   it("createModelRun 携带 attemptId/stepId；completeModelRun 收口", async () => {
-    const run = await repo.createModelRun(tenant, {
+    const run = await repo.createModelRun(ctx, {
       id: "mr_1",
       attemptId: "attempt_1",
       stepId: 2,
@@ -55,14 +55,14 @@ describe("阶段 7 model_runs / context_manifests（ADR-017 Expand + Step 级关
     expect(run.stepId).toBe(2);
     expect(run.status).toBe("started");
 
-    const done = await repo.completeModelRun(tenant, "mr_1", { status: "completed", latencyMs: 12, tokenUsage: { prompt: 10, completion: 5, total: 15 } });
+    const done = await repo.completeModelRun(ctx, "mr_1", { status: "completed", latencyMs: 12, tokenUsage: { prompt: 10, completion: 5, total: 15 } });
     expect(done?.status).toBe("completed");
     expect(done?.latencyMs).toBe(12);
     expect((done?.tokenUsage as { total?: number }).total).toBe(15);
   });
 
   it("createContextManifest 携带 snapshot；attachContextManifest 关联回写 model_runs", async () => {
-    await repo.createModelRun(tenant, {
+    await repo.createModelRun(ctx, {
       id: "mr_2",
       attemptId: "attempt_1",
       stepId: 1,
@@ -80,7 +80,7 @@ describe("阶段 7 model_runs / context_manifests（ADR-017 Expand + Step 级关
     });
     expect((manifest.snapshot as Array<{ content: string }>)[0].content).toBe("帮我总结");
 
-    const attached = await repo.attachContextManifest(tenant, "mr_2", "mcm_2");
+    const attached = await repo.attachContextManifest(ctx, "mr_2", "mcm_2");
     expect(attached?.contextManifestId).toBe("mcm_2");
   });
 });

@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/database — Subagent 运行关联（subagent_runs）SQLite 仓储
+ * Aervox｜思隅 @aervox/repositories — Subagent 运行关联（subagent_runs）SQLite 仓储
  *
  * 规则依据：AVX-HAR-001 §13 阶段 5c + ADR-017：高级能力经扩展点接入，不改 Loop 核心；
  * 子任务以独立 turn/attempt 落库审计，本表承载父子溯源与结果摘要：
@@ -41,8 +41,8 @@ const toModel = (row: RunRow): SubagentRunModel => ({
 export class SqliteSubagentRunRepository implements ISubagentRunRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
-  async createRun(tenant: LocalContext, input: SubagentRunCreateInput): Promise<SubagentRunModel> {
-    const existing = await this.getRunByParentExecution(tenant, input.parentAttemptId, input.parentExecutionId);
+  async createRun(ctx: LocalContext, input: SubagentRunCreateInput): Promise<SubagentRunModel> {
+    const existing = await this.getRunByParentExecution(ctx, input.parentAttemptId, input.parentExecutionId);
     if (existing) return existing;
     const now = new Date().toISOString();
     const [row] = await this.db
@@ -66,13 +66,13 @@ export class SqliteSubagentRunRepository implements ISubagentRunRepository {
       })
       .returning();
     if (!row) {
-      return this.getRunByParentExecution(tenant, input.parentAttemptId, input.parentExecutionId) as Promise<SubagentRunModel>;
+      return this.getRunByParentExecution(ctx, input.parentAttemptId, input.parentExecutionId) as Promise<SubagentRunModel>;
     }
     return toModel(row);
   }
 
   async finalizeRun(
-    tenant: LocalContext,
+    ctx: LocalContext,
     runId: string,
     input: { status: string; resultText?: string | null; error?: string | null },
   ): Promise<SubagentRunModel | null> {
@@ -97,7 +97,7 @@ export class SqliteSubagentRunRepository implements ISubagentRunRepository {
   }
 
   async getRunByParentExecution(
-    tenant: LocalContext,
+    ctx: LocalContext,
     parentAttemptId: string,
     parentExecutionId: string,
   ): Promise<SubagentRunModel | null> {
@@ -114,7 +114,7 @@ export class SqliteSubagentRunRepository implements ISubagentRunRepository {
     return row ? toModel(row) : null;
   }
 
-  async listRunsByTurn(tenant: LocalContext, parentTurnId: string): Promise<SubagentRunModel[]> {
+  async listRunsByTurn(ctx: LocalContext, parentTurnId: string): Promise<SubagentRunModel[]> {
     const rows = await this.db
       .select()
       .from(subagentRuns)
