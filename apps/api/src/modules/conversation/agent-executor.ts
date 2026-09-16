@@ -48,9 +48,10 @@ import {
 import { loadApiConfig } from "@aervox/config";
 import type { Observability } from "@aervox/observability";
 import {
-  defaultServerTurnPluginRegistry,
-  executeBeforeTurnPlugins,
   executeAfterTurnPlugins,
+  executeBeforeTurnPlugins,
+  defaultServerPluginRegistry,
+  type ServerPluginRegistry,
   type TurnPluginContext,
 } from "../plugins/turn-plugins/index.js";
 import type { ToolRuntime } from "../tools/runtime.js";
@@ -72,18 +73,6 @@ import {
   loadProactiveProfilePrompt,
 } from "../proactive/profile-context.js";
 import { buildMemoryContext, type MemoryRecallPort } from "./memory-recall.js";
-
-// 专注模式与向后兼容导出：底层实现已解耦下沉至 plugins/turn-plugins/focus-mode.ts
-export {
-  loadFocusModeRuntimeConfig,
-  DEFAULT_FOCUS_MODE_CONFIG,
-  isFocusModeMessage,
-  type FocusModeRuntimeConfig,
-  loadStudyModeRuntimeConfig,
-  DEFAULT_STUDY_MODE_CONFIG,
-  isStudyModeMessage,
-  type StudyModeRuntimeConfig,
-} from "../plugins/turn-plugins/focus-mode.js";
 
 /** 将 ModelProviderPort 适配为 practice-review 所需的 LLMCallable 接口 */
 export function createLLMCallable(provider: ModelProviderPort): LLMCallable {
@@ -863,10 +852,12 @@ export async function runLoopTurnOnce(
     proactiveRepository?: IProactiveProfileRepository;
     /** CAP-005：普通长期记忆 FTS + 向量混合召回。 */
     memoryRecall?: MemoryRecallPort;
-    /** 插件仓储：用于检查 study-mode 等插件启用状态 */
+    /** 插件仓储：用于检查插件启用状态 */
     extensionRepo?: IExtensionRepository;
-    /** 插件配置仓储：读取专注模式等插件运行时配置 */
+    /** 插件配置仓储：读取插件运行时配置 */
     pluginConfigRepo?: IPluginConfigRepository;
+    /** 服务端插件注册表（提供回合插件生命周期与别名解析，默认回退全局单例） */
+    pluginRegistry?: ServerPluginRegistry;
     /** 全链路可观测性门面（结构化日志与指标采集） */
     observability?: Observability;
   } = {},
@@ -891,6 +882,7 @@ export async function runLoopTurnOnce(
   const extRepo =
     deps.extensionRepo ??
     (repoDb ? new SqliteExtensionRepository(repoDb) : null);
+  const pluginRegistry = deps.pluginRegistry ?? defaultServerPluginRegistry;
 
   const turnPluginCtx: TurnPluginContext = {
     turnId: input.turnId,
@@ -903,7 +895,7 @@ export async function runLoopTurnOnce(
   };
 
   const beforeTurnExec = await executeBeforeTurnPlugins(
-    defaultServerTurnPluginRegistry,
+    pluginRegistry,
     turnPluginCtx,
     extRepo,
     deps.pluginConfigRepo,
@@ -1081,7 +1073,7 @@ export async function runLoopTurnOnce(
     };
     await runDshAdapterTurn(repo, tenant, broadcastingStore, dshInput, async (status) => {
       await executeAfterTurnPlugins(
-        defaultServerTurnPluginRegistry,
+        pluginRegistry,
         { ...turnPluginCtx, status, llm: dshLlm },
         extRepo,
         deps.pluginConfigRepo,
@@ -1292,7 +1284,7 @@ export async function runLoopTurnOnce(
     await repo.updateTurnStatus(tenant, input.turnId, "Completed");
     const llm = provider ? createLLMCallable(provider) : undefined;
     await executeAfterTurnPlugins(
-      defaultServerTurnPluginRegistry,
+      pluginRegistry,
       { ...turnPluginCtx, status: "Completed", llm },
       extRepo,
       deps.pluginConfigRepo,
