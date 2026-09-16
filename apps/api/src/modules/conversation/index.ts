@@ -57,6 +57,7 @@ export function registerConversationModule(ctx: ModuleContext): void {
     privacyRepo,
     extensionRepo,
     pluginConfigRepo,
+    pluginRegistry: ctx.pluginRegistry,
     inboxRepo: new SqliteAgentInboxRepository(db),
     // 5b：Skill 渐进披露（activeOnly 清单 → name+description）
     skillLoader: async () =>

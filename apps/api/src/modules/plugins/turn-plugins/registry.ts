@@ -5,35 +5,34 @@
  */
 import type { ServerPlugin, ServerTurnPlugin } from "./types.js";
 
-export const DEFAULT_BUILTIN_ALIASES: Record<string, string[]> = {
-  "focus-mode": ["study-mode", "quiz-mode"],
-};
-
 export class ServerPluginRegistry {
   private readonly plugins = new Map<string, ServerPlugin>();
   /** 别名索引：alias -> primaryPluginId */
   private readonly aliasMap = new Map<string, string>();
 
-  constructor(builtinAliases: Record<string, string[]> = DEFAULT_BUILTIN_ALIASES) {
-    for (const [primaryId, aliases] of Object.entries(builtinAliases)) {
-      for (const alias of aliases) {
-        this.aliasMap.set(alias, primaryId);
-      }
+  constructor(initialAliases: Record<string, string[]> = {}) {
+    for (const [primaryId, aliases] of Object.entries(initialAliases)) {
+      this.registerAliases(primaryId, aliases);
+    }
+  }
+
+  /** 显式注册别名映射关系 */
+  registerAliases(primaryId: string, aliases: string[]): void {
+    this.aliasMap.set(primaryId, primaryId);
+    for (const alias of aliases) {
+      this.aliasMap.set(alias, primaryId);
     }
   }
 
   register(plugin: ServerPlugin): void {
     const primaryId = this.aliasMap.get(plugin.id);
     // 1. 若当前插件是某个已注册主插件的别名，且主插件已就绪，则忽略重复/次要注册，防止执行翻倍
-    if (primaryId && this.plugins.has(primaryId)) {
+    if (primaryId && this.plugins.has(primaryId) && primaryId !== plugin.id) {
       return;
     }
 
-    // 2. 获取当前插件的所有别名（合并自带声明与已知内置别名）
-    const aliases = [
-      ...(plugin.aliases ?? []),
-      ...(DEFAULT_BUILTIN_ALIASES[plugin.id] ?? []),
-    ];
+    // 2. 获取当前插件自带声明的所有别名
+    const aliases = plugin.aliases ?? [];
 
     // 清理先前以别名身份单独注册的次要实例，并更新别名索引
     if (aliases.length > 0) {
@@ -44,6 +43,7 @@ export class ServerPluginRegistry {
         this.aliasMap.set(alias, plugin.id);
       }
     }
+    this.aliasMap.set(plugin.id, plugin.id);
 
     this.plugins.set(plugin.id, plugin);
   }

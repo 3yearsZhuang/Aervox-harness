@@ -183,7 +183,7 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
 
   it("配置与提示词默认值对齐：未配置时正确回退 schema 规范默认值，且 prompt 默认开启严格防剧透", async () => {
     const { loadStudyModeRuntimeConfig, DEFAULT_STUDY_MODE_CONFIG } = await import(
-      "../src/modules/conversation/agent-executor.js"
+      "../src/modules/plugins/turn-plugins/focus-mode.js"
     );
     const { buildStudyModePrompt } = await import("@aervox/agent-loop");
 
@@ -302,7 +302,7 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
     const { ServerTurnPluginRegistry } = await import("../src/modules/plugins/turn-plugins/registry.js");
     const reg = new ServerTurnPluginRegistry();
 
-    const focusPlugin = { id: "focus-mode" };
+    const focusPlugin = { id: "focus-mode", aliases: ["study-mode", "quiz-mode"] };
     const studyPlugin = { id: "study-mode" };
     const quizPlugin = { id: "quiz-mode" };
 
