@@ -74,21 +74,6 @@ import {
 } from "../proactive/profile-context.js";
 import { buildMemoryContext, type MemoryRecallPort } from "./memory-recall.js";
 
-/**
- * @deprecated 专注模式与历史别名配置方法已下沉至 plugins/turn-plugins/focus-mode.ts。
- * 请直接从 @aervox/api 或 plugins/turn-plugins/focus-mode.js 引用，此处仅保留过渡兼容。
- */
-export {
-  loadFocusModeRuntimeConfig,
-  DEFAULT_FOCUS_MODE_CONFIG,
-  isFocusModeMessage,
-  type FocusModeRuntimeConfig,
-  loadStudyModeRuntimeConfig,
-  DEFAULT_STUDY_MODE_CONFIG,
-  isStudyModeMessage,
-  type StudyModeRuntimeConfig,
-} from "../plugins/turn-plugins/focus-mode.js";
-
 /** 将 ModelProviderPort 适配为 practice-review 所需的 LLMCallable 接口 */
 export function createLLMCallable(provider: ModelProviderPort): LLMCallable {
   return {
