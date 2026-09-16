@@ -1,25 +1,12 @@
 /**
- * Aervox｜思隅 @aervox/repositories — 对话与流式协议 SQLite 仓储实现
+ * Aervox｜思隅 @aervox/repositories — 对话与流式协议 SQLite 仓储 Facade
+ *
+ * 机械拆分（W-19 先例模式，零行为变更）：实现委托给 conversation/ 目录下
+ * 8 个协作 Store；对外导出面（类、MAX_RESUME_CANDIDATE_LIMIT）与
+ * IConversationRepository 契约保持不变。
  */
-import { eq, and, gt, desc, or, lt, isNull, inArray, notInArray, notLike } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
-import {
-  sessions,
-  turns,
-  messages,
-  messageVersions,
-  turnStreamEvents,
-  turnAttempts,
-  toolExecutions,
-  toolApprovals,
-  safeSegments,
-  toolRegistrations,
-  conversationBranches,
-  outboxEvents,
-} from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
-import { FencingMismatchError } from "../../errors.js";
-import { readSessionHistory } from "./session-history.js";
 import type {
   IConversationRepository,
   SessionModel,
@@ -32,34 +19,40 @@ import type {
   ToolExecutionModel,
   ToolApprovalModel,
 } from "../types/index.js";
+import { ApprovalStore } from "./conversation/approval-store.js";
+import { AttemptStore } from "./conversation/attempt-store.js";
+import { MessageStore } from "./conversation/message-store.js";
+import { SafeSegmentStore } from "./conversation/safe-segment-store.js";
+import { SessionStore } from "./conversation/session-store.js";
+import { StreamEventStore } from "./conversation/stream-event-store.js";
+import { ToolExecutionStore } from "./conversation/tool-execution-store.js";
+import { TurnStore } from "./conversation/turn-store.js";
 
-/**
- * Recovery runs frequently and the host only needs a small work queue. Keep
- * candidate reads bounded even when a caller forgets to pass a page size.
- */
-export const MAX_RESUME_CANDIDATE_LIMIT = 100;
-/**
- * Keep multi-row safe-segment inserts below SQLite/libSQL bind-variable
- * limits. A model step normally produces far fewer rows; the cap is a guard
- * for providers that emit unusually fine-grained chunks.
- */
-const SAFE_SEGMENT_BATCH_SIZE = 32;
-
-/** Turn 内 sequence 唯一，因此可构造跨进程稳定、可重连复用的事件标识。 */
-const streamEventId = (turnId: string, sequence: number): string => `tev_${turnId}_${sequence}`;
-const safeSegmentId = (turnId: string, sequence: number): string => `sseg_${turnId}_${sequence}`;
-
-function normalizeResumeCandidateLimit(limit?: number): number {
-  if (limit === undefined || limit === Infinity) return MAX_RESUME_CANDIDATE_LIMIT;
-  if (!Number.isFinite(limit)) return 0;
-  return Math.max(0, Math.min(MAX_RESUME_CANDIDATE_LIMIT, Math.floor(limit)));
-}
+export { MAX_RESUME_CANDIDATE_LIMIT } from "./conversation/safe-segment-store.js";
 
 export class SqliteConversationRepository implements IConversationRepository {
-  constructor(private readonly db: AervoxDatabase) {}
+  private readonly sessionStore: SessionStore;
+  private readonly turnStore: TurnStore;
+  private readonly streamEventStore: StreamEventStore;
+  private readonly messageStore: MessageStore;
+  private readonly attemptStore: AttemptStore;
+  private readonly toolExecutionStore: ToolExecutionStore;
+  private readonly safeSegmentStore: SafeSegmentStore;
+  private readonly approvalStore: ApprovalStore;
+
+  constructor(private readonly db: AervoxDatabase) {
+    this.sessionStore = new SessionStore(db);
+    this.turnStore = new TurnStore(db);
+    this.streamEventStore = new StreamEventStore(db);
+    this.messageStore = new MessageStore(db);
+    this.attemptStore = new AttemptStore(db);
+    this.toolExecutionStore = new ToolExecutionStore(db);
+    this.safeSegmentStore = new SafeSegmentStore(db);
+    this.approvalStore = new ApprovalStore(db);
+  }
 
   getSessionHistory(ctx: LocalContext, input: { sessionId: string; beforeTurnId: string }) {
-    return readSessionHistory(this.db, ctx, input);
+    return this.sessionStore.getSessionHistory(ctx, input);
   }
 
   async createSession(
@@ -67,78 +60,27 @@ export class SqliteConversationRepository implements IConversationRepository {
     title: string,
     options?: { id?: string; projectId?: string | null },
   ): Promise<SessionModel> {
-    const id = options?.id?.trim() || `ses_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    const now = new Date().toISOString();
-    const [created] = await this.db
-      .insert(sessions)
-      .values({
-        id,
-        title,
-        projectId: options?.projectId ?? null,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
-    return created as SessionModel;
+    return this.sessionStore.createSession(_tenant, title, options);
   }
 
   async getSession(ctx: LocalContext, sessionId: string): Promise<SessionModel | null> {
-    const [found] = await this.db
-      .select()
-      .from(sessions)
-      .where(
-        and(
-          eq(sessions.id, sessionId),
-        ),
-      );
-    return (found as SessionModel) ?? null;
+    return this.sessionStore.getSession(ctx, sessionId);
   }
 
-  /**
-   * 按客户端 sessionId 获取会话，不存在则创建。
-   *
-   * 用于修复 API 直接以外部 sessionId 创建 Turn 时的外键违约
-   * （turns.session_id 引用 sessions.id）。注意 sessions.id 为主键，
-   * 全局唯一，多租户调用方应自行提供租户限定的 sessionId。
-   */
   async getOrCreateSession(
     ctx: LocalContext,
     sessionId: string,
     title = "默认会话",
     projectId?: string | null,
   ): Promise<SessionModel> {
-    const existing = await this.getSession(ctx, sessionId);
-    if (existing) return existing;
-    const now = new Date().toISOString();
-    const [created] = await this.db
-      .insert(sessions)
-      .values({
-        id: sessionId,
-        title,
-        projectId: projectId ?? null,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
-    return created as SessionModel;
+    return this.sessionStore.getOrCreateSession(ctx, sessionId, title, projectId);
   }
 
   async listSessions(
     _tenant: LocalContext,
     options?: { limit?: number; offset?: number; projectId?: string },
   ): Promise<SessionModel[]> {
-    const query = this.db.select().from(sessions);
-    const rows = options?.projectId
-      ? await query
-          .where(eq(sessions.projectId, options.projectId))
-          .orderBy(desc(sessions.updatedAt))
-          .limit(options?.limit ?? 100)
-          .offset(options?.offset ?? 0)
-      : await query
-          .orderBy(desc(sessions.updatedAt))
-          .limit(options?.limit ?? 100)
-          .offset(options?.offset ?? 0);
-    return rows as SessionModel[];
+    return this.sessionStore.listSessions(_tenant, options);
   }
 
   async renameSession(
@@ -146,33 +88,14 @@ export class SqliteConversationRepository implements IConversationRepository {
     sessionId: string,
     updates: string | { title?: string; projectId?: string | null },
   ): Promise<SessionModel | null> {
-    const now = new Date().toISOString();
-    const patch: Record<string, unknown> = { updatedAt: now };
-
-    if (typeof updates === "string") {
-      patch.title = updates;
-    } else {
-      if (updates.title !== undefined) patch.title = updates.title;
-      if (updates.projectId !== undefined) patch.projectId = updates.projectId;
-    }
-
-    const [updated] = await this.db
-      .update(sessions)
-      .set(patch)
-      .where(eq(sessions.id, sessionId))
-      .returning();
-    return (updated as SessionModel) ?? null;
+    return this.sessionStore.renameSession(_tenant, sessionId, updates);
   }
 
   async deleteSession(
     _tenant: LocalContext,
     sessionId: string,
   ): Promise<boolean> {
-    const result = await this.db
-      .delete(sessions)
-      .where(eq(sessions.id, sessionId))
-      .returning();
-    return result.length > 0;
+    return this.sessionStore.deleteSession(_tenant, sessionId);
   }
 
   async createTurnWithOutbox(
@@ -181,81 +104,18 @@ export class SqliteConversationRepository implements IConversationRepository {
     userMessage: { id: string; content: string },
     outboxEventData?: { id: string; eventType: string; idempotencyKey: string; payload: unknown },
   ): Promise<{ turn: TurnModel; message: MessageVersionModel }> {
-    const now = new Date().toISOString();
-
-    return await this.db.transaction(async (tx) => {
-      // 1. 插入 Turn 记录
-      const [createdTurn] = await tx
-        .insert(turns)
-        .values({
-          id: turnData.id,
-          sessionId: turnData.sessionId,
-          idempotencyKey: turnData.idempotencyKey,
-          status: turnData.status ?? "Created",
-          lastSequence: 0,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .returning();
-
-      // 2. 插入首条用户输入消息版本
-      const [createdMessage] = await tx
-        .insert(messageVersions)
-        .values({
-          id: userMessage.id,
-          turnId: turnData.id,
-          role: "user",
-          version: 1,
-          content: userMessage.content,
-          isRedacted: 0,
-          createdAt: now,
-        })
-        .returning();
-
-      // 3. 伴随写入 Outbox 事件（若提供）
-      if (outboxEventData) {
-        await tx.insert(outboxEvents).values({
-          id: outboxEventData.id,
-          idempotencyKey: outboxEventData.idempotencyKey,
-          eventType: outboxEventData.eventType,
-          payload: outboxEventData.payload,
-          status: "pending",
-          createdAt: now,
-        });
-      }
-
-      return {
-        turn: createdTurn as TurnModel,
-        message: createdMessage as MessageVersionModel,
-      };
-    });
+    return this.turnStore.createTurnWithOutbox(ctx, turnData, userMessage, outboxEventData);
   }
 
   async getTurn(ctx: LocalContext, turnId: string): Promise<TurnModel | null> {
-    const [found] = await this.db
-      .select()
-      .from(turns)
-      .where(
-        and(
-          eq(turns.id, turnId),
-        ),
-      );
-    return (found as TurnModel) ?? null;
+    return this.turnStore.getTurn(ctx, turnId);
   }
 
   async getTurnByIdempotencyKey(
     ctx: LocalContext,
     idempotencyKey: string,
   ): Promise<TurnModel | null> {
-    const [found] = await this.db
-      .select()
-      .from(turns)
-      .where(
-        and(
-          eq(turns.idempotencyKey, idempotencyKey),
-        ),
-      );
-    return (found as TurnModel) ?? null;
+    return this.turnStore.getTurnByIdempotencyKey(ctx, idempotencyKey);
   }
 
   async updateTurnStatus(
@@ -265,28 +125,7 @@ export class SqliteConversationRepository implements IConversationRepository {
     lastSequence?: number,
     error?: unknown,
   ): Promise<TurnModel | null> {
-    const now = new Date().toISOString();
-    const updateData: Record<string, unknown> = {
-      status,
-      updatedAt: now,
-    };
-    if (lastSequence !== undefined) {
-      updateData.lastSequence = lastSequence;
-    }
-    if (error !== undefined) {
-      updateData.error = error;
-    }
-
-    const [updated] = await this.db
-      .update(turns)
-      .set(updateData)
-      .where(
-        and(
-          eq(turns.id, turnId),
-        ),
-      )
-      .returning();
-    return (updated as TurnModel) ?? null;
+    return this.turnStore.updateTurnStatus(ctx, turnId, status, lastSequence, error);
   }
 
   async appendStreamEvent(
@@ -312,56 +151,7 @@ export class SqliteConversationRepository implements IConversationRepository {
       expectedFencingToken?: number | null;
     },
   ): Promise<TurnStreamEventModel> {
-    const fenced =
-      eventData.attemptId != null && eventData.expectedFencingToken != null;
-    // BEGIN IMMEDIATE：fencing 校验与插入在同一写锁内原子完成，
-    // 杜绝「SELECT 校验通过 → 他方抢占提交 → 本事务再插入」的窗口（B1 CAS）。
-    return this.db.transaction(
-      async (tx) => {
-        if (fenced) {
-          const [attempt] = await tx
-            .select({ status: turnAttempts.status, fencingToken: turnAttempts.fencingToken })
-            .from(turnAttempts)
-            .where(
-              and(
-                eq(turnAttempts.id, eventData.attemptId as string),
-                eq(turnAttempts.turnId, eventData.turnId),
-              ),
-            );
-          const running = attempt && (attempt.status === "Running" || attempt.status === "CancelRequested");
-          const terminalDoneOk =
-            attempt &&
-            (eventData.eventType === "done" || eventData.eventType === "error") &&
-            ["Completed", "Failed", "Interrupted", "Cancelled"].includes(attempt.status);
-          if (
-            !attempt ||
-            attempt.fencingToken !== eventData.expectedFencingToken ||
-            !(running || terminalDoneOk)
-          ) {
-            throw new FencingMismatchError(
-              `attempt ${eventData.attemptId} fencing=${attempt?.fencingToken ?? "?"} status=${attempt?.status ?? "?"} cannot append ${eventData.eventType}`,
-            );
-          }
-        }
-        const [created] = await tx
-          .insert(turnStreamEvents)
-          .values({
-            id: eventData.id,
-            turnId: eventData.turnId,
-            sequence: eventData.sequence,
-            eventType: eventData.eventType,
-            payloadVersion: eventData.payloadVersion ?? 1,
-            data: eventData.data,
-            occurredAt: eventData.occurredAt ?? new Date().toISOString(),
-            attemptId: eventData.attemptId ?? null,
-            safetyDecision: eventData.safetyDecision ?? null,
-            committedAt: eventData.committedAt ?? null,
-          })
-          .returning();
-        return created as TurnStreamEventModel;
-      },
-      { behavior: "immediate" },
-    );
+    return this.streamEventStore.appendStreamEvent(ctx, eventData);
   }
 
   async getStreamEvents(
@@ -369,17 +159,7 @@ export class SqliteConversationRepository implements IConversationRepository {
     turnId: string,
     afterSequence: number = 0,
   ): Promise<TurnStreamEventModel[]> {
-    const rows = await this.db
-      .select()
-      .from(turnStreamEvents)
-      .where(
-        and(
-          eq(turnStreamEvents.turnId, turnId),
-          gt(turnStreamEvents.sequence, afterSequence),
-        ),
-      )
-      .orderBy(turnStreamEvents.sequence);
-    return rows as TurnStreamEventModel[];
+    return this.streamEventStore.getStreamEvents(ctx, turnId, afterSequence);
   }
 
   async getStreamEventById(
@@ -387,15 +167,7 @@ export class SqliteConversationRepository implements IConversationRepository {
     turnId: string,
     eventId: string,
   ): Promise<TurnStreamEventModel | null> {
-    const [row] = await this.db
-      .select()
-      .from(turnStreamEvents)
-      .where(and(
-        eq(turnStreamEvents.turnId, turnId),
-        eq(turnStreamEvents.id, eventId),
-      ))
-      .limit(1);
-    return (row as TurnStreamEventModel | undefined) ?? null;
+    return this.streamEventStore.getStreamEventById(ctx, turnId, eventId);
   }
 
   async recordTurnStreamEvent(
@@ -413,208 +185,57 @@ export class SqliteConversationRepository implements IConversationRepository {
       committedAt?: string | null;
     },
   ): Promise<TurnStreamEventModel> {
-    return this.appendStreamEvent(ctx, {
-      ...eventData,
-      id: eventData.id || `tev_${eventData.turnId}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
-    });
+    return this.streamEventStore.recordTurnStreamEvent(ctx, eventData);
   }
 
   async deleteMessage(ctx: LocalContext, messageId: string): Promise<boolean> {
-    const res = await this.db
-      .delete(messageVersions)
-      .where(
-        and(
-          eq(messageVersions.id, messageId),
-        ),
-      )
-      .returning();
-    return res.length > 0;
+    return this.messageStore.deleteMessage(ctx, messageId);
   }
 
-  // ============ CAP-013：消息编辑、软删除、版本历史、恢复 ============
-
-  /**
-   * FR-CONV-004：编辑消息 — 生成新版本，旧版本标记 supersededAt，CAS 校验版本号
-   * @returns 新版本记录；若消息已删除或版本不匹配则返回 null
-   */
   async editMessage(
     ctx: LocalContext,
     messageId: string,
     content: string,
     expectedVersion: number,
   ): Promise<{ message: MessageModel; newVersion: MessageVersionModel } | null> {
-    const now = new Date().toISOString();
-
-    // 1. 获取消息，校验存在性和删除状态
-    const message = await this.getMessage(ctx, messageId);
-    if (!message || message.deletedAt) return null;
-
-    // 2. 获取当前版本，CAS 校验
-    const currentVersions = await this.db
-      .select()
-      .from(messageVersions)
-      .where(
-        and(
-          eq(messageVersions.messageId, messageId),
-          isNull(messageVersions.supersededAt),
-        ),
-      )
-      .orderBy(desc(messageVersions.version))
-      .limit(1);
-
-    if (currentVersions.length === 0) return null;
-    const currentVersion = currentVersions[0] as MessageVersionModel;
-    if (currentVersion.version !== expectedVersion) return null;
-
-    // 3. 标记旧版本 supersededAt
-    await this.db
-      .update(messageVersions)
-      .set({ supersededAt: now })
-      .where(eq(messageVersions.id, currentVersion.id));
-
-    // 4. 插入新版本
-    const newVersionId = `mv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    const [newVersion] = await this.db
-      .insert(messageVersions)
-      .values({
-        id: newVersionId,
-        turnId: currentVersion.turnId,
-        messageId: messageId,
-        role: currentVersion.role,
-        version: expectedVersion + 1,
-        content,
-        isRedacted: 0,
-        createdAt: now,
-      })
-      .returning();
-
-    // 5. 更新 messages.currentVersionId
-    await this.db
-      .update(messages)
-      .set({ currentVersionId: newVersionId })
-      .where(eq(messages.id, messageId));
-
-    return {
-      message: { ...message, currentVersionId: newVersionId } as MessageModel,
-      newVersion: newVersion as MessageVersionModel,
-    };
+    return this.messageStore.editMessage(ctx, messageId, content, expectedVersion);
   }
 
-  /**
-   * FR-CONV-005：软删除消息 — 设置 deletedAt，不物理删除
-   */
   async softDeleteMessage(ctx: LocalContext, messageId: string): Promise<MessageModel | null> {
-    const now = new Date().toISOString();
-    const message = await this.getMessage(ctx, messageId);
-    if (!message || message.deletedAt) return null;
-
-    const [updated] = await this.db
-      .update(messages)
-      .set({ deletedAt: now })
-      .where(eq(messages.id, messageId))
-      .returning();
-
-    return (updated as MessageModel) ?? null;
+    return this.messageStore.softDeleteMessage(ctx, messageId);
   }
 
-  /**
-   * 恢复已删除的消息 — 清除 deletedAt
-   */
   async restoreMessage(ctx: LocalContext, messageId: string): Promise<MessageModel | null> {
-    // 先校验租户归属
-    const message = await this.getMessage(ctx, messageId);
-    if (!message) return null;
-
-    const [updated] = await this.db
-      .update(messages)
-      .set({ deletedAt: null })
-      .where(eq(messages.id, messageId))
-      .returning();
-
-    return (updated as MessageModel) ?? null;
+    return this.messageStore.restoreMessage(ctx, messageId);
   }
 
-  /**
-   * 查询消息的所有版本（按版本号降序）
-   */
   async listMessageVersions(
     ctx: LocalContext,
     messageId: string,
   ): Promise<MessageVersionModel[]> {
-    const rows = await this.db
-      .select()
-      .from(messageVersions)
-      .where(
-        and(
-          eq(messageVersions.messageId, messageId),
-        ),
-      )
-      .orderBy(desc(messageVersions.version));
-    return rows as MessageVersionModel[];
+    return this.messageStore.listMessageVersions(ctx, messageId);
   }
 
-  /**
-   * 将指定 Turn 下全部消息版本标记为脱敏（CAP-008：危机干预时阻断进入日记与记忆素材）
-   */
   async redactTurnMessages(ctx: LocalContext, turnId: string): Promise<void> {
-    await this.db
-      .update(messageVersions)
-      .set({ isRedacted: 1 })
-      .where(eq(messageVersions.turnId, turnId));
+    return this.messageStore.redactTurnMessages(ctx, turnId);
   }
 
-  /**
-   * 写入已脱敏的助手消息版本（CAP-008：危机求助固定回复，避免被日记/记忆提取收集）
-   */
   async appendRedactedAssistantMessage(
     ctx: LocalContext,
     input: { id: string; turnId: string; content: string },
   ): Promise<MessageVersionModel> {
-    const [created] = await this.db
-      .insert(messageVersions)
-      .values({
-        id: input.id,
-        turnId: input.turnId,
-        role: "assistant",
-        version: 2,
-        content: input.content,
-        isRedacted: 1,
-        createdAt: new Date().toISOString(),
-      })
-      .returning();
-    return created as MessageVersionModel;
+    return this.messageStore.appendRedactedAssistantMessage(ctx, input);
   }
-
-  // ============ MVP 补齐（PRD §8）：Message 身份 / TurnAttempt ============
 
   async createMessage(
     ctx: LocalContext,
     messageData: { id: string; sessionId: string; role: string; label?: string | null },
   ): Promise<MessageModel> {
-    const [created] = await this.db
-      .insert(messages)
-      .values({
-        id: messageData.id,
-        sessionId: messageData.sessionId,
-        role: messageData.role,
-        label: messageData.label ?? null,
-        createdAt: new Date().toISOString(),
-      })
-      .returning();
-    return created as MessageModel;
+    return this.messageStore.createMessage(ctx, messageData);
   }
 
   async getMessage(ctx: LocalContext, messageId: string): Promise<MessageModel | null> {
-    const [found] = await this.db
-      .select()
-      .from(messages)
-      .innerJoin(sessions, eq(messages.sessionId, sessions.id))
-      .where(
-        and(
-          eq(messages.id, messageId),
-        ),
-      );
-    return (found ? { ...found.messages } : null) as MessageModel | null;
+    return this.messageStore.getMessage(ctx, messageId);
   }
 
   async createTurnAttempt(
@@ -622,40 +243,13 @@ export class SqliteConversationRepository implements IConversationRepository {
     turnId: string,
     attemptData: { id: string; attempt?: number; leaseId?: string | null; fencingToken?: number },
   ): Promise<TurnAttemptModel> {
-    const [created] = await this.db
-      .insert(turnAttempts)
-      .values({
-        id: attemptData.id,
-        turnId,
-        attempt: attemptData.attempt ?? 1,
-        leaseId: attemptData.leaseId ?? null,
-        fencingToken: attemptData.fencingToken ?? 0,
-        status: "Running",
-        startedAt: new Date().toISOString(),
-      })
-      .returning();
-    return created as TurnAttemptModel;
+    return this.attemptStore.createTurnAttempt(ctx, turnId, attemptData);
   }
 
   async listTurnAttempts(ctx: LocalContext, turnId: string): Promise<TurnAttemptModel[]> {
-    const rows = await this.db
-      .select({ attempt: turnAttempts })
-      .from(turnAttempts)
-      .innerJoin(turns, eq(turnAttempts.turnId, turns.id))
-      .where(
-        and(
-          eq(turnAttempts.turnId, turnId),
-        ),
-      )
-      .orderBy(desc(turnAttempts.attempt));
-    return rows.map((r) => r.attempt) as TurnAttemptModel[];
+    return this.attemptStore.listTurnAttempts(ctx, turnId);
   }
 
-  /**
-   * 领取 TurnAttempt（CAS + fencing + 租约）：可领取 =
-   * Running 且 fencing 匹配 且 租约为空或已过期（3b-B 抢占语义：未过期租约不可被抢占）。
-   * 成功后递增 fencing 并绑定新租约（TTL），防止重复执行（AVX-HAR-001 §11.2）。
-   */
   async claimTurnAttempt(
     ctx: LocalContext,
     input: {
@@ -666,161 +260,41 @@ export class SqliteConversationRepository implements IConversationRepository {
       ttlMs?: number;
     },
   ): Promise<{ ok: boolean; fencingToken: number; leaseId: string; leaseExpiresAt: string }> {
-    const ttlMs = input.ttlMs ?? 60_000;
-    const nowIso = new Date().toISOString();
-    const leaseExpiresAt = new Date(Date.now() + ttlMs).toISOString();
-    // turn_attempts 无租户列，经 turns 关联校验租户后做 CAS 更新
-    const [updated] = await this.db
-      .update(turnAttempts)
-      .set({
-        leaseId: input.leaseId,
-        fencingToken: input.expectedFencingToken + 1,
-        leaseExpiresAt,
-      })
-      .from(turns)
-      .where(
-        and(
-          eq(turnAttempts.turnId, turns.id),
-          eq(turnAttempts.id, input.attemptId),
-          eq(turnAttempts.turnId, input.turnId),
-          eq(turnAttempts.status, "Running"),
-          eq(turnAttempts.fencingToken, input.expectedFencingToken),
-          or(isNull(turnAttempts.leaseExpiresAt), lt(turnAttempts.leaseExpiresAt, nowIso)),
-        ),
-      )
-      .returning();
-    if (!updated) {
-      return { ok: false, fencingToken: input.expectedFencingToken, leaseId: input.leaseId, leaseExpiresAt };
-    }
-    return { ok: true, fencingToken: (updated as TurnAttemptModel).fencingToken, leaseId: input.leaseId, leaseExpiresAt };
+    return this.attemptStore.claimTurnAttempt(ctx, input);
   }
 
-  /** 3b-A：续租（CAS：leaseId + fencing 匹配且 Running 才刷新 leaseExpiresAt） */
   async renewTurnAttemptLease(
     ctx: LocalContext,
     input: { attemptId: string; leaseId: string; expectedFencingToken: number; ttlMs?: number },
   ): Promise<boolean> {
-    const ttlMs = input.ttlMs ?? 60_000;
-    const leaseExpiresAt = new Date(Date.now() + ttlMs).toISOString();
-    const [updated] = await this.db
-      .update(turnAttempts)
-      .set({ leaseExpiresAt })
-      .from(turns)
-      .where(
-        and(
-          eq(turnAttempts.id, input.attemptId),
-          eq(turnAttempts.leaseId, input.leaseId),
-          eq(turnAttempts.fencingToken, input.expectedFencingToken),
-          eq(turnAttempts.status, "Running"),
-          eq(turnAttempts.turnId, turns.id),
-        ),
-      )
-      .returning();
-    return Boolean(updated);
+    return this.attemptStore.renewTurnAttemptLease(ctx, input);
   }
 
-  /** 提交 TurnAttempt 终态（失败/完成/中断），并记录结束时间 */
   async finalizeTurnAttempt(
     ctx: LocalContext,
     input: { turnId: string; attemptId: string; status: string; finishedAt?: string; expectedFencingToken?: number },
   ): Promise<TurnAttemptModel | null> {
-    const conditions = [
-      eq(turnAttempts.turnId, turns.id),
-      eq(turnAttempts.id, input.attemptId),
-      eq(turnAttempts.turnId, input.turnId),
-    ];
-    // 3b-B：单一终态（仅运行中状态 Running/CancelRequested 可提交；提供 fencing 期望值时 CAS 校验）
-    conditions.push(
-      inArray(turnAttempts.status, ["Running", "CancelRequested"]),
-    );
-    if (input.expectedFencingToken !== undefined) {
-      conditions.push(eq(turnAttempts.fencingToken, input.expectedFencingToken));
-    }
-    const [updated] = await this.db
-      .update(turnAttempts)
-      .set({
-        status: input.status,
-        finishedAt: input.finishedAt ?? new Date().toISOString(),
-      })
-      .from(turns)
-      .where(and(...conditions))
-      .returning();
-    return (updated as TurnAttemptModel) ?? null;
+    return this.attemptStore.finalizeTurnAttempt(ctx, input);
   }
 
-  /** 2b：用户取消请求位（CAS：仅 Running attempt → CancelRequested，并同步 turns 若未终态） */
   async requestCancelTurnAttempt(
     ctx: LocalContext,
     input: { turnId: string; attemptId: string },
   ): Promise<{ ok: boolean; reason?: "not_found" | "already_finalized" }> {
-    const [updatedAttempt] = await this.db
-      .update(turnAttempts)
-      .set({ status: "CancelRequested" })
-      .from(turns)
-      .where(
-        and(
-          eq(turnAttempts.turnId, turns.id),
-          eq(turnAttempts.id, input.attemptId),
-          eq(turnAttempts.turnId, input.turnId),
-          eq(turnAttempts.status, "Running"),
-        ),
-      )
-      .returning();
-    if (!updatedAttempt) {
-      const exists = await this.getTurnAttemptStatus(ctx, input);
-      return exists === null
-        ? { ok: false, reason: "not_found" }
-        : { ok: false, reason: "already_finalized" };
-    }
-    // turns 终态保护：仅未终态可置 Cancelled；已终态（Completed/Failed/Interrupted/Cancelled 等）不覆盖
-    await this.db
-      .update(turns)
-      .set({ status: "Cancelled" })
-      .where(
-        and(
-          eq(turns.id, input.turnId),
-          notInArray(turns.status, ["Completed", "Failed", "Interrupted", "Cancelled"]),
-        ),
-      );
-    return { ok: true };
+    return this.attemptStore.requestCancelTurnAttempt(ctx, input);
   }
 
-  /** 2b：读取 Attempt 当前状态（executor 取消检查点轮询） */
   async getTurnAttemptStatus(
     ctx: LocalContext,
     input: { turnId: string; attemptId: string },
   ): Promise<string | null> {
-    const [row] = await this.db
-      .select({ status: turnAttempts.status })
-      .from(turnAttempts)
-      .innerJoin(turns, eq(turnAttempts.turnId, turns.id))
-      .where(
-        and(
-          eq(turnAttempts.id, input.attemptId),
-          eq(turnAttempts.turnId, input.turnId),
-        ),
-      )
-      .limit(1);
-    return (row as { status: string } | undefined)?.status ?? null;
+    return this.attemptStore.getTurnAttemptStatus(ctx, input);
   }
 
-  /** 3b-B：恢复过期 Attempt（扫描 Running + 租约过期 → fencing+1 + Interrupted + finishedAt） */
   async recoverExpiredAttempts(client: import("@libsql/client").Client): Promise<number> {
-    const now = new Date().toISOString();
-    const result = await client.execute(`
-      UPDATE turn_attempts
-      SET status = 'Interrupted',
-          fencing_token = fencing_token + 1,
-          finished_at = '${now}'
-      WHERE status = 'Running'
-        AND lease_expires_at IS NOT NULL
-        AND lease_expires_at < '${now}'
-    `);
-    // SQLite UPDATE 不返回行，受影响行数由 libsql rowsAffected 提供
-    return result.rowsAffected ?? 0;
+    return this.attemptStore.recoverExpiredAttempts(client);
   }
 
-  /** 记录一次工具执行（副作用证据账本，AVX-HAR-001 §12；阶段 2d） */
   async recordToolExecution(
     ctx: LocalContext,
     input: {
@@ -836,26 +310,9 @@ export class SqliteConversationRepository implements IConversationRepository {
       finishedAt: string;
     },
   ): Promise<ToolExecutionModel> {
-    const [created] = await this.db
-      .insert(toolExecutions)
-      .values({
-        id: `tex_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-        turnId: input.turnId,
-        attemptId: input.attemptId,
-        invocationId: input.invocationId,
-        name: input.name,
-        argumentsJson: input.arguments,
-        status: input.status,
-        outputJson: input.output,
-        error: input.error ?? null,
-        startedAt: input.startedAt,
-        finishedAt: input.finishedAt,
-      })
-      .returning();
-    return created as ToolExecutionModel;
+    return this.toolExecutionStore.recordToolExecution(ctx, input);
   }
 
-  /** 2c：幂等预留（§9 idempotency reservation；attempt+invocation 唯一，ON CONFLICT DO NOTHING） */
   async reserveToolExecution(
     ctx: LocalContext,
     input: {
@@ -866,26 +323,9 @@ export class SqliteConversationRepository implements IConversationRepository {
       arguments?: unknown;
     },
   ): Promise<{ ok: boolean; alreadyReserved: boolean }> {
-    const now = new Date().toISOString();
-    const [created] = await this.db
-      .insert(toolExecutions)
-      .values({
-        id: `tex_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-        turnId: input.turnId,
-        attemptId: input.attemptId,
-        invocationId: input.invocationId,
-        name: input.name,
-        argumentsJson: input.arguments,
-        status: "pending",
-        startedAt: now,
-        finishedAt: now,
-      })
-      .onConflictDoNothing({ target: [toolExecutions.attemptId, toolExecutions.invocationId] })
-      .returning();
-    return { ok: true, alreadyReserved: !created };
+    return this.toolExecutionStore.reserveToolExecution(ctx, input);
   }
 
-  /** 2c：以权威结果收口预留行（UPDATE by attempt+invocation） */
   async updateToolExecutionResult(
     ctx: LocalContext,
     input: {
@@ -898,32 +338,9 @@ export class SqliteConversationRepository implements IConversationRepository {
       finishedAt?: string;
     },
   ): Promise<{ ok: boolean }> {
-    const [updated] = await this.db
-      .update(toolExecutions)
-      .set({
-        status: input.status,
-        outputJson: input.output,
-        error: input.error ?? null,
-        finishedAt: input.finishedAt ?? new Date().toISOString(),
-      })
-      .from(turns)
-      .where(
-        and(
-          eq(toolExecutions.turnId, turns.id),
-          eq(toolExecutions.attemptId, input.attemptId),
-          eq(toolExecutions.invocationId, input.invocationId),
-        ),
-      )
-      .returning();
-    return { ok: Boolean(updated) };
+    return this.toolExecutionStore.updateToolExecutionResult(ctx, input);
   }
 
-  /**
-   * B4-D（§12.2）：原子提交「工具结果账本收口 + tool_result 事件」。
-   * BEGIN IMMEDIATE 事务内：fencing+状态守卫（同 appendStreamEvent fenced 语义）→
-   * 写入 tool_executions 结果与 turn_stream_events 事件，两者同生共死。
-   * 守卫失配抛 FencingMismatchError（迟到/被抢占执行器被拒）。
-   */
   async recordToolOutcomeAtomically(
     ctx: LocalContext,
     input: {
@@ -943,60 +360,9 @@ export class SqliteConversationRepository implements IConversationRepository {
       expectedFencingToken: number;
     },
   ): Promise<boolean> {
-    return this.db.transaction(
-      async (tx) => {
-        const [attempt] = await tx
-          .select({ status: turnAttempts.status, fencingToken: turnAttempts.fencingToken })
-          .from(turnAttempts)
-          .where(
-            and(
-              eq(turnAttempts.id, input.attemptId),
-              eq(turnAttempts.turnId, input.turnId),
-            ),
-          );
-        const running = attempt && (attempt.status === "Running" || attempt.status === "CancelRequested");
-        if (!attempt || attempt.fencingToken !== input.expectedFencingToken || !running) {
-          throw new FencingMismatchError(
-            `attempt ${input.attemptId} fencing=${attempt?.fencingToken ?? "?"} status=${attempt?.status ?? "?"} cannot record tool outcome`,
-          );
-        }
-        await tx.insert(turnStreamEvents).values({
-          id: streamEventId(input.turnId, input.sequence),
-          turnId: input.turnId,
-          attemptId: input.attemptId,
-          sequence: input.sequence,
-          eventType: "tool_result",
-          data: input.eventData,
-          occurredAt: new Date().toISOString(),
-          safetyDecision: input.safetyDecision ?? null,
-        });
-        await tx
-          .update(toolExecutions)
-          .set({
-            status: input.status,
-            outputJson: input.output,
-            error: input.error ?? null,
-            finishedAt: input.finishedAt ?? new Date().toISOString(),
-          })
-          .from(turns)
-          .where(
-            and(
-              eq(toolExecutions.turnId, turns.id),
-              eq(toolExecutions.attemptId, input.attemptId),
-              eq(toolExecutions.invocationId, input.invocationId),
-            ),
-          );
-        return true;
-      },
-      { behavior: "immediate" },
-    );
+    return this.toolExecutionStore.recordToolOutcomeAtomically(ctx, input);
   }
 
-  /**
-   * B4-D（§12.2）：原子提交「Attempt 终态 + 收尾事件（done/error）」。
-   * BEGIN IMMEDIATE 事务内：终态 CAS（仅 Running/CancelRequested + fencing 匹配，3b-B 单一终态）
-   * 成功才一并插入 done/error 事件；CAS 失败返回 false（不写事件，杜绝孤儿 done）。
-   */
   async finalizeAttemptWithEventAtomically(
     ctx: LocalContext,
     input: {
@@ -1010,45 +376,9 @@ export class SqliteConversationRepository implements IConversationRepository {
       safetyDecision?: string | null;
     },
   ): Promise<boolean> {
-    return this.db.transaction(
-      async (tx) => {
-        const [updated] = await tx
-          .update(turnAttempts)
-          .set({ status: input.status, finishedAt: new Date().toISOString() })
-          .from(turns)
-          .where(
-            and(
-              eq(turnAttempts.turnId, turns.id),
-              eq(turnAttempts.id, input.attemptId),
-              eq(turnAttempts.turnId, input.turnId),
-              inArray(turnAttempts.status, ["Running", "CancelRequested"]),
-              eq(turnAttempts.fencingToken, input.expectedFencingToken),
-            ),
-          )
-          .returning({ id: turnAttempts.id });
-        if (!updated) return false;
-        await tx.insert(turnStreamEvents).values({
-          id: streamEventId(input.turnId, input.sequence),
-          turnId: input.turnId,
-          attemptId: input.attemptId,
-          sequence: input.sequence,
-          eventType: input.eventType,
-          data: input.eventData,
-          occurredAt: new Date().toISOString(),
-          safetyDecision: input.safetyDecision ?? null,
-        });
-        return true;
-      },
-      { behavior: "immediate" },
-    );
+    return this.toolExecutionStore.finalizeAttemptWithEventAtomically(ctx, input);
   }
 
-  /**
-   * E2（§12.2「安全片段 + TurnStreamEvent + Draft prefix」）：原子提交「安全片段 + delta 事件」。
-   * BEGIN IMMEDIATE 事务内：fencing+状态守卫（同 appendStreamEvent fenced 语义）→ 插入
-   * safe_segments 行（committed=1，可见前缀）与 turn_stream_events 行（delta），并回填关联。
-   * 守卫失配抛 FencingMismatchError（迟到/被抢占执行器被拒，无部分写入）。
-   */
   async recordSafeSegmentAtomically(
     ctx: LocalContext,
     input: {
@@ -1061,61 +391,9 @@ export class SqliteConversationRepository implements IConversationRepository {
       expectedFencingToken: number;
     },
   ): Promise<boolean> {
-    return this.db.transaction(
-      async (tx) => {
-        const [attempt] = await tx
-          .select({ status: turnAttempts.status, fencingToken: turnAttempts.fencingToken })
-          .from(turnAttempts)
-          .where(
-            and(
-              eq(turnAttempts.id, input.attemptId),
-              eq(turnAttempts.turnId, input.turnId),
-            ),
-          );
-        const running = attempt && (attempt.status === "Running" || attempt.status === "CancelRequested");
-        if (!attempt || attempt.fencingToken !== input.expectedFencingToken || !running) {
-          throw new FencingMismatchError(
-            `attempt ${input.attemptId} fencing=${attempt?.fencingToken ?? "?"} status=${attempt?.status ?? "?"} cannot record safe segment`,
-          );
-        }
-        const segmentId = safeSegmentId(input.turnId, input.sequence);
-        const eventId = streamEventId(input.turnId, input.sequence);
-        const now = new Date().toISOString();
-        // 1) delta 事件
-        await tx.insert(turnStreamEvents).values({
-          id: eventId,
-          turnId: input.turnId,
-          attemptId: input.attemptId,
-          sequence: input.sequence,
-          eventType: "delta",
-          data: input.eventData,
-          occurredAt: now,
-          safetyDecision: input.safetyDecision ?? null,
-        });
-        // 2) 安全片段（committed=1 可见前缀）并回填事件关联
-        await tx.insert(safeSegments).values({
-          id: segmentId,
-          turnId: input.turnId,
-          attemptId: input.attemptId,
-          sequence: input.sequence,
-          text: input.text,
-          committed: 1,
-          streamEventId: eventId,
-          createdAt: now,
-          updatedAt: now,
-        });
-        return true;
-      },
-      { behavior: "immediate" },
-    );
+    return this.safeSegmentStore.recordSafeSegmentAtomically(ctx, input);
   }
 
-  /**
-   * E2 batch variant: retain one `safe_segments`/`delta` row per text chunk,
-   * but validate fencing once and insert the whole chunk set in one transaction.
-   * Large sets are split into bounded statements inside that transaction to
-   * stay within SQLite parameter limits; the complete set remains atomic.
-   */
   async recordSafeSegmentsAtomically(
     ctx: LocalContext,
     inputs: Array<{
@@ -1128,102 +406,16 @@ export class SqliteConversationRepository implements IConversationRepository {
       expectedFencingToken: number;
     }>,
   ): Promise<boolean> {
-    if (inputs.length === 0) return true;
-    return this.db.transaction(
-      async (tx) => {
-        const first = inputs[0]!;
-        const [attempt] = await tx
-          .select({ status: turnAttempts.status, fencingToken: turnAttempts.fencingToken })
-          .from(turnAttempts)
-          .where(
-            and(
-              eq(turnAttempts.id, first.attemptId),
-              eq(turnAttempts.turnId, first.turnId),
-            ),
-          );
-        const running = attempt && (attempt.status === "Running" || attempt.status === "CancelRequested");
-        const sameAttempt = inputs.every((input) =>
-          input.turnId === first.turnId &&
-          input.attemptId === first.attemptId &&
-          input.expectedFencingToken === first.expectedFencingToken,
-        );
-        if (!attempt || attempt.fencingToken !== first.expectedFencingToken || !running || !sameAttempt) {
-          throw new FencingMismatchError(
-            `attempt ${first.attemptId} fencing=${attempt?.fencingToken ?? "?"} status=${attempt?.status ?? "?"} cannot record safe segment batch`,
-          );
-        }
-
-        const now = new Date().toISOString();
-        for (let offset = 0; offset < inputs.length; offset += SAFE_SEGMENT_BATCH_SIZE) {
-          const batch = inputs.slice(offset, offset + SAFE_SEGMENT_BATCH_SIZE);
-          const rows = batch.map((input) => {
-            return {
-              input,
-              eventId: streamEventId(input.turnId, input.sequence),
-              segmentId: safeSegmentId(input.turnId, input.sequence),
-            };
-          });
-          await tx.insert(turnStreamEvents).values(rows.map(({ input, eventId }) => ({
-            id: eventId,
-            turnId: input.turnId,
-            attemptId: input.attemptId,
-            sequence: input.sequence,
-            eventType: "delta",
-            data: input.eventData,
-            occurredAt: now,
-            safetyDecision: input.safetyDecision ?? null,
-          })));
-          await tx.insert(safeSegments).values(rows.map(({ input, eventId, segmentId }) => ({
-            id: segmentId,
-            turnId: input.turnId,
-            attemptId: input.attemptId,
-            sequence: input.sequence,
-            text: input.text,
-            committed: 1,
-            streamEventId: eventId,
-            createdAt: now,
-            updatedAt: now,
-          })));
-        }
-        return true;
-      },
-      { behavior: "immediate" },
-    );
+    return this.safeSegmentStore.recordSafeSegmentsAtomically(ctx, inputs);
   }
 
-  /**
-   * E2：读取 Turn 的已提交安全片段（可见前缀；按 sequence 升序）。
-   * 供中断恢复（visible-prefix）与可见前缀重建使用。
-   */
   async listCommittedSegments(
     ctx: LocalContext,
     turnId: string,
   ): Promise<Array<{ id: string; sequence: number; text: string; streamEventId: string | null }>> {
-    const rows = await this.db
-      .select({
-        id: safeSegments.id,
-        sequence: safeSegments.sequence,
-        text: safeSegments.text,
-        streamEventId: safeSegments.streamEventId,
-      })
-      .from(safeSegments)
-      .where(
-        and(
-          eq(safeSegments.turnId, turnId),
-          eq(safeSegments.committed, 1),
-        ),
-      )
-      .orderBy(safeSegments.sequence);
-    return rows;
+    return this.safeSegmentStore.listCommittedSegments(ctx, turnId);
   }
 
-  /**
-   * 3c/4b：本地恢复候选查询（供 worker 观测 + host-agent 续跑执行）。
-   *
-   * 命中条件：过期 Running Attempt + 存在 executed 工具执行 + 无 done 终态事件
-   * （§11.3 首范式「工具结果已权威提交但尚未注入」）。
-   * 返回含续跑所需完整数据面：租户、session、用户消息、当前 fencing（续跑 claim 预期）与 lastSequence。
-   */
   async findResumeCandidates(
     client: import("@libsql/client").Client,
     limit?: number,
@@ -1238,80 +430,17 @@ export class SqliteConversationRepository implements IConversationRepository {
       fencingToken: number;
     }>
   > {
-    const candidateLimit = normalizeResumeCandidateLimit(limit);
-    if (candidateLimit === 0) return [];
-    const now = new Date().toISOString();
-    const result = await client.execute({
-      sql: `
-        SELECT ta.id AS attempt_id,
-               ta.turn_id AS turn_id,
-               ta.fencing_token AS fencing_token,
-               t.session_id AS session_id,
-               (SELECT mv.content FROM message_versions mv
-                WHERE mv.turn_id = ta.turn_id AND mv.role = 'user'
-                ORDER BY mv.version DESC LIMIT 1) AS user_message,
-               (SELECT COALESCE(MAX(sequence), 0) FROM turn_stream_events e
-                WHERE e.turn_id = ta.turn_id AND e.event_type = 'tool_result') AS last_sequence
-        FROM turn_attempts ta
-        JOIN turns t ON t.id = ta.turn_id
-        WHERE ta.status = 'Running'
-          AND ta.lease_expires_at IS NOT NULL
-          AND ta.lease_expires_at < ?
-          AND EXISTS (SELECT 1 FROM tool_executions te
-                      WHERE te.attempt_id = ta.id AND te.status = 'executed')
-          AND NOT EXISTS (SELECT 1 FROM turn_stream_events e2
-                          WHERE e2.turn_id = ta.turn_id AND e2.event_type = 'done')
-        ORDER BY ta.lease_expires_at ASC, ta.id ASC
-        LIMIT ?
-      `,
-      args: [now, candidateLimit],
-    });
-    return result.rows.map((row) => ({
-      attemptId: String(row.attempt_id),
-      turnId: String(row.turn_id),
-      sessionId: String(row.session_id ?? ""),
-      lastSequence: Number(row.last_sequence),
-      userMessage: String(row.user_message ?? ""),
-      fencingToken: Number(row.fencing_token ?? 0),
-    }));
+    return this.safeSegmentStore.findResumeCandidates(client, limit);
   }
 
-  /** 2c：崩溃释放后将遗留 pending 预留标记为 outcome_unknown（§11.3：结果未知不自动重放） */
   async markPendingOutcomeUnknown(client: import("@libsql/client").Client): Promise<number> {
-    const result = await client.execute(`
-      UPDATE tool_executions
-      SET status = 'outcome_unknown', finished_at = COALESCE(finished_at, '${new Date().toISOString()}')
-      WHERE status = 'pending'
-        AND attempt_id IN (
-          SELECT id FROM turn_attempts
-          WHERE status IN ('Interrupted', 'Failed', 'Cancelled')
-        )
-    `);
-    return result.rowsAffected ?? 0;
+    return this.safeSegmentStore.markPendingOutcomeUnknown(client);
   }
 
-  /** 查询 Turn 的工具执行账本（按时间倒序；join tool_registrations 携带 replay 声明供恢复裁决） */
   async listToolExecutionsByTurn(ctx: LocalContext, turnId: string): Promise<ToolExecutionModel[]> {
-    const rows = await this.db
-      .select({ execution: toolExecutions, registration: toolRegistrations })
-      .from(toolExecutions)
-      .leftJoin(
-        toolRegistrations,
-        or(eq(toolRegistrations.id, toolExecutions.name), eq(toolRegistrations.name, toolExecutions.name)),
-      )
-      .where(
-        and(
-          eq(toolExecutions.turnId, turnId),
-        ),
-      )
-      .orderBy(desc(toolExecutions.startedAt));
-    return rows.map((row) => ({
-      ...row.execution,
-      replay: row.registration?.replay ?? null,
-    })) as ToolExecutionModel[];
+    return this.toolExecutionStore.listToolExecutionsByTurn(ctx, turnId);
   }
 
-  /** 记录一条工具授权（阶段 3a） */
   async recordToolApproval(
     ctx: LocalContext,
     input: {
@@ -1324,94 +453,26 @@ export class SqliteConversationRepository implements IConversationRepository {
       toolVersion?: string | null;
     },
   ): Promise<ToolApprovalModel> {
-    // E1（§12.2「ToolInvocation + 授权快照 + 幂等预留」）：同 (toolName, argumentsHash) 已存在
-    // 未决（pending）授权则复用既有行，不重复插入——授权匹配键跨 turn 复用（schema 注释约定），
-    // 幂等预留语义：重复的写工具意图不会产生多行待决授权。granted/denied 后新请求才新建。
-    if (input.state === "pending") {
-      const [existing] = await this.db
-        .select()
-        .from(toolApprovals)
-        .where(
-          and(
-            eq(toolApprovals.toolName, input.toolName),
-            eq(toolApprovals.argumentsHash, input.argumentsHash),
-            eq(toolApprovals.state, "pending"),
-          ),
-        )
-        .orderBy(desc(toolApprovals.id))
-        .limit(1);
-      if (existing) return existing as ToolApprovalModel;
-    }
-    const [created] = await this.db
-      .insert(toolApprovals)
-      .values({
-        id: `tapp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-        turnId: input.turnId,
-        attemptId: input.attemptId,
-        toolName: input.toolName,
-        argumentsHash: input.argumentsHash,
-        toolVersion: input.toolVersion ?? null,
-        requester: input.requester,
-        state: input.state,
-      })
-      .returning();
-    return created as ToolApprovalModel;
+    return this.approvalStore.recordToolApproval(ctx, input);
   }
 
-  /** 决定（grant/deny）一条待决授权 */
   async decideToolApproval(
     ctx: LocalContext,
     approvalId: string,
     decision: "granted" | "denied",
     decidedBy: string,
   ): Promise<ToolApprovalModel | null> {
-    const [updated] = await this.db
-      .update(toolApprovals)
-      .set({
-        state: decision,
-        decidedBy,
-        decidedAt: new Date().toISOString(),
-      })
-      .from(turns)
-      .where(
-        and(
-          eq(toolApprovals.id, approvalId),
-          eq(toolApprovals.turnId, turns.id),
-        ),
-      )
-      .returning();
-    return (updated as ToolApprovalModel) ?? null;
+    return this.approvalStore.decideToolApproval(ctx, approvalId, decision, decidedBy);
   }
 
-  /** 3b：读单条授权记录（privileged 管理员校验预检用） */
   async getToolApproval(ctx: LocalContext, approvalId: string): Promise<ToolApprovalModel | null> {
-    const [row] = await this.db
-      .select()
-      .from(toolApprovals)
-      .where(
-        and(
-          eq(toolApprovals.id, approvalId),
-        ),
-      )
-      .limit(1);
-    return (row as ToolApprovalModel) ?? null;
+    return this.approvalStore.getToolApproval(ctx, approvalId);
   }
 
-  /** 查询 Turn 的授权账本 */
   async listToolApprovalsByTurn(ctx: LocalContext, turnId: string): Promise<ToolApprovalModel[]> {
-    const rows = await this.db
-      .select()
-      .from(toolApprovals)
-      .where(
-        and(
-          eq(toolApprovals.turnId, turnId),
-        ),
-      )
-      .orderBy(desc(toolApprovals.id));
-    return rows as ToolApprovalModel[];
+    return this.approvalStore.listToolApprovalsByTurn(ctx, turnId);
   }
 
-  /** 匹配已授权记录（toolName + argumentsHash；跨 turn 复用，取最近一条） */
   async findGrantedToolApproval(
     ctx: LocalContext,
     input: {
@@ -1421,31 +482,8 @@ export class SqliteConversationRepository implements IConversationRepository {
       excludeDecidedByPrefixes?: string[];
     },
   ): Promise<ToolApprovalModel | null> {
-    const excludedPrefixes = [
-      ...(input.excludeDecidedByPrefixes ?? []),
-      ...(input.excludeDecidedByPrefix ? [input.excludeDecidedByPrefix] : []),
-    ];
-    const [found] = await this.db
-      .select()
-      .from(toolApprovals)
-      .where(
-        and(
-          eq(toolApprovals.toolName, input.toolName),
-          eq(toolApprovals.argumentsHash, input.argumentsHash),
-          eq(toolApprovals.state, "granted"),
-          excludedPrefixes.length > 0
-            ? or(
-                isNull(toolApprovals.decidedBy),
-                and(...excludedPrefixes.map((prefix) => notLike(toolApprovals.decidedBy, `${prefix}%`))),
-              )
-            : undefined,
-        ),
-      )
-      .orderBy(desc(toolApprovals.id));
-    return (found as ToolApprovalModel) ?? null;
+    return this.approvalStore.findGrantedToolApproval(ctx, input);
   }
-
-  // ============ P1（R2 · CAP-014）：会话地图分支 ============
 
   async createConversationBranch(
     ctx: LocalContext,
@@ -1458,97 +496,27 @@ export class SqliteConversationRepository implements IConversationRepository {
       branchReason?: string;
     },
   ): Promise<ConversationBranchModel> {
-    const now = new Date().toISOString();
-    const [created] = await this.db
-      .insert(conversationBranches)
-      .values({
-        id: branchData.id,
-        parentSessionId: branchData.parentSessionId,
-        forkAtMessageId: branchData.forkAtMessageId ?? null,
-        childSessionId: branchData.childSessionId,
-        title: branchData.title ?? null,
-        branchReason: branchData.branchReason ?? null,
-        status: "active",
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
-    return created as ConversationBranchModel;
+    return this.sessionStore.createConversationBranch(ctx, branchData);
   }
 
   async listBranchesByParent(ctx: LocalContext, parentSessionId: string): Promise<ConversationBranchModel[]> {
-    const rows = await this.db
-      .select()
-      .from(conversationBranches)
-      .where(
-        and(
-          eq(conversationBranches.parentSessionId, parentSessionId),
-          isNull(conversationBranches.deletedAt),
-        ),
-      )
-      .orderBy(conversationBranches.createdAt);
-    return rows as ConversationBranchModel[];
+    return this.sessionStore.listBranchesByParent(ctx, parentSessionId);
   }
 
   async getBranch(ctx: LocalContext, branchId: string): Promise<ConversationBranchModel | null> {
-    const [found] = await this.db
-      .select()
-      .from(conversationBranches)
-      .where(
-        and(
-          eq(conversationBranches.id, branchId),
-          isNull(conversationBranches.deletedAt),
-        ),
-      )
-      .limit(1);
-    return (found as ConversationBranchModel) ?? null;
+    return this.sessionStore.getBranch(ctx, branchId);
   }
 
   async mergeBranch(ctx: LocalContext, branchId: string): Promise<ConversationBranchModel | null> {
-    const now = new Date().toISOString();
-    const [updated] = await this.db
-      .update(conversationBranches)
-      .set({ status: "merged", mergedAt: now, updatedAt: now })
-      .where(
-        and(
-          eq(conversationBranches.id, branchId),
-          eq(conversationBranches.status, "active"),
-          isNull(conversationBranches.deletedAt),
-        ),
-      )
-      .returning();
-    return (updated as ConversationBranchModel) ?? null;
+    return this.sessionStore.mergeBranch(ctx, branchId);
   }
 
   async archiveBranch(ctx: LocalContext, branchId: string): Promise<ConversationBranchModel | null> {
-    const now = new Date().toISOString();
-    const [updated] = await this.db
-      .update(conversationBranches)
-      .set({ status: "archived", updatedAt: now })
-      .where(
-        and(
-          eq(conversationBranches.id, branchId),
-          eq(conversationBranches.status, "active"),
-          isNull(conversationBranches.deletedAt),
-        ),
-      )
-      .returning();
-    return (updated as ConversationBranchModel) ?? null;
+    return this.sessionStore.archiveBranch(ctx, branchId);
   }
 
   async deleteBranch(ctx: LocalContext, branchId: string): Promise<ConversationBranchModel | null> {
-    const now = new Date().toISOString();
-    const [updated] = await this.db
-      .update(conversationBranches)
-      .set({ status: "deleted", deletedAt: now, updatedAt: now })
-      .where(
-        and(
-          eq(conversationBranches.id, branchId),
-          isNull(conversationBranches.deletedAt),
-        ),
-      )
-      .returning();
-    return (updated as ConversationBranchModel) ?? null;
+    return this.sessionStore.deleteBranch(ctx, branchId);
   }
 
   async updateBranchLayout(
@@ -1556,29 +524,11 @@ export class SqliteConversationRepository implements IConversationRepository {
     branchId: string,
     layoutData: unknown,
   ): Promise<ConversationBranchModel | null> {
-    const now = new Date().toISOString();
-    const [updated] = await this.db
-      .update(conversationBranches)
-      .set({ layoutData, updatedAt: now })
-      .where(
-        and(
-          eq(conversationBranches.id, branchId),
-          isNull(conversationBranches.deletedAt),
-        ),
-      )
-      .returning();
-    return (updated as ConversationBranchModel) ?? null;
+    return this.sessionStore.updateBranchLayout(ctx, branchId, layoutData);
   }
 
   async getBranchTree(ctx: LocalContext, sessionId: string): Promise<ConversationBranchModel[]> {
-    // 递归获取所有以 sessionId 为根的分支（包括子分支的子分支）
-    const direct = await this.listBranchesByParent(ctx, sessionId);
-    const result = [...direct];
-    for (const branch of direct) {
-      const children = await this.getBranchTree(ctx, branch.childSessionId);
-      result.push(...children);
-    }
-    return result;
+    return this.sessionStore.getBranchTree(ctx, sessionId);
   }
 
   async importSession(
@@ -1597,81 +547,6 @@ export class SqliteConversationRepository implements IConversationRepository {
     turnsCount: number;
     messagesCount: number;
   }> {
-    const sessionId = `ses_imp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    const now = new Date().toISOString();
-    const title =
-      input.title?.trim() ||
-      input.messages.find((m) => m.role === "user")?.content.slice(0, 30) ||
-      "导入会话";
-
-    return await this.db.transaction(async (tx) => {
-      const [session] = await tx
-        .insert(sessions)
-        .values({
-          id: sessionId,
-          title,
-          projectId: input.projectId ?? null,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .returning();
-
-      let turnIndex = 0;
-      let currentTurnId = "";
-      let versionInTurn = 0;
-      let turnsCount = 0;
-
-      for (let i = 0; i < input.messages.length; i++) {
-        const msg = input.messages[i]!;
-        const msgTime = msg.createdAt || now;
-
-        if (msg.role === "user" || !currentTurnId) {
-          turnIndex++;
-          turnsCount++;
-          currentTurnId = `turn_imp_${Date.now().toString(36)}_${turnIndex}_${Math.random().toString(36).slice(2, 6)}`;
-          versionInTurn = 0;
-
-          await tx.insert(turns).values({
-            id: currentTurnId,
-            sessionId,
-            idempotencyKey: `idem_${currentTurnId}`,
-            status: "Completed",
-            lastSequence: 1,
-            completedAt: msgTime,
-            createdAt: msgTime,
-            updatedAt: msgTime,
-          });
-        }
-
-        versionInTurn++;
-        const messageId = `msg_imp_${Date.now().toString(36)}_${i + 1}_${Math.random().toString(36).slice(2, 6)}`;
-        const versionId = `mv_imp_${Date.now().toString(36)}_${i + 1}_${Math.random().toString(36).slice(2, 6)}`;
-
-        await tx.insert(messages).values({
-          id: messageId,
-          sessionId,
-          role: msg.role,
-          currentVersionId: versionId,
-          createdAt: msgTime,
-        });
-
-        await tx.insert(messageVersions).values({
-          id: versionId,
-          turnId: currentTurnId,
-          messageId,
-          role: msg.role,
-          version: versionInTurn,
-          content: msg.content,
-          isRedacted: 0,
-          createdAt: msgTime,
-        });
-      }
-
-      return {
-        session: session as SessionModel,
-        turnsCount,
-        messagesCount: input.messages.length,
-      };
-    });
+    return this.sessionStore.importSession(_tenant, input);
   }
 }
