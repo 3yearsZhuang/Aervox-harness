@@ -9,6 +9,7 @@ on:
       - "CONTRIBUTING.md"
       - "scripts/docs-governance.mjs"
       - ".markdownlint-cli2.jsonc"
+      - ".lycheeignore"
       - "mise.toml"
       - ".vale.ini"
       - ".vale/**"
@@ -22,6 +23,7 @@ on:
       - "CONTRIBUTING.md"
       - "scripts/docs-governance.mjs"
       - ".markdownlint-cli2.jsonc"
+      - ".lycheeignore"
       - "mise.toml"
       - ".vale.ini"
       - ".vale/**"
@@ -61,4 +63,6 @@ jobs:
         with:
           # max-retries：外部 CDN（如 espressif.com）对 runner 存在间歇 502，
           # 重试跨节点降低偶发抖动误报；timeout 放宽应对慢速 PDF 响应。
-          args: --no-progress --accept 200,429,403 --max-retries 3 --timeout 30 README.md docs AGENTS.md CONTRIBUTING.md
+          # exclude-file：.lycheeignore 显式排除持续不可达域（espressif CDN
+          # 对 GitHub runner 长窗口 502，链接可达性经人工核验）。
+          args: --no-progress --accept 200,429,403 --max-retries 3 --timeout 30 --exclude-file .lycheeignore README.md docs AGENTS.md CONTRIBUTING.md
