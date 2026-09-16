@@ -23,6 +23,10 @@ import {
   type LocalContext,
 } from "@aervox/repositories";
 import { isValidSkillName, parseFrontmatter } from "../skills/skill-manager.js";
+import {
+  type ServerPluginRegistry,
+  defaultServerPluginRegistry,
+} from "./turn-plugins/registry.js";
 
 /** 插件声明的工具（安装时注册进 tool_registrations） */
 export interface PluginDeclaredTool {
@@ -70,6 +74,8 @@ export interface PluginServiceDeps {
   cleanup?: (pluginId: string) => Promise<void>;
   /** CR-032：主动规则级联口（proactive vault 实现） */
   proactiveRuleSync?: ProactiveRuleSyncPort;
+  /** 服务端插件注册表（别名索引与生命周期联动） */
+  pluginRegistry?: ServerPluginRegistry;
 }
 
 export class PluginService {
@@ -153,17 +159,21 @@ export class PluginService {
   async setEnabled(id: string, enabled: boolean): Promise<PluginModel | null> {
     let targetId = id;
     let updated = await this.deps.extensionRepo.setPluginEnabled(targetId, enabled);
+    const registry = this.deps.pluginRegistry ?? defaultServerPluginRegistry;
     if (!updated) {
-      if (id === "study-mode") {
-        targetId = "focus-mode";
-        updated = await this.deps.extensionRepo.setPluginEnabled(targetId, enabled);
-      } else if (id === "focus-mode") {
-        targetId = "study-mode";
-        updated = await this.deps.extensionRepo.setPluginEnabled(targetId, enabled);
+      const candidateIds = registry.getAllAliases(id);
+      for (const cid of candidateIds) {
+        if (cid === id) continue;
+        updated = await this.deps.extensionRepo.setPluginEnabled(cid, enabled);
+        if (updated) {
+          targetId = cid;
+          break;
+        }
       }
     }
     if (!updated) return null;
-    const pluginIds = targetId !== id ? [targetId, id] : [id];
+    const allKnownAliases = registry.getAllAliases(targetId);
+    const pluginIds = Array.from(new Set([targetId, id, ...allKnownAliases]));
     await this.deps.registry.setToolsEnabledByPlugin(pluginIds, enabled);
     await this.deps.skillRegistry.setSkillsActiveByPlugin(pluginIds, enabled);
     // CR-032：级联启停该插件的物化主动规则（未装配 Port 时由 Worker 物化器兜底）
