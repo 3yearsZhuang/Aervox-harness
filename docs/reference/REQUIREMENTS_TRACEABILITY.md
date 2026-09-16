@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.32.5
+version: 1.32.6
 updated_at: 2026-09-16
 reviewed_at: 2026-09-16
 review_interval_days: 90
@@ -423,7 +423,7 @@ review_interval_days: 90
 | W-15 Live2D 桌宠模型资产单源收敛（REFACTOR-PLAN W-15） | CAP-033 + 基础设施（资产收敛） | `packages/live2d/`（`@aervox/live2d`：`mizuki/` 模型资源单份真源 303 文件 6.3M + `scripts/copy-assets.mjs` 构建期拷贝），`packages/public/`（`@aervox/public`：`aervox-mark.svg` 两端 favicon + `aervox-intro/` desktop 产品介绍页真源 + `scripts/copy-assets.mjs`），`.gitmodules`（移除 2 条 live2d-mizuki submodule 指针），`apps/{web,desktop}/package.json`（依赖 `@aervox/live2d` + `@aervox/public`，turbo `^build` 触发拷贝），`.gitignore`（`apps/*/public/live2d/` 拷贝产物不入库） | 2026-09-04 | web `vite build`：dist 含 mizuki 303 文件 + svg、无 intro（desktop 专属正确）；desktop `electron-vite build`：out 含 mizuki 303 + svg + intro 7 文件；两端 `vue-tsc` 0 错误；Vitest 30/30 通过；ci-docs 0 warning | 原生 |
 | W-16 `reference/` 设计输入子仓库浅克隆（REFACTOR-PLAN W-16） | 基础设施（仓库体积 / CI 效率） | `.gitmodules`（8 个 `reference/*` 设计输入子仓库全部追加 `shallow = true`：deepseek-harness / pi / baishou-next / dsh-synapse / AstrBot / Petra / OpenMAIC / archify；合计约 4.4G 全量历史，其中 baishou-next 2.8G、deepseek-harness 1.4G 占大头）、`docs/getting-started.md`（第 7 步补 shallow 说明：新 clone 只取 pinned commit 单层历史，CI `submodules: recursive` 同样受益；已完整 clone 的历史不自动缩减，需手动 `git submodule update --init --depth 1`；设计输入按需 init、不参与构建）、`README.md`（第 105 行同步 W-15 事实：Live2D 资产真源改为 `packages/live2d/mizuki`，不再经 git submodule） | 2026-09-04 | `git config -f .gitmodules --get-regexp "submodule\..*\.shallow"` 8 条全部 `true`；`git submodule status` 8 个 pinned commit 未变（`4d877c9`/`9a28ca3`/`b629b29`/`06dd052`/`d95bae0`/`b150a55`/`a323f76`/`c49906e`）；ci-docs 0 warning | 原生 |
 
-| W-17 `artifacts/` 目录治理（REFACTOR-PLAN W-17） | 基础设施（仓库资产治理） | `README.md`（仓库结构段补充 `artifacts/` 用途说明：pitch-preview 含 Midnight Galaxy 与 Tech Innovation 两版 PPT 及预览图，非代码资产、不参与构建与打包，仅供对外推介取用）、`artifacts/pitch-preview/`（已入库、零源码引用；onboarding PR #111 `7d42cf2` 误提交，主题与产品不符，裁定保留并显式说明用途）、`.gitignore`（已豁免，不参与打包） | 2026-09-04 | `git grep -r "pitch-preview" apps packages modules` 零源码引用（仅 README 与文档引用）；README 仓库结构段含 `artifacts/` 说明；ci-docs 0 warning | 原生 |
+| W-17 `artifacts/` 目录治理（REFACTOR-PLAN W-17） | 基础设施（仓库资产治理） | `README.md`（仓库结构段补充 `artifacts/` 用途说明：pitch-preview 含 Midnight Galaxy 与 Tech Innovation 两版 PPT 及预览图，非代码资产、不参与构建与打包，仅供对外推介取用）、`artifacts/pitch-preview/`（已入库、零源码引用；onboarding PR #111 `7d42cf2` 误提交，主题与产品不符，`2026-09-16` 经裁定**完全移除**——4 个资产文件与 README 说明行一并移出版本库，`artifacts/` 目录消失，git 历史永久可查（`chore/remove-pitch-preview`，PR #204））、`.gitignore`（已豁免，不参与打包） | 2026-09-04 | `git grep -r "pitch-preview" apps packages modules` 零源码引用（仅 README 与文档引用）；`2026-09-16` 移除后 `git ls-files artifacts/` 空、README 无 `artifacts/` 行、docs-sync 通过 | 原生 |
 
 | W-18 移除 repo-root `modules/*` 悬空声明（REFACTOR-PLAN W-18） | 基础设施（仓库结构治理） | `pnpm-workspace.yaml`（删除 repo-root `modules/*` 通配与误归因 ADR-014 的注释；ADR-014 实际指 `apps/api/src/modules/`，已存在且重度使用；repo-root host 归 ADR-001/AVX-CAP-001 的可选能力 submodule 宿主，当前零实例、唯一实例 `modules/persona-plugin` 已在去模块化收尾中移除）、`docs/how-to/submodule-collaboration.md`（第 3 步补「若未声明 `modules/*` 先加回」说明，消除文档与现状漂移） | 2026-09-04 | `pnpm-workspace.yaml` 无 `modules/*` 条目；`git ls-files modules/` 无输出（目录不存在）；ci.yml 的 `modules/**` 仅作 PR/push 触发条件，移除声明不影响流水线；docs-validate 0 warning | 原生 |
 
