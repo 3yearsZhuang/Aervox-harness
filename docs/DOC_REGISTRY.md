@@ -42,7 +42,7 @@ review_interval_days: 90
 | `ADR-011` | [日记周期与会话总结调度修订](reference/adr/ADR-011-diary-cycle-schedule-revision.md) | 2026-09-10 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
 | `ADR-012` | [流式协议安全持久化与部分响应恢复](reference/adr/ADR-012-streaming-safety-persistence.md) | 2026-09-10 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
 | `ADR-013` | [恢复控制账本：撤权拦截与确定性恢复](reference/adr/ADR-013-recovery-control-ledger.md) | 2026-09-13 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
-| `ADR-014` | [演进式模块化单体架构与模块目录组织](reference/adr/ADR-014-modular-monolith-structure.md) | 2026-09-11 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
+| `ADR-014` | [演进式模块化单体架构与模块目录组织](reference/adr/ADR-014-modular-monolith-structure.md) | 2026-09-16 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
 | `ADR-015` | [Vue 全栈单栈方案](reference/adr/ADR-015-vue-full-stack.md) | 2026-09-13 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
 | `ADR-016` | [底座边界冻结与依赖规则门禁](reference/adr/ADR-016-base-boundaries.md) | 2026-09-13 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
 | `ADR-017` | [上下文清单、模型运行记录与多步执行持久化](reference/adr/ADR-017-context-manifest-modelrun-step.md) | 2026-09-10 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
@@ -119,6 +119,7 @@ review_interval_days: 90
 | `CR-048` | [项目上下文绑定与会话迁移设施 (W3)](reference/changes/CR-048-project-context-and-migration-facility.md) | 2026-09-15 | `CAP-026/033` 项目上下文显式绑定、外部会话导入器与命令面板变更 | 项目组织流、外部会话解析安全净化或快捷指令与本文不符 |
 | `CR-049` | [UI 基础控件库与全量弹窗控件化](reference/changes/CR-049-ui-primitives-and-dialog-componentization.md) | 2026-09-15 | `CAP-001/002/019/020/033` UI Primitives 基础控件库、全量业务弹窗控件化与淘汰阻塞式 window.confirm | 弹窗结构、Primitives 导出、非阻塞确认机制或视图控件化规范与本文不符 |
 | `CR-050` | [工作台 UI 插件声明式注册层与专注模式彻底解耦](reference/changes/CR-050-declarative-ui-plugin-registry-and-focus-mode-decoupling.md) | 2026-09-15 | `CAP-001/002/003/016/020` UI 插槽扩展（workbench:drawers、taskcenter:cards）、卡片注册层与专注模式彻底解耦 | 注册层契约、插槽列表、卡片贡献点或解耦规范与本文不符 |
+| `CR-052` | [apps/api 模块领域分组（25 模块 → 6 域两层结构）](reference/changes/CR-052-api-module-domain-grouping.md) | 2026-09-16 | `apps/api/src/modules/` 目录组织、ADR-014 修订、`scripts/import-boundary.mjs` 规则、ARCHITECTURE.md C4 组件图 | 模块域归属、两层目录结构或领域分组规则与实际不符 |
 | `AVX-PLAN-033` | [CR-033 落地临时计划](CR-033-plan.md) | 2026-09-14 | 对应子 CR 通过 G1 前每 30 天 | 子 CR 拆分、依赖、门禁或回滚建议与 CR-033 基线不一致；子 CR 通过 G1 后应迁移或删除 |
 | `AVX-PLAN-034` | [CR-034 落地临时计划](CR-034-plan.md) | 2026-09-14 | 对应子 CR 通过 G1 前每 30 天 | 子 CR 拆分、Provider 路由、能力分级或托管边界与 CR-034 基线不一致；子 CR 通过 G1 后应迁移或删除 |
 | `AVX-PLAN-035` | [CR-035 落地临时计划](CR-035-plan.md) | 2026-09-14 | 对应子 CR 通过 G1 前每 30 天 | 子 CR 拆分、会话/项目/任务契约或导入边界与 CR-035 基线不一致；子 CR 通过 G1 后应迁移或删除 |
