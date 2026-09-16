@@ -5,21 +5,21 @@ scope: decision
 owner: maintainers
 doc_status: approved
 decision_status: accepted
-version: 0.2.1
-updated_at: 2026-09-11
-reviewed_at: 2026-09-11
+version: 0.3.0
+updated_at: 2026-09-16
+reviewed_at: 2026-09-16
 review_interval_days: 90
 ---
 
 # ADR-014 演进式模块化单体：apps/api 目录结构
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-11
+- 修改人：3yearszhuang · 2026-09-16
 
-- 状态：Accepted（2026-08-31）
+- 状态：Accepted（2026-08-31；2026-09-16 修订 0.3.0，见修订记录与 [CR-052](../changes/CR-052-api-module-domain-grouping.md)）
 - 日期：2026-08-25
 
-- 关联：`CAP-001～035`、`ADR-001`（模块化单体决策的细化）、`AVX-SAD-001 §3`
+- 关联：`CAP-001～035`、`ADR-001`（模块化单体决策的细化）、`AVX-SAD-001 §3`、[CR-052 模块领域分组](../changes/CR-052-api-module-domain-grouping.md)
 
 ## Context
 
@@ -28,6 +28,8 @@ ADR-001 已确定"模块化单体 + 独立 Worker"的总体方向，但未细化
 1. **模块边界模糊**：任何路由可以引用任意仓储，无法在代码层面保证"对话模块不能写记忆表"等架构约束；
 2. **依赖方向无约束**：全局容器模式允许任意文件引用任意 repo，未来拆分时难以定位影响范围；
 3. **演进受阻**：当某个模块需要独立部署时（如 AI 模块未来可能单独扩缩容），需要大规模重构才能拆分。
+
+**2026-09-16 修订背景（0.3.0）**：本 ADR 定稿时 API 层为 8 个模块，现已增长至 25 个扁平模块——单层目录失去领域语义，注册顺序发散，与 `apps/worker`（A 档已按 `proactive/` 分组）及 `packages/repositories`（`sqlite/conversation/`、`sqlite/proactive/`）的领域子目录组织不一致。经 [CR-052](../changes/CR-052-api-module-domain-grouping.md) 立项，目录演进为两层领域分组结构；核心规则不变。
 
 ## Decision drivers
 
@@ -45,40 +47,46 @@ ADR-001 已确定"模块化单体 + 独立 Worker"的总体方向，但未细化
 
 ## Decision
 
-采用**演进式模块化单体**。`apps/api/src/` 按以下结构组织：
+采用**演进式模块化单体**。`apps/api/src/` 按以下结构组织（0.3.0 修订：模块按 6 个业务域两层分组，域归属表见 [CR-052 §3.1](../changes/CR-052-api-module-domain-grouping.md#31-域归属表25--6)）：
 
 ```text
 src/
-├── modules/                        # 业务模块（每个自管 routes + 依赖注入）
-│   ├── conversation/
-│   │   ├── routes.ts               #   路由处理（函数接收具体 repo，而非全局容器）
-│   │   └── index.ts                #   模块入口：注册路由 + 实例化仓储
-│   ├── learning/
-│   │   ├── routes.ts
-│   │   └── index.ts
-│   ├── diary/
-│   │   ├── routes.ts
-│   │   └── index.ts
-│   ├── feedback/
-│   │   ├── routes.ts
-│   │   └── index.ts
-│   ├── privacy/
-│   │   ├── routes.ts
-│   │   └── index.ts
-│   ├── analytics/
-│   │   ├── routes.ts
-│   │   └── index.ts
-│   ├── content/
-│   │   ├── routes.ts
-│   │   └── index.ts
-│   └── notification/
-│       ├── routes.ts
-│       └── index.ts
+├── modules/                        # 业务模块（按领域分组，每个自管 routes + 依赖注入）
+│   ├── companion/                  #   陪伴与对话域
+│   │   ├── conversation/           #     routes.ts + index.ts（每个模块同构，下略）
+│   │   ├── persona/
+│   │   ├── memory/
+│   │   ├── inbox/
+│   │   └── branch/
+│   ├── learning/                   #   学习与练习域
+│   │   ├── learning/
+│   │   ├── study-materials/
+│   │   ├── terms/
+│   │   └── diary/
+│   ├── knowledge/                  #   知识与内容域
+│   │   ├── knowledge/
+│   │   ├── content/
+│   │   └── project/
+│   ├── ecosystem/                  #   扩展生态域
+│   │   ├── plugins/
+│   │   ├── tools/
+│   │   ├── mcp/
+│   │   └── skills/
+│   ├── proactive/                  #   主动智能域
+│   │   ├── proactive/
+│   │   └── notification/
+│   └── platform/                   #   平台基础域
+│       ├── preferences/
+│       ├── privacy/
+│       ├── safety/
+│       ├── voice/
+│       ├── feedback/
+│       └── analytics/
 ├── shared/                         # 跨模块共享（严格限制：只放真正通用的工具）
-│   ├── tenant.ts                   #   租户上下文解析
+│   ├── local-context.ts            #   本地上下文解析
 │   ├── event-bus.ts                #   进程内事件总线（pub/sub，未来可替换为消息队列）
 │   └── errors.ts                   #   共享错误类型
-├── app.ts                          # Fastify 应用工厂（注册模块而非路由）
+├── app.ts                          # Fastify 应用工厂（按域聚合注册模块）
 └── index.ts                        # 入口
 ```
 
@@ -86,10 +94,11 @@ src/
 
 | 规则 | 说明 |
 |---|---|
-| **模块自管仓储** | 每个 `modules/*/index.ts` 内部实例化该模块需要的仓储，不引用全局容器 |
+| **领域分组（0.3.0）** | `modules/<domain>/<module>/` 两层组织；域目录**不承载任何代码**，只承载子模块；域归属以 [CR-052 §3.1](../changes/CR-052-api-module-domain-grouping.md#31-域归属表25--6) 归属表为准，调整须同步修订本 ADR 与该表 |
+| **模块自管仓储** | 每个 `modules/<domain>/<module>/index.ts` 内部实例化该模块需要的仓储，不引用全局容器 |
 | **路由函数签名** | `routes.ts` 中的导出函数接收**该模块专属的仓储实例**，而非 `RepoContainer` |
 | **shared 严格受限** | `shared/` 只放跨 2 个以上模块的通用工具。禁止将业务逻辑放入 shared |
-| **跨模块通信** | 通过 `shared/event-bus.ts` 的进程内 pub/sub；直接函数调用仅限 `shared/` 中的纯工具函数 |
+| **跨模块通信** | 通过 `shared/event-bus.ts` 的进程内 pub/sub；直接函数调用仅限 `shared/` 中的纯工具函数（域内跨模块引用与域间引用受同等约束） |
 | **单一数据库** | 一个本地 SQLite 实例；通过领域表命名和 `@aervox/schema` 文件分区，不引入 PostgreSQL 或共享数据库多租户 |
 | **对外入口唯一** | 每个模块只有 `index.ts` 是对外可见的。`routes.ts` 内部的函数不被其他模块引用 |
 
@@ -226,3 +235,8 @@ registerLearningModule(app, db);
 - [x] 依赖边界机器校验：`node scripts/import-boundary.mjs` 零违规（5 条规则，常驻 `ci-code` 的 `check:boundary`；模块 `routes.ts` 不得 import 其他模块仓储由 AST 规则强制）。
 
 五项证据均为常驻 CI 门禁而非一次性演练：`modules/*` 自管仓储与边界规则已固化于每日门禁，结构回退会被 CI 拦截。2026-08-31 决策状态置为 `Accepted`（ADR 索引与架构摘要表同步）。
+
+## 修订记录
+
+- **0.3.0（2026-09-16，[CR-052](../changes/CR-052-api-module-domain-grouping.md)）**：目录结构由 `modules/<module>/` 一层演进为 `modules/<domain>/<module>/` 两层（25 模块 → 6 域）；核心规则新增「领域分组」，其余规则语义不变；`shared/tenant.ts` 示例名修正为 `local-context.ts`（对齐 CR-030 去租户化后的实际文件名）；Decision 目录树与迁移指引同步两层结构。实施随 CR-052 PR-C1 落地。
+- 0.2.1（2026-09-11）：维护性升版（元数据与关联补齐），无决策变更。
