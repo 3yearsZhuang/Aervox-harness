@@ -4,28 +4,35 @@
  */
 
 :root {
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-    /* 最小液态玻璃令牌（仅气泡/按钮可见性所需，同步主工作台雾蓝） */
-    --glass-bg: rgba(249, 250, 253, 0.72);
-    --glass-bg-strong: rgba(250, 251, 254, 0.9);
-    --glass-border: rgba(72, 86, 116, 0.2);
-    --glass-blur: blur(18px) saturate(1.2);
-    --text-primary: #293547;
-    --text-secondary: #536284;
-    --text-muted: #87939f;
-    --accent: #5b7db1;
-    color: var(--text-primary)
+    font-family: system-ui, -apple-system, "SF Pro Text", "Plus Jakarta Sans", "Geist", "Segoe UI Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    --font-mono: "JetBrains Mono", "Geist Mono", SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    /* 最小液态玻璃令牌（同步主工作台规范 AVX-DS-001） */
+    --glass-bg: rgba(255, 255, 255, 0.72);
+    --glass-bg-strong: rgba(255, 255, 255, 0.92);
+    --glass-border: rgba(15, 23, 42, 0.08);
+    --glass-blur: blur(20px) saturate(1.2);
+    --text-primary: #1e2532;
+    --text-secondary: #4f5b70;
+    --text-muted: #8592a6;
+    --accent: #3b66db;
+    --accent-hover: #2f54bd;
+    --accent-soft: rgba(59, 102, 219, 0.08);
+    --border: rgba(15, 23, 42, 0.08);
+    color: var(--text-primary);
 }
 
 :root[data-theme="dark"] {
     color-scheme: dark;
-    --glass-bg: rgba(27, 33, 47, 0.66);
-    --glass-bg-strong: rgba(30, 37, 52, 0.86);
-    --glass-border: rgba(148, 163, 197, 0.18);
-    --text-primary: #e6eaef;
-    --text-secondary: #b6c1cf;
-    --text-muted: #829087;
-    --accent: #83a6d9
+    --glass-bg: rgba(20, 25, 35, 0.72);
+    --glass-bg-strong: rgba(20, 25, 35, 0.92);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --text-primary: #e6ebf5;
+    --text-secondary: #a4b0c6;
+    --text-muted: #6a778e;
+    --accent: #7899f8;
+    --accent-hover: #92affc;
+    --accent-soft: rgba(120, 153, 248, 0.12);
+    --border: rgba(255, 255, 255, 0.08);
 }
 
 * {

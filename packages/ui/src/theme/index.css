@@ -1,39 +1,69 @@
 /**
- * Aervox｜思隅 @aervox/ui — 主题令牌（基础 CSS 变量）
+ * Aervox｜思隅 @aervox/ui — 权威主题令牌 (Design Tokens)
  *
- * 两端共用的一致配色令牌；各端壳级布局样式仍保留在各自 styles/ 内。
+ * 符合 AVX-DS-001 规范：单钴蓝主色、Slate/Zinc 冷灰底板、Doppelrand 嵌套微质感、现代无衬线字阶。
  */
 :root {
   color-scheme: light;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: system-ui, -apple-system, "SF Pro Text", "Plus Jakarta Sans", "Geist", "Segoe UI Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-mono: "JetBrains Mono", "Geist Mono", SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-synthesis: none;
-  --aervox-primary: #4e77d1;
-  --aervox-primary-light: #e8eefb;
-  --aervox-fill-light: #f2f4f8;
-  --aervox-text: #2a3242;
-  --aervox-text-secondary: #525f73;
-  --aervox-border-lighter: #dbe0ea;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* 品牌与圆角规范 */
+  --aervox-primary: #3b66db;
+  --aervox-primary-light: rgba(59, 102, 219, 0.08);
+  --aervox-fill-light: #f4f6fa;
+  --aervox-text: #1e2532;
+  --aervox-text-secondary: #4f5b70;
+  --aervox-border-lighter: rgba(15, 23, 42, 0.08);
   --aervox-radius: 12px;
-  --bg-app: #eef1f6;
-  --bg-titlebar: #f8fafc;
-  --bg-main: #fcfdfe;
+  --aervox-radius-sm: 8px;
+  --aervox-radius-lg: 16px;
+  --aervox-radius-pill: 9999px;
+
+  /* 亮色表面与背景 */
+  --bg-app: #f4f6fa;
+  --bg-titlebar: rgba(255, 255, 255, 0.82);
+  --bg-main: #ffffff;
   --bg-card: var(--bg-main);
-  --bg-card-soft: var(--bg-soft);
-  --bg-card-hover: var(--bg-hover);
-  --bg-soft: #f2f4f8;
-  --bg-hover: #e9edf4;
+  --bg-card-soft: #f8fafc;
+  --bg-card-hover: #f1f4f9;
+  --bg-soft: #f1f4f9;
+  --bg-hover: #eaeff6;
   --bg-input: #ffffff;
-  --text-primary: #2a3242;
-  --text-secondary: #525f73;
-  --text-muted: #8791a3;
-  --border: #dbe0ea;
-  --border-strong: #c8cfe0;
-  --accent: #4e77d1;
-  --accent-hover: #3f65bd;
-  --accent-soft: #e8eefb;
-  --danger-soft: #f7e3df;
-  --danger: #a6493c;
-  --shadow: 0 10px 30px rgba(31, 42, 68, .08);
+
+  /* 文本阶梯 */
+  --text-primary: #1e2532;
+  --text-secondary: #4f5b70;
+  --text-muted: #8592a6;
+
+  /* 边框体系 */
+  --border-subtle: rgba(15, 23, 42, 0.04);
+  --border: rgba(15, 23, 42, 0.08);
+  --border-strong: rgba(15, 23, 42, 0.16);
+
+  /* 主强调色（钴蓝） */
+  --accent: #3b66db;
+  --accent-hover: #2f54bd;
+  --accent-soft: rgba(59, 102, 219, 0.08);
+  --accent-glow: rgba(59, 102, 219, 0.2);
+
+  /* 状态警示色 */
+  --danger-soft: #fef2f2;
+  --danger: #dc2626;
+  --success: #16a34a;
+  --warning: #d97706;
+
+  /* 漫射与内嵌阴影 */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 14px 40px -4px rgba(15, 23, 42, 0.1), 0 2px 6px rgba(15, 23, 42, 0.04);
+  --shadow-inner: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+
+  /* Element Plus 变量适配 */
   --el-color-primary: var(--accent);
   --el-color-primary-light-3: color-mix(in srgb, var(--accent) 70%, white);
   --el-color-primary-light-5: color-mix(in srgb, var(--accent) 50%, white);
@@ -45,37 +75,60 @@
   --el-dropdown-menuItem-hover-color: var(--accent);
   --el-bg-color-overlay: var(--bg-main);
   --el-border-color-light: var(--border);
-  --el-border-color-lighter: var(--border);
+  --el-border-color-lighter: var(--border-subtle);
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --aervox-primary: #93aef0;
-  --aervox-primary-light: #2b3348;
-  --aervox-fill-light: #262d3d;
-  --aervox-text: #e8ebf3;
-  --aervox-text-secondary: #bcc4d6;
-  --aervox-border-lighter: #323b4e;
-  --bg-app: #131722;
-  --bg-titlebar: #191e2b;
-  --bg-main: #1e2432;
+
+  /* 品牌与圆角规范 */
+  --aervox-primary: #7899f8;
+  --aervox-primary-light: rgba(120, 153, 248, 0.12);
+  --aervox-fill-light: #161c28;
+  --aervox-text: #e6ebf5;
+  --aervox-text-secondary: #a4b0c6;
+  --aervox-border-lighter: rgba(255, 255, 255, 0.08);
+
+  /* 暗色表面与背景 */
+  --bg-app: #0c1017;
+  --bg-titlebar: rgba(18, 23, 33, 0.85);
+  --bg-main: #141923;
   --bg-card: var(--bg-main);
-  --bg-card-soft: var(--bg-soft);
-  --bg-card-hover: var(--bg-hover);
-  --bg-soft: #262d3d;
-  --bg-hover: #2c3444;
-  --bg-input: #232a38;
-  --text-primary: #e8ebf3;
-  --text-secondary: #bcc4d6;
-  --text-muted: #818ba0;
-  --border: #323b4e;
-  --border-strong: #454f66;
-  --accent: #93aef0;
-  --accent-hover: #a6c0f5;
-  --accent-soft: #2b3348;
-  --danger-soft: #472d2a;
-  --danger: #ef9b8f;
-  --shadow: 0 4px 16px rgba(0, 0, 0, .14);
+  --bg-card-soft: #181f2c;
+  --bg-card-hover: #1e2636;
+  --bg-soft: #181f2c;
+  --bg-hover: #20293a;
+  --bg-input: #11151e;
+
+  /* 文本阶梯 */
+  --text-primary: #e6ebf5;
+  --text-secondary: #a4b0c6;
+  --text-muted: #6a778e;
+
+  /* 边框体系 */
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.15);
+
+  /* 主强调色（高可读浅钴蓝） */
+  --accent: #7899f8;
+  --accent-hover: #92affc;
+  --accent-soft: rgba(120, 153, 248, 0.12);
+  --accent-glow: rgba(120, 153, 248, 0.28);
+
+  /* 状态警示色 */
+  --danger-soft: rgba(239, 68, 68, 0.15);
+  --danger: #f87171;
+  --success: #34d399;
+  --warning: #fbbf24;
+
+  /* 深度微光阴影 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 16px 48px -4px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-inner: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+  /* Element Plus 变量适配 */
   --el-color-primary: var(--accent);
   --el-color-primary-light-3: color-mix(in srgb, var(--accent) 70%, black);
   --el-color-primary-light-5: color-mix(in srgb, var(--accent) 50%, black);
@@ -87,9 +140,21 @@
   --el-dropdown-menuItem-hover-color: var(--accent);
   --el-bg-color-overlay: var(--bg-main);
   --el-border-color-light: var(--border);
-  --el-border-color-lighter: var(--border);
+  --el-border-color-lighter: var(--border-subtle);
 }
 
+/* 触感微动效通用基类 */
+.tactile-btn,
+button:not(.no-tactile):not(:disabled) {
+  transition: transform 0.14s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.14s ease, border-color 0.14s ease, color 0.14s ease, box-shadow 0.14s ease;
+}
+
+button:not(.no-tactile):not(:disabled):active {
+  transform: scale(0.98) translateY(0.5px);
+  transition-duration: 0.05s;
+}
+
+/* 全局弹窗与抽屉覆盖 */
 .el-drawer,
 .el-dialog,
 .el-message-box,
@@ -107,14 +172,14 @@
   border-radius: 16px !important;
   overflow: hidden;
   border: 1px solid var(--border);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-lg);
 }
 
 .el-drawer__header,
 .el-dialog__header,
 .el-message-box__header {
   margin: 0;
-  padding: 18px 20px 14px;
+  padding: 16px 20px 14px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -123,7 +188,8 @@
 .el-message-box__title {
   color: var(--text-primary);
   font-size: 14px;
-  font-weight: 750;
+  font-weight: 650;
+  letter-spacing: -0.01em;
 }
 
 .el-drawer__body,
@@ -138,6 +204,8 @@
   border: 1px solid var(--border) !important;
   box-shadow: var(--shadow) !important;
   border-radius: 10px !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .el-popper.is-light .el-popper__arrow::before {
@@ -149,7 +217,7 @@
   background: transparent !important;
   border: none !important;
   border-radius: 0 !important;
-  padding: 4px !important;
+  padding: 5px !important;
   box-shadow: none !important;
 }
 
@@ -159,7 +227,7 @@
   border-radius: 6px !important;
   padding: 8px 12px !important;
   gap: 8px !important;
-  transition: background-color 0.12s ease, color 0.12s ease !important;
+  transition: background-color 0.14s ease, color 0.14s ease !important;
 }
 
 .el-dropdown-menu__item:hover,
