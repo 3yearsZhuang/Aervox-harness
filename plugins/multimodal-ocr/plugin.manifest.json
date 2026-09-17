@@ -1,0 +1,46 @@
+{
+  "apiVersion": "aervox.dev/v1",
+  "kind": "PluginManifest",
+  "metadata": {
+    "id": "multimodal-ocr",
+    "displayName": "多模态与数学公式 OCR 增强",
+    "publisher": "aervox-official",
+    "version": "1.0.0",
+    "description": "CAP-012 / CAP-025: 增强多模态答疑能力，支持题目截图识别、LaTeX 数学公式提取与知识图谱关键实体抽取。",
+    "license": "AGPL-3.0-or-later"
+  },
+  "spec": {
+    "config": {
+      "schemaVersion": 1,
+      "entry": "config.schema.json"
+    },
+    "tools": [
+      {
+        "name": "ocr_parse_attachment",
+        "description": "对上传的图片或文档附件进行 OCR 光学字符识别与 LaTeX 数学公式结构化提取",
+        "category": "knowledge",
+        "safetyLevel": "read_only",
+        "requiredPermissions": [
+          "content.read"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "attachmentId": {
+              "type": "string",
+              "description": "附件唯一标识"
+            },
+            "extractLatex": {
+              "type": "boolean",
+              "description": "是否对数学公式与符号进行 LaTeX 格式提取"
+            }
+          },
+          "required": [
+            "attachmentId"
+          ]
+        },
+        "priority": 10
+      }
+    ]
+  }
+}

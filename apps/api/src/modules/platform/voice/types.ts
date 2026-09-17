@@ -39,6 +39,7 @@ export interface VoiceProviderPort {
   listModels(): Promise<VoiceModel[]>;
   healthCheck(): Promise<VoiceProviderHealth>;
   synthesize(request: VoiceSynthesisRequest): Promise<AudioArtifact>;
+  reconfigure?(config: Record<string, unknown>): void;
 }
 
 // ============ ASR 语音输入 Provider Port (CR-016) ============
@@ -57,9 +58,31 @@ export interface ASRTranscribeResult {
   isFinal: boolean;
 }
 
+export interface LocalModelDownloadStatus {
+  downloaded: boolean;
+  downloading: boolean;
+  progressPercent: number;
+  downloadedBytes?: number;
+  totalBytes?: number;
+  verified: boolean;
+  checksum?: string;
+  modelPath?: string;
+  message?: string;
+}
+
+export interface DownloadableModelPort {
+  getModelStatus(): LocalModelDownloadStatus;
+  startDownload(options?: { targetDir?: string; mirrorUrl?: string }): Promise<{
+    accepted: boolean;
+    message: string;
+    status: LocalModelDownloadStatus;
+  }>;
+}
+
 export interface ASRProviderPort {
   readonly id: string;
   readonly kind: ASRProviderKind | string;
   healthCheck(): Promise<VoiceProviderHealth>;
   transcribe(request: ASRTranscribeRequest): Promise<ASRTranscribeResult>;
+  reconfigure?(config: Record<string, unknown>): void;
 }

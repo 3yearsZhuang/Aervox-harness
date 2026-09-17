@@ -14,6 +14,8 @@ const DEFAULT_ATTACHMENTS_ROOT = (): string => {
   return path.join(repoRoot, "data", "attachments");
 };
 
+export * from "./parser-port.js";
+
 export function registerContentModule(ctx: ModuleContext): void {
   const { app, db, attachmentsRoot } = ctx;
   const contentRepo = new SqliteContentRepository(db);

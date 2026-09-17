@@ -41,7 +41,7 @@ export class DiaryApplicationService {
   constructor(private readonly deps: DiaryApplicationServiceDeps) {}
 
   /** 幂等取回当日日记：已有直接返回（existing），无则生成并新建（on-demand 周期发布） */
-  async ensureTodayDiary(tenant: LocalContext, focus?: string): Promise<TodayDiaryResult> {
+  async ensureTodayDiary(tenant: LocalContext, focus?: string, styleId?: string): Promise<TodayDiaryResult> {
     const now = new Date();
     const localDate = localDateToday(now);
     const existing = await this.deps.diaryRepo.getDiaryByDate(tenant, localDate);
@@ -56,18 +56,18 @@ export class DiaryApplicationService {
         materialCount: 0,
       };
     }
-    return this.generateAndPublish(tenant, localDate, now, focus);
+    return this.generateAndPublish(tenant, localDate, now, focus, styleId);
   }
 
   /** 手动/对话触发当日日记：已有则改写（rewrite 版本，历史不覆盖），无则新建 */
-  async rewriteTodayDiary(tenant: LocalContext, focus?: string): Promise<TodayDiaryResult> {
+  async rewriteTodayDiary(tenant: LocalContext, focus?: string, styleId?: string): Promise<TodayDiaryResult> {
     const now = new Date();
     const localDate = localDateToday(now);
     const existing = await this.deps.diaryRepo.getDiaryByDate(tenant, localDate);
     if (existing) {
-      return this.rewriteExisting(tenant, existing.id, localDate, now, focus);
+      return this.rewriteExisting(tenant, existing.id, localDate, now, focus, styleId);
     }
-    return this.generateAndPublish(tenant, localDate, now, focus);
+    return this.generateAndPublish(tenant, localDate, now, focus, styleId);
   }
 
   /** 懒创建租户默认每日计划（幂等）：Worker 定时路径由此激活，nextRunAt=+24h 防止当日立即重复执行 */
@@ -93,12 +93,14 @@ export class DiaryApplicationService {
     localDate: string,
     now: Date,
     focus?: string,
+    styleId?: string,
   ): Promise<TodayDiaryResult> {
     const { diaryRepo, generation } = this.deps;
     const draft = await generation.generate(tenant, {
       localDate,
       window: todayWindow(now),
       focus,
+      styleId,
     });
     const cycle = await diaryRepo.createCycle(tenant, {
       id: generateDiaryId("cyc"),
@@ -148,12 +150,14 @@ export class DiaryApplicationService {
     localDate: string,
     now: Date,
     focus?: string,
+    styleId?: string,
   ): Promise<TodayDiaryResult> {
     const { diaryRepo, generation } = this.deps;
     const draft = await generation.generate(tenant, {
       localDate,
       window: todayWindow(now),
       focus,
+      styleId,
     });
     await diaryRepo.createDiaryVersion(tenant, {
       id: generateDiaryId("dv"),

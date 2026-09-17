@@ -790,7 +790,7 @@ async function handleExport(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  border-right: 1px solid var(--border-soft);
+  border-right: 1px solid var(--border);
   padding-right: 12px;
 }
 
@@ -802,33 +802,35 @@ async function handleExport(): Promise<void> {
   border-radius: 8px;
   border: none;
   background: transparent;
-  color: var(--text-muted);
-  font-size: 13px;
+  color: var(--text-secondary);
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   text-align: left;
-  transition: all 0.15s ease;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
 }
 
 .subnav-item:hover {
-  background: var(--bg-hover, rgba(0, 0, 0, 0.04));
-  color: var(--text-normal);
+  background: color-mix(in srgb, var(--bg-soft) 70%, transparent);
+  color: var(--text-primary);
 }
 
 .subnav-item.active {
-  background: var(--primary-soft, rgba(64, 158, 255, 0.1));
-  color: var(--primary, #409eff);
+  background: var(--bg-soft);
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   font-weight: 600;
 }
 
 .subnav-badge {
   margin-left: auto;
-  font-size: 11px;
+  font-size: 10px;
+  font-weight: 600;
   padding: 1px 6px;
   border-radius: 10px;
-  background: var(--bg-active, rgba(0, 0, 0, 0.08));
-  color: inherit;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
 }
 
 .settings-tab-pane {
@@ -848,10 +850,11 @@ async function handleExport(): Promise<void> {
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  border-radius: 8px;
-  background: var(--bg-hover, rgba(0, 0, 0, 0.03));
-  color: var(--text-muted);
-  font-size: 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-soft) 45%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--accent) 30%, var(--border));
+  color: var(--text-secondary);
+  font-size: 11px;
   line-height: 1.4;
 }
 
@@ -866,10 +869,14 @@ async function handleExport(): Promise<void> {
   align-items: center;
   justify-content: space-between;
   padding: 12px 14px;
-  border-radius: 10px;
-  background: var(--card-bg, rgba(255, 255, 255, 0.6));
-  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
   gap: 12px;
+  transition: border-color 0.2s ease;
+}
+.capability-item:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
 }
 
 .capability-main {
@@ -887,13 +894,14 @@ async function handleExport(): Promise<void> {
 }
 
 .capability-header strong {
-  font-size: 14px;
-  color: var(--text-normal);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .capability-desc {
   margin: 0;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
   line-height: 1.4;
 }
@@ -907,58 +915,75 @@ async function handleExport(): Promise<void> {
 
 .capability-tag {
   font-size: 10px;
+  font-weight: 500;
   padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--bg-hover, rgba(0, 0, 0, 0.05));
-  color: var(--text-muted);
+  border-radius: 6px;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
 }
 
 .capability-tag.is-readonly {
-  background: rgba(144, 147, 153, 0.15);
+  background: var(--bg-input);
   color: var(--text-muted);
 }
 
 .capability-tag.is-mcp {
-  background: rgba(103, 194, 58, 0.15);
-  color: #67c23a;
+  background: color-mix(in srgb, #06b6d4 14%, transparent);
+  color: #0891b2;
+  border-color: color-mix(in srgb, #06b6d4 28%, transparent);
 }
 
 .action-btn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--border-soft);
-  background: var(--button-bg, #fff);
-  color: var(--text-normal);
-  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  font-size: 11px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .action-btn:hover:not(:disabled) {
-  background: var(--bg-hover, rgba(0, 0, 0, 0.05));
-  border-color: var(--border-hover, #ccc);
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(78, 119, 209, 0.15);
 }
 
 .action-btn.is-primary {
-  background: var(--primary, #409eff);
+  background: var(--accent);
   color: #fff;
-  border-color: var(--primary, #409eff);
+  border-color: var(--accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+.action-btn.is-primary:hover:not(:disabled) {
+  opacity: 0.92;
+  box-shadow: 0 3px 8px rgba(78, 119, 209, 0.25);
 }
 
 .action-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
+  background: var(--bg-soft);
+  color: var(--text-muted);
+  border-color: var(--border);
+  box-shadow: none;
+  transform: none;
 }
 
 .tool-id {
-  font-family: monospace;
-  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10px;
   color: var(--text-muted);
-  background: var(--bg-hover, rgba(0, 0, 0, 0.04));
-  padding: 1px 4px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  padding: 1px 5px;
   border-radius: 4px;
 }
 
@@ -967,23 +992,24 @@ async function handleExport(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border-soft);
-  background: var(--card-bg, rgba(255, 255, 255, 0.5));
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
 }
 
 .block-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
-  color: var(--text-normal);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .block-title small {
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .sensor-list, .trigger-list {
@@ -999,30 +1025,38 @@ async function handleExport(): Promise<void> {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 10px;
-  border-radius: 6px;
-  background: var(--bg-hover, rgba(0, 0, 0, 0.02));
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
 }
 
-.sensor-info code {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--primary, #409eff);
+.sensor-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.sensor-info p {
-  margin: 2px 0 0;
+.sensor-id {
   font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.sensor-desc {
+  font-size: 10px;
   color: var(--text-muted);
 }
 
 .trigger-item {
-  padding: 8px 10px;
-  border-radius: 6px;
-  background: var(--bg-hover, rgba(0, 0, 0, 0.02));
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
 }
 
 .trigger-header {
@@ -1030,22 +1064,14 @@ async function handleExport(): Promise<void> {
   align-items: center;
   gap: 8px;
   font-size: 12px;
+  font-weight: 500;
 }
 
-.trigger-header code {
-  font-size: 11px;
-  color: var(--text-muted);
+.trigger-header strong {
+  color: var(--text-primary);
 }
 
-.trigger-type-tag, .trigger-cd-tag {
-  font-size: 10px;
-  padding: 1px 4px;
-  border-radius: 3px;
-  background: rgba(0, 0, 0, 0.05);
-  color: var(--text-muted);
-}
-
-.trigger-presentation {
+.trigger-meta {
   display: flex;
   gap: 16px;
   font-size: 11px;
@@ -1053,31 +1079,32 @@ async function handleExport(): Promise<void> {
 }
 
 .trigger-presentation code {
-  color: var(--text-normal);
+  color: var(--text-primary);
   font-weight: 500;
 }
 
 .settings-loading, .settings-empty {
-  padding: 36px 0;
+  padding: 36px 16px;
   text-align: center;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .info-card {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 16px;
-  border-radius: 10px;
-  background: var(--card-bg, rgba(255, 255, 255, 0.6));
-  border: 1px solid var(--border-soft);
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
 }
 
 .info-row {
   display: flex;
   align-items: center;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .info-label {
@@ -1086,18 +1113,18 @@ async function handleExport(): Promise<void> {
 }
 
 .info-val {
-  color: var(--text-normal);
+  color: var(--text-primary);
   font-weight: 500;
 }
 
 .info-val.is-enabled {
-  color: #67c23a;
+  color: #10b981;
 }
 
 /* 契约安全等级样式 */
-.safety-read-only { color: #67c23a; background: rgba(103, 194, 58, 0.1); }
-.safety-approval { color: #e6a23c; background: rgba(230, 162, 60, 0.1); }
-.safety-privileged { color: #f56c6c; background: rgba(245, 108, 108, 0.1); }
+.safety-read-only { color: #10b981; background: color-mix(in srgb, #10b981 14%, transparent); border: 1px solid color-mix(in srgb, #10b981 28%, transparent); }
+.safety-approval { color: #f59e0b; background: color-mix(in srgb, #f59e0b 14%, transparent); border: 1px solid color-mix(in srgb, #f59e0b 28%, transparent); }
+.safety-privileged { color: var(--danger); background: var(--danger-soft); border: 1px solid color-mix(in srgb, var(--danger) 28%, transparent); }
 
 /* 对话框头部动作按钮 */
 .header-action-btn {
@@ -1106,24 +1133,26 @@ async function handleExport(): Promise<void> {
   gap: 5px;
   height: 28px;
   padding: 0 10px;
-  border-radius: 6px;
-  border: 1px solid var(--border-soft);
-  background: var(--bg-surface, #fff);
-  color: var(--text-normal);
-  font-size: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  font-size: 11px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .header-action-btn:hover:not(:disabled) {
-  border-color: var(--color-primary, #4f46e5);
-  color: var(--color-primary, #4f46e5);
-  background: var(--bg-hover, rgba(79, 70, 229, 0.05));
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(78, 119, 209, 0.15);
 }
 
 .header-action-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 </style>

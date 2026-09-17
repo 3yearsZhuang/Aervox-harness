@@ -1,0 +1,65 @@
+{
+  "apiVersion": "aervox.dev/v1",
+  "kind": "PluginManifest",
+  "metadata": {
+    "id": "diary-distillers",
+    "displayName": "多风格日记与认知复盘",
+    "publisher": "aervox-official",
+    "version": "1.0.0",
+    "description": "CAP-008 / CAP-017: 扩展 Aervox 每日记忆日记提炼风格，支持「认知与学习复盘（growth）」、「极简量化记录（concise）」与「桌宠随笔（companion）」风格定制。",
+    "license": "AGPL-3.0-or-later"
+  },
+  "spec": {
+    "config": {
+      "schemaVersion": 1,
+      "entry": "config.schema.json"
+    },
+    "tools": [
+      {
+        "name": "diary_generate_styled",
+        "description": "按指定的风格模式（growth / concise / companion）生成今日日记复盘草稿",
+        "category": "diary",
+        "safetyLevel": "guarded",
+        "requiredPermissions": [
+          "diary.write"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "styleId": {
+              "type": "string",
+              "description": "风格标识：growth（认知学习复盘）、concise（极简量化记录）、companion（亲密随笔）",
+              "enum": [
+                "growth",
+                "concise",
+                "companion"
+              ]
+            },
+            "focus": {
+              "type": "string",
+              "description": "希望重点聚焦回顾的知识主题或事件"
+            },
+            "rewrite": {
+              "type": "boolean",
+              "description": "若当日已存在日记，是否创建改写版本"
+            }
+          }
+        },
+        "priority": 15
+      },
+      {
+        "name": "diary_list_styles",
+        "description": "查询当前系统支持的所有日记提炼风格清单及其应用场景",
+        "category": "diary",
+        "safetyLevel": "read_only",
+        "requiredPermissions": [
+          "diary.read"
+        ],
+        "inputSchema": {
+          "type": "object"
+        },
+        "priority": 10
+      }
+    ]
+  }
+}

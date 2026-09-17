@@ -6,6 +6,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import type { SqliteDiaryRepository } from "@aervox/repositories";
+import { defaultDiaryStyleRegistry } from "@aervox/diary";
 import { resolveLocalContext } from "../../../shared/local-context.js";
 import type { DiaryApplicationService } from "./application.js";
 
@@ -18,6 +19,18 @@ export function registerDiaryRoutes(
   deps: { diaryRepo: SqliteDiaryRepository; service: DiaryApplicationService },
 ): void {
   const { diaryRepo, service } = deps;
+
+  // 查询支持的日记提炼风格列表 (CAP-008/017)
+  app.get("/v1/diaries/styles", async () => {
+    return {
+      items: defaultDiaryStyleRegistry.list().map((s) => ({
+        id: s.id,
+        name: s.name,
+        description: s.description,
+        targetScene: s.targetScene,
+      })),
+    };
+  });
 
   // 按日期查询日记；无 localDate 时返回历史列表（历史回看）
   app.get("/v1/diaries", async (req, reply) => {
@@ -35,14 +48,14 @@ export function registerDiaryRoutes(
     return { items };
   });
 
-  // 每日按需生成/取回：默认只建（当日已有则原样返回）；rewrite=true 时改写
+  // 每日按需生成/取回：默认只建（当日已有则原样返回）；rewrite=true 时改写；支持指定提炼风格 styleId
   app.post("/v1/diaries/generate-today", async (req, reply) => {
     const tenant = resolveLocalContext(req);
-    const body = (req.body ?? {}) as { rewrite?: boolean; focus?: string };
+    const body = (req.body ?? {}) as { rewrite?: boolean; focus?: string; styleId?: string };
     await service.ensureDefaultSchedule(tenant);
     const result = body.rewrite
-      ? await service.rewriteTodayDiary(tenant, body.focus)
-      : await service.ensureTodayDiary(tenant, body.focus);
+      ? await service.rewriteTodayDiary(tenant, body.focus, body.styleId)
+      : await service.ensureTodayDiary(tenant, body.focus, body.styleId);
     return { ...result };
   });
 

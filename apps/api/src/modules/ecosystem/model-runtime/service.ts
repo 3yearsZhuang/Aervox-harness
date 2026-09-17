@@ -24,6 +24,7 @@ import type {
 } from "@aervox/contracts";
 import { downloadToFile, ModelDownloadError } from "./downloader.js";
 import { LlamaServerManager, type LlamaServerManagerDeps } from "./llama-server.js";
+import type { ModelRuntimeDriver } from "./driver.js";
 
 export interface ModelRuntimeServiceOptions {
   /** 模型落盘目录（缺省 <repo>/data/models） */
@@ -33,6 +34,8 @@ export interface ModelRuntimeServiceOptions {
   /** 指标采样间隔 ms（缺省 2000；0 关闭） */
   metricsIntervalMs?: number;
   llamaDeps?: LlamaServerManagerDeps;
+  /** 自定义或注入的模型运行时驱动 SPI（缺省使用 LlamaServerManager） */
+  driver?: ModelRuntimeDriver;
 }
 
 interface TaskState extends DownloadTask {
@@ -93,7 +96,7 @@ const DEFAULT_CATALOG: ModelCatalogEntry[] = [
 
 export class ModelRuntimeService {
   private readonly modelsDir: string;
-  private readonly llama: LlamaServerManager;
+  private readonly llama: ModelRuntimeDriver;
   private readonly maxConcurrentDownloads: number;
   private readonly catalog: ModelCatalogEntry[];
   private lastParams: LlamaRuntimeParams = { ...DEFAULT_PARAMS };
@@ -105,11 +108,15 @@ export class ModelRuntimeService {
   private metricsTimer: ReturnType<typeof setInterval> | null = null;
   private lastEmitAt = 0;
 
+  get driver(): ModelRuntimeDriver {
+    return this.llama;
+  }
+
   constructor(options: ModelRuntimeServiceOptions = {}) {
     this.modelsDir = options.modelsDir ?? path.join(process.cwd(), "data", "models");
     this.maxConcurrentDownloads = options.maxConcurrentDownloads ?? 2;
     this.catalog = DEFAULT_CATALOG;
-    this.llama = new LlamaServerManager(options.llamaDeps);
+    this.llama = options.driver ?? new LlamaServerManager(options.llamaDeps);
     const metricsInterval = options.metricsIntervalMs ?? 2000;
     if (metricsInterval > 0) {
       this.metricsTimer = setInterval(() => {
@@ -421,10 +428,12 @@ export class ModelRuntimeService {
   private async sampleMetrics(): Promise<void> {
     if (!this.llama.running || this.llama.getHandle().port === null) return;
     try {
-      const sample = await this.llama.sampleMetrics();
-      if (sample) {
-        this.metricSamples.push(sample);
-        if (this.metricSamples.length > 8) this.metricSamples.shift();
+      if (typeof this.llama.sampleMetrics === "function") {
+        const sample = await this.llama.sampleMetrics();
+        if (sample) {
+          this.metricSamples.push(sample);
+          if (this.metricSamples.length > 8) this.metricSamples.shift();
+        }
       }
     } catch {
       // 采样失败静默

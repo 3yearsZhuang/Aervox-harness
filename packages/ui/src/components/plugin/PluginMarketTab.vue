@@ -283,69 +283,84 @@ async function handleExport(item: PluginMarketItemDto): Promise<void> {
 .search-box {
   position: relative;
   flex: 1;
-  min-width: 220px;
+  min-width: 200px;
 }
 .search-icon {
   position: absolute;
   left: 10px;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--text-secondary, #888);
+  color: var(--text-muted);
 }
 .search-input {
   width: 100%;
   box-sizing: border-box;
-  padding: 6px 10px 6px 30px;
-  border: 1px solid var(--border, #e5e7eb);
+  padding: 6px 10px 6px 32px;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--bg-input, #fff);
-  color: var(--text-primary, #111);
+  background: var(--bg-input);
+  color: var(--text-primary);
   font-size: 12px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 .search-input:focus {
   outline: none;
-  border-color: var(--accent, #4f46e5);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.search-input::placeholder {
+  color: var(--text-muted);
 }
 
 .filter-segments {
   display: flex;
-  background: var(--bg-surface-elevated, #f3f4f6);
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-input);
   padding: 3px;
-  border-radius: 8px;
-  gap: 2px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
 }
 .filter-seg-btn {
   border: none;
   background: transparent;
-  padding: 5px 10px;
+  padding: 5px 12px;
   font-size: 11px;
-  color: var(--text-secondary, #666);
+  font-weight: 500;
+  color: var(--text-secondary);
   border-radius: 6px;
   cursor: pointer;
-  font-weight: 500;
-  transition: all 0.15s ease;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.filter-seg-btn:hover {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--bg-soft) 70%, transparent);
 }
 .filter-seg-btn.active {
-  background: var(--bg-surface, #fff);
-  color: var(--text-primary, #111);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  background: var(--bg-soft);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .btn-refresh {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--border, #e5e7eb);
-  background: var(--bg-surface, #fff);
-  border-radius: 6px;
-  color: var(--text-secondary, #666);
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  border-radius: 8px;
+  color: var(--text-secondary);
   cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .btn-refresh:hover:not(:disabled) {
-  border-color: var(--accent, #4f46e5);
-  color: var(--accent, #4f46e5);
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+  transform: translateY(-1px);
 }
 .rotating {
   animation: spin 0.8s linear infinite;
@@ -356,10 +371,11 @@ async function handleExport(item: PluginMarketItemDto): Promise<void> {
 
 .market-loading,
 .market-empty {
-  padding: 40px;
+  padding: 36px 16px;
   text-align: center;
-  color: var(--text-secondary, #888);
-  font-size: 13px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -368,23 +384,25 @@ async function handleExport(item: PluginMarketItemDto): Promise<void> {
 
 .market-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
 }
 
 .market-card {
-  border: 1px solid var(--border, #e5e7eb);
+  border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 16px;
-  background: var(--bg-surface, #fff);
+  padding: 14px;
+  background: var(--bg-soft);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  gap: 10px;
+  transition: border-color 0.22s ease, background-color 0.22s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease;
 }
 .market-card:hover {
-  border-color: rgba(79, 70, 229, 0.3);
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.04);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: color-mix(in srgb, var(--bg-soft) 85%, var(--accent-soft));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 20, 32, 0.05);
 }
 .card-installed {
   border-left: 3px solid #10b981;
@@ -402,40 +420,48 @@ async function handleExport(item: PluginMarketItemDto): Promise<void> {
   gap: 2px;
 }
 .card-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  color: var(--text-primary, #111);
+  color: var(--text-primary);
 }
 .card-id {
   font-size: 10px;
-  color: var(--text-secondary, #888);
+  padding: 1px 5px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .card-status-badge .badge {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 999px;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 6px;
   font-weight: 500;
   display: inline-flex;
   align-items: center;
   gap: 4px;
 }
 .badge-installed {
-  background: rgba(16, 185, 129, 0.1);
-  color: #059669;
+  background: color-mix(in srgb, #10b981 14%, transparent);
+  color: #10b981;
+  border: 1px solid color-mix(in srgb, #10b981 28%, transparent);
 }
 .badge-update {
-  background: rgba(245, 158, 11, 0.1);
-  color: #d97706;
+  background: color-mix(in srgb, #f59e0b 14%, transparent);
+  color: #f59e0b;
+  border: 1px solid color-mix(in srgb, #f59e0b 28%, transparent);
 }
 .badge-available {
-  background: var(--bg-surface-elevated, #f3f4f6);
-  color: var(--text-secondary, #666);
+  background: var(--bg-input);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
 }
 
 .card-desc {
-  font-size: 12px;
-  color: var(--text-secondary, #555);
+  font-size: 11px;
+  color: var(--text-secondary);
   margin: 0;
   line-height: 1.5;
   display: -webkit-box;
@@ -455,28 +481,34 @@ async function handleExport(item: PluginMarketItemDto): Promise<void> {
   gap: 4px;
   font-size: 10px;
   padding: 2px 7px;
-  border-radius: 4px;
+  border-radius: 6px;
   font-weight: 500;
+  border: 1px solid transparent;
 }
 .pill-proactive {
-  background: rgba(236, 72, 153, 0.08);
+  background: color-mix(in srgb, #ec4899 12%, transparent);
   color: #db2777;
+  border-color: color-mix(in srgb, #ec4899 24%, transparent);
 }
 .pill-skill {
-  background: rgba(245, 158, 11, 0.08);
+  background: color-mix(in srgb, #f59e0b 12%, transparent);
   color: #d97706;
+  border-color: color-mix(in srgb, #f59e0b 24%, transparent);
 }
 .pill-tool {
-  background: rgba(79, 70, 229, 0.08);
-  color: #4f46e5;
+  background: color-mix(in srgb, #4e77d1 12%, transparent);
+  color: var(--accent);
+  border-color: color-mix(in srgb, #4e77d1 24%, transparent);
 }
 .pill-page {
-  background: rgba(16, 185, 129, 0.08);
+  background: color-mix(in srgb, #10b981 12%, transparent);
   color: #059669;
+  border-color: color-mix(in srgb, #10b981 24%, transparent);
 }
 .pill-config {
-  background: var(--bg-surface-elevated, #f3f4f6);
-  color: var(--text-secondary, #666);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border-color: var(--border);
 }
 
 .card-footer {
@@ -484,7 +516,7 @@ async function handleExport(item: PluginMarketItemDto): Promise<void> {
   align-items: center;
   justify-content: space-between;
   padding-top: 10px;
-  border-top: 1px solid var(--border-soft, #f3f4f6);
+  border-top: 1px solid var(--border);
   margin-top: auto;
 }
 .footer-meta {
@@ -492,11 +524,11 @@ async function handleExport(item: PluginMarketItemDto): Promise<void> {
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  color: var(--text-secondary, #888);
+  color: var(--text-muted);
 }
 .meta-ver {
   font-weight: 600;
-  color: var(--text-primary, #333);
+  color: var(--text-primary);
 }
 
 .footer-actions {

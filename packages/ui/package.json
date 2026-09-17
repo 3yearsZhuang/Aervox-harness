@@ -12,6 +12,7 @@
     "./live2d/model": "./src/live2d/model.ts",
     "./live2d/controller": "./src/live2d/controller.ts",
     "./live2d/petReactions": "./src/live2d/petReactions.ts",
+    "./live2d/avatar-bundle": "./src/live2d/avatar-bundle.ts",
     "./theme": "./src/theme/index.css"
   },
   "scripts": {
