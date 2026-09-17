@@ -91,12 +91,13 @@ const {
     <button
       type="button"
       class="console-collapse-toggle"
+      :title="consoleCollapsed ? '展开对话' : '收起对话'"
       :aria-label="consoleCollapsed ? '展开对话区域' : '收起对话区域'"
       :aria-expanded="!consoleCollapsed"
       @click="consoleCollapsed = !consoleCollapsed"
     >
-      <ChevronDown v-if="consoleCollapsed" :size="14" />
-      <ChevronUp v-else :size="14" />
+      <ChevronDown v-if="consoleCollapsed" :size="15" :stroke-width="2.2" />
+      <ChevronUp v-else :size="15" :stroke-width="2.2" />
     </button>
 
     <ExtensionSlot name="conversation:bottom" />

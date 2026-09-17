@@ -122,6 +122,11 @@ button:active,
 禁止使用粗糙的 `linear` 或简单 `ease-in-out`，统一采用弹簧物理缓动：
 `cubic-bezier(0.16, 1, 0.3, 1)`（优雅展开与平滑收起）。
 
+### 5.4 幽灵控件与嵌入操作（Ghost Controls & Inline Actions）
+
+在药丸与卡片容器内部的折叠/展开、切换等次级交互按钮，统一采用幽灵圆环形态（`border-radius: 9999px; background: transparent; border: 1px solid transparent;`）：
+静息态保持低视觉侵入（`color: var(--text-muted); opacity: 0.75`），悬停时以钴蓝微晕渐显（`background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent)`），并在收起态严格垂直居中对齐文本基线。
+
 ---
 
 ## 6. 严厉禁止事项 (Explicit Anti-Patterns)
@@ -132,4 +137,5 @@ button:active,
 4. **严禁刺目的 AI 紫粉霓虹发光**或高饱和彩虹渐变；
 5. **严禁生硬纯黑无层次阴影**（必须采用带环境漫射的微柔阴影）；
 6. **严禁数字跳字**（计时器、指标必须配置 `tabular-nums`）；
-7. **严禁按钮无 `:active` 反馈**（杜绝完全没有按压触觉的扁平死气状态）。
+7. **严禁按钮无 `:active` 反馈**（杜绝完全没有按压触觉的扁平死气状态）；
+8. **严禁在胶囊或圆角卡片中嵌套生硬的有色方框按键**（必须采用同心圆或幽灵无框按钮）。
