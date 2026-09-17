@@ -1,10 +1,11 @@
 # AGENTS.md — AI 协作指南（薄入口）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-17
+- 修改人：Codex · 2026-09-18
 
 本文件是所有 AI 编码助手（包括 Antigravity、Claude Code、Cursor、GitHub Copilot、Roo Code、Windsurf 等）的进入点与协作底线协议：
 **只索引，不复制**：权威技术规范、产品定义与架构事实源一律深链至 `docs/`，严禁在入口复制可能变更的业务逻辑，杜绝双源漂移。
+当前迭代从根目录 [plan.md](plan.md) 开始：它是项目当前迭代建议、排序、依赖与待决策事项的唯一权威入口。长期维护规则见[迭代计划治理](docs/reference/document-governance.md#31-当前迭代计划的唯一入口)，需求、架构决策与交付证据仍按各自事实源维护。
 详细协作指南见 [从哪开始](docs/getting-started.md)（新成员与 Agent 完整 onboarding）、[文档治理规范](docs/reference/document-governance.md) 与 [文档写作规范](docs/reference/standards/doc-standards.md)。
 
 ---
@@ -21,6 +22,8 @@ Aervox｜思隅：更好上手的“主动智能” Agent——以桌宠为入�
 ## 2. AI 必读与寻路顺序（按需取读，不必通读）
 
 在执行具体任务前，请按需顺着权威事实源树状深入，严禁仅凭猜测进行编码或修改：
+
+先读 [plan.md](plan.md) 确认当前条目与依赖；用户当次指令优先，计划不构成对所有建议的执行授权，也不要求对已经授权的工作重复确认。新增、改序、暂停和完成移交按[计划维护规则](docs/reference/document-governance.md#31-当前迭代计划的唯一入口)更新，同一迭代不要另建 `TODO.md`、`roadmap.md` 或工具私有计划作为并行权威。
 
 1. **宏观上下文与目录全景**：
    - [docs/README.md](docs/README.md) — 8 大主题域分类索引与事实源权威顺序；
@@ -66,6 +69,7 @@ Aervox｜思隅：更好上手的“主动智能” Agent——以桌宠为入�
 - **落地实现登记（闭环铁律）**：
   - 一切落地改动必须在 [落地追踪基线 §4.2](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记) 登记完成情况（关联 CAP、实现位置、日期、验证方式），未登记者视为未闭环；
   - 借鉴参考项目（`T-*` / `AST-*` / `PET-*` / `DSH-01` / `PI-01`）需在“来源”列注明编号，并遵循开源版权声明（见 PRD §15.1）。
+- **当前迭代计划维护**：任务开始、范围/依赖变化及交付时同步 [plan.md](plan.md)；专题评估与 CR 只维护证据、差量和专项验收，不另设项目排期。完成项必须链接 §4.2 或 PR/验证证据；归档与字段规则统一见[迭代计划治理](docs/reference/document-governance.md#31-当前迭代计划的唯一入口)。
 - **Git 功能分支工作流**：
   - 严禁直接向 `main` 分支提交或推送代码；
   - 所有变更必须按 `feat/`、`fix/`、`docs/` 前缀创建功能分支，提交前本地通过双门禁，经由 Pull Request 审查后合入 `main`。

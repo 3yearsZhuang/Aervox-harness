@@ -6,20 +6,22 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.1.1
-updated_at: 2026-09-17
-reviewed_at: 2026-09-17
+version: 0.1.2
+updated_at: 2026-09-18
+reviewed_at: 2026-09-18
 review_interval_days: 90
 ---
 
-# Web 工作台实现规划（Vue 单栈）
+# Web 工作台实现说明（Vue 单栈）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-17
+- 修改人：Codex · 2026-09-18
 
 关联：[ADR-015](../reference/adr/ADR-015-vue-full-stack.md)（Web 技术基线）· [ADR-014](../reference/adr/ADR-014-modular-monolith-structure.md)（apps/api 模块组织）· [架构设计](../reference/ARCHITECTURE.md) · [PRD](../reference/PRD.md)
 
-本文规划 `apps/web` 的实现路径：作为 Vue 全栈单栈的一员，最大化复用 `apps/desktop` 的 renderer 资产，并严格通过 `@aervox/contracts` + `@aervox/api` 消费后端能力。
+本文解释 `apps/web` 的复用边界，并保留早期实现方案与里程碑记录：作为 Vue 全栈单栈的一员，复用 `apps/desktop` 的 renderer 资产，并通过 `@aervox/contracts` + `@aervox/api` 消费后端能力。
+
+当前迭代建议、Web/移动端工作排序和待决策入口统一见根 [plan.md](../../plan.md)（AVX-PLAN-001），规划边界见[文档治理规范 §3.1](../reference/document-governance.md#31-当前迭代计划的唯一入口)。本文件不维护第二份待办清单；早期目录方案、M1～M5 编号和历史验收记录不表示当前排期或能力全量完成。已接受技术选型继续以 ADR 为准，实现状态与验证结果以[追踪基线 §4.2](../reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)为准。
 
 ## 1. 目标与范围
 
@@ -61,6 +63,8 @@ review_interval_days: 90
 
 ## 4. 目录结构草案
 
+以下是早期目录草案，用于解释当时的模块划分，不要求按此重建现有目录。后续目录调整须依据当前代码、架构约束及根 [plan.md](../../plan.md)中的已采纳工作。
+
 ```text
 apps/web/
 ├── src/
@@ -79,27 +83,33 @@ apps/web/
 └── tsconfig.json
 ```
 
-## 5. 里程碑
+<a id="5-里程碑"></a>
 
-| 阶段 | 交付 | 验收 |
+## 5. 历史里程碑
+
+以下保留原 M1～M5 切片和当时记录的结果，供历史追溯；当前排期统一见根 [plan.md](../../plan.md)。原生移动端与认证不再依赖历史 PostgreSQL 阶段，永久本地 SQLite 基线见[数据库契约](../reference/DATABASE.md)；移动交付仍需独立范围决策和平台验收。
+
+| 原阶段 | 当时交付记录 | 当时验收口径 |
 |---|---|---|
 | M1 骨架 | `apps/web` 建仓（Vite+Vue+TS）、复用 request 桥、Vue Router 空路由、CI 接入 | workspace `ci-code` 通过；`pnpm dev:web` 可启动且直连本地 API |
 | M2 对话流式 | `streamTurnViaSSE` + 聊天 UI + 建议问题/自由输入；turns 创建与取消 | SSE 流式消费端到端可用；test 新增（降级 fetch、SSE 解析） |
 | M3 领域页面 | 学习目标/题目作答/复习项、日记查询、通知/反馈/埋点 | 页面走通；复用 desktop composables 语义 |
 | M4 工作台与打磨 | ✅ 沉浸式共享工作台双端同步：居中构图（桌宠内移 + 卡片锚定中线右侧，消除中部留白）、顶部左侧液态玻璃菜单胶囊（圆形⇄圆角长条弹性展开、选项高光扫过、全部映射既有功能）、Live2D 左侧满高区域（实际像素底边对齐、高度驱动最大化）、右侧功能卡片升格为页面主元素（纵向满高均分两槽、大图标 + 标题/副标题/摘要/打开提示分层、亚克力玻璃 + 顶部高光条、8 项已有功能可选、持久化、可更换）、对话模式选择器（4 模式，前缀随消息发送）、输入框 IME 修复（组合期不收起、候选 Enter 不发送）、最大化纯文本消息面板（1440px / 62vh）、收起式半透明输入、悬浮设置、WinUI3 风格云母背景（雾蓝主题，双端亮暗同步）、`clamp()` 全尺寸自适应 | UI/Web/Desktop typecheck + build + test；`check:boundary` 零违规（落地登记见[追踪基线 §4.2](../reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)） |
-| M5（后续） | ✅ Capacitor 最小壳已建立（`apps/mobile` v0.1，web 平台，config 指向 `../web/dist`）；原生平台（android/ios）与 auth 接入待 PG 阶段 | 壳内直连 API 可运行；`cap sync web` / `cap doctor` 通过 |
+| M5（原候选） | ✅ Capacitor 最小壳已建立（`apps/mobile` v0.1，web 平台，config 指向 `../web/dist`）；原生平台与认证属于单独的移动端交付切片，壳的存在不证明原生平台已交付 | 壳内直连 API 可运行；`cap sync web` / `cap doctor` 通过 |
 
 ## 6. 风险与待定项
 
 - **鉴权**：CR-030 后 SQLite 是永久本地单用户真源，Web 不再注入租户 Header；API 默认仅监听 loopback，远程监听必须启用 token 认证并通过启动期安全校验。
-- **CORS**：`apps/api` 需为同源或本地开发放开 CORS；在 `buildApp` 中按环境注入（改动 API 骨架，随 M1 处理）。
+- **CORS**：原方案将 `buildApp` 的环境适配纳入 M1；当前来源策略仍须遵循认证与隐私契约，相关改动是否进入迭代由根 [plan.md](../../plan.md)维护。
 - **SSE 重连**：浏览器侧实现须遵循 `Last-Event-ID`（ADR-012），避免重复展示。
 - **双端主题一致性**：Web 与 desktop 共享 `@aervox/ui` 工作台与主题，平台壳差异通过属性适配，避免两套视觉漂移。
 - **设置窗口一致性**：两端共享 `AervoxWorkbench` 的设置入口与双栏设置窗口；左侧分类、右侧详情在窄屏退化为横向分类栏。主题、助手称呼、回车发送、界面密度、番茄钟时长和提醒偏好保存在当前设备，Electron 主题继续通过受限 IPC 同步到窗口壳。
 
-本次实现对应 `CR-005`（已归档） 与 `CR-007`（已归档）：Web 工作台使用共享 `Live2DPet`。沉浸式重构后双端主工作台均内嵌 Live2D 满高主体（Electron 经 `show-companion` 开启，桌面端可在设置中关闭），独立 `pet.html` 窗口继续保留。
+本节记录的历史实现对应 `CR-005`（已归档） 与 `CR-007`（已归档）：Web 工作台使用共享 `Live2DPet`。沉浸式重构后双端主工作台均内嵌 Live2D 满高主体（Electron 经 `show-companion` 开启，桌面端可在设置中关闭），独立 `pet.html` 窗口继续保留。
 
 ## 7. 同步清单（随 ADR-015 执行）
+
+以下勾选项为 ADR-015 当时的文档同步记录，不用于维护新迭代的任务状态。
 
 - [x] `ADR-002` 标记 Superseded by ADR-015
 - [x] 新增 `ADR-015`（Vue 全栈单栈）

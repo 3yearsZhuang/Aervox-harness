@@ -6,15 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.1.1
-updated_at: 2026-09-16
-reviewed_at: 2026-09-16
+version: 0.2.0
+updated_at: 2026-09-18
+reviewed_at: 2026-09-18
 review_interval_days: 90
 review_triggers:
   - docs/**
   - README.md
   - AGENTS.md
   - CONTRIBUTING.md
+  - plan.md
 sources:
   - docs/reference/standards/doc-standards.md
   - docs/DOC_REGISTRY.md
@@ -24,7 +25,7 @@ sources:
 # 文档治理与事实源规范
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-09-16
+- 修改人：Codex · 2026-09-18
 
 关联：[文档索引](../README.md)、[文档写作规范](standards/doc-standards.md)、[生命周期登记表](../DOC_REGISTRY.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)、[工程与发布流程](../how-to/engineering-process.md)
 
@@ -64,6 +65,7 @@ sources:
 目录规则：
 
 1. `docs/` 根层只保留导航、登记和入口文件；新主题不得直接堆到根层。
+   仓库根目录 `plan.md` 是当前迭代建议的显式受治入口，采用 Reference 元数据；这是固定路径例外，不扩展为任意根目录计划文件。
 2. 一个文件只选择一个主类型；若同时需要“为什么”和“怎么做”，拆成 Explanation + How-to，并互相链接。
 3. ADR 和 CR 使用稳定编号；编号不因目录搬迁、合并或状态变化而复用。
 4. 被替代的文档保留原路径或保留明确的迁移 stub，至少一个发布周期后才能物理删除。
@@ -75,19 +77,36 @@ sources:
 
 | 事实 | 唯一维护入口 | 允许的派生视图/引用 |
 |---|---|---|
-| 产品目标、用户场景、CAP、优先级和生命周期 | `docs/reference/PRD.md` | `README.md`、roadmap、索引摘要 |
+| 产品目标、用户场景、CAP、产品优先级和生命周期 | `docs/reference/PRD.md` | `README.md`、`plan.md` 中的引用、索引摘要 |
+| 当前迭代建议、工作排序、依赖、负责人认领与待决策项 | 根目录 `plan.md`（AVX-PLAN-001） | 专题评估、Issue/PR、Agent 入口仅链接条目，不维护第二份当前排期 |
 | 可测试业务行为、FR/BR/AC | `docs/reference/SRS.md` | 需求追踪矩阵、教程中的步骤说明 |
 | 需求状态、DoR/DoD、测试证据、代码落地状态 | `docs/reference/REQUIREMENTS_TRACEABILITY.md` | `docs/README.md`、PR 描述、发布说明 |
 | 当前系统边界、部署和模块所有权 | `docs/reference/ARCHITECTURE.md` | 数据流说明、README 架构速览 |
 | 不可逆技术决策 | 对应 `docs/reference/adr/ADR-*.md` | `docs/reference/adr/README.md`、架构摘要 |
 | API、SSE 和事件契约 | `packages/contracts/` 及其生成物；行为补充见 `STREAMING_PROTOCOL.md` | API 客户端、教程、测试 |
-| 数据表、仓储 Port、迁移和删除传播 | `packages/database/` 及 `DATABASE.md` | ERD、数据流、CR 影响说明 |
+| 数据表、仓储 Port、迁移和删除传播 | `packages/schema/`、`packages/repositories/` 及 `DATABASE.md` | ERD、数据流、CR 影响说明 |
 | 模型质量、安全和评估门槛 | `AI_QUALITY_SAFETY.md`、`THREAT_MODEL.md`、`DATA_PRIVACY.md` 各自负责的章节 | SRS/架构中的边界摘要 |
 | 变更差量、迁移和回滚 | 对应 `docs/reference/changes/CR-*.md` | PR、发布说明；不反向定义基线规则 |
 | 文档路径、核验日期和陈旧信号 | `docs/DOC_REGISTRY.md` | 文档索引、健康报告 |
 | 分类、字段、状态和校验规则 | 本文 + `docs/_meta/document-policy.json` | 校验脚本和模板 |
 
 `docs/README.md` 只回答“去哪里找”；`DOC_REGISTRY.md` 只回答“何时核验、什么信号表示陈旧”；两者都不再承担完整规则正文。
+
+### 3.1 当前迭代计划的唯一入口
+
+根目录 [plan.md](../../plan.md) 是**当前迭代建议的唯一权威**，回答接下来建议做什么、为什么、先后依赖、谁认领、如何判断可移交。它不覆盖 PRD/SRS 的需求范围、ADR/CR 的决策状态、契约行为和[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)的完成证据。与已接受基线冲突的条目标为待评审并关联 CR，不能通过改计划直接改变架构。
+
+长期维护规则：
+
+1. **一个活动队列**：不再新建并行权威的 `TODO.md`、`roadmap.md`、`CR-*-plan.md` 或工具私有计划。专题 Explanation 保留发现、权衡、实验与估算；CR 保留范围、实施依赖、验证和回滚，但跨专题优先级及当前执行状态只维护在 `plan.md`。产品里的学习计划、日记排期和操作指南不受此限制。
+2. **固定身份和字段**：`plan.md` 使用 `AVX-PLAN-001`、`type: reference`、`planning_role: current` 及 canonical 元数据、签名。工作条目使用稳定 `ITER-###`，至少记录目的/切片、证据与 CAP、依赖/CR 门槛、工作状态、责任角色或认领人、完成判定。编号不复用；未指定个人时明确“建议角色，待认领”。
+3. **建议与授权分开**：工作状态为“建议、待评审、就绪、执行中、暂停、已移交”。“建议”不是已获批实施；“就绪”需要范围与验收明确、必要决策已接受；“已移交”必须链接 PR/§4.2 和验证记录，不等于 Released。用户当前指令优先，已授权工作无需因计划记录而重复确认。
+4. **按事件更新**：开始任务时认领对应条目；范围、顺序、依赖或阻碍变化时更新原因；结束时移交或说明暂停原因。计划允许记录执行中的条目，其实现事实仍回填 §4.2。未列入计划的紧急修复可先按现有事故/授权流程处理，并在同一交付补登记。
+5. **控制长度**：只保留当前、下一批及有限候选工作，不复制完整代码证据、API、Schema、CAP 全生命周期列表或已完成日志。完成条目保留稳定锚点与证据链接；每轮复盘收缩其描述，历史用 Git/§4.2/既有归档保存。不要为“永久留存”建立第二份活跃计划。
+6. **分支协作**：功能分支更新同一根路径；并行变更合并时按条目 ID 逐项协调，禁止用整文件覆盖消解冲突。其它分支未合入的草稿仅登记为候选和待决策输入，不视为当前基线。源分支有无关工作时，使用独立 worktree 迁移明确文件与差量。
+7. **机器与人工职责**：文档门禁校验固定根入口、唯一 `planning_role: current`、元数据、登记、链接及目录生成，`plan.md` 单独变化也触发 Docs CI；删除入口不能被增量检查当作“没有文档变化”。机器不推断任意散文是否暗含排期，Code Review 负责检查是否产生第二份当前队列。
+
+既有计划清点与归并结果记在 [plan.md](../../plan.md) 的材料清点部分。隐藏忽略目录、外部参考子模块和其它工作区不由脚本自动删除或改写；其中会话笔记不具有本项目当前排期权威。
 
 ## 4. 元数据和状态模型
 
@@ -140,10 +159,10 @@ sources:
 
 | 变更信号 | 最少需要复核的文档 | 责任动作 |
 |---|---|---|
-| PRD/CAP/发布阶段变化 | PRD、SRS、追踪基线、roadmap | 建立或更新 CR，核对 CAP 状态和验收 |
+| PRD/CAP/发布阶段变化 | PRD、SRS、追踪基线、`plan.md` | 建立或更新 CR，核对 CAP 状态、验收与迭代依赖 |
 | `apps/**/src/**` 领域行为变化 | 架构、SRS、相关 CR、追踪基线 | 说明文档是否仍反映当前行为；无影响也要在 PR 说明 |
 | `packages/contracts/**` | 流式协议、SRS、API 教程、OpenAPI 产物 | 先改 schema，再生成产物和契约测试 |
-| `packages/database/**` | DATABASE、数据隐私、ERD、相关 ADR/CR | 记录迁移、删除传播和回滚影响 |
+| `packages/schema/**`、`packages/repositories/**` | DATABASE、数据隐私、ERD、相关 ADR/CR | 记录迁移、删除传播和回滚影响 |
 | `packages/agent-loop/**` 或对话执行器 | Agent Harness Loop、流式协议、AIQ、安全、追踪基线 | 更新阶段、终止语义、证据和缺口 |
 | `modules/**`、插件或技能运行时 | 能力组合、能力注册表、插件规范、迁移教程 | 更新来源、权限、生命周期和撤权边界 |
 | Worker、部署、备份或恢复变化 | 架构、operations、威胁模型、数据隐私 | 更新 SLO、演练项和恢复证据 |
@@ -170,6 +189,8 @@ docs/_meta/document-catalog.json      # 后续作为文档目录唯一输入
 索引的最小字段为：`id`、标题、路径、类型、owner、doc_status、reviewed_at、review_interval_days、review_triggers。正文摘要不进入目录数据，避免索引复制规范。
 
 ## 7. 分阶段迁移
+
+以下是治理迁移方法与既有设计切片，不是当前排期；尚待执行的具体工作统一进入 [plan.md](../../plan.md)。已经存在的生成器、元数据或检查能力以当前实现核验，不能根据历史阶段标题重复建设。
 
 ### 阶段 A：不搬目录，先止血
 
