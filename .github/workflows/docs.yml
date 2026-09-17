@@ -4,10 +4,8 @@ on:
   pull_request:
     paths:
       - "docs/**"
-      - "README.md"
-      - "AGENTS.md"
-      - "CONTRIBUTING.md"
-      - "scripts/docs-governance.mjs"
+      - "*.md"
+      - "scripts/docs-*.mjs"
       - ".markdownlint-cli2.jsonc"
       - ".lycheeignore"
       - "mise.toml"
@@ -18,15 +16,14 @@ on:
     branches: [main]
     paths:
       - "docs/**"
-      - "README.md"
-      - "AGENTS.md"
-      - "CONTRIBUTING.md"
-      - "scripts/docs-governance.mjs"
+      - "*.md"
+      - "scripts/docs-*.mjs"
       - ".markdownlint-cli2.jsonc"
       - ".lycheeignore"
       - "mise.toml"
       - ".vale.ini"
       - ".vale/**"
+      - ".github/workflows/docs.yml"
 
 permissions:
   contents: read
@@ -65,4 +62,4 @@ jobs:
           # 重试跨节点降低偶发抖动误报；timeout 放宽应对慢速 PDF 响应。
           # exclude-file：.lycheeignore 显式排除持续不可达域（espressif CDN
           # 对 GitHub runner 长窗口 502，链接可达性经人工核验）。
-          args: --no-progress --accept 200,429,403 --max-retries 3 --timeout 30 --exclude-file .lycheeignore README.md docs AGENTS.md CONTRIBUTING.md
+          args: --no-progress --accept 200,429,403 --max-retries 3 --timeout 30 --exclude-file .lycheeignore README.md docs AGENTS.md CONTRIBUTING.md plan.md

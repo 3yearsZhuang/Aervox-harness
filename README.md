@@ -1,7 +1,7 @@
 # Aervox｜思隅
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-16
+- 修改人：Codex · 2026-09-18
 
 更好上手的“主动智能” Agent：以桌宠为入口，视觉小说 + 工作台双形态交互，承载陪伴与学习双重任务。基于 TypeScript 全栈 monorepo 交付：Fastify API + 独立 Worker 进程 + 桌面端（Electron）/ Web 端（Vue 3）/ 移动端（Capacitor）共享同一套契约，SQLite (WAL) 永久本地单用户真源。产品定义、工程规范与契约事实源一律在 [docs/](docs/README.md)，本 README 提供全局概览、快速启动与开发速查。
 
@@ -163,6 +163,8 @@ AERVOX_API_URL='http://127.0.0.1:3000' AERVOX_SESSION_ID='<现有会话 ID>' pnp
 
 ## 文档体系与权威真源
 
+当前迭代建议、排序、依赖与待决策项统一维护在根目录 [plan.md](plan.md)。开始任务先读计划；维护规则见[迭代计划治理](docs/reference/document-governance.md#31-当前迭代计划的唯一入口)。PRD/ADR/契约及追踪基线继续各自负责需求、决策与验收，不在本入口复制待办。
+
 Aervox 实施严格的 Docs-as-Code 规范，文档按 Diátaxis 四分类组织。权威真源由 [docs/README.md](docs/README.md) 索引，划分为八大主题域：
 
 1. **入门指引**：[从哪开始](docs/getting-started.md) · [教程：构建第一个对话](docs/tutorials/first-conversation.md)
@@ -194,4 +196,4 @@ Aervox 实施严格的 Docs-as-Code 规范，文档按 Diátaxis 四分类组织
 本项目采用双许可机制：
 
 - **源代码**（`apps/`、`packages/`、`scripts/` 及配置文件）：基于 [GNU Affero General Public License v3](LICENSE)（AGPLv3）或更高版本授权。
-- **文档资产**（`docs/`、`README.md`、`AGENTS.md`、`CONTRIBUTING.md`）：基于 [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International](docs/LICENSE)（CC BY-NC-SA 4.0）授权。
+- **文档资产**（`docs/`、`README.md`、`AGENTS.md`、`CONTRIBUTING.md`、`plan.md`）：基于 [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International](docs/LICENSE)（CC BY-NC-SA 4.0）授权。

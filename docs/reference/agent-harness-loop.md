@@ -6,20 +6,22 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.7.0
-updated_at: 2026-09-17
-reviewed_at: 2026-09-17
+version: 0.7.1
+updated_at: 2026-09-18
+reviewed_at: 2026-09-18
 review_interval_days: 90
 ---
 
 # Agent Harness Loop 设计与落地规范
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-09-17
+- 修改人：Codex · 2026-09-18
 
 关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[Agent Loop 落地进展追溯](agent-loop-rollout-history.md)（AVX-HAR-002）、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[ADR-016](adr/ADR-016-base-boundaries.md)、[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md)、`CR-012`（已归档）、`CR-021`（已归档）、`CR-022`（已归档）、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
-本文规定 Aervox Agent Harness Loop 的职责、状态机、Port、持久化边界、工具执行、取消恢复和分阶段落地路线。当前阶段 0/1/2a-2e/3a/3b-A/3b-B 已有原生实现：`packages/agent-loop` 提供 Replay/Scripted/真实 OpenAI 兼容 Provider、多 Step 工具循环、API/SSE 持久化、工具账本、写工具审批、`ask_user_question` 人机提问交互、lease TTL/续租、过期抢占、fencing 单一终态和 Worker 恢复；3c+ 生产级安全补强、完整 Inbox/ContextManifest 关联、独立 Host 以及 DSH/pi Adapter 仍是后续目标。文中标为“目标”的接口、表和状态转换，只有在对应代码、迁移和契约测试落地后才可视为运行能力。
+本文规定 Aervox Agent Harness Loop 的职责、状态机、Port、持久化边界、工具执行、取消恢复和阶段验收条件。阶段 0/1/2a-2e/3a/3b-A/3b-B 的历史记录包含原生实现：`packages/agent-loop` 提供 Replay/Scripted/真实 OpenAI 兼容 Provider、多 Step 工具循环、API/SSE 持久化、工具账本、写工具审批、`ask_user_question` 人机提问交互、lease TTL/续租、过期抢占、fencing 单一终态和 Worker 恢复；原阶段设计另列 3c+ 生产级安全补强、完整 Inbox/ContextManifest 关联、独立 Host 以及 DSH/pi Adapter 目标。文中标为“目标”的接口、表和状态转换，只有在对应代码、迁移和契约测试落地后才可视为运行能力。
+
+当前迭代建议、工作排序和待决策入口统一为根 [plan.md](../../plan.md)（AVX-PLAN-001），规划边界见[文档治理规范 §3.1](document-governance.md#31-当前迭代计划的唯一入口)。本文件保留阶段设计、退出条件与历史证据；旧阶段编号及当时的完成描述不代表默认生产接线或当前排期。实现与验收状态以[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)及其关联证据为准，已接受的契约和退出条件不因调整计划而失效。
 
 ## 1. 范围与非目标
 
@@ -31,7 +33,7 @@ Agent Harness Loop 是驱动一次 Agent Turn 的执行能力：它领取已持�
 - 输入安全、上下文组装、模型调用、工具权限、结果回填和终止判断；
 - 流式持久化、取消、重试、租约、fencing、恢复和可观测性；
 - 原生 Loop Driver 与 DSH/pi Adapter 的替换边界，以及 Model Provider 的调用边界；
-- 从迁移期 API 内嵌 Loop 逐步演进到异步、可替换和可恢复的完整 Loop 的阶段计划。
+- 从迁移期 API 内嵌 Loop 逐步演进到异步、可替换和可恢复的完整 Loop 的阶段设计与退出条件。
 
 本文不覆盖：
 
@@ -498,7 +500,11 @@ adapters/
 
 pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具批次采用 every/all：非空且所有结果 `terminate=true` 才能终止；固定版本的 `AgentHarness` v2 公开 `prompt`、`resume`、`abort` 和队列能力仍返回 `HarnessNotImplemented`，不能当作已完成的持久化 Harness。pi Extension 的事件、Tool、Provider 和上下文注入可映射为 Agent Loop Contribution，但 Extension 默认拥有完整宿主权限。`adapter-pi` 必须进程外执行，且只能通过受限 RPC 提交 Tool/Provider/Inbox Contribution；若包装低层 loop，仍需实现 Aervox 的 lease、fencing、持久化和恢复契约，不能直接把 v2 scaffold 当作 API 进程内 Loop。
 
-## 15. 分阶段落地计划
+<a id="15-分阶段落地计划"></a>
+
+## 15. 阶段设计、退出条件与历史进展
+
+以下保留原阶段设计及历史实现摘要，供理解依赖和核对验收；“后续”“待补”均是原阶段记录中的边界说明，不构成独立的当前待办队列。采纳其中工作时，先核对源码与[历史落地证据](agent-loop-rollout-history.md)，再纳入根 [plan.md](../../plan.md)。阶段的安全不变量、准入和退出条件继续适用；变更已接受约束仍须履行 CR/ADR 流程。
 
 ### 阶段 0：冻结契约与测试骨架（已落地基础路径）
 
@@ -641,6 +647,8 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 - 回滚不得删除已提交的安全片段、ModelRun、ToolExecution 或审计记录。
 
 ## 18. 决策与后续文档
+
+当前需要推进哪些决策以及它们的先后关系，由根 [plan.md](../../plan.md)维护。本节保留实施相关阶段时必须处理的架构决策范围，不能用计划中的排序代替评审或豁免验收。
 
 本文是 `CR-012` 的 Reference，既记录阶段 0/1/2a-2e/3a/3b-A/3b-B 的已落地边界，也记录 3c+、独立 Host 和 DSH/pi Adapter 的目标。正式实施下一阶段前应新增架构决策，冻结以下难以逆转的内容：
 

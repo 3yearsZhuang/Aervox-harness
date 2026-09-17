@@ -35,10 +35,10 @@ check-affected = "node scripts/check-affected.mjs"
 docs-lint-affected = "node scripts/docs-lint-affected.mjs"
 
 # 本地全量文档门禁：Markdown lint + 术语散文 lint + 治理/本地链接校验
-ci-docs = "node --test scripts/docs-governance.test.mjs && npx markdownlint-cli2 --config .markdownlint-cli2.jsonc 'docs/**/*.md' 'README.md' 'AGENTS.md' 'CONTRIBUTING.md' && mise tasks run docs-lint-prose && mise tasks run docs-validate"
+ci-docs = "node --test scripts/docs-*.test.mjs && npx markdownlint-cli2 --config .markdownlint-cli2.jsonc 'docs/**/*.md' 'README.md' 'AGENTS.md' 'CONTRIBUTING.md' 'plan.md' && mise tasks run docs-lint-prose && mise tasks run docs-validate"
 
 # 术语/散文一致性（配置见 .vale.ini，错误级别阻断）
-docs-lint-prose = "vale --minAlertLevel=error docs README.md AGENTS.md CONTRIBUTING.md"
+docs-lint-prose = "vale --minAlertLevel=error docs README.md AGENTS.md CONTRIBUTING.md plan.md"
 
 # 文档 ID、元数据、登记表与本地链接/锚点一致性
 docs-validate = "node scripts/docs-governance.mjs --strict"
