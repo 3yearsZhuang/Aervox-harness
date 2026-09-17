@@ -20,6 +20,7 @@ describe('useAervoxModelRuntime (CR-054)', () => {
     await api.cancelDownload();
     await api.start({ modelId: 'm', params: { port: 8080 } });
     await api.stop();
+    await api.deleteModel('qwen-del');
 
     expect(calls.map(([m, p]) => `${m} ${p}`)).toEqual([
       'GET /v1/model-runtime/state',
@@ -27,18 +28,19 @@ describe('useAervoxModelRuntime (CR-054)', () => {
       'POST /v1/model-runtime/downloads/cancel',
       'POST /v1/model-runtime/start',
       'POST /v1/model-runtime/stop',
+      'DELETE /v1/model-runtime/models/qwen-del',
     ]);
     // 下载/启动 body 原样透传（Electron IPC 结构化克隆边界）
     expect(calls[1][2]).toEqual({ url: 'https://example.com/m.gguf', sha256: 'ab' });
     expect(calls[3][2]).toEqual({ modelId: 'm', params: { port: 8080 } });
   });
 
-  it('返回的 DTO 包含运行时与下载进度字段', async () => {
+  it('返回的 DTO 包含运行时日志与下载续传字段', async () => {
     configureAervoxClient({
       transport: makeTransport(async () => ({
         models: [{ id: 'm', fileName: 'm.gguf', path: '/x/m.gguf', status: 'downloaded' }],
-        runtime: { status: 'running', port: 8080 },
-        download: { active: false },
+        runtime: { status: 'running', port: 8080, logs: ['boot ok'] },
+        download: { active: false, resumableFrom: 1234 },
         llamaServer: { source: 'missing' },
       })),
     });
@@ -47,5 +49,7 @@ describe('useAervoxModelRuntime (CR-054)', () => {
     const state = await api.getState();
     expect(state.models[0].fileName).toBe('m.gguf');
     expect(state.runtime.status).toBe('running');
+    expect(state.runtime.logs).toContain('boot ok');
+    expect(state.download.resumableFrom).toBe(1234);
   });
 });

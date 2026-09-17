@@ -32,6 +32,7 @@ const error = ref<string | null>(null)
 // 下载表单
 const downloadUrl = ref('')
 const downloadSha = ref('')
+const downloadAutoStart = ref(true)
 const downloadBusy = ref(false)
 
 // 启动参数（默认对齐服务端默认值 8080 / 8192 / 99 / 4）
@@ -121,16 +122,31 @@ async function handleDownload(): Promise<void> {
     state.value = await runtime.download({
       url,
       sha256: downloadSha.value.trim() || undefined,
+      autoStart: downloadAutoStart.value,
     })
     downloadUrl.value = ''
     downloadSha.value = ''
-    ElMessage.success('已开始下载模型')
+    ElMessage.success(downloadAutoStart.value ? '下载完成，已自动连接本地模型' : '已开始下载模型')
   } catch (e) {
     const msg = e instanceof Error ? e.message : '发起下载失败'
     error.value = msg.includes('download_busy') ? '已有下载任务进行中' : msg
     ElMessage.error(error.value)
   } finally {
     downloadBusy.value = false
+    refresh()
+  }
+}
+
+/** 删除已下载模型（运行中当前模型禁用） */
+async function handleDeleteModel(modelId: string): Promise<void> {
+  try {
+    await runtime.deleteModel(modelId)
+    if (selectedModelId.value === modelId) selectedModelId.value = null
+    ElMessage.success('模型已删除')
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : '删除失败'
+    ElMessage.error(error.value)
+  } finally {
     refresh()
   }
 }
@@ -272,9 +288,13 @@ onBeforeUnmount(() => {
             :disabled="downloadBusy || state?.download.active"
             @click="handleDownload"
           >
-            <Download :size="14" />{{ state?.download.active ? '下载中…' : '开始下载' }}
+            <Download :size="14" />{{ state?.download.active ? '下载中…' : '下载模型' }}
           </button>
         </div>
+        <label class="mr-auto-start-row">
+          <input v-model="downloadAutoStart" type="checkbox" :disabled="state?.download.active" />
+          <span>下载完成后自动启动并连接（切换为 llama.cpp 预设）</span>
+        </label>
 
         <div v-if="state?.download.active" class="mr-download-progress">
           <div class="mr-progress-track">
@@ -319,9 +339,24 @@ onBeforeUnmount(() => {
               />
               <span class="mr-model-name">{{ model.fileName }}</span>
               <span class="mr-model-meta">{{ formatSize(model.sizeBytes) }}</span>
-              <span v-if="model.sha256" class="mr-model-meta mono" :title="model.sha256">sha256 已校验</span>
+              <span v-if="model.sha256" class="mr-model-meta mono" :title="model.sha256">sha256 ✓</span>
+              <button
+                type="button"
+                class="mr-btn mr-model-delete"
+                :disabled="runtimeRunning && state?.runtime.modelId === model.id"
+                :title="runtimeRunning && state?.runtime.modelId === model.id ? '运行中，请先停止' : '删除模型'"
+                @click.stop="handleDeleteModel(model.id)"
+              >
+                <Trash2 :size="12" />
+              </button>
             </label>
           </div>
+
+          <!-- 运行日志（stderr 环形缓冲） -->
+          <details v-if="state?.runtime.logs?.length" class="mr-log-details">
+            <summary>运行日志（{{ state.runtime.logs.length }} 条）</summary>
+            <pre class="mr-log-pre"><code v-for="(line, i) in state.runtime.logs" :key="i">{{ line }}</code></pre>
+          </details>
 
           <div class="mr-params-grid">
             <label class="mr-param-field">
@@ -586,6 +621,114 @@ onBeforeUnmount(() => {
 .mr-model-meta.mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   margin-left: auto;
+}
+
+.mr-model-delete {
+  padding: 3px 8px;
+  color: var(--danger, #e5484d);
+  border-color: transparent;
+  flex-shrink: 0;
+}
+
+.mr-model-delete:hover:not(:disabled) {
+  border-color: var(--danger, #e5484d);
+  color: var(--danger, #e5484d);
+}
+
+.mr-model-delete:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.mr-auto-start-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.mr-log-details {
+  font-size: 11.5px;
+}
+
+.mr-log-details summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.mr-log-pre {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  max-height: 180px;
+  overflow: auto;
+  border-radius: 8px;
+  background: var(--bg-soft, rgba(0, 0, 0, 0.04));
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.mr-log-pre code {
+  display: block;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.mr-model-delete {
+  padding: 3px 8px;
+  color: var(--danger, #e5484d);
+  border-color: transparent;
+  flex-shrink: 0;
+}
+
+.mr-model-delete:hover:not(:disabled) {
+  border-color: var(--danger, #e5484d);
+  color: var(--danger, #e5484d);
+}
+
+.mr-model-delete:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.mr-auto-start-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.mr-log-details {
+  font-size: 11.5px;
+}
+
+.mr-log-details summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.mr-log-pre {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  max-height: 180px;
+  overflow: auto;
+  border-radius: 8px;
+  background: var(--bg-soft, rgba(0, 0, 0, 0.04));
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.mr-log-pre code {
+  display: block;
+  line-height: 1.5;
+  color: var(--text-secondary);
 }
 
 .mr-params-grid {

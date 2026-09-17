@@ -114,6 +114,24 @@ describe("LlamaServerManager (CR-054)", () => {
     expect(again.status).toBe("idle");
   });
 
+  it("stderr 按行进入 logs 环形缓冲并在 handle 中可读（CR-054 迭代）", async () => {
+    const child = createFakeChild();
+    const manager = new LlamaServerManager({
+      resolveBin: () => "/fake/llama-server",
+      spawn: (() => child) as unknown as typeof import("node:child_process").spawn,
+      fetchImpl: (async () => new Response("ok", { status: 200 })) as typeof fetch,
+      probeIntervalMs: 10,
+      probeTimeoutMs: 2000,
+    });
+    const startPromise = manager.start(MODEL, { port: 8084, ctxSize: 8192, gpuLayers: 99, threads: 4 });
+    child.stderr.write("line one\nline two\npartial");
+    child.stderr.end();
+    await startPromise;
+    const logs = manager.getHandle().logs;
+    expect(logs).toContain("line one");
+    expect(logs).toContain("line two");
+  });
+
   it("进程意外退出（非 stop 触发）置为 error 并带 stderr 尾迹", async () => {
     const child = createFakeChild();
     const manager = new LlamaServerManager({

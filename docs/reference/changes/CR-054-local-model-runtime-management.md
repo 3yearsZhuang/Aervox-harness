@@ -66,10 +66,21 @@ CR-053 已将 llama.cpp 作为**底层能力**（`llamacpp` providerType）接�
   挂载于设置弹窗新增「本地模型」分类（`local-models`），`settingCategories` 扩展；
 - 无数据库表变更（模型注册以磁盘文件 + 侧车 JSON 为真源；进程状态为内存态）。
 
-OpenAPI：`GET /v1/model-runtime/state`、`POST /v1/model-runtime/downloads`、
-`POST /v1/model-runtime/downloads/cancel`、`POST /v1/model-runtime/start`、`POST /v1/model-runtime/stop`。
+OpenAPI：`GET /v1/model-runtime/state`、`POST /v1/model-runtime/downloads`（含 `autoStart`）、
+`POST /v1/model-runtime/downloads/cancel`、`POST /v1/model-runtime/start`、`POST /v1/model-runtime/stop`、
+`DELETE /v1/model-runtime/models/{modelId}`（CR-054 迭代）。
 
-## 4. 验证与测试标准
+## 4. CR-054 迭代增量（本批次）
+
+面向真实使用场景补足运维闭环：
+
+- **模型删除**：`DELETE /v1/model-runtime/models/{modelId}`（运行中 409 / 不存在 404），清理 `.gguf`、侧车与 `.part`；
+- **运行日志**：llama-server stderr 按行进入环形缓冲（60 条 × 800 字），`state.runtime.logs` 直出，UI 折叠查看；
+- **断点续传**：`.part` 存在时携带 `Range` 从既有字节继续；206 追加写并预计算存量 SHA-256 前缀做全文件校验，
+  200/416/405 回退整量覆盖；校验失败删除残片防止损坏数据续传；`download.resumableFrom` 透出续传起点；
+- **下载后自动连接**：`ModelDownloadRequest.autoStart` 完成后自动拉起 llama-server 并联动 LLM 预设（无缝连接）。
+
+## 5. 验证与测试标准
 
 - `apps/api/test/model-runtime-downloader.test.ts`（真实 Node http 服务）：流式进度、SHA-256 匹配/不匹配清理、
   HTTP 404 归类、网络不可达归类；
@@ -81,7 +92,7 @@ OpenAPI：`GET /v1/model-runtime/state`、`POST /v1/model-runtime/downloads`、
 - `packages/ui`：既有 71 项全量通过（SettingsModal 挂载新面板无回归）；
 - 门禁：`./aervox ci all` 全量终审（code + docs）。
 
-## 5. 回滚条件与应急方案
+## 6. 回滚条件与应急方案
 
 - 配置维：不进入「本地模型」设置页 / 不发起下载即零影响；环境开关 `AERVOX_LLAMA_SERVER_PATH` 可随时指向
   其它 llama-server 实现；

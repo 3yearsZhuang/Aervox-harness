@@ -22,6 +22,8 @@ export const localModelSchema = z.object({
   status: z.enum(["downloaded", "downloading", "error"]).default("downloaded"),
   downloadedAt: z.string().datetime().optional(),
   path: z.string().min(1),
+  /** 模型注册元信息异常（如校验失败残留标记） */
+  error: z.string().optional(),
 });
 
 /** llama-server 启动参数（详见 llama.cpp server 命令行） */
@@ -43,6 +45,8 @@ export const modelRuntimeStateSchema = z.object({
     binPath: z.string().optional(),
     startedAt: z.string().datetime().optional(),
     error: z.string().optional(),
+    /** llama-server stderr 环形缓冲（最近条数，诊断启动/运行异常） */
+    logs: z.array(z.string()).optional(),
   }),
   params: llamaRuntimeParamsSchema.optional(),
   download: z
@@ -52,6 +56,8 @@ export const modelRuntimeStateSchema = z.object({
       modelId: z.string().optional(),
       receivedBytes: z.number().int().nonnegative().optional(),
       totalBytes: z.number().int().nonnegative().nullable().optional(),
+      /** 断点续传基准：已有 .part 已下载字节数（Range 续传起点） */
+      resumableFrom: z.number().int().nonnegative().optional(),
       status: z.enum(["running", "done", "error", "cancelled"]).optional(),
       error: z.string().optional(),
     })
@@ -70,6 +76,8 @@ export const modelDownloadRequestSchema = z.object({
   url: z.string().url(),
   sha256: z.string().optional(),
   fileName: z.string().optional(),
+  /** 下载完成后自动启动 llama-server 并联动 LLM 预设（sk：UI 无感连接） */
+  autoStart: z.boolean().optional().default(false),
 });
 
 /** 启动本地模型运行时请求（缺省以 state.params 或默认值启动） */

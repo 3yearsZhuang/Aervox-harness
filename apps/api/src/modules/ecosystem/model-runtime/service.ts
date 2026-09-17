@@ -33,6 +33,8 @@ interface DownloadState {
   modelId?: string;
   receivedBytes?: number;
   totalBytes?: number | null;
+  /** 断点续传基准（.part 既有字节） */
+  resumableFrom?: number;
   status?: "running" | "done" | "error" | "cancelled";
   error?: string;
 }
@@ -113,6 +115,7 @@ export class ModelRuntimeService {
         binPath: binPath ?? undefined,
         startedAt: handle.startedAt ?? undefined,
         error: handle.error ?? undefined,
+        logs: handle.logs,
       },
       params: { ...this.lastParams },
       download: { ...this.download },
@@ -137,13 +140,22 @@ export class ModelRuntimeService {
 
     const destPath = path.join(this.modelsDir, fileName);
     const sidecarPath = this.sidecarPath(destPath);
+    // 断点续传基准：已有 .part 的大小（downloadToFile 内部据此发 Range）
+    let resumeFrom = 0;
+    try {
+      const partStat = await fs.stat(`${destPath}.part`);
+      if (partStat.isFile()) resumeFrom = partStat.size;
+    } catch {
+      // 无残片：从头下载
+    }
     this.download.active = true;
     this.download.url = request.url;
     this.download.modelId = id;
     this.download.status = "running";
     this.download.error = undefined;
-    this.download.receivedBytes = 0;
+    this.download.receivedBytes = resumeFrom;
     this.download.totalBytes = null;
+    this.download.resumableFrom = resumeFrom > 0 ? resumeFrom : undefined;
     this.downloadController = new AbortController();
 
     await fs.writeFile(
@@ -174,6 +186,7 @@ export class ModelRuntimeService {
         "utf8",
       ).catch(() => undefined);
       this.download.status = "done";
+      // resumableFrom 保留透出（本次续传起点），供 UI 展示
     } catch (error) {
       const aborted = error instanceof Error && error.name === "AbortError";
       this.download.status = aborted ? "cancelled" : "error";
@@ -185,12 +198,21 @@ export class ModelRuntimeService {
             ? error.message
             : "下载失败";
       if (!aborted) {
-        await fs.rm(sidecarPath, { force: true }).catch(() => undefined);
+        // 校验失败时 downloader 已自删 .part；其余错误保留残片供下次续传
       }
       throw error;
     } finally {
       this.download.active = false;
       this.downloadController = null;
+    }
+
+    // 下载后自动连接：拉起 llama-server 并联动 LLM 预设（CR-054 迭代）
+    if (request.autoStart) {
+      try {
+        await this.start({ modelId: id });
+      } catch (error) {
+        this.download.error = `autoStart 失败: ${error instanceof Error ? error.message : String(error)}`;
+      }
     }
     return this.getState();
   }
@@ -198,6 +220,24 @@ export class ModelRuntimeService {
   /** 取消进行中的下载（幂等） */
   async cancelDownload(): Promise<ModelRuntimeState> {
     this.downloadController?.abort();
+    return this.getState();
+  }
+
+  /** 删除已下载模型（运行中禁止；删除 .gguf 与侧车元数据） */
+  async deleteModel(modelId: string): Promise<ModelRuntimeState> {
+    const models = await this.scanModels();
+    const wantedId = modelId.replace(/\.gguf$/i, "");
+    const model = models.find((m) => m.id === wantedId || m.fileName === modelId);
+    if (!model) {
+      throw new Error(`model_not_found: 未找到模型「${modelId}」`);
+    }
+    const handle = this.llama.getHandle();
+    if (handle.modelId === model.id && (handle.status === "running" || handle.status === "starting")) {
+      throw new Error("llama_server_busy: 模型运行中，请先停止本地模型运行时（POST /v1/model-runtime/stop）");
+    }
+    await fs.rm(model.path, { force: true });
+    await fs.rm(this.sidecarPath(model.path), { force: true });
+    await fs.rm(`${model.path}.part`, { force: true });
     return this.getState();
   }
 

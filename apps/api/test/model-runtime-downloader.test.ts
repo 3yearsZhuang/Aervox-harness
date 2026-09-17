@@ -19,7 +19,33 @@ let baseUrl: string;
 
 beforeAll(async () => {
   server = http.createServer((req, res) => {
-    if (req.url === "/model.bin") {
+    if (req.url === "/model.bin" || req.url?.startsWith("/model.bin")) {
+      const range = req.headers.range;
+      if (range) {
+        const match = /bytes=(\d+)-/.exec(range);
+        if (match) {
+          const start = Number(match[1]);
+          if (start >= PAYLOAD.length) {
+            res.writeHead(416, { "Content-Range": `bytes */${PAYLOAD.length}` });
+            res.end();
+            return;
+          }
+          const slice = PAYLOAD.subarray(start);
+          res.writeHead(206, {
+            "Content-Type": "application/octet-stream",
+            "Content-Length": String(slice.length),
+            "Content-Range": `bytes ${start}-${PAYLOAD.length - 1}/${PAYLOAD.length}`,
+          });
+          res.end(slice);
+          return;
+        }
+      }
+      res.writeHead(200, { "Content-Type": "application/octet-stream", "Content-Length": String(PAYLOAD.length) });
+      res.end(PAYLOAD);
+      return;
+    }
+    if (req.url === "/no-range.bin") {
+      // 忽略 Range 的服务端（始终 200 全量）
       res.writeHead(200, { "Content-Type": "application/octet-stream", "Content-Length": String(PAYLOAD.length) });
       res.end(PAYLOAD);
       return;
@@ -87,6 +113,48 @@ describe("downloadToFile (CR-054)", () => {
       await expect(
         downloadToFile({ url: `${baseUrl}/not-found`, destPath: dest }),
       ).rejects.toMatchObject({ kind: "http", httpStatus: 404 });
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("断点续传：携带 Range 从 206 追加并做全文件校验（CR-054 迭代）", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-mrdl-"));
+    const dest = path.join(dir, "model.gguf");
+    const half = PAYLOAD.subarray(0, Math.floor(PAYLOAD.length / 2));
+    try {
+      // 预置半截 .part，模拟中断
+      await fs.writeFile(`${dest}.part`, half);
+      const expectedSha = createHash("sha256").update(PAYLOAD).digest("hex");
+      const progress: number[] = [];
+      const result = await downloadToFile({
+        url: `${baseUrl}/model.bin`,
+        destPath: dest,
+        sha256: expectedSha,
+        onProgress: (p) => progress.push(p.receivedBytes),
+      });
+      expect(result.receivedBytes).toBe(PAYLOAD.length);
+      expect(result.sha256).toBe(expectedSha);
+      expect(result.transferredBytes).toBe(PAYLOAD.length - half.length);
+      expect(await fs.readFile(dest, "utf8")).toBe(PAYLOAD.toString("utf8"));
+      expect(progress[0]).toBeGreaterThanOrEqual(half.length);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("服务端不支持 Range（200 全量）时回退整量覆盖（CR-054 迭代）", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-mrdl-"));
+    const dest = path.join(dir, "model.gguf");
+    try {
+      await fs.writeFile(`${dest}.part`, Buffer.from("partial-garbage"));
+      const result = await downloadToFile({
+        url: `${baseUrl}/no-range.bin`,
+        destPath: dest,
+      });
+      expect(result.receivedBytes).toBe(PAYLOAD.length);
+      expect(result.transferredBytes).toBe(PAYLOAD.length);
+      expect(await fs.readFile(dest, "utf8")).toBe(PAYLOAD.toString("utf8"));
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
     }
