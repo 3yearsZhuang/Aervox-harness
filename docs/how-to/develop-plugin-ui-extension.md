@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.0
+version: 1.0.1
 updated_at: 2026-09-18
 reviewed_at: 2026-09-18
 review_interval_days: 90
@@ -198,7 +198,7 @@ console.log('sha256:' + createHash('sha256').update(bytes).digest('hex'));
 JS
 ```
 
-预期：输出完整包路径及 64 位 SHA-256；ZIP 根直接包含 Manifest。该校验覆盖本例所用字段，不是完整安全审核。准备出厂声明包时，可将已评审资源加入 `plugins/<id>/` 后运行 `mise exec -- pnpm package:plugins`，得到 `dist-plugins/` 产物；该批量命令本身只打包。
+预期：输出完整包路径及 64 位 SHA-256；ZIP 根直接包含 Manifest。该校验覆盖本例所用字段，不是完整安全审核。准备出厂声明包时，可将已评审资源加入 `plugins/<id>/` 后运行 `mise tasks run package-plugins`（等价 `mise exec -- pnpm package:plugins`），得到 `dist-plugins/` 产物；该批量命令只打包，不完成契约校验或安全认证。产物字节可重现（同源码重复打包的 SHA-256 稳定），且 `dist-plugins/` 已被 gitignore——验证与测试不要依赖该目录的既有文件，需要分发包时经产品导出端点现场生成。
 
 ### 2.4 在临时数据库验证安装闭环
 
