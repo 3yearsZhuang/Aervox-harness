@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-09-17",
-  "totalCount": 69,
+  "totalCount": 71,
   "documents": [
     {
       "id": "AVX-PLAN-001",
@@ -14,7 +14,7 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "updated_at": "2026-09-18",
       "reviewed_at": "2026-09-18",
       "review_interval_days": 7,
@@ -46,7 +46,7 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.15.0",
+      "version": "1.16.0",
       "updated_at": "2026-09-18",
       "reviewed_at": "2026-09-18",
       "review_interval_days": 90,
@@ -95,7 +95,7 @@
     },
     {
       "id": "AVX-EXPL-011",
-      "title": "配套硬件方向：当前能力、产品选择与原型路线",
+      "title": "配套硬件方向：能力核查、移动协同取舍与原型路线",
       "path": "explanation/companion-hardware-directions.md",
       "type": "explanation",
       "scope": "baseline",
@@ -104,28 +104,31 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "updated_at": "2026-09-18",
       "reviewed_at": "2026-09-18",
       "review_interval_days": 60,
       "review_triggers": [
+        "apps/mobile/**",
         "apps/desktop/src/main/**",
         "apps/api/src/modules/platform/voice/**",
         "apps/api/src/modules/knowledge/content/**",
         "apps/api/src/modules/ecosystem/model-runtime/**",
         "apps/api/src/modules/proactive/proactive/**",
         "packages/contracts/src/**",
+        "docs/reference/changes/CR-055-mobile-delivery-plan.md",
         "docs/reference/capability-registry.md"
       ],
       "sources": [
+        "docs/reference/changes/CR-055-mobile-delivery-plan.md",
         "docs/reference/PRD.md",
         "docs/reference/ARCHITECTURE.md",
+        "docs/reference/DATA_PRIVACY.md",
         "docs/reference/capability-registry.md",
         "docs/reference/REQUIREMENTS_TRACEABILITY.md",
         "docs/reference/adr/ADR-016-base-boundaries.md",
         "docs/reference/adr/ADR-018-proactive-local-privacy-host.md",
-        "docs/reference/adr/ADR-019-proactive-integrations-local-gateway.md",
-        "docs/explanation/esp32-s3-hardware-extension.md"
+        "docs/reference/adr/ADR-019-proactive-integrations-local-gateway.md"
       ]
     },
     {
@@ -156,12 +159,14 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "updated_at": "2026-09-18",
       "reviewed_at": "2026-09-18",
       "review_interval_days": 90,
       "review_triggers": [],
-      "sources": []
+      "sources": [
+        "docs/explanation/companion-hardware-directions.md"
+      ]
     },
     {
       "id": "AVX-EXPL-010",
@@ -303,7 +308,7 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.0.7",
+      "version": "1.0.8",
       "updated_at": "2026-09-18",
       "reviewed_at": "2026-09-18",
       "review_interval_days": 90,
@@ -503,7 +508,7 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.13.0",
+      "version": "1.14.0",
       "updated_at": "2026-09-18",
       "reviewed_at": "2026-09-18",
       "review_interval_days": 90,
@@ -1011,6 +1016,39 @@
       ]
     },
     {
+      "id": "CR-055",
+      "title": "CR-055 移动端落地范围与分阶段交付规划",
+      "path": "reference/changes/CR-055-mobile-delivery-plan.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "proposed",
+      "delivery_status": "planned",
+      "version": "0.1.1",
+      "updated_at": "2026-09-18",
+      "reviewed_at": "2026-09-18",
+      "review_interval_days": 30,
+      "review_triggers": [
+        "apps/mobile/**",
+        "apps/web/**",
+        "packages/ui/**",
+        "packages/api-client/**",
+        "apps/api/src/shared/auth.ts",
+        "docs/reference/adr/ADR-015-vue-full-stack.md",
+        "docs/reference/DATA_PRIVACY.md"
+      ],
+      "sources": [
+        "docs/reference/PRD.md",
+        "docs/reference/ARCHITECTURE.md",
+        "docs/reference/STREAMING_PROTOCOL.md",
+        "docs/reference/DATA_PRIVACY.md",
+        "docs/reference/adr/ADR-015-vue-full-stack.md",
+        "docs/reference/adr/ADR-018-proactive-local-privacy-host.md",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md"
+      ]
+    },
+    {
       "id": "AVX-DATA-001",
       "title": "Aervox｜思隅 数据与隐私规范",
       "path": "reference/DATA_PRIVACY.md",
@@ -1077,6 +1115,23 @@
         "docs/reference/PRD.md",
         "docs/reference/SRS.md"
       ]
+    },
+    {
+      "id": "AVX-DS-001",
+      "title": "Aervox 视觉系统与设计规范 (Design System & Tokens)",
+      "path": "reference/DESIGN.md",
+      "type": "reference",
+      "scope": "baseline",
+      "owner": "maintainers",
+      "doc_status": "approved",
+      "decision_status": "not-applicable",
+      "delivery_status": "not-applicable",
+      "version": "1.0.0",
+      "updated_at": "2026-09-17",
+      "reviewed_at": "2026-09-17",
+      "review_interval_days": 90,
+      "review_triggers": [],
+      "sources": []
     },
     {
       "id": "AVX-DOC-GOV-001",
@@ -1203,7 +1258,7 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.35.0",
+      "version": "1.36.0",
       "updated_at": "2026-09-18",
       "reviewed_at": "2026-09-18",
       "review_interval_days": 90,
