@@ -26,6 +26,26 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const uploading = ref(false)
 const busySkillId = ref<string | null>(null)
 
+type SkillFilter = 'pure' | 'plugin' | 'all'
+const filterMode = ref<SkillFilter>('pure')
+
+function isPureSkill(skill: SkillDto): boolean {
+  return skill.source !== 'plugin' && !skill.pluginId
+}
+
+const displaySkills = computed(() => {
+  if (filterMode.value === 'pure') {
+    return skills.value.filter(isPureSkill)
+  }
+  if (filterMode.value === 'plugin') {
+    return skills.value.filter((s) => !isPureSkill(s))
+  }
+  return skills.value
+})
+
+const pureSkillCount = computed(() => skills.value.filter(isPureSkill).length)
+const pluginSkillCount = computed(() => skills.value.filter((s) => !isPureSkill(s)).length)
+
 onMounted(() => {
   void loadSkills()
 })
@@ -154,8 +174,32 @@ async function handleFileSelected(event: Event): Promise<void> {
 <template>
   <div class="skill-manager-tab">
     <div class="tab-toolbar">
-      <div class="tab-summary">
-        <span>已注册 <strong>{{ skills.length }}</strong> 个技能指令包</span>
+      <div class="tab-filters">
+        <button
+          type="button"
+          class="filter-pill-btn"
+          :class="{ active: filterMode === 'pure' }"
+          @click="filterMode = 'pure'"
+        >
+          独立技能 ({{ pureSkillCount }})
+        </button>
+        <button
+          v-if="pluginSkillCount > 0"
+          type="button"
+          class="filter-pill-btn"
+          :class="{ active: filterMode === 'plugin' }"
+          @click="filterMode = 'plugin'"
+        >
+          插件内置 ({{ pluginSkillCount }})
+        </button>
+        <button
+          type="button"
+          class="filter-pill-btn"
+          :class="{ active: filterMode === 'all' }"
+          @click="filterMode = 'all'"
+        >
+          全部 ({{ skills.length }})
+        </button>
       </div>
       <div class="tab-actions">
         <input
@@ -177,15 +221,22 @@ async function handleFileSelected(event: Event): Promise<void> {
       </div>
     </div>
 
+    <!-- 纯粹模式下提示有插件内置技能 -->
+    <div v-if="filterMode === 'pure' && pluginSkillCount > 0" class="plugin-skills-banner">
+      <Sparkles :size="15" />
+      <span>当前已过滤 {{ pluginSkillCount }} 个插件内置技能（可前往对应插件设置单独管理）。</span>
+      <button type="button" class="banner-link-btn" @click="filterMode = 'plugin'">查看插件技能</button>
+    </div>
+
     <div v-if="loading" class="tab-loading">加载技能列表中…</div>
     <p v-else-if="error" class="tab-empty">{{ error }}</p>
-    <p v-else-if="skills.length === 0" class="tab-empty">
-      暂无可用的技能包。点击右上角「上传技能」安装符合 Anthropic Skills 规范的 ZIP 包。
+    <p v-else-if="displaySkills.length === 0" class="tab-empty">
+      暂无可用的技能。点击右上角「上传技能」安装符合 Anthropic Skills 规范的 ZIP 包。
     </p>
 
     <div v-else class="skill-list">
       <article
-        v-for="skill in skills"
+        v-for="skill in displaySkills"
         :key="skill.id || skill.name"
         class="skill-card"
         :class="{ inactive: !isSkillActive(skill) }"
@@ -253,12 +304,52 @@ async function handleFileSelected(event: Event): Promise<void> {
   justify-content: space-between;
   align-items: center;
 }
-.tab-summary {
-  font-size: 11px;
-  color: var(--text-muted);
+.tab-filters {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  padding: 3px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
 }
-.tab-summary strong {
+.filter-pill-btn {
+  background: transparent;
+  border: none;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.filter-pill-btn:hover {
   color: var(--text-primary);
+}
+.filter-pill-btn.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+.plugin-skills-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--accent-soft) 40%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.banner-link-btn {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: underline;
 }
 .btn-primary-action {
   display: inline-flex;

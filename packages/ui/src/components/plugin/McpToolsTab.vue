@@ -28,6 +28,26 @@ const registerDialogOpen = ref(false)
 const selectedTool = ref<ToolRegistrationDto | null>(null)
 const busyToolId = ref<string | null>(null)
 
+type ToolFilter = 'pure' | 'plugin' | 'all'
+const filterMode = ref<ToolFilter>('pure')
+
+function isPluginTool(tool: ToolRegistrationDto): boolean {
+  return Boolean(tool.pluginId && !tool.pluginId.startsWith('mcp:'))
+}
+
+const displayTools = computed(() => {
+  if (filterMode.value === 'pure') {
+    return tools.value.filter((t) => !isPluginTool(t))
+  }
+  if (filterMode.value === 'plugin') {
+    return tools.value.filter(isPluginTool)
+  }
+  return tools.value
+})
+
+const pureToolCount = computed(() => tools.value.filter((t) => !isPluginTool(t)).length)
+const pluginToolCount = computed(() => tools.value.filter(isPluginTool).length)
+
 onMounted(() => {
   void loadTools()
 })
@@ -109,8 +129,32 @@ function handlePresetChanged(): void {
 <template>
   <div class="mcp-tools-tab">
     <div class="tab-toolbar">
-      <div class="tab-summary">
-        <span>已注册 <strong>{{ tools.length }}</strong> 个工具与 MCP 端点</span>
+      <div class="tab-filters">
+        <button
+          type="button"
+          class="filter-pill-btn"
+          :class="{ active: filterMode === 'pure' }"
+          @click="filterMode = 'pure'"
+        >
+          系统与独立 MCP ({{ pureToolCount }})
+        </button>
+        <button
+          v-if="pluginToolCount > 0"
+          type="button"
+          class="filter-pill-btn"
+          :class="{ active: filterMode === 'plugin' }"
+          @click="filterMode = 'plugin'"
+        >
+          插件专属工具 ({{ pluginToolCount }})
+        </button>
+        <button
+          type="button"
+          class="filter-pill-btn"
+          :class="{ active: filterMode === 'all' }"
+          @click="filterMode = 'all'"
+        >
+          全部 ({{ tools.length }})
+        </button>
       </div>
       <div class="tab-actions">
         <button
@@ -124,17 +168,27 @@ function handlePresetChanged(): void {
       </div>
     </div>
 
+    <!-- 提示横幅 -->
+    <div v-if="filterMode === 'pure' && pluginToolCount > 0" class="tab-hint-banner">
+      <Wrench :size="14" />
+      <span>当前仅管理系统内置与独立 MCP 服务端点。另有 <strong>{{ pluginToolCount }}</strong> 个插件专属工具已归由对应「插件」设置统一管理。</span>
+    </div>
+    <div v-else-if="filterMode === 'plugin'" class="tab-hint-banner">
+      <Wrench :size="14" />
+      <span>以下为各扩展插件内置声明的专属工具，其生命周期随插件统一管理，建议在对应插件设置中调试与启停。</span>
+    </div>
+
     <McpPresetServers @changed="handlePresetChanged" />
 
     <div v-if="loading" class="tab-loading">加载工具注册表中…</div>
     <p v-else-if="error" class="tab-empty">{{ error }}</p>
-    <p v-else-if="tools.length === 0" class="tab-empty">
-      暂无可用的工具。点击右上角「注册 MCP 工具」登记新的外部工具端点。
+    <p v-else-if="displayTools.length === 0" class="tab-empty">
+      {{ filterMode === 'pure' ? '暂无可用的系统或独立 MCP 工具。点击右上角「注册 MCP 工具」登记新的外部端点。' : '当前筛选下暂无可展示的工具。' }}
     </p>
 
     <div v-else class="tool-list">
       <article
-        v-for="tool in tools"
+        v-for="tool in displayTools"
         :key="tool.id"
         class="tool-card"
         :class="{ inactive: !isToolEnabled(tool) }"
@@ -151,7 +205,12 @@ function handlePresetChanged(): void {
               {{ getSafetyLabel(tool.safetyLevel).label }}
             </span>
             <span v-if="isBuiltin(tool)" class="tool-badge badge-builtin">系统内置</span>
-            <span v-else-if="tool.pluginId" class="tool-badge badge-plugin">{{ tool.pluginId }}</span>
+            <span v-else-if="tool.pluginId?.startsWith('mcp:')" class="tool-badge badge-mcp-server">
+              MCP: {{ tool.pluginId.slice(4) }}
+            </span>
+            <span v-else-if="tool.pluginId" class="tool-badge badge-plugin">
+              插件: {{ tool.pluginId }}
+            </span>
           </div>
           <p class="tool-desc">{{ tool.description || '暂无描述' }}</p>
         </div>
@@ -210,6 +269,45 @@ function handlePresetChanged(): void {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tab-filters {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-input, rgba(0, 0, 0, 0.04));
+  padding: 3px;
+  border-radius: 8px;
+}
+.filter-pill-btn {
+  border: none;
+  background: transparent;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.filter-pill-btn:hover {
+  color: var(--text-primary);
+}
+.filter-pill-btn.active {
+  background: var(--button-bg, #fff);
+  color: var(--accent, #409eff);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+.tab-hint-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--bg-hover, rgba(0, 0, 0, 0.03));
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.4;
 }
 .tab-summary {
   font-size: 11px;
@@ -333,6 +431,11 @@ function handlePresetChanged(): void {
 .badge-builtin {
   background: color-mix(in srgb, #6b7280 15%, transparent);
   color: var(--text-muted);
+}
+.badge-mcp-server {
+  background: color-mix(in srgb, #06b6d4 15%, transparent);
+  color: #0891b2;
+  border-color: color-mix(in srgb, #06b6d4 30%, transparent);
 }
 .badge-plugin {
   background: color-mix(in srgb, #8b5cf6 15%, transparent);

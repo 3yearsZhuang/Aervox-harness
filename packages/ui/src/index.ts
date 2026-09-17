@@ -45,6 +45,9 @@ export * from './composables/useWorkbenchProactive';
 export * from './composables/workbench-context';
 
 export { default as PluginManagerPanel } from './components/plugin/PluginManagerPanel.vue';
+export { default as PluginMarketTab } from './components/plugin/PluginMarketTab.vue';
+export { default as PluginInstallDialog } from './components/plugin/PluginInstallDialog.vue';
+export { default as PluginSettingsDialog } from './components/plugin/PluginSettingsDialog.vue';
 export { default as PluginConfigDialog } from './components/plugin/PluginConfigDialog.vue';
 export { default as PluginPageDialog } from './components/plugin/PluginPageDialog.vue';
 export { default as PluginConfigForm } from './components/plugin/PluginConfigForm.vue';
