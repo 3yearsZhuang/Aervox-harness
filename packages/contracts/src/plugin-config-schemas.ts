@@ -250,6 +250,26 @@ export interface PluginProactiveSpec {
 /** 插件感知源授权约定：plugin_grants.permission 的固定值，scope 存 sourceId */
 export const PLUGIN_SENSOR_PERMISSION = "proactive.sensor" as const;
 
+/** 插件直属声明工具模式 */
+export const pluginDeclaredToolSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().min(1).max(128),
+  description: z.string().max(2000).optional(),
+  category: z.string().max(64).optional(),
+  safetyLevel: z.enum(["read_only", "guarded", "full_access"]).default("guarded"),
+  requiredPermissions: z.array(z.string()).default([]),
+  inputSchema: z.record(z.string(), z.unknown()).default({}),
+  priority: z.number().int().default(0),
+});
+
+/** 插件直属声明技能模式 */
+export const pluginDeclaredSkillSchema = z.object({
+  name: z.string().min(1).max(128),
+  description: z.string().max(2000).optional(),
+  content: z.string().optional(),
+  entry: z.string().optional(),
+});
+
 /** 插件 Bundle Manifest v1 */
 export const pluginManifestSchema = z.object({
   apiVersion: z.literal("aervox.dev/v1"),
@@ -275,6 +295,10 @@ export const pluginManifestSchema = z.object({
       mcpServers: z.array(z.string().min(1).max(128)).max(20).optional(),
       /** Bundle 内技能入口（默认 SKILL.md），用于主动回合装配插件专有心智 */
       skill: z.string().min(1).max(512).optional(),
+      /** 插件直属工具声明（安装时自动注册入工具注册表） */
+      tools: z.array(pluginDeclaredToolSchema).max(100).optional(),
+      /** 插件直属多技能声明（安装时自动落盘并注册为只读技能） */
+      skills: z.array(pluginDeclaredSkillSchema).max(50).optional(),
       /** 主动智能声明命名空间（CR-032） */
       proactive: pluginProactiveSpecSchema.optional(),
     })
@@ -332,3 +356,114 @@ export const pluginPageSaveConfigSchema = z.object({
   values: z.record(z.string(), z.unknown()).default({}),
   secretValues: z.record(z.string(), z.union([z.string(), z.null()])).default({}),
 });
+
+/** 插件分发包安装前预检报告（PRD CAP-020 验收门禁） */
+export const pluginPackageInspectionSchema = z.object({
+  id: z.string().min(1).max(128),
+  displayName: z.string().min(1).max(128),
+  publisher: z.string().min(1).max(128),
+  version: z.string().min(1).max(64),
+  description: z.string().default(""),
+  license: z.string().default(""),
+  checksum: z.string(), // 包文件的 SHA-256 哈希
+  signature: z.string().nullable().default(null),
+  permissions: z.array(z.string()).default([]),
+  dataScope: z.array(z.string()).default([]),
+  tools: z
+    .array(
+      z.object({
+        name: z.string(),
+        description: z.string().default(""),
+        category: z.string().default("plugin"),
+        safetyLevel: z.string().default("guarded"),
+      }),
+    )
+    .default([]),
+  skills: z
+    .array(
+      z.object({
+        name: z.string(),
+        description: z.string().default(""),
+      }),
+    )
+    .default([]),
+  pages: z
+    .array(
+      z.object({
+        id: z.string(),
+        title: z.union([z.string(), z.record(z.string(), z.string())]),
+        entry: z.string(),
+      }),
+    )
+    .default([]),
+  proactive: z
+    .object({
+      sensors: z
+        .array(
+          z.object({
+            sourceId: z.string(),
+            description: z.string().optional(),
+          }),
+        )
+        .default([]),
+      triggers: z
+        .array(
+          z.object({
+            ruleId: z.string(),
+            name: z.string(),
+            triggerType: z.string(),
+          }),
+        )
+        .default([]),
+    })
+    .default({ sensors: [], triggers: [] }),
+  hasConfig: z.boolean().default(false),
+  alreadyInstalled: z.boolean().default(false),
+  installedVersion: z.string().nullable().default(null),
+  isValid: z.boolean().default(true),
+  issues: z.array(z.string()).default([]),
+});
+
+/** 插件安装包请求（Base64 归档） */
+export const pluginPackageInstallRequestSchema = z.object({
+  packageBase64: z.string().min(1),
+  overwrite: z.boolean().default(false),
+});
+
+/** 插件导出响应 */
+export const pluginPackageExportResponseSchema = z.object({
+  pluginId: z.string().min(1),
+  filename: z.string().min(1),
+  packageBase64: z.string().min(1),
+  checksum: z.string().min(1),
+});
+
+/** 官方/出厂插件集市条目契约 */
+export const pluginMarketItemSchema = z.object({
+  id: z.string().min(1).max(128),
+  displayName: z.string().min(1).max(128),
+  publisher: z.string().min(1).max(128),
+  version: z.string().min(1).max(64),
+  description: z.string().default(""),
+  license: z.string().default(""),
+  source: z.enum(["builtin", "market"]).default("builtin"),
+  installed: z.boolean().default(false),
+  installedVersion: z.string().nullable().default(null),
+  hasUpdate: z.boolean().default(false),
+  capabilities: z.object({
+    hasConfig: z.boolean().default(false),
+    sensorsCount: z.number().int().default(0),
+    triggersCount: z.number().int().default(0),
+    toolsCount: z.number().int().default(0),
+    skillsCount: z.number().int().default(0),
+    pagesCount: z.number().int().default(0),
+  }),
+});
+
+export type PluginDeclaredTool = z.infer<typeof pluginDeclaredToolSchema>;
+export type PluginDeclaredSkill = z.infer<typeof pluginDeclaredSkillSchema>;
+export type PluginPackageInspection = z.infer<typeof pluginPackageInspectionSchema>;
+export type PluginPackageInstallRequest = z.infer<typeof pluginPackageInstallRequestSchema>;
+export type PluginPackageExportResponse = z.infer<typeof pluginPackageExportResponseSchema>;
+export type PluginMarketItem = z.infer<typeof pluginMarketItemSchema>;
+
