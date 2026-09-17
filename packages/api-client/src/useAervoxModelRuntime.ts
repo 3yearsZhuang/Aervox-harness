@@ -26,6 +26,7 @@ export interface ModelRuntimeStateDto {
     binPath?: string;
     startedAt?: string;
     error?: string;
+    logs?: string[];
   };
   params?: {
     port: number;
@@ -39,6 +40,7 @@ export interface ModelRuntimeStateDto {
     modelId?: string;
     receivedBytes?: number;
     totalBytes?: number | null;
+    resumableFrom?: number;
     status?: 'running' | 'done' | 'error' | 'cancelled';
     error?: string;
   };
@@ -53,6 +55,8 @@ export interface ModelDownloadInput {
   url: string;
   sha256?: string;
   fileName?: string;
+  /** 下载完成后自动启动 llama-server 并联动 LLM 预设 */
+  autoStart?: boolean;
 }
 
 export interface ModelRuntimeStartInput {
@@ -83,5 +87,12 @@ export function useAervoxModelRuntime() {
   const stop = async (): Promise<ModelRuntimeStateDto> =>
     transport.request<ModelRuntimeStateDto>('POST', '/v1/model-runtime/stop');
 
-  return { getState, download, cancelDownload, start, stop };
+  /** 删除已下载模型（运行中禁止） */
+  const deleteModel = async (modelId: string): Promise<ModelRuntimeStateDto> =>
+    transport.request<ModelRuntimeStateDto>(
+      'DELETE',
+      `/v1/model-runtime/models/${encodeURIComponent(modelId)}`,
+    );
+
+  return { getState, download, cancelDownload, start, stop, deleteModel };
 }

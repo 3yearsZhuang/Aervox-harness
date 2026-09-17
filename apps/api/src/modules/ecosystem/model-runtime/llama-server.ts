@@ -19,6 +19,8 @@ export interface LlamaServerHandle {
   modelId: string | null;
   startedAt: string | null;
   error: string | null;
+  /** stderr 环形缓冲（最近条目，诊断用） */
+  logs: string[];
 }
 
 export interface LlamaServerManagerDeps {
@@ -54,6 +56,10 @@ export class LlamaServerManager {
   private readonly probeTimeoutMs: number;
   private readonly killGraceMs: number;
   private resolvedBin: string | null | undefined = undefined;
+  /** stderr 环形缓冲（单条上限免超长行刷爆内存） */
+  private readonly logs: string[] = [];
+  private static readonly MAX_LOGS = 60;
+  private static readonly MAX_LINE_LENGTH = 800;
 
   constructor(private readonly deps: LlamaServerManagerDeps = {}) {
     this.spawnFn = deps.spawn ?? nodeSpawn;
@@ -98,7 +104,18 @@ export class LlamaServerManager {
       modelId: this.modelId,
       startedAt: this.startedAt,
       error: this.error,
+      logs: [...this.logs],
     };
+  }
+
+  /** 追加一行 stderr（环形裁剪：超长截断 + 超量淘汰最旧） */
+  private pushLog(line: string): void {
+    const trimmed = line.replace(/\s+$/u, "").slice(0, LlamaServerManager.MAX_LINE_LENGTH);
+    if (!trimmed) return;
+    this.logs.push(trimmed);
+    if (this.logs.length > LlamaServerManager.MAX_LOGS) {
+      this.logs.splice(0, this.logs.length - LlamaServerManager.MAX_LOGS);
+    }
   }
 
   get running(): boolean {
@@ -152,8 +169,16 @@ export class LlamaServerManager {
     this.child = child;
 
     const stderrChunks: Buffer[] = [];
+    let stderrPartial = ""; // 未换行残片
     child.stderr?.on("data", (chunk: Buffer) => {
       stderrChunks.push(chunk);
+      stderrPartial += chunk.toString("utf8");
+      let newlineIndex: number;
+      while ((newlineIndex = stderrPartial.indexOf("\n")) >= 0) {
+        const line = stderrPartial.slice(0, newlineIndex);
+        stderrPartial = stderrPartial.slice(newlineIndex + 1);
+        this.pushLog(line);
+      }
     });
     child.stdout?.on("data", () => undefined);
 

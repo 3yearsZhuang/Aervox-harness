@@ -64,4 +64,18 @@ export function registerModelRuntimeRoutes(app: FastifyInstance, service: ModelR
   app.post("/v1/model-runtime/stop", async () => {
     return service.stop();
   });
+
+  // DELETE /v1/model-runtime/models/:modelId — 删除已下载模型（运行中禁止）
+  app.delete("/v1/model-runtime/models/:modelId", async (req, reply) => {
+    const { modelId } = req.params as { modelId: string };
+    try {
+      return await service.deleteModel(modelId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "删除失败";
+      if (message.startsWith("llama_server_busy")) {
+        return reply.code(409).send({ code: "RUNTIME_BUSY", message });
+      }
+      return reply.code(404).send({ code: "MODEL_NOT_FOUND", message });
+    }
+  });
 }
