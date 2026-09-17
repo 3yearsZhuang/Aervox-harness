@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-09-17",
-  "totalCount": 65,
+  "totalCount": 67,
   "documents": [
     {
       "id": "AVX-DOC-CONF-001",
@@ -13,9 +13,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.12.2",
-      "updated_at": "2026-09-17",
-      "reviewed_at": "2026-09-17",
+      "version": "1.13.0",
+      "updated_at": "2026-09-18",
+      "reviewed_at": "2026-09-18",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -157,9 +157,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.0.4",
-      "updated_at": "2026-09-16",
-      "reviewed_at": "2026-09-16",
+      "version": "1.0.5",
+      "updated_at": "2026-09-18",
+      "reviewed_at": "2026-09-18",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -356,9 +356,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.10.0",
-      "updated_at": "2026-09-15",
-      "reviewed_at": "2026-09-15",
+      "version": "1.11.0",
+      "updated_at": "2026-09-18",
+      "reviewed_at": "2026-09-18",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -864,6 +864,39 @@
       ]
     },
     {
+      "id": "CR-055",
+      "title": "CR-055 移动端落地范围与分阶段交付规划",
+      "path": "reference/changes/CR-055-mobile-delivery-plan.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "proposed",
+      "delivery_status": "planned",
+      "version": "0.1.0",
+      "updated_at": "2026-09-18",
+      "reviewed_at": "2026-09-18",
+      "review_interval_days": 30,
+      "review_triggers": [
+        "apps/mobile/**",
+        "apps/web/**",
+        "packages/ui/**",
+        "packages/api-client/**",
+        "apps/api/src/shared/auth.ts",
+        "docs/reference/adr/ADR-015-vue-full-stack.md",
+        "docs/reference/DATA_PRIVACY.md"
+      ],
+      "sources": [
+        "docs/reference/PRD.md",
+        "docs/reference/ARCHITECTURE.md",
+        "docs/reference/STREAMING_PROTOCOL.md",
+        "docs/reference/DATA_PRIVACY.md",
+        "docs/reference/adr/ADR-015-vue-full-stack.md",
+        "docs/reference/adr/ADR-018-proactive-local-privacy-host.md",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md"
+      ]
+    },
+    {
       "id": "AVX-DATA-001",
       "title": "Aervox｜思隅 数据与隐私规范",
       "path": "reference/DATA_PRIVACY.md",
@@ -932,6 +965,23 @@
       ]
     },
     {
+      "id": "AVX-DS-001",
+      "title": "Aervox 视觉系统与设计规范 (Design System & Tokens)",
+      "path": "reference/DESIGN.md",
+      "type": "reference",
+      "scope": "baseline",
+      "owner": "maintainers",
+      "doc_status": "approved",
+      "decision_status": "not-applicable",
+      "delivery_status": "not-applicable",
+      "version": "1.0.0",
+      "updated_at": "2026-09-17",
+      "reviewed_at": "2026-09-17",
+      "review_interval_days": 90,
+      "review_triggers": [],
+      "sources": []
+    },
+    {
       "id": "AVX-DOC-GOV-001",
       "title": "文档治理与事实源规范",
       "path": "reference/document-governance.md",
@@ -984,7 +1034,7 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "updated_at": "2026-09-17",
       "reviewed_at": "2026-09-17",
       "review_interval_days": 90,
@@ -1047,9 +1097,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.32.8",
-      "updated_at": "2026-09-17",
-      "reviewed_at": "2026-09-17",
+      "version": "1.32.10",
+      "updated_at": "2026-09-18",
+      "reviewed_at": "2026-09-18",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
