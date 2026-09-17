@@ -5172,6 +5172,259 @@
           "config"
         ]
       },
+      "ModelRuntimeState": {
+        "type": "object",
+        "properties": {
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "fileName": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sizeBytes": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "sha256": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "downloaded",
+                    "downloading",
+                    "error"
+                  ],
+                  "default": "downloaded"
+                },
+                "downloadedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "id",
+                "fileName",
+                "path"
+              ]
+            }
+          },
+          "runtime": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "idle",
+                  "starting",
+                  "running",
+                  "stopping",
+                  "error"
+                ]
+              },
+              "pid": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "exclusiveMinimum": 0
+              },
+              "port": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "modelId": {
+                "type": "string"
+              },
+              "binPath": {
+                "type": "string"
+              },
+              "startedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "error": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "properties": {
+              "port": {
+                "type": "integer",
+                "minimum": 1024,
+                "maximum": 65535,
+                "default": 8080
+              },
+              "ctxSize": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "default": 8192
+              },
+              "gpuLayers": {
+                "type": "integer",
+                "minimum": 0,
+                "default": 99
+              },
+              "threads": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "default": 4
+              }
+            }
+          },
+          "download": {
+            "type": "object",
+            "properties": {
+              "active": {
+                "type": "boolean"
+              },
+              "url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "modelId": {
+                "type": "string"
+              },
+              "receivedBytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "totalBytes": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "running",
+                  "done",
+                  "error",
+                  "cancelled"
+                ]
+              },
+              "error": {
+                "type": "string"
+              }
+            },
+            "default": {
+              "active": false
+            },
+            "required": [
+              "active"
+            ]
+          },
+          "llamaServer": {
+            "type": "object",
+            "properties": {
+              "configured": {
+                "type": "boolean"
+              },
+              "binPath": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "env",
+                  "default",
+                  "missing"
+                ],
+                "default": "missing"
+              }
+            },
+            "default": {
+              "configured": false,
+              "source": "missing"
+            },
+            "required": [
+              "configured"
+            ]
+          }
+        },
+        "required": [
+          "models",
+          "runtime"
+        ]
+      },
+      "ModelDownloadRequest": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "fileName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "ModelRuntimeStartRequest": {
+        "type": "object",
+        "properties": {
+          "modelId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "params": {
+            "type": "object",
+            "properties": {
+              "port": {
+                "type": "integer",
+                "minimum": 1024,
+                "maximum": 65535,
+                "default": 8080
+              },
+              "ctxSize": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "default": 8192
+              },
+              "gpuLayers": {
+                "type": "integer",
+                "minimum": 0,
+                "default": 99
+              },
+              "threads": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "default": 4
+              }
+            }
+          }
+        },
+        "required": [
+          "modelId"
+        ]
+      },
       "VoiceInputConfig": {
         "type": "object",
         "properties": {
@@ -18775,6 +19028,1301 @@
           },
           "404": {
             "description": "PRESET_NOT_FOUND"
+          }
+        }
+      }
+    },
+    "/v1/model-runtime/state": {
+      "get": {
+        "summary": "本地模型运行时全量状态（模型注册表 / llama-server / 下载进度）",
+        "tags": [
+          "Model Runtime"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "State snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "models": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "fileName": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "sizeBytes": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "url": {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          "sha256": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "downloaded",
+                              "downloading",
+                              "error"
+                            ],
+                            "default": "downloaded"
+                          },
+                          "downloadedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "path": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "fileName",
+                          "path"
+                        ]
+                      }
+                    },
+                    "runtime": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "idle",
+                            "starting",
+                            "running",
+                            "stopping",
+                            "error"
+                          ]
+                        },
+                        "pid": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "exclusiveMinimum": 0
+                        },
+                        "port": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "modelId": {
+                          "type": "string"
+                        },
+                        "binPath": {
+                          "type": "string"
+                        },
+                        "startedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "error": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "status"
+                      ]
+                    },
+                    "params": {
+                      "type": "object",
+                      "properties": {
+                        "port": {
+                          "type": "integer",
+                          "minimum": 1024,
+                          "maximum": 65535,
+                          "default": 8080
+                        },
+                        "ctxSize": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "default": 8192
+                        },
+                        "gpuLayers": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "default": 99
+                        },
+                        "threads": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "default": 4
+                        }
+                      }
+                    },
+                    "download": {
+                      "type": "object",
+                      "properties": {
+                        "active": {
+                          "type": "boolean"
+                        },
+                        "url": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "modelId": {
+                          "type": "string"
+                        },
+                        "receivedBytes": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "totalBytes": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "minimum": 0
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "running",
+                            "done",
+                            "error",
+                            "cancelled"
+                          ]
+                        },
+                        "error": {
+                          "type": "string"
+                        }
+                      },
+                      "default": {
+                        "active": false
+                      },
+                      "required": [
+                        "active"
+                      ]
+                    },
+                    "llamaServer": {
+                      "type": "object",
+                      "properties": {
+                        "configured": {
+                          "type": "boolean"
+                        },
+                        "binPath": {
+                          "type": "string"
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "env",
+                            "default",
+                            "missing"
+                          ],
+                          "default": "missing"
+                        }
+                      },
+                      "default": {
+                        "configured": false,
+                        "source": "missing"
+                      },
+                      "required": [
+                        "configured"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "models",
+                    "runtime"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/model-runtime/downloads": {
+      "post": {
+        "summary": "发起本地模型下载（单任务队列）",
+        "tags": [
+          "Model Runtime"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "sha256": {
+                    "type": "string"
+                  },
+                  "fileName": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "url"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "State snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "models": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "fileName": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "sizeBytes": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "url": {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          "sha256": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "downloaded",
+                              "downloading",
+                              "error"
+                            ],
+                            "default": "downloaded"
+                          },
+                          "downloadedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "path": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "fileName",
+                          "path"
+                        ]
+                      }
+                    },
+                    "runtime": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "idle",
+                            "starting",
+                            "running",
+                            "stopping",
+                            "error"
+                          ]
+                        },
+                        "pid": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "exclusiveMinimum": 0
+                        },
+                        "port": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "modelId": {
+                          "type": "string"
+                        },
+                        "binPath": {
+                          "type": "string"
+                        },
+                        "startedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "error": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "status"
+                      ]
+                    },
+                    "params": {
+                      "type": "object",
+                      "properties": {
+                        "port": {
+                          "type": "integer",
+                          "minimum": 1024,
+                          "maximum": 65535,
+                          "default": 8080
+                        },
+                        "ctxSize": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "default": 8192
+                        },
+                        "gpuLayers": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "default": 99
+                        },
+                        "threads": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "default": 4
+                        }
+                      }
+                    },
+                    "download": {
+                      "type": "object",
+                      "properties": {
+                        "active": {
+                          "type": "boolean"
+                        },
+                        "url": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "modelId": {
+                          "type": "string"
+                        },
+                        "receivedBytes": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "totalBytes": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "minimum": 0
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "running",
+                            "done",
+                            "error",
+                            "cancelled"
+                          ]
+                        },
+                        "error": {
+                          "type": "string"
+                        }
+                      },
+                      "default": {
+                        "active": false
+                      },
+                      "required": [
+                        "active"
+                      ]
+                    },
+                    "llamaServer": {
+                      "type": "object",
+                      "properties": {
+                        "configured": {
+                          "type": "boolean"
+                        },
+                        "binPath": {
+                          "type": "string"
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "env",
+                            "default",
+                            "missing"
+                          ],
+                          "default": "missing"
+                        }
+                      },
+                      "default": {
+                        "configured": false,
+                        "source": "missing"
+                      },
+                      "required": [
+                        "configured"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "models",
+                    "runtime"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "DOWNLOAD_FAILED / INVALID_MODEL_DOWNLOAD_REQUEST"
+          },
+          "409": {
+            "description": "DOWNLOAD_BUSY"
+          }
+        }
+      }
+    },
+    "/v1/model-runtime/downloads/cancel": {
+      "post": {
+        "summary": "取消进行中的模型下载",
+        "tags": [
+          "Model Runtime"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "State snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "models": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "fileName": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "sizeBytes": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "url": {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          "sha256": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "downloaded",
+                              "downloading",
+                              "error"
+                            ],
+                            "default": "downloaded"
+                          },
+                          "downloadedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "path": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "fileName",
+                          "path"
+                        ]
+                      }
+                    },
+                    "runtime": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "idle",
+                            "starting",
+                            "running",
+                            "stopping",
+                            "error"
+                          ]
+                        },
+                        "pid": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "exclusiveMinimum": 0
+                        },
+                        "port": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "modelId": {
+                          "type": "string"
+                        },
+                        "binPath": {
+                          "type": "string"
+                        },
+                        "startedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "error": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "status"
+                      ]
+                    },
+                    "params": {
+                      "type": "object",
+                      "properties": {
+                        "port": {
+                          "type": "integer",
+                          "minimum": 1024,
+                          "maximum": 65535,
+                          "default": 8080
+                        },
+                        "ctxSize": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "default": 8192
+                        },
+                        "gpuLayers": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "default": 99
+                        },
+                        "threads": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "default": 4
+                        }
+                      }
+                    },
+                    "download": {
+                      "type": "object",
+                      "properties": {
+                        "active": {
+                          "type": "boolean"
+                        },
+                        "url": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "modelId": {
+                          "type": "string"
+                        },
+                        "receivedBytes": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "totalBytes": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "minimum": 0
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "running",
+                            "done",
+                            "error",
+                            "cancelled"
+                          ]
+                        },
+                        "error": {
+                          "type": "string"
+                        }
+                      },
+                      "default": {
+                        "active": false
+                      },
+                      "required": [
+                        "active"
+                      ]
+                    },
+                    "llamaServer": {
+                      "type": "object",
+                      "properties": {
+                        "configured": {
+                          "type": "boolean"
+                        },
+                        "binPath": {
+                          "type": "string"
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "env",
+                            "default",
+                            "missing"
+                          ],
+                          "default": "missing"
+                        }
+                      },
+                      "default": {
+                        "configured": false,
+                        "source": "missing"
+                      },
+                      "required": [
+                        "configured"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "models",
+                    "runtime"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/model-runtime/start": {
+      "post": {
+        "summary": "启动 llama-server 服务指定本地模型",
+        "tags": [
+          "Model Runtime"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "modelId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "params": {
+                    "type": "object",
+                    "properties": {
+                      "port": {
+                        "type": "integer",
+                        "minimum": 1024,
+                        "maximum": 65535,
+                        "default": 8080
+                      },
+                      "ctxSize": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "default": 8192
+                      },
+                      "gpuLayers": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "default": 99
+                      },
+                      "threads": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "default": 4
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "modelId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "State snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "models": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "fileName": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "sizeBytes": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "url": {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          "sha256": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "downloaded",
+                              "downloading",
+                              "error"
+                            ],
+                            "default": "downloaded"
+                          },
+                          "downloadedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "path": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "fileName",
+                          "path"
+                        ]
+                      }
+                    },
+                    "runtime": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "idle",
+                            "starting",
+                            "running",
+                            "stopping",
+                            "error"
+                          ]
+                        },
+                        "pid": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "exclusiveMinimum": 0
+                        },
+                        "port": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "modelId": {
+                          "type": "string"
+                        },
+                        "binPath": {
+                          "type": "string"
+                        },
+                        "startedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "error": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "status"
+                      ]
+                    },
+                    "params": {
+                      "type": "object",
+                      "properties": {
+                        "port": {
+                          "type": "integer",
+                          "minimum": 1024,
+                          "maximum": 65535,
+                          "default": 8080
+                        },
+                        "ctxSize": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "default": 8192
+                        },
+                        "gpuLayers": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "default": 99
+                        },
+                        "threads": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "default": 4
+                        }
+                      }
+                    },
+                    "download": {
+                      "type": "object",
+                      "properties": {
+                        "active": {
+                          "type": "boolean"
+                        },
+                        "url": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "modelId": {
+                          "type": "string"
+                        },
+                        "receivedBytes": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "totalBytes": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "minimum": 0
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "running",
+                            "done",
+                            "error",
+                            "cancelled"
+                          ]
+                        },
+                        "error": {
+                          "type": "string"
+                        }
+                      },
+                      "default": {
+                        "active": false
+                      },
+                      "required": [
+                        "active"
+                      ]
+                    },
+                    "llamaServer": {
+                      "type": "object",
+                      "properties": {
+                        "configured": {
+                          "type": "boolean"
+                        },
+                        "binPath": {
+                          "type": "string"
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "env",
+                            "default",
+                            "missing"
+                          ],
+                          "default": "missing"
+                        }
+                      },
+                      "default": {
+                        "configured": false,
+                        "source": "missing"
+                      },
+                      "required": [
+                        "configured"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "models",
+                    "runtime"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "RUNTIME_START_FAILED / INVALID_MODEL_RUNTIME_START"
+          },
+          "409": {
+            "description": "RUNTIME_BUSY"
+          }
+        }
+      }
+    },
+    "/v1/model-runtime/stop": {
+      "post": {
+        "summary": "停止当前 llama-server（幂等）",
+        "tags": [
+          "Model Runtime"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "State snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "models": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "fileName": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "sizeBytes": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "url": {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          "sha256": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "downloaded",
+                              "downloading",
+                              "error"
+                            ],
+                            "default": "downloaded"
+                          },
+                          "downloadedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "path": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "fileName",
+                          "path"
+                        ]
+                      }
+                    },
+                    "runtime": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "idle",
+                            "starting",
+                            "running",
+                            "stopping",
+                            "error"
+                          ]
+                        },
+                        "pid": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "exclusiveMinimum": 0
+                        },
+                        "port": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "modelId": {
+                          "type": "string"
+                        },
+                        "binPath": {
+                          "type": "string"
+                        },
+                        "startedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "error": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "status"
+                      ]
+                    },
+                    "params": {
+                      "type": "object",
+                      "properties": {
+                        "port": {
+                          "type": "integer",
+                          "minimum": 1024,
+                          "maximum": 65535,
+                          "default": 8080
+                        },
+                        "ctxSize": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "default": 8192
+                        },
+                        "gpuLayers": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "default": 99
+                        },
+                        "threads": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "default": 4
+                        }
+                      }
+                    },
+                    "download": {
+                      "type": "object",
+                      "properties": {
+                        "active": {
+                          "type": "boolean"
+                        },
+                        "url": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "modelId": {
+                          "type": "string"
+                        },
+                        "receivedBytes": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "totalBytes": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "minimum": 0
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "running",
+                            "done",
+                            "error",
+                            "cancelled"
+                          ]
+                        },
+                        "error": {
+                          "type": "string"
+                        }
+                      },
+                      "default": {
+                        "active": false
+                      },
+                      "required": [
+                        "active"
+                      ]
+                    },
+                    "llamaServer": {
+                      "type": "object",
+                      "properties": {
+                        "configured": {
+                          "type": "boolean"
+                        },
+                        "binPath": {
+                          "type": "string"
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "env",
+                            "default",
+                            "missing"
+                          ],
+                          "default": "missing"
+                        }
+                      },
+                      "default": {
+                        "configured": false,
+                        "source": "missing"
+                      },
+                      "required": [
+                        "configured"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "models",
+                    "runtime"
+                  ]
+                }
+              }
+            }
           }
         }
       }

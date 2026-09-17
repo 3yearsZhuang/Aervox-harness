@@ -150,6 +150,12 @@ import {
 } from "./llm-schemas.js";
 
 import {
+  modelDownloadRequestSchema,
+  modelRuntimeStartRequestSchema,
+  modelRuntimeStateSchema,
+} from "./model-runtime-schemas.js";
+
+import {
   createInboxItemRequestSchema,
   inboxItemResponseSchema,
 } from "./inbox-schemas.js";
@@ -324,6 +330,9 @@ registry.register("LLMTestConnectionResponse", llmTestConnectionResponseSchema);
 registry.register("LLMPreset", llmPresetSchema);
 registry.register("LLMPresetListResponse", llmPresetListResponseSchema);
 registry.register("LLMCreatePresetRequest", llmCreatePresetRequestSchema);
+registry.register("ModelRuntimeState", modelRuntimeStateSchema);
+registry.register("ModelDownloadRequest", modelDownloadRequestSchema);
+registry.register("ModelRuntimeStartRequest", modelRuntimeStartRequestSchema);
 
 registry.register("VoiceInputConfig", voiceInputConfigSchema);
 registry.register("VoiceInputConfigResponse", voiceInputConfigResponseSchema);
@@ -1066,6 +1075,11 @@ registry.registerPath({ method: "get", path: "/v1/llm/presets", summary: "列出
 registry.registerPath({ method: "post", path: "/v1/llm/presets", summary: "新建大语言模型配置预设", tags: ["LLM"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: llmCreatePresetRequestSchema } } } }, responses: { 201: { description: "Created preset", content: { "application/json": { schema: llmPresetSchema } } }, 400: { description: "INVALID_LLM_PRESET" } } });
 registry.registerPath({ method: "post", path: "/v1/llm/presets/{presetId}/activate", summary: "激活大语言模型配置预设", tags: ["LLM"], request: { headers: scopeHeaders, params: z.object({ presetId: z.string().min(1) }) }, responses: { 200: { description: "Activated preset", content: { "application/json": { schema: llmPresetSchema } } }, 404: { description: "PRESET_NOT_FOUND" } } });
 registry.registerPath({ method: "delete", path: "/v1/llm/presets/{presetId}", summary: "删除大语言模型配置预设", tags: ["LLM"], request: { headers: scopeHeaders, params: z.object({ presetId: z.string().min(1) }) }, responses: { 200: { description: "Deleted", content: { "application/json": { schema: z.object({ deleted: z.boolean() }) } } }, 404: { description: "PRESET_NOT_FOUND" } } });
+registry.registerPath({ method: "get", path: "/v1/model-runtime/state", summary: "本地模型运行时全量状态（模型注册表 / llama-server / 下载进度）", tags: ["Model Runtime"], request: { headers: scopeHeaders }, responses: { 200: { description: "State snapshot", content: { "application/json": { schema: modelRuntimeStateSchema } } } } });
+registry.registerPath({ method: "post", path: "/v1/model-runtime/downloads", summary: "发起本地模型下载（单任务队列）", tags: ["Model Runtime"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: modelDownloadRequestSchema } } } }, responses: { 200: { description: "State snapshot", content: { "application/json": { schema: modelRuntimeStateSchema } } }, 400: { description: "DOWNLOAD_FAILED / INVALID_MODEL_DOWNLOAD_REQUEST" }, 409: { description: "DOWNLOAD_BUSY" } } });
+registry.registerPath({ method: "post", path: "/v1/model-runtime/downloads/cancel", summary: "取消进行中的模型下载", tags: ["Model Runtime"], request: { headers: scopeHeaders }, responses: { 200: { description: "State snapshot", content: { "application/json": { schema: modelRuntimeStateSchema } } } } });
+registry.registerPath({ method: "post", path: "/v1/model-runtime/start", summary: "启动 llama-server 服务指定本地模型", tags: ["Model Runtime"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: modelRuntimeStartRequestSchema } } } }, responses: { 200: { description: "State snapshot", content: { "application/json": { schema: modelRuntimeStateSchema } } }, 400: { description: "RUNTIME_START_FAILED / INVALID_MODEL_RUNTIME_START" }, 409: { description: "RUNTIME_BUSY" } } });
+registry.registerPath({ method: "post", path: "/v1/model-runtime/stop", summary: "停止当前 llama-server（幂等）", tags: ["Model Runtime"], request: { headers: scopeHeaders }, responses: { 200: { description: "State snapshot", content: { "application/json": { schema: modelRuntimeStateSchema } } } } });
 
 const pluginIdParam = z.object({ pluginId: z.string().min(1) });
 const pluginPageParam = pluginIdParam.extend({ pageId: z.string().min(1) });
