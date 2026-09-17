@@ -8,6 +8,12 @@
  * - 运行指标采样（llama.cpp /metrics tokens/s）随 state 曝光；
  * - 内置精选 GGUF 目录（catalog）+ 任意 URL 入口并存；
  * - SSE 实时订阅（GET /v1/model-runtime/events）推送状态快照，前端断线回退轮询。
+ *
+ * v3（CR-054 迭代）：状态持久化与启动恢复——
+ * - 未完结下载任务（queued/running/paused）与 lastParams 落盘 <modelsDir>/runtime-state.json，
+ *   服务重建后自动恢复队列（.part 断点续传）；paused 保持暂停待手动继续；
+ * - 上次会话末仍在运行的 llama-server 记录 autoStart，重启后按原参数自动拉起（失败留痕不阻断）；
+ * - state.runtime 曝光 restored（本次恢复任务数）与 resume（运行中＝下次自动恢复）。
  */
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -45,6 +51,30 @@ interface TaskState extends DownloadTask {
   /** 完成后自动启动并联动预设 */
   autoStart?: boolean;
 }
+
+/** 持久化状态文件（<modelsDir>/runtime-state.json，version=1；损坏/缺失视为无恢复） */
+interface PersistedRuntimeState {
+  version: 1;
+  savedAt: string;
+  /** 最近一次启动参数（重启后沿用） */
+  params?: LlamaRuntimeParams;
+  /** 未完结下载任务（queued/running/paused） */
+  downloads?: Array<{
+    id: string;
+    url: string;
+    fileName: string;
+    modelId: string;
+    status: "queued" | "running" | "paused";
+    receivedBytes: number;
+    rateLimitBps?: number;
+    expectedSha256?: string;
+    autoStart?: boolean;
+  }>;
+  /** 最近一次 llama-server 运行（dispose 时仍在运行则 autoStart=true，重启自动拉起） */
+  runtime?: { autoStart: boolean; modelId: string; params: LlamaRuntimeParams };
+}
+
+const RUNTIME_STATE_FILE = "runtime-state.json";
 
 const DEFAULT_PARAMS: LlamaRuntimeParams = {
   port: 8080,
@@ -113,6 +143,10 @@ export class ModelRuntimeService {
   private stopping: Promise<unknown> | null = null;
   private starting: Promise<ModelRuntimeState> | null = null;
   private readonly downloads = new Set<Promise<void>>();
+  /** 本次会话从持久化恢复的任务数（state.runtime.restored 曝光） */
+  private restoredSnapshot: { at: string; downloads: number } | null = null;
+  /** 落盘串行链（原子写入，避免并发写坏文件） */
+  private persistChain: Promise<void> = Promise.resolve();
 
   private assertOpen(): void { if (this.disposed) throw new Error("model_runtime_disposed"); }
   private async bounded<T>(operation: Promise<T>): Promise<T> {
@@ -147,6 +181,123 @@ export class ModelRuntimeService {
         void this.sampleMetrics();
       }, metricsInterval);
       this.metricsTimer.unref?.();
+    }
+    // 服务重建（进程重启 / 热重载）后异步恢复队列与运行时
+    void this.restore();
+  }
+
+  private persistedPath(): string {
+    return path.join(this.modelsDir, RUNTIME_STATE_FILE);
+  }
+
+  private partPathOf(task: TaskState): string {
+    return `${path.join(this.modelsDir, task.fileName)}.part`;
+  }
+
+  /** 读取持久化状态（缺失/损坏静默返回 null） */
+  private async loadPersisted(): Promise<PersistedRuntimeState | null> {
+    try {
+      const data = JSON.parse(await fs.readFile(this.persistedPath(), "utf8")) as PersistedRuntimeState;
+      return data?.version === 1 ? data : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** 状态落盘（原子：tmp + rename；串行链防并发写坏；失败静默不阻断下载流） */
+  private persist(): void {
+    this.persistChain = this.persistChain.then(async () => {
+      try {
+        const data: PersistedRuntimeState = {
+          version: 1,
+          savedAt: new Date().toISOString(),
+          params: { ...this.lastParams },
+          downloads: [...this.tasks.values()]
+            .filter((t) => t.status === "queued" || t.status === "running" || t.status === "paused")
+            .map(({ controller: _c, partPath: _p, ...t }) => ({
+              id: t.id,
+              url: t.url,
+              fileName: t.fileName,
+              modelId: t.modelId,
+              status: t.status as "queued" | "running" | "paused",
+              receivedBytes: t.receivedBytes ?? 0,
+              rateLimitBps: t.rateLimitBps,
+              expectedSha256: t.expectedSha256,
+              autoStart: t.autoStart,
+            })),
+          runtime: {
+            autoStart: this.llama.running,
+            modelId: this.llama.getHandle().modelId ?? "",
+            params: { ...this.lastParams },
+          },
+        };
+        const tmp = `${this.persistedPath()}.tmp`;
+        await fs.mkdir(this.modelsDir, { recursive: true });
+        await fs.writeFile(tmp, JSON.stringify(data, null, 2), "utf8");
+        await fs.rename(tmp, this.persistedPath());
+      } catch {
+        // 持久化失败静默（不阻断下载流）
+      }
+    });
+  }
+
+  /** 服务重建后恢复：队列任务 + 启动参数 + 运行时自动拉起；失败不阻断启动 */
+  private async restore(): Promise<void> {
+    let saved: PersistedRuntimeState | null = null;
+    try {
+      saved = await this.loadPersisted();
+      if (!saved) return;
+      const models = await this.scanModels();
+      if (saved.params) this.lastParams = { ...DEFAULT_PARAMS, ...saved.params };
+      let restoredCount = 0;
+      for (const t of saved.downloads ?? []) {
+        if (!/\.gguf$/i.test(t.fileName)) continue;
+        if (this.tasks.has(t.id)) continue;
+        if (models.some((m) => m.id === t.id)) continue; // 已完成入库（或已删）的不再恢复
+        const task: TaskState = {
+          id: t.id,
+          url: t.url,
+          fileName: t.fileName,
+          modelId: t.modelId,
+          status: t.status === "paused" ? "paused" : "queued",
+          receivedBytes: t.receivedBytes ?? 0,
+          rateLimitBps: t.rateLimitBps,
+          expectedSha256: t.expectedSha256,
+          autoStart: t.autoStart,
+        };
+        this.tasks.set(t.id, task);
+        if (task.status === "queued") this.queue.push(t.id);
+        restoredCount += 1;
+      }
+      // paused 任务同步 .part 实际字节（断点基准）
+      for (const task of this.tasks.values()) {
+        if (task.status !== "paused") continue;
+        try {
+          const ps = await fs.stat(this.partPathOf(task));
+          if (ps.isFile()) task.receivedBytes = ps.size;
+        } catch {
+          // 无 .part（暂存被清）仍保留 paused 状态，恢复时从头
+        }
+      }
+      if (this.queue.length > 0) this.pump();
+      if (restoredCount > 0) {
+        this.restoredSnapshot = { at: new Date().toISOString(), downloads: restoredCount };
+      }
+      // 上次会话末仍在运行 → 按原参数自动拉起
+      const rt = saved.runtime;
+      if (rt?.autoStart && rt.modelId && !this.llama.running) {
+        const model = (await this.scanModels()).find((m) => m.id === rt.modelId);
+        if (model) {
+          try {
+            await this.start({ modelId: model.id, params: rt.params });
+          } catch {
+            // 拉起失败留痕于 runtime.error（llama 管理器已处理），后续不再自动重试
+          }
+        }
+      }
+      this.emit();
+    } catch {
+      // 恢复失败不阻断服务启动
     }
   }
 
@@ -212,6 +363,10 @@ export class ModelRuntimeService {
         error: handle.error ?? undefined,
         logs: handle.logs,
         metrics: this.metricSamples.length > 0 ? [...this.metricSamples] : undefined,
+        restored: this.restoredSnapshot ?? undefined,
+        resume: this.llama.running
+          ? { enabled: true, modelId: handle.modelId ?? undefined }
+          : undefined,
       },
       params: { ...this.lastParams },
       downloads,
@@ -279,6 +434,7 @@ export class ModelRuntimeService {
     this.tasks.set(id, task);
     this.queue.push(id);
     this.pump();
+    this.persist();
     this.emit();
     return this.getState();
   }
@@ -362,6 +518,7 @@ export class ModelRuntimeService {
       }
     } finally {
       this.runningCount -= 1;
+      this.persist();
       this.emit();
       this.pump();
     }
@@ -376,6 +533,7 @@ export class ModelRuntimeService {
     if (task.status !== "running") return this.getState();
     task.controller?.abort();
     task.status = "paused";
+    this.persist();
     this.emit();
     return this.getState();
   }
@@ -391,6 +549,7 @@ export class ModelRuntimeService {
     task.status = "queued";
     this.queue.push(id);
     this.pump();
+    this.persist();
     this.emit();
     return this.getState();
   }
@@ -405,8 +564,9 @@ export class ModelRuntimeService {
       task.controller?.abort();
     }
     task.status = "cancelled";
-    await fs.rm(task.partPath ?? `${path.join(this.modelsDir, task.fileName)}.part`, { force: true }).catch(() => undefined);
+    await fs.rm(task.partPath ?? this.partPathOf(task), { force: true }).catch(() => undefined);
     this.tasks.delete(id);
+    this.persist();
     this.emit();
     this.pump();
     return this.getState();
@@ -466,6 +626,7 @@ export class ModelRuntimeService {
     }
     if (generation !== this.generation || this.disposed) throw new Error("model_runtime_start_cancelled");
     this.metricSamples.length = 0;
+    this.persist();
     return this.getState();
   }
 
@@ -493,17 +654,18 @@ export class ModelRuntimeService {
     }
   }
 
-  /** 应用关闭钩子 */
+  /** 应用关闭钩子（先落盘快照：未完结任务恢复队列 + llama.running → 下次 autoStart） */
   dispose(): Promise<void> {
     if (this.closing) return this.closing;
     this.disposed = true;
     this.generation++;
+    this.persist();
     if (this.metricsTimer) clearInterval(this.metricsTimer);
     this.metricsTimer = null;
     this.subscribers.clear();
     this.queue.length = 0;
     for (const task of this.tasks.values()) task.controller?.abort();
-    this.closing = this.bounded(Promise.all([this.stopDriver(), this.starting?.catch(() => undefined), ...this.downloads])).then(() => undefined);
+    this.closing = this.bounded(Promise.all([this.stopDriver(), this.starting?.catch(() => undefined), ...this.downloads, this.persistChain])).then(() => undefined);
     return this.closing;
   }
 
