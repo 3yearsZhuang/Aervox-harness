@@ -43,6 +43,18 @@
         "vitest.config.*",
         "../../vitest.shared.ts"
       ]
+    },
+    "@aervox/api#test": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "src/**",
+        "test/**",
+        "package.json",
+        "tsconfig.json",
+        "vitest.config.*",
+        "../../vitest.shared.ts",
+        "../../plugins/**"
+      ]
     }
   }
 }
