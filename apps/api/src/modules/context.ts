@@ -15,6 +15,7 @@ import type { IProactiveProfileRepository, SqliteProactiveIntelligenceRepository
 import type { WorkflowDefinition } from "@aervox/agent-loop";
 import type { ToolRuntime } from "./ecosystem/tools/runtime.js";
 import type { LLMConfigService } from "./ecosystem/llm/service.js";
+import type { ModelRuntimeService } from "./ecosystem/model-runtime/service.js";
 import type { VoiceService } from "./platform/voice/service.js";
 import type { SkillManager } from "./ecosystem/skills/skill-manager.js";
 import type { ProactiveActionAuthorizer } from "./proactive/proactive/action-authorizer.js";
@@ -41,6 +42,8 @@ export interface ModuleContext {
   toolRuntime?: ToolRuntime;
   /** LLM 配置服务（llm 模块填充；conversation 读取） */
   llmConfigService?: LLMConfigService;
+  /** 本地模型运行时服务（model-runtime 模块填充；对话工具/UI 读取） */
+  modelRuntimeService?: ModelRuntimeService;
   /** CR-034 模型降级与路由决策服务（llm 模块填充；conversation/proactive 读取） */
   modelRoutingService?: import("./ecosystem/llm/degradation-service.js").LlmDegradationService;
   /** 安全与危机干预服务（safety 模块填充；conversation 读取） */

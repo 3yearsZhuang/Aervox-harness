@@ -105,6 +105,13 @@ export {
   type VoiceInputModelDownloadResultDto,
 } from './useAervoxVoiceInput';
 export {
+  useAervoxModelRuntime,
+  type ModelRuntimeStateDto,
+  type LocalModelDto,
+  type ModelDownloadInput,
+  type ModelRuntimeStartInput,
+} from './useAervoxModelRuntime';
+export {
   VoiceInputRecorder,
   type VoiceInputRecorderOptions,
 } from './voice-input-recorder';

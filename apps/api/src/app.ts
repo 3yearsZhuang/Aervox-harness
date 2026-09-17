@@ -45,6 +45,10 @@ import { registerMcpModule, type McpModuleOptions } from "./modules/ecosystem/mc
 import { registerPluginsModule, defaultServerPluginRegistry, type ServerPluginRegistry } from "./modules/ecosystem/plugins/index.js";
 import { registerSkillsModule } from "./modules/ecosystem/skills/index.js";
 import { registerLLMModule, type LLMServiceOptions } from "./modules/ecosystem/llm/index.js";
+import {
+  registerModelRuntimeModule,
+  type ModelRuntimeModuleOptions,
+} from "./modules/ecosystem/model-runtime/index.js";
 // ── proactive（主动智能） ──
 import { registerProactiveModule } from "./modules/proactive/proactive/index.js";
 import { registerNotificationModule } from "./modules/proactive/notification/index.js";
@@ -96,6 +100,8 @@ export interface BuildAppOptions {
   mcpOptions?: McpModuleOptions;
   /** LLM 模型服务配置 */
   llmOptions?: LLMServiceOptions;
+  /** 本地模型运行时配置（模型目录 / llama-server 探测注入等） */
+  modelRuntimeOptions?: ModelRuntimeModuleOptions;
   /** 长期记忆向量 Provider；undefined 使用本地特征哈希，null 显式关闭向量通道。 */
   embeddingProvider?: MemoryEmbeddingProvider | null;
   /** 阶段 5c：已注册 Workflow 定义清单（贡献 workflow_run 工具 + GET /v1/workflows） */
@@ -303,6 +309,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   // MCP 预设模块：复用 toolRuntime 注册远程工具（依赖 tools 先行装配）
   registerMcpModule(ctx, options.mcpOptions); // ecosystem
   ctx.llmConfigService = registerLLMModule(ctx, options.llmOptions); // ecosystem
+  ctx.modelRuntimeService = registerModelRuntimeModule(ctx, options.modelRuntimeOptions); // ecosystem
   ctx.safetyService = registerSafetyModule(ctx); // platform
   registerProactiveModule(ctx, { // proactive
     db: proactiveDb,
