@@ -874,51 +874,61 @@
 .message-panel {
   position: relative;
   width: min(100%, var(--console-max-width));
-  max-height: clamp(120px, 26vh, 320px);
+  max-height: clamp(140px, 24vh, 260px);
   display: flex;
   flex-direction: column;
-  padding: clamp(16px, 2.4vh, 26px) clamp(20px, 2.6vw, 36px);
+  padding: clamp(14px, 2.2vh, 22px) clamp(20px, 2.6vw, 36px);
   border: 1px solid var(--glass-border);
   border-radius: clamp(16px, 1.8vw, 20px);
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   box-shadow: 0 2px 12px rgba(23, 32, 54, .07), inset 0 1px 0 rgba(255, 255, 255, .18);
-  transition: max-height .32s cubic-bezier(.2, .8, .3, 1), padding-block .32s cubic-bezier(.2, .8, .3, 1), border-radius .32s cubic-bezier(.2, .8, .3, 1);
+  overflow: hidden;
+  transition: max-height .32s cubic-bezier(.16, 1, .3, 1),
+              padding-block .32s cubic-bezier(.16, 1, .3, 1),
+              border-radius .32s cubic-bezier(.16, 1, .3, 1);
 }
 
 /* ── 对话区域收起开关（CAP-001）：折叠为细条摘要行，高度动画过渡 ── */
 .message-panel.collapsed {
   max-height: 44px;
-  padding-block: 9px;
-  border-radius: 9999px;
+  padding-block: 8px;
+  border-radius: 22px;
 }
 
 .message-panel.collapsed .message-viewport,
 .message-panel.collapsed .message-history-entry {
-  flex: 0 0 0;
-  max-height: 0;
-  min-height: 0;
-  margin: 0;
-  padding: 0;
   opacity: 0;
-  overflow: hidden;
   pointer-events: none;
-  transition: max-height .32s cubic-bezier(.2, .8, .3, 1), opacity .18s ease;
-}
-
-.message-viewport,
-.message-history-entry {
-  transition: max-height .32s cubic-bezier(.2, .8, .3, 1), opacity .28s ease .08s;
+  transition: opacity .16s ease;
 }
 
 .console-collapsed-summary {
+  position: absolute;
+  top: 8px;
+  left: clamp(20px, 2.6vw, 36px);
+  right: clamp(20px, 2.6vw, 36px);
+  height: 28px;
   display: flex;
   align-items: center;
   gap: 10px;
   min-width: 0;
   padding-right: 36px; /* 给右上角 toggle 按钮留位 */
-  animation: novel-sentence-in .28s ease;
+  z-index: 1;
+}
+
+.summary-crossfade-enter-active {
+  transition: opacity .2s ease .08s;
+}
+
+.summary-crossfade-leave-active {
+  transition: opacity .12s ease;
+}
+
+.summary-crossfade-enter-from,
+.summary-crossfade-leave-to {
+  opacity: 0;
 }
 
 .console-collapsed-speaker {
@@ -941,8 +951,8 @@
 
 .console-collapse-toggle {
   position: absolute;
-  top: 10px;
-  right: 12px;
+  top: 8px;
+  right: 14px;
   z-index: 2;
   width: 28px;
   height: 28px;
@@ -969,19 +979,6 @@
   transform: scale(.94);
 }
 
-.message-panel.collapsed .console-collapse-toggle {
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.message-panel.collapsed .console-collapse-toggle:hover {
-  transform: translateY(-50%) scale(1.08);
-}
-
-.message-panel.collapsed .console-collapse-toggle:active {
-  transform: translateY(-50%) scale(.94);
-}
-
 .message-viewport {
   min-height: 0;
   flex: 1;
@@ -992,6 +989,8 @@
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;
+  opacity: 1;
+  transition: opacity .22s cubic-bezier(.16, 1, .3, 1) .06s;
 }
 
 .message-line {
