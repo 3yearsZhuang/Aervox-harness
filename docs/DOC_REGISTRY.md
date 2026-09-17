@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.13.0
+version: 1.14.0
 updated_at: 2026-09-18
 reviewed_at: 2026-09-18
 review_interval_days: 90
@@ -82,8 +82,9 @@ review_interval_days: 90
 | `AVX-EXPL-001` | [数据流总览](explanation/data-flow-overview.md) | 2026-09-17 | 模块/Worker/路由/数据真源变更 | SQLite 终态、迁移或新增 Worker 循环未入概念地图 |
 | `AVX-EXPL-002` | [参考项目能力迁移与借鉴评估](explanation/reference-design-transfer.md) | 2026-09-17 | 参考项目升级或架构变更 | 新增借鉴决策未登记，或参考项目 commit 超出固定清单 |
 | `AVX-EXPL-003` | [桌宠角色设定文档化与多人格模板组织](explanation/persona-organization.md) | 2026-08-26 | 桌宠 IP / CAP-019 立项或人设变更 | 新增/变更角色文档未按字段化结构与模板版本化落地，或识别边界未同步评审 |
-| `AVX-EXPL-005` | [ESP32-S3 硬件延伸](explanation/esp32-s3-hardware-extension.md) | 2026-09-10 | 硬件方案、设备协议或设备能力（独立设备 CAP 提议）立项变更 | 硬件边界、设备协议、隐私红线或阶段结论与 ADR-016 / 追踪基线 §4.2 / 数据隐私规范不一致 |
+| `AVX-EXPL-005` | [早期 ESP32 方案（已合并至 AVX-EXPL-011）](explanation/esp32-s3-hardware-extension.md) | 2026-09-18 | 迁移入口维护 | 旧稿被误作现行方案，或新规划链接失效 |
 | `AVX-EXPL-008` | [主动智能模式设计方案](explanation/proactive-intelligence-mode.md) | 2026-09-17 | CR-023/CAP-033、完全访问、全量画像、OS 能力授权、特权观察 Host、本地处理、动作授权、CAP-022/026/027/030 变更 | 四维状态、完整画像 manifest、平台能力清单、OS grant、本地出网边界、七天提炼保留、动作授权、阻断项或实现门禁与基线不一致 |
+| `AVX-EXPL-011` | [移动端协同下的硬件规划](explanation/companion-hardware-directions.md) | 2026-09-18 | 移动范围、设备宿主、模型/音频/图像能力或硬件实测变更 | 手机重合、器件候选、原型范围、成本或停止条件与实际证据不一致 |
 | `AVX-DOC-001` | [文档索引](README.md) | 2026-09-18 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
 | `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-09-18 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |
 | `AVX-DOC-CONF-001` | [文档生命周期登记表](DOC_REGISTRY.md) | 2026-09-18 | 每季度 + 每次文档集变更 | 登记条目与实际文档集不一致 |
