@@ -108,6 +108,9 @@ export {
   useAervoxModelRuntime,
   type ModelRuntimeStateDto,
   type LocalModelDto,
+  type DownloadTaskDto,
+  type ModelCatalogEntryDto,
+  type LlamaMetricSampleDto,
   type ModelDownloadInput,
   type ModelRuntimeStartInput,
 } from './useAervoxModelRuntime';

@@ -122,6 +122,31 @@ export class LlamaServerManager {
     return this.status === "running";
   }
 
+  /**
+   * 采样运行指标（llama.cpp /metrics，Prometheus 文本；需 server 启用 --metrics）。
+   * 解析 llama_tokens_per_second / llama_prompt_tokens_per_second；端点不可用返回 null。
+   */
+  async sampleMetrics(): Promise<{ at: string; tokensPerSec?: number; promptTokensPerSec?: number } | null> {
+    if (!this.running || this.port === null) return null;
+    try {
+      const res = await this.fetchFn(`http://127.0.0.1:${this.port}/metrics`);
+      if (!res.ok) return null;
+      const text = await res.text();
+      const parse = (name: string): number | undefined => {
+        const m = new RegExp(`^${name} ([0-9.]+)`, "m").exec(text);
+        if (!m || m[1] === undefined) return undefined;
+        return Number.parseFloat(m[1]);
+      };
+      return {
+        at: new Date().toISOString(),
+        tokensPerSec: parse("llama_tokens_per_second"),
+        promptTokensPerSec: parse("llama_prompt_tokens_per_second"),
+      };
+    } catch {
+      return null;
+    }
+  }
+
   /** 已配置（可执行文件可解析） */
   get configured(): boolean {
     return this.resolveBinary() !== null;
