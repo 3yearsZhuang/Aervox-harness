@@ -92,6 +92,8 @@ Aervox｜思隅：更好上手的“主动智能” Agent——以桌宠为入�
 | 格式化修复 | `npx markdownlint-cli2 --fix <files>` | 自动修复 Markdownlint 可自愈的排版问题 |
 | 术语检查 | `vale --minAlertLevel=error <files>` | 针对指定文件执行 Vale 散文与术语一致性检查 |
 | 注册表自动同步 | `mise tasks run docs-sync` | 自动从文档 Front Matter 读取日期并回写 `docs/DOC_REGISTRY.md` |
+| 计划队列渲染 | `mise tasks run plan-render` | 从 `docs/_meta/plan-queue.json` 重新生成 `plan.md` §2 的派生表格（生成区禁止手改） |
+| 计划队列校验 | `mise tasks run plan-check` | 校验队列结构、依赖、在制并发与“状态—证据”一致性；当前为提示观察期 |
 | 机器目录生成 | `mise tasks run docs-catalog` | 重新生成标准化全量元数据 `docs/_meta/document-catalog.json` |
 | 变更触发器排查 | `mise tasks run docs-triggers` | 比对 Git 改动与各文档触发规则，排查待联动复核文档 |
 | 插件分发包生成 | `mise tasks run package-plugins` | 重建 gitignore 产物 `dist-plugins/*.aervox-plugin`；冷检出后的声明恢复入口（测试不得依赖该目录） |
