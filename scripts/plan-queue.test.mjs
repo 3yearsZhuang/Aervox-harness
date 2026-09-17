@@ -129,7 +129,8 @@ test("渲染幂等：重复渲染字节一致，行内含全部列与锚点", ()
   assert.equal(first, renderQueueRegion(queue), "渲染必须幂等");
 
   const row = renderItemRow(queue.items[0]);
-  assert.match(row, /^\| <a id="iter-001"><\/a>ITER-001 · 执行中 \|/);
+  const firstStatus = queue.items[0].status;
+  assert.match(row, new RegExp(`^\\| <a id="iter-001"></a>ITER-001 · ${firstStatus} \\|`));
   assert.equal(row.split(" | ").length, 5, "渲染行必须保持五列");
   assert.match(row, /校验：/, "有校验路径的条目应在完成判定中带出校验");
   assert.match(first, /### 2\.1 第一批：正确性、验证入口与方向决策/);
@@ -150,7 +151,12 @@ test("渲染即校验：生成区被手改或缺失标记都要被发现", () =>
   const inSync = planWith(renderQueueRegion(queue).trimEnd());
   assert.deepEqual(checkQueueSync(queue, inSync), [], "同步时应无提示");
 
-  const tampered = inSync.replace("ITER-001 · 执行中", "ITER-001 · 建议");
+  // 与当前状态无关的篡改：换成枚举里的另一个状态，避免测试随条目状态演进而失配。
+  const currentStatus = queue.items[0].status;
+  const otherStatus = queue.statuses.find((status) => status !== currentStatus);
+  const tampered = inSync.replace(`ITER-001 · ${currentStatus}`, `ITER-001 · ${otherStatus}`);
+  assert.notEqual(tampered, inSync, "篡改必须真的改变了内容");
+
   const findings = checkQueueSync(queue, tampered);
   assert.equal(findings.length, 1);
   assert.match(findings[0].message, /不一致/);
