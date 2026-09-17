@@ -5,3 +5,4 @@ export * from "./material.js";
 export * from "./prompts.js";
 export * from "./template.js";
 export * from "./generation.js";
+export * from "./styles.js";

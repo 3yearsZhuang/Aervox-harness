@@ -394,9 +394,9 @@ async function handleExport(plugin: PluginSummaryDto): Promise<void> {
 .plugin-manager { display: grid; gap: 14px; }
 .plugin-subtabs {
   display: flex;
-  gap: 6px;
-  padding: 4px;
-  border-radius: 10px;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 9px;
   background: var(--bg-input);
   border: 1px solid var(--border);
 }
@@ -406,15 +406,15 @@ async function handleExport(plugin: PluginSummaryDto): Promise<void> {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 5px 12px;
   border: none;
-  border-radius: 7px;
+  border-radius: 6px;
   background: transparent;
   color: var(--text-secondary);
   font-size: 11px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .subtab-btn:hover {
   color: var(--text-primary);
@@ -423,7 +423,7 @@ async function handleExport(plugin: PluginSummaryDto): Promise<void> {
 .subtab-btn.active {
   background: var(--bg-soft);
   color: var(--accent);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   font-weight: 600;
 }
 .plugins-tab-content {
@@ -447,7 +447,8 @@ async function handleExport(plugin: PluginSummaryDto): Promise<void> {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  height: 30px;
+  padding: 0 12px;
   border: none;
   border-radius: 8px;
   background: var(--accent);
@@ -455,13 +456,22 @@ async function handleExport(plugin: PluginSummaryDto): Promise<void> {
   font-size: 11px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .btn-install:hover {
-  opacity: 0.9;
+  opacity: 0.92;
   transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(78, 119, 209, 0.25);
 }
-.plugin-empty { padding: 26px 0; text-align: center; color: var(--text-muted); font-size: 11px; }
+.pcfg-loading,
+.plugin-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
 .plugin-list { display: grid; gap: 10px; }
 .plugin-card {
   display: flex;
@@ -491,18 +501,18 @@ async function handleExport(plugin: PluginSummaryDto): Promise<void> {
   transform: scale(1.05);
 }
 .plugin-card-main { min-width: 0; flex: 1; display: grid; gap: 3px; }
-.plugin-card-main strong { color: var(--text-primary); font-size: 12px; }
+.plugin-card-main strong { color: var(--text-primary); font-size: 12px; font-weight: 600; }
 .plugin-card-main small { color: var(--text-muted); font-size: 10px; }
 .plugin-card-actions { display: flex; align-items: center; gap: 8px; }
 .plugin-toggle { width: 40px; height: 22px; flex: 0 0 40px; }
 .plugin-action {
-  display: inline-flex; align-items: center; gap: 5px;
+  display: inline-flex; align-items: center; gap: 4px;
   padding: 6px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg-input);
   color: var(--text-secondary);
-  font-size: 10px;
+  font-size: 11px;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -535,7 +545,7 @@ async function handleExport(plugin: PluginSummaryDto): Promise<void> {
   gap: 8px;
   width: 100%;
   padding: 8px 10px;
-  border-top: 1px dashed var(--border);
+  border-top: 1px dashed color-mix(in srgb, var(--border) 80%, transparent);
 }
 .sensor-grants-title {
   display: inline-flex;
@@ -556,6 +566,7 @@ async function handleExport(plugin: PluginSummaryDto): Promise<void> {
 .sensor-id {
   font-size: 10px;
   color: var(--text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 .sensor-grant-toggle { width: 34px; height: 19px; flex: 0 0 34px; }
 </style>

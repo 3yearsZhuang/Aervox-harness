@@ -193,3 +193,5 @@ export type SkillCandidateCreate = z.infer<typeof skillCandidateCreateSchema>;
 export type SkillEvaluation = z.infer<typeof skillEvaluationSchema>;
 export type SkillRelease = z.infer<typeof skillReleaseSchema>;
 export type SkillPromoteRequest = z.infer<typeof skillPromoteRequestSchema>;
+
+export * from "./avatar-schemas.js";

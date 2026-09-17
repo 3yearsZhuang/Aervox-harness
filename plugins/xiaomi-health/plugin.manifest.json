@@ -1,0 +1,64 @@
+{
+  "apiVersion": "aervox.dev/v1",
+  "kind": "PluginManifest",
+  "metadata": {
+    "id": "xiaomi-health",
+    "displayName": "小米运动健康数据网关",
+    "publisher": "aervox-official",
+    "version": "1.0.0",
+    "description": "CAP-035: 对接收集小米运动健康步数、睡眠时长与卡路里消耗，评估身体疲劳度并与桌宠每日关怀和学习计划自适应联动。",
+    "license": "AGPL-3.0-or-later"
+  },
+  "spec": {
+    "config": {
+      "schemaVersion": 1,
+      "entry": "config.schema.json"
+    },
+    "tools": [
+      {
+        "name": "xiaomi_health_sync_daily",
+        "description": "同步指定日期的健康运动与睡眠指标，计算日常活动负荷与活力恢复指数",
+        "category": "health",
+        "safetyLevel": "read_only",
+        "requiredPermissions": [
+          "health.read"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "date": {
+              "type": "string",
+              "description": "目标日期 (YYYY-MM-DD)，缺省为当天"
+            }
+          }
+        },
+        "priority": 10
+      }
+    ],
+    "proactive": {
+      "sensors": [
+        {
+          "sourceId": "health.daily_metrics",
+          "description": "采样用户今日步数、卡路里、站立时长与前夜睡眠时长"
+        }
+      ],
+      "triggers": [
+        {
+          "ruleId": "health_sleep_recovery_alert",
+          "name": "前夜睡眠不足/精力告警",
+          "triggerType": "system_state",
+          "condition": {
+            "continuousActiveMinutesMin": 45,
+            "idleMinutesMax": 5
+          },
+          "cooldownSeconds": 7200,
+          "quietHoursPolicy": "respect_global",
+          "petPresentation": {
+            "animation": "sad",
+            "bubblePreset": "gentle_care"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "apiVersion": "aervox.dev/v1",
+  "kind": "PluginConfigSchema",
+  "schemaVersion": 1,
+  "fields": [
+    {
+      "key": "host",
+      "type": "string",
+      "label": "Home Assistant 服务地址",
+      "description": "本地或局域网 Home Assistant 实例的 HTTP(S) 地址（例如 http://127.0.0.1:8123）",
+      "default": "http://127.0.0.1:8123",
+      "required": true,
+      "validation": {
+        "maxLength": 2048
+      }
+    },
+    {
+      "key": "accessToken",
+      "type": "secret",
+      "label": "长期访问令牌 (Long-Lived Access Token)",
+      "description": "在 Home Assistant 用户个人资料页生成的长期访问令牌",
+      "required": true
+    },
+    {
+      "key": "monitoredEntities",
+      "type": "array",
+      "label": "重点监听实体",
+      "description": "供桌宠主动感知室内环境与人体的实体列表（例如 sensor.study_temperature, binary_sensor.motion）",
+      "items": {
+        "key": "entityId",
+        "type": "string",
+        "label": "实体标识",
+        "placeholder": "domain.entity_name"
+      }
+    },
+    {
+      "key": "syncIntervalSeconds",
+      "type": "integer",
+      "label": "轮询同步间隔 (秒)",
+      "description": "主动同步传感器数据与状态的间隔时长（10~300 秒）",
+      "default": 30,
+      "validation": {
+        "min": 10,
+        "max": 300
+      }
+    }
+  ]
+}

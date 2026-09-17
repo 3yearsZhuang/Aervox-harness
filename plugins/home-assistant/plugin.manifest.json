@@ -1,0 +1,103 @@
+{
+  "apiVersion": "aervox.dev/v1",
+  "kind": "PluginManifest",
+  "metadata": {
+    "id": "home-assistant",
+    "displayName": "Home Assistant 智能家居网关",
+    "publisher": "aervox-official",
+    "version": "1.0.0",
+    "description": "CAP-034: 联动本地 Home Assistant 智能家居，感知室内温湿度、环境照度与人体移动，支持智能灯光/开关设备控制与桌宠环境主动关怀。",
+    "license": "AGPL-3.0-or-later"
+  },
+  "spec": {
+    "config": {
+      "schemaVersion": 1,
+      "entry": "config.schema.json"
+    },
+    "tools": [
+      {
+        "name": "homeassistant_call_service",
+        "description": "调用 Home Assistant 智能设备服务（例如控制灯光开关、调节空调温度或执行自动化场景）",
+        "category": "iot",
+        "safetyLevel": "guarded",
+        "requiredPermissions": [
+          "homeassistant.control"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "domain": {
+              "type": "string",
+              "description": "设备领域，如 light, switch, climate"
+            },
+            "service": {
+              "type": "string",
+              "description": "服务动作，如 turn_on, turn_off, set_temperature"
+            },
+            "entityId": {
+              "type": "string",
+              "description": "实体 ID，如 light.study_room"
+            },
+            "serviceData": {
+              "type": "object",
+              "description": "可选附加控制参数"
+            }
+          },
+          "required": [
+            "domain",
+            "service",
+            "entityId"
+          ]
+        },
+        "priority": 10
+      },
+      {
+        "name": "homeassistant_get_state",
+        "description": "查询 Home Assistant 设备的当前状态与环境传感器属性（如温度、湿度、照度）",
+        "category": "iot",
+        "safetyLevel": "read_only",
+        "requiredPermissions": [
+          "homeassistant.read"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "entityId": {
+              "type": "string",
+              "description": "实体 ID，如 sensor.study_temperature"
+            }
+          },
+          "required": [
+            "entityId"
+          ]
+        },
+        "priority": 10
+      }
+    ],
+    "proactive": {
+      "sensors": [
+        {
+          "sourceId": "homeassistant.entity_state",
+          "description": "监听并采样已配置的智能家居环境与设备状态（温度、湿度、人体存在）"
+        }
+      ],
+      "triggers": [
+        {
+          "ruleId": "homeassistant_presence_greeting",
+          "name": "回家/进入书房人体感应迎候",
+          "triggerType": "system_state",
+          "condition": {
+            "continuousActiveMinutesMin": 1,
+            "idleMinutesMax": 2
+          },
+          "cooldownSeconds": 3600,
+          "quietHoursPolicy": "respect_global",
+          "petPresentation": {
+            "animation": "greet",
+            "bubblePreset": "gentle_care"
+          }
+        }
+      ]
+    }
+  }
+}

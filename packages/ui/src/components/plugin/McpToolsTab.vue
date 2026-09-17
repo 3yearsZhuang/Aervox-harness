@@ -269,32 +269,36 @@ function handlePresetChanged(): void {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 .tab-filters {
   display: flex;
+  align-items: center;
   gap: 4px;
-  background: var(--bg-input, rgba(0, 0, 0, 0.04));
+  background: var(--bg-input);
   padding: 3px;
-  border-radius: 8px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
 }
 .filter-pill-btn {
   border: none;
   background: transparent;
-  padding: 4px 10px;
+  padding: 5px 12px;
   border-radius: 6px;
   font-size: 11px;
-  color: var(--text-muted);
+  font-weight: 500;
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .filter-pill-btn:hover {
   color: var(--text-primary);
+  background: color-mix(in srgb, var(--bg-soft) 70%, transparent);
 }
 .filter-pill-btn.active {
-  background: var(--button-bg, #fff);
-  color: var(--accent, #409eff);
+  background: var(--bg-soft);
+  color: var(--accent);
   font-weight: 600;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
@@ -302,10 +306,11 @@ function handlePresetChanged(): void {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  background: var(--bg-hover, rgba(0, 0, 0, 0.03));
-  color: var(--text-muted);
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-soft) 45%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--accent) 30%, var(--border));
+  color: var(--text-secondary);
   font-size: 11px;
   line-height: 1.4;
 }
@@ -320,7 +325,8 @@ function handlePresetChanged(): void {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  height: 30px;
+  padding: 0 12px;
   border-radius: 8px;
   background: var(--accent);
   color: #fff;
@@ -328,19 +334,25 @@ function handlePresetChanged(): void {
   font-size: 11px;
   font-weight: 500;
   cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .btn-primary-action:hover:not(:disabled) {
-  opacity: 0.9;
+  opacity: 0.92;
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(78, 119, 209, 0.25);
+  box-shadow: 0 3px 8px rgba(78, 119, 209, 0.25);
+}
+.btn-primary-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .tab-loading,
 .tab-empty {
-  padding: 26px 0;
+  padding: 32px 16px;
   text-align: center;
   color: var(--text-muted);
   font-size: 11px;
+  line-height: 1.5;
 }
 .tool-list {
   display: grid;
@@ -354,7 +366,7 @@ function handlePresetChanged(): void {
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--bg-soft);
-  transition: all 0.22s ease;
+  transition: border-color 0.22s ease, background-color 0.22s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease;
 }
 .tool-card:hover {
   border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
@@ -374,6 +386,10 @@ function handlePresetChanged(): void {
   border-radius: 10px;
   background: var(--accent-soft);
   color: var(--accent);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.22s ease;
+}
+.tool-card:hover .tool-card-icon {
+  transform: scale(1.05);
 }
 .tool-card-main {
   min-width: 0;
@@ -394,8 +410,9 @@ function handlePresetChanged(): void {
 }
 .tool-id-code {
   font-size: 10px;
-  padding: 1px 4px;
+  padding: 1px 5px;
   background: var(--bg-input);
+  border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text-muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -405,7 +422,8 @@ function handlePresetChanged(): void {
   align-items: center;
   padding: 1px 6px;
   border-radius: 6px;
-  font-size: 9px;
+  font-size: 10px;
+  font-weight: 500;
   border: 1px solid transparent;
 }
 .badge-category {
@@ -414,33 +432,34 @@ function handlePresetChanged(): void {
   border-color: var(--border);
 }
 .safety-read-only {
-  background: color-mix(in srgb, #10b981 15%, transparent);
+  background: color-mix(in srgb, #10b981 14%, transparent);
   color: #10b981;
-  border-color: color-mix(in srgb, #10b981 30%, transparent);
+  border-color: color-mix(in srgb, #10b981 28%, transparent);
 }
 .safety-approval {
-  background: color-mix(in srgb, #f59e0b 15%, transparent);
+  background: color-mix(in srgb, #f59e0b 14%, transparent);
   color: #f59e0b;
-  border-color: color-mix(in srgb, #f59e0b 30%, transparent);
+  border-color: color-mix(in srgb, #f59e0b 28%, transparent);
 }
 .safety-privileged {
-  background: color-mix(in srgb, #ef4444 15%, transparent);
-  color: #ef4444;
-  border-color: color-mix(in srgb, #ef4444 30%, transparent);
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 28%, transparent);
 }
 .badge-builtin {
-  background: color-mix(in srgb, #6b7280 15%, transparent);
+  background: var(--bg-input);
   color: var(--text-muted);
+  border-color: var(--border);
 }
 .badge-mcp-server {
-  background: color-mix(in srgb, #06b6d4 15%, transparent);
+  background: color-mix(in srgb, #06b6d4 14%, transparent);
   color: #0891b2;
-  border-color: color-mix(in srgb, #06b6d4 30%, transparent);
+  border-color: color-mix(in srgb, #06b6d4 28%, transparent);
 }
 .badge-plugin {
-  background: color-mix(in srgb, #8b5cf6 15%, transparent);
+  background: color-mix(in srgb, #8b5cf6 14%, transparent);
   color: #8b5cf6;
-  border-color: color-mix(in srgb, #8b5cf6 30%, transparent);
+  border-color: color-mix(in srgb, #8b5cf6 28%, transparent);
 }
 .tool-desc {
   margin: 0;
@@ -472,21 +491,31 @@ function handlePresetChanged(): void {
   color: var(--text-secondary);
   font-size: 11px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .tool-action-btn:hover:not(:disabled) {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-soft);
   transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(78, 119, 209, 0.15);
+}
+.tool-action-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
 }
 .btn-danger:hover:not(:disabled) {
-  border-color: var(--danger, #ef4444);
-  color: var(--danger, #ef4444);
-  background: color-mix(in srgb, #ef4444 12%, transparent);
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--danger-soft);
+  box-shadow: 0 2px 6px rgba(166, 73, 60, 0.15);
 }
 .tool-action-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
+  background: var(--bg-soft);
+  color: var(--text-muted);
+  border-color: var(--border);
+  box-shadow: none;
+  transform: none;
 }
 </style>

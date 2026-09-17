@@ -99,61 +99,50 @@ const proactiveBudgetRepo = new SqliteProactiveBudgetRepository(proactiveDb);
 const perceptionRepo = new SqlitePerceptionEventRepository(proactiveDb);
 const proactiveDistiller = createRuleBasedProactiveDistiller();
 
-/** 每任务独立调频：显式覆盖优先；默认 tick 未改时使用任务级低频默认值。 */
-function taskInterval(name: string): number {
-  return resolveWorkerTaskInterval(name, defaultTickMs, config.intervalOverrides);
-}
+import { WorkerHost } from "./worker-host.js";
 
-interface WorkerTask {
-  name: string;
-  intervalMs: number;
-  run(): Promise<number>;
-}
+const host = new WorkerHost({
+  workerId,
+  defaultTickMs,
+  intervalOverrides: config.intervalOverrides,
+  logger,
+});
 
-const tasks: WorkerTask[] = [
-  {
+host
+  .registerJob({
     name: "outbox",
-    intervalMs: taskInterval("outbox"),
     run: () => runOutboxCycle({ outboxRepo, platformRepo, workerId }),
-  },
-  {
+  })
+  .registerJob({
     name: "review",
-    intervalMs: taskInterval("review"),
     run: () => runReviewNotificationCycle({ db, platformRepo, learningRepo, workerId }),
-  },
-  {
+  })
+  .registerJob({
     name: "diary",
-    intervalMs: taskInterval("diary"),
     run: () => runDiaryGenerationCycle({ db, diaryRepo, llmConfigRepo, platformRepo, outboxRepo, workerId }),
-  },
-  {
+  })
+  .registerJob({
     name: "deletion",
-    intervalMs: taskInterval("deletion"),
     run: () => runDeletionCycle({ db, privacyRepo, platformRepo, workerId }),
-  },
-  {
+  })
+  .registerJob({
     name: "compaction",
-    intervalMs: taskInterval("compaction"),
     run: () => runCompactionMarkerCycle({ outboxRepo, compactionRepo, workerId }),
-  },
-  {
+  })
+  .registerJob({
     name: "embedding",
-    intervalMs: taskInterval("embedding"),
     run: () => runEmbeddingMigrationCycle({ db, client, embeddingRepo, workerId }),
-  },
-  {
+  })
+  .registerJob({
     name: "attempt-recovery",
-    intervalMs: taskInterval("attempt-recovery"),
     run: () => runAttemptRecoveryCycle({ db, client, workerId }),
-  },
-  {
+  })
+  .registerJob({
     name: "inbox-expiry",
-    intervalMs: taskInterval("inbox-expiry"),
     run: () => runInboxExpiryCycle({ inboxRepo }),
-  },
-  {
+  })
+  .registerJob({
     name: "proactive-profile",
-    intervalMs: taskInterval("proactive-profile"),
     run: async () => {
       const result = await runProactiveProfileCycle({
         db: proactiveDb,
@@ -170,10 +159,9 @@ const tasks: WorkerTask[] = [
       }
       return result.distilled + result.purged;
     },
-  },
-  {
+  })
+  .registerJob({
     name: "proactive-intelligence",
-    intervalMs: taskInterval("proactive-intelligence"),
     run: async () => {
       const result = await runProactiveIntelligenceCycle({
         db: proactiveDb,
@@ -197,62 +185,7 @@ const tasks: WorkerTask[] = [
         result.drift + result.relationships + result.scenes + result.reviews +
         result.dispatches + result.projections + result.budgetReceipts + result.perceptionEvents;
     },
-  },
-];
+  });
 
-logger.info({
-  event: "worker.started",
-  message: `Worker ${workerId} started with ${tasks.length} tasks`,
-  fields: {
-    workerId,
-    defaultTickMs,
-    taskCount: tasks.length,
-    tasks: tasks.map((t) => ({ name: t.name, intervalMs: t.intervalMs })),
-  },
-});
+host.start();
 
-// 每任务独立节拍器：错峰首次执行，随后按各自 interval 轮询；
-// 运行中跳过（不重叠）、单任务异常隔离。错峰避免启动时同时争抢 SQLite 写锁。
-const INITIAL_STAGGER_MS = 250;
-for (const [index, task] of tasks.entries()) {
-  let running = false;
-  const runOnce = async (): Promise<void> => {
-    if (running) return;
-    running = true;
-    const startTime = Date.now();
-    try {
-      const processed = await task.run();
-      const durationMs = Date.now() - startTime;
-      if (processed > 0) {
-        logger.info({
-          event: "worker.task.completed",
-          message: `Task ${task.name} processed ${processed} items (${durationMs}ms)`,
-          fields: {
-            task: task.name,
-            processed,
-            durationMs,
-          },
-        });
-      }
-    } catch (err) {
-      const errorObj = err instanceof Error ? err : new Error(String(err));
-      logger.error({
-        event: "worker.task.failed",
-        message: `Task ${task.name} tick failed: ${errorObj.message}`,
-        fields: {
-          task: task.name,
-          error: errorObj.name,
-          stack: errorObj.stack,
-        },
-      });
-    } finally {
-      running = false;
-    }
-  };
-  const initialDelay = Math.min(index * INITIAL_STAGGER_MS, Math.max(0, task.intervalMs - 1));
-  if (initialDelay === 0) void runOnce();
-  else setTimeout(() => { void runOnce(); }, initialDelay);
-  setInterval(() => {
-    void runOnce();
-  }, task.intervalMs);
-}
