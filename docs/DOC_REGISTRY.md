@@ -79,7 +79,7 @@ review_interval_days: 90
 | `AVX-TUT-002` | [教程：迁移已集成能力并接入 DSH/pi](tutorials/migrate-integrated-capabilities.md) | 2026-09-16 | 能力目录、DSH/pi 上游或迁移步骤变更 | 当前实现路径、固定 SHA、权限/隔离边界或验证命令与仓库不一致 |
 | `AVX-TUT-003` | [教程：编写自定义 Agent 工具](tutorials/create-agent-tool.md) | 2026-09-16 | 工具运行时、安全级别或注册表持久化变更 | Schema 定义、安全级别枚举或 Handler 接口与代码不一致 |
 | `AVX-EXPL-001` | [数据流总览](explanation/data-flow-overview.md) | 2026-09-17 | 模块/Worker/路由/数据真源变更 | SQLite 终态、迁移或新增 Worker 循环未入概念地图 |
-| `AVX-EXPL-002` | [参考项目能力迁移与借鉴评估](explanation/reference-design-transfer.md) | 2026-09-16 | 参考项目升级或架构变更 | 新增借鉴决策未登记，或参考项目 commit 超出固定清单 |
+| `AVX-EXPL-002` | [参考项目能力迁移与借鉴评估](explanation/reference-design-transfer.md) | 2026-09-17 | 参考项目升级或架构变更 | 新增借鉴决策未登记，或参考项目 commit 超出固定清单 |
 | `AVX-EXPL-003` | [桌宠角色设定文档化与多人格模板组织](explanation/persona-organization.md) | 2026-08-26 | 桌宠 IP / CAP-019 立项或人设变更 | 新增/变更角色文档未按字段化结构与模板版本化落地，或识别边界未同步评审 |
 | `AVX-EXPL-005` | [ESP32-S3 硬件延伸](explanation/esp32-s3-hardware-extension.md) | 2026-09-10 | 硬件方案、设备协议或设备能力（独立设备 CAP 提议）立项变更 | 硬件边界、设备协议、隐私红线或阶段结论与 ADR-016 / 追踪基线 §4.2 / 数据隐私规范不一致 |
 | `AVX-EXPL-008` | [主动智能模式设计方案](explanation/proactive-intelligence-mode.md) | 2026-09-17 | CR-023/CAP-033、完全访问、全量画像、OS 能力授权、特权观察 Host、本地处理、动作授权、CAP-022/026/027/030 变更 | 四维状态、完整画像 manifest、平台能力清单、OS grant、本地出网边界、七天提炼保留、动作授权、阻断项或实现门禁与基线不一致 |

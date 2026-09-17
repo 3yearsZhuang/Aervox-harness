@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-16",
+  "generatedAt": "2026-09-17",
   "totalCount": 63,
   "documents": [
     {
@@ -124,8 +124,8 @@
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
       "version": "0.8.1",
-      "updated_at": "2026-09-16",
-      "reviewed_at": "2026-09-16",
+      "updated_at": "2026-09-17",
+      "reviewed_at": "2026-09-17",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
