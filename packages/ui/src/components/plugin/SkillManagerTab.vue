@@ -303,12 +303,13 @@ async function handleFileSelected(event: Event): Promise<void> {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
 }
 .tab-filters {
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: var(--bg-card);
+  gap: 4px;
+  background: var(--bg-input);
   padding: 3px;
   border-radius: 9px;
   border: 1px solid var(--border);
@@ -317,30 +318,34 @@ async function handleFileSelected(event: Event): Promise<void> {
   background: transparent;
   border: none;
   font-size: 11px;
-  padding: 4px 10px;
+  font-weight: 500;
+  padding: 5px 12px;
   border-radius: 6px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .filter-pill-btn:hover {
   color: var(--text-primary);
+  background: color-mix(in srgb, var(--bg-soft) 70%, transparent);
 }
 .filter-pill-btn.active {
-  background: var(--accent-soft);
+  background: var(--bg-soft);
   color: var(--accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   font-weight: 600;
 }
 .plugin-skills-banner {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  background: color-mix(in srgb, var(--accent-soft) 40%, transparent);
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--accent-soft) 45%, transparent);
   border: 1px dashed color-mix(in srgb, var(--accent) 30%, var(--border));
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 11px;
   color: var(--text-secondary);
+  line-height: 1.4;
 }
 .banner-link-btn {
   margin-left: auto;
@@ -348,14 +353,20 @@ async function handleFileSelected(event: Event): Promise<void> {
   border: none;
   color: var(--accent);
   font-size: 11px;
+  font-weight: 500;
   cursor: pointer;
   text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.banner-link-btn:hover {
+  opacity: 0.85;
 }
 .btn-primary-action {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  height: 30px;
+  padding: 0 12px;
   border-radius: 8px;
   background: var(--accent);
   color: #fff;
@@ -363,23 +374,25 @@ async function handleFileSelected(event: Event): Promise<void> {
   font-size: 11px;
   font-weight: 500;
   cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .btn-primary-action:hover:not(:disabled) {
-  opacity: 0.9;
+  opacity: 0.92;
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(78, 119, 209, 0.25);
+  box-shadow: 0 3px 8px rgba(78, 119, 209, 0.25);
 }
 .btn-primary-action:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 .tab-loading,
 .tab-empty {
-  padding: 26px 0;
+  padding: 32px 16px;
   text-align: center;
   color: var(--text-muted);
   font-size: 11px;
+  line-height: 1.5;
 }
 .skill-list {
   display: grid;
@@ -393,7 +406,7 @@ async function handleFileSelected(event: Event): Promise<void> {
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--bg-soft);
-  transition: all 0.22s ease;
+  transition: border-color 0.22s ease, background-color 0.22s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease;
 }
 .skill-card:hover {
   border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
@@ -413,6 +426,10 @@ async function handleFileSelected(event: Event): Promise<void> {
   border-radius: 10px;
   background: var(--accent-soft);
   color: var(--accent);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.22s ease;
+}
+.skill-card:hover .skill-card-icon {
+  transform: scale(1.05);
 }
 .skill-card-main {
   min-width: 0;
@@ -436,29 +453,31 @@ async function handleFileSelected(event: Event): Promise<void> {
   align-items: center;
   padding: 1px 6px;
   border-radius: 6px;
-  font-size: 9px;
+  font-size: 10px;
+  font-weight: 500;
   background: var(--bg-input);
   color: var(--text-secondary);
   border: 1px solid var(--border);
 }
 .badge-plugin {
-  background: color-mix(in srgb, #8b5cf6 15%, transparent);
+  background: color-mix(in srgb, #8b5cf6 14%, transparent);
   color: #8b5cf6;
-  border-color: color-mix(in srgb, #8b5cf6 30%, transparent);
+  border-color: color-mix(in srgb, #8b5cf6 28%, transparent);
 }
 .badge-local {
-  background: color-mix(in srgb, #10b981 15%, transparent);
+  background: color-mix(in srgb, #10b981 14%, transparent);
   color: #10b981;
-  border-color: color-mix(in srgb, #10b981 30%, transparent);
+  border-color: color-mix(in srgb, #10b981 28%, transparent);
 }
 .badge-ai_authored {
-  background: color-mix(in srgb, #f59e0b 15%, transparent);
+  background: color-mix(in srgb, #f59e0b 14%, transparent);
   color: #f59e0b;
-  border-color: color-mix(in srgb, #f59e0b 30%, transparent);
+  border-color: color-mix(in srgb, #f59e0b 28%, transparent);
 }
 .badge-readonly {
-  background: color-mix(in srgb, #6b7280 15%, transparent);
+  background: var(--bg-input);
   color: var(--text-muted);
+  border-color: var(--border);
 }
 .skill-desc {
   margin: 0;
@@ -490,21 +509,31 @@ async function handleFileSelected(event: Event): Promise<void> {
   color: var(--text-secondary);
   font-size: 11px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .skill-action-btn:hover:not(:disabled) {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-soft);
   transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(78, 119, 209, 0.15);
+}
+.skill-action-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
 }
 .btn-danger:hover:not(:disabled) {
-  border-color: var(--danger, #ef4444);
-  color: var(--danger, #ef4444);
-  background: color-mix(in srgb, #ef4444 12%, transparent);
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--danger-soft);
+  box-shadow: 0 2px 6px rgba(166, 73, 60, 0.15);
 }
 .skill-action-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
+  background: var(--bg-soft);
+  color: var(--text-muted);
+  border-color: var(--border);
+  box-shadow: none;
+  transform: none;
 }
 </style>

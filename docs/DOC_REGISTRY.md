@@ -7,15 +7,15 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 1.12.2
-updated_at: 2026-09-17
-reviewed_at: 2026-09-17
+updated_at: 2026-09-18
+reviewed_at: 2026-09-18
 review_interval_days: 90
 ---
 
 # 文档生命周期登记表（核验节奏与陈旧信号）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-17
+- 修改人：3yearszhuang · 2026-09-18
 
 关联：[文档索引](README.md)、[文档治理与事实源规范](reference/document-governance.md)
 
@@ -54,7 +54,7 @@ review_interval_days: 90
 | `AVX-SEC-001` | [威胁模型](reference/THREAT_MODEL.md) | 2026-09-17 | 每季度 + 信任边界变更 | loopback、文件 ACL 或 CR-030 迁移威胁未加入模型 |
 | `AVX-QA-001` | [测试策略](reference/TEST_STRATEGY.md) | 2026-09-17 | G1/G4 门禁 | 本地安全或 CR-030 故障注入 AC/TC 状态未回填 |
 | `AVX-OPS-001` | [运行、值班与演练手册](reference/operations.md) | 2026-09-13 | 每季度演练 + 每次发布 + 值班变更 | 本地恢复、CR-030 回滚或告警/拓扑变化未更新 |
-| `AVX-TRC-001` | [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) | 2026-09-17 | 版本立项 / G1 / G4 / 落地登记 | CAP/AC/TC 状态或追踪关系变化未回填；§4.2 落地登记与实现不符 |
+| `AVX-TRC-001` | [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) | 2026-09-18 | 版本立项 / G1 / G4 / 落地登记 | CAP/AC/TC 状态或追踪关系变化未回填；§4.2 落地登记与实现不符 |
 | `AVX-HOW-001` | [操作指南索引](how-to/README.md) | 2026-09-13 | 新增指南或操作流程变更 | 指南清单与实际目录不一致 |
 | `AVX-GUIDE-001` | [工程与发布流程](how-to/engineering-process.md) | 2026-09-13 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
 | `AVX-GUIDE-002` | [撰写与批准 ADR](how-to/write-adr.md) | 2026-08-28 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
@@ -85,7 +85,7 @@ review_interval_days: 90
 | `AVX-EXPL-008` | [主动智能模式设计方案](explanation/proactive-intelligence-mode.md) | 2026-09-17 | CR-023/CAP-033、完全访问、全量画像、OS 能力授权、特权观察 Host、本地处理、动作授权、CAP-022/026/027/030 变更 | 四维状态、完整画像 manifest、平台能力清单、OS grant、本地出网边界、七天提炼保留、动作授权、阻断项或实现门禁与基线不一致 |
 | `AVX-DOC-001` | [文档索引](README.md) | 2026-09-15 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
 | `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-09-16 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |
-| `AVX-DOC-CONF-001` | [文档生命周期登记表](DOC_REGISTRY.md) | 2026-09-17 | 每季度 + 每次文档集变更 | 登记条目与实际文档集不一致 |
+| `AVX-DOC-CONF-001` | [文档生命周期登记表](DOC_REGISTRY.md) | 2026-09-18 | 每季度 + 每次文档集变更 | 登记条目与实际文档集不一致 |
 | `CR-053` | [CR-053 llama.cpp 本地模型作为底层能力接入与模型能力探测预算适配](reference/changes/CR-053-llamacpp-provider-and-local-model-support.md) | 2026-09-17 | 变更生命周期 + 决策变更 | 实现与提案差量、决策状态或回滚预案不一致 |
 | `CR-054` | [CR-054 本地模型运行时管理：GGUF 下载与 llama-server 进程生命周期](reference/changes/CR-054-local-model-runtime-management.md) | 2026-09-17 | 变更生命周期 + 决策变更 | 实现与提案差量、决策状态或回滚预案不一致 |
 

@@ -274,10 +274,11 @@ async function handleDisconnect(preset: McpPresetDto): Promise<void> {
   font-size: 10px;
 }
 .preset-empty {
-  padding: 16px 0;
+  padding: 24px 16px;
   text-align: center;
   color: var(--text-muted);
   font-size: 11px;
+  line-height: 1.5;
 }
 .preset-card {
   display: flex;
@@ -287,10 +288,12 @@ async function handleDisconnect(preset: McpPresetDto): Promise<void> {
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--bg-soft);
-  transition: all 0.22s ease;
+  transition: border-color 0.22s ease, background-color 0.22s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease;
 }
 .preset-card:hover {
   border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: color-mix(in srgb, var(--bg-soft) 85%, var(--accent-soft));
+  transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(15, 20, 32, 0.05);
 }
 .preset-icon {
@@ -302,6 +305,10 @@ async function handleDisconnect(preset: McpPresetDto): Promise<void> {
   border-radius: 10px;
   background: var(--accent-soft);
   color: var(--accent);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.22s ease;
+}
+.preset-card:hover .preset-icon {
+  transform: scale(1.05);
 }
 .preset-main {
   min-width: 0;
@@ -322,8 +329,9 @@ async function handleDisconnect(preset: McpPresetDto): Promise<void> {
 }
 .preset-endpoint {
   font-size: 10px;
-  padding: 1px 4px;
+  padding: 1px 5px;
   background: var(--bg-input);
+  border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text-muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -333,25 +341,27 @@ async function handleDisconnect(preset: McpPresetDto): Promise<void> {
   align-items: center;
   padding: 1px 6px;
   border-radius: 6px;
-  font-size: 9px;
+  font-size: 10px;
+  font-weight: 500;
   border: 1px solid transparent;
 }
 .preset-status-connected {
-  background: color-mix(in srgb, #10b981 15%, transparent);
+  background: color-mix(in srgb, #10b981 14%, transparent);
   color: #10b981;
-  border-color: color-mix(in srgb, #10b981 30%, transparent);
+  border-color: color-mix(in srgb, #10b981 28%, transparent);
 }
 .preset-status-error {
-  background: color-mix(in srgb, #ef4444 15%, transparent);
-  color: #ef4444;
-  border-color: color-mix(in srgb, #ef4444 30%, transparent);
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 28%, transparent);
 }
 .preset-status-idle {
-  background: color-mix(in srgb, #6b7280 15%, transparent);
+  background: var(--bg-input);
   color: var(--text-muted);
+  border-color: var(--border);
 }
 .preset-token {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--text-muted);
 }
 .preset-desc {
@@ -367,7 +377,7 @@ async function handleDisconnect(preset: McpPresetDto): Promise<void> {
 }
 .preset-error {
   margin: 0;
-  color: #ef4444;
+  color: var(--danger);
   font-size: 10px;
 }
 .preset-actions {
@@ -389,32 +399,43 @@ async function handleDisconnect(preset: McpPresetDto): Promise<void> {
   font-size: 11px;
   cursor: pointer;
   text-decoration: none;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .preset-btn:hover:not(:disabled) {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-soft);
   transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(78, 119, 209, 0.15);
+}
+.preset-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
 }
 .preset-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
+  background: var(--bg-soft);
+  color: var(--text-muted);
+  border-color: var(--border);
+  box-shadow: none;
+  transform: none;
 }
 .preset-btn-primary {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 .preset-btn-primary:hover:not(:disabled) {
   color: #fff;
-  opacity: 0.9;
-  box-shadow: 0 2px 8px rgba(78, 119, 209, 0.25);
+  opacity: 0.92;
+  box-shadow: 0 3px 8px rgba(78, 119, 209, 0.25);
 }
 .preset-btn-danger:hover:not(:disabled) {
-  border-color: var(--danger, #ef4444);
-  color: var(--danger, #ef4444);
-  background: color-mix(in srgb, #ef4444 12%, transparent);
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--danger-soft);
+  box-shadow: 0 2px 6px rgba(166, 73, 60, 0.15);
 }
 .preset-link {
   padding: 6px 8px;

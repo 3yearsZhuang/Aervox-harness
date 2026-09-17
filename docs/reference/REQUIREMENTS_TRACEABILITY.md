@@ -7,15 +7,15 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 1.32.9
-updated_at: 2026-09-17
-reviewed_at: 2026-09-17
+updated_at: 2026-09-18
+reviewed_at: 2026-09-18
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-17
+- 修改人：3yearszhuang · 2026-09-18
 
 产品需求来源：[PRD.md](PRD.md)
 
@@ -189,6 +189,7 @@ review_interval_days: 90
 
 | 落地内容与功能描述 | 关联 CAP | 实现与测试位置 | 日期 | 验证 | 来源 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 统一“扩展与插件”设置中心前端视觉与设计规范（CAP-020 UI 样式规范化）：统一设置分类（`useWorkbenchLayout.ts`）与侧边栏（`WorkbenchSidebar.vue`）入口为「扩展与插件」；重构分段胶囊选择器（`PluginManagerPanel.vue`、`SkillManagerTab.vue`、`McpToolsTab.vue`、`PluginMarketTab.vue`、`PluginInstallDialog.vue`），统一圆角/边框/暗黑模式高光；规范化插件卡片、技能卡片、工具卡片、预设 MCP 卡片与集市卡片的网格体系（统一 12px 圆角、微投影与 Hover 上浮、36×36 图标框、右侧开关对齐）；统一徽章/标签语义色彩与提示横幅设计；全面消除硬编码 Hex 色值并接入标准语义 CSS 变量。 | CAP-020 + 基础设施（前端设计体系） | `packages/ui/src/components/plugin/{PluginManagerPanel.vue,SkillManagerTab.vue,McpToolsTab.vue,PluginMarketTab.vue,McpPresetServers.vue,PluginSettingsDialog.vue,PluginInstallDialog.vue}`、`packages/ui/src/composables/useWorkbenchLayout.ts`、`packages/ui/src/components/workbench/WorkbenchSidebar.vue`、`packages/ui/test/{plugin-manager-panel.test.ts,skill-mcp-tabs.test.ts,plugin-settings-dialog.test.ts,plugin-distribution.test.ts}` | 2026-09-18 | `@aervox/ui` 16 个测试套件 90/90 测试全绿；`vue-tsc` 0 错误；`./aervox ci` 24 任务全部通过；Markdownlint & Vale 0 报错 | 原生 |
 | 全量解耦能力分发包打包与出厂集市上架（CAP-020 插件化收口）：将解耦出的 5 项核心能力构建为独立插件工程（`plugins/home-assistant` 智能家居网关、`plugins/xiaomi-health` 运动健康网关、`plugins/anki-sync` 闪卡与题库同步器、`plugins/diary-distillers` 多风格日记与深度复盘、`plugins/multimodal-ocr` 题目与数学公式识别），补齐标准 `plugin.manifest.json`、`config.schema.json`、`SKILL.md` 与声明式 Tools；编写 `scripts/export-plugins.mjs`（`pnpm package:plugins`），基于 `fflate` 将 `plugins/*` 7 个插件完整打包为标准 `.aervox-plugin` 单文件分发包（产出至 `dist-plugins/` 并计算 SHA-256 哈希）；扩展出厂集市端点 `GET /v1/plugins/market` 与安装端点 `POST /v1/plugins/market/:id/install`，实现集市自发现、Schema 校验、一键安装与打包安全预检闭环 | CAP-020 + 基础设施（插件化与集市） | `plugins/{home-assistant,xiaomi-health,anki-sync,diary-distillers,multimodal-ocr}/`（5 个独立插件包）、`scripts/export-plugins.mjs`、`package.json`（新增 `package:plugins` 脚本）、`apps/api/test/builtin-plugins-market.test.ts`、`dist-plugins/*.aervox-plugin` | 2026-09-17 | `pnpm package:plugins` 成功打包全部 7 个插件；`builtin-plugins-market.test.ts` 5 项测试通过（清单/配置 Schema 校验、集市 7 项自发现、一键安装、分发包 inspect 预检）；`plugin-distribution.test.ts` 6 项全绿；`node scripts/import-boundary.mjs` 零违规；`./aervox test fast` 17 任务全绿 | 原生 |
 | 插件分发包规范、安装前预检、打包引擎与出厂集市（CAP-020 插件完整分发与生命周期闭环）：定义 `.aervox-plugin` 单文件分发包规约（ZIP 归档包含 `plugin.manifest.json`、`config.schema.json`、`SKILL.md`、`skills/`、`pages/`、声明工具）；严格落地 PRD CAP-020 安装前安全预检门禁（展示发布者、版本、SHA-256 完整性校验、声明所需权限与数据范围、能力计数，严格阻断 Zip Slip 跨目录越界与非法清单）；实现后端 `package-bundle.ts` 引擎（内存解包校验、原子化写入插件/配置/工具/技能/页面落盘、支持 `overwrite` 覆盖升级与 409 冲突防御、一键重新打包导出）；提供出厂/内置插件集市端点（`GET /v1/plugins/market` 与 `POST /v1/plugins/market/:id/install`）；前端升级 `PluginInstallDialog.vue` 为拖拽/文件包预检 + 手动 JSON 双模，新增 `PluginMarketTab.vue` 集市浏览/分类过滤/一键安装/导出，并在插件卡片与设置弹窗头部提供安装包导出功能。 | CAP-020 | `packages/contracts/src/{plugin-config-schemas.ts,openapi.ts}`、`packages/contracts/openapi.json`、`apps/api/src/modules/ecosystem/plugins/{package-bundle.ts,service.ts,routes.ts,index.ts}`、`packages/api-client/src/{useAervoxPlugins.ts,index.ts}`、`packages/ui/src/components/plugin/{PluginInstallDialog.vue,PluginMarketTab.vue,PluginManagerPanel.vue,PluginSettingsDialog.vue}`、`packages/ui/src/index.ts`、`docs/reference/plugin-config-and-pages.md`、`apps/api/test/plugin-distribution.test.ts`、`packages/api-client/test/plugins-distribution.test.ts`、`packages/ui/test/plugin-distribution.test.ts` | 2026-09-17 | `apps/api` 6 个集成测试通过；`packages/api-client` 4 个测试通过；`packages/ui` 9 个组件测试通过；UI/Web/Desktop/API 全量 typecheck 零错误；`node scripts/import-boundary.mjs` 零违规 | 原生 |
 | 插件专属能力与纯粹技能/工具解耦管理（CAP-020 插件能力入口与设置收敛）：新增 `PluginSettingsDialog.vue` 对已安装插件的能力进行集中一站式管理（运行配置、插件专属 Skill 启停与 SKILL.md 浏览、插件专属 MCP 工具启停与调试调用、系统感知源授权与触发规则呈现、扩展页面直达）；改造 `SkillManagerTab.vue` 与 `McpToolsTab.vue` 为默认纯粹视图（Pure View），仅管理纯粹的本地/独立 Skill 与系统/独立 MCP 工具，插件内置技能与工具收归插件设置并在纯粹模式下展示提示横幅，支持「独立/插件/全部」分段筛选；工具列表明确标示 `mcp:<serverId>` 为外部独立服务源徽标，消除伪插件归属混淆；`PluginManagerPanel.vue` 卡片操作区新增设置入口与联动。 | CAP-020 | `packages/ui/src/components/plugin/{PluginSettingsDialog.vue,PluginManagerPanel.vue,SkillManagerTab.vue,McpToolsTab.vue}`、`packages/ui/src/index.ts`、`packages/ui/test/{plugin-settings-dialog.test.ts,skill-mcp-tabs.test.ts,plugin-manager-panel.test.ts}` | 2026-09-17 | `@aervox/ui` 14 个测试套件 79/79 测试全部通过；`vue-tsc --noEmit` 0 错误；`./aervox test fast` 17 任务全部通过 | 原生 |
