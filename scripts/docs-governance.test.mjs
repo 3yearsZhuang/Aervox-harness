@@ -245,6 +245,17 @@ test("增量检查保留删除和治理关键输入，普通代码变动仍可�
   assert.equal(selectDocumentationChecks([], () => false).runGovernance, true);
 });
 
+test("增量检查只 lint 受治 Markdown 范围（与 ci-docs 一致），非受治路径不纳入", () => {
+  const everything = () => true;
+  assert.deepEqual(
+    selectDocumentationChecks(
+      ["docs/README.md", "plan.md", ".agents/skills/stitch-design-taste/SKILL.md", "plugins/home-assistant/SKILL.md"],
+      everything,
+    ),
+    { markdownFiles: ["docs/README.md", "plan.md"], runGovernance: true },
+  );
+});
+
 test("增量 CLI 在仅删除 plan.md 时运行真实治理并失败", { skip: process.platform === "win32" }, (t) => {
   const root = fixture(t);
   fs.rmSync(path.join(root, "plan.md"));

@@ -54,10 +54,26 @@ export function isGovernanceInput(file) {
     file.startsWith(".vale/");
 }
 
+/**
+ * 受治 Markdown 范围：与 `mise tasks run ci-docs` 的检查清单保持一致
+ * （`docs/**` + 根 README/AGENTS/CONTRIBUTING/plan.md）。增量门禁若放宽到
+ * 任意 `.md`，会去 lint 全量门禁从不检查的路径（如 `.agents/` 下的代理定义），
+ * 使本地 `ci-fast` 因无关文件的历史排版问题变红。
+ */
+export function isGovernedMarkdown(file) {
+  return (
+    (file.endsWith(".md") && file.startsWith("docs/")) ||
+    file === "README.md" ||
+    file === "AGENTS.md" ||
+    file === "CONTRIBUTING.md" ||
+    file === "plan.md"
+  );
+}
+
 export function selectDocumentationChecks(changedFiles, exists = fs.existsSync) {
   const uniquePaths = [...new Set(changedFiles)];
   return {
-    markdownFiles: uniquePaths.filter((file) => file.endsWith(".md") && exists(file)),
+    markdownFiles: uniquePaths.filter((file) => isGovernedMarkdown(file) && exists(file)),
     runGovernance: !exists("plan.md") || uniquePaths.some(isGovernanceInput),
   };
 }
