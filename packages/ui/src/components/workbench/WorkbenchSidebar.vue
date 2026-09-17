@@ -106,7 +106,7 @@ async function handleSelectProjectFilter(projectId: string | null) {
 function getProjectColor(projectId?: string | null): string {
   if (!projectId || !projects) return '';
   const p = projects.projects.value.find((item) => item.id === projectId);
-  return p?.color || '#6366f1';
+  return p?.color || 'var(--accent, #3b66db)';
 }
 
 function getProjectName(projectId?: string | null): string {

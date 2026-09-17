@@ -25,14 +25,22 @@ function getAffectedMarkdownFiles() {
   const baseRef = getBaseRef();
   const changedFiles = new Set();
 
+  const isGovernedDoc = (filePath) =>
+    filePath.endsWith(".md") &&
+    (filePath.startsWith("docs/") ||
+      filePath === "README.md" ||
+      filePath === "AGENTS.md" ||
+      filePath === "CONTRIBUTING.md");
+
   // 1. 工作区与暂存区未提交变更
   try {
     const statusOut = execSync("git status --porcelain -uall", { encoding: "utf-8" });
     for (const line of statusOut.split("\n")) {
-      if (!line || line.length < 4) continue;
-      // porcelain 固定格式: 2 字符 XY + 1 空格 + 文件路径
-      const filePath = line.slice(3).trim();
-      if (filePath.endsWith(".md")) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      // 提取文件路径（状态标识如 " M foo.md", "?? bar.md"）
+      const filePath = trimmed.slice(3).trim();
+      if (isGovernedDoc(filePath)) {
         changedFiles.add(filePath);
       }
     }
@@ -46,7 +54,7 @@ function getAffectedMarkdownFiles() {
       const diffOut = execSync(`git diff --name-only ${baseRef}...HEAD`, { encoding: "utf-8" });
       for (const line of diffOut.split("\n")) {
         const filePath = line.trim();
-        if (filePath.endsWith(".md")) {
+        if (isGovernedDoc(filePath)) {
           changedFiles.add(filePath);
         }
       }
