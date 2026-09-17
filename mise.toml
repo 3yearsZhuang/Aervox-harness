@@ -20,10 +20,21 @@ AERVOX_LOOP_PROVIDER = "llm"
 # 安装依赖（锁定版本，保证可复现）
 install = "pnpm install --frozen-lockfile"
 
-# 本地代码门禁（对齐 .github/workflows/ci.yml，含 frozen-lockfile install）
-ci-code = "pnpm install --frozen-lockfile && pnpm check:boundary && pnpm build && pnpm typecheck && pnpm test"
+# 极速本地增量门禁（增量代码构建/类型/测试 + 增量文档检查，15~30秒完成）
+ci-fast = "node scripts/check-affected.mjs && node scripts/docs-lint-affected.mjs"
+ci-affected = "mise tasks run ci-fast"
 
-# 本地文档门禁：Markdown lint + 术语散文 lint + 治理/本地链接校验
+# 本地代码门禁（免重复 install，受控 2 并发）
+ci-code = "pnpm check:boundary && pnpm build && pnpm typecheck && pnpm test"
+
+# 全量冷启动代码门禁（对齐 GitHub Actions CI，含 frozen-lockfile install）
+ci-code-full = "pnpm install --frozen-lockfile && pnpm check:boundary && pnpm build && pnpm typecheck && pnpm test"
+
+# 增量代码与文档独立入口
+check-affected = "node scripts/check-affected.mjs"
+docs-lint-affected = "node scripts/docs-lint-affected.mjs"
+
+# 本地全量文档门禁：Markdown lint + 术语散文 lint + 治理/本地链接校验
 ci-docs = "node --test scripts/docs-governance.test.mjs && npx markdownlint-cli2 --config .markdownlint-cli2.jsonc 'docs/**/*.md' 'README.md' 'AGENTS.md' 'CONTRIBUTING.md' && mise tasks run docs-lint-prose && mise tasks run docs-validate"
 
 # 术语/散文一致性（配置见 .vale.ini，错误级别阻断）
@@ -47,17 +58,19 @@ dev-desktop = "pnpm dev:desktop"
 # 全量类型检查
 typecheck = "pnpm typecheck"
 
-# 运行全部测试
+# 运行全部测试（受控 4 并发，避免超线程争抢）
 test = "pnpm test"
 
-# 增量测试：仅运行相对 origin/main 变更的包及其全部下游依赖的测试
-# （feature 分支本地快速验证用；需先 git fetch origin main 保持基准新鲜，
-#   合并前门禁仍以全量 pnpm test 为准）
+# 快速单元层：仅运行不建库、不起服务的轻量包（纯逻辑 + DOM 组件测试，共 9 包 71 文件，10 秒级完成）
+test-fast = "pnpm test:fast"
+test-unit = "pnpm test:unit"
+
+# 智能增量测试：自动识别基准分支并仅运行变更包及其全部下游依赖的测试
 test-affected = "pnpm test:affected"
 
-# 快速单元层：仅运行不建库、不起服务的轻量包（纯逻辑 + DOM 组件测试，共 9 包 71 文件）
-# （重型集成层 repositories/api/worker/host-agent 走全量 test 或 test:affected）
-test-unit = "pnpm test:unit"
+# 专项子包快速测试
+test-api = "pnpm test:api"
+test-repos = "pnpm test:repos"
 
 # 全量构建
 build = "pnpm build"

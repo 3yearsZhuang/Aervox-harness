@@ -46,6 +46,7 @@ describe("阶段 6 createStdioAdapterDriver（子进程 JSON-RPC）", () => {
       args: [fixturePath],
       env,
       expected: expected ?? { adapterId: "dsh", sha256: dshSha },
+      handshakeTimeoutMs: 10_000,
     }).then((h) => {
       handles.push(h);
       return h;

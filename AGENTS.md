@@ -76,12 +76,14 @@ Aervox｜思隅：更好上手的“主动智能” Agent——以桌宠为入�
 
 | 场景 | 推荐命令 | 说明 |
 | ---------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| 完整门禁自检 | `./aervox ci` | 本地双门禁：同时执行代码门禁与文档门禁 |
-| 代码门禁 | `mise tasks run ci-code` | 依赖锁定安装 + 依赖边界检查 + 构建 + 类型检查 + 测试 |
-| 文档门禁 | `mise tasks run ci-docs` | Markdownlint + Vale 术语检查 + 文档治理严格校验 |
-| 单测调试 | `mise x -- pnpm test` | 在受控 mise 环境下执行 Vitest 单元测试 |
-| 增量测试 | `mise x -- pnpm test:affected` | 仅运行相对 `origin/main` 变更包及其全部下游依赖的测试（feature 分支快速验证；先 `git fetch origin main`，合并门禁仍以全量为准） |
-| 单元层测试 | `mise x -- pnpm test:unit` | 仅运行不建库、不起服务的 9 个轻量包（`agent-loop`/`ui`/`desktop` 等，约 22s）；重型集成层（`repositories`/`api`/`worker`/`host-agent`）走全量或增量测试 |
+| 极速增量门禁 | `./aervox ci` 或 `mise tasks run ci-fast` | 本地推荐：仅对变更包及下游运行边界/构建/测试，文档增量检查（15~25s） |
+| 全量终审门禁 | `./aervox ci all` | 全量兜底：全量 18 包构建/类型/测试 + 全量文档严格检查（PR 推送前终验） |
+| 增量代码门禁 | `mise tasks run check-affected` | 仅运行变更包及其下游的依赖边界检查 + 构建 + 类型检查 + 增量测试 |
+| 增量文档门禁 | `mise tasks run docs-lint-affected` | 仅对 Git 变动的 Markdown 文档执行 Vale + Markdownlint + 治理校验 |
+| 智能增量测试 | `./aervox test` 或 `mise tasks run test-affected` | 自动识别基准分支并仅运行变更包及其全部下游依赖（日常高频推荐，受控 2 并发） |
+| 极速单元层 | `./aervox test fast` 或 `mise tasks run test-fast` | 仅运行不建库、不起服务的 9 个轻量包（纯逻辑 + DOM 组件测试，约 3~10s） |
+| 全量受控测试 | `./aervox test all` 或 `mise tasks run test` | 全量 18 包测试（受控 2 并发 + 单 Worker 串行，彻底杜绝 SQLite 锁冲突） |
+| 专项单包测试 | `./aervox test api` / `./aervox test repos` | 针对重型核心包运行独立定向测试（已接入 SQLite 模板克隆加速） |
 | E2E 测试 | `mise x -- pnpm test:e2e` | Playwright API 级端到端（spawn 真实 API 进程 + 文件 SQLite，45 用例约 45s，需先构建 api）；CI 中以观察期非阻塞运行 |
 | 格式化修复 | `npx markdownlint-cli2 --fix <files>` | 自动修复 Markdownlint 可自愈的排版问题 |
 | 术语检查 | `vale --minAlertLevel=error <files>` | 针对指定文件执行 Vale 散文与术语一致性检查 |
