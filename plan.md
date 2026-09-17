@@ -7,7 +7,7 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 planning_role: current
-version: 0.1.1
+version: 0.1.2
 updated_at: 2026-09-18
 reviewed_at: 2026-09-18
 review_interval_days: 7
@@ -31,7 +31,7 @@ sources:
 # Aervox 当前迭代计划
 
 - 提出人：3yearszhuang · 2026-09-18
-- 修改人：Codex · 2026-09-18
+- 修改人：WorkBuddy · 2026-09-18
 
 本文件是**当前项目迭代建议、排序、依赖和待决策项的唯一权威入口**。维护字段、状态、分支协调与归档规则见[计划治理](docs/reference/document-governance.md#31-当前迭代计划的唯一入口)；产品范围见 [PRD](docs/reference/PRD.md)，决策见 [ADR/CR](docs/reference/adr/README.md)，实现与发布证据见[追踪基线](docs/reference/REQUIREMENTS_TRACEABILITY.md)。计划的优先级不改写这些契约，也不自动批准所有条目实施。
 
@@ -98,7 +98,7 @@ ITER-009 需要给出下面的可审阅结论，目前不替用户选定产品�
 | 跨设备数据范围 | 普通资料与 local_only/混合来源严格分开 | 导出/同步授权、删除传播、离线期限与来源验证 |
 | 第一版交互范围 | 从通知、图片、分享、只读复习中选择最小闭环 | 实际任务完成率与成本，不按接口数量决定范围 |
 
-清点发现 `docs/mobile-landing-plan` 分支另有未合入的 `CR-055-mobile-delivery-plan.md` 草稿；查看时为 Proposed/Planned、尚未跟踪。本分支没有该文档，不把其 Web→Android→iOS 顺序或 20～34 工作日估算作为承诺。后续合入其差量、验收和回退时，同步本文件的决策与依赖；不在另一个草稿继续维护独立全项目排期。本轮未修改该工作树。
+清点发现 `docs/mobile-landing-plan` 分支另有未合入的 `CR-055-mobile-delivery-plan.md` 草稿；该草稿已随本次收割移入 `main` 并登记（Proposed/Planned），不再是分支私有材料。其 Web→Android→iOS 顺序与 20～34 工作日估算仍只作提案参考，不作为承诺；移动范围、连接与数据边界的决策继续在本节维护，不再由第二份草稿维护独立全项目排期。配套硬件方向的两份版本也已合成为单一文档，器件级事实仍由 ESP32 方案承载。
 
 ## 4. 实施与移交建议
 
@@ -117,7 +117,7 @@ ITER-009 需要给出下面的可审阅结论，目前不替用户选定产品�
 | 材料 | 本次归并方式 | 当前入口 |
 |---|---|---|
 | [FND 评估](docs/explanation/foundation-optimization-review.md)、[ARC 评估](docs/explanation/architecture-implementation-review.md) | 保留源码、实验、风险与方案；撤去独立当前排期，历史优先级是评估时的风险标签 | ITER-001～008、010～015、017 |
-| [硬件方向](docs/explanation/companion-hardware-directions.md)、[ESP32 方案](docs/explanation/esp32-s3-hardware-extension.md) | 保留九方向比较、成本假设、协议设计输入和专项准入；不自行确定当前产品/排期 | ITER-009、016、018 |
+| [硬件方向](docs/explanation/companion-hardware-directions.md)、[ESP32 方案](docs/explanation/esp32-s3-hardware-extension.md) | 两份并存的硬件方向版本已合成为单一文档（能力核查 + 移动协同取舍、验证矩阵与停止条件）；ESP32 保留完整正文作器件级事实源并加交叉引用。保留九方向比较、成本假设、协议设计输入和专项准入；不自行确定当前产品/排期 | ITER-009、016、018 |
 | [追踪基线 §4.1](docs/reference/REQUIREMENTS_TRACEABILITY.md#41-建议交付批次与拆分原则) | 保留 CAP 依赖与规格化要求；建议批次转至本文件；§4.2 继续维护实现事实 | 本文件 §2；长期阶段仍由 PRD 定义 |
 | [Agent Loop §15/§18](docs/reference/agent-harness-loop.md#15-分阶段落地计划)、[历史记录](docs/reference/agent-loop-rollout-history.md) | 保留合同切片/退出条件和带日期的证据；当前缺口按本轮核验入队 | ITER-002、007、010、013、017 |
 | [参考设计迁移](docs/explanation/reference-design-transfer.md) | 保留 T/AST/PET/DSH/Pi 来源与历史映射；已实现部分不重做，未接线部分核验后入队 | ITER-004、010～014、017、019 |
@@ -125,12 +125,14 @@ ITER-009 需要给出下面的可审阅结论，目前不替用户选定产品�
 | [治理规范 §7](docs/reference/document-governance.md#7-分阶段迁移) | 保留迁移程序，不作为另一份当前治理项目排期；本轮完成唯一入口与检查接线 | 维护规则见治理 §3.1；其它治理优化有实际需求再立条目 |
 | `docs/CR-033-plan.md`、`CR-034-plan.md`、`CR-035-plan.md` | 文件已归档/本地不存在；移除 getting-started 中失效目录项，保留归档说明 | 不重新创建旧计划 |
 | `.workbuddy/REFACTOR-PLAN.md`、`.workbuddy/ARCHIVE-CANDIDATES.md`、`.zcode/plans/plan-sess_5b49655d-8264-4dc1-a373-613342d381f3.md` | Git 忽略的历史/会话快照，内容可能过期；不删除、不强制纳入 Git、不作为当前队列 | 后续 Agent 先读本文件；旧建议须重新核验 |
-| 移动分支的 `CR-055` 草稿 | 保留为该分支提案，未并入本分支或批准；统一登记待决策项 | ITER-009、015、016；本文件 §3 |
+| 移动分支的 `CR-055` 草稿 | 已随本轮收割移入 `main` 并登记（Proposed/Planned）；范围、连接与验收仍是待决策项，不再保留第二份独立排期 | [CR-055](docs/reference/changes/CR-055-mobile-delivery-plan.md)；决策见本文件 §3 |
 | PRD/SRS、ADR、CR、数据库/安全契约、覆盖矩阵 | 保留各自需求/决策/验收权威，不因计划统一而降级或删除 | 本文件只引用 |
 | StudyPlan、CAP-017、学习/日记/复习排期、迁移与发布操作指南 | 属于产品功能或操作程序，不是项目迭代待办 | 保持原有归属 |
 
 ## 6. 本次分支与后续维护
 
 本轮规划在 `docs/iteration-plan-governance` 独立分支交付，评估基线为原 `feat/plugin-capability-consolidation` 的 `6b20e7e`；PR 准备时已对齐该分支的 `5e20a0e`，以保留后续 UI 提交及其独立登记。本次规划差量不修改 UI，实现审查以该功能分支为基准，并依赖 PR #218。合入 `main` 时应先确认底层功能分支已合入，再按当前基线复核；若采用 squash 导致祖先不同，优先只移植规划提交，不重复合入功能历史。
+
+截至 2026-09-18，`#218`（`d91b121`）与 `#219`（`5584bdf`）均已合入 `main`；本轮另将 `docs/mobile-landing-plan` 的两条提交（`dff68b8`、`00d83ad`）连同 `CR-055` 收割进 `main`，并把两份硬件方向版本合成单一文档。该移动规划分支此后不再承载独立排期；后续硬件与移动的当前排序一律回到本文件维护。
 
 本文件不持有完整日志。每次认领、调整和移交更新元数据与签名，同步注册表；PR 说明列出关联 `ITER-*` 及是否改变计划。迭代复盘时合并重复项、明确暂停原因并压缩已移交项，避免计划退化为永久堆积的 TODO。

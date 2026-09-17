@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.13.0
+version: 1.14.0
 updated_at: 2026-09-18
 reviewed_at: 2026-09-18
 review_interval_days: 90
@@ -15,7 +15,7 @@ review_interval_days: 90
 # Aervox｜思隅 产品与工程文档索引
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：Codex · 2026-09-18
+- 修改人：WorkBuddy · 2026-09-18
 
 本目录把产品目标、可测试需求、架构决策、数据权利和 AI 质量分开维护，避免单一 PRD 同时承担所有细节。所有上线范围必须能从用户价值追踪到需求、设计、测试和发布证据。
 
@@ -90,10 +90,10 @@ review_interval_days: 90
 | [参考项目能力迁移与借鉴评估](explanation/reference-design-transfer.md)（AVX-EXPL-002） | 参考项目哪些设计值得落地或借鉴 | 判定框架、来源映射、历史评估与 AGPL 边界；当前排序见根 plan.md |
 | [桌宠角色设定文档化与多人格模板组织](explanation/persona-organization.md)（AVX-EXPL-003） | 桌宠 IP 与多人格模板（CAP-019）的角色如何文档化、版本化并维护 | 角色文档清单、字段化结构（prompt/开场白/语气/技能/错误兜底语）、人设目录与模板版本化、维护责任 |
 | [主动智能模式](explanation/proactive-intelligence-mode.md)（AVX-EXPL-008） | 完全访问上如何以广域画像授权、OS 能力、特权观察 Host、本地私密数据和主动操作组合既有 CAP | 评审提案；不替代 PRD/SRS/DATA_PRIVACY/ADR，不表示运行时已实现 |
-| [ESP32-S3 硬件延伸方案](explanation/esp32-s3-hardware-extension.md)（AVX-EXPL-005） | 如何把 ESP32-S3 做成物理桌宠终端 | 评审输入：硬件边界、表现映射、设备协议与隐私红线；R0 先 USB 不联网 |
+| [ESP32-S3 硬件延伸方案](explanation/esp32-s3-hardware-extension.md)（AVX-EXPL-005） | 如何把 ESP32-S3 做成物理桌宠终端 | 器件级设计输入：硬件边界、表现映射、设备协议与隐私红线；跨产品方向取舍与阶段准入见[配套硬件方向](explanation/companion-hardware-directions.md)（AVX-EXPL-011） |
 | [底层优化审阅与建议](explanation/foundation-optimization-review.md)（AVX-EXPL-010） | 当前基础设施有哪些可验证的问题、应如何排序改进 | 代码证据、触发条件、优先级、改进成本与验收建议；不代表修复完成 |
 | [当前架构实现与演进评估](explanation/architecture-implementation-review.md)（AVX-EXPL-012） | 实际进程、数据和执行链路如何运转，底层应如何继续演进 | 14 个深入专题、故障实验、模块边界、持久恢复、资源与部署、选项权衡和测量计划；不改写已接受决策 |
-| [配套硬件方向与能力适配评估](explanation/companion-hardware-directions.md)（AVX-EXPL-011） | 当前能力可以支撑哪些硬件产品、原型还缺什么 | 能力现状、不同硬件方向、原型成本估算、验证方法和阶段建议；不冻结设备协议 |
+| [配套硬件方向：能力核查、移动协同取舍与原型路线](explanation/companion-hardware-directions.md)（AVX-EXPL-011） | 当前能力能支撑哪些硬件、手机已替代什么、哪些值得保留、如何从最小原型推进 | 能力现状与真机缺口、九方向实证、手机重合与过度设计取舍、ESP32 工程边界、成本口径、阶段准入、停止条件与验证矩阵；不冻结设备协议；器件级事实仍见 [ESP32-S3 硬件延伸方案](explanation/esp32-s3-hardware-extension.md) |
 | Home Assistant 集成评估（已归档）（AVX-EXPL-006） | 如何为 Aervox 引入 Home Assistant 支持 | 候选方案与后续路线；推荐组合已由 CR-024/ADR-019 接受 |
 | 运动与健康数据接入评估（已归档）（AVX-EXPL-007） | 是否可以接入苹果/小米运动健康数据（步数、睡眠、情绪） | 小米每日指标路径已由 CR-024/ADR-019 接受；苹果与情绪健康仍为评估输入 |
 | 数据库拆分计划（已归档）（AVX-EXPL-009） | `packages/database` 如何拆分为 `@aervox/schema` 与 `@aervox/repositories` | 已完成的六阶段拆分执行记录；架构决策见 ADR-014 |
@@ -111,6 +111,7 @@ review_interval_days: 90
 | [从这里开始](getting-started.md)（AVX-DOC-002，见[§7](#7-从哪开始)） | 新成员/Agent 从哪看起、提交前自检什么 | 导航型；不承载规则 |
 | [暂存提案](proposals) | 尚未进入基线的方案是什么 | 待补充证据（More Evidence Required）或未采纳的技术探索提案；不承载已批准规则 |
 | [变更请求](reference/changes)（现行 CR，编号 ≥ CR-053） | 尚未归档的现行变更提案与决策 | 变更差量、决策状态与回滚预案；已闭环提案（CR-002~052）见私有归档库 |
+| [移动端落地规划](reference/changes/CR-055-mobile-delivery-plan.md)（CR-055） | 移动 Web、Capacitor 配套端与独立手机端如何分阶段推进 | 待评审提案：范围、连接与数据边界、实施切片及验收；不代表移动端已交付 |
 | 已归档记录（私有归档库） | 历史变更与已退役决策的原始记录是什么 | 已完成或已退役的历史变更；已整体移入独立私有归档仓库，避免混淆当前活跃规范 |
 
 ### 历史变更请求与临时落地计划归档说明
