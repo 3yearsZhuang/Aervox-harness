@@ -8,9 +8,16 @@ import type {
   PluginConfigField,
   PluginConfigSnapshot,
   PluginPage,
+  PluginPackageInspection,
+  PluginMarketItem,
+  PluginPackageExportResponse,
 } from '@aervox/contracts';
 import { PLUGIN_SENSOR_PERMISSION } from '@aervox/contracts';
 import { getTransport } from './transport';
+
+export type PluginPackageInspectionDto = PluginPackageInspection;
+export type PluginMarketItemDto = PluginMarketItem;
+export type PluginPackageExportDto = PluginPackageExportResponse;
 
 export interface PluginSummaryDto {
   id: string;
@@ -155,6 +162,78 @@ export function useAervoxPlugins() {
     return res;
   };
 
+  /** 预检插件分发包（PRD CAP-020 验收门禁） */
+  const inspectPackage = async (
+    packageBase64: string,
+  ): Promise<PluginPackageInspectionDto> => {
+    return transport.request<PluginPackageInspectionDto>(
+      'POST',
+      '/v1/plugins/inspect-package',
+      { packageBase64 },
+    );
+  };
+
+  /** 从分发包安装插件（.aervox-plugin） */
+  const installPackage = async (
+    packageBase64: string,
+    overwrite: boolean = false,
+  ): Promise<PluginSummaryDto> => {
+    const res = await transport.request<PluginSummaryDto>(
+      'POST',
+      '/v1/plugins/install-package',
+      { packageBase64, overwrite },
+    );
+    await loadPlugins();
+    return res;
+  };
+
+  /** 导出插件分发包（.aervox-plugin）元数据及 Base64 内容 */
+  const exportPackage = async (pluginId: string): Promise<PluginPackageExportDto> => {
+    return transport.request<PluginPackageExportDto>(
+      'GET',
+      `/v1/plugins/${encodeURIComponent(pluginId)}/export`,
+    );
+  };
+
+  /** 触发浏览器直接下载插件分发包文件 */
+  const downloadPackage = async (pluginId: string): Promise<void> => {
+    const exp = await exportPackage(pluginId);
+    const byteCharacters = atob(exp.packageBase64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'application/zip' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = exp.filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  /** 获取官方与出厂插件集市条目 */
+  const listMarket = async (): Promise<PluginMarketItemDto[]> => {
+    const res = await transport.request<{ items: PluginMarketItemDto[] }>(
+      'GET',
+      '/v1/plugins/market',
+    );
+    return res.items ?? [];
+  };
+
+  /** 从集市一键安装插件 */
+  const installFromMarket = async (pluginId: string): Promise<PluginSummaryDto> => {
+    const res = await transport.request<PluginSummaryDto>(
+      'POST',
+      `/v1/plugins/market/${encodeURIComponent(pluginId)}/install`,
+    );
+    await loadPlugins();
+    return res;
+  };
+
   return {
     plugins,
     loading,
@@ -167,6 +246,12 @@ export function useAervoxPlugins() {
     listPages,
     setPluginEnabled,
     installPlugin,
+    inspectPackage,
+    installPackage,
+    exportPackage,
+    downloadPackage,
+    listMarket,
+    installFromMarket,
     grantSensor,
     revokeSensorGrant,
     listSensorGrants,

@@ -33,6 +33,7 @@ import {
   petManifestSchema,
   petSheetLayoutSchema,
   petSheetStateSchema,
+  pluginMetadataSchema,
   redactedEventDataSchema,
   askUserQuestionOptionSchema,
   askUserQuestionIntentSchema,
@@ -117,6 +118,10 @@ import {
   pluginPageSchema,
   pluginManifestSchema,
   pluginPageContextSchema,
+  pluginPackageInspectionSchema,
+  pluginPackageInstallRequestSchema,
+  pluginPackageExportResponseSchema,
+  pluginMarketItemSchema,
 } from "./plugin-config-schemas.js";
 import {
   createAttemptRequestSchema,
@@ -1131,6 +1136,66 @@ registry.registerPath({
   summary: "Page Bridge SDK",
   tags: ["Plugins"],
   responses: { 200: { description: "JavaScript" } },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/plugins/inspect-package",
+  summary: "预检插件分发包（PRD CAP-020 验收门禁）",
+  tags: ["Plugins"],
+  request: { headers: scopeHeaders, body: { content: { "application/json": { schema: pluginPackageInstallRequestSchema } } } },
+  responses: {
+    200: { description: "Inspection Report", content: { "application/json": { schema: pluginPackageInspectionSchema } } },
+    400: { description: "Invalid package archive" },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/plugins/install-package",
+  summary: "从分发包安装插件（.aervox-plugin）",
+  tags: ["Plugins"],
+  request: { headers: scopeHeaders, body: { content: { "application/json": { schema: pluginPackageInstallRequestSchema } } } },
+  responses: {
+    201: { description: "Installed plugin", content: { "application/json": { schema: pluginMetadataSchema } } },
+    400: { description: "Invalid package or checksum mismatch" },
+    409: { description: "Plugin already installed without overwrite flag" },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/plugins/{pluginId}/export",
+  summary: "导出插件分发包（.aervox-plugin）",
+  tags: ["Plugins"],
+  request: { params: pluginIdParam, headers: scopeHeaders },
+  responses: {
+    200: { description: "Exported package", content: { "application/json": { schema: pluginPackageExportResponseSchema } } },
+    404: { description: "Plugin not found" },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/plugins/market",
+  summary: "列出官方与出厂插件集市条目",
+  tags: ["Plugins"],
+  request: { headers: scopeHeaders },
+  responses: {
+    200: { description: "Market items", content: { "application/json": { schema: z.object({ items: z.array(pluginMarketItemSchema) }) } } },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/plugins/market/{pluginId}/install",
+  summary: "从集市一键安装出厂插件",
+  tags: ["Plugins"],
+  request: { params: pluginIdParam, headers: scopeHeaders },
+  responses: {
+    201: { description: "Installed plugin", content: { "application/json": { schema: pluginMetadataSchema } } },
+    404: { description: "Market plugin not found" },
+  },
 });
 
 const practiceSessionIdParam = z.object({ sessionId: z.string().min(1) });

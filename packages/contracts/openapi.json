@@ -3404,6 +3404,86 @@
                 "minLength": 1,
                 "maxLength": 512
               },
+              "tools": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "description": {
+                      "type": "string",
+                      "maxLength": 2000
+                    },
+                    "category": {
+                      "type": "string",
+                      "maxLength": 64
+                    },
+                    "safetyLevel": {
+                      "type": "string",
+                      "enum": [
+                        "read_only",
+                        "guarded",
+                        "full_access"
+                      ],
+                      "default": "guarded"
+                    },
+                    "requiredPermissions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "default": []
+                    },
+                    "inputSchema": {
+                      "type": "object",
+                      "additionalProperties": {},
+                      "default": {}
+                    },
+                    "priority": {
+                      "type": "integer",
+                      "default": 0
+                    }
+                  },
+                  "required": [
+                    "name"
+                  ]
+                },
+                "maxItems": 100
+              },
+              "skills": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "description": {
+                      "type": "string",
+                      "maxLength": 2000
+                    },
+                    "content": {
+                      "type": "string"
+                    },
+                    "entry": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name"
+                  ]
+                },
+                "maxItems": 50
+              },
               "proactive": {
                 "type": "object",
                 "properties": {
@@ -22104,6 +22184,788 @@
         "responses": {
           "200": {
             "description": "JavaScript"
+          }
+        }
+      }
+    },
+    "/v1/plugins/inspect-package": {
+      "post": {
+        "summary": "预检插件分发包（PRD CAP-020 验收门禁）",
+        "tags": [
+          "Plugins"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "packageBase64": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "overwrite": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "packageBase64"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Inspection Report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "displayName": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "publisher": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "version": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "description": {
+                      "type": "string",
+                      "default": ""
+                    },
+                    "license": {
+                      "type": "string",
+                      "default": ""
+                    },
+                    "checksum": {
+                      "type": "string"
+                    },
+                    "signature": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "default": null
+                    },
+                    "permissions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "default": []
+                    },
+                    "dataScope": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "default": []
+                    },
+                    "tools": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string",
+                            "default": ""
+                          },
+                          "category": {
+                            "type": "string",
+                            "default": "plugin"
+                          },
+                          "safetyLevel": {
+                            "type": "string",
+                            "default": "guarded"
+                          }
+                        },
+                        "required": [
+                          "name"
+                        ]
+                      },
+                      "default": []
+                    },
+                    "skills": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string",
+                            "default": ""
+                          }
+                        },
+                        "required": [
+                          "name"
+                        ]
+                      },
+                      "default": []
+                    },
+                    "pages": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "string"
+                                }
+                              }
+                            ]
+                          },
+                          "entry": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "entry"
+                        ]
+                      },
+                      "default": []
+                    },
+                    "proactive": {
+                      "type": "object",
+                      "properties": {
+                        "sensors": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "sourceId": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "sourceId"
+                            ]
+                          },
+                          "default": []
+                        },
+                        "triggers": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "ruleId": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "triggerType": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "ruleId",
+                              "name",
+                              "triggerType"
+                            ]
+                          },
+                          "default": []
+                        }
+                      },
+                      "default": {
+                        "sensors": [],
+                        "triggers": []
+                      }
+                    },
+                    "hasConfig": {
+                      "type": "boolean",
+                      "default": false
+                    },
+                    "alreadyInstalled": {
+                      "type": "boolean",
+                      "default": false
+                    },
+                    "installedVersion": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "default": null
+                    },
+                    "isValid": {
+                      "type": "boolean",
+                      "default": true
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "default": []
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "displayName",
+                    "publisher",
+                    "version",
+                    "checksum"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid package archive"
+          }
+        }
+      }
+    },
+    "/v1/plugins/install-package": {
+      "post": {
+        "summary": "从分发包安装插件（.aervox-plugin）",
+        "tags": [
+          "Plugins"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "packageBase64": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "overwrite": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "packageBase64"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Installed plugin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "displayName": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "author": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "version": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "repository": {
+                      "type": "string"
+                    },
+                    "platforms": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "default": []
+                    },
+                    "dependencies": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "default": {}
+                    },
+                    "i18n": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        }
+                      },
+                      "default": {}
+                    },
+                    "registryMeta": {
+                      "type": "object",
+                      "properties": {
+                        "icon": {
+                          "type": "string"
+                        },
+                        "tagline": {
+                          "type": "string"
+                        },
+                        "category": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "displayName",
+                    "author",
+                    "version"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid package or checksum mismatch"
+          },
+          "409": {
+            "description": "Plugin already installed without overwrite flag"
+          }
+        }
+      }
+    },
+    "/v1/plugins/{pluginId}/export": {
+      "get": {
+        "summary": "导出插件分发包（.aervox-plugin）",
+        "tags": [
+          "Plugins"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "pluginId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Exported package",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pluginId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "filename": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "packageBase64": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "checksum": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "pluginId",
+                    "filename",
+                    "packageBase64",
+                    "checksum"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Plugin not found"
+          }
+        }
+      }
+    },
+    "/v1/plugins/market": {
+      "get": {
+        "summary": "列出官方与出厂插件集市条目",
+        "tags": [
+          "Plugins"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Market items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "displayName": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "publisher": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "version": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64
+                          },
+                          "description": {
+                            "type": "string",
+                            "default": ""
+                          },
+                          "license": {
+                            "type": "string",
+                            "default": ""
+                          },
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "builtin",
+                              "market"
+                            ],
+                            "default": "builtin"
+                          },
+                          "installed": {
+                            "type": "boolean",
+                            "default": false
+                          },
+                          "installedVersion": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "default": null
+                          },
+                          "hasUpdate": {
+                            "type": "boolean",
+                            "default": false
+                          },
+                          "capabilities": {
+                            "type": "object",
+                            "properties": {
+                              "hasConfig": {
+                                "type": "boolean",
+                                "default": false
+                              },
+                              "sensorsCount": {
+                                "type": "integer",
+                                "default": 0
+                              },
+                              "triggersCount": {
+                                "type": "integer",
+                                "default": 0
+                              },
+                              "toolsCount": {
+                                "type": "integer",
+                                "default": 0
+                              },
+                              "skillsCount": {
+                                "type": "integer",
+                                "default": 0
+                              },
+                              "pagesCount": {
+                                "type": "integer",
+                                "default": 0
+                              }
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "displayName",
+                          "publisher",
+                          "version",
+                          "capabilities"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/plugins/market/{pluginId}/install": {
+      "post": {
+        "summary": "从集市一键安装出厂插件",
+        "tags": [
+          "Plugins"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "pluginId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Workspace-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-User-Id",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "X-Actor-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Installed plugin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "displayName": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "author": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "version": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "repository": {
+                      "type": "string"
+                    },
+                    "platforms": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "default": []
+                    },
+                    "dependencies": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "default": {}
+                    },
+                    "i18n": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        }
+                      },
+                      "default": {}
+                    },
+                    "registryMeta": {
+                      "type": "object",
+                      "properties": {
+                        "icon": {
+                          "type": "string"
+                        },
+                        "tagline": {
+                          "type": "string"
+                        },
+                        "category": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "displayName",
+                    "author",
+                    "version"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Market plugin not found"
           }
         }
       }

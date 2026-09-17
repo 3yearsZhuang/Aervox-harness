@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {computed, onMounted, ref} from 'vue'
-import {Puzzle, Settings, LayoutGrid, Zap, Wrench, PackagePlus, Radar, SlidersHorizontal} from 'lucide-vue-next'
+import {Puzzle, Settings, LayoutGrid, Zap, Wrench, PackagePlus, Radar, SlidersHorizontal, ShoppingBag, Download} from 'lucide-vue-next'
 import {useAervoxPlugins, type PluginGrantDto, type PluginPageDto, type PluginSummaryDto} from '@aervox/api-client'
 import {PLUGIN_SENSOR_PERMISSION} from '@aervox/contracts'
 import {useWorkbenchContext} from '../../composables/workbench-context'
@@ -8,10 +8,11 @@ import PluginConfigDialog from './PluginConfigDialog.vue'
 import PluginInstallDialog from './PluginInstallDialog.vue'
 import PluginPageDialog from './PluginPageDialog.vue'
 import PluginSettingsDialog from './PluginSettingsDialog.vue'
+import PluginMarketTab from './PluginMarketTab.vue'
 import SkillManagerTab from './SkillManagerTab.vue'
 import McpToolsTab from './McpToolsTab.vue'
 
-type ExtensionSubTab = 'plugins' | 'skills' | 'mcp'
+type ExtensionSubTab = 'plugins' | 'skills' | 'mcp' | 'market'
 const currentTab = ref<ExtensionSubTab>('plugins')
 
 const emit = defineEmits<{
@@ -192,6 +193,18 @@ function openConfigFromPage(): void {
   pageOpen.value = false
   if (pageTarget.value) openConfig(pageTarget.value)
 }
+
+const exportBusy = ref<string | null>(null)
+async function handleExport(plugin: PluginSummaryDto): Promise<void> {
+  exportBusy.value = plugin.id
+  try {
+    await api.downloadPackage(plugin.id)
+  } catch (e) {
+    console.error('导出分发包失败', e)
+  } finally {
+    exportBusy.value = null
+  }
+}
 </script>
 
 <template>
@@ -235,6 +248,17 @@ function openConfigFromPage(): void {
       >
         <Wrench :size="15" />
         <span>MCP / 工具 (Tools)</span>
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="subtab-btn"
+        :class="{active: currentTab === 'market'}"
+        :aria-selected="currentTab === 'market'"
+        @click="currentTab = 'market'"
+      >
+        <ShoppingBag :size="15" />
+        <span>插件集市 (Market)</span>
       </button>
     </div>
 
@@ -290,6 +314,15 @@ function openConfigFromPage(): void {
             </button>
             <button
               type="button"
+              class="plugin-action plugin-export-btn"
+              title="导出单文件分发包 (.aervox-plugin)"
+              :disabled="exportBusy === plugin.id"
+              @click="handleExport(plugin)"
+            >
+              <Download :size="15" />导出
+            </button>
+            <button
+              type="button"
               class="settings-switch plugin-toggle"
               :class="{checked: plugin.enabled === 1}"
               :aria-label="`${plugin.enabled === 1 ? '停用' : '启用'} ${plugin.id}`"
@@ -325,6 +358,9 @@ function openConfigFromPage(): void {
 
     <!-- Tab 3: MCP / 工具管理 -->
     <McpToolsTab v-else-if="currentTab === 'mcp'" @change="emit('change')" />
+
+    <!-- Tab 4: 插件集市 -->
+    <PluginMarketTab v-else-if="currentTab === 'market'" @installed="handleInstalled" />
 
     <PluginInstallDialog
       :open="installOpen"

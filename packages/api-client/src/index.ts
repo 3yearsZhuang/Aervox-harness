@@ -36,6 +36,9 @@ export {
   type PluginSummaryDto,
   type PluginGrantDto,
   type PluginPageDto,
+  type PluginPackageInspectionDto,
+  type PluginMarketItemDto,
+  type PluginPackageExportDto,
 } from './useAervoxPlugins';
 export {
   useAervoxDiary,

@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.5.0
+version: 0.6.0
 updated_at: 2026-09-17
 reviewed_at: 2026-09-17
 review_interval_days: 90
@@ -412,8 +412,116 @@ const {
 - 发生错误的插件组件 ID 将被自动计入 `failedComponentIds` 集合并被卸载，原位置降级展示警告占位徽标；
 - 单个插槽插件崩溃完全不影响工作台主对话、计时器及其他插件的正常运转。
 
-## 8. 验证
+## 8. 插件打包、分发与出厂集市规范（Packaging, Distribution & Market）
 
+为了实现第三方插件标准化分发与生态共享（CAP-020），系统定义了 `.aervox-plugin` 单文件分发格式、静态内存预检安全门禁、原子化安装/导出流水线以及官方出厂插件集市（Built-in Market）。
+
+### 8.1 单文件分发包规范（`.aervox-plugin`）
+
+分发包采用标准 ZIP 归档格式，扩展名为 `.aervox-plugin`（兼容标准 `.zip`）。其文件目录拓扑如下：
+
+```text
+my-awesome-plugin.aervox-plugin/
+├── plugin.manifest.json    # [必选] 插件元数据清单与能力声明
+├── config.schema.json      # [可选] Config Schema v1 配置规范
+├── SKILL.md                # [可选] 插件专属主技能（Markdown + Front Matter）
+├── skills/                 # [可选] 插件专属多技能目录（*.md）
+│   └── helper.md
+└── pages/                  # [可选] 沙箱扩展页面与静态资产
+    ├── index.html
+    ├── style.css
+    └── app.js
+```
+
+`plugin.manifest.json` 为分发包的核心契约，由 `pluginManifestSchema` 强校验：
+
+```json
+{
+  "id": "com.example.focus-helper",
+  "displayName": "专注伴侣扩展",
+  "publisher": "community-dev",
+  "version": "1.0.0",
+  "description": "提供轻量学习与番茄钟专注强化能力",
+  "license": "MIT",
+  "permissions": ["clipboard.read"],
+  "spec": {
+    "tools": [
+      {
+        "name": "calc_focus_score",
+        "description": "根据历史记录计算专注度得分",
+        "category": "analysis",
+        "safetyLevel": "read_only"
+      }
+    ],
+    "skills": [
+      {
+        "name": "deep-focus",
+        "description": "深度专注陪伴提示词指令",
+        "content": "---\nname: deep-focus\ndescription: 深度专注陪伴\n---\n..."
+      }
+    ],
+    "pages": [
+      {
+        "id": "dashboard",
+        "title": "专注仪表盘",
+        "entry": "pages/index.html"
+      }
+    ],
+    "proactive": {
+      "sensors": [{ "sourceId": "clipboard", "description": "剪贴板敏感词感知" }],
+      "triggers": [{ "ruleId": "rule-focus-idle", "name": "专注空闲检测", "triggerType": "system_state" }]
+    }
+  }
+}
+```
+
+### 8.2 安全门禁与安装前预检（Pre-install Inspection）
+
+为切实杜绝恶意插件越权与供应链风险，系统严格落实 PRD CAP-020 验收准则：**在正式写入任何数据库与文件系统前，必须通过 `POST /v1/plugins/inspect-package` 在内存中完成静态深度安全预检**。
+
+1. **路径穿越防御（Zip Slip Defense）**：
+   - 检查归档内全部文件的相对路径；
+   - 严禁包含 `..` 相对段、绝对驱动器路径（如 `C:\`）或根路径引导符（`/`、`\`）；
+   - 一旦发现跨目录逃逸企图，立即 fail-closed 阻断，记录安全违规并标记 `isValid: false`。
+2. **PRD 验收元数据透明化回显**：
+   - 自动计算并展示包文件的 SHA-256 完整性哈希校验和；
+   - 提取并公示：发布者、版本号、软件许可证；
+   - 明确列出所需系统权限与数据范围（`dataScope`）；
+   - 统计并展示所含技能、工具、扩展页面以及主动感知源数量；
+   - 比对本地已安装版本，展示已安装状态及是否触发版本升级。
+3. **默认无权限原则（Default Deny）**：
+   - 插件安装完成时默认不授予任何网络、文件系统与记忆越权；
+   - 主动感知源（`proactive.sensors`）在安装后需由用户在扩展设置中逐项显式授权。
+
+### 8.3 原子安装与导出（Atomic Install & Export）
+
+- **原子化包安装（`POST /v1/plugins/install-package`）**：
+  - 校验 Base64 编码的插件分发包；
+  - 检查版本冲突：已存在同名插件且未勾选 `overwrite` 时返回 409 Conflict；
+  - 在事务中原子写入：注册插件元数据、固化 Config Schema、注册声明工具（自动附加 `pluginId` 归属）、写入声明技能至只读技能注册表与磁盘、解压 `pages/` 内静态资源至独立沙箱目录；
+  - 任意环节异常自动回滚，不留脏数据。
+- **单文件导出（`GET /v1/plugins/:id/export`）**：
+  - 动态聚合已安装插件在数据库的配置 Schema、文件系统内的技能 Markdown 与页面沙箱资产；
+  - 动态生成符合规范的标准 ZIP 归档流，附带 SHA-256 完整性摘要与建议文件名；
+  - 前端支持一键下载 `.aervox-plugin` 分发文件，支持多机流转与自举备份。
+
+### 8.4 官方出厂与内置插件集市（Built-in Market）
+
+系统内置面向本地离线场景的出厂插件集市服务：
+
+- **集市目录读取（`GET /v1/plugins/market`）**：
+  - 自动扫描本地 `plugins/` 目录中携带有效 `plugin.manifest.json` 的出厂预置插件；
+  - 聚合提取插件展示名、描述、许可证、能力元数据（主动智能、技能、工具、页面、配置项）；
+  - 结合当前已安装插件状态，自动计算 `installed` 标志与 `hasUpdate` 升级标志；
+- **一键安装与重装（`POST /v1/plugins/market/:id/install`）**：
+  - 用户可在集市面板一键安装或升级出厂插件；
+  - 自动复用包打包与安装流水线，免去手动下载与文件选择操作。
+
+## 9. 验证
+
+- `apps/api/test/plugin-distribution.test.ts`：验证插件分发包静态预检（SHA-256 / 权限提取）、Zip Slip 跨目录攻击防御、原子化安装与 overwrite 覆盖、导出归档与出厂集市一键安装；
+- `packages/api-client/test/plugins-distribution.test.ts`：验证客户端 inspectPackage、installPackage、exportPackage、downloadPackage、listMarket 与 installFromMarket 端点；
+- `packages/ui/test/plugin-distribution.test.ts`：验证 `PluginMarketTab.vue` 集市展示/分类筛选/安装触发、`PluginInstallDialog.vue` 双模切换与安装前预检报告卡片、`PluginSettingsDialog.vue` 导出动作；
 - `apps/api/test/study-term-plugins.test.ts`：验证 `ServerTurnPlugin` 门控、配置注入、`extraSections` 提示词切面注入与异步术语抽取；
 - `apps/api/test/quiz-mode.test.ts`：验证统一 `focus-mode` 结构化元数据触发、出题与答题判定落库；
 - `packages/agent-loop/test/context-builder.test.ts`：验证 Base Prompt 纯净底座与 `extraSections` 顺序注入；
