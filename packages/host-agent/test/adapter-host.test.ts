@@ -166,7 +166,7 @@ describe("阶段 6b createAgentHost（adapter 接入宿主循环）", () => {
     expect(types[0]).toBe("message");
     expect(types[types.length - 1]).toBe("done");
     expect((events[events.length - 1].data as { status?: string }).status).toBe("Completed");
-    expect(host.health()).resolves.toBeTruthy();
+    await expect(host.health()).resolves.toBeTruthy();
   });
 
   it("无 adapter → 原生 executeTurn 路径不受影响（回归）", async () => {
