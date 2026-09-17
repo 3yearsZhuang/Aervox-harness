@@ -7,15 +7,15 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.4.3
-updated_at: 2026-09-16
-reviewed_at: 2026-09-16
+updated_at: 2026-09-17
+reviewed_at: 2026-09-17
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 系统架构设计（SAD）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-16
+- 修改人：3yearszhuang · 2026-09-17
 
 关联 PRD：[PRD.md](PRD.md) · 追踪：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
 
@@ -66,7 +66,7 @@ packages/
 
 ### 3.1 apps/api 内部结构（演进式模块化单体）
 
-`apps/api/src/` 采用**按领域模块组织**的结构（ADR-014 0.3.0 两层分组：25 模块 → 6 域，归属表见 [CR-052 §3.1](changes/CR-052-api-module-domain-grouping.md#31-域归属表25--6)），每个模块自管路由与仓储实例化，通过 `shared/event-bus.ts` 做进程内跨模块通信：
+`apps/api/src/` 采用**按领域模块组织**的结构（ADR-014 0.3.0 两层分组：25 模块 → 6 域，归属表见 `CR-052 §3.1`（已归档）），每个模块自管路由与仓储实例化，通过 `shared/event-bus.ts` 做进程内跨模块通信：
 
 ```text
 apps/api/src/

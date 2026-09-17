@@ -7,17 +7,17 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.4.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+updated_at: 2026-09-17
+reviewed_at: 2026-09-17
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 威胁模型
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-11
+- 修改人：3yearszhuang · 2026-09-17
 
-关联：[架构设计](ARCHITECTURE.md) · [数据与隐私](DATA_PRIVACY.md) · [CR-023](changes/CR-023-proactive-local-intelligence-mode.md) · [CR-024](changes/CR-024-proactive-intelligence-suite-integrations.md) · [CR-030](changes/CR-030-pure-local-sqlite-database.md)
+关联：[架构设计](ARCHITECTURE.md) · [数据与隐私](DATA_PRIVACY.md) · `CR-023`（已归档） · `CR-024`（已归档） · `CR-030`（已归档）
 
 ## 1. 范围与资产
 

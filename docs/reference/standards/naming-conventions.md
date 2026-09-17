@@ -7,17 +7,17 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.1.0
-updated_at: 2026-09-16
-reviewed_at: 2026-09-16
+updated_at: 2026-09-17
+reviewed_at: 2026-09-17
 review_interval_days: 90
 ---
 
 # 代码与 API 命名规范（Naming Conventions）
 
 - 提出人：3yearszhuang · 2026-09-16
-- 修改人：3yearszhuang · 2026-09-16
+- 修改人：3yearszhuang · 2026-09-17
 
-关联：[文档写作规范](doc-standards.md)（AVX-STD-001）、[术语表](terminology.md)、[产品需求 PRD](../PRD.md) §14.2、[演进式模块化单体架构](../adr/ADR-014-modular-monolith-structure.md)、[SQLite 本地单用户去租户化](../changes/CR-030-pure-local-sqlite-database.md)
+关联：[文档写作规范](doc-standards.md)（AVX-STD-001）、[术语表](terminology.md)、[产品需求 PRD](../PRD.md) §14.2、[演进式模块化单体架构](../adr/ADR-014-modular-monolith-structure.md)、SQLite 本地单用户去租户化（已归档）
 
 本规范固化 Aervox 代码与 OpenAPI 事实层面的统一命名约定，消除历史残留并作为新增代码的强制门禁。变更一律走 CR/ADR 流程，新增命名规则须先登记再落地，禁止在功能分支里引入第三套约定。
 

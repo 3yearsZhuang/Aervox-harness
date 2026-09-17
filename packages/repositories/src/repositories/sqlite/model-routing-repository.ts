@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/repositories — 本地模型降级阶梯与健康探测 SQLite 仓储实现 (CR-034/CR-042)
  *
- * 规则依据：docs/reference/changes/CR-034-local-model-fallback-ladder.md
+ * 规则依据：CR-034（已归档至归档库）
  * - 管理预设级健康快照（探测状态、连续成功/失败计数、迟滞与冷却时间）；
  * - 记录切层审计事件账本（可追溯层级切换、回切与降级原因）。
  */

@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/api — 大语言模型端点后台健康探测器 (CR-034/CR-042 N1)
  *
- * 规则依据：docs/reference/changes/CR-034-local-model-fallback-ladder.md
+ * 规则依据：CR-034（已归档至归档库）
  * - 超时防挂起（默认 5s，不可阻塞 Turn）；
  * - 错误分类（timeout / network_error / auth_error / http_error / unsupported_protocol）；
  * - 探活脱敏：不记录任何 Authorization Header 密钥或 Prompt 正文。

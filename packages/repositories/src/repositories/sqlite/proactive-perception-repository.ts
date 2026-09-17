@@ -1,7 +1,7 @@
 /**
  * CR-033 E3 本地感知事件流 Port。
  *
- * 规则依据：docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md
+ * 规则依据：CR-033（已归档至归档库）
  * - SQLite 追加式事件流作为跨进程真源：原子 sequence、唯一幂等键、consumer offset、
  *   ACK、重放、过期 cursor、DLQ、保留与压缩策略；
  * - ingest 前校验 envelope 契约（schema version / local_only / payload digest），

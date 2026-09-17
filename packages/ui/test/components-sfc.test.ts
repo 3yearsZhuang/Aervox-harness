@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { ref, defineComponent, h, markRaw } from 'vue';
-import StudyModeSwitch from '../src/plugins/study-mode/StudyModeSwitch.vue';
+import FocusModeSwitch from '../src/plugins/focus-mode/FocusModeSwitch.vue';
 import FocusNavMenuItem from '../src/plugins/focus-mode/FocusNavMenuItem.vue';
 import FocusStudyCardActions from '../src/plugins/focus-mode/FocusStudyCardActions.vue';
 import FocusTaskCenterCard from '../src/plugins/focus-mode/FocusTaskCenterCard.vue';
@@ -16,18 +16,18 @@ import { WORKBENCH_CONTEXT_KEY, type WorkbenchContext } from '../src/composables
 import { createUIRegistry, UI_REGISTRY_KEY } from '../src/registry/ui-registry';
 
 describe('Real SFC Component Mounting', () => {
-  it('StudyModeSwitch.vue mounts, reads layout context and toggles mode on click', async () => {
-    const studyModeEnabled = ref(false);
-    const toggleStudyMode = vi.fn(() => {
-      studyModeEnabled.value = !studyModeEnabled.value;
+  it('FocusModeSwitch.vue mounts, reads layout context and toggles mode on click', async () => {
+    const focusModeEnabled = ref(false);
+    const toggleFocusMode = vi.fn(() => {
+      focusModeEnabled.value = !focusModeEnabled.value;
     });
 
     const mockContext = {
       layout: {
-        studyModeEnabled,
-        toggleStudyMode,
-        setStudyModeEnabled: vi.fn((val: boolean) => {
-          studyModeEnabled.value = val;
+        focusModeEnabled,
+        toggleFocusMode,
+        setFocusModeEnabled: vi.fn((val: boolean) => {
+          focusModeEnabled.value = val;
         }),
       },
       timer: {} as any,
@@ -39,7 +39,7 @@ describe('Real SFC Component Mounting', () => {
       submitQuizAnswer: vi.fn(),
     } as unknown as WorkbenchContext;
 
-    const wrapper = mount(StudyModeSwitch, {
+    const wrapper = mount(FocusModeSwitch, {
       global: {
         provide: {
           [WORKBENCH_CONTEXT_KEY as symbol]: mockContext,
@@ -53,8 +53,8 @@ describe('Real SFC Component Mounting', () => {
 
     // Click track button
     await wrapper.find('.study-switch-track').trigger('click');
-    expect(toggleStudyMode).toHaveBeenCalledTimes(1);
-    expect(studyModeEnabled.value).toBe(true);
+    expect(toggleFocusMode).toHaveBeenCalledTimes(1);
+    expect(focusModeEnabled.value).toBe(true);
 
     // Re-render reflects updated state
     await wrapper.vm.$nextTick();

@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "@aervox/api-client": "workspace:*",
-    "@aervox/contracts": "workspace:*",
     "@aervox/live2d": "workspace:*",
     "@aervox/public": "workspace:*",
     "@aervox/ui": "workspace:*",

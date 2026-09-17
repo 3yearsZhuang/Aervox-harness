@@ -7,8 +7,8 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.4.0
-updated_at: 2026-09-14
-reviewed_at: 2026-09-14
+updated_at: 2026-09-17
+reviewed_at: 2026-09-17
 review_interval_days: 90
 sources:
   - docs/reference/DATABASE.md
@@ -18,9 +18,9 @@ sources:
 # Aervox｜思隅 数据库数据模型覆盖矩阵（Database Coverage Matrix）
 
 - 提出人：3yearszhuang · 2026-09-10
-- 修改人：3yearszhuang · 2026-09-14
+- 修改人：3yearszhuang · 2026-09-17
 
-关联：[SQLite 本地单用户数据库契约](DATABASE.md)（AVX-DB-001）、[产品需求文档 PRD §8](PRD.md#prd-data)（AVX-PRD-001）、[CR-030](changes/CR-030-pure-local-sqlite-database.md)
+关联：[SQLite 本地单用户数据库契约](DATABASE.md)（AVX-DB-001）、[产品需求文档 PRD §8](PRD.md#prd-data)（AVX-PRD-001）、`CR-030`（已归档）
 
 本文从 [SQLite 本地单用户数据库契约](DATABASE.md) 拆分而来，作为 PRD 全量数据模型在数据库落表状态的完整附录清单。
 

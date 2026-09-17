@@ -1,7 +1,7 @@
 /**
  * CR-033 E1 SituationModel 投影快照 Port（纯派生物，可从事件流重建）。
  *
- * 规则依据：docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md
+ * 规则依据：CR-033（已归档至归档库）
  * - 投影快照 additive 落 vault，回填记录标记 `backfill`，禁止静默合并或 MAX(rowid) 选胜者；
  * - 读取按 active revision、source grant、local_only 与 deny watermark 过滤；
  * - 撤权、删除、导出与重建覆盖投影及索引。

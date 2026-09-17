@@ -6,20 +6,20 @@ owner: maintainers
 doc_status: approved
 decision_status: accepted
 version: 0.3.0
-updated_at: 2026-09-16
-reviewed_at: 2026-09-16
+updated_at: 2026-09-17
+reviewed_at: 2026-09-17
 review_interval_days: 90
 ---
 
 # ADR-014 演进式模块化单体：apps/api 目录结构
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-16
+- 修改人：3yearszhuang · 2026-09-17
 
-- 状态：Accepted（2026-08-31；2026-09-16 修订 0.3.0，见修订记录与 [CR-052](../changes/CR-052-api-module-domain-grouping.md)）
+- 状态：Accepted（2026-08-31；2026-09-16 修订 0.3.0，见修订记录与 `CR-052`（已归档））
 - 日期：2026-08-25
 
-- 关联：`CAP-001～035`、`ADR-001`（模块化单体决策的细化）、`AVX-SAD-001 §3`、[CR-052 模块领域分组](../changes/CR-052-api-module-domain-grouping.md)
+- 关联：`CAP-001～035`、`ADR-001`（模块化单体决策的细化）、`AVX-SAD-001 §3`、`CR-052 模块领域分组`（已归档）
 
 ## Context
 
@@ -29,7 +29,7 @@ ADR-001 已确定"模块化单体 + 独立 Worker"的总体方向，但未细化
 2. **依赖方向无约束**：全局容器模式允许任意文件引用任意 repo，未来拆分时难以定位影响范围；
 3. **演进受阻**：当某个模块需要独立部署时（如 AI 模块未来可能单独扩缩容），需要大规模重构才能拆分。
 
-**2026-09-16 修订背景（0.3.0）**：本 ADR 定稿时 API 层为 8 个模块，现已增长至 25 个扁平模块——单层目录失去领域语义，注册顺序发散，与 `apps/worker`（A 档已按 `proactive/` 分组）及 `packages/repositories`（`sqlite/conversation/`、`sqlite/proactive/`）的领域子目录组织不一致。经 [CR-052](../changes/CR-052-api-module-domain-grouping.md) 立项，目录演进为两层领域分组结构；核心规则不变。
+**2026-09-16 修订背景（0.3.0）**：本 ADR 定稿时 API 层为 8 个模块，现已增长至 25 个扁平模块——单层目录失去领域语义，注册顺序发散，与 `apps/worker`（A 档已按 `proactive/` 分组）及 `packages/repositories`（`sqlite/conversation/`、`sqlite/proactive/`）的领域子目录组织不一致。经 `CR-052`（已归档） 立项，目录演进为两层领域分组结构；核心规则不变。
 
 ## Decision drivers
 
@@ -47,7 +47,7 @@ ADR-001 已确定"模块化单体 + 独立 Worker"的总体方向，但未细化
 
 ## Decision
 
-采用**演进式模块化单体**。`apps/api/src/` 按以下结构组织（0.3.0 修订：模块按 6 个业务域两层分组，域归属表见 [CR-052 §3.1](../changes/CR-052-api-module-domain-grouping.md#31-域归属表25--6)）：
+采用**演进式模块化单体**。`apps/api/src/` 按以下结构组织（0.3.0 修订：模块按 6 个业务域两层分组，域归属表见 `CR-052 §3.1`（已归档））：
 
 ```text
 src/
@@ -95,7 +95,7 @@ src/
 
 | 规则 | 说明 |
 |---|---|
-| **领域分组（0.3.0）** | `modules/<domain>/<module>/` 两层组织；域目录**不承载任何代码**，只承载子模块；域归属以 [CR-052 §3.1](../changes/CR-052-api-module-domain-grouping.md#31-域归属表25--6) 归属表为准，调整须同步修订本 ADR 与该表 |
+| **领域分组（0.3.0）** | `modules/<domain>/<module>/` 两层组织；域目录**不承载任何代码**，只承载子模块；域归属以 `CR-052 §3.1`（已归档） 归属表为准，调整须同步修订本 ADR 与该表 |
 | **模块自管仓储** | 每个 `modules/<domain>/<module>/index.ts` 内部实例化该模块需要的仓储，不引用全局容器 |
 | **路由函数签名** | `routes.ts` 中的导出函数接收**该模块专属的仓储实例**，而非 `RepoContainer` |
 | **shared 严格受限** | `shared/` 只放跨 2 个以上模块的通用工具。禁止将业务逻辑放入 shared |
@@ -239,5 +239,5 @@ registerLearningModule(app, db);
 
 ## 修订记录
 
-- **0.3.0（2026-09-16，[CR-052](../changes/CR-052-api-module-domain-grouping.md)）**：目录结构由 `modules/<module>/` 一层演进为 `modules/<domain>/<module>/` 两层（25 模块 → 6 域）；核心规则新增「领域分组」，其余规则语义不变；`shared/tenant.ts` 示例名修正为 `local-context.ts`（对齐 CR-030 去租户化后的实际文件名）；Decision 目录树与迁移指引同步两层结构。实施随 CR-052 PR-C1 落地。
+- **0.3.0（2026-09-16，`CR-052`（已归档））**：目录结构由 `modules/<module>/` 一层演进为 `modules/<domain>/<module>/` 两层（25 模块 → 6 域）；核心规则新增「领域分组」，其余规则语义不变；`shared/tenant.ts` 示例名修正为 `local-context.ts`（对齐 CR-030 去租户化后的实际文件名）；Decision 目录树与迁移指引同步两层结构。实施随 CR-052 PR-C1 落地。
 - 0.2.1（2026-09-11）：维护性升版（元数据与关联补齐），无决策变更。

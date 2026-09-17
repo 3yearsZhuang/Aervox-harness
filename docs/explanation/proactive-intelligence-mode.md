@@ -7,8 +7,8 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.5.1
-updated_at: 2026-09-16
-reviewed_at: 2026-09-16
+updated_at: 2026-09-17
+reviewed_at: 2026-09-17
 review_interval_days: 60
 review_triggers:
   - docs/reference/PRD.md
@@ -20,8 +20,6 @@ review_triggers:
   - docs/reference/adr/ADR-018-proactive-local-privacy-host.md
   - docs/reference/changes/CR-024-proactive-intelligence-suite-integrations.md
   - docs/reference/adr/ADR-019-proactive-integrations-local-gateway.md
-  - docs/explanation/health-data-integration-assessment.md
-  - docs/explanation/home-assistant-integration-assessment.md
   - packages/database/**
   - packages/agent-loop/**
   - apps/desktop/**
@@ -35,7 +33,6 @@ sources:
   - docs/reference/capability-registry.md
   - docs/reference/adr/ADR-008-cloud-first-local-port.md
   - "docs/reference/adr/ADR-009-electron-plugin-sandbox.md"
-  - docs/reference/changes/CR-022-full-access-tool-permission.md
   - docs/reference/REQUIREMENTS_TRACEABILITY.md
   - docs/reference/adr/ADR-018-proactive-local-privacy-host.md
 ---
@@ -43,9 +40,9 @@ sources:
 # 主动智能模式设计方案
 
 - 提出人：3yearszhuang · 2026-08-29
-- 修改人：3yearszhuang · 2026-09-16
+- 修改人：3yearszhuang · 2026-09-17
 
-关联：[CR-023](../reference/changes/CR-023-proactive-local-intelligence-mode.md)、[CR-022 完全访问](../reference/changes/CR-022-full-access-tool-permission.md)、[需求追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)、[数据与隐私](../reference/DATA_PRIVACY.md)
+关联：`CR-023`（已归档）、`CR-022 完全访问`（已归档）、[需求追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)、[数据与隐私](../reference/DATA_PRIVACY.md)
 
 ## 1. 结论
 
@@ -278,7 +275,7 @@ RecoveryControlLedger 先追加 revoke/deny
 
 ### 10.1 十二项派生与外部信号落地
 
-[CR-024](../reference/changes/CR-024-proactive-intelligence-suite-integrations.md) 已在 CAP-033 下实现统一个人时间线、项目与意图图谱、操作流程学习、情境触发、动作验证、画像冲突、主动准备、注意力/疲劳、行为漂移、关系上下文、场景模型和日/周回顾。上述输出均进入本地 Vault，并通过桌面设置页查看。
+`CR-024`（已归档） 已在 CAP-033 下实现统一个人时间线、项目与意图图谱、操作流程学习、情境触发、动作验证、画像冲突、主动准备、注意力/疲劳、行为漂移、关系上下文、场景模型和日/周回顾。上述输出均进入本地 Vault，并通过桌面设置页查看。
 
 同一变更新增 CAP-034/035：Home Assistant 通过私网 REST/WebSocket、实体/service 白名单和受控 Agent 工具接入；小米运动健康通过用户自有且获准的官方开放平台配置同步每日步数、睡眠和静息心率。连接凭据不进入模型、日志或导出，撤销连接删除凭据和对应缓存。架构边界见 [ADR-019](../reference/adr/ADR-019-proactive-integrations-local-gateway.md)。
 

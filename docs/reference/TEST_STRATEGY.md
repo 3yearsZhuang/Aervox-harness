@@ -7,17 +7,17 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.4.1
-updated_at: 2026-09-16
-reviewed_at: 2026-09-16
+updated_at: 2026-09-17
+reviewed_at: 2026-09-17
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 测试策略
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-16
+- 修改人：3yearszhuang · 2026-09-17
 
-关联：[SRS](SRS.md) · [需求追踪](REQUIREMENTS_TRACEABILITY.md) · [AI 质量](AI_QUALITY_SAFETY.md) · [CR-023](changes/CR-023-proactive-local-intelligence-mode.md) · [CR-030](changes/CR-030-pure-local-sqlite-database.md)
+关联：[SRS](SRS.md) · [需求追踪](REQUIREMENTS_TRACEABILITY.md) · [AI 质量](AI_QUALITY_SAFETY.md) · `CR-023`（已归档） · `CR-030`（已归档）
 
 ## 1. 测试原则
 

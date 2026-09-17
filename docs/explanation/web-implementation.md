@@ -7,15 +7,15 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.1.1
-updated_at: 2026-09-11
-reviewed_at: 2026-09-11
+updated_at: 2026-09-17
+reviewed_at: 2026-09-17
 review_interval_days: 90
 ---
 
 # Web 工作台实现规划（Vue 单栈）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-11
+- 修改人：3yearszhuang · 2026-09-17
 
 关联：[ADR-015](../reference/adr/ADR-015-vue-full-stack.md)（Web 技术基线）· [ADR-014](../reference/adr/ADR-014-modular-monolith-structure.md)（apps/api 模块组织）· [架构设计](../reference/ARCHITECTURE.md) · [PRD](../reference/PRD.md)
 
@@ -97,7 +97,7 @@ apps/web/
 - **双端主题一致性**：Web 与 desktop 共享 `@aervox/ui` 工作台与主题，平台壳差异通过属性适配，避免两套视觉漂移。
 - **设置窗口一致性**：两端共享 `AervoxWorkbench` 的设置入口与双栏设置窗口；左侧分类、右侧详情在窄屏退化为横向分类栏。主题、助手称呼、回车发送、界面密度、番茄钟时长和提醒偏好保存在当前设备，Electron 主题继续通过受限 IPC 同步到窗口壳。
 
-本次实现对应 [CR-005](../reference/changes/CR-005-shared-workbench-web-without-pet.md) 与 [CR-007](../reference/changes/CR-007-live2d-sekai-viewer-pet.md)：Web 工作台使用共享 `Live2DPet`。沉浸式重构后双端主工作台均内嵌 Live2D 满高主体（Electron 经 `show-companion` 开启，桌面端可在设置中关闭），独立 `pet.html` 窗口继续保留。
+本次实现对应 `CR-005`（已归档） 与 `CR-007`（已归档）：Web 工作台使用共享 `Live2DPet`。沉浸式重构后双端主工作台均内嵌 Live2D 满高主体（Electron 经 `show-companion` 开启，桌面端可在设置中关闭），独立 `pet.html` 窗口继续保留。
 
 ## 7. 同步清单（随 ADR-015 执行）
 
