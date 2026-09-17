@@ -127,6 +127,128 @@ describe("LLM Config API (CR-012)", () => {
     expect(typeof body.message).toBe("string");
   });
 
+  it("PUT /v1/llm/config 支持 llamacpp 本地预设保存（CR-053）", async () => {
+    const putRes = await app.inject({
+      method: "PUT",
+      url: "/v1/llm/config",
+      headers: {
+        "x-workspace-id": "ws_api_test",
+        "x-user-id": "usr_api_test",
+      },
+      payload: {
+        enabled: true,
+        providerType: "llamacpp",
+        baseUrl: "http://127.0.0.1:8080/v1",
+        modelId: "qwen2.5-7b-instruct",
+        temperature: 0.6,
+        maxTokens: 2048,
+        settings: { contextWindow: 8192 },
+      },
+    });
+
+    expect(putRes.statusCode).toBe(200);
+    const body = JSON.parse(putRes.payload);
+    expect(body.providerType).toBe("llamacpp");
+    expect(body.baseUrl).toBe("http://127.0.0.1:8080/v1");
+    expect(body.modelId).toBe("qwen2.5-7b-instruct");
+    expect(body.settings?.contextWindow).toBe(8192);
+  });
+
+  it("POST /v1/llm/test-connection 本地端点能力探测返回上下文窗口与工具支持（CR-053）", async () => {
+    // Mock 全局 fetch：/models → 模型列表；/props → n_ctx；/models/{id} → meta.context_length 备选
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = ((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/models")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              data: [
+                { id: "qwen2.5-7b-instruct" },
+                { id: "llama3.1-8b-instruct" },
+              ],
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      }
+      if (url.endsWith("/props")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ default_generation_settings: { n_ctx: 32768 } }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      }
+      return Promise.resolve(new Response("{}", { status: 404 }));
+    }) as typeof fetch;
+    try {
+      const res = await app.inject({
+        method: "POST",
+        url: "/v1/llm/test-connection",
+        headers: {
+          "x-workspace-id": "ws_api_test",
+          "x-user-id": "usr_api_test",
+        },
+        payload: {
+          providerType: "llamacpp",
+          baseUrl: "http://127.0.0.1:8080/v1",
+          modelId: "qwen2.5-7b-instruct",
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.payload);
+      expect(body.ok).toBe(true);
+      expect(body.availableModels).toEqual(["qwen2.5-7b-instruct", "llama3.1-8b-instruct"]);
+      expect(body.capabilities?.contextWindow).toBe(32768);
+      expect(body.capabilities?.supportsToolCalls).toBe(true);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("POST /v1/llm/test-connection 能力探测失败不阻断主探测（best-effort）", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = ((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/models")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: [{ id: "llama3.1-8b-instruct" }] }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      // /props 与 /models/{id} 都失败 → capabilities 应为 undefined
+      return Promise.resolve(new Response("not found", { status: 404 }));
+    }) as typeof fetch;
+    try {
+      const res = await app.inject({
+        method: "POST",
+        url: "/v1/llm/test-connection",
+        headers: {
+          "x-workspace-id": "ws_api_test",
+          "x-user-id": "usr_api_test",
+        },
+        payload: {
+          providerType: "llamacpp",
+          baseUrl: "http://127.0.0.1:8080/v1",
+          modelId: "llama3.1-8b-instruct",
+        },
+      });
+
+      const body = JSON.parse(res.payload);
+      expect(body.ok).toBe(true);
+      expect(body.availableModels).toEqual(["llama3.1-8b-instruct"]);
+      // 上下文窗口探测失败不影响主探测；llamacpp 本地端点仍默认标记工具支持
+      expect(body.capabilities?.contextWindow).toBeUndefined();
+      expect(body.capabilities?.supportsToolCalls).toBe(true);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("OPTIONS preflight 请求支持 PUT 等 CORS 方法", async () => {
     const res = await app.inject({
       method: "OPTIONS",
