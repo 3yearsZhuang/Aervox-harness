@@ -44,13 +44,15 @@ function fixture(t) {
   fs.mkdirSync(path.join(root, "scripts"), { recursive: true });
   fs.mkdirSync(path.join(root, "docs", "_meta"), { recursive: true });
   fs.mkdirSync(path.join(root, "docs", "reference"), { recursive: true });
-  for (const name of ["docs-governance.mjs", "docs-lint-affected.mjs"]) {
+  for (const name of ["docs-governance.mjs", "docs-lint-affected.mjs", "plan-queue.mjs"]) {
     fs.copyFileSync(path.join(scriptsDirectory, name), path.join(root, "scripts", name));
   }
-  fs.copyFileSync(
-    path.resolve(scriptsDirectory, "../docs/_meta/document-policy.json"),
-    path.join(root, "docs/_meta/document-policy.json"),
-  );
+  for (const name of ["document-policy.json", "plan-queue.json"]) {
+    fs.copyFileSync(
+      path.resolve(scriptsDirectory, "../docs/_meta", name),
+      path.join(root, "docs/_meta", name),
+    );
+  }
   const registry = path.join(root, "docs/DOC_REGISTRY.md");
   fs.writeFileSync(registry, document("AVX-DOC-CONF-001", {},
     `| ID | 文档 | 核验日期 |\n|---|---|---|\n| \`AVX-PLAN-001\` | [当前计划](../plan.md) | ${today} |`));
@@ -82,11 +84,12 @@ function mockGitEnvironment(root, status, branchRename = false) {
   const source = `#!${process.execPath}
 const args = process.argv.slice(2);
 if (args[0] === "status") process.stdout.write(${JSON.stringify(status)});
-else if (${branchRename} && args[0] === "rev-parse") process.stdout.write("fixture-commit");
-else if (${branchRename} && args[0] === "diff") {
+else if (args[0] === "rev-parse") process.stdout.write("fixture-commit");
+else if (args[0] === "diff") {
   // 模拟 Git 的重命名检测：默认仅报告新路径，--no-renames 同时报告删除和新增。
-  if (args.includes("--no-renames")) process.stdout.write("docs/reference/deleted.md\\0renamed.txt\\0");
-  else process.stdout.write("renamed.txt\\0");
+  if (${branchRename} && args.includes("--no-renames")) process.stdout.write("docs/reference/deleted.md\\0renamed.txt\\0");
+  else if (${branchRename}) process.stdout.write("renamed.txt\\0");
+  else process.stdout.write("");
 } else process.exitCode = 1;
 `;
   fs.writeFileSync(git, source, { mode: 0o755 });
@@ -309,4 +312,40 @@ test("触发器能识别根计划已经同步修改", { skip: process.platform =
   });
   assert.equal(result.status, 0, output(result));
   assert.match(output(result), /\.\.\/plan\.md （已同步修改/);
+});
+
+test("触发器覆盖已提交差量而非只看工作区", { skip: process.platform === "win32" }, (t) => {
+  const root = fixture(t);
+  fs.writeFileSync(path.join(root, "plan.md"), document("AVX-PLAN-001", {
+    planning_role: "current",
+    review_triggers: ["apps/**"],
+  }));
+  // 工作区干净，命中信息只存在于 base...HEAD 差量中。
+  const result = spawnSync(process.execPath, ["scripts/docs-governance.mjs", "--check-triggers"], {
+    cwd: root,
+    encoding: "utf8",
+    env: mockGitEnvironment(root, "", true),
+  });
+  assert.equal(result.status, 0, output(result));
+  assert.match(output(result), /未命中任何文档触发器|renamed\.txt/, output(result));
+});
+
+test("计划队列与 plan.md 不同步时观察期只报提示", { skip: process.platform === "win32" }, (t) => {
+  const root = fixture(t);
+  const result = runGovernance(root);
+  assert.equal(result.status, 0, output(result));
+  assert.match(output(result), /\[plan-queue:H6\]/, output(result));
+  assert.match(output(result), /缺少 plan-queue 生成区标记/);
+});
+
+test("队列强制级别升级为 error 后不同步将阻断", { skip: process.platform === "win32" }, (t) => {
+  const root = fixture(t);
+  const policyPath = path.join(root, "docs/_meta/document-policy.json");
+  const policy = JSON.parse(fs.readFileSync(policyPath, "utf8"));
+  policy.currentIterationPlan.queue.enforcement = "error";
+  fs.writeFileSync(policyPath, JSON.stringify(policy, null, 2));
+
+  const result = runGovernance(root);
+  assert.equal(result.status, 1, output(result));
+  assert.match(output(result), /error: \[plan-queue:H6\]/);
 });

@@ -34,12 +34,16 @@ ci-code-full = "pnpm install --frozen-lockfile && pnpm check:boundary && pnpm ch
 # 产物字节可重现，回归见 scripts/export-plugins.test.mjs）
 package-plugins = "pnpm package:plugins"
 
+# 计划队列：真源 docs/_meta/plan-queue.json，plan.md §2 为派生视图
+plan-render = "pnpm plan:render"
+plan-check = "pnpm check:plan"
+
 # 增量代码与文档独立入口
 check-affected = "node scripts/check-affected.mjs"
 docs-lint-affected = "node scripts/docs-lint-affected.mjs"
 
-# 本地全量文档门禁：Markdown lint + 术语散文 lint + 治理/本地链接校验
-ci-docs = "node --test scripts/docs-*.test.mjs && npx markdownlint-cli2 --config .markdownlint-cli2.jsonc 'docs/**/*.md' 'README.md' 'AGENTS.md' 'CONTRIBUTING.md' 'plan.md' && mise tasks run docs-lint-prose && mise tasks run docs-validate"
+# 本地全量文档门禁：Markdown lint + 术语散文 lint + 治理/本地链接校验 + 计划队列校验
+ci-docs = "node --test scripts/docs-*.test.mjs && pnpm check:plan && npx markdownlint-cli2 --config .markdownlint-cli2.jsonc 'docs/**/*.md' 'README.md' 'AGENTS.md' 'CONTRIBUTING.md' 'plan.md' && mise tasks run docs-lint-prose && mise tasks run docs-validate"
 
 # 术语/散文一致性（配置见 .vale.ini，错误级别阻断）
 docs-lint-prose = "vale --minAlertLevel=error docs README.md AGENTS.md CONTRIBUTING.md plan.md"
