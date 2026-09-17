@@ -156,7 +156,7 @@ describe("系统级语音模块 (Voice Module)", () => {
 
     const service = new VoiceService([], undefined, [customAsrProvider as any], mockRepo as any);
     const result = await service.transcribe(
-      { tenantId: "local-user" } as any,
+      { workspaceId: "ws_voice_it", subjectUserId: "usr_voice_it" },
       { audioBuffer: Buffer.from("audio") },
     );
 
@@ -171,4 +171,3 @@ describe("系统级语音模块 (Voice Module)", () => {
     });
   });
 });
-

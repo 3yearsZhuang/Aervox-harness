@@ -288,7 +288,7 @@ onBeforeUnmount(() => {
   --ivory: #f5efe7;
   --muted: rgba(220, 228, 242, .58);
   --line: rgba(219, 232, 255, .16);
-  --blue: #79a9ff;
+  --blue: var(--accent, #7899f8);
   --violet: #a58aff;
   position: relative;
   flex: 1;
@@ -296,7 +296,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
   color: var(--ivory);
   background: radial-gradient(ellipse 65% 90% at 82% 38%, #183c68 0%, #0b1c37 43%, transparent 72%), linear-gradient(128deg, #050a13, #0a1529 52%, #050a13);
-  font-family: "Segoe UI Variable", "MiSans", "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei UI", sans-serif;
+  font-family: inherit;
   font-feature-settings: "palt" 1, "kern" 1;
   isolation: isolate;
 }
