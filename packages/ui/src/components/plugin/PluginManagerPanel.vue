@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import {computed, onMounted, ref} from 'vue'
-import {Puzzle, Settings, LayoutGrid, Zap, Wrench, PackagePlus, Radar} from 'lucide-vue-next'
+import {Puzzle, Settings, LayoutGrid, Zap, Wrench, PackagePlus, Radar, SlidersHorizontal} from 'lucide-vue-next'
 import {useAervoxPlugins, type PluginGrantDto, type PluginPageDto, type PluginSummaryDto} from '@aervox/api-client'
 import {PLUGIN_SENSOR_PERMISSION} from '@aervox/contracts'
 import {useWorkbenchContext} from '../../composables/workbench-context'
 import PluginConfigDialog from './PluginConfigDialog.vue'
 import PluginInstallDialog from './PluginInstallDialog.vue'
 import PluginPageDialog from './PluginPageDialog.vue'
+import PluginSettingsDialog from './PluginSettingsDialog.vue'
 import SkillManagerTab from './SkillManagerTab.vue'
 import McpToolsTab from './McpToolsTab.vue'
 
@@ -80,6 +81,8 @@ async function toggleSensorGrant(plugin: PluginSummaryDto, sensor: DeclaredSenso
 }
 const configTarget = ref<PluginSummaryDto | null>(null)
 const configOpen = ref(false)
+const settingsTarget = ref<PluginSummaryDto | null>(null)
+const settingsOpen = ref(false)
 const pageTarget = ref<PluginSummaryDto | null>(null)
 const pageOpen = ref(false)
 const pageTargetPage = ref<PluginPageDto | null>(null)
@@ -161,6 +164,11 @@ async function handleConfigSaved(): Promise<void> {
 function openConfig(plugin: PluginSummaryDto): void {
   configTarget.value = plugin
   configOpen.value = true
+}
+
+function openSettings(plugin: PluginSummaryDto): void {
+  settingsTarget.value = plugin
+  settingsOpen.value = true
 }
 
 async function openPage(plugin: PluginSummaryDto): Promise<void> {
@@ -273,6 +281,15 @@ function openConfigFromPage(): void {
             </button>
             <button
               type="button"
+              class="plugin-action plugin-settings-btn"
+              :title="plugin.enabled === 1 ? '插件能力与设置' : '插件未启用'"
+              :disabled="plugin.enabled !== 1"
+              @click="openSettings(plugin)"
+            >
+              <SlidersHorizontal :size="15" />设置
+            </button>
+            <button
+              type="button"
               class="settings-switch plugin-toggle"
               :class="{checked: plugin.enabled === 1}"
               :aria-label="`${plugin.enabled === 1 ? '停用' : '启用'} ${plugin.id}`"
@@ -318,6 +335,13 @@ function openConfigFromPage(): void {
       :open="configOpen"
       :plugin="configTarget"
       @close="configOpen = false"
+      @saved="handleConfigSaved"
+    />
+    <PluginSettingsDialog
+      :open="settingsOpen"
+      :plugin="settingsTarget"
+      @close="settingsOpen = false"
+      @change="emit('change'); void refresh();"
       @saved="handleConfigSaved"
     />
     <PluginPageDialog

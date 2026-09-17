@@ -29,10 +29,9 @@ function getAffectedMarkdownFiles() {
   try {
     const statusOut = execSync("git status --porcelain -uall", { encoding: "utf-8" });
     for (const line of statusOut.split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      // 提取文件路径（状态标识如 " M foo.md", "?? bar.md"）
-      const filePath = trimmed.slice(3).trim();
+      if (!line || line.length < 4) continue;
+      // porcelain 固定格式: 2 字符 XY + 1 空格 + 文件路径
+      const filePath = line.slice(3).trim();
       if (filePath.endsWith(".md")) {
         changedFiles.add(filePath);
       }
