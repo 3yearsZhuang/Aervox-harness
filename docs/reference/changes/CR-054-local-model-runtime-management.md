@@ -66,11 +66,13 @@ CR-053 已将 llama.cpp 作为**底层能力**（`llamacpp` providerType）接�
   挂载于设置弹窗新增「本地模型」分类（`local-models`），`settingCategories` 扩展；
 - 无数据库表变更（模型注册以磁盘文件 + 侧车 JSON 为真源；进程状态为内存态）。
 
-OpenAPI：`GET /v1/model-runtime/state`、`POST /v1/model-runtime/downloads`（含 `autoStart`）、
-`POST /v1/model-runtime/downloads/cancel`、`POST /v1/model-runtime/start`、`POST /v1/model-runtime/stop`、
-`DELETE /v1/model-runtime/models/{modelId}`（CR-054 迭代）。
+OpenAPI（v2）：`GET /v1/model-runtime/state`（`downloads[]` / `runtime.metrics` / `llamaServer.maxConcurrentDownloads`）、
+`GET /v1/model-runtime/catalog`、`GET /v1/model-runtime/events`（SSE，`event: snapshot`）、
+`POST /v1/model-runtime/downloads`（多任务入队，含 `autoStart` / `rateLimitBps`）、
+`POST /v1/model-runtime/downloads/{taskId}/pause|resume|cancel`、`POST /v1/model-runtime/start`、
+`POST /v1/model-runtime/stop`、`DELETE /v1/model-runtime/models/{modelId}`。
 
-## 4. CR-054 迭代增量（本批次）
+## 4. CR-054 迭代增量
 
 面向真实使用场景补足运维闭环：
 
@@ -80,6 +82,27 @@ OpenAPI：`GET /v1/model-runtime/state`、`POST /v1/model-runtime/downloads`（�
   200/416/405 回退整量覆盖；校验失败删除残片防止损坏数据续传；`download.resumableFrom` 透出续传起点；
 - **下载后自动连接**：`ModelDownloadRequest.autoStart` 完成后自动拉起 llama-server 并联动 LLM 预设（无缝连接）。
 
+### 4.2 迭代 v2（本批次，CR-054 v2）
+
+承接 v1 补齐「多任务 + 实时」运维能力：
+
+- **多任务下载队列**：`state.downloads[]` 取代单例下载；服务端 `maxConcurrentDownloads`（缺省 2）并发泵，
+  `queued → running → done|error|cancelled|paused` 状态机；排队任务随并发释放自动推进；
+- **暂停 / 恢复 / 取消（按任务）**：`POST /v1/model-runtime/downloads/{taskId}/pause|resume|cancel`；
+  暂停保留 `.part` 断点、恢复经 `Range` 续传、取消清理残片；错误状态透出 `resumableFrom` / `error`；
+- **限速**：`ModelDownloadRequest.rateLimitBps` 滑动窗口限速（bytes/sec）；
+- **量化档位清单**：`GET /v1/model-runtime/catalog` 内置精选 GGUF 目录（Qwen2.5-7B Q4_K_M/Q8_0、
+  Llama3.1-8B、Qwen3-4B，含 `quant` / `sizeLabel` / 推荐启动参数）；任意 URL 下载入口保留；
+- **运行指标监控**：llama-server `/metrics` 采样 `llama_tokens_per_second` / `prompt_tokens_per_second`
+  （`state.runtime.metrics` 最近 8 条，采样失败静默）；
+- **SSE 实时推送**：`GET /v1/model-runtime/events`（`event: snapshot` + 心跳 + 建连即推快照；
+  客户端断线回退轮询 `state`）。
+
+「本地模型」面板（`ModelRuntimePanel.vue`）同步升级：多任务进度卡（状态徽章 / 进度条 / 暂停恢复取消）、
+运行指标 chip、精选模型一键下载（预填推荐启动参数）、下载限速输入；`@aervox/api-client`
+`useAervoxModelRuntime` 暴露 `getCatalog` / `pauseDownload` / `resumeDownload` / `cancelDownload(taskId)` /
+`subscribeState`（fetch 流式 SSE，失败回退轮询）。
+
 ## 5. 验证与测试标准
 
 - `apps/api/test/model-runtime-downloader.test.ts`（真实 Node http 服务）：流式进度、SHA-256 匹配/不匹配清理、
@@ -87,7 +110,8 @@ OpenAPI：`GET /v1/model-runtime/state`、`POST /v1/model-runtime/downloads`（�
 - `apps/api/test/model-runtime-llama-server.test.ts`（注入 fake spawn/fetch）：resolveBin、启动成功 running、
   健康探测超时抛错、二进制缺失、stop 幂等、进程意外退出留痕；
 - `apps/api/test/model-runtime-api.test.ts`（buildApp 集成）：下载→注册→启动→停止全链路、重复下载/运行中启动的
-  409 语义、模型缺失 400；
+  409 语义、模型缺失 400；v2 新增多任务并发（缺省 2＋排队）、暂停/恢复/取消 `.part` 语义、限速参数闭环、
+  精选目录、SSE 实时推送（真实端口监听 + 帧断言）共 9 项；
 - `packages/api-client/test/model-runtime.test.ts`：端点映射与 DTO 透传；
 - `packages/ui`：既有 71 项全量通过（SettingsModal 挂载新面板无回归）；
 - 门禁：`./aervox ci all` 全量终审（code + docs）。
