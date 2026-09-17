@@ -7,7 +7,7 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 planning_role: current
-version: 0.2.0
+version: 0.2.1
 updated_at: 2026-09-18
 reviewed_at: 2026-09-18
 review_interval_days: 7
@@ -55,7 +55,7 @@ sources:
 
 | 条目 / 状态 | 最小交付与依据 | 依赖及 CR 门槛 | 完成判定 | 建议责任（待认领） |
 |---|---|---|---|---|
-| <a id="iter-001"></a>ITER-001 · 执行中 | 冷 CI 与插件验证：各 Job 锁文件安装、插件制品生成、工作流触发与 Turbo 输入；ARC-14、FND-10；基础设施/CAP-020 | 可独立修复；不借此开启已有禁用的资产缓存 | 干净 checkout 通过（显式锁文件安装，不依赖 pnpm 隐式安装）；仅插件变动会重新验证（工作流触发、Turbo 输入与增量选择三层同源）；删除生成物后由声明任务恢复，且产物字节可重现（校验：`scripts/ci-scope.test.mjs`；`scripts/export-plugins.test.mjs`；`.github/workflows/ci.yml` 的 frozen lockfile 与 plugin bundles 步骤） | quality/release（分支 `fix/iter-001-ci-verification-entry`；2026-09-18 首批已落地并登记 §4.2；冷 CI 证据随 PR #221 补齐，移交前不代表验收完成） |
+| <a id="iter-001"></a>ITER-001 · 已移交 | 冷 CI 与插件验证：各 Job 锁文件安装、插件制品生成、工作流触发与 Turbo 输入；ARC-14、FND-10；基础设施/CAP-020 | 可独立修复；不借此开启已有禁用的资产缓存 | 干净 checkout 通过（显式锁文件安装，不依赖 pnpm 隐式安装）；仅插件变动会重新验证（工作流触发、Turbo 输入与增量选择三层同源）；删除生成物后由声明任务恢复，且产物字节可重现（校验：`scripts/ci-scope.test.mjs`；`scripts/export-plugins.test.mjs`；`.github/workflows/ci.yml` 的 frozen lockfile 与 plugin bundles 步骤） | quality/release（分支 `fix/iter-001-ci-verification-entry`；2026-09-18 移交：PR #221 冷 CI 全绿（Install/build/typecheck 5m23s、E2E 1m25s、Docs 24s），三条验收均有机会证据；合并后由 §4.2 记录交付） |
 | <a id="iter-002"></a>ITER-002 · 建议 | 可靠接单与 Outbox：先修消费者抢先完成，再闭合 Turn/Attempt/Inbox/可重放输入与受控派发；ARC-01、FND-01/05；CAP-007 | 拆为消费修复与调度切片；新状态、容量/接单语义或多订阅契约先 CR | 提交、预加载、claim 各点中断后已受理任务可追踪；无永久未领取孤儿，不重复消费/副作用 | platform |
 | <a id="iter-003"></a>ITER-003 · 建议 | 删除效果与召回资格：先做 Memory 及其索引的完整清理/独立验证切片，检查期限、用途、撤权与 Restricted；ARC-06/08；CAP-005/013/027/033 | 已有隐私契约的修复先做；扩大删除范围或改变保留/恢复语义先 CR；失败继续拒绝受影响范围 | completed 有可重做的清理证据；空目标有明确依据；失败/未知不解闸；混合夹具越权结果为零 | data/privacy |
 | <a id="iter-004"></a>ITER-004 · 建议 | 三个独立修复：消息版本短事务/CAS，Config 与同库 Secret 一致提交，会话锁尾链回收；ARC-07、FND-02/07；CAP-013/020 | 不引入全局通用事务框架；外部 Secret 补偿或历史数据转换单独评审 | 故障仅留完整旧/新版；同 revision 最多一次成功；409 不改 Secret；一万个 key 完成后锁缓存清空 | data |
@@ -131,6 +131,6 @@ ITER-009 需要给出下面的可审阅结论，目前不替用户选定产品�
 
 截至 2026-09-18，`#218`（`d91b121`）与 `#219`（`5584bdf`）均已合入 `main`；本轮另将 `docs/mobile-landing-plan` 的两条提交（`dff68b8`、`00d83ad`）连同 `CR-055` 收割进 `main`，并把两份硬件方向版本合成单一文档。该移动规划分支此后不再承载独立排期；后续硬件与移动的当前排序一律回到本文件维护。
 
-ITER-001 的落地在 `fix/iter-001-ci-verification-entry` 独立分支推进，首批只修验证入口本身：工作流触发路径与 Turbo 声明同源、各 Job 显式锁文件安装、gitignore 生成物的声明恢复任务及其可重现性，以及本地增量门禁对包外输入的显式选择（登记见 [§4.2](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)）。该分支不改业务代码、不改任何 CAP 的交付状态，也不开启已禁用的缓存；干净 checkout 与冷 CI 的 PR 证据补齐后，再按 §4 判定是否移交。核对中还发现产品侧导出分发包同样不可重现，因涉及业务代码未在本分支修复，已追加到 ITER-005。ITER-002、003、008 等其余条目仍为建议态，待认领。
+ITER-001 的落地在 `fix/iter-001-ci-verification-entry` 独立分支交付，只修验证入口本身：工作流触发路径与 Turbo 声明同源、各 Job 显式锁文件安装、gitignore 生成物的声明恢复任务及其可重现性，以及本地增量门禁对包外输入的显式选择（登记见 [§4.2](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)）。该分支不改业务代码、不改任何 CAP 的交付状态，也不开启已禁用的缓存。三条验收均有证据：干净 checkout 由 PR [#221](https://github.com/3yearsZhuang/Aervox-harness/pull/221) 的冷 CI 证明（Install/build/typecheck、E2E、Docs 全绿），仅插件变动会重新验证由 `scripts/ci-scope.test.mjs` 与反向验证守住，生成物由声明任务重建并断言。核对中还发现产品侧导出分发包同样不可重现，因涉及业务代码未在本分支修复，已追加到 ITER-005。ITER-002、003、008 等其余条目仍为建议态，待认领。
 
 本文件不持有完整日志。§2 的队列不是手写表：真源在 `docs/_meta/plan-queue.json`，改条目后运行 `mise tasks run plan-render` 生成派生的 §2 表格，`mise tasks run plan-check` 校验结构、依赖与“状态—证据”一致性（已接入文档治理，本轮为观察期，只报提示不阻断）。每次认领、调整和移交更新真源、元数据与签名，同步注册表；PR 说明列出关联 `ITER-*` 及是否改变计划。迭代复盘时合并重复项、明确暂停原因并压缩已移交项，避免计划退化为永久堆积的 TODO。

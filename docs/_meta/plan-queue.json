@@ -11,7 +11,7 @@
     {
       "id": "ITER-001",
       "batch": "first",
-      "status": "执行中",
+      "status": "已移交",
       "delivery": "冷 CI 与插件验证：各 Job 锁文件安装、插件制品生成、工作流触发与 Turbo 输入；ARC-14、FND-10；基础设施/CAP-020",
       "gate": "可独立修复；不借此开启已有禁用的资产缓存",
       "acceptance": [
@@ -26,8 +26,12 @@
       ],
       "owner": "quality/release",
       "branch": "fix/iter-001-ci-verification-entry",
-      "statusNote": "2026-09-18 首批已落地并登记 §4.2；冷 CI 证据随 PR #221 补齐，移交前不代表验收完成",
-      "dependsOn": []
+      "statusNote": "2026-09-18 移交：PR #221 冷 CI 全绿（Install/build/typecheck 5m23s、E2E 1m25s、Docs 24s），三条验收均有机会证据；合并后由 §4.2 记录交付",
+      "dependsOn": [],
+      "links": [
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/221",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
+      ]
     },
     {
       "id": "ITER-002",
