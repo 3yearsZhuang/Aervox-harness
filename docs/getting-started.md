@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.4
-updated_at: 2026-09-16
-reviewed_at: 2026-09-16
+version: 1.0.5
+updated_at: 2026-09-18
+reviewed_at: 2026-09-18
 review_interval_days: 90
 ---
 
 # 从哪开始（新成员 / AI Agent 入口）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-17
+- 修改人：Codex · 2026-09-18
 
 关联：[文档索引](README.md)（AVX-DOC-001）
 
@@ -99,3 +99,4 @@ demos/                   # 纯前端原型，非交付物
 - 开始动手：[教程：构建并运行第一个对话](tutorials/first-conversation.md)；
 - 了解架构：[架构设计](reference/ARCHITECTURE.md) 与 [数据流总览](explanation/data-flow-overview.md)；
 - 需求与落地状态：[需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md)。
+- 规划手机体验：[移动端落地规划](reference/changes/CR-055-mobile-delivery-plan.md)（CR-055，待评审），比较配套端与独立端，核对连接、数据边界与逐阶段验收。

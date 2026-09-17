@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.32.9
-updated_at: 2026-09-17
-reviewed_at: 2026-09-17
+version: 1.32.10
+updated_at: 2026-09-18
+reviewed_at: 2026-09-18
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-17
+- 修改人：Codex · 2026-09-18
 
 产品需求来源：[PRD.md](PRD.md)
 
@@ -189,6 +189,7 @@ review_interval_days: 90
 
 | 落地内容与功能描述 | 关联 CAP | 实现与测试位置 | 日期 | 验证 | 来源 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| CR-055 移动端规划文档：核验 Capacitor 壳配置、共享 UI 与传输缺口，比较配套端和独立端，定义阶段、数据边界、验收与回退；仅完成规划，决策 Proposed、能力交付 Planned | CAP-001/002/003/004/006/007/009/010/012/013/019/020/026/027/030、NFR-COMPAT-001、NFR-A11Y-001、NFR-PERF-001、SEC-LOC-001 | [CR-055](changes/CR-055-mobile-delivery-plan.md)、`docs/README.md`、`docs/getting-started.md`、`docs/DOC_REGISTRY.md`、`docs/_meta/document-catalog.json` | 2026-09-18 | 基于 `0a12ea4` 静态核验；`mise tasks run ci-docs` 通过（Markdownlint/Vale/严格治理零问题）；`mise tasks run check-affected` 边界检查通过，纯文档变更无受影响构建/测试任务；未进行原生构建或真机测试，不推进 CAP 状态 | 原生 |
 | 插件分发包规范、安装前预检、打包引擎与出厂集市（CAP-020 插件完整分发与生命周期闭环）：定义 `.aervox-plugin` 单文件分发包规约（ZIP 归档包含 `plugin.manifest.json`、`config.schema.json`、`SKILL.md`、`skills/`、`pages/`、声明工具）；严格落地 PRD CAP-020 安装前安全预检门禁（展示发布者、版本、SHA-256 完整性校验、声明所需权限与数据范围、能力计数，严格阻断 Zip Slip 跨目录越界与非法清单）；实现后端 `package-bundle.ts` 引擎（内存解包校验、原子化写入插件/配置/工具/技能/页面落盘、支持 `overwrite` 覆盖升级与 409 冲突防御、一键重新打包导出）；提供出厂/内置插件集市端点（`GET /v1/plugins/market` 与 `POST /v1/plugins/market/:id/install`）；前端升级 `PluginInstallDialog.vue` 为拖拽/文件包预检 + 手动 JSON 双模，新增 `PluginMarketTab.vue` 集市浏览/分类过滤/一键安装/导出，并在插件卡片与设置弹窗头部提供安装包导出功能。 | CAP-020 | `packages/contracts/src/{plugin-config-schemas.ts,openapi.ts}`、`packages/contracts/openapi.json`、`apps/api/src/modules/ecosystem/plugins/{package-bundle.ts,service.ts,routes.ts,index.ts}`、`packages/api-client/src/{useAervoxPlugins.ts,index.ts}`、`packages/ui/src/components/plugin/{PluginInstallDialog.vue,PluginMarketTab.vue,PluginManagerPanel.vue,PluginSettingsDialog.vue}`、`packages/ui/src/index.ts`、`docs/reference/plugin-config-and-pages.md`、`apps/api/test/plugin-distribution.test.ts`、`packages/api-client/test/plugins-distribution.test.ts`、`packages/ui/test/plugin-distribution.test.ts` | 2026-09-17 | `apps/api` 6 个集成测试通过；`packages/api-client` 4 个测试通过；`packages/ui` 9 个组件测试通过；UI/Web/Desktop/API 全量 typecheck 零错误；`node scripts/import-boundary.mjs` 零违规 | 原生 |
 | 插件专属能力与纯粹技能/工具解耦管理（CAP-020 插件能力入口与设置收敛）：新增 `PluginSettingsDialog.vue` 对已安装插件的能力进行集中一站式管理（运行配置、插件专属 Skill 启停与 SKILL.md 浏览、插件专属 MCP 工具启停与调试调用、系统感知源授权与触发规则呈现、扩展页面直达）；改造 `SkillManagerTab.vue` 与 `McpToolsTab.vue` 为默认纯粹视图（Pure View），仅管理纯粹的本地/独立 Skill 与系统/独立 MCP 工具，插件内置技能与工具收归插件设置并在纯粹模式下展示提示横幅，支持「独立/插件/全部」分段筛选；工具列表明确标示 `mcp:<serverId>` 为外部独立服务源徽标，消除伪插件归属混淆；`PluginManagerPanel.vue` 卡片操作区新增设置入口与联动。 | CAP-020 | `packages/ui/src/components/plugin/{PluginSettingsDialog.vue,PluginManagerPanel.vue,SkillManagerTab.vue,McpToolsTab.vue}`、`packages/ui/src/index.ts`、`packages/ui/test/{plugin-settings-dialog.test.ts,skill-mcp-tabs.test.ts,plugin-manager-panel.test.ts}` | 2026-09-17 | `@aervox/ui` 14 个测试套件 79/79 测试全部通过；`vue-tsc --noEmit` 0 错误；`./aervox test fast` 17 任务全部通过 | 原生 |
 | UI 全局设计重构与视觉规范统一落地（基于 .agents/skills/ 规范，建立 AVX-DS-001）：建立权威设计规范 `docs/reference/DESIGN.md`（明确 Ethereal Glass & Neo-Mica 空灵玻璃与新云母哲学、单主色秩序、Doppelrand 嵌套触感、字阶架构与禁止事项清单）；重构 `@aervox/ui` 基础 Design Tokens（剔除 Inter 违禁字体，构建现代无衬线/等宽字阶，单钴蓝主色 #3b66db/#7899f8，冷灰底板，同心圆角分级，实体按压物理反馈，Element Plus 现代质感覆盖）；全面升级主工作台样式 `workbench.css`（标准模式侧边栏活动条、顶部栏、会话项、对话消息流、输入停靠栏、双层卡片、统一抽屉与弹窗体系）；对齐桌面端 `shell.css`、`pet.css`（透明桌宠与气泡继承统一主色与字体）、`AppTitlebar.vue`、`OnboardingFlow.vue` 及 Web 容器，消除双端双形态视觉撕裂 | 基础设施（UI 设计系统与双端统一） | `docs/reference/DESIGN.md`、`docs/DOC_REGISTRY.md`、`docs/README.md`、`packages/ui/src/theme/{index,workbench}.css`、`apps/desktop/src/renderer/src/{styles/{shell,pet}.css,components/{AppTitlebar,OnboardingFlow}.vue}`、`apps/web/src/styles.css` | 2026-09-17 | `@aervox/ui` / `@aervox/desktop` 单元测试通过；全仓 build & typecheck 通过；文档治理严格校验通过 | 原生 |
