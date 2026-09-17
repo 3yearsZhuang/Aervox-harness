@@ -120,4 +120,24 @@ describe("日记 REST：按需生成 / 幂等取回 / 改写 / 列表 / 默认�
     expect(list.items[0]?.title.length).toBeGreaterThan(0);
     expect(list.items[0]?.localDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
+
+  it("GET /v1/diaries/styles 返回所有已注册的日记风格", async () => {
+    const res = await app.inject({ method: "GET", url: "/v1/diaries/styles", headers });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { items: Array<{ id: string; name: string; targetScene: string }> };
+    expect(body.items.length).toBeGreaterThanOrEqual(3);
+    const ids = body.items.map((i) => i.id);
+    expect(ids).toContain("companion");
+    expect(ids).toContain("growth");
+    expect(ids).toContain("concise");
+  });
+
+  it("POST /v1/diaries/generate-today 支持指定 styleId 提炼复盘日记", async () => {
+    const res = await generateToday({ styleId: "growth" });
+    expect(res.statusCode).toBe(200);
+    const result = res.json() as { title: string; content: string; mode: string };
+    expect(result.mode).toBe("created");
+    expect(result.title).toContain("学习复盘");
+    expect(result.content).toContain("【今日学情回顾】");
+  });
 });

@@ -1,0 +1,46 @@
+{
+  "apiVersion": "aervox.dev/v1",
+  "kind": "PluginConfigSchema",
+  "schemaVersion": 1,
+  "fields": [
+    {
+      "key": "defaultStyle",
+      "type": "select",
+      "label": "默认日记风格",
+      "description": "每日定时生成或首开生成时优先采用的风格",
+      "default": "growth",
+      "options": [
+        {
+          "value": "growth",
+          "label": "认知与学习复盘 (聚焦目标与错题，条理清晰)"
+        },
+        {
+          "value": "companion",
+          "label": "桌宠亲密随笔 (思思第一人称，温暖随和)"
+        },
+        {
+          "value": "concise",
+          "label": "极简量化记录 (高信息密度事实与指标清单)"
+        }
+      ]
+    },
+    {
+      "key": "includeMistakeAnalysis",
+      "type": "boolean",
+      "label": "包含错题与盲区剖析",
+      "description": "是否在学习复盘中深度剖析当日错题并提供薄弱点洞察",
+      "default": true
+    },
+    {
+      "key": "dailyCutoffHour",
+      "type": "integer",
+      "label": "每日定时生成时刻 (点)",
+      "description": "夜晚定时生成当天日记的整点时刻（18~23 点）",
+      "default": 22,
+      "validation": {
+        "min": 18,
+        "max": 23
+      }
+    }
+  ]
+}

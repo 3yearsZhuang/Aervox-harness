@@ -7,7 +7,19 @@ import type { FastifyInstance } from "fastify";
 import { createLearningGoalSchema, updateLearningGoalSchema, updateMistakeRequestSchema } from "@aervox/contracts";
 import type { SqliteLearningRepository } from "@aervox/repositories";
 import { resolveLocalContext } from "../../../shared/local-context.js";
-import { createReviewItem, getLocalDayBounds, getPracticeGuidance, getPracticeSessionProgress, normalizeMistakeNote, updateAfterAnswer } from "@aervox/practice-review";
+import {
+  createReviewItem,
+  getLocalDayBounds,
+  getPracticeGuidance,
+  getPracticeSessionProgress,
+  normalizeMistakeNote,
+  updateAfterAnswer,
+} from "@aervox/practice-review";
+import {
+  QuestionBankRegistry,
+  JsonQuestionBankProvider,
+  CsvQuestionBankProvider,
+} from "./question-bank/index.js";
 
 let seq = 0;
 const estimatedMinutesPerReview = 2;
@@ -93,7 +105,14 @@ async function practiceSessionResumePayload(
 export function registerLearningRoutes(
   app: FastifyInstance,
   learningRepo: SqliteLearningRepository,
+  questionBankRegistry?: QuestionBankRegistry,
 ): void {
+  const qbRegistry = questionBankRegistry ?? new QuestionBankRegistry();
+  if (!questionBankRegistry) {
+    qbRegistry.register(new JsonQuestionBankProvider());
+    qbRegistry.register(new CsvQuestionBankProvider());
+  }
+
   // 学习目标
   app.post("/v1/learning/goals", async (req, reply) => {
     const tenant = resolveLocalContext(req);
@@ -176,6 +195,78 @@ export function registerLearningRoutes(
       knowledgeId: body.knowledgeId,
     });
     return reply.code(201).send(question);
+  });
+
+  // 外部题库导入 SPI (CAP-023)
+  app.get("/v1/questions/import/providers", async () => {
+    return { providers: qbRegistry.list() };
+  });
+
+  app.post("/v1/questions/import", async (req, reply) => {
+    const tenant = resolveLocalContext(req);
+    const body = (req.body ?? {}) as {
+      providerId?: string;
+      format?: string;
+      content?: string;
+      knowledgeId?: string | null;
+      sourceArtifactId?: string | null;
+    };
+
+    if (!body.content || typeof body.content !== "string") {
+      return reply.code(400).send({ error: "content is required" });
+    }
+
+    let provider = body.providerId
+      ? qbRegistry.get(body.providerId)
+      : undefined;
+
+    if (!provider && body.format) {
+      provider = qbRegistry.resolveByExtension(
+        body.format.startsWith(".") ? body.format : `.${body.format}`,
+      );
+    }
+
+    if (!provider) {
+      try {
+        JSON.parse(body.content);
+        provider = qbRegistry.get("json-question-bank");
+      } catch {
+        provider = qbRegistry.get("csv-question-bank");
+      }
+    }
+
+    if (!provider) {
+      return reply.code(400).send({ error: "No matching question bank provider found" });
+    }
+
+    const items = await provider.parse(body.content);
+    if (items.length === 0) {
+      return reply.code(400).send({ error: "No valid questions parsed from content" });
+    }
+
+    const created = [];
+    for (const item of items) {
+      const q = await learningRepo.createQuestion(tenant, {
+        id: id("q"),
+        prompt: item.prompt,
+        answerSpec: {
+          answer: item.answer,
+          ...(item.explanation ? { explanation: item.explanation } : {}),
+          ...(item.options ? { options: item.options } : {}),
+          ...(item.difficulty ? { difficulty: item.difficulty } : {}),
+          ...(item.tags ? { tags: item.tags } : {}),
+        },
+        sourceArtifactId: body.sourceArtifactId,
+        knowledgeId: body.knowledgeId,
+      });
+      created.push(q);
+    }
+
+    return reply.code(201).send({
+      providerId: provider.id,
+      importedCount: created.length,
+      questions: created,
+    });
   });
 
   app.get("/v1/questions/:questionId", async (req, reply) => {

@@ -241,14 +241,26 @@ export class VoiceService {
       throw new Error(`ASR provider "${providerId}" is unavailable`);
     }
 
-    if (config.modelPath && provider instanceof SenseVoiceLocalProvider) {
-      provider.reconfigure({ modelPath: config.modelPath, modelId: config.modelId });
-    } else if (provider instanceof WhisperCompatibleProvider) {
-      provider.reconfigure({
-        endpoint: config.endpoint,
-        apiKey: config.apiKey,
-        modelId: config.modelId,
-      });
+    if (typeof provider.reconfigure === "function") {
+      if (provider.kind === "sensevoice-local") {
+        if (config.modelPath) {
+          provider.reconfigure({ modelPath: config.modelPath, modelId: config.modelId });
+        }
+      } else if (provider.kind === "whisper-compatible") {
+        provider.reconfigure({
+          endpoint: config.endpoint,
+          apiKey: config.apiKey,
+          modelId: config.modelId,
+        });
+      } else {
+        provider.reconfigure({
+          modelPath: config.modelPath,
+          modelId: config.modelId,
+          endpoint: config.endpoint,
+          apiKey: config.apiKey,
+          ...(config.settings ?? {}),
+        });
+      }
     }
 
     return provider.transcribe(request);

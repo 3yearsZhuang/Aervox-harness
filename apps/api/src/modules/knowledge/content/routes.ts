@@ -54,20 +54,13 @@ function extensionForMediaType(mediaType: string): string {
   return map[mediaType] ?? "";
 }
 
-/** 模拟 OCR 解析（实际应接入 OCR 服务） */
-function mockOcrParse(_objectKey: string): { text: string; confidence: number } {
-  // 模拟解析结果：置信度随机 0.5-0.95
-  const confidence = 0.5 + Math.random() * 0.45;
-  const text = confidence >= OCR_CONFIDENCE_THRESHOLD
-    ? "1. 已知函数 f(x) = 2x + 3，求 f(5) 的值。\n2. 解方程：3x - 7 = 14。"
-    : "[解析置信度低，内容可能不完整]";
-  return { text, confidence: Math.round(confidence * 100) / 100 };
-}
+import { ContentParserRegistry, MockOcrParserProvider } from "./parser-port.js";
 
 export function registerContentRoutes(
   app: FastifyInstance,
   contentRepo: SqliteContentRepository,
   attachmentsRoot: string,
+  parserRegistry: ContentParserRegistry = new ContentParserRegistry(),
 ): void {
   // ============ FR-EXT-001：附件上传与用途声明 ============
 
@@ -244,8 +237,9 @@ export function registerContentRoutes(
       await contentRepo.supersedeParseResult(tenant, oldActive.id);
     }
 
-    // 模拟 OCR 解析
-    const ocrResult = mockOcrParse(attachment.objectKey);
+    // 多模态 / OCR 解析（经 SPI Provider 执行）
+    const parser = parserRegistry.findParserForMediaType(attachment.mediaType) ?? new MockOcrParserProvider();
+    const ocrResult = await parser.parse(tenant, { attachment });
     const parseStatus = ocrResult.confidence >= OCR_CONFIDENCE_THRESHOLD
       ? "completed"
       : "low_confidence"; // BR-EXT-001 AC-01

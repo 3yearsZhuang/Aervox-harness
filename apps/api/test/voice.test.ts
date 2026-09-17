@@ -115,4 +115,60 @@ describe("系统级语音模块 (Voice Module)", () => {
     expect("aux_ref_audio_paths" in payload).toBe(false);
     expect("speed_factor" in payload).toBe(false);
   });
+
+  it("ASR Provider SPI: 自定义插件式 ASR Provider 动态注册与多态配置分发", async () => {
+    let reconfigureCalledWith: Record<string, unknown> | null = null;
+    let transcribeCalled = false;
+
+    const customAsrProvider = {
+      id: "custom-asr",
+      kind: "custom-asr-kind",
+      async healthCheck() {
+        return { status: "healthy" as const };
+      },
+      reconfigure(config: Record<string, unknown>) {
+        reconfigureCalledWith = config;
+      },
+      async transcribe() {
+        transcribeCalled = true;
+        return { text: "识别文本来自插件", isFinal: true };
+      },
+    };
+
+    const mockRepo = {
+      getConfig: async () => ({
+        enabled: 1,
+        engineType: "custom-asr",
+        modelPath: "/plugins/models/custom.bin",
+        modelId: "custom-v1",
+        endpoint: "http://custom-asr:8080",
+        apiKey: "secret",
+        autoStopOnKeyboard: 1,
+        vadSilenceThresholdMs: 500,
+        settingsJson: { customSetting: true },
+        createdAt: "2026-09-17",
+        updatedAt: "2026-09-17",
+      }),
+      saveConfig: async () => {
+        throw new Error("not implemented");
+      },
+    };
+
+    const service = new VoiceService([], undefined, [customAsrProvider as any], mockRepo as any);
+    const result = await service.transcribe(
+      { tenantId: "local-user" } as any,
+      { audioBuffer: Buffer.from("audio") },
+    );
+
+    expect(transcribeCalled).toBe(true);
+    expect(result.text).toBe("识别文本来自插件");
+    expect(reconfigureCalledWith).toEqual({
+      modelPath: "/plugins/models/custom.bin",
+      modelId: "custom-v1",
+      endpoint: "http://custom-asr:8080",
+      apiKey: "secret",
+      customSetting: true,
+    });
+  });
 });
+

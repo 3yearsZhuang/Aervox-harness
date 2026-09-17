@@ -30,5 +30,6 @@ export function registerModelRuntimeModule(
 export * from "./service.js";
 export * from "./llama-server.js";
 export * from "./downloader.js";
+export * from "./driver.js";
 
 export type { LlamaServerManagerDeps };

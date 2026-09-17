@@ -72,6 +72,7 @@ API 本地进程承载 `ProactiveIntegrationManager`。Home Assistant 使用 RES
 ## Verification evidence
 
 - `apps/api/test/proactive-integrations.test.ts`：凭据不回显、HA 白名单与动作审计、小米健康同步、工具注册和撤销删除；
+- `apps/api/test/proactive-integration-spi.test.ts`：验证 `ProactiveIntegrationProvider` SPI 扩展性与第三方 Provider 动态注册/同步分发；
 - `apps/worker/test/proactive-intelligence-worker.test.ts`：十二项能力及日/周回顾；
 - `packages/database/test/proactive-intelligence.test.ts`：租户隔离、字段加密、HA/健康仓储和导出；
 - Contracts OpenAPI 生成与 Database/API/Worker/UI/Desktop typecheck。

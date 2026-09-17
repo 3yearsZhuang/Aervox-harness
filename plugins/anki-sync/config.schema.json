@@ -1,0 +1,28 @@
+{
+  "apiVersion": "aervox.dev/v1",
+  "kind": "PluginConfigSchema",
+  "schemaVersion": 1,
+  "fields": [
+    {
+      "key": "defaultTags",
+      "type": "string",
+      "label": "默认导入题目标签",
+      "description": "未显式指定标签时默认赋予题目的分类标签（分号分隔，例如 anki;imported）",
+      "default": "anki;imported"
+    },
+    {
+      "key": "autoScheduleReview",
+      "type": "boolean",
+      "label": "自动接入遗忘曲线复习",
+      "description": "导入新闪卡后是否立即纳入 @aervox/practice-review 排期系统",
+      "default": true
+    },
+    {
+      "key": "ankiConnectEndpoint",
+      "type": "string",
+      "label": "AnkiConnect 本地 API 地址",
+      "description": "本地 Anki 插件 AnkiConnect 的通信端点（通常为 http://127.0.0.1:8765）",
+      "default": "http://127.0.0.1:8765"
+    }
+  ]
+}
