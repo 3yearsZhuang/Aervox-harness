@@ -379,6 +379,7 @@ function generateCatalog(metadataByFile, policy) {
       path: meta.relative,
       type: meta.type,
       scope: meta.fields.scope || (meta.isArchive ? "archive" : "baseline"),
+      ...(meta.fields.planning_role === undefined ? {} : { planning_role: meta.fields.planning_role }),
       owner: meta.fields.owner || "maintainers",
       doc_status: meta.documentStatus || "draft",
       decision_status: meta.decisionStatus || "not-applicable",
@@ -449,8 +450,8 @@ function checkReviewTriggers(metadataByFile) {
 
   const modifiedDocs = new Set(
     changedFiles
-      .filter((file) => file.startsWith("docs/"))
       .map((file) => path.resolve(rootDir, file))
+      .filter((file) => metadataByFile.has(file))
   );
 
   const triggeredDocs = new Map();
@@ -490,6 +491,52 @@ function validatePolicy(policy) {
   if (!policy.policyId || !policy.registryPath) reportError("策略必须包含 policyId 和 registryPath");
   if (!Number.isInteger(policy.defaultReviewIntervalDays) || policy.defaultReviewIntervalDays <= 0) {
     reportError("策略 defaultReviewIntervalDays 必须是正整数");
+  }
+  const currentPlan = policy.currentIterationPlan;
+  if (!currentPlan || currentPlan.path !== "plan.md" || currentPlan.planningRole !== "current") {
+    reportError("策略 currentIterationPlan 必须指定根 plan.md 与 planningRole=current");
+  }
+  for (const field of ["id", "type", "scope"]) {
+    if (typeof currentPlan?.[field] !== "string" || !currentPlan[field].trim()) {
+      reportError(`策略 currentIterationPlan.${field} 必须是非空字符串`);
+    }
+  }
+}
+
+function checkCurrentIterationPlan(metadataByFile, policy) {
+  const planFile = path.join(rootDir, "plan.md");
+  const plan = metadataByFile.get(planFile);
+  if (!plan) {
+    reportError("根 plan.md 必须存在并纳入文档治理");
+  } else {
+    if (!plan.usesCanonicalFrontMatter) reportError("plan.md 必须使用 canonical YAML front matter");
+    if (!plan.hasProposer || !plan.hasModifier) reportError("plan.md 必须包含标准提出人/修改人签名");
+    for (const field of ["id", "type", "scope"]) {
+      const expected = policy.currentIterationPlan?.[field];
+      if (expected && plan.fields[field] !== expected) {
+        reportError(`plan.md: ${field} 必须为 ${expected}`);
+      }
+    }
+    if (plan.fields.planning_role !== "current") reportError("plan.md 必须声明 planning_role: current");
+  }
+
+  const roleCandidates = new Map(metadataByFile);
+  for (const entry of fs.readdirSync(rootDir, { withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
+    const file = path.join(rootDir, entry.name);
+    if (!roleCandidates.has(file)) roleCandidates.set(file, parseMetadata(file, fs.readFileSync(file, "utf8")));
+  }
+  const currentPlans = [];
+  for (const [file, metadata] of roleCandidates) {
+    const role = metadata.fields.planning_role;
+    if (role === undefined) continue;
+    if (!["current", "history", "evidence"].includes(role)) {
+      reportError(`${metadata.relative}: planning_role 必须为 current、history 或 evidence`);
+    }
+    if (role === "current") currentPlans.push(file);
+  }
+  if (currentPlans.length !== 1 || currentPlans[0] !== planFile) {
+    reportError("planning_role: current 必须唯一且仅能由根 plan.md 声明");
   }
 }
 
@@ -618,12 +665,15 @@ function main() {
   validatePolicy(policy);
 
   const markdownFiles = walk(docsDir).filter((file) => file.endsWith(".md"));
+  const planFile = path.join(rootDir, "plan.md");
+  if (fs.existsSync(planFile) && fs.statSync(planFile).isFile()) markdownFiles.push(planFile);
   const metadataByFile = new Map();
   for (const file of markdownFiles) {
     const text = fs.readFileSync(file, "utf8");
     metadataByFile.set(file, parseMetadata(file, text));
   }
   checkMetadata(metadataByFile, policy);
+  checkCurrentIterationPlan(metadataByFile, policy);
   const linkFiles = new Map(metadataByFile);
   for (const rootDocument of ["README.md", "AGENTS.md", "CONTRIBUTING.md", "CHANGELOG.md"]) {
     const file = path.join(rootDir, rootDocument);

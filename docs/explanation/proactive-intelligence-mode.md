@@ -6,9 +6,9 @@ owner: product-platform
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.5.1
-updated_at: 2026-09-17
-reviewed_at: 2026-09-17
+version: 0.5.2
+updated_at: 2026-09-18
+reviewed_at: 2026-09-18
 review_interval_days: 60
 review_triggers:
   - docs/reference/PRD.md
@@ -40,9 +40,11 @@ sources:
 # 主动智能模式设计方案
 
 - 提出人：3yearszhuang · 2026-08-29
-- 修改人：3yearszhuang · 2026-09-17
+- 修改人：Codex · 2026-09-18
 
 关联：`CR-023`（已归档）、`CR-022 完全访问`（已归档）、[需求追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)、[数据与隐私](../reference/DATA_PRIVACY.md)
+
+当前迭代建议、待决策事项的推进顺序和跨专题依赖统一见根 [plan.md](../../plan.md)（AVX-PLAN-001），规划边界见[文档治理规范 §3.1](../reference/document-governance.md#31-当前迭代计划的唯一入口)。本文保留已确认方案输入、设计理由、阻断项依据和决策编号，不另立当前排期。已接受的授权、数据边界与实现门禁继续有效；实现及验收状态由[追踪基线 §4.2](../reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)和关联证据维护。
 
 ## 1. 结论
 
@@ -279,9 +281,13 @@ RecoveryControlLedger 先追加 revoke/deny
 
 同一变更新增 CAP-034/035：Home Assistant 通过私网 REST/WebSocket、实体/service 白名单和受控 Agent 工具接入；小米运动健康通过用户自有且获准的官方开放平台配置同步每日步数、睡眠和静息心率。连接凭据不进入模型、日志或导出，撤销连接删除凭据和对应缓存。架构边界见 [ADR-019](../reference/adr/ADR-019-proactive-integrations-local-gateway.md)。
 
-## 11. 当前实现阻断项
+<a id="11-当前实现阻断项"></a>
 
-| 阻断 ID | 当前缺口 | 进入实现前的最少处置 |
+## 11. 实现阻断项与核验依据
+
+本节保留既有 `PRO-BLOCK-*` 编号和处置要求，供逐项验证是否满足门禁。本次仅收敛计划入口，未重新核验每项实现；表中记录不得直接作为新的待办队列。当前需推进的工作进入根 [plan.md](../../plan.md)，关闭阻断须有追踪基线中的实现与验证证据，不能仅通过修改计划状态关闭。
+
+| 阻断 ID | 已记录缺口 | 进入实现前的最少处置 |
 |---|---|---|
 | `PRO-BLOCK-001` | `aervox_memory_store` 仍是普通工具注册表路径，尚未完成与 CAP-033 `profile_observation/profile_action` grant 的全链路一致性校验 | 记忆工具执行前校验 purpose/scope；推断只写未验证候选和证据，不直接成为长期事实；已接入的本地提炼器先写 CAP-033 claim |
 | `PRO-BLOCK-002` | CAP-033 已使用独立本地 Vault 和加密 Port，但生产部署仍需证明连接不会回退到远程 `DATABASE_URL`，并完成全量实体准入 | 建立强制本地的私密存储 Port 和连接准入校验，覆盖正文、控制面、确认后记忆与触发历史 |
@@ -299,6 +305,8 @@ RecoveryControlLedger 先追加 revoke/deny
 上述阻断未关闭前，主动智能模式不得进入 `Ready`，也不得通过改 UI 文案对外声称已满足「不上传云端」。
 
 ## 12. 已确认方向与待冻结细节
+
+`DEC-PRO-*` 用于追溯方案输入和决策边界；当前决策推进顺序见根 [plan.md](../../plan.md)。下表中已确认的方向不因计划收敛而降为候选；未决项采纳后仍须进入相应 PRD、ADR 或专项契约，计划本身不授予权限或修改数据承诺。
 
 本次已确认的方向是「完整画像 + 广域本地权限」，而不是只做 Aervox 内部统计。以下是把 CAP-033 冻结成可实现合同所需的工程细节；当前允许数据面和 UI/Host 契约骨架，真实采集和动作执行仍须通过第 13 节门禁：
 
