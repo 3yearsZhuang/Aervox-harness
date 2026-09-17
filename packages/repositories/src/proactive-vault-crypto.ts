@@ -6,12 +6,15 @@
  */
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { chmod, mkdir, open, readFile } from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const ENVELOPE_PREFIX = "avxenc:v1";
 const KEY_BYTES = 32;
 const IV_BYTES = 12;
+
+/** 仓库根目录（src/proactive-vault-crypto.ts 向上三级到达仓库根）。 */
+const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
 
 export interface ProactiveVaultCipher {
   readonly keyId: string;
@@ -95,22 +98,9 @@ export function createProactiveVaultCipher(
   };
 }
 
-export function defaultProactiveVaultKeyPath(env: NodeJS.ProcessEnv = process.env): string {
-  if (process.platform === "darwin") {
-    return path.join(os.homedir(), "Library", "Application Support", "Aervox", "proactive-vault.key");
-  }
-  if (process.platform === "win32") {
-    return path.join(
-      env.LOCALAPPDATA ?? path.join(os.homedir(), "AppData", "Local"),
-      "Aervox",
-      "proactive-vault.key",
-    );
-  }
-  return path.join(
-    env.XDG_DATA_HOME ?? path.join(os.homedir(), ".local", "share"),
-    "aervox",
-    "proactive-vault.key",
-  );
+/** 默认本地 Vault 密钥文件：<repo>/data/proactive-vault.key（同主库目录，已被 .gitignore 忽略）。 */
+export function defaultProactiveVaultKeyPath(): string {
+  return path.join(repoRoot, "data", "proactive-vault.key");
 }
 
 async function readPersistedKey(keyPath: string): Promise<Buffer> {
@@ -129,7 +119,7 @@ export async function loadProactiveVaultCipher(
   const encodedKey = config.encodedKey ?? env.AERVOX_PROACTIVE_VAULT_KEY;
   if (encodedKey) return createProactiveVaultCipher(decodeKey(encodedKey), keyId);
 
-  const keyPath = config.keyPath ?? env.AERVOX_PROACTIVE_VAULT_KEY_PATH ?? defaultProactiveVaultKeyPath(env);
+  const keyPath = config.keyPath ?? env.AERVOX_PROACTIVE_VAULT_KEY_PATH ?? defaultProactiveVaultKeyPath();
   try {
     return createProactiveVaultCipher(await readPersistedKey(keyPath), keyId);
   } catch (error) {
