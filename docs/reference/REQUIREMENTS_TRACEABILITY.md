@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.36.0
+version: 1.37.0
 updated_at: 2026-09-18
 reviewed_at: 2026-09-18
 review_interval_days: 90
@@ -15,7 +15,7 @@ review_interval_days: 90
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：WorkBuddy · 2026-09-18
+- 修改人：3yearszhuang · 2026-09-18
 
 产品需求来源：[PRD.md](PRD.md)
 
@@ -187,6 +187,7 @@ review_interval_days: 90
 
 | 落地内容与功能描述 | 关联 CAP | 实现与测试位置 | 日期 | 验证 | 来源 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| CI 可重现验证入口（ITER-001 首批，三层同源）：`.github/workflows/ci.yml` 触发路径补齐 `plugins/**`、`vitest.shared.ts`、`tsconfig.base.node.json`（此前插件单独改动既不触发工作流、也不进入本地增量选择），两个 Job 增加显式 `mise exec -- pnpm install --frozen-lockfile`（此前依赖 pnpm 隐式自动安装），并为 gitignore 生成物 `dist-plugins/` 接入声明任务 `mise tasks run package-plugins` 现场重建与数量断言；`turbo.json` 新增 `globalDependencies: ["tsconfig.base.json","tsconfig.base.node.json"]`（此前根级共享 tsconfig 改动不进入哈希，陈旧缓存被重放）；新增 `scripts/ci-scope.mjs` 与 `scripts/ci-scope.test.mjs`，把包外声明的 Turbo 输入（`plugins/**`、`vitest.shared.ts`）显式映射回受影响包，`check-affected.mjs` / `test-affected.mjs` 复用同一解析并给出可复现的范围说明；插件分发包产出改为可重现（固定 ZIP 条目时间戳、显式排序插件目录与条目），使源码未变时字节与 SHA-256 稳定 | 基础设施（CI、缓存正确性与增量门禁）；关联 CAP-020 的插件验证路径，不变更 CAP 状态 | `.github/workflows/ci.yml`、`turbo.json`、`mise.toml`、`package.json`、`scripts/ci-scope.mjs`、`scripts/ci-scope.test.mjs`、`scripts/export-plugins.mjs`、`scripts/export-plugins.test.mjs`、`scripts/check-affected.mjs`、`scripts/test-affected.mjs` | 2026-09-18 | 作用域回归 12/12、制品回归 2/2 通过；反向验证：从 CI 触发路径抽掉 `plugins/**` 即变红（报「以下声明为验证输入但不会触发 CI」），去掉固定时间戳即可重现性测试变红，恢复后均转绿；实验证据：改 `tsconfig.base.node.json` 后 `@aervox/config#typecheck` 仍是 `cache=HIT` 且哈希不变；改插件清单后 `@aervox/api#test` 为 `cache=MISS` 但 `--filter=...[origin/main]` 选中 0 个任务，修复后同命令选中 32 个任务（含 `@aervox/api#test`）；`mise tasks run ci-code` 27/27 任务通过（api 68 套件 460 用例）；移走 `dist-plugins/` 后由 `mise tasks run package-plugins` 重建 7 个分发包。**剩余差量（未在本分支修复）**：产品侧 `apps/api/src/modules/ecosystem/plugins/package-bundle.ts` 的 `zipSync` 同样未固定 `mtime` 且 `readdir` 未排序，`GET /v1/plugins/:id/export` 返回的 SHA-256 每次不同，属插件生命周期范围 | 原生 |
 | 配套硬件方向文档单源合并与移动方案差量收割：`docs/explanation/companion-hardware-directions.md` 的两份并存版本——源码核查版（能力现状与边界、真机缺口、九方向实证、共享接入层、阶段准入）与移动协同规划版（手机重合与处置、过度设计取舍、推荐组合、端/主机/数据分工、验证矩阵、停止条件）——合成为单一文档，同一 ID `AVX-EXPL-011` 下不再存在两份口径；`docs/explanation/esp32-s3-hardware-extension.md` 保留完整正文作为器件级事实源，新增 §11 交叉引用并在配套硬件方向 §6 收敛工程边界（撤销首轮模组/引脚冻结）；移动规划分支的 `CR-055` 移入 main 并完成登记与索引 | CAP-001/002/003/004/006/007/009/012/018/020/026/027/030/033/034/035（规划评估；不变更 CAP 状态） | `docs/explanation/companion-hardware-directions.md`、`docs/explanation/esp32-s3-hardware-extension.md`、`docs/reference/changes/CR-055-mobile-delivery-plan.md`、`docs/DOC_REGISTRY.md`、`docs/README.md`、`docs/getting-started.md`、`docs/_meta/document-catalog.json` | 2026-09-18 | 文档门禁通过（Markdownlint/Vale/严格治理 0 问题，无断锚）；两版内容逐章并入，合并来源与去向见文档第 10 章；未新增设备协议、硬件 CR/ADR 或 CAP，无物料报价、固件、电气与真机证据 | 原生；来源分支 `docs/mobile-landing-plan`（`dff68b8`、`00d83ad`） |
 | CR-055 移动端规划文档：核验 Capacitor 壳配置、共享 UI 与传输缺口，比较配套端和独立端，定义阶段、数据边界、验收与回退；仅完成规划，决策 Proposed、能力交付 Planned | CAP-001/002/003/004/006/007/009/010/012/013/019/020/026/027/030、NFR-COMPAT-001、NFR-A11Y-001、NFR-PERF-001、SEC-LOC-001 | [CR-055](changes/CR-055-mobile-delivery-plan.md)、`docs/README.md`、`docs/DOC_REGISTRY.md`、`docs/_meta/document-catalog.json` | 2026-09-18 | 基于 `0a12ea4` 静态核验；`mise tasks run ci-docs` 通过（Markdownlint/Vale/严格治理零问题）；未进行原生构建或真机测试，不推进 CAP 状态 | 原生 |
 | 当前迭代计划单一入口与长期治理：将插件/底层/硬件规划迁入独立分支，创建根 plan.md，归并重复排序，接入根计划元数据、唯一角色、登记/链接与增量/全量 Docs CI | 基础设施（项目协作与文档治理）；关联既有 CAP 不变更状态 | [plan.md](../../plan.md)、[治理 §3.1](document-governance.md#31-当前迭代计划的唯一入口)、根 AGENTS/README/CONTRIBUTING、`scripts/docs-governance.mjs`、`scripts/docs-lint-affected.mjs` | 2026-09-18 | 治理回归 29/29；全量 ci-docs 通过（75 份 Markdown）；ci-code 边界/构建/类型/测试门禁通过（复用 Turbo 缓存，预先安装依赖并生成插件包，非冷 CI 证明）；业务修复和硬件原型未实施 | 原生 |

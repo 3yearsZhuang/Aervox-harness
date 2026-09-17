@@ -15,7 +15,7 @@ review_interval_days: 90
 # Web 工作台实现说明（Vue 单栈）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：Codex · 2026-09-18
+- 修改人：3yearszhuang · 2026-09-18
 
 关联：[ADR-015](../reference/adr/ADR-015-vue-full-stack.md)（Web 技术基线）· [ADR-014](../reference/adr/ADR-014-modular-monolith-structure.md)（apps/api 模块组织）· [架构设计](../reference/ARCHITECTURE.md) · [PRD](../reference/PRD.md)
 

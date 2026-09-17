@@ -35,7 +35,7 @@ sources:
 # 底层优化评估：可靠性、扩展边界与运行成本
 
 - 提出人：3yearszhuang · 2026-09-18
-- 修改人：Codex · 2026-09-18
+- 修改人：3yearszhuang · 2026-09-18
 
 关联：[架构事实源](../reference/ARCHITECTURE.md)、[数据库契约](../reference/DATABASE.md)、[Agent Harness Loop](../reference/agent-harness-loop.md)、[流式协议](../reference/STREAMING_PROTOCOL.md)、[插件开发规范](../reference/plugin-config-and-pages.md)、[架构实现深入评估](architecture-implementation-review.md)、[硬件能力评估](companion-hardware-directions.md)、[变更流程](../how-to/cr-workflow.md)
 
