@@ -4734,7 +4734,8 @@
               "deepseek",
               "openai",
               "anthropic",
-              "custom_openai"
+              "custom_openai",
+              "llamacpp"
             ]
           },
           "baseUrl": {
@@ -4796,7 +4797,8 @@
               "deepseek",
               "openai",
               "anthropic",
-              "custom_openai"
+              "custom_openai",
+              "llamacpp"
             ]
           },
           "baseUrl": {
@@ -4856,7 +4858,8 @@
               "deepseek",
               "openai",
               "anthropic",
-              "custom_openai"
+              "custom_openai",
+              "llamacpp"
             ]
           },
           "baseUrl": {
@@ -4895,6 +4898,9 @@
             "items": {
               "type": "string"
             }
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/LLMModelCapabilities"
           }
         },
         "required": [
@@ -4902,6 +4908,18 @@
           "latencyMs",
           "message"
         ]
+      },
+      "LLMModelCapabilities": {
+        "type": "object",
+        "properties": {
+          "contextWindow": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "supportsToolCalls": {
+            "type": "boolean"
+          }
+        }
       },
       "LLMPreset": {
         "type": "object",
@@ -4916,7 +4934,8 @@
               "deepseek",
               "openai",
               "anthropic",
-              "custom_openai"
+              "custom_openai",
+              "llamacpp"
             ]
           },
           "baseUrl": {
@@ -4998,7 +5017,8 @@
                     "deepseek",
                     "openai",
                     "anthropic",
-                    "custom_openai"
+                    "custom_openai",
+                    "llamacpp"
                   ]
                 },
                 "baseUrl": {
@@ -5096,7 +5116,8 @@
                   "deepseek",
                   "openai",
                   "anthropic",
-                  "custom_openai"
+                  "custom_openai",
+                  "llamacpp"
                 ]
               },
               "baseUrl": {
@@ -8572,7 +8593,8 @@
               "deepseek",
               "openai",
               "anthropic",
-              "custom_openai"
+              "custom_openai",
+              "llamacpp"
             ]
           },
           "endpointIdentity": {
@@ -8711,6 +8733,7 @@
               "openai",
               "anthropic",
               "custom_openai",
+              "llamacpp",
               null
             ]
           },
@@ -17848,7 +17871,8 @@
                         "deepseek",
                         "openai",
                         "anthropic",
-                        "custom_openai"
+                        "custom_openai",
+                        "llamacpp"
                       ]
                     },
                     "baseUrl": {
@@ -17953,7 +17977,8 @@
                       "deepseek",
                       "openai",
                       "anthropic",
-                      "custom_openai"
+                      "custom_openai",
+                      "llamacpp"
                     ]
                   },
                   "baseUrl": {
@@ -18023,7 +18048,8 @@
                         "deepseek",
                         "openai",
                         "anthropic",
-                        "custom_openai"
+                        "custom_openai",
+                        "llamacpp"
                       ]
                     },
                     "baseUrl": {
@@ -18130,7 +18156,8 @@
                       "deepseek",
                       "openai",
                       "anthropic",
-                      "custom_openai"
+                      "custom_openai",
+                      "llamacpp"
                     ]
                   },
                   "baseUrl": {
@@ -18177,6 +18204,9 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "capabilities": {
+                      "$ref": "#/components/schemas/LLMModelCapabilities"
                     }
                   },
                   "required": [
@@ -18252,7 +18282,8 @@
                               "deepseek",
                               "openai",
                               "anthropic",
-                              "custom_openai"
+                              "custom_openai",
+                              "llamacpp"
                             ]
                           },
                           "baseUrl": {
@@ -18392,7 +18423,8 @@
                           "deepseek",
                           "openai",
                           "anthropic",
-                          "custom_openai"
+                          "custom_openai",
+                          "llamacpp"
                         ]
                       },
                       "baseUrl": {
@@ -18468,7 +18500,8 @@
                         "deepseek",
                         "openai",
                         "anthropic",
-                        "custom_openai"
+                        "custom_openai",
+                        "llamacpp"
                       ]
                     },
                     "baseUrl": {
@@ -18603,7 +18636,8 @@
                         "deepseek",
                         "openai",
                         "anthropic",
-                        "custom_openai"
+                        "custom_openai",
+                        "llamacpp"
                       ]
                     },
                     "baseUrl": {

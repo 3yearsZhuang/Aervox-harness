@@ -13,9 +13,15 @@ export interface TestConnectionParams {
   modelId: string;
 }
 
+export interface ModelCapabilities {
+  contextWindow?: number;
+  supportsToolCalls?: boolean;
+}
+
 export interface TestConnectionResult {
   ok: boolean;
   latencyMs: number;
   message: string;
   availableModels?: string[];
+  capabilities?: ModelCapabilities;
 }
