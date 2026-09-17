@@ -6,6 +6,9 @@
  * 默认是兼容模式：历史文档的旧头格式和缺失字段只报告 warning；
  * 路径不存在、重复 ID、策略损坏和 canonical 文档未登记始终阻断。
  * 设置 DOCS_GOVERNANCE_STRICT=1 或传入 --strict 后，迁移 warning 也会阻断。
+ *
+ * 当前迭代队列（`docs/_meta/plan-queue.json` → `plan.md` §2）的结构、依赖与
+ * 同步校验见 checkPlanQueue，强制级别由策略 `currentIterationPlan.queue` 控制。
  */
 
 import fs from "node:fs";
@@ -13,6 +16,7 @@ import path from "node:path";
 import process from "node:process";
 import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { checkQueueSync, validateQueue } from "./plan-queue.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(scriptDir, "..");
@@ -435,6 +439,18 @@ export function parsePorcelainStatus(output) {
   return [...new Set(paths)];
 }
 
+function resolveTriggerBaseRef() {
+  for (const ref of ["origin/main", "main", "HEAD~1"]) {
+    try {
+      execSync(`git rev-parse --verify ${ref}`, { cwd: rootDir, stdio: "ignore" });
+      return ref;
+    } catch {
+      // 尝试下一个候选
+    }
+  }
+  return null;
+}
+
 function checkReviewTriggers(metadataByFile) {
   let changedFiles = [];
   try {
@@ -443,6 +459,19 @@ function checkReviewTriggers(metadataByFile) {
       encoding: "utf8",
     });
     changedFiles = parsePorcelainStatus(gitOutput);
+    // 已提交的差量也必须参与命中判定：只看工作区会让"提交后再查"变成静默通过，
+    // 与 check-affected.mjs / docs-lint-affected.mjs 的基准口径保持一致。
+    const baseRef = resolveTriggerBaseRef();
+    if (baseRef) {
+      const diffOutput = execSync(`git diff --no-renames --name-only -z ${baseRef}...HEAD`, {
+        cwd: rootDir,
+        encoding: "utf8",
+      });
+      for (const file of diffOutput.split("\0")) {
+        if (file) changedFiles.push(file);
+      }
+    }
+    changedFiles = [...new Set(changedFiles)];
   } catch {
     return;
   }
@@ -477,9 +506,13 @@ function checkReviewTriggers(metadataByFile) {
       for (const { changedFile, trigger } of triggers.slice(0, 2)) {
         console.log(`    ↳ 变动源: ${changedFile} 命中 [${trigger}]`);
       }
+      // 命中而本次未同步复核的文档登记为提示：观察期不阻断，便于在 ci-docs 输出中留痕。
+      if (!isDocUpdated) {
+        reportWarning(`${docRel}: 命中复核触发器 [${triggers[0].trigger}] 但本次未同步修改，请确认是否需要联动更新`);
+      }
     }
   } else {
-    console.log("[docs-trigger] 当前工作区变动未命中任何文档触发器");
+    console.log("[docs-trigger] 当前变动（工作区 + 增量基准差量）未命中任何文档触发器");
   }
 }
 
@@ -537,6 +570,47 @@ function checkCurrentIterationPlan(metadataByFile, policy) {
   }
   if (currentPlans.length !== 1 || currentPlans[0] !== planFile) {
     reportError("planning_role: current 必须唯一且仅能由根 plan.md 声明");
+  }
+}
+
+/**
+ * 计划队列校验（结构、依赖、纪律与"渲染即校验"）。
+ *
+ * 真源是 `docs/_meta/plan-queue.json`，`plan.md` §2 是派生视图；强制级别取自策略
+ * `currentIterationPlan.queue.enforcement`——观察期为 `warning`，全部按提示报告，
+ * 升级为 `error` 后结构性违规（编号/枚举/依赖/成环/缺验收/生成区不同步）才阻断。
+ */
+function checkPlanQueue(metadataByFile, policy) {
+  const queuePolicy = policy.currentIterationPlan?.queue;
+  if (!queuePolicy?.source) return;
+
+  const sourcePath = path.resolve(rootDir, queuePolicy.source);
+  if (!fs.existsSync(sourcePath)) {
+    reportWarning(`[plan-queue] 真源 ${queuePolicy.source} 不存在，无法校验队列`);
+    return;
+  }
+
+  let queue;
+  try {
+    queue = JSON.parse(fs.readFileSync(sourcePath, "utf8"));
+  } catch (error) {
+    reportWarning(`[plan-queue] 无法解析 ${queuePolicy.source}：${error instanceof Error ? error.message : String(error)}`);
+    return;
+  }
+
+  const targetPath = path.join(rootDir, queuePolicy.target ?? "plan.md");
+  const planText = metadataByFile.get(targetPath)?.text ?? (fs.existsSync(targetPath) ? fs.readFileSync(targetPath, "utf8") : "");
+  const options = { wipLimit: queuePolicy.wipLimit, enforcement: queuePolicy.enforcement };
+  const findings = [...validateQueue(queue, options), ...checkQueueSync(queue, planText, options.enforcement)];
+
+  for (const finding of findings) {
+    const message = `[plan-queue:${finding.rule}] ${finding.message}`;
+    if (finding.severity === "error") reportError(message);
+    else reportWarning(message);
+  }
+  if (findings.length === 0) {
+    const wip = (queue.items ?? []).filter((item) => item.status === "执行中").length;
+    console.log(`[plan-queue] 队列校验通过（${queue.items?.length ?? 0} 个条目，在制 ${wip}/${options.wipLimit}，强制级别 ${options.enforcement}）`);
   }
 }
 
@@ -674,6 +748,7 @@ function main() {
   }
   checkMetadata(metadataByFile, policy);
   checkCurrentIterationPlan(metadataByFile, policy);
+  checkPlanQueue(metadataByFile, policy);
   const linkFiles = new Map(metadataByFile);
   for (const rootDocument of ["README.md", "AGENTS.md", "CONTRIBUTING.md", "CHANGELOG.md"]) {
     const file = path.join(rootDir, rootDocument);

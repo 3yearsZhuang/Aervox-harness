@@ -7,7 +7,7 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 planning_role: current
-version: 0.1.3
+version: 0.2.0
 updated_at: 2026-09-18
 reviewed_at: 2026-09-18
 review_interval_days: 7
@@ -43,21 +43,23 @@ sources:
 
 **建议先启动 ITER-001、002、003、008 的范围复核与独立修复，认领后同时在制不超过 3 个工作包。** ITER-009 的产品访谈/方案比较可并行。CI 工作是合入验证前置，方案审阅和局部故障修复无需等它完成；涉及新契约的切片先完成 CR。每个工作包可拆多个小 PR，避免把整张表变成一次大重构。
 
-角色均为建议责任，不代表已分配给具体个人。认领时填写人/分支/当前状态；没有日期承诺的项目不推算截止时间。状态解释：建议 → 待评审或就绪 → 执行中 → 已移交，暂停需写阻碍；已移交必须给出证据，不能据此宣布 Released。
+角色均为建议责任，不代表已分配给具体个人。认领时在真源中填写责任人、分支与状态（`docs/_meta/plan-queue.json`）；没有日期承诺的项目不推算截止时间。状态解释：建议 → 待评审或就绪 → 执行中 → 已移交，暂停需写阻碍；已移交必须给出证据，不能据此宣布 Released。
 
 ## 2. 当前建议工作
 
-下表是唯一活动队列。每行“建议”表示尚未开工；“依赖”约束实际启用/交付顺序，前置设计与测试夹具可并行。证据编号 `FND-*` 见底层评估，`ARC-*` 见架构深入评估，不创建另一份问题正文。
+下表是唯一活动队列，**由 `docs/_meta/plan-queue.json` 渲染生成**（改条目请改真源后运行 `mise tasks run plan-render`，校验见 `plan-check`）。每行“建议”表示尚未开工；“依赖”约束实际启用/交付顺序，前置设计与测试夹具可并行。证据编号 `FND-*` 见底层评估，`ARC-*` 见架构深入评估，不创建另一份问题正文。
+
+<!-- plan-queue:begin · 本区由 `mise tasks run plan-render` 从 docs/_meta/plan-queue.json 生成，请勿手改 -->
 
 ### 2.1 第一批：正确性、验证入口与方向决策
 
 | 条目 / 状态 | 最小交付与依据 | 依赖及 CR 门槛 | 完成判定 | 建议责任（待认领） |
 |---|---|---|---|---|
-| <a id="iter-001"></a>ITER-001 · 执行中 | 冷 CI 与插件验证：各 Job 锁文件安装、插件制品生成、工作流触发与 Turbo 输入；ARC-14、FND-10；基础设施/CAP-020 | 可独立修复；不借此开启已有禁用的资产缓存 | 干净 checkout 通过；仅插件变动会重新验证；删除生成物后由声明任务恢复 | quality/release（分支 `fix/iter-001-ci-verification-entry`，2026-09-18 首批已落地并登记 §4.2；干净 checkout 与冷 CI 的 PR 证据待补） |
+| <a id="iter-001"></a>ITER-001 · 执行中 | 冷 CI 与插件验证：各 Job 锁文件安装、插件制品生成、工作流触发与 Turbo 输入；ARC-14、FND-10；基础设施/CAP-020 | 可独立修复；不借此开启已有禁用的资产缓存 | 干净 checkout 通过（显式锁文件安装，不依赖 pnpm 隐式安装）；仅插件变动会重新验证（工作流触发、Turbo 输入与增量选择三层同源）；删除生成物后由声明任务恢复，且产物字节可重现（校验：`scripts/ci-scope.test.mjs`；`scripts/export-plugins.test.mjs`；`.github/workflows/ci.yml` 的 frozen lockfile 与 plugin bundles 步骤） | quality/release（分支 `fix/iter-001-ci-verification-entry`；2026-09-18 首批已落地并登记 §4.2；冷 CI 证据随 PR #221 补齐，移交前不代表验收完成） |
 | <a id="iter-002"></a>ITER-002 · 建议 | 可靠接单与 Outbox：先修消费者抢先完成，再闭合 Turn/Attempt/Inbox/可重放输入与受控派发；ARC-01、FND-01/05；CAP-007 | 拆为消费修复与调度切片；新状态、容量/接单语义或多订阅契约先 CR | 提交、预加载、claim 各点中断后已受理任务可追踪；无永久未领取孤儿，不重复消费/副作用 | platform |
 | <a id="iter-003"></a>ITER-003 · 建议 | 删除效果与召回资格：先做 Memory 及其索引的完整清理/独立验证切片，检查期限、用途、撤权与 Restricted；ARC-06/08；CAP-005/013/027/033 | 已有隐私契约的修复先做；扩大删除范围或改变保留/恢复语义先 CR；失败继续拒绝受影响范围 | completed 有可重做的清理证据；空目标有明确依据；失败/未知不解闸；混合夹具越权结果为零 | data/privacy |
 | <a id="iter-004"></a>ITER-004 · 建议 | 三个独立修复：消息版本短事务/CAS，Config 与同库 Secret 一致提交，会话锁尾链回收；ARC-07、FND-02/07；CAP-013/020 | 不引入全局通用事务框架；外部 Secret 补偿或历史数据转换单独评审 | 故障仅留完整旧/新版；同 revision 最多一次成功；409 不改 Secret；一万个 key 完成后锁缓存清空 | data |
-| <a id="iter-005"></a>ITER-005 · 建议 | 插件可恢复升级：全部入口校验、展开配额、staging 验证与激活、旧配置/Secret/授权保留；FND-02/04、插件规范；CAP-020。**2026-09-18 追加**：导出分发包可重现——`package-bundle.ts` 的 `zipSync` 未固定 `mtime`、`readdir` 未排序，`GET /v1/plugins/:id/export` 的 SHA-256 每次不同 | 激活依赖 ITER-004；限制资源可先做；升级/卸载状态和迁移语义先 CR | 成功意味着全部声明入口可用；超额包有界失败；任一安装阶段中断后可恢复完整旧/新版；同源码导出字节与校验和稳定 | ecosystem |
+| <a id="iter-005"></a>ITER-005 · 建议 | 插件可恢复升级：全部入口校验、展开配额、staging 验证与激活、旧配置/Secret/授权保留；FND-02/04、插件规范；CAP-020。2026-09-18 追加差量：导出分发包可重现（细节见 §4.2 剩余差量，不在本表复述） | 激活依赖 ITER-004；限制资源可先做；升级/卸载状态和迁移语义先 CR | 成功意味着全部声明入口可用；超额包有界失败；任一安装阶段中断后可恢复完整旧/新版；同源码导出分发包的字节与校验和稳定 | ecosystem |
 | <a id="iter-006"></a>ITER-006 · 建议 | Page 与客户端认证：iframe source/nonce/会话/全部 capability、禁用撤权；附件 Bearer、合法预检与受限 Page 资源通道；FND-03、ARC-13；CAP-018/020 | 既有认证漏接可独立修；新页面凭据及 Origin 信任策略先 CR | 错误窗口/旧响应/无权/禁用访问无副作用；合法 Token 模式的 JSON、SSE、Page、附件可用，凭据不进入 URL | ecosystem/desktop |
 | <a id="iter-007"></a>ITER-007 · 建议 | 三个切片：父子任务/Driver 继承取消、截止、删除/授权修订与 local-only；执行时逐项核对 requiredPermissions/grants 的 scope/revision，由受信宿主映射 guarded/full_access 安全等级；动态工具 Schema 快照进入模型请求并在执行时重验；ARC-02/03、插件规范 §8.1；CAP-007/020/033 | 既有策略接线优先；动态工具开放依赖真实 grant/审批校验及最终输入容量检查；新根预算与 Driver/授权合同先 CR；进一步压缩与成本优化留 ITER-017 | 父取消后不进入子下一步；本地任务拒绝远程 Provider；工具可见；缺权限、错 scope、旧 revision、撤权/禁用和未批准写操作无副作用；最终输入加预留输出不超 Provider 窗口，超额有明确有界处理 | platform/ecosystem |
 | <a id="iter-008"></a>ITER-008 · 建议 | 模型制品与进程：路径/symlink、响应与续传验证；启动 epoch、有界探针/日志/指标请求；ARC-11/12；本地模型基础设施 | 正确性修复可独立进行；制品来源/信任等级变化先 CR | 不写出模型根、不注册错误正文/错位字节；旧 exit 不污染新进程；悬挂探针按期结束；停止状态真实 | platform |
@@ -83,7 +85,9 @@ sources:
 | <a id="iter-018"></a>ITER-018 · 建议 | 第二终端检验共享生命周期，再决策 PCB/结构/电源、样机和小批验证；硬件评估 | 依赖 ITER-016 价值成立；新增无线、电池、采集或运动能力分别评审，不因 PoC 成功自动批准量产 | 两种终端无需复制宿主；更新/回滚/删除可测；24→72 小时稳定性、功耗温升、密钥/追溯/维修验证；发布单列 | product-hardware/release |
 | <a id="iter-019"></a>ITER-019 · 建议 | 是否开放第三方可执行插件；若开放，按已接受 [ADR-009](docs/reference/adr/ADR-009-electron-plugin-sandbox.md) 的进程外隔离、默认无权限与撤权要求设计 Host、签名信任根、SDK 与依赖解析 | 先证明声明式/第一方扩展不足，再用 CR 明确实现差量与生命周期；隔离基线不作为自由选项，改变基线须显式 CR；现行规范不代表运行能力已实现 | 有明确用例、威胁与成本比较，并通过 ADR-009 的拒绝/撤权/隔离/兼容验收；未选定前不建通用平台 | ecosystem/security |
 
-未列入当前队列的长期 CAP 仍以 PRD 的生命周期路线和追踪基线为准，不视为取消。新发现先合并到已有条目或新增稳定编号，再决定是否进入当前批次；不要把旧文档中的所有未勾选项不加核验地搬进来。
+<!-- plan-queue:end -->
+
+未列入当前队列的长期 CAP 仍以 PRD 的生命周期路线和追踪基线为准，不视为取消。新发现先合并到已有条目或新增稳定编号，再决定是否进入当前批次；不要把旧文档中的所有未勾选项不加核验地搬进来。**发现只登记一次**：实现事实与剩余差量写进[§4.2](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)，本表只保留目标、门槛与验收，不复述细节。
 
 ## 3. 设备与移动端的待决策项
 
@@ -112,22 +116,14 @@ ITER-009 需要给出下面的可审阅结论，目前不替用户选定产品�
 
 ## 5. 同类材料清点与归并结果
 
-此次清点覆盖 Git 文档、根入口、隐藏协作目录及已知移动规划工作树；外部 `reference/` 子模块仅作设计输入，产品学习计划代码不属于项目迭代计划。
+此次清点覆盖 Git 文档、根入口、隐藏协作目录及已知移动规划工作树；外部 `reference/` 子模块仅作设计输入，产品学习计划代码不属于项目迭代计划。逐条去向已固定在各文档自身与[§4.2](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)，本表只保留分类结论，不再随收割增长。
 
-| 材料 | 本次归并方式 | 当前入口 |
+| 材料类别 | 归并结论 | 当前入口 |
 |---|---|---|
-| [FND 评估](docs/explanation/foundation-optimization-review.md)、[ARC 评估](docs/explanation/architecture-implementation-review.md) | 保留源码、实验、风险与方案；撤去独立当前排期，历史优先级是评估时的风险标签 | ITER-001～008、010～015、017 |
-| [硬件方向](docs/explanation/companion-hardware-directions.md)、[ESP32 方案](docs/explanation/esp32-s3-hardware-extension.md) | 两份并存的硬件方向版本已合成为单一文档（能力核查 + 移动协同取舍、验证矩阵与停止条件）；ESP32 保留完整正文作器件级事实源并加交叉引用。保留九方向比较、成本假设、协议设计输入和专项准入；不自行确定当前产品/排期 | ITER-009、016、018 |
-| [追踪基线 §4.1](docs/reference/REQUIREMENTS_TRACEABILITY.md#41-建议交付批次与拆分原则) | 保留 CAP 依赖与规格化要求；建议批次转至本文件；§4.2 继续维护实现事实 | 本文件 §2；长期阶段仍由 PRD 定义 |
-| [Agent Loop §15/§18](docs/reference/agent-harness-loop.md#15-分阶段落地计划)、[历史记录](docs/reference/agent-loop-rollout-history.md) | 保留合同切片/退出条件和带日期的证据；当前缺口按本轮核验入队 | ITER-002、007、010、013、017 |
-| [参考设计迁移](docs/explanation/reference-design-transfer.md) | 保留 T/AST/PET/DSH/Pi 来源与历史映射；已实现部分不重做，未接线部分核验后入队 | ITER-004、010～014、017、019 |
-| [Web 方案](docs/explanation/web-implementation.md)、[主动智能方案](docs/explanation/proactive-intelligence-mode.md) | 方案与历史里程碑保留，当前部署/控制面工作由本文件关联 | ITER-003、006、007、009、010、015 |
-| [治理规范 §7](docs/reference/document-governance.md#7-分阶段迁移) | 保留迁移程序，不作为另一份当前治理项目排期；本轮完成唯一入口与检查接线 | 维护规则见治理 §3.1；其它治理优化有实际需求再立条目 |
-| `docs/CR-033-plan.md`、`CR-034-plan.md`、`CR-035-plan.md` | 文件已归档/本地不存在；移除 getting-started 中失效目录项，保留归档说明 | 不重新创建旧计划 |
-| `.workbuddy/REFACTOR-PLAN.md`、`.workbuddy/ARCHIVE-CANDIDATES.md`、`.zcode/plans/plan-sess_5b49655d-8264-4dc1-a373-613342d381f3.md` | Git 忽略的历史/会话快照，内容可能过期；不删除、不强制纳入 Git、不作为当前队列 | 后续 Agent 先读本文件；旧建议须重新核验 |
-| 移动分支的 `CR-055` 草稿 | 已随本轮收割移入 `main` 并登记（Proposed/Planned）；范围、连接与验收仍是待决策项，不再保留第二份独立排期 | [CR-055](docs/reference/changes/CR-055-mobile-delivery-plan.md)；决策见本文件 §3 |
-| PRD/SRS、ADR、CR、数据库/安全契约、覆盖矩阵 | 保留各自需求/决策/验收权威，不因计划统一而降级或删除 | 本文件只引用 |
-| StudyPlan、CAP-017、学习/日记/复习排期、迁移与发布操作指南 | 属于产品功能或操作程序，不是项目迭代待办 | 保持原有归属 |
+| 评估类：[FND 评估](docs/explanation/foundation-optimization-review.md)、[ARC 评估](docs/explanation/architecture-implementation-review.md)、[参考设计迁移](docs/explanation/reference-design-transfer.md)、[Agent Loop 计划](docs/reference/agent-harness-loop.md#15-分阶段落地计划)与[历史记录](docs/reference/agent-loop-rollout-history.md)、[Web 方案](docs/explanation/web-implementation.md)、[主动智能方案](docs/explanation/proactive-intelligence-mode.md) | 保留源码、实验、风险与方案；撤去独立当前排期，历史优先级只作评估时的风险标签；已实现部分不重做，未接线部分核验后入队 | 队列见 §2；证据与来源见各评估文档自身 |
+| 硬件与移动：[硬件方向](docs/explanation/companion-hardware-directions.md)、[ESP32 方案](docs/explanation/esp32-s3-hardware-extension.md)、[CR-055](docs/reference/changes/CR-055-mobile-delivery-plan.md) | 两份硬件方向版本合成为单一文档，ESP32 保留完整正文作器件级事实源；移动规划随收割移入 `main` 并登记（Proposed/Planned），其平台顺序与工期估算只作提案参考 | §3 待决策项；ITER-009、016、018 |
+| 需求与决策权威：[追踪基线 §4.1](docs/reference/REQUIREMENTS_TRACEABILITY.md#41-建议交付批次与拆分原则)、PRD/SRS、ADR、CR、数据库与安全契约、覆盖矩阵、[治理规范 §7](docs/reference/document-governance.md#7-分阶段迁移) | 保留各自需求/决策/验收权威，不因计划统一而降级或删除；建议批次转至本文件，§4.2 继续维护实现事实 | 本文件只引用 |
+| 非迭代材料：`docs/CR-033-plan.md` 等旧计划（已归档且本地不存在）、`.workbuddy/REFACTOR-PLAN.md`、`.workbuddy/ARCHIVE-CANDIDATES.md`、`.zcode/plans/*.md`（Git 忽略的历史/会话快照）、StudyPlan 与学习/日记/复习排期、迁移与发布操作指南 | 旧计划不重新创建；忽略目录内的快照不删除、不强制纳入 Git、不作为当前队列（后续 Agent 先读本文件，旧建议须重新核验）；产品功能与操作程序保持原有归属 | 不进入本队列 |
 
 ## 6. 本次分支与后续维护
 
@@ -137,4 +133,4 @@ ITER-009 需要给出下面的可审阅结论，目前不替用户选定产品�
 
 ITER-001 的落地在 `fix/iter-001-ci-verification-entry` 独立分支推进，首批只修验证入口本身：工作流触发路径与 Turbo 声明同源、各 Job 显式锁文件安装、gitignore 生成物的声明恢复任务及其可重现性，以及本地增量门禁对包外输入的显式选择（登记见 [§4.2](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)）。该分支不改业务代码、不改任何 CAP 的交付状态，也不开启已禁用的缓存；干净 checkout 与冷 CI 的 PR 证据补齐后，再按 §4 判定是否移交。核对中还发现产品侧导出分发包同样不可重现，因涉及业务代码未在本分支修复，已追加到 ITER-005。ITER-002、003、008 等其余条目仍为建议态，待认领。
 
-本文件不持有完整日志。每次认领、调整和移交更新元数据与签名，同步注册表；PR 说明列出关联 `ITER-*` 及是否改变计划。迭代复盘时合并重复项、明确暂停原因并压缩已移交项，避免计划退化为永久堆积的 TODO。
+本文件不持有完整日志。§2 的队列不是手写表：真源在 `docs/_meta/plan-queue.json`，改条目后运行 `mise tasks run plan-render` 生成派生的 §2 表格，`mise tasks run plan-check` 校验结构、依赖与“状态—证据”一致性（已接入文档治理，本轮为观察期，只报提示不阻断）。每次认领、调整和移交更新真源、元数据与签名，同步注册表；PR 说明列出关联 `ITER-*` 及是否改变计划。迭代复盘时合并重复项、明确暂停原因并压缩已移交项，避免计划退化为永久堆积的 TODO。

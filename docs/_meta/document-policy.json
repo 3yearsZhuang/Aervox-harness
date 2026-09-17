@@ -7,7 +7,14 @@
     "id": "AVX-PLAN-001",
     "type": "reference",
     "scope": "guide",
-    "planningRole": "current"
+    "planningRole": "current",
+    "queue": {
+      "source": "docs/_meta/plan-queue.json",
+      "target": "plan.md",
+      "wipLimit": 3,
+      "enforcement": "warning",
+      "note": "queue.source 是队列机器真源，plan.md §2 为派生视图（plan-render 生成、plan-check 校验）。enforcement=warning 为观察期：全部按提示报告不阻断；升级为 error 前需先清零在制并发、依赖与证据类提示。"
+    }
   },
   "defaultReviewIntervalDays": 90,
   "requiredFrontMatterFields": [
