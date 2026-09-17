@@ -5376,6 +5376,37 @@
                     "at"
                   ]
                 }
+              },
+              "restored": {
+                "type": "object",
+                "properties": {
+                  "at": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "downloads": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "at",
+                  "downloads"
+                ]
+              },
+              "resume": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "modelId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "enabled"
+                ]
               }
             },
             "required": [
@@ -19349,6 +19380,37 @@
                               "at"
                             ]
                           }
+                        },
+                        "restored": {
+                          "type": "object",
+                          "properties": {
+                            "at": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "downloads": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "at",
+                            "downloads"
+                          ]
+                        },
+                        "resume": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "modelId": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "enabled"
+                          ]
                         }
                       },
                       "required": [
@@ -19683,6 +19745,37 @@
                               "at"
                             ]
                           }
+                        },
+                        "restored": {
+                          "type": "object",
+                          "properties": {
+                            "at": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "downloads": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "at",
+                            "downloads"
+                          ]
+                        },
+                        "resume": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "modelId": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "enabled"
+                          ]
                         }
                       },
                       "required": [
@@ -19991,6 +20084,37 @@
                               "at"
                             ]
                           }
+                        },
+                        "restored": {
+                          "type": "object",
+                          "properties": {
+                            "at": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "downloads": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "at",
+                            "downloads"
+                          ]
+                        },
+                        "resume": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "modelId": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "enabled"
+                          ]
                         }
                       },
                       "required": [
@@ -20337,6 +20461,37 @@
                               "at"
                             ]
                           }
+                        },
+                        "restored": {
+                          "type": "object",
+                          "properties": {
+                            "at": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "downloads": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "at",
+                            "downloads"
+                          ]
+                        },
+                        "resume": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "modelId": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "enabled"
+                          ]
                         }
                       },
                       "required": [
@@ -20645,6 +20800,37 @@
                               "at"
                             ]
                           }
+                        },
+                        "restored": {
+                          "type": "object",
+                          "properties": {
+                            "at": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "downloads": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "at",
+                            "downloads"
+                          ]
+                        },
+                        "resume": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "modelId": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "enabled"
+                          ]
                         }
                       },
                       "required": [
@@ -20956,6 +21142,37 @@
                               "at"
                             ]
                           }
+                        },
+                        "restored": {
+                          "type": "object",
+                          "properties": {
+                            "at": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "downloads": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "at",
+                            "downloads"
+                          ]
+                        },
+                        "resume": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "modelId": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "enabled"
+                          ]
                         }
                       },
                       "required": [
