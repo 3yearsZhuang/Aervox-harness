@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: proposed
 delivery_status: planned
-version: 0.1.0
+version: 0.1.1
 updated_at: 2026-09-18
 reviewed_at: 2026-09-18
 review_interval_days: 30
@@ -72,6 +72,8 @@ sources:
 建议顺序为 **移动 Web 核心闭环 → Android 配套内测 → iOS 配套内测 → 按使用证据决定独立端与同步**。理由是现有资产集中在共享 Vue UI 和主机领域服务，先验证手机使用价值能减少运行时迁移与交互改造同时推进的风险。
 
 若选择独立手机端优先，M1 的交互工作仍可复用；M2 的主机连接不再是首发关键路径，改由第 7 节的运行时研究结果决定实施顺序。不得沿用配套端估算承诺独立端日期。
+
+配套硬件与手机的能力重合、ESP32 最小原型和常在线主机取舍统一见[移动端协同下的硬件规划](../../explanation/companion-hardware-directions.md)。手机配套端仍需业务主机；本 CR 不包含手机 USB/BLE 外设网关，也不因此要求先开发专用硬件。
 
 ## 3. 首版体验和能力范围
 

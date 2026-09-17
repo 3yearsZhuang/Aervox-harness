@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.5
+version: 1.0.6
 updated_at: 2026-09-18
 reviewed_at: 2026-09-18
 review_interval_days: 90
@@ -100,3 +100,4 @@ demos/                   # 纯前端原型，非交付物
 - 了解架构：[架构设计](reference/ARCHITECTURE.md) 与 [数据流总览](explanation/data-flow-overview.md)；
 - 需求与落地状态：[需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md)。
 - 规划手机体验：[移动端落地规划](reference/changes/CR-055-mobile-delivery-plan.md)（CR-055，待评审），比较配套端与独立端，核对连接、数据边界与逐阶段验收。
+- 规划配套硬件：[移动端协同下的硬件规划](explanation/companion-hardware-directions.md)，统一查看手机重合、过度设计取舍、ESP32 最小原型与常在线主机；早期 ESP32 方案已合并。

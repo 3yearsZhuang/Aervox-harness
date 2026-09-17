@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.11.0
+version: 1.12.0
 updated_at: 2026-09-18
 reviewed_at: 2026-09-18
 review_interval_days: 90
@@ -89,7 +89,7 @@ review_interval_days: 90
 | [参考项目能力迁移与借鉴评估](explanation/reference-design-transfer.md)（AVX-EXPL-002） | 参考项目哪些设计值得落地或借鉴 | 判定框架、建议落地清单、落地顺序与 AGPL 边界 |
 | [桌宠角色设定文档化与多人格模板组织](explanation/persona-organization.md)（AVX-EXPL-003） | 桌宠 IP 与多人格模板（CAP-019）的角色如何文档化、版本化并维护 | 角色文档清单、字段化结构（prompt/开场白/语气/技能/错误兜底语）、人设目录与模板版本化、维护责任 |
 | [主动智能模式](explanation/proactive-intelligence-mode.md)（AVX-EXPL-008） | 完全访问上如何以广域画像授权、OS 能力、特权观察 Host、本地私密数据和主动操作组合既有 CAP | 评审提案；不替代 PRD/SRS/DATA_PRIVACY/ADR，不表示运行时已实现 |
-| [ESP32-S3 硬件延伸方案](explanation/esp32-s3-hardware-extension.md)（AVX-EXPL-005） | 如何把 ESP32-S3 做成物理桌宠终端 | 评审输入：硬件边界、表现映射、设备协议与隐私红线；R0 先 USB 不联网 |
+| [移动端协同下的硬件规划](explanation/companion-hardware-directions.md)（AVX-EXPL-011） | 哪些硬件与手机重复、哪些值得保留、如何从最小原型推进 | 待评审的九方向取舍、ESP32 工程输入、成本与停止条件；已合并[早期 ESP32 方案](explanation/esp32-s3-hardware-extension.md)（AVX-EXPL-005，仅保留迁移入口） |
 | Home Assistant 集成评估（已归档）（AVX-EXPL-006） | 如何为 Aervox 引入 Home Assistant 支持 | 候选方案与后续路线；推荐组合已由 CR-024/ADR-019 接受 |
 | 运动与健康数据接入评估（已归档）（AVX-EXPL-007） | 是否可以接入苹果/小米运动健康数据（步数、睡眠、情绪） | 小米每日指标路径已由 CR-024/ADR-019 接受；苹果与情绪健康仍为评估输入 |
 | 数据库拆分计划（已归档）（AVX-EXPL-009） | `packages/database` 如何拆分为 `@aervox/schema` 与 `@aervox/repositories` | 已完成的六阶段拆分执行记录；架构决策见 ADR-014 |
