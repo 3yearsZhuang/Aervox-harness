@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.2.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 0.3.0
+updated_at: 2026-09-18
+reviewed_at: 2026-09-18
 review_interval_days: 90
 ---
 
 # 文档写作规范（Docs-as-Code × Diátaxis）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-10
+- 修改人：Codex · 2026-09-18
 
 关联：[文档治理与事实源规范](../document-governance.md)、[文档索引](../../README.md)、[生命周期登记表](../../DOC_REGISTRY.md)、[术语表](terminology.md)
 
@@ -91,6 +91,8 @@ ADR 另填 `decision_status`；CR 同时填写 `decision_status` 与 `delivery_s
 - 文件名一律 kebab-case、ASCII 小写（如 `doc-standards.md`）；`ADR-`/`CR-` 编号类文件例外，采用 `类型-###-kebab-case`；
 - 文档迁移后旧路径自动失效：任何跨文档引用一律用相对链接，由链接检查（CI lychee + 本地相对链接检查）兜底；
 - 新增文档后必须同步 [DOC_REGISTRY.md](../../DOC_REGISTRY.md) 与 [文档索引](../../README.md) 体系表。
+
+当前迭代计划是固定根路径例外：[plan.md](../../../plan.md) 使用 Reference 的 canonical 元数据、`AVX-PLAN-001` 与 `planning_role: current`，接受同等签名、登记、链接和术语门禁。条目字段、状态及归档责任以[迭代计划治理](../document-governance.md#31-当前迭代计划的唯一入口)为准；不要另造计划模板或平行 roadmap。
 
 ### 3.1 改动等级与同步要求
 

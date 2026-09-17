@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.10.0
-updated_at: 2026-09-15
-reviewed_at: 2026-09-15
+version: 1.13.0
+updated_at: 2026-09-18
+reviewed_at: 2026-09-18
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 产品与工程文档索引
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-17
+- 修改人：Codex · 2026-09-18
 
 本目录把产品目标、可测试需求、架构决策、数据权利和 AI 质量分开维护，避免单一 PRD 同时承担所有细节。所有上线范围必须能从用户价值追踪到需求、设计、测试和发布证据。
 
@@ -25,12 +25,13 @@ review_interval_days: 90
 
 | 文档 | 负责回答 | 事实源边界 |
 |---|---|---|
+| [当前迭代计划](../plan.md)（AVX-PLAN-001） | 接下来建议做什么、依赖什么、谁认领、怎样移交 | 当前迭代建议的唯一入口；不改写需求、决策或发布事实 |
 | [PRD](reference/PRD.md) | 为什么做、为谁做、全生命周期做什么、用户层面如何验收 | 产品定位、场景、CAP-001～CAP-035、优先级、路线和用户级指标 |
 | [能力验收标准附录](reference/prd-cap-acceptance.md)（AVX-PRD-002） | P1/P2/P3 差异化与连接生态能力、主动智能专项能力的验收标准是什么 | 最低可验收结果、DoR 晋级条件、CAP-033/034/035 专项边界 |
 | [SRS](reference/SRS.md)（AVX-SRS-001） | 发布范围内每个行为、异常和业务规则如何原子化 | FR/BR/NFR、Given/When/Then 验收和测试 ID |
 | [主动智能与外部信号需求规格](reference/srs-proactive-intelligence.md)（AVX-SRS-002） | CAP-033 全域感知与个人画像、CAP-034 Home Assistant 连接与 CAP-035 运动健康信号连接原子需求规格 | 授权、观察、画像、后台、动作、派生能力、连接器、DATA/AIQ/SEC/PRIV/OPS 要求 |
-| [需求追踪与交付标准](reference/REQUIREMENTS_TRACEABILITY.md) | 每条需求是否完整、由谁负责、怎样证明交付，以及代码落地完成情况 | ID、状态、DoR/DoD、CAP 映射、测试证据、发布门禁、风险和变更控制；§4.1 建议交付批次；§4.2 落地实现登记 |
-| 能力拆分路线（AVX-EXPL-004，已归档至归档库，见[§4.1](#41-能力拆分路线建议批次)） | CAP 按什么批次、什么顺序进入规格化与开发 | 建议批次与拆分节奏（已并入追踪基线 §4.1）；历史存根 |
+| [需求追踪与交付标准](reference/REQUIREMENTS_TRACEABILITY.md) | 每条需求是否完整、由谁负责、怎样证明交付，以及代码落地完成情况 | ID、状态、DoR/DoD、CAP 映射、测试证据、发布门禁、风险和变更控制；§4.1 规格化原则与计划入口；§4.2 落地实现登记 |
+| 能力拆分路线（AVX-EXPL-004，已归档至归档库，见[§4.1](#41-能力拆分路线建议批次)） | CAP 按什么批次、什么顺序进入规格化与开发 | 历史存根；当前建议已统一到根 plan.md，追踪基线保留依赖与规格化原则 |
 
 ### 架构与决策
 
@@ -48,7 +49,7 @@ review_interval_days: 90
 | [Agent Harness Loop 设计与落地规范](reference/agent-harness-loop.md)（AVX-HAR-001） | 一次 Agent Turn 如何经过 Context、模型、工具、多 Step、取消恢复并安全终止 | Loop 状态机、Port、持久化、工具管线、限额、DSH/pi Driver 与分阶段迁移 |
 | [Agent Loop 落地进展追溯](reference/agent-loop-rollout-history.md)（AVX-HAR-002） | Agent Harness Loop 各阶段（2b 至 6f）详细的代码落位、数据表、测试用例与历史进展追溯 | 取消闭环、预算闸门、工具幂等、可观测性、三级恢复、收件箱、Context 压缩、Subagent 贡献与 DSH 适配 |
 | [流式协议契约](reference/STREAMING_PROTOCOL.md) | Turn 创建、SSE 事件、幂等、重连、取消和部分响应如何保持一致 | OpenAPI 配套的机器可验证事件 envelope、状态机、游标、保留和安全持久化规则 |
-| [插件 Config、Page 与 UI 扩展规范](reference/plugin-config-and-pages.md)（AVX-PLUG-001） | 插件配置、Server Turn 生命周期与工作台扩展如何声明和执行 | Config Schema、Page Bridge、Turn 管道、UI 插槽、组件替换与安全边界 |
+| [Aervox 插件开发规范](reference/plugin-config-and-pages.md)（AVX-PLUG-001） | 插件如何声明、开发、打包、安装、授权、扩展与维护 | Manifest、Config、Page、工具与 Skill、Turn 与 UI、兼容性、验证清单及当前实现边界 |
 
 ### 数据与隐私
 
@@ -75,7 +76,7 @@ review_interval_days: 90
 | [教程：迁移已集成能力并接入 DSH/pi](tutorials/migrate-integrated-capabilities.md)（AVX-TUT-002） | 如何把现有 tools/plugins/skills 迁移为可组合能力，并设计 DSH/pi 适配器 | 原生能力迁移、Job Handler、外部 Host、Profile、撤权和回滚演练 |
 | [教程：编写自定义 Agent 工具](tutorials/create-agent-tool.md)（AVX-TUT-003） | 如何为 Aervox Agent 编写一个自定义工具并接入运行时与安全检查 | 工具参数 Schema、ToolHandler 实现、只读/审批安全级别与单测验证 |
 | [操作指南](how-to/README.md)（AVX-HOW-001） | 怎么新增/修改需求、写 ADR、过发布会门禁、做季度演练、管可选模块 submodule；贡献者流程见根级 [CONTRIBUTING](../CONTRIBUTING.md) | 任务型流程导航与操作指引（工程流程、写 ADR、submodule 协作）；规则以对应专项文档为事实源 |
-| [开发 Aervox 扩展插件](how-to/develop-plugin-ui-extension.md)（AVX-GUIDE-004） | 如何实现贯穿服务端 Turn 与工作台 UI 的插件 | Bundle、配置、动态提示词、结构化元数据、UI 插槽与验证步骤 |
+| [开发 Aervox 扩展插件](how-to/develop-plugin-ui-extension.md)（AVX-GUIDE-004） | 如何完成最小插件并验证打包、配置和扩展行为 | 可跟做示例、声明式分发包、第一方扩展接线与验证步骤 |
 | [操作指南：提出与闭环 CR](how-to/cr-workflow.md)（AVX-GUIDE-005） | 如何为 Aervox 提出、撰写、实施并闭环一个变更请求（CR） | 变更分级、差量分析、CR 模板、回滚预案与 §4.2 落地登记 |
 | [操作指南：执行 SQLite 换库演练](how-to/run-database-migration-drill.md)（AVX-GUIDE-006） | 如何执行 CR-030 破坏性迁移、staging 隔离校验与原子换库回滚 | 不可变备份、单用户数据抽取、双向校验、原子换库与回滚命令 |
 | [操作指南：新增与规格化 CAP 能力](how-to/add-capability.md)（AVX-GUIDE-007） | 如何在 Aervox 中立项、规格化、推进并落地一个全新的 CAP 业务能力 | PRD 场景、SRS 原子需求、AC 验收条件、DoR 门禁与追踪矩阵 |
@@ -85,14 +86,17 @@ review_interval_days: 90
 | 文档 | 负责回答 | 事实源边界 |
 |---|---|---|
 | [数据流总览](explanation/data-flow-overview.md)（AVX-EXPL-001） | 消息端到端如何流动 | 先写后投递、Worker 周期、记忆/知识写入 |
-| [参考项目能力迁移与借鉴评估](explanation/reference-design-transfer.md)（AVX-EXPL-002） | 参考项目哪些设计值得落地或借鉴 | 判定框架、建议落地清单、落地顺序与 AGPL 边界 |
+| [参考项目能力迁移与借鉴评估](explanation/reference-design-transfer.md)（AVX-EXPL-002） | 参考项目哪些设计值得落地或借鉴 | 判定框架、来源映射、历史评估与 AGPL 边界；当前排序见根 plan.md |
 | [桌宠角色设定文档化与多人格模板组织](explanation/persona-organization.md)（AVX-EXPL-003） | 桌宠 IP 与多人格模板（CAP-019）的角色如何文档化、版本化并维护 | 角色文档清单、字段化结构（prompt/开场白/语气/技能/错误兜底语）、人设目录与模板版本化、维护责任 |
 | [主动智能模式](explanation/proactive-intelligence-mode.md)（AVX-EXPL-008） | 完全访问上如何以广域画像授权、OS 能力、特权观察 Host、本地私密数据和主动操作组合既有 CAP | 评审提案；不替代 PRD/SRS/DATA_PRIVACY/ADR，不表示运行时已实现 |
 | [ESP32-S3 硬件延伸方案](explanation/esp32-s3-hardware-extension.md)（AVX-EXPL-005） | 如何把 ESP32-S3 做成物理桌宠终端 | 评审输入：硬件边界、表现映射、设备协议与隐私红线；R0 先 USB 不联网 |
+| [底层优化审阅与建议](explanation/foundation-optimization-review.md)（AVX-EXPL-010） | 当前基础设施有哪些可验证的问题、应如何排序改进 | 代码证据、触发条件、优先级、改进成本与验收建议；不代表修复完成 |
+| [当前架构实现与演进评估](explanation/architecture-implementation-review.md)（AVX-EXPL-012） | 实际进程、数据和执行链路如何运转，底层应如何继续演进 | 14 个深入专题、故障实验、模块边界、持久恢复、资源与部署、选项权衡和测量计划；不改写已接受决策 |
+| [配套硬件方向与能力适配评估](explanation/companion-hardware-directions.md)（AVX-EXPL-011） | 当前能力可以支撑哪些硬件产品、原型还缺什么 | 能力现状、不同硬件方向、原型成本估算、验证方法和阶段建议；不冻结设备协议 |
 | Home Assistant 集成评估（已归档）（AVX-EXPL-006） | 如何为 Aervox 引入 Home Assistant 支持 | 候选方案与后续路线；推荐组合已由 CR-024/ADR-019 接受 |
 | 运动与健康数据接入评估（已归档）（AVX-EXPL-007） | 是否可以接入苹果/小米运动健康数据（步数、睡眠、情绪） | 小米每日指标路径已由 CR-024/ADR-019 接受；苹果与情绪健康仍为评估输入 |
 | 数据库拆分计划（已归档）（AVX-EXPL-009） | `packages/database` 如何拆分为 `@aervox/schema` 与 `@aervox/repositories` | 已完成的六阶段拆分执行记录；架构决策见 ADR-014 |
-| [Web 端实现方案](explanation/web-implementation.md)（AVX-WEB-001） | `apps/web` 工作台如何基于 Vue 单栈复用 Desktop 核心组件 | MVP 范围、里程碑与目录结构；技术栈决策见 ADR-015 |
+| [Web 工作台实现说明](explanation/web-implementation.md)（AVX-WEB-001） | `apps/web` 工作台如何基于 Vue 单栈复用 Desktop 核心组件 | 实现边界、历史里程碑与目录结构；技术栈见 ADR-015，当前排序见根 plan.md |
 
 ### 文档治理与生命周期
 
@@ -147,11 +151,11 @@ review_interval_days: 90
 - 每季度：复核数据保留表、供应商、许可证、依赖版本、灾备演练和风险登记。
 - 文档每次变更：更新版本、日期、变更摘要、`- 修改人` 签名和关联 `CR/ADR/EXP`，不得只修改正文。
 
-阶段命名唯一映射：`R0=原型验证`、`R1=MVP`、`R1.5=MVP+`、`R2=P1 学习深化`、`R3=端形态扩展`、`R4=P2 连接智能化`、`R5=P3 生态规模化`。`P0～P3` 是能力优先级，不是发布阶段；任何计划表必须同时写两者。
+阶段命名唯一映射：`R0=原型验证`、`R1=MVP`、`R1.5=MVP+`、`R2=P1 学习深化`、`R3=端形态扩展`、`R4=P2 连接智能化`、`R5=P3 生态规模化`。`P0～P3` 是能力优先级，不是发布阶段；产品发布计划表必须同时写两者。工程工作包的迭代批次不重新定义产品阶段。
 
 ### 4.1 能力拆分路线（建议批次）
 
-每批 CAP 何时从 `Mapped` 转 `Specified`、按什么顺序拆分进入开发，已整合入[需求追踪基线 §4.1](reference/REQUIREMENTS_TRACEABILITY.md#41-建议交付批次与拆分原则)（历史原文见私有归档仓库 AVX-EXPL-004）。拆分的唯一事实源是[追踪基线覆盖矩阵](reference/REQUIREMENTS_TRACEABILITY.md#4-cap-001cap-035-覆盖矩阵全部能力状态唯一速览)。
+当前迭代的建议顺序、依赖和认领状态统一在根目录 [plan.md](../plan.md) 维护。[需求追踪基线 §4.1](reference/REQUIREMENTS_TRACEABILITY.md#41-建议交付批次与拆分原则)保留 CAP 依赖与规格化原则（历史原文见私有归档仓库 AVX-EXPL-004）；能力从 `Mapped` 转 `Specified` 的实际状态仍以[追踪基线覆盖矩阵](reference/REQUIREMENTS_TRACEABILITY.md#4-cap-001cap-035-覆盖矩阵全部能力状态唯一速览)为准。
 
 ## 5. 专业基线自检
 

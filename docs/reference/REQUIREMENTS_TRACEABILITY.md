@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.32.9
+version: 1.35.0
 updated_at: 2026-09-18
 reviewed_at: 2026-09-18
 review_interval_days: 90
@@ -15,7 +15,7 @@ review_interval_days: 90
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-18
+- 修改人：Codex · 2026-09-18
 
 产品需求来源：[PRD.md](PRD.md)
 
@@ -159,27 +159,19 @@ review_interval_days: 90
 
 ### 4.1 建议交付批次与拆分原则
 
-本节吸收并合并原能力拆分路线（已归档至私有归档库）（AVX-EXPL-004）的批次规划与拆分指导原则，回答“能力按什么批次进入规格化与开发”。
+当前迭代建议、批次与执行状态统一维护在根目录 [plan.md](../../plan.md)。本节保留规格化原则与 CAP 依赖，不再维护另一张交付顺序表；原 AVX-EXPL-004 的历史批次可从 Git/既有归档追溯。产品阶段和能力优先级仍以 PRD 为准。
 
 #### 1. 拆分原则
 
-- CAP 从 `Mapped` 转 `Specified` 应只发生在临近开发批次时；P1/P2/P3 保持 `Mapped` 是正常的，进入对应阶段前再原子化（规则见 [SRS §6](SRS.md#6-p1p2p3-规格化规则)）；
-- 拆分只服务临近开发批次，不为“清空 Mapped”提前拆远期 P2/P3；
-- 高风险/合规项（CAP-010 安全边界、CAP-013 删除传播）优先固定验收；
-- 共享基础设施的 CAP（011/012 附件管线）合并拆分，避免重复设计；
-- CAP-033 作为独立生命周期能力排在第五批后段，依赖 CAP-005/018/020/022/024/026/027/030 及本地权限/存储 ADR；它的全量来源、后台恢复、全动作授权和七天提炼保留必须单独通过 DoR；
-- CAP-034/035 作为 CAP-033 的运行时连接能力排在同批次，HA 需通过私网/白名单/重连门禁，小米健康需通过厂商账号、真实沙箱和 Restricted 数据门禁；
-- 每个 CAP 拆分按[工程与发布流程 §1](../how-to/engineering-process.md#1-新增与修改需求)执行，拆分后更新本基线核验日期。
+- 临近实际开发时才把 `Mapped` 能力推进为 `Specified`，不要为清空状态提前细化远期功能；规则见 [SRS §6](SRS.md#6-p1p2p3-规格化规则)。
+- 安全、数据控制与删除传播先固定验收；共享附件管线的 CAP-011/012 联合设计依赖，避免重复建设。
+- CAP-033 依赖 CAP-005/018/020/022/024/026/027/030 及本地权限/存储 ADR；完整来源、后台恢复、动作授权和保留要求须通过独立 DoR。
+- CAP-034/035 依赖 CAP-033 的连接和授权边界；HA 的私网/白名单/重连、小米健康的账号/真实沙箱/Restricted 门禁仍分别验收。
+- 拆分按[工程与发布流程 §1](../how-to/engineering-process.md#1-新增与修改需求)执行，在计划条目关联 CAP/CR；交付后在 §4.2 登记，不以计划状态替代证据。
 
 #### 2. 建议批次
 
-| 批次 | 阶段 | 建议顺序 | 说明 |
-|---|---|---|---|
-| 第一批 | R1 MVP（已完成） | CAP-001/002/003/004/005/006/007/008/009 | 已全部 `Specified`，进入 DoR/Ready |
-| 第二批 | R1.5 MVP+（P0） | CAP-010 → CAP-013 → CAP-011 → CAP-012 | 010 依赖少且固定安全边界；013 衔接删除传播；011/012 共享附件/OCR 管线合并拆分 |
-| 第三批 | R2/R3（P1） | CAP-014 → CAP-015 → CAP-016/017 → CAP-019；CAP-018 独立排期 | 按依赖序：014 依赖对话、015 依赖记忆、016 依赖刷题数据、019 依赖 010 |
-| 第四批 | R4（P2） | CAP-020/027 优先（依赖 ADR-009/010/008），其余按 R4 立项 | 插件、本地优先、第三方接入、推荐等 |
-| 第五批 | R5（P3） | CAP-028~035 | 社区/市场/机构、主动智能模式与外部环境信号；CAP-033～035 依赖桌面 Host、工具授权、本地存储和连接网关，进入 R5 前完成生产门禁 |
+请直接维护 [plan.md 的当前队列](../../plan.md#2-当前建议工作)。旧章节锚点保留用于已有引用，不另写本季度或跨能力批次。
 
 ### 4.2 落地实现登记
 
@@ -187,8 +179,19 @@ review_interval_days: 90
 
 登记规则：`关联 CAP` 表实现所属能力；`验证` 表已通过的自动化验证（测试/typecheck）；`来源` 标注参考设计（`T-*`/`AST-*`/`PET-*`/`DSH-01`/`PI-01`，细则见 [参考设计迁移文档 §6.1](../explanation/reference-design-transfer.md#61-落地登记唯一真源)）或原生实现。
 
+2026-09-18 插件复核更正：历史条目中的“原子安装”“CAS”“完整分发闭环”等表述不能作为当前保证。此次代码核对确认安装可部分成功、覆盖会清理旧状态、普通配置仅做前置版本检查，动态导出与授权也有缺口；准确适用范围见 [AVX-PLUG-001](plugin-config-and-pages.md)及[底层评估](../explanation/foundation-optimization-review.md)。原有测试结果保留为当时的覆盖证据，不据此推进 CAP-020 的发布状态。
+
+2026-09-18 架构深入复核：默认 API 接单与 claim 之间、统一删除效果验证、消息编辑原子性、动态工具发现和模型制品管理均有新增故障证据；自动 Resume Host/Recovery Ledger 仍须区分库实现与生产接线，完整 Schema 搬库及冷 CI 亦需补验证。详见 [AVX-EXPL-012](../explanation/architecture-implementation-review.md)。历史局部测试记录不作删除或覆盖，本次只登记评估交付，不推进相关 CAP 的实现或发布状态，也不更改已接受 ADR。
+
+本轮文档交付已通过全量 `mise tasks run ci-docs`（Markdownlint、Vale、严格治理与本地链接）；最小插件打包及临时数据库安装闭环实际通过，具体执行范围见[开发指南验证记录](../how-to/develop-plugin-ui-extension.md#5-运行验证并交付)。
+
 | 落地内容与功能描述 | 关联 CAP | 实现与测试位置 | 日期 | 验证 | 来源 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 当前迭代计划单一入口与长期治理：将插件/底层/硬件规划迁入独立分支，创建根 plan.md，归并重复排序，接入根计划元数据、唯一角色、登记/链接与增量/全量 Docs CI | 基础设施（项目协作与文档治理）；关联既有 CAP 不变更状态 | [plan.md](../../plan.md)、[治理 §3.1](document-governance.md#31-当前迭代计划的唯一入口)、根 AGENTS/README/CONTRIBUTING、`scripts/docs-governance.mjs`、`scripts/docs-lint-affected.mjs` | 2026-09-18 | 治理回归 29/29；全量 ci-docs 通过（75 份 Markdown）；ci-code 边界/构建/类型/测试门禁通过（复用 Turbo 缓存，预先安装依赖并生成插件包，非冷 CI 证明）；业务修复和硬件原型未实施 | 原生 |
+| 当前架构实现与底层演进深入评估（文档交付）：核对进程/数据拓扑与领域边界，新增 14 个 ARC 专题，比较持久执行、删除恢复、索引与迁移、模型资源、部署和 CI 的演进选项 | CAP-001/005/007/012/013/018/020/027/033 + 基础设施（架构、可靠性、验证） | [当前架构实现与演进评估](../explanation/architecture-implementation-review.md)、[第一轮底层评估](../explanation/foundation-optimization-review.md) | 2026-09-18 | 源码/AST、临时 SQLite 故障注入、Fake Provider/子进程、内存 HTTP 和 Turbo dry-run；现有依赖边界检查及 14 项测试通过；全量文档门禁通过（74 份 Markdown）；实验结果和适用范围见文档，无产品代码修复或生产/性能实测 | 原生 |
+| 插件开发规范定档与开发指南校正（文档交付）：以现行机器契约核对声明、分发、Config、Page、工具/Skill、Turn 与 UI；区分作者要求、机器强制和待实现边界，修正不可用示例与过度保证 | CAP-020 + 基础设施（文档治理） | [Aervox 插件开发规范](plugin-config-and-pages.md)、[开发指南](../how-to/develop-plugin-ui-extension.md)、`apps/api/test/{plugin-config,plugin-distribution,builtin-plugins-market,proactive-plugin-lifecycle}.test.ts`、`packages/ui/test/{ui-registry,study-mode-plugin}.test.ts` | 2026-09-18 | 本轮 API 4 套件 23 测试、UI 2 套件 15 测试通过；文档验证记录见规范；未将已知运行时缺口标为修复或发布 | 原生；沿用既有 AST-08/AST-09 设计来源，无新增参考代码 |
+| 底层优化空间审阅（建议文档交付）：记录 Outbox 消费竞争、Host 调度、插件安装与权限边界、数据读写和验证缺口，提供优先级与验收方法 | CAP-007/020/027 + 基础设施（Worker、Host、可靠性） | [底层优化审阅与建议](../explanation/foundation-optimization-review.md) | 2026-09-18 | 当前代码静态核对；Outbox 事件竞争与会话锁缓存清理的最小复现，范围和结果见文档；未实施建议中的代码改动 | 原生 |
+| 配套硬件能力适配与多方向评估（建议文档交付）：区分已实现能力、占位 Provider、平台/真机门禁与新增设备宿主工作；提供方向比较、原型成本估算和验证路线，校正 ESP32 旧稿的决策编号与本地上下文 | CAP-001/002/006/007/012/018/020/025/027/030/033/034/035（复用评估，不变更 CAP 状态） | [配套硬件评估](../explanation/companion-hardware-directions.md)、[ESP32 设计输入](../explanation/esp32-s3-hardware-extension.md) | 2026-09-18 | 能力表逐项关联代码和既有测试；BOM 为原型估算，未做供应商报价、真机、固件或量产验证；未创建或批准硬件协议 | 原生 |
 | 统一“扩展与插件”设置中心前端视觉与设计规范（CAP-020 UI 样式规范化）：统一设置分类（`useWorkbenchLayout.ts`）与侧边栏（`WorkbenchSidebar.vue`）入口为「扩展与插件」；重构分段胶囊选择器（`PluginManagerPanel.vue`、`SkillManagerTab.vue`、`McpToolsTab.vue`、`PluginMarketTab.vue`、`PluginInstallDialog.vue`），统一圆角/边框/暗黑模式高光；规范化插件卡片、技能卡片、工具卡片、预设 MCP 卡片与集市卡片的网格体系（统一 12px 圆角、微投影与 Hover 上浮、36×36 图标框、右侧开关对齐）；统一徽章/标签语义色彩与提示横幅设计；全面消除硬编码 Hex 色值并接入标准语义 CSS 变量。 | CAP-020 + 基础设施（前端设计体系） | `packages/ui/src/components/plugin/{PluginManagerPanel.vue,SkillManagerTab.vue,McpToolsTab.vue,PluginMarketTab.vue,McpPresetServers.vue,PluginSettingsDialog.vue,PluginInstallDialog.vue}`、`packages/ui/src/composables/useWorkbenchLayout.ts`、`packages/ui/src/components/workbench/WorkbenchSidebar.vue`、`packages/ui/test/{plugin-manager-panel.test.ts,skill-mcp-tabs.test.ts,plugin-settings-dialog.test.ts,plugin-distribution.test.ts}` | 2026-09-18 | `@aervox/ui` 16 个测试套件 90/90 测试全绿；`vue-tsc` 0 错误；`./aervox ci` 24 任务全部通过；Markdownlint & Vale 0 报错 | 原生 |
 | 全量解耦能力分发包打包与出厂集市上架（CAP-020 插件化收口）：将解耦出的 5 项核心能力构建为独立插件工程（`plugins/home-assistant` 智能家居网关、`plugins/xiaomi-health` 运动健康网关、`plugins/anki-sync` 闪卡与题库同步器、`plugins/diary-distillers` 多风格日记与深度复盘、`plugins/multimodal-ocr` 题目与数学公式识别），补齐标准 `plugin.manifest.json`、`config.schema.json`、`SKILL.md` 与声明式 Tools；编写 `scripts/export-plugins.mjs`（`pnpm package:plugins`），基于 `fflate` 将 `plugins/*` 7 个插件完整打包为标准 `.aervox-plugin` 单文件分发包（产出至 `dist-plugins/` 并计算 SHA-256 哈希）；扩展出厂集市端点 `GET /v1/plugins/market` 与安装端点 `POST /v1/plugins/market/:id/install`，实现集市自发现、Schema 校验、一键安装与打包安全预检闭环 | CAP-020 + 基础设施（插件化与集市） | `plugins/{home-assistant,xiaomi-health,anki-sync,diary-distillers,multimodal-ocr}/`（5 个独立插件包）、`scripts/export-plugins.mjs`、`package.json`（新增 `package:plugins` 脚本）、`apps/api/test/builtin-plugins-market.test.ts`、`dist-plugins/*.aervox-plugin` | 2026-09-17 | `pnpm package:plugins` 成功打包全部 7 个插件；`builtin-plugins-market.test.ts` 5 项测试通过（清单/配置 Schema 校验、集市 7 项自发现、一键安装、分发包 inspect 预检）；`plugin-distribution.test.ts` 6 项全绿；`node scripts/import-boundary.mjs` 零违规；`./aervox test fast` 17 任务全绿 | 原生 |
 | 插件分发包规范、安装前预检、打包引擎与出厂集市（CAP-020 插件完整分发与生命周期闭环）：定义 `.aervox-plugin` 单文件分发包规约（ZIP 归档包含 `plugin.manifest.json`、`config.schema.json`、`SKILL.md`、`skills/`、`pages/`、声明工具）；严格落地 PRD CAP-020 安装前安全预检门禁（展示发布者、版本、SHA-256 完整性校验、声明所需权限与数据范围、能力计数，严格阻断 Zip Slip 跨目录越界与非法清单）；实现后端 `package-bundle.ts` 引擎（内存解包校验、原子化写入插件/配置/工具/技能/页面落盘、支持 `overwrite` 覆盖升级与 409 冲突防御、一键重新打包导出）；提供出厂/内置插件集市端点（`GET /v1/plugins/market` 与 `POST /v1/plugins/market/:id/install`）；前端升级 `PluginInstallDialog.vue` 为拖拽/文件包预检 + 手动 JSON 双模，新增 `PluginMarketTab.vue` 集市浏览/分类过滤/一键安装/导出，并在插件卡片与设置弹窗头部提供安装包导出功能。 | CAP-020 | `packages/contracts/src/{plugin-config-schemas.ts,openapi.ts}`、`packages/contracts/openapi.json`、`apps/api/src/modules/ecosystem/plugins/{package-bundle.ts,service.ts,routes.ts,index.ts}`、`packages/api-client/src/{useAervoxPlugins.ts,index.ts}`、`packages/ui/src/components/plugin/{PluginInstallDialog.vue,PluginMarketTab.vue,PluginManagerPanel.vue,PluginSettingsDialog.vue}`、`packages/ui/src/index.ts`、`docs/reference/plugin-config-and-pages.md`、`apps/api/test/plugin-distribution.test.ts`、`packages/api-client/test/plugins-distribution.test.ts`、`packages/ui/test/plugin-distribution.test.ts` | 2026-09-17 | `apps/api` 6 个集成测试通过；`packages/api-client` 4 个测试通过；`packages/ui` 9 个组件测试通过；UI/Web/Desktop/API 全量 typecheck 零错误；`node scripts/import-boundary.mjs` 零违规 | 原生 |

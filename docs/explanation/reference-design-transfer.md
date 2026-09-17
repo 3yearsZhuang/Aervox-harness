@@ -6,18 +6,20 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.8.1
-updated_at: 2026-09-17
-reviewed_at: 2026-09-17
+version: 0.8.2
+updated_at: 2026-09-18
+reviewed_at: 2026-09-18
 review_interval_days: 90
 ---
 
 # 参考项目能力迁移与借鉴评估
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-17
+- 修改人：Codex · 2026-09-18
 
 关联：[参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[SQLite 本地单用户数据库契约](../reference/DATABASE.md)、[能力注册表](../reference/capability-registry.md)、[Agent Harness Loop 规范](../reference/agent-harness-loop.md)、[AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)
+
+当前迭代建议与实施排序统一见根 [plan.md](../../plan.md)（AVX-PLAN-001），规划边界见[文档治理规范 §3.1](../reference/document-governance.md#31-当前迭代计划的唯一入口)。本文保留参考设计的判定理由、来源编号、许可证边界及历史映射；A/B/C 判定与旧批次不表示当前排期或最新实现状态。
 
 ## 1. 评估范围与判定框架
 
@@ -237,20 +239,24 @@ Aervox 自研落地（AGPLv3 仅借鉴设计，不复制源码）：
 | Tauri 2 桌面栈与 Windows 原生层（mover 线程、WASAPI、回收站、开机自启） | Aervox 桌面端为 Electron（CR-002）且首发 Web，栈不同不迁移 |
 | PSD/Live2D 渲染栈（pixi-live2d-display、ag-psd、Anime2.5DRig）与更新器 | 角色资产管线待桌面端阶段另行评估；更新器与 T-13 同理由 |
 
-## 6. 落地顺序建议
+<a id="6-落地顺序建议"></a>
 
-以"见效快、不改结构、先服务现有痛点"为原则分四批，此后按需接线：
+## 6. 历史批次与来源追溯
+
+以下是原评估按“见效快、不改结构、先服务现有痛点”形成的四批快照，用于解释来源映射中的批次编号。保留当时的判断，不将其视为当前执行顺序；候选改动须核对现行契约和源码后进入根 [plan.md](../../plan.md)。
 
 1. **第一批（低风险，独立可排）**：T-01 busy 重试 → AST-01 会话级写锁 → T-02 混合检索。三者都是 `packages/repositories`/写路径内收口改动，直接解除多进程锁风险并打通记忆召回首链路。
 2. **第二批（需要契约与 Worker 配合）**：T-03 压缩标记 → T-05 embedding 独立表（对照 AST-02 对齐 Port 语义）→ PET-01 表现指令字段、PET-02 记忆条目字段（随契约冻结对照）。涉及记忆溯源与运行时代价，先冻结 `packages/contracts` 相关 schema 再实现。
 3. **第三批（随 CAP 排期）**：T-04 工具系统随 CAP-020 立项（对照 AST-04 元数据模型，安全对照 PET-05 白名单）；AST-03 人设解析链随 CAP-019 立项（对照 T-08 文档化）；PET-03 自主行为、PET-04 表现驱动抽象随桌面端功能扩展引入；T-06～T-10、AST-05 按对应功能阶段引入。
 4. **第四批（运行时接线）**：为第一批至第三批已落地的契约/存储接通真实调用链——T-04 tools 运行时与 `/v1/tools` 路由、T-03/T-05 Worker 异步消费、PET-01 前端 emote 消费、CAP-020 插件运行时、T-06 迁移服务与 AST-05 完成标记、T-09 快照与 T-10 分账（详见 §6.1）。
 
-### 6.1 落地登记唯一真源
+<a id="61-落地登记唯一真源"></a>
 
-本表是参考设计在 Aervox 中的落地追踪事实源：凡按 §3 / §4 落地、完成契约文档化或进入运行时接线的设计，必须在此登记实现位置、日期和验证方式（约束见 [AGENTS.md](../../AGENTS.md)）。`目标已文档化` 不等于 `运行时已接入`；未登记即视为未闭环。
+### 6.1 来源映射与历史证据
 
-| 编号 | 判定 | 批次 | 落地日期 | 实现位置 | 说明 |
+实现状态和验证结果只由[追踪基线 §4.2](../reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)维护；本表保留参考设计编号与历史实现记录的映射，供来源追溯，不另行推进完成状态。新增实现仍须在追踪基线注明 `T-*`、`AST-*`、`PET-*`、`DSH-01`、`PI-01` 等来源并遵循许可证要求。下表中的判定、批次、位置和说明均按原记录理解，`目标已文档化` 不等于 `运行时已接入`，历史测试也不等于当前发布证明。
+
+| 编号 | 历史判定 | 历史批次 | 记录日期 | 历史实现位置 | 当时说明 |
 |---|---|---|---|---|---|
 | `DSH-01` | B（目标已文档化） | Agent Loop 阶段 0 前 | 2026-08-28 | `docs/reference/agent-harness-loop.md`（AVX-HAR-001）、`docs/reference/changes/CR-012-agent-harness-loop.md` | 已固化 Turn/Step、typed event、工具管线和 Adapter 边界；DSH 运行时尚未接入，不能标记为已实现 |
 | `PI-01` | B（目标已文档化） | Agent Loop 阶段 0 前 | 2026-08-28 | `docs/reference/agent-harness-loop.md`（AVX-HAR-001）、`docs/reference/changes/CR-012-agent-harness-loop.md` | 已固化 outer/inner loop、Inbox、lease/fencing 和进程外 Host 约束；pi 运行时尚未接入，不能标记为已实现 |
@@ -278,9 +284,11 @@ Aervox 自研落地（AGPLv3 仅借鉴设计，不复制源码）：
 | Skill | B→已落地（管理 + 生命周期运行时） | 第五批 | 2026-08-26 | `apps/api/src/modules/ecosystem/skills/`（`zip.ts`/`skill-manager.ts`/`skill-prompt.ts`/`lifecycle.ts`/`routes.ts`/`skill-tools.ts`） | zip 安装（安全校验）+ 渐进式披露 prompt + Neo 生命周期（payload→candidate→evaluate→promote→rollback/sync）+ `aervox_skill_*` 工具（PET-05 安全级别） |
 | Skill | B→已落地（插件联动） | 第五批 | 2026-08-26 | `apps/api/src/modules/ecosystem/plugins/service.ts` | 插件声明技能只读注册（source=plugin/readonly/pluginId）+ 启停/卸载联动 |
 
-### 6.2 待接线缺口（现状如实记录）
+<a id="62-待接线缺口现状如实记录"></a>
 
-第四批已接通运行时链路（tools 路由 / Worker 消费 / 前端 emote / 插件运行时）。以下残留缺口仍未接线，未登记为完成：
+### 6.2 历史接线缺口
+
+以下保留原第四批评估留下的接线缺口，不作为持续维护的待办或当前能力结论。后续实现可能已改变这些边界；采纳前须核对[追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)与当前源码，再由根 [plan.md](../../plan.md)记录仍需处理的工作。
 
 | 缺口 | 关联设计 | 说明 |
 |---|---|---|
