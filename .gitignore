@@ -42,14 +42,18 @@ apps/web/public/live2d/
 test-results/
 playwright-report/
 
+# 本地分析产物与架构可视化产物
+artifacts/
+
 # 本地杂项防误提交（曾出现于工作区并被误 add 过的类型）
 *.psd
 package-lock.json
 app.js
 *.inspect.ndjson
 
-# WorkBuddy 本地工作目录（memory / 技能 / 会话态，不应入库）
+# IDE / 协作工具本地工作目录（不应入库）
 .workbuddy/
+.zcode/
 
 # tsc 产物误入 src/ 的提交兜底（根因护栏见 tsconfig.base.json 的 "include": []）
 # 编译产物与同名 .ts 并存时，vitest/tsx 会优先解析到过期的 .js ——

@@ -7,15 +7,15 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.8.1
-updated_at: 2026-09-16
-reviewed_at: 2026-09-16
+updated_at: 2026-09-17
+reviewed_at: 2026-09-17
 review_interval_days: 90
 ---
 
 # 参考项目能力迁移与借鉴评估
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-16
+- 修改人：3yearszhuang · 2026-09-17
 
 关联：[参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[SQLite 本地单用户数据库契约](../reference/DATABASE.md)、[能力注册表](../reference/capability-registry.md)、[Agent Harness Loop 规范](../reference/agent-harness-loop.md)、[AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)
 
@@ -266,7 +266,7 @@ Aervox 自研落地（AGPLv3 仅借鉴设计，不复制源码）：
 | T-03 | A（消费接线） | 第四批 | 2026-08-26 | `apps/worker/src/compaction-marker.ts` | 消费 outbox `memory.compaction.requested` 事件异步落库压缩标记 + 审计（先写后投递） |
 | T-05 | A（迁移接线） | 第四批 | 2026-08-26 | `apps/worker/src/embedding-migration.ts` | 扫描缺向量记忆 → 批量生成 → insertBatch；可中止 + 进度回调；provider 未注入诚实跳过 |
 | T-06 | B→已落地 | 第四批 | 2026-08-26 | `packages/repositories/src/migration/migration-service.ts` | 迁移 journal（`_migration_journal`）+ 幂等重入 + 旧库列补齐纳入迁移步骤 |
-| AST-05 | B→已落地雏形 | 第四批 | 2026-08-26 | `packages/repositories/src/migration/migration-service.ts`（完成标记）、`apps/worker/src/pipeline.ts` | `isMigrationCompleted` 双条件幂等 + `PIPELINE_STAGES` 显式顺序 + 短路语义 |
+| AST-05 | B→已落地 | 第四批 | 2026-08-26 | `packages/repositories/src/migration/migration-service.ts`（完成标记；Worker 任务执行已收敛为独立任务节拍器调度） | `isMigrationCompleted` 双条件幂等；流水线执行已由 Worker 独立节拍器调度接管 |
 | T-09 | B→已落地 | 第四批 | 2026-08-26 | `packages/repositories/src/sync/git-snapshot.ts` | 行级快照导出/恢复 + 快照命名约定；git 提交/回滚由宿主（CLI/桌面）按需调用 |
 | T-10 | B→已落地 | 第四批 | 2026-08-26 | `packages/repositories/src/token-usage.ts` | Token 用量分账（非缓存/缓存读/缓存写），兼容 OpenAI/旧形态 |
 | PET-01 | A（前端消费） | 第四批 | 2026-08-26 | `packages/api-client/src/transport.ts`、`desktop-transport.ts`、`useAervoxTurn.ts`、`packages/ui/src/components/PetHero.vue` | emote 事件透传 + `PetHero` activeEmote/activeGesture 消费 |
