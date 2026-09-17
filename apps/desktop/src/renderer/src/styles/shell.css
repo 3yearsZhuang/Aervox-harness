@@ -19,6 +19,9 @@ body,
 body {
   min-width: 760px;
   background: var(--bg-app);
+  font-family: inherit;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 .window-shell {
@@ -45,8 +48,11 @@ body {
   padding: 0 10px 0 16px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-titlebar);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   color: var(--text-secondary);
   -webkit-app-region: drag;
+  user-select: none;
 }
 
 .titlebar-brand {
@@ -65,12 +71,14 @@ body {
   border-radius: 8px;
   background: var(--text-primary);
   color: var(--accent-soft);
+  box-shadow: var(--shadow-sm);
 }
 
 .titlebar-name {
   color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 760;
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
   white-space: nowrap;
 }
 
@@ -78,9 +86,9 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  margin-left: 3px;
+  margin-left: 4px;
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: 11px;
   white-space: nowrap;
 }
 
@@ -90,32 +98,33 @@ body {
   border-radius: 50%;
   background: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 /* 大模型连接状态呼吸灯：online 缓慢呼吸 / offline 静默红点 / unknown 探测橙 */
 .titlebar-status.llm-online i {
-  background: #34a853;
-  box-shadow: 0 0 0 3px rgba(52, 168, 83, .22);
+  background: var(--success, #16a34a);
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2);
   animation: llm-breath 2.4s ease-in-out infinite;
 }
 
 .titlebar-status.llm-offline i {
-  background: #e5484d;
-  box-shadow: 0 0 0 3px rgba(229, 72, 77, .2);
+  background: var(--danger, #dc2626);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2);
 }
 
 .titlebar-status.llm-unknown i {
-  background: #f5a623;
-  box-shadow: 0 0 0 3px rgba(245, 166, 35, .22);
+  background: var(--warning, #d97706);
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.2);
   animation: llm-breath 1.2s ease-in-out infinite;
 }
 
 .titlebar-status.llm-online {
-  color: color-mix(in srgb, #34a853 78%, var(--text-muted));
+  color: color-mix(in srgb, var(--success, #16a34a) 80%, var(--text-muted));
 }
 
 .titlebar-status.llm-offline {
-  color: color-mix(in srgb, #e5484d 78%, var(--text-muted));
+  color: color-mix(in srgb, var(--danger, #dc2626) 80%, var(--text-muted));
 }
 
 @keyframes llm-breath {
@@ -137,8 +146,8 @@ body {
 }
 
 .window-control {
-  width: 40px;
-  height: 34px;
+  width: 36px;
+  height: 32px;
   display: grid;
   place-items: center;
   padding: 0;
@@ -148,11 +157,16 @@ body {
   color: var(--text-muted);
   cursor: pointer;
   -webkit-app-region: no-drag;
+  transition: background-color 0.14s ease, color 0.14s ease, transform 0.1s ease;
 }
 
 .window-control:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+}
+
+.window-control:active {
+  transform: scale(0.96);
 }
 
 .window-control.close:hover {
@@ -161,5 +175,5 @@ body {
 }
 
 .theme-control {
-  margin-right: 5px;
+  margin-right: 4px;
 }
