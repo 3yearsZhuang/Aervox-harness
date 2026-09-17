@@ -1,20 +1,26 @@
 /**
  * Aervox｜思隅 @aervox/api — 本地模型运行时编排服务（CR-054）
  *
- * 归置 `ecosystem/model-runtime`：
- * - 模型注册 = 扫描 `<data>/models/*.gguf` + 同名 `.json` 侧车元数据（url/sha256）动态重建；
- * - 下载 = 单任务串行队列（active 时拒绝新任务），进度存内存，失败/取消清理 .part；
- * - 进程 = LlamaServerManager 单例子进程，启动参数（port/ctx/ngl/threads）可持久覆盖；
- * - 状态快照构造差异查询视图，供 /v1/model-runtime/state 直出。
+ * v2（CR-054 迭代）：
+ * - 多任务下载队列（并发上限可配，缺省 2）：queued→running→done|error|cancelled|paused，
+ *   暂停保留 .part 支持断点续传，取消删除残片；
+ * - 限速（rateLimitBps，bytes/sec）；
+ * - 运行指标采样（llama.cpp /metrics tokens/s）随 state 曝光；
+ * - 内置精选 GGUF 目录（catalog）+ 任意 URL 入口并存；
+ * - SSE 实时订阅（GET /v1/model-runtime/events）推送状态快照，前端断线回退轮询。
  */
 import fs from "node:fs/promises";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import type {
+  DownloadTask,
+  LlamaMetricSample,
   LlamaRuntimeParams,
   LocalModel,
+  ModelCatalogEntry,
   ModelDownloadRequest,
-  ModelRuntimeState,
   ModelRuntimeStartRequest,
+  ModelRuntimeState,
 } from "@aervox/contracts";
 import { downloadToFile, ModelDownloadError } from "./downloader.js";
 import { LlamaServerManager, type LlamaServerManagerDeps } from "./llama-server.js";
@@ -22,21 +28,20 @@ import { LlamaServerManager, type LlamaServerManagerDeps } from "./llama-server.
 export interface ModelRuntimeServiceOptions {
   /** 模型落盘目录（缺省 <repo>/data/models） */
   modelsDir?: string;
-  /** 下载并发拒绝时的错误文案（测试断言用） */
-  onDownloadProgress?: (progress: { receivedBytes: number; totalBytes: number | null }) => void;
+  /** 下载并发上限（缺省 2） */
+  maxConcurrentDownloads?: number;
+  /** 指标采样间隔 ms（缺省 2000；0 关闭） */
+  metricsIntervalMs?: number;
   llamaDeps?: LlamaServerManagerDeps;
 }
 
-interface DownloadState {
-  active: boolean;
-  url?: string;
-  modelId?: string;
-  receivedBytes?: number;
-  totalBytes?: number | null;
-  /** 断点续传基准（.part 既有字节） */
-  resumableFrom?: number;
-  status?: "running" | "done" | "error" | "cancelled";
-  error?: string;
+interface TaskState extends DownloadTask {
+  controller?: AbortController;
+  partPath?: string;
+  /** 期望校验值（用户提供时强校验） */
+  expectedSha256?: string;
+  /** 完成后自动启动并联动预设 */
+  autoStart?: boolean;
 }
 
 const DEFAULT_PARAMS: LlamaRuntimeParams = {
@@ -46,23 +51,79 @@ const DEFAULT_PARAMS: LlamaRuntimeParams = {
   threads: 4,
 };
 
+/** 内置精选 GGUF 目录（官方/社区公开仓库；sha256 留空表示可选校验，下载后以 content-length 刷新尺寸） */
+const DEFAULT_CATALOG: ModelCatalogEntry[] = [
+  {
+    id: "qwen2.5-7b-instruct-q4-k-m",
+    name: "Qwen2.5 7B Instruct",
+    family: "Qwen2.5",
+    quant: "Q4_K_M",
+    sizeLabel: "~4.7 GB",
+    url: "https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m.gguf",
+    recommendedParams: { ctxSize: 8192, gpuLayers: 99, threads: 4 },
+  },
+  {
+    id: "qwen2.5-7b-instruct-q8-0",
+    name: "Qwen2.5 7B Instruct",
+    family: "Qwen2.5",
+    quant: "Q8_0",
+    sizeLabel: "~8.2 GB",
+    url: "https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q8_0.gguf",
+    recommendedParams: { ctxSize: 8192, gpuLayers: 99, threads: 4 },
+  },
+  {
+    id: "llama-3.1-8b-instruct-q4-k-m",
+    name: "Llama 3.1 8B Instruct",
+    family: "Llama",
+    quant: "Q4_K_M",
+    sizeLabel: "~4.9 GB",
+    url: "https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+    recommendedParams: { ctxSize: 8192, gpuLayers: 99, threads: 4 },
+  },
+  {
+    id: "qwen3-4b-instruct-q4-k-m",
+    name: "Qwen3 4B Instruct",
+    family: "Qwen3",
+    quant: "Q4_K_M",
+    sizeLabel: "~2.8 GB",
+    url: "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/qwen3-4b-instruct-q4_k_m.gguf",
+    recommendedParams: { ctxSize: 8192, gpuLayers: 99, threads: 4 },
+  },
+];
+
 export class ModelRuntimeService {
   private readonly modelsDir: string;
   private readonly llama: LlamaServerManager;
-  private readonly download: DownloadState = { active: false };
+  private readonly maxConcurrentDownloads: number;
+  private readonly catalog: ModelCatalogEntry[];
   private lastParams: LlamaRuntimeParams = { ...DEFAULT_PARAMS };
-  private downloadController: AbortController | null = null;
+  private readonly tasks = new Map<string, TaskState>();
+  private readonly queue: string[] = [];
+  private runningCount = 0;
+  private readonly subscribers = new Set<(state: ModelRuntimeState) => void>();
+  private readonly metricSamples: LlamaMetricSample[] = [];
+  private metricsTimer: ReturnType<typeof setInterval> | null = null;
+  private lastEmitAt = 0;
 
   constructor(options: ModelRuntimeServiceOptions = {}) {
     this.modelsDir = options.modelsDir ?? path.join(process.cwd(), "data", "models");
+    this.maxConcurrentDownloads = options.maxConcurrentDownloads ?? 2;
+    this.catalog = DEFAULT_CATALOG;
     this.llama = new LlamaServerManager(options.llamaDeps);
+    const metricsInterval = options.metricsIntervalMs ?? 2000;
+    if (metricsInterval > 0) {
+      this.metricsTimer = setInterval(() => {
+        void this.sampleMetrics();
+      }, metricsInterval);
+      this.metricsTimer.unref?.();
+    }
   }
 
   private sidecarPath(modelPath: string): string {
     return modelPath.replace(/\.gguf$/i, ".json");
   }
 
-  /** 扫描 models 目录重建模型注册表（运行时状态以磁盘文件为真源） */
+  /** 扫描 models 目录重建模型注册表 */
   async scanModels(): Promise<LocalModel[]> {
     await fs.mkdir(this.modelsDir, { recursive: true });
     const entries = await fs.readdir(this.modelsDir, { withFileTypes: true });
@@ -84,7 +145,7 @@ export class ModelRuntimeService {
         url: sidecar.url,
         sha256: sidecar.sha256,
         status: sidecar.status === "error" ? "error" : "downloaded",
-        downloadedAt: sidecar.downloadedAt ?? (await fs.stat(modelPath).then((s) => s.mtime.toISOString())),
+        downloadedAt: sidecar.downloadedAt ?? stat.mtime.toISOString(),
         path: modelPath,
       });
     }
@@ -104,6 +165,9 @@ export class ModelRuntimeService {
           ? "default"
           : "env"
       : "missing";
+    const downloads = [...this.tasks.values()]
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .map(({ controller: _c, partPath: _p, ...task }) => task);
 
     return {
       models,
@@ -116,18 +180,44 @@ export class ModelRuntimeService {
         startedAt: handle.startedAt ?? undefined,
         error: handle.error ?? undefined,
         logs: handle.logs,
+        metrics: this.metricSamples.length > 0 ? [...this.metricSamples] : undefined,
       },
       params: { ...this.lastParams },
-      download: { ...this.download },
-      llamaServer: { configured: this.llama.configured, binPath: binPath ?? undefined, source },
+      downloads,
+      llamaServer: {
+        configured: this.llama.configured,
+        binPath: binPath ?? undefined,
+        source,
+        maxConcurrentDownloads: this.maxConcurrentDownloads,
+      },
     };
   }
 
-  /** 单任务队列发起下载；active 时抛错（409 语义） */
+  /** 订阅状态变更（SSE）；返回退订函数 */
+  subscribe(listener: (state: ModelRuntimeState) => void): () => void {
+    this.subscribers.add(listener);
+    return () => this.subscribers.delete(listener);
+  }
+
+  /** 广播（并发节流 ~200ms），错误吞掉以免拖垮循环 */
+  private emit(): void {
+    const now = Date.now();
+    if (now - this.lastEmitAt < 200) return;
+    this.lastEmitAt = now;
+    void this.getState()
+      .then((state) => {
+        for (const listener of this.subscribers) listener(state);
+      })
+      .catch(() => undefined);
+  }
+
+  /** 精选模型目录 */
+  getCatalog(): ModelCatalogEntry[] {
+    return this.catalog;
+  }
+
+  /** 发起下载：进入队列（排队或立即执行） */
   async startDownload(request: ModelDownloadRequest): Promise<ModelRuntimeState> {
-    if (this.download.active) {
-      throw new Error("download_busy: 已有下载任务进行中");
-    }
     const fileName = request.fileName ?? this.basenameFromUrl(request.url);
     if (!/\.gguf$/i.test(fileName) && !request.fileName) {
       throw new Error("invalid_model_url: 模型文件需为 .gguf 后缀");
@@ -137,93 +227,154 @@ export class ModelRuntimeService {
     if (models.some((m) => m.id === id)) {
       throw new Error(`model_exists: 模型「${id}」已存在`);
     }
-
-    const destPath = path.join(this.modelsDir, fileName);
-    const sidecarPath = this.sidecarPath(destPath);
-    // 断点续传基准：已有 .part 的大小（downloadToFile 内部据此发 Range）
-    let resumeFrom = 0;
-    try {
-      const partStat = await fs.stat(`${destPath}.part`);
-      if (partStat.isFile()) resumeFrom = partStat.size;
-    } catch {
-      // 无残片：从头下载
+    if (this.tasks.has(id)) {
+      throw new Error(`download_busy: 模型「${id}」已在下载队列`);
     }
-    this.download.active = true;
-    this.download.url = request.url;
-    this.download.modelId = id;
-    this.download.status = "running";
-    this.download.error = undefined;
-    this.download.receivedBytes = resumeFrom;
-    this.download.totalBytes = null;
-    this.download.resumableFrom = resumeFrom > 0 ? resumeFrom : undefined;
-    this.downloadController = new AbortController();
+    const destPath = path.join(this.modelsDir, fileName);
+    const task: TaskState = {
+      id,
+      url: request.url,
+      fileName,
+      modelId: id,
+      status: "queued",
+      rateLimitBps: request.rateLimitBps,
+      receivedBytes: 0,
+      expectedSha256: request.sha256,
+      autoStart: request.autoStart,
+    };
+    this.tasks.set(id, task);
+    this.queue.push(id);
+    this.pump();
+    this.emit();
+    return this.getState();
+  }
 
-    await fs.writeFile(
-      sidecarPath,
-      JSON.stringify({ url: request.url, sha256: request.sha256, status: "downloading" }),
-      "utf8",
-    ).catch(() => undefined);
+  /** 推进队列：并发上限内逐任务执行 */
+  private pump(): void {
+    while (this.runningCount < this.maxConcurrentDownloads && this.queue.length > 0) {
+      const id = this.queue.shift();
+      if (!id) break;
+      const task = this.tasks.get(id);
+      if (!task || task.status !== "queued") continue;
+      this.runningCount += 1;
+      void this.runTask(id).catch(() => undefined);
+    }
+  }
 
+  private async runTask(id: string): Promise<void> {
+    const task = this.tasks.get(id);
     try {
+      if (!task) return;
+      task.status = "running";
+      task.controller = new AbortController();
+      const destPath = path.join(this.modelsDir, task.fileName);
+      task.partPath = `${destPath}.part`;
+      let resumeFrom = 0;
+      try {
+        const ps = await fs.stat(task.partPath);
+        if (ps.isFile()) resumeFrom = ps.size;
+      } catch {
+        // 从头
+      }
+      task.resumableFrom = resumeFrom > 0 ? resumeFrom : undefined;
+      task.receivedBytes = resumeFrom;
+      task.error = undefined;
+      this.emit();
+
       const result = await downloadToFile({
-        url: request.url,
+        url: task.url,
         destPath,
-        sha256: request.sha256,
-        signal: this.downloadController.signal,
+        sha256: task.expectedSha256,
+        signal: task.controller.signal,
+        resumeOffsetBytes: resumeFrom,
+        rateLimitBps: task.rateLimitBps ?? 0,
         onProgress: (p) => {
-          this.download.receivedBytes = p.receivedBytes;
-          this.download.totalBytes = p.totalBytes;
+          task.receivedBytes = p.receivedBytes;
+          task.totalBytes = p.totalBytes;
+          this.emit();
         },
       });
+      // 侧车：下载无显式 sha256 时记录实际值
       await fs.writeFile(
-        sidecarPath,
-        JSON.stringify({
-          url: request.url,
-          sha256: result.sha256,
-          status: "downloaded",
-          downloadedAt: new Date().toISOString(),
-        }),
+        this.sidecarPath(destPath),
+        JSON.stringify({ url: task.url, sha256: result.sha256, status: "downloaded", downloadedAt: new Date().toISOString() }),
         "utf8",
       ).catch(() => undefined);
-      this.download.status = "done";
-      // resumableFrom 保留透出（本次续传起点），供 UI 展示
+      task.status = "done";
+      task.resumableFrom = undefined;
+      this.tasks.delete(id); // 完成后移出活动队列（模型进入注册表）
+      if (task.autoStart) {
+        try {
+          await this.start({ modelId: id });
+        } catch (error) {
+          task.error = `autoStart 失败: ${error instanceof Error ? error.message : String(error)}`;
+        }
+      }
     } catch (error) {
-      const aborted = error instanceof Error && error.name === "AbortError";
-      this.download.status = aborted ? "cancelled" : "error";
-      this.download.error = aborted
-        ? undefined
-        : error instanceof ModelDownloadError
-          ? error.message
-          : error instanceof Error
-            ? error.message
-            : "下载失败";
-      if (!aborted) {
-        // 校验失败时 downloader 已自删 .part；其余错误保留残片供下次续传
+      const aborted = error instanceof Error && (error.name === "AbortError" || (error as ModelDownloadError).kind === "aborted");
+      if (aborted) {
+        // 暂停或取消：保持 paused/cancelled 由调用方设置；此处仅清理标记
+        const t = this.tasks.get(id);
+        if (t && t.status === "running") t.status = "paused";
+      } else {
+        const t = this.tasks.get(id);
+        if (t) {
+          t.status = "error";
+          t.error = error instanceof ModelDownloadError ? error.message : error instanceof Error ? error.message : "下载失败";
+        }
       }
-      throw error;
     } finally {
-      this.download.active = false;
-      this.downloadController = null;
+      this.runningCount -= 1;
+      this.emit();
+      this.pump();
     }
+  }
 
-    // 下载后自动连接：拉起 llama-server 并联动 LLM 预设（CR-054 迭代）
-    if (request.autoStart) {
-      try {
-        await this.start({ modelId: id });
-      } catch (error) {
-        this.download.error = `autoStart 失败: ${error instanceof Error ? error.message : String(error)}`;
-      }
+  /** 暂停（保留 .part 供续传） */
+  async pauseDownload(id: string): Promise<ModelRuntimeState> {
+    const task = this.tasks.get(id);
+    if (!task || task.status === "done" || task.status === "cancelled" || task.status === "error") {
+      throw new Error("task_not_found: 下载任务不存在或已结束");
     }
+    if (task.status !== "running") return this.getState();
+    task.controller?.abort();
+    task.status = "paused";
+    this.emit();
     return this.getState();
   }
 
-  /** 取消进行中的下载（幂等） */
-  async cancelDownload(): Promise<ModelRuntimeState> {
-    this.downloadController?.abort();
+  /** 恢复（重新入队，.part 续传） */
+  async resumeDownload(id: string): Promise<ModelRuntimeState> {
+    const task = this.tasks.get(id);
+    if (!task) {
+      throw new Error("task_not_found: 下载任务不存在");
+    }
+    if (task.status !== "paused") return this.getState();
+    task.status = "queued";
+    this.queue.push(id);
+    this.pump();
+    this.emit();
     return this.getState();
   }
 
-  /** 删除已下载模型（运行中禁止；删除 .gguf 与侧车元数据） */
+  /** 取消（删除 .part） */
+  async cancelDownload(id: string): Promise<ModelRuntimeState> {
+    const task = this.tasks.get(id);
+    if (!task || task.status === "done" || task.status === "cancelled") {
+      throw new Error("task_not_found: 下载任务不存在或已结束");
+    }
+    if (task.status === "running") {
+      task.controller?.abort();
+    }
+    task.status = "cancelled";
+    await fs.rm(task.partPath ?? `${path.join(this.modelsDir, task.fileName)}.part`, { force: true }).catch(() => undefined);
+    this.tasks.delete(id);
+    this.emit();
+    this.pump();
+    return this.getState();
+  }
+
+  /** 删除已下载模型（运行中禁止） */
   async deleteModel(modelId: string): Promise<ModelRuntimeState> {
     const models = await this.scanModels();
     const wantedId = modelId.replace(/\.gguf$/i, "");
@@ -241,7 +392,7 @@ export class ModelRuntimeService {
     return this.getState();
   }
 
-  /** 启动 llama-server（modelId 支持完整文件名或去掉 .gguf 的 id） */
+  /** 启动 llama-server */
   async start(request: ModelRuntimeStartRequest): Promise<ModelRuntimeState> {
     if (this.llama.running) {
       throw new Error("llama_server_busy: 本地模型运行时已在运行");
@@ -252,21 +403,38 @@ export class ModelRuntimeService {
     if (!model) {
       throw new Error(`model_not_found: 未找到模型「${request.modelId}」（已下载：${models.map((m) => m.fileName).join(", ") || "无"}）`);
     }
-
     const merged: LlamaRuntimeParams = { ...this.lastParams, ...(request.params ?? {}) };
     this.lastParams = merged;
     await this.llama.start(model, merged);
+    this.metricSamples.length = 0;
     return this.getState();
   }
 
   /** 停止当前 llama-server（幂等） */
   async stop(): Promise<ModelRuntimeState> {
     await this.llama.stop();
+    this.metricSamples.length = 0;
     return this.getState();
   }
 
-  /** 应用关闭钩子：终止子进程 */
+  /** 采样运行指标（llama.cpp /metrics；失败静默） */
+  private async sampleMetrics(): Promise<void> {
+    if (!this.llama.running || this.llama.getHandle().port === null) return;
+    try {
+      const sample = await this.llama.sampleMetrics();
+      if (sample) {
+        this.metricSamples.push(sample);
+        if (this.metricSamples.length > 8) this.metricSamples.shift();
+      }
+    } catch {
+      // 采样失败静默
+    }
+  }
+
+  /** 应用关闭钩子 */
   async dispose(): Promise<void> {
+    if (this.metricsTimer) clearInterval(this.metricsTimer);
+    for (const task of this.tasks.values()) task.controller?.abort();
     await this.llama.stop().catch(() => undefined);
   }
 
