@@ -11,7 +11,6 @@ import { buildApp } from "../src/app.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PLUGINS_SOURCE_ROOT = path.resolve(__dirname, "../../../plugins");
-const DIST_PLUGINS_ROOT = path.resolve(__dirname, "../../../dist-plugins");
 
 describe("出厂官方插件集市与全量插件打包验证 (Market & Builtin Plugins Packaging)", () => {
   it("plugins/ 下全部 7 个插件的 plugin.manifest.json 均严格通过契约校验", async () => {
@@ -140,12 +139,23 @@ describe("出厂官方插件集市与全量插件打包验证 (Market & Builtin 
     expect(installedIds).toContain("anki-sync");
   });
 
-  it("导出的 .aervox-plugin 分发包支持 POST /v1/plugins/inspect-package 安全预检", async () => {
+  it("GET /v1/plugins/:id/export 导出的 .aervox-plugin 分发包支持 POST /v1/plugins/inspect-package 安全预检", async () => {
     const { db, client } = await createInMemoryDatabase();
     const { app } = await buildApp({ db, client });
 
-    const bundlePath = path.join(DIST_PLUGINS_ROOT, "home-assistant-1.0.0.aervox-plugin");
-    const bundleBytes = await fs.readFile(bundlePath);
+    // 分发包由产品自身的导出端点现场生成，不依赖 dist-plugins/ 下的本地构建产物：
+    // 该目录已由 .gitignore 忽略，CI 全新检出时并不存在，直接读文件会导致 ENOENT 假失败。
+    const exportRes = await app.inject({
+      method: "GET",
+      url: "/v1/plugins/home-assistant/export",
+    });
+    expect(exportRes.statusCode).toBe(200);
+    const exported = exportRes.json();
+    expect(exported.filename).toBe("home-assistant-1.0.0.aervox-plugin");
+    expect(exported.checksum).toMatch(/^[a-f0-9]{64}$/);
+
+    const bundleBytes = Buffer.from(exported.packageBase64, "base64");
+    expect(bundleBytes.byteLength).toBeGreaterThan(0);
 
     const inspectRes = await app.inject({
       method: "POST",
