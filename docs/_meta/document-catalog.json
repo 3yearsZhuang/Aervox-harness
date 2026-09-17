@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-09-17",
-  "totalCount": 63,
+  "totalCount": 65,
   "documents": [
     {
       "id": "AVX-DOC-CONF-001",
@@ -822,6 +822,48 @@
       "sources": []
     },
     {
+      "id": "CR-053",
+      "title": "CR-053 llama.cpp 本地模型作为底层能力接入与模型能力探测预算适配",
+      "path": "reference/changes/CR-053-llamacpp-provider-and-local-model-support.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "accepted",
+      "delivery_status": "implemented",
+      "version": "1.0.0",
+      "updated_at": "2026-09-17",
+      "reviewed_at": "2026-09-17",
+      "review_interval_days": 90,
+      "review_triggers": [],
+      "sources": [
+        "docs/reference/PRD.md",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md",
+        "docs/reference/ARCHITECTURE.md"
+      ]
+    },
+    {
+      "id": "CR-054",
+      "title": "CR-054 本地模型运行时管理：GGUF 下载与 llama-server 进程生命周期",
+      "path": "reference/changes/CR-054-local-model-runtime-management.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "accepted",
+      "delivery_status": "implemented",
+      "version": "1.0.0",
+      "updated_at": "2026-09-17",
+      "reviewed_at": "2026-09-17",
+      "review_interval_days": 90,
+      "review_triggers": [],
+      "sources": [
+        "docs/reference/PRD.md",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md",
+        "docs/reference/ARCHITECTURE.md"
+      ]
+    },
+    {
       "id": "AVX-DATA-001",
       "title": "Aervox｜思隅 数据与隐私规范",
       "path": "reference/DATA_PRIVACY.md",
@@ -1005,7 +1047,7 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.32.7",
+      "version": "1.32.8",
       "updated_at": "2026-09-17",
       "reviewed_at": "2026-09-17",
       "review_interval_days": 90,

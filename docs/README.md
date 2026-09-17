@@ -105,11 +105,12 @@ review_interval_days: 90
 | [文档生命周期登记表](DOC_REGISTRY.md) | 每份文档何时核验、多久复核、什么信号表示陈旧 | 核验节奏/陈旧信号；独立于索引维护 |
 | [从这里开始](getting-started.md)（AVX-DOC-002，见[§7](#7-从哪开始)） | 新成员/Agent 从哪看起、提交前自检什么 | 导航型；不承载规则 |
 | [暂存提案](proposals) | 尚未进入基线的方案是什么 | 待补充证据（More Evidence Required）或未采纳的技术探索提案；不承载已批准规则 |
+| [变更请求](reference/changes)（现行 CR，编号 ≥ CR-053） | 尚未归档的现行变更提案与决策 | 变更差量、决策状态与回滚预案；已闭环提案（CR-002~052）见私有归档库 |
 | 已归档记录（私有归档库） | 历史变更与已退役决策的原始记录是什么 | 已完成或已退役的历史变更；已整体移入独立私有归档仓库，避免混淆当前活跃规范 |
 
 ### 历史变更请求与临时落地计划归档说明
 
-为保持主仓库文档精炼、避免历史推演过程污染日常检索与 AI 编程上下文，**已确认闭环实施的变更提案（CR-002 至 CR-052，共 50 篇）以及阶段性临时落地计划（CR-033/034/035 plan）已整体归档至独立私有归档仓库 [Aervox-docs-archive](https://github.com/3yearsZhuang/Aervox-docs-archive)**。
+为保持主仓库文档精炼、避免历史推演过程污染日常检索与 AI 编程上下文，**已确认闭环实施的变更提案（CR-002 至 CR-052，共 50 篇）以及阶段性临时落地计划（CR-033/034/035 plan）已整体归档至独立私有归档仓库 [Aervox-docs-archive](https://github.com/3yearsZhuang/Aervox-docs-archive)**。编号自 **CR-053** 起恢复在主仓库 `docs/reference/changes/` 建立现行变更提案。
 
 - 主仓库只维护反映当前系统状态的**现行权威真源（Living System Truth）**；
 - 业务需求以 [PRD](reference/PRD.md) 与 [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) 为准；

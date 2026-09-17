@@ -119,6 +119,43 @@ describe("LlmDegradationService (CR-034 / CR-042)", () => {
     expect(auditEvents[0]?.toTier).toBe("L1");
   });
 
+  it("llamacpp 预设纳入 L1 本地候选降级（CR-053）", async () => {
+    // 云端预设激活，llamacpp 本地预设作为 L1 候选
+    const cloud = await llmRepo.createPreset(tenant, "Cloud DeepSeek", {
+      enabled: true,
+      providerType: "deepseek",
+      baseUrl: "https://api.deepseek.com/v1",
+      apiKey: "sk-test",
+      modelId: "deepseek-chat",
+      temperature: 0.7,
+    });
+    await llmRepo.createPreset(tenant, "Local llama.cpp", {
+      enabled: true,
+      providerType: "llamacpp",
+      baseUrl: "http://127.0.0.1:8080/v1",
+      modelId: "qwen2.5-7b-instruct",
+      temperature: 0.7,
+    });
+    await llmRepo.activatePreset(tenant, cloud.id);
+
+    // Mock 探活：llamacpp 端点健康，云端失败（依据 baseUrl 判定）
+    vi.spyOn(prober, "probe").mockImplementation(async (params: ProbeParams): Promise<ProbeResult> => {
+      if (params.baseUrl.includes("127.0.0.1")) {
+        return { ok: true, status: "healthy", latencyMs: 15, errorCategory: null, errorMessage: null };
+      }
+      return { ok: false, status: "unavailable", latencyMs: 5000, errorCategory: "timeout", errorMessage: "timeout" };
+    });
+
+    const snap1 = await service.getRoutingSnapshot({ tenant, sessionId: "sess_llamacpp" });
+    expect(snap1.tier).toBe("L0"); // failureCount=1 < 2
+    const snap2 = await service.getRoutingSnapshot({ tenant, sessionId: "sess_llamacpp" });
+    expect(snap2.tier).toBe("L1");
+    expect(snap2.capabilityTier).toBe("restricted");
+    expect(snap2.providerType).toBe("llamacpp");
+    expect(snap2.modelId).toBe("qwen2.5-7b-instruct");
+    expect(snap2.localAttestation).toBe(true);
+  });
+
   it("L0 恢复后且连续成功达到阈值在新回合完成恢复回切", async () => {
     const cloud = await llmRepo.createPreset(tenant, "Cloud DeepSeek", {
       enabled: true,

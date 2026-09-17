@@ -33,6 +33,8 @@ const showAdvanced = ref(false)
 const testBusy = ref(false)
 const testResult = ref<LLMTestConnectionResultDto | null>(null)
 const error = ref<string | null>(null)
+/** 连通性测试探测到的可用模型列表（本地端点 /models 自动感知） */
+const detectedModels = ref<string[]>([])
 
 /** 多预设：全部预设 + 当前激活 */
 const presets = ref<LLMPresetDto[]>([])
@@ -174,6 +176,7 @@ async function handleTestConnection(): Promise<void> {
   testBusy.value = true
   testResult.value = null
   error.value = null
+  detectedModels.value = []
 
   try {
     const res = await api.testConnection({
@@ -183,6 +186,10 @@ async function handleTestConnection(): Promise<void> {
       modelId: draft.value.modelId.trim(),
     })
     testResult.value = res
+    // 本地端点 /models 自动感知：探测到可用模型时供一键选择
+    if (res.ok && Array.isArray(res.availableModels) && res.availableModels.length > 0) {
+      detectedModels.value = res.availableModels
+    }
   } catch (e) {
     testResult.value = {
       ok: false,
@@ -192,6 +199,11 @@ async function handleTestConnection(): Promise<void> {
   } finally {
     testBusy.value = false
   }
+}
+
+/** 应用探测到的模型：填充 modelId 并保持其它字段不变 */
+function applyDetectedModel(modelId: string) {
+  draft.value = { ...draft.value, modelId }
 }
 
 async function handleSave(): Promise<void> {
@@ -434,6 +446,36 @@ async function handleSave(): Promise<void> {
         <span class="result-status-dot" />
         <span>{{ testResult.message }}</span>
         <small v-if="testResult.latencyMs > 0">时延 {{ testResult.latencyMs }}ms</small>
+      </div>
+
+      <!-- 能力探测标注：上下文窗口 / 工具调用（连通性测试顺带感知） -->
+      <div v-if="testResult?.ok && testResult.capabilities" class="capabilities-row">
+        <span v-if="testResult.capabilities.contextWindow" class="capability-chip">
+          上下文窗口 <strong>{{ testResult.capabilities.contextWindow }}</strong> tokens
+        </span>
+        <span
+          v-if="testResult.capabilities.supportsToolCalls !== undefined"
+          class="capability-chip"
+          :class="testResult.capabilities.supportsToolCalls ? 'chip-ok' : 'chip-warn'"
+        >
+          工具调用 <strong>{{ testResult.capabilities.supportsToolCalls ? '支持' : '不支持' }}</strong>
+        </span>
+        <span class="capability-hint">已自动按上下文窗口收紧最大生成长度</span>
+      </div>
+
+      <!-- 本地端点 /models 自动感知：探测到可用模型时提供一键选择 -->
+      <div v-if="detectedModels.length > 0" class="detected-models-row">
+        <span class="detected-models-label">探测到 {{ detectedModels.length }} 个可用模型：</span>
+        <select
+          class="llm-select-field detected-model-select"
+          :value="draft.modelId"
+          @change="applyDetectedModel(($event.target as HTMLSelectElement).value)"
+        >
+          <option :value="draft.modelId" disabled>选择模型…</option>
+          <option v-for="model in detectedModels" :key="model" :value="model">
+            {{ model }}
+          </option>
+        </select>
       </div>
 
       <p v-if="error" class="llm-error">{{ error }}</p>
@@ -734,6 +776,64 @@ async function handleSave(): Promise<void> {
   height: 7px;
   border-radius: 50%;
   background: currentColor;
+}
+
+.capabilities-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-soft, rgba(0, 0, 0, 0.02));
+}
+
+.capability-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.capability-chip strong {
+  color: var(--text-primary);
+  font-weight: 650;
+}
+
+.capability-chip.chip-ok {
+  background: color-mix(in srgb, #22c55e 12%, transparent);
+}
+
+.capability-chip.chip-warn {
+  background: color-mix(in srgb, #f59e0b 14%, transparent);
+}
+
+.capability-hint {
+  color: var(--text-secondary);
+  font-size: 11px;
+  margin-left: auto;
+}
+
+.detected-models-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.detected-models-label {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.detected-model-select {
+  width: min(320px, 46%);
 }
 
 .llm-error {

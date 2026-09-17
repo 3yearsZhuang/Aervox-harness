@@ -99,11 +99,13 @@ export class LlmDegradationService implements ModelRoutingPort {
     const presetRows = await this.llmRepo.listPresets(tenant);
     const activePreset = presetRows.find((p) => p.isActive === 1) ?? presetRows[0] ?? null;
 
-    // 2. 筛选本地候选预设（回环地址或原生 ollama）
+    // 2. 筛选本地候选预设（回环地址或原生本地 provider：ollama / llamacpp）
     const localPresets = presetRows.filter(
       (p) =>
         p.enabled === 1 &&
-        (isLiteralLoopbackUrl(p.baseUrl) || p.providerType === "ollama"),
+        (isLiteralLoopbackUrl(p.baseUrl) ||
+          p.providerType === "ollama" ||
+          p.providerType === "llamacpp"),
     );
 
     const now = new Date().toISOString();

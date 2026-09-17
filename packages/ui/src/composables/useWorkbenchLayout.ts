@@ -5,6 +5,7 @@ import {
   Bot,
   BrainCircuit,
   Clock3,
+  Cpu,
   GraduationCap,
   Heart,
   History,
@@ -27,6 +28,7 @@ export type ToolId = 'study' | 'mistake' | 'todo' | 'timer' | 'history' | 'diary
 export const settingCategories = [
   { id: 'tools', label: '快捷工具', description: '学习面板与小工具', icon: LayoutGrid, scope: 'detail' as const },
   { id: 'model', label: '模型与服务', description: '大语言模型与供应商配置', icon: Bot, scope: 'detail' as const },
+  { id: 'local-models', label: '本地模型', description: 'GGUF 下载与 llama.cpp 运行', icon: Cpu, scope: 'detail' as const },
   { id: 'persona', label: '人格设定', description: '管理人格角色设定', icon: Heart, scope: 'detail' as const },
   { id: 'voice', label: '语音', description: '本地与在线语音模型配置', icon: Volume2, scope: 'detail' as const },
   { id: 'conversation', label: '对话', description: '称呼与输入方式', icon: MessageCircle, scope: 'detail' as const },
@@ -91,7 +93,7 @@ export function useWorkbenchLayout(props: {
 
   // 设置弹窗
   const settingsOpen = ref(false);
-  const settingsCategory = ref<'tools' | 'appearance' | 'conversation' | 'model' | 'persona' | 'notifications' | 'voice' | 'plugins' | 'proactive'>('tools');
+  const settingsCategory = ref<'tools' | 'appearance' | 'conversation' | 'model' | 'local-models' | 'persona' | 'notifications' | 'voice' | 'plugins' | 'proactive'>('tools');
   const settingsScope = ref<'siyu' | 'detail'>('detail');
 
   const scopedSettingCategories = computed(() => settingCategories);
