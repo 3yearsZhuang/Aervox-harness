@@ -11,17 +11,9 @@
  */
 import { spawn as nodeSpawn, spawnSync, type ChildProcess } from "node:child_process";
 import type { LlamaRuntimeParams, LlamaRuntimeStatus, LocalModel } from "@aervox/contracts";
+import type { ModelRuntimeDriver, ModelRuntimeDriverHandle } from "./driver.js";
 
-export interface LlamaServerHandle {
-  pid: number | null;
-  status: LlamaRuntimeStatus;
-  port: number | null;
-  modelId: string | null;
-  startedAt: string | null;
-  error: string | null;
-  /** stderr 环形缓冲（最近条目，诊断用） */
-  logs: string[];
-}
+export type LlamaServerHandle = ModelRuntimeDriverHandle;
 
 export interface LlamaServerManagerDeps {
   /** 可执行文件解析器（缺省走 AERVOX_LLAMA_SERVER_PATH / PATH 探测） */
@@ -39,7 +31,10 @@ export interface LlamaServerManagerDeps {
 
 const HEALTH_CHECK_PATH = "/health";
 
-export class LlamaServerManager {
+export class LlamaServerManager implements ModelRuntimeDriver {
+  readonly id = "llama-server";
+  readonly name = "llama.cpp server";
+
   private child: ChildProcess | null = null;
   private status: LlamaRuntimeStatus = "idle";
   private port: number | null = null;

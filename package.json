@@ -21,6 +21,7 @@
     "test:repos": "pnpm --filter @aervox/repositories test",
     "test:e2e": "playwright test",
     "check:boundary": "node scripts/import-boundary.mjs && node --test scripts/import-boundary.test.mjs",
+    "package:plugins": "node scripts/export-plugins.mjs",
     "dist:desktop": "turbo run build --filter=@aervox/desktop && pnpm --filter @aervox/desktop dist:pack"
   },
   "devDependencies": {
@@ -29,6 +30,7 @@
     "@vitejs/plugin-vue": "^6.0.8",
     "@vue/test-utils": "^2.5.0",
     "electron-builder": "^26.15.3",
+    "fflate": "0.8.2",
     "happy-dom": "^20.14.0",
     "playwright": "^1.62.1",
     "sharp": "^0.35.4",

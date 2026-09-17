@@ -16,6 +16,8 @@ import type {
   ASRProviderPort,
   ASRTranscribeRequest,
   ASRTranscribeResult,
+  DownloadableModelPort,
+  LocalModelDownloadStatus,
   VoiceProviderHealth,
 } from "./types.js";
 
@@ -25,7 +27,7 @@ export interface SenseVoiceProviderOptions {
   modelId?: string;
 }
 
-export class SenseVoiceLocalProvider implements ASRProviderPort {
+export class SenseVoiceLocalProvider implements ASRProviderPort, DownloadableModelPort {
   readonly kind = "sensevoice-local";
   private currentModelPath?: string;
   private currentModelId: string;

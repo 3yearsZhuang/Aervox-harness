@@ -1,0 +1,71 @@
+{
+  "apiVersion": "aervox.dev/v1",
+  "kind": "PluginManifest",
+  "metadata": {
+    "id": "anki-sync",
+    "displayName": "Anki 闪卡与外部题库同步器",
+    "publisher": "aervox-official",
+    "version": "1.0.0",
+    "description": "CAP-023: 兼容 Anki 文本导出与标准题库格式（TSV/CSV/JSON），批量导入闪卡并自动排期接入遗忘曲线复习系统，支持对话现场抽取闪卡自测。",
+    "license": "AGPL-3.0-or-later"
+  },
+  "spec": {
+    "config": {
+      "schemaVersion": 1,
+      "entry": "config.schema.json"
+    },
+    "tools": [
+      {
+        "name": "anki_import_deck",
+        "description": "导入 Anki 导出文本或标准 CSV/TSV/JSON 题库内容并批量入库",
+        "category": "learning",
+        "safetyLevel": "guarded",
+        "requiredPermissions": [
+          "learning.write"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "content": {
+              "type": "string",
+              "description": "题库文件文本内容"
+            },
+            "format": {
+              "type": "string",
+              "description": "文件格式 (csv, tsv, json)",
+              "enum": [
+                "csv",
+                "tsv",
+                "json"
+              ]
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "附加题目标签"
+            }
+          },
+          "required": [
+            "content"
+          ]
+        },
+        "priority": 20
+      },
+      {
+        "name": "anki_list_providers",
+        "description": "查询当前系统支持解析的外部题库格式与扩展名",
+        "category": "learning",
+        "safetyLevel": "read_only",
+        "requiredPermissions": [
+          "learning.read"
+        ],
+        "inputSchema": {
+          "type": "object"
+        },
+        "priority": 10
+      }
+    ]
+  }
+}

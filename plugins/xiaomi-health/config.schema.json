@@ -1,0 +1,67 @@
+{
+  "apiVersion": "aervox.dev/v1",
+  "kind": "PluginConfigSchema",
+  "schemaVersion": 1,
+  "fields": [
+    {
+      "key": "appKey",
+      "type": "string",
+      "label": "小米开放平台 AppKey",
+      "description": "小米运动健康开发者开放平台申请的客户端标识",
+      "required": true
+    },
+    {
+      "key": "accessToken",
+      "type": "secret",
+      "label": "OAuth2 访问令牌",
+      "description": "用户授权换取的数据读取令牌",
+      "required": true
+    },
+    {
+      "key": "userId",
+      "type": "string",
+      "label": "用户标识 (Xiaomi UID)",
+      "description": "小米健康账号 UID",
+      "required": true
+    },
+    {
+      "key": "metricTypes",
+      "type": "multi_select",
+      "label": "同步健康指标类型",
+      "description": "选择需要同步并计算精力指数的健康数据项",
+      "default": [
+        "steps",
+        "sleep"
+      ],
+      "options": [
+        {
+          "value": "steps",
+          "label": "步数与站立活动"
+        },
+        {
+          "value": "sleep",
+          "label": "睡眠结构与时长"
+        },
+        {
+          "value": "heartRate",
+          "label": "静息与运动心率"
+        },
+        {
+          "value": "calories",
+          "label": "卡路里消耗量"
+        }
+      ]
+    },
+    {
+      "key": "dailySyncHour",
+      "type": "integer",
+      "label": "每日定时同步时刻 (整点)",
+      "description": "次日早晨定时汇总前夜睡眠与昨日运动数据的时刻（0~23 点）",
+      "default": 8,
+      "validation": {
+        "min": 0,
+        "max": 23
+      }
+    }
+  ]
+}

@@ -1,0 +1,117 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "mizuki",
+  "name": "Mizuki (瑞希)",
+  "version": "1.0.0",
+  "engine": "live2d-v3",
+  "entrypoint": "mizuki.model3.json",
+  "author": "Aervox Team",
+  "description": "Aervox 官方出厂 Live2D 桌宠形象",
+  "scale": 1.0,
+  "bubbleAnchor": {
+    "x": 0.5,
+    "y": 0.15
+  },
+  "semanticMotions": {
+    "idle": [
+      "w-normal-default01",
+      "w-normal-pose01"
+    ],
+    "greet": [
+      "w-normal-greeting01",
+      "w-cute-poseforward02"
+    ],
+    "happy": [
+      "w-cute-glad01",
+      "w-cute-glad03",
+      "w-adult-glad01",
+      "w-happy-glad01",
+      "w-normal-glad01"
+    ],
+    "nod": [
+      "w-cute-nod01",
+      "w-normal-nod01",
+      "w-adult-nod01",
+      "w-happy-nod01"
+    ],
+    "think": [
+      "w-adult-think01",
+      "w-adult-think02"
+    ],
+    "shake": [
+      "w-normal-shakehead01",
+      "w-happy-shakehead01",
+      "w-cute-shakehead01"
+    ],
+    "forward": [
+      "w-cute-forward01",
+      "w-normal-forward01",
+      "w-happy-forward01"
+    ],
+    "tilthead": [
+      "w-normal-tilthead01",
+      "w-cute-tilthead01",
+      "w-adult-tilthead01"
+    ],
+    "sad": [
+      "w-normal-sad01",
+      "w-happy-sad01",
+      "w-cool-sad01"
+    ],
+    "farewell": [
+      "w-happy-shakehand01",
+      "w-cool-shakehand01"
+    ],
+    "expand": [
+      "w-cute-forward01",
+      "w-normal-purpose01"
+    ],
+    "collapse": [
+      "w-normal-relief01",
+      "w-normal-yurayura01"
+    ]
+  },
+  "semanticExpressions": {
+    "smile": [
+      "face_smile_01",
+      "face_smile_02",
+      "face_smile_03"
+    ],
+    "wink": [
+      "face_wink_01"
+    ],
+    "sparkling": [
+      "face_sparkling_01"
+    ],
+    "sleepy": [
+      "face_sleepy_01",
+      "face_sleepy_02"
+    ]
+  },
+  "poses": {
+    "greet": [
+      { "motion": "w-normal-greeting01", "expression": "face_wink_01" },
+      { "motion": "w-cute-poseforward02", "expression": "face_smile_01" }
+    ],
+    "happy": [
+      { "motion": "w-cute-glad01", "expression": "face_sparkling_01" },
+      { "motion": "w-adult-glad01", "expression": "face_smile_03" }
+    ],
+    "farewell": [
+      { "motion": "w-happy-shakehand01", "expression": "face_smile_02" },
+      { "motion": "w-cool-shakehand01", "expression": "face_smile_04" }
+    ],
+    "expand": [
+      { "motion": "w-cute-forward01", "expression": "face_notice_01" },
+      { "motion": "w-normal-purpose01", "expression": "face_sparkling_01" }
+    ],
+    "collapse": [
+      { "motion": "w-normal-relief01", "expression": "face_breath_01" },
+      { "motion": "w-normal-yurayura01", "expression": "face_sleepy_01" }
+    ],
+    "think": [
+      { "motion": "w-adult-think01", "expression": "face_normal_01" },
+      { "motion": "w-adult-think02", "expression": "face_smallmouth_01" }
+    ]
+  }
+}

@@ -144,10 +144,14 @@ export function todayWindow(now = new Date()): { startIso: string; endIso: strin
   };
 }
 
+import { DiaryStyleRegistry, defaultDiaryStyleRegistry } from "./styles.js";
+
 export interface DiaryGenerationServiceDeps {
   db: AervoxDatabase;
   /** llm 模式端口；未注入或租户未启用 LLM 时模板降级 */
   model: DiaryModelPort | null;
+  /** 可选的日记提炼风格注册表；缺省时使用 defaultDiaryStyleRegistry */
+  styles?: DiaryStyleRegistry;
 }
 
 export class DiaryGenerationService {
@@ -156,21 +160,31 @@ export class DiaryGenerationService {
   /** 生成一篇日记草稿（素材采集 + 模型调用 / 模板降级） */
   async generate(
     tenant: LocalContext,
-    input: { localDate: string; window: { startIso: string; endIso: string }; focus?: string },
+    input: {
+      localDate: string;
+      window: { startIso: string; endIso: string };
+      focus?: string;
+      styleId?: string;
+    },
   ): Promise<DiaryDraft> {
+    const styleRegistry = this.deps.styles ?? defaultDiaryStyleRegistry;
+    const style =
+      (input.styleId ? styleRegistry.get(input.styleId) : undefined) ??
+      styleRegistry.getDefault();
+
     const material = await collectDiaryMaterial(this.deps.db, tenant, input.window);
     const materialCount = diaryMaterialCount(material);
 
     const mode = process.env.AERVOX_LOOP_PROVIDER ?? "llm";
     if (mode !== "llm" || !this.deps.model) {
-      return renderTemplateDiary(material, input.localDate);
+      return renderTemplateDiary(material, input.localDate, style.id);
     }
 
     try {
       const raw = await this.deps.model.generate({
         tenant,
-        system: buildDiarySystemPrompt("思思"),
-        user: buildDiaryUserPrompt(material, input.localDate, input.focus),
+        system: style.buildSystemPrompt("思思"),
+        user: style.buildUserPrompt(material, input.localDate, input.focus),
       });
       const parsed = parseDiaryDraft(raw, input.localDate);
       return {
@@ -182,7 +196,7 @@ export class DiaryGenerationService {
     } catch (err) {
       // 租户未启用/供应商协议不支持：诚实模板降级；其余错误上抛（配置问题应在链路中显性暴露）
       if (err instanceof Error && err.message.startsWith("llm_disabled")) {
-        return renderTemplateDiary(material, input.localDate);
+        return renderTemplateDiary(material, input.localDate, style.id);
       }
       throw err;
     }
