@@ -25,6 +25,8 @@ export interface DownloadOptions {
   signal?: AbortSignal;
   /** 断点续传：基础偏移（启用后若服务端支持 Range 则追加写入）。缺省自动检测 .part */
   resumeOffsetBytes?: number;
+  /** 限速（bytes/sec）；0 或缺省不限 */
+  rateLimitBps?: number;
 }
 
 export interface DownloadResult {
@@ -120,6 +122,9 @@ export async function downloadToFile(options: DownloadOptions): Promise<Download
     // 使用文件句柄逐块 flush，避免把数 GB 模型整体缓冲进内存
     const handle = await fs.open(partPath, resuming ? "a" : "w");
     try {
+      const rateLimitBps = options.rateLimitBps ?? 0;
+      let windowStart = Date.now();
+      let windowBytes = 0;
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -127,6 +132,19 @@ export async function downloadToFile(options: DownloadOptions): Promise<Download
         transferredBytes += value.byteLength;
         await handle.write(value);
         options.onProgress?.({ receivedBytes: resumeOffset + transferredBytes, totalBytes });
+        // 限速：以固定窗口滑动控制字节速率（窗口内不足的部分 sleep 补齐）
+        if (rateLimitBps > 0) {
+          windowBytes += value.byteLength;
+          const elapsed = Date.now() - windowStart;
+          const expectedMs = (windowBytes / rateLimitBps) * 1000;
+          if (expectedMs > elapsed) {
+            await new Promise((resolve) => setTimeout(resolve, expectedMs - elapsed));
+          }
+          if (windowBytes >= rateLimitBps) {
+            windowStart = Date.now();
+            windowBytes = 0;
+          }
+        }
       }
     } finally {
       await handle.close();

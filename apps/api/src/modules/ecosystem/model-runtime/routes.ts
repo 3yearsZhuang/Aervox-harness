@@ -6,12 +6,43 @@ import {
 import type { ModelRuntimeService } from "./service.js";
 
 export function registerModelRuntimeRoutes(app: FastifyInstance, service: ModelRuntimeService): void {
-  // GET /v1/model-runtime/state — 全量状态（模型注册表 / 运行时 / 下载进度 / llama-server 配置）
+  // GET /v1/model-runtime/state — 全量状态
   app.get("/v1/model-runtime/state", async () => {
     return service.getState();
   });
 
-  // POST /v1/model-runtime/downloads — 发起模型下载（单任务队列）
+  // GET /v1/model-runtime/catalog — 内置精选 GGUF 目录（任意 URL 下载入口仍保留）
+  app.get("/v1/model-runtime/catalog", async () => {
+    return { entries: service.getCatalog() };
+  });
+
+  // GET /v1/model-runtime/events — SSE 实时状态推送（断线后由客户端回退轮询 state）
+  app.get("/v1/model-runtime/events", async (req, reply) => {
+    reply.hijack();
+    const raw = reply.raw;
+    raw.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    });
+    const push = (state: unknown): void => {
+      raw.write(`event: snapshot\ndata: ${JSON.stringify(state)}\n\n`);
+    };
+    const close = (): void => {
+      clearInterval(heartbeat);
+      unsub();
+      if (!raw.destroyed) raw.end();
+    };
+    req.raw.on("close", close);
+    const unsub = service.subscribe(push);
+    // 建连即推一版快照
+    void service.getState().then(push).catch(() => undefined);
+    const heartbeat = setInterval(() => {
+      if (!raw.destroyed) raw.write(": ping\n\n");
+    }, 15_000);
+  });
+
+  // POST /v1/model-runtime/downloads — 发起下载（进入队列）
   app.post("/v1/model-runtime/downloads", async (req, reply) => {
     const parsed = modelDownloadRequestSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -25,7 +56,7 @@ export function registerModelRuntimeRoutes(app: FastifyInstance, service: ModelR
       return await service.startDownload(parsed.data);
     } catch (err) {
       const message = err instanceof Error ? err.message : "下载发起失败";
-      const busy = message.startsWith("download_busy");
+      const busy = message.startsWith("download_busy") || message.startsWith("model_exists");
       return reply.code(busy ? 409 : 400).send({
         code: busy ? "DOWNLOAD_BUSY" : "DOWNLOAD_FAILED",
         message,
@@ -33,12 +64,35 @@ export function registerModelRuntimeRoutes(app: FastifyInstance, service: ModelR
     }
   });
 
-  // POST /v1/model-runtime/downloads/cancel — 取消进行中的下载
-  app.post("/v1/model-runtime/downloads/cancel", async () => {
-    return service.cancelDownload();
+  // POST /v1/model-runtime/downloads/:taskId/pause|resume|cancel
+  app.post("/v1/model-runtime/downloads/:taskId/pause", async (req, reply) => {
+    const { taskId } = req.params as { taskId: string };
+    try {
+      return await service.pauseDownload(taskId);
+    } catch (err) {
+      return reply.code(404).send({ code: "TASK_NOT_FOUND", message: err instanceof Error ? err.message : "任务不存在" });
+    }
   });
 
-  // POST /v1/model-runtime/start — 启动 llama-server 服务指定模型
+  app.post("/v1/model-runtime/downloads/:taskId/resume", async (req, reply) => {
+    const { taskId } = req.params as { taskId: string };
+    try {
+      return await service.resumeDownload(taskId);
+    } catch (err) {
+      return reply.code(404).send({ code: "TASK_NOT_FOUND", message: err instanceof Error ? err.message : "任务不存在" });
+    }
+  });
+
+  app.post("/v1/model-runtime/downloads/:taskId/cancel", async (req, reply) => {
+    const { taskId } = req.params as { taskId: string };
+    try {
+      return await service.cancelDownload(taskId);
+    } catch (err) {
+      return reply.code(404).send({ code: "TASK_NOT_FOUND", message: err instanceof Error ? err.message : "任务不存在" });
+    }
+  });
+
+  // POST /v1/model-runtime/start — 启动 llama-server
   app.post("/v1/model-runtime/start", async (req, reply) => {
     const parsed = modelRuntimeStartRequestSchema.safeParse(req.body);
     if (!parsed.success) {
