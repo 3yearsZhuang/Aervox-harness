@@ -27,10 +27,12 @@ const {
     <ExtensionSlot name="conversation:top" />
 
     <!-- 收起态摘要行：说话人 + 当前句单行省略（视觉小说细条） -->
-    <div v-if="consoleCollapsed" class="console-collapsed-summary" aria-hidden="true">
-      <span class="console-collapsed-speaker">{{ assistantDisplayName }}</span>
-      <span class="console-collapsed-text">{{ collapsedSummaryText }}</span>
-    </div>
+    <Transition name="summary-crossfade">
+      <div v-if="consoleCollapsed" class="console-collapsed-summary" aria-hidden="true">
+        <span class="console-collapsed-speaker">{{ assistantDisplayName }}</span>
+        <span class="console-collapsed-text">{{ collapsedSummaryText }}</span>
+      </div>
+    </Transition>
 
     <div ref="storyViewport" class="message-viewport" aria-live="polite">
       <p
