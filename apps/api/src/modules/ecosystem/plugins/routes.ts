@@ -155,4 +155,88 @@ export function registerPluginRoutes(app: FastifyInstance, service: PluginServic
       : await service.hasPermission(tenant, pluginId, permission);
     return { pluginId, permission, scope: scope ?? null, granted: has };
   });
+
+  // 预检插件分发包（PRD CAP-020 验收门禁）
+  app.post(
+    "/v1/plugins/inspect-package",
+    { bodyLimit: 20 * 1024 * 1024 },
+    async (req, reply) => {
+      const body = (req.body ?? {}) as { packageBase64?: string };
+      if (!body.packageBase64 || typeof body.packageBase64 !== "string") {
+        return reply.code(400).send({ error: "packageBase64 is required" });
+      }
+      try {
+        const report = await service.inspectPackage(body.packageBase64);
+        return reply.code(200).send(report);
+      } catch (e) {
+        return reply.code(400).send({
+          error: "Failed to inspect package archive",
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+    },
+  );
+
+  // 从分发包安装插件（.aervox-plugin）
+  app.post(
+    "/v1/plugins/install-package",
+    { bodyLimit: 20 * 1024 * 1024 },
+    async (req, reply) => {
+      const body = (req.body ?? {}) as { packageBase64?: string; overwrite?: boolean };
+      if (!body.packageBase64 || typeof body.packageBase64 !== "string") {
+        return reply.code(400).send({ error: "packageBase64 is required" });
+      }
+      try {
+        const plugin = await service.installPackage(body.packageBase64, Boolean(body.overwrite));
+        return reply.code(201).send(plugin);
+      } catch (e: any) {
+        if (e?.code === "PLUGIN_ALREADY_EXISTS") {
+          return reply.code(409).send({ error: e.message, code: "PLUGIN_ALREADY_EXISTS" });
+        }
+        return reply.code(400).send({
+          error: "Failed to install plugin from package",
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+    },
+  );
+
+  // 导出插件分发包（.aervox-plugin）
+  app.get("/v1/plugins/:id/export", async (req, reply) => {
+    const { id: pluginId } = req.params as { id: string };
+    try {
+      const exported = await service.exportPackage(pluginId);
+      return reply.code(200).send({
+        pluginId,
+        filename: exported.filename,
+        packageBase64: exported.packageBase64,
+        checksum: exported.checksum,
+      });
+    } catch (e) {
+      return reply.code(404).send({
+        error: "Plugin not found or cannot be exported",
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+  });
+
+  // 列出官方与出厂插件集市条目
+  app.get("/v1/plugins/market", async () => {
+    const items = await service.listMarket();
+    return { items };
+  });
+
+  // 从出厂集市一键安装插件
+  app.post("/v1/plugins/market/:id/install", async (req, reply) => {
+    const { id: pluginId } = req.params as { id: string };
+    try {
+      const plugin = await service.installFromMarket(pluginId);
+      return reply.code(201).send(plugin);
+    } catch (e) {
+      return reply.code(404).send({
+        error: "Market plugin not found or failed to install",
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+  });
 }

@@ -171,6 +171,8 @@ export async function registerPluginsModule(ctx: ModuleContext): Promise<void> {
       }
     : undefined;
 
+  const builtinRoot = defaultBuiltinPluginsSourceRoot();
+
   const service = new PluginService({
     extensionRepo,
     registry,
@@ -179,13 +181,17 @@ export async function registerPluginsModule(ctx: ModuleContext): Promise<void> {
     cleanup: (pluginId) => configService.cleanupPlugin(pluginId),
     proactiveRuleSync,
     pluginRegistry: defaultServerPluginRegistry,
+    configService,
+    bundleStore,
+    configRepo,
+    pageRepo,
+    builtinPluginsSourceRoot: builtinRoot,
   });
 
   registerPluginRoutes(app, service);
   registerPluginConfigRoutes(app, configService);
 
   // 同步内置插件目录（plugins/）
-  const builtinRoot = defaultBuiltinPluginsSourceRoot();
   await syncBuiltinPlugins(builtinRoot, service, configService);
 }
 

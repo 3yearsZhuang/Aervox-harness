@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import {
   BookOpen,
   BrainCircuit,
+  Download,
   FileText,
   Info,
   LayoutGrid,
@@ -398,6 +399,20 @@ function openPage(page: PluginPageDto): void {
   pageTargetPage.value = page
   pageDialogOpen.value = true
 }
+
+const isExporting = ref(false)
+async function handleExport(): Promise<void> {
+  if (!props.plugin) return
+  isExporting.value = true
+  try {
+    await pluginsApi.downloadPackage(props.plugin.id)
+    ElMessage.success(`插件包导出成功: ${props.plugin.id}.aervox-plugin`)
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : '导出插件包失败')
+  } finally {
+    isExporting.value = false
+  }
+}
 </script>
 
 <template>
@@ -409,6 +424,19 @@ function openPage(page: PluginPageDto): void {
     size="lg"
     @close="emit('close')"
   >
+    <template #header-actions>
+      <button
+        v-if="plugin"
+        type="button"
+        class="header-action-btn plugin-export-btn"
+        title="导出插件安装包 (.aervox-plugin)"
+        :disabled="isExporting"
+        @click="handleExport"
+      >
+        <Download :size="13" />
+        <span>{{ isExporting ? '导出中...' : '导出分发包' }}</span>
+      </button>
+    </template>
     <div class="plugin-settings-layout">
       <!-- 左侧 / 顶部能力分类导航 -->
       <nav class="settings-subnav" role="tablist">
@@ -1070,4 +1098,32 @@ function openPage(page: PluginPageDto): void {
 .safety-read-only { color: #67c23a; background: rgba(103, 194, 58, 0.1); }
 .safety-approval { color: #e6a23c; background: rgba(230, 162, 60, 0.1); }
 .safety-privileged { color: #f56c6c; background: rgba(245, 108, 108, 0.1); }
+
+/* 对话框头部动作按钮 */
+.header-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-surface, #fff);
+  color: var(--text-normal);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.header-action-btn:hover:not(:disabled) {
+  border-color: var(--color-primary, #4f46e5);
+  color: var(--color-primary, #4f46e5);
+  background: var(--bg-hover, rgba(79, 70, 229, 0.05));
+}
+
+.header-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 </style>

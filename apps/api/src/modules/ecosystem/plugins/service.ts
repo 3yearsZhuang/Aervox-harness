@@ -27,14 +27,32 @@ import {
   type ServerPluginRegistry,
   defaultServerPluginRegistry,
 } from "./turn-plugins/registry.js";
+import {
+  inspectPluginBundle,
+  installPluginFromBundle,
+  exportPluginBundle,
+  listMarketPlugins,
+  installFromMarket,
+  type BundleEngineDeps,
+} from "./package-bundle.js";
+import type {
+  PluginPackageInspection,
+  PluginMarketItem,
+} from "@aervox/contracts";
+import type { PluginBundleStore } from "./bundle-store.js";
+import type { PluginConfigService } from "./config-service.js";
+import type {
+  SqlitePluginConfigRepository,
+  SqlitePluginPageRepository,
+} from "@aervox/repositories";
 
 /** 插件声明的工具（安装时注册进 tool_registrations） */
 export interface PluginDeclaredTool {
   /** 工具标识；缺省以 name 作为 id 基底 */
   id?: string;
   name: string;
-  description: string;
-  category: string;
+  description?: string;
+  category?: string;
   safetyLevel?: string;
   requiredPermissions?: unknown;
   inputSchema?: unknown;
@@ -49,7 +67,7 @@ export interface PluginDeclaredSkill {
   /** 简短描述；缺省从 SKILL.md frontmatter 解析 */
   description?: string;
   /** SKILL.md 全文 */
-  content: string;
+  content?: string;
 }
 
 /**
@@ -76,10 +94,85 @@ export interface PluginServiceDeps {
   proactiveRuleSync?: ProactiveRuleSyncPort;
   /** 服务端插件注册表（别名索引与生命周期联动） */
   pluginRegistry?: ServerPluginRegistry;
+  /** CAP-020 插件分发与打包引擎依赖 */
+  configService?: PluginConfigService;
+  bundleStore?: PluginBundleStore;
+  configRepo?: SqlitePluginConfigRepository;
+  pageRepo?: SqlitePluginPageRepository;
+  builtinPluginsSourceRoot?: string;
 }
 
 export class PluginService {
   constructor(private readonly deps: PluginServiceDeps) {}
+
+  /** 注入分发引擎协作依赖 */
+  setBundleDependencies(extra: {
+    configService: PluginConfigService;
+    bundleStore: PluginBundleStore;
+    configRepo: SqlitePluginConfigRepository;
+    pageRepo: SqlitePluginPageRepository;
+    builtinPluginsSourceRoot?: string;
+  }): void {
+    Object.assign(this.deps, extra);
+  }
+
+  private getBundleEngineDeps(): BundleEngineDeps {
+    if (
+      !this.deps.configService ||
+      !this.deps.bundleStore ||
+      !this.deps.configRepo ||
+      !this.deps.pageRepo
+    ) {
+      throw new Error("Plugin bundle engine dependencies not fully initialized");
+    }
+    return {
+      extensionRepo: this.deps.extensionRepo,
+      configRepo: this.deps.configRepo,
+      pageRepo: this.deps.pageRepo,
+      registry: this.deps.registry,
+      skillRegistry: this.deps.skillRegistry,
+      skillsRoot: this.deps.skillsRoot,
+      configService: this.deps.configService,
+      bundleStore: this.deps.bundleStore,
+      builtinPluginsSourceRoot: this.deps.builtinPluginsSourceRoot ?? "",
+      service: this,
+    };
+  }
+
+  /** 预检插件分发包（内存解包与静态结构分析，零副作用） */
+  async inspectPackage(packageBase64: string): Promise<PluginPackageInspection> {
+    const bytes = new Uint8Array(Buffer.from(packageBase64, "base64"));
+    return inspectPluginBundle(bytes, { extensionRepo: this.deps.extensionRepo });
+  }
+
+  /** 从分发包安装插件 */
+  async installPackage(packageBase64: string, overwrite: boolean = false): Promise<PluginModel> {
+    const bytes = new Uint8Array(Buffer.from(packageBase64, "base64"));
+    return installPluginFromBundle(bytes, { overwrite }, this.getBundleEngineDeps());
+  }
+
+  /** 导出插件分发包 */
+  async exportPackage(pluginId: string): Promise<{ filename: string; packageBase64: string; checksum: string }> {
+    const result = await exportPluginBundle(pluginId, this.getBundleEngineDeps());
+    return {
+      filename: result.filename,
+      packageBase64: Buffer.from(result.bytes).toString("base64"),
+      checksum: result.checksum,
+    };
+  }
+
+  /** 获取官方与出厂插件集市条目 */
+  async listMarket(): Promise<PluginMarketItem[]> {
+    return listMarketPlugins({
+      extensionRepo: this.deps.extensionRepo,
+      builtinPluginsSourceRoot: this.deps.builtinPluginsSourceRoot ?? "",
+    });
+  }
+
+  /** 从出厂集市一键安装插件 */
+  async installFromMarket(pluginId: string): Promise<PluginModel> {
+    return installFromMarket(pluginId, this.getBundleEngineDeps());
+  }
 
   /** 列出全部插件 */
   listPlugins(): Promise<PluginModel[]> {
@@ -120,8 +213,8 @@ export class PluginService {
       await this.deps.registry.registerTool({
         id: toolId,
         name: tool.name,
-        description: tool.description,
-        category: tool.category,
+        description: tool.description ?? "",
+        category: tool.category ?? "plugin",
         safetyLevel: tool.safetyLevel,
         requiredPermissions: tool.requiredPermissions,
         inputSchema: tool.inputSchema,
