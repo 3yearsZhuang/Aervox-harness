@@ -1,7 +1,7 @@
 /**
  * CR-033 F1 共享契约：态势投影（situation_model_v1）与感知事件 envelope。
  *
- * 规则依据：docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md
+ * 规则依据：CR-033（已归档至归档库）
  * - P2 统一态势投影：版本化白名单 schema，规则与 LLM 的唯一视野，纯派生物可重建；
  * - P1 感知事件化：envelope 携带幂等键、来源授权、occurredAt/ingestedAt、SQLite ingestion
  *   sequence、schema version、payload digest 与因果信息；

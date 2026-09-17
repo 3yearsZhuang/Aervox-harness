@@ -1,7 +1,7 @@
 # AGENTS.md — AI 协作指南（薄入口）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-15
+- 修改人：3yearszhuang · 2026-09-17
 
 本文件是所有 AI 编码助手（包括 Antigravity、Claude Code、Cursor、GitHub Copilot、Roo Code、Windsurf 等）的进入点与协作底线协议：
 **只索引，不复制**：权威技术规范、产品定义与架构事实源一律深链至 `docs/`，严禁在入口复制可能变更的业务逻辑，杜绝双源漂移。
@@ -14,7 +14,7 @@
 Aervox｜思隅：更好上手的“主动智能” Agent——以桌宠为入口，视觉小说 + 工作台双形态交互，承载陪伴与学习双重任务。
 
 - **技术族**：TypeScript 全栈 monorepo（Vue 全栈单栈，[ADR-015](docs/reference/adr/ADR-015-vue-full-stack.md)）：Fastify 5 API（:3000）+ 独立 Worker 进程（Outbox / 复习排期 / 日记提炼 / 证据清理）+ Electron 桌面端（Fairy）+ Vue 3 Web 工作台（:5173）。
-- **存储真源**：纯本地单用户真源（[CR-030](docs/reference/changes/CR-030-pure-local-sqlite-database.md)），永久本地 SQLite (WAL 模式) 单库存储。去租户化已完全落地，全面移除了历史 Postgres、Redis、BullMQ 和 S3 依赖。
+- **存储真源**：纯本地单用户真源（`CR-030`，已归档），永久本地 SQLite (WAL 模式) 单库存储。去租户化已完全落地，全面移除了历史 Postgres、Redis、BullMQ 和 S3 依赖。
 
 ---
 

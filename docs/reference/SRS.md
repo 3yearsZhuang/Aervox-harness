@@ -7,15 +7,15 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 1.3.0
-updated_at: 2026-09-11
-reviewed_at: 2026-09-11
+updated_at: 2026-09-17
+reviewed_at: 2026-09-17
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 软件需求规格（SRS）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-11
+- 修改人：3yearszhuang · 2026-09-17
 
 产品事实源：[PRD](PRD.md)
 
@@ -228,7 +228,7 @@ review_interval_days: 90
   - `AC-FR-PRC-001-09`：Given 用户恢复一条已忽略错题，When 读取活动列表，Then 该条目重新可见并可被选择重练。
   - `AC-FR-PRC-001-10`：Given 用户重开存在活跃会话的学习界面或重试创建会话，When 系统恢复会话，Then 返回原题组快照、已答题目和首个未答题，且不创建第二个活跃会话。
   - `AC-FR-PRC-001-11`：Given 用户更新错因或说明，When 再次读取、筛选或重练错题，Then 更新只影响同一租户下的错因元数据与展示，原始作答和派生学习状态不变。
-- **测试**：`TC-UNIT-PRC-001`、`TC-API-PRC-001`、`TC-INTEG-PRC-001`、`TC-E2E-PRC-001`。变更依据见 [CR-008](changes/CR-008-practice-session-contract.md)、[CR-009](changes/CR-009-mistake-book-dismissal.md) 与 [CR-018](changes/CR-018-mistake-insight-workflow.md)。
+- **测试**：`TC-UNIT-PRC-001`、`TC-API-PRC-001`、`TC-INTEG-PRC-001`、`TC-E2E-PRC-001`。变更依据见 `CR-008`（已归档）、`CR-009`（已归档） 与 `CR-018`（已归档）。
 
 ### FR-REV-001 间隔复习
 
@@ -241,7 +241,7 @@ review_interval_days: 90
   - `AC-FR-REV-001-03`：Given 用户跨时区或遇到 DST，When 计算日界线和下一到期时间，Then 使用操作时的用户 IANA 时区、保存时区快照且不重复生成活动项。
   - `AC-FR-REV-001-04`：Given 首次完成已提交，When 客户端以相同判定重试，Then 返回同一下一项且知识点统计只更新一次；判定不同则返回 409。
   - `AC-FR-REV-001-05`：Given 用户已完成多次复习，When 打开学习工作台，Then 按最近完成时间展示判定和关联的下一复习项，且不得泄露其他租户记录。
-- **测试**：`TC-UNIT-REV-001`、`TC-INTEG-REV-001`、`TC-PERF-REV-001`、`TC-MIG-REV-001`。变更依据见 [CR-010](changes/CR-010-review-completion-idempotency.md) 与 [CR-011](changes/CR-011-timezone-safe-review-scheduling.md)。
+- **测试**：`TC-UNIT-REV-001`、`TC-INTEG-REV-001`、`TC-PERF-REV-001`、`TC-MIG-REV-001`。变更依据见 `CR-010`（已归档） 与 `CR-011`（已归档）。
 
 ### FR-SAFE-001 轻量陪伴与安全响应
 
@@ -457,7 +457,7 @@ review_interval_days: 90
 
 ### SEC-TEN-001 工作区/数据主体隔离（已替代）
 
-- **状态**：Superseded by `SEC-LOC-001`（[CR-030](changes/CR-030-pure-local-sqlite-database.md)）。
+- **状态**：Superseded by `SEC-LOC-001`（`CR-030`（已归档））。
 - **当前实现**：CR-030 D2 已完成去租户化，`LocalContext` 不再参与数据库授权或过滤；API 仍必须遵守 loopback 默认监听与非 loopback token 认证门禁。
 
 <a id="srs-sec-local"></a>

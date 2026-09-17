@@ -7,8 +7,8 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 1.0.2
-updated_at: 2026-09-16
-reviewed_at: 2026-09-16
+updated_at: 2026-09-17
+reviewed_at: 2026-09-17
 review_interval_days: 90
 review_triggers:
   - docs/reference/changes/**
@@ -22,9 +22,9 @@ sources:
 # 操作指南：提出、撰写与闭环变更请求（CR）
 
 - 提出人：3yearszhuang · 2026-09-13
-- 修改人：3yearszhuang · 2026-09-16
+- 修改人：3yearszhuang · 2026-09-17
 
-关联：[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md#11-变更控制) · [文档治理规范](../reference/document-governance.md) · [文档写作规范](../reference/standards/doc-standards.md) · [CR 索引表](../README.md#变更请求速览)
+关联：[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md#11-变更控制) · [文档治理规范](../reference/document-governance.md) · [文档写作规范](../reference/standards/doc-standards.md) · [历史 CR 归档说明](../README.md#历史变更请求与临时落地计划归档说明)
 
 本指南指导开发者和 AI Agent 如何为 Aervox 提出、撰写、实施并闭环一个变更请求（Change Request，简称 CR）。变更控制的判定规则与事实源以[需求追踪基线 §11](../reference/REQUIREMENTS_TRACEABILITY.md#11-变更控制)为准，本页聚焦操作步骤。
 
@@ -53,7 +53,7 @@ sources:
 在 `docs/reference/changes/` 目录下创建文件，文件名严格遵守命名规范 `CR-###-kebab-case.md`：
 
 ```bash
-touch docs/reference/changes/CR-999-example-feature.md
+# 提案已迁移至独立归档仓库流程
 ```
 
 在文件头部写入标准 YAML Front Matter 与点阵签名：
@@ -68,8 +68,8 @@ doc_status: review-candidate
 decision_status: proposed
 delivery_status: planned
 version: 0.1.0
-updated_at: 2026-09-13
-reviewed_at: 2026-09-13
+updated_at: 2026-09-17
+reviewed_at: 2026-09-17
 review_interval_days: 90
 sources:
   - docs/reference/PRD.md
@@ -79,7 +79,7 @@ sources:
 # CR-999 <清晰动宾短语标题>
 
 - 提出人：<账号> · 2026-09-13
-- 修改人：<账号> · 2026-09-13
+- 修改人：3yearszhuang · 2026-09-17
 
 关联：[PRD](../PRD.md) · [需求追踪基线](../REQUIREMENTS_TRACEABILITY.md)
 
@@ -91,7 +91,7 @@ sources:
 
 ### 第三步：编写变更差量与影响分析
 
-CR 正文需回答以下 5 个核心问题（可参考 [CR-030](../reference/changes/CR-030-pure-local-sqlite-database.md) 或 [CR-031](../reference/changes/CR-031-turn-stream-pubsub-optimization.md)）：
+CR 正文需回答以下 5 个核心问题（可参考 `CR-030`（已归档） 或 `CR-031`（已归档））：
 
 1. **变更原因与证据**：为什么现有基线无法满足需求？有哪些性能指标、用户反馈或设计假设被证伪？
 2. **当前行为 vs 目标行为**：明确修改前的运行逻辑与修改后的预期逻辑，禁止模棱两可；
@@ -104,7 +104,7 @@ CR 正文需回答以下 5 个核心问题（可参考 [CR-030](../reference/cha
 CR 文件创建后属于 L3 结构性改动，需执行以下同步：
 
 1. **同步 `docs/DOC_REGISTRY.md`**：追加一行登记记录；
-2. **同步 `docs/README.md`**：在「变更请求速览」表格中追加对应行；
+2. **同步生命周期与落地登记**：在 `docs/DOC_REGISTRY.md` 与追踪基线登记；实施完成闭环后，提案文档将归档至私有归档库，架构事实固化至 Living 契约；
 3. **自动对齐核验日期**：
 
    ```bash

@@ -7,8 +7,8 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.3.0
-updated_at: 2026-09-16
-reviewed_at: 2026-09-16
+updated_at: 2026-09-17
+reviewed_at: 2026-09-17
 review_interval_days: 90
 review_triggers:
   - plugins/**
@@ -27,9 +27,9 @@ sources:
 # 操作指南：开发 Aervox 扩展插件（How-to）
 
 - 提出人：linge · 2026-09-09
-- 修改人：3yearszhuang · 2026-09-16
+- 修改人：3yearszhuang · 2026-09-17
 
-关联：[插件 Config、Page 与 UI 扩展规范](../reference/plugin-config-and-pages.md) · [CR-050](../reference/changes/CR-050-declarative-ui-plugin-registry-and-focus-mode-decoupling.md) · [能力组合与可选化目录规范](../reference/capability-composition.md) · [ADR-009](../reference/adr/ADR-009-electron-plugin-sandbox.md) · [ADR-015](../reference/adr/ADR-015-vue-full-stack.md)
+关联：[插件 Config、Page 与 UI 扩展规范](../reference/plugin-config-and-pages.md) · `CR-050`（已归档） · [能力组合与可选化目录规范](../reference/capability-composition.md) · [ADR-009](../reference/adr/ADR-009-electron-plugin-sandbox.md) · [ADR-015](../reference/adr/ADR-015-vue-full-stack.md)
 
 本指南指导插件开发者如何基于 Aervox 插件体系开发扩展插件。涵盖全栈插件生命周期：
 

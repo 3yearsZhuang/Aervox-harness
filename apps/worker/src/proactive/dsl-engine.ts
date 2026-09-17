@@ -1,7 +1,7 @@
 /**
  * CR-033 E2a 受限 DSL 求值器。
  *
- * 规则依据：docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md
+ * 规则依据：CR-033（已归档至归档库）
  * - 表达式只引用 situation_model_v1 白名单字段；纯函数；无 IO、无循环、无任意函数、无模型执行；
  * - 安装期静态检查：字段白名单、类型、深度、节点数、字符串长度、canonical hash；
  * - 运行期：超时、未知节点、除零、资源耗尽一律不命中（fail-closed）；

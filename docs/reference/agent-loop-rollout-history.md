@@ -7,8 +7,8 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.1.0
-updated_at: 2026-09-16
-reviewed_at: 2026-09-16
+updated_at: 2026-09-17
+reviewed_at: 2026-09-17
 review_interval_days: 90
 sources:
   - docs/reference/agent-harness-loop.md
@@ -17,9 +17,9 @@ sources:
 # Agent Harness Loop 分阶段落地进展与追溯历史
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-09-16
+- 修改人：3yearszhuang · 2026-09-17
 
-关联：[Agent Harness Loop 设计与落地规范](agent-harness-loop.md)（AVX-HAR-001）、[CR-012](changes/CR-012-agent-harness-loop.md)、[需求追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)
+关联：[Agent Harness Loop 设计与落地规范](agent-harness-loop.md)（AVX-HAR-001）、`CR-012`（已归档）、[需求追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)
 
 本文从 [Agent Harness Loop 设计与落地规范 (agent-harness-loop.md)](agent-harness-loop.md) 拆分而来，记录 Agent Harness Loop 各阶段（阶段 2b 至阶段 6f）详细的代码落位、数据库表变更、测试用例与历史进展。
 

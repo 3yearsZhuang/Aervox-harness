@@ -1,7 +1,7 @@
 /**
  * CR-033 E2b 注意力预算与回执 Port。
  *
- * 规则依据：docs/reference/changes/CR-033-proactive-endgame-situation-core-and-budgeted-intervention.md
+ * 规则依据：CR-033（已归档至归档库）
  * - 预算扣减、派发、结算和失败退款在同一写者事务内完成；
  * - reserve 使用 CAS（reserveVersion 比对 + 单条原子 UPDATE）防止并发超发；
  * - 回执追加式账本：仅内核写入，幂等键防重复；

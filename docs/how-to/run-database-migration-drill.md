@@ -7,8 +7,8 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 1.0.0
-updated_at: 2026-09-13
-reviewed_at: 2026-09-13
+updated_at: 2026-09-17
+reviewed_at: 2026-09-17
 review_interval_days: 90
 review_triggers:
   - docs/reference/DATABASE.md
@@ -17,18 +17,17 @@ review_triggers:
   - packages/repositories/**
 sources:
   - docs/reference/DATABASE.md
-  - docs/reference/changes/CR-030-pure-local-sqlite-database.md
   - docs/reference/operations.md
 ---
 
 # 操作指南：执行 SQLite 本地数据库迁移与换库回滚演练
 
 - 提出人：3yearszhuang · 2026-09-13
-- 修改人：3yearszhuang · 2026-09-13
+- 修改人：3yearszhuang · 2026-09-17
 
-关联：[SQLite 本地单用户数据库契约](../reference/DATABASE.md) · [CR-030 纯本地 SQLite 变更](../reference/changes/CR-030-pure-local-sqlite-database.md) · [运行、值班与演练手册](../reference/operations.md#10-演练与证据)
+关联：[SQLite 本地单用户数据库契约](../reference/DATABASE.md) · `CR-030 纯本地 SQLite 变更`（已归档） · [运行、值班与演练手册](../reference/operations.md#10-演练与证据)
 
-本文档指导维护者与测试人员如何执行 CR-030 确立的 SQLite 本地单用户数据库破坏性迁移与原子换库回滚演练。破坏性迁移与原子换库的架构契约以 [DATABASE.md](../reference/DATABASE.md) 和 [CR-030](../reference/changes/CR-030-pure-local-sqlite-database.md) 为准，本页聚焦操作步骤。
+本文档指导维护者与测试人员如何执行 CR-030 确立的 SQLite 本地单用户数据库破坏性迁移与原子换库回滚演练。破坏性迁移与原子换库的架构契约以 [DATABASE.md](../reference/DATABASE.md) 和 `CR-030`（已归档） 为准，本页聚焦操作步骤。
 
 ## 目标与前置条件
 
