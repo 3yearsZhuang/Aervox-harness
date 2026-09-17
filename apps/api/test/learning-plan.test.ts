@@ -9,7 +9,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   createInMemoryDatabase,
-  initDatabaseSchema,
   SqliteLearningRepository,
   type AervoxDatabase,
   type LocalContext,
@@ -116,7 +115,6 @@ describe("LearningPlanGenerationService", () => {
   beforeEach(async () => {
     process.env.AERVOX_LOOP_PROVIDER = "llm";
     const res = await createInMemoryDatabase();
-    await initDatabaseSchema(res.client);
     db = res.db;
     cleanup = res.cleanup;
   });

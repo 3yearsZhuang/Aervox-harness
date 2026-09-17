@@ -150,10 +150,62 @@ export async function createDatabase(
   return { db, client: retryingClient };
 }
 
+let cachedTemplatePath: string | null = null;
+let templateInitPromise: Promise<string> | null = null;
+
+export interface InMemoryDatabaseOptions {
+  /**
+   * 是否创建完全空白的临时数据库（不从已构建的 Schema 模板文件克隆）。
+   * 缺省为 false（默认克隆预构建模板，将建表开销降至亚毫秒级）。
+   */
+  empty?: boolean;
+}
+
+async function getOrInitTemplateDatabase(): Promise<string> {
+  if (cachedTemplatePath && fs.existsSync(cachedTemplatePath)) {
+    return cachedTemplatePath;
+  }
+  if (!templateInitPromise) {
+    templateInitPromise = (async () => {
+      const templateFile = path.join(
+        os.tmpdir(),
+        `aervox_template_${process.pid}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.db`,
+      );
+      const { client } = await createDatabase({ url: `file:${templateFile}` });
+      const { initDatabaseSchema } = await import("./schema/ddl/index.js");
+      await initDatabaseSchema(client);
+      await client.execute("PRAGMA wal_checkpoint(TRUNCATE);");
+      client.close();
+      cachedTemplatePath = templateFile;
+      return templateFile;
+    })().catch((err) => {
+      templateInitPromise = null;
+      throw err;
+    });
+  }
+  return templateInitPromise;
+}
+
+process.once("exit", () => {
+  if (cachedTemplatePath) {
+    try {
+      if (fs.existsSync(cachedTemplatePath)) fs.unlinkSync(cachedTemplatePath);
+      if (fs.existsSync(`${cachedTemplatePath}-wal`)) fs.unlinkSync(`${cachedTemplatePath}-wal`);
+      if (fs.existsSync(`${cachedTemplatePath}-shm`)) fs.unlinkSync(`${cachedTemplatePath}-shm`);
+    } catch {
+      // 忽略退出清理异常
+    }
+  }
+});
+
 /**
- * 创建独立的临时测试数据库（用于单元测试与快速集成测试）
+ * 创建独立的临时测试数据库（用于单元测试与快速集成测试）。
+ * 默认从预初始化 Schema 的模板文件瞬间克隆，亚毫秒级就绪；
+ * 如需测试原始 DDL 流程，可传入 `{ empty: true }`。
  */
-export async function createInMemoryDatabase(): Promise<{
+export async function createInMemoryDatabase(
+  options: InMemoryDatabaseOptions = {},
+): Promise<{
   db: AervoxDatabase;
   client: Client;
   cleanup: () => Promise<void>;
@@ -162,6 +214,12 @@ export async function createInMemoryDatabase(): Promise<{
     os.tmpdir(),
     `aervox_test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.db`,
   );
+
+  if (!options.empty) {
+    const templateFile = await getOrInitTemplateDatabase();
+    fs.copyFileSync(templateFile, tempFile);
+  }
+
   const { db, client } = await createDatabase({ url: `file:${tempFile}` });
 
   const cleanup = async () => {

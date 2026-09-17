@@ -36,7 +36,17 @@ HELP="$(
   mobile                       构建 Web 产物并同步 Capacitor 壳(cap sync web)
   package                      打包桌面端安装包(electron-builder, 产物 apps/desktop/release/)
   clean                        清理构建产物 dist/out/.turbo(保留 node_modules)
-  ci                           本地门禁: ci-code(install+build+typecheck+test) + ci-docs(lint)
+  test [affected|fast|all|api|repos|<pkg>]
+                               运行测试套件:
+                                 affected  = 智能增量测试(默认, 仅变更包及其下游)
+                                 fast      = 快速单元层(9 个轻量逻辑/UI包, 10秒级)
+                                 all       = 全量受控 2 并发测试
+                                 api       = 仅 API 单包测试
+                                 repos     = 仅 Repositories 单包测试
+                                 <pkg>     = 指定过滤包测试(--filter)
+  ci [affected|all]            运行本地门禁:
+                                 affected  = 极速增量门禁(默认, 仅检验代码变更及下游 + 变更文档, 20秒级)
+                                 all       = 全量终审门禁(全量代码 + 全量文档)
   help, -h, --help             显示本帮助
 
 依赖策略: 每次 dev/mobile 前自动检查——lockfile 与 package.json 一致时跳过,
@@ -153,13 +163,55 @@ cmd_clean() {
   ok "已清理 dist / out / .turbo"
 }
 
+cmd_test() {
+  ensure_mise
+  local target="${1:-affected}"
+  case "$target" in
+    affected)
+      info "运行智能增量测试 (基于 git 变更包及其下游)…"
+      run pnpm test:affected
+      ;;
+    fast|unit)
+      info "运行快速单元层测试 (9 个纯逻辑/UI轻量包)…"
+      run pnpm test:fast
+      ;;
+    all|full)
+      info "运行全量测试 (受控 4 并发)…"
+      run pnpm test
+      ;;
+    api)
+      info "运行 API 单包测试…"
+      run pnpm test:api
+      ;;
+    repos|repositories)
+      info "运行 Repositories 单包测试…"
+      run pnpm test:repos
+      ;;
+    *)
+      info "运行指定目标测试: ${target}…"
+      run pnpm --filter "$target" test
+      ;;
+  esac
+  ok "测试完成"
+}
+
 cmd_ci() {
   ensure_mise
-  info "代码门禁 ci-code…"
-  mise tasks run ci-code
-  info "文档门禁 ci-docs…"
-  mise tasks run ci-docs
-  ok "ci 全部通过"
+  local mode="${1:-affected}"
+  case "$mode" in
+    all|full)
+      info "执行全量终审门禁 (代码全量 + 文档全量)…"
+      mise tasks run ci-code
+      mise tasks run ci-docs
+      ok "全量门禁全部通过"
+      ;;
+    fast|affected|*)
+      info "执行极速增量门禁 (代码增量 + 文档增量)…"
+      ensure_deps
+      mise tasks run ci-fast
+      ok "增量门禁全部通过"
+      ;;
+  esac
 }
 
 # ── 分发 ────────────────────────────────────────────────
@@ -171,6 +223,7 @@ case "$CMD" in
   mobile)                  cmd_mobile ;;
   package)                 cmd_package ;;
   clean)                   cmd_clean ;;
-  ci)                      cmd_ci ;;
+  test)                    cmd_test "${1:-affected}" ;;
+  ci)                      cmd_ci "${1:-affected}" ;;
   *)                       fail "未知命令: ${CMD}（运行 aervox help 查看用法）" ;;
 esac
