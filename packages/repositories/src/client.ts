@@ -23,14 +23,14 @@ const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
 /** 默认共享数据库文件：<repo>/data/aervox.db */
 const defaultDbUrl = `file:${path.join(repoRoot, "data", "aervox.db")}`;
 
-function proactiveApplicationDataDir(env: NodeJS.ProcessEnv = process.env): string {
-  if (process.platform === "darwin") {
-    return path.join(os.homedir(), "Library", "Application Support", "Aervox");
-  }
-  if (process.platform === "win32") {
-    return path.join(env.LOCALAPPDATA ?? path.join(os.homedir(), "AppData", "Local"), "Aervox");
-  }
-  return path.join(env.XDG_DATA_HOME ?? path.join(os.homedir(), ".local", "share"), "aervox");
+/**
+ * CAP-033 本地私密 Vault 默认目录：<repo>/data（与主库同目录）。
+ * 开发/单机使用仓库内目录（已被 .gitignore 的 data/ 忽略），避免 macOS 默认
+ * Application Support 目录被开发容器/沙箱拦截；打包宿主可用
+ * AERVOX_PROACTIVE_VAULT_URL / AERVOX_PROACTIVE_VAULT_KEY_PATH 注入 OS 隔离位置。
+ */
+function proactiveApplicationDataDir(): string {
+  return path.join(repoRoot, "data");
 }
 
 /** CAP-033 本地私密 Vault：不继承可能指向远端的 DATABASE_URL。 */

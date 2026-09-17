@@ -28,6 +28,12 @@ describe('useAervoxLLM & PRESET_PROVIDERS (CR-012)', () => {
     expect(anthropic).toBeDefined();
     expect(anthropic?.defaultBaseUrl).toBe('https://api.anthropic.com/v1');
     expect(anthropic?.requiresApiKey).toBe(true);
+
+    const llamacpp = PRESET_PROVIDERS.find((p) => p.id === 'llamacpp');
+    expect(llamacpp).toBeDefined();
+    expect(llamacpp?.defaultBaseUrl).toBe('http://127.0.0.1:8080/v1');
+    expect(llamacpp?.requiresApiKey).toBe(false);
+    expect(llamacpp?.recommendedModels.length).toBeGreaterThanOrEqual(3);
   });
 
   it('保存时将 Vue 响应式配置规范化为可经 Electron IPC 克隆的纯数据', async () => {

@@ -6,7 +6,12 @@ import type {
   LLMProviderType,
 } from "@aervox/contracts";
 import type { SqliteLLMConfigRepository, LocalContext } from "@aervox/repositories";
-import type { LLMServiceOptions, TestConnectionParams, TestConnectionResult } from "./types.js";
+import type {
+  LLMServiceOptions,
+  ModelCapabilities,
+  TestConnectionParams,
+  TestConnectionResult,
+} from "./types.js";
 
 const DEFAULT_CONFIGS: Record<LLMProviderType, { baseUrl: string; modelId: string }> = {
   ollama: { baseUrl: "http://127.0.0.1:11434/v1", modelId: "llama3.2" },
@@ -14,6 +19,7 @@ const DEFAULT_CONFIGS: Record<LLMProviderType, { baseUrl: string; modelId: strin
   openai: { baseUrl: "https://api.openai.com/v1", modelId: "gpt-4o" },
   anthropic: { baseUrl: "https://api.anthropic.com/v1", modelId: "claude-3-5-sonnet-20241022" },
   custom_openai: { baseUrl: "http://127.0.0.1:8000/v1", modelId: "default" },
+  llamacpp: { baseUrl: "http://127.0.0.1:8080/v1", modelId: "qwen2.5-7b-instruct" },
 };
 
 function toResponse(found: {
@@ -146,6 +152,90 @@ export class LLMConfigService {
     return toResponse(saved);
   }
 
+  /**
+   * Best-effort 探测模型能力（上下文窗口与工具调用支持）。
+   * 来源约定：
+   * - llama.cpp（llamacpp / custom_openai 指向本地端点）：GET /props 的
+   *   default_generation_settings.n_ctx，以及 GET /models/{modelId} 的
+   *   meta.context_length（各版本字段存在差异，做多键解析）；
+   * - 本地端点（回环）默认标记 supportsToolCalls=true（现代 llama.cpp server /
+   *   Ollama 均支持 OpenAI function calling）；远程端点不做假设。
+   * 探测失败（超时 / 404 / 非 JSON）一律返回 undefined，不阻断主探测。
+   */
+  private async probeModelCapabilities(params: {
+    baseUrl: string;
+    providerType: LLMProviderType;
+    modelId: string;
+    headers: Record<string, string>;
+  }): Promise<ModelCapabilities | undefined> {
+    const isLocal =
+      params.providerType === "llamacpp" ||
+      params.providerType === "ollama" ||
+      this.isLoopbackUrl(params.baseUrl);
+
+    const capabilities: ModelCapabilities = {};
+    let contextWindow: number | undefined;
+
+    const withTimeout = async (url: string): Promise<Response | null> => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 3000);
+      try {
+        return await fetch(url, { method: "GET", headers: params.headers, signal: controller.signal });
+      } catch {
+        return null;
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+
+    // 1) llama.cpp 专属 /props（default_generation_settings.n_ctx）
+    const propsRes = await withTimeout(`${params.baseUrl}/props`);
+    if (propsRes?.ok) {
+      try {
+        const props = (await propsRes.json()) as { default_generation_settings?: Record<string, unknown> };
+        const nCtx = props.default_generation_settings?.n_ctx;
+        if (typeof nCtx === "number" && nCtx > 0) contextWindow = nCtx;
+      } catch {
+        // ignore
+      }
+    }
+
+    // 2) /models/{modelId} 的 meta（llama.cpp 新版 OpenAI 兼容返回 context_length 等元数据）
+    if (contextWindow === undefined) {
+      const metaRes = await withTimeout(
+        `${params.baseUrl}/models/${encodeURIComponent(params.modelId)}`,
+      );
+      if (metaRes?.ok) {
+        try {
+          const meta = (await metaRes.json()) as {
+            meta?: Record<string, unknown>;
+            context_length?: unknown;
+          };
+          const raw = meta.meta?.context_length ?? meta.meta?.context_window ?? meta.context_length;
+          const parsed = typeof raw === "number" || /^\d+$/.test(String(raw)) ? Number(raw) : undefined;
+          if (parsed !== undefined && parsed > 0) contextWindow = parsed;
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    if (contextWindow !== undefined) capabilities.contextWindow = contextWindow;
+    // 本地端点（llama.cpp / Ollama / 回环 custom）默认具备工具调用能力
+    if (isLocal) capabilities.supportsToolCalls = true;
+    return Object.keys(capabilities).length > 0 ? capabilities : undefined;
+  }
+
+  /** 判断 baseUrl 是否为回环端点（127.0.0.1 / localhost / ::1） */
+  private isLoopbackUrl(baseUrl: string): boolean {
+    try {
+      const host = new URL(baseUrl).hostname;
+      return host === "127.0.0.1" || host === "localhost" || host === "::1" || host === "[::1]";
+    } catch {
+      return false;
+    }
+  }
+
   async testConnection(params: TestConnectionParams): Promise<TestConnectionResult> {
     const start = Date.now();
     const cleanBaseUrl = params.baseUrl.replace(/\/+$/, "");
@@ -228,11 +318,19 @@ export class LLMConfigService {
         } catch {
           // ignore json parse error on probe
         }
+        // 顺带探测模型能力（上下文窗口 / 工具调用支持），best-effort 失败不阻断
+        const capabilities = await this.probeModelCapabilities({
+          baseUrl: cleanBaseUrl,
+          providerType: params.providerType,
+          modelId: params.modelId,
+          headers,
+        });
         return {
           ok: true,
           latencyMs,
           message: `连接成功 (HTTP ${res.status})`,
           availableModels,
+          capabilities,
         };
       }
 

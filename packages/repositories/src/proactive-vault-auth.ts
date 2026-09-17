@@ -10,7 +10,7 @@ export interface ProactiveAccessTokenConfig {
 }
 
 export function defaultProactiveAccessTokenPath(env: NodeJS.ProcessEnv = process.env): string {
-  return path.join(path.dirname(defaultProactiveVaultKeyPath(env)), "proactive-access.token");
+  return path.join(path.dirname(defaultProactiveVaultKeyPath()), "proactive-access.token");
 }
 
 function validateToken(value: string): string {

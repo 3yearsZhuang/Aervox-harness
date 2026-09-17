@@ -10,7 +10,8 @@ export type LLMProviderType =
   | 'deepseek'
   | 'openai'
   | 'anthropic'
-  | 'custom_openai';
+  | 'custom_openai'
+  | 'llamacpp';
 
 export interface LLMConfigDto {
   enabled: boolean;
@@ -48,6 +49,10 @@ export interface LLMTestConnectionResultDto {
   latencyMs: number;
   message: string;
   availableModels?: string[];
+  capabilities?: {
+    contextWindow?: number;
+    supportsToolCalls?: boolean;
+  };
 }
 
 export interface PresetProviderInfo {
@@ -99,9 +104,23 @@ export const PRESET_PROVIDERS: PresetProviderInfo[] = [
   {
     id: 'custom_openai',
     name: '自定义 OpenAI 兼容接口',
-    description: '兼容 OpenAI 协议的第三方中转或自建 vLLM / LMDeploy 服务',
+    description: '兼容 OpenAI 协议的第三方中转或自建 vLLM / llama.cpp / LMDeploy 服务',
     defaultBaseUrl: 'http://127.0.0.1:8000/v1',
     recommendedModels: ['default'],
+    requiresApiKey: false,
+  },
+  {
+    id: 'llamacpp',
+    name: 'llama.cpp (本地模型)',
+    description: '本地 llama-server（llama.cpp）OpenAI 兼容端点，默认免 API Key',
+    defaultBaseUrl: 'http://127.0.0.1:8080/v1',
+    recommendedModels: [
+      'qwen2.5-7b-instruct',
+      'llama3.1-8b-instruct',
+      'qwen3-8b',
+      'deepseek-r1-distill-qwen-7b',
+      'mistral-7b-instruct',
+    ],
     requiresApiKey: false,
   },
 ];

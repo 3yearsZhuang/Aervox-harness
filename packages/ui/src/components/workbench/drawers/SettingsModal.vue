@@ -28,6 +28,7 @@ import {
   Volume2,
 } from 'lucide-vue-next';
 import LLMConfigPanel from '../../llm/LLMConfigPanel.vue';
+import ModelRuntimePanel from '../../llm/ModelRuntimePanel.vue';
 import PersonaManagerPanel from '../../persona/PersonaManagerPanel.vue';
 import VoicePresetManagerPanel from '../../voice/VoicePresetManagerPanel.vue';
 import PluginManagerPanel from '../../plugin/PluginManagerPanel.vue';
@@ -528,6 +529,7 @@ async function onPluginChange(): Promise<void> {
           <label class="settings-row settings-choice-row"><span><strong>回车发送</strong><small>关闭后，回车只换行</small></span><input v-model="enterToSend" type="checkbox" class="settings-switch" @change="saveSettings(timerMinutes)" /></label>
         </div>
         <LLMConfigPanel v-else-if="settingsCategory === 'model'" class="settings-section" />
+        <ModelRuntimePanel v-else-if="settingsCategory === 'local-models'" class="settings-section" />
         <PersonaManagerPanel v-else-if="settingsCategory === 'persona'" class="settings-section" />
         <div v-else-if="settingsCategory === 'notifications'" class="settings-section">
           <div class="settings-section-heading">

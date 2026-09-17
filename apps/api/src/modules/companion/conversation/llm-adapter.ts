@@ -132,6 +132,14 @@ export async function buildLoopProvider(
       const defaultMaxTokens = isL1Tier && isCapabilityTiering ? 2048 : 4096;
       const configuredMax = matchedPreset?.maxTokens ?? defaultMaxTokens;
       const maxTokens = isL1Tier && isCapabilityTiering ? Math.min(configuredMax, 2048) : configuredMax;
+      // CR-053 预算适配：探测得的上下文窗口（preset.settings.contextWindow，连通性测试回写）为有效上界时，
+      // 预留 CONTEXT_RESERVE_TOKENS 给系统提示与工具 schema，避免 maxTokens 放不下 prompt 组合而直接被拒。
+      const discoveredContextWindow = Number(matchedPreset?.settings?.contextWindow);
+      const CONTEXT_RESERVE_TOKENS = 1024;
+      const effectiveMaxTokens =
+        Number.isFinite(discoveredContextWindow) && discoveredContextWindow > 0
+          ? Math.max(256, Math.min(maxTokens, discoveredContextWindow - CONTEXT_RESERVE_TOKENS))
+          : maxTokens;
 
       const requestTimeoutMs = Number(matchedPreset?.settings?.requestTimeoutMs);
       const provider = createOpenAICompatProvider({
@@ -139,7 +147,7 @@ export async function buildLoopProvider(
         apiKey: matchedPreset?.apiKey,
         modelId: snapshot.modelId,
         temperature: matchedPreset?.temperature ?? 0.7,
-        maxTokens,
+        maxTokens: effectiveMaxTokens,
         ...(Number.isFinite(requestTimeoutMs) && requestTimeoutMs > 0 ? { timeoutMs: requestTimeoutMs } : {}),
         redirect: options.requireLocalOnly ? "error" : undefined,
       });
@@ -153,7 +161,7 @@ export async function buildLoopProvider(
     const cfg = await llmConfigService.getConfig(tenant);
     if (!cfg.enabled) throw new Error("llm_disabled: 当前租户未启用 LLM 配置");
     if (cfg.providerType === "anthropic") {
-      throw new Error("anthropic_unsupported: 阶段 2e 仅支持 OpenAI 兼容协议（openai/deepseek/ollama/custom_openai）");
+      throw new Error("anthropic_unsupported: 阶段 2e 仅支持 OpenAI 兼容协议（openai/deepseek/ollama/llamacpp/custom_openai）");
     }
     if (options.requireLocalOnly && !isLiteralLoopbackUrl(cfg.baseUrl)) {
       throw new Error("proactive_local_provider_required: 主动画像上下文禁止发送到非本机模型端点");
@@ -161,12 +169,19 @@ export async function buildLoopProvider(
     // CR-027：思考型模型经 settings.requestTimeoutMs（空闲超时，ms）放宽上游静默上限；
     // provider 语义为「每收到一段数据即重置」，默认 45s 空闲。
     const requestTimeoutMs = Number(cfg.settings?.requestTimeoutMs);
+    // CR-053 预算适配：探测回的上下文窗口回写在 settings.contextWindow，作为 maxTokens 上界。
+    const discoveredContextWindow = Number(cfg.settings?.contextWindow);
+    const reserve = 1024;
+    const effectiveMaxTokens =
+      Number.isFinite(discoveredContextWindow) && discoveredContextWindow > 0
+        ? Math.max(256, Math.min(cfg.maxTokens ?? 4096, discoveredContextWindow - reserve))
+        : (cfg.maxTokens ?? 4096);
     return createOpenAICompatProvider({
       baseUrl: cfg.baseUrl,
       apiKey: cfg.apiKey,
       modelId: cfg.modelId,
       temperature: cfg.temperature,
-      maxTokens: cfg.maxTokens,
+      maxTokens: effectiveMaxTokens,
       ...(Number.isFinite(requestTimeoutMs) && requestTimeoutMs > 0 ? { timeoutMs: requestTimeoutMs } : {}),
       redirect: options.requireLocalOnly ? "error" : undefined,
     });
