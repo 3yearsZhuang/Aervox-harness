@@ -66,7 +66,7 @@ const withTimeout = <T>(promise: Promise<T>, ms: number, reason: string): Promis
 export async function createStdioAdapterDriver(
   deps: StdioAdapterDriverDeps,
 ): Promise<StdioAdapterDriverHandle> {
-  const handshakeTimeoutMs = deps.handshakeTimeoutMs ?? 2000;
+  const handshakeTimeoutMs = deps.handshakeTimeoutMs ?? 5000;
   const requestTimeoutMs = deps.requestTimeoutMs ?? 10000;
 
   const child: ChildProcess = spawn(deps.command, deps.args ?? [], {

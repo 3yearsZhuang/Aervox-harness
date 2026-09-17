@@ -104,6 +104,8 @@ export interface BuildAppOptions {
   auth?: AuthConfig;
   /** CR-030 sidecar 状态清单路径（测试/维护编排可注入）。 */
   migrationStatePath?: string;
+  /** 是否在启动时执行 initDatabaseSchema。缺省在注入外部 db/client 时为 false（避免重复执行已就绪的 Schema DDL），未注入时为 true。 */
+  initSchema?: boolean;
   /** 可观测性门面（日志/指标/审计；缺省使用 createStandardLogger + createInMemoryMetricsRegistry） */
   observability?: Observability;
 }
@@ -143,13 +145,16 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   const migrationStatePath = options.migrationStatePath ?? process.env.AERVOX_CR030_STATE_PATH ??
     path.join(process.cwd(), "data", "aervox.cr030.migration.json");
   assertSafeStartup(await new Cr030MigrationStateStore(migrationStatePath).read());
+  const injectedMainDatabase = Boolean(options.db && options.client);
   const { db, client } =
-    options.db && options.client ? { db: options.db, client: options.client } : await createDatabase();
-  await initDatabaseSchema(client);
+    injectedMainDatabase ? { db: options.db!, client: options.client! } : await createDatabase();
+  const shouldInitSchema = options.initSchema ?? !injectedMainDatabase;
+  if (shouldInitSchema) {
+    await initDatabaseSchema(client);
+  }
 
   // CAP-033：默认启动时使用独立本地 Vault；集成测试显式注入主库时复用该连接，
   // 避免每个测试创建用户目录文件。生产可通过 options 注入已初始化的加密 Vault。
-  const injectedMainDatabase = Boolean(options.db && options.client);
   let proactiveDb = options.proactiveDb;
   let proactiveClient = options.proactiveClient;
   let proactiveCipher = options.proactiveCipher;
@@ -167,7 +172,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
       ownsProactiveClient = true;
       await initDatabaseSchema(proactiveClient);
     }
-  } else {
+  } else if (shouldInitSchema) {
     await initDatabaseSchema(proactiveClient);
   }
   const testDatabaseFallback = injectedMainDatabase && !options.proactiveDb && !options.proactiveClient;

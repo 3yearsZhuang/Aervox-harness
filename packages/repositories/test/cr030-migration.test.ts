@@ -12,7 +12,7 @@ import {
 
 describe("CR-030 D1 migration primitives", () => {
   it("scans scopes without mutating source and requires explicit selection for multiple scopes", async () => {
-    const database = await createInMemoryDatabase();
+    const database = await createInMemoryDatabase({ empty: true });
     try {
       await database.client.execute(`CREATE TABLE legacy_items (
         id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, subject_user_id TEXT NOT NULL, payload TEXT

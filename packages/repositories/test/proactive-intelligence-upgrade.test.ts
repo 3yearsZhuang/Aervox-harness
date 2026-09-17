@@ -7,7 +7,7 @@ import { createInMemoryDatabase, initDatabaseSchema } from "@aervox/repositories
 
 describe("proactive intelligence schema upgrade (CR-032)", () => {
   it("adds plugin_id column and ownership index to a pre-CR-032 database", async () => {
-    const {db, client, cleanup} = await createInMemoryDatabase();
+    const {db, client, cleanup} = await createInMemoryDatabase({ empty: true });
     try {
       // 1) 先构造旧形态表（无 plugin_id），模拟 CR-032 之前的存量库
       await client.execute(`
