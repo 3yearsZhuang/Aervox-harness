@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.7
+version: 1.0.8
 updated_at: 2026-09-18
 reviewed_at: 2026-09-18
 review_interval_days: 90
@@ -15,7 +15,7 @@ review_interval_days: 90
 # 从哪开始（新成员 / AI Agent 入口）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：Codex · 2026-09-18
+- 修改人：WorkBuddy · 2026-09-18
 
 关联：[文档索引](README.md)（AVX-DOC-001）
 
@@ -99,4 +99,5 @@ demos/                   # 纯前端原型，非交付物
 - 需求与落地状态：[需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md)。
 - 当前迭代：先读 [plan.md](../plan.md)，任务开始、改序和移交时按[计划治理](reference/document-governance.md#31-当前迭代计划的唯一入口)更新；
 - 底层评估证据：[底层优化审阅与建议](explanation/foundation-optimization-review.md)，深入实现与演进路线见[架构实现评估](explanation/architecture-implementation-review.md)；
-- 规划配套设备：[配套硬件方向与能力适配评估](explanation/companion-hardware-directions.md)，ESP32 具体设计输入见[硬件延伸方案](explanation/esp32-s3-hardware-extension.md)。
+- 规划配套设备：[配套硬件方向：能力核查、移动协同取舍与原型路线](explanation/companion-hardware-directions.md)，器件级设计输入见 [ESP32-S3 硬件延伸方案](explanation/esp32-s3-hardware-extension.md)；
+- 规划手机体验：[移动端落地规划](reference/changes/CR-055-mobile-delivery-plan.md)（CR-055，待评审），比较配套端与独立端，核对连接、数据边界与逐阶段验收。

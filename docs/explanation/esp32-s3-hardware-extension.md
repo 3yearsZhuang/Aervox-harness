@@ -7,16 +7,18 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.3.0
+version: 0.3.1
 updated_at: 2026-09-18
 reviewed_at: 2026-09-18
 review_interval_days: 90
+sources:
+  - docs/explanation/companion-hardware-directions.md
 ---
 
 # ESP32-S3-WROOM-2-N32R16V 硬件延伸方案
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：Codex · 2026-09-18
+- 修改人：WorkBuddy · 2026-09-18
 
 关联：[PRD](../reference/PRD.md)、[架构设计](../reference/ARCHITECTURE.md)、[数据与隐私规范](../reference/DATA_PRIVACY.md)、[威胁模型](../reference/THREAT_MODEL.md)、[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md)
 
@@ -195,3 +197,20 @@ R0 必须测试正常/重复/乱序/过期/未知版本、大包拒绝、掉电�
 - [ESP-IDF ESP32-S3 Programming Guide](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/)
 
 外部资料只提供模组事实和 SDK 参考；产品范围、权限、数据处理、威胁和发布门禁以仓库内 PRD、SRS、架构、隐私、威胁模型、ADR 和追踪基线为准。
+
+## 11. 与配套硬件规划的关系
+
+本文保留 ESP32-S3 的器件与工程事实（模组参数、Rev-A 物理方案、设备协议、存储/身份/OTA 设计输入），是器件级设计输入的唯一事实源。**跨产品方向比较、手机协同取舍、预算口径、阶段准入与停止条件**统一维护在[配套硬件方向](companion-hardware-directions.md)（AVX-EXPL-011），本文不复制其结论，也不自行确定当前产品与排期。
+
+| 本文主题 | 配套硬件规划中的对应阅读位置 |
+|---|---|
+| ESP32 桌宠目标与其它硬件方向的关系 | [九个旧方向与手机的重合及处置](companion-hardware-directions.md#23-九个旧方向与手机的重合及处置) |
+| Rev-A 屏幕、按键、音频与电源组合 | [本轮收敛后的推荐组合](companion-hardware-directions.md#52-本轮收敛后的推荐组合) |
+| 模组、电气、引脚与 PCB 冻结边界 | [从早期 ESP32 方案继承并修订的工程边界](companion-hardware-directions.md#6-从早期-esp32-方案继承并修订的工程边界) |
+| DeviceHost、输入输出与数据分工 | [端、主机与数据的分工](companion-hardware-directions.md#32-端主机与数据的分工) |
+| 协议、ACK、时钟、掉电与恢复 | [USB 原型所需的最小协议语义](companion-hardware-directions.md#62-usb-原型所需的最小协议语义) |
+| OTA、无线、音频、机械与产品化验收 | [固件更新与后续能力分开验收](companion-hardware-directions.md#63-固件更新与后续能力分开验收) |
+| 路线、实验、BOM 与继续投入条件 | [分阶段路线、成本与停止条件](companion-hardware-directions.md#8-分阶段路线成本与停止条件) |
+| 手机与手机配套端的边界 | [手机能替代什么，尚不能替代什么](companion-hardware-directions.md#2-手机能替代什么尚不能替代什么) |
+
+由于两条规划在本轮合并入同一阅读入口，本文原先被撤销的“模组与引脚首轮冻结”不再恢复：具体开发板、Flash/PSRAM 容量与 GPIO 分配按配套硬件规划 §6.1 的要求在选定料号后重新核验。

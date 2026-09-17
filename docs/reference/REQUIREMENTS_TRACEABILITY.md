@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.35.0
+version: 1.36.0
 updated_at: 2026-09-18
 reviewed_at: 2026-09-18
 review_interval_days: 90
@@ -15,7 +15,7 @@ review_interval_days: 90
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：Codex · 2026-09-18
+- 修改人：WorkBuddy · 2026-09-18
 
 产品需求来源：[PRD.md](PRD.md)
 
@@ -187,6 +187,8 @@ review_interval_days: 90
 
 | 落地内容与功能描述 | 关联 CAP | 实现与测试位置 | 日期 | 验证 | 来源 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 配套硬件方向文档单源合并与移动方案差量收割：`docs/explanation/companion-hardware-directions.md` 的两份并存版本——源码核查版（能力现状与边界、真机缺口、九方向实证、共享接入层、阶段准入）与移动协同规划版（手机重合与处置、过度设计取舍、推荐组合、端/主机/数据分工、验证矩阵、停止条件）——合成为单一文档，同一 ID `AVX-EXPL-011` 下不再存在两份口径；`docs/explanation/esp32-s3-hardware-extension.md` 保留完整正文作为器件级事实源，新增 §11 交叉引用并在配套硬件方向 §6 收敛工程边界（撤销首轮模组/引脚冻结）；移动规划分支的 `CR-055` 移入 main 并完成登记与索引 | CAP-001/002/003/004/006/007/009/012/018/020/026/027/030/033/034/035（规划评估；不变更 CAP 状态） | `docs/explanation/companion-hardware-directions.md`、`docs/explanation/esp32-s3-hardware-extension.md`、`docs/reference/changes/CR-055-mobile-delivery-plan.md`、`docs/DOC_REGISTRY.md`、`docs/README.md`、`docs/getting-started.md`、`docs/_meta/document-catalog.json` | 2026-09-18 | 文档门禁通过（Markdownlint/Vale/严格治理 0 问题，无断锚）；两版内容逐章并入，合并来源与去向见文档第 10 章；未新增设备协议、硬件 CR/ADR 或 CAP，无物料报价、固件、电气与真机证据 | 原生；来源分支 `docs/mobile-landing-plan`（`dff68b8`、`00d83ad`） |
+| CR-055 移动端规划文档：核验 Capacitor 壳配置、共享 UI 与传输缺口，比较配套端和独立端，定义阶段、数据边界、验收与回退；仅完成规划，决策 Proposed、能力交付 Planned | CAP-001/002/003/004/006/007/009/010/012/013/019/020/026/027/030、NFR-COMPAT-001、NFR-A11Y-001、NFR-PERF-001、SEC-LOC-001 | [CR-055](changes/CR-055-mobile-delivery-plan.md)、`docs/README.md`、`docs/DOC_REGISTRY.md`、`docs/_meta/document-catalog.json` | 2026-09-18 | 基于 `0a12ea4` 静态核验；`mise tasks run ci-docs` 通过（Markdownlint/Vale/严格治理零问题）；未进行原生构建或真机测试，不推进 CAP 状态 | 原生 |
 | 当前迭代计划单一入口与长期治理：将插件/底层/硬件规划迁入独立分支，创建根 plan.md，归并重复排序，接入根计划元数据、唯一角色、登记/链接与增量/全量 Docs CI | 基础设施（项目协作与文档治理）；关联既有 CAP 不变更状态 | [plan.md](../../plan.md)、[治理 §3.1](document-governance.md#31-当前迭代计划的唯一入口)、根 AGENTS/README/CONTRIBUTING、`scripts/docs-governance.mjs`、`scripts/docs-lint-affected.mjs` | 2026-09-18 | 治理回归 29/29；全量 ci-docs 通过（75 份 Markdown）；ci-code 边界/构建/类型/测试门禁通过（复用 Turbo 缓存，预先安装依赖并生成插件包，非冷 CI 证明）；业务修复和硬件原型未实施 | 原生 |
 | 当前架构实现与底层演进深入评估（文档交付）：核对进程/数据拓扑与领域边界，新增 14 个 ARC 专题，比较持久执行、删除恢复、索引与迁移、模型资源、部署和 CI 的演进选项 | CAP-001/005/007/012/013/018/020/027/033 + 基础设施（架构、可靠性、验证） | [当前架构实现与演进评估](../explanation/architecture-implementation-review.md)、[第一轮底层评估](../explanation/foundation-optimization-review.md) | 2026-09-18 | 源码/AST、临时 SQLite 故障注入、Fake Provider/子进程、内存 HTTP 和 Turbo dry-run；现有依赖边界检查及 14 项测试通过；全量文档门禁通过（74 份 Markdown）；实验结果和适用范围见文档，无产品代码修复或生产/性能实测 | 原生 |
 | 插件开发规范定档与开发指南校正（文档交付）：以现行机器契约核对声明、分发、Config、Page、工具/Skill、Turn 与 UI；区分作者要求、机器强制和待实现边界，修正不可用示例与过度保证 | CAP-020 + 基础设施（文档治理） | [Aervox 插件开发规范](plugin-config-and-pages.md)、[开发指南](../how-to/develop-plugin-ui-extension.md)、`apps/api/test/{plugin-config,plugin-distribution,builtin-plugins-market,proactive-plugin-lifecycle}.test.ts`、`packages/ui/test/{ui-registry,study-mode-plugin}.test.ts` | 2026-09-18 | 本轮 API 4 套件 23 测试、UI 2 套件 15 测试通过；文档验证记录见规范；未将已知运行时缺口标为修复或发布 | 原生；沿用既有 AST-08/AST-09 设计来源，无新增参考代码 |
