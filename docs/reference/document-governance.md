@@ -25,7 +25,7 @@ sources:
 # 文档治理与事实源规范
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：Codex · 2026-09-18
+- 修改人：3yearszhuang · 2026-09-18
 
 关联：[文档索引](../README.md)、[文档写作规范](standards/doc-standards.md)、[生命周期登记表](../DOC_REGISTRY.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)、[工程与发布流程](../how-to/engineering-process.md)
 

@@ -15,7 +15,7 @@ review_interval_days: 90
 # 从哪开始（新成员 / AI Agent 入口）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：WorkBuddy · 2026-09-18
+- 修改人：3yearszhuang · 2026-09-18
 
 关联：[文档索引](README.md)（AVX-DOC-001）
 

@@ -38,7 +38,7 @@ sources:
 # 当前架构实现与演进评估
 
 - 提出人：3yearszhuang · 2026-09-18
-- 修改人：Codex · 2026-09-18
+- 修改人：3yearszhuang · 2026-09-18
 
 关联：[第一轮底层评估](foundation-optimization-review.md)、[架构事实源](../reference/ARCHITECTURE.md)、[数据库契约](../reference/DATABASE.md)、[数据隐私](../reference/DATA_PRIVACY.md)、[Agent 执行契约](../reference/agent-harness-loop.md)、[硬件方向](companion-hardware-directions.md)、[变更流程](../how-to/cr-workflow.md)
 
