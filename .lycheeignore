@@ -1,1 +1,3 @@
 ^https?://www\.espressif\.com/
+# 私有归档仓库 Aervox-docs-archive（真实存在但仅账号可访问，外部链接检查器无权限故视为不可达）
+^https://github\.com/3yearsZhuang/Aervox-docs-archive
