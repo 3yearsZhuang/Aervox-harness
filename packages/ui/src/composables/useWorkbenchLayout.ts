@@ -35,7 +35,7 @@ export const settingCategories = [
   { id: 'proactive', label: '主动智能', description: '全量画像与本地权限', icon: BrainCircuit, scope: 'detail' as const },
   { id: 'appearance', label: '外观', description: '主题与界面密度', icon: Sun, scope: 'detail' as const },
   { id: 'notifications', label: '提醒', description: '学习节奏与通知', icon: Bell, scope: 'detail' as const },
-  { id: 'plugins', label: '插件', description: '插件配置与页面', icon: Puzzle, scope: 'detail' as const },
+  { id: 'plugins', label: '扩展与插件', description: '管理插件、技能包 (Skills) 与 MCP 工具端点', icon: Puzzle, scope: 'detail' as const },
 ] as const;
 
 export function useWorkbenchLayout(props: {

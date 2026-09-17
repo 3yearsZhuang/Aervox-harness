@@ -453,10 +453,12 @@ async function handleManualInstall(): Promise<void> {
 
 .install-mode-tabs {
   display: flex;
-  background: var(--bg-surface-elevated, #f1f3f5);
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-input);
   padding: 3px;
-  border-radius: 8px;
-  gap: 3px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
 }
 .mode-tab-btn {
   flex: 1;
@@ -464,24 +466,29 @@ async function handleManualInstall(): Promise<void> {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 5px 12px;
   border: none;
   background: transparent;
-  color: var(--text-secondary, #666);
-  font-size: 12px;
+  color: var(--text-secondary);
+  font-size: 11px;
   font-weight: 500;
   border-radius: 6px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.mode-tab-btn:hover {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--bg-soft) 70%, transparent);
 }
 .mode-tab-btn.active {
-  background: var(--bg-surface, #fff);
-  color: var(--text-primary, #111);
+  background: var(--bg-soft);
+  color: var(--accent);
+  font-weight: 600;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .package-dropzone {
-  border: 2px dashed var(--border, #ddd);
+  border: 2px dashed var(--border);
   border-radius: 12px;
   padding: 32px 20px;
   display: flex;
@@ -491,36 +498,37 @@ async function handleManualInstall(): Promise<void> {
   text-align: center;
   cursor: pointer;
   transition: border-color 0.2s, background-color 0.2s;
-  background: var(--bg-surface-soft, rgba(0, 0, 0, 0.01));
+  background: var(--bg-soft);
 }
 .package-dropzone:hover {
-  border-color: var(--accent, #4f46e5);
-  background: var(--bg-surface-elevated, rgba(0, 0, 0, 0.03));
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--bg-soft) 85%, var(--accent-soft));
 }
 .dropzone-icon {
-  color: var(--accent, #4f46e5);
+  color: var(--accent);
 }
 .dropzone-text {
   display: flex;
   flex-direction: column;
   gap: 4px;
   font-size: 13px;
-  color: var(--text-primary, #222);
+  color: var(--text-primary);
 }
 .dropzone-text span {
   font-size: 11px;
-  color: var(--text-secondary, #666);
+  color: var(--text-muted);
 }
 
 .inspection-error-banner {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--danger, #dc2626);
-  font-size: 12px;
-  padding: 6px 12px;
-  background: rgba(220, 38, 38, 0.08);
-  border-radius: 6px;
+  color: var(--danger);
+  font-size: 11px;
+  padding: 8px 12px;
+  background: var(--danger-soft);
+  border: 1px solid color-mix(in srgb, var(--danger) 28%, transparent);
+  border-radius: 8px;
 }
 
 .inspecting-state {
@@ -529,14 +537,14 @@ async function handleManualInstall(): Promise<void> {
   align-items: center;
   gap: 10px;
   padding: 40px 20px;
-  color: var(--text-secondary, #666);
+  color: var(--text-muted);
   font-size: 12px;
 }
 .spinner {
   width: 24px;
   height: 24px;
-  border: 3px solid rgba(0, 0, 0, 0.1);
-  border-top-color: var(--accent, #4f46e5);
+  border: 3px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -545,10 +553,10 @@ async function handleManualInstall(): Promise<void> {
 }
 
 .inspection-result-card {
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 10px;
-  padding: 16px;
-  background: var(--bg-surface, #fff);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  background: var(--bg-soft);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -566,42 +574,47 @@ async function handleManualInstall(): Promise<void> {
   gap: 8px;
 }
 .plugin-title {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
-  color: var(--text-primary, #111);
+  color: var(--text-primary);
 }
 .plugin-id-tag code {
-  font-size: 11px;
-  color: var(--text-secondary, #666);
-  background: var(--bg-surface-elevated, #f3f4f6);
-  padding: 2px 6px;
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  padding: 1px 5px;
   border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 .header-badges {
   display: flex;
   gap: 6px;
 }
 .badge {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 999px;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 6px;
   font-weight: 500;
 }
 .version-badge {
-  background: rgba(79, 70, 229, 0.1);
-  color: var(--accent, #4f46e5);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
 }
 .pub-badge {
-  background: var(--bg-surface-elevated, #f3f4f6);
-  color: var(--text-secondary, #4b5563);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
 }
 .license-badge {
-  background: rgba(16, 185, 129, 0.1);
-  color: #059669;
+  background: color-mix(in srgb, #10b981 14%, transparent);
+  color: #10b981;
+  border: 1px solid color-mix(in srgb, #10b981 28%, transparent);
 }
 .inspection-desc {
-  font-size: 12px;
-  color: var(--text-secondary, #4b5563);
+  font-size: 11px;
+  color: var(--text-secondary);
   margin: 0;
   line-height: 1.5;
 }
@@ -611,24 +624,24 @@ async function handleManualInstall(): Promise<void> {
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  background: rgba(79, 70, 229, 0.04);
-  border: 1px solid rgba(79, 70, 229, 0.15);
-  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent-soft) 45%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-radius: 8px;
   font-size: 11px;
 }
 .sec-left {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--text-primary, #111);
+  color: var(--text-primary);
   font-weight: 500;
 }
 .sec-icon {
-  color: var(--accent, #4f46e5);
+  color: var(--accent);
 }
 .sec-hash {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  color: var(--text-secondary, #666);
+  color: var(--text-secondary);
 }
 
 .permissions-section {
@@ -642,7 +655,7 @@ async function handleManualInstall(): Promise<void> {
   gap: 5px;
   font-size: 11px;
   font-weight: 600;
-  color: var(--text-secondary, #4b5563);
+  color: var(--text-secondary);
 }
 .scope-badges {
   display: flex;
@@ -650,15 +663,17 @@ async function handleManualInstall(): Promise<void> {
   gap: 5px;
 }
 .scope-badge {
-  font-size: 11px;
-  padding: 3px 8px;
-  background: var(--bg-surface-elevated, #f3f4f6);
-  color: var(--text-primary, #111);
-  border-radius: 4px;
+  font-size: 10px;
+  padding: 2px 7px;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-weight: 500;
 }
 .empty-scope {
   font-size: 11px;
-  color: var(--text-muted, #999);
+  color: var(--text-muted);
 }
 .sensor-warning-box {
   display: flex;
@@ -666,10 +681,10 @@ async function handleManualInstall(): Promise<void> {
   gap: 6px;
   font-size: 11px;
   color: #d97706;
-  background: #fffbeb;
-  border: 1px solid #fde68a;
-  padding: 6px 10px;
-  border-radius: 6px;
+  background: color-mix(in srgb, #f59e0b 12%, transparent);
+  border: 1px solid color-mix(in srgb, #f59e0b 28%, transparent);
+  padding: 8px 10px;
+  border-radius: 8px;
 }
 .sensor-warn-icon {
   flex-shrink: 0;
@@ -682,10 +697,10 @@ async function handleManualInstall(): Promise<void> {
   gap: 8px;
 }
 .cap-item {
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 6px;
-  padding: 8px;
-  background: var(--bg-surface-soft, #fafafa);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--bg-input);
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -699,7 +714,7 @@ async function handleManualInstall(): Promise<void> {
   gap: 5px;
   font-size: 11px;
   font-weight: 600;
-  color: var(--text-secondary, #4b5563);
+  color: var(--text-secondary);
 }
 .cap-names {
   display: flex;
@@ -709,22 +724,22 @@ async function handleManualInstall(): Promise<void> {
 .cap-tag {
   font-size: 10px;
   padding: 1px 5px;
-  background: var(--bg-surface, #fff);
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 3px;
-  color: var(--text-primary, #333);
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
 }
 
 .overwrite-section {
-  padding-top: 6px;
-  border-top: 1px dashed var(--border, #e5e7eb);
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
 }
 .overwrite-checkbox-label {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
-  color: var(--danger, #dc2626);
+  font-size: 11px;
+  color: var(--danger);
   font-weight: 500;
   cursor: pointer;
 }
@@ -744,29 +759,41 @@ async function handleManualInstall(): Promise<void> {
 .field-label {
   font-size: 11px;
   font-weight: 500;
-  color: var(--text-secondary, #666);
+  color: var(--text-secondary);
 }
 .input-control {
   width: 100%;
   box-sizing: border-box;
-  padding: 8px 10px;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 6px;
-  background: var(--bg-input, #fff);
-  color: var(--text-primary, #111);
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-input);
+  color: var(--text-primary);
   font-size: 12px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.input-control:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 .textarea-control {
   width: 100%;
   box-sizing: border-box;
   padding: 8px 10px;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 6px;
-  background: var(--bg-input, #fff);
-  color: var(--text-primary, #111);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-input);
+  color: var(--text-primary);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 11px;
   resize: vertical;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.textarea-control:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .package-footer-left {

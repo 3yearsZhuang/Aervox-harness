@@ -373,7 +373,7 @@ function toggleTheme() {
         @click="layout.openSettingsCategory('plugins')"
       >
         <Puzzle :size="16" />
-        <span>插件管理</span>
+        <span>扩展与插件</span>
       </button>
 
       <button
