@@ -134,7 +134,8 @@ export class LlamaServerManager {
       const text = await res.text();
       const parse = (name: string): number | undefined => {
         const m = new RegExp(`^${name} ([0-9.]+)`, "m").exec(text);
-        return m ? Number.parseFloat(m[1]) : undefined;
+        if (!m || m[1] === undefined) return undefined;
+        return Number.parseFloat(m[1]);
       };
       return {
         at: new Date().toISOString(),
