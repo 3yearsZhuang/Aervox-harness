@@ -119,8 +119,28 @@ test("计划纪律：在制并发、分支、证据、阻碍与依赖次序", ()
   for (const expected of ["S1", "S2", "S3", "S4", "S5"]) {
     assert.ok(rules.includes(expected), `应报告 ${expected}`);
   }
+  assert.ok(
+    validateQueue(queue, { wipLimit: 1 }).every((finding) => finding.severity === "warning"),
+    "观察期一律提示",
+  );
+});
 
-  assert.deepEqual(validateQueue(queue, { wipLimit: 3, enforcement: "error" }).filter((f) => f.severity === "error"), []);
+test("升级为 error 后纪律规则同样阻断，仅依赖次序保持提示", () => {
+  const queue = syntheticQueue({
+    items: [
+      { id: "ITER-001", batch: "first", status: "执行中", delivery: "d", gate: "g", acceptance: ["a"], owner: "o", dependsOn: [] },
+      { id: "ITER-002", batch: "first", status: "已移交", delivery: "d", gate: "g", acceptance: ["a"], owner: "o", dependsOn: [] },
+      { id: "ITER-003", batch: "first", status: "暂停", delivery: "d", gate: "g", acceptance: ["a"], owner: "o", dependsOn: [] },
+      { id: "ITER-004", batch: "first", status: "执行中", delivery: "d", gate: "g", acceptance: ["a"], owner: "o", branch: "fix/x", dependsOn: ["ITER-001"] },
+    ],
+  });
+
+  const findings = validateQueue(queue, { wipLimit: 3, enforcement: "error" });
+  const severityByRule = new Map(findings.map((finding) => [finding.rule, finding.severity]));
+  assert.equal(severityByRule.get("S2"), "error", "执行中缺分支应阻断");
+  assert.equal(severityByRule.get("S3"), "error", "已移交缺证据应阻断");
+  assert.equal(severityByRule.get("S4"), "error", "暂停缺阻碍应阻断");
+  assert.equal(severityByRule.get("S5"), "warning", "依赖次序需人工判断，保持提示");
 });
 
 test("渲染幂等：重复渲染字节一致，行内含全部列与锚点", () => {

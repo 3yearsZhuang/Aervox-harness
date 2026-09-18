@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.2
-updated_at: 2026-09-17
-reviewed_at: 2026-09-17
+version: 1.0.3
+updated_at: 2026-09-18
+reviewed_at: 2026-09-18
 review_interval_days: 90
 review_triggers:
   - docs/reference/changes/**
@@ -122,6 +122,7 @@ CR 文件创建后属于 L3 结构性改动，需执行以下同步：
    - 打开 `docs/reference/REQUIREMENTS_TRACEABILITY.md`；
    - 在 **§4.2 落地实现登记** 表格中追加落地行（登记关联 CAP、实现文件路径、完成日期、验证命令及参考来源）；
 3. **更新需求矩阵**（若适用）：若推进了对应 CAP 的生命周期，更新 §4 矩阵状态。
+4. **同步当前迭代队列**（若该变更对应某个 `ITER-*` 条目）：在 `docs/_meta/plan-queue.json` 中更新条目状态与证据链接，运行 `mise tasks run plan-render` 重新生成 `plan.md` §2；表格是派生视图，禁止手改（规则见[迭代计划治理](../reference/document-governance.md#31-当前迭代计划的唯一入口)）。
 
 ## 验证与门禁
 

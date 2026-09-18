@@ -31,7 +31,7 @@ Aervox 是一款面向未来的“主动智能” Agent：以桌面伴侣（桌�
 
 ### 功能开发首选途径：插件扩展体系（推荐）
 
-动手前先读根目录 [plan.md](plan.md)，认领现有条目或补充新的当前迭代建议；工作排序只在该文件维护。条目状态、证据移交和分支协作按[迭代计划治理](docs/reference/document-governance.md#31-当前迭代计划的唯一入口)执行。
+动手前先读根目录 [plan.md](plan.md)，认领现有条目或补充新的当前迭代建议；工作排序只在该文件维护。**§2 队列是派生视图**：条目真源在 `docs/_meta/plan-queue.json`，改完运行 `mise tasks run plan-render` 重新生成表格（不要手改生成区）。条目状态、证据移交和分支协作按[迭代计划治理](docs/reference/document-governance.md#31-当前迭代计划的唯一入口)执行。
 
 适合插件承载的功能优先复用现有扩展点。准确能力与限制见 [Aervox 插件开发规范](docs/reference/plugin-config-and-pages.md)（AVX-PLUG-001），最小可运行示例见[开发指南](docs/how-to/develop-plugin-ui-extension.md)（AVX-GUIDE-004）。声明式分发包、静态 Page 和第一方编译接入的 Turn/UI 扩展各有不同边界，不能把清单声明当作任意代码已隔离运行，也不能省略相关契约与回归验证。
 
@@ -194,7 +194,7 @@ All contributions are appreciated: reporting bugs, improving docs, contributing 
 
 ### Recommended Path: Plugin Extension System
 
-Read the root [plan.md](plan.md) before starting. Claim an existing item or add a current iteration suggestion there; maintain ordering, dependencies, and working status only in that file. Follow the [iteration governance rules](docs/reference/document-governance.md#31-当前迭代计划的唯一入口) when starting, changing, or handing off work.
+Read the root [plan.md](plan.md) before starting. Claim an existing item or add a current iteration suggestion there — the §2 queue is a **derived view** of the machine source `docs/_meta/plan-queue.json`, so run `mise tasks run plan-render` after editing it (never edit the generated region by hand). Ordering, dependencies, and working status live only in that source. Follow the [iteration governance rules](docs/reference/document-governance.md#31-当前迭代计划的唯一入口) when starting, changing, or handing off work.
 
 Use existing extension points for features they can support. The [Aervox Plugin Development Standard](docs/reference/plugin-config-and-pages.md) (`AVX-PLUG-001`) defines current capabilities and limits; the [development guide](docs/how-to/develop-plugin-ui-extension.md) (`AVX-GUIDE-004`) provides a runnable example. Declarative bundles, static Pages, and first-party compiled Turn/UI extensions have different boundaries. A manifest does not establish isolated execution of arbitrary code or remove the need for contract and regression checks.
 

@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.8
+version: 1.0.9
 updated_at: 2026-09-18
 reviewed_at: 2026-09-18
 review_interval_days: 90
@@ -79,12 +79,13 @@ demos/                   # 纯前端原型，非交付物
 
 ## 4. 提交前自检（Docs CI 门禁）
 
-改动 `docs/**`、根 `README.md`、`CONTRIBUTING.md` 、`AGENTS.md` 或根 `plan.md` 的 PR 必须通过：
+改动 `docs/**`、根 `README.md`、`CONTRIBUTING.md` 、`AGENTS.md`、根 `plan.md`，或计划队列真源 `docs/_meta/plan-queue.json` / 脚本 `scripts/plan-queue.mjs` 的 PR 必须通过：
 
 - **Markdown lint**：`mise x -- npx markdownlint-cli2 --config .markdownlint-cli2.jsonc "docs/**/*.md" "README.md" "CONTRIBUTING.md" "AGENTS.md" "plan.md"`（配置关闭 MD013/033/060）；
 - **治理校验**：`mise tasks run docs-validate`（重复 ID、签名、本地路径/锚点、登记路径与日期）；
+- **计划队列**：`mise tasks run plan-check`（编号/状态枚举、依赖悬空与成环、在制并发、分支与证据、§2 生成区与真源一致；当前为提示观察期）；
 - **链接检查**：CI 中另由 `lychee` 检查仓库链接，排除只读子模块 `reference/` 与原型 `demos/`；
-- 本地统一运行 `mise tasks run ci-docs`，确保 Markdown、Vale 与治理校验均为 0 错误后再提交。
+- 本地统一运行 `mise tasks run ci-docs`，确保 Markdown、Vale、治理校验与队列校验均为 0 错误后再提交。
 
 ## 5. 需要介入时
 
@@ -97,7 +98,7 @@ demos/                   # 纯前端原型，非交付物
 - 开始动手：[教程：构建并运行第一个对话](tutorials/first-conversation.md)；
 - 了解架构：[架构设计](reference/ARCHITECTURE.md) 与 [数据流总览](explanation/data-flow-overview.md)；
 - 需求与落地状态：[需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md)。
-- 当前迭代：先读 [plan.md](../plan.md)，任务开始、改序和移交时按[计划治理](reference/document-governance.md#31-当前迭代计划的唯一入口)更新；
+- 当前迭代：先读 [plan.md](../plan.md)，任务开始、改序和移交时更新队列真源 `docs/_meta/plan-queue.json` 并运行 `mise tasks run plan-render` 重新生成 §2 表格（规则见[计划治理](reference/document-governance.md#31-当前迭代计划的唯一入口)）；
 - 底层评估证据：[底层优化审阅与建议](explanation/foundation-optimization-review.md)，深入实现与演进路线见[架构实现评估](explanation/architecture-implementation-review.md)；
 - 规划配套设备：[配套硬件方向：能力核查、移动协同取舍与原型路线](explanation/companion-hardware-directions.md)，器件级设计输入见 [ESP32-S3 硬件延伸方案](explanation/esp32-s3-hardware-extension.md)；
 - 规划手机体验：[移动端落地规划](reference/changes/CR-055-mobile-delivery-plan.md)（CR-055，待评审），比较配套端与独立端，核对连接、数据边界与逐阶段验收。

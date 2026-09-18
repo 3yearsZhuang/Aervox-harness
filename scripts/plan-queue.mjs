@@ -112,61 +112,71 @@ function findCycles(items) {
 }
 
 /**
+ * 升级为 `error` 后仍保持提示的规则：依赖次序允许"可并行的前置设计与测试夹具"
+ * （`plan.md` §2 明确保留这一并行空间），是否放行需人工判断，不适合机械阻断。
+ * 其余规则（H1–H6 结构性 + S1 在制并发、S2 执行中缺分支、S3 已移交缺证据、
+ * S4 暂停缺阻碍）在 `error` 级别下一律阻断。
+ */
+const ADVISORY_RULES = new Set(["S5"]);
+
+/**
  * 队列结构与纪律校验。
- * `hardRules` 标记的规则是"真源自身不合法"，升级为 error 时优先阻断；
- * 其余是计划纪律，观察期后仍建议保持 warning 提示。
+ *
+ * H1–H6 是"真源自身不合法"，S1–S5 是计划纪律（在制并发、分支、证据、阻碍、依赖次序）。
+ * 强制级别由策略控制：`warning`（观察期）全部提示不阻断；`error` 时除 ADVISORY_RULES
+ * 之外的规则都阻断。
  */
 export function validateQueue(queue, { wipLimit = DEFAULT_POLICY.wipLimit, enforcement = DEFAULT_POLICY.enforcement } = {}) {
   const findings = [];
-  const severityFor = (hard) => (enforcement === "error" && hard ? "error" : "warning");
-  const report = (hard, rule, message) => findings.push({ severity: severityFor(hard), rule, message });
+  const severityFor = (rule) => (enforcement === "error" && !ADVISORY_RULES.has(rule) ? "error" : "warning");
+  const report = (rule, message) => findings.push({ severity: severityFor(rule), rule, message });
 
   const statuses = new Set(queue.statuses ?? []);
   const batchIds = new Set((queue.batches ?? []).map((batch) => batch.id));
   const seenIds = new Set();
 
   for (const item of queue.items ?? []) {
-    if (!/^ITER-\d{3}$/.test(item.id)) report(true, "H1", `${item.id}: 编号必须为 ITER-<三位数字>`);
-    if (seenIds.has(item.id)) report(true, "H1", `${item.id}: 编号重复`);
+    if (!/^ITER-\d{3}$/.test(item.id)) report("H1", `${item.id}: 编号必须为 ITER-<三位数字>`);
+    if (seenIds.has(item.id)) report("H1", `${item.id}: 编号重复`);
     seenIds.add(item.id);
 
     if (!statuses.has(item.status)) {
-      report(true, "H2", `${item.id}: 状态「${item.status}」不在枚举 ${[...statuses].join("/")} 内`);
+      report("H2", `${item.id}: 状态「${item.status}」不在枚举 ${[...statuses].join("/")} 内`);
     }
-    if (!batchIds.has(item.batch)) report(true, "H2", `${item.id}: 批次「${item.batch}」未在 batches 中声明`);
+    if (!batchIds.has(item.batch)) report("H2", `${item.id}: 批次「${item.batch}」未在 batches 中声明`);
     if (!Array.isArray(item.acceptance) || item.acceptance.length === 0) {
-      report(true, "H5", `${item.id}: 缺少完成判定（acceptance 不能为空）`);
+      report("H5", `${item.id}: 缺少完成判定（acceptance 不能为空）`);
     }
     for (const dependency of item.dependsOn ?? []) {
-      if (dependency === item.id) report(true, "H3", `${item.id}: 依赖自身`);
+      if (dependency === item.id) report("H3", `${item.id}: 依赖自身`);
       else if (!(queue.items ?? []).some((entry) => entry.id === dependency)) {
-        report(true, "H3", `${item.id}: 依赖的 ${dependency} 不存在`);
+        report("H3", `${item.id}: 依赖的 ${dependency} 不存在`);
       }
     }
-    if (!item.owner) report(false, "S0", `${item.id}: 缺少建议责任`);
+    if (!item.owner) report("S0", `${item.id}: 缺少建议责任`);
   }
 
-  for (const cycle of findCycles(queue.items ?? [])) report(true, "H4", `依赖成环：${cycle}`);
+  for (const cycle of findCycles(queue.items ?? [])) report("H4", `依赖成环：${cycle}`);
 
   const wip = (queue.items ?? []).filter((item) => item.status === "执行中");
   if (wip.length > wipLimit) {
-    report(false, "S1", `在制条目 ${wip.length} 个，超过上限 ${wipLimit}：${wip.map((item) => item.id).join("、")}`);
+    report("S1", `在制条目 ${wip.length} 个，超过上限 ${wipLimit}：${wip.map((item) => item.id).join("、")}`);
   }
   for (const item of wip) {
-    if (!item.branch) report(false, "S2", `${item.id}: 状态为执行中但未标注分支`);
+    if (!item.branch) report("S2", `${item.id}: 状态为执行中但未标注分支`);
   }
   for (const item of queue.items ?? []) {
     if (item.status === "已移交" && (!item.links || item.links.length === 0)) {
-      report(false, "S3", `${item.id}: 状态为已移交但未给出 §4.2/PR 证据链接`);
+      report("S3", `${item.id}: 状态为已移交但未给出 §4.2/PR 证据链接`);
     }
-    if (item.status === "暂停" && !item.blocker) report(false, "S4", `${item.id}: 状态为暂停但未写明阻碍`);
+    if (item.status === "暂停" && !item.blocker) report("S4", `${item.id}: 状态为暂停但未写明阻碍`);
     if (item.status === "执行中" || item.status === "已移交") {
       const pending = (item.dependsOn ?? []).filter((id) => {
         const dependency = (queue.items ?? []).find((entry) => entry.id === id);
         return dependency && dependency.status !== "已移交";
       });
       if (pending.length > 0) {
-        report(false, "S5", `${item.id}: 已进入 ${item.status}，但依赖 ${pending.join("、")} 尚未移交（确认是否属可并行的前置设计/夹具）`);
+        report("S5", `${item.id}: 已进入 ${item.status}，但依赖 ${pending.join("、")} 尚未移交（确认是否属可并行的前置设计/夹具）`);
       }
     }
   }

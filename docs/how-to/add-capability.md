@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.0
-updated_at: 2026-09-13
-reviewed_at: 2026-09-13
+version: 1.0.1
+updated_at: 2026-09-18
+reviewed_at: 2026-09-18
 review_interval_days: 90
 review_triggers:
   - docs/reference/PRD.md
@@ -106,6 +106,8 @@ DoR 评审通过后，追踪矩阵状态改为 `In Development`。
    - 登记完整实现文件路径、完成日期、自动化测试验证结果与来源（原生 / 借鉴编号）。
 2. **推进 DoD 验收**：
    将 §4 矩阵的 `当前状态` 推进为 `Verified` 或 `Implemented`，并在 `落地` 列标记 `✔`。
+3. **同步当前迭代队列**（若该能力对应某个 `ITER-*` 条目）：
+   在 `docs/_meta/plan-queue.json` 中把条目状态置为 `已移交`，补上 §4.2 或 PR 链接，再运行 `mise tasks run plan-render` 重新生成 `plan.md` §2——表格是派生视图，直接手改会被门禁判为不同步（规则见[迭代计划治理](../reference/document-governance.md#31-当前迭代计划的唯一入口)）。
 
 ## 验证与门禁
 
