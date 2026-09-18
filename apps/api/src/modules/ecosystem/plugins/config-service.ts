@@ -32,7 +32,7 @@ import {
   defaultServerPluginRegistry,
 } from "./turn-plugins/registry.js";
 
-export interface PluginConfigSnapshot {
+export interface PluginConfigServiceSnapshot {
   pluginId: string;
   revision: number;
   schemaVersion: number;
@@ -158,7 +158,7 @@ export class PluginConfigService {
 
   // ── 配置 ──────────────────────────────────────────────
 
-  async getConfig(tenant: LocalContext, pluginId: string): Promise<PluginConfigSnapshot> {
+  async getConfig(tenant: LocalContext, pluginId: string): Promise<PluginConfigServiceSnapshot> {
     const found = await this.findPlugin(pluginId);
     if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
     if (found.plugin.enabled !== 1) {
@@ -189,7 +189,7 @@ export class PluginConfigService {
     tenant: LocalContext,
     pluginId: string,
     body: { revision: number; values?: Record<string, unknown>; secretValues?: Record<string, string | null> },
-  ): Promise<PluginConfigSnapshot> {
+  ): Promise<PluginConfigServiceSnapshot> {
     const found = await this.findPlugin(pluginId);
     if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
     if (found.plugin.enabled !== 1) {
@@ -248,7 +248,7 @@ export class PluginConfigService {
     };
   }
 
-  async resetConfig(tenant: LocalContext, pluginId: string): Promise<PluginConfigSnapshot> {
+  async resetConfig(tenant: LocalContext, pluginId: string): Promise<PluginConfigServiceSnapshot> {
     const found = await this.findPlugin(pluginId);
     if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
     if (found.plugin.enabled !== 1) {

@@ -3449,6 +3449,7 @@
                       "additionalProperties": {},
                       "default": {}
                     },
+                    "gatingConditions": {},
                     "priority": {
                       "type": "integer",
                       "default": 0
