@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "note": "当前迭代队列的唯一机器真源。plan.md §2 的表格由 `mise tasks run plan-render` 从本文件生成，禁止手改生成区；结构与依赖校验见 `mise tasks run plan-check`（文档治理已接入，观察期只报 warning）。条目内容是台账而非契约：产品范围见 docs/reference/PRD.md，决策见 ADR/CR，实现证据见 REQUIREMENTS_TRACEABILITY.md §4.2。",
+  "note": "当前迭代队列的唯一机器真源。plan.md §2 的表格由 `mise tasks run plan-render` 从本文件生成，禁止手改生成区；结构与依赖校验见 `mise tasks run plan-check`（已接入文档治理，2026-09-18 起强制级别为 error：结构与纪律违规阻断，仅依赖次序保持提示）。条目内容是台账而非契约：产品范围见 docs/reference/PRD.md，决策见 ADR/CR，实现证据见 REQUIREMENTS_TRACEABILITY.md §4.2。",
   "statuses": ["建议", "待评审", "就绪", "执行中", "已移交", "暂停"],
   "batches": [
     { "id": "first", "title": "2.1 第一批：正确性、验证入口与方向决策" },

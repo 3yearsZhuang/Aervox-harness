@@ -6,7 +6,8 @@
  * - `docs/_meta/plan-queue.json` 是队列的**机器真源**（条目、批次、状态、依赖、验收）；
  * - `plan.md` §2 的表格是**派生视图**，由本模块渲染，禁止手改；
  * - 校验项与强制级别来自 `document-policy.json` 的 `currentIterationPlan.queue`
- *   （`enforcement: warning` 为观察期：全部按 warning 报告，不阻断门禁）。
+ *   （当前 `enforcement: error`：结构与纪律违规阻断，仅依赖次序保持提示；
+ *   `warning` 为观察期语义——全部按提示报告、不阻断门禁）。
  *
  * 用法：`mise tasks run plan-render`（写回）/ `mise tasks run plan-check`（只校验）。
  */
