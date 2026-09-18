@@ -61,9 +61,9 @@ review_interval_days: 90
 | `AVX-GUIDE-002` | [撰写与批准 ADR](how-to/write-adr.md) | 2026-08-28 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
 | `AVX-GUIDE-003` | [submodule 初始化与协作规范](how-to/submodule-collaboration.md) | 2026-08-31 | 规则变更或季度评审 | 与追踪/ADR/门禁流程表述不符 |
 | `AVX-GUIDE-004` | [开发 Aervox 扩展插件](how-to/develop-plugin-ui-extension.md) | 2026-09-18 | 插件 Bundle、Turn 管道或 UI 扩展契约变更 | 指南与插件运行时、插槽注册表或安全边界不一致 |
-| `AVX-GUIDE-005` | [提出、撰写与闭环变更请求（CR）](how-to/cr-workflow.md) | 2026-09-17 | 变更控制规则或模板变更 | 指南与追踪基线 §11、CR 规范或落地登记流程不符 |
+| `AVX-GUIDE-005` | [提出、撰写与闭环变更请求（CR）](how-to/cr-workflow.md) | 2026-09-18 | 变更控制规则或模板变更 | 指南与追踪基线 §11、CR 规范或落地登记流程不符 |
 | `AVX-GUIDE-006` | [执行 SQLite 数据库迁移与换库回滚演练](how-to/run-database-migration-drill.md) | 2026-09-17 | 数据库架构或演练流程变更 | 指南与 DATABASE.md、CR-030 契约或 operations.md 演练项不符 |
-| `AVX-GUIDE-007` | [新增与规格化 CAP 业务能力](how-to/add-capability.md) | 2026-09-13 | 需求流程或 CAP 规则变更 | 指南与 PRD、SRS 或追踪基线立项流程不符 |
+| `AVX-GUIDE-007` | [新增与规格化 CAP 业务能力](how-to/add-capability.md) | 2026-09-18 | 需求流程或 CAP 规则变更 | 指南与 PRD、SRS 或追踪基线立项流程不符 |
 | `AVX-CAP-REG-001` | [能力注册表](reference/capability-registry.md) | 2026-09-17 | 每次自选状态 / 模块变更 | 交付载体、启用方式或已注册模块与实现/CR 不一致 |
 | `AVX-CAP-001` | [能力组合与可选化目录规范](reference/capability-composition.md) | 2026-09-16 | G2 评审 + 能力宿主/适配器机制变更 | Manifest、Profile、Provider、Adapter、Kernel 边界与实现或 ADR/CR 不一致 |
 | `ADR-018` | [CAP-033 本地私密存储与主动智能 Host](reference/adr/ADR-018-proactive-local-privacy-host.md) | 2026-09-17 | CAP-033 本地存储、OS Permission Broker、动作授权或后台生命周期变更 | Host 签名/设备绑定、local-only、全动作授权、七天提炼清理或恢复门禁与实现不一致 |

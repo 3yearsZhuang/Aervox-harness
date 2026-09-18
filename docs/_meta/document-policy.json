@@ -13,7 +13,7 @@
       "target": "plan.md",
       "wipLimit": 3,
       "enforcement": "warning",
-      "note": "queue.source 是队列机器真源，plan.md §2 为派生视图（plan-render 生成、plan-check 校验）。enforcement=warning 为观察期：全部按提示报告不阻断；升级为 error 前需先清零在制并发、依赖与证据类提示。"
+      "note": "queue.source 是队列机器真源，plan.md §2 为派生视图（plan-render 生成、plan-check 校验）。enforcement=warning 为观察期：全部按提示报告不阻断。升级为 error 前需复核三类纪律提示归零（S1 在制并发、S2 执行中缺分支、S3 已移交缺证据），并在正常状态下跑通一次认领→移交闭环；升级后 H1–H6 与 S1–S4 阻断，仅 S5（依赖次序）保持提示，以保留可并行的前置设计与测试夹具空间。"
     }
   },
   "defaultReviewIntervalDays": 90,
