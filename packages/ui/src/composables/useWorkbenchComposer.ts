@@ -1,4 +1,4 @@
-import { nextTick, ref, type Ref } from 'vue';
+import { nextTick, ref, watch, type Ref } from 'vue';
 import { useAervoxVoiceInput, uploadAervoxAttachment } from '@aervox/api-client';
 import {
   allowedMediaTypesSchema,
@@ -40,6 +40,8 @@ const EXTENSION_MEDIA_TYPES: Record<string, string> = {
 const ALLOWED_MEDIA_TYPES = allowedMediaTypesSchema.options as readonly string[];
 export const attachmentAccept = [...ALLOWED_MEDIA_TYPES, ...Object.keys(EXTENSION_MEDIA_TYPES).map((ext) => `.${ext}`)].join(',');
 
+const MOBILE_DRAFT_STORAGE_PREFIX = 'aervox-mobile-draft:';
+
 export function resolveMediaType(file: File): string | null {
   const type = file.type || EXTENSION_MEDIA_TYPES[file.name.split('.').pop()?.toLowerCase() ?? ''] || '';
   return ALLOWED_MEDIA_TYPES.includes(type) ? type : null;
@@ -63,6 +65,8 @@ export function useWorkbenchComposer(options: {
   streaming: Ref<boolean>;
   fullAccessDialogOpen: Ref<boolean>;
   enterToSend?: Ref<boolean>;
+  draftSessionId?: Ref<string>;
+  draftsEnabled?: Ref<boolean>;
 }) {
   const input = ref('');
   const isComposing = ref(false);
@@ -78,6 +82,73 @@ export function useWorkbenchComposer(options: {
 
   const voiceInput = useAervoxVoiceInput();
   const voiceInputError = ref<string | null>(null);
+  const draftSessionId = options.draftSessionId ?? ref('');
+  const draftsEnabled = options.draftsEnabled ?? ref(false);
+  let restoringDraft = false;
+  let pendingSubmittedDraft: { sessionId: string; text: string } | null = null;
+
+  function draftStorageKey(sessionId: string): string {
+    return `${MOBILE_DRAFT_STORAGE_PREFIX}${encodeURIComponent(sessionId)}`;
+  }
+
+  function saveDraft(text = input.value, sessionId = draftSessionId.value): void {
+    if (!draftsEnabled.value || !sessionId || typeof localStorage === 'undefined') return;
+    try {
+      const value = text.trim();
+      if (value) localStorage.setItem(draftStorageKey(sessionId), text);
+      else if (!pendingSubmittedDraft || pendingSubmittedDraft.sessionId !== sessionId) {
+        localStorage.removeItem(draftStorageKey(sessionId));
+      }
+    } catch {
+      // Ignore storage quota or private-mode failures; sending must remain usable.
+    }
+  }
+
+  function restoreDraft(sessionId = draftSessionId.value): void {
+    if (!draftsEnabled.value || !sessionId || typeof localStorage === 'undefined') return;
+    restoringDraft = true;
+    try {
+      input.value = localStorage.getItem(draftStorageKey(sessionId)) ?? '';
+      if (input.value.trim()) composerOpen.value = true;
+    } catch {
+      input.value = '';
+    } finally {
+      queueMicrotask(() => {
+        restoringDraft = false;
+      });
+    }
+  }
+
+  function beginDraftSubmission(text: string, sessionId = draftSessionId.value): void {
+    if (!draftsEnabled.value || !sessionId || !text.trim()) return;
+    pendingSubmittedDraft = { sessionId, text };
+    saveDraft(text, sessionId);
+  }
+
+  function completeDraftSubmission(sessionId = draftSessionId.value): void {
+    if (typeof localStorage !== 'undefined' && sessionId) {
+      try {
+        localStorage.removeItem(draftStorageKey(sessionId));
+      } catch {
+        // Ignore storage failures after a successful send.
+      }
+    }
+    if (pendingSubmittedDraft?.sessionId === sessionId) pendingSubmittedDraft = null;
+  }
+
+  function restoreFailedDraft(): void {
+    if (!pendingSubmittedDraft || pendingSubmittedDraft.sessionId !== draftSessionId.value) return;
+    input.value = pendingSubmittedDraft.text;
+    composerOpen.value = true;
+  }
+
+  watch([draftSessionId, draftsEnabled], ([sessionId, enabled]) => {
+    if (enabled && sessionId) restoreDraft(sessionId);
+  }, { immediate: true });
+
+  watch(input, (value) => {
+    if (!restoringDraft) saveDraft(value);
+  }, { flush: 'post' });
 
   function expandComposer() {
     composerOpen.value = true;
@@ -264,6 +335,10 @@ export function useWorkbenchComposer(options: {
     attachmentUploading,
     voiceInput,
     voiceInputError,
+    saveDraft,
+    beginDraftSubmission,
+    completeDraftSubmission,
+    restoreFailedDraft,
     expandComposer,
     collapseComposer,
     handleDockFocusOut,
