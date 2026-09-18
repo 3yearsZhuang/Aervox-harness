@@ -2,7 +2,7 @@ import { ref } from 'vue';
 import type { UIRegistry } from '../registry/ui-registry';
 import type { WorkbenchContext } from '../composables/workbench-context';
 import { focusModePluginDefinition } from './focus-mode';
-import { studyModePluginDefinition } from './study-mode';
+import { studyModePluginDefinition } from './focus-mode';
 
 export interface BuiltinUIPlugin {
   id: string;

@@ -2,8 +2,8 @@
  * Aervox｜思隅 @aervox/repositories — 记忆向量 SQLite 仓储（T-05）
  *
  * memory_embeddings 独立表：按 model_id 分版本存储向量，换模型不迁移业务表。
- * 检索走 JS 行扫描 + 余弦（SQLite 无原生向量扩展的兜底），后续 pgvector 仅替换
- * 本实现，接口不变（对照 AST-02 的 Port 语义：批量 + 重试 + 进度回调 + topK 检索）。
+ * 检索走 JS 行扫描 + 余弦（SQLite 无原生向量扩展的兜底）。
+ * 向量存储当前由 SQLite 行扫描 + 余弦距离承载，VectorSearchPort 接口预留替换空间。
  */
 import { eq, and } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
@@ -139,7 +139,7 @@ export class SqliteMemoryEmbeddingRepository implements IMemoryEmbeddingReposito
 
 /**
  * 将 memory_embeddings 落库向量对标 IVectorSearchPort，供 T-02 混合检索直接使用：
- * id = memoryId。这也是 pgvector 切换时的替换边界。
+ * id = memoryId。向量存储当前由 SQLite 行扫描 + 余弦距离承载，VectorSearchPort 接口预留替换空间。
  */
 export class SqliteMemoryVectorSearchAdapter {
   constructor(

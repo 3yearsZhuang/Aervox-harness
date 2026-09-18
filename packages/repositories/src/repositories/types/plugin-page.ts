@@ -20,8 +20,6 @@ export interface IPluginPageRepository {
 
 export interface PersonaPreferencesModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   /** 语气: "friendly" | "neutral" | "formal" */
   tone: string;
   /** 主动程度: "low" | "medium" | "high" */

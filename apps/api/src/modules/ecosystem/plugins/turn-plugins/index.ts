@@ -4,6 +4,4 @@
 export * from "./types.js";
 export * from "./registry.js";
 export * from "./runner.js";
-export * from "./study-mode.js";
-export * from "./quiz-mode.js";
 export * from "./focus-mode.js";

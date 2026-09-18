@@ -35,7 +35,7 @@ docs/
   explanation/           # 概念讲解（AVX-EXPL-*）/ 实现规划 / 能力拆分路线
   templates/             # 新建文档模板（How-to / Reference / Explanation）
   proposals/             # 暂存提案（未采纳或待补充证据的技术与架构方案）
-  archive/               # 已归档记录（已完成或已退役的历史变更与决策记录）
+  archive/               # 已迁移至外部独立归档仓 Aervox-docs-archive
   reference/             # 参考类（AVX-PRD/SRS/SAD/TRC/SPC/DB/DATA/AIQ/SEC/QA/OPS 等）
     adr/                 # ADR-001~019 + 索引
     changes/             # 当前 CR 差量；历史编号见归档说明
@@ -51,7 +51,6 @@ docs/
     DATA_PRIVACY.md · AI_QUALITY_SAFETY.md · THREAT_MODEL.md · TEST_STRATEGY.md
     operations.md
 reference/               # 固定 commit 的子模块（只读参考，见 PRD 15.1；与上文 docs/reference/ 不同）
-demos/                   # 纯前端原型，非交付物
 ```
 
 ## 2. 阅读顺序
@@ -63,7 +62,7 @@ demos/                   # 纯前端原型，非交付物
 5. 开发插件先读 [Aervox 插件开发规范](reference/plugin-config-and-pages.md)，再按[开发指南](how-to/develop-plugin-ui-extension.md)完成最小插件；规划能力宿主和目标目录时读[能力组合与可选化目录规范](reference/capability-composition.md)，现有能力迁移从[迁移教程](tutorials/migrate-integrated-capabilities.md)开始。
 6. 规划模型调用、工具执行、多 Step、取消或恢复时，读 [Agent Harness Loop 规范](reference/agent-harness-loop.md)。
 7. 规划 CAP-033 完整画像、十二项主动智能派生、Home Assistant、小米健康、OS 能力授权、特权观察 Host、本地模型/存储或主动提醒时，读[主动智能设计方案](explanation/proactive-intelligence-mode.md)、`CR-023`、`CR-024`（已归档）与 [ADR-019](reference/adr/ADR-019-proactive-integrations-local-gateway.md)；当前分支已实现本地 Vault、部分来源、十二项派生、HA/健康连接和动作授权，生产平台与厂商门禁仍未完成。
-8. 拉取子模块：clone 后先执行 `git submodule update --init --recursive`，否则 `pnpm build` 会缺 `@aervox/mod-*` 失败（见[可选模块协作指南](how-to/submodule-collaboration.md)）。`reference/*` 八个设计输入子仓库已在 `.gitmodules` 配置 `shallow = true`，新 clone 只取 pinned commit 单层历史（合计约 4.4G 全量历史 → 浅克隆显著缩减，CI `submodules: recursive` 同样受益）；已完整 clone 的历史**不会自动缩减**，需要时手动执行 `git submodule update --init --depth 1`。设计输入按需 init 即可，不参与构建。
+8. 拉取子模块：clone 后按需执行 `git submodule update --init --recursive`，reference/* 子模块是设计输入参考代码，**并不影响 pnpm build**，不拉取也不会报错。这些设计输入子仓库已在 `.gitmodules` 配置 `shallow = true`，新 clone 只取 pinned commit 单层历史（合计约 4.4G 全量历史 → 浅克隆显著缩减，CI `submodules: recursive` 同样受益）；已完整 clone 的历史**不会自动缩减**，需要时手动执行 `git submodule update --init --depth 1`。设计输入按需 init 即可，不参与构建。
 9. 贡献者流程见根级 [CONTRIBUTING](../CONTRIBUTING.md)；按需进入 [how-to](how-to)：新增需求 / 写 ADR / 过发布门禁 / 执行演练 / 可选模块 submodule。
 
 ## 3. 写作与改动的硬性规则

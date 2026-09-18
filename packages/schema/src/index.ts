@@ -24,6 +24,7 @@ export * from "./ecosystem.js";
 export * from "./persona.js";
 export * from "./tool-registry.js";
 export * from "./mcp.js";
+export * from "./mcp-tools.js";
 export * from "./skills.js";
 export * from "./plugin-config.js";
 export * from "./voice.js";
@@ -41,4 +42,4 @@ export * from "./proactive.js";
 export * from "./proactive-intelligence.js";
 export * from "./model-routing.js";
 export * from "./project.js";
-
+export * from "./workspace-skills.js";

@@ -268,8 +268,6 @@ export interface ILearningRepository {
 
 export interface KnowledgeRelationModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   fromKnowledgeId: string;
   toKnowledgeId: string;
   relationType: string;
@@ -289,8 +287,6 @@ export interface KnowledgeRelationModel {
 
 export interface PracticeReportModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   sessionId: string;
   totalQuestions: number;
   correctCount: number;
@@ -307,8 +303,6 @@ export interface PracticeReportModel {
 
 export interface PlanTaskModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   milestoneId: string;
   order: number;
   title: string;
@@ -321,8 +315,6 @@ export interface PlanTaskModel {
 
 export interface PlanMilestoneModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   planId: string;
   order: number;
   title: string;
@@ -338,8 +330,6 @@ export interface PlanMilestoneModel {
 
 export interface LearningPlanModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   topic: string;
   level: string;
   title: string;
@@ -355,8 +345,6 @@ export interface LearningPlanModel {
 
 export interface FeedbackModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   actorId: string;
   subjectType: string;
   subjectId: string;

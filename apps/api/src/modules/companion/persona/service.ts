@@ -226,8 +226,6 @@ export class PersonaService {
   ): Promise<PersonaTurnContextModel> {
     return this.deps.personaRepo.saveTurnContext(tenant, {
       id: context.id ?? `ptc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-      workspaceId: tenant.workspaceId,
-      subjectUserId: tenant.subjectUserId,
       turnId: context.turnId,
       personaId: context.personaId,
       revisionId: context.revisionId,

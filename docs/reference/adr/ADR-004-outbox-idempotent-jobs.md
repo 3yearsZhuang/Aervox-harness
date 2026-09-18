@@ -6,15 +6,15 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: accepted
 version: 0.1.1
-updated_at: 2026-09-13
-reviewed_at: 2026-09-13
+updated_at: 2026-09-18
+reviewed_at: 2026-09-18
 review_interval_days: 90
 ---
 
 # ADR-004 业务状态 + Outbox + 幂等队列
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-13
+- 修改人：3yearszhuang · 2026-09-18
 
 - 状态：Accepted
 - 日期：2026-08-23
@@ -69,3 +69,8 @@ review_interval_days: 90
 - **已满足**：Outbox/幂等作业已落地（`outbox-worker`、`diary.published` 等；#124 登记）。
 - **未满足**：`TC-INTEG-JOB-001`/`TC-RES-QUEUE-001` 自动化缺失（`apps/worker` 无 outbox 专项测试）；Redis 丢失重建与删除任务幂等演练未执行。
 - **推进路径**：补 outbox 原子性/重复投递/DLQ 重放专项测试后走 G2 评审。
+
+> [!NOTE]
+> **CR-030 修订（2026-09-18）**：本 ADR 撰写时的传输层为 Redis/BullMQ。CR-030 纯本地改造后，
+> 所有异步任务投递已由 SQLite `outbox_events` + Worker 进程内存轮询全面替代，
+> Redis/BullMQ 已从系统中完全移除。上文中关于 Redis/BullMQ 的描述仅作历史记录保留。

@@ -7,8 +7,8 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 2.2.0
-updated_at: 2026-09-17
-reviewed_at: 2026-09-17
+updated_at: 2026-09-18
+reviewed_at: 2026-09-18
 review_interval_days: 30
 review_triggers:
   - packages/schema/**
@@ -29,7 +29,7 @@ sources:
 # Aervox｜思隅 SQLite 本地单用户数据库契约
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-17
+- 修改人：3yearszhuang · 2026-09-18
 
 本文规定 Aervox 持久化层的目标契约、机器事实源、关键不变量、破坏性迁移协议和发布门禁。
 字段与 DDL 的机器真源是 `packages/schema` 和 `packages/repositories/src/schema/ddl`；本文不复制
@@ -92,14 +92,16 @@ POSIX 权限目标为目录 `0700`、数据库/状态清单/token `0600`；Windo
 
 | 领域 | 关键事实 | 关键派生/控制 |
 |---|---|---|
-| Conversation | sessions、messages、message_versions、turns、turn_attempts | turn_stream_events、tool_executions、pending_user_questions |
-| Learning | learning_goals、questions、question_attempts、knowledge_items | review_items、learning_reports、study_plans |
-| Memory | source_artifacts/revisions、memory_records/revisions/evidence | memory_nodes/edges、FTS、EmbeddingIndex |
-| Diary | diary_schedules/revisions、diary_cycles、diary_run_attempts | diaries/versions/paragraph_sources、material_buffer |
-| Content | attachments、content_parse_results、provenance | OCR、全文与向量派生索引 |
-| Plugin/Persona | plugins、plugin_grants、personas/revisions、skills、MCP | plugin_config/secrets/pages、persona_turn_contexts |
-| Platform | consent_grants、audit_records、deletion_requests、outbox_events | model_runs、context_manifests、notifications、llm_health_snapshots、llm_routing_events |
+| Conversation | sessions、messages、message_versions、turns、turn_attempts | turn_stream_events、conversation_branches、tool_executions、pending_user_questions、tool_approvals、safe_segments、agent_inbox_items、subagent_runs |
+| Learning | learning_goals、questions、question_attempts、knowledge_items | review_items、knowledge_relations、practice_reports、learning_plans、plan_milestones、plan_tasks、mistake_dispositions、mistake_insights、practice_sessions、study_materials |
+| Memory | source_artifacts/revisions、memory_records/revisions/evidence | memory_nodes/edges、memory_embeddings、memory_compaction_markers、FTS |
+| Diary | diary_schedules/revisions、diary_cycles、diary_run_attempts | diaries/versions/paragraph_sources、diary_material_buffers |
+| Content | attachments、attachment_parse_results、provenance | OCR、全文与向量派生索引（embedding_indexes） |
+| Plugin/Persona | plugins、plugin_grants、personas/revisions、skills、MCP | plugin_configs/secrets/pages、persona_turn_contexts、workspace_skills、mcp_tools |
+| Platform | consent_grants、audit_records、deletion_requests、outbox_events | model_runs、context_manifests、notifications、llm_configs、audit_logs、llm_health_snapshots、llm_routing_events |
 | Proactive | profile revisions、device/source grants、activation leases、perception events | captures、observations、claims、actions、SituationModel snapshots、consumer cursors、attention budgets/feedback/receipts |
+| Project | projects（项目上下文实体） | sessions.projectId 关联 |
+| Voice | voice_configs、voice_input_configs、voice_remote_configs | 本地/远程语音转写与合成配置 |
 
 `User` 仅表示本地用户档案，不是共享数据库认证主体。`actorId` 表示用户动作、插件、连接器或系统任务，
 用于授权来源和审计，不承担行级租户隔离。

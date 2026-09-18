@@ -2,8 +2,8 @@
  * Aervox｜思隅 @aervox/schema — Embedding 独立存储（T-05）
  *
  * 场景：向量数据不塞进业务表（memory_records），独立成 memory_embeddings：
- * 换 embedding 模型不迁移业务表，SQLite 侧先行落地，后续切 pgvector 仅替换
- * 仓储实现（对照 AST-02 的 Port 形态：批量/重试/进度回调 + retrieve 语义）。
+ * 换 embedding 模型不迁移业务表，SQLite 侧先行落地。
+ * 向量存储当前由 SQLite 行扫描 + 余弦距离承载，VectorSearchPort 接口预留替换空间。
  *
  * 与 embedding_indexes 的关系：embedding_indexes 记录「索引任务/版本」状态，
  * 本表是「向量数据本体」（含 dimension/modelId/sourceCreatedAt，参考 baishou-next

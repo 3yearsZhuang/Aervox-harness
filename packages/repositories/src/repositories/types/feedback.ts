@@ -21,8 +21,6 @@ export interface IFeedbackRepository {
 
 export interface SourceArtifactModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   kind: string;
   ownerModule: string;
   currentRevisionId?: string | null;

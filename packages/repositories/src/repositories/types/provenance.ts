@@ -62,8 +62,6 @@ export interface IProvenanceRepository {
 
 export interface ScheduledJobModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   jobType: string;
   subjectId: string;
   idempotencyKey: string;
@@ -76,8 +74,6 @@ export interface ScheduledJobModel {
 
 export interface NotificationModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   type: string;
   scheduledAt: string;
   sentAt?: string | null;
@@ -102,8 +98,6 @@ export interface PromptVersionModel {
 
 export interface ModelRunModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   /** 阶段 7（ADR-017）：Attempt/Step 关联（存量慢启动回填，可为空） */
   attemptId?: string | null;
   stepId?: number | null;
@@ -136,8 +130,6 @@ export interface ContextManifestModel {
 
 export interface AuditRecordModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   actorType: string;
   actorId: string;
   action: string;

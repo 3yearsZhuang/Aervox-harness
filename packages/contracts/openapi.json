@@ -1858,6 +1858,9 @@
       "ActivePersonaSelection": {
         "type": "object",
         "properties": {
+          "id": {
+            "type": "string"
+          },
           "workspaceId": {
             "type": "string",
             "minLength": 1
@@ -12896,6 +12899,9 @@
                         "null"
                       ],
                       "properties": {
+                        "id": {
+                          "type": "string"
+                        },
                         "workspaceId": {
                           "type": "string",
                           "minLength": 1
@@ -13990,6 +13996,9 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "id": {
+                      "type": "string"
+                    },
                     "workspaceId": {
                       "type": "string",
                       "minLength": 1

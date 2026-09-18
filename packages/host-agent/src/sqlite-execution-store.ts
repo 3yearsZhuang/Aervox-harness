@@ -55,7 +55,7 @@ const toAgentEvent = (row: {
 export class SqliteExecutionStore implements ExecutionStorePort {
   constructor(
     private readonly repo: SqliteConversationRepository,
-    private readonly tenant: LocalContext,
+    private readonly ctx: LocalContext,
     /** 阶段 7：ModelRun/Manifest 落库口（可选；缺省 no-op，兼容既有宿主/测试） */
     private readonly modelRunSink?: ModelRunSink,
   ) {}
@@ -78,7 +78,7 @@ export class SqliteExecutionStore implements ExecutionStorePort {
     | { ok: true; fencingToken: number; leaseId?: string; leaseExpiresAt?: string }
     | { ok: false; reason: "not_runnable" | "already_claimed" }
   > {
-    const res = await this.repo.claimTurnAttempt(this.tenant, {
+    const res = await this.repo.claimTurnAttempt(this.ctx, {
       ...input,
       leaseId: `lease_${Date.now().toString(36)}`,
     });
@@ -98,18 +98,18 @@ export class SqliteExecutionStore implements ExecutionStorePort {
     expectedFencingToken: number;
     ttlMs?: number;
   }): Promise<{ ok: boolean }> {
-    const ok = await this.repo.renewTurnAttemptLease(this.tenant, input);
+    const ok = await this.repo.renewTurnAttemptLease(this.ctx, input);
     return { ok };
   }
 
   async nextSequence(turnId: string): Promise<number> {
-    const events = await this.repo.getStreamEvents(this.tenant, turnId, 0);
+    const events = await this.repo.getStreamEvents(this.ctx, turnId, 0);
     return events.length + 1;
   }
 
   async appendEvent(input: AgentStreamEventInput): Promise<AgentStreamEvent> {
     try {
-      const created = await this.repo.appendStreamEvent(this.tenant, {
+      const created = await this.repo.appendStreamEvent(this.ctx, {
         id: nextEventId(input.turnId, input.sequence),
         turnId: input.turnId,
         sequence: input.sequence,
@@ -132,7 +132,7 @@ export class SqliteExecutionStore implements ExecutionStorePort {
   }
 
   async listEvents(turnId: string, afterSequence = 0): Promise<AgentStreamEvent[]> {
-    const rows = await this.repo.getStreamEvents(this.tenant, turnId, afterSequence);
+    const rows = await this.repo.getStreamEvents(this.ctx, turnId, afterSequence);
     return rows.map(toAgentEvent);
   }
 
@@ -142,7 +142,7 @@ export class SqliteExecutionStore implements ExecutionStorePort {
     status: "Running" | "Completed" | "Failed" | "Interrupted" | "Cancelled";
     expectedFencingToken?: number;
   }): Promise<{ ok: boolean }> {
-    const updated = await this.repo.finalizeTurnAttempt(this.tenant, {
+    const updated = await this.repo.finalizeTurnAttempt(this.ctx, {
       turnId: input.turnId,
       attemptId: input.attemptId,
       status: input.status,
@@ -169,7 +169,7 @@ export class SqliteExecutionStore implements ExecutionStorePort {
     expectedFencingToken: number;
   }): Promise<{ ok: boolean }> {
     try {
-      const done = await this.repo.recordToolOutcomeAtomically(this.tenant, {
+      const done = await this.repo.recordToolOutcomeAtomically(this.ctx, {
         turnId: input.turnId,
         attemptId: input.attemptId,
         sequence: input.sequence,
@@ -205,7 +205,7 @@ export class SqliteExecutionStore implements ExecutionStorePort {
     eventData: unknown;
     safetyDecision?: import("@aervox/agent-loop").SafetyDecision;
   }): Promise<{ ok: boolean }> {
-    const done = await this.repo.finalizeAttemptWithEventAtomically(this.tenant, {
+    const done = await this.repo.finalizeAttemptWithEventAtomically(this.ctx, {
       turnId: input.turnId,
       attemptId: input.attemptId,
       status: input.status,
@@ -229,7 +229,7 @@ export class SqliteExecutionStore implements ExecutionStorePort {
     expectedFencingToken: number;
   }): Promise<{ ok: boolean }> {
     try {
-      const done = await this.repo.recordSafeSegmentAtomically(this.tenant, {
+      const done = await this.repo.recordSafeSegmentAtomically(this.ctx, {
         turnId: input.turnId,
         attemptId: input.attemptId,
         sequence: input.sequence,
@@ -259,7 +259,7 @@ export class SqliteExecutionStore implements ExecutionStorePort {
   }>): Promise<{ ok: boolean }> {
     if (inputs.length === 0) return { ok: true };
     try {
-      const done = await this.repo.recordSafeSegmentsAtomically(this.tenant, inputs);
+      const done = await this.repo.recordSafeSegmentsAtomically(this.ctx, inputs);
       return { ok: done };
     } catch (err) {
       if (err instanceof FencingMismatchError) {
@@ -271,7 +271,7 @@ export class SqliteExecutionStore implements ExecutionStorePort {
 
   /** E2：已提交安全片段（可见前缀；sequence 升序） */
   async listCommittedSegments(turnId: string): Promise<Array<{ id: string; sequence: number; text: string; streamEventId: string | null }>> {
-    return this.repo.listCommittedSegments(this.tenant, turnId);
+    return this.repo.listCommittedSegments(this.ctx, turnId);
   }
 
   /** 2b：用户取消请求位（CAS 委托仓储） */
@@ -279,17 +279,17 @@ export class SqliteExecutionStore implements ExecutionStorePort {
     turnId: string;
     attemptId: string;
   }): Promise<{ ok: boolean; reason?: "not_found" | "already_finalized" }> {
-    return this.repo.requestCancelTurnAttempt(this.tenant, input);
+    return this.repo.requestCancelTurnAttempt(this.ctx, input);
   }
 
   /** 2b：executor 取消检查点（轮询仓储状态） */
   async isCancelRequested(input: { turnId: string; attemptId: string }): Promise<boolean> {
-    return (await this.repo.getTurnAttemptStatus(this.tenant, input)) === "CancelRequested";
+    return (await this.repo.getTurnAttemptStatus(this.ctx, input)) === "CancelRequested";
   }
 
   /** 工具副作用证据落库（tool_executions，AVX-HAR-001 §12） */
   async recordToolExecution(input: ToolExecutionRecord): Promise<void> {
-    await this.repo.recordToolExecution(this.tenant, {
+    await this.repo.recordToolExecution(this.ctx, {
       turnId: input.turnId,
       attemptId: input.attemptId,
       invocationId: input.invocationId,
@@ -311,7 +311,7 @@ export class SqliteExecutionStore implements ExecutionStorePort {
     name: string;
     arguments: unknown;
   }): Promise<{ ok: boolean; alreadyReserved: boolean }> {
-    return this.repo.reserveToolExecution(this.tenant, input);
+    return this.repo.reserveToolExecution(this.ctx, input);
   }
 
   /** 2c：以权威结果收口预留行 */
@@ -324,6 +324,6 @@ export class SqliteExecutionStore implements ExecutionStorePort {
     error?: string;
     finishedAt?: string;
   }): Promise<{ ok: boolean }> {
-    return this.repo.updateToolExecutionResult(this.tenant, input);
+    return this.repo.updateToolExecutionResult(this.ctx, input);
   }
 }

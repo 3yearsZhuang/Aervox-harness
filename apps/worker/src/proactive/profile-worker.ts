@@ -49,12 +49,12 @@ function existingMemoryIds(
 
 /** 单次本地画像周期；返回各阶段处理数量。 */
 export async function runProactiveProfileCycle(
-  ctx: ProactiveProfileWorkerContext,
+  deps: ProactiveProfileWorkerContext,
 ): Promise<ProactiveProfileCycleResult> {
-  const now = (ctx.now ?? (() => new Date()))();
+  const now = (deps.now ?? (() => new Date()))();
   const nowIso = now.toISOString();
   const retryBefore = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
-  const candidates = await ctx.db
+  const candidates = await deps.db
     .select({
       id: proactiveCaptures.id,
     })
@@ -85,16 +85,16 @@ export async function runProactiveProfileCycle(
       ),
     )
     .orderBy(asc(proactiveCaptures.ingestedAt))
-    .limit(clampLimit(ctx.limit));
+    .limit(clampLimit(deps.limit));
 
-  const tenant: LocalContext = { workspaceId: "local", subjectUserId: "local" };
+  const ctx: LocalContext = { workspaceId: "local", subjectUserId: "local" };
   // A candidate cycle used to rescan and decrypt the full capture/claim/
   // observation windows once per candidate. Cache those bounded windows for
   // the cycle; this changes the hot path from O(candidates * window) reads to
   // one read per revision/source while preserving the repository's existing
   // 500-row visibility contract.
   const captures = candidates.length > 0
-    ? await ctx.repo.listCaptures(tenant, { includeDeleted: false, limit: 500 })
+    ? await deps.repo.listCaptures(ctx, { includeDeleted: false, limit: 500 })
     : [];
   const capturesById = new Map(captures.map((capture) => [capture.id, capture]));
   const claimsByRevision = new Map<string, ProactiveProfileClaimModel[]>();
@@ -102,7 +102,7 @@ export async function runProactiveProfileCycle(
   const claimsForRevision = async (revisionId: string): Promise<ProactiveProfileClaimModel[]> => {
     const cached = claimsByRevision.get(revisionId);
     if (cached) return cached;
-    const loaded = await ctx.repo.listClaims(tenant, { revisionId, limit: 500 });
+    const loaded = await deps.repo.listClaims(ctx, { revisionId, limit: 500 });
     claimsByRevision.set(revisionId, loaded);
     return loaded;
   };
@@ -110,7 +110,7 @@ export async function runProactiveProfileCycle(
     const key = `${revisionId}:${sourceKey}`;
     const cached = observationsByKey.get(key);
     if (cached) return cached;
-    const loaded = await ctx.repo.listObservations(tenant, { revisionId, sourceKey, limit: 500 });
+    const loaded = await deps.repo.listObservations(ctx, { revisionId, sourceKey, limit: 500 });
     observationsByKey.set(key, loaded);
     return loaded;
   };
@@ -127,7 +127,7 @@ export async function runProactiveProfileCycle(
       const claims = await claimsForRevision(capture.revisionId);
       let memoryIds = existingMemoryIds(claims, capture);
       if (memoryIds.length === 0) {
-        const memories = await ctx.distiller.distill(capture);
+        const memories = await deps.distiller.distill(capture);
         if (memories.length === 0) throw new Error("local distiller produced no profile memory");
         const existingObservations = await observationsFor(capture.revisionId, capture.sourceKey);
         memoryIds = [];
@@ -135,7 +135,7 @@ export async function runProactiveProfileCycle(
           const memory = memories[index]!;
           const observationId = `pobs_${capture.id}_${index + 1}`;
           const observation = existingObservations.find((item) => item.id === observationId)
-            ?? await ctx.repo.createObservation(tenant, {
+            ?? await deps.repo.createObservation(ctx, {
               id: observationId,
               revisionId: capture.revisionId,
               sourceGrantId: capture.sourceGrantId,
@@ -151,7 +151,7 @@ export async function runProactiveProfileCycle(
                 ...(memory.structured ?? {}),
               },
               checksum: capture.checksum,
-              algorithmVersion: ctx.distiller.processorId,
+              algorithmVersion: deps.distiller.processorId,
               observedAt: capture.observedAt,
               normalizedAt: nowIso,
             });
@@ -164,7 +164,7 @@ export async function runProactiveProfileCycle(
             continue;
           }
           const claimId = `pclaim_${capture.id}_${index + 1}`;
-          const claim = await ctx.repo.createClaim(tenant, {
+          const claim = await deps.repo.createClaim(ctx, {
             id: claimId,
             revisionId: capture.revisionId,
             claimType: memory.claimType,
@@ -183,18 +183,18 @@ export async function runProactiveProfileCycle(
           memoryIds.push(claim.id);
         }
       }
-      const updated = await ctx.repo.markCaptureDistilled(tenant, capture.id, memoryIds);
+      const updated = await deps.repo.markCaptureDistilled(ctx, capture.id, memoryIds);
       if (updated) distilled += 1;
     } catch (error) {
       failed += 1;
       const reason = error instanceof Error ? error.message : String(error);
-      await ctx.repo
-        .markCaptureDistillationFailed(tenant, candidate.id, reason.slice(0, 500))
+      await deps.repo
+        .markCaptureDistillationFailed(ctx, candidate.id, reason.slice(0, 500))
         .catch(() => undefined);
     }
   }
 
   // This method first blocks overdue undistilled captures, then clears only distilled rows.
-  const purged = await ctx.repo.purgeEligibleCaptures(undefined, nowIso, clampLimit(ctx.limit));
+  const purged = await deps.repo.purgeEligibleCaptures(undefined, nowIso, clampLimit(deps.limit));
   return { distilled, failed, purged };
 }
