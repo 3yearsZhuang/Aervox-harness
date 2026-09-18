@@ -57,7 +57,6 @@ apps/
   desktop/      # Electron 43 桌面壳（Fairy 桌宠）；复用 web/ui，ADR-009
   web/          # Vue 3 + Vite 7 工作台（复用 desktop renderer 核心，ADR-015）
   mobile/       # Capacitor 8 移动端外壳（封装 apps/web）
-  data/         # 技能与插件数据资产（非工作区包）
 packages/
   contracts/         # L0 纯契约层：Zod Schema + OpenAPI v9（唯一 DTO 事实源）
   schema/            # Drizzle ORM SQLite 模式定义（唯一表结构事实源）

@@ -24,7 +24,7 @@ export function getDiskPackages() {
       if (entry.startsWith(".")) continue;
       // 检查是否为目录
       try {
-        if (existsSync(join(dirPath, "package.json")) || entry === "data") {
+        if (existsSync(join(dirPath, "package.json"))) {
           packages.push(`${root}/${entry}`);
         }
       } catch {
