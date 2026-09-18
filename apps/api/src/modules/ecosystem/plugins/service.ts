@@ -38,6 +38,8 @@ import {
 import type {
   PluginPackageInspection,
   PluginMarketItem,
+  PluginDeclaredTool,
+  PluginDeclaredSkill,
 } from "@aervox/contracts";
 import type { PluginBundleStore } from "./bundle-store.js";
 import type { PluginConfigService } from "./config-service.js";
@@ -46,29 +48,7 @@ import type {
   SqlitePluginPageRepository,
 } from "@aervox/repositories";
 
-/** 插件声明的工具（安装时注册进 tool_registrations） */
-export interface PluginDeclaredTool {
-  /** 工具标识；缺省以 name 作为 id 基底 */
-  id?: string;
-  name: string;
-  description?: string;
-  category?: string;
-  safetyLevel?: string;
-  requiredPermissions?: unknown;
-  inputSchema?: unknown;
-  gatingConditions?: unknown;
-  priority?: number;
-}
-
-/** 插件声明的技能（安装时写入本地并只读注册进 skill_registrations） */
-export interface PluginDeclaredSkill {
-  /** 技能名（须匹配 ^[\w.-]+$） */
-  name: string;
-  /** 简短描述；缺省从 SKILL.md frontmatter 解析 */
-  description?: string;
-  /** SKILL.md 全文 */
-  content?: string;
-}
+export type { PluginDeclaredTool, PluginDeclaredSkill };
 
 /**
  * CR-032：插件主动规则级联口。由 proactive 域提供 vault 实现（ProactiveRuleSyncPort

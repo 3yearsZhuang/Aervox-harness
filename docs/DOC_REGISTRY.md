@@ -29,7 +29,7 @@ review_interval_days: 90
 | `AVX-SRS-002` | [主动智能与外部信号需求规格](reference/srs-proactive-intelligence.md) | 2026-09-10 | G1 需求基线前 / 主动智能需求变更 | CAP-033/034/035 FR/BR/AC/DATA/SEC 变化未同步 |
 | `AVX-SAD-001` | [架构设计](reference/ARCHITECTURE.md) | 2026-09-18 | G2 评审 + 架构变更 | CR-030 本地单用户边界、API 安全或数据拓扑未同步 |
 | `AVX-DS-001` | [视觉系统与设计规范](reference/DESIGN.md) | 2026-09-17 | UI 重构 / 主题演进 | 视觉规范、Token 或禁止模式未同步 |
-| `ADR-001~019` | [ADR 索引](reference/adr/README.md) | 2026-09-13 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
+| `ADR-001~019` | [ADR 索引](reference/adr/README.md) | 2026-09-18 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
 | `ADR-001` | [模块化单体架构与 Worker 拆分](reference/adr/ADR-001-modular-monolith.md) | 2026-09-13 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
 | `ADR-002` | [Web 端与 API 契约设计（已归档，由 ADR-015 替代）](reference/adr/ADR-002-web-api-contract.md) | 2026-09-17 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
 | `ADR-003` | [SQLite 永久本地真源与 Schema/Repository 分层](reference/adr/ADR-003-postgres-retrieval.md) | 2026-09-17 | G2 评审 + 决策变更 | CR-030 修订、Repository 边界或迁移协议未同步 |

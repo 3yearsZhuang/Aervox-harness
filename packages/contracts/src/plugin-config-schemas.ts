@@ -259,6 +259,7 @@ export const pluginDeclaredToolSchema = z.object({
   safetyLevel: z.enum(["read_only", "guarded", "full_access"]).default("guarded"),
   requiredPermissions: z.array(z.string()).default([]),
   inputSchema: z.record(z.string(), z.unknown()).default({}),
+  gatingConditions: z.unknown().optional(),
   priority: z.number().int().default(0),
 });
 

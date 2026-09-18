@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/schema — CAP-033 主动智能模式本地画像数据面
  *
- * 这些表与普通记忆/分析表隔离，所有正文和派生数据都带有 tenant、授权修订
+ * 这些表与普通记忆/分析表隔离，所有正文和派生数据都带有 localContext、授权修订
  * 与 processingBoundary 溯源。运行时必须由本地 Host 保证 local_only；数据库层
  * 不将主动画像数据写入 outbox 或远程同步表。
  */

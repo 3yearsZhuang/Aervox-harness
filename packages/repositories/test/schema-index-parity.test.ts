@@ -166,4 +166,46 @@ describe("Schema ⇄ DDL 索引等价性（docs/reference/DATABASE.md §2）", (
       await cleanup();
     }
   });
+
+  it("DDL 表集合与 Schema 声明集合完全等价（不允许仅 DDL 或仅 Schema）", async () => {
+    const { client, cleanup } = await createInMemoryDatabase();
+    try {
+      await initDatabaseSchema(client);
+      await initLedgerSchema(client);
+
+      // SQLite FTS5 虚表及其实体影子表（_config, _content, _data, _docsize, _idx）由 FTS5 引擎自管，
+      // Drizzle ORM 不直接声明 FTS 虚表结构（见 packages/schema/src/index.ts 说明）。
+      const ddlTables = (
+        await client.execute(
+          `SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'drizzle_%' AND name NOT LIKE '_litestream_%' AND name NOT LIKE '%_fts' AND name NOT LIKE '%_fts_%'`,
+        )
+      ).rows
+        .map((r) => String(r.name))
+        .sort();
+
+      const schemaTables = new Set<string>();
+      for (const value of Object.values(schemaModule)) {
+        try {
+          const config = getTableConfig(value as never);
+          if (config && typeof config.name === "string") {
+            schemaTables.add(config.name);
+          }
+        } catch {
+          // 非表导出，跳过
+        }
+      }
+
+      const sortedSchemaTables = [...schemaTables].sort();
+
+      const onlyInDdl = ddlTables.filter((t) => !schemaTables.has(t));
+      const onlyInSchema = sortedSchemaTables.filter((t) => !ddlTables.includes(t));
+
+      expect(onlyInDdl, "DDL 中存在但 Schema 未声明的表").toEqual([]);
+      expect(onlyInSchema, "Schema 中声明但 DDL 未创建的表").toEqual([]);
+      expect(sortedSchemaTables.length).toBe(ddlTables.length);
+    } finally {
+      await cleanup();
+    }
+  });
 });
+
