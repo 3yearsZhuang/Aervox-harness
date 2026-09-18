@@ -116,8 +116,6 @@ export interface EvalSetModel {
 
 export interface AnalyticsEventModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   eventName: string;
   eventSchemaVersion: number;
   occurredAt: string;

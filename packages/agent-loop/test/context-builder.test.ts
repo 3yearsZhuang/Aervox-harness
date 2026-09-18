@@ -212,9 +212,9 @@ describe("基础系统提示词与工具指引 (Base System Prompt & Tool Guidan
     );
   });
 
-  it("study-mode-prompt：可独立引入并构建不同配置的专注模式提示词", async () => {
+  it("study-mode-prompt：向后兼容别名可从 focus-mode-prompt 引入并构建不同配置的提示词", async () => {
     const { buildStudyModePrompt, STUDY_MODE_SYSTEM_PROMPT } = await import(
-      "../src/study-mode-prompt.js"
+      "../src/focus-mode-prompt.js"
     );
 
     expect(STUDY_MODE_SYSTEM_PROMPT).toContain("专注模式核心教学原则");

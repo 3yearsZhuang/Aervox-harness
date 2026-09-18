@@ -14,52 +14,16 @@
  */
 <script lang="ts">
 import { computed, defineComponent, h, type CSSProperties } from 'vue';
+import {
+  type PetSheetState,
+  type PetSheetLayout,
+  type PetManifest,
+  DEFAULT_ROW_FRAMES,
+} from '@aervox/contracts';
 
-/** Codex Pets 9 个标准动画状态（行索引 0~8） */
-export type PetSheetState =
-  | 'idle'
-  | 'running-right'
-  | 'running-left'
-  | 'waving'
-  | 'jumping'
-  | 'failed'
-  | 'waiting'
-  | 'running'
-  | 'review';
+export type { PetSheetState, PetSheetLayout, PetManifest };
+export { DEFAULT_ROW_FRAMES };
 
-/** Codex Pets atlas 几何布局（协议常量） */
-export interface PetSheetLayout {
-  columns: 8;
-  rows: 9;
-  cellWidth: 192;
-  cellHeight: 208;
-  atlasWidth: 1536;
-  atlasHeight: 1872;
-  spriteVersionNumber: 1;
-}
-
-/** pet.json manifest */
-export interface PetManifest {
-  id: string;
-  displayName: string;
-  description?: string;
-  spritesheetPath: string;
-  layout: PetSheetLayout;
-  rowFrames?: Partial<Record<PetSheetState, number>>;
-}
-
-/** 协议默认帧数表（与 Codex Pets 固定值一致） */
-export const DEFAULT_ROW_FRAMES: Record<PetSheetState, number> = {
-  idle: 6,
-  'running-right': 8,
-  'running-left': 8,
-  waving: 4,
-  jumping: 5,
-  failed: 8,
-  waiting: 6,
-  running: 6,
-  review: 6,
-};
 
 /** 状态 → 行索引（协议固定顺序） */
 export const STATE_ROW_INDEX: Record<PetSheetState, number> = {

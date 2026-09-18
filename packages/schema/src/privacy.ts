@@ -26,7 +26,7 @@ export const consentGrants = sqliteTable(
     localPurposeScopeUniqueIdx: uniqueIndex("consent_grants_local_purpose_scope_idx").on(
       table.purpose,
       table.scope,
-    ),
+    ).where(sql`revoked_at IS NULL`),
   }),
 );
 

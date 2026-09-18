@@ -133,7 +133,7 @@ export interface ProactiveIntelligenceCycleResult {
  */
 async function dispatchProactiveTurn(
   ctx: ProactiveIntelligenceCycleContext,
-  tenant: LocalContext,
+  localCtx: LocalContext,
   profile: {id: string},
   rule: IntelligenceTriggerRule,
   evaluation: RuleEvaluation,
@@ -151,7 +151,7 @@ async function dispatchProactiveTurn(
     : null;
   const resolvedContext = ctx.proactiveFeatureFlags?.has("proactive_persona")
     ? await resolveProactiveTurnContext({
-        tenant,
+        ctx: localCtx,
         personaRepo: ctx.personaRepo!,
         memoryRepo: ctx.memoryRepo!,
         skillRegistry: ctx.skillRegistry,
@@ -162,7 +162,7 @@ async function dispatchProactiveTurn(
   const compose = await composeProactiveMessage({
     llmConfigRepo: ctx.llmConfigRepo,
     input: {
-      tenant,
+      ctx: localCtx,
       pluginId,
       pluginName: declaration?.pluginName ?? pluginId,
       ruleName: rule.name,
@@ -176,7 +176,7 @@ async function dispatchProactiveTurn(
   });
 
   const actionId = id("pact", `${profile.id}:${rule.id}:${now.toISOString()}`);
-  const action = await ctx.profileRepo.createAction(tenant, {
+  const action = await ctx.profileRepo.createAction(localCtx, {
     id: actionId,
     revisionId: profile.id,
     actionType: "proactive_dispatch",
@@ -188,9 +188,9 @@ async function dispatchProactiveTurn(
     reversible: true,
     external: false,
   });
-  await ctx.profileRepo.updateAction(tenant, action.id, {state: "approved", actorId: "proactive-arbitrator"});
-  await ctx.profileRepo.updateAction(tenant, action.id, {state: "running", actorId: "proactive-dispatcher"});
-  await ctx.profileRepo.updateAction(tenant, action.id, {
+  await ctx.profileRepo.updateAction(localCtx, action.id, {state: "approved", actorId: "proactive-arbitrator"});
+  await ctx.profileRepo.updateAction(localCtx, action.id, {state: "running", actorId: "proactive-dispatcher"});
+  await ctx.profileRepo.updateAction(localCtx, action.id, {
     state: "executed",
     actorId: "proactive-dispatcher",
     outcome: {
@@ -309,21 +309,21 @@ export async function runProactiveIntelligenceCycle(
   };
 
   for (const profile of await activeProfiles(ctx)) {
-    const tenant: LocalContext = {workspaceId: "local", subjectUserId: "local"};
+    const localCtx: LocalContext = {workspaceId: "local", subjectUserId: "local"};
     result.tenants += 1;
     let projectionEvents: Awaited<ReturnType<SqlitePerceptionEventRepository["consume"]>> = [];
     if (ctx.proactiveFeatureFlags?.has("perception_events")) {
       if (!ctx.perceptionRepo) throw new Error("perception_events requires SqlitePerceptionEventRepository");
-      const distillationEvents = await ctx.perceptionRepo.consume(tenant, "proactive-distiller-v1", 128);
+      const distillationEvents = await ctx.perceptionRepo.consume(localCtx, "proactive-distiller-v1", 128);
       for (const event of distillationEvents) {
         const payload = event.payload && typeof event.payload === "object"
           ? event.payload as Record<string, unknown>
           : {};
         if (payload.revisionId !== profile.id || !isProfileSourceId(event.source)) {
-          await ctx.perceptionRepo.markDead(tenant, event.id);
+          await ctx.perceptionRepo.markDead(localCtx, event.id);
           continue;
         }
-        await ctx.profileRepo.createObservation(tenant, {
+        await ctx.profileRepo.createObservation(localCtx, {
           id: `observation_${event.eventId}`,
           revisionId: profile.id,
           sourceGrantId: event.sourceGrantId,
@@ -340,15 +340,15 @@ export async function runProactiveIntelligenceCycle(
       }
       const distillationMax = distillationEvents.at(-1)?.sequence;
       if (distillationMax !== undefined) {
-        await ctx.perceptionRepo.ack(tenant, "proactive-distiller-v1", distillationMax);
+        await ctx.perceptionRepo.ack(localCtx, "proactive-distiller-v1", distillationMax);
       }
-      projectionEvents = await ctx.perceptionRepo.consume(tenant, "situation-projector-v1", 128);
+      projectionEvents = await ctx.perceptionRepo.consume(localCtx, "situation-projector-v1", 128);
     }
     const [observations, actions, claims, initialTimeline] = await Promise.all([
-      ctx.profileRepo.listObservations(tenant, {revisionId: profile.id, limit: 500}),
-      ctx.profileRepo.listActions(tenant, {revisionId: profile.id, limit: 500}),
-      ctx.profileRepo.listClaims(tenant, {revisionId: profile.id, limit: 500}),
-      ctx.intelligenceRepo.listTimeline(tenant, {limit: 500}),
+      ctx.profileRepo.listObservations(localCtx, {revisionId: profile.id, limit: 500}),
+      ctx.profileRepo.listActions(localCtx, {revisionId: profile.id, limit: 500}),
+      ctx.profileRepo.listClaims(localCtx, {revisionId: profile.id, limit: 500}),
+      ctx.intelligenceRepo.listTimeline(localCtx, {limit: 500}),
     ]);
 
     // 1. Unified personal timeline. Build the delta in memory and write it once;
@@ -384,7 +384,7 @@ export async function runProactiveIntelligenceCycle(
       });
     }
     if (timelineInputs.length > 0) {
-      const insertedTimeline = await ctx.intelligenceRepo.createTimelineEvents(tenant, timelineInputs);
+      const insertedTimeline = await ctx.intelligenceRepo.createTimelineEvents(localCtx, timelineInputs);
       result.timeline += insertedTimeline.length;
       // A concurrent worker may have won a checksum race. Re-read only in that
       // uncommon case; the steady-state path uses the in-memory merged view.
@@ -392,10 +392,10 @@ export async function runProactiveIntelligenceCycle(
         ? [...insertedTimeline, ...timeline]
             .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
             .slice(0, 500)
-        : await ctx.intelligenceRepo.listTimeline(tenant, {limit: 500});
+        : await ctx.intelligenceRepo.listTimeline(localCtx, {limit: 500});
     }
     const localDate = now.toISOString().slice(0, 10);
-    const healthSamples = await ctx.intelligenceRepo.listHealthSamples(tenant, {
+    const healthSamples = await ctx.intelligenceRepo.listHealthSamples(localCtx, {
       from: localDate,
       to: localDate,
       limit: 100,
@@ -412,7 +412,7 @@ export async function runProactiveIntelligenceCycle(
     }
     for (const [subjectKey, events] of bySubject) {
       if (events.length < 2 || subjectKey.length < 3) continue;
-      await ctx.intelligenceRepo.upsertProject(tenant, {
+      await ctx.intelligenceRepo.upsertProject(localCtx, {
         id: id("project", subjectKey), revisionId: profile.id, title: subjectKey,
         objective: `Continue ${subjectKey}`, description: `Locally inferred from ${events.length} timeline events`,
         status: "active", priority: Math.min(100, 40 + events.length * 5), confidence: Math.min(95, 45 + events.length * 8),
@@ -428,7 +428,7 @@ export async function runProactiveIntelligenceCycle(
     for (const operation of operations) operationCounts.set(operation.eventType, (operationCounts.get(operation.eventType) ?? 0) + 1);
     for (const [eventType, count] of operationCounts) {
       if (count < 3) continue;
-      await ctx.intelligenceRepo.upsertWorkflow(tenant, {
+      await ctx.intelligenceRepo.upsertWorkflow(localCtx, {
         id: id("workflow", eventType), revisionId: profile.id, name: `Repeat ${eventType}`,
         description: `Observed ${count} times`, state: count >= 5 ? "ready" : "candidate",
         trigger: {eventType}, steps: [{eventType}], evidenceCount: count, successCount: 0, failureCount: 0,
@@ -466,7 +466,7 @@ export async function runProactiveIntelligenceCycle(
         }
       }
     }
-    result.conflicts += await ctx.intelligenceRepo.createClaimConflicts(tenant, pendingConflicts);
+    result.conflicts += await ctx.intelligenceRepo.createClaimConflicts(localCtx, pendingConflicts);
 
     // 10. Relationship context from communication observations.
     const communications = timeline.filter((event) => event.sourceKey === "external.communication");
@@ -477,7 +477,7 @@ export async function runProactiveIntelligenceCycle(
       communicationsBySubject.set(event.subjectKey, events);
     }
     for (const [subjectKey, events] of communicationsBySubject) {
-      await ctx.intelligenceRepo.upsertRelationship(tenant, {
+      await ctx.intelligenceRepo.upsertRelationship(localCtx, {
         id: id("relationship", subjectKey), revisionId: profile.id, relationshipType: "contact",
         displayName: subjectKey, notes: `Observed ${events.length} communication events`,
         confidence: Math.min(95, 40 + events.length * 10), lastInteractionAt: events[0]?.occurredAt,
@@ -490,7 +490,7 @@ export async function runProactiveIntelligenceCycle(
     const sceneEvents = timeline.filter((event) => ["device.app_activity", "device.screen_capture", "device.browser_activity"].includes(event.sourceKey)).slice(0, 20);
     if (sceneEvents.length > 0) {
       const checksum = hash(sceneEvents.map((event) => event.checksum).join(":"));
-      await ctx.intelligenceRepo.createScene(tenant, {
+      await ctx.intelligenceRepo.createScene(localCtx, {
         id: id("scene", checksum), revisionId: profile.id, sceneType: "device_context",
         applicationId: sceneEvents.find((event) => event.sourceKey === "device.app_activity")?.subjectKey ?? null,
         payload: {events: sceneEvents.map((event) => ({id: event.id, type: event.eventType, source: event.sourceKey}))},
@@ -510,7 +510,7 @@ export async function runProactiveIntelligenceCycle(
     const fatigueScore = Math.max(0, Math.min(100,
       20 + switches * 6 + errorSignals * 10 + Math.max(0, recent.length - 30) + lowSleepPenalty + lowActivityPenalty,
     ));
-    await ctx.intelligenceRepo.createAttentionState(tenant, {
+    await ctx.intelligenceRepo.createAttentionState(localCtx, {
       id: id("attention", `${profile.id}:${now.toISOString().slice(0, 13)}`), revisionId: profile.id,
       windowStart: hourStart, windowEnd: now.toISOString(), focusScore, fatigueScore,
       contextSwitches: switches, errorSignals,
@@ -520,10 +520,10 @@ export async function runProactiveIntelligenceCycle(
     result.attention += 1;
 
     // 5. Action outcome verification.
-    const verifications = await ctx.intelligenceRepo.listActionVerifications(tenant, undefined, 500);
+    const verifications = await ctx.intelligenceRepo.listActionVerifications(localCtx, undefined, 500);
     const verifiedActions = new Set(verifications.map((item) => item.actionId));
     for (const action of actions.filter((item) => ["executed", "failed"].includes(item.state) && !verifiedActions.has(item.id))) {
-      await ctx.intelligenceRepo.upsertActionVerification(tenant, {
+      await ctx.intelligenceRepo.upsertActionVerification(localCtx, {
         id: id("verification", action.id), actionId: action.id,
         expected: {state: "executed"}, observed: {state: action.state, outcome: action.outcome},
         status: action.state === "executed" ? "verified" : "failed", attemptCount: 1,
@@ -533,8 +533,8 @@ export async function runProactiveIntelligenceCycle(
     }
 
     // 9. Behaviour drift against declared project activity.
-    const projects = await ctx.intelligenceRepo.listProjects(tenant, "active", 200);
-    let tenantDriftCount = 0;
+    const projects = await ctx.intelligenceRepo.listProjects(localCtx, "active", 200);
+    let driftCount = 0;
     let maxDriftSeverity = 0;
     for (const project of projects) {
       const last = project.lastActivityAt ? Date.parse(project.lastActivityAt) : 0;
@@ -542,22 +542,22 @@ export async function runProactiveIntelligenceCycle(
       if (inactiveDays < 3) continue;
       const severity = Math.min(100, 40 + inactiveDays * 10);
       maxDriftSeverity = Math.max(maxDriftSeverity, severity);
-      await ctx.intelligenceRepo.createDriftSignal(tenant, {
+      await ctx.intelligenceRepo.createDriftSignal(localCtx, {
         id: id("drift", `${project.id}:${now.toISOString().slice(0, 10)}`), revisionId: profile.id,
         signalType: "project_stalled", projectId: project.id, expected: {activeWithinDays: 2},
         actual: {inactiveDays}, severity,
         explanation: `${project.title} has had no observed activity for ${inactiveDays} days`,
       }).catch(() => undefined);
       result.drift += 1;
-      tenantDriftCount += 1;
+      driftCount += 1;
     }
 
     // 7. Proactive preparation for near-term commitments.
     const dueBefore = new Date(now.getTime() + DAY_MS).toISOString();
-    const commitments = await ctx.intelligenceRepo.listCommitments(tenant, {status: "open", dueBefore, limit: 200});
+    const commitments = await ctx.intelligenceRepo.listCommitments(localCtx, {status: "open", dueBefore, limit: 200});
     for (const commitment of commitments) {
       const project = projects.find((item) => item.id === commitment.projectId);
-      await ctx.intelligenceRepo.createPreparation(tenant, {
+      await ctx.intelligenceRepo.createPreparation(localCtx, {
         id: id("preparation", `${commitment.id}:${now.toISOString().slice(0, 10)}`), revisionId: profile.id,
         projectId: commitment.projectId, commitmentId: commitment.id,
         title: `Prepare: ${commitment.content}`, bundle: {
@@ -568,7 +568,7 @@ export async function runProactiveIntelligenceCycle(
       result.preparations += 1;
     }
 
-    const idleSamples = (await ctx.profileRepo.listObservations(tenant, {
+    const idleSamples = (await ctx.profileRepo.listObservations(localCtx, {
       revisionId: profile.id,
       sourceKey: "system.idle_state",
       limit: 200,
@@ -590,10 +590,10 @@ export async function runProactiveIntelligenceCycle(
         throw new Error("situation_projection requires SqliteProactiveSituationRepository");
       }
       const [attentionStates, drifts, scenes, connections] = await Promise.all([
-        ctx.intelligenceRepo.listAttentionStates(tenant, 1),
-        ctx.intelligenceRepo.listDriftSignals(tenant, "open", 32),
-        ctx.intelligenceRepo.listScenes(tenant, 8),
-        ctx.intelligenceRepo.listConnections(tenant, undefined, 500),
+        ctx.intelligenceRepo.listAttentionStates(localCtx, 1),
+        ctx.intelligenceRepo.listDriftSignals(localCtx, "open", 32),
+        ctx.intelligenceRepo.listScenes(localCtx, 8),
+        ctx.intelligenceRepo.listConnections(localCtx, undefined, 500),
       ]);
       const attention = attentionStates[0] as {
         windowStart: string;
@@ -603,7 +603,7 @@ export async function runProactiveIntelligenceCycle(
         recommendation?: string | null;
         updatedAt?: string;
       } | undefined;
-      const projection = await projectLegacySituationShadow(ctx.situationRepo, tenant, {
+      const projection = await projectLegacySituationShadow(ctx.situationRepo, localCtx, {
         revisionId: profile.id,
         now,
         idleSamples,
@@ -630,12 +630,12 @@ export async function runProactiveIntelligenceCycle(
       result.parityMismatches += compareBuiltInRuleParity({
         commitment_due: commitments.length > 0,
         fatigue_high: fatigueScore >= 70,
-        drift_high: tenantDriftCount > 0,
+        drift_high: driftCount > 0,
         health_sleep_low: sleepMinutes !== undefined && sleepMinutes < 360,
       }, projection.snapshot).length;
       const projectionMax = projectionEvents.at(-1)?.sequence;
       if (projectionMax !== undefined && ctx.perceptionRepo) {
-        await ctx.perceptionRepo.ack(tenant, "situation-projector-v1", projectionMax);
+        await ctx.perceptionRepo.ack(localCtx, "situation-projector-v1", projectionMax);
       }
     }
 
@@ -643,7 +643,7 @@ export async function runProactiveIntelligenceCycle(
     const declarations = ctx.extensionRepo ? await loadPluginDeclarations(ctx.extensionRepo) : [];
     if (ctx.extensionRepo) {
       const materialization = await materializePluginTriggerRules({
-        intelligenceRepo: ctx.intelligenceRepo, tenant, revisionId: profile.id, declarations, now,
+        intelligenceRepo: ctx.intelligenceRepo, ctx: localCtx, revisionId: profile.id, declarations, now,
       });
       result.materializedRules += materialization.materialized;
     }
@@ -655,7 +655,7 @@ export async function runProactiveIntelligenceCycle(
       {id: "health_sleep_low", name: "Low sleep context", triggerType: "health_sleep_low", condition: {minutes: 360}},
     ];
     for (const rule of builtInRules) {
-      await ctx.intelligenceRepo.upsertTriggerRule(tenant, {
+      await ctx.intelligenceRepo.upsertTriggerRule(localCtx, {
         id: `rule_${profile.id}_${rule.id}`, revisionId: profile.id, name: rule.name,
         triggerType: rule.triggerType,
         condition: {
@@ -670,9 +670,9 @@ export async function runProactiveIntelligenceCycle(
       });
     }
 
-    const existingTriggerIds = new Set((await ctx.intelligenceRepo.listTriggerEvents(tenant, 500)).map((event) => event.id));
+    const existingTriggerIds = new Set((await ctx.intelligenceRepo.listTriggerEvents(localCtx, 500)).map((event) => event.id));
     const windowStart = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
-    let dispatchedInWindow = (await ctx.intelligenceRepo.listTriggerEventsSince(tenant, windowStart, 500))
+    let dispatchedInWindow = (await ctx.intelligenceRepo.listTriggerEventsSince(localCtx, windowStart, 500))
       .filter((event) => event.decision === "dispatch").length;
 
     const signals = {
@@ -686,7 +686,7 @@ export async function runProactiveIntelligenceCycle(
 
     // 候选集：E2 开启时优先读数据化 DSL；无 DSL 的存量插件保留 CR-032 兼容求值。
     const candidates: Array<{rule: IntelligenceTriggerRule; evaluation: ReturnType<typeof evaluateTriggerRule>}> = [];
-    for (const rule of await ctx.intelligenceRepo.listTriggerRules(tenant, true, 500)) {
+    for (const rule of await ctx.intelligenceRepo.listTriggerRules(localCtx, true, 500)) {
       if (ctx.proactiveFeatureFlags?.has("proactive_dsl")) {
         if (!situationSnapshot) throw new Error("proactive_dsl requires an available SituationModel snapshot");
         const condition = (rule.condition ?? {}) as Record<string, unknown>;
@@ -721,13 +721,13 @@ export async function runProactiveIntelligenceCycle(
       const builtInHit =
         (rule.triggerType === "commitment_due" && commitments.length > 0) ||
         (rule.triggerType === "fatigue_high" && fatigueScore >= 70) ||
-        (rule.triggerType === "drift_high" && tenantDriftCount > 0) ||
+        (rule.triggerType === "drift_high" && driftCount > 0) ||
         (rule.triggerType === "health_sleep_low" && sleepMinutes !== undefined && sleepMinutes < 360);
       if (!builtInHit) continue;
       const cause =
         rule.triggerType === "commitment_due" ? {count: commitments.length}
         : rule.triggerType === "fatigue_high" ? {fatigueScore}
-        : rule.triggerType === "drift_high" ? {count: tenantDriftCount}
+        : rule.triggerType === "drift_high" ? {count: driftCount}
         : {sleepMinutes};
       candidates.push({
         rule,
@@ -776,8 +776,8 @@ export async function runProactiveIntelligenceCycle(
         if (!ctx.budgetRepo) throw new Error("attention_budget requires SqliteProactiveBudgetRepository");
         const subjectId = rule.pluginId ?? "builtin";
         const [globalRow, pluginRow] = await Promise.all([
-          ctx.budgetRepo.getOrInitBudget(tenant, "global", null),
-          ctx.budgetRepo.getOrInitBudget(tenant, "plugin", subjectId),
+          ctx.budgetRepo.getOrInitBudget(localCtx, "global", null),
+          ctx.budgetRepo.getOrInitBudget(localCtx, "plugin", subjectId),
         ]);
         const dsl = ((rule.condition ?? {}) as Record<string, unknown>).dsl;
         const ruleVersion = dsl === undefined ? "legacy-trigger-v1" : `proactive_dsl_v1:${canonicalDslHash(dsl)}`;
@@ -804,7 +804,7 @@ export async function runProactiveIntelligenceCycle(
         budgetReceipt = gate.receipt;
 
         if (gate.shouldDispatch) {
-          const reserved = await ctx.budgetRepo.reserveBudgetPair(tenant, subjectId, {
+          const reserved = await ctx.budgetRepo.reserveBudgetPair(localCtx, subjectId, {
             globalVersion: globalRow.reserveVersion,
             pluginVersion: pluginRow.reserveVersion,
           }, DEFAULT_BUDGET_POLICY.reserveCost);
@@ -838,12 +838,12 @@ export async function runProactiveIntelligenceCycle(
         const suppressedEventId = id("trigger", `${profile.id}:${rule.id}:${decision}:${localDate}`);
         if (!existingTriggerIds.has(suppressedEventId)) {
           existingTriggerIds.add(suppressedEventId);
-          await ctx.intelligenceRepo.recordTriggerEvent(tenant, {
+          await ctx.intelligenceRepo.recordTriggerEvent(localCtx, {
             id: suppressedEventId, revisionId: profile.id, ruleId: rule.id,
             triggerType: rule.triggerType, cause: evaluation.cause, decision, reason: decisionReason,
           });
           if (budgetReceipt && ctx.budgetRepo) {
-            await ctx.budgetRepo.saveReceipt(tenant, {
+            await ctx.budgetRepo.saveReceipt(localCtx, {
               ...budgetReceipt,
               id: id("receipt", suppressedEventId),
               auditRef: suppressedEventId,
@@ -859,27 +859,27 @@ export async function runProactiveIntelligenceCycle(
       const dispatchEventId = id("trigger", `${profile.id}:${rule.id}:${now.toISOString()}`);
       existingTriggerIds.add(dispatchEventId);
       try {
-        const dispatched = await dispatchProactiveTurn(ctx, tenant, profile, rule, evaluation, declarations, now);
+        const dispatched = await dispatchProactiveTurn(ctx, localCtx, profile, rule, evaluation, declarations, now);
         actionDispatched = true;
-        await ctx.intelligenceRepo.recordTriggerEvent(tenant, {
+        await ctx.intelligenceRepo.recordTriggerEvent(localCtx, {
           id: dispatchEventId, revisionId: profile.id, ruleId: rule.id,
           triggerType: rule.triggerType, cause: evaluation.cause, decision: "dispatch", reason: evaluation.reason,
           actionId: dispatched.actionId,
         });
         if (budgetReceipt && ctx.budgetRepo) {
-          await ctx.budgetRepo.saveReceipt(tenant, {
+          await ctx.budgetRepo.saveReceipt(localCtx, {
             ...budgetReceipt,
             auditRef: dispatchEventId,
             idempotencyKey: `receipt:${dispatchEventId}`,
           });
           result.budgetReceipts += 1;
         }
-        await ctx.intelligenceRepo.updateTriggerRuleLastTriggeredAt(tenant, rule.id, now.toISOString());
+        await ctx.intelligenceRepo.updateTriggerRuleLastTriggeredAt(localCtx, rule.id, now.toISOString());
         dispatchedInWindow += 1;
         result.dispatches += 1;
         result.triggers += 1;
         if (ctx.platformRepo) {
-          await ctx.platformRepo.createNotification(tenant, {
+          await ctx.platformRepo.createNotification(localCtx, {
             id: id("notification", dispatchEventId), type: `proactive.${rule.triggerType}`,
             scheduledAt: now.toISOString(), channel: "in_app",
             payload: {
@@ -892,7 +892,7 @@ export async function runProactiveIntelligenceCycle(
         }
       } catch (error) {
         if (reservedBudgets && ctx.budgetRepo && !actionDispatched) {
-          const refunded = await ctx.budgetRepo.refundBudgetPair(tenant, reservedBudgets.subjectId, {
+          const refunded = await ctx.budgetRepo.refundBudgetPair(localCtx, reservedBudgets.subjectId, {
             globalVersion: reservedBudgets.globalVersion,
             pluginVersion: reservedBudgets.pluginVersion,
           }, DEFAULT_BUDGET_POLICY.reserveCost);
@@ -909,13 +909,13 @@ export async function runProactiveIntelligenceCycle(
         const failedEventId = id("trigger", `${profile.id}:${rule.id}:failed_dispatch:${localDate}`);
         if (!existingTriggerIds.has(failedEventId)) {
           existingTriggerIds.add(failedEventId);
-          await ctx.intelligenceRepo.recordTriggerEvent(tenant, {
+          await ctx.intelligenceRepo.recordTriggerEvent(localCtx, {
             id: failedEventId, revisionId: profile.id, ruleId: rule.id,
             triggerType: rule.triggerType, cause: evaluation.cause, decision: "failed_dispatch",
             reason: error instanceof Error ? error.message : String(error),
           });
           if (budgetReceipt && ctx.budgetRepo) {
-            await ctx.budgetRepo.saveReceipt(tenant, {
+            await ctx.budgetRepo.saveReceipt(localCtx, {
               ...budgetReceipt,
               id: id("receipt", failedEventId),
               auditRef: failedEventId,
@@ -931,7 +931,7 @@ export async function runProactiveIntelligenceCycle(
     // 12. Automatic daily review.
     const dayStart = `${localDate}T00:00:00.000Z`;
     const dayTimeline = timeline.filter((event) => event.occurredAt >= dayStart);
-    await ctx.intelligenceRepo.upsertReview(tenant, {
+    await ctx.intelligenceRepo.upsertReview(localCtx, {
       id: id("review", `${profile.id}:${localDate}`), revisionId: profile.id, periodType: "daily",
       periodStart: localDate, periodEnd: localDate,
       summary: `${dayTimeline.length} timeline events, ${projects.length} active projects, ${commitments.length} near-term commitments`,
@@ -946,7 +946,7 @@ export async function runProactiveIntelligenceCycle(
     const week = utcWeekRange(now);
     const weekTimeline = timeline.filter((event) => event.occurredAt.slice(0, 10) >= week.start && event.occurredAt.slice(0, 10) <= week.end);
     const completedActions = actions.filter((action) => action.state === "executed" && action.createdAt.slice(0, 10) >= week.start);
-    await ctx.intelligenceRepo.upsertReview(tenant, {
+    await ctx.intelligenceRepo.upsertReview(localCtx, {
       id: id("review_week", `${profile.id}:${week.start}`), revisionId: profile.id, periodType: "weekly",
       periodStart: week.start, periodEnd: week.end,
       summary: `${weekTimeline.length} timeline events and ${completedActions.length} completed proactive actions this week`,
@@ -954,10 +954,10 @@ export async function runProactiveIntelligenceCycle(
         timelineEvents: weekTimeline.length,
         completedActions: completedActions.length,
         activeProjects: projects.length,
-        openConflicts: await ctx.intelligenceRepo.countClaimConflicts(tenant, "open", profile.id),
+        openConflicts: await ctx.intelligenceRepo.countClaimConflicts(localCtx, "open", profile.id),
       },
       recommendations: [
-        tenantDriftCount > 0 ? "Reconfirm stalled project priorities" : "Keep current project cadence",
+        driftCount > 0 ? "Reconfirm stalled project priorities" : "Keep current project cadence",
         "Review learned workflows before enabling automatic execution",
       ],
     });

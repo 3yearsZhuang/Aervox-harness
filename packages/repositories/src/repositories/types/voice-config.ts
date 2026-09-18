@@ -23,8 +23,6 @@ export interface IVoiceConfigRepository {
 
 export interface RemoteVoiceConfigModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   /** 预设名称（多预设切换用） */
   name?: string;
   /** 是否激活（0/1） */
