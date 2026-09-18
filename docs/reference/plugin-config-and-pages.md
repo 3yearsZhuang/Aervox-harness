@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.0
+version: 1.0.1
 updated_at: 2026-09-18
 reviewed_at: 2026-09-18
 review_interval_days: 90
@@ -307,7 +307,7 @@ pages/dashboard/style.css
 
 [出厂同步](../../apps/api/src/modules/ecosystem/plugins/index.ts)扫描 `plugins/*`，同步主记录、根 Skill、Config 与主动声明；没有执行任意包内代码，也不等同完整包导入（工具/Page 贡献需走分发安装验证）。API 启动发现消失的 `installSource=builtin` 插件会清理其记录。
 
-集市 `GET /v1/plugins/market` 当前来自本地出厂目录，不是远程公共插件商店；`POST /v1/plugins/market/:id/install` 走该目录打包安装，内部固定 `overwrite: true`；对已安装插件执行集市安装/更新也会先卸载重装，没有默认拒绝覆盖保护，数据影响同 §8.3。更新提示采用版本字符串是否不同，不是 SemVer 新旧判断。根 `mise exec -- pnpm package:plugins` 批量生成 `dist-plugins/<id>-<version>.aervox-plugin`；脚本只打包，不完成契约校验或安全认证。
+集市 `GET /v1/plugins/market` 当前来自本地出厂目录，不是远程公共插件商店；`POST /v1/plugins/market/:id/install` 走该目录打包安装，内部固定 `overwrite: true`；对已安装插件执行集市安装/更新也会先卸载重装，没有默认拒绝覆盖保护，数据影响同 §8.3。更新提示采用版本字符串是否不同，不是 SemVer 新旧判断。根 `mise tasks run package-plugins` 批量生成 `dist-plugins/<id>-<version>.aervox-plugin`（等价 `pnpm package:plugins`）；脚本只打包，不完成契约校验或安全认证。产物字节可重现（ZIP 条目时间戳固化、目录与条目排序），同源码重复打包的 SHA-256 稳定；`dist-plugins/` 是 gitignore 产物，测试不得依赖它，需分发包时经导出端点现场生成。
 
 ### 8.5 主动规则、MCP 与授权
 

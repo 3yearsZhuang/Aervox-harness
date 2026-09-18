@@ -1,0 +1,274 @@
+{
+  "schemaVersion": 1,
+  "note": "当前迭代队列的唯一机器真源。plan.md §2 的表格由 `mise tasks run plan-render` 从本文件生成，禁止手改生成区；结构与依赖校验见 `mise tasks run plan-check`（已接入文档治理，2026-09-18 起强制级别为 error：结构与纪律违规阻断，仅依赖次序保持提示）。条目内容是台账而非契约：产品范围见 docs/reference/PRD.md，决策见 ADR/CR，实现证据见 REQUIREMENTS_TRACEABILITY.md §4.2。",
+  "statuses": ["建议", "待评审", "就绪", "执行中", "已移交", "暂停"],
+  "batches": [
+    { "id": "first", "title": "2.1 第一批：正确性、验证入口与方向决策" },
+    { "id": "next", "title": "2.2 下一批：恢复、生命周期与部署" },
+    { "id": "candidate", "title": "2.3 后续候选：只有证据成立才投入" }
+  ],
+  "items": [
+    {
+      "id": "ITER-001",
+      "batch": "first",
+      "status": "已移交",
+      "delivery": "冷 CI 与插件验证：各 Job 锁文件安装、插件制品生成、工作流触发与 Turbo 输入；ARC-14、FND-10；基础设施/CAP-020",
+      "gate": "可独立修复；不借此开启已有禁用的资产缓存",
+      "acceptance": [
+        "干净 checkout 通过（显式锁文件安装，不依赖 pnpm 隐式安装）",
+        "仅插件变动会重新验证（工作流触发、Turbo 输入与增量选择三层同源）",
+        "删除生成物后由声明任务恢复，且产物字节可重现"
+      ],
+      "checks": [
+        "`scripts/ci-scope.test.mjs`",
+        "`scripts/export-plugins.test.mjs`",
+        "`.github/workflows/ci.yml` 的 frozen lockfile 与 plugin bundles 步骤"
+      ],
+      "owner": "quality/release",
+      "branch": "fix/iter-001-ci-verification-entry",
+      "statusNote": "2026-09-18 移交：PR #221 冷 CI 全绿（Install/build/typecheck 5m23s、E2E 1m25s、Docs 24s），三条验收均有机会证据；合并后由 §4.2 记录交付",
+      "dependsOn": [],
+      "links": [
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/221",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
+      ]
+    },
+    {
+      "id": "ITER-002",
+      "batch": "first",
+      "status": "建议",
+      "delivery": "可靠接单与 Outbox：先修消费者抢先完成，再闭合 Turn/Attempt/Inbox/可重放输入与受控派发；ARC-01、FND-01/05；CAP-007",
+      "gate": "拆为消费修复与调度切片；新状态、容量/接单语义或多订阅契约先 CR",
+      "acceptance": [
+        "提交、预加载、claim 各点中断后已受理任务可追踪",
+        "无永久未领取孤儿，不重复消费/副作用"
+      ],
+      "owner": "platform",
+      "dependsOn": []
+    },
+    {
+      "id": "ITER-003",
+      "batch": "first",
+      "status": "建议",
+      "delivery": "删除效果与召回资格：先做 Memory 及其索引的完整清理/独立验证切片，检查期限、用途、撤权与 Restricted；ARC-06/08；CAP-005/013/027/033",
+      "gate": "已有隐私契约的修复先做；扩大删除范围或改变保留/恢复语义先 CR；失败继续拒绝受影响范围",
+      "acceptance": [
+        "completed 有可重做的清理证据；空目标有明确依据",
+        "失败/未知不解闸；混合夹具越权结果为零"
+      ],
+      "owner": "data/privacy",
+      "dependsOn": []
+    },
+    {
+      "id": "ITER-004",
+      "batch": "first",
+      "status": "建议",
+      "delivery": "三个独立修复：消息版本短事务/CAS，Config 与同库 Secret 一致提交，会话锁尾链回收；ARC-07、FND-02/07；CAP-013/020",
+      "gate": "不引入全局通用事务框架；外部 Secret 补偿或历史数据转换单独评审",
+      "acceptance": [
+        "故障仅留完整旧/新版；同 revision 最多一次成功",
+        "409 不改 Secret；一万个 key 完成后锁缓存清空"
+      ],
+      "owner": "data",
+      "dependsOn": []
+    },
+    {
+      "id": "ITER-005",
+      "batch": "first",
+      "status": "建议",
+      "delivery": "插件可恢复升级：全部入口校验、展开配额、staging 验证与激活、旧配置/Secret/授权保留；FND-02/04、插件规范；CAP-020。2026-09-18 追加差量：导出分发包可重现（细节见 §4.2 剩余差量，不在本表复述）",
+      "gate": "激活依赖 ITER-004；限制资源可先做；升级/卸载状态和迁移语义先 CR",
+      "acceptance": [
+        "成功意味着全部声明入口可用；超额包有界失败",
+        "任一安装阶段中断后可恢复完整旧/新版",
+        "同源码导出分发包的字节与校验和稳定"
+      ],
+      "owner": "ecosystem",
+      "dependsOn": ["ITER-004"],
+      "links": ["docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"]
+    },
+    {
+      "id": "ITER-006",
+      "batch": "first",
+      "status": "建议",
+      "delivery": "Page 与客户端认证：iframe source/nonce/会话/全部 capability、禁用撤权；附件 Bearer、合法预检与受限 Page 资源通道；FND-03、ARC-13；CAP-018/020",
+      "gate": "既有认证漏接可独立修；新页面凭据及 Origin 信任策略先 CR",
+      "acceptance": [
+        "错误窗口/旧响应/无权/禁用访问无副作用",
+        "合法 Token 模式的 JSON、SSE、Page、附件可用，凭据不进入 URL"
+      ],
+      "owner": "ecosystem/desktop",
+      "dependsOn": []
+    },
+    {
+      "id": "ITER-007",
+      "batch": "first",
+      "status": "建议",
+      "delivery": "三个切片：父子任务/Driver 继承取消、截止、删除/授权修订与 local-only；执行时逐项核对 requiredPermissions/grants 的 scope/revision，由受信宿主映射 guarded/full_access 安全等级；动态工具 Schema 快照进入模型请求并在执行时重验；ARC-02/03、插件规范 §8.1；CAP-007/020/033",
+      "gate": "既有策略接线优先；动态工具开放依赖真实 grant/审批校验及最终输入容量检查；新根预算与 Driver/授权合同先 CR；进一步压缩与成本优化留 ITER-017",
+      "acceptance": [
+        "父取消后不进入子下一步；本地任务拒绝远程 Provider；工具可见",
+        "缺权限、错 scope、旧 revision、撤权/禁用和未批准写操作无副作用",
+        "最终输入加预留输出不超 Provider 窗口，超额有明确有界处理"
+      ],
+      "owner": "platform/ecosystem",
+      "dependsOn": []
+    },
+    {
+      "id": "ITER-008",
+      "batch": "first",
+      "status": "建议",
+      "delivery": "模型制品与进程：路径/symlink、响应与续传验证；启动 epoch、有界探针/日志/指标请求；ARC-11/12；本地模型基础设施",
+      "gate": "正确性修复可独立进行；制品来源/信任等级变化先 CR",
+      "acceptance": [
+        "不写出模型根、不注册错误正文/错位字节",
+        "旧 exit 不污染新进程；悬挂探针按期结束；停止状态真实"
+      ],
+      "owner": "platform",
+      "dependsOn": []
+    },
+    {
+      "id": "ITER-009",
+      "batch": "first",
+      "status": "建议",
+      "delivery": "配套形态决策：比较九个硬件方向、电脑依赖、目标 OS、真实 Provider、成本和数据边界；同时登记移动端草稿待决策事项；CAP-001/012/018/025/030/033",
+      "gate": "本项仅探索与样本验证；不默认批准采购、SKU、固件、移动端顺序或工期",
+      "acceptance": [
+        "有候选比较、继续/暂缓证据和一至两个验证方向",
+        "明确 §3 的待决策项与 ITER-016 范围"
+      ],
+      "owner": "product-hardware/desktop",
+      "dependsOn": []
+    },
+    {
+      "id": "ITER-010",
+      "batch": "next",
+      "status": "建议",
+      "delivery": "先修 Resume 库覆盖/事件高水位/执行关联/接管；再接审批与答案续跑、撤权账本及恢复水位；ARC-04/06；CAP-007/027/033",
+      "gate": "依赖 ITER-002/003/007 的必要切片；续跑、一次性授权/有效期、跨库恢复和账本保留先 CR；不直接启用现有 Resume Host",
+      "acceptance": [
+        "缺账本、多工具、跨进程答案、重复接管与旧备份恢复不重复副作用、不吞答案、不复活撤权",
+        "未知结果不盲重放"
+      ],
+      "owner": "platform/data",
+      "dependsOn": ["ITER-002", "ITER-003", "ITER-007"]
+    },
+    {
+      "id": "ITER-011",
+      "batch": "next",
+      "status": "建议",
+      "delivery": "完整 Schema 迁移：排除 FTS shadow 表、真源重建；接线版本 journal、校验和、恢复状态；ARC-09；CAP-027",
+      "gate": "完整库失败夹具可立即补；迁移协调方案先评审，破坏性转换先 CR，生产操作另过门禁",
+      "acceptance": [
+        "每个支持旧版本升级、失败恢复、回滚通过",
+        "主库/Vault/账本归属明确；源库不受 staging 失败影响"
+      ],
+      "owner": "data/quality",
+      "dependsOn": []
+    },
+    {
+      "id": "ITER-012",
+      "batch": "next",
+      "status": "建议",
+      "delivery": "索引生命周期：dirty/reindex、来源修订、模型/维度版本、可切换投影；修可选回填旧列；中文固定语料；ARC-08；CAP-005/026",
+      "gate": "依赖 ITER-003；当前错误 SQL 可先修；投影切换和模型版本合同先评审，不能恢复旧隔离列",
+      "acceptance": [
+        "故障可追平；A→B→A 可切换；资格零越界",
+        "单列中文 Recall@K、空间、重建成本"
+      ],
+      "owner": "data",
+      "dependsOn": ["ITER-003"]
+    },
+    {
+      "id": "ITER-013",
+      "batch": "next",
+      "status": "建议",
+      "delivery": "有界运行和观测：Worker/Host drain、Provider 排队/取消、安全文本窗口、SSE 背压/分页、跨进程终态；复用 metrics；ARC-05/12、FND-05/06/09；CAP-007/018",
+      "gate": "依赖 ITER-002/008 的相关切片；先观测后定参数；跨进程通知/新隔离边界先 CR",
+      "acceptance": [
+        "慢源/慢客户端和日志洪泛资源有界；停机有截止",
+        "已提交窗口提前可读；故障可定位"
+      ],
+      "owner": "platform/quality",
+      "dependsOn": ["ITER-002", "ITER-008"]
+    },
+    {
+      "id": "ITER-014",
+      "batch": "next",
+      "status": "建议",
+      "delivery": "模块公开 Port：评审 ADR-014 与同步调用/Outbox/广播差量，先改少数交叉模块；私有导入、所有权和解析失败门禁；ARC-10；架构基础设施",
+      "gate": "先 CR；不要求先改完全部模块，也不阻塞已有缺陷修复",
+      "acceptance": [
+        "私有引用 fixture 失败、公开 Port 通过、模块可用 Fake Port 测试",
+        "实际依赖与批准规则一致"
+      ],
+      "owner": "platform",
+      "dependsOn": []
+    },
+    {
+      "id": "ITER-015",
+      "batch": "next",
+      "status": "建议",
+      "delivery": "单机部署主管：API/Worker/模型归属，数据目录、端口、Token、版本、就绪与退出；ARC-13；CAP-001/018/027",
+      "gate": "依赖 ITER-006/008 与 ITER-011/013 的必要部分；新主管先 CR；与移动端决策协调",
+      "acceptance": [
+        "干净用户目录安装、升级、异常退出、端口占用、磁盘满、卸载保留数据均验证",
+        "签名/公证/平台矩阵另过发布门禁"
+      ],
+      "owner": "desktop/release",
+      "dependsOn": ["ITER-006", "ITER-008", "ITER-011", "ITER-013"]
+    },
+    {
+      "id": "ITER-016",
+      "batch": "next",
+      "status": "建议",
+      "delivery": "已选方向单设备 PoC：真实能力样本，模拟器与一块开发板，身份/ACK/幂等/截止/撤权/热插拔；硬件评估；复用所选 CAP",
+      "gate": "依赖 ITER-009 决策；先设备 CR/ADR/单一协议；音频/OCR 先证明真实产物；独立算力盒额外依赖 ITER-015",
+      "acceptance": [
+        "设备缺席不破坏核心流程",
+        "获得五至十人使用记录及方向对应价值证据；不把接口响应当实物成功"
+      ],
+      "owner": "product-hardware/platform",
+      "dependsOn": ["ITER-009", "ITER-015"]
+    },
+    {
+      "id": "ITER-017",
+      "batch": "candidate",
+      "status": "建议",
+      "delivery": "测量后分别决定 Prompt 预算/保真压缩、SQLite 写竞争、向量 topK、计算隔离和资产归属；FND-07/08/10、ARC-05/08/12；相关基础设施",
+      "gate": "依赖正确性修复与 ITER-013 指标；全局单写者、独立执行进程、二进制索引扩展先 CR",
+      "acceptance": [
+        "同设备同数据报告延迟分位数、失败率、内存和质量",
+        "未达收益门槛即可停止；不承诺未测倍数"
+      ],
+      "owner": "platform/data/quality",
+      "dependsOn": ["ITER-013"]
+    },
+    {
+      "id": "ITER-018",
+      "batch": "candidate",
+      "status": "建议",
+      "delivery": "第二终端检验共享生命周期，再决策 PCB/结构/电源、样机和小批验证；硬件评估",
+      "gate": "依赖 ITER-016 价值成立；新增无线、电池、采集或运动能力分别评审，不因 PoC 成功自动批准量产",
+      "acceptance": [
+        "两种终端无需复制宿主；更新/回滚/删除可测",
+        "24→72 小时稳定性、功耗温升、密钥/追溯/维修验证；发布单列"
+      ],
+      "owner": "product-hardware/release",
+      "dependsOn": ["ITER-016"]
+    },
+    {
+      "id": "ITER-019",
+      "batch": "candidate",
+      "status": "建议",
+      "delivery": "是否开放第三方可执行插件；若开放，按已接受 [ADR-009](docs/reference/adr/ADR-009-electron-plugin-sandbox.md) 的进程外隔离、默认无权限与撤权要求设计 Host、签名信任根、SDK 与依赖解析",
+      "gate": "先证明声明式/第一方扩展不足，再用 CR 明确实现差量与生命周期；隔离基线不作为自由选项，改变基线须显式 CR；现行规范不代表运行能力已实现",
+      "acceptance": [
+        "有明确用例、威胁与成本比较，并通过 ADR-009 的拒绝/撤权/隔离/兼容验收",
+        "未选定前不建通用平台"
+      ],
+      "owner": "ecosystem/security",
+      "dependsOn": []
+    }
+  ]
+}

@@ -165,6 +165,9 @@ test("Docs 触发路径覆盖文档门禁声明的 Markdown 范围与治理输�
     ".vale/**",
     "scripts/docs-governance.mjs",
     "scripts/docs-lint-affected.mjs",
+    "scripts/plan-queue.mjs",
+    "scripts/plan-queue.test.mjs",
+    "docs/_meta/plan-queue.json",
     "mise.toml",
   ];
 

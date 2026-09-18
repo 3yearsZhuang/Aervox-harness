@@ -7,7 +7,7 @@ owner: platform
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.2.0
+version: 0.2.1
 updated_at: 2026-09-18
 reviewed_at: 2026-09-18
 review_interval_days: 30
@@ -287,9 +287,15 @@ P1 表示优先修复或对应能力开放前必须通过的验证；P2 表示�
 
 **冷环境问题。** [CI 工作流](../../.github/workflows/ci.yml)的 build/e2e 两个 Job 安装 mise 工具并恢复 pnpm store，但没有 `pnpm install`；build 调用的 [ci-code](../../mise.toml)刻意不含安装，带安装的是 `ci-code-full`。恢复 store 不会生成项目 `node_modules`。这属于工作流静态缺口，未在本轮触发远程 CI，不报告虚构的运行失败记录。
 
+**2026-09-18 状态。** 以上静态缺口已由 [ITER-001](../../plan.md) 受理并在 PR [#221](https://github.com/3yearsZhuang/Aervox-harness/pull/221) 修复：两个 Job 增加显式 `pnpm install --frozen-lockfile`，冷 CI 复跑通过（该 Job 5m23s 全绿）。本段保留为评估当时的核对记录，不再代表当前状态；实现位置与验证证据见[§4.2](../reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
 **输入遗漏已核对。** 工作流 path filter 没有根 `plugins/**` 和 `vitest.shared.ts`；[插件集市测试](../../apps/api/test/builtin-plugins-market.test.ts)实际读取根插件源与 `dist-plugins`。Turbo dry-run 显示 `@aervox/api#test` 有 211 项输入，唯一包外显式文件是 `../../vitest.shared.ts`，没有根插件源/分发包，global 文件仅 `.gitattributes`。因此共享测试配置会影响 Turbo hash，却可能不触发工作流；插件源变化既可能不触发代码 CI，也未表达为 API 测试输入。
 
+**2026-09-18 状态。** 三层缺口（工作流触发、Turbo 失效、本地增量选择）已一并修复并有回归守住：`ci.yml` 触发路径补齐 `plugins/**`、`vitest.shared.ts`、`tsconfig.base.node.json`，根级 tsconfig 进入 `globalDependencies`，`scripts/ci-scope.mjs` 把包外输入显式映射回受影响包；抽取任何一条触发路径都会让 `scripts/ci-scope.test.mjs` 变红。未开启任何此前禁用的缓存。
+
 **制品前置条件。** 当前插件包生成脚本是 `package:plugins`，`dist-plugins` 未纳入 Git 跟踪；测试直接读该目录的分发包。冷 CI 除安装依赖外，还需要显式生成制品，不能依赖开发机上已有文件。FND-10 的静态资产 `cache:false` 已经保护另一类产物副作用，不应为解决本项直接开启其缓存。
+
+**2026-09-18 状态。** 测试已改为经产品导出端点现场生成分发包，不再读 `dist-plugins/`；冷 CI 由声明任务 `mise tasks run package-plugins` 重建制品并断言数量，同一任务的分发包字节已改为可重现（固定 ZIP 时间戳、目录与条目排序，回归见 `scripts/export-plugins.test.mjs`）。`cache:false` 未改动。产品侧导出端点自身的打包仍不可重现，属插件生命周期范围（见 plan.md ITER-005）。
 
 **建议与验收。** 修复每个独立 Job 的锁文件安装与制品构建前置条件，将根插件源映射到验证任务和缓存输入，统一工作流触发、增量选择、Turbo 输入与输出归属。干净 checkout 必须能跑通；只改一个插件也必须重新验证其契约和分发包；删除生成物后可由声明的任务重建。缓存只是加速，不能承担缺失的构建步骤。保留受控测试并发和临时库模板，不用扩大数据库测试并发换表面速度。
 

@@ -46,6 +46,9 @@ export function isGovernanceInput(file) {
     (file.startsWith("scripts/docs-") && file.endsWith(".mjs")) ||
     file === "docs/_meta/document-policy.json" ||
     file === "docs/_meta/document-catalog.json" ||
+    file === "docs/_meta/plan-queue.json" ||
+    file === "scripts/plan-queue.mjs" ||
+    file === "scripts/plan-queue.test.mjs" ||
     file === "mise.toml" ||
     file === ".github/workflows/docs.yml" ||
     file === ".markdownlint-cli2.jsonc" ||
