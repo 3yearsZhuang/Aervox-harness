@@ -577,8 +577,9 @@ function checkCurrentIterationPlan(metadataByFile, policy) {
  * 计划队列校验（结构、依赖、纪律与"渲染即校验"）。
  *
  * 真源是 `docs/_meta/plan-queue.json`，`plan.md` §2 是派生视图；强制级别取自策略
- * `currentIterationPlan.queue.enforcement`——观察期为 `warning`，全部按提示报告，
- * 升级为 `error` 后结构性违规（编号/枚举/依赖/成环/缺验收/生成区不同步）才阻断。
+ * `currentIterationPlan.queue.enforcement`（当前 `error`）：结构违规（编号/枚举/
+ * 依赖/成环/缺验收/生成区不同步）与纪律违规（在制并发/执行中缺分支/已移交缺证据/
+ * 暂停缺阻碍）一律阻断，仅依赖次序（S5）保持提示；`warning` 时全部降级为提示。
  */
 function checkPlanQueue(metadataByFile, policy) {
   const queuePolicy = policy.currentIterationPlan?.queue;
