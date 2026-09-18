@@ -122,6 +122,80 @@ describe('Workbench Composables Logic', () => {
     }
   });
 
+  it('treats the Capacitor mobile host as Web-capable, not as Electron', async () => {
+    const { useWorkbenchLayout } = await import('../src/composables/useWorkbenchLayout');
+    const originalStorage = globalThis.localStorage;
+    const storage: Record<string, string> = { 'aervox-workbench-mode': 'companion' };
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (key: string) => storage[key] ?? null,
+        setItem: (key: string, value: string) => { storage[key] = value; },
+      },
+    });
+
+    try {
+      const layout = useWorkbenchLayout(
+        { platform: 'mobile', showCompanion: false, assistantName: '思隅' },
+        { recordActivity: () => {} },
+      );
+
+      expect(layout.isWeb.value).toBe(true);
+      expect(layout.isMobile.value).toBe(true);
+      expect(layout.isDesktop.value).toBe(false);
+      expect(layout.workbenchMode.value).toBe('standard');
+      expect(layout.showCompanionEnabled.value).toBe(false);
+    } finally {
+      Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: originalStorage });
+    }
+  });
+
+  it('keeps mobile drafts isolated per session and restores failed submissions', async () => {
+    const { useWorkbenchComposer } = await import('../src/composables/useWorkbenchComposer');
+    const { nextTick, ref } = await import('vue');
+    const originalStorage = globalThis.localStorage;
+    const storage: Record<string, string> = {};
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (key: string) => storage[key] ?? null,
+        setItem: (key: string, value: string) => { storage[key] = value; },
+        removeItem: (key: string) => { delete storage[key]; },
+      },
+    });
+
+    try {
+      const sessionId = ref('session_a');
+      const composer = useWorkbenchComposer({
+        onSendMessage: async () => {},
+        streaming: ref(false),
+        fullAccessDialogOpen: ref(false),
+        draftSessionId: sessionId,
+        draftsEnabled: ref(true),
+      });
+
+      composer.input.value = '待发送草稿';
+      await nextTick();
+      sessionId.value = 'session_b';
+      await nextTick();
+      expect(composer.input.value).toBe('');
+
+      sessionId.value = 'session_a';
+      await nextTick();
+      expect(composer.input.value).toBe('待发送草稿');
+
+      composer.beginDraftSubmission('网络失败后仍应保留', 'session_a');
+      composer.input.value = '';
+      composer.restoreFailedDraft();
+      expect(composer.input.value).toBe('网络失败后仍应保留');
+
+      composer.completeDraftSubmission('session_a');
+      expect(storage['aervox-mobile-draft:session_a']).toBeUndefined();
+    } finally {
+      Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: originalStorage });
+    }
+  });
+
   it('shares enterToSend state between layout and composer', async () => {
     const { ref } = await import('vue');
     const { useWorkbenchComposer } = await import('../src/composables/useWorkbenchComposer');

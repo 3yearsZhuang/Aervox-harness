@@ -15,6 +15,15 @@ body,
   overscroll-behavior: none;
 }
 
+html {
+  background: var(--bg-app);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100dvh;
+}
+
 body {
   background: var(--bg-app);
   font-family: inherit;

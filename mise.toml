@@ -20,15 +20,18 @@ AERVOX_LOOP_PROVIDER = "llm"
 # 安装依赖（锁定版本，保证可复现）
 install = "pnpm install --frozen-lockfile"
 
-# 极速本地增量门禁（CI 配置一致性 + 增量代码构建/类型/测试 + 增量文档检查，15~30秒完成）
-ci-fast = "node --test scripts/ci-scope.test.mjs && node scripts/check-affected.mjs && node scripts/docs-lint-affected.mjs"
+# 极速本地增量门禁（CI 配置一致性 + 防漂移守卫 + 增量代码构建/类型/测试 + 增量文档检查，15~30秒完成）
+ci-fast = "node --test scripts/ci-scope.test.mjs && pnpm check:guards && node scripts/check-affected.mjs && node scripts/docs-lint-affected.mjs"
 ci-affected = "mise tasks run ci-fast"
 
 # 本地代码门禁（免重复 install，受控 2 并发）
-ci-code = "pnpm check:boundary && pnpm check:ci-config && pnpm check:artifacts && pnpm build && pnpm typecheck && pnpm test"
+ci-code = "pnpm check:guards && pnpm check:boundary && pnpm check:ci-config && pnpm check:artifacts && pnpm build && pnpm typecheck && pnpm test"
 
 # 全量冷启动代码门禁（对齐 GitHub Actions CI，含 frozen-lockfile install）
-ci-code-full = "pnpm install --frozen-lockfile && pnpm check:boundary && pnpm check:ci-config && pnpm check:artifacts && pnpm build && pnpm typecheck && pnpm test"
+ci-code-full = "pnpm install --frozen-lockfile && pnpm check:guards && pnpm check:boundary && pnpm check:ci-config && pnpm check:artifacts && pnpm build && pnpm typecheck && pnpm test"
+
+# 统一防多源漂移守卫集合（租户禁用词 + 类型边界 + 依赖提升 + 包拓扑 + 数据库覆盖矩阵 + ADR 索引）
+check-guards = "pnpm check:guards"
 
 # 生成插件分发包 dist-plugins/（gitignore 生成物的声明恢复入口，冷检出后由本任务重建；
 # 产物字节可重现，回归见 scripts/export-plugins.test.mjs）
@@ -38,12 +41,15 @@ package-plugins = "pnpm package:plugins"
 plan-render = "pnpm plan:render"
 plan-check = "pnpm check:plan"
 
+# 派生文档重新渲染（ADR 索引等）
+docs-render = "pnpm docs:render"
+
 # 增量代码与文档独立入口
 check-affected = "node scripts/check-affected.mjs"
 docs-lint-affected = "node scripts/docs-lint-affected.mjs"
 
-# 本地全量文档门禁：Markdown lint + 术语散文 lint + 治理/本地链接校验 + 计划队列校验
-ci-docs = "node --test scripts/docs-*.test.mjs && pnpm check:plan && npx markdownlint-cli2 --config .markdownlint-cli2.jsonc 'docs/**/*.md' 'README.md' 'AGENTS.md' 'CONTRIBUTING.md' 'plan.md' && mise tasks run docs-lint-prose && mise tasks run docs-validate"
+# 本地全量文档门禁：Markdown lint + 术语散文 lint + 治理/本地链接校验 + 计划队列校验 + 派生文档校验
+ci-docs = "node --test scripts/docs-*.test.mjs && node scripts/render-adr-index.mjs --check && node scripts/check-architecture-topology.mjs && node scripts/check-database-matrix.mjs && pnpm check:plan && npx markdownlint-cli2 --config .markdownlint-cli2.jsonc 'docs/**/*.md' 'README.md' 'AGENTS.md' 'CONTRIBUTING.md' 'plan.md' && mise tasks run docs-lint-prose && mise tasks run docs-validate"
 
 # 术语/散文一致性（配置见 .vale.ini，错误级别阻断）
 docs-lint-prose = "vale --minAlertLevel=error docs README.md AGENTS.md CONTRIBUTING.md plan.md"

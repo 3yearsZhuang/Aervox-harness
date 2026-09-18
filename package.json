@@ -23,8 +23,10 @@
     "check:boundary": "node scripts/import-boundary.mjs && node --test scripts/import-boundary.test.mjs",
     "check:ci-config": "node --test scripts/ci-scope.test.mjs",
     "check:artifacts": "node --test scripts/export-plugins.test.mjs",
+    "check:guards": "node --test scripts/check-*.test.mjs scripts/render-adr-index.test.mjs && node scripts/check-banned-identifiers.mjs && node scripts/check-type-boundary.mjs && node scripts/check-dep-hoisting.mjs && node scripts/check-architecture-topology.mjs && node scripts/check-database-matrix.mjs && node scripts/render-adr-index.mjs --check",
     "check:plan": "node scripts/plan-queue.mjs && node --test scripts/plan-queue.test.mjs",
     "plan:render": "node scripts/plan-queue.mjs --render",
+    "docs:render": "node scripts/render-adr-index.mjs --render",
     "package:plugins": "node scripts/export-plugins.mjs",
     "dist:desktop": "turbo run build --filter=@aervox/desktop && pnpm --filter @aervox/desktop dist:pack"
   },

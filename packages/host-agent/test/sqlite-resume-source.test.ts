@@ -17,7 +17,7 @@ import {
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 
-const tenant: LocalContext = { workspaceId: "ws_src", subjectUserId: "usr_src" };
+const ctx: LocalContext = { workspaceId: "ws_src", subjectUserId: "usr_src" };
 
 describe("SqliteResumeSource（续跑候选源）", () => {
   let db: AervoxDatabase;
@@ -25,15 +25,15 @@ describe("SqliteResumeSource（续跑候选源）", () => {
   let repo: SqliteConversationRepository;
 
   async function seedExpiredAttemptWithCommittedTool(): Promise<void> {
-    await repo.getOrCreateSession(tenant, "ses_src", "续跑源测试");
+    await repo.getOrCreateSession(ctx, "ses_src", "续跑源测试");
     await repo.createTurnWithOutbox(
-      tenant,
+      ctx,
       { id: "turn_src", sessionId: "ses_src", idempotencyKey: "idem_src", status: "Created" },
       { id: "msg_src", content: "帮我查复习计划" },
       { id: "ob_src", eventType: "turn.created", idempotencyKey: "idem_ob_src", payload: { turnId: "turn_src", sessionId: "ses_src" } },
     );
-    await repo.createTurnAttempt(tenant, "turn_src", { id: "atp_src", attempt: 1 });
-    await repo.claimTurnAttempt(tenant, {
+    await repo.createTurnAttempt(ctx, "turn_src", { id: "atp_src", attempt: 1 });
+    await repo.claimTurnAttempt(ctx, {
       turnId: "turn_src",
       attemptId: "atp_src",
       expectedFencingToken: 0,
@@ -41,21 +41,21 @@ describe("SqliteResumeSource（续跑候选源）", () => {
       ttlMs: 1,
     });
     await new Promise((r) => setTimeout(r, 10)); // 等租约过期
-    await repo.reserveToolExecution(tenant, {
+    await repo.reserveToolExecution(ctx, {
       turnId: "turn_src",
       attemptId: "atp_src",
       invocationId: "atp_src:1:1",
       name: "notes_search",
       arguments: {},
     });
-    await repo.updateToolExecutionResult(tenant, {
+    await repo.updateToolExecutionResult(ctx, {
       turnId: "turn_src",
       attemptId: "atp_src",
       invocationId: "atp_src:1:1",
       status: "executed",
       output: { notes: "三角函数" },
     });
-    await repo.appendStreamEvent(tenant, {
+    await repo.appendStreamEvent(ctx, {
       id: "tev_src_msg",
       turnId: "turn_src",
       sequence: 1,
@@ -63,7 +63,7 @@ describe("SqliteResumeSource（续跑候选源）", () => {
       data: { messageId: "msg_turn_src_assistant", role: "assistant", contentType: "text", isComplete: false },
       occurredAt: new Date().toISOString(),
     });
-    await repo.appendStreamEvent(tenant, {
+    await repo.appendStreamEvent(ctx, {
       id: "tev_src_delta",
       turnId: "turn_src",
       sequence: 2,
@@ -71,7 +71,7 @@ describe("SqliteResumeSource（续跑候选源）", () => {
       data: { messageId: "msg_turn_src_assistant", text: "让我查一下。", isFinal: false },
       occurredAt: new Date().toISOString(),
     });
-    await repo.appendStreamEvent(tenant, {
+    await repo.appendStreamEvent(ctx, {
       id: "tev_src_toolreq",
       turnId: "turn_src",
       sequence: 3,
@@ -79,7 +79,7 @@ describe("SqliteResumeSource（续跑候选源）", () => {
       data: { invocationId: "call_1", executionId: "atp_src:1:1", name: "notes_search", arguments: {} },
       occurredAt: new Date().toISOString(),
     });
-    await repo.appendStreamEvent(tenant, {
+    await repo.appendStreamEvent(ctx, {
       id: "tev_src_toolres",
       turnId: "turn_src",
       sequence: 4,
@@ -98,15 +98,15 @@ describe("SqliteResumeSource（续跑候选源）", () => {
   });
 
   it("续跑携带此前会话历史，并保留本轮权威工具结果", async () => {
-    await repo.getOrCreateSession(tenant, "ses_src");
-    await repo.createTurnWithOutbox(tenant,
+    await repo.getOrCreateSession(ctx, "ses_src");
+    await repo.createTurnWithOutbox(ctx,
       { id: "previous", sessionId: "ses_src", idempotencyKey: "previous", status: "Completed" },
       { id: "previous_user", content: "我叫小庄" });
-    await repo.appendStreamEvent(tenant, {
+    await repo.appendStreamEvent(ctx, {
       id: "previous_delta", turnId: "previous", sequence: 1, eventType: "delta",
       safetyDecision: "approved", data: { messageId: "previous_assistant", text: "好的，小庄。" },
     });
-    await repo.appendStreamEvent(tenant, {
+    await repo.appendStreamEvent(ctx, {
       id: "previous_done", turnId: "previous", sequence: 2, eventType: "done",
       safetyDecision: "approved",
       data: { messageId: "previous_assistant", status: "Completed", isComplete: true },
@@ -144,7 +144,7 @@ describe("SqliteResumeSource（续跑候选源）", () => {
 
   it("有 done 终态事件 → 非可续，过滤（不产出候选）", async () => {
     await seedExpiredAttemptWithCommittedTool();
-    await repo.appendStreamEvent(tenant, {
+    await repo.appendStreamEvent(ctx, {
       id: "tev_src_done",
       turnId: "turn_src",
       sequence: 5,
@@ -158,14 +158,14 @@ describe("SqliteResumeSource（续跑候选源）", () => {
   });
 
   it("仅 pending 预留（结果未知）→ 非可续，过滤", async () => {
-    await repo.getOrCreateSession(tenant, "ses_src2", "续跑源测试2");
+    await repo.getOrCreateSession(ctx, "ses_src2", "续跑源测试2");
     await repo.createTurnWithOutbox(
-      tenant,
+      ctx,
       { id: "turn_src2", sessionId: "ses_src2", idempotencyKey: "idem_src2", status: "Created" },
       { id: "msg_src2", content: "x" },
     );
-    await repo.createTurnAttempt(tenant, "turn_src2", { id: "atp_src2", attempt: 1 });
-    await repo.claimTurnAttempt(tenant, {
+    await repo.createTurnAttempt(ctx, "turn_src2", { id: "atp_src2", attempt: 1 });
+    await repo.claimTurnAttempt(ctx, {
       turnId: "turn_src2",
       attemptId: "atp_src2",
       expectedFencingToken: 0,
@@ -173,7 +173,7 @@ describe("SqliteResumeSource（续跑候选源）", () => {
       ttlMs: 1,
     });
     await new Promise((r) => setTimeout(r, 10));
-    await repo.reserveToolExecution(tenant, {
+    await repo.reserveToolExecution(ctx, {
       turnId: "turn_src2",
       attemptId: "atp_src2",
       invocationId: "atp_src2:1:1",
@@ -197,15 +197,15 @@ describe("SqliteResumeSource（续跑候选源）", () => {
       safetyLevel: "read_only",
       replay,
     });
-    await repo.getOrCreateSession(tenant, "ses_src_b3", "续跑源B3测试");
+    await repo.getOrCreateSession(ctx, "ses_src_b3", "续跑源B3测试");
     await repo.createTurnWithOutbox(
-      tenant,
+      ctx,
       { id: "turn_src_b3", sessionId: "ses_src_b3", idempotencyKey: "idem_src_b3", status: "Created" },
       { id: "msg_src_b3", content: "再查一下" },
       { id: "ob_src_b3", eventType: "turn.created", idempotencyKey: "idem_ob_src_b3", payload: { turnId: "turn_src_b3" } },
     );
-    await repo.createTurnAttempt(tenant, "turn_src_b3", { id: "atp_src_b3", attempt: 1 });
-    await repo.claimTurnAttempt(tenant, {
+    await repo.createTurnAttempt(ctx, "turn_src_b3", { id: "atp_src_b3", attempt: 1 });
+    await repo.claimTurnAttempt(ctx, {
       turnId: "turn_src_b3",
       attemptId: "atp_src_b3",
       expectedFencingToken: 0,
@@ -213,30 +213,30 @@ describe("SqliteResumeSource（续跑候选源）", () => {
       ttlMs: 1,
     });
     await new Promise((r) => setTimeout(r, 10)); // 租约过期
-    await repo.reserveToolExecution(tenant, {
+    await repo.reserveToolExecution(ctx, {
       turnId: "turn_src_b3", attemptId: "atp_src_b3", invocationId: "atp_src_b3:1:1", name: "notes_search", arguments: {},
     });
-    await repo.updateToolExecutionResult(tenant, {
+    await repo.updateToolExecutionResult(ctx, {
       turnId: "turn_src_b3", attemptId: "atp_src_b3", invocationId: "atp_src_b3:1:1", status: "executed", output: { notes: "B3" },
     });
-    await repo.reserveToolExecution(tenant, {
+    await repo.reserveToolExecution(ctx, {
       turnId: "turn_src_b3", attemptId: "atp_src_b3", invocationId: "atp_src_b3:1:2", name: "notes_search", arguments: {},
     }); // 留 pending：意图已提交、未收口
-    await repo.appendStreamEvent(tenant, {
+    await repo.appendStreamEvent(ctx, {
       id: "tev_b3_msg", turnId: "turn_src_b3", sequence: 1, eventType: "message",
       data: { messageId: "msg_turn_src_b3_assistant" }, occurredAt: new Date().toISOString(),
     });
-    await repo.appendStreamEvent(tenant, {
+    await repo.appendStreamEvent(ctx, {
       id: "tev_b3_req1", turnId: "turn_src_b3", sequence: 2, eventType: "tool_request",
       data: { invocationId: "call_1", executionId: "atp_src_b3:1:1", name: "notes_search", arguments: {} },
       occurredAt: new Date().toISOString(),
     });
-    await repo.appendStreamEvent(tenant, {
+    await repo.appendStreamEvent(ctx, {
       id: "tev_b3_res1", turnId: "turn_src_b3", sequence: 3, eventType: "tool_result",
       data: { invocationId: "call_1", executionId: "atp_src_b3:1:1", name: "notes_search", ok: true, output: { notes: "B3" } },
       occurredAt: new Date().toISOString(),
     });
-    await repo.appendStreamEvent(tenant, {
+    await repo.appendStreamEvent(ctx, {
       id: "tev_b3_req2", turnId: "turn_src_b3", sequence: 4, eventType: "tool_request",
       data: { invocationId: "call_2", executionId: "atp_src_b3:1:2", name: "notes_search", arguments: {} },
       occurredAt: new Date().toISOString(),

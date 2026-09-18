@@ -57,7 +57,6 @@ apps/
   desktop/      # Electron 43 桌面壳（Fairy 桌宠）；复用 web/ui，ADR-009
   web/          # Vue 3 + Vite 7 工作台（复用 desktop renderer 核心，ADR-015）
   mobile/       # Capacitor 8 移动端外壳（封装 apps/web）
-  data/         # 技能与插件数据资产（非工作区包）
 packages/
   contracts/         # L0 纯契约层：Zod Schema + OpenAPI v9（唯一 DTO 事实源）
   schema/            # Drizzle ORM SQLite 模式定义（唯一表结构事实源）
@@ -400,27 +399,29 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 
 ## 11. 首批 ADR
 
+<!-- ADR_TABLE_START -->
 | ADR | 状态 | 决策 |
 |---|---|---|
-| ADR-001 | Accepted | 模块化单体 + Worker，而非 MVP 微服务 |
-| ADR-002 | Superseded by ADR-015 | 原 React/Vite + Fastify + OpenAPI/SSE 的 Web 基线已改为 Vue 单栈 |
-| ADR-003 | Accepted（经 CR-030 修订） | 仓储抽象架构：SQLite 业务真源与 FTS5/Vector Port |
-| ADR-004 | Accepted | 业务状态 + Outbox + 幂等队列，而非全系统 Event Sourcing |
-| ADR-005 | Accepted | 内部 Provider Port 包裹 AI SDK，模型和 Prompt 可替换 |
-| ADR-006 | Accepted | AI 召回期限与用户可见数据保留期限分离 |
-| ADR-007 | Accepted | 系统记忆树是长期记忆的可重建投影；跨主题使用独立边 |
-| ADR-008 | Superseded by CR-030 | 历史 Cloud-first 与本地/自托管 Port 方案 |
-| ADR-009 | Accepted | Electron 最小权限桌面壳；插件进程外运行 |
-| ADR-010 | Accepted | DSH/pi 仅为可选适配器，不拥有核心业务数据 |
-| ADR-011 | Accepted | 日记不可变周期、计划修订、cursor 连续性、迟到事件与 lease/fencing |
-| ADR-012 | Accepted | POST Turn + GET SSE、分段安全门、重连去重与部分响应持久化 |
-| ADR-013 | Accepted | 独立恢复控制账本与撤权先行 |
-| ADR-014 | Accepted | 演进式模块化单体：apps/api 按领域模块组织，自管仓储 |
-| ADR-015 | Accepted | Vue 全栈单栈：Web 复用桌面端技术族，替代 ADR-002 的 Web 基线 |
-| ADR-016 | Accepted | 底座边界冻结：Kernel Substrate 与能力层依赖边界，`scripts/import-boundary.mjs` 机器校验 |
-| ADR-017 | Accepted | ContextManifest/ModelRun/AgentStep 关联与 AgentInboxItem 模型 |
-| ADR-018 | Accepted | CAP-033 本地私密存储、受信主动智能 Host、OS Permission Broker、全动作授权与后台生命周期 |
-| ADR-019 | Accepted | 主动智能外部连接使用本地网关、加密凭据、受控工具和按连接撤销 |
+| [ADR-001](adr/ADR-001-modular-monolith.md) | Accepted | 模块化单体 + 独立 Worker |
+| [ADR-002](adr/ADR-002-web-api-contract.md) | Superseded by ADR-015 | Web 端与 API 契约设计（已归档） |
+| [ADR-003](adr/ADR-003-postgres-retrieval.md) | Accepted（经 CR-030 修订） | 仓储抽象架构：SQLite 业务真源与 FTS5/Vector Port |
+| [ADR-004](adr/ADR-004-outbox-idempotent-jobs.md) | Accepted | 业务状态 + Outbox + 幂等队列 |
+| [ADR-005](adr/ADR-005-provider-port.md) | Accepted | 内部 Provider Port 包裹 AI SDK |
+| [ADR-006](adr/ADR-006-recall-retention.md) | Accepted | AI 召回期限与历史保留期限分离 |
+| [ADR-007](adr/ADR-007-memory-tree-projection.md) | Accepted | 系统记忆树作为可重建投影 |
+| [ADR-008](adr/ADR-008-cloud-first-local-port.md) | Superseded by CR-030 | Cloud-first 与本地/自托管 Port |
+| [ADR-009](adr/ADR-009-electron-plugin-sandbox.md) | Accepted | Electron 最小权限壳与进程外插件 |
+| [ADR-010](adr/ADR-010-dsh-pi-adapters.md) | Accepted | DSH/pi 仅为可选适配器 |
+| [ADR-011](adr/ADR-011-diary-cycle-schedule-revision.md) | Accepted | 日记周期、计划修订与连续窗口 |
+| [ADR-012](adr/ADR-012-streaming-safety-persistence.md) | Accepted | 可恢复 Turn 流式协议、输出安全门与部分响应持久化 |
+| [ADR-013](adr/ADR-013-recovery-control-ledger.md) | Accepted | 独立恢复控制账本与撤权先行 |
+| [ADR-014](adr/ADR-014-modular-monolith-structure.md) | Accepted | 演进式模块化单体：apps/api 目录结构 |
+| [ADR-015](adr/ADR-015-vue-full-stack.md) | Accepted | Vue 全栈单栈：Web 复用桌面端技术族 |
+| [ADR-016](adr/ADR-016-base-boundaries.md) | Accepted | 底座边界冻结：Kernel Substrate 与能力层的依赖边界 |
+| [ADR-017](adr/ADR-017-context-manifest-modelrun-step.md) | Accepted | 冻结 ContextManifest / ModelRun / AgentStep 关联与 Inbox 数据模型 |
+| [ADR-018](adr/ADR-018-proactive-local-privacy-host.md) | Accepted | CAP-033 本地私密存储与主动智能 Host |
+| [ADR-019](adr/ADR-019-proactive-integrations-local-gateway.md) | Accepted | 主动智能外部连接采用本地网关与受控工具 |
+<!-- ADR_TABLE_END -->
 
 每个 ADR 需要记录上下文、备选方案、决策、后果、迁移和回滚。未批准的技术建议不能写成已承诺架构。
 
