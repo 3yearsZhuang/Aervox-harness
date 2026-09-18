@@ -23,7 +23,7 @@ Aervox｜思隅：更好上手的“主动智能” Agent——以桌宠为入�
 
 在执行具体任务前，请按需顺着权威事实源树状深入，严禁仅凭猜测进行编码或修改：
 
-先读 [plan.md](plan.md) 确认当前条目与依赖；用户当次指令优先，计划不构成对所有建议的执行授权，也不要求对已经授权的工作重复确认。新增、改序、暂停和完成移交按[计划维护规则](docs/reference/document-governance.md#31-当前迭代计划的唯一入口)更新，同一迭代不要另建 `TODO.md`、`roadmap.md` 或工具私有计划作为并行权威。
+先读 [plan.md](plan.md) 确认当前条目与依赖；用户当次指令优先，计划不构成对所有建议的执行授权，也不要求对已经授权的工作重复确认。新增、改序、暂停和完成移交按[计划维护规则](docs/reference/document-governance.md#31-当前迭代计划的唯一入口)更新（改队列真源 `docs/_meta/plan-queue.json` 后运行 `mise tasks run plan-render`，不要手改 §2 生成区），同一迭代不要另建 `TODO.md`、`roadmap.md` 或工具私有计划作为并行权威。
 
 1. **宏观上下文与目录全景**：
    - [docs/README.md](docs/README.md) — 8 大主题域分类索引与事实源权威顺序；
@@ -69,7 +69,7 @@ Aervox｜思隅：更好上手的“主动智能” Agent——以桌宠为入�
 - **落地实现登记（闭环铁律）**：
   - 一切落地改动必须在 [落地追踪基线 §4.2](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记) 登记完成情况（关联 CAP、实现位置、日期、验证方式），未登记者视为未闭环；
   - 借鉴参考项目（`T-*` / `AST-*` / `PET-*` / `DSH-01` / `PI-01`）需在“来源”列注明编号，并遵循开源版权声明（见 PRD §15.1）。
-- **当前迭代计划维护**：任务开始、范围/依赖变化及交付时同步 [plan.md](plan.md)；专题评估与 CR 只维护证据、差量和专项验收，不另设项目排期。完成项必须链接 §4.2 或 PR/验证证据；归档与字段规则统一见[迭代计划治理](docs/reference/document-governance.md#31-当前迭代计划的唯一入口)。
+- **当前迭代计划维护**：任务开始、范围/依赖变化及交付时同步队列真源 `docs/_meta/plan-queue.json` 并重新渲染 [plan.md](plan.md)（`mise tasks run plan-render`）；专题评估与 CR 只维护证据、差量和专项验收，不另设项目排期。完成项必须链接 §4.2 或 PR/验证证据；归档与字段规则统一见[迭代计划治理](docs/reference/document-governance.md#31-当前迭代计划的唯一入口)。
 - **Git 功能分支工作流**：
   - 严禁直接向 `main` 分支提交或推送代码；
   - 所有变更必须按 `feat/`、`fix/`、`docs/` 前缀创建功能分支，提交前本地通过双门禁，经由 Pull Request 审查后合入 `main`。
@@ -92,6 +92,8 @@ Aervox｜思隅：更好上手的“主动智能” Agent——以桌宠为入�
 | 格式化修复 | `npx markdownlint-cli2 --fix <files>` | 自动修复 Markdownlint 可自愈的排版问题 |
 | 术语检查 | `vale --minAlertLevel=error <files>` | 针对指定文件执行 Vale 散文与术语一致性检查 |
 | 注册表自动同步 | `mise tasks run docs-sync` | 自动从文档 Front Matter 读取日期并回写 `docs/DOC_REGISTRY.md` |
+| 计划队列渲染 | `mise tasks run plan-render` | 从 `docs/_meta/plan-queue.json` 重新生成 `plan.md` §2 的派生表格（生成区禁止手改） |
+| 计划队列校验 | `mise tasks run plan-check` | 校验队列结构、依赖、在制并发与“状态—证据”一致性；已接入文档治理，强制级别 `error`（H1–H6 与 S1–S4 阻断，S5 提示） |
 | 机器目录生成 | `mise tasks run docs-catalog` | 重新生成标准化全量元数据 `docs/_meta/document-catalog.json` |
 | 变更触发器排查 | `mise tasks run docs-triggers` | 比对 Git 改动与各文档触发规则，排查待联动复核文档 |
 | 插件分发包生成 | `mise tasks run package-plugins` | 重建 gitignore 产物 `dist-plugins/*.aervox-plugin`；冷检出后的声明恢复入口（测试不得依赖该目录） |
