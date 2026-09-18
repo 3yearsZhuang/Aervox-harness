@@ -47,17 +47,47 @@ function fixture(t) {
   for (const name of ["docs-governance.mjs", "docs-lint-affected.mjs", "plan-queue.mjs"]) {
     fs.copyFileSync(path.join(scriptsDirectory, name), path.join(root, "scripts", name));
   }
-  for (const name of ["document-policy.json", "plan-queue.json"]) {
-    fs.copyFileSync(
-      path.resolve(scriptsDirectory, "../docs/_meta", name),
-      path.join(root, "docs/_meta", name),
-    );
-  }
+  fs.copyFileSync(
+    path.resolve(scriptsDirectory, "../docs/_meta/document-policy.json"),
+    path.join(root, "docs/_meta/document-policy.json"),
+  );
+  // 迷你真源（自包含，不依赖真实 19 条队列，避免真实渲染区里的仓库链接在 fixture 中悬空）。
+  fs.writeFileSync(
+    path.join(root, "docs/_meta/plan-queue.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      statuses: ["建议", "执行中", "已移交", "暂停"],
+      batches: [{ id: "first", label: "第一批" }],
+      items: [
+        {
+          id: "ITER-001",
+          batch: "first",
+          status: "建议",
+          delivery: "迷你交付",
+          gate: "迷你门槛",
+          acceptance: ["迷你判定"],
+          owner: "fixture",
+          dependsOn: [],
+        },
+      ],
+    }, null, 2),
+  );
   const registry = path.join(root, "docs/DOC_REGISTRY.md");
   fs.writeFileSync(registry, document("AVX-DOC-CONF-001", {},
     `| ID | 文档 | 核验日期 |\n|---|---|---|\n| \`AVX-PLAN-001\` | [当前计划](../plan.md) | ${today} |`));
+  // 真源被复制进 fixture 后，plan.md 必须包含其渲染的生成区，
+  // 否则 error 强制级别下 checkPlanQueue 的 H6（生成区不同步）会把无关测试阻断。
+  // 先写带 front matter 与占位生成区标记的 plan.md，再用复制进 fixture 的
+  // plan-queue.mjs --render 填充生成区（applyQueueRegion 要求已有标记）。
   fs.writeFileSync(path.join(root, "plan.md"), document("AVX-PLAN-001", { planning_role: "current" },
-    "[文档登记](docs/DOC_REGISTRY.md)"));
+    `<!-- plan-queue:begin -->\n<!-- plan-queue:end -->\n\n[文档登记](docs/DOC_REGISTRY.md)`));
+  const rendered = spawnSync(process.execPath, ["scripts/plan-queue.mjs", "--render"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  if (rendered.status !== 0) {
+    throw new Error(`fixture 渲染 plan.md 生成区失败：${rendered.stderr}`);
+  }
   return root;
 }
 
@@ -70,6 +100,24 @@ function runGovernance(root, ...args) {
 
 function output(result) {
   return `${result.stdout ?? ""}${result.stderr ?? ""}`;
+}
+
+/**
+ * 覆写 plan.md 并渲染同步的生成区。
+ * 注意：数组字段必须经 document() 序列化为 YAML 块序列（内联 `["a"]` 会被解析成字符串），
+ * 因此这里统一走 document() + plan-queue.mjs --render，避免手写 front matter。
+ */
+function writePlanDocument(root, { fields = {}, body = "[文档登记](docs/DOC_REGISTRY.md)" } = {}) {
+  fs.writeFileSync(path.join(root, "plan.md"), document("AVX-PLAN-001",
+    { planning_role: "current", ...fields },
+    `<!-- plan-queue:begin -->\n<!-- plan-queue:end -->\n\n${body}`));
+  const rendered = spawnSync(process.execPath, ["scripts/plan-queue.mjs", "--render"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  if (rendered.status !== 0) {
+    throw new Error(`覆写 plan.md 后渲染生成区失败：${rendered.stderr}`);
+  }
 }
 
 function addRegisteredDocument(root, name, id, role) {
@@ -301,10 +349,7 @@ test("增量 CLI 保留已提交重命名的旧文档路径并检查悬空引用
 
 test("触发器能识别根计划已经同步修改", { skip: process.platform === "win32" }, (t) => {
   const root = fixture(t);
-  fs.writeFileSync(path.join(root, "plan.md"), document("AVX-PLAN-001", {
-    planning_role: "current",
-    review_triggers: ["apps/**"],
-  }));
+  writePlanDocument(root, { fields: { review_triggers: ["apps/**"] } });
   const result = spawnSync(process.execPath, ["scripts/docs-governance.mjs", "--strict", "--check-triggers"], {
     cwd: root,
     encoding: "utf8",
@@ -316,10 +361,7 @@ test("触发器能识别根计划已经同步修改", { skip: process.platform =
 
 test("触发器覆盖已提交差量而非只看工作区", { skip: process.platform === "win32" }, (t) => {
   const root = fixture(t);
-  fs.writeFileSync(path.join(root, "plan.md"), document("AVX-PLAN-001", {
-    planning_role: "current",
-    review_triggers: ["apps/**"],
-  }));
+  writePlanDocument(root, { fields: { review_triggers: ["apps/**"] }, body: "" });
   // 工作区干净，命中信息只存在于 base...HEAD 差量中。
   const result = spawnSync(process.execPath, ["scripts/docs-governance.mjs", "--check-triggers"], {
     cwd: root,
@@ -332,10 +374,17 @@ test("触发器覆盖已提交差量而非只看工作区", { skip: process.plat
 
 test("计划队列与 plan.md 不同步时观察期只报提示", { skip: process.platform === "win32" }, (t) => {
   const root = fixture(t);
+  // fixture 默认 policy 已是 error（复制真实策略）；本测试验证观察期语义，先切回 warning。
+  const policyPath = path.join(root, "docs/_meta/document-policy.json");
+  const policy = JSON.parse(fs.readFileSync(policyPath, "utf8"));
+  policy.currentIterationPlan.queue.enforcement = "warning";
+  fs.writeFileSync(policyPath, JSON.stringify(policy, null, 2));
+  // 手动篡改一行构造「不同步」，warning 级别只提示不阻断。
+  const planPath = path.join(root, "plan.md");
+  fs.writeFileSync(planPath, fs.readFileSync(planPath, "utf8").replace("ITER-001 · ", "ITER-001 · 建议 · "));
   const result = runGovernance(root);
   assert.equal(result.status, 0, output(result));
   assert.match(output(result), /\[plan-queue:H6\]/, output(result));
-  assert.match(output(result), /缺少 plan-queue 生成区标记/);
 });
 
 test("队列强制级别升级为 error 后不同步将阻断", { skip: process.platform === "win32" }, (t) => {
@@ -344,6 +393,9 @@ test("队列强制级别升级为 error 后不同步将阻断", { skip: process.
   const policy = JSON.parse(fs.readFileSync(policyPath, "utf8"));
   policy.currentIterationPlan.queue.enforcement = "error";
   fs.writeFileSync(policyPath, JSON.stringify(policy, null, 2));
+  // fixture 默认渲染同步的生成区；手动篡改一行构造「不同步」，error 级别下必须阻断。
+  const planPath = path.join(root, "plan.md");
+  fs.writeFileSync(planPath, fs.readFileSync(planPath, "utf8").replace("ITER-001 · ", "ITER-001 · 建议 · "));
 
   const result = runGovernance(root);
   assert.equal(result.status, 1, output(result));
