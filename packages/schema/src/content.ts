@@ -5,6 +5,7 @@
  * CAP-012 扩展：用途声明、解析管线、OCR 置信度、裁剪/转文字
  */
 import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
 import { timestampColumns } from "./common.js";
 
 /** 附件元数据（图片/论文/试卷/导出文件；业务库不存大对象正文） */
@@ -66,7 +67,7 @@ export const attachmentParseResults = sqliteTable(
   (table) => ({
     attachmentIdx: index("attachment_parse_results_attachment_idx").on(table.attachmentId),
 
-    idemIdx: uniqueIndex("attachment_parse_results_idem_idx").on(table.idempotencyKey),
+    idemIdx: uniqueIndex("attachment_parse_results_idem_idx").on(table.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
   }),
 );
 

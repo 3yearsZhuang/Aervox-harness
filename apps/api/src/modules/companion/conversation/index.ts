@@ -77,7 +77,7 @@ export function registerConversationModule(ctx: ModuleContext): void {
     // 5c：Subagent 委托执行器（request 级 tenant 绑定；子任务独立 turn/attempt 落库审计）
     subagentFactory: (tenant) =>
       createSqliteSubagentPort({
-        tenant,
+        ctx: tenant,
         store: new SqliteExecutionStore(conversationRepo, tenant),
         conversationRepo,
         runRepo: subagentRunRepo,

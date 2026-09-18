@@ -12,7 +12,7 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "rm -rf dist && tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },
@@ -24,8 +24,6 @@
     "@libsql/client": "^0.14.0"
   },
   "devDependencies": {
-    "@types/node": "^22.10.0",
-    "typescript": "7.0.2",
-    "vitest": "4.0.18"
+    "@types/node": "^22.10.0"
   }
 }

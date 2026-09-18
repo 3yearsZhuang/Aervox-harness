@@ -6,8 +6,6 @@ import type { LocalContext } from "../../local-context.js";
 
 export interface SessionModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   title: string;
   projectId?: string | null;
   createdAt: string;
@@ -17,8 +15,6 @@ export interface SessionModel {
 export interface TurnModel {
   id: string;
   sessionId: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   idempotencyKey: string;
   status: string;
   lastSequence: number;
@@ -31,8 +27,6 @@ export interface TurnModel {
 export interface MessageVersionModel {
   id: string;
   turnId: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   role: string;
   version: number;
   content: string;
@@ -43,8 +37,6 @@ export interface MessageVersionModel {
 export interface TurnStreamEventModel {
   id: string;
   turnId: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   sequence: number;
   eventType: string;
   payloadVersion: number;
@@ -57,8 +49,6 @@ export interface TurnStreamEventModel {
 
 export interface OutboxEventModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   controlEventId?: string | null;
   idempotencyKey: string;
   eventType: string;
@@ -242,8 +232,6 @@ export interface IConversationRepository {
 
 export interface ConversationBranchModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   parentSessionId: string;
   forkAtMessageId?: string | null;
   childSessionId: string;
@@ -265,8 +253,6 @@ export interface ConversationBranchModel {
 
 export interface MemoryRecordModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   layer: string;
   type: string;
   content: string;
@@ -286,8 +272,6 @@ export interface MemoryRecordModel {
 
 export interface MemoryEdgeModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   fromNodeId: string;
   toNodeId: string;
   relationType: string;
@@ -299,8 +283,6 @@ export interface MemoryEdgeModel {
 
 export interface MemoryNodeModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   canonicalParentId?: string | null;
   label: string;
   nodeType: string;

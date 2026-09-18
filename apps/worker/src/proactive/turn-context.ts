@@ -19,17 +19,17 @@ export interface ResolvedProactiveTurnContext {
 }
 
 export async function resolveProactiveTurnContext(input: {
-  tenant: LocalContext;
+  ctx: LocalContext;
   personaRepo: SqlitePersonaRepository;
   memoryRepo: SqliteMemoryRepository;
   skillRegistry?: SqliteSkillRegistryRepository;
   evidenceText: string;
   pluginId: string | null;
 }): Promise<ResolvedProactiveTurnContext> {
-  const selection = await input.personaRepo.getActivePersona(input.tenant);
+  const selection = await input.personaRepo.getActivePersona(input.ctx);
   if (!selection) throw new Error("proactive_persona requires an active Persona selection");
   const revision = await input.personaRepo.getPersonaRevision(
-    input.tenant,
+    input.ctx,
     selection.personaId,
     selection.revisionId,
   );
@@ -42,7 +42,7 @@ export async function resolveProactiveTurnContext(input: {
     : new Set<string>();
   const allowedSkills = [...configuredSkills].filter((name) => activeSkills.has(name)).sort();
 
-  const memories = (await input.memoryRepo.listRecordsByLayer(input.tenant, "long_term"))
+  const memories = (await input.memoryRepo.listRecordsByLayer(input.ctx, "long_term"))
     .filter((memory) => memory.verificationStatus === "verified")
     .sort((left, right) => (right.lastUsedAt ?? right.updatedAt).localeCompare(left.lastUsedAt ?? left.updatedAt))
     .slice(0, 5);

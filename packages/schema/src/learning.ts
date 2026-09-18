@@ -22,7 +22,7 @@ export const learningGoals = sqliteTable(
   (table) => ({
     localIdempotencyUniqueIdx: uniqueIndex("learning_goals_local_idempotency_idx").on(
       table.idempotencyKey,
-    ),
+    ).where(sql`idempotency_key IS NOT NULL`),
   }),
 );
 
@@ -76,7 +76,7 @@ export const questionAttempts = sqliteTable(
     localQuestionIdempotencyUniqueIdx: uniqueIndex("question_attempts_local_question_idempotency_idx").on(
       table.questionId,
       table.idempotencyKey,
-    ),
+    ).where(sql`idempotency_key IS NOT NULL`),
   }),
 );
 
@@ -169,7 +169,7 @@ export const reviewItems = sqliteTable(
     localDueIdx: index("review_items_local_due_idx").on(table.dueAt),
     localKnowledgeActiveUniqueIdx: uniqueIndex("review_items_local_knowledge_active_idx").on(
       table.knowledgeId,
-    ),
+    ).where(sql`status = 'active'`),
   }),
 );
 

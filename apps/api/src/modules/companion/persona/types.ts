@@ -6,60 +6,36 @@ import type { LocalContext } from "@aervox/repositories";
 
 export const PERSONA_SCHEMA_VERSION = 1;
 
-export type PersonaSource = "builtin" | "user_created" | "imported";
-export type PersonaStatus = "active" | "archived";
-export type PersonaReviewStatus = "draft" | "pending_review" | "approved" | "rejected";
-export type MemoryPolicy = "isolated" | "shared";
-export type SwitchReason = "user_initiated" | "rollback" | "system_default";
+import type {
+  PersonaSource,
+  PersonaStatus,
+  PersonaReviewStatus,
+  MemoryPolicy,
+  SwitchReason,
+  VoiceSelection,
+  PersonaRevisionConfig,
+  Persona,
+  PersonaRevision,
+  ActivePersonaSelection,
+  PersonaSwitchLog,
+  PersonaMemoryScope,
+} from "@aervox/contracts";
 
-export interface VoiceSelection {
-  enabled: boolean;
-  providerId: string;
-  modelId: string;
-  speakerId?: string;
-  settings?: Record<string, string | number | boolean>;
-}
+export type {
+  PersonaSource,
+  PersonaStatus,
+  PersonaReviewStatus,
+  MemoryPolicy,
+  SwitchReason,
+  VoiceSelection,
+  PersonaRevisionConfig,
+  Persona,
+  PersonaRevision,
+  ActivePersonaSelection,
+  PersonaSwitchLog,
+  PersonaMemoryScope,
+};
 
-export interface PersonaRevisionConfig {
-  systemPromptAppend: string;
-  allowedSkillNames?: string[];
-  allowedMcpToolIds?: string[];
-  voice?: VoiceSelection;
-}
-
-export interface Persona {
-  id: string;
-  workspaceId: string;
-  subjectUserId: string;
-  name: string;
-  description: string;
-  source: PersonaSource;
-  status: PersonaStatus;
-  reviewStatus: PersonaReviewStatus;
-  reviewNotes: string;
-  reviewedAt: string | null;
-  currentRevisionId: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface PersonaRevision {
-  id: string;
-  personaId: string;
-  revision: number;
-  config: PersonaRevisionConfig;
-  checksum: string;
-  createdAt: string;
-}
-
-export interface ActivePersonaSelection {
-  id?: string;
-  workspaceId: string;
-  subjectUserId: string;
-  personaId: string;
-  revisionId: string;
-  selectedAt: string;
-}
 
 export interface PersonaContextSnapshot {
   personaId: string;
@@ -121,28 +97,8 @@ export interface UpdatePersonaInput {
   config: PersonaRevisionConfig;
 }
 
-// ---- CAP-019 扩展：审核、回滚、切换历史、记忆范围 ----
+// ---- CAP-019 扩展：审核、回滚、切换历史、记忆范围（类型已由 @aervox/contracts 统一定义） ----
 
-export interface PersonaSwitchLog {
-  id: string;
-  personaId: string;
-  revisionId: string;
-  previousPersonaId: string | null;
-  previousRevisionId: string | null;
-  switchReason: SwitchReason;
-  regressionNotes: string | null;
-  switchedAt: string;
-}
-
-export interface PersonaMemoryScope {
-  personaId: string;
-  memoryPolicy: MemoryPolicy;
-  sharedPersonaIds: string[];
-  sharedCategories: string[];
-  confirmedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
 
 export function assertNonEmpty(value: string, field: string): string {
   const normalized = value.trim();

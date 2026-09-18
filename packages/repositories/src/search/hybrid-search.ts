@@ -9,7 +9,7 @@
  * 双侧纯 RRF，score = ftsWeight/(rank+K) + vectorWeight/(rank+K)）。
  *
  * 使用方式：按域（message/memory）构造 HybridSearchStorage，注入 FTS 与向量两个
- * 通道；服务本身与具体表/向量库解耦，后续切 pgvector 时仅替换通道实现。
+ * 通道；服务本身与具体表/向量库解耦，向量存储当前由 SQLite 行扫描 + 余弦距离承载，VectorSearchPort 接口预留替换空间。
  */
 import { assertLocalContext, type LocalContext } from "../local-context.js";
 
@@ -176,7 +176,7 @@ export class HybridSearchService {
 
 /**
  * 按域构造标准通道实现：FTS 走 SQLite FTS5（messages_fts / memories_fts），
- * 向量走 IVectorSearchPort。后续切换 pgvector 时替换 vectorSearch 即可。
+ * 向量走 IVectorSearchPort。向量存储当前由 SQLite 行扫描 + 余弦距离承载，VectorSearchPort 接口预留替换空间。
  */
 export function createHybridSearchStorage(opts: {
   domain: HybridSearchDomain;

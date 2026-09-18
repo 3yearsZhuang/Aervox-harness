@@ -46,6 +46,7 @@ export const personaRevisionSchema = z.object({
   createdAt: z.iso.datetime(),
 });
 export const activePersonaSelectionSchema = z.object({
+  id: z.string().optional(),
   workspaceId: z.string().min(1),
   subjectUserId: z.string().min(1),
   personaId: z.string().min(1),
@@ -364,3 +365,18 @@ export const personaMemoryScopeSchema = z.object({
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
+
+export type PersonaSource = z.infer<typeof personaSourceSchema>;
+export type PersonaStatus = z.infer<typeof personaStatusSchema>;
+export type PersonaReviewStatus = z.infer<typeof personaReviewStatusSchema>;
+export type MemoryPolicy = z.infer<typeof memoryPolicySchema>;
+export type MemoryCategory = z.infer<typeof memoryCategorySchema>;
+export type SwitchReason = z.infer<typeof switchReasonSchema>;
+export type VoiceSelection = z.infer<typeof voiceSelectionSchema>;
+export type PersonaRevisionConfig = z.infer<typeof personaRevisionConfigSchema>;
+export type Persona = z.infer<typeof personaSchema>;
+export type PersonaRevision = z.infer<typeof personaRevisionSchema>;
+export type ActivePersonaSelection = z.infer<typeof activePersonaSelectionSchema>;
+export type PersonaSwitchLog = z.infer<typeof personaSwitchLogSchema>;
+export type PersonaMemoryScope = z.infer<typeof personaMemoryScopeSchema>;
+

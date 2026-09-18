@@ -31,14 +31,14 @@ const id = (prefix: string): string =>
   `${prefix}_${Date.now().toString(36)}_${(++seq).toString(36)}`;
 
 /** 单次消费；返回成功落库的标记数 */
-export async function runCompactionMarkerCycle(ctx: CompactionMarkerContext): Promise<number> {
-  const events = await ctx.outboxRepo.fetchPendingEvents(ctx.limit ?? 50);
+export async function runCompactionMarkerCycle(deps: CompactionMarkerContext): Promise<number> {
+  const events = await deps.outboxRepo.fetchPendingEvents(deps.limit ?? 50);
   let markers = 0;
 
   for (const event of events) {
     if (event.eventType !== COMPACTION_EVENT_TYPE) continue;
 
-    const tenant = { workspaceId: "local", subjectUserId: "local" };
+    const ctx = { workspaceId: "local", subjectUserId: "local" };
     const payload = (event.payload ?? {}) as {
       memoryId?: string;
       snapshotId?: string;
@@ -52,7 +52,7 @@ export async function runCompactionMarkerCycle(ctx: CompactionMarkerContext): Pr
       if (!payload.memoryId || !payload.snapshotId) {
         throw new Error("compaction event payload missing memoryId/snapshotId");
       }
-      await ctx.compactionRepo.upsertMarker(tenant, {
+      await deps.compactionRepo.upsertMarker(ctx, {
         id: id("mark"),
         memoryId: payload.memoryId,
         snapshotId: payload.snapshotId,
@@ -63,17 +63,17 @@ export async function runCompactionMarkerCycle(ctx: CompactionMarkerContext): Pr
         thoughtDurationMs: payload.thoughtDurationMs ?? null,
         summaryDurationMs: payload.summaryDurationMs ?? null,
       });
-      await ctx.compactionRepo.recordEvent(tenant, {
+      await deps.compactionRepo.recordEvent(ctx, {
         id: id("evt"),
         memoryId: payload.memoryId,
         action: "compressed",
         reason: `auto compaction from outbox:${event.id}`,
-        actorType: `worker:${ctx.workerId}`,
+        actorType: `worker:${deps.workerId}`,
       });
-      await ctx.outboxRepo.markPublished(event.id);
+      await deps.outboxRepo.markPublished(event.id);
       markers += 1;
     } catch (err) {
-      await ctx.outboxRepo.markFailed(
+      await deps.outboxRepo.markFailed(
         event.id,
         err instanceof Error ? err.message : String(err),
       );

@@ -77,7 +77,7 @@ export function stableStringify(value: unknown): string {
  * scripted-write / scripted-privileged / llm（CR-015 真实配置；anthropic 明示不支持）。
  */
 export async function buildLoopProvider(
-  tenant: LocalContext,
+  ctx: LocalContext,
   llmConfigService?: LLMConfigService,
   options: {
     requireLocalOnly?: boolean;
@@ -103,7 +103,7 @@ export async function buildLoopProvider(
         sessionId: options.sessionId,
         turnId: options.turnId,
         requireLocalOnly: options.requireLocalOnly,
-        tenant,
+        tenant: ctx,
       });
 
       if (snapshot.tier === "L2" || !snapshot.baseUrl || !snapshot.modelId) {
@@ -122,7 +122,7 @@ export async function buildLoopProvider(
         throw new Error("proactive_local_provider_required: 主动画像上下文禁止发送到非本机模型端点");
       }
 
-      const presets = llmConfigService ? await llmConfigService.listPresets(tenant) : null;
+      const presets = llmConfigService ? await llmConfigService.listPresets(ctx) : null;
       const matchedPreset = snapshot.presetId
         ? presets?.presets.find((p) => p.id === snapshot.presetId)
         : null;
@@ -158,7 +158,7 @@ export async function buildLoopProvider(
     if (!llmConfigService) {
       throw new Error("llm_provider_unavailable: LLMConfigService 未接线");
     }
-    const cfg = await llmConfigService.getConfig(tenant);
+    const cfg = await llmConfigService.getConfig(ctx);
     if (!cfg.enabled) throw new Error("llm_disabled: 当前租户未启用 LLM 配置");
     if (cfg.providerType === "anthropic") {
       throw new Error("anthropic_unsupported: 阶段 2e 仅支持 OpenAI 兼容协议（openai/deepseek/ollama/llamacpp/custom_openai）");

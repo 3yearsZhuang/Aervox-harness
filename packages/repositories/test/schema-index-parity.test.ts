@@ -18,12 +18,6 @@ import { getTableConfig } from "drizzle-orm/sqlite-core";
 import * as schemaModule from "@aervox/schema";
 import { createInMemoryDatabase, initDatabaseSchema, initLedgerSchema } from "../src/index.js";
 
-/**
- * DDL 建了表、但 `@aervox/schema` 尚未声明对应 Drizzle 表的两处缺口。
- * 补齐表定义属于「新增事实源声明」的独立变更点，故此处显式豁免；删除本豁免即表示缺口已闭合。
- * 豁免只影响「该表自身的索引」比对，不影响其它表。
- */
-const TABLES_WITHOUT_SCHEMA_DECLARATION = new Set(["mcp_tools", "workspace_skills"]);
 
 interface IndexInfo {
   table: string;
@@ -49,7 +43,6 @@ function collectSchemaIndexes(): {
     }
     if (!config || typeof config.name !== "string" || !Array.isArray(config.columns)) continue;
     const table = config.name;
-    if (TABLES_WITHOUT_SCHEMA_DECLARATION.has(table)) continue;
 
     for (const index of config.indexes) {
       // 表达式索引（`index(...).on(sql\`...\`)`）的列不是普通列，暂不参与列集比对
@@ -94,7 +87,6 @@ async function collectDdlState(client: {
 
   for (const row of tables.rows) {
     const table = String(row.name);
-    if (TABLES_WITHOUT_SCHEMA_DECLARATION.has(table)) continue;
     const list = await client.execute(`PRAGMA index_list('${table}')`);
     const covered = new Set<string>();
     constrainedUnique.set(table, covered);

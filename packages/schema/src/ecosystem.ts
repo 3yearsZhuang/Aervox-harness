@@ -77,7 +77,7 @@ export const pluginGrants = sqliteTable(
       table.pluginId,
       table.permission,
       table.scope,
-    ),
+    ).where(sql`revoked_at IS NULL`),
   }),
 );
 

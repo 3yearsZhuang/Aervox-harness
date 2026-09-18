@@ -5,50 +5,20 @@
  */
 import { ref } from 'vue';
 import { getTransport } from './transport';
+import type {
+  Persona as PersonaDto,
+  PersonaRevisionConfig as PersonaRevisionConfigDto,
+  PersonaRevision as PersonaRevisionDto,
+  ActivePersonaSelection as ActivePersonaSelectionDto,
+} from '@aervox/contracts';
 
-export interface PersonaDto {
-  id: string;
-  workspaceId: string;
-  subjectUserId: string;
-  name: string;
-  description: string;
-  source: string;
-  status: string;
-  currentRevisionId: string;
-  createdAt: string;
-  updatedAt: string;
-}
+export type {
+  PersonaDto,
+  PersonaRevisionConfigDto,
+  PersonaRevisionDto,
+  ActivePersonaSelectionDto,
+};
 
-export interface PersonaRevisionConfigDto {
-  systemPromptAppend: string;
-  allowedSkillNames?: string[];
-  allowedMcpToolIds?: string[];
-  voice?: {
-    enabled: boolean;
-    providerId: string;
-    modelId: string;
-    speakerId?: string;
-    settings?: Record<string, string | number | boolean>;
-  };
-}
-
-export interface PersonaRevisionDto {
-  id: string;
-  personaId: string;
-  revision: number;
-  config: PersonaRevisionConfigDto;
-  checksum: string;
-  createdAt: string;
-}
-
-export interface ActivePersonaSelectionDto {
-  id?: string;
-  workspaceId: string;
-  subjectUserId: string;
-  personaId: string;
-  revisionId: string;
-  selectedAt: string;
-}
 
 export interface ToolItemDto {
   id: string;

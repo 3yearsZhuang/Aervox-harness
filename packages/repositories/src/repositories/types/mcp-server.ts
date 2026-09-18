@@ -30,8 +30,6 @@ export interface IMcpServerRepository {
 
 export interface PersonaModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   name: string;
   description: string;
   source: string; // "builtin" | "user_created" | "imported"
@@ -80,8 +78,6 @@ export interface PersonaRevisionModel {
 
 export interface ActivePersonaSelectionModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   personaId: string;
   revisionId: string;
   selectedAt: string;
@@ -129,8 +125,6 @@ export interface SkillReleaseModel {
 
 export interface PersonaTurnContextModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   turnId: string;
   personaId: string;
   revisionId: string;
@@ -144,8 +138,6 @@ export interface PersonaTurnContextModel {
 
 export interface PersonaSwitchLogModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   personaId: string;
   revisionId: string;
   previousPersonaId: string | null;
@@ -157,8 +149,6 @@ export interface PersonaSwitchLogModel {
 
 export interface PersonaMemoryScopeModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   personaId: string;
   memoryPolicy: string; // "isolated" | "shared"
   sharedPersonaIds: string[];

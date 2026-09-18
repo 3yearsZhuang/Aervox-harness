@@ -38,13 +38,13 @@ export function registerProactiveIntelligenceRoutes(
   const repo = deps.intelligenceRepo;
 
   app.get("/v1/proactive/intelligence/dashboard", async (req) => {
-    const tenant = resolveLocalContext(req);
+    const ctx = resolveLocalContext(req);
     const [timeline, projects, commitments, workflows, triggers, verifications, conflicts, preparations, attention, drift, relationships, scenes, reviews, connections, homeEntities, health] = await Promise.all([
-      repo.listTimeline(tenant, {limit: 20}), repo.listProjects(tenant, "active", 20), repo.listCommitments(tenant, {status: "open", limit: 20}),
-      repo.listWorkflows(tenant, undefined, 20), repo.listTriggerEvents(tenant, 20), repo.listActionVerifications(tenant, undefined, 20),
-      repo.listClaimConflicts(tenant, "open", 50), repo.listPreparations(tenant, "ready", 20),
-      repo.listAttentionStates(tenant, 10), repo.listDriftSignals(tenant, "open", 20), repo.listRelationships(tenant, 20),
-      repo.listScenes(tenant, 10), repo.listReviews(tenant, 10), repo.listConnections(tenant, undefined, 20), repo.listHomeEntities(tenant, undefined, undefined, 50), repo.listHealthSamples(tenant, {limit: 20}),
+      repo.listTimeline(ctx, {limit: 20}), repo.listProjects(ctx, "active", 20), repo.listCommitments(ctx, {status: "open", limit: 20}),
+      repo.listWorkflows(ctx, undefined, 20), repo.listTriggerEvents(ctx, 20), repo.listActionVerifications(ctx, undefined, 20),
+      repo.listClaimConflicts(ctx, "open", 50), repo.listPreparations(ctx, "ready", 20),
+      repo.listAttentionStates(ctx, 10), repo.listDriftSignals(ctx, "open", 20), repo.listRelationships(ctx, 20),
+      repo.listScenes(ctx, 10), repo.listReviews(ctx, 10), repo.listConnections(ctx, undefined, 20), repo.listHomeEntities(ctx, undefined, undefined, 50), repo.listHealthSamples(ctx, {limit: 20}),
     ]);
     return {timeline, projects, commitments, workflows, triggers, verifications, conflicts, preparations, attention, drift, relationships, scenes, reviews, connections, homeEntities, health};
   });

@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.0
-updated_at: 2026-09-17
-reviewed_at: 2026-09-17
+version: 0.5.0
+updated_at: 2026-09-18
+reviewed_at: 2026-09-18
 review_interval_days: 90
 sources:
   - docs/reference/DATABASE.md
@@ -18,7 +18,7 @@ sources:
 # Aervox｜思隅 数据库数据模型覆盖矩阵（Database Coverage Matrix）
 
 - 提出人：3yearszhuang · 2026-09-10
-- 修改人：3yearszhuang · 2026-09-17
+- 修改人：3yearszhuang · 2026-09-18
 
 关联：[SQLite 本地单用户数据库契约](DATABASE.md)（AVX-DB-001）、[产品需求文档 PRD §8](PRD.md#prd-data)（AVX-PRD-001）、`CR-030`（已归档）
 
@@ -29,149 +29,203 @@ sources:
 > 本清单以 [PRD §8](PRD.md#prd-data) 为全生命周期基线，逐实体标注**交付阶段**与**实现状态**，用于追踪数据库设计对 PRD 的覆盖。约定：
 >
 > - **阶段**：`MVP`（R1）/ `MVP+`（R1.5）/ `P1`（R2）/ `P2`（R4）/ `P3`（R5）；不再包含 PostgreSQL 启用阶段。
-> - **实现状态**：`已落表`（当前 SQLite schema 已有）／ `已建模`（本文档 §3/§4/§5 有规划表或规划列）／ `未落表`（仅 PRD 定义，进入规划 backlog）。
-> - CR-030 的目标 Schema 是本地单用户、无租户列的 SQLite；当前代码在 D2 前仍保留旧租户字段。本地 Vault、十二项派生、HA/健康连接骨架已落地，生产 OS/出网/厂商兼容门禁和 CR-030 迁移 TC 仍待补齐。
+> - **实现状态**：`已落表`（当前 SQLite Schema/DDL 已有）／ `已建模`（本文档有规划表或规划列）／ `未落表`（仅 PRD 定义，进入规划 backlog）。
+> - CR-030 纯本地单用户真源已全面落地，全库无租户列。当前代码库 `@aervox/schema` 共维护 **131 张业务表**，另有 2 张 SQLite FTS5 虚拟表（`messages_fts`、`memories_fts`）与 1 张迁移记录表（`_migration_journal`），全仓持久化表总数为 134 张。
 
 ### 14.1 本地用户档案与同意
 
 | PRD 实体 | 阶段 | 实现状态 | 说明 / 对应表 |
 |---|---|---|---|
 | User | P2 | 未落表 | 可选本地用户档案，不作为共享数据库认证主体 |
-| ConsentGrant | MVP | 已落表 | `consent_grants`（未撤销授权条件唯一）；D2 移除租户列后按 purpose/scope/version 约束 |
-| UserPreference | MVP | 已落表 | 本地时区、语言、人格、提醒、日记和无障碍偏好；安全规则不可覆盖 |
+| ConsentGrant | MVP | 已落表 | `consent_grants`（未撤销授权条件唯一：`revoked_at IS NULL`）；按 purpose/scope/version 约束 |
+| UserPreference | MVP | 已落表 | `persona_preferences`（语气 tone、主动性 proactiveness、称谓 addressForm、提醒节奏 reminderCadence） |
 
 ### 14.2 会话域 Conversations
 
 | PRD 实体 | 阶段 | 实现状态 | 说明 / 对应表 |
 |---|---|---|---|
-| Session | MVP | 已落表 | `sessions` |
-| Message | MVP | 已落表 | `messages` 身份表（currentVersionId/label/deletedAt）；`message_versions.message_id` 已加可空列，存量数据待迁移 |
-| MessageVersion | MVP | 已落表 | `message_versions`（已补 messageId/supersededAt，可空待迁移） |
-| Turn | MVP | 已落表 | `turns`（缺 requestHash/acceptedAt/cancelledAt/completedAt） |
+| Session | MVP | 已落表 | `sessions`（会话元数据，支持关联 `projectId`） |
+| Message | MVP | 已落表 | `messages` 身份表（currentVersionId/label/deletedAt） |
+| MessageVersion | MVP | 已落表 | `message_versions`（不可变版本历史，含 messageId/supersededAt） |
+| Turn | MVP | 已落表 | `turns`（包含 requestHash、acceptedAt、cancelledAt、completedAt 状态字段） |
 | TurnAttempt | MVP | 已落表 | `turn_attempts`（leaseId/fencingToken，turn+attempt 唯一） |
 | TurnStreamEvent | MVP | 已落表 | `turn_stream_events`（已补 attemptId/safetyDecision/visibilityRevision/committedAt） |
+| ConversationBranch | P1 | 已落表 | `conversation_branches`（会话树状分支与会话地图，CAP-014） |
+| ToolApproval | MVP+ | 已落表 | `tool_approvals`（工具执行用户授权记录） |
+| SafeSegment | MVP+ | 已落表 | `safe_segments`（流式输出分段安全状态记录） |
+| AgentInboxItem | MVP+ | 已落表 | `agent_inbox_items`（Agent 命令收件箱，ADR-017） |
+| SubagentRun | MVP+ | 已落表 | `subagent_runs`（子 Agent 执行生命周期追踪） |
+| PendingUserQuestion | MVP+ | 已落表 | `pending_user_questions`（挂起等待用户回答的结构化提问） |
 
 ### 14.3 学习 · 练习 · 复习域
 
 | PRD 实体 | 阶段 | 实现状态 | 说明 / 对应表 |
 |---|---|---|---|
-| LearningGoal | MVP | 已落表 | `learning_goals`（topic/level/availableMinutes/status/idempotencyKey；非空幂等键按工作区/数据主体唯一，归档不删除学习事实） |
+| LearningGoal | MVP | 已落表 | `learning_goals`（topic/level/availableMinutes/status/idempotencyKey 条件唯一） |
 | Question | MVP | 已落表 | `questions`（sourceArtifactId 应用层维护；可选 knowledgeId 关联知识点） |
-| QuestionAttempt | MVP | 已落表 | `question_attempts` 不可变事实（judgement/evidence/idempotencyKey，仅追加；非空幂等键按工作区/数据主体/题目唯一） |
-| KnowledgeItem | MVP | 已落表 | `knowledge_items`（sourceStatus/masteryState、correctCount/wrongCount/correctStreak/mastery、masteryBasis） |
-| ReviewItem | MVP | 已落表 | `review_items`（`schedulerVersion` 为数值，MVP 值为 `1`；活动项条件唯一，status='active'） |
-| Feedback | MVP | 已落表 | `feedback`（actorId 与数据主体分离） |
-| ConversationBranch | P1 | 已落表 | `conversation_branches`（parentSessionId/forkAtMessageId/childSessionId） |
-| KnowledgeRelation | P1 | 已落表 | `knowledge_relations`（fromKnowledgeId/toKnowledgeId/relationType/source/confidence） |
+| QuestionAttempt | MVP | 已落表 | `question_attempts` 不可变事实（judgement/evidence/idempotencyKey 条件唯一） |
+| KnowledgeItem | MVP | 已落表 | `knowledge_items`（掌握度模型，correctCount/wrongCount/masteryBasis） |
+| ReviewItem | MVP | 已落表 | `review_items`（间隔重复调度，活动项条件唯一：`status = 'active'`） |
+| Feedback | MVP | 已落表 | `feedback`（用户对回答/练习的反馈打分与建议） |
+| KnowledgeRelation | P1 | 已落表 | `knowledge_relations`（思维宇宙知识图谱网络边，CAP-015） |
+| PracticeSession | P1 | 已落表 | `practice_sessions`（自适应刷题会话，CAP-016） |
+| PracticeReport | P1 | 已落表 | `practice_reports`（练习诊断分析报告，CAP-016） |
+| MistakeDisposition | P1 | 已落表 | `mistake_dispositions`（错题本归因与处理状态，CAP-004） |
+| MistakeInsight | P1 | 已落表 | `mistake_insights`（错题聚类洞察与归因归纳） |
+| LearningPlan | P1 | 已落表 | `learning_plans`（考试日备考复习计划主表，CAP-017） |
+| PlanMilestone | P1 | 已落表 | `plan_milestones`（复习计划里程碑节点） |
+| PlanTask | P1 | 已落表 | `plan_tasks`（复习计划每日原子任务） |
+| StudyMaterial | P1 | 已落表 | `study_materials`（学习资料与讲义主表，CAP-011） |
+| MaterialVersion | P1 | 已落表 | `material_versions`（学习资料多版本修订） |
+| MaterialSource | P1 | 已落表 | `material_sources`（学习资料来源溯源映射） |
 
 ### 14.4 记忆域 Memory
 
 | PRD 实体 | 阶段 | 实现状态 | 说明 / 对应表 |
 |---|---|---|---|
-| MemoryRecord | MVP/MVP+ | 已落表 | `memory_records`（layer=ephemeral/short_term 属 MVP，long_term 属 MVP+）；已补 currentRevisionId/sensitivityClass/aiRecallUntil/userRetentionUntil/verificationStatus |
-| MemoryRevision | MVP | 已落表 | `memory_revisions`（content/confidence/importance/algorithmVersion，不物理覆盖） |
-| SourceArtifact / SourceRevision | MVP | 已落表 | `source_artifacts` + `source_revisions`（真实外键，occurredAt 与 ingestedAt 分离，删除保留 tombstone） |
-| MemoryEvidence | MVP | 已落表 | `memory_evidence`（memoryRevision ↔ source，来源删除不级联保留 tombstone） |
-| MemoryEvent | MVP | 已落表 | `memory_events`（生成/晋升/衰减/锁定/冲突/失效/删除审计） |
-| MemoryNode | P1 | 已落表 | `memory_nodes` 投影节点（label/nodeType/confidence/projectionVersion），投影层与记录层分离 |
-| MemoryProjectionOverride | P1 | 已落表 | `memory_projection_overrides`（已迁移到 node 级：nodeId/operation/label/parentNodeId/actorId/status） |
-| MemoryEdge | P1 | 已落表 | `memory_edges`（已迁移到 node 级：fromNodeId/toNodeId/confidence/visibilityScope/status） |
-| MemoryEdgeEvidence | P1 | 已落表 | `memory_edge_evidence`（edgeId ↔ memoryRevisionId 证据关联） |
-| EmbeddingIndex | MVP+ | 已落表 | `embedding_indexes`（sourceArtifactId/sourceRevisionId/modelId/dimension/indexVersion） |
-| MemoryAlgorithm | P1 | 已落表 | `memory_algorithms`（系统级：stage/schemaVersion/thresholds，仅 active 生效） |
+| MemoryRecord | MVP/MVP+ | 已落表 | `memory_records`（四段记忆模型分层：ephemeral/short_term/long_term） |
+| MemoryRevision | MVP | 已落表 | `memory_revisions`（不可变修订，content/confidence/importance） |
+| SourceArtifact / SourceRevision | MVP | 已落表 | `source_artifacts` + `source_revisions`（来源事实与不可变版本） |
+| MemoryEvidence | MVP | 已落表 | `memory_evidence`（记忆修订 ↔ 来源证据，保留 tombstone） |
+| MemoryEvent | MVP | 已落表 | `memory_events`（生成/晋升/衰减/锁定/冲突/失效/删除审计事件） |
+| MemoryNode | P1 | 已落表 | `memory_nodes`（长期记忆树投影节点，ADR-007） |
+| MemoryProjectionOverride | P1 | 已落表 | `memory_projection_overrides`（节点级人工干预与重命名覆盖） |
+| MemoryEdge | P1 | 已落表 | `memory_edges`（记忆网络语义关联边） |
+| MemoryEdgeEvidence | P1 | 已落表 | `memory_edge_evidence`（记忆边支撑证据关联） |
+| MemoryEmbedding | MVP+ | 已落表 | `memory_embeddings`（记忆条目向量数据，用于本地语义召回） |
+| MemoryCompactionMarker | MVP+ | 已落表 | `memory_compaction_markers`（记忆压实与窗口合并游标标记） |
+| EmbeddingIndex | MVP+ | 已落表 | `embedding_indexes`（向量模型与索引生命周期元数据） |
+| MemoryAlgorithm | P1 | 已落表 | `memory_algorithms`（记忆提炼与投影算法配置） |
 
 ### 14.5 日记域 Diary
 
 | PRD 实体 | 阶段 | 实现状态 | 说明 / 对应表 |
 |---|---|---|---|
-| Diary | MVP+ | 已落表 | `diaries`（已补 cycleId/currentVersionId/status） |
-| DiarySchedule | MVP+ | 已落表 | `diary_schedules` 计划主实体（scheduleEpochId/nextRunAt/lastCutoffAt/cutoffRule/bufferMinutes/contentScopes/quietHours） |
-| DiaryScheduleRevision | MVP+ | 已落表 | `diary_schedule_revisions`（已补 scheduleId/contentScopes/quietHours/effectiveAt） |
-| DiaryCycle | MVP+ | 已落表 | `diary_cycles`（已补 sourceWindowStart/sourceWindowEnd/timezoneSnapshot/bufferClosedAt/cursorCommittedAt） |
-| DiaryRunAttempt | MVP+ | 已落表 | `diary_run_attempts`（已补 leaseId/fencingToken/idempotencyKey/errorCode） |
-| DiaryVersion | MVP+ | 已落表 | `diary_versions`（perspective/content/modelRunId/supersededAt，版本不覆盖历史） |
-| DiaryParagraphSource | MVP+ | 已落表 | `diary_paragraph_sources`（diaryVersionId/paragraphIndex/sourceArtifact/sourceRevision/permissionSnapshot） |
-| DiaryMaterialBuffer | MVP+ | 已落表 | `diary_material_buffers`（occurredAt/ingestedAt/expiresAt/ephemeralSnapshot，不可被普通对话召回） |
+| Diary | MVP+ | 已落表 | `diaries`（自动日记主行，auto_generated 条件唯一） |
+| DiarySchedule | MVP+ | 已落表 | `diary_schedules` 计划主实体（nextRunAt/bufferMinutes/quietHours） |
+| DiaryScheduleRevision | MVP+ | 已落表 | `diary_schedule_revisions`（计划配置版本化修订） |
+| DiaryCycle | MVP+ | 已落表 | `diary_cycles`（周期窗口与截止时间快照） |
+| DiaryRunAttempt | MVP+ | 已落表 | `diary_run_attempts`（生成尝试与租约锁控制） |
+| DiaryVersion | MVP+ | 已落表 | `diary_versions`（日记内容多版本，不覆盖历史） |
+| DiaryParagraphSource | MVP+ | 已落表 | `diary_paragraph_sources`（段落级来源溯源引用） |
+| DiaryMaterialBuffer | MVP+ | 已落表 | `diary_material_buffers`（日记素材缓冲，不被普通对话召回） |
 
-### 14.6 内容 · 资源 · 生态域
-
-| PRD 实体 | 阶段 | 实现状态 | 说明 / 对应表 |
-|---|---|---|---|
-| Attachment | MVP+ | 已落表 | `attachments`（objectKey/mediaType/size/scanStatus/sourceLicense，大对象存对象存储） |
-| ExternalSource | P2 | 已落表 | `external_sources`（provider/externalId/permissionScope/syncState/revokedAt） |
-| Plugin / PluginGrant | P2 | 已落表 | `plugins`（系统级：publisher/version/checksum/permissions/installSource）+ `plugin_grants`（未撤销授权条件唯一） |
-| CommunityContent | P3 | 已落表 | `community_contents`（authorId/type/reviewState/visibility） |
-| Organization | P3 | 已落表 | `organizations`（ownerId/memberScope/policyVersion） |
-
-### 14.7 运营 · 平台域
+### 14.6 内容 · 扩展 · 插件域
 
 | PRD 实体 | 阶段 | 实现状态 | 说明 / 对应表 |
 |---|---|---|---|
-| OutboxEvent | MVP | 已落表 | `outbox_events` |
-| Notification | MVP | 已落表 | `notifications`（复习/日记/计划提醒，受免打扰与撤销约束） |
-| ScheduledJob | MVP | 已落表 | `scheduled_jobs`（日记/记忆/OCR/嵌入/通知任务可见状态） |
-| ModelRun | MVP | 已落表 | `model_runs`（provider/modelId/promptVersionId/contextManifestId/latency/tokenUsage/cost，不复制敏感 Prompt） |
-| PromptVersion | MVP | 已落表 | `prompt_versions`（purpose+version 唯一） |
-| ContextManifest | MVP | 已落表 | `context_manifests`（sourceArtifact/sourceRevision 外键 + permissionSnapshot） |
-| ToolPolicy | MVP | 已落表 | `tool_policies`（系统级：purpose/toolName/approvalMode/timeoutMs/quota，purpose+toolName+version 唯一） |
-| EvalSet | MVP+ | 已落表 | `eval_sets`（系统级：purpose/version/language/domain/sampleCount/annotationPolicy） |
-| AnalyticsEvent | MVP | 已落表 | `analytics_events`（analyticsSubjectId 伪名化 + eventSchemaVersion + privacyClass） |
-| SafetyIncident | MVP | 已落表 | `safety_incidents`（访问受限，不写入普通记忆/分析明细） |
-| AuditRecord | MVP | 已落表 | `audit_records`（actorType/actorId 与数据主体分离） |
-| DeletionRequest | MVP | 已落表 | `deletion_requests`（scope/idempotencyKey/ownerModule/lastVerifiedAt） |
-| DeletionTarget | MVP | 已落表 | `deletion_targets`（requestId+targetType+targetId 复合主键，不含正文） |
-| RecoveryControlLedger | MVP | 已落表 | `recovery_control_ledger`（独立故障域账本，独立 client/文件，sequence 单调 + idempotency 唯一） |
-| LlmHealthSnapshot | MVP+ | 已落表 | `llm_health_snapshots`（presetId/status/latencyMs/errorCategory/checkedAt，CR-034/CR-042 探活快照） |
-| LlmRoutingEvent | MVP+ | 已落表 | `llm_routing_events`（sessionId/fromTier/toTier/selectedPresetId/reason/meta，CR-034/CR-042 降级切回审计） |
+| Attachment | MVP+ | 已落表 | `attachments`（本地文件附件，objectKey 指向本地 `data/attachments`） |
+| AttachmentParseResult | MVP+ | 已落表 | `attachment_parse_results`（OCR/用户裁剪/转文字派生解析结果，幂等键条件唯一） |
+| Plugin / PluginGrant | P2 | 已落表 | `plugins`（插件清单）+ `plugin_grants`（细粒度权限授权，未撤销条件唯一） |
+| PluginConfig | P2 | 已落表 | `plugin_configs`（插件配置键值快照） |
+| PluginConfigSecret | P2 | 已落表 | `plugin_config_secrets`（插件加密敏感凭据） |
+| PluginPage | P2 | 已落表 | `plugin_pages`（插件注册的 UI 扩展页面） |
+| ExternalSource | P2 | 已落表 | `external_sources`（外部数据源连接与同步状态） |
+| CommunityContent | P3 | 已落表 | `community_contents`（社区内容与公开网页分享预留） |
+| Organization | P3 | 已落表 | `organizations`（多组织/家庭协同模式预留） |
 
-### 14.8 人格 · 技能 · MCP 域（CAP-019/CAP-020）
+### 14.7 工具 · 技能 · MCP 域
 
 | PRD 实体 | 阶段 | 实现状态 | 说明 / 对应表 |
 |---|---|---|---|
-| Persona | P1 | 已落表 | `personas`（name/description/source/status/currentRevisionId，删除=归档） |
-| PersonaRevision | P1 | 已落表 | `persona_revisions`（config JSON + checksum，personaId+revision 唯一，不可变修订） |
-| ActivePersonaSelection | P1 | 已落表 | `persona_selections`（本地单一活动选择，激活 upsert） |
-| WorkspaceSkill | P2 | 已落表 | `workspace_skills`（Anthropic SKILL.md 元数据 + filesJson base64 + checksum；导入不执行脚本） |
-| McpTool | P2 | 已落表 | `mcp_tools`（serverId+name 唯一；授权/健康/kill switch 状态） |
-| McpServer（连接配置） | P2 | 已落表 | `mcp_servers`（transport/endpoint/本地 Token 与同步状态；同步出的远程工具以 `mcp__<serverId>__<toolName>` 落 `tool_registrations`，category=external；Port 为 `IMcpServerRepository`） |
-| PersonaTurnContext | P1 | 已落表 | `persona_turn_contexts`（turnId 唯一；revision/prompt checksum + skill/mcp 引用，不含完整 Prompt） |
+| ToolRegistration | MVP+ | 已落表 | `tool_registrations`（系统全局工具注册表，含内置与插件工具） |
+| ToolExecution | MVP+ | 已落表 | `tool_executions`（工具调用执行记录与审计结果） |
+| WorkspaceSkill | P2 | 已落表 | `workspace_skills`（工作区 SKILL.md 导入解析，name 唯一） |
+| SkillRegistration | P2 | 已落表 | `skill_registrations`（CAP-020 Neo 技能注册） |
+| SkillPayload | P2 | 已落表 | `skill_payloads`（技能实现载荷代码与元数据） |
+| SkillCandidate | P2 | 已落表 | `skill_candidates`（技能候选晋升评估） |
+| SkillRelease | P2 | 已落表 | `skill_releases`（技能正式发布阶段版本，stage 活跃条件唯一） |
+| McpServer | P2 | 已落表 | `mcp_servers`（MCP 服务端连接配置与传输状态） |
+| McpTool | P2 | 已落表 | `mcp_tools`（MCP 工具同步记录，serverId+name 唯一） |
 
-领域 Port 由主仓 `apps/api/src/modules/persona` 定义（`PersonaRepository` / `SkillRepository` / `McpToolRepository`；原 `modules/persona-plugin` 子模块已于 2026-08-28 移除，去模块化收尾见 §4.2），主仓
-`@aervox/schema` 提供表结构，`@aervox/repositories` 提供 SQLite 实现并通过 `apps/api` 适配器接入；数据库表与 Repository Port 是持久化事实源。
-
-### 14.9 主动智能模式域（CAP-033）
+### 14.8 人格域 Persona
 
 | PRD 实体 | 阶段 | 实现状态 | 说明 / 对应表 |
 |---|---|---|---|
-| ProfileAuthorizationRevision | P3 | 已落表 | `proactive_profile_revisions`；版本化 full_profile manifest、desired/status、device 和 local-only 边界 |
-| DeviceCapabilityGrant | P3 | 已落表 | `proactive_source_grants`；来源/purpose/scope/OS 回执可独立撤销 |
-| LocalActivationLease | P3 | 已落表 | `proactive_activation_leases`；epoch/heartbeat/expiry/localReady/fullAccessSnapshot |
-| RawCaptureSegment | P3 | 已落表 | `proactive_captures`；七天 retention + distillationStatus/记忆引用 |
-| ProfileClaim | P3 | 已落表 | `proactive_profile_claims`；画像状态、置信度、证据和 grant provenance |
-| BehaviorObservation | P3 | 已落表 | `proactive_observations`；来源授权、规范化载荷、算法版本和 local-only 边界 |
-| ProactiveAction | P3 | 已落表 | `proactive_actions`；local/external/privileged/irreversible 动作授权与结果 |
-| ProactiveAuditEvent | P3 | 已落表 | `proactive_audit_events`；授权、恢复、动作、撤权、导出和删除审计 |
+| Persona | P1 | 已落表 | `personas`（人格身份主表，CAP-019） |
+| PersonaRevision | P1 | 已落表 | `persona_revisions`（人格配置不可变修订，checksum 校验） |
+| ActivePersonaSelection | P1 | 已落表 | `persona_selections`（当前活动人格选择） |
+| PersonaTurnContext | P1 | 已落表 | `persona_turn_contexts`（回合执行时的人格与技能快照） |
+| PersonaSwitchLog | P1 | 已落表 | `persona_switch_logs`（人格切换历史与回滚审计） |
+| PersonaMemoryScope | P1 | 已落表 | `persona_memory_scopes`（人格隔离/共享记忆策略配置） |
 
-上述表已在 `packages/schema/src/proactive.ts` 和 `packages/repositories/src/schema/ddl/index.ts` 建立结构/初始化骨架；完整采集适配器、Provider 本地证明、删除 Worker 和 CR-030 破坏性迁移仍待实现，不能据此宣称 CAP-033 已发布。
+### 14.9 运营 · 平台域
 
-### 14.10 主动智能派生与外部连接域（CAP-033～035）
+| PRD 实体 | 阶段 | 实现状态 | 说明 / 对应表 |
+|---|---|---|---|
+| OutboxEvent | MVP | 已落表 | `outbox_events`（跨模块可靠解耦与事务消息投递） |
+| Notification | MVP | 已落表 | `notifications`（关怀/复习/日记提醒，支持优先级与已读） |
+| ScheduledJob | MVP | 已落表 | `scheduled_jobs`（Worker 定时与延迟任务可见状态） |
+| ModelRun | MVP | 已落表 | `model_runs`（模型调用指标、延迟、Token 消耗账本） |
+| PromptVersion | MVP | 已落表 | `prompt_versions`（系统 Prompt 版本控制） |
+| ContextManifest | MVP | 已落表 | `context_manifests`（模型输入上下文清单） |
+| ToolPolicy | MVP | 已落表 | `tool_policies`（工具执行策略与安全配额） |
+| EvalSet | MVP+ | 已落表 | `eval_sets`（离线评估与回归测试集） |
+| AnalyticsEvent | MVP | 已落表 | `analytics_events`（本地埋点事件，去标识化） |
+| SafetyIncident | MVP | 已落表 | `safety_incidents`（安全防护门禁拦截事件） |
+| AuditRecord | MVP | 已落表 | `audit_records`（安全、隐私、删除与高风险操作审计） |
+| AuditLog | MVP+ | 已落表 | `audit_logs`（Agent 执行循环与工具调用结构化日志） |
+| DeletionRequest | MVP | 已落表 | `deletion_requests`（数据删除请求与传播进度） |
+| DeletionTarget | MVP | 已落表 | `deletion_targets`（删除传播清单逐目标确认状态） |
+| RecoveryControlLedger | MVP | 已落表 | `recovery_control_ledger`（独立恢复控制账本，单调序列号） |
+| LlmConfig | MVP+ | 已落表 | `llm_configs`（大语言模型供应商与端点持久化配置） |
+| LlmHealthSnapshot | MVP+ | 已落表 | `llm_health_snapshots`（模型端点探活与可用性快照） |
+| LlmRoutingEvent | MVP+ | 已落表 | `llm_routing_events`（模型智能路由与降级切回事件） |
 
-| 逻辑实体 | 状态 | SQLite 真源与约束 |
+### 14.10 主动智能核心与派生域（CAP-033～035）
+
+| 逻辑实体 | 状态 | SQLite 对应表与约束 |
 |---|---|---|
-| PersonalTimeline / Project / Relationship / Commitment | 已落表 | `proactive_timeline_events`、`proactive_projects`、`proactive_relationships`、`proactive_commitments`；正文加密，D2 后按 revision/source 关联 |
-| Workflow / TriggerRule / TriggerEvent | 已落表 | `proactive_workflow_templates`、`proactive_trigger_rules`、`proactive_trigger_events`；触发原因本地加密，事件 ID 去重 |
-| ActionVerification / ClaimConflict / PreparationBundle | 已落表 | `proactive_action_verifications`、`proactive_claim_conflicts`、`proactive_preparation_bundles`；关联动作、声明、项目或承诺 |
-| AttentionState / DriftSignal / SceneSnapshot / ReviewReport | 已落表 | `proactive_attention_states`、`proactive_drift_signals`、`proactive_scene_snapshots`、`proactive_review_reports`；支持小时窗口和日/周周期幂等 |
-| ExternalConnection | 已落表 | `proactive_external_connections`；provider/endpoint/scopes 明文最小化，display/settings/error/credential 使用 Vault cipher，API 不回显 credential |
-| HomeEntity | 已落表 | `proactive_home_entities`；`connectionId+entityId` 唯一，默认 `enabled=false`，保存 service 白名单与受限状态属性 |
-| HealthSample | 已落表 | `proactive_health_samples`；`connection+metric+localDate` 唯一，只保存步数、睡眠分钟、静息心率和最小元数据 |
+| ProfileAuthorizationRevision | 已落表 | `proactive_profile_revisions`（全量权限清单版本控制） |
+| DeviceCapabilityGrant | 已落表 | `proactive_source_grants`（设备感知源细粒度授权） |
+| LocalActivationLease | 已落表 | `proactive_activation_leases`（主动模式心跳与激活租约） |
+| RawCaptureSegment | 已落表 | `proactive_captures`（7 天滚动感知原始捕获） |
+| ProfileClaim | 已落表 | `proactive_profile_claims`（推断画像属性与置信度） |
+| BehaviorObservation | 已落表 | `proactive_observations`（行为模式观察与归一化载荷） |
+| ProactiveAction | 已落表 | `proactive_actions`（主动介入动作执行与结果） |
+| ProactiveAuditEvent | 已落表 | `proactive_audit_events`（主动智能专项审计日志） |
+| PersonalTimeline | 已落表 | `proactive_timeline_events`（个人时间线大事件） |
+| ProactiveProject | 已落表 | `proactive_projects`（主动感知推断的项目进程） |
+| ProactiveRelationship | 已落表 | `proactive_relationships`（人际关系与互动记录） |
+| ProactiveCommitment | 已落表 | `proactive_commitments`（待办承诺与约定跟踪） |
+| WorkflowTemplate | 已落表 | `proactive_workflow_templates`（自适应工作流模板） |
+| TriggerRule | 已落表 | `proactive_trigger_rules`（主动提醒触发规则） |
+| TriggerEvent | 已落表 | `proactive_trigger_events`（触发器激活事件记录） |
+| ActionVerification | 已落表 | `proactive_action_verifications`（介入动作效果核验） |
+| ClaimConflict | 已落表 | `proactive_claim_conflicts`（画像属性冲突检测与标记） |
+| PreparationBundle | 已落表 | `proactive_preparation_bundles`（场景预备包素材组合） |
+| AttentionState | 已落表 | `proactive_attention_states`（用户当前注意力模式推断） |
+| DriftSignal | 已落表 | `proactive_drift_signals`（习惯漂移与注意力分散信号） |
+| SceneSnapshot | 已落表 | `proactive_scene_snapshots`（综合场景态势快照） |
+| ReviewReport | 已落表 | `proactive_review_reports`（主动智能每日/每周复盘报告） |
+| SituationSnapshot | 已落表 | `proactive_situation_snapshots`（态势感知短期瞬态快照） |
+| AttentionBudget | 已落表 | `proactive_attention_budgets`（每日关怀防打扰配额） |
+| InterventionReceipt | 已落表 | `proactive_intervention_receipts`（干预投递回执与用户反应） |
+| BudgetFeedbackEvent | 已落表 | `proactive_budget_feedback_events`（配额消耗反馈事件） |
+| PerceptionEvent | 已落表 | `perception_events`（全域感知输入原始事件流） |
+| PerceptionEventConsumer | 已落表 | `perception_event_consumers`（感知消费者位点游标） |
+| ExternalConnection | 已落表 | `proactive_external_connections`（HA / 运动健康外部连接与凭据加密存储） |
+| HomeEntity | 已落表 | `proactive_home_entities`（Home Assistant 同步设备实体） |
+| HealthSample | 已落表 | `proactive_health_samples`（运动健康每日摘要样本） |
 
-实现真源：[proactive-intelligence.ts](../../packages/schema/src/proactive-intelligence.ts)、[proactive-intelligence-repository.ts](../../packages/repositories/src/repositories/sqlite/proactive-intelligence-repository.ts) 与 [init.ts](../../packages/repositories/src/schema/ddl/index.ts)。连接删除先停止运行时，再删除 `proactive_external_connections` 及对应 HA 实体/健康样本；导出不包含连接凭据。
+### 14.11 项目域 Project
 
-### 14.10 未覆盖结论与下一步
+| PRD 实体 | 阶段 | 实现状态 | 说明 / 对应表 |
+|---|---|---|---|
+| Project | MVP+ | 已落表 | `projects`（用户自定义项目分组：name/description/color/icon/archivedAt，供 `sessions.projectId` 关联） |
 
-- 当前已落表 **87 张业务表** + 2 张 FTS5 虚表（含独立账本 recovery_control_ledger、CAP-033 八张控制/捕获表、CR-024 十七张派生/连接表与 CR-034/CR-042 两张模型路由表），覆盖 PRD §8 的核心与扩展实体；最终 Schema/DDL 已无旧租户列，CR-030 D1～D3 的迁移基础能力、API loopback 守卫和去租户数据库边界已实现，完整运行编排和生产故障演练仍需发布前门禁。CAP-033～035 的本地 Vault、十二项派生、HA/健康连接、来源/连接级删除和导出已落地，但生产 OS/出网/厂商兼容仍需专项门禁。
-- **MVP（R1）+ MVP+（R1.5）优先队列已完成**：学习/反馈/会话补齐/溯源/记忆/平台/安全/隐私/埋点/内容/日记域实体全部落表（含 ToolPolicy/AnalyticsEvent/EvalSet、DiarySchedule 等日记域补表、Attachment/EmbeddingIndex、Persona/Skills/MCP 6 张人格域表）。
-- **P1（R2）已完成**：`MemoryNode`/`MemoryEdgeEvidence`/`MemoryAlgorithm`（记忆树投影独立化，memory_edges/overrides 已迁移到节点级）、`ConversationBranch`、`KnowledgeRelation` 已全部落表。
-- **P2/P3 扩展已完成**：`ExternalSource`、`Plugin`/`PluginGrant`、`CommunityContent`、`Organization` 已全部落表（为生态/社区功能预留）。
-- 每张新表上线前必须在 [schema/](../../packages/schema/src) 建表、在 [repositories/types.ts](../../packages/repositories/src/repositories/types/index.ts) 补 Port 签名、在 §11 登记 TC，并同步更新本文档 ERD 与本文清单状态。
+### 14.12 语音服务域 Voice
+
+| PRD 实体 | 阶段 | 实现状态 | 说明 / 对应表 |
+|---|---|---|---|
+| VoiceConfig | MVP+ | 已落表 | `voice_configs`（本地语音合成/TTS 服务端配置） |
+| VoiceInputConfig | MVP+ | 已落表 | `voice_input_configs`（本地 Sherpa-ONNX 语音识别/STT 配置） |
+| VoiceRemoteConfig | MVP+ | 已落表 | `voice_remote_configs`（远程商业语音服务配置与 API Key） |
+
+---
+
+## 覆盖总结
+
+- **全量落表总数**：**131 张业务表** + 2 张 FTS5 全文搜索虚拟表（`messages_fts`、`memories_fts`）+ 1 张内部迁移日志表（`_migration_journal`），共计 134 张 SQLite 表。
+- **单一事实源约束**：所有业务表的 Schema 定义在 `@aervox/schema`，对应的 SQLite DDL 与索引初始化由 `@aervox/repositories` 承载，并通过自动化测试（`schema-index-parity.test.ts`）严格保证 Schema 与 DDL 的 100% 结构一致。
+- **纯本地单用户架构**：CR-030 去租户化彻底闭环，全库 131 张业务表均无 `workspace_id` 与 `subject_user_id` 租户隔离列。

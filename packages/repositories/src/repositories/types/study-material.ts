@@ -59,8 +59,6 @@ export interface IStudyMaterialRepository {
 
 export interface SafetyIncidentModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   category: string;
   severity: string;
   disposition: string;

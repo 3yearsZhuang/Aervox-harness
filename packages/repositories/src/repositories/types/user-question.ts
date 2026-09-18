@@ -15,8 +15,6 @@ export interface IUserQuestionRepository {
 
 export interface LearningGoalModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   topic: string;
   level: string;
   availableMinutes: number;
@@ -28,8 +26,6 @@ export interface LearningGoalModel {
 
 export interface QuestionModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   sourceArtifactId?: string | null;
   knowledgeId?: string | null;
   prompt: string;
@@ -41,8 +37,6 @@ export interface QuestionModel {
 
 export interface QuestionAttemptModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   sessionId: string;
   questionId: string;
   answer: string;
@@ -69,8 +63,6 @@ export interface MistakeItemModel {
 
 export interface PracticeSessionModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   questionCount: number;
   questionIds: string[];
   status: string;
@@ -80,8 +72,6 @@ export interface PracticeSessionModel {
 
 export interface KnowledgeItemModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   concept: string;
   sourceStatus: string;
   masteryState: string;
@@ -96,8 +86,6 @@ export interface KnowledgeItemModel {
 
 export interface ReviewItemModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   knowledgeId: string;
   dueAt: string;
   intervalDays: number;

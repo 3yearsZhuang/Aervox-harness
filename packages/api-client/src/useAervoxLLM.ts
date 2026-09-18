@@ -4,56 +4,24 @@
  * Web / Desktop 共用：通过统一 Transport 读写大语言模型与供应商配置、发起连通性测试。
  */
 import { getTransport } from './transport';
+import type {
+  LLMProviderType,
+  LLMConfig as LLMConfigDto,
+  LLMPreset as LLMPresetDto,
+  LLMPresetListResponse as LLMPresetListDto,
+  LLMTestConnectionRequest as LLMTestConnectionInput,
+  LLMTestConnectionResponse as LLMTestConnectionResultDto,
+} from '@aervox/contracts';
 
-export type LLMProviderType =
-  | 'ollama'
-  | 'deepseek'
-  | 'openai'
-  | 'anthropic'
-  | 'custom_openai'
-  | 'llamacpp';
+export type {
+  LLMProviderType,
+  LLMConfigDto,
+  LLMPresetDto,
+  LLMPresetListDto,
+  LLMTestConnectionInput,
+  LLMTestConnectionResultDto,
+};
 
-export interface LLMConfigDto {
-  enabled: boolean;
-  providerType: LLMProviderType;
-  baseUrl: string;
-  apiKey?: string;
-  modelId: string;
-  temperature: number;
-  maxTokens?: number;
-  settings?: Record<string, string | number | boolean>;
-}
-
-/** LLM 配置预设条目（多预设：含名称与激活标记） */
-export interface LLMPresetDto extends LLMConfigDto {
-  id: string;
-  name: string;
-  isActive: boolean;
-}
-
-/** LLM 配置预设列表响应 */
-export interface LLMPresetListDto {
-  presets: LLMPresetDto[];
-  activeId: string | null;
-}
-
-export interface LLMTestConnectionInput {
-  providerType: LLMProviderType;
-  baseUrl: string;
-  apiKey?: string;
-  modelId: string;
-}
-
-export interface LLMTestConnectionResultDto {
-  ok: boolean;
-  latencyMs: number;
-  message: string;
-  availableModels?: string[];
-  capabilities?: {
-    contextWindow?: number;
-    supportsToolCalls?: boolean;
-  };
-}
 
 export interface PresetProviderInfo {
   id: LLMProviderType;
