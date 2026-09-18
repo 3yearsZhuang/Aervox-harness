@@ -1,6 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalEnv": ["AERVOX_WEB_PORT", "AERVOX_DESKTOP_PORT"],
+  "globalDependencies": ["tsconfig.base.json", "tsconfig.base.node.json"],
   "globalPassThroughEnv": [
     "XDG_CONFIG_HOME",
     "XDG_DATA_HOME",

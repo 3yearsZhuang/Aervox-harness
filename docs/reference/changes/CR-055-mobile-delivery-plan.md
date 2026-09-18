@@ -31,7 +31,7 @@ sources:
 # CR-055 移动端落地范围与分阶段交付规划
 
 - 提出人：3yearszhuang · 2026-09-18
-- 修改人：Codex · 2026-09-18
+- 修改人：3yearszhuang · 2026-09-18
 
 关联：[PRD](../PRD.md) · [架构设计](../ARCHITECTURE.md) · [ADR-015](../adr/ADR-015-vue-full-stack.md) · [数据与隐私规范](../DATA_PRIVACY.md) · [需求追踪基线](../REQUIREMENTS_TRACEABILITY.md)
 

@@ -36,7 +36,7 @@ sources:
 # 配套硬件方向：能力核查、移动协同取舍与原型路线
 
 - 提出人：3yearszhuang · 2026-09-18
-- 修改人：WorkBuddy · 2026-09-18
+- 修改人：3yearszhuang · 2026-09-18
 
 关联：[移动端规划 CR-055](../reference/changes/CR-055-mobile-delivery-plan.md)、[PRD](../reference/PRD.md)、[架构](../reference/ARCHITECTURE.md)、[能力注册表](../reference/capability-registry.md)、[交付追踪](../reference/REQUIREMENTS_TRACEABILITY.md)、[早期 ESP32 设计输入](esp32-s3-hardware-extension.md)
 
