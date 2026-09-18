@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: proposed
 delivery_status: planned
-version: 0.1.1
+version: 0.1.2
 updated_at: 2026-09-18
 reviewed_at: 2026-09-18
 review_interval_days: 30
@@ -35,7 +35,7 @@ sources:
 
 关联：[PRD](../PRD.md) · [架构设计](../ARCHITECTURE.md) · [ADR-015](../adr/ADR-015-vue-full-stack.md) · [数据与隐私规范](../DATA_PRIVACY.md) · [需求追踪基线](../REQUIREMENTS_TRACEABILITY.md)
 
-- 状态：Proposed / Planned；本次交付为规划文档，未实现或发布移动端能力。
+- 状态：Proposed / Planned；规划范围仍未采纳为完整移动端发布承诺，但已开始实现前置壳与移动交互切片。
 - 代码核验基线：`0a12ea4`（2026-09-18 获取的 `origin/main`，含 PR #217）；规划分支：`docs/mobile-landing-plan`。
 - 关联：主能力 `CAP-002`；协同 `CAP-001/003/004/006/007/009/010/012/013/019/020/026/027/030`，`NFR-COMPAT-001`、`NFR-A11Y-001`、`NFR-PERF-001`、`SEC-LOC-001`、`TC-RES-STREAM-001`。
 - 决策边界：沿用 Vue + Capacitor 已接受选型；配套端优先、Android 先行和下文范围均为建议，需在 M0 确认。本提案不修改 CAP 优先级，也不把 CAP-018 的桌面交付等同于移动交付。
@@ -238,8 +238,14 @@ M0～M4 的单人净投入约 **23～38 工作日**，加 iOS 约 **27～45 工�
 | 原生通知、图片、分享优先级 | 按核心闭环试用反馈逐项选择；通知不作为首版可用前提 | M3 退出后 |
 | 独立端与同步是否立项 | 以电脑不可用场景频率和运行时研究结果决策 | M3 后或独立端优先时提前 |
 
-本次仅新增 CR 并同步索引、入口、生命周期登记、机器目录和规划完成登记；不推进能力矩阵的交付状态。采纳后由维护者将产品范围归入 PRD，原子行为归入 SRS，正式 AC/TC 和实施证据归入追踪基线；部署/平台 Port 归入架构，认证/跨设备数据边界归入 DATA_PRIVACY 与 THREAT_MODEL，新增不可逆决策归入 ADR。本文保持差量与实施顺序，不成为第二份长期契约。
+本 CR 继续作为移动端规划差量与实施顺序的入口，不替代 PRD、SRS、认证/隐私契约或发布门禁。已实现切片仍须在追踪基线登记；部署/平台 Port 归入架构，认证/跨设备数据边界归入 DATA_PRIVACY 与 THREAT_MODEL，新增不可逆决策归入 ADR。
 
 ## 10. 发布后结果
 
-尚未进入实施或发布。后续逐平台记录版本、验证证据、实际范围、试用反馈和已知限制；`implemented`、`verified`、`released` 分别据实推进。
+已完成的前置实现（仍未发布）：
+
+- `apps/mobile` 的 Capacitor WebView 构建/开发入口显式注入 `mobile` 平台标记。
+- 共享 Vue 工作台在移动平台默认使用标准单列布局，补齐安全区、软键盘输入高度和触控目标；移动 WebView 不走 Electron Host 分支。
+- 移动端草稿按会话隔离持久化，重启/切换会话可恢复；发送成功后清除，网络失败时恢复到输入框。
+
+验证范围为 UI 类型检查、92 个 UI 测试、Web 构建和 `cap sync web`；尚未进行 Android/iOS 原生工程、真机网络/鉴权、生命周期或商店发布验证。后续逐平台记录版本、验证证据、实际范围、试用反馈和已知限制；`implemented`、`verified`、`released` 分别据实推进。

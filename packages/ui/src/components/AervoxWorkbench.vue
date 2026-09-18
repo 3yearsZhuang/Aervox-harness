@@ -61,7 +61,7 @@ provideUIRegistry(registry);
 
 // 1. Proactive Composable
 const proactive = useWorkbenchProactive({
-  isWeb: computed(() => props.platform === 'web'),
+  isWeb: computed(() => props.platform !== 'desktop'),
   toolApprovalMode: computed(() => conversation?.toolApprovalMode.value ?? 'ask'),
 });
 
@@ -98,15 +98,21 @@ const conversation = useWorkbenchConversation({
   onRefreshProactiveStatus: proactive.refreshProactiveStatus,
 });
 
-// 5. Composer Composable
+// 5. Session identity is created before the composer so mobile drafts stay
+// isolated per conversation across WebView restarts and session switches.
+const sessions = useAervoxSessions();
+
+// 6. Composer Composable
 const composer = useWorkbenchComposer({
   onSendMessage: (value) => sendMessage(value),
   streaming: conversation.streaming,
   fullAccessDialogOpen: conversation.fullAccessDialogOpen,
   enterToSend: layout.enterToSend,
+  draftSessionId: sessions.activeSessionId,
+  draftsEnabled: layout.isMobile,
 });
 
-// 6. Cards Composable
+// 7. Cards Composable
 const cards = useWorkbenchCards({
   activeQuestion: conversation.activeQuestion,
   timerRunning: timer.timerRunning,
@@ -122,8 +128,6 @@ const cards = useWorkbenchCards({
   registry,
 });
 
-// 7. Sessions Composable (CR-035 / W1)
-const sessions = useAervoxSessions();
 // 8. Projects Composable (CR-048 / W3)
 const projects = useAervoxProjects();
 
@@ -186,6 +190,8 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
     quizMode: Boolean(options?.quizMode),
     useMetadata: Boolean(activeMode),
   });
+  const submittedSessionId = sessions.activeSessionId.value;
+  composer.beginDraftSubmission(displayText, submittedSessionId);
 
 
   const assistantLine = conversation.createStoryLine('assistant', '', 'streaming');
@@ -239,6 +245,9 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
     await streamAervoxTurn(
       outgoing,
       {
+        onError: (error) => {
+          throw error instanceof Error ? error : new Error(String(error));
+        },
         onReasoning: () => {
           deltaBatch.flush();
           if (!liveAssistantLine.text) {
@@ -257,6 +266,7 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
         },
         onDone: () => {
           deltaBatch.flush();
+          composer.completeDraftSubmission(submittedSessionId);
           liveAssistantLine.state = 'complete';
           conversation.activeQuestion.value = null;
           if (thinkingVisible && !liveAssistantLine.text.replace(thinkingPlaceholder, '')) {
@@ -295,6 +305,7 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
     deltaBatch.flush();
     liveAssistantLine.state = 'error';
     liveAssistantLine.text = error instanceof Error ? `连接失败：${error.message}` : '连接失败，请稍后重试。';
+    composer.restoreFailedDraft();
     petReactKind('sad', { expression: MizukiExpression.face_sad_01 });
   } finally {
     deltaBatch.flush();
