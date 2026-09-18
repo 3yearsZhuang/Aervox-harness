@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.9
+version: 1.0.10
 updated_at: 2026-09-18
 reviewed_at: 2026-09-18
 review_interval_days: 90
@@ -83,7 +83,7 @@ demos/                   # 纯前端原型，非交付物
 
 - **Markdown lint**：`mise x -- npx markdownlint-cli2 --config .markdownlint-cli2.jsonc "docs/**/*.md" "README.md" "CONTRIBUTING.md" "AGENTS.md" "plan.md"`（配置关闭 MD013/033/060）；
 - **治理校验**：`mise tasks run docs-validate`（重复 ID、签名、本地路径/锚点、登记路径与日期）；
-- **计划队列**：`mise tasks run plan-check`（编号/状态枚举、依赖悬空与成环、在制并发、分支与证据、§2 生成区与真源一致；当前为提示观察期）；
+- **计划队列**：`mise tasks run plan-check`（编号/状态枚举、依赖悬空与成环、在制并发、分支与证据、§2 生成区与真源一致；已接入文档治理，强制级别 `error`）；
 - **链接检查**：CI 中另由 `lychee` 检查仓库链接，排除只读子模块 `reference/` 与原型 `demos/`；
 - 本地统一运行 `mise tasks run ci-docs`，确保 Markdown、Vale、治理校验与队列校验均为 0 错误后再提交。
 

@@ -7,7 +7,7 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 planning_role: current
-version: 0.2.1
+version: 0.2.2
 updated_at: 2026-09-18
 reviewed_at: 2026-09-18
 review_interval_days: 7
@@ -133,4 +133,4 @@ ITER-009 需要给出下面的可审阅结论，目前不替用户选定产品�
 
 ITER-001 的落地在 `fix/iter-001-ci-verification-entry` 独立分支交付，只修验证入口本身：工作流触发路径与 Turbo 声明同源、各 Job 显式锁文件安装、gitignore 生成物的声明恢复任务及其可重现性，以及本地增量门禁对包外输入的显式选择（登记见 [§4.2](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)）。该分支不改业务代码、不改任何 CAP 的交付状态，也不开启已禁用的缓存。三条验收均有证据：干净 checkout 由 PR [#221](https://github.com/3yearsZhuang/Aervox-harness/pull/221) 的冷 CI 证明（Install/build/typecheck、E2E、Docs 全绿），仅插件变动会重新验证由 `scripts/ci-scope.test.mjs` 与反向验证守住，生成物由声明任务重建并断言。核对中还发现产品侧导出分发包同样不可重现，因涉及业务代码未在本分支修复，已追加到 ITER-005。ITER-002、003、008 等其余条目仍为建议态，待认领。
 
-本文件不持有完整日志。§2 的队列不是手写表：真源在 `docs/_meta/plan-queue.json`，改条目后运行 `mise tasks run plan-render` 生成派生的 §2 表格，`mise tasks run plan-check` 校验结构、依赖与“状态—证据”一致性（已接入文档治理，本轮为观察期，只报提示不阻断）。每次认领、调整和移交更新真源、元数据与签名，同步注册表；PR 说明列出关联 `ITER-*` 及是否改变计划。迭代复盘时合并重复项、明确暂停原因并压缩已移交项，避免计划退化为永久堆积的 TODO。
+本文件不持有完整日志。§2 的队列不是手写表：真源在 `docs/_meta/plan-queue.json`，改条目后运行 `mise tasks run plan-render` 生成派生的 §2 表格，`mise tasks run plan-check` 校验结构、依赖与“状态—证据”一致性（已接入文档治理，2026-09-18 起强制级别为 `error`：H1–H6 与 S1–S4 一律阻断，仅 S5 依赖次序保持提示）。每次认领、调整和移交更新真源、元数据与签名，同步注册表；PR 说明列出关联 `ITER-*` 及是否改变计划。迭代复盘时合并重复项、明确暂停原因并压缩已移交项，避免计划退化为永久堆积的 TODO。
