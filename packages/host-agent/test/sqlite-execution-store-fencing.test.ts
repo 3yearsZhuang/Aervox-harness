@@ -16,7 +16,7 @@ import {
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 
-const tenant: LocalContext = { workspaceId: "ws_fhost", subjectUserId: "usr_fhost" };
+const ctx: LocalContext = { workspaceId: "ws_fhost", subjectUserId: "usr_fhost" };
 
 describe("SqliteExecutionStore 事件写入 fencing 桥接", () => {
   let db: AervoxDatabase;
@@ -29,15 +29,15 @@ describe("SqliteExecutionStore 事件写入 fencing 桥接", () => {
     const n = (++seq).toString(36);
     const turnId = `turn_fhost_${n}`;
     const sessionId = `ses_fhost_${n}`;
-    await repo.getOrCreateSession(tenant, sessionId, "fhost 测试");
+    await repo.getOrCreateSession(ctx, sessionId, "fhost 测试");
     await repo.createTurnWithOutbox(
-      tenant,
+      ctx,
       { id: turnId, sessionId, idempotencyKey: `idem_${turnId}`, status: "Created" },
       { id: `msg_${turnId}`, content: "x" },
       { id: `ob_${turnId}`, eventType: "turn.created", idempotencyKey: `idem_ob_${turnId}`, payload: { turnId } },
     );
     const attemptId = `atp_fhost_${n}`;
-    await repo.createTurnAttempt(tenant, turnId, { id: attemptId, attempt: 1 });
+    await repo.createTurnAttempt(ctx, turnId, { id: attemptId, attempt: 1 });
     return { turnId, attemptId };
   };
 
@@ -47,7 +47,7 @@ describe("SqliteExecutionStore 事件写入 fencing 桥接", () => {
     client = res.client;
     await initDatabaseSchema(client);
     repo = new SqliteConversationRepository(db);
-    store = new SqliteExecutionStore(repo, tenant);
+    store = new SqliteExecutionStore(repo, ctx);
   });
 
   it("claim 后携带正确 fencing 写入通过", async () => {
@@ -110,7 +110,7 @@ describe("SqliteExecutionStore 事件写入 fencing 桥接", () => {
     const claim = await store.claimTurnAttempt({ turnId, attemptId, expectedFencingToken: 0 });
     expect(claim.ok).toBe(true);
     if (!claim.ok) return;
-    await repo.reserveToolExecution(tenant, { turnId, attemptId, invocationId: `atp_fhost_d:1:1`, name: "notes_search", arguments: {} });
+    await repo.reserveToolExecution(ctx, { turnId, attemptId, invocationId: `atp_fhost_d:1:1`, name: "notes_search", arguments: {} });
 
     const ok = await store.recordToolOutcome({
       turnId,

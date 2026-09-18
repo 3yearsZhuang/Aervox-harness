@@ -21,7 +21,7 @@ import {
 import { MizukiExpression } from '../live2d/model';
 import { petReact, petReactKind } from '../live2d/petReactions';
 
-export type Platform = 'desktop' | 'web';
+export type Platform = 'desktop' | 'web' | 'mobile';
 export type WorkbenchMode = 'companion' | 'standard';
 export type ToolId = 'study' | 'mistake' | 'todo' | 'timer' | 'history' | 'diary' | 'task_center';
 
@@ -48,17 +48,21 @@ export function useWorkbenchLayout(props: {
   getTimerMinutes?: () => number;
   recordActivity: (source: 'aervox.activity' | 'aervox.operation', eventType: string, payloadText?: string, metadata?: Record<string, unknown>) => void;
 }) {
-  const isWeb = computed(() => props.platform === 'web');
+  // Mobile is a WebView host: it shares browser storage and API behavior,
+  // but must never be treated as an Electron desktop host.
+  const isWeb = computed(() => props.platform !== 'desktop');
+  const isMobile = computed(() => props.platform === 'mobile');
+  const isDesktop = computed(() => props.platform === 'desktop');
   const assistantDisplayName = ref(props.assistantName);
   const desktopCompanionEnabled = ref(props.showCompanion);
   const showCompanionEnabled = computed(() => props.showCompanion && (isWeb.value || desktopCompanionEnabled.value));
 
   // CR-035: 双模式架构（桌宠陪伴模式 companion ↔ 标准工作台模式 standard）
-  let initialWorkbenchMode: WorkbenchMode = 'companion';
+  let initialWorkbenchMode: WorkbenchMode = isMobile.value ? 'standard' : 'companion';
   try {
     if (typeof localStorage !== 'undefined') {
       const stored = localStorage.getItem('aervox-workbench-mode');
-      if (stored === 'standard' || stored === 'companion') {
+      if (stored === 'standard' || (stored === 'companion' && !isMobile.value)) {
         initialWorkbenchMode = stored;
       }
     }
@@ -274,6 +278,8 @@ export function useWorkbenchLayout(props: {
 
   return {
     isWeb,
+    isMobile,
+    isDesktop,
     assistantDisplayName,
     desktopCompanionEnabled,
     showCompanionEnabled,

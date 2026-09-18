@@ -22,7 +22,7 @@ import {
 import { createScriptedProvider, SUBAGENT_DELEGATE_TOOL } from "@aervox/agent-loop";
 import type { Client } from "@libsql/client";
 
-const tenant: LocalContext = { workspaceId: "ws_subag", subjectUserId: "usr_subag" };
+const ctx: LocalContext = { workspaceId: "ws_subag", subjectUserId: "usr_subag" };
 
 describe("SqliteSubagentPort（子任务委托执行器）", () => {
   let db: AervoxDatabase;
@@ -38,7 +38,7 @@ describe("SqliteSubagentPort（子任务委托执行器）", () => {
     await initDatabaseSchema(client);
     repo = new SqliteConversationRepository(db);
     runRepo = new SqliteSubagentRunRepository(db);
-    await repo.getOrCreateSession(tenant, "ses_sub", "子任务测试");
+    await repo.getOrCreateSession(ctx, "ses_sub", "子任务测试");
     let n = 0;
     gen = () => `gen_${(n += 1)}`;
   });
@@ -53,8 +53,8 @@ describe("SqliteSubagentPort（子任务委托执行器）", () => {
 
   it("端到端：子 turn/attempt 落库 + 嵌套执行 Completed + 正文聚合回填", async () => {
     const subagent = createSqliteSubagentPort({
-      tenant,
-      store: new SqliteExecutionStore(repo, tenant),
+      ctx,
+      store: new SqliteExecutionStore(repo, ctx),
       conversationRepo: repo,
       runRepo,
       providerBuilder: () => createScriptedProvider([{ text: "子任务完成：已总结要点", toolCalls: [] }]),
@@ -65,12 +65,12 @@ describe("SqliteSubagentPort（子任务委托执行器）", () => {
     expect(result.status).toBe("Completed");
     expect(result.resultText).toBe("子任务完成：已总结要点");
     // 子任务独立落库（turn + attempt）
-    const subTurn = await repo.getTurn(tenant, result.subTurnId);
+    const subTurn = await repo.getTurn(ctx, result.subTurnId);
     expect(subTurn?.sessionId).toBe("ses_sub");
-    const attempts = await repo.listTurnAttempts(tenant, result.subTurnId);
+    const attempts = await repo.listTurnAttempts(ctx, result.subTurnId);
     expect(attempts.some((a) => a.id === result.subAttemptId && a.status === "Completed")).toBe(true);
     // run 行终态收口
-    const runs = await runRepo.listRunsByTurn(tenant, "turn_parent");
+    const runs = await runRepo.listRunsByTurn(ctx, "turn_parent");
     expect(runs).toHaveLength(1);
     expect(runs[0]?.status).toBe("Completed");
     expect(runs[0]?.subTurnId).toBe(result.subTurnId);
@@ -78,8 +78,8 @@ describe("SqliteSubagentPort（子任务委托执行器）", () => {
 
   it("幂等：同父执行键重复 delegate 复用既有子任务，不重复落库", async () => {
     const subagent = createSqliteSubagentPort({
-      tenant,
-      store: new SqliteExecutionStore(repo, tenant),
+      ctx,
+      store: new SqliteExecutionStore(repo, ctx),
       conversationRepo: repo,
       runRepo,
       providerBuilder: () => createScriptedProvider([{ text: "ok", toolCalls: [] }]),
@@ -88,16 +88,16 @@ describe("SqliteSubagentPort（子任务委托执行器）", () => {
     const first = await subagent.delegate(delegateInput);
     const second = await subagent.delegate(delegateInput);
     expect(second.subTurnId).toBe(first.subTurnId);
-    const runs = await runRepo.listRunsByTurn(tenant, "turn_parent");
+    const runs = await runRepo.listRunsByTurn(ctx, "turn_parent");
     expect(runs).toHaveLength(1);
-    const attempts = await repo.listTurnAttempts(tenant, first.subTurnId);
+    const attempts = await repo.listTurnAttempts(ctx, first.subTurnId);
     expect(attempts.filter((a) => a.status === "Running" || a.status === "Completed")).toHaveLength(1);
   });
 
   it("递归防护：childTools 含 subagent_delegate 时 delegate 拒绝（fail-closed）", async () => {
     const subagent = createSqliteSubagentPort({
-      tenant,
-      store: new SqliteExecutionStore(repo, tenant),
+      ctx,
+      store: new SqliteExecutionStore(repo, ctx),
       conversationRepo: repo,
       runRepo,
       providerBuilder: () => createScriptedProvider([{ text: "x", toolCalls: [] }]),
@@ -111,13 +111,13 @@ describe("SqliteSubagentPort（子任务委托执行器）", () => {
     });
     await expect(subagent.delegate(delegateInput)).rejects.toThrow(/must not contain subagent_delegate/);
     // 拒绝发生在落库前：无子任务产生
-    await expect(runRepo.listRunsByTurn(tenant, "turn_parent")).resolves.toEqual([]);
+    await expect(runRepo.listRunsByTurn(ctx, "turn_parent")).resolves.toEqual([]);
   });
 
   it("子任务失败（工具请求但未配置）：run 行 Failed + error，父级可据 error 收敛", async () => {
     const subagent = createSqliteSubagentPort({
-      tenant,
-      store: new SqliteExecutionStore(repo, tenant),
+      ctx,
+      store: new SqliteExecutionStore(repo, ctx),
       conversationRepo: repo,
       runRepo,
       providerBuilder: () =>
@@ -129,7 +129,7 @@ describe("SqliteSubagentPort（子任务委托执行器）", () => {
     const result = await subagent.delegate(delegateInput);
     expect(result.status).toBe("Failed");
     expect(result.error).toBe("subagent_failed");
-    const runs = await runRepo.listRunsByTurn(tenant, "turn_parent");
+    const runs = await runRepo.listRunsByTurn(ctx, "turn_parent");
     expect(runs[0]?.status).toBe("Failed");
     expect(runs[0]?.error).toBe("subagent_failed");
   });

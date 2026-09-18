@@ -3,18 +3,71 @@
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-09-18
 
-更好上手的“主动智能” Agent：以桌宠为入口，视觉小说 + 工作台双形态交互，承载陪伴与学习双重任务。基于 TypeScript 全栈 monorepo 交付：Fastify API + 独立 Worker 进程 + 桌面端（Electron）/ Web 端（Vue 3）/ 移动端（Capacitor）共享同一套契约，SQLite (WAL) 永久本地单用户真源。产品定义、工程规范与契约事实源一律在 [docs/](docs/README.md)，本 README 提供全局概览、快速启动与开发速查。
+> **全新交互减法下的“主动智能” —— 属于你的贾维斯。**
+>
+> 告别被动等待提示词的沉重对话框。Aervox 是一个隐入桌面、全域感知、自我进化、数据绝对自持的智能生活与伴学系统。基于 TypeScript 全栈 monorepo 交付：Fastify API + 独立 Worker 进程 + 桌面端（Electron）/ Web 端（Vue 3）/ 移动端（Capacitor）共享同一套契约，SQLite (WAL) 永久本地单用户真源。
 
 ---
 
-## 核心特性
+```text
+  ┌─────────────────────────────────────────────────────────────┐
+  │                        AERVOX CORE                          │
+  │                                                             │
+  │  [全域感知 Perception]           [自进化大脑 Brain]          │
+  │  • Home Assistant 智能家居       • 四段式记忆树 (Episodic)   │
+  │  • 小米健康 / 个人生理节律        • SM-2 认知间隔复习算法     │
+  │  • 操作系统上下文与窗口感知      • AI 夜间日记自主提炼       │
+  │               │                             │               │
+  │               └──────────────┬──────────────┘               │
+  │                              ▼                              │
+  │          ┌───────────────────────────────────────┐          │
+  │          │  主动智能调度中枢 (Proactive Harness) │          │
+  │          └───────────────────────────────────────┘          │
+  │                              │                              │
+  │               ┌──────────────┴──────────────┐               │
+  │               ▼                             ▼               │
+  │  [交互减法 Ambient HUD]          [开放生态 Ecosystem]        │
+  │  • 灵动透明桌宠 / Live2D         • Streamable MCP 原生网关  │
+  │  • 极简气泡 / Galgame 逐句推进   • 单文件 .aervox-plugin    │
+  │  • 沉浸式伴学工作台 (Vue 3)      • AstrBot 兼容技能 (Skill) │
+  └─────────────────────────────────────────────────────────────┘
+```
 
-- **双形态交互界面**：独立透明灵动桌宠（CSS 骨架 / Codex Pets 精灵图 / Live2D Mizuki 三种表现引擎）+ 沉浸式对话与伴学工作台（Element Plus，雾蓝主题与液态玻璃设计，支持 Galgame 式收起与桌面 Dock 快捷交互）。
-- **纯本地单用户真源（CR-030）**：数据 100% 本地自持，SQLite (WAL 模式) 单库存储，集成 FTS5 全文索引 + 嵌入式向量 RRF 混合重排，彻底消除外部数据库与云端网络依赖。
-- **可信 Agent Harness Loop 闭环**：多步工具调用循环、租约与恢复机制（Lease & Fencing）、持久化 SSE 活流透传与思考增量（CR-027 / CR-031）；支持原生 Provider 与基于进程外的 DSH Adapter（`AERVOX_LOOP_DRIVER=dsh` 准入 fail-closed）。
-- **开放插件与工具生态**：自研 Streamable HTTP 客户端原生集成 MCP（如出厂预置麦当劳中国官方 MCP）、兼容 AstrBot Skill 规范并实现渐进式披露、支持基于 WebUI 的 Plugin Config 与 Page 扩展。
-- **主动智能与科学伴学**：基于遗忘曲线与间隔重复算法（SM-2 演进）的自适应错题与复习系统（`@aervox/practice-review`）；AI 每日记忆日记提炼（`@aervox/diary`）；受控的本地主动智能画像（OS 权限代理，胶囊开关授权即开启、关闭即物理擦除，见 ADR-018 / ADR-019）。
-- **Docs-as-Code 严谨治理体系**：严格对齐 Diátaxis 架构的 100+ 篇受治文档体系，配备自动化元数据提取、机器目录（`document-catalog.json`）、注册表自动回写与代码变动触发器（Triggers）。
+---
+
+## 核心设计理念与四大支柱
+
+### 1. 💡 交互减法 (Ambient Presence)
+
+不再强迫用户面对复杂的管理后台与长篇大论的 Prompt 调试。
+
+- **灵动桌面触点**：独立半透明桌宠窗口（支持 CSS 骨架、Codex 精灵图、Live2D Mizuki 三种渲染引擎），随唤随应，平时彻底隐入工作流背景；
+- **视觉小说级气泡**：逐句推进与快速回看，以极简信息流承载日常交流与轻量提醒；
+- **无缝伴学工作台**：需要深度探索与刷题时，一键从桌宠呼出液态玻璃雾蓝工作台，实现极简与深度的动态平衡。
+
+### 2. ⚡ 主动智能 (Proactive Intelligence)
+
+告别“不问不答、一问一答”的机械被动响应，实现真正懂你的个人贾维斯。
+
+- **全域环境感知**：内置 Home Assistant 智能家居网关与小米运动健康适配器，连接真实物理环境与生理节奏；
+- **适时主动触达**：根据作息、专注状态与学习周期，由后台独立 Worker 进程结合 SQLite Outbox 事务可靠投递，在适宜节点主动发起问候、日程提示与复习关怀；
+- **智能免打扰与断路**：完备的静默窗口、频控策略与胶囊级物理熔断机制，拒绝任何无意义骚扰。
+
+### 3. 🧠 自进化认知闭环 (Self-Evolving Loop)
+
+伴随日常使用自主进化，成为越用越有默契的专属智能体。
+
+- **四段式记忆拓扑**：工作记忆、情境记忆、语义记忆、系统记忆逐级沉淀，构建层次分明的个人知识与偏好树；
+- **夜间 AI 日记提炼**：无需手动记录，每日凌晨自动萃取全天对话、练习与事件关键素材，生成带有情感温度的复盘日记；
+- **自适应间隔重复**：基于 SM-2 遗忘曲线算法演进的错题本与复习排期引擎（`@aervox/practice-review`），以科学节律巩固长期记忆。
+
+### 4. 🔒 纯本地数据主权与解耦生态 (Local-First & Decoupled)
+
+在保障个人隐私绝对安全的前提下，提供无限扩展的可能性。
+
+- **100% 本地自持（CR-030）**：去租户化纯单用户架构，本地 SQLite (WAL 模式) 单库存储，FTS5 全文检索 + 嵌入式向量 RRF 混合重排，彻底隔绝云端外泄风险；
+- **单文件插件化分发**：支持 `.aervox-plugin` 单文件分发包（ZIP 容器）原子安装与安全预检，集市自发现一键部署；
+- **原生开放协议**：内置 Streamable HTTP MCP 客户端（如官方预置 MCP），全面兼容 AstrBot 技能生态，支持动态 Web 扩展页面与运行时配置注入。
 
 ---
 
@@ -64,53 +117,65 @@
 
 ---
 
-## 架构与技术栈
+## 全景技术栈矩阵
 
-演进式模块化单体（[ADR-001](docs/reference/adr/ADR-001-modular-monolith.md) / [ADR-014](docs/reference/adr/ADR-014-modular-monolith-structure.md)）+ Vue 全栈单栈（[ADR-015](docs/reference/adr/ADR-015-vue-full-stack.md)）。桌面、Web 与移动端共享契约与技术族。详细设计见 [架构设计说明书](docs/reference/ARCHITECTURE.md) 与 [ADR 索引](docs/reference/adr/README.md)。
+演进式模块化单体（[ADR-001](docs/reference/adr/ADR-001-modular-monolith.md) / [ADR-014](docs/reference/adr/ADR-014-modular-monolith-structure.md)）+ Vue 全栈单栈（[ADR-015](docs/reference/adr/ADR-015-vue-full-stack.md)），全链路强类型契约驱动：
 
-| 架构层 | 核心技术选型 | 职责与设计依据 |
-| ----- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| 语言与工程 | TypeScript 5.x、pnpm 11 + Turborepo、Node 24（mise 管理） | 全栈强类型保障，单 monorepo 统一工作区依赖与任务编排 |
-| 前端工作台 | Vue 3 + Vite 7 + Element Plus（Web 工作台与桌面端共用） | 模块化单栈，复用 composables 与 UI 组件核心，雾蓝沉浸式主题 |
-| 桌面端宿主 | Electron + `electron-vite` | 提供透明可穿透桌宠独立窗口、沙箱化 preload IPC 隔离桥接 |
-| 移动端外壳 | Capacitor 跨平台容器壳 | 打包 Web 静态产物至移动端，共享同一份前端与 API 契约 |
-| 桌宠表现层 | Live2D (Cubism Core) + Codex Pets 9-state Spritesheet + CSS 骨架 | 三种自适应表现形态，由统一表现契约与 SSE `emote` 事件驱动 |
-| API 服务 | Fastify 5 + Zod 4 + OpenAPI 3.1（`zod-to-openapi` v9） | POST Turn 建立会话 + GET SSE 活流输出；内置 Streamable HTTP MCP 客户端 |
-| 调度与执行 | `@aervox/agent-loop` + `@aervox/host-agent` + DSH Adapter | Harness Loop 状态机、多 Provider、租约与恢复机制、收件箱异步排队 |
-| 数据持久化 | SQLite (WAL 模式) + Drizzle ORM（[AVX-DB-001](docs/reference/DATABASE.md)） | 永久本地单用户真源（CR-030），FTS5 检索 + 向量 RRF，无外部数据库依赖 |
-| 后台作业 | Worker 独立进程（tsx 驱动） | 基于 SQLite Outbox 消费机制、间隔复习排期调度、夜间日记提炼、过期证据物理擦除 |
+| 领域层次 | 核心技术选型 | 职责定位与核心依据 |
+| :--- | :--- | :--- |
+| **环境感知 (Perception)** | Home Assistant REST/WS + 小米开放平台 + OS Broker | 真实环境信号采集，私网白名单校验与授权动作审计 |
+| **表现交互 (Ambient UI)** | Electron 43 + Vue 3 + Vite 7 + Live2D Cubism | 透明穿透桌宠外壳、沙箱化 IPC 隔离、Element Plus 雾蓝液态工作台 |
+| **核心服务 (Core API)** | Fastify 5 + Zod 4 + OpenAPI 3.1 (`zod-to-openapi` v9) | POST Turn 建立会话 + GET SSE 活流输出，领域模块化单体组织（ADR-014） |
+| **智能大脑 (Agent Loop)** | `@aervox/agent-loop` + `@aervox/host-agent` | 多步工具调用循环、Lease & Fencing 租约恢复机制、异步收件箱排队 |
+| **认知进化 (Cognition)** | `@aervox/practice-review` + `@aervox/diary` | SM-2 科学复习排期调度、时区安全幂等计算、夜间日记 Prompt 渲染引擎 |
+| **本地真源 (Data Vault)** | SQLite (WAL 模式) + Drizzle ORM（[AVX-DB-001](docs/reference/DATABASE.md)） | 永久单用户本地真源，131 张业务表完整索引，FTS5 全文 + 向量混合检索 |
+| **后台作业 (Worker)** | 独立 Worker 进程（`tsx` 驱动） | SQLite Outbox 事务消费、定时排期批处理、日记生成、过期证据物理擦除 |
+| **开放扩展 (Ecosystem)** | MCP (Streamable HTTP) + AstrBot Skill + Plugins | 插件打包与安装安全预检、扩展配置与 UI 页面注入、物理断路器控制 |
+| **工程工具 (Tooling)** | TypeScript 5.x + pnpm 11 + Turborepo + mise | 统一工具链版本锁定，零幽灵依赖，秒级增量构建与受控测试编排 |
 
 ---
 
-## 仓库结构
+## 仓库组织架构
 
 ```text
 apps/
   api/              Fastify 5 API 服务，按领域模块组织（20+ modules/*，见 ADR-014）
-  web/              Vue 3 对话与伴学工作台（对话 / 学习 / 复习 / 扩展中心 / 沉浸式桌宠）
-  desktop/          Electron 桌面端（Fairy，含独立透明桌宠窗口、Dock 快捷菜单与系统托盘）
-  worker/           后台任务进程（Outbox 消息分发、复习排期、日记生成、画像证据清理）
+  web/              Vue 3 对话与伴学工作台（对话 / 练习 / 扩展中心 / 沉浸式桌宠）
+  desktop/          Electron 桌面端（Fairy，独立透明桌宠窗口、Dock 工具栏与托盘）
+  worker/           后台任务进程（Outbox 投递、复习排期、日记生成、画像证据清理）
   mobile/           Capacitor 移动壳（跨平台打包 apps/web 静态产物）
-  data/             运行时扩展与技能资产存储（如 apps/data/skills/ 离线技能包）
 packages/
-  agent-loop/       Agent Turn/Attempt/Step 执行核心：多 Provider、工具循环、租约恢复与上下文压缩
-  host-agent/       内嵌异步 Agent Host：任务领取、心跳续租、受控收件箱与进程外 Adapter 整 Turn 驱动
-  contracts/        Zod 契约事实源 → OpenAPI 3.1（流式协议 / 学习域 / 插件 Config & Page / Persona）
-  schema/           Drizzle 表结构与实体模式定义（@aervox/schema）
-  repositories/     数据访问层 / FTS5 / 向量检索 Port / CR-030 纯本地存储迁移服务
-  practice-review/  间隔重复学习排期引擎（CAP-006，SM-2 演进，幂等 + 时区安全调度）
+  agent-loop/       Agent Turn 执行核心：多 Provider、工具循环、租约恢复与上下文压缩
+  host-agent/       内嵌异步 Agent Host：任务领取、心跳续租、受控收件箱与进程外驱动
+  contracts/        Zod 契约事实源 → OpenAPI 3.1（流式协议 / 学习域 / 插件 / Persona）
+  schema/           Drizzle 表结构与实体模式定义（131 张业务表唯一事实源）
+  repositories/     LibSQL/SQLite 仓储层：DDL、迁移、事务执行器与混合检索
+  practice-review/  SM-2 间隔重复自适应排期引擎（幂等 + 时区安全调度）
   diary/            AI 记忆日记生成共享包（素材窗口 / 模板引擎 / Prompt 构建）
-  ui/               Web 与 Desktop 共享的 UI 组件库、主题代币（Tokens）与 Composables
-  api-client/       Web 与 Desktop 共享的 API 客户端（Turn/SSE 流传输、系统设置、收件箱）
-  live2d/           Live2D 桌宠模型静态真源（mizuki 模型资源包，构建期自动同步）
-  public/           共享公共资产（Favicon 与自研产品宣讲引导页单份真源）
-  config/           运行时环境配置加载与启动期枚举严格校验（@aervox/config）
+  ui/               Web 与 Desktop 共享的 Vue 3 组件库、设计代币与 Composables
+  api-client/       Web 与 Desktop 共享的 API 客户端（Turn/SSE 流传输、收件箱）
+  live2d/           Live2D 桌宠模型静态真源（Mizuki 模型资源包）
+  public/           共享公共资产（Favicon 与 aervox-intro 宣讲页）
+  config/           运行时环境配置加载与严格类型校验
   observability/    结构化日志、可观测性指标与审计导出接口
-scripts/            文档治理器（docs-governance.mjs）、架构依赖边界校验器（import-boundary.mjs）
-reference/          参考项目子模块（仅做架构验证与设计借鉴；配置 shallow clone，按需检出）
-docs/               按 Diátaxis 规范组织的 100+ 篇工程真源文档，_meta 存放治理机器策略
-AGENTS.md           AI 协作专属指南（薄入口，立红线并深链 docs/）
-mise.toml           工具链版本锁定与开发任务编排真源
+```
+
+---
+
+## 系统级防多源漂移守卫体系
+
+为了从根源上杜绝架构文档、数据库定义、跨层契约与依赖拓扑随时间推移产生的多源漂移，仓库内置了 5 道自动化防漂移系统级门禁（在本地 `./aervox ci` 与 GitHub Actions CI 中严格阻断）：
+
+- **Guard 1 (P0 表结构双源等价守卫)**：内存 SQLite DDL 与 Drizzle Schema 全量 131 表双向等价断言，杜绝建表遗漏 Schema 或 Schema 遗漏 DDL；
+- **Guard 2 (P0 AST 级租户遗留标识拦截)**：基于 Babel AST 语法树遍历，硬性阻断 `TenantContext`、`tenantId` 及承载 `LocalContext` 的 `tenant` 变量复发；
+- **Guard 3 (P1 文档-代码自动渲染与校验)**：校验 131 张表在覆盖矩阵中的登记完整性、校验 18 个工作区包与架构拓扑对齐、自动化 ADR 索引生成与 `--check` 一致性门禁；
+- **Guard 4 (P1 跨层 DTO 类型单一真源)**：扫描下游应用层，严禁本地重复声明已由 `@aervox/contracts` 导出的 DTO 类型；
+- **Guard 5 (P2 依赖提升与版本分裂治理)**：扫描子包 `package.json`，严禁重复声明根级构建工具（`typescript`、`turbo`、`vitest` 等）。
+
+本地运行守卫套件：
+
+```bash
+pnpm check:guards        # 秒级运行 6 项守卫与 21 个针对性单元测试
 ```
 
 ---

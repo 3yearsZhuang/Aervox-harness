@@ -4546,6 +4546,67 @@
   }
 }
 
+/* Capacitor WebView host: keep the first mobile slice single-column and safe
+   around notches, home indicators, and the software keyboard. */
+.aervox-workbench.is-mobile {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.aervox-workbench.is-mobile .workbench-standard-sidebar {
+  display: none;
+}
+
+.aervox-workbench.is-mobile .standard-topbar {
+  height: 56px;
+  padding: 0 14px;
+}
+
+.aervox-workbench.is-mobile .standard-topbar .topbar-mode-badge {
+  display: none;
+}
+
+.aervox-workbench.is-mobile .standard-chat-container {
+  padding: 0 12px;
+}
+
+.aervox-workbench.is-mobile .standard-composer-wrap {
+  padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+}
+
+.aervox-workbench.is-mobile .composer-expanded textarea {
+  min-height: 74px;
+  max-height: 34vh;
+  font-size: 16px;
+}
+
+.aervox-workbench.is-mobile .composer-footer {
+  gap: 8px;
+}
+
+.aervox-workbench.is-mobile .composer-shortcut-hint,
+.aervox-workbench.is-mobile .composer-proactive-btn {
+  display: none;
+}
+
+.aervox-workbench.is-mobile .composer-op-btn,
+.aervox-workbench.is-mobile .composer-send,
+.aervox-workbench.is-mobile .topbar-icon-btn {
+  min-height: 44px;
+}
+
+@media (max-width: 620px) {
+  .aervox-workbench.is-mobile .standard-chat-container {
+    padding: 0 10px;
+  }
+
+  .aervox-workbench.is-mobile .standard-topbar .session-active-title {
+    font-size: 14px;
+  }
+}
+
 @keyframes aervox-blink {
   50% { opacity: 0; }
 }
@@ -5490,4 +5551,3 @@
 .task-system-status .text-success {
   color: #10b981;
 }
-

@@ -15,7 +15,7 @@ import {
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 
-const tenant: LocalContext = { workspaceId: "ws_host", subjectUserId: "usr_host" };
+const ctx: LocalContext = { workspaceId: "ws_host", subjectUserId: "usr_host" };
 
 describe("SqliteExecutionStore（SQLite 适配冒烟）", () => {
   let db: AervoxDatabase;
@@ -27,9 +27,9 @@ describe("SqliteExecutionStore（SQLite 适配冒烟）", () => {
   const nextTurn = async (): Promise<{ turnId: string; attemptId: string; sessionId: string }> => {
     const turnId = `turn_host_${(++seq).toString(36)}`;
     const sessionId = `ses_host_${turnId}`;
-    await repo.getOrCreateSession(tenant, sessionId, "host 测试");
+    await repo.getOrCreateSession(ctx, sessionId, "host 测试");
     await repo.createTurnWithOutbox(
-      tenant,
+      ctx,
       { id: turnId, sessionId, idempotencyKey: `idem_${turnId}`, status: "Created" },
       { id: `msg_${turnId}`, content: "x" },
       {
@@ -40,7 +40,7 @@ describe("SqliteExecutionStore（SQLite 适配冒烟）", () => {
       },
     );
     const attemptId = `atp_host_${(++seq).toString(36)}`;
-    await repo.createTurnAttempt(tenant, turnId, { id: attemptId, attempt: 1 });
+    await repo.createTurnAttempt(ctx, turnId, { id: attemptId, attempt: 1 });
     return { turnId, attemptId, sessionId };
   };
 
@@ -50,7 +50,7 @@ describe("SqliteExecutionStore（SQLite 适配冒烟）", () => {
     client = res.client;
     await initDatabaseSchema(client);
     repo = new SqliteConversationRepository(db);
-    store = new SqliteExecutionStore(repo, tenant);
+    store = new SqliteExecutionStore(repo, ctx);
   });
 
   it("claim → append/list → finalize 完整回路，fencing 递增", async () => {
@@ -93,7 +93,7 @@ describe("SqliteExecutionStore（SQLite 适配冒烟）", () => {
     ).toEqual({ ok: true });
 
     await store.finalizeAttempt({ turnId, attemptId, status: "Completed" });
-    const attempts = await repo.listTurnAttempts(tenant, turnId);
+    const attempts = await repo.listTurnAttempts(ctx, turnId);
     expect(attempts[0]?.status).toBe("Completed");
   });
 
