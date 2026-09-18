@@ -7,15 +7,15 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.4.1
-updated_at: 2026-09-13
-reviewed_at: 2026-09-13
+updated_at: 2026-09-18
+reviewed_at: 2026-09-18
 review_interval_days: 90
 ---
 
 # 术语表（唯一含义与规范写法）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-13
+- 修改人：3yearszhuang · 2026-09-18
 
 关联：[文档写作规范](doc-standards.md)
 
@@ -59,7 +59,7 @@ review_interval_days: 90
 | 双引擎（历史） | CR-003 曾规划的 SQLite/PostgreSQL 切换模式，已由 CR-030 终止 | 仅在历史文档中使用 `双引擎`；当前设计禁用 |
 | 迁移三阶段 | Expand → Migrate → Contract 的表结构演进 | `Expand/Contract 迁移` |
 | 删除传播 | 删除实体时按引用关系级联清理 | `删除传播` |
-| Outbox | 事务内落表、后台投递的事件模式 | `outbox`（小写英文） |
+| Outbox | 事务内落表、后台投递的事件模式 | `Outbox` |
 | 幂等 | 重复投递/重试不产生重复副作用 | `幂等` |
 
 ## 阶段、优先级与门禁

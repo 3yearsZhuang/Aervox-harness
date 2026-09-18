@@ -60,8 +60,6 @@ export interface IMemoryRepository {
 
 export interface MemoryCompactionMarkerModel {
   id: string;
-  workspaceId?: string;
-  subjectUserId?: string;
   memoryId: string;
   snapshotId: string;
   coveredUpToMessageId?: string | null;

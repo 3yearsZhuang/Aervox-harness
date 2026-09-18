@@ -66,7 +66,7 @@ dev-desktop = "pnpm dev:desktop"
 # 全量类型检查
 typecheck = "pnpm typecheck"
 
-# 运行全部测试（受控 4 并发，避免超线程争抢）
+# 运行全部测试（受控 2 并发，避免超线程争抢）
 test = "pnpm test"
 
 # 快速单元层：仅运行不建库、不起服务的轻量包（纯逻辑 + DOM 组件测试，共 9 包 71 文件，10 秒级完成）

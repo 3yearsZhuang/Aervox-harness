@@ -28,7 +28,7 @@ import type { SqliteExecutionStore } from "./sqlite-execution-store.js";
 
 export interface SqliteSubagentPortDeps {
   /** 子任务归属租户（与父一致；仓储访问强绑定） */
-  tenant: LocalContext;
+  ctx: LocalContext;
   /** 子任务执行存储（与父同源：事件/工具账本/终态落同一库） */
   store: SqliteExecutionStore;
   /** 建子 turn/attempt（编程式，不触发 API 路由/Outbox——由本执行器直接驱动） */
@@ -62,7 +62,7 @@ const defaultGenId = (prefix: string): string =>
 
 export function createSqliteSubagentPort(deps: SqliteSubagentPortDeps): SubagentPort {
   const {
-    tenant,
+    ctx,
     store,
     conversationRepo,
     runRepo,
@@ -80,7 +80,7 @@ export function createSqliteSubagentPort(deps: SqliteSubagentPortDeps): Subagent
       const { parentTurnId, parentAttemptId, parentExecutionId, sessionId, task } = input;
 
       // 幂等：同一父执行键已有子任务 → 复用既有结果（崩溃/重试不重复创建；Host 幂等键语义 §9）
-      const existing = await runRepo.getRunByParentExecution(tenant, parentAttemptId, parentExecutionId);
+      const existing = await runRepo.getRunByParentExecution(ctx, parentAttemptId, parentExecutionId);
       if (existing) {
         return {
           subTurnId: existing.subTurnId,
@@ -102,12 +102,12 @@ export function createSqliteSubagentPort(deps: SqliteSubagentPortDeps): Subagent
 
       // 1) 子任务落库（独立 turn/attempt ← 子事件流在子 turn 下审计；不写 Outbox）
       await conversationRepo.createTurnWithOutbox(
-        tenant,
+        ctx,
         { id: subTurnId, sessionId, idempotencyKey: `subagent:${parentExecutionId}` },
         { id: `msg_${subTurnId}_user`, content: task },
       );
-      await conversationRepo.createTurnAttempt(tenant, subTurnId, { id: subAttemptId });
-      await runRepo.createRun(tenant, {
+      await conversationRepo.createTurnAttempt(ctx, subTurnId, { id: subAttemptId });
+      await runRepo.createRun(ctx, {
         id: runId,
         sessionId,
         parentTurnId,
@@ -159,9 +159,10 @@ export function createSqliteSubagentPort(deps: SqliteSubagentPortDeps): Subagent
       } else {
         error = status === "Cancelled" ? "subagent_cancelled" : "subagent_failed";
       }
-      await runRepo.finalizeRun(tenant, runId, { status, resultText, error });
+      await runRepo.finalizeRun(ctx, runId, { status, resultText, error });
 
       return { subTurnId, subAttemptId, status, resultText, error };
     },
   };
 }
+

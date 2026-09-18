@@ -160,13 +160,12 @@
     ],
     "agentLoop": [
       "packages/agent-loop/**",
-      "apps/api/src/modules/conversation/**",
+      "apps/api/src/modules/companion/conversation/**",
       "docs/reference/agent-harness-loop.md"
     ],
     "extensions": [
-      "modules/**",
-      "apps/api/src/modules/plugins/**",
-      "apps/api/src/modules/skills/**",
+      "apps/api/src/modules/ecosystem/plugins/**",
+      "apps/api/src/modules/ecosystem/skills/**",
       "docs/reference/capability-*.md"
     ],
     "operations": [

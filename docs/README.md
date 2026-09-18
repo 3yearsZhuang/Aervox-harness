@@ -173,7 +173,7 @@ review_interval_days: 90
 
 ## 6. 参考项目
 
-以下 6 个项目均已作为固定 commit 的子模块放入仓库 `reference/`，用于验证设计假设与寻找实现模式；不作为 MVP 运行时强依赖：
+以下 8 个项目均已作为固定 commit 的子模块放入仓库 `reference/`，用于验证设计假设与寻找实现模式；不作为 MVP 运行时强依赖：
 
 - `reference/baishou-next`（[BaiShou-Next](https://github.com/foxletters-hq/BaiShou-Next)）：研究 TypeScript 多端、本地数据、记忆与日记设计；AGPLv3，默认只借鉴公开思想，不复制代码。
 - `reference/dsh-synapse`（[dsh-synapse](https://github.com/liangmianya/dsh-synapse)）：研究会话分支、地图投影和 DSH 插件边界；MIT。
@@ -181,6 +181,8 @@ review_interval_days: 90
 - `reference/pi`（[pi monorepo](https://github.com/earendil-works/pi)）：研究可替换模型、会话与扩展接口；MIT。
 - `reference/AstrBot`（[AstrBot](https://github.com/AstrBotDevs/AstrBot)）：研究管线阶段、会话锁、插件元数据与人设管理；AGPLv3，默认只借鉴公开思想，不复制代码。
 - `reference/Petra`（[Petra](https://github.com/Wumiu/Petra)）：研究桌宠表现命令通道、自主行为引擎与记忆条目字段；MIT。
+- `reference/OpenMAIC`：研究多智能体间通信；MIT。
+- `reference/archify`：研究系统设计文档与代码的一致性验证；MIT。
 
 借鉴设计不等于验证用户需求，也不等于自动通过许可证、安全或维护性评审。
 

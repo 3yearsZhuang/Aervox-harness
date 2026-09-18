@@ -176,7 +176,7 @@ cmd_test() {
       run pnpm test:fast
       ;;
     all|full)
-      info "运行全量测试 (受控 4 并发)…"
+      info "运行全量测试 (受控 2 并发)…"
       run pnpm test
       ;;
     api)

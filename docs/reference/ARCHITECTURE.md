@@ -7,15 +7,15 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.4.3
-updated_at: 2026-09-17
-reviewed_at: 2026-09-17
+updated_at: 2026-09-18
+reviewed_at: 2026-09-18
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 系统架构设计（SAD）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-17
+- 修改人：3yearszhuang · 2026-09-18
 
 关联 PRD：[PRD.md](PRD.md) · 追踪：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
 
@@ -52,21 +52,31 @@ MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应
 
 ```text
 apps/
-  web/          # Vue 3 工作台（复用 desktop renderer 核心，见 ADR-015 / AVX-WEB-001）
-  api/          # Fastify HTTP/SSE，按领域模块组织（见 §3.1）
-  worker/       # 幂等后台任务和 DLQ
-  desktop/      # P1 Electron 壳，复用 web/ui
-  mobile/       # 后续 Capacitor 打包 web UI
+  api/          # Fastify 5 HTTP/SSE，按领域模块组织（见 §3.1）
+  worker/       # 独立 Worker 进程：Outbox 投递 / 复习排期 / 日记提炼 / 主动智能
+  desktop/      # Electron 43 桌面壳（Fairy 桌宠）；复用 web/ui，ADR-009
+  web/          # Vue 3 + Vite 7 工作台（复用 desktop renderer 核心，ADR-015）
+  mobile/       # Capacitor 8 移动端外壳（封装 apps/web）
+  data/         # 技能与插件数据资产（非工作区包）
 packages/
-  contracts/ identity-consent/ conversation/ learning/
-  practice-review/ memory/ diary/ ai-runtime/ safety/
-  content-ingestion/ integrations/ plugin-sdk/
-  schema/ repositories/ observability/ ui/ domain/
+  contracts/         # L0 纯契约层：Zod Schema + OpenAPI v9（唯一 DTO 事实源）
+  schema/            # Drizzle ORM SQLite 模式定义（唯一表结构事实源）
+  repositories/      # LibSQL/SQLite 仓储层：DDL、迁移、事务执行器
+  agent-loop/        # Agent 执行循环与状态机底座
+  host-agent/        # 进程内 Agent Loop 宿主与 SQLite ExecutionStore
+  practice-review/   # 练习、错题本与间隔复习调度算法
+  diary/             # 学习日记提炼与生成领域服务
+  config/            # 类型化环境变量与运行时配置解析
+  api-client/        # 共享 API 传输层与 Vue Composable
+  observability/     # 结构化日志与指标可观测性接口
+  live2d/            # Live2D Mizuki 静态模型单一真源资产包
+  public/            # 共享图标与 aervox-intro 介绍页静态资产
+  ui/                # 共享 Vue 3 组件库、Live2D 控制器与主题 Token
 ```
 
 ### 3.1 apps/api 内部结构（演进式模块化单体）
 
-`apps/api/src/` 采用**按领域模块组织**的结构（ADR-014 0.3.0 两层分组：25 模块 → 6 域，归属表见 `CR-052 §3.1`（已归档）），每个模块自管路由与仓储实例化，通过 `shared/event-bus.ts` 做进程内跨模块通信：
+`apps/api/src/` 采用**按领域模块组织**的结构（ADR-014 0.3.0 两层分组：25 模块 → 6 域，归属表见 `CR-052 §3.1`（已归档）），每个模块自管路由与仓储实例化，跨模块解耦走持久化的 SQLite Outbox 表由 Worker 轮询投递：
 
 ```text
 apps/api/src/
@@ -91,7 +101,8 @@ apps/api/src/
 │   │   ├── tools/                 #     工具运行时
 │   │   ├── mcp/                   #     MCP 集成
 │   │   ├── skills/                #     AstrBot 兼容技能
-│   │   └── llm/                   #     模型路由与预设
+│   │   ├── llm/                   #     模型路由与预设
+│   │   └── model-runtime/         #     本地模型运行时驱动（llama-server 等）
 │   ├── proactive/                  #   主动智能域
 │   │   ├── proactive/             #     主动回合编排、集成授权
 │   │   └── notification/          #     主动关怀通知
@@ -104,7 +115,6 @@ apps/api/src/
 │       └── analytics/             #     埋点
 ├── shared/                          # 跨模块共享（严格限制：只放通用工具）
 │   ├── auth.ts                      #   本机认证与 actor 解析；CR-030 后不再创建 TenantContext
-│   ├── event-bus.ts                 #   进程内事件总线（pub/sub，未来可替换为消息队列）
 │   └── errors.ts                    #   共享错误类型（NotFoundError、ValidationError 等）
 ├── app.ts                           #   Fastify 应用工厂：组装模块、注册路由（按域分组注释）
 └── index.ts                         #   进程入口：创建 app、listen
@@ -121,7 +131,7 @@ apps/api/test/                       # 集成测试
 | 模块自管仓储 | 每个 `modules/<domain>/<module>/index.ts` 内部实例化该模块的仓储，不引用全局容器 |
 | 路由函数签名 | `routes.ts` 导出函数接收**该模块专属的仓储实例**，而非 `RepoContainer` |
 | shared 严格受限 | `shared/` 只放跨 2 个以上模块的通用工具，禁止放业务逻辑 |
-| 跨模块通信 | 仅限 `shared/event-bus.ts` 的 pub/sub + `shared/` 中的纯工具函数直接调用 |
+| 跨模块通信 | 跨模块解耦走持久化的 SQLite Outbox 表由 Worker 轮询投递，禁止进程内未持久化总线；纯工具函数走 `shared/` |
 | 单一数据库 | 一个本地 SQLite 实例；Schema 按领域拆文件，安全边界不依赖表前缀或租户列 |
 | 对外入口唯一 | 每个模块只有 `index.ts` 对外可见，`routes.ts` 内部函数不被其他模块引用 |
 
@@ -390,30 +400,31 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 
 ## 11. 首批 ADR
 
-| ADR | 决策 |
-|---|---|
-| ADR-001 | 模块化单体 + Worker，而非 MVP 微服务 |
-| ADR-002 | Superseded by ADR-015 — 原 React/Vite + Fastify + OpenAPI/SSE 的 Web 基线已改为 Vue 单栈 |
-| ADR-003 | 仓储抽象架构：SQLite 业务真源与 FTS5/Vector Port |
-| ADR-004 | 业务状态 + Outbox + 幂等队列，而非全系统 Event Sourcing |
-| ADR-005 | 内部 Provider Port 包裹 AI SDK，模型和 Prompt 可替换 |
-| ADR-006 | AI 召回期限与用户可见数据保留期限分离 |
-| ADR-007 | 系统记忆树是长期记忆的可重建投影；跨主题使用独立边 |
-| ADR-008 | Cloud-first；P2 通过 Repository/Sync Port 增加 SQLite/自托管 |
-| ADR-009 | Electron 最小权限桌面壳；插件进程外运行 |
-| ADR-010 | DSH/pi 仅为可选适配器，不拥有核心业务数据 |
-| ADR-011 | 日记不可变周期、计划修订、cursor 连续性、迟到事件与 lease/fencing |
-| ADR-012 | POST Turn + GET SSE、分段安全门、重连去重与部分响应持久化 |
-| ADR-013 | 独立恢复控制账本与撤权先行 |
-| ADR-014 | Accepted — 演进式模块化单体：apps/api 按领域模块组织，自管仓储 + 进程内事件总线 |
-| ADR-015 | Vue 全栈单栈：Web 复用桌面端技术族，替代 ADR-002 的 Web 基线 |
-| ADR-016 | Accepted — 底座边界冻结：Kernel Substrate 与能力层依赖边界，`scripts/import-boundary.mjs` 机器校验 |
-| ADR-018 | Proposed — CAP-033 本地私密存储、受信主动智能 Host、OS Permission Broker、全动作授权与后台生命周期 |
-| ADR-019 | Accepted — 主动智能外部连接使用本地网关、加密凭据、受控工具和按连接撤销 |
+| ADR | 状态 | 决策 |
+|---|---|---|
+| ADR-001 | Accepted | 模块化单体 + Worker，而非 MVP 微服务 |
+| ADR-002 | Superseded by ADR-015 | 原 React/Vite + Fastify + OpenAPI/SSE 的 Web 基线已改为 Vue 单栈 |
+| ADR-003 | Accepted（经 CR-030 修订） | 仓储抽象架构：SQLite 业务真源与 FTS5/Vector Port |
+| ADR-004 | Accepted | 业务状态 + Outbox + 幂等队列，而非全系统 Event Sourcing |
+| ADR-005 | Accepted | 内部 Provider Port 包裹 AI SDK，模型和 Prompt 可替换 |
+| ADR-006 | Accepted | AI 召回期限与用户可见数据保留期限分离 |
+| ADR-007 | Accepted | 系统记忆树是长期记忆的可重建投影；跨主题使用独立边 |
+| ADR-008 | Superseded by CR-030 | 历史 Cloud-first 与本地/自托管 Port 方案 |
+| ADR-009 | Accepted | Electron 最小权限桌面壳；插件进程外运行 |
+| ADR-010 | Accepted | DSH/pi 仅为可选适配器，不拥有核心业务数据 |
+| ADR-011 | Accepted | 日记不可变周期、计划修订、cursor 连续性、迟到事件与 lease/fencing |
+| ADR-012 | Accepted | POST Turn + GET SSE、分段安全门、重连去重与部分响应持久化 |
+| ADR-013 | Accepted | 独立恢复控制账本与撤权先行 |
+| ADR-014 | Accepted | 演进式模块化单体：apps/api 按领域模块组织，自管仓储 |
+| ADR-015 | Accepted | Vue 全栈单栈：Web 复用桌面端技术族，替代 ADR-002 的 Web 基线 |
+| ADR-016 | Accepted | 底座边界冻结：Kernel Substrate 与能力层依赖边界，`scripts/import-boundary.mjs` 机器校验 |
+| ADR-017 | Accepted | ContextManifest/ModelRun/AgentStep 关联与 AgentInboxItem 模型 |
+| ADR-018 | Accepted | CAP-033 本地私密存储、受信主动智能 Host、OS Permission Broker、全动作授权与后台生命周期 |
+| ADR-019 | Accepted | 主动智能外部连接使用本地网关、加密凭据、受控工具和按连接撤销 |
 
 每个 ADR 需要记录上下文、备选方案、决策、后果、迁移和回滚。未批准的技术建议不能写成已承诺架构。
 
-独立记录已建立在 `docs/reference/adr/ADR-###-slug.md`；上表是 canonical 索引，其他文档不得给同一个 `ADR-*` 赋予不同含义。除 ADR-016（`Accepted`，2026-08-28 经 G2）外，其余状态均为 `Proposed`，不代表已经通过 G2 评审。
+独立记录已建立在 `docs/reference/adr/ADR-###-slug.md`；权威索引与决策详情见 [docs/reference/adr/README.md](adr/README.md)。截至 2026-09-18，ADR-001～019 均已通过评审并正式落地（除 ADR-002 与 ADR-008 分别由 ADR-015 和 CR-030 Superseded 外，其余均为 Accepted）。
 
 ### 11.1 技术版本冻结规则
 

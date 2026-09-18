@@ -13,7 +13,7 @@ import type { SqliteLLMConfigRepository, LocalContext } from "@aervox/repositori
 import type { ProactiveTurnContext } from "@aervox/contracts";
 
 export interface ProactiveComposeInput {
-  tenant: LocalContext;
+  ctx: LocalContext;
   pluginId: string;
   pluginName: string;
   ruleName: string;
@@ -127,7 +127,7 @@ export async function composeProactiveMessage(ctx: {
   try {
     // 复用日记生成的配置端口语义：无配置行 → ollama 缺省；显式禁用 → null（模板降级）
     const cfgPort = createRepoDiaryLlmConfigPort(llmConfigRepo);
-    const cfg = await cfgPort.getConfig(input.tenant);
+    const cfg = await cfgPort.getConfig(input.ctx);
     if (!cfg) return {message: renderTemplateMessage(input), source: "template"};
     const provider = createOpenAICompatProvider({
       baseUrl: cfg.baseUrl,

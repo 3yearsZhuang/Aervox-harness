@@ -70,14 +70,14 @@ export function pluginRuleId(revisionId: string, pluginId: string, ruleId: strin
  * - 声明中已消失的规则 → 单条拔除；
  * - 停用或授权不全的插件 → 整体拔除（未授权即切断事件输入）。
  */
-export async function materializePluginTriggerRules(ctx: {
+export async function materializePluginTriggerRules(input: {
   intelligenceRepo: SqliteProactiveIntelligenceRepository;
-  tenant: LocalContext;
+  ctx: LocalContext;
   revisionId: string;
   declarations: ProactivePluginDeclaration[];
   now: Date;
 }): Promise<RuleMaterializationResult> {
-  const {intelligenceRepo, tenant, revisionId, declarations, now} = ctx;
+  const {intelligenceRepo, ctx, revisionId, declarations, now} = input;
   let materialized = 0;
   let removed = 0;
 
@@ -86,17 +86,17 @@ export async function materializePluginTriggerRules(ctx: {
     const fullyAuthorized = sensors.every((sourceId) => declaration.grantedSensors.has(sourceId));
 
     if (!declaration.enabled || !fullyAuthorized) {
-      removed += await intelligenceRepo.deleteTriggerRulesByPlugin(tenant, declaration.pluginId);
+      removed += await intelligenceRepo.deleteTriggerRulesByPlugin(ctx, declaration.pluginId);
       continue;
     }
 
-    const existing = await intelligenceRepo.listTriggerRulesByPlugin(tenant, declaration.pluginId, 500);
+    const existing = await intelligenceRepo.listTriggerRulesByPlugin(ctx, declaration.pluginId, 500);
     const declaredRuleIds = new Set<string>();
 
     for (const trigger of declaration.spec.triggers) {
       const ruleId = pluginRuleId(revisionId, declaration.pluginId, trigger.ruleId);
       declaredRuleIds.add(ruleId);
-      await intelligenceRepo.upsertTriggerRule(tenant, {
+      await intelligenceRepo.upsertTriggerRule(ctx, {
         id: ruleId,
         revisionId,
         pluginId: declaration.pluginId,
@@ -124,16 +124,16 @@ export async function materializePluginTriggerRules(ctx: {
 
     for (const rule of existing) {
       if (!declaredRuleIds.has(rule.id)) {
-        if (await intelligenceRepo.deleteTriggerRule(tenant, rule.id)) removed += 1;
+        if (await intelligenceRepo.deleteTriggerRule(ctx, rule.id)) removed += 1;
       }
     }
   }
 
   // 幽灵规则清理：vault 中仍挂着 plugin_id、但主库已无该插件声明的规则（卸载兜底）
   const declaredPluginIds = new Set(declarations.map((declaration) => declaration.pluginId));
-  for (const rule of await intelligenceRepo.listTriggerRules(tenant, undefined, 500)) {
+  for (const rule of await intelligenceRepo.listTriggerRules(ctx, undefined, 500)) {
     if (rule.pluginId && !declaredPluginIds.has(rule.pluginId)) {
-      if (await intelligenceRepo.deleteTriggerRule(tenant, rule.id)) removed += 1;
+      if (await intelligenceRepo.deleteTriggerRule(ctx, rule.id)) removed += 1;
     }
   }
 

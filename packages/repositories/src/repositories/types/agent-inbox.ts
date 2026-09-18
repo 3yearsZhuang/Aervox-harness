@@ -40,8 +40,6 @@ export interface SubagentRunModel {
   resultText?: string | null;
   error?: string | null;
   finishedAt?: string | null;
-  workspaceId?: string;
-  subjectUserId?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -39,7 +39,7 @@ const toModel = (row: InboxRow): AgentInboxItemModel => ({
 });
 
 /** 幂等键归一化（租户内唯一；同 key 不同 payload 视为重复提交，保留既有项） */
-const tenantIdempotencyKey = (ctx: LocalContext, key: string): string =>
+const normalizeIdempotencyKey = (ctx: LocalContext, key: string): string =>
   key;
 
 export class SqliteAgentInboxRepository implements IAgentInboxRepository {
@@ -48,7 +48,7 @@ export class SqliteAgentInboxRepository implements IAgentInboxRepository {
   async enqueue(ctx: LocalContext, input: AgentInboxEnqueueInput): Promise<AgentInboxItemModel> {
     const now = new Date().toISOString();
     const consumeBoundary = input.consumeBoundary ?? (input.type === "followup" ? "next-turn" : "next-step");
-    const key = tenantIdempotencyKey(ctx, input.idempotencyKey);
+    const key = normalizeIdempotencyKey(ctx, input.idempotencyKey);
     // 幂等：已存在同 idempotencyKey 则返回既有项（OK 重复提交）
     const existing = await this.getByIdempotencyKey(ctx, input.idempotencyKey);
     if (existing) return existing;
@@ -144,7 +144,7 @@ export class SqliteAgentInboxRepository implements IAgentInboxRepository {
   }
 
   async getByIdempotencyKey(ctx: LocalContext, idempotencyKey: string): Promise<AgentInboxItemModel | null> {
-    const key = tenantIdempotencyKey(ctx, idempotencyKey);
+    const key = normalizeIdempotencyKey(ctx, idempotencyKey);
     const [row] = await this.db
       .select()
       .from(agentInboxItems)

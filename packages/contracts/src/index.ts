@@ -35,6 +35,7 @@ import {
   petSheetLayoutSchema,
   petSheetRowFramesSchema,
   petSheetStateSchema,
+  DEFAULT_PET_SHEET_ROW_FRAMES,
   pluginMetadataSchema,
   reasoningDeltaEventDataSchema,
   redactedEventDataSchema,
@@ -178,6 +179,8 @@ export type PetSheetState = z.infer<typeof petSheetStateSchema>;
 export type PetSheetLayout = z.infer<typeof petSheetLayoutSchema>;
 export type PetManifest = z.infer<typeof petManifestSchema>;
 export type PetSheetRowFrames = z.infer<typeof petSheetRowFramesSchema>;
+export { DEFAULT_PET_SHEET_ROW_FRAMES };
+export const DEFAULT_ROW_FRAMES = DEFAULT_PET_SHEET_ROW_FRAMES;
 export type SkillSource = z.infer<typeof skillSourceSchema>;
 export type SkillName = z.infer<typeof skillNameSchema>;
 export type SkillStage = z.infer<typeof skillStageSchema>;

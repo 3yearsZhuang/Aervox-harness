@@ -250,7 +250,7 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
   });
 
   it("结构化元数据 Turn（metadata.mode = study）：无需消息前缀即可被 studyModeTurnPlugin 识别并注入提示词", async () => {
-    const { studyModeTurnPlugin, isStudyModeMessage } = await import("../src/modules/ecosystem/plugins/turn-plugins/study-mode.js");
+    const { studyModeTurnPlugin, isStudyModeMessage } = await import("../src/modules/ecosystem/plugins/turn-plugins/focus-mode.js");
 
     expect(isStudyModeMessage("纯净的用户提问", { mode: "study" })).toBe(true);
     expect(isStudyModeMessage("纯净的用户提问", {})).toBe(false);
