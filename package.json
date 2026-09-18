@@ -21,6 +21,8 @@
     "test:repos": "pnpm --filter @aervox/repositories test",
     "test:e2e": "playwright test",
     "check:boundary": "node scripts/import-boundary.mjs && node --test scripts/import-boundary.test.mjs",
+    "check:ci-config": "node --test scripts/ci-scope.test.mjs",
+    "check:artifacts": "node --test scripts/export-plugins.test.mjs",
     "package:plugins": "node scripts/export-plugins.mjs",
     "dist:desktop": "turbo run build --filter=@aervox/desktop && pnpm --filter @aervox/desktop dist:pack"
   },

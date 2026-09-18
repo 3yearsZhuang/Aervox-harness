@@ -1,7 +1,7 @@
 # AGENTS.md — AI 协作指南（薄入口）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：Codex · 2026-09-18
+- 修改人：3yearszhuang · 2026-09-18
 
 本文件是所有 AI 编码助手（包括 Antigravity、Claude Code、Cursor、GitHub Copilot、Roo Code、Windsurf 等）的进入点与协作底线协议：
 **只索引，不复制**：权威技术规范、产品定义与架构事实源一律深链至 `docs/`，严禁在入口复制可能变更的业务逻辑，杜绝双源漂移。
@@ -80,7 +80,7 @@ Aervox｜思隅：更好上手的“主动智能” Agent——以桌宠为入�
 
 | 场景 | 推荐命令 | 说明 |
 | ---------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| 极速增量门禁 | `./aervox ci` 或 `mise tasks run ci-fast` | 本地推荐：仅对变更包及下游运行边界/构建/测试，文档增量检查（15~25s） |
+| 极速增量门禁 | `./aervox ci` 或 `mise tasks run ci-fast` | 本地推荐：CI 配置一致性 + 仅对变更包及下游（含包外输入命中包）运行边界/构建/测试 + 文档增量检查（15~30s） |
 | 全量终审门禁 | `./aervox ci all` | 全量兜底：全量 18 包构建/类型/测试 + 全量文档严格检查（PR 推送前终验） |
 | 增量代码门禁 | `mise tasks run check-affected` | 仅运行变更包及其下游的依赖边界检查 + 构建 + 类型检查 + 增量测试 |
 | 增量文档门禁 | `mise tasks run docs-lint-affected` | 仅对 Git 变动的 Markdown 文档执行 Vale + Markdownlint + 治理校验 |
@@ -94,6 +94,7 @@ Aervox｜思隅：更好上手的“主动智能” Agent——以桌宠为入�
 | 注册表自动同步 | `mise tasks run docs-sync` | 自动从文档 Front Matter 读取日期并回写 `docs/DOC_REGISTRY.md` |
 | 机器目录生成 | `mise tasks run docs-catalog` | 重新生成标准化全量元数据 `docs/_meta/document-catalog.json` |
 | 变更触发器排查 | `mise tasks run docs-triggers` | 比对 Git 改动与各文档触发规则，排查待联动复核文档 |
+| 插件分发包生成 | `mise tasks run package-plugins` | 重建 gitignore 产物 `dist-plugins/*.aervox-plugin`；冷检出后的声明恢复入口（测试不得依赖该目录） |
 | 清理工作区 | `./aervox clean` | 清理编译产物与 Turborepo 缓存（保留 node_modules） |
 
 ---

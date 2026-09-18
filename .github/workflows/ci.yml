@@ -1,3 +1,7 @@
+# 触发路径契约：本文件的 paths 必须覆盖 turbo.json 声明的全部**包外**输入
+# （如 `@aervox/api#test` 的 `../../plugins/**`）与根级 `globalDependencies`。
+# 这些路径的改动若既不触发工作流、也不使缓存失效，就会被静默跳过。
+# 回归守卫：scripts/ci-scope.test.mjs（经 `pnpm check:ci-config` 接入 ci-code）。
 name: CI
 
 on:
@@ -5,6 +9,7 @@ on:
     paths:
       - "apps/**"
       - "packages/**"
+      - "plugins/**"
       - "modules/**"
       - ".gitmodules"
       - "package.json"
@@ -12,6 +17,8 @@ on:
       - "pnpm-workspace.yaml"
       - "turbo.json"
       - "tsconfig.base.json"
+      - "tsconfig.base.node.json"
+      - "vitest.shared.ts"
       - "mise.toml"
       - "scripts/**"
       - "e2e/**"
@@ -22,6 +29,7 @@ on:
     paths:
       - "apps/**"
       - "packages/**"
+      - "plugins/**"
       - "modules/**"
       - ".gitmodules"
       - "package.json"
@@ -29,6 +37,8 @@ on:
       - "pnpm-workspace.yaml"
       - "turbo.json"
       - "tsconfig.base.json"
+      - "tsconfig.base.node.json"
+      - "vitest.shared.ts"
       - "mise.toml"
       - "scripts/**"
       - "e2e/**"
@@ -71,6 +81,11 @@ jobs:
           path: ~/.local/share/pnpm/store
           key: pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
 
+      # 显式按锁文件安装（先恢复 store 缓存再安装）：不依赖 pnpm 的隐式自动安装，
+      # 锁文件与 package.json 不一致时在此直接失败，而不是静默重新解析。
+      - name: Install dependencies (frozen lockfile)
+        run: mise exec -- pnpm install --frozen-lockfile
+
       # 方案 B：持久化 Turbo 本地缓存，按内容哈希跳过未变更包，
       # 实现"只验证更改部分及其下游"。
       # 注意：save key 必须每次运行唯一（附加 run_id）——actions/cache 在
@@ -89,6 +104,18 @@ jobs:
       - name: Verify submodules
         run: |
           git submodule status --recursive
+
+      # 生成物恢复入口：`dist-plugins/` 为 gitignore 产物，由声明任务现场重建。
+      # 冷检出下必须能恢复；同时任何测试都不得把它当隐式依赖（否则全新检出必然 ENOENT）。
+      - name: Generate plugin bundles (declared task)
+        run: |
+          mise tasks run package-plugins
+          count=$(find dist-plugins -maxdepth 1 -name '*.aervox-plugin' | wc -l | tr -d ' ')
+          echo "已生成分发包: $count"
+          if [ "$count" -lt 1 ]; then
+            echo "::error::声明任务 package-plugins 未生成任何 .aervox-plugin 分发包"
+            exit 1
+          fi
 
       # 可选增强：Turbo Remote Cache（Vercel，条目级跨 PR 共享）。
       # 仅在仓库配置了 TURBO_TOKEN / TURBO_TEAM secrets 时注入；
@@ -159,6 +186,9 @@ jobs:
         with:
           path: ~/.local/share/pnpm/store
           key: pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install dependencies (frozen lockfile)
+        run: mise exec -- pnpm install --frozen-lockfile
 
       # 复用 build job 保存的 turbo 缓存（restore-only）：api 及上游依赖
       # 未变更时构建秒级命中；新缓存条目由 build job 统一回写，本 job 不重复 save。
