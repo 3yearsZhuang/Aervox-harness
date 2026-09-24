@@ -14,6 +14,7 @@ export * from "./search/index.js";
 export * from "./write-retry.js";
 export * from "./session-lock.js";
 export * from "./token-usage.js";
+export * from "./temporal-fact-policy.js";
 export * from "./migration/index.js";
 export * from "./sync/index.js";
 export * from "./repositories/index.js";
