@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.8.2
-updated_at: 2026-09-18
-reviewed_at: 2026-09-18
+version: 0.9.1
+updated_at: 2026-09-25
+reviewed_at: 2026-09-25
 review_interval_days: 90
 ---
 
 # 参考项目能力迁移与借鉴评估
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-18
+- 修改人：kikoyida · 2026-09-25
 
 关联：[参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[SQLite 本地单用户数据库契约](../reference/DATABASE.md)、[能力注册表](../reference/capability-registry.md)、[Agent Harness Loop 规范](../reference/agent-harness-loop.md)、[AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)
 
@@ -260,6 +260,7 @@ Aervox 自研落地（AGPLv3 仅借鉴设计，不复制源码）：
 |---|---|---|---|---|---|
 | `DSH-01` | B（目标已文档化） | Agent Loop 阶段 0 前 | 2026-08-28 | `docs/reference/agent-harness-loop.md`（AVX-HAR-001）、`docs/reference/changes/CR-012-agent-harness-loop.md` | 已固化 Turn/Step、typed event、工具管线和 Adapter 边界；DSH 运行时尚未接入，不能标记为已实现 |
 | `PI-01` | B（目标已文档化） | Agent Loop 阶段 0 前 | 2026-08-28 | `docs/reference/agent-harness-loop.md`（AVX-HAR-001）、`docs/reference/changes/CR-012-agent-harness-loop.md` | 已固化 outer/inner loop、Inbox、lease/fencing 和进程外 Host 约束；pi 运行时尚未接入，不能标记为已实现 |
+| `GPH-01` | 设计借鉴，规则原型 | 当前复评第一步 | 2026-09-25 | `packages/repositories/src/temporal-fact-policy.ts` | 参考 Graphiti 的事实有效时间与来源时间分离；仅实现已确认事实的单步判定，未接入数据库或召回 |
 | T-03 | A | 第二批 | 2026-08-26 | `packages/schema/src/memory-compaction.ts`、`repositories/sqlite/memory-compaction-repository.ts` | `memory_compaction_markers` 表 + 幂等仓储 |
 | T-05 | A | 第二批 | 2026-08-26 | `packages/schema/src/embeddings.ts`、`repositories/sqlite/memory-embedding-repository.ts` | `memory_embeddings` 独立表 + 批量/重试/余弦检索（对照 AST-02） |
 | PET-01 | A | 第二批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（`petCommandSchema`/`emoteEventDataSchema`） | SSE 表现指令契约预留 |
@@ -299,7 +300,55 @@ Aervox 自研落地（AGPLv3 仅借鉴设计，不复制源码）：
 | T-07 桌面 preload 分域迁移覆盖 | T-07 | 已提供按域 API 结构（`preload/domains/`）并兼容旧通道；桌面端全面迁移到新域通道待功能扩展时推进 |
 | Skill 渐进式披露注入 AI 对话运行时 | Skill | `/v1/skills/prompt` 已提供清单；真实对话构建时注入系统提示词待 AI 运行时（Turn 链路）接线 |
 
-## 7. 参照
+## 7. 长期记忆、人格与主动行为参考项目复评（2026-09-25）
+
+本节按当前源码重新评估 Letta / Letta Code、Graphiti 与 Generative Agents。三者都采用 Apache-2.0，但用途不同：Letta Code 是持续演进的状态化 Agent Harness，Graphiti 是需要独立图数据库与模型服务的时态知识图谱框架，Generative Agents 则是 2023 年论文配套的研究模拟器。许可证允许借鉴或复用不等于适合直接引入；若后续复制代码，仍须按 PRD §15.1 记录来源、许可证与修改。
+
+### 7.1 当前基线与总判断
+
+Aervox 已经越过“只把记忆写进库”的阶段：默认原生 Loop 的新 Turn 会加载同一会话历史，并尝试通过 FTS + 向量 RRF 召回普通长期记忆，以不可信事实上下文注入；激活人格的名称、提示词和技能白名单会进入执行上下文；主动画像只在有效授权下加载，并强制使用本机模型端点。记忆记录还具备修订、证据、事件、校验状态与独立 embedding 表。这意味着默认原生 Loop 的基础召回接线已闭合；DSH 驱动分支、召回失败或资格过滤并不保证每轮都有记忆进入模型。
+
+当前更实质的缺口是：召回策略仍以当前查询为主，没有一套可由 Agent 维护、稳定占据上下文的身份/工作记忆；普通记忆没有事实有效区间与自动失效旧事实的语义；现有 `MemoryRevision`/`MemoryEvidence` 能追溯版本和证据，但尚未形成“事件 → 实体/关系事实 → 有效期 → 查询”的时态闭环；人格、记忆、计划和主动动作之间也没有可验证的“经历改变后续行为”反思闭环。
+
+| 项目 | 是否继续学习 | 优先级 | 对 Aervox 最有价值的部分 | 不直接照搬 |
+|---|---|---|---|---|
+| Letta / Letta Code | 是，做 Harness 级对照实验 | P1 | 每轮编译进上下文的可编辑 memory blocks；不可变对话召回与可变身份/规则的分层；git 追踪的 MemFS；跨会话、跨机器保持同一 Agent 身份 | 不接管 Aervox 的 SQLite 真源、权限、人格审批或 Agent Loop；不把任意自改系统提示词直接用于生产人格 |
+| Graphiti | 是，三者中最高优先级 | P0 设计验证 | 双时间事实、旧事实失效但保留历史、episode 证据链、增量入图、语义 + BM25 + 图遍历混合检索 | 当前不引入 Neo4j/FalkorDB/Python 服务；不把模型抽取结果绕过 `verificationStatus` 和用户确认直接当真 |
+| Generative Agents | 是，只学习实验方法和闭环 | P2 | 记忆的相关性/新近性/重要性选择；重要度累计触发反思；日计划、反应与重规划；用消融验证记忆/反思/计划是否真的改变行为 | 不复制 Smallville 游戏循环、提示词和逐步模拟存储；不把“看起来像人”当成正确性或产品安全指标 |
+
+### 7.2 Letta / Letta Code：从“召回记录”学习“编译 Agent 状态”
+
+Letta Code 把同一 Agent 的上下文分成三层：消息历史自动进入不可变 recall memory；较旧消息由摘要和检索补回；可编辑的 memory blocks 作为系统提示词片段进入上下文，外部记忆则留在 MemFS 中按需发现。官方说明还明确指出，memory block 的修改只会在后续重新编译时影响行为，MemFS 通过 git 保存演化历史。由此可借鉴的不是另一个向量库，而是 **Context Compiler** 的明确契约：本轮必须知道哪些身份规则常驻、哪些历史按需召回、每个片段由谁修改、何时生效、如何回滚。[Letta Code 的上下文架构与 memory blocks](https://github.com/letta-ai/letta-code/blob/main/src/agent/prompts/letta.md)、[Letta memory block 官方文档](https://docs.letta.com/tutorials/attaching-detaching-blocks/)
+
+对 Aervox 的下一步建议是做一个窄原型，而非引入 Letta 运行时：在现有 `ContextManifest` 上补 `contextSlot`（如 `identity`、`user_confirmed`、`active_goal`、`recalled`）、`owner`、`effectiveRevisionId`、`selectionReason` 和 token 预算；人格只能由已批准修订生成 `identity` 槽，用户确认的记忆才能进入 `user_confirmed` 槽，普通检索结果仍放 `recalled` 槽。以同一测试会话跨 20 个 Turn 验证身份稳定、用户纠正后的下一轮生效和修订回滚。Letta Code 已提供 CLI、桌面端、浏览器、消息渠道与跨机器 Agent state，适合作为活跃产品级 Harness 参照；但其自修改提示词和通用编码 Agent 权限模型与 Aervox 的受控陪伴/学习产品边界不同。[Letta Code 官方仓库与运行形态](https://github.com/letta-ai/letta-code)
+
+### 7.3 Graphiti：重点补“事实何时成立”的语义
+
+Graphiti 的基本对象是 episode、entity 和带有效窗口的 fact/relationship：原始输入保留为 episode，派生事实可追溯到 episode；新输入增量合并，发生冲突时旧事实被标记失效而非删除；检索同时使用语义、BM25 与图遍历，并可按图距离重排。官方将其描述为显式双时间模型，能区分数据进入系统的时间和事实在现实中成立的时间。[Graphiti 官方仓库：时态事实、来源与增量更新](https://github.com/getzep/graphiti)、[Graphiti quickstart：episode 与混合检索](https://github.com/getzep/graphiti/tree/main/examples/quickstart)
+
+Aervox 已有 `SourceArtifact.occurredAt/ingestedAt`、`MemoryRevision`、`MemoryEvidence` 和记忆边证据，具备实现基础，但普通 `MemoryRecord`/revision 还没有 `validFrom`、`validTo`、`invalidatedByRevisionId` 与基于同一 subject/predicate 的冲突处理。建议先在 SQLite 内做小型的 **Temporal Fact Projection**：从已确认记忆投影出 `subject/predicate/object`，保留 `occurredAt` 与 `ingestedAt`，新事实只关闭旧事实有效区间；查询默认取当前有效事实，也能回看指定时间。用“以前住北京，现在住上海”“过去喜欢咖啡，现在戒咖啡”这类数据验证，而不是先部署图数据库。
+
+Graphiti 当前是活跃的开源框架，支持 Neo4j、FalkorDB、Amazon Neptune，并要求 Python 3.10+ 和结构化输出能力较好的模型；其官方也明确区分了 Graphiti 自托管核心与具备规模化治理能力的商业 Zep。对 Aervox 而言，它适合作为数据语义和测试用例来源，不适合作为现阶段的直接运行时依赖：引入 Python 服务、图数据库和额外 embedding/LLM 调用会破坏当前 TypeScript 模块化单体与 SQLite 本地优先边界。[Graphiti 依赖、后端与产品边界](https://github.com/getzep/graphiti#installation)
+
+### 7.4 Generative Agents：学习行为闭环与消融，不学习生产架构
+
+Generative Agents 把完整经历写入 memory stream，再按相关性、新近性和重要性检索少量记录；重要度累积触发更高层反思，反思又作为新记忆参与后续检索；Agent 先形成日计划，再随观察结果反应和重规划。论文的关键价值还包括消融实验：移除观察、计划或反思都会降低人类评审中的行为可信度。[Generative Agents 原始论文](https://arxiv.org/abs/2304.03442)、[论文配套官方仓库](https://github.com/joonspk-research/generative_agents)
+
+这套机制可用于验证 Aervox 的“人格经历会影响行为”是否成立。建议构造固定事件脚本和可重复模型桩，比较四组：无长期记忆、仅召回、召回 + 反思、召回 + 反思 + 计划；指标使用人格一致性、事实正确率、计划完成率、无依据推断率和主动打扰率，而非只评“像不像真人”。反思产物必须有源记忆 ID、提示词/模型版本、置信度和用户确认状态，不能自动覆盖批准人格。
+
+该仓库是论文演示实现：README 指定 Python 3.9.12，运行时遇到 API 限流可能挂起并建议频繁保存，仓库的核心场景是 25 个角色的 Smallville 模拟。因此它适合读论文、看检索/反思/计划如何闭环和复现消融，不应作为 Aervox 的生产工程模板。[官方仓库的运行与限制说明](https://github.com/joonspk-research/generative_agents#setting-up-the-environment)
+
+### 7.5 可验证的学习顺序
+
+1. **先做 Graphiti 语义原型**：不用图数据库，在 SQLite 增加时态事实投影实验，验收“当前事实”“历史事实”“证据来源”“矛盾更新”四类查询。
+2. **再做 Letta 上下文槽实验**：把人格、确认记忆、当前目标、按需召回拆成可审计槽位，使用 `ContextManifest` 比较每轮实际输入和 token 占用。
+3. **最后做 Generative Agents 消融**：在已有主动智能和人格链路上增加受控反思候选与计划反馈，证明它确实改善后续行为，再决定是否产品化。
+
+这三项先以测试夹具和窄原型验证；若需进入当前执行队列，再按治理规则更新 `plan.md`。落地后按 §6.1 登记参考来源编号与实现位置；不能仅因参考项目具备某功能，就把 Aervox 的同名表或 UI 视为已经获得相同行为。
+
+第一笔窄切片已落实 `GPH-01`：纯判定模块只接受已确认事实，分别保存事实生效时间和来源入库时间；新事实关闭旧区间，同值只追加证据决策，同刻矛盾和迟到输入要求复核。它尚未持久化，也不改变当前召回资格；SQLite 投影、删除传播和时点查询仍需后续契约与实现。
+
+## 8. 参照
 
 - [PRD §15 参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[§15.1 参考实现要求](../reference/PRD.md#151-参考实现要求)
 - [文档索引 §6 参考项目](../README.md#6-参考项目)
@@ -311,3 +360,6 @@ Aervox 自研落地（AGPLv3 仅借鉴设计，不复制源码）：
 - BaiShou-Next 固定 commit `d95bae0f6f3184a94bbc3a77eb71ca987bfcadba`（AGPLv3，仅参考设计，不复制源码）
 - AstrBot 固定 commit `4d877c9919e58008f6f2cf4b19e18f9c48e4338f`（AGPLv3，仅参考设计，不复制源码）
 - Petra 固定 commit `b629b295b5ae535d80e09cd59bd3d515bcd8150f`（MIT，复制代码需记录来源与版权声明）
+- [Letta Code 官方仓库](https://github.com/letta-ai/letta-code)与[上下文架构说明](https://github.com/letta-ai/letta-code/blob/main/src/agent/prompts/letta.md)（Apache-2.0；品牌资产除外；本次只作 Harness 设计参照）
+- [Graphiti 官方仓库](https://github.com/getzep/graphiti)与[quickstart](https://github.com/getzep/graphiti/tree/main/examples/quickstart)（Apache-2.0；本次只作时态事实与检索设计参照）
+- [Generative Agents 原始论文](https://arxiv.org/abs/2304.03442)与[官方配套仓库](https://github.com/joonspk-research/generative_agents)（Apache-2.0；本次只作行为闭环与消融设计参照）
