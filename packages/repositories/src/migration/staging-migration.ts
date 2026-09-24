@@ -141,10 +141,14 @@ export async function atomicSwapCr030Database(options: {
     await fs.rename(options.rollbackPath, options.sourcePath).catch(() => undefined);
     throw error;
   }
-  const directoryHandle = await fs.open(path.dirname(options.sourcePath), "r");
-  try {
-    await directoryHandle.sync();
-  } finally {
-    await directoryHandle.close();
+  // Windows does not support fsync on directory handles (EPERM). The same-volume
+  // renames above still provide the swap; sync directory metadata where supported.
+  if (process.platform !== "win32") {
+    const directoryHandle = await fs.open(path.dirname(options.sourcePath), "r");
+    try {
+      await directoryHandle.sync();
+    } finally {
+      await directoryHandle.close();
+    }
   }
 }

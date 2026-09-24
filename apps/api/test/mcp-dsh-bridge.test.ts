@@ -200,7 +200,7 @@ describe("DSH MCP 桥接器 (DshMcpBridge)", () => {
       method: "tools/call",
       params: {
         name: "dsh_run_command",
-        arguments: { command: "node -e 'console.log(\"dsh_test_ok\")'" },
+        arguments: { command: 'node -e "console.log(\'dsh_test_ok\')"' },
       },
     });
     const runContent = (runRes as { result: { isError: boolean; content: Array<{ text: string }> } }).result;
@@ -214,7 +214,7 @@ describe("DSH MCP 桥接器 (DshMcpBridge)", () => {
       method: "tools/call",
       params: {
         name: "dsh_run_command",
-        arguments: { command: "node -e 'process.exit(2)'" },
+        arguments: { command: 'node -e "process.exit(2)"' },
       },
     });
     expect((failCmd as { result: { isError: boolean } }).result.isError).toBe(true);
