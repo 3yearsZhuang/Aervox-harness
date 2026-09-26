@@ -11,6 +11,7 @@ import { createOutboxTables } from "./outbox.js";
 import { createLearningTables } from "./learning.js";
 import { createFeedbackTables } from "./feedback.js";
 import { createProvenanceTables } from "./provenance.js";
+import { createTemporalFactTables } from "./temporal-facts.js";
 import { createPlatformTables } from "./platform.js";
 import { createAuditTables } from "./audit.js";
 import { createSafetyTables } from "./safety.js";
@@ -53,6 +54,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await createLearningTables(client);
   await createFeedbackTables(client);
   await createProvenanceTables(client);
+  await createTemporalFactTables(client);
   await createPlatformTables(client);
   await createAuditTables(client);
   await createSafetyTables(client);

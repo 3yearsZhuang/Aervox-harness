@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.5.0
-updated_at: 2026-09-18
-reviewed_at: 2026-09-18
+version: 0.5.1
+updated_at: 2026-09-26
+reviewed_at: 2026-09-26
 review_interval_days: 90
 sources:
   - docs/reference/DATABASE.md
@@ -18,7 +18,7 @@ sources:
 # Aervox｜思隅 数据库数据模型覆盖矩阵（Database Coverage Matrix）
 
 - 提出人：3yearszhuang · 2026-09-10
-- 修改人：3yearszhuang · 2026-09-18
+- 修改人：kikoyida · 2026-09-26
 
 关联：[SQLite 本地单用户数据库契约](DATABASE.md)（AVX-DB-001）、[产品需求文档 PRD §8](PRD.md#prd-data)（AVX-PRD-001）、`CR-030`（已归档）
 
@@ -30,7 +30,7 @@ sources:
 >
 > - **阶段**：`MVP`（R1）/ `MVP+`（R1.5）/ `P1`（R2）/ `P2`（R4）/ `P3`（R5）；不再包含 PostgreSQL 启用阶段。
 > - **实现状态**：`已落表`（当前 SQLite Schema/DDL 已有）／ `已建模`（本文档有规划表或规划列）／ `未落表`（仅 PRD 定义，进入规划 backlog）。
-> - CR-030 纯本地单用户真源已全面落地，全库无租户列。当前代码库 `@aervox/schema` 共维护 **131 张业务表**，另有 2 张 SQLite FTS5 虚拟表（`messages_fts`、`memories_fts`）与 1 张迁移记录表（`_migration_journal`），全仓持久化表总数为 134 张。
+> - CR-030 纯本地单用户真源已全面落地，全库无租户列。当前代码库 `@aervox/schema` 共维护 **133 张业务表**，另有 2 张 SQLite FTS5 虚拟表（`messages_fts`、`memories_fts`）与 1 张迁移记录表（`_migration_journal`），全仓持久化表总数为 136 张。
 
 ### 14.1 本地用户档案与同意
 
@@ -87,6 +87,7 @@ sources:
 | MemoryRevision | MVP | 已落表 | `memory_revisions`（不可变修订，content/confidence/importance） |
 | SourceArtifact / SourceRevision | MVP | 已落表 | `source_artifacts` + `source_revisions`（来源事实与不可变版本） |
 | MemoryEvidence | MVP | 已落表 | `memory_evidence`（记忆修订 ↔ 来源证据，保留 tombstone） |
+| TemporalFact / TemporalFactEvidence（GPH-02 实验投影） | P1 | 已落表 | `temporal_facts` + `temporal_fact_evidence`（已确认事实的有效区间及证据关联；暂不进入生产召回） |
 | MemoryEvent | MVP | 已落表 | `memory_events`（生成/晋升/衰减/锁定/冲突/失效/删除审计事件） |
 | MemoryNode | P1 | 已落表 | `memory_nodes`（长期记忆树投影节点，ADR-007） |
 | MemoryProjectionOverride | P1 | 已落表 | `memory_projection_overrides`（节点级人工干预与重命名覆盖） |
