@@ -291,8 +291,11 @@ export class SqliteConversationRepository implements IConversationRepository {
     return this.attemptStore.getTurnAttemptStatus(ctx, input);
   }
 
-  async recoverExpiredAttempts(client: import("@libsql/client").Client): Promise<number> {
-    return this.attemptStore.recoverExpiredAttempts(client);
+  async recoverExpiredAttempts(
+    client: import("@libsql/client").Client,
+    options?: { unclaimedTimeoutMs?: number },
+  ): Promise<number> {
+    return this.attemptStore.recoverExpiredAttempts(client, options);
   }
 
   async recordToolExecution(
