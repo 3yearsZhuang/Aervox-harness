@@ -59,11 +59,15 @@ test("真源覆盖全部迭代条目，且每条都有完成判定", () => {
   const queue = loadQueue();
   const ids = queue.items.map((item) => item.id);
 
-  assert.equal(ids.length, 19, "队列条目数应与迁移前一致");
+  const planIds = [...fs.readFileSync(PLAN_PATH, "utf8").matchAll(/<a id="(iter-\d{3})"><\/a>/g)]
+    .map((match) => match[1].toUpperCase());
+
+  assert.ok(ids.length > 0, "队列应包含迭代条目");
+  assert.equal(new Set(ids).size, ids.length, "真源编号不得重复");
   assert.deepEqual(
     [...ids].sort(),
-    Array.from({ length: 19 }, (_, index) => `ITER-${String(index + 1).padStart(3, "0")}`),
-    "编号应为 ITER-001～ITER-019 且不重复",
+    planIds.sort(),
+    "真源应覆盖 plan.md 中全部迭代条目，允许按治理规则新增或归档",
   );
   for (const item of queue.items) {
     assert.ok(item.acceptance.length > 0, `${item.id} 缺少完成判定`);
