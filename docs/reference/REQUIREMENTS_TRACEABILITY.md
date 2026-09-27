@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.46.0
-updated_at: 2026-09-22
-reviewed_at: 2026-09-22
+version: 1.46.1
+updated_at: 2026-09-25
+reviewed_at: 2026-09-25
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-22
+- 修改人：kikoyida · 2026-09-25
 
 产品需求来源：[PRD.md](PRD.md)
 
@@ -187,6 +187,8 @@ review_interval_days: 90
 
 | 落地内容与功能描述 | 关联 CAP | 实现与测试位置 | 日期 | 验证 | 来源 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 时态事实第一笔规则原型：对已确认事实区分生效时间与来源入库时间；较新的不同事实生成关闭旧区间并新增事实的决策，同值生成证据追加决策，同刻矛盾、迟到输入及来源修订冲突进入复核；模块不执行持久化，也未接入生产召回 | CAP-005/026 | `packages/repositories/src/temporal-fact-policy.ts`、`packages/repositories/test/temporal-fact-policy.test.ts` | 2026-09-25 | 定向 Vitest 5 项、Repositories 类型检查、`check:guards`、`check:boundary`、Windows 全量 `ci-code` 通过；`ci-docs` 通过 | `GPH-01` 设计借鉴 + 原生实现 |
+| Windows 本地代码门禁兼容：Turbo 透传 pnpm 脚本 Shell 配置；CR-030 数据库换位在不支持目录 `fsync` 的 Windows 上跳过目录同步；SQLite 测试清理对短暂占用重试；MCP 命令测试改用跨平台引号 | 基础设施（本地门禁与迁移验证） | `turbo.json`、`packages/repositories/src/migration/staging-migration.ts`、`packages/repositories/test/staging-migration.test.ts`、`apps/api/test/mcp-dsh-bridge.test.ts`、`apps/api/test/mcp-preset.test.ts` | 2026-09-25 | Windows 下设置 `PNPM_CONFIG_SCRIPT_SHELL` 为 Git Bash、初始化固定 SHA 的 `reference/deepseek-harness` 后，`mise tasks run ci-code` 27/27 任务通过；迁移与 MCP 定向测试通过。Windows 不提供目录 `fsync`，因此此平台不承诺换位目录元数据已同步到存储介质 | 原生 |
 | HLS 本地智能体竞赛规划（ITER-020，文档交付）：基于三人/C++/RX 9070 XT 条件核对 AMD 赛题，形成 P0～P4 技术路径、双入口与四组对照、反馈隔离、阶段准入和去留标准；接入唯一队列的实验建议与提交候选；修正队列回归测试固定 19 项的历史断言，改为编号唯一与实际计划条目一致性，允许合法扩展；不修改架构/能力状态 | CAP-007/020/027（关联评估，未新增或实现 CAP） + 文档治理 | [HLS 竞赛规划](../explanation/hls-agent-competition-plan.md)、[当前队列](../../plan.md)、文档索引/登记表/机器目录、`scripts/plan-queue.test.mjs` | 2026-09-22 | PDF 与 `da602ac` 源码静态核对；`mise tasks run ci-docs` 全量通过（治理回归 33/33、队列回归 9/9、78 文件 Markdownlint/Vale 及严格治理无问题）；`git diff --check` 通过；未执行 Radeon/Vitis、未产生通过率或批准产品化 | 原生规划；AMD 选题指南与 HLS-Eval 来源见专项文档 §9 |
 | 可靠接单与 Outbox 消费弹性闭环（ITER-002 全量落地）：按 ARC-01 与 FND-01/05 规范，完成两阶段切片交付。切片一（Outbox 消费归属与抢先完成防御）：`packages/repositories` 扩展 `FetchPendingEventsOptions` 支持 `eventType`/`excludeEventTypes` 严格隔离与 `includeRetriable` 重试拉取，`OutboxWorker` 排除非领域 Compaction 事件，杜绝消费者抢先将未被处理的领域事件置为 `done`；为 `IOutboxRepository` 落地超限转移 `dead_letter` 死信状态并持久化 `lastError`；`compaction-marker` 接入单用户 `localCtx` 并精准拉取压缩事件。切片二（对话接单弹性与孤儿 Attempt 恢复）：`apps/api` 对话路由在 `runLoop` 执行前包裹结构化异常捕获，在 skillLoader 等预加载中断时原子推进 Attempt 与 Turn 状态为 `Failed` 并更新 `finishedAt`，避免卡死在 `Running`/`Created`；扩展 `recoverExpiredAttempts` 支持孤儿扫描（`lease_expires_at IS NULL AND started_at < unclaimedThreshold`），将接单崩溃等未认领孤儿 Attempt 推进至 `Interrupted`（递增 `fencingToken`），并同步推进所属 Turn 状态至 `Interrupted`，彻底杜绝无租约孤儿 Attempt 永久驻留。 | CAP-007 + 基础设施（可靠调度与 Outbox） | `packages/repositories/src/repositories/sqlite/outbox-repository.ts`、`packages/repositories/src/repositories/types/outbox.ts`、`packages/repositories/src/repositories/sqlite/conversation-repository.ts`、`packages/repositories/src/repositories/sqlite/conversation/attempt-store.ts`、`apps/worker/src/outbox-worker.ts`、`apps/worker/src/compaction-marker.ts`、`apps/api/src/modules/companion/conversation/routes.ts`、`apps/worker/test/outbox-worker.test.ts`、`apps/api/test/conversation-dispatch-resilience.test.ts` | 2026-09-18 | `apps/worker/test/outbox-worker.test.ts` 4/4 测试通过（验证隔离消费、反向执行序、重试转死信、自定义处理器）；`apps/api/test/conversation-dispatch-resilience.test.ts` 2/2 测试通过（验证预加载异常收敛与未认领孤儿扫描恢复）；`./aervox test api` 69 文件 462 测试全绿；`./aervox test repos` 50 文件 261 测试全绿；`./aervox ci` 增量门禁 14 任务全部通过 | 原生 |
 | 自动化防漂移系统级门禁守护套件（Guard 1～Guard 5 全量落地）：按多源漂移根治方案，建立 5 道系统级自动化防护门禁，杜绝多源漂移与过度设计复发。Guard 1（P0 表结构双源等价门禁）：`packages/repositories/test/schema-index-parity.test.ts` 接入 SQLite DDL 与 Drizzle Schema 全量 131 表双向等价断言（过滤 FTS5 虚表与阴影表），杜绝 DDL 与 Schema 漂移；Guard 2（P0 AST 级租户遗留标识拦截门禁）：`scripts/check-banned-identifiers.mjs` 基于 Babel AST 递归扫描 `packages/` 与 `apps/` 生产代码，禁止出现 `TenantContext`、`tenantId` 及承载 `LocalContext` 的 `tenant` 变量（违规即退出非零），同步清理残留测试变量；Guard 3（P1 文档-代码自动渲染与一致性校验）：`scripts/check-database-matrix.mjs` 校验 131 表在 `database-coverage-matrix.md` 的覆盖率、`scripts/check-architecture-topology.mjs` 校验 18 个工作区包与 `ARCHITECTURE.md` §3 拓扑一致性、`scripts/render-adr-index.mjs` 支持 ADR 索引表自动渲染与 `--check` 一致性门禁；Guard 4（P1 DTO 类型跨层单一真源门禁）：`scripts/check-type-boundary.mjs` 扫描下游应用层严禁本地 redeclare 契约 DTO 类型（收敛 PluginDeclaredTool/Skill 等并扩展 `@aervox/contracts`）；Guard 5（P2 依赖提升与版本分裂门禁）：`scripts/check-dep-hoisting.mjs` 禁止子包私自声明根级构建/测试工具；流水线接入：`package.json`（`check:guards`、`docs:render`）与 `mise.toml`（`ci-fast`、`ci-code`、`ci-code-full`、`ci-docs`）全面前置阻断 | 基础设施（多源漂移根治门禁、CI/CD 自动化守护） | `packages/repositories/test/schema-index-parity.test.ts`、`scripts/check-{banned-identifiers,database-matrix,architecture-topology,type-boundary,dep-hoisting}.{mjs,test.mjs}`、`scripts/render-adr-index.{mjs,test.mjs}`、`package.json`、`mise.toml`、`packages/contracts/`、`apps/api/`、`packages/host-agent/`、`docs/reference/{ARCHITECTURE,adr/README}.md` | 2026-09-18 | `pnpm check:guards` 21/21 单元测试全绿 + 6 项守卫全部秒级通过；`mise tasks run ci-docs` 33 套件 + ADR/拓扑/DB Matrix 校验 + Vale/Markdownlint 77 文件 0 错误 0 告警；`./aervox ci` 增量门禁 24 任务全绿；反向验证：故意引入禁写变量/缺失表/版本分裂即报错误并阻断 | 原生 |

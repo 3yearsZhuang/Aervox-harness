@@ -7,6 +7,7 @@
     "XDG_DATA_HOME",
     "XDG_STATE_HOME",
     "CI",
+    "PNPM_CONFIG_SCRIPT_SHELL",
     "VITEST_MAX_WORKERS"
   ],
   "tasks": {
