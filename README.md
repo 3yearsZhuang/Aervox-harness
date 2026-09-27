@@ -1,7 +1,7 @@
 # Aervox｜思隅
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-18
+- 修改人：3yearszhuang · 2026-09-27
 
 > **全新交互减法下的“主动智能”，属于你的贾维斯，或者--属于你的爱弥斯。**
 >
@@ -128,7 +128,7 @@
 | **核心服务 (Core API)** | Fastify 5 + Zod 4 + OpenAPI 3.1 (`zod-to-openapi` v9) | POST Turn 建立会话 + GET SSE 活流输出，领域模块化单体组织（ADR-014） |
 | **智能大脑 (Agent Loop)** | `@aervox/agent-loop` + `@aervox/host-agent` | 多步工具调用循环、Lease & Fencing 租约恢复机制、异步收件箱排队 |
 | **认知进化 (Cognition)** | `@aervox/practice-review` + `@aervox/diary` | SM-2 科学复习排期调度、时区安全幂等计算、夜间日记 Prompt 渲染引擎 |
-| **本地真源 (Data Vault)** | SQLite (WAL 模式) + Drizzle ORM（[AVX-DB-001](docs/reference/DATABASE.md)） | 永久单用户本地真源，131 张业务表完整索引，FTS5 全文 + 向量混合检索 |
+| **本地真源 (Data Vault)** | SQLite (WAL 模式) + Drizzle ORM（[AVX-DB-001](docs/reference/DATABASE.md)） | 永久单用户本地真源，133 张业务表完整索引，FTS5 全文 + 向量混合检索 |
 | **后台作业 (Worker)** | 独立 Worker 进程（`tsx` 驱动） | SQLite Outbox 事务消费、定时排期批处理、日记生成、过期证据物理擦除 |
 | **开放扩展 (Ecosystem)** | MCP (Streamable HTTP) + AstrBot Skill + Plugins | 插件打包与安装安全预检、扩展配置与 UI 页面注入、物理断路器控制 |
 | **工程工具 (Tooling)** | TypeScript 5.x + pnpm 11 + Turborepo + mise | 统一工具链版本锁定，零幽灵依赖，秒级增量构建与受控测试编排 |
@@ -148,7 +148,7 @@ packages/
   agent-loop/       Agent Turn 执行核心：多 Provider、工具循环、租约恢复与上下文压缩
   host-agent/       内嵌异步 Agent Host：任务领取、心跳续租、受控收件箱与进程外驱动
   contracts/        Zod 契约事实源 → OpenAPI 3.1（流式协议 / 学习域 / 插件 / Persona）
-  schema/           Drizzle 表结构与实体模式定义（131 张业务表唯一事实源）
+  schema/           Drizzle 表结构与实体模式定义（133 张业务表唯一事实源）
   repositories/     LibSQL/SQLite 仓储层：DDL、迁移、事务执行器与混合检索
   practice-review/  SM-2 间隔重复自适应排期引擎（幂等 + 时区安全调度）
   diary/            AI 记忆日记生成共享包（素材窗口 / 模板引擎 / Prompt 构建）
@@ -166,9 +166,9 @@ packages/
 
 为了从根源上杜绝架构文档、数据库定义、跨层契约与依赖拓扑随时间推移产生的多源漂移，仓库内置了 5 道自动化防漂移系统级门禁（在本地 `./aervox ci` 与 GitHub Actions CI 中严格阻断）：
 
-- **Guard 1 (P0 表结构双源等价守卫)**：内存 SQLite DDL 与 Drizzle Schema 全量 131 表双向等价断言，杜绝建表遗漏 Schema 或 Schema 遗漏 DDL；
+- **Guard 1 (P0 表结构双源等价守卫)**：内存 SQLite DDL 与 Drizzle Schema 全量 133 表双向等价断言，杜绝建表遗漏 Schema 或 Schema 遗漏 DDL；
 - **Guard 2 (P0 AST 级租户遗留标识拦截)**：基于 Babel AST 语法树遍历，硬性阻断 `TenantContext`、`tenantId` 及承载 `LocalContext` 的 `tenant` 变量复发；
-- **Guard 3 (P1 文档-代码自动渲染与校验)**：校验 131 张表在覆盖矩阵中的登记完整性、校验 18 个工作区包与架构拓扑对齐、自动化 ADR 索引生成与 `--check` 一致性门禁；
+- **Guard 3 (P1 文档-代码自动渲染与校验)**：校验 133 张表在覆盖矩阵中的登记完整性、校验 18 个工作区包与架构拓扑对齐、自动化 ADR 索引生成与 `--check` 一致性门禁；
 - **Guard 4 (P1 跨层 DTO 类型单一真源)**：扫描下游应用层，严禁本地重复声明已由 `@aervox/contracts` 导出的 DTO 类型；
 - **Guard 5 (P2 依赖提升与版本分裂治理)**：扫描子包 `package.json`，严禁重复声明根级构建工具（`typescript`、`turbo`、`vitest` 等）。
 
