@@ -3,11 +3,11 @@
  *
  * 规则依据：ADR-004 + ADR-013
  */
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, or, lt, sql, notInArray } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { outboxEvents } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
-import type { IOutboxRepository, OutboxEventModel } from "../types/index.js";
+import type { FetchPendingEventsOptions, IOutboxRepository, OutboxEventModel } from "../types/index.js";
 
 export class SqliteOutboxRepository implements IOutboxRepository {
   constructor(private readonly db: AervoxDatabase) {}
@@ -39,11 +39,44 @@ export class SqliteOutboxRepository implements IOutboxRepository {
     return created as OutboxEventModel;
   }
 
-  async fetchPendingEvents(limit: number = 50): Promise<OutboxEventModel[]> {
+  async fetchPendingEvents(
+    optionsOrLimit?: number | FetchPendingEventsOptions,
+  ): Promise<OutboxEventModel[]> {
+    const opts: FetchPendingEventsOptions =
+      typeof optionsOrLimit === "number"
+        ? { limit: optionsOrLimit }
+        : (optionsOrLimit ?? {});
+    const limit = opts.limit ?? 50;
+    const maxRetries = opts.maxRetries ?? 3;
+
+    const conditions = [];
+
+    if (opts.includeRetriable) {
+      conditions.push(
+        or(
+          eq(outboxEvents.status, "pending"),
+          and(
+            eq(outboxEvents.status, "failed"),
+            lt(outboxEvents.retryCount, maxRetries),
+          ),
+        ),
+      );
+    } else {
+      conditions.push(eq(outboxEvents.status, "pending"));
+    }
+
+    if (opts.eventType) {
+      conditions.push(eq(outboxEvents.eventType, opts.eventType));
+    }
+
+    if (opts.excludeEventTypes && opts.excludeEventTypes.length > 0) {
+      conditions.push(notInArray(outboxEvents.eventType, opts.excludeEventTypes));
+    }
+
     const rows = await this.db
       .select()
       .from(outboxEvents)
-      .where(eq(outboxEvents.status, "pending"))
+      .where(and(...conditions))
       .orderBy(outboxEvents.createdAt)
       .limit(limit);
     return rows as OutboxEventModel[];
@@ -60,14 +93,40 @@ export class SqliteOutboxRepository implements IOutboxRepository {
       .where(eq(outboxEvents.id, eventId));
   }
 
-  async markFailed(eventId: string, error: string): Promise<void> {
+  async markFailed(
+    eventId: string,
+    error: string,
+    options?: { maxRetries?: number },
+  ): Promise<{ status: "failed" | "dead_letter"; retryCount: number } | null> {
+    const maxRetries = options?.maxRetries ?? 3;
+    const [updated] = await this.db
+      .update(outboxEvents)
+      .set({
+        retryCount: sql`${outboxEvents.retryCount} + 1`,
+        status: sql`CASE WHEN ${outboxEvents.retryCount} + 1 >= ${maxRetries} THEN 'dead_letter' ELSE 'failed' END`,
+        lastError: error,
+      })
+      .where(eq(outboxEvents.id, eventId))
+      .returning();
+    return (updated as { status: "failed" | "dead_letter"; retryCount: number }) ?? null;
+  }
+
+  async markDeadLetter(eventId: string, reason: string): Promise<void> {
     await this.db
       .update(outboxEvents)
       .set({
-        status: "failed",
-        retryCount: sql`${outboxEvents.retryCount} + 1`,
-        lastError: error,
+        status: "dead_letter",
+        lastError: reason,
       })
       .where(eq(outboxEvents.id, eventId));
+  }
+
+  async getEventById(eventId: string): Promise<OutboxEventModel | null> {
+    const [found] = await this.db
+      .select()
+      .from(outboxEvents)
+      .where(eq(outboxEvents.id, eventId))
+      .limit(1);
+    return (found as OutboxEventModel) ?? null;
   }
 }
