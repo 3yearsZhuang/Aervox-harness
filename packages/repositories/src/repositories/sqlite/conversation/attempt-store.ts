@@ -197,19 +197,49 @@ export class AttemptStore {
     return (row as { status: string } | undefined)?.status ?? null;
   }
 
-  /** 3b-B：恢复过期 Attempt（扫描 Running + 租约过期 → fencing+1 + Interrupted + finishedAt） */
-  async recoverExpiredAttempts(client: import("@libsql/client").Client): Promise<number> {
-    const now = new Date().toISOString();
+  /**
+   * 3b-B / ARC-01：恢复过期与未认领孤儿 Attempt，并同步 turns 状态。
+   * - 已 claim 且租约过期：lease_expires_at IS NOT NULL AND lease_expires_at < now
+   * - 未 claim 孤儿 Attempt：lease_expires_at IS NULL AND started_at < unclaimedThreshold
+   * - 同步推进 turns：将无在跑 Attempt 且状态仍为 Created/Running 的 Turn 推进至 Interrupted
+   */
+  async recoverExpiredAttempts(
+    client: import("@libsql/client").Client,
+    options?: { unclaimedTimeoutMs?: number },
+  ): Promise<number> {
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const unclaimedTimeoutMs = options?.unclaimedTimeoutMs ?? 60_000;
+    const unclaimedThresholdIso = new Date(now.getTime() - unclaimedTimeoutMs).toISOString();
+
     const result = await client.execute(`
       UPDATE turn_attempts
       SET status = 'Interrupted',
           fencing_token = fencing_token + 1,
-          finished_at = '${now}'
+          finished_at = '${nowIso}'
       WHERE status = 'Running'
-        AND lease_expires_at IS NOT NULL
-        AND lease_expires_at < '${now}'
+        AND (
+          (lease_expires_at IS NOT NULL AND lease_expires_at < '${nowIso}')
+          OR
+          (lease_expires_at IS NULL AND started_at < '${unclaimedThresholdIso}')
+        )
     `);
-    // SQLite UPDATE 不返回行，受影响行数由 libsql rowsAffected 提供
-    return result.rowsAffected ?? 0;
+
+    const rowsAffected = result.rowsAffected ?? 0;
+    if (rowsAffected > 0) {
+      await client.execute(`
+        UPDATE turns
+        SET status = 'Interrupted'
+        WHERE status IN ('Created', 'Running')
+          AND id IN (
+            SELECT turn_id FROM turn_attempts WHERE status = 'Interrupted'
+          )
+          AND id NOT IN (
+            SELECT turn_id FROM turn_attempts WHERE status = 'Running'
+          )
+      `);
+    }
+
+    return rowsAffected;
   }
 }

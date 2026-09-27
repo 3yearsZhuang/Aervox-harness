@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.5.1
-updated_at: 2026-09-26
-reviewed_at: 2026-09-26
+version: 0.5.2
+updated_at: 2026-09-27
+reviewed_at: 2026-09-27
 review_interval_days: 90
 sources:
   - docs/reference/DATABASE.md
@@ -18,7 +18,7 @@ sources:
 # Aervox｜思隅 数据库数据模型覆盖矩阵（Database Coverage Matrix）
 
 - 提出人：3yearszhuang · 2026-09-10
-- 修改人：kikoyida · 2026-09-26
+- 修改人：3yearszhuang · 2026-09-27
 
 关联：[SQLite 本地单用户数据库契约](DATABASE.md)（AVX-DB-001）、[产品需求文档 PRD §8](PRD.md#prd-data)（AVX-PRD-001）、`CR-030`（已归档）
 
@@ -227,6 +227,6 @@ sources:
 
 ## 覆盖总结
 
-- **全量落表总数**：**131 张业务表** + 2 张 FTS5 全文搜索虚拟表（`messages_fts`、`memories_fts`）+ 1 张内部迁移日志表（`_migration_journal`），共计 134 张 SQLite 表。
+- **全量落表总数**：**133 张业务表** + 2 张 FTS5 全文搜索虚拟表（`messages_fts`、`memories_fts`）+ 1 张内部迁移日志表（`_migration_journal`），共计 136 张 SQLite 表。
 - **单一事实源约束**：所有业务表的 Schema 定义在 `@aervox/schema`，对应的 SQLite DDL 与索引初始化由 `@aervox/repositories` 承载，并通过自动化测试（`schema-index-parity.test.ts`）严格保证 Schema 与 DDL 的 100% 结构一致。
-- **纯本地单用户架构**：CR-030 去租户化彻底闭环，全库 131 张业务表均无 `workspace_id` 与 `subject_user_id` 租户隔离列。
+- **纯本地单用户架构**：CR-030 去租户化彻底闭环，全库 133 张业务表均无 `workspace_id` 与 `subject_user_id` 租户隔离列。

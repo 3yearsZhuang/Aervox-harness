@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.16.2
+version: 1.17.2
 updated_at: 2026-09-26
 reviewed_at: 2026-09-26
 review_interval_days: 90
@@ -72,7 +72,7 @@ review_interval_days: 90
 | `AVX-HAR-002` | [Agent Loop 分阶段落地进展与追溯历史](reference/agent-loop-rollout-history.md) | 2026-09-17 | 各阶段代码落位、表结构或测试矩阵变更 | 落地条目、测试覆盖映射或包路径与实现不一致 |
 | `AVX-WEB-001` | [Web 工作台实现说明](explanation/web-implementation.md) | 2026-09-18 | Web 端实现或技术基线变更 | `apps/web` 结构与 ADR-015/规划不一致 |
 | `AVX-PLUG-001` | [Aervox 插件开发规范](reference/plugin-config-and-pages.md) | 2026-09-18 | 插件声明、分发、生命周期或运行时机制变更 | Manifest、Config、Page Bridge、Turn、UI、开发者约束与机器强制范围不一致 |
-| `AVX-PLAN-001` | [当前迭代计划](../plan.md) | 2026-09-18 | 每次认领、改序、范围变化、移交与迭代复盘 | 出现第二份活动队列，或依赖、证据、状态与当前工作不符 |
+| `AVX-PLAN-001` | [当前迭代计划](../plan.md) | 2026-09-22 | 每次认领、改序、范围变化、移交与迭代复盘 | 出现第二份活动队列，或依赖、证据、状态与当前工作不符 |
 | `AVX-DOC-GOV-001` | [文档治理与事实源规范](reference/document-governance.md) | 2026-09-18 | 文档分类、状态、事实源、复核触发或迁移策略变更 | 策略 JSON、校验器、索引、登记表或写作规范与治理基线不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 2026-09-18 | 写作规则、模板或季度评审 | 新文档未使用规范元数据/签名，或 Vale 规则与术语表不一致 |
 | `AVX-STD-002` | [代码与 API 命名规范](reference/standards/naming-conventions.md) | 2026-09-17 | 命名规则、术语或季度评审 | `tenant` 残留扩大化、`@aervox/database` 复现、路由/包命名偏离本文，或新规则未先登记即落地 |
@@ -86,10 +86,11 @@ review_interval_days: 90
 | `AVX-EXPL-005` | [ESP32-S3 硬件延伸](explanation/esp32-s3-hardware-extension.md) | 2026-09-18 | 硬件方案、设备协议或设备能力（独立设备 CAP 提议）立项变更 | 硬件边界、设备协议、隐私红线或阶段结论与后续设备专项决策 / 追踪基线 §4.2 / 数据隐私规范不一致 |
 | `AVX-EXPL-010` | [底层优化审阅与建议](explanation/foundation-optimization-review.md) | 2026-09-18 | Outbox、Host、插件安装、持久化或构建路径变更 | 代码证据、问题适用范围、修复状态或验收建议已过期 |
 | `AVX-EXPL-012` | [当前架构实现与演进评估](explanation/architecture-implementation-review.md) | 2026-09-18 | 执行调度、数据生命周期、模块边界、本地模型、部署或 CI 变更 | 生产接线、故障实验、ADR 差异、优先级或测量计划与当前实现不符 |
+| `AVX-EXPL-013` | [HLS 本地智能体竞赛：能力拓展与验证规划](explanation/hls-agent-competition-plan.md) | 2026-09-22 | 赛规、GPU/工具环境、Agent 复用路径或实验范围变化；每两周复核 | 评分口径、工具反馈可见性、基线公平、去留证据或交付边界与实测/最新细则不一致 |
 | `AVX-EXPL-011` | [配套硬件方向：能力核查、移动协同取舍与原型路线](explanation/companion-hardware-directions.md) | 2026-09-18 | 移动范围、设备宿主、语音、表现协议、本地模型或外部连接能力变更 | 能力现状、手机重合、器件候选、原型范围、成本或停止条件与实际证据不一致 |
 | `AVX-EXPL-008` | [主动智能模式设计方案](explanation/proactive-intelligence-mode.md) | 2026-09-18 | CR-023/CAP-033、完全访问、全量画像、OS 能力授权、特权观察 Host、本地处理、动作授权、CAP-022/026/027/030 变更 | 四维状态、完整画像 manifest、平台能力清单、OS grant、本地出网边界、七天提炼保留、动作授权、阻断项或实现门禁与基线不一致 |
-| `AVX-DOC-001` | [文档索引](README.md) | 2026-09-18 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
-| `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-09-18 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |
+| `AVX-DOC-001` | [文档索引](README.md) | 2026-09-22 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
+| `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-09-22 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |
 | `AVX-DOC-CONF-001` | [文档生命周期登记表](DOC_REGISTRY.md) | 2026-09-26 | 每季度 + 每次文档集变更 | 登记条目与实际文档集不一致 |
 | `CR-053` | [CR-053 llama.cpp 本地模型作为底层能力接入与模型能力探测预算适配](reference/changes/CR-053-llamacpp-provider-and-local-model-support.md) | 2026-09-17 | 变更生命周期 + 决策变更 | 实现与提案差量、决策状态或回滚预案不一致 |
 | `CR-054` | [CR-054 本地模型运行时管理：GGUF 下载与 llama-server 进程生命周期](reference/changes/CR-054-local-model-runtime-management.md) | 2026-09-17 | 变更生命周期 + 决策变更 | 实现与提案差量、决策状态或回滚预案不一致 |
