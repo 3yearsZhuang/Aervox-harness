@@ -36,15 +36,24 @@
     {
       "id": "ITER-002",
       "batch": "first",
-      "status": "建议",
+      "status": "已移交",
       "delivery": "可靠接单与 Outbox：先修消费者抢先完成，再闭合 Turn/Attempt/Inbox/可重放输入与受控派发；ARC-01、FND-01/05；CAP-007",
       "gate": "拆为消费修复与调度切片；新状态、容量/接单语义或多订阅契约先 CR",
       "acceptance": [
         "提交、预加载、claim 各点中断后已受理任务可追踪",
         "无永久未领取孤儿，不重复消费/副作用"
       ],
+      "checks": [
+        "`apps/worker/test/outbox-worker.test.ts`",
+        "`apps/api/test/conversation-dispatch-resilience.test.ts`"
+      ],
       "owner": "platform",
-      "dependsOn": []
+      "branch": "fix/iter-002-reliable-dispatch-and-outbox",
+      "statusNote": "2026-09-18 移交：完成两阶段切片闭环——切片一修复 Outbox 消费归属、事件类型隔离、死信转移与抢先完成防御（FND-01）；切片二闭合 Turn/Attempt 预加载异常状态终态化与未认领孤儿 Attempt 扫描恢复（ARC-01）；测试用例 apps/worker/test/outbox-worker.test.ts 与 apps/api/test/conversation-dispatch-resilience.test.ts 全绿，./aervox ci 通过",
+      "dependsOn": [],
+      "links": [
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
+      ]
     },
     {
       "id": "ITER-003",

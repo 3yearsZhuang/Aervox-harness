@@ -12,6 +12,7 @@
  * 仅在完整响应持久化后投递该事件）。
  */
 import type {
+  LocalContext,
   SqliteMemoryCompactionRepository,
   SqliteOutboxRepository,
 } from "@aervox/repositories";
@@ -32,13 +33,17 @@ const id = (prefix: string): string =>
 
 /** 单次消费；返回成功落库的标记数 */
 export async function runCompactionMarkerCycle(deps: CompactionMarkerContext): Promise<number> {
-  const events = await deps.outboxRepo.fetchPendingEvents(deps.limit ?? 50);
+  const events = await deps.outboxRepo.fetchPendingEvents({
+    limit: deps.limit ?? 50,
+    eventType: COMPACTION_EVENT_TYPE,
+    includeRetriable: true,
+  });
   let markers = 0;
 
   for (const event of events) {
     if (event.eventType !== COMPACTION_EVENT_TYPE) continue;
 
-    const ctx = { workspaceId: "local", subjectUserId: "local" };
+    const localCtx: LocalContext = { workspaceId: "local", subjectUserId: "local" };
     const payload = (event.payload ?? {}) as {
       memoryId?: string;
       snapshotId?: string;
@@ -52,7 +57,7 @@ export async function runCompactionMarkerCycle(deps: CompactionMarkerContext): P
       if (!payload.memoryId || !payload.snapshotId) {
         throw new Error("compaction event payload missing memoryId/snapshotId");
       }
-      await deps.compactionRepo.upsertMarker(ctx, {
+      await deps.compactionRepo.upsertMarker(localCtx, {
         id: id("mark"),
         memoryId: payload.memoryId,
         snapshotId: payload.snapshotId,
@@ -63,7 +68,7 @@ export async function runCompactionMarkerCycle(deps: CompactionMarkerContext): P
         thoughtDurationMs: payload.thoughtDurationMs ?? null,
         summaryDurationMs: payload.summaryDurationMs ?? null,
       });
-      await deps.compactionRepo.recordEvent(ctx, {
+      await deps.compactionRepo.recordEvent(localCtx, {
         id: id("evt"),
         memoryId: payload.memoryId,
         action: "compressed",

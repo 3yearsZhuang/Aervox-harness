@@ -239,54 +239,75 @@ export function registerConversationRoutes(
     await conversationRepo.createTurnAttempt(tenant, turnId, { id: attemptId, attempt: 1 });
     const uqPort = deps.userQuestionCoordinator ? deps.userQuestionCoordinator.createPort(tenant) : undefined;
     const practiceAttemptPort = deps.practiceAttemptFactory ? deps.practiceAttemptFactory(tenant) : undefined;
-    const runLoop = async () =>
-      runLoopTurnOnce(
-      conversationRepo,
-      tenant,
-      {
-        turnId,
-        sessionId,
-        attemptId,
-        userMessage,
-        metadata: parsed.data.metadata,
-      },
-      {
-        toolRuntime: deps.toolRuntime,
-        llmConfigService: deps.llmConfigService,
-        modelRoutingService: deps.modelRoutingService,
-        safetyService: deps.safetyService,
-        // 人格覆盖：激活人格的名称/设定/技能白名单覆盖系统默认（无人格时 undefined 不注入）
-        persona: deps.personaLoader ? await deps.personaLoader(tenant) : undefined,
-        // 2d：删除/撤权水位未追平 → Loop fail-closed（AVX-HAR-001 §11.3）
-        deletionGate: deps.privacyRepo
-          ? { isBlocked: async () => deps.privacyRepo!.hasPendingDeletionRequest(tenant) }
-          : undefined,
-        // 5a-2：受控收件箱端口（每 Step 消费 next-step；steer/inject 注入上下文）
-        inbox: deps.inboxRepo ? createTenantInboxPort(deps.inboxRepo, tenant) : undefined,
-        // 5b：Skill 渐进披露（activeOnly 清单注入 system prompt）
-        skills: deps.skillLoader ? await deps.skillLoader() : undefined,
-        // 5c：Subagent/Workflow Contribution（独立 Tool/Provider 组合；惰性工厂按 request tenant 绑定）
-        subagentFactory: deps.subagentFactory,
-        workflows: deps.workflows,
-        // 阶段 7：Step 级 ModelRun + 每 Turn ContextManifest 快照落库
-        platformRepo: deps.platformRepo,
-        // UQ-01: 向用户提问端口
-        userQuestionPort: uqPort,
-        // CAP-016: 刷题模式作答落库端口
-        practiceAttemptPort,
-        proactiveActionAuthorizer: deps.proactiveActionAuthorizer,
-        proactiveRepository: deps.proactiveRepository,
-        memoryRecall: deps.memoryRecall,
-        extensionRepo: deps.extensionRepo,
-        pluginConfigRepo: deps.pluginConfigRepo,
-        pluginRegistry: deps.pluginRegistry,
-        observability: deps.observability,
-      },
-    );
+    const runLoop = async () => {
+      try {
+        await runLoopTurnOnce(
+          conversationRepo,
+          tenant,
+          {
+            turnId,
+            sessionId,
+            attemptId,
+            userMessage,
+            metadata: parsed.data.metadata,
+          },
+          {
+            toolRuntime: deps.toolRuntime,
+            llmConfigService: deps.llmConfigService,
+            modelRoutingService: deps.modelRoutingService,
+            safetyService: deps.safetyService,
+            // 人格覆盖：激活人格的名称/设定/技能白名单覆盖系统默认（无人格时 undefined 不注入）
+            persona: deps.personaLoader ? await deps.personaLoader(tenant) : undefined,
+            // 2d：删除/撤权水位未追平 → Loop fail-closed（AVX-HAR-001 §11.3）
+            deletionGate: deps.privacyRepo
+              ? { isBlocked: async () => deps.privacyRepo!.hasPendingDeletionRequest(tenant) }
+              : undefined,
+            // 5a-2：受控收件箱端口（每 Step 消费 next-step；steer/inject 注入上下文）
+            inbox: deps.inboxRepo ? createTenantInboxPort(deps.inboxRepo, tenant) : undefined,
+            // 5b：Skill 渐进披露（activeOnly 清单注入 system prompt）
+            skills: deps.skillLoader ? await deps.skillLoader() : undefined,
+            // 5c：Subagent/Workflow Contribution（独立 Tool/Provider 组合；惰性工厂按 request tenant 绑定）
+            subagentFactory: deps.subagentFactory,
+            workflows: deps.workflows,
+            // 阶段 7：Step 级 ModelRun + 每 Turn ContextManifest 快照落库
+            platformRepo: deps.platformRepo,
+            // UQ-01: 向用户提问端口
+            userQuestionPort: uqPort,
+            // CAP-016: 刷题模式作答落库端口
+            practiceAttemptPort,
+            proactiveActionAuthorizer: deps.proactiveActionAuthorizer,
+            proactiveRepository: deps.proactiveRepository,
+            memoryRecall: deps.memoryRecall,
+            extensionRepo: deps.extensionRepo,
+            pluginConfigRepo: deps.pluginConfigRepo,
+            pluginRegistry: deps.pluginRegistry,
+            observability: deps.observability,
+          },
+        );
+      } catch (err) {
+        // ARC-01: 捕获预加载与执行初始化阶段异常，防止 Attempt/Turn 永久滞留于 Running/Created
+        const errMsg = err instanceof Error ? err.message : String(err);
+        deps.observability?.log.error({
+          event: "turn.dispatch_failed",
+          message: `Turn ${turnId} pre-execution failed: ${errMsg}`,
+          fields: { turnId, sessionId, attemptId, error: errMsg },
+        });
+
+        // 推进 Attempt 终态
+        await conversationRepo.finalizeTurnAttempt(tenant, {
+          turnId,
+          attemptId,
+          status: "Failed",
+        }).catch(() => undefined);
+
+        // 同步推进 Turn 终态
+        await conversationRepo.updateTurnStatus(tenant, turnId, "Failed").catch(() => undefined);
+      }
+    };
     if (loadApiConfig().turnExecution === "inline") {
       await runLoop();
     } else {
-      // 后台执行：异常已在 runLoopTurnOnce 内部落 error 事件 + Failed 终态，此处仅兜底防 unhandledRejection
+      // 后台执行：异常已在 runLoop 内部捕获并推进 Failed 终态，此处仅兜底防 unhandledRejection
       void runLoop().catch(() => undefined);
     }
 
