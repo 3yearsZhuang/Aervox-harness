@@ -361,7 +361,7 @@ describe("DSH 官方 MCP 预设（dsh-mcp）端到端集成", () => {
       method: "POST",
       url: "/v1/tools/mcp__dsh-mcp__dsh_run_command/call",
       headers,
-      payload: { arguments: { command: "node -e 'console.log(123)'" } },
+      payload: { arguments: { command: 'node -e "console.log(123)"' } },
     });
     expect(noApproval.statusCode).toBe(400);
     expect(noApproval.json().isError).toBe(true);
@@ -370,7 +370,7 @@ describe("DSH 官方 MCP 预设（dsh-mcp）端到端集成", () => {
       method: "POST",
       url: "/v1/tools/mcp__dsh-mcp__dsh_run_command/call",
       headers,
-      payload: { arguments: { command: "node -e 'console.log(123)'" }, approval: true },
+      payload: { arguments: { command: 'node -e "console.log(123)"' }, approval: true },
     });
     expect(approved.statusCode).toBe(200);
     expect(approved.json().content[0].text).toContain("123");

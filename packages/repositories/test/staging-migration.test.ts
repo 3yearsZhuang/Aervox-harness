@@ -38,7 +38,7 @@ describe("CR-030 staging and atomic swap", () => {
       source.client.close();
       staging.client.close();
     } finally {
-      await fs.rm(directory, { recursive: true, force: true });
+      await fs.rm(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
