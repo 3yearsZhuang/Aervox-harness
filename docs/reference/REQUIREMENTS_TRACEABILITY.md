@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.45.0
-updated_at: 2026-09-18
-reviewed_at: 2026-09-18
+version: 1.46.0
+updated_at: 2026-09-22
+reviewed_at: 2026-09-22
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-18
+- 修改人：3yearszhuang · 2026-09-22
 
 产品需求来源：[PRD.md](PRD.md)
 
@@ -187,6 +187,7 @@ review_interval_days: 90
 
 | 落地内容与功能描述 | 关联 CAP | 实现与测试位置 | 日期 | 验证 | 来源 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| HLS 本地智能体竞赛规划（ITER-020，文档交付）：基于三人/C++/RX 9070 XT 条件核对 AMD 赛题，形成 P0～P4 技术路径、双入口与四组对照、反馈隔离、阶段准入和去留标准；接入唯一队列的实验建议与提交候选；修正队列回归测试固定 19 项的历史断言，改为编号唯一与实际计划条目一致性，允许合法扩展；不修改架构/能力状态 | CAP-007/020/027（关联评估，未新增或实现 CAP） + 文档治理 | [HLS 竞赛规划](../explanation/hls-agent-competition-plan.md)、[当前队列](../../plan.md)、文档索引/登记表/机器目录、`scripts/plan-queue.test.mjs` | 2026-09-22 | PDF 与 `da602ac` 源码静态核对；`mise tasks run ci-docs` 全量通过（治理回归 33/33、队列回归 9/9、78 文件 Markdownlint/Vale 及严格治理无问题）；`git diff --check` 通过；未执行 Radeon/Vitis、未产生通过率或批准产品化 | 原生规划；AMD 选题指南与 HLS-Eval 来源见专项文档 §9 |
 | 可靠接单与 Outbox 消费弹性闭环（ITER-002 全量落地）：按 ARC-01 与 FND-01/05 规范，完成两阶段切片交付。切片一（Outbox 消费归属与抢先完成防御）：`packages/repositories` 扩展 `FetchPendingEventsOptions` 支持 `eventType`/`excludeEventTypes` 严格隔离与 `includeRetriable` 重试拉取，`OutboxWorker` 排除非领域 Compaction 事件，杜绝消费者抢先将未被处理的领域事件置为 `done`；为 `IOutboxRepository` 落地超限转移 `dead_letter` 死信状态并持久化 `lastError`；`compaction-marker` 接入单用户 `localCtx` 并精准拉取压缩事件。切片二（对话接单弹性与孤儿 Attempt 恢复）：`apps/api` 对话路由在 `runLoop` 执行前包裹结构化异常捕获，在 skillLoader 等预加载中断时原子推进 Attempt 与 Turn 状态为 `Failed` 并更新 `finishedAt`，避免卡死在 `Running`/`Created`；扩展 `recoverExpiredAttempts` 支持孤儿扫描（`lease_expires_at IS NULL AND started_at < unclaimedThreshold`），将接单崩溃等未认领孤儿 Attempt 推进至 `Interrupted`（递增 `fencingToken`），并同步推进所属 Turn 状态至 `Interrupted`，彻底杜绝无租约孤儿 Attempt 永久驻留。 | CAP-007 + 基础设施（可靠调度与 Outbox） | `packages/repositories/src/repositories/sqlite/outbox-repository.ts`、`packages/repositories/src/repositories/types/outbox.ts`、`packages/repositories/src/repositories/sqlite/conversation-repository.ts`、`packages/repositories/src/repositories/sqlite/conversation/attempt-store.ts`、`apps/worker/src/outbox-worker.ts`、`apps/worker/src/compaction-marker.ts`、`apps/api/src/modules/companion/conversation/routes.ts`、`apps/worker/test/outbox-worker.test.ts`、`apps/api/test/conversation-dispatch-resilience.test.ts` | 2026-09-18 | `apps/worker/test/outbox-worker.test.ts` 4/4 测试通过（验证隔离消费、反向执行序、重试转死信、自定义处理器）；`apps/api/test/conversation-dispatch-resilience.test.ts` 2/2 测试通过（验证预加载异常收敛与未认领孤儿扫描恢复）；`./aervox test api` 69 文件 462 测试全绿；`./aervox test repos` 50 文件 261 测试全绿；`./aervox ci` 增量门禁 14 任务全部通过 | 原生 |
 | 自动化防漂移系统级门禁守护套件（Guard 1～Guard 5 全量落地）：按多源漂移根治方案，建立 5 道系统级自动化防护门禁，杜绝多源漂移与过度设计复发。Guard 1（P0 表结构双源等价门禁）：`packages/repositories/test/schema-index-parity.test.ts` 接入 SQLite DDL 与 Drizzle Schema 全量 131 表双向等价断言（过滤 FTS5 虚表与阴影表），杜绝 DDL 与 Schema 漂移；Guard 2（P0 AST 级租户遗留标识拦截门禁）：`scripts/check-banned-identifiers.mjs` 基于 Babel AST 递归扫描 `packages/` 与 `apps/` 生产代码，禁止出现 `TenantContext`、`tenantId` 及承载 `LocalContext` 的 `tenant` 变量（违规即退出非零），同步清理残留测试变量；Guard 3（P1 文档-代码自动渲染与一致性校验）：`scripts/check-database-matrix.mjs` 校验 131 表在 `database-coverage-matrix.md` 的覆盖率、`scripts/check-architecture-topology.mjs` 校验 18 个工作区包与 `ARCHITECTURE.md` §3 拓扑一致性、`scripts/render-adr-index.mjs` 支持 ADR 索引表自动渲染与 `--check` 一致性门禁；Guard 4（P1 DTO 类型跨层单一真源门禁）：`scripts/check-type-boundary.mjs` 扫描下游应用层严禁本地 redeclare 契约 DTO 类型（收敛 PluginDeclaredTool/Skill 等并扩展 `@aervox/contracts`）；Guard 5（P2 依赖提升与版本分裂门禁）：`scripts/check-dep-hoisting.mjs` 禁止子包私自声明根级构建/测试工具；流水线接入：`package.json`（`check:guards`、`docs:render`）与 `mise.toml`（`ci-fast`、`ci-code`、`ci-code-full`、`ci-docs`）全面前置阻断 | 基础设施（多源漂移根治门禁、CI/CD 自动化守护） | `packages/repositories/test/schema-index-parity.test.ts`、`scripts/check-{banned-identifiers,database-matrix,architecture-topology,type-boundary,dep-hoisting}.{mjs,test.mjs}`、`scripts/render-adr-index.{mjs,test.mjs}`、`package.json`、`mise.toml`、`packages/contracts/`、`apps/api/`、`packages/host-agent/`、`docs/reference/{ARCHITECTURE,adr/README}.md` | 2026-09-18 | `pnpm check:guards` 21/21 单元测试全绿 + 6 项守卫全部秒级通过；`mise tasks run ci-docs` 33 套件 + ADR/拓扑/DB Matrix 校验 + Vale/Markdownlint 77 文件 0 错误 0 告警；`./aervox ci` 增量门禁 24 任务全绿；反向验证：故意引入禁写变量/缺失表/版本分裂即报错误并阻断 | 原生 |
 | 项目卫生治理与多源漂移收敛（批次 A+B 全量落地闭环）：按项目卫生审计报告落实全部批次 A（立即执行：数据完整性与硬红线）与批次 B（当前迭代：多源漂移收敛）。数据契约：为 6 处部分唯一索引补齐 `.where()` 谓词（D-03）；批量清理 Repositories 模型接口中 144 行残留 `workspaceId`/`subjectUserId`（D-04）；补齐 `mcp_tools` 与 `workspace_skills` 的 Drizzle Schema 并消除 `schema-index-parity` 测试豁免（R-02）；清理 `event-bus.ts` 及死 shim 导出（R-01/R-04）；跨层契约统一接入 `@aervox/contracts` 作为 L0 真源（D-05）。依赖与构建：清理 8 个子包重复 `vitest` 声明、`@aervox/ui` 未使用 `Playwright`（C-02/C-05），为 9 个包构建补齐 `rm -rf dist`（R-09）。文档事实源：对齐 ARCHITECTURE 包拓扑与 ADR 索引状态（D-01/D-06），全量重写数据库覆盖矩阵 131 张业务表（D-02），修正追踪基线 CAP 数量与落地状态（D-07），收敛 ADR-004、注释残留、触发器路径与术语大小写规范（D-08~D-14）。单用户上下文语义：批量重命名 `tenant` 参数与局部变量为 `ctx`/`localCtx`，消除变量遮蔽与命名混淆（N-01） | 基础设施（数据契约一致性、项目卫生治理） | `packages/schema/src/{content,ecosystem,learning,privacy,mcp-tools,workspace-skills,index}.ts`、`packages/repositories/src/`、`packages/contracts/src/{index,persona-schemas}.ts`、`packages/ui/src/components/SpritePet.vue`、`packages/api-client/src/`、`apps/api/`、`apps/worker/src/proactive/`、`docs/reference/{ARCHITECTURE,DATABASE,database-coverage-matrix,REQUIREMENTS_TRACEABILITY,capability-composition}.md`、`docs/reference/adr/` | 2026-09-18 | `./aervox ci` 增量门禁 27 任务通过；`schema-index-parity.test.ts` 零豁免通过；Repositories 全量 50 套件 260 用例全绿；API 全量 68 套件 460 用例全绿；Worker 全量 13 套件 62 用例全绿；UI 全量 90 用例全绿；`docs-affected` Vale/Markdownlint/严格治理校验 0 错误 0 告警 | 原生 |

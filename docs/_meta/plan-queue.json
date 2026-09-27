@@ -278,6 +278,62 @@
       ],
       "owner": "ecosystem/security",
       "dependsOn": []
+    },
+    {
+      "id": "ITER-020",
+      "batch": "first",
+      "status": "已移交",
+      "delivery": "HLS 本地智能体竞赛规划：三人团队、C++ 与 RX 9070 XT 条件下的能力复用、验证路径、实验协议和交付边界；AVX-EXPL-013；关联 CAP-007/020/027（规划，不改变能力状态）",
+      "gate": "本项仅文档交付；赛规、实测、实现授权和产品化分别判断，后续实验见 ITER-021",
+      "acceptance": [
+        "专项文档明确规则与环境、双入口、对照实验、冻结提交和产品回接路径",
+        "三人角色、预算估算、去留标准、来源和索引齐全，文档门禁通过"
+      ],
+      "owner": "platform/docs",
+      "branch": "docs/hls-competition-validation-plan",
+      "statusNote": "2026-09-22 文档移交：P0～P4 路径、三人角色、四组对照、冻结产物与去留标准已登记；ci-docs 全量通过（治理回归 33/33、队列回归 9/9、78 文件排版/术语及严格治理无问题）；未实施竞赛能力",
+      "dependsOn": [],
+      "links": [
+        "docs/explanation/hls-agent-competition-plan.md",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
+      ]
+    },
+    {
+      "id": "ITER-021",
+      "batch": "first",
+      "status": "建议",
+      "delivery": "HLS 竞赛可行性验证：规则与环境核对、双入口最小闭环、同模型配对对照与去留证据；AVX-EXPL-013 P0～P2；关联 CAP-007/020/027（探索）",
+      "gate": "依据 ITER-020 的规划复核范围与可投入工时；新增模块/工具合同先 CR；只修实际复用路径，不等待 ITER-007/008/013 全部完成",
+      "acceptance": [
+        "本地模型与 Vitis 真正运行，裸跑/Agent 双入口公平且逐题可追溯",
+        "留出题报告分级通过率、增益、不确定性与成本，并给出继续、限定补证或暂缓结论"
+      ],
+      "owner": "platform/competition（模型环境、HLS 工具、Agent 评测三个角色，待认领）",
+      "dependsOn": [
+        "ITER-020"
+      ],
+      "links": [
+        "docs/explanation/hls-agent-competition-plan.md#5-从验证到交付的阶段路径",
+        "docs/explanation/hls-agent-competition-plan.md#6-实验协议与去留依据"
+      ]
+    },
+    {
+      "id": "ITER-022",
+      "batch": "candidate",
+      "status": "建议",
+      "delivery": "HLS 参赛方案扩大验证与冻结提交：正式评分接口、最终 32 GB 环境、离线容器、固定技能和复现报告；AVX-EXPL-013 P3",
+      "gate": "ITER-021 证据支持继续且正式范围/必要 CR 已评审；先取得最新细则与提交窗口；本项不自动包含产品化、微调或硬件采购",
+      "acceptance": [
+        "官方目标环境在预算内完成，干净环境断网双入口可复现且冻结哈希一致",
+        "报告包含分级通过率、pass@1/pass@5、裸跑增益、墙钟和失败证据；产品化另作决定"
+      ],
+      "owner": "platform/competition",
+      "dependsOn": [
+        "ITER-021"
+      ],
+      "links": [
+        "docs/explanation/hls-agent-competition-plan.md#8-交付路径冻结与产品回接"
+      ]
     }
   ]
 }
