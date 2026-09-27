@@ -4,6 +4,15 @@
 import type { OutboxEventModel } from "./conversation.js";
 import type { LocalContext } from "../../local-context.js";
 
+export interface FetchPendingEventsOptions {
+  limit?: number;
+  eventType?: string;
+  excludeEventTypes?: string[];
+  /** 若为 true，同时拉取 status = 'failed' 且 retryCount < maxRetries 的可重试事件 */
+  includeRetriable?: boolean;
+  maxRetries?: number;
+}
+
 export interface IOutboxRepository {
   insertEvent(
     ctx: LocalContext,
@@ -15,9 +24,15 @@ export interface IOutboxRepository {
       controlEventId?: string | null;
     },
   ): Promise<OutboxEventModel>;
-  fetchPendingEvents(limit?: number): Promise<OutboxEventModel[]>;
+  fetchPendingEvents(optionsOrLimit?: number | FetchPendingEventsOptions): Promise<OutboxEventModel[]>;
   markPublished(eventId: string): Promise<void>;
-  markFailed(eventId: string, error: string): Promise<void>;
+  markFailed(
+    eventId: string,
+    error: string,
+    options?: { maxRetries?: number },
+  ): Promise<{ status: "failed" | "dead_letter"; retryCount: number } | null | void>;
+  markDeadLetter?(eventId: string, reason: string): Promise<void>;
+  getEventById?(eventId: string): Promise<OutboxEventModel | null>;
 }
 
 export interface MessageModel {
