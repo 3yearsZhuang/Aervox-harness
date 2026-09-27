@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.9.1
-updated_at: 2026-09-25
-reviewed_at: 2026-09-25
+version: 0.9.2
+updated_at: 2026-09-27
+reviewed_at: 2026-09-27
 review_interval_days: 90
 ---
 
 # 参考项目能力迁移与借鉴评估
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：kikoyida · 2026-09-25
+- 修改人：3yearszhuang · 2026-09-27
 
 关联：[参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[SQLite 本地单用户数据库契约](../reference/DATABASE.md)、[能力注册表](../reference/capability-registry.md)、[Agent Harness Loop 规范](../reference/agent-harness-loop.md)、[AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)
 
@@ -261,6 +261,7 @@ Aervox 自研落地（AGPLv3 仅借鉴设计，不复制源码）：
 | `DSH-01` | B（目标已文档化） | Agent Loop 阶段 0 前 | 2026-08-28 | `docs/reference/agent-harness-loop.md`（AVX-HAR-001）、`docs/reference/changes/CR-012-agent-harness-loop.md` | 已固化 Turn/Step、typed event、工具管线和 Adapter 边界；DSH 运行时尚未接入，不能标记为已实现 |
 | `PI-01` | B（目标已文档化） | Agent Loop 阶段 0 前 | 2026-08-28 | `docs/reference/agent-harness-loop.md`（AVX-HAR-001）、`docs/reference/changes/CR-012-agent-harness-loop.md` | 已固化 outer/inner loop、Inbox、lease/fencing 和进程外 Host 约束；pi 运行时尚未接入，不能标记为已实现 |
 | `GPH-01` | 设计借鉴，规则原型 | 当前复评第一步 | 2026-09-25 | `packages/repositories/src/temporal-fact-policy.ts` | 参考 Graphiti 的事实有效时间与来源时间分离；仅实现已确认事实的单步判定，未接入数据库或召回 |
+| `GPH-02` | 设计借鉴，投影实验 | 当前复评第二步 | 2026-09-26 | `packages/schema/src/temporal-facts.ts`、`packages/repositories/src/schema/ddl/temporal-facts.ts`、`packages/repositories/src/temporal-fact-projection.ts` | 承接 GPH-01 的单步判定，落实 SQLite 侧时态事实投影：事务内新增事实、关闭旧有效区间或追加证据；支持按时点查询与证据追溯，来源删除、来源修订或记忆失效后查询即时屏蔽；实验性质，不接入生产写入与召回 |
 | T-03 | A | 第二批 | 2026-08-26 | `packages/schema/src/memory-compaction.ts`、`repositories/sqlite/memory-compaction-repository.ts` | `memory_compaction_markers` 表 + 幂等仓储 |
 | T-05 | A | 第二批 | 2026-08-26 | `packages/schema/src/embeddings.ts`、`repositories/sqlite/memory-embedding-repository.ts` | `memory_embeddings` 独立表 + 批量/重试/余弦检索（对照 AST-02） |
 | PET-01 | A | 第二批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（`petCommandSchema`/`emoteEventDataSchema`） | SSE 表现指令契约预留 |

@@ -14,6 +14,7 @@ export * from "./outbox.js";
 export * from "./learning.js";
 export * from "./feedback.js";
 export * from "./provenance.js";
+export * from "./temporal-facts.js";
 export * from "./platform.js";
 export * from "./safety.js";
 export * from "./privacy.js";
