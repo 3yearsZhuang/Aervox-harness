@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.46.9
+version: 1.46.10
 updated_at: 2026-09-29
 reviewed_at: 2026-09-29
 review_interval_days: 90
@@ -187,6 +187,7 @@ review_interval_days: 90
 
 | 落地内容与功能描述 | 关联 CAP | 实现与测试位置 | 日期 | 验证 | 来源 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| Aervox Core 独立核心演进与 CR-056 全部架构切片闭环（ITER-007 / ITER-013 全量移交） | CAP-002/005/007/018/020/027/033 + 架构基础设施 | `packages/agent-loop/src/{control-context,ports,executor}.ts`、`packages/host-agent/src/host.ts`、`apps/api/src/modules/companion/conversation/agent-executor.ts`、`packages/api-client/src/projector.ts`、`packages/ui/src/components/AervoxWorkbench.vue`、`scripts/run-headless-agent.mjs`、[AVX-EXPL-014](../explanation/btd08-adapter-retirement-evaluation.md)、[CR-056](changes/CR-056-build-to-delete-pi-style-architecture.md)；BTD-05 统一执行控制回路（ControlContext 截止时间/取消/Token限制/调用预算）与 SessionLedger 窄接口全面解耦仓储；BTD-05/ITER-013 AgentHost 有界排空 drain(timeoutMs)；BTD-06 客户端安全投影（TurnStreamProjector 严格单调 sequence、防乱序逆序、终态封顶防迟到复活、跨 Turn/会话守卫隔离）；BTD-08 架构评估与正式决断（AVX-EXPL-014 认定原生自研已完全覆盖，第三方适配器正式退役封板，CR-056 跃迁为 Verified/Released）；Aervox Core CLI（零 Fastify/零网络/零 SQLite 数据库依赖的独立命令行内核，冷启动 ~20ms <= 150ms 门槛） | 2026-09-29 | check:guards 24/24（AST 可删除性守卫 0 违规）；packages/agent-loop 测试 8/8 通过；packages/host-agent 测试 2/2 通过；apps/api/test/agent-executor-control-context.test.ts 2/2 通过；packages/api-client 测试 54/54（projector 8/8）全绿；packages/ui 测试 94/94（session-projection-defense 2/2）全绿；scripts/run-headless-agent.mjs --smoke 5/5 自动化基准全通过（冷启动 19ms <= 150ms，RSS 51MB）；./aervox test fast 17 任务 94 测试全绿；ci-docs 全量文档门禁通过；plan-check 0 错误 | PI-01（设计参考，原生自研演进，零代码移植） + 原生实现 |
 | CR-056 / ITER-014 阶段一实施交付与剩余差量移交 | CAP-002/005/007/018/020/027/033 + 架构基础设施 | [CR-056](changes/CR-056-build-to-delete-pi-style-architecture.md)、[当前队列](../../plan.md)、`scripts/check-removable-implementation.mjs`、`apps/api/test/model-runtime-driver-spi.test.ts`、`apps/api/test/memory-tool-contribution.test.ts`；BTD-00～04 与 BTD-07 基础分层与可删除性演练全量闭环；BTD-05/06/08 差量明确交接至 ITER-007/013/019 | 2026-09-29 | check:guards 24/24（AST 可删除性守卫 0 违规）；check:boundary 19/19；全量 72 API 测试套件 476 用例全绿；./aervox ci 14 任务全绿；ci-docs 全量文档门禁通过；plan-check 0 错误 | PI-01（设计参考，未移植源码） + 原生实现 |
 | CR-056 BTD-04 模型 Driver 替换与代际生命周期 | 基础设施 / CAP-002/020 | apps/api/src/modules/ecosystem/model-runtime/{driver,service,index}.ts、apps/api/test/model-runtime-driver-spi.test.ts；ModelRuntimeService 依赖注入 Driver SPI，默认 unavailableDriver 拒绝无合规 Provider 且不出网，落地 start/stop/dispose 幂等编排与代际 protection | 2026-09-28 | API typecheck 通过；扩展 SPI 4 用例通过（验证注入编排、unavailable 拒绝与文件保留、生命周期与幂等释放、代际防污染）；原模型运行时 API 与子进程测试 22 用例全绿 | PI-01（设计参考，未移植源码） |
 | CR-056 BTD-07 可删除性守卫与演练 | 基础设施 / CAP-005/007/020/027 | scripts/check-removable-implementation.{mjs,test.mjs}、apps/api/test/memory-tool-contribution.test.ts、package.json；实现 MemoryStore 工具贡献与模型驱动全仓私有引用审计门禁，落地 Fake 注册表构造通用 Runtime 及 Memory 工具贡献挂载、使用、卸载退出与数据隔离演练 | 2026-09-28 | check:guards 24/24 全绿且可移除实现守卫 0 违规；Memory 工具贡献测试 3/3 通过；全量 72 套件 476 测试全绿 | PI-01（设计参考，未移植源码） |

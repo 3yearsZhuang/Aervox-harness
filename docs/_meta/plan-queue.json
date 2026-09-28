@@ -134,7 +134,7 @@
     {
       "id": "ITER-007",
       "batch": "first",
-      "status": "建议",
+      "status": "已移交",
       "delivery": "三个切片：父子任务/Driver 继承取消、截止、删除/授权修订与 local-only；执行时逐项核对 requiredPermissions/grants 的 scope/revision，由受信宿主映射 guarded/full_access 安全等级；动态工具 Schema 快照进入模型请求并在执行时重验；ARC-02/03、插件规范 §8.1；CAP-007/020/033",
       "gate": "既有策略接线优先；动态工具开放依赖真实 grant/审批校验及最终输入容量检查；新根预算与 Driver/授权合同先 CR；进一步压缩与成本优化留 ITER-017",
       "acceptance": [
@@ -143,7 +143,12 @@
         "最终输入加预留输出不超 Provider 窗口，超额有明确有界处理"
       ],
       "owner": "platform/ecosystem",
-      "dependsOn": []
+      "dependsOn": [],
+      "statusNote": "2026-09-29 实施移交：统一执行控制回路 ControlContext 落地，父子继承/截止时间/Token限制/取消级联全链路贯通；SessionLedger 窄接口落地解耦仓储；CR-056 BTD-05 闭环，详见 §4.2",
+      "links": [
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
+      ],
+      "branch": "feat/aervox-core-evolution"
     },
     {
       "id": "ITER-008",
@@ -221,7 +226,7 @@
     {
       "id": "ITER-013",
       "batch": "next",
-      "status": "建议",
+      "status": "已移交",
       "delivery": "有界运行和观测：Worker/Host drain、Provider 排队/取消、安全文本窗口、SSE 背压/分页、跨进程终态；复用 metrics；ARC-05/12、FND-05/06/09；CAP-007/018",
       "gate": "依赖 ITER-002/008 的相关切片；先观测后定参数；跨进程通知/新隔离边界先 CR",
       "acceptance": [
@@ -232,7 +237,12 @@
       "dependsOn": [
         "ITER-002",
         "ITER-008"
-      ]
+      ],
+      "statusNote": "2026-09-29 实施移交：落地 AgentHost 有界排空 drain(timeoutMs) 与全链路级联控制；落地客户端安全投影 TurnStreamProjector 与双端防乱序防复活状态机；CR-056 BTD-06 闭环，详见 §4.2",
+      "links": [
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
+      ],
+      "branch": "feat/aervox-core-evolution"
     },
     {
       "id": "ITER-014",
@@ -246,12 +256,12 @@
       ],
       "owner": "platform",
       "dependsOn": [],
-      "statusNote": "2026-09-29 实施移交：BTD-00～04 及 BTD-07 全量落地并通过双门禁与 CI（check:guards 24/24、全量 72 API 套件 476 测试全绿）；可删除性守护 0 违规，Fake 拔插演练通过；BTD-05/06/08 差量明确交接至 ITER-007/013/019，详见 §4.2",
+      "statusNote": "2026-09-29 实施移交：BTD-00～08 全量闭环（BTD-00～04/07 基础分层与可删除性，BTD-05/06 移交 ITER-007/013 落地，BTD-08 经 AVX-EXPL-014 评估正式退役封板），CR-056 跃迁为 Verified/Released，详见 §4.2",
       "links": [
         "docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md",
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
       ],
-      "branch": "docs/build-to-delete-pi-architecture-plan"
+      "branch": "feat/aervox-core-evolution"
     },
     {
       "id": "ITER-015",
