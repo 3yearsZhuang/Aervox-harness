@@ -107,6 +107,12 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
       };
       armIdleTimer();
 
+      if (request.signal?.aborted) {
+        controller.abort();
+      } else if (request.signal) {
+        request.signal.addEventListener("abort", () => controller.abort(), { once: true });
+      }
+
       try {
         const res = await fetch(`${baseUrl}/chat/completions`, {
           method: "POST",

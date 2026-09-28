@@ -99,6 +99,8 @@ export interface ExecuteTurnDeps {
    * 写入为可观测副作用（recordModelRun/recordContextManifest），不影响控制流。
    */
   modelRunMeta?: { provider?: string; modelId?: string; purpose?: string };
+  /** BTD-05 / ITER-007：统一执行控制上下文（可在 deps 或 input 中注入） */
+  controlContext?: import("./control-context.js").ControlContext;
   options?: ExecuteTurnOptions;
 }
 
@@ -142,7 +144,7 @@ export async function executeTurn(
   const maxConsecutiveSameTool = options?.maxConsecutiveSameTool ?? 0;
   const maxModelRetries = options?.maxModelRetries ?? 1;
   const startedAt = Date.now();
-  const control = input.controlContext;
+  const control = input.controlContext ?? deps.controlContext;
 
   // 4b 续跑：以「抢占续跑」语义重新 claim（预期 = 原执行已持有的 fencing）；
   // 全新执行为 0（首次 claim）。
@@ -356,6 +358,7 @@ export async function executeTurn(
           step,
           context,
           tools: tools?.tools,
+          signal: control?.abortSignal,
         })) {
           // B2：心跳检查点 —— 长流期间租约丢失则立即中止本 Step（不再产生新事件/副作用）
           heartbeat?.throwIfLost();
@@ -381,6 +384,8 @@ export async function executeTurn(
       try {
         chunks = await collectStep();
       } catch (err) {
+        const stop = await prematureTermination(sequence);
+        if (stop) return stop;
         if (canRetryModel && !reasoningEmitted && !(err instanceof LeaseLostError) && !heartbeat?.lost) {
           canRetryModel = false;
           midStreamStop = null;
@@ -778,6 +783,14 @@ export async function executeTurn(
     });
     return { status: "failed", attemptId: input.attemptId, reason: "max_steps" };
   } catch (err) {
+    if (control?.isExpired()) {
+      const atSeq = await execution.nextSequence(input.turnId);
+      return finalizeInterrupted(atSeq, "deadline_exceeded");
+    }
+    if (control?.isAborted()) {
+      const atSeq = await execution.nextSequence(input.turnId);
+      return finalizeCancelled(atSeq);
+    }
     // B1：事件写入被 fencing CAS 拒绝（Attempt 已被抢占/恢复）→ 立即中止，不再产生新副作用（AVX-HAR-001 §11.2）
     // B2：心跳探知租约已失（含工具 abort 引发的错误）→ 同样收敛 lease_lost
     if (err instanceof LeaseLostError || heartbeat?.lost) {

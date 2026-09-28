@@ -16,14 +16,16 @@ export interface CallBudget {
 }
 
 export interface ControlContextOptions {
-  readonly executionId: string;
-  readonly turnId: string;
-  readonly attemptId: string;
+  readonly executionId?: string;
+  readonly turnId?: string;
+  readonly attemptId?: string;
   readonly sessionId?: string;
   readonly parentExecutionId?: string;
-  readonly fencingToken: number;
+  readonly fencingToken?: number;
   readonly abortSignal?: AbortSignal;
   readonly deadlineEpochMs?: number;
+  /** 兼容别名 deadline */
+  readonly deadline?: number;
   readonly localProcessingOnly?: boolean;
   readonly tokenBudget?: TokenBudget;
   readonly callBudget?: CallBudget;
@@ -38,30 +40,10 @@ export interface SubtaskDerivationOptions {
   readonly localProcessingOnly?: boolean;
 }
 
-export interface ControlContext {
+export class ControlContext {
   readonly executionId: string;
-  readonly turnId: string;
-  readonly attemptId: string;
-  readonly sessionId?: string;
-  readonly parentExecutionId?: string;
-  readonly fencingToken: number;
-  readonly abortSignal: AbortSignal;
-  readonly deadlineEpochMs?: number;
-  readonly localProcessingOnly: boolean;
-  readonly tokenBudget?: Readonly<TokenBudget>;
-  readonly callBudget?: Readonly<CallBudget>;
-
-  isExpired(): boolean;
-  isAborted(): boolean;
-  recordTokensUsed(tokens: number): void;
-  recordCallUsed(): void;
-  deriveSubtask(options?: SubtaskDerivationOptions): ControlContext;
-}
-
-class ControlContextImpl implements ControlContext {
-  readonly executionId: string;
-  readonly turnId: string;
-  readonly attemptId: string;
+  readonly turnId?: string;
+  readonly attemptId?: string;
   readonly sessionId?: string;
   readonly parentExecutionId?: string;
   readonly fencingToken: number;
@@ -74,14 +56,14 @@ class ControlContextImpl implements ControlContext {
   private readonly abortController: AbortController;
   private timer?: ReturnType<typeof setTimeout>;
 
-  constructor(options: ControlContextOptions) {
-    this.executionId = options.executionId;
+  constructor(options: ControlContextOptions = {}) {
+    this.executionId = options.executionId ?? (options.attemptId ? `${options.attemptId}:ctrl` : `exec_${Date.now().toString(36)}`);
     this.turnId = options.turnId;
     this.attemptId = options.attemptId;
     this.sessionId = options.sessionId;
     this.parentExecutionId = options.parentExecutionId;
-    this.fencingToken = options.fencingToken;
-    this.deadlineEpochMs = options.deadlineEpochMs;
+    this.fencingToken = options.fencingToken ?? 0;
+    this.deadlineEpochMs = options.deadlineEpochMs ?? options.deadline;
     this.localProcessingOnly = options.localProcessingOnly ?? false;
     this.tokenBudget = options.tokenBudget;
     this.callBudget = options.callBudget;
@@ -154,6 +136,14 @@ class ControlContextImpl implements ControlContext {
     }
   }
 
+  abort(reason?: unknown): void {
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = undefined;
+    }
+    this.abortController.abort(reason);
+  }
+
   deriveSubtask(options?: SubtaskDerivationOptions): ControlContext {
     // 派生子任务约束只能更严格，绝不能放松
     // 1. 本地处理限制：父级为 true 则子级必须为 true
@@ -192,7 +182,7 @@ class ControlContextImpl implements ControlContext {
       options?.subtaskExecutionId ||
       `${this.executionId}:sub:${Math.random().toString(36).slice(2, 8)}`;
 
-    return new ControlContextImpl({
+    return new ControlContext({
       executionId: subtaskId,
       turnId: this.turnId,
       attemptId: this.attemptId,
@@ -208,6 +198,6 @@ class ControlContextImpl implements ControlContext {
   }
 }
 
-export function createControlContext(options: ControlContextOptions): ControlContext {
-  return new ControlContextImpl(options);
+export function createControlContext(options?: ControlContextOptions): ControlContext {
+  return new ControlContext(options);
 }

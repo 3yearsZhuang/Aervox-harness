@@ -131,6 +131,8 @@ export interface ModelRequest {
   tools?: ToolSpec[];
   /** 采样温度覆盖值（缺省回退 Provider 配置或默认 0.7） */
   temperature?: number;
+  /** 取消信号（上层 ControlContext 或超时控制） */
+  signal?: AbortSignal;
 }
 
 /** Provider 流输出分块：文本增量 +（阶段 2）一次 Step 末的工具请求集合 */

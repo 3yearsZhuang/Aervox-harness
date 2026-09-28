@@ -31,6 +31,8 @@ export interface AdapterTurnInput {
   systemPrompt?: string;
   /** 可注入的工具 schema（透传给 adapter；缺省无） */
   tools?: import("@aervox/agent-loop").ToolSpec[];
+  /** BTD-05 / ITER-007: 统一执行控制上下文 */
+  controlContext?: import("@aervox/agent-loop").ControlContext;
 }
 
 export interface AdapterTurnResult {
@@ -85,7 +87,15 @@ export async function runAdapterTurn(
     await append(sequence++, "message", { messageId, role: "assistant", contentType: "text", isComplete: false });
 
     // 3) adapter 整 Turn 执行 + 事件映射（映射既有事件类型，SSE 契约稳定）
-    const request: AdapterRequest = { turnId, sessionId, attemptId, userMessage, systemPrompt, tools };
+    const request: AdapterRequest = {
+      turnId,
+      sessionId,
+      attemptId,
+      userMessage,
+      systemPrompt,
+      tools,
+      signal: input.controlContext?.abortSignal,
+    };
     const { events, decision, protocolError } = await drainAdapterDriver(adapter, request);
 
     let toolSeq = 0;
@@ -138,6 +148,19 @@ export async function runAdapterTurn(
     await store.finalizeAttempt({ turnId, attemptId, status: "Interrupted", expectedFencingToken: claim.fencingToken });
     return { status: "Interrupted", reason };
   } catch (err) {
+    if (input.controlContext?.isExpired() || input.controlContext?.isAborted()) {
+      const isExpired = input.controlContext.isExpired();
+      const reason = isExpired ? "deadline_exceeded" : "cancelled";
+      try {
+        const messageId = `msg_${turnId}_assistant`;
+        const seq = await store.nextSequence(turnId);
+        await append(seq, "done", { status: "Interrupted", messageId, isComplete: false, lastSequence: seq, reason });
+        await store.finalizeAttempt({ turnId, attemptId, status: "Interrupted", expectedFencingToken: claim.fencingToken });
+      } catch {
+        // 落库兜底失败不再上抛
+      }
+      return { status: "Interrupted", reason };
+    }
     // 超时/协议违约/外部异常 → Failed（host 失败自动禁用语义在端口层）
     const message = err instanceof Error ? err.message : String(err);
     try {
