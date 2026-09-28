@@ -45,7 +45,7 @@ async function resolvePluginEnabled(
   for (const id of candidateIds) {
     const record = await extRepo.getPlugin(id).catch(() => null);
     if (record) {
-      return record.enabled === 1;
+      return record.enabled === 1 && (record.availability ?? "available") === "available";
     }
   }
   return false;
@@ -97,7 +97,7 @@ export async function executeBeforeTurnPlugins(
 
       snapshots.set(plugin.id, { isEnabled, configValues });
 
-      if (!isEnabled) {
+      if (!isEnabled || (extRepo && !await resolvePluginEnabled(getPluginCandidateIds(plugin, registry), extRepo))) {
         continue;
       }
 
@@ -167,7 +167,7 @@ export async function executeAfterTurnPlugins(
         }
       }
 
-      if (!isEnabled) {
+      if (!isEnabled || (extRepo && !await resolvePluginEnabled(getPluginCandidateIds(plugin, registry), extRepo))) {
         continue;
       }
 

@@ -91,29 +91,33 @@ export const IGNORE_DIR_RE = /(^|\/)(node_modules|dist|out|reference|\.git)(\/|$
 const SCRIPT_BLOCK_RE = /<script\b[^>]*>([\s\S]*?)<\/script>/g;
 
 /** 用 AST 提取模块说明符：import/export-from/动态 import()（字符串与纯模板字面量） */
-function extractSpecifiers(source, fileName) {
+function extractSpecifiers(source, fileName, strict = false) {
   const specifiers = [];
   if (fileName.endsWith(".vue")) {
     for (const match of source.matchAll(SCRIPT_BLOCK_RE)) {
-      collectFromTs(match[1], specifiers);
+      collectFromTs(match[1], specifiers, strict);
     }
     return specifiers;
   }
-  collectFromTs(source, specifiers);
+  collectFromTs(source, specifiers, strict);
   return specifiers;
 }
 
 /** 解析单个 TS/JS/Vue-script 片段为 AST 并收集模块说明符（@babel/parser，不承担编译） */
-function collectFromTs(text, out) {
+function collectFromTs(text, out, strict) {
   let ast;
   try {
     ast = parse(text, { sourceType: "module", plugins: ["typescript", "jsx"] });
-  } catch {
-    return; // 语法不完整/非 TS 方言 → 跳过，由评审兜底
+  } catch (error) {
+    if (strict) throw error;
+    return; // 未纳管范围保持既有行为
   }
   const visit = (node) => {
     if (!node || typeof node !== "object" || typeof node.type !== "string") return;
     switch (node.type) {
+      case "TSImportType":
+        if (node.source?.value) out.push(node.source.value);
+        break;
       case "ImportDeclaration":
       case "ExportNamedDeclaration":
       case "ExportAllDeclaration":
@@ -126,6 +130,8 @@ function collectFromTs(text, out) {
         if (arg.type === "StringLiteral") out.push(arg.value);
         else if (arg.type === "TemplateLiteral" && arg.expressions.length === 0) {
           out.push(arg.quasis[0].value.cooked);
+        } else if (strict) {
+          throw new Error("纳管源码禁止无法静态解析的动态导入");
         }
         break;
       }
@@ -157,7 +163,7 @@ function resolveRepoRelative(fromRelFile, specifier) {
   const absTarget = resolve(baseDir, specifier);
   for (const ext of CANDIDATE_EXTS) {
     const candidate = absTarget + ext;
-    if (existsSync(candidate)) {
+    if (existsSync(candidate) && statSync(candidate).isFile()) {
       return relative(process.cwd(), candidate).split(sep).join("/");
     }
   }
@@ -166,7 +172,7 @@ function resolveRepoRelative(fromRelFile, specifier) {
     const stem = absTarget.slice(0, -jsMap[0].length);
     for (const tsExt of jsMap[1]) {
       const candidate = stem + tsExt;
-      if (existsSync(candidate)) {
+      if (existsSync(candidate) && statSync(candidate).isFile()) {
         return relative(process.cwd(), candidate).split(sep).join("/");
       }
     }
@@ -214,9 +220,34 @@ export function collectSourceFiles(rootDirs = ["apps", "packages"]) {
 }
 
 /** 对单个文件执行全部规则，返回违规列表 [{ file, rule, module, label }] */
-export function inspectSource(relFile, source) {
+export const MODULE_EXCEPTIONS = JSON.parse(readFileSync(new URL("./module-boundary-exceptions.json", import.meta.url), "utf8"));
+
+export function moduleOwner(file) {
+  return file.match(/^(apps\/api\/src\/modules\/[^/]+\/[^/]+)\//)?.[1] ?? null;
+}
+
+/** Exceptions are individual migration edges, never directory-wide bypasses. */
+export function inspectSource(relFile, source, { exceptions = MODULE_EXCEPTIONS } = {}) {
   const violations = [];
-  const rawSpecifiers = extractSpecifiers(source, relFile);
+  const governed = relFile.startsWith("apps/api/src/");
+  const add = (rule, module, label) => violations.push({ file: relFile, rule, module, label, docRef: "CR-056 / ADR-016" });
+  let rawSpecifiers;
+  try {
+    rawSpecifiers = extractSpecifiers(source, relFile, governed);
+  } catch (error) {
+    add("module-parse-error", "<source>", error.message);
+    return violations;
+  }
+  for (const specifier of rawSpecifiers) {
+    const target = resolveRepoRelative(relFile, specifier);
+    if (governed && specifier.startsWith(".") && target === null) {
+      add("module-unresolved-import", specifier, "纳管源码相对引用必须可解析");
+    }
+    const targetOwner = target && moduleOwner(target);
+    if (!governed || !targetOwner || moduleOwner(relFile) === targetOwner || target === `${targetOwner}/index.ts`) continue;
+    if (exceptions.some((edge) => edge.from === relFile && edge.to === target && edge.owner && edge.removeWhen)) continue;
+    add("module-public-entry", target, "跨模块只能访问 index.ts 公开 Port");
+  }
   const owner = ownPackage(relFile);
   const normalized = rawSpecifiers.map((s) => {
     const resolved = resolveRepoRelative(relFile, s);
@@ -243,11 +274,11 @@ export function inspectSource(relFile, source) {
 }
 
 /** 门禁入口：返回违规列表 */
-export function runInspection() {
+export function runInspection(options) {
   const violations = [];
   for (const rel of collectSourceFiles()) {
     const source = readFileSync(rel, "utf8");
-    violations.push(...inspectSource(rel, source));
+    violations.push(...inspectSource(rel, source, options));
   }
   return violations;
 }

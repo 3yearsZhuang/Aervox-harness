@@ -237,7 +237,7 @@ async function loadPluginDeclarations(extensionRepo: SqliteExtensionRepository):
     declarations.push({
       pluginId: plugin.id,
       pluginName: plugin.id,
-      enabled: plugin.enabled === 1,
+      enabled: plugin.enabled === 1 && (plugin.availability ?? "available") === "available",
       spec,
       grantedSensors: grantedByPlugin.get(plugin.id) ?? new Set<string>(),
     });

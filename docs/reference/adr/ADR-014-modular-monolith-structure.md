@@ -5,16 +5,16 @@ scope: decision
 owner: maintainers
 doc_status: approved
 decision_status: accepted
-version: 0.3.0
-updated_at: 2026-09-17
-reviewed_at: 2026-09-17
+version: 0.3.1
+updated_at: 2026-09-28
+reviewed_at: 2026-09-28
 review_interval_days: 90
 ---
 
 # ADR-014 演进式模块化单体：apps/api 目录结构
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-17
+- 修改人：3yearszhuang · 2026-09-28
 
 - 状态：Accepted（2026-08-31；2026-09-16 修订 0.3.0，见修订记录与 `CR-052`（已归档））
 - 日期：2026-08-25
@@ -85,7 +85,6 @@ src/
 │       └── analytics/
 ├── shared/                         # 跨模块共享（严格限制：只放真正通用的工具）
 │   ├── local-context.ts            #   本地上下文解析
-│   ├── event-bus.ts                #   进程内事件总线（pub/sub，未来可替换为消息队列）
 │   └── errors.ts                   #   共享错误类型
 ├── app.ts                          # Fastify 应用工厂（按域聚合注册模块）
 └── index.ts                        # 入口
@@ -99,7 +98,7 @@ src/
 | **模块自管仓储** | 每个 `modules/<domain>/<module>/index.ts` 内部实例化该模块需要的仓储，不引用全局容器 |
 | **路由函数签名** | `routes.ts` 中的导出函数接收**该模块专属的仓储实例**，而非 `RepoContainer` |
 | **shared 严格受限** | `shared/` 只放跨 2 个以上模块的通用工具。禁止将业务逻辑放入 shared |
-| **跨模块通信** | 通过 `shared/event-bus.ts` 的进程内 pub/sub；直接函数调用仅限 `shared/` 中的纯工具函数（域内跨模块引用与域间引用受同等约束） |
+| **跨模块通信** | 同步 Query/Command 通过窄公开 Port；可靠事实和后台工作通过持久 Outbox；可丢通知仅作唤醒或表现，不承担提交证明（CR-056 D1） |
 | **单一数据库** | 一个本地 SQLite 实例；通过领域表命名和 `@aervox/schema` 文件分区，不引入 PostgreSQL 或共享数据库多租户 |
 | **对外入口唯一** | 每个模块只有 `index.ts` 是对外可见的。`routes.ts` 内部的函数不被其他模块引用 |
 
@@ -135,45 +134,15 @@ export function registerConversationRoutes(
   conversationRepo: SqliteConversationRepository,
 ): void {
   // 只能使用 conversationRepo
-  // 如需触发其他模块操作，通过 eventBus.publish("conversation.created", payload)
+  // 跨模块命令注入公开 Port；需要可靠后台处理时由领域命令同事务写入 Outbox
 }
 ```
 
-### 事件总线示例
+### 公开 Port 与原子性（CR-056）
 
-```typescript
-// src/shared/event-bus.ts
-type DomainEvent = { type: string; payload: unknown; occurredAt: string };
+每个模块仍以 `index.ts` 为唯一公开入口；入口导出实际消费者需要的 Query/Command Port。组合根显式构造实现并注入；普通消费者不得导入私有文件。禁止 import 时注册全局实例、启动定时器或进程。临时兼容边必须精确到源文件和目标文件，并登记 Owner 与删除条件。
 
-type EventHandler = (event: DomainEvent) => void;
-
-class EventBus {
-  private handlers = new Map<string, Set<EventHandler>>();
-
-  subscribe(eventType: string, handler: EventHandler): () => void {
-    if (!this.handlers.has(eventType)) {
-      this.handlers.set(eventType, new Set());
-    }
-    this.handlers.get(eventType)!.add(handler);
-    return () => this.handlers.get(eventType)?.delete(handler);
-  }
-
-  publish(eventType: string, payload: unknown): void {
-    const handlers = this.handlers.get(eventType);
-    if (!handlers) return;
-    const event: DomainEvent = {
-      type: eventType,
-      payload,
-      occurredAt: new Date().toISOString(),
-    };
-    for (const handler of handlers) {
-      handler(event);
-    }
-  }
-}
-
-export const eventBus = new EventBus();
-```
+领域命令负责其业务原子性和 Outbox 写入；消费者不得拼接跨模块事务。可丢通知可以触发重新读取权威状态，不能代替事务提交证据。试点先收敛 MemoryStore 贡献与本地模型 Driver；其余遗留装配逐边迁移，不能宣称现有包级检查已覆盖全部模块边界。
 
 ### app.ts 注册方式变化
 
@@ -191,26 +160,19 @@ registerLearningModule(app, db);
 
 ### 可迁移性设计
 
-当某模块满足拆分条件时，只需：
-
-1. 将该模块的 `index.ts` 改为创建独立 Fastify 实例 + HTTP 服务；
-2. 将 `eventBus.publish` 替换为消息队列（NATS/Redis Streams）的发布调用；
-3. 将消费方的 `eventBus.subscribe` 替换为消息队列订阅；
-4. 其他模块的 `index.ts` 中调用改为 HTTP 客户端调用。
-
-无需修改 `routes.ts` 的业务逻辑代码。
+模块拆分必须重新验证失败模式、幂等、延迟和事务边界。公开 Port 缩小替换范围，但不保证跨进程迁移时业务逻辑零改动；本轮保持模块化单体和本地 SQLite。
 
 ## Positive consequences
 
 - **代码层面的模块边界**：路由函数签名静态限制了可用仓储范围，ESLint import 规则可以进一步强制；
 - **降低认知负荷**：每个模块的开发/修改只需关注 2~3 个文件（routes.ts + index.ts + shared 引用），不需要理解全局；
-- **演进成本低**：未来拆分单个模块为独立服务时，业务逻辑代码零改动；
+- **演进成本低**：具体实现替换集中到公开 Port 和组合根，跨进程迁移另行评审；
 - **与 Worker 层对齐**：Worker 中的 Memory/Diary/Notification 处理天然是按模块组织的，API 层采用相同的模块化结构后，两端领域边界一致。
 
 ## Negative consequences and risks
 
 - **初期多一层间接**：每个模块多了一个 `index.ts` 文件，对 8 个小模块来说略显冗余；
-- **事件总线需维护**：进程内 EventBus 虽然简单，但需要确保所有模块都用它而非直接调用，防止隐式耦合；
+- **边界需维护**：公开 Port、Outbox 和可丢通知的责任必须清楚，防止同步业务命令被隐藏在通知中；
 - **与 ADR-001 的 Worker 层协作需对齐**：当前 Worker 层尚未模块化，后续需同步演进。
 
 ## Migration / rollback
@@ -220,7 +182,7 @@ registerLearningModule(app, db);
 1. 创建 `modules/`、`shared/` 目录；
 2. 逐模块迁移：将 `routes/*.ts` 移到 `modules/*/routes.ts`，改写函数签名为接收单一仓储；
 3. 为每个模块创建 `index.ts`（包含仓储实例化和路由注册）；
-4. 创建 `shared/local-context.ts`、`shared/event-bus.ts`、`shared/errors.ts`；
+4. 创建 `shared/local-context.ts`、`shared/errors.ts`；
 5. 重构 `app.ts`，替换路由注册为模块注册；
 6. 删除 `container.ts`；
 7. 验证 `pnpm build` + `pnpm typecheck` + `pnpm test` 全部通过。
@@ -233,9 +195,9 @@ registerLearningModule(app, db);
 - [x] `pnpm typecheck`：类型检查零 warning（2026-08-31 `ci-code` 全量通过）；
 - [x] `pnpm test`：集成测试全部通过（2026-08-31 复核；同日登记修复的 diary `todayWindow` 时区缺陷与本文结构证据无关）；
 - [x] `mise tasks run ci-docs`：文档 lint 0 issue（2026-08-31 全仓文档元数据清账后 0 warning）；
-- [x] 依赖边界机器校验：`node scripts/import-boundary.mjs` 零违规（5 条规则，常驻 `ci-code` 的 `check:boundary`；模块 `routes.ts` 不得 import 其他模块仓储由 AST 规则强制）。
+- [x] 依赖边界机器校验：`node scripts/import-boundary.mjs` 零违规（5 条规则，常驻 `ci-code` 的 `check:boundary`；当时仅验证包级边界；模块内私有引用缺口由 CR-056 补齐）。
 
-五项证据均为常驻 CI 门禁而非一次性演练：`modules/*` 自管仓储与边界规则已固化于每日门禁，结构回退会被 CI 拦截。2026-08-31 决策状态置为 `Accepted`（ADR 索引与架构摘要表同步）。
+五项证据均为常驻 CI 门禁而非一次性演练：`modules/*` 自管仓储与边界规则已固化于每日门禁，包级反向依赖会被 CI 拦截，不能由此推定模块边界全部闭合。2026-08-31 决策状态置为 `Accepted`（ADR 索引与架构摘要表同步）。
 
 ## 修订记录
 

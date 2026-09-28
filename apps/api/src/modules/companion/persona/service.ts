@@ -14,7 +14,7 @@ import type {
   LocalContext,
 } from "@aervox/repositories";
 import type { SkillManager } from "../../ecosystem/skills/skill-manager.js";
-import type { ToolRuntime } from "../../ecosystem/tools/runtime.js";
+import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index.js";
 import type { VoiceService } from "../../platform/voice/service.js";
 import {
   exportPersonaBundle,

@@ -35,3 +35,12 @@ export interface ModelRuntimeDriver {
   stop(): Promise<ModelRuntimeDriverHandle>;
   sampleMetrics?(): Promise<LlamaMetricSample | null>;
 }
+
+/** Missing implementation preserves model management and never chooses a remote provider. */
+export const unavailableModelRuntimeDriver: ModelRuntimeDriver = {
+  id: "unavailable", name: "Unavailable", configured: false, running: false,
+  resolveBinary: () => null,
+  getHandle: () => ({ pid: null, status: "idle", port: null, modelId: null, startedAt: null, error: null, logs: [] }),
+  start: async () => { throw new Error("model_runtime_driver_unavailable"); },
+  stop: async () => unavailableModelRuntimeDriver.getHandle(),
+};

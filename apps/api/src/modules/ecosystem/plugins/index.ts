@@ -4,6 +4,7 @@
  * 组装：插件生命周期（工具/Skill 联动）+ 配置/Page（CR-006）。
  * 配置与 Page 使用新增路由文件（config-routes.ts），不改动既有 routes.ts（中间件重构期约束）。
  */
+import { focusModeTurnPlugin } from "./turn-plugins/focus-mode.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { pluginManifestSchema } from "@aervox/contracts";
@@ -37,6 +38,12 @@ export {
   ServerTurnPluginRegistry,
 };
 
+export function createServerPluginRegistry(): ServerPluginRegistry {
+  const registry = new ServerPluginRegistry();
+  registry.register(focusModeTurnPlugin);
+  return registry;
+}
+
 const defaultPluginsRoot = (): string => {
   const repoRoot = path.resolve(import.meta.dirname, "../../../../../..");
   return path.join(repoRoot, "data", "plugins");
@@ -54,10 +61,12 @@ async function syncBuiltinPlugins(
   sourceRoot: string,
   service: PluginService,
   configService: PluginConfigService,
+  extensionRepo: SqliteExtensionRepository,
 ): Promise<void> {
+  const diskPluginIds = new Set<string>();
+  let failure: "missing" | "invalid" | "unreadable" = "missing";
   try {
     const entries = await fs.readdir(sourceRoot, { withFileTypes: true });
-    const diskPluginIds = new Set<string>();
 
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
@@ -74,15 +83,17 @@ async function syncBuiltinPlugins(
       }
 
       // CR-032：内置插件清单统一走 zod fail-closed 校验，非法清单（含非法主动声明）整包拒装
-      const parsedManifest = pluginManifestSchema.safeParse(JSON.parse(manifestRaw));
+      let manifestValue: unknown;
+      try { manifestValue = JSON.parse(manifestRaw); } catch { failure = "invalid"; continue; }
+      const parsedManifest = pluginManifestSchema.safeParse(manifestValue);
       if (!parsedManifest.success) {
+        failure = "invalid";
         console.warn(`[plugins] builtin manifest rejected (fail-closed): ${entry.name}`);
         continue;
       }
       const manifest = parsedManifest.data;
       const pluginId = manifest.metadata.id;
 
-      diskPluginIds.add(pluginId);
 
       let skillContent = "";
       try {
@@ -117,22 +128,22 @@ async function syncBuiltinPlugins(
       } catch {
         // 忽略无 Schema 或非法 Schema
       }
+      diskPluginIds.add(pluginId);
     }
 
-    // 3. 清理已下线或合并的内置插件（仅清理 installSource 为 builtin 且不再存在于 disk 中的插件）
-    const currentPlugins = await service.listPlugins();
-    for (const p of currentPlugins) {
-      if (p.installSource === "builtin" && !diskPluginIds.has(p.id)) {
-        await service.uninstallPlugin(p.id);
-      }
+  } catch (error) {
+    failure = "unreadable";
+    console.warn("[plugins] builtin source unavailable; installation data retained", error);
+  }
+  for (const plugin of await service.listPlugins()) {
+    if (plugin.installSource === "builtin") {
+      await extensionRepo.setPluginAvailability(plugin.id, diskPluginIds.has(plugin.id) ? "available" : failure);
     }
-  } catch {
-    // 目录不存在或不可读时降级静默
   }
 }
 
 export async function registerPluginsModule(ctx: ModuleContext): Promise<void> {
-  ctx.pluginRegistry = defaultServerPluginRegistry;
+  ctx.pluginRegistry ??= createServerPluginRegistry();
   const { app, db, skillsRoot, pluginsRoot } = ctx;
   const extensionRepo = new SqliteExtensionRepository(db);
   const registry = new SqliteToolRegistryRepository(db);
@@ -152,7 +163,7 @@ export async function registerPluginsModule(ctx: ModuleContext): Promise<void> {
     pageRepo,
     auditRepo,
     bundleStore,
-    pluginRegistry: defaultServerPluginRegistry,
+    pluginRegistry: ctx.pluginRegistry,
   });
 
   // CR-032：proactive 模块先于本模块注册并填充 ctx.proactiveIntelligenceRepository，
@@ -171,7 +182,7 @@ export async function registerPluginsModule(ctx: ModuleContext): Promise<void> {
       }
     : undefined;
 
-  const builtinRoot = defaultBuiltinPluginsSourceRoot();
+  const builtinRoot = ctx.builtinPluginsSourceRoot ?? defaultBuiltinPluginsSourceRoot();
 
   const service = new PluginService({
     extensionRepo,
@@ -180,7 +191,7 @@ export async function registerPluginsModule(ctx: ModuleContext): Promise<void> {
     skillsRoot: resolvedSkillsRoot,
     cleanup: (pluginId) => configService.cleanupPlugin(pluginId),
     proactiveRuleSync,
-    pluginRegistry: defaultServerPluginRegistry,
+    pluginRegistry: ctx.pluginRegistry,
     configService,
     bundleStore,
     configRepo,
@@ -192,7 +203,7 @@ export async function registerPluginsModule(ctx: ModuleContext): Promise<void> {
   registerPluginConfigRoutes(app, configService);
 
   // 同步内置插件目录（plugins/）
-  await syncBuiltinPlugins(builtinRoot, service, configService);
+  await syncBuiltinPlugins(builtinRoot, service, configService, extensionRepo);
 }
 
 export * from "./turn-plugins/index.js";

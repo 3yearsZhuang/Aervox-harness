@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 2.2.1
-updated_at: 2026-09-27
-reviewed_at: 2026-09-27
+version: 2.2.2
+updated_at: 2026-09-28
+reviewed_at: 2026-09-28
 review_interval_days: 30
 review_triggers:
   - packages/schema/**
@@ -29,7 +29,7 @@ sources:
 # Aervox｜思隅 SQLite 本地单用户数据库契约
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-27
+- 修改人：3yearszhuang · 2026-09-28
 
 本文规定 Aervox 持久化层的目标契约、机器事实源、关键不变量、破坏性迁移协议和发布门禁。
 字段与 DDL 的机器真源是 `packages/schema` 和 `packages/repositories/src/schema/ddl`；本文不复制
@@ -248,3 +248,9 @@ D1～D3 每阶段都必须运行 `mise tasks run ci-code` 与 `mise tasks run ci
 | D1 迁移器与安全入口 | Implemented | 预检、备份清单、范围选择、staging、校验、原子换库和 loopback 守卫已落地；运行编排与故障注入演练为发布前门禁 |
 | D2 Schema/Repository 去租户 | Implemented | 最终 Schema/DDL、Repository、API、Worker 和 Host Agent 不再读写租户列；`LocalContext` 仅保留兼容签名 |
 | D3 清理与发布 | Implemented | 静态审计、旧测试迁移和文档登记完成；完整 DSH 环境、停写协调与 rollback 保留仍需发布前复核 |
+
+## CR-056 插件实现可用性
+
+`plugins.availability` 为非空文本，默认 `available`，允许写入 `available/missing/invalid/unreadable`。由启动清单扫描写入，独立于用户的 `enabled`、配置/Secret、授权及页面数据。旧库通过幂等新增列兼容，保留原记录，不换库、不清理历史表。未知可用性值按不可执行处理。实现缺席时工具执行/导出、Skill 运行时导出、会话插件切面与 Worker 主动规则均须检查该状态；管理读取和显式数据清理继续可用。
+
+恢复有效包只恢复可用性，不重建撤销的授权或启用用户关闭的插件。旧应用不识别该列，不能直接作为缺包保护的回滚版本；回滚须保留等价门控。元数据与 DDL 同步，验证见[CR-056](changes/CR-056-build-to-delete-pi-style-architecture.md)。

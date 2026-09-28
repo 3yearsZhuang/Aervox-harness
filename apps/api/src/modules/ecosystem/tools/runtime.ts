@@ -9,57 +9,79 @@
  *
  * 规则依据：docs/explanation/reference-design-transfer.md §3.4 / §4.11。
  */
-import {
-  SqliteMemoryRepository,
-  SqliteMemoryEmbeddingRepository,
-  SqliteToolRegistryRepository,
-  type ToolRegistrationModel,
-  type LocalContext,
-} from "@aervox/repositories";
-import type { Client } from "@libsql/client";
-import type { MemoryEmbeddingProvider } from "./embedding-provider.js";
-import { MemoryStoreTool } from "./memory-store-tool.js";
+import type { IToolRegistryRepository, ToolRegistrationModel, LocalContext } from "@aervox/repositories";
 import { ForbiddenError, NotFoundError } from "../../../shared/errors.js";
 import { inspectToolInput } from "@aervox/agent-loop";
 
 /** 工具调用处理器：入参已过注册表校验，返回结果由调用方编码 */
 export interface ToolHandler {
   call(
-    tenant: LocalContext,
+    ctx: LocalContext,
     args: unknown,
-    context: { approval: boolean; proactiveAuthorization: boolean },
+    context: { approval: boolean; proactiveAuthorization: boolean; signal: AbortSignal },
   ): Promise<unknown>;
 }
 
 /** 运行时构造依赖 */
-export interface ToolRuntimeDeps {
-  registry: SqliteToolRegistryRepository;
-  memoryRepo: SqliteMemoryRepository;
-  embeddingRepo: SqliteMemoryEmbeddingRepository;
-  client: Client;
-  embeddingProvider?: MemoryEmbeddingProvider | null;
+export type ToolRegistryPort = Pick<IToolRegistryRepository,
+  "getTool" | "listTools" | "registerTool" | "setEnabled" | "unregisterTool" | "exportRegistry">;
+export interface ToolRuntimeDeps { registry: ToolRegistryPort }
+export type ToolDefinition = Parameters<ToolRegistryPort["registerTool"]>[0];
+export type ToolDisposer = () => void;
+interface Registration {
+  handler: ToolHandler;
+  controller: AbortController;
+  definition: Promise<ToolRegistrationModel | null>;
+}
+
+/** Metadata affecting dispatch must belong to the same registration as its handler. */
+function definitionKey(tool: ToolRegistrationModel): string {
+  return JSON.stringify([tool.name, tool.safetyLevel, tool.inputSchemaJson,
+    tool.requiredPermissionsJson, tool.pluginId, tool.gatingConditionsJson, tool.replay]);
 }
 
 export class ToolRuntime {
-  private handlers = new Map<string, ToolHandler>();
-  /** 注册的内置工具定义（注册表在启动时同步写入） */
-  private readonly builtinTools: ToolRegistrationModel[] = [];
+  private readonly handlers = new Map<string, Registration>();
+  private readonly writes = new Map<string, Promise<unknown>>();
+  private disposed = false;
+  constructor(private readonly deps: ToolRuntimeDeps) {}
 
-  constructor(private readonly deps: ToolRuntimeDeps) {
-    // 注册内置 MemoryStoreTool（同 ToolDefinition 形态交由注册表持久化）
-    this.handlers.set("aervox_memory_store", {
-      call: (tenant, args) => new MemoryStoreTool(deps).run(tenant, args as never),
-    });
+  private serial<T>(id: string, action: () => Promise<T>): Promise<T> {
+    const next = (this.writes.get(id) ?? Promise.resolve()).catch(() => undefined).then(action);
+    this.writes.set(id, next);
+    void next.finally(() => { if (this.writes.get(id) === next) this.writes.delete(id); }).catch(() => undefined);
+    return next;
   }
 
-  /** 与写入侧共享的向量空间，供对话召回查询复用。 */
-  getEmbeddingProvider(): MemoryEmbeddingProvider | null {
-    return this.deps.embeddingProvider ?? null;
+  private attach(id: string, handler: ToolHandler, definition: Promise<ToolRegistrationModel | null>): ToolDisposer {
+    if (this.disposed) throw new ForbiddenError("tool runtime disposed");
+    this.handlers.get(id)?.controller.abort();
+    const entry = { handler, definition, controller: new AbortController() };
+    this.handlers.set(id, entry);
+    void definition.catch(() => { if (this.handlers.get(id) === entry) this.handlers.delete(id); entry.controller.abort(); });
+    return () => {
+      entry.controller.abort();
+      if (this.handlers.get(id) === entry) this.handlers.delete(id);
+    };
   }
 
-  /** 补充插件/扩展 handler（工具注册表条目需另行 registerTool 持久化） */
-  registerHandler(toolId: string, handler: ToolHandler): void {
-    this.handlers.set(toolId, handler);
+  /** Compatibility attachment; new contributions bind definition + handler in registerContribution. */
+  registerHandler(id: string, handler: ToolHandler): ToolDisposer {
+    const pending = this.writes.get(id) ?? Promise.resolve();
+    return this.attach(id, handler, pending.then(() => this.deps.registry.getTool(id)));
+  }
+
+  async registerContribution(tool: ToolDefinition, handler: ToolHandler): Promise<ToolDisposer> {
+    if (this.disposed) throw new ForbiddenError("tool runtime disposed");
+    const definition = this.serial(tool.id, () => this.deps.registry.registerTool(tool));
+    const release = this.attach(tool.id, handler, definition);
+    try { await definition; return release; } catch (error) { release(); throw error; }
+  }
+
+  dispose(): void {
+    this.disposed = true;
+    for (const entry of this.handlers.values()) entry.controller.abort();
+    this.handlers.clear();
   }
 
   /** 列出全部已注册工具（注册表数据） */
@@ -68,18 +90,26 @@ export class ToolRuntime {
   }
 
   /** 注册工具（幂等，enabled 保持） */
-  async registerTool(tool: Parameters<SqliteToolRegistryRepository["registerTool"]>[0]) {
-    return this.deps.registry.registerTool(tool);
+  async registerTool(tool: ToolDefinition) {
+    if (this.disposed) throw new ForbiddenError("tool runtime disposed");
+    const pending = this.serial(tool.id, () => this.deps.registry.registerTool(tool));
+    return pending;
   }
 
   /** 启停工具 */
   async setEnabled(id: string, enabled: boolean) {
-    return this.deps.registry.setEnabled(id, enabled);
+    const entry = this.handlers.get(id);
+    const pending = this.serial(id, () => this.deps.registry.setEnabled(id, enabled));
+    if (entry) this.attach(id, entry.handler, pending);
+    return pending;
   }
 
   /** 注销工具（内置工具拒绝） */
   async unregisterTool(id: string) {
-    return this.deps.registry.unregisterTool(id);
+    const entry = this.handlers.get(id);
+    entry?.controller.abort();
+    this.handlers.delete(id);
+    return this.serial(id, () => this.deps.registry.unregisterTool(id));
   }
 
   /** 导出运行时可调用快照（enabled + 门控过滤） */
@@ -87,22 +117,35 @@ export class ToolRuntime {
     disabledToolIds?: string[];
     category?: string;
   }): Promise<ToolRegistrationModel[]> {
-    return this.deps.registry.exportRegistry({
+    const entries = new Map(this.handlers);
+    const tools = await this.deps.registry.exportRegistry({
       disabledToolIds: options?.disabledToolIds,
       category: options?.category,
       gatingEvaluator: (condition) => defaultGatingEvaluator(condition),
     });
+    const available = await Promise.all(tools.map(async (tool) => {
+      const entry = entries.get(tool.id);
+      const definition = await entry?.definition.catch(() => null);
+      return entry && this.handlers.get(tool.id) === entry && !entry.controller.signal.aborted
+        && definition && definitionKey(definition) === definitionKey(tool) ? tool : null;
+    }));
+    return available.filter((tool): tool is ToolRegistrationModel => tool !== null);
   }
 
   /** 调用工具：安全级别 + handler 存在性双重检查 */
   async callTool(
-    tenant: LocalContext,
+    ctx: LocalContext,
     toolId: string,
     args: unknown,
     opts: { approval?: boolean; proactiveAuthorization?: boolean } = {},
   ): Promise<unknown> {
+    const entry = this.handlers.get(toolId);
+    if (!entry || this.disposed) throw new ForbiddenError(`tool handler not registered: ${toolId}`);
+    const definition = await entry.definition;
     const tool = await this.deps.registry.getTool(toolId);
+    if (entry.controller.signal.aborted || this.handlers.get(toolId) !== entry) throw new ForbiddenError(`tool registration expired: ${toolId}`);
     if (!tool) throw new NotFoundError(`tool not found: ${toolId}`);
+    if (!definition || definitionKey(definition) !== definitionKey(tool)) throw new ForbiddenError(`tool definition changed: ${toolId}`);
     if (tool.enabled !== 1) throw new ForbiddenError(`tool disabled: ${toolId}`);
 
     // PET-05：非只读工具必须显式授权
@@ -116,11 +159,19 @@ export class ToolRuntime {
       throw new ForbiddenError(`unsafe tool arguments: ${inspection.reason ?? "validation_failed"}`);
     }
 
-    const handler = this.handlers.get(toolId);
-    if (!handler) throw new ForbiddenError(`tool handler not registered: ${toolId}`);
-    return handler.call(tenant, args, {
-      approval: opts.approval === true,
-      proactiveAuthorization: opts.proactiveAuthorization === true,
+    const signal = entry.controller.signal;
+    return new Promise((resolve, reject) => {
+      const abort = () => reject(new ForbiddenError(`tool registration expired: ${toolId}`));
+      signal.addEventListener("abort", abort, { once: true });
+      if (signal.aborted) { signal.removeEventListener("abort", abort); abort(); return; }
+      Promise.resolve().then(() => {
+        signal.throwIfAborted();
+        return entry.handler.call(ctx, args, {
+          approval: opts.approval === true,
+          proactiveAuthorization: opts.proactiveAuthorization === true,
+          signal,
+        });
+      }).then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
     });
   }
 }

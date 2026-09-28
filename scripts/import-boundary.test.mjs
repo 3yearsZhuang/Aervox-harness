@@ -110,3 +110,42 @@ test("collectSourceFiles：收 .ts/.vue、排除 reference/dist/node_modules", (
   assert.ok(files.some((f) => f.endsWith(".vue")), "应包含 .vue 组件");
   assert.ok(!files.some((f) => f.includes("reference/") || f.includes("node_modules/") || f.includes("/dist/")));
 });
+const consumer = "apps/api/src/modules/companion/conversation/_boundary-fixture.ts";
+const checkModule = (source) => inspectSource(consumer, source, { exceptions: [] }).map((v) => v.rule);
+
+test("模块公开入口可解析 .js、目录 index、相对绕行；同模块内部合法", () => {
+  for (const target of ["../../ecosystem/tools/index.js", "../../ecosystem/tools", "../../ecosystem/tools/../tools/index.ts", "./memory-recall.js"]) {
+    assert.deepEqual(checkModule(`import type { X } from "${target}";`), []);
+  }
+});
+
+test("跨域和同域私有引用：类型、重导出、动态字面量和 TSImportType 全部阻断", () => {
+  for (const target of ["../../ecosystem/tools/runtime.js", "../memory/routes.js"]) {
+    for (const source of [
+      `import type { X } from "${target}";`,
+      `export * from "${target}";`,
+      `const x = import("${target}");`,
+      `const x = import(\`${target}\`);`,
+      `type X = import("${target}").X;`,
+    ]) assert.deepEqual(checkModule(source), ["module-public-entry"]);
+  }
+});
+
+test("纳管源码解析错误、缺失目标、动态非字面量不能静默通过", () => {
+  assert.deepEqual(checkModule("const = ;"), ["module-parse-error"]);
+  assert.deepEqual(checkModule('import "./missing-target.js";'), ["module-unresolved-import"]);
+  assert.deepEqual(checkModule('const x = import(path);'), ["module-parse-error"]);
+});
+
+test("组合根无目录豁免；过渡授权必须精确到边且具备责任与退出条件", () => {
+  const source = 'import "./modules/ecosystem/tools/runtime.js";';
+  const edge = { from: "apps/api/src/app.ts", to: "apps/api/src/modules/ecosystem/tools/runtime.ts", owner: "platform", removeWhen: "Port migration" };
+  assert.equal(inspectSource(edge.from, source, { exceptions: [] }).length, 1);
+  assert.equal(inspectSource(edge.from, source, { exceptions: [edge] }).length, 0);
+  assert.equal(inspectSource(edge.from, source, { exceptions: [{ ...edge, owner: "" }] }).length, 1);
+  assert.equal(inspectSource("apps/api/src/other.ts", source, { exceptions: [edge] }).length, 1);
+});
+
+test("TSImportType 也遵循原有包边界", () => {
+  assert.deepEqual(v("packages/agent-loop/src/ports.ts", 'type X = import("@aervox/repositories").X'), ["agent-loop-no-db"]);
+});

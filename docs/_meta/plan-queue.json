@@ -1,11 +1,27 @@
 {
   "schemaVersion": 1,
   "note": "当前迭代队列的唯一机器真源。plan.md §2 的表格由 `mise tasks run plan-render` 从本文件生成，禁止手改生成区；结构与依赖校验见 `mise tasks run plan-check`（已接入文档治理，2026-09-18 起强制级别为 error：结构与纪律违规阻断，仅依赖次序保持提示）。条目内容是台账而非契约：产品范围见 docs/reference/PRD.md，决策见 ADR/CR，实现证据见 REQUIREMENTS_TRACEABILITY.md §4.2。",
-  "statuses": ["建议", "待评审", "就绪", "执行中", "已移交", "暂停"],
+  "statuses": [
+    "建议",
+    "待评审",
+    "就绪",
+    "执行中",
+    "已移交",
+    "暂停"
+  ],
   "batches": [
-    { "id": "first", "title": "2.1 第一批：正确性、验证入口与方向决策" },
-    { "id": "next", "title": "2.2 下一批：恢复、生命周期与部署" },
-    { "id": "candidate", "title": "2.3 后续候选：只有证据成立才投入" }
+    {
+      "id": "first",
+      "title": "2.1 第一批：正确性、验证入口与方向决策"
+    },
+    {
+      "id": "next",
+      "title": "2.2 下一批：恢复、生命周期与部署"
+    },
+    {
+      "id": "candidate",
+      "title": "2.3 后续候选：只有证据成立才投入"
+    }
   ],
   "items": [
     {
@@ -84,7 +100,7 @@
     {
       "id": "ITER-005",
       "batch": "first",
-      "status": "建议",
+      "status": "执行中",
       "delivery": "插件可恢复升级：全部入口校验、展开配额、staging 验证与激活、旧配置/Secret/授权保留；FND-02/04、插件规范；CAP-020。2026-09-18 追加差量：导出分发包可重现（细节见 §4.2 剩余差量，不在本表复述）",
       "gate": "激活依赖 ITER-004；限制资源可先做；升级/卸载状态和迁移语义先 CR",
       "acceptance": [
@@ -93,8 +109,14 @@
         "同源码导出分发包的字节与校验和稳定"
       ],
       "owner": "ecosystem",
-      "dependsOn": ["ITER-004"],
-      "links": ["docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"]
+      "dependsOn": [
+        "ITER-004"
+      ],
+      "links": [
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
+      ],
+      "branch": "docs/build-to-delete-pi-architecture-plan",
+      "statusNote": "2026-09-28 CR-056 BTD-02 缺包保护切片：可用性独立于用户开关，新增兼容字段保留数据；原升级验收仍保留"
     },
     {
       "id": "ITER-006",
@@ -126,7 +148,7 @@
     {
       "id": "ITER-008",
       "batch": "first",
-      "status": "建议",
+      "status": "执行中",
       "delivery": "模型制品与进程：路径/symlink、响应与续传验证；启动 epoch、有界探针/日志/指标请求；ARC-11/12；本地模型基础设施",
       "gate": "正确性修复可独立进行；制品来源/信任等级变化先 CR",
       "acceptance": [
@@ -134,7 +156,9 @@
         "旧 exit 不污染新进程；悬挂探针按期结束；停止状态真实"
       ],
       "owner": "platform",
-      "dependsOn": []
+      "dependsOn": [],
+      "branch": "docs/build-to-delete-pi-architecture-plan",
+      "statusNote": "2026-09-28 CR-056 BTD-04 模型 Driver 替换与代际生命周期已落地并通过扩展 SPI 4 项测试，下载其余正确性要求仍保留"
     },
     {
       "id": "ITER-009",
@@ -160,7 +184,11 @@
         "未知结果不盲重放"
       ],
       "owner": "platform/data",
-      "dependsOn": ["ITER-002", "ITER-003", "ITER-007"]
+      "dependsOn": [
+        "ITER-002",
+        "ITER-003",
+        "ITER-007"
+      ]
     },
     {
       "id": "ITER-011",
@@ -186,7 +214,9 @@
         "单列中文 Recall@K、空间、重建成本"
       ],
       "owner": "data",
-      "dependsOn": ["ITER-003"]
+      "dependsOn": [
+        "ITER-003"
+      ]
     },
     {
       "id": "ITER-013",
@@ -199,20 +229,29 @@
         "已提交窗口提前可读；故障可定位"
       ],
       "owner": "platform/quality",
-      "dependsOn": ["ITER-002", "ITER-008"]
+      "dependsOn": [
+        "ITER-002",
+        "ITER-008"
+      ]
     },
     {
       "id": "ITER-014",
       "batch": "next",
-      "status": "建议",
-      "delivery": "模块公开 Port：评审 ADR-014 与同步调用/Outbox/广播差量，先改少数交叉模块；私有导入、所有权和解析失败门禁；ARC-10；架构基础设施",
-      "gate": "先 CR；不要求先改完全部模块，也不阻塞已有缺陷修复",
+      "status": "已移交",
+      "delivery": "模块公开 Port 与 Build to Delete：评审 ADR-014 的通信/装配差量，建立试点模块边界、MemoryStore 贡献与退出演练；ARC-10、[CR-056](docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md)；CAP-005/007/020 与架构基础设施",
+      "gate": "CR-056 相关决策先接受；模型 Driver 归 ITER-008，生命周期/控制协同 ITER-005/007/013；不要求先改完全部模块，也不阻塞已有缺陷修复",
       "acceptance": [
         "私有引用 fixture 失败、公开 Port 通过、模块可用 Fake Port 测试",
-        "实际依赖与批准规则一致"
+        "实际依赖与批准规则一致；临时检出移除试点实现后非目标能力通过，资源无残留且数据权利连续"
       ],
       "owner": "platform",
-      "dependsOn": []
+      "dependsOn": [],
+      "statusNote": "2026-09-29 实施移交：BTD-00～04 及 BTD-07 全量落地并通过双门禁与 CI（check:guards 24/24、全量 72 API 套件 476 测试全绿）；可删除性守护 0 违规，Fake 拔插演练通过；BTD-05/06/08 差量明确交接至 ITER-007/013/019，详见 §4.2",
+      "links": [
+        "docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
+      ],
+      "branch": "docs/build-to-delete-pi-architecture-plan"
     },
     {
       "id": "ITER-015",
@@ -225,7 +264,12 @@
         "签名/公证/平台矩阵另过发布门禁"
       ],
       "owner": "desktop/release",
-      "dependsOn": ["ITER-006", "ITER-008", "ITER-011", "ITER-013"]
+      "dependsOn": [
+        "ITER-006",
+        "ITER-008",
+        "ITER-011",
+        "ITER-013"
+      ]
     },
     {
       "id": "ITER-016",
@@ -238,7 +282,10 @@
         "获得五至十人使用记录及方向对应价值证据；不把接口响应当实物成功"
       ],
       "owner": "product-hardware/platform",
-      "dependsOn": ["ITER-009", "ITER-015"]
+      "dependsOn": [
+        "ITER-009",
+        "ITER-015"
+      ]
     },
     {
       "id": "ITER-017",
@@ -251,7 +298,9 @@
         "未达收益门槛即可停止；不承诺未测倍数"
       ],
       "owner": "platform/data/quality",
-      "dependsOn": ["ITER-013"]
+      "dependsOn": [
+        "ITER-013"
+      ]
     },
     {
       "id": "ITER-018",
@@ -264,7 +313,9 @@
         "24→72 小时稳定性、功耗温升、密钥/追溯/维修验证；发布单列"
       ],
       "owner": "product-hardware/release",
-      "dependsOn": ["ITER-016"]
+      "dependsOn": [
+        "ITER-016"
+      ]
     },
     {
       "id": "ITER-019",
@@ -333,6 +384,25 @@
       ],
       "links": [
         "docs/explanation/hls-agent-competition-plan.md#8-交付路径冻结与产品回接"
+      ]
+    },
+    {
+      "id": "ITER-023",
+      "batch": "first",
+      "status": "已移交",
+      "delivery": "Build to Delete 与类 pi 架构详细规划：[CR-056](docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md) 的固定基线、目标边界、决策差量、实施切片、退出验收与回滚；关联 CAP-002/005/007/018/020/027/033（仅规划）",
+      "gate": "本项仅交付 Proposed/Planned 的 CR；实现认领继续使用既有 ITER 条目，架构接受、代码实施和发布分别判断",
+      "acceptance": [
+        "每个切片给出输入依赖、代码落点、契约影响、测试、退出条件与回滚",
+        "规划接入唯一队列、追踪和索引，文档门禁通过"
+      ],
+      "owner": "platform/docs",
+      "branch": "docs/build-to-delete-pi-architecture-plan",
+      "statusNote": "2026-09-28 文档移交：CR-056 的九个切片、两项试点、依赖估算及退出/回滚验收已登记；ci-docs 全量通过（治理 33/33、队列 9/9、79 文件排版/术语及严格治理无问题）；CR 保持 Proposed/Planned，未启动业务重构",
+      "dependsOn": [],
+      "links": [
+        "docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
       ]
     }
   ]

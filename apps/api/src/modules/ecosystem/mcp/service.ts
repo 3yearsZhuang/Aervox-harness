@@ -12,7 +12,7 @@
  */
 import type { SqliteMcpServerRepository, McpServerModel } from "@aervox/repositories";
 import { NotFoundError } from "../../../shared/errors.js";
-import type { ToolRuntime } from "../tools/runtime.js";
+import type { ToolRuntimePort as ToolRuntime } from "../tools/index.js";
 import { McpHttpClient, McpUpstreamError, type McpRemoteTool } from "./client.js";
 import type { DshMcpBridge } from "./dsh-bridge.js";
 import { MCP_PRESETS, findMcpPreset, type McpPresetDefinition } from "./presets.js";

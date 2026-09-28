@@ -37,7 +37,7 @@ export interface ProactiveModuleServices {
   integrationManager: ProactiveIntegrationManager;
 }
 
-export function registerProactiveModule(ctx: ModuleContext, options: ProactiveModuleOptions = {}): ProactiveModuleServices {
+export async function registerProactiveModule(ctx: ModuleContext, options: ProactiveModuleOptions = {}): Promise<ProactiveModuleServices> {
   const repository = new SqliteProactiveProfileRepository(
     options.db ?? ctx.proactiveDb ?? ctx.db,
     options.cipher ?? ctx.proactiveCipher,
@@ -88,7 +88,7 @@ export function registerProactiveModule(ctx: ModuleContext, options: ProactiveMo
     manager: integrationManager,
   });
   if (ctx.toolRuntime) {
-    registerProactiveIntegrationTools({
+    await registerProactiveIntegrationTools({
       runtime: ctx.toolRuntime,
       repo: intelligenceRepository,
       manager: integrationManager,

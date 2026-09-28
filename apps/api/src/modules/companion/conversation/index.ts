@@ -23,7 +23,6 @@ import { buildLoopProvider } from "./llm-adapter.js";
 import { registerConversationRoutes } from "./routes.js";
 import { UserQuestionCoordinator } from "./user-question-coordinator.js";
 import { createPracticeAttemptPortFactory } from "./practice-attempt-port.js";
-import { createSqliteMemoryRecall } from "./memory-recall.js";
 
 export function registerConversationModule(ctx: ModuleContext): void {
   const {
@@ -91,11 +90,7 @@ export function registerConversationModule(ctx: ModuleContext): void {
     practiceAttemptFactory: createPracticeAttemptPortFactory(new SqliteLearningRepository(db)),
     proactiveActionAuthorizer,
     proactiveRepository,
-    memoryRecall: createSqliteMemoryRecall({
-      db,
-      client: ctx.client,
-      embeddingProvider: toolRuntime?.getEmbeddingProvider() ?? null,
-    }),
+    memoryRecall: ctx.memoryRecall,
     observability: ctx.observability,
   });
 }

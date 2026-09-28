@@ -10,7 +10,7 @@
  * handler 在 ToolRuntime 存在时绑定，缺省仅登记元数据（运行时接线阶段生效）。
  */
 import type { SqliteSkillRegistryRepository, SqliteToolRegistryRepository } from "@aervox/repositories";
-import type { ToolRuntime } from "../tools/runtime.js";
+import type { ToolRuntimePort as ToolRuntime } from "../tools/index.js";
 import type { SkillLifecycleService } from "./lifecycle.js";
 
 const CATEGORY = "system";
@@ -159,13 +159,13 @@ const TOOLS: ToolSpec[] = [
 ];
 
 /** 注册 aervox_skill_* 工具（幂等；ToolRuntime 存在时绑定 handler） */
-export function registerSkillLifecycleTools(
+export async function registerSkillLifecycleTools(
   registry: SqliteToolRegistryRepository,
   lifecycle: SkillLifecycleService,
   runtime?: ToolRuntime,
-): void {
+): Promise<void> {
   for (const tool of TOOLS) {
-    void registry.registerTool({
+    const definition = {
       id: tool.id,
       name: tool.name,
       description: tool.description,
@@ -176,10 +176,10 @@ export function registerSkillLifecycleTools(
       builtin: true,
       gatingConditions: [],
       priority: 90,
-    });
+    };
 
-    if (!runtime) continue;
-    runtime.registerHandler(tool.id, {
+    if (!runtime) { await registry.registerTool(definition); continue; }
+    await runtime.registerContribution(definition, {
       call: async (_tenant, args) => {
         const a = (args ?? {}) as Record<string, unknown>;
         switch (tool.id) {

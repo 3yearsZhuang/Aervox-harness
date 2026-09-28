@@ -31,6 +31,8 @@ export interface ExternalSourceModel {
 }
 
 export interface PluginModel {
+  /** CR-056: missing/invalid/unreadable code blocks execution without changing enabled. */
+  availability?: string;
   id: string;
   publisher: string;
   version: string;

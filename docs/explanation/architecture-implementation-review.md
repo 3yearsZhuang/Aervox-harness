@@ -8,8 +8,8 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.2.1
-updated_at: 2026-09-18
-reviewed_at: 2026-09-18
+updated_at: 2026-09-28
+reviewed_at: 2026-09-28
 review_interval_days: 30
 review_triggers:
   - apps/api/src/**
@@ -38,7 +38,7 @@ sources:
 # 当前架构实现与演进评估
 
 - 提出人：3yearszhuang · 2026-09-18
-- 修改人：3yearszhuang · 2026-09-18
+- 修改人：3yearszhuang · 2026-09-28
 
 关联：[第一轮底层评估](foundation-optimization-review.md)、[架构事实源](../reference/ARCHITECTURE.md)、[数据库契约](../reference/DATABASE.md)、[数据隐私](../reference/DATA_PRIVACY.md)、[Agent 执行契约](../reference/agent-harness-loop.md)、[硬件方向](companion-hardware-directions.md)、[变更流程](../how-to/cr-workflow.md)
 
@@ -211,7 +211,7 @@ P1 表示优先修复或对应能力开放前必须通过的验证；P2 表示�
 
 **当前读路径。** [createSqliteMemoryRecall](../../apps/api/src/modules/companion/conversation/memory-recall.ts)进行混合检索，再核对软删、verified 和 long_term；尚未统一执行 `aiRecallUntil`、用途与分类资格检查。临时夹具把记忆设为已过期且 Restricted，该条仍进入 recall。生产创建路径尚未见这些字段赋值，所以这是资格边界验证，不是已发现真实敏感数据泄露。按[隐私授权](../reference/DATA_PRIVACY.md)，Restricted 默认不进入普通记忆；`restricted.profile` 仅授权 CAP-033 指定范围的本地处理，不自动授权普通长期记忆召回，不能增加一个通用授权开关就放行。
 
-**当前索引。** [记忆写工具](../../apps/api/src/modules/ecosystem/tools/memory-store-tool.ts)先写业务记录，再更新 FTS，再调用 embedding；任一步失败不代表前一步已撤销。[FTS](../../packages/repositories/src/search/fts.ts)默认 `unicode61`，临时中文样本“今天学习数学”全文命中 1 条、子词“学习”命中 0 条；这说明需中文检索质量基线，不代表所有中文查询都失败。
+**当前索引。** [记忆写工具](../../apps/api/src/modules/companion/memory/memory-store-tool.ts)先写业务记录，再更新 FTS，再调用 embedding；任一步失败不代表前一步已撤销。[FTS](../../packages/repositories/src/search/fts.ts)默认 `unicode61`，临时中文样本“今天学习数学”全文命中 1 条、子词“学习”命中 0 条；这说明需中文检索质量基线，不代表所有中文查询都失败。
 
 **可选回填的缺口。** [Embedding Worker](../../apps/worker/src/embedding-migration.ts)默认没有注入 Provider，直接返回 0。注入最小 Provider 后，真实临时库报 `no such column: r.workspace_id`，说明扫描仍引用已移除的历史列；修复应采用当前 LocalContext，不能重新加入旧隔离列。扫描也未按模型区分缺失；[向量适配器](../../packages/repositories/src/repositories/sqlite/memory-embedding-repository.ts)的通用 upsert 使用 `vec_<memoryId>`，不符合多个模型版本共存方向。后者是库级静态风险，当前主要生产调用是 search，不能声称已经覆盖了用户旧向量。
 
