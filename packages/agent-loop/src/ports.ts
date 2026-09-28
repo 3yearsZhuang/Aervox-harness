@@ -183,6 +183,26 @@ export interface ExecutionStorePort {
 
   /** E2：读取 Turn 的已提交安全片段（可见前缀；sequence 升序）。缺省实现返回空（宿主未接时透传）。 */
   listCommittedSegments?(turnId: string): Promise<Array<{ id: string; sequence: number; text: string; streamEventId: string | null }>>;
+
+  /** BTD-05 / ITER-007：更新所属 Turn 状态（由宿主账本落地） */
+  updateTurnStatus?(input: {
+    turnId: string;
+    status: "Completed" | "Failed" | "Interrupted";
+  }): Promise<void>;
+}
+
+/**
+ * BTD-05 / ITER-007：会话执行账本与状态机端口（SessionLedgerPort）
+ *
+ * 在 ExecutionStorePort 基础之上收敛 Turn 级状态推进与事件归档，
+ * 隔离底层 SQLite 具体仓储，使执行引擎能够以统一窄接口运转。
+ */
+export interface SessionLedgerPort extends ExecutionStorePort {
+  /** 推进所属 Turn 状态（如完成、失败或中断） */
+  updateTurnStatus?(input: {
+    turnId: string;
+    status: "Completed" | "Failed" | "Interrupted";
+  }): Promise<void>;
 }
 
 /** 追加事件的输入（executor 构造；id / occurredAt / payloadVersion 由 store 补齐） */
