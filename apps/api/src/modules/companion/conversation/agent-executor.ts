@@ -17,6 +17,7 @@ import {
   createPracticeAttemptToolProvider,
   createSummaryCompaction,
   executeTurn,
+  ControlContext,
 } from "@aervox/agent-loop";
 import type {
   InboxPort,
@@ -75,6 +76,10 @@ export async function runLoopTurnOnce(
     attemptId: string;
     userMessage: string;
     metadata?: Record<string, unknown>;
+    /** BTD-05 / ITER-007：统一执行控制上下文 */
+    controlContext?: ControlContext;
+    /** 请求级或底层取消信号 */
+    signal?: AbortSignal;
   },
   deps: {
     toolRuntime?: ToolRuntime;
@@ -121,9 +126,20 @@ export async function runLoopTurnOnce(
     pluginRegistry?: ServerPluginRegistry;
     /** 全链路可观测性门面（结构化日志与指标采集） */
     observability?: Observability;
+    /** BTD-05 / ITER-007: 执行控制截止时间（ms） */
+    turnTimeoutMs?: number;
   } = {},
 ): Promise<void> {
   const turnStartTime = Date.now();
+  const control =
+    input.controlContext ??
+    new ControlContext({
+      turnId: input.turnId,
+      attemptId: input.attemptId,
+      sessionId: input.sessionId,
+      abortSignal: input.signal,
+      deadlineEpochMs: deps.turnTimeoutMs ? Date.now() + deps.turnTimeoutMs : undefined,
+    });
   deps.observability?.metrics.emit({
     type: "counter",
     name: "agent.turn.started",
@@ -289,7 +305,7 @@ export async function runLoopTurnOnce(
         status: "Completed",
       }).catch(() => undefined);
 
-      await repo.updateTurnStatus(tenant, input.turnId, "Completed").catch(() => undefined);
+      await broadcastingStore.updateTurnStatus({ turnId: input.turnId, status: "Completed" }).catch(() => undefined);
 
       // 6. 立即退出：绝对阻断大模型调用、工具执行与事后插件（绝不提取记忆、术语或知识点）
       return;
@@ -331,6 +347,7 @@ export async function runLoopTurnOnce(
       ...(beforeTurnExec.extraSections.length > 0
         ? { systemPrompt: beforeTurnExec.extraSections.join("\n\n") }
         : {}),
+      controlContext: control,
     };
     await runDshAdapterTurn(repo, tenant, broadcastingStore, dshInput, async (status) => {
       await executeAfterTurnPlugins(
@@ -365,7 +382,7 @@ export async function runLoopTurnOnce(
     }
   } catch (err) {
     await failTurnWithError(broadcastingStore, input.turnId, input.attemptId, err instanceof Error ? err.message : "provider_unavailable");
-    await repo.updateTurnStatus(tenant, input.turnId, "Failed").catch(() => undefined);
+    await broadcastingStore.updateTurnStatus({ turnId: input.turnId, status: "Failed" }).catch(() => undefined);
     return;
   }
 
@@ -509,6 +526,7 @@ export async function runLoopTurnOnce(
       tools,
       deletionGate: deps.deletionGate,
       inbox: deps.inbox,
+      controlContext: control,
       modelRunMeta: routingSnapshot
         ? {
             provider: routingSnapshot.providerType ?? "rule",
@@ -517,7 +535,10 @@ export async function runLoopTurnOnce(
           }
         : undefined,
     },
-    input,
+    {
+      ...input,
+      controlContext: control,
+    },
   );
   const turnDurationMs = Date.now() - turnStartTime;
   deps.observability?.metrics.emit({
@@ -542,7 +563,7 @@ export async function runLoopTurnOnce(
         durationMs: turnDurationMs,
       },
     });
-    await repo.updateTurnStatus(tenant, input.turnId, "Completed");
+    await broadcastingStore.updateTurnStatus({ turnId: input.turnId, status: "Completed" });
     const llm = provider ? createLLMCallable(provider) : undefined;
     await executeAfterTurnPlugins(
       pluginRegistry,
@@ -553,6 +574,7 @@ export async function runLoopTurnOnce(
       beforeTurnExec.snapshots,
     );
   } else if (result.status === "failed") {
+    await broadcastingStore.updateTurnStatus({ turnId: input.turnId, status: "Failed" }).catch(() => undefined);
     deps.observability?.log.error({
       event: "agent.turn.failed",
       message: `Turn ${input.turnId} failed: ${result.reason}`,
@@ -564,6 +586,9 @@ export async function runLoopTurnOnce(
       },
     });
   } else {
+    if (result.status === "cancelled" || result.status === "interrupted") {
+      await broadcastingStore.updateTurnStatus({ turnId: input.turnId, status: "Interrupted" }).catch(() => undefined);
+    }
     deps.observability?.log.warn({
       event: "agent.turn.interrupted",
       message: `Turn ${input.turnId} status=${result.status}`,

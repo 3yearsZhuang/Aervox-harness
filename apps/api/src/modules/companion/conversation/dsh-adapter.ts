@@ -120,13 +120,14 @@ export async function runDshAdapterTurn(
     attemptId: string;
     userMessage: string;
     systemPrompt?: string;
+    controlContext?: import("@aervox/agent-loop").ControlContext;
   },
   onFinalized?: (status: "Completed" | "Failed" | "Interrupted") => Promise<void>,
 ): Promise<void> {
   const resolved = await resolveDshTurnAdapter();
   if (!resolved.ok) {
     await failTurnWithError(store, input.turnId, input.attemptId, resolved.reason, "ADAPTER_UNAVAILABLE");
-    await repo.updateTurnStatus(tenant, input.turnId, "Failed").catch(() => undefined);
+    await store.updateTurnStatus({ turnId: input.turnId, status: "Failed" }).catch(() => undefined);
     return;
   }
   const result = await runAdapterTurn(store, resolved.driver, {
@@ -135,12 +136,13 @@ export async function runDshAdapterTurn(
     attemptId: input.attemptId,
     userMessage: input.userMessage,
     systemPrompt: input.systemPrompt,
+    controlContext: input.controlContext,
   });
   if (result.status === "Completed") {
-    await repo.updateTurnStatus(tenant, input.turnId, "Completed");
+    await store.updateTurnStatus({ turnId: input.turnId, status: "Completed" });
     await onFinalized?.("Completed");
   } else if (result.status === "Failed" || result.status === "Interrupted") {
-    await repo.updateTurnStatus(tenant, input.turnId, result.status).catch(() => undefined);
+    await store.updateTurnStatus({ turnId: input.turnId, status: result.status }).catch(() => undefined);
     await onFinalized?.(result.status);
   }
 }
