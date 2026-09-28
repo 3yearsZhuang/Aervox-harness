@@ -585,12 +585,21 @@ export async function runLoopTurnOnce(
         error: result.reason,
       },
     });
-  } else {
-    if (result.status === "cancelled" || result.status === "interrupted") {
-      await broadcastingStore.updateTurnStatus({ turnId: input.turnId, status: "Interrupted" }).catch(() => undefined);
-    }
+  } else if (result.status === "cancelled") {
+    await broadcastingStore.updateTurnStatus({ turnId: input.turnId, status: "Interrupted" }).catch(() => undefined);
     deps.observability?.log.warn({
       event: "agent.turn.interrupted",
+      message: `Turn ${input.turnId} status=${result.status}`,
+      fields: {
+        turnId: input.turnId,
+        sessionId: input.sessionId,
+        durationMs: turnDurationMs,
+        status: result.status,
+      },
+    });
+  } else {
+    deps.observability?.log.warn({
+      event: "agent.turn.skipped",
       message: `Turn ${input.turnId} status=${result.status}`,
       fields: {
         turnId: input.turnId,
