@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { createControlContext } from "../src/control-context.js";
+import {
+  createControlContext,
+  executeTurn,
+  InMemoryExecutionStore,
+  createReplayProvider,
+  defaultContextBuilder,
+} from "../src/index.js";
 
 describe("ControlContext", () => {
   it("应正确初始化基础属性", () => {
@@ -165,6 +171,70 @@ describe("ControlContext", () => {
 
       parentController.abort();
       expect(child.isAborted()).toBe(true);
+    });
+  });
+
+  describe("executeTurn 与 ControlContext 集成", () => {
+    it("传入已中断的 ControlContext 时，executeTurn 应在 Step 首部检查点中止并写入 Cancelled 终态", async () => {
+      const store = new InMemoryExecutionStore();
+      store.seedAttempt({ id: "att-c1", turnId: "turn-c1" });
+      const controller = new AbortController();
+      controller.abort();
+
+      const control = createControlContext({
+        executionId: "exec-cancelled",
+        turnId: "turn-c1",
+        attemptId: "att-c1",
+        fencingToken: 1,
+        abortSignal: controller.signal,
+      });
+
+      const res = await executeTurn(
+        {
+          execution: store,
+          provider: createReplayProvider(),
+          contextBuilder: defaultContextBuilder,
+        },
+        {
+          turnId: "turn-c1",
+          sessionId: "sess-c1",
+          attemptId: "att-c1",
+          userMessage: "hello",
+          controlContext: control,
+        }
+      );
+
+      expect(res.status).toBe("cancelled");
+    });
+
+    it("传入已超时的 ControlContext 时，executeTurn 应收敛为 Interrupted (deadline_exceeded)", async () => {
+      const store = new InMemoryExecutionStore();
+      store.seedAttempt({ id: "att-e1", turnId: "turn-e1" });
+      const control = createControlContext({
+        executionId: "exec-expired",
+        turnId: "turn-e1",
+        attemptId: "att-e1",
+        fencingToken: 1,
+        deadlineEpochMs: Date.now() - 100,
+      });
+
+      const res = await executeTurn(
+        {
+          execution: store,
+          provider: createReplayProvider(),
+          contextBuilder: defaultContextBuilder,
+        },
+        {
+          turnId: "turn-e1",
+          sessionId: "sess-e1",
+          attemptId: "att-e1",
+          userMessage: "hello",
+          controlContext: control,
+        }
+      );
+
+      expect(res.status).toBe("failed");
+      expect(res.reason).toBe("deadline_exceeded");
     });
   });
 });

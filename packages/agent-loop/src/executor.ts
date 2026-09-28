@@ -29,6 +29,8 @@ export interface ExecuteTurnInput {
   attemptId: string;
   /** 阶段 1/2：用户输入即上下文来源（历史消息组装留后续阶段） */
   userMessage: string;
+  /** BTD-05 / ITER-007：统一执行控制上下文（含取消、超时截止、预算与本地处理限制） */
+  controlContext?: import("./control-context.js").ControlContext;
 }
 
 /**
@@ -140,6 +142,7 @@ export async function executeTurn(
   const maxConsecutiveSameTool = options?.maxConsecutiveSameTool ?? 0;
   const maxModelRetries = options?.maxModelRetries ?? 1;
   const startedAt = Date.now();
+  const control = input.controlContext;
 
   // 4b 续跑：以「抢占续跑」语义重新 claim（预期 = 原执行已持有的 fencing）；
   // 全新执行为 0（首次 claim）。
@@ -223,8 +226,14 @@ export async function executeTurn(
     return { status: "failed", attemptId: input.attemptId, reason };
   };
 
-  /** 2d：Step 边界守卫 —— 取消 / 删除撤权水位 / 总耗时预算，任一命中即收敛 */
+  /** 2d：Step 边界守卫 —— 取消 / 删除撤权水位 / 总耗时预算 / ControlContext，任一命中即收敛 */
   const prematureTermination = async (atSequence: number): Promise<ExecuteResult | null> => {
+    if (control?.isExpired()) {
+      return finalizeInterrupted(atSequence, "deadline_exceeded");
+    }
+    if (control?.isAborted()) {
+      return finalizeCancelled(atSequence);
+    }
     const cancelled = await abortIfCancelled(atSequence);
     if (cancelled) return cancelled;
     if (deletionGate && (await deletionGate.isBlocked({ turnId: input.turnId, sessionId: input.sessionId }))) {
@@ -608,6 +617,21 @@ export async function executeTurn(
               const cancel = new AbortController();
               // B2：租约丢失（心跳探知）→ abort 在途工具（即使工具不感知 signal，工具返回后检查点也会收敛）
               heartbeat?.onLost(() => cancel.abort());
+              if (control?.abortSignal) {
+                if (control.abortSignal.aborted) {
+                  cancel.abort(control.abortSignal.reason);
+                } else {
+                  control.abortSignal.addEventListener(
+                    "abort",
+                    () => cancel.abort(control.abortSignal.reason),
+                    { once: true }
+                  );
+                }
+              }
+              const subtaskControl = control?.deriveSubtask({
+                subtaskExecutionId: executionId,
+                tighterDeadlineEpochMs: effectiveTimeout > 0 ? Date.now() + effectiveTimeout : undefined,
+              });
               const executed = await withTimeout(
                 tools.execute({
                   turnId: input.turnId,
@@ -617,6 +641,7 @@ export async function executeTurn(
                   arguments: call.arguments,
                   sessionId: input.sessionId,
                   signal: cancel.signal,
+                  controlContext: subtaskControl,
                 }),
                 effectiveTimeout,
                 cancel,
