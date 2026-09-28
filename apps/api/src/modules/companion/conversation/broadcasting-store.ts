@@ -8,6 +8,18 @@
 import type { SqliteExecutionStore } from "@aervox/host-agent";
 import { turnStreamHub } from "./stream-hub.js";
 
+/** 过滤敏感系统上下文与内部诊断字段（BTD-06 安全投影） */
+export function projectSafeEventData(_eventType: string, data: unknown): unknown {
+  if (!data || typeof data !== "object") return data;
+  const obj = { ...(data as Record<string, unknown>) };
+  delete obj.rawTokens;
+  delete obj.systemPrompt;
+  delete obj.authToken;
+  delete obj.internalStack;
+  delete obj.dbConnection;
+  return obj;
+}
+
 /** 包装 SqliteExecutionStore，在落盘 SQLite 的同时同步广播给 turnStreamHub（CR-031 实时流式直推） */
 export function createBroadcastingStore(baseStore: SqliteExecutionStore): SqliteExecutionStore {
   return new Proxy(baseStore, {
@@ -22,7 +34,7 @@ export function createBroadcastingStore(baseStore: SqliteExecutionStore): Sqlite
             eventType: ev.eventType,
             payloadVersion: ev.payloadVersion,
             occurredAt: ev.occurredAt,
-            data: ev.data,
+            data: projectSafeEventData(ev.eventType, ev.data),
           });
           return ev;
         };
@@ -47,7 +59,7 @@ export function createBroadcastingStore(baseStore: SqliteExecutionStore): Sqlite
               eventType: input.eventType,
               payloadVersion: 1,
               occurredAt: new Date().toISOString(),
-              data: input.eventData,
+              data: projectSafeEventData(input.eventType, input.eventData),
             });
             turnStreamHub.publishSettled(input.turnId, input.status);
           }
@@ -65,7 +77,7 @@ export function createBroadcastingStore(baseStore: SqliteExecutionStore): Sqlite
               eventType: "delta",
               payloadVersion: 1,
               occurredAt: new Date().toISOString(),
-              data: input.eventData,
+              data: projectSafeEventData("delta", input.eventData),
             });
           }
           return res;
@@ -102,7 +114,7 @@ export function createBroadcastingStore(baseStore: SqliteExecutionStore): Sqlite
                 eventType: "delta",
                 payloadVersion: 1,
                 occurredAt: new Date().toISOString(),
-                data: input.eventData,
+                data: projectSafeEventData("delta", input.eventData),
               });
             }
           }
@@ -120,7 +132,7 @@ export function createBroadcastingStore(baseStore: SqliteExecutionStore): Sqlite
               eventType: "tool_result",
               payloadVersion: 1,
               occurredAt: new Date().toISOString(),
-              data: input.eventData,
+              data: projectSafeEventData("tool_result", input.eventData),
             });
           }
           return res;

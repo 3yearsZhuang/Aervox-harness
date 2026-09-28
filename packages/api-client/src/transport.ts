@@ -15,6 +15,7 @@ import type {
   TurnStreamEvent,
   UserQuestionRequiredEventData,
 } from '@aervox/contracts';
+import { TurnStreamProjector } from './projector.js';
 
 export interface TurnCallbacks {
   onDelta: (text: string) => void;
@@ -241,6 +242,7 @@ export function createFetchTransport(apiBase: string): AervoxTransport {
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
+    const projector = new TurnStreamProjector({ expectedTurnId: turnId });
     let buffer = '';
     try {
       for (;;) {
@@ -250,14 +252,14 @@ export function createFetchTransport(apiBase: string): AervoxTransport {
         buffer += decoder.decode(value, { stream: true });
         const blocks = buffer.split('\n\n');
         buffer = blocks.pop() ?? '';
-        for (const block of blocks) dispatch(block, callbacks, turnId);
+        for (const block of blocks) dispatch(block, callbacks, projector);
       }
     } finally {
       reader.releaseLock();
     }
   };
 
-  const dispatch = (block: string, callbacks: TurnCallbacks, turnId: string): void => {
+  const dispatch = (block: string, callbacks: TurnCallbacks, projector: TurnStreamProjector): void => {
     let data = '';
     for (const line of block.split('\n')) {
       if (line.startsWith('data:')) data += line.slice(5).trim();
@@ -269,25 +271,7 @@ export function createFetchTransport(apiBase: string): AervoxTransport {
     } catch {
       return;
     }
-    if (event.eventType === 'delta') {
-      const text = (event.data as { text?: string }).text;
-      if (text) callbacks.onDelta(text);
-    } else if (event.eventType === 'reasoning_delta') {
-      const text = (event.data as { text?: string }).text;
-      if (text) callbacks.onReasoning?.(text);
-    } else if (event.eventType === 'done') {
-      callbacks.onDone();
-    } else if (event.eventType === 'error') {
-      callbacks.onError?.(new Error((event.data as { message?: string }).message ?? 'Turn 出错'));
-    } else if (event.eventType === 'emote') {
-      callbacks.onEmote?.(event.data as PetCommand);
-    } else if (event.eventType === 'user_question_required') {
-      callbacks.onUserQuestion?.(event.data as UserQuestionRequiredEventData);
-    } else if (event.eventType === 'tool_approval_required') {
-      callbacks.onToolApproval?.({ ...(event.data as ToolApprovalRequiredEventData), turnId });
-    } else if (event.eventType === 'terms_extracted') {
-      callbacks.onTermsExtracted?.(event.data as import('@aervox/contracts').TermsExtractedEventData);
-    }
+    projector.project(event, callbacks);
   };
 
   const submitQuestionAnswers = async (turnId: string, answers: AskUserQuestionAnswerItem[]): Promise<void> => {

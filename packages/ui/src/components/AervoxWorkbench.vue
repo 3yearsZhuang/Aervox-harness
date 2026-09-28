@@ -136,8 +136,9 @@ const projectManagerOpen = ref(false);
 const importSessionOpen = ref(false);
 
 watch(() => sessions.activeSessionId.value, (newId, oldId) => {
-  if (newId && oldId && newId !== oldId && !conversation.streaming.value) {
+  if (newId && oldId && newId !== oldId) {
     conversation.resetStory();
+    conversation.streaming.value = false;
   }
 });
 
@@ -249,6 +250,7 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
           throw error instanceof Error ? error : new Error(String(error));
         },
         onReasoning: () => {
+          if (sessions.activeSessionId.value !== submittedSessionId) return;
           deltaBatch.flush();
           if (!liveAssistantLine.text) {
             thinkingVisible = true;
@@ -257,6 +259,7 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
           }
         },
         onDelta: (delta) => {
+          if (sessions.activeSessionId.value !== submittedSessionId) return;
           deltaBatch.append(delta);
           const now = Date.now();
           if (now - lastSpeakAt > 1200 && delta.trim()) {
@@ -265,6 +268,7 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
           }
         },
         onDone: () => {
+          if (sessions.activeSessionId.value !== submittedSessionId) return;
           deltaBatch.flush();
           composer.completeDraftSubmission(submittedSessionId);
           liveAssistantLine.state = 'complete';
@@ -278,6 +282,7 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
           petReactKind('glad', { expression: MizukiExpression.face_smile_01, speak: liveAssistantLine.text });
         },
         onUserQuestion: (qData) => {
+          if (sessions.activeSessionId.value !== submittedSessionId) return;
           deltaBatch.flush();
           conversation.activeQuestion.value = qData;
           conversation.currentTurnId.value = qData.turnId;
@@ -285,9 +290,11 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
           void conversation.scrollStoryToBottom();
         },
         onTermsExtracted: (tData) => {
+          if (sessions.activeSessionId.value !== submittedSessionId) return;
           conversation.currentExtractedTerms.value = tData.terms;
         },
         onToolApproval: (aData) => {
+          if (sessions.activeSessionId.value !== submittedSessionId) return;
           deltaBatch.flush();
           conversation.pendingApproval.value = { ...aData, outgoing };
           void conversation.scrollStoryToBottom();
@@ -301,17 +308,21 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
       },
     );
   } catch (error) {
-    console.error('对话流式失败', error);
-    deltaBatch.flush();
-    liveAssistantLine.state = 'error';
-    liveAssistantLine.text = error instanceof Error ? `连接失败：${error.message}` : '连接失败，请稍后重试。';
-    composer.restoreFailedDraft();
-    petReactKind('sad', { expression: MizukiExpression.face_sad_01 });
+    if (sessions.activeSessionId.value === submittedSessionId) {
+      console.error('对话流式失败', error);
+      deltaBatch.flush();
+      liveAssistantLine.state = 'error';
+      liveAssistantLine.text = error instanceof Error ? `连接失败：${error.message}` : '连接失败，请稍后重试。';
+      composer.restoreFailedDraft();
+      petReactKind('sad', { expression: MizukiExpression.face_sad_01 });
+    }
   } finally {
-    deltaBatch.flush();
-    conversation.streaming.value = false;
-    if (!composer.input.value.trim()) composer.composerOpen.value = false;
-    await conversation.scrollStoryToBottom();
+    if (sessions.activeSessionId.value === submittedSessionId) {
+      deltaBatch.flush();
+      conversation.streaming.value = false;
+      if (!composer.input.value.trim()) composer.composerOpen.value = false;
+      await conversation.scrollStoryToBottom();
+    }
   }
   } finally {
     isSendingMessage = false;
