@@ -32,6 +32,7 @@ sources:
   - docs/reference/adr/ADR-016-base-boundaries.md
   - docs/explanation/reference-design-transfer.md
   - docs/explanation/architecture-implementation-review.md
+  - docs/explanation/btd08-adapter-retirement-evaluation.md
   - docs/reference/REQUIREMENTS_TRACEABILITY.md
   - plan.md
 ---
@@ -41,9 +42,9 @@ sources:
 - 提出人：3yearszhuang · 2026-09-28
 - 修改人：3yearszhuang · 2026-09-29
 
-关联：[当前迭代计划](../../../plan.md) · [架构设计](../ARCHITECTURE.md) · [能力组合规范](../capability-composition.md) · [Agent Loop 规范](../agent-harness-loop.md) · [架构实现评估](../../explanation/architecture-implementation-review.md) · [实现登记](../REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)
+关联：[当前迭代计划](../../../plan.md) · [架构设计](../ARCHITECTURE.md) · [能力组合规范](../capability-composition.md) · [Agent Loop 规范](../agent-harness-loop.md) · [架构实现评估](../../explanation/architecture-implementation-review.md) · [BTD-08 去留评估](../../explanation/btd08-adapter-retirement-evaluation.md) · [实现登记](../REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)
 
-- 状态：Accepted / Implemented（阶段一基础架构落地闭环，阶段二差量交接）；2026-09-29 BTD-00～04 与 BTD-07 已完成实施验证并通过自动化守卫门禁，ITER-014 正式移交。BTD-05/06 移交至 ITER-007/013 下游队列承接，BTD-08 保持条件性候选；本分支完成阶段性收口。
+- 状态：Verified / Released（BTD-00～08 全切片形式化收口闭环：BTD-05 瘦执行宿主与控制面完成，BTD-06 客户端安全投影与防乱序防复活完成，BTD-08 经评估正式退役封板并输出 AVX-EXPL-014）。
 - Aervox 核验基线：`e5297fe549cfff4f8eedf51bbb4c0da010a57787`，2026-09-28 本地 `main`；规划分支 `docs/build-to-delete-pi-architecture-plan`。
 - 参考基线：`PI-01`，`reference/pi` 的 `c49906ec77788625aacbdc53ebca6fbe65bd20f5`，MIT；不将本快照描述为上游最新版本。
 - 关联能力：`CAP-002/005/007/018/020/027/033` 与架构基础设施；不改变 CAP 优先级、标准产品必选集或数据权利。
@@ -220,6 +221,7 @@ D1～D4 已随 2026-09-28 的实施授权接受；规则同步到对应 Living �
 - 权限：模型仅提出调用，Host 重新验证工具定义、参数、授权修订和执行策略；pi 自报 `tool_result` 不能替代 Host 工具账本。不能满足本地处理、删除、取消或安全输出合同的能力不准入；不静默回退到另一 Driver。
 - 验收：无 Adapter 时原生路径完整；固定轨迹下明确报告文本、流式、取消、工具、恢复的能力矩阵及不支持项。真实模型 smoke 与协议/Fake 测试分开报告，模拟器通过不等于真实运行时通过。
 - 退出：合同无法满足、维护成本超过用例价值或上游仍不成熟时禁用/移除 Adapter；不转换 Aervox 历史、不保留第二套权威会话库。完整工具闭环与产品发布另列范围和估算。
+- 终审决断（2026-09-29）：经架构评审与《[AVX-EXPL-014：BTD-08 适配器去留评估与结项说明](../../explanation/btd08-adapter-retirement-evaluation.md)》论证，原生 ModelRuntimeDriver + ToolRuntime 体系已完全满足业务需求，无需引入外部多进程运行时。依据退出准则，BTD-08 正式退役（retired / not-applicable），不再保留为未决项。
 
 ## 6. 共同契约与测试矩阵
 
@@ -316,6 +318,12 @@ BTD-02 缺包保护切片：新增 plugins.availability 兼容列；扫描缺包
 
 BTD-04 模型 Driver 替换与代际生命周期：Service 仅依赖 ModelRuntimeDriver SPI，具体 LlamaServerManager 默认移至组合根；缺省提供 unavailable 驱动，受限本地模型缺失合规 Provider 时明确拒绝并保留模型文件/侧车，禁止静默走远程；落地 start/stop/dispose 幂等编排与超时有界关闭；增加代际计数防迟到采样污染。验证：API typecheck 通过；扩展 SPI 测试 4 用例通过（验证注入编排、unavailable 拒绝与文件保留、生命周期与幂等释放、代际防污染）；原模型运行时 API 与子进程测试 22 用例全绿。其余验收保持执行中。
 
-BTD-07 可删除性守卫与退出演练：建立 scripts/check-removable-implementation.mjs 与测试，对 MemoryStore 工具贡献和模型 Driver 两项试点执行全仓私有引用审计，全仓 0 处非法直接私有引用，已接入 pnpm check:guards 守卫门禁；新增 apps/api/test/memory-tool-contribution.test.ts，验证 Fake 注册表独立构造通用 Runtime、MemoryStore 工具贡献挂载与调用、卸载退出后其他工具正常工作且记忆数据源完整保留，3/3 用例通过。相关可删除性演练与守护已全部闭环。
+BTD-05/06/08 差量交接与阶段一收口结论：2026-09-29 完成 Build to Delete 与类 pi 分层架构第一阶段基础实施（BTD-00～04 与 BTD-07），全量通过双门禁、AST 可移除性守护（check:guards 24/24）与 API 全量 72 套件（476 测试全绿）。ITER-014 正式推进为“已移交”。
 
-BTD-05/06/08 差量交接与阶段一收口结论：2026-09-29 本分支完成 Build to Delete 与类 pi 分层架构第一阶段基础实施（BTD-00～04 与 BTD-07），全量通过双门禁、AST 可移除性守护（check:guards 24/24）与 API 全量 72 套件（476 测试全绿）。ITER-014 正式推进为“已移交”。剩余架构切片按规划完成交接：BTD-05 瘦执行宿主与统一控制契约由 ITER-007（控制与授权）与 ITER-013（有界运行与 Drain）承接；BTD-06 客户端投影与进度边界由 ITER-013（SSE 背压与文本窗口）与 ITER-006（认证）承接；BTD-08 类 pi 适配器保持条件性候选（Prospect），待具体业务用例成立后纳入 ITER-019 评估。阶段一交付范围已全量闭环，分支完成收口。
+BTD-05/06/08 全量收口与 CR-056 终审归档：2026-09-29 在 `feat/aervox-core-evolution` 分支完成剩余差量全量落地与闭环：
+
+1. **BTD-05 瘦执行宿主与统一控制面**：实现 `ControlContext`（截止时间、取消信号、Token/调用预算、子任务派生）、`SessionLedgerPort` 窄接口与 `AgentHost` 有界排空（Drain），`agent-executor.ts` 与 `dsh-adapter.ts` 解耦仓储直写；
+2. **BTD-06 客户端安全投影与进度边界**：实现统一 `TurnStreamProjector` 与双端防乱序、防重复、防跨会话旧消息复活状态机，服务端 `broadcastingStore` 接入 `projectSafeEventData` 脱敏；
+3. **BTD-08 适配器决断闭环**：经架构评审与《[AVX-EXPL-014：BTD-08 适配器去留评估与结项说明](../../explanation/btd08-adapter-retirement-evaluation.md)》论证，原生 ModelRuntimeDriver + ToolRuntime 体系已完全满足业务需求，无需引入外部多进程运行时，正式退役（retired / not-applicable）。
+
+至此 CR-056 涵盖的全部架构切片（BTD-00～08）已 100% 验收关闭，CR-056 状态正式推进为 `Verified / Released`。

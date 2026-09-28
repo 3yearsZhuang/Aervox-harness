@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-09-28",
-  "totalCount": 73,
+  "totalCount": 74,
   "documents": [
     {
       "id": "AVX-PLAN-001",
@@ -93,6 +93,33 @@
         "docs/reference/adr/ADR-014-modular-monolith-structure.md",
         "docs/explanation/foundation-optimization-review.md",
         "docs/explanation/companion-hardware-directions.md"
+      ]
+    },
+    {
+      "id": "AVX-EXPL-014",
+      "title": "BTD-08 适配器去留评估与结项说明",
+      "path": "explanation/btd08-adapter-retirement-evaluation.md",
+      "type": "explanation",
+      "scope": "guide",
+      "planning_role": "evidence",
+      "owner": "ecosystem",
+      "doc_status": "approved",
+      "decision_status": "not-applicable",
+      "delivery_status": "not-applicable",
+      "version": "0.1.0",
+      "updated_at": "2026-09-29",
+      "reviewed_at": "2026-09-29",
+      "review_interval_days": 90,
+      "review_triggers": [
+        "packages/agent-loop/**",
+        "packages/host-agent/**",
+        "docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md"
+      ],
+      "sources": [
+        "docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md",
+        "docs/reference/adr/ADR-010-dsh-pi-adapters.md",
+        "docs/reference/adr/ADR-009-electron-plugin-sandbox.md",
+        "docs/reference/ARCHITECTURE.md"
       ]
     },
     {
@@ -545,8 +572,8 @@
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
       "version": "1.16.0",
-      "updated_at": "2026-09-28",
-      "reviewed_at": "2026-09-28",
+      "updated_at": "2026-09-29",
+      "reviewed_at": "2026-09-29",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -1121,6 +1148,7 @@
         "docs/reference/adr/ADR-016-base-boundaries.md",
         "docs/explanation/reference-design-transfer.md",
         "docs/explanation/architecture-implementation-review.md",
+        "docs/explanation/btd08-adapter-retirement-evaluation.md",
         "docs/reference/REQUIREMENTS_TRACEABILITY.md",
         "plan.md"
       ]

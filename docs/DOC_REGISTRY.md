@@ -89,7 +89,8 @@ review_interval_days: 90
 | `AVX-EXPL-013` | [HLS 本地智能体竞赛：能力拓展与验证规划](explanation/hls-agent-competition-plan.md) | 2026-09-22 | 赛规、GPU/工具环境、Agent 复用路径或实验范围变化；每两周复核 | 评分口径、工具反馈可见性、基线公平、去留证据或交付边界与实测/最新细则不一致 |
 | `AVX-EXPL-011` | [配套硬件方向：能力核查、移动协同取舍与原型路线](explanation/companion-hardware-directions.md) | 2026-09-18 | 移动范围、设备宿主、语音、表现协议、本地模型或外部连接能力变更 | 能力现状、手机重合、器件候选、原型范围、成本或停止条件与实际证据不一致 |
 | `AVX-EXPL-008` | [主动智能模式设计方案](explanation/proactive-intelligence-mode.md) | 2026-09-18 | CR-023/CAP-033、完全访问、全量画像、OS 能力授权、特权观察 Host、本地处理、动作授权、CAP-022/026/027/030 变更 | 四维状态、完整画像 manifest、平台能力清单、OS grant、本地出网边界、七天提炼保留、动作授权、阻断项或实现门禁与基线不一致 |
-| `AVX-DOC-001` | [文档索引](README.md) | 2026-09-28 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
+| `AVX-EXPL-014` | [BTD-08 适配器去留评估与结项说明](explanation/btd08-adapter-retirement-evaluation.md) | 2026-09-29 | BTD-08 裁决、外部运行时适配或 CR-056 状态变更 | 原生覆盖证据、评估结论、退出准则或 CR-056 切片状态与实际不一致 |
+| `AVX-DOC-001` | [文档索引](README.md) | 2026-09-29 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
 | `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-09-28 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |
 | `AVX-DOC-CONF-001` | [文档生命周期登记表](DOC_REGISTRY.md) | 2026-09-28 | 每季度 + 每次文档集变更 | 登记条目与实际文档集不一致 |
 | `CR-053` | [CR-053 llama.cpp 本地模型作为底层能力接入与模型能力探测预算适配](reference/changes/CR-053-llamacpp-provider-and-local-model-support.md) | 2026-09-17 | 变更生命周期 + 决策变更 | 实现与提案差量、决策状态或回滚预案不一致 |
