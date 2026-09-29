@@ -99,24 +99,41 @@ export interface HostToolRegistryPort {
   }): Promise<HostToolRegistrationModel[]>;
 }
 
-/** 默认 AST-04 门控求值（equals/in/truthy 基础实现） */
-export function defaultGatingEvaluator(condition: {
-  field: string;
-  operator: string;
-  value?: unknown;
-  evaluatorId?: string;
-}): boolean {
+/** 按 dot-path 从门禁上下文解析字段值；上下文缺失或路径断裂返回 undefined */
+function resolveGatingField(context: unknown, field: string): unknown {
+  if (context === null || typeof context !== "object") return undefined;
+  let current: unknown = context;
+  for (const part of field.split(".")) {
+    if (current === null || typeof current !== "object") return undefined;
+    current = (current as Record<string, unknown>)[part];
+  }
+  return current;
+}
+
+/**
+ * 默认 AST-04 门控求值（equals/in/truthy 基础实现）：
+ * 字段值从门禁上下文按 dot-path 实际解析并与条件值比较；未知算子与
+ * custom（需要宿主注册自定义求值器）一律 fail-closed 返回 false。
+ */
+export function defaultGatingEvaluator(
+  condition: { field: string; operator: string; value?: unknown; evaluatorId?: string },
+  context?: unknown,
+): boolean {
+  const resolved = resolveGatingField(context, condition.field);
   switch (condition.operator) {
     case "truthy":
-      return !!condition.value;
+      return Boolean(resolved);
     case "equals":
-      return condition.value !== undefined && condition.value !== null;
+      if (typeof resolved === "object" && typeof condition.value === "object") {
+        return JSON.stringify(resolved ?? null) === JSON.stringify(condition.value ?? null);
+      }
+      return resolved === condition.value;
     case "in":
-      return Array.isArray(condition.value) && condition.value.length > 0;
+      return Array.isArray(condition.value) && (condition.value as unknown[]).includes(resolved);
     case "custom":
       return false;
     default:
-      return true;
+      return false;
   }
 }
 
@@ -172,13 +189,26 @@ export class InMemoryToolRegistry implements HostToolRegistryPort {
   async exportRegistry(options?: {
     disabledToolIds?: string[];
     category?: string;
-    gatingEvaluator?: (condition: { field: string; operator: string; value?: unknown; evaluatorId?: string }) => boolean;
+    gatingEvaluator?: (condition: { field: string; operator: string; value?: unknown; evaluatorId?: string }, context?: unknown) => boolean;
+    gatingContext?: unknown;
   }): Promise<HostToolRegistrationModel[]> {
     const disabled = new Set(options?.disabledToolIds ?? []);
     return Array.from(this.rows.values()).filter((r) => {
       if (r.enabled !== 1) return false;
       if (disabled.has(r.id)) return false;
       if (options?.category && r.category !== options.category) return false;
+      // AST-04 门控条件求值（与 SqliteToolRegistryRepository.exportRegistry 同语义）
+      if (options?.gatingEvaluator && r.gatingConditionsJson) {
+        const conditions = Array.isArray(r.gatingConditionsJson) ? r.gatingConditionsJson : [];
+        for (const cond of conditions as Array<{
+          field: string;
+          operator: string;
+          value?: unknown;
+          evaluatorId?: string;
+        }>) {
+          if (!options.gatingEvaluator(cond, options.gatingContext)) return false;
+        }
+      }
       return true;
     });
   }
@@ -319,12 +349,14 @@ export class HostToolRuntime {
   async exportRegistry(options?: {
     disabledToolIds?: string[];
     category?: string;
+    gatingContext?: unknown;
   }): Promise<HostToolRegistrationModel[]> {
     const entries = new Map(this.handlers);
     const tools = await this.registry.exportRegistry({
       disabledToolIds: options?.disabledToolIds,
       category: options?.category,
-      gatingEvaluator: (condition) => defaultGatingEvaluator(condition),
+      gatingContext: options?.gatingContext,
+      gatingEvaluator: (condition) => defaultGatingEvaluator(condition, options?.gatingContext),
     });
     const available = await Promise.all(
       tools.map(async (tool) => {
@@ -342,7 +374,7 @@ export class HostToolRuntime {
     return available.filter((tool): tool is HostToolRegistrationModel => tool !== null);
   }
 
-  /** 调用工具：安全级别 + handler 存在性 + 参数沙箱检查 + 信号级联 */
+  /** 调用工具：门禁求值 + 安全级别 + handler 存在性 + 参数沙箱检查 + 信号级联 */
   async callTool(
     ctx: LocalContext,
     toolId: string,
@@ -352,6 +384,7 @@ export class HostToolRuntime {
       proactiveAuthorization?: boolean;
       signal?: AbortSignal;
       controlContext?: ControlContext;
+      gatingContext?: unknown;
     } = {},
   ): Promise<unknown> {
     if (this.disposed) throw new HostToolForbiddenError("tool runtime disposed");
@@ -367,6 +400,15 @@ export class HostToolRuntime {
       throw new HostToolForbiddenError(`tool definition changed: ${toolId}`);
     }
     if (tool.enabled !== 1) throw new HostToolForbiddenError(`tool disabled: ${toolId}`);
+
+    // AST-04：调用时门禁求值——列表过滤之外的调用边界防线；
+    // 条件不满足或上下文无法满足条件一律 fail-closed（覆盖直呼工具 ID 绕过列表过滤的路径）
+    const gatingConditions = Array.isArray(tool.gatingConditionsJson)
+      ? (tool.gatingConditionsJson as Array<{ field: string; operator: string; value?: unknown; evaluatorId?: string }>)
+      : [];
+    if (gatingConditions.length > 0 && gatingConditions.some((cond) => !defaultGatingEvaluator(cond, opts.gatingContext))) {
+      throw new HostToolForbiddenError(`tool gated: ${toolId}`);
+    }
 
     // PET-05：非只读工具必须显式授权
     if ((tool.safetyLevel ?? "write_with_approval") !== "read_only" && !opts.approval) {

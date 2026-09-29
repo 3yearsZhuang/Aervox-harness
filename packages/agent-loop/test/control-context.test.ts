@@ -314,3 +314,20 @@ it("取消发生在工具预留期间时不得进入 handler", async () => {
   }, { turnId: "t", attemptId: "a", userMessage: "hi", controlContext: control });
   expect(result.status).toBe("cancelled"); expect(execute).not.toHaveBeenCalled();
 });
+
+it("DB 位取消在流中命中检查点时，不对终态 Attempt 追加缓冲 reasoning，结果仍收敛为 cancelled", async () => {
+  const store = new InMemoryExecutionStore(); store.seedAttempt({ id: "a", turnId: "t" });
+  const control = createControlContext();
+  const run = executeTurn({ execution: store, contextBuilder: defaultContextBuilder,
+    provider: { id: "reasoning", async *stream() {
+      yield { text: "", reasoning: "first-flushed-segment", isFinal: false };  // 节流窗口外（首次）立即落盘
+      yield { text: "", reasoning: "pending-tail", isFinal: false };          // 400ms 节流窗口内 → 滞留缓冲
+      await store.requestCancelAttempt({ turnId: "t", attemptId: "a" });      // DB 位取消（不触发 abort 信号）
+      await new Promise((r) => setTimeout(r, 120));                           // 越过中流检查点 100ms 节流
+      yield { text: "late", isFinal: true };                                  // 检查点提交 Cancelled 终态 → midStreamStop
+    } },
+  }, { turnId: "t", attemptId: "a", userMessage: "hi", controlContext: control });
+  expect((await run).status).toBe("cancelled");
+  const events = await store.listEvents("t");
+  expect(events.at(-1)?.data).toMatchObject({ status: "Cancelled" });
+});

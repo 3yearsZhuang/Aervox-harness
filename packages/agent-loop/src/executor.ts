@@ -421,7 +421,9 @@ export async function executeTurn(
         }
       }
       if (midStreamStop) {
-        await flushReasoning(true);
+        // 终态已在 prematureTermination 内 CAS 提交；缓冲 reasoning 属进度事件，
+        // 对终态 Attempt 追加必被 fencing CAS 拒绝（LeaseLostError 会把取消/预算收敛
+        // 误报为 *_finalize_contested / lease_lost）——与 catch 路径同样静默丢弃。
         return midStreamStop;
       }
       await flushReasoning(true);
@@ -650,19 +652,22 @@ export async function executeTurn(
               if (stop) return stop;
               if (control && (control.remainingCalls < 1 || control.remainingTokens <= 0)) return finalizeInterrupted(sequence, "budget_exhausted");
 
-              // Phase 2: ApprovalPolicyPort 统一审批前置拦截
+              // Phase 2: ApprovalPolicyPort 统一审批前置拦截（有界等待：策略不合作时由 abort 信号打破）
               if (deps.approvalPolicy) {
                 const spec = (tools.tools || []).find((t) => t.name === call.name);
                 const safetyLevel: import("./ports.js").ToolSafetyLevel = spec?.readOnly ? "read_only" : "write_with_approval";
-                const decision = await deps.approvalPolicy.evaluate(
-                  {
-                    turnId: input.turnId,
-                    attemptId: input.attemptId,
-                    invocationId: executionId,
-                    toolName: call.name,
-                    arguments: call.arguments,
-                    safetyLevel,
-                  },
+                const decision = await awaitWithSignal(
+                  deps.approvalPolicy.evaluate(
+                    {
+                      turnId: input.turnId,
+                      attemptId: input.attemptId,
+                      invocationId: executionId,
+                      toolName: call.name,
+                      arguments: call.arguments,
+                      safetyLevel,
+                    },
+                    control?.abortSignal,
+                  ),
                   control?.abortSignal,
                 );
                 if (decision.action === "deny") {

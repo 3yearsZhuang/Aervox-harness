@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   HostToolRuntime,
   InMemoryToolRegistry,
+  defaultGatingEvaluator,
   type HostToolDefinition,
   type HostToolHandler,
 } from "../src/index.js";
@@ -124,5 +125,66 @@ describe("HostToolRuntime (packages/host-agent)", () => {
       "disposed",
     );
     await expect(runtime.callTool(ctx, "test", {})).rejects.toThrow("disposed");
+  });
+
+  it("AST-04 调用时门禁求值：条件不满足或上下文缺失 fail-closed，满足则放行", async () => {
+    const runtime = new HostToolRuntime();
+    const handler = vi.fn(async () => "gated_ok");
+
+    await runtime.registerContribution(
+      { ...def("read_only", "gated"), gatingConditions: [{ field: "profile.tier", operator: "equals", value: "pro" }] },
+      handler,
+    );
+
+    // 未提供门禁上下文 → 字段解析失败 → 拒绝（直呼工具 ID 无法绕过列表过滤）
+    await expect(runtime.callTool(ctx, "gated", {})).rejects.toThrow("tool gated");
+    expect(handler).not.toHaveBeenCalled();
+
+    // 条件不满足 → 拒绝
+    await expect(
+      runtime.callTool(ctx, "gated", {}, { gatingContext: { profile: { tier: "free" } } }),
+    ).rejects.toThrow("tool gated");
+    expect(handler).not.toHaveBeenCalled();
+
+    // 条件满足 → 放行
+    await expect(
+      runtime.callTool(ctx, "gated", {}, { gatingContext: { profile: { tier: "pro" } } }),
+    ).resolves.toBe("gated_ok");
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("AST-04 门禁求值：未知算子 fail-closed，无条件工具不受影响", async () => {
+    const runtime = new HostToolRuntime();
+    await runtime.registerContribution(
+      { ...def("read_only", "weird_gate"), gatingConditions: [{ field: "x", operator: "regex", value: ".*" }] },
+      { call: async () => "ok" },
+    );
+    await runtime.registerContribution(def("read_only", "ungated"), { call: async () => "ok" });
+
+    await expect(runtime.callTool(ctx, "weird_gate", {})).rejects.toThrow("tool gated");
+    await expect(runtime.callTool(ctx, "ungated", {})).resolves.toBe("ok");
+  });
+
+  it("InMemoryToolRegistry.exportRegistry 门控过滤与 SQLite 仓储语义对齐", async () => {
+    const registry = new InMemoryToolRegistry();
+    await registry.registerTool({ ...def("read_only", "visible"), gatingConditions: [] });
+    await registry.registerTool({
+      ...def("read_only", "hidden"),
+      gatingConditions: [{ field: "tier", operator: "equals", value: "pro" }],
+    });
+
+    const listedPro = await registry.exportRegistry({
+      gatingEvaluator: (condition) => defaultGatingEvaluator(condition, { tier: "pro" }),
+      gatingContext: { tier: "pro" },
+    });
+    expect(listedPro.map((t) => t.name)).toContain("visible");
+    expect(listedPro.map((t) => t.name)).toContain("hidden");
+
+    const listedFree = await registry.exportRegistry({
+      gatingEvaluator: (condition) => defaultGatingEvaluator(condition, { tier: "free" }),
+      gatingContext: { tier: "free" },
+    });
+    expect(listedFree.map((t) => t.name)).toContain("visible");
+    expect(listedFree.map((t) => t.name)).not.toContain("hidden");
   });
 });

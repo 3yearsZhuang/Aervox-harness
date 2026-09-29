@@ -144,7 +144,7 @@
       ],
       "owner": "platform/ecosystem",
       "dependsOn": [],
-      "statusNote": "2026-09-29 PR #231 缺陷修复已通过定向验收：预算执行、父子控制、生产取消/本地限制及原子终态；完整权限和模型窗口验收仍待完成，证据见 CR-056 §10.4 / §4.2",
+      "statusNote": "2026-09-29 PR #231 缺陷修复已通过定向验收：预算执行、父子控制、生产取消/本地限制及原子终态；第二轮复核修复取消/预算收敛时序与审批有界等待；完整权限和模型窗口验收仍待完成，证据见 CR-056 §10.4–§10.5 / §4.2",
       "links": [
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
         "https://github.com/3yearsZhuang/Aervox-harness/pull/231"
@@ -239,7 +239,7 @@
         "ITER-002",
         "ITER-008"
       ],
-      "statusNote": "2026-09-29 PR #231 已修复 Host 有界停机、实时/回放投影、Fetch 重连与真实组件旧流隔离；SSE 背压/分页、跨进程恢复及生产资源全范围仍未移交，证据见 CR-056 §10.4 / §4.2",
+      "statusNote": "2026-09-29 PR #231 已修复 Host 有界停机、实时/回放投影、Fetch 重连与真实组件旧流隔离；第二轮复核补齐审批有界等待；SSE 背压/分页、跨进程恢复及生产资源全范围仍未移交，证据见 CR-056 §10.4–§10.5 / §4.2",
       "links": [
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
         "https://github.com/3yearsZhuang/Aervox-harness/pull/231"
@@ -440,7 +440,7 @@
       ],
       "owner": "platform/runtime",
       "branch": "feat/aervox-core-evolution",
-      "statusNote": "2026-09-29 移交：Phase 1-4 全部实施完成，中间件链、三端审批 SPI、工具沙箱下沉与独立 Headless 验证全绿；ADR-020 已归档接受；§4.2 完成登记",
+      "statusNote": "2026-09-29 移交：Phase 1-4 全部实施完成，中间件链、三端审批 SPI、工具沙箱下沉与独立 Headless 验证全绿；ADR-020 已归档接受；第二轮复核补齐调用时门禁与入参沙箱加固，证据见 CR-056 §10.5；§4.2 完成登记",
       "dependsOn": [
         "ITER-023"
       ],

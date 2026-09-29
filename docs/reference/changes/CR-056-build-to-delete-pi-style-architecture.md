@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: accepted
 delivery_status: implemented
-version: 1.0.2
+version: 1.0.3
 updated_at: 2026-09-29
 reviewed_at: 2026-09-29
 review_interval_days: 30
@@ -44,7 +44,7 @@ sources:
 
 关联：[当前迭代计划](../../../plan.md) · [架构设计](../ARCHITECTURE.md) · [能力组合规范](../capability-composition.md) · [Agent Loop 规范](../agent-harness-loop.md) · [架构实现评估](../../explanation/architecture-implementation-review.md) · [BTD-08 去留评估](../../explanation/btd08-adapter-retirement-evaluation.md) · [实现登记](../REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)
 
-- 状态：Accepted / Implemented（部分实现）；PR #230 的生命周期、可移除守卫与真实退出演练已闭环（§10.2），PR #231 的控制、原子终态、安全投影、客户端与 CLI 缺陷已修复并通过定向验收（§10.4）。ITER-014 试点已移交；ITER-007/013 的完整权限、窗口及生产有界资源验收仍保留，CR 不晋级 Verified/Released。
+- 状态：Accepted / Implemented（部分实现）；PR #230 的生命周期、可移除守卫与真实退出演练已闭环（§10.2），PR #231 的控制、原子终态、安全投影、客户端与 CLI 缺陷已修复并通过定向验收（§10.4），第二轮复核的取消收敛时序、审批有界等待、调用时门禁与入参沙箱已修复（§10.5）。ITER-014 试点已移交；ITER-007/013 的完整权限、窗口及生产有界资源验收仍保留，CR 不晋级 Verified/Released。
 - Aervox 核验基线：`e5297fe549cfff4f8eedf51bbb4c0da010a57787`，2026-09-28 本地 `main`；规划分支 `docs/build-to-delete-pi-architecture-plan`。
 - 参考基线：`PI-01`，`reference/pi` 的 `c49906ec77788625aacbdc53ebca6fbe65bd20f5`，MIT；不将本快照描述为上游最新版本。
 - 关联能力：`CAP-002/005/007/018/020/027/033` 与架构基础设施；不改变 CAP 优先级、标准产品必选集或数据权利。
@@ -371,3 +371,14 @@ BTD-04 模型 Driver 替换与代际生命周期：Service 仅依赖 ModelRuntim
 已承接 PR #230 修复。原生 Loop 的模型/工具共享调用计数与 Token 消费检查，子任务继承约束并回记根预算；Runtime 与子任务工厂透传控制，local-only 参与实际路由；取消等待对不合作模型有界。SQLite 将 Turn、Attempt 与终止事件原子提交，API 移除无归属补写。事件 Schema 白名单同时覆盖实时流与回放，并保留刷题结果的公开字段；Fetch 保留游标重连，工作台按代际隔离旧流。CLI 两步工具循环现在断言实际调用、工具结果及最终引用，并保留写审批拒绝。预算估算、Adapter 限制与未完成范围已同步 Agent Loop 和流式协议。
 
 已验证：控制上下文及执行 21 项、真实 API/SQLite 与投影 6 项、Host 停机 9 项、客户端投影/重连 12 项、真实工作台挂载 1 项；CLI smoke 两步工具闭环通过（本机模块加载 16.96ms，仅当次测量）。另有 Adapter 8 项、DSH 4 项、子任务 5 项回归通过；全量终审发现刷题公开结果被过度过滤，已补充明确 DTO 白名单和额外字段剔除断言。ITER-007/013 的本次缺陷修复已有证据，其余权限/窗口、SSE 背压/分页、跨进程恢复与生产资源验收仍不移交，CR 不宣称 Verified/Released。
+
+### 10.5 PR #231 第二轮复核修复切片（2026-09-29）
+
+合并前第二轮深度复核（内核/宿主/API 三域并行审查）发现并修复以下缺陷：
+
+- **取消/预算中断收敛时序**：流中检查点提交终态后，Executor 仍对终态 Attempt 强制冲刷缓冲 reasoning 增量，被 fencing CAS 拒绝抛出 LeaseLostError，外层收敛把用户取消误报为 `lease_lost` 或 `*_finalize_contested`。修复为 midStreamStop 分支直接返回（缓冲 reasoning 属进度事件，静默丢弃与 catch 路径一致）；新增 DB 位取消叠加 reasoning 缓冲滞留的定向回归测试。
+- **审批评估有界等待**：ApprovalPolicyPort.evaluate 此前裸 await，不合作策略可无限挂起执行循环且截止时间无法打破；现以 awaitWithSignal 包裹，取消/超时信号可确定性打破等待。
+- **门禁求值接线（AST-04）**：defaultGatingEvaluator 此前不与门禁上下文实值比较（equals 仅判非空）、未知算子 fail-open，且 HostToolRuntime.callTool 全路径不求值 gatingConditionsJson，直呼工具 ID 即可绕过列表过滤。修复为按 dot-path 解析上下文实值比较、未知与 custom 算子 fail-closed，callTool 调用边界求值门禁，InMemoryToolRegistry.exportRegistry 过滤与 SQLite 仓储语义对齐。
+- **入参沙箱加固（B4-B）**：路径键先迭代 URL 解码归一化（覆盖混合编码 `.%2e`、双重编码 `%252e%252e`、`....//` 分段），按路径分段判定穿越；敏感系统根目录检查扩展到所有整值恰为绝对路径的字符串（覆盖 `db_file` 等键名白名单外路径键）；危险命令模式扩展旗标组合 rm、xargs rm、sudo rm、mkfs、dd 落盘与关机原语。命令键刻意不筑 shell 元字符墙：`dsh_run_command` 等已审批 shell 工具的合法复合命令必须放行，真实防线保持 PET-05 审批门与幂等账本。
+
+已验证：agent-loop 31 套件 209 测试（含新增取消时序与穿越/命令回归）、host-agent 15 套件 94 测试（含新增门禁行为 3 项）全绿；`./aervox ci` 增量门禁通过。Adapter 工具执行的审批责任边界（Adapter 进程内自执行、宿主仅落账并经 manifest SHA 与许可准入）维持代码现状，以 PR 描述如实声明；符号链接逃逸属宿主工具 handler 职责。本轮不改变 §10.4 的移交范围限制，CR 不晋级 Verified/Released。
