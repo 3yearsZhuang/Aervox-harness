@@ -24,12 +24,13 @@ export class ServerPluginRegistry {
     }
   }
 
-  register(plugin: ServerPlugin): void {
+  register(plugin: ServerPlugin): () => void {
     const primaryId = this.aliasMap.get(plugin.id);
     // 1. 若当前插件是某个已注册主插件的别名，且主插件已就绪，则忽略重复/次要注册，防止执行翻倍
     if (primaryId && this.plugins.has(primaryId) && primaryId !== plugin.id) {
-      return;
+      return () => undefined;
     }
+    if (this.plugins.has(plugin.id)) this.unregister(plugin.id);
 
     // 2. 获取当前插件自带声明的所有别名
     const aliases = plugin.aliases ?? [];
@@ -46,6 +47,7 @@ export class ServerPluginRegistry {
     this.aliasMap.set(plugin.id, plugin.id);
 
     this.plugins.set(plugin.id, plugin);
+    return () => { if (this.plugins.get(plugin.id) === plugin) this.unregister(plugin.id); };
   }
 
   unregister(id: string): void {

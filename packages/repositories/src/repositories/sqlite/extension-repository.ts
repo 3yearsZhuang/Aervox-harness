@@ -116,6 +116,10 @@ export class SqliteExtensionRepository implements IExtensionRepository {
     return created as PluginModel;
   }
 
+  async setPluginAvailability(id: string, availability: "available" | "missing" | "invalid" | "unreadable"): Promise<void> {
+    await this.db.update(plugins).set({ availability }).where(eq(plugins.id, id));
+  }
+
   async listPlugins(): Promise<PluginModel[]> {
     const rows = await this.db.select().from(plugins);
     return rows as PluginModel[];

@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.9.2
-updated_at: 2026-09-27
-reviewed_at: 2026-09-27
+version: 0.9.3
+updated_at: 2026-09-28
+reviewed_at: 2026-09-28
 review_interval_days: 90
 ---
 
 # 参考项目能力迁移与借鉴评估
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-27
+- 修改人：3yearszhuang · 2026-09-28
 
 关联：[参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[SQLite 本地单用户数据库契约](../reference/DATABASE.md)、[能力注册表](../reference/capability-registry.md)、[Agent Harness Loop 规范](../reference/agent-harness-loop.md)、[AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)
 
@@ -36,6 +36,8 @@ review_interval_days: 90
 ### 1.1 Agent Loop 参考来源登记
 
 `DSH-01` 与 `PI-01` 是 Agent Harness Loop 相关参考设计的唯一来源编号。实现登记中的 `来源` 列只能使用这两个编号指向下表，不能把外部仓库当作 Aervox 的运行时依赖或事实源。
+
+2026-09-28 的 [CR-056 Build to Delete 与类 pi 分层架构规划](../reference/changes/CR-056-build-to-delete-pi-style-architecture.md)继续使用 `PI-01`：在同一固定版本上补充模型注册的代际控制、扩展上下文失效、协议 DTO 映射和客户端快照设计参考，具体源码见 CR §2.2。该项仅交付 Proposed/Planned 的规划，不改变下表的禁入边界，不复制参考运行时代码；认领见根计划，实现证据仍只登记 §4.2。
 
 | 来源编号 | 固定参考 | 重点证据 | 可借鉴设计 | Aervox 明确不迁移 |
 |---|---|---|---|---|

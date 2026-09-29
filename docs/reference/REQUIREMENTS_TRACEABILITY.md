@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.46.2
-updated_at: 2026-09-26
-reviewed_at: 2026-09-26
+version: 1.46.10
+updated_at: 2026-09-29
+reviewed_at: 2026-09-29
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：kikoyida · 2026-09-26
+- 修改人：3yearszhuang · 2026-09-29
 
 产品需求来源：[PRD.md](PRD.md)
 
@@ -183,10 +183,20 @@ review_interval_days: 90
 
 2026-09-18 架构深入复核：默认 API 接单与 claim 之间、统一删除效果验证、消息编辑原子性、动态工具发现和模型制品管理均有新增故障证据；自动 Resume Host/Recovery Ledger 仍须区分库实现与生产接线，完整 Schema 搬库及冷 CI 亦需补验证。详见 [AVX-EXPL-012](../explanation/architecture-implementation-review.md)。历史局部测试记录不作删除或覆盖，本次只登记评估交付，不推进相关 CAP 的实现或发布状态，也不更改已接受 ADR。
 
-本轮文档交付已通过全量 `mise tasks run ci-docs`（Markdownlint、Vale、严格治理与本地链接）；最小插件打包及临时数据库安装闭环实际通过，具体执行范围见[开发指南验证记录](../how-to/develop-plugin-ui-extension.md#5-运行验证并交付)。
+2026-09-18 文档交付已通过全量 `mise tasks run ci-docs`（Markdownlint、Vale、严格治理与本地链接）；最小插件打包及临时数据库安装闭环实际通过，具体执行范围见[开发指南验证记录](../how-to/develop-plugin-ui-extension.md#5-运行验证并交付)。
 
 | 落地内容与功能描述 | 关联 CAP | 实现与测试位置 | 日期 | 验证 | 来源 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| PR #230 BTD-T09/10 物理退出恢复补证 | CAP-005/007/020/027 + 架构基础设施 | `scripts/run-removability-drill.mjs`、`scripts/fixtures/removability-data-rights.mjs`；[CR-056 §10.2](changes/CR-056-build-to-delete-pi-style-architecture.md#102-pr-230-缺陷修复切片2026-09-29) | 2026-09-29 | 三阶段各 11 包强制冷构建、真实临时 SQLite 读取/导出/软删除与接回、模型及侧车保留/管理、非目标工具与节点 API 通过；仅关闭试点缺陷，不代表擦除、跨平台或 Released | 原生验证 |
+| PR #230 复核缺陷修复切片 | CAP-005/007/020 + 架构基础设施 | Tools Runtime、ModelRuntimeService、可移除守卫；[CR-056 §10.2](changes/CR-056-build-to-delete-pi-style-architecture.md#102-pr-230-缺陷修复切片2026-09-29) | 2026-09-29 | 工具生命周期 7、Driver SPI 6、守卫 3 回归通过；复核既有契约无需变更；物理退出演练仍在执行 | 原生修复 |
+| CR-056 / ITER-014 阶段一实现与 PR #230 审查更正：基础分层已实现，BTD-02/04/07 验收未完成，撤回全量闭环与移交声明 | CAP-002/005/007/018/020/027/033 + 架构基础设施 | [CR-056 §10.1](changes/CR-056-build-to-delete-pi-style-architecture.md#101-pr-230-合并前复核2026-09-29)、[当前队列](../../plan.md) | 2026-09-29 | 基线 `ad91dbf` 冷构建；复现开关后旧 disposer 无效、关闭后迟到 Driver 启动、Worker 动态私有导入漏检；物理移除及存量数据权利演练未验证；固定来源链接已修复；补齐 DSH 参考子模块后本地 `./aervox ci all` 全量通过，79 文件文档门禁通过（既有 S5 提示），不消除上述缺陷 | PI-01（设计参考，未移植源码） + 原生审查 |
+| CR-056 BTD-04 模型 Driver 替换与代际生命周期 | 基础设施 / CAP-002/020 | apps/api/src/modules/ecosystem/model-runtime/{driver,service,index}.ts、apps/api/test/model-runtime-driver-spi.test.ts；ModelRuntimeService 依赖注入 Driver SPI，默认 unavailableDriver 拒绝无合规 Provider 且不出网，落地 start/stop/dispose 幂等编排与代际 protection | 2026-09-28 | API typecheck 通过；扩展 SPI 4 用例通过（验证注入编排、unavailable 拒绝与文件保留、生命周期与幂等释放、代际防污染）；原模型运行时 API 与子进程测试 22 用例全绿 | PI-01（设计参考，未移植源码） |
+| CR-056 BTD-07 静态守卫与 Fake 退出夹具（物理演练未验证，见 §10.1 复核） | 基础设施 / CAP-005/007/020/027 | scripts/check-removable-implementation.{mjs,test.mjs}、apps/api/test/memory-tool-contribution.test.ts、package.json；实现 MemoryStore 工具贡献与模型驱动全仓私有引用审计门禁，落地 Fake 注册表构造通用 Runtime 及 Memory 工具贡献挂载、使用、卸载退出与数据隔离演练 | 2026-09-28 | check:guards 24/24 全绿且可移除实现守卫 0 违规；Memory 工具贡献测试 3/3 通过；全量 72 套件 476 测试全绿 | PI-01（设计参考，未移植源码） |
+| CR-056 BTD-01 模块门禁切片 | 基础设施 / CAP-005/007/020/027 | scripts/import-boundary.mjs 与测试、scripts/module-boundary-exceptions.json；API src 模块所有权与公开入口检查，45 条历史边逐条登记 Owner/退出条件，后续试点迁移时删除对应例外 | 2026-09-28 | 19/19 门禁测试通过；全仓扫描通过；原有五条规则保留；未宣称历史私有边已迁移 | PI-01（设计参考，未移植源码） |
+| CR-056 BTD-02 工具生命周期与 BTD-03 Memory 装配 | 基础设施 / CAP-005/007/020/027 | Tools Runtime 仅依赖 ToolRegistryPort；注册定义与 handler 代际绑定，释放幂等、在途信号取消、迟到结果失效；Memory 拥有工具贡献、Embedding 与召回；Diary/Skills/主动工具启动登记改为 await；Context 与工具消费者使用公开 Port | 2026-09-28 | API typecheck 通过；工具生命周期 6、工具与插件 9、对话工具循环 2，共 17 用例通过；原 memory-embedding 文件不在 API 测试目录，本记录不计入该验证；缺包保护与物理退出演练仍待完成 | PI-01（设计参考，未移植源码） |
+| CR-056 BTD-02 缺包保护切片 | 基础设施 / CAP-005/007/020/027 | 新增 plugins.availability 兼容列；扫描缺包/非法/不可读根不卸载；工具/Skill/会话切面/Worker 规则检查可用性；默认注册表按 App 创建，插件注册返回幂等代际句柄；Config/Secret/撤权与用户开关保留 | 2026-09-28 | API typecheck；缺包恢复和注册表隔离 2 用例、插件相关 19 用例；仓储 Embedding/时态事实/索引等价 16 用例通过；缺席数据快照包含实际 Config/Secret/Page/撤权记录；跨平台与生产发布尚未验收 | PI-01（设计参考，未移植源码） |
+| CR-056 BTD-00：实施授权与公开边界契约；任务完成即同步文档 | 基础设施 / CAP-005/007/020/027 | `AGENTS.md`、文档治理、ADR-014、ARCHITECTURE、能力组合、插件规范、ADR-010、Agent Loop | 2026-09-28 | 规则冲突复核；文档门禁随本切片执行，代码实施仍在进行 | PI-01（设计参考，未移植源码） |
+| Build to Delete 与类 pi 分层架构详细规划（ITER-023，文档交付）：固定基线复核，形成 D1～D5 决策差量、BTD-00～08 技术切片、两项试点、退出/数据权利验收、依赖估算与回滚；架构评审进入 ITER-014，实施协同沿用既有条目。CR-056 仍为 Proposed/Planned，未启动业务重构或真实 pi 接入，不改变 CAP 状态 | CAP-002/005/007/018/020/027/033（关联规划） + 架构基础设施 | [CR-056](changes/CR-056-build-to-delete-pi-style-architecture.md)、[当前队列](../../plan.md)、文档索引/登记表/来源登记/机器目录 | 2026-09-28 | `e5297fe` 与固定 pi `c49906ec` 源码复核；内存夹具确认包内私有导入漏检、包级禁入有效；`mise tasks run ci-docs` 全量通过（治理 33/33、队列 9/9、79 文件 Markdownlint/Vale 与严格治理无问题）；`git diff --check` 通过；未执行实施切片或数据删除演练 | `PI-01` 设计借鉴 + 原生规划 |
 | 时态事实第一笔规则原型：对已确认事实区分生效时间与来源入库时间；较新的不同事实生成关闭旧区间并新增事实的决策，同值生成证据追加决策，同刻矛盾、迟到输入及来源修订冲突进入复核；模块不执行持久化，也未接入生产召回 | CAP-005/026 | `packages/repositories/src/temporal-fact-policy.ts`、`packages/repositories/test/temporal-fact-policy.test.ts` | 2026-09-25 | 定向 Vitest 5 项、Repositories 类型检查、`check:guards`、`check:boundary`、Windows 全量 `ci-code` 通过；`ci-docs` 通过 | `GPH-01` 设计借鉴 + 原生实现 |
 | 时态事实第二笔 SQLite 投影实验：要求当前已确认记忆修订及有效来源证据，事务内落实新增、关闭旧区间或追加证据；可按时点查询并追溯证据，来源删除、来源修订或记忆失效后查询立即屏蔽相关事实。结构化事实语义仍由调用方核验，本实验不接入生产写入或召回 | CAP-005/026 | `packages/schema/src/temporal-facts.ts`、`packages/repositories/src/schema/ddl/temporal-facts.ts`、`packages/repositories/src/temporal-fact-projection.ts`、`packages/repositories/test/temporal-fact-projection.test.ts` | 2026-09-26 | 定向 Vitest 4 项与 Schema–DDL 等价测试 2 项通过；Windows 全量 `ci-code` 27/27 任务通过 | `GPH-02` 设计借鉴 + 原生实现 |
 | Windows 本地代码门禁兼容：Turbo 透传 pnpm 脚本 Shell 配置；CR-030 数据库换位在不支持目录 `fsync` 的 Windows 上跳过目录同步；SQLite 测试清理对短暂占用重试；MCP 命令测试改用跨平台引号 | 基础设施（本地门禁与迁移验证） | `turbo.json`、`packages/repositories/src/migration/staging-migration.ts`、`packages/repositories/test/staging-migration.test.ts`、`apps/api/test/mcp-dsh-bridge.test.ts`、`apps/api/test/mcp-preset.test.ts` | 2026-09-25 | Windows 下设置 `PNPM_CONFIG_SCRIPT_SHELL` 为 Git Bash、初始化固定 SHA 的 `reference/deepseek-harness` 后，`mise tasks run ci-code` 27/27 任务通过；迁移与 MCP 定向测试通过。Windows 不提供目录 `fsync`，因此此平台不承诺换位目录元数据已同步到存储介质 | 原生 |
@@ -301,7 +311,7 @@ review_interval_days: 90
 | 已集成能力迁移与 DSH/pi 接入教程文档化 | CAP-020/027 | `docs/tutorials/migrate-integrated-capabilities.md`（AVX-TUT-002） | 2026-08-26 | ci-docs | `DSH-01` + `PI-01` + 原生 |
 | Agent Harness Loop 目标规范与迁移计划文档化 | CAP-002/005/007/008/019/020/027 + 基础设施 | `docs/reference/agent-harness-loop.md`（AVX-HAR-001）、`docs/reference/changes/CR-012-agent-harness-loop.md` | 2026-08-28 | ci-docs | `DSH-01` + `PI-01` + 原生 |
 | 跨 Turn 会话历史接入模型上下文 | CAP-002/013 | `packages/database/src/repositories/sqlite/session-history.ts`、`apps/api/src/modules/companion/conversation/agent-executor.ts`、`packages/host-agent/src/sqlite-resume-source.ts` | 2026-09-07 | API `conversation-history.test.ts` 3 项检查实际模型请求；Database `session-history.test.ts` 7 项覆盖隔离、顺序、删除/脱敏、版本和预算；Host `sqlite-resume-source.test.ts` 6 项覆盖续跑历史；全仓 build/typecheck 与 ci-docs 通过 | 原生 |
-| 普通记忆默认向量化与对话混合召回 | CAP-002/005/013 | `apps/api/src/modules/ecosystem/tools/embedding-provider.ts`（默认本地特征哈希）、`tools/{index,runtime,memory-store-tool}.ts`（写入接线）、`conversation/{memory-recall,agent-executor,index,routes}.ts`（FTS + 向量 RRF 召回并注入 ContextBuilder）、`packages/database/src/repositories/types.ts`（校验状态读取） | 2026-09-08 | API `tools-plugins.test.ts` 验证默认写入 256 维向量；`conversation-history.test.ts` 验证已确认记忆进入实际模型请求、未确认推断不召回；相关 build/typecheck 与 ci-docs | 原生（复用 T-02/T-05） |
+| 普通记忆默认向量化与对话混合召回 | CAP-002/005/013 | `apps/api/src/modules/companion/memory/embedding-provider.ts`（默认本地特征哈希）、`tools/{index,runtime,memory-store-tool}.ts`（写入接线）、`conversation/{memory-recall,agent-executor,index,routes}.ts`（FTS + 向量 RRF 召回并注入 ContextBuilder）、`packages/database/src/repositories/types.ts`（校验状态读取） | 2026-09-08 | API `tools-plugins.test.ts` 验证默认写入 256 维向量；`conversation-history.test.ts` 验证已确认记忆进入实际模型请求、未确认推断不召回；相关 build/typecheck 与 ci-docs | 原生（复用 T-02/T-05） |
 | Live2D/共享静态资产 workspace 锁文件同步 | 基础设施 | `pnpm-lock.yaml`（补齐 `apps/desktop`、`apps/web` 对 `@aervox/live2d`、`@aervox/public` 的 workspace importer，并登记两个包 importer） | 2026-09-07 | `mise x -- pnpm install --frozen-lockfile` 通过；相关依赖构建 8/8 通过 | 原生 |
 | 文档治理与事实源标准化（AVX-DOC-GOV-001 / CR-017） | 基础设施（文档治理） | `docs/reference/document-governance.md`、`docs/_meta/document-policy.json`、`scripts/docs-governance.mjs`、`mise.toml`、`.github/workflows/docs.yml`；同步 `docs/README.md`、`docs/DOC_REGISTRY.md`、`docs/getting-started.md`、`docs/reference/standards/doc-standards.md`、`README.md`、`CONTRIBUTING.md`、`AGENTS.md` | 2026-08-28 | `mise tasks run docs-validate`；`mise tasks run ci-docs`；`git diff --check` | 原生 |
 | 文档登记强度分级（L1 编辑性 / L2 内容更新 / L3 结构性） | 基础设施（文档治理） | [doc-standards §3.1](standards/doc-standards.md#31-改动等级与同步要求)、`docs/DOC_REGISTRY.md` 维护规则、`AGENTS.md` 硬约束 | 2026-08-26 | ci-docs | 原生 |
@@ -785,15 +795,15 @@ doc_status: draft
 decision_status: proposed
 delivery_status: planned
 version: 0.1.0
-updated_at: 2026-09-17
-reviewed_at: 2026-09-17
+updated_at: 2026-09-28
+reviewed_at: 2026-09-28
 review_interval_days: 90
 ---
 
 # CR-001 变更标题
 
 - 提出人：<账号> · YYYY-MM-DD
-- 修改人：3yearszhuang · 2026-09-17
+- 修改人：3yearszhuang · 2026-09-28
 
 ## 变更原因与证据
 ## 关联能力与需求

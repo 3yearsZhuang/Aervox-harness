@@ -33,6 +33,7 @@ export const plugins = sqliteTable(
   "plugins",
   {
     id: text("id").primaryKey(), // 插件名（标识）
+    availability: text("availability").notNull().default("available"),
     publisher: text("publisher").notNull(),
     version: text("version").notNull(),
     checksum: text("checksum").notNull(),

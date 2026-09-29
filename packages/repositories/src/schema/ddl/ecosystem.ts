@@ -82,6 +82,8 @@ export async function createEcosystemTables(client: Client): Promise<void> {
         updated_at TEXT NOT NULL
       );
     `);
+  // CR-056: implementation availability is independent of user intent; existing rows remain compatible.
+  await addColumnIfMissing(client, "plugins", "availability", "availability TEXT NOT NULL DEFAULT 'available'");
   // AST-04 插件元数据列补齐（旧库 addColumnIfMissing 兼容）
     await addColumnIfMissing(client, "plugins", "display_name", "display_name TEXT");
   await addColumnIfMissing(client, "plugins", "repository", "repository TEXT");

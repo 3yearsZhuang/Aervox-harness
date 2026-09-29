@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.1
-updated_at: 2026-09-18
-reviewed_at: 2026-09-18
+version: 1.0.2
+updated_at: 2026-09-28
+reviewed_at: 2026-09-28
 review_interval_days: 90
 review_triggers:
   - plugins/**
@@ -33,7 +33,7 @@ sources:
 # Aervox 插件开发规范
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-18
+- 修改人：3yearszhuang · 2026-09-28
 
 关联：[开发指南](../how-to/develop-plugin-ui-extension.md)、[能力组合规范](capability-composition.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-015](adr/ADR-015-vue-full-stack.md)、[数据隐私](DATA_PRIVACY.md)、[落地追踪](REQUIREMENTS_TRACEABILITY.md)。
 
@@ -338,3 +338,9 @@ MCP 使用独立[服务适配器](../../apps/api/src/modules/ecosystem/mcp/servi
 - 运行[指南中的验证命令](../how-to/develop-plugin-ui-extension.md#5-运行验证并交付)，关联 CAP-020 或实际业务 CAP，登记实现位置、日期和证据；源码变更遵循功能分支与 PR 门禁。
 
 本规范定档后，机器强制项变化须同步契约、实现、测试与本文；作者约束升级为执行机制须补负向验证。扩大不受信执行范围、引入第三方 Host、改变核心数据权利或治理架构必须先建立 CR，文档编辑本身不构成该批准。
+
+## 代码缺席与数据责任（CR-056）
+
+停用、撤权、代码缺席、显式卸载和显式数据清理是不同操作。启动扫描遇到缺包、不可读根目录或非法清单时，必须阻断相应执行并保留安装记录、配置、Secret、授权历史和恢复诊断，不能调用卸载清理推断用户意图。恢复有效包只恢复实现的可用性，不能恢复已撤销权限或改变用户开关。数据导出/删除入口必须在实现退出后继续可用。
+
+内存注册与持久数据分开管理，注册释放绑定实例代际且幂等；双 App 不共享隐式全局注册表。显式卸载继续遵循本文既有流程；Config/Secret 原子提交仍由 ITER-004 验收。本节为已接受契约，实施证据按[CR-056](changes/CR-056-build-to-delete-pi-style-architecture.md)逐切片登记。

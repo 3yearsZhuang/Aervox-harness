@@ -23,8 +23,7 @@ import type {
   ModelRuntimeState,
 } from "@aervox/contracts";
 import { downloadToFile, ModelDownloadError } from "./downloader.js";
-import { LlamaServerManager, type LlamaServerManagerDeps } from "./llama-server.js";
-import type { ModelRuntimeDriver } from "./driver.js";
+import { unavailableModelRuntimeDriver, type ModelRuntimeDriver } from "./driver.js";
 
 export interface ModelRuntimeServiceOptions {
   /** 模型落盘目录（缺省 <repo>/data/models） */
@@ -33,9 +32,9 @@ export interface ModelRuntimeServiceOptions {
   maxConcurrentDownloads?: number;
   /** 指标采样间隔 ms（缺省 2000；0 关闭） */
   metricsIntervalMs?: number;
-  llamaDeps?: LlamaServerManagerDeps;
-  /** 自定义或注入的模型运行时驱动 SPI（缺省使用 LlamaServerManager） */
-  driver?: ModelRuntimeDriver;
+  /** 自定义或注入的模型运行时驱动 SPI（缺省为不可用；具体实现由组合根提供） */
+  driver?: ModelRuntimeDriver | null;
+  stopTimeoutMs?: number;
 }
 
 interface TaskState extends DownloadTask {
@@ -107,6 +106,30 @@ export class ModelRuntimeService {
   private readonly metricSamples: LlamaMetricSample[] = [];
   private metricsTimer: ReturnType<typeof setInterval> | null = null;
   private lastEmitAt = 0;
+  private disposed = false;
+  private generation = 0;
+  private readonly stopTimeoutMs: number;
+  private closing: Promise<void> | null = null;
+  private stopping: Promise<unknown> | null = null;
+  private starting: Promise<ModelRuntimeState> | null = null;
+  private readonly downloads = new Set<Promise<void>>();
+
+  private assertOpen(): void { if (this.disposed) throw new Error("model_runtime_disposed"); }
+  private async bounded<T>(operation: Promise<T>): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([operation, new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("model_runtime_stop_timeout")), this.stopTimeoutMs);
+      })]);
+    } finally { if (timer) clearTimeout(timer); }
+  }
+  private stopDriver(): Promise<unknown> {
+    if (!this.stopping) {
+      this.generation++;
+      this.stopping = Promise.resolve().then(() => this.llama.stop()).finally(() => { this.stopping = null; });
+    }
+    return this.bounded(this.stopping);
+  }
 
   get driver(): ModelRuntimeDriver {
     return this.llama;
@@ -116,7 +139,8 @@ export class ModelRuntimeService {
     this.modelsDir = options.modelsDir ?? path.join(process.cwd(), "data", "models");
     this.maxConcurrentDownloads = options.maxConcurrentDownloads ?? 2;
     this.catalog = DEFAULT_CATALOG;
-    this.llama = options.driver ?? new LlamaServerManager(options.llamaDeps);
+    this.llama = options.driver ?? unavailableModelRuntimeDriver;
+    this.stopTimeoutMs = options.stopTimeoutMs ?? 10_000;
     const metricsInterval = options.metricsIntervalMs ?? 2000;
     if (metricsInterval > 0) {
       this.metricsTimer = setInterval(() => {
@@ -202,18 +226,20 @@ export class ModelRuntimeService {
 
   /** 订阅状态变更（SSE）；返回退订函数 */
   subscribe(listener: (state: ModelRuntimeState) => void): () => void {
+    this.assertOpen();
     this.subscribers.add(listener);
     return () => this.subscribers.delete(listener);
   }
 
   /** 广播（并发节流 ~200ms），错误吞掉以免拖垮循环 */
   private emit(): void {
+    if (this.disposed) return;
     const now = Date.now();
     if (now - this.lastEmitAt < 200) return;
     this.lastEmitAt = now;
     void this.getState()
       .then((state) => {
-        for (const listener of this.subscribers) listener(state);
+        if (!this.disposed) for (const listener of this.subscribers) listener(state);
       })
       .catch(() => undefined);
   }
@@ -225,6 +251,7 @@ export class ModelRuntimeService {
 
   /** 发起下载：进入队列（排队或立即执行） */
   async startDownload(request: ModelDownloadRequest): Promise<ModelRuntimeState> {
+    this.assertOpen();
     const fileName = request.fileName ?? this.basenameFromUrl(request.url);
     if (!/\.gguf$/i.test(fileName) && !request.fileName) {
       throw new Error("invalid_model_url: 模型文件需为 .gguf 后缀");
@@ -258,13 +285,16 @@ export class ModelRuntimeService {
 
   /** 推进队列：并发上限内逐任务执行 */
   private pump(): void {
+    if (this.disposed) return;
     while (this.runningCount < this.maxConcurrentDownloads && this.queue.length > 0) {
       const id = this.queue.shift();
       if (!id) break;
       const task = this.tasks.get(id);
       if (!task || task.status !== "queued") continue;
       this.runningCount += 1;
-      void this.runTask(id).catch(() => undefined);
+      const operation = this.runTask(id).finally(() => this.downloads.delete(operation));
+      this.downloads.add(operation);
+      void operation.catch(() => undefined);
     }
   }
 
@@ -352,6 +382,7 @@ export class ModelRuntimeService {
 
   /** 恢复（重新入队，.part 续传） */
   async resumeDownload(id: string): Promise<ModelRuntimeState> {
+    this.assertOpen();
     const task = this.tasks.get(id);
     if (!task) {
       throw new Error("task_not_found: 下载任务不存在");
@@ -383,6 +414,7 @@ export class ModelRuntimeService {
 
   /** 删除已下载模型（运行中禁止） */
   async deleteModel(modelId: string): Promise<ModelRuntimeState> {
+    this.assertOpen();
     const models = await this.scanModels();
     const wantedId = modelId.replace(/\.gguf$/i, "");
     const model = models.find((m) => m.id === wantedId || m.fileName === modelId);
@@ -401,10 +433,20 @@ export class ModelRuntimeService {
 
   /** 启动 llama-server */
   async start(request: ModelRuntimeStartRequest): Promise<ModelRuntimeState> {
-    if (this.llama.running) {
+    this.assertOpen();
+    if (this.starting || this.stopping || this.llama.running) {
       throw new Error("llama_server_busy: 本地模型运行时已在运行");
     }
+    const operation = this.startInternal(request);
+    this.starting = operation;
+    try { return await operation; } finally { this.starting = null; }
+  }
+
+  private async startInternal(request: ModelRuntimeStartRequest): Promise<ModelRuntimeState> {
+    const generation = ++this.generation;
     const models = await this.scanModels();
+    this.assertOpen();
+    if (generation !== this.generation) throw new Error("model_runtime_start_cancelled");
     const wantedId = request.modelId.replace(/\.gguf$/i, "");
     const model = models.find((m) => m.id === wantedId || m.fileName === request.modelId);
     if (!model) {
@@ -412,25 +454,36 @@ export class ModelRuntimeService {
     }
     const merged: LlamaRuntimeParams = { ...this.lastParams, ...(request.params ?? {}) };
     this.lastParams = merged;
-    await this.llama.start(model, merged);
+    try {
+      await this.llama.start(model, merged);
+    } finally {
+      if (generation !== this.generation || this.disposed) {
+        // A stop issued before start settled may have observed no process.
+        // Keep the start slot occupied until a post-start stop has reclaimed it.
+        if (this.stopping) await this.bounded(this.stopping);
+        await this.stopDriver();
+      }
+    }
+    if (generation !== this.generation || this.disposed) throw new Error("model_runtime_start_cancelled");
     this.metricSamples.length = 0;
     return this.getState();
   }
 
   /** 停止当前 llama-server（幂等） */
   async stop(): Promise<ModelRuntimeState> {
-    await this.llama.stop();
+    await this.bounded(Promise.all([this.stopDriver(), this.starting?.catch(() => undefined)]));
     this.metricSamples.length = 0;
     return this.getState();
   }
 
   /** 采样运行指标（llama.cpp /metrics；失败静默） */
   private async sampleMetrics(): Promise<void> {
-    if (!this.llama.running || this.llama.getHandle().port === null) return;
+    if (this.disposed || !this.llama.running || this.llama.getHandle().port === null) return;
+    const generation = this.generation;
     try {
       if (typeof this.llama.sampleMetrics === "function") {
         const sample = await this.llama.sampleMetrics();
-        if (sample) {
+        if (sample && !this.disposed && generation === this.generation) {
           this.metricSamples.push(sample);
           if (this.metricSamples.length > 8) this.metricSamples.shift();
         }
@@ -441,10 +494,17 @@ export class ModelRuntimeService {
   }
 
   /** 应用关闭钩子 */
-  async dispose(): Promise<void> {
+  dispose(): Promise<void> {
+    if (this.closing) return this.closing;
+    this.disposed = true;
+    this.generation++;
     if (this.metricsTimer) clearInterval(this.metricsTimer);
+    this.metricsTimer = null;
+    this.subscribers.clear();
+    this.queue.length = 0;
     for (const task of this.tasks.values()) task.controller?.abort();
-    await this.llama.stop().catch(() => undefined);
+    this.closing = this.bounded(Promise.all([this.stopDriver(), this.starting?.catch(() => undefined), ...this.downloads])).then(() => undefined);
+    return this.closing;
   }
 
   private basenameFromUrl(url: string): string {
