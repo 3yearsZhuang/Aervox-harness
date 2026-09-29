@@ -23,7 +23,7 @@ review_interval_days: 90
 
 | 文档编号 | 文档 | 最后核验 | 核验节奏 | 陈旧信号 |
 |---|---|---|---|---|
-| `AVX-PRD-001` | [PRD](reference/PRD.md) | 2026-09-16 | 每次版本立项 / G0 | CAP 范围或优先级变更未建立 `CR-*` |
+| `AVX-PRD-001` | [PRD](reference/PRD.md) | 2026-09-29 | 每次版本立项 / G0 | CAP 范围或优先级变更未建立 `CR-*` |
 | `AVX-PRD-002` | [能力验收标准附录](reference/prd-cap-acceptance.md) | 2026-09-17 | 每次版本立项 / CAP 验收变更 | P0/P1/P2/P3/专项验收标准未同步 |
 | `AVX-SRS-001` | [SRS](reference/SRS.md) | 2026-09-17 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
 | `AVX-SRS-002` | [主动智能与外部信号需求规格](reference/srs-proactive-intelligence.md) | 2026-09-10 | G1 需求基线前 / 主动智能需求变更 | CAP-033/034/035 FR/BR/AC/DATA/SEC 变化未同步 |
@@ -65,10 +65,10 @@ review_interval_days: 90
 | `AVX-GUIDE-006` | [执行 SQLite 数据库迁移与换库回滚演练](how-to/run-database-migration-drill.md) | 2026-09-17 | 数据库架构或演练流程变更 | 指南与 DATABASE.md、CR-030 契约或 operations.md 演练项不符 |
 | `AVX-GUIDE-007` | [新增与规格化 CAP 业务能力](how-to/add-capability.md) | 2026-09-18 | 需求流程或 CAP 规则变更 | 指南与 PRD、SRS 或追踪基线立项流程不符 |
 | `AVX-CAP-REG-001` | [能力注册表](reference/capability-registry.md) | 2026-09-17 | 每次自选状态 / 模块变更 | 交付载体、启用方式或已注册模块与实现/CR 不一致 |
-| `AVX-CAP-001` | [能力组合与可选化目录规范](reference/capability-composition.md) | 2026-09-28 | G2 评审 + 能力宿主/适配器机制变更 | Manifest、Profile、Provider、Adapter、Kernel 边界与实现或 ADR/CR 不一致 |
+| `AVX-CAP-001` | [能力组合与可选化目录规范](reference/capability-composition.md) | 2026-09-29 | G2 评审 + 能力宿主/适配器机制变更 | Manifest、Profile、Provider、Adapter、Kernel 边界与实现或 ADR/CR 不一致 |
 | `ADR-018` | [CAP-033 本地私密存储与主动智能 Host](reference/adr/ADR-018-proactive-local-privacy-host.md) | 2026-09-17 | CAP-033 本地存储、OS Permission Broker、动作授权或后台生命周期变更 | Host 签名/设备绑定、local-only、全动作授权、七天提炼清理或恢复门禁与实现不一致 |
 | `ADR-019` | [主动智能外部连接本地网关](reference/adr/ADR-019-proactive-integrations-local-gateway.md) | 2026-09-17 | HA/健康连接、凭据隔离、工具白名单或撤销语义变更 | REST/WS、OAuth、实体/service 白名单、健康最小化或连接删除与实现不一致 |
-| `AVX-HAR-001` | [Agent Harness Loop 设计与落地规范](reference/agent-harness-loop.md) | 2026-09-28 | G2 评审 + Agent Loop/Provider/工具/持久化边界变更 | Turn/Attempt/Step、Provider、Tool、Inbox、恢复或 Profile 语义与实现/ADR 不一致 |
+| `AVX-HAR-001` | [Agent Harness Loop 设计与落地规范](reference/agent-harness-loop.md) | 2026-09-29 | G2 评审 + Agent Loop/Provider/工具/持久化边界变更 | Turn/Attempt/Step、Provider、Tool、Inbox、恢复或 Profile 语义与实现/ADR 不一致 |
 | `AVX-HAR-002` | [Agent Loop 分阶段落地进展与追溯历史](reference/agent-loop-rollout-history.md) | 2026-09-17 | 各阶段代码落位、表结构或测试矩阵变更 | 落地条目、测试覆盖映射或包路径与实现不一致 |
 | `AVX-WEB-001` | [Web 工作台实现说明](explanation/web-implementation.md) | 2026-09-18 | Web 端实现或技术基线变更 | `apps/web` 结构与 ADR-015/规划不一致 |
 | `AVX-PLUG-001` | [Aervox 插件开发规范](reference/plugin-config-and-pages.md) | 2026-09-28 | 插件声明、分发、生命周期或运行时机制变更 | Manifest、Config、Page Bridge、Turn、UI、开发者约束与机器强制范围不一致 |
@@ -78,10 +78,10 @@ review_interval_days: 90
 | `AVX-STD-002` | [代码与 API 命名规范](reference/standards/naming-conventions.md) | 2026-09-17 | 命名规则、术语或季度评审 | `tenant` 残留扩大化、`@aervox/database` 复现、路由/包命名偏离本文，或新规则未先登记即落地 |
 | `AVX-TERM-001` | [术语表](reference/standards/terminology.md) | 2026-09-18 | 术语新增/变更 | 新增缩写未登记，或正文拼写与「禁写」列不一致 |
 | `AVX-TUT-001` | [教程：第一个对话](tutorials/first-conversation.md) | 2026-09-10 | 启动命令/端点变更 | 快速开始命令、Turn/SSE 端点与 README/契约不一致 |
-| `AVX-TUT-002` | [教程：迁移已集成能力并接入 DSH/pi](tutorials/migrate-integrated-capabilities.md) | 2026-09-16 | 能力目录、DSH/pi 上游或迁移步骤变更 | 当前实现路径、固定 SHA、权限/隔离边界或验证命令与仓库不一致 |
+| `AVX-TUT-002` | [教程：迁移已集成能力并接入 DSH/pi](tutorials/migrate-integrated-capabilities.md) | 2026-09-29 | 能力目录、DSH/pi 上游或迁移步骤变更 | 当前实现路径、固定 SHA、权限/隔离边界或验证命令与仓库不一致 |
 | `AVX-TUT-003` | [教程：编写自定义 Agent 工具](tutorials/create-agent-tool.md) | 2026-09-16 | 工具运行时、安全级别或注册表持久化变更 | Schema 定义、安全级别枚举或 Handler 接口与代码不一致 |
 | `AVX-EXPL-001` | [数据流总览](explanation/data-flow-overview.md) | 2026-09-17 | 模块/Worker/路由/数据真源变更 | SQLite 终态、迁移或新增 Worker 循环未入概念地图 |
-| `AVX-EXPL-002` | [参考项目能力迁移与借鉴评估](explanation/reference-design-transfer.md) | 2026-09-28 | 参考项目升级或架构变更 | 新增借鉴决策未登记，或参考项目 commit 超出固定清单 |
+| `AVX-EXPL-002` | [参考项目能力迁移与借鉴评估](explanation/reference-design-transfer.md) | 2026-09-29 | 参考项目升级或架构变更 | 新增借鉴决策未登记，或参考项目 commit 超出固定清单 |
 | `AVX-EXPL-003` | [桌宠角色设定文档化与多人格模板组织](explanation/persona-organization.md) | 2026-08-26 | 桌宠 IP / CAP-019 立项或人设变更 | 新增/变更角色文档未按字段化结构与模板版本化落地，或识别边界未同步评审 |
 | `AVX-EXPL-005` | [ESP32-S3 硬件延伸](explanation/esp32-s3-hardware-extension.md) | 2026-09-18 | 硬件方案、设备协议或设备能力（独立设备 CAP 提议）立项变更 | 硬件边界、设备协议、隐私红线或阶段结论与后续设备专项决策 / 追踪基线 §4.2 / 数据隐私规范不一致 |
 | `AVX-EXPL-010` | [底层优化审阅与建议](explanation/foundation-optimization-review.md) | 2026-09-18 | Outbox、Host、插件安装、持久化或构建路径变更 | 代码证据、问题适用范围、修复状态或验收建议已过期 |

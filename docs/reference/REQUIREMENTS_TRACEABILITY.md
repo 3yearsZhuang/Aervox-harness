@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.46.10
+version: 1.50.0
 updated_at: 2026-09-29
 reviewed_at: 2026-09-29
 review_interval_days: 90
@@ -187,6 +187,7 @@ review_interval_days: 90
 
 | 落地内容与功能描述 | 关联 CAP | 实现与测试位置 | 日期 | 验证 | 来源 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| DSH、pi、AstrBot 上游参考更新与差异复评（ITER-030）：固定默认分支 SHA、同步 DSH 准入与握手，区分 pi 三条路线成熟度，归纳恢复/上下文/插件/后台/多模态借鉴；不启动产品改造 | CAP-007/020/027/033（关联评估） + 参考维护 | 三个 `reference/` gitlink；`packages/host-agent/src/dsh-reference.ts`、DSH 测试与 runner；[参考评估 §8](../explanation/reference-design-transfer.md#upstream-20260929)、PRD 清单、Agent Loop、教程与能力组合、[当前队列](../../plan.md#iter-030) | 2026-09-29 | 已核对上游默认分支、祖先关系、版本与许可证，阅读固定源码与测试；ci-code 全量通过（构建 18/18、类型检查 29/29、测试 27/27 任务；Host Agent 94 通过/1 条件跳过）；ci-docs 全量通过（治理 33/33、队列 9/9、81 文件排版/术语与严格治理，保留既有 S5 提示）；最终状态回填另经文档增量门禁；未运行三个上游完整测试或真实运行时集成，不改变 API、数据或权限契约 | DSH-01、PI-01、AST-04/08 与 AstrBot 本次设计复评；未移植源码 |
 | PR #230 BTD-T09/10 物理退出恢复补证 | CAP-005/007/020/027 + 架构基础设施 | `scripts/run-removability-drill.mjs`、`scripts/fixtures/removability-data-rights.mjs`；[CR-056 §10.2](changes/CR-056-build-to-delete-pi-style-architecture.md#102-pr-230-缺陷修复切片2026-09-29) | 2026-09-29 | 三阶段各 11 包强制冷构建、真实临时 SQLite 读取/导出/软删除与接回、模型及侧车保留/管理、非目标工具与节点 API 通过；仅关闭试点缺陷，不代表擦除、跨平台或 Released | 原生验证 |
 | PR #230 复核缺陷修复切片 | CAP-005/007/020 + 架构基础设施 | Tools Runtime、ModelRuntimeService、可移除守卫；[CR-056 §10.2](changes/CR-056-build-to-delete-pi-style-architecture.md#102-pr-230-缺陷修复切片2026-09-29) | 2026-09-29 | 工具生命周期 7、Driver SPI 6、守卫 3 回归通过；复核既有契约无需变更；物理退出演练仍在执行 | 原生修复 |
 | CR-056 / ITER-014 阶段一实现与 PR #230 审查更正：基础分层已实现，BTD-02/04/07 验收未完成，撤回全量闭环与移交声明 | CAP-002/005/007/018/020/027/033 + 架构基础设施 | [CR-056 §10.1](changes/CR-056-build-to-delete-pi-style-architecture.md#101-pr-230-合并前复核2026-09-29)、[当前队列](../../plan.md) | 2026-09-29 | 基线 `ad91dbf` 冷构建；复现开关后旧 disposer 无效、关闭后迟到 Driver 启动、Worker 动态私有导入漏检；物理移除及存量数据权利演练未验证；固定来源链接已修复；补齐 DSH 参考子模块后本地 `./aervox ci all` 全量通过，79 文件文档门禁通过（既有 S5 提示），不消除上述缺陷 | PI-01（设计参考，未移植源码） + 原生审查 |

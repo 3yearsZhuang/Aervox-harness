@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.11.3
-updated_at: 2026-09-16
-reviewed_at: 2026-09-16
+version: 0.11.4
+updated_at: 2026-09-29
+reviewed_at: 2026-09-29
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 产品需求文档（伴学桌宠）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-16
+- 修改人：3yearszhuang · 2026-09-29
 
 关联文档：[架构设计](ARCHITECTURE.md) · [需求追踪与交付标准](REQUIREMENTS_TRACEABILITY.md) · [数据与隐私规范](DATA_PRIVACY.md) · [AI 质量与安全规范](AI_QUALITY_SAFETY.md) · [能力验收标准附录](prd-cap-acceptance.md) · [文档索引](../README.md)
 
@@ -822,15 +822,15 @@ dsh、pi-ai、ACP/RPC、Cordis、FSRS、桌面外壳和插件权限模型属于�
 
 ### 15.1 参考实现要求
 
-本次评审使用的固定清单：
+本次评审使用的固定清单（DSH、pi、AstrBot 于 2026-09-29 按上游默认分支更新；区间差异与实际验证见[参考设计复评](../explanation/reference-design-transfer.md#upstream-20260929)，固定参考头不代表真实外部运行时已通过集成验收）：
 
 | 本地路径 | 上游项目 | 固定 commit | 许可证 | 复核日期 |
 |---|---|---|---|---|
 | `reference/baishou-next` | BaiShou-Next | `d95bae0f6f3184a94bbc3a77eb71ca987bfcadba` | AGPLv3 | 2026-08-24 |
 | `reference/dsh-synapse` | dsh-synapse | `a323f76b0c47ffad59194d8ac7efacb3aa6bdfba` | MIT | 2026-08-24 |
-| `reference/deepseek-harness` | DeepSeek Harness | `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e` | MIT | 2026-08-24 |
-| `reference/pi` | pi monorepo | `c49906ec77788625aacbdc53ebca6fbe65bd20f5` | MIT | 2026-08-24 |
-| `reference/AstrBot` | AstrBot | `4d877c9919e58008f6f2cf4b19e18f9c48e4338f` | AGPLv3 | 2026-08-26 |
+| `reference/deepseek-harness` | DeepSeek Harness | `639ed015397290b3745d163aafe02ffee4aa3f84` | MIT | 2026-09-29 |
+| `reference/pi` | pi monorepo | `5257d0d5f3ab7d42550804f32c67a77b49f485d4` | MIT | 2026-09-29 |
+| `reference/AstrBot` | AstrBot | `b53999e959cfc3b71d7b74713ddee837be843fcb` | AGPLv3 | 2026-09-29 |
 | `reference/Petra` | Petra | `b629b295b5ae535d80e09cd59bd3d515bcd8150f` | MIT | 2026-08-26 |
 
 - 参考仓库的行为和 API 只能通过固定 commit 复核，升级时需记录变更原因和回归结果；

@@ -6,22 +6,24 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.3.1
-updated_at: 2026-09-16
-reviewed_at: 2026-09-16
+version: 0.3.2
+updated_at: 2026-09-29
+reviewed_at: 2026-09-29
 review_interval_days: 90
 ---
 
 # 教程：迁移已集成能力并接入 DSH/pi
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-16
+- 修改人：3yearszhuang · 2026-09-29
 
 关联：[能力组合与可选化目录规范](../reference/capability-composition.md)、[参考项目能力迁移与借鉴评估](../explanation/reference-design-transfer.md)、[ADR-009](../reference/adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](../reference/adr/ADR-010-dsh-pi-adapters.md)、[需求追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)
 
 本教程带维护者把当前仓库中的 Aervox 工具、插件和技能能力迁移到可组合宿主，并设计一个受限的 DSH（DeepSeek Harness）与 pi 接入。教程终点是一个可解析、激活、停用和回滚的 Profile。当前仓库尚未实现 `adapters/dsh`、`adapters/pi` 或进程外 Host；相关步骤标为目标/实验，不得当作已完成集成。
 
-本文中的 `DSH` 专指 `reference/deepseek-harness`，固定参考 commit 为 `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`。`dsh-synapse` 是 DSH 的独立 MIT Web 视图插件，只在最后作为投影案例出现，不是 DSH 本体。
+本文中的 `DSH` 专指 `reference/deepseek-harness`，本教程示例的历史参考 commit 为 `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`。`dsh-synapse` 是 DSH 的独立 MIT Web 视图插件，只在最后作为投影案例出现，不是 DSH 本体。
+
+2026-09-29 已更新参考子模块；当前固定 SHA 与变化见[上游复评](../explanation/reference-design-transfer.md#upstream-20260929)。下文代码形状与锁文件示例保留原设计快照，不能据此宣称新版本运行时已集成；真实接入须重新构建并通过 Adapter 控制、权限和恢复验收。
 
 ## 你将完成什么
 

@@ -7,7 +7,7 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 planning_role: current
-version: 0.4.0
+version: 0.4.2
 updated_at: 2026-09-29
 reviewed_at: 2026-09-29
 review_interval_days: 7
@@ -51,6 +51,8 @@ sources:
 
 2026-09-28 新增 [CR-056 Build to Delete 与类 pi 分层架构规划](docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md)：ITER-023 仅交付详细规划，ITER-014 进入架构差量待评审。CR 的切片按主归属和协同关系接入 ITER-005/007/008/013/014/019，具体依赖见 CR §7；先以 MemoryStore 工具与单个模型 Driver 验证实现可替换、资源可释放和数据责任连续性。规划不启动重构，也不将已有正确性修复统一阻塞在架构工作上。
 
+2026-09-29 新增架构演进与深层瓶颈优化建议（ITER-025～028）：针对 ADR-020 解耦落地的剩余差量与深层性能瓶颈，提出思隅核心懒加载毫秒级冷启动（ITER-025）、伴学业务与会话执行器深度解耦插件化（ITER-026）、多进程 SQLite 写入并发与 Worker 自适应退避（ITER-027），以及纯本地多端点对点加密同步探索（ITER-028）。
+
 ## 2. 当前建议工作
 
 下表是唯一活动队列，**由 `docs/_meta/plan-queue.json` 渲染生成**（改条目请改真源后运行 `mise tasks run plan-render`，校验见 `plan-check`）。每行“建议”表示尚未开工；“依赖”约束实际启用/交付顺序，前置设计与测试夹具可并行。证据编号 `FND-*` 见底层评估，`ARC-*` 见架构深入评估，不创建另一份问题正文。
@@ -73,6 +75,7 @@ sources:
 | <a id="iter-020"></a>ITER-020 · 已移交 | HLS 本地智能体竞赛规划：三人团队、C++ 与 RX 9070 XT 条件下的能力复用、验证路径、实验协议和交付边界；AVX-EXPL-013；关联 CAP-007/020/027（规划，不改变能力状态） | 本项仅文档交付；赛规、实测、实现授权和产品化分别判断，后续实验见 ITER-021 | 专项文档明确规则与环境、双入口、对照实验、冻结提交和产品回接路径；三人角色、预算估算、去留标准、来源和索引齐全，文档门禁通过 | platform/docs（分支 `docs/hls-competition-validation-plan`；2026-09-22 文档移交：P0～P4 路径、三人角色、四组对照、冻结产物与去留标准已登记；ci-docs 全量通过（治理回归 33/33、队列回归 9/9、78 文件排版/术语及严格治理无问题）；未实施竞赛能力） |
 | <a id="iter-021"></a>ITER-021 · 建议 | HLS 竞赛可行性验证：规则与环境核对、双入口最小闭环、同模型配对对照与去留证据；AVX-EXPL-013 P0～P2；关联 CAP-007/020/027（探索） | 依据 ITER-020 的规划复核范围与可投入工时；新增模块/工具合同先 CR；只修实际复用路径，不等待 ITER-007/008/013 全部完成 | 本地模型与 Vitis 真正运行，裸跑/Agent 双入口公平且逐题可追溯；留出题报告分级通过率、增益、不确定性与成本，并给出继续、限定补证或暂缓结论 | platform/competition（模型环境、HLS 工具、Agent 评测三个角色，待认领） |
 | <a id="iter-023"></a>ITER-023 · 已移交 | Build to Delete 与类 pi 架构详细规划：[CR-056](docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md) 的固定基线、目标边界、决策差量、实施切片、退出验收与回滚；关联 CAP-002/005/007/018/020/027/033（仅规划） | 本项仅交付 Proposed/Planned 的 CR；实现认领继续使用既有 ITER 条目，架构接受、代码实施和发布分别判断 | 每个切片给出输入依赖、代码落点、契约影响、测试、退出条件与回滚；规划接入唯一队列、追踪和索引，文档门禁通过 | platform/docs（分支 `docs/build-to-delete-pi-architecture-plan`；2026-09-28 文档移交：CR-056 的九个切片、两项试点、依赖估算及退出/回滚验收已登记；ci-docs 全量通过（治理 33/33、队列 9/9、79 文件排版/术语及严格治理无问题）；CR 保持 Proposed/Planned，未启动业务重构） |
+| <a id="iter-030"></a>ITER-030 · 已移交 | DSH、pi、AstrBot 上游固定版本更新与差异复评：核对默认分支、许可证与适配准入，形成面向思隅的设计借鉴和验证建议；DSH-01/PI-01/AST-*；关联 CAP-007/020/027/033（参考维护与评估） | 仅更新参考基线及必要准入常量；产品能力和架构实施仍由既有 ITER 与 CR 决定 | 三个子模块固定到本次抓取的上游默认分支提交，保留旧版本可回溯；源码与测试证据区分本次变化、既有能力和未验证事项，映射思隅实际差量；参考清单、适配准入、追踪登记和文档门禁一致（校验：`git diff --submodule=short`；`mise tasks run ci-code`；`mise tasks run ci-docs`） | platform/docs（分支 `docs/update-reference-upstreams-20260929`；2026-09-29 移交：三个上游固定版本、源码/测试差异复评与 DSH 准入同步完成；ci-code 全量通过（测试 27/27 任务），ci-docs 全量通过；参考更新不代表真实外部运行时已集成，验证与限制见 §4.2/参考评估 §8） |
 
 ### 2.2 下一批：恢复、生命周期与部署
 

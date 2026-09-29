@@ -17,7 +17,7 @@ import { verifyAdapterManifest } from "@aervox/agent-loop";
 import type { AdapterManifest } from "@aervox/agent-loop";
 
 /** DSH-01 固定参考 commit（reference-design-transfer §1.1 登记） */
-export const DSH_REFERENCE_SHA = "b150a551b8d465e31e418e1b2eaf5e79bbb7d28e";
+export const DSH_REFERENCE_SHA = "639ed015397290b3745d163aafe02ffee4aa3f84";
 
 /** 参考仓库相对父仓库根目录的路径 */
 export const DSH_REFERENCE_RELATIVE_PATH = "reference/deepseek-harness";
