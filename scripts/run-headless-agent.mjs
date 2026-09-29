@@ -20,7 +20,12 @@ const {
   AutoApprovalPolicy,
 } = await import("../packages/agent-loop/dist/index.js");
 
-const { CliInteractiveApprovalPolicy } = await import("../packages/host-agent/dist/index.js");
+const {
+  CliInteractiveApprovalPolicy,
+  ExecutionPipeline,
+  createErrorRecoveryMiddleware,
+  HostToolRuntime,
+} = await import("../packages/host-agent/dist/index.js");
 
 const startupElapsedMs = performance.now() - startupStart;
 
@@ -94,7 +99,7 @@ async function runSmokeTest() {
   console.log("==================================================================");
   console.log("  Aervox Core (思隅核心) Headless 架构能力与冷启动验证");
   console.log("==================================================================");
-  console.log(`[1/6] 内核加载耗时: ${startupElapsedMs.toFixed(2)} ms (基准门槛 <= 150ms) -> ${startupElapsedMs <= 150 ? "PASS" : "WARN"}`);
+  console.log(`[1/7] 内核加载耗时: ${startupElapsedMs.toFixed(2)} ms (基准门槛 <= 150ms) -> ${startupElapsedMs <= 150 ? "PASS" : "WARN"}`);
 
   const store = new InMemoryExecutionStore();
   const demoTools = createMockToolProvider();
@@ -102,7 +107,7 @@ async function runSmokeTest() {
   const tools = { ...demoTools, execute: async (input) => { calls.push(input.name); return demoTools.execute(input); } };
 
   // 测试 1: 普通多轮对话与问答
-  console.log("[2/6] 验证多轮对话无工具执行回路...");
+  console.log("[2/7] 验证多轮对话无工具执行回路...");
   const turn1Start = performance.now();
   store.seedAttempt({ id: "atp_smoke_1", turnId: "turn_smoke_1" });
   const control1 = new ControlContext({
@@ -132,7 +137,7 @@ async function runSmokeTest() {
   console.log(`      Turn 1 执行成功: status=${res1.status}, 耗时=${turn1Elapsed.toFixed(2)}ms`);
 
   // 测试 2: 完整两步工具调用循环 (Tool Call -> Tool Result -> Model Final Output)
-  console.log("[3/6] 验证多 Step 工具调用循环 (search_notes)...");
+  console.log("[3/7] 验证多 Step 工具调用循环 (search_notes)...");
   const turn2Start = performance.now();
   store.seedAttempt({ id: "atp_smoke_2", turnId: "turn_smoke_2" });
   const control2 = new ControlContext({
@@ -168,7 +173,7 @@ async function runSmokeTest() {
   console.log(`      Turn 2 执行成功: stepsTaken=${res2.stepsTaken}, status=${res2.status}, 耗时=${turn2Elapsed.toFixed(2)}ms`);
 
   // 测试 3: 执行控制与超时/取消中断 (ControlContext Interruption)
-  console.log("[4/6] 验证超时控制与优雅排空 (ControlContext Deadline Expired)...");
+  console.log("[4/7] 验证超时控制与优雅排空 (ControlContext Deadline Expired)...");
   const turn3Start = performance.now();
   store.seedAttempt({ id: "atp_smoke_3", turnId: "turn_smoke_3" });
   const expiredControl = new ControlContext({
@@ -204,12 +209,68 @@ async function runSmokeTest() {
   }
   console.log(`      Turn 3 成功拦截并收敛终态: status=${res3.status}, reason=${res3.reason}, doneStatus=${doneEvent.data?.status}, 耗时=${turn3Elapsed.toFixed(2)}ms`);
 
-  // 测试 4: 权限审批策略与人机回环 (ApprovalPolicyPort SPI)
-  console.log("[5/6] 验证 ApprovalPolicyPort SPI 与 CLI 审批策略...");
+  // 测试 4: 流水线洋葱模型与错误恢复 (ExecutionPipeline Middleware)
+  console.log("[5/7] 验证 ExecutionPipeline 中间件链与洋葱拦截...");
+  const smokePipeline = new ExecutionPipeline();
+  const pipelineTrace = [];
+  smokePipeline.use(createErrorRecoveryMiddleware());
+  smokePipeline.use(async (ctx, next) => {
+    pipelineTrace.push("before:trace");
+    ctx.attributes.set("trace_start", performance.now());
+    const res = await next();
+    pipelineTrace.push("after:trace");
+    return res;
+  });
+  const pipeTurnId = "turn_smoke_pipe";
+  const pipeAtpId = "atp_smoke_pipe";
+  store.seedAttempt({ id: pipeAtpId, turnId: pipeTurnId });
+  const pipeControl = new ControlContext({
+    turnId: pipeTurnId,
+    attemptId: pipeAtpId,
+    sessionId: "ses_smoke",
+    deadlineEpochMs: Date.now() + 5000,
+  });
+  const pipeRes = await smokePipeline.execute(
+    {
+      turnId: pipeTurnId,
+      attemptId: pipeAtpId,
+      sessionId: "ses_smoke",
+      userMessage: "流水线验证",
+      controlContext: pipeControl,
+      attributes: new Map(),
+    },
+    async (ctx) => {
+      pipelineTrace.push("handler:turn");
+      return executeTurn(
+        {
+          execution: store,
+          provider: createSmartCliProvider(),
+          tools,
+          contextBuilder: defaultContextBuilder,
+          controlContext: ctx.controlContext,
+        },
+        {
+          turnId: ctx.turnId,
+          attemptId: ctx.attemptId,
+          userMessage: ctx.userMessage,
+          controlContext: ctx.controlContext,
+        },
+      );
+    },
+  );
+  pipeControl.dispose();
+  if (pipeRes.status !== "completed") throw new Error(`Pipeline turn failed: ${pipeRes.status}`);
+  if (pipelineTrace.join("->") !== "before:trace->handler:turn->after:trace") {
+    throw new Error(`Pipeline order mismatch: ${pipelineTrace.join("->")}`);
+  }
+  console.log(`      ExecutionPipeline 洋葱拦截执行成功: status=${pipeRes.status}, trace=${pipelineTrace.join("->")}`);
+
+  // 测试 5: 权限审批策略与人机回环 (ApprovalPolicyPort SPI)
+  console.log("[6/7] 验证 ApprovalPolicyPort SPI 与 CLI 审批策略...");
   const autoApprovedTools = createMockToolProvider({
     save_memory_note: (input) => ({ ok: true, output: { saved: true, args: input.arguments } }),
   });
-  // 4a: AutoApprovalPolicy 放行
+  // 5a: AutoApprovalPolicy 放行
   store.seedAttempt({ id: "atp_smoke_4a", turnId: "turn_smoke_4a" });
   const control4a = new ControlContext({
     turnId: "turn_smoke_4a",
@@ -237,7 +298,7 @@ async function runSmokeTest() {
   if (res4a.status !== "completed") throw new Error(`AutoApproval turn failed: ${res4a.status}`);
   console.log(`      AutoApprovalPolicy 放行写工具执行成功: status=${res4a.status}`);
 
-  // 4b: CliInteractiveApprovalPolicy 非 TTY 拦截 (fail-closed deny)
+  // 5b: CliInteractiveApprovalPolicy 非 TTY 拦截 (fail-closed deny)
   store.seedAttempt({ id: "atp_smoke_4b", turnId: "turn_smoke_4b" });
   const control4b = new ControlContext({
     turnId: "turn_smoke_4b",
@@ -273,13 +334,13 @@ async function runSmokeTest() {
   console.log(`      CliInteractiveApprovalPolicy 非 TTY 安全拦截校验通过 (fail-closed)`);
 
   // 依赖隔离检查
-  console.log("[6/6] 验证零数据库、零网络服务侵入...");
+  console.log("[7/7] 验证零数据库、零网络服务侵入...");
   const memUsage = process.memoryUsage();
   console.log(`      内存常驻 (RSS): ${(memUsage.rss / 1024 / 1024).toFixed(2)} MB`);
   console.log(`      堆内存使用 (Heap): ${(memUsage.heapUsed / 1024 / 1024).toFixed(2)} MB`);
 
   console.log("==================================================================");
-  console.log("  ALL SMOKE CHECKS PASSED: 内存状态、规则模型、审批 SPI 及演示工具的独立运行检查通过。");
+  console.log("  ALL SMOKE CHECKS PASSED: 内存状态、流水线管道、规则模型、审批 SPI 及演示工具的独立运行检查通过。");
   console.log("==================================================================");
 }
 
@@ -304,6 +365,16 @@ async function runInteractiveRepl() {
   const tools = { ...demoTools, execute: async (input) => { calls.push(input.name); return demoTools.execute(input); } };
   const cliApproval = new CliInteractiveApprovalPolicy({
     promptUser: async (q) => rl.question(q),
+  });
+
+  const pipeline = new ExecutionPipeline();
+  pipeline.use(createErrorRecoveryMiddleware());
+  pipeline.use(async (ctx, next) => {
+    const t0 = performance.now();
+    const res = await next();
+    const elapsed = performance.now() - t0;
+    ctx.attributes.set("durationMs", elapsed);
+    return res;
   });
 
   let turnSeq = 1;
@@ -337,21 +408,33 @@ async function runInteractiveRepl() {
       });
 
       process.stdout.write("\x1b[32m思隅 >\x1b[0m ");
-      const result = await executeTurn(
-        {
-          execution: store,
-          provider: createSmartCliProvider(),
-          tools,
-          contextBuilder: defaultContextBuilder,
-          controlContext: control,
-          approvalPolicy: cliApproval,
-        },
+      const result = await pipeline.execute(
         {
           turnId,
           attemptId,
           sessionId,
           userMessage: text,
           controlContext: control,
+          attributes: new Map(),
+        },
+        async () => {
+          return executeTurn(
+            {
+              execution: store,
+              provider: createSmartCliProvider(),
+              tools,
+              contextBuilder: defaultContextBuilder,
+              controlContext: control,
+              approvalPolicy: cliApproval,
+            },
+            {
+              turnId,
+              attemptId,
+              sessionId,
+              userMessage: text,
+              controlContext: control,
+            },
+          );
         },
       );
 

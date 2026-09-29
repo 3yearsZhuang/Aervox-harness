@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-09-29",
-  "totalCount": 74,
+  "totalCount": 75,
   "documents": [
     {
       "id": "AVX-PLAN-001",
@@ -916,7 +916,24 @@
       ]
     },
     {
-      "id": "ADR-001~019",
+      "id": "ADR-020",
+      "title": "ADR-020 Aervox Core 架构解耦：执行管线中间件、统一审批 SPI 与工具沙箱下沉",
+      "path": "reference/adr/ADR-020-aervox-core-decoupling.md",
+      "type": "reference",
+      "scope": "decision",
+      "owner": "maintainers",
+      "doc_status": "approved",
+      "decision_status": "accepted",
+      "delivery_status": "not-applicable",
+      "version": "0.1.0",
+      "updated_at": "2026-09-29",
+      "reviewed_at": "2026-09-29",
+      "review_interval_days": 90,
+      "review_triggers": [],
+      "sources": []
+    },
+    {
+      "id": "ADR-001~020",
       "title": "Aervox 架构决策记录（ADR）",
       "path": "reference/adr/README.md",
       "type": "reference",
@@ -925,9 +942,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.2.1",
-      "updated_at": "2026-09-18",
-      "reviewed_at": "2026-09-18",
+      "version": "0.3.0",
+      "updated_at": "2026-09-29",
+      "reviewed_at": "2026-09-29",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -995,9 +1012,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.4.4",
-      "updated_at": "2026-09-28",
-      "reviewed_at": "2026-09-28",
+      "version": "0.5.0",
+      "updated_at": "2026-09-29",
+      "reviewed_at": "2026-09-29",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -1363,7 +1380,7 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.46.12",
+      "version": "1.47.0",
       "updated_at": "2026-09-29",
       "reviewed_at": "2026-09-29",
       "review_interval_days": 90,
