@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.9.3
-updated_at: 2026-09-28
-reviewed_at: 2026-09-28
+version: 0.10.0
+updated_at: 2026-09-29
+reviewed_at: 2026-09-29
 review_interval_days: 90
 ---
 
 # 参考项目能力迁移与借鉴评估
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-28
+- 修改人：3yearszhuang · 2026-09-29
 
 关联：[参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[SQLite 本地单用户数据库契约](../reference/DATABASE.md)、[能力注册表](../reference/capability-registry.md)、[Agent Harness Loop 规范](../reference/agent-harness-loop.md)、[AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)
 
@@ -37,14 +37,14 @@ review_interval_days: 90
 
 `DSH-01` 与 `PI-01` 是 Agent Harness Loop 相关参考设计的唯一来源编号。实现登记中的 `来源` 列只能使用这两个编号指向下表，不能把外部仓库当作 Aervox 的运行时依赖或事实源。
 
-2026-09-28 的 [CR-056 Build to Delete 与类 pi 分层架构规划](../reference/changes/CR-056-build-to-delete-pi-style-architecture.md)继续使用 `PI-01`：在同一固定版本上补充模型注册的代际控制、扩展上下文失效、协议 DTO 映射和客户端快照设计参考，具体源码见 CR §2.2。该项仅交付 Proposed/Planned 的规划，不改变下表的禁入边界，不复制参考运行时代码；认领见根计划，实现证据仍只登记 §4.2。
+历史来源说明：2026-09-28 的 [CR-056 Build to Delete 与类 pi 分层架构规划](../reference/changes/CR-056-build-to-delete-pi-style-architecture.md)继续使用 `PI-01`：在同一固定版本上补充模型注册的代际控制、扩展上下文失效、协议 DTO 映射和客户端快照设计参考，具体源码见 CR §2.2。当时首先交付规划，后续接受与部分实施状态见 CR 本身；该次旧 SHA 的设计证据保留，本次最新源码复评见[§8](#upstream-20260929)。不复制参考运行时代码，实现证据仍只登记 §4.2。
 
 | 来源编号 | 固定参考 | 重点证据 | 可借鉴设计 | Aervox 明确不迁移 |
 |---|---|---|---|---|
-| `DSH-01` | `reference/deepseek-harness`，commit `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`，MIT | `packages/core/agent-loop/src/agent.ts`、`docs/architecture.md`、`packages/core/agent-loop/README.md` | Turn/Step 双层循环、模型流与工具请求交替、typed event、`followup`/`steer`/`inject`、可逆 effect/disposer | DSH Session log、Cordis Context、DSH 权限系统、直接连接 Aervox SQLite |
-| `PI-01` | `reference/pi`，commit `c49906ec77788625aacbdc53ebca6fbe65bd20f5`，MIT | `packages/agent/src/agent-loop.ts`、`packages/agent/src/harness/`、`packages/agent/docs/harness.md` | outer follow-up loop、inner tool/steer loop、工具参数准备与结果回填、append-only/reducer、writer lease/fencing | pi Session/存储格式、Extension 宿主权限、直接加载到 API/Worker/Renderer；该版本 Harness v2 仍有 scaffold，不能视为已接入实现 |
+| `DSH-01` | `reference/deepseek-harness`，commit `639ed015397290b3745d163aafe02ffee4aa3f84`，MIT | `packages/core/agent-loop/src/agent.ts`、`docs/architecture.md`、`packages/core/agent-loop/README.md` | Turn/Step 双层循环、模型流与工具请求交替、typed event、`followup`/`steer`/`inject`、可逆 effect/disposer | DSH Session log、Cordis Context、DSH 权限系统、直接连接 Aervox SQLite |
+| `PI-01` | `reference/pi`，commit `5257d0d5f3ab7d42550804f32c67a77b49f485d4`，MIT | `packages/agent/src/agent-loop.ts`、`packages/agent/src/harness/`、`packages/agent/docs/harness.md` | outer follow-up loop、inner tool/steer loop、工具参数准备与结果回填、append-only/reducer、Session 串行提交、operation/invocation 失效校验 | pi Session/存储格式、Extension 宿主权限、直接加载到 API/Worker/Renderer；当前有 CLI、lane Harness 与新 durable 三条路线；成熟度分别见 §8.3，不能视为思隅已接入 |
 
-固定版本的终止语义并不相同：DSH 在一个已结算工具批次中任一成功结果声明 `concludesTurn` 即可结束，pi 低层 loop 则要求非空批次的所有结果 `terminate=true`。Aervox 统一采用后者的严格策略；`adapter-dsh` 必须显式收紧或拒绝不兼容的混合批次，不能把上游 any 语义静默暴露给业务。pi 的低层 `agent-loop.ts` 可作为控制流参考，但固定版本 `AgentHarness` v2 的公开 `prompt`/`resume`/`abort` 等能力仍是 scaffold。
+固定版本的终止语义并不相同：DSH 在一个已结算工具批次中任一成功结果声明 `concludesTurn` 即可结束，pi 低层 loop 则要求非空批次的所有结果 `terminate=true`。Aervox 统一采用后者的严格策略；`adapter-dsh` 必须显式收紧或拒绝不兼容的混合批次，不能把上游 any 语义静默暴露给业务。pi 的低层 `agent-loop.ts` 仍可作为控制流参考；本次固定版本的 lane Harness 已实现 `prompt`/`resume`/`abort`，但尚有未完成接口，新 durable 路线也不能视为完整聊天内核，详见 §8.3。
 
 采用方式固定为“自研重写 + Adapter 翻译”：Aervox 先以 [AVX-HAR-001](../reference/agent-harness-loop.md) 的 Definition、Port、事件和状态机为准，再为 DSH/pi 生成可替换 Loop Driver、Model Provider 或受限 Contribution。外部参考的示例名称、Session ID、工具参数和事件序列都必须经过 Aervox schema、Consent、ToolPolicy、租约和审计检查。
 
@@ -351,17 +351,148 @@ Generative Agents 把完整经历写入 memory stream，再按相关性、新近
 
 第一笔窄切片已落实 `GPH-01`：纯判定模块只接受已确认事实，分别保存事实生效时间和来源入库时间；新事实关闭旧区间，同值只追加证据决策，同刻矛盾和迟到输入要求复核。它尚未持久化，也不改变当前召回资格；SQLite 投影、删除传播和时点查询仍需后续契约与实现。
 
-## 8. 参照
+<a id="upstream-20260929"></a>
+
+## 8. DSH、pi、AstrBot 上游更新复评（2026-09-29）
+
+### 8.1 更新范围与证据边界
+
+本次按用户要求，将三个参考子模块更新到**抓取时上游默认分支的固定提交**，不是统一选择最大版本标签。思隅核验基线为 `21953cb`（PR #231 已合入）；本次只维护参考基线、DSH 准入常量与研究文档。下文建议不代表已实施，也不改变 CR-056、ADR-020 或 CAP 的交付状态。交付见[追踪基线 §4.2](../reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)，队列见 [ITER-030](../../plan.md#iter-030)。
+
+| 项目 | 旧固定版本 → 新固定版本 | 默认分支与本次提交日期 | 增量与版本含义 |
+|---|---|---|---|
+| DSH | `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e` → `639ed015397290b3745d163aafe02ffee4aa3f84` | `master`；2026-09-29 17:21 +08 | 7,323 个提交；`0.1.1-rc.2` → `0.2.0-rc.2`，新 SHA 精确对应 `dsh-v0.2.0-rc.2`；MIT |
+| pi | `c49906ec77788625aacbdc53ebca6fbe65bd20f5` → `5257d0d5f3ab7d42550804f32c67a77b49f485d4` | `main`；2026-09-29 14:10 +02 | 812 个提交；包版本 `0.84.2` → `0.87.1`，新 SHA 包含 `v0.87.1` 标签后的未发布变化；MIT |
+| AstrBot | `4d877c9919e58008f6f2cf4b19e18f9c48e4338f` → `b53999e959cfc3b71d7b74713ddee837be843fcb` | `master`；2026-09-29 11:19 +08 | 154 个提交；版本文件 `4.27.4` → `4.28.1`，不是 `v4.28.2`；AGPL-3.0-or-later |
+
+三个旧 SHA 均为新 SHA 的祖先，更新前后子模块工作树干净，旧版本另有本地备份引用。提交数由 `git rev-list --count old..new` 得出，包含合并分支历史，不能当作功能数量。完整区间：[DSH 差分](https://github.com/deepseek-ai/deepseek-harness/compare/b150a551b8d465e31e418e1b2eaf5e79bbb7d28e...639ed015397290b3745d163aafe02ffee4aa3f84)、[pi 差分](https://github.com/earendil-works/pi/compare/c49906ec77788625aacbdc53ebca6fbe65bd20f5...5257d0d5f3ab7d42550804f32c67a77b49f485d4)、[AstrBot 差分](https://github.com/AstrBotDevs/AstrBot/compare/4d877c9919e58008f6f2cf4b19e18f9c48e4338f...b53999e959cfc3b71d7b74713ddee837be843fcb)。
+
+版本细节：pi 的 `v0.87.1` 指向 `f07218c4d4bbc12bef056a7058c3dd49dfe41abe`；AstrBot 的 `v4.28.2` 指向 `3c7adafa1397e182d60b1016bf88759265113c8a`，与本次 `master` 分叉，左右独有提交为 66/3。AstrBot 在 `master` 上升版后又撤回版本号。因此应以固定 SHA 描述本次更新，不能用标签大小推断稳定性或包含关系。DSH 的发布资产、三个项目的完整上游构建与测试、真实模型、各操作系统沙箱均未在本次运行；下文上游测试链接表示**已阅读的回归设计**。
+
+整体判断：DSH 的主要价值是会话恢复、宿主交互和桌面承载；pi 的主要价值是副作用控制、模型上下文投影和扩展边界；AstrBot 的主要价值是插件运维、后台执行一致性及真实权限落实。思隅已具备 Port、ExecutionPipeline、审批 SPI、代际生命周期和轻量 Headless 内核，继续搭同名框架的收益低于补齐生产路径与故障验收。
+
+### 8.2 DSH：从循环框架走向可恢复的宿主产品
+
+**会话恢复的关键是承认“不知道有没有执行成功”。** 本次 Session writer 从格式 0 演进到 4，Inbox 成为可重放投影，格式迁移保留原文件；工具调度失败时，保留已提交成功结果，将未开始调用记为 `TOOL_NOT_STARTED`，已开始但结果不明记为 `TOOL_OUTCOME_UNKNOWN`，补齐调用/结果配对后关闭 Step/Turn。对思隅最有价值的是这套分类及崩溃夹具：重启后不能把“结果未知”当成“未执行”而重做文件修改或设备动作。沿用 SQLite、工具账本和 fencing，映射 ITER-010/011/029，不迁移到 DSH JSONL。
+
+证据：[失败阶段与工具配对测试](https://github.com/deepseek-ai/deepseek-harness/blob/639ed015397290b3745d163aafe02ffee4aa3f84/packages/core/agent-loop/tests/tool-calls.spec.ts#L635)、[迁移保留原文件测试](https://github.com/deepseek-ai/deepseek-harness/blob/639ed015397290b3745d163aafe02ffee4aa3f84/packages/session/session-persistence-jsonl/tests/v3-restart-migration.spec.ts#L55)。
+
+**动态工具变化也要成为请求证据。** 旧版已有工具注册与投影；本次强化工具增删、系统提示变化、请求冻结和恢复重建，支持相应模型路由的 in-history 更新并保留历史。思隅已有 ContextManifest 和动态 ToolProvider，但当前[执行器](../../packages/agent-loop/src/executor.ts)只在首 Step 保存一份消息清单，不能证明后续每次请求用了哪版工具、权限或模型。值得在 ITER-007 中记录每次最终请求的模型、工具 Schema、提示版本及授权修订；展示给模型与真正执行时分别验证，撤权不能只从界面移除。
+
+证据：[动态工具与历史测试](https://github.com/deepseek-ai/deepseek-harness/blob/639ed015397290b3745d163aafe02ffee4aa3f84/packages/core/agent-loop/tests/tool-updates.spec.ts#L49)。
+
+**限时提问能让陪伴更自然。** 新增可选的限时问题路径，前台等待窗口结束后返回 `pending`，原问题仍可回答，迟到答案按 `callId` 接回后续输入；旧阻塞工具保留。思隅可以表现为“你先选明天的复习时段，我先整理今天错题”，避免桌宠一直停在等待状态。已有 UserQuestionPort 与审批 SPI，新增价值是待答问题的持久关联、重连和晚答语义；应作为 ITER-010/013 的契约差量评审。问题超时不是用户回答，更不是写操作授权。
+
+证据：[限时等待与客户端接管](https://github.com/deepseek-ai/deepseek-harness/blob/639ed015397290b3745d163aafe02ffee4aa3f84/packages/interaction/user-questions/src/timed-wait.ts#L4)、[保留旧路径与新路径 opt-in 测试](https://github.com/deepseek-ai/deepseek-harness/blob/639ed015397290b3745d163aafe02ffee4aa3f84/packages/interaction/tool-ask-user/tests/tool-ask-user.spec.ts#L102)。
+
+**提醒从活跃 Agent 定时器转为 Host 任务。** Goal/Schedule、显式时区和 Every 只补最新并非本次新增；本次将任务移至 Host 存储、支持冷会话唤醒，扩展 daily/weekly/cron 及其 DST 规则，并新增投递历史和 CAS 更新。适合思隅复习提醒的“离线回来合并通知”和“解释为何此刻提醒”。但 DSH 明确不保证 exactly-once：Inbox flush 与任务写入非原子，崩溃可重复，失败没有自动重试定时器，旧提醒也不自动迁移。投递到 Inbox 不等于模型完成任务。思隅应保留 SQLite/Outbox，用业务发生次序键、幂等和通知预算实现自己的语义。
+
+证据：[Schedule 语义与限制](https://github.com/deepseek-ai/deepseek-harness/blob/639ed015397290b3745d163aafe02ffee4aa3f84/packages/schedule/schedule/README.md#L59)、[投递不等于执行测试](https://github.com/deepseek-ai/deepseek-harness/blob/639ed015397290b3745d163aafe02ffee4aa3f84/packages/schedule/schedule/tests/delivery.spec.ts#L10)。
+
+**更强的 PTC 和生命周期屏障值得借鉴，整套宿主不必搬入。** PTC/code-mode 旧版已有；本次受限 Node 进程为每次执行设置取消、截止、控制帧与输出上限，创建 Agent 也改为等待所有初始化监听器完成再接单。思隅可用这些测试补 ITER-029 的注册/释放竞态与 ITER-013 的停机收敛。新 Electron 应用复用共享 Web，与思隅双形态方向相近；应学习临时流帧关联持久提交、旧代际失效与共享数据模型，而非更换 Vue/Electron 架构。Team/Schedule 仍是可选实验能力，PTC 沙箱也有平台及网络/内存保证限制。
+
+证据：[受限 PTC Provider](https://github.com/deepseek-ai/deepseek-harness/blob/639ed015397290b3745d163aafe02ffee4aa3f84/packages/ptc-runtime/ptc-runtime-node/src/index.ts#L51)、[PTC 限制](https://github.com/deepseek-ai/deepseek-harness/blob/639ed015397290b3745d163aafe02ffee4aa3f84/packages/ptc-runtime/ptc-runtime-node/README.md#L133)、[创建屏障测试](https://github.com/deepseek-ai/deepseek-harness/blob/639ed015397290b3745d163aafe02ffee4aa3f84/packages/core/agent-loop/tests/serial-listener-review.spec.ts#L82)、[桌面架构](https://github.com/deepseek-ai/deepseek-harness/blob/639ed015397290b3745d163aafe02ffee4aa3f84/apps/desktop/README.md#L7)。
+
+### 8.3 pi：最值得学习的是控制边界和上下文保真
+
+**先修正旧结论：当前有三条不同成熟度的路线。** CLI/SDK 仍由 `Agent + AgentSession + SessionManager` 装配；旧 AgentHarness 已真实实现 `prompt/resume/abort`，不能再笼统称 scaffold，但 `watchSession` 仍抛 `SliceNotImplemented`；新 `packages/durable` 的 Pico5 在收尾新增的 Package 15 中已实现首个无工具聊天回合：输入去重、生成响应、答案持久化及 SQLite 重开，并有重试、轮询和取消路径。但工具执行链、忙时 steer/follow-up Inbox 与完整产品 UI 仍未完成；当前 toolUse 直接作为答案结算。不能把这些路线拼成“pi 已经提供完整可替换持久内核”。CR-056 中旧 SHA 的历史判断保留，新复评以本节为准。
+
+证据：[实际 lane 操作](https://github.com/earendil-works/pi/blob/4df1574339bfbd1a9750ff485bb618da397ba135/packages/agent/src/harness/runtime/lane.ts#L1133)、[未完成的 watchSession](https://github.com/earendil-works/pi/blob/4df1574339bfbd1a9750ff485bb618da397ba135/packages/agent/src/harness/runtime/harness.ts#L305)、[durable 阶段交接](https://github.com/earendil-works/pi/blob/5257d0d5f3ab7d42550804f32c67a77b49f485d4/packages/durable/docs/pico-v5-handoff.md#L10)。
+
+收尾增量说明：首次抓取 `4df157433` 后，上游新增三笔提交，本次最终固定为 `5257d0d5`（共 812 笔）。除 Package 15 外，还增加 `defaultTools` 的 `+name/-name` 继承覆写和 MCP 工具参数显示。工具选择不等于权限，参数显示仍需思隅的脱敏投影。本节其余 `4df157433` 固定链接保留为本次区间中已审阅的证据，相关设计未被这三笔提交修改。
+
+证据：[无工具回合与真实 SQLite 重开测试](https://github.com/earendil-works/pi/blob/5257d0d5f3ab7d42550804f32c67a77b49f485d4/packages/durable/test/harness-generation-recovery.test.ts#L269)、[尚未执行 toolUse 的明确分支](https://github.com/earendil-works/pi/blob/5257d0d5f3ab7d42550804f32c67a77b49f485d4/packages/durable/src/harness/generation.ts#L260)。
+
+**取消必须先关闭新副作用准入。** 新 effect gate 把“同步拒绝新工具动作”和“取消记录持久化后向在途任务发信号”分开；不是在各处零散检查 `signal`。思隅已有 ControlContext、CAS/fencing、取消与账本，应把 ITER-029 的心跳失效窗口、提前 settled、装饰器信号遗漏收敛为同一组时序验收：关闭准入 → 取消持久化 → 结果/终态持久化 → 对外通知。内存 gate 不能替代跨进程租约；该 pi Harness 的 SQLite 后端不提供 lease/fence/heartbeat，写者所有权仍依赖受信 Host。
+
+证据：[effect gate 实现](https://github.com/earendil-works/pi/blob/4df1574339bfbd1a9750ff485bb618da397ba135/packages/agent/src/harness/execution/effect-gate.ts#L31)、[取消提交前后测试](https://github.com/earendil-works/pi/blob/4df1574339bfbd1a9750ff485bb618da397ba135/packages/agent/test/harness/execution-primitives.test.ts#L25)。
+
+**回合钩子需要明确哪些只是通知，哪些可以继续调度。** 本次新增 `prepareRequest`，用 `finishTurn` 替代 `shouldStopAfterTurn`；异常/取消仍通知钩子，但其返回值不能让失败回合继续运行。思隅已实现 ExecutionPipeline 和插件生命周期中间件，下一步是把失败、危机、取消、skipped 路径上的 before/after 语义写清并测试，正对应 ITER-029。工具参数被流式截断或缺终止事件时，pi 还拒绝将半成品升级为可执行工具调用，适合补 Provider 边界的坏响应夹具。
+
+证据：[finishTurn 顺序与硬退出](https://github.com/earendil-works/pi/blob/4df1574339bfbd1a9750ff485bb618da397ba135/packages/agent/test/agent-loop.test.ts#L1067)、[不完整工具参数拒绝测试](https://github.com/earendil-works/pi/blob/4df1574339bfbd1a9750ff485bb618da397ba135/packages/ai/test/openai-responses-terminal-event.test.ts#L264)。
+
+**模型上下文是历史的投影，压缩不该伪造摘要。** `context_edit` 通过追加记录控制模型可见内容，保留原聊天、计费与 UI 历史；每次请求从权威投影重建。压缩按工具调用/结果组选择边界，超窗口只允许一次压缩重试。思隅当前[规则压缩](../../packages/agent-loop/src/context-builder.ts)仅在 `AERVOX_LOOP_COMPACTION=rule` 时启用，默认关闭；启用后在超过 50 条消息时保留首尾各两条，中间只留“已总结若干消息”的说明，并没有实际摘要。这是比继续增加 Agent 类型更直接的质量差量：长期伴学必须保留当前学习目标、未解决错误、用户偏好、承诺与来源，不能凭占位文本声称仍记得中间事实。
+
+建议沿 ITER-007/017 验证最终输入、工具 Schema 与预留输出的总窗口，先定义必须保真的事实再选择窗口/摘要/检索策略。上游模型投影不等于用户删除；思隅的删除仍须覆盖原文、摘要与索引。
+
+证据：[context edit 回归](https://github.com/earendil-works/pi/blob/4df1574339bfbd1a9750ff485bb618da397ba135/packages/coding-agent/test/session-context-edit.test.ts#L37)、[超大工具结果压缩](https://github.com/earendil-works/pi/blob/4df1574339bfbd1a9750ff485bb618da397ba135/packages/coding-agent/test/compaction.test.ts#L378)、[一次压缩重试限制](https://github.com/earendil-works/pi/blob/4df1574339bfbd1a9750ff485bb618da397ba135/packages/coding-agent/test/agent-session-auto-compaction-queue.test.ts#L135)。
+
+**按需工具与多模型路由应先守住授权和预算。** 新 `codemode` 用 Worker 内的 QuickJS/WASM 执行组合脚本，MCP 可用工具搜索按需披露，减少全量 Schema 和中间结果；关键是每个嵌套调用仍走 `ctx.executeTool` 的 hooks。Virtual Models 则在实际请求时路由，再按物理模型窗口判断压缩。思隅可探索“本地小模型提取材料、较强模型解释难题”，或脚本内汇总多份资料后返回证据；但先满足 local-only、逐调用授权、取消、账本和总预算。pi 的脚本默认截止可为 Infinity，不适合直接沿用。
+
+证据：[嵌套工具拒绝与结果脱敏测试](https://github.com/earendil-works/pi/blob/4df1574339bfbd1a9750ff485bb618da397ba135/packages/coding-agent/test/suite/agent-session-codemode.test.ts#L178)、[模型路由与较小窗口测试](https://github.com/earendil-works/pi/blob/4df1574339bfbd1a9750ff485bb618da397ba135/packages/coding-agent/test/suite/virtual-models.test.ts#L228)。
+
+**扩展注册要么完整提交，要么丢弃；恢复依然需要业务幂等。** 旧版已有失效上下文和订阅清理，本次增量是 factory 失败时丢弃暂存注册、幂等 unsubscribe、内置扩展也有可配置身份。新 durable scheduler 则持久化各阶段，缺少实现保持 pending，拒绝旧 invocation 的迟到提交。SQLite 恢复测试中外部调用可能执行两次，依靠稳定幂等键只应用一次，不能宣称任意副作用 exactly-once。直接借鉴到 ITER-005/010/029 的失败矩阵即可，不引入第二套 pi Session 真源。
+
+证据：[注册提交/丢弃](https://github.com/earendil-works/pi/blob/4df1574339bfbd1a9750ff485bb618da397ba135/packages/coding-agent/src/core/extensions/loader.ts#L248)、[真实 SQLite 重开与幂等测试](https://github.com/earendil-works/pi/blob/4df1574339bfbd1a9750ff485bb618da397ba135/packages/durable/test/harness-tasks-recovery.test.ts#L110)。
+
+**慢观察者可从增量切回快照。** durable watch 的未交付帧超过上限时折叠成当前根快照，避免 UI 拖垮生产者。可用于思隅 ITER-013 的运行进度与可重建页面状态；审批决定、工具账本和审计不能这样丢弃后继续假装事件连续。数值 100 是上游选择，思隅须测实际字节与延迟。
+
+Package 15 又补充了“观察者只看已提交 partial”的实现：按 100ms 合并、最多一笔写在途，收尾先停计时并等待已启动写入；崩溃恢复保留可见内容，并沿用已准备的请求快照。思隅可用它补流式持久化与终态先后关系的测试，不能据此声称每个原始 Token 都落盘，恢复快照也不能绕过当前撤权/删除门禁。证据：[partial 持久化与恢复测试](https://github.com/earendil-works/pi/blob/5257d0d5f3ab7d42550804f32c67a77b49f485d4/packages/durable/test/harness-generation-recovery.test.ts#L123)。
+
+证据：[慢观察者与旧实例退役测试](https://github.com/earendil-works/pi/blob/4df1574339bfbd1a9750ff485bb618da397ba135/packages/durable/test/session-watches.test.ts#L142)。
+
+### 8.4 AstrBot：让已有能力可靠地进入日常使用
+
+**插件升级失败不应让旧能力一起消失。** 本次 URL/ZIP 安装统一 staging、旧代码备份、失败回装，并保留禁用状态、配置与数据；最新提交修复 Windows ZIP 长路径。思隅[插件包安装](../../apps/api/src/modules/ecosystem/plugins/package-bundle.ts)的 overwrite 仍先卸载再安装，部分配置/Page 写入异常只警告，正命中 ITER-005/004。应学习失败矩阵：第 N 个入口验证失败、新版启动失败、用户取消、恢复失败和中途进程退出。AstrBot 的 copy/remove/move 与依赖安装不能提供完整崩溃原子性，思隅仍需自己的激活日志和恢复契约。
+
+证据：[统一安装与恢复实现](https://github.com/AstrBotDevs/AstrBot/blob/b53999e959cfc3b71d7b74713ddee837be843fcb/astrbot/core/star/star_manager.py#L1998)、[备份及恢复失败测试](https://github.com/AstrBotDevs/AstrBot/blob/b53999e959cfc3b71d7b74713ddee837be843fcb/tests/test_plugin_manager.py#L740)。
+
+**后台行为应继承用户当前会话的限制。** Cron/后台唤醒本次补齐模型 fallback、压缩、计算机运行时与历史处理；Cron 另补插件白名单、Runner 返回 ERROR 时记失败及无效排期编辑保留原任务。后台回调没有同等 ERROR 检查，不能把两条入口视为完全一致。思隅已有主动动作授权，不需再建 Cron 系统；应在聊天、计划触发、后台回调、恢复续跑四个入口比较 local-only、根预算、取消、授权修订与插件可用性。排队时授权有效，不代表真正执行时仍有效；对应 ITER-007/010/013。
+
+证据：[后台执行上下文](https://github.com/AstrBotDevs/AstrBot/blob/b53999e959cfc3b71d7b74713ddee837be843fcb/astrbot/core/cron/manager.py#L463)、[正常聊天与后台压缩一致测试](https://github.com/AstrBotDevs/AstrBot/blob/b53999e959cfc3b71d7b74713ddee837be843fcb/tests/unit/test_cron_context_compression.py#L105)、[坏排期不破坏原任务](https://github.com/AstrBotDevs/AstrBot/blob/b53999e959cfc3b71d7b74713ddee837be843fcb/tests/unit/test_cron_edit_validation.py#L30)。
+
+**操作系统强制隔离是审批之后的另一层责任。** 新 Local 权限区分代码执行、网络和文件范围，Linux 用 Bubblewrap、macOS 用 Seatbelt；受限文件操作用目录 fd、`O_NOFOLLOW`、`fstat` 防止路径检查后被调换，权限变化可回收旧 shell。思隅已有审批和输入检查，新增价值是约束已获准子进程后续究竟能访问什么。应在 ADR-009/ITER-019 的明确用例下验证真实 OS 后端、撤权与旧进程终止，不能把命令字符串过滤当作完整沙箱，也不照搬社交 Bot 的多用户管理员模型。
+
+证据：[文件访问强制边界](https://github.com/AstrBotDevs/AstrBot/blob/b53999e959cfc3b71d7b74713ddee837be843fcb/astrbot/core/computer/local_file_security.py#L39)、[关闭网络后的实际连接测试](https://github.com/AstrBotDevs/AstrBot/blob/b53999e959cfc3b71d7b74713ddee837be843fcb/tests/test_local_sandbox_access.py#L261)。
+
+**让模型知道预算快用完，比单纯提高步数更有用。** 本次在 80%/90%/95% 处提醒收束，计数存消息之外避免压缩重置；关闭 SDK 内置重试以减少与上层叠乘。思隅已有硬预算，值得补模型可见的剩余资源以及“已完成/未完成/下一步”交付。不要照搬默认 128 步或这些比例。同时学习在拿到会话锁后重新加载历史、重验删除/配置，上游只将附件下载移到锁前，图片准备仍在锁内。思隅可进一步评估转码等耗时工作移出临界区，但锁变短不能以使用旧授权快照为代价。
+
+证据：[预算收束提示测试](https://github.com/AstrBotDevs/AstrBot/blob/b53999e959cfc3b71d7b74713ddee837be843fcb/tests/test_tool_loop_agent_runner.py#L2282)、[锁前附件与锁后重验](https://github.com/AstrBotDevs/AstrBot/blob/b53999e959cfc3b71d7b74713ddee837be843fcb/astrbot/core/pipeline/process_stage/method/agent_sub_stages/internal.py#L236)。
+
+**多模态输入要保留原件和转换语义。** 新图片准备统一方向、透明度、尺寸及编码预算，动画抽帧并说明语义，保留原件与未送达模型的状态。拍题、教材和桌面观察可采用“原件 → 模型派生件 → 转换元数据”；中文小字/公式与操作坐标分别验收，不能直接照搬小于 512 KiB 的阈值。先用手写数学、长截图、透明图和动画固定集测正确率、延迟与内存，再决定压缩参数，沿 ITER-007/008/017 研究。
+
+证据：[图片准备实现](https://github.com/AstrBotDevs/AstrBot/blob/b53999e959cfc3b71d7b74713ddee837be843fcb/astrbot/core/utils/image_input.py#L18)、[原件、透明度、方向与动画测试](https://github.com/AstrBotDevs/AstrBot/blob/b53999e959cfc3b71d7b74713ddee837be843fcb/tests/test_model_image_preparation.py#L29)。
+
+**产品完善应围绕“找得到、读得完、收得到结果”。** 本次增加技能搜索、批量管理，并在批删路径沿用只读来源保护，修复 `skills_like` 重询丢上下文/多模态及流式结果交付；Neo 候选→评估→晋升并非新功能，思隅[技能生命周期](../../apps/api/src/modules/ecosystem/skills/lifecycle.ts)也已借鉴。聊天新增历史分页、会话草稿、阅读锚点和自动滚动意图处理。思隅可优先验证“向上读错题时不被新 Token 抢滚动”“切桌宠/工作台保留草稿”。Runner 配置迁移保护自由字典与共享旧参数也值得用作 Config 回归，避免把用户数据当废弃键清除；不复制面向多平台 Bot 运维的整套导航。
+
+证据：[技能参数重询与流式交付测试](https://github.com/AstrBotDevs/AstrBot/blob/b53999e959cfc3b71d7b74713ddee837be843fcb/tests/test_tool_loop_agent_runner.py#L1659)、[阅读锚点](https://github.com/AstrBotDevs/AstrBot/blob/b53999e959cfc3b71d7b74713ddee837be843fcb/dashboard/src/components/chat/Chat.vue#L1732)、[配置自由字典保留测试](https://github.com/AstrBotDevs/AstrBot/blob/b53999e959cfc3b71d7b74713ddee837be843fcb/tests/unit/test_config.py#L1188)。
+
+### 8.5 思隅值得吸收的最小切片与验收
+
+下表是研究建议和验收输入，执行状态与跨专题排序只由根计划维护。本次未实施这些切片；涉及新持久语义、隔离或对外契约时先评审 CR。相关现有队列增加本节证据链接，不把参考更新等同产品改造授权。
+
+| 借鉴方向 | 思隅现有基础与实际差量 | 建议的最小证明 | 归属 |
+|---|---|---|---|
+| 取消、恢复与副作用 | 已有控制上下文/租约/账本；生产派发窗口、终态和恢复仍有差量 | 在准入/取消提交/工具完成/终态提交处逐点崩溃；未知结果不盲重放，晚结果不能覆盖新代际 | ITER-029、010、007 |
+| 最终请求与保真压缩 | 已有 ContextBuilder/Manifest；可选规则压缩（默认关闭）没有真实摘要，动态工具和实际模型窗口待验收 | 固定长伴学对话检查学习目标、错因、承诺与来源；超大 Tool Result 不断配对，撤权工具不可执行，总输入不超窗口 | ITER-007、017 |
+| 插件可恢复升级 | 已有数据权利与代际句柄；overwrite/部分入口失败尚未闭环 | 新版第 N 个注册失败后无幽灵工具/订阅；旧代码、Config/Secret/授权/开关可恢复；重启中断逐点测 | ITER-005、004、029 |
+| 进度和阅读连续性 | 已有单调投影与旧流隔离；慢客户端/长历史/草稿仍应实测 | 洪泛下内存有界，可重建进度明确切快照；审批证据完整；阅读点不跳、草稿不丢 | ITER-013 |
+| 主动提醒与晚答 | 已有 Worker/Outbox、动作授权、UserQuestionPort | 离线多次到期合并；修改坏排期不破坏原提醒；晚答关联原问题；撤权后后台入口也拒绝 | ITER-010、013、007 |
+| 进程工具和多模态 | 已有 HostToolRuntime/模型 Driver；真实 OS 强制边界与输入质量待测 | 每 OS 测目录逃逸、关闭网络、撤权后进程；固定图片集评测原件保持、识别率及坐标映射 | ITER-019、008、017 |
+
+建议先把前三行用于已存在问题的修复设计和回归，再验证面向用户的提醒、阅读及拍题体验。多模型路由、`codemode`、多 Agent 只在明确场景和对照收益成立后投入。没有证据支持为了本轮上游变化更换 SQLite、引入 JSONL 第二真源、复制 Cordis 全插件结构，或立即开放第三方可执行插件。
+
+### 8.6 本次更新的兼容性与验证记录
+
+DSH 的 `packages/core/agent`、`packages/core/agent-loop` 路径与 `./lib/index.js` 入口仍在；runner 关注的 `AgentRegistry`、`assembleContextFor`、`emitAgentEvent`、`installModelSelection` 仍在源码导出面。成功结果的 `concludesTurn` 仍采用 any 语义，思隅保留 Adapter 对混合批次的严格收紧。同步修改 DSH 固定 SHA、runner 的版本/握手 SHA 与既有测试断言，没有引入上游代码依赖。
+
+[参考探测](../../packages/host-agent/src/dsh-reference.ts)读取父仓已提交的 gitlink，因此提交前代码门禁在与待提交 DSH 代码/gitlink 一致的临时 Git 对象视图中验证，保留正常 SHA 检查。该视图不移动分支 HEAD、不更改产品探测规则；使用 `TURBO_ENV_MODE=loose` 将临时 Git 视图传到测试子进程，显式关闭外部 DSH 模型调用，完成后删除临时替换引用。首轮严格环境过滤掉该视图，导致旧 HEAD 与新常量不匹配；这次环境问题不计作代码通过。
+
+本地 `mise tasks run ci-code` 全量通过：构建 18/18、类型检查 29/29、测试 27/27 任务，Host Agent 为 94 通过、1 条件跳过；`mise tasks run ci-docs` 全量通过：治理 33/33、队列 9/9、81 文件 Markdownlint/Vale 与严格治理通过，保留原有 ITER-005 的 S5 依赖次序提示。三份最终子模块工作树均干净，SHA 与清单一致；pi 收尾三笔增量为参考源码，不参与思隅构建。最终状态回填再经文档增量门禁。上游仅完成源码/测试阅读；未运行新的 DSH 库内构建、完整 Cordis 回合、pi durable 聊天或 AstrBot 跨平台沙箱。本地保留此前已有的 `node_modules/lib`，条件库加载烟测不计作新 SHA 的构建证明。Aervox runner 的本地兼容端点测试只证明自身协议骨架，不能视为真实 DSH 工具循环、审批、恢复均兼容。
+
+如需回退，恢复本节表中的旧 gitlink，同时恢复 DSH 常量、runner manifest 和参考登记；无需改动业务数据库。历史 CR/教程中的旧 SHA 保留为当时的设计证据，并明确链接当前复评。
+
+## 9. 参照
 
 - [PRD §15 参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[§15.1 参考实现要求](../reference/PRD.md#151-参考实现要求)
 - [文档索引 §6 参考项目](../README.md#6-参考项目)
 - [SQLite 本地单用户数据库契约](../reference/DATABASE.md)
 - [能力注册表](../reference/capability-registry.md)（AVX-CAP-REG-001）
 - [Agent Harness Loop 设计与落地规范](../reference/agent-harness-loop.md)（AVX-HAR-001）
-- DeepSeek Harness 固定 commit `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`（MIT，仅以 `DSH-01` 借鉴 Agent Loop 设计，不作为运行时依赖）
-- pi 固定 commit `c49906ec77788625aacbdc53ebca6fbe65bd20f5`（MIT，仅以 `PI-01` 借鉴 Agent Harness 设计，不作为运行时依赖）
+- DeepSeek Harness 固定 commit `639ed015397290b3745d163aafe02ffee4aa3f84`（MIT，仅以 `DSH-01` 借鉴 Agent Loop 设计，不作为运行时依赖）
+- pi 固定 commit `5257d0d5f3ab7d42550804f32c67a77b49f485d4`（MIT，仅以 `PI-01` 借鉴 Agent Harness 设计，不作为运行时依赖）
 - BaiShou-Next 固定 commit `d95bae0f6f3184a94bbc3a77eb71ca987bfcadba`（AGPLv3，仅参考设计，不复制源码）
-- AstrBot 固定 commit `4d877c9919e58008f6f2cf4b19e18f9c48e4338f`（AGPLv3，仅参考设计，不复制源码）
+- AstrBot 固定 commit `b53999e959cfc3b71d7b74713ddee837be843fcb`（AGPLv3，仅参考设计，不复制源码）
 - Petra 固定 commit `b629b295b5ae535d80e09cd59bd3d515bcd8150f`（MIT，复制代码需记录来源与版权声明）
 - [Letta Code 官方仓库](https://github.com/letta-ai/letta-code)与[上下文架构说明](https://github.com/letta-ai/letta-code/blob/main/src/agent/prompts/letta.md)（Apache-2.0；品牌资产除外；本次只作 Harness 设计参照）
 - [Graphiti 官方仓库](https://github.com/getzep/graphiti)与[quickstart](https://github.com/getzep/graphiti/tree/main/examples/quickstart)（Apache-2.0；本次只作时态事实与检索设计参照）

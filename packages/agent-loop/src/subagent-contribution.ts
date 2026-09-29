@@ -111,7 +111,6 @@ export function createSubagentToolProvider(deps: { subagent?: SubagentPort } = {
           parentExecutionId: input.invocationId,
           sessionId: input.sessionId ?? "",
           task: args.task,
-          controlContext: input.controlContext,
         });
         return {
           ok: run.status === "Completed",
@@ -169,8 +168,6 @@ export function createWorkflowToolProvider(defs: WorkflowDefinition[]): ToolProv
           return { ok: false, error: `workflow "${def.name}" step ${i + 1} missing definition` };
         }
         try {
-          input.signal?.throwIfAborted();
-          input.controlContext?.abortSignal.throwIfAborted();
           const res = await step.execute(ctx, value);
           if (!res.ok) {
             return {

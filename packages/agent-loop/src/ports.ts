@@ -183,18 +183,7 @@ export interface ExecutionStorePort {
 
   /** E2：读取 Turn 的已提交安全片段（可见前缀；sequence 升序）。缺省实现返回空（宿主未接时透传）。 */
   listCommittedSegments?(turnId: string): Promise<Array<{ id: string; sequence: number; text: string; streamEventId: string | null }>>;
-
-  /** BTD-05 / ITER-007：更新所属 Turn 状态（由宿主账本落地） */
-  updateTurnStatus?(input: {
-    turnId: string;
-    status: "Completed" | "Failed" | "Interrupted";
-  }): Promise<void>;
 }
-
-/** State/event ledger only; tool outcomes and model telemetry remain separate execution capabilities. */
-export type SessionLedgerPort = Pick<ExecutionStorePort,
-  "claimTurnAttempt" | "renewAttemptLease" | "nextSequence" | "appendEvent" | "listEvents" |
-  "finalizeAttempt" | "finalizeAttemptWithEvent" | "requestCancelAttempt" | "isCancelRequested">;
 
 /** 追加事件的输入（executor 构造；id / occurredAt / payloadVersion 由 store 补齐） */
 export interface AgentStreamEventInput {
@@ -242,8 +231,6 @@ export interface ToolExecutionInput {
    *  实现应尽早停止长操作（清理 side effect 挂起）并 reject；支持取消是可选的，
    *  未感知 signal 的实现保持既有行为（结果将被丢弃，timer 由宿主管控） */
   signal?: AbortSignal;
-  /** BTD-05 / ITER-007：统一执行控制上下文（含超时截止、预算与本地处理限制） */
-  controlContext?: import("./control-context.js").ControlContext;
 }
 
 /** 工具执行结果（调用方可注入下一 Step；副作用证据持久化留阶段 2d/3） */
@@ -365,32 +352,6 @@ export interface PracticeAttemptPortResult {
 /** 宿主实现的刷题作答落库端口（写 questions + question_attempts） */
 export interface PracticeAttemptPort {
   recordAttempt(request: PracticeAttemptPortRequest): Promise<PracticeAttemptPortResult>;
-}
-
-// ============ 工具执行权限审批策略端口 (HITL & Approval SPI) ============
-
-export type ToolSafetyLevel = "read_only" | "write_with_approval" | "privileged" | "destructive" | (string & {});
-
-export interface ToolApprovalRequest {
-  turnId: string;
-  attemptId: string;
-  invocationId: string;
-  toolName: string;
-  arguments: unknown;
-  safetyLevel?: ToolSafetyLevel;
-}
-
-export interface ToolApprovalDecision {
-  action: "allow" | "deny" | "ask_user";
-  reason?: string;
-  approvalId?: string;
-  argumentsHash?: string;
-  metadata?: Record<string, unknown>;
-}
-
-/** 宿主工具审批拦截策略端口 */
-export interface ApprovalPolicyPort {
-  evaluate(req: ToolApprovalRequest, signal?: AbortSignal): Promise<ToolApprovalDecision>;
 }
 
 export type {

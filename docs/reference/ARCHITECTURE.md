@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.5.0
-updated_at: 2026-09-29
-reviewed_at: 2026-09-29
+version: 0.4.4
+updated_at: 2026-09-28
+reviewed_at: 2026-09-28
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 系统架构设计（SAD）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-29
+- 修改人：3yearszhuang · 2026-09-28
 
 关联 PRD：[PRD.md](PRD.md) · 追踪：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
 
@@ -356,14 +356,6 @@ Captured
 
 附件、网页、插件输出和外部题库都是不可信数据，不能覆盖系统提示或直接触发工具。模型只能请求工具，权限代理根据用户授权和工具策略作最终决定。CAP-033 主动动作还需校验 `FullProfileActionGrant`、目标 scope、设备 lease 和本地处理证明；用户确认后可覆盖声明的本地、外部、特权和不可逆动作，但模型/插件不能自授。插件默认无数据库、文件、网络、记忆和日记权限；远程插件能力仍需隔离运行，桌面插件使用受限子进程，Node `vm` 不作为安全沙箱。
 
-### 7.1 执行管线与解耦架构（ADR-020）
-
-智能体执行内核（`@aervox/agent-loop` 与 `@aervox/host-agent`）与 HTTP/SSE 协议解耦，提供纯本地独立运行基座：
-
-1. **洋葱中间件管线（`ExecutionPipeline`）**：会话执行外围关注点（指标收集、危机安全拦截、插件生命周期回调、主动智能门禁与错误自愈）由独立 `TurnMiddleware` 组合，核心执行器仅专注于 LLM 与工具多轮迭代；
-2. **三端审批 SPI（`ApprovalPolicyPort`）**：定义标准工具安全审批接口，无头/测试环境使用 `AutoApprovalPolicy`，CLI 终端使用带 TTY 检测与确认提示的 `CliInteractiveApprovalPolicy`，Web/桌面使用挂起并等待 SSE 的 `EventDrivenApprovalPolicy`；
-3. **工具容器下沉（`HostToolRuntime`）**：工具参数校验、代际隔离调度与门禁求值逻辑收敛于 `@aervox/host-agent`，支持脱离 Fastify 独立执行。
-
 ## 8. 日记调度与时区
 
 - `DiarySchedule.nextRunAt` 和 `lastCutoffAt` 保存 UTC 时间点，另存 IANA 时区及首次启用的 `initialWindowStart`；Scheduler 每分钟批量锁定到期记录，不为每个计划注册长期 Cron。所有调度、通知和 Job 都必须携带业务实体 ID、来源修订与幂等键。
@@ -429,12 +421,11 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 | [ADR-017](adr/ADR-017-context-manifest-modelrun-step.md) | Accepted | 冻结 ContextManifest / ModelRun / AgentStep 关联与 Inbox 数据模型 |
 | [ADR-018](adr/ADR-018-proactive-local-privacy-host.md) | Accepted | CAP-033 本地私密存储与主动智能 Host |
 | [ADR-019](adr/ADR-019-proactive-integrations-local-gateway.md) | Accepted | 主动智能外部连接采用本地网关与受控工具 |
-| [ADR-020](adr/ADR-020-aervox-core-decoupling.md) | Accepted | Aervox Core 架构解耦：执行管线中间件、统一审批 SPI 与工具沙箱下沉 |
 <!-- ADR_TABLE_END -->
 
 每个 ADR 需要记录上下文、备选方案、决策、后果、迁移和回滚。未批准的技术建议不能写成已承诺架构。
 
-独立记录已建立在 `docs/reference/adr/ADR-###-slug.md`；权威索引与决策详情见 [docs/reference/adr/README.md](adr/README.md)。截至 2026-09-29，ADR-001～020 均已通过评审并正式落地（除 ADR-002 与 ADR-008 分别由 ADR-015 和 CR-030 Superseded 外，其余均为 Accepted）。
+独立记录已建立在 `docs/reference/adr/ADR-###-slug.md`；权威索引与决策详情见 [docs/reference/adr/README.md](adr/README.md)。截至 2026-09-18，ADR-001～019 均已通过评审并正式落地（除 ADR-002 与 ADR-008 分别由 ADR-015 和 CR-030 Superseded 外，其余均为 Accepted）。
 
 ### 11.1 技术版本冻结规则
 

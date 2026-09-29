@@ -99,7 +99,3 @@ export async function registerProactiveModule(ctx: ModuleContext, options: Proac
   ctx.app.addHook("onClose", async () => integrationManager.stop());
   return { repository, intelligenceRepository, actionAuthorizer, integrationManager };
 }
-
-export * from "./profile-context.js";
-export * from "./action-authorizer.js";
-

@@ -26,7 +26,7 @@ describe("阶段 6c probeDSHReference（固定 SHA 复核真实化）", () => {
       terminationPolicy: "any",
     });
     expect(result.manifest?.sha256).toBe(
-      "b150a551b8d465e31e418e1b2eaf5e79bbb7d28e",
+      "639ed015397290b3745d163aafe02ffee4aa3f84",
     );
   });
 

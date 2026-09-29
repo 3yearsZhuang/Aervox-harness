@@ -1,4 +1,3 @@
-import { projectSafeEventData } from "./broadcasting-store.js";
 /**
  * Aervox｜思隅 @aervox/api — 会话/流式协议路由
  *
@@ -378,7 +377,7 @@ export function registerConversationRoutes(
         eventType: ev.eventType,
         payloadVersion: ev.payloadVersion,
         occurredAt: ev.occurredAt,
-        data: projectSafeEventData(ev.eventType, ev.data),
+        data: ev.data,
       };
       raw.write(`id: ${ev.id}\n`);
       raw.write(`data: ${JSON.stringify(body)}\n\n`);

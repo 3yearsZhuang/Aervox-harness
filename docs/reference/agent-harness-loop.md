@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.7.3
+version: 0.7.4
 updated_at: 2026-09-29
 reviewed_at: 2026-09-29
 review_interval_days: 90
@@ -15,7 +15,7 @@ review_interval_days: 90
 # Agent Harness Loop 设计与落地规范
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-09-29
+- 修改人：3yearszhuang · 2026-09-28
 
 关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[Agent Loop 落地进展追溯](agent-loop-rollout-history.md)（AVX-HAR-002）、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[ADR-016](adr/ADR-016-base-boundaries.md)、[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md)、`CR-012`（已归档）、`CR-021`（已归档）、`CR-022`（已归档）、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
@@ -359,10 +359,6 @@ CAP-033 的后台主动动作仍复用本管线，但授权来源改为用户确
 
 预算可以按 token、费用、时间、工具调用次数和并发分别限制。任何限额触发都必须写入 Attempt/Step 终止原因和审计，不得只输出一条自然语言提示。
 
-PR #231 的原生执行路径使用 `ControlContext`：模型请求（含重试）与工具派发共享调用预算；子任务继承父截止、本地处理限制和剩余额度，子任务消耗回记父级，额外取消信号与父信号合并。Token 执行预算是保守准入/消费限额：输入消息和工具定义、输出正文/思考/工具请求先按 UTF-8 字节计量，Provider 累计 `totalTokens` 只可向上补记；它不等同供应商账单。OpenAI 兼容 Provider 同时收到剩余 `max_tokens`。零额或不足以容纳输入时不派发，流式超额中断并写明原因。没有设置预算时沿用原行为；费用、模型窗口和动态授权修订的全量验收仍在原队列。
-
-`SessionLedgerPort` 仅选取状态/事件方法，工具副作用和模型遥测仍属执行 Port。API 组合根继续选择 SQLite；独立 CLI 使用内存实现与规则模型/模拟笔记，不表示生产 Host 已全部解耦。原生 Loop 及 Adapter 的执行终态通过带 fencing 的原子提交更新 Turn、Attempt 和终止事件；CAS 失败不由 API 补写覆盖。当前 Adapter 尚无预算/本地策略协商能力，对这些约束明确拒绝派发，不能静默忽略。Host 的 `stop({drainTimeoutMs})` 将中止和收敛包含在总截止内；未排空则报错，不能以成功返回宣称清理完成。
-
 ## 11. 取消、租约与恢复
 
 ### 11.1 取消
@@ -502,7 +498,7 @@ adapters/
 
 ### 14.2 pi
 
-pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具批次采用 every/all：非空且所有结果 `terminate=true` 才能终止；固定版本的 `AgentHarness` v2 公开 `prompt`、`resume`、`abort` 和队列能力仍返回 `HarnessNotImplemented`，不能当作已完成的持久化 Harness。pi Extension 的事件、Tool、Provider 和上下文注入可映射为 Agent Loop Contribution，但 Extension 默认拥有完整宿主权限。`adapter-pi` 必须进程外执行，且只能通过受限 RPC 提交 Tool/Provider/Inbox Contribution；若包装低层 loop，仍需实现 Aervox 的 lease、fencing、持久化和恢复契约，不能直接把 v2 scaffold 当作 API 进程内 Loop。
+pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具批次采用 every/all：非空且所有结果 `terminate=true` 才能终止；2026-09-29 更新后的固定参考版本中，lane Harness 已实现 `prompt`、`resume`、`abort`，但 `watchSession` 仍未完成；CLI/SDK 继续走 `Agent + AgentSession + SessionManager`，新 durable 路线在本次最终固定 SHA 已完成首个可持久恢复的无工具聊天回合，但工具执行和忙时 Inbox 尚未完成，三者不能合并表述为完整持久内核（[版本与证据](../explanation/reference-design-transfer.md#upstream-20260929)）。pi Extension 的事件、Tool、Provider 和上下文注入可映射为 Agent Loop Contribution，但 Extension 默认拥有完整宿主权限。`adapter-pi` 必须进程外执行，且只能通过受限 RPC 提交 Tool/Provider/Inbox Contribution；若包装低层 loop，仍需实现 Aervox 的 lease、fencing、持久化和恢复契约，不能直接把外部 Harness 当作 API 进程内 Loop。
 
 <a id="15-分阶段落地计划"></a>
 
