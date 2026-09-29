@@ -535,6 +535,177 @@
       "dependsOn": [
         "ITER-015"
       ]
+    },
+    {
+      "id": "ITER-029",
+      "batch": "first",
+      "status": "已移交",
+      "delivery": "思隅 CLI 完整落地规划：连接本地服务与 Core 独立运行两种形态、命令范围、阶段依赖、验收及发布回滚；详见[§7](#siyu-cli-delivery-plan)，关联 CAP-002/003/005/006/007/009/013/016/019/020/027（仅规划）",
+      "gate": "本项仅交付规划；产品与架构合同由 ITER-030 复核，实施与发布分别认领，不改变已有 CAP 或 ADR 状态",
+      "acceptance": [
+        "两种运行形态的数据归属、受信工具与恢复边界明确",
+        "实施切片接入唯一队列，契约复核、真实验证和发布门槛可追踪",
+        "§4.2 登记规划交付，派生视图及文档门禁通过"
+      ],
+      "owner": "platform/product/docs",
+      "branch": "docs/siyu-cli-plan",
+      "statusNote": "2026-09-29 文档移交：完整规划与 ITER-030～036 已入队；ci-docs 全量通过，保留既有 ITER-005 的 S5 提示；后续实现待认领，证据见 §4.2",
+      "dependsOn": [],
+      "links": [
+        "plan.md#siyu-cli-delivery-plan",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#cli-planning-20260929"
+      ]
+    },
+    {
+      "id": "ITER-030",
+      "batch": "first",
+      "status": "已移交",
+      "delivery": "CLI 首个连接版合同：命令/输入输出、认证配置、审批取消、macOS arm64 开发预览与既有 API 数据归属；[CR-058](docs/reference/changes/CR-058-siyu-cli-attached-client.md)；其余命令与独立形态继续按 §7 规格化",
+      "gate": "用户已授权实施；CR-058 接受终端连接版首片；独立宿主/发布矩阵/新增业务 API 不在本次合同移交内",
+      "acceptance": [
+        "首片命令映射已有 API，错误/配额/审批/幂等/取消可测试，未提供接口的命令明确保留缺口",
+        "固定 siyu/@aervox/cli、macOS arm64 + Node.js 24 开发预览、凭据与 API 数据责任；完整平台分发矩阵归 ITER-033，独立形态合同归 ITER-034/035"
+      ],
+      "owner": "3yearszhuang / platform",
+      "dependsOn": [
+        "ITER-029"
+      ],
+      "links": [
+        "plan.md#siyu-cli-delivery-plan",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#cli-planning-20260929",
+        "docs/reference/changes/CR-058-siyu-cli-attached-client.md",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#cli-attached-20260929"
+      ],
+      "branch": "feat/siyu-cli",
+      "statusNote": "2026-09-29 首片合同及验证已移交，CR-058/PRD/架构/流式协议同步；实现证据见 §4.2；不等同于完整 CLI 或发布"
+    },
+    {
+      "id": "ITER-031",
+      "batch": "next",
+      "status": "执行中",
+      "delivery": "连接版 CLI 基础：最小 bin、无 Vue 传输入口、ask/chat/sessions/status/config/doctor、认证、流式/JSON、审批/用户问题、取消与历史重开；CAP-002/007/020",
+      "gate": "依赖 ITER-030；ITER-006/007/013 只闭合实际涉及的认证、授权/窗口与有界控制；只连接已有本机 API，不启用自动 Attempt 恢复，不等待 Page 或全部宿主重构",
+      "acceptance": [
+        "真实 API/临时 SQLite 完成提问到权威终态与历史重开；至少一个真实 Provider 通过答疑及工具往返",
+        "TTY/管道、认证、审批、取消、受理响应丢失及 SSE 重连无重复副作用，机器输出可解析且资源有界",
+        "最小分发包可在无源码目录安装运行，不依赖 Vue 或仓库私有路径"
+      ],
+      "owner": "3yearszhuang / platform",
+      "dependsOn": [
+        "ITER-030"
+      ],
+      "links": [
+        "plan.md#siyu-cli-delivery-plan",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#cli-planning-20260929",
+        "docs/reference/changes/CR-058-siyu-cli-attached-client.md",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#cli-attached-20260929",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#cli-terminal-20260929",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#cli-tool-loop-20260929"
+      ],
+      "branch": "feat/siyu-cli",
+      "statusNote": "2026-09-29 首片通过全量 ci-code/ci-docs、CLI 24 项测试；实现 commands 模块化解耦；打包压缩包并在空目录安装，真实 Token API/临时 SQLite、API 重启后持久历史验证；追加本机 DeepSeek 真实答疑、跨进程续会话、历史补读与 TTY 启动验证；集成测试完成只读多步工具链往返（aervox_notes_search 执行账本落库）与写工具非 TTY 拒绝自动授权边界；剩余会话详情与模型命令、完整平台分发与响应丢失恢复全面验收；不标整项移交"
+    },
+    {
+      "id": "ITER-032",
+      "batch": "next",
+      "status": "建议",
+      "delivery": "CLI 伴学与数据命令分片：学习目标、提示/作答/复习、日记读取、人格选择及记忆查询/纠正/删除/导出；CAP-002/003/005/006/009/013/016/019/027",
+      "gate": "依赖 ITER-031；复用领域 Port/API，缺口先补公开合同；涉及 Memory 的命令启用前闭合 ITER-003/012 的必要资格与删除证据，其余学习切片可先交付",
+      "acceptance": [
+        "CLI 与桌面共享学习事实，提示→作答→反馈→复习闭环成立，重复提交不重复记分或排期",
+        "声明的数据命令具备来源、授权、删除状态与持久完成证据，不将 202 受理视为完成",
+        "按命令保存范围矩阵与回归证据，未验收能力不开放；整项按已评审范围移交"
+      ],
+      "owner": "companion/learning/data（建议角色，待认领）",
+      "dependsOn": [
+        "ITER-031"
+      ],
+      "links": [
+        "plan.md#siyu-cli-delivery-plan",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#cli-planning-20260929"
+      ]
+    },
+    {
+      "id": "ITER-033",
+      "batch": "next",
+      "status": "建议",
+      "delivery": "连接版 CLI 安装分发、兼容矩阵、终端用户试用与发布回滚；[§7.7](#siyu-cli-delivery-plan)；终端交付基础设施及已声明 CAP",
+      "gate": "正式移交依赖 ITER-031/032 的已评审范围；031 后可先做基础预览；不依赖独立宿主；自动管理服务另受 ITER-015 门槛约束",
+      "acceptance": [
+        "声明平台的干净用户能安装或连接兼容服务并完成伴学闭环，制品无 workspace/源码依赖和 Secret",
+        "版本兼容、失败诊断、升级失败、卸载保留数据及上一兼容制品回滚通过",
+        "真实用户试用、继续/暂缓依据、发布制品和环境证据齐全；实现/验证/发布状态分别登记"
+      ],
+      "owner": "cli/quality/release（建议角色，待认领）",
+      "dependsOn": [
+        "ITER-031",
+        "ITER-032"
+      ],
+      "links": [
+        "plan.md#siyu-cli-delivery-plan",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#cli-planning-20260929"
+      ]
+    },
+    {
+      "id": "ITER-034",
+      "batch": "candidate",
+      "status": "建议",
+      "delivery": "CLI 所需共享应用装配：原生会话与首批业务命令的上下文、人格、记忆、学习工具、审批、安全及持久化公开 Port；ADR-020/CR-056；CAP-002/005/007/020/027",
+      "gate": "依赖 ITER-030；接口盘点可提前，正式抽取以独立使用价值和已接受差量为前提；不要求一次抽空 API，不复制产品策略或反向依赖私有实现",
+      "acceptance": [
+        "Fake Port 与私有依赖反向夹具通过，产品应用装配可在无 HTTP 宿主运行",
+        "API 与独立装配在固定输入下公共事件、终态、数据和副作用一致，API 回归及回滚通过"
+      ],
+      "owner": "platform/domain（建议角色，待认领）",
+      "dependsOn": [
+        "ITER-030"
+      ],
+      "links": [
+        "plan.md#siyu-cli-delivery-plan",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#cli-planning-20260929"
+      ]
+    },
+    {
+      "id": "ITER-035",
+      "batch": "candidate",
+      "status": "建议",
+      "delivery": "独立 CLI 宿主：A 真实模型/工具/SQLite、执行独占与后台归属；B 既有恢复合同接线与故障演练；CAP-002/005/007/020/027",
+      "gate": "依赖 ITER-032/034 的命令和共享装配；A 可先验证，B 启用前闭合 ITER-010 及所涉删除/授权/迁移切片；未完成 B 时禁用自动恢复和恢复命令，不改写原恢复计划",
+      "acceptance": [
+        "A 无必需 HTTP 服务且行为与声明命令一致；同数据根不双重执行，活锁不抢占、陈旧锁安全接管、旧 fencing 写入被拒绝，资源有界释放",
+        "B 在 claim/副作用/结果/终态及审批、撤权、旧备份等故障点恢复不重复副作用、不丢答案、不复活撤权，未知结果不盲重放",
+        "短命令与后台任务所有权明确；只有 A/B 和声明命令均有证据才整项移交"
+      ],
+      "owner": "platform/data/security（建议角色，待认领）",
+      "dependsOn": [
+        "ITER-032",
+        "ITER-034"
+      ],
+      "links": [
+        "plan.md#siyu-cli-delivery-plan",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#cli-planning-20260929"
+      ]
+    },
+    {
+      "id": "ITER-036",
+      "batch": "candidate",
+      "status": "建议",
+      "delivery": "独立版 CLI 分发与发布：平台依赖闭包、数据版本、凭据权限、真实模型、冲突启动、恢复、升级及回滚；CAP-027 与终端交付基础设施",
+      "gate": "依赖 ITER-033 的分发基础及 ITER-035；自动模型/服务管理才依赖 ITER-008/015，实际破坏性转换须先通过 ITER-011 相关演练；与连接版分别发布",
+      "acceptance": [
+        "每个声明平台的干净环境完成安装、独立持久伴学、取消、关闭和恢复，无遗漏私有依赖",
+        "故障升级不破坏源库，回滚不让旧程序写新 Schema，不复活撤权；卸载保留用户数据",
+        "真实独立需求、性能分位数、制品/许可证/校验和及适用签名、发布后验证证据齐全"
+      ],
+      "owner": "cli/platform/release（建议角色，待认领）",
+      "dependsOn": [
+        "ITER-033",
+        "ITER-035"
+      ],
+      "links": [
+        "plan.md#siyu-cli-delivery-plan",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#cli-planning-20260929"
+      ]
     }
   ]
 }

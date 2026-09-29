@@ -82,12 +82,12 @@ Aervox｜思隅：更好上手的“主动智能” Agent——以桌宠为入�
 | 场景 | 推荐命令 | 说明 |
 | ---------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | 极速增量门禁 | `./aervox ci` 或 `mise tasks run ci-fast` | 本地推荐：CI 配置一致性 + 仅对变更包及下游（含包外输入命中包）运行边界/构建/测试 + 文档增量检查（15~30s） |
-| 全量终审门禁 | `./aervox ci all` | 全量兜底：全量 18 包构建/类型/测试 + 全量文档严格检查（PR 推送前终验） |
+| 全量终审门禁 | `./aervox ci all` | 全量兜底：全工作区构建/类型/测试 + 全量文档严格检查（PR 推送前终验） |
 | 增量代码门禁 | `mise tasks run check-affected` | 仅运行变更包及其下游的依赖边界检查 + 构建 + 类型检查 + 增量测试 |
 | 增量文档门禁 | `mise tasks run docs-lint-affected` | 仅对 Git 变动的 Markdown 文档执行 Vale + Markdownlint + 治理校验 |
 | 智能增量测试 | `./aervox test` 或 `mise tasks run test-affected` | 自动识别基准分支并仅运行变更包及其全部下游依赖（日常高频推荐，受控 2 并发） |
 | 极速单元层 | `./aervox test fast` 或 `mise tasks run test-fast` | 仅运行不建库、不起服务的 9 个轻量包（纯逻辑 + DOM 组件测试，约 3~10s） |
-| 全量受控测试 | `./aervox test all` 或 `mise tasks run test` | 全量 18 包测试（受控 2 并发 + 自适应 Worker 并行，彻底杜绝 SQLite 锁冲突） |
+| 全量受控测试 | `./aervox test all` 或 `mise tasks run test` | 全工作区测试（受控 2 并发 + 自适应 Worker 并行，彻底杜绝 SQLite 锁冲突） |
 | 专项单包测试 | `./aervox test api` / `./aervox test repos` | 针对重型核心包运行独立定向测试（已接入 SQLite 模板克隆加速） |
 | E2E 测试 | `mise x -- pnpm test:e2e` | Playwright API 级端到端（spawn 真实 API 进程 + 文件 SQLite，45 用例约 45s，需先构建 api）；CI 中以观察期非阻塞运行 |
 | 格式化修复 | `npx markdownlint-cli2 --fix <files>` | 自动修复 Markdownlint 可自愈的排版问题 |

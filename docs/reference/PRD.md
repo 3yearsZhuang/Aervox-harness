@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.11.3
-updated_at: 2026-09-16
-reviewed_at: 2026-09-16
+version: 0.11.4
+updated_at: 2026-09-29
+reviewed_at: 2026-09-29
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 产品需求文档（伴学桌宠）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-16
+- 修改人：3yearszhuang · 2026-09-29
 
 关联文档：[架构设计](ARCHITECTURE.md) · [需求追踪与交付标准](REQUIREMENTS_TRACEABILITY.md) · [数据与隐私规范](DATA_PRIVACY.md) · [AI 质量与安全规范](AI_QUALITY_SAFETY.md) · [能力验收标准附录](prd-cap-acceptance.md) · [文档索引](../README.md)
 
@@ -37,6 +37,7 @@ review_interval_days: 90
 | v0.11.0 | 2026-09-10 | 经 CR-030 确立本地单用户 SQLite 终态，取消多工作区、云端多租户和 PostgreSQL 演进目标；补充本地 API、备份、迁移与导出边界 |
 | v0.11.2 | 2026-09-16 | 补齐 CR-030 D0 文档同步残留：§14.1 基线表移除 Redis/BullMQ、S3 与 Testcontainers 残留，队列与附件基线对齐本地 SQLite Outbox 与本地附件目录；§8 实体表修正 `OutboxEvent` 重放描述 |
 | v0.11.3 | 2026-09-16 | §14.2 核心包清单对齐当前 `packages/*` 实际分包：`domain`/`identity-consent`/`conversation`/`learning`/`memory`/`ai-runtime`/`safety`/`content-ingestion`/`integrations`/`plugin-sdk`/`database` 等设想包未单列包名，职责由 `agent-loop`/`repositories`/`schema`/`apps/*` 模块承载；新增命名规范 AVX-STD-002 登记对应关系 |
+| v0.11.4 | 2026-09-29 | 经 CR-058 纳入 CLI 连接版基础入口，明确后续业务命令、独立宿主与发布分别验收 |
 
 ## 1. 产品决策摘要
 
@@ -54,6 +55,8 @@ review_interval_days: 90
 ### 1.2 产品定位
 
 一个以桌宠式工作台为入口、归属于当前操作系统用户的“学习 + 陪伴”智能体。首发帮助编程初学者完成“设定目标 → 被引导学习 → 练习 → 复习”的闭环；长期扩展到全年龄、多知识领域、多端形态以及内容与插件生态，并始终提供克制、可控的情绪支持。核心个人数据以本地 SQLite 为永久真源，不提供共享数据库式多租户 SaaS。
+
+经 [CR-058](changes/CR-058-siyu-cli-attached-client.md)增加思隅 CLI 连接版入口，服务于终端中的编程答疑和连续会话，沿用同一本机服务的人格、权限和持久会话。首个切片开放基础问答、交互与诊断；学习/复习和记忆专用命令、独立运行及正式分发分别验收，不能由基础入口推定已经交付。产品目标和 CAP 验收不因终端形态而降低，当前范围与依赖见[计划 §7](../../plan.md#siyu-cli-delivery-plan)。
 
 ### 1.3 核心假设
 

@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.2
+version: 0.4.3
 updated_at: 2026-09-29
 reviewed_at: 2026-09-29
 review_interval_days: 90
@@ -22,6 +22,8 @@ review_interval_days: 90
 本文是对话流式 API 和客户端行为的可执行契约。OpenAPI 3.1 描述 HTTP 资源、鉴权和错误；本文件描述 SSE 事件 envelope、状态机、重连、取消、幂等和持久化顺序。实现必须从同一份 `packages/contracts` schema 生成服务端校验、客户端类型和契约测试，不能只依赖本文件中的示例。
 
 PR #231 投影修复：服务端实时与历史回放共用 `packages/contracts/src/stream-projection.ts` 的 Schema 白名单，嵌套 DTO 同样移除未声明字段；工具进度保留调用标识、名称和结果状态；刷题工具结果仅公开题目/作答标识、判定和错题本收录位，其余原始参数/结果留在 Owner 账本。客户端 Fetch 在三次连接尝试内保留同一 Turn、Projector 和最后已投递事件游标，410 明确失败，不新建 Turn。IPC 保留请求内水位与终态锁，并丢弃关闭后的迟到消息；主进程自动重连仍未纳入本次验收。工作台以会话代际隔离 A→B→A 旧响应，已挂载真实组件验证。SSE 背压/分页及跨进程恢复仍按 ITER-013 验收。
+
+CR-058 连接版客户端在共享 Fetch 传输增加可选认证头、外部 AbortSignal、幂等键、受理回调与按序等待的 `onEvent`，原 Web/IPC 调用保持兼容。CLI 通过已校验投影消费公开事件；仅 `done` 的 `status=Completed` 且 `isComplete=true` 可视作成功，流结束本身不代表成功。查看历史不重发创建、审批或回答；查询 `status` 沿用 SSE 等待终态。取消仅由本次已知受理的创建路径请求，查询路径不取消；请求成功不冒充执行已终止。现行审批端点只保存决定，自动续跑不在本切片承诺内。客户端 JSON/JSONL、退出码、资源限额及兼容范围见 [CR-058 §3](changes/CR-058-siyu-cli-attached-client.md#3-输出控制与审批)；服务端 DTO、事件字段和持久化规则未变。
 
 ## 1. 适用范围与不变量
 

@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.18.0
+version: 1.19.0
 updated_at: 2026-09-29
 reviewed_at: 2026-09-29
 review_interval_days: 90
@@ -23,7 +23,7 @@ review_interval_days: 90
 
 | 文档编号 | 文档 | 最后核验 | 核验节奏 | 陈旧信号 |
 |---|---|---|---|---|
-| `AVX-PRD-001` | [PRD](reference/PRD.md) | 2026-09-16 | 每次版本立项 / G0 | CAP 范围或优先级变更未建立 `CR-*` |
+| `AVX-PRD-001` | [PRD](reference/PRD.md) | 2026-09-29 | 每次版本立项 / G0 | CAP 范围或优先级变更未建立 `CR-*` |
 | `AVX-PRD-002` | [能力验收标准附录](reference/prd-cap-acceptance.md) | 2026-09-17 | 每次版本立项 / CAP 验收变更 | P0/P1/P2/P3/专项验收标准未同步 |
 | `AVX-SRS-001` | [SRS](reference/SRS.md) | 2026-09-17 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
 | `AVX-SRS-002` | [主动智能与外部信号需求规格](reference/srs-proactive-intelligence.md) | 2026-09-10 | G1 需求基线前 / 主动智能需求变更 | CAP-033/034/035 FR/BR/AC/DATA/SEC 变化未同步 |
@@ -98,6 +98,7 @@ review_interval_days: 90
 | `CR-054` | [CR-054 本地模型运行时管理：GGUF 下载与 llama-server 进程生命周期](reference/changes/CR-054-local-model-runtime-management.md) | 2026-09-17 | 变更生命周期 + 决策变更 | 实现与提案差量、决策状态或回滚预案不一致 |
 | `CR-055` | [CR-055 移动端落地范围与分阶段交付规划](reference/changes/CR-055-mobile-delivery-plan.md) | 2026-09-18 | 移动宿主、连接认证、跨设备数据边界或阶段范围变更 | 配套/独立端定位、原生支持范围、实际实现证据或隐私约束与规划不一致 |
 | `CR-056` | [CR-056 引入 Build to Delete 与类 pi 分层架构](reference/changes/CR-056-build-to-delete-pi-style-architecture.md) | 2026-09-29 | 模块公开入口、执行控制、插件/模型生命周期、参考版本或决策变化 | 试点边界、退出语义、既有队列依赖或实现/规划状态与实际不符 |
+| `CR-058` | [思隅 CLI 连接版首片](reference/changes/CR-058-siyu-cli-attached-client.md) | 2026-09-29 | CLI 命令、传输、配置、安装或执行语义变更 | 终端行为、兼容矩阵或交付证据与实现不一致 |
 
 ## 维护规则
 
