@@ -251,7 +251,8 @@ export function createAgentHost(deps: AgentHostDeps): AgentHost {
       const drainTimeout = Math.max(0, options?.drainTimeoutMs ?? deps.drainTimeoutMs ?? 5000);
       const deadline = Date.now() + drainTimeout;
       let aborted = false;
-      const abortAt = deadline - Math.min(100, drainTimeout / 4);
+      const abortGraceMs = Math.max(50, Math.min(500, Math.floor(drainTimeout / 2)));
+      const abortAt = Math.max(Date.now(), deadline - abortGraceMs);
 
       // 优雅停机：等待运行中任务完成（drain），超期则触发在途任务中止
       while (runningCount > 0) {

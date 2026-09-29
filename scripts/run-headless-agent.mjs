@@ -6,6 +6,7 @@
 import { performance } from "node:perf_hooks";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
+import { PassThrough } from "node:stream";
 
 const startupStart = performance.now();
 
@@ -16,7 +17,10 @@ const {
   createMockToolProvider,
   executeTurn,
   defaultContextBuilder,
+  AutoApprovalPolicy,
 } = await import("../packages/agent-loop/dist/index.js");
+
+const { CliInteractiveApprovalPolicy } = await import("../packages/host-agent/dist/index.js");
 
 const startupElapsedMs = performance.now() - startupStart;
 
@@ -39,7 +43,19 @@ function createSmartCliProvider() {
       }
 
       // 第一步：根据用户输入判断是否触发工具调用
-      if (/笔记|notes|复习|计划|search/i.test(lastMsg)) {
+      if (/记下|保存|save/i.test(lastMsg)) {
+        yield {
+          text: "正在为您记录到本地记忆库（需写操作审批）…",
+          isFinal: true,
+          toolCalls: [
+            {
+              id: `call_${Date.now().toString(36)}`,
+              name: "save_memory_note",
+              arguments: { content: lastMsg },
+            },
+          ],
+        };
+      } else if (/笔记|notes|复习|计划|search/i.test(lastMsg)) {
         yield {
           text: "正在为您检索学习笔记库…",
           isFinal: true,
@@ -78,7 +94,7 @@ async function runSmokeTest() {
   console.log("==================================================================");
   console.log("  Aervox Core (思隅核心) Headless 架构能力与冷启动验证");
   console.log("==================================================================");
-  console.log(`[1/5] 内核加载耗时: ${startupElapsedMs.toFixed(2)} ms (基准门槛 <= 150ms) -> ${startupElapsedMs <= 150 ? "PASS" : "WARN"}`);
+  console.log(`[1/6] 内核加载耗时: ${startupElapsedMs.toFixed(2)} ms (基准门槛 <= 150ms) -> ${startupElapsedMs <= 150 ? "PASS" : "WARN"}`);
 
   const store = new InMemoryExecutionStore();
   const demoTools = createMockToolProvider();
@@ -86,7 +102,7 @@ async function runSmokeTest() {
   const tools = { ...demoTools, execute: async (input) => { calls.push(input.name); return demoTools.execute(input); } };
 
   // 测试 1: 普通多轮对话与问答
-  console.log("[2/5] 验证多轮对话无工具执行回路...");
+  console.log("[2/6] 验证多轮对话无工具执行回路...");
   const turn1Start = performance.now();
   store.seedAttempt({ id: "atp_smoke_1", turnId: "turn_smoke_1" });
   const control1 = new ControlContext({
@@ -116,7 +132,7 @@ async function runSmokeTest() {
   console.log(`      Turn 1 执行成功: status=${res1.status}, 耗时=${turn1Elapsed.toFixed(2)}ms`);
 
   // 测试 2: 完整两步工具调用循环 (Tool Call -> Tool Result -> Model Final Output)
-  console.log("[3/5] 验证多 Step 工具调用循环 (search_notes)...");
+  console.log("[3/6] 验证多 Step 工具调用循环 (search_notes)...");
   const turn2Start = performance.now();
   store.seedAttempt({ id: "atp_smoke_2", turnId: "turn_smoke_2" });
   const control2 = new ControlContext({
@@ -152,7 +168,7 @@ async function runSmokeTest() {
   console.log(`      Turn 2 执行成功: stepsTaken=${res2.stepsTaken}, status=${res2.status}, 耗时=${turn2Elapsed.toFixed(2)}ms`);
 
   // 测试 3: 执行控制与超时/取消中断 (ControlContext Interruption)
-  console.log("[4/5] 验证超时控制与优雅排空 (ControlContext Deadline Expired)...");
+  console.log("[4/6] 验证超时控制与优雅排空 (ControlContext Deadline Expired)...");
   const turn3Start = performance.now();
   store.seedAttempt({ id: "atp_smoke_3", turnId: "turn_smoke_3" });
   const expiredControl = new ControlContext({
@@ -188,14 +204,82 @@ async function runSmokeTest() {
   }
   console.log(`      Turn 3 成功拦截并收敛终态: status=${res3.status}, reason=${res3.reason}, doneStatus=${doneEvent.data?.status}, 耗时=${turn3Elapsed.toFixed(2)}ms`);
 
+  // 测试 4: 权限审批策略与人机回环 (ApprovalPolicyPort SPI)
+  console.log("[5/6] 验证 ApprovalPolicyPort SPI 与 CLI 审批策略...");
+  const autoApprovedTools = createMockToolProvider({
+    save_memory_note: (input) => ({ ok: true, output: { saved: true, args: input.arguments } }),
+  });
+  // 4a: AutoApprovalPolicy 放行
+  store.seedAttempt({ id: "atp_smoke_4a", turnId: "turn_smoke_4a" });
+  const control4a = new ControlContext({
+    turnId: "turn_smoke_4a",
+    attemptId: "atp_smoke_4a",
+    sessionId: "ses_smoke",
+    deadlineEpochMs: Date.now() + 5000,
+  });
+  const res4a = await executeTurn(
+    {
+      execution: store,
+      provider: createSmartCliProvider(),
+      tools: autoApprovedTools,
+      contextBuilder: defaultContextBuilder,
+      controlContext: control4a,
+      approvalPolicy: new AutoApprovalPolicy({ mode: "full_access" }),
+    },
+    {
+      turnId: "turn_smoke_4a",
+      attemptId: "atp_smoke_4a",
+      userMessage: "保存笔记：Phase 2 自动化放行验证",
+      controlContext: control4a,
+    },
+  );
+  control4a.dispose();
+  if (res4a.status !== "completed") throw new Error(`AutoApproval turn failed: ${res4a.status}`);
+  console.log(`      AutoApprovalPolicy 放行写工具执行成功: status=${res4a.status}`);
+
+  // 4b: CliInteractiveApprovalPolicy 非 TTY 拦截 (fail-closed deny)
+  store.seedAttempt({ id: "atp_smoke_4b", turnId: "turn_smoke_4b" });
+  const control4b = new ControlContext({
+    turnId: "turn_smoke_4b",
+    attemptId: "atp_smoke_4b",
+    sessionId: "ses_smoke",
+    deadlineEpochMs: Date.now() + 5000,
+  });
+  const mockNonTtyInput = Object.assign(new PassThrough(), { isTTY: false });
+  const mockOutput = new PassThrough();
+  const cliNonTtyPolicy = new CliInteractiveApprovalPolicy({ input: mockNonTtyInput, output: mockOutput });
+  const res4b = await executeTurn(
+    {
+      execution: store,
+      provider: createSmartCliProvider(),
+      tools: autoApprovedTools,
+      contextBuilder: defaultContextBuilder,
+      controlContext: control4b,
+      approvalPolicy: cliNonTtyPolicy,
+    },
+    {
+      turnId: "turn_smoke_4b",
+      attemptId: "atp_smoke_4b",
+      userMessage: "保存笔记：非 TTY 拦截验证",
+      controlContext: control4b,
+    },
+  );
+  control4b.dispose();
+  const events4b = await store.listEvents("turn_smoke_4b");
+  const toolResult4b = events4b.find((e) => e.eventType === "tool_result");
+  if (!toolResult4b || toolResult4b.data?.ok !== false) {
+    throw new Error("CLI non-interactive policy should safely deny write tool");
+  }
+  console.log(`      CliInteractiveApprovalPolicy 非 TTY 安全拦截校验通过 (fail-closed)`);
+
   // 依赖隔离检查
-  console.log("[5/5] 验证零数据库、零网络服务侵入...");
+  console.log("[6/6] 验证零数据库、零网络服务侵入...");
   const memUsage = process.memoryUsage();
   console.log(`      内存常驻 (RSS): ${(memUsage.rss / 1024 / 1024).toFixed(2)} MB`);
   console.log(`      堆内存使用 (Heap): ${(memUsage.heapUsed / 1024 / 1024).toFixed(2)} MB`);
 
   console.log("==================================================================");
-  console.log("  ALL SMOKE CHECKS PASSED: 内存状态、规则模型及演示工具的独立运行检查通过。");
+  console.log("  ALL SMOKE CHECKS PASSED: 内存状态、规则模型、审批 SPI 及演示工具的独立运行检查通过。");
   console.log("==================================================================");
 }
 
@@ -208,9 +292,19 @@ async function runInteractiveRepl() {
 
   const rl = createInterface({ input, output });
   const store = new InMemoryExecutionStore();
-  const demoTools = createMockToolProvider();
+  const savedNotes = [];
+  const demoTools = createMockToolProvider({
+    save_memory_note: (input) => {
+      const content = input.arguments?.content || JSON.stringify(input.arguments);
+      savedNotes.push(content);
+      return { ok: true, output: { saved: true, totalNotes: savedNotes.length } };
+    },
+  });
   const calls = [];
   const tools = { ...demoTools, execute: async (input) => { calls.push(input.name); return demoTools.execute(input); } };
+  const cliApproval = new CliInteractiveApprovalPolicy({
+    promptUser: async (q) => rl.question(q),
+  });
 
   let turnSeq = 1;
   const sessionId = `cli_session_${Date.now().toString(36)}`;
@@ -250,6 +344,7 @@ async function runInteractiveRepl() {
           tools,
           contextBuilder: defaultContextBuilder,
           controlContext: control,
+          approvalPolicy: cliApproval,
         },
         {
           turnId,

@@ -91,6 +91,8 @@ export interface ExecuteTurnDeps {
   contextBuilder: ContextBuilderPort;
   /** 阶段 2：只读工具提供者；缺省则工具请求被 fail-closed 拒绝 */
   tools?: ToolProviderPort;
+  /** Phase 2: 工具执行权限审批策略端口 (HITL & Approval SPI) */
+  approvalPolicy?: import("./ports.js").ApprovalPolicyPort;
   /** 2d：删除/撤权未追平闸门；缺省不启用 */
   deletionGate?: DeletionGatePort;
   /** 阶段 5a：受控收件箱（ADR-017）；缺省不启用 Inbox 消费 */
@@ -587,7 +589,7 @@ export async function executeTurn(
           safetyDecision: "approved",
         });
 
-        let result: ToolCallResult;
+        let result: ToolCallResult | undefined;
         if (seenToolCalls.has(dedupeKey(call.name, call.arguments))) {
           result = { id: call.id, name: call.name, ok: false, error: "duplicate_tool_call" };
           // B4-D：duplicate 账本 + tool_result 事件原子提交（事件对模型可见，模型据之收敛）
@@ -647,30 +649,69 @@ export async function executeTurn(
               const stop = await prematureTermination(sequence);
               if (stop) return stop;
               if (control && (control.remainingCalls < 1 || control.remainingTokens <= 0)) return finalizeInterrupted(sequence, "budget_exhausted");
-              const cancel = new AbortController();
-              removeLostListener = heartbeat?.onLost(() => cancel.abort());
-              const signal = control ? AbortSignal.any([control.abortSignal, cancel.signal]) : cancel.signal;
-              subtaskControl = control?.deriveSubtask({
-                subtaskExecutionId: executionId,
-                subtaskSignal: signal,
-                tighterDeadlineEpochMs: effectiveTimeout > 0 ? Date.now() + effectiveTimeout : undefined,
-              });
-              control?.recordCallUsed();
-              const executed = await withTimeout(
-                awaitWithSignal(tools.execute({
-                  turnId: input.turnId,
-                  attemptId: input.attemptId,
-                  invocationId: executionId,
-                  name: call.name,
-                  arguments: call.arguments,
-                  sessionId: input.sessionId,
-                  signal: subtaskControl?.abortSignal ?? signal,
-                  controlContext: subtaskControl,
-                }), subtaskControl?.abortSignal ?? signal),
-                effectiveTimeout,
-                cancel,
-              );
-              result = { id: call.id, name: call.name, ok: executed.ok, output: executed.output, error: executed.error, needsApproval: executed.needsApproval };
+
+              // Phase 2: ApprovalPolicyPort 统一审批前置拦截
+              if (deps.approvalPolicy) {
+                const spec = (tools.tools || []).find((t) => t.name === call.name);
+                const safetyLevel: import("./ports.js").ToolSafetyLevel = spec?.readOnly ? "read_only" : "write_with_approval";
+                const decision = await deps.approvalPolicy.evaluate(
+                  {
+                    turnId: input.turnId,
+                    attemptId: input.attemptId,
+                    invocationId: executionId,
+                    toolName: call.name,
+                    arguments: call.arguments,
+                    safetyLevel,
+                  },
+                  control?.abortSignal,
+                );
+                if (decision.action === "deny") {
+                  result = {
+                    id: call.id,
+                    name: call.name,
+                    ok: false,
+                    error: decision.reason ?? `tool_approval_denied: ${call.name}`,
+                  };
+                } else if (decision.action === "ask_user") {
+                  result = {
+                    id: call.id,
+                    name: call.name,
+                    ok: false,
+                    needsApproval: {
+                      approvalId: decision.approvalId ?? `apv_${executionId}`,
+                      toolName: call.name,
+                      argumentsHash: decision.argumentsHash ?? JSON.stringify(call.arguments),
+                    },
+                  };
+                }
+              }
+
+              if (!result) {
+                const cancel = new AbortController();
+                removeLostListener = heartbeat?.onLost(() => cancel.abort());
+                const signal = control ? AbortSignal.any([control.abortSignal, cancel.signal]) : cancel.signal;
+                subtaskControl = control?.deriveSubtask({
+                  subtaskExecutionId: executionId,
+                  subtaskSignal: signal,
+                  tighterDeadlineEpochMs: effectiveTimeout > 0 ? Date.now() + effectiveTimeout : undefined,
+                });
+                control?.recordCallUsed();
+                const executed = await withTimeout(
+                  awaitWithSignal(tools.execute({
+                    turnId: input.turnId,
+                    attemptId: input.attemptId,
+                    invocationId: executionId,
+                    name: call.name,
+                    arguments: call.arguments,
+                    sessionId: input.sessionId,
+                    signal: subtaskControl?.abortSignal ?? signal,
+                    controlContext: subtaskControl,
+                  }), subtaskControl?.abortSignal ?? signal),
+                  effectiveTimeout,
+                  cancel,
+                );
+                result = { id: call.id, name: call.name, ok: executed.ok, output: executed.output, error: executed.error, needsApproval: executed.needsApproval };
+              }
             } catch (err) {
               // B2：工具执行期间租约已失（心跳探知）→ 立即中止本 Step 交回外层收敛 lease_lost，不写结果事件、不启动新副作用
               if (heartbeat?.lost) {
@@ -682,6 +723,7 @@ export async function executeTurn(
               removeLostListener?.();
             }
           }
+          result ??= { id: call.id, name: call.name, ok: false, error: "tool_execution_failed" };
           // 2c：以权威结果收口预留行（§9：非幂等副作用失败不自动重试）
           const finalStatus: ToolExecutionStatus = result.needsApproval
             ? "pending_approval"

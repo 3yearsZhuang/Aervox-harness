@@ -367,6 +367,32 @@ export interface PracticeAttemptPort {
   recordAttempt(request: PracticeAttemptPortRequest): Promise<PracticeAttemptPortResult>;
 }
 
+// ============ 工具执行权限审批策略端口 (HITL & Approval SPI) ============
+
+export type ToolSafetyLevel = "read_only" | "write_with_approval" | "privileged" | "destructive" | (string & {});
+
+export interface ToolApprovalRequest {
+  turnId: string;
+  attemptId: string;
+  invocationId: string;
+  toolName: string;
+  arguments: unknown;
+  safetyLevel?: ToolSafetyLevel;
+}
+
+export interface ToolApprovalDecision {
+  action: "allow" | "deny" | "ask_user";
+  reason?: string;
+  approvalId?: string;
+  argumentsHash?: string;
+  metadata?: Record<string, unknown>;
+}
+
+/** 宿主工具审批拦截策略端口 */
+export interface ApprovalPolicyPort {
+  evaluate(req: ToolApprovalRequest, signal?: AbortSignal): Promise<ToolApprovalDecision>;
+}
+
 export type {
   AgentInboxCommand,
   AgentInboxConsumeBoundary,

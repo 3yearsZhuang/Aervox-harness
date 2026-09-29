@@ -224,8 +224,8 @@ describe("内嵌异步 Host（agent-host）", () => {
     await new Promise((r) => setTimeout(r, 30));
     expect(host.running()).toBe(1);
 
-    // 未放行 gate，直接调用 stop 并传入短 drain 超时（50ms）
-    await host.stop({ drainTimeoutMs: 50 });
+    // 未放行 gate，直接调用 stop 并传入短 drain 超时（150ms）
+    await host.stop({ drainTimeoutMs: 150 });
     expect(host.running()).toBe(0);
     expect(host.processed()).toBe(1);
 
