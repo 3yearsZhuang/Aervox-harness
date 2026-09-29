@@ -113,11 +113,11 @@ export async function runDshAdapterTurn(
     controlContext?: import("@aervox/agent-loop").ControlContext;
   },
   onFinalized?: (status: "Completed" | "Failed" | "Interrupted") => Promise<void>,
-): Promise<void> {
+): Promise<import("@aervox/host-agent").AdapterTurnResult> {
   const resolved = await resolveDshTurnAdapter();
   if (!resolved.ok) {
     await failTurnWithError(store, input.turnId, input.attemptId, resolved.reason, "ADAPTER_UNAVAILABLE");
-    return;
+    return { status: "Failed", reason: resolved.reason };
   }
   const result = await runAdapterTurn(store, resolved.driver, {
     turnId: input.turnId,
@@ -132,4 +132,5 @@ export async function runDshAdapterTurn(
   } else if (result.status === "Failed" || result.status === "Interrupted") {
     await onFinalized?.(result.status);
   }
+  return result;
 }

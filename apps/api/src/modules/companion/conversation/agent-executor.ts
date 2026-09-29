@@ -4,9 +4,12 @@
  * 机械拆分（B 档第三步，零行为变更）：原「Agent Loop SQLite 执行存储适配 +
  * 工具接线」巨型文件拆为——Provider 构建与 LLMCallable 适配在 llm-adapter.ts、
  * 工具提供者在 tool-providers.ts、回放脚本在 replay-scripts.ts、SSE 广播桥在
- * broadcasting-store.ts、DSH 整 Turn 执行在 dsh-adapter.ts；本文件仅保留
- * 迁移期接线：创建 Turn 后立即执行一次 Loop（AVX-HAR-001 §13），
- * 阶段 4 抽出独立 Host 时仅替换接线。
+ * broadcasting-store.ts、DSH 整 Turn 执行在 dsh-adapter.ts；
+ *
+ * aervox_core_decoupling_plan.md Phase 1：
+ * 使用 @aervox/host-agent 的通用执行管道 (ExecutionPipeline) 与标准洋葱中间件
+ * (TurnMetricsMiddleware, SafetyCrisisMiddleware, CompanionPluginLifecycleMiddleware, ProactivePolicyMiddleware)
+ * 编排跨切面治理能力，实现业务逻辑解耦与职责收敛。
  */
 import {
   composeToolProviders,
@@ -29,7 +32,11 @@ import type {
   UserQuestionPort,
   WorkflowDefinition,
 } from "@aervox/agent-loop";
-import { SqliteExecutionStore } from "@aervox/host-agent";
+import {
+  SqliteExecutionStore,
+  ExecutionPipeline,
+  type TurnMiddlewareContext,
+} from "@aervox/host-agent";
 import type { LLMCallable } from "@aervox/practice-review";
 import {
   type AervoxDatabase,
@@ -43,23 +50,28 @@ import {
 import { loadApiConfig } from "@aervox/config";
 import type { Observability } from "@aervox/observability";
 import {
-  executeAfterTurnPlugins,
-  executeBeforeTurnPlugins,
   defaultServerPluginRegistry,
   type ServerPluginRegistry,
-  type TurnPluginContext,
 } from "../../ecosystem/plugins/turn-plugins/index.js";
 import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index.js";
 import type { LLMConfigService } from "../../ecosystem/llm/service.js";
 import type { LlmDegradationService } from "../../ecosystem/llm/degradation-service.js";
 import type { ModelRoutingSnapshot } from "@aervox/contracts";
-import { loadProactiveProfilePrompt } from "../../proactive/proactive/profile-context.js";
 import type { ProactiveActionAuthorizer } from "../../proactive/proactive/action-authorizer.js";
 import { buildMemoryContext, type MemoryRecallPort } from "./memory-recall.js";
 import { buildLoopProvider, createLLMCallable } from "./llm-adapter.js";
 import { createApprovalGatedToolProvider, createRuntimeToolProvider } from "./tool-providers.js";
 import { createBroadcastingStore } from "./broadcasting-store.js";
 import { failTurnWithError, runDshAdapterTurn } from "./dsh-adapter.js";
+import {
+  createTurnMetricsMiddleware,
+  createSafetyCrisisMiddleware,
+  createCompanionPluginLifecycleMiddleware,
+  createProactivePolicyMiddleware,
+  PIPELINE_ATTR_EXTRA_SECTIONS,
+  PIPELINE_ATTR_PROACTIVE_PROMPT,
+  PIPELINE_ATTR_LLM_CALLABLE,
+} from "./pipeline-middlewares.js";
 
 /** SqliteExecutionStore 组合根适配由 @aervox/host-agent 提供（见上方 import），API 不再自维护 SQLite 执行存储 */
 
@@ -103,7 +115,7 @@ export async function runLoopTurnOnce(
     subagentFactory?: (tenant: LocalContext) => SubagentPort;
     /** 5c：已注册 Workflow 定义清单（贡献 `workflow_run` 工具 + GET /v1/workflows 元数据） */
     workflows?: WorkflowDefinition[];
-  /**
+    /**
      * 阶段 7：ModelRun/ContextManifest 落库口（可选委托 SqlitePlatformRepository；
      * 缺省不记录，兼容既有行为）。Step 级可追溯写入不进 Loop 控制流。
      */
@@ -130,7 +142,6 @@ export async function runLoopTurnOnce(
     turnTimeoutMs?: number;
   } = {},
 ): Promise<void> {
-  const turnStartTime = Date.now();
   const control =
     input.controlContext ??
     new ControlContext({
@@ -140,471 +151,322 @@ export async function runLoopTurnOnce(
       abortSignal: input.signal,
       deadlineEpochMs: deps.turnTimeoutMs ? Date.now() + deps.turnTimeoutMs : undefined,
     });
+
+  let middlewareCtx: TurnMiddlewareContext | undefined;
   try {
-  deps.observability?.metrics.emit({
-    type: "counter",
-    name: "agent.turn.started",
-    value: 1,
-  });
-  deps.observability?.log.info({
-    event: "agent.turn.started",
-    message: `Turn ${input.turnId} started`,
-    fields: {
+    const repoDb = (repo as unknown as { db?: AervoxDatabase })?.db;
+    const extRepo =
+      deps.extensionRepo ??
+      (repoDb ? new SqliteExtensionRepository(repoDb) : null);
+    const pluginRegistry = deps.pluginRegistry ?? defaultServerPluginRegistry;
+
+    // 阶段 7（ADR-017）：Step 级 ModelRun + 每 Turn ContextManifest 快照落库（委托 platform 域）
+    const store = new SqliteExecutionStore(
+      repo,
+      tenant,
+      deps.platformRepo
+        ? {
+            recordModelRun: async (r) => {
+              const p = deps.platformRepo!;
+              await p.createModelRun(tenant, {
+                id: r.runId,
+                attemptId: r.attemptId,
+                stepId: r.stepId,
+                purpose: r.purpose,
+                provider: r.provider,
+                modelId: r.modelId,
+              });
+              await p.completeModelRun(tenant, r.runId, {
+                status: r.status === "completed" ? "completed" : "failed",
+                latencyMs: r.latencyMs,
+              });
+            },
+            recordContextManifest: async (m) => {
+              const p = deps.platformRepo!;
+              await p.createContextManifest({
+                id: m.manifestId,
+                modelRunId: m.modelRunId,
+                purpose: m.purpose,
+                sourceArtifactId: "turn:history",
+                sourceRevisionId: "1",
+                snapshot: m.snapshot,
+              });
+              await p.attachContextManifest(tenant, m.modelRunId, m.manifestId);
+            },
+          }
+        : undefined,
+    );
+    const broadcastingStore = createBroadcastingStore(store);
+
+    // 组装洋葱执行管道 (ExecutionPipeline)
+    const pipeline = new ExecutionPipeline();
+
+    // 1. 遥测与全链路指标中间件 (TurnMetricsMiddleware)
+    pipeline.use(createTurnMetricsMiddleware({ observability: deps.observability }));
+
+    // 2. 危机安全干预与情绪指引中间件 (SafetyCrisisMiddleware)
+    pipeline.use(
+      createSafetyCrisisMiddleware({
+        safetyService: deps.safetyService,
+        repo,
+        tenant,
+        broadcastingStore,
+        observability: deps.observability,
+      }),
+    );
+
+    // 3. 伴学插件前后置生命周期中间件 (CompanionPluginLifecycleMiddleware)
+    pipeline.use(
+      createCompanionPluginLifecycleMiddleware({
+        pluginRegistry,
+        repo,
+        tenant,
+        extensionRepo: extRepo,
+        pluginConfigRepo: deps.pluginConfigRepo,
+      }),
+    );
+
+    // 4. 主动智能本地限定与画像注入中间件 (ProactivePolicyMiddleware)
+    pipeline.use(
+      createProactivePolicyMiddleware({
+        proactiveRepository: deps.proactiveRepository,
+        tenant,
+      }),
+    );
+
+    middlewareCtx = {
       turnId: input.turnId,
       sessionId: input.sessionId,
       attemptId: input.attemptId,
-    },
-  });
-
-  const repoDb = (repo as unknown as { db?: AervoxDatabase })?.db;
-  const extRepo =
-    deps.extensionRepo ??
-    (repoDb ? new SqliteExtensionRepository(repoDb) : null);
-  const pluginRegistry = deps.pluginRegistry ?? defaultServerPluginRegistry;
-
-  const turnPluginCtx: TurnPluginContext = {
-    turnId: input.turnId,
-    sessionId: input.sessionId,
-    attemptId: input.attemptId,
-    userMessage: input.userMessage,
-    tenant,
-    repo,
-    metadata: input.metadata,
-  };
-
-  const beforeTurnExec = await executeBeforeTurnPlugins(
-    pluginRegistry,
-    turnPluginCtx,
-    extRepo,
-    deps.pluginConfigRepo,
-  );
-
-  // 阶段 7（ADR-017）：Step 级 ModelRun + 每 Turn ContextManifest 快照落库（委托 platform 域）
-  const store = new SqliteExecutionStore(
-    repo,
-    tenant,
-    deps.platformRepo
-      ? {
-          recordModelRun: async (r) => {
-            const p = deps.platformRepo!;
-            await p.createModelRun(tenant, {
-              id: r.runId,
-              attemptId: r.attemptId,
-              stepId: r.stepId,
-              purpose: r.purpose,
-              provider: r.provider,
-              modelId: r.modelId,
-            });
-            await p.completeModelRun(tenant, r.runId, { status: r.status === "completed" ? "completed" : "failed", latencyMs: r.latencyMs });
-          },
-          recordContextManifest: async (m) => {
-            const p = deps.platformRepo!;
-            await p.createContextManifest({
-              id: m.manifestId,
-              modelRunId: m.modelRunId,
-              purpose: m.purpose,
-              sourceArtifactId: "turn:history",
-              sourceRevisionId: "1",
-              snapshot: m.snapshot,
-            });
-            await p.attachContextManifest(tenant, m.modelRunId, m.manifestId);
-          },
-        }
-      : undefined,
-  );
-  const broadcastingStore = createBroadcastingStore(store);
-
-  // CAP-008：前置安全门禁拦截（Crisis Safety Gate & Emotional Companionship）
-  // 规则依据：PRD §4.3、§6.5、SRS FR-SAFE-001。
-  // crisis_high 立即阻断 LLM 与工具调用，直推固定求助热线应答，消息脱敏（排除日记/记忆），记录安全审计；
-  // distress_moderate 注入温和共情指引至 extraSections，不升级为危机，禁病理诊断与说教。
-  if (deps.safetyService) {
-    const safetyClassification = deps.safetyService.classify(input.userMessage);
-    if (safetyClassification.level === "crisis_high") {
-      deps.observability?.metrics.emit({
-        type: "counter",
-        name: "agent.safety.crisis_intercepted",
-        value: 1,
-      });
-      deps.observability?.log.warn({
-        event: "safety.crisis_intercepted",
-        message: `Turn ${input.turnId} intercepted by crisis safety gate`,
-        fields: {
-          turnId: input.turnId,
-          sessionId: input.sessionId,
-          category: safetyClassification.category,
-          matchedPatterns: safetyClassification.matchedPatterns,
-        },
-      });
-      deps.observability?.audit.emit({
-        eventType: "safety.crisis_intercepted",
-        action: "intercept_crisis",
-        actorId: tenant.subjectUserId ?? "system",
-        scope: input.turnId,
-        payload: {
-          sessionId: input.sessionId,
-          category: safetyClassification.category,
-          policyVersion: deps.safetyService.getPolicyVersion(),
-        },
-      }).catch(() => undefined);
-
-      // 1. 将当前 Turn 的用户输入消息标记为脱敏（isRedacted = 1），彻底阻断进入日记素材与长期记忆
-      await repo.redactTurnMessages(tenant, input.turnId).catch(() => undefined);
-
-      // 2. 生成固定不可篡改、不可被 Persona 或 Prompt 覆盖的地区化危机求助应答
-      const crisisText = deps.safetyService.getCrisisResponse();
-      const assistantMsgId = `msg_${Date.now().toString(36)}_safe`;
-
-      // 3. 写入脱敏的助手危机回复版本（isRedacted = 1），同样绝不进入日记素材收集
-      await repo.appendRedactedAssistantMessage(tenant, {
-        id: assistantMsgId,
-        turnId: input.turnId,
-        content: crisisText,
-      }).catch(() => undefined);
-
-      // 4. 记录安全事件最小化审计记录
-      await deps.safetyService.recordIncident(tenant, {
-        id: `sinc_${input.turnId}`,
-        category: safetyClassification.category,
-        severity: "critical",
-        disposition: "blocked",
-        policyVersion: deps.safetyService.getPolicyVersion(),
-      }).catch(() => undefined);
-
-      // 5. 通过 broadcastingStore 广播 SSE delta + done 事件并以 Completed 终态收口
-      await broadcastingStore.appendEvent({
-        turnId: input.turnId,
-        attemptId: input.attemptId,
-        sequence: 1,
-        eventType: "delta",
-        data: {
-          messageId: assistantMsgId,
-          text: crisisText,
-        },
-        safetyDecision: "redacted",
-        expectedFencingToken: 0,
-      }).catch(() => undefined);
-
-      await broadcastingStore.appendEvent({
-        turnId: input.turnId,
-        attemptId: input.attemptId,
-        sequence: 2,
-        eventType: "done",
-        data: {
-          status: "Completed",
-          messageId: assistantMsgId,
-          isComplete: true,
-          lastSequence: 2,
-        },
-        safetyDecision: "approved",
-        expectedFencingToken: 0,
-      }).catch(() => undefined);
-
-      await broadcastingStore.finalizeAttempt({
-        turnId: input.turnId,
-        attemptId: input.attemptId,
-        status: "Completed",
-      }).catch(() => undefined);
-
-      await broadcastingStore.updateTurnStatus({ turnId: input.turnId, status: "Completed" }).catch(() => undefined);
-
-      // 6. 立即退出：绝对阻断大模型调用、工具执行与事后插件（绝不提取记忆、术语或知识点）
-      return;
-    }
-
-    if (safetyClassification.level === "distress_moderate") {
-      deps.observability?.metrics.emit({
-        type: "counter",
-        name: "agent.safety.distress_guided",
-        value: 1,
-      });
-      deps.observability?.log.info({
-        event: "safety.distress_guided",
-        message: `Turn ${input.turnId} emotional companionship distress guidance injected`,
-        fields: {
-          turnId: input.turnId,
-          category: safetyClassification.category,
-        },
-      });
-      // 将中度情绪困扰陪伴指引作为不可覆盖的最高优先级指引注入 extraSections
-      beforeTurnExec.extraSections.unshift(deps.safetyService.getDistressGuidance());
-    }
-  }
-
-  // ADR-010 阶段 6f：AERVOX_LOOP_DRIVER=dsh → 整 Turn 走 DSH 进程外 Adapter
-  // （自带 Agent 循环与模型回合，Provider/工具/上下文组合全部跳过；未就绪 fail-closed 不回退 native）。
-  if (loadApiConfig().loopDriver === "dsh") {
-    let dshLlm: LLMCallable | undefined;
-    if (deps.llmConfigService && loadApiConfig().loopProvider === "llm") {
-      try {
-        const p = await buildLoopProvider(tenant, deps.llmConfigService, { requireLocalOnly: control.localProcessingOnly });
-        dshLlm = createLLMCallable(p);
-      } catch {
-        // ignore
-      }
-    }
-    const dshInput = {
-      ...input,
-      ...(beforeTurnExec.extraSections.length > 0
-        ? { systemPrompt: beforeTurnExec.extraSections.join("\n\n") }
-        : {}),
+      userMessage: input.userMessage,
+      metadata: input.metadata,
       controlContext: control,
+      attributes: new Map<string, unknown>(),
     };
-    await runDshAdapterTurn(repo, tenant, broadcastingStore, dshInput, async (status) => {
-      await executeAfterTurnPlugins(
-        pluginRegistry,
-        { ...turnPluginCtx, status, llm: dshLlm },
-        extRepo,
-        deps.pluginConfigRepo,
-        beforeTurnExec.pluginResults,
-        beforeTurnExec.snapshots,
+
+    await pipeline.execute(middlewareCtx, async (ctx) => {
+      const extraSections = (ctx.attributes.get(PIPELINE_ATTR_EXTRA_SECTIONS) as string[] | undefined) ?? [];
+      const proactiveProfilePrompt = (ctx.attributes.get(PIPELINE_ATTR_PROACTIVE_PROMPT) as string | undefined) ?? "";
+
+      // ADR-010 阶段 6f：AERVOX_LOOP_DRIVER=dsh → 整 Turn 走 DSH 进程外 Adapter
+      // （自带 Agent 循环与模型回合，Provider/工具/上下文组合全部跳过；未就绪 fail-closed 不回退 native）。
+      if (loadApiConfig().loopDriver === "dsh") {
+        let dshLlm: LLMCallable | undefined;
+        if (deps.llmConfigService && loadApiConfig().loopProvider === "llm") {
+          try {
+            const p = await buildLoopProvider(tenant, deps.llmConfigService, { requireLocalOnly: control.localProcessingOnly });
+            dshLlm = createLLMCallable(p);
+          } catch {
+            // ignore
+          }
+        }
+        if (dshLlm) {
+          ctx.attributes.set(PIPELINE_ATTR_LLM_CALLABLE, dshLlm);
+        }
+        const dshInput = {
+          ...input,
+          ...(extraSections.length > 0
+            ? { systemPrompt: extraSections.join("\n\n") }
+            : {}),
+          controlContext: ctx.controlContext,
+        };
+        const dshResult = await runDshAdapterTurn(repo, tenant, broadcastingStore, dshInput);
+        if (dshResult.status === "Completed") {
+          return { status: "completed", attemptId: input.attemptId, lastSequence: 1, stepsTaken: 1 };
+        } else if (dshResult.status === "Interrupted") {
+          return { status: "cancelled", attemptId: input.attemptId, lastSequence: 1, stepsTaken: 1 };
+        } else if (dshResult.status === "skipped") {
+          return { status: "skipped", attemptId: input.attemptId, reason: "already_claimed" };
+        } else {
+          return { status: "failed", attemptId: input.attemptId, reason: dshResult.reason ?? "failed" };
+        }
+      }
+
+      let provider: ModelProviderPort;
+      try {
+        const loopProvider = await buildLoopProvider(tenant, deps.llmConfigService, {
+          requireLocalOnly: ctx.controlContext.localProcessingOnly,
+          sessionId: input.sessionId,
+          turnId: input.turnId,
+          modelRoutingService: deps.modelRoutingService,
+          persona: deps.persona ? { name: deps.persona.name } : undefined,
+        });
+        provider = loopProvider;
+        const llm = createLLMCallable(provider);
+        ctx.attributes.set(PIPELINE_ATTR_LLM_CALLABLE, llm);
+      } catch (err) {
+        await failTurnWithError(broadcastingStore, input.turnId, input.attemptId, err instanceof Error ? err.message : "provider_unavailable");
+        return {
+          status: "failed",
+          attemptId: input.attemptId,
+          reason: err instanceof Error ? err.message : "provider_unavailable",
+        };
+      }
+
+      // 5c：Provider Contribution 组合——
+      // - subagent/workflow 为静态声明的 Contribution（compose 路由 + 工具清单入模型 schema）；
+      // - toolRuntime（createRuntimeToolProvider）为动态注册表：tools 实时校验不静态声明，
+      //   故作为 compose 的 fallback 兜底（未命中静态清单时由其自判 unregistered/审批，语义与既有一致）。
+      const contribution: ToolProviderPort[] = [];
+      const subagent = deps.subagentFactory ? deps.subagentFactory(tenant) : undefined;
+      if (subagent) {
+        contribution.push(createSubagentToolProvider({ subagent }));
+      }
+      if (deps.workflows && deps.workflows.length > 0) {
+        contribution.push(createWorkflowToolProvider(deps.workflows));
+      }
+      if (deps.userQuestionPort) {
+        contribution.push(createAskUserQuestionToolProvider({ userQuestionPort: deps.userQuestionPort }));
+      }
+      if (deps.practiceAttemptPort) {
+        contribution.push(createPracticeAttemptToolProvider({ practiceAttemptPort: deps.practiceAttemptPort }));
+      }
+      const contributionProvider =
+        contribution.length > 0
+          ? createApprovalGatedToolProvider(
+              composeToolProviders(contribution),
+              tenant,
+              repo,
+              deps.proactiveActionAuthorizer,
+              deps.observability,
+            )
+          : undefined;
+      const apiConfig = loadApiConfig();
+      const routingSnapshot = (provider as unknown as { routingSnapshot?: ModelRoutingSnapshot }).routingSnapshot;
+      const isL1Tier = routingSnapshot?.tier === "L1";
+      const isL2Tier = routingSnapshot?.tier === "L2";
+      const isCapabilityTiering = apiConfig.modelRoutingFeatureFlags.has("capability_tiering");
+
+      const runtimeProvider = deps.toolRuntime
+        ? createRuntimeToolProvider(deps.toolRuntime, tenant, {
+            conversationRepo: repo,
+            proactiveActionAuthorizer: deps.proactiveActionAuthorizer,
+            observability: deps.observability,
+            capabilityTier: isL1Tier && isCapabilityTiering ? "restricted" : undefined,
+          })
+        : undefined;
+
+      let tools: ToolProviderPort | undefined;
+      if (!isL2Tier) {
+        const rawTools = contributionProvider && runtimeProvider
+          ? composeToolProviders([contributionProvider], { fallback: runtimeProvider })
+          : contributionProvider ?? runtimeProvider;
+
+        if (rawTools && isL1Tier && isCapabilityTiering) {
+          tools = {
+            get tools() {
+              return (rawTools.tools || []).filter((t) => t.readOnly);
+            },
+            async execute(callInput) {
+              const spec = rawTools.tools?.find((t) => t.name === callInput.name);
+              if (spec && !spec.readOnly) {
+                return {
+                  ok: false,
+                  error: `tool_restricted_in_tier_l1: 工具 ${callInput.name} 为写操作，在 L1 本地降级阶梯下被安全收紧拦截`,
+                };
+              }
+              return rawTools.execute(callInput);
+            },
+          };
+        } else {
+          tools = rawTools;
+        }
+      }
+
+      // 5b：默认启用 Base System Prompt（含核心工具指引）与 Skill 渐进披露；压缩 seam 默认关闭，
+      // 设置 AERVOX_LOOP_COMPACTION=rule 启用内置规则式摘要。
+      // 人格覆盖：激活人格时，其名称/设定覆盖系统默认身份，其技能白名单过滤渐进披露清单。
+      const personaAllowedSkills = deps.persona?.allowedSkillNames;
+      const disclosedSkills =
+        personaAllowedSkills && deps.skills
+          ? deps.skills.filter((s) => personaAllowedSkills.includes(s.name))
+          : deps.skills;
+      let history: ReturnType<SqliteConversationRepository["getSessionHistory"]> | undefined;
+      let memoryContext: Promise<string | null> | undefined;
+      let contextBuilder = createComposedContextBuilder({
+        base: {
+          async build(context) {
+            history ??= repo.getSessionHistory(tenant, {
+              sessionId: input.sessionId,
+              beforeTurnId: input.turnId,
+            });
+            memoryContext ??= deps.memoryRecall
+              ? deps.memoryRecall.recall(tenant, input.userMessage)
+                  .then(buildMemoryContext)
+                  .catch(() => null)
+              : Promise.resolve(null);
+            const [previous, recalled] = await Promise.all([history, memoryContext]);
+            const index = context.messages.findIndex((message) => message.role !== "system");
+            const insertion = index < 0 ? context.messages.length : index;
+            return {
+              turnId: context.turnId,
+              sessionId: context.sessionId,
+              messages: [
+                ...context.messages.slice(0, insertion),
+                ...previous,
+                ...(recalled ? [{ role: "system" as const, content: recalled }] : []),
+                ...context.messages.slice(insertion),
+              ],
+            };
+          },
+        },
+        baseSystemPrompt: {
+          assistantName: deps.persona?.name || "思隅 (Aervox)",
+          personaPrompt: deps.persona?.prompt,
+          activeTools: tools?.tools,
+          extraSections,
+        },
+        skills: disclosedSkills,
+        ...(loadApiConfig().loopCompaction === "rule"
+          ? { compaction: createSummaryCompaction() }
+          : {}),
+      });
+
+      if (proactiveProfilePrompt) {
+        const inner = contextBuilder;
+        contextBuilder = {
+          async build(builderInput) {
+            const context = await inner.build(builderInput);
+            const messages = [...context.messages];
+            const insertionIndex = messages.findIndex((message) => message.role !== "system");
+            messages.splice(insertionIndex < 0 ? messages.length : insertionIndex, 0, {
+              role: "system",
+              content: proactiveProfilePrompt,
+            });
+            return { ...context, messages };
+          },
+        };
+      }
+
+      return executeTurn(
+        {
+          execution: broadcastingStore,
+          provider,
+          contextBuilder,
+          tools,
+          deletionGate: deps.deletionGate,
+          inbox: deps.inbox,
+          controlContext: ctx.controlContext,
+          modelRunMeta: routingSnapshot
+            ? {
+                provider: routingSnapshot.providerType ?? "rule",
+                modelId: routingSnapshot.modelId ?? "rule",
+                purpose: `tier_${routingSnapshot.tier}:${routingSnapshot.reason}`,
+              }
+            : undefined,
+        },
+        {
+          ...input,
+          controlContext: ctx.controlContext,
+        },
       );
     });
-    return;
-  }
-
-  let provider: ModelProviderPort;
-  let proactiveProfilePrompt = "";
-  try {
-    const proactiveStatus = deps.proactiveRepository
-      ? await deps.proactiveRepository.getEffectiveStatus(tenant)
-      : null;
-    const proactiveActive = proactiveStatus?.effectiveState === "active";
-    const loopProvider = await buildLoopProvider(tenant, deps.llmConfigService, {
-      requireLocalOnly: proactiveActive || control.localProcessingOnly,
-      sessionId: input.sessionId,
-      turnId: input.turnId,
-      modelRoutingService: deps.modelRoutingService,
-      persona: deps.persona ? { name: deps.persona.name } : undefined,
-    });
-    provider = loopProvider;
-    if (proactiveActive && deps.proactiveRepository) {
-      proactiveProfilePrompt = await loadProactiveProfilePrompt(deps.proactiveRepository, tenant);
-    }
-  } catch (err) {
-    await failTurnWithError(broadcastingStore, input.turnId, input.attemptId, err instanceof Error ? err.message : "provider_unavailable");
-    return;
-  }
-
-  // 5c：Provider Contribution 组合——
-  // - subagent/workflow 为静态声明的 Contribution（compose 路由 + 工具清单入模型 schema）；
-  // - toolRuntime（createRuntimeToolProvider）为动态注册表：tools 实时校验不静态声明，
-  //   故作为 compose 的 fallback 兜底（未命中静态清单时由其自判 unregistered/审批，语义与既有一致）。
-  const contribution: ToolProviderPort[] = [];
-  const subagent = deps.subagentFactory ? deps.subagentFactory(tenant) : undefined;
-  if (subagent) {
-    contribution.push(createSubagentToolProvider({ subagent }));
-  }
-  if (deps.workflows && deps.workflows.length > 0) {
-    contribution.push(createWorkflowToolProvider(deps.workflows));
-  }
-  if (deps.userQuestionPort) {
-    contribution.push(createAskUserQuestionToolProvider({ userQuestionPort: deps.userQuestionPort }));
-  }
-  if (deps.practiceAttemptPort) {
-    contribution.push(createPracticeAttemptToolProvider({ practiceAttemptPort: deps.practiceAttemptPort }));
-  }
-  const contributionProvider =
-    contribution.length > 0
-      ? createApprovalGatedToolProvider(
-          composeToolProviders(contribution),
-          tenant,
-          repo,
-          deps.proactiveActionAuthorizer,
-          deps.observability,
-        )
-      : undefined;
-  const apiConfig = loadApiConfig();
-  const routingSnapshot = (provider as unknown as { routingSnapshot?: ModelRoutingSnapshot }).routingSnapshot;
-  const isL1Tier = routingSnapshot?.tier === "L1";
-  const isL2Tier = routingSnapshot?.tier === "L2";
-  const isCapabilityTiering = apiConfig.modelRoutingFeatureFlags.has("capability_tiering");
-
-  const runtimeProvider = deps.toolRuntime
-    ? createRuntimeToolProvider(deps.toolRuntime, tenant, {
-        conversationRepo: repo,
-        proactiveActionAuthorizer: deps.proactiveActionAuthorizer,
-        observability: deps.observability,
-        capabilityTier: isL1Tier && isCapabilityTiering ? "restricted" : undefined,
-      })
-    : undefined;
-
-  let tools: ToolProviderPort | undefined;
-  if (!isL2Tier) {
-    const rawTools = contributionProvider && runtimeProvider
-      ? composeToolProviders([contributionProvider], { fallback: runtimeProvider })
-      : contributionProvider ?? runtimeProvider;
-
-    if (rawTools && isL1Tier && isCapabilityTiering) {
-      tools = {
-        get tools() {
-          return (rawTools.tools || []).filter((t) => t.readOnly);
-        },
-        async execute(callInput) {
-          const spec = rawTools.tools?.find((t) => t.name === callInput.name);
-          if (spec && !spec.readOnly) {
-            return {
-              ok: false,
-              error: `tool_restricted_in_tier_l1: 工具 ${callInput.name} 为写操作，在 L1 本地降级阶梯下被安全收紧拦截`,
-            };
-          }
-          return rawTools.execute(callInput);
-        },
-      };
-    } else {
-      tools = rawTools;
+  } finally {
+    if (!input.controlContext) {
+      if (middlewareCtx && middlewareCtx.controlContext !== control) {
+        middlewareCtx.controlContext.dispose();
+      }
+      control.dispose();
     }
   }
-  // 5b：默认启用 Base System Prompt（含核心工具指引）与 Skill 渐进披露；压缩 seam 默认关闭，
-  // 设置 AERVOX_LOOP_COMPACTION=rule 启用内置规则式摘要。
-  // 人格覆盖：激活人格时，其名称/设定覆盖系统默认身份，其技能白名单过滤渐进披露清单。
-  const personaAllowedSkills = deps.persona?.allowedSkillNames;
-  const disclosedSkills =
-    personaAllowedSkills && deps.skills
-      ? deps.skills.filter((s) => personaAllowedSkills.includes(s.name))
-      : deps.skills;
-  let history: ReturnType<SqliteConversationRepository["getSessionHistory"]> | undefined;
-  let memoryContext: Promise<string | null> | undefined;
-  let contextBuilder = createComposedContextBuilder({
-    base: {
-      async build(context) {
-        history ??= repo.getSessionHistory(tenant, {
-          sessionId: input.sessionId,
-          beforeTurnId: input.turnId,
-        });
-        memoryContext ??= deps.memoryRecall
-          ? deps.memoryRecall.recall(tenant, input.userMessage)
-              .then(buildMemoryContext)
-              .catch(() => null)
-          : Promise.resolve(null);
-        const [previous, recalled] = await Promise.all([history, memoryContext]);
-        const index = context.messages.findIndex((message) => message.role !== "system");
-        const insertion = index < 0 ? context.messages.length : index;
-        return {
-          turnId: context.turnId,
-          sessionId: context.sessionId,
-          messages: [
-            ...context.messages.slice(0, insertion),
-            ...previous,
-            ...(recalled ? [{ role: "system" as const, content: recalled }] : []),
-            ...context.messages.slice(insertion),
-          ],
-        };
-      },
-    },
-    baseSystemPrompt: {
-      assistantName: deps.persona?.name || "思隅 (Aervox)",
-      personaPrompt: deps.persona?.prompt,
-      activeTools: tools?.tools,
-      extraSections: beforeTurnExec.extraSections,
-    },
-    skills: disclosedSkills,
-    ...(loadApiConfig().loopCompaction === "rule"
-      ? { compaction: createSummaryCompaction() }
-      : {}),
-  });
-  if (proactiveProfilePrompt) {
-    const inner = contextBuilder;
-    contextBuilder = {
-      async build(input) {
-        const context = await inner.build(input);
-        const messages = [...context.messages];
-        const insertionIndex = messages.findIndex((message) => message.role !== "system");
-        messages.splice(insertionIndex < 0 ? messages.length : insertionIndex, 0, {
-          role: "system",
-          content: proactiveProfilePrompt,
-        });
-        return { ...context, messages };
-      },
-    };
-  }
-  const result = await executeTurn(
-    {
-      execution: broadcastingStore,
-      provider,
-      contextBuilder,
-      tools,
-      deletionGate: deps.deletionGate,
-      inbox: deps.inbox,
-      controlContext: control,
-      modelRunMeta: routingSnapshot
-        ? {
-            provider: routingSnapshot.providerType ?? "rule",
-            modelId: routingSnapshot.modelId ?? "rule",
-            purpose: `tier_${routingSnapshot.tier}:${routingSnapshot.reason}`,
-          }
-        : undefined,
-    },
-    {
-      ...input,
-      controlContext: control,
-    },
-  );
-  const turnDurationMs = Date.now() - turnStartTime;
-  deps.observability?.metrics.emit({
-    type: "histogram",
-    name: "agent.provider.duration_ms",
-    value: turnDurationMs,
-  });
-
-  // 以 Loop 结果对齐 turns 状态；skipped（幂等保护）不覆盖。
-  if (result.status === "completed") {
-    deps.observability?.metrics.emit({
-      type: "counter",
-      name: "agent.turn.completed",
-      value: 1,
-    });
-    deps.observability?.log.info({
-      event: "agent.turn.completed",
-      message: `Turn ${input.turnId} completed in ${turnDurationMs}ms`,
-      fields: {
-        turnId: input.turnId,
-        sessionId: input.sessionId,
-        durationMs: turnDurationMs,
-      },
-    });
-    const llm = provider ? createLLMCallable(provider) : undefined;
-    await executeAfterTurnPlugins(
-      pluginRegistry,
-      { ...turnPluginCtx, status: "Completed", llm },
-      extRepo,
-      deps.pluginConfigRepo,
-      beforeTurnExec.pluginResults,
-      beforeTurnExec.snapshots,
-    );
-  } else if (result.status === "failed") {
-    deps.observability?.log.error({
-      event: "agent.turn.failed",
-      message: `Turn ${input.turnId} failed: ${result.reason}`,
-      fields: {
-        turnId: input.turnId,
-        sessionId: input.sessionId,
-        durationMs: turnDurationMs,
-        error: result.reason,
-      },
-    });
-  } else if (result.status === "cancelled") {
-    deps.observability?.log.warn({
-      event: "agent.turn.interrupted",
-      message: `Turn ${input.turnId} status=${result.status}`,
-      fields: {
-        turnId: input.turnId,
-        sessionId: input.sessionId,
-        durationMs: turnDurationMs,
-        status: result.status,
-      },
-    });
-  } else {
-    deps.observability?.log.warn({
-      event: "agent.turn.skipped",
-      message: `Turn ${input.turnId} status=${result.status}`,
-      fields: {
-        turnId: input.turnId,
-        sessionId: input.sessionId,
-        durationMs: turnDurationMs,
-        status: result.status,
-      },
-    });
-  }
-  } finally { if (!input.controlContext) control.dispose(); }
 }
