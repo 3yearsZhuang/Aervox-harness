@@ -1,3 +1,4 @@
+import { abortableStream, awaitWithSignal } from "./abortable.js";
 /**
  * Aervox｜思隅 @aervox/agent-loop — Turn 执行器（阶段 2：只读工具多 Step Loop）
  *
@@ -233,6 +234,7 @@ export async function executeTurn(
     if (control?.isExpired()) {
       return finalizeInterrupted(atSequence, "deadline_exceeded");
     }
+    if (control?.budgetExceeded) return finalizeInterrupted(atSequence, "token_or_call_budget_exceeded");
     if (control?.isAborted()) {
       return finalizeCancelled(atSequence);
     }
@@ -352,14 +354,35 @@ export async function executeTurn(
       };
       const collectStep = async (): Promise<ModelChunk[]> => {
         const out: ModelChunk[] = [];
-        for await (const chunk of provider.stream({
+        const stop = await prematureTermination(sequence);
+        if (stop) { midStreamStop = stop; return out; }
+        const inputCharge = new TextEncoder().encode(JSON.stringify({ messages: context.messages, tools: tools?.tools })).length;
+        if (control && (control.remainingCalls < 1 || control.remainingTokens <= inputCharge)) {
+          midStreamStop = await finalizeInterrupted(sequence, "budget_exhausted");
+          return out;
+        }
+        control?.recordCallUsed();
+        control?.recordTokensUsed(inputCharge);
+        let charged = inputCharge;
+        for await (const chunk of abortableStream(provider.stream({
           turnId: input.turnId,
           attemptId: input.attemptId,
           step,
           context,
           tools: tools?.tools,
           signal: control?.abortSignal,
-        })) {
+          maxOutputTokens: control && Number.isFinite(control.remainingTokens) ? control.remainingTokens : undefined,
+        }), control?.abortSignal)) {
+          // Charge UTF-8 bytes conservatively when provider token usage is absent;
+          // cumulative provider usage can only increase the charge, never refund it.
+          let charge = new TextEncoder().encode(chunk.text + (chunk.reasoning ?? "") + (chunk.toolCalls ? JSON.stringify(chunk.toolCalls) : "")).length;
+          if (chunk.usage) charge = Math.max(charge, chunk.usage.totalTokens - charged);
+          charged += charge;
+          control?.recordTokensUsed(charge);
+          if (control?.budgetExceeded) {
+            midStreamStop = await finalizeInterrupted(sequence, "token_budget_exceeded");
+            return out;
+          }
           // B2：心跳检查点 —— 长流期间租约丢失则立即中止本 Step（不再产生新事件/副作用）
           heartbeat?.throwIfLost();
           // B4-B：流式期间取消/删除水位/总时长检查（≥100ms 节流，避免每 chunk 压库）
@@ -590,6 +613,7 @@ export async function executeTurn(
             expectedFencingToken: claimFencingToken,
           });
         } else {
+          if (control && (control.remainingCalls < 1 || control.remainingTokens <= 0)) return finalizeInterrupted(sequence, "budget_exhausted");
           seenToolCalls.add(dedupeKey(call.name, call.arguments));
           // 2c：幂等预留（§9 idempotency reservation）——意图先于外部副作用持久化（executionId 为 Host 键）
           await execution.reserveToolExecution({
@@ -617,37 +641,32 @@ export async function executeTurn(
               error: `unsafe_tool_arguments: ${inputInspection.reason ?? "validation_failed"}`,
             };
           } else {
+            let subtaskControl: import("./control-context.js").ControlContext | undefined;
+            let removeLostListener: (() => void) | undefined;
             try {
-              // 缺陷 D：工具超时通过 AbortController 传播取消信号，底层可感知并清理挂起副作用
+              const stop = await prematureTermination(sequence);
+              if (stop) return stop;
+              if (control && (control.remainingCalls < 1 || control.remainingTokens <= 0)) return finalizeInterrupted(sequence, "budget_exhausted");
               const cancel = new AbortController();
-              // B2：租约丢失（心跳探知）→ abort 在途工具（即使工具不感知 signal，工具返回后检查点也会收敛）
-              heartbeat?.onLost(() => cancel.abort());
-              if (control?.abortSignal) {
-                if (control.abortSignal.aborted) {
-                  cancel.abort(control.abortSignal.reason);
-                } else {
-                  control.abortSignal.addEventListener(
-                    "abort",
-                    () => cancel.abort(control.abortSignal.reason),
-                    { once: true }
-                  );
-                }
-              }
-              const subtaskControl = control?.deriveSubtask({
+              removeLostListener = heartbeat?.onLost(() => cancel.abort());
+              const signal = control ? AbortSignal.any([control.abortSignal, cancel.signal]) : cancel.signal;
+              subtaskControl = control?.deriveSubtask({
                 subtaskExecutionId: executionId,
+                subtaskSignal: signal,
                 tighterDeadlineEpochMs: effectiveTimeout > 0 ? Date.now() + effectiveTimeout : undefined,
               });
+              control?.recordCallUsed();
               const executed = await withTimeout(
-                tools.execute({
+                awaitWithSignal(tools.execute({
                   turnId: input.turnId,
                   attemptId: input.attemptId,
                   invocationId: executionId,
                   name: call.name,
                   arguments: call.arguments,
                   sessionId: input.sessionId,
-                  signal: cancel.signal,
+                  signal: subtaskControl?.abortSignal ?? signal,
                   controlContext: subtaskControl,
-                }),
+                }), subtaskControl?.abortSignal ?? signal),
                 effectiveTimeout,
                 cancel,
               );
@@ -659,6 +678,8 @@ export async function executeTurn(
               }
               result = { id: call.id, name: call.name, ok: false, error: err instanceof Error ? err.message : "tool_execution_error" };
             } finally {
+              subtaskControl?.dispose();
+              removeLostListener?.();
             }
           }
           // 2c：以权威结果收口预留行（§9：非幂等副作用失败不自动重试）
@@ -783,6 +804,7 @@ export async function executeTurn(
     });
     return { status: "failed", attemptId: input.attemptId, reason: "max_steps" };
   } catch (err) {
+    if (control?.budgetExceeded) return finalizeInterrupted(await execution.nextSequence(input.turnId), "token_or_call_budget_exceeded");
     if (control?.isExpired()) {
       const atSeq = await execution.nextSequence(input.turnId);
       return finalizeInterrupted(atSeq, "deadline_exceeded");

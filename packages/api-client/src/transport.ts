@@ -234,44 +234,46 @@ export function createFetchTransport(apiBase: string): AervoxTransport {
     signal?: AbortSignal,
     armIdleTimer?: () => void,
   ): Promise<void> => {
-    const res = await fetch(`${base}/v1/turns/${encodeURIComponent(turnId)}/events`, {
-      headers: { Accept: 'text/event-stream' },
-      signal,
-    });
-    if (!res.ok || !res.body) throw new Error(`SSE 连接失败 HTTP ${res.status}`);
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
     const projector = new TurnStreamProjector({ expectedTurnId: turnId });
-    let buffer = '';
-    try {
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        armIdleTimer?.();
-        buffer += decoder.decode(value, { stream: true });
-        const blocks = buffer.split('\n\n');
-        buffer = blocks.pop() ?? '';
-        for (const block of blocks) dispatch(block, callbacks, projector);
+    let cursor: string | undefined;
+    let failure: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      signal?.throwIfAborted();
+      let res: Response;
+      try {
+        res = await fetch(`${base}/v1/turns/${encodeURIComponent(turnId)}/events`, {
+          headers: { Accept: 'text/event-stream', ...(cursor ? { 'Last-Event-ID': cursor } : {}) }, signal,
+        });
+      } catch (error) { failure = error; continue; }
+      if (!res.ok || !res.body) throw new Error(`SSE 连接失败 HTTP ${res.status}`);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      try {
+        for (;;) {
+          let chunk: ReadableStreamReadResult<Uint8Array>;
+          try { chunk = await reader.read(); } catch (error) { failure = error; break; }
+          if (chunk.done) break;
+          armIdleTimer?.();
+          buffer = (buffer + decoder.decode(chunk.value, { stream: true })).replace(/\r\n/g, '\n');
+          const blocks = buffer.split('\n\n');
+          buffer = blocks.pop() ?? '';
+          for (const block of blocks) {
+            const data = block.split('\n').filter((line) => line.startsWith('data:')).map((line) => line.slice(5).trim()).join('\n');
+            if (!data) continue;
+            let event: TurnStreamEvent;
+            try { event = JSON.parse(data) as TurnStreamEvent; } catch { continue; }
+            if (projector.project(event, callbacks) && event.eventId) cursor = event.eventId;
+            if (projector.finalized) return;
+          }
+        }
+      } finally {
+        await reader.cancel().catch(() => undefined);
+        reader.releaseLock();
       }
-    } finally {
-      reader.releaseLock();
     }
-  };
-
-  const dispatch = (block: string, callbacks: TurnCallbacks, projector: TurnStreamProjector): void => {
-    let data = '';
-    for (const line of block.split('\n')) {
-      if (line.startsWith('data:')) data += line.slice(5).trim();
-    }
-    if (!data) return;
-    let event: TurnStreamEvent;
-    try {
-      event = JSON.parse(data) as TurnStreamEvent;
-    } catch {
-      return;
-    }
-    projector.project(event, callbacks);
+    signal?.throwIfAborted();
+    throw failure ?? new Error('turn_stream_incomplete: reconnect limit reached before terminal event');
   };
 
   const submitQuestionAnswers = async (turnId: string, answers: AskUserQuestionAnswerItem[]): Promise<void> => {

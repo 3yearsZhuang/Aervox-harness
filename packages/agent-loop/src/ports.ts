@@ -191,19 +191,10 @@ export interface ExecutionStorePort {
   }): Promise<void>;
 }
 
-/**
- * BTD-05 / ITER-007：会话执行账本与状态机端口（SessionLedgerPort）
- *
- * 在 ExecutionStorePort 基础之上收敛 Turn 级状态推进与事件归档，
- * 隔离底层 SQLite 具体仓储，使执行引擎能够以统一窄接口运转。
- */
-export interface SessionLedgerPort extends ExecutionStorePort {
-  /** 推进所属 Turn 状态（如完成、失败或中断） */
-  updateTurnStatus?(input: {
-    turnId: string;
-    status: "Completed" | "Failed" | "Interrupted";
-  }): Promise<void>;
-}
+/** State/event ledger only; tool outcomes and model telemetry remain separate execution capabilities. */
+export type SessionLedgerPort = Pick<ExecutionStorePort,
+  "claimTurnAttempt" | "renewAttemptLease" | "nextSequence" | "appendEvent" | "listEvents" |
+  "finalizeAttempt" | "finalizeAttemptWithEvent" | "requestCancelAttempt" | "isCancelRequested">;
 
 /** 追加事件的输入（executor 构造；id / occurredAt / payloadVersion 由 store 补齐） */
 export interface AgentStreamEventInput {

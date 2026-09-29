@@ -37,6 +37,7 @@ export interface SqliteSubagentPortDeps {
   runRepo: ISubagentRunRepository;
   /** 子任务模型提供者（宿主决定模型/配置；支持异步构建，如按配置初始化 LLM provider） */
   providerBuilder: (input: {
+    controlContext?: import("@aervox/agent-loop").ControlContext;
     turnId: string;
     sessionId: string;
     attemptId: string;
@@ -77,6 +78,7 @@ export function createSqliteSubagentPort(deps: SqliteSubagentPortDeps): Subagent
 
   return {
     async delegate(input): Promise<SubagentRunResult> {
+      input.controlContext?.abortSignal.throwIfAborted();
       const { parentTurnId, parentAttemptId, parentExecutionId, sessionId, task } = input;
 
       // 幂等：同一父执行键已有子任务 → 复用既有结果（崩溃/重试不重复创建；Host 幂等键语义 §9）
@@ -121,8 +123,8 @@ export function createSqliteSubagentPort(deps: SqliteSubagentPortDeps): Subagent
       // 2) 嵌套执行（executeTurn 内部 claim 子 attempt：Running+fencing0 → 可领）
       let status: AttemptStatus = "Failed";
       try {
-        const provider = await providerBuilder({ turnId: subTurnId, sessionId, attemptId: subAttemptId });
-        const result = await executeTurn(
+        const provider = await providerBuilder({ turnId: subTurnId, sessionId, attemptId: subAttemptId, controlContext: input.controlContext });
+        await executeTurn(
           {
             execution: store,
             provider,
@@ -130,17 +132,16 @@ export function createSqliteSubagentPort(deps: SqliteSubagentPortDeps): Subagent
             tools: childTools,
             options: { maxSteps: subMaxSteps },
           },
-          { turnId: subTurnId, sessionId, attemptId: subAttemptId, userMessage: task },
+          { turnId: subTurnId, sessionId, attemptId: subAttemptId, userMessage: task, controlContext: input.controlContext },
         );
-        status =
-          result.status === "completed"
-            ? "Completed"
-            : result.status === "cancelled"
-              ? "Cancelled"
-              : "Failed"; // Interrupted/skipped 收敛为 Failed：子任务无续跑，父侧可据 error 重试
+        const attempts = await conversationRepo.listTurnAttempts(ctx, subTurnId);
+        status = (attempts.find((attempt) => attempt.id === subAttemptId)?.status ?? "Failed") as AttemptStatus;
       } catch (err) {
         status = "Failed";
-        void err; // 终态信息由事件流 + run 行承载，不在此吞掉可观测面
+        await store.finalizeAttemptWithEvent({ turnId: subTurnId, attemptId: subAttemptId, expectedFencingToken: 0,
+          status: "Failed", sequence: await store.nextSequence(subTurnId), eventType: "error",
+          eventData: { code: "MODEL_UNAVAILABLE", message: err instanceof Error ? err.message : "subagent_failed" },
+        });
       }
 
       // 3) 聚合子任务正文（delta 事件文本）→ 终态收口 run 行

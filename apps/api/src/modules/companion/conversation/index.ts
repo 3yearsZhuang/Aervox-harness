@@ -80,7 +80,7 @@ export function registerConversationModule(ctx: ModuleContext): void {
         store: new SqliteExecutionStore(conversationRepo, tenant),
         conversationRepo,
         runRepo: subagentRunRepo,
-        providerBuilder: () => buildLoopProvider(tenant, llmConfigService),
+        providerBuilder: ({ controlContext }) => buildLoopProvider(tenant, llmConfigService, { requireLocalOnly: controlContext?.localProcessingOnly }),
       }),
     subagentRunRepo,
     workflows,

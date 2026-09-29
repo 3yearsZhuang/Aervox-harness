@@ -290,3 +290,16 @@ describe("内嵌异步 Host（agent-host）", () => {
     expect(samples.some((s) => s.type === "counter" && s.name === "agent.fencing.denials" && s.value === 1)).toBe(true);
   }, 5_000);
 });
+it("不合作模型也在总 drain 截止内结束 Host，迟到输出被丢弃", async () => {
+  const h = harness(1, 10_000);
+  const gate = deferred(); const entered = deferred();
+  h.deps.provider = { id: "uncooperative", async *stream() { entered.resolve(); await gate.promise; yield { text: "late", isFinal: true }; } };
+  h.enqueue(turn("hung")); host = createAgentHost(h.deps);
+  await host.start(); await entered.promise;
+  const start = Date.now();
+  await host.stop({ drainTimeoutMs: 80 });
+  expect(Date.now() - start).toBeLessThan(200);
+  expect(host.running()).toBe(0);
+  expect(await h.stores.get("hung")!.attemptStatus("hung")).toBe("Cancelled");
+  gate.resolve();
+});

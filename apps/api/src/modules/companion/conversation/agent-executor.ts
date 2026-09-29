@@ -140,6 +140,7 @@ export async function runLoopTurnOnce(
       abortSignal: input.signal,
       deadlineEpochMs: deps.turnTimeoutMs ? Date.now() + deps.turnTimeoutMs : undefined,
     });
+  try {
   deps.observability?.metrics.emit({
     type: "counter",
     name: "agent.turn.started",
@@ -336,7 +337,7 @@ export async function runLoopTurnOnce(
     let dshLlm: LLMCallable | undefined;
     if (deps.llmConfigService && loadApiConfig().loopProvider === "llm") {
       try {
-        const p = await buildLoopProvider(tenant, deps.llmConfigService);
+        const p = await buildLoopProvider(tenant, deps.llmConfigService, { requireLocalOnly: control.localProcessingOnly });
         dshLlm = createLLMCallable(p);
       } catch {
         // ignore
@@ -370,7 +371,7 @@ export async function runLoopTurnOnce(
       : null;
     const proactiveActive = proactiveStatus?.effectiveState === "active";
     const loopProvider = await buildLoopProvider(tenant, deps.llmConfigService, {
-      requireLocalOnly: proactiveActive,
+      requireLocalOnly: proactiveActive || control.localProcessingOnly,
       sessionId: input.sessionId,
       turnId: input.turnId,
       modelRoutingService: deps.modelRoutingService,
@@ -382,7 +383,6 @@ export async function runLoopTurnOnce(
     }
   } catch (err) {
     await failTurnWithError(broadcastingStore, input.turnId, input.attemptId, err instanceof Error ? err.message : "provider_unavailable");
-    await broadcastingStore.updateTurnStatus({ turnId: input.turnId, status: "Failed" }).catch(() => undefined);
     return;
   }
 
@@ -563,7 +563,6 @@ export async function runLoopTurnOnce(
         durationMs: turnDurationMs,
       },
     });
-    await broadcastingStore.updateTurnStatus({ turnId: input.turnId, status: "Completed" });
     const llm = provider ? createLLMCallable(provider) : undefined;
     await executeAfterTurnPlugins(
       pluginRegistry,
@@ -574,7 +573,6 @@ export async function runLoopTurnOnce(
       beforeTurnExec.snapshots,
     );
   } else if (result.status === "failed") {
-    await broadcastingStore.updateTurnStatus({ turnId: input.turnId, status: "Failed" }).catch(() => undefined);
     deps.observability?.log.error({
       event: "agent.turn.failed",
       message: `Turn ${input.turnId} failed: ${result.reason}`,
@@ -586,7 +584,6 @@ export async function runLoopTurnOnce(
       },
     });
   } else if (result.status === "cancelled") {
-    await broadcastingStore.updateTurnStatus({ turnId: input.turnId, status: "Interrupted" }).catch(() => undefined);
     deps.observability?.log.warn({
       event: "agent.turn.interrupted",
       message: `Turn ${input.turnId} status=${result.status}`,
@@ -609,4 +606,5 @@ export async function runLoopTurnOnce(
       },
     });
   }
+  } finally { if (!input.controlContext) control.dispose(); }
 }

@@ -195,6 +195,7 @@ export function createAgentHost(deps: AgentHostDeps): AgentHost {
         fields: { turnId: turn.turnId, sessionId: turn.sessionId, attemptId: turn.attemptId },
       });
     } finally {
+      control.dispose();
       activeControls.delete(turn.attemptId);
       runningCount -= 1;
       processedCount += 1;
@@ -247,27 +248,28 @@ export function createAgentHost(deps: AgentHostDeps): AgentHost {
         clearInterval(timer);
         timer = null;
       }
-      const drainTimeout = options?.drainTimeoutMs ?? deps.drainTimeoutMs ?? 5000;
+      const drainTimeout = Math.max(0, options?.drainTimeoutMs ?? deps.drainTimeoutMs ?? 5000);
       const deadline = Date.now() + drainTimeout;
       let aborted = false;
-      const hardDeadline = deadline + Math.max(1000, Math.min(3000, drainTimeout));
+      const abortAt = deadline - Math.min(100, drainTimeout / 4);
 
       // 优雅停机：等待运行中任务完成（drain），超期则触发在途任务中止
       while (runningCount > 0) {
-        if (!aborted && Date.now() >= deadline) {
+        if (!aborted && Date.now() >= abortAt) {
           for (const ctrl of activeControls.values()) {
             ctrl.abort("host_drain_timeout");
           }
           aborted = true;
         }
-        if (aborted && Date.now() >= hardDeadline) {
+        if (aborted && Date.now() >= deadline) {
           ob.log.error({
             event: "agent.host.drain_force_exit",
             message: `host drain forced exit with ${runningCount} active tasks remaining`,
           });
-          break;
+          draining = false;
+          throw new Error(`host_drain_timeout: ${runningCount} active tasks remain`);
         }
-        await new Promise((r) => setTimeout(r, 20));
+        await new Promise((r) => setTimeout(r, Math.max(1, Math.min(20, deadline - Date.now()))));
       }
       draining = false;
     },

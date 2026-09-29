@@ -144,9 +144,10 @@
       ],
       "owner": "platform/ecosystem",
       "dependsOn": [],
-      "statusNote": "2026-09-29 PR #231 复核撤回移交：预算计数未接线、父子约束不继承、生产工具取消/local-only 与终态一致性仍有缺口；实际完成范围及复现见 CR-056 §10.2 和 §4.2",
+      "statusNote": "2026-09-29 PR #231 缺陷修复已通过定向验收：预算执行、父子控制、生产取消/本地限制及原子终态；完整权限和模型窗口验收仍待完成，证据见 CR-056 §10.4 / §4.2",
       "links": [
-        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/231"
       ],
       "branch": "feat/aervox-core-evolution"
     },
@@ -238,9 +239,10 @@
         "ITER-002",
         "ITER-008"
       ],
-      "statusNote": "2026-09-29 PR #231 复核撤回移交：已有 Host stop 超时控制及单流投影构件，历史重放脱敏、恢复/重连、真实组件与生产有界资源未全量验收；见 CR-056 §10.2 和 §4.2",
+      "statusNote": "2026-09-29 PR #231 已修复 Host 有界停机、实时/回放投影、Fetch 重连与真实组件旧流隔离；SSE 背压/分页、跨进程恢复及生产资源全范围仍未移交，证据见 CR-056 §10.4 / §4.2",
       "links": [
-        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/231"
       ],
       "branch": "feat/aervox-core-evolution"
     },

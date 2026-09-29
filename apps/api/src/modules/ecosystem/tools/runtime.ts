@@ -18,7 +18,7 @@ export interface ToolHandler {
   call(
     ctx: LocalContext,
     args: unknown,
-    context: { approval: boolean; proactiveAuthorization: boolean; signal: AbortSignal },
+    context: { approval: boolean; proactiveAuthorization: boolean; signal: AbortSignal; controlContext?: import("@aervox/agent-loop").ControlContext },
   ): Promise<unknown>;
 }
 
@@ -139,7 +139,7 @@ export class ToolRuntime {
     ctx: LocalContext,
     toolId: string,
     args: unknown,
-    opts: { approval?: boolean; proactiveAuthorization?: boolean } = {},
+    opts: { approval?: boolean; proactiveAuthorization?: boolean; signal?: AbortSignal; controlContext?: import("@aervox/agent-loop").ControlContext } = {},
   ): Promise<unknown> {
     const entry = this.handlers.get(toolId);
     if (!entry || this.disposed) throw new ForbiddenError(`tool handler not registered: ${toolId}`);
@@ -161,7 +161,8 @@ export class ToolRuntime {
       throw new ForbiddenError(`unsafe tool arguments: ${inspection.reason ?? "validation_failed"}`);
     }
 
-    const signal = entry.controller.signal;
+    const signals = [entry.controller.signal, opts.signal, opts.controlContext?.abortSignal].filter((signal): signal is AbortSignal => Boolean(signal));
+    const signal = AbortSignal.any(signals);
     return new Promise((resolve, reject) => {
       const abort = () => reject(new ForbiddenError(`tool registration expired: ${toolId}`));
       signal.addEventListener("abort", abort, { once: true });
@@ -172,6 +173,7 @@ export class ToolRuntime {
           approval: opts.approval === true,
           proactiveAuthorization: opts.proactiveAuthorization === true,
           signal,
+          controlContext: opts.controlContext,
         });
       }).then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
     });

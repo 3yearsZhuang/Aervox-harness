@@ -238,3 +238,79 @@ describe("ControlContext", () => {
     });
   });
 });
+
+it("子任务默认继承预算、显式收紧回记父预算，额外 signal 不切断父取消", () => {
+  const parent = createControlContext({ tokenBudget: { maxTokens: 12, usedTokens: 0 }, callBudget: { maxCalls: 3, usedCalls: 0 } });
+  const first = parent.deriveSubtask({ tighterTokenBudget: 8, subtaskSignal: new AbortController().signal });
+  const sibling = parent.deriveSubtask();
+  first.recordTokensUsed(7); first.recordCallUsed();
+  expect(parent.tokenBudget?.usedTokens).toBe(7);
+  expect(parent.callBudget?.usedCalls).toBe(1);
+  expect(sibling.remainingTokens).toBe(5);
+  expect(sibling.remainingCalls).toBe(2);
+  parent.abort("parent");
+  expect(first.isAborted()).toBe(true);
+  first.dispose(); sibling.dispose(); parent.dispose();
+});
+
+it.each([0, 1, 2, 3])("真实执行回路遵守 %s 次派发预算（模型和工具共享）", async (maxCalls) => {
+  const store = new InMemoryExecutionStore(); store.seedAttempt({ id: "a", turnId: "t" });
+  let modelCalls = 0; let toolCalls = 0;
+  const control = createControlContext({ callBudget: { maxCalls, usedCalls: 0 } });
+  const result = await executeTurn({ execution: store, contextBuilder: defaultContextBuilder,
+    provider: { id: "metered", async *stream({ step }) { modelCalls++; yield step === 1 ? { text: "", isFinal: true, toolCalls: [{ id: "c", name: "read", arguments: {} }] } : { text: "done", isFinal: true }; } },
+    tools: { tools: [{ name: "read", description: "read", readOnly: true }], execute: async () => { toolCalls++; return { ok: true }; } },
+  }, { turnId: "t", attemptId: "a", userMessage: "hello", controlContext: control });
+  expect(modelCalls + toolCalls).toBe(maxCalls);
+  expect(control.callBudget?.usedCalls).toBe(maxCalls);
+  expect(result.status).toBe(maxCalls === 3 ? "completed" : "failed");
+});
+
+it.each([0, 1000])("Token 预算 %s 在派发前/流式输出中执行，超额后不调用工具", async (maxTokens) => {
+  const store = new InMemoryExecutionStore(); store.seedAttempt({ id: "a", turnId: "t" });
+  const control = createControlContext({ tokenBudget: { maxTokens, usedTokens: 0 } });
+  let calls = 0;
+  const tool = vi.fn();
+  const result = await executeTurn({ execution: store, contextBuilder: defaultContextBuilder,
+    provider: { id: "tokens", async *stream(request) { calls++; expect(request.maxOutputTokens).toBeLessThan(maxTokens); yield { text: "x".repeat(1001), isFinal: true, toolCalls: [{ id: "c", name: "read", arguments: {} }] }; } },
+    tools: { tools: [{ name: "read", description: "read", readOnly: true }], execute: tool },
+  }, { turnId: "t", attemptId: "a", userMessage: "hi", controlContext: control });
+  expect(result.status).toBe("failed"); expect(calls).toBe(maxTokens ? 1 : 0); expect(tool).not.toHaveBeenCalled();
+  const events = await store.listEvents("t"); expect(events.at(-1)?.data).toMatchObject({ status: "Interrupted" });
+});
+
+it("取消不合作的模型时有界返回，不接受迟到内容", async () => {
+  const store = new InMemoryExecutionStore(); store.seedAttempt({ id: "a", turnId: "t" });
+  const control = createControlContext();
+  let release!: () => void; let entered!: () => void;
+  const ready = new Promise<void>((r) => { entered = r; });
+  const pending = new Promise<void>((r) => { release = r; });
+  const run = executeTurn({ execution: store, contextBuilder: defaultContextBuilder,
+    provider: { id: "hung", async *stream() { entered(); await pending; yield { text: "late", isFinal: true }; } },
+  }, { turnId: "t", attemptId: "a", userMessage: "hi", controlContext: control });
+  await ready; control.abort();
+  expect((await run).status).toBe("cancelled"); release();
+  expect((await store.listEvents("t")).some((e) => e.eventType === "delta")).toBe(false);
+});
+
+it("Provider 累计 usage 只向上补计，不因较小后续报数退款", async () => {
+  const store = new InMemoryExecutionStore(); store.seedAttempt({ id: "a", turnId: "t" });
+  const control = createControlContext({ tokenBudget: { maxTokens: 1500, usedTokens: 0 } });
+  const result = await executeTurn({ execution: store, contextBuilder: defaultContextBuilder,
+    provider: { id: "usage", async *stream() { yield { text: "", isFinal: false, usage: { totalTokens: 900 } }; yield { text: "", isFinal: true, usage: { totalTokens: 800 } }; } },
+  }, { turnId: "t", attemptId: "a", userMessage: "hi", controlContext: control });
+  expect(result.status).toBe("completed"); expect(control.tokenBudget?.usedTokens).toBe(900);
+});
+
+it("取消发生在工具预留期间时不得进入 handler", async () => {
+  const store = new InMemoryExecutionStore(); store.seedAttempt({ id: "a", turnId: "t" });
+  const control = createControlContext();
+  const reserve = store.reserveToolExecution.bind(store);
+  store.reserveToolExecution = async (input) => { const result = await reserve(input); control.abort(); return result; };
+  const execute = vi.fn(async () => ({ ok: true }));
+  const result = await executeTurn({ execution: store, contextBuilder: defaultContextBuilder,
+    provider: { id: "tool", async *stream() { yield { text: "", isFinal: true, toolCalls: [{ id: "c", name: "read", arguments: {} }] }; } },
+    tools: { tools: [{ name: "read", description: "read", readOnly: true }], execute },
+  }, { turnId: "t", attemptId: "a", userMessage: "hi", controlContext: control });
+  expect(result.status).toBe("cancelled"); expect(execute).not.toHaveBeenCalled();
+});

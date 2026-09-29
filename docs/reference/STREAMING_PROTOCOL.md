@@ -6,20 +6,22 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.1
-updated_at: 2026-09-16
-reviewed_at: 2026-09-16
+version: 0.4.2
+updated_at: 2026-09-29
+reviewed_at: 2026-09-29
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 Turn 流式协议（SPC）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-16
+- 修改人：3yearszhuang · 2026-09-29
 
 关联：`ADR-002`、`ADR-012`、`CR-019`、`CR-022`、`CR-027`、`CR-030`、`NFR-PERF-001`、`NFR-REL-001`、`NFR-SEC-001`
 
 本文是对话流式 API 和客户端行为的可执行契约。OpenAPI 3.1 描述 HTTP 资源、鉴权和错误；本文件描述 SSE 事件 envelope、状态机、重连、取消、幂等和持久化顺序。实现必须从同一份 `packages/contracts` schema 生成服务端校验、客户端类型和契约测试，不能只依赖本文件中的示例。
+
+PR #231 投影修复：服务端实时与历史回放共用 `packages/contracts/src/stream-projection.ts` 的 Schema 白名单，嵌套 DTO 同样移除未声明字段；工具进度保留调用标识、名称和结果状态；刷题工具结果仅公开题目/作答标识、判定和错题本收录位，其余原始参数/结果留在 Owner 账本。客户端 Fetch 在三次连接尝试内保留同一 Turn、Projector 和最后已投递事件游标，410 明确失败，不新建 Turn。IPC 保留请求内水位与终态锁，并丢弃关闭后的迟到消息；主进程自动重连仍未纳入本次验收。工作台以会话代际隔离 A→B→A 旧响应，已挂载真实组件验证。SSE 背压/分页及跨进程恢复仍按 ITER-013 验收。
 
 ## 1. 适用范围与不变量
 

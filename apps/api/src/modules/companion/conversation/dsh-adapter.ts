@@ -86,22 +86,12 @@ export async function failTurnWithError(
   message: string,
   code = "MODEL_UNAVAILABLE",
 ): Promise<void> {
-  await store.appendEvent({
-    turnId,
-    attemptId,
-    sequence: await store.nextSequence(turnId),
-    eventType: "error",
-    data: {
-      code,
-      retryable: false,
-      message,
-      lastSequence: Math.max(0, (await store.nextSequence(turnId)) - 1),
-    },
+  await store.finalizeAttemptWithEvent({
+    turnId, attemptId, status: "Failed", expectedFencingToken: 0,
+    sequence: await store.nextSequence(turnId), eventType: "error",
+    eventData: { code, retryable: false, message, lastSequence: await store.nextSequence(turnId) },
     safetyDecision: "approved",
-    // B1：Attempt 未被 claim（fencing=0）；携带期望值使事件写入走 fencing CAS（抢占后自然被拒）
-    expectedFencingToken: 0,
   }).catch(() => undefined);
-  await store.finalizeAttempt({ turnId, attemptId, status: "Failed" }).catch(() => undefined);
 }
 
 /**
@@ -127,7 +117,6 @@ export async function runDshAdapterTurn(
   const resolved = await resolveDshTurnAdapter();
   if (!resolved.ok) {
     await failTurnWithError(store, input.turnId, input.attemptId, resolved.reason, "ADAPTER_UNAVAILABLE");
-    await store.updateTurnStatus({ turnId: input.turnId, status: "Failed" }).catch(() => undefined);
     return;
   }
   const result = await runAdapterTurn(store, resolved.driver, {
@@ -139,10 +128,8 @@ export async function runDshAdapterTurn(
     controlContext: input.controlContext,
   });
   if (result.status === "Completed") {
-    await store.updateTurnStatus({ turnId: input.turnId, status: "Completed" });
     await onFinalized?.("Completed");
   } else if (result.status === "Failed" || result.status === "Interrupted") {
-    await store.updateTurnStatus({ turnId: input.turnId, status: result.status }).catch(() => undefined);
     await onFinalized?.(result.status);
   }
 }

@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.7.2
-updated_at: 2026-09-28
-reviewed_at: 2026-09-28
+version: 0.7.3
+updated_at: 2026-09-29
+reviewed_at: 2026-09-29
 review_interval_days: 90
 ---
 
 # Agent Harness Loop 设计与落地规范
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-09-28
+- 修改人：3yearszhuang · 2026-09-29
 
 关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[Agent Loop 落地进展追溯](agent-loop-rollout-history.md)（AVX-HAR-002）、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[ADR-016](adr/ADR-016-base-boundaries.md)、[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md)、`CR-012`（已归档）、`CR-021`（已归档）、`CR-022`（已归档）、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
@@ -358,6 +358,10 @@ CAP-033 的后台主动动作仍复用本管线，但授权来源改为用户确
 | `maxInboxItemsPerStep` | 20 | 多余项留待后续 Step/Turn |
 
 预算可以按 token、费用、时间、工具调用次数和并发分别限制。任何限额触发都必须写入 Attempt/Step 终止原因和审计，不得只输出一条自然语言提示。
+
+PR #231 的原生执行路径使用 `ControlContext`：模型请求（含重试）与工具派发共享调用预算；子任务继承父截止、本地处理限制和剩余额度，子任务消耗回记父级，额外取消信号与父信号合并。Token 执行预算是保守准入/消费限额：输入消息和工具定义、输出正文/思考/工具请求先按 UTF-8 字节计量，Provider 累计 `totalTokens` 只可向上补记；它不等同供应商账单。OpenAI 兼容 Provider 同时收到剩余 `max_tokens`。零额或不足以容纳输入时不派发，流式超额中断并写明原因。没有设置预算时沿用原行为；费用、模型窗口和动态授权修订的全量验收仍在原队列。
+
+`SessionLedgerPort` 仅选取状态/事件方法，工具副作用和模型遥测仍属执行 Port。API 组合根继续选择 SQLite；独立 CLI 使用内存实现与规则模型/模拟笔记，不表示生产 Host 已全部解耦。原生 Loop 及 Adapter 的执行终态通过带 fencing 的原子提交更新 Turn、Attempt 和终止事件；CAS 失败不由 API 补写覆盖。当前 Adapter 尚无预算/本地策略协商能力，对这些约束明确拒绝派发，不能静默忽略。Host 的 `stop({drainTimeoutMs})` 将中止和收敛包含在总截止内；未排空则报错，不能以成功返回宣称清理完成。
 
 ## 11. 取消、租约与恢复
 

@@ -245,7 +245,7 @@ export function createRuntimeToolProvider(
       // 只读工具：自主执行
       if (tool.safetyLevel === "read_only") {
         try {
-          const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: false });
+          const output = await runtime.callTool(tenant, tool.id, input.arguments, { signal: input.signal, controlContext: input.controlContext, approval: false });
           return emitResult({ ok: true, output });
         } catch (err) {
           return emitResult({ ok: false, error: errorMessage(err) });
@@ -270,7 +270,7 @@ export function createRuntimeToolProvider(
         });
         if (granted) {
           try {
-            const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: true });
+            const output = await runtime.callTool(tenant, tool.id, input.arguments, { signal: input.signal, controlContext: input.controlContext, approval: true });
             return emitResult({ ok: true, output });
           } catch (err) {
             return emitResult({ ok: false, error: errorMessage(err) });
@@ -316,6 +316,7 @@ export function createRuntimeToolProvider(
               async () => {
                 try {
                   const output = await runtime.callTool(tenant, tool.id, input.arguments, {
+                    signal: input.signal, controlContext: input.controlContext,
                     approval: true,
                     proactiveAuthorization: true,
                   });
@@ -343,7 +344,7 @@ export function createRuntimeToolProvider(
           }, `${FULL_ACCESS_DECIDER_PREFIX}${actor}`);
           if (!recorded) return emitResult({ ok: false, error: "full_access_approval_not_recorded" });
           try {
-            const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: true });
+            const output = await runtime.callTool(tenant, tool.id, input.arguments, { signal: input.signal, controlContext: input.controlContext, approval: true });
             return emitResult({ ok: true, output });
           } catch (err) {
             return emitResult({ ok: false, error: errorMessage(err) });

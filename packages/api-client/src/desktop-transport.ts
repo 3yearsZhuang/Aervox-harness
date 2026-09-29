@@ -159,6 +159,7 @@ function streamTurnViaBridge(
 
     const projector = new TurnStreamProjector();
     stop = bridge.streamTurn(content, { toolApprovalMode, attachments, requestId, metadata }, (message) => {
+      if (settled) return;
       armIdleTimer();
       if (!message || typeof message !== 'object') return;
       const envelope = message as { type?: unknown; event?: unknown; message?: unknown };

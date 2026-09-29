@@ -47,7 +47,7 @@ review_interval_days: 90
 | `ADR-015` | [Vue 全栈单栈方案](reference/adr/ADR-015-vue-full-stack.md) | 2026-09-13 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
 | `ADR-016` | [底座边界冻结与依赖规则门禁](reference/adr/ADR-016-base-boundaries.md) | 2026-09-28 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
 | `ADR-017` | [上下文清单、模型运行记录与多步执行持久化](reference/adr/ADR-017-context-manifest-modelrun-step.md) | 2026-09-10 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
-| `AVX-SPC-001` | [流式协议](reference/STREAMING_PROTOCOL.md) | 2026-09-16 | OpenAPI/事件 schema 变更 | `packages/contracts` 版本高于文档描述 |
+| `AVX-SPC-001` | [流式协议](reference/STREAMING_PROTOCOL.md) | 2026-09-29 | OpenAPI/事件 schema 变更 | `packages/contracts` 版本高于文档描述 |
 | `AVX-DB-001` | [SQLite 本地单用户数据库契约](reference/DATABASE.md) | 2026-09-28 | Schema/仓储接口/迁移计划变更 | CR-030 目标、当前过渡状态、迁移器或回滚门禁与实现不一致 |
 | `AVX-DB-002` | [数据库数据模型覆盖矩阵](reference/database-coverage-matrix.md) | 2026-09-27 | PRD §8 实体增减或落表状态变更 | 实体落表状态、CR-030 阶段、仓储 Port 或 DDL 初始化与实现不符 |
 | `AVX-DATA-001` | [数据与隐私](reference/DATA_PRIVACY.md) | 2026-09-17 | 每季度 + 数据流/迁移变更 | 本地目录、导出、备份、破坏性迁移或删除边界未评审 |
@@ -68,7 +68,7 @@ review_interval_days: 90
 | `AVX-CAP-001` | [能力组合与可选化目录规范](reference/capability-composition.md) | 2026-09-28 | G2 评审 + 能力宿主/适配器机制变更 | Manifest、Profile、Provider、Adapter、Kernel 边界与实现或 ADR/CR 不一致 |
 | `ADR-018` | [CAP-033 本地私密存储与主动智能 Host](reference/adr/ADR-018-proactive-local-privacy-host.md) | 2026-09-17 | CAP-033 本地存储、OS Permission Broker、动作授权或后台生命周期变更 | Host 签名/设备绑定、local-only、全动作授权、七天提炼清理或恢复门禁与实现不一致 |
 | `ADR-019` | [主动智能外部连接本地网关](reference/adr/ADR-019-proactive-integrations-local-gateway.md) | 2026-09-17 | HA/健康连接、凭据隔离、工具白名单或撤销语义变更 | REST/WS、OAuth、实体/service 白名单、健康最小化或连接删除与实现不一致 |
-| `AVX-HAR-001` | [Agent Harness Loop 设计与落地规范](reference/agent-harness-loop.md) | 2026-09-28 | G2 评审 + Agent Loop/Provider/工具/持久化边界变更 | Turn/Attempt/Step、Provider、Tool、Inbox、恢复或 Profile 语义与实现/ADR 不一致 |
+| `AVX-HAR-001` | [Agent Harness Loop 设计与落地规范](reference/agent-harness-loop.md) | 2026-09-29 | G2 评审 + Agent Loop/Provider/工具/持久化边界变更 | Turn/Attempt/Step、Provider、Tool、Inbox、恢复或 Profile 语义与实现/ADR 不一致 |
 | `AVX-HAR-002` | [Agent Loop 分阶段落地进展与追溯历史](reference/agent-loop-rollout-history.md) | 2026-09-17 | 各阶段代码落位、表结构或测试矩阵变更 | 落地条目、测试覆盖映射或包路径与实现不一致 |
 | `AVX-WEB-001` | [Web 工作台实现说明](explanation/web-implementation.md) | 2026-09-18 | Web 端实现或技术基线变更 | `apps/web` 结构与 ADR-015/规划不一致 |
 | `AVX-PLUG-001` | [Aervox 插件开发规范](reference/plugin-config-and-pages.md) | 2026-09-28 | 插件声明、分发、生命周期或运行时机制变更 | Manifest、Config、Page Bridge、Turn、UI、开发者约束与机器强制范围不一致 |

@@ -1,12 +1,6 @@
 #!/usr/bin/env node
-/**
- * Aervox｜思隅 — 独立 Headless Agent CLI 运行器 (Aervox Core CLI)
- *
- * 核心特性与架构铁证（见 aervox_core_evolution_plan.md §5.2）：
- * 1. 零 Fastify、零 SQLite 数据库依赖：纯内存持久化与轻量级生命周期；
- * 2. 极速冷启动：内核加载与就绪时间严格 <= 150ms（实测 ~35ms）；
- * 3. 完整执行控制回路：ControlContext 截止时间、取消中断、调用预算与 Token 限制；
- * 4. 原生工具沙箱：支持只读白名单工具（search_notes, get_utc_now）与授权拦截。
+/** Standalone rule-provider demonstration with in-memory state and mock notes.
+ * Module-load timing is a local observation, not a cold-process startup SLA.
  */
 
 import { performance } from "node:perf_hooks";
@@ -21,8 +15,6 @@ const {
   InMemoryExecutionStore,
   createMockToolProvider,
   executeTurn,
-  createScriptedProvider,
-  createOpenAICompatProvider,
   defaultContextBuilder,
 } = await import("../packages/agent-loop/dist/index.js");
 
@@ -33,14 +25,14 @@ function createSmartCliProvider() {
   return {
     id: "smart-cli-provider",
     async *stream(request) {
-      const messages = request.messages || [];
+      const messages = request.context.messages || [];
       const lastMsg = messages[messages.length - 1]?.content || "";
       const step = request.step;
 
       // 第二步：工具已返回结果，模型总结回答
       if (step > 1) {
         yield {
-          text: `根据检索到的最新信息，我已经为您整理好复习要点：\n- 今日重点复习三角函数与间隔重复卡片。\n（以上内容由思隅 Headless 内核通过本地工具检索完成）`,
+          text: `演示工具返回：${lastMsg}`,
           isFinal: true,
         };
         return;
@@ -89,7 +81,9 @@ async function runSmokeTest() {
   console.log(`[1/5] 内核加载耗时: ${startupElapsedMs.toFixed(2)} ms (基准门槛 <= 150ms) -> ${startupElapsedMs <= 150 ? "PASS" : "WARN"}`);
 
   const store = new InMemoryExecutionStore();
-  const tools = createMockToolProvider();
+  const demoTools = createMockToolProvider();
+  const calls = [];
+  const tools = { ...demoTools, execute: async (input) => { calls.push(input.name); return demoTools.execute(input); } };
 
   // 测试 1: 普通多轮对话与问答
   console.log("[2/5] 验证多轮对话无工具执行回路...");
@@ -116,6 +110,7 @@ async function runSmokeTest() {
       controlContext: control1,
     },
   );
+  control1.dispose();
   const turn1Elapsed = performance.now() - turn1Start;
   if (res1.status !== "completed") throw new Error(`Turn 1 failed: status=${res1.status}`);
   console.log(`      Turn 1 执行成功: status=${res1.status}, 耗时=${turn1Elapsed.toFixed(2)}ms`);
@@ -145,8 +140,15 @@ async function runSmokeTest() {
       controlContext: control2,
     },
   );
+  control2.dispose();
   const turn2Elapsed = performance.now() - turn2Start;
   if (res2.status !== "completed") throw new Error(`Turn 2 failed: status=${res2.status}`);
+  if (res2.stepsTaken !== 2 || calls.join(",") !== "search_notes") throw new Error("tool loop did not execute exactly once");
+  const events2 = await store.listEvents("turn_smoke_2");
+  if (!events2.some((e) => e.eventType === "tool_result" && e.data?.ok && e.data?.name === "search_notes")) throw new Error("tool result missing");
+  if (!events2.some((e) => e.eventType === "delta" && e.data?.text?.includes("matches"))) throw new Error("final response did not use tool result");
+  const blocked = await tools.execute({ name: "save_memory_note", arguments: {}, turnId: "t", attemptId: "a", invocationId: "blocked" });
+  if (blocked.ok || blocked.error !== "requires_approval") throw new Error("write approval bypassed");
   console.log(`      Turn 2 执行成功: stepsTaken=${res2.stepsTaken}, status=${res2.status}, 耗时=${turn2Elapsed.toFixed(2)}ms`);
 
   // 测试 3: 执行控制与超时/取消中断 (ControlContext Interruption)
@@ -174,6 +176,7 @@ async function runSmokeTest() {
       controlContext: expiredControl,
     },
   );
+  expiredControl.dispose();
   const turn3Elapsed = performance.now() - turn3Start;
   if (res3.status !== "failed" || res3.reason !== "deadline_exceeded") {
     throw new Error(`Turn 3 should fail with deadline_exceeded, got status=${res3.status}, reason=${res3.reason}`);
@@ -192,20 +195,22 @@ async function runSmokeTest() {
   console.log(`      堆内存使用 (Heap): ${(memUsage.heapUsed / 1024 / 1024).toFixed(2)} MB`);
 
   console.log("==================================================================");
-  console.log("  ALL SMOKE CHECKS PASSED: 思隅核心具备 100% 独立的无依赖运行能力！");
+  console.log("  ALL SMOKE CHECKS PASSED: 内存状态、规则模型及演示工具的独立运行检查通过。");
   console.log("==================================================================");
 }
 
 /** 交互式 REPL 会话 */
 async function runInteractiveRepl() {
   console.log("==================================================================");
-  console.log(`  Aervox Core CLI — 思隅交互式内核 (启动就绪 ${startupElapsedMs.toFixed(1)}ms)`);
+  console.log(`  Aervox Core CLI — 规则模型与模拟笔记演示 (启动就绪 ${startupElapsedMs.toFixed(1)}ms)`);
   console.log("  输入您的问题与思隅对话，输入 /exit 退出，输入 /smoke 执行自动化基准测试");
   console.log("==================================================================");
 
   const rl = createInterface({ input, output });
   const store = new InMemoryExecutionStore();
-  const tools = createMockToolProvider();
+  const demoTools = createMockToolProvider();
+  const calls = [];
+  const tools = { ...demoTools, execute: async (input) => { calls.push(input.name); return demoTools.execute(input); } };
 
   let turnSeq = 1;
   const sessionId = `cli_session_${Date.now().toString(36)}`;
@@ -255,6 +260,7 @@ async function runInteractiveRepl() {
         },
       );
 
+      control.dispose();
       // 从 store 获取本 turn 生成的消息
       const events = (await store.listEvents(turnId)) || [];
       const deltaTexts = events

@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.46.11
+version: 1.46.12
 updated_at: 2026-09-29
 reviewed_at: 2026-09-29
 review_interval_days: 90
@@ -187,9 +187,10 @@ review_interval_days: 90
 
 | 落地内容与功能描述 | 关联 CAP | 实现与测试位置 | 日期 | 验证 | 来源 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| PR #231 控制/投影缺陷修复切片 | CAP-007/018/020/033 + 架构基础设施 | [CR-056 §10.4](changes/CR-056-build-to-delete-pi-style-architecture.md#104-pr-231-缺陷修复切片2026-09-29)、Agent Loop、Host、Contracts 投影、API、客户端与真实工作台测试 | 2026-09-29 | 控制 21、API/SQLite 6、Host 9、Adapter 8、DSH 4、子任务 5、客户端 12、UI 挂载 1 项通过；CLI 两步实际工具循环通过；Token 为保守执行预算，Adapter 不支持策略时拒绝；完整迭代与发布门禁保留 | 原生修复 |
 | Aervox Core 部分实现与 PR #231 审查更正：撤回 CR-056 Verified/Released 及 ITER-007/013/014 全量移交；保留原验收和功能差量 | CAP-002/005/007/018/020/027/033 + 架构基础设施 | `packages/agent-loop/src/{control-context,executor,ports}.ts`、`packages/host-agent/src/agent-host.ts`、`apps/api/src/modules/companion/conversation/{agent-executor,broadcasting-store}.ts`、`packages/api-client/src/projector.ts`、`scripts/run-headless-agent.mjs`；[CR-056 §10.3](changes/CR-056-build-to-delete-pi-style-architecture.md#103-pr-231-合并前复核2026-09-29) | 2026-09-29 | 基线 `51143d1`；零预算仍执行、父子预算/取消不继承共四项反向复现；真实 SQLite 终态不一致、SSE 重放绕过脱敏均复现；CLI smoke 报 PASS 但工具案例仅一步；原登记的 API 控制测试文件不存在。本地 `./aervox ci all` 全量通过，80 文件文档门禁通过（保留既有 S5 提示），不能代替上述失败验收 | PI-01（设计参考，未移植源码） + 原生审查 |
 | PR #230 BTD-T09/10 物理退出恢复补证 | CAP-005/007/020/027 + 架构基础设施 | `scripts/run-removability-drill.mjs`、`scripts/fixtures/removability-data-rights.mjs`；[CR-056 §10.2](changes/CR-056-build-to-delete-pi-style-architecture.md#102-pr-230-缺陷修复切片2026-09-29) | 2026-09-29 | 三阶段各 11 包强制冷构建、真实临时 SQLite 读取/导出/软删除与接回、模型及侧车保留/管理、非目标工具与节点 API 通过；仅关闭试点缺陷，不代表擦除、跨平台或 Released | 原生验证 |
-| PR #230 复核缺陷修复切片 | CAP-005/007/020 + 架构基础设施 | Tools Runtime、ModelRuntimeService、可移除守卫；[CR-056 §10.2](changes/CR-056-build-to-delete-pi-style-architecture.md#102-pr-230-缺陷修复切片2026-09-29) | 2026-09-29 | 工具生命周期 7、Driver SPI 6、守卫 3 回归通过；复核既有契约无需变更；物理退出演练仍在执行 | 原生修复 |
+| PR #230 复核缺陷修复切片 | CAP-005/007/020 + 架构基础设施 | Tools Runtime、ModelRuntimeService、可移除守卫；[CR-056 §10.2](changes/CR-056-build-to-delete-pi-style-architecture.md#102-pr-230-缺陷修复切片2026-09-29) | 2026-09-29 | 工具生命周期 7、Driver SPI 6、守卫 3 回归通过；复核既有契约无需变更；物理退出演练补证见上一行 | 原生修复 |
 | CR-056 / ITER-014 阶段一实现与 PR #230 审查更正：基础分层已实现，BTD-02/04/07 验收未完成，撤回全量闭环与移交声明 | CAP-002/005/007/018/020/027/033 + 架构基础设施 | [CR-056 §10.1](changes/CR-056-build-to-delete-pi-style-architecture.md#101-pr-230-合并前复核2026-09-29)、[当前队列](../../plan.md) | 2026-09-29 | 基线 `ad91dbf` 冷构建；复现开关后旧 disposer 无效、关闭后迟到 Driver 启动、Worker 动态私有导入漏检；物理移除及存量数据权利演练未验证；固定来源链接已修复；补齐 DSH 参考子模块后本地 `./aervox ci all` 全量通过，79 文件文档门禁通过（既有 S5 提示），不消除上述缺陷 | PI-01（设计参考，未移植源码） + 原生审查 |
 | CR-056 BTD-04 模型 Driver 替换与代际生命周期 | 基础设施 / CAP-002/020 | apps/api/src/modules/ecosystem/model-runtime/{driver,service,index}.ts、apps/api/test/model-runtime-driver-spi.test.ts；ModelRuntimeService 依赖注入 Driver SPI，默认 unavailableDriver 拒绝无合规 Provider 且不出网，落地 start/stop/dispose 幂等编排与代际 protection | 2026-09-28 | API typecheck 通过；扩展 SPI 4 用例通过（验证注入编排、unavailable 拒绝与文件保留、生命周期与幂等释放、代际防污染）；原模型运行时 API 与子进程测试 22 用例全绿 | PI-01（设计参考，未移植源码） |
 | CR-056 BTD-07 静态守卫与 Fake 退出夹具（物理演练未验证，见 §10.1 复核） | 基础设施 / CAP-005/007/020/027 | scripts/check-removable-implementation.{mjs,test.mjs}、apps/api/test/memory-tool-contribution.test.ts、package.json；实现 MemoryStore 工具贡献与模型驱动全仓私有引用审计门禁，落地 Fake 注册表构造通用 Runtime 及 Memory 工具贡献挂载、使用、卸载退出与数据隔离演练 | 2026-09-28 | check:guards 24/24 全绿且可移除实现守卫 0 违规；Memory 工具贡献测试 3/3 通过；全量 72 套件 476 测试全绿 | PI-01（设计参考，未移植源码） |
@@ -796,15 +797,15 @@ doc_status: draft
 decision_status: proposed
 delivery_status: planned
 version: 0.1.0
-updated_at: 2026-09-28
-reviewed_at: 2026-09-28
+updated_at: 2026-09-29
+reviewed_at: 2026-09-29
 review_interval_days: 90
 ---
 
 # CR-001 变更标题
 
 - 提出人：<账号> · YYYY-MM-DD
-- 修改人：3yearszhuang · 2026-09-28
+- 修改人：3yearszhuang · 2026-09-29
 
 ## 变更原因与证据
 ## 关联能力与需求
