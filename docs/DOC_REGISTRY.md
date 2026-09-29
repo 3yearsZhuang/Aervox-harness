@@ -27,9 +27,9 @@ review_interval_days: 90
 | `AVX-PRD-002` | [能力验收标准附录](reference/prd-cap-acceptance.md) | 2026-09-17 | 每次版本立项 / CAP 验收变更 | P0/P1/P2/P3/专项验收标准未同步 |
 | `AVX-SRS-001` | [SRS](reference/SRS.md) | 2026-09-17 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
 | `AVX-SRS-002` | [主动智能与外部信号需求规格](reference/srs-proactive-intelligence.md) | 2026-09-10 | G1 需求基线前 / 主动智能需求变更 | CAP-033/034/035 FR/BR/AC/DATA/SEC 变化未同步 |
-| `AVX-SAD-001` | [架构设计](reference/ARCHITECTURE.md) | 2026-09-28 | G2 评审 + 架构变更 | CR-030 本地单用户边界、API 安全或数据拓扑未同步 |
+| `AVX-SAD-001` | [架构设计](reference/ARCHITECTURE.md) | 2026-09-29 | G2 评审 + 架构变更 | CR-030 本地单用户边界、API 安全或数据拓扑未同步 |
 | `AVX-DS-001` | [视觉系统与设计规范](reference/DESIGN.md) | 2026-09-17 | UI 重构 / 主题演进 | 视觉规范、Token 或禁止模式未同步 |
-| `ADR-001~019` | [ADR 索引](reference/adr/README.md) | 2026-09-18 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
+| `ADR-001~020` | [ADR 索引](reference/adr/README.md) | 2026-09-29 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
 | `ADR-001` | [模块化单体架构与 Worker 拆分](reference/adr/ADR-001-modular-monolith.md) | 2026-09-13 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
 | `ADR-002` | [Web 端与 API 契约设计（已归档，由 ADR-015 替代）](reference/adr/ADR-002-web-api-contract.md) | 2026-09-17 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
 | `ADR-003` | [SQLite 永久本地真源与 Schema/Repository 分层](reference/adr/ADR-003-postgres-retrieval.md) | 2026-09-17 | G2 评审 + 决策变更 | CR-030 修订、Repository 边界或迁移协议未同步 |
@@ -47,7 +47,7 @@ review_interval_days: 90
 | `ADR-015` | [Vue 全栈单栈方案](reference/adr/ADR-015-vue-full-stack.md) | 2026-09-13 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
 | `ADR-016` | [底座边界冻结与依赖规则门禁](reference/adr/ADR-016-base-boundaries.md) | 2026-09-28 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
 | `ADR-017` | [上下文清单、模型运行记录与多步执行持久化](reference/adr/ADR-017-context-manifest-modelrun-step.md) | 2026-09-10 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
-| `AVX-SPC-001` | [流式协议](reference/STREAMING_PROTOCOL.md) | 2026-09-16 | OpenAPI/事件 schema 变更 | `packages/contracts` 版本高于文档描述 |
+| `AVX-SPC-001` | [流式协议](reference/STREAMING_PROTOCOL.md) | 2026-09-29 | OpenAPI/事件 schema 变更 | `packages/contracts` 版本高于文档描述 |
 | `AVX-DB-001` | [SQLite 本地单用户数据库契约](reference/DATABASE.md) | 2026-09-28 | Schema/仓储接口/迁移计划变更 | CR-030 目标、当前过渡状态、迁移器或回滚门禁与实现不一致 |
 | `AVX-DB-002` | [数据库数据模型覆盖矩阵](reference/database-coverage-matrix.md) | 2026-09-27 | PRD §8 实体增减或落表状态变更 | 实体落表状态、CR-030 阶段、仓储 Port 或 DDL 初始化与实现不符 |
 | `AVX-DATA-001` | [数据与隐私](reference/DATA_PRIVACY.md) | 2026-09-17 | 每季度 + 数据流/迁移变更 | 本地目录、导出、备份、破坏性迁移或删除边界未评审 |
@@ -68,7 +68,8 @@ review_interval_days: 90
 | `AVX-CAP-001` | [能力组合与可选化目录规范](reference/capability-composition.md) | 2026-09-28 | G2 评审 + 能力宿主/适配器机制变更 | Manifest、Profile、Provider、Adapter、Kernel 边界与实现或 ADR/CR 不一致 |
 | `ADR-018` | [CAP-033 本地私密存储与主动智能 Host](reference/adr/ADR-018-proactive-local-privacy-host.md) | 2026-09-17 | CAP-033 本地存储、OS Permission Broker、动作授权或后台生命周期变更 | Host 签名/设备绑定、local-only、全动作授权、七天提炼清理或恢复门禁与实现不一致 |
 | `ADR-019` | [主动智能外部连接本地网关](reference/adr/ADR-019-proactive-integrations-local-gateway.md) | 2026-09-17 | HA/健康连接、凭据隔离、工具白名单或撤销语义变更 | REST/WS、OAuth、实体/service 白名单、健康最小化或连接删除与实现不一致 |
-| `AVX-HAR-001` | [Agent Harness Loop 设计与落地规范](reference/agent-harness-loop.md) | 2026-09-28 | G2 评审 + Agent Loop/Provider/工具/持久化边界变更 | Turn/Attempt/Step、Provider、Tool、Inbox、恢复或 Profile 语义与实现/ADR 不一致 |
+| `ADR-020` | [Aervox Core 架构解耦：执行管线中间件、统一审批 SPI 与工具沙箱下沉](reference/adr/ADR-020-aervox-core-decoupling.md) | 2026-09-29 | 智能体执行内核演进 | 核心解耦设计、中间件扩展或审批 SPI 与实现不一致 |
+| `AVX-HAR-001` | [Agent Harness Loop 设计与落地规范](reference/agent-harness-loop.md) | 2026-09-29 | G2 评审 + Agent Loop/Provider/工具/持久化边界变更 | Turn/Attempt/Step、Provider、Tool、Inbox、恢复或 Profile 语义与实现/ADR 不一致 |
 | `AVX-HAR-002` | [Agent Loop 分阶段落地进展与追溯历史](reference/agent-loop-rollout-history.md) | 2026-09-17 | 各阶段代码落位、表结构或测试矩阵变更 | 落地条目、测试覆盖映射或包路径与实现不一致 |
 | `AVX-WEB-001` | [Web 工作台实现说明](explanation/web-implementation.md) | 2026-09-18 | Web 端实现或技术基线变更 | `apps/web` 结构与 ADR-015/规划不一致 |
 | `AVX-PLUG-001` | [Aervox 插件开发规范](reference/plugin-config-and-pages.md) | 2026-09-28 | 插件声明、分发、生命周期或运行时机制变更 | Manifest、Config、Page Bridge、Turn、UI、开发者约束与机器强制范围不一致 |
@@ -89,7 +90,8 @@ review_interval_days: 90
 | `AVX-EXPL-013` | [HLS 本地智能体竞赛：能力拓展与验证规划](explanation/hls-agent-competition-plan.md) | 2026-09-22 | 赛规、GPU/工具环境、Agent 复用路径或实验范围变化；每两周复核 | 评分口径、工具反馈可见性、基线公平、去留证据或交付边界与实测/最新细则不一致 |
 | `AVX-EXPL-011` | [配套硬件方向：能力核查、移动协同取舍与原型路线](explanation/companion-hardware-directions.md) | 2026-09-18 | 移动范围、设备宿主、语音、表现协议、本地模型或外部连接能力变更 | 能力现状、手机重合、器件候选、原型范围、成本或停止条件与实际证据不一致 |
 | `AVX-EXPL-008` | [主动智能模式设计方案](explanation/proactive-intelligence-mode.md) | 2026-09-18 | CR-023/CAP-033、完全访问、全量画像、OS 能力授权、特权观察 Host、本地处理、动作授权、CAP-022/026/027/030 变更 | 四维状态、完整画像 manifest、平台能力清单、OS grant、本地出网边界、七天提炼保留、动作授权、阻断项或实现门禁与基线不一致 |
-| `AVX-DOC-001` | [文档索引](README.md) | 2026-09-28 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
+| `AVX-EXPL-014` | [BTD-08 适配器去留评估与结项说明](explanation/btd08-adapter-retirement-evaluation.md) | 2026-09-29 | BTD-08 裁决、外部运行时适配或 CR-056 状态变更 | 原生覆盖证据、评估结论、退出准则或 CR-056 切片状态与实际不一致 |
+| `AVX-DOC-001` | [文档索引](README.md) | 2026-09-29 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
 | `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-09-28 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |
 | `AVX-DOC-CONF-001` | [文档生命周期登记表](DOC_REGISTRY.md) | 2026-09-29 | 每季度 + 每次文档集变更 | 登记条目与实际文档集不一致 |
 | `CR-053` | [CR-053 llama.cpp 本地模型作为底层能力接入与模型能力探测预算适配](reference/changes/CR-053-llamacpp-provider-and-local-model-support.md) | 2026-09-17 | 变更生命周期 + 决策变更 | 实现与提案差量、决策状态或回滚预案不一致 |

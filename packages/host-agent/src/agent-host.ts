@@ -14,7 +14,7 @@ import type {
   ToolProviderPort,
   AdapterDriverPort,
 } from "@aervox/agent-loop";
-import { defaultContextBuilder, executeTurn } from "@aervox/agent-loop";
+import { defaultContextBuilder, executeTurn, ControlContext } from "@aervox/agent-loop";
 import { runAdapterTurn } from "./adapter-turn.js";
 import type { Observability } from "@aervox/observability";
 
@@ -60,6 +60,10 @@ export interface AgentHostDeps {
    * 缺省视为 always-ready。探针实现须不抛异常（失败返回 false 即可）。
    */
   probeDeps?: () => Promise<HostDependencyProbe[]>;
+  /** BTD-05 / ITER-013: 停机排空最大等待毫秒数（缺省 5000ms） */
+  drainTimeoutMs?: number;
+  /** BTD-05 / ITER-007: 任务执行最大时间预算（毫秒，默认不限） */
+  turnTimeoutMs?: number;
 }
 
 /** 4d：依赖探针结果（readiness 用） */
@@ -96,7 +100,7 @@ export interface HostHealth {
 
 export interface AgentHost {
   start(): Promise<void>;
-  stop(): Promise<void>;
+  stop(options?: { drainTimeoutMs?: number }): Promise<void>;
   /** 当前运行中任务数 */
   running(): number;
   /** 累计处理数（含跳过） */
@@ -123,6 +127,7 @@ export function createAgentHost(deps: AgentHostDeps): AgentHost {
   let draining = false;
   let timer: ReturnType<typeof setInterval> | null = null;
   let pollResolve: (() => void) | null = null;
+  const activeControls = new Map<string, ControlContext>();
   // 4d：健康检查状态
   let startedAt: number | null = null;
   let lastTickAt: number | null = null;
@@ -132,6 +137,10 @@ export function createAgentHost(deps: AgentHostDeps): AgentHost {
 
   const executeOne = async (turn: ClaimableTurn): Promise<void> => {
     const turnStartedAt = Date.now();
+    const control = new ControlContext({
+      deadline: deps.turnTimeoutMs ? Date.now() + deps.turnTimeoutMs : undefined,
+    });
+    activeControls.set(turn.attemptId, control);
     try {
       const store = deps.createStore(turn);
       // 6b：已准入 Adapter 存在且非续跑 → 整 Turn 代理执行（事件映射既有契约 + 收紧）；
@@ -144,6 +153,7 @@ export function createAgentHost(deps: AgentHostDeps): AgentHost {
               attemptId: turn.attemptId,
               userMessage: turn.userMessage,
               tools: deps.tools?.tools,
+              controlContext: control,
             })
           : await executeTurn(
               {
@@ -152,9 +162,16 @@ export function createAgentHost(deps: AgentHostDeps): AgentHost {
                 contextBuilder: deps.contextBuilder ?? defaultContextBuilder,
                 tools: deps.tools,
                 inbox: deps.inbox,
+                controlContext: control,
                 options: turn.resume ? { resume: turn.resume } : undefined,
               },
-              { turnId: turn.turnId, sessionId: turn.sessionId, attemptId: turn.attemptId, userMessage: turn.userMessage },
+              {
+                turnId: turn.turnId,
+                sessionId: turn.sessionId,
+                attemptId: turn.attemptId,
+                userMessage: turn.userMessage,
+                controlContext: control,
+              },
             );
       // 4a-2：宿主与执行侧结果汇总指标 + 审计（failed/skipped 均收敛；
       // 原生 executeTurn 用小写 status，adapter 路径用大写，均归一处理）
@@ -178,6 +195,8 @@ export function createAgentHost(deps: AgentHostDeps): AgentHost {
         fields: { turnId: turn.turnId, sessionId: turn.sessionId, attemptId: turn.attemptId },
       });
     } finally {
+      control.dispose();
+      activeControls.delete(turn.attemptId);
       runningCount -= 1;
       processedCount += 1;
     }
@@ -222,16 +241,36 @@ export function createAgentHost(deps: AgentHostDeps): AgentHost {
         void tick();
       }, pollIntervalMs);
     },
-    async stop() {
+    async stop(options?: { drainTimeoutMs?: number }) {
       draining = true;
       stopped = true;
       if (timer) {
         clearInterval(timer);
         timer = null;
       }
-      // 优雅停机：等待运行中任务完成（drain）
+      const drainTimeout = Math.max(0, options?.drainTimeoutMs ?? deps.drainTimeoutMs ?? 5000);
+      const deadline = Date.now() + drainTimeout;
+      let aborted = false;
+      const abortGraceMs = Math.max(50, Math.min(500, Math.floor(drainTimeout / 2)));
+      const abortAt = Math.max(Date.now(), deadline - abortGraceMs);
+
+      // 优雅停机：等待运行中任务完成（drain），超期则触发在途任务中止
       while (runningCount > 0) {
-        await new Promise((r) => setTimeout(r, 20));
+        if (!aborted && Date.now() >= abortAt) {
+          for (const ctrl of activeControls.values()) {
+            ctrl.abort("host_drain_timeout");
+          }
+          aborted = true;
+        }
+        if (aborted && Date.now() >= deadline) {
+          ob.log.error({
+            event: "agent.host.drain_force_exit",
+            message: `host drain forced exit with ${runningCount} active tasks remaining`,
+          });
+          draining = false;
+          throw new Error(`host_drain_timeout: ${runningCount} active tasks remain`);
+        }
+        await new Promise((r) => setTimeout(r, Math.max(1, Math.min(20, deadline - Date.now()))));
       }
       draining = false;
     },

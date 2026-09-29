@@ -1,3 +1,4 @@
+import { abortableStream, awaitWithSignal } from "./abortable.js";
 /**
  * Aervox｜思隅 @aervox/agent-loop — Turn 执行器（阶段 2：只读工具多 Step Loop）
  *
@@ -29,6 +30,8 @@ export interface ExecuteTurnInput {
   attemptId: string;
   /** 阶段 1/2：用户输入即上下文来源（历史消息组装留后续阶段） */
   userMessage: string;
+  /** BTD-05 / ITER-007：统一执行控制上下文（含取消、超时截止、预算与本地处理限制） */
+  controlContext?: import("./control-context.js").ControlContext;
 }
 
 /**
@@ -88,6 +91,8 @@ export interface ExecuteTurnDeps {
   contextBuilder: ContextBuilderPort;
   /** 阶段 2：只读工具提供者；缺省则工具请求被 fail-closed 拒绝 */
   tools?: ToolProviderPort;
+  /** Phase 2: 工具执行权限审批策略端口 (HITL & Approval SPI) */
+  approvalPolicy?: import("./ports.js").ApprovalPolicyPort;
   /** 2d：删除/撤权未追平闸门；缺省不启用 */
   deletionGate?: DeletionGatePort;
   /** 阶段 5a：受控收件箱（ADR-017）；缺省不启用 Inbox 消费 */
@@ -97,6 +102,8 @@ export interface ExecuteTurnDeps {
    * 写入为可观测副作用（recordModelRun/recordContextManifest），不影响控制流。
    */
   modelRunMeta?: { provider?: string; modelId?: string; purpose?: string };
+  /** BTD-05 / ITER-007：统一执行控制上下文（可在 deps 或 input 中注入） */
+  controlContext?: import("./control-context.js").ControlContext;
   options?: ExecuteTurnOptions;
 }
 
@@ -140,6 +147,7 @@ export async function executeTurn(
   const maxConsecutiveSameTool = options?.maxConsecutiveSameTool ?? 0;
   const maxModelRetries = options?.maxModelRetries ?? 1;
   const startedAt = Date.now();
+  const control = input.controlContext ?? deps.controlContext;
 
   // 4b 续跑：以「抢占续跑」语义重新 claim（预期 = 原执行已持有的 fencing）；
   // 全新执行为 0（首次 claim）。
@@ -223,8 +231,15 @@ export async function executeTurn(
     return { status: "failed", attemptId: input.attemptId, reason };
   };
 
-  /** 2d：Step 边界守卫 —— 取消 / 删除撤权水位 / 总耗时预算，任一命中即收敛 */
+  /** 2d：Step 边界守卫 —— 取消 / 删除撤权水位 / 总耗时预算 / ControlContext，任一命中即收敛 */
   const prematureTermination = async (atSequence: number): Promise<ExecuteResult | null> => {
+    if (control?.isExpired()) {
+      return finalizeInterrupted(atSequence, "deadline_exceeded");
+    }
+    if (control?.budgetExceeded) return finalizeInterrupted(atSequence, "token_or_call_budget_exceeded");
+    if (control?.isAborted()) {
+      return finalizeCancelled(atSequence);
+    }
     const cancelled = await abortIfCancelled(atSequence);
     if (cancelled) return cancelled;
     if (deletionGate && (await deletionGate.isBlocked({ turnId: input.turnId, sessionId: input.sessionId }))) {
@@ -341,13 +356,35 @@ export async function executeTurn(
       };
       const collectStep = async (): Promise<ModelChunk[]> => {
         const out: ModelChunk[] = [];
-        for await (const chunk of provider.stream({
+        const stop = await prematureTermination(sequence);
+        if (stop) { midStreamStop = stop; return out; }
+        const inputCharge = new TextEncoder().encode(JSON.stringify({ messages: context.messages, tools: tools?.tools })).length;
+        if (control && (control.remainingCalls < 1 || control.remainingTokens <= inputCharge)) {
+          midStreamStop = await finalizeInterrupted(sequence, "budget_exhausted");
+          return out;
+        }
+        control?.recordCallUsed();
+        control?.recordTokensUsed(inputCharge);
+        let charged = inputCharge;
+        for await (const chunk of abortableStream(provider.stream({
           turnId: input.turnId,
           attemptId: input.attemptId,
           step,
           context,
           tools: tools?.tools,
-        })) {
+          signal: control?.abortSignal,
+          maxOutputTokens: control && Number.isFinite(control.remainingTokens) ? control.remainingTokens : undefined,
+        }), control?.abortSignal)) {
+          // Charge UTF-8 bytes conservatively when provider token usage is absent;
+          // cumulative provider usage can only increase the charge, never refund it.
+          let charge = new TextEncoder().encode(chunk.text + (chunk.reasoning ?? "") + (chunk.toolCalls ? JSON.stringify(chunk.toolCalls) : "")).length;
+          if (chunk.usage) charge = Math.max(charge, chunk.usage.totalTokens - charged);
+          charged += charge;
+          control?.recordTokensUsed(charge);
+          if (control?.budgetExceeded) {
+            midStreamStop = await finalizeInterrupted(sequence, "token_budget_exceeded");
+            return out;
+          }
           // B2：心跳检查点 —— 长流期间租约丢失则立即中止本 Step（不再产生新事件/副作用）
           heartbeat?.throwIfLost();
           // B4-B：流式期间取消/删除水位/总时长检查（≥100ms 节流，避免每 chunk 压库）
@@ -372,6 +409,8 @@ export async function executeTurn(
       try {
         chunks = await collectStep();
       } catch (err) {
+        const stop = await prematureTermination(sequence);
+        if (stop) return stop;
         if (canRetryModel && !reasoningEmitted && !(err instanceof LeaseLostError) && !heartbeat?.lost) {
           canRetryModel = false;
           midStreamStop = null;
@@ -382,7 +421,9 @@ export async function executeTurn(
         }
       }
       if (midStreamStop) {
-        await flushReasoning(true);
+        // 终态已在 prematureTermination 内 CAS 提交；缓冲 reasoning 属进度事件，
+        // 对终态 Attempt 追加必被 fencing CAS 拒绝（LeaseLostError 会把取消/预算收敛
+        // 误报为 *_finalize_contested / lease_lost）——与 catch 路径同样静默丢弃。
         return midStreamStop;
       }
       await flushReasoning(true);
@@ -550,7 +591,7 @@ export async function executeTurn(
           safetyDecision: "approved",
         });
 
-        let result: ToolCallResult;
+        let result: ToolCallResult | undefined;
         if (seenToolCalls.has(dedupeKey(call.name, call.arguments))) {
           result = { id: call.id, name: call.name, ok: false, error: "duplicate_tool_call" };
           // B4-D：duplicate 账本 + tool_result 事件原子提交（事件对模型可见，模型据之收敛）
@@ -576,6 +617,7 @@ export async function executeTurn(
             expectedFencingToken: claimFencingToken,
           });
         } else {
+          if (control && (control.remainingCalls < 1 || control.remainingTokens <= 0)) return finalizeInterrupted(sequence, "budget_exhausted");
           seenToolCalls.add(dedupeKey(call.name, call.arguments));
           // 2c：幂等预留（§9 idempotency reservation）——意图先于外部副作用持久化（executionId 为 Host 键）
           await execution.reserveToolExecution({
@@ -603,25 +645,78 @@ export async function executeTurn(
               error: `unsafe_tool_arguments: ${inputInspection.reason ?? "validation_failed"}`,
             };
           } else {
+            let subtaskControl: import("./control-context.js").ControlContext | undefined;
+            let removeLostListener: (() => void) | undefined;
             try {
-              // 缺陷 D：工具超时通过 AbortController 传播取消信号，底层可感知并清理挂起副作用
-              const cancel = new AbortController();
-              // B2：租约丢失（心跳探知）→ abort 在途工具（即使工具不感知 signal，工具返回后检查点也会收敛）
-              heartbeat?.onLost(() => cancel.abort());
-              const executed = await withTimeout(
-                tools.execute({
-                  turnId: input.turnId,
-                  attemptId: input.attemptId,
-                  invocationId: executionId,
-                  name: call.name,
-                  arguments: call.arguments,
-                  sessionId: input.sessionId,
-                  signal: cancel.signal,
-                }),
-                effectiveTimeout,
-                cancel,
-              );
-              result = { id: call.id, name: call.name, ok: executed.ok, output: executed.output, error: executed.error, needsApproval: executed.needsApproval };
+              const stop = await prematureTermination(sequence);
+              if (stop) return stop;
+              if (control && (control.remainingCalls < 1 || control.remainingTokens <= 0)) return finalizeInterrupted(sequence, "budget_exhausted");
+
+              // Phase 2: ApprovalPolicyPort 统一审批前置拦截（有界等待：策略不合作时由 abort 信号打破）
+              if (deps.approvalPolicy) {
+                const spec = (tools.tools || []).find((t) => t.name === call.name);
+                const safetyLevel: import("./ports.js").ToolSafetyLevel = spec?.readOnly ? "read_only" : "write_with_approval";
+                const decision = await awaitWithSignal(
+                  deps.approvalPolicy.evaluate(
+                    {
+                      turnId: input.turnId,
+                      attemptId: input.attemptId,
+                      invocationId: executionId,
+                      toolName: call.name,
+                      arguments: call.arguments,
+                      safetyLevel,
+                    },
+                    control?.abortSignal,
+                  ),
+                  control?.abortSignal,
+                );
+                if (decision.action === "deny") {
+                  result = {
+                    id: call.id,
+                    name: call.name,
+                    ok: false,
+                    error: decision.reason ?? `tool_approval_denied: ${call.name}`,
+                  };
+                } else if (decision.action === "ask_user") {
+                  result = {
+                    id: call.id,
+                    name: call.name,
+                    ok: false,
+                    needsApproval: {
+                      approvalId: decision.approvalId ?? `apv_${executionId}`,
+                      toolName: call.name,
+                      argumentsHash: decision.argumentsHash ?? JSON.stringify(call.arguments),
+                    },
+                  };
+                }
+              }
+
+              if (!result) {
+                const cancel = new AbortController();
+                removeLostListener = heartbeat?.onLost(() => cancel.abort());
+                const signal = control ? AbortSignal.any([control.abortSignal, cancel.signal]) : cancel.signal;
+                subtaskControl = control?.deriveSubtask({
+                  subtaskExecutionId: executionId,
+                  subtaskSignal: signal,
+                  tighterDeadlineEpochMs: effectiveTimeout > 0 ? Date.now() + effectiveTimeout : undefined,
+                });
+                control?.recordCallUsed();
+                const executed = await withTimeout(
+                  awaitWithSignal(tools.execute({
+                    turnId: input.turnId,
+                    attemptId: input.attemptId,
+                    invocationId: executionId,
+                    name: call.name,
+                    arguments: call.arguments,
+                    sessionId: input.sessionId,
+                    signal: subtaskControl?.abortSignal ?? signal,
+                    controlContext: subtaskControl,
+                  }), subtaskControl?.abortSignal ?? signal),
+                  effectiveTimeout,
+                  cancel,
+                );
+                result = { id: call.id, name: call.name, ok: executed.ok, output: executed.output, error: executed.error, needsApproval: executed.needsApproval };
+              }
             } catch (err) {
               // B2：工具执行期间租约已失（心跳探知）→ 立即中止本 Step 交回外层收敛 lease_lost，不写结果事件、不启动新副作用
               if (heartbeat?.lost) {
@@ -629,8 +724,11 @@ export async function executeTurn(
               }
               result = { id: call.id, name: call.name, ok: false, error: err instanceof Error ? err.message : "tool_execution_error" };
             } finally {
+              subtaskControl?.dispose();
+              removeLostListener?.();
             }
           }
+          result ??= { id: call.id, name: call.name, ok: false, error: "tool_execution_failed" };
           // 2c：以权威结果收口预留行（§9：非幂等副作用失败不自动重试）
           const finalStatus: ToolExecutionStatus = result.needsApproval
             ? "pending_approval"
@@ -753,6 +851,15 @@ export async function executeTurn(
     });
     return { status: "failed", attemptId: input.attemptId, reason: "max_steps" };
   } catch (err) {
+    if (control?.budgetExceeded) return finalizeInterrupted(await execution.nextSequence(input.turnId), "token_or_call_budget_exceeded");
+    if (control?.isExpired()) {
+      const atSeq = await execution.nextSequence(input.turnId);
+      return finalizeInterrupted(atSeq, "deadline_exceeded");
+    }
+    if (control?.isAborted()) {
+      const atSeq = await execution.nextSequence(input.turnId);
+      return finalizeCancelled(atSeq);
+    }
     // B1：事件写入被 fencing CAS 拒绝（Attempt 已被抢占/恢复）→ 立即中止，不再产生新副作用（AVX-HAR-001 §11.2）
     // B2：心跳探知租约已失（含工具 abort 引发的错误）→ 同样收敛 lease_lost
     if (err instanceof LeaseLostError || heartbeat?.lost) {

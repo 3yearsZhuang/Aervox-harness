@@ -141,4 +141,54 @@ describe("inspectToolInput（§9 工具入参沙箱校验）", () => {
     expect(r.safe).toBe(false);
     expect(r.reason).toBe("max_nesting_depth_exceeded");
   });
+
+  it("混合与双重 URL 编码穿越拦截（.%2e、%252e%252e、....//）", () => {
+    for (const payload of [
+      ".%2e/.%2e/etc/passwd",
+      "%252e%252e/config.json",
+      "var/www/....//....//etc/passwd",
+      "data/%2E%2E/secret",
+    ]) {
+      const r = inspectToolInput({ name: "read_file", arguments: { path: payload } });
+      expect(r.safe, payload).toBe(false);
+      expect(r.reason).toBe("path_traversal_sequence");
+    }
+  });
+
+  it("前导多斜杠敏感路径与白名单外路径键拦截（//etc、db_file）", () => {
+    const r1 = inspectToolInput({ name: "fetch", arguments: { path: "//etc/passwd" } });
+    expect(r1.safe).toBe(false);
+    expect(r1.reason).toBe("sensitive_system_path_escape");
+
+    const r2 = inspectToolInput({ name: "db_tool", arguments: { db_file: "/etc/shadow" } });
+    expect(r2.safe).toBe(false);
+    expect(r2.reason).toBe("sensitive_system_path_escape");
+  });
+
+  it("破坏性命令原语扩展拦截（旗标组合 rm、xargs rm、sudo、mkfs、关机）", () => {
+    for (const payload of [
+      "rm -r -f /",
+      "rm --recursive --force dist",
+      "find . | xargs rm -f",
+      "sudo rm -rf /",
+      "mkfs.ext4 /dev/sda",
+      "shutdown -h now",
+    ]) {
+      const r = inspectToolInput({ name: "shell_exec", arguments: { cmd: payload } });
+      expect(r.safe, payload).toBe(false);
+      expect(r.reason).toBe("dangerous_command_injection");
+    }
+  });
+
+  it("合法已批命令不受误伤（管道、顺序执行、普通 rm）", () => {
+    for (const payload of [
+      "git log --oneline | head -5",
+      "pnpm test; pnpm lint",
+      "rm notes.md",
+      "ls -la",
+    ]) {
+      const r = inspectToolInput({ name: "shell_exec", arguments: { cmd: payload } });
+      expect(r.safe, payload).toBe(true);
+    }
+  });
 });

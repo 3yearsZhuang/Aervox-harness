@@ -225,6 +225,8 @@ export class ToolExecutionStore {
           )
           .returning({ id: turnAttempts.id });
         if (!updated) return false;
+        // The successful fenced owner commits Turn, Attempt and terminal event together.
+        await tx.update(turns).set({ status: input.status, updatedAt: new Date().toISOString() }).where(eq(turns.id, input.turnId));
         await tx.insert(turnStreamEvents).values({
           id: streamEventId(input.turnId, input.sequence),
           turnId: input.turnId,

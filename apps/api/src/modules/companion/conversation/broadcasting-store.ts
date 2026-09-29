@@ -5,8 +5,60 @@
  * 包装 @aervox/host-agent 的 SqliteExecutionStore，落盘 SQLite 的同时把
  * 事件 / 安全分段 / 工具结果同步广播给 turnStreamHub，方法体逐字节迁移。
  */
-import type { SqliteExecutionStore } from "@aervox/host-agent";
+import { SqliteExecutionStore } from "@aervox/host-agent";
+import type {
+  LocalContext,
+  SqliteConversationRepository,
+  SqlitePlatformRepository,
+} from "@aervox/repositories";
 import { turnStreamHub } from "./stream-hub.js";
+
+import { projectSafeEventData } from "@aervox/contracts";
+export { projectSafeEventData } from "@aervox/contracts";
+
+/**
+ * 构造会话执行存储与实时广播桥（阶段 7 ModelRun/ContextManifest 委托 + CR-031 直推）
+ */
+export function createConversationExecutionStore(
+  repo: SqliteConversationRepository,
+  tenant: LocalContext,
+  platformRepo?: SqlitePlatformRepository,
+): SqliteExecutionStore {
+  const store = new SqliteExecutionStore(
+    repo,
+    tenant,
+    platformRepo
+      ? {
+          recordModelRun: async (r) => {
+            await platformRepo.createModelRun(tenant, {
+              id: r.runId,
+              attemptId: r.attemptId,
+              stepId: r.stepId,
+              purpose: r.purpose,
+              provider: r.provider,
+              modelId: r.modelId,
+            });
+            await platformRepo.completeModelRun(tenant, r.runId, {
+              status: r.status === "completed" ? "completed" : "failed",
+              latencyMs: r.latencyMs,
+            });
+          },
+          recordContextManifest: async (m) => {
+            await platformRepo.createContextManifest({
+              id: m.manifestId,
+              modelRunId: m.modelRunId,
+              purpose: m.purpose,
+              sourceArtifactId: "turn:history",
+              sourceRevisionId: "1",
+              snapshot: m.snapshot,
+            });
+            await platformRepo.attachContextManifest(tenant, m.modelRunId, m.manifestId);
+          },
+        }
+      : undefined,
+  );
+  return createBroadcastingStore(store);
+}
 
 /** 包装 SqliteExecutionStore，在落盘 SQLite 的同时同步广播给 turnStreamHub（CR-031 实时流式直推） */
 export function createBroadcastingStore(baseStore: SqliteExecutionStore): SqliteExecutionStore {
@@ -22,7 +74,7 @@ export function createBroadcastingStore(baseStore: SqliteExecutionStore): Sqlite
             eventType: ev.eventType,
             payloadVersion: ev.payloadVersion,
             occurredAt: ev.occurredAt,
-            data: ev.data,
+            data: projectSafeEventData(ev.eventType, ev.data),
           });
           return ev;
         };
@@ -47,7 +99,7 @@ export function createBroadcastingStore(baseStore: SqliteExecutionStore): Sqlite
               eventType: input.eventType,
               payloadVersion: 1,
               occurredAt: new Date().toISOString(),
-              data: input.eventData,
+              data: projectSafeEventData(input.eventType, input.eventData),
             });
             turnStreamHub.publishSettled(input.turnId, input.status);
           }
@@ -65,7 +117,7 @@ export function createBroadcastingStore(baseStore: SqliteExecutionStore): Sqlite
               eventType: "delta",
               payloadVersion: 1,
               occurredAt: new Date().toISOString(),
-              data: input.eventData,
+              data: projectSafeEventData("delta", input.eventData),
             });
           }
           return res;
@@ -102,7 +154,7 @@ export function createBroadcastingStore(baseStore: SqliteExecutionStore): Sqlite
                 eventType: "delta",
                 payloadVersion: 1,
                 occurredAt: new Date().toISOString(),
-                data: input.eventData,
+                data: projectSafeEventData("delta", input.eventData),
               });
             }
           }
@@ -120,7 +172,7 @@ export function createBroadcastingStore(baseStore: SqliteExecutionStore): Sqlite
               eventType: "tool_result",
               payloadVersion: 1,
               occurredAt: new Date().toISOString(),
-              data: input.eventData,
+              data: projectSafeEventData("tool_result", input.eventData),
             });
           }
           return res;

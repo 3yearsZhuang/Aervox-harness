@@ -7,15 +7,15 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 1.16.0
-updated_at: 2026-09-28
-reviewed_at: 2026-09-28
+updated_at: 2026-09-29
+reviewed_at: 2026-09-29
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 产品与工程文档索引
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-28
+- 修改人：3yearszhuang · 2026-09-29
 
 本目录把产品目标、可测试需求、架构决策、数据权利和 AI 质量分开维护，避免单一 PRD 同时承担所有细节。所有上线范围必须能从用户价值追踪到需求、设计、测试和发布证据。
 
@@ -96,6 +96,7 @@ review_interval_days: 90
 | [当前架构实现与演进评估](explanation/architecture-implementation-review.md)（AVX-EXPL-012） | 实际进程、数据和执行链路如何运转，底层应如何继续演进 | 14 个深入专题、故障实验、模块边界、持久恢复、资源与部署、选项权衡和测量计划；不改写已接受决策 |
 | [HLS 本地智能体竞赛：能力拓展与验证规划](explanation/hls-agent-competition-plan.md)（AVX-EXPL-013） | 三人团队如何验证本地模型在 HLS 设计中的工具反馈增益并准备竞赛交付 | 赛规来源、能力缺口、阶段准入、对照实验、去留标准与冻结产物；当前认领和排序见根 plan.md，不代表实现或产品化已批准 |
 | [配套硬件方向：能力核查、移动协同取舍与原型路线](explanation/companion-hardware-directions.md)（AVX-EXPL-011） | 当前能力能支撑哪些硬件、手机已替代什么、哪些值得保留、如何从最小原型推进 | 能力现状与真机缺口、九方向实证、手机重合与过度设计取舍、ESP32 工程边界、成本口径、阶段准入、停止条件与验证矩阵；不冻结设备协议；器件级事实仍见 [ESP32-S3 硬件延伸方案](explanation/esp32-s3-hardware-extension.md) |
+| [BTD-08 适配器去留评估与结项说明](explanation/btd08-adapter-retirement-evaluation.md)（AVX-EXPL-014） | CR-056 条件性 BTD-08 的范围选择与复核 | 暂不启动真实 pi 实验、证据边界与撤回全量完成声明 |
 | Home Assistant 集成评估（已归档）（AVX-EXPL-006） | 如何为 Aervox 引入 Home Assistant 支持 | 候选方案与后续路线；推荐组合已由 CR-024/ADR-019 接受 |
 | 运动与健康数据接入评估（已归档）（AVX-EXPL-007） | 是否可以接入苹果/小米运动健康数据（步数、睡眠、情绪） | 小米每日指标路径已由 CR-024/ADR-019 接受；苹果与情绪健康仍为评估输入 |
 | 数据库拆分计划（已归档）（AVX-EXPL-009） | `packages/database` 如何拆分为 `@aervox/schema` 与 `@aervox/repositories` | 已完成的六阶段拆分执行记录；架构决策见 ADR-014 |

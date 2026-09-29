@@ -11,12 +11,13 @@ import type {
   ContextManifestRecord,
   ExecutionStorePort,
   ModelRunRecord,
+  SessionLedgerPort,
   ToolExecutionRecord,
   ToolExecutionStatus,
 } from "@aervox/agent-loop";
 import { LeaseLostError } from "@aervox/agent-loop";
 import type { SqliteConversationRepository, LocalContext } from "@aervox/repositories";
-import { FencingMismatchError } from "@aervox/repositories";
+import { FencingMismatchError } from "@aervox/repositories/errors";
 
 /**
  * 阶段 7（ADR-017）ModelRun/ContextManifest 落库口（可选委托）。
@@ -52,7 +53,7 @@ const toAgentEvent = (row: {
   occurredAt: row.occurredAt,
 });
 
-export class SqliteExecutionStore implements ExecutionStorePort {
+export class SqliteExecutionStore implements SessionLedgerPort {
   constructor(
     private readonly repo: SqliteConversationRepository,
     private readonly ctx: LocalContext,
@@ -325,5 +326,13 @@ export class SqliteExecutionStore implements ExecutionStorePort {
     finishedAt?: string;
   }): Promise<{ ok: boolean }> {
     return this.repo.updateToolExecutionResult(this.ctx, input);
+  }
+
+  /** BTD-05 / ITER-007：推进所属 Turn 状态（委托仓储落地） */
+  async updateTurnStatus(input: {
+    turnId: string;
+    status: "Completed" | "Failed" | "Interrupted";
+  }): Promise<void> {
+    await this.repo.updateTurnStatus(this.ctx, input.turnId, input.status);
   }
 }

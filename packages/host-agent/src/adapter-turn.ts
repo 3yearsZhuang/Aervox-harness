@@ -20,7 +20,7 @@ import type {
   AdapterDriverPort,
   AdapterRequest,
 } from "@aervox/agent-loop";
-import { drainAdapterDriver } from "@aervox/agent-loop";
+import { drainAdapterDriver, LeaseLostError } from "@aervox/agent-loop";
 
 export interface AdapterTurnInput {
   turnId: string;
@@ -31,6 +31,8 @@ export interface AdapterTurnInput {
   systemPrompt?: string;
   /** 可注入的工具 schema（透传给 adapter；缺省无） */
   tools?: import("@aervox/agent-loop").ToolSpec[];
+  /** BTD-05 / ITER-007: 统一执行控制上下文 */
+  controlContext?: import("@aervox/agent-loop").ControlContext;
 }
 
 export interface AdapterTurnResult {
@@ -77,6 +79,11 @@ export async function runAdapterTurn(
     });
   };
 
+  const finalize = async (sequence: number, status: "Completed" | "Failed" | "Interrupted", eventType: "done" | "error", eventData: unknown) => {
+    const result = await store.finalizeAttemptWithEvent({ turnId, attemptId, sequence, status, eventType, eventData, expectedFencingToken: claim.fencingToken, safetyDecision: "approved" });
+    if (!result.ok) throw new LeaseLostError("adapter finalization contested");
+  };
+
   try {
     let sequence = await store.nextSequence(turnId);
     const messageId = `msg_${turnId}_assistant`;
@@ -84,8 +91,20 @@ export async function runAdapterTurn(
     // 2) message 身份事件（与 executeTurn 同构）
     await append(sequence++, "message", { messageId, role: "assistant", contentType: "text", isComplete: false });
 
+    input.controlContext?.abortSignal.throwIfAborted();
+    if (input.controlContext?.localProcessingOnly || input.controlContext?.tokenBudget || input.controlContext?.callBudget) {
+      throw new Error("adapter_control_unsupported");
+    }
     // 3) adapter 整 Turn 执行 + 事件映射（映射既有事件类型，SSE 契约稳定）
-    const request: AdapterRequest = { turnId, sessionId, attemptId, userMessage, systemPrompt, tools };
+    const request: AdapterRequest = {
+      turnId,
+      sessionId,
+      attemptId,
+      userMessage,
+      systemPrompt,
+      tools,
+      signal: input.controlContext?.abortSignal,
+    };
     const { events, decision, protocolError } = await drainAdapterDriver(adapter, request);
 
     let toolSeq = 0;
@@ -114,8 +133,7 @@ export async function runAdapterTurn(
 
     // 4) 收紧判定 → 终态
     if (decision.concluded) {
-      await append(sequence, "done", { status: "Completed", messageId, isComplete: true, lastSequence: sequence });
-      await store.finalizeAttempt({ turnId, attemptId, status: "Completed", expectedFencingToken: claim.fencingToken });
+      await finalize(sequence, "Completed", "done", { status: "Completed", messageId, isComplete: true, lastSequence: sequence });
       return { status: "Completed" };
     }
 
@@ -134,18 +152,29 @@ export async function runAdapterTurn(
       message: reason,
       lastSequence: sequence,
     });
-    await append(sequence, "done", { status: "Interrupted", messageId, isComplete: false, lastSequence: sequence });
-    await store.finalizeAttempt({ turnId, attemptId, status: "Interrupted", expectedFencingToken: claim.fencingToken });
+    await finalize(sequence, "Interrupted", "done", { status: "Interrupted", messageId, isComplete: false, lastSequence: sequence });
     return { status: "Interrupted", reason };
   } catch (err) {
+    if (err instanceof LeaseLostError) return { status: "skipped", reason: "lease_lost" };
+    if (input.controlContext?.isExpired() || input.controlContext?.isAborted()) {
+      const isExpired = input.controlContext.isExpired();
+      const reason = isExpired ? "deadline_exceeded" : "cancelled";
+      try {
+        const messageId = `msg_${turnId}_assistant`;
+        const seq = await store.nextSequence(turnId);
+        await finalize(seq, "Interrupted", "done", { status: "Interrupted", messageId, isComplete: false, lastSequence: seq, reason });
+      } catch {
+        return { status: "skipped", reason: "finalize_contested" };
+      }
+      return { status: "Interrupted", reason };
+    }
     // 超时/协议违约/外部异常 → Failed（host 失败自动禁用语义在端口层）
     const message = err instanceof Error ? err.message : String(err);
     try {
       const seq = await store.nextSequence(turnId);
-      await append(seq, "error", { code: "ADAPTER_UNAVAILABLE", retryable: true, message, lastSequence: seq });
-      await store.finalizeAttempt({ turnId, attemptId, status: "Failed", expectedFencingToken: claim.fencingToken });
+      await finalize(seq, "Failed", "error", { code: "ADAPTER_UNAVAILABLE", retryable: true, message, lastSequence: seq });
     } catch {
-      // 落库兜底失败不再上抛（审计失败不得循环）
+      return { status: "skipped", reason: "finalize_contested" };
     }
     return { status: "Failed", reason: message };
   }
