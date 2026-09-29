@@ -448,6 +448,83 @@
         "docs/reference/adr/ADR-020-aervox-core-decoupling.md",
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
       ]
+    },
+    {
+      "id": "ITER-025",
+      "batch": "first",
+      "status": "建议",
+      "delivery": "Aervox Core 懒加载与毫秒级冷启动：解耦顶级重型依赖导入，消灭 1440ms 启动警告，压减模块导入开销至 100ms 内；基础设施/ADR-020",
+      "gate": "不破坏既有 Headless 7 步验证；不引入未经验证的打包器私有运行时",
+      "acceptance": [
+        "`node scripts/run-headless-agent.mjs --smoke` 内核加载耗时稳定收敛至 <= 150ms（消除 WARN 警告）",
+        "未触碰数据库与持久层时，零加载 @libsql/client、Drizzle Schema 与重型 Fastify 插件",
+        "apps/api 73 套件模块静态解析耗时显著降低"
+      ],
+      "checks": [
+        "`node scripts/run-headless-agent.mjs --smoke`",
+        "`./aervox test fast`"
+      ],
+      "owner": "platform/runtime",
+      "dependsOn": [
+        "ITER-024"
+      ]
+    },
+    {
+      "id": "ITER-026",
+      "batch": "next",
+      "status": "建议",
+      "delivery": "伴学业务与会话执行器深度解耦：extractStudyTerms、PracticeAttempt 与 MemoryRecall 插件化/中间件化；CAP-002/007/016；ADR-020",
+      "gate": "保持既有 API 行为与契约 100% 兼容；通过既有 quiz-mode、study-term-plugins 等集成测试",
+      "acceptance": [
+        "agent-executor.ts 聚焦于纯粹的 LLM + 工具多轮驱动，代码行数收敛 50% 以上",
+        "术语提取转为独立 TurnMiddleware（afterTurn 异步管道处理）",
+        "刷题出题判定转为声明式插件工具 Contribution，移除执行器硬编码逻辑"
+      ],
+      "checks": [
+        "`apps/api/test/quiz-mode.test.ts`",
+        "`apps/api/test/study-term-plugins.test.ts`",
+        "`apps/api/test/conversation-loop.test.ts`"
+      ],
+      "owner": "companion/learning",
+      "dependsOn": [
+        "ITER-024"
+      ]
+    },
+    {
+      "id": "ITER-027",
+      "batch": "next",
+      "status": "建议",
+      "delivery": "多进程 SQLite 写入并发与 Worker 自适应退避：消除高频空轮询，流式会话写入期间后台任务自适应降频与 IPC 唤醒；ARC-05/FND-07；基础设施",
+      "gate": "依赖 ITER-002 的 Outbox 消费修复；不破坏 WAL 模式快照隔离与单写者约束",
+      "acceptance": [
+        "API 执行多轮密集对话与流式写入期间，Worker 自动退避至 3s+ 低频轮询，写锁冲突率降至 0",
+        "探索基于本地 Domain Socket 或命名管道的事件驱动触发式唤醒，替代持续空写轮询",
+        "长周期运行与压测下无 SQLITE_BUSY 报错与 P99 延迟抖动"
+      ],
+      "checks": [
+        "`apps/worker/test/outbox-worker.test.ts`",
+        "`apps/api/test/conversation-dispatch-resilience.test.ts`"
+      ],
+      "owner": "platform/data",
+      "dependsOn": [
+        "ITER-002"
+      ]
+    },
+    {
+      "id": "ITER-028",
+      "batch": "candidate",
+      "status": "建议",
+      "delivery": "纯本地多端点对点加密同步探索：局域网发现（mDNS）、SQLite Changeset 增量对齐与去中心化数据同步；CAP-018/027；CR-030/CR-055",
+      "gate": "坚决不引入中心化多租户云端数据库；同步前必须通过端到端加密与用户显式配对授权",
+      "acceptance": [
+        "完成多设备同网发现与 TLS 证书配对 PoC",
+        "利用 SQLite Session Extension 提取增量 Changeset 并验证无冲突双向合并",
+        "移动端（Capacitor）与桌面端（Electron）局域网直连同步学习进度与错题本成功"
+      ],
+      "owner": "desktop/mobile",
+      "dependsOn": [
+        "ITER-015"
+      ]
     }
   ]
 }

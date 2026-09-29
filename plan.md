@@ -51,6 +51,8 @@ sources:
 
 2026-09-28 新增 [CR-056 Build to Delete 与类 pi 分层架构规划](docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md)：ITER-023 仅交付详细规划，ITER-014 进入架构差量待评审。CR 的切片按主归属和协同关系接入 ITER-005/007/008/013/014/019，具体依赖见 CR §7；先以 MemoryStore 工具与单个模型 Driver 验证实现可替换、资源可释放和数据责任连续性。规划不启动重构，也不将已有正确性修复统一阻塞在架构工作上。
 
+2026-09-29 新增架构演进与深层瓶颈优化建议（ITER-025～028）：针对 ADR-020 解耦落地的剩余差量与深层性能瓶颈，提出思隅核心懒加载毫秒级冷启动（ITER-025）、伴学业务与会话执行器深度解耦插件化（ITER-026）、多进程 SQLite 写入并发与 Worker 自适应退避（ITER-027），以及纯本地多端点对点加密同步探索（ITER-028）。
+
 ## 2. 当前建议工作
 
 下表是唯一活动队列，**由 `docs/_meta/plan-queue.json` 渲染生成**（改条目请改真源后运行 `mise tasks run plan-render`，校验见 `plan-check`）。每行“建议”表示尚未开工；“依赖”约束实际启用/交付顺序，前置设计与测试夹具可并行。证据编号 `FND-*` 见底层评估，`ARC-*` 见架构深入评估，不创建另一份问题正文。
@@ -74,6 +76,7 @@ sources:
 | <a id="iter-021"></a>ITER-021 · 建议 | HLS 竞赛可行性验证：规则与环境核对、双入口最小闭环、同模型配对对照与去留证据；AVX-EXPL-013 P0～P2；关联 CAP-007/020/027（探索） | 依据 ITER-020 的规划复核范围与可投入工时；新增模块/工具合同先 CR；只修实际复用路径，不等待 ITER-007/008/013 全部完成 | 本地模型与 Vitis 真正运行，裸跑/Agent 双入口公平且逐题可追溯；留出题报告分级通过率、增益、不确定性与成本，并给出继续、限定补证或暂缓结论 | platform/competition（模型环境、HLS 工具、Agent 评测三个角色，待认领） |
 | <a id="iter-023"></a>ITER-023 · 已移交 | Build to Delete 与类 pi 架构详细规划：[CR-056](docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md) 的固定基线、目标边界、决策差量、实施切片、退出验收与回滚；关联 CAP-002/005/007/018/020/027/033（仅规划） | 本项仅交付 Proposed/Planned 的 CR；实现认领继续使用既有 ITER 条目，架构接受、代码实施和发布分别判断 | 每个切片给出输入依赖、代码落点、契约影响、测试、退出条件与回滚；规划接入唯一队列、追踪和索引，文档门禁通过 | platform/docs（分支 `docs/build-to-delete-pi-architecture-plan`；2026-09-28 文档移交：CR-056 的九个切片、两项试点、依赖估算及退出/回滚验收已登记；ci-docs 全量通过（治理 33/33、队列 9/9、79 文件排版/术语及严格治理无问题）；CR 保持 Proposed/Planned，未启动业务重构） |
 | <a id="iter-024"></a>ITER-024 · 已移交 | Aervox Core 架构解耦与演进落地：ExecutionPipeline 洋葱中间件、ApprovalPolicyPort 三端人机回环 SPI、HostToolRuntime 沙箱容器下沉与 Headless Agent 内核验证；关联 ADR-020、CR-056 | 遵循单用户本地架构；保持 18 包 100% 测试通过率；无 boundary guard 回归；通过自动化 smoke 验证 | ExecutionPipeline 洋葱中间件链解耦 agent-executor 编排关注点（指标、安全守卫、插件生命周期、主动策略）；ApprovalPolicyPort SPI 统一 CLI、Web/SSE 与无头测试的人机回环审批策略；HostToolRuntime 工具沙箱容器与代际调度下沉至 host-agent 并由 API 层薄适配继承；Headless Agent 具备轻量冷启动与独立运行能力，零数据库与零 Fastify 侵入（校验：`node scripts/run-headless-agent.mjs --smoke`；`packages/host-agent/test/pipeline.test.ts`；`packages/agent-loop/test/approval-policy.test.ts`；`packages/host-agent/test/cli-approval.test.ts`；`packages/host-agent/test/host-tool-runtime.test.ts`；`./aervox ci`） | platform/runtime（分支 `feat/aervox-core-evolution`；2026-09-29 移交：Phase 1-4 全部实施完成，中间件链、三端审批 SPI、工具沙箱下沉与独立 Headless 验证全绿；ADR-020 已归档接受；§4.2 完成登记） |
+| <a id="iter-025"></a>ITER-025 · 建议 | Aervox Core 懒加载与毫秒级冷启动：解耦顶级重型依赖导入，消灭 1440ms 启动警告，压减模块导入开销至 100ms 内；基础设施/ADR-020 | 不破坏既有 Headless 7 步验证；不引入未经验证的打包器私有运行时 | `node scripts/run-headless-agent.mjs --smoke` 内核加载耗时稳定收敛至 <= 150ms（消除 WARN 警告）；未触碰数据库与持久层时，零加载 @libsql/client、Drizzle Schema 与重型 Fastify 插件；apps/api 73 套件模块静态解析耗时显著降低（校验：`node scripts/run-headless-agent.mjs --smoke`；`./aervox test fast`） | platform/runtime |
 
 ### 2.2 下一批：恢复、生命周期与部署
 
@@ -86,6 +89,8 @@ sources:
 | <a id="iter-014"></a>ITER-014 · 已移交 | 模块公开 Port 与 Build to Delete：评审 ADR-014 的通信/装配差量，建立试点模块边界、MemoryStore 贡献与退出演练；ARC-10、[CR-056](docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md)；CAP-005/007/020 与架构基础设施 | CR-056 相关决策先接受；模型 Driver 归 ITER-008，生命周期/控制协同 ITER-005/007/013；不要求先改完全部模块，也不阻塞已有缺陷修复 | 私有引用 fixture 失败、公开 Port 通过、模块可用 Fake Port 测试；实际依赖与批准规则一致；临时检出移除试点实现后非目标能力通过，资源无残留且数据权利连续 | platform（分支 `docs/build-to-delete-pi-architecture-plan`；2026-09-29 PR #230 四项审查阻断已修复并补证：生命周期/AST 回归与三阶段 11 包零缓存物理退出构建，真实 SQLite 数据权利和恢复通过；具体证据及发布限制见 CR-056 §10.2 / §4.2） |
 | <a id="iter-015"></a>ITER-015 · 建议 | 单机部署主管：API/Worker/模型归属，数据目录、端口、Token、版本、就绪与退出；ARC-13；CAP-001/018/027 | 依赖 ITER-006/008 与 ITER-011/013 的必要部分；新主管先 CR；与移动端决策协调 | 干净用户目录安装、升级、异常退出、端口占用、磁盘满、卸载保留数据均验证；签名/公证/平台矩阵另过发布门禁 | desktop/release |
 | <a id="iter-016"></a>ITER-016 · 建议 | 已选方向单设备 PoC：真实能力样本，模拟器与一块开发板，身份/ACK/幂等/截止/撤权/热插拔；硬件评估；复用所选 CAP | 依赖 ITER-009 决策；先设备 CR/ADR/单一协议；音频/OCR 先证明真实产物；独立算力盒额外依赖 ITER-015 | 设备缺席不破坏核心流程；获得五至十人使用记录及方向对应价值证据；不把接口响应当实物成功 | product-hardware/platform |
+| <a id="iter-026"></a>ITER-026 · 建议 | 伴学业务与会话执行器深度解耦：extractStudyTerms、PracticeAttempt 与 MemoryRecall 插件化/中间件化；CAP-002/007/016；ADR-020 | 保持既有 API 行为与契约 100% 兼容；通过既有 quiz-mode、study-term-plugins 等集成测试 | agent-executor.ts 聚焦于纯粹的 LLM + 工具多轮驱动，代码行数收敛 50% 以上；术语提取转为独立 TurnMiddleware（afterTurn 异步管道处理）；刷题出题判定转为声明式插件工具 Contribution，移除执行器硬编码逻辑（校验：`apps/api/test/quiz-mode.test.ts`；`apps/api/test/study-term-plugins.test.ts`；`apps/api/test/conversation-loop.test.ts`） | companion/learning |
+| <a id="iter-027"></a>ITER-027 · 建议 | 多进程 SQLite 写入并发与 Worker 自适应退避：消除高频空轮询，流式会话写入期间后台任务自适应降频与 IPC 唤醒；ARC-05/FND-07；基础设施 | 依赖 ITER-002 的 Outbox 消费修复；不破坏 WAL 模式快照隔离与单写者约束 | API 执行多轮密集对话与流式写入期间，Worker 自动退避至 3s+ 低频轮询，写锁冲突率降至 0；探索基于本地 Domain Socket 或命名管道的事件驱动触发式唤醒，替代持续空写轮询；长周期运行与压测下无 SQLITE_BUSY 报错与 P99 延迟抖动（校验：`apps/worker/test/outbox-worker.test.ts`；`apps/api/test/conversation-dispatch-resilience.test.ts`） | platform/data |
 
 ### 2.3 后续候选：只有证据成立才投入
 
@@ -95,6 +100,7 @@ sources:
 | <a id="iter-018"></a>ITER-018 · 建议 | 第二终端检验共享生命周期，再决策 PCB/结构/电源、样机和小批验证；硬件评估 | 依赖 ITER-016 价值成立；新增无线、电池、采集或运动能力分别评审，不因 PoC 成功自动批准量产 | 两种终端无需复制宿主；更新/回滚/删除可测；24→72 小时稳定性、功耗温升、密钥/追溯/维修验证；发布单列 | product-hardware/release |
 | <a id="iter-019"></a>ITER-019 · 建议 | 是否开放第三方可执行插件；若开放，按已接受 [ADR-009](docs/reference/adr/ADR-009-electron-plugin-sandbox.md) 的进程外隔离、默认无权限与撤权要求设计 Host、签名信任根、SDK 与依赖解析 | 先证明声明式/第一方扩展不足，再用 CR 明确实现差量与生命周期；隔离基线不作为自由选项，改变基线须显式 CR；现行规范不代表运行能力已实现 | 有明确用例、威胁与成本比较，并通过 ADR-009 的拒绝/撤权/隔离/兼容验收；未选定前不建通用平台 | ecosystem/security |
 | <a id="iter-022"></a>ITER-022 · 建议 | HLS 参赛方案扩大验证与冻结提交：正式评分接口、最终 32 GB 环境、离线容器、固定技能和复现报告；AVX-EXPL-013 P3 | ITER-021 证据支持继续且正式范围/必要 CR 已评审；先取得最新细则与提交窗口；本项不自动包含产品化、微调或硬件采购 | 官方目标环境在预算内完成，干净环境断网双入口可复现且冻结哈希一致；报告包含分级通过率、pass@1/pass@5、裸跑增益、墙钟和失败证据；产品化另作决定 | platform/competition |
+| <a id="iter-028"></a>ITER-028 · 建议 | 纯本地多端点对点加密同步探索：局域网发现（mDNS）、SQLite Changeset 增量对齐与去中心化数据同步；CAP-018/027；CR-030/CR-055 | 坚决不引入中心化多租户云端数据库；同步前必须通过端到端加密与用户显式配对授权 | 完成多设备同网发现与 TLS 证书配对 PoC；利用 SQLite Session Extension 提取增量 Changeset 并验证无冲突双向合并；移动端（Capacitor）与桌面端（Electron）局域网直连同步学习进度与错题本成功 | desktop/mobile |
 
 <!-- plan-queue:end -->
 
