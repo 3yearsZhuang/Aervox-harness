@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, nextTick, watch } from 'vue';
 import {
   AlertTriangle,
   BrainCircuit,
@@ -28,6 +28,7 @@ const emit = defineEmits<{
 
 const { layout, composer, conversation, proactive, sendMessage } = useWorkbenchContext();
 const { isWeb, focusModeEnabled, studyModeEnabled, enterToSend, openSettingsCategory } = layout;
+const standardMode = computed(() => layout.workbenchMode.value === 'standard');
 const {
   input,
   composerOpen,
@@ -52,6 +53,17 @@ const {
 } = composer;
 const { streaming, toolApprovalMode, toggleToolApprovalMode } = conversation;
 const { proactiveActive } = proactive;
+
+watch([input, standardMode], async () => {
+  await nextTick();
+  const textarea = composerTextarea.value;
+  if (standardMode.value && textarea) {
+    textarea.style.height = '54px';
+    textarea.style.height = `${Math.max(54, textarea.scrollHeight)}px`;
+  } else if (textarea) {
+    textarea.style.height = '';
+  }
+}, { immediate: true });
 
 const accessChipLabel = computed(() =>
   proactiveActive.value
@@ -98,8 +110,8 @@ function handleVoiceTrigger() {
 </script>
 
 <template>
-  <section class="composer-dock" :class="{ open: composerOpen }" @focusout="handleDockFocusOut">
-    <button v-if="!composerOpen" class="composer-collapsed" type="button" @click="expandComposer">
+  <section class="composer-dock" :class="{ open: composerOpen || standardMode }" @focusout="!standardMode && handleDockFocusOut($event)">
+    <button v-if="!composerOpen && !standardMode" class="composer-collapsed" type="button" @click="expandComposer">
       <MessageCircle :size="16" />
       <span class="composer-collapsed-hint">
         {{
@@ -135,7 +147,7 @@ function handleVoiceTrigger() {
         ref="composerTextarea"
         v-model="input"
         rows="3"
-        :placeholder="(focusModeEnabled || studyModeEnabled) ? '输入学习问题或卡点（专注模式已开启，将引导探索而非直接给答案）…' : composerPlaceholder"
+        :placeholder="(focusModeEnabled || studyModeEnabled) ? '输入学习问题或卡点（专注模式已开启，将引导探索而非直接给答案）…' : (standardMode ? '发送消息' : composerPlaceholder)"
         :disabled="streaming"
         @keydown.enter="handleComposerEnter"
         @input="handleComposerInputOrKey"

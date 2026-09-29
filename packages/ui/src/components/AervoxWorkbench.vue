@@ -10,8 +10,10 @@ import ProactiveToast from './workbench/ProactiveToast.vue';
 import WorkbenchNavPill from './workbench/WorkbenchNavPill.vue';
 import WorkbenchSideCards from './workbench/WorkbenchSideCards.vue';
 import ConversationConsole from './workbench/ConversationConsole.vue';
+import StandardConversation from './workbench/StandardConversation.vue';
+import '../theme/standard-workbench.css';
 import ComposerDock from './workbench/ComposerDock.vue';
-import { PanelLeft, Sparkles } from 'lucide-vue-next';
+import { PanelLeft } from 'lucide-vue-next';
 
 import ExtensionSlot from './extension/ExtensionSlot.vue';
 
@@ -529,21 +531,12 @@ onUnmounted(() => {
           </div>
 
           <div class="topbar-right">
-            <button
-              type="button"
-              class="topbar-mode-badge"
-              title="切换至桌宠陪伴模式"
-              @click="layout.switchWorkbenchMode('companion')"
-            >
-              <Sparkles :size="14" />
-              <span>切换桌宠模式</span>
-            </button>
             <WorkbenchHeader />
           </div>
         </header>
 
         <div class="standard-chat-container">
-          <ConversationConsole />
+          <StandardConversation />
           <div class="standard-composer-wrap">
             <component
               :is="resolvedComposerComponent"
@@ -561,12 +554,6 @@ onUnmounted(() => {
               @attachment-picker="composer.triggerAttachmentPicker"
             />
           </div>
-        </div>
-
-        <div v-if="layout.showCompanionEnabled.value" class="standard-mini-pet-avatar" aria-label="桌宠挂件">
-          <Live2DPet>
-            <template #fallback><PetHero /></template>
-          </Live2DPet>
         </div>
       </main>
     </template>
