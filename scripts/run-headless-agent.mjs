@@ -25,7 +25,7 @@ const {
   ExecutionPipeline,
   createErrorRecoveryMiddleware,
   HostToolRuntime,
-} = await import("../packages/host-agent/dist/index.js");
+} = await import("../packages/host-agent/dist/core.js");
 
 const startupElapsedMs = performance.now() - startupStart;
 

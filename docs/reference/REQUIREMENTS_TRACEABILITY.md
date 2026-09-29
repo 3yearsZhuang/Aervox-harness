@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.47.0
+version: 1.48.0
 updated_at: 2026-09-29
 reviewed_at: 2026-09-29
 review_interval_days: 90
@@ -503,6 +503,7 @@ review_interval_days: 90
 | Aervox Core 演进阶段 3：HostToolRuntime 沙箱容器与代际调度下沉 | CAP-002/020 + 基础设施（ADR-020） | `packages/host-agent/src/host-tool-runtime.ts`（`HostToolRuntime`、`InMemoryToolRegistry`、`HostToolRegistryPort`、`HostToolError`、`HostToolForbiddenError`、`HostToolNotFoundError`、`defaultGatingEvaluator`）、`packages/host-agent/src/index.ts`、`apps/api/src/modules/ecosystem/tools/runtime.ts`（继承 `HostToolRuntime` 映射 HTTP `ApiError`） | 2026-09-29 | `packages/host-agent/test/host-tool-runtime.test.ts` 6 项全绿；`apps/api/test/modules/ecosystem/tool-runtime.test.ts` 等工具套件 100% 通过；`ci-code` 全量 | 原生 |
 | Aervox Core 演进阶段 4：Headless Agent 执行内核闭环与轻量化极简验证 | CAP-001/002 + 基础设施（ADR-020） | `scripts/run-headless-agent.mjs`（动态加载纯内核，接入 `ExecutionPipeline`、`CliInteractiveApprovalPolicy` 与 `HostToolRuntime`，7 步端到端自动化验证与交互式 REPL）、`docs/reference/adr/ADR-020-aervox-core-decoupling.md`、`docs/reference/ARCHITECTURE.md`（§7.1、§11） | 2026-09-29 | `node scripts/run-headless-agent.mjs --smoke` 7/7 自动化验证 100% 通过；零数据库、零 Fastify 网络侵入，毫秒级轻量冷启动执行；全仓 18 包双门禁通过 | 原生 |
 | 测试效能与门禁轻量化治理：Vitest 单包自适应并发与测试挂起缺陷修复 | 基础设施（测试效能与 CI 稳定性） | `vitest.shared.ts`（解除 `maxWorkers: 1` 全局锁死，引入自适应 2~3 Worker 并行机制）、`scripts/run-headless-agent.mjs`（修复 non-interactive 模式下 stdin 句柄未关闭与未显式 exit(0) 导致事件循环挂起缺陷）、`scripts/check-affected.mjs`、`AGENTS.md` | 2026-09-29 | `node scripts/run-headless-agent.mjs --smoke` 1.4s 快速退出无挂起；`@aervox/api` 73 套件 485 测试在 3 Worker 并行下耗时由 548s 压减至 176s（提速 67.8%）；全量 18 包构建、类型检查与 27 任务测试 100% 稳态通过（0 超时、0 SQLite 锁冲突）；`./aervox ci` 增量门禁与文档治理全绿 | 原生 |
+| Aervox Core 懒加载与毫秒级冷启动（ITER-025：子路径导出与重型依赖解耦） | 基础设施（ADR-020 / ITER-025） | `packages/repositories/package.json`（新增 `./errors` 子路径导出）、`packages/schema/package.json`（新增 `./audit` 子路径导出）、`packages/host-agent/src/sqlite-execution-store.ts`（收窄依赖源为 `@aervox/repositories/errors`）、`packages/host-agent/src/sqlite-observability.ts`（收窄依赖源为 `@aervox/schema/audit`）、`packages/host-agent/src/core.ts` 与 `package.json`（新增纯内存 `@aervox/host-agent/core` 轻量内核导出）、`scripts/run-headless-agent.mjs`（改引 core 导出） | 2026-09-29 | `node scripts/run-headless-agent.mjs --smoke` 内核加载耗时由 1440ms 降至 20.14ms（提速 98.6%，消除基准告警）；`@aervox/host-agent` 全量导入耗时降低 50%；`test:fast` 17 任务 18.8s 纯绿；`check-affected` 27 任务（含 API 73 套件 485 测试）100% 稳态通过；依赖边界与类型边界 0 违规 | 原生 |
 
 ## 5. 原子需求字段模板
 

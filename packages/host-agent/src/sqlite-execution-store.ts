@@ -17,7 +17,7 @@ import type {
 } from "@aervox/agent-loop";
 import { LeaseLostError } from "@aervox/agent-loop";
 import type { SqliteConversationRepository, LocalContext } from "@aervox/repositories";
-import { FencingMismatchError } from "@aervox/repositories";
+import { FencingMismatchError } from "@aervox/repositories/errors";
 
 /**
  * 阶段 7（ADR-017）ModelRun/ContextManifest 落库口（可选委托）。

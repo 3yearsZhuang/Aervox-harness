@@ -452,7 +452,7 @@
     {
       "id": "ITER-025",
       "batch": "first",
-      "status": "建议",
+      "status": "已移交",
       "delivery": "Aervox Core 懒加载与毫秒级冷启动：解耦顶级重型依赖导入，消灭 1440ms 启动警告，压减模块导入开销至 100ms 内；基础设施/ADR-020",
       "gate": "不破坏既有 Headless 7 步验证；不引入未经验证的打包器私有运行时",
       "acceptance": [
@@ -465,8 +465,13 @@
         "`./aervox test fast`"
       ],
       "owner": "platform/runtime",
+      "branch": "feat/aervox-core-evolution",
+      "statusNote": "2026-09-29 移交：完成子路径按需导出与重型依赖解耦（@aervox/repositories/errors、@aervox/schema/audit 与 @aervox/host-agent/core）；run-headless-agent 内核加载耗时从 1440ms 降至 20ms（提速 98.6%，告警消除）；73 套件 485 测试在内的 check-affected 全绿；§4.2 完成登记",
       "dependsOn": [
         "ITER-024"
+      ],
+      "links": [
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
       ]
     },
     {
