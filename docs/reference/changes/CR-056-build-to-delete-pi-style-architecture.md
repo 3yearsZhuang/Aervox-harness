@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: accepted
 delivery_status: implemented
-version: 1.0.0
+version: 1.0.2
 updated_at: 2026-09-29
 reviewed_at: 2026-09-29
 review_interval_days: 30
@@ -44,7 +44,7 @@ sources:
 
 关联：[当前迭代计划](../../../plan.md) · [架构设计](../ARCHITECTURE.md) · [能力组合规范](../capability-composition.md) · [Agent Loop 规范](../agent-harness-loop.md) · [架构实现评估](../../explanation/architecture-implementation-review.md) · [BTD-08 去留评估](../../explanation/btd08-adapter-retirement-evaluation.md) · [实现登记](../REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)
 
-- 状态：Verified / Released（BTD-00～08 全切片形式化收口闭环：BTD-05 瘦执行宿主与控制面完成，BTD-06 客户端安全投影与防乱序防复活完成，BTD-08 经评估正式退役封板并输出 AVX-EXPL-014）。
+- 状态：Accepted / Implemented（部分实现，PR #230/#231 合并前复核未通过）；控制预算、父子取消、终态一致性、安全投影和退出演练均有未完成项，详见 §10.1/§10.2。撤回 Verified/Released 与 ITER-007/013/014 全量移交声明。
 - Aervox 核验基线：`e5297fe549cfff4f8eedf51bbb4c0da010a57787`，2026-09-28 本地 `main`；规划分支 `docs/build-to-delete-pi-architecture-plan`。
 - 参考基线：`PI-01`，`reference/pi` 的 `c49906ec77788625aacbdc53ebca6fbe65bd20f5`，MIT；不将本快照描述为上游最新版本。
 - 关联能力：`CAP-002/005/007/018/020/027/033` 与架构基础设施；不改变 CAP 优先级、标准产品必选集或数据权利。
@@ -83,13 +83,13 @@ sources:
 
 | 参考机制 | 借鉴方式 | 成熟度与限制 |
 |---|---|---|
-| [Agent Loop](../../../reference/pi/packages/agent/src/agent-loop.ts)的 `transformContext`、`convertToLlm`、`StreamFn` | 产品消息在边界转换；执行器不认识具体 UI、数据库或外部扩展 | 当前 CLI 路线可供源码参考；Aervox 仍保留自己的控制与持久化合同 |
-| [模型注册](../../../reference/pi/packages/ai/src/models.ts)的实例 Map、取消与 generation | 替换/删除 Provider 后，迟到刷新不能恢复旧状态 | 只迁移行为与测试思路，不引入全局 Provider 注册表 |
-| [扩展上下文](../../../reference/pi/packages/coding-agent/src/core/extensions/loader.ts)的失效与订阅清理 | 生命周期按实例归属，旧上下文不可继续使用 | pi 默认有宿主权限；这套扩展 API 不是 Aervox 的隔离边界 |
-| [协议映射](../../../reference/pi/packages/server/src/protocol.ts)与[客户端状态](../../../reference/pi/packages/client/src/state.ts) | 内部类型与对外 DTO 分开；权威快照与进度事件分开，拒绝旧 revision | 新 server/client 属实验路线；不因此迁移到新的二进制协议 |
-| [新 AgentHarness](../../../reference/pi/packages/agent/src/harness/agent-harness.ts)与 SessionStorage | 仅研究可恢复操作记录与后端边界 | `prompt/resume/abort` 等未完成；[CHANGELOG](../../../reference/pi/packages/agent/CHANGELOG.md)明示 scaffold，不能作为现成内核依赖 |
+| [Agent Loop](https://github.com/earendil-works/pi/blob/c49906ec77788625aacbdc53ebca6fbe65bd20f5/packages/agent/src/agent-loop.ts)的 `transformContext`、`convertToLlm`、`StreamFn` | 产品消息在边界转换；执行器不认识具体 UI、数据库或外部扩展 | 当前 CLI 路线可供源码参考；Aervox 仍保留自己的控制与持久化合同 |
+| [模型注册](https://github.com/earendil-works/pi/blob/c49906ec77788625aacbdc53ebca6fbe65bd20f5/packages/ai/src/models.ts)的实例 Map、取消与 generation | 替换/删除 Provider 后，迟到刷新不能恢复旧状态 | 只迁移行为与测试思路，不引入全局 Provider 注册表 |
+| [扩展上下文](https://github.com/earendil-works/pi/blob/c49906ec77788625aacbdc53ebca6fbe65bd20f5/packages/coding-agent/src/core/extensions/loader.ts)的失效与订阅清理 | 生命周期按实例归属，旧上下文不可继续使用 | pi 默认有宿主权限；这套扩展 API 不是 Aervox 的隔离边界 |
+| [协议映射](https://github.com/earendil-works/pi/blob/c49906ec77788625aacbdc53ebca6fbe65bd20f5/packages/server/src/protocol.ts)与[客户端状态](https://github.com/earendil-works/pi/blob/c49906ec77788625aacbdc53ebca6fbe65bd20f5/packages/client/src/state.ts) | 内部类型与对外 DTO 分开；权威快照与进度事件分开，拒绝旧 revision | 新 server/client 属实验路线；不因此迁移到新的二进制协议 |
+| [新 AgentHarness](https://github.com/earendil-works/pi/blob/c49906ec77788625aacbdc53ebca6fbe65bd20f5/packages/agent/src/harness/agent-harness.ts)与 SessionStorage | 仅研究可恢复操作记录与后端边界 | `prompt/resume/abort` 等未完成；[CHANGELOG](https://github.com/earendil-works/pi/blob/c49906ec77788625aacbdc53ebca6fbe65bd20f5/packages/agent/CHANGELOG.md)明示 scaffold，不能作为现成内核依赖 |
 
-实际 CLI/SDK 仍通过 [SDK 装配](../../../reference/pi/packages/coding-agent/src/core/sdk.ts)创建 `Agent + AgentSession + SessionManager`。不得以包已导出或模拟器测试通过，宣称真实 pi 持久执行、权限或恢复已接入。
+实际 CLI/SDK 仍通过 [SDK 装配](https://github.com/earendil-works/pi/blob/c49906ec77788625aacbdc53ebca6fbe65bd20f5/packages/coding-agent/src/core/sdk.ts)创建 `Agent + AgentSession + SessionManager`。不得以包已导出或模拟器测试通过，宣称真实 pi 持久执行、权限或恢复已接入。
 
 ## 3. 建议的分层与代码落点
 
@@ -221,7 +221,7 @@ D1～D4 已随 2026-09-28 的实施授权接受；规则同步到对应 Living �
 - 权限：模型仅提出调用，Host 重新验证工具定义、参数、授权修订和执行策略；pi 自报 `tool_result` 不能替代 Host 工具账本。不能满足本地处理、删除、取消或安全输出合同的能力不准入；不静默回退到另一 Driver。
 - 验收：无 Adapter 时原生路径完整；固定轨迹下明确报告文本、流式、取消、工具、恢复的能力矩阵及不支持项。真实模型 smoke 与协议/Fake 测试分开报告，模拟器通过不等于真实运行时通过。
 - 退出：合同无法满足、维护成本超过用例价值或上游仍不成熟时禁用/移除 Adapter；不转换 Aervox 历史、不保留第二套权威会话库。完整工具闭环与产品发布另列范围和估算。
-- 终审决断（2026-09-29）：经架构评审与《[AVX-EXPL-014：BTD-08 适配器去留评估与结项说明](../../explanation/btd08-adapter-retirement-evaluation.md)》论证，原生 ModelRuntimeDriver + ToolRuntime 体系已完全满足业务需求，无需引入外部多进程运行时。依据退出准则，BTD-08 正式退役（retired / not-applicable），不再保留为未决项。
+- 去留边界（2026-09-29 复核）：[AVX-EXPL-014](../../explanation/btd08-adapter-retirement-evaluation.md) 保留当前不启动条件性真实 pi 实验的结论；该选择不能证明原生控制、工具、生命周期或客户端验收完成，也不提升 CR-056 的交付状态。
 
 ## 6. 共同契约与测试矩阵
 
@@ -318,12 +318,36 @@ BTD-02 缺包保护切片：新增 plugins.availability 兼容列；扫描缺包
 
 BTD-04 模型 Driver 替换与代际生命周期：Service 仅依赖 ModelRuntimeDriver SPI，具体 LlamaServerManager 默认移至组合根；缺省提供 unavailable 驱动，受限本地模型缺失合规 Provider 时明确拒绝并保留模型文件/侧车，禁止静默走远程；落地 start/stop/dispose 幂等编排与超时有界关闭；增加代际计数防迟到采样污染。验证：API typecheck 通过；扩展 SPI 测试 4 用例通过（验证注入编排、unavailable 拒绝与文件保留、生命周期与幂等释放、代际防污染）；原模型运行时 API 与子进程测试 22 用例全绿。其余验收保持执行中。
 
-BTD-05/06/08 差量交接与阶段一收口结论：2026-09-29 完成 Build to Delete 与类 pi 分层架构第一阶段基础实施（BTD-00～04 与 BTD-07），全量通过双门禁、AST 可移除性守护（check:guards 24/24）与 API 全量 72 套件（476 测试全绿）。ITER-014 正式推进为“已移交”。
+阶段一与后续切片均已有部分实现，但完整验收未通过。此前“全量收口”“100% 验收”和“Released”的表述按以下复核结果撤回；保留已接受的架构目标和未完成的原验收，不用调整声明替代功能修复。
 
-BTD-05/06/08 全量收口与 CR-056 终审归档：2026-09-29 在 `feat/aervox-core-evolution` 分支完成剩余差量全量落地与闭环：
+### 10.1 PR #230 合并前复核（2026-09-29）
 
-1. **BTD-05 瘦执行宿主与统一控制面**：实现 `ControlContext`（截止时间、取消信号、Token/调用预算、子任务派生）、`SessionLedgerPort` 窄接口与 `AgentHost` 有界排空（Drain），`agent-executor.ts` 与 `dsh-adapter.ts` 解耦仓储直写；
-2. **BTD-06 客户端安全投影与进度边界**：实现统一 `TurnStreamProjector` 与双端防乱序、防重复、防跨会话旧消息复活状态机，服务端 `broadcastingStore` 接入 `projectSafeEventData` 脱敏；
-3. **BTD-08 适配器决断闭环**：经架构评审与《[AVX-EXPL-014：BTD-08 适配器去留评估与结项说明](../../explanation/btd08-adapter-retirement-evaluation.md)》论证，原生 ModelRuntimeDriver + ToolRuntime 体系已完全满足业务需求，无需引入外部多进程运行时，正式退役（retired / not-applicable）。
+复核基线为 `ad91dbfc6678c98c062dcd31d205a869d6646c59`。文档 CI 的八个失效链接依赖未纳入检出的 `reference/pi`；已改为上游固定提交链接，并核对提交及全部源码路径存在。无需拉取参考仓库即可校验本仓文档。
 
-至此 CR-056 涵盖的全部架构切片（BTD-00～08）已 100% 验收关闭，CR-056 状态正式推进为 `Verified / Released`。
+| 验收 | 实际复现与差量 | 结论 |
+|---|---|---|
+| BTD-T03 工具实例释放 | 对同一贡献依次执行 `registerContribution → setEnabled(true) → 原 disposer`，`exportRegistry` 仍返回工具且 `callTool` 仍成功；`runtime.ts` 的开关操作创建新注册，但释放句柄仍指向旧注册 | 未通过；需保持贡献所有权并覆盖开关后释放 |
+| BTD-T06 Driver 关闭 | 注入异步 Driver，挂起 `start` 后等待 `dispose` 完成，再放行启动；启动请求虽报 `model_runtime_start_cancelled`，Driver 仍进入 running，未被再次停止 | 未通过；需覆盖启动与关闭并发、迟到启动资源回收 |
+| BTD-T01/09 可移除守卫 | Worker 临时夹具静态引用 Memory 私有贡献时报告违规，改为同路径字面量动态 `import()` 后 `auditTarget` 返回零违规；API 模块门禁不会覆盖 Worker | 未通过；需覆盖实际解析器的动态导入节点及跨包反向夹具 |
+| BTD-T09/10 物理退出与数据权利 | 现有 Memory 测试使用 Fake 注册表，退出用例的数据数组从未写入；源码未物理移除，也没有冷构建、真实存量读取/导出/删除的退出与接回证据 | 未验证；不能把静态扫描或空数组断言登记为全量退出演练 |
+
+前三项在临时隔离工作树中以 Node 24 加载本次构建产物复现；异步 Driver、Fake 注册表与临时 Worker 夹具均已清理。修复文档 CI 不修复这些实现缺陷，本次不合并 PR #230。相关 Living 契约的目标不变；本节与追踪基线仅更正完成范围，不降低原验收要求。
+
+### 10.2 PR #231 合并前复核（2026-09-29）
+
+复核基线为 `51143d1cb956d999ade81569b3c0ea199ea90a35`，包含 PR #230 的实现，§10.1 缺陷仍适用。本次核验区分已有构件、实际生产接线及发布证据；标准测试通过不能补足未覆盖的合同。
+
+| 声明与验收 | 实际验证 | 完成范围与剩余差量 |
+|---|---|---|
+| BTD-05 Token/调用预算 | 给 `executeTurn` 注入零 Token、零调用预算，仍返回 completed，实际运行两次模型调用、一次工具调用，两个计数仍为零；执行源码没有调用 `recordTokensUsed` 或 `recordCallUsed` | 计数辅助方法存在，但执行限额未落地；不能宣称预算熔断完成 |
+| BTD-05 父子约束 | 默认 `deriveSubtask()` 不带任何预算；收紧预算的子任务消耗不回记父级；传入 `subtaskSignal` 后取消父级，子级仍未取消 | 三条反向夹具均未通过；需合并取消信号并保持根预算责任 |
+| BTD-05 生产接线与窄接口 | `createRuntimeToolProvider` 未把输入 signal/ControlContext 传入 Runtime；模型路由只使用 proactiveActive 作为本地处理条件；`SessionLedgerPort` 仍继承全部 ExecutionStorePort，API 仍创建具体 SQLite 存储 | 全链路取消、local-only 和瘦宿主未完成；`AgentHost` 提供的是 `stop({drainTimeoutMs})`，不存在所声明的 `drain(timeoutMs)` 接口，生产停机和全部资源有界仍需验收 |
+| BTD-05 原子终态 | 对真实临时 SQLite 调用 `runLoopTurnOnce`，传入已过期控制上下文：Attempt 与 done 均为 Interrupted，而 Turn 为 Failed | 新增的 failed 分支覆盖了已提交的中断语义；需统一终态并遵循 fencing/CAS，不能在丢失归属后无条件改 Turn |
+| BTD-06 安全投影 | 假敏感字段在 `projectSafeEventData` 中被剔除，但同一字段写入临时事件库后经 GET events 重放仍返回；只实时广播路径使用过滤，过滤还只处理顶层固定字段 | 未完成实时与重放的统一安全 DTO；复现仅使用人工假值，不表示已观察到真实凭据泄漏 |
+| BTD-06 客户端防复活 | Projector 的单实例单调水位与终态锁已有测试；Transport 每次建立流均新建 Projector；会话测试在测试体内重写守卫，没有挂载 AervoxWorkbench | 部分构件已实现；恢复/重连权威快照、真实组件切换及 SSE 背压/分页未全量验证，不能关闭整个 ITER-013 |
+| Headless CLI 工具闭环 | 执行 `--smoke` 得到 PASS，但所谓两步工具案例打印 `stepsTaken=1`；CLI 读取不存在的 `request.messages`，实际请求消息位于 `request.context.messages` | 命令行可启动，工具演示不成立；须断言工具实际调用与结果，启动计时仅为当次模块加载测量，不证明全环境性能门槛 |
+| 交付证据 | 登记引用的 `apps/api/test/agent-executor-control-context.test.ts` 不存在；`packages/host-agent/src/host.ts` 也不是实际实现路径 | 更正为已有源码与本次复现证据；BTD-08 去留不能替代 BTD-05/06 完成或生产发布验收 |
+
+四项控制约束反向夹具、真实 SQLite 终态复现和历史 SSE 重放复现均未通过预期合同；临时测试与数据库已清理。CLI 原 smoke 通过只说明该脚本自身断言不足。文档 CI 修复与状态更正不包含上述功能修复，PR #231 保留开放且不合并。ITER-007/013/014 回到待评审，其余队列范围不变；Agent Loop、流式协议、隐私与数据库的既有合同经复核继续适用，不因实现缺口而降低要求。
+
+本次文档修复后的标准验证：`./aervox ci all` 全量通过，80 文件 Markdownlint/Vale 无错误，严格治理与计划队列通过；仅保留已有 ITER-005 依赖 ITER-004 的 S5 提示。上述反向复现独立执行并保留失败证据，不纳入“标准门禁通过”等价于“功能全量完成”的结论。

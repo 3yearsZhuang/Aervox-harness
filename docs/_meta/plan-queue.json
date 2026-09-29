@@ -134,7 +134,7 @@
     {
       "id": "ITER-007",
       "batch": "first",
-      "status": "已移交",
+      "status": "待评审",
       "delivery": "三个切片：父子任务/Driver 继承取消、截止、删除/授权修订与 local-only；执行时逐项核对 requiredPermissions/grants 的 scope/revision，由受信宿主映射 guarded/full_access 安全等级；动态工具 Schema 快照进入模型请求并在执行时重验；ARC-02/03、插件规范 §8.1；CAP-007/020/033",
       "gate": "既有策略接线优先；动态工具开放依赖真实 grant/审批校验及最终输入容量检查；新根预算与 Driver/授权合同先 CR；进一步压缩与成本优化留 ITER-017",
       "acceptance": [
@@ -144,7 +144,7 @@
       ],
       "owner": "platform/ecosystem",
       "dependsOn": [],
-      "statusNote": "2026-09-29 实施移交：统一执行控制回路 ControlContext 落地，父子继承/截止时间/Token限制/取消级联全链路贯通；SessionLedger 窄接口落地解耦仓储；CR-056 BTD-05 闭环，详见 §4.2",
+      "statusNote": "2026-09-29 PR #231 复核撤回移交：预算计数未接线、父子约束不继承、生产工具取消/local-only 与终态一致性仍有缺口；实际完成范围及复现见 CR-056 §10.2 和 §4.2",
       "links": [
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
       ],
@@ -226,7 +226,7 @@
     {
       "id": "ITER-013",
       "batch": "next",
-      "status": "已移交",
+      "status": "待评审",
       "delivery": "有界运行和观测：Worker/Host drain、Provider 排队/取消、安全文本窗口、SSE 背压/分页、跨进程终态；复用 metrics；ARC-05/12、FND-05/06/09；CAP-007/018",
       "gate": "依赖 ITER-002/008 的相关切片；先观测后定参数；跨进程通知/新隔离边界先 CR",
       "acceptance": [
@@ -238,7 +238,7 @@
         "ITER-002",
         "ITER-008"
       ],
-      "statusNote": "2026-09-29 实施移交：落地 AgentHost 有界排空 drain(timeoutMs) 与全链路级联控制；落地客户端安全投影 TurnStreamProjector 与双端防乱序防复活状态机；CR-056 BTD-06 闭环，详见 §4.2",
+      "statusNote": "2026-09-29 PR #231 复核撤回移交：已有 Host stop 超时控制及单流投影构件，历史重放脱敏、恢复/重连、真实组件与生产有界资源未全量验收；见 CR-056 §10.2 和 §4.2",
       "links": [
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
       ],
@@ -247,7 +247,7 @@
     {
       "id": "ITER-014",
       "batch": "next",
-      "status": "已移交",
+      "status": "待评审",
       "delivery": "模块公开 Port 与 Build to Delete：评审 ADR-014 的通信/装配差量，建立试点模块边界、MemoryStore 贡献与退出演练；ARC-10、[CR-056](docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md)；CAP-005/007/020 与架构基础设施",
       "gate": "CR-056 相关决策先接受；模型 Driver 归 ITER-008，生命周期/控制协同 ITER-005/007/013；不要求先改完全部模块，也不阻塞已有缺陷修复",
       "acceptance": [
@@ -256,10 +256,11 @@
       ],
       "owner": "platform",
       "dependsOn": [],
-      "statusNote": "2026-09-29 实施移交：BTD-00～08 全量闭环（BTD-00～04/07 基础分层与可删除性，BTD-05/06 移交 ITER-007/013 落地，BTD-08 经 AVX-EXPL-014 评估正式退役封板），CR-056 跃迁为 Verified/Released，详见 §4.2",
+      "statusNote": "2026-09-29 PR #230 复核撤回移交：工具开关后释放失效、Driver 迟到启动与动态导入漏检已复现，物理退出和存量数据权利仍缺证据；文档 CI 链接已修复，具体差量见 CR-056 §10.1 与 §4.2",
       "links": [
         "docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md",
-        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/230"
       ],
       "branch": "feat/aervox-core-evolution"
     },
