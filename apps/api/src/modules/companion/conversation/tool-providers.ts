@@ -5,12 +5,27 @@
  * 静态 Contribution 工具的通用写授权门（PET-05 / 阶段 3a / CR-022 full_access
  * 预授权）与动态 tool_registrations 运行时适配（CAP-033 主动动作授权）逐字节迁移。
  */
-import { inspectToolInput, withApprovalPolicy } from "@aervox/agent-loop";
+import {
+  inspectToolInput,
+  withApprovalPolicy,
+  composeToolProviders,
+  createSubagentToolProvider,
+  createWorkflowToolProvider,
+  createAskUserQuestionToolProvider,
+  createPracticeAttemptToolProvider,
+} from "@aervox/agent-loop";
 import type {
+  ModelProviderPort,
+  PracticeAttemptPort,
+  SubagentPort,
   ToolExecutionInput,
   ToolExecutionResult,
   ToolProviderPort,
+  UserQuestionPort,
+  WorkflowDefinition,
 } from "@aervox/agent-loop";
+import type { ModelRoutingSnapshot } from "@aervox/contracts";
+import { loadApiConfig } from "@aervox/config";
 import type {
   LocalContext,
   SqliteConversationRepository,
@@ -211,3 +226,116 @@ export function createRuntimeToolProvider(
     },
   };
 }
+
+export interface AssembleConversationToolsOptions {
+  tenant: LocalContext;
+  repo: SqliteConversationRepository;
+  provider: ModelProviderPort;
+  toolRuntime?: ToolRuntime;
+  proactiveActionAuthorizer?: ProactiveActionAuthorizer;
+  observability?: Observability;
+  subagentFactory?: (tenant: LocalContext) => SubagentPort;
+  workflows?: WorkflowDefinition[];
+  userQuestionPort?: UserQuestionPort;
+  practiceAttemptPort?: PracticeAttemptPort;
+  customContributions?: ToolProviderPort[];
+}
+
+/**
+ * 组装回合工具提供者（静态 Contribution + 动态 ToolRuntime 兜底 + L1/L2 阶梯安全门禁）：
+ * 1. 静态 Contribution：Subagent、Workflow、向用户提问、刷题判定、自定义插件贡献；
+ * 2. 授权门：PET-05 / CR-022 自动/显式授权包裹；
+ * 3. 动态 ToolRuntime：运行时注册工具作为 fallback 兜底；
+ * 4. L1/L2 模型阶梯安全收紧：L1 下仅放行 readOnly 工具，L2 下屏蔽工具调用。
+ */
+export function assembleConversationTools(
+  options: AssembleConversationToolsOptions,
+): ToolProviderPort | undefined {
+  const {
+    tenant,
+    repo,
+    provider,
+    toolRuntime,
+    proactiveActionAuthorizer,
+    observability,
+    subagentFactory,
+    workflows,
+    userQuestionPort,
+    practiceAttemptPort,
+    customContributions = [],
+  } = options;
+
+  const contribution: ToolProviderPort[] = [...customContributions];
+  const subagent = subagentFactory ? subagentFactory(tenant) : undefined;
+  if (subagent) {
+    contribution.push(createSubagentToolProvider({ subagent }));
+  }
+  if (workflows && workflows.length > 0) {
+    contribution.push(createWorkflowToolProvider(workflows));
+  }
+  if (userQuestionPort) {
+    contribution.push(createAskUserQuestionToolProvider({ userQuestionPort }));
+  }
+  if (practiceAttemptPort) {
+    contribution.push(createPracticeAttemptToolProvider({ practiceAttemptPort }));
+  }
+
+  const contributionProvider =
+    contribution.length > 0
+      ? createApprovalGatedToolProvider(
+          composeToolProviders(contribution),
+          tenant,
+          repo,
+          proactiveActionAuthorizer,
+          observability,
+        )
+      : undefined;
+
+  const apiConfig = loadApiConfig();
+  const routingSnapshot = (provider as unknown as { routingSnapshot?: ModelRoutingSnapshot }).routingSnapshot;
+  const isL1Tier = routingSnapshot?.tier === "L1";
+  const isL2Tier = routingSnapshot?.tier === "L2";
+  const isCapabilityTiering = apiConfig.modelRoutingFeatureFlags.has("capability_tiering");
+
+  const runtimeProvider = toolRuntime
+    ? createRuntimeToolProvider(toolRuntime, tenant, {
+        conversationRepo: repo,
+        proactiveActionAuthorizer,
+        observability,
+        capabilityTier: isL1Tier && isCapabilityTiering ? "restricted" : undefined,
+      })
+    : undefined;
+
+  if (isL2Tier) {
+    return undefined;
+  }
+
+  const rawTools = contributionProvider && runtimeProvider
+    ? composeToolProviders([contributionProvider], { fallback: runtimeProvider })
+    : contributionProvider ?? runtimeProvider;
+
+  if (!rawTools) {
+    return undefined;
+  }
+
+  if (isL1Tier && isCapabilityTiering) {
+    return {
+      get tools() {
+        return (rawTools.tools || []).filter((t) => t.readOnly);
+      },
+      async execute(callInput) {
+        const spec = rawTools.tools?.find((t) => t.name === callInput.name);
+        if (spec && !spec.readOnly) {
+          return {
+            ok: false,
+            error: `tool_restricted_in_tier_l1: 工具 ${callInput.name} 为写操作，在 L1 本地降级阶梯下被安全收紧拦截`,
+          };
+        }
+        return rawTools.execute(callInput);
+      },
+    };
+  }
+
+  return rawTools;
+}
+

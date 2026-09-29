@@ -477,7 +477,7 @@
     {
       "id": "ITER-026",
       "batch": "next",
-      "status": "建议",
+      "status": "已移交",
       "delivery": "伴学业务与会话执行器深度解耦：extractStudyTerms、PracticeAttempt 与 MemoryRecall 插件化/中间件化；CAP-002/007/016；ADR-020",
       "gate": "保持既有 API 行为与契约 100% 兼容；通过既有 quiz-mode、study-term-plugins 等集成测试",
       "acceptance": [
@@ -491,8 +491,13 @@
         "`apps/api/test/conversation-loop.test.ts`"
       ],
       "owner": "companion/learning",
+      "branch": "feat/aervox-core-evolution",
+      "statusNote": "2026-09-29 移交：agent-executor.ts 代码行数由 473 行收敛 54% 至 217 行，职责纯粹聚焦于 LLM+工具多轮循环；记忆召回与上下文组装收敛至 context-builder.ts；工具组合声明化收敛至 tool-providers.ts；管道与独立术语提取中间件收敛至 pipeline-middlewares.ts；quiz-mode、study-term-plugins 与 conversation-loop 全套测试全绿；§4.2 完成登记",
       "dependsOn": [
         "ITER-024"
+      ],
+      "links": [
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
       ]
     },
     {

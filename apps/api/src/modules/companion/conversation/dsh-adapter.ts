@@ -17,9 +17,13 @@
  */
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { createDSHAdapterDriver, runAdapterTurn, type SqliteExecutionStore } from "@aervox/host-agent";
-import type { AdapterDriverPort } from "@aervox/agent-loop";
+import { createDSHAdapterDriver, runAdapterTurn, type SqliteExecutionStore, type TurnMiddlewareContext } from "@aervox/host-agent";
+import type { AdapterDriverPort, ExecuteResult } from "@aervox/agent-loop";
 import type { LocalContext, SqliteConversationRepository } from "@aervox/repositories";
+import { loadApiConfig } from "@aervox/config";
+import type { LLMCallable } from "@aervox/practice-review";
+import { buildLoopProvider, createLLMCallable } from "./llm-adapter.js";
+import { PIPELINE_ATTR_EXTRA_SECTIONS, PIPELINE_ATTR_LLM_CALLABLE } from "./pipeline-middlewares.js";
 
 export interface DshTurnAdapterOverrides {
   /** 测试注入：显式仓库根（跳过 cwd 向上查找与环境变量） */
@@ -134,3 +138,60 @@ export async function runDshAdapterTurn(
   }
   return result;
 }
+
+/**
+ * 若启用了 AERVOX_LOOP_DRIVER=dsh，则整 Turn 交由 DSH 进程外 Adapter 执行；
+ * 未启用时返回 null，交由原生 Native 执行器处理。
+ */
+export async function executeDshTurnIfEnabled(
+  repo: SqliteConversationRepository,
+  tenant: LocalContext,
+  broadcastingStore: SqliteExecutionStore,
+  ctx: TurnMiddlewareContext,
+  deps: {
+    llmConfigService?: import("../../ecosystem/llm/index.js").LLMConfigService;
+  },
+): Promise<ExecuteResult | null> {
+  if (loadApiConfig().loopDriver !== "dsh") {
+    return null;
+  }
+
+  const extraSections = (ctx.attributes.get(PIPELINE_ATTR_EXTRA_SECTIONS) as string[] | undefined) ?? [];
+  let dshLlm: LLMCallable | undefined;
+  if (deps.llmConfigService && loadApiConfig().loopProvider === "llm") {
+    try {
+      const p = await buildLoopProvider(tenant, deps.llmConfigService, {
+        requireLocalOnly: ctx.controlContext.localProcessingOnly,
+      });
+      dshLlm = createLLMCallable(p);
+    } catch {
+      // 容忍非致命 LLMCallable 构建异常
+    }
+  }
+  if (dshLlm) {
+    ctx.attributes.set(PIPELINE_ATTR_LLM_CALLABLE, dshLlm);
+  }
+
+  const dshInput = {
+    turnId: ctx.turnId,
+    sessionId: ctx.sessionId,
+    attemptId: ctx.attemptId,
+    userMessage: ctx.userMessage ?? "",
+    ...(extraSections.length > 0
+      ? { systemPrompt: extraSections.join("\n\n") }
+      : {}),
+    controlContext: ctx.controlContext,
+  };
+
+  const dshResult = await runDshAdapterTurn(repo, tenant, broadcastingStore, dshInput);
+  if (dshResult.status === "Completed") {
+    return { status: "completed", attemptId: ctx.attemptId, lastSequence: 1, stepsTaken: 1 };
+  } else if (dshResult.status === "Interrupted") {
+    return { status: "cancelled", attemptId: ctx.attemptId, lastSequence: 1, stepsTaken: 1 };
+  } else if (dshResult.status === "skipped") {
+    return { status: "skipped", attemptId: ctx.attemptId, reason: "already_claimed" };
+  } else {
+    return { status: "failed", attemptId: ctx.attemptId, reason: dshResult.reason ?? "failed" };
+  }
+}
+

@@ -6,11 +6,14 @@
  * 彻底解耦为标准的 TurnMiddleware，接入 @aervox/host-agent 的通用执行管道。
  */
 
-import type { TurnMiddleware, TurnMiddlewareContext } from "@aervox/host-agent";
+import { ExecutionPipeline, type TurnMiddleware, type TurnMiddlewareContext } from "@aervox/host-agent";
 import type { ExecuteResult } from "@aervox/agent-loop";
 import type { Observability } from "@aervox/observability";
 import type { SafetyService } from "../../platform/safety/index.js";
 import {
+  isFocusModeMessage,
+  extractFocusTerms,
+  loadFocusModeRuntimeConfig,
   executeBeforeTurnPlugins,
   executeAfterTurnPlugins,
   type ServerPluginRegistry,
@@ -319,3 +322,109 @@ export function createProactivePolicyMiddleware(deps: {
     return next();
   };
 }
+
+/**
+ * 伴学专注模式术语提取中间件 (StudyTermsMiddleware)
+ * 独立提取在 afterTurn 阶段运行的术语抽取与事件广播
+ */
+export function createStudyTermsMiddleware(deps: {
+  repo: SqliteConversationRepository;
+  tenant: LocalContext;
+  extensionRepo?: IExtensionRepository | null;
+  pluginConfigRepo?: IPluginConfigRepository;
+}): TurnMiddleware {
+  return async (ctx: TurnMiddlewareContext, next) => {
+    const result = await next();
+    if (result.status === "completed") {
+      let isEnabled = true;
+      if (deps.extensionRepo) {
+        const record = (await deps.extensionRepo.getPlugin("focus-mode").catch(() => null))
+          ?? (await deps.extensionRepo.getPlugin("study-mode").catch(() => null));
+        if (record) {
+          isEnabled = record.enabled === 1 && (record.availability ?? "available") === "available";
+        }
+      }
+      if (isEnabled && isFocusModeMessage(ctx.userMessage, ctx.metadata)) {
+        const llm = ctx.attributes.get(PIPELINE_ATTR_LLM_CALLABLE) as LLMCallable | undefined;
+        const config = await loadFocusModeRuntimeConfig(deps.tenant, deps.pluginConfigRepo);
+        await extractFocusTerms(
+          deps.repo,
+          deps.tenant,
+          { turnId: ctx.turnId, userMessage: ctx.userMessage ?? "", metadata: ctx.metadata },
+          config,
+          llm,
+        );
+      }
+    }
+    return result;
+  };
+}
+
+export interface AssembleConversationPipelineOptions {
+  observability?: Observability;
+  safetyService?: SafetyService;
+  repo: SqliteConversationRepository;
+  tenant: LocalContext;
+  broadcastingStore: import("@aervox/host-agent").SqliteExecutionStore;
+  pluginRegistry: ServerPluginRegistry;
+  extensionRepo: IExtensionRepository | null;
+  pluginConfigRepo?: IPluginConfigRepository;
+  proactiveRepository?: IProactiveProfileRepository;
+  extraMiddlewares?: TurnMiddleware[];
+}
+
+/**
+ * 组装会话回合洋葱执行管道 (ExecutionPipeline)：
+ * 1. 遥测与全链路指标中间件 (TurnMetricsMiddleware)
+ * 2. 危机安全干预与情绪指引中间件 (SafetyCrisisMiddleware)
+ * 3. 伴学插件前后置生命周期中间件 (CompanionPluginLifecycleMiddleware)
+ * 4. 主动智能本地限定与画像注入中间件 (ProactivePolicyMiddleware)
+ * 5. 额外自定义或扩展中间件
+ */
+export function assembleConversationPipeline(
+  deps: AssembleConversationPipelineOptions,
+): ExecutionPipeline {
+  const pipeline = new ExecutionPipeline();
+
+  // 1. 遥测与全链路指标中间件 (TurnMetricsMiddleware)
+  pipeline.use(createTurnMetricsMiddleware({ observability: deps.observability }));
+
+  // 2. 危机安全干预与情绪指引中间件 (SafetyCrisisMiddleware)
+  pipeline.use(
+    createSafetyCrisisMiddleware({
+      safetyService: deps.safetyService,
+      repo: deps.repo,
+      tenant: deps.tenant,
+      broadcastingStore: deps.broadcastingStore,
+      observability: deps.observability,
+    }),
+  );
+
+  // 3. 伴学插件前后置生命周期中间件 (CompanionPluginLifecycleMiddleware)
+  pipeline.use(
+    createCompanionPluginLifecycleMiddleware({
+      pluginRegistry: deps.pluginRegistry,
+      repo: deps.repo,
+      tenant: deps.tenant,
+      extensionRepo: deps.extensionRepo,
+      pluginConfigRepo: deps.pluginConfigRepo,
+    }),
+  );
+
+  // 4. 主动智能本地限定与画像注入中间件 (ProactivePolicyMiddleware)
+  pipeline.use(
+    createProactivePolicyMiddleware({
+      proactiveRepository: deps.proactiveRepository,
+      tenant: deps.tenant,
+    }),
+  );
+
+  if (deps.extraMiddlewares) {
+    for (const mw of deps.extraMiddlewares) {
+      pipeline.use(mw);
+    }
+  }
+
+  return pipeline;
+}
+

@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.48.0
+version: 1.49.0
 updated_at: 2026-09-29
 reviewed_at: 2026-09-29
 review_interval_days: 90
@@ -504,6 +504,7 @@ review_interval_days: 90
 | Aervox Core 演进阶段 4：Headless Agent 执行内核闭环与轻量化极简验证 | CAP-001/002 + 基础设施（ADR-020） | `scripts/run-headless-agent.mjs`（动态加载纯内核，接入 `ExecutionPipeline`、`CliInteractiveApprovalPolicy` 与 `HostToolRuntime`，7 步端到端自动化验证与交互式 REPL）、`docs/reference/adr/ADR-020-aervox-core-decoupling.md`、`docs/reference/ARCHITECTURE.md`（§7.1、§11） | 2026-09-29 | `node scripts/run-headless-agent.mjs --smoke` 7/7 自动化验证 100% 通过；零数据库、零 Fastify 网络侵入，毫秒级轻量冷启动执行；全仓 18 包双门禁通过 | 原生 |
 | 测试效能与门禁轻量化治理：Vitest 单包自适应并发与测试挂起缺陷修复 | 基础设施（测试效能与 CI 稳定性） | `vitest.shared.ts`（解除 `maxWorkers: 1` 全局锁死，引入自适应 2~3 Worker 并行机制）、`scripts/run-headless-agent.mjs`（修复 non-interactive 模式下 stdin 句柄未关闭与未显式 exit(0) 导致事件循环挂起缺陷）、`scripts/check-affected.mjs`、`AGENTS.md` | 2026-09-29 | `node scripts/run-headless-agent.mjs --smoke` 1.4s 快速退出无挂起；`@aervox/api` 73 套件 485 测试在 3 Worker 并行下耗时由 548s 压减至 176s（提速 67.8%）；全量 18 包构建、类型检查与 27 任务测试 100% 稳态通过（0 超时、0 SQLite 锁冲突）；`./aervox ci` 增量门禁与文档治理全绿 | 原生 |
 | Aervox Core 懒加载与毫秒级冷启动（ITER-025：子路径导出与重型依赖解耦） | 基础设施（ADR-020 / ITER-025） | `packages/repositories/package.json`（新增 `./errors` 子路径导出）、`packages/schema/package.json`（新增 `./audit` 子路径导出）、`packages/host-agent/src/sqlite-execution-store.ts`（收窄依赖源为 `@aervox/repositories/errors`）、`packages/host-agent/src/sqlite-observability.ts`（收窄依赖源为 `@aervox/schema/audit`）、`packages/host-agent/src/core.ts` 与 `package.json`（新增纯内存 `@aervox/host-agent/core` 轻量内核导出）、`scripts/run-headless-agent.mjs`（改引 core 导出） | 2026-09-29 | `node scripts/run-headless-agent.mjs --smoke` 内核加载耗时由 1440ms 降至 20.14ms（提速 98.6%，消除基准告警）；`@aervox/host-agent` 全量导入耗时降低 50%；`test:fast` 17 任务 18.8s 纯绿；`check-affected` 27 任务（含 API 73 套件 485 测试）100% 稳态通过；依赖边界与类型边界 0 违规 | 原生 |
+| 伴学业务与会话执行器深度解耦（ITER-026：上下文构建、工具与执行管道极致收敛） | CAP-002/007/016 + 基础设施（ADR-020 / ITER-026） | `apps/api/src/modules/companion/conversation/agent-executor.ts`（代码行数由 473 行收敛 54% 至 217 行，聚焦纯粹 LLM + 工具驱动）、`apps/api/src/modules/companion/conversation/context-builder.ts`（新建：装配记忆召回、历史与提示词）、`apps/api/src/modules/companion/conversation/tool-providers.ts`（`assembleConversationTools` 声明式收敛 Subagent、Workflow、UserQuestion 与 PracticeAttempt）、`apps/api/src/modules/companion/conversation/broadcasting-store.ts`（`createConversationExecutionStore`）、`apps/api/src/modules/companion/conversation/dsh-adapter.ts`（`executeDshTurnIfEnabled`）、`apps/api/src/modules/companion/conversation/pipeline-middlewares.ts`（`assembleConversationPipeline` 与独立 `createStudyTermsMiddleware`） | 2026-09-29 | `apps/api/test/quiz-mode.test.ts` 4 项全绿；`apps/api/test/study-term-plugins.test.ts` 7 项全绿；`apps/api/test/conversation-loop.test.ts` 6 项全绿；`check-affected` 27 任务（含 API 73 套件 485 测试）100% 稳态通过；依赖边界与类型边界 0 违规 | 原生 |
 
 ## 5. 原子需求字段模板
 
