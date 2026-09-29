@@ -46,9 +46,8 @@ export class LeaseHeartbeat {
   }
 
   /** 订阅租约丢失（executor 用于 abort 在途工具调用；stop 时清理） */
-  onLost(listener: () => void): () => void {
+  onLost(listener: () => void): void {
     this.listeners.add(listener);
-    return () => { this.listeners.delete(listener); };
   }
 
   stop(): void {

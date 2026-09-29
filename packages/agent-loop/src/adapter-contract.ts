@@ -59,8 +59,6 @@ export interface AdapterRequest {
   /** Host 已审核的系统提示词；用于保持 native 与进程外 Adapter 的插件语义一致。 */
   systemPrompt?: string;
   tools?: ToolSpec[];
-  /** 取消/中断信号（宿主 ControlContext 级联） */
-  signal?: AbortSignal;
 }
 
 /** 进程外 Adapter Driver（Host 持有实现；子进程 stdio / 内存模拟器双实现） */

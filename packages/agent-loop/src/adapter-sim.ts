@@ -1,4 +1,3 @@
-import { abortableStream, awaitWithSignal } from "./abortable.js";
 /**
  * Aervox｜思隅 @aervox/agent-loop — DSH/pi Adapter 模拟器（阶段 6）
  *
@@ -66,9 +65,8 @@ export async function drainAdapterDriver(
 ): Promise<AdapterRunOutcome> {
   const events: AdapterEvent[] = [];
   let lastBatch: AdapterBatchDeclaration | undefined;
-  request.signal?.throwIfAborted();
-  const iterable = await awaitWithSignal(Promise.resolve(driver.run(request)), request.signal);
-  for await (const ev of abortableStream(iterable, request.signal)) {
+  const iterable = await driver.run(request);
+  for await (const ev of iterable) {
     events.push(ev);
     if (ev.type === "batch") {
       lastBatch = { concludes: ev.concludes };

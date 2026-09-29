@@ -5,57 +5,96 @@
  * 静态 Contribution 工具的通用写授权门（PET-05 / 阶段 3a / CR-022 full_access
  * 预授权）与动态 tool_registrations 运行时适配（CAP-033 主动动作授权）逐字节迁移。
  */
-import {
-  inspectToolInput,
-  withApprovalPolicy,
-  composeToolProviders,
-  createSubagentToolProvider,
-  createWorkflowToolProvider,
-  createAskUserQuestionToolProvider,
-  createPracticeAttemptToolProvider,
-} from "@aervox/agent-loop";
+import { inspectToolInput } from "@aervox/agent-loop";
 import type {
-  ModelProviderPort,
-  PracticeAttemptPort,
-  SubagentPort,
   ToolExecutionInput,
   ToolExecutionResult,
   ToolProviderPort,
-  UserQuestionPort,
-  WorkflowDefinition,
 } from "@aervox/agent-loop";
-import type { ModelRoutingSnapshot } from "@aervox/contracts";
-import { loadApiConfig } from "@aervox/config";
 import type {
   LocalContext,
   SqliteConversationRepository,
 } from "@aervox/repositories";
 import type { Observability } from "@aervox/observability";
-import type { ProactiveActionAuthorizer } from "../../proactive/proactive/index.js";
+import {
+  getRequestToolApprovalMode,
+  isToolAutoApprovable,
+} from "../../../shared/tool-approval-policy.js";
+import {
+  PROACTIVE_ACTION_DECIDER_PREFIX,
+  type ProactiveActionAuthorizer,
+} from "../../proactive/proactive/action-authorizer.js";
 import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index.js";
 import { stableStringify } from "./llm-adapter.js";
-import {
-  EventDrivenApprovalPolicy,
-  FULL_ACCESS_DECIDER_PREFIX,
-  findExplicitToolApproval,
-  recordAutomaticApproval,
-  executeAuthorizedProactiveAction,
-  type ToolApprovalRepository,
-} from "./approval-policy.js";
 
-export {
-  EventDrivenApprovalPolicy,
-  FULL_ACCESS_DECIDER_PREFIX,
-  findExplicitToolApproval,
-  recordAutomaticApproval,
-  executeAuthorizedProactiveAction,
-  type ToolApprovalRepository,
-};
+/** 自动授权决策人前缀；显式授权查询排除该类记录，避免关闭完全访问后泄漏。 */
+export const FULL_ACCESS_DECIDER_PREFIX = "permission:full_access:";
+
+type ToolApprovalRepository = Pick<
+  SqliteConversationRepository,
+  "recordToolApproval" | "decideToolApproval" | "findGrantedToolApproval"
+>;
+
+async function findExplicitToolApproval(
+  repo: ToolApprovalRepository,
+  tenant: LocalContext,
+  input: { toolName: string; argumentsHash: string },
+) {
+  return repo.findGrantedToolApproval(tenant, {
+    ...input,
+    excludeDecidedByPrefixes: [FULL_ACCESS_DECIDER_PREFIX, PROACTIVE_ACTION_DECIDER_PREFIX],
+  });
+}
+
+async function recordAutomaticApproval(
+  repo: ToolApprovalRepository,
+  tenant: LocalContext,
+  input: {
+    turnId: string;
+    attemptId: string;
+    toolName: string;
+    argumentsHash: string;
+    toolVersion?: string | null;
+  },
+  decidedBy: string,
+): Promise<boolean> {
+  const approval = await repo.recordToolApproval(tenant, {
+    ...input,
+    requester: tenant.subjectUserId,
+    state: "pending",
+  });
+  const actor = tenant.actorId ?? tenant.subjectUserId;
+  const granted = await repo.decideToolApproval(
+    tenant,
+    approval.id,
+    "granted",
+    decidedBy || `${FULL_ACCESS_DECIDER_PREFIX}${actor}`,
+  );
+  return granted !== null;
+}
+
+async function executeAuthorizedProactiveAction(
+  authorizer: ProactiveActionAuthorizer,
+  tenant: LocalContext,
+  actionId: string,
+  execute: () => Promise<ToolExecutionResult>,
+): Promise<ToolExecutionResult> {
+  try {
+    await authorizer.markRunning(tenant, actionId);
+    const result = await execute();
+    if (result.ok) await authorizer.markExecuted(tenant, actionId, result.output);
+    else await authorizer.markFailed(tenant, actionId, result.error ?? "tool_execution_failed");
+    return result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await authorizer.markFailed(tenant, actionId, message).catch(() => undefined);
+    return { ok: false, error: message };
+  }
+}
 
 /**
  * 给静态 Contribution 工具补齐通用写工具授权门：
  * readOnly 直接执行；写工具命中显式授权或本 Turn 完全访问后执行。
- * 现已重构为基于标准 ApprovalPolicyPort 的 EventDrivenApprovalPolicy 驱动。
  */
 export function createApprovalGatedToolProvider(
   provider: ToolProviderPort,
@@ -64,16 +103,9 @@ export function createApprovalGatedToolProvider(
   proactiveActionAuthorizer?: ProactiveActionAuthorizer,
   observability?: Observability,
 ): ToolProviderPort {
-  const policy = new EventDrivenApprovalPolicy(repo, tenant, {
-    proactiveActionAuthorizer,
-    observability,
-  });
-  const wrapped = withApprovalPolicy(provider, policy);
-
+  const specs = new Map(provider.tools.map((tool) => [tool.name, tool]));
   return {
-    get tools() {
-      return wrapped.tools;
-    },
+    tools: provider.tools,
     async execute(input: ToolExecutionInput): Promise<ToolExecutionResult> {
       const emitResult = (res: ToolExecutionResult): ToolExecutionResult => {
         if (res.ok) {
@@ -89,7 +121,82 @@ export function createApprovalGatedToolProvider(
         return emitResult({ ok: false, error: `unsafe_tool_arguments: ${inspection.reason ?? "validation_failed"}` });
       }
 
-      return emitResult(await wrapped.execute(input));
+      const spec = specs.get(input.name);
+      if (!spec || spec.readOnly) return emitResult(await provider.execute(input));
+
+      const argumentsHash = stableStringify(input.arguments);
+      const granted = await findExplicitToolApproval(repo, tenant, {
+        toolName: input.name,
+        argumentsHash,
+      });
+      if (granted) return emitResult(await provider.execute(input));
+
+      const autoApprovable = isToolAutoApprovable(
+        {
+          name: input.name,
+          safetyLevel: spec?.readOnly ? "read_only" : "write_with_approval",
+        },
+        input.arguments,
+      );
+
+      if (getRequestToolApprovalMode(tenant) === "full_access" && autoApprovable) {
+        if (proactiveActionAuthorizer) {
+          const authorization = await proactiveActionAuthorizer.authorize(tenant, {
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            invocationId: input.invocationId,
+            toolId: input.name,
+            toolName: input.name,
+            category: "system",
+            safetyLevel: "write_with_approval",
+            arguments: input.arguments,
+          });
+          if (authorization.authorized) {
+            const recorded = await recordAutomaticApproval(repo, tenant, {
+              turnId: input.turnId,
+              attemptId: input.attemptId,
+              toolName: input.name,
+              argumentsHash,
+            }, authorization.decidedBy);
+            if (!recorded) {
+              await proactiveActionAuthorizer.markFailed(
+                tenant,
+                authorization.action.id,
+                "proactive_action_approval_not_recorded",
+              );
+              return emitResult({ ok: false, error: "proactive_action_approval_not_recorded" });
+            }
+            return emitResult(await executeAuthorizedProactiveAction(
+              proactiveActionAuthorizer,
+              tenant,
+              authorization.action.id,
+              () => provider.execute(input),
+            ));
+          }
+        }
+        const actor = tenant.actorId ?? tenant.subjectUserId;
+        const recorded = await recordAutomaticApproval(repo, tenant, {
+          turnId: input.turnId,
+          attemptId: input.attemptId,
+          toolName: input.name,
+          argumentsHash,
+        }, `${FULL_ACCESS_DECIDER_PREFIX}${actor}`);
+        if (!recorded) return emitResult({ ok: false, error: "full_access_approval_not_recorded" });
+        return emitResult(await provider.execute(input));
+      }
+
+      const approval = await repo.recordToolApproval(tenant, {
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        toolName: input.name,
+        argumentsHash,
+        requester: tenant.subjectUserId,
+        state: "pending",
+      });
+      return emitResult({
+        ok: false,
+        needsApproval: { approvalId: approval.id, toolName: input.name, argumentsHash },
+      });
     },
   };
 }
@@ -138,7 +245,7 @@ export function createRuntimeToolProvider(
       // 只读工具：自主执行
       if (tool.safetyLevel === "read_only") {
         try {
-          const output = await runtime.callTool(tenant, tool.id, input.arguments, { signal: input.signal, controlContext: input.controlContext, approval: false });
+          const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: false });
           return emitResult({ ok: true, output });
         } catch (err) {
           return emitResult({ ok: false, error: errorMessage(err) });
@@ -153,37 +260,62 @@ export function createRuntimeToolProvider(
         });
       }
 
-      // 写工具（write_with_approval / privileged）：统一委托 EventDrivenApprovalPolicy 进行判定
+      // 写工具（write_with_approval / privileged）：须已授权（参数哈希匹配 + granted），否则生成待决授权。
+      // privileged 与 write 同流程；「仅管理员可批准」由路由 decideToolApproval 的管理员校验把关（3b）。
       if (tool.safetyLevel === "write_with_approval" || tool.safetyLevel === "privileged") {
-        const policy = new EventDrivenApprovalPolicy(deps.conversationRepo, tenant, {
-          proactiveActionAuthorizer: deps.proactiveActionAuthorizer,
-          observability: deps.observability,
-          toolVersion: tool.updatedAt,
-          category: tool.category,
-          requiredPermissionsJson: typeof tool.requiredPermissionsJson === "string" ? tool.requiredPermissionsJson : null,
-        });
-
-        const decision = await policy.evaluate({
-          turnId: input.turnId,
-          attemptId: input.attemptId,
-          invocationId: input.invocationId,
+        const hash = stableStringify(input.arguments);
+        const granted = await findExplicitToolApproval(deps.conversationRepo, tenant, {
           toolName: tool.name,
-          arguments: input.arguments,
-          safetyLevel: tool.safetyLevel,
+          argumentsHash: hash,
         });
-
-        if (decision.action === "allow") {
-          const proactiveActionId = decision.metadata?.proactiveActionId as string | undefined;
-          if (proactiveActionId && deps.proactiveActionAuthorizer) {
+        if (granted) {
+          try {
+            const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: true });
+            return emitResult({ ok: true, output });
+          } catch (err) {
+            return emitResult({ ok: false, error: errorMessage(err) });
+          }
+        }
+        // 主动智能模式下，全动作授权包可覆盖普通写、外部、privileged 与不可逆动作；
+        // 每次执行仍绑定当前画像修订/租约/scope 并写入本地动作账本。
+        if (
+          getRequestToolApprovalMode(tenant) === "full_access" &&
+          deps.proactiveActionAuthorizer
+        ) {
+          const authorization = await deps.proactiveActionAuthorizer.authorize(tenant, {
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            invocationId: input.invocationId,
+            toolId: tool.id,
+            toolName: tool.name,
+            category: tool.category,
+            safetyLevel: tool.safetyLevel,
+            requiredPermissions: tool.requiredPermissionsJson,
+            arguments: input.arguments,
+          });
+          if (authorization.authorized) {
+            const recorded = await recordAutomaticApproval(deps.conversationRepo, tenant, {
+              turnId: input.turnId,
+              attemptId: input.attemptId,
+              toolName: tool.name,
+              argumentsHash: hash,
+              toolVersion: tool.updatedAt,
+            }, authorization.decidedBy);
+            if (!recorded) {
+              await deps.proactiveActionAuthorizer.markFailed(
+                tenant,
+                authorization.action.id,
+                "proactive_action_approval_not_recorded",
+              );
+              return emitResult({ ok: false, error: "proactive_action_approval_not_recorded" });
+            }
             return emitResult(await executeAuthorizedProactiveAction(
               deps.proactiveActionAuthorizer,
               tenant,
-              proactiveActionId,
+              authorization.action.id,
               async () => {
                 try {
                   const output = await runtime.callTool(tenant, tool.id, input.arguments, {
-                    signal: input.signal,
-                    controlContext: input.controlContext,
                     approval: true,
                     proactiveAuthorization: true,
                   });
@@ -194,31 +326,39 @@ export function createRuntimeToolProvider(
               },
             ));
           }
-
+        }
+        // CR-022 fallback：普通写工具可由 Turn full_access 预授权；privileged 与高危非自动免审工具无主动授权时仍走管理员/普通通道。
+        if (
+          tool.safetyLevel === "write_with_approval" &&
+          getRequestToolApprovalMode(tenant) === "full_access" &&
+          isToolAutoApprovable(tool, input.arguments)
+        ) {
+          const actor = tenant.actorId ?? tenant.subjectUserId;
+          const recorded = await recordAutomaticApproval(deps.conversationRepo, tenant, {
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            toolName: tool.name,
+            argumentsHash: hash,
+            toolVersion: tool.updatedAt,
+          }, `${FULL_ACCESS_DECIDER_PREFIX}${actor}`);
+          if (!recorded) return emitResult({ ok: false, error: "full_access_approval_not_recorded" });
           try {
-            const output = await runtime.callTool(tenant, tool.id, input.arguments, {
-              signal: input.signal,
-              controlContext: input.controlContext,
-              approval: true,
-            });
+            const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: true });
             return emitResult({ ok: true, output });
           } catch (err) {
             return emitResult({ ok: false, error: errorMessage(err) });
           }
         }
-
-        if (decision.action === "deny") {
-          return emitResult({ ok: false, error: decision.reason ?? "permission_denied" });
-        }
-
-        return emitResult({
-          ok: false,
-          needsApproval: {
-            approvalId: decision.approvalId!,
-            toolName: tool.name,
-            argumentsHash: decision.argumentsHash ?? stableStringify(input.arguments),
-          },
+        const approval = await deps.conversationRepo.recordToolApproval(tenant, {
+          turnId: input.turnId,
+          attemptId: input.attemptId,
+          toolName: tool.name,
+          argumentsHash: hash,
+          requester: tenant.subjectUserId,
+          state: "pending",
+          toolVersion: tool.updatedAt,
         });
+        return emitResult({ ok: false, needsApproval: { approvalId: approval.id, toolName: tool.name, argumentsHash: hash } });
       }
 
       // 其它（含不可识别的 safetyLevel）：fail-closed 拒绝
@@ -226,116 +366,3 @@ export function createRuntimeToolProvider(
     },
   };
 }
-
-export interface AssembleConversationToolsOptions {
-  tenant: LocalContext;
-  repo: SqliteConversationRepository;
-  provider: ModelProviderPort;
-  toolRuntime?: ToolRuntime;
-  proactiveActionAuthorizer?: ProactiveActionAuthorizer;
-  observability?: Observability;
-  subagentFactory?: (tenant: LocalContext) => SubagentPort;
-  workflows?: WorkflowDefinition[];
-  userQuestionPort?: UserQuestionPort;
-  practiceAttemptPort?: PracticeAttemptPort;
-  customContributions?: ToolProviderPort[];
-}
-
-/**
- * 组装回合工具提供者（静态 Contribution + 动态 ToolRuntime 兜底 + L1/L2 阶梯安全门禁）：
- * 1. 静态 Contribution：Subagent、Workflow、向用户提问、刷题判定、自定义插件贡献；
- * 2. 授权门：PET-05 / CR-022 自动/显式授权包裹；
- * 3. 动态 ToolRuntime：运行时注册工具作为 fallback 兜底；
- * 4. L1/L2 模型阶梯安全收紧：L1 下仅放行 readOnly 工具，L2 下屏蔽工具调用。
- */
-export function assembleConversationTools(
-  options: AssembleConversationToolsOptions,
-): ToolProviderPort | undefined {
-  const {
-    tenant,
-    repo,
-    provider,
-    toolRuntime,
-    proactiveActionAuthorizer,
-    observability,
-    subagentFactory,
-    workflows,
-    userQuestionPort,
-    practiceAttemptPort,
-    customContributions = [],
-  } = options;
-
-  const contribution: ToolProviderPort[] = [...customContributions];
-  const subagent = subagentFactory ? subagentFactory(tenant) : undefined;
-  if (subagent) {
-    contribution.push(createSubagentToolProvider({ subagent }));
-  }
-  if (workflows && workflows.length > 0) {
-    contribution.push(createWorkflowToolProvider(workflows));
-  }
-  if (userQuestionPort) {
-    contribution.push(createAskUserQuestionToolProvider({ userQuestionPort }));
-  }
-  if (practiceAttemptPort) {
-    contribution.push(createPracticeAttemptToolProvider({ practiceAttemptPort }));
-  }
-
-  const contributionProvider =
-    contribution.length > 0
-      ? createApprovalGatedToolProvider(
-          composeToolProviders(contribution),
-          tenant,
-          repo,
-          proactiveActionAuthorizer,
-          observability,
-        )
-      : undefined;
-
-  const apiConfig = loadApiConfig();
-  const routingSnapshot = (provider as unknown as { routingSnapshot?: ModelRoutingSnapshot }).routingSnapshot;
-  const isL1Tier = routingSnapshot?.tier === "L1";
-  const isL2Tier = routingSnapshot?.tier === "L2";
-  const isCapabilityTiering = apiConfig.modelRoutingFeatureFlags.has("capability_tiering");
-
-  const runtimeProvider = toolRuntime
-    ? createRuntimeToolProvider(toolRuntime, tenant, {
-        conversationRepo: repo,
-        proactiveActionAuthorizer,
-        observability,
-        capabilityTier: isL1Tier && isCapabilityTiering ? "restricted" : undefined,
-      })
-    : undefined;
-
-  if (isL2Tier) {
-    return undefined;
-  }
-
-  const rawTools = contributionProvider && runtimeProvider
-    ? composeToolProviders([contributionProvider], { fallback: runtimeProvider })
-    : contributionProvider ?? runtimeProvider;
-
-  if (!rawTools) {
-    return undefined;
-  }
-
-  if (isL1Tier && isCapabilityTiering) {
-    return {
-      get tools() {
-        return (rawTools.tools || []).filter((t) => t.readOnly);
-      },
-      async execute(callInput) {
-        const spec = rawTools.tools?.find((t) => t.name === callInput.name);
-        if (spec && !spec.readOnly) {
-          return {
-            ok: false,
-            error: `tool_restricted_in_tier_l1: 工具 ${callInput.name} 为写操作，在 L1 本地降级阶梯下被安全收紧拦截`,
-          };
-        }
-        return rawTools.execute(callInput);
-      },
-    };
-  }
-
-  return rawTools;
-}
-

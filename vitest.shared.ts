@@ -1,4 +1,3 @@
-import os from 'node:os'
 import { defineConfig } from 'vitest/config'
 
 // 共享 vitest 配置：所有包的 test 入口统一走 test 目录下的 .test.ts 文件
@@ -7,24 +6,16 @@ import { defineConfig } from 'vitest/config'
 // 集成测试。默认 5s 单测超时在 turbo 并行跑全部包时会因磁盘与 CPU 争抢而抖动
 // （本机实测单文件耗时从 0.5s 膨胀到 6s 以上），导致门禁偶发红而无真实缺陷。
 // 这里统一放宽到 30s：既覆盖并行峰值，也仍能在真实死锁时及时失败。
-//
 // 并行度治理：
-// 既往为了防止 Turbo 在包级别并发调度时与单包内 Vitest worker 产生 CPU/磁盘饥饿，曾保守将
-// Vitest worker 限制为 1。然而在 @aervox/api（73 个测试文件）等重型包中，单 worker 纯串行执行导致
-// 耗时膨胀至 9+ 分钟，多核算力被严重闲置。
-//
-// 经过基准实测与隔离保障：
-// 1. 各测试用例均使用唯一命名的临时 SQLite 文件或内存隔离，无跨进程文件锁冲突；
-// 2. 默认在 CI 开启 2 worker，本地开发根据 CPU 核心数自适应分配（最多 3 worker），
-//    在保障不产生端口/资源争抢的前提下将单包测试耗时压缩 50%~75%；
-// 3. 仍保留通过 VITEST_MAX_WORKERS 环境变量显式覆盖的能力。
-const defaultWorkers = process.env.CI
-  ? 2
-  : Math.max(1, Math.min(3, Math.floor(os.cpus().length / 2)));
-
+// 在 Monorepo 中，Turbo 会并行调度多个包。如果包内部的每个 Vitest 实例再启动
+// 多个 Worker，多进程 SQLite（WAL 模式）建库与文件操作会发生严重的锁争抢与 CPU 饥饿
+// （实测单测耗时膨胀数百倍并可能导致超时卡死）。
+// 因此默认每个 Vitest 实例 worker 数收敛为 1（单包内测试文件顺序串行执行），彻底杜绝
+// SQLite 文件竞争与端口冲突；多核吞吐由 Turbo 在“包级别”并发调度保障。
+// 亦可通过环境变量 VITEST_MAX_WORKERS 显式覆盖。
 const configuredWorkers = process.env.VITEST_MAX_WORKERS
   ? Number.parseInt(process.env.VITEST_MAX_WORKERS, 10)
-  : defaultWorkers;
+  : 1;
 
 export default defineConfig({
   test: {

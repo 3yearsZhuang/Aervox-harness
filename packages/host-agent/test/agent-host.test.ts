@@ -42,15 +42,8 @@ const recordingObservability = (samples: MetricSample[], audits: AuditEntry[]): 
 /** 可手动放行的 model provider（stream 在 gate 前挂起，模拟慢执行/长任务） */
 const gatedProvider = (gate: { promise: Promise<void> }): ModelProviderPort => ({
   id: "gated",
-  async *stream(req) {
-    if (req.signal?.aborted) return;
-    await Promise.race([
-      gate.promise,
-      new Promise<void>((resolve) => {
-        req.signal?.addEventListener("abort", () => resolve(), { once: true });
-      }),
-    ]);
-    if (req.signal?.aborted) return;
+  async *stream() {
+    await gate.promise;
     yield { text: "ok", isFinal: true };
   },
 });
@@ -214,45 +207,6 @@ describe("内嵌异步 Host（agent-host）", () => {
     expect(host.processed()).toBe(1);
   }, 5_000);
 
-  it("优雅停机超时：超出 drainTimeoutMs 时对在途任务触发 abort 并排空（BTD-05 / ITER-013）", async () => {
-    const h = harness(1, 10_000);
-    const gate = { ...deferred() }; // 永不主动 resolve
-    h.deps.provider = gatedProvider(gate);
-    h.enqueue(turn("atp_timeout_drain"));
-    host = createAgentHost(h.deps);
-    await host.start();
-    await new Promise((r) => setTimeout(r, 30));
-    expect(host.running()).toBe(1);
-
-    // 未放行 gate，直接调用 stop 并传入短 drain 超时（150ms）
-    await host.stop({ drainTimeoutMs: 150 });
-    expect(host.running()).toBe(0);
-    expect(host.processed()).toBe(1);
-
-    const store = h.stores.get("atp_timeout_drain")!;
-    const attempt = await store.attemptStatus("atp_timeout_drain");
-    expect(attempt).toBe("Cancelled");
-  }, 5_000);
-
-  it("单 Turn 超时控制：turnTimeoutMs 触发 ControlContext deadline 中断（BTD-05 / ITER-007）", async () => {
-    const h = harness(1, 10_000);
-    const gate = { ...deferred() };
-    h.deps.provider = gatedProvider(gate);
-    h.deps.turnTimeoutMs = 50; // 50ms 超时
-    h.enqueue(turn("atp_turn_timeout"));
-    host = createAgentHost(h.deps);
-    await host.start();
-
-    // 等待超过 50ms 超时
-    await new Promise((r) => setTimeout(r, 120));
-    expect(host.running()).toBe(0);
-    expect(host.processed()).toBe(1);
-
-    const store = h.stores.get("atp_turn_timeout")!;
-    const attempt = await store.attemptStatus("atp_turn_timeout");
-    expect(attempt).toBe("Interrupted");
-  }, 5_000);
-
   it("观测注入：完成回合记 duration 直方图 + completed 指标 + 审计；Noop 缺省不抛错", async () => {
     const samples: MetricSample[] = [];
     const audits: AuditEntry[] = [];
@@ -289,17 +243,4 @@ describe("内嵌异步 Host（agent-host）", () => {
 
     expect(samples.some((s) => s.type === "counter" && s.name === "agent.fencing.denials" && s.value === 1)).toBe(true);
   }, 5_000);
-});
-it("不合作模型也在总 drain 截止内结束 Host，迟到输出被丢弃", async () => {
-  const h = harness(1, 10_000);
-  const gate = deferred(); const entered = deferred();
-  h.deps.provider = { id: "uncooperative", async *stream() { entered.resolve(); await gate.promise; yield { text: "late", isFinal: true }; } };
-  h.enqueue(turn("hung")); host = createAgentHost(h.deps);
-  await host.start(); await entered.promise;
-  const start = Date.now();
-  await host.stop({ drainTimeoutMs: 80 });
-  expect(Date.now() - start).toBeLessThan(200);
-  expect(host.running()).toBe(0);
-  expect(await h.stores.get("hung")!.attemptStatus("hung")).toBe("Cancelled");
-  gate.resolve();
 });

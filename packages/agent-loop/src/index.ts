@@ -22,5 +22,3 @@ export * from "./lease-heartbeat.js";
 export * from "./tool-result-safe.js";
 export * from "./tool-input-safe.js";
 export * from "./focus-mode-prompt.js";
-export * from "./control-context.js";
-export * from "./approval-policy.js";

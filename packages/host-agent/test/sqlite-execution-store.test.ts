@@ -134,18 +134,4 @@ describe("SqliteExecutionStore（SQLite 适配冒烟）", () => {
       output: "ok",
     });
   });
-
-  it("updateTurnStatus: 推进所属 Turn 状态", async () => {
-    const { turnId } = await nextTurn();
-    const initialTurn = await repo.getTurn(ctx, turnId);
-    expect(initialTurn?.status).toBe("Created");
-
-    await store.updateTurnStatus({ turnId, status: "Completed" });
-    const completedTurn = await repo.getTurn(ctx, turnId);
-    expect(completedTurn?.status).toBe("Completed");
-
-    await store.updateTurnStatus({ turnId, status: "Failed" });
-    const failedTurn = await repo.getTurn(ctx, turnId);
-    expect(failedTurn?.status).toBe("Failed");
-  });
 });

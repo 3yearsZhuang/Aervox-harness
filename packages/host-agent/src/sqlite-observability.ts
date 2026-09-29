@@ -17,7 +17,7 @@ import type {
   Observability,
 } from "@aervox/observability";
 import type { AervoxDatabase } from "@aervox/repositories";
-import { auditLogs } from "@aervox/schema/audit";
+import { auditLogs } from "@aervox/schema";
 
 let seqCounter = 0;
 const nextAuditId = (): string => `aud_${Date.now().toString(36)}_${(++seqCounter).toString(36)}`;
