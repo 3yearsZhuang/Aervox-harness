@@ -20,11 +20,14 @@ import {
   type SqliteAgentInboxRepository,
   type SqliteSubagentRunRepository,
   type SqlitePlatformRepository,
-  notifyWorkerPressure,
 } from "@aervox/repositories";
 import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index.js";
 import type { LLMConfigService } from "../../ecosystem/llm/service.js";
 import { resolveLocalContext } from "../../../shared/local-context.js";
+import {
+  acquireWorkerPressureLease,
+  releaseWorkerPressureLease,
+} from "../../../shared/worker-pressure-lease.js";
 import { createTenantInboxPort } from "../inbox/port.js";
 import { runLoopTurnOnce } from "./agent-executor.js";
 import { UserQuestionCoordinator } from "./user-question-coordinator.js";
@@ -241,8 +244,9 @@ export function registerConversationRoutes(
     const uqPort = deps.userQuestionCoordinator ? deps.userQuestionCoordinator.createPort(tenant) : undefined;
     const practiceAttemptPort = deps.practiceAttemptFactory ? deps.practiceAttemptFactory(tenant) : undefined;
     const runLoop = async () => {
-      // ITER-027: 会话流式/多轮密集执行期间下发写入压力信号，协调后台 Worker 降频退避，写锁冲突率降至 0
-      void notifyWorkerPressure(true, 15000);
+      // ITER-027: 会话流式/多轮密集执行期间下发写入压力信号，协调后台 Worker 降频退避。
+      // 以租约（而非裸 true/false）下发：并发会话互不提前解除，长回合按 TTL 续期。
+      const pressureLease = acquireWorkerPressureLease();
       try {
         await runLoopTurnOnce(
           conversationRepo,
@@ -306,7 +310,7 @@ export function registerConversationRoutes(
         // 同步推进 Turn 终态
         await conversationRepo.updateTurnStatus(tenant, turnId, "Failed").catch(() => undefined);
       } finally {
-        void notifyWorkerPressure(false);
+        releaseWorkerPressureLease(pressureLease);
       }
     };
     if (loadApiConfig().turnExecution === "inline") {

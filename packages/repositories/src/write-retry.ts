@@ -13,6 +13,27 @@
  * （libsql@0.4.7 BEGIN 失败后残留语句状态，重试会破坏后续 commit），tx 内的
  * execute/commit/rollback 仍带重试。
  *
+ * 实测复现与影响范围（Node 24 + libsql 0.4.7 + @libsql/client 0.14.0，`busy_timeout=0`）：
+ * 另一连接持有 `BEGIN IMMEDIATE` 时，本连接 `transaction()` 抛 SQLITE_BUSY；此后
+ * 1) 同一连接的新事务虽能 BEGIN，但 `commit` 以
+ *    `SQLITE_BUSY: cannot commit transaction - SQL statements in progress` 失败；
+ * 2) 在**该进程存活期间**，其他连接乃至另一个进程的写入都会以 `database is locked` 失败
+ *    （被遗弃的事务持续持有写锁）；
+ * 3) 实测 `rollback()` 与 `close()` 后重建连接**都不能**在进程内恢复可写性，只有进程退出才释放。
+ *
+ * 因此本层的策略是**快速失败并把错误上抛**，绝不在同一连接上重试或等待；调用方应把该错误
+ * 视为需要重启进程的严重故障（fail loud），而不是可重试的锁竞争。级联重试只会反复失败、
+ * 放大延迟，并把该终态错误掩盖成"写锁竞争"。
+ *
+ * 已知缺口（需后续 CR 处理）：进程内的自动恢复（重连）未实现，也未验证可行；
+ * 降低发生概率主要依赖上层会话级写锁（AST-01）与合理的 `busy_timeout`。
+ *
+ * 调用方注意：**不要在 `client.transaction()` 之外再包一层 `runWithBusyRetry`**。
+ * 本文件的代理已经覆盖 tx 内部的 execute/commit/rollback，外层再包会重新引入被禁止的
+ * BEGIN 重试（每次尝试都可能耗尽 busy_timeout，把最坏阻塞放大数倍），并把
+ * "SQL statements in progress" 这类连接终态错误误判为可重试。
+ * 同理，`attempts` 的默认值会线性放大每个写路径的最坏阻塞时长，不应全局调高。
+ *
  * 设计依据：reference/baishou-next（AGPLv3，仅借鉴公开思想，自研实现）。
  * 与 AST-01 会话级写锁互补：锁降低冲突概率，重试兜底残留冲突。
  */
@@ -24,8 +45,25 @@ const BUSY_PATTERNS: ReadonlyArray<RegExp> = [
   /sqlite_busy/i,
 ];
 
+/**
+ * 非竞争类错误：虽然携带 SQLITE_BUSY 字样，但重试不可能成功，必须立即抛出。
+ * - `SQL statements in progress`：libsql@0.4.7 在 BEGIN 竞争失败后连接残留语句状态，
+ *   后续 commit 会报此错。这是**连接已损坏**的终态信号，不是可等待的锁竞争；重试只会
+ *   反复失败并掩盖真实故障（曾使上层误判为写锁冲突并触发 Worker 压力退避）。
+ * - `cannot start a transaction within a transaction`：嵌套事务属于编程错误。
+ */
+const NON_RETRYABLE_PATTERNS: ReadonlyArray<RegExp> = [
+  /statements in progress/i,
+  /cannot start a transaction within a transaction/i,
+];
+
 export interface BusyRetryConfig {
-  /** 最大尝试次数（含首次），默认 5 */
+  /**
+   * 最大尝试次数（含首次），默认 5。
+   * 注意：单次尝试可能已耗尽 client 的 `busy_timeout`（client.ts 默认 5000ms），
+   * 因此本值会线性放大写路径的最坏阻塞时长（5 次 ≈ 25s+）。请勿在全局默认上随意调高；
+   * 确需更长的调用点请显式传入配置，并评估该路径是否可承受相应延迟。
+   */
   readonly attempts?: number;
   /** 初始退避（毫秒），默认 50；每次尝试翻倍 */
   readonly baseDelayMs?: number;
@@ -37,10 +75,23 @@ export interface BusyRetryConfig {
 
 /** 判断错误是否为 SQLite 写锁竞争（非损坏、可安全重试） */
 export function isSqliteBusyError(error: unknown): boolean {
-  if (error instanceof Error) {
-    return BUSY_PATTERNS.some((p) => p.test(error.message));
+  const message = error instanceof Error ? error.message : String(error);
+  // 终态/编程类错误优先排除，绝不重试（见 NON_RETRYABLE_PATTERNS 说明）。
+  if (NON_RETRYABLE_PATTERNS.some((p) => p.test(message))) {
+    return false;
   }
-  return BUSY_PATTERNS.some((p) => p.test(String(error)));
+  return BUSY_PATTERNS.some((p) => p.test(message));
+}
+
+/**
+ * 判断错误是否意味着**连接/进程已进入不可写状态**（BEGIN 竞争失败后的残留事务状态）。
+ *
+ * 命中该判定时不要重试：实测同一进程内 `rollback()` 与重建连接都无法恢复可写性，
+ * 只有进程退出才释放被遗弃事务持有的写锁。调用方应记致命日志并提示重启。
+ */
+export function isSqliteConnectionPoisonedError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return NON_RETRYABLE_PATTERNS.some((p) => p.test(message));
 }
 
 function sleep(ms: number): Promise<void> {
@@ -58,7 +109,7 @@ export function busyBackoffMs(
 }
 
 const DEFAULT_RETRY: Required<BusyRetryConfig> = {
-  attempts: 10,
+  attempts: 5,
   baseDelayMs: 50,
   maxDelayMs: 1000,
   enabled: true,

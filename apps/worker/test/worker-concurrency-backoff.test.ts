@@ -81,7 +81,7 @@ describe("ITER-027: 多进程 SQLite 写入并发、自适应退避与 IPC 唤�
   });
 
   afterEach(async () => {
-    host.stop();
+    await host.stop();
     try {
       apiConn.client.close();
       workerConn.client.close();
@@ -167,10 +167,25 @@ describe("ITER-027: 多进程 SQLite 写入并发、自适应退避与 IPC 唤�
     expect(host.isPressureMode()).toBe(false);
   });
 
-  it("并发多轮写入稳定性：多并发会话落库与 Worker 密集消费下，零 SQLITE_BUSY 报错且数据完整", async () => {
+  it("IPC 投递确认：未注册的任务名不被视为已投递", async () => {
     host.registerJob({
       name: "outbox",
-      defaultIntervalMs: 50, // 极高频后台消费
+      run: vi.fn().mockResolvedValue(0),
+    });
+
+    host.start();
+    await new Promise((r) => setTimeout(r, 100));
+
+    // 旧实现下客户端收到任意字节即返回 true，无法发现任务名写错/任务未注册。
+    expect(await notifyWorkerWakeup("outbox", testSocketPath)).toBe(true);
+    expect(await notifyWorkerWakeup("not-a-registered-job", testSocketPath)).toBe(false);
+  });
+
+  it("多会话顺序落库 + 压力协调：Outbox 全部消费且数据完整（单进程顺序写入，不声明多进程零冲突）", async () => {
+    host.registerJob({
+      name: "outbox",
+      // 极高频后台消费。该字段过去只声明不生效（实际按 10s 运行），现已真正参与间隔解析。
+      defaultIntervalMs: 50,
       run: async () => {
         return runOutboxCycle({
           outboxRepo,

@@ -190,3 +190,38 @@ host
 
 host.start();
 
+/**
+ * 优雅退出：收到 SIGINT/SIGTERM 时停止调度、清理 IPC socket 并关闭数据库连接。
+ * 在此之前没有任何代码调用 host.stop()，socket 只能依赖下次启动的僵死探测清理；
+ * 这里补齐进程退出路径，保证本地 Domain Socket 与定时器不残留。
+ */
+let shuttingDown = false;
+async function shutdown(signal: NodeJS.Signals): Promise<void> {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logger.info({
+    event: "worker.shutdown.started",
+    message: `Worker received ${signal}; stopping scheduler and closing connections`,
+    fields: { signal },
+  });
+  try {
+    await host.stop();
+    client.close();
+    proactiveClient.close();
+  } catch (err) {
+    logger.error({
+      event: "worker.shutdown.failed",
+      message: `Worker shutdown encountered an error: ${err instanceof Error ? err.message : String(err)}`,
+    });
+  } finally {
+    process.exit(0);
+  }
+}
+
+process.on("SIGINT", (signal) => {
+  void shutdown(signal);
+});
+process.on("SIGTERM", (signal) => {
+  void shutdown(signal);
+});
+

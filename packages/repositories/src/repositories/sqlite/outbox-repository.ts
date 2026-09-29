@@ -38,7 +38,8 @@ export class SqliteOutboxRepository implements IOutboxRepository {
       })
       .returning();
 
-    // 触发跨进程 Worker IPC 秒级唤醒（非阻塞，Worker 未启动时静默忽略）
+    // 事务提交后触发跨进程 Worker IPC 秒级唤醒（尽力而为：不 await、不抛出，Worker 未启动
+    // 或 socket 不可达时返回 false，由 Worker 的轮询兜底，不阻塞本写入路径）。
     void notifyWorkerWakeup("outbox");
 
     return created as OutboxEventModel;
