@@ -459,6 +459,7 @@ async function runInteractiveRepl() {
 const args = process.argv.slice(2);
 if (args.includes("--smoke") || args.includes("--test") || !process.stdin.isTTY) {
   await runSmokeTest();
+  process.exit(0);
 } else {
   await runInteractiveRepl();
 }
