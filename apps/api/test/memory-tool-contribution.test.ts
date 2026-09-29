@@ -150,7 +150,9 @@ describe("MemoryStore 工具贡献与可移除性演练 (BTD-03 / BTD-07)", () =
     let tools = await runtime.exportRegistry();
     expect(tools.map((t) => t.id).sort()).toEqual(["aervox_memory_store", "weather_tool"].sort());
 
-    // 3. 物理退出/卸载 Memory 工具贡献（模拟 Build to Delete）
+    await runtime.callTool(ctx, "aervox_memory_store", { content: "retained" }, { approval: true });
+
+    // 3. 释放 Memory 工具贡献（物理退出另由脚本演练）
     disposeMemory();
 
     // 4. 验证 Memory 工具不再出现在可调用快照中
@@ -167,6 +169,6 @@ describe("MemoryStore 工具贡献与可移除性演练 (BTD-03 / BTD-07)", () =
     expect(weatherResult).toEqual({ temp: 22 });
 
     // 7. 记忆数据源不受工具卸载影响，已存数据保持完整
-    expect(storedMemories).toEqual([]);
+    expect(storedMemories).toEqual(["retained"]);
   });
 });

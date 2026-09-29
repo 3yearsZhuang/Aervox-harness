@@ -111,7 +111,7 @@ export class ModelRuntimeService {
   private readonly stopTimeoutMs: number;
   private closing: Promise<void> | null = null;
   private stopping: Promise<unknown> | null = null;
-  private starting = false;
+  private starting: Promise<ModelRuntimeState> | null = null;
   private readonly downloads = new Set<Promise<void>>();
 
   private assertOpen(): void { if (this.disposed) throw new Error("model_runtime_disposed"); }
@@ -126,9 +126,9 @@ export class ModelRuntimeService {
   private stopDriver(): Promise<unknown> {
     if (!this.stopping) {
       this.generation++;
-      this.stopping = this.bounded(this.llama.stop()).finally(() => { this.stopping = null; });
+      this.stopping = Promise.resolve().then(() => this.llama.stop()).finally(() => { this.stopping = null; });
     }
-    return this.stopping;
+    return this.bounded(this.stopping);
   }
 
   get driver(): ModelRuntimeDriver {
@@ -437,9 +437,13 @@ export class ModelRuntimeService {
     if (this.starting || this.stopping || this.llama.running) {
       throw new Error("llama_server_busy: 本地模型运行时已在运行");
     }
-    this.starting = true;
+    const operation = this.startInternal(request);
+    this.starting = operation;
+    try { return await operation; } finally { this.starting = null; }
+  }
+
+  private async startInternal(request: ModelRuntimeStartRequest): Promise<ModelRuntimeState> {
     const generation = ++this.generation;
-    try {
     const models = await this.scanModels();
     this.assertOpen();
     if (generation !== this.generation) throw new Error("model_runtime_start_cancelled");
@@ -450,16 +454,24 @@ export class ModelRuntimeService {
     }
     const merged: LlamaRuntimeParams = { ...this.lastParams, ...(request.params ?? {}) };
     this.lastParams = merged;
-    await this.llama.start(model, merged);
+    try {
+      await this.llama.start(model, merged);
+    } finally {
+      if (generation !== this.generation || this.disposed) {
+        // A stop issued before start settled may have observed no process.
+        // Keep the start slot occupied until a post-start stop has reclaimed it.
+        if (this.stopping) await this.bounded(this.stopping);
+        await this.stopDriver();
+      }
+    }
     if (generation !== this.generation || this.disposed) throw new Error("model_runtime_start_cancelled");
     this.metricSamples.length = 0;
     return this.getState();
-    } finally { this.starting = false; }
   }
 
   /** 停止当前 llama-server（幂等） */
   async stop(): Promise<ModelRuntimeState> {
-    await this.stopDriver();
+    await this.bounded(Promise.all([this.stopDriver(), this.starting?.catch(() => undefined)]));
     this.metricSamples.length = 0;
     return this.getState();
   }
@@ -491,7 +503,7 @@ export class ModelRuntimeService {
     this.subscribers.clear();
     this.queue.length = 0;
     for (const task of this.tasks.values()) task.controller?.abort();
-    this.closing = this.bounded(Promise.all([this.stopDriver(), ...this.downloads])).then(() => undefined);
+    this.closing = this.bounded(Promise.all([this.stopDriver(), this.starting?.catch(() => undefined), ...this.downloads])).then(() => undefined);
     return this.closing;
   }
 

@@ -30,6 +30,7 @@ export const REMOVABLE_TARGETS = [
     allowedAssemblyFiles: [
       "apps/api/src/modules/companion/memory/index.ts",
       "apps/api/test/memory-tool-contribution.test.ts",
+      "apps/api/test/tool-runtime-lifecycle.test.ts",
     ],
     dataRetentionRule: "退出工具贡献不删除记忆数据库节点，保留查询、导出与删除等数据权利",
   },
@@ -49,7 +50,7 @@ export const REMOVABLE_TARGETS = [
   },
 ];
 
-const CANDIDATE_EXTS = [".ts", ".js", ".mjs", "/index.ts", "/index.js"];
+const CANDIDATE_EXTS = ["", ".ts", ".js", ".mjs", "/index.ts", "/index.js"];
 const JS_TS_MAP = [
   [".js", [".ts", ".tsx", ".d.ts"]],
   [".mjs", [".mts"]],
@@ -78,19 +79,22 @@ function resolveSpecifier(fromRelFile, specifier) {
   return null;
 }
 
-function extractImports(source) {
-  const specifiers = [];
-  let ast;
-  try {
-    ast = parse(source, { sourceType: "module", plugins: ["typescript", "jsx"] });
-  } catch {
-    return specifiers;
+function extractImports(source, fileName) {
+  if (fileName.endsWith(".vue")) {
+    return [...source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)]
+      .flatMap((match) => extractImports(match[1], "script.ts"));
   }
+  const specifiers = [];
+  const ast = parse(source, { sourceType: "module", plugins: fileName.endsWith(".tsx") || fileName.endsWith(".jsx") ? ["typescript", "jsx"] : ["typescript"], createImportExpressions: true });
   const visit = (node) => {
     if (!node || typeof node !== "object" || typeof node.type !== "string") return;
     switch (node.type) {
       case "TSImportType":
+        if (node.argument?.value ?? node.source?.value) specifiers.push(node.argument?.value ?? node.source.value);
+        break;
+      case "ImportExpression":
         if (node.source?.value) specifiers.push(node.source.value);
+        else if (node.source?.type === "TemplateLiteral" && node.source.expressions.length === 0) specifiers.push(node.source.quasis[0].value.cooked);
         break;
       case "ImportDeclaration":
       case "ExportNamedDeclaration":
@@ -130,7 +134,11 @@ export function auditTarget(target, fileList) {
     } catch {
       continue;
     }
-    const specifiers = extractImports(source);
+    let specifiers;
+    try { specifiers = extractImports(source, relFile); } catch (error) {
+      violations.push({ targetId: target.id, file: relFile, message: `无法解析受审源码: ${error.message}` });
+      continue;
+    }
     for (const specifier of specifiers) {
       const resolved = resolveSpecifier(relFile, specifier);
       if (resolved && implSet.has(resolved)) {

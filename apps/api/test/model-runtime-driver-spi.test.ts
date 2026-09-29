@@ -243,3 +243,37 @@ describe("ModelRuntimeDriver SPI (本地模型运行时驱动扩展点)", () => 
     await service.dispose();
   });
 });
+
+it.each(["stop", "dispose"] as const)("%s 对挂起启动有界失败，迟到启动仍被回收且不能与新启动重叠", async (operation) => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-driver-race-"));
+  let release!: () => void;
+  let entered!: () => void;
+  const started = new Promise<void>((resolve) => { entered = resolve; });
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  let running = false;
+  const driver: ModelRuntimeDriver = {
+    id: "delayed", name: "delayed", configured: true,
+    get running() { return running; },
+    resolveBinary: () => "/fake",
+    getHandle: () => ({ pid: running ? 42 : null, status: running ? "running" : "idle", port: null, modelId: null, startedAt: null, error: null, logs: [] }),
+    start: async () => { entered(); await gate; running = true; return driver.getHandle(); },
+    stop: vi.fn(async () => { running = false; }),
+  };
+  const service = new ModelRuntimeService({ driver, modelsDir: dir, stopTimeoutMs: 20 });
+  try {
+    await fs.writeFile(path.join(dir, "model.gguf"), "fixture");
+    const start = service.start({ modelId: "model" });
+    const rejected = expect(start).rejects.toThrow("model_runtime_start_cancelled");
+    await started;
+    await expect(service[operation]()).rejects.toThrow("model_runtime_stop_timeout");
+    await expect(service.start({ modelId: "model" })).rejects.toThrow(operation === "stop" ? "busy" : "disposed");
+    release();
+    await rejected;
+    expect(running).toBe(false);
+    expect(driver.stop).toHaveBeenCalledTimes(2);
+  } finally {
+    release();
+    await service.dispose().catch(() => undefined);
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});

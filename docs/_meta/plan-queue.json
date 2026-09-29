@@ -247,7 +247,7 @@
     {
       "id": "ITER-014",
       "batch": "next",
-      "status": "待评审",
+      "status": "已移交",
       "delivery": "模块公开 Port 与 Build to Delete：评审 ADR-014 的通信/装配差量，建立试点模块边界、MemoryStore 贡献与退出演练；ARC-10、[CR-056](docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md)；CAP-005/007/020 与架构基础设施",
       "gate": "CR-056 相关决策先接受；模型 Driver 归 ITER-008，生命周期/控制协同 ITER-005/007/013；不要求先改完全部模块，也不阻塞已有缺陷修复",
       "acceptance": [
@@ -256,7 +256,7 @@
       ],
       "owner": "platform",
       "dependsOn": [],
-      "statusNote": "2026-09-29 PR #230 复核撤回移交：工具开关后释放失效、Driver 迟到启动与动态导入漏检已复现，物理退出和存量数据权利仍缺证据；文档 CI 链接已修复，具体差量见 CR-056 §10.1 与 §4.2",
+      "statusNote": "2026-09-29 PR #230 四项审查阻断已修复并补证：生命周期/AST 回归与三阶段 11 包零缓存物理退出构建，真实 SQLite 数据权利和恢复通过；具体证据及发布限制见 CR-056 §10.2 / §4.2",
       "links": [
         "docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md",
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
