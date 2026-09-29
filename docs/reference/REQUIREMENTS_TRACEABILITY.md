@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.46.9
+version: 1.46.10
 updated_at: 2026-09-29
 reviewed_at: 2026-09-29
 review_interval_days: 90
@@ -183,13 +183,13 @@ review_interval_days: 90
 
 2026-09-18 架构深入复核：默认 API 接单与 claim 之间、统一删除效果验证、消息编辑原子性、动态工具发现和模型制品管理均有新增故障证据；自动 Resume Host/Recovery Ledger 仍须区分库实现与生产接线，完整 Schema 搬库及冷 CI 亦需补验证。详见 [AVX-EXPL-012](../explanation/architecture-implementation-review.md)。历史局部测试记录不作删除或覆盖，本次只登记评估交付，不推进相关 CAP 的实现或发布状态，也不更改已接受 ADR。
 
-本轮文档交付已通过全量 `mise tasks run ci-docs`（Markdownlint、Vale、严格治理与本地链接）；最小插件打包及临时数据库安装闭环实际通过，具体执行范围见[开发指南验证记录](../how-to/develop-plugin-ui-extension.md#5-运行验证并交付)。
+2026-09-18 文档交付已通过全量 `mise tasks run ci-docs`（Markdownlint、Vale、严格治理与本地链接）；最小插件打包及临时数据库安装闭环实际通过，具体执行范围见[开发指南验证记录](../how-to/develop-plugin-ui-extension.md#5-运行验证并交付)。
 
 | 落地内容与功能描述 | 关联 CAP | 实现与测试位置 | 日期 | 验证 | 来源 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| CR-056 / ITER-014 阶段一实施交付与剩余差量移交 | CAP-002/005/007/018/020/027/033 + 架构基础设施 | [CR-056](changes/CR-056-build-to-delete-pi-style-architecture.md)、[当前队列](../../plan.md)、`scripts/check-removable-implementation.mjs`、`apps/api/test/model-runtime-driver-spi.test.ts`、`apps/api/test/memory-tool-contribution.test.ts`；BTD-00～04 与 BTD-07 基础分层与可删除性演练全量闭环；BTD-05/06/08 差量明确交接至 ITER-007/013/019 | 2026-09-29 | check:guards 24/24（AST 可删除性守卫 0 违规）；check:boundary 19/19；全量 72 API 测试套件 476 用例全绿；./aervox ci 14 任务全绿；ci-docs 全量文档门禁通过；plan-check 0 错误 | PI-01（设计参考，未移植源码） + 原生实现 |
+| CR-056 / ITER-014 阶段一实现与 PR #230 审查更正：基础分层已实现，BTD-02/04/07 验收未完成，撤回全量闭环与移交声明 | CAP-002/005/007/018/020/027/033 + 架构基础设施 | [CR-056 §10.1](changes/CR-056-build-to-delete-pi-style-architecture.md#101-pr-230-合并前复核2026-09-29)、[当前队列](../../plan.md) | 2026-09-29 | 基线 `ad91dbf` 冷构建；复现开关后旧 disposer 无效、关闭后迟到 Driver 启动、Worker 动态私有导入漏检；物理移除及存量数据权利演练未验证；固定来源链接已修复；补齐 DSH 参考子模块后本地 `./aervox ci all` 全量通过，79 文件文档门禁通过（既有 S5 提示），不消除上述缺陷 | PI-01（设计参考，未移植源码） + 原生审查 |
 | CR-056 BTD-04 模型 Driver 替换与代际生命周期 | 基础设施 / CAP-002/020 | apps/api/src/modules/ecosystem/model-runtime/{driver,service,index}.ts、apps/api/test/model-runtime-driver-spi.test.ts；ModelRuntimeService 依赖注入 Driver SPI，默认 unavailableDriver 拒绝无合规 Provider 且不出网，落地 start/stop/dispose 幂等编排与代际 protection | 2026-09-28 | API typecheck 通过；扩展 SPI 4 用例通过（验证注入编排、unavailable 拒绝与文件保留、生命周期与幂等释放、代际防污染）；原模型运行时 API 与子进程测试 22 用例全绿 | PI-01（设计参考，未移植源码） |
-| CR-056 BTD-07 可删除性守卫与演练 | 基础设施 / CAP-005/007/020/027 | scripts/check-removable-implementation.{mjs,test.mjs}、apps/api/test/memory-tool-contribution.test.ts、package.json；实现 MemoryStore 工具贡献与模型驱动全仓私有引用审计门禁，落地 Fake 注册表构造通用 Runtime 及 Memory 工具贡献挂载、使用、卸载退出与数据隔离演练 | 2026-09-28 | check:guards 24/24 全绿且可移除实现守卫 0 违规；Memory 工具贡献测试 3/3 通过；全量 72 套件 476 测试全绿 | PI-01（设计参考，未移植源码） |
+| CR-056 BTD-07 静态守卫与 Fake 退出夹具（物理演练未验证，见 §10.1 复核） | 基础设施 / CAP-005/007/020/027 | scripts/check-removable-implementation.{mjs,test.mjs}、apps/api/test/memory-tool-contribution.test.ts、package.json；实现 MemoryStore 工具贡献与模型驱动全仓私有引用审计门禁，落地 Fake 注册表构造通用 Runtime 及 Memory 工具贡献挂载、使用、卸载退出与数据隔离演练 | 2026-09-28 | check:guards 24/24 全绿且可移除实现守卫 0 违规；Memory 工具贡献测试 3/3 通过；全量 72 套件 476 测试全绿 | PI-01（设计参考，未移植源码） |
 | CR-056 BTD-01 模块门禁切片 | 基础设施 / CAP-005/007/020/027 | scripts/import-boundary.mjs 与测试、scripts/module-boundary-exceptions.json；API src 模块所有权与公开入口检查，45 条历史边逐条登记 Owner/退出条件，后续试点迁移时删除对应例外 | 2026-09-28 | 19/19 门禁测试通过；全仓扫描通过；原有五条规则保留；未宣称历史私有边已迁移 | PI-01（设计参考，未移植源码） |
 | CR-056 BTD-02 工具生命周期与 BTD-03 Memory 装配 | 基础设施 / CAP-005/007/020/027 | Tools Runtime 仅依赖 ToolRegistryPort；注册定义与 handler 代际绑定，释放幂等、在途信号取消、迟到结果失效；Memory 拥有工具贡献、Embedding 与召回；Diary/Skills/主动工具启动登记改为 await；Context 与工具消费者使用公开 Port | 2026-09-28 | API typecheck 通过；工具生命周期 6、工具与插件 9、对话工具循环 2，共 17 用例通过；原 memory-embedding 文件不在 API 测试目录，本记录不计入该验证；缺包保护与物理退出演练仍待完成 | PI-01（设计参考，未移植源码） |
 | CR-056 BTD-02 缺包保护切片 | 基础设施 / CAP-005/007/020/027 | 新增 plugins.availability 兼容列；扫描缺包/非法/不可读根不卸载；工具/Skill/会话切面/Worker 规则检查可用性；默认注册表按 App 创建，插件注册返回幂等代际句柄；Config/Secret/撤权与用户开关保留 | 2026-09-28 | API typecheck；缺包恢复和注册表隔离 2 用例、插件相关 19 用例；仓储 Embedding/时态事实/索引等价 16 用例通过；缺席数据快照包含实际 Config/Secret/Page/撤权记录；跨平台与生产发布尚未验收 | PI-01（设计参考，未移植源码） |
