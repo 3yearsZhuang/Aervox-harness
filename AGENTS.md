@@ -1,7 +1,7 @@
 # AGENTS.md — AI 协作指南（薄入口）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-18
+- 修改人：3yearszhuang · 2026-09-28
 
 本文件是所有 AI 编码助手（包括 Antigravity、Claude Code、Cursor、GitHub Copilot、Roo Code、Windsurf 等）的进入点与协作底线协议：
 **只索引，不复制**：权威技术规范、产品定义与架构事实源一律深链至 `docs/`，严禁在入口复制可能变更的业务逻辑，杜绝双源漂移。
@@ -66,6 +66,7 @@ Aervox｜思隅：更好上手的“主动智能” Agent——以桌宠为入�
   - 正文散文中严禁使用全小写专有名词（如 `sqlite`、`vue`、`electron`、`fastify`、`zod` 等），必须严格使用规范大小写（如 `SQLite`、`Vue`、`Electron`）或用反引号包裹代码标识符（见 [术语表](docs/reference/standards/terminology.md)）。
 - **代码与文档联动复核**：
   - 修改核心代码时，可运行 `mise tasks run docs-triggers` 检查是否命中相关受治文档的 `review_triggers`，评估是否需联动更新文档。
+- **任务完成即同步文档（强制）**：每完成一个可验证任务或实施切片，必须在继续下一项或向用户报告完成前，立即更新相关事实源文档、[§4.2 实现登记](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)和当前计划队列，记录实际验证与剩余差量；不得拖到整轮重构结束后集中补写。同步签名、元数据、注册表与生成视图并通过相应文档门禁；没有契约变化时也需在交付记录说明复核结果。具体闭环规则见[文档治理](docs/reference/document-governance.md#31-当前迭代计划的唯一入口)。
 - **落地实现登记（闭环铁律）**：
   - 一切落地改动必须在 [落地追踪基线 §4.2](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记) 登记完成情况（关联 CAP、实现位置、日期、验证方式），未登记者视为未闭环；
   - 借鉴参考项目（`T-*` / `AST-*` / `PET-*` / `DSH-01` / `PI-01`）需在“来源”列注明编号，并遵循开源版权声明（见 PRD §15.1）。

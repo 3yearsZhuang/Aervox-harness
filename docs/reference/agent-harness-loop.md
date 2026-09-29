@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.7.1
-updated_at: 2026-09-18
-reviewed_at: 2026-09-18
+version: 0.7.2
+updated_at: 2026-09-28
+reviewed_at: 2026-09-28
 review_interval_days: 90
 ---
 
 # Agent Harness Loop 设计与落地规范
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-09-18
+- 修改人：3yearszhuang · 2026-09-28
 
 关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[Agent Loop 落地进展追溯](agent-loop-rollout-history.md)（AVX-HAR-002）、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[ADR-016](adr/ADR-016-base-boundaries.md)、[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md)、`CR-012`（已归档）、`CR-021`（已归档）、`CR-022`（已归档）、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
@@ -663,3 +663,7 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 ## 19. 机器验证
 
 当前文档通过 `mise tasks run ci-docs` 验证。代码落地后，Manifest、Port、事件、数据库状态机和 Provider parity 必须由 schema/contract tests 机器验证；任何只写在本文、无法由类型、schema、测试或运行时断言约束的关键不变量都视为未完成。
+
+## CR-056 执行边界补充
+
+所有 Driver 的准入控制遵循[ADR-010 控制合同](adr/ADR-010-dsh-pi-adapters.md#cr-056-控制合同补充)。宿主注入产品上下文及控制，Loop 不依赖具体数据库或 UI。先保留既有原生 claim、账本与终态拥有者，再通过等价测试迁移装配。客户端暂态进度不能覆盖权威终态；HTTP/SSE 继续使用既有契约，新增水位必须先进入流式契约。此处是已接受约束，具体实现进度见[CR-056](changes/CR-056-build-to-delete-pi-style-architecture.md)。

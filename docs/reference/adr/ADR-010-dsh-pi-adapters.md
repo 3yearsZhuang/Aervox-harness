@@ -5,16 +5,16 @@ scope: decision
 owner: maintainers
 doc_status: review-candidate
 decision_status: accepted
-version: 0.1.1
-updated_at: 2026-09-13
-reviewed_at: 2026-09-13
+version: 0.1.2
+updated_at: 2026-09-28
+reviewed_at: 2026-09-28
 review_interval_days: 90
 ---
 
 # ADR-010 DSH/pi 仅为可选适配器
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-13
+- 修改人：3yearszhuang · 2026-09-28
 
 - 状态：Accepted（P2 前必须 Accepted）
 - 日期：2026-08-23
@@ -84,3 +84,9 @@ review_interval_days: 90
 - **已满足**：固定 SHA 复核与许可证白名单（阶段 6/6c：`adapter-contract`/`stdio-adapter`/`dsh-reference` 测试）；无适配器核心流程（conversation-loop）与删除传播（conversation-deletion）测试。
 - **未满足**：`dsh-synapse` 画布/内容分离与完整插件越权矩阵（画布未实现）。
 - **推进路径**：DSH 库内 Cordis 组装（P2）与画布立项时闭环（死线：P2 前）。
+
+## CR-056 控制合同补充
+
+2026-09-28 接受：原生及外部执行路径必须继承根/父执行身份、取消信号、绝对截止、授权与删除修订、本地处理限制、资源预算和事件关联。子任务只能收紧；重试与恢复不能重置预算或权限水位。不能满足合同的 Driver 不准入，不静默回退。
+
+Model Provider 仅负责一次响应，Loop Driver 负责完整循环。每 Turn 只选择一个 Driver；claim/fencing、工具账本、原子结果和终态保持一个执行拥有者，不能嵌套两个 Loop 或复制持久化责任。真实 pi 仍为条件实验，现有模拟器和简化协议不证明工具授权往返或恢复已实现。实施及前置见[CR-056](../changes/CR-056-build-to-delete-pi-style-architecture.md)。

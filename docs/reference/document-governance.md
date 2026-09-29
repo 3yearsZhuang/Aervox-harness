@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.3.1
-updated_at: 2026-09-18
-reviewed_at: 2026-09-18
+version: 0.3.2
+updated_at: 2026-09-28
+reviewed_at: 2026-09-28
 review_interval_days: 90
 review_triggers:
   - docs/**
@@ -25,7 +25,7 @@ sources:
 # 文档治理与事实源规范
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-09-18
+- 修改人：3yearszhuang · 2026-09-28
 
 关联：[文档索引](../README.md)、[文档写作规范](standards/doc-standards.md)、[生命周期登记表](../DOC_REGISTRY.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)、[工程与发布流程](../how-to/engineering-process.md)
 
@@ -101,7 +101,7 @@ sources:
 1. **一个活动队列**：不再新建并行权威的 `TODO.md`、`roadmap.md`、`CR-*-plan.md` 或工具私有计划。专题 Explanation 保留发现、权衡、实验与估算；CR 保留范围、实施依赖、验证和回滚，但跨专题优先级及当前执行状态只维护在 `plan.md`。产品里的学习计划、日记排期和操作指南不受此限制。
 2. **固定身份和字段**：`plan.md` 使用 `AVX-PLAN-001`、`type: reference`、`planning_role: current` 及 canonical 元数据、签名。工作条目使用稳定 `ITER-###`，至少记录目的/切片、证据与 CAP、依赖/CR 门槛、工作状态、责任角色或认领人、完成判定。编号不复用；未指定个人时明确“建议角色，待认领”。
 3. **建议与授权分开**：工作状态为“建议、待评审、就绪、执行中、暂停、已移交”。“建议”不是已获批实施；“就绪”需要范围与验收明确、必要决策已接受；“已移交”必须链接 PR/§4.2 和验证记录，不等于 Released。用户当前指令优先，已授权工作无需因计划记录而重复确认。
-4. **按事件更新**：开始任务时认领对应条目；范围、顺序、依赖或阻碍变化时更新原因；结束时移交或说明暂停原因。计划允许记录执行中的条目，其实现事实仍回填 §4.2。未列入计划的紧急修复可先按现有事故/授权流程处理，并在同一交付补登记。
+4. **按事件更新**：开始任务时认领对应条目；范围、顺序、依赖或阻碍变化时更新原因。每完成一个可验证任务或切片，必须在继续下一项或报告完成前立即同步：相关 Living 契约的变更/复核结果、§4.2 的实现位置与实际验证、队列的状态与剩余差量、文档签名/日期及注册表/派生视图，并通过相应文档门禁；不得积压到整轮任务结束。部分切片完成不等于整个 ITER 或 CR 完成，未执行验证不得登记为通过。计划允许记录执行中的条目，其实现事实仍回填 §4.2。未列入计划的紧急修复可先按现有事故/授权流程处理，并在同一交付补登记。
 5. **控制长度**：只保留当前、下一批及有限候选工作，不复制完整代码证据、API、Schema、CAP 全生命周期列表或已完成日志。完成条目保留稳定锚点与证据链接；每轮复盘收缩其描述，历史用 Git/§4.2/既有归档保存。不要为“永久留存”建立第二份活跃计划。
 6. **分支协作**：功能分支更新同一根路径；并行变更合并时按条目 ID 逐项协调，禁止用整文件覆盖消解冲突。其它分支未合入的草稿仅登记为候选和待决策输入，不视为当前基线。源分支有无关工作时，使用独立 worktree 迁移明确文件与差量。
 7. **机器与人工职责**：文档门禁校验固定根入口、唯一 `planning_role: current`、元数据、登记、链接及目录生成，并校验队列真源与 §2 派生视图同步（见第 8 条）；`plan.md` 单独变化也触发 Docs CI；删除入口不能被增量检查当作“没有文档变化”。机器不推断任意散文是否暗含排期，Code Review 负责检查是否产生第二份当前队列。
@@ -124,8 +124,8 @@ doc_status: review-candidate
 decision_status: proposed
 delivery_status: planned
 version: 0.2.0
-updated_at: 2026-09-16
-reviewed_at: 2026-09-16
+updated_at: 2026-09-28
+reviewed_at: 2026-09-28
 review_interval_days: 90
 review_triggers:
   - packages/agent-loop/**

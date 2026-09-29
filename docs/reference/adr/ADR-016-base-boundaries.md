@@ -5,16 +5,16 @@ scope: decision
 owner: maintainers
 doc_status: approved
 decision_status: accepted
-version: 0.2.1
-updated_at: 2026-09-13
-reviewed_at: 2026-09-13
+version: 0.2.2
+updated_at: 2026-09-28
+reviewed_at: 2026-09-28
 review_interval_days: 90
 ---
 
 # ADR-016 底座边界冻结：Kernel Substrate 与能力层的依赖边界
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-09-13
+- 修改人：3yearszhuang · 2026-09-28
 
 - 状态：Accepted
 - 日期：2026-08-28
@@ -117,3 +117,9 @@ review_interval_days: 90
 - [x] 注入违规实测：`packages/contracts/src` 注入 `@aervox/agent-loop`（#1）、`packages/agent-loop` 注入 database/libsql/Drizzle（#2）、`packages/ui/.../_boundary-sanity.vue` 注入 database（#4）均被拦截且退出码 1（dependency-cruiser 对相同注入漏检）；
 - [x] `mise tasks run ci-code` 全量通过（2026-08-28，分支执行）；
 - [x] `mise tasks run ci-docs` 通过（2026-08-28，本文与索引登记改动）。
+
+## CR-056 模块边界门禁（2026-09-28）
+
+保留五条包级规则，新增 API `src` 下 `modules/<domain>/<module>` 所有权检查；跨模块仅允许 `index.ts`。组合根没有目录豁免，历史私有引用清单精确到源/目标，见 [module-boundary-exceptions.json](../../../scripts/module-boundary-exceptions.json)，逐条包含 Owner 与删除条件，迁移后移除。当前仍有历史边，不能据门禁通过宣称全仓已完成 Port 迁移。
+
+覆盖 type import、TSImportType、re-export、动态字面量、目录入口和 `.js` 到 `.ts`；纳管源码的解析错误、缺失相对目标、非字面量动态导入均阻断。测试目录可以验证私有实现；原包级范围保持原行为。19 项自测和全仓检查通过，正式命令使用 `mise exec -- node scripts/import-boundary.mjs`。

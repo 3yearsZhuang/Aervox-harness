@@ -48,7 +48,7 @@ import {
   type ServerPluginRegistry,
   type TurnPluginContext,
 } from "../../ecosystem/plugins/turn-plugins/index.js";
-import type { ToolRuntime } from "../../ecosystem/tools/runtime.js";
+import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index.js";
 import type { LLMConfigService } from "../../ecosystem/llm/service.js";
 import type { LlmDegradationService } from "../../ecosystem/llm/degradation-service.js";
 import type { ModelRoutingSnapshot } from "@aervox/contracts";

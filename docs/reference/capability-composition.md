@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.5.0
-updated_at: 2026-09-18
-reviewed_at: 2026-09-18
+version: 0.5.1
+updated_at: 2026-09-28
+reviewed_at: 2026-09-28
 review_interval_days: 90
 ---
 
 # Aervox 能力组合与可选化目录规范
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-18
+- 修改人：3yearszhuang · 2026-09-28
 
 关联：[架构设计](ARCHITECTURE.md)、[ADR-001](adr/ADR-001-modular-monolith.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-014](adr/ADR-014-modular-monolith-structure.md)、[能力注册表](capability-registry.md)、[submodule 协作指南](../how-to/submodule-collaboration.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
@@ -459,3 +459,9 @@ pi 固定参考 commit 为 `c49906ec77788625aacbdc53ebca6fbe65bd20f5`，许可�
 - `AVX-MOD-001`（可选功能模块化方案）已并入本文（见[交付载体与自选机制](#交付载体与自选机制必选)）：不变量、双轴自选、接口边界与边界判定提升为必选机制，功能清单迁至[能力注册表](capability-registry.md)，落地步骤见 [submodule 协作指南](../how-to/submodule-collaboration.md)；原 `docs/explanation/optional_modules.md` 已删除。
 
 接受该目标前必须建立 `ADR-016`（或等效决策）并完成相关 `CR-*`。字段、目录、Kernel 范围、外部代码信任域或数据所有权的改变都必须保留迁移、回滚和追踪证据。
+
+## Build to Delete 的公开边界（CR-056）
+
+模块同步请求使用公开 Query/Command Port，可靠事实和后台工作使用 Outbox；可丢通知不得作为提交证明。领域命令承担业务原子性，普通消费者不能拼接跨模块事务。模块只经 `index.ts` 对外，组合根负责选择实现；导入模块不启动资源。首轮仍沿用既有交付载体，不将标准产品能力自动变为可选。
+
+代码缺席与显式卸载分开：缺少包、不可读目录或非法清单只能阻断执行并保留诊断、配置、Secret 和数据管理入口。恢复包须重新校验当前授权。注册、在途任务和释放句柄绑定实例代际；旧句柄/迟到结果不能操作新实例。具体实施证据见[CR-056](changes/CR-056-build-to-delete-pi-style-architecture.md)。

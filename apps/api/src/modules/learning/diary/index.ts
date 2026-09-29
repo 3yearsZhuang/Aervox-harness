@@ -17,7 +17,7 @@ import {
   type DiaryLlmConfigPort,
 } from "@aervox/diary";
 
-export function registerDiaryModule(ctx: ModuleContext): void {
+export async function registerDiaryModule(ctx: ModuleContext): Promise<void> {
   const { app, db } = ctx;
   const diaryRepo = new SqliteDiaryRepository(db);
 
@@ -49,10 +49,7 @@ export function registerDiaryModule(ctx: ModuleContext): void {
   const toolRuntime = ctx.toolRuntime;
   if (toolRuntime) {
     const tool = new DiaryWriteTool({ service });
-    toolRuntime.registerHandler("aervox_diary_write", {
-      call: (tenant, args) => tool.run(tenant, (args ?? {}) as never),
-    });
-    void toolRuntime.registerTool({
+    await toolRuntime.registerContribution({
       id: "aervox_diary_write",
       name: "aervox_diary_write",
       description:
@@ -69,6 +66,6 @@ export function registerDiaryModule(ctx: ModuleContext): void {
       builtin: true,
       gatingConditions: [],
       priority: 100,
-    });
+    }, { call: (ctx, args) => tool.run(ctx, (args ?? {}) as never) });
   }
 }

@@ -16,7 +16,7 @@ import { SkillManager } from "./skill-manager.js";
 import { SkillLifecycleService } from "./lifecycle.js";
 import { registerSkillLifecycleTools } from "./skill-tools.js";
 
-export function registerSkillsModule(ctx: ModuleContext): SkillManager {
+export async function registerSkillsModule(ctx: ModuleContext): Promise<SkillManager> {
   const { app, db, skillsRoot, toolRuntime } = ctx;
   const registry = new SqliteSkillRegistryRepository(db);
   const manager = new SkillManager(registry, skillsRoot);
@@ -30,6 +30,6 @@ export function registerSkillsModule(ctx: ModuleContext): SkillManager {
   registerSkillRoutes(app, manager, lifecycle);
 
   const toolRegistry = new SqliteToolRegistryRepository(db);
-  registerSkillLifecycleTools(toolRegistry, lifecycle, toolRuntime);
+  await registerSkillLifecycleTools(toolRegistry, lifecycle, toolRuntime);
   return manager;
 }

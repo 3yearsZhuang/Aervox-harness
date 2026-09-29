@@ -1,9 +1,9 @@
 import type { ModuleContext } from "../../context.js";
 import { ModelRuntimeService, type ModelRuntimeServiceOptions } from "./service.js";
 import { registerModelRuntimeRoutes } from "./routes.js";
-import type { LlamaServerManagerDeps } from "./llama-server.js";
+import { LlamaServerManager, type LlamaServerManagerDeps } from "./llama-server.js";
 
-export interface ModelRuntimeModuleOptions extends ModelRuntimeServiceOptions {}
+export interface ModelRuntimeModuleOptions extends ModelRuntimeServiceOptions { llamaDeps?: LlamaServerManagerDeps }
 
 /**
  * 模型运行时管理模块（CR-054）：
@@ -15,7 +15,7 @@ export function registerModelRuntimeModule(
   ctx: ModuleContext,
   options: ModelRuntimeModuleOptions = {},
 ): ModelRuntimeService {
-  const service = new ModelRuntimeService(options);
+  const service = new ModelRuntimeService({ ...options, driver: options.driver === undefined ? new LlamaServerManager(options.llamaDeps) : options.driver });
   registerModelRuntimeRoutes(ctx.app, service);
   ctx.modelRuntimeService = service;
 

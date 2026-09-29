@@ -12,11 +12,15 @@
  */
 import { and, eq, inArray } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
-import { skillRegistrations } from "@aervox/schema";
+import { skillRegistrations, plugins } from "@aervox/schema";
 import type { ISkillRegistryRepository, SkillRegistrationModel } from "../types/index.js";
 
 export class SqliteSkillRegistryRepository implements ISkillRegistryRepository {
   constructor(private readonly db: AervoxDatabase) {}
+
+  private async blockedPlugins(): Promise<Set<string>> {
+    return new Set((await this.db.select().from(plugins)).filter((p) => p.enabled !== 1 || p.availability !== "available").map((p) => p.id));
+  }
 
   async registerSkill(
     skill: {
@@ -98,7 +102,8 @@ export class SqliteSkillRegistryRepository implements ISkillRegistryRepository {
         .select()
         .from(skillRegistrations)
         .where(eq(skillRegistrations.active, 1));
-      return rows as SkillRegistrationModel[];
+      const blocked = await this.blockedPlugins();
+      return rows.filter((r) => !r.pluginId || !blocked.has(r.pluginId)) as SkillRegistrationModel[];
     }
     const rows = await this.db.select().from(skillRegistrations);
     return rows as SkillRegistrationModel[];
@@ -185,9 +190,10 @@ export class SqliteSkillRegistryRepository implements ISkillRegistryRepository {
     },
   ): Promise<SkillRegistrationModel[]> {
     const all = await this.db.select().from(skillRegistrations);
+    const blocked = await this.blockedPlugins();
     const filtered = all.filter((skill) => {
       // 1. active = 1
-      if (skill.active !== 1) return false;
+      if (skill.active !== 1 || (skill.pluginId && blocked.has(skill.pluginId))) return false;
       // 2. AST-04 门控条件求值
       if (options?.gatingEvaluator && skill.gatingConditionsJson) {
         const conditions = Array.isArray(skill.gatingConditionsJson)

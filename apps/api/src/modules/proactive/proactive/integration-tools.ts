@@ -2,7 +2,7 @@ import type {
   SqliteProactiveIntelligenceRepository,
   LocalContext,
 } from "@aervox/repositories";
-import type { ToolRuntime } from "../../ecosystem/tools/runtime.js";
+import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index.js";
 import { ProactiveActionAuthorizer } from "./action-authorizer.js";
 import { ProactiveIntegrationManager } from "./integration-manager.js";
 
@@ -59,15 +59,16 @@ async function executeHomeWrite(
   }
 }
 
-export function registerProactiveIntegrationTools(input: {
+export async function registerProactiveIntegrationTools(input: {
   runtime: ToolRuntime;
   repo: SqliteProactiveIntelligenceRepository;
   manager: ProactiveIntegrationManager;
   authorizer: ProactiveActionAuthorizer;
-}): void {
+}): Promise<void> {
   const {runtime, repo, manager, authorizer} = input;
+  const handlers = new Map<string, import("../../ecosystem/tools/index.js").ToolHandler>();
 
-  runtime.registerHandler("ha_list_entities", {
+  handlers.set("ha_list_entities", {
     async call(tenant, rawArgs) {
       await manager.assertSourceActive(tenant, "device.sensors");
       const args = record(rawArgs);
@@ -76,7 +77,7 @@ export function registerProactiveIntegrationTools(input: {
       };
     },
   });
-  runtime.registerHandler("ha_get_entity_state", {
+  handlers.set("ha_get_entity_state", {
     async call(tenant, rawArgs) {
       const args = record(rawArgs);
       return manager.getHomeAssistantState(
@@ -86,12 +87,12 @@ export function registerProactiveIntegrationTools(input: {
       );
     },
   });
-  runtime.registerHandler("ha_call_service", {
+  handlers.set("ha_call_service", {
     async call(tenant, rawArgs, context) {
       return executeHomeWrite(tenant, record(rawArgs), context.proactiveAuthorization, manager, authorizer);
     },
   });
-  runtime.registerHandler("health_get_daily_steps", {
+  handlers.set("health_get_daily_steps", {
     async call(tenant, rawArgs) {
       await manager.assertSourceActive(tenant, "restricted.profile");
       const args = record(rawArgs);
@@ -102,7 +103,7 @@ export function registerProactiveIntegrationTools(input: {
       return {date, total: items.reduce((sum, item) => sum + item.value, 0), unit: "count", items};
     },
   });
-  runtime.registerHandler("health_get_sleep_summary", {
+  handlers.set("health_get_sleep_summary", {
     async call(tenant, rawArgs) {
       await manager.assertSourceActive(tenant, "restricted.profile");
       const args = record(rawArgs);
@@ -116,38 +117,39 @@ export function registerProactiveIntegrationTools(input: {
   });
 
   const commonConnection = {type: "string", description: "本地连接 ID"};
-  void Promise.all([
-    runtime.registerTool({
+  const definitions = [
+    {
       id: "ha_list_entities", name: "ha_list_entities",
       description: "列出用户已授权给 Aervox 的 Home Assistant 实体及其本地缓存状态。",
       category: "external", safetyLevel: "read_only", requiredPermissions: ["device.sensors"],
       inputSchema: {type: "object", properties: {connectionId: commonConnection}}, builtin: true, priority: 80,
-    }),
-    runtime.registerTool({
+    },
+    {
       id: "ha_get_entity_state", name: "ha_get_entity_state",
       description: "实时读取一个已授权 Home Assistant 实体的状态。",
       category: "external", safetyLevel: "read_only", requiredPermissions: ["device.sensors"],
       inputSchema: {type: "object", properties: {connectionId: commonConnection, entityId: {type: "string"}}, required: ["connectionId", "entityId"]},
       builtin: true, priority: 80,
-    }),
-    runtime.registerTool({
+    },
+    {
       id: "ha_call_service", name: "ha_call_service",
       description: "对用户已授权的 Home Assistant 实体调用白名单服务。",
       category: "external", safetyLevel: "write_with_approval", requiredPermissions: ["action.external", "device.sensors"],
       inputSchema: {type: "object", properties: {connectionId: commonConnection, entityId: {type: "string"}, service: {type: "string"}, data: {type: "object"}}, required: ["connectionId", "entityId", "service"]},
       builtin: true, priority: 80,
-    }),
-    runtime.registerTool({
+    },
+    {
       id: "health_get_daily_steps", name: "health_get_daily_steps",
       description: "读取用户已授权的小米运动健康每日步数汇总。",
       category: "health", safetyLevel: "read_only", requiredPermissions: ["restricted.profile"],
       inputSchema: {type: "object", properties: {connectionId: commonConnection, date: {type: "string", format: "date"}}}, builtin: true, priority: 75,
-    }),
-    runtime.registerTool({
+    },
+    {
       id: "health_get_sleep_summary", name: "health_get_sleep_summary",
       description: "读取用户已授权的小米运动健康每日睡眠时长汇总。",
       category: "health", safetyLevel: "read_only", requiredPermissions: ["restricted.profile"],
       inputSchema: {type: "object", properties: {connectionId: commonConnection, date: {type: "string", format: "date"}}}, builtin: true, priority: 75,
-    }),
-  ]);
+    },
+  ];
+  for (const definition of definitions) await runtime.registerContribution(definition, handlers.get(definition.id)!);
 }

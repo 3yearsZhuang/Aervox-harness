@@ -7,9 +7,9 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 planning_role: current
-version: 0.3.0
-updated_at: 2026-09-22
-reviewed_at: 2026-09-22
+version: 0.4.0
+updated_at: 2026-09-29
+reviewed_at: 2026-09-29
 review_interval_days: 7
 review_triggers:
   - apps/**/src/**
@@ -27,12 +27,13 @@ sources:
   - docs/explanation/architecture-implementation-review.md
   - docs/explanation/companion-hardware-directions.md
   - docs/explanation/hls-agent-competition-plan.md
+  - docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md
 ---
 
 # Aervox 当前迭代计划
 
 - 提出人：3yearszhuang · 2026-09-18
-- 修改人：3yearszhuang · 2026-09-22
+- 修改人：3yearszhuang · 2026-09-29
 
 本文件是**当前项目迭代建议、排序、依赖和待决策项的唯一权威入口**。维护字段、状态、分支协调与归档规则见[计划治理](docs/reference/document-governance.md#31-当前迭代计划的唯一入口)；产品范围见 [PRD](docs/reference/PRD.md)，决策见 [ADR/CR](docs/reference/adr/README.md)，实现与发布证据见[追踪基线](docs/reference/REQUIREMENTS_TRACEABILITY.md)。计划的优先级不改写这些契约，也不自动批准所有条目实施。
 
@@ -48,6 +49,8 @@ sources:
 
 2026-09-22 新增 [HLS 竞赛规划](docs/explanation/hls-agent-competition-plan.md)：ITER-020 仅交付规划，ITER-021 为可行性验证建议，ITER-022 为正向证据成立后的提交候选。三人/C++/RX 9070 XT 是范围输入；具体认领、期限、云配额和实现 CR 仍须在对应条目明确，不改变已有正确性修复的排序。
 
+2026-09-28 新增 [CR-056 Build to Delete 与类 pi 分层架构规划](docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md)：ITER-023 仅交付详细规划，ITER-014 进入架构差量待评审。CR 的切片按主归属和协同关系接入 ITER-005/007/008/013/014/019，具体依赖见 CR §7；先以 MemoryStore 工具与单个模型 Driver 验证实现可替换、资源可释放和数据责任连续性。规划不启动重构，也不将已有正确性修复统一阻塞在架构工作上。
+
 ## 2. 当前建议工作
 
 下表是唯一活动队列，**由 `docs/_meta/plan-queue.json` 渲染生成**（改条目请改真源后运行 `mise tasks run plan-render`，校验见 `plan-check`）。每行“建议”表示尚未开工；“依赖”约束实际启用/交付顺序，前置设计与测试夹具可并行。证据编号 `FND-*` 见底层评估，`ARC-*` 见架构深入评估，不创建另一份问题正文。
@@ -62,13 +65,14 @@ sources:
 | <a id="iter-002"></a>ITER-002 · 已移交 | 可靠接单与 Outbox：先修消费者抢先完成，再闭合 Turn/Attempt/Inbox/可重放输入与受控派发；ARC-01、FND-01/05；CAP-007 | 拆为消费修复与调度切片；新状态、容量/接单语义或多订阅契约先 CR | 提交、预加载、claim 各点中断后已受理任务可追踪；无永久未领取孤儿，不重复消费/副作用（校验：`apps/worker/test/outbox-worker.test.ts`；`apps/api/test/conversation-dispatch-resilience.test.ts`） | platform（分支 `fix/iter-002-reliable-dispatch-and-outbox`；2026-09-18 移交：完成两阶段切片闭环——切片一修复 Outbox 消费归属、事件类型隔离、死信转移与抢先完成防御（FND-01）；切片二闭合 Turn/Attempt 预加载异常状态终态化与未认领孤儿 Attempt 扫描恢复（ARC-01）；测试用例 apps/worker/test/outbox-worker.test.ts 与 apps/api/test/conversation-dispatch-resilience.test.ts 全绿，./aervox ci 通过） |
 | <a id="iter-003"></a>ITER-003 · 建议 | 删除效果与召回资格：先做 Memory 及其索引的完整清理/独立验证切片，检查期限、用途、撤权与 Restricted；ARC-06/08；CAP-005/013/027/033 | 已有隐私契约的修复先做；扩大删除范围或改变保留/恢复语义先 CR；失败继续拒绝受影响范围 | completed 有可重做的清理证据；空目标有明确依据；失败/未知不解闸；混合夹具越权结果为零 | data/privacy |
 | <a id="iter-004"></a>ITER-004 · 建议 | 三个独立修复：消息版本短事务/CAS，Config 与同库 Secret 一致提交，会话锁尾链回收；ARC-07、FND-02/07；CAP-013/020 | 不引入全局通用事务框架；外部 Secret 补偿或历史数据转换单独评审 | 故障仅留完整旧/新版；同 revision 最多一次成功；409 不改 Secret；一万个 key 完成后锁缓存清空 | data |
-| <a id="iter-005"></a>ITER-005 · 建议 | 插件可恢复升级：全部入口校验、展开配额、staging 验证与激活、旧配置/Secret/授权保留；FND-02/04、插件规范；CAP-020。2026-09-18 追加差量：导出分发包可重现（细节见 §4.2 剩余差量，不在本表复述） | 激活依赖 ITER-004；限制资源可先做；升级/卸载状态和迁移语义先 CR | 成功意味着全部声明入口可用；超额包有界失败；任一安装阶段中断后可恢复完整旧/新版；同源码导出分发包的字节与校验和稳定 | ecosystem |
+| <a id="iter-005"></a>ITER-005 · 执行中 | 插件可恢复升级：全部入口校验、展开配额、staging 验证与激活、旧配置/Secret/授权保留；FND-02/04、插件规范；CAP-020。2026-09-18 追加差量：导出分发包可重现（细节见 §4.2 剩余差量，不在本表复述） | 激活依赖 ITER-004；限制资源可先做；升级/卸载状态和迁移语义先 CR | 成功意味着全部声明入口可用；超额包有界失败；任一安装阶段中断后可恢复完整旧/新版；同源码导出分发包的字节与校验和稳定 | ecosystem（分支 `docs/build-to-delete-pi-architecture-plan`；2026-09-28 CR-056 BTD-02 缺包保护切片：可用性独立于用户开关，新增兼容字段保留数据；原升级验收仍保留） |
 | <a id="iter-006"></a>ITER-006 · 建议 | Page 与客户端认证：iframe source/nonce/会话/全部 capability、禁用撤权；附件 Bearer、合法预检与受限 Page 资源通道；FND-03、ARC-13；CAP-018/020 | 既有认证漏接可独立修；新页面凭据及 Origin 信任策略先 CR | 错误窗口/旧响应/无权/禁用访问无副作用；合法 Token 模式的 JSON、SSE、Page、附件可用，凭据不进入 URL | ecosystem/desktop |
 | <a id="iter-007"></a>ITER-007 · 建议 | 三个切片：父子任务/Driver 继承取消、截止、删除/授权修订与 local-only；执行时逐项核对 requiredPermissions/grants 的 scope/revision，由受信宿主映射 guarded/full_access 安全等级；动态工具 Schema 快照进入模型请求并在执行时重验；ARC-02/03、插件规范 §8.1；CAP-007/020/033 | 既有策略接线优先；动态工具开放依赖真实 grant/审批校验及最终输入容量检查；新根预算与 Driver/授权合同先 CR；进一步压缩与成本优化留 ITER-017 | 父取消后不进入子下一步；本地任务拒绝远程 Provider；工具可见；缺权限、错 scope、旧 revision、撤权/禁用和未批准写操作无副作用；最终输入加预留输出不超 Provider 窗口，超额有明确有界处理 | platform/ecosystem |
-| <a id="iter-008"></a>ITER-008 · 建议 | 模型制品与进程：路径/symlink、响应与续传验证；启动 epoch、有界探针/日志/指标请求；ARC-11/12；本地模型基础设施 | 正确性修复可独立进行；制品来源/信任等级变化先 CR | 不写出模型根、不注册错误正文/错位字节；旧 exit 不污染新进程；悬挂探针按期结束；停止状态真实 | platform |
+| <a id="iter-008"></a>ITER-008 · 执行中 | 模型制品与进程：路径/symlink、响应与续传验证；启动 epoch、有界探针/日志/指标请求；ARC-11/12；本地模型基础设施 | 正确性修复可独立进行；制品来源/信任等级变化先 CR | 不写出模型根、不注册错误正文/错位字节；旧 exit 不污染新进程；悬挂探针按期结束；停止状态真实 | platform（分支 `docs/build-to-delete-pi-architecture-plan`；2026-09-28 CR-056 BTD-04 模型 Driver 替换与代际生命周期已落地并通过扩展 SPI 4 项测试，下载其余正确性要求仍保留） |
 | <a id="iter-009"></a>ITER-009 · 建议 | 配套形态决策：比较九个硬件方向、电脑依赖、目标 OS、真实 Provider、成本和数据边界；同时登记移动端草稿待决策事项；CAP-001/012/018/025/030/033 | 本项仅探索与样本验证；不默认批准采购、SKU、固件、移动端顺序或工期 | 有候选比较、继续/暂缓证据和一至两个验证方向；明确 §3 的待决策项与 ITER-016 范围 | product-hardware/desktop |
 | <a id="iter-020"></a>ITER-020 · 已移交 | HLS 本地智能体竞赛规划：三人团队、C++ 与 RX 9070 XT 条件下的能力复用、验证路径、实验协议和交付边界；AVX-EXPL-013；关联 CAP-007/020/027（规划，不改变能力状态） | 本项仅文档交付；赛规、实测、实现授权和产品化分别判断，后续实验见 ITER-021 | 专项文档明确规则与环境、双入口、对照实验、冻结提交和产品回接路径；三人角色、预算估算、去留标准、来源和索引齐全，文档门禁通过 | platform/docs（分支 `docs/hls-competition-validation-plan`；2026-09-22 文档移交：P0～P4 路径、三人角色、四组对照、冻结产物与去留标准已登记；ci-docs 全量通过（治理回归 33/33、队列回归 9/9、78 文件排版/术语及严格治理无问题）；未实施竞赛能力） |
 | <a id="iter-021"></a>ITER-021 · 建议 | HLS 竞赛可行性验证：规则与环境核对、双入口最小闭环、同模型配对对照与去留证据；AVX-EXPL-013 P0～P2；关联 CAP-007/020/027（探索） | 依据 ITER-020 的规划复核范围与可投入工时；新增模块/工具合同先 CR；只修实际复用路径，不等待 ITER-007/008/013 全部完成 | 本地模型与 Vitis 真正运行，裸跑/Agent 双入口公平且逐题可追溯；留出题报告分级通过率、增益、不确定性与成本，并给出继续、限定补证或暂缓结论 | platform/competition（模型环境、HLS 工具、Agent 评测三个角色，待认领） |
+| <a id="iter-023"></a>ITER-023 · 已移交 | Build to Delete 与类 pi 架构详细规划：[CR-056](docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md) 的固定基线、目标边界、决策差量、实施切片、退出验收与回滚；关联 CAP-002/005/007/018/020/027/033（仅规划） | 本项仅交付 Proposed/Planned 的 CR；实现认领继续使用既有 ITER 条目，架构接受、代码实施和发布分别判断 | 每个切片给出输入依赖、代码落点、契约影响、测试、退出条件与回滚；规划接入唯一队列、追踪和索引，文档门禁通过 | platform/docs（分支 `docs/build-to-delete-pi-architecture-plan`；2026-09-28 文档移交：CR-056 的九个切片、两项试点、依赖估算及退出/回滚验收已登记；ci-docs 全量通过（治理 33/33、队列 9/9、79 文件排版/术语及严格治理无问题）；CR 保持 Proposed/Planned，未启动业务重构） |
 
 ### 2.2 下一批：恢复、生命周期与部署
 
@@ -78,7 +82,7 @@ sources:
 | <a id="iter-011"></a>ITER-011 · 建议 | 完整 Schema 迁移：排除 FTS shadow 表、真源重建；接线版本 journal、校验和、恢复状态；ARC-09；CAP-027 | 完整库失败夹具可立即补；迁移协调方案先评审，破坏性转换先 CR，生产操作另过门禁 | 每个支持旧版本升级、失败恢复、回滚通过；主库/Vault/账本归属明确；源库不受 staging 失败影响 | data/quality |
 | <a id="iter-012"></a>ITER-012 · 建议 | 索引生命周期：dirty/reindex、来源修订、模型/维度版本、可切换投影；修可选回填旧列；中文固定语料；ARC-08；CAP-005/026 | 依赖 ITER-003；当前错误 SQL 可先修；投影切换和模型版本合同先评审，不能恢复旧隔离列 | 故障可追平；A→B→A 可切换；资格零越界；单列中文 Recall@K、空间、重建成本 | data |
 | <a id="iter-013"></a>ITER-013 · 建议 | 有界运行和观测：Worker/Host drain、Provider 排队/取消、安全文本窗口、SSE 背压/分页、跨进程终态；复用 metrics；ARC-05/12、FND-05/06/09；CAP-007/018 | 依赖 ITER-002/008 的相关切片；先观测后定参数；跨进程通知/新隔离边界先 CR | 慢源/慢客户端和日志洪泛资源有界；停机有截止；已提交窗口提前可读；故障可定位 | platform/quality |
-| <a id="iter-014"></a>ITER-014 · 建议 | 模块公开 Port：评审 ADR-014 与同步调用/Outbox/广播差量，先改少数交叉模块；私有导入、所有权和解析失败门禁；ARC-10；架构基础设施 | 先 CR；不要求先改完全部模块，也不阻塞已有缺陷修复 | 私有引用 fixture 失败、公开 Port 通过、模块可用 Fake Port 测试；实际依赖与批准规则一致 | platform |
+| <a id="iter-014"></a>ITER-014 · 已移交 | 模块公开 Port 与 Build to Delete：评审 ADR-014 的通信/装配差量，建立试点模块边界、MemoryStore 贡献与退出演练；ARC-10、[CR-056](docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md)；CAP-005/007/020 与架构基础设施 | CR-056 相关决策先接受；模型 Driver 归 ITER-008，生命周期/控制协同 ITER-005/007/013；不要求先改完全部模块，也不阻塞已有缺陷修复 | 私有引用 fixture 失败、公开 Port 通过、模块可用 Fake Port 测试；实际依赖与批准规则一致；临时检出移除试点实现后非目标能力通过，资源无残留且数据权利连续 | platform（分支 `docs/build-to-delete-pi-architecture-plan`；2026-09-29 PR #230 四项审查阻断已修复并补证：生命周期/AST 回归与三阶段 11 包零缓存物理退出构建，真实 SQLite 数据权利和恢复通过；具体证据及发布限制见 CR-056 §10.2 / §4.2） |
 | <a id="iter-015"></a>ITER-015 · 建议 | 单机部署主管：API/Worker/模型归属，数据目录、端口、Token、版本、就绪与退出；ARC-13；CAP-001/018/027 | 依赖 ITER-006/008 与 ITER-011/013 的必要部分；新主管先 CR；与移动端决策协调 | 干净用户目录安装、升级、异常退出、端口占用、磁盘满、卸载保留数据均验证；签名/公证/平台矩阵另过发布门禁 | desktop/release |
 | <a id="iter-016"></a>ITER-016 · 建议 | 已选方向单设备 PoC：真实能力样本，模拟器与一块开发板，身份/ACK/幂等/截止/撤权/热插拔；硬件评估；复用所选 CAP | 依赖 ITER-009 决策；先设备 CR/ADR/单一协议；音频/OCR 先证明真实产物；独立算力盒额外依赖 ITER-015 | 设备缺席不破坏核心流程；获得五至十人使用记录及方向对应价值证据；不把接口响应当实物成功 | product-hardware/platform |
 

@@ -20,7 +20,6 @@ import {
   type FocusModeConfigOptions,
 } from "@aervox/agent-loop";
 import type { ServerTurnPlugin } from "./types.js";
-import { defaultServerTurnPluginRegistry } from "./registry.js";
 import { turnStreamHub } from "../../../companion/conversation/stream-hub.js";
 
 export interface FocusModeRuntimeConfig {
@@ -321,4 +320,3 @@ export const quizModeTurnPlugin: ServerTurnPlugin = {
 };
 
 // 自动注册专注模式主插件至默认服务回合插件注册表（别名由 Registry.get 与 Runner 自适应处理）
-defaultServerTurnPluginRegistry.register(focusModeTurnPlugin);

@@ -12,7 +12,7 @@
  */
 import { and, eq, inArray } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
-import { toolRegistrations } from "@aervox/schema";
+import { toolRegistrations, plugins } from "@aervox/schema";
 import type { IToolRegistryRepository, ToolRegistrationModel } from "../types/index.js";
 
 export class SqliteToolRegistryRepository implements IToolRegistryRepository {
@@ -95,6 +95,10 @@ export class SqliteToolRegistryRepository implements IToolRegistryRepository {
       .from(toolRegistrations)
       .where(eq(toolRegistrations.id, id))
       .limit(1);
+    if (found?.pluginId) {
+      const [plugin] = await this.db.select().from(plugins).where(eq(plugins.id, found.pluginId)).limit(1);
+      if (plugin && (plugin.enabled !== 1 || plugin.availability !== "available")) return { ...found, enabled: 0 } as ToolRegistrationModel;
+    }
     return (found as ToolRegistrationModel) ?? null;
   }
 
@@ -165,10 +169,11 @@ export class SqliteToolRegistryRepository implements IToolRegistryRepository {
   ): Promise<ToolRegistrationModel[]> {
     const allTools = await this.db.select().from(toolRegistrations);
     const disabledSet = new Set(options?.disabledToolIds ?? []);
+    const blocked = new Set((await this.db.select().from(plugins)).filter((p) => p.enabled !== 1 || p.availability !== "available").map((p) => p.id));
 
     const filtered = allTools.filter((tool) => {
       // 1. enabled = 1
-      if (tool.enabled !== 1) return false;
+      if (tool.enabled !== 1 || (tool.pluginId && blocked.has(tool.pluginId))) return false;
       // 2. 不在全局禁用列表
       if (disabledSet.has(tool.id)) return false;
       // 3. 按分类过滤

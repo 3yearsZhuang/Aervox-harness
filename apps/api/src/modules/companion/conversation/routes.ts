@@ -21,7 +21,7 @@ import type {
   SqliteSubagentRunRepository,
   SqlitePlatformRepository,
 } from "@aervox/repositories";
-import type { ToolRuntime } from "../../ecosystem/tools/runtime.js";
+import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index.js";
 import type { LLMConfigService } from "../../ecosystem/llm/service.js";
 import { resolveLocalContext } from "../../../shared/local-context.js";
 import { createTenantInboxPort } from "../inbox/port.js";

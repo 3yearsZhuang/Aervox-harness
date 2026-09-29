@@ -13,7 +13,8 @@ import type { Client } from "@libsql/client";
 import type { AervoxDatabase, ProactiveVaultCipher } from "@aervox/repositories";
 import type { IProactiveProfileRepository, SqliteProactiveIntelligenceRepository } from "@aervox/repositories";
 import type { WorkflowDefinition } from "@aervox/agent-loop";
-import type { ToolRuntime } from "./ecosystem/tools/runtime.js";
+import type { ToolRuntimePort } from "./ecosystem/tools/index.js";
+import type { MemoryRecallPort } from "./companion/memory/index.js";
 import type { LLMConfigService } from "./ecosystem/llm/service.js";
 import type { ModelRuntimeService } from "./ecosystem/model-runtime/service.js";
 import type { VoiceService } from "./platform/voice/service.js";
@@ -39,7 +40,8 @@ export interface ModuleContext {
   proactiveIntelligenceRepository?: SqliteProactiveIntelligenceRepository;
   proactiveActionAuthorizer?: ProactiveActionAuthorizer;
   /** Agent Loop 只读工具提供者（tools 模块填充；conversation/persona/skills 读取） */
-  toolRuntime?: ToolRuntime;
+  toolRuntime?: ToolRuntimePort;
+  memoryRecall?: MemoryRecallPort;
   /** LLM 配置服务（llm 模块填充；conversation 读取） */
   llmConfigService?: LLMConfigService;
   /** 本地模型运行时服务（model-runtime 模块填充；对话工具/UI 读取） */
@@ -60,6 +62,7 @@ export interface ModuleContext {
   skillsRoot?: string;
   /** 插件 Page Bundle 落盘根目录（缺省 <repo>/data/plugins） */
   pluginsRoot?: string;
+  builtinPluginsSourceRoot?: string;
   /** 服务端插件注册表（由 plugins 模块填充；conversation/tools 读取） */
   pluginRegistry?: import("./ecosystem/plugins/turn-plugins/registry.js").ServerPluginRegistry;
   /** 附件二进制落盘根目录（缺省 <repo>/data/attachments；CAP-012 多模态输入） */

@@ -24,7 +24,7 @@ import {
   PROACTIVE_ACTION_DECIDER_PREFIX,
   type ProactiveActionAuthorizer,
 } from "../../proactive/proactive/action-authorizer.js";
-import type { ToolRuntime } from "../../ecosystem/tools/runtime.js";
+import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index.js";
 import { stableStringify } from "./llm-adapter.js";
 
 /** 自动授权决策人前缀；显式授权查询排除该类记录，避免关闭完全访问后泄漏。 */

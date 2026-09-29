@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.3
-updated_at: 2026-09-18
-reviewed_at: 2026-09-18
+version: 0.4.4
+updated_at: 2026-09-28
+reviewed_at: 2026-09-28
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 系统架构设计（SAD）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-18
+- 修改人：3yearszhuang · 2026-09-28
 
 关联 PRD：[PRD.md](PRD.md) · 追踪：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
 
@@ -130,7 +130,7 @@ apps/api/test/                       # 集成测试
 | 模块自管仓储 | 每个 `modules/<domain>/<module>/index.ts` 内部实例化该模块的仓储，不引用全局容器 |
 | 路由函数签名 | `routes.ts` 导出函数接收**该模块专属的仓储实例**，而非 `RepoContainer` |
 | shared 严格受限 | `shared/` 只放跨 2 个以上模块的通用工具，禁止放业务逻辑 |
-| 跨模块通信 | 跨模块解耦走持久化的 SQLite Outbox 表由 Worker 轮询投递，禁止进程内未持久化总线；纯工具函数走 `shared/` |
+| 跨模块通信 | 同步 Query/Command 使用窄公开 Port；可靠事实和后台工作写入 SQLite Outbox，由 Worker 投递；可丢通知只作唤醒/表现，不作为提交证明；业务原子性由领域命令负责 |
 | 单一数据库 | 一个本地 SQLite 实例；Schema 按领域拆文件，安全边界不依赖表前缀或租户列 |
 | 对外入口唯一 | 每个模块只有 `index.ts` 对外可见，`routes.ts` 内部函数不被其他模块引用 |
 
@@ -147,7 +147,7 @@ apps/api/test/                       # 集成测试
 | content | `SqliteContentRepository` | `/v1/attachments/*` |
 | notification | `SqlitePlatformRepository` | `/v1/notifications` |
 
-**与 ADR-001 的关系**：本结构是 ADR-001（模块化单体）在 API 层的细化设计，由 ADR-014 记录完整决策。未来当某个模块满足拆分条件（团队边界、独立扩缩容、部署独立性）时，可将该模块的进程内 EventBus 调用替换为消息队列，仓储实例化替换为 HTTP/gRPC 客户端，业务逻辑代码零改动。
+**与 ADR-001 的关系**：本结构是 ADR-001（模块化单体）在 API 层的细化设计，由 ADR-014 记录完整决策。实现通过公开 Port 和组合根替换；跨进程拆分须重新验证事务、幂等和失败模式，不承诺零业务改动。CR-056 首轮保持现有部署形态。
 
 ### 3.2 UI 共享包规划（packages/ui / api-client）
 
