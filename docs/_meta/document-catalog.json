@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-09-29",
-  "totalCount": 75,
+  "totalCount": 73,
   "documents": [
     {
       "id": "AVX-PLAN-001",
@@ -14,7 +14,7 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.4.1",
+      "version": "0.4.0",
       "updated_at": "2026-09-29",
       "reviewed_at": "2026-09-29",
       "review_interval_days": 7,
@@ -93,33 +93,6 @@
         "docs/reference/adr/ADR-014-modular-monolith-structure.md",
         "docs/explanation/foundation-optimization-review.md",
         "docs/explanation/companion-hardware-directions.md"
-      ]
-    },
-    {
-      "id": "AVX-EXPL-014",
-      "title": "BTD-08 适配器去留评估与结项说明",
-      "path": "explanation/btd08-adapter-retirement-evaluation.md",
-      "type": "explanation",
-      "scope": "guide",
-      "planning_role": "evidence",
-      "owner": "ecosystem",
-      "doc_status": "review-candidate",
-      "decision_status": "not-applicable",
-      "delivery_status": "not-applicable",
-      "version": "0.1.2",
-      "updated_at": "2026-09-29",
-      "reviewed_at": "2026-09-29",
-      "review_interval_days": 90,
-      "review_triggers": [
-        "packages/agent-loop/**",
-        "packages/host-agent/**",
-        "docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md"
-      ],
-      "sources": [
-        "docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md",
-        "docs/reference/adr/ADR-010-dsh-pi-adapters.md",
-        "docs/reference/adr/ADR-009-electron-plugin-sandbox.md",
-        "docs/reference/ARCHITECTURE.md"
       ]
     },
     {
@@ -572,8 +545,8 @@
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
       "version": "1.16.0",
-      "updated_at": "2026-09-29",
-      "reviewed_at": "2026-09-29",
+      "updated_at": "2026-09-28",
+      "reviewed_at": "2026-09-28",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -916,24 +889,7 @@
       ]
     },
     {
-      "id": "ADR-020",
-      "title": "ADR-020 Aervox Core 架构解耦：执行管线中间件、统一审批 SPI 与工具沙箱下沉",
-      "path": "reference/adr/ADR-020-aervox-core-decoupling.md",
-      "type": "reference",
-      "scope": "decision",
-      "owner": "maintainers",
-      "doc_status": "approved",
-      "decision_status": "accepted",
-      "delivery_status": "not-applicable",
-      "version": "0.1.0",
-      "updated_at": "2026-09-29",
-      "reviewed_at": "2026-09-29",
-      "review_interval_days": 90,
-      "review_triggers": [],
-      "sources": []
-    },
-    {
-      "id": "ADR-001~020",
+      "id": "ADR-001~019",
       "title": "Aervox 架构决策记录（ADR）",
       "path": "reference/adr/README.md",
       "type": "reference",
@@ -942,9 +898,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.3.0",
-      "updated_at": "2026-09-29",
-      "reviewed_at": "2026-09-29",
+      "version": "0.2.1",
+      "updated_at": "2026-09-18",
+      "reviewed_at": "2026-09-18",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -959,9 +915,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.7.3",
-      "updated_at": "2026-09-29",
-      "reviewed_at": "2026-09-29",
+      "version": "0.7.2",
+      "updated_at": "2026-09-28",
+      "reviewed_at": "2026-09-28",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -1012,9 +968,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.5.0",
-      "updated_at": "2026-09-29",
-      "reviewed_at": "2026-09-29",
+      "version": "0.4.4",
+      "updated_at": "2026-09-28",
+      "reviewed_at": "2026-09-28",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -1138,7 +1094,7 @@
       "doc_status": "review-candidate",
       "decision_status": "accepted",
       "delivery_status": "implemented",
-      "version": "1.0.2",
+      "version": "1.0.1",
       "updated_at": "2026-09-29",
       "reviewed_at": "2026-09-29",
       "review_interval_days": 30,
@@ -1165,7 +1121,6 @@
         "docs/reference/adr/ADR-016-base-boundaries.md",
         "docs/explanation/reference-design-transfer.md",
         "docs/explanation/architecture-implementation-review.md",
-        "docs/explanation/btd08-adapter-retirement-evaluation.md",
         "docs/reference/REQUIREMENTS_TRACEABILITY.md",
         "plan.md"
       ]
@@ -1380,7 +1335,7 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.47.0",
+      "version": "1.46.10",
       "updated_at": "2026-09-29",
       "reviewed_at": "2026-09-29",
       "review_interval_days": 90,
@@ -1486,9 +1441,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.4.2",
-      "updated_at": "2026-09-29",
-      "reviewed_at": "2026-09-29",
+      "version": "0.4.1",
+      "updated_at": "2026-09-16",
+      "reviewed_at": "2026-09-16",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []

@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: accepted
 delivery_status: implemented
-version: 1.0.3
+version: 1.0.1
 updated_at: 2026-09-29
 reviewed_at: 2026-09-29
 review_interval_days: 30
@@ -32,7 +32,6 @@ sources:
   - docs/reference/adr/ADR-016-base-boundaries.md
   - docs/explanation/reference-design-transfer.md
   - docs/explanation/architecture-implementation-review.md
-  - docs/explanation/btd08-adapter-retirement-evaluation.md
   - docs/reference/REQUIREMENTS_TRACEABILITY.md
   - plan.md
 ---
@@ -42,9 +41,9 @@ sources:
 - 提出人：3yearszhuang · 2026-09-28
 - 修改人：3yearszhuang · 2026-09-29
 
-关联：[当前迭代计划](../../../plan.md) · [架构设计](../ARCHITECTURE.md) · [能力组合规范](../capability-composition.md) · [Agent Loop 规范](../agent-harness-loop.md) · [架构实现评估](../../explanation/architecture-implementation-review.md) · [BTD-08 去留评估](../../explanation/btd08-adapter-retirement-evaluation.md) · [实现登记](../REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)
+关联：[当前迭代计划](../../../plan.md) · [架构设计](../ARCHITECTURE.md) · [能力组合规范](../capability-composition.md) · [Agent Loop 规范](../agent-harness-loop.md) · [架构实现评估](../../explanation/architecture-implementation-review.md) · [实现登记](../REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)
 
-- 状态：Accepted / Implemented（部分实现）；PR #230 的生命周期、可移除守卫与真实退出演练已闭环（§10.2），PR #231 的控制、原子终态、安全投影、客户端与 CLI 缺陷已修复并通过定向验收（§10.4），第二轮复核的取消收敛时序、审批有界等待、调用时门禁与入参沙箱已修复（§10.5）。ITER-014 试点已移交；ITER-007/013 的完整权限、窗口及生产有界资源验收仍保留，CR 不晋级 Verified/Released。
+- 状态：Accepted / Implemented（部分实现，合并前复核未通过）；2026-09-29 PR #230 复核发现 BTD-02/04 的生命周期缺陷和 BTD-07 的动态导入漏检，详见 §10.1。ITER-014 撤回移交，保留阶段二 BTD-05/06 和条件性 BTD-08 的既有范围；不表示 Verified 或 Released。
 - Aervox 核验基线：`e5297fe549cfff4f8eedf51bbb4c0da010a57787`，2026-09-28 本地 `main`；规划分支 `docs/build-to-delete-pi-architecture-plan`。
 - 参考基线：`PI-01`，`reference/pi` 的 `c49906ec77788625aacbdc53ebca6fbe65bd20f5`，MIT；不将本快照描述为上游最新版本。
 - 关联能力：`CAP-002/005/007/018/020/027/033` 与架构基础设施；不改变 CAP 优先级、标准产品必选集或数据权利。
@@ -221,7 +220,6 @@ D1～D4 已随 2026-09-28 的实施授权接受；规则同步到对应 Living �
 - 权限：模型仅提出调用，Host 重新验证工具定义、参数、授权修订和执行策略；pi 自报 `tool_result` 不能替代 Host 工具账本。不能满足本地处理、删除、取消或安全输出合同的能力不准入；不静默回退到另一 Driver。
 - 验收：无 Adapter 时原生路径完整；固定轨迹下明确报告文本、流式、取消、工具、恢复的能力矩阵及不支持项。真实模型 smoke 与协议/Fake 测试分开报告，模拟器通过不等于真实运行时通过。
 - 退出：合同无法满足、维护成本超过用例价值或上游仍不成熟时禁用/移除 Adapter；不转换 Aervox 历史、不保留第二套权威会话库。完整工具闭环与产品发布另列范围和估算。
-- 去留边界（2026-09-29 复核）：[AVX-EXPL-014](../../explanation/btd08-adapter-retirement-evaluation.md) 保留当前不启动条件性真实 pi 实验的结论；该选择不能证明原生控制、工具、生命周期或客户端验收完成，也不提升 CR-056 的交付状态。
 
 ## 6. 共同契约与测试矩阵
 
@@ -318,7 +316,9 @@ BTD-02 缺包保护切片：新增 plugins.availability 兼容列；扫描缺包
 
 BTD-04 模型 Driver 替换与代际生命周期：Service 仅依赖 ModelRuntimeDriver SPI，具体 LlamaServerManager 默认移至组合根；缺省提供 unavailable 驱动，受限本地模型缺失合规 Provider 时明确拒绝并保留模型文件/侧车，禁止静默走远程；落地 start/stop/dispose 幂等编排与超时有界关闭；增加代际计数防迟到采样污染。验证：API typecheck 通过；扩展 SPI 测试 4 用例通过（验证注入编排、unavailable 拒绝与文件保留、生命周期与幂等释放、代际防污染）；原模型运行时 API 与子进程测试 22 用例全绿。其余验收保持执行中。
 
-阶段一与后续切片均已有部分实现，但完整验收未通过。此前“全量收口”“100% 验收”和“Released”的表述按以下复核结果撤回；保留已接受的架构目标和未完成的原验收，不用调整声明替代功能修复。
+BTD-07 已交付静态私有引用守卫与 Fake 注册表退出夹具；2026-09-29 复核确认动态导入漏检，物理移除、冷构建和真实存量数据权利验证未完成，不能登记为全量退出演练。详见 §10.1。
+
+阶段一原移交记录更正：既有测试通过仅证明已覆盖路径，不能据此关闭 BTD-02/04/07；2026-09-29 合并前复核按 §10.1 保留缺陷和未执行验收，ITER-014 回到待评审。BTD-05/06/08 继续沿用既有队列归属。
 
 ### 10.1 PR #230 合并前复核（2026-09-29）
 
@@ -331,7 +331,7 @@ BTD-04 模型 Driver 替换与代际生命周期：Service 仅依赖 ModelRuntim
 | BTD-T01/09 可移除守卫 | Worker 临时夹具静态引用 Memory 私有贡献时报告违规，改为同路径字面量动态 `import()` 后 `auditTarget` 返回零违规；API 模块门禁不会覆盖 Worker | 未通过；需覆盖实际解析器的动态导入节点及跨包反向夹具 |
 | BTD-T09/10 物理退出与数据权利 | 现有 Memory 测试使用 Fake 注册表，退出用例的数据数组从未写入；源码未物理移除，也没有冷构建、真实存量读取/导出/删除的退出与接回证据 | 未验证；不能把静态扫描或空数组断言登记为全量退出演练 |
 
-前三项在临时隔离工作树中以 Node 24 加载本次构建产物复现；异步 Driver、Fake 注册表与临时 Worker 夹具均已清理。修复文档 CI 不修复这些实现缺陷，当时暂缓合并 PR #230；后续修复与通过证据见 §10.2。相关 Living 契约的目标不变；本节与追踪基线仅更正完成范围，不降低原验收要求。
+前三项在临时隔离工作树中以 Node 24 加载本次构建产物复现；异步 Driver、Fake 注册表与临时 Worker 夹具均已清理。修复文档 CI 不修复这些实现缺陷，本次不合并 PR #230。相关 Living 契约的目标不变；本节与追踪基线仅更正完成范围，不降低原验收要求。
 
 本次标准验证：隔离工作树冷构建通过；补齐 DSH 参考子模块后 `./aervox ci all` 全量通过，79 文件文档门禁与严格治理通过，仅保留既有 S5 依赖提示。三项定向故障复现仍失败，标准门禁绿色不构成这些验收已完成的证据。
 
@@ -339,46 +339,10 @@ BTD-04 模型 Driver 替换与代际生命周期：Service 仅依赖 ModelRuntim
 
 工具贡献以稳定 Owner 绑定释放句柄，开关继续轮换执行代际并取消在途调用；原句柄可释放开关后的实例，不能删除后继贡献。Driver 关闭等待启动收敛并保持截止：挂起启动报超时，迟到启动完成后再次停止，清理结束前禁止新启动。可移除守卫覆盖动态导入、纯模板、类型引用、显式扩展及 Vue 脚本，解析失败明确阻断。
 
-验证：工具生命周期 7、Driver SPI 6、可移除守卫 3 项回归通过。复核 ADR-014、ADR-010 与架构目标，本切片仅修复既有生命周期/引用契约，无新增业务或存储语义；下述物理退出及数据权利补证完成后，ITER-014 试点移交。
+验证：工具生命周期 7、Driver SPI 6、可移除守卫 3 项回归通过。复核 ADR-014、ADR-010 与架构目标，本切片仅修复既有生命周期/引用契约，无新增业务或存储语义；物理退出及数据权利演练正在补齐，ITER-014 保持执行中。
 
 物理演练补证：`mise exec -- node scripts/run-removability-drill.mjs` 已通过。以 `ac1d94c` 加本次修复为基线，备份源码后删除 Memory 的 `tool-contribution.ts`、`memory-store-tool.ts` 和模型 `llama-server.ts`，仅修改两个模块组合根；清除编译目录，在基线、移除、恢复三个阶段各强制构建 API/Worker 及依赖 11 包（零缓存命中）。移除态不存在对应源码及编译残留，独立进程验证 Echo 工具与 Memory 节点 API 可用；真实临时 SQLite 中的既有记忆可读并可导出，Owner 的软删除后记录不可召回，接回工具后软删除位未复活且可写新记忆。无 Driver 时明确拒绝启动；保留模型与侧车字节一致，模型删除入口仍可用；恢复默认 Driver 装配成功。脚本保存源码字节备份、临时数据库、模型与分阶段导出，未访问生产数据。
 
 本轮关闭 §10.1 四项审查阻断，ITER-014 试点移交。软删除延续现有仓储语义，不代表底层数据擦除/索引清理或旧备份恢复已验收；这些仍归 ITER-003/010/011。跨平台、真实模型与生产发布门禁保持未验证，CR 整体不晋级 Verified/Released。
 
 终审：`./aervox ci all` 的全量代码门禁通过；修正本节空行格式后重新运行 `mise tasks run ci-docs` 通过（79 文件，仅既有 S5 提示）。
-
-### 10.3 PR #231 合并前复核（2026-09-29）
-
-复核基线为 `51143d1cb956d999ade81569b3c0ea199ea90a35`，包含 PR #230 的实现，§10.1 缺陷仍适用。本次核验区分已有构件、实际生产接线及发布证据；标准测试通过不能补足未覆盖的合同。
-
-| 声明与验收 | 实际验证 | 完成范围与剩余差量 |
-|---|---|---|
-| BTD-05 Token/调用预算 | 给 `executeTurn` 注入零 Token、零调用预算，仍返回 completed，实际运行两次模型调用、一次工具调用，两个计数仍为零；执行源码没有调用 `recordTokensUsed` 或 `recordCallUsed` | 计数辅助方法存在，但执行限额未落地；不能宣称预算熔断完成 |
-| BTD-05 父子约束 | 默认 `deriveSubtask()` 不带任何预算；收紧预算的子任务消耗不回记父级；传入 `subtaskSignal` 后取消父级，子级仍未取消 | 三条反向夹具均未通过；需合并取消信号并保持根预算责任 |
-| BTD-05 生产接线与窄接口 | `createRuntimeToolProvider` 未把输入 signal/ControlContext 传入 Runtime；模型路由只使用 proactiveActive 作为本地处理条件；`SessionLedgerPort` 仍继承全部 ExecutionStorePort，API 仍创建具体 SQLite 存储 | 全链路取消、local-only 和瘦宿主未完成；`AgentHost` 提供的是 `stop({drainTimeoutMs})`，不存在所声明的 `drain(timeoutMs)` 接口，生产停机和全部资源有界仍需验收 |
-| BTD-05 原子终态 | 对真实临时 SQLite 调用 `runLoopTurnOnce`，传入已过期控制上下文：Attempt 与 done 均为 Interrupted，而 Turn 为 Failed | 新增的 failed 分支覆盖了已提交的中断语义；需统一终态并遵循 fencing/CAS，不能在丢失归属后无条件改 Turn |
-| BTD-06 安全投影 | 假敏感字段在 `projectSafeEventData` 中被剔除，但同一字段写入临时事件库后经 GET events 重放仍返回；只实时广播路径使用过滤，过滤还只处理顶层固定字段 | 未完成实时与重放的统一安全 DTO；复现仅使用人工假值，不表示已观察到真实凭据泄漏 |
-| BTD-06 客户端防复活 | Projector 的单实例单调水位与终态锁已有测试；Transport 每次建立流均新建 Projector；会话测试在测试体内重写守卫，没有挂载 AervoxWorkbench | 部分构件已实现；恢复/重连权威快照、真实组件切换及 SSE 背压/分页未全量验证，不能关闭整个 ITER-013 |
-| Headless CLI 工具闭环 | 执行 `--smoke` 得到 PASS，但所谓两步工具案例打印 `stepsTaken=1`；CLI 读取不存在的 `request.messages`，实际请求消息位于 `request.context.messages` | 命令行可启动，工具演示不成立；须断言工具实际调用与结果，启动计时仅为当次模块加载测量，不证明全环境性能门槛 |
-| 交付证据 | 登记引用的 `apps/api/test/agent-executor-control-context.test.ts` 不存在；`packages/host-agent/src/host.ts` 也不是实际实现路径 | 更正为已有源码与本次复现证据；BTD-08 去留不能替代 BTD-05/06 完成或生产发布验收 |
-
-四项控制约束反向夹具、真实 SQLite 终态复现和历史 SSE 重放复现均未通过预期合同；临时测试与数据库已清理。CLI 原 smoke 通过只说明该脚本自身断言不足。文档 CI 修复与状态更正不包含上述功能修复，当时暂缓合并 PR #231；后续修复见 §10.4。当时撤回 ITER-007/013/014 全量移交，当前状态以唯一队列为准；Agent Loop、流式协议、隐私与数据库的既有合同经复核继续适用，不因实现缺口而降低要求。
-
-本次文档修复后的标准验证：`./aervox ci all` 全量通过，80 文件 Markdownlint/Vale 无错误，严格治理与计划队列通过；仅保留已有 ITER-005 依赖 ITER-004 的 S5 提示。上述反向复现独立执行并保留失败证据，不纳入“标准门禁通过”等价于“功能全量完成”的结论。
-
-### 10.4 PR #231 缺陷修复切片（2026-09-29）
-
-已承接 PR #230 修复。原生 Loop 的模型/工具共享调用计数与 Token 消费检查，子任务继承约束并回记根预算；Runtime 与子任务工厂透传控制，local-only 参与实际路由；取消等待对不合作模型有界。SQLite 将 Turn、Attempt 与终止事件原子提交，API 移除无归属补写。事件 Schema 白名单同时覆盖实时流与回放，并保留刷题结果的公开字段；Fetch 保留游标重连，工作台按代际隔离旧流。CLI 两步工具循环现在断言实际调用、工具结果及最终引用，并保留写审批拒绝。预算估算、Adapter 限制与未完成范围已同步 Agent Loop 和流式协议。
-
-已验证：控制上下文及执行 21 项、真实 API/SQLite 与投影 6 项、Host 停机 9 项、客户端投影/重连 12 项、真实工作台挂载 1 项；CLI smoke 两步工具闭环通过（本机模块加载 16.96ms，仅当次测量）。另有 Adapter 8 项、DSH 4 项、子任务 5 项回归通过；全量终审发现刷题公开结果被过度过滤，已补充明确 DTO 白名单和额外字段剔除断言。ITER-007/013 的本次缺陷修复已有证据，其余权限/窗口、SSE 背压/分页、跨进程恢复与生产资源验收仍不移交，CR 不宣称 Verified/Released。
-
-### 10.5 PR #231 第二轮复核修复切片（2026-09-29）
-
-合并前第二轮深度复核（内核/宿主/API 三域并行审查）发现并修复以下缺陷：
-
-- **取消/预算中断收敛时序**：流中检查点提交终态后，Executor 仍对终态 Attempt 强制冲刷缓冲 reasoning 增量，被 fencing CAS 拒绝抛出 LeaseLostError，外层收敛把用户取消误报为 `lease_lost` 或 `*_finalize_contested`。修复为 midStreamStop 分支直接返回（缓冲 reasoning 属进度事件，静默丢弃与 catch 路径一致）；新增 DB 位取消叠加 reasoning 缓冲滞留的定向回归测试。
-- **审批评估有界等待**：ApprovalPolicyPort.evaluate 此前裸 await，不合作策略可无限挂起执行循环且截止时间无法打破；现以 awaitWithSignal 包裹，取消/超时信号可确定性打破等待。
-- **门禁求值接线（AST-04）**：defaultGatingEvaluator 此前不与门禁上下文实值比较（equals 仅判非空）、未知算子 fail-open，且 HostToolRuntime.callTool 全路径不求值 gatingConditionsJson，直呼工具 ID 即可绕过列表过滤。修复为按 dot-path 解析上下文实值比较、未知与 custom 算子 fail-closed，callTool 调用边界求值门禁，InMemoryToolRegistry.exportRegistry 过滤与 SQLite 仓储语义对齐。
-- **入参沙箱加固（B4-B）**：路径键先迭代 URL 解码归一化（覆盖混合编码 `.%2e`、双重编码 `%252e%252e`、`....//` 分段），按路径分段判定穿越；敏感系统根目录检查扩展到所有整值恰为绝对路径的字符串（覆盖 `db_file` 等键名白名单外路径键）；危险命令模式扩展旗标组合 rm、xargs rm、sudo rm、mkfs、dd 落盘与关机原语。命令键刻意不筑 shell 元字符墙：`dsh_run_command` 等已审批 shell 工具的合法复合命令必须放行，真实防线保持 PET-05 审批门与幂等账本。
-
-已验证：agent-loop 31 套件 209 测试（含新增取消时序与穿越/命令回归）、host-agent 15 套件 94 测试（含新增门禁行为 3 项）全绿；`./aervox ci` 增量门禁通过。Adapter 工具执行的审批责任边界（Adapter 进程内自执行、宿主仅落账并经 manifest SHA 与许可准入）维持代码现状，以 PR 描述如实声明；符号链接逃逸属宿主工具 handler 职责。本轮不改变 §10.4 的移交范围限制，CR 不晋级 Verified/Released。

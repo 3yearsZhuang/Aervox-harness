@@ -47,7 +47,7 @@ if (buildRes.status !== 0) {
   process.exit(buildRes.status ?? 1);
 }
 
-// 3. 增量测试（Turbo 受控 2 并发，单包内自适应多 Worker 并行）
+// 3. 增量测试（受控 2 并发，单 worker）
 console.log(`\n[check-affected] 3/3 增量受控测试 (${scopeLabel})...`);
 const testArgs = ["exec", "turbo", "run", "test", "--concurrency=2", ...filterArgs];
 

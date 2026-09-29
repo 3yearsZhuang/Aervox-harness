@@ -11,6 +11,3 @@ export * from "./dsh-reference.js";
 export * from "./dsh-adapter.js";
 export * from "./profile.js";
 export * from "./sqlite-observability.js";
-export * from "./pipeline.js";
-export * from "./cli-approval.js";
-export * from "./host-tool-runtime.js";

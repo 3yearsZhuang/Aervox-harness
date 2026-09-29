@@ -134,22 +134,3 @@ describe("SqliteSubagentPort（子任务委托执行器）", () => {
     expect(runs[0]?.error).toBe("subagent_failed");
   });
 });
-
-it('SQLite 子任务保留控制上下文与预算，预算耗尽时 Turn/Attempt/Run 同为 Interrupted', async () => {
-  const { ControlContext } = await import('@aervox/agent-loop');
-  const res = await createInMemoryDatabase();
-  try {
-    const repo = new SqliteConversationRepository(res.db, res.client);
-    const runs = new SqliteSubagentRunRepository(res.db);
-    await repo.getOrCreateSession(ctx, 'budget-session', 'budget');
-    const control = new ControlContext({ localProcessingOnly: true, callBudget: { maxCalls: 0, usedCalls: 0 } });
-    const port = createSqliteSubagentPort({ ctx, store: new SqliteExecutionStore(repo, ctx), conversationRepo: repo, runRepo: runs,
-      providerBuilder: ({ controlContext }) => { expect(controlContext).toBe(control); return createScriptedProvider([{ text: 'must not dispatch' }]); },
-    });
-    const result = await port.delegate({ parentTurnId: 'p', parentAttemptId: 'pa', parentExecutionId: 'pe', sessionId: 'budget-session', task: 'test', controlContext: control });
-    expect(result.status).toBe('Interrupted');
-    expect((await repo.getTurn(ctx, result.subTurnId))?.status).toBe('Interrupted');
-    expect(control.callBudget?.usedCalls).toBe(0);
-    control.dispose();
-  } finally { await res.cleanup(); }
-});

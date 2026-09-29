@@ -134,7 +134,7 @@
     {
       "id": "ITER-007",
       "batch": "first",
-      "status": "待评审",
+      "status": "建议",
       "delivery": "三个切片：父子任务/Driver 继承取消、截止、删除/授权修订与 local-only；执行时逐项核对 requiredPermissions/grants 的 scope/revision，由受信宿主映射 guarded/full_access 安全等级；动态工具 Schema 快照进入模型请求并在执行时重验；ARC-02/03、插件规范 §8.1；CAP-007/020/033",
       "gate": "既有策略接线优先；动态工具开放依赖真实 grant/审批校验及最终输入容量检查；新根预算与 Driver/授权合同先 CR；进一步压缩与成本优化留 ITER-017",
       "acceptance": [
@@ -143,13 +143,7 @@
         "最终输入加预留输出不超 Provider 窗口，超额有明确有界处理"
       ],
       "owner": "platform/ecosystem",
-      "dependsOn": [],
-      "statusNote": "2026-09-29 PR #231 缺陷修复已通过定向验收：预算执行、父子控制、生产取消/本地限制及原子终态；第二轮复核修复取消/预算收敛时序与审批有界等待；完整权限和模型窗口验收仍待完成，证据见 CR-056 §10.4–§10.5 / §4.2",
-      "links": [
-        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
-        "https://github.com/3yearsZhuang/Aervox-harness/pull/231"
-      ],
-      "branch": "feat/aervox-core-evolution"
+      "dependsOn": []
     },
     {
       "id": "ITER-008",
@@ -227,7 +221,7 @@
     {
       "id": "ITER-013",
       "batch": "next",
-      "status": "待评审",
+      "status": "建议",
       "delivery": "有界运行和观测：Worker/Host drain、Provider 排队/取消、安全文本窗口、SSE 背压/分页、跨进程终态；复用 metrics；ARC-05/12、FND-05/06/09；CAP-007/018",
       "gate": "依赖 ITER-002/008 的相关切片；先观测后定参数；跨进程通知/新隔离边界先 CR",
       "acceptance": [
@@ -238,13 +232,7 @@
       "dependsOn": [
         "ITER-002",
         "ITER-008"
-      ],
-      "statusNote": "2026-09-29 PR #231 已修复 Host 有界停机、实时/回放投影、Fetch 重连与真实组件旧流隔离；第二轮复核补齐审批有界等待；SSE 背压/分页、跨进程恢复及生产资源全范围仍未移交，证据见 CR-056 §10.4–§10.5 / §4.2",
-      "links": [
-        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
-        "https://github.com/3yearsZhuang/Aervox-harness/pull/231"
-      ],
-      "branch": "feat/aervox-core-evolution"
+      ]
     },
     {
       "id": "ITER-014",
@@ -416,150 +404,6 @@
       "links": [
         "docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md",
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
-      ]
-    },
-    {
-      "id": "ITER-024",
-      "batch": "first",
-      "status": "已移交",
-      "delivery": "Aervox Core 架构解耦与演进落地：ExecutionPipeline 洋葱中间件、ApprovalPolicyPort 三端人机回环 SPI、HostToolRuntime 沙箱容器下沉与 Headless Agent 内核验证；关联 ADR-020、CR-056",
-      "gate": "遵循单用户本地架构；保持 18 包 100% 测试通过率；无 boundary guard 回归；通过自动化 smoke 验证",
-      "acceptance": [
-        "ExecutionPipeline 洋葱中间件链解耦 agent-executor 编排关注点（指标、安全守卫、插件生命周期、主动策略）",
-        "ApprovalPolicyPort SPI 统一 CLI、Web/SSE 与无头测试的人机回环审批策略",
-        "HostToolRuntime 工具沙箱容器与代际调度下沉至 host-agent 并由 API 层薄适配继承",
-        "Headless Agent 具备轻量冷启动与独立运行能力，零数据库与零 Fastify 侵入"
-      ],
-      "checks": [
-        "`node scripts/run-headless-agent.mjs --smoke`",
-        "`packages/host-agent/test/pipeline.test.ts`",
-        "`packages/agent-loop/test/approval-policy.test.ts`",
-        "`packages/host-agent/test/cli-approval.test.ts`",
-        "`packages/host-agent/test/host-tool-runtime.test.ts`",
-        "`./aervox ci`"
-      ],
-      "owner": "platform/runtime",
-      "branch": "feat/aervox-core-evolution",
-      "statusNote": "2026-09-29 移交：Phase 1-4 全部实施完成，中间件链、三端审批 SPI、工具沙箱下沉与独立 Headless 验证全绿；ADR-020 已归档接受；第二轮复核补齐调用时门禁与入参沙箱加固，证据见 CR-056 §10.5；§4.2 完成登记",
-      "dependsOn": [
-        "ITER-023"
-      ],
-      "links": [
-        "docs/reference/adr/ADR-020-aervox-core-decoupling.md",
-        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
-      ]
-    },
-    {
-      "id": "ITER-025",
-      "batch": "first",
-      "status": "已移交",
-      "delivery": "Aervox Core 懒加载与毫秒级冷启动：解耦顶级重型依赖导入，消灭 1440ms 启动警告，压减模块导入开销至 100ms 内；基础设施/ADR-020",
-      "gate": "不破坏既有 Headless 7 步验证；不引入未经验证的打包器私有运行时",
-      "acceptance": [
-        "`node scripts/run-headless-agent.mjs --smoke` 内核加载耗时稳定收敛至 <= 150ms（消除 WARN 警告）",
-        "未触碰数据库与持久层时，零加载 @libsql/client、Drizzle Schema 与重型 Fastify 插件",
-        "apps/api 73 套件模块静态解析耗时显著降低"
-      ],
-      "checks": [
-        "`node scripts/run-headless-agent.mjs --smoke`",
-        "`./aervox test fast`"
-      ],
-      "owner": "platform/runtime",
-      "branch": "feat/aervox-core-evolution",
-      "statusNote": "2026-09-29 移交：完成子路径按需导出与重型依赖解耦（@aervox/repositories/errors、@aervox/schema/audit 与 @aervox/host-agent/core）；run-headless-agent 内核加载耗时从 1440ms 降至 20ms（提速 98.6%，告警消除）；73 套件 485 测试在内的 check-affected 全绿；§4.2 完成登记",
-      "dependsOn": [
-        "ITER-024"
-      ],
-      "links": [
-        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
-      ]
-    },
-    {
-      "id": "ITER-026",
-      "batch": "next",
-      "status": "已移交",
-      "delivery": "伴学业务与会话执行器深度解耦：extractStudyTerms、PracticeAttempt 与 MemoryRecall 插件化/中间件化；CAP-002/007/016；ADR-020",
-      "gate": "保持既有 API 行为与契约 100% 兼容；通过既有 quiz-mode、study-term-plugins 等集成测试",
-      "acceptance": [
-        "agent-executor.ts 聚焦于纯粹的 LLM + 工具多轮驱动，代码行数收敛 50% 以上",
-        "术语提取转为独立 TurnMiddleware（afterTurn 异步管道处理）",
-        "刷题出题判定转为声明式插件工具 Contribution，移除执行器硬编码逻辑"
-      ],
-      "checks": [
-        "`apps/api/test/quiz-mode.test.ts`",
-        "`apps/api/test/study-term-plugins.test.ts`",
-        "`apps/api/test/conversation-loop.test.ts`"
-      ],
-      "owner": "companion/learning",
-      "branch": "feat/aervox-core-evolution",
-      "statusNote": "2026-09-29 移交：agent-executor.ts 代码行数由 473 行收敛 54% 至 217 行，职责纯粹聚焦于 LLM+工具多轮循环；记忆召回与上下文组装收敛至 context-builder.ts；工具组合声明化收敛至 tool-providers.ts；管道与独立术语提取中间件收敛至 pipeline-middlewares.ts；quiz-mode、study-term-plugins 与 conversation-loop 全套测试全绿；§4.2 完成登记",
-      "dependsOn": [
-        "ITER-024"
-      ],
-      "links": [
-        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
-      ]
-    },
-    {
-      "id": "ITER-027",
-      "batch": "next",
-      "status": "建议",
-      "delivery": "多进程 SQLite 写入并发与 Worker 自适应退避：消除高频空轮询，流式会话写入期间后台任务自适应降频与 IPC 唤醒；ARC-05/FND-07；基础设施",
-      "gate": "依赖 ITER-002 的 Outbox 消费修复；不破坏 WAL 模式快照隔离与单写者约束",
-      "acceptance": [
-        "API 执行多轮密集对话与流式写入期间，Worker 自动退避至 3s+ 低频轮询，写锁冲突率降至 0",
-        "探索基于本地 Domain Socket 或命名管道的事件驱动触发式唤醒，替代持续空写轮询",
-        "长周期运行与压测下无 SQLITE_BUSY 报错与 P99 延迟抖动"
-      ],
-      "checks": [
-        "`apps/worker/test/outbox-worker.test.ts`",
-        "`apps/api/test/conversation-dispatch-resilience.test.ts`"
-      ],
-      "owner": "platform/data",
-      "dependsOn": [
-        "ITER-002"
-      ]
-    },
-    {
-      "id": "ITER-028",
-      "batch": "candidate",
-      "status": "建议",
-      "delivery": "纯本地多端点对点加密同步探索：局域网发现（mDNS）、SQLite Changeset 增量对齐与去中心化数据同步；CAP-018/027；CR-030/CR-055",
-      "gate": "坚决不引入中心化多租户云端数据库；同步前必须通过端到端加密与用户显式配对授权",
-      "acceptance": [
-        "完成多设备同网发现与 TLS 证书配对 PoC",
-        "利用 SQLite Session Extension 提取增量 Changeset 并验证无冲突双向合并",
-        "移动端（Capacitor）与桌面端（Electron）局域网直连同步学习进度与错题本成功"
-      ],
-      "owner": "desktop/mobile",
-      "dependsOn": [
-        "ITER-015"
-      ]
-    },
-    {
-      "id": "ITER-029",
-      "batch": "next",
-      "status": "建议",
-      "delivery": "PR #231 复核跟进收敛（四组切片）：一、生产控制接线——routes 未传 turnTimeoutMs、生产 ControlContext 未配 Token/调用预算，回合截止与预算端到端未生效；tool_approval_granted/denied 事件不在 publicSchemas 白名单被投影剥空（决定留痕不可见）；二、状态机小缺口——maxSteps 路径 ExecuteResult 返回 failed 而持久化 Interrupted、子任务异常兜底 CAS 用 expectedFencingToken 0 可致子 Attempt 残留 Running、取消路由在 CancelRequested 非终态即 publishSettled（桌面桥提前 resolve）；三、工具面加固——withApprovalPolicy 未向 policy 传 signal 且 specs 快照过期、ask_user 兜底 argumentsHash 非规范化哈希与 ToolSafetyLevel privileged/destructive 不可达、toolTimeoutMs=0 无关闭语义、心跳丢失到工具派发窗口内仍可产生外部副作用、dispose 后异步 serial 写仍落注册表与 registerHandler 未汇入 serial 队列；四、语义与卫生——危机回合不再执行 beforeTurn 与 afterTurn 对 failed/interrupted/skipped 回合执行的插件语义漂移未声明、headless smoke 第 7 步无断言且无全局 watchdog、createStudyTermsMiddleware 死代码清理、hub 直接发布未投影帧消费方的防御纵深；CAP-007/018/020/033；CR-056 §10.5",
-      "gate": "不改变既有 API 契约与流式协议语义；危机回合插件执行语义如需变更先在文档声明；tool_approval_granted/denied 若选择移除而非补齐须同步 STREAMING_PROTOCOL；不引入新的持久化依赖",
-      "acceptance": [
-        "生产路径回合截止与 Token/调用预算端到端生效：超时/超限会话真实收敛 Interrupted 且 SSE 客户端可感知终态",
-        "tool_approval_granted/denied 决定留痕在实时与重放投影中可见，或明确移除该事件契约并同步流式协议文档",
-        "maxSteps、子任务兜底 CAS 与取消提前 settled 三处状态机缺口修复后有定向回归锁定，Attempt/Turn/ExecuteResult 三方一致",
-        "审批装饰器 signal、argumentsHash 规范化、toolTimeoutMs=0 语义、心跳派发窗口与 dispose 竞态逐项修复或明确豁免；headless smoke 第 7 步有实质断言",
-        "危机回合 beforeTurn/afterTurn 插件执行语义与 skipped 状态映射有声明并有测试锁定；死代码清除"
-      ],
-      "checks": [
-        "`packages/agent-loop/test/control-context.test.ts`",
-        "`packages/host-agent/test/host-tool-runtime.test.ts`",
-        "`apps/api/test/agent-executor-control-context.test.ts`"
-      ],
-      "owner": "platform/runtime",
-      "dependsOn": [
-        "ITER-024"
-      ],
-      "links": [
-        "docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md"
       ]
     }
   ]

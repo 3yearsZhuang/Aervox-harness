@@ -15,11 +15,6 @@ export {
 } from './transport';
 export { desktopTransport } from './desktop-transport';
 export {
-  TurnStreamProjector,
-  type TurnProjectorOptions,
-  type DropReason,
-} from './projector';
-export {
   useAervoxSessions,
   ACTIVE_SESSION_STORAGE_KEY,
   type UseAervoxSessionsReturn,
