@@ -252,13 +252,16 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "updated_at": "2026-09-29",
       "reviewed_at": "2026-09-29",
       "review_interval_days": 30,
       "review_triggers": [
         "packages/repositories/src/sync/**",
-        "packages/repositories/test/p2p-changeset-sync.test.ts"
+        "packages/repositories/test/p2p-changeset-sync.test.ts",
+        "packages/repositories/test/p2p-changeset-merge.test.ts",
+        "packages/repositories/test/p2p-pairing-security.test.ts",
+        "packages/repositories/src/schema/ddl/sync-metadata.ts"
       ],
       "sources": [
         "docs/reference/PRD.md",
@@ -569,9 +572,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.16.0",
-      "updated_at": "2026-09-28",
-      "reviewed_at": "2026-09-28",
+      "version": "1.16.1",
+      "updated_at": "2026-09-29",
+      "reviewed_at": "2026-09-29",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -1197,9 +1200,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "2.2.2",
-      "updated_at": "2026-09-28",
-      "reviewed_at": "2026-09-28",
+      "version": "2.2.3",
+      "updated_at": "2026-09-29",
+      "reviewed_at": "2026-09-29",
       "review_interval_days": 30,
       "review_triggers": [
         "packages/schema/**",
@@ -1360,7 +1363,7 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.50.0",
+      "version": "1.50.1",
       "updated_at": "2026-09-29",
       "reviewed_at": "2026-09-29",
       "review_interval_days": 90,

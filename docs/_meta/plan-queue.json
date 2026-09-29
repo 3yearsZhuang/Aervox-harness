@@ -147,7 +147,7 @@
         "最终输入加预留输出不超 Provider 窗口，超额有明确有界处理"
       ],
       "owner": "platform/ecosystem",
-"dependsOn": [],
+      "dependsOn": [],
       "links": [
         "docs/explanation/reference-design-transfer.md#upstream-20260929"
       ]
@@ -248,7 +248,7 @@
       "dependsOn": [
         "ITER-002",
         "ITER-008"
-],
+      ],
       "links": [
         "docs/explanation/reference-design-transfer.md#upstream-20260929"
       ]
@@ -482,7 +482,7 @@
     {
       "id": "ITER-027",
       "batch": "next",
-      "status": "已移交",
+      "status": "待评审",
       "delivery": "多进程 SQLite 写入并发与 Worker 自适应退避：消除高频空轮询，流式会话写入期间后台任务自适应降频与 IPC 唤醒；ARC-05/FND-07；基础设施",
       "gate": "依赖 ITER-002 的 Outbox 消费修复；不破坏 WAL 模式快照隔离与单写者约束",
       "acceptance": [
@@ -493,11 +493,15 @@
       "checks": [
         "`apps/worker/test/outbox-worker.test.ts`",
         "`apps/worker/test/worker-concurrency-backoff.test.ts`",
+        "`apps/worker/test/worker-host.test.ts`",
+        "`packages/repositories/test/worker-ipc.test.ts`",
+        "`packages/repositories/test/turn-store-begin-contention.test.ts`",
+        "`apps/api/test/worker-pressure-lease.test.ts`",
         "`apps/api/test/conversation-dispatch-resilience.test.ts`"
       ],
       "owner": "platform/data",
       "branch": "feat/iter-027-028-sqlite-worker-p2p",
-      "statusNote": "2026-09-29 落地多进程 SQLite IPC 唤醒、Worker 写入压力退避协调与重试优化；worker-concurrency-backoff (3/3)、worker-host (8/8)、outbox-worker (4/4)、conversation-dispatch-resilience (2/2) 全部通过，高频并发写入下零 SQLITE_BUSY",
+      "statusNote": "2026-09-29 落地 IPC 唤醒（含投递确认与 0600 权限）、Worker 写入压力退避（只延长不缩短、按任务基准成倍拉长、窗口单调、时长有界）、API 侧压力租约（含 10 分钟硬上限）、worker 优雅退出，以及事务 BEGIN 竞争的快速失败。已实测：worker-concurrency-backoff 4/4、worker-host 15/15、worker-ipc 14/14、turn-store-begin-contention 2/2、write-retry 12/12、worker-pressure-lease 4/4、outbox-worker 4/4、conversation-dispatch-resilience 2/2。未实测：验收中的『写锁冲突率降至 0』与『长周期压测下无 SQLITE_BUSY/P99 抖动』需要真实多进程压测；本轮并发用例为单进程顺序写入，未取得该两项证据，故不标记整项移交。严重已知缺口（实测）：BEGIN 竞争失败后该连接无法提交后续事务，且该进程存活期间其他连接与另一进程的写入同样以 database is locked 失败（被遗弃事务持有写锁）；进程内 rollback 与重建连接均无法恢复，只有进程退出才释放。本轮只做到快速失败与不误判，自动恢复能力另立 CR",
       "dependsOn": [
         "ITER-002"
       ],
@@ -508,7 +512,7 @@
     {
       "id": "ITER-028",
       "batch": "candidate",
-      "status": "已移交",
+      "status": "待评审",
       "delivery": "纯本地多端点对点加密同步探索：局域网发现（mDNS）、SQLite Changeset 增量对齐与去中心化数据同步；CAP-018/027；CR-030/CR-055",
       "gate": "坚决不引入中心化多租户云端数据库；同步前必须通过端到端加密与用户显式配对授权",
       "acceptance": [
@@ -517,11 +521,13 @@
         "移动端（Capacitor）与桌面端（Electron）局域网直连同步学习进度与错题本成功"
       ],
       "checks": [
-        "`packages/repositories/test/p2p-changeset-sync.test.ts`"
+        "`packages/repositories/test/p2p-changeset-sync.test.ts`",
+        "`packages/repositories/test/p2p-changeset-merge.test.ts`",
+        "`packages/repositories/test/p2p-pairing-security.test.ts`"
       ],
       "owner": "desktop/mobile",
       "branch": "feat/iter-027-028-sqlite-worker-p2p",
-      "statusNote": "2026-09-29 完成纯本地局域网 mDNS 设备发现、6 位 SAS 零信任配对、端到端 AES-256-GCM 会话加密与 SQLite Changeset 增量对齐引擎；p2p-changeset-sync (3/3) 全部通过，交付 AVX-EXPL-014 架构探索报告",
+      "statusNote": "2026-09-29 已完成：承诺-揭示零信任配对（承诺不可抵赖、SAS 绑定完整 transcript）、设备身份 0600 落盘、分向密钥与计数器 nonce、重放/乱序/篡改拒绝、发起方身份签名认证、密钥确认域分离、未验证会话 fail-closed；Changeset 引擎含墓碑删除传播、外键拓扑顺序、UNIQUE 冲突行级隔离、接收端白名单与对端元数据校验（非白名单/主键策略时间列不符一律拒绝且零写入、按本地顺序合并）、漂移行逐行隔离与部分合并显式报告、持久化 origin 元组四向裁决、版本门禁与分块幂等合并（共 51 项 P2P 测试通过）。未完成/未验证：mDNS 收发与局域网传输（仅有服务类型常量与描述符）、桌面端与移动端真实设备直连、生产接线与水位表、级联删除的覆盖与顺序保证（实测外键级联删除在触发器安装时会被墓碑记录，但无契约保证）。两项验收在技术上与原设计分歧（TLS 证书配对→Ed25519+承诺 SAS；SQLite Session Extension→行时间戳水位线），需以 CR 复核是否重述验收；本轮不标记整项移交",
       "dependsOn": [],
       "links": [
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
