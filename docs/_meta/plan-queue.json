@@ -95,7 +95,10 @@
         "409 不改 Secret；一万个 key 完成后锁缓存清空"
       ],
       "owner": "data",
-      "dependsOn": []
+      "dependsOn": [],
+      "links": [
+        "docs/explanation/reference-design-transfer.md#upstream-20260929"
+      ]
     },
     {
       "id": "ITER-005",
@@ -113,7 +116,8 @@
         "ITER-004"
       ],
       "links": [
-        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
+        "docs/explanation/reference-design-transfer.md#upstream-20260929"
       ],
       "branch": "docs/build-to-delete-pi-architecture-plan",
       "statusNote": "2026-09-28 CR-056 BTD-02 缺包保护切片：可用性独立于用户开关，新增兼容字段保留数据；原升级验收仍保留"
@@ -147,7 +151,8 @@
       "statusNote": "2026-09-29 PR #231 缺陷修复已通过定向验收：预算执行、父子控制、生产取消/本地限制及原子终态；第二轮复核修复取消/预算收敛时序与审批有界等待；完整权限和模型窗口验收仍待完成，证据见 CR-056 §10.4–§10.5 / §4.2",
       "links": [
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
-        "https://github.com/3yearsZhuang/Aervox-harness/pull/231"
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/231",
+        "docs/explanation/reference-design-transfer.md#upstream-20260929"
       ],
       "branch": "feat/aervox-core-evolution"
     },
@@ -164,7 +169,10 @@
       "owner": "platform",
       "dependsOn": [],
       "branch": "docs/build-to-delete-pi-architecture-plan",
-      "statusNote": "2026-09-28 CR-056 BTD-04 模型 Driver 替换与代际生命周期已落地并通过扩展 SPI 4 项测试，下载其余正确性要求仍保留"
+      "statusNote": "2026-09-28 CR-056 BTD-04 模型 Driver 替换与代际生命周期已落地并通过扩展 SPI 4 项测试，下载其余正确性要求仍保留",
+      "links": [
+        "docs/explanation/reference-design-transfer.md#upstream-20260929"
+      ]
     },
     {
       "id": "ITER-009",
@@ -194,6 +202,9 @@
         "ITER-002",
         "ITER-003",
         "ITER-007"
+      ],
+      "links": [
+        "docs/explanation/reference-design-transfer.md#upstream-20260929"
       ]
     },
     {
@@ -207,7 +218,10 @@
         "主库/Vault/账本归属明确；源库不受 staging 失败影响"
       ],
       "owner": "data/quality",
-      "dependsOn": []
+      "dependsOn": [],
+      "links": [
+        "docs/explanation/reference-design-transfer.md#upstream-20260929"
+      ]
     },
     {
       "id": "ITER-012",
@@ -242,7 +256,8 @@
       "statusNote": "2026-09-29 PR #231 已修复 Host 有界停机、实时/回放投影、Fetch 重连与真实组件旧流隔离；第二轮复核补齐审批有界等待；SSE 背压/分页、跨进程恢复及生产资源全范围仍未移交，证据见 CR-056 §10.4–§10.5 / §4.2",
       "links": [
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
-        "https://github.com/3yearsZhuang/Aervox-harness/pull/231"
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/231",
+        "docs/explanation/reference-design-transfer.md#upstream-20260929"
       ],
       "branch": "feat/aervox-core-evolution"
     },
@@ -313,6 +328,9 @@
       "owner": "platform/data/quality",
       "dependsOn": [
         "ITER-013"
+      ],
+      "links": [
+        "docs/explanation/reference-design-transfer.md#upstream-20260929"
       ]
     },
     {
@@ -341,7 +359,10 @@
         "未选定前不建通用平台"
       ],
       "owner": "ecosystem/security",
-      "dependsOn": []
+      "dependsOn": [],
+      "links": [
+        "docs/explanation/reference-design-transfer.md#upstream-20260929"
+      ]
     },
     {
       "id": "ITER-020",
@@ -559,7 +580,34 @@
         "ITER-024"
       ],
       "links": [
-        "docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md"
+        "docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md",
+        "docs/explanation/reference-design-transfer.md#upstream-20260929"
+      ]
+    },
+    {
+      "id": "ITER-030",
+      "batch": "first",
+      "status": "已移交",
+      "delivery": "DSH、pi、AstrBot 上游固定版本更新与差异复评：核对默认分支、许可证与适配准入，形成面向思隅的设计借鉴和验证建议；DSH-01/PI-01/AST-*；关联 CAP-007/020/027/033（参考维护与评估）",
+      "gate": "仅更新参考基线及必要准入常量；产品能力和架构实施仍由既有 ITER 与 CR 决定",
+      "acceptance": [
+        "三个子模块固定到本次抓取的上游默认分支提交，保留旧版本可回溯",
+        "源码与测试证据区分本次变化、既有能力和未验证事项，映射思隅实际差量",
+        "参考清单、适配准入、追踪登记和文档门禁一致"
+      ],
+      "checks": [
+        "`git diff --submodule=short`",
+        "`mise tasks run ci-code`",
+        "`mise tasks run ci-docs`"
+      ],
+      "owner": "platform/docs",
+      "branch": "docs/update-reference-upstreams-20260929",
+      "statusNote": "2026-09-29 移交：三个上游固定版本、源码/测试差异复评与 DSH 准入同步完成；ci-code 全量通过（测试 27/27 任务），ci-docs 全量通过；参考更新不代表真实外部运行时已集成，验证与限制见 §4.2/参考评估 §8",
+      "dependsOn": [],
+      "links": [
+        "docs/explanation/reference-design-transfer.md",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
+        "docs/explanation/reference-design-transfer.md#upstream-20260929"
       ]
     }
   ]

@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.49.0
+version: 1.50.0
 updated_at: 2026-09-29
 reviewed_at: 2026-09-29
 review_interval_days: 90
@@ -187,6 +187,7 @@ review_interval_days: 90
 
 | 落地内容与功能描述 | 关联 CAP | 实现与测试位置 | 日期 | 验证 | 来源 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| DSH、pi、AstrBot 上游参考更新与差异复评（ITER-030）：固定默认分支 SHA、同步 DSH 准入与握手，区分 pi 三条路线成熟度，归纳恢复/上下文/插件/后台/多模态借鉴；不启动产品改造 | CAP-007/020/027/033（关联评估） + 参考维护 | 三个 `reference/` gitlink；`packages/host-agent/src/dsh-reference.ts`、DSH 测试与 runner；[参考评估 §8](../explanation/reference-design-transfer.md#upstream-20260929)、PRD 清单、Agent Loop、教程与能力组合、[当前队列](../../plan.md#iter-030) | 2026-09-29 | 已核对上游默认分支、祖先关系、版本与许可证，阅读固定源码与测试；ci-code 全量通过（构建 18/18、类型检查 29/29、测试 27/27 任务；Host Agent 94 通过/1 条件跳过）；ci-docs 全量通过（治理 33/33、队列 9/9、81 文件排版/术语与严格治理，保留既有 S5 提示）；最终状态回填另经文档增量门禁；未运行三个上游完整测试或真实运行时集成，不改变 API、数据或权限契约 | DSH-01、PI-01、AST-04/08 与 AstrBot 本次设计复评；未移植源码 |
 | PR #231 第二轮复核修复切片：取消收敛时序、审批有界等待、调用时门禁与入参沙箱加固 | CAP-007/018/020/033 + 架构基础设施 | `packages/agent-loop/src/executor.ts`、`packages/agent-loop/src/tool-input-safe.ts`、`packages/host-agent/src/host-tool-runtime.ts`；[CR-056 §10.5](changes/CR-056-build-to-delete-pi-style-architecture.md#105-pr-231-第二轮复核修复切片2026-09-29) | 2026-09-29 | agent-loop 31 套件 209 测试、host-agent 15 套件 94 测试全绿（含取消时序、编码穿越、破坏性命令与门禁行为新增回归）；命令键不筑元字符墙以放行已批复合命令，Adapter 审批责任边界以 PR 描述声明；完整迭代验收限制同 §10.4 | 原生修复 |
 | PR #231 控制/投影缺陷修复切片 | CAP-007/018/020/033 + 架构基础设施 | [CR-056 §10.4](changes/CR-056-build-to-delete-pi-style-architecture.md#104-pr-231-缺陷修复切片2026-09-29)、Agent Loop、Host、Contracts 投影、API、客户端与真实工作台测试 | 2026-09-29 | 控制 21、API/SQLite 6、Host 9、Adapter 8、DSH 4、子任务 5、客户端 12、UI 挂载 1 项通过；CLI 两步实际工具循环通过；Token 为保守执行预算，Adapter 不支持策略时拒绝；完整迭代与发布门禁保留 | 原生修复 |
 | Aervox Core 部分实现与 PR #231 审查更正：撤回 CR-056 Verified/Released 及 ITER-007/013/014 全量移交；保留原验收和功能差量 | CAP-002/005/007/018/020/027/033 + 架构基础设施 | `packages/agent-loop/src/{control-context,executor,ports}.ts`、`packages/host-agent/src/agent-host.ts`、`apps/api/src/modules/companion/conversation/{agent-executor,broadcasting-store}.ts`、`packages/api-client/src/projector.ts`、`scripts/run-headless-agent.mjs`；[CR-056 §10.3](changes/CR-056-build-to-delete-pi-style-architecture.md#103-pr-231-合并前复核2026-09-29) | 2026-09-29 | 基线 `51143d1`；零预算仍执行、父子预算/取消不继承共四项反向复现；真实 SQLite 终态不一致、SSE 重放绕过脱敏均复现；CLI smoke 报 PASS 但工具案例仅一步；原登记的 API 控制测试文件不存在。本地 `./aervox ci all` 全量通过，80 文件文档门禁通过（保留既有 S5 提示），不能代替上述失败验收 | PI-01（设计参考，未移植源码） + 原生审查 |

@@ -7,7 +7,7 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 planning_role: current
-version: 0.4.1
+version: 0.4.2
 updated_at: 2026-09-29
 reviewed_at: 2026-09-29
 review_interval_days: 7
@@ -77,6 +77,7 @@ sources:
 | <a id="iter-023"></a>ITER-023 · 已移交 | Build to Delete 与类 pi 架构详细规划：[CR-056](docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md) 的固定基线、目标边界、决策差量、实施切片、退出验收与回滚；关联 CAP-002/005/007/018/020/027/033（仅规划） | 本项仅交付 Proposed/Planned 的 CR；实现认领继续使用既有 ITER 条目，架构接受、代码实施和发布分别判断 | 每个切片给出输入依赖、代码落点、契约影响、测试、退出条件与回滚；规划接入唯一队列、追踪和索引，文档门禁通过 | platform/docs（分支 `docs/build-to-delete-pi-architecture-plan`；2026-09-28 文档移交：CR-056 的九个切片、两项试点、依赖估算及退出/回滚验收已登记；ci-docs 全量通过（治理 33/33、队列 9/9、79 文件排版/术语及严格治理无问题）；CR 保持 Proposed/Planned，未启动业务重构） |
 | <a id="iter-024"></a>ITER-024 · 已移交 | Aervox Core 架构解耦与演进落地：ExecutionPipeline 洋葱中间件、ApprovalPolicyPort 三端人机回环 SPI、HostToolRuntime 沙箱容器下沉与 Headless Agent 内核验证；关联 ADR-020、CR-056 | 遵循单用户本地架构；保持 18 包 100% 测试通过率；无 boundary guard 回归；通过自动化 smoke 验证 | ExecutionPipeline 洋葱中间件链解耦 agent-executor 编排关注点（指标、安全守卫、插件生命周期、主动策略）；ApprovalPolicyPort SPI 统一 CLI、Web/SSE 与无头测试的人机回环审批策略；HostToolRuntime 工具沙箱容器与代际调度下沉至 host-agent 并由 API 层薄适配继承；Headless Agent 具备轻量冷启动与独立运行能力，零数据库与零 Fastify 侵入（校验：`node scripts/run-headless-agent.mjs --smoke`；`packages/host-agent/test/pipeline.test.ts`；`packages/agent-loop/test/approval-policy.test.ts`；`packages/host-agent/test/cli-approval.test.ts`；`packages/host-agent/test/host-tool-runtime.test.ts`；`./aervox ci`） | platform/runtime（分支 `feat/aervox-core-evolution`；2026-09-29 移交：Phase 1-4 全部实施完成，中间件链、三端审批 SPI、工具沙箱下沉与独立 Headless 验证全绿；ADR-020 已归档接受；第二轮复核补齐调用时门禁与入参沙箱加固，证据见 CR-056 §10.5；§4.2 完成登记） |
 | <a id="iter-025"></a>ITER-025 · 已移交 | Aervox Core 懒加载与毫秒级冷启动：解耦顶级重型依赖导入，消灭 1440ms 启动警告，压减模块导入开销至 100ms 内；基础设施/ADR-020 | 不破坏既有 Headless 7 步验证；不引入未经验证的打包器私有运行时 | `node scripts/run-headless-agent.mjs --smoke` 内核加载耗时稳定收敛至 <= 150ms（消除 WARN 警告）；未触碰数据库与持久层时，零加载 @libsql/client、Drizzle Schema 与重型 Fastify 插件；apps/api 73 套件模块静态解析耗时显著降低（校验：`node scripts/run-headless-agent.mjs --smoke`；`./aervox test fast`） | platform/runtime（分支 `feat/aervox-core-evolution`；2026-09-29 移交：完成子路径按需导出与重型依赖解耦（@aervox/repositories/errors、@aervox/schema/audit 与 @aervox/host-agent/core）；run-headless-agent 内核加载耗时从 1440ms 降至 20ms（提速 98.6%，告警消除）；73 套件 485 测试在内的 check-affected 全绿；§4.2 完成登记） |
+| <a id="iter-030"></a>ITER-030 · 已移交 | DSH、pi、AstrBot 上游固定版本更新与差异复评：核对默认分支、许可证与适配准入，形成面向思隅的设计借鉴和验证建议；DSH-01/PI-01/AST-*；关联 CAP-007/020/027/033（参考维护与评估） | 仅更新参考基线及必要准入常量；产品能力和架构实施仍由既有 ITER 与 CR 决定 | 三个子模块固定到本次抓取的上游默认分支提交，保留旧版本可回溯；源码与测试证据区分本次变化、既有能力和未验证事项，映射思隅实际差量；参考清单、适配准入、追踪登记和文档门禁一致（校验：`git diff --submodule=short`；`mise tasks run ci-code`；`mise tasks run ci-docs`） | platform/docs（分支 `docs/update-reference-upstreams-20260929`；2026-09-29 移交：三个上游固定版本、源码/测试差异复评与 DSH 准入同步完成；ci-code 全量通过（测试 27/27 任务），ci-docs 全量通过；参考更新不代表真实外部运行时已集成，验证与限制见 §4.2/参考评估 §8） |
 
 ### 2.2 下一批：恢复、生命周期与部署
 

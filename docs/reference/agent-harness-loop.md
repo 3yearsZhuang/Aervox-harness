@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.7.3
+version: 0.7.4
 updated_at: 2026-09-29
 reviewed_at: 2026-09-29
 review_interval_days: 90
@@ -502,7 +502,7 @@ adapters/
 
 ### 14.2 pi
 
-pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具批次采用 every/all：非空且所有结果 `terminate=true` 才能终止；固定版本的 `AgentHarness` v2 公开 `prompt`、`resume`、`abort` 和队列能力仍返回 `HarnessNotImplemented`，不能当作已完成的持久化 Harness。pi Extension 的事件、Tool、Provider 和上下文注入可映射为 Agent Loop Contribution，但 Extension 默认拥有完整宿主权限。`adapter-pi` 必须进程外执行，且只能通过受限 RPC 提交 Tool/Provider/Inbox Contribution；若包装低层 loop，仍需实现 Aervox 的 lease、fencing、持久化和恢复契约，不能直接把 v2 scaffold 当作 API 进程内 Loop。
+pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具批次采用 every/all：非空且所有结果 `terminate=true` 才能终止；2026-09-29 更新后的固定参考版本中，lane Harness 已实现 `prompt`、`resume`、`abort`，但 `watchSession` 仍未完成；CLI/SDK 继续走 `Agent + AgentSession + SessionManager`，新 durable 路线在本次最终固定 SHA 已完成首个可持久恢复的无工具聊天回合，但工具执行和忙时 Inbox 尚未完成，三者不能合并表述为完整持久内核（[版本与证据](../explanation/reference-design-transfer.md#upstream-20260929)）。pi Extension 的事件、Tool、Provider 和上下文注入可映射为 Agent Loop Contribution，但 Extension 默认拥有完整宿主权限。`adapter-pi` 必须进程外执行，且只能通过受限 RPC 提交 Tool/Provider/Inbox Contribution；若包装低层 loop，仍需实现 Aervox 的 lease、fencing、持久化和恢复契约，不能直接把外部 Harness 当作 API 进程内 Loop。
 
 <a id="15-分阶段落地计划"></a>
 
