@@ -1,3 +1,4 @@
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -25,20 +26,24 @@ test("check-removable-implementation: 全仓扫描 0 处非法私有引用", () 
   assert.ok(result.targetsAudited >= 2);
 });
 
-test("check-removable-implementation: 反向验证检测出非法直接引用", () => {
-  const dummyTarget = {
-    id: "test-target",
-    name: "Test Removable Target",
-    pilot: "BTD-XX",
-    implementationFiles: ["apps/api/src/modules/companion/memory/tool-contribution.ts"],
-    allowedAssemblyFiles: ["apps/api/src/modules/companion/memory/index.ts"],
-    dataRetentionRule: "Test rule",
-  };
-
-  // 模拟一个业务文件非法直接引用了 tool-contribution.ts
-  const violations = auditTarget(dummyTarget, [
-    "apps/api/src/modules/companion/conversation/agent-executor.ts",
-  ]);
-  // 实际代码中 agent-executor.ts 并未引用 tool-contribution.ts，因此结果为 0
-  assert.equal(violations.length, 0);
+test("check-removable-implementation: Worker 静态、动态、类型及显式扩展引用均被拒绝", () => {
+  const dir = mkdtempSync("apps/worker/src/removability-fixture-");
+  const file = `${dir}/consumer.ts`;
+  const specifier = "../../../api/src/modules/companion/memory/tool-contribution";
+  try {
+    for (const statement of [
+      `import { contributeMemoryTool } from "${specifier}.js";`,
+      `export * from "${specifier}.ts";`,
+      `const mod = import("${specifier}.js");`,
+      `const mod = import(\`${specifier}.js\`);`,
+      `type Mod = import("${specifier}.js");`,
+    ]) {
+      writeFileSync(file, statement);
+      assert.equal(auditTarget(REMOVABLE_TARGETS[0], [file]).length, 1, statement);
+    }
+    writeFileSync(file, 'const broken = ;');
+    assert.match(auditTarget(REMOVABLE_TARGETS[0], [file])[0].message, /无法解析/);
+    writeFileSync(file, 'import { registerMemoryModule } from "../../../api/src/modules/companion/memory/index.js";');
+    assert.deepEqual(auditTarget(REMOVABLE_TARGETS[0], [file]), []);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

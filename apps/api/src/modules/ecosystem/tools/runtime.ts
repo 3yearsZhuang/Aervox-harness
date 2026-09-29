@@ -29,6 +29,7 @@ export interface ToolRuntimeDeps { registry: ToolRegistryPort }
 export type ToolDefinition = Parameters<ToolRegistryPort["registerTool"]>[0];
 export type ToolDisposer = () => void;
 interface Registration {
+  owner: symbol;
   handler: ToolHandler;
   controller: AbortController;
   definition: Promise<ToolRegistrationModel | null>;
@@ -53,15 +54,16 @@ export class ToolRuntime {
     return next;
   }
 
-  private attach(id: string, handler: ToolHandler, definition: Promise<ToolRegistrationModel | null>): ToolDisposer {
+  private attach(id: string, handler: ToolHandler, definition: Promise<ToolRegistrationModel | null>, owner = Symbol(id)): ToolDisposer {
     if (this.disposed) throw new ForbiddenError("tool runtime disposed");
     this.handlers.get(id)?.controller.abort();
-    const entry = { handler, definition, controller: new AbortController() };
+    const entry = { owner, handler, definition, controller: new AbortController() };
     this.handlers.set(id, entry);
     void definition.catch(() => { if (this.handlers.get(id) === entry) this.handlers.delete(id); entry.controller.abort(); });
     return () => {
       entry.controller.abort();
-      if (this.handlers.get(id) === entry) this.handlers.delete(id);
+      const current = this.handlers.get(id);
+      if (current?.owner === owner) { current.controller.abort(); this.handlers.delete(id); }
     };
   }
 
@@ -100,7 +102,7 @@ export class ToolRuntime {
   async setEnabled(id: string, enabled: boolean) {
     const entry = this.handlers.get(id);
     const pending = this.serial(id, () => this.deps.registry.setEnabled(id, enabled));
-    if (entry) this.attach(id, entry.handler, pending);
+    if (entry) this.attach(id, entry.handler, pending, entry.owner);
     return pending;
   }
 

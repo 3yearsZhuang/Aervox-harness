@@ -99,3 +99,25 @@ describe("instance-owned tool contributions", () => {
     expect(data).toEqual(["keep"]); restored(); runtime.dispose();
   });
 });
+
+it("开关轮换取消在途调用，原贡献句柄仍释放最新代际且不删除替换贡献", async () => {
+  const { runtime } = fixture();
+  const started = deferred<AbortSignal>();
+  const pending = deferred<string>();
+  const release = await runtime.registerContribution(definition(), { call: async (_ctx, _args, control) => { started.resolve(control.signal); return pending.promise; } });
+  const call = runtime.callTool(ctx, "test", {});
+  const rejected = expect(call).rejects.toThrow("expired");
+  const signal = await started.promise;
+  await runtime.setEnabled("test", false);
+  expect(signal.aborted).toBe(true);
+  await rejected;
+  await runtime.setEnabled("test", true);
+  release(); release();
+  expect(await runtime.exportRegistry()).toEqual([]);
+  await expect(runtime.callTool(ctx, "test", {})).rejects.toThrow("not registered");
+  await runtime.registerContribution(definition(), { call: async () => "replacement" });
+  release();
+  expect(await runtime.callTool(ctx, "test", {})).toBe("replacement");
+  pending.resolve("stale");
+  runtime.dispose();
+});
