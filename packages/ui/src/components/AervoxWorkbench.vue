@@ -135,11 +135,15 @@ const commandPaletteOpen = ref(false);
 const projectManagerOpen = ref(false);
 const importSessionOpen = ref(false);
 
+let conversationEpoch = 0;
 watch(() => sessions.activeSessionId.value, (newId, oldId) => {
-  if (newId && oldId && newId !== oldId && !conversation.streaming.value) {
+  if (newId !== oldId) {
+    conversationEpoch++;
+    isSendingMessage = false;
     conversation.resetStory();
+    conversation.streaming.value = false;
   }
-});
+}, { flush: 'sync' });
 
 // 抽屉与弹窗组件懒挂载守卫（首次打开时才挂载对应异步组件实例，消除首屏初始加载开销）
 const toolsMounted = ref(false);
@@ -167,6 +171,9 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
   if ((!text && composer.pendingAttachments.value.length === 0) || conversation.streaming.value || composer.attachmentUploading.value) return;
 
   isSendingMessage = true;
+  const submittedEpoch = conversationEpoch;
+  const submittedSessionId = sessions.activeSessionId.value;
+  const isCurrentSubmission = () => submittedEpoch === conversationEpoch && sessions.activeSessionId.value === submittedSessionId;
   try {
     let attachmentRefs: TurnAttachmentRef[] = [];
     if (composer.pendingAttachments.value.length > 0) {
@@ -190,7 +197,7 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
     quizMode: Boolean(options?.quizMode),
     useMetadata: Boolean(activeMode),
   });
-  const submittedSessionId = sessions.activeSessionId.value;
+  if (!isCurrentSubmission()) return;
   composer.beginDraftSubmission(displayText, submittedSessionId);
 
 
@@ -229,6 +236,7 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
   const thinkingPlaceholder = '思考中…';
   let thinkingVisible = false;
   const deltaBatch = createStreamingDeltaBatcher((text) => {
+    if (!isCurrentSubmission()) return;
     if (thinkingVisible && !liveAssistantLine.text.replace(thinkingPlaceholder, '')) {
       thinkingVisible = false;
       liveAssistantLine.text = '';
@@ -249,6 +257,7 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
           throw error instanceof Error ? error : new Error(String(error));
         },
         onReasoning: () => {
+          if (!isCurrentSubmission()) return;
           deltaBatch.flush();
           if (!liveAssistantLine.text) {
             thinkingVisible = true;
@@ -257,6 +266,7 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
           }
         },
         onDelta: (delta) => {
+          if (!isCurrentSubmission()) return;
           deltaBatch.append(delta);
           const now = Date.now();
           if (now - lastSpeakAt > 1200 && delta.trim()) {
@@ -265,6 +275,7 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
           }
         },
         onDone: () => {
+          if (!isCurrentSubmission()) return;
           deltaBatch.flush();
           composer.completeDraftSubmission(submittedSessionId);
           liveAssistantLine.state = 'complete';
@@ -278,6 +289,7 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
           petReactKind('glad', { expression: MizukiExpression.face_smile_01, speak: liveAssistantLine.text });
         },
         onUserQuestion: (qData) => {
+          if (!isCurrentSubmission()) return;
           deltaBatch.flush();
           conversation.activeQuestion.value = qData;
           conversation.currentTurnId.value = qData.turnId;
@@ -285,9 +297,11 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
           void conversation.scrollStoryToBottom();
         },
         onTermsExtracted: (tData) => {
+          if (!isCurrentSubmission()) return;
           conversation.currentExtractedTerms.value = tData.terms;
         },
         onToolApproval: (aData) => {
+          if (!isCurrentSubmission()) return;
           deltaBatch.flush();
           conversation.pendingApproval.value = { ...aData, outgoing };
           void conversation.scrollStoryToBottom();
@@ -297,24 +311,28 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
         toolApprovalMode: conversation.toolApprovalMode.value,
         attachments: attachmentRefs.length > 0 ? attachmentRefs : undefined,
         metadata: turnMetadata,
-        sessionId: sessions.activeSessionId.value,
+        sessionId: submittedSessionId,
       },
     );
   } catch (error) {
-    console.error('对话流式失败', error);
-    deltaBatch.flush();
-    liveAssistantLine.state = 'error';
-    liveAssistantLine.text = error instanceof Error ? `连接失败：${error.message}` : '连接失败，请稍后重试。';
-    composer.restoreFailedDraft();
-    petReactKind('sad', { expression: MizukiExpression.face_sad_01 });
+    if (isCurrentSubmission()) {
+      console.error('对话流式失败', error);
+      deltaBatch.flush();
+      liveAssistantLine.state = 'error';
+      liveAssistantLine.text = error instanceof Error ? `连接失败：${error.message}` : '连接失败，请稍后重试。';
+      composer.restoreFailedDraft();
+      petReactKind('sad', { expression: MizukiExpression.face_sad_01 });
+    }
   } finally {
-    deltaBatch.flush();
-    conversation.streaming.value = false;
-    if (!composer.input.value.trim()) composer.composerOpen.value = false;
-    await conversation.scrollStoryToBottom();
+    if (isCurrentSubmission()) {
+      deltaBatch.flush();
+      conversation.streaming.value = false;
+      if (!composer.input.value.trim()) composer.composerOpen.value = false;
+      await conversation.scrollStoryToBottom();
+    }
   }
   } finally {
-    isSendingMessage = false;
+    if (isCurrentSubmission()) isSendingMessage = false;
   }
 }
 
@@ -483,6 +501,7 @@ function handleGlobalKeydown(e: KeyboardEvent) {
 }
 
 onUnmounted(() => {
+  conversationEpoch++;
   pluginRuntime?.destroy();
   document.removeEventListener('click', layout.handleMenuDocumentClick);
   document.removeEventListener('keydown', layout.handleHistoryEscape);

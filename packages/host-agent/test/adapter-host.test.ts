@@ -203,3 +203,16 @@ describe("阶段 6b createAgentHost（adapter 接入宿主循环）", () => {
     expect((events[events.length - 1].data as { status?: string }).status).toBe("Completed");
   });
 });
+it('Adapter 缺少策略协商时拒绝带预算或本地限制的请求，不进入驱动', async () => {
+  const { ControlContext } = await import('@aervox/agent-loop');
+  for (const options of [{ localProcessingOnly: true }, { callBudget: { maxCalls: 1, usedCalls: 0 } }, { tokenBudget: { maxTokens: 100, usedTokens: 0 } }]) {
+    const store = new InMemoryExecutionStore(); store.seedAttempt({ id: input.attemptId, turnId: input.turnId });
+    let called = false;
+    const driver = { id: 'dsh' as const, manifest: dshManifest, async *run() { called = true; yield { type: 'batch' as const, concludes: [true] }; } };
+    const controlContext = new ControlContext(options);
+    const result = await runAdapterTurn(store, driver, { ...input, controlContext });
+    expect(result.reason).toBe('adapter_control_unsupported'); expect(called).toBe(false);
+    expect(await store.attemptStatus(input.attemptId)).toBe('Failed');
+    controlContext.dispose();
+  }
+});

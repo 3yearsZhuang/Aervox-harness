@@ -34,6 +34,7 @@ interface OpenAIToolCallDelta {
 }
 
 interface ChatCompletionChunk {
+  usage?: { total_tokens?: number };
   choices?: Array<{
     delta?: {
       content?: string | null;
@@ -107,6 +108,13 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
       };
       armIdleTimer();
 
+      const abort = () => controller.abort(request.signal?.reason);
+      if (request.signal?.aborted) {
+        controller.abort();
+      } else if (request.signal) {
+        request.signal.addEventListener("abort", abort, { once: true });
+      }
+
       try {
         const res = await fetch(`${baseUrl}/chat/completions`, {
           method: "POST",
@@ -119,7 +127,8 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
             messages: toOpenAIMessages(request.context.messages, encodeName, { lastStepReasoning }),
             stream: true,
             temperature: request.temperature ?? config.temperature ?? 0.7,
-            ...(config.maxTokens ? { max_tokens: config.maxTokens } : {}),
+            ...((request.maxOutputTokens ?? config.maxTokens) !== undefined ? { max_tokens: Math.min(request.maxOutputTokens ?? Infinity, config.maxTokens ?? Infinity) } : {}),
+            ...(request.maxOutputTokens !== undefined ? { stream_options: { include_usage: true } } : {}),
             ...(request.tools?.length
               ? {
                   tools: request.tools.map((t) => ({
@@ -181,6 +190,7 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
             continue; // 忽略半行/非 JSON 中间态
           }
 
+          if (Number.isFinite(parsed.usage?.total_tokens) && parsed.usage!.total_tokens! >= 0) yield { text: "", isFinal: false, usage: { totalTokens: parsed.usage!.total_tokens! } };
           for (const choice of parsed.choices ?? []) {
             const delta = choice.delta ?? {};
             // 思考增量：reasoning_content（DeepSeek/Qwen/vLLM）与 reasoning（OpenRouter/Ollama）双格式
@@ -221,6 +231,8 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
         throw error;
       } finally {
         clearTimeout(timeout);
+        request.signal?.removeEventListener("abort", abort);
+        controller.abort();
       }
     },
   };

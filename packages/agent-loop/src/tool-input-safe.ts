@@ -4,9 +4,15 @@
  * 规则依据：AVX-HAR-001 §9「工具执行前做参数校验、沙箱守卫与防御性拦截」。
  * 在调用任何工具（不管是 read_only、write_with_approval 还是 privileged）前执行：
  * - 空字节截断注入（\0）防御；
- * - 路径穿越（../, ..\, %2e%2e）防御与敏感目录逃逸防护；
- * - 危险命令注入启发式拦截（针对应含 shell/exec 的参数）；
+ * - 路径穿越防御：路径类键先做迭代 URL 解码归一化（覆盖 %2e%2e、混合编码与双重编码），
+ *   再按路径分段判定上跳序列（../, ..\, ....// 等），敏感系统根目录逃逸检查对
+ *   所有「整值恰为绝对路径」的字符串生效（不依赖键名白名单）；
+ * - 危险命令启发式拦截（针对应含 shell/exec 的参数）：覆盖破坏性原语与管道投递；
+ *   刻意不筑 shell 元字符墙——已获审批的合法复合命令（管道/顺序执行）必须放行，
+ *   命令执行的真实防线是 PET-05 审批门与幂等账本；
  * - 递归深度限制与循环引用防御。
+ * 边界说明：本检查为 reject-only 静态启发式，不触文件系统；符号链接逃逸
+ * 由宿主工具 handler 在解析 realpath 时自行防御。
  */
 
 export interface InspectToolInputOptions {
@@ -29,17 +35,38 @@ const PATH_KEY_PATTERN =
 /** 命令/脚本类参数键名正则（不区分大小写） */
 const COMMAND_KEY_PATTERN = /^(command|cmd|script|exec|shell_cmd|shell_command|bash|sh)$/i;
 
-/** 路径穿越序列正则（含标准分段与常用 URL 编码） */
-const PATH_TRAVERSAL_PATTERN =
-  /(?:^|[\\/])\.\.(?:[\\/]|$)|%2e%2e[\\/]|%2e%2e%2f|%2e%2e%5c|\.\.%2f|\.\.%5c|%252e%252e/i;
+/**
+ * 路径分段穿越判定：任意由分隔符界定的「纯点段」（≥2 个点，含 ../、..、....// 等）。
+ * 仅对已归一化（解码 + 分隔符统一）的路径类键值使用，避免误伤散文中的普通文本。
+ */
+const PATH_SEGMENT_TRAVERSAL_PATTERN = /(?:^|\/)\.{2,}(?:\/|$)/;
 
-/** 敏感系统根目录穿越模式 */
+/** 敏感系统根目录穿越模式（前导斜杠折叠后判定，覆盖 //etc 与 C:\Windows 等） */
 const SENSITIVE_SYSTEM_PATH_PATTERN =
-  /^(?:\/|[a-zA-Z]:[\\/])(?:etc|proc|sys|dev|root|boot|Windows|System32)(?:[\\/]|$)/i;
+  /^(?:[a-z]:)?\/+(?:etc|proc|sys|dev|root|boot|windows|system32)(?:\/|$)/i;
 
-/** 危险命令注入启发式模式 */
+/**
+ * 危险命令注入启发式模式：破坏性原语（任意旗标组合的递归/强制 rm、mkfs、dd 落盘、
+ * 整盘重定向、关机重启、sudo 提权破坏）与管道投递（任意命令 | sh、xargs rm）。
+ */
 const DANGEROUS_COMMAND_PATTERN =
-  /(?:;\s*rm(?:\s+-[a-zA-Z]*f|\s+-[a-zA-Z]*r)|\brm\s+-rf\b|\bcurl\s+.*\|\s*(?:ba)?sh\b|\bwget\s+.*\|\s*(?:ba)?sh\b|:\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:)/i;
+  /(?:;\s*rm(?:\s+-[a-zA-Z]*f|\s+-[a-zA-Z]*r)|\brm\s+(?:-{1,2}[a-z-]+\s+)*-{1,2}[a-z]*[rf][a-z]*(?:\s|$)|\|\s*(?:ba|z|da)?sh\b|\bxargs\b[^;&|]*\brm\b|\bsudo\s+(?:rm|dd|mkfs)\b|\bmkfs(?:\.\w+)?\b|\bdd\b[^;&|]*\bof=\/dev\/|>\s*\/dev\/(?:sd|nvme|hd|disk)|\b(?:shutdown|reboot|halt|poweroff)\b|:\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:)/i;
+
+/**
+ * 归一化候选路径串：迭代 URL 解码（≤2 轮，覆盖 %2e%2e 单层与 %252e%252e 双重编码、
+ * .%2e 混合编码）并统一反斜杠为正斜杠；解码失败（非法序列）回退原文。
+ */
+function normalizePathLike(raw: string): string {
+  let s = raw.trim();
+  for (let round = 0; round < 2 && /%[0-9a-f]{2}/i.test(s); round++) {
+    try {
+      s = decodeURIComponent(s);
+    } catch {
+      break;
+    }
+  }
+  return s.replace(/\\/g, "/");
+}
 
 /**
  * 递归安全检查工具入参
@@ -90,16 +117,17 @@ export function inspectToolInput(
 
       const isPathKey = PATH_KEY_PATTERN.test(currentKey);
 
-      // 2. 针对路径类参数的严格沙箱穿越校验
+      // 2. 针对路径类参数的严格沙箱穿越校验（归一化后按分段判定，覆盖混合/双重编码）
       if (isPathKey) {
-        if (PATH_TRAVERSAL_PATTERN.test(val)) {
+        const normalized = normalizePathLike(val);
+        if (PATH_SEGMENT_TRAVERSAL_PATTERN.test(normalized)) {
           return {
             safe: false,
             reason: "path_traversal_sequence",
             violatingKey: keyPath,
           };
         }
-        if (SENSITIVE_SYSTEM_PATH_PATTERN.test(val.trim())) {
+        if (SENSITIVE_SYSTEM_PATH_PATTERN.test(normalized)) {
           return {
             safe: false,
             reason: "sensitive_system_path_escape",
@@ -107,11 +135,19 @@ export function inspectToolInput(
           };
         }
       } else {
-        // 非路径键，但若出现明显的连续上跳特征（如 ../../ 或 /etc/passwd）依然拦截
-        if (/(?:\.\.[\\/]){2,}/.test(val) || PATH_TRAVERSAL_PATTERN.test(val) && SENSITIVE_SYSTEM_PATH_PATTERN.test(val)) {
+        // 非路径键保守兜底：连续上跳特征（如 ../../）依然拦截；
+        // 整值恰为敏感系统绝对路径时同样拦截（不依赖键名命名，覆盖 db_file 等白名单外路径键）
+        if (/(?:\.\.[\\/]){2,}/.test(val)) {
           return {
             safe: false,
             reason: "path_traversal_sequence",
+            violatingKey: keyPath,
+          };
+        }
+        if (SENSITIVE_SYSTEM_PATH_PATTERN.test(normalizePathLike(val))) {
+          return {
+            safe: false,
+            reason: "sensitive_system_path_escape",
             violatingKey: keyPath,
           };
         }

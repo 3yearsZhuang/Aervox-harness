@@ -1,7 +1,7 @@
 # AGENTS.md — AI 协作指南（薄入口）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-28
+- 修改人：3yearszhuang · 2026-09-29
 
 本文件是所有 AI 编码助手（包括 Antigravity、Claude Code、Cursor、GitHub Copilot、Roo Code、Windsurf 等）的进入点与协作底线协议：
 **只索引，不复制**：权威技术规范、产品定义与架构事实源一律深链至 `docs/`，严禁在入口复制可能变更的业务逻辑，杜绝双源漂移。
@@ -87,7 +87,7 @@ Aervox｜思隅：更好上手的“主动智能” Agent——以桌宠为入�
 | 增量文档门禁 | `mise tasks run docs-lint-affected` | 仅对 Git 变动的 Markdown 文档执行 Vale + Markdownlint + 治理校验 |
 | 智能增量测试 | `./aervox test` 或 `mise tasks run test-affected` | 自动识别基准分支并仅运行变更包及其全部下游依赖（日常高频推荐，受控 2 并发） |
 | 极速单元层 | `./aervox test fast` 或 `mise tasks run test-fast` | 仅运行不建库、不起服务的 9 个轻量包（纯逻辑 + DOM 组件测试，约 3~10s） |
-| 全量受控测试 | `./aervox test all` 或 `mise tasks run test` | 全量 18 包测试（受控 2 并发 + 单 Worker 串行，彻底杜绝 SQLite 锁冲突） |
+| 全量受控测试 | `./aervox test all` 或 `mise tasks run test` | 全量 18 包测试（受控 2 并发 + 自适应 Worker 并行，彻底杜绝 SQLite 锁冲突） |
 | 专项单包测试 | `./aervox test api` / `./aervox test repos` | 针对重型核心包运行独立定向测试（已接入 SQLite 模板克隆加速） |
 | E2E 测试 | `mise x -- pnpm test:e2e` | Playwright API 级端到端（spawn 真实 API 进程 + 文件 SQLite，45 用例约 45s，需先构建 api）；CI 中以观察期非阻塞运行 |
 | 格式化修复 | `npx markdownlint-cli2 --fix <files>` | 自动修复 Markdownlint 可自愈的排版问题 |

@@ -31,8 +31,20 @@ export class InMemoryExecutionStore implements ExecutionStorePort {
   private readonly modelRunLog: ModelRunRecord[] = [];
   private readonly contextManifestLog: ContextManifestRecord[] = [];
   private readonly safeSegmentLog: Array<{ turnId: string; attemptId: string; sequence: number; text: string; committed: boolean }> = [];
+  private readonly turnStatusMap = new Map<string, "Completed" | "Failed" | "Interrupted">();
   private leaseRenewalCount = 0;
   private safeSegmentBatchCount = 0;
+
+  async updateTurnStatus(input: {
+    turnId: string;
+    status: "Completed" | "Failed" | "Interrupted";
+  }): Promise<void> {
+    this.turnStatusMap.set(input.turnId, input.status);
+  }
+
+  getTurnStatus(turnId: string): ("Completed" | "Failed" | "Interrupted") | undefined {
+    return this.turnStatusMap.get(turnId);
+  }
 
   seedAttempt(input: {
     id: string;
