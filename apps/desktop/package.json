@@ -35,7 +35,6 @@
   },
   "devDependencies": {
     "@aervox/contracts": "workspace:^",
-    "@types/node": "^22.15.3",
     "@vitejs/plugin-vue": "^6.0.1",
     "electron": "^43.4.1",
     "electron-vite": "^3.1.0",

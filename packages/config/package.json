@@ -15,8 +15,5 @@
     "build": "rm -rf dist && tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
-  },
-  "devDependencies": {
-    "@types/node": "^22.10.0"
   }
 }

@@ -30,9 +30,14 @@ export interface TurnCallbacks {
   onTermsExtracted?: (data: TermsExtractedEventData) => void;
   /** PET-05: 写工具需要用户授权时触发（含 turnId 供授权提交使用） */
   onToolApproval?: (data: ToolApprovalRequiredEventData & { turnId: string }) => void;
+  /** 已通过回合/顺序投影的事件；等待消费者处理以支持终端背压及交互。 */
+  onEvent?: (event: TurnStreamEvent) => void | Promise<void>;
 }
 
 export interface StreamTurnOptions {
+  signal?: AbortSignal;
+  idempotencyKey?: string;
+  onAccepted?: (turnId: string) => void | Promise<void>;
   toolApprovalMode?: ToolApprovalMode;
   /** 多模态输入：随消息发送的附件引用（先经 uploadAttachment 上传取得 id） */
   attachments?: TurnAttachmentRef[];
@@ -63,13 +68,13 @@ export interface UploadedAttachment {
 
 /** 两端能力的最小契约：普通请求 + Turn 流式 + 问答提交 + 附件上传（可选） */
 export interface AervoxTransport {
-  request<T = unknown>(method: string, path: string, body?: unknown, options?: { headers?: Record<string, string> }): Promise<T>;
+  request<T = unknown>(method: string, path: string, body?: unknown, options?: { headers?: Record<string, string>; signal?: AbortSignal }): Promise<T>;
   streamTurn(sessionId: string, content: string, callbacks: TurnCallbacks, options?: StreamTurnOptions): Promise<void>;
-  submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[]): Promise<void>;
+  submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[], signal?: AbortSignal): Promise<void>;
   /** 多模态输入：原始二进制上传（Web 直连；桌面经 IPC 桥） */
   uploadAttachment?(input: AttachmentUploadInput): Promise<UploadedAttachment>;
   /** PET-05: 写工具授权审批提交 */
-  decideToolApproval(turnId: string, approvalId: string, decision: 'granted' | 'denied'): Promise<void>;
+  decideToolApproval(turnId: string, approvalId: string, decision: 'granted' | 'denied', signal?: AbortSignal): Promise<void>;
 }
 
 // ── 运行时配置（由宿主端在入口注入 import.meta.env 等信息） ──────────────
@@ -147,7 +152,26 @@ export function getApiBase(): string {
  */
 export const TURN_STREAM_IDLE_TIMEOUT_MS = 60_000;
 
-export function createFetchTransport(apiBase: string): AervoxTransport {
+export interface FetchTransportOptions {
+  headers?: Record<string, string>;
+  requestTimeoutMs?: number;
+  streamIdleTimeoutMs?: number;
+  redirect?: RequestRedirect;
+}
+
+export class AervoxHttpError extends Error {
+  constructor(public readonly status: number, path: string) {
+    super(`API ${path} → HTTP ${status}`);
+    this.name = 'AervoxHttpError';
+  }
+}
+
+export interface FetchTransport extends AervoxTransport {
+  watchTurn(turnId: string, callbacks: TurnCallbacks, signal?: AbortSignal): Promise<void>;
+  cancelTurn(turnId: string, signal?: AbortSignal): Promise<unknown>;
+}
+
+export function createFetchTransport(apiBase: string, config: FetchTransportOptions = {}): FetchTransport {
   const base = apiBase.replace(/\/+$/, '');
 
   const request = async <T = unknown>(
@@ -158,11 +182,15 @@ export function createFetchTransport(apiBase: string): AervoxTransport {
   ): Promise<T> => {
     const res = await fetch(`${base}${path}`, {
       method,
-      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      headers: { 'Content-Type': 'application/json', ...config.headers, ...options?.headers },
       body: method === 'GET' ? undefined : JSON.stringify(body ?? {}),
-      signal: options?.signal,
+      signal: config.requestTimeoutMs
+        ? AbortSignal.any([AbortSignal.timeout(config.requestTimeoutMs), ...(options?.signal ? [options.signal] : [])])
+        : options?.signal,
+      redirect: config.redirect,
     });
-    if (!res.ok) throw new Error(`API ${method} ${path} → HTTP ${res.status}`);
+    if (!res.ok) throw new AervoxHttpError(res.status, `${method} ${path}`);
+    if (res.status === 204) return undefined as T;
     return (await res.json()) as T;
   };
 
@@ -178,6 +206,7 @@ export function createFetchTransport(apiBase: string): AervoxTransport {
     };
     if (options.attachments && options.attachments.length > 0) message.attachments = options.attachments;
     const controller = new AbortController();
+    const signal = options.signal ? AbortSignal.any([controller.signal, options.signal]) : controller.signal;
     let timedOut = false;
     let idleTimer: ReturnType<typeof setTimeout> | undefined;
     const armIdleTimer = (): void => {
@@ -185,7 +214,7 @@ export function createFetchTransport(apiBase: string): AervoxTransport {
       idleTimer = setTimeout(() => {
         timedOut = true;
         controller.abort();
-      }, TURN_STREAM_IDLE_TIMEOUT_MS);
+      }, config.streamIdleTimeoutMs ?? TURN_STREAM_IDLE_TIMEOUT_MS);
     };
     try {
       armIdleTimer();
@@ -198,12 +227,14 @@ export function createFetchTransport(apiBase: string): AervoxTransport {
           toolApprovalMode: options.toolApprovalMode ?? 'ask',
           ...(options.metadata ? { metadata: options.metadata } : {}),
         },
-        { signal: controller.signal },
+        { signal, headers: options.idempotencyKey ? { 'Idempotency-Key': options.idempotencyKey } : undefined },
       );
-      await consumeSse(turn.turnId, callbacks, controller.signal, armIdleTimer);
+      if (typeof turn.turnId !== 'string' || !turn.turnId) throw new Error('invalid_turn_response');
+      await options.onAccepted?.(turn.turnId);
+      await consumeSse(turn.turnId, callbacks, signal, armIdleTimer);
     } catch (err) {
       if (timedOut) {
-        throw new Error(`turn_stream_idle: no data received for ${TURN_STREAM_IDLE_TIMEOUT_MS}ms`);
+        throw new DOMException('turn_stream_idle', 'TimeoutError');
       }
       throw err;
     } finally {
@@ -221,8 +252,10 @@ export function createFetchTransport(apiBase: string): AervoxTransport {
     if (input.idempotencyKey) query.set('idempotencyKey', input.idempotencyKey);
     const res = await fetch(`${base}/v1/attachments/binary?${query.toString()}`, {
       method: 'POST',
-      headers: { 'Content-Type': input.mediaType },
+      headers: { ...config.headers, 'Content-Type': input.mediaType },
       body: input.file,
+      redirect: config.redirect,
+      signal: config.requestTimeoutMs ? AbortSignal.timeout(config.requestTimeoutMs) : undefined,
     });
     if (!res.ok) throw new Error(`API POST /v1/attachments/binary → HTTP ${res.status}`);
     return (await res.json()) as UploadedAttachment;
@@ -242,10 +275,11 @@ export function createFetchTransport(apiBase: string): AervoxTransport {
       let res: Response;
       try {
         res = await fetch(`${base}/v1/turns/${encodeURIComponent(turnId)}/events`, {
-          headers: { Accept: 'text/event-stream', ...(cursor ? { 'Last-Event-ID': cursor } : {}) }, signal,
+          headers: { ...config.headers, Accept: 'text/event-stream', ...(cursor ? { 'Last-Event-ID': cursor } : {}) }, signal,
+          redirect: config.redirect,
         });
       } catch (error) { failure = error; continue; }
-      if (!res.ok || !res.body) throw new Error(`SSE 连接失败 HTTP ${res.status}`);
+      if (!res.ok || !res.body) throw new AervoxHttpError(res.status, 'SSE');
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -258,12 +292,17 @@ export function createFetchTransport(apiBase: string): AervoxTransport {
           buffer = (buffer + decoder.decode(chunk.value, { stream: true })).replace(/\r\n/g, '\n');
           const blocks = buffer.split('\n\n');
           buffer = blocks.pop() ?? '';
+          if (new TextEncoder().encode(buffer).byteLength > 1_048_576) throw new Error('sse_event_too_large');
           for (const block of blocks) {
+            if (new TextEncoder().encode(block).byteLength > 1_048_576) throw new Error('sse_event_too_large');
             const data = block.split('\n').filter((line) => line.startsWith('data:')).map((line) => line.slice(5).trim()).join('\n');
             if (!data) continue;
             let event: TurnStreamEvent;
             try { event = JSON.parse(data) as TurnStreamEvent; } catch { continue; }
-            if (projector.project(event, callbacks) && event.eventId) cursor = event.eventId;
+            if (projector.project(event, callbacks)) {
+              if (event.eventId) cursor = event.eventId;
+              await callbacks.onEvent?.(event);
+            }
             if (projector.finalized) return;
           }
         }
@@ -276,21 +315,38 @@ export function createFetchTransport(apiBase: string): AervoxTransport {
     throw failure ?? new Error('turn_stream_incomplete: reconnect limit reached before terminal event');
   };
 
-  const submitQuestionAnswers = async (turnId: string, answers: AskUserQuestionAnswerItem[]): Promise<void> => {
+  const submitQuestionAnswers = async (turnId: string, answers: AskUserQuestionAnswerItem[], signal?: AbortSignal): Promise<void> => {
     await request(
       'POST',
       `/v1/turns/${encodeURIComponent(turnId)}/questions/answers`,
       { answers },
+      { signal },
     );
   };
 
-  const decideToolApproval = async (turnId: string, approvalId: string, decision: 'granted' | 'denied'): Promise<void> => {
+  const decideToolApproval = async (turnId: string, approvalId: string, decision: 'granted' | 'denied', signal?: AbortSignal): Promise<void> => {
     await request(
       'POST',
       `/v1/turns/${encodeURIComponent(turnId)}/tool-approvals`,
       { approvalId, decision, decidedBy: 'user' },
+      { signal },
     );
   };
 
-  return { request, streamTurn, submitQuestionAnswers, uploadAttachment, decideToolApproval };
+  const watchTurn = async (turnId: string, callbacks: TurnCallbacks, signal?: AbortSignal): Promise<void> => {
+    const controller = new AbortController();
+    const combined = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
+    let timer: ReturnType<typeof setTimeout>;
+    const arm = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => controller.abort(new DOMException('turn_stream_idle', 'TimeoutError')), config.streamIdleTimeoutMs ?? TURN_STREAM_IDLE_TIMEOUT_MS);
+    };
+    arm();
+    try { await consumeSse(turnId, callbacks, combined, arm); }
+    finally { clearTimeout(timer!); }
+  };
+  const cancelTurn = (turnId: string, signal?: AbortSignal): Promise<unknown> =>
+    request('POST', `/v1/turns/${encodeURIComponent(turnId)}/cancel`, {}, { signal });
+
+  return { request, streamTurn, watchTurn, cancelTurn, submitQuestionAnswers, uploadAttachment, decideToolApproval };
 }

@@ -24,8 +24,5 @@
     "@aervox/schema": "workspace:*",
     "@libsql/client": "^0.14.0",
     "drizzle-orm": "^0.39.3"
-  },
-  "devDependencies": {
-    "@types/node": "^22.10.0"
   }
 }

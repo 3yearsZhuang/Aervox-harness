@@ -14,15 +14,21 @@ importers:
       '@playwright/test':
         specifier: 1.62.1
         version: 1.62.1
+      '@types/node':
+        specifier: ^22.20.1
+        version: 22.20.1
       '@vitejs/plugin-vue':
         specifier: ^6.0.8
-        version: 6.0.8(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0))(vue@3.5.41(typescript@7.0.2))
+        version: 6.0.8(vite@7.3.6(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0))(vue@3.5.41(typescript@7.0.2))
       '@vue/test-utils':
         specifier: ^2.5.0
         version: 2.5.0(@vue/compiler-dom@3.5.41)(@vue/server-renderer@3.5.41)(vue@3.5.41(typescript@7.0.2))
       electron-builder:
         specifier: ^26.15.3
         version: 26.15.3(electron-builder-squirrel-windows@26.15.3)(supports-color@7.2.0)
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
       fflate:
         specifier: 0.8.2
         version: 0.8.2
@@ -34,7 +40,7 @@ importers:
         version: 1.62.1
       sharp:
         specifier: ^0.35.4
-        version: 0.35.4(@types/node@24.13.3)
+        version: 0.35.4(@types/node@22.20.1)
       turbo:
         specifier: 2.10.11
         version: 2.10.11
@@ -43,7 +49,7 @@ importers:
         version: 7.0.2
       vitest:
         specifier: 4.0.18
-        version: 4.0.18(@types/node@24.13.3)(happy-dom@20.14.0)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
+        version: 4.0.18(@types/node@22.20.1)(happy-dom@20.14.0)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
 
   apps/api:
     dependencies:
@@ -90,12 +96,15 @@ importers:
         specifier: ^1.13.5
         version: 1.13.6
     devDependencies:
-      '@types/node':
-        specifier: ^22.10.0
-        version: 22.20.1
       tsx:
         specifier: ^4.19.2
         version: 4.23.12
+
+  apps/cli:
+    devDependencies:
+      '@aervox/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
 
   apps/desktop:
     dependencies:
@@ -130,9 +139,6 @@ importers:
       '@aervox/contracts':
         specifier: workspace:^
         version: link:../../packages/contracts
-      '@types/node':
-        specifier: ^22.15.3
-        version: 22.20.1
       '@vitejs/plugin-vue':
         specifier: ^6.0.1
         version: 6.0.8(vite@6.4.3(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0))(vue@3.5.41(typescript@5.9.3))
@@ -192,9 +198,6 @@ importers:
         specifier: ^3.5.21
         version: 3.5.41(typescript@5.9.3)
     devDependencies:
-      '@types/node':
-        specifier: ^22.15.3
-        version: 22.20.1
       '@vitejs/plugin-vue':
         specifier: ^6.0.1
         version: 6.0.8(vite@7.3.6(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0))(vue@3.5.41(typescript@5.9.3))
@@ -238,9 +241,6 @@ importers:
         specifier: ^0.39.3
         version: 0.39.3(@libsql/client@0.14.0)
     devDependencies:
-      '@types/node':
-        specifier: ^22.10.0
-        version: 22.20.1
       tsx:
         specifier: ^4.19.2
         version: 4.23.12
@@ -261,11 +261,7 @@ importers:
         specifier: ^3.5.21
         version: 3.5.41(typescript@7.0.2)
 
-  packages/config:
-    devDependencies:
-      '@types/node':
-        specifier: ^22.10.0
-        version: 22.20.1
+  packages/config: {}
 
   packages/contracts:
     dependencies:
@@ -293,10 +289,6 @@ importers:
       drizzle-orm:
         specifier: ^0.39.3
         version: 0.39.3(@libsql/client@0.14.0)
-    devDependencies:
-      '@types/node':
-        specifier: ^22.10.0
-        version: 22.20.1
 
   packages/host-agent:
     dependencies:
@@ -315,10 +307,6 @@ importers:
       '@libsql/client':
         specifier: ^0.14.0
         version: 0.14.0
-    devDependencies:
-      '@types/node':
-        specifier: ^22.10.0
-        version: 22.20.1
 
   packages/live2d: {}
 
@@ -342,10 +330,6 @@ importers:
       drizzle-orm:
         specifier: ^0.39.3
         version: 0.39.3(@libsql/client@0.14.0)
-    devDependencies:
-      '@types/node':
-        specifier: ^22.10.0
-        version: 22.20.1
 
   packages/schema:
     dependencies:
@@ -353,9 +337,6 @@ importers:
         specifier: ^0.39.3
         version: 0.39.3(@libsql/client@0.14.0)
     devDependencies:
-      '@types/node':
-        specifier: ^22.10.0
-        version: 22.20.1
       drizzle-kit:
         specifier: ^0.30.4
         version: 0.30.6(supports-color@7.2.0)
@@ -5491,10 +5472,10 @@ snapshots:
       vite: 7.3.6(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
       vue: 3.5.41(typescript@5.9.3)
 
-  '@vitejs/plugin-vue@6.0.8(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0))(vue@3.5.41(typescript@7.0.2))':
+  '@vitejs/plugin-vue@6.0.8(vite@7.3.6(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0))(vue@3.5.41(typescript@7.0.2))':
     dependencies:
       '@rolldown/pluginutils': 1.0.1
-      vite: 7.3.6(@types/node@24.13.3)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
+      vite: 7.3.6(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
       vue: 3.5.41(typescript@7.0.2)
 
   '@vitest/expect@4.0.18':
@@ -5506,13 +5487,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.1
 
-  '@vitest/mocker@4.0.18(vite@6.4.3(@types/node@24.13.3)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0))':
+  '@vitest/mocker@4.0.18(vite@6.4.3(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0))':
     dependencies:
       '@vitest/spy': 4.0.18
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 6.4.3(@types/node@24.13.3)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
+      vite: 6.4.3(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
 
   '@vitest/pretty-format@4.0.18':
     dependencies:
@@ -7182,7 +7163,7 @@ snapshots:
 
   set-cookie-parser@2.7.2: {}
 
-  sharp@0.35.4(@types/node@24.13.3):
+  sharp@0.35.4(@types/node@22.20.1):
     dependencies:
       '@img/colour': 1.1.0
       detect-libc: 2.1.2
@@ -7213,7 +7194,7 @@ snapshots:
       '@img/sharp-win32-arm64': 0.35.4
       '@img/sharp-win32-ia32': 0.35.4
       '@img/sharp-win32-x64': 0.35.4
-      '@types/node': 24.13.3
+      '@types/node': 22.20.1
 
   shebang-command@2.0.0:
     dependencies:
@@ -7518,22 +7499,6 @@ snapshots:
       tsx: 4.23.12
       yaml: 2.9.0
 
-  vite@6.4.3(@types/node@24.13.3)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0):
-    dependencies:
-      esbuild: 0.25.1
-      fdir: 6.5.0(picomatch@4.0.5)
-      picomatch: 4.0.5
-      postcss: 8.5.26
-      rollup: 4.62.5
-      tinyglobby: 0.2.17
-    optionalDependencies:
-      '@types/node': 24.13.3
-      fsevents: 2.3.3
-      jiti: 2.7.0
-      terser: 5.50.0
-      tsx: 4.23.12
-      yaml: 2.9.0
-
   vite@7.3.6(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0):
     dependencies:
       esbuild: 0.28.2
@@ -7550,26 +7515,10 @@ snapshots:
       tsx: 4.23.12
       yaml: 2.9.0
 
-  vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0):
-    dependencies:
-      esbuild: 0.28.2
-      fdir: 6.5.0(picomatch@4.0.5)
-      picomatch: 4.0.5
-      postcss: 8.5.26
-      rollup: 4.62.5
-      tinyglobby: 0.2.17
-    optionalDependencies:
-      '@types/node': 24.13.3
-      fsevents: 2.3.3
-      jiti: 2.7.0
-      terser: 5.50.0
-      tsx: 4.23.12
-      yaml: 2.9.0
-
-  vitest@4.0.18(@types/node@24.13.3)(happy-dom@20.14.0)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0):
+  vitest@4.0.18(@types/node@22.20.1)(happy-dom@20.14.0)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0):
     dependencies:
       '@vitest/expect': 4.0.18
-      '@vitest/mocker': 4.0.18(vite@6.4.3(@types/node@24.13.3)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0))
+      '@vitest/mocker': 4.0.18(vite@6.4.3(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0))
       '@vitest/pretty-format': 4.0.18
       '@vitest/runner': 4.0.18
       '@vitest/snapshot': 4.0.18
@@ -7586,10 +7535,10 @@ snapshots:
       tinyexec: 1.3.0
       tinyglobby: 0.2.17
       tinyrainbow: 3.1.1
-      vite: 6.4.3(@types/node@24.13.3)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
+      vite: 6.4.3(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
       why-is-node-running: 2.3.0
     optionalDependencies:
-      '@types/node': 24.13.3
+      '@types/node': 22.20.1
       happy-dom: 20.14.0
     transitivePeerDependencies:
       - jiti
