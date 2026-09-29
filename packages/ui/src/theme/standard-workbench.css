@@ -1,0 +1,80 @@
+/* Standard mode uses the shared mist-blue tokens and a dedicated reading layout. */
+.aervox-workbench.mode-standard {
+  --standard-reading-width: 880px;
+  --standard-composer-width: 800px;
+  font-family: system-ui, -apple-system, "Segoe UI Variable", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.mode-standard .workbench-standard-sidebar { width: 256px; min-width: 256px; }
+.mode-standard .workbench-standard-sidebar.is-collapsed { width: 0; min-width: 0; margin-left: 0; visibility: hidden; }
+.mode-standard .sidebar-header { padding: 18px 16px 12px; }
+.mode-standard .brand-title { font-size: 15px; font-weight: 600; letter-spacing: 0; }
+.mode-standard .new-chat-btn { min-height: 38px; font-size: 14px; font-weight: 500; }
+.mode-standard .session-item { min-height: 40px; border-radius: 9px; font-size: 14px; }
+.mode-standard .session-group-title { font-size: 12px; }
+.mode-standard .session-hover-actions { opacity: 0; }
+.mode-standard .session-item:hover .session-hover-actions,
+.mode-standard .session-item:focus-within .session-hover-actions { opacity: 1; }
+.mode-standard .sidebar-search-input, .mode-standard .sidebar-nav-item { font-size: 13px; }
+.mode-standard .standard-topbar { height: 54px; flex-shrink: 0; padding: 0 24px; }
+.mode-standard .session-active-title { font-size: 16px; font-weight: 600; letter-spacing: 0; }
+.mode-standard .standard-chat-container { max-width: none; padding: 0; }
+.mode-standard .standard-conversation { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+.mode-standard .standard-message-scroll { height: 100%; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.mode-standard .standard-message-list { width: min(100%, var(--standard-reading-width)); margin: 0 auto; padding: 36px 32px 28px; }
+.mode-standard .standard-message { margin-bottom: 28px; min-width: 0; }
+.mode-standard .standard-message-speaker { display: block; margin-bottom: 8px; color: var(--accent); font-size: 13px; font-weight: 500; }
+.mode-standard .standard-message-content { color: var(--text-primary); font-size: 16px; line-height: 1.75; overflow-wrap: anywhere; }
+.mode-standard .standard-message-content .markdown-body { max-height: none; overflow: visible; font-size: inherit; line-height: inherit; }
+.mode-standard .standard-message-content .markdown-body p { margin: 0 0 12px; }
+.mode-standard .standard-message-content .markdown-body p:last-child { margin-bottom: 0; }
+.mode-standard .standard-message-content .markdown-body pre { margin: 16px 0; max-width: 100%; overflow-x: auto; padding: 16px 18px; border: 1px solid var(--glass-border); border-radius: 12px; background: var(--glass-bg); box-shadow: inset 0 1px 0 rgb(255 255 255 / 12%); }
+.mode-standard .standard-message-content pre code { font-family: var(--font-mono); font-size: 13px; line-height: 1.7; white-space: pre; overflow-wrap: normal; }
+.mode-standard .standard-message-content .markdown-body table { display: block; max-width: 100%; overflow-x: auto; }
+.mode-standard .standard-message.user { display: flex; justify-content: flex-end; }
+.mode-standard .standard-message.user .standard-message-content { max-width: 85%; padding: 11px 16px; border-radius: 14px 14px 4px 14px; background: color-mix(in srgb, var(--accent) 10%, var(--glass-bg)); }
+.mode-standard .standard-user-text { white-space: pre-wrap; }
+.mode-standard .standard-message.error .standard-message-content { color: var(--danger); }
+.mode-standard .standard-message-actions { display: flex; align-items: center; gap: 10px; margin-top: 9px; }
+.mode-standard .standard-message-actions > button { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 0; border-radius: 7px; background: transparent; color: var(--text-secondary); cursor: pointer; }
+.mode-standard .standard-message-actions > button:hover { background: var(--accent-soft); color: var(--accent); }
+.mode-standard .standard-message-attachments { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.mode-standard .standard-message-attachments > span { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 6px 9px; border: 1px solid var(--glass-border); border-radius: 8px; }
+.mode-standard .standard-stream-indicator { display: inline-block; width: 6px; height: 6px; margin: 8px 0 0; border-radius: 50%; background: var(--accent); }
+.mode-standard .standard-empty { color: var(--text-secondary); text-align: center; padding: 48px 0; }
+.mode-standard .standard-copy-error { color: var(--danger); font-size: 13px; }
+.mode-standard .standard-jump-latest { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); display: inline-flex; gap: 6px; align-items: center; padding: 8px 12px; border: 1px solid var(--glass-border); border-radius: 24px; background: var(--glass-bg-strong); color: var(--text-secondary); cursor: pointer; box-shadow: var(--shadow-sm); }
+.mode-standard .standard-composer-wrap { width: min(calc(100% - 64px), var(--standard-composer-width)); margin: 0 auto; padding: 0 0 24px; }
+.mode-standard .composer-dock { width: 100%; min-width: 0; }
+.mode-standard .composer-expanded { padding: 14px; border-radius: 16px; gap: 10px; animation: none; box-shadow: 0 3px 14px rgb(32 50 80 / 6%), inset 0 1px 0 rgb(255 255 255 / 20%); }
+.mode-standard .composer-expanded:focus-within { border-color: var(--accent); }
+.mode-standard .composer-expanded textarea { height: 54px; min-height: 54px; max-height: min(240px, 28vh); padding: 2px 4px; border: 0; border-radius: 0; background: transparent; box-shadow: none; resize: none; overflow-y: auto; font-family: inherit; font-size: 16px; line-height: 1.65; }
+.mode-standard .composer-expanded textarea:focus { border: 0; outline: none; box-shadow: none; }
+.mode-standard .composer-footer { gap: 8px; flex-wrap: wrap; }
+.mode-standard .composer-ops { flex: 1; gap: 6px; }
+.mode-standard .composer-op-btn { font-size: 13px; font-weight: 400; height: 32px; padding: 0 9px; }
+.mode-standard .composer-attachment-btn { order: 1; }
+.mode-standard .composer-voice-btn { order: 2; }
+.mode-standard .composer-access-btn { order: 3; }
+.mode-standard .composer-proactive-btn { order: 4; width: 32px; padding: 0; justify-content: center; }
+.mode-standard .composer-proactive-btn span { display: none; }
+.mode-standard .composer-actions { gap: 10px; margin-left: auto; }
+.mode-standard .composer-shortcut-hint { font-size: 11px; }
+.mode-standard .composer-send { width: 34px; height: 34px; min-width: 34px; padding: 0; border-radius: 10px; justify-content: center; }
+.mode-standard .composer-send > span { display: none; }
+.mode-standard button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 1050px) {
+  .mode-standard .composer-shortcut-hint { display: none; }
+  .mode-standard .standard-message-list { padding: 28px 24px; }
+  .mode-standard .standard-composer-wrap { width: calc(100% - 48px); }
+}
+@media (max-width: 760px) {
+  .mode-standard .workbench-standard-sidebar { width: 200px; min-width: 200px; }
+  .mode-standard .workbench-standard-sidebar.is-collapsed { width: 0; min-width: 0; }
+  .mode-standard .standard-topbar { padding: 0 16px; gap: 8px; }
+  .mode-standard .standard-message-list { padding: 24px 16px; }
+  .mode-standard .standard-composer-wrap { width: calc(100% - 24px); padding-bottom: 12px; }
+  .mode-standard .standard-message.user .standard-message-content { max-width: 94%; }
+  .mode-standard .composer-expanded { padding: 10px; }
+}
