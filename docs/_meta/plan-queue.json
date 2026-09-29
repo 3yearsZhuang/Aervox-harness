@@ -456,6 +456,28 @@
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
         "docs/explanation/reference-design-transfer.md#upstream-20260929"
       ]
+    },
+    {
+      "id": "ITER-031",
+      "batch": "first",
+      "status": "已移交",
+      "delivery": "标准工作台连续对话与雾蓝视觉重构；用户确认静态预览，关联 CAP-001/002/018",
+      "gate": "复用现有会话、发送、授权与插件接口；不新增服务端契约",
+      "acceptance": [
+        "标准模式完整展示多轮消息与流式全文，保留授权确认和插件插槽",
+        "雾蓝主题、底部收窄居中输入区通过亮暗主题及窄窗核验",
+        "桌宠陪伴模式分句显示继续可用"
+      ],
+      "checks": [
+        "`packages/ui/test/standard-conversation.test.ts`"
+      ],
+      "owner": "Codex",
+      "branch": "feat/workbench-frontend",
+      "statusNote": "2026-09-29 用户确认并授权推送，功能分支待合并；ci-code、ci-docs 与 7 项回归通过；侧边栏加宽至 256px；合并解决 main 冲突并顺延为 ITER-031；UI 类型检查与测试全绿",
+      "dependsOn": [],
+      "links": [
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
+      ]
     }
   ]
 }
