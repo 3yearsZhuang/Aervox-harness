@@ -58,7 +58,7 @@ export function busyBackoffMs(
 }
 
 const DEFAULT_RETRY: Required<BusyRetryConfig> = {
-  attempts: 5,
+  attempts: 10,
   baseDelayMs: 50,
   maxDelayMs: 1000,
   enabled: true,

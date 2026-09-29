@@ -6,6 +6,8 @@ import type { AervoxDatabase } from "../../../client.js";
 import { turns, messageVersions, outboxEvents } from "@aervox/schema";
 import type { LocalContext } from "../../../local-context.js";
 import type { TurnModel, MessageVersionModel } from "../../types/index.js";
+import { runWithBusyRetry } from "../../../write-retry.js";
+import { notifyWorkerWakeup } from "../../../worker-ipc.js";
 
 export class TurnStore {
   constructor(private readonly db: AervoxDatabase) {}
@@ -18,52 +20,60 @@ export class TurnStore {
   ): Promise<{ turn: TurnModel; message: MessageVersionModel }> {
     const now = new Date().toISOString();
 
-    return await this.db.transaction(async (tx) => {
-      // 1. 插入 Turn 记录
-      const [createdTurn] = await tx
-        .insert(turns)
-        .values({
-          id: turnData.id,
-          sessionId: turnData.sessionId,
-          idempotencyKey: turnData.idempotencyKey,
-          status: turnData.status ?? "Created",
-          lastSequence: 0,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .returning();
+    const result = await runWithBusyRetry(async () => {
+      return await this.db.transaction(async (tx) => {
+        // 1. 插入 Turn 记录
+        const [createdTurn] = await tx
+          .insert(turns)
+          .values({
+            id: turnData.id,
+            sessionId: turnData.sessionId,
+            idempotencyKey: turnData.idempotencyKey,
+            status: turnData.status ?? "Created",
+            lastSequence: 0,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .returning();
 
-      // 2. 插入首条用户输入消息版本
-      const [createdMessage] = await tx
-        .insert(messageVersions)
-        .values({
-          id: userMessage.id,
-          turnId: turnData.id,
-          role: "user",
-          version: 1,
-          content: userMessage.content,
-          isRedacted: 0,
-          createdAt: now,
-        })
-        .returning();
+        // 2. 插入首条用户输入消息版本
+        const [createdMessage] = await tx
+          .insert(messageVersions)
+          .values({
+            id: userMessage.id,
+            turnId: turnData.id,
+            role: "user",
+            version: 1,
+            content: userMessage.content,
+            isRedacted: 0,
+            createdAt: now,
+          })
+          .returning();
 
-      // 3. 伴随写入 Outbox 事件（若提供）
-      if (outboxEventData) {
-        await tx.insert(outboxEvents).values({
-          id: outboxEventData.id,
-          idempotencyKey: outboxEventData.idempotencyKey,
-          eventType: outboxEventData.eventType,
-          payload: outboxEventData.payload,
-          status: "pending",
-          createdAt: now,
-        });
-      }
+        // 3. 伴随写入 Outbox 事件（若提供）
+        if (outboxEventData) {
+          await tx.insert(outboxEvents).values({
+            id: outboxEventData.id,
+            idempotencyKey: outboxEventData.idempotencyKey,
+            eventType: outboxEventData.eventType,
+            payload: outboxEventData.payload,
+            status: "pending",
+            createdAt: now,
+          });
+        }
 
-      return {
-        turn: createdTurn as TurnModel,
-        message: createdMessage as MessageVersionModel,
-      };
+        return {
+          turn: createdTurn as TurnModel,
+          message: createdMessage as MessageVersionModel,
+        };
+      });
     });
+
+    if (outboxEventData) {
+      void notifyWorkerWakeup("outbox");
+    }
+
+    return result;
   }
 
   async getTurn(ctx: LocalContext, turnId: string): Promise<TurnModel | null> {

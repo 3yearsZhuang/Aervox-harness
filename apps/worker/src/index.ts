@@ -106,6 +106,7 @@ const host = new WorkerHost({
   defaultTickMs,
   intervalOverrides: config.intervalOverrides,
   logger,
+  enableIpc: true,
 });
 
 host

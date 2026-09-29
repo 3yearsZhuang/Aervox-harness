@@ -18,5 +18,6 @@ export * from "./temporal-fact-policy.js";
 export * from "./temporal-fact-projection.js";
 export * from "./migration/index.js";
 export * from "./sync/index.js";
+export * from "./worker-ipc.js";
 export * from "./repositories/index.js";
 export * from "./schema/ddl/index.js";

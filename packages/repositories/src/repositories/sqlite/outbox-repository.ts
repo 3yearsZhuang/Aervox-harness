@@ -8,6 +8,7 @@ import type { AervoxDatabase } from "../../client.js";
 import { outboxEvents } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
 import type { FetchPendingEventsOptions, IOutboxRepository, OutboxEventModel } from "../types/index.js";
+import { notifyWorkerWakeup } from "../../worker-ipc.js";
 
 export class SqliteOutboxRepository implements IOutboxRepository {
   constructor(private readonly db: AervoxDatabase) {}
@@ -36,6 +37,10 @@ export class SqliteOutboxRepository implements IOutboxRepository {
         createdAt: now,
       })
       .returning();
+
+    // 触发跨进程 Worker IPC 秒级唤醒（非阻塞，Worker 未启动时静默忽略）
+    void notifyWorkerWakeup("outbox");
+
     return created as OutboxEventModel;
   }
 
