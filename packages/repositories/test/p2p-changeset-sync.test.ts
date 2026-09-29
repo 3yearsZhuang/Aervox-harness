@@ -15,11 +15,8 @@ import fs from "node:fs";
 import {
   createDatabase,
   initDatabaseSchema,
-  generateDeviceIdentity,
   createDeviceDescriptor,
-  createPairingInvitation,
-  acceptPairingInvitation,
-  completePairingAsInitiator,
+  generateDeviceIdentity,
   encryptSyncPayload,
   decryptSyncPayload,
   buildP2PSyncBundle,
@@ -28,6 +25,7 @@ import {
   DEFAULT_SYNC_TABLES,
   type AervoxDatabase,
 } from "../src/index.js";
+import { establishVerifiedPairing } from "./helpers/p2p-session.js";
 import type { Client } from "@libsql/client";
 
 describe("ITER-028: 纯本地多端点对点加密同步与 SQLite Changeset 对齐测试", () => {
@@ -83,27 +81,23 @@ describe("ITER-028: 纯本地多端点对点加密同步与 SQLite Changeset 对
     expect(desktopDescriptor.protocolVersion).toBe("v1");
     expect(desktopDescriptor.fingerprint).toHaveLength(12);
 
-    // 2. 桌面端发起配对邀请
-    const { invitation, ephemeralEcdh } = createPairingInvitation(desktopIdentity);
-    expect(invitation.initiatorDevice.deviceId).toBe(desktopIdentity.deviceId);
+    // 2. 走承诺-揭示安全配对路径，并在用户确认 SAS 后启用会话
+    const pairing = establishVerifiedPairing({
+      initiatorName: "MacBook Pro (桌面端)",
+      responderName: "iPhone 16 Pro (移动端)",
+      initiatorPrefix: "desktop",
+      responderPrefix: "mobile",
+    });
+    const { invitation } = pairing;
+    expect(invitation.initiatorDevice.deviceId).toBe(pairing.initiatorIdentity.deviceId);
     expect(invitation.nonce).toBeDefined();
+    // 承诺-揭示路径的消息 1 绝不携带临时公钥（否则承诺形同虚设）
+    expect(invitation.ephemeralPublicKey).toBeUndefined();
+    expect(invitation.commitment).toBeDefined();
+    expect(pairing.sasCode).toMatch(/^\d{6}$/); // 6 位数字验证码，供用户界面比对核验
 
-    // 3. 移动端接受邀请并独立生成响应确认（含 6 位 SAS 码）
-    const { confirmation, session: mobileSession } = acceptPairingInvitation(mobileIdentity, invitation);
-    expect(confirmation.sasCode).toMatch(/^\d{6}$/); // 6 位数字验证码，供用户界面比对核验
-
-    // 4. 桌面端验证确认回执并建立会话
-    const { session: desktopSession, sasCode: initiatorSas } = completePairingAsInitiator(
-      desktopIdentity,
-      invitation,
-      ephemeralEcdh,
-      confirmation,
-    );
-
-    // 两端独立计算的 SAS 码与派生的 32 字节对称会话密钥必须完全相同
-    expect(initiatorSas).toBe(confirmation.sasCode);
-    expect(desktopSession.sharedKey).toEqual(mobileSession.sharedKey);
-    expect(desktopSession.sharedKey.length).toBe(32);
+    const desktopSession = pairing.initiatorSession;
+    const mobileSession = pairing.responderSession;
 
     // 5. 验证端到端 AES-256-GCM 加密与解密通道
     const samplePayload = {
@@ -117,8 +111,14 @@ describe("ITER-028: 纯本地多端点对点加密同步与 SQLite Changeset 对
     expect(encrypted.iv).toBeDefined();
     expect(encrypted.authTag).toBeDefined();
 
+    // 响应端解密必须得到完全一致的对象（密钥不匹配会抛错或解密出脏数据）
     const decrypted = decryptSyncPayload<typeof samplePayload>(mobileSession, encrypted);
     expect(decrypted).toEqual(samplePayload);
+
+    // 反向通道同样成立，证明双方派生出的是同一把可用会话密钥
+    const reverseEncrypted = encryptSyncPayload(mobileSession, samplePayload);
+    const reverseDecrypted = decryptSyncPayload<typeof samplePayload>(desktopSession, reverseEncrypted);
+    expect(reverseDecrypted).toEqual(samplePayload);
   });
 
   it("单向 SQLite 增量 Changeset 提取与应用（支持不可变事实与状态覆盖）", async () => {
@@ -189,18 +189,13 @@ describe("ITER-028: 纯本地多端点对点加密同步与 SQLite Changeset 对
   });
 
   it("桌面端与移动端双向离线变更增量同步与 LWW 冲突自愈收敛", async () => {
-    const desktopIdentity = generateDeviceIdentity("MacBook Pro", "desktop");
-    const mobileIdentity = generateDeviceIdentity("iPhone 16 Pro", "mobile");
-
-    // 配对并建立加密会话
-    const { invitation, ephemeralEcdh } = createPairingInvitation(desktopIdentity);
-    const { confirmation, session: mobileSession } = acceptPairingInvitation(mobileIdentity, invitation);
-    const { session: desktopSession } = completePairingAsInitiator(
-      desktopIdentity,
-      invitation,
-      ephemeralEcdh,
-      confirmation,
-    );
+    // 配对并建立加密会话（承诺-揭示路径 + 用户 SAS 确认）
+    const pairing = establishVerifiedPairing({
+      initiatorName: "MacBook Pro",
+      responderName: "iPhone 16 Pro",
+    });
+    const desktopSession = pairing.initiatorSession;
+    const mobileSession = pairing.responderSession;
 
     // 初始基线：两端拥有相同题目与目标
     const baselineTime = "2026-09-29T08:00:00.000Z";
@@ -254,11 +249,11 @@ describe("ITER-028: 纯本地多端点对点加密同步与 SQLite Changeset 对
       args: ["att_mobile_01", "ses_mobile", "q_matrix", "极大线性无关组向量数", "correct", "2026-09-29T09:35:00.000Z"],
     });
 
-    // 执行双向 P2P 加密增量对齐
+    // 执行双向 P2P 加密增量对齐（两端各自持有方向感知会话）
     const syncRes = await executeP2PBidirectionalSync({
-      nodeA: { client: desktopConn.client, deviceId: desktopIdentity.deviceId },
-      nodeB: { client: mobileConn.client, deviceId: mobileIdentity.deviceId },
-      session: desktopSession,
+      nodeA: { client: desktopConn.client, deviceId: pairing.initiatorIdentity.deviceId },
+      nodeB: { client: mobileConn.client, deviceId: pairing.responderIdentity.deviceId },
+      sessions: { nodeA: desktopSession, nodeB: mobileSession },
       watermarks: {
         aSince: baselineTime,
         bSince: baselineTime,

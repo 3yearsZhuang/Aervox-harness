@@ -42,6 +42,7 @@ import { createProactiveIntelligenceTables } from "./proactive-intelligence.js";
 import { createModelRoutingTables } from "./model-routing.js";
 import { createProjectTables } from "./project.js";
 import { createLedgerTables } from "./ledger.js";
+import { createSyncMetadataTables } from "./sync-metadata.js";
 
 export async function initDatabaseSchema(client: Client): Promise<void> {
   await createProjectTables(client);
@@ -83,6 +84,7 @@ export async function initDatabaseSchema(client: Client): Promise<void> {
   await createProactiveTables(client);
   await createProactiveIntelligenceTables(client);
   await createModelRoutingTables(client);
+  await createSyncMetadataTables(client);
 }
 
 export async function initLedgerSchema(client: Client): Promise<void> {
