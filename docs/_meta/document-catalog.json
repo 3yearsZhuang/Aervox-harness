@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-09-30",
-  "totalCount": 76,
+  "totalCount": 77,
   "documents": [
     {
       "id": "AVX-PLAN-001",
@@ -14,9 +14,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.4.2",
-      "updated_at": "2026-09-29",
-      "reviewed_at": "2026-09-29",
+      "version": "0.4.3",
+      "updated_at": "2026-10-01",
+      "reviewed_at": "2026-10-01",
       "review_interval_days": 7,
       "review_triggers": [
         "apps/**/src/**",
@@ -48,9 +48,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.18.0",
-      "updated_at": "2026-09-29",
-      "reviewed_at": "2026-09-29",
+      "version": "1.19.0",
+      "updated_at": "2026-10-01",
+      "reviewed_at": "2026-10-01",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -287,6 +287,36 @@
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
+    },
+    {
+      "id": "AVX-EXPL-015",
+      "title": "Pi AI 竞品差距分析与改进建议",
+      "path": "explanation/pi-competitive-gap-improvements.md",
+      "type": "explanation",
+      "scope": "proposal",
+      "owner": "product",
+      "doc_status": "draft",
+      "decision_status": "proposed",
+      "delivery_status": "not-applicable",
+      "version": "0.1.0",
+      "updated_at": "2026-10-01",
+      "reviewed_at": "2026-10-01",
+      "review_interval_days": 90,
+      "review_triggers": [
+        "docs/reference/PRD.md",
+        "docs/reference/capability-registry.md",
+        "packages/prompt-engine/**",
+        "apps/web/src/components/Onboarding*",
+        "apps/fairy/**"
+      ],
+      "sources": [
+        "docs/reference/PRD.md",
+        "docs/reference/ARCHITECTURE.md",
+        "docs/reference/capability-registry.md",
+        "docs/reference/adr/ADR-012-streaming-safety-persistence.md",
+        "docs/reference/adr/ADR-018-proactive-local-privacy-host.md",
+        "docs/explanation/companion-hardware-directions.md"
+      ]
     },
     {
       "id": "AVX-EXPL-008",
