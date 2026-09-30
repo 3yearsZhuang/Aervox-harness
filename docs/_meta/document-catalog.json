@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-09-30",
-  "totalCount": 77,
+  "totalCount": 76,
   "documents": [
     {
       "id": "AVX-PLAN-001",
@@ -361,6 +361,23 @@
       ]
     },
     {
+      "id": "AVX-EXPL-000",
+      "title": "Explanation 概念与架构解释索引 (Diátaxis)",
+      "path": "explanation/README.md",
+      "type": "explanation",
+      "scope": "baseline",
+      "owner": "maintainers",
+      "doc_status": "approved",
+      "decision_status": "not-applicable",
+      "delivery_status": "not-applicable",
+      "version": "1.0.0",
+      "updated_at": "2026-10-01",
+      "reviewed_at": "2026-10-01",
+      "review_interval_days": 90,
+      "review_triggers": [],
+      "sources": []
+    },
+    {
       "id": "AVX-EXPL-002",
       "title": "参考项目能力迁移与借鉴评估",
       "path": "explanation/reference-design-transfer.md",
@@ -604,9 +621,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.16.2",
-      "updated_at": "2026-09-30",
-      "reviewed_at": "2026-09-30",
+      "version": "1.16.3",
+      "updated_at": "2026-10-01",
+      "reviewed_at": "2026-10-01",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -983,25 +1000,6 @@
       "sources": []
     },
     {
-      "id": "AVX-HAR-002",
-      "title": "Agent Harness Loop 分阶段落地进展与追溯历史",
-      "path": "reference/agent-loop-rollout-history.md",
-      "type": "reference",
-      "scope": "baseline",
-      "owner": "maintainers",
-      "doc_status": "review-candidate",
-      "decision_status": "not-applicable",
-      "delivery_status": "not-applicable",
-      "version": "0.1.0",
-      "updated_at": "2026-09-17",
-      "reviewed_at": "2026-09-17",
-      "review_interval_days": 90,
-      "review_triggers": [],
-      "sources": [
-        "docs/reference/agent-harness-loop.md"
-      ]
-    },
-    {
       "id": "AVX-AIQ-001",
       "title": "Aervox｜思隅 AI 质量与安全规范",
       "path": "reference/AI_QUALITY_SAFETY.md",
@@ -1246,26 +1244,6 @@
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
-    },
-    {
-      "id": "AVX-DB-002",
-      "title": "Aervox｜思隅 数据库数据模型覆盖矩阵（Database Coverage Matrix）",
-      "path": "reference/database-coverage-matrix.md",
-      "type": "reference",
-      "scope": "baseline",
-      "owner": "maintainers",
-      "doc_status": "review-candidate",
-      "decision_status": "not-applicable",
-      "delivery_status": "not-applicable",
-      "version": "0.5.3",
-      "updated_at": "2026-09-29",
-      "reviewed_at": "2026-09-29",
-      "review_interval_days": 90,
-      "review_triggers": [],
-      "sources": [
-        "docs/reference/DATABASE.md",
-        "docs/reference/PRD.md"
-      ]
     },
     {
       "id": "AVX-DB-001",

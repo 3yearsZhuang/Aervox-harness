@@ -19,6 +19,9 @@ review_interval_days: 90
 
 关联：[参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[SQLite 本地单用户数据库契约](../reference/DATABASE.md)、[能力注册表](../reference/capability-registry.md)、[Agent Harness Loop 规范](../reference/agent-harness-loop.md)、[AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)
 
+> [!NOTE] 调研生命周期状态：已落地 (Adopted)
+> 本文梳理的外部参考项目（DSH、pi、AstrBot 等）能力借鉴与上游版本固定已在 ITER-030 落地并完成准入固定。
+
 当前迭代建议与实施排序统一见根 [plan.md](../../plan.md)（AVX-PLAN-001），规划边界见[文档治理规范 §3.1](../reference/document-governance.md#31-当前迭代计划的唯一入口)。本文保留参考设计的判定理由、来源编号、许可证边界及历史映射；A/B/C 判定与旧批次不表示当前排期或最新实现状态。
 
 ## 1. 评估范围与判定框架

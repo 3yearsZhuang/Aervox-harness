@@ -1,7 +1,0 @@
-flowchart LR
-    LEGACY["旧租户 SQLite 数据库"]
-    BACKUP["一致性备份与范围选择"]
-    STAGING["无租户 staging SQLite"]
-    VALIDATE["完整性、外键、行数、索引与 FTS 校验"]
-    CURRENT["原子换库后的本地单用户数据库"]
-    LEGACY --> BACKUP --> STAGING --> VALIDATE --> CURRENT
