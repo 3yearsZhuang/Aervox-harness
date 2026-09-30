@@ -24,9 +24,7 @@ review_interval_days: 90
 | 文档编号 | 文档 | 最后核验 | 核验节奏 | 陈旧信号 |
 |---|---|---|---|---|
 | `AVX-PRD-001` | [PRD](reference/PRD.md) | 2026-09-29 | 每次版本立项 / G0 | CAP 范围或优先级变更未建立 `CR-*` |
-| `AVX-PRD-002` | [能力验收标准附录](reference/prd-cap-acceptance.md) | 2026-09-17 | 每次版本立项 / CAP 验收变更 | P0/P1/P2/P3/专项验收标准未同步 |
-| `AVX-SRS-001` | [SRS](reference/SRS.md) | 2026-09-17 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
-| `AVX-SRS-002` | [主动智能与外部信号需求规格](reference/srs-proactive-intelligence.md) | 2026-09-10 | G1 需求基线前 / 主动智能需求变更 | CAP-033/034/035 FR/BR/AC/DATA/SEC 变化未同步 |
+| `AVX-SRS-001` | [SRS](reference/SRS.md) | 2026-10-01 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
 | `AVX-SAD-001` | [架构设计](reference/ARCHITECTURE.md) | 2026-09-30 | G2 评审 + 架构变更 | CR-030 本地单用户边界、API 安全或数据拓扑未同步 |
 | `AVX-DS-001` | [视觉系统与设计规范](reference/DESIGN.md) | 2026-09-17 | UI 重构 / 主题演进 | 视觉规范、Token 或禁止模式未同步 |
 | `ADR-001~019` | [ADR 索引](reference/adr/README.md) | 2026-09-18 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
@@ -93,12 +91,8 @@ review_interval_days: 90
 | `AVX-DOC-001` | [文档索引](README.md) | 2026-10-01 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
 | `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-09-28 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |
 | `AVX-DOC-CONF-001` | [文档生命周期登记表](DOC_REGISTRY.md) | 2026-10-01 | 每季度 + 每次文档集变更 | 登记条目与实际文档集不一致 |
-| `CR-053` | [CR-053 llama.cpp 本地模型作为底层能力接入与模型能力探测预算适配](reference/changes/CR-053-llamacpp-provider-and-local-model-support.md) | 2026-09-17 | 变更生命周期 + 决策变更 | 实现与提案差量、决策状态或回滚预案不一致 |
-| `CR-054` | [CR-054 本地模型运行时管理：GGUF 下载与 llama-server 进程生命周期](reference/changes/CR-054-local-model-runtime-management.md) | 2026-09-17 | 变更生命周期 + 决策变更 | 实现与提案差量、决策状态或回滚预案不一致 |
+| `CR-000` | [变更请求索引与归档导航](reference/changes/README.md) | 2026-10-01 | 变更提案生命周期或归档目录变更 | 提案生命周期规则或归档索引与实际不符 |
 | `CR-055` | [CR-055 移动端落地范围与分阶段交付规划](reference/changes/CR-055-mobile-delivery-plan.md) | 2026-09-18 | 移动宿主、连接认证、跨设备数据边界或阶段范围变更 | 配套/独立端定位、原生支持范围、实际实现证据或隐私约束与规划不一致 |
-| `CR-056` | [CR-056 引入 Build to Delete 与类 pi 分层架构](reference/changes/CR-056-build-to-delete-pi-style-architecture.md) | 2026-09-29 | 模块公开入口、执行控制、插件/模型生命周期、参考版本或决策变化 | 试点边界、退出语义、既有队列依赖或实现/规划状态与实际不符 |
-| `CR-058` | [CR-058 思隅 CLI 连接版首个实施切片](reference/changes/CR-058-siyu-cli-attached-client.md) | 2026-09-30 | 终端命令边界、退出码、取消语义或本机地址限制 | 命令/退出码/取消语义与实现不一致，或把剩余差量与发布门禁写成已交付 |
-| `CR-059` | [CR-059 共享客户端传输加固与客户端侧事件投影](reference/changes/CR-059-shared-client-transport-hardening.md) | 2026-09-30 | 共享传输公开接口、子路径导出、客户端侧投影或 Electron IPC 事件分发变更 | 服务端白名单投影被写成已落地、或兼容性与未验证差量与实际不符 |
 
 ## 维护规则
 
