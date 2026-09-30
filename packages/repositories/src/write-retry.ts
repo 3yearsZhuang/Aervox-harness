@@ -9,24 +9,27 @@
  * 识别 busy 错误并按指数退避重试。一处接入、所有现有与未来仓储的写操作自动生效，
  * 调用方零侵入；仅对写相关入口生效，只读方法直接放行。
  *
- * 边界：`execute/batch` 重试安全；`transaction` 的 BEGIN 阶段 Busy 直接抛原错误
- * （libsql@0.4.7 BEGIN 失败后残留语句状态，重试会破坏后续 commit），tx 内的
- * execute/commit/rollback 仍带重试。
+ * 边界（**已按实测修订**）：
+ * - 实测（libsql 0.4.7 + @libsql/client 0.14.0）：**任何** SQLITE_BUSY 都会在出错的连接上
+ *   留下未完成语句，使该连接后续 `COMMIT` 报 `SQL statements in progress`——不只是 BEGIN 阶段，
+ *   普通 `execute` 也一样；而换一条新连接后事务可正常提交。
+ *   因此「`execute/batch` 在同一连接上重试是安全的」这一旧假设**不成立**：
+ *   同连接重试会把"已污染"掩盖成"重试成功"，随后的事务在提交时终态失败（且被遗弃事务会持有写锁）。
+ * - 现行职责划分：`client.ts` 的 `ReconnectableClient` 负责**换连接**（任一 busy 或污染即替换，
+ *   绝不在被污染的连接上开启事务）；本层的退避重试作为第二道防线，其每次尝试都经由内层解析，
+ *   因此实际都落在新连接上，不会在同一条被污染的连接上重试。
  *
  * 实测复现与影响范围（Node 24 + libsql 0.4.7 + @libsql/client 0.14.0，`busy_timeout=0`）：
  * 另一连接持有 `BEGIN IMMEDIATE` 时，本连接 `transaction()` 抛 SQLITE_BUSY；此后
  * 1) 同一连接的新事务虽能 BEGIN，但 `commit` 以
  *    `SQLITE_BUSY: cannot commit transaction - SQL statements in progress` 失败；
- * 2) 在**该进程存活期间**，其他连接乃至另一个进程的写入都会以 `database is locked` 失败
- *    （被遗弃的事务持续持有写锁）；
- * 3) 实测 `rollback()` 与 `close()` 后重建连接**都不能**在进程内恢复可写性，只有进程退出才释放。
+ * 2) 该连接被遗弃的事务会持续持有写锁，同进程其他连接与另一个进程的写入同样失败；
+ * 3) 实测 `ROLLBACK` 与 `COMMIT` 都无法清理；**关闭该连接并新建连接**即可恢复可写性
+ *    （`client.ts` 的 `ReconnectableClient` 正是据此自愈），进程退出亦可但代价过高。
  *
- * 因此本层的策略是**快速失败并把错误上抛**，绝不在同一连接上重试或等待；调用方应把该错误
- * 视为需要重启进程的严重故障（fail loud），而不是可重试的锁竞争。级联重试只会反复失败、
- * 放大延迟，并把该终态错误掩盖成"写锁竞争"。
- *
- * 已知缺口（需后续 CR 处理）：进程内的自动恢复（重连）未实现，也未验证可行；
- * 降低发生概率主要依赖上层会话级写锁（AST-01）与合理的 `busy_timeout`。
+ * 因此本层的策略是：不在**同一连接**上重试 BEGIN，把 BEGIN 竞争与连接污染交给
+ * `client.ts` 的连接自愈层（换连接后重试一次）。级联重试只会反复失败、放大延迟，
+ * 并把该终态错误掩盖成"写锁竞争"。
  *
  * 调用方注意：**不要在 `client.transaction()` 之外再包一层 `runWithBusyRetry`**。
  * 本文件的代理已经覆盖 tx 内部的 execute/commit/rollback，外层再包会重新引入被禁止的
