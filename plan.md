@@ -7,9 +7,9 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 planning_role: current
-version: 0.4.2
-updated_at: 2026-09-29
-reviewed_at: 2026-09-29
+version: 0.4.3
+updated_at: 2026-10-01
+reviewed_at: 2026-10-01
 review_interval_days: 7
 review_triggers:
   - apps/**/src/**
@@ -33,7 +33,7 @@ sources:
 # Aervox 当前迭代计划
 
 - 提出人：3yearszhuang · 2026-09-18
-- 修改人：3yearszhuang · 2026-09-29
+- 修改人：3yearszhuang · 2026-10-01
 
 本文件是**当前项目迭代建议、排序、依赖和待决策项的唯一权威入口**。维护字段、状态、分支协调与归档规则见[计划治理](docs/reference/document-governance.md#31-当前迭代计划的唯一入口)；产品范围见 [PRD](docs/reference/PRD.md)，决策见 [ADR/CR](docs/reference/adr/README.md)，实现与发布证据见[追踪基线](docs/reference/REQUIREMENTS_TRACEABILITY.md)。计划的优先级不改写这些契约，也不自动批准所有条目实施。
 
@@ -52,6 +52,8 @@ sources:
 2026-09-28 新增 [CR-056 Build to Delete 与类 pi 分层架构规划](docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md)：ITER-023 仅交付详细规划，ITER-014 进入架构差量待评审。CR 的切片按主归属和协同关系接入 ITER-005/007/008/013/014/019，具体依赖见 CR §7；先以 MemoryStore 工具与单个模型 Driver 验证实现可替换、资源可释放和数据责任连续性。规划不启动重构，也不将已有正确性修复统一阻塞在架构工作上。
 
 2026-09-29 新增架构演进与深层瓶颈优化建议（ITER-025～028）：针对 ADR-020 解耦落地的剩余差量与深层性能瓶颈，提出思隅核心懒加载毫秒级冷启动（ITER-025）、伴学业务与会话执行器深度解耦插件化（ITER-026）、多进程 SQLite 写入并发与 Worker 自适应退避（ITER-027），以及纯本地多端点对点加密同步探索（ITER-028）。
+
+2026-10-01 新增 pi（`PI-01`，固定 `5257d0d5`）对照改进建议：按[参考评估 §8.3](docs/explanation/reference-design-transfer.md#upstream-20260929) 的差量复评与 pi-ai 设计对照，新增 ITER-032（保真上下文投影与真实摘要压缩）与 ITER-033（统一模型 Provider 抽象面）两个建议条目。对照结论：思隅的核心缺点不在功能面，而在抽象收敛度与上下文保真；每请求证据链与取消/失败时序由 ITER-007/010 承接，流式背压与慢观察者由 ITER-013 承接，薄执行宿主仍按 [CR-056](docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md) BTD-05/06 归属推进，不另设条目；按需工具披露与多模型路由仅在对照收益成立后另行立项。
 
 ## 2. 当前建议工作
 
@@ -78,6 +80,7 @@ sources:
 | <a id="iter-030"></a>ITER-030 · 已移交 | DSH、pi、AstrBot 上游固定版本更新与差异复评：核对默认分支、许可证与适配准入，形成面向思隅的设计借鉴和验证建议；DSH-01/PI-01/AST-*；关联 CAP-007/020/027/033（参考维护与评估） | 仅更新参考基线及必要准入常量；产品能力和架构实施仍由既有 ITER 与 CR 决定 | 三个子模块固定到本次抓取的上游默认分支提交，保留旧版本可回溯；源码与测试证据区分本次变化、既有能力和未验证事项，映射思隅实际差量；参考清单、适配准入、追踪登记和文档门禁一致（校验：`git diff --submodule=short`；`mise tasks run ci-code`；`mise tasks run ci-docs`） | platform/docs（分支 `docs/update-reference-upstreams-20260929`；2026-09-29 移交：三个上游固定版本、源码/测试差异复评与 DSH 准入同步完成；ci-code 全量通过（测试 27/27 任务），ci-docs 全量通过；参考更新不代表真实外部运行时已集成，验证与限制见 §4.2/参考评估 §8） |
 | <a id="iter-031"></a>ITER-031 · 已移交 | 标准工作台连续对话与雾蓝视觉重构；用户确认静态预览，关联 CAP-001/002/018 | 复用现有会话、发送、授权与插件接口；不新增服务端契约 | 标准模式完整展示多轮消息与流式全文，保留授权确认和插件插槽；雾蓝主题、底部收窄居中输入区通过亮暗主题及窄窗核验；桌宠陪伴模式分句显示继续可用（校验：`packages/ui/test/standard-conversation.test.ts`） | Codex（分支 `feat/workbench-frontend`；2026-09-29 用户确认并授权推送，功能分支待合并；ci-code、ci-docs 与 7 项回归通过；侧边栏加宽至 256px；合并解决 main 冲突并顺延为 ITER-031；UI 类型检查与测试全绿） |
 | <a id="iter-029"></a>ITER-029 · 执行中 | 思隅 CLI 连接版首个切片：新增终端宿主 `@aervox/cli`（`siyu`）与 `@aervox/api-client/transport` 纯传输构建出口；提供单次问答、仅 TTY 连续会话、事件补读与终态等待、连接诊断、配置读写、JSON/JSONL 机器输出、Token 与幂等键、审批与用户问题、有界取消；CAP-002/007/020；CR-058 | 只消费本机 API 与共享传输层；不修改服务端路由、授权与恢复合同，不新增数据库 Schema，不引入中心化服务或独立宿主 | 打包产物在真实 API + 文件 SQLite 下完成受理/流式/终态、跨客户端与 API 重启的补读与续会话；非交互路径不自动批准工具；有界取消只在中断时触发，超时或失败不替用户取消已受理回合；架构拓扑、依赖边界与文档治理门禁通过，CLI 不反向依赖共享包，共享包也不反向引用 CLI 宿主（校验：`apps/cli/test/cli.test.ts`；`scripts/cli-smoke.test.mjs`；`packages/api-client/test/transport.test.ts`；`packages/api-client/test/projector.test.ts`；`scripts/import-boundary.test.mjs`） | Codex（分支 `feat/siyu-cli-attached`；2026-09-30 执行中：从 main 重建 CLI-only 分支，剔除原 PR #235 中已被 #232 回退的 CR-056/ADR-020 全线（不重放执行管线、审批 SPI、HostToolRuntime 下沉、agent-executor 重写与 UI 投射防御，也不做全仓 @types/node 搬迁与 Vitest 并发策略改动）；CLI 25 项、api-client 60 项、`pnpm test:cli:integration` 2/2 通过；剩余差量：真实 Provider 工具往返、会话详情/分页、模型配置入口、跨进程恢复查询、平台矩阵与生产分发，故不标记移交） |
+| <a id="iter-032"></a>ITER-032 · 建议 | 保真上下文投影与真实摘要压缩：把 Turn 上下文装配改为「模型可见投影从权威历史重建」——先固化伴学必须保真的事实清单（当前学习目标、未解决错因、用户偏好、承诺及其来源），再以真实摘要替换规则压缩的占位文本（现默认关闭，仅保留首尾各两条并插入『已总结若干消息』说明，见 `packages/agent-loop/src/context-builder.ts`）；压缩按工具调用/结果组选择边界，超大结果不破坏配对；参考 PI-01 context_edit 投影设计（参考评估 §8.3）；CAP-002/005/007；对话质量基础设施 | 压缩不得伪造摘要或声称记得已压缩事实；模型可见投影不等于用户删除，删除仍须覆盖原文、摘要与索引；必须保真事实清单与压缩策略先评审，涉及对话契约差量先 CR；最终输入窗口验收与 ITER-007 协同、测量口径与 ITER-017 协同，不重复登记 | 固定长伴学对话夹具：压缩后学习目标、错因、承诺与来源保真可追溯，无占位文本；超大工具结果压缩不断开调用/结果配对；最终输入加预留输出不超 Provider 窗口，超额有明确有界处理；每次请求的模型可见上下文可从权威投影重建并复核，展示内容与持久历史分离、旧响应不覆盖终态（校验：`packages/agent-loop/test/context-builder.test.ts`；`packages/agent-loop/test/context-manifest.test.ts`） | platform/quality |
 
 ### 2.2 下一批：恢复、生命周期与部署
 
@@ -91,6 +94,7 @@ sources:
 | <a id="iter-015"></a>ITER-015 · 建议 | 单机部署主管：API/Worker/模型归属，数据目录、端口、Token、版本、就绪与退出；ARC-13；CAP-001/018/027 | 依赖 ITER-006/008 与 ITER-011/013 的必要部分；新主管先 CR；与移动端决策协调 | 干净用户目录安装、升级、异常退出、端口占用、磁盘满、卸载保留数据均验证；签名/公证/平台矩阵另过发布门禁 | desktop/release |
 | <a id="iter-016"></a>ITER-016 · 建议 | 已选方向单设备 PoC：真实能力样本，模拟器与一块开发板，身份/ACK/幂等/截止/撤权/热插拔；硬件评估；复用所选 CAP | 依赖 ITER-009 决策；先设备 CR/ADR/单一协议；音频/OCR 先证明真实产物；独立算力盒额外依赖 ITER-015 | 设备缺席不破坏核心流程；获得五至十人使用记录及方向对应价值证据；不把接口响应当实物成功 | product-hardware/platform |
 | <a id="iter-027"></a>ITER-027 · 待评审 | 多进程 SQLite 写入并发与 Worker 自适应退避：消除高频空轮询，流式会话写入期间后台任务自适应降频与 IPC 唤醒；ARC-05/FND-07；基础设施 | 依赖 ITER-002 的 Outbox 消费修复；不破坏 WAL 模式快照隔离与单写者约束 | API 执行多轮密集对话与流式写入期间，Worker 自动退避至 3s+ 低频轮询，写锁冲突率降至 0；探索基于本地 Domain Socket 或命名管道的事件驱动触发式唤醒，替代持续空写轮询；长周期运行与压测下无 SQLITE_BUSY 报错与 P99 延迟抖动（校验：`apps/worker/test/outbox-worker.test.ts`；`apps/worker/test/worker-concurrency-backoff.test.ts`；`apps/worker/test/worker-host.test.ts`；`packages/repositories/test/worker-ipc.test.ts`；`packages/repositories/test/turn-store-begin-contention.test.ts`；`packages/repositories/test/client-self-heal.test.ts`；`apps/api/test/worker-pressure-lease.test.ts`；`apps/api/test/conversation-dispatch-resilience.test.ts`） | platform/data（分支 `feat/iter-027-028-sqlite-worker-p2p`；2026-09-29 落地 IPC 唤醒（含投递确认与 0600 权限）、Worker 写入压力退避（只延长不缩短、按任务基准成倍拉长、窗口单调、时长有界）、API 侧压力租约（含 10 分钟硬上限）、worker 优雅退出，以及事务 BEGIN 竞争的快速失败。已实测：worker-concurrency-backoff 4/4、worker-host 15/15、worker-ipc 14/14、turn-store-begin-contention 2/2、write-retry 12/12、worker-pressure-lease 4/4、outbox-worker 4/4、conversation-dispatch-resilience 2/2。未实测：验收中的『写锁冲突率降至 0』与『长周期压测下无 SQLITE_BUSY/P99 抖动』需要真实多进程压测；本轮并发用例为单进程顺序写入，未取得该两项证据，故不标记整项移交。连接自愈（本轮实测驱动，已修复）：实测 libsql 0.4.7 下**任何** SQLITE_BUSY 都会污染连接（不止 BEGIN 阶段；普通 execute 的 busy 同样如此），同连接重试会把污染掩盖成“重试成功”，随后事务 commit 报 statements in progress 并永久持有写锁（进程内 rollback/commit/tx.close/重建连接都无法释放）。据此推翻旧的“execute 同连接重试安全”假设：createDatabase 现返回可自愈 client，任一 busy 或污染即换连接（绝不在污染连接上开启事务），换连接后仅重试一次。多进程演练（pnpm drill:worker-contention，真实多进程，Apple M5/Node 24/libsql 0.4.7）：修复前 3 写入者生产默认配置 6/6 次运行均出现终态 statements in progress、写入者提前死亡、outbox 积压 4706；修复后 0 逃逸 busy、0 污染——3 写入者 @200ms 为 CLEAN（497/497 写，p50 3.6/p95 8.6/p99 16.7ms，outbox pending 0），@50ms（1691 写）与 @0ms（4088 写）写入全部成功且无错误，但 outbox 消费跟不上（压力模式每 6s 一轮 ≈8.3 事件/s），完整性检查因积压未通过，属吞吐上限而非锁错误。未达标项：“写锁冲突率降至 0”不成立——高竞争下仍发生冲突（48～1217 次换连接），只是不再以错误暴露） |
+| <a id="iter-033"></a>ITER-033 · 建议 | 统一模型 Provider 抽象面：收敛两套模型接入栈——`@aervox/agent-loop` 的 OpenAI 兼容 Provider（对话路径，`src/openai-compat-provider.ts`）与 `apps/api` model-runtime 的 Driver SPI（本地 llama 侧车）；补齐统一 Provider 目录与代际注册、跨栈一致的 stop reason 归一与 usage 分账（复用 T-10）、跨 Provider 上下文交接与标准化测试 Provider；收敛 BTD-04 剩余 `Llama*` 类型泄漏，为多模型路由与成本治理铺路；参考 PI-01 `packages/ai` 设计（参考评估 §8.3）；CAP-002/007；本地模型基础设施 | 保持本地单用户与不出网红线：Driver 缺省仍为 unavailable 明确拒绝，受限本地任务缺合规 Provider 时不静默转远程；新增远程 Provider、改变制品信任等级或合并两栈持久化语义先 CR；不引入第二套 Provider 注册表真源；与 ITER-008 下载/进程正确性协同 | 同一 Fake/Replay Provider 轨迹下，对话与本地模型两条路径产出一致的规范化终止语义与 usage 分账（对照 provider-parity 表）；新增一个 OpenAI 兼容端点 Provider 仅需注册与目录声明，无需改动执行器、路由或宿主装配；临时检出移除 llama 具体实现后核心构建与数据权利回归通过（复用可移除性演练口径）；Driver 关闭与迟到启动语义保持 BTD-04 验收（校验：`packages/agent-loop/test/provider-parity.test.ts`；`apps/api/test/model-runtime-driver-spi.test.ts`） | platform |
 
 ### 2.3 后续候选：只有证据成立才投入
 
