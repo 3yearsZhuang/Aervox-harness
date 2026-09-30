@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-09-30",
-  "totalCount": 76,
+  "totalCount": 70,
   "documents": [
     {
       "id": "AVX-PLAN-001",
@@ -35,7 +35,7 @@
         "docs/explanation/architecture-implementation-review.md",
         "docs/explanation/companion-hardware-directions.md",
         "docs/explanation/hls-agent-competition-plan.md",
-        "docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md"
+        "docs/reference/changes/README.md"
       ]
     },
     {
@@ -1068,48 +1068,6 @@
       "sources": []
     },
     {
-      "id": "CR-053",
-      "title": "CR-053 llama.cpp 本地模型作为底层能力接入与模型能力探测预算适配",
-      "path": "reference/changes/CR-053-llamacpp-provider-and-local-model-support.md",
-      "type": "reference",
-      "scope": "change",
-      "owner": "maintainers",
-      "doc_status": "review-candidate",
-      "decision_status": "accepted",
-      "delivery_status": "implemented",
-      "version": "1.0.0",
-      "updated_at": "2026-09-17",
-      "reviewed_at": "2026-09-17",
-      "review_interval_days": 90,
-      "review_triggers": [],
-      "sources": [
-        "docs/reference/PRD.md",
-        "docs/reference/REQUIREMENTS_TRACEABILITY.md",
-        "docs/reference/ARCHITECTURE.md"
-      ]
-    },
-    {
-      "id": "CR-054",
-      "title": "CR-054 本地模型运行时管理：GGUF 下载与 llama-server 进程生命周期",
-      "path": "reference/changes/CR-054-local-model-runtime-management.md",
-      "type": "reference",
-      "scope": "change",
-      "owner": "maintainers",
-      "doc_status": "review-candidate",
-      "decision_status": "accepted",
-      "delivery_status": "implemented",
-      "version": "1.0.0",
-      "updated_at": "2026-09-17",
-      "reviewed_at": "2026-09-17",
-      "review_interval_days": 90,
-      "review_triggers": [],
-      "sources": [
-        "docs/reference/PRD.md",
-        "docs/reference/REQUIREMENTS_TRACEABILITY.md",
-        "docs/reference/ARCHITECTURE.md"
-      ]
-    },
-    {
       "id": "CR-055",
       "title": "CR-055 移动端落地范围与分阶段交付规划",
       "path": "reference/changes/CR-055-mobile-delivery-plan.md",
@@ -1143,90 +1101,21 @@
       ]
     },
     {
-      "id": "CR-056",
-      "title": "CR-056 引入 Build to Delete 与类 pi 分层架构",
-      "path": "reference/changes/CR-056-build-to-delete-pi-style-architecture.md",
+      "id": "CR-000",
+      "title": "变更请求索引与归档导航 (Change Requests Index)",
+      "path": "reference/changes/README.md",
       "type": "reference",
-      "scope": "change",
+      "scope": "baseline",
       "owner": "maintainers",
-      "doc_status": "review-candidate",
-      "decision_status": "accepted",
-      "delivery_status": "implemented",
-      "version": "1.0.1",
-      "updated_at": "2026-09-29",
-      "reviewed_at": "2026-09-29",
-      "review_interval_days": 30,
-      "review_triggers": [
-        "apps/api/src/app.ts",
-        "apps/api/src/modules/**",
-        "apps/worker/src/**",
-        "packages/agent-loop/**",
-        "packages/host-agent/**",
-        "packages/api-client/**",
-        "packages/ui/**",
-        "scripts/import-boundary.mjs",
-        "docs/reference/adr/**"
-      ],
-      "sources": [
-        "docs/reference/ARCHITECTURE.md",
-        "docs/reference/capability-composition.md",
-        "docs/reference/capability-registry.md",
-        "docs/reference/agent-harness-loop.md",
-        "docs/reference/STREAMING_PROTOCOL.md",
-        "docs/reference/DATA_PRIVACY.md",
-        "docs/reference/adr/ADR-010-dsh-pi-adapters.md",
-        "docs/reference/adr/ADR-014-modular-monolith-structure.md",
-        "docs/reference/adr/ADR-016-base-boundaries.md",
-        "docs/explanation/reference-design-transfer.md",
-        "docs/explanation/architecture-implementation-review.md",
-        "docs/reference/REQUIREMENTS_TRACEABILITY.md",
-        "plan.md"
-      ]
-    },
-    {
-      "id": "CR-058",
-      "title": "CR-058 思隅 CLI 连接版首个实施切片",
-      "path": "reference/changes/CR-058-siyu-cli-attached-client.md",
-      "type": "reference",
-      "scope": "change",
-      "owner": "maintainers",
-      "doc_status": "review-candidate",
-      "decision_status": "accepted",
-      "delivery_status": "implemented",
-      "version": "0.3.0",
-      "updated_at": "2026-09-30",
-      "reviewed_at": "2026-09-30",
+      "doc_status": "approved",
+      "decision_status": "not-applicable",
+      "delivery_status": "not-applicable",
+      "version": "1.0.0",
+      "updated_at": "2026-10-01",
+      "reviewed_at": "2026-10-01",
       "review_interval_days": 90,
       "review_triggers": [],
-      "sources": [
-        "plan.md",
-        "docs/reference/PRD.md",
-        "docs/reference/ARCHITECTURE.md",
-        "docs/reference/STREAMING_PROTOCOL.md",
-        "docs/reference/REQUIREMENTS_TRACEABILITY.md"
-      ]
-    },
-    {
-      "id": "CR-059",
-      "title": "CR-059 共享客户端传输加固与客户端侧事件投影",
-      "path": "reference/changes/CR-059-shared-client-transport-hardening.md",
-      "type": "reference",
-      "scope": "change",
-      "owner": "maintainers",
-      "doc_status": "review-candidate",
-      "decision_status": "accepted",
-      "delivery_status": "implemented",
-      "version": "0.1.0",
-      "updated_at": "2026-09-30",
-      "reviewed_at": "2026-09-30",
-      "review_interval_days": 90,
-      "review_triggers": [],
-      "sources": [
-        "docs/reference/STREAMING_PROTOCOL.md",
-        "packages/api-client/src/transport.ts",
-        "packages/contracts/src/stream-projection.ts",
-        "docs/reference/REQUIREMENTS_TRACEABILITY.md"
-      ]
+      "sources": []
     },
     {
       "id": "AVX-DATA-001",
@@ -1373,25 +1262,6 @@
       ]
     },
     {
-      "id": "AVX-PRD-002",
-      "title": "Aervox｜思隅 产品能力验收标准附录（P1/P2/P3 与专项能力）",
-      "path": "reference/prd-cap-acceptance.md",
-      "type": "reference",
-      "scope": "baseline",
-      "owner": "maintainers",
-      "doc_status": "review-candidate",
-      "decision_status": "not-applicable",
-      "delivery_status": "not-applicable",
-      "version": "1.1.1",
-      "updated_at": "2026-09-17",
-      "reviewed_at": "2026-09-17",
-      "review_interval_days": 90,
-      "review_triggers": [],
-      "sources": [
-        "docs/reference/PRD.md"
-      ]
-    },
-    {
       "id": "AVX-PRD-001",
       "title": "Aervox｜思隅 产品需求文档（伴学桌宠）",
       "path": "reference/PRD.md",
@@ -1426,27 +1296,6 @@
       "sources": []
     },
     {
-      "id": "AVX-SRS-002",
-      "title": "Aervox｜思隅 主动智能模式与外部信号需求规格（SRS 附录）",
-      "path": "reference/srs-proactive-intelligence.md",
-      "type": "reference",
-      "scope": "baseline",
-      "owner": "maintainers",
-      "doc_status": "review-candidate",
-      "decision_status": "not-applicable",
-      "delivery_status": "not-applicable",
-      "version": "1.1.0",
-      "updated_at": "2026-09-10",
-      "reviewed_at": "2026-09-10",
-      "review_interval_days": 90,
-      "review_triggers": [],
-      "sources": [
-        "docs/reference/SRS.md",
-        "docs/reference/PRD.md",
-        "docs/reference/prd-cap-acceptance.md"
-      ]
-    },
-    {
       "id": "AVX-SRS-001",
       "title": "Aervox｜思隅 软件需求规格（SRS）",
       "path": "reference/SRS.md",
@@ -1457,8 +1306,8 @@
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
       "version": "1.3.0",
-      "updated_at": "2026-09-17",
-      "reviewed_at": "2026-09-17",
+      "updated_at": "2026-10-01",
+      "reviewed_at": "2026-10-01",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []

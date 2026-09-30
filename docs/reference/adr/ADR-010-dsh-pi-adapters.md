@@ -89,4 +89,4 @@ review_interval_days: 90
 
 2026-09-28 接受：原生及外部执行路径必须继承根/父执行身份、取消信号、绝对截止、授权与删除修订、本地处理限制、资源预算和事件关联。子任务只能收紧；重试与恢复不能重置预算或权限水位。不能满足合同的 Driver 不准入，不静默回退。
 
-Model Provider 仅负责一次响应，Loop Driver 负责完整循环。每 Turn 只选择一个 Driver；claim/fencing、工具账本、原子结果和终态保持一个执行拥有者，不能嵌套两个 Loop 或复制持久化责任。真实 pi 仍为条件实验，现有模拟器和简化协议不证明工具授权往返或恢复已实现。实施及前置见[CR-056](../changes/CR-056-build-to-delete-pi-style-architecture.md)。
+Model Provider 仅负责一次响应，Loop Driver 负责完整循环。每 Turn 只选择一个 Driver；claim/fencing、工具账本、原子结果和终态保持一个执行拥有者，不能嵌套两个 Loop 或复制持久化责任。真实 pi 仍为条件实验，现有模拟器和简化协议不证明工具授权往返或恢复已实现。实施及前置见 CR-056（已归档至 Aervox-docs-archive）。

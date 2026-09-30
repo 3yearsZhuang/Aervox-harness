@@ -257,7 +257,7 @@
       "id": "ITER-014",
       "batch": "next",
       "status": "已移交",
-      "delivery": "模块公开 Port 与 Build to Delete：评审 ADR-014 的通信/装配差量，建立试点模块边界、MemoryStore 贡献与退出演练；ARC-10、[CR-056](docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md)；CAP-005/007/020 与架构基础设施",
+      "delivery": "模块公开 Port 与 Build to Delete：评审 ADR-014 的通信/装配差量，建立试点模块边界、MemoryStore 贡献与退出演练；ARC-10、CR-056（已归档至 Aervox-docs-archive）；CAP-005/007/020 与架构基础设施",
       "gate": "CR-056 相关决策先接受；模型 Driver 归 ITER-008，生命周期/控制协同 ITER-005/007/013；不要求先改完全部模块，也不阻塞已有缺陷修复",
       "acceptance": [
         "私有引用 fixture 失败、公开 Port 通过、模块可用 Fake Port 测试",
@@ -267,7 +267,7 @@
       "dependsOn": [],
       "statusNote": "2026-09-29 PR #230 四项审查阻断已修复并补证：生命周期/AST 回归与三阶段 11 包零缓存物理退出构建，真实 SQLite 数据权利和恢复通过；具体证据及发布限制见 CR-056 §10.2 / §4.2",
       "links": [
-        "docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md",
+        "docs/reference/changes/README.md",
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
         "https://github.com/3yearsZhuang/Aervox-harness/pull/230"
       ],
@@ -416,7 +416,7 @@
       "id": "ITER-023",
       "batch": "first",
       "status": "已移交",
-      "delivery": "Build to Delete 与类 pi 架构详细规划：[CR-056](docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md) 的固定基线、目标边界、决策差量、实施切片、退出验收与回滚；关联 CAP-002/005/007/018/020/027/033（仅规划）",
+      "delivery": "Build to Delete 与类 pi 架构详细规划：CR-056（已归档至 Aervox-docs-archive）的固定基线、目标边界、决策差量、实施切片、退出验收与回滚；关联 CAP-002/005/007/018/020/027/033（仅规划）",
       "gate": "本项仅交付 Proposed/Planned 的 CR；实现认领继续使用既有 ITER 条目，架构接受、代码实施和发布分别判断",
       "acceptance": [
         "每个切片给出输入依赖、代码落点、契约影响、测试、退出条件与回滚",
@@ -427,7 +427,7 @@
       "statusNote": "2026-09-28 文档移交：CR-056 的九个切片、两项试点、依赖估算及退出/回滚验收已登记；ci-docs 全量通过（治理 33/33、队列 9/9、79 文件排版/术语及严格治理无问题）；CR 保持 Proposed/Planned，未启动业务重构",
       "dependsOn": [],
       "links": [
-        "docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md",
+        "docs/reference/changes/README.md",
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
       ]
     },
@@ -604,7 +604,7 @@
       "owner": "platform",
       "dependsOn": [],
       "links": [
-        "docs/reference/changes/CR-056-build-to-delete-pi-style-architecture.md",
+        "docs/reference/changes/README.md",
         "docs/explanation/reference-design-transfer.md#upstream-20260929"
       ]
     }

@@ -276,4 +276,4 @@ D1～D3 每阶段都必须运行 `mise tasks run ci-code` 与 `mise tasks run ci
 
 `plugins.availability` 为非空文本，默认 `available`，允许写入 `available/missing/invalid/unreadable`。由启动清单扫描写入，独立于用户的 `enabled`、配置/Secret、授权及页面数据。旧库通过幂等新增列兼容，保留原记录，不换库、不清理历史表。未知可用性值按不可执行处理。实现缺席时工具执行/导出、Skill 运行时导出、会话插件切面与 Worker 主动规则均须检查该状态；管理读取和显式数据清理继续可用。
 
-恢复有效包只恢复可用性，不重建撤销的授权或启用用户关闭的插件。旧应用不识别该列，不能直接作为缺包保护的回滚版本；回滚须保留等价门控。元数据与 DDL 同步，验证见[CR-056](changes/CR-056-build-to-delete-pi-style-architecture.md)。
+恢复有效包只恢复可用性，不重建撤销的授权或启用用户关闭的插件。旧应用不识别该列，不能直接作为缺包保护的回滚版本；回滚须保留等价门控。元数据与 DDL 同步，验证见 CR-056（已归档至 Aervox-docs-archive）。

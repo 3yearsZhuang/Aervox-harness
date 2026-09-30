@@ -26,10 +26,8 @@ review_interval_days: 90
 | 文档 | 负责回答 | 事实源边界 |
 |---|---|---|
 | [当前迭代计划](../plan.md)（AVX-PLAN-001） | 接下来建议做什么、依赖什么、谁认领、怎样移交 | 当前迭代建议的唯一入口；不改写需求、决策或发布事实 |
-| [PRD](reference/PRD.md) | 为什么做、为谁做、全生命周期做什么、用户层面如何验收 | 产品定位、场景、CAP-001～CAP-035、优先级、路线和用户级指标 |
-| [能力验收标准附录](reference/prd-cap-acceptance.md)（AVX-PRD-002） | P1/P2/P3 差异化与连接生态能力、主动智能专项能力的验收标准是什么 | 最低可验收结果、DoR 晋级条件、CAP-033/034/035 专项边界 |
-| [SRS](reference/SRS.md)（AVX-SRS-001） | 发布范围内每个行为、异常和业务规则如何原子化 | FR/BR/NFR、Given/When/Then 验收和测试 ID |
-| [主动智能与外部信号需求规格](reference/srs-proactive-intelligence.md)（AVX-SRS-002） | CAP-033 全域感知与个人画像、CAP-034 Home Assistant 连接与 CAP-035 运动健康信号连接原子需求规格 | 授权、观察、画像、后台、动作、派生能力、连接器、DATA/AIQ/SEC/PRIV/OPS 要求 |
+| [PRD](reference/PRD.md) | 为什么做、为谁做、全生命周期做什么、用户层面如何验收 | 产品定位、场景、CAP-001～CAP-035、全量验收标准、优先级、路线和用户级指标 |
+| [SRS](reference/SRS.md)（AVX-SRS-001） | 发布范围内每个行为、异常和业务规则如何原子化 | FR/BR/NFR、Given/When/Then 验收、测试 ID 及主动智能与外部信号规格 |
 | [需求追踪与交付标准](reference/REQUIREMENTS_TRACEABILITY.md) | 每条需求是否完整、由谁负责、怎样证明交付，以及代码落地完成情况 | ID、状态、DoR/DoD、CAP 映射、测试证据、发布门禁、风险和变更控制；§4.1 规格化原则与计划入口；§4.2 落地实现登记 |
 | 能力拆分路线（AVX-EXPL-004，已归档至归档库，见[§4.1](#41-能力拆分路线建议批次)） | CAP 按什么批次、什么顺序进入规格化与开发 | 历史存根；当前建议已统一到根 plan.md，追踪基线保留依赖与规格化原则 |
 
@@ -42,9 +40,7 @@ review_interval_days: 90
 | [ADR 索引](reference/adr/README.md) | 为什么选择当前架构、舍弃了什么方案 | 架构决策状态、后果、迁移和回滚边界 |
 | [能力组合与可选化目录规范](reference/capability-composition.md)（AVX-CAP-001） | 所有业务能力最终如何通过 Manifest、Provider、Adapter 和 Profile 自由组合 | 目标目录、Kernel 不变量、依赖解析、生命周期、DSH/pi 适配与迁移验收 |
 | [能力注册表](reference/capability-registry.md)（AVX-CAP-REG-001） | 哪些能力纳入自选机制、以什么方式启用、当前处于哪个状态 | 交付载体与启用方式、CAP 分类与已注册模块登记；判定规则与交付机制见 AVX-CAP-001 |
-| [Build to Delete 与类 pi 分层架构规划](reference/changes/CR-056-build-to-delete-pi-style-architecture.md)（CR-056） | 如何逐步建立可替换实现、明确装配与安全退出边界 | 待评审差量、九个技术切片、依赖、验收、估算与回滚；当前认领只在根计划，不代表已接受或实施 |
-| [思隅 CLI 连接版](reference/changes/CR-058-siyu-cli-attached-client.md)（CR-058） | 终端如何连接本机服务完成问答与连续会话 | 首个切片的命令边界、退出码、取消语义与本机地址限制；构建/用法见 [CLI 使用说明](../apps/cli/README.md)，剩余差量与发布门禁见 CR-058 §5 |
-| [共享客户端传输加固](reference/changes/CR-059-shared-client-transport-hardening.md)（CR-059） | 桌面端、Web 端与非 Vue 宿主如何共用同一 HTTP/SSE 传输与客户端侧事件投影 | 纯传输子路径导出、可选配置与错误类型、顺序与去重契约；服务端白名单投影明确不在范围 |
+| [变更请求索引与归档导航](reference/changes/README.md)（CR-000） | 架构变更请求（CR）的生命周期、现行活跃提案与历史归档导航 | 活跃提案（CR-055 移动端落地）及已归档历史变更（CR-002～CR-059，外迁至 Aervox-docs-archive） |
 
 ### Agent 与流式协议
 
@@ -114,13 +110,13 @@ review_interval_days: 90
 | [文档生命周期登记表](DOC_REGISTRY.md) | 每份文档何时核验、多久复核、什么信号表示陈旧 | 核验节奏/陈旧信号；独立于索引维护 |
 | [从这里开始](getting-started.md)（AVX-DOC-002，见[§7](#7-从哪开始)） | 新成员/Agent 从哪看起、提交前自检什么 | 导航型；不承载规则 |
 | [暂存提案](proposals) | 尚未进入基线的方案是什么 | 待补充证据（More Evidence Required）或未采纳的技术探索提案；不承载已批准规则 |
-| [变更请求](reference/changes)（现行 CR，编号 ≥ CR-053） | 尚未归档的现行变更提案与决策 | 变更差量、决策状态与回滚预案；已闭环提案（CR-002~052）见私有归档库 |
+| [变更请求](reference/changes/README.md)（现行 CR） | 现行变更请求索引与活跃提案（CR-055 移动端落地） | 变更差量、决策状态与回滚预案；已闭环提案（CR-002~059）见外部归档库 |
 | [移动端落地规划](reference/changes/CR-055-mobile-delivery-plan.md)（CR-055） | 移动 Web、Capacitor 配套端与独立手机端如何分阶段推进 | 待评审提案：范围、连接与数据边界、实施切片及验收；不代表移动端已交付 |
-| 已归档记录（私有归档库） | 历史变更与已退役决策的原始记录是什么 | 已完成或已退役的历史变更；已整体移入独立私有归档仓库，避免混淆当前活跃规范 |
+| 已归档记录（外部归档库） | 历史变更与已退役决策的原始记录是什么 | 已完成或已退役的历史变更；已整体移入独立归档仓库，避免混淆当前活跃规范 |
 
 ### 历史变更请求与临时落地计划归档说明
 
-为保持主仓库文档精炼、避免历史推演过程污染日常检索与 AI 编程上下文，**已确认闭环实施的变更提案（CR-002 至 CR-052，共 50 篇）以及阶段性临时落地计划（CR-033/034/035 plan）已整体归档至独立私有归档仓库 [Aervox-docs-archive](https://github.com/3yearsZhuang/Aervox-docs-archive)**。编号自 **CR-053** 起恢复在主仓库 `docs/reference/changes/` 建立现行变更提案。
+为保持主仓库文档精炼、避免历史推演过程污染日常检索与 AI 编程上下文，**已确认闭环实施的变更提案（CR-002 至 CR-054、CR-056、CR-058、CR-059，共 55 篇）以及阶段性临时落地计划（CR-033/034/035 plan）已整体归档至独立外部归档仓库 [Aervox-docs-archive](https://github.com/3yearsZhuang/Aervox-docs-archive)**。主仓库 `docs/reference/changes/` 仅保留当前活跃的未闭环提案（如 `CR-055`）。
 
 - 主仓库只维护反映当前系统状态的**现行权威真源（Living System Truth）**；
 - 业务需求以 [PRD](reference/PRD.md) 与 [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) 为准；

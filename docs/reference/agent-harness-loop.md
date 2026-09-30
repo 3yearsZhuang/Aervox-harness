@@ -666,4 +666,4 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 
 ## CR-056 执行边界补充
 
-所有 Driver 的准入控制遵循[ADR-010 控制合同](adr/ADR-010-dsh-pi-adapters.md#cr-056-控制合同补充)。宿主注入产品上下文及控制，Loop 不依赖具体数据库或 UI。先保留既有原生 claim、账本与终态拥有者，再通过等价测试迁移装配。客户端暂态进度不能覆盖权威终态；HTTP/SSE 继续使用既有契约，新增水位必须先进入流式契约。此处是已接受约束，具体实现进度见[CR-056](changes/CR-056-build-to-delete-pi-style-architecture.md)。
+所有 Driver 的准入控制遵循[ADR-010 控制合同](adr/ADR-010-dsh-pi-adapters.md#cr-056-控制合同补充)。宿主注入产品上下文及控制，Loop 不依赖具体数据库或 UI。先保留既有原生 claim、账本与终态拥有者，再通过等价测试迁移装配。客户端暂态进度不能覆盖权威终态；HTTP/SSE 继续使用既有契约，新增水位必须先进入流式契约。此处是已接受约束，具体实现进度见 CR-056（已归档至 Aervox-docs-archive）。

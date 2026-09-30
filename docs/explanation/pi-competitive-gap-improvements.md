@@ -30,7 +30,7 @@ sources:
 - 提出人：3yearszhuang · 2026-10-01
 - 修改人：3yearszhuang · 2026-10-01
 
-关联：[PRD](../reference/PRD.md)、[能力注册表](../reference/capability-registry.md)、[架构设计说明书](../reference/ARCHITECTURE.md)、[CR-056 Build to Delete 规划](../reference/changes/CR-056-build-to-delete-pi-style-architecture.md)
+关联：[PRD](../reference/PRD.md)、[能力注册表](../reference/capability-registry.md)、[架构设计说明书](../reference/ARCHITECTURE.md)、CR-056（Build to Delete 规划，已归档至 Aervox-docs-archive）
 
 > [!NOTE] 调研生命周期状态：已落地 / 已转化入队 (Adopted / In Progress)
 > 本文梳理的七项差距已转化为 CR-056（Build to Delete 类 pi 分层）以及迭代计划 ITER-032（保真上下文投影）与 ITER-033（统一模型 Provider 抽象面）建议条目推进。
