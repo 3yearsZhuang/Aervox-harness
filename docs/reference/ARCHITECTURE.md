@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.4
-updated_at: 2026-09-28
-reviewed_at: 2026-09-28
+version: 0.5.0
+updated_at: 2026-09-30
+reviewed_at: 2026-09-30
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 系统架构设计（SAD）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-28
+- 修改人：3yearszhuang · 2026-09-30
 
 关联 PRD：[PRD.md](PRD.md) · 追踪：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
 
@@ -52,6 +52,7 @@ MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应
 
 ```text
 apps/
+  cli/          # 思隅终端连接版：HTTP/SSE 客户端，复用 api-client/transport（CR-058）
   api/          # Fastify 5 HTTP/SSE，按领域模块组织（见 §3.1）
   worker/       # 独立 Worker 进程：Outbox 投递 / 复习排期 / 日记提炼 / 主动智能
   desktop/      # Electron 43 桌面壳（Fairy 桌宠）；复用 web/ui，ADR-009
@@ -72,6 +73,8 @@ packages/
   public/            # 共享图标与 aervox-intro 介绍页静态资产
   ui/                # 共享 Vue 3 组件库、Live2D 控制器与主题 Token
 ```
+
+连接版终端入口 `apps/cli` 只消费 `@aervox/api-client/transport` 的纯传输构建出口，该子路径不加载 Vue composables；CLI 使用根目录统一管理的 esbuild 生成独立 ESM 制品，业务数据与执行权威仍在已有 API/Worker。配置与请求标识回执是宿主私有文件，CLI 不导入 API 私有模块、不直接访问业务库，也不因此新增服务端路由或授权口径；独立 Core 组合另立条目认领。命令边界、受限本机地址、审批与取消语义及兼容范围见 [CR-058](changes/CR-058-siyu-cli-attached-client.md)，实施状态与剩余差量见 [§4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
 ### 3.1 apps/api 内部结构（演进式模块化单体）
 

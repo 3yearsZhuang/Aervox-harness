@@ -11,7 +11,9 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "dev:desktop": "turbo run dev --filter=@aervox/api --filter=@aervox/desktop",
+    "dev:cli": "./aervox dev cli",
     "dev:web": "turbo run dev --filter=@aervox/api --filter=@aervox/web",
+    "cli": "./aervox cli",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test --concurrency=2",
     "test:fast": "pnpm test:unit",
@@ -29,7 +31,8 @@
     "docs:render": "node scripts/render-adr-index.mjs --render",
     "package:plugins": "node scripts/export-plugins.mjs",
     "drill:worker-contention": "node scripts/worker-write-contention-drill.mjs",
-    "dist:desktop": "turbo run build --filter=@aervox/desktop && pnpm --filter @aervox/desktop dist:pack"
+    "dist:desktop": "turbo run build --filter=@aervox/desktop && pnpm --filter @aervox/desktop dist:pack",
+    "test:cli:integration": "turbo run build --filter=@aervox/cli --filter=@aervox/api && node --test scripts/cli-smoke.test.mjs"
   },
   "devDependencies": {
     "@babel/parser": "^8.0.4",
@@ -37,6 +40,7 @@
     "@vitejs/plugin-vue": "^6.0.8",
     "@vue/test-utils": "^2.5.0",
     "electron-builder": "^26.15.3",
+    "esbuild": "0.28.2",
     "fflate": "0.8.2",
     "happy-dom": "^20.14.0",
     "playwright": "^1.62.1",

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+#
+# 思隅 CLI 快捷启动脚本（桌面端同款开发启动体验）
+# 自动检测/启动本机 API 服务，进入思隅终端交互会话
+#
+set -euo pipefail
+cd "$(dirname "$0")"
+
+exec ./aervox dev cli "$@"

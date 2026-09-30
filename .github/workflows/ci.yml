@@ -13,6 +13,7 @@ on:
       - "modules/**"
       - ".gitmodules"
       - "package.json"
+      - "LICENSE"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - "turbo.json"
@@ -33,6 +34,7 @@ on:
       - "modules/**"
       - ".gitmodules"
       - "package.json"
+      - "LICENSE"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - "turbo.json"
@@ -139,6 +141,9 @@ jobs:
         env:
           TURBO_CACHE_DIR: ${{ runner.temp }}/turbo-cache
         run: mise tasks run ci-code
+
+      - name: Verify CLI package and persisted conversation
+        run: mise exec -- pnpm test:cli:integration
 
       # 失败也保存（if: always()）：已成功任务的缓存条目不应随本次
       # 门禁失败而丢弃；save key 与本次 restore key 一致（run_id 唯一，必然 miss → 必然保存）。
