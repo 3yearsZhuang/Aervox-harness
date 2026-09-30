@@ -6,6 +6,7 @@ import fs from "node:fs";
 import {
   busyBackoffMs,
   isSqliteBusyError,
+  isSqliteConnectionPoisonedError,
   runWithBusyRetry,
   withBusyRetry,
 } from "../src/index.js";
@@ -38,6 +39,45 @@ describe("T-01 SQLite 写竞争重试拦截器", () => {
     expect(isSqliteBusyError("sqlite_busy")).toBe(true);
     expect(isSqliteBusyError(new Error("no such table: x"))).toBe(false);
     expect(isSqliteBusyError(new Error("foreign key constraint failed"))).toBe(false);
+  });
+
+  it("终态/编程类错误即使带 SQLITE_BUSY 字样也不判为可重试", () => {
+    // libsql@0.4.7 在 BEGIN 竞争失败后连接残留语句状态，commit 会报此错；
+    // 这是连接损坏的终态信号，重试必然失败，必须立即抛出（曾导致最坏 57s 停顿）。
+    expect(
+      isSqliteBusyError(
+        new Error("SQLITE_BUSY: cannot commit transaction - SQL statements in progress"),
+      ),
+    ).toBe(false);
+    expect(
+      isSqliteBusyError(new Error("cannot start a transaction within a transaction")),
+    ).toBe(false);
+    // 纯锁竞争仍然可重试
+    expect(isSqliteBusyError(new Error("SQLITE_BUSY: database is locked"))).toBe(true);
+
+    // 连接进入不可写状态的专用判定：调用方据此记致命日志并提示重启，而不是重试。
+    // 实测（Node 24 + libsql 0.4.7）：命中后进程内 rollback/重连都无法恢复可写性，
+    // 且其他连接与进程也会以 database is locked 失败，只有进程退出才释放写锁。
+    expect(
+      isSqliteConnectionPoisonedError(
+        new Error("SQLITE_BUSY: cannot commit transaction - SQL statements in progress"),
+      ),
+    ).toBe(true);
+    expect(isSqliteConnectionPoisonedError(new Error("SQLITE_BUSY: database is locked"))).toBe(
+      false,
+    );
+  });
+
+  it("连接终态错误不进入重试循环（只执行一次）", async () => {
+    const operation = vi
+      .fn()
+      .mockRejectedValue(
+        new Error("SQLITE_BUSY: cannot commit transaction - SQL statements in progress"),
+      );
+    await expect(
+      runWithBusyRetry(operation, { attempts: 5, baseDelayMs: 1, maxDelayMs: 1 }),
+    ).rejects.toThrow(/statements in progress/i);
+    expect(operation).toHaveBeenCalledTimes(1);
   });
 
   it("busyBackoffMs 按指数退避并封顶", () => {
