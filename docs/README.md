@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.16.1
-updated_at: 2026-09-29
-reviewed_at: 2026-09-29
+version: 1.16.2
+updated_at: 2026-09-30
+reviewed_at: 2026-09-30
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 产品与工程文档索引
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-29
+- 修改人：3yearszhuang · 2026-09-30
 
 本目录把产品目标、可测试需求、架构决策、数据权利和 AI 质量分开维护，避免单一 PRD 同时承担所有细节。所有上线范围必须能从用户价值追踪到需求、设计、测试和发布证据。
 
@@ -43,6 +43,7 @@ review_interval_days: 90
 | [能力组合与可选化目录规范](reference/capability-composition.md)（AVX-CAP-001） | 所有业务能力最终如何通过 Manifest、Provider、Adapter 和 Profile 自由组合 | 目标目录、Kernel 不变量、依赖解析、生命周期、DSH/pi 适配与迁移验收 |
 | [能力注册表](reference/capability-registry.md)（AVX-CAP-REG-001） | 哪些能力纳入自选机制、以什么方式启用、当前处于哪个状态 | 交付载体与启用方式、CAP 分类与已注册模块登记；判定规则与交付机制见 AVX-CAP-001 |
 | [Build to Delete 与类 pi 分层架构规划](reference/changes/CR-056-build-to-delete-pi-style-architecture.md)（CR-056） | 如何逐步建立可替换实现、明确装配与安全退出边界 | 待评审差量、九个技术切片、依赖、验收、估算与回滚；当前认领只在根计划，不代表已接受或实施 |
+| [共享客户端传输加固](reference/changes/CR-059-shared-client-transport-hardening.md)（CR-059） | 桌面端、Web 端与非 Vue 宿主如何共用同一 HTTP/SSE 传输与客户端侧事件投影 | 纯传输子路径导出、可选配置与错误类型、顺序与去重契约；服务端白名单投影明确不在范围 |
 
 ### Agent 与流式协议
 
