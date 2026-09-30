@@ -43,6 +43,7 @@ review_interval_days: 90
 | [能力组合与可选化目录规范](reference/capability-composition.md)（AVX-CAP-001） | 所有业务能力最终如何通过 Manifest、Provider、Adapter 和 Profile 自由组合 | 目标目录、Kernel 不变量、依赖解析、生命周期、DSH/pi 适配与迁移验收 |
 | [能力注册表](reference/capability-registry.md)（AVX-CAP-REG-001） | 哪些能力纳入自选机制、以什么方式启用、当前处于哪个状态 | 交付载体与启用方式、CAP 分类与已注册模块登记；判定规则与交付机制见 AVX-CAP-001 |
 | [Build to Delete 与类 pi 分层架构规划](reference/changes/CR-056-build-to-delete-pi-style-architecture.md)（CR-056） | 如何逐步建立可替换实现、明确装配与安全退出边界 | 待评审差量、九个技术切片、依赖、验收、估算与回滚；当前认领只在根计划，不代表已接受或实施 |
+| [思隅 CLI 连接版](reference/changes/CR-058-siyu-cli-attached-client.md)（CR-058） | 终端如何连接本机服务完成问答与连续会话 | 首个切片的命令边界、退出码、取消语义与本机地址限制；构建/用法见 [CLI 使用说明](../apps/cli/README.md)，剩余差量与发布门禁见 CR-058 §5 |
 | [共享客户端传输加固](reference/changes/CR-059-shared-client-transport-hardening.md)（CR-059） | 桌面端、Web 端与非 Vue 宿主如何共用同一 HTTP/SSE 传输与客户端侧事件投影 | 纯传输子路径导出、可选配置与错误类型、顺序与去重契约；服务端白名单投影明确不在范围 |
 
 ### Agent 与流式协议

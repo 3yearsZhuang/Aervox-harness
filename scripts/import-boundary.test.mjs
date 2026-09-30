@@ -149,3 +149,9 @@ test("组合根无目录豁免；过渡授权必须精确到边且具备责任�
 test("TSImportType 也遵循原有包边界", () => {
   assert.deepEqual(v("packages/agent-loop/src/ports.ts", 'type X = import("@aervox/repositories").X'), ["agent-loop-no-db"]);
 });
+
+// 新增终端 Shell 后，所有现有底座必须维持单向依赖。
+test("共享包和能力层不得反向导入 CLI 宿主", () => {
+  assert.deepEqual(v("packages/api-client/src/transport.ts", 'import "@aervox/cli";'), ["packages-no-host-imports"]);
+  assert.deepEqual(v("modules/example/src/index.ts", 'import "@aervox/cli";'), ["capability-layer-no-db-no-host"]);
+});

@@ -23,6 +23,9 @@ importers:
       electron-builder:
         specifier: ^26.15.3
         version: 26.15.3(electron-builder-squirrel-windows@26.15.3)(supports-color@7.2.0)
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
       fflate:
         specifier: 0.8.2
         version: 0.8.2
@@ -96,6 +99,15 @@ importers:
       tsx:
         specifier: ^4.19.2
         version: 4.23.12
+
+  apps/cli:
+    devDependencies:
+      '@aervox/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
 
   apps/desktop:
     dependencies:
