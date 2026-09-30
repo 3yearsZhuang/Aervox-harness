@@ -28,6 +28,7 @@
     "plan:render": "node scripts/plan-queue.mjs --render",
     "docs:render": "node scripts/render-adr-index.mjs --render",
     "package:plugins": "node scripts/export-plugins.mjs",
+    "drill:worker-contention": "node scripts/worker-write-contention-drill.mjs",
     "dist:desktop": "turbo run build --filter=@aervox/desktop && pnpm --filter @aervox/desktop dist:pack"
   },
   "devDependencies": {

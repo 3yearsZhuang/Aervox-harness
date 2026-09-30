@@ -496,17 +496,19 @@
         "`apps/worker/test/worker-host.test.ts`",
         "`packages/repositories/test/worker-ipc.test.ts`",
         "`packages/repositories/test/turn-store-begin-contention.test.ts`",
+        "`packages/repositories/test/client-self-heal.test.ts`",
         "`apps/api/test/worker-pressure-lease.test.ts`",
         "`apps/api/test/conversation-dispatch-resilience.test.ts`"
       ],
       "owner": "platform/data",
       "branch": "feat/iter-027-028-sqlite-worker-p2p",
-      "statusNote": "2026-09-29 落地 IPC 唤醒（含投递确认与 0600 权限）、Worker 写入压力退避（只延长不缩短、按任务基准成倍拉长、窗口单调、时长有界）、API 侧压力租约（含 10 分钟硬上限）、worker 优雅退出，以及事务 BEGIN 竞争的快速失败。已实测：worker-concurrency-backoff 4/4、worker-host 15/15、worker-ipc 14/14、turn-store-begin-contention 2/2、write-retry 12/12、worker-pressure-lease 4/4、outbox-worker 4/4、conversation-dispatch-resilience 2/2。未实测：验收中的『写锁冲突率降至 0』与『长周期压测下无 SQLITE_BUSY/P99 抖动』需要真实多进程压测；本轮并发用例为单进程顺序写入，未取得该两项证据，故不标记整项移交。严重已知缺口（实测）：BEGIN 竞争失败后该连接无法提交后续事务，且该进程存活期间其他连接与另一进程的写入同样以 database is locked 失败（被遗弃事务持有写锁）；进程内 rollback 与重建连接均无法恢复，只有进程退出才释放。本轮只做到快速失败与不误判，自动恢复能力另立 CR",
+      "statusNote": "2026-09-29 落地 IPC 唤醒（含投递确认与 0600 权限）、Worker 写入压力退避（只延长不缩短、按任务基准成倍拉长、窗口单调、时长有界）、API 侧压力租约（含 10 分钟硬上限）、worker 优雅退出，以及事务 BEGIN 竞争的快速失败。已实测：worker-concurrency-backoff 4/4、worker-host 15/15、worker-ipc 14/14、turn-store-begin-contention 2/2、write-retry 12/12、worker-pressure-lease 4/4、outbox-worker 4/4、conversation-dispatch-resilience 2/2。未实测：验收中的『写锁冲突率降至 0』与『长周期压测下无 SQLITE_BUSY/P99 抖动』需要真实多进程压测；本轮并发用例为单进程顺序写入，未取得该两项证据，故不标记整项移交。连接自愈（本轮实测驱动，已修复）：实测 libsql 0.4.7 下**任何** SQLITE_BUSY 都会污染连接（不止 BEGIN 阶段；普通 execute 的 busy 同样如此），同连接重试会把污染掩盖成“重试成功”，随后事务 commit 报 statements in progress 并永久持有写锁（进程内 rollback/commit/tx.close/重建连接都无法释放）。据此推翻旧的“execute 同连接重试安全”假设：createDatabase 现返回可自愈 client，任一 busy 或污染即换连接（绝不在污染连接上开启事务），换连接后仅重试一次。多进程演练（pnpm drill:worker-contention，真实多进程，Apple M5/Node 24/libsql 0.4.7）：修复前 3 写入者生产默认配置 6/6 次运行均出现终态 statements in progress、写入者提前死亡、outbox 积压 4706；修复后 0 逃逸 busy、0 污染——3 写入者 @200ms 为 CLEAN（497/497 写，p50 3.6/p95 8.6/p99 16.7ms，outbox pending 0），@50ms（1691 写）与 @0ms（4088 写）写入全部成功且无错误，但 outbox 消费跟不上（压力模式每 6s 一轮 ≈8.3 事件/s），完整性检查因积压未通过，属吞吐上限而非锁错误。未达标项：“写锁冲突率降至 0”不成立——高竞争下仍发生冲突（48～1217 次换连接），只是不再以错误暴露",
       "dependsOn": [
         "ITER-002"
       ],
       "links": [
-        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
+        "scripts/worker-write-contention-drill.mjs"
       ]
     },
     {
