@@ -6,20 +6,22 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.1
-updated_at: 2026-09-16
-reviewed_at: 2026-09-16
+version: 0.4.2
+updated_at: 2026-09-30
+reviewed_at: 2026-09-30
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 Turn 流式协议（SPC）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-16
+- 修改人：3yearszhuang · 2026-09-30
 
 关联：`ADR-002`、`ADR-012`、`CR-019`、`CR-022`、`CR-027`、`CR-030`、`NFR-PERF-001`、`NFR-REL-001`、`NFR-SEC-001`
 
 本文是对话流式 API 和客户端行为的可执行契约。OpenAPI 3.1 描述 HTTP 资源、鉴权和错误；本文件描述 SSE 事件 envelope、状态机、重连、取消、幂等和持久化顺序。实现必须从同一份 `packages/contracts` schema 生成服务端校验、客户端类型和契约测试，不能只依赖本文件中的示例。
+
+本文的客户端侧顺序与去重契约由 `packages/contracts/src/stream-projection.ts` 的 Schema 白名单与 `packages/api-client/src/projector.ts` 的 `TurnStreamProjector` 承载：Fetch 传输在三次连接尝试内保留同一 Turn、同一 Projector 与最后已投递事件游标，`HTTP 410` 明确失败而不新建 Turn，重复或乱序事件按序号丢弃；Electron IPC 传输复用同一 Projector，并在终态后丢弃迟到消息。**服务端实时与历史回放的白名单投影不在本次变更范围内**（其对应改动随 PR #231 一并被 #232 回退），因此服务端仍按原样下发事件；本变更只覆盖客户端侧投影与游标重连，复用既有 SSE 合同，未新增服务端路由、授权口径或 Schema。接口、兼容与剩余差量见 [CR-059](changes/CR-059-shared-client-transport-hardening.md)。
 
 ## 1. 适用范围与不变量
 
