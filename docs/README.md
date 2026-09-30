@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.16.2
-updated_at: 2026-09-30
-reviewed_at: 2026-09-30
+version: 1.16.3
+updated_at: 2026-10-01
+reviewed_at: 2026-10-01
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 产品与工程文档索引
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-30
+- 修改人：3yearszhuang · 2026-10-01
 
 本目录把产品目标、可测试需求、架构决策、数据权利和 AI 质量分开维护，避免单一 PRD 同时承担所有细节。所有上线范围必须能从用户价值追踪到需求、设计、测试和发布证据。
 
@@ -98,6 +98,7 @@ review_interval_days: 90
 | [当前架构实现与演进评估](explanation/architecture-implementation-review.md)（AVX-EXPL-012） | 实际进程、数据和执行链路如何运转，底层应如何继续演进 | 14 个深入专题、故障实验、模块边界、持久恢复、资源与部署、选项权衡和测量计划；不改写已接受决策 |
 | [HLS 本地智能体竞赛：能力拓展与验证规划](explanation/hls-agent-competition-plan.md)（AVX-EXPL-013） | 三人团队如何验证本地模型在 HLS 设计中的工具反馈增益并准备竞赛交付 | 赛规来源、能力缺口、阶段准入、对照实验、去留标准与冻结产物；当前认领和排序见根 plan.md，不代表实现或产品化已批准 |
 | [纯本地多端点对点加密同步架构探索](explanation/p2p-local-sync-exploration.md)（AVX-EXPL-014） | 纯本地多设备同步的威胁模型、配对与冲突合并应如何取舍 | 探索性设计输入与未实现清单；不代表已接线能力或发布承诺，当前状态见根 plan.md 与追踪基线 |
+| [Pi AI 竞品差距分析与改进建议](explanation/pi-competitive-gap-improvements.md)（AVX-EXPL-015） | Pi AI 的关系型 AI 体验如何暴露思隅陪伴层的结构性缺陷 | 七项差距评估、三波改进建议、涉及 CAP/ADR 兼容性分析与实施优先级；设计输入，不代表实施授权 |
 | [配套硬件方向：能力核查、移动协同取舍与原型路线](explanation/companion-hardware-directions.md)（AVX-EXPL-011） | 当前能力能支撑哪些硬件、手机已替代什么、哪些值得保留、如何从最小原型推进 | 能力现状与真机缺口、九方向实证、手机重合与过度设计取舍、ESP32 工程边界、成本口径、阶段准入、停止条件与验证矩阵；不冻结设备协议；器件级事实仍见 [ESP32-S3 硬件延伸方案](explanation/esp32-s3-hardware-extension.md) |
 | Home Assistant 集成评估（已归档）（AVX-EXPL-006） | 如何为 Aervox 引入 Home Assistant 支持 | 候选方案与后续路线；推荐组合已由 CR-024/ADR-019 接受 |
 | 运动与健康数据接入评估（已归档）（AVX-EXPL-007） | 是否可以接入苹果/小米运动健康数据（步数、睡眠、情绪） | 小米每日指标路径已由 CR-024/ADR-019 接受；苹果与情绪健康仍为评估输入 |
