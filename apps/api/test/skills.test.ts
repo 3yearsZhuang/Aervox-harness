@@ -10,6 +10,7 @@ import os from "node:os";
 import path from "node:path";
 import { createInMemoryDatabase, initDatabaseSchema, SqliteSkillRegistryRepository, type AervoxDatabase } from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
+import { DEFAULT_SKILLS_ROOT } from "../src/modules/ecosystem/skills/skill-manager.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
 
@@ -590,5 +591,16 @@ describe("CAP-020 插件 Skill 联动（阶段5）", () => {
     await expect(
       fs.access(path.join(skillsRoot, "flashcards")),
     ).rejects.toBeTruthy();
+  });
+
+  it("DEFAULT_SKILLS_ROOT 必须指向 monorepo 根目录的 data/skills，不落入 apps/data", async () => {
+    expect(DEFAULT_SKILLS_ROOT).toMatch(/[\\/]data[\\/]skills$/);
+    expect(DEFAULT_SKILLS_ROOT).not.toContain(path.join("apps", "data"));
+    const repoRootDir = path.resolve(DEFAULT_SKILLS_ROOT, "..", "..");
+    const hasRootPackageJson = await fs
+      .access(path.join(repoRootDir, "package.json"))
+      .then(() => true)
+      .catch(() => false);
+    expect(hasRootPackageJson).toBe(true);
   });
 });
