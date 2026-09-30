@@ -22,6 +22,7 @@ import type {
   TurnCallbacks,
   UploadedAttachment,
 } from './transport';
+import { TurnStreamProjector } from './projector';
 
 declare global {
   interface Window {
@@ -156,7 +157,9 @@ function streamTurnViaBridge(
     };
     armIdleTimer();
 
+    const projector = new TurnStreamProjector();
     stop = bridge.streamTurn(content, { toolApprovalMode, attachments, requestId, metadata }, (message) => {
+      if (settled) return;
       armIdleTimer();
       if (!message || typeof message !== 'object') return;
       const envelope = message as { type?: unknown; event?: unknown; message?: unknown };
@@ -170,28 +173,13 @@ function streamTurnViaBridge(
       }
       if (envelope.type !== 'event' || !envelope.event || typeof envelope.event !== 'object') return;
       const event = envelope.event as TurnStreamEvent;
-      if (event.eventType === 'delta') callbacks.onDelta((event.data as { text: string }).text);
-      if (event.eventType === 'reasoning_delta') {
-        const text = (event.data as { text?: string }).text;
-        if (text) callbacks.onReasoning?.(text);
-      }
-      if (event.eventType === 'done') callbacks.onDone();
-      if (event.eventType === 'error') {
-        const error = new Error((event.data as { message?: string }).message ?? 'Turn 出错');
-        callbacks.onError?.(error);
-        settle(() => reject(error));
-        return;
-      }
-      if (event.eventType === 'emote') callbacks.onEmote?.(event.data as PetCommand);
-      if (event.eventType === 'user_question_required') {
-        callbacks.onUserQuestion?.(event.data as UserQuestionRequiredEventData);
-      }
-      if (event.eventType === 'tool_approval_required') {
-        callbacks.onToolApproval?.({ ...(event.data as ToolApprovalRequiredEventData), turnId: event.turnId });
-      }
-      if (event.eventType === 'terms_extracted') {
-        callbacks.onTermsExtracted?.(event.data as import('@aervox/contracts').TermsExtractedEventData);
-      }
+      projector.project(event, {
+        ...callbacks,
+        onError: (err) => {
+          callbacks.onError?.(err);
+          settle(() => reject(err));
+        },
+      });
     });
   });
 }
