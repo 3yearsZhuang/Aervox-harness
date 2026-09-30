@@ -27,6 +27,11 @@
       "dependsOn": ["^build"],
       "cache": false
     },
+    "@aervox/cli#build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "../../LICENSE"],
+      "outputs": ["dist/**"]
+    },
     "dev": {
       "dependsOn": ["^build"],
       "cache": false,

@@ -1,7 +1,7 @@
 # Aervox｜思隅
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-27
+- 修改人：3yearszhuang · 2026-09-30
 
 > **全新交互减法下的“主动智能”，属于你的贾维斯，或者--属于你的爱弥斯。**
 >
@@ -135,10 +135,13 @@
 
 ---
 
+终端开发预览入口为 `siyu`，连接已有本机服务完成问答与连续会话。构建、用法与当前边界见 [CLI 使用说明](apps/cli/README.md)，实施状态与剩余差量见 [CR-058](docs/reference/changes/CR-058-siyu-cli-attached-client.md) 与 [plan.md](plan.md) 的 ITER-029。
+
 ## 仓库组织架构
 
 ```text
 apps/
+  cli/              思隅终端连接版（siyu），复用共享 HTTP/SSE 传输（CR-058）
   api/              Fastify 5 API 服务，按领域模块组织（20+ modules/*，见 ADR-014）
   web/              Vue 3 对话与伴学工作台（对话 / 练习 / 扩展中心 / 沉浸式桌宠）
   desktop/          Electron 桌面端（Fairy，独立透明桌宠窗口、Dock 工具栏与托盘）
@@ -166,9 +169,9 @@ packages/
 
 为了从根源上杜绝架构文档、数据库定义、跨层契约与依赖拓扑随时间推移产生的多源漂移，仓库内置了 5 道自动化防漂移系统级门禁（在本地 `./aervox ci` 与 GitHub Actions CI 中严格阻断）：
 
-- **Guard 1 (P0 表结构双源等价守卫)**：内存 SQLite DDL 与 Drizzle Schema 全量 133 表双向等价断言，杜绝建表遗漏 Schema 或 Schema 遗漏 DDL；
+- **Guard 1 (P0 表结构双源等价守卫)**：内存 SQLite DDL 与 Drizzle Schema 全量 134 表双向等价断言，杜绝建表遗漏 Schema 或 Schema 遗漏 DDL；
 - **Guard 2 (P0 AST 级租户遗留标识拦截)**：基于 Babel AST 语法树遍历，硬性阻断 `TenantContext`、`tenantId` 及承载 `LocalContext` 的 `tenant` 变量复发；
-- **Guard 3 (P1 文档-代码自动渲染与校验)**：校验 133 张表在覆盖矩阵中的登记完整性、校验 18 个工作区包与架构拓扑对齐、自动化 ADR 索引生成与 `--check` 一致性门禁；
+- **Guard 3 (P1 文档-代码自动渲染与校验)**：校验 134 张表在覆盖矩阵中的登记完整性、校验 19 个工作区包与架构拓扑对齐、自动化 ADR 索引生成与 `--check` 一致性门禁；
 - **Guard 4 (P1 跨层 DTO 类型单一真源)**：扫描下游应用层，严禁本地重复声明已由 `@aervox/contracts` 导出的 DTO 类型；
 - **Guard 5 (P2 依赖提升与版本分裂治理)**：扫描子包 `package.json`，严禁重复声明根级构建工具（`typescript`、`turbo`、`vitest` 等）。
 

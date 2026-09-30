@@ -26,13 +26,15 @@ HELP="$(
 
 命令:
   setup                        前置安装: mise install(幂等) + 重新解析依赖
-  dev [full|web|desktop|worker|api]
+  dev [full|web|desktop|cli|worker|api]
                                启动开发服务:
                                  full      = API + Web + Desktop + Worker (默认)
                                  web       = API + Web(5173)
                                  desktop   = API + Desktop(Electron)
+                                 cli       = API + 终端交互客户端(siyu chat)
                                  worker    = 仅 Worker(后台任务)
                                  api       = 仅 API(3000)
+  cli [参数...]                启动思隅终端客户端(siyu); 默认启动连续对话(chat)
   mobile                       构建 Web 产物并同步 Capacitor 壳(cap sync web)
   package                      打包桌面端安装包(electron-builder, 产物 apps/desktop/release/)
   clean                        清理构建产物 dist/out/.turbo(保留 node_modules)
@@ -127,6 +129,9 @@ cmd_dev() {
       info "启动 Desktop(Electron) + API(+3000)…"
       run pnpm exec turbo run dev --filter=@aervox/api --filter=@aervox/desktop
       ;;
+    cli)
+      cmd_dev_cli
+      ;;
     worker)
       info "启动 Worker(后台任务)…"
       run pnpm exec turbo run dev --filter=@aervox/worker
@@ -136,9 +141,61 @@ cmd_dev() {
       run pnpm exec turbo run dev --filter=@aervox/api
       ;;
     *)
-      fail "未知 dev 目标: ${target}（可用: full | web | desktop | worker | api）"
+      fail "未知 dev 目标: ${target}（可用: full | web | desktop | cli | worker | api）"
       ;;
   esac
+}
+
+cmd_cli() {
+  ensure_deps
+  if [ ! -f apps/cli/dist/index.js ]; then
+    info "构建 CLI 产物…"
+    run pnpm --filter @aervox/cli build
+  fi
+  run node apps/cli/dist/index.js "${@:-chat}"
+}
+
+cmd_dev_cli() {
+  ensure_deps
+  info "检查并构建 CLI 产物…"
+  run pnpm --filter @aervox/cli build
+  local api_url="${SIYU_API_URL:-http://127.0.0.1:3000}"
+  local api_pid=""
+
+  if curl -s -o /dev/null -w "%{http_code}" "$api_url/v1/sessions?limit=1" >/dev/null 2>&1; then
+    ok "思隅 API 服务已在运行: $api_url"
+  else
+    info "正在后台启动思隅 API 服务(+3000)…"
+    mkdir -p .logs
+    run pnpm exec turbo run dev --filter=@aervox/api > .logs/api-dev.log 2>&1 &
+    api_pid=$!
+    local attempts=0
+    local ready=0
+    while [ $attempts -lt 40 ]; do
+      if curl -s "$api_url/v1/sessions?limit=1" >/dev/null 2>&1; then
+        ready=1
+        break
+      fi
+      sleep 0.5
+      attempts=$((attempts + 1))
+    done
+    if [ $ready -eq 1 ]; then
+      ok "思隅 API 服务已就绪: $api_url"
+    else
+      warn "API 启动耗时较长或请查看 .logs/api-dev.log"
+    fi
+  fi
+
+  cleanup() {
+    if [ -n "$api_pid" ] && kill -0 "$api_pid" 2>/dev/null; then
+      info "正在停止由本会话启动的后台思隅 API 服务…"
+      kill "$api_pid" 2>/dev/null || true
+    fi
+  }
+  trap cleanup EXIT INT TERM
+
+  info "启动思隅终端客户端 (siyu chat)…"
+  run node apps/cli/dist/index.js chat
 }
 
 cmd_mobile() {
@@ -220,6 +277,7 @@ case "$CMD" in
   help|-h|--help)          help ;;
   setup)                   cmd_setup ;;
   dev)                     cmd_dev "${1:-full}" ;;
+  cli)                     cmd_cli "$@" ;;
   mobile)                  cmd_mobile ;;
   package)                 cmd_package ;;
   clean)                   cmd_clean ;;

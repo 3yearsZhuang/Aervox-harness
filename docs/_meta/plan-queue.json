@@ -535,6 +535,34 @@
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
         "docs/explanation/p2p-local-sync-exploration.md"
       ]
+    },
+    {
+      "id": "ITER-029",
+      "batch": "first",
+      "status": "执行中",
+      "delivery": "思隅 CLI 连接版首个切片：新增终端宿主 `@aervox/cli`（`siyu`）与 `@aervox/api-client/transport` 纯传输构建出口；提供单次问答、仅 TTY 连续会话、事件补读与终态等待、连接诊断、配置读写、JSON/JSONL 机器输出、Token 与幂等键、审批与用户问题、有界取消；CAP-002/007/020；CR-058",
+      "gate": "只消费本机 API 与共享传输层；不修改服务端路由、授权与恢复合同，不新增数据库 Schema，不引入中心化服务或独立宿主",
+      "acceptance": [
+        "打包产物在真实 API + 文件 SQLite 下完成受理/流式/终态、跨客户端与 API 重启的补读与续会话",
+        "非交互路径不自动批准工具；有界取消只在中断时触发，超时或失败不替用户取消已受理回合",
+        "架构拓扑、依赖边界与文档治理门禁通过，CLI 不反向依赖共享包，共享包也不反向引用 CLI 宿主"
+      ],
+      "checks": [
+        "`apps/cli/test/cli.test.ts`",
+        "`scripts/cli-smoke.test.mjs`",
+        "`packages/api-client/test/transport.test.ts`",
+        "`packages/api-client/test/projector.test.ts`",
+        "`scripts/import-boundary.test.mjs`"
+      ],
+      "owner": "Codex",
+      "branch": "feat/siyu-cli-attached",
+      "statusNote": "2026-09-30 执行中：从 main 重建 CLI-only 分支，剔除原 PR #235 中已被 #232 回退的 CR-056/ADR-020 全线（不重放执行管线、审批 SPI、HostToolRuntime 下沉、agent-executor 重写与 UI 投射防御，也不做全仓 @types/node 搬迁与 Vitest 并发策略改动）；CLI 25 项、api-client 60 项、`pnpm test:cli:integration` 2/2 通过；剩余差量：真实 Provider 工具往返、会话详情/分页、模型配置入口、跨进程恢复查询、平台矩阵与生产分发，故不标记移交",
+      "dependsOn": [],
+      "links": [
+        "docs/reference/changes/CR-058-siyu-cli-attached-client.md",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#cli-attached-20260930",
+        "apps/cli/README.md"
+      ]
     }
   ]
 }

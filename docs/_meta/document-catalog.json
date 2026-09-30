@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-09-30",
-  "totalCount": 75,
+  "totalCount": 76,
   "documents": [
     {
       "id": "AVX-PLAN-001",
@@ -998,9 +998,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.4.4",
-      "updated_at": "2026-09-28",
-      "reviewed_at": "2026-09-28",
+      "version": "0.5.0",
+      "updated_at": "2026-09-30",
+      "reviewed_at": "2026-09-30",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -1153,6 +1153,29 @@
         "docs/explanation/architecture-implementation-review.md",
         "docs/reference/REQUIREMENTS_TRACEABILITY.md",
         "plan.md"
+      ]
+    },
+    {
+      "id": "CR-058",
+      "title": "CR-058 思隅 CLI 连接版首个实施切片",
+      "path": "reference/changes/CR-058-siyu-cli-attached-client.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "accepted",
+      "delivery_status": "implemented",
+      "version": "0.3.0",
+      "updated_at": "2026-09-30",
+      "reviewed_at": "2026-09-30",
+      "review_interval_days": 90,
+      "review_triggers": [],
+      "sources": [
+        "plan.md",
+        "docs/reference/PRD.md",
+        "docs/reference/ARCHITECTURE.md",
+        "docs/reference/STREAMING_PROTOCOL.md",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md"
       ]
     },
     {

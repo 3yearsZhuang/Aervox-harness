@@ -57,7 +57,7 @@ export const RULES = [
     docRef: "ADR-016",
     fromDir: /^packages\/[^/]+\/(src|test)\//,
     forbid: [
-      { pattern: /^@aervox\/(api|worker|web|desktop|mobile)$/, label: "宿主 Shell 包" },
+      { pattern: /^@aervox\/(api|worker|web|desktop|mobile|cli)$/, label: "宿主 Shell 包" },
     ],
   },
   {
@@ -78,7 +78,7 @@ export const RULES = [
       { pattern: /^@aervox\/(database|schema|repositories)($|\/)/, label: "数据库/模式/仓储" },
       { pattern: /^@libsql\//, label: "@libsql/client" },
       { pattern: /^drizzle-orm($|\/)/, label: "drizzle-orm" },
-      { pattern: /^@aervox\/(api|worker|web|desktop|mobile)$/, label: "宿主 Shell 包" },
+      { pattern: /^@aervox\/(api|worker|web|desktop|mobile|cli)$/, label: "宿主 Shell 包" },
     ],
   },
 ];
