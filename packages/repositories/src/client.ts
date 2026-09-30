@@ -11,9 +11,196 @@ import { fileURLToPath } from "node:url";
 import { createClient, type Client } from "@libsql/client";
 import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
 import * as schema from "@aervox/schema";
-import { withBusyRetry, type BusyRetryConfig } from "./write-retry.js";
+import {
+  withBusyRetry,
+  isSqliteBusyError,
+  isSqliteConnectionPoisonedError,
+  type BusyRetryConfig,
+} from "./write-retry.js";
 
 export type AervoxDatabase = LibSQLDatabase<typeof schema>;
+
+/**
+ * 具备连接自愈能力的 client。
+ *
+ * 背景（实测，Node 24 + libsql 0.4.7 + @libsql/client 0.14.0）：
+ * 1) `transaction()` 在 BEGIN 阶段遇到写锁竞争而失败时，该连接会残留语句状态，
+ *    之后同一连接 `commit` 报 `SQL statements in progress`；
+ * 2) 只有**关闭该连接并新建连接**能恢复可写性（`ROLLBACK`/`COMMIT`/`tx.close()` 均无效）；
+ * 3) 更严重的是：若在**已被污染**的连接上又成功 BEGIN，随后 commit 失败，则被遗弃的事务会
+ *    永久持有写锁——实测进程内任何清理手段（tx.rollback/tx.close/client.close/新建连接）都无法
+ *    释放，只有进程退出才行。
+ *
+ * 因此本层的核心不变量是：**绝不在可能已被污染的连接上开启事务**。
+ * - 任何可恢复错误（连接污染，或 BEGIN 阶段竞争失败）都会**同步标记**该连接不可用，
+ *   并在换连接成功后才清除标记；
+ * - 所有写入口在执行前先 `ensureHealthy()`，等待在途重连或主动重连，从而让第 (3) 类
+ *   不可恢复状态在构造上不可达；
+ * - 换连接后仅重试一次（不是在同一连接上重试 BEGIN）。
+ *
+ * 外层 `withBusyRetry` 负责同一连接内的退避重试；两层职责分明。
+ */
+export interface ReconnectableClient extends Client {
+  /** 关闭当前连接并建立新连接；并发调用共享同一次重连，可重复调用 */
+  reconnect(): Promise<void>;
+  /** 已发生的重连次数（观测与测试用） */
+  reconnectCount(): number;
+}
+
+/**
+ * 用可替换连接的对象包装 client：所有方法在调用时解析到**当前**连接，
+ * 因此 Drizzle 与各仓储持有的引用在重连后依然有效。
+ */
+export function createReconnectableClient(options: {
+  readonly createAndPrepare: () => Promise<Client>;
+  readonly initial: Client;
+}): ReconnectableClient {
+  let current = options.initial;
+  let reconnects = 0;
+  let reconnectInFlight: Promise<void> | null = null;
+  /** 当前连接是否已被污染（同步标记，用于阻止在污染连接上开启事务） */
+  let poisoned = false;
+
+  const runReconnect = (): Promise<void> => {
+    const attempt = (async () => {
+      const stale = current;
+      // 先建新连接并完成 PRAGMA，成功后再切换；失败时保持旧引用与 poisoned 标记。
+      const next = await options.createAndPrepare();
+      current = next;
+      poisoned = false;
+      try {
+        stale.close();
+      } catch {
+        // 旧连接关闭失败不应影响已切换的新连接
+      }
+      reconnects += 1;
+    })();
+    reconnectInFlight = attempt;
+    void attempt.then(
+      () => {
+        if (reconnectInFlight === attempt) reconnectInFlight = null;
+      },
+      () => {
+        if (reconnectInFlight === attempt) reconnectInFlight = null;
+      },
+    );
+    return attempt;
+  };
+
+  const reconnect = async (): Promise<void> => {
+    if (!reconnectInFlight) return runReconnect();
+    await reconnectInFlight.catch(() => undefined);
+    if (!poisoned) return;
+    return runReconnect();
+  };
+
+  /** 执行任何操作前确保连接健康；被污染的连接绝不允许再开事务 */
+  const ensureHealthy = async (): Promise<void> => {
+    if (!poisoned) return;
+    await reconnect();
+  };
+
+  /**
+   * 是否需要换连接。
+   *
+   * 实测结论（libsql 0.4.7）：**任何** SQLITE_BUSY 都会在出错的连接上留下未完成的语句，
+   * 使该连接后续 `COMMIT` 报 `SQL statements in progress` —— 不只是 BEGIN 阶段。
+   * 因此 execute/batch/transaction 任一入口遇到 busy 都必须换连接，
+   * 「在同一连接上重试 execute 是安全的」这一既有假设已被推翻。
+   */
+  const isRecoverable = (error: unknown, _method: string): boolean =>
+    isSqliteConnectionPoisonedError(error) || isSqliteBusyError(error);
+
+  /**
+   * 包装事务对象：事务一旦因连接污染而失败，立即标记并换连接。
+   * 事务本身无法重放（回调已经执行过），因此这里只做连接清理，然后如实上抛。
+   */
+  const wrapTransaction = (tx: unknown): unknown => {
+    if (!tx || typeof tx !== "object") return tx;
+    return new Proxy(tx as Record<string, unknown>, {
+      get(target, prop) {
+        const value = Reflect.get(target, prop, target);
+        if (typeof value !== "function") return value;
+        if (
+          prop === "commit" ||
+          prop === "rollback" ||
+          prop === "execute" ||
+          prop === "executeMultiple" ||
+          prop === "batch"
+        ) {
+          return async (...args: unknown[]): Promise<unknown> => {
+            try {
+              return await (value as (...a: unknown[]) => Promise<unknown>).apply(target, args);
+            } catch (error) {
+              if (isSqliteConnectionPoisonedError(error)) {
+                poisoned = true;
+                await reconnect().catch(() => undefined);
+              }
+              throw error;
+            }
+          };
+        }
+        return (value as (...a: unknown[]) => unknown).bind(target);
+      },
+    });
+  };
+
+  const recoverable = (method: string) =>
+    async (...args: unknown[]): Promise<unknown> => {
+      await ensureHealthy();
+
+      const invoke = (): Promise<unknown> => {
+        const fn = (current as unknown as Record<string, unknown>)[method];
+        if (typeof fn !== "function") {
+          throw new Error(`libsql client has no method ${method}`);
+        }
+        return (fn as (...a: unknown[]) => Promise<unknown>).apply(current, args);
+      };
+      const finish = (result: unknown): unknown =>
+        method === "transaction" ? wrapTransaction(result) : result;
+
+      try {
+        return finish(await invoke());
+      } catch (error) {
+        if (!isRecoverable(error, method)) throw error;
+        // 同步标记：并发调用会在 ensureHealthy() 处等待重连完成，
+        // 不会在这个已被污染的连接上开启事务（那会导致不可恢复的丢锁）。
+        poisoned = true;
+        await reconnect();
+        try {
+          return finish(await invoke());
+        } catch (retryError) {
+          // 重试本身若再次失败（例如锁仍被占用），新连接同样会被污染：
+          // 再换一次，确保 current 永远是一条干净连接，而不是把污染留给下一个调用。
+          if (isRecoverable(retryError, method)) {
+            poisoned = true;
+            await reconnect().catch(() => undefined);
+          }
+          throw retryError;
+        }
+      }
+    };
+
+  return new Proxy(options.initial as unknown as Record<string, unknown>, {
+    get(_target, prop) {
+      if (prop === "reconnect") return reconnect;
+      if (prop === "reconnectCount") return () => reconnects;
+      if (
+        prop === "execute" ||
+        prop === "executeMultiple" ||
+        prop === "batch" ||
+        prop === "transaction"
+      ) {
+        return recoverable(String(prop));
+      }
+      const value = Reflect.get(current as unknown as Record<string, unknown>, prop, current);
+      return typeof value === "function"
+        ? (value as (...a: unknown[]) => unknown).bind(current)
+        : value;
+    },
+  }) as unknown as ReconnectableClient;
+}
+
 
 /**
  * 仓库根目录（src/client.ts 或 dist/client.js 均向上三级到达仓库根）。
@@ -108,15 +295,24 @@ export async function createProactiveVaultDatabase(
 }
 
 /**
- * 初始化 SQLite / LibSQL 连接并配置运行时 PRAGMA
+ * 初始化 SQLite / LibSQL 连接并配置运行时 PRAGMA。
+ *
+ * 返回的 `client` 具备连接自愈能力（见 `ReconnectableClient`）：写锁竞争导致连接被污染时
+ * 会自动换连接并重试一次；`reconnect`/`reconnectCount` 供调用方观测或强制自愈。
  */
 export async function createDatabase(
   config: DatabaseConfig = {},
-): Promise<{ db: AervoxDatabase; client: Client }> {
+): Promise<{
+  db: AervoxDatabase;
+  client: Client;
+  reconnect: () => Promise<void>;
+  reconnectCount: () => number;
+}> {
   const url = config.url ?? process.env.DATABASE_URL ?? defaultDbUrl;
+  const isLocalSqlite = url.startsWith("file:") || !url.includes("://");
 
   // 先确保文件父目录存在（libsql createClient 构造时即打开文件，必须在其之前创建 <repo>/data）
-  if (url.startsWith("file:") || !url.includes("://")) {
+  if (isLocalSqlite) {
     const filePath = url.startsWith("file:") ? url.slice("file:".length) : url;
     try {
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -125,29 +321,42 @@ export async function createDatabase(
     }
   }
 
-  const client = createClient({
-    url,
-    authToken: config.authToken ?? process.env.DATABASE_AUTH_TOKEN,
-  });
+  /** 建立一条已完成 PRAGMA 配置的新连接（首次与重连共用，保证自愈后配置一致） */
+  const createAndPrepare = async (): Promise<Client> => {
+    const created = createClient({
+      url,
+      authToken: config.authToken ?? process.env.DATABASE_AUTH_TOKEN,
+    });
 
-  // 非 http 远端模式下执行 SQLite 运行时 PRAGMA 优化
-  if (url.startsWith("file:") || !url.includes("://")) {
-    const timeout = config.busyTimeoutMs ?? 5000;
-    await client.execute(`PRAGMA busy_timeout = ${timeout};`);
-    await client.execute("PRAGMA foreign_keys = ON;");
-    try {
-      await client.execute("PRAGMA journal_mode = WAL;");
-      await client.execute("PRAGMA synchronous = NORMAL;");
-    } catch {
-      // 特殊环境忽略 WAL
+    // 非 http 远端模式下执行 SQLite 运行时 PRAGMA 优化
+    if (isLocalSqlite) {
+      const timeout = config.busyTimeoutMs ?? 5000;
+      await created.execute(`PRAGMA busy_timeout = ${timeout};`);
+      await created.execute("PRAGMA foreign_keys = ON;");
+      try {
+        await created.execute("PRAGMA journal_mode = WAL;");
+        await created.execute("PRAGMA synchronous = NORMAL;");
+      } catch {
+        // 特殊环境忽略 WAL
+      }
     }
-  }
+    return created;
+  };
 
-  // T-01：写路径统一 busy 退避重试（仅影响写入口，调用方零侵入）
-  const retryingClient = withBusyRetry(client, config.busyRetry);
+  const initial = await createAndPrepare();
+  const reconnectable = createReconnectableClient({ createAndPrepare, initial });
+
+  // T-01：写路径统一 busy 退避重试（仅影响写入口，调用方零侵入）。
+  // 顺序：内层负责“换连接自愈”，外层负责“同一连接内的退避重试”。
+  const retryingClient = withBusyRetry(reconnectable, config.busyRetry);
 
   const db = drizzle(retryingClient, { schema });
-  return { db, client: retryingClient };
+  return {
+    db,
+    client: retryingClient,
+    reconnect: () => reconnectable.reconnect(),
+    reconnectCount: () => reconnectable.reconnectCount(),
+  };
 }
 
 let cachedTemplatePath: string | null = null;

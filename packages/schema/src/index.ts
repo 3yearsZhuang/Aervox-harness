@@ -44,3 +44,4 @@ export * from "./proactive-intelligence.js";
 export * from "./model-routing.js";
 export * from "./project.js";
 export * from "./workspace-skills.js";
+export * from "./sync.js";

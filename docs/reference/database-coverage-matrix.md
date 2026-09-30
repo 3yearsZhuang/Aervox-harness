@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.5.2
-updated_at: 2026-09-27
-reviewed_at: 2026-09-27
+version: 0.5.3
+updated_at: 2026-09-29
+reviewed_at: 2026-09-29
 review_interval_days: 90
 sources:
   - docs/reference/DATABASE.md
@@ -18,7 +18,7 @@ sources:
 # Aervox｜思隅 数据库数据模型覆盖矩阵（Database Coverage Matrix）
 
 - 提出人：3yearszhuang · 2026-09-10
-- 修改人：3yearszhuang · 2026-09-27
+- 修改人：3yearszhuang · 2026-09-29
 
 关联：[SQLite 本地单用户数据库契约](DATABASE.md)（AVX-DB-001）、[产品需求文档 PRD §8](PRD.md#prd-data)（AVX-PRD-001）、`CR-030`（已归档）
 
@@ -30,7 +30,7 @@ sources:
 >
 > - **阶段**：`MVP`（R1）/ `MVP+`（R1.5）/ `P1`（R2）/ `P2`（R4）/ `P3`（R5）；不再包含 PostgreSQL 启用阶段。
 > - **实现状态**：`已落表`（当前 SQLite Schema/DDL 已有）／ `已建模`（本文档有规划表或规划列）／ `未落表`（仅 PRD 定义，进入规划 backlog）。
-> - CR-030 纯本地单用户真源已全面落地，全库无租户列。当前代码库 `@aervox/schema` 共维护 **133 张业务表**，另有 2 张 SQLite FTS5 虚拟表（`messages_fts`、`memories_fts`）与 1 张迁移记录表（`_migration_journal`），全仓持久化表总数为 136 张。
+> - CR-030 纯本地单用户真源已全面落地，全库无租户列。当前代码库 `@aervox/schema` 共维护 **134 张业务表**，另有 2 张 SQLite FTS5 虚拟表（`messages_fts`、`memories_fts`）与 1 张迁移记录表（`_migration_journal`），全仓持久化表总数为 137 张。
 
 ### 14.1 本地用户档案与同意
 
@@ -223,10 +223,16 @@ sources:
 | VoiceInputConfig | MVP+ | 已落表 | `voice_input_configs`（本地 Sherpa-ONNX 语音识别/STT 配置） |
 | VoiceRemoteConfig | MVP+ | 已落表 | `voice_remote_configs`（远程商业语音服务配置与 API Key） |
 
+### 14.13 同步基础设施（ITER-028 探索）
+
+| PRD 实体 | 阶段 | 实现状态 | 说明 / 对应表 |
+|---|---|---|---|
+| SyncRowState | P3 | 已落表 | `sync_row_state`（纯本地 P2P 同步的行级权威元数据：来源设备与来源时间戳用于确定性 LWW 裁决，`deleted_at` 承载删除墓碑；无租户列。当前仅探索性实现，未接线到产品路径，详见 [AVX-EXPL-014](../explanation/p2p-local-sync-exploration.md)） |
+
 ---
 
 ## 覆盖总结
 
-- **全量落表总数**：**133 张业务表** + 2 张 FTS5 全文搜索虚拟表（`messages_fts`、`memories_fts`）+ 1 张内部迁移日志表（`_migration_journal`），共计 136 张 SQLite 表。
+- **全量落表总数**：**134 张业务表** + 2 张 FTS5 全文搜索虚拟表（`messages_fts`、`memories_fts`）+ 1 张内部迁移日志表（`_migration_journal`），共计 137 张 SQLite 表。
 - **单一事实源约束**：所有业务表的 Schema 定义在 `@aervox/schema`，对应的 SQLite DDL 与索引初始化由 `@aervox/repositories` 承载，并通过自动化测试（`schema-index-parity.test.ts`）严格保证 Schema 与 DDL 的 100% 结构一致。
-- **纯本地单用户架构**：CR-030 去租户化彻底闭环，全库 133 张业务表均无 `workspace_id` 与 `subject_user_id` 租户隔离列。
+- **纯本地单用户架构**：CR-030 去租户化彻底闭环，全库 134 张业务表均无 `workspace_id` 与 `subject_user_id` 租户隔离列。

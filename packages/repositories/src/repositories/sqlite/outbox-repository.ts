@@ -8,6 +8,7 @@ import type { AervoxDatabase } from "../../client.js";
 import { outboxEvents } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
 import type { FetchPendingEventsOptions, IOutboxRepository, OutboxEventModel } from "../types/index.js";
+import { notifyWorkerWakeup } from "../../worker-ipc.js";
 
 export class SqliteOutboxRepository implements IOutboxRepository {
   constructor(private readonly db: AervoxDatabase) {}
@@ -36,6 +37,11 @@ export class SqliteOutboxRepository implements IOutboxRepository {
         createdAt: now,
       })
       .returning();
+
+    // 事务提交后触发跨进程 Worker IPC 秒级唤醒（尽力而为：不 await、不抛出，Worker 未启动
+    // 或 socket 不可达时返回 false，由 Worker 的轮询兜底，不阻塞本写入路径）。
+    void notifyWorkerWakeup("outbox");
+
     return created as OutboxEventModel;
   }
 

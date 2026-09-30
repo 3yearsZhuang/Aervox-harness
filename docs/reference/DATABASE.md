@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 2.2.2
-updated_at: 2026-09-28
-reviewed_at: 2026-09-28
+version: 2.2.4
+updated_at: 2026-09-29
+reviewed_at: 2026-09-29
 review_interval_days: 30
 review_triggers:
   - packages/schema/**
@@ -29,7 +29,7 @@ sources:
 # Aervox｜思隅 SQLite 本地单用户数据库契约
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-28
+- 修改人：3yearszhuang · 2026-09-29
 
 本文规定 Aervox 持久化层的目标契约、机器事实源、关键不变量、破坏性迁移协议和发布门禁。
 字段与 DDL 的机器真源是 `packages/schema` 和 `packages/repositories/src/schema/ddl`；本文不复制
@@ -101,6 +101,7 @@ POSIX 权限目标为目录 `0700`、数据库/状态清单/token `0600`；Windo
 | Platform | consent_grants、audit_records、deletion_requests、outbox_events | model_runs、context_manifests、notifications、llm_configs、audit_logs、llm_health_snapshots、llm_routing_events |
 | Proactive | profile revisions、device/source grants、activation leases、perception events | captures、observations、claims、actions、SituationModel snapshots、consumer cursors、attention budgets/feedback/receipts |
 | Project | projects（项目上下文实体） | sessions.projectId 关联 |
+| Sync（ITER-028） | 无（不承载业务事实） | sync_row_state（P2P 同步来源戳与删除墓碑，由同步触发器维护） |
 | Voice | voice_configs、voice_input_configs、voice_remote_configs | 本地/远程语音转写与合成配置 |
 
 `User` 仅表示本地用户档案，不是共享数据库认证主体。`actorId` 表示用户动作、插件、连接器或系统任务，
@@ -178,6 +179,29 @@ F0/F1 存储底座，不改变 CR-032 生产读写路径。其 Repository 必须
 3. 账本不可用、签名/sequence 异常或业务水位未追平时，受影响来源 fail closed。
 4. 来源失效后立即停止模型召回、FTS/向量查询、日记派生、插件读取和主动动作；物理删除按隐私 SLA 完成。
 5. 恢复备份后先进入维护/全局 deny，重放账本并验证零召回/零动作后才开放本地服务。
+
+### 8.1 P2P 同步行状态与删除墓碑
+
+`sync_row_state` 是 ITER-028 纯本地 P2P 加密同步（CAP-018 / CAP-027）的元数据表，不是业务事实：
+
+| 字段 | 类型 | 约束 | 语义 |
+|---|---|---|---|
+| `table_name` | TEXT | 非空，复合主键之一 | 被同步的业务表名（必须属于同步白名单） |
+| `primary_key` | TEXT | 非空，复合主键之一 | 该行业务主键的文本形式 |
+| `origin_device_id` | TEXT | 非空 | 该行最近一次权威写入的设备 ID（LWW Tiebreaker 依据） |
+| `origin_timestamp` | TEXT | 非空 | 该行最近一次权威写入的 UTC ISO-8601 时间戳（LWW 比较依据） |
+| `deleted_at` | TEXT | 可空 | 非空即删除墓碑；与 `origin_timestamp` 一起构成删除的比较时钟 |
+| `updated_at` | TEXT | 非空 | 元数据自身最后一次写入时间（仅供诊断，不参与裁决） |
+
+不变量：
+
+1. 主键为 `(table_name, primary_key)`；同一业务行在整库只有一条来源记录。
+2. LWW 只比较持久化的 `(origin_timestamp, origin_device_id)`，绝不比较本次中继设备，因此结果与同步拓扑、同步次数无关（重复同步为零写入）。
+3. 写入与删除**共用同一条裁决规则**：行的比较时钟取 `origin_timestamp`，墓碑的比较时钟取 `MAX(origin_timestamp, deleted_at)`；时间戳大者胜，时间戳相等时来源设备 ID 字典序大者胜，两者都相等则幂等跳过。因此删除只能被**严格更新**的写入撤销，更旧的远端写入绝不复活更新的本地墓碑。
+4. 该表由 `installSyncTriggers` 安装的 `AFTER INSERT/UPDATE/DELETE` 触发器维护；`initDatabaseSchema` 只建表，**不自动安装触发器**，调用方必须显式 opt-in。
+5. 触发器登记本机写入；远端合并必须在写业务行的**同一事务内最后**写入权威来源，覆盖本机章（顺序不可颠倒）。
+6. 表内数据可重建（未安装触发器期间的历史行按行时间戳惰性播种），不属于不可再生事实源。
+7. 合并端只接受本地同步白名单内的表，且只使用**本地**表定义（主键、策略、时间列）；对端声明的表身份或列元数据与本地不符时整表拒绝并计入 `rejectedTables`，绝不按对端元数据写入。
 
 ## 9. CR-030 破坏性迁移
 
