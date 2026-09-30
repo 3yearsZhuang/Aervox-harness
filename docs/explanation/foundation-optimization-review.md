@@ -39,6 +39,9 @@ sources:
 
 关联：[架构事实源](../reference/ARCHITECTURE.md)、[数据库契约](../reference/DATABASE.md)、[Agent Harness Loop](../reference/agent-harness-loop.md)、[流式协议](../reference/STREAMING_PROTOCOL.md)、[插件开发规范](../reference/plugin-config-and-pages.md)、[架构实现深入评估](architecture-implementation-review.md)、[硬件能力评估](companion-hardware-directions.md)、[变更流程](../how-to/cr-workflow.md)
 
+> [!NOTE] 调研生命周期状态：已落地 (Adopted)
+> 本文提出的底层优化中，FND-01（Outbox 消费隔离与抢先完成防御）、FND-05（调度与消费切片）已在 ITER-002 闭环落地并合并入主线。
+
 ## 1. 结论与证据范围
 
 当前仍有优化空间，最先值得投入的是异步任务的正确投递、插件升级的失败恢复和插件 Page 的权限边界。现有本地 SQLite、模块化单体和内部 Port 已提供合适基础；此次检查没有发现需要替换数据库、引入微服务或外部消息队列的证据。

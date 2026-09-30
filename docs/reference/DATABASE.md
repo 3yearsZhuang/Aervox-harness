@@ -33,7 +33,7 @@ sources:
 
 本文规定 Aervox 持久化层的目标契约、机器事实源、关键不变量、破坏性迁移协议和发布门禁。
 字段与 DDL 的机器真源是 `packages/schema` 和 `packages/repositories/src/schema/ddl`；本文不复制
-每张表的完整定义。逐实体覆盖状态见[数据库数据模型覆盖矩阵](database-coverage-matrix.md)。
+每张表的完整定义。表结构与字段定义直接以 `packages/schema/src/*.ts` 为唯一真源。
 
 > [!IMPORTANT]
 > `CR-030`（已归档） 的决策为 Accepted、交付状态为
@@ -87,8 +87,7 @@ POSIX 权限目标为目录 `0700`、数据库/状态清单/token `0600`；Windo
 
 ## 4. 领域数据模型
 
-最终无租户 Schema 按以下领域维护；完整表清单由 Schema barrel 与
-[覆盖矩阵](database-coverage-matrix.md)生成或核验。
+最终无租户 Schema 按以下领域维护；完整表清单由 `packages/schema/src` 导出与自动化测试守卫保障。
 
 | 领域 | 关键事实 | 关键派生/控制 |
 |---|---|---|

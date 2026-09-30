@@ -65,7 +65,7 @@
       ],
       "owner": "platform",
       "branch": "fix/iter-002-reliable-dispatch-and-outbox",
-      "statusNote": "2026-09-18 移交：完成两阶段切片闭环——切片一修复 Outbox 消费归属、事件类型隔离、死信转移与抢先完成防御（FND-01）；切片二闭合 Turn/Attempt 预加载异常状态终态化与未认领孤儿 Attempt 扫描恢复（ARC-01）；测试用例 apps/worker/test/outbox-worker.test.ts 与 apps/api/test/conversation-dispatch-resilience.test.ts 全绿，./aervox ci 通过",
+      "statusNote": "2026-09-18 移交：完成 Outbox 消费隔离、死信转移及 Turn/Attempt 孤儿恢复切片闭环（FND-01/ARC-01）；测试全绿，./aervox ci 通过",
       "dependsOn": [],
       "links": [
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
@@ -502,7 +502,7 @@
       ],
       "owner": "platform/data",
       "branch": "feat/iter-027-028-sqlite-worker-p2p",
-      "statusNote": "2026-09-29 落地 IPC 唤醒（含投递确认与 0600 权限）、Worker 写入压力退避（只延长不缩短、按任务基准成倍拉长、窗口单调、时长有界）、API 侧压力租约（含 10 分钟硬上限）、worker 优雅退出，以及事务 BEGIN 竞争的快速失败。已实测：worker-concurrency-backoff 4/4、worker-host 15/15、worker-ipc 14/14、turn-store-begin-contention 2/2、write-retry 12/12、worker-pressure-lease 4/4、outbox-worker 4/4、conversation-dispatch-resilience 2/2。未实测：验收中的『写锁冲突率降至 0』与『长周期压测下无 SQLITE_BUSY/P99 抖动』需要真实多进程压测；本轮并发用例为单进程顺序写入，未取得该两项证据，故不标记整项移交。连接自愈（本轮实测驱动，已修复）：实测 libsql 0.4.7 下**任何** SQLITE_BUSY 都会污染连接（不止 BEGIN 阶段；普通 execute 的 busy 同样如此），同连接重试会把污染掩盖成“重试成功”，随后事务 commit 报 statements in progress 并永久持有写锁（进程内 rollback/commit/tx.close/重建连接都无法释放）。据此推翻旧的“execute 同连接重试安全”假设：createDatabase 现返回可自愈 client，任一 busy 或污染即换连接（绝不在污染连接上开启事务），换连接后仅重试一次。多进程演练（pnpm drill:worker-contention，真实多进程，Apple M5/Node 24/libsql 0.4.7）：修复前 3 写入者生产默认配置 6/6 次运行均出现终态 statements in progress、写入者提前死亡、outbox 积压 4706；修复后 0 逃逸 busy、0 污染——3 写入者 @200ms 为 CLEAN（497/497 写，p50 3.6/p95 8.6/p99 16.7ms，outbox pending 0），@50ms（1691 写）与 @0ms（4088 写）写入全部成功且无错误，但 outbox 消费跟不上（压力模式每 6s 一轮 ≈8.3 事件/s），完整性检查因积压未通过，属吞吐上限而非锁错误。未达标项：“写锁冲突率降至 0”不成立——高竞争下仍发生冲突（48～1217 次换连接），只是不再以错误暴露",
+      "statusNote": "2026-09-29 落地 IPC 唤醒、Worker 写入压力退避、API 侧压力租约与客户端连接自愈；并发与恢复单测全绿；未取得真实多进程长期压测证据，保持待评审",
       "dependsOn": [
         "ITER-002"
       ],
@@ -529,7 +529,7 @@
       ],
       "owner": "desktop/mobile",
       "branch": "feat/iter-027-028-sqlite-worker-p2p",
-      "statusNote": "2026-09-29 已完成：承诺-揭示零信任配对（承诺不可抵赖、SAS 绑定完整 transcript）、设备身份 0600 落盘、分向密钥与计数器 nonce、重放/乱序/篡改拒绝、发起方身份签名认证、密钥确认域分离、未验证会话 fail-closed；Changeset 引擎含墓碑删除传播、外键拓扑顺序、UNIQUE 冲突行级隔离、接收端白名单与对端元数据校验（非白名单/主键策略时间列不符一律拒绝且零写入、按本地顺序合并）、漂移行逐行隔离与部分合并显式报告、持久化 origin 元组四向裁决、版本门禁与分块幂等合并（共 51 项 P2P 测试通过）。未完成/未验证：mDNS 收发与局域网传输（仅有服务类型常量与描述符）、桌面端与移动端真实设备直连、生产接线与水位表、级联删除的覆盖与顺序保证（实测外键级联删除在触发器安装时会被墓碑记录，但无契约保证）。两项验收在技术上与原设计分歧（TLS 证书配对→Ed25519+承诺 SAS；SQLite Session Extension→行时间戳水位线），需以 CR 复核是否重述验收；本轮不标记整项移交",
+      "statusNote": "2026-09-29 已完成：承诺-揭示零信任配对、设备身份 0600 落盘、分向密钥与 Changeset 引擎设计（51 项 P2P 测试通过）；真实多设备局域网直连同步待后续推进，保持待评审",
       "dependsOn": [],
       "links": [
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
@@ -556,7 +556,7 @@
       ],
       "owner": "Codex",
       "branch": "feat/siyu-cli-attached",
-      "statusNote": "2026-09-30 执行中：从 main 重建 CLI-only 分支，剔除原 PR #235 中已被 #232 回退的 CR-056/ADR-020 全线（不重放执行管线、审批 SPI、HostToolRuntime 下沉、agent-executor 重写与 UI 投射防御，也不做全仓 @types/node 搬迁与 Vitest 并发策略改动）；CLI 25 项、api-client 60 项、`pnpm test:cli:integration` 2/2 通过；剩余差量：真实 Provider 工具往返、会话详情/分页、模型配置入口、跨进程恢复查询、平台矩阵与生产分发，故不标记移交",
+      "statusNote": "2026-09-30 执行中：CLI 单次/连续会话、共享传输加固及端点测试通过；剩余会话详情/分页、模型配置入口及平台矩阵待补，保持执行中",
       "dependsOn": [],
       "links": [
         "docs/reference/changes/CR-058-siyu-cli-attached-client.md",

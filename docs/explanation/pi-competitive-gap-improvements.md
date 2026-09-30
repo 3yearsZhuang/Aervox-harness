@@ -32,6 +32,9 @@ sources:
 
 关联：[PRD](../reference/PRD.md)、[能力注册表](../reference/capability-registry.md)、[架构设计说明书](../reference/ARCHITECTURE.md)、[CR-056 Build to Delete 规划](../reference/changes/CR-056-build-to-delete-pi-style-architecture.md)
 
+> [!NOTE] 调研生命周期状态：已落地 / 已转化入队 (Adopted / In Progress)
+> 本文梳理的七项差距已转化为 CR-056（Build to Delete 类 pi 分层）以及迭代计划 ITER-032（保真上下文投影）与 ITER-033（统一模型 Provider 抽象面）建议条目推进。
+
 ## 1. 文档目的与边界
 
 本文基于 Pi AI（Inflection AI）的产品设计与用户反馈，对照思隅当前 PRD 与能力基线，识别**关系型 AI 体验**维度上的七项结构性差距，并提出具体改进建议。

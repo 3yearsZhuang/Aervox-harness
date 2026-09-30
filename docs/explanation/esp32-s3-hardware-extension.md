@@ -22,6 +22,9 @@ sources:
 
 关联：[PRD](../reference/PRD.md)、[架构设计](../reference/ARCHITECTURE.md)、[数据与隐私规范](../reference/DATA_PRIVACY.md)、[威胁模型](../reference/THREAT_MODEL.md)、[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md)
 
+> [!NOTE] 调研生命周期状态：未落地 / 原型笔记 (Pending / Prototype)
+> 本文记录 ESP32-S3 原型设计输入，作为配套硬件方向评估的底层原型储备，待硬件方向确定后启用。
+
 本文恢复并完善 ESP32-S3 硬件延伸提案，说明如何把 `ESP32-S3-WROOM-2-N32R16V` 做成 Aervox｜思隅的物理桌宠终端。本文是评审输入，不是已批准的生产规格、设备协议、固件安全标准或新增 CAP。
 
 2026-09-18 复核：当前仓库尚无本文设想的 DeviceHost、串口传输与设备固件。跨产品方向与当前能力证据见[配套硬件评估](companion-hardware-directions.md)。旧稿预留的 CR/ADR 编号不再作为立项依据；[ADR-016](../reference/adr/ADR-016-base-boundaries.md) 已用于其他决策，设备专项编号应按现行索引另行分配。下文参数仍是原设计输入，本轮未重新核验供应商数据手册或完成电气验证。

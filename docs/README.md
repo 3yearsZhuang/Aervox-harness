@@ -51,7 +51,6 @@ review_interval_days: 90
 | 文档 | 负责回答 | 事实源边界 |
 |---|---|---|
 | [Agent Harness Loop 设计与落地规范](reference/agent-harness-loop.md)（AVX-HAR-001） | 一次 Agent Turn 如何经过 Context、模型、工具、多 Step、取消恢复并安全终止 | Loop 状态机、Port、持久化、工具管线、限额、DSH/pi Driver 与分阶段迁移 |
-| [Agent Loop 落地进展追溯](reference/agent-loop-rollout-history.md)（AVX-HAR-002） | Agent Harness Loop 各阶段（2b 至 6f）详细的代码落位、数据表、测试用例与历史进展追溯 | 取消闭环、预算闸门、工具幂等、可观测性、三级恢复、收件箱、Context 压缩、Subagent 贡献与 DSH 适配 |
 | [流式协议契约](reference/STREAMING_PROTOCOL.md) | Turn 创建、SSE 事件、幂等、重连、取消和部分响应如何保持一致 | OpenAPI 配套的机器可验证事件 envelope、状态机、游标、保留和安全持久化规则 |
 | [Aervox 插件开发规范](reference/plugin-config-and-pages.md)（AVX-PLUG-001） | 插件如何声明、开发、打包、安装、授权、扩展与维护 | Manifest、Config、Page、工具与 Skill、Turn 与 UI、兼容性、验证清单及当前实现边界 |
 
@@ -60,7 +59,6 @@ review_interval_days: 90
 | 文档 | 负责回答 | 事实源边界 |
 |---|---|---|
 | [SQLite 本地单用户数据库契约](reference/DATABASE.md) | SQLite 永久本地真源、Schema/Repository 双包、无租户目标、破坏性迁移与删除传播规则 | 机器事实源、Repository Port、CR-030 staging/原子换库、回滚与 TC 门禁 |
-| [数据库数据模型覆盖矩阵](reference/database-coverage-matrix.md)（AVX-DB-002） | PRD §8 实体在 SQLite 中的落表状态和 CR-030 过渡状态 | 逐实体阶段、对应表、仓储 Port、DDL 初始化与 PRD 数据模型映射 |
 | [数据与隐私规范](reference/DATA_PRIVACY.md) | 数据为什么收集、何时召回/保留/删除、谁能访问 | 数据分类、同意、来源链、保留表、删除传播、导出和审计 |
 
 ### 质量、安全与运维

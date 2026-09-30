@@ -40,6 +40,9 @@ sources:
 
 关联：[移动端规划 CR-055](../reference/changes/CR-055-mobile-delivery-plan.md)、[PRD](../reference/PRD.md)、[架构](../reference/ARCHITECTURE.md)、[能力注册表](../reference/capability-registry.md)、[交付追踪](../reference/REQUIREMENTS_TRACEABILITY.md)、[早期 ESP32 设计输入](esp32-s3-hardware-extension.md)
 
+> [!NOTE] 调研生命周期状态：未落地 / 候选待决策 (Pending / Candidate)
+> 本文梳理的 9 个硬件陪伴方向属于重要候选储备池，等待当前迭代建议条目 ITER-009 与 ITER-016 产品决策拉起。
+
 **建议把手机作为通用交互端，把硬件投入集中到手机不擅长的物理交互、低干扰显示和常在线主机。** 首轮只验证一个 USB 实体入口，把桌宠与控制台合并；语音、扫描、佩戴和家庭设备先复用现成产品。电子纸按低干扰价值决定是否继续，独立算力主机按“原电脑关机后仍可用”的需求决定是否提前。
 
 Aervox 已具备学习业务、桌面表现与本地服务基础，适合把“开始、继续、复习、提醒和陪伴反馈”变成实体交互。本文整合 AVX-EXPL-005 的 ESP32 设计输入、AVX-EXPL-011 早期九方向工作稿与 CR-055，成为硬件规划的单一阅读入口：既保留源码核查得出的能力现状，也记录手机协同下的方向取舍、工程边界与停止条件。硬件方向、预算和验收目标均为建议，未新增 CAP、冻结设备协议或承诺产品发布日期；当前产品选择与验证顺序统一维护在根目录 [plan.md](../../plan.md)。

@@ -30,6 +30,9 @@ sources:
 - 提出人：3yearszhuang · 2026-09-29
 - 修改人：3yearszhuang · 2026-09-29
 
+> [!NOTE] 调研生命周期状态：未落地 / 推进中 (Pending / In Progress)
+> 本文梳理的纯本地多端点对点加密同步方案已完成密码学原语与 Changeset 引擎设计，待 ITER-028 推进真实多设备实操与接线。
+
 本文档是当前迭代计划 `ITER-028` 的技术架构探索交付件，记录纯本地单用户场景下，桌面端（Electron）与移动端（Capacitor）之间基于局域网发现、零信任配对与 SQLite 增量变更集（Changeset）双向对齐的**设计输入、已实现范围与未实现清单**。
 
 > **范围声明（重要）**：本探索交付的是**密码学原语、变更集引擎、配对协议，以及本切片新增的局域网发现（自研 UDP 多播信标，**不是** mDNS）与 TCP 传输驱动**；全部证据仅来自 `127.0.0.1` 环回 socket 与单元测试，仍**未接线**到任何产品路径（无 UI、无后台自动同步调度、无 Electron/Capacitor 打包集成、无 mDNS/DNS-SD、无 TLS、无真实多设备验收）。因此本文**不构成**"跨端同步能力已可用"的结论，也不提升任何 CAP 的验收状态。当前状态以根 [plan.md](../../plan.md) 与[追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)为准。
