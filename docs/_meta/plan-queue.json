@@ -589,6 +589,31 @@
       ]
     },
     {
+      "id": "ITER-034",
+      "batch": "first",
+      "status": "待评审",
+      "delivery": "重落 Aervox Core 高优先级内核切片（自已关闭 PR #235 分支原子移植）：`ControlContext` 统一执行控制（截止/token 与调用预算/取消的棘轮式派生）、`abortable` 有界等待原语、`ApprovalPolicyPort` 审批 SPI（`AutoApprovalPolicy` 与 `CliInteractiveApprovalPolicy` TTY 实现）及 executor 接线（流式预算计费、审批前置拦截、工具子任务派生）；并修复审查发现的监听器累积与预中止快速失败缺陷；BTD-05 / ITER-007 / ITER-013 / PET-05",
+      "gate": "均为可选注入（`approvalPolicy` / `controlContext`），不修改 API 路由、SSE 契约与数据库 Schema，API/Worker 下游行为不变；不含 ExecutionPipeline、HostToolRuntime 与 `core.ts` 出口（后续切片另行评审）；不新增外部依赖",
+      "acceptance": [
+        "`packages/agent-loop` 31 文件 209 例全绿（含新增 control-context / approval-policy 套件）",
+        "`packages/host-agent` 审批回归全绿（含监听器清理与预中止快速失败 2 项新增回归）",
+        "增量门禁 `./aervox ci` 通过，下游包类型与测试无差量"
+      ],
+      "checks": [
+        "`packages/agent-loop/test/control-context.test.ts`",
+        "`packages/agent-loop/test/approval-policy.test.ts`",
+        "`packages/host-agent/test/cli-approval.test.ts`"
+      ],
+      "owner": "platform",
+      "branch": "feat/core-control-approval",
+      "statusNote": "2026-10-02 待评审：代码完成（自 origin/feat/siyu-cli 原子移植 agent-loop 全包与 cli-approval 构件，main 与分支基点对该包零漂移故无合并冲突），agent-loop 209 例 / host-agent 77 例全绿，PR 评审中",
+      "dependsOn": [],
+      "links": [
+        "docs/reference/agent-harness-loop.md#10-限额与终止策略",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#core-control-approval-20261002"
+      ]
+    },
+    {
       "id": "ITER-033",
       "batch": "next",
       "status": "建议",
