@@ -29,4 +29,6 @@ export * from "./control-context.js";
 export * from "./approval-policy.js";
 export * from "./cli-approval.js";
 export * from "./host-tool-runtime.js";
+export * from "./turn-terminator.js";
+export * from "./approval-decision.js";
 export * from "./core.js";

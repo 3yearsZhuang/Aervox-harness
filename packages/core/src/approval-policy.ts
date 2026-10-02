@@ -14,6 +14,7 @@ import type {
   ToolProviderPort,
   ToolSafetyLevel,
 } from "./ports.js";
+import { decideToolCall } from "./approval-decision.js";
 
 export interface AutoApprovalPolicyOptions {
   /**
@@ -63,6 +64,9 @@ export class AutoApprovalPolicy implements ApprovalPolicyPort {
 
 /**
  * 将任意 ToolProviderPort 包装为受 ApprovalPolicy 保护的装饰器
+ *
+ * ITER-041：裁决映射已收敛至 `decideToolCall`（approval-decision.ts），
+ * 与 executor 内联路径共用同一实现，避免两侧映射分叉。
  */
 export function withApprovalPolicy(
   provider: ToolProviderPort,
@@ -87,22 +91,15 @@ export function withApprovalPolicy(
         safetyLevel,
       });
 
-      if (decision.action === "deny") {
-        return {
-          ok: false,
-          error: decision.reason ?? `tool_approval_denied: ${input.name}`,
-        };
-      }
-
-      if (decision.action === "ask_user") {
-        return {
-          ok: false,
-          needsApproval: {
-            approvalId: decision.approvalId ?? `apv_${input.invocationId}`,
-            toolName: input.name,
-            argumentsHash: decision.argumentsHash ?? JSON.stringify(input.arguments),
-          },
-        };
+      const blocked = decideToolCall(decision, {
+        call: { id: input.invocationId, name: input.name, arguments: input.arguments },
+        safetyLevel,
+        invocationId: input.invocationId,
+      });
+      if (blocked) {
+        return blocked.ok
+          ? { ok: true, output: blocked.output }
+          : { ok: false, error: blocked.error, needsApproval: blocked.needsApproval };
       }
 
       return provider.execute(input);

@@ -23,6 +23,8 @@ import { LeaseLostError } from "./errors.js";
 import { LeaseHeartbeat } from "./lease-heartbeat.js";
 import { inspectToolResult } from "./tool-result-safe.js";
 import { inspectToolInput } from "./tool-input-safe.js";
+import { createTurnTerminator } from "./turn-terminator.js";
+import { decideToolCall } from "./approval-decision.js";
 
 export interface ExecuteTurnInput {
   turnId: string;
@@ -242,72 +244,23 @@ export async function executeTurn(
       : null;
   heartbeat?.start();
 
-  // 2b：用户取消闭环（AVX-HAR-001 §11.1）——先 CAS 夺终态（Cancelled），成功才写 done 事件；
-  // finalize 返回 false（与它方终态竞态）则静默中止，不产生不一致事件。
-  const finalizeCancelled = async (atSequence: number): Promise<ExecuteResult> => {
-    // B4-D：终态 + done 事件原子提交（§12.2；CAS 失败即他方已终结 → 无孤儿 done）
-    const finalized = await execution.finalizeAttemptWithEvent({
-      turnId: input.turnId,
-      attemptId: input.attemptId,
-      status: "Cancelled",
-      expectedFencingToken: claimFencingToken,
-      sequence: atSequence,
-      eventType: "done",
-      eventData: { status: "Cancelled", isComplete: false, lastSequence: atSequence },
-      safetyDecision: "approved",
-    });
-    if (!finalized.ok) {
-      // 终态 CAS 失败（他方已终结/抢占）→ 不写 done，返回 contested
-      return { status: "failed", attemptId: input.attemptId, reason: "cancelled_finalize_contested" };
-    }
-    return { status: "cancelled", attemptId: input.attemptId, lastSequence: atSequence, stepsTaken };
-  };
-  /** 检查点：已被请求取消时立刻走取消终态 */
-  const abortIfCancelled = async (atSequence: number): Promise<ExecuteResult | null> => {
-    if (await execution.isCancelRequested({ turnId: input.turnId, attemptId: input.attemptId })) {
-      return finalizeCancelled(atSequence);
-    }
-    return null;
-  };
-
-  /** 2d：预算/环境原因终止（Interrupted + done；§5.3 budget-exhausted、§11.3 删除未追平） */
-  const finalizeInterrupted = async (atSequence: number, reason: string): Promise<ExecuteResult> => {
-    // B4-D：终态 + done 事件原子提交（§12.2；CAS 失败即他方已终结 → 无孤儿 done）
-    const finalized = await execution.finalizeAttemptWithEvent({
-      turnId: input.turnId,
-      attemptId: input.attemptId,
-      status: "Interrupted",
-      expectedFencingToken: claimFencingToken,
-      sequence: atSequence,
-      eventType: "done",
-      eventData: { status: "Interrupted", isComplete: false, lastSequence: atSequence, reason },
-      safetyDecision: "approved",
-    });
-    if (!finalized.ok) {
-      return { status: "failed", attemptId: input.attemptId, reason: `${reason}_finalize_contested` };
-    }
-    return { status: "failed", attemptId: input.attemptId, reason };
-  };
-
-  /** 2d：Step 边界守卫 —— 取消 / 删除撤权水位 / 总耗时预算 / ControlContext，任一命中即收敛 */
-  const prematureTermination = async (atSequence: number): Promise<ExecuteResult | null> => {
-    if (control?.isExpired()) {
-      return finalizeInterrupted(atSequence, "deadline_exceeded");
-    }
-    if (control?.budgetExceeded) return finalizeInterrupted(atSequence, "token_or_call_budget_exceeded");
-    if (control?.isAborted()) {
-      return finalizeCancelled(atSequence);
-    }
-    const cancelled = await abortIfCancelled(atSequence);
-    if (cancelled) return cancelled;
-    if (deletionGate && (await deletionGate.isBlocked({ turnId: input.turnId, sessionId: input.sessionId }))) {
-      return finalizeInterrupted(atSequence, "deletion_blocked");
-    }
-    if (maxTurnDurationMs > 0 && Date.now() - startedAt > maxTurnDurationMs) {
-      return finalizeInterrupted(atSequence, "turn_timeout");
-    }
-    return null;
-  };
+  // ITER-041：终态收敛器已切至 turn-terminator.ts（取消 / 预算 / 删除闸门 / 租约丢失
+  // 四条收敛路径与主循环解耦）。stepsTaken 以 getter 传入，保持与主循环同步递增。
+  const terminator = createTurnTerminator({
+    execution,
+    turnId: input.turnId,
+    attemptId: input.attemptId,
+    sessionId: input.sessionId,
+    claimFencingToken,
+    get stepsTaken() {
+      return stepsTaken;
+    },
+    deletionGate,
+    control,
+    maxTurnDurationMs,
+    startedAt,
+  });
+  const { finalizeCancelled, finalizeInterrupted, prematureTermination } = terminator;
 
   try {
     // 4b 续跑：sequence 沿用已存在事件之后（lastSequence+1 起），message 身份事件已有则跳过、
@@ -731,25 +684,9 @@ export async function executeTurn(
                   ),
                   control?.abortSignal,
                 );
-                if (decision.action === "deny") {
-                  result = {
-                    id: call.id,
-                    name: call.name,
-                    ok: false,
-                    error: decision.reason ?? `tool_approval_denied: ${call.name}`,
-                  };
-                } else if (decision.action === "ask_user") {
-                  result = {
-                    id: call.id,
-                    name: call.name,
-                    ok: false,
-                    needsApproval: {
-                      approvalId: decision.approvalId ?? `apv_${executionId}`,
-                      toolName: call.name,
-                      argumentsHash: decision.argumentsHash ?? JSON.stringify(call.arguments),
-                    },
-                  };
-                }
+                // ITER-041：裁决映射收敛至 decideToolCall（与 withApprovalPolicy 装饰器共用单一真源）
+                // 返回 undefined 表示准予执行 → 保持 result 为空，落到下方真实执行分支
+                result = decideToolCall(decision, { call, safetyLevel, invocationId: executionId });
               }
 
               if (!result) {
