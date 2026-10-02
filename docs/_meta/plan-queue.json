@@ -502,7 +502,7 @@
       ],
       "owner": "platform/data",
       "branch": "feat/iter-027-028-sqlite-worker-p2p",
-      "statusNote": "2026-09-29 落地 IPC 唤醒、Worker 写入压力退避、API 侧压力租约与客户端连接自愈；并发与恢复单测全绿；多进程演练（drill:worker-contention）修复后 0 逃逸 busy、0 污染，但验收『写锁冲突率降至 0』不成立——高竞争下仍发生冲突（48～1217 次换连接），仅不再以错误暴露；长周期压测无 SQLITE_BUSY/P99 抖动项未取得证据，保持待评审",
+      "statusNote": "2026-09-29 落地 IPC 唤醒、Worker 写入压力退避、API 侧压力租约与客户端连接自愈；并发与恢复单测全绿。2026-10-02 长周期压测补证（drill:worker-contention，10 分钟×2 轮）：真实单用户节奏（1 写入者 @1s）下验收 1/3 字面达成——写锁冲突率 0（0 换连接）、0 逃逸 busy、0 污染、退避全程生效（轮询 min 5297ms / p50 6005ms）、P99 10.5ms 无抖动、outbox 无积压完整性 OK；双写入者 @200ms 极端持续负载（≈每分钟 570 轮，超出单用户真实负载）下 0 逃逸错误、0 污染、P99 稳定 15.2ms，但存在被自愈吸收的冲突（640 次换连接）与 outbox 吞吐上限（487 条积压，生产 9.6 事件/s 超压力模式消费 8.75 事件/s），属负载边界行为而非锁错误，保持待评审",
       "dependsOn": [
         "ITER-002"
       ],
@@ -518,18 +518,20 @@
       "delivery": "纯本地多端点对点加密同步探索：局域网发现（mDNS）、SQLite Changeset 增量对齐与去中心化数据同步；CAP-018/027；CR-030/CR-055",
       "gate": "坚决不引入中心化多租户云端数据库；同步前必须通过端到端加密与用户显式配对授权",
       "acceptance": [
-        "完成多设备同网发现与 TLS 证书配对 PoC",
-        "利用 SQLite Session Extension 提取增量 Changeset 并验证无冲突双向合并",
+        "完成多设备同网发现 PoC（UDP 多播信标 + 静态对端兜底）与承诺-揭示零信任配对（Ed25519 身份签名、SAS 绑定完整 transcript、分向密钥与重放/乱序/篡改拒绝），替代原 TLS 证书配对设计",
+        "以行时间戳水位线 + 显式墓碑提取增量 Changeset（替代原 SQLite Session Extension 设计），验证无冲突双向合并与对抗性缺陷回归（接收端白名单、漂移行隔离、墓碑四向裁决）",
         "移动端（Capacitor）与桌面端（Electron）局域网直连同步学习进度与错题本成功"
       ],
       "checks": [
-        "`packages/repositories/test/p2p-changeset-sync.test.ts`",
+        "`packages/repositories/test/p2p-pairing-security.test.ts`",
         "`packages/repositories/test/p2p-changeset-merge.test.ts`",
-        "`packages/repositories/test/p2p-pairing-security.test.ts`"
+        "`packages/repositories/test/p2p-changeset-sync.test.ts`",
+        "`packages/repositories/test/p2p-discovery.test.ts`",
+        "`packages/repositories/test/p2p-lan-sync.test.ts`"
       ],
       "owner": "desktop/mobile",
       "branch": "feat/iter-027-028-sqlite-worker-p2p",
-      "statusNote": "2026-09-29 已完成：承诺-揭示零信任配对、设备身份 0600 落盘、分向密钥与 Changeset 引擎设计（51 项 P2P 测试通过）；mDNS 局域网传输与真实多设备直连待后续推进；两项验收与原设计存在技术分歧（TLS 证书配对→Ed25519+承诺 SAS；SQLite Session Extension→行时间戳水位线），需以 CR 复核是否重述验收，保持待评审",
+      "statusNote": "2026-09-29 已完成：承诺-揭示零信任配对、设备身份 0600 落盘、分向密钥与 Changeset 引擎设计，含 UDP 多播信标发现、分帧传输与真实环回 socket 端到端，P2P 用例合计 69 项通过（见 p2p-local-sync-exploration.md §3.1）；真实 mDNS/DNS-SD、生产接线与真实多设备直连待后续推进。2026-10-02 验收重述裁定（轻量文档裁定，依据 p2p-local-sync-exploration.md §2.2/§3.1 技术论证，维护者复核）：验收 1/2 按实际实现重述——承诺-揭示配对替代 TLS 证书配对、行时间戳水位线替代 Session Extension；验收 3 保留原文，保持待评审",
       "dependsOn": [],
       "links": [
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
