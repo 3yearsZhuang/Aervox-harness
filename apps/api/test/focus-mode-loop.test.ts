@@ -197,6 +197,45 @@ describe("CR-060 第一方插件端到端接线", () => {
     expect(badRes.statusCode).toBe(400);
   });
 
+  it("停用插件后其 HTTP 端点一并不可用（与模型工具面同判据）", async () => {
+    const before = await app.inject({
+      method: "POST",
+      url: "/v1/terms/explore",
+      headers,
+      payload: { term: "闭包", kind: "child" },
+    });
+    expect(before.statusCode).toBe(200);
+
+    const disableRes = await app.inject({
+      method: "PATCH",
+      url: "/v1/plugins/focus-mode",
+      headers,
+      payload: { enabled: false },
+    });
+    expect(disableRes.statusCode).toBe(200);
+
+    const after = await app.inject({
+      method: "POST",
+      url: "/v1/terms/explore",
+      headers,
+      payload: { term: "闭包", kind: "child" },
+    });
+    expect(after.statusCode).toBe(404);
+
+    const reportRes = await app.inject({
+      method: "POST",
+      url: "/v1/practice-reports",
+      headers,
+      payload: {
+        sessionId: "ses_x",
+        totalQuestions: 1,
+        correctCount: 1,
+        incorrectCount: 0,
+      },
+    });
+    expect(reportRes.statusCode).toBe(404);
+  });
+
   it("宿主窄端口工厂：correct 作答落库但不进入错题本", async () => {
     const services = createPluginHostServicesFactory(db)(tenant);
     const receipt = await services.learningFacts.recordJudgedAnswer({

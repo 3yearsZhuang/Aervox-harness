@@ -8,6 +8,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { pluginManifestSchema } from "@aervox/contracts";
 import { assembleFirstPartyPlugins, createHttpEndpointSink } from "../../../plugin-assembly.js";
+import { isPluginEnabled } from "./turn-plugins/index.js";
 import { createPluginHostServicesFactory } from "../../../plugin-host-services.js";
 import type { ModuleContext } from "../../context.js";
 import {
@@ -213,7 +214,10 @@ export async function registerPluginsModule(ctx: ModuleContext): Promise<void> {
   ctx.pluginHostServices = hostServices;
   const assembly = await assembleFirstPartyPlugins({
     turnRegistry: ctx.pluginRegistry,
-    onHttpEndpoints: createHttpEndpointSink(app, hostServices, warn),
+    // 端点与面向模型的贡献同一判据：停用、缺记录或不可用的插件一律 404
+    onHttpEndpoints: createHttpEndpointSink(app, hostServices, warn, (pluginId) =>
+      isPluginEnabled(pluginId, extensionRepo),
+    ),
     warn,
   });
   // 工具贡献按回合上下文构造，故只把注册单元交给宿主；是否合入模型工具面由启用门控决定

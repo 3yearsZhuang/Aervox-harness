@@ -106,7 +106,7 @@ sources:
 | 宿主服务窄端口 | [plugin-host-services.ts](../../../apps/api/src/plugin-host-services.ts) 把会话仓储与学习事实仓储收敛为 `sessions` / `learningFacts` 两个意图级端口 | `PluginHostServices` |
 | 回放夹具 | [llm-adapter.ts](../../../apps/api/src/modules/companion/conversation/llm-adapter.ts) 按 `AERVOX_LOOP_PROVIDER` 模式名分发，插件脚本不得覆盖宿主已内建模式 | `replayScripts` |
 
-判据差异（有意为之）：**面向模型的行为**（提示词注入、工具可见性）按插件**启用状态与可用性**门控；**插件自有 HTTP 端点**随**代码存在性**挂载（代码缺席即无该路由），与 CR-056「代码缺席不等于显式卸载」一致。学习事实真源（`packages/schema` 表结构、`packages/repositories` 仓储、`packages/review` 排期）不随插件迁出，插件仅经 `learningFacts` 窄端口读写；报告行按不透明载荷转发，插件不解析宿主表字段。
+统一判据：**面向模型的行为**（提示词注入、工具可见性）与**插件自有 HTTP 端点**一律按插件**生效状态**（仓储启用记录且可用）门控——停用、缺记录与不可用的插件，其工具、提示词与端点同时失效（端点按每请求判定，运行期启停无需重启宿主）；模块缺包时端点根本不挂载。学习事实真源（`packages/schema` 表结构、`packages/repositories` 仓储、`packages/review` 排期）不随插件迁出，插件仅经 `learningFacts` 窄端口读写；报告行按不透明载荷转发，插件不解析宿主表字段。
 
 ### 1.3 许可证分层边界（新增论据）
 
@@ -136,7 +136,7 @@ sources:
 | 历史别名 | `study-mode`/`quiz-mode` 服务端别名 + 前端双向回退 + 旧配置回退 | **仅 `focus-mode`**；别名与旧配置回退逻辑删除 |
 | 代码缺席语义 | 前端插件列表缺记录时默认启用（fail-open）；服务端缺记录时不执行（fail-closed） | 已落地：两端一致 fail-closed（`isPluginAvailable` 无记录即不可用）；与[插件规范 §5.2](../plugin-config-and-pages.md#52-注册接口与生命周期)同步修订 |
 | 刷题工具可见性 | 只要装配端口即无条件注入模型工具面 | 随插件启用状态与可用性门控（与 Runner 同判据）；其模型侧使用指南由插件经 `customGuidance` 注入位提供 |
-| 插件自有 API | `/v1/terms/explore`、`/v1/hierarchy/explore`、`/v1/practice-reports*` 等路由物理位于宿主模块目录，宿主负责业务处理 | 插件以 `httpEndpoints` 声明，宿主装配点只做框架适配（上下文解析、出参包装、异常兜底）；端点随代码存在性挂载 |
+| 插件自有 API | `/v1/terms/explore`、`/v1/hierarchy/explore`、`/v1/practice-reports*` 等路由物理位于宿主模块目录，宿主负责业务处理 | 插件以 `httpEndpoints` 声明，宿主装配点只做框架适配（上下文解析、出参包装、异常兜底）；端点随插件**生效状态**门控（停用即 404，与模型工具面同判据） |
 | 宿主服务获取 | 宿主代理层直接持有会话/学习仓储，并把插件 id 写进落库证据 | 插件经 `PluginHostServices` 窄端口（`sessions` / `learningFacts`）声明意图；来源标签由插件自述；`plugin-host-services.ts` 为宿主唯一实现点 |
 | 前端包边界 | 无插件包，插件 UI 寄居 `packages/ui` | 插件包 `@aervox/plugin-focus-mode` 提供 `./ui`（源码出口，`src/ui`）与 `./server`（产物出口）；`import-boundary` 新增 `host-no-plugin-implementation` 规则，宿主源码仅组合根可接入插件实现包 |
 | 确定性回放夹具 | 宿主 `replay-scripts.ts` 内建插件工具名与参数，模式名含插件领域词 | 夹具归插件（`replayScripts`），宿主只按中立模式名 `scripted-plugin` 分发，且插件不得覆盖宿主已内建模式 |
@@ -201,7 +201,7 @@ mise tasks run ci-docs && mise tasks run plan-render && mise tasks run plan-chec
 
 - **分片交付**：S0～S7 每片独立功能分支与 PR，任一时刻 `main` 保持全绿；单片回滚只需 revert 该 PR。
 - **迁移期过渡壳**：服务端实现已整体搬迁且**未**保留 re-export 壳（审计确认旧导出无生产消费者）；如后续切片需要过渡期，旧路径只保留一层 re-export 壳并登记退役条件，回滚时无需恢复文件物理位置。
-- **装配点回滚**：插件装配集中在三个装配文件；禁用只需移除该行，宿主其余部分不受影响。
+- **装配点回滚**：插件装配集中在三个装配文件；停用只需在插件管理里关闭（工具、提示词与端点同时失效），下线只需移除装配行，宿主其余部分不受影响。
 - **fail-closed 变更回滚**：若「未安装即不可用」引发体验回退，可将插件列表策略回退为「无记录视为启用」，但须同时把服务端门控改为一致策略，禁止两端再次不对称。
 - **触发回滚的条件**：分发包校验和变化导致已安装用户升级失败；移除演练失败；`./aervox ci all` 连续两次不可修复失败。
 - **数据安全**：本提案无表结构与数据迁移，回滚不涉及数据恢复；插件卸载沿用既有 CR-056 代码缺席语义，保留安装记录、配置与数据管理入口。

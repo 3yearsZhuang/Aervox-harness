@@ -110,10 +110,19 @@ export async function assembleFirstPartyPlugins(
 export type PluginHostServicesFactory = (ctx: LocalContext) => PluginHostServices;
 
 /**
+ * 插件启用判定：宿主按仓储启停与可用性记录判定（与回合切面、工具贡献同一判据）。
+ * 缺省视为不启用（fail-closed）：未经显式判定的调用方不得让插件 API 面生效。
+ */
+export type PluginEnablementPredicate = (pluginId: string) => Promise<boolean>;
+
+/**
  * 把插件声明的 HTTP 端点挂载为 Fastify 路由。
  *
  * 契约要求插件不依赖具体 Web 框架：方法、路径与业务处理归插件，鉴权、限流、
  * 本地上下文解析、出参包装与异常兜底一律由宿主在此收口。
+ *
+ * 插件 API 面随插件**生效状态**（启用且可用）门控：停用或缺包的插件端点一律 404，
+ * 与面向模型的贡献同一判据；判定在**每请求**执行，故运行期启停无需重启宿主。
  */
 export function mountPluginHttpEndpoints(
   app: FastifyInstance,
@@ -121,10 +130,14 @@ export function mountPluginHttpEndpoints(
   endpoints: ServerPluginRegistration["httpEndpoints"],
   services: PluginHostServicesFactory,
   warn?: (message: string, error?: unknown) => void,
+  isEnabled?: PluginEnablementPredicate,
 ): void {
   for (const endpoint of endpoints ?? []) {
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
       try {
+        if (isEnabled && !(await isEnabled(pluginId))) {
+          return reply.status(404).send({ error: "Plugin endpoint unavailable" });
+        }
         const result = await endpoint.handler(
           {
             params: (request.params ?? {}) as Record<string, string>,
@@ -165,6 +178,8 @@ export function createHttpEndpointSink(
   app: FastifyInstance,
   services: PluginHostServicesFactory,
   warn?: (message: string, error?: unknown) => void,
+  isEnabled?: PluginEnablementPredicate,
 ): (pluginId: string, endpoints: ServerPluginRegistration["httpEndpoints"]) => void {
-  return (pluginId, endpoints) => mountPluginHttpEndpoints(app, pluginId, endpoints, services, warn);
+  return (pluginId, endpoints) =>
+    mountPluginHttpEndpoints(app, pluginId, endpoints, services, warn, isEnabled);
 }
