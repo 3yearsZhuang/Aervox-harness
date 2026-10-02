@@ -7,7 +7,7 @@
  * 一次性生成；LLM 未启用或失败时按气泡预设模板诚实降级（输出标注 source=template）。
  * 该细化已回写 CR-032 文档。
  */
-import { createOpenAICompatProvider } from "@aervox/agent-loop";
+import { createOpenAICompatProvider } from "@aervox/core";
 import { createRepoDiaryLlmConfigPort } from "@aervox/diary";
 import type { SqliteLLMConfigRepository, LocalContext } from "@aervox/repositories";
 import type { ProactiveTurnContext } from "@aervox/contracts";

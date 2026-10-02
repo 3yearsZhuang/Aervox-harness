@@ -10,8 +10,8 @@
  * 仅当持有者进程已退出（陈旧锁）时允许下一个 Host 接管；运行中进程持有期间拒绝重复激活。
  */
 
-import { createOpenAICompatProvider, createReplayProvider } from "@aervox/agent-loop";
-import type { ModelProviderPort, AdapterDriverPort } from "@aervox/agent-loop";
+import { createOpenAICompatProvider, createReplayProvider } from "@aervox/core";
+import type { ModelProviderPort, AdapterDriverPort } from "@aervox/core";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 

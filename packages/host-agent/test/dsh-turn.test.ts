@@ -10,7 +10,7 @@
  */
 import { afterEach, describe, expect, it } from "vitest";
 import { createDSHAdapterDriver } from "../src/index.js";
-import { drainAdapterDriver } from "@aervox/agent-loop";
+import { drainAdapterDriver } from "@aervox/core";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { createServer, type Server } from "node:http";
