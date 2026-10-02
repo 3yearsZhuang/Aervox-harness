@@ -185,7 +185,9 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
     const { loadStudyModeRuntimeConfig, DEFAULT_STUDY_MODE_CONFIG } = await import(
       "../src/modules/ecosystem/plugins/turn-plugins/focus-mode.js"
     );
-    const { buildStudyModePrompt } = await import("@aervox/agent-loop");
+    const { buildStudyModePrompt } = await import(
+      "../src/modules/ecosystem/plugins/turn-plugins/focus-mode-prompt.js"
+    );
 
     // 1. 无记录时回退默认配置
     const tenant = { workspaceId: "ws_default_test", subjectUserId: "usr_default_test" };

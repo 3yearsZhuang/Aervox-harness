@@ -15,10 +15,8 @@ import type {
   LocalContext,
 } from "@aervox/repositories";
 import { extractTerms, type LLMCallable } from "@aervox/practice-review";
-import {
-  buildFocusModePrompt,
-  type FocusModeConfigOptions,
-} from "@aervox/agent-loop";
+// ADR-021 内核提纯修订：专注模式提示词资产回归插件宿主
+import { buildFocusModePrompt, type FocusModeConfigOptions } from "./focus-mode-prompt.js";
 import type { ServerTurnPlugin } from "./types.js";
 import { turnStreamHub } from "../../../companion/conversation/stream-hub.js";
 

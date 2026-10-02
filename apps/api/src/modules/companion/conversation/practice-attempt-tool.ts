@@ -1,5 +1,7 @@
 /**
- * Aervox｜思隅 @aervox/core — record_practice_attempt 工具提供者（CAP-016 刷题闭环）
+ * Aervox｜思隅 @aervox/api — record_practice_attempt 工具提供者（CAP-016 刷题闭环）
+ *
+ * ADR-021 修订：伴学域工具自 @aervox/core 回归插件宿主，内核不再持有产品语义工具。
  *
  * 练习或自测场景下 AI 判定用户作答后，通过本工具将不可变学习事实落库：
  * - 声明 record_practice_attempt 工具（readOnly: true，与 ask_user_question 同款先例——
@@ -8,12 +10,11 @@
  * - 校验必填字段与 judgement 三值枚举后委托 PracticeAttemptPort.recordAttempt()；
  * - incorrect 作答由宿主错题本派生逻辑自动收录，结果回填 enteredMistakeNotebook 供模型循环节奏参考。
  */
+import type { ToolExecutionInput, ToolExecutionResult, ToolProviderPort, ToolSpec } from "@aervox/agent-loop";
 import type {
   PracticeAttemptPort,
   PracticeAttemptPortRequest,
-} from "./ports.js";
-import type { ToolExecutionInput, ToolExecutionResult, ToolProviderPort } from "./ports.js";
-import type { ToolSpec } from "./types.js";
+} from "./practice-attempt-port.js";
 
 export const RECORD_PRACTICE_ATTEMPT_TOOL = "record_practice_attempt";
 
