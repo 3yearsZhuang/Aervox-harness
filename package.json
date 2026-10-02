@@ -18,7 +18,7 @@
     "test": "turbo run test --concurrency=2",
     "test:fast": "pnpm test:unit",
     "test:affected": "node scripts/test-affected.mjs",
-    "test:unit": "turbo run test --filter=@aervox/agent-loop --filter=@aervox/practice-review --filter=@aervox/config --filter=@aervox/observability --filter=@aervox/contracts --filter=@aervox/api-client --filter=@aervox/diary --filter=@aervox/ui --filter=@aervox/desktop",
+    "test:unit": "turbo run test --filter=@aervox/core --filter=@aervox/practice-review --filter=@aervox/config --filter=@aervox/observability --filter=@aervox/contracts --filter=@aervox/api-client --filter=@aervox/diary --filter=@aervox/ui --filter=@aervox/desktop",
     "test:api": "pnpm --filter @aervox/api test",
     "test:repos": "pnpm --filter @aervox/repositories test",
     "test:e2e": "playwright test",

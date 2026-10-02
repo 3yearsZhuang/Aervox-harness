@@ -30,9 +30,9 @@ export const RULES = [
   },
   {
     name: "ban-tenant-core-packages",
-    description: "契约、模式、底座及主动循环中禁止使用 tenant 标识符",
+    description: "契约、模式、内核及主动循环中禁止使用 tenant 标识符",
     bannedNames: new Set(["tenant"]),
-    filePattern: /^(packages\/(contracts|schema|agent-loop|host-agent)|apps\/worker\/src\/proactive)\//,
+    filePattern: /^(packages\/(contracts|schema|core|agent-loop|host-agent)|apps\/worker\/src\/proactive)\//,
     excludePattern: null,
   },
 ];

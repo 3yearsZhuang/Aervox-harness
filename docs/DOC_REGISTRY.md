@@ -43,7 +43,7 @@ review_interval_days: 90
 | `ADR-013` | [恢复控制账本：撤权拦截与确定性恢复](reference/adr/ADR-013-recovery-control-ledger.md) | 2026-09-13 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
 | `ADR-014` | [演进式模块化单体架构与模块目录组织](reference/adr/ADR-014-modular-monolith-structure.md) | 2026-09-28 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
 | `ADR-015` | [Vue 全栈单栈方案](reference/adr/ADR-015-vue-full-stack.md) | 2026-09-13 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
-| `ADR-016` | [底座边界冻结与依赖规则门禁](reference/adr/ADR-016-base-boundaries.md) | 2026-09-28 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
+| `ADR-016` | [底座边界冻结与依赖规则门禁](reference/adr/ADR-016-base-boundaries.md) | 2026-10-03 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记；门禁 `from` 目标包改名或迁移后未同步覆盖 |
 | `ADR-017` | [上下文清单、模型运行记录与多步执行持久化](reference/adr/ADR-017-context-manifest-modelrun-step.md) | 2026-09-10 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
 | `AVX-SPC-001` | [流式协议](reference/STREAMING_PROTOCOL.md) | 2026-09-30 | OpenAPI/事件 schema 变更 | `packages/contracts` 版本高于文档描述 |
 | `AVX-DB-001` | [SQLite 本地单用户数据库契约](reference/DATABASE.md) | 2026-09-29 | Schema/仓储接口/迁移计划变更 | CR-030 目标、当前过渡状态、迁移器或回滚门禁与实现不一致 |
