@@ -10,7 +10,7 @@
  * - 校验必填字段与 judgement 三值枚举后委托 PracticeAttemptPort.recordAttempt()；
  * - incorrect 作答由宿主错题本派生逻辑自动收录，结果回填 enteredMistakeNotebook 供模型循环节奏参考。
  */
-import type { ToolExecutionInput, ToolExecutionResult, ToolProviderPort, ToolSpec } from "@aervox/agent-loop";
+import type { ToolExecutionInput, ToolExecutionResult, ToolProviderPort, ToolSpec } from "@aervox/core";
 import type {
   PracticeAttemptPort,
   PracticeAttemptPortRequest,

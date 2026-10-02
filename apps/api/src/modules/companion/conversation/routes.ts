@@ -13,7 +13,7 @@ import {
   createSessionRequestSchema,
   renameSessionRequestSchema,
 } from "@aervox/contracts";
-import type { SkillDescriptor } from "@aervox/agent-loop";
+import type { SkillDescriptor } from "@aervox/core";
 import {
   type SqliteConversationRepository,
   type SqlitePrivacyRepository,
@@ -60,9 +60,9 @@ export interface ConversationRouteDeps {
     tenant: import("@aervox/repositories").LocalContext,
   ) => Promise<{ name?: string; prompt?: string; allowedSkillNames?: string[] } | undefined>;
   /** 5c：Subagent 委托执行器工厂（request 级 tenant 绑定；注入则贡献 subagent_delegate 工具） */
-  subagentFactory?: (tenant: import("@aervox/repositories").LocalContext) => import("@aervox/agent-loop").SubagentPort;
+  subagentFactory?: (tenant: import("@aervox/repositories").LocalContext) => import("@aervox/core").SubagentPort;
   /** 5c：已注册 Workflow 定义清单（贡献 workflow_run 工具；GET /v1/workflows 元数据） */
-  workflows?: import("@aervox/agent-loop").WorkflowDefinition[];
+  workflows?: import("@aervox/core").WorkflowDefinition[];
   /** 5c：subagent_runs 仓储（GET /v1/turns/:id/subagents 审计查询） */
   subagentRunRepo?: SqliteSubagentRunRepository;
   /** 阶段 7：ModelRun/ContextManifest 落库口（Step 级可追溯写入；缺失则不记录） */

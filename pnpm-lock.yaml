@@ -50,15 +50,15 @@ importers:
 
   apps/api:
     dependencies:
-      '@aervox/agent-loop':
-        specifier: workspace:*
-        version: link:../../packages/agent-loop
       '@aervox/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@aervox/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@aervox/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@aervox/diary':
         specifier: workspace:*
         version: link:../../packages/diary
@@ -222,15 +222,15 @@ importers:
 
   apps/worker:
     dependencies:
-      '@aervox/agent-loop':
-        specifier: workspace:*
-        version: link:../../packages/agent-loop
       '@aervox/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@aervox/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@aervox/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@aervox/diary':
         specifier: workspace:*
         version: link:../../packages/diary
@@ -256,12 +256,6 @@ importers:
       tsx:
         specifier: ^4.19.2
         version: 4.23.12
-
-  packages/agent-loop:
-    dependencies:
-      '@aervox/core':
-        specifier: workspace:*
-        version: link:../core
 
   packages/api-client:
     dependencies:
@@ -302,9 +296,9 @@ importers:
 
   packages/diary:
     dependencies:
-      '@aervox/agent-loop':
+      '@aervox/core':
         specifier: workspace:*
-        version: link:../agent-loop
+        version: link:../core
       '@aervox/repositories':
         specifier: workspace:*
         version: link:../repositories
@@ -321,9 +315,6 @@ importers:
 
   packages/host-agent:
     dependencies:
-      '@aervox/agent-loop':
-        specifier: workspace:*
-        version: link:../agent-loop
       '@aervox/core':
         specifier: workspace:*
         version: link:../core

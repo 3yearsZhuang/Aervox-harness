@@ -7,6 +7,8 @@
 import type {
   AgentInboxCommand,
   AgentInboxConsumeBoundary,
+  AskUserQuestionAnswerItem,
+  AskUserQuestionItem,
   AgentInboxItem,
   AttemptStatus,
   ContextCompactionInput,
@@ -320,13 +322,13 @@ export interface AskUserQuestionPortRequest {
   turnId: string;
   attemptId: string;
   step: number;
-  questions: import("@aervox/contracts").AskUserQuestionItem[];
+  questions: AskUserQuestionItem[];
   signal?: AbortSignal;
   timeoutMs?: number;
 }
 
 export interface AskUserQuestionPortResult {
-  answers: import("@aervox/contracts").AskUserQuestionAnswerItem[];
+  answers: AskUserQuestionAnswerItem[];
 }
 
 /** 宿主实现的向用户询问协调端口 */

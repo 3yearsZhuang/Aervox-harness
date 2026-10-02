@@ -21,7 +21,7 @@ import type {
   AskUserQuestionPortRequest,
   AskUserQuestionPortResult,
   UserQuestionPort,
-} from "@aervox/agent-loop";
+} from "@aervox/core";
 import type {
   IUserQuestionRepository,
   SqliteConversationRepository,

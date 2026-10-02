@@ -6,8 +6,8 @@
  * Provider 缝隙：PlanModelPort 由装配层注入——llm 模式走 OpenAI 兼容 provider，
  * replay/scripted 等非 LLM 模式走确定性模板（诚实降级，输出标注 template）。
  */
-import { createOpenAICompatProvider } from "@aervox/agent-loop";
-import type { ModelProviderPort, ModelRequest } from "@aervox/agent-loop";
+import { createOpenAICompatProvider } from "@aervox/core";
+import type { ModelProviderPort, ModelRequest } from "@aervox/core";
 import type { AervoxDatabase, LocalContext, LearningPlanModel } from "@aervox/repositories";
 import type { ILearningRepository } from "@aervox/repositories";
 import type { LLMConfigService } from "../../ecosystem/llm/service.js";

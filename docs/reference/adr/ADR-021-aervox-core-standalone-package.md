@@ -99,6 +99,8 @@ ITER-035 验收口径（实现切片）：
 
 判定依据：`user-question-tool`（通用 human-in-the-loop）与 `subagent-contribution`（Provider Contribution 扩展机制，AVX-HAR-001 §13 / ADR-017）为宿主无关能力，保留内核。修订后 core 公共导出面不再含伴学产品构件；Provider 统一仍归 ITER-033。
 
+**过渡壳移除（2026-10-03，ITER-037）**：Decision 2 约定的"一个迭代后移除"执行完成——`packages/agent-loop` 壳与 `host-agent/src/cli-approval.ts` 兼容壳物理删除，四下游 import 直连 `@aervox/core`；内核本地声明 `AskUserQuestion*` 负载类型（`type-compat` 测试锁定与 `@aervox/contracts` 单向结构兼容），core 源码对 contracts 的 type 依赖清零；import-boundary 健身函数 `agent-loop-no-db` 由 `core-no-db` 承接。Decision 2 至此闭环。
+
 ## 关联
 
 - ITER-034（内核切片重落，PR #241）、ITER-035（本 ADR 实现载体）、ITER-033（Provider 统一，在 core 内落地）；
