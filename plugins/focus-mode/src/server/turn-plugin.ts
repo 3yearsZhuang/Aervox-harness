@@ -10,8 +10,8 @@
  * 3. 不保留 `study-mode` / `quiz-mode` 历史别名，主 id 唯一为 `focus-mode`。
  */
 import type { ServerTurnPlugin, TurnPluginContext } from "@aervox/host-plugin-api";
-import { extractTerms } from "@aervox/practice-review";
 import { buildFocusModePrompt, QUIZ_SESSION_PROMPT } from "./prompt.js";
+import { extractTerms } from "./terms-extractor.js";
 
 /** 插件运行时配置（键名对齐 plugins/focus-mode/config.schema.json） */
 export interface FocusModeRuntimeConfig {

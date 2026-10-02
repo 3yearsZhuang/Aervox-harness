@@ -437,9 +437,6 @@ importers:
       '@aervox/host-plugin-api':
         specifier: workspace:*
         version: link:../../packages/host-plugin-api
-      '@aervox/practice-review':
-        specifier: workspace:*
-        version: link:../../packages/practice-review
 
 packages:
 

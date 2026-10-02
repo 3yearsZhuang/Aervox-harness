@@ -1,5 +1,9 @@
 /**
- * Aervox｜思隅 @aervox/practice-review — 术语抽取与过滤（CAP-007 / CAP-002）
+ * Aervox｜思隅 plugins/focus-mode — 术语抽取与过滤（CAP-007 / CAP-002）
+ *
+ * CR-060：自 `packages/practice-review/src/terms.ts` 迁入。该管线的唯一生产消费者
+ * 即本插件，故不再作为宿主共享能力（`packages/practice-review` 只保留复习排期）。
+ * 模型调用端口改用宿主契约的 `TurnLlmPort`，插件不依赖宿主内部适配类型。
  *
  * 核心特性：
  * 1. LLM 初提（严格 prompt，只提连续短语、技术名词，排除泛化词，输出 JSON）
@@ -10,18 +14,16 @@
  * 6. 关系标注：background（背景/定义/深度下钻）或 related（关联/对比/发散）
  */
 
+import type { TurnLlmPort } from "@aervox/host-plugin-api";
+
 export interface ExtractedTerm {
   text: string;
   relation: "background" | "related";
   description?: string;
 }
 
-export interface LLMCallable {
-  generate: (prompt: string, options?: { systemPrompt?: string; temperature?: number }) => Promise<string>;
-}
-
 export interface ExtractTermsOptions {
-  llm?: LLMCallable;
+  llm?: TurnLlmPort;
   maxTerms?: number;
   enableHeuristicFallback?: boolean;
   /** 是否启用二阶段 LLM 质检复核（默认 true，若为 false 则跳过复核） */

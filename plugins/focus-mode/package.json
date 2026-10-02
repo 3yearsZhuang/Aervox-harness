@@ -19,7 +19,6 @@
   "dependencies": {
     "@aervox/contracts": "workspace:*",
     "@aervox/core": "workspace:*",
-    "@aervox/host-plugin-api": "workspace:*",
-    "@aervox/practice-review": "workspace:*"
+    "@aervox/host-plugin-api": "workspace:*"
   }
 }

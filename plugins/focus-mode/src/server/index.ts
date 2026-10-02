@@ -29,3 +29,4 @@ export default focusModeRegistration;
 export * from "./turn-plugin.js";
 export * from "./prompt.js";
 export * from "./focus-tools.js";
+export * from "./terms-extractor.js";

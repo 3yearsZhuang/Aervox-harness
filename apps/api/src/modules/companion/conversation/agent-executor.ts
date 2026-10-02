@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/api — 会话回合编排（runLoopTurnOnce）
  *
  * 机械拆分（B 档第三步，零行为变更）：原「Agent Loop SQLite 执行存储适配 +
- * 工具接线」巨型文件拆为——Provider 构建与 LLMCallable 适配在 llm-adapter.ts、
+ * 工具接线」巨型文件拆为——Provider 构建与 TurnLlmPort 适配在 llm-adapter.ts、
  * 工具提供者在 tool-providers.ts、回放脚本在 replay-scripts.ts、SSE 广播桥在
  * broadcasting-store.ts、DSH 整 Turn 执行在 dsh-adapter.ts；本文件仅保留
  * 迁移期接线：创建 Turn 后立即执行一次 Loop（AVX-HAR-001 §13），
@@ -28,9 +28,8 @@ import type {
   UserQuestionPort,
   WorkflowDefinition,
 } from "@aervox/agent-loop";
-import type { PluginHostServices, ServerPluginRegistration } from "@aervox/host-plugin-api";
+import type { PluginHostServices, ServerPluginRegistration, TurnLlmPort } from "@aervox/host-plugin-api";
 import { SqliteExecutionStore } from "@aervox/host-agent";
-import type { LLMCallable } from "@aervox/practice-review";
 import {
   type AervoxDatabase,
   type IExtensionRepository,
@@ -356,7 +355,7 @@ export async function runLoopTurnOnce(
   // ADR-010 阶段 6f：AERVOX_LOOP_DRIVER=dsh → 整 Turn 走 DSH 进程外 Adapter
   // （自带 Agent 循环与模型回合，Provider/工具/上下文组合全部跳过；未就绪 fail-closed 不回退 native）。
   if (loadApiConfig().loopDriver === "dsh") {
-    let dshLlm: LLMCallable | undefined;
+    let dshLlm: TurnLlmPort | undefined;
     if (deps.llmConfigService && loadApiConfig().loopProvider === "llm") {
       try {
         const p = await buildLoopProvider(tenant, deps.llmConfigService);

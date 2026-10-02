@@ -6,9 +6,9 @@ import {
   isGenericTerm,
   dedupeOverlapTerms,
   parseTermsFromJSON,
-} from "../src/terms.js";
+} from "../src/server/terms-extractor.js";
 
-describe("CAP-007 / CAP-002 术语抽取测试", () => {
+describe("CAP-007 / CAP-002 术语抽取管线（CR-060：实现归插件）", () => {
   it("cleanTermText：能正确剥离中英文标点、引号与空格", () => {
     expect(cleanTermText("《快速傅里叶变换》")).toBe("快速傅里叶变换");
     expect(cleanTermText("“Socratic Method”")).toBe("Socratic Method");

@@ -1,9 +1,9 @@
 /**
- * Aervox｜思隅 @aervox/api — Loop 模型 Provider 构建与 LLMCallable 适配
+ * Aervox｜思隅 @aervox/api — Loop 模型 Provider 构建与 TurnLlmPort 适配
  *
  * 机械拆分自 agent-executor.ts（B 档第三步，零行为变更）：
  * AERVOX_LOOP_PROVIDER 的 Provider 选择（replay / scripted* / llm + CR-034
- * 模型路由降级阶梯）、practice-review 的 LLMCallable 适配与参数规范化哈希
+ * 模型路由降级阶梯）、插件窄端口 TurnLlmPort 的适配与参数规范化哈希
  * 逐字节迁移至本文件。
  */
 import {
@@ -12,7 +12,7 @@ import {
   createScriptedProvider,
 } from "@aervox/agent-loop";
 import type { ModelProviderPort, ReplayStep } from "@aervox/agent-loop";
-import type { LLMCallable } from "@aervox/practice-review";
+import type { TurnLlmPort } from "@aervox/host-plugin-api";
 import type { LocalContext } from "@aervox/repositories";
 import { loadApiConfig } from "@aervox/config";
 import type { ModelRoutingSnapshot } from "@aervox/contracts";
@@ -22,8 +22,8 @@ import { createRuleResponseProvider } from "./rule-response-provider.js";
 import { isLiteralLoopbackUrl } from "../../proactive/proactive/profile-context.js";
 import { API_TOOL_SCRIPT, API_WRITE_SCRIPT, API_PRIVILEGED_SCRIPT } from "./replay-scripts.js";
 
-/** 将 ModelProviderPort 适配为 practice-review 所需的 LLMCallable 接口 */
-export function createLLMCallable(provider: ModelProviderPort): LLMCallable {
+/** 将 ModelProviderPort 适配为插件契约的 TurnLlmPort 窄端口 */
+export function createLLMCallable(provider: ModelProviderPort): TurnLlmPort {
   return {
     async generate(prompt: string, options?: { systemPrompt?: string; temperature?: number }): Promise<string> {
       const messages: Array<{ role: "system" | "user" | "assistant" | "tool"; content: string }> = [];
