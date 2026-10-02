@@ -1,8 +1,9 @@
+import './styles.css';
 import { BookOpen, ClipboardList, Puzzle } from 'lucide-vue-next';
-import type { UIRegistry } from '../../registry/ui-registry';
-import { defaultUIRegistry } from '../../registry/ui-registry';
-import type { WorkbenchContext } from '../../composables/workbench-context';
-import type { BuiltinUIPlugin } from '../plugin-runtime';
+import type { UIRegistry } from '@aervox/ui/plugin-api';
+import { defaultUIRegistry } from '@aervox/ui/plugin-api';
+import type { WorkbenchContext } from '@aervox/ui/plugin-api';
+import type { BuiltinUIPlugin } from '@aervox/ui/plugin-api';
 import FocusModeSwitch from './FocusModeSwitch.vue';
 import FocusTermsBar from './FocusTermsBar.vue';
 import TermExploreDialog from './TermExploreDialog.vue';
@@ -31,8 +32,7 @@ export {
   LearningDrawer,
 };
 
-/** 插件自有导航清单对外只读视图（供宿主泛化渲染消费时使用） */
-export { learningNavItems };
+
 
 /**
  * 注册专注模式完整第一方前端插件
@@ -167,6 +167,26 @@ export const focusModePluginDefinition: BuiltinUIPlugin = {
     setFocusModeEnabled(false);
   },
 };
+
+export {
+  activeLearningView,
+  focusModeEnabled,
+  learningOpen,
+  openLearningView,
+  setFocusModeEnabled,
+  toggleFocusMode,
+} from './plugin-state';
+export {
+  TERMS_EXTRACTED_EVENT,
+  extractedTerms,
+  exploreDialogOpen,
+  openTermExplore,
+  parseTermsExtracted,
+  resetTermsState,
+  selectedTerm,
+  subscribeTermsEvents,
+} from './plugin-events';
+export type { ExtractedTerm, TermsExtractedEventData } from './plugin-events';
 
 /**
  * 默认导出：供组合根按包路径装配（宿主只取 `default`，不绑定插件私有符号）。

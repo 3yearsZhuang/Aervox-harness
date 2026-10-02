@@ -7,8 +7,8 @@ import {
 } from 'lucide-vue-next';
 import { requestAervoxApi, useAervoxPlugins } from '@aervox/api-client';
 import type { ExtractedTerm } from './plugin-events';
-import { renderMarkdown } from '../../utils/markdown';
-import { AervoxDialog, AervoxButton } from '../../primitives';
+import { renderMarkdown } from '@aervox/ui/markdown';
+import { AervoxDialog, AervoxButton } from '@aervox/ui/primitives';
 
 /** 追问探索方向（本插件自有端点契约；S6 起与插件服务端共用同一份模式定义） */
 type TermExploreKind = 'child' | 'related' | 'branch';

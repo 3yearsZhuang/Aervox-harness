@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { GraduationCap } from 'lucide-vue-next';
-import { useWorkbenchContext } from '../../composables/workbench-context';
+import { useWorkbenchContext } from '@aervox/ui/plugin-api';
 import { activeLearningView, learningOpen, openLearningView } from './plugin-state';
 
 const { layout } = useWorkbenchContext();

@@ -4,13 +4,13 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import {
   DOMAIN_PATTERNS,
   HOST_ROOTS,
   collectHostFiles,
   evaluateHostPurity,
   inspectHostFile,
-  isLegacyPluginPath,
   loadExceptions,
   runHostPurityCheck,
 } from "./check-host-domain-purity.mjs";
@@ -117,15 +117,23 @@ test("棘轮：登记数与实际数一致时通过", () => {
   assert.equal(result.hitCount, 2);
 });
 
-test(".css 纳入扫描；迁移期插件自有目录被跳过", () => {
+test(".css 纳入扫描；插件实现目录不在宿主扫描根内", () => {
   const files = collectHostFiles();
   assert.ok(files.includes("packages/ui/src/theme/workbench.css"), "应扫描宿主主题 CSS");
   assert.ok(
     !files.some((f) => f.startsWith("packages/ui/src/plugins/focus-mode/")),
     "迁移期插件自有目录不应被宿主纯净性守卫扫描",
   );
-  assert.ok(isLegacyPluginPath("packages/ui/src/plugins/focus-mode/index.ts"));
-  assert.ok(!isLegacyPluginPath("packages/ui/src/plugins/plugin-runtime.ts"), "宿主插件加载器必须受扫描");
+  // CR-060 S6：插件 UI 已物理迁出宿主包，迁移期前缀豁免退役；
+  // 宿主包内不再存在任何插件自有目录，扫描覆盖全部宿主源码。
+  assert.ok(
+    !existsSync("packages/ui/src/plugins/focus-mode"),
+    "插件 UI 必须已迁出宿主包（迁移期豁免不得复活）",
+  );
+  assert.ok(
+    existsSync("plugins/focus-mode/src/ui/index.ts"),
+    "插件 UI 必须位于插件包内",
+  );
 });
 
 test("扫描根覆盖宿主包，且不含学习事实真源包", () => {
@@ -136,7 +144,7 @@ test("扫描根覆盖宿主包，且不含学习事实真源包", () => {
   assert.ok(!HOST_ROOTS.includes("packages/repositories/src"), "repositories 属学习事实真源，范围外");
 });
 
-test("当前仓库状态：豁免清单与磁盘一致（零违规、零可收紧）", () => {
+test("当前仓库状态：宿主零领域命中且豁免清单为空（CR-060 收敛终点）", () => {
   const result = runHostPurityCheck();
   assert.deepEqual(result.violations, []);
   assert.deepEqual(result.grown, []);
@@ -145,7 +153,12 @@ test("当前仓库状态：豁免清单与磁盘一致（零违规、零可收�
     [],
     "豁免清单存在可收紧条目；请运行 node scripts/check-host-domain-purity.mjs --init 同步，或删除已完成迁移的条目",
   );
-  assert.ok(loadExceptions().length > 0, "迁移期应仍有豁免条目；若已清空说明 CR-060 已完成，可删除本断言");
+  assert.equal(result.hitCount, 0, "宿主仍存在领域命中，CR-060 未收敛");
+  assert.deepEqual(
+    loadExceptions(),
+    [],
+    "迁移期豁免清单必须为空：宿主领域知识应已全部落到实现侧（插件包内）",
+  );
 });
 
 test("装配点白名单：仅放行 plugin-id，其余规则仍生效", () => {

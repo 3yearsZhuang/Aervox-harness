@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.4
+version: 1.0.5
 updated_at: 2026-10-03
 reviewed_at: 2026-10-03
 review_interval_days: 90
@@ -58,9 +58,9 @@ sources:
 
 能力组合规范中的 `CapabilityManifest`、Provider/Profile、依赖 Resolver、签名与锁文件是另一层契约，不能直接作为当前 `PluginManifest` 安装。其独立可执行可选模块通过 `modules/*` 子仓库交付的要求仍有效；当前 `plugins/*` 是声明与资源包，第一方 UI/Turn 是随主仓交付的受信实现，不能与独立可执行模块混同。单纯制作声明式 Bundle 不要求新建子仓库；真正新增独立可选业务模块、改变目录责任或放宽 ADR 边界，先按能力注册表与 [CR 流程](../how-to/cr-workflow.md)裁定。
 
-### 0.3 契约冻结：专注模式内聚与宿主去领域化（CR-060，服务端与前端接缝已落地）
+### 0.3 契约冻结：专注模式内聚与宿主去领域化（CR-060，实现已全部内聚）
 
-本节冻结 [CR-060](changes/CR-060-focus-mode-host-decoupling.md) 的目标契约，供实施与评审对齐。**落地进度**：服务端实现（回合切面、工具贡献、HTTP 端点、宿主服务窄端口、回放脚本）已迁入 `plugins/focus-mode/` 并由装配点注入；前端通用接缝（`pluginState`、`pluginEvents`、`metadata` 透传、`applySlotPreset`、`plugins` 注入、`composer:indicator` 与 `settings:conversation-rows` 插槽、fail-closed 插件运行时）已落地，§4.1、§4.2、§4.4、§5.1、§5.2、§8.4 已按落地事实改写。**剩余**：插件 UI 组件与专属样式从 `packages/ui` 物理迁入 `plugins/focus-mode/src/ui/`（§6 组件替换契约与样式归属届时同步改写）。物理迁出完成并通过移除演练前，不得据本节向用户承诺"删除插件目录后 Web 端仍可构建"。
+本节冻结 [CR-060](changes/CR-060-focus-mode-host-decoupling.md) 的目标契约，供实施与评审对齐。**落地进度**：服务端实现（回合切面、工具贡献、HTTP 端点、宿主服务窄端口、回放脚本）已迁入 `plugins/focus-mode/` 并由装配点注入；前端通用接缝（`pluginState`、`pluginEvents`、`metadata` 透传、`applySlotPreset`、`plugins` 注入、`composer:indicator` 与 `settings:conversation-rows` 插槽、fail-closed 插件运行时）已落地，§4.1、§4.2、§4.4、§5.1、§5.2、§8.4 已按落地事实改写。前端 UI 组件与专属样式已物理迁入 `plugins/focus-mode/src/ui/`（`packages/ui` 内不再存在插件自有目录，宿主纯净性棘轮豁免清单已清空）。**剩余**：可移除目标与移除演练（`check-removable-implementation` 的 `focus-mode-plugin` 目标）与文档闭环；该演练通过前，不得据本节向用户承诺"删除插件目录后构建链路自动通过"。
 
 - **实现落点**：第一方实现的源码可与声明同置于 `plugins/<id>/`，但实现目录**不进入** `.aervox-plugin` 分发包；分发包仍只含 Manifest、Config、Skill、Page 等声明与资源。分发包内容以显式允许清单为准，不随目录递归扩张。
 - **宿主装配**：宿主只提供通用注册表；具体插件由唯一装配文件显式注入，宿主包内不得出现插件领域标识。
@@ -245,6 +245,18 @@ CR-060 已落地通用接缝：[WorkbenchContext](../../packages/ui/src/composab
 | 输入区 | `composer:toolbar-actions`、`composer:bottom-bar`、`composer:indicator` |
 | 设置、抽屉、任务中心 | `settings:tabs`、`settings:conversation-rows`、`workbench:drawers`、`taskcenter:cards` |
 
+插件实现（`plugins/<id>/src/ui`）只能经下列**公共子路径**接入宿主展示基座，禁止深链 `packages/ui/src/**`：
+
+| 子路径 | 内容 |
+|---|---|
+| `@aervox/ui` | 组件库入口（不含插件实现） |
+| `@aervox/ui/primitives` | 基础控件（按钮、对话框、抽屉、反馈） |
+| `@aervox/ui/plugin-api` | 工作台上下文、插件状态与事件总线、UI 注册表与插件运行时契约 |
+| `@aervox/ui/markdown` | Markdown 渲染 |
+| `@aervox/ui/theme` | 主题 Token（全局样式） |
+
+插件 UI 的**专属样式随实现内聚**（插件包内 `styles.css` 由插件 UI 入口引入）；宿主主题 `workbench.css` 只承载全局 Token 与通用布局，不得出现插件类名，插件也不得依赖宿主内部类名选择器。
+
 `composer:indicator` 供插件渲染自有模式标记（宿主不再内建任何插件文案与样式）；`settings:conversation-rows` 供插件在「对话」分类注入自有设置行（宿主设置面板不内建插件行）。
 
 ### 5.2 注册接口与生命周期
@@ -349,7 +361,7 @@ MCP 使用独立[服务适配器](../../apps/api/src/modules/ecosystem/mcp/servi
 | Config 校验、串行旧版本拒绝、重置、资源路径、清理 | [plugin-config.test.ts](../../apps/api/test/plugin-config.test.ts) | Secret 静态加密、并发 CAS、配置与 Secret 原子性、全 Page 撤权 |
 | 工具与权限登记 | [tools-plugins.test.ts](../../apps/api/test/tools-plugins.test.ts) | 任意工具声明自动提供 handler 或 grant 强制检查 |
 | Hook 与领域切面 | [study-term-plugins.test.ts](../../apps/api/test/study-term-plugins.test.ts) | 第三方 Hook 隔离、硬超时或即时取消 |
-| UI 注册/清理/配置竞态 | [ui-registry.test.ts](../../packages/ui/test/ui-registry.test.ts)、[study-mode-plugin.test.ts](../../packages/ui/test/focus-mode-plugin.test.ts) | 任意第三方 Vue 热加载或安全沙箱 |
+| UI 注册/清理/配置竞态 | [ui-registry.test.ts](../../packages/ui/test/ui-registry.test.ts)、[study-mode-plugin.test.ts](../../plugins/focus-mode/test/plugin-registration.test.ts) | 任意第三方 Vue 热加载或安全沙箱 |
 
 发布审查逐项确认：
 

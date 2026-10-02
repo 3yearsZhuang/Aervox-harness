@@ -5,7 +5,7 @@ import AppTitlebar from '@/components/AppTitlebar.vue'
 import {hasCompletedOnboarding, markOnboardingCompleted} from '@/onboarding-state'
 import {AervoxWorkbench} from '@aervox/ui'
 // CR-060：第一方插件按**包路径**装配，宿主不绑定插件私有符号（见 check-host-domain-purity）
-import * as firstPartyPlugin from '@aervox/ui/plugins/focus-mode'
+import * as firstPartyPlugin from '@aervox/plugin-focus-mode/ui'
 
 const OnboardingFlow = defineAsyncComponent(() => import('@/components/OnboardingFlow.vue'))
 const showOnboarding = ref(!hasCompletedOnboarding(window.localStorage))

@@ -9,7 +9,7 @@
  * S6 将随插件 UI 一并迁至 `plugins/focus-mode/src/ui/`。
  */
 import { ref, type Ref } from 'vue';
-import type { PluginEventBus } from '../../composables/plugin-events';
+import type { PluginEventBus } from '@aervox/ui/plugin-api';
 
 /** 抽取出来的单个术语（与服务端 `plugins/focus-mode` 的 `extractedTermSchema` 对齐） */
 export interface ExtractedTerm {

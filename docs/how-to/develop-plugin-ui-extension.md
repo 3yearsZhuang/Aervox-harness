@@ -309,7 +309,7 @@ export const focusDraftPlugin: BuiltinUIPlugin = {
 
 经评审后，将定义显式加入 [plugin-runtime.ts](../../packages/ui/src/plugins/plugin-runtime.ts) 的受信插件清单，或在已有宿主组合点传入 `customPlugins`。使用当前工作台的 registry，避免依赖全局单例造成多窗口串扰。新增插件不会因 ZIP 里多了这个文件就被自动发现。
 
-预期：工具栏出现“起草下一步”，空输入时填入草稿；已有输入不被覆盖；停用时按钮注销，再启用仅出现一次。参照 [study-mode-plugin.test.ts](../../packages/ui/test/focus-mode-plugin.test.ts)验证重复同步与清理。真实功能应复用宿主按钮样式与无障碍规则。
+预期：工具栏出现“起草下一步”，空输入时填入草稿；已有输入不被覆盖；停用时按钮注销，再启用仅出现一次。参照 [study-mode-plugin.test.ts](../../plugins/focus-mode/test/plugin-registration.test.ts)验证重复同步与清理。真实功能应复用宿主按钮样式与无障碍规则。
 
 卡片、其他槽位和组件替换的完整接口见[规范 §5–§7](../reference/plugin-config-and-pages.md#5-前端-ui-插槽扩展规范ui-extension-slots)。特别注意：`overrideComponent` 没有 disposer，不能用 `registry.clear()` 停用单个插件；替换 `ComposerDock` 时必须由宿主安排恢复，并验证输入法、附件、语音与单次发送。
 

@@ -284,7 +284,6 @@ describe('Workbench Composables Logic', () => {
   it('useWorkbenchCards dynamically merges cards from UIRegistry and defaults to core cards', async () => {
     const { useWorkbenchCards } = await import('../src/composables/useWorkbenchCards');
     const { createUIRegistry } = await import('../src/registry/ui-registry');
-    const { registerFocusModePlugin } = await import('../src/plugins/focus-mode');
     const registry = createUIRegistry();
 
     const cards = useWorkbenchCards({
@@ -301,16 +300,38 @@ describe('Workbench Composables Logic', () => {
     // 1. Initially without plugin cards: only 4 core cards
     expect(cards.cardCatalog.value.map((c) => c.id)).toEqual(['todo', 'timer', 'history', 'diary']);
 
-    // 2. When focus-mode registers cards into registry: cardCatalog reactively merges them
-    const unregister = registerFocusModePlugin(registry);
-    expect(cards.cardCatalog.value.map((c) => c.id)).toEqual(['study', 'mistake', 'quiz', 'todo', 'timer', 'history', 'diary']);
+    // 2. 任意插件贡献的卡片都会响应式并入；宿主不感知具体插件（CR-060 用通用桩验证接缝）
+    const dummyIcon = { render: () => null };
+    const unregisterStudy = registry.registerCard({
+      id: 'plugin-a-card',
+      label: '插件 A 卡片',
+      description: '由插件贡献',
+      icon: dummyIcon as never,
+      summary: () => '1 项',
+      action: () => {},
+      extraComponent: dummyIcon as never,
+      priority: 100,
+    });
+    const unregisterMistake = registry.registerCard({
+      id: 'plugin-b-card',
+      label: '插件 B 卡片',
+      description: '由插件贡献',
+      icon: dummyIcon as never,
+      summary: () => '2 项',
+      action: () => {},
+      priority: 90,
+    });
+    expect(cards.cardCatalog.value.map((c) => c.id)).toEqual([
+      'plugin-a-card', 'plugin-b-card', 'todo', 'timer', 'history', 'diary',
+    ]);
 
-    // 3. Focus study card action is present
-    const studyCard = cards.cardCatalog.value.find((c) => c.id === 'study');
-    expect(studyCard?.extraComponent).toBeDefined();
+    // 3. 插件卡片可携带操作区组件
+    const firstCard = cards.cardCatalog.value.find((c) => c.id === 'plugin-a-card');
+    expect(firstCard?.extraComponent).toBeDefined();
 
-    // 4. When focus-mode unregisters: returns back to core cards
-    unregister();
+    // 4. 注销后回到核心卡片
+    unregisterStudy();
+    unregisterMistake();
     expect(cards.cardCatalog.value.map((c) => c.id)).toEqual(['todo', 'timer', 'history', 'diary']);
   }, 20000);
 

@@ -14,7 +14,10 @@
     "./live2d/petReactions": "./src/live2d/petReactions.ts",
     "./live2d/avatar-bundle": "./src/live2d/avatar-bundle.ts",
     "./theme": "./src/theme/index.css",
-    "./plugins/focus-mode": "./src/plugins/focus-mode/index.ts"
+    "./plugins/focus-mode": "./src/plugins/focus-mode/index.ts",
+    "./plugin-api": "./src/plugin-api.ts",
+    "./markdown": "./src/utils/markdown.ts",
+    "./primitives": "./src/primitives/index.ts"
   },
   "scripts": {
     "typecheck": "vue-tsc --noEmit",
@@ -37,8 +40,8 @@
     "element-plus": "^2.11.5",
     "lucide-vue-next": "^0.468.0",
     "pixi.js": "^7.4.3",
+    "typescript": "^5.8.3",
     "vue": "^3.5.21",
-    "vue-tsc": "^2.2.12",
-    "typescript": "^5.8.3"
+    "vue-tsc": "^2.2.12"
   }
 }

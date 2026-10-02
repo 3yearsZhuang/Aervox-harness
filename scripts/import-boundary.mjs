@@ -36,6 +36,22 @@ import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, relative, sep, dirname, resolve } from "node:path";
 import { parse } from "@babel/parser";
 
+/**
+ * 组合根白名单：宿主中唯一允许接入插件实现包的位置。
+ *
+ * 依据 AVX-PLUG-001 §4.1「Hook 必须由组合根 import 并注册」与 CR-060：
+ * - API/Worker 组合根以**容错动态 import** 装配插件服务端注册单元（缺包不中断启动）；
+ * - Web / 桌面壳以静态 import 取插件 UI 定义的默认导出（删除该行即可下线）。
+ *
+ * 三处之外，宿主源码目录（apps 与 packages 下的 src）一律不得引用 `@aervox/plugin-*`；
+ * 宿主**测试**不在本规则范围（`src/` 限定），可引用插件包以验证插件行为。
+ */
+export const PLUGIN_COMPOSITION_ROOTS = new Set([
+  "apps/api/src/plugin-assembly.ts",
+  "apps/web/src/App.vue",
+  "apps/desktop/src/renderer/src/App.vue",
+]);
+
 /** 每条规则即 ADR-016 的一条健身函数 */
 export const RULES = [
   {
@@ -86,6 +102,17 @@ export const RULES = [
   {
     // CR-060：插件实现内聚于 plugins/<id>/ 后，仍不得绕过宿主窄端口直连数据库或反向依赖宿主 Shell。
     // 允许依赖 @aervox/ui 等共享包（宿主扩展 API 与展示基座），故不阻断全部 @aervox/*。
+    name: "host-no-plugin-implementation",
+    docRef: "CR-060 · AVX-PLUG-001 §0.3",
+    fromDir: /^(apps|packages)\/[^/]+\/src\//,
+    forbid: [
+      {
+        pattern: /^@aervox\/plugin-/,
+        label: "插件实现包（宿主只可在组合根以容错动态装配接入）",
+      },
+    ],
+  },
+  {
     name: "plugins-domain-no-db-no-host",
     docRef: "CR-060 · AVX-PLUG-001 §0.3",
     fromDir: /^plugins\/[^/]+\//,
@@ -280,6 +307,8 @@ export function inspectSource(relFile, source, { exceptions = MODULE_EXCEPTIONS 
   });
   for (const rule of RULES) {
     if (!rule.fromDir.test(relFile)) continue;
+    // 组合根白名单：仅对「宿主不得接入插件实现包」一条规则放行声明的装配文件
+    if (rule.name === "host-no-plugin-implementation" && PLUGIN_COMPOSITION_ROOTS.has(relFile)) continue;
     for (const specifier of normalized) {
       const forbidden = rule.forbid.find((f) => f.pattern.test(specifier));
       if (forbidden) {

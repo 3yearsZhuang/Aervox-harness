@@ -108,13 +108,6 @@ export const IGNORE_DIR_RE = /(^|\/)(node_modules|dist|out|reference|\.git)(\/|$
 export const EXCEPTIONS_URL = new URL("./host-domain-purity-exceptions.json", import.meta.url);
 
 /**
- * 迁移期插件自有目录的**当前**落点（S6 之前）。
- * 这些文件本就属于插件，允许包含领域标识；S6 将其迁至 `plugins/focus-mode/src/ui/` 后
- * 本常量应连同条目一并删除（届时目录不存在，纯前缀跳过自然失效，不会掩盖新增违规）。
- */
-export const LEGACY_PLUGIN_PREFIXES = ["packages/ui/src/plugins/focus-mode/"];
-
-/**
  * 装配点白名单：组合根必须按 id 引用具体插件，这是**设计允许**的宿主唯一引用位置
  * （AVX-PLUG-001 §4.1「Hook 必须由 API 组合根 import 并注册」）。
  * 仅豁免 `plugin-id` 一条规则：装配文件仍不得出现领域驼峰、插件配置键、专属样式等。
@@ -129,11 +122,6 @@ export const ASSEMBLY_FILES = new Set([
 /** 装配点仅放行 plugin-id 规则 */
 export function isAssemblyAllowedRule(relFile, ruleId) {
   return ruleId === "plugin-id" && ASSEMBLY_FILES.has(relFile);
-}
-
-/** 判断路径是否属迁移期插件自有目录 */
-export function isLegacyPluginPath(relFile) {
-  return LEGACY_PLUGIN_PREFIXES.some((prefix) => relFile.startsWith(prefix));
 }
 
 /** 读取迁移期豁免清单；文件缺失视为空清单（fail-closed：不豁免任何违规） */
@@ -157,8 +145,8 @@ export function collectHostFiles(roots = HOST_ROOTS) {
       }
       const rel = relative(process.cwd(), full).split(sep).join("/");
       if (stat.isDirectory()) {
-        if (!IGNORE_DIR_RE.test(rel) && !isLegacyPluginPath(`${rel}/`)) walk(full);
-      } else if (SOURCE_EXT_RE.test(rel) && !isLegacyPluginPath(rel)) {
+        if (!IGNORE_DIR_RE.test(rel)) walk(full);
+      } else if (SOURCE_EXT_RE.test(rel)) {
         out.push(rel);
       }
     }
@@ -251,7 +239,7 @@ export function evaluateHostPurity(entries, exceptions = []) {
  * 这样既不受行号漂移影响，又保证清单只减不增。
  */
 export function runHostPurityCheck({ roots = HOST_ROOTS, exceptions = loadExceptions(), files = null } = {}) {
-  const list = (files ?? collectHostFiles(roots)).filter((f) => !isLegacyPluginPath(f));
+  const list = files ?? collectHostFiles(roots);
   const entries = [];
   for (const relFile of list) {
     try {

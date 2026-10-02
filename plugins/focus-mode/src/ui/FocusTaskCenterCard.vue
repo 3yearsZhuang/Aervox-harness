@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ArrowRight, GraduationCap } from 'lucide-vue-next';
-import { useWorkbenchContext } from '../../composables/workbench-context';
+import { useWorkbenchContext } from '@aervox/ui/plugin-api';
 import { openLearningView } from './plugin-state';
 
 const { layout, cards } = useWorkbenchContext();
@@ -19,7 +19,7 @@ function goToStudy() {
 <template>
   <div class="task-summary-card focus-task-center-card">
     <div class="task-card-header">
-      <div class="task-card-icon study-icon">
+      <div class="task-card-icon focus-icon">
         <GraduationCap :size="20" />
       </div>
       <div class="task-card-meta">

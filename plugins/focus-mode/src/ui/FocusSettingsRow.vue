@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useWorkbenchContext } from '../../composables/workbench-context';
+import { useWorkbenchContext } from '@aervox/ui/plugin-api';
 import { focusModeEnabled, setFocusModeEnabled } from './plugin-state';
 
 /**

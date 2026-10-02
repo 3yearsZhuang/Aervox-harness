@@ -8,8 +8,8 @@ import {
   Sparkles,
   X,
 } from 'lucide-vue-next';
-import { useWorkbenchContext } from '../../composables/workbench-context';
-import { AervoxNavDialog } from '../../primitives';
+import { useWorkbenchContext } from '@aervox/ui/plugin-api';
+import { AervoxNavDialog } from '@aervox/ui/primitives';
 import { activeLearningView, learningNavItems, learningOpen } from './plugin-state';
 
 // CR-060：学习抽屉状态与导航清单归插件所有（宿主不再持有这些字段）
@@ -86,7 +86,7 @@ async function reloadGoals() {
               <span class="heading-icon-wrap"><BookOpen :size="18" /></span>
               <span><strong>AI 学习规划</strong><small>输入主题，生成「里程碑 + 任务」的项目式学习路线图</small></span>
             </div>
-            <form class="study-goal-form" @submit.prevent="generatePlan">
+            <form class="focus-goal-form" @submit.prevent="generatePlan">
               <label class="sr-only" for="new-plan-topic">学习主题</label>
               <input id="new-plan-topic" v-model="newPlanTopic" placeholder="例如：用 Vue 写一个番茄钟应用" :disabled="planGenerating" />
               <select v-model="newPlanLevel" aria-label="学习水平" :disabled="planGenerating">
@@ -105,16 +105,16 @@ async function reloadGoals() {
               </button>
             </form>
             <p v-if="planError" class="drawer-error">{{ planError }}</p>
-            <p class="study-section-desc">生成后按里程碑推进：勾选任务即可，完成一个阶段自动解锁下一阶段。</p>
+            <p class="focus-section-desc">生成后按里程碑推进：勾选任务即可，完成一个阶段自动解锁下一阶段。</p>
           </div>
 
           <!-- 我的规划列表 -->
           <div class="settings-section">
             <h4>我的规划 <small>{{ learningPlans.length }}</small></h4>
-            <ul class="study-list plan-list">
+            <ul class="focus-list plan-list">
               <li v-for="plan in learningPlans" :key="plan.id" class="plan-card">
                 <div class="goal-item-heading">
-                  <span class="study-item-title">{{ plan.title }}</span>
+                  <span class="focus-item-title">{{ plan.title }}</span>
                   <span class="goal-status">{{ plan.dailyAvailableMinutes }} 分钟/天</span>
                 </div>
                 <p class="plan-description">{{ plan.description }}</p>
@@ -124,7 +124,7 @@ async function reloadGoals() {
                 </div>
                 <div v-for="milestone in plan.milestones" :key="milestone.id" class="plan-milestone" :class="`is-${milestone.status}`">
                   <div class="plan-milestone-heading">
-                    <span class="study-item-title">{{ milestone.order + 1 }}. {{ milestone.title }}</span>
+                    <span class="focus-item-title">{{ milestone.order + 1 }}. {{ milestone.title }}</span>
                     <span class="goal-status" :class="{ 'is-completed': milestone.status === 'completed' }">{{ planMilestoneStatusLabel(milestone.status) }}</span>
                   </div>
                   <small v-if="milestone.completionCriteria">完成标准：{{ milestone.completionCriteria }}</small>
@@ -151,7 +151,7 @@ async function reloadGoals() {
                   <button type="button" class="danger" :disabled="planBusyId === plan.id" @click="archivePlan(plan.id)"><X :size="14" />归档</button>
                 </div>
               </li>
-              <li v-if="learningPlans.length === 0" class="study-empty">还没有学习规划，输入主题让 AI 生成一份路线图。</li>
+              <li v-if="learningPlans.length === 0" class="focus-empty">还没有学习规划，输入主题让 AI 生成一份路线图。</li>
             </ul>
           </div>
         </div>
@@ -163,7 +163,7 @@ async function reloadGoals() {
               <span><strong>错题管理与重练</strong><small>针对性练习未掌握题目，记录错因洞察</small></span>
             </div>
 
-            <div class="study-section-title-row">
+            <div class="focus-section-title-row">
               <div class="mistake-filter-summary">
                 <span>当前错题 <strong>{{ visibleMistakes.length }}</strong> 题</span>
                 <span v-if="selectedMistakeIds.length" class="mistake-selected-badge">已选 {{ selectedMistakeIds.length }} 题</span>
@@ -236,7 +236,7 @@ async function reloadGoals() {
               <button class="practice-end" type="button" :disabled="practiceBusy" @click="() => finishPractice()">提前结束并查看报告</button>
             </article>
 
-            <ul class="study-list mistake-list">
+            <ul class="focus-list mistake-list">
               <li v-for="item in visibleMistakes" :key="item.questionId">
                 <div class="mistake-heading">
                   <label v-if="item.status === 'active'">
@@ -246,9 +246,9 @@ async function reloadGoals() {
                       :value="item.questionId"
                       :disabled="selectedMistakeIds.length >= 5 && !selectedMistakeIds.includes(item.questionId)"
                     />
-                    <span class="study-item-title">{{ item.prompt }}</span>
+                    <span class="focus-item-title">{{ item.prompt }}</span>
                   </label>
-                  <span v-else class="study-item-title">{{ item.prompt }}</span>
+                  <span v-else class="focus-item-title">{{ item.prompt }}</span>
                   <span class="goal-status" :class="{ 'is-completed': item.status === 'mastered' }">
                     {{ item.status === 'mastered' ? '已掌握' : item.status === 'dismissed' ? '已忽略' : '待掌握' }}
                   </span>
@@ -285,7 +285,7 @@ async function reloadGoals() {
                 </div>
                 <small v-else>这道题尚未关联知识点，可以重练，但暂不能标记掌握。</small>
               </li>
-              <li v-if="visibleMistakes.length === 0" class="study-empty">
+              <li v-if="visibleMistakes.length === 0" class="focus-empty">
                 {{ mistakeFilter === 'mastered' ? '还没有已掌握的错题。' : '当前没有待处理错题。' }}
               </li>
             </ul>

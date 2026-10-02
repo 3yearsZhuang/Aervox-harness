@@ -1,16 +1,1 @@
-[
-  {
-    "file": "packages/ui/src/theme/workbench.css",
-    "pattern": "domain-copy",
-    "count": 4,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（中文领域文案）"
-  },
-  {
-    "file": "packages/ui/src/theme/workbench.css",
-    "pattern": "domain-css",
-    "count": 60,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（插件专属样式类）"
-  }
-]
+[]

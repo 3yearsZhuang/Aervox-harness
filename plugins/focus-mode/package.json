@@ -6,6 +6,7 @@
   "type": "module",
   "description": "专注模式第一方插件（CAP-002 启发式教学 / CAP-007 概念探索 / CAP-016 现场刷题）：实现内聚于本目录，源码不随 .aervox-plugin 分发包发布（CR-060）",
   "exports": {
+    "./ui": "./src/ui/index.ts",
     "./server": {
       "types": "./dist/server/index.d.ts",
       "default": "./dist/server/index.js"
@@ -17,9 +18,19 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@aervox/api-client": "workspace:*",
     "@aervox/contracts": "workspace:*",
     "@aervox/core": "workspace:*",
     "@aervox/host-plugin-api": "workspace:*",
+    "@aervox/ui": "workspace:*",
     "zod": "4.4.3"
+  },
+  "peerDependencies": {
+    "lucide-vue-next": "^0.468.0",
+    "vue": "^3.5.21"
+  },
+  "devDependencies": {
+    "lucide-vue-next": "^0.468.0",
+    "vue": "^3.5.21"
   }
 }

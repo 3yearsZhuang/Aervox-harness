@@ -10,7 +10,7 @@
  */
 import { ref, watch, type Component } from 'vue';
 import { BookOpen, Puzzle } from 'lucide-vue-next';
-import type { WorkbenchContext } from '../../composables/workbench-context';
+import type { WorkbenchContext } from '@aervox/ui/plugin-api';
 
 /** 插件 id（与 Manifest / 服务端注册单元一致；仅本插件内部使用） */
 export const PLUGIN_ID = 'focus-mode';

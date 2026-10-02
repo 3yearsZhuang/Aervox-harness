@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { createUIRegistry } from '../src/registry/ui-registry';
-import { createPluginStateStore } from '../src/composables/plugin-state';
-import { createPluginEventBus } from '../src/composables/plugin-events';
-import { createWorkbenchPluginRuntime, type BuiltinUIPlugin } from '../src/plugins/plugin-runtime';
+import { createUIRegistry } from '@aervox/ui/plugin-api';
+import { createPluginStateStore } from '@aervox/ui/plugin-api';
+import { createPluginEventBus } from '@aervox/ui/plugin-api';
+import { createWorkbenchPluginRuntime, type BuiltinUIPlugin } from '@aervox/ui/plugin-api';
 import focusModePluginDefinition, {
   registerFocusModePlugin,
   FocusModeSwitch,
@@ -14,8 +14,8 @@ import focusModePluginDefinition, {
   FocusSettingsRow,
   FocusModeIndicator,
   LearningDrawer,
-} from '../src/plugins/focus-mode';
-import { focusModeEnabled } from '../src/plugins/focus-mode/plugin-state';
+} from '../src/ui';
+import { focusModeEnabled } from '../src/ui';
 
 /**
  * CR-060：插件 UI 侧契约。

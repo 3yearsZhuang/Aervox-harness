@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, watch } from 'vue';
 import { Sparkles } from 'lucide-vue-next';
-import { useWorkbenchContext } from '../../composables/workbench-context';
+import { useWorkbenchContext } from '@aervox/ui/plugin-api';
 import TermExploreDialog from './TermExploreDialog.vue';
 import { focusModeEnabled } from './plugin-state';
 import {

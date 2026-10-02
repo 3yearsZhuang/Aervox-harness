@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { CircleHelp, Clock3, Puzzle } from 'lucide-vue-next';
-import { useWorkbenchContext } from '../../composables/workbench-context';
+import { useWorkbenchContext } from '@aervox/ui/plugin-api';
 import { focusModeEnabled, openLearningView } from './plugin-state';
 
 const { layout, cards } = useWorkbenchContext();

@@ -123,6 +123,9 @@ importers:
       '@aervox/live2d':
         specifier: workspace:*
         version: link:../../packages/live2d
+      '@aervox/plugin-focus-mode':
+        specifier: workspace:*
+        version: link:../../plugins/focus-mode
       '@aervox/public':
         specifier: workspace:*
         version: link:../../packages/public
@@ -188,6 +191,9 @@ importers:
       '@aervox/live2d':
         specifier: workspace:*
         version: link:../../packages/live2d
+      '@aervox/plugin-focus-mode':
+        specifier: workspace:*
+        version: link:../../plugins/focus-mode
       '@aervox/public':
         specifier: workspace:*
         version: link:../../packages/public
@@ -428,6 +434,9 @@ importers:
 
   plugins/focus-mode:
     dependencies:
+      '@aervox/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@aervox/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -437,9 +446,19 @@ importers:
       '@aervox/host-plugin-api':
         specifier: workspace:*
         version: link:../../packages/host-plugin-api
+      '@aervox/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       zod:
         specifier: 4.4.3
         version: 4.4.3
+    devDependencies:
+      lucide-vue-next:
+        specifier: ^0.468.0
+        version: 0.468.0(vue@3.5.41(typescript@7.0.2))
+      vue:
+        specifier: ^3.5.21
+        version: 3.5.41(typescript@7.0.2)
 
 packages:
 
@@ -6772,6 +6791,10 @@ snapshots:
   lucide-vue-next@0.468.0(vue@3.5.41(typescript@5.9.3)):
     dependencies:
       vue: 3.5.41(typescript@5.9.3)
+
+  lucide-vue-next@0.468.0(vue@3.5.41(typescript@7.0.2)):
+    dependencies:
+      vue: 3.5.41(typescript@7.0.2)
 
   magic-string@0.30.17:
     dependencies:

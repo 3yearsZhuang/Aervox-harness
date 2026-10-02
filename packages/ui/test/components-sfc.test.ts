@@ -1,44 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { ref, defineComponent, h, markRaw } from 'vue';
-import FocusModeSwitch from '../src/plugins/focus-mode/FocusModeSwitch.vue';
-import FocusNavMenuItem from '../src/plugins/focus-mode/FocusNavMenuItem.vue';
-import FocusStudyCardActions from '../src/plugins/focus-mode/FocusStudyCardActions.vue';
-import FocusTaskCenterCard from '../src/plugins/focus-mode/FocusTaskCenterCard.vue';
 import SettingsModal from '../src/components/workbench/drawers/SettingsModal.vue';
 import ToolsDrawer from '../src/components/workbench/drawers/ToolsDrawer.vue';
 import WorkbenchNavPill from '../src/components/workbench/WorkbenchNavPill.vue';
 import WorkbenchSideCards from '../src/components/workbench/WorkbenchSideCards.vue';
-import { registerFocusModePlugin } from '../src/plugins/focus-mode';
-import {
-  activeLearningView,
-  focusModeEnabled as pluginFocusModeEnabled,
-  learningOpen,
-} from '../src/plugins/focus-mode/plugin-state';
 import ExtensionSlot from '../src/components/extension/ExtensionSlot.vue';
 import type { CardDefinition } from '../src/composables/useWorkbenchCards';
 import { WORKBENCH_CONTEXT_KEY, type WorkbenchContext } from '../src/composables/workbench-context';
 import { createUIRegistry, UI_REGISTRY_KEY } from '../src/registry/ui-registry';
 
 describe('Real SFC Component Mounting', () => {
-  it('FocusModeSwitch.vue reads its own plugin state and toggles mode on click', async () => {
-    // CR-060：开关状态归插件（宿主 layout 不再持有该字段）
-    pluginFocusModeEnabled.value = false;
-
-    const wrapper = mount(FocusModeSwitch);
-
-    expect(wrapper.find('.study-switch-track').attributes('aria-checked')).toBe('false');
-    expect(wrapper.find('.study-switch-label').text()).toBe('专注模式');
-
-    await wrapper.find('.study-switch-track').trigger('click');
-    expect(pluginFocusModeEnabled.value).toBe(true);
-
-    await wrapper.vm.$nextTick();
-    expect(wrapper.find('.study-switch-track').attributes('aria-checked')).toBe('true');
-
-    pluginFocusModeEnabled.value = false;
-  });
-
   it('ExtensionSlot error boundary catches failing component and shows fallback without crashing', async () => {
     const registry = createUIRegistry();
 
@@ -136,45 +108,7 @@ describe('Real SFC Component Mounting', () => {
     expect(wrapperWithoutOnSend.emitted('send')![0]).toEqual(['Fallback text']);
   });
 
-  it('FocusNavMenuItem.vue mounts, displays label, tooltip and handles active state & click action', async () => {
-    const runMenuAction = vi.fn((action: () => void) => action());
-
-    const mockContext = {
-      layout: { runMenuAction },
-    } as unknown as WorkbenchContext;
-    learningOpen.value = false;
-    activeLearningView.value = 'study';
-
-    const wrapper = mount(FocusNavMenuItem, {
-      global: {
-        provide: {
-          [WORKBENCH_CONTEXT_KEY as symbol]: mockContext,
-        },
-      },
-    });
-
-    expect(wrapper.text()).toContain('学习能力');
-    expect(wrapper.attributes('title')).toBe('学习能力');
-    expect(wrapper.classes()).not.toContain('is-active');
-
-    // Activate study drawer
-    learningOpen.value = true;
-    await wrapper.vm.$nextTick();
-    expect(wrapper.classes()).toContain('is-active');
-
-    // Switch to mistake view -> should not be active for study item
-    activeLearningView.value = 'mistake';
-    await wrapper.vm.$nextTick();
-    expect(wrapper.classes()).not.toContain('is-active');
-
-    // Trigger click：打开插件自有视图（宿主不再提供该 ToolId）
-    await wrapper.trigger('click');
-    expect(runMenuAction).toHaveBeenCalledTimes(1);
-    expect(learningOpen.value).toBe(true);
-    expect(activeLearningView.value).toBe('study');
-  });
-
-  it('WorkbenchNavPill.vue decouples focus mode: handles active states and renders plugin item sequentially', async () => {
+  it('WorkbenchNavPill.vue handles active states and renders plugin nav items sequentially', async () => {
     const registry = createUIRegistry();
     const openTool = vi.fn();
     const runMenuAction = vi.fn((action: () => void) => action());
@@ -223,23 +157,26 @@ describe('Real SFC Component Mounting', () => {
     await wrapper.vm.$nextTick();
     expect(wrapper.findAll('.menu-item')[0].classes()).toContain('is-active');
 
-    // When focus-mode registers: nav:menu-items renders 学习能力 sequentially
-    const unregister = registerFocusModePlugin(registry, mockContext);
+    // 任意插件贡献的导航项按序渲染（CR-060：宿主不感知具体插件，用通用桩验证接缝）
+    const PluginNavItem = defineComponent({
+      props: { label: { type: String, default: '插件导航项' } },
+      template: '<button class="menu-item" type="button">{{ label }}</button>',
+    });
+    const unregister = registry.registerSlotComponent('nav:menu-items', PluginNavItem, {
+      id: 'plugin-a:nav-item',
+      priority: 100,
+      props: { label: '插件导航项' },
+    });
     await wrapper.vm.$nextTick();
 
-    expect(wrapper.text()).toContain('学习能力');
+    expect(wrapper.text()).toContain('插件导航项');
     const allItems = wrapper.findAll('.menu-item');
-    expect(allItems.map((el) => el.text())).toEqual(['工具管理', '主动智能', '设置', '学习能力']);
+    expect(allItems.map((el) => el.text())).toEqual(['工具管理', '主动智能', '设置', '插件导航项']);
 
-    // Activate study view -> 学习能力 gains is-active
-    learningOpen.value = true;
-    await wrapper.vm.$nextTick();
-    expect(wrapper.findAll('.menu-item')[3].classes()).toContain('is-active');
-
-    // When plugin unregisters: 学习能力 disappears
+    // When plugin unregisters: 插件导航项 disappears
     unregister();
     await wrapper.vm.$nextTick();
-    expect(wrapper.text()).not.toContain('学习能力');
+    expect(wrapper.text()).not.toContain('插件导航项');
   });
 
   it('WorkbenchNavPill.vue renders compact fallback badge when a nav slot component fails', async () => {
@@ -290,48 +227,6 @@ describe('Real SFC Component Mounting', () => {
 
     consoleErrorSpy.mockRestore();
     consoleWarnSpy.mockRestore();
-  });
-
-  it('FocusStudyCardActions.vue mounts and triggers operations on button clicks', async () => {
-    const openDailyProblem = vi.fn();
-    const openTool = vi.fn();
-    pluginFocusModeEnabled.value = true;
-
-    const mockContext = {
-      layout: { openTool },
-      cards: { openDailyProblem },
-    } as unknown as WorkbenchContext;
-
-    const wrapper = mount(FocusStudyCardActions, {
-      global: {
-        provide: {
-          [WORKBENCH_CONTEXT_KEY as symbol]: mockContext,
-        },
-      },
-    });
-
-    const buttons = wrapper.findAll('button');
-    expect(buttons.length).toBe(3);
-    expect(buttons[0].text()).toContain('每日一题');
-    expect(buttons[1].text()).toContain('开始专注');
-    expect(buttons[2].text()).toContain('错题重练');
-
-    await buttons[0].trigger('click');
-    expect(openDailyProblem).toHaveBeenCalledTimes(1);
-
-    await buttons[1].trigger('click');
-    expect(openTool).toHaveBeenCalledWith('timer');
-
-    await buttons[2].trigger('click');
-    expect(learningOpen.value).toBe(true);
-    expect(activeLearningView.value).toBe('mistake');
-
-    // When focus mode is toggled off, action container is hidden
-    pluginFocusModeEnabled.value = false;
-    await wrapper.vm.$nextTick();
-    expect(wrapper.find('.focus-study-card-actions').exists()).toBe(false);
-    learningOpen.value = false;
-    activeLearningView.value = 'study';
   });
 
   it('WorkbenchSideCards.vue renders card extraComponent dynamically without hardcoding', async () => {
@@ -408,45 +303,6 @@ describe('Real SFC Component Mounting', () => {
     ];
     await wrapper.vm.$nextTick();
     expect(wrapper.find('.custom-card-extra-content').exists()).toBe(false);
-  });
-
-  it('FocusTaskCenterCard.vue renders review tag and triggers navigation on button clicks', async () => {
-    const taskCenterOpen = ref(true);
-
-    const mockContext = {
-      layout: { taskCenterOpen },
-      cards: { syncReviewCount: ref(5) },
-    } as unknown as WorkbenchContext;
-    learningOpen.value = false;
-    activeLearningView.value = 'study';
-
-    const wrapper = mount(FocusTaskCenterCard, {
-      global: {
-        provide: {
-          [WORKBENCH_CONTEXT_KEY as symbol]: mockContext,
-        },
-      },
-    });
-
-    expect(wrapper.find('.focus-task-center-card').exists()).toBe(true);
-    expect(wrapper.text()).toContain('间隔复习与错题排期');
-    expect(wrapper.text()).toContain('5 个待复习');
-
-    const buttons = wrapper.findAll('button');
-    expect(buttons).toHaveLength(2);
-
-    await buttons[0].trigger('click');
-    expect(activeLearningView.value).toBe('mistake');
-    expect(learningOpen.value).toBe(true);
-    expect(taskCenterOpen.value).toBe(false);
-
-    taskCenterOpen.value = true;
-    learningOpen.value = false;
-    await buttons[1].trigger('click');
-    expect(activeLearningView.value).toBe('study');
-    expect(learningOpen.value).toBe(true);
-    expect(taskCenterOpen.value).toBe(false);
-    learningOpen.value = false;
   });
 
   it('SettingsModal.vue dynamically iterates over cards.cardCatalog for quick-tools and renders plugin rows via slot', async () => {
