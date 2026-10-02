@@ -137,10 +137,24 @@ export interface ModelRequest {
   signal?: AbortSignal;
 }
 
+/** 终止原因归一（ITER-038 跨栈一致面）：映射 OpenAI 兼容 finish_reason；保留字符串兜底以容纳非标端点 */
+export type ModelStopReason = "stop" | "tool_calls" | "length" | "content_filter" | (string & {});
+
+/** 用量分账：总账保留（既有消费方），输入/输出分账由支持 stream_options.include_usage 的端点提供 */
+export interface ModelUsage {
+  /** Cumulative input + output tokens for this model request. */
+  totalTokens: number;
+  /** 提示词（输入）token 数 */
+  promptTokens?: number;
+  /** 补全（输出）token 数 */
+  completionTokens?: number;
+}
+
 /** Provider 流输出分块：文本增量 +（阶段 2）一次 Step 末的工具请求集合 */
 export interface ModelChunk {
-  /** Cumulative input + output tokens for this model request. */
-  usage?: { totalTokens: number };
+  usage?: ModelUsage;
+  /** Step 结束原因（isFinal=true 时携带；结构化归一，替代裸 isFinal 布尔的语义缺失） */
+  stopReason?: ModelStopReason;
   /** 本块文本（可持续追加；Step 无文本时可空字符串） */
   text: string;
   /** 本 Step 输出是否结束（后续不再有块；可能伴随 toolCalls） */
