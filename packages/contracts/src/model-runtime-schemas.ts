@@ -85,6 +85,10 @@ export const modelRuntimeStateSchema = z.object({
     logs: z.array(z.string()).optional(),
     /** 运行指标采样（最近 N 条） */
     metrics: z.array(llamaMetricSampleSchema).optional(),
+    /** 本次会话从服务端持久化恢复的下载任务数（进程重启场景） */
+    restored: z.object({ at: z.string().datetime(), downloads: z.number().int().nonnegative() }).optional(),
+    /** 下次服务启动时自动恢复的运行时（上次会话末仍在运行，重启自动拉起） */
+    resume: z.object({ enabled: z.boolean(), modelId: z.string().optional() }).optional(),
   }),
   params: llamaRuntimeParamsSchema.optional(),
   /** 多任务下载队列（含执行中与排队任务） */
