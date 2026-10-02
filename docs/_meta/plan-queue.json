@@ -662,7 +662,8 @@
       "links": [
         "docs/reference/changes/README.md",
         "docs/explanation/reference-design-transfer.md#upstream-20260929"
-      ]
+      ],
+      "statusNote": "2026-10-03 拆分登记：补全契约归一（stopReason/usage 分账）先行落 ITER-038；剩余项——统一 Provider 目录与代际注册、length/content_filter 终态消费行为、api-client Llama DTO 命名收敛——维持本条目，实施前按 gate 先立 CR"
     },
     {
       "id": "ITER-036",
@@ -695,7 +696,7 @@
     {
       "id": "ITER-037",
       "batch": "first",
-      "status": "执行中",
+      "status": "已移交",
       "delivery": "过渡壳移除与内核类型自持（ADR-021 Decision 2 执行完成 + 内核提纯续刀，基于 ITER-036 堆叠）：删除 `packages/agent-loop` re-export 壳与 `host-agent/src/cli-approval.ts` 兼容壳，四下游（diary / host-agent / api / worker）import 直连 `@aervox/core`；内核本地声明 `AskUserQuestion*` 负载类型切断对 `@aervox/contracts` 的 type 依赖（`type-compat` 结构兼容测试锁定单向可赋值）；import-boundary 健身函数 `agent-loop-no-db` 改指 `packages/core`（`core-no-db`）",
       "gate": "全仓源码与脚本零 `@aervox/agent-loop` 引用；core/src 零 `@aervox/contracts` 引用（devDependency 仅保留供结构兼容测试）；core 运行时依赖保持为空；不修改 API 路由、SSE 契约与数据库 Schema；Provider 统一仍归 ITER-033",
       "acceptance": [
@@ -711,9 +712,36 @@
       ],
       "owner": "platform",
       "branch": "feat/core-shell-removal",
-      "statusNote": "2026-10-03 启动：基于 feat/core-companion-extraction（ITER-036，PR #245）堆叠执行",
+      "statusNote": "2026-10-03 启动：基于 feat/core-companion-extraction（ITER-036，PR #245）堆叠执行；2026-10-03 移交：实现完成且验收全绿，PR #246 待合并（堆叠顺序 #245→#246）",
       "dependsOn": [
         "ITER-036"
+      ],
+      "links": [
+        "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
+        "docs/reference/agent-harness-loop.md#10-限额与终止策略"
+      ]
+    },
+    {
+      "id": "ITER-038",
+      "batch": "first",
+      "status": "执行中",
+      "delivery": "Provider 补全契约归一第一刀（ITER-033 拆分切片，ADR-021 Decision 4 载体）：core `ModelChunk` 增加结构化 `stopReason`（`ModelStopReason` 归一 OpenAI 兼容 finish_reason）与 `ModelUsage` 输入/输出用量分账；`openai-compat-provider` 透传（include_usage 已启用）；跨栈统一由既有事实承接——api 对话路径（含本地 llama 端点与远程兼容端点）已全部经 `ModelProviderPort` 单一补全面",
+      "gate": "不新增远程 Provider、不改变制品信任等级、不合并两栈持久化语义（均 ITER-033 的 CR 触发项）；executor 不消费 stopReason（零行为变更），length/content_filter 截断终态的 isFinal 行为留消费切片；Driver 进程生命周期面（ITER-008）不并入",
+      "acceptance": [
+        "core 契约测试绿：stop_reason 归一（stop/tool_calls 终态透传）与 usage 三字段分账用例通过",
+        "api 全量回归绿（零行为变更验证）；headless 冒烟 PASS",
+        "追踪基线锚点与 ITER-033 拆分备注登记"
+      ],
+      "checks": [
+        "packages/core/test/openai-compat-provider.test.ts",
+        "packages/core/test/**",
+        "scripts/run-headless-agent.mjs"
+      ],
+      "owner": "platform",
+      "branch": "feat/core-provider-contract",
+      "statusNote": "2026-10-03 启动：基于 feat/core-shell-removal（ITER-037，PR #246）堆叠执行；ITER-033 剩余项（统一 Provider 目录与代际注册、length 终态消费行为、api-client Llama DTO 命名收敛）留后续切片",
+      "dependsOn": [
+        "ITER-037"
       ],
       "links": [
         "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
