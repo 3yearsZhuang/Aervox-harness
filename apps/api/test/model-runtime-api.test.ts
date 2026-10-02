@@ -577,4 +577,94 @@ describe("Model Runtime API (CR-054 v2)", () => {
       await app.close();
     }
   }, 20_000);
+
+
+  it("状态持久化：未完结任务与启动参数跨服务重建恢复（CR-054 v3）", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-mr-v3-"));
+    const headers = { "x-workspace-id": "ws_v3p", "x-user-id": "usr_v3p" };
+    try {
+      const built1 = await buildApp({ db, client, modelRuntimeOptions: { modelsDir: dir, llamaDeps: FAKE_LLAMA_DEPS } });
+      await built1.app.ready();
+      await built1.app.inject({
+        method: "POST",
+        url: "/v1/model-runtime/downloads",
+        headers,
+        payload: { url: `${modelUrl.replace("qwen2.5-7b-instruct.gguf", "slow-v3.gguf")}` },
+      });
+      await pollState(
+        built1.app,
+        headers,
+        (b) => b.downloads.some((t: { id: string; status: string; receivedBytes?: number }) => t.id === "slow-v3" && t.status === "running" && (t.receivedBytes ?? 0) > 0),
+      );
+      const pause = await built1.app.inject({ method: "POST", url: "/v1/model-runtime/downloads/slow-v3/pause", headers });
+      expect(pause.statusCode).toBe(200);
+      await built1.app.close(); // dispose 落盘
+
+      const stateFile = path.join(dir, "runtime-state.json");
+      const saved = JSON.parse(await fs.readFile(stateFile, "utf8"));
+      expect(saved.version).toBe(1);
+      expect(saved.downloads.some((t: { id: string; status: string }) => t.id === "slow-v3" && t.status === "paused")).toBe(true);
+      expect(saved.runtime.autoStart).toBe(false);
+
+      const built2 = await buildApp({ db, client, modelRuntimeOptions: { modelsDir: dir, llamaDeps: FAKE_LLAMA_DEPS } });
+      await built2.app.ready();
+      try {
+        const st = await pollState(built2.app, headers, (b) => b.downloads.some((t: { id: string }) => t.id === "slow-v3"));
+        const task = st.downloads.find((t: { id: string }) => t.id === "slow-v3");
+        expect(task.status).toBe("paused");
+        expect(task.receivedBytes).toBeGreaterThan(0);
+        expect(st.runtime.restored.downloads).toBeGreaterThanOrEqual(1);
+        // 恢复后继续 → 断点续传完成入库，文件内容与来源一致
+        await built2.app.inject({ method: "POST", url: "/v1/model-runtime/downloads/slow-v3/resume", headers });
+        await pollState(built2.app, headers, (b) => b.models.some((m: { id: string }) => m.id === "slow-v3"));
+        expect(await fs.readFile(path.join(dir, "slow-v3.gguf"), "utf8")).toBe(MODEL_PAYLOAD.toString("utf8"));
+      } finally {
+        await built2.app.close();
+      }
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  }, 25_000);
+
+  it("启动恢复：上次运行中重启后按原参数自动拉起（CR-054 v3）", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-mr-v3rt-"));
+    const headers = { "x-workspace-id": "ws_v3r", "x-user-id": "usr_v3r" };
+    try {
+      const built1 = await buildApp({ db, client, modelRuntimeOptions: { modelsDir: dir, llamaDeps: FAKE_LLAMA_DEPS } });
+      await built1.app.ready();
+      await built1.app.inject({
+        method: "POST",
+        url: "/v1/model-runtime/downloads",
+        headers,
+        payload: { url: `${modelUrl.replace("qwen2.5-7b-instruct", "v3-start")}` },
+      });
+      await pollState(built1.app, headers, (b) => b.models.some((m: { id: string }) => m.id === "v3-start"));
+      const start = await built1.app.inject({
+        method: "POST",
+        url: "/v1/model-runtime/start",
+        headers,
+        payload: { modelId: "v3-start", params: { port: 8180, ctxSize: 4096 } },
+      });
+      expect(start.statusCode).toBe(200);
+      await built1.app.close(); // dispose 时仍运行 → autoStart=true 落盘
+
+      const saved = JSON.parse(await fs.readFile(path.join(dir, "runtime-state.json"), "utf8"));
+      expect(saved.runtime.autoStart).toBe(true);
+      expect(saved.runtime.modelId).toBe("v3-start");
+
+      const built2 = await buildApp({ db, client, modelRuntimeOptions: { modelsDir: dir, llamaDeps: FAKE_LLAMA_DEPS } });
+      await built2.app.ready();
+      try {
+        const st = await pollState(built2.app, headers, (b) => b.runtime?.status === "running");
+        expect(st.runtime.resume?.enabled).toBe(true);
+        expect(st.runtime.resume?.modelId).toBe("v3-start");
+        expect(st.params?.port).toBe(8180);
+        expect(st.params?.ctxSize).toBe(4096);
+      } finally {
+        await built2.app.close();
+      }
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  }, 25_000);
 });
