@@ -12,6 +12,7 @@ updated_at: 2026-09-22
 reviewed_at: 2026-09-22
 review_interval_days: 14
 review_triggers:
+  - packages/core/**
   - packages/agent-loop/**
   - packages/host-agent/**
   - apps/api/src/modules/companion/conversation/**
@@ -104,8 +105,8 @@ sources:
 
 | 能力 | 核查入口 | 复用方式与限制 |
 |---|---|---|
-| Agent 内核 | [包依赖](../../packages/agent-loop/package.json)、[执行器](../../packages/agent-loop/src/executor.ts)、[端口](../../packages/agent-loop/src/ports.ts) | `@aervox/agent-loop` 只声明 `@aervox/contracts` 为运行依赖；可以包级复用，但须提供上下文、工具和证据存储适配 |
-| 本地模型请求 | [兼容 Provider](../../packages/agent-loop/src/openai-compat-provider.ts) | 复用请求与流解析；首轮核实工具调用历史配对和推理内容回传，不能以模拟测试代替真实模型多轮成功 |
+| Agent 内核 | [包依赖](../../packages/core/package.json)、[执行器](../../packages/core/src/executor.ts)、[端口](../../packages/core/src/ports.ts) | `@aervox/core` 运行时零依赖（`@aervox/contracts` 仅 type-only devDependency）；可以包级复用，但须提供上下文、工具和证据存储适配 |
+| 本地模型请求 | [兼容 Provider](../../packages/core/src/openai-compat-provider.ts) | 复用请求与流解析；首轮核实工具调用历史配对和推理内容回传，不能以模拟测试代替真实模型多轮成功 |
 | 工具发现 | [运行时工具提供者](../../apps/api/src/modules/companion/conversation/tool-providers.ts) | 当前返回 `tools: []`；竞赛执行器显式提供固定工具 Schema，避免等待整个动态插件发现链路完成 |
 | 文件和命令 | [DSH MCP 桥](../../apps/api/src/modules/ecosystem/mcp/dsh-bridge.ts) | 可参考文件操作；现有命令执行最长 60 秒、输出 1 MiB，不足以直接承载长时 Vitis 作业，工作目录限制也不构成进程隔离 |
 | 模型进程 | [模型运行时](../../apps/api/src/modules/ecosystem/model-runtime/service.ts)、[llama-server](../../apps/api/src/modules/ecosystem/model-runtime/llama-server.ts) | 已有通用启动接线；未发现 Radeon/ROCm 专项实测证据，竞赛使用冻结的推理服务配置 |

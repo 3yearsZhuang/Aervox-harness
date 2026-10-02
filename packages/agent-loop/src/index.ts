@@ -1,26 +1,7 @@
 /**
- * Aervox｜思隅 @aervox/agent-loop — 公共导出（阶段 1+2）
+ * Aervox｜思隅 @aervox/agent-loop — re-export 壳（ADR-021 Decision 2）
+ *
+ * 全部实现已吸收至 `@aervox/core`；本包仅为过渡期兼容层，
+ * 一个迭代后移除。四下游（diary / host-agent / api / worker）import 保持不变。
  */
-export * from "./types.js";
-export * from "./ports.js";
-export * from "./errors.js";
-export * from "./context-builder.js";
-export * from "./replay-provider.js";
-export * from "./openai-compat-provider.js";
-export * from "./tool-provider.js";
-export * from "./executor.js";
-export * from "./in-memory-store.js";
-export * from "./in-memory-inbox.js";
-export * from "./adapter-contract.js";
-export * from "./adapter-sim.js";
-export * from "./base-prompt.js";
-export * from "./subagent-contribution.js";
-export * from "./user-question-tool.js";
-export * from "./practice-attempt-tool.js";
-export * from "./resume.js";
-export * from "./lease-heartbeat.js";
-export * from "./tool-result-safe.js";
-export * from "./tool-input-safe.js";
-export * from "./focus-mode-prompt.js";
-export * from "./control-context.js";
-export * from "./approval-policy.js";
+export * from "@aervox/core";

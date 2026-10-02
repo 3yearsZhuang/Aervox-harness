@@ -380,7 +380,7 @@ Generative Agents 把完整经历写入 memory stream，再按相关性、新近
 
 证据：[失败阶段与工具配对测试](https://github.com/deepseek-ai/deepseek-harness/blob/639ed015397290b3745d163aafe02ffee4aa3f84/packages/core/agent-loop/tests/tool-calls.spec.ts#L635)、[迁移保留原文件测试](https://github.com/deepseek-ai/deepseek-harness/blob/639ed015397290b3745d163aafe02ffee4aa3f84/packages/session/session-persistence-jsonl/tests/v3-restart-migration.spec.ts#L55)。
 
-**动态工具变化也要成为请求证据。** 旧版已有工具注册与投影；本次强化工具增删、系统提示变化、请求冻结和恢复重建，支持相应模型路由的 in-history 更新并保留历史。思隅已有 ContextManifest 和动态 ToolProvider，但当前[执行器](../../packages/agent-loop/src/executor.ts)只在首 Step 保存一份消息清单，不能证明后续每次请求用了哪版工具、权限或模型。值得在 ITER-007 中记录每次最终请求的模型、工具 Schema、提示版本及授权修订；展示给模型与真正执行时分别验证，撤权不能只从界面移除。
+**动态工具变化也要成为请求证据。** 旧版已有工具注册与投影；本次强化工具增删、系统提示变化、请求冻结和恢复重建，支持相应模型路由的 in-history 更新并保留历史。思隅已有 ContextManifest 和动态 ToolProvider，但当前[执行器](../../packages/core/src/executor.ts)只在首 Step 保存一份消息清单，不能证明后续每次请求用了哪版工具、权限或模型。值得在 ITER-007 中记录每次最终请求的模型、工具 Schema、提示版本及授权修订；展示给模型与真正执行时分别验证，撤权不能只从界面移除。
 
 证据：[动态工具与历史测试](https://github.com/deepseek-ai/deepseek-harness/blob/639ed015397290b3745d163aafe02ffee4aa3f84/packages/core/agent-loop/tests/tool-updates.spec.ts#L49)。
 
@@ -414,7 +414,7 @@ Generative Agents 把完整经历写入 memory stream，再按相关性、新近
 
 证据：[finishTurn 顺序与硬退出](https://github.com/earendil-works/pi/blob/4df1574339bfbd1a9750ff485bb618da397ba135/packages/agent/test/agent-loop.test.ts#L1067)、[不完整工具参数拒绝测试](https://github.com/earendil-works/pi/blob/4df1574339bfbd1a9750ff485bb618da397ba135/packages/ai/test/openai-responses-terminal-event.test.ts#L264)。
 
-**模型上下文是历史的投影，压缩不该伪造摘要。** `context_edit` 通过追加记录控制模型可见内容，保留原聊天、计费与 UI 历史；每次请求从权威投影重建。压缩按工具调用/结果组选择边界，超窗口只允许一次压缩重试。思隅当前[规则压缩](../../packages/agent-loop/src/context-builder.ts)仅在 `AERVOX_LOOP_COMPACTION=rule` 时启用，默认关闭；启用后在超过 50 条消息时保留首尾各两条，中间只留“已总结若干消息”的说明，并没有实际摘要。这是比继续增加 Agent 类型更直接的质量差量：长期伴学必须保留当前学习目标、未解决错误、用户偏好、承诺与来源，不能凭占位文本声称仍记得中间事实。
+**模型上下文是历史的投影，压缩不该伪造摘要。** `context_edit` 通过追加记录控制模型可见内容，保留原聊天、计费与 UI 历史；每次请求从权威投影重建。压缩按工具调用/结果组选择边界，超窗口只允许一次压缩重试。思隅当前[规则压缩](../../packages/core/src/context-builder.ts)仅在 `AERVOX_LOOP_COMPACTION=rule` 时启用，默认关闭；启用后在超过 50 条消息时保留首尾各两条，中间只留“已总结若干消息”的说明，并没有实际摘要。这是比继续增加 Agent 类型更直接的质量差量：长期伴学必须保留当前学习目标、未解决错误、用户偏好、承诺与来源，不能凭占位文本声称仍记得中间事实。
 
 建议沿 ITER-007/017 验证最终输入、工具 Schema 与预留输出的总窗口，先定义必须保真的事实再选择窗口/摘要/检索策略。上游模型投影不等于用户删除；思隅的删除仍须覆盖原文、摘要与索引。
 
