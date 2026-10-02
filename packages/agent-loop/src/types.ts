@@ -129,12 +129,18 @@ export interface ModelRequest {
   context: PromptContext;
   /** 阶段 2e：当前可执行的只读工具 schema（供真实模型生成 tool_calls） */
   tools?: ToolSpec[];
+  /** Remaining execution output allowance; providers must not widen it. */
+  maxOutputTokens?: number;
   /** 采样温度覆盖值（缺省回退 Provider 配置或默认 0.7） */
   temperature?: number;
+  /** 取消信号（上层 ControlContext 或超时控制） */
+  signal?: AbortSignal;
 }
 
 /** Provider 流输出分块：文本增量 +（阶段 2）一次 Step 末的工具请求集合 */
 export interface ModelChunk {
+  /** Cumulative input + output tokens for this model request. */
+  usage?: { totalTokens: number };
   /** 本块文本（可持续追加；Step 无文本时可空字符串） */
   text: string;
   /** 本 Step 输出是否结束（后续不再有块；可能伴随 toolCalls） */
@@ -243,6 +249,7 @@ export interface AgentInboxCommand {
  * Leader Loop 在 Step 中调用 `subagent_delegate`，宿主创建独立子 turn/attempt（落库可审计/恢复）。
  */
 export interface SubagentDelegateInput {
+  controlContext?: import("./control-context.js").ControlContext;
   /** 父（Leader）Turn/Attempt/执行键（子任务溯源；parentAttemptId+parentExecutionId 幂等） */
   parentTurnId: string;
   parentAttemptId: string;
