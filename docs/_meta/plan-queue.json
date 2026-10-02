@@ -502,7 +502,7 @@
       ],
       "owner": "platform/data",
       "branch": "feat/iter-027-028-sqlite-worker-p2p",
-      "statusNote": "2026-09-29 落地 IPC 唤醒、Worker 写入压力退避、API 侧压力租约与客户端连接自愈；并发与恢复单测全绿；未取得真实多进程长期压测证据，保持待评审",
+      "statusNote": "2026-09-29 落地 IPC 唤醒、Worker 写入压力退避、API 侧压力租约与客户端连接自愈；并发与恢复单测全绿；多进程演练（drill:worker-contention）修复后 0 逃逸 busy、0 污染，但验收『写锁冲突率降至 0』不成立——高竞争下仍发生冲突（48～1217 次换连接），仅不再以错误暴露；长周期压测无 SQLITE_BUSY/P99 抖动项未取得证据，保持待评审",
       "dependsOn": [
         "ITER-002"
       ],
@@ -529,7 +529,7 @@
       ],
       "owner": "desktop/mobile",
       "branch": "feat/iter-027-028-sqlite-worker-p2p",
-      "statusNote": "2026-09-29 已完成：承诺-揭示零信任配对、设备身份 0600 落盘、分向密钥与 Changeset 引擎设计（51 项 P2P 测试通过）；真实多设备局域网直连同步待后续推进，保持待评审",
+      "statusNote": "2026-09-29 已完成：承诺-揭示零信任配对、设备身份 0600 落盘、分向密钥与 Changeset 引擎设计（51 项 P2P 测试通过）；mDNS 局域网传输与真实多设备直连待后续推进；两项验收与原设计存在技术分歧（TLS 证书配对→Ed25519+承诺 SAS；SQLite Session Extension→行时间戳水位线），需以 CR 复核是否重述验收，保持待评审",
       "dependsOn": [],
       "links": [
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
