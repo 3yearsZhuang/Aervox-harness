@@ -184,7 +184,8 @@ review_interval_days: 90
 - 历史落地日志（2026-08 至 2026-09 的阶段性切片流水账）已归档至外部归档仓库 `Aervox-docs-archive`；
 - 现行能力的生命周期推进（Mapped → Specified → Implemented → Verified → Released）统一维护在上方 **§4 覆盖矩阵** 中；
 - 每次功能与修复的交付证据（测试结果、影响范围、迁移方案）直接保留在 Pull Request 与 Git 提交日志中，杜绝多源漂移与人肉记账负担；
-- `core-control-approval-20261002`：Aervox Core 高优先级内核切片重落（`ControlContext` / `abortable` / `ApprovalPolicyPort` SPI 与 executor 接线，BTD-05 / ITER-007 / ITER-013 / PET-05），实现位置 `packages/agent-loop/src/control-context.ts`、`packages/agent-loop/src/approval-policy.ts`、`packages/host-agent/src/cli-approval.ts`；均为可选注入，API/Worker 下游行为不变，验收证据见对应 PR 与 `ITER-034` 计划条目。
+- `core-control-approval-20261002`：Aervox Core 高优先级内核切片重落（`ControlContext` / `abortable` / `ApprovalPolicyPort` SPI 与 executor 接线，BTD-05 / ITER-007 / ITER-013 / PET-05），实现位置 `packages/core/src/control-context.ts`、`packages/core/src/approval-policy.ts`、`packages/core/src/cli-approval.ts`；均为可选注入，API/Worker 下游行为不变，验收证据见对应 PR 与 `ITER-034` 计划条目。
+- `core-standalone-package-20261003`：Aervox Core 独立内核包建立（ADR-021 / ITER-035），新建 `packages/core`（`@aervox/core`，运行时零依赖、Apache-2.0 许可）吸收 `agent-loop` 全量实现 + `cli-approval` 迁入 + `HostToolRuntime` 内存版；`packages/agent-loop` 降级为纯 re-export 壳（四下游 diary/host-agent/api/worker 零改动）；headless 冒烟脚本 `scripts/run-headless-agent.mjs` 在无 Fastify / 无 SQLite 进程内跑通完整多步工具回路；验收证据见对应 PR 与 `ITER-035` 计划条目。
 
 ## 5. 原子需求字段模板
 

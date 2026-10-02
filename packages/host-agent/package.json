@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@aervox/agent-loop": "workspace:*",
+    "@aervox/core": "workspace:*",
     "@aervox/observability": "workspace:*",
     "@aervox/repositories": "workspace:*",
     "@aervox/schema": "workspace:*",

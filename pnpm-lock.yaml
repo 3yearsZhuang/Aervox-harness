@@ -258,10 +258,10 @@ importers:
         version: 4.23.12
 
   packages/agent-loop:
-    devDependencies:
-      '@aervox/contracts':
+    dependencies:
+      '@aervox/core':
         specifier: workspace:*
-        version: link:../contracts
+        version: link:../core
 
   packages/api-client:
     dependencies:
@@ -291,6 +291,15 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
 
+  packages/core:
+    devDependencies:
+      '@aervox/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
+
   packages/diary:
     dependencies:
       '@aervox/agent-loop':
@@ -315,6 +324,9 @@ importers:
       '@aervox/agent-loop':
         specifier: workspace:*
         version: link:../agent-loop
+      '@aervox/core':
+        specifier: workspace:*
+        version: link:../core
       '@aervox/observability':
         specifier: workspace:*
         version: link:../observability
