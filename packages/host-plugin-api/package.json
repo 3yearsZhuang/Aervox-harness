@@ -1,0 +1,21 @@
+{
+  "name": "@aervox/host-plugin-api",
+  "version": "0.1.0",
+  "license": "AGPL-3.0-or-later",
+  "private": true,
+  "type": "module",
+  "description": "第一方插件宿主扩展契约：回合切面、工具与 HTTP 端点的窄端口（仅类型，零运行时依赖，CR-060）",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@aervox/core": "workspace:*"
+  }
+}

@@ -64,6 +64,7 @@ packages/
   repositories/      # LibSQL/SQLite 仓储层：DDL、迁移、事务执行器
   core/              # 独立内核包（@aervox/core）：执行器、ControlContext、审批 SPI、工具沙箱（Apache-2.0，ADR-021）
   agent-loop/        # re-export 过渡壳（指向 @aervox/core，一个迭代后移除）
+  host-plugin-api/   # 第一方插件宿主扩展契约（仅类型零依赖）：回合切面、工具与 HTTP 端点贡献（CR-060）
   host-agent/        # 进程内 Agent Loop 宿主与 SQLite ExecutionStore
   practice-review/   # 练习、错题本与间隔复习调度算法
   diary/             # 学习日记提炼与生成领域服务
