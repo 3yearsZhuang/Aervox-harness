@@ -20,7 +20,7 @@ import { buildApp } from "../src/app.js";
 import {
   createPracticeAttemptPortFactory,
 } from "../src/modules/companion/conversation/practice-attempt-port.js";
-import { createPracticeAttemptToolProvider, RECORD_PRACTICE_ATTEMPT_TOOL } from "@aervox/agent-loop";
+import { createPracticeAttemptToolProvider, RECORD_PRACTICE_ATTEMPT_TOOL } from "../src/modules/companion/conversation/practice-attempt-tool.js";
 
 const headers = {
   "x-workspace-id": "ws_quiz",
