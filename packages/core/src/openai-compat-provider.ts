@@ -34,7 +34,7 @@ interface OpenAIToolCallDelta {
 }
 
 interface ChatCompletionChunk {
-  usage?: { total_tokens?: number };
+  usage?: { total_tokens?: number; prompt_tokens?: number; completion_tokens?: number };
   choices?: Array<{
     delta?: {
       content?: string | null;
@@ -190,7 +190,18 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
             continue; // 忽略半行/非 JSON 中间态
           }
 
-          if (Number.isFinite(parsed.usage?.total_tokens) && parsed.usage!.total_tokens! >= 0) yield { text: "", isFinal: false, usage: { totalTokens: parsed.usage!.total_tokens! } };
+          if (Number.isFinite(parsed.usage?.total_tokens) && parsed.usage!.total_tokens! >= 0) {
+            const u = parsed.usage!;
+            yield {
+              text: "",
+              isFinal: false,
+              usage: {
+                totalTokens: u.total_tokens!,
+                ...(Number.isFinite(u.prompt_tokens) ? { promptTokens: u.prompt_tokens } : {}),
+                ...(Number.isFinite(u.completion_tokens) ? { completionTokens: u.completion_tokens } : {}),
+              },
+            };
+          }
           for (const choice of parsed.choices ?? []) {
             const delta = choice.delta ?? {};
             // 思考增量：reasoning_content（DeepSeek/Qwen/vLLM）与 reasoning（OpenRouter/Ollama）双格式
@@ -211,9 +222,9 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
             }
 
             if (choice.finish_reason === "tool_calls") {
-              yield { text: "", isFinal: true, toolCalls: flushToolCalls() };
+              yield { text: "", isFinal: true, stopReason: "tool_calls", toolCalls: flushToolCalls() };
             } else if (choice.finish_reason === "stop") {
-              yield { text: "", isFinal: true };
+              yield { text: "", isFinal: true, stopReason: "stop" };
             }
           }
         }

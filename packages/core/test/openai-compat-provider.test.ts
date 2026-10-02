@@ -54,6 +54,40 @@ describe("createOpenAICompatProvider（阶段 2e）", () => {
     expect(chunks.every((c) => !c.toolCalls)).toBe(true);
   });
 
+  it("usage 分账：prompt/completion/total 三字段透传（ITER-038 跨栈一致面）", async () => {
+    mockFetch(
+      sseBody([
+        JSON.stringify({ choices: [{ delta: { content: "A" }, finish_reason: null }] }),
+        JSON.stringify({
+          usage: { prompt_tokens: 120, completion_tokens: 45, total_tokens: 165 },
+          choices: [{ delta: {}, finish_reason: "stop" }],
+        }),
+      ]),
+    );
+    const chunks = await collect(createOpenAICompatProvider({ baseUrl: "http://x/v1", modelId: "m" }));
+    const usageChunk = chunks.find((c) => c.usage);
+    expect(usageChunk?.usage).toEqual({ totalTokens: 165, promptTokens: 120, completionTokens: 45 });
+    const finalChunk = chunks.find((c) => c.isFinal);
+    expect(finalChunk?.stopReason).toBe("stop");
+  });
+
+  it("stop_reason 归一：tool_calls 终态携带结构化 stopReason（ITER-038）", async () => {
+    mockFetch(
+      sseBody([
+        JSON.stringify({
+          choices: [{
+            delta: { tool_calls: [{ index: 0, id: "call_1", function: { name: "search_notes", arguments: "{\"query\":\"x\"}" } }] },
+            finish_reason: "tool_calls",
+          }],
+        }),
+      ]),
+    );
+    const chunks = await collect(createOpenAICompatProvider({ baseUrl: "http://x/v1", modelId: "m" }));
+    const finalChunk = chunks.find((c) => c.isFinal);
+    expect(finalChunk?.stopReason).toBe("tool_calls");
+    expect(finalChunk?.toolCalls).toEqual([{ id: "call_1", name: "search_notes", arguments: { query: "x" } }]);
+  });
+
   it("工具调用流：delta.tool_calls 分片累积为完整 ToolCallRequest", async () => {
     mockFetch(
       sseBody([
