@@ -65,6 +65,10 @@ export interface ModuleContext {
   builtinPluginsSourceRoot?: string;
   /** 服务端插件注册表（由 plugins 模块填充；conversation/tools 读取） */
   pluginRegistry?: import("./ecosystem/plugins/turn-plugins/registry.js").ServerPluginRegistry;
+  /** 已装配的第一方插件注册单元（由 plugins 模块填充；conversation 按回合请求其工具贡献） */
+  pluginRegistrations?: import("@aervox/host-plugin-api").ServerPluginRegistration[];
+  /** 插件宿主服务工厂（由 buildApp 填充；plugins 模块用于端点装配，conversation 用于工具贡献） */
+  pluginHostServices?: import("../plugin-assembly.js").PluginHostServicesFactory;
   /** 附件二进制落盘根目录（缺省 <repo>/data/attachments；CAP-012 多模态输入） */
   attachmentsRoot?: string;
 }

@@ -7,7 +7,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { pluginManifestSchema } from "@aervox/contracts";
-import { assembleFirstPartyPlugins } from "../../../plugin-assembly.js";
+import { assembleFirstPartyPlugins, createHttpEndpointSink } from "../../../plugin-assembly.js";
+import { createPluginHostServicesFactory } from "../../../plugin-host-services.js";
 import type { ModuleContext } from "../../context.js";
 import {
   SqliteExtensionRepository,
@@ -207,10 +208,16 @@ export async function registerPluginsModule(ctx: ModuleContext): Promise<void> {
 
   // CR-060：装配第一方插件贡献。缺包或装配失败只记录诊断、不中断宿主启动，
   // 插件是否生效仍由 Runner 按仓储启停记录门控（CR-056 代码缺席语义）。
+  const warn = (message: string, error?: unknown) => console.warn(message, error);
+  const hostServices = ctx.pluginHostServices ?? createPluginHostServicesFactory(db);
+  ctx.pluginHostServices = hostServices;
   const assembly = await assembleFirstPartyPlugins({
     turnRegistry: ctx.pluginRegistry,
-    warn: (message, error) => console.warn(message, error),
+    onHttpEndpoints: createHttpEndpointSink(app, hostServices, warn),
+    warn,
   });
+  // 工具贡献按回合上下文构造，故只把注册单元交给宿主；是否合入模型工具面由启用门控决定
+  ctx.pluginRegistrations = assembly.registrations;
   if (assembly.failed.length > 0) {
     console.warn(`[plugins] 以下第一方插件未能装配：${assembly.failed.join(", ")}`);
   }

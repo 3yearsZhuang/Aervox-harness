@@ -71,16 +71,6 @@ export const BASE_TOOL_GUIDANCE: readonly ToolGuidance[] = [
       "属于写操作（需用户授权），必须确保内容准确客观。",
     ],
   },
-  {
-    name: "record_practice_attempt",
-    whenToUse: "当用户在练习、测验或自测作答中提交回答且完成判定后立即调用，记录该次作答的不可变学习事实（含判定结果），使答错题目自动进入错题本。",
-    whenNotToUse: "非练习或答题场景禁止调用；同一道题的用户作答禁止重复记录。",
-    constraints: [
-      "`prompt`（题干）、`userAnswer`（用户原始回答）、`correctAnswer`（标准答案）必填。",
-      "`judgement` 只能是 `correct` | `incorrect` | `partial` 三值枚举。",
-      "答错的题目应在 `explanation` 中提供纠正解析。",
-    ],
-  },
 ];
 
 export interface BaseSystemPromptOptions {

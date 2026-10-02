@@ -14,20 +14,21 @@ import {
   createSubagentToolProvider,
   createWorkflowToolProvider,
   createAskUserQuestionToolProvider,
-  createPracticeAttemptToolProvider,
   createSummaryCompaction,
   executeTurn,
 } from "@aervox/agent-loop";
 import type {
   InboxPort,
   ModelProviderPort,
-  PracticeAttemptPort,
+  ReplayStep,
   SkillDescriptor,
   SubagentPort,
+  ToolGuidance,
   ToolProviderPort,
   UserQuestionPort,
   WorkflowDefinition,
 } from "@aervox/agent-loop";
+import type { PluginHostServices, ServerPluginRegistration } from "@aervox/host-plugin-api";
 import { SqliteExecutionStore } from "@aervox/host-agent";
 import type { LLMCallable } from "@aervox/practice-review";
 import {
@@ -44,6 +45,7 @@ import type { Observability } from "@aervox/observability";
 import {
   executeAfterTurnPlugins,
   executeBeforeTurnPlugins,
+  isPluginEnabled,
   defaultServerPluginRegistry,
   type ServerPluginRegistry,
   type TurnPluginContext,
@@ -62,6 +64,22 @@ import { turnStreamHub } from "./stream-hub.js";
 import { failTurnWithError, runDshAdapterTurn } from "./dsh-adapter.js";
 
 /** SqliteExecutionStore 组合根适配由 @aervox/host-agent 提供（见上方 import），API 不再自维护 SQLite 执行存储 */
+
+/**
+ * 汇总第一方插件贡献的确定性回放脚本（键为 provider 模式名）。
+ * 宿主只做分发，不在自身内建插件领域夹具（CR-060）。
+ */
+function collectReplayScripts(
+  registrations?: ServerPluginRegistration[],
+): Record<string, readonly ReplayStep[]> | undefined {
+  const merged: Record<string, readonly ReplayStep[]> = {};
+  for (const registration of registrations ?? []) {
+    for (const [mode, script] of Object.entries(registration.replayScripts ?? {})) {
+      merged[mode] ??= script;
+    }
+  }
+  return Object.keys(merged).length > 0 ? merged : undefined;
+}
 
 /**
  * 迁移期接线：创建 Turn 后立即执行一次 Loop。
@@ -106,8 +124,10 @@ export async function runLoopTurnOnce(
     platformRepo?: import("@aervox/repositories").SqlitePlatformRepository;
     /** UQ-01：向用户提问协调端口（挂起与唤醒） */
     userQuestionPort?: UserQuestionPort;
-    /** CAP-016：刷题模式作答落库端口（AI 判定后写 questions + question_attempts） */
-    practiceAttemptPort?: PracticeAttemptPort;
+    /** CR-060：已装配的第一方插件注册单元（其工具贡献按启用状态门控后合入模型工具面） */
+    pluginRegistrations?: ServerPluginRegistration[];
+    /** CR-060：插件宿主服务工厂（按当前本地上下文产出窄端口集合） */
+    pluginHostServices?: (ctx: LocalContext) => PluginHostServices;
     /** CAP-033：主动智能全动作授权与本地动作账本。 */
     proactiveActionAuthorizer?: ProactiveActionAuthorizer;
     /** CAP-033：本地画像声明来源；仅在有效且本地模型准入时注入。 */
@@ -376,6 +396,7 @@ export async function runLoopTurnOnce(
       turnId: input.turnId,
       modelRoutingService: deps.modelRoutingService,
       persona: deps.persona ? { name: deps.persona.name } : undefined,
+      pluginReplayScripts: collectReplayScripts(deps.pluginRegistrations),
     });
     provider = loopProvider;
     if (proactiveActive && deps.proactiveRepository) {
@@ -402,8 +423,28 @@ export async function runLoopTurnOnce(
   if (deps.userQuestionPort) {
     contribution.push(createAskUserQuestionToolProvider({ userQuestionPort: deps.userQuestionPort }));
   }
-  if (deps.practiceAttemptPort) {
-    contribution.push(createPracticeAttemptToolProvider({ practiceAttemptPort: deps.practiceAttemptPort }));
+  // CR-060：插件工具贡献——按当前本地上下文构造，并**按插件启用状态门控**。
+  // 禁用、缺记录或不可用的插件不得向模型暴露其工具（与 Runner 同判据、fail-closed）；
+  // 模型侧使用指南由插件自述，经内核既有的 customGuidance 通用注入位合入基础提示词。
+  const pluginGuidance: ToolGuidance[] = [];
+  if (deps.pluginRegistrations?.length && deps.pluginHostServices) {
+    const services = deps.pluginHostServices(tenant);
+    for (const registration of deps.pluginRegistrations) {
+      if (!registration.toolContributions) continue;
+      if (extRepo && !(await isPluginEnabled(registration.pluginId, extRepo))) continue;
+      try {
+        for (const pluginContribution of registration.toolContributions(services)) {
+          contribution.push(pluginContribution.provider);
+          pluginGuidance.push(...(pluginContribution.guidance ?? []));
+        }
+      } catch (err) {
+        deps.observability?.log.warn({
+          event: "plugin.tool_contribution_failed",
+          message: `插件 ${registration.pluginId} 工具贡献构造失败，已跳过`,
+          fields: { pluginId: registration.pluginId, error: err instanceof Error ? err.message : String(err) },
+        });
+      }
+    }
   }
   const contributionProvider =
     contribution.length > 0
@@ -498,6 +539,7 @@ export async function runLoopTurnOnce(
       personaPrompt: deps.persona?.prompt,
       activeTools: tools?.tools,
       extraSections: beforeTurnExec.extraSections,
+      ...(pluginGuidance.length > 0 ? { customGuidance: pluginGuidance } : {}),
     },
     skills: disclosedSkills,
     ...(loadApiConfig().loopCompaction === "rule"

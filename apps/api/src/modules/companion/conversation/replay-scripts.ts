@@ -31,24 +31,5 @@ export const API_PRIVILEGED_SCRIPT: readonly ReplayStep[] = [
   },
 ];
 
-/** CAP-016 刷题闭环脚本（AERVOX_LOOP_PROVIDER=scripted-quiz；record_practice_attempt 落库验证） */
-export const API_QUIZ_SCRIPT: readonly ReplayStep[] = [
-  {
-    text: "我来记录本次作答。",
-    toolCalls: [
-      {
-        id: "call_quiz_1",
-        name: "record_practice_attempt",
-        arguments: {
-          prompt: "1 + 1 等于几？",
-          questionType: "short_answer",
-          userAnswer: "3",
-          correctAnswer: "2",
-          judgement: "incorrect",
-          explanation: "基础加法：1 + 1 = 2。",
-        },
-      },
-    ],
-  },
-  { text: "答错了，正确答案是 2。", toolCalls: [] },
-];
+// CR-060：插件自有回放脚本（如第一方插件贡献的确定性夹具）由
+// ServerPluginRegistration.replayScripts 提供，宿主不内建插件领域脚本。

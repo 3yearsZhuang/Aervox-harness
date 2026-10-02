@@ -9,7 +9,8 @@
  * 2. 工具贡献（`toolContributions`）—— 模型可见工具及其使用指南；
  * 3. HTTP 端点（`httpEndpoints`）—— 插件自有 API，经宿主适配为框架路由。
  */
-import type { ToolGuidance, ToolProviderPort } from "@aervox/core";
+import type { ReplayStep, ToolGuidance, ToolProviderPort } from "@aervox/core";
+import type { PluginHostServices } from "./host-services.js";
 import type { ServerTurnPlugin } from "./turn-plugin.js";
 
 /** HTTP 方法子集：插件端点仅暴露这些语义 */
@@ -38,7 +39,11 @@ export interface PluginHttpEndpoint {
   method: PluginHttpMethod;
   /** 完整路径（含 `/v1` 前缀），如 `/v1/terms/explore` */
   path: string;
-  handler(request: PluginHttpRequest): Promise<PluginHttpResponse> | PluginHttpResponse;
+  /** 宿主在解析本地上下文后注入 `services`，插件从中取得窄端口 */
+  handler(
+    request: PluginHttpRequest,
+    services: PluginHostServices,
+  ): Promise<PluginHttpResponse> | PluginHttpResponse;
 }
 
 /**
@@ -63,7 +68,20 @@ export interface PluginToolContribution {
 export interface ServerPluginRegistration {
   /** 提供该注册单元的插件 id（与 Manifest `metadata.id` 一致） */
   pluginId: string;
+  /** 回合切面：与本地上下文无关，装配期一次性注册，启用门控由 Runner 负责 */
   turnPlugins?: ServerTurnPlugin[];
-  toolContributions?: PluginToolContribution[];
+  /**
+   * 工具贡献工厂：宿主在**回合运行时**按当前本地上下文调用（端口按上下文绑定），
+   * 并仅在插件启用时把结果合入模型工具面与提示词指南。
+   */
+  toolContributions?: (services: PluginHostServices) => PluginToolContribution[];
+  /** HTTP 端点：与上下文无关，装配期挂载，上下文由宿主按请求注入 handler */
   httpEndpoints?: PluginHttpEndpoint[];
+  /**
+   * 确定性回放脚本贡献：键即 `AERVOX_LOOP_PROVIDER` 的模式名。
+   *
+   * 供插件自带其领域工具的确定性夹具，避免宿主为验证插件工具而内建插件领域脚本。
+   * 宿主仅在自身未内建同名模式时采用（插件不得覆盖宿主内建模式）。
+   */
+  replayScripts?: Record<string, readonly ReplayStep[]>;
 }

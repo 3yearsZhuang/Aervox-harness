@@ -13,9 +13,12 @@
   },
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@aervox/contracts": "workspace:*",
+    "@aervox/core": "workspace:*",
     "@aervox/host-plugin-api": "workspace:*",
     "@aervox/practice-review": "workspace:*"
   }

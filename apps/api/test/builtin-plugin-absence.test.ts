@@ -65,12 +65,14 @@ it("缺包、非法清单、不可读根均保留配置/Secret/撤权与开关�
 it("默认注册表实例隔离，导入模块无隐式注册；旧释放不能影响替代实例", () => {
   const first = createServerPluginRegistry(); const second = createServerPluginRegistry();
   expect(first).not.toBe(second);
-  expect(first.getAll().length).toBeGreaterThan(0);
+  // CR-060：组合根不再硬编码任何具体插件，新建注册表必须为空（零隐式领域注册）；
+  // 具体插件贡献只在 apps/api/src/plugin-assembly.ts 装配点显式注入。
+  expect(first.getAll()).toEqual([]);
   const releaseA = first.register({ id: "same", aliases: ["old"] });
   const newer = { id: "same", aliases: ["new"] };
   const releaseB = first.register(newer);
   releaseA(); releaseA(); expect(first.get("same")).toBe(newer);
   expect(first.get("old")).toBeUndefined();
   releaseB(); releaseB(); expect(first.get("same")).toBeUndefined();
-  first.clear(); expect(second.getAll().length).toBeGreaterThan(0);
+  first.clear(); expect(second.getAll()).toEqual([]);
 });

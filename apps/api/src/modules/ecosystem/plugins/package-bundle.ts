@@ -750,6 +750,91 @@ export async function listMarketPlugins(
 }
 
 /**
+ * 出厂源打包允许清单（fail-closed）。
+ *
+ * 与 `scripts/export-plugins.mjs` 的 `DIST_FILENAMES` / `DIST_DIR_PREFIXES` 必须一致，
+ * 由 `apps/api/test/plugin-bundle-allowlist.test.ts` 机器断言（防止两份清单漂移）。
+ *
+ * 背景：出厂源目录同时承载实现源码、测试与依赖链接，早期实现的目录递归打包会把
+ * `node_modules`（其下为指向工作区包的符号链接）、`src/` 与构建产物一并压入安装包，
+ * 既膨胀校验和载体又触发 EISDIR。此处只收声明与资源。
+ */
+export const PLUGIN_BUNDLE_FILENAMES: readonly string[] = [
+  "plugin.manifest.json",
+  "manifest.json",
+  "config.schema.json",
+  "SKILL.md",
+  "skill.md",
+];
+
+export const PLUGIN_BUNDLE_DIR_PREFIXES: readonly string[] = ["skills/", "pages/"];
+
+/** 仅本地开发用的载体：明确排除，且不视为契约缺陷 */
+export const PLUGIN_BUNDLE_LOCAL_FILENAMES: readonly string[] = [
+  "package.json",
+  "tsconfig.json",
+  "tsconfig.ui.json",
+  "vitest.config.ts",
+  "vitest.config.js",
+  "pnpm-lock.yaml",
+  "README.md",
+  ".gitignore",
+  ".DS_Store",
+];
+
+export const PLUGIN_BUNDLE_LOCAL_DIR_PREFIXES: readonly string[] = [
+  "src/",
+  "dist/",
+  "node_modules/",
+  "test/",
+  "tests/",
+  "__tests__/",
+  ".turbo/",
+];
+
+/** 判断出厂源目录内的相对路径在分发包中的角色：dist | local | unknown（与导出脚本同构） */
+export function classifyPluginBundleEntry(rel: string, isDirectory = false): "dist" | "local" | "unknown" {
+  const asDir = isDirectory ? `${rel}/` : rel;
+  if (!isDirectory && PLUGIN_BUNDLE_FILENAMES.includes(rel)) return "dist";
+  if (PLUGIN_BUNDLE_DIR_PREFIXES.some((prefix) => asDir.startsWith(prefix))) return "dist";
+  if (PLUGIN_BUNDLE_LOCAL_FILENAMES.includes(rel)) return "local";
+  if (PLUGIN_BUNDLE_LOCAL_DIR_PREFIXES.some((prefix) => asDir.startsWith(prefix))) return "local";
+  return "unknown";
+}
+
+/** 收集出厂源目录中属于分发包的文件（键为包内相对路径） */
+export async function collectMarketBundleFiles(
+  pluginDir: string,
+): Promise<Record<string, Uint8Array>> {
+  const files: Record<string, Uint8Array> = {};
+
+  const readAllowedRecursive = async (dir: string, base: string): Promise<void> => {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    for (const entry of entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
+      const full = path.join(dir, entry.name);
+      const rel = `${base}${entry.name}`;
+      const role = classifyPluginBundleEntry(rel, entry.isDirectory());
+      if (role === "local") continue;
+      // 未知角色属于**契约缺陷**（既可能是漏发资源，也可能是泄露实现），fail-closed 拒绝而非静默跳过
+      if (role === "unknown") {
+        throw new Error(
+          `出厂源目录存在未登记角色的条目：${rel}。请在允许清单中显式归类后再打包（fail-closed）。`,
+        );
+      }
+      if (entry.isDirectory()) {
+        await readAllowedRecursive(full, `${rel}/`);
+        continue;
+      }
+      const data = await fs.readFile(full);
+      files[rel] = new Uint8Array(data);
+    }
+  };
+
+  await readAllowedRecursive(pluginDir, "");
+  return files;
+}
+
+/**
  * 从出厂源一键安装插件
  */
 export async function installFromMarket(
@@ -765,22 +850,7 @@ export async function installFromMarket(
     throw new Error(`Market plugin "${pluginId}" not found in source registry.`);
   }
 
-  const zipFiles: Record<string, Uint8Array> = {};
-  async function readDirRecursive(dir: string, base: string) {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const full = path.join(dir, entry.name);
-      const rel = path.join(base, entry.name).replace(/\\/g, "/");
-      if (entry.isDirectory()) {
-        await readDirRecursive(full, rel);
-      } else {
-        const data = await fs.readFile(full);
-        zipFiles[rel] = new Uint8Array(data);
-      }
-    }
-  }
-  await readDirRecursive(pluginDir, "");
-
+  const zipFiles = await collectMarketBundleFiles(pluginDir);
   const bytes = zipSync(zipFiles, { level: 6 });
   return installPluginFromBundle(bytes, { overwrite: true }, deps);
 }

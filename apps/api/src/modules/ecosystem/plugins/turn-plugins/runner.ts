@@ -51,6 +51,20 @@ async function resolvePluginEnabled(
 }
 
 /**
+ * 插件启用门控（对外复用入口）。
+ *
+ * 供回合切面 Runner 之外的插件贡献消费者（如工具贡献装配）复用同一判据：
+ * 插件贡献一律**按启用状态 fail-closed** —— 禁用、缺记录或不可用的插件不得生效。
+ */
+export async function isPluginEnabled(
+  pluginId: string,
+  extRepo: IExtensionRepository | null | undefined,
+): Promise<boolean> {
+  if (!extRepo) return false;
+  return resolvePluginEnabled([pluginId], extRepo);
+}
+
+/**
  * 通用解析插件配置值（按主 ID 与声明别名依次探测）
  */
 async function resolvePluginConfigValues(

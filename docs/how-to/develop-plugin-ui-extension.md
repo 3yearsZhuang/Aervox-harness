@@ -338,7 +338,7 @@ export const focusCardTurnPlugin: ServerTurnPlugin = {
 };
 ```
 
-在 API 受信组合位置 import 该定义并调用 `registry.register(focusCardTurnPlugin)`；与[现有 focus-mode 注册](../../apps/api/src/modules/ecosystem/plugins/turn-plugins/focus-mode.ts)保持同一种装配方式。也可在测试中通过 `buildApp({pluginRegistry})` 注入独立 `ServerPluginRegistry`。同时安装/登记相同 ID 的主记录，否则生产 Runner 的 enabled 门控不会激活它。
+在 API 受信组合位置 import 该定义并调用 `registry.register(focusCardTurnPlugin)`；与[现有 focus-mode 装配](../../apps/api/src/plugin-assembly.ts)保持同一种装配方式（实现位于 `plugins/focus-mode/src/server/`，由该装配点以容错方式加载并注入）。也可在测试中通过 `buildApp({pluginRegistry})` 注入独立 `ServerPluginRegistry`。同时安装/登记相同 ID 的主记录，否则生产 Runner 的 enabled 门控不会激活它。
 
 ### 4.2 验证触发与边界
 

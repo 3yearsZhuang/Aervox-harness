@@ -5,4 +5,5 @@
  * 宿主实现见 `apps/api/src/plugin-assembly.ts`（组合根在启用插件时装配贡献）。
  */
 export * from "./turn-plugin.js";
+export * from "./host-services.js";
 export * from "./contribution.js";

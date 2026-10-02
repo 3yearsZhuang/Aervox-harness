@@ -6,13 +6,26 @@
  */
 import type { ServerPluginRegistration } from "@aervox/host-plugin-api";
 import { focusModeTurnPlugin } from "./turn-plugin.js";
+import {
+  PLUGIN_ID,
+  createFocusModeToolContributions,
+  FOCUS_MODE_REPLAY_SCRIPT,
+} from "./focus-tools.js";
+import { focusModeExploreEndpoints } from "./terms-routes.js";
+import { focusModeReportEndpoints } from "./practice-reports-routes.js";
 
 export const focusModeRegistration: ServerPluginRegistration = {
-  pluginId: "focus-mode",
+  pluginId: PLUGIN_ID,
   turnPlugins: [focusModeTurnPlugin],
+  // 工具贡献按当前本地上下文构造（端口随上下文绑定）；宿主仅在插件启用时合入模型工具面
+  toolContributions: (services) => createFocusModeToolContributions(services.learningFacts),
+  httpEndpoints: [...focusModeExploreEndpoints, ...focusModeReportEndpoints],
+  // 自带确定性夹具：宿主只负责按模式名分发，不在宿主内建插件领域脚本
+  replayScripts: { "scripted-plugin": FOCUS_MODE_REPLAY_SCRIPT },
 };
 
 export default focusModeRegistration;
 
 export * from "./turn-plugin.js";
 export * from "./prompt.js";
+export * from "./focus-tools.js";

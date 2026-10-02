@@ -428,6 +428,12 @@ importers:
 
   plugins/focus-mode:
     dependencies:
+      '@aervox/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@aervox/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@aervox/host-plugin-api':
         specifier: workspace:*
         version: link:../../packages/host-plugin-api

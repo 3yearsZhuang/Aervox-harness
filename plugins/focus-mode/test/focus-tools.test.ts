@@ -1,6 +1,34 @@
+/**
+ * Aervox｜思隅 plugins/focus-mode — 作答落库工具贡献单元测试（CAP-016）
+ *
+ * CR-060：自 `packages/core/test/practice-attempt-tool.test.ts` 随实现迁入。
+ * 端口形状由 `PracticeAttemptPort` 改为 `PluginLearningFactPort`（窄端口，按上下文绑定）。
+ */
 import { describe, expect, it } from "vitest";
-import { createPracticeAttemptToolProvider, RECORD_PRACTICE_ATTEMPT_TOOL } from "../src/practice-attempt-tool.js";
-import type { PracticeAttemptPort, PracticeAttemptPortRequest } from "../src/ports.js";
+import type { JudgedAnswerInput, PluginLearningFactPort } from "@aervox/host-plugin-api";
+import {
+  createPracticeAttemptToolProvider,
+  RECORD_PRACTICE_ATTEMPT_TOOL,
+} from "../src/server/focus-tools.js";
+
+function stubPort(
+  impl?: (input: JudgedAnswerInput) => Promise<{
+    questionId: string;
+    attemptId: string;
+    judgement: "correct" | "incorrect" | "partial";
+    enteredMistakeNotebook: boolean;
+  }>,
+): PluginLearningFactPort {
+  return {
+    recordJudgedAnswer:
+      impl ??
+      (async () => ({ questionId: "q", attemptId: "a", judgement: "correct", enteredMistakeNotebook: false })),
+    writeReport: async () => ({}),
+    readReport: async () => null,
+    listReports: async () => [],
+    resetInference: async () => ({}),
+  };
+}
 
 function baseArgs(): Record<string, unknown> {
   return {
@@ -13,20 +41,16 @@ function baseArgs(): Record<string, unknown> {
   };
 }
 
-describe("practice-attempt-tool", () => {
+describe("focus-mode 作答落库工具贡献", () => {
   it("工具清单声明 record_practice_attempt 且为 readOnly", () => {
-    const provider = createPracticeAttemptToolProvider({
-      practiceAttemptPort: { recordAttempt: async () => ({ questionId: "q", attemptId: "a", judgement: "correct", enteredMistakeNotebook: false }) },
-    });
+    const provider = createPracticeAttemptToolProvider(stubPort());
     expect(provider.tools).toHaveLength(1);
     expect(provider.tools[0].name).toBe(RECORD_PRACTICE_ATTEMPT_TOOL);
     expect(provider.tools[0].readOnly).toBe(true);
   });
 
   it("未注册的工具名直接拒绝", async () => {
-    const provider = createPracticeAttemptToolProvider({
-      practiceAttemptPort: { recordAttempt: async () => ({ questionId: "q", attemptId: "a", judgement: "correct", enteredMistakeNotebook: false }) },
-    });
+    const provider = createPracticeAttemptToolProvider(stubPort());
     const res = await provider.execute({
       turnId: "turn_1",
       attemptId: "atp_1",
@@ -39,9 +63,7 @@ describe("practice-attempt-tool", () => {
   });
 
   it("缺少 prompt / userAnswer / correctAnswer 时报错", async () => {
-    const provider = createPracticeAttemptToolProvider({
-      practiceAttemptPort: { recordAttempt: async () => ({ questionId: "q", attemptId: "a", judgement: "correct", enteredMistakeNotebook: false }) },
-    });
+    const provider = createPracticeAttemptToolProvider(stubPort());
     for (const field of ["prompt", "userAnswer", "correctAnswer"]) {
       const args = baseArgs();
       delete args[field];
@@ -59,9 +81,7 @@ describe("practice-attempt-tool", () => {
   });
 
   it("judgement 非三值枚举时报错", async () => {
-    const provider = createPracticeAttemptToolProvider({
-      practiceAttemptPort: { recordAttempt: async () => ({ questionId: "q", attemptId: "a", judgement: "correct", enteredMistakeNotebook: false }) },
-    });
+    const provider = createPracticeAttemptToolProvider(stubPort());
     const res = await provider.execute({
       turnId: "turn_1",
       attemptId: "atp_1",
@@ -73,15 +93,13 @@ describe("practice-attempt-tool", () => {
     expect(res.error).toContain("judgement");
   });
 
-  it("正常落库并透传端口结果（incorrect 进入错题本）", async () => {
-    let captured: PracticeAttemptPortRequest | undefined;
-    const port: PracticeAttemptPort = {
-      recordAttempt: async (req) => {
-        captured = req;
-        return { questionId: "q_1", attemptId: "att_1", judgement: "incorrect", enteredMistakeNotebook: true };
-      },
-    };
-    const provider = createPracticeAttemptToolProvider({ practiceAttemptPort: port });
+  it("正常落库并透传窄端口结果（incorrect 进入错题本）", async () => {
+    let captured: JudgedAnswerInput | undefined;
+    const port = stubPort(async (input) => {
+      captured = input;
+      return { questionId: "q_1", attemptId: "att_1", judgement: "incorrect", enteredMistakeNotebook: true };
+    });
+    const provider = createPracticeAttemptToolProvider(port);
 
     const res = await provider.execute({
       turnId: "turn_quiz",
@@ -110,13 +128,11 @@ describe("practice-attempt-tool", () => {
   });
 
   it("端口抛错时映射为 ok:false", async () => {
-    const provider = createPracticeAttemptToolProvider({
-      practiceAttemptPort: {
-        recordAttempt: async () => {
-          throw new Error("DB_WRITE_FAILED");
-        },
-      },
-    });
+    const provider = createPracticeAttemptToolProvider(
+      stubPort(async () => {
+        throw new Error("DB_WRITE_FAILED");
+      }),
+    );
     const res = await provider.execute({
       turnId: "turn_1",
       attemptId: "atp_1",

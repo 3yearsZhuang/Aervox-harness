@@ -6,12 +6,13 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.3
+version: 1.0.4
 updated_at: 2026-10-03
 reviewed_at: 2026-10-03
 review_interval_days: 90
 review_triggers:
   - plugins/**
+  - packages/host-plugin-api/**
   - packages/contracts/src/plugin-config-schemas.ts
   - packages/repositories/src/repositories/sqlite/*plugin*
   - packages/ui/src/registry/**
@@ -21,6 +22,7 @@ review_triggers:
   - packages/ui/src/composables/workbench-context.ts
   - apps/api/src/modules/ecosystem/plugins/**
   - apps/api/src/modules/ecosystem/tools/**
+  - apps/api/src/plugin-assembly.ts
   - scripts/export-plugins.mjs
 sources:
   - docs/reference/capability-composition.md
@@ -56,16 +58,18 @@ sources:
 
 能力组合规范中的 `CapabilityManifest`、Provider/Profile、依赖 Resolver、签名与锁文件是另一层契约，不能直接作为当前 `PluginManifest` 安装。其独立可执行可选模块通过 `modules/*` 子仓库交付的要求仍有效；当前 `plugins/*` 是声明与资源包，第一方 UI/Turn 是随主仓交付的受信实现，不能与独立可执行模块混同。单纯制作声明式 Bundle 不要求新建子仓库；真正新增独立可选业务模块、改变目录责任或放宽 ADR 边界，先按能力注册表与 [CR 流程](../how-to/cr-workflow.md)裁定。
 
-### 0.3 契约冻结：专注模式内聚与宿主去领域化（CR-060，待落地）
+### 0.3 契约冻结：专注模式内聚与宿主去领域化（CR-060，部分落地）
 
-本节冻结 [CR-060](changes/CR-060-focus-mode-host-decoupling.md) 的目标契约，供实施与评审对齐。**当前尚未落地**：下文 §4.1、§4.2、§4.3、§5.1、§5.2 描述的仍是落地前行为；实施切片完成并通过移除演练后，由该 CR 一并改写为已落地事实。落地前不得据本节向用户承诺能力。
+本节冻结 [CR-060](changes/CR-060-focus-mode-host-decoupling.md) 的目标契约，供实施与评审对齐。**落地进度**：服务端实现（回合切面、工具贡献、HTTP 端点、宿主服务窄端口、回放脚本）已迁入 `plugins/focus-mode/` 并由装配点注入，§4.1、§4.2、§8.4 已按落地事实改写；前端接缝与 UI 迁移（§5.1、§5.2、§4.4 所述宿主硬编码）**尚未落地**，仍描述落地前行为，由该 CR 的后续切片改写。落地完成并通过移除演练前，不得据本节向用户承诺前端能力。
 
 - **实现落点**：第一方实现的源码可与声明同置于 `plugins/<id>/`，但实现目录**不进入** `.aervox-plugin` 分发包；分发包仍只含 Manifest、Config、Skill、Page 等声明与资源。分发包内容以显式允许清单为准，不随目录递归扩张。
 - **宿主装配**：宿主只提供通用注册表；具体插件由唯一装配文件显式注入，宿主包内不得出现插件领域标识。
 - **插件自有状态**：插件状态经宿主命名空间化接口读写；宿主通用组合式函数与主题样式不得承载单个插件的领域字段与类名。
 - **出站语义**：Turn `metadata` 是开放结构，由插件自行组装模式语义；宿主发送与 Composer 契约不得为单个插件预留私有字段。
 - **插件流事件**：核心事件枚举只保留内核事件；插件事件类型经贡献注册表校验与投影白名单。
-- **工具与路由贡献**：插件贡献的工具与路由随插件启用状态门控，不得在宿主无条件注入。
+- **工具与路由贡献**：面向模型的工具贡献（含其提示词指南）随插件启用状态与可用性门控，不得在宿主无条件注入；插件自有 HTTP 端点随**代码存在性**挂载（代码缺席即不存在该路由），与 CR-056「代码缺席不等于显式卸载」一致，二者判据不同但都必须 fail-closed。
+- **宿主服务窄端口**：插件不得接触数据库、模式包、仓储或宿主实时总线；凡需要宿主侧资源，一律经 `@aervox/host-plugin-api` 声明的窄端口按本地上下文注入（宿主侧唯一实现点为组合根）。插件自带工具的使用指南经内核既有 `customGuidance` 注入位合入基础提示词，内核基础提示词不得为插件工具预留条目。
+- **端点与回放贡献**：插件以 `httpEndpoints` 声明自有 API（方法、路径与业务处理归插件；鉴权、限流、本地上下文解析、出参包装与异常兜底归宿主适配层）；以 `replayScripts` 自带其领域工具的确定性夹具，宿主只按 `AERVOX_LOOP_PROVIDER` 模式名分发且不内建插件领域脚本，插件不得覆盖宿主已内建的同名模式。
 - **代码缺席**：注册与门控两端一致 fail-closed；插件记录缺失时不得默认启用，且必须保留安装记录、配置与数据管理入口。
 - **兼容别名**：不保留历史别名；`study-mode`/`quiz-mode` 不再是 `focus-mode` 的注册别名。
 
@@ -205,13 +209,15 @@ Page 元数据为 `id/title/description/entry/capabilities/checksum`。`id` 最�
 
 ### 4.1 核心契约与执行生命周期
 
-[ServerTurnPlugin](../../apps/api/src/modules/ecosystem/plugins/turn-plugins/types.ts)定义 `id`、可选 `name/aliases`、`beforeTurn(ctx, config)` 和 `afterTurn(ctx, config, beforeResult)`。上下文含 Turn/Session/Attempt ID、用户消息、本地上下文、受信仓储与可选 LLM；后置状态为 `Completed/Failed/Interrupted`。
+[ServerTurnPlugin](../../packages/host-plugin-api/src/turn-plugin.ts)定义 `id`、可选 `name/aliases`、`beforeTurn(ctx, config)` 和 `afterTurn(ctx, config, beforeResult)`。契约位于 `@aervox/host-plugin-api`（仅类型，零运行时依赖）；[本地出口](../../apps/api/src/modules/ecosystem/plugins/turn-plugins/types.ts)只做聚合，不再定义任何插件领域字段。上下文含 Turn/Session/Attempt ID、用户消息与窄端口（回合流读写 `stream`、可选 `llm`）；`tenant`/仓储属宿主侧依赖，经 Runner 的宿主依赖注入，**不进入插件上下文**。后置状态为 `Completed/Failed/Interrupted`。
 
-Hook 必须由 API 组合根 import 并注册到 [ServerPluginRegistry](../../apps/api/src/modules/ecosystem/plugins/turn-plugins/registry.ts)；仅在 Bundle 放置 `.ts/.js` 或 Manifest 字段不会激活 Hook。当前没有对第三方暴露的 Hook npm SDK、进程隔离或运行时代码热加载。现有主 ID `focus-mode` 的服务端兼容别名为 `study-mode/quiz-mode`，新插件不得借用这些 ID；别名是显式注册关系，不是任意插件自动获得的迁移功能。
+Hook 必须由 API 组合根 import 并注册到 [ServerPluginRegistry](../../apps/api/src/modules/ecosystem/plugins/turn-plugins/registry.ts)；仅在 Bundle 放置 `.ts/.js` 或 Manifest 字段不会激活 Hook。当前没有对第三方暴露的 Hook npm SDK、进程隔离或运行时代码热加载。第一方实现位于 `plugins/<id>/src/server`，由唯一装配点 [apps/api/src/plugin-assembly.ts](../../apps/api/src/plugin-assembly.ts) 以容错方式加载并注入其贡献（缺包或加载失败不中断宿主启动）。**不保留历史别名**：`study-mode`/`quiz-mode` 不再是 `focus-mode` 的注册别名；别名是显式注册关系，不是任意插件自动获得的迁移功能。
 
 ### 4.2 提示词动态插槽机制（Dynamic Extra Sections）
 
-领域提示词通过 `beforeTurn` 返回 `extraSections: string[]`，由上下文构建器拼入回合；禁止向通用 Base Prompt 增加插件业务分支。返回值还可含 `allowQuizTrigger/quizMode/state`，属于当前第一方内部协议；新业务不得借用刷题标志伪造领域语义。
+领域提示词通过 `beforeTurn` 返回 `extraSections: string[]`，由上下文构建器拼入回合；禁止向通用 Base Prompt 增加插件业务分支。插件私有语义一律经 `BeforeTurnResult.state`（回合内传递）与 Turn `metadata`（出站）自行承载，宿主通用契约不再为任何插件预留协议字段。
+
+插件工具的使用指南经 `PluginToolContribution.guidance` 声明，由宿主合入内核既有的 `customGuidance` 通用注入位（见 `packages/core/src/base-prompt.ts`）；内核基础提示词不得为插件工具预留条目。工具贡献按插件启用状态与可用性门控后才进入模型工具面。
 
 ### 4.3 本地配置与运行时门控（Gating & Config Injection）
 
@@ -320,7 +326,7 @@ pages/dashboard/style.css
 
 [出厂同步](../../apps/api/src/modules/ecosystem/plugins/index.ts)扫描 `plugins/*`，同步主记录、根 Skill、Config 与主动声明；没有执行任意包内代码，也不等同完整包导入（工具/Page 贡献需走分发安装验证）。API 启动发现消失的 `installSource=builtin` 插件会清理其记录。
 
-集市 `GET /v1/plugins/market` 当前来自本地出厂目录，不是远程公共插件商店；`POST /v1/plugins/market/:id/install` 走该目录打包安装，内部固定 `overwrite: true`；对已安装插件执行集市安装/更新也会先卸载重装，没有默认拒绝覆盖保护，数据影响同 §8.3。更新提示采用版本字符串是否不同，不是 SemVer 新旧判断。根 `mise tasks run package-plugins` 批量生成 `dist-plugins/<id>-<version>.aervox-plugin`（等价 `pnpm package:plugins`）；脚本只打包，不完成契约校验或安全认证。产物字节可重现（ZIP 条目时间戳固化、目录与条目排序），同源码重复打包的 SHA-256 稳定；`dist-plugins/` 是 gitignore 产物，测试不得依赖它，需分发包时经导出端点现场生成。
+集市 `GET /v1/plugins/market` 当前来自本地出厂目录，不是远程公共插件商店；`POST /v1/plugins/market/:id/install` 走该目录打包安装，内部固定 `overwrite: true`；对已安装插件执行集市安装/更新也会先卸载重装，没有默认拒绝覆盖保护，数据影响同 §8.3。就地打包与构建期导出共用同一份**允许清单**（只收 Manifest、Config、Skill 与 `skills/`、`pages/` 资源；排除 `src/`、`dist/`、`node_modules/`、`test/`、构建配置），两份清单的一致性由 `apps/api/test/plugin-bundle-allowlist.test.ts` 机器断言。更新提示采用版本字符串是否不同，不是 SemVer 新旧判断。根 `mise tasks run package-plugins` 批量生成 `dist-plugins/<id>-<version>.aervox-plugin`（等价 `pnpm package:plugins`）；脚本只打包，不完成契约校验或安全认证。产物字节可重现（ZIP 条目时间戳固化、目录与条目排序），同源码重复打包的 SHA-256 稳定；`dist-plugins/` 是 gitignore 产物，测试不得依赖它，需分发包时经导出端点现场生成。
 
 ### 8.5 主动规则、MCP 与授权
 

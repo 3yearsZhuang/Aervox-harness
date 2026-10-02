@@ -1,103 +1,5 @@
 [
   {
-    "file": "apps/api/src/modules/companion/conversation/agent-executor.ts",
-    "pattern": "domain-copy",
-    "count": 1,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（中文领域文案）"
-  },
-  {
-    "file": "apps/api/src/modules/companion/conversation/agent-executor.ts",
-    "pattern": "practice-tool",
-    "count": 4,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（刷题落库工具与端口）"
-  },
-  {
-    "file": "apps/api/src/modules/companion/conversation/index.ts",
-    "pattern": "domain-copy",
-    "count": 1,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（中文领域文案）"
-  },
-  {
-    "file": "apps/api/src/modules/companion/conversation/practice-attempt-port.ts",
-    "pattern": "domain-copy",
-    "count": 2,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（中文领域文案）"
-  },
-  {
-    "file": "apps/api/src/modules/companion/conversation/practice-attempt-port.ts",
-    "pattern": "plugin-id",
-    "count": 1,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（插件 id 字面量）"
-  },
-  {
-    "file": "apps/api/src/modules/companion/conversation/practice-attempt-port.ts",
-    "pattern": "practice-tool",
-    "count": 4,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（刷题落库工具与端口）"
-  },
-  {
-    "file": "apps/api/src/modules/companion/conversation/replay-scripts.ts",
-    "pattern": "domain-copy",
-    "count": 1,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（中文领域文案）"
-  },
-  {
-    "file": "apps/api/src/modules/companion/conversation/replay-scripts.ts",
-    "pattern": "practice-tool",
-    "count": 2,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（刷题落库工具与端口）"
-  },
-  {
-    "file": "apps/api/src/modules/companion/conversation/routes.ts",
-    "pattern": "domain-copy",
-    "count": 2,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（中文领域文案）"
-  },
-  {
-    "file": "apps/api/src/modules/companion/conversation/routes.ts",
-    "pattern": "practice-tool",
-    "count": 1,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（刷题落库工具与端口）"
-  },
-  {
-    "file": "apps/api/src/modules/ecosystem/plugins/turn-plugins/types.ts",
-    "pattern": "camel-ident",
-    "count": 1,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（领域驼峰标识）"
-  },
-  {
-    "file": "apps/api/src/modules/ecosystem/plugins/turn-plugins/types.ts",
-    "pattern": "quiz-protocol",
-    "count": 1,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（刷题私有协议标志）"
-  },
-  {
-    "file": "apps/api/src/modules/learning/learning/cap016-017-routes.ts",
-    "pattern": "domain-copy",
-    "count": 1,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（中文领域文案）"
-  },
-  {
-    "file": "apps/api/src/modules/learning/terms/routes.ts",
-    "pattern": "domain-copy",
-    "count": 1,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（中文领域文案）"
-  },
-  {
     "file": "packages/api-client/src/index.ts",
     "pattern": "term-pipeline",
     "count": 1,
@@ -168,13 +70,6 @@
     "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（术语抽取管线）"
   },
   {
-    "file": "packages/core/src/base-prompt.ts",
-    "pattern": "practice-tool",
-    "count": 1,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（刷题落库工具与端口）"
-  },
-  {
     "file": "packages/core/src/focus-mode-prompt.ts",
     "pattern": "camel-ident",
     "count": 3,
@@ -215,34 +110,6 @@
     "count": 1,
     "owner": "platform/ecosystem",
     "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（插件 id 字面量）"
-  },
-  {
-    "file": "packages/core/src/ports.ts",
-    "pattern": "domain-copy",
-    "count": 3,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（中文领域文案）"
-  },
-  {
-    "file": "packages/core/src/ports.ts",
-    "pattern": "practice-tool",
-    "count": 4,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（刷题落库工具与端口）"
-  },
-  {
-    "file": "packages/core/src/practice-attempt-tool.ts",
-    "pattern": "domain-copy",
-    "count": 1,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（中文领域文案）"
-  },
-  {
-    "file": "packages/core/src/practice-attempt-tool.ts",
-    "pattern": "practice-tool",
-    "count": 14,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（刷题落库工具与端口）"
   },
   {
     "file": "packages/practice-review/src/index.ts",
