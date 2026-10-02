@@ -614,6 +614,34 @@
       ]
     },
     {
+      "id": "ITER-035",
+      "batch": "first",
+      "status": "建议",
+      "delivery": "按 ADR-021 建立 `packages/core`（`@aervox/core`）独立内核包：吸收 agent-loop 全部内容 + `cli-approval` 迁入 + HostToolRuntime 内存版（含 InMemoryToolRegistry 与 definitionKey 代际指纹）移植 + `core.ts` 轻量出口 + headless 冒烟脚本；`agent-loop` 降级为纯 re-export 壳（一个迭代后移除）；包许可证 Apache-2.0（单一版权人再许可），主仓其余维持 AGPLv3",
+      "gate": "不修改 apps/api 路由、SSE 契约与数据库 Schema；SQLite 注册表实现留 apps/api 生态；core 是库不是宿主，不违反 ITER-029 连接版门禁；public npm 发布延后另行决策；core 运行时依赖必须为空",
+      "acceptance": [
+        "`packages/core` 运行时依赖为空（`dependencies: {}`），contracts 仅 type-only devDependency",
+        "headless 冒烟在无 Fastify / 无 SQLite / 无 apps/api 的进程内跑通完整多步工具回路（含 ControlContext 预算与审批路径）",
+        "`agent-loop` 为纯 re-export 壳，diary / host-agent / api / worker 四下游零改动且增量门禁通过",
+        "ADR-021 登记完备，追踪基线 §4.2 落地锚点就位"
+      ],
+      "checks": [
+        "packages/core/test/**",
+        "scripts/ 下 headless 冒烟脚本",
+        "agent-loop 壳与四下游零 diff 验证"
+      ],
+      "owner": "platform",
+      "branch": "",
+      "statusNote": "2026-10-03 建议：ADR-021 已接受（方案 A 渐进吸收 / Apache-2.0 / Provider 统一在包内落地）；实现依赖 ITER-034（PR #241）合入后启动",
+      "dependsOn": [
+        "ITER-034"
+      ],
+      "links": [
+        "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
+        "docs/reference/agent-harness-loop.md#10-限额与终止策略"
+      ]
+    },
+    {
       "id": "ITER-033",
       "batch": "next",
       "status": "建议",
