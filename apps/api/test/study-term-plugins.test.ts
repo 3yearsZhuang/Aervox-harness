@@ -230,7 +230,8 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
   });
 
   it("二阶段术语质检裁决：enableJudgePass 开启且候选数 > 5 时，LLM 成功执行初提与复核两阶段调用", async () => {
-    const { extractTerms } = await import("@aervox/practice-review");
+    // CR-060：术语抽取管线随实现归插件（宿主不再经 practice-review 暴露）
+    const { extractTerms } = await import("@aervox/plugin-focus-mode/server");
 
     const calls: Array<{ prompt: string; options?: unknown }> = [];
     const mockLlm = {

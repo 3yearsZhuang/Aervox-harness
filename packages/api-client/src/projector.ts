@@ -10,7 +10,6 @@
 
 import type {
   PetCommand,
-  TermsExtractedEventData,
   ToolApprovalRequiredEventData,
   TurnStreamEvent,
   UserQuestionRequiredEventData,
@@ -120,8 +119,9 @@ export class TurnStreamProjector {
         ...(data as ToolApprovalRequiredEventData),
         turnId: event.turnId ?? this.expectedTurnId ?? '',
       });
-    } else if (eventType === 'terms_extracted') {
-      callbacks.onTermsExtracted?.(data as TermsExtractedEventData);
+    } else {
+      // CR-060：内核未专门分发的事件（含插件自有事件类型）统一经通用出口透传
+      callbacks.onPluginEvent?.(eventType, data);
     }
 
     return true;

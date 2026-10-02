@@ -11,7 +11,7 @@ describe('TurnStreamProjector (BTD-06 客户端安全投影与防乱序/防复�
       onEmote: [],
       onReasoning: [],
       onUserQuestion: [],
-      onTermsExtracted: [],
+      onPluginEvent: [],
       onToolApproval: [],
     };
     return {
@@ -22,8 +22,8 @@ describe('TurnStreamProjector (BTD-06 客户端安全投影与防乱序/防复�
       onEmote: vi.fn((cmd) => calls.onEmote.push(cmd)),
       onReasoning: vi.fn((text) => calls.onReasoning.push(text)),
       onUserQuestion: vi.fn((q) => calls.onUserQuestion.push(q)),
-      onTermsExtracted: vi.fn((t) => calls.onTermsExtracted.push(t)),
       onToolApproval: vi.fn((a) => calls.onToolApproval.push(a)),
+      onPluginEvent: vi.fn((type: string, data: unknown) => calls.onPluginEvent.push({ type, data })),
     };
   };
 
@@ -228,6 +228,8 @@ describe('TurnStreamProjector (BTD-06 客户端安全投影与防乱序/防复�
     expect(cbs.calls.onUserQuestion).toHaveLength(1);
     expect(cbs.calls.onToolApproval).toHaveLength(1);
     expect(cbs.calls.onToolApproval[0]?.turnId).toBe('turn_1');
-    expect(cbs.calls.onTermsExtracted).toHaveLength(1);
+    // CR-060：内核未专门分发的事件经通用插件事件出口透传（此处为插件自有事件类型）
+    expect(cbs.calls.onPluginEvent).toHaveLength(1);
+    expect(cbs.calls.onPluginEvent[0]?.type).toBe('terms_extracted');
   });
 });

@@ -1,30 +1,41 @@
 <script setup lang="ts">
+import { onBeforeUnmount, watch } from 'vue';
 import { Sparkles } from 'lucide-vue-next';
 import { useWorkbenchContext } from '../../composables/workbench-context';
 import TermExploreDialog from './TermExploreDialog.vue';
-
-const { layout, conversation } = useWorkbenchContext();
-const { focusModeEnabled } = layout;
-const {
-  currentExtractedTerms,
-  streaming,
-  openTermExplore,
+import {
   exploreDialogOpen,
+  extractedTerms,
+  openTermExplore,
+  resetTermsState,
   selectedTerm,
-  latestAssistantLine,
-} = conversation;
+  subscribeTermsEvents,
+} from './plugin-events';
+
+const { layout, conversation, pluginEvents } = useWorkbenchContext();
+const { focusModeEnabled } = layout;
+const { streaming, latestAssistantLine } = conversation;
+
+// CR-060：术语状态归插件；宿主只提供通用事件总线，不解释事件语义
+const unsubscribe = subscribeTermsEvents(pluginEvents);
+onBeforeUnmount(() => unsubscribe());
+
+// 新回合开始即清空上一轮概念，避免跨轮残留
+watch(streaming, (isStreaming) => {
+  if (isStreaming) resetTermsState();
+});
 </script>
 
 <template>
   <div class="study-terms-section">
-    <div v-if="focusModeEnabled && currentExtractedTerms.length > 0 && !streaming" class="message-terms-bar">
+    <div v-if="focusModeEnabled && extractedTerms.length > 0 && !streaming" class="message-terms-bar">
       <div class="terms-bar-label">
         <Sparkles :size="13" />
         <span>核心概念</span>
       </div>
       <div class="terms-chips-list">
         <button
-          v-for="t in currentExtractedTerms"
+          v-for="t in extractedTerms"
           :key="t.text"
           type="button"
           class="term-chip"

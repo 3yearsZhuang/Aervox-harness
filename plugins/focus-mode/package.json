@@ -19,6 +19,7 @@
   "dependencies": {
     "@aervox/contracts": "workspace:*",
     "@aervox/core": "workspace:*",
-    "@aervox/host-plugin-api": "workspace:*"
+    "@aervox/host-plugin-api": "workspace:*",
+    "zod": "4.4.3"
   }
 }

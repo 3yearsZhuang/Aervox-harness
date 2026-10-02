@@ -437,6 +437,9 @@ importers:
       '@aervox/host-plugin-api':
         specifier: workspace:*
         version: link:../../packages/host-plugin-api
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
 
 packages:
 

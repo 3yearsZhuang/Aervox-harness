@@ -13,6 +13,11 @@ import {
 } from "./focus-tools.js";
 import { focusModeExploreEndpoints } from "./terms-routes.js";
 import { focusModeReportEndpoints } from "./practice-reports-routes.js";
+import { registerFocusModeApiContract } from "./contracts.js";
+
+// 模块加载即登记对外 API 契约（事件类型、投影白名单、OpenAPI 片段），
+// 必须先于宿主文档生成与请求处理发生
+registerFocusModeApiContract();
 
 export const focusModeRegistration: ServerPluginRegistration = {
   pluginId: PLUGIN_ID,
@@ -30,3 +35,4 @@ export * from "./turn-plugin.js";
 export * from "./prompt.js";
 export * from "./focus-tools.js";
 export * from "./terms-extractor.js";
+export * from "./contracts.js";

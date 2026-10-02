@@ -14,6 +14,7 @@
  * 6. 关系标注：background（背景/定义/深度下钻）或 related（关联/对比/发散）
  */
 
+import { z } from "zod";
 import type { TurnLlmPort } from "@aervox/host-plugin-api";
 
 export interface ExtractedTerm {
@@ -21,6 +22,13 @@ export interface ExtractedTerm {
   relation: "background" | "related";
   description?: string;
 }
+
+/** `ExtractedTerm` 的运行时校验模式（对外事件契约用；与上方接口保持同一形状，单一事实源） */
+export const extractedTermSchema: z.ZodType<ExtractedTerm> = z.object({
+  text: z.string().min(1),
+  relation: z.enum(["background", "related"]),
+  description: z.string().optional(),
+});
 
 export interface ExtractTermsOptions {
   llm?: TurnLlmPort;

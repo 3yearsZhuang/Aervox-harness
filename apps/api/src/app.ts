@@ -9,7 +9,7 @@
 import Fastify from "fastify";
 import path from "node:path";
 import cors from "@fastify/cors";
-import { openApiDocument } from "@aervox/contracts";
+import { buildOpenApiDocument } from "@aervox/contracts";
 import {
   createDatabase,
   createProactiveVaultDatabase,
@@ -263,9 +263,11 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   });
 
-  // 契约骨架：暴露由 @aervox/contracts 生成的 OpenAPI 3.1 文档（预序列化并添加 1 小时客户端缓存头）
-  const openApiSerialized = JSON.stringify(openApiDocument);
+  // 契约骨架：暴露由 @aervox/contracts 生成的 OpenAPI 3.1 文档（首次请求时序列化并添加 1 小时客户端缓存头）。
+  // CR-060：插件端点在宿主装配阶段登记，故文档必须晚于插件加载生成，不能在此处预序列化。
+  let openApiSerialized: string | null = null;
   app.get("/openapi.json", async (_req, reply) => {
+    openApiSerialized ??= JSON.stringify(buildOpenApiDocument());
     reply.header("Content-Type", "application/json; charset=utf-8");
     reply.header("Cache-Control", "public, max-age=3600");
     return openApiSerialized;

@@ -12,7 +12,7 @@
  * 以免插件反向依赖宿主表结构。
  */
 import type { PluginHostServices, PluginHttpEndpoint } from "@aervox/host-plugin-api";
-import { createPracticeReportSchema } from "@aervox/contracts";
+import { createPracticeReportSchema } from "./contracts.js";
 
 async function handleCreateReport(body: unknown, services: PluginHostServices) {
   const parsed = createPracticeReportSchema.safeParse(body);

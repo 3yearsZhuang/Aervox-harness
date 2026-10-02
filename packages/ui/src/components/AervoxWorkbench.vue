@@ -33,6 +33,7 @@ import { createStreamingDeltaBatcher, useWorkbenchConversation } from '../compos
 import { useWorkbenchCards, todayLocalDate, type CardId } from '../composables/useWorkbenchCards';
 import { useWorkbenchProactive, proactiveBridge } from '../composables/useWorkbenchProactive';
 import { provideWorkbenchContext } from '../composables/workbench-context';
+import { createPluginEventBus } from '../composables/plugin-events';
 import { useUIRegistry, provideUIRegistry } from '../registry/ui-registry';
 import { streamAervoxTurn, useAervoxPlugins, useAervoxProjects, useAervoxSessions } from '@aervox/api-client';
 import type { TurnAttachmentRef } from '@aervox/contracts';
@@ -60,6 +61,9 @@ const emit = defineEmits<{
 const registry = useUIRegistry();
 provideUIRegistry(registry);
 
+// CR-060：通用插件事件总线——宿主只转发传输层的插件事件，不解释其语义
+const pluginEvents = createPluginEventBus();
+
 
 // 1. Proactive Composable
 const proactive = useWorkbenchProactive({
@@ -76,8 +80,6 @@ const layout = useWorkbenchLayout(props, {
       cards.applyStudyCardLayout();
     } else {
       cards.restoreStudyCardLayout();
-      conversation.currentExtractedTerms.value = [];
-      conversation.exploreDialogOpen.value = false;
     }
   },
   onOpenDiary: () => {
@@ -217,7 +219,6 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
   composer.input.value = '';
   conversation.streaming.value = true;
   conversation.activeQuestion.value = null;
-  conversation.currentExtractedTerms.value = [];
   petReactKind('think', { lookAtEl: '.message-panel' });
   await conversation.scrollStoryToBottom();
   proactive.recordProactiveActivity('aervox.activity', 'conversation.turn_submitted', text, {
@@ -286,8 +287,10 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
           petReactKind('tilthead', { lookAtEl: '.side-cards', lookDuration: 3200 });
           void conversation.scrollStoryToBottom();
         },
-        onTermsExtracted: (tData) => {
-          conversation.currentExtractedTerms.value = tData.terms;
+        // CR-060：宿主只把通用插件事件转发到总线，不解释事件类型与载荷
+        onPluginEvent: (eventType, data) => {
+          deltaBatch.flush();
+          pluginEvents.emit(eventType, data);
         },
         onToolApproval: (aData) => {
           deltaBatch.flush();
@@ -346,6 +349,7 @@ const workbenchContext = {
   get pluginRuntime() {
     return pluginRuntime;
   },
+  pluginEvents,
   sendMessage,
 };
 provideWorkbenchContext(workbenchContext);

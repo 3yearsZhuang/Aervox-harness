@@ -9,7 +9,7 @@
  * - 分支创建经 `services.sessions` 窄端口，插件不接触会话仓储。
  */
 import type { PluginHostServices, PluginHttpEndpoint } from "@aervox/host-plugin-api";
-import { termExploreRequestSchema } from "@aervox/contracts";
+import { termExploreRequestSchema } from "./contracts.js";
 
 let seq = 0;
 

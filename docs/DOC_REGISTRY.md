@@ -45,7 +45,7 @@ review_interval_days: 90
 | `ADR-015` | [Vue 全栈单栈方案](reference/adr/ADR-015-vue-full-stack.md) | 2026-09-13 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
 | `ADR-016` | [底座边界冻结与依赖规则门禁](reference/adr/ADR-016-base-boundaries.md) | 2026-10-03 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记；门禁 `from` 目标包改名或迁移后未同步覆盖 |
 | `ADR-017` | [上下文清单、模型运行记录与多步执行持久化](reference/adr/ADR-017-context-manifest-modelrun-step.md) | 2026-09-10 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
-| `AVX-SPC-001` | [流式协议](reference/STREAMING_PROTOCOL.md) | 2026-09-30 | OpenAPI/事件 schema 变更 | `packages/contracts` 版本高于文档描述 |
+| `AVX-SPC-001` | [流式协议](reference/STREAMING_PROTOCOL.md) | 2026-10-03 | OpenAPI/事件 schema 变更 | `packages/contracts` 版本高于文档描述 |
 | `AVX-DB-001` | [SQLite 本地单用户数据库契约](reference/DATABASE.md) | 2026-09-29 | Schema/仓储接口/迁移计划变更 | CR-030 目标、当前过渡状态、迁移器或回滚门禁与实现不一致 |
 | `AVX-DATA-001` | [数据与隐私](reference/DATA_PRIVACY.md) | 2026-09-17 | 每季度 + 数据流/迁移变更 | 本地目录、导出、备份、破坏性迁移或删除边界未评审 |
 | `AVX-AIQ-001` | [AI 质量与安全](reference/AI_QUALITY_SAFETY.md) | 2026-09-17 | 模型/Prompt/算法变更 + AI 评估 | 本地来源边界、Diary 唯一性或模型上下文规则未同步 |

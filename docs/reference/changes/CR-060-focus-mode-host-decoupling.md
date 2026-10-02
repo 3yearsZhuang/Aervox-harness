@@ -87,6 +87,10 @@ sources:
 | [replay-scripts.ts:34-53](../../../apps/api/src/modules/companion/conversation/replay-scripts.ts#L34-L53) | 宿主内建 `scripted-quiz` 回放夹具，直接写死插件工具名与参数 | 新增 `replayScripts` 贡献，夹具归插件；宿主模式名改为领域中立的 `scripted-plugin`（S3b） |
 | [package-bundle.ts:769-781](../../../apps/api/src/modules/ecosystem/plugins/package-bundle.ts#L769)（`installFromMarket`） | 出厂集市就地打包走**目录递归**：把 `src/`、`dist/`、`node_modules/` 一并压入校验和载体；工作区依赖在包内是指向目录的符号链接，`Dirent.isDirectory()` 为假 → `readFile` 抛 `EISDIR`，集市安装整体 404 | 与构建期导出共用同一允许清单（fail-closed），并加工件级一致性断言（S3b） |
 | [config/src/index.ts:259](../../../packages/config/src/index.ts#L259) | `AERVOX_LOOP_PROVIDER` 枚举含插件领域模式名 `scripted-quiz` | 改为 `scripted-plugin`（插件自带夹具，宿主不复述插件领域）（S3b） |
+| [stream-projection.ts:22-38](../../../packages/contracts/src/stream-projection.ts)（改前） | 内核安全投影函数硬编码 `tool.name === "record_practice_attempt"` 并内联 `practiceResultSchema`，为单个插件工具开后门；且 `projectSafeEventData` 全仓**无生产消费者**，缺陷长期潜伏 | 改为通用登记表：插件经 `toolResultProjections` 声明白名单，内核泛化查表（S4b） |
+| [schemas.ts:39](../../../packages/contracts/src/schemas.ts)（改前） | 内核 `streamEventTypeSchema` 枚举含插件事件 `terms_extracted` | 枚举收敛为内核事件；插件事件类型经 `streamEventTypes` 登记，envelope 的 `eventType` 改为开放字符串（S4b） |
+| [openapi.ts:1310-1335](../../../packages/contracts/src/openapi.ts)（改前） | 内核 OpenAPI 文档硬编码 `/v1/terms/explore` 与插件报告端点及其实例模式 | 插件经 `openApiRoutes` 声明片段，内核泛化补 scope 请求头；文档改为惰性生成以反映装配期登记（S4b） |
+| [useAervoxTurn.ts:56](../../../packages/api-client/src/useAervoxTurn.ts)（改前）、[projector.ts:123](../../../packages/api-client/src/projector.ts)（改前） | 宿主传输层为插件事件预留专用回调 `onTermsExtracted`，并为插件端点提供具名包装 `exploreTerm` | 改为通用 `onPluginEvent(eventType, data)` 与 `requestAervoxApi(method, path, body)`；插件 UI 自行订阅与调用（S4b/S5） |
 
 减量证据：宿主源码中 `loadFocusModeRuntimeConfig`、`parseFocusConfig`、`extractFocusTerms`、`DEFAULT_FOCUS_MODE_CONFIG`、`isFocusModeMessage`、`isQuizTriggered`、`studyModeTurnPlugin`、`quizModeTurnPlugin`、`QUIZ_TRIGGER_KEYWORDS` **均无生产消费者**，仅被测试引用；`extractTerms` 的唯一消费者即本插件。因此服务端迁移以「整体搬迁 + 删除失效导出」为主，无需保留兼容层。
 
@@ -144,9 +148,10 @@ sources:
 | 新包 | `packages/host-plugin-api`（仅类型、零运行时依赖）：`ServerTurnPlugin`、`TurnPluginContext`（含窄端口 `stream`、`llm`）、`BeforeTurnResult`、`AfterTurnContext`、`ServerPluginRegistration`（`turnPlugins` / `toolContributions(services)` / `httpEndpoints` / `replayScripts`）、`PluginHostServices`（`sessions` / `learningFacts`） | 新增公共扩展契约 |
 | 新文件 | `apps/api/src/plugin-host-services.ts`：把宿主会话与学习事实仓储收敛为意图级窄端口的**唯一实现点**；`apps/api/src/plugin-assembly.ts` 增补端点挂载适配与注册单元回收 | 新增组合根接缝 |
 | 新包 | `plugins/focus-mode`（`@aervox/plugin-focus-mode`）：`./` → UI 贡献源码出口，`./server` → 构建产物出口 | 新增 workspace 包 |
-| 契约 | `packages/contracts/src/schemas.ts`：`streamEventTypeSchema` 收敛为内核事件；插件事件类型改由贡献注册表校验 | 破坏性契约变更（需同步 OpenAPI 生成） |
-| 契约 | `packages/contracts/src/index.ts`：`termsExtractedEventDataSchema`、`termExplore*` 迁出至插件 | 破坏性导出变更 |
-| 契约 | `packages/ui`：`sendMessage` 选项由 `{quizMode,resend}` 改为 `{metadata,resend}`；新增 `pluginState`、插件事件订阅、`applySlotPreset`、`composer:indicator` 槽位、`/plugin-api` 与 `/markdown` 子路径出口 | 破坏性契约变更 |
+| 契约 | `packages/contracts/src/schemas.ts`：`streamEventTypeSchema` 收敛为内核事件；新增 `streamEventTypeNameSchema`（开放字符串）；新增 `plugin-api-registry.ts` 承载 `registerPluginApiContribution` | 破坏性契约变更（需同步 OpenAPI 生成） |
+| 契约 | `packages/contracts/src/index.ts`：`termsExtractedEventDataSchema`、`extractedTermSchema`、`termExplore*` 迁出至插件；`openApiDocument` 常量改为惰性 `buildOpenApiDocument()` | 破坏性导出变更 |
+| 契约 | `packages/ui`：`sendMessage` 选项由 `{quizMode,resend}` 改为 `{metadata,resend}`；新增 `pluginState`、`pluginEvents` 通用事件总线、`applySlotPreset`、`composer:indicator` 槽位、`/plugin-api` 与 `/markdown` 子路径出口 | 破坏性契约变更 |
+| 契约 | `packages/api-client`：删除插件专用回调 `onTermsExtracted` 与具名端点包装 `exploreTerm`，改为通用 `onPluginEvent` 与 `requestAervoxApi` | 破坏性导出变更 |
 | 服务端 | `apps/api/src/modules/ecosystem/plugins/turn-plugins/*`（保留 `registry.ts`、`runner.ts`）；`modules/learning/terms/**` 删除；`companion/conversation/practice-attempt-port.ts`、`learning/learning/cap016-017-routes.ts` 迁出；`replay-scripts.ts` 删除插件夹具；新增 `apps/api/src/plugin-assembly.ts` | 结构重组 + 路由迁移 |
 | 服务端 | `apps/api/src/modules/ecosystem/plugins/package-bundle.ts`：`installFromMarket` 由目录递归改为允许清单；`packages/config`：`AERVOX_LOOP_PROVIDER` 的 `scripted-quiz` → `scripted-plugin` | 缺陷修复 + 领域词清除 |
 | 内核 | `packages/core/src/{focus-mode-prompt,practice-attempt-tool}.ts` 删除并移出出口；`ports.ts:337-368` 的 `PracticeAttemptPort` 下沉；`base-prompt.ts:75-83` 的工具指南改由插件经既有 `customGuidance` 通用注入位提供 | 破坏性导出变更（向 ADR-021 最小发行边界收敛） |

@@ -7,6 +7,7 @@ import type { WorkbenchCardsComposable } from './useWorkbenchCards';
 import type { WorkbenchProactiveComposable } from './useWorkbenchProactive';
 import type { UIRegistry } from '../registry/ui-registry';
 import type { WorkbenchPluginRuntime } from '../plugins/plugin-runtime';
+import type { PluginEventBus } from './plugin-events';
 import type { UseAervoxProjectsReturn, UseAervoxSessionsReturn } from '@aervox/api-client';
 
 export interface WorkbenchContext {
@@ -18,6 +19,11 @@ export interface WorkbenchContext {
   proactive: WorkbenchProactiveComposable;
   registry: UIRegistry;
   pluginRuntime?: WorkbenchPluginRuntime;
+  /**
+   * CR-060：通用插件事件总线。宿主只做转发，不解释事件语义；
+   * 插件在自身模块内订阅并持有状态。
+   */
+  pluginEvents: PluginEventBus;
   sessions: UseAervoxSessionsReturn;
   projects?: UseAervoxProjectsReturn;
   openProjectManager?: () => void;

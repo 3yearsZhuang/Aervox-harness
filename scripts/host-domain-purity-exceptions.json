@@ -1,73 +1,10 @@
 [
   {
-    "file": "packages/api-client/src/index.ts",
-    "pattern": "term-pipeline",
-    "count": 1,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（术语抽取管线）"
-  },
-  {
-    "file": "packages/api-client/src/projector.ts",
-    "pattern": "term-pipeline",
-    "count": 3,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（术语抽取管线）"
-  },
-  {
-    "file": "packages/api-client/src/transport.ts",
-    "pattern": "term-pipeline",
-    "count": 2,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（术语抽取管线）"
-  },
-  {
     "file": "packages/api-client/src/useAervoxApi.ts",
     "pattern": "study-surface",
     "count": 3,
     "owner": "platform/ecosystem",
     "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（学习闭环界面与工具入口）"
-  },
-  {
-    "file": "packages/api-client/src/useAervoxTurn.ts",
-    "pattern": "term-pipeline",
-    "count": 6,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（术语抽取管线）"
-  },
-  {
-    "file": "packages/contracts/src/index.ts",
-    "pattern": "term-pipeline",
-    "count": 4,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（术语抽取管线）"
-  },
-  {
-    "file": "packages/contracts/src/schemas.ts",
-    "pattern": "domain-copy",
-    "count": 1,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（中文领域文案）"
-  },
-  {
-    "file": "packages/contracts/src/schemas.ts",
-    "pattern": "term-pipeline",
-    "count": 2,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（术语抽取管线）"
-  },
-  {
-    "file": "packages/contracts/src/stream-projection.ts",
-    "pattern": "practice-tool",
-    "count": 1,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（刷题落库工具与端口）"
-  },
-  {
-    "file": "packages/contracts/src/stream-projection.ts",
-    "pattern": "term-pipeline",
-    "count": 1,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（术语抽取管线）"
   },
   {
     "file": "packages/ui/src/components/AervoxWorkbench.vue",
@@ -82,13 +19,6 @@
     "count": 3,
     "owner": "platform/ecosystem",
     "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（学习闭环界面与工具入口）"
-  },
-  {
-    "file": "packages/ui/src/components/AervoxWorkbench.vue",
-    "pattern": "term-pipeline",
-    "count": 3,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（术语抽取管线）"
   },
   {
     "file": "packages/ui/src/components/workbench/ComposerDock.vue",
@@ -159,13 +89,6 @@
     "count": 1,
     "owner": "platform/ecosystem",
     "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（学习工具 / 卡片 id 字面量）"
-  },
-  {
-    "file": "packages/ui/src/composables/useWorkbenchConversation.ts",
-    "pattern": "term-pipeline",
-    "count": 6,
-    "owner": "platform/ecosystem",
-    "removeWhen": "CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（术语抽取管线）"
   },
   {
     "file": "packages/ui/src/composables/useWorkbenchLayout.ts",
