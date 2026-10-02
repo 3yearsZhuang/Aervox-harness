@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.7.4
-updated_at: 2026-09-29
-reviewed_at: 2026-09-29
+version: 0.7.5
+updated_at: 2026-10-02
+reviewed_at: 2026-10-02
 review_interval_days: 90
 ---
 
@@ -358,6 +358,10 @@ CAP-033 的后台主动动作仍复用本管线，但授权来源改为用户确
 | `maxInboxItemsPerStep` | 20 | 多余项留待后续 Step/Turn |
 
 预算可以按 token、费用、时间、工具调用次数和并发分别限制。任何限额触发都必须写入 Attempt/Step 终止原因和审计，不得只输出一条自然语言提示。
+
+原生执行路径使用 `ControlContext`（BTD-05 统一控制）：模型请求（含重试）与工具派发共享调用预算；子任务继承父截止、本地处理限制和剩余额度，子任务消耗回记父级，额外取消信号与父信号合并。Token 执行预算是保守准入/消费限额：输入消息和工具定义、输出正文/思考/工具请求先按 UTF-8 字节计量，Provider 累计 `totalTokens` 只可向上补记；它不等同供应商账单。OpenAI 兼容 Provider 同时收到剩余 `max_tokens`。零额或不足以容纳输入时不派发，流式超额中断并写明原因。没有设置预算时沿用原行为；费用、模型窗口和动态授权修订的全量验收仍在原队列。
+
+`SessionLedgerPort` 仅选取状态/事件方法，工具副作用和模型遥测仍属执行 Port。API 组合根继续选择 SQLite；独立 CLI 使用内存实现与规则模型/模拟笔记，不表示生产 Host 已全部解耦。原生 Loop 及 Adapter 的执行终态通过带 fencing 的原子提交更新 Turn、Attempt 和终止事件；CAS 失败不由 API 补写覆盖。当前 Adapter 尚无预算/本地策略协商能力，对这些约束明确拒绝派发，不能静默忽略。
 
 ## 11. 取消、租约与恢复
 
