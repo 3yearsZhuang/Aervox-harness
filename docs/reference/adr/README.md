@@ -47,6 +47,8 @@ ADR 记录难以逆转、影响多个模块或改变数据/运维边界的技术
 | ADR-017 | Accepted | 冻结 ContextManifest / ModelRun / AgentStep 关联与 Inbox 数据模型 | [ADR-017](ADR-017-context-manifest-modelrun-step.md) |
 | ADR-018 | Accepted | CAP-033 本地私密存储与主动智能 Host | [ADR-018](ADR-018-proactive-local-privacy-host.md) |
 | ADR-019 | Accepted | 主动智能外部连接采用本地网关与受控工具 | [ADR-019](ADR-019-proactive-integrations-local-gateway.md) |
+| ADR-020 | Retired（随 #232 回退） | Aervox Core 架构解耦（编号退役，原文存归档仓库） | — |
+| ADR-021 | Accepted | Aervox Core 独立内核包与最小发行边界 | [ADR-021](ADR-021-aervox-core-standalone-package.md) |
 <!-- ADR_TABLE_END -->
 
 `Proposed` 不代表已经批准。当前独立记录是评审输入，不是 G2 通过证据；每条 ADR 必须补齐备选方案、后果、迁移、回滚和验证证据并经过评审，状态才能改为 `Accepted`。
