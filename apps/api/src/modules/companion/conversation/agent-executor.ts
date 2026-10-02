@@ -14,20 +14,21 @@ import {
   createSubagentToolProvider,
   createWorkflowToolProvider,
   createAskUserQuestionToolProvider,
-  createPracticeAttemptToolProvider,
   createSummaryCompaction,
   executeTurn,
 } from "@aervox/agent-loop";
 import type {
   InboxPort,
   ModelProviderPort,
-  PracticeAttemptPort,
   SkillDescriptor,
   SubagentPort,
   ToolProviderPort,
   UserQuestionPort,
   WorkflowDefinition,
 } from "@aervox/agent-loop";
+// ADR-021 内核提纯修订：伴学工具与其 Port 契约回归插件宿主
+import { createPracticeAttemptToolProvider } from "./practice-attempt-tool.js";
+import type { PracticeAttemptPort } from "./practice-attempt-port.js";
 import { SqliteExecutionStore } from "@aervox/host-agent";
 import type { LLMCallable } from "@aervox/practice-review";
 import {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createPracticeAttemptToolProvider, RECORD_PRACTICE_ATTEMPT_TOOL } from "../src/practice-attempt-tool.js";
-import type { PracticeAttemptPort, PracticeAttemptPortRequest } from "../src/ports.js";
+import { createPracticeAttemptToolProvider, RECORD_PRACTICE_ATTEMPT_TOOL } from "../src/modules/companion/conversation/practice-attempt-tool.js";
+import type { PracticeAttemptPort, PracticeAttemptPortRequest } from "../src/modules/companion/conversation/practice-attempt-port.js";
 
 function baseArgs(): Record<string, unknown> {
   return {

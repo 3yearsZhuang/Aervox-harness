@@ -337,7 +337,7 @@ resolve definition
 - 工具结果进入模型前做大小、敏感数据、Prompt injection 和来源检查；
 - 终端工具可以返回 `concludesTurn=true`，但不能绕过最终持久化和安全检查；
 - Aervox 的批次终止契约是“非空且所有已完成结果均 `concludesTurn=true`”；混合批次继续下一 Step，且所有已经启动的工具都必须先产生并提交确定结果；
-- **工具 Prompt 约束与同步硬规则**：所有在系统中注册或贡献的工具（含内置工具与后续新增工具），必须在 `BASE_TOOL_GUIDANCE`（`packages/core/src/base-prompt.ts`）中登记明确的调用时机（何时使用/何时禁止）及约束要求；未在 System Prompt 中声明指导原则的工具禁止进入生产可用清单。
+- **工具 Prompt 约束与同步硬规则**：所有在系统中注册或贡献的工具（含内置工具与后续新增工具），必须登记明确的调用时机（何时使用/何时禁止）及约束要求——内核自有工具登记在 `BASE_TOOL_GUIDANCE`（`packages/core/src/base-prompt.ts`），宿主/插件贡献工具由宿主经 `customGuidance` 注入（参考 apps/api `HOST_TOOL_GUIDANCE`，ADR-021 内核提纯修订）；未在 System Prompt 中声明指导原则的工具禁止进入生产可用清单。
 
 ### CAP-033 主动动作分支
 

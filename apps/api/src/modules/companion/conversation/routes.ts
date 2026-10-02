@@ -70,7 +70,7 @@ export interface ConversationRouteDeps {
   /** UQ-01：向用户提问会话协调器 */
   userQuestionCoordinator?: UserQuestionCoordinator;
   /** CAP-016：刷题模式作答落库端口工厂（request 级 tenant 绑定） */
-  practiceAttemptFactory?: (tenant: import("@aervox/repositories").LocalContext) => import("@aervox/agent-loop").PracticeAttemptPort;
+  practiceAttemptFactory?: (tenant: import("@aervox/repositories").LocalContext) => import("./practice-attempt-port.js").PracticeAttemptPort;
   /** CAP-033：主动智能全动作授权与本地动作账本。 */
   proactiveActionAuthorizer?: ProactiveActionAuthorizer;
   /** CAP-033：本地画像上下文来源。 */

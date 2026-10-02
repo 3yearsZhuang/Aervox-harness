@@ -617,7 +617,7 @@
     {
       "id": "ITER-035",
       "batch": "first",
-      "status": "执行中",
+      "status": "已移交",
       "delivery": "按 ADR-021 建立 `packages/core`（`@aervox/core`）独立内核包：吸收 agent-loop 全部内容 + `cli-approval` 迁入 + HostToolRuntime 内存版（含 InMemoryToolRegistry 与 definitionKey 代际指纹）移植 + `core.ts` 轻量出口 + headless 冒烟脚本；`agent-loop` 降级为纯 re-export 壳（一个迭代后移除）；包许可证 Apache-2.0（单一版权人再许可），主仓其余维持 AGPLv3",
       "gate": "不修改 apps/api 路由、SSE 契约与数据库 Schema；SQLite 注册表实现留 apps/api 生态；core 是库不是宿主，不违反 ITER-029 连接版门禁；public npm 发布延后另行决策；core 运行时依赖必须为空",
       "acceptance": [
@@ -633,7 +633,7 @@
       ],
       "owner": "platform",
       "branch": "feat/core-standalone",
-      "statusNote": "2026-10-03 启动：按 ADR-021 方案 A 建 packages/core 吸收 agent-loop 全量 + cli-approval 迁入 + HostToolRuntime 内存版，Apache-2.0 分层许可",
+      "statusNote": "2026-10-03 启动：按 ADR-021 方案 A 建 packages/core 吸收 agent-loop 全量 + cli-approval 迁入 + HostToolRuntime 内存版，Apache-2.0 分层许可；2026-10-03 移交：PR #244 合入 main（squash 169720c），验收全达成",
       "dependsOn": [
         "ITER-034"
       ],
@@ -662,6 +662,34 @@
       "links": [
         "docs/reference/changes/README.md",
         "docs/explanation/reference-design-transfer.md#upstream-20260929"
+      ]
+    },
+    {
+      "id": "ITER-036",
+      "batch": "first",
+      "status": "执行中",
+      "delivery": "内核提纯与伴学功能回归插件宿主（ADR-021 内核提纯修订，PR #244 审核后用户裁决）：`focus-mode-prompt` 迁回 apps/api 专注模式回合插件、`practice-attempt-tool` 与 `PracticeAttemptPort` 契约迁回 apps/api companion 会话装配链、宿主工具 guidance（diary/notes/memory/practice）自内核 `BASE_TOOL_GUIDANCE` 迁回宿主 `HOST_TOOL_GUIDANCE`（经 `customGuidance` 注入）；内核导出面与 Port 契约面同步收窄；`user-question-tool`（通用 human-in-the-loop）与 `subagent-contribution`（扩展机制）判定为内核能力保留",
+      "gate": "内核运行时依赖保持为空；core 公共导出面不再含伴学产品构件；不修改 API 路由、SSE 契约与数据库 Schema；headless 冒烟与壳一致性测试保持绿；Provider 统一仍归 ITER-033，不在本切片",
+      "acceptance": [
+        "内核源码无伴学构件残留（focus-mode/practice-attempt/PracticeAttemptPort 零引用），core 与 api 全量测试绿",
+        "壳导出面与 core 一致（re-export 壳测试锁定）；headless 冒烟 PASS",
+        "`BASE_TOOL_GUIDANCE` 仅含内核自有工具，宿主 guidance 由 `HOST_TOOL_GUIDANCE` 承接；ADR-021 修订登记与追踪基线锚点就位"
+      ],
+      "checks": [
+        "packages/core/test/**",
+        "apps/api/test/practice-attempt-tool.test.ts",
+        "apps/api/test/quiz-mode.test.ts",
+        "scripts/run-headless-agent.mjs"
+      ],
+      "owner": "platform",
+      "branch": "feat/core-companion-extraction",
+      "statusNote": "2026-10-03 启动：基于 PR #244 审核结论执行内核提纯，伴学构件回归 apps/api 插件宿主",
+      "dependsOn": [
+        "ITER-035"
+      ],
+      "links": [
+        "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
+        "docs/reference/agent-harness-loop.md#10-限额与终止策略"
       ]
     }
   ]
