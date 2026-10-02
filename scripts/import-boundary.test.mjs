@@ -8,18 +8,29 @@ import { collectSourceFiles, inspectSource, RULES } from "./import-boundary.mjs"
 
 const v = (file, source) => inspectSource(file, source).map((x) => x.rule);
 
-test("规则矩阵：6 条底座健身函数齐备", () => {
+test("规则矩阵：7 条底座健身函数齐备", () => {
   assert.deepEqual(
     RULES.map((r) => r.name).sort(),
     [
       "kernel-no-db",
       "capability-layer-no-db-no-host",
       "contracts-must-be-leaf",
+      "host-no-plugin-implementation",
       "packages-no-host-imports",
       "plugins-domain-no-db-no-host",
       "ui-client-no-db",
     ].sort(),
   );
+});
+
+test("宿主不得接入插件实现包：仅组合根白名单放行（CR-060）", () => {
+  const src = `import * as plugin from "@aervox/plugin-focus-mode/ui";`;
+  assert.deepEqual(v("apps/api/src/modules/foo.ts", src), ["host-no-plugin-implementation"]);
+  // 三个组合根是 AVX-PLUG-001 §4.1 允许的显式装配位
+  assert.deepEqual(v("apps/api/src/plugin-assembly.ts", `const m = import("@aervox/plugin-focus-mode/server");`), []);
+  assert.deepEqual(v("apps/web/src/App.vue", `<script setup lang="ts">\nimport * as p from "@aervox/plugin-focus-mode/ui";\n</script>`), []);
+  // 规则只覆盖宿主源码目录（src/）；宿主测试可引用插件包以验证插件行为
+  assert.deepEqual(v("packages/ui/test/components.test.ts", src), []);
 });
 
 test("contracts 是最底层：import @aervox/* 违规", () => {

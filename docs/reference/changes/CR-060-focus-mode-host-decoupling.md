@@ -4,9 +4,9 @@ type: reference
 scope: change
 owner: maintainers
 doc_status: review-candidate
-decision_status: proposed
-delivery_status: planned
-version: 0.4.0
+decision_status: accepted
+delivery_status: implemented
+version: 1.0.0
 updated_at: 2026-10-03
 reviewed_at: 2026-10-03
 review_interval_days: 30
@@ -41,7 +41,7 @@ sources:
 
 关联：[PRD](../PRD.md) · [架构设计](../ARCHITECTURE.md) · [能力组合规范](../capability-composition.md) · [插件开发规范](../plugin-config-and-pages.md) · [需求追踪基线](../REQUIREMENTS_TRACEABILITY.md) · [CR 工作流指南](../../how-to/cr-workflow.md)
 
-- 状态：Proposed / Planned（切片 S1～S6 已落地于 `feat/iter-026-focus-mode-decoupling`，宿主领域纯净性棘轮豁免已清零；剩可移除目标/移除演练与文档闭环）
+- 状态：**Accepted / Implemented**（切片 S0～S7 已落地于 `feat/iter-026-focus-mode-decoupling`；宿主领域纯净性棘轮零命中、零豁免；移除演练通过）
 - 代码核验基线：`169720c`（2026-10-03 `origin/main`，含 PR #243/#244）；实施分支：`feat/iter-026-focus-mode-decoupling`。
 - 关联能力：主能力 `CAP-002`；协同 `CAP-007`、`CAP-016`（均为本插件 Manifest 声明范围）；不改变 `CAP-003/004/006` 的交付载体与状态。
 - 目标迭代：`ITER-026`（伴学业务与会话执行器深度解耦插件化）。该条目此前仅存在于 [plan.md §1](../../../plan.md) 变更说明、未进入唯一活动队列，本提案一并补录。
