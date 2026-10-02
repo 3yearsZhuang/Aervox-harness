@@ -62,7 +62,6 @@ export function useWorkbenchCards(options: {
   formattedTime: Ref<string>;
   storyCount: Ref<number>;
   onOpenTool: (tool: ToolId) => void;
-  onStartQuiz: () => void;
   onSubmitQuestionAnswers: (answers: Array<{ id: string; selected: string[] }>) => Promise<void>;
   recordActivity: (source: 'aervox.activity' | 'aervox.operation', eventType: string, payloadText?: string, metadata?: Record<string, unknown>) => void;
   registry?: UIRegistry;
@@ -622,12 +621,19 @@ export function useWorkbenchCards(options: {
     card.action();
   }
 
-  function applyStudyCardLayout() {
+  /**
+   * CR-060：通用槽位预设——宿主不再硬编码任何插件卡片 id，
+   * 由插件在需要时把**自己的**卡片 id 清单交进来。
+   */
+  function applySlotPreset(slots: Array<CardId | null>): void {
     savedCardSlots = [...cardSlots.value];
-    cardSlots.value = ['study', 'timer'];
+    cardSlots.value = slots.slice(0, cardSlots.value.length).concat(
+      new Array(Math.max(0, cardSlots.value.length - slots.length)).fill(null),
+    ) as Array<CardId | null>;
   }
 
-  function restoreStudyCardLayout() {
+  /** 恢复预设前的槽位（未预设时为空操作） */
+  function restoreSlotPreset(): void {
     if (!savedCardSlots) return;
     cardSlots.value = savedCardSlots;
     savedCardSlots = null;
@@ -723,8 +729,8 @@ export function useWorkbenchCards(options: {
     isCardPicked,
     selectCard,
     activateCard,
-    applyStudyCardLayout,
-    restoreStudyCardLayout,
+    applySlotPreset,
+    restoreSlotPreset,
     openDailyProblem,
     setDiarySlotRestore,
   };

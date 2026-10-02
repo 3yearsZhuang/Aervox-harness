@@ -1,4 +1,3 @@
-import { defineAsyncComponent } from 'vue';
 import { BookOpen, ClipboardList, Puzzle } from 'lucide-vue-next';
 import type { UIRegistry } from '../../registry/ui-registry';
 import { defaultUIRegistry } from '../../registry/ui-registry';
@@ -10,6 +9,15 @@ import TermExploreDialog from './TermExploreDialog.vue';
 import FocusNavMenuItem from './FocusNavMenuItem.vue';
 import FocusStudyCardActions from './FocusStudyCardActions.vue';
 import FocusTaskCenterCard from './FocusTaskCenterCard.vue';
+import FocusSettingsRow from './FocusSettingsRow.vue';
+import FocusModeIndicator from './FocusModeIndicator.vue';
+import LearningDrawer from './LearningDrawer.vue';
+import {
+  initFocusModeState,
+  learningNavItems,
+  openLearningView,
+  setFocusModeEnabled,
+} from './plugin-state';
 
 export {
   FocusModeSwitch,
@@ -18,11 +26,13 @@ export {
   FocusNavMenuItem,
   FocusStudyCardActions,
   FocusTaskCenterCard,
+  FocusSettingsRow,
+  FocusModeIndicator,
+  LearningDrawer,
 };
 
-/** 向后兼容导出组件别名 */
-export const StudyModeSwitch = FocusModeSwitch;
-export const StudyTermsBar = FocusTermsBar;
+/** 插件自有导航清单对外只读视图（供宿主泛化渲染消费时使用） */
+export { learningNavItems };
 
 /**
  * 注册专注模式完整第一方前端插件
@@ -36,6 +46,9 @@ export function registerFocusModePlugin(
   registry: UIRegistry = defaultUIRegistry,
   context?: WorkbenchContext,
 ): () => void {
+  // CR-060：插件状态（开关持久化、抽屉、启动期静默）由插件自持
+  if (context) initFocusModeState(context);
+
   const unregisterSwitch = registry.registerSlotComponent('header:actions', FocusModeSwitch, {
     id: 'focus-mode:header-switch',
     priority: 100,
@@ -57,7 +70,7 @@ export function registerFocusModePlugin(
     description: 'AI 生成里程碑式学习路线图',
     icon: BookOpen,
     summary: () => `${context?.cards?.api?.learningPlans?.value?.length ?? 0} 份进行中规划`,
-    action: () => context?.layout?.openTool?.('study'),
+    action: () => openLearningView('study'),
     extraComponent: FocusStudyCardActions,
     priority: 100,
   });
@@ -68,7 +81,7 @@ export function registerFocusModePlugin(
     description: '针对性练习未掌握的题',
     icon: Puzzle,
     summary: () => `${context?.cards?.activeMistakeCount?.value ?? 0} 题待掌握`,
-    action: () => context?.layout?.openTool?.('mistake'),
+    action: () => openLearningView('mistake'),
     priority: 90,
   });
 
@@ -80,15 +93,29 @@ export function registerFocusModePlugin(
     summary: () => (context?.cards?.practiceSession?.value || context?.cards?.api?.activePracticeSession?.value) ? '进行中的练习' : 'AI 出题 · 即时判定',
     action: () => {
       if (context?.conversation?.streaming?.value) return;
-      void context?.sendMessage?.('来几道题', { quizMode: true });
+      // 出题意图是本插件自有语义，经 metadata 出站（宿主不解释其取值）
+      void context?.sendMessage?.('来几道题', { metadata: { mode: 'focus', intent: 'quiz' } });
     },
     priority: 80,
   });
 
-  const unregisterDrawer = registry.registerSlotComponent(
-    'workbench:drawers',
-    defineAsyncComponent(() => import('../../components/workbench/drawers/LearningDrawer.vue')),
-    { id: 'focus-mode:learning-drawer', priority: 100 },
+  const unregisterDrawer = registry.registerSlotComponent('workbench:drawers', LearningDrawer, {
+    id: 'focus-mode:learning-drawer',
+    priority: 100,
+  });
+
+  // 插件自有设置行：宿主设置面板只提供通用插槽，不内建任何插件行
+  const unregisterSettingsRow = registry.registerSlotComponent(
+    'settings:conversation-rows',
+    FocusSettingsRow,
+    { id: 'focus-mode:settings-row', priority: 100 },
+  );
+
+  // 输入区模式指示器：由插件渲染自己的标记（宿主不内建插件样式与文案）
+  const unregisterComposerIndicator = registry.registerSlotComponent(
+    'composer:indicator',
+    FocusModeIndicator,
+    { id: 'focus-mode:composer-indicator', priority: 100 },
   );
 
   const unregisterTaskCard = registry.registerSlotComponent(
@@ -99,15 +126,8 @@ export function registerFocusModePlugin(
 
   const unregisterTransformer = registry.registerMessageTransformer(
     'focus-mode:prefix',
-    (text, options) => {
-      if (options?.quizMode || options?.useMetadata) return text;
-      if (context?.layout?.focusModeEnabled?.value ?? context?.layout?.studyModeEnabled?.value) {
-        const prefix = '[模式：专注模式] ';
-        if (text.startsWith(prefix) || text.startsWith('[模式：专注模式]')) {
-          return text;
-        }
-        return `${prefix}${text}`;
-      }
+    (text) => {
+      // CR-060：模式语义一律经 metadata 出站（结构化优先），不再向消息文本插入控制标签
       return text;
     },
     100,
@@ -123,6 +143,8 @@ export function registerFocusModePlugin(
     unregisterQuizCard();
     unregisterDrawer();
     unregisterTaskCard();
+    unregisterSettingsRow();
+    unregisterComposerIndicator();
   };
 }
 
@@ -133,36 +155,20 @@ export const focusModePluginDefinition: BuiltinUIPlugin = {
     return registerFocusModePlugin(registry, context);
   },
   onConfig(values, context) {
-    if (!values || !context?.layout) return;
-    const autoEnable =
-      typeof values.autoEnableFocusMode === 'boolean'
-        ? values.autoEnableFocusMode
-        : typeof values.autoEnableStudyMode === 'boolean'
-          ? values.autoEnableStudyMode
-          : undefined;
-
-    if (autoEnable !== undefined) {
-      if (context.layout.setFocusModeEnabled) {
-        context.layout.setFocusModeEnabled(autoEnable);
-      } else if (context.layout.setStudyModeEnabled) {
-        context.layout.setStudyModeEnabled(autoEnable);
-      }
+    if (!values) return;
+    // CR-060：只认主 id 与当前配置键，不保留历史键回退
+    if (typeof values.autoEnableFocusMode === 'boolean') {
+      initFocusModeState(context);
+      setFocusModeEnabled(values.autoEnableFocusMode);
     }
   },
   onDisable(context) {
-    if (context?.layout?.setFocusModeEnabled) {
-      context.layout.setFocusModeEnabled(false);
-    } else if (context?.layout?.setStudyModeEnabled) {
-      context.layout.setStudyModeEnabled(false);
-    }
+    initFocusModeState(context);
+    setFocusModeEnabled(false);
   },
 };
 
-/** 向后兼容导出 */
-export const registerStudyModePlugin = registerFocusModePlugin;
-export const registerStudyModeModule = registerFocusModePlugin;
-export const registerStudyCompanionPlugin = registerFocusModePlugin;
-export const studyModePluginDefinition: BuiltinUIPlugin = {
-  ...focusModePluginDefinition,
-  id: 'study-mode',
-};
+/**
+ * 默认导出：供组合根按包路径装配（宿主只取 `default`，不绑定插件私有符号）。
+ */
+export default focusModePluginDefinition;

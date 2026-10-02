@@ -1,9 +1,6 @@
 <script setup lang="ts">
 import { BookOpen } from 'lucide-vue-next';
-import { useWorkbenchContext } from '../../composables/workbench-context';
-
-const { layout } = useWorkbenchContext();
-const { focusModeEnabled, toggleFocusMode } = layout;
+import { focusModeEnabled, toggleFocusMode } from './plugin-state';
 </script>
 
 <template>

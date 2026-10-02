@@ -87,7 +87,9 @@ export const DOMAIN_PATTERNS = [
   {
     id: "study-surface",
     label: "学习闭环界面与工具入口",
-    pattern: /\bapplyStudyCardLayout\b|\brestoreStudyCardLayout\b|\blearningNavItems\b|\bactiveLearningView\b|\blearningOpen\b|\bLearningDrawer\b|\blearningPlans\b|\bFocusTermsBar\b|\bTermsBar\b/,
+    // 注：不含 `learningPlans` —— 它属宿主 CAP-017 学习规划（本提案明确保留主仓），
+    // 把它当作插件领域标识会误伤宿主自身能力。
+    pattern: /\bapplyStudyCardLayout\b|\brestoreStudyCardLayout\b|\blearningNavItems\b|\bactiveLearningView\b|\blearningOpen\b|\bLearningDrawer\b|\bFocusTermsBar\b|\bTermsBar\b/,
   },
   {
     id: "domain-css",

@@ -8,6 +8,7 @@ import type { WorkbenchProactiveComposable } from './useWorkbenchProactive';
 import type { UIRegistry } from '../registry/ui-registry';
 import type { WorkbenchPluginRuntime } from '../plugins/plugin-runtime';
 import type { PluginEventBus } from './plugin-events';
+import type { PluginStateStore } from './plugin-state';
 import type { UseAervoxProjectsReturn, UseAervoxSessionsReturn } from '@aervox/api-client';
 
 export interface WorkbenchContext {
@@ -24,12 +25,18 @@ export interface WorkbenchContext {
    * 插件在自身模块内订阅并持有状态。
    */
   pluginEvents: PluginEventBus;
+  /**
+   * CR-060：插件命名空间化状态。宿主只提供存储与响应式容器，
+   * 不感知任何插件状态键与其语义。
+   */
+  pluginState: PluginStateStore;
   sessions: UseAervoxSessionsReturn;
   projects?: UseAervoxProjectsReturn;
   openProjectManager?: () => void;
   openImportSession?: () => void;
   openCommandPalette?: () => void;
-  sendMessage: (value?: string, options?: { quizMode?: boolean; resend?: boolean }) => Promise<void>;
+  /** 发送消息；模式等插件私有语义经 `metadata` 透传，宿主不解释其取值（CR-060） */
+  sendMessage: (value?: string, options?: { metadata?: Record<string, unknown>; resend?: boolean }) => Promise<void>;
 }
 
 

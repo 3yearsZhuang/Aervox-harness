@@ -41,13 +41,8 @@ import { AervoxNavDialog, AervoxConfirmDialog, AervoxDialog, AervoxButton } from
 const props = withDefaults(
   defineProps<{
     showCompanion?: boolean;
-    focusModeAvailable?: boolean;
-    studyModeAvailable?: boolean;
   }>(),
-  {
-    focusModeAvailable: undefined,
-    studyModeAvailable: undefined,
-  },
+  {},
 );
 
 const emit = defineEmits<{
@@ -56,23 +51,6 @@ const emit = defineEmits<{
 }>();
 
 const { layout, timer, cards, conversation, proactive, pluginRuntime } = useWorkbenchContext();
-
-const isFocusModeAvailable = computed(() => {
-  if (typeof props.focusModeAvailable === 'boolean') {
-    return props.focusModeAvailable;
-  }
-  if (typeof props.studyModeAvailable === 'boolean') {
-    return props.studyModeAvailable;
-  }
-  return pluginRuntime?.isPluginAvailable('focus-mode') ?? pluginRuntime?.isPluginAvailable('study-mode') ?? true;
-});
-const isStudyModeAvailable = isFocusModeAvailable;
-
-function handleFocusModeChange(checked: boolean) {
-  if (isFocusModeAvailable.value === false) return;
-  layout.setFocusModeEnabled(checked);
-}
-const handleStudyModeChange = handleFocusModeChange;
 
 const activeQuickCards = cards.activeQuickCards ?? cards.cardCatalog;
 const availableQuickCards = cards.availableQuickCards ?? ref<CardDefinition[]>([]);
@@ -92,8 +70,6 @@ const {
   isWeb,
   isDark,
   compactMode,
-  focusModeEnabled,
-  studyModeEnabled,
   enterToSend,
   desktopCompanionEnabled,
   assistantDisplayName,
@@ -514,18 +490,8 @@ async function onPluginChange(): Promise<void> {
             <span><strong>对话</strong><small>调整你与思隅交流的输入与展示方式</small></span>
           </div>
           <label class="settings-field"><span><strong>助手称呼</strong><small>工作台中显示的名字</small></span><input v-model="assistantDisplayName" maxlength="12" @change="saveSettings(timerMinutes)" /></label>
-          <label v-if="isFocusModeAvailable" class="settings-row settings-choice-row">
-            <span>
-              <strong>专注模式</strong>
-              <small>启用专属苏格拉底启发式教学与防剧透规则</small>
-            </span>
-            <input
-              :checked="focusModeEnabled"
-              type="checkbox"
-              class="settings-switch"
-              @change="handleFocusModeChange(($event.target as HTMLInputElement).checked)"
-            />
-          </label>
+          <!-- CR-060：插件自有设置行经通用插槽注入，宿主不内建任何插件行 -->
+          <ExtensionSlot name="settings:conversation-rows" />
           <label class="settings-row settings-choice-row"><span><strong>回车发送</strong><small>关闭后，回车只换行</small></span><input v-model="enterToSend" type="checkbox" class="settings-switch" @change="saveSettings(timerMinutes)" /></label>
         </div>
         <LLMConfigPanel v-else-if="settingsCategory === 'model'" class="settings-section" />

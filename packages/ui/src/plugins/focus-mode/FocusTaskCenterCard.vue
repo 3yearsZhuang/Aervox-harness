@@ -1,17 +1,18 @@
 <script setup lang="ts">
 import { ArrowRight, GraduationCap } from 'lucide-vue-next';
 import { useWorkbenchContext } from '../../composables/workbench-context';
+import { openLearningView } from './plugin-state';
 
 const { layout, cards } = useWorkbenchContext();
 
 function goToReview() {
   if (layout) layout.taskCenterOpen.value = false;
-  layout?.openTool?.('mistake');
+  openLearningView('mistake');
 }
 
 function goToStudy() {
   if (layout) layout.taskCenterOpen.value = false;
-  layout?.openTool?.('study');
+  openLearningView('study');
 }
 </script>
 

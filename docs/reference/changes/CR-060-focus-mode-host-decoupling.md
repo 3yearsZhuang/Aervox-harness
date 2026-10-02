@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: proposed
 delivery_status: planned
-version: 0.2.0
+version: 0.3.0
 updated_at: 2026-10-03
 reviewed_at: 2026-10-03
 review_interval_days: 30
@@ -41,7 +41,7 @@ sources:
 
 关联：[PRD](../PRD.md) · [架构设计](../ARCHITECTURE.md) · [能力组合规范](../capability-composition.md) · [插件开发规范](../plugin-config-and-pages.md) · [需求追踪基线](../REQUIREMENTS_TRACEABILITY.md) · [CR 工作流指南](../../how-to/cr-workflow.md)
 
-- 状态：Proposed / Planned（服务端切片 S1～S3b 已落地于 `feat/iter-026-focus-mode-decoupling`；前端切片 S4～S7 未开始）
+- 状态：Proposed / Planned（服务端与前端接缝切片 S1～S5 已落地于 `feat/iter-026-focus-mode-decoupling`；剩 UI 物理迁出、可移除目标与文档闭环）
 - 代码核验基线：`169720c`（2026-10-03 `origin/main`，含 PR #243/#244）；实施分支：`feat/iter-026-focus-mode-decoupling`。
 - 关联能力：主能力 `CAP-002`；协同 `CAP-007`、`CAP-016`（均为本插件 Manifest 声明范围）；不改变 `CAP-003/004/006` 的交付载体与状态。
 - 目标迭代：`ITER-026`（伴学业务与会话执行器深度解耦插件化）。该条目此前仅存在于 [plan.md §1](../../../plan.md) 变更说明、未进入唯一活动队列，本提案一并补录。
@@ -71,7 +71,7 @@ sources:
 | [plugin-runtime.ts:68,73-74,110-111,127-131](../../../packages/ui/src/plugins/plugin-runtime.ts#L68-L74) | 插件运行时按 id 泛化同步启用状态 | 宿主加载器硬编码 `focus-mode ↔ study-mode` 别名映射、配置回退与双向可用性回退 |
 | [workbench-context.ts:26](../../../packages/ui/src/composables/workbench-context.ts#L26)、[registry/types.ts:48,56](../../../packages/ui/src/registry/types.ts#L48) | 宿主上下文与 Composer 契约是通用扩展面 | 契约内写死 `quizMode` 插件私有标识 |
 | [theme/workbench.css:96-184,1186-1316](../../../packages/ui/src/theme/workbench.css#L96-L184) | 宿主主题承载全局 Token 与布局 | 全套插件组件样式位于宿主主题；插件单文件组件除 `TermExploreDialog.vue` 外均无 `<style>` 块 |
-| [LearningDrawer.vue](../../../packages/ui/src/components/workbench/drawers/LearningDrawer.vue)（299 行） | 抽屉经 `workbench:drawers` 槽位挂载 | 学习闭环界面物理位于宿主组件目录，仅由插件把**宿主组件**注册进槽位 |
+| [LearningDrawer.vue](../../../packages/ui/src/plugins/focus-mode/LearningDrawer.vue)（299 行） | 抽屉经 `workbench:drawers` 槽位挂载 | 学习闭环界面物理位于宿主组件目录，仅由插件把**宿主组件**注册进槽位 |
 | [ui/src/index.ts:21,25](../../../packages/ui/src/index.ts#L21) | `@aervox/ui` 是共享展示组件包 | 公共出口反向 re-export 插件组件，并以泛化别名 `TermsBar` 掩盖领域 |
 | [useWorkbenchConversation.ts:188-190](../../../packages/ui/src/composables/useWorkbenchConversation.ts#L188-L190) | 会话组合式函数管理对话状态 | 术语抽取状态机与追问探索入口位于通用会话组合式函数内，插件仅剩视图 |
 | [projector.ts:123-124](../../../packages/api-client/src/projector.ts#L123-L124)、[schemas.ts:39](../../../packages/contracts/src/schemas.ts#L39) | 流事件类型与安全投影白名单是内核契约 | `terms_extracted` 插件事件类型写入内核枚举与投影白名单 |
@@ -128,13 +128,13 @@ sources:
 |---|---|---|
 | 插件实现落点 | 声明在 `plugins/focus-mode/`，实现分散在 `apps/api/src/modules`、`packages/core/src`、`packages/ui/src` | 声明与实现**全部**位于 `plugins/focus-mode/`；实现目录不进分发包 |
 | 宿主装配 | `createServerPluginRegistry()` 内硬 import 注册；UI 侧 `defaultBuiltinPlugins` 内建 | 宿主只提供通用注册表；由唯一装配文件（`apps/api/src/plugin-assembly.ts`、`apps/web/src/App.vue`、`apps/desktop/src/renderer/src/App.vue`）显式注入 |
-| 插件自有状态 | 宿主 `layout.focusModeEnabled` + `localStorage` 的 `aervox-settings` 键 | 宿主提供命名空间化的 `pluginState` 读写；状态归插件所有，宿主无该字段 |
+| 插件自有状态 | 宿主 `layout.focusModeEnabled` + `localStorage` 的 `aervox-settings` 键 | 已落地：宿主提供命名空间化的 `pluginState`（`aervox-plugin-state:<pluginId>`）；状态归插件所有，宿主无该字段 |
 | 出站模式语义 | `sendMessage(text, { quizMode })` → 宿主拼 `{ mode: 'focus' }` | 宿主透传 `metadata`；由插件自行组装模式语义 |
-| 插件流事件 | 宿主会话组合式函数持有 `currentExtractedTerms`，宿主壳体接 `onTermsExtracted` | 宿主提供通用插件事件订阅；术语状态归插件 |
-| 卡片布局 | 宿主硬编码 `['study','timer']` | 宿主提供 `applySlotPreset(slots)`；由插件传入自身卡片 id |
-| 组件与样式归属 | 插件组件与学习抽屉在 `packages/ui`；样式在宿主主题 | 全部迁入插件目录 |
+| 插件流事件 | 宿主会话组合式函数持有 `currentExtractedTerms`，宿主壳体接 `onTermsExtracted` | 已落地：宿主提供 `pluginEvents` 通用总线与 `onPluginEvent` 传输出口；术语状态归插件 |
+| 卡片布局 | 宿主硬编码 `['study','timer']` | 已落地：宿主提供 `applySlotPreset(slots)`；由插件传入自身卡片 id（`applyStudyCardLayout`/`restoreStudyCardLayout` 已删除） |
+| 组件与样式归属 | 插件组件与学习抽屉在 `packages/ui`；样式在宿主主题 | 组件已迁入 `packages/ui/src/plugins/focus-mode/`（含学习抽屉）；**专属样式仍在 `packages/ui/src/theme/workbench.css`**，待随 S6 物理迁出 |
 | 历史别名 | `study-mode`/`quiz-mode` 服务端别名 + 前端双向回退 + 旧配置回退 | **仅 `focus-mode`**；别名与旧配置回退逻辑删除 |
-| 代码缺席语义 | 前端插件列表缺记录时默认启用（fail-open）；服务端缺记录时不执行（fail-closed） | 两端一致 fail-closed；与[插件规范 §5.2](../plugin-config-and-pages.md#52-注册接口与生命周期)同步修订 |
+| 代码缺席语义 | 前端插件列表缺记录时默认启用（fail-open）；服务端缺记录时不执行（fail-closed） | 已落地：两端一致 fail-closed（`isPluginAvailable` 无记录即不可用）；与[插件规范 §5.2](../plugin-config-and-pages.md#52-注册接口与生命周期)同步修订 |
 | 刷题工具可见性 | 只要装配端口即无条件注入模型工具面 | 随插件启用状态与可用性门控（与 Runner 同判据）；其模型侧使用指南由插件经 `customGuidance` 注入位提供 |
 | 插件自有 API | `/v1/terms/explore`、`/v1/hierarchy/explore`、`/v1/practice-reports*` 等路由物理位于宿主模块目录，宿主负责业务处理 | 插件以 `httpEndpoints` 声明，宿主装配点只做框架适配（上下文解析、出参包装、异常兜底）；端点随代码存在性挂载 |
 | 宿主服务获取 | 宿主代理层直接持有会话/学习仓储，并把插件 id 写进落库证据 | 插件经 `PluginHostServices` 窄端口（`sessions` / `learningFacts`）声明意图；来源标签由插件自述；`plugin-host-services.ts` 为宿主唯一实现点 |

@@ -93,7 +93,7 @@ describe('Workbench Composables Logic', () => {
     expect(DIAL_CIRCUMFERENCE).toBeCloseTo(2 * Math.PI * 80, 4);
   });
 
-  it('preserves custom timer minutes when toggling study mode', async () => {
+  it('preserves custom timer minutes when saving settings (no plugin state in host settings)', async () => {
     const storage: Record<string, string> = {};
     const mockLocalStorage = {
       getItem: (k: string) => storage[k] ?? null,
@@ -113,10 +113,12 @@ describe('Workbench Composables Logic', () => {
         },
       );
 
-      layout.toggleStudyMode();
+      await layout.saveSettings();
       const saved = JSON.parse(storage['aervox-settings'] || '{}');
       expect(saved.timerMinutes).toBe(45);
-      expect(saved.studyModeEnabled).toBe(true);
+      // CR-060：宿主设置不再持久化任何插件状态键（插件状态走 pluginState 命名空间）
+      expect(saved).not.toHaveProperty('studyModeEnabled');
+      expect(saved).not.toHaveProperty('focusModeEnabled');
     } finally {
       Object.defineProperty(globalThis, 'localStorage', { value: origStorage, configurable: true });
     }
@@ -282,7 +284,7 @@ describe('Workbench Composables Logic', () => {
   it('useWorkbenchCards dynamically merges cards from UIRegistry and defaults to core cards', async () => {
     const { useWorkbenchCards } = await import('../src/composables/useWorkbenchCards');
     const { createUIRegistry } = await import('../src/registry/ui-registry');
-    const { registerFocusModePlugin } = await import('../src/plugins');
+    const { registerFocusModePlugin } = await import('../src/plugins/focus-mode');
     const registry = createUIRegistry();
 
     const cards = useWorkbenchCards({
@@ -291,7 +293,6 @@ describe('Workbench Composables Logic', () => {
       formattedTime: ref('25:00'),
       storyCount: ref(0),
       onOpenTool: vi.fn(),
-      onStartQuiz: vi.fn(),
       onSubmitQuestionAnswers: vi.fn(),
       recordActivity: vi.fn(),
       registry,

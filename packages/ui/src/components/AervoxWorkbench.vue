@@ -2,7 +2,7 @@
 import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue';
 import type { Platform } from '../composables/useWorkbenchLayout';
 import PetHero from './PetHero.vue';
-import { createWorkbenchPluginRuntime } from '../plugins';
+import { createWorkbenchPluginRuntime, type BuiltinUIPlugin } from '../plugins';
 import WorkbenchHeader from './workbench/WorkbenchHeader.vue';
 import WorkbenchSidebar from './workbench/WorkbenchSidebar.vue';
 import PomodoroToast from './workbench/PomodoroToast.vue';
@@ -34,6 +34,7 @@ import { useWorkbenchCards, todayLocalDate, type CardId } from '../composables/u
 import { useWorkbenchProactive, proactiveBridge } from '../composables/useWorkbenchProactive';
 import { provideWorkbenchContext } from '../composables/workbench-context';
 import { createPluginEventBus } from '../composables/plugin-events';
+import { createPluginStateStore } from '../composables/plugin-state';
 import { useUIRegistry, provideUIRegistry } from '../registry/ui-registry';
 import { streamAervoxTurn, useAervoxPlugins, useAervoxProjects, useAervoxSessions } from '@aervox/api-client';
 import type { TurnAttachmentRef } from '@aervox/contracts';
@@ -45,11 +46,17 @@ const props = withDefaults(
     platform?: Platform;
     showCompanion?: boolean;
     assistantName?: string;
+    /**
+     * CR-060：第一方插件定义清单由**组合根**（Web / 桌面壳）显式注入。
+     * 宿主工作台不内建任何具体插件，从而保证"删掉插件后宿主仍可构建运行"。
+     */
+    plugins?: BuiltinUIPlugin[];
   }>(),
   {
     platform: 'web',
     showCompanion: false,
     assistantName: '思隅',
+    plugins: () => [],
   },
 );
 
@@ -61,8 +68,9 @@ const emit = defineEmits<{
 const registry = useUIRegistry();
 provideUIRegistry(registry);
 
-// CR-060：通用插件事件总线——宿主只转发传输层的插件事件，不解释其语义
+// CR-060：通用插件事件总线与命名空间化插件状态——宿主只提供容器，不解释语义
 const pluginEvents = createPluginEventBus();
+const pluginState = createPluginStateStore();
 
 
 // 1. Proactive Composable
@@ -75,13 +83,6 @@ const proactive = useWorkbenchProactive({
 const layout = useWorkbenchLayout(props, {
   recordActivity: proactive.recordProactiveActivity,
   getTimerMinutes: () => timer.timerMinutes.value,
-  onStudyModeChange: (enabled) => {
-    if (enabled) {
-      cards.applyStudyCardLayout();
-    } else {
-      cards.restoreStudyCardLayout();
-    }
-  },
   onOpenDiary: () => {
     void cards.openDiary();
   },
@@ -123,10 +124,6 @@ const cards = useWorkbenchCards({
   formattedTime: timer.formattedTime,
   storyCount: computed(() => conversation.story.value.length),
   onOpenTool: layout.openTool,
-  onStartQuiz: () => {
-    if (conversation.streaming.value) return;
-    void sendMessage(composer.input.value.trim() || '来几道题', { quizMode: true });
-  },
   onSubmitQuestionAnswers: conversation.handleQuestionSubmit,
   recordActivity: proactive.recordProactiveActivity,
   registry,
@@ -165,7 +162,7 @@ watch(() => importSessionOpen.value, (open) => { if (open) importSessionMounted.
 let isSendingMessage = false;
 
 // 统一整合发送消息逻辑
-async function sendMessage(value = composer.input.value, options?: { quizMode?: boolean; resend?: boolean }) {
+async function sendMessage(value = composer.input.value, options?: { metadata?: Record<string, unknown>; resend?: boolean }) {
   if (isSendingMessage) return;
   const text = value.trim();
   if ((!text && composer.pendingAttachments.value.length === 0) || conversation.streaming.value || composer.attachmentUploading.value) return;
@@ -189,10 +186,12 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
   const displayText = text || '（发送了附件）';
   const outgoingText = text || '请查看我上传的附件。';
 
-  const activeMode = options?.quizMode ? 'quiz' : (layout.focusModeEnabled.value ? 'focus' : undefined);
+  // CR-060：模式等插件私有语义一律经 metadata 出站，宿主不解释其取值；
+  // 携带元数据时不再改写消息文本（避免语义双写）。
+  const turnMetadataIn = options?.metadata;
   const outgoing = registry.transformMessage(outgoingText, {
-    quizMode: Boolean(options?.quizMode),
-    useMetadata: Boolean(activeMode),
+    metadata: turnMetadataIn,
+    useMetadata: Boolean(turnMetadataIn),
   });
   const submittedSessionId = sessions.activeSessionId.value;
   composer.beginDraftSubmission(displayText, submittedSessionId);
@@ -222,8 +221,7 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
   petReactKind('think', { lookAtEl: '.message-panel' });
   await conversation.scrollStoryToBottom();
   proactive.recordProactiveActivity('aervox.activity', 'conversation.turn_submitted', text, {
-    focusModeEnabled: layout.focusModeEnabled.value,
-    studyModeEnabled: layout.studyModeEnabled.value,
+    hasMetadata: Boolean(turnMetadataIn),
     toolApprovalMode: conversation.toolApprovalMode.value,
     characterCount: text.length,
   });
@@ -241,9 +239,7 @@ async function sendMessage(value = composer.input.value, options?: { quizMode?: 
   });
 
   try {
-    const turnMetadata = options?.quizMode
-      ? { mode: 'focus', intent: 'quiz' }
-      : (layout.focusModeEnabled.value ? { mode: 'focus' } : undefined);
+    const turnMetadata = turnMetadataIn;
 
     await streamAervoxTurn(
       outgoing,
@@ -350,11 +346,12 @@ const workbenchContext = {
     return pluginRuntime;
   },
   pluginEvents,
+  pluginState,
   sendMessage,
 };
 provideWorkbenchContext(workbenchContext);
 
-pluginRuntime = createWorkbenchPluginRuntime(registry, () => workbenchContext);
+pluginRuntime = createWorkbenchPluginRuntime(registry, () => workbenchContext, props.plugins);
 
 
 // 组件替换支持（允许插件通过 uiRegistry.overrideComponent('ComposerDock', CustomComp) 替换输入底座）
@@ -378,8 +375,6 @@ onMounted(() => {
       assistantName: string;
       enterToSend: boolean;
       compactMode: boolean;
-      focusModeEnabled: boolean;
-      studyModeEnabled: boolean;
       timerMinutes: number;
       desktopCompanionEnabled: boolean;
       dailyReminder: boolean;
@@ -387,11 +382,6 @@ onMounted(() => {
     if (savedSettings.assistantName) layout.assistantDisplayName.value = savedSettings.assistantName;
     if (typeof savedSettings.enterToSend === 'boolean') layout.enterToSend.value = savedSettings.enterToSend;
     if (typeof savedSettings.compactMode === 'boolean') layout.compactMode.value = savedSettings.compactMode;
-    if (typeof savedSettings.focusModeEnabled === 'boolean') {
-      layout.focusModeEnabled.value = savedSettings.focusModeEnabled;
-    } else if (typeof savedSettings.studyModeEnabled === 'boolean') {
-      layout.focusModeEnabled.value = savedSettings.studyModeEnabled;
-    }
     if (typeof savedSettings.timerMinutes === 'number' && savedSettings.timerMinutes >= 1 && savedSettings.timerMinutes <= 60) {
       timer.timerMinutes.value = savedSettings.timerMinutes;
     }
@@ -417,10 +407,9 @@ onMounted(() => {
     // Ignore malformed card preferences
   }
 
-  if (layout.focusModeEnabled.value) cards.applyStudyCardLayout();
-
   void (async () => {
-    if (layout.focusModeEnabled.value) return;
+    // CR-060：插件经通用「启动期静默」接缝表达诉求，宿主不判断具体插件状态
+    if (layout.quietStartup.value) return;
     const marker = `aervox-diary-first-open-${todayLocalDate()}`;
     if (localStorage.getItem(marker)) return;
     try {

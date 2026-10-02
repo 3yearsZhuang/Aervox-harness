@@ -1,12 +1,10 @@
 import { computed, ref, type Component, type Ref } from 'vue';
 import {
   Bell,
-  BookOpen,
   Bot,
   BrainCircuit,
   Clock3,
   Cpu,
-  GraduationCap,
   Heart,
   History,
   LayoutGrid,
@@ -23,7 +21,12 @@ import { petReact, petReactKind } from '../live2d/petReactions';
 
 export type Platform = 'desktop' | 'web' | 'mobile';
 export type WorkbenchMode = 'companion' | 'standard';
-export type ToolId = 'study' | 'mistake' | 'todo' | 'timer' | 'history' | 'diary' | 'task_center';
+/**
+ * 宿主内建工具抽屉 id。
+ * CR-060：插件自有视图（如学习抽屉）不再占用宿主 id——插件以自己的状态与
+ * `workbench:drawers` 槽位承载其视图，宿主不感知其存在。
+ */
+export type ToolId = 'todo' | 'timer' | 'history' | 'diary' | 'task_center';
 
 export const settingCategories = [
   { id: 'tools', label: '快捷工具', description: '学习面板与小工具', icon: LayoutGrid, scope: 'detail' as const },
@@ -43,7 +46,6 @@ export function useWorkbenchLayout(props: {
   showCompanion: boolean;
   assistantName: string;
 }, options: {
-  onStudyModeChange?: (enabled: boolean) => void;
   onOpenDiary?: () => void;
   getTimerMinutes?: () => number;
   recordActivity: (source: 'aervox.activity' | 'aervox.operation', eventType: string, payloadText?: string, metadata?: Record<string, unknown>) => void;
@@ -75,8 +77,11 @@ export function useWorkbenchLayout(props: {
 
   const isDark = ref(false);
   const compactMode = ref(false);
-  const focusModeEnabled = ref(false);
-  const studyModeEnabled = focusModeEnabled;
+  /**
+   * 启动期静默：任何插件都可请求宿主在启动时不要弹出打扰性面板。
+   * 宿主不关心请求者身份与理由（CR-060 通用接缝）。
+   */
+  const quietStartup = ref(false);
   const enterToSend = ref(true);
   const dailyReminder = ref(true);
 
@@ -87,10 +92,6 @@ export function useWorkbenchLayout(props: {
   // 工具抽屉
   const toolsOpen = ref(false);
   const activeToolView = ref<'todo' | 'timer' | 'history' | 'diary'>('todo');
-
-  // 学习抽屉
-  const learningOpen = ref(false);
-  const activeLearningView = ref<'study' | 'mistake'>('study');
 
   // 历史层
   const historyOpen = ref(false);
@@ -107,11 +108,6 @@ export function useWorkbenchLayout(props: {
     { id: 'timer', label: '番茄钟', description: '专注计时，劳逸结合', icon: Clock3 },
     { id: 'history', label: '对话回看', description: '视觉小说式回看完整对话', icon: History },
     { id: 'diary', label: '日记本', description: 'AI 每日日记与历史回看', icon: NotebookPen },
-  ];
-
-  const learningNavItems: Array<{ id: 'study' | 'mistake'; label: string; description: string; icon: Component }> = [
-    { id: 'study', label: '学习规划', description: 'AI 生成学习路线图', icon: BookOpen },
-    { id: 'mistake', label: '错题本', description: '针对性重练未掌握题', icon: Puzzle },
   ];
 
   function toggleMenu() {
@@ -146,12 +142,6 @@ export function useWorkbenchLayout(props: {
     options.recordActivity('aervox.operation', 'workbench.tool_opened', undefined, { target });
     settingsOpen.value = false;
     toolsOpen.value = false;
-    learningOpen.value = false;
-    if (target === 'study' || target === 'mistake') {
-      activeLearningView.value = target;
-      learningOpen.value = true;
-      return;
-    }
     if (target === 'task_center') {
       taskCenterOpen.value = true;
       return;
@@ -179,30 +169,14 @@ export function useWorkbenchLayout(props: {
     openSettings();
   }
 
+  /** 插件请求启动期静默（宿主只记录诉求，不解释来源） */
+  function setQuietStartup(enabled: boolean): void {
+    quietStartup.value = enabled;
+  }
+
   function switchSettingsCategory(category: typeof settingsCategory.value) {
     settingsCategory.value = category;
   }
-
-  function setFocusModeEnabled(enabled: boolean) {
-    if (focusModeEnabled.value === enabled) return;
-    focusModeEnabled.value = enabled;
-    options.recordActivity('aervox.operation', 'conversation.focus_mode_changed', undefined, { enabled });
-    if (enabled) {
-      petReactKind('glad', { expression: MizukiExpression.face_smile_01, lookAtEl: '.floating-study-switch-wrap' });
-    } else {
-      petReactKind('shake', { expression: MizukiExpression.face_normal_01, lookAtEl: '.floating-study-switch-wrap' });
-    }
-    options.onStudyModeChange?.(enabled);
-    saveSettings();
-  }
-
-  const setStudyModeEnabled = setFocusModeEnabled;
-
-  function toggleFocusMode() {
-    setFocusModeEnabled(!focusModeEnabled.value);
-  }
-
-  const toggleStudyMode = toggleFocusMode;
 
   function switchWorkbenchMode(mode: WorkbenchMode) {
     if (workbenchMode.value === mode) return;
@@ -253,8 +227,6 @@ export function useWorkbenchLayout(props: {
       assistantName: assistantDisplayName.value.trim() || props.assistantName,
       enterToSend: enterToSend.value,
       compactMode: compactMode.value,
-      focusModeEnabled: focusModeEnabled.value,
-      studyModeEnabled: studyModeEnabled.value,
       timerMinutes: resolvedTimerMinutes,
       desktopCompanionEnabled: desktopCompanionEnabled.value,
       dailyReminder: dailyReminder.value,
@@ -288,23 +260,20 @@ export function useWorkbenchLayout(props: {
     taskCenterOpen,
     isDark,
     compactMode,
-    focusModeEnabled,
-    studyModeEnabled,
+    quietStartup,
+    setQuietStartup,
     enterToSend,
     dailyReminder,
     menuOpen,
     menuPillRef,
     toolsOpen,
     activeToolView,
-    learningOpen,
-    activeLearningView,
     historyOpen,
     settingsOpen,
     settingsCategory,
     settingsScope,
     scopedSettingCategories,
     toolsNavItems,
-    learningNavItems,
     toggleMenu,
     handlePillClick,
     runMenuAction,
@@ -315,10 +284,6 @@ export function useWorkbenchLayout(props: {
     openSettings,
     openSettingsCategory,
     switchSettingsCategory,
-    toggleFocusMode,
-    toggleStudyMode,
-    setFocusModeEnabled,
-    setStudyModeEnabled,
     switchWorkbenchMode,
     toggleWorkbenchMode,
     toggleStandardSidebar,

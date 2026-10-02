@@ -4,9 +4,12 @@ import {X} from 'lucide-vue-next'
 import AppTitlebar from '@/components/AppTitlebar.vue'
 import {hasCompletedOnboarding, markOnboardingCompleted} from '@/onboarding-state'
 import {AervoxWorkbench} from '@aervox/ui'
+// CR-060：第一方插件按**包路径**装配，宿主不绑定插件私有符号（见 check-host-domain-purity）
+import * as firstPartyPlugin from '@aervox/ui/plugins/focus-mode'
 
 const OnboardingFlow = defineAsyncComponent(() => import('@/components/OnboardingFlow.vue'))
 const showOnboarding = ref(!hasCompletedOnboarding(window.localStorage))
+const firstPartyPlugins = [firstPartyPlugin.default]
 const showIntroDeck = ref(false)
 
 function completeOnboarding() {
@@ -40,7 +43,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
   <div class="window-shell">
     <AppTitlebar />
     <OnboardingFlow v-if="showOnboarding" @complete="completeOnboarding" />
-    <AervoxWorkbench v-else platform="desktop" :show-companion="true" @replay-onboarding="replayOnboarding" @open-intro-deck="openIntroDeck" />
+    <AervoxWorkbench
+      v-else
+      platform="desktop"
+      :show-companion="true"
+      :plugins="firstPartyPlugins"
+      @replay-onboarding="replayOnboarding"
+      @open-intro-deck="openIntroDeck"
+    />
     <div v-if="showIntroDeck" class="intro-deck-overlay" role="dialog" aria-label="Aervox 产品介绍">
       <iframe class="intro-deck-frame" src="./aervox-intro/index.html" title="Aervox 产品介绍" />
       <button class="intro-deck-close" type="button" aria-label="关闭产品介绍" @click="closeIntroDeck">

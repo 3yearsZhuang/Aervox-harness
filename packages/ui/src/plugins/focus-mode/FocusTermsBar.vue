@@ -3,6 +3,7 @@ import { onBeforeUnmount, watch } from 'vue';
 import { Sparkles } from 'lucide-vue-next';
 import { useWorkbenchContext } from '../../composables/workbench-context';
 import TermExploreDialog from './TermExploreDialog.vue';
+import { focusModeEnabled } from './plugin-state';
 import {
   exploreDialogOpen,
   extractedTerms,
@@ -12,8 +13,7 @@ import {
   subscribeTermsEvents,
 } from './plugin-events';
 
-const { layout, conversation, pluginEvents } = useWorkbenchContext();
-const { focusModeEnabled } = layout;
+const { conversation, pluginEvents } = useWorkbenchContext();
 const { streaming, latestAssistantLine } = conversation;
 
 // CR-060：术语状态归插件；宿主只提供通用事件总线，不解释事件语义

@@ -9,56 +9,34 @@ import SettingsModal from '../src/components/workbench/drawers/SettingsModal.vue
 import ToolsDrawer from '../src/components/workbench/drawers/ToolsDrawer.vue';
 import WorkbenchNavPill from '../src/components/workbench/WorkbenchNavPill.vue';
 import WorkbenchSideCards from '../src/components/workbench/WorkbenchSideCards.vue';
-import { registerFocusModePlugin } from '../src/plugins';
+import { registerFocusModePlugin } from '../src/plugins/focus-mode';
+import {
+  activeLearningView,
+  focusModeEnabled as pluginFocusModeEnabled,
+  learningOpen,
+} from '../src/plugins/focus-mode/plugin-state';
 import ExtensionSlot from '../src/components/extension/ExtensionSlot.vue';
 import type { CardDefinition } from '../src/composables/useWorkbenchCards';
 import { WORKBENCH_CONTEXT_KEY, type WorkbenchContext } from '../src/composables/workbench-context';
 import { createUIRegistry, UI_REGISTRY_KEY } from '../src/registry/ui-registry';
 
 describe('Real SFC Component Mounting', () => {
-  it('FocusModeSwitch.vue mounts, reads layout context and toggles mode on click', async () => {
-    const focusModeEnabled = ref(false);
-    const toggleFocusMode = vi.fn(() => {
-      focusModeEnabled.value = !focusModeEnabled.value;
-    });
+  it('FocusModeSwitch.vue reads its own plugin state and toggles mode on click', async () => {
+    // CR-060：开关状态归插件（宿主 layout 不再持有该字段）
+    pluginFocusModeEnabled.value = false;
 
-    const mockContext = {
-      layout: {
-        focusModeEnabled,
-        toggleFocusMode,
-        setFocusModeEnabled: vi.fn((val: boolean) => {
-          focusModeEnabled.value = val;
-        }),
-      },
-      timer: {} as any,
-      composer: {} as any,
-      conversation: {} as any,
-      cards: {} as any,
-      proactive: {} as any,
-      sendMessage: vi.fn(),
-      submitQuizAnswer: vi.fn(),
-    } as unknown as WorkbenchContext;
+    const wrapper = mount(FocusModeSwitch);
 
-    const wrapper = mount(FocusModeSwitch, {
-      global: {
-        provide: {
-          [WORKBENCH_CONTEXT_KEY as symbol]: mockContext,
-        },
-      },
-    });
-
-    // Check initial state
     expect(wrapper.find('.study-switch-track').attributes('aria-checked')).toBe('false');
     expect(wrapper.find('.study-switch-label').text()).toBe('专注模式');
 
-    // Click track button
     await wrapper.find('.study-switch-track').trigger('click');
-    expect(toggleFocusMode).toHaveBeenCalledTimes(1);
-    expect(focusModeEnabled.value).toBe(true);
+    expect(pluginFocusModeEnabled.value).toBe(true);
 
-    // Re-render reflects updated state
     await wrapper.vm.$nextTick();
     expect(wrapper.find('.study-switch-track').attributes('aria-checked')).toBe('true');
+
+    pluginFocusModeEnabled.value = false;
   });
 
   it('ExtensionSlot error boundary catches failing component and shows fallback without crashing', async () => {
@@ -160,18 +138,12 @@ describe('Real SFC Component Mounting', () => {
 
   it('FocusNavMenuItem.vue mounts, displays label, tooltip and handles active state & click action', async () => {
     const runMenuAction = vi.fn((action: () => void) => action());
-    const openTool = vi.fn();
-    const learningOpen = ref(false);
-    const activeLearningView = ref<'study' | 'mistake'>('study');
 
     const mockContext = {
-      layout: {
-        runMenuAction,
-        openTool,
-        learningOpen,
-        activeLearningView,
-      },
+      layout: { runMenuAction },
     } as unknown as WorkbenchContext;
+    learningOpen.value = false;
+    activeLearningView.value = 'study';
 
     const wrapper = mount(FocusNavMenuItem, {
       global: {
@@ -195,10 +167,11 @@ describe('Real SFC Component Mounting', () => {
     await wrapper.vm.$nextTick();
     expect(wrapper.classes()).not.toContain('is-active');
 
-    // Trigger click
+    // Trigger click：打开插件自有视图（宿主不再提供该 ToolId）
     await wrapper.trigger('click');
     expect(runMenuAction).toHaveBeenCalledTimes(1);
-    expect(openTool).toHaveBeenCalledWith('study');
+    expect(learningOpen.value).toBe(true);
+    expect(activeLearningView.value).toBe('study');
   });
 
   it('WorkbenchNavPill.vue decouples focus mode: handles active states and renders plugin item sequentially', async () => {
@@ -322,16 +295,11 @@ describe('Real SFC Component Mounting', () => {
   it('FocusStudyCardActions.vue mounts and triggers operations on button clicks', async () => {
     const openDailyProblem = vi.fn();
     const openTool = vi.fn();
-    const focusModeEnabled = ref(true);
+    pluginFocusModeEnabled.value = true;
 
     const mockContext = {
-      layout: {
-        openTool,
-        focusModeEnabled,
-      },
-      cards: {
-        openDailyProblem,
-      },
+      layout: { openTool },
+      cards: { openDailyProblem },
     } as unknown as WorkbenchContext;
 
     const wrapper = mount(FocusStudyCardActions, {
@@ -355,12 +323,15 @@ describe('Real SFC Component Mounting', () => {
     expect(openTool).toHaveBeenCalledWith('timer');
 
     await buttons[2].trigger('click');
-    expect(openTool).toHaveBeenCalledWith('mistake');
+    expect(learningOpen.value).toBe(true);
+    expect(activeLearningView.value).toBe('mistake');
 
     // When focus mode is toggled off, action container is hidden
-    focusModeEnabled.value = false;
+    pluginFocusModeEnabled.value = false;
     await wrapper.vm.$nextTick();
     expect(wrapper.find('.focus-study-card-actions').exists()).toBe(false);
+    learningOpen.value = false;
+    activeLearningView.value = 'study';
   });
 
   it('WorkbenchSideCards.vue renders card extraComponent dynamically without hardcoding', async () => {
@@ -440,18 +411,14 @@ describe('Real SFC Component Mounting', () => {
   });
 
   it('FocusTaskCenterCard.vue renders review tag and triggers navigation on button clicks', async () => {
-    const openTool = vi.fn();
     const taskCenterOpen = ref(true);
 
     const mockContext = {
-      layout: {
-        taskCenterOpen,
-        openTool,
-      },
-      cards: {
-        syncReviewCount: ref(5),
-      },
+      layout: { taskCenterOpen },
+      cards: { syncReviewCount: ref(5) },
     } as unknown as WorkbenchContext;
+    learningOpen.value = false;
+    activeLearningView.value = 'study';
 
     const wrapper = mount(FocusTaskCenterCard, {
       global: {
@@ -469,16 +436,20 @@ describe('Real SFC Component Mounting', () => {
     expect(buttons).toHaveLength(2);
 
     await buttons[0].trigger('click');
-    expect(openTool).toHaveBeenCalledWith('mistake');
+    expect(activeLearningView.value).toBe('mistake');
+    expect(learningOpen.value).toBe(true);
     expect(taskCenterOpen.value).toBe(false);
 
     taskCenterOpen.value = true;
+    learningOpen.value = false;
     await buttons[1].trigger('click');
-    expect(openTool).toHaveBeenCalledWith('study');
+    expect(activeLearningView.value).toBe('study');
+    expect(learningOpen.value).toBe(true);
     expect(taskCenterOpen.value).toBe(false);
+    learningOpen.value = false;
   });
 
-  it('SettingsModal.vue dynamically iterates over cards.cardCatalog for quick-tools and reacts to focusModeAvailable', async () => {
+  it('SettingsModal.vue dynamically iterates over cards.cardCatalog for quick-tools and renders plugin rows via slot', async () => {
     const dummyIcon = markRaw(defineComponent({ render: () => h('span', 'icon') }));
     const cardAction1 = vi.fn();
     const cardAction2 = vi.fn();
@@ -568,14 +539,11 @@ describe('Real SFC Component Mounting', () => {
     expect(cardAction1).toHaveBeenCalledTimes(1);
     expect(settingsOpen.value).toBe(false);
 
-    // Switch to conversation category to test focusModeAvailable v-if
+    // CR-060：宿主设置面板只在「对话」分类提供通用插槽，不内建任何插件行
     (mockContext.layout as any).settingsCategory.value = 'conversation';
     await wrapper.vm.$nextTick();
     expect(wrapper.text()).not.toContain('专注模式');
-
-    // If focusModeAvailable is true, the row is rendered
-    await wrapper.setProps({ focusModeAvailable: true });
-    expect(wrapper.text()).toContain('专注模式');
+    expect(wrapper.find('input[name="focus-mode-setting"]').exists()).toBe(false);
   });
 
   it('SettingsModal.vue supports toggling quick tools customization mode and adding/removing/reordering tools', async () => {

@@ -4,7 +4,7 @@ import { ref, computed } from 'vue';
 import { useWorkbenchLayout } from '../src/composables/useWorkbenchLayout';
 import { WORKBENCH_CONTEXT_KEY, type WorkbenchContext } from '../src/composables/workbench-context';
 import { createUIRegistry, UI_REGISTRY_KEY } from '../src/registry/ui-registry';
-import { registerFocusModePlugin } from '../src/plugins';
+import { registerFocusModePlugin } from '../src/plugins/focus-mode';
 import WorkbenchSidebar from '../src/components/workbench/WorkbenchSidebar.vue';
 import TaskCenterDrawer from '../src/components/workbench/drawers/TaskCenterDrawer.vue';
 import type { SessionItem } from '@aervox/contracts';

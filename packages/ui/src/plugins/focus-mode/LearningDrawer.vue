@@ -8,15 +8,12 @@ import {
   Sparkles,
   X,
 } from 'lucide-vue-next';
-import { useWorkbenchContext } from '../../../composables/workbench-context';
-import { AervoxNavDialog } from '../../../primitives';
+import { useWorkbenchContext } from '../../composables/workbench-context';
+import { AervoxNavDialog } from '../../primitives';
+import { activeLearningView, learningNavItems, learningOpen } from './plugin-state';
 
-const { layout, cards } = useWorkbenchContext();
-const {
-  learningOpen,
-  activeLearningView,
-  learningNavItems,
-} = layout;
+// CR-060：学习抽屉状态与导航清单归插件所有（宿主不再持有这些字段）
+const { cards } = useWorkbenchContext();
 
 const {
   api,

@@ -10,7 +10,9 @@ export type ExtensionSlotName =
   | 'message:bubble-actions'
   | 'composer:toolbar-actions'
   | 'composer:bottom-bar'
+  | 'composer:indicator'
   | 'settings:tabs'
+  | 'settings:conversation-rows'
   | 'workbench:drawers'
   | 'taskcenter:cards';
 
@@ -45,7 +47,7 @@ export interface ComposerContractProps {
   isComposing: boolean;
   enterToSend: boolean;
   placeholder?: string;
-  onSend: (text?: string, options?: { quizMode?: boolean; resend?: boolean }) => Promise<void>;
+  onSend: (text?: string, options?: { metadata?: Record<string, unknown>; resend?: boolean }) => Promise<void>;
   onVoiceTrigger?: () => void;
   onAttachmentPicker?: () => void;
   'onUpdate:input'?: (value: string) => void;
@@ -53,7 +55,11 @@ export interface ComposerContractProps {
 }
 
 export interface MessageTransformContext {
-  quizMode?: boolean;
+  /**
+   * 出站结构化元数据（CR-060）：模式等插件私有语义由此承载，宿主不解释其取值。
+   * 携带元数据时插件不应再改写消息文本，避免语义双写。
+   */
+  metadata?: Record<string, unknown>;
   [key: string]: unknown;
 }
 

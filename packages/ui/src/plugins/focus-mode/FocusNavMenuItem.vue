@@ -2,18 +2,18 @@
 import { computed } from 'vue';
 import { GraduationCap } from 'lucide-vue-next';
 import { useWorkbenchContext } from '../../composables/workbench-context';
+import { activeLearningView, learningOpen, openLearningView } from './plugin-state';
 
 const { layout } = useWorkbenchContext();
 
-const isActive = computed(() => {
-  return Boolean(layout?.learningOpen?.value && layout?.activeLearningView?.value === 'study');
-});
+const isActive = computed(() => Boolean(learningOpen.value && activeLearningView.value === 'study'));
 
 function handleClick() {
+  const open = () => openLearningView('study');
   if (layout?.runMenuAction) {
-    layout.runMenuAction(() => layout.openTool('study'));
+    layout.runMenuAction(open);
   } else {
-    layout?.openTool?.('study');
+    open();
   }
 }
 </script>

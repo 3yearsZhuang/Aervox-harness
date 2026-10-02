@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { CircleHelp, Clock3, Puzzle } from 'lucide-vue-next';
 import { useWorkbenchContext } from '../../composables/workbench-context';
+import { focusModeEnabled, openLearningView } from './plugin-state';
 
 const { layout, cards } = useWorkbenchContext();
 
@@ -17,13 +18,13 @@ function handleStartTimer() {
 }
 
 function handleOpenMistakes() {
-  layout?.openTool?.('mistake');
+  openLearningView('mistake');
 }
 </script>
 
 <template>
   <div
-    v-if="layout?.focusModeEnabled === undefined || layout?.focusModeEnabled?.value"
+    v-if="focusModeEnabled"
     class="side-card-grid side-card-actions focus-study-card-actions"
   >
     <button type="button" class="side-card-grid-item" @click.stop="handleDailyProblem">
