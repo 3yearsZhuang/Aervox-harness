@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/host-agent — SQLite Subagent 委托执行器（阶段 5c）
  *
  * 规则依据：AVX-HAR-001 §13 阶段 5c「Subagent/Workflow 通过独立 Tool/Provider Contribution」：
- * - 实现 @aervox/agent-loop 的 SubagentPort「宿主侧」：创建独立子 turn/attempt 落库
+ * - 实现 @aervox/core 的 SubagentPort「宿主侧」：创建独立子 turn/attempt 落库
  *   （可审计/恢复），嵌套执行后返回结构化结果；
  * - 隔离原则：子上下文仅注入 task（defaultContextBuilder 起始即用户消息），不注入父历史；
  * - 递归防护：子任务工具集不得包含 subagent_delegate / workflow_run，执行前强校验 fail-closed；
@@ -14,7 +14,7 @@ import {
   executeTurn,
   SUBAGENT_DELEGATE_TOOL,
   WORKFLOW_RUN_TOOL,
-} from "@aervox/agent-loop";
+} from "@aervox/core";
 import type {
   AttemptStatus,
   ContextBuilderPort,
@@ -22,7 +22,7 @@ import type {
   SubagentPort,
   SubagentRunResult,
   ToolProviderPort,
-} from "@aervox/agent-loop";
+} from "@aervox/core";
 import type { ISubagentRunRepository, SqliteConversationRepository, LocalContext } from "@aervox/repositories";
 import type { SqliteExecutionStore } from "./sqlite-execution-store.js";
 

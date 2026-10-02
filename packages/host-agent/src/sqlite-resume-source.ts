@@ -9,8 +9,8 @@
  * 不在此自动重放未知结果。
  */
 import type { ClaimableTurn, TurnSourcePort } from "./agent-host.js";
-import { decideResume } from "@aervox/agent-loop";
-import { buildResumeHistory } from "@aervox/agent-loop";
+import { decideResume } from "@aervox/core";
+import { buildResumeHistory } from "@aervox/core";
 import type { SqliteConversationRepository, LocalContext } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 

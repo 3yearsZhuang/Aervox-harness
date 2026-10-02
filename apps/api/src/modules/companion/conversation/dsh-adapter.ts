@@ -18,7 +18,7 @@
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createDSHAdapterDriver, runAdapterTurn, type SqliteExecutionStore } from "@aervox/host-agent";
-import type { AdapterDriverPort } from "@aervox/agent-loop";
+import type { AdapterDriverPort } from "@aervox/core";
 import type { LocalContext, SqliteConversationRepository } from "@aervox/repositories";
 
 export interface DshTurnAdapterOverrides {

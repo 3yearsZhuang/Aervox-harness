@@ -16,7 +16,7 @@ import {
   createAskUserQuestionToolProvider,
   createSummaryCompaction,
   executeTurn,
-} from "@aervox/agent-loop";
+} from "@aervox/core";
 import type {
   InboxPort,
   ModelProviderPort,
@@ -25,7 +25,7 @@ import type {
   ToolProviderPort,
   UserQuestionPort,
   WorkflowDefinition,
-} from "@aervox/agent-loop";
+} from "@aervox/core";
 // ADR-021 内核提纯修订：伴学工具与其 Port 契约回归插件宿主
 import { createPracticeAttemptToolProvider } from "./practice-attempt-tool.js";
 import type { PracticeAttemptPort } from "./practice-attempt-port.js";
@@ -85,7 +85,7 @@ export async function runLoopTurnOnce(
     /** CAP-008：安全与危机干预服务（危急阻断/资源注入/中度困扰支持） */
     safetyService?: import("../../platform/safety/service.js").SafetyService;
     /** 2d：删除/撤权水位未追平 → Loop fail-closed（AVX-HAR-001 §11.3） */
-    deletionGate?: import("@aervox/agent-loop").DeletionGatePort;
+    deletionGate?: import("@aervox/core").DeletionGatePort;
     /** 5a-2：受控收件箱消费（每 Step claim next-step → 注入 → ack；缺失时跳过） */
     inbox?: InboxPort;
     /** 5b：渐进披露的 Skill 清单（name+description；模型按需读取全文；缺省不注入） */

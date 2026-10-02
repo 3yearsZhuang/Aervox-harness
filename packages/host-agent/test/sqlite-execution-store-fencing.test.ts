@@ -6,7 +6,7 @@
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { SqliteExecutionStore } from "../src/index.js";
-import { LeaseLostError } from "@aervox/agent-loop";
+import { LeaseLostError } from "@aervox/core";
 import {
   createInMemoryDatabase,
   initDatabaseSchema,

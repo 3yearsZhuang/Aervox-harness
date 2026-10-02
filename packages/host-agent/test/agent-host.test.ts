@@ -10,8 +10,8 @@ import {
   type ClaimableTurn,
   type TurnSourcePort,
 } from "../src/index.js";
-import { InMemoryExecutionStore } from "@aervox/agent-loop";
-import type { ExecutionStorePort, ModelProviderPort } from "@aervox/agent-loop";
+import { InMemoryExecutionStore } from "@aervox/core";
+import type { ExecutionStorePort, ModelProviderPort } from "@aervox/core";
 import type { AuditEntry, MetricSample, Observability } from "@aervox/observability";
 import { createNoopObservability } from "@aervox/observability";
 
