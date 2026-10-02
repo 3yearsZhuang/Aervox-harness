@@ -112,6 +112,23 @@ export const EXCEPTIONS_URL = new URL("./host-domain-purity-exceptions.json", im
  */
 export const LEGACY_PLUGIN_PREFIXES = ["packages/ui/src/plugins/focus-mode/"];
 
+/**
+ * 装配点白名单：组合根必须按 id 引用具体插件，这是**设计允许**的宿主唯一引用位置
+ * （AVX-PLUG-001 §4.1「Hook 必须由 API 组合根 import 并注册」）。
+ * 仅豁免 `plugin-id` 一条规则：装配文件仍不得出现领域驼峰、插件配置键、专属样式等。
+ * 插件的**可达性**由 `check-removable-implementation` 的 allowedAssemblyFiles 另行约束。
+ */
+export const ASSEMBLY_FILES = new Set([
+  "apps/api/src/plugin-assembly.ts",
+  "apps/web/src/App.vue",
+  "apps/desktop/src/renderer/src/App.vue",
+]);
+
+/** 装配点仅放行 plugin-id 规则 */
+export function isAssemblyAllowedRule(relFile, ruleId) {
+  return ruleId === "plugin-id" && ASSEMBLY_FILES.has(relFile);
+}
+
 /** 判断路径是否属迁移期插件自有目录 */
 export function isLegacyPluginPath(relFile) {
   return LEGACY_PLUGIN_PREFIXES.some((prefix) => relFile.startsWith(prefix));
@@ -186,6 +203,7 @@ export function evaluateHostPurity(entries, exceptions = []) {
 
   for (const { file, source } of entries) {
     for (const hit of inspectHostFile(file, source)) {
+      if (isAssemblyAllowedRule(hit.file, hit.rule)) continue;
       hitCount += 1;
       const key = exceptionKey(hit.file, hit.rule);
       counts.set(key, (counts.get(key) ?? 0) + 1);
@@ -265,6 +283,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
         continue;
       }
       for (const hit of inspectHostFile(relFile, source)) {
+        if (isAssemblyAllowedRule(hit.file, hit.rule)) continue;
         const key = exceptionKey(hit.file, hit.rule);
         const existing = byKey.get(key);
         if (existing) {

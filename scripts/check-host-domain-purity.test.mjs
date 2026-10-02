@@ -147,3 +147,28 @@ test("当前仓库状态：豁免清单与磁盘一致（零违规、零可收�
   );
   assert.ok(loadExceptions().length > 0, "迁移期应仍有豁免条目；若已清空说明 CR-060 已完成，可删除本断言");
 });
+
+test("装配点白名单：仅放行 plugin-id，其余规则仍生效", () => {
+  const assembly = "apps/api/src/plugin-assembly.ts";
+  // 组合根按 id 引用插件是实现装配的必要行为（AVX-PLUG-001 §4.1），仅 plugin-id 放行
+  const result = evaluateHostPurity(
+    [{ file: assembly, source: 'const loaders = [{ pluginId: "focus-mode", load: () => import("@aervox/plugin-focus-mode/server") }];' }],
+    [],
+  );
+  assert.equal(result.valid, true, "装配点的 plugin-id 不应判违规");
+
+  // 装配点仍不得承载领域驼峰、中文文案、插件配置键等
+  for (const [source, rule] of [
+    ["const focusModeRegistration = {};", "camel-ident"],
+    ["// 专注模式的装配点", "domain-copy"],
+    ["const cfg = { autoEnableFocusMode: true };", "focus-config"],
+  ]) {
+    const r = evaluateHostPurity([{ file: assembly, source }], []);
+    assert.equal(r.valid, false, `装配点不应放行 ${rule}`);
+    assert.equal(r.violations[0].rule, rule);
+  }
+
+  // 非装配文件不享受该放行
+  const other = evaluateHostPurity([{ file: "apps/api/src/modules/x.ts", source: 'const id = "focus-mode";' }], []);
+  assert.equal(other.valid, false);
+});

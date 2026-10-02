@@ -1,0 +1,22 @@
+{
+  "name": "@aervox/plugin-focus-mode",
+  "version": "1.0.0",
+  "license": "AGPL-3.0-or-later",
+  "private": true,
+  "type": "module",
+  "description": "专注模式第一方插件（CAP-002 启发式教学 / CAP-007 概念探索 / CAP-016 现场刷题）：实现内聚于本目录，源码不随 .aervox-plugin 分发包发布（CR-060）",
+  "exports": {
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server/index.js"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@aervox/host-plugin-api": "workspace:*",
+    "@aervox/practice-review": "workspace:*"
+  }
+}

@@ -25,14 +25,25 @@ export interface TurnStreamEventFrame {
 }
 
 /**
+ * 追加事件的入参。
+ * `id`、`sequence`、`occurredAt` 等持久化细节由宿主分配，插件只描述语义，
+ * 避免插件自行拼接 id 或推算序号而与宿主写入路径产生分歧。
+ */
+export interface TurnStreamAppendInput {
+  eventType: string;
+  payloadVersion?: number;
+  data: unknown;
+}
+
+/**
  * 回合流窄端口。
  * 宿主负责把 `LocalContext` 与仓储/总线封装在实现内部，插件不感知其存在；
- * 写入应同时落库并广播，保证 SSE 实时性与重放一致性。
+ * `appendEvent` 应同时落库并广播，保证 SSE 实时性与重放一致性。
  */
 export interface TurnStreamPort {
   readEvents(turnId: string, fromSequence: number): Promise<TurnStreamEventFrame[]>;
-  /** 追加事件：落库 + 实时广播，返回最终持久化的事件帧 */
-  appendEvent(event: TurnStreamEventFrame): Promise<TurnStreamEventFrame>;
+  /** 追加事件：由宿主分配 id/序号/时间，落库并实时广播 */
+  appendEvent(input: TurnStreamAppendInput): Promise<TurnStreamEventFrame>;
 }
 
 /** 插件可用的模型调用窄端口（宿主按当前配置注入，可能缺省） */

@@ -9,6 +9,7 @@
  */
 import type { IExtensionRepository, IPluginConfigRepository } from "@aervox/repositories";
 import type { ServerTurnPluginRegistry } from "./registry.js";
+import type { LocalContext } from "@aervox/repositories";
 import type { AfterTurnContext, BeforeTurnResult, ServerTurnPlugin, TurnPluginContext } from "./types.js";
 
 export interface PluginExecutionSnapshot {
@@ -18,8 +19,6 @@ export interface PluginExecutionSnapshot {
 
 export interface BeforeTurnExecutionResult {
   extraSections: string[];
-  allowQuizTrigger: boolean;
-  quizMode: boolean;
   pluginResults: Map<string, BeforeTurnResult>;
   snapshots?: Map<string, PluginExecutionSnapshot>;
 }
@@ -57,7 +56,7 @@ async function resolvePluginEnabled(
 async function resolvePluginConfigValues(
   candidateIds: string[],
   configRepo: IPluginConfigRepository,
-  tenant: TurnPluginContext["tenant"],
+  tenant: LocalContext,
 ): Promise<Record<string, unknown> | undefined> {
   for (const id of candidateIds) {
     const model = await configRepo.getConfig(tenant, id).catch(() => null);
@@ -70,15 +69,24 @@ async function resolvePluginConfigValues(
   return undefined;
 }
 
+/**
+ * Runner 的宿主依赖。
+ * `tenant` 是宿主侧概念（用于读取插件配置），**不进入插件上下文**——插件经窄端口
+ * 工作，不感知本地上下文（CR-060）。
+ */
+export interface TurnPluginRunnerDeps {
+  tenant: LocalContext;
+  extRepo?: IExtensionRepository | null;
+  configRepo?: IPluginConfigRepository | null;
+}
+
 export async function executeBeforeTurnPlugins(
   registry: ServerTurnPluginRegistry,
   ctx: TurnPluginContext,
-  extRepo?: IExtensionRepository | null,
-  configRepo?: IPluginConfigRepository | null,
+  deps: TurnPluginRunnerDeps,
 ): Promise<BeforeTurnExecutionResult> {
+  const { tenant, extRepo, configRepo } = deps;
   const extraSections: string[] = [];
-  let allowQuizTrigger = false;
-  let quizMode = false;
   const pluginResults = new Map<string, BeforeTurnResult>();
   const snapshots = new Map<string, PluginExecutionSnapshot>();
 
@@ -92,7 +100,7 @@ export async function executeBeforeTurnPlugins(
 
       let configValues: Record<string, unknown> | undefined;
       if (isEnabled && configRepo) {
-        configValues = await resolvePluginConfigValues(candidateIds, configRepo, ctx.tenant);
+        configValues = await resolvePluginConfigValues(candidateIds, configRepo, tenant);
       }
 
       snapshots.set(plugin.id, { isEnabled, configValues });
@@ -111,12 +119,6 @@ export async function executeBeforeTurnPlugins(
             }
           }
         }
-        if (res.allowQuizTrigger) {
-          allowQuizTrigger = true;
-        }
-        if (res.quizMode) {
-          quizMode = true;
-        }
       }
     } catch {
       // 单个插件前置切面异常隔离，不影响整个回合创建
@@ -128,8 +130,6 @@ export async function executeBeforeTurnPlugins(
 
   return {
     extraSections,
-    allowQuizTrigger,
-    quizMode,
     pluginResults,
     snapshots,
   };
@@ -138,11 +138,11 @@ export async function executeBeforeTurnPlugins(
 export async function executeAfterTurnPlugins(
   registry: ServerTurnPluginRegistry,
   ctx: AfterTurnContext,
-  extRepo?: IExtensionRepository | null,
-  configRepo?: IPluginConfigRepository | null,
+  deps: TurnPluginRunnerDeps,
   pluginResults?: Map<string, BeforeTurnResult>,
   snapshots?: Map<string, PluginExecutionSnapshot>,
 ): Promise<void> {
+  const { tenant, extRepo, configRepo } = deps;
   const effectiveSnapshots =
     snapshots ??
     (pluginResults as unknown as { __snapshots?: Map<string, PluginExecutionSnapshot> })?.__snapshots;
@@ -163,7 +163,7 @@ export async function executeAfterTurnPlugins(
         }
 
         if (isEnabled && configRepo) {
-          configValues = await resolvePluginConfigValues(candidateIds, configRepo, ctx.tenant);
+          configValues = await resolvePluginConfigValues(candidateIds, configRepo, tenant);
         }
       }
 

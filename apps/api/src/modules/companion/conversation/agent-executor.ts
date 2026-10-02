@@ -58,6 +58,7 @@ import { buildMemoryContext, type MemoryRecallPort } from "./memory-recall.js";
 import { buildLoopProvider, createLLMCallable } from "./llm-adapter.js";
 import { createApprovalGatedToolProvider, createRuntimeToolProvider } from "./tool-providers.js";
 import { createBroadcastingStore } from "./broadcasting-store.js";
+import { turnStreamHub } from "./stream-hub.js";
 import { failTurnWithError, runDshAdapterTurn } from "./dsh-adapter.js";
 
 /** SqliteExecutionStore 组合根适配由 @aervox/host-agent 提供（见上方 import），API 不再自维护 SQLite 执行存储 */
@@ -145,22 +146,40 @@ export async function runLoopTurnOnce(
     (repoDb ? new SqliteExtensionRepository(repoDb) : null);
   const pluginRegistry = deps.pluginRegistry ?? defaultServerPluginRegistry;
 
+  // CR-060：向插件暴露**窄端口**而非仓储与总线本体。
+  // 序号交由仓储原子分配（appendStreamEvent 缺省 sequence），避免插件自行推算；
+  // 写入同时落库并广播，保证 SSE 实时性与重放一致。
   const turnPluginCtx: TurnPluginContext = {
     turnId: input.turnId,
     sessionId: input.sessionId,
     attemptId: input.attemptId,
     userMessage: input.userMessage,
-    tenant,
-    repo,
     metadata: input.metadata,
+    stream: {
+      readEvents: (turnId, fromSequence) => repo.getStreamEvents(tenant, turnId, fromSequence),
+      appendEvent: async (appendInput) => {
+        // 具体仓储的 `appendStreamEvent` 要求显式 sequence（接口虽声明可选，
+        // 实现更严），故按既有序号推进；同一 Turn 的写入由执行器串行化。
+        const existing = await repo.getStreamEvents(tenant, input.turnId, 0);
+        const lastSequence = existing.reduce((max, event) => (event.sequence > max ? event.sequence : max), 0);
+        const stored = await repo.appendStreamEvent(tenant, {
+          id: `evt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+          turnId: input.turnId,
+          sequence: lastSequence + 1,
+          eventType: appendInput.eventType,
+          payloadVersion: appendInput.payloadVersion ?? 1,
+          data: appendInput.data,
+          occurredAt: new Date().toISOString(),
+        });
+        turnStreamHub.publishEvent(input.turnId, stored);
+        return stored;
+      },
+    },
   };
 
-  const beforeTurnExec = await executeBeforeTurnPlugins(
-    pluginRegistry,
-    turnPluginCtx,
-    extRepo,
-    deps.pluginConfigRepo,
-  );
+  // Runner 的宿主依赖：`tenant` 只用于读取插件配置，不进入插件上下文（CR-060）
+  const turnPluginDeps = { tenant, extRepo, configRepo: deps.pluginConfigRepo };
+  const beforeTurnExec = await executeBeforeTurnPlugins(pluginRegistry, turnPluginCtx, turnPluginDeps);
 
   // 阶段 7（ADR-017）：Step 级 ModelRun + 每 Turn ContextManifest 快照落库（委托 platform 域）
   const store = new SqliteExecutionStore(
@@ -336,8 +355,7 @@ export async function runLoopTurnOnce(
       await executeAfterTurnPlugins(
         pluginRegistry,
         { ...turnPluginCtx, status, llm: dshLlm },
-        extRepo,
-        deps.pluginConfigRepo,
+        turnPluginDeps,
         beforeTurnExec.pluginResults,
         beforeTurnExec.snapshots,
       );
@@ -547,8 +565,7 @@ export async function runLoopTurnOnce(
     await executeAfterTurnPlugins(
       pluginRegistry,
       { ...turnPluginCtx, status: "Completed", llm },
-      extRepo,
-      deps.pluginConfigRepo,
+      turnPluginDeps,
       beforeTurnExec.pluginResults,
       beforeTurnExec.snapshots,
     );

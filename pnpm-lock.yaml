@@ -65,9 +65,15 @@ importers:
       '@aervox/host-agent':
         specifier: workspace:*
         version: link:../../packages/host-agent
+      '@aervox/host-plugin-api':
+        specifier: workspace:*
+        version: link:../../packages/host-plugin-api
       '@aervox/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@aervox/plugin-focus-mode':
+        specifier: workspace:*
+        version: link:../../plugins/focus-mode
       '@aervox/practice-review':
         specifier: workspace:*
         version: link:../../packages/practice-review
@@ -419,6 +425,15 @@ importers:
       vue-tsc:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.9.3)
+
+  plugins/focus-mode:
+    dependencies:
+      '@aervox/host-plugin-api':
+        specifier: workspace:*
+        version: link:../../packages/host-plugin-api
+      '@aervox/practice-review':
+        specifier: workspace:*
+        version: link:../../packages/practice-review
 
 packages:
 

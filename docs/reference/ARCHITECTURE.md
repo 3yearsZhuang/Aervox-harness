@@ -74,6 +74,9 @@ packages/
   live2d/            # Live2D Mizuki 静态模型单一真源资产包
   public/            # 共享图标与 aervox-intro 介绍页静态资产
   ui/                # 共享 Vue 3 组件库、Live2D 控制器与主题 Token
+plugins/
+  focus-mode/        # 专注模式第一方插件：CAP-002 启发式教学 / CAP-007 概念探索 / CAP-016 现场刷题；
+                     # 声明与实现内聚于此，实现源码不随 .aervox-plugin 分发包发布（CR-060）
 ```
 
 连接版终端入口 `apps/cli` 只消费 `@aervox/api-client/transport` 的纯传输构建出口，该子路径不加载 Vue composables；CLI 使用根目录统一管理的 esbuild 生成独立 ESM 制品，业务数据与执行权威仍在已有 API/Worker。配置与请求标识回执是宿主私有文件，CLI 不导入 API 私有模块、不直接访问业务库，也不因此新增服务端路由或授权口径；独立 Core 组合另立条目认领。命令边界、受限本机地址、审批与取消语义及兼容范围见 CR-058（已归档至 Aervox-docs-archive），实施状态与剩余差量见 [§4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。

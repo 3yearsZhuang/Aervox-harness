@@ -1,13 +1,13 @@
 /**
  * Aervox｜思隅 @aervox/api — CAP-020 插件运行时模块入口
  *
- * 组装：插件生命周期（工具/Skill 联动）+ 配置/Page（CR-006）。
+ * 组装：插件生命周期（工具/Skill 联动）+ 配置/Page（CR-006）+ 第一方插件贡献装配（CR-060）。
  * 配置与 Page 使用新增路由文件（config-routes.ts），不改动既有 routes.ts（中间件重构期约束）。
  */
-import { focusModeTurnPlugin } from "./turn-plugins/focus-mode.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { pluginManifestSchema } from "@aervox/contracts";
+import { assembleFirstPartyPlugins } from "../../../plugin-assembly.js";
 import type { ModuleContext } from "../../context.js";
 import {
   SqliteExtensionRepository,
@@ -39,9 +39,9 @@ export {
 };
 
 export function createServerPluginRegistry(): ServerPluginRegistry {
-  const registry = new ServerPluginRegistry();
-  registry.register(focusModeTurnPlugin);
-  return registry;
+  // CR-060：注册表不再硬编码任何具体插件；第一方插件贡献统一由装配点注入
+  // （见 apps/api/src/plugin-assembly.ts），以保证"移除插件后宿主仍可构建运行"。
+  return new ServerPluginRegistry();
 }
 
 const defaultPluginsRoot = (): string => {
@@ -204,6 +204,16 @@ export async function registerPluginsModule(ctx: ModuleContext): Promise<void> {
 
   // 同步内置插件目录（plugins/）
   await syncBuiltinPlugins(builtinRoot, service, configService, extensionRepo);
+
+  // CR-060：装配第一方插件贡献。缺包或装配失败只记录诊断、不中断宿主启动，
+  // 插件是否生效仍由 Runner 按仓储启停记录门控（CR-056 代码缺席语义）。
+  const assembly = await assembleFirstPartyPlugins({
+    turnRegistry: ctx.pluginRegistry,
+    warn: (message, error) => console.warn(message, error),
+  });
+  if (assembly.failed.length > 0) {
+    console.warn(`[plugins] 以下第一方插件未能装配：${assembly.failed.join(", ")}`);
+  }
 }
 
 export * from "./turn-plugins/index.js";
