@@ -14,7 +14,6 @@ review_triggers:
   - packages/core/**
   - packages/agent-loop/**
   - packages/host-agent/src/cli-approval.ts
-  - packages/host-agent/src/host-tool-runtime.ts
 sources:
   - docs/reference/adr/README.md
   - docs/reference/agent-harness-loop.md
