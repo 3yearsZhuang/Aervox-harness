@@ -110,6 +110,25 @@ export interface ExecuteTurnDeps {
 /** 工具调用去重键：name + 参数序列化 */
 const dedupeKey = (name: string, args: unknown): string => `${name}:${JSON.stringify(args)}`;
 
+/** 共享 UTF-8 编码器（无状态；模块级复用，避免流式路径每 chunk 分配） */
+const utf8 = new TextEncoder();
+
+/** 消息输入计量缓存：key 为消息对象引用。
+ *  executor 只向 history 追加新消息对象、不改写既有对象，宿主注入的 inbox/记忆消息
+ *  每步亦为新对象，因此引用稳定即序列化结果稳定；按引用缓存使长回合的输入计量从
+ *  每步全量重序列化（O(总上下文)，整体 O(n²)）摊销为仅计新增消息。 */
+const messageChargeBytes = new WeakMap<object, number>();
+
+/** 单条消息的 UTF-8 序列化字节数（含 +1 数组分隔符余量，保守不欠计） */
+function messageCharge(message: PromptMessage): number {
+  let n = messageChargeBytes.get(message);
+  if (n === undefined) {
+    n = utf8.encode(JSON.stringify(message)).length + 1;
+    messageChargeBytes.set(message, n);
+  }
+  return n;
+}
+
 /** 3a：Host 幂等键重生成（AVX-HAR-001 §9：上游 callId 不可信，副作用标识由 Host 生成） */
 const hostExecutionId = (attemptId: string, step: number, seq: number): string => `${attemptId}:${step}:${seq}`;
 
@@ -358,7 +377,10 @@ export async function executeTurn(
         const out: ModelChunk[] = [];
         const stop = await prematureTermination(sequence);
         if (stop) { midStreamStop = stop; return out; }
-        const inputCharge = new TextEncoder().encode(JSON.stringify({ messages: context.messages, tools: tools?.tools })).length;
+        // B4-B/预算：输入计量按消息引用缓存摊销（长回合 O(n²) → O(新增)）；
+        // 工具 schema 每步全量序列化（体积小且 seenToolCalls 会变更集合）
+        const inputCharge = context.messages.reduce((sum, m) => sum + messageCharge(m), 0)
+          + (tools?.tools ? utf8.encode(JSON.stringify(tools.tools)).length : 0);
         if (control && (control.remainingCalls < 1 || control.remainingTokens <= inputCharge)) {
           midStreamStop = await finalizeInterrupted(sequence, "budget_exhausted");
           return out;
@@ -377,7 +399,7 @@ export async function executeTurn(
         }), control?.abortSignal)) {
           // Charge UTF-8 bytes conservatively when provider token usage is absent;
           // cumulative provider usage can only increase the charge, never refund it.
-          let charge = new TextEncoder().encode(chunk.text + (chunk.reasoning ?? "") + (chunk.toolCalls ? JSON.stringify(chunk.toolCalls) : "")).length;
+          let charge = utf8.encode(chunk.text + (chunk.reasoning ?? "") + (chunk.toolCalls ? JSON.stringify(chunk.toolCalls) : "")).length;
           if (chunk.usage) charge = Math.max(charge, chunk.usage.totalTokens - charged);
           charged += charge;
           control?.recordTokensUsed(charge);
