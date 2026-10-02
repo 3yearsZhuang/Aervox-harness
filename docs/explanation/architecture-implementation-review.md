@@ -42,6 +42,9 @@ sources:
 
 关联：[第一轮底层评估](foundation-optimization-review.md)、[架构事实源](../reference/ARCHITECTURE.md)、[数据库契约](../reference/DATABASE.md)、[数据隐私](../reference/DATA_PRIVACY.md)、[Agent 执行契约](../reference/agent-harness-loop.md)、[硬件方向](companion-hardware-directions.md)、[变更流程](../how-to/cr-workflow.md)
 
+> [!NOTE] 调研生命周期状态：已落地 / 演进中 (Adopted / In Progress)
+> 本文梳理的 14 项深层架构问题中，ARC-01（Outbox 可靠派发与接单状态恢复）与 ARC-14（冷 CI 与插件验证入口）已在 ITER-001/002 闭环落地并进入基线代码；其余条目作为演进凭据留存。
+
 ## 1. 结论与使用范围
 
 当前架构适合继续沿“本地单用户、模块化单体、独立后台 Worker、可替换 Provider”演进。主要限制来自实现链路中的缺口：接单与领取之间存在无法恢复的窗口；统一删除流程可以在没有清理数据时报告完成；部分版本变更没有原子事务；运行时工具没有进入真实模型的工具清单；模型下载、进程管理及分发验证尚未形成完整边界。更换 SQLite 或拆分业务服务不会自动消除这些问题。

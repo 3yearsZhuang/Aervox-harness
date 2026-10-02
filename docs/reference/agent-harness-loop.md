@@ -17,7 +17,7 @@ review_interval_days: 90
 - 提出人：3yearszhuang · 2026-08-28
 - 修改人：3yearszhuang · 2026-09-28
 
-关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[Agent Loop 落地进展追溯](agent-loop-rollout-history.md)（AVX-HAR-002）、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[ADR-016](adr/ADR-016-base-boundaries.md)、[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md)、`CR-012`（已归档）、`CR-021`（已归档）、`CR-022`（已归档）、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
+关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[ADR-016](adr/ADR-016-base-boundaries.md)、[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md)、`CR-012`（已归档）、`CR-021`（已归档）、`CR-022`（已归档）、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
 本文规定 Aervox Agent Harness Loop 的职责、状态机、Port、持久化边界、工具执行、取消恢复和阶段验收条件。阶段 0/1/2a-2e/3a/3b-A/3b-B 的历史记录包含原生实现：`packages/agent-loop` 提供 Replay/Scripted/真实 OpenAI 兼容 Provider、多 Step 工具循环、API/SSE 持久化、工具账本、写工具审批、`ask_user_question` 人机提问交互、lease TTL/续租、过期抢占、fencing 单一终态和 Worker 恢复；原阶段设计另列 3c+ 生产级安全补强、完整 Inbox/ContextManifest 关联、独立 Host 以及 DSH/pi Adapter 目标。文中标为“目标”的接口、表和状态转换，只有在对应代码、迁移和契约测试落地后才可视为运行能力。
 
@@ -504,7 +504,7 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 
 ## 15. 阶段设计、退出条件与历史进展
 
-以下保留原阶段设计及历史实现摘要，供理解依赖和核对验收；“后续”“待补”均是原阶段记录中的边界说明，不构成独立的当前待办队列。采纳其中工作时，先核对源码与[历史落地证据](agent-loop-rollout-history.md)，再纳入根 [plan.md](../../plan.md)。阶段的安全不变量、准入和退出条件继续适用；变更已接受约束仍须履行 CR/ADR 流程。
+以下保留原阶段设计及历史实现摘要，供理解依赖和核对验收；“后续”“待补”均是原阶段记录中的边界说明，不构成独立的当前待办队列。采纳其中工作时，先核对源码与历史落地证据（见 `Aervox-docs-archive` 归档），再纳入根 [plan.md](../../plan.md)。阶段的安全不变量、准入和退出条件继续适用；变更已接受约束仍须履行 CR/ADR 流程。
 
 ### 阶段 0：冻结契约与测试骨架（已落地基础路径）
 
@@ -631,9 +631,9 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 
 ### 16.4 落地进展与追溯
 
-> 各阶段（阶段 2b 至阶段 6f）详细的代码落位、数据库表变更、测试用例清单与历史进展记录，已独立拆分维护至：
+> 各阶段（阶段 2b 至阶段 6f）详细的代码落位、数据库表变更、测试用例清单与历史进展记录，已独立归档至外部归档仓库：
 >
-> 👉 [**Agent Harness Loop 分阶段落地进展与追溯历史 (agent-loop-rollout-history.md)**](agent-loop-rollout-history.md)（AVX-HAR-002）
+> 👉 **Agent Harness Loop 分阶段落地进展与追溯历史**（`Aervox-docs-archive/archive/agent-loop-rollout-history.md`）
 >
 > 完整覆盖取消闭环、预算闸门、工具幂等预留、可观测性、三级恢复、受控收件箱（Inbox）、Context 压缩、Subagent/Workflow 贡献接入、DSH 外部适配器全流程及 CAP-033 本地动作授权等全部历史落地条目。
 
@@ -666,4 +666,4 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 
 ## CR-056 执行边界补充
 
-所有 Driver 的准入控制遵循[ADR-010 控制合同](adr/ADR-010-dsh-pi-adapters.md#cr-056-控制合同补充)。宿主注入产品上下文及控制，Loop 不依赖具体数据库或 UI。先保留既有原生 claim、账本与终态拥有者，再通过等价测试迁移装配。客户端暂态进度不能覆盖权威终态；HTTP/SSE 继续使用既有契约，新增水位必须先进入流式契约。此处是已接受约束，具体实现进度见[CR-056](changes/CR-056-build-to-delete-pi-style-architecture.md)。
+所有 Driver 的准入控制遵循[ADR-010 控制合同](adr/ADR-010-dsh-pi-adapters.md#cr-056-控制合同补充)。宿主注入产品上下文及控制，Loop 不依赖具体数据库或 UI。先保留既有原生 claim、账本与终态拥有者，再通过等价测试迁移装配。客户端暂态进度不能覆盖权威终态；HTTP/SSE 继续使用既有契约，新增水位必须先进入流式契约。此处是已接受约束，具体实现进度见 CR-056（已归档至 Aervox-docs-archive）。

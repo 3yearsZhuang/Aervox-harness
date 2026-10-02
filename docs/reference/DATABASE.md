@@ -33,7 +33,7 @@ sources:
 
 本文规定 Aervox 持久化层的目标契约、机器事实源、关键不变量、破坏性迁移协议和发布门禁。
 字段与 DDL 的机器真源是 `packages/schema` 和 `packages/repositories/src/schema/ddl`；本文不复制
-每张表的完整定义。逐实体覆盖状态见[数据库数据模型覆盖矩阵](database-coverage-matrix.md)。
+每张表的完整定义。表结构与字段定义直接以 `packages/schema/src/*.ts` 为唯一真源。
 
 > [!IMPORTANT]
 > `CR-030`（已归档） 的决策为 Accepted、交付状态为
@@ -87,8 +87,7 @@ POSIX 权限目标为目录 `0700`、数据库/状态清单/token `0600`；Windo
 
 ## 4. 领域数据模型
 
-最终无租户 Schema 按以下领域维护；完整表清单由 Schema barrel 与
-[覆盖矩阵](database-coverage-matrix.md)生成或核验。
+最终无租户 Schema 按以下领域维护；完整表清单由 `packages/schema/src` 导出与自动化测试守卫保障。
 
 | 领域 | 关键事实 | 关键派生/控制 |
 |---|---|---|
@@ -277,4 +276,4 @@ D1～D3 每阶段都必须运行 `mise tasks run ci-code` 与 `mise tasks run ci
 
 `plugins.availability` 为非空文本，默认 `available`，允许写入 `available/missing/invalid/unreadable`。由启动清单扫描写入，独立于用户的 `enabled`、配置/Secret、授权及页面数据。旧库通过幂等新增列兼容，保留原记录，不换库、不清理历史表。未知可用性值按不可执行处理。实现缺席时工具执行/导出、Skill 运行时导出、会话插件切面与 Worker 主动规则均须检查该状态；管理读取和显式数据清理继续可用。
 
-恢复有效包只恢复可用性，不重建撤销的授权或启用用户关闭的插件。旧应用不识别该列，不能直接作为缺包保护的回滚版本；回滚须保留等价门控。元数据与 DDL 同步，验证见[CR-056](changes/CR-056-build-to-delete-pi-style-architecture.md)。
+恢复有效包只恢复可用性，不重建撤销的授权或启用用户关闭的插件。旧应用不识别该列，不能直接作为缺包保护的回滚版本；回滚须保留等价门控。元数据与 DDL 同步，验证见 CR-056（已归档至 Aervox-docs-archive）。

@@ -99,6 +99,6 @@ reference/               # 固定 commit 的子模块（只读参考，见 PRD 1
 - 需求与落地状态：[需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md)。
 - 当前迭代：先读 [plan.md](../plan.md)，任务开始、改序和移交时更新队列真源 `docs/_meta/plan-queue.json` 并运行 `mise tasks run plan-render` 重新生成 §2 表格（规则见[计划治理](reference/document-governance.md#31-当前迭代计划的唯一入口)）；
 - 底层评估证据：[底层优化审阅与建议](explanation/foundation-optimization-review.md)，深入实现与演进路线见[架构实现评估](explanation/architecture-implementation-review.md)；
-- 规划可替换实现与类 pi 分层：[CR-056](reference/changes/CR-056-build-to-delete-pi-style-architecture.md) 给出公开 Port、生命周期、试点与退出验收；当前架构评审见 ITER-014，本次规划交付见 ITER-023，实施状态不由 CR 内切片另行维护；
+- 规划可替换实现与类 pi 分层：CR-056（已归档至 Aervox-docs-archive）给出公开 Port、生命周期、试点与退出验收；当前架构评审见 ITER-014，本次规划交付见 ITER-023，实施状态不由 CR 内切片另行维护；
 - 规划配套设备：[配套硬件方向：能力核查、移动协同取舍与原型路线](explanation/companion-hardware-directions.md)，器件级设计输入见 [ESP32-S3 硬件延伸方案](explanation/esp32-s3-hardware-extension.md)；
 - 规划手机体验：[移动端落地规划](reference/changes/CR-055-mobile-delivery-plan.md)（CR-055，待评审），比较配套端与独立端，核对连接、数据边界与逐阶段验收。
