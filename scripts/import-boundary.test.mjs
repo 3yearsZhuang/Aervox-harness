@@ -12,7 +12,7 @@ test("规则矩阵：5 条底座健身函数齐备", () => {
   assert.deepEqual(
     RULES.map((r) => r.name).sort(),
     [
-      "agent-loop-no-db",
+      "core-no-db",
       "capability-layer-no-db-no-host",
       "contracts-must-be-leaf",
       "packages-no-host-imports",
@@ -32,9 +32,9 @@ test("agent-loop 禁触数据库：database/libsql/drizzle 均违规", () => {
   const drizzle = `import { drizzle } from "drizzle-orm/libsql";`;
   const ok = `import type { ToolSpec } from "./types.js";`;
   for (const src of [db, libsql, drizzle]) {
-    assert.deepEqual(v("packages/agent-loop/src/ports.ts", src), ["agent-loop-no-db"]);
+    assert.deepEqual(v("packages/core/src/ports.ts", src), ["core-no-db"]);
   }
-  assert.deepEqual(v("packages/agent-loop/src/tool-provider.ts", ok), []);
+  assert.deepEqual(v("packages/core/src/tool-provider.ts", ok), []);
 });
 
 test("共享包不得依赖宿主 Shell：@aervox/api（绝对包名）违规", () => {
@@ -59,17 +59,17 @@ test("能力/适配/模块化候选层禁触库、禁依赖宿主（未来目录
 });
 
 test("宿主 Shell 允许消费底座（不违规）", () => {
-  const src = `import { AervoxDatabase } from "@aervox/database";\nimport { executeTurn } from "@aervox/agent-loop";`;
+  const src = `import { AervoxDatabase } from "@aervox/database";\nimport { executeTurn } from "@aervox/core";`;
   assert.deepEqual(v("apps/api/src/modules/conversation/agent-executor.ts", src), []);
 });
 
 test("AST 提取：type import / 副作用导入 / 动态 import() 均覆盖", () => {
   const typeOnly = `import type { X } from "@aervox/database";`;
-  assert.deepEqual(v("packages/agent-loop/src/index.ts", typeOnly), ["agent-loop-no-db"]);
+  assert.deepEqual(v("packages/core/src/index.ts", typeOnly), ["core-no-db"]);
   const sideEffect = `import "@aervox/database";`;
-  assert.deepEqual(v("packages/agent-loop/src/index.ts", sideEffect), ["agent-loop-no-db"]);
+  assert.deepEqual(v("packages/core/src/index.ts", sideEffect), ["core-no-db"]);
   const dynamic = `const mod = await import("@aervox/database");`;
-  assert.deepEqual(v("packages/agent-loop/src/index.ts", dynamic), ["agent-loop-no-db"]);
+  assert.deepEqual(v("packages/core/src/index.ts", dynamic), ["core-no-db"]);
 });
 
 test(".vue <script> 块内导入参与边界判定", () => {
@@ -81,20 +81,20 @@ test(".vue <script> 块内导入参与边界判定", () => {
 
 test("export ... from 与纯模板字符串 import() 均覆盖", () => {
   const exportFrom = `export { resolveX } from "@aervox/database";`;
-  assert.deepEqual(v("packages/agent-loop/src/index.ts", exportFrom), ["agent-loop-no-db"]);
+  assert.deepEqual(v("packages/core/src/index.ts", exportFrom), ["core-no-db"]);
   const templateLit = "const m = await import(`@libsql/client`);";
-  assert.deepEqual(v("packages/agent-loop/src/index.ts", templateLit), ["agent-loop-no-db"]);
+  assert.deepEqual(v("packages/core/src/index.ts", templateLit), ["core-no-db"]);
 });
 
-test("相对路径跨包引用可解析并判定（agent-loop → ../repositories 落库违规）", () => {
-  // packages/agent-loop/src/x.ts → ../../repositories/src/index.ts 解析为 packages/repositories → @aervox/repositories
+test("相对路径跨包引用可解析并判定（core → ../repositories 落库违规）", () => {
+  // packages/core/src/x.ts → ../../repositories/src/index.ts 解析为 packages/repositories → @aervox/repositories
   const src = `import { AervoxDatabase } from "../../repositories/src/index.js";`;
-  assert.deepEqual(v("packages/agent-loop/src/executor.ts", src), ["agent-loop-no-db"]);
+  assert.deepEqual(v("packages/core/src/executor.ts", src), ["core-no-db"]);
 });
 
 test("已知限制：带表达式的模板字符串 import() 不判定（评审兜底）", () => {
   const dynamicExpr = "const m = await import(`./mod-${name}.js`);";
-  assert.deepEqual(v("packages/agent-loop/src/index.ts", dynamicExpr), []);
+  assert.deepEqual(v("packages/core/src/index.ts", dynamicExpr), []);
 });
 
 test("相对路径解析不到实际文件时保持忽略（不误报）", () => {
@@ -147,7 +147,7 @@ test("组合根无目录豁免；过渡授权必须精确到边且具备责任�
 });
 
 test("TSImportType 也遵循原有包边界", () => {
-  assert.deepEqual(v("packages/agent-loop/src/ports.ts", 'type X = import("@aervox/repositories").X'), ["agent-loop-no-db"]);
+  assert.deepEqual(v("packages/core/src/ports.ts", 'type X = import("@aervox/repositories").X'), ["core-no-db"]);
 });
 
 // 新增终端 Shell 后，所有现有底座必须维持单向依赖。

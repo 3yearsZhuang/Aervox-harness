@@ -22,7 +22,7 @@ import {
   assertSafeStartup,
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
-import type { WorkflowDefinition } from "@aervox/agent-loop";
+import type { WorkflowDefinition } from "@aervox/core";
 // 业务模块（按 ADR-014 0.3.0 六域分组；CR-052）
 // ── companion（陪伴与对话） ──
 import { registerConversationModule } from "./modules/companion/conversation/index.js";

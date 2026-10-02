@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/host-agent — Agent Loop SQLite 执行存储适配（阶段 4a）
  *
- * 从 apps/api 迁移的组合根适配：实现 @aervox/agent-loop 的 ExecutionStorePort，
+ * 从 apps/api 迁移的组合根适配：实现 @aervox/core 的 ExecutionStorePort，
  * 宿主为对话仓储；API 同步路径与内嵌异步 Loop Host 共用本实现。
  * 迁移边界：apps/api 经 `@aervox/host-agent` 复用，不再自维护 SQLite 适配。
  */
@@ -13,8 +13,8 @@ import type {
   ModelRunRecord,
   ToolExecutionRecord,
   ToolExecutionStatus,
-} from "@aervox/agent-loop";
-import { LeaseLostError } from "@aervox/agent-loop";
+} from "@aervox/core";
+import { LeaseLostError } from "@aervox/core";
 import type { SqliteConversationRepository, LocalContext } from "@aervox/repositories";
 import { FencingMismatchError } from "@aervox/repositories";
 
@@ -159,13 +159,13 @@ export class SqliteExecutionStore implements ExecutionStorePort {
     invocationId: string;
     name: string;
     arguments: unknown;
-    status: import("@aervox/agent-loop").ToolExecutionStatus;
+    status: import("@aervox/core").ToolExecutionStatus;
     output?: unknown;
     error?: string;
     startedAt: string;
     finishedAt?: string;
     eventData: unknown;
-    safetyDecision: import("@aervox/agent-loop").SafetyDecision;
+    safetyDecision: import("@aervox/core").SafetyDecision;
     expectedFencingToken: number;
   }): Promise<{ ok: boolean }> {
     try {
@@ -203,7 +203,7 @@ export class SqliteExecutionStore implements ExecutionStorePort {
     sequence: number;
     eventType: "done" | "error";
     eventData: unknown;
-    safetyDecision?: import("@aervox/agent-loop").SafetyDecision;
+    safetyDecision?: import("@aervox/core").SafetyDecision;
   }): Promise<{ ok: boolean }> {
     const done = await this.repo.finalizeAttemptWithEventAtomically(this.ctx, {
       turnId: input.turnId,
@@ -225,7 +225,7 @@ export class SqliteExecutionStore implements ExecutionStorePort {
     sequence: number;
     text: string;
     eventData: unknown;
-    safetyDecision: import("@aervox/agent-loop").SafetyDecision;
+    safetyDecision: import("@aervox/core").SafetyDecision;
     expectedFencingToken: number;
   }): Promise<{ ok: boolean }> {
     try {
@@ -254,7 +254,7 @@ export class SqliteExecutionStore implements ExecutionStorePort {
     sequence: number;
     text: string;
     eventData: unknown;
-    safetyDecision: import("@aervox/agent-loop").SafetyDecision;
+    safetyDecision: import("@aervox/core").SafetyDecision;
     expectedFencingToken: number;
   }>): Promise<{ ok: boolean }> {
     if (inputs.length === 0) return { ok: true };

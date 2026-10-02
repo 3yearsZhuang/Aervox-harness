@@ -11,7 +11,7 @@
  */
 import type { IToolRegistryRepository, ToolRegistrationModel, LocalContext } from "@aervox/repositories";
 import { ForbiddenError, NotFoundError } from "../../../shared/errors.js";
-import { inspectToolInput } from "@aervox/agent-loop";
+import { inspectToolInput } from "@aervox/core";
 
 /** 工具调用处理器：入参已过注册表校验，返回结果由调用方编码 */
 export interface ToolHandler {

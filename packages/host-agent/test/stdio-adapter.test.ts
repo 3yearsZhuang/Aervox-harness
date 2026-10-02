@@ -9,8 +9,8 @@
  */
 import { afterEach, describe, expect, it } from "vitest";
 import { createAgentProfile, createStdioAdapterDriver } from "../src/index.js";
-import { drainAdapterDriver, createSimAdapterDriver } from "@aervox/agent-loop";
-import type { AdapterManifest } from "@aervox/agent-loop";
+import { drainAdapterDriver, createSimAdapterDriver } from "@aervox/core";
+import type { AdapterManifest } from "@aervox/core";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 

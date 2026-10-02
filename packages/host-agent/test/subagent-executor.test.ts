@@ -19,7 +19,7 @@ import {
   type AervoxDatabase,
   type LocalContext,
 } from "@aervox/repositories";
-import { createScriptedProvider, SUBAGENT_DELEGATE_TOOL } from "@aervox/agent-loop";
+import { createScriptedProvider, SUBAGENT_DELEGATE_TOOL } from "@aervox/core";
 import type { Client } from "@libsql/client";
 
 const ctx: LocalContext = { workspaceId: "ws_subag", subjectUserId: "usr_subag" };

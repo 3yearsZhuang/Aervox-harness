@@ -5,12 +5,12 @@
  * 静态 Contribution 工具的通用写授权门（PET-05 / 阶段 3a / CR-022 full_access
  * 预授权）与动态 tool_registrations 运行时适配（CAP-033 主动动作授权）逐字节迁移。
  */
-import { inspectToolInput } from "@aervox/agent-loop";
+import { inspectToolInput } from "@aervox/core";
 import type {
   ToolExecutionInput,
   ToolExecutionResult,
   ToolProviderPort,
-} from "@aervox/agent-loop";
+} from "@aervox/core";
 import type {
   LocalContext,
   SqliteConversationRepository,

@@ -19,8 +19,8 @@ import type {
   AdapterEvent,
   AdapterDriverPort,
   AdapterRequest,
-} from "@aervox/agent-loop";
-import { drainAdapterDriver } from "@aervox/agent-loop";
+} from "@aervox/core";
+import { drainAdapterDriver } from "@aervox/core";
 
 export interface AdapterTurnInput {
   turnId: string;
@@ -30,7 +30,7 @@ export interface AdapterTurnInput {
   /** Host 已审核的系统提示词；原样透传给进程外 Adapter。 */
   systemPrompt?: string;
   /** 可注入的工具 schema（透传给 adapter；缺省无） */
-  tools?: import("@aervox/agent-loop").ToolSpec[];
+  tools?: import("@aervox/core").ToolSpec[];
 }
 
 export interface AdapterTurnResult {

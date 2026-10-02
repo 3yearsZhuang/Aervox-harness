@@ -62,8 +62,7 @@ packages/
   contracts/         # L0 纯契约层：Zod Schema + OpenAPI v9（唯一 DTO 事实源）
   schema/            # Drizzle ORM SQLite 模式定义（唯一表结构事实源）
   repositories/      # LibSQL/SQLite 仓储层：DDL、迁移、事务执行器
-  core/              # 独立内核包（@aervox/core）：执行器、ControlContext、审批 SPI、工具沙箱（Apache-2.0，ADR-021）
-  agent-loop/        # re-export 过渡壳（指向 @aervox/core，一个迭代后移除）
+  core/              # 独立内核包（@aervox/core）：执行器、ControlContext、审批 SPI、工具沙箱（Apache-2.0，ADR-021；原 agent-loop 壳已移除）
   host-agent/        # 进程内 Agent Loop 宿主与 SQLite ExecutionStore
   practice-review/   # 练习、错题本与间隔复习调度算法
   diary/             # 学习日记提炼与生成领域服务

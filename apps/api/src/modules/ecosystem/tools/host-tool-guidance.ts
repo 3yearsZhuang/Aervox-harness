@@ -6,7 +6,7 @@
  * `buildBaseSystemPrompt({ customGuidance: HOST_TOOL_GUIDANCE })` 注入，
  * 内核表只保留内核自有工具（ask_user_question / subagent_delegate / workflow_run）。
  */
-import type { ToolGuidance } from "@aervox/agent-loop";
+import type { ToolGuidance } from "@aervox/core";
 
 export const HOST_TOOL_GUIDANCE: readonly ToolGuidance[] = [
   {

@@ -51,7 +51,7 @@ Agent Harness Loop 是驱动一次 Agent Turn 的执行能力：它领取已持�
 | Turn 创建 | `apps/api/src/modules/companion/conversation/routes.ts`；Outbox 兼容事件为 `turn.created` | 已有幂等创建 Turn、Message 和 Outbox，并创建 Attempt；目标 `agent.turn.requested` 仍需迁移期双读映射 |
 | TurnAttempt | `turn_attempts` schema 与仓储 | 已落地 `leaseExpiresAt`、claim/renew/recover、CAS/fencing 单一终态；事件和工具写入的 fencing 绑定、Step 持久化仍待后续阶段 |
 | TurnStreamEvent | `turn_stream_events` schema、append/list 仓储与 SSE 路由 | 已接收 attempt/safetyDecision 并从持久化事件重放；完整安全分段和更高水位订阅仍需增强 |
-| ModelProviderPort | `packages/agent-loop` + API 接线 | Replay/Scripted 与 OpenAI 兼容流已可用；`llm` 模式从 LLM 配置构造真实 Provider，Provider 仍由迁移期 API 组合根选择，独立 Host/多 Provider Resolver 待后续阶段 |
+| ModelProviderPort | `packages/core` + API 接线 | Replay/Scripted 与 OpenAI 兼容流已可用；`llm` 模式从 LLM 配置构造真实 Provider，Provider 仍由迁移期 API 组合根选择，独立 Host/多 Provider Resolver 待后续阶段 |
 | ToolRuntime | `apps/api/src/modules/ecosystem/tools/runtime.ts` + `createRuntimeToolProvider` | 只读白名单、写工具授权、工具结果账本和 fail-closed 已由模型输出驱动；并行度、幂等预留和完整沙箱仍规划中 |
 | ModelRun/ContextManifest | `model_runs`、`context_manifests` schema 与通用 CRUD | 目前仍是通用记录，未接入每个 Turn/Attempt/Step；需 ADR 冻结 `stepId`/`attemptId` 关联和 cardinality |
 | Worker loop | `apps/worker/src/index.ts` + `attempt-recovery.ts` | 已接入过期 Attempt 恢复 cycle（3b-B）；尚未由 Worker 消费 `agent.turn.requested` 驱动异步 Loop（当前 API 迁移期同步执行） |

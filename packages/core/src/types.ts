@@ -3,7 +3,7 @@
  *
  * 规则依据：docs/reference/agent-harness-loop.md（AVX-HAR-001）§5 状态机、§12.1 内部领域事件。
  * 阶段 1：无工具单 Step；阶段 2：只读工具多 Step（本文件含阶段 2 扩展）。
- * 公开 SSE 契约仍复用 @aervox/contracts 的 TurnStreamEvent 负载；本文件是 Loop 内部 schema。
+ * 公开 SSE 负载与 @aervox/contracts 的 TurnStreamEvent 结构对齐（由宿主适配）；本文件是内核内部 schema，不依赖 contracts。
  */
 
 /** Attempt 状态（对齐 turn_attempts.status 列；CancelRequested 为取消请求位，Cancelled 为终态，AVX-HAR-001 §5.1） */
@@ -329,4 +329,35 @@ export interface ContextManifestRecord {
   purpose: string;
   /** 上下文 messages 快照（序列化面由宿主决定；不在此持有数据库结构） */
   snapshot: PromptMessage[];
+}
+
+// ============ UQ-01 用户提问交互负载（ADR-021 内核提纯：内核本地声明，不再 type-import @aervox/contracts） ============
+// 与 packages/contracts 的 askUserQuestion*Schema（z.infer 输出面）结构兼容，
+// 由 core/test/type-compat.test.ts 锁定单向可赋值，防止双源漂移。
+
+export interface AskUserQuestionOption {
+  label: string;
+  description?: string;
+}
+
+export interface AskUserQuestionIntent {
+  kind: "plan-review" | "choice" | "confirmation";
+  approve?: string;
+}
+
+export interface AskUserQuestionItem {
+  id: string;
+  question: string;
+  header?: string;
+  detail?: string;
+  options?: AskUserQuestionOption[];
+  /** 与 @aervox/contracts z.infer 输出面同构（schema default(false) 收窄后必选）；内核构造点恒显式赋值 */
+  multiSelect: boolean;
+  intent?: AskUserQuestionIntent;
+}
+
+export interface AskUserQuestionAnswerItem {
+  id: string;
+  selected: string[];
+  custom?: string;
 }
