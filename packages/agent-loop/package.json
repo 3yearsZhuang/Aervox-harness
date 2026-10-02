@@ -4,6 +4,7 @@
   "license": "AGPL-3.0-or-later",
   "private": true,
   "type": "module",
+  "description": "Transitional re-export shell over @aervox/core (ADR-021). Will be removed one iteration after core lands.",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -15,8 +16,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },
-  "dependencies": {},
-  "devDependencies": {
-    "@aervox/contracts": "workspace:*"
+  "dependencies": {
+    "@aervox/core": "workspace:*"
   }
 }

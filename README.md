@@ -261,7 +261,8 @@ Aervox 实施严格的 Docs-as-Code 规范，文档按 Diátaxis 四分类组织
 
 ## 开源协议
 
-本项目采用双许可机制：
+本项目采用分层许可机制：
 
-- **源代码**（`apps/`、`packages/`、`scripts/` 及配置文件）：基于 [GNU Affero General Public License v3](LICENSE)（AGPLv3）或更高版本授权。
+- **独立内核 `packages/core`**：基于 [Apache License 2.0](packages/core/LICENSE)（Apache-2.0）授权，对闭源与商业下游友好（ADR-021 分层许可的内核宽松层）。
+- **其余源代码**（`apps/`、`packages/`（除 `core`）、`scripts/` 及配置文件）：基于 [GNU Affero General Public License v3](LICENSE)（AGPLv3）或更高版本授权。
 - **文档资产**（`docs/`、`README.md`、`AGENTS.md`、`CONTRIBUTING.md`、`plan.md`）：基于 [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International](docs/LICENSE)（CC BY-NC-SA 4.0）授权。

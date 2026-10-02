@@ -12,7 +12,7 @@ reviewed_at: 2026-09-16
 review_interval_days: 90
 sources:
   - apps/api/src/modules/ecosystem/tools/runtime.ts
-  - packages/agent-loop/src/types.ts
+  - packages/core/src/types.ts
   - docs/reference/agent-harness-loop.md
   - docs/how-to/engineering-process.md
 ---
