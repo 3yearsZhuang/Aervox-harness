@@ -57,20 +57,18 @@ Aervox｜思隅：更好上手的“主动智能” Agent——以桌宠为入�
 - **统一依赖治理**：新增依赖一律在根目录执行 `pnpm add -w <pkg>`（开发依赖 `-Dw`），严禁进入各个子包目录单独安装，坚决防止依赖版本分裂与幽灵依赖。
 - **中间件与异步流**：Fastify 路由与中间件一律采用 `async/await`，严禁使用回调函数；中间件重构期间禁止随意修改路由文件。
 - **OpenAPI 契约生成规范**：`zod-to-openapi` 固定版本为 v9，统一使用 `OpenApiGeneratorV31`（禁止使用 `generateDocument`）；在定义任何 Zod schema 之前，必须确保已调用 `extendZodWithOpenApi(z)`，否则 `.openapi()` 元数据注入失效。
-- **文档签名与元数据维护（强制）**：
-  - 每次修改任何 Markdown 文档或根层入口文件，**必须同步更新标题下第一位置的修改人点阵签名**：`- 修改人：<账号> · <日期>`（严禁只改内容不动签名，见 [文档写作规范 §2](docs/reference/standards/doc-standards.md#2-文档头元数据)）；
-  - `docs/` 下受治文档必须采用 canonical YAML front matter，且同步更新 `updated_at` 与 `reviewed_at`；
-  - 结构性变更（增删文档、路径迁移、编号变更）须同步 [DOC_REGISTRY.md](docs/DOC_REGISTRY.md) 与 [docs/README.md](docs/README.md)；日常修改可直接运行 `mise tasks run docs-sync` 自动对齐注册表日期。
+- **文档架构与精益维护**：
+  - 严格捍卫 Diátaxis 文档架构体系（Tutorials / How-to / Reference / Explanation 各司其职，不跨层混写）；
+  - 文档作者与修改日期完全由 Git 追踪，免除正文手工维护点阵签名（`- 修改人：`）；
+  - 结构性变更（增删文档、路径迁移、编号变更）须同步 [docs/README.md](docs/README.md) 与 [docs/DOC_REGISTRY.md](docs/DOC_REGISTRY.md)；日常修改可运行 `mise tasks run docs-sync` 自动对齐注册表日期。
 - **Markdownlint 与 Vale 排版红线**：
   - 在列表项内书写代码块（Code Fence）时，代码块前后**必须各保留一行空行**，否则会触发 MD031 / MD032 语法门禁中断；
   - 正文散文中严禁使用全小写专有名词（如 `sqlite`、`vue`、`electron`、`fastify`、`zod` 等），必须严格使用规范大小写（如 `SQLite`、`Vue`、`Electron`）或用反引号包裹代码标识符（见 [术语表](docs/reference/standards/terminology.md)）。
-- **代码与文档联动复核**：
-  - 修改核心代码时，可运行 `mise tasks run docs-triggers` 检查是否命中相关受治文档的 `review_triggers`，评估是否需联动更新文档。
-- **任务完成即同步文档（强制）**：每完成一个可验证任务或实施切片，必须在继续下一项或向用户报告完成前，立即更新相关事实源文档、[§4.2 实现登记](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)和当前计划队列，记录实际验证与剩余差量；不得拖到整轮重构结束后集中补写。同步签名、元数据、注册表与生成视图并通过相应文档门禁；没有契约变化时也需在交付记录说明复核结果。具体闭环规则见[文档治理](docs/reference/document-governance.md#31-当前迭代计划的唯一入口)。
-- **落地实现登记（闭环铁律）**：
-  - 一切落地改动必须在 [落地追踪基线 §4.2](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记) 登记完成情况（关联 CAP、实现位置、日期、验证方式），未登记者视为未闭环；
-  - 借鉴参考项目（`T-*` / `AST-*` / `PET-*` / `DSH-01` / `PI-01`）需在“来源”列注明编号，并遵循开源版权声明（见 PRD §15.1）。
-- **当前迭代计划维护**：任务开始、范围/依赖变化及交付时同步队列真源 `docs/_meta/plan-queue.json` 并重新渲染 [plan.md](plan.md)（`mise tasks run plan-render`）；专题评估与 CR 只维护证据、差量和专项验收，不另设项目排期。完成项必须链接 §4.2 或 PR/验证证据；归档与字段规则统一见[迭代计划治理](docs/reference/document-governance.md#31-当前迭代计划的唯一入口)。
+- **代码即契约与敏捷交付凭证**：
+  - 代码与功能交付以**自动化测试用例全绿、代码规范与 PR 审查**为最终交付事实源；严禁在 Markdown 表格中人肉抄写终端测试运行日志；
+  - 核心能力推进直接在 [PRD.md](docs/reference/PRD.md) 与 [追踪基线 §4](docs/reference/REQUIREMENTS_TRACEABILITY.md#4-cap-001cap-035-覆盖矩阵全部能力状态唯一速览) 能力矩阵中更新；
+  - 历史阶段性流水账与已交付变更（CR-002~059）外迁至专用归档仓库 `Aervox-docs-archive`，主仓仅保留现行真源（Living System Truth）。
+- **当前迭代计划维护**：任务开始、范围/依赖变化及交付时同步队列真源 `docs/_meta/plan-queue.json` 并重新渲染 [plan.md](plan.md)（`mise tasks run plan-render`）；计划单元格只保留核心切片与验收指标，不堆砌大段测试运行日志。完成项直接关联 PR 证据。
 - **Git 功能分支工作流**：
   - 严禁直接向 `main` 分支提交或推送代码；
   - 所有变更必须按 `feat/`、`fix/`、`docs/` 前缀创建功能分支，提交前本地通过双门禁，经由 Pull Request 审查后合入 `main`。

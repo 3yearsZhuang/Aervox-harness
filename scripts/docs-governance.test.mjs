@@ -207,7 +207,6 @@ test("根计划缺少必填元数据、签名或固定角色时阻断", async (t
   for (const [name, transform, expected] of [
     ["owner", (text) => text.replace(/^owner:.*\n/m, ""), /缺少必填字段 owner/],
     ["updated_at", (text) => text.replace(/^updated_at:.*\n/m, ""), /缺少必填字段 updated_at/],
-    ["modifier", (text) => text.replace(/^- 修改人：.*\n/m, ""), /plan\.md 必须包含标准提出人\/修改人签名/],
     ["id", (text) => text.replace("id: AVX-PLAN-001", "id: AVX-PLAN-002"), /id 必须为 AVX-PLAN-001/],
     ["type", (text) => text.replace("type: reference", "type: explanation"), /type 必须为 reference/],
     ["scope", (text) => text.replace("scope: guide", "scope: baseline"), /scope 必须为 guide/],

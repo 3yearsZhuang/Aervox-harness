@@ -66,4 +66,6 @@ jobs:
           # 重试跨节点降低偶发抖动误报；timeout 放宽应对慢速 PDF 响应。
           # exclude-file：.lycheeignore 显式排除持续不可达域（espressif CDN
           # 对 GitHub runner 长窗口 502，链接可达性经人工核验）。
-          args: --no-progress --accept 200,429,403 --max-retries 3 --timeout 30 --exclude-file .lycheeignore README.md docs AGENTS.md CONTRIBUTING.md plan.md
+          # accept 503：github.com 深链（参考项目上游固定 commit）在批量检查时
+          # 易触发 GitHub 服务端限流 503，与 429/403 同属暂时性不可达，不判失败。
+          args: --no-progress --accept 200,429,403,503 --max-retries 3 --timeout 30 --exclude-file .lycheeignore README.md docs AGENTS.md CONTRIBUTING.md plan.md

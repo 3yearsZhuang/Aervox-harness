@@ -543,7 +543,6 @@ function checkCurrentIterationPlan(metadataByFile, policy) {
     reportError("根 plan.md 必须存在并纳入文档治理");
   } else {
     if (!plan.usesCanonicalFrontMatter) reportError("plan.md 必须使用 canonical YAML front matter");
-    if (!plan.hasProposer || !plan.hasModifier) reportError("plan.md 必须包含标准提出人/修改人签名");
     for (const field of ["id", "type", "scope"]) {
       const expected = policy.currentIterationPlan?.[field];
       if (expected && plan.fields[field] !== expected) {
@@ -645,7 +644,6 @@ function checkMetadata(metadataByFile, policy) {
       } else ids.set(metadata.id, file);
     }
 
-    if (!metadata.hasProposer || !metadata.hasModifier) reportMigrationWarning(`${metadata.relative}: 缺少标准提出人/修改人签名`);
     if (!metadata.id && !metadata.isNavigation) reportMigrationWarning(`${metadata.relative}: 缺少可解析的文档编号`);
     if (!metadata.type && !metadata.isNavigation && !metadata.isAdr && !metadata.isChange) reportMigrationWarning(`${metadata.relative}: 缺少类型字段`);
     if (!metadata.updatedAt && !metadata.isNavigation) reportMigrationWarning(`${metadata.relative}: 缺少更新日期`);

@@ -92,22 +92,21 @@ sources:
 进入代码编写前，该 CAP 必须通过就绪门禁（Definition of Ready）：
 
 1. **契约就绪**：在 `@aervox/contracts` 中定义好 Zod Schema 与 OpenAPI 片段；
-2. **存储就绪**：若涉及落表，在 `@aervox/schema` 中声明 DDL 并在 [数据库矩阵](../reference/database-coverage-matrix.md) 中登记；
+2. **存储就绪**：若涉及落表，在 `@aervox/schema` 中声明表结构与迁移脚本；
 3. **安全与隐私就绪**：明确数据是留在本地还是出网，是否需要用户风险确认。
 
 DoR 评审通过后，追踪矩阵状态改为 `In Development`。
 
-### 第六步：代码落地与 §4.2 终态闭环
+### 第六步：代码落地与交付闭环
 
 开发完成并通过自动化测试后，执行闭环操作：
 
-1. **回填落地登记**：
-   在追踪基线 **§4.2 落地实现登记** 表格最上方追加落地记录：
-   - 登记完整实现文件路径、完成日期、自动化测试验证结果与来源（原生 / 借鉴编号）。
-2. **推进 DoD 验收**：
-   将 §4 矩阵的 `当前状态` 推进为 `Verified` 或 `Implemented`，并在 `落地` 列标记 `✔`。
+1. **测试覆盖与交付证据**：
+   在 Pull Request 中提供完整的自动化测试用例与验证覆盖证据。
+2. **推进能力矩阵状态**：
+   将追踪基线 §4 矩阵的对应 CAP 状态推进为 `Verified` 或 `Implemented`，并在 `落地` 列标记 `✔`。
 3. **同步当前迭代队列**（若该能力对应某个 `ITER-*` 条目）：
-   在 `docs/_meta/plan-queue.json` 中把条目状态置为 `已移交`，补上 §4.2 或 PR 链接，再运行 `mise tasks run plan-render` 重新生成 `plan.md` §2——表格是派生视图，直接手改会被门禁判为不同步（规则见[迭代计划治理](../reference/document-governance.md#31-当前迭代计划的唯一入口)）。
+   在 `docs/_meta/plan-queue.json` 中把条目状态置为 `已移交`，补上 PR 链接，再运行 `mise tasks run plan-render` 重新生成 `plan.md` §2。
 
 ## 验证与门禁
 
