@@ -159,7 +159,7 @@ sources:
 | 契约 | `packages/contracts/src/stream-projection.ts`：删除 `record_practice_attempt` 核心特判与内联 `practiceResultSchema`，改为插件工具贡献的通用投影声明 | 破坏性契约变更 |
 | 内核 | `packages/core/src/base-prompt.ts`：删除 `record_practice_attempt` 的 `BASE_TOOL_GUIDANCE` 条目（已由插件 `guidance` 承载） | 破坏性内容变更 |
 | 仓储/数据 | **无表结构变更、无数据迁移**。`learning.ts` 12 张表与既有仓储保持不动；插件以普通消费方身份经窄端口读写 | 不变 |
-| 门禁 | 新增 `scripts/check-host-domain-purity.mjs` 与其豁免清单；`check-removable-implementation.mjs` 增加 `focus-mode-plugin` 目标；`import-boundary`/`check-banned-identifiers`/`check-dep-hoisting`/`check-type-boundary`/`check-architecture-topology` 扫描根扩展至 `plugins` | 新增机器强制 |
+| 门禁 | 新增 `scripts/check-host-domain-purity.mjs` 与其豁免清单（收敛后清零）；`check-removable-implementation.mjs` 增加 `focus-mode-plugin` 目标（BTD-11）与 `removalPlan`；`import-boundary` 增加 `host-no-plugin-implementation` 规则；`import-boundary`/`check-banned-identifiers`/`check-dep-hoisting`/`check-type-boundary`/`check-architecture-topology` 扫描根扩展至 `plugins` | 新增机器强制 |
 | 文档 | `plugin-config-and-pages.md`（§0 打包排除、§4.1 装配点、§4.2 删除死字段、§5 新接缝、§5.2 fail-closed）、`ARCHITECTURE.md` §3/§3.1、`REQUIREMENTS_TRACEABILITY.md` §4.2、`plan.md`（`ITER-026` 渲染） | 事实源同步 |
 
 **明确不在本提案范围**：`packages/schema/src/learning.ts` 表结构、`/v1/mistakes`、`/v1/review-items`、`/v1/learning-plans`、`/v1/practice/sessions*`、`packages/practice-review` 的复习排期算法。这些属 `CAP-003/004/006` 的学习事实真源，按反向检查保留主仓，其自选化需另立 CR 与 ADR。
@@ -186,7 +186,7 @@ mise tasks run ci-docs && mise tasks run plan-render && mise tasks run plan-chec
 | 验收项 | 判据 | 证据 |
 |---|---|---|
 | 宿主零领域知识 | `check-host-domain-purity` 零违规且豁免清单空 | 新增守卫与其 `node --test` 用例 |
-| 实现可物理移除 | 移除演练三相位通过，宿主编译无悬空导入 | `run-removability-drill.mjs` 输出 |
+| 实现可物理移除 | 移除演练三相位通过：删除 `plugins/focus-mode/` 并剥离三处组合根与包清单引用后，API/Worker 冷构建成功；宿主编译无悬空导入 | `run-removability-drill.mjs`（BTD-11） |
 | 分发包最小化 | 包内仅 `plugin.manifest.json`、`config.schema.json`、`SKILL.md`；SHA-256 稳定 | `export-plugins.test.mjs` 正反断言 |
 | 别名清除 | 全仓无 `study-mode`/`quiz-mode` 生产引用 | `check-host-domain-purity` 禁词表 |
 | 刷题工具门控 | 插件禁用时模型工具面无 `record_practice_attempt`，且不产生学习事实 | `apps/api/test/focus-mode-loop.test.ts`（含停用后门控用例）、`apps/api/test/study-term-plugins.test.ts` |
