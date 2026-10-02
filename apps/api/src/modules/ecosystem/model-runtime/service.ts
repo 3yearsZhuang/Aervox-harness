@@ -665,7 +665,10 @@ export class ModelRuntimeService {
     this.subscribers.clear();
     this.queue.length = 0;
     for (const task of this.tasks.values()) task.controller?.abort();
-    this.closing = this.bounded(Promise.all([this.stopDriver(), this.starting?.catch(() => undefined), ...this.downloads, this.persistChain])).then(() => undefined);
+    // 先等落盘链完成（快照在 stop 前构造：llama.running → autoStart），再并发停止 driver 与下载
+    this.closing = this.bounded(
+      this.persistChain.then(() => Promise.all([this.stopDriver(), this.starting?.catch(() => undefined), ...this.downloads])),
+    ).then(() => undefined);
     return this.closing;
   }
 
