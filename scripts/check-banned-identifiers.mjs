@@ -41,7 +41,7 @@ export const SOURCE_EXT_RE = /\.(ts|tsx|js|mjs|cjs|vue)$/;
 export const IGNORE_DIR_RE = /(^|\/)(node_modules|dist|out|reference|\.git)(\/|$)/;
 const SCRIPT_BLOCK_RE = /<script\b[^>]*>([\s\S]*?)<\/script>/g;
 
-export function collectSourceFiles(rootDirs = ["apps", "packages"]) {
+export function collectSourceFiles(rootDirs = ["apps", "packages", "plugins"]) {
   const out = [];
   const walk = (dir) => {
     for (const entry of readdirSync(dir)) {

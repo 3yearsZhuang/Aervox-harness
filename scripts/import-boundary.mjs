@@ -16,6 +16,7 @@
  *   L2  packages/api-client / packages/ui —— 传输与表现底座（禁触数据库）
  *   L3  apps/*                —— 宿主 Shell（单向消费上述底座）
  *   预留 capabilities/ providers/ adapters/ modules/ —— 能力层（禁触库、禁依赖宿主）
+ *   同层 plugins/<id>/        —— 插件实现（CR-060：禁触库、禁反向依赖宿主 Shell）
  * 参考规则：ADR-021（core 运行时零依赖，禁入 SQLite/LibSQL/Drizzle）、AVX-HAR-001 §16.2；
  *           AVX-CAP-001 交付载体与自选机制（Kernel Substrate 边界、能力层接口边界）。
  *
@@ -75,6 +76,19 @@ export const RULES = [
     name: "capability-layer-no-db-no-host",
     docRef: "AVX-CAP-001 · ADR-016",
     fromDir: /^(capabilities|providers|adapters|modules)\//,
+    forbid: [
+      { pattern: /^@aervox\/(database|schema|repositories)($|\/)/, label: "数据库/模式/仓储" },
+      { pattern: /^@libsql\//, label: "@libsql/client" },
+      { pattern: /^drizzle-orm($|\/)/, label: "drizzle-orm" },
+      { pattern: /^@aervox\/(api|worker|web|desktop|mobile|cli)$/, label: "宿主 Shell 包" },
+    ],
+  },
+  {
+    // CR-060：插件实现内聚于 plugins/<id>/ 后，仍不得绕过宿主窄端口直连数据库或反向依赖宿主 Shell。
+    // 允许依赖 @aervox/ui 等共享包（宿主扩展 API 与展示基座），故不阻断全部 @aervox/*。
+    name: "plugins-domain-no-db-no-host",
+    docRef: "CR-060 · AVX-PLUG-001 §0.3",
+    fromDir: /^plugins\/[^/]+\//,
     forbid: [
       { pattern: /^@aervox\/(database|schema|repositories)($|\/)/, label: "数据库/模式/仓储" },
       { pattern: /^@libsql\//, label: "@libsql/client" },
@@ -203,7 +217,7 @@ function toPseudoSpecifier(repoRel) {
 }
 
 /** 全量遍历目录（repo 根相对），返回源码文件相对路径列表 */
-export function collectSourceFiles(rootDirs = ["apps", "packages"]) {
+export function collectSourceFiles(rootDirs = ["apps", "packages", "plugins"]) {
   const out = [];
   const walk = (dir) => {
     for (const entry of readdirSync(dir)) {

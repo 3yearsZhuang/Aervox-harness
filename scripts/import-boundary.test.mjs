@@ -8,7 +8,7 @@ import { collectSourceFiles, inspectSource, RULES } from "./import-boundary.mjs"
 
 const v = (file, source) => inspectSource(file, source).map((x) => x.rule);
 
-test("规则矩阵：5 条底座健身函数齐备", () => {
+test("规则矩阵：6 条底座健身函数齐备", () => {
   assert.deepEqual(
     RULES.map((r) => r.name).sort(),
     [
@@ -16,6 +16,7 @@ test("规则矩阵：5 条底座健身函数齐备", () => {
       "capability-layer-no-db-no-host",
       "contracts-must-be-leaf",
       "packages-no-host-imports",
+      "plugins-domain-no-db-no-host",
       "ui-client-no-db",
     ].sort(),
   );
@@ -60,6 +61,20 @@ test("能力/适配/模块化候选层禁触库、禁依赖宿主（未来目录
   assert.deepEqual(v("capabilities/conversation/src/definition.ts", db), ["capability-layer-no-db-no-host"]);
   assert.deepEqual(v("modules/practice/src/activate.ts", host), ["capability-layer-no-db-no-host"]);
   assert.deepEqual(v("providers/llm/openai-openai/src/adapter.ts", `import { port } from "@aervox/contracts";`), []);
+});
+
+test("插件实现层禁触库、禁反向依赖宿主 Shell（CR-060）", () => {
+  const db = `import type { SqliteConversationRepository } from "@aervox/repositories";`;
+  const libsql = `import { createClient } from "@libsql/client";`;
+  const host = `import { registerPluginsModule } from "@aervox/api";`;
+  for (const src of [db, libsql, host]) {
+    assert.deepEqual(v("plugins/focus-mode/src/server/index.ts", src), ["plugins-domain-no-db-no-host"]);
+  }
+  // 共享包（宿主扩展 API 与展示基座）仍可依赖：插件必须能拿到 UIRegistry/WorkbenchContext/primitives
+  assert.deepEqual(v("plugins/focus-mode/src/ui/index.ts", `import { defaultUIRegistry } from "@aervox/ui";`), []);
+  assert.deepEqual(v("plugins/focus-mode/src/server/index.ts", `import { extractTerms } from "@aervox/practice-review";`), []);
+  // 插件自有相对导入合法
+  assert.deepEqual(v("plugins/focus-mode/src/ui/index.ts", `import { useFocusModeState } from "./useFocusModeState.js";`), []);
 });
 
 test("宿主 Shell 允许消费底座（不违规）", () => {

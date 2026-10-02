@@ -63,6 +63,8 @@ sources:
 | [learning/terms/routes.ts](../../../apps/api/src/modules/learning/terms/routes.ts) | `CAP-007` 概念探索具备独立路由 | 整个模块位于宿主，文件头自述「仅在专注模式 / 学习上下文中被激活调用」，内容为硬编码模板文案 |
 | [agent-executor.ts:386-389](../../../apps/api/src/modules/companion/conversation/agent-executor.ts#L386-L389) | 工具贡献走 Provider 组合 | `record_practice_attempt` 只看端口是否存在，**无插件启用门控**；禁用插件后模型仍持有该工具 |
 | [practice-attempt-port.ts:42](../../../apps/api/src/modules/companion/conversation/practice-attempt-port.ts#L42) | 作答落库经端口委托宿主 | 落库证据硬编码 `source: "quiz-mode"` |
+| [core/src/base-prompt.ts:75-83](../../../packages/core/src/base-prompt.ts#L75-L83) | 基础系统提示词已提供 `customGuidance?: ToolGuidance[]` 通用注入位 | 通用基础提示词内硬编码 `record_practice_attempt` 的 `whenToUse`/`whenNotToUse`/`constraints` 产品域工具指南 |
+| [stream-projection.ts:22,35-36](../../../packages/contracts/src/stream-projection.ts#L22-L36) | 投影白名单按事件类型泛化校验 | 核心投影函数特判 `tool.name === "record_practice_attempt"` 并内联 `practiceResultSchema`，为单个插件工具开后门 |
 | [useWorkbenchLayout.ts:78-79,186-205](../../../packages/ui/src/composables/useWorkbenchLayout.ts#L78-L205) | 工作台宿主提供通用 layout/composer/conversation 组合式函数 | 插件域状态 `focusModeEnabled` 长在通用 layout 组合式函数内，含插件专属活动事件名与**插件 DOM class** `.floating-study-switch-wrap` |
 | [useWorkbenchCards.ts:625-634](../../../packages/ui/src/composables/useWorkbenchCards.ts#L625-L634) | 卡片目录由核心卡片与 `registry.getCards()` 合并 | 核心组合式函数硬编码插件贡献的卡片 id：`cardSlots.value = ['study', 'timer']` |
 | [AervoxWorkbench.vue:243-245](../../../packages/ui/src/components/AervoxWorkbench.vue#L243-L245) | Turn 协议的 `metadata` 为开放结构 `z.record(z.string(), z.unknown())` | 宿主壳体直接产出插件私有语义 `{ mode: 'focus', intent: 'quiz' }` |
@@ -116,7 +118,8 @@ sources:
 | 契约 | `packages/contracts/src/index.ts`：`termsExtractedEventDataSchema`、`termExplore*` 迁出至插件 | 破坏性导出变更 |
 | 契约 | `packages/ui`：`sendMessage` 选项由 `{quizMode,resend}` 改为 `{metadata,resend}`；新增 `pluginState`、插件事件订阅、`applySlotPreset`、`composer:indicator` 槽位、`/plugin-api` 与 `/markdown` 子路径出口 | 破坏性契约变更 |
 | 服务端 | `apps/api/src/modules/ecosystem/plugins/turn-plugins/*`（保留 `registry.ts`、`runner.ts`）；`modules/learning/terms/**` 删除；`companion/conversation/practice-attempt-port.ts`、`learning/learning/cap016-017-routes.ts` 迁出；新增 `apps/api/src/plugin-assembly.ts` | 结构重组 + 路由迁移 |
-| 内核 | `packages/core/src/{focus-mode-prompt,practice-attempt-tool}.ts` 删除并移出出口；`ports.ts:337-368` 的 `PracticeAttemptPort` 下沉 | 破坏性导出变更（向 ADR-021 最小发行边界收敛） |
+| 内核 | `packages/core/src/{focus-mode-prompt,practice-attempt-tool}.ts` 删除并移出出口；`ports.ts:337-368` 的 `PracticeAttemptPort` 下沉；`base-prompt.ts:75-83` 的工具指南改由插件经既有 `customGuidance` 通用注入位提供 | 破坏性导出变更（向 ADR-021 最小发行边界收敛） |
+| 契约 | `packages/contracts/src/stream-projection.ts`：删除 `record_practice_attempt` 核心特判与内联 `practiceResultSchema`，改为插件工具贡献的通用投影声明 | 破坏性契约变更 |
 | 仓储/数据 | **无表结构变更、无数据迁移**。`learning.ts` 12 张表与既有仓储保持不动；插件以普通消费方身份经窄端口读写 | 不变 |
 | 门禁 | 新增 `scripts/check-host-domain-purity.mjs` 与其豁免清单；`check-removable-implementation.mjs` 增加 `focus-mode-plugin` 目标；`import-boundary`/`check-banned-identifiers`/`check-dep-hoisting`/`check-type-boundary`/`check-architecture-topology` 扫描根扩展至 `plugins` | 新增机器强制 |
 | 文档 | `plugin-config-and-pages.md`（§0 打包排除、§4.1 装配点、§4.2 删除死字段、§5 新接缝、§5.2 fail-closed）、`ARCHITECTURE.md` §3/§3.1、`REQUIREMENTS_TRACEABILITY.md` §4.2、`plan.md`（`ITER-026` 渲染） | 事实源同步 |

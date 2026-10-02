@@ -1,0 +1,149 @@
+/**
+ * Aervox｜思隅 宿主领域纯净性守卫自测（node --test）
+ * 运行：node --test scripts/check-host-domain-purity.test.mjs
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import {
+  DOMAIN_PATTERNS,
+  HOST_ROOTS,
+  collectHostFiles,
+  evaluateHostPurity,
+  inspectHostFile,
+  isLegacyPluginPath,
+  loadExceptions,
+  runHostPurityCheck,
+} from "./check-host-domain-purity.mjs";
+
+const rules = (file, source) => inspectHostFile(file, source).map((h) => h.rule);
+
+test("规则矩阵：10 条 CR-060 不变量齐备", () => {
+  assert.deepEqual(
+    DOMAIN_PATTERNS.map((r) => r.id).sort(),
+    [
+      "camel-ident",
+      "domain-copy",
+      "domain-css",
+      "focus-config",
+      "plugin-id",
+      "practice-tool",
+      "quiz-protocol",
+      "study-surface",
+      "study-tool-id",
+      "term-pipeline",
+    ].sort(),
+  );
+});
+
+test("插件 id 与领域驼峰命中", () => {
+  assert.deepEqual(rules("packages/ui/src/a.ts", 'const id = "focus-mode";'), ["plugin-id"]);
+  assert.deepEqual(rules("packages/ui/src/a.ts", 'registry.register(focusModeTurnPlugin);'), ["camel-ident"]);
+  assert.deepEqual(rules("packages/ui/src/a.ts", "const studyModeEnabled = ref(false);"), ["camel-ident"]);
+});
+
+test("中文领域文案命中", () => {
+  assert.deepEqual(rules("apps/api/src/a.ts", "// 进入专注模式后的刷题闭环"), ["domain-copy"]);
+});
+
+test("刷题私有协议与落库工具命中", () => {
+  assert.deepEqual(rules("apps/api/src/a.ts", "allowQuizTrigger?: boolean;"), ["quiz-protocol"]);
+  assert.deepEqual(rules("apps/api/src/a.ts", 'name: "record_practice_attempt",'), ["practice-tool"]);
+  assert.deepEqual(rules("apps/api/src/a.ts", "port: PracticeAttemptPort;"), ["practice-tool"]);
+});
+
+test("插件配置键与专属样式类命中", () => {
+  assert.deepEqual(rules("packages/ui/src/a.ts", "autoEnableFocusMode: true,"), ["focus-config"]);
+  assert.deepEqual(rules("packages/ui/src/t.css", ".study-switch-track.active { opacity: 1; }"), ["domain-css"]);
+  assert.deepEqual(rules("packages/ui/src/a.ts", "lookAtEl: '.floating-study-switch-wrap'"), ["domain-css"]);
+});
+
+test("学习工具 / 卡片 id 字面量命中", () => {
+  assert.deepEqual(rules("packages/ui/src/a.ts", "export type ToolId = 'study' | 'mistake' | 'todo';"), ["study-tool-id"]);
+  assert.deepEqual(rules("packages/ui/src/a.ts", "cardSlots.value = ['study', 'timer'];"), ["study-tool-id"]);
+});
+
+test("不误伤 CAP-003/004/006 学习资料标识（study 单词与连字符路径）", () => {
+  for (const source of [
+    'import { studyMaterials } from "./study-materials.js";',
+    'const studyMaterialRepository = new SqliteStudyMaterialRepository();',
+    "// 学习资料与附件上传",
+    'table: "study_materials"',
+  ]) {
+    assert.deepEqual(rules("apps/api/src/a.ts", source), [], `误伤: ${source}`);
+  }
+});
+
+test("棘轮：未登记的 文件×规则 组合判定为违规", () => {
+  const entries = [{ file: "packages/core/src/types.ts", source: 'const x = "focus-mode";' }];
+  const result = evaluateHostPurity(entries, []);
+  assert.equal(result.valid, false);
+  assert.equal(result.violations.length, 1);
+  assert.equal(result.violations[0].rule, "plugin-id");
+});
+
+test("棘轮：已豁免文件命中数增长判定为 grown", () => {
+  const exceptions = [{ file: "packages/ui/src/a.ts", pattern: "camel-ident", count: 1, owner: "t", removeWhen: "t" }];
+  const entries = [{ file: "packages/ui/src/a.ts", source: "focusModeEnabled;\nstudyModeEnabled;\n" }];
+  const result = evaluateHostPurity(entries, exceptions);
+  assert.equal(result.valid, false);
+  assert.equal(result.violations.length, 0);
+  assert.equal(result.grown.length, 1);
+  assert.equal(result.grown[0].expected, 1);
+  assert.equal(result.grown[0].actual, 2);
+});
+
+test("棘轮：命中数低于登记值判定为 reducible（清单必须收紧）", () => {
+  const exceptions = [{ file: "packages/ui/src/a.ts", pattern: "camel-ident", count: 3, owner: "t", removeWhen: "t" }];
+  const entries = [{ file: "packages/ui/src/a.ts", source: "focusModeEnabled;\n" }];
+  const result = evaluateHostPurity(entries, exceptions);
+  assert.equal(result.valid, false);
+  assert.equal(result.reducible.length, 1);
+  assert.equal(result.reducible[0].actual, 1);
+});
+
+test("棘轮：豁免条目对应命中完全消失同样判定为 reducible", () => {
+  const exceptions = [{ file: "packages/ui/src/gone.ts", pattern: "plugin-id", count: 2, owner: "t", removeWhen: "t" }];
+  const result = evaluateHostPurity([{ file: "packages/ui/src/a.ts", source: "const x = 1;" }], exceptions);
+  assert.equal(result.valid, false);
+  assert.equal(result.reducible.length, 1);
+  assert.equal(result.reducible[0].actual, 0);
+});
+
+test("棘轮：登记数与实际数一致时通过", () => {
+  const exceptions = [{ file: "packages/ui/src/a.ts", pattern: "plugin-id", count: 2, owner: "t", removeWhen: "t" }];
+  const entries = [{ file: "packages/ui/src/a.ts", source: 'const a = "focus-mode";\nconst b = "study-mode";\n' }];
+  const result = evaluateHostPurity(entries, exceptions);
+  assert.equal(result.valid, true);
+  assert.equal(result.hitCount, 2);
+});
+
+test(".css 纳入扫描；迁移期插件自有目录被跳过", () => {
+  const files = collectHostFiles();
+  assert.ok(files.includes("packages/ui/src/theme/workbench.css"), "应扫描宿主主题 CSS");
+  assert.ok(
+    !files.some((f) => f.startsWith("packages/ui/src/plugins/focus-mode/")),
+    "迁移期插件自有目录不应被宿主纯净性守卫扫描",
+  );
+  assert.ok(isLegacyPluginPath("packages/ui/src/plugins/focus-mode/index.ts"));
+  assert.ok(!isLegacyPluginPath("packages/ui/src/plugins/plugin-runtime.ts"), "宿主插件加载器必须受扫描");
+});
+
+test("扫描根覆盖宿主包，且不含学习事实真源包", () => {
+  assert.ok(HOST_ROOTS.includes("packages/core/src"));
+  assert.ok(HOST_ROOTS.includes("packages/agent-loop/src"));
+  assert.ok(HOST_ROOTS.includes("packages/contracts/src"));
+  assert.ok(!HOST_ROOTS.includes("packages/schema/src"), "schema 属 CAP-003/004/006 学习事实真源，范围外");
+  assert.ok(!HOST_ROOTS.includes("packages/repositories/src"), "repositories 属学习事实真源，范围外");
+});
+
+test("当前仓库状态：豁免清单与磁盘一致（零违规、零可收紧）", () => {
+  const result = runHostPurityCheck();
+  assert.deepEqual(result.violations, []);
+  assert.deepEqual(result.grown, []);
+  assert.deepEqual(
+    result.reducible,
+    [],
+    "豁免清单存在可收紧条目；请运行 node scripts/check-host-domain-purity.mjs --init 同步，或删除已完成迁移的条目",
+  );
+  assert.ok(loadExceptions().length > 0, "迁移期应仍有豁免条目；若已清空说明 CR-060 已完成，可删除本断言");
+});
