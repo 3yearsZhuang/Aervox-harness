@@ -424,6 +424,7 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 | [ADR-017](adr/ADR-017-context-manifest-modelrun-step.md) | Accepted | 冻结 ContextManifest / ModelRun / AgentStep 关联与 Inbox 数据模型 |
 | [ADR-018](adr/ADR-018-proactive-local-privacy-host.md) | Accepted | CAP-033 本地私密存储与主动智能 Host |
 | [ADR-019](adr/ADR-019-proactive-integrations-local-gateway.md) | Accepted | 主动智能外部连接采用本地网关与受控工具 |
+| [ADR-021](adr/ADR-021-aervox-core-standalone-package.md) | Accepted | Aervox Core 独立内核包与最小发行边界 |
 <!-- ADR_TABLE_END -->
 
 每个 ADR 需要记录上下文、备选方案、决策、后果、迁移和回滚。未批准的技术建议不能写成已承诺架构。
