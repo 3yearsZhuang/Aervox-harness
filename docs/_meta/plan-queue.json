@@ -481,6 +481,39 @@
       ]
     },
     {
+      "id": "ITER-026",
+      "batch": "next",
+      "status": "待评审",
+      "delivery": "伴学业务与会话执行器深度解耦插件化：宿主去领域化——CAP-002/007/016 的实现全部内聚于 `plugins/focus-mode`，宿主只保留通用扩展接缝（插件自有状态、出站 metadata 透传、插件流事件订阅、卡片槽位预设、设置与 Composer 贡献、工具与路由贡献）；清除 Turn 协议失效刷题字段与 `study-mode`/`quiz-mode` 历史别名；内核 `@aervox/core` 出口去除产品域提示词与刷题工具（对齐 Apache-2.0 分层）；建立宿主纯净性棘轮守卫与插件可移除目标；CR-060；CAP-002/007/016",
+      "gate": "学习闭环为 P0 且属学习事实真源，按 AVX-CAP-001 反向检查保留主仓，故不新增 ADR、不转自选模块、不新建 `modules/*` submodule；不修改 learning 表结构与 CAP-003/004/006 端点；破坏性契约变更（`streamEventTypeSchema`、`@aervox/ui` 发送选项、`@aervox/core` 出口）先落 CR-060 并同步 OpenAPI 生成；插件实现目录不得进入分发包；代码缺席须保留安装记录、配置与数据管理入口",
+      "acceptance": [
+        "宿主（apps/api、apps/worker、apps/web、apps/desktop、packages/ui、packages/api-client、packages/core）零 focus/study/quiz 领域标识：check-host-domain-purity 零违规且豁免清单已清空",
+        "物理删除 plugins/focus-mode 的实现目录后宿主仍可编译运行，且保留安装记录、配置与数据管理入口：run-removability-drill 三相位通过",
+        "分发包只含 plugin.manifest.json / config.schema.json / SKILL.md，SHA-256 仍字节可重现",
+        "全仓无 study-mode/quiz-mode 生产引用；刷新前旧配置记录按 CR-060 声明的处置方式处理，不静默丢失",
+        "插件禁用时模型工具面不含 record_practice_attempt，/v1/terms/explore 不再注册；@aervox/core 公共出口不含产品域提示词与刷题工具",
+        "Web 与桌面双端装配各一条渲染回归通过，插件贡献可见且无重复挂载"
+      ],
+      "checks": [
+        "`scripts/check-host-domain-purity.test.mjs`",
+        "`scripts/check-removable-implementation.test.mjs`",
+        "`scripts/run-removability-drill.mjs`",
+        "`scripts/export-plugins.test.mjs`",
+        "`apps/api/test/study-term-plugins.test.ts`",
+        "`apps/api/test/quiz-mode.test.ts`",
+        "`packages/core/test/context-builder.test.ts`",
+        "`packages/ui/test/standard-workbench.test.ts`"
+      ],
+      "owner": "platform/ecosystem",
+      "branch": "feat/iter-026-focus-mode-decoupling",
+      "statusNote": "2026-10-03 立项：CR-060 提出（审计基线 169720c，确认 43 个宿主文件含专注模式领域知识）；前置门禁缺陷修复随 3ede34e 独立交付；S0 文档切片完成，S1–S7 实施中",
+      "dependsOn": [],
+      "links": [
+        "docs/reference/changes/CR-060-focus-mode-host-decoupling.md",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
+      ]
+    },
+    {
       "id": "ITER-027",
       "batch": "next",
       "status": "待评审",

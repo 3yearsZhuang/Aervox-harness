@@ -68,7 +68,7 @@ review_interval_days: 90
 | `ADR-021` | [Aervox Core 独立内核包与最小发行边界](reference/adr/ADR-021-aervox-core-standalone-package.md) | 2026-10-03 | packages/core 边界、吸收范围、内核许可证或 Provider 统一载体变更 | core 包结构、re-export 壳、Apache-2.0 分层或 ITER-033 落点与实现不一致 |
 | `AVX-HAR-001` | [Agent Harness Loop 设计与落地规范](reference/agent-harness-loop.md) | 2026-10-02 | G2 评审 + Agent Loop/Provider/工具/持久化边界变更 | Turn/Attempt/Step、Provider、Tool、Inbox、恢复或 Profile 语义与实现/ADR 不一致 |
 | `AVX-WEB-001` | [Web 工作台实现说明](explanation/web-implementation.md) | 2026-09-18 | Web 端实现或技术基线变更 | `apps/web` 结构与 ADR-015/规划不一致 |
-| `AVX-PLUG-001` | [Aervox 插件开发规范](reference/plugin-config-and-pages.md) | 2026-09-28 | 插件声明、分发、生命周期或运行时机制变更 | Manifest、Config、Page Bridge、Turn、UI、开发者约束与机器强制范围不一致 |
+| `AVX-PLUG-001` | [Aervox 插件开发规范](reference/plugin-config-and-pages.md) | 2026-10-03 | 插件声明、分发、生命周期或运行时机制变更 | Manifest、Config、Page Bridge、Turn、UI、开发者约束与机器强制范围不一致；CR-060 目标契约未随实施落地改写 |
 | `AVX-PLAN-001` | [当前迭代计划](../plan.md) | 2026-10-01 | 每次认领、改序、范围变化、移交与迭代复盘 | 出现第二份活动队列，或依赖、证据、状态与当前工作不符 |
 | `AVX-DOC-GOV-001` | [文档治理与事实源规范](reference/document-governance.md) | 2026-09-28 | 文档分类、状态、事实源、复核触发或迁移策略变更 | 策略 JSON、校验器、索引、登记表或写作规范与治理基线不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 2026-09-18 | 写作规则、模板或季度评审 | 新文档未使用规范元数据/签名，或 Vale 规则与术语表不一致 |
@@ -94,6 +94,7 @@ review_interval_days: 90
 | `AVX-DOC-CONF-001` | [文档生命周期登记表](DOC_REGISTRY.md) | 2026-10-01 | 每季度 + 每次文档集变更 | 登记条目与实际文档集不一致 |
 | `CR-000` | [变更请求索引与归档导航](reference/changes/README.md) | 2026-10-01 | 变更提案生命周期或归档目录变更 | 提案生命周期规则或归档索引与实际不符 |
 | `CR-055` | [CR-055 移动端落地范围与分阶段交付规划](reference/changes/CR-055-mobile-delivery-plan.md) | 2026-09-18 | 移动宿主、连接认证、跨设备数据边界或阶段范围变更 | 配套/独立端定位、原生支持范围、实际实现证据或隐私约束与规划不一致 |
+| `CR-060` | [CR-060 专注模式宿主去领域化与插件实现内聚](reference/changes/CR-060-focus-mode-host-decoupling.md) | 2026-10-03 | 插件实现落点、宿主扩展接缝、Turn 插件装配或专注模式别名变更 | 宿主仍含专注模式领域知识、实现未内聚于 `plugins/focus-mode`、别名未清除、内核出口仍含产品域内容或移除演练未通过 |
 
 ## 维护规则
 

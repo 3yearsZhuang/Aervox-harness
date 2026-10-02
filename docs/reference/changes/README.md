@@ -32,6 +32,7 @@ review_interval_days: 90
 | 编号 | 标题 | 状态 | 交付规划 |
 |---|---|---|---|
 | `CR-055` | [CR-055 移动端落地范围与分阶段交付规划](CR-055-mobile-delivery-plan.md) | Proposed | Planned |
+| `CR-060` | [CR-060 专注模式宿主去领域化与插件实现内聚](CR-060-focus-mode-host-decoupling.md) | Proposed | Planned |
 
 ---
 

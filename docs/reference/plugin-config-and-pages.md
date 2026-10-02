@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.2
-updated_at: 2026-09-28
-reviewed_at: 2026-09-28
+version: 1.0.3
+updated_at: 2026-10-03
+reviewed_at: 2026-10-03
 review_interval_days: 90
 review_triggers:
   - plugins/**
@@ -55,6 +55,19 @@ sources:
 **作者规则**：第三方 Bundle 不得注入宿主 DOM、导入宿主内部路径或把第一方 Hook 当作动态插件执行入口。未来执行第三方服务端代码仍须满足 ADR-009 的进程外隔离要求；iframe、Vue 错误边界、Node `vm` 都不能替代该要求。
 
 能力组合规范中的 `CapabilityManifest`、Provider/Profile、依赖 Resolver、签名与锁文件是另一层契约，不能直接作为当前 `PluginManifest` 安装。其独立可执行可选模块通过 `modules/*` 子仓库交付的要求仍有效；当前 `plugins/*` 是声明与资源包，第一方 UI/Turn 是随主仓交付的受信实现，不能与独立可执行模块混同。单纯制作声明式 Bundle 不要求新建子仓库；真正新增独立可选业务模块、改变目录责任或放宽 ADR 边界，先按能力注册表与 [CR 流程](../how-to/cr-workflow.md)裁定。
+
+### 0.3 契约冻结：专注模式内聚与宿主去领域化（CR-060，待落地）
+
+本节冻结 [CR-060](changes/CR-060-focus-mode-host-decoupling.md) 的目标契约，供实施与评审对齐。**当前尚未落地**：下文 §4.1、§4.2、§4.3、§5.1、§5.2 描述的仍是落地前行为；实施切片完成并通过移除演练后，由该 CR 一并改写为已落地事实。落地前不得据本节向用户承诺能力。
+
+- **实现落点**：第一方实现的源码可与声明同置于 `plugins/<id>/`，但实现目录**不进入** `.aervox-plugin` 分发包；分发包仍只含 Manifest、Config、Skill、Page 等声明与资源。分发包内容以显式允许清单为准，不随目录递归扩张。
+- **宿主装配**：宿主只提供通用注册表；具体插件由唯一装配文件显式注入，宿主包内不得出现插件领域标识。
+- **插件自有状态**：插件状态经宿主命名空间化接口读写；宿主通用组合式函数与主题样式不得承载单个插件的领域字段与类名。
+- **出站语义**：Turn `metadata` 是开放结构，由插件自行组装模式语义；宿主发送与 Composer 契约不得为单个插件预留私有字段。
+- **插件流事件**：核心事件枚举只保留内核事件；插件事件类型经贡献注册表校验与投影白名单。
+- **工具与路由贡献**：插件贡献的工具与路由随插件启用状态门控，不得在宿主无条件注入。
+- **代码缺席**：注册与门控两端一致 fail-closed；插件记录缺失时不得默认启用，且必须保留安装记录、配置与数据管理入口。
+- **兼容别名**：不保留历史别名；`study-mode`/`quiz-mode` 不再是 `focus-mode` 的注册别名。
 
 ### 0.1 Manifest、版本与命名
 
