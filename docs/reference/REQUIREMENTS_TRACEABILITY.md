@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.50.2
-updated_at: 2026-10-02
-reviewed_at: 2026-10-02
+version: 1.53.0
+updated_at: 2026-10-03
+reviewed_at: 2026-10-03
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-30
+- 修改人：3yearszhuang · 2026-10-03
 
 产品需求来源：[PRD.md](PRD.md)
 
@@ -189,6 +189,9 @@ review_interval_days: 90
 - `core-companion-extraction-20261003`：Aervox Core 内核提纯与伴学功能回归插件宿主（ADR-021 内核提纯修订 / ITER-036），`focus-mode-prompt` 迁回 apps/api 专注模式回合插件，`practice-attempt-tool` 与 `PracticeAttemptPort` 契约迁回 apps/api companion 会话装配链，宿主工具 guidance 迁回宿主 `HOST_TOOL_GUIDANCE`（`customGuidance` 注入）；内核导出面收窄后 `user-question-tool` / `subagent-contribution` 判定为内核能力保留；实现位置 `apps/api/src/modules/ecosystem/plugins/turn-plugins/focus-mode-prompt.ts`、`apps/api/src/modules/companion/conversation/practice-attempt-tool.ts`、`apps/api/src/modules/ecosystem/tools/host-tool-guidance.ts`；验收证据见对应 PR 与 `ITER-036` 计划条目。
 - `core-shell-removal-20261003`：过渡壳移除与内核类型自持（ADR-021 Decision 2 闭环 / ITER-037），`packages/agent-loop` 壳与 host-agent `cli-approval` 兼容壳删除，四下游 import 直连 `@aervox/core`；内核本地声明 `AskUserQuestion*` 负载类型（`packages/core/test/type-compat.test.ts` 锁定与 contracts 结构兼容），core 源码零 contracts 引用；import-boundary `core-no-db` 规则承接内核禁库边界；验收证据见对应 PR 与 `ITER-037` 计划条目。
 - `core-provider-contract-20261003`：Provider 补全契约归一第一刀（ADR-021 Decision 4 / ITER-033 拆分切片 ITER-038），core `ModelChunk` 增加结构化 `stopReason`（`ModelStopReason`）与 `ModelUsage` 输入/输出用量分账，`openai-compat-provider` 透传；api 对话路径（本地 llama 与远程兼容端点）已统一经 `ModelProviderPort` 单一补全面；实现位置 `packages/core/src/types.ts`、`packages/core/src/openai-compat-provider.ts`；验收证据见对应 PR 与 `ITER-038` 计划条目。
+- `core-dedupe-stable-key-20261003`：工具调用去重键稳定序列化（缺陷 D-KEY / AVX-HAR-001 §9 幂等预留），`executor` 的 `dedupeKey` 由 `JSON.stringify(args)` 改为 `stableSerialize`（对象键字典序递归、数组保序、循环引用降级为 `[Circular]` 标记），修复键序不同的等价参数被误判为两次独立调用、导致幂等账本被绕过与副作用重复发生；实现位置 `packages/core/src/executor.ts`；回归由 `packages/core/test/dedupe-key.test.ts` 锁定（键序无关、嵌套键序无关、数组保序三条契约，验证手法为临时回退实现观察用例变红）；验收证据见对应 PR。
+- `core-circular-args-resilience-20261003`：循环引用工具参数可降级（缺陷 D-CIRC），模型返回自引用 `arguments` 时，预算计量行的裸 `JSON.stringify(chunk.toolCalls)` 原会抛 `Converting circular structure to JSON` 并逃出流式循环，把计量偏差放大为整 Turn 的 `execution error`；改用 `safeStringify`（保持原形不排序键，仅对环回引用与不可序列化值降级为标记），使畸形参数成为可降级输入异常而非致命错误，入参安全判定仍由 `inspectToolInput` 负责；回归由 `packages/core/test/circular-args-resilience.test.ts` 锁定（单层自引用、深度自引用、工具不执行、事件仍留痕、非循环引用路径行为不变）；实现位置 `packages/core/src/executor.ts`、`packages/core/src/safe-serialize.ts`；验收证据见对应 PR。
+- `core-executor-decoupling-20261003`：executor 单函数复杂度收口与审批裁决单点收敛（ITER-041），`executeTurn` 由 911 行单函数拆为「编排 + 四个职责模块」，外部端口签名（`ExecutionStorePort` / `ModelProviderPort` / `ToolProviderPort` / `ApprovalPolicyPort`）与公开 SSE 契约零变更：终态收敛切至 `packages/core/src/turn-terminator.ts`（取消 / 预算 / 删除闸门四条路径与主循环解耦）、工具执行管线切至 `packages/core/src/tool-pipeline.ts`（入参沙箱 → 审批 → 子任务 ControlContext 派生 → 执行 → 租约丢失中止）、账本收口切至 `packages/core/src/tool-ledger.ts`（结果分类与账本状态映射，幂等正确性关键）、Step 流式收集切至 `packages/core/src/step-collector.ts`（计量 / 预算守卫 / 心跳检查点 / 思考增量节流）；审批裁决映射收敛为单一真源 `packages/core/src/approval-decision.ts` 的 `decideToolCall`，消除 executor 内联段与 `withApprovalPolicy` 装饰器的双实现分叉；两个序列化函数各自独立为单一真源且明确不可合并（`stable-serialize.ts` 排序键供去重，`safe-serialize.ts` 不排序供事件账本保真）；实现位置 `packages/core/src/executor.ts` 及上述五个新模块；回归由 `dedupe-key` / `circular-args-resilience` / `approval-decision` / `tool-ledger` / `tool-pipeline` / `step-collector` 六个测试文件与 `executor-b4` 重试补录用例共 41 条新增用例锁定，core 用例由 225 增至 266；executor 由 911 行降至 655 行、最大缩进层级由 5.5 降至 3.5；同日审核整改修复重试路径 reasoning 尾部丢失（收尾 flush 归位至生效收集器）并清理 `safe-serialize` 残留副本与 `decideToolCall` 未用入参，`DeletionGatePort` 迁至 `ports.ts`；`ExecuteResult` 以 `failed` 承载 `Interrupted` 终态的命名收敛未动（涉持久化枚举需先立 CR）；验收证据见对应 PR 与 `ITER-041` 计划条目。
 
 ## 5. 原子需求字段模板
 

@@ -15,8 +15,8 @@ export type {
   ExecuteTurnInput,
   ExecuteTurnOptions,
   ExecuteTurnDeps,
-  DeletionGatePort,
 } from "./executor.js";
+export type { DeletionGatePort } from "./ports.js";
 export { AutoApprovalPolicy, withApprovalPolicy } from "./approval-policy.js";
 export { CliInteractiveApprovalPolicy } from "./cli-approval.js";
 export type { CliInteractiveApprovalPolicyOptions } from "./cli-approval.js";
