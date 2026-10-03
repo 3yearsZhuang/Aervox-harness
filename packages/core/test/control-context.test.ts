@@ -233,7 +233,7 @@ describe("ControlContext", () => {
         }
       );
 
-      expect(res.status).toBe("failed");
+      expect(res.status).toBe("interrupted");
       expect(res.reason).toBe("deadline_exceeded");
     });
   });
@@ -263,7 +263,7 @@ it.each([0, 1, 2, 3])("真实执行回路遵守 %s 次派发预算（模型和�
   }, { turnId: "t", attemptId: "a", userMessage: "hello", controlContext: control });
   expect(modelCalls + toolCalls).toBe(maxCalls);
   expect(control.callBudget?.usedCalls).toBe(maxCalls);
-  expect(result.status).toBe(maxCalls === 3 ? "completed" : "failed");
+  expect(result.status).toBe(maxCalls === 3 ? "completed" : "interrupted");
 });
 
 it.each([0, 1000])("Token 预算 %s 在派发前/流式输出中执行，超额后不调用工具", async (maxTokens) => {
@@ -275,7 +275,7 @@ it.each([0, 1000])("Token 预算 %s 在派发前/流式输出中执行，超额�
     provider: { id: "tokens", async *stream(request) { calls++; expect(request.maxOutputTokens).toBeLessThan(maxTokens); yield { text: "x".repeat(1001), isFinal: true, toolCalls: [{ id: "c", name: "read", arguments: {} }] }; } },
     tools: { tools: [{ name: "read", description: "read", readOnly: true }], execute: tool },
   }, { turnId: "t", attemptId: "a", userMessage: "hi", controlContext: control });
-  expect(result.status).toBe("failed"); expect(calls).toBe(maxTokens ? 1 : 0); expect(tool).not.toHaveBeenCalled();
+  expect(result.status).toBe("interrupted"); expect(calls).toBe(maxTokens ? 1 : 0); expect(tool).not.toHaveBeenCalled();
   const events = await store.listEvents("t"); expect(events.at(-1)?.data).toMatchObject({ status: "Interrupted" });
 });
 

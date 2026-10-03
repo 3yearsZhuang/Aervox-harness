@@ -57,7 +57,7 @@ describe("阶段 2c 工具幂等预留与未知结果", () => {
       turn,
     );
 
-    expect(result.status).toBe("failed"); // 单批工具后无后续 Step → 预算收敛
+    expect(result.status).toBe("interrupted"); // 单批工具后无后续 Step → 预算收敛
     const records = store.toolExecutionRecords();
     expect(records).toHaveLength(1);
     expect(records[0]?.status).toBe("executed");

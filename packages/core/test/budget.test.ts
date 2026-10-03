@@ -56,7 +56,7 @@ describe("阶段 2d 预算对账与删除/撤权闸门", () => {
       turn,
     );
 
-    expect(result.status).toBe("failed");
+    expect(result.status).toBe("interrupted");
     expect((result as { reason: string }).reason).toBe("repeat_tool");
     expect(executedCalls).toBe(3); // 前 3 次允许，第 4 次在同一批次内触发阻断前不执行
     expect(store.attemptStatus(turn.attemptId)).toBe("Interrupted");
@@ -87,7 +87,7 @@ describe("阶段 2d 预算对账与删除/撤权闸门", () => {
     );
 
     expect(executedCalls).toBe(3); // 3 次在同名上限内全部执行
-    expect(result.status).toBe("failed"); // 单批 3 工具后耗尽 maxSteps=1 → 预算收敛
+    expect(result.status).toBe("interrupted"); // 单批 3 工具后耗尽 maxSteps=1 → 预算收敛
     expect((result as { reason: string }).reason).toBe("max_steps");
   });
 
@@ -108,7 +108,7 @@ describe("阶段 2d 预算对账与删除/撤权闸门", () => {
       turn,
     );
 
-    expect(result.status).toBe("failed");
+    expect(result.status).toBe("interrupted");
     expect((result as { reason: string }).reason).toBe("turn_timeout");
     expect(store.attemptStatus(turn.attemptId)).toBe("Interrupted");
   });
@@ -130,7 +130,7 @@ describe("阶段 2d 预算对账与删除/撤权闸门", () => {
       turn,
     );
 
-    expect(result.status).toBe("failed");
+    expect(result.status).toBe("interrupted");
     expect((result as { reason: string }).reason).toBe("deletion_blocked");
     expect(executedCalls).toBe(0);
     expect(store.attemptStatus(turn.attemptId)).toBe("Interrupted");
