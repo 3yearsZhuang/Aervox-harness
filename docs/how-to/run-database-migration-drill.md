@@ -6,14 +6,13 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.0
-updated_at: 2026-09-17
-reviewed_at: 2026-09-17
+version: 1.1.0
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 90
 review_triggers:
   - docs/reference/DATABASE.md
-  - docs/reference/changes/CR-030-pure-local-sqlite-database.md
-  - packages/database/**
+  - packages/schema/**
   - packages/repositories/**
 sources:
   - docs/reference/DATABASE.md
@@ -23,7 +22,7 @@ sources:
 # 操作指南：执行 SQLite 本地数据库迁移与换库回滚演练
 
 - 提出人：3yearszhuang · 2026-09-13
-- 修改人：3yearszhuang · 2026-09-17
+- 修改人：3yearszhuang · 2026-10-04
 
 关联：[SQLite 本地单用户数据库契约](../reference/DATABASE.md) · `CR-030 纯本地 SQLite 变更`（已归档） · [运行、值班与演练手册](../reference/operations.md#10-演练与证据)
 
@@ -90,10 +89,15 @@ rm -f "$STAGING_DB" "${STAGING_DB}-wal" "${STAGING_DB}-shm"
 
 #### 2. 在新库上初始化纯本地单用户 Schema
 
-使用 `@aervox/schema` 当前最新的 DDL 脚本初始化新表结构（无 `workspace_id` 与 `tenant_id`）：
+使用 `@aervox/repositories` 的建库入口初始化最新 DDL（无 `workspace_id` 与 `tenant_id`）。仓库未提供独立迁移 CLI，用一次性 Node 脚本调用编程入口：
 
 ```bash
-mise x -- pnpm --filter @aervox/schema run migrate:init --db "$STAGING_DB"
+mise exec -- node --input-type=module -e "
+const { createDatabase, initDatabaseSchema } = await import('@aervox/repositories');
+const { db } = await createDatabase({ url: 'file:' + process.env.STAGING_DB });
+await initDatabaseSchema(db);
+console.log('staging schema initialized');
+"
 ```
 
 ### 第三步：显式范围选择与数据导入
@@ -102,21 +106,13 @@ mise x -- pnpm --filter @aervox/schema run migrate:init --db "$STAGING_DB"
 
 #### 1. 执行单用户数据抽取与重映射
 
-```bash
-# 指定需要保留的目标用户 ID
-TARGET_USER_ID="usr_primary_local"
-
-# 运行数据迁移抽取器
-mise x -- pnpm --filter @aervox/repositories run db:migrate-single-user \
-  --source "$BACKUP_DIR/aervox_source.db" \
-  --target "$STAGING_DB" \
-  --user-id "$TARGET_USER_ID"
-```
+CR-030 迁移器以编程 API 提供（`packages/repositories/src/migration/`：`scanLegacyScopes` / `selectLegacyScope` / staging 迁移与备份清单服务），仓库未提供独立 CLI 脚本。演练时编写一次性 Node 脚本调用 `@aervox/repositories` 导出的迁移服务完成抽取与重映射，参数（源库快照、staging 库路径、显式范围选择）按迁移服务签名传入；严禁使用 `MAX(rowid)` 等随机策略，多数据范围必须由用户显式选择并确认破坏性结果。
 
 #### 2. 重建 FTS5 全文索引与向量存储
 
 ```bash
-sqlite3 "$STAGING_DB" "INSERT INTO fts_messages(fts_messages) VALUES('rebuild');"
+sqlite3 "$STAGING_DB" "INSERT INTO messages_fts(messages_fts) VALUES('rebuild');"
+sqlite3 "$STAGING_DB" "INSERT INTO memories_fts(memories_fts) VALUES('rebuild');"
 ```
 
 ### 第四步：迁移完整性双向校验
@@ -125,15 +121,7 @@ sqlite3 "$STAGING_DB" "INSERT INTO fts_messages(fts_messages) VALUES('rebuild');
 
 #### 1. 核心实体行数核对
 
-比对源库指定用户的数据量与 staging 库的数据量：
-
-```sql
--- 在源库核验
-SELECT count(*) FROM sessions WHERE owner_id = 'usr_primary_local';
--- 在 staging 库核验
-SELECT count(*) FROM sessions;
--- 两者行数必须严格相等！
-```
+行数核对以迁移服务输出的逐表清单为准：manifest 记录源库选中范围行数与 staging 库行数，两者必须严格相等；核对会话、日记、记忆等关键表族。CR-030 后业务表无 `owner_id` 等租户列，不要在 SQL 中按用户列过滤。
 
 #### 2. 外键与一致性检查
 

@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.11.4
-updated_at: 2026-09-29
-reviewed_at: 2026-09-29
+version: 0.12.0
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 产品需求文档（伴学桌宠）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-29
+- 修改人：3yearszhuang · 2026-10-04
 
 关联文档：[架构设计](ARCHITECTURE.md) · [需求追踪与交付标准](REQUIREMENTS_TRACEABILITY.md) · [数据与隐私规范](DATA_PRIVACY.md) · [AI 质量与安全规范](AI_QUALITY_SAFETY.md) · [文档索引](../README.md)
 
@@ -409,9 +409,9 @@ MVP 使用一个可解释的最小调度规则：答错或连续答对数为 0 �
 
 | 要求 ID | 类别 | 基线要求 |
 |---|---|---|
-| NFR-AVAIL-001 | 可用性 | 核心学习 API 在 MVP 月可用性不低于 99.5%，成长期不低于 99.9%；模型供应商故障时仍可访问历史、错题、复习和日记 |
+| NFR-AVAIL-001 | 可用性 | 核心学习 API 在 MVP 月可用性不低于 99.5%，成长期不低于 99.9%；模型供应商故障时仍可访问历史、错题、复习和日记。该 SLO 源自云端多用户部署基线，CR-030 后随本地单机形态暂缓执行，待发布形态复审重估（见 [ARCHITECTURE §9](ARCHITECTURE.md#9-非功能容量与灾备)） |
 | NFR-PERF-001 | 性能 | 非 AI 读取 P95 ≤ 300 ms、写入 P95 ≤ 500 ms；非流式请求 3 秒内显示状态；从 Turn 持久化接受到首个通过输出安全门且已持久化的可见分段，TTFT P95 ≤ 8 秒，另记录客户端提交到首段渲染的端到端延迟 |
-| NFR-SCALE-001 | 容量 | MVP 按 10,000 注册用户、1,000 DAU、100 个并发流式会话验证；每阶段上线前依据真实负载重估并完成 2 倍峰值压测 |
+| NFR-SCALE-001 | 容量 | MVP 按 10,000 注册用户、1,000 DAU、100 个并发流式会话验证；每阶段上线前依据真实负载重估并完成 2 倍峰值压测。CR-030 后部署形态为永久本地单用户实例，该云端多用户容量基线取消，重估待产品范围复审（见 [ARCHITECTURE §9](ARCHITECTURE.md#9-非功能容量与灾备)） |
 | NFR-REL-001 | 可靠性 | 用户消息和答题先持久化再调用模型；流式响应只展示已通过分段安全检查且持久化的内容；刷新、短时断网、重连、取消、重复提交和任务重投不得丢失已展示分段或重复形成业务结果 |
 | NFR-JOB-001 | 后台任务 | 自动日记首版在设定时间后 15 分钟内发布的比例 ≥ 95%，不得为等待 30 分钟晚到宽限期而延迟；到期复习和通知的 P95 延迟 ≤ 5 分钟；失败任务可见、可重试且不重复生成 |
 | NFR-DR-001 | 灾备 | MVP 每日加密备份，每季度执行恢复演练并保留证据；成长期目标 RPO ≤ 5 分钟、RTO ≤ 1 小时；删除、同意撤销和插件/外部授权撤权的关键控制事件必须进入与业务数据库独立故障域的不可变恢复账本，恢复后重放和验证完成前不得开放流量 |
@@ -854,16 +854,16 @@ PRD 只规定用户价值、行为规则和验收结果；可变的实现细节�
 | 向量/检索 | SQLite FTS5 + 向量检索 Port（`sqlite-vec`/内存适配） | MVP 不引入独立向量数据库；Embedding 记录模型、维度和版本，可重建 |
 | 队列/缓存 | 本地 SQLite `Outbox`/`ScheduledJob` + 独立 Worker 轮询；至少一次投递、幂等 Job、DLQ | 日记、记忆、OCR、嵌入和通知异步化；无外部队列/缓存依赖，SQLite Outbox 是持久化真源（CR-030） |
 | 附件 | 本地附件目录（`data/attachments`，manifest + checksum）+ `POST /v1/attachments` 直传 + 病毒/内容扫描 | 图片、论文、试卷和导出文件与事务数据分离；对象删除受来源删除 SLA 约束 |
-| AI 运行时 | Vercel AI SDK 6（表现层）+ 内部 Provider Port；结构化输出、模型路由和安全分类 | 可利用参考项目验证过的生态，同时避免供应商或 Agent 框架成为领域真源；不让模型直接写核心表 |
+| AI 运行时 | 内部 `ProviderPort`：`@aervox/core` 自研 OpenAI 兼容流式 Provider（运行时零外部依赖，ADR-021）；本地 llama.cpp 侧车经 model-runtime 以 OpenAI 兼容端点接入 | 不让模型直接写核心表；本地模型路由/降级阶梯见 CR-034/CR-042（已归档），Provider 契约归一见 ITER-038/039 |
 | 桌面/移动 | Electron（P1）复用 Web UI；Capacitor（后续）打包 Web UI | 保持 TS 全栈并逐项管理设备权限；桌面必须启用隔离、签名和最小 IPC；移动端优先 WebView 壳，仅当出现明显原生需求时再评估 RN |
 | 测试 | Vitest、Testing Library、Playwright、fast-check、OpenAPI diff | 覆盖领域规则、真实本地存储、端到端、时区/DST、幂等和删除传播性质 |
-| 可观测性 | OpenTelemetry + Pino + Prometheus/Grafana + Sentry | 统一 Web/API/Worker/AI trace；敏感内容默认脱敏，不以第三方 AI 平台作为唯一审计真源 |
+| 可观测性 | 结构化日志（stdout JSON）+ `GET /v1/metrics`（Prometheus 文本/JSON，内存 registry）+ 审计落库；OpenTelemetry/Grafana/Sentry 为目标基线，尚未接线 | 敏感内容默认脱敏，不以第三方 AI 平台作为唯一审计真源 |
 
 架构明确暂不采用：MVP 微服务、Next.js 一体化后端、LangChain/LangGraph 作为核心领域编排、Neo4j、Kafka、Temporal、独立向量数据库和 DSH/pi 运行时硬依赖。若 P3 流量、合规或团队边界证明需要拆分，先以 ADR 说明拆分的模块、数据所有权、回滚和运维成本。
 
 ### 14.2 领域与进程边界
 
-MVP 使用“模块化单体 + 独立 Worker/Scheduler”部署：`apps/web`、`apps/api`、`apps/worker`；P1 增加 `apps/desktop`，后续可增加 `apps/mobile`。核心包至少包括 `contracts`、`schema`、`repositories`、`agent-loop`、`diary`、`practice-review`、`config`、`api-client`、`host-agent`、`observability`。命名规划阶段设想的 `domain`、`identity-consent`、`conversation`、`learning`、`memory`、`ai-runtime`、`safety`、`content-ingestion`、`integrations`、`plugin-sdk`、`database` 等独立包未全部单列，对应职责由 `agent-loop`、`repositories`、`schema`、`apps/*` 的模块与子系统承载，实际包清单以 `packages/*` 为事实源（对应关系见[代码与 API 命名规范](standards/naming-conventions.md)）。
+MVP 使用“模块化单体 + 独立 Worker/Scheduler”部署：`apps/web`、`apps/api`、`apps/worker`；P1 增加 `apps/desktop`，`apps/cli`（`siyu` 终端宿主，CR-058，已归档）复用 `@aervox/api-client/transport` 已交付，后续可增加 `apps/mobile`。核心包至少包括 `contracts`、`schema`、`repositories`、`core`（`@aervox/core` 独立内核，ADR-021）、`diary`、`practice-review`、`config`、`api-client`、`host-agent`、`observability`。命名规划阶段设想的 `domain`、`identity-consent`、`conversation`、`learning`、`memory`、`ai-runtime`、`safety`、`content-ingestion`、`integrations`、`plugin-sdk`、`database` 等独立包未全部单列，对应职责由 `core`、`repositories`、`schema`、`apps/*` 的模块与子系统承载，实际包清单以 `packages/*` 为事实源（对应关系见[代码与 API 命名规范](standards/naming-conventions.md)）。
 
 会话、学习、练习/复习、记忆、日记、AI 编排、安全、导入、集成/插件分别拥有自己的服务接口和数据访问边界；跨模块通过领域命令、事件和 Outbox 交互，不直接写入对方表。会话消息和答题是事实真源，摘要、掌握度、记忆树和日记只能作为派生结果。
 

@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.2.2
-updated_at: 2026-10-03
-reviewed_at: 2026-10-03
+version: 0.3.0
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 90
 ---
 
@@ -32,7 +32,7 @@ ADR 记录难以逆转、影响多个模块或改变数据/运维边界的技术
 | ADR-002 | Superseded by ADR-015 | Web 端与 API 契约设计（已归档） | [ADR-002](ADR-002-web-api-contract.md) |
 | ADR-003 | Accepted（经 CR-030 修订） | 仓储抽象架构：SQLite 业务真源与 FTS5/Vector Port | [ADR-003](ADR-003-postgres-retrieval.md) |
 | ADR-004 | Accepted | 业务状态 + Outbox + 幂等队列 | [ADR-004](ADR-004-outbox-idempotent-jobs.md) |
-| ADR-005 | Accepted | 内部 Provider Port 包裹 AI SDK | [ADR-005](ADR-005-provider-port.md) |
+| ADR-005 | Accepted（经 ADR-021 修订） | 内部 Provider Port 包裹 AI SDK | [ADR-005](ADR-005-provider-port.md) |
 | ADR-006 | Accepted | AI 召回期限与历史保留期限分离 | [ADR-006](ADR-006-recall-retention.md) |
 | ADR-007 | Accepted | 系统记忆树作为可重建投影 | [ADR-007](ADR-007-memory-tree-projection.md) |
 | ADR-008 | Superseded by CR-030 | Cloud-first 与本地/自托管 Port | [ADR-008](ADR-008-cloud-first-local-port.md) |
@@ -53,6 +53,15 @@ ADR 记录难以逆转、影响多个模块或改变数据/运维边界的技术
 `Proposed` 不代表已经批准。当前独立记录是评审输入，不是 G2 通过证据；每条 ADR 必须补齐备选方案、后果、迁移、回滚和验证证据并经过评审，状态才能改为 `Accepted`。
 
 ADR-011/012 是 2026-08-24 架构一致性审查新增的评审记录，现均已正式接受（Accepted）。
+
+## 何时写与状态推进
+
+原《撰写与批准 ADR》操作指南（AVX-GUIDE-002，2026-10-04 退役并入本节）的要点：
+
+- **何时写**：决策难以逆转、影响多个模块，或改变数据/运维边界；与现有 ADR 冲突、替代或扩展时；拿不准时按 ADR 处理。
+- **取号**：在本索引登记下一个 `ADR-###`，编号一经分配不复用；关联 `CAP/NFR/DATA/SEC/PRIV/RISK/CR`，标题变化不改编号。
+- **状态推进**：`Proposed` → `Accepted` 须补齐备选方案、后果、迁移/回滚与验证证据并通过 G2 评审；`Accepted` → `Superseded`/`Rejected` 保留原文并标记，不复用编号。未批准的技术建议不得写成已承诺架构。
+- **同步**：决策接受或经 `CR-*` 修订后，同步 [ARCHITECTURE §11 决策表](../ARCHITECTURE.md#11-首批-adr)（由 `render-adr-index` 从独立记录生成），不能只改独立记录。
 
 ## 模板
 

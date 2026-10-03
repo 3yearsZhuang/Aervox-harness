@@ -409,7 +409,7 @@ CR-030 后部署形态为「永久本地单用户实例」：不存在多用户�
 | [ADR-002](adr/ADR-002-web-api-contract.md) | Superseded by ADR-015 | Web 端与 API 契约设计（已归档） |
 | [ADR-003](adr/ADR-003-postgres-retrieval.md) | Accepted（经 CR-030 修订） | 仓储抽象架构：SQLite 业务真源与 FTS5/Vector Port |
 | [ADR-004](adr/ADR-004-outbox-idempotent-jobs.md) | Accepted | 业务状态 + Outbox + 幂等队列 |
-| [ADR-005](adr/ADR-005-provider-port.md) | Accepted | 内部 Provider Port 包裹 AI SDK |
+| [ADR-005](adr/ADR-005-provider-port.md) | Accepted（经 ADR-021 修订） | 内部 Provider Port 包裹 AI SDK |
 | [ADR-006](adr/ADR-006-recall-retention.md) | Accepted | AI 召回期限与历史保留期限分离 |
 | [ADR-007](adr/ADR-007-memory-tree-projection.md) | Accepted | 系统记忆树作为可重建投影 |
 | [ADR-008](adr/ADR-008-cloud-first-local-port.md) | Superseded by CR-030 | Cloud-first 与本地/自托管 Port |

@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.3.0
-updated_at: 2026-10-01
-reviewed_at: 2026-10-01
+version: 1.3.1
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 90
 ---
 
@@ -199,7 +199,7 @@ review_interval_days: 90
 - **必须**：服务端先持久化 User Message、Turn 和 Outbox；Provider 原始 chunk 只能进入有界缓冲，只有通过 purpose 安全/结构检查并提交事务的 `message`/`delta` 才能发送。`eventId` 不可复用，Turn 内 `sequence` 单调递增；SSE `id` 等于 `eventId`。
 - **幂等与恢复**：相同幂等作用域、键和请求摘要返回同一 Turn；不同摘要返回 `409 IDEMPOTENCY_KEY_REUSED`。重连必须校验 `Last-Event-ID` 属于当前 Turn，支持高水位重放和重复去重；游标过期返回 `410 STREAM_CURSOR_EXPIRED`，不得隐式重跑模型。
 - **取消/失败**：取消使用 CAS；已提交安全前缀保留并标记不完整，后续片段不得提交。首个可见片段前且无工具副作用时可用新的内部 `TurnAttempt` 重试；首片段后基础设施中断必须收敛为 `Interrupted`，用户显式发起新 Turn。只有 `Completed` 才能触发普通记忆、掌握度或日记来源。
-- **撤权**：连接存续期间每个事件发送前重新检查 workspace、purpose、同意和删除状态；撤权/删除必须主动断流或发送不含正文的 `redacted`。
+- **撤权**：连接存续期间每个事件发送前重新检查数据范围、purpose、同意和删除状态；撤权/删除必须主动断流或发送不含正文的 `redacted`。
 - **验收**：
   - `AC-FR-STREAM-001-01`：Given 相同幂等键并发提交，When 请求体摘要相同，Then 只创建一个 Turn、User Message 和 Outbox，并返回同一资源。
   - `AC-FR-STREAM-001-02`：Given 网络在第 N 个事件后断开，When 客户端以 `Last-Event-ID` 重连，Then 服务端无 sequence 空洞地重放未确认事件，重复事件可去重且不重复生成模型调用。
@@ -211,8 +211,8 @@ review_interval_days: 90
 ### FR-PRC-001 练习、判定与错题
 
 - **Parent CAP**：`CAP-003`、`CAP-004`
-- **必须**：默认题组从当前租户的活动题目中按创建顺序返回，默认 3 题且可请求 3～5 题。创建会话时必须保存本次题目 ID 快照；之后题目被归档、修改或新增均不得改变该会话的题组。可用活动题目少于请求数量时不得创建会话，并返回可操作的冲突错误。
-- **会话状态**：会话只能从 `active` 转为 `completed`；结束操作可重试并返回同一汇总结果。已结束、不属于题组的作答不得写入；跨租户资源统一返回 404。
+- **必须**：默认题组从本地当前用户的活动题目中按创建顺序返回，默认 3 题且可请求 3～5 题。创建会话时必须保存本次题目 ID 快照；之后题目被归档、修改或新增均不得改变该会话的题组。可用活动题目少于请求数量时不得创建会话，并返回可操作的冲突错误。
+- **会话状态**：会话只能从 `active` 转为 `completed`；结束操作可重试并返回同一汇总结果。已结束、不属于题组的作答不得写入；不属于当前本地用户的资源统一返回 404。
 - **判定与数据**：服务端根据题目的标准答案判定可确定答案（标准化比较，忽略大小写与首尾空白）；短文本题不可验证时进入待确认。`QuestionAttempt` 为不可变事实，掌握度和复习项为派生状态；待确认或答案不可验证的题目不得进入掌握度、正式错题或复习调度。
 - **重试**：作答请求可携带 `Idempotency-Key`；同一题目和业务操作维度内相同键只创建一个作答事实，且只触发一次掌握度与复习调度更新。请求超时后客户端必须使用原键重试，并以首个成功响应为准。
 - **错题处置与错因**：错题本条目可为 `active`、`mastered` 或 `dismissed`。`dismissed` 仅隐藏派生错题条目，并排除错题重练；恢复后重新进入 `active`。用户可以为任一错题保存一个标准错因（概念不清、计算失误、粗心、审题偏差或其他）和最多 500 字的补充说明，并按错因筛选。错因是用户元数据，不参与判题、掌握度或复习调度；任何处置或错因更新均不得删除或改写 `QuestionAttempt`、知识点统计或已创建复习项。
@@ -220,14 +220,14 @@ review_interval_days: 90
   - `AC-FR-PRC-001-01`：Given 用户重复提交同一答案，When 请求重试，Then 只产生一个作答事实和一个调度结果。
   - `AC-FR-PRC-001-02`：Given 判定为待确认（unverifiable），When 会话结束，Then 不直接计入掌握度。
   - `AC-FR-PRC-001-03`：Given 生成题目答案无法验证，When 保存结果，Then 题目可见但不进入正式错题/复习。
-  - `AC-FR-PRC-001-04`：Given 当前租户活动题目不足请求数量，When 创建练习会话，Then 返回冲突错误且不创建会话。
+  - `AC-FR-PRC-001-04`：Given 本地活动题目不足请求数量，When 创建练习会话，Then 返回冲突错误且不创建会话。
   - `AC-FR-PRC-001-05`：Given 会话已创建，When 题库随后变化，Then 会话仍只接受其开始时快照中的题目。
   - `AC-FR-PRC-001-06`：Given 会话已经结束，When 再次提交作答，Then 返回冲突错误且不创建作答事实。
   - `AC-FR-PRC-001-07`：Given 未经认证的非 loopback 客户端请求本地会话、报告或作答，When 访问资源，Then 请求被拒绝且不泄露资源存在性。
   - `AC-FR-PRC-001-08`：Given 用户忽略一条活动错题，When 再次读取默认列表或创建错题重练，Then 该条目不可见且不会进入题组，原始作答仍可查询。
   - `AC-FR-PRC-001-09`：Given 用户恢复一条已忽略错题，When 读取活动列表，Then 该条目重新可见并可被选择重练。
   - `AC-FR-PRC-001-10`：Given 用户重开存在活跃会话的学习界面或重试创建会话，When 系统恢复会话，Then 返回原题组快照、已答题目和首个未答题，且不创建第二个活跃会话。
-  - `AC-FR-PRC-001-11`：Given 用户更新错因或说明，When 再次读取、筛选或重练错题，Then 更新只影响同一租户下的错因元数据与展示，原始作答和派生学习状态不变。
+  - `AC-FR-PRC-001-11`：Given 用户更新错因或说明，When 再次读取、筛选或重练错题，Then 更新只影响当前本地用户的错因元数据与展示，原始作答和派生学习状态不变。
 - **测试**：`TC-UNIT-PRC-001`、`TC-API-PRC-001`、`TC-INTEG-PRC-001`、`TC-E2E-PRC-001`。变更依据见 `CR-008`（已归档）、`CR-009`（已归档） 与 `CR-018`（已归档）。
 
 ### FR-REV-001 间隔复习
@@ -240,7 +240,7 @@ review_interval_days: 90
   - `AC-FR-REV-001-02`：Given 用户完成复习，When 保存结果，Then 只更新一次下次日期并显示规则版本。
   - `AC-FR-REV-001-03`：Given 用户跨时区或遇到 DST，When 计算日界线和下一到期时间，Then 使用操作时的用户 IANA 时区、保存时区快照且不重复生成活动项。
   - `AC-FR-REV-001-04`：Given 首次完成已提交，When 客户端以相同判定重试，Then 返回同一下一项且知识点统计只更新一次；判定不同则返回 409。
-  - `AC-FR-REV-001-05`：Given 用户已完成多次复习，When 打开学习工作台，Then 按最近完成时间展示判定和关联的下一复习项，且不得泄露其他租户记录。
+  - `AC-FR-REV-001-05`：Given 用户已完成多次复习，When 打开学习工作台，Then 按最近完成时间展示判定和关联的下一复习项，且不泄露当前复习范围之外的记录。
 - **测试**：`TC-UNIT-REV-001`、`TC-INTEG-REV-001`、`TC-PERF-REV-001`、`TC-MIG-REV-001`。变更依据见 `CR-010`（已归档） 与 `CR-011`（已归档）。
 
 ### FR-SAFE-001 轻量陪伴与安全响应

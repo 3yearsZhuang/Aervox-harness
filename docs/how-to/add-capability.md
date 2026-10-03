@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.1
-updated_at: 2026-09-18
-reviewed_at: 2026-09-18
+version: 1.1.0
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 90
 review_triggers:
   - docs/reference/PRD.md
@@ -20,15 +20,14 @@ sources:
   - docs/reference/SRS.md
   - docs/reference/capability-registry.md
   - docs/reference/REQUIREMENTS_TRACEABILITY.md
-  - docs/how-to/engineering-process.md
 ---
 
 # 操作指南：新增与规格化 CAP 业务能力
 
 - 提出人：3yearszhuang · 2026-09-13
-- 修改人：3yearszhuang · 2026-09-13
+- 修改人：3yearszhuang · 2026-10-04
 
-关联：[PRD](../reference/PRD.md) · [SRS 原子需求](../reference/SRS.md) · [能力注册表](../reference/capability-registry.md) · [需求追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md) · [工程与发布流程](engineering-process.md#1-新增与修改需求)
+关联：[PRD](../reference/PRD.md) · [SRS 原子需求](../reference/SRS.md) · [能力注册表](../reference/capability-registry.md) · [需求追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)
 
 本指南指导产品经理、架构师与开发人员如何在 Aervox 中立项、规格化、推进并落地一个全新的业务能力（Capability，简称 CAP）。能力与原子需求的权威定义以 [PRD.md](../reference/PRD.md) 和 [REQUIREMENTS_TRACEABILITY.md](../reference/REQUIREMENTS_TRACEABILITY.md) 为准，本页聚焦操作步骤。
 
@@ -37,7 +36,7 @@ sources:
 - **适用场景**：规划全新的用户可见业务功能或核心子系统（如新增跨端同步、新增专项学科评估、接入外部新生态）；
 - **核心原则**：
   - CAP 是面向用户或端到端场景的最小业务闭环单位，**禁止**将单一数据表、单一 API 路由或单个 UI 按钮单独作为 CAP；
-  - 需求推进遵循严格的生命周期：`Mapped`（规划）→ `DoR`（就绪评审）→ `In Development`（开发中）→ `DoD`（验收完成）→ `Released`（发布）。
+  - 需求推进遵循[追踪基线 §2 需求状态模型](../reference/REQUIREMENTS_TRACEABILITY.md#2-需求状态模型)：`Mapped`（已进入能力地图）→ `Specified`（已规格化）→ `Ready`（过 DoR）→ `Implemented`（实现完成）→ `Verified`（验证通过）→ `Released`（已发布）。
 
 ## 步骤
 
@@ -85,7 +84,7 @@ sources:
 | **所属批次** | 对齐 §4.1 规划 | `第四批（R4）` |
 | **原子需求清单** | 关联的 SRS 编号 | `FR-OCR-001`, `AC-FR-OCR-001-01` |
 | **当前状态** | 初始统一为 `Mapped` | `Mapped` |
-| **DoR 审查** | 记录是否已具备契约/数据模型/权限评审 | `Pending DoR` |
+| **DoR 审查** | 记录是否已具备契约/数据模型/权限评审 | `Not Ready` |
 
 ### 第五步：推进 DoR 评审进入开发
 
@@ -95,7 +94,7 @@ sources:
 2. **存储就绪**：若涉及落表，在 `@aervox/schema` 中声明表结构与迁移脚本；
 3. **安全与隐私就绪**：明确数据是留在本地还是出网，是否需要用户风险确认。
 
-DoR 评审通过后，追踪矩阵状态改为 `In Development`。
+DoR 评审通过后，追踪矩阵状态改为 `Ready`。
 
 ### 第六步：代码落地与交付闭环
 
