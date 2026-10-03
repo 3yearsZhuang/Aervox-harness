@@ -747,6 +747,87 @@
         "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
         "docs/reference/agent-harness-loop.md#10-限额与终止策略"
       ]
+    },
+    {
+      "id": "ITER-039",
+      "batch": "next",
+      "status": "建议",
+      "delivery": "内核对标增强（PI-01 pi-ai 对比结论，2026-10-03 内核自查）：①截断 fail-closed——executor 消费 `ModelStopReason=length`，截断 Step 的工具调用整批拒绝升级为可执行（含参数不完整拒绝），补 Provider 边界坏响应夹具；②usage 缓存/成本分账——`ModelUsage` 扩展 cacheRead/cacheWrite（OpenAI prompt_tokens_details.cached_tokens 透传），为 ModelRun 埋点与成本治理铺路（对应 T-10）",
+      "gate": "不新增 Provider 与依赖；截断 fail-closed 属安全收敛（更严格方向），length 终态 isFinal 行为变更需同时更新 executor Step 终止测试；不引入 pi 运行时代码（自研重写）",
+      "acceptance": [
+        "length 截断 Step 的 toolCalls 全部 fail-closed 且有坏响应夹具测试（含部分 JSON 参数）",
+        "缓存分账字段在 include_usage 端点透传并有测试；executor/ModelRun 无回归"
+      ],
+      "checks": [
+        "packages/core/test/openai-compat-provider.test.ts",
+        "packages/core/test/executor.test.ts"
+      ],
+      "owner": "platform",
+      "branch": "",
+      "statusNote": "2026-10-03 建议：内核与 pi-ai 全面对比后立项（来源 PI-01 §8.3『截断工具参数拒绝』与 T-10 缓存分账）",
+      "dependsOn": [
+        "ITER-038"
+      ],
+      "links": [
+        "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
+        "docs/explanation/reference-design-transfer.md#83-pi最值得学习的是控制边界和上下文保真"
+      ]
+    },
+    {
+      "id": "ITER-040",
+      "batch": "next",
+      "status": "建议",
+      "delivery": "标准化测试 Provider 与重试面（PI-01 对比结论）：①收敛 replay/scripted/adapter-sim/mock 四套测试桩为带能力声明的标准 faux 型 Provider（声明 reasoning/toolCalls/多模态支持），作为 provider-parity 标准夹具；②可选注入的 Provider 重试面（有界次数+指数退避+jitter+可重试错误分类：429/5xx/overloaded 与配额/计费错误区分），与宿主 CR-034 降级阶梯协同而非替代",
+      "gate": "core 运行时零依赖不破坏；重试面为可选注入（默认关闭），不与宿主降级阶梯形成双真源（core 重试单请求内、宿主降级跨 Provider）；不新增 Provider",
+      "acceptance": [
+        "标准测试 Provider 有能力声明且 parity 测试经其驱动；四套测试桩收敛或明确各自存续理由",
+        "重试面有错误分类与退避测试；默认关闭时现有行为零变化"
+      ],
+      "checks": [
+        "packages/core/test/provider-parity.test.ts"
+      ],
+      "owner": "platform",
+      "branch": "",
+      "statusNote": "2026-10-03 建议：内核与 pi-ai 全面对比后立项（来源 PI-01 faux provider 与 retryAssistantCall 设计）",
+      "dependsOn": [
+        "ITER-039"
+      ],
+      "links": [
+        "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
+        "docs/explanation/reference-design-transfer.md#83-pi最值得学习的是控制边界和上下文保真"
+      ]
+    },
+    {
+      "id": "ITER-041",
+      "batch": "first",
+      "status": "已移交",
+      "delivery": "executor 复杂度收口与审批单点收敛（2026-10-03 core 代码质量评审结论）：①按职责拆分 executeTurn（当前单函数 911 行 / 6 层以上嵌套）——流式收集器、工具执行管线、终态收敛器三段切分，外部端口（ExecutionStorePort / ModelProviderPort / ToolProviderPort / ApprovalPolicyPort）签名保持不变；②审批双实现收敛到一处（executor 内联 approvalPolicy.evaluate 与 approval-policy.ts 的 withApprovalPolicy 装饰器语义分叉，ask_user → needsApproval 收口需单点）；③ExecuteResult 用 failed 承载 Interrupted 终态的命名与数据模型不一致一并收敛",
+      "gate": "纯内部重构：不得改动任何公开端口签名、公开 SSE 契约与数据库 Schema；行为等价（重构前后同一场景事件序列与账本状态必须一致，以现有 225 用例为回归基线）；不合并 ITER-039/040 的 Provider 面工作；Interrupted 命名收敛若波及持久化终态枚举则先立 CR",
+      "acceptance": [
+        "executeTurn 按职责切分后单函数复杂度显著下降，取消/租约丢失/审批/预算四条关键路径行为等价（现有 core 225 用例零改动全绿）",
+        "审批策略仅剩一条生效路径：同一工具请求在 executor 内联与装饰器两条路径下裁决结果一致，有测试锁定",
+        "ExecuteResult 终态语义与 AttemptStatus 对齐；如涉持久化枚举变更则先立 CR 并说明迁移路径"
+      ],
+      "checks": [
+        "packages/core/test/dedupe-key.test.ts",
+        "packages/core/test/circular-args-resilience.test.ts",
+        "packages/core/test/approval-decision.test.ts",
+        "packages/core/test/tool-ledger.test.ts",
+        "packages/core/test/tool-pipeline.test.ts",
+        "packages/core/test/step-collector.test.ts",
+        "scripts/run-headless-agent.mjs"
+      ],
+      "owner": "platform",
+      "branch": "refactor/core-executor-split",
+      "statusNote": "2026-10-03 完成：四段拆分全部落地（终态收敛器 / 账本收口 / 工具执行管线 / Step 流式收集器），另修两个独立缺陷（D-KEY 去重键绕过、D-CIRC 循环引用杀Turn）。executor 911→669 行、嵌套 5.5→3.5；core 用例 225→265（新增 40 条）；headless 冒烟 5/5 与四守卫全绿。外部端口签名与公开 SSE 契约零变更。",
+      "dependsOn": [
+        "ITER-038"
+      ],
+      "links": [
+        "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
+        "docs/reference/agent-harness-loop.md#6-单次-turn-执行算法",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现原则"
+      ]
     }
   ]
 }
