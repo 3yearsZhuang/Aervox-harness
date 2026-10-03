@@ -93,7 +93,6 @@ export function withApprovalPolicy(
 
       const blocked = decideToolCall(decision, {
         call: { id: input.invocationId, name: input.name, arguments: input.arguments },
-        safetyLevel,
         invocationId: input.invocationId,
       });
       if (blocked) {

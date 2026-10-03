@@ -10,10 +10,8 @@
  * - 嵌套结构：嵌套对象的键序同样无关；
  * - 数组保序：`[1,2]` 与 `[2,1]` 语义不同，必须是不同去重键。
  *
- * 已知独立缺陷（不在D-KEY 范围，另记于executor 侧）：
- * 循环引用 arguments 会在写 `tool_request` 事件时被 `JSON.stringify` 抛
- * （"Converting circular structure to JSON"），导致整 Turn 收敛为 execution error。
- * 那是事件序列化路径的问题，与去重键无关，故此处不对其行为作断言。
+ * 循环引用 arguments 的崩溃属另一缺陷 D-CIRC，已由 `safeStringify` 修复
+ * （见 circular-args-resilience.test.ts）；与去重键无关，故此处不对其行为作断言。
  */
 import { describe, expect, it } from "vitest";
 import { defaultContextBuilder, executeTurn, InMemoryExecutionStore } from "../src/index.js";

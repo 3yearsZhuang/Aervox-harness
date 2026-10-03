@@ -10,9 +10,8 @@
  *
  * 行为等价性（ITER-041 gate）：本段为纯搬迁，未改任何判定顺序、CAS 参数或 reason 字符串。
  */
-import type { ExecutionStorePort } from "./ports.js";
+import type { DeletionGatePort, ExecutionStorePort } from "./ports.js";
 import type { ExecuteResult } from "./types.js";
-import type { DeletionGatePort } from "./executor.js";
 import type { ControlContext } from "./control-context.js";
 
 /** 收敛器所需的最小上下文（与 executor 解耦，避免整包回传造成循环依赖） */

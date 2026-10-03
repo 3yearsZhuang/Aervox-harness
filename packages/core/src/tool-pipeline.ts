@@ -150,7 +150,7 @@ export async function runToolExecution(ctx: ToolExecutionContext): Promise<ToolC
       );
       // 裁决映射收敛至 decideToolCall（与 withApprovalPolicy 装饰器共用单一真源）
       // 返回 undefined 表示准予执行 → 继续落到真实执行分支
-      result = decideToolCall(decision, { call, safetyLevel, invocationId: executionId });
+      result = decideToolCall(decision, { call, invocationId: executionId });
     }
 
     if (!result) {

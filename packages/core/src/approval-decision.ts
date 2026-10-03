@@ -14,14 +14,12 @@
  * 裁决与映射规则本身保持单一真源。
  */
 import type { ToolCallRequest, ToolCallResult } from "./types.js";
-import type { ToolApprovalDecision, ToolSafetyLevel } from "./ports.js";
+import type { ToolApprovalDecision } from "./ports.js";
 
 /** 裁决所需的最小输入（两侧各自装配后传入） */
 export interface ToolCallDecisionInput {
   /** 模型原始工具请求（提供 id / name / arguments） */
   call: ToolCallRequest;
-  /** 工具安全级别：只读自主放行 / 写类需授权 */
-  safetyLevel: ToolSafetyLevel;
   /** Host 幂等键（executor 用 executionId；装饰器用 invocationId） */
   invocationId: string;
 }

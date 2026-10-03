@@ -31,25 +31,25 @@ const makeProvider = (executed: string[]): ToolProviderPort => ({
 describe("审批裁决单点收敛（ITER-041）", () => {
   it("allow → undefined（放行，由调用方执行）", () => {
     const decision = { action: "allow" as const };
-    expect(decideToolCall(decision, { call, safetyLevel: "write_with_approval", invocationId: "inv_1" })).toBeUndefined();
+    expect(decideToolCall(decision, { call, invocationId: "inv_1" })).toBeUndefined();
   });
 
   it("deny → ok:false + reason，且不携带 needsApproval", () => {
     const decision = { action: "deny" as const, reason: "policy_denied" };
-    const result = decideToolCall(decision, { call, safetyLevel: "write_with_approval", invocationId: "inv_1" });
+    const result = decideToolCall(decision, { call, invocationId: "inv_1" });
     expect(result).toEqual({ id: "call_1", name: "save_memory_note", ok: false, error: "policy_denied" });
     expect(result?.needsApproval).toBeUndefined();
   });
 
   it("deny 无 reason 时回落默认错误串", () => {
     const decision = { action: "deny" as const };
-    const result = decideToolCall(decision, { call, safetyLevel: "write_with_approval", invocationId: "inv_1" });
+    const result = decideToolCall(decision, { call, invocationId: "inv_1" });
     expect(result?.error).toBe("tool_approval_denied: save_memory_note");
   });
 
   it("ask_user → ok:false + needsApproval，缺省 approvalId 由 invocationId 派生", () => {
     const decision = { action: "ask_user" as const };
-    const result = decideToolCall(decision, { call, safetyLevel: "write_with_approval", invocationId: "inv_9" });
+    const result = decideToolCall(decision, { call, invocationId: "inv_9" });
     expect(result?.ok).toBe(false);
     expect(result?.needsApproval?.approvalId).toBe("apv_inv_9");
     expect(result?.needsApproval?.toolName).toBe("save_memory_note");
@@ -57,7 +57,7 @@ describe("审批裁决单点收敛（ITER-041）", () => {
 
   it("ask_user 保留策略给出的 approvalId 与 argumentsHash", () => {
     const decision = { action: "ask_user" as const, approvalId: "apv_custom", argumentsHash: "h1" };
-    const result = decideToolCall(decision, { call, safetyLevel: "write_with_approval", invocationId: "inv_9" });
+    const result = decideToolCall(decision, { call, invocationId: "inv_9" });
     expect(result?.needsApproval?.approvalId).toBe("apv_custom");
     expect(result?.needsApproval?.argumentsHash).toBe("h1");
   });
@@ -77,7 +77,7 @@ describe("审批裁决单点收敛（ITER-041）", () => {
 
     const viaSingle = decideToolCall(
       { action: "ask_user", approvalId: `apv_inv_1` },
-      { call, safetyLevel: "write_with_approval", invocationId: "inv_1" },
+      { call, invocationId: "inv_1" },
     );
 
     // 同一决策 → 同一 needsApproval 载荷（error 字段装饰器不设，故只比对关键面）

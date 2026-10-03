@@ -819,7 +819,7 @@
       ],
       "owner": "platform",
       "branch": "refactor/core-executor-split",
-      "statusNote": "2026-10-03 完成：四段拆分全部落地（终态收敛器 / 账本收口 / 工具执行管线 / Step 流式收集器），另修两个独立缺陷（D-KEY 去重键绕过、D-CIRC 循环引用杀Turn）。executor 911→669 行、嵌套 5.5→3.5；core 用例 225→265（新增 40 条）；headless 冒烟 5/5 与四守卫全绿。外部端口签名与公开 SSE 契约零变更。",
+      "statusNote": "2026-10-03 完成：四段拆分全部落地（终态收敛器 / 账本收口 / 工具执行管线 / Step 流式收集器），另修两个独立缺陷（D-KEY 去重键绕过、D-CIRC 循环引用杀Turn）；同日审核整改：重试路径收尾 flush 归位至生效收集器（修重试 attempt 的 reasoning 尾部丢失）、清理 `safe-serialize` 残留副本与 `decideToolCall` 未用入参、`DeletionGatePort` 迁至 ports。executor 911→655 行、嵌套 5.5→3.5；core 用例 225→266（新增 41 条）；headless 冒烟 5/5 与四守卫全绿。外部端口签名与公开 SSE 契约零变更；交付项③（`ExecuteResult` 终态命名收敛）涉持久化枚举、先立 CR 后实施。",
       "dependsOn": [
         "ITER-038"
       ],

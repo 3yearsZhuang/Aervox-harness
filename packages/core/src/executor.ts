@@ -11,7 +11,7 @@ import { dedupeKey } from "./stable-serialize.js";
  * - 终止：自然完成（无工具请求）→ done Completed；maxSteps 内始终请求工具 → done Interrupted；
  *   未配置工具却出现工具请求，或执行错误 → fail-closed。
  */
-import type { ExecutionStorePort, InboxPort, ModelProviderPort, ToolProviderPort } from "./ports.js";
+import type { DeletionGatePort, ExecutionStorePort, InboxPort, ModelProviderPort, ToolProviderPort } from "./ports.js";
 import type { ContextBuilderPort } from "./ports.js";
 import type {
   ExecuteResult,
@@ -82,11 +82,6 @@ export interface ExecuteTurnOptions {
    * （默认 1；0 关闭）。已有任何 delta/事件或租约丢失不重试。
    */
   maxModelRetries?: number;
-}
-
-/** 2d：删除/撤权水位闸门（§11.3：删除/撤权水位未追平 → fail closed，不继续模型或工具调用） */
-export interface DeletionGatePort {
-  isBlocked(input: { turnId: string; sessionId: string }): Promise<boolean>;
 }
 
 export interface ExecuteTurnDeps {
@@ -272,33 +267,10 @@ export async function executeTurn(
           safetyDecision: "approved",
         });
       };
-      const collector = new StepCollector({
-        provider,
-        context,
-        tools: tools?.tools,
-        turnId: input.turnId,
-        attemptId: input.attemptId,
-        step,
-        messageId,
-        control,
-        heartbeat,
-        prematureTermination: () => prematureTermination(sequence),
-        finalizeInterrupted: (reason) => finalizeInterrupted(sequence, reason),
-        appendReasoningDelta,
-      });
-      // 重试需重置「已落过 reasoning 进度事件」标记，故每次 attempt 用新收集器
-      let collected: StepCollection;
-      try {
-        collected = await collector.collect();
-      } catch (err) {
-        const stop = await prematureTermination(sequence);
-        if (stop) return stop;
-        // B4-C：仅【首个可见片段前且无副作用】时允许重试（§10 maxModelRetries）
-        const canRetry = canRetryModel && !collector.hasEmittedReasoning
-          && !(err instanceof LeaseLostError) && !heartbeat?.lost;
-        if (!canRetry) throw err;
-        canRetryModel = false;
-        const retryCollector = new StepCollector({
+      // 每次收集尝试一个新收集器：重试须重置「已落过 reasoning 进度事件」与节流缓冲，
+      // 失败 attempt 的未落缓冲随旧实例一并丢弃，不得串入重试 attempt。
+      const makeCollector = (): StepCollector =>
+        new StepCollector({
           provider,
           context,
           tools: tools?.tools,
@@ -312,7 +284,20 @@ export async function executeTurn(
           finalizeInterrupted: (reason) => finalizeInterrupted(sequence, reason),
           appendReasoningDelta,
         });
-        collected = await retryCollector.collect();
+      let activeCollector = makeCollector();
+      let collected: StepCollection;
+      try {
+        collected = await activeCollector.collect();
+      } catch (err) {
+        const stop = await prematureTermination(sequence);
+        if (stop) return stop;
+        // B4-C：仅【首个可见片段前且无副作用】时允许重试（§10 maxModelRetries）
+        const canRetry = canRetryModel && !activeCollector.hasEmittedReasoning
+          && !(err instanceof LeaseLostError) && !heartbeat?.lost;
+        if (!canRetry) throw err;
+        canRetryModel = false;
+        activeCollector = makeCollector();
+        collected = await activeCollector.collect();
       }
       if (collected.stop) {
         // 终态已在 prematureTermination / finalizeInterrupted 内 CAS 提交；缓冲
@@ -321,7 +306,8 @@ export async function executeTurn(
         //——与 catch 路径同样静默丢弃。
         return collected.stop;
       }
-      await collector.flushPendingReasoning();
+      // 收尾 flush 必须落在产生 collected 的实例上，否则重试 attempt 的尾部增量会随旧实例丢失
+      await activeCollector.flushPendingReasoning();
       const chunks = collected.chunks;
       const stepText = chunks.map((c) => c.text).join("");
       const toolCalls = chunks.flatMap((c) => c.toolCalls ?? []);
