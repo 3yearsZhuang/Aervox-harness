@@ -44,6 +44,30 @@ export const streamEventTypeSchema = z.enum([
   "tool_approval_required",
 ]);
 
+/**
+ * 内核自有流事件类型**全集**。
+ *
+ * 与上面的 `streamEventTypeSchema`（收敛为"需要前端专门分发的内核事件"）不同，本集合还
+ * 包含由内核产出、但只经通用出口透传的工具事件（`tool_request` / `tool_result`）。
+ * 校验"插件写入的流事件类型是否已知"（`isKnownStreamEventType`）必须依据本全集，
+ * 否则插件将无法写入内核工具事件。与 `stream-projection.ts` 的投影白名单键集保持一致，
+ * 由 `plugin-api-registry.test.ts` 机器断言。
+ */
+export const KERNEL_STREAM_EVENT_TYPES = [
+  "message",
+  "delta",
+  "reasoning_delta",
+  "done",
+  "error",
+  "redacted",
+  "emote",
+  "user_question_required",
+  "user_question_answered",
+  "tool_approval_required",
+  "tool_request",
+  "tool_result",
+] as const;
+
 /** 事件封套的 eventType：内核事件 + 插件登记事件的并集（开放字符串，语义由登记表背书） */
 export const streamEventTypeNameSchema = z
   .string()

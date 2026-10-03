@@ -215,8 +215,11 @@ export async function registerPluginsModule(ctx: ModuleContext): Promise<void> {
   const assembly = await assembleFirstPartyPlugins({
     turnRegistry: ctx.pluginRegistry,
     // 端点与面向模型的贡献同一判据：停用、缺记录或不可用的插件一律 404
-    onHttpEndpoints: createHttpEndpointSink(app, hostServices, warn, (pluginId) =>
-      isPluginEnabled(pluginId, extensionRepo),
+    onHttpEndpoints: createHttpEndpointSink(
+      app,
+      hostServices,
+      (pluginId) => isPluginEnabled(pluginId, extensionRepo),
+      warn,
     ),
     warn,
   });

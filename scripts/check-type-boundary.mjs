@@ -24,6 +24,18 @@ const TARGET_DIRS = [
   "apps/worker/src",
 ];
 
+/**
+ * 插件实现目录（CR-060：实现内聚于 `plugins/<id>/src`，与宿主同受本规则约束）。
+ * 动态发现而非硬编码，避免新增插件时漏检。
+ */
+export function discoverPluginSourceDirs(pluginsRoot = "plugins") {
+  if (!existsSync(pluginsRoot)) return [];
+  return readdirSync(pluginsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => join(pluginsRoot, entry.name, "src"))
+    .filter((dir) => existsSync(dir));
+}
+
 const SOURCE_EXT_RE = /\.(ts|tsx|vue)$/;
 const SCRIPT_BLOCK_RE = /<script\b[^>]*>([\s\S]*?)<\/script>/g;
 
@@ -105,7 +117,10 @@ export function inspectFileForDuplicateTypes(filePath, content, exportedNames) {
   return duplicates;
 }
 
-export function runInspection(targetDirs = TARGET_DIRS, contractsDir = CONTRACTS_SRC_DIR) {
+export function runInspection(
+  targetDirs = [...TARGET_DIRS, ...discoverPluginSourceDirs()],
+  contractsDir = CONTRACTS_SRC_DIR,
+) {
   const exportedNames = collectContractExports(contractsDir);
   const duplicates = [];
 

@@ -61,6 +61,7 @@ const {
   selectDiaryDate,
   completeReview,
   reviewBusyId,
+  reviewError,
 } = cards;
 
 const { story } = conversation;
@@ -143,6 +144,7 @@ function openHistoryView() {
                 </div>
               </li>
             </ul>
+            <p v-if="reviewError" class="drawer-empty" role="alert">{{ reviewError }}</p>
           </div>
         </template>
 

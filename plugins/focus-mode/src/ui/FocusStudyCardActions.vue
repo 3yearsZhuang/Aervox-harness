@@ -2,15 +2,12 @@
 import { CircleHelp, Clock3, Puzzle } from 'lucide-vue-next';
 import { useWorkbenchContext } from '@aervox/ui/plugin-api';
 import { focusModeEnabled, openLearningView } from './plugin-state';
+import { openDailyProblem } from './daily-problem';
 
-const { layout, cards } = useWorkbenchContext();
+const { layout } = useWorkbenchContext();
 
 function handleDailyProblem() {
-  if (cards?.openDailyProblem) {
-    cards.openDailyProblem();
-  } else {
-    window.open('https://www.nowcoder.com/problem/tracker', '_blank', 'noopener,noreferrer');
-  }
+  openDailyProblem();
 }
 
 function handleStartTimer() {

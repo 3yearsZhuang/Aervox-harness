@@ -14,7 +14,6 @@
     "./live2d/petReactions": "./src/live2d/petReactions.ts",
     "./live2d/avatar-bundle": "./src/live2d/avatar-bundle.ts",
     "./theme": "./src/theme/index.css",
-    "./plugins/focus-mode": "./src/plugins/focus-mode/index.ts",
     "./plugin-api": "./src/plugin-api.ts",
     "./markdown": "./src/utils/markdown.ts",
     "./primitives": "./src/primitives/index.ts"

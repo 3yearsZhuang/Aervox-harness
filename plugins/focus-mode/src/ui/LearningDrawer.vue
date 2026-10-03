@@ -8,15 +8,12 @@ import {
   Sparkles,
   X,
 } from 'lucide-vue-next';
-import { useWorkbenchContext } from '@aervox/ui/plugin-api';
 import { AervoxNavDialog } from '@aervox/ui/primitives';
 import { activeLearningView, learningNavItems, learningOpen } from './plugin-state';
+import { useFocusLearning } from './useFocusLearning';
 
-// CR-060：学习抽屉状态与导航清单归插件所有（宿主不再持有这些字段）
-const { cards } = useWorkbenchContext();
-
+// CR-060 §B9b：刷题 / 错题 / 学习规划的状态机已自宿主迁入本插件包
 const {
-  api,
   visibleMistakes,
   selectedMistakeIds,
   practiceBusy,
@@ -52,15 +49,12 @@ const {
   archivePlan,
   togglePlanTask,
   planMilestoneStatusLabel,
-} = cards;
-
-const { learningPlans, error: apiError } = api;
+  learningPlans,
+  apiError,
+  reloadGoals,
+} = useFocusLearning();
 
 const hasActiveMistakes = computed(() => mistakes.value.some((item) => item.status === 'active'));
-
-async function reloadGoals() {
-  await api.loadAll();
-}
 </script>
 
 <template>

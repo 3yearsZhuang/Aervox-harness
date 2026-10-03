@@ -6,7 +6,7 @@
  */
 import { z } from "zod";
 import type { OpenAPIObject } from "openapi3-ts/oas31";
-import { getPluginOpenApiRoutes } from "./plugin-api-registry.js";
+import { getPluginOpenApiRoutes, type PluginOpenApiRoute } from "./plugin-api-registry.js";
 import {
   OpenAPIRegistry,
   OpenApiGeneratorV31,
@@ -1338,55 +1338,60 @@ registry.registerPath({
 });
 
 /**
- * 登记插件贡献的 OpenAPI 路由片段。
+ * 把单条插件路由登记进**目标**注册表。
  *
- * 内核文档只声明内核端点；插件自有端点（路径、模式与响应）由插件经
- * `registerPluginApiContribution({ openApiRoutes })` 声明，宿主按声明泛化补
- * scope 请求头与通用错误响应，内核源码不含任何插件路径字面量（CR-060）。
+ * 内核端点注册表不得被插件路由直接写入——否则插件可覆盖内核端点的对外描述，
+ * 且登记会在多次重建间累积（CR-060 评审 B6）。
  */
-function registerPluginRoutes(): void {
-  for (const route of getPluginOpenApiRoutes()) {
-    registry.registerPath({
-      method: route.method,
-      path: route.path,
-      summary: route.summary,
-      description: route.description,
-      tags: route.tags,
-      request: {
-        ...(route.params ? { params: route.params } : {}),
-        ...(route.query ? { query: route.query } : {}),
-        headers: scopeHeaders,
-        ...(route.body
-          ? { body: { content: { "application/json": { schema: route.body } } } }
-          : {}),
-      },
-      responses: Object.fromEntries(
-        Object.entries(route.responses).map(([status, response]) => [
-          status,
-          {
-            description: response.description,
-            ...(response.schema
-              ? { content: { "application/json": { schema: response.schema } } }
-              : {}),
-          },
-        ]),
-      ),
-    });
+function registerPluginRouteInto(target: OpenAPIRegistry, route: PluginOpenApiRoute): void {
+  target.registerPath({
+    method: route.method,
+    path: route.path,
+    summary: route.summary,
+    description: route.description,
+    tags: route.tags,
+    request: {
+      ...(route.params ? { params: route.params } : {}),
+      ...(route.query ? { query: route.query } : {}),
+      headers: scopeHeaders,
+      ...(route.body
+        ? { body: { content: { "application/json": { schema: route.body } } } }
+        : {}),
+    },
+    responses: Object.fromEntries(
+      Object.entries(route.responses).map(([status, response]) => [
+        status,
+        {
+          description: response.description,
+          ...(response.schema
+            ? { content: { "application/json": { schema: response.schema } } }
+            : {}),
+        },
+      ]),
+    ),
+  });
+}
+
+const HTTP_METHODS = new Set(["get", "post", "put", "patch", "delete", "head", "options", "trace"]);
+
+/** 从已生成文档派生「方法 + 路径」端点键集合（用于插件路由冲突判定） */
+function collectRouteKeys(doc: OpenAPIObject): Set<string> {
+  const keys = new Set<string>();
+  for (const [path, item] of Object.entries(doc.paths ?? {})) {
+    if (!item || typeof item !== "object") continue;
+    for (const method of Object.keys(item as Record<string, unknown>)) {
+      if (HTTP_METHODS.has(method)) keys.add(`${method.toUpperCase()} ${path}`);
+    }
   }
+  return keys;
 }
 
 let cachedDocument: OpenAPIObject | null = null;
+/** 内核端点文档（不含插件贡献）；插件路由不再写入内核注册表，故可安全缓存 */
+let cachedKernelDocument: OpenAPIObject | null = null;
 
-/**
- * 生成完整 OpenAPI 3.1 文档（内核端点 + 已登记的插件端点）。
- *
- * 惰性生成并缓存：插件模块在宿主装配阶段动态加载并登记其路由片段，
- * 故文档必须晚于登记构建；测试可用 `resetPluginApiContributions()` 清理后重建。
- */
-export function buildOpenApiDocument(): OpenAPIObject {
-  if (cachedDocument) return cachedDocument;
-  registerPluginRoutes();
-  cachedDocument = new OpenApiGeneratorV31(registry.definitions).generateDocument({
+function generateDocument(definitions: OpenAPIRegistry["definitions"]): OpenAPIObject {
+  return new OpenApiGeneratorV31(definitions).generateDocument({
     openapi: "3.1.0",
     info: {
       title: "Aervox｜思隅 API",
@@ -1396,6 +1401,50 @@ export function buildOpenApiDocument(): OpenAPIObject {
     },
     servers: [{ url: "http://localhost:3000" }],
   });
+}
+
+/** 生成内核端点文档（不含插件贡献）；插件端点由 buildOpenApiDocument 在独立注册表中合并 */
+function buildKernelDocument(): OpenAPIObject {
+  if (cachedKernelDocument) return cachedKernelDocument;
+  cachedKernelDocument = generateDocument(registry.definitions);
+  return cachedKernelDocument;
+}
+
+/**
+ * 生成完整 OpenAPI 3.1 文档（内核端点 + 已登记的插件端点）。
+ *
+ * 惰性生成并缓存：插件模块在宿主装配阶段动态加载并登记其路由片段，
+ * 故文档必须晚于登记构建；测试可用 `resetPluginApiContributions()` 清理后重建。
+ *
+ * 冲突语义：插件**不得**声明与内核端点相同的方法+路径，也不得重复声明同一端点；
+ * 命中即忽略该插件片段并告警，保证对外文档始终以内核契约为准（fail-closed）。
+ */
+export function buildOpenApiDocument(): OpenAPIObject {
+  if (cachedDocument) return cachedDocument;
+
+  const kernel = buildKernelDocument();
+  const occupied = collectRouteKeys(kernel);
+  const accepted: PluginOpenApiRoute[] = [];
+
+  for (const route of getPluginOpenApiRoutes()) {
+    const key = `${route.method.toUpperCase()} ${route.path}`;
+    if (occupied.has(key)) {
+      console.warn(`[contracts] 插件 OpenAPI 路由与既有端点冲突，已忽略：${key}`);
+      continue;
+    }
+    occupied.add(key);
+    accepted.push(route);
+  }
+
+  if (accepted.length === 0) {
+    cachedDocument = kernel;
+    return cachedDocument;
+  }
+
+  const pluginRegistry = new OpenAPIRegistry();
+  for (const route of accepted) registerPluginRouteInto(pluginRegistry, route);
+
+  cachedDocument = generateDocument([...registry.definitions, ...pluginRegistry.definitions]);
   return cachedDocument;
 }
 

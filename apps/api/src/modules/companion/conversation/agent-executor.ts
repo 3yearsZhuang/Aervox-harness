@@ -53,6 +53,7 @@ import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index
 import type { LLMConfigService } from "../../ecosystem/llm/service.js";
 import type { LlmDegradationService } from "../../ecosystem/llm/degradation-service.js";
 import type { ModelRoutingSnapshot } from "@aervox/contracts";
+import { isKnownStreamEventType, registerToolResultProjection } from "@aervox/contracts";
 import { loadProactiveProfilePrompt } from "../../proactive/proactive/profile-context.js";
 import type { ProactiveActionAuthorizer } from "../../proactive/proactive/action-authorizer.js";
 import { buildMemoryContext, type MemoryRecallPort } from "./memory-recall.js";
@@ -177,6 +178,12 @@ export async function runLoopTurnOnce(
     stream: {
       readEvents: (turnId, fromSequence) => repo.getStreamEvents(tenant, turnId, fromSequence),
       appendEvent: async (appendInput) => {
+        // CR-060：插件只能写入内核事件类型或其在登记表中**声明过**的事件类型。
+        // 登记表不是装饰——未声明的类型在此拒绝（fail-closed），避免插件静默塞入
+        // 前端不认识、投影白名单也无从收敛的事件。
+        if (!isKnownStreamEventType(appendInput.eventType)) {
+          throw new Error(`unregistered_stream_event_type: ${appendInput.eventType}`);
+        }
         // 具体仓储的 `appendStreamEvent` 要求显式 sequence（接口虽声明可选，
         // 实现更严），故按既有序号推进；同一 Turn 的写入由执行器串行化。
         const existing = await repo.getStreamEvents(tenant, input.turnId, 0);
@@ -423,18 +430,31 @@ export async function runLoopTurnOnce(
     contribution.push(createAskUserQuestionToolProvider({ userQuestionPort: deps.userQuestionPort }));
   }
   // CR-060：插件工具贡献——按当前本地上下文构造，并**按插件启用状态门控**。
-  // 禁用、缺记录或不可用的插件不得向模型暴露其工具（与 Runner 同判据、fail-closed）；
+  // 禁用、缺记录或不可用的插件不得向模型暴露其工具（与 Runner、插件端点同判据）。
+  // 门控一律 fail-closed：`isPluginEnabled` 在仓储缺失时同样返回 false，故此处不得再
+  // 用 `extRepo &&` 短路（那会在仓储不可用时退化为放行）。
   // 模型侧使用指南由插件自述，经内核既有的 customGuidance 通用注入位合入基础提示词。
   const pluginGuidance: ToolGuidance[] = [];
   if (deps.pluginRegistrations?.length && deps.pluginHostServices) {
     const services = deps.pluginHostServices(tenant);
     for (const registration of deps.pluginRegistrations) {
       if (!registration.toolContributions) continue;
-      if (extRepo && !(await isPluginEnabled(registration.pluginId, extRepo))) continue;
+      if (!(await isPluginEnabled(registration.pluginId, extRepo))) continue;
       try {
         for (const pluginContribution of registration.toolContributions(services)) {
           contribution.push(pluginContribution.provider);
           pluginGuidance.push(...(pluginContribution.guidance ?? []));
+          // CR-060 §B7：结果投影随工具贡献声明，宿主只为**本插件实际贡献的工具**代登记，
+          // 插件因此无法为内核工具或他人工具登记投影。
+          if (pluginContribution.resultProjection) {
+            for (const spec of pluginContribution.provider.tools) {
+              registerToolResultProjection(
+                registration.pluginId,
+                spec.name,
+                pluginContribution.resultProjection,
+              );
+            }
+          }
         }
       } catch (err) {
         deps.observability?.log.warn({

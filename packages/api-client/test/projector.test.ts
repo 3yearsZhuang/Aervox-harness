@@ -228,8 +228,31 @@ describe('TurnStreamProjector (BTD-06 客户端安全投影与防乱序/防复�
     expect(cbs.calls.onUserQuestion).toHaveLength(1);
     expect(cbs.calls.onToolApproval).toHaveLength(1);
     expect(cbs.calls.onToolApproval[0]?.turnId).toBe('turn_1');
-    // CR-060：内核未专门分发的事件经通用插件事件出口透传（此处为插件自有事件类型）
+    // CR-060：插件自有事件类型经通用出口透传
     expect(cbs.calls.onPluginEvent).toHaveLength(1);
     expect(cbs.calls.onPluginEvent[0]?.type).toBe('terms_extracted');
+  });
+
+  it('CR-060：内核事件不得经通用插件出口外泄给插件', () => {
+    const projector = new TurnStreamProjector();
+    const cbs = createMockCallbacks();
+
+    for (const [index, eventType] of ['message', 'redacted', 'user_question_answered', 'tool_request', 'tool_result'].entries()) {
+      projector.project(
+        { turnId: 'turn_1', sequence: index + 1, eventType, data: { internal: '不应外泄' } },
+        cbs,
+      );
+    }
+
+    // 内核事件不进入插件通道
+    expect(cbs.calls.onPluginEvent).toHaveLength(0);
+
+    // 真正的插件自有事件仍然透传
+    projector.project(
+      { turnId: 'turn_1', sequence: 6, eventType: 'plugin_own_event', data: { ok: true } },
+      cbs,
+    );
+    expect(cbs.calls.onPluginEvent).toHaveLength(1);
+    expect(cbs.calls.onPluginEvent[0]?.type).toBe('plugin_own_event');
   });
 });

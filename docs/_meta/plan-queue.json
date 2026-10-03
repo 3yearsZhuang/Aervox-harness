@@ -487,29 +487,29 @@
       "delivery": "伴学业务与会话执行器深度解耦插件化：宿主去领域化——CAP-002/007/016 的实现全部内聚于 `plugins/focus-mode`，宿主只保留通用扩展接缝（插件自有状态、出站 metadata 透传、插件流事件订阅、卡片槽位预设、设置与 Composer 贡献、工具与路由贡献）；清除 Turn 协议失效刷题字段与 `study-mode`/`quiz-mode` 历史别名；内核 `@aervox/core` 出口去除产品域提示词与刷题工具（对齐 Apache-2.0 分层）；建立宿主纯净性棘轮守卫与插件可移除目标（BTD-11，移除演练通过）；CR-060（Accepted / Implemented）；CAP-002/007/016",
       "gate": "学习闭环为 P0 且属学习事实真源，按 AVX-CAP-001 反向检查保留主仓，故不新增 ADR、不转自选模块、不新建 `modules/*` submodule；不修改 learning 表结构与 CAP-003/004/006 端点；破坏性契约变更（`streamEventTypeSchema`、`@aervox/ui` 发送选项、`@aervox/core` 出口）先落 CR-060 并同步 OpenAPI 生成；插件实现目录不得进入分发包；代码缺席须保留安装记录、配置与数据管理入口",
       "acceptance": [
-        "宿主（apps/api、apps/worker、apps/web、apps/desktop、packages/ui、packages/api-client、packages/core）零 focus/study/quiz 领域标识：check-host-domain-purity 零违规且豁免清单已清空",
-        "物理删除 plugins/focus-mode 的实现目录后宿主仍可编译运行，且保留安装记录、配置与数据管理入口：run-removability-drill 三相位通过",
+        "宿主（apps/api、apps/worker、apps/web、apps/desktop、packages/ui、packages/api-client、packages/core）零 domain 命中：check-host-domain-purity 零违规且豁免清单已清空，规则已覆盖 B9 迁出的全部样式类名（该守卫为字面量黑名单 + 棘轮：新增领域词汇须同步扩规则，已按此办理）",
+        "物理删除 plugins/focus-mode 的实现目录后宿主仍可编译运行，且保留安装记录、配置与数据管理入口：run-removability-drill 三相位通过（API/Worker 冷构建 + 被剥离的 Web/桌面组合根 typecheck）",
         "分发包只含 plugin.manifest.json / config.schema.json / SKILL.md，SHA-256 仍字节可重现",
-        "全仓无 study-mode/quiz-mode 生产引用；刷新前旧配置记录按 CR-060 声明的处置方式处理，不静默丢失",
+        "别名体系整体删除（ServerTurnPlugin.aliases、注册表别名映射与候选 id 探测循环），插件 id 唯一；刷新前旧配置由插件自行一次性迁移至 pluginState 命名空间，不静默丢失",
         "插件禁用时模型工具面不含 record_practice_attempt，/v1/terms/explore 不再注册；@aervox/core 公共出口不含产品域提示词与刷题工具",
-        "Web 与桌面双端装配各一条渲染回归通过，插件贡献可见且无重复挂载"
+        "Web 与桌面组合根的插件注入经编译校验（移除演练的 Web/桌面 typecheck 相位）；宿主通用接缝有渲染回归（standard-workbench 用通用插件桩），组合根注入当前无独立渲染用例"
       ],
       "checks": [
         "`scripts/check-host-domain-purity.test.mjs`（零命中、零豁免）",
-        "`scripts/check-removable-implementation.test.mjs`（含 focus-mode-plugin / BTD-11）",
-        "`scripts/run-removability-drill.mjs`（三相位，含插件整包移除）",
+        "`scripts/check-removable-implementation.test.mjs`（focus-mode-plugin / BTD-11 / 移除计划 / 剥离正则命中 / 实现清单与磁盘对齐）",
+        "`scripts/run-removability-drill.mjs`（三相位，含插件整包移除与 Web/桌面 typecheck）",
         "`scripts/export-plugins.test.mjs`",
         "`apps/api/test/focus-mode-loop.test.ts`",
         "`apps/api/test/study-term-plugins.test.ts`",
         "`apps/api/test/plugin-bundle-allowlist.test.ts`",
-        "`packages/core/test/context-builder.test.ts`",
-        "`packages/contracts/test/plugin-api-registry.test.ts`",
+        "`packages/core/test/context-builder.test.ts`（提示词内容负向断言）+ `scripts/check-type-boundary.test.mjs`（插件目录纳入扫描根）",
+        "`packages/contracts/test/plugin-api-registry.test.ts`（路由冲突/非法路径/投影归属/重置生效负向断言）；`packages/api-client/test/projector.test.ts`（内核事件不下发插件通道）；`packages/ui/test/ui-registry.test.ts`、`packages/ui/test/workbench-startup.test.ts`",
         "`plugins/focus-mode/test/plugin-registration.test.ts`",
         "`packages/ui/test/standard-workbench.test.ts`"
       ],
       "owner": "platform/ecosystem",
       "branch": "feat/iter-026-focus-mode-decoupling",
-      "statusNote": "2026-10-03 立项：CR-060 提出（审计基线 169720c，确认 43 个宿主文件含专注模式领域知识）；前置门禁缺陷修复随 3ede34e 独立交付。实施完成 S1–S7：服务端实现（回合切面/术语管线/作答工具/端点/回放夹具）迁入插件包并去宿主硬装配；宿主服务窄端口与装配点唯一实现点建立；内核与共享复习包去产品域内容；插件 API 契约改由登记表扩展；前端接缝通用化（pluginState / pluginEvents / metadata 透传 / applySlotPreset / plugins 注入 / 两个新插槽 / fail-closed 运行时）；插件 UI 与专属样式物理迁入 plugins/focus-mode/src/ui；宿主纯净性棘轮收敛至零命中零豁免；移除演练（BTD-11）删除插件整包并剥离组合根引用后 API/Worker 冷构建通过。待 PR 评审合入。",
+      "statusNote": "2026-10-03 立项：CR-060 提出（审计基线 169720c，确认 43 个宿主文件含专注模式领域知识）；前置门禁缺陷修复随 3ede34e 独立交付。实施完成 S1–S7：服务端实现（回合切面/术语管线/作答工具/端点/回放夹具）迁入插件包并去宿主硬装配；宿主服务窄端口与装配点唯一实现点建立；内核与共享复习包去产品域内容；插件 API 契约改由登记表扩展；前端接缝通用化（pluginState / pluginEvents / metadata 透传 / applySlotPreset / plugins 注入 / 两个新插槽 / fail-closed 运行时）；插件 UI 与专属样式物理迁入 plugins/focus-mode/src/ui；宿主纯净性棘轮收敛至零命中零豁免；移除演练（BTD-11）删除插件整包并剥离组合根引用后 API/Worker 冷构建通过。评审第二轮修正：专注模式普通发送失效（补变换器回传 metadata 接缝）、quietStartup 不可观测（宿主先 await 插件同步）、applySlotPreset 零调用（插件接续调用）、CR 文档 Vale 红灯、插件 OpenAPI 可劫持内核契约（独立注册表 + 冲突拒绝）、投影白名单失去归属校验（随工具贡献声明 + 宿主代登记）、回合与工具门控 fail-open（统一为 fail-closed，端点门控必填）、别名体系死代码与内核事件外泄、旧配置迁移归插件、check-type-boundary 覆盖 plugins、移除演练纳入 Web/桌面编译。B9 物理搬迁补齐：宿主主题 48 条插件专属规则迁入插件样式表（混合选择器就地拆分，迁出后宿主源码引用数归零）；useWorkbenchCards 的刷题/错题/学习规划状态机与每日一题入口迁入插件自有组合式函数（宿主 752→471 行，保留 CAP-006 复习结果提交）；纯净性样式规则扩至该词汇并保持零豁免；补宿主侧「不再暴露已迁字段」断言与插件侧状态机行为用例。待 PR 评审合入。",
       "dependsOn": [],
       "links": [
         "docs/reference/changes/CR-060-focus-mode-host-decoupling.md",

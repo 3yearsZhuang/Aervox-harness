@@ -94,7 +94,12 @@ export const DOMAIN_PATTERNS = [
   {
     id: "domain-css",
     label: "插件专属样式类",
-    pattern: /\.study-|floating-study-switch|composer-mode-chip|message-terms-bar|terms-chips-list|term-chip/,
+    // 第二组（CR-060 §B9a）：学习抽屉 / 错题本 / 目标状态等**仅由插件组件产出**的类名，
+    // 已随样式物理迁入 `plugins/focus-mode/src/ui/styles.css`，宿主不得再定义或引用。
+    // 这里用精确类名而非 `goal-`/`mistake-` 前缀——宿主自身 CAP-017 学习规划仍有
+    // `.goal-actions`、`.mistake-filters` 等合法类，前缀匹配会误伤。
+    pattern:
+      /\.study-|floating-study-switch|composer-mode-chip|message-terms-bar|terms-chips-list|term-chip|\.practice-|\.drawer-error|\.side-card-actions|\.learning-dialog|\.mistake-heading|\.mistake-status-tabs|\.mistake-tab-btn|\.mistake-filter-summary|\.mistake-selected-badge|\.mistake-filter-bar|\.mistake-reason-filter|\.goal-item-heading|\.goal-status|\.task-sub-btn|\.tag-active/,
   },
   {
     id: "study-tool-id",

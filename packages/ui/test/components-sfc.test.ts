@@ -335,8 +335,6 @@ describe('Real SFC Component Mounting', () => {
         settingsOpen,
         settingsCategory: ref('tools'),
         switchSettingsCategory: vi.fn(),
-        focusModeEnabled: ref(false),
-        setFocusModeEnabled: vi.fn(),
         isWeb: ref(false),
         isDark: ref(false),
         compactMode: ref(false),
@@ -369,7 +367,6 @@ describe('Real SFC Component Mounting', () => {
 
     const wrapper = mount(SettingsModal, {
       props: {
-        focusModeAvailable: false,
       },
       global: {
         provide: {
@@ -399,7 +396,6 @@ describe('Real SFC Component Mounting', () => {
     (mockContext.layout as any).settingsCategory.value = 'conversation';
     await wrapper.vm.$nextTick();
     expect(wrapper.text()).not.toContain('专注模式');
-    expect(wrapper.find('input[name="focus-mode-setting"]').exists()).toBe(false);
   });
 
   it('SettingsModal.vue supports toggling quick tools customization mode and adding/removing/reordering tools', async () => {
@@ -432,8 +428,6 @@ describe('Real SFC Component Mounting', () => {
         settingsOpen,
         settingsCategory: ref('tools'),
         switchSettingsCategory: vi.fn(),
-        focusModeEnabled: ref(false),
-        setFocusModeEnabled: vi.fn(),
         isWeb: ref(false),
         isDark: ref(false),
         compactMode: ref(false),

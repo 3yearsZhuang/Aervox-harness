@@ -23,10 +23,16 @@ export {
   createUIRegistry,
   defaultUIRegistry,
   provideUIRegistry,
+  resolveOutgoingMessage,
   useUIRegistry,
   UI_REGISTRY_KEY,
 } from './registry/ui-registry';
 export type { UIRegistry } from './registry/ui-registry';
+
+export {
+  aervoxConfirm,
+  type ConfirmOptions,
+} from './primitives/feedback/confirm-service';
 
 export { createWorkbenchPluginRuntime } from './plugins/plugin-runtime';
 export type { BuiltinUIPlugin, WorkbenchPluginRuntime } from './plugins/plugin-runtime';
@@ -35,6 +41,8 @@ export type {
   ComposerContractProps,
   ExtensionSlotName,
   MessageTransformContext,
+  MessageTransformOutput,
+  MessageTransformResult,
   SlotItem,
   WorkbenchCardContribution,
 } from './registry/types';

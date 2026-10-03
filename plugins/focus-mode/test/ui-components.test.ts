@@ -8,6 +8,13 @@ import FocusNavMenuItem from '../src/ui/FocusNavMenuItem.vue';
 import FocusStudyCardActions from '../src/ui/FocusStudyCardActions.vue';
 import FocusTaskCenterCard from '../src/ui/FocusTaskCenterCard.vue';
 import { activeLearningView, focusModeEnabled, learningOpen } from '../src/ui/plugin-state';
+import { openDailyProblem } from '../src/ui/daily-problem';
+
+// CR-060 §B9b：每日一题入口已迁入插件包，组件不再经宿主 cards 调用
+vi.mock('../src/ui/daily-problem', () => ({
+  DAILY_PROBLEM_URL: 'https://example.test/daily',
+  openDailyProblem: vi.fn(),
+}));
 
 /**
  * CR-060：插件 UI 组件测试随实现内聚于插件包。
@@ -126,7 +133,7 @@ describe('plugins/focus-mode UI 组件', () => {
 
     it('FocusStudyCardActions.vue mounts and triggers operations on button clicks', async () => {
 
-      const openDailyProblem = vi.fn();
+      const hostOpenDailyProblem = vi.fn();
 
       const openTool = vi.fn();
 
@@ -138,7 +145,7 @@ describe('plugins/focus-mode UI 组件', () => {
 
         layout: { openTool },
 
-        cards: { openDailyProblem },
+        cards: { openDailyProblem: hostOpenDailyProblem },
 
       } as unknown as WorkbenchContext;
 
@@ -162,7 +169,9 @@ describe('plugins/focus-mode UI 组件', () => {
 
       await buttons[0].trigger('click');
 
-      expect(openDailyProblem).toHaveBeenCalledTimes(1);
+      // 调用插件自有入口，且完全不再触碰宿主 cards 上的同名旧入口
+      expect(vi.mocked(openDailyProblem)).toHaveBeenCalledTimes(1);
+      expect(hostOpenDailyProblem).not.toHaveBeenCalled();
 
 
 

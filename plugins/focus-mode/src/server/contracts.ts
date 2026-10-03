@@ -5,12 +5,13 @@
  * 不含任何插件领域标识。插件在模块加载时经 `registerPluginApiContribution` 显式登记：
  *
  * - `streamEventTypes` + `eventProjections`：插件自有回合流事件（术语抽取）及其对外投影；
- * - `toolResultProjections`：本插件写库工具的对外结果投影（内核不再特判工具名）；
  * - `openApiRoutes`：概念探索与练习报告端点的 OpenAPI 片段。
+ *
+ * 工具结果的对外投影**不在此登记**：它随 `toolContributions` 的工具贡献声明
+ * （见 `focus-tools.ts`），由宿主代登记，插件无法为内核/他人工具登记投影。
  */
 import { z } from "zod";
 import { registerPluginApiContribution } from "@aervox/contracts";
-import { RECORD_PRACTICE_ATTEMPT_TOOL } from "./focus-tools.js";
 import { extractedTermSchema } from "./terms-extractor.js";
 
 // ============ 回合流事件：术语抽取 ============
@@ -26,16 +27,6 @@ export type TermsExtractedEventData = z.infer<typeof termsExtractedEventDataSche
 
 /** 插件自有流事件类型（内核枚举之外，经登记表声明） */
 export const TERMS_EXTRACTED_EVENT = "terms_extracted";
-
-// ============ 工具结果对外投影 ============
-
-/** 作答落库工具结果的对外白名单字段 */
-export const practiceResultProjectionSchema = z.object({
-  questionId: z.string(),
-  attemptId: z.string(),
-  judgement: z.enum(["correct", "incorrect", "partial"]),
-  enteredMistakeNotebook: z.boolean(),
-});
 
 // ============ 概念探索端点契约 ============
 
@@ -88,7 +79,6 @@ export function registerFocusModeApiContract(): void {
   registerPluginApiContribution({
     streamEventTypes: [TERMS_EXTRACTED_EVENT],
     eventProjections: { [TERMS_EXTRACTED_EVENT]: termsExtractedEventDataSchema },
-    toolResultProjections: { [RECORD_PRACTICE_ATTEMPT_TOOL]: practiceResultProjectionSchema },
     openApiRoutes: [
       {
         method: "post",

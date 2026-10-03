@@ -16,7 +16,7 @@ import { messageEventDataSchema, deltaEventDataSchema, reasoningDeltaEventDataSc
   toolApprovalRequiredEventDataSchema } from "./schemas.js";
 import { getPluginEventProjection, getPluginToolResultProjection } from "./plugin-api-registry.js";
 
-/** 内核内建事件投影白名单 */
+/** 内核内建事件投影白名单（键集即 `KERNEL_STREAM_EVENT_TYPES`，由单测断言一致） */
 const kernelEventSchemas: Record<string, z.ZodType> = {
   message: messageEventDataSchema.partial(), delta: deltaEventDataSchema.partial(),
   reasoning_delta: reasoningDeltaEventDataSchema.partial(),
@@ -30,6 +30,9 @@ const kernelEventSchemas: Record<string, z.ZodType> = {
   tool_request: z.object({ invocationId: z.string(), executionId: z.string().optional(), name: z.string() }),
   tool_result: z.object({ invocationId: z.string(), executionId: z.string().optional(), name: z.string(), ok: z.boolean(), error: z.string().optional() }),
 };
+
+/** 内核投影白名单覆盖的事件类型（键集）；须与 `KERNEL_STREAM_EVENT_TYPES` 一致，由单测断言 */
+export const KERNEL_PROJECTION_EVENT_TYPES: readonly string[] = Object.keys(kernelEventSchemas);
 
 /** 解析事件类型的投影模式：内核白名单优先，其次插件登记；均无则为未登记（投影为空） */
 function resolveEventSchema(eventType: string): z.ZodType | undefined {

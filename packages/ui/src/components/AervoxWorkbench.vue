@@ -35,7 +35,8 @@ import { useWorkbenchProactive, proactiveBridge } from '../composables/useWorkbe
 import { provideWorkbenchContext } from '../composables/workbench-context';
 import { createPluginEventBus } from '../composables/plugin-events';
 import { createPluginStateStore } from '../composables/plugin-state';
-import { useUIRegistry, provideUIRegistry } from '../registry/ui-registry';
+import { resolveStartupQuiet, runStartupDiary } from '../composables/workbench-startup';
+import { useUIRegistry, provideUIRegistry, resolveOutgoingMessage } from '../registry/ui-registry';
 import { streamAervoxTurn, useAervoxPlugins, useAervoxProjects, useAervoxSessions } from '@aervox/api-client';
 import type { TurnAttachmentRef } from '@aervox/contracts';
 import { MizukiExpression } from '../live2d/model';
@@ -186,13 +187,13 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
   const displayText = text || '（发送了附件）';
   const outgoingText = text || '请查看我上传的附件。';
 
-  // CR-060：模式等插件私有语义一律经 metadata 出站，宿主不解释其取值；
+  // CR-060：模式等插件私有语义一律经 metadata 出站，宿主不解释其取值。
+  // 插件自述元数据由消息变换管道返回，宿主显式元数据优先（插件不得覆盖宿主语义）；
   // 携带元数据时不再改写消息文本（避免语义双写）。
   const turnMetadataIn = options?.metadata;
-  const outgoing = registry.transformMessage(outgoingText, {
-    metadata: turnMetadataIn,
-    useMetadata: Boolean(turnMetadataIn),
-  });
+  const resolvedOutgoing = resolveOutgoingMessage(registry, outgoingText, turnMetadataIn);
+  const outgoing = resolvedOutgoing.text;
+  const turnMetadata = resolvedOutgoing.metadata;
   const submittedSessionId = sessions.activeSessionId.value;
   composer.beginDraftSubmission(displayText, submittedSessionId);
 
@@ -221,7 +222,7 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
   petReactKind('think', { lookAtEl: '.message-panel' });
   await conversation.scrollStoryToBottom();
   proactive.recordProactiveActivity('aervox.activity', 'conversation.turn_submitted', text, {
-    hasMetadata: Boolean(turnMetadataIn),
+    hasMetadata: Boolean(turnMetadata),
     toolApprovalMode: conversation.toolApprovalMode.value,
     characterCount: text.length,
   });
@@ -239,7 +240,6 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
   });
 
   try {
-    const turnMetadata = turnMetadataIn;
 
     await streamAervoxTurn(
       outgoing,
@@ -407,22 +407,31 @@ onMounted(() => {
     // Ignore malformed card preferences
   }
 
-  void (async () => {
-    // CR-060：插件经通用「启动期静默」接缝表达诉求，宿主不判断具体插件状态
-    if (layout.quietStartup.value) return;
-    const marker = `aervox-diary-first-open-${todayLocalDate()}`;
-    if (localStorage.getItem(marker)) return;
+  // CR-060：插件同步必须先于「启动期诉求」判定——插件在自身 setup() 阶段经通用接缝
+  // （quietStartup）表达诉求，宿主不判断具体插件状态。顺序由 workbench-startup 保证并被单测覆盖。
+  const pluginStartupReady = (async () => {
     try {
-      const result = await cards.diaryApi.generateToday();
-      if (result?.content) {
+      const pluginApi = useAervoxPlugins();
+      await pluginApi.loadPlugins();
+      await pluginRuntime?.sync(pluginApi.plugins.value, (id) => pluginApi.getConfig(id));
+    } catch {
+      // Ignore plugin sync failures in offline/mock environments
+    }
+  })();
+
+  void (async () => {
+    const quietStartup = await resolveStartupQuiet(pluginStartupReady, () => layout.quietStartup.value);
+    await runStartupDiary({
+      quietStartup,
+      markerKey: `aervox-diary-first-open-${todayLocalDate()}`,
+      storage: localStorage,
+      generateToday: () => cards.diaryApi.generateToday(),
+      applyGenerated: (result) => {
         cards.todayDiary.value = result;
         cards.setDiarySlotRestore(cards.cardSlots.value[0]);
         cards.cardSlots.value[0] = 'diary';
-      }
-      localStorage.setItem(marker, '1');
-    } catch {
-      // 失败不写标记
-    }
+      },
+    });
   })();
 
   if (layout.isWeb.value) {
@@ -443,16 +452,6 @@ onMounted(() => {
     });
     void proactive.refreshProactiveStatus();
   }
-
-  void (async () => {
-    try {
-      const pluginApi = useAervoxPlugins();
-      await pluginApi.loadPlugins();
-      await pluginRuntime?.sync(pluginApi.plugins.value, (id) => pluginApi.getConfig(id));
-    } catch {
-      // Ignore plugin sync failures in offline/mock environments
-    }
-  })();
 
   void sessions.fetchSessions();
   void projects.fetchProjects();

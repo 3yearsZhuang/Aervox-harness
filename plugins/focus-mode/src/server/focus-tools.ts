@@ -8,6 +8,7 @@
  *    表结构与仓储；
  * 3. 工具是否进入模型工具面由宿主按**插件启用状态**门控（不再仅看端口是否存在）。
  */
+import { z } from "zod";
 import type {
   ReplayStep,
   ToolExecutionInput,
@@ -25,11 +26,37 @@ export const PLUGIN_ID = "focus-mode";
 
 const JUDGEMENTS = ["correct", "incorrect", "partial"] as const;
 
+/**
+ * 作答落库工具结果的**对外白名单字段**。
+ *
+ * CR-060 §B7：投影随工具贡献声明，由宿主在为该工具登记投影时校验归属，
+ * 因此插件不能借投影泄露内核工具或他人工具的原始载荷。
+ */
+export const RECORD_PRACTICE_ATTEMPT_RESULT_PROJECTION = z.object({
+  questionId: z.string(),
+  attemptId: z.string(),
+  judgement: z.enum(["correct", "incorrect", "partial"]),
+  enteredMistakeNotebook: z.boolean(),
+});
+
 export const RECORD_PRACTICE_ATTEMPT_SPEC: ToolSpec = {
   name: RECORD_PRACTICE_ATTEMPT_TOOL,
   description:
     "记录一次用户作答与判定结果（每题必调）。参数: { prompt: 题干, questionType?: 'choice'|'short_answer'|'fill_blank', userAnswer: 用户原始回答, correctAnswer: 标准答案, judgement: 'correct'|'incorrect'|'partial', explanation?: 解析, knowledgeConcept?: 知识点概念 }。judgement 为 incorrect 的作答会自动进入错题本。",
-  // 学习事实（用户自己作答产生）持久化，非破坏性；与 ask_user_question 持久化事件的先例一致，免逐次审批门。
+  /**
+   * `readOnly: true` 表示免逐次审批门、可直接执行（宿主 `tool-providers` 对只读工具
+   * 不创建授权请求，见 `apps/api/src/modules/companion/conversation/tool-providers.ts`）。
+   *
+   * CR-060 评审**显式复核结论：保留**（不再作为迁移期默认继承）：
+   * 1. 写入的是「用户自己作答」这一学习事实（questions / question_attempts），非破坏性，
+   *    不触及用户资产（与内核 `ask_user_question` 持久化先例同款）；
+   * 2. 该工具只在插件**生效**（启用且可用）时进入模型工具面，停用后模型不可见；
+   * 3. 落库经 `PluginLearningFactPort` 窄端口，字段与来源标签由插件自述，宿主不做语义解释。
+   *
+   * 残余风险（已记录、暂不处理）：模型可被诱导反复写入作答记录形成垃圾数据，当前无频次限制。
+   * 该风险与内核既有持久化工具同级；若产品要求逐次授权，应统一调整宿主对 `readOnly` 的
+   * 判据，而不是就地改本工具（否则会出现同级别工具判据分叉）。
+   */
   readOnly: true,
   parameters: {
     type: "object",
@@ -164,6 +191,9 @@ export function createFocusModeToolContributions(
       id: RECORD_PRACTICE_ATTEMPT_TOOL,
       provider: createPracticeAttemptToolProvider(learningFacts),
       guidance: [RECORD_PRACTICE_ATTEMPT_GUIDANCE],
+      // CR-060 §B7：结果投影**随工具贡献**声明，由宿主代登记——
+      // 插件因此无法为内核工具或他人工具登记投影（归属由结构保证，而非命名约定）。
+      resultProjection: RECORD_PRACTICE_ATTEMPT_RESULT_PROJECTION,
     },
   ];
 }

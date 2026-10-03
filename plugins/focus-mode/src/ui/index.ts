@@ -14,11 +14,16 @@ import FocusSettingsRow from './FocusSettingsRow.vue';
 import FocusModeIndicator from './FocusModeIndicator.vue';
 import LearningDrawer from './LearningDrawer.vue';
 import {
+  focusModeEnabled,
   initFocusModeState,
   learningNavItems,
   openLearningView,
   setFocusModeEnabled,
 } from './plugin-state';
+import { initFocusLearning, useFocusLearning } from './useFocusLearning';
+
+/** 插件学习状态机句柄：setup 绑定宿主 api 实例后可用（卡片摘要在渲染期读取） */
+let focusLearning: ReturnType<typeof useFocusLearning> | null = null;
 
 export {
   FocusModeSwitch,
@@ -48,6 +53,11 @@ export function registerFocusModePlugin(
 ): () => void {
   // CR-060：插件状态（开关持久化、抽屉、启动期静默）由插件自持
   if (context) initFocusModeState(context);
+  // CR-060 §B9b：刷题 / 错题 / 学习规划状态机归插件；绑定宿主通用 api 端口实例。
+  // 端口缺席时**显式解绑**而不是跳过：组件一律读模块单例，跳过会让降级上下文
+  // （自定义嵌入 / 重绑）沿用上一个实例的数据，读到别的渲染器的错题与规划。
+  initFocusLearning(context?.cards?.api ?? null);
+  focusLearning = useFocusLearning();
 
   const unregisterSwitch = registry.registerSlotComponent('header:actions', FocusModeSwitch, {
     id: 'focus-mode:header-switch',
@@ -69,7 +79,7 @@ export function registerFocusModePlugin(
     label: '学习规划',
     description: 'AI 生成里程碑式学习路线图',
     icon: BookOpen,
-    summary: () => `${context?.cards?.api?.learningPlans?.value?.length ?? 0} 份进行中规划`,
+    summary: () => `${focusLearning?.learningPlans.value?.length ?? 0} 份进行中规划`,
     action: () => openLearningView('study'),
     extraComponent: FocusStudyCardActions,
     priority: 100,
@@ -80,7 +90,7 @@ export function registerFocusModePlugin(
     label: '错题本',
     description: '针对性练习未掌握的题',
     icon: Puzzle,
-    summary: () => `${context?.cards?.activeMistakeCount?.value ?? 0} 题待掌握`,
+    summary: () => `${focusLearning?.activeMistakeCount.value ?? 0} 题待掌握`,
     action: () => openLearningView('mistake'),
     priority: 90,
   });
@@ -90,7 +100,7 @@ export function registerFocusModePlugin(
     label: '刷题模式',
     description: 'AI 现场出题，答错自动进错题本',
     icon: ClipboardList,
-    summary: () => (context?.cards?.practiceSession?.value || context?.cards?.api?.activePracticeSession?.value) ? '进行中的练习' : 'AI 出题 · 即时判定',
+    summary: () => (focusLearning?.practiceSession.value || context?.cards?.api?.activePracticeSession?.value) ? '进行中的练习' : 'AI 出题 · 即时判定',
     action: () => {
       if (context?.conversation?.streaming?.value) return;
       // 出题意图是本插件自有语义，经 metadata 出站（宿主不解释其取值）
@@ -125,10 +135,12 @@ export function registerFocusModePlugin(
   );
 
   const unregisterTransformer = registry.registerMessageTransformer(
-    'focus-mode:prefix',
+    'focus-mode:metadata',
     (text) => {
-      // CR-060：模式语义一律经 metadata 出站（结构化优先），不再向消息文本插入控制标签
-      return text;
+      // CR-060：模式语义一律经 metadata 出站（结构化优先），不改写消息文本。
+      // 开关打开时为本次发送自述专注模式；宿主显式元数据（如出题意图）优先于本值。
+      if (!focusModeEnabled.value) return text;
+      return { text, metadata: { mode: 'focus' } };
     },
     100,
   );

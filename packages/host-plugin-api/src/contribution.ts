@@ -52,11 +52,28 @@ export interface PluginHttpEndpoint {
  * `guidance` 是面向模型的工具使用指南；宿主经既有 `customGuidance` 注入位合入
  * 基础提示词，插件**不得**修改内核的基础提示词常量。
  */
+/**
+ * 工具结果对外投影的校验口。
+ *
+ * 结构与 Zod v4 的 `safeParse` 兼容，但本包**不引入运行时依赖**，故以结构类型声明：
+ * 插件把「哪些字段可以对外」随工具贡献一起声明，宿主按贡献代登记。
+ */
+export interface ToolResultProjectionSchema {
+  safeParse(value: unknown): { success: boolean; data?: unknown };
+}
+
 export interface PluginToolContribution {
   /** 贡献标识（同一插件内唯一），用于装配诊断 */
   id: string;
   provider: ToolProviderPort;
   guidance?: ToolGuidance[];
+  /**
+   * 本工具结果的对外投影白名单（CR-060 §B7 归属重构）。
+   *
+   * 投影必须**随工具贡献声明**：宿主只为本插件实际贡献的工具登记投影，
+   * 因此插件无法为内核工具或他人工具登记投影（归属由结构而非命名保证）。
+   */
+  resultProjection?: ToolResultProjectionSchema;
 }
 
 /**

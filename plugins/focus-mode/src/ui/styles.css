@@ -453,3 +453,267 @@
   background: var(--accent-soft);
   color: var(--accent);
 }
+
+/* ============================================================
+ * 自宿主主题 `packages/ui/src/theme/workbench.css` 物理迁入（CR-060 §B9a）。
+ *
+ * 迁入判据：选择器含**仅由本插件组件产出**的类名（`.practice-*`、`.mistake-*`、
+ * `.goal-*`、`.drawer-error`、`.side-card-actions`、`.learning-dialog` 等），
+ * 故宿主侧已无任何消费者；搬迁以机器审计为准（宿主源码中该类名引用数归零）。
+ *
+ * 边界说明：`.task-summary-card` / `.task-status-tag` 是宿主卡片外壳类，本插件卡片
+ * 复用同一外壳词汇，相关规则均带插件专有修饰类（`.tag-active` / `.task-sub-btn`），
+ * 只匹配本插件渲染的 DOM；`.el-dialog__*` 来自 Element Plus 框架，非宿主内部类。
+ * ============================================================ */
+
+
+/* 学习模式下今日学习富卡片：快捷入口网格（固定高度，不抢统计行空间） */
+.side-card-actions {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.drawer-error {
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--danger) 32%, var(--border));
+  border-radius: 10px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.goal-item-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.goal-status {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.goal-status.is-paused {
+  background: #f4ead2;
+  color: #8e6d2a;
+}
+
+.goal-status.is-completed {
+  background: #dbe5f9;
+  color: #3b66b0;
+}
+
+.goal-status.is-archived {
+  background: var(--bg-soft);
+  color: var(--text-muted);
+}
+
+.practice-start,
+.practice-panel form button,
+.practice-feedback button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.practice-start { padding: 7px 10px; }
+
+.practice-panel,
+.practice-report {
+  display: grid;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-soft) 88%, var(--accent-soft));
+}
+
+.practice-panel > small,
+.practice-report small { color: var(--muted); }
+.practice-panel > strong,
+.practice-report > strong { color: var(--text-primary); }
+.practice-panel form { display: flex; gap: 8px; }
+.practice-panel input { flex: 1; min-width: 0; }
+.practice-panel form button,
+.practice-feedback button { padding: 8px 12px; }
+.practice-feedback { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.practice-feedback p,
+.practice-report p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.practice-end { justify-self: start; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
+.practice-start:disabled,
+.practice-panel button:disabled { cursor: not-allowed; opacity: .55; }
+
+.practice-guidance {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-soft) 50%, transparent);
+  border-left: 3px solid var(--accent);
+}
+.practice-guidance strong { font-size: 14px; color: var(--text-primary); }
+.practice-guidance small { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.practice-guidance.difficulty-ease { border-left-color: #e74c3c; background: color-mix(in srgb, #e74c3c 12%, transparent); }
+.practice-guidance.difficulty-increase { border-left-color: #27ae60; background: color-mix(in srgb, #27ae60 12%, transparent); }
+.practice-guidance.difficulty-maintain { border-left-color: var(--accent); }
+
+.mistake-heading,
+.mistake-heading label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.mistake-heading { justify-content: space-between; }
+.mistake-heading label { min-width: 0; }
+.mistake-heading input { accent-color: var(--accent); }
+.learning-dialog {
+  --el-dialog-bg-color: var(--bg-main);
+  --el-dialog-title-font-size: 16px;
+  background: var(--bg-main) !important;
+  border-radius: 16px !important;
+  overflow: hidden !important;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+.el-dialog.learning-dialog {
+  height: min(640px, calc(100vh - 48px)) !important;
+  max-height: min(640px, calc(100vh - 48px)) !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+.learning-dialog .el-dialog__header {
+  flex: 0 0 auto;
+}
+.learning-dialog .el-dialog__body {
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  color: var(--text-secondary);
+  background: var(--bg-main);
+}
+
+.mistake-status-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mistake-tab-btn {
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mistake-tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.mistake-tab-btn.active {
+  background: var(--bg-main);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+
+.mistake-filter-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.mistake-filter-summary strong {
+  color: var(--accent);
+}
+
+.mistake-selected-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.mistake-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: -4px;
+  padding: 8px 12px;
+  border-radius: 9px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+}
+
+.mistake-reason-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.mistake-reason-filter select {
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 12px;
+  outline: none;
+}
+
+.mistake-reason-filter select:focus {
+  border-color: var(--accent);
+}
+
+.task-summary-card .task-status-tag.tag-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 550;
+}
+
+.task-summary-card .task-sub-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.task-summary-card .task-sub-btn:hover {
+  color: var(--text-primary);
+}

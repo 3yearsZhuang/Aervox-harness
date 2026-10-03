@@ -141,13 +141,14 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
   it("服务端门控：focus-mode 停用时服务端拦截专注模式，不生成 terms_extracted 事件；启用时正常生成", async () => {
     const sessionId = "ses_study_gate";
 
-    // 1. 初始状态 focus-mode 默认已启用，发送带专注模式前缀消息
+    // 1. 初始状态 focus-mode 默认已启用，发送带专注模式结构化元数据的消息
     const turn1Res = await app.inject({
       method: "POST",
       url: `/v1/sessions/${sessionId}/turns`,
       headers,
       payload: {
-        message: { content: "[模式：专注模式] 请讲解 Dijkstra 算法与 React 架构", contentType: "text" },
+        message: { content: "请讲解 Dijkstra 算法与 React 架构", contentType: "text" },
+        metadata: { mode: "focus" },
         clientVersion: "it-study",
         references: [],
       },
@@ -173,13 +174,14 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
     });
     expect(disableRes.statusCode).toBe(200);
 
-    // 3. 在插件停用状态下，外部请求即便带 [模式：专注模式] 前缀，服务端也必须拒绝激活专注模式
+    // 3. 在插件停用状态下，外部请求即便自述 metadata.mode='focus'，服务端也必须拒绝激活专注模式
     const turn2Res = await app.inject({
       method: "POST",
       url: `/v1/sessions/${sessionId}/turns`,
       headers,
       payload: {
-        message: { content: "[模式：专注模式] 请讲解 TypeScript 与 JWT 鉴权", contentType: "text" },
+        message: { content: "请讲解 TypeScript 与 JWT 鉴权", contentType: "text" },
+        metadata: { mode: "focus" },
         clientVersion: "it-study",
         references: [],
       },
@@ -271,11 +273,12 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
   it("结构化元数据 Turn（metadata.mode = focus）：无需消息前缀即可识别并注入提示词", async () => {
     const { focusModeTurnPlugin, isFocusModeMessage } = await import("@aervox/plugin-focus-mode/server");
 
-    expect(isFocusModeMessage("纯净的用户提问", { mode: "focus" })).toBe(true);
-    expect(isFocusModeMessage("纯净的用户提问", { mode: "focus-mode" })).toBe(true);
-    // CR-060：历史语义 mode='study' 不再被识别（别名已移除）
-    expect(isFocusModeMessage("纯净的用户提问", { mode: "study" })).toBe(false);
-    expect(isFocusModeMessage("纯净的用户提问", {})).toBe(false);
+    expect(isFocusModeMessage({ mode: "focus" })).toBe(true);
+    // CR-060：唯一判据是 mode='focus'；历史值 focus-mode/study 与文本前缀旁路均已移除
+    expect(isFocusModeMessage({ mode: "focus-mode" })).toBe(false);
+    expect(isFocusModeMessage({ mode: "study" })).toBe(false);
+    expect(isFocusModeMessage({})).toBe(false);
+    expect(isFocusModeMessage(undefined)).toBe(false);
 
     const dummyCtx = {
       turnId: "t_test",
@@ -330,32 +333,24 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
     ]);
   });
 
-  it("ServerTurnPluginRegistry：注册别名插件与主插件时自动互斥去重，杜绝 getAll() 实例翻倍", async () => {
+  it("ServerTurnPluginRegistry：无别名体系，插件 id 唯一（同名重复注册自动替换）", async () => {
     const { ServerTurnPluginRegistry } = await import("../src/modules/ecosystem/plugins/turn-plugins/registry.js");
     const reg = new ServerTurnPluginRegistry();
 
-    const focusPlugin = { id: "focus-mode", aliases: ["study-mode", "quiz-mode"] };
-    const studyPlugin = { id: "study-mode" };
-    const quizPlugin = { id: "quiz-mode" };
-
-    // 先注册 focus-mode，再尝试注册别名 study-mode 与 quiz-mode
-    reg.register(focusPlugin);
-    reg.register(studyPlugin);
-    reg.register(quizPlugin);
-
+    reg.register({ id: "focus-mode" });
     expect(reg.getAll()).toHaveLength(1);
-    expect(reg.getAll()[0].id).toBe("focus-mode");
-    expect(reg.get("study-mode")?.id).toBe("focus-mode");
-    expect(reg.get("quiz-mode")?.id).toBe("focus-mode");
+    expect(reg.get("focus-mode")?.id).toBe("focus-mode");
 
-    // 反向测试：若先注册 study-mode，后注册 focus-mode，自动清理旧别名
-    const reg2 = new ServerTurnPluginRegistry();
-    reg2.register(studyPlugin);
-    expect(reg2.getAll()).toHaveLength(1);
-    expect(reg2.getAll()[0].id).toBe("study-mode");
+    // CR-060：别名不再被解析——历史 id 既查不到，也不会与主 id 互斥去重
+    expect(reg.get("study-mode")).toBeUndefined();
+    expect(reg.get("quiz-mode")).toBeUndefined();
+    expect(reg.getAllAliases("focus-mode")).toEqual(["focus-mode"]);
+    expect(reg.resolvePluginId("study-mode")).toBe("study-mode");
 
-    reg2.register(focusPlugin);
-    expect(reg2.getAll()).toHaveLength(1);
-    expect(reg2.getAll()[0].id).toBe("focus-mode");
+    // 同一 id 重复注册替换旧实例，不产生翻倍
+    const replacement = { id: "focus-mode" };
+    reg.register(replacement);
+    expect(reg.getAll()).toHaveLength(1);
+    expect(reg.getAll()[0]).toBe(replacement);
   });
 });

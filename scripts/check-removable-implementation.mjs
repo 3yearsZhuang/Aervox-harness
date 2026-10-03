@@ -64,6 +64,8 @@ export const REMOVABLE_TARGETS = [
       "plugins/focus-mode/src/ui/index.ts",
       "plugins/focus-mode/src/ui/plugin-events.ts",
       "plugins/focus-mode/src/ui/plugin-state.ts",
+      "plugins/focus-mode/src/ui/useFocusLearning.ts",
+      "plugins/focus-mode/src/ui/daily-problem.ts",
       "plugins/focus-mode/src/ui/FocusModeIndicator.vue",
       "plugins/focus-mode/src/ui/FocusModeSwitch.vue",
       "plugins/focus-mode/src/ui/FocusNavMenuItem.vue",
@@ -86,6 +88,7 @@ export const REMOVABLE_TARGETS = [
       "plugins/focus-mode/test/terms-extractor.test.ts",
       "plugins/focus-mode/test/plugin-registration.test.ts",
       "plugins/focus-mode/test/ui-components.test.ts",
+      "plugins/focus-mode/test/focus-learning.test.ts",
     ],
     /**
      * 物理移除计划（`run-removability-drill.mjs` 依此演练"代码缺席"）：

@@ -66,6 +66,8 @@ function writeNamespace(pluginId: string, values: Record<string, unknown>): void
 /** 创建插件状态容器 */
 export function createPluginStateStore(): PluginStateStore {
   const booleans = new Map<string, Ref<boolean>>();
+  /** 已挂持久化 watcher 的缓存键，避免二次调用声明 persist 时静默不落盘 */
+  const persistedKeys = new Set<string>();
 
   function persist(pluginId: string, key: string, value: unknown): void {
     const namespace = readNamespace(pluginId);
@@ -76,15 +78,17 @@ export function createPluginStateStore(): PluginStateStore {
   return {
     useBoolean(pluginId: string, key: string, defaultValue: boolean, options?: { persist?: boolean }) {
       const cacheKey = `${pluginId}\u0000${key}`;
-      const cached = booleans.get(cacheKey);
-      if (cached) return cached;
+      let state = booleans.get(cacheKey);
+      if (!state) {
+        const namespace = readNamespace(pluginId);
+        const stored = namespace[key];
+        state = ref(typeof stored === 'boolean' ? stored : defaultValue);
+        booleans.set(cacheKey, state);
+      }
 
-      const namespace = readNamespace(pluginId);
-      const stored = namespace[key];
-      const state = ref(typeof stored === 'boolean' ? stored : defaultValue);
-      booleans.set(cacheKey, state);
-
-      if (options?.persist) {
+      // `persist` 可能在后一次调用才声明：只要声明过就补挂 watcher，不得静默忽略
+      if (options?.persist && !persistedKeys.has(cacheKey)) {
+        persistedKeys.add(cacheKey);
         watch(state, (value) => persist(pluginId, key, value));
       }
       return state;
@@ -97,7 +101,14 @@ export function createPluginStateStore(): PluginStateStore {
       persist(pluginId, key, value);
     },
     clear(pluginId: string) {
-      booleans.clear();
+      // 只清该插件的缓存与存储，不得波及其它插件已持有的 Ref
+      const prefix = `${pluginId}\u0000`;
+      for (const cacheKey of [...booleans.keys()]) {
+        if (cacheKey.startsWith(prefix)) {
+          booleans.delete(cacheKey);
+          persistedKeys.delete(cacheKey);
+        }
+      }
       const storage = safeStorage();
       try {
         storage?.removeItem(`${STORAGE_PREFIX}${pluginId}`);

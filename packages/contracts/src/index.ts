@@ -65,6 +65,7 @@ import {
   skillDescriptorSchema,
   streamErrorCodeSchema,
   streamEventTypeSchema,
+  KERNEL_STREAM_EVENT_TYPES,
   toolCategorySchema,
   toolGatingConditionSchema,
   toolGatingOperatorSchema,
@@ -190,13 +191,17 @@ export type SkillPromoteRequest = z.infer<typeof skillPromoteRequestSchema>;
 
 export * from "./avatar-schemas.js";
 
-export { projectSafeEventData } from "./stream-projection.js";
+export { projectSafeEventData, KERNEL_PROJECTION_EVENT_TYPES } from "./stream-projection.js";
 export {
   registerPluginApiContribution,
   getPluginStreamEventTypes,
   getPluginEventProjection,
   getPluginToolResultProjection,
+  getToolResultProjectionOwner,
   getPluginOpenApiRoutes,
+  isKnownStreamEventType,
+  isValidPluginRoutePath,
+  registerToolResultProjection,
   resetPluginApiContributions,
 } from "./plugin-api-registry.js";
-export type { PluginApiContribution, PluginOpenApiRoute } from "./plugin-api-registry.js";
+export type { PluginApiContribution, PluginOpenApiRoute, ToolResultProjectionSchema } from "./plugin-api-registry.js";

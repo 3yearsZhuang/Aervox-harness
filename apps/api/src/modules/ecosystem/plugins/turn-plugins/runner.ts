@@ -10,7 +10,7 @@
 import type { IExtensionRepository, IPluginConfigRepository } from "@aervox/repositories";
 import type { ServerTurnPluginRegistry } from "./registry.js";
 import type { LocalContext } from "@aervox/repositories";
-import type { AfterTurnContext, BeforeTurnResult, ServerTurnPlugin, TurnPluginContext } from "./types.js";
+import type { AfterTurnContext, BeforeTurnResult, TurnPluginContext } from "./types.js";
 
 export interface PluginExecutionSnapshot {
   isEnabled: boolean;
@@ -24,30 +24,19 @@ export interface BeforeTurnExecutionResult {
 }
 
 /**
- * 通用获取插件的所有候选别名（优先主 ID，随后别名）
- */
-function getPluginCandidateIds(plugin: ServerTurnPlugin, registry?: ServerTurnPluginRegistry): string[] {
-  if (registry && typeof registry.getAllAliases === "function") {
-    return registry.getAllAliases(plugin.id);
-  }
-  const aliases: string[] = plugin.aliases ?? [];
-  return [plugin.id, ...aliases.filter((a: string) => a !== plugin.id)];
-}
-
-/**
- * 通用解析插件在仓储中的启用状态（按主 ID 与声明别名依次探测）
+ * 通用解析插件在仓储中的启用状态。
+ *
+ * fail-closed：仓储缺失、无记录、未启用或不可用一律视为不生效。
+ * CR-060：无别名体系，故只按插件唯一 id 探测（避免同一插件按多 id 生效导致判据分叉）。
  */
 async function resolvePluginEnabled(
-  candidateIds: string[],
-  extRepo: IExtensionRepository,
+  pluginId: string,
+  extRepo?: IExtensionRepository | null,
 ): Promise<boolean> {
-  for (const id of candidateIds) {
-    const record = await extRepo.getPlugin(id).catch(() => null);
-    if (record) {
-      return record.enabled === 1 && (record.availability ?? "available") === "available";
-    }
-  }
-  return false;
+  if (!extRepo) return false;
+  const record = await extRepo.getPlugin(pluginId).catch(() => null);
+  if (!record) return false;
+  return record.enabled === 1 && (record.availability ?? "available") === "available";
 }
 
 /**
@@ -60,27 +49,22 @@ export async function isPluginEnabled(
   pluginId: string,
   extRepo: IExtensionRepository | null | undefined,
 ): Promise<boolean> {
-  if (!extRepo) return false;
-  return resolvePluginEnabled([pluginId], extRepo);
+  return resolvePluginEnabled(pluginId, extRepo);
 }
 
 /**
- * 通用解析插件配置值（按主 ID 与声明别名依次探测）
+ * 解析插件配置值（CR-060：无别名体系，只按插件唯一 id 读取）
  */
 async function resolvePluginConfigValues(
-  candidateIds: string[],
+  pluginId: string,
   configRepo: IPluginConfigRepository,
   tenant: LocalContext,
 ): Promise<Record<string, unknown> | undefined> {
-  for (const id of candidateIds) {
-    const model = await configRepo.getConfig(tenant, id).catch(() => null);
-    if (model?.valuesJson) {
-      return typeof model.valuesJson === "string"
-        ? JSON.parse(model.valuesJson)
-        : (model.valuesJson as Record<string, unknown>);
-    }
-  }
-  return undefined;
+  const model = await configRepo.getConfig(tenant, pluginId).catch(() => null);
+  if (!model?.valuesJson) return undefined;
+  return typeof model.valuesJson === "string"
+    ? JSON.parse(model.valuesJson)
+    : (model.valuesJson as Record<string, unknown>);
 }
 
 /**
@@ -92,6 +76,24 @@ export interface TurnPluginRunnerDeps {
   tenant: LocalContext;
   extRepo?: IExtensionRepository | null;
   configRepo?: IPluginConfigRepository | null;
+  /**
+   * 单个插件切面异常的上报出口。缺省落到 `console.warn`——切面异常必须留痕，
+   * 不得静默吞掉（否则插件失效在生产中不可观测）。
+   */
+  onPluginError?: (pluginId: string, phase: "beforeTurn" | "afterTurn", error: unknown) => void;
+}
+
+function reportPluginError(
+  deps: TurnPluginRunnerDeps,
+  pluginId: string,
+  phase: "beforeTurn" | "afterTurn",
+  error: unknown,
+): void {
+  if (deps.onPluginError) {
+    deps.onPluginError(pluginId, phase, error);
+    return;
+  }
+  console.warn(`[turn-plugins] 插件 ${pluginId} 的 ${phase} 执行失败，已隔离：`, error);
 }
 
 export async function executeBeforeTurnPlugins(
@@ -105,24 +107,18 @@ export async function executeBeforeTurnPlugins(
   const snapshots = new Map<string, PluginExecutionSnapshot>();
 
   for (const plugin of registry.getAll()) {
+    // 门控与工具贡献、插件端点同一判据：仓储缺失/缺记录/未启用/不可用一律不执行（fail-closed）
+    const isEnabled = await resolvePluginEnabled(plugin.id, extRepo);
+
+    let configValues: Record<string, unknown> | undefined;
+    if (isEnabled && configRepo) {
+      configValues = await resolvePluginConfigValues(plugin.id, configRepo, tenant).catch(() => undefined);
+    }
+
+    snapshots.set(plugin.id, { isEnabled, configValues });
+    if (!isEnabled) continue;
+
     try {
-      const candidateIds = getPluginCandidateIds(plugin, registry);
-      let isEnabled = true;
-      if (extRepo) {
-        isEnabled = await resolvePluginEnabled(candidateIds, extRepo);
-      }
-
-      let configValues: Record<string, unknown> | undefined;
-      if (isEnabled && configRepo) {
-        configValues = await resolvePluginConfigValues(candidateIds, configRepo, tenant);
-      }
-
-      snapshots.set(plugin.id, { isEnabled, configValues });
-
-      if (!isEnabled || (extRepo && !await resolvePluginEnabled(getPluginCandidateIds(plugin, registry), extRepo))) {
-        continue;
-      }
-
       const res = await plugin.beforeTurn?.(ctx, configValues);
       if (res) {
         pluginResults.set(plugin.id, res);
@@ -134,13 +130,11 @@ export async function executeBeforeTurnPlugins(
           }
         }
       }
-    } catch {
-      // 单个插件前置切面异常隔离，不影响整个回合创建
+    } catch (error) {
+      // 单个插件前置切面异常隔离，不影响整个回合创建（但必须留痕）
+      reportPluginError(deps, plugin.id, "beforeTurn", error);
     }
   }
-
-  // 将快照挂载至 pluginResults 保证多版本调用零改动兼容
-  (pluginResults as unknown as { __snapshots?: Map<string, PluginExecutionSnapshot> }).__snapshots = snapshots;
 
   return {
     extraSections,
@@ -157,37 +151,30 @@ export async function executeAfterTurnPlugins(
   snapshots?: Map<string, PluginExecutionSnapshot>,
 ): Promise<void> {
   const { tenant, extRepo, configRepo } = deps;
-  const effectiveSnapshots =
-    snapshots ??
-    (pluginResults as unknown as { __snapshots?: Map<string, PluginExecutionSnapshot> })?.__snapshots;
 
   for (const plugin of registry.getAll()) {
+    let isEnabled: boolean;
+    let configValues: Record<string, unknown> | undefined;
+
+    if (snapshots?.has(plugin.id)) {
+      // 复用前置切面快照：同一回合内启停与配置判定保持一致，避免重复读库
+      const snap = snapshots.get(plugin.id)!;
+      isEnabled = snap.isEnabled;
+      configValues = snap.configValues;
+    } else {
+      isEnabled = await resolvePluginEnabled(plugin.id, extRepo);
+      if (isEnabled && configRepo) {
+        configValues = await resolvePluginConfigValues(plugin.id, configRepo, tenant).catch(() => undefined);
+      }
+    }
+
+    if (!isEnabled) continue;
+
     try {
-      let isEnabled = true;
-      let configValues: Record<string, unknown> | undefined;
-
-      if (effectiveSnapshots?.has(plugin.id)) {
-        const snap = effectiveSnapshots.get(plugin.id)!;
-        isEnabled = snap.isEnabled;
-        configValues = snap.configValues;
-      } else {
-        const candidateIds = getPluginCandidateIds(plugin, registry);
-        if (extRepo) {
-          isEnabled = await resolvePluginEnabled(candidateIds, extRepo);
-        }
-
-        if (isEnabled && configRepo) {
-          configValues = await resolvePluginConfigValues(candidateIds, configRepo, tenant);
-        }
-      }
-
-      if (!isEnabled || (extRepo && !await resolvePluginEnabled(getPluginCandidateIds(plugin, registry), extRepo))) {
-        continue;
-      }
-
       await plugin.afterTurn?.(ctx, configValues, pluginResults?.get(plugin.id));
-    } catch {
-      // 单个插件后置切面异常隔离，不影响回合最终完成态
+    } catch (error) {
+      // 单个插件后置切面异常隔离，不影响回合最终完成态（但必须留痕）
+      reportPluginError(deps, plugin.id, "afterTurn", error);
     }
   }
 }

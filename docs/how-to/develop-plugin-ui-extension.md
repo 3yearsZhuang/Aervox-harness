@@ -309,7 +309,7 @@ export const focusDraftPlugin: BuiltinUIPlugin = {
 
 经评审后，将定义显式加入 [plugin-runtime.ts](../../packages/ui/src/plugins/plugin-runtime.ts) 的受信插件清单，或在已有宿主组合点传入 `customPlugins`。使用当前工作台的 registry，避免依赖全局单例造成多窗口串扰。新增插件不会因 ZIP 里多了这个文件就被自动发现。
 
-预期：工具栏出现“起草下一步”，空输入时填入草稿；已有输入不被覆盖；停用时按钮注销，再启用仅出现一次。参照 [study-mode-plugin.test.ts](../../plugins/focus-mode/test/plugin-registration.test.ts)验证重复同步与清理。真实功能应复用宿主按钮样式与无障碍规则。
+预期：工具栏出现“起草下一步”，空输入时填入草稿；已有输入不被覆盖；停用时按钮注销，再启用仅出现一次。参照 [plugin-registration.test.ts](../../plugins/focus-mode/test/plugin-registration.test.ts)验证重复同步与清理。真实功能应复用宿主按钮样式与无障碍规则。
 
 卡片、其他槽位和组件替换的完整接口见[规范 §5–§7](../reference/plugin-config-and-pages.md#5-前端-ui-插槽扩展规范ui-extension-slots)。特别注意：`overrideComponent` 没有 disposer，不能用 `registry.clear()` 停用单个插件；替换 `ComposerDock` 时必须由宿主安排恢复，并验证输入法、附件、语音与单次发送。
 
@@ -357,8 +357,10 @@ export const focusCardTurnPlugin: ServerTurnPlugin = {
 mise exec -- pnpm --filter @aervox/api exec vitest run test/plugin-config.test.ts test/plugin-distribution.test.ts test/builtin-plugins-market.test.ts test/proactive-plugin-lifecycle.test.ts
 # 修改第一方 Hook 时增加领域回归
 mise exec -- pnpm --filter @aervox/api exec vitest run test/study-term-plugins.test.ts
-# 修改 UI 插槽/生命周期时
-mise exec -- pnpm --filter @aervox/ui exec vitest run test/ui-registry.test.ts test/study-mode-plugin.test.ts
+# 修改 UI 插槽/生命周期时（宿主通用接缝）
+mise exec -- pnpm --filter @aervox/ui exec vitest run test/ui-registry.test.ts
+# 修改第一方插件 UI 注册/清理与配置竞态时（实现已内聚到插件包）
+mise exec -- pnpm --filter @aervox/plugin-focus-mode exec vitest run test/plugin-registration.test.ts
 mise exec -- pnpm --filter @aervox/ui typecheck
 mise exec -- pnpm --filter @aervox/api typecheck
 # 依赖边界与文档检查

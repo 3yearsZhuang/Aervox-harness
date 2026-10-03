@@ -60,7 +60,9 @@ sources:
 
 ### 0.3 契约冻结：专注模式内聚与宿主去领域化（CR-060，实现已全部内聚）
 
-本节冻结 [CR-060](changes/CR-060-focus-mode-host-decoupling.md) 的目标契约，供实施与评审对齐。**落地进度**：服务端实现（回合切面、工具贡献、HTTP 端点、宿主服务窄端口、回放脚本）已迁入 `plugins/focus-mode/` 并由装配点注入；前端通用接缝（`pluginState`、`pluginEvents`、`metadata` 透传、`applySlotPreset`、`plugins` 注入、`composer:indicator` 与 `settings:conversation-rows` 插槽、fail-closed 插件运行时）已落地，§4.1、§4.2、§4.4、§5.1、§5.2、§8.4 已按落地事实改写。前端 UI 组件与专属样式已物理迁入 `plugins/focus-mode/src/ui/`（`packages/ui` 内不再存在插件自有目录，宿主纯净性棘轮豁免清单已清空）。**剩余**：可移除目标与移除演练（`check-removable-implementation` 的 `focus-mode-plugin` 目标）与文档闭环；该演练通过前，不得据本节向用户承诺"删除插件目录后构建链路自动通过"。
+本节冻结 [CR-060](changes/CR-060-focus-mode-host-decoupling.md) 的目标契约，供实施与评审对齐。**落地进度**：服务端实现（回合切面、工具贡献、HTTP 端点、宿主服务窄端口、回放脚本）已迁入 `plugins/focus-mode/` 并由装配点注入；前端通用接缝（`pluginState`、`pluginEvents`、`metadata` 透传、`applySlotPreset`、`plugins` 注入、`composer:indicator` 与 `settings:conversation-rows` 插槽、fail-closed 插件运行时）已落地，§4.1、§4.2、§4.4、§5.1、§5.2、§8.4 已按落地事实改写。前端插件组件与 `study-*`/`term-*` 专属样式已迁入 `plugins/focus-mode/src/ui/`。可移除目标（`check-removable-implementation` 的 `focus-mode-plugin`，BTD-11）与移除演练已落地并通过：删除插件整包并剥离三处组合根与包清单引用后，API/Worker 冷构建与 Web/桌面 `typecheck` 均通过；剥离正则为空跑、实现文件清单与磁盘不一致都会被单测拒绝。
+
+**归属已完成**：宿主主题中仅由插件组件消费的 48 条规则已物理迁入插件样式表，`useWorkbenchCards` 的刷题/错题/学习规划状态机（含每日一题入口）已迁入插件自有组合式函数，宿主侧字段引用数归零并经用例断言；纯净性守卫的样式规则已覆盖该词汇且**豁免清单保持为空**。宿主仍保留 CAP-006 复习结果提交（复习排期属学习事实真源）。
 
 - **实现落点**：第一方实现的源码可与声明同置于 `plugins/<id>/`，但实现目录**不进入** `.aervox-plugin` 分发包；分发包仍只含 Manifest、Config、Skill、Page 等声明与资源。分发包内容以显式允许清单为准，不随目录递归扩张。
 - **宿主装配**：宿主只提供通用注册表；具体插件由唯一装配文件显式注入，宿主包内不得出现插件领域标识。
@@ -361,7 +363,7 @@ MCP 使用独立[服务适配器](../../apps/api/src/modules/ecosystem/mcp/servi
 | Config 校验、串行旧版本拒绝、重置、资源路径、清理 | [plugin-config.test.ts](../../apps/api/test/plugin-config.test.ts) | Secret 静态加密、并发 CAS、配置与 Secret 原子性、全 Page 撤权 |
 | 工具与权限登记 | [tools-plugins.test.ts](../../apps/api/test/tools-plugins.test.ts) | 任意工具声明自动提供 handler 或 grant 强制检查 |
 | Hook 与领域切面 | [study-term-plugins.test.ts](../../apps/api/test/study-term-plugins.test.ts) | 第三方 Hook 隔离、硬超时或即时取消 |
-| UI 注册/清理/配置竞态 | [ui-registry.test.ts](../../packages/ui/test/ui-registry.test.ts)、[study-mode-plugin.test.ts](../../plugins/focus-mode/test/plugin-registration.test.ts) | 任意第三方 Vue 热加载或安全沙箱 |
+| UI 注册/清理/配置竞态 | [ui-registry.test.ts](../../packages/ui/test/ui-registry.test.ts)、[plugin-registration.test.ts](../../plugins/focus-mode/test/plugin-registration.test.ts) | 任意第三方 Vue 热加载或安全沙箱 |
 
 发布审查逐项确认：
 

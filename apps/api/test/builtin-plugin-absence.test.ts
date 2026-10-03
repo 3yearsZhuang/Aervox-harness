@@ -68,11 +68,13 @@ it("默认注册表实例隔离，导入模块无隐式注册；旧释放不能�
   // CR-060：组合根不再硬编码任何具体插件，新建注册表必须为空（零隐式领域注册）；
   // 具体插件贡献只在 apps/api/src/plugin-assembly.ts 装配点显式注入。
   expect(first.getAll()).toEqual([]);
-  const releaseA = first.register({ id: "same", aliases: ["old"] });
-  const newer = { id: "same", aliases: ["new"] };
+  // CR-060：别名体系已整体删除——注册表只按插件唯一 id 寻址，候选 id 恒为自身
+  const releaseA = first.register({ id: "same" });
+  const newer = { id: "same" };
   const releaseB = first.register(newer);
   releaseA(); releaseA(); expect(first.get("same")).toBe(newer);
-  expect(first.get("old")).toBeUndefined();
+  expect(first.getAllAliases("same")).toEqual(["same"]);
+  expect(first.resolvePluginId("same")).toBe("same");
   releaseB(); releaseB(); expect(first.get("same")).toBeUndefined();
   first.clear(); expect(second.getAll()).toEqual([]);
 });

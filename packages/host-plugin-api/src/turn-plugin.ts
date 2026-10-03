@@ -80,15 +80,10 @@ export interface AfterTurnContext extends TurnPluginContext {
 
 /** 服务端回合插件：由宿主组合根显式注册 */
 export interface ServerTurnPlugin {
-  /** 插件唯一 id（与 Manifest `metadata.id` 一致） */
+  /** 插件唯一 id（与 Manifest `metadata.id` 一致）；CR-060 起不保留任何别名 */
   id: string;
   /** 展示名（可选） */
   name?: string;
-  /**
-   * 历史兼容别名。仅为既有安装的平滑迁移保留：注册表按别名解析到主 id，
-   * 但新插件**不得**借用他人 id 或别名。
-   */
-  aliases?: string[];
 
   /** 前置切面：在构建 Agent Loop System Prompt 前执行；返回 void 表示本回合不介入 */
   beforeTurn?(

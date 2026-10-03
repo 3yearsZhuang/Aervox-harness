@@ -67,11 +67,11 @@ sources:
 | [stream-projection.ts:22,35-36](../../../packages/contracts/src/stream-projection.ts#L22-L36) | 投影白名单按事件类型泛化校验 | 核心投影函数特判 `tool.name === "record_practice_attempt"` 并内联 `practiceResultSchema`，为单个插件工具开后门 |
 | [useWorkbenchLayout.ts:78-79,186-205](../../../packages/ui/src/composables/useWorkbenchLayout.ts#L78-L205) | 工作台宿主提供通用 layout/composer/conversation 组合式函数 | 插件域状态 `focusModeEnabled` 长在通用 layout 组合式函数内，含插件专属活动事件名与**插件 DOM class** `.floating-study-switch-wrap` |
 | [useWorkbenchCards.ts:625-634](../../../packages/ui/src/composables/useWorkbenchCards.ts#L625-L634) | 卡片目录由核心卡片与 `registry.getCards()` 合并 | 核心组合式函数硬编码插件贡献的卡片 id：`cardSlots.value = ['study', 'timer']` |
-| [AervoxWorkbench.vue:243-245](../../../packages/ui/src/components/AervoxWorkbench.vue#L243-L245) | Turn 协议的 `metadata` 为开放结构 `z.record(z.string(), z.unknown())` | 宿主壳体直接产出插件私有语义 `{ mode: 'focus', intent: 'quiz' }` |
+| [`AervoxWorkbench.vue:243-245`](../../../packages/ui/src/components/AervoxWorkbench.vue#L243-L245) | Turn 协议的 `metadata` 为开放结构 `z.record(z.string(), z.unknown())` | 宿主壳体直接产出插件私有语义 `{ mode: 'focus', intent: 'quiz' }` |
 | [plugin-runtime.ts:68,73-74,110-111,127-131](../../../packages/ui/src/plugins/plugin-runtime.ts#L68-L74) | 插件运行时按 id 泛化同步启用状态 | 宿主加载器硬编码 `focus-mode ↔ study-mode` 别名映射、配置回退与双向可用性回退 |
 | [workbench-context.ts:26](../../../packages/ui/src/composables/workbench-context.ts#L26)、[registry/types.ts:48,56](../../../packages/ui/src/registry/types.ts#L48) | 宿主上下文与 Composer 契约是通用扩展面 | 契约内写死 `quizMode` 插件私有标识 |
 | [theme/workbench.css:96-184,1186-1316](../../../packages/ui/src/theme/workbench.css#L96-L184) | 宿主主题承载全局 Token 与布局 | 全套插件组件样式位于宿主主题；插件单文件组件除 `TermExploreDialog.vue` 外均无 `<style>` 块 |
-| [LearningDrawer.vue](../../../plugins/focus-mode/src/ui/LearningDrawer.vue)（299 行） | 抽屉经 `workbench:drawers` 槽位挂载 | 学习闭环界面物理位于宿主组件目录，仅由插件把**宿主组件**注册进槽位 |
+| [`LearningDrawer.vue`](../../../plugins/focus-mode/src/ui/LearningDrawer.vue)（299 行） | 抽屉经 `workbench:drawers` 槽位挂载 | 学习闭环界面物理位于宿主组件目录，仅由插件把**宿主组件**注册进槽位 |
 | [ui/src/index.ts:21,25](../../../packages/ui/src/index.ts#L21) | `@aervox/ui` 是共享展示组件包 | 公共出口反向 re-export 插件组件，并以泛化别名 `TermsBar` 掩盖领域 |
 | [useWorkbenchConversation.ts:188-190](../../../packages/ui/src/composables/useWorkbenchConversation.ts#L188-L190) | 会话组合式函数管理对话状态 | 术语抽取状态机与追问探索入口位于通用会话组合式函数内，插件仅剩视图 |
 | [projector.ts:123-124](../../../packages/api-client/src/projector.ts#L123-L124)、[schemas.ts:39](../../../packages/contracts/src/schemas.ts#L39) | 流事件类型与安全投影白名单是内核契约 | `terms_extracted` 插件事件类型写入内核枚举与投影白名单 |
@@ -89,7 +89,7 @@ sources:
 | [config/src/index.ts:259](../../../packages/config/src/index.ts#L259) | `AERVOX_LOOP_PROVIDER` 枚举含插件领域模式名 `scripted-quiz` | 改为 `scripted-plugin`（插件自带夹具，宿主不复述插件领域）（S3b） |
 | [stream-projection.ts:22-38](../../../packages/contracts/src/stream-projection.ts)（改前） | 内核安全投影函数硬编码 `tool.name === "record_practice_attempt"` 并内联 `practiceResultSchema`，为单个插件工具开后门；且 `projectSafeEventData` 全仓**无生产消费者**，缺陷长期潜伏 | 改为通用登记表：插件经 `toolResultProjections` 声明白名单，内核泛化查表（S4b） |
 | [schemas.ts:39](../../../packages/contracts/src/schemas.ts)（改前） | 内核 `streamEventTypeSchema` 枚举含插件事件 `terms_extracted` | 枚举收敛为内核事件；插件事件类型经 `streamEventTypes` 登记，envelope 的 `eventType` 改为开放字符串（S4b） |
-| [openapi.ts:1310-1335](../../../packages/contracts/src/openapi.ts)（改前） | 内核 OpenAPI 文档硬编码 `/v1/terms/explore` 与插件报告端点及其实例模式 | 插件经 `openApiRoutes` 声明片段，内核泛化补 scope 请求头；文档改为惰性生成以反映装配期登记（S4b） |
+| [`openapi.ts:1310-1335`](../../../packages/contracts/src/openapi.ts)（改前） | 内核 OpenAPI 文档硬编码 `/v1/terms/explore` 与插件报告端点及其实例模式 | 插件经 `openApiRoutes` 声明片段，内核泛化补 scope 请求头；文档改为惰性生成以反映装配期登记（S4b） |
 | [useAervoxTurn.ts:56](../../../packages/api-client/src/useAervoxTurn.ts)（改前）、[projector.ts:123](../../../packages/api-client/src/projector.ts)（改前） | 宿主传输层为插件事件预留专用回调 `onTermsExtracted`，并为插件端点提供具名包装 `exploreTerm` | 改为通用 `onPluginEvent(eventType, data)` 与 `requestAervoxApi(method, path, body)`；插件 UI 自行订阅与调用（S4b/S5） |
 
 减量证据：宿主源码中 `loadFocusModeRuntimeConfig`、`parseFocusConfig`、`extractFocusTerms`、`DEFAULT_FOCUS_MODE_CONFIG`、`isFocusModeMessage`、`isQuizTriggered`、`studyModeTurnPlugin`、`quizModeTurnPlugin`、`QUIZ_TRIGGER_KEYWORDS` **均无生产消费者**，仅被测试引用；`extractTerms` 的唯一消费者即本插件。因此服务端迁移以「整体搬迁 + 删除失效导出」为主，无需保留兼容层。
@@ -122,6 +122,49 @@ sources:
 
 该修复同时把 `test:unit` 快层过滤由 `agent-loop` 改为 `core`（此前快层测试空壳而遗漏内核），并清理 PR #244 遗留的陈旧路径引用。
 
+### 1.5 代码评审后的修正（第二轮，同分支）
+
+首轮交付后经独立代码评审（宿主门禁 + 并行深审），发现若干**缺陷与不实陈述**，已在本分支修正：
+
+| 类别 | 问题 | 处理 |
+|---|---|---|
+| 功能回归 | 专注模式开关对**普通发送**已失效：宿主删除了 `focusModeEnabled → { mode: 'focus' }` 派生，而消息变换器契约只能返回字符串，插件无任何接缝可附加 metadata；文本前缀通道亦无生产者 | 变换器可返回 `{ text, metadata }`；宿主经 `resolveOutgoingMessage` 合并（显式值优先）；插件开关自述 `mode: 'focus'`；删除文本前缀与 `mode='focus-mode'/'quiz'` 死分支；补回归守卫用例 |
+| 功能回归 | `quietStartup` 接缝不可观测：宿主在 `onMounted` 中**同步**读取该标志，而唯一写入方要等 `await loadPlugins()` 之后，恒为 `false`，首开日记抑制失效 | 宿主先 `await` 插件同步再读取；抽出 `resolveStartupQuiet`/`runStartupDiary` 并补顺序回归单测 |
+| 功能回归 | `applySlotPreset` **零调用**，卡片槽位预设行为丢失（CR 原先声称"已落地"） | 插件在开关切换时调用 `applySlotPreset`/`restoreSlotPreset`；接缝加固（项数不匹配 fail-closed、基线只记首帧、不落盘）并补单测 |
+| 门禁红灯 | CR 文档 3 处 Vale 错误（文件名小写），`./aervox ci` 在文档增量门禁即失败 | 改为行内代码写法，`vale` 全仓 78 文件 0 error |
+| 契约缺陷 | 插件 OpenAPI 片段可直接写入内核注册表：可覆盖内核端点对外描述、接受路径穿越，且登记在多次重建间累积、`reset` 不生效 | 插件路由改写入独立注册表后合并；路径合法性判据单点收口（`isValidPluginRoutePath`）；冲突/重复/非法一律忽略并告警；补 4 组负向用例 |
+| 契约缺陷 | 结果投影白名单不再由内核闭环：按工具名查表且无归属校验，插件可暴露内核工具原始 `output` | 投影改为**随工具贡献声明**（`PluginToolContribution.resultProjection`），由宿主只为该插件自有工具代登记；同名工具跨插件抢注被拒绝 |
+| 门禁与证据 | `check-type-boundary` **未**扩展到 `plugins/`（CR §3 却如此声称）；`check-removable-implementation.test.mjs` 对新增目标零断言；移除演练只构建 API/Worker，却剥离两个 UI 组合根且从不编译它们 | 三者均已补齐（插件目录动态发现 + 新用例；目标/BTD-11/移除计划/剥离正则命中/实现清单与磁盘对齐；演练增加 Web/桌面 `typecheck` 相位） |
+| 门控一致性 | 回合切面与工具贡献在仓储缺失时 **fail-open**（`extRepo && …` 短路），与端点门控及自述的"统一 fail-closed 判据"相反；端点门控参数为可选，缺省即不设防 | 统一为 fail-closed；端点门控改为**必填**；移除重复查库与 `__snapshots` 兼容 hack；切面异常改为留痕上报 |
+| 死代码 | 别名体系（`ServerTurnPlugin.aliases`、`aliasMap`/`registerAliases`/`initialAliases`、候选 id 探测）已无生产声明方却保留在"全新契约包"内；内核事件经通用插件出口外泄 | 别名体系整体删除；`projector` 增加内核事件集合，内核事件不再下发插件通道 |
+| 旧配置迁移 | `aervox-settings.focusModeEnabled` 无迁移，叠加新 fail-closed 默认会让存量用户静默失去功能（`plan.md` 要求"不静默丢失"） | 迁移归**插件自己**（宿主不感知插件 id 与键语义）：命名空间无记录时取存量宿主设置作为初值 |
+
+**B9 宿主纯净性物理搬迁（本轮补齐）**：
+
+- **宿主主题残留 CSS 已迁出**：48 条只被插件组件消费的规则（`.practice-*`、`.mistake-*`、`.goal-*`、`.drawer-error`、`.side-card-actions`、`.learning-dialog`、`.task-sub-btn`、`.tag-active` 等）自 `packages/ui/src/theme/workbench.css` 物理迁入 `plugins/focus-mode/src/ui/styles.css`。搬迁按「选择器含仅由插件组件产出的类名」判定，混合选择器（如 `.learning-dialog .el-dialog__header` 与宿主弹窗共列一条规则）就地拆分：插件部分迁出、宿主部分留驻。迁出后以机器审计复核：宿主源码中该类名引用数归零。
+- **宿主不再持有插件状态机**：`useWorkbenchCards` 的刷题会话、错题本（含过滤/错因/状态/洞察草稿）与学习规划（生成/任务勾选/归档/里程碑标签）状态与请求编排整体迁入 `plugins/focus-mode/src/ui/useFocusLearning.ts`（宿主组合式函数 752 → 471 行）。宿主仍保留卡片目录与槽位、待办、日记、学习目标同步，以及 **CAP-006 复习结果提交**（复习排期属学习事实真源，按反向检查保留主仓，宿主卡片直接消费）。
+- **每日一题入口迁出**：第三方刷题地址与打开逻辑迁入 `plugins/focus-mode/src/ui/daily-problem.ts`；其原先附带的宠物表情反馈与活动埋点依赖宿主内部设施且无领域中立接缝，解耦时一并去除（不承载功能语义，已在文件头注明恢复方式）。
+- **回归守卫**：纯净性守卫 `domain-css` 规则扩充至上述全部类名并保持**零豁免**；新增宿主侧用例断言这 36 个字段不再出现在 `useWorkbenchCards` 返回值中，插件侧新增状态机行为用例（过滤/重练/作答推进/错误码映射/换绑重置）；插件实现文件清单与移除演练目标同步更新。
+- **登记表不再"只写不读"**：新增 `isKnownStreamEventType`（内核事件全集 ∪ 插件已登记类型），宿主在**插件写入回合流**处据此校验，未声明的事件类型直接拒绝（fail-closed）；同时补 `KERNEL_STREAM_EVENT_TYPES` 与内核投影白名单键集的一致性断言，防止两处漂移。该常量与收敛后的 `streamEventTypeSchema` **不等价**——后者不含 `tool_request`/`tool_result`，故校验必须用全集。
+- **免审批工具的显式复核**：`record_practice_attempt` 的 `readOnly: true`（免逐次审批门）由评审明文签字保留，理由与残余风险（无频次限制、与内核既有持久化工具同级）记录在工具定义处，不再作为迁移期默认继承。
+
+### 1.6 代码评审后的修正（第三轮，同分支）
+
+第二轮交付后经独立代码评审（宿主门禁 + 并行深审）再发现以下缺陷，均已在同分支修正并补机器证据：
+
+| 类别 | 问题 | 处理 |
+|---|---|---|
+| 可观测性回归 | 组合根调用 `createHttpEndpointSink` 时漏传 `warn`（参数序调整后位置错位），插件端点失败退化为**静默 500**，非法路径跳过同样无日志 | `warn` 与门控同列**必填**（编译期即挡住漏传）；新增 `apps/api/test/plugin-endpoint-diagnostics.test.ts` 锁定三条不变量：失败留痕、未生效 404 且不进处理函数、非法路径不注册路由 |
+| 功能回归 | `completeReview` 写盘失败只剩 `console.warn`：勾选保持选中且界面无提示，用户误以为复习已记录（该提示原由插件抽屉错误位承载，迁移后丢失） | 宿主新增用户可见 `reviewError`，`ToolsDrawer` 复用既有 `drawer-empty` + `role="alert"` 渲染；补组合式函数回归用例 |
+| 状态分叉 | `restoreSlotPreset` 只还原内存不落盘：用户若在预设期间显式换卡（`selectCard` 已落盘），关开关后屏幕与 `localStorage` 分叉，下次启动载回刚被恢复掉的布局 | 恢复同步落盘（`persistCardSlots()` 收敛选择与恢复两处写盘）；用例补「预设期间换卡 → 恢复后存储回到基线」断言 |
+| 契约语义 | 消息变换管道按优先级降序执行，却让后执行者覆盖同名 metadata 键，实际**最低优先级胜出**，与「按注册优先级合并」的注释相反 | 改为高优先级胜出并写入注释；补键冲突用例 |
+| 绑定失效 | 插件学习状态机的 `boundApi` 为普通变量，`computed` 对其无响应式依赖：换绑/解绑后已创建的视图不失效，降级上下文会读到上一实例的数据 | 改 `shallowRef`；宿主未提供 api 端口时显式解绑（`initFocusLearning(null)`）；补解绑用例 |
+| 初始化顺序 | `initFocusModeState` 在容器守卫**之前**标记 `initializedFor`，降级上下文被幂等分支永久短路（watcher、启动期静默与槽位预设全部静默失效） | 标记移至守卫之后 |
+| 遗留别名 | `builtin-plugin-absence.test.ts` 仍以 `aliases` 字面量驱动注册表并断言别名寻址（测试目录不在 API 包 `typecheck` 范围内，故未被门禁拦住） | 改为 id-only 语义，并断言 `getAllAliases`/`resolvePluginId` 收敛为插件自身 id |
+| 细节 | 每日一题外链丢失 `noreferrer`；插件样式 `.drawer-error` 重复声明两块；宿主主题搬迁后残留 19/12 行等超长空行块 | 逐条修复；样式空行归一为文件既有约定（最多 2 个连续空行） |
+
+**口径说明**：本轮修正均为上述缺陷的收口，不改变 §2 行首的目标行为与 §3 的契约边界；第十一条「插件可写入内核事件类型」的放宽属既有设计取舍（当前唯一写流事件的插件只写自有事件、且内核自身写入不经该端口），本轮**未**收紧，留作后续评估。
+
 ## 2. 当前行为 vs 目标行为
 
 | 维度 | 当前行为 | 目标行为 |
@@ -129,11 +172,11 @@ sources:
 | 插件实现落点 | 声明在 `plugins/focus-mode/`，实现分散在 `apps/api/src/modules`、`packages/core/src`、`packages/ui/src` | 声明与实现**全部**位于 `plugins/focus-mode/`；实现目录不进分发包 |
 | 宿主装配 | `createServerPluginRegistry()` 内硬 import 注册；UI 侧 `defaultBuiltinPlugins` 内建 | 宿主只提供通用注册表；由唯一装配文件（`apps/api/src/plugin-assembly.ts`、`apps/web/src/App.vue`、`apps/desktop/src/renderer/src/App.vue`）显式注入 |
 | 插件自有状态 | 宿主 `layout.focusModeEnabled` + `localStorage` 的 `aervox-settings` 键 | 已落地：宿主提供命名空间化的 `pluginState`（`aervox-plugin-state:<pluginId>`）；状态归插件所有，宿主无该字段 |
-| 出站模式语义 | `sendMessage(text, { quizMode })` → 宿主拼 `{ mode: 'focus' }` | 宿主透传 `metadata`；由插件自行组装模式语义 |
-| 插件流事件 | 宿主会话组合式函数持有 `currentExtractedTerms`，宿主壳体接 `onTermsExtracted` | 已落地：宿主提供 `pluginEvents` 通用总线与 `onPluginEvent` 传输出口；术语状态归插件 |
-| 卡片布局 | 宿主硬编码 `['study','timer']` | 已落地：宿主提供 `applySlotPreset(slots)`；由插件传入自身卡片 id（`applyStudyCardLayout`/`restoreStudyCardLayout` 已删除） |
-| 组件与样式归属 | 插件组件与学习抽屉在 `packages/ui`；样式在宿主主题 | 已落地：组件、学习抽屉与专属样式全部迁入 `plugins/focus-mode/src/ui/`；宿主主题零插件类名，插件经 `@aervox/ui` 公共子路径接入 |
-| 历史别名 | `study-mode`/`quiz-mode` 服务端别名 + 前端双向回退 + 旧配置回退 | **仅 `focus-mode`**；别名与旧配置回退逻辑删除 |
+| 出站模式语义 | `sendMessage(text, { quizMode })` → 宿主拼 `{ mode: 'focus' }` | 已落地：宿主只透传**显式** `metadata`，并提供消息变换器**返回** `metadata` 的通用接缝（`resolveOutgoingMessage` / `mergeTransformMetadata`，宿主显式值优先）；模式语义由插件自述，宿主无派生分支 |
+| 插件流事件 | 宿主会话组合式函数持有 `currentExtractedTerms`，宿主壳体接 `onTermsExtracted` | 已落地：宿主提供 `pluginEvents` 通用总线与 `onPluginEvent` 传输出口；术语状态归插件。**修正**：内核自有事件不再经该出口下发（`KERNEL_EVENT_TYPES`），插件只能收到自有事件类型 |
+| 卡片布局 | 宿主硬编码 `['study','timer']` | 已落地：宿主提供 `applySlotPreset(slots)`/`restoreSlotPreset()`（项数不匹配即 fail-closed、基线只记首帧、不落盘）；由插件在开关切换时传入自身卡片 id |
+| 组件与样式归属 | 插件组件与学习抽屉在 `packages/ui`；样式在宿主主题 | 已落地：组件、学习抽屉、刷题/错题/规划状态机与专属样式全部迁入 `plugins/focus-mode/src/ui/`（样式含自宿主迁出的 48 条规则）；宿主主题零插件专属类名，插件经 `@aervox/ui` 公共子路径接入 |
+| 历史别名 | `study-mode`/`quiz-mode` 服务端别名 + 前端双向回退 + 旧配置回退 | 已落地：**别名体系整体删除**（`ServerTurnPlugin.aliases`、`aliasMap`/`registerAliases`/`initialAliases`、候选 id 探测循环），插件 id 唯一；旧配置由插件自行一次性迁移（宿主不感知插件 id 与键语义） |
 | 代码缺席语义 | 前端插件列表缺记录时默认启用（fail-open）；服务端缺记录时不执行（fail-closed） | 已落地：两端一致 fail-closed（`isPluginAvailable` 无记录即不可用）；与[插件规范 §5.2](../plugin-config-and-pages.md#52-注册接口与生命周期)同步修订 |
 | 刷题工具可见性 | 只要装配端口即无条件注入模型工具面 | 随插件启用状态与可用性门控（与 Runner 同判据）；其模型侧使用指南由插件经 `customGuidance` 注入位提供 |
 | 插件自有 API | `/v1/terms/explore`、`/v1/hierarchy/explore`、`/v1/practice-reports*` 等路由物理位于宿主模块目录，宿主负责业务处理 | 插件以 `httpEndpoints` 声明，宿主装配点只做框架适配（上下文解析、出参包装、异常兜底）；端点随插件**生效状态**门控（停用即 404，与模型工具面同判据） |
@@ -185,17 +228,22 @@ mise tasks run ci-docs && mise tasks run plan-render && mise tasks run plan-chec
 
 | 验收项 | 判据 | 证据 |
 |---|---|---|
-| 宿主零领域知识 | `check-host-domain-purity` 零违规且豁免清单空 | 新增守卫与其 `node --test` 用例 |
-| 实现可物理移除 | 移除演练三相位通过：删除 `plugins/focus-mode/` 并剥离三处组合根与包清单引用后，API/Worker 冷构建成功；宿主编译无悬空导入 | `run-removability-drill.mjs`（BTD-11） |
+| 宿主零领域知识 | `check-host-domain-purity` 零违规且豁免清单空（含 B9 迁出的样式类名） | 新增守卫与其 `node --test` 用例。**口径说明**：该守卫是「字面量黑名单 + 棘轮」，零命中只证明**已登记规则**未命中，不等于语义上无领域知识；新增领域词汇须同步扩规则（B9 已按此办理） |
+| 实现可物理移除 | 移除演练三相位通过：删除 `plugins/focus-mode/` 并剥离三处组合根与包清单引用后，**API/Worker 冷构建 + Web/桌面 UI 组合根类型检查**均通过；宿主编译无悬空导入 | `run-removability-drill.mjs`（BTD-11；已被剥离的两个 `App.vue` 现纳入编译）+ `check-removable-implementation.test.mjs`（剥离正则命中非空跑、实现文件清单与磁盘逐一对齐） |
 | 分发包最小化 | 包内仅 `plugin.manifest.json`、`config.schema.json`、`SKILL.md`；SHA-256 稳定 | `export-plugins.test.mjs` 正反断言 |
-| 别名清除 | 全仓无 `study-mode`/`quiz-mode` 生产引用 | `check-host-domain-purity` 禁词表 |
-| 刷题工具门控 | 插件禁用时模型工具面无 `record_practice_attempt`，且不产生学习事实 | `apps/api/test/focus-mode-loop.test.ts`（含停用后门控用例）、`apps/api/test/study-term-plugins.test.ts` |
-| 插件端点适配 | 插件声明的端点可经宿主路由访问，分支会话经 `sessions` 窄端口创建，非法入参 fail-closed | `apps/api/test/focus-mode-loop.test.ts`、`apps/api/test/terms-explore.test.ts` |
+| 别名清除 | 全仓无别名注册面：`ServerTurnPlugin.aliases`、注册表别名映射与候选 id 探测循环均已删除 | `check-host-domain-purity` 禁词表 + `apps/api/test/study-term-plugins.test.ts`（注册表无别名体系用例） |
+| 刷题工具门控 | 插件禁用时模型工具面无 `record_practice_attempt`，且不产生学习事实；门控在仓储缺失时同样 fail-closed | `apps/api/test/focus-mode-loop.test.ts`（含停用后门控用例）、`apps/api/test/study-term-plugins.test.ts` |
+| 插件端点适配 | 插件声明的端点可经宿主路由访问，分支会话经 `sessions` 窄端口创建，非法入参 fail-closed；端点门控为**必填**参数（缺省不设防已被禁止） | `apps/api/test/focus-mode-loop.test.ts`、`apps/api/test/terms-explore.test.ts` |
 | 窄端口无泄漏 | 插件包不 import `@aervox/(database\|schema\|repositories)`、`@libsql/*`、`drizzle-orm` 或宿主 Shell 包 | `scripts/import-boundary.mjs` 规则 `plugins-domain-no-db-no-host` |
-| 允许清单单一事实源 | 构建期导出与出厂集市就地打包的允许清单逐项一致；`node_modules` 符号链接不再触发 `EISDIR` | `apps/api/test/plugin-bundle-allowlist.test.ts` |
+| 允许清单单一事实源 | 构建期导出与出厂集市就地打包的允许清单逐项一致；`node_modules` 符号链接不再触发 `EISDIR` | `apps/api/test/plugin-bundle-allowlist.test.ts`；清单为两份拷贝 + 等价性断言（非同一常量） |
 | 宿主无插件夹具 | 宿主内不出现插件工具名与领域模式名 | `check-host-domain-purity` 规则 `practice-tool` 零命中 |
-| 内核出口纯净 | `@aervox/core` 公共出口不含产品域提示词与刷题工具 | `packages/core/test/context-builder.test.ts` 负向断言 |
-| 双端装配 | Web 与桌面各一条渲染回归，确认插件贡献可见 | `packages/ui/test/standard-workbench.test.ts` |
+| 对外契约不可被插件劫持 | 插件 OpenAPI 片段不得覆盖内核端点，非法路径（穿越/非 `/v1`/查询串）被拒绝；插件无法为内核或他人工具登记结果投影 | `packages/contracts/test/plugin-api-registry.test.ts`（冲突/非法路径/归属冲突/重置生效四组负向断言） |
+| 事件通道隔离 | 内核自有事件不经通用插件出口下发 | `packages/api-client/test/projector.test.ts`：「内核事件不得经通用插件出口外泄」 |
+| 启动期诉求可被观察 | 宿主先 `await` 插件同步再读取 `quietStartup`，且尊重该诉求跳过首开日记生成 | `packages/ui/test/workbench-startup.test.ts`（顺序回归守卫 + 静默短路） |
+| 普通发送携带插件语义 | 开关打开后**普通发送**（无显式 metadata）经宿主通用决策点带出模式语义 | `plugins/focus-mode/test/plugin-registration.test.ts`（回归守卫）、`packages/ui/test/ui-registry.test.ts`（合并优先级） |
+| 内核出口纯净 | `@aervox/core` 公共出口不含产品域提示词与刷题工具 | `packages/core/test/context-builder.test.ts` 为**内容**负向断言（不等价于出口面断言）；出口面由纯净性守卫的 `plugin-id`/`quiz-protocol`/`practice-tool` 规则覆盖 |
+| 双端装配 | Web 与桌面壳的组合根插件注入经编译校验；**接缝**渲染回归由宿主通用桩覆盖 | 组合根注入由 `run-removability-drill.mjs` 的 Web/桌面 `typecheck` 相位覆盖（无独立渲染用例）；接缝回归见 `packages/ui/test/standard-workbench.test.ts`（用**通用插件桩**，不加载具体插件） |
+| 插件实现类型边界 | 插件实现目录纳入 `check-type-boundary` 扫描根 | `scripts/check-type-boundary.test.mjs`（含插件目录发现与插件内重复声明负向用例） |
 
 ## 5. 回滚条件与应急方案
 

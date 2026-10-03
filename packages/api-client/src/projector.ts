@@ -18,6 +18,21 @@ import type { TurnCallbacks } from './transport.js';
 
 export type DropReason = 'wrong_turn' | 'out_of_order' | 'duplicate' | 'post_terminal';
 
+/**
+ * 内核自有事件类型（CR-060）。
+ *
+ * 这些事件已由本投影器的显式分支消费，或由宿主自身路径（消息落库、工具执行账本、
+ * 追问答复）处理；它们**不得**顺带进入通用插件出口——否则插件会拿到内核事件的
+ * 原始载荷，与"插件只订阅自己登记的事件类型"相矛盾。
+ */
+const KERNEL_EVENT_TYPES: ReadonlySet<string> = new Set([
+  'message',
+  'redacted',
+  'user_question_answered',
+  'tool_request',
+  'tool_result',
+]);
+
 export interface TurnProjectorOptions {
   /** 期望的 Turn ID；设置后若收到其它 turnId 的事件将直接丢弃 */
   expectedTurnId?: string;
@@ -119,8 +134,8 @@ export class TurnStreamProjector {
         ...(data as ToolApprovalRequiredEventData),
         turnId: event.turnId ?? this.expectedTurnId ?? '',
       });
-    } else {
-      // CR-060：内核未专门分发的事件（含插件自有事件类型）统一经通用出口透传
+    } else if (!KERNEL_EVENT_TYPES.has(eventType)) {
+      // CR-060：只有插件自有事件类型进入通用插件出口（内核事件见 KERNEL_EVENT_TYPES）
       callbacks.onPluginEvent?.(eventType, data);
     }
 

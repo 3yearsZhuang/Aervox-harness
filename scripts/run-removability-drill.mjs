@@ -64,6 +64,12 @@ const build = async () => {
     }
   }
   await run("pnpm", ["exec", "turbo", "run", "build", "--filter=@aervox/api...", "--filter=@aervox/worker...", "--force", "--concurrency=2"]);
+  // CR-060：被剥离引用的 **UI 组合根** 必须真正参与编译。演练会从
+  // `apps/web/src/App.vue` 与 `apps/desktop/src/renderer/src/App.vue` 剥离插件装配行，
+  // 若只构建 API/Worker，这些文件从不编译——悬空引用（例如跨行的 `:plugins=` 属性）
+  // 会让"删除插件后宿主仍可编译"的结论落空。UI 侧以 `typecheck`（vue-tsc）收口：
+  // 足以捕获未解析导入/符号，且避免 electron 打包在演练环境中的额外不确定性。
+  await run("pnpm", ["exec", "turbo", "run", "typecheck", "--filter=@aervox/web...", "--filter=@aervox/desktop...", "--force", "--concurrency=2"]);
 };
 const phase = (name) => run(process.execPath, ["scripts/fixtures/removability-data-rights.mjs", name, root]);
 let failure;

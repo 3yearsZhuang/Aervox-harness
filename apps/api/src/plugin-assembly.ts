@@ -20,6 +20,7 @@ import type {
   TurnPluginRegistryPort,
 } from "@aervox/host-plugin-api";
 import type { LocalContext } from "@aervox/repositories";
+import { isValidPluginRoutePath } from "@aervox/contracts";
 import { resolveLocalContext } from "./shared/local-context.js";
 
 /**
@@ -123,19 +124,29 @@ export type PluginEnablementPredicate = (pluginId: string) => Promise<boolean>;
  *
  * 插件 API 面随插件**生效状态**（启用且可用）门控：停用或缺包的插件端点一律 404，
  * 与面向模型的贡献同一判据；判定在**每请求**执行，故运行期启停无需重启宿主。
+ *
+ * `isEnabled` 为**必填**——门控一旦可选，缺省即等于"不设防"，与本模块声明的 fail-closed
+ * 语义正好相反，故不提供缺省值；非法路径端点在挂载前即被拒绝，避免 Fastify 注册中断宿主启动。
+ *
+ * `warn` 同为**必填**：端点调用失败与非法路径跳过只经此出口留痕，一旦缺省即退化为
+ * 静默 500，插件失效在生产中不可观测（与 Runner 的 `onPluginError` 同一取向）。
  */
 export function mountPluginHttpEndpoints(
   app: FastifyInstance,
   pluginId: string,
   endpoints: ServerPluginRegistration["httpEndpoints"],
   services: PluginHostServicesFactory,
-  warn?: (message: string, error?: unknown) => void,
-  isEnabled?: PluginEnablementPredicate,
+  isEnabled: PluginEnablementPredicate,
+  warn: (message: string, error?: unknown) => void,
 ): void {
   for (const endpoint of endpoints ?? []) {
+    if (!isValidPluginRoutePath(endpoint.path)) {
+      warn(`[plugin-assembly] 插件 ${pluginId} 端点路径非法，已跳过：${endpoint.path}`);
+      continue;
+    }
     const handler = async (request: FastifyRequest, reply: FastifyReply) => {
       try {
-        if (isEnabled && !(await isEnabled(pluginId))) {
+        if (!(await isEnabled(pluginId))) {
           return reply.status(404).send({ error: "Plugin endpoint unavailable" });
         }
         const result = await endpoint.handler(
@@ -148,7 +159,7 @@ export function mountPluginHttpEndpoints(
         );
         return reply.status(result.status ?? 200).send(result.payload);
       } catch (error) {
-        warn?.(`[plugin-assembly] 插件 ${pluginId} 端点 ${endpoint.path} 处理失败`, error);
+        warn(`[plugin-assembly] 插件 ${pluginId} 端点 ${endpoint.path} 处理失败`, error);
         return reply.status(500).send({ error: "Plugin endpoint failed" });
       }
     };
@@ -173,13 +184,13 @@ export function mountPluginHttpEndpoints(
   }
 }
 
-/** 便捷装配：直接接管端点挂载（组合根唯一调用点） */
+/** 便捷装配：直接接管端点挂载（组合根唯一调用点；门控与诊断出口均必填，见上） */
 export function createHttpEndpointSink(
   app: FastifyInstance,
   services: PluginHostServicesFactory,
-  warn?: (message: string, error?: unknown) => void,
-  isEnabled?: PluginEnablementPredicate,
+  isEnabled: PluginEnablementPredicate,
+  warn: (message: string, error?: unknown) => void,
 ): (pluginId: string, endpoints: ServerPluginRegistration["httpEndpoints"]) => void {
   return (pluginId, endpoints) =>
-    mountPluginHttpEndpoints(app, pluginId, endpoints, services, warn, isEnabled);
+    mountPluginHttpEndpoints(app, pluginId, endpoints, services, isEnabled, warn);
 }

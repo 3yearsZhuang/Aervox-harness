@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { createUIRegistry } from '@aervox/ui/plugin-api';
+import { describe, expect, it, vi } from 'vitest';
+import { nextTick } from 'vue';
+import { createUIRegistry, resolveOutgoingMessage } from '@aervox/ui/plugin-api';
 import { createPluginStateStore } from '@aervox/ui/plugin-api';
 import { createPluginEventBus } from '@aervox/ui/plugin-api';
 import { createWorkbenchPluginRuntime, type BuiltinUIPlugin } from '@aervox/ui/plugin-api';
@@ -77,17 +78,79 @@ describe('FocusModePlugin（CR-060 无别名单一 id）', () => {
     expect(registry.getCards()).toHaveLength(0);
   });
 
-  it('消息变换器不再向文本插入模式控制标签（模式语义一律走 metadata）', () => {
+  it('专注模式开关经消息变换器自述出站 metadata（不再改写消息文本）', () => {
     const registry = createUIRegistry();
     const unregister = registerFocusModePlugin(registry, createContext());
 
-    expect(registry.transformMessage('请讲解算法')).toBe('请讲解算法');
+    // 关闭：文本原样、不产生 metadata
+    expect(registry.transformMessage('请讲解算法')).toEqual({ text: '请讲解算法', metadata: undefined });
+
+    // 开启：文本原样，插件自述 mode='focus' —— 宿主不再为任何插件硬编码模式派生
     focusModeEnabled.value = true;
-    expect(registry.transformMessage('请讲解算法')).toBe('请讲解算法');
-    expect(registry.transformMessage('请讲解算法', { metadata: { mode: 'focus' } })).toBe('请讲解算法');
+    expect(registry.transformMessage('请讲解算法')).toEqual({
+      text: '请讲解算法',
+      metadata: { mode: 'focus' },
+    });
+
+    // 宿主显式元数据（如出题意图）经 context 传入，插件不覆盖其取值
+    const quiz = registry.transformMessage('来几道题', { metadata: { mode: 'focus', intent: 'quiz' } });
+    expect(quiz.text).toBe('来几道题');
+    expect(quiz.metadata).toEqual({ mode: 'focus' });
 
     unregister();
-    expect(registry.transformMessage('请讲解算法')).toBe('请讲解算法');
+    expect(registry.transformMessage('请讲解算法').metadata).toBeUndefined();
+    focusModeEnabled.value = false;
+  });
+
+  it('回归守卫：开关打开后「普通发送」（无显式 metadata）仍带出专注模式语义', () => {
+    const registry = createUIRegistry();
+    const unregister = registerFocusModePlugin(registry, createContext());
+
+    // 关闭时：普通发送不携带任何模式语义
+    expect(resolveOutgoingMessage(registry, '请讲解算法')).toEqual({
+      text: '请讲解算法',
+      metadata: undefined,
+    });
+
+    // 打开后：普通发送（不传显式 metadata）必须经宿主通用决策点带出 mode='focus'。
+    // CR-060 曾在此处丢失派生逻辑，导致开关打开但服务端收不到模式语义。
+    focusModeEnabled.value = true;
+    expect(resolveOutgoingMessage(registry, '请讲解算法')).toEqual({
+      text: '请讲解算法',
+      metadata: { mode: 'focus' },
+    });
+
+    // 宿主显式出题意图优先，同时保留插件自述模式
+    expect(resolveOutgoingMessage(registry, '来几道题', { intent: 'quiz' })).toEqual({
+      text: '来几道题',
+      metadata: { mode: 'focus', intent: 'quiz' },
+    });
+
+    unregister();
+    focusModeEnabled.value = false;
+  });
+
+  it('开关切换经宿主通用槽位预设应用/恢复本插件卡片清单（宿主不硬编码卡片 id）', async () => {
+    const registry = createUIRegistry();
+    const applySlotPreset = vi.fn(() => true);
+    const restoreSlotPreset = vi.fn(() => true);
+    const context = createContext() as unknown as { cards: Record<string, unknown> };
+    context.cards = { ...(context.cards as object), applySlotPreset, restoreSlotPreset };
+
+    const unregister = registerFocusModePlugin(registry, context as never);
+    // 初始化时开关为关：只应表达"恢复"，不应应用预设
+    expect(applySlotPreset).not.toHaveBeenCalled();
+    restoreSlotPreset.mockClear();
+
+    focusModeEnabled.value = true;
+    await nextTick();
+    expect(applySlotPreset).toHaveBeenCalledWith(['study', 'timer']);
+
+    focusModeEnabled.value = false;
+    await nextTick();
+    expect(restoreSlotPreset).toHaveBeenCalledTimes(1);
+
+    unregister();
     focusModeEnabled.value = false;
   });
 

@@ -62,6 +62,34 @@ test("学习工具 / 卡片 id 字面量命中", () => {
   assert.deepEqual(rules("packages/ui/src/a.ts", "cardSlots.value = ['study', 'timer'];"), ["study-tool-id"]);
 });
 
+test("CR-060 §B9a：已迁入插件的样式类不得回流宿主主题", () => {
+  // 这些类名随样式物理迁入 plugins/focus-mode/src/ui/styles.css，宿主侧引用数须保持 0
+  for (const cls of [
+    ".practice-panel",
+    ".practice-guidance",
+    ".mistake-tab-btn",
+    ".mistake-reason-filter",
+    ".goal-status",
+    ".goal-item-heading",
+    ".drawer-error",
+    ".side-card-actions",
+    ".learning-dialog",
+    ".task-sub-btn",
+    ".tag-active",
+  ]) {
+    assert.deepEqual(
+      rules("packages/ui/src/theme/workbench.css", `${cls} { color: red; }`),
+      ["domain-css"],
+      `${cls} 回流宿主主题应被拦截`,
+    );
+  }
+
+  // 宿主自身 CAP-017 学习规划的合法类名不得误伤（前缀匹配会误报）
+  assert.deepEqual(rules("packages/ui/src/theme/workbench.css", ".goal-actions button { color: red; }"), []);
+  assert.deepEqual(rules("packages/ui/src/theme/workbench.css", ".mistake-filters button.active { color: red; }"), []);
+  assert.deepEqual(rules("packages/ui/src/theme/workbench.css", ".task-status-tag { color: red; }"), []);
+});
+
 test("不误伤 CAP-003/004/006 学习资料标识（study 单词与连字符路径）", () => {
   for (const source of [
     'import { studyMaterials } from "./study-materials.js";',

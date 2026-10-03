@@ -57,27 +57,28 @@ export function parseFocusConfig(values?: Record<string, unknown> | null): Focus
 /** 出题意图的自然语言触发词 */
 export const QUIZ_TRIGGER_KEYWORDS = /来几道题|来几道|刷题|出几道题|考考我|出题/;
 
-/** 专注模式消息文本前缀（与前端消息变换器约定一致） */
-export const FOCUS_MODE_TEXT_PREFIX = "[模式：专注模式]";
-
-/** 判定当前回合是否处于专注模式（结构化元数据优先，兼容文本前缀） */
-export function isFocusModeMessage(
-  userMessage?: string | null,
-  metadata?: Record<string, unknown> | null,
-): boolean {
-  if (metadata?.mode === "focus" || metadata?.mode === "focus-mode") return true;
-  if (!userMessage) return false;
-  return userMessage.includes(FOCUS_MODE_TEXT_PREFIX);
+/**
+ * 判定当前回合是否处于专注模式。
+ *
+ * CR-060：唯一判据是 Turn `metadata.mode === "focus"`，由本插件 UI 经宿主通用消息变换
+ * 管道自述。不保留文本前缀等旁路通道：它们已无生产者，且会让"开关状态"与"出站语义"
+ * 两处漂移（详见 CR-060 §1 减量证据与 §2 出站模式语义行）。
+ */
+export function isFocusModeMessage(metadata?: Record<string, unknown> | null): boolean {
+  return metadata?.mode === "focus";
 }
 
-/** 判定当前回合是否触发出题/答题闭环 */
+/**
+ * 判定当前回合是否触发出题/答题闭环。
+ * 结构化意图（`metadata.intent === "quiz"`）优先；否则在专注模式下按自然语言触发词判定。
+ */
 export function isQuizTriggered(
   userMessage?: string | null,
   metadata?: Record<string, unknown> | null,
 ): boolean {
-  if (metadata?.intent === "quiz" || metadata?.mode === "quiz") return true;
+  if (metadata?.intent === "quiz") return true;
   if (!userMessage) return false;
-  return isFocusModeMessage(userMessage, metadata) && QUIZ_TRIGGER_KEYWORDS.test(userMessage);
+  return isFocusModeMessage(metadata) && QUIZ_TRIGGER_KEYWORDS.test(userMessage);
 }
 
 /** 后置状态键：本轮是否为专注模式且非出题 */
@@ -125,7 +126,7 @@ export const focusModeTurnPlugin: ServerTurnPlugin = {
   name: "专注学习模式",
 
   beforeTurn(ctx, configRaw) {
-    const isFocus = isFocusModeMessage(ctx.userMessage, ctx.metadata);
+    const isFocus = isFocusModeMessage(ctx.metadata);
     const quizActive = isQuizTriggered(ctx.userMessage, ctx.metadata);
     if (!isFocus && !quizActive) return;
 
