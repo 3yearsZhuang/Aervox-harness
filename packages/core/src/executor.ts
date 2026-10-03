@@ -1,4 +1,5 @@
-import { abortableStream, awaitWithSignal } from "./abortable.js";
+import { abortableStream } from "./abortable.js";
+import { dedupeKey } from "./stable-serialize.js";
 /**
  * Aervox｜思隅 @aervox/core — Turn 执行器（阶段 2：只读工具多 Step Loop）
  *
@@ -10,19 +11,22 @@ import { abortableStream, awaitWithSignal } from "./abortable.js";
  * - 终止：自然完成（无工具请求）→ done Completed；maxSteps 内始终请求工具 → done Interrupted；
  *   未配置工具却出现工具请求，或执行错误 → fail-closed。
  */
-import type { ExecutionStorePort, InboxPort, ModelProviderPort, ToolProviderPort } from "./ports.js";
+import type { DeletionGatePort, ExecutionStorePort, InboxPort, ModelProviderPort, ToolProviderPort } from "./ports.js";
 import type { ContextBuilderPort } from "./ports.js";
 import type {
   ExecuteResult,
   ModelChunk,
   PromptMessage,
   ToolCallResult,
-  ToolExecutionStatus,
 } from "./types.js";
 import { LeaseLostError } from "./errors.js";
 import { LeaseHeartbeat } from "./lease-heartbeat.js";
 import { inspectToolResult } from "./tool-result-safe.js";
-import { inspectToolInput } from "./tool-input-safe.js";
+import { createTurnTerminator } from "./turn-terminator.js";
+import { settleDuplicateToolCall, settleToolLedger } from "./tool-ledger.js";
+import { runToolExecution, ToolExecutionAborted } from "./tool-pipeline.js";
+import { StepCollector } from "./step-collector.js";
+import type { StepCollection } from "./step-collector.js";
 
 export interface ExecuteTurnInput {
   turnId: string;
@@ -80,11 +84,6 @@ export interface ExecuteTurnOptions {
   maxModelRetries?: number;
 }
 
-/** 2d：删除/撤权水位闸门（§11.3：删除/撤权水位未追平 → fail closed，不继续模型或工具调用） */
-export interface DeletionGatePort {
-  isBlocked(input: { turnId: string; sessionId: string }): Promise<boolean>;
-}
-
 export interface ExecuteTurnDeps {
   execution: ExecutionStorePort;
   provider: ModelProviderPort;
@@ -107,52 +106,9 @@ export interface ExecuteTurnDeps {
   options?: ExecuteTurnOptions;
 }
 
-/** 工具调用去重键：name + 参数序列化 */
-const dedupeKey = (name: string, args: unknown): string => `${name}:${JSON.stringify(args)}`;
-
-/** 共享 UTF-8 编码器（无状态；模块级复用，避免流式路径每 chunk 分配） */
-const utf8 = new TextEncoder();
-
-/** 消息输入计量缓存：key 为消息对象引用。
- *  executor 只向 history 追加新消息对象、不改写既有对象，宿主注入的 inbox/记忆消息
- *  每步亦为新对象，因此引用稳定即序列化结果稳定；按引用缓存使长回合的输入计量从
- *  每步全量重序列化（O(总上下文)，整体 O(n²)）摊销为仅计新增消息。 */
-const messageChargeBytes = new WeakMap<object, number>();
-
-/** 单条消息的 UTF-8 序列化字节数（含 +1 数组分隔符余量，保守不欠计） */
-function messageCharge(message: PromptMessage): number {
-  let n = messageChargeBytes.get(message);
-  if (n === undefined) {
-    n = utf8.encode(JSON.stringify(message)).length + 1;
-    messageChargeBytes.set(message, n);
-  }
-  return n;
-}
-
 /** 3a：Host 幂等键重生成（AVX-HAR-001 §9：上游 callId 不可信，副作用标识由 Host 生成） */
 const hostExecutionId = (attemptId: string, step: number, seq: number): string => `${attemptId}:${step}:${seq}`;
 
-/** 工具超时兜底（缺陷 D）：超时 → abort 取消信号并向底层传播，同时 reject；promise settle → 清理 timer。
- *  调用方须把 controller.signal 透传给 tools.execute(input)，使长工具（ask_user_question 等）
- *  能感知取消并及时清理挂起副作用，避免「超时后底层仍在执行/写副作用」。 */
-function withTimeout<T>(promise: Promise<T>, ms: number, controller?: AbortController): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      controller?.abort();
-      reject(new Error("tool_timeout"));
-    }, ms);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (err: unknown) => {
-        clearTimeout(timer);
-        reject(err);
-      },
-    );
-  });
-}
 
 /** 执行一次 Turn：claim → 多 Step 模型—工具循环 → 分段写事件 → 终态 */
 export async function executeTurn(
@@ -203,72 +159,23 @@ export async function executeTurn(
       : null;
   heartbeat?.start();
 
-  // 2b：用户取消闭环（AVX-HAR-001 §11.1）——先 CAS 夺终态（Cancelled），成功才写 done 事件；
-  // finalize 返回 false（与它方终态竞态）则静默中止，不产生不一致事件。
-  const finalizeCancelled = async (atSequence: number): Promise<ExecuteResult> => {
-    // B4-D：终态 + done 事件原子提交（§12.2；CAS 失败即他方已终结 → 无孤儿 done）
-    const finalized = await execution.finalizeAttemptWithEvent({
-      turnId: input.turnId,
-      attemptId: input.attemptId,
-      status: "Cancelled",
-      expectedFencingToken: claimFencingToken,
-      sequence: atSequence,
-      eventType: "done",
-      eventData: { status: "Cancelled", isComplete: false, lastSequence: atSequence },
-      safetyDecision: "approved",
-    });
-    if (!finalized.ok) {
-      // 终态 CAS 失败（他方已终结/抢占）→ 不写 done，返回 contested
-      return { status: "failed", attemptId: input.attemptId, reason: "cancelled_finalize_contested" };
-    }
-    return { status: "cancelled", attemptId: input.attemptId, lastSequence: atSequence, stepsTaken };
-  };
-  /** 检查点：已被请求取消时立刻走取消终态 */
-  const abortIfCancelled = async (atSequence: number): Promise<ExecuteResult | null> => {
-    if (await execution.isCancelRequested({ turnId: input.turnId, attemptId: input.attemptId })) {
-      return finalizeCancelled(atSequence);
-    }
-    return null;
-  };
-
-  /** 2d：预算/环境原因终止（Interrupted + done；§5.3 budget-exhausted、§11.3 删除未追平） */
-  const finalizeInterrupted = async (atSequence: number, reason: string): Promise<ExecuteResult> => {
-    // B4-D：终态 + done 事件原子提交（§12.2；CAS 失败即他方已终结 → 无孤儿 done）
-    const finalized = await execution.finalizeAttemptWithEvent({
-      turnId: input.turnId,
-      attemptId: input.attemptId,
-      status: "Interrupted",
-      expectedFencingToken: claimFencingToken,
-      sequence: atSequence,
-      eventType: "done",
-      eventData: { status: "Interrupted", isComplete: false, lastSequence: atSequence, reason },
-      safetyDecision: "approved",
-    });
-    if (!finalized.ok) {
-      return { status: "failed", attemptId: input.attemptId, reason: `${reason}_finalize_contested` };
-    }
-    return { status: "failed", attemptId: input.attemptId, reason };
-  };
-
-  /** 2d：Step 边界守卫 —— 取消 / 删除撤权水位 / 总耗时预算 / ControlContext，任一命中即收敛 */
-  const prematureTermination = async (atSequence: number): Promise<ExecuteResult | null> => {
-    if (control?.isExpired()) {
-      return finalizeInterrupted(atSequence, "deadline_exceeded");
-    }
-    if (control?.budgetExceeded) return finalizeInterrupted(atSequence, "token_or_call_budget_exceeded");
-    if (control?.isAborted()) {
-      return finalizeCancelled(atSequence);
-    }
-    const cancelled = await abortIfCancelled(atSequence);
-    if (cancelled) return cancelled;
-    if (deletionGate && (await deletionGate.isBlocked({ turnId: input.turnId, sessionId: input.sessionId }))) {
-      return finalizeInterrupted(atSequence, "deletion_blocked");
-    }
-    if (maxTurnDurationMs > 0 && Date.now() - startedAt > maxTurnDurationMs) {
-      return finalizeInterrupted(atSequence, "turn_timeout");
-    }
-    return null;
-  };
+  // ITER-041：终态收敛器已切至 turn-terminator.ts（取消 / 预算 / 删除闸门 / 租约丢失
+  // 四条收敛路径与主循环解耦）。stepsTaken 以 getter 传入，保持与主循环同步递增。
+  const terminator = createTurnTerminator({
+    execution,
+    turnId: input.turnId,
+    attemptId: input.attemptId,
+    sessionId: input.sessionId,
+    claimFencingToken,
+    get stepsTaken() {
+      return stepsTaken;
+    },
+    deletionGate,
+    control,
+    maxTurnDurationMs,
+    startedAt,
+  });
+  const { finalizeCancelled, finalizeInterrupted, prematureTermination } = terminator;
 
   try {
     // 4b 续跑：sequence 沿用已存在事件之后（lastSequence+1 起），message 身份事件已有则跳过、
@@ -343,112 +250,65 @@ export async function executeTurn(
       const stepStartedAt = Date.now();
       // B4-C：模型调用重试 —— 仅【首个可见片段前且无副作用】时允许（§10 maxModelRetries）
       let canRetryModel = maxModelRetries > 0 && step === stepBase + 1 && textAccumulator.length === 0;
-      let midStreamStop: ExecuteResult | null = null;
-      let lastMidStreamCheck = 0;
-      // 思考型模型（CAP-034）：思考增量节流落 reasoning_delta 进度事件——
-      // 长思考期间客户端仍有事件流入（SSE 活性）；不进正文历史与安全片段。
-      let reasoningBuffer = "";
-      let reasoningEmitted = false;
-      let reasoningLastFlushAt = 0;
-      const flushReasoning = async (force = false): Promise<void> => {
-        const nowMs = Date.now();
-        if (!force && reasoningBuffer.length < 200 && nowMs - reasoningLastFlushAt < 400) return;
-        const text = reasoningBuffer;
-        reasoningBuffer = "";
-        reasoningLastFlushAt = nowMs;
-        if (!text) return;
-        reasoningEmitted = true;
-        try {
-          await execution.appendEvent({
-            turnId: input.turnId,
-            attemptId: input.attemptId,
-            expectedFencingToken: claimFencingToken,
-            sequence: sequence++,
-            eventType: "reasoning_delta",
-            data: { messageId, text },
-            safetyDecision: "approved",
-          });
-        } catch (err) {
-          // 进度事件失败不阻断 Turn；租约丢失除外（上层统一收敛 lease_lost）
-          if (err instanceof LeaseLostError) throw err;
-        }
+      // ITER-041 第四段：流式收集（计量 / 预算守卫 / 心跳检查点 / 取消节流 /
+      // 思考增量节流）已切至 step-collector.ts。StepCollector 持有本Step 的缓冲与
+      // 计量状态，对外只回传「分块 + 终止原因 + 是否已落 reasoning 进度事件」。
+      //
+      // 思考增量落进度事件（CAP-034）：序号分配与 fencing 在此与主循环共享计数器，
+      // 故以闭包注入而非由收集器自行分配。
+      const appendReasoningDelta = async (text: string): Promise<void> => {
+        await execution.appendEvent({
+          turnId: input.turnId,
+          attemptId: input.attemptId,
+          expectedFencingToken: claimFencingToken,
+          sequence: sequence++,
+          eventType: "reasoning_delta",
+          data: { messageId, text },
+          safetyDecision: "approved",
+        });
       };
-      const collectStep = async (): Promise<ModelChunk[]> => {
-        const out: ModelChunk[] = [];
-        const stop = await prematureTermination(sequence);
-        if (stop) { midStreamStop = stop; return out; }
-        // B4-B/预算：输入计量按消息引用缓存摊销（长回合 O(n²) → O(新增)）；
-        // 工具 schema 每步全量序列化（体积小且 seenToolCalls 会变更集合）
-        const inputCharge = context.messages.reduce((sum, m) => sum + messageCharge(m), 0)
-          + (tools?.tools ? utf8.encode(JSON.stringify(tools.tools)).length : 0);
-        if (control && (control.remainingCalls < 1 || control.remainingTokens <= inputCharge)) {
-          midStreamStop = await finalizeInterrupted(sequence, "budget_exhausted");
-          return out;
-        }
-        control?.recordCallUsed();
-        control?.recordTokensUsed(inputCharge);
-        let charged = inputCharge;
-        for await (const chunk of abortableStream(provider.stream({
+      // 每次收集尝试一个新收集器：重试须重置「已落过 reasoning 进度事件」与节流缓冲，
+      // 失败 attempt 的未落缓冲随旧实例一并丢弃，不得串入重试 attempt。
+      const makeCollector = (): StepCollector =>
+        new StepCollector({
+          provider,
+          context,
+          tools: tools?.tools,
           turnId: input.turnId,
           attemptId: input.attemptId,
           step,
-          context,
-          tools: tools?.tools,
-          signal: control?.abortSignal,
-          maxOutputTokens: control && Number.isFinite(control.remainingTokens) ? control.remainingTokens : undefined,
-        }), control?.abortSignal)) {
-          // Charge UTF-8 bytes conservatively when provider token usage is absent;
-          // cumulative provider usage can only increase the charge, never refund it.
-          let charge = utf8.encode(chunk.text + (chunk.reasoning ?? "") + (chunk.toolCalls ? JSON.stringify(chunk.toolCalls) : "")).length;
-          if (chunk.usage) charge = Math.max(charge, chunk.usage.totalTokens - charged);
-          charged += charge;
-          control?.recordTokensUsed(charge);
-          if (control?.budgetExceeded) {
-            midStreamStop = await finalizeInterrupted(sequence, "token_budget_exceeded");
-            return out;
-          }
-          // B2：心跳检查点 —— 长流期间租约丢失则立即中止本 Step（不再产生新事件/副作用）
-          heartbeat?.throwIfLost();
-          // B4-B：流式期间取消/删除水位/总时长检查（≥100ms 节流，避免每 chunk 压库）
-          const nowMs = Date.now();
-          if (nowMs - lastMidStreamCheck >= 100) {
-            lastMidStreamCheck = nowMs;
-            const stop = await prematureTermination(sequence);
-            if (stop) {
-              midStreamStop = stop;
-              return out; // 提前退出迭代（async iterator 清理由 for-await 保证）
-            }
-          }
-          out.push(chunk);
-          if (chunk.reasoning) {
-            reasoningBuffer += chunk.reasoning;
-            await flushReasoning();
-          }
-        }
-        return out;
-      };
-      let chunks: ModelChunk[];
+          messageId,
+          control,
+          heartbeat,
+          prematureTermination: () => prematureTermination(sequence),
+          finalizeInterrupted: (reason) => finalizeInterrupted(sequence, reason),
+          appendReasoningDelta,
+        });
+      let activeCollector = makeCollector();
+      let collected: StepCollection;
       try {
-        chunks = await collectStep();
+        collected = await activeCollector.collect();
       } catch (err) {
         const stop = await prematureTermination(sequence);
         if (stop) return stop;
-        if (canRetryModel && !reasoningEmitted && !(err instanceof LeaseLostError) && !heartbeat?.lost) {
-          canRetryModel = false;
-          midStreamStop = null;
-          lastMidStreamCheck = 0;
-          chunks = await collectStep();
-        } else {
-          throw err;
-        }
+        // B4-C：仅【首个可见片段前且无副作用】时允许重试（§10 maxModelRetries）
+        const canRetry = canRetryModel && !activeCollector.hasEmittedReasoning
+          && !(err instanceof LeaseLostError) && !heartbeat?.lost;
+        if (!canRetry) throw err;
+        canRetryModel = false;
+        activeCollector = makeCollector();
+        collected = await activeCollector.collect();
       }
-      if (midStreamStop) {
-        // 终态已在 prematureTermination 内 CAS 提交；缓冲 reasoning 属进度事件，
-        // 对终态 Attempt 追加必被 fencing CAS 拒绝（LeaseLostError 会把取消/预算收敛
-        // 误报为 *_finalize_contested / lease_lost）——与 catch 路径同样静默丢弃。
-        return midStreamStop;
+      if (collected.stop) {
+        // 终态已在 prematureTermination / finalizeInterrupted 内 CAS 提交；缓冲
+        // reasoning 属进度事件，对终态 Attempt 追加必被 fencing CAS 拒绝
+        //（LeaseLostError 会把取消/预算收敛误报为 *_finalize_contested / lease_lost）
+        //——与 catch 路径同样静默丢弃。
+        return collected.stop;
       }
-      await flushReasoning(true);
+      // 收尾 flush 必须落在产生 collected 的实例上，否则重试 attempt 的尾部增量会随旧实例丢失
+      await activeCollector.flushPendingReasoning();
+      const chunks = collected.chunks;
       const stepText = chunks.map((c) => c.text).join("");
       const toolCalls = chunks.flatMap((c) => c.toolCalls ?? []);
       const hasToolCalls = toolCalls.length > 0;
@@ -617,26 +477,15 @@ export async function executeTurn(
         if (seenToolCalls.has(dedupeKey(call.name, call.arguments))) {
           result = { id: call.id, name: call.name, ok: false, error: "duplicate_tool_call" };
           // B4-D：duplicate 账本 + tool_result 事件原子提交（事件对模型可见，模型据之收敛）
-          await execution.recordToolOutcome({
+          await settleDuplicateToolCall({
+            execution,
             turnId: input.turnId,
             attemptId: input.attemptId,
-            sequence: sequence++,
             invocationId: executionId,
-            name: call.name,
-            arguments: call.arguments,
-            status: "duplicate",
-            error: "duplicate_tool_call",
-            startedAt,
-            finishedAt: new Date().toISOString(),
-            eventData: {
-              invocationId: call.id,
-              executionId,
-              name: call.name,
-              ok: false,
-              error: "duplicate_tool_call",
-            },
-            safetyDecision: "approved",
             expectedFencingToken: claimFencingToken,
+            nextSequence: () => sequence++,
+            call,
+            startedAt,
           });
         } else {
           if (control && (control.remainingCalls < 1 || control.remainingTokens <= 0)) return finalizeInterrupted(sequence, "budget_exhausted");
@@ -649,152 +498,47 @@ export async function executeTurn(
             name: call.name,
             arguments: call.arguments,
           });
-          // 长耗时工具放宽超时：ask_user_question 等待用户交互（默认 120s）；
-          // aervox_diary_write 内含一次完整 LLM 日记生成（CAP-009），同样放宽
-          const isAskUser = call.name === "ask_user_question";
-          const isDiaryWrite = call.name === "aervox_diary_write";
-          const effectiveTimeout =
-            isAskUser || isDiaryWrite ? Math.max(toolTimeoutMs, 120000) : toolTimeoutMs;
-          const inputInspection = inspectToolInput({
-            name: call.name,
-            arguments: call.arguments,
-          });
-          if (!inputInspection.safe) {
-            result = {
-              id: call.id,
-              name: call.name,
-              ok: false,
-              error: `unsafe_tool_arguments: ${inputInspection.reason ?? "validation_failed"}`,
-            };
-          } else {
-            let subtaskControl: import("./control-context.js").ControlContext | undefined;
-            let removeLostListener: (() => void) | undefined;
-            try {
-              const stop = await prematureTermination(sequence);
-              if (stop) return stop;
-              if (control && (control.remainingCalls < 1 || control.remainingTokens <= 0)) return finalizeInterrupted(sequence, "budget_exhausted");
-
-              // Phase 2: ApprovalPolicyPort 统一审批前置拦截（有界等待：策略不合作时由 abort 信号打破）
-              if (deps.approvalPolicy) {
-                const spec = (tools.tools || []).find((t) => t.name === call.name);
-                const safetyLevel: import("./ports.js").ToolSafetyLevel = spec?.readOnly ? "read_only" : "write_with_approval";
-                const decision = await awaitWithSignal(
-                  deps.approvalPolicy.evaluate(
-                    {
-                      turnId: input.turnId,
-                      attemptId: input.attemptId,
-                      invocationId: executionId,
-                      toolName: call.name,
-                      arguments: call.arguments,
-                      safetyLevel,
-                    },
-                    control?.abortSignal,
-                  ),
-                  control?.abortSignal,
-                );
-                if (decision.action === "deny") {
-                  result = {
-                    id: call.id,
-                    name: call.name,
-                    ok: false,
-                    error: decision.reason ?? `tool_approval_denied: ${call.name}`,
-                  };
-                } else if (decision.action === "ask_user") {
-                  result = {
-                    id: call.id,
-                    name: call.name,
-                    ok: false,
-                    needsApproval: {
-                      approvalId: decision.approvalId ?? `apv_${executionId}`,
-                      toolName: call.name,
-                      argumentsHash: decision.argumentsHash ?? JSON.stringify(call.arguments),
-                    },
-                  };
-                }
-              }
-
-              if (!result) {
-                const cancel = new AbortController();
-                removeLostListener = heartbeat?.onLost(() => cancel.abort());
-                const signal = control ? AbortSignal.any([control.abortSignal, cancel.signal]) : cancel.signal;
-                subtaskControl = control?.deriveSubtask({
-                  subtaskExecutionId: executionId,
-                  subtaskSignal: signal,
-                  tighterDeadlineEpochMs: effectiveTimeout > 0 ? Date.now() + effectiveTimeout : undefined,
-                });
-                control?.recordCallUsed();
-                const executed = await withTimeout(
-                  awaitWithSignal(tools.execute({
-                    turnId: input.turnId,
-                    attemptId: input.attemptId,
-                    invocationId: executionId,
-                    name: call.name,
-                    arguments: call.arguments,
-                    sessionId: input.sessionId,
-                    signal: subtaskControl?.abortSignal ?? signal,
-                    controlContext: subtaskControl,
-                  }), subtaskControl?.abortSignal ?? signal),
-                  effectiveTimeout,
-                  cancel,
-                );
-                result = { id: call.id, name: call.name, ok: executed.ok, output: executed.output, error: executed.error, needsApproval: executed.needsApproval };
-              }
-            } catch (err) {
-              // B2：工具执行期间租约已失（心跳探知）→ 立即中止本 Step 交回外层收敛 lease_lost，不写结果事件、不启动新副作用
-              if (heartbeat?.lost) {
-                throw new LeaseLostError("lease lost during tool execution");
-              }
-              result = { id: call.id, name: call.name, ok: false, error: err instanceof Error ? err.message : "tool_execution_error" };
-            } finally {
-              subtaskControl?.dispose();
-              removeLostListener?.();
-            }
+          // ITER-041 第三段：入参校验 → 审批 → 子任务派生 → 执行 → 异常归类已切至
+          // tool-pipeline.ts。账本收口与事件序号仍留本侧（须与主循环共享 sequence）。
+          try {
+            result = await runToolExecution({
+              turnId: input.turnId,
+              attemptId: input.attemptId,
+              sessionId: input.sessionId,
+              executionId,
+              call,
+              tools,
+              approvalPolicy: deps.approvalPolicy,
+              control,
+              heartbeat,
+              toolTimeoutMs,
+              prematureTermination: () => prematureTermination(sequence),
+              finalizeInterrupted: (reason) => finalizeInterrupted(sequence, reason),
+            });
+          } catch (err) {
+            // 中止信号（Step 守卫 / 预算耗尽）与租约丢失交回主循环收敛：
+            // 前者已完成终态提交、后者须立即中止且不写结果事件
+            if (err instanceof ToolExecutionAborted) return err.result;
+            throw err;
           }
-          result ??= { id: call.id, name: call.name, ok: false, error: "tool_execution_failed" };
+          // ITER-041：结果分类 + 账本收口已切至 tool-ledger.ts。
+          // 序号以 getter 传入（原先是 `sequence++` 内联）——收口会消耗一个事件序号，
+          // 必须与主循环共享同一计数器，不能在此快照。
+          //
           // 2c：以权威结果收口预留行（§9：非幂等副作用失败不自动重试）
-          const finalStatus: ToolExecutionStatus = result.needsApproval
-            ? "pending_approval"
-            : result.ok
-              ? "executed"
-              : result.error === "tool_timeout"
-                ? "timeout_error"
-                : "rejected";
           // B4-D：账本收口 + tool_result 事件原子提交（§12.2）——写工具需授权时账本记
           // pending_approval 但不发 tool_result（等待授权），与既有语义一致。
-          if (result.needsApproval) {
-            await execution.updateToolExecutionResult({
-              turnId: input.turnId,
-              attemptId: input.attemptId,
-              invocationId: executionId,
-              status: finalStatus,
-              output: result.output,
-              error: result.needsApproval ? "requires_approval" : result.error,
-            });
-          } else {
-            await execution.recordToolOutcome({
-              turnId: input.turnId,
-              attemptId: input.attemptId,
-              sequence: sequence++,
-              invocationId: executionId,
-              name: call.name,
-              arguments: call.arguments,
-              status: finalStatus,
-              output: result.output,
-              error: result.error,
-              startedAt,
-              finishedAt: new Date().toISOString(),
-              eventData: {
-                invocationId: call.id,
-                executionId,
-                name: call.name,
-                ok: result.ok,
-                output: result.output,
-                error: result.error,
-              },
-              safetyDecision: "approved",
-              expectedFencingToken: claimFencingToken,
-            });
-          }
+          await settleToolLedger({
+            execution,
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            invocationId: executionId,
+            expectedFencingToken: claimFencingToken,
+            nextSequence: () => sequence++,
+            call,
+            result,
+            startedAt,
+          });
         }
         results.push(result);
 
