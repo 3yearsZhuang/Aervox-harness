@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.53.0
-updated_at: 2026-10-03
-reviewed_at: 2026-10-03
+version: 1.53.1
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 90
 ---
 
@@ -155,7 +155,7 @@ review_interval_days: 90
 - 埋点与指标事件未定义；
 - 阻塞型 `EXP/RISK/DEC/ADR` 未全部关闭。
 
-满足 DoR 的路径：按[工程与发布流程 §1](../how-to/engineering-process.md#1-新增与修改需求)补齐字段与证据，在对应批次启动时逐 CAP 关闭上述阻断项并推进 `Ready`。
+满足 DoR 的路径：按[新增与规格化 CAP 能力](../how-to/add-capability.md)与[§5 字段模板](#5-原子需求字段模板)补齐字段与证据，在对应批次启动时逐 CAP 关闭上述阻断项并推进 `Ready`。
 
 ### 4.1 建议交付批次与拆分原则
 
@@ -167,7 +167,7 @@ review_interval_days: 90
 - 安全、数据控制与删除传播先固定验收；共享附件管线的 CAP-011/012 联合设计依赖，避免重复建设。
 - CAP-033 依赖 CAP-005/018/020/022/024/026/027/030 及本地权限/存储 ADR；完整来源、后台恢复、动作授权和保留要求须通过独立 DoR。
 - CAP-034/035 依赖 CAP-033 的连接和授权边界；HA 的私网/白名单/重连、小米健康的账号/真实沙箱/Restricted 门禁仍分别验收。
-- 拆分按[工程与发布流程 §1](../how-to/engineering-process.md#1-新增与修改需求)执行，在计划条目关联 CAP/CR；交付后在 §4.2 登记，不以计划状态替代证据。
+- 拆分与原子化步骤按[新增与规格化 CAP 能力](../how-to/add-capability.md)与[追踪基线 §5 字段模板 / §6 DoR](#5-原子需求字段模板)执行，在计划条目关联 CAP/CR；交付后在 §4.2 登记，不以计划状态替代证据。
 
 #### 2. 建议批次
 

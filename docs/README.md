@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.16.3
-updated_at: 2026-10-01
-reviewed_at: 2026-10-01
+version: 1.17.0
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 90
 ---
 
@@ -64,7 +64,7 @@ review_interval_days: 90
 | [AI 质量与安全规范](reference/AI_QUALITY_SAFETY.md) | 模型、记忆和日记怎样达到可复现质量与安全门槛 | 模型运行记录、评估集、记忆压缩、日记事实性、安全分类和回滚 |
 | [威胁模型](reference/THREAT_MODEL.md) | 哪些资产和信任边界会受到何种攻击 | 威胁场景、控制、验证、残余风险和安全评审输入 |
 | [测试策略](reference/TEST_STRATEGY.md) | 各类需求怎样验证、哪些路径阻断发布 | 测试分层、P0 必测路径、AI 评估、覆盖门槛和证据要求 |
-| [运行、值班与演练手册](reference/operations.md) | 生产故障怎样止损、恢复和验证；出问题找谁、如何升级；季度演练留什么证 | 告警、事件响应、降级、恢复、回滚、值班与 SEV 升级、演练项与证据字段；G5 门禁引用 |
+| [运行与演练手册](reference/operations.md) | 本地单机故障怎样止损、恢复和验证；演练留什么证 | 观测口径、事件分级、供应商/侧车降级、恢复、回滚、演练项与证据字段；G5 门禁引用 |
 
 ### 教程与操作指南
 
@@ -73,7 +73,7 @@ review_interval_days: 90
 | [教程：第一个对话](tutorials/first-conversation.md)（AVX-TUT-001） | 新成员如何从 0 跑到第一条对话 | 可执行步骤与验证 |
 | [教程：迁移已集成能力并接入 DSH/pi](tutorials/migrate-integrated-capabilities.md)（AVX-TUT-002） | 如何把现有 tools/plugins/skills 迁移为可组合能力，并设计 DSH/pi 适配器 | 原生能力迁移、Job Handler、外部 Host、Profile、撤权和回滚演练 |
 | [教程：编写自定义 Agent 工具](tutorials/create-agent-tool.md)（AVX-TUT-003） | 如何为 Aervox Agent 编写一个自定义工具并接入运行时与安全检查 | 工具参数 Schema、ToolHandler 实现、只读/审批安全级别与单测验证 |
-| [操作指南](how-to/README.md)（AVX-HOW-001） | 怎么新增/修改需求、写 ADR、过发布会门禁、做季度演练、管可选模块 submodule；贡献者流程见根级 [CONTRIBUTING](../CONTRIBUTING.md) | 任务型流程导航与操作指引（工程流程、写 ADR、submodule 协作）；规则以对应专项文档为事实源 |
+| [操作指南](how-to/README.md)（AVX-HOW-001） | 怎么新增 CAP 能力、开发插件、闭环 CR、执行换库演练；贡献者流程见根级 [CONTRIBUTING](../CONTRIBUTING.md) | 任务型流程导航与操作指引；规则以对应专项文档为事实源（原工程流程/写 ADR/submodule 三份指南已于 2026-10-04 退役并入专项文档） |
 | [开发 Aervox 扩展插件](how-to/develop-plugin-ui-extension.md)（AVX-GUIDE-004） | 如何完成最小插件并验证打包、配置和扩展行为 | 可跟做示例、声明式分发包、第一方扩展接线与验证步骤 |
 | [操作指南：提出与闭环 CR](how-to/cr-workflow.md)（AVX-GUIDE-005） | 如何为 Aervox 提出、撰写、实施并闭环一个变更请求（CR） | 变更分级、差量分析、CR 模板、回滚预案与 §4.2 落地登记 |
 | [操作指南：执行 SQLite 换库演练](how-to/run-database-migration-drill.md)（AVX-GUIDE-006） | 如何执行 CR-030 破坏性迁移、staging 隔离校验与原子换库回滚 | 不可变备份、单用户数据抽取、双向校验、原子换库与回滚命令 |
@@ -88,8 +88,7 @@ review_interval_days: 90
 | [桌宠角色设定文档化与多人格模板组织](explanation/persona-organization.md)（AVX-EXPL-003） | 桌宠 IP 与多人格模板（CAP-019）的角色如何文档化、版本化并维护 | 角色文档清单、字段化结构（prompt/开场白/语气/技能/错误兜底语）、人设目录与模板版本化、维护责任 |
 | [主动智能模式](explanation/proactive-intelligence-mode.md)（AVX-EXPL-008） | 完全访问上如何以广域画像授权、OS 能力、特权观察 Host、本地私密数据和主动操作组合既有 CAP | 评审提案；不替代 PRD/SRS/DATA_PRIVACY/ADR，不表示运行时已实现 |
 | [ESP32-S3 硬件延伸方案](explanation/esp32-s3-hardware-extension.md)（AVX-EXPL-005） | 如何把 ESP32-S3 做成物理桌宠终端 | 器件级设计输入：硬件边界、表现映射、设备协议与隐私红线；跨产品方向取舍与阶段准入见[配套硬件方向](explanation/companion-hardware-directions.md)（AVX-EXPL-011） |
-| [底层优化审阅与建议](explanation/foundation-optimization-review.md)（AVX-EXPL-010） | 当前基础设施有哪些可验证的问题、应如何排序改进 | 代码证据、触发条件、优先级、改进成本与验收建议；不代表修复完成 |
-| [当前架构实现与演进评估](explanation/architecture-implementation-review.md)（AVX-EXPL-012） | 实际进程、数据和执行链路如何运转，底层应如何继续演进 | 14 个深入专题、故障实验、模块边界、持久恢复、资源与部署、选项权衡和测量计划；不改写已接受决策 |
+| [当前架构实现与演进评估](explanation/architecture-implementation-review.md)（AVX-EXPL-012） | 实际进程、数据和执行链路如何运转，底层应如何继续演进；§9 并入原底层优化评估（AVX-EXPL-010，FND-01～10） | 14 个深入专题、故障实验、模块边界、持久恢复、资源与部署、选项权衡、测量计划与 FND 分项证据；不改写已接受决策 |
 | [HLS 本地智能体竞赛：能力拓展与验证规划](explanation/hls-agent-competition-plan.md)（AVX-EXPL-013） | 三人团队如何验证本地模型在 HLS 设计中的工具反馈增益并准备竞赛交付 | 赛规来源、能力缺口、阶段准入、对照实验、去留标准与冻结产物；当前认领和排序见根 plan.md，不代表实现或产品化已批准 |
 | [纯本地多端点对点加密同步架构探索](explanation/p2p-local-sync-exploration.md)（AVX-EXPL-014） | 纯本地多设备同步的威胁模型、配对与冲突合并应如何取舍 | 探索性设计输入与未实现清单；不代表已接线能力或发布承诺，当前状态见根 plan.md 与追踪基线 |
 | [Pi AI 竞品差距分析与改进建议](explanation/pi-competitive-gap-improvements.md)（AVX-EXPL-015） | Pi AI 的关系型 AI 体验如何暴露思隅陪伴层的结构性缺陷 | 七项差距评估、三波改进建议、涉及 CAP/ADR 兼容性分析与实施优先级；设计输入，不代表实施授权 |

@@ -4,9 +4,9 @@ type: explanation
 scope: baseline
 owner: maintainers
 doc_status: approved
-version: 1.0.0
-updated_at: 2026-10-01
-reviewed_at: 2026-10-01
+version: 1.1.0
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 90
 ---
 
@@ -39,10 +39,9 @@ review_interval_days: 90
 
 | 调研文档 | 转化成果与落地位置 | 状态 |
 |---|---|---|
-| [当前架构实现与演进评估](architecture-implementation-review.md) | ARC-01（Outbox 可靠派发）、ARC-14（CI 校验）已在 ITER-001/002 落地并进入基线 | 已落地部分，其余推进中 |
-| [底层优化审阅与建议](foundation-optimization-review.md) | FND-01（Outbox 消费隔离）、FND-05 调度切片已闭环 | 已落地 |
+| [当前架构实现与演进评估](architecture-implementation-review.md) | ARC-01（Outbox 可靠派发）、ARC-14（CI 校验）已在 ITER-001/002 落地并进入基线；§9 并入原《底层优化评估》（AVX-EXPL-010，FND-01～10，FND-01/05 已闭环） | 已落地部分，其余推进中 |
 | [参考项目能力迁移与借鉴评估](reference-design-transfer.md) | DSH、pi、AstrBot 上游版本固定已在 ITER-030 落地并完成准入固定 | 已落地 |
-| [Pi AI 竞品差距分析与改进建议](pi-competitive-gap-improvements.md) | 差距分析已转化为 CR-056（Build to Delete）与 ITER-032 / 033 任务队列 | 已转化入队 |
+| [Pi AI 竞品差距分析与改进建议](pi-competitive-gap-improvements.md) | 内核侧结论经 pi 代码库复评（参考评估 §8.3）吸收为 ITER-032/033/039/040；产品体验差距（G1～G7）未入队，待维护者裁定 | 内核已入队，产品差距未入队 |
 
 ### 2.2 [未落地 / 候选待决策] (Pending / Candidate)
 
@@ -53,7 +52,7 @@ review_interval_days: 90
 | [配套硬件方向评估](companion-hardware-directions.md) | 9 个硬件陪伴形态比较与成本边界；待硬件决策拉起 | ITER-009 / ITER-016 |
 | [ESP32-S3 硬件延伸笔记](esp32-s3-hardware-extension.md) | 开发板原型笔记与串口协议验证；待硬件方向敲定 | 配套候选 |
 | [HLS 本地智能体竞赛规划](hls-agent-competition-plan.md) | 三人团队、C++ 与 RX 9070 XT 实测方案；待资源到位拉起 | ITER-021 |
-| [纯本地多端点对点加密同步架构探索](p2p-local-sync-exploration.md) | 承诺-揭示握手与 SQLite Changeset 局域网同步；待跨端同步启动 | ITER-028 |
+| [纯本地多端点对点加密同步架构探索](p2p-local-sync-exploration.md) | 承诺-揭示握手与 SQLite Changeset 局域网同步；首切片（配对/引擎/UDP 发现/环回端到端）已完成，真实 mDNS、生产接线与多设备直连待推进 | ITER-028（待评审） |
 
 ### 2.3 [已放弃] (Abandoned / Rejected)
 

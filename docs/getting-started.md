@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.1.1
-updated_at: 2026-09-28
-reviewed_at: 2026-09-28
+version: 1.2.0
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 90
 ---
 
@@ -63,7 +63,7 @@ reference/               # 固定 commit 的子模块（只读参考，见 PRD 1
 6. 规划模型调用、工具执行、多 Step、取消或恢复时，读 [Agent Harness Loop 规范](reference/agent-harness-loop.md)。 评估 HLS 竞赛扩展时，再读 [HLS 验证规划](explanation/hls-agent-competition-plan.md)，按根计划的 ITER-020～022 查看文档交付、实验和提交边界。
 7. 规划 CAP-033 完整画像、十二项主动智能派生、Home Assistant、小米健康、OS 能力授权、特权观察 Host、本地模型/存储或主动提醒时，读[主动智能设计方案](explanation/proactive-intelligence-mode.md)、`CR-023`、`CR-024`（已归档）与 [ADR-019](reference/adr/ADR-019-proactive-integrations-local-gateway.md)；当前分支已实现本地 Vault、部分来源、十二项派生、HA/健康连接和动作授权，生产平台与厂商门禁仍未完成。
 8. 拉取子模块：clone 后按需执行 `git submodule update --init --recursive`，reference/* 子模块是设计输入参考代码，**并不影响 pnpm build**，不拉取也不会报错。这些设计输入子仓库已在 `.gitmodules` 配置 `shallow = true`，新 clone 只取 pinned commit 单层历史（合计约 4.4G 全量历史 → 浅克隆显著缩减，CI `submodules: recursive` 同样受益）；已完整 clone 的历史**不会自动缩减**，需要时手动执行 `git submodule update --init --depth 1`。设计输入按需 init 即可，不参与构建。
-9. 贡献者流程见根级 [CONTRIBUTING](../CONTRIBUTING.md)；按需进入 [how-to](how-to)：新增需求 / 写 ADR / 过发布门禁 / 执行演练 / 可选模块 submodule。
+9. 贡献者流程见根级 [CONTRIBUTING](../CONTRIBUTING.md)；按需进入 [how-to](how-to)：新增 CAP / 插件开发 / CR 闭环 / 换库演练。
 
 ## 3. 写作与改动的硬性规则
 
@@ -98,7 +98,7 @@ reference/               # 固定 commit 的子模块（只读参考，见 PRD 1
 - 了解架构：[架构设计](reference/ARCHITECTURE.md) 与 [数据流总览](explanation/data-flow-overview.md)；
 - 需求与落地状态：[需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md)。
 - 当前迭代：先读 [plan.md](../plan.md)，任务开始、改序和移交时更新队列真源 `docs/_meta/plan-queue.json` 并运行 `mise tasks run plan-render` 重新生成 §2 表格（规则见[计划治理](reference/document-governance.md#31-当前迭代计划的唯一入口)）；
-- 底层评估证据：[底层优化审阅与建议](explanation/foundation-optimization-review.md)，深入实现与演进路线见[架构实现评估](explanation/architecture-implementation-review.md)；
+- 底层与架构评估证据（ARC-01～14 与 FND-01～10）：[架构实现与演进评估](explanation/architecture-implementation-review.md)；
 - 规划可替换实现与类 pi 分层：CR-056（已归档至 Aervox-docs-archive）给出公开 Port、生命周期、试点与退出验收；当前架构评审见 ITER-014，本次规划交付见 ITER-023，实施状态不由 CR 内切片另行维护；
 - 规划配套设备：[配套硬件方向：能力核查、移动协同取舍与原型路线](explanation/companion-hardware-directions.md)，器件级设计输入见 [ESP32-S3 硬件延伸方案](explanation/esp32-s3-hardware-extension.md)；
 - 规划手机体验：[移动端落地规划](reference/changes/CR-055-mobile-delivery-plan.md)（CR-055，待评审），比较配套端与独立端，核对连接、数据边界与逐阶段验收。
