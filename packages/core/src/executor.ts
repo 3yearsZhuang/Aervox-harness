@@ -1,4 +1,4 @@
-import { abortableStream, awaitWithSignal } from "./abortable.js";
+import { abortableStream } from "./abortable.js";
 /**
  * Aervox｜思隅 @aervox/core — Turn 执行器（阶段 2：只读工具多 Step Loop）
  *
@@ -21,10 +21,9 @@ import type {
 import { LeaseLostError } from "./errors.js";
 import { LeaseHeartbeat } from "./lease-heartbeat.js";
 import { inspectToolResult } from "./tool-result-safe.js";
-import { inspectToolInput } from "./tool-input-safe.js";
 import { createTurnTerminator } from "./turn-terminator.js";
-import { decideToolCall } from "./approval-decision.js";
 import { settleDuplicateToolCall, settleToolLedger } from "./tool-ledger.js";
+import { runToolExecution, ToolExecutionAborted } from "./tool-pipeline.js";
 
 export interface ExecuteTurnInput {
   turnId: string;
@@ -217,28 +216,6 @@ function messageCharge(message: PromptMessage): number {
 
 /** 3a：Host 幂等键重生成（AVX-HAR-001 §9：上游 callId 不可信，副作用标识由 Host 生成） */
 const hostExecutionId = (attemptId: string, step: number, seq: number): string => `${attemptId}:${step}:${seq}`;
-
-/** 工具超时兜底（缺陷 D）：超时 → abort 取消信号并向底层传播，同时 reject；promise settle → 清理 timer。
- *  调用方须把 controller.signal 透传给 tools.execute(input)，使长工具（ask_user_question 等）
- *  能感知取消并及时清理挂起副作用，避免「超时后底层仍在执行/写副作用」。 */
-function withTimeout<T>(promise: Promise<T>, ms: number, controller?: AbortController): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      controller?.abort();
-      reject(new Error("tool_timeout"));
-    }, ms);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (err: unknown) => {
-        clearTimeout(timer);
-        reject(err);
-      },
-    );
-  });
-}
 
 /** 执行一次 Turn：claim → 多 Step 模型—工具循环 → 分段写事件 → 终态 */
 export async function executeTurn(
@@ -683,92 +660,29 @@ export async function executeTurn(
             name: call.name,
             arguments: call.arguments,
           });
-          // 长耗时工具放宽超时：ask_user_question 等待用户交互（默认 120s）；
-          // aervox_diary_write 内含一次完整 LLM 日记生成（CAP-009），同样放宽
-          const isAskUser = call.name === "ask_user_question";
-          const isDiaryWrite = call.name === "aervox_diary_write";
-          const effectiveTimeout =
-            isAskUser || isDiaryWrite ? Math.max(toolTimeoutMs, 120000) : toolTimeoutMs;
-          const inputInspection = inspectToolInput({
-            name: call.name,
-            arguments: call.arguments,
-          });
-          if (!inputInspection.safe) {
-            result = {
-              id: call.id,
-              name: call.name,
-              ok: false,
-              error: `unsafe_tool_arguments: ${inputInspection.reason ?? "validation_failed"}`,
-            };
-          } else {
-            let subtaskControl: import("./control-context.js").ControlContext | undefined;
-            let removeLostListener: (() => void) | undefined;
-            try {
-              const stop = await prematureTermination(sequence);
-              if (stop) return stop;
-              if (control && (control.remainingCalls < 1 || control.remainingTokens <= 0)) return finalizeInterrupted(sequence, "budget_exhausted");
-
-              // Phase 2: ApprovalPolicyPort 统一审批前置拦截（有界等待：策略不合作时由 abort 信号打破）
-              if (deps.approvalPolicy) {
-                const spec = (tools.tools || []).find((t) => t.name === call.name);
-                const safetyLevel: import("./ports.js").ToolSafetyLevel = spec?.readOnly ? "read_only" : "write_with_approval";
-                const decision = await awaitWithSignal(
-                  deps.approvalPolicy.evaluate(
-                    {
-                      turnId: input.turnId,
-                      attemptId: input.attemptId,
-                      invocationId: executionId,
-                      toolName: call.name,
-                      arguments: call.arguments,
-                      safetyLevel,
-                    },
-                    control?.abortSignal,
-                  ),
-                  control?.abortSignal,
-                );
-                // ITER-041：裁决映射收敛至 decideToolCall（与 withApprovalPolicy 装饰器共用单一真源）
-                // 返回 undefined 表示准予执行 → 保持 result 为空，落到下方真实执行分支
-                result = decideToolCall(decision, { call, safetyLevel, invocationId: executionId });
-              }
-
-              if (!result) {
-                const cancel = new AbortController();
-                removeLostListener = heartbeat?.onLost(() => cancel.abort());
-                const signal = control ? AbortSignal.any([control.abortSignal, cancel.signal]) : cancel.signal;
-                subtaskControl = control?.deriveSubtask({
-                  subtaskExecutionId: executionId,
-                  subtaskSignal: signal,
-                  tighterDeadlineEpochMs: effectiveTimeout > 0 ? Date.now() + effectiveTimeout : undefined,
-                });
-                control?.recordCallUsed();
-                const executed = await withTimeout(
-                  awaitWithSignal(tools.execute({
-                    turnId: input.turnId,
-                    attemptId: input.attemptId,
-                    invocationId: executionId,
-                    name: call.name,
-                    arguments: call.arguments,
-                    sessionId: input.sessionId,
-                    signal: subtaskControl?.abortSignal ?? signal,
-                    controlContext: subtaskControl,
-                  }), subtaskControl?.abortSignal ?? signal),
-                  effectiveTimeout,
-                  cancel,
-                );
-                result = { id: call.id, name: call.name, ok: executed.ok, output: executed.output, error: executed.error, needsApproval: executed.needsApproval };
-              }
-            } catch (err) {
-              // B2：工具执行期间租约已失（心跳探知）→ 立即中止本 Step 交回外层收敛 lease_lost，不写结果事件、不启动新副作用
-              if (heartbeat?.lost) {
-                throw new LeaseLostError("lease lost during tool execution");
-              }
-              result = { id: call.id, name: call.name, ok: false, error: err instanceof Error ? err.message : "tool_execution_error" };
-            } finally {
-              subtaskControl?.dispose();
-              removeLostListener?.();
-            }
+          // ITER-041 第三段：入参校验 → 审批 → 子任务派生 → 执行 → 异常归类已切至
+          // tool-pipeline.ts。账本收口与事件序号仍留本侧（须与主循环共享 sequence）。
+          try {
+            result = await runToolExecution({
+              turnId: input.turnId,
+              attemptId: input.attemptId,
+              sessionId: input.sessionId,
+              executionId,
+              call,
+              tools,
+              approvalPolicy: deps.approvalPolicy,
+              control,
+              heartbeat,
+              toolTimeoutMs,
+              prematureTermination: () => prematureTermination(sequence),
+              finalizeInterrupted: (reason) => finalizeInterrupted(sequence, reason),
+            });
+          } catch (err) {
+            // 中止信号（Step 守卫 / 预算耗尽）与租约丢失交回主循环收敛：
+            // 前者已完成终态提交、后者须立即中止且不写结果事件
+            if (err instanceof ToolExecutionAborted) return err.result;
+            throw err;
           }
-          result ??= { id: call.id, name: call.name, ok: false, error: "tool_execution_failed" };
           // ITER-041：结果分类 + 账本收口已切至 tool-ledger.ts。
           // 序号以 getter 传入（原先是 `sequence++` 内联）——收口会消耗一个事件序号，
           // 必须与主循环共享同一计数器，不能在此快照。
