@@ -1,8 +1,6 @@
 import { ref } from 'vue';
 import type { UIRegistry } from '../registry/ui-registry';
 import type { WorkbenchContext } from '../composables/workbench-context';
-import { focusModePluginDefinition } from './focus-mode';
-import { studyModePluginDefinition } from './focus-mode';
 
 export interface BuiltinUIPlugin {
   id: string;
@@ -20,39 +18,45 @@ export interface WorkbenchPluginRuntime {
   destroy(): void;
 }
 
-export const defaultBuiltinPlugins: BuiltinUIPlugin[] = [
-  focusModePluginDefinition,
-];
-
 /**
  * 创建工作台插件运行时
  * 负责内置第一方 UI 插件的生命周期编排、插槽动态注册/卸载与零硬编码配置分发。
  *
  * @param registry UI 注册表实例
  * @param getContext 延迟获取 WorkbenchContext 的函数
- * @param customPlugins 插件定义清单
+ * @param pluginDefinitions 插件定义清单（由组合根显式注入；宿主内不内建任何具体插件）
  */
 export function createWorkbenchPluginRuntime(
   registry: UIRegistry,
   getContext: () => WorkbenchContext,
-  customPlugins: BuiltinUIPlugin[] = defaultBuiltinPlugins,
+  pluginDefinitions: BuiltinUIPlugin[] = [],
 ): WorkbenchPluginRuntime {
 
   const activeCleanups = new Map<string, () => void>();
   const availablePlugins = ref<Record<string, boolean>>({});
   let currentSyncSeq = 0;
 
-  // 默认启动所有内置插件（若离线/无网络环境下保持默认可用体验）
-  for (const plugin of customPlugins) {
-    try {
-      const unregister = plugin.setup(registry, getContext());
-      if (typeof unregister === 'function') {
-        activeCleanups.set(plugin.id, unregister);
+  function deactivate(def: BuiltinUIPlugin): void {
+    const cleanup = activeCleanups.get(def.id);
+    if (cleanup) {
+      try {
+        cleanup();
+      } catch (err) {
+        console.error(`[PluginRuntime] Error cleaning up plugin "${def.id}":`, err);
       }
-      availablePlugins.value[plugin.id] = true;
-    } catch (err) {
-      console.error(`[PluginRuntime] Failed to setup plugin "${plugin.id}":`, err);
+      activeCleanups.delete(def.id);
     }
+    try {
+      def.onDisable?.(getContext());
+    } catch (err) {
+      console.error(`[PluginRuntime] Error in onDisable for plugin "${def.id}":`, err);
+    }
+  }
+
+  // CR-060：不预启动任何插件。插件是否生效统一由 `sync()` 依据仓储启停记录判定
+  // （fail-closed：无记录即不启用），避免"离线/无网络时默认可用"与宿主列表不一致。
+  for (const plugin of pluginDefinitions) {
+    availablePlugins.value[plugin.id] = false;
   }
 
   async function sync(
@@ -63,33 +67,16 @@ export function createWorkbenchPluginRuntime(
     const context = getContext();
 
     await Promise.all(
-      customPlugins.map(async (def) => {
-        const match = plugins.find(
-          (p) => p.id === def.id || (def.id === 'focus-mode' && p.id === 'study-mode') || (def.id === 'study-mode' && p.id === 'focus-mode'),
-        );
-        const isEnabled = match ? match.enabled !== 0 : true;
+      pluginDefinitions.map(async (def) => {
+        // CR-060：不保留历史别名映射，只按主 id 匹配
+        const match = plugins.find((p) => p.id === def.id);
+        // fail-closed：仓储无记录、记录为停用或不可用，一律不启用（与服务端门控一致）
+        const isEnabled = Boolean(match) && match!.enabled !== 0;
 
         availablePlugins.value[def.id] = isEnabled;
-        if (def.id === 'focus-mode') availablePlugins.value['study-mode'] = isEnabled;
-        if (def.id === 'study-mode') availablePlugins.value['focus-mode'] = isEnabled;
 
         if (!isEnabled) {
-          // 插件停用：注销其注册的所有插槽及拦截器
-          const cleanup = activeCleanups.get(def.id);
-          if (cleanup) {
-            try {
-              cleanup();
-            } catch (err) {
-              console.error(`[PluginRuntime] Error cleaning up plugin "${def.id}":`, err);
-            }
-            activeCleanups.delete(def.id);
-          }
-          // 触发停用钩子
-          try {
-            def.onDisable?.(context);
-          } catch (err) {
-            console.error(`[PluginRuntime] Error in onDisable for plugin "${def.id}":`, err);
-          }
+          deactivate(def);
         } else {
           // 插件启用：若此前未激活或已被注销，则重新激活
           if (!activeCleanups.has(def.id)) {
@@ -106,10 +93,8 @@ export function createWorkbenchPluginRuntime(
           // 通用拉取配置并分发给插件自身处理（宿主零硬编码感知具体字段）
           if (def.onConfig) {
             try {
-              let snapshot = await getConfig(def.id);
-              if (!snapshot?.values && def.id === 'focus-mode') {
-                snapshot = await getConfig('study-mode');
-              }
+              // CR-060：只按主 id 拉配置，不保留历史配置键回退
+              const snapshot = await getConfig(def.id);
               // 并发防竞态校验：仅当本轮 sync 为最新且该插件当前仍处于启用状态时才生效
               if (syncSeq === currentSyncSeq && availablePlugins.value[def.id] && snapshot?.values) {
                 await def.onConfig(snapshot.values, context);
@@ -123,14 +108,12 @@ export function createWorkbenchPluginRuntime(
     );
   }
 
+  /**
+   * CR-060：可用性判定 fail-closed —— 无记录即不可用，且不保留历史别名互查。
+   * 与服务端 Runner 的启用门控保持同一判据（两端不得再次不对称）。
+   */
   function isPluginAvailable(pluginId: string): boolean {
-    if (pluginId === 'study-mode' && availablePlugins.value['focus-mode'] !== undefined) {
-      return availablePlugins.value['focus-mode'];
-    }
-    if (pluginId === 'focus-mode' && availablePlugins.value['study-mode'] !== undefined) {
-      return availablePlugins.value['study-mode'];
-    }
-    return availablePlugins.value[pluginId] ?? true;
+    return availablePlugins.value[pluginId] ?? false;
   }
 
   function destroy(): void {

@@ -69,8 +69,10 @@ export interface ConversationRouteDeps {
   platformRepo?: SqlitePlatformRepository;
   /** UQ-01：向用户提问会话协调器 */
   userQuestionCoordinator?: UserQuestionCoordinator;
-  /** CAP-016：刷题模式作答落库端口工厂（request 级 tenant 绑定） */
-  practiceAttemptFactory?: (tenant: import("@aervox/repositories").LocalContext) => import("./practice-attempt-port.js").PracticeAttemptPort;
+  /** CR-060：第一方插件注册单元读取器（plugins 模块晚于本模块注册，故惰性读取） */
+  pluginRegistrations?: () => import("@aervox/host-plugin-api").ServerPluginRegistration[] | undefined;
+  /** CR-060：插件宿主服务工厂（按 request 级本地上下文产出窄端口集合） */
+  pluginHostServices?: import("../../../plugin-assembly.js").PluginHostServicesFactory;
   /** CAP-033：主动智能全动作授权与本地动作账本。 */
   proactiveActionAuthorizer?: ProactiveActionAuthorizer;
   /** CAP-033：本地画像上下文来源。 */
@@ -242,7 +244,6 @@ export function registerConversationRoutes(
     const attemptId = `atp_${turnId}`;
     await conversationRepo.createTurnAttempt(tenant, turnId, { id: attemptId, attempt: 1 });
     const uqPort = deps.userQuestionCoordinator ? deps.userQuestionCoordinator.createPort(tenant) : undefined;
-    const practiceAttemptPort = deps.practiceAttemptFactory ? deps.practiceAttemptFactory(tenant) : undefined;
     const runLoop = async () => {
       // ITER-027: 会话流式/多轮密集执行期间下发写入压力信号，协调后台 Worker 降频退避。
       // 以租约（而非裸 true/false）下发：并发会话互不提前解除，长回合按 TTL 续期。
@@ -280,8 +281,9 @@ export function registerConversationRoutes(
             platformRepo: deps.platformRepo,
             // UQ-01: 向用户提问端口
             userQuestionPort: uqPort,
-            // CAP-016: 刷题模式作答落库端口
-            practiceAttemptPort,
+            // CR-060: 第一方插件工具贡献（按插件启用状态门控；宿主不感知具体插件）
+            pluginRegistrations: deps.pluginRegistrations?.(),
+            pluginHostServices: deps.pluginHostServices,
             proactiveActionAuthorizer: deps.proactiveActionAuthorizer,
             proactiveRepository: deps.proactiveRepository,
             memoryRecall: deps.memoryRecall,

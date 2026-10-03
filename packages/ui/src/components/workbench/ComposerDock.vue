@@ -21,13 +21,13 @@ const props = defineProps<Partial<ComposerContractProps>>();
 
 const emit = defineEmits<{
   (e: 'update:input', value: string): void;
-  (e: 'send', text?: string, options?: { quizMode?: boolean; resend?: boolean }): void;
+  (e: 'send', text?: string, options?: { metadata?: Record<string, unknown>; resend?: boolean }): void;
   (e: 'voice-trigger'): void;
   (e: 'attachment-picker'): void;
 }>();
 
 const { layout, composer, conversation, proactive, sendMessage } = useWorkbenchContext();
-const { isWeb, focusModeEnabled, studyModeEnabled, enterToSend, openSettingsCategory } = layout;
+const { isWeb, enterToSend, openSettingsCategory } = layout;
 const standardMode = computed(() => layout.workbenchMode.value === 'standard');
 const {
   input,
@@ -115,14 +115,11 @@ function handleVoiceTrigger() {
       <MessageCircle :size="16" />
       <span class="composer-collapsed-hint">
         {{
-          streaming
-            ? '思隅正在回应…'
-            : (focusModeEnabled || studyModeEnabled)
-              ? '输入学习问题或卡点（专注模式已开启）…'
-              : '点击输入消息…'
+          streaming ? '思隅正在回应…' : composerPlaceholder
         }}
       </span>
-      <span v-if="focusModeEnabled || studyModeEnabled" class="composer-mode-chip">专注模式</span>
+      <!-- CR-060：模式标记由插件经通用插槽渲染，宿主不内建插件文案与样式 -->
+      <ExtensionSlot name="composer:indicator" />
       <span class="composer-access-chip" :class="{ full: toolApprovalMode === 'full_access', proactive: proactiveActive }">
         <component :is="accessChipIcon" :size="12" />
         {{ accessChipLabel }}
@@ -147,7 +144,7 @@ function handleVoiceTrigger() {
         ref="composerTextarea"
         v-model="input"
         rows="3"
-        :placeholder="(focusModeEnabled || studyModeEnabled) ? '输入学习问题或卡点（专注模式已开启，将引导探索而非直接给答案）…' : (standardMode ? '发送消息' : composerPlaceholder)"
+        :placeholder="standardMode ? '发送消息' : composerPlaceholder"
         :disabled="streaming"
         @keydown.enter="handleComposerEnter"
         @input="handleComposerInputOrKey"

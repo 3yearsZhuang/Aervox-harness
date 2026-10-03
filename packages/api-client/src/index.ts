@@ -79,7 +79,7 @@ export {
   type ToolItemDto,
   type SkillItemDto,
 } from './useAervoxPersonas';
-export { streamAervoxTurn, uploadAervoxAttachment, submitQuestionAnswers, exploreTerm, decideToolApproval, type StreamAervoxTurnCallbacks } from './useAervoxTurn';
+export { streamAervoxTurn, uploadAervoxAttachment, submitQuestionAnswers, requestAervoxApi, decideToolApproval, type StreamAervoxTurnCallbacks } from './useAervoxTurn';
 export {
   useAervoxVoice,
   canPickDirectory,

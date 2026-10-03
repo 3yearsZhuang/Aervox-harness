@@ -1,9 +1,9 @@
 /**
- * Aervox｜思隅 @aervox/api — Loop 模型 Provider 构建与 LLMCallable 适配
+ * Aervox｜思隅 @aervox/api — Loop 模型 Provider 构建与 TurnLlmPort 适配
  *
  * 机械拆分自 agent-executor.ts（B 档第三步，零行为变更）：
  * AERVOX_LOOP_PROVIDER 的 Provider 选择（replay / scripted* / llm + CR-034
- * 模型路由降级阶梯）、practice-review 的 LLMCallable 适配与参数规范化哈希
+ * 模型路由降级阶梯）、插件窄端口 TurnLlmPort 的适配与参数规范化哈希
  * 逐字节迁移至本文件。
  */
 import {
@@ -11,8 +11,8 @@ import {
   createReplayProvider,
   createScriptedProvider,
 } from "@aervox/core";
-import type { ModelProviderPort } from "@aervox/core";
-import type { LLMCallable } from "@aervox/practice-review";
+import type { ModelProviderPort, ReplayStep } from "@aervox/core";
+import type { TurnLlmPort } from "@aervox/host-plugin-api";
 import type { LocalContext } from "@aervox/repositories";
 import { loadApiConfig } from "@aervox/config";
 import type { ModelRoutingSnapshot } from "@aervox/contracts";
@@ -20,15 +20,10 @@ import type { LLMConfigService } from "../../ecosystem/llm/service.js";
 import type { LlmDegradationService } from "../../ecosystem/llm/degradation-service.js";
 import { createRuleResponseProvider } from "./rule-response-provider.js";
 import { isLiteralLoopbackUrl } from "../../proactive/proactive/profile-context.js";
-import {
-  API_TOOL_SCRIPT,
-  API_WRITE_SCRIPT,
-  API_PRIVILEGED_SCRIPT,
-  API_QUIZ_SCRIPT,
-} from "./replay-scripts.js";
+import { API_TOOL_SCRIPT, API_WRITE_SCRIPT, API_PRIVILEGED_SCRIPT } from "./replay-scripts.js";
 
-/** 将 ModelProviderPort 适配为 practice-review 所需的 LLMCallable 接口 */
-export function createLLMCallable(provider: ModelProviderPort): LLMCallable {
+/** 将 ModelProviderPort 适配为插件契约的 TurnLlmPort 窄端口 */
+export function createLLMCallable(provider: ModelProviderPort): TurnLlmPort {
   return {
     async generate(prompt: string, options?: { systemPrompt?: string; temperature?: number }): Promise<string> {
       const messages: Array<{ role: "system" | "user" | "assistant" | "tool"; content: string }> = [];
@@ -85,6 +80,11 @@ export async function buildLoopProvider(
     turnId?: string;
     modelRoutingService?: LlmDegradationService;
     persona?: { name?: string };
+    /**
+     * CR-060：插件贡献的确定性回放脚本（键为 `AERVOX_LOOP_PROVIDER` 模式名）。
+     * 仅在宿主未内建同名模式时采用——插件不得覆盖宿主内建回放模式。
+     */
+    pluginReplayScripts?: Record<string, readonly ReplayStep[]>;
   } = {},
 ): Promise<ModelProviderPort> {
   // 缺陷 E：Provider 选择经 @aervox/config 集中解析（AERVOX_LOOP_PROVIDER 启动期枚举校验）；
@@ -95,7 +95,9 @@ export async function buildLoopProvider(
   if (mode === "scripted") return createScriptedProvider(API_TOOL_SCRIPT);
   if (mode === "scripted-write") return createScriptedProvider(API_WRITE_SCRIPT);
   if (mode === "scripted-privileged") return createScriptedProvider(API_PRIVILEGED_SCRIPT);
-  if (mode === "scripted-quiz") return createScriptedProvider(API_QUIZ_SCRIPT);
+  // CR-060：插件自带夹具先于宿主内建模式解析，但不得覆盖宿主已内建的模式
+  const pluginScript = options.pluginReplayScripts?.[mode];
+  if (pluginScript) return createScriptedProvider(pluginScript);
   if (mode === "llm") {
     // CR-034: 若开启模型路由且注入了降级决策服务，走降级阶梯
     if (apiConfig.modelRoutingFeatureFlags.has("model_routing") && options.modelRoutingService) {

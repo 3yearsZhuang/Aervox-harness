@@ -6,6 +6,7 @@
  */
 import { z } from "zod";
 import type { OpenAPIObject } from "openapi3-ts/oas31";
+import { getPluginOpenApiRoutes, type PluginOpenApiRoute } from "./plugin-api-registry.js";
 import {
   OpenAPIRegistry,
   OpenApiGeneratorV31,
@@ -58,17 +59,10 @@ import {
   toolRegistryExportSchema,
   turnStreamEventSchema,
   updateLearningGoalSchema,
-  createPracticeReportSchema,
   generateLearningPlanSchema,
   updatePlanTaskStatusSchema,
-  practiceReportResponseSchema,
-  practiceReportListResponseSchema,
   learningPlanResponseSchema,
   learningPlanListResponseSchema,
-  extractedTermSchema,
-  termsExtractedEventDataSchema,
-  termExploreRequestSchema,
-  termExploreResponseSchema,
 } from "./schemas.js";
 import {
   activatePersonaRequestSchema,
@@ -1201,7 +1195,6 @@ registry.registerPath({
 const practiceSessionIdParam = z.object({ sessionId: z.string().min(1) });
 const learningQuestionIdParam = z.object({ questionId: z.string().min(1) });
 const reviewItemIdParam = z.object({ reviewId: z.string().min(1) });
-const reportIdParam = z.object({ reportId: z.string().min(1) });
 const learningPlanIdParam = z.object({ planId: z.string().min(1) });
 const planTaskIdParam = z.object({ taskId: z.string().min(1) });
 const mistakeListQuery = z.object({ status: mistakeStatusEnumSchema.optional() });
@@ -1212,10 +1205,6 @@ registry.registerPath({
   responses: { 200: { description: "Resumed active session", content: { "application/json": { schema: practiceSessionResumeResponseSchema } } }, 201: { description: "Created", content: { "application/json": { schema: practiceSessionResumeResponseSchema } } }, 400: { description: "count 必须为 3~5 的整数" }, 409: { description: "活跃题目数量不足" } },
 });
 
-registry.registerPath({ method: "post", path: "/v1/practice-reports", summary: "创建自适应练习报告", tags: ["Learning"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: createPracticeReportSchema } } } }, responses: { 201: { description: "Created", content: { "application/json": { schema: practiceReportResponseSchema } } }, 400: { description: "Validation failed" } } });
-registry.registerPath({ method: "get", path: "/v1/practice-reports/{reportId}", summary: "读取自适应练习报告", tags: ["Learning"], request: { params: reportIdParam, headers: scopeHeaders }, responses: { 200: { description: "Report", content: { "application/json": { schema: practiceReportResponseSchema } } }, 404: { description: "Report not found" } } });
-registry.registerPath({ method: "get", path: "/v1/practice-sessions/{sessionId}/reports", summary: "列出会话练习报告", tags: ["Learning"], request: { params: practiceSessionIdParam, headers: scopeHeaders }, responses: { 200: { description: "Reports", content: { "application/json": { schema: practiceReportListResponseSchema } } } } });
-registry.registerPath({ method: "post", path: "/v1/practice-sessions/{sessionId}/reset-inference", summary: "重置会话报告推断", tags: ["Learning"], request: { params: practiceSessionIdParam, headers: scopeHeaders }, responses: { 201: { description: "Reset report", content: { "application/json": { schema: practiceReportResponseSchema } } } } });
 registry.registerPath({ method: "post", path: "/v1/learning-plans/generate", summary: "AI 生成学习规划（里程碑+任务路线图）", tags: ["Learning"], request: { headers: scopeHeaders, body: { content: { "application/json": { schema: generateLearningPlanSchema } } } }, responses: { 201: { description: "Created", content: { "application/json": { schema: learningPlanResponseSchema } } }, 400: { description: "Validation failed / LLM 未配置" } } });
 registry.registerPath({ method: "get", path: "/v1/learning-plans", summary: "列出学习规划", tags: ["Learning"], request: { headers: scopeHeaders }, responses: { 200: { description: "Plans", content: { "application/json": { schema: learningPlanListResponseSchema } } } } });
 registry.registerPath({ method: "get", path: "/v1/learning-plans/{planId}", summary: "获取学习规划详情", tags: ["Learning"], request: { params: learningPlanIdParam, headers: scopeHeaders }, responses: { 200: { description: "Plan", content: { "application/json": { schema: learningPlanResponseSchema } } }, 404: { description: "Plan not found" } } });
@@ -1311,24 +1300,6 @@ registry.registerPath({
 });
 
 registry.registerPath({
-  method: "post",
-  path: "/v1/terms/explore",
-  summary: "追问探索概念/术语（CAP-007 / CAP-002）",
-  description: "支持深挖（child）、对比发散（related）与分支对话（branch）三种追问探索模式",
-  request: {
-    body: {
-      content: { "application/json": { schema: termExploreRequestSchema } },
-    },
-  },
-  responses: {
-    200: {
-      description: "探索结果与关联思考问题",
-      content: { "application/json": { schema: termExploreResponseSchema } },
-    },
-  },
-});
-
-registry.registerPath({
   method: "get",
   path: "/v1/safety/resources",
   summary: "获取危机干预与求助热线资源列表（CAP-008）",
@@ -1366,16 +1337,118 @@ registry.registerPath({
   },
 });
 
-const generator = new OpenApiGeneratorV31(registry.definitions);
+/**
+ * 把单条插件路由登记进**目标**注册表。
+ *
+ * 内核端点注册表不得被插件路由直接写入——否则插件可覆盖内核端点的对外描述，
+ * 且登记会在多次重建间累积（CR-060 评审 B6）。
+ */
+function registerPluginRouteInto(target: OpenAPIRegistry, route: PluginOpenApiRoute): void {
+  target.registerPath({
+    method: route.method,
+    path: route.path,
+    summary: route.summary,
+    description: route.description,
+    tags: route.tags,
+    request: {
+      ...(route.params ? { params: route.params } : {}),
+      ...(route.query ? { query: route.query } : {}),
+      headers: scopeHeaders,
+      ...(route.body
+        ? { body: { content: { "application/json": { schema: route.body } } } }
+        : {}),
+    },
+    responses: Object.fromEntries(
+      Object.entries(route.responses).map(([status, response]) => [
+        status,
+        {
+          description: response.description,
+          ...(response.schema
+            ? { content: { "application/json": { schema: response.schema } } }
+            : {}),
+        },
+      ]),
+    ),
+  });
+}
 
+const HTTP_METHODS = new Set(["get", "post", "put", "patch", "delete", "head", "options", "trace"]);
 
-export const openApiDocument: OpenAPIObject = generator.generateDocument({
-  openapi: "3.1.0",
-  info: {
-    title: "Aervox｜思隅 API",
-    version: "0.2.0",
-    description:
-      "Turn streaming plus Persona, Anthropic Skills, MCP policy, and GPT-SoVITS contracts.",
-  },
-  servers: [{ url: "http://localhost:3000" }],
-});
+/** 从已生成文档派生「方法 + 路径」端点键集合（用于插件路由冲突判定） */
+function collectRouteKeys(doc: OpenAPIObject): Set<string> {
+  const keys = new Set<string>();
+  for (const [path, item] of Object.entries(doc.paths ?? {})) {
+    if (!item || typeof item !== "object") continue;
+    for (const method of Object.keys(item as Record<string, unknown>)) {
+      if (HTTP_METHODS.has(method)) keys.add(`${method.toUpperCase()} ${path}`);
+    }
+  }
+  return keys;
+}
+
+let cachedDocument: OpenAPIObject | null = null;
+/** 内核端点文档（不含插件贡献）；插件路由不再写入内核注册表，故可安全缓存 */
+let cachedKernelDocument: OpenAPIObject | null = null;
+
+function generateDocument(definitions: OpenAPIRegistry["definitions"]): OpenAPIObject {
+  return new OpenApiGeneratorV31(definitions).generateDocument({
+    openapi: "3.1.0",
+    info: {
+      title: "Aervox｜思隅 API",
+      version: "0.2.0",
+      description:
+        "Turn streaming plus Persona, Anthropic Skills, MCP policy, and GPT-SoVITS contracts.",
+    },
+    servers: [{ url: "http://localhost:3000" }],
+  });
+}
+
+/** 生成内核端点文档（不含插件贡献）；插件端点由 buildOpenApiDocument 在独立注册表中合并 */
+function buildKernelDocument(): OpenAPIObject {
+  if (cachedKernelDocument) return cachedKernelDocument;
+  cachedKernelDocument = generateDocument(registry.definitions);
+  return cachedKernelDocument;
+}
+
+/**
+ * 生成完整 OpenAPI 3.1 文档（内核端点 + 已登记的插件端点）。
+ *
+ * 惰性生成并缓存：插件模块在宿主装配阶段动态加载并登记其路由片段，
+ * 故文档必须晚于登记构建；测试可用 `resetPluginApiContributions()` 清理后重建。
+ *
+ * 冲突语义：插件**不得**声明与内核端点相同的方法+路径，也不得重复声明同一端点；
+ * 命中即忽略该插件片段并告警，保证对外文档始终以内核契约为准（fail-closed）。
+ */
+export function buildOpenApiDocument(): OpenAPIObject {
+  if (cachedDocument) return cachedDocument;
+
+  const kernel = buildKernelDocument();
+  const occupied = collectRouteKeys(kernel);
+  const accepted: PluginOpenApiRoute[] = [];
+
+  for (const route of getPluginOpenApiRoutes()) {
+    const key = `${route.method.toUpperCase()} ${route.path}`;
+    if (occupied.has(key)) {
+      console.warn(`[contracts] 插件 OpenAPI 路由与既有端点冲突，已忽略：${key}`);
+      continue;
+    }
+    occupied.add(key);
+    accepted.push(route);
+  }
+
+  if (accepted.length === 0) {
+    cachedDocument = kernel;
+    return cachedDocument;
+  }
+
+  const pluginRegistry = new OpenAPIRegistry();
+  for (const route of accepted) registerPluginRouteInto(pluginRegistry, route);
+
+  cachedDocument = generateDocument([...registry.definitions, ...pluginRegistry.definitions]);
+  return cachedDocument;
+}
+
+/** 清空文档缓存（插件登记变更后需重建；测试隔离用） */
+export function resetOpenApiDocumentCache(): void {
+  cachedDocument = null;
+}

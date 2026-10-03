@@ -65,6 +65,7 @@ import {
   skillDescriptorSchema,
   streamErrorCodeSchema,
   streamEventTypeSchema,
+  KERNEL_STREAM_EVENT_TYPES,
   toolCategorySchema,
   toolGatingConditionSchema,
   toolGatingOperatorSchema,
@@ -76,11 +77,7 @@ import {
   turnStatusSchema,
   updateLearningGoalSchema,
   turnStreamEventSchema,
-  extractedTermSchema,
-  termsExtractedEventDataSchema,
-  termExploreKindSchema,
-  termExploreRequestSchema,
-  termExploreResponseSchema,
+  streamEventTypeNameSchema,
 } from "./schemas.js";
 import {
   pluginConfigFieldSchema,
@@ -110,7 +107,7 @@ export * from "./safety-classifier.js";
 export * from "./session-schemas.js";
 export * from "./project-schemas.js";
 export * from "./model-runtime-schemas.js";
-export { openApiDocument } from "./openapi.js";
+export { buildOpenApiDocument, resetOpenApiDocumentCache } from "./openapi.js";
 
 export type TurnStatus = z.infer<typeof turnStatusSchema>;
 export type StreamEventType = z.infer<typeof streamEventTypeSchema>;
@@ -152,11 +149,6 @@ export type ToolGatingOperator = z.infer<typeof toolGatingOperatorSchema>;
 export type ToolGatingCondition = z.infer<typeof toolGatingConditionSchema>;
 export type ToolApprovalMode = z.infer<typeof toolApprovalModeSchema>;
 export type ToolSafetyLevel = z.infer<typeof toolSafetyLevelSchema>;
-export type ExtractedTerm = z.infer<typeof extractedTermSchema>;
-export type TermsExtractedEventData = z.infer<typeof termsExtractedEventDataSchema>;
-export type TermExploreKind = z.infer<typeof termExploreKindSchema>;
-export type TermExploreRequest = z.infer<typeof termExploreRequestSchema>;
-export type TermExploreResponse = z.infer<typeof termExploreResponseSchema>;
 export type ToolMetadata = z.infer<typeof toolMetadataSchema>;
 export type ToolRegistryEntry = z.infer<typeof toolRegistryEntrySchema>;
 export type ToolRegistryExport = z.infer<typeof toolRegistryExportSchema>;
@@ -199,4 +191,17 @@ export type SkillPromoteRequest = z.infer<typeof skillPromoteRequestSchema>;
 
 export * from "./avatar-schemas.js";
 
-export { projectSafeEventData } from "./stream-projection.js";
+export { projectSafeEventData, KERNEL_PROJECTION_EVENT_TYPES } from "./stream-projection.js";
+export {
+  registerPluginApiContribution,
+  getPluginStreamEventTypes,
+  getPluginEventProjection,
+  getPluginToolResultProjection,
+  getToolResultProjectionOwner,
+  getPluginOpenApiRoutes,
+  isKnownStreamEventType,
+  isValidPluginRoutePath,
+  registerToolResultProjection,
+  resetPluginApiContributions,
+} from "./plugin-api-registry.js";
+export type { PluginApiContribution, PluginOpenApiRoute, ToolResultProjectionSchema } from "./plugin-api-registry.js";

@@ -6,7 +6,6 @@ import {
 } from '@aervox/api-client';
 import type {
   AskUserQuestionAnswerItem,
-  ExtractedTerm,
   ToolApprovalMode,
   ToolApprovalRequiredEventData,
   TurnAttachmentRef,
@@ -184,11 +183,6 @@ export function useWorkbenchConversation(options: {
     return approvalToolLabels[name] ?? `执行工具 ${name}`;
   });
 
-  // CAP-007 / CAP-002: 术语抽取与追问探索弹窗
-  const currentExtractedTerms = ref<ExtractedTerm[]>([]);
-  const exploreDialogOpen = ref(false);
-  const selectedTerm = ref<ExtractedTerm | null>(null);
-
   // 权限与访问模式
   const toolApprovalMode = ref<ToolApprovalMode>('ask');
   const fullAccessDialogOpen = ref(false);
@@ -209,7 +203,6 @@ export function useWorkbenchConversation(options: {
       },
     ];
     activeQuestion.value = null;
-    currentExtractedTerms.value = [];
     pendingApproval.value = null;
   }
 
@@ -289,11 +282,6 @@ export function useWorkbenchConversation(options: {
     });
   }
 
-  function openTermExplore(term: ExtractedTerm) {
-    selectedTerm.value = term;
-    exploreDialogOpen.value = true;
-  }
-
   async function handleApprovalDecision(decision: 'granted' | 'denied', onResend?: (outgoing: string) => Promise<void>) {
     const pending = pendingApproval.value;
     if (!pending || approvalBusy.value) return;
@@ -367,9 +355,6 @@ export function useWorkbenchConversation(options: {
     pendingApproval,
     approvalBusy,
     approvalToolLabel,
-    currentExtractedTerms,
-    exploreDialogOpen,
-    selectedTerm,
     toolApprovalMode,
     fullAccessDialogOpen,
     fullAccessAcknowledged,
@@ -384,7 +369,6 @@ export function useWorkbenchConversation(options: {
     resetStory,
     scrollStoryToBottom,
     showNextSentence,
-    openTermExplore,
     handleApprovalDecision,
     handleQuestionSubmit,
     saveToolApprovalMode,
