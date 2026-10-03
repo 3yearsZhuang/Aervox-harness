@@ -17,7 +17,6 @@ import type {
   ModelChunk,
   PromptMessage,
   ToolCallResult,
-  ToolExecutionStatus,
 } from "./types.js";
 import { LeaseLostError } from "./errors.js";
 import { LeaseHeartbeat } from "./lease-heartbeat.js";
@@ -25,6 +24,7 @@ import { inspectToolResult } from "./tool-result-safe.js";
 import { inspectToolInput } from "./tool-input-safe.js";
 import { createTurnTerminator } from "./turn-terminator.js";
 import { decideToolCall } from "./approval-decision.js";
+import { settleDuplicateToolCall, settleToolLedger } from "./tool-ledger.js";
 
 export interface ExecuteTurnInput {
   turnId: string;
@@ -662,26 +662,15 @@ export async function executeTurn(
         if (seenToolCalls.has(dedupeKey(call.name, call.arguments))) {
           result = { id: call.id, name: call.name, ok: false, error: "duplicate_tool_call" };
           // B4-D：duplicate 账本 + tool_result 事件原子提交（事件对模型可见，模型据之收敛）
-          await execution.recordToolOutcome({
+          await settleDuplicateToolCall({
+            execution,
             turnId: input.turnId,
             attemptId: input.attemptId,
-            sequence: sequence++,
             invocationId: executionId,
-            name: call.name,
-            arguments: call.arguments,
-            status: "duplicate",
-            error: "duplicate_tool_call",
-            startedAt,
-            finishedAt: new Date().toISOString(),
-            eventData: {
-              invocationId: call.id,
-              executionId,
-              name: call.name,
-              ok: false,
-              error: "duplicate_tool_call",
-            },
-            safetyDecision: "approved",
             expectedFencingToken: claimFencingToken,
+            nextSequence: () => sequence++,
+            call,
+            startedAt,
           });
         } else {
           if (control && (control.remainingCalls < 1 || control.remainingTokens <= 0)) return finalizeInterrupted(sequence, "budget_exhausted");
@@ -780,50 +769,24 @@ export async function executeTurn(
             }
           }
           result ??= { id: call.id, name: call.name, ok: false, error: "tool_execution_failed" };
+          // ITER-041：结果分类 + 账本收口已切至 tool-ledger.ts。
+          // 序号以 getter 传入（原先是 `sequence++` 内联）——收口会消耗一个事件序号，
+          // 必须与主循环共享同一计数器，不能在此快照。
+          //
           // 2c：以权威结果收口预留行（§9：非幂等副作用失败不自动重试）
-          const finalStatus: ToolExecutionStatus = result.needsApproval
-            ? "pending_approval"
-            : result.ok
-              ? "executed"
-              : result.error === "tool_timeout"
-                ? "timeout_error"
-                : "rejected";
           // B4-D：账本收口 + tool_result 事件原子提交（§12.2）——写工具需授权时账本记
           // pending_approval 但不发 tool_result（等待授权），与既有语义一致。
-          if (result.needsApproval) {
-            await execution.updateToolExecutionResult({
-              turnId: input.turnId,
-              attemptId: input.attemptId,
-              invocationId: executionId,
-              status: finalStatus,
-              output: result.output,
-              error: result.needsApproval ? "requires_approval" : result.error,
-            });
-          } else {
-            await execution.recordToolOutcome({
-              turnId: input.turnId,
-              attemptId: input.attemptId,
-              sequence: sequence++,
-              invocationId: executionId,
-              name: call.name,
-              arguments: call.arguments,
-              status: finalStatus,
-              output: result.output,
-              error: result.error,
-              startedAt,
-              finishedAt: new Date().toISOString(),
-              eventData: {
-                invocationId: call.id,
-                executionId,
-                name: call.name,
-                ok: result.ok,
-                output: result.output,
-                error: result.error,
-              },
-              safetyDecision: "approved",
-              expectedFencingToken: claimFencingToken,
-            });
-          }
+          await settleToolLedger({
+            execution,
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            invocationId: executionId,
+            expectedFencingToken: claimFencingToken,
+            nextSequence: () => sequence++,
+            call,
+            result,
+            startedAt,
+          });
         }
         results.push(result);
 
