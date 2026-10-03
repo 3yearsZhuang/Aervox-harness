@@ -25,7 +25,7 @@ review_interval_days: 90
 |---|---|---|---|---|
 | `AVX-PRD-001` | [PRD](reference/PRD.md) | 2026-09-29 | 每次版本立项 / G0 | CAP 范围或优先级变更未建立 `CR-*` |
 | `AVX-SRS-001` | [SRS](reference/SRS.md) | 2026-10-01 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
-| `AVX-SAD-001` | [架构设计](reference/ARCHITECTURE.md) | 2026-09-30 | G2 评审 + 架构变更 | CR-030 本地单用户边界、API 安全或数据拓扑未同步 |
+| `AVX-SAD-001` | [架构设计](reference/ARCHITECTURE.md) | 2026-10-04 | G2 评审 + 架构变更 | CR-030 本地单用户边界、API 安全或数据拓扑未同步 |
 | `AVX-DS-001` | [视觉系统与设计规范](reference/DESIGN.md) | 2026-09-17 | UI 重构 / 主题演进 | 视觉规范、Token 或禁止模式未同步 |
 | `ADR-001~019` | [ADR 索引](reference/adr/README.md) | 2026-10-03 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
 | `ADR-001` | [模块化单体架构与 Worker 拆分](reference/adr/ADR-001-modular-monolith.md) | 2026-09-13 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
@@ -69,7 +69,7 @@ review_interval_days: 90
 | `AVX-HAR-001` | [Agent Harness Loop 设计与落地规范](reference/agent-harness-loop.md) | 2026-10-02 | G2 评审 + Agent Loop/Provider/工具/持久化边界变更 | Turn/Attempt/Step、Provider、Tool、Inbox、恢复或 Profile 语义与实现/ADR 不一致 |
 | `AVX-WEB-001` | [Web 工作台实现说明](explanation/web-implementation.md) | 2026-09-18 | Web 端实现或技术基线变更 | `apps/web` 结构与 ADR-015/规划不一致 |
 | `AVX-PLUG-001` | [Aervox 插件开发规范](reference/plugin-config-and-pages.md) | 2026-09-28 | 插件声明、分发、生命周期或运行时机制变更 | Manifest、Config、Page Bridge、Turn、UI、开发者约束与机器强制范围不一致 |
-| `AVX-PLAN-001` | [当前迭代计划](../plan.md) | 2026-10-01 | 每次认领、改序、范围变化、移交与迭代复盘 | 出现第二份活动队列，或依赖、证据、状态与当前工作不符 |
+| `AVX-PLAN-001` | [当前迭代计划](../plan.md) | 2026-10-04 | 每次认领、改序、范围变化、移交与迭代复盘 | 出现第二份活动队列，或依赖、证据、状态与当前工作不符 |
 | `AVX-DOC-GOV-001` | [文档治理与事实源规范](reference/document-governance.md) | 2026-09-28 | 文档分类、状态、事实源、复核触发或迁移策略变更 | 策略 JSON、校验器、索引、登记表或写作规范与治理基线不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 2026-09-18 | 写作规则、模板或季度评审 | 新文档未使用规范元数据/签名，或 Vale 规则与术语表不一致 |
 | `AVX-STD-002` | [代码与 API 命名规范](reference/standards/naming-conventions.md) | 2026-09-17 | 命名规则、术语或季度评审 | `tenant` 残留扩大化、`@aervox/database` 复现、路由/包命名偏离本文，或新规则未先登记即落地 |

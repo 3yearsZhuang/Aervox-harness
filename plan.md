@@ -7,9 +7,9 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 planning_role: current
-version: 0.4.3
-updated_at: 2026-10-01
-reviewed_at: 2026-10-01
+version: 0.4.4
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 7
 review_triggers:
   - apps/**/src/**
@@ -33,7 +33,7 @@ sources:
 # Aervox 当前迭代计划
 
 - 提出人：3yearszhuang · 2026-09-18
-- 修改人：3yearszhuang · 2026-10-01
+- 修改人：3yearszhuang · 2026-10-04
 
 本文件是**当前项目迭代建议、排序、依赖和待决策项的唯一权威入口**。维护字段、状态、分支协调与归档规则见[计划治理](docs/reference/document-governance.md#31-当前迭代计划的唯一入口)；产品范围见 [PRD](docs/reference/PRD.md)，决策见 [ADR/CR](docs/reference/adr/README.md)，实现与发布证据见[追踪基线](docs/reference/REQUIREMENTS_TRACEABILITY.md)。计划的优先级不改写这些契约，也不自动批准所有条目实施。
 
@@ -51,7 +51,7 @@ sources:
 
 2026-09-28 新增 CR-056（Build to Delete 与类 pi 分层架构规划，已归档至 Aervox-docs-archive）：ITER-023 仅交付详细规划，ITER-014 进入架构差量待评审。CR 的切片按主归属和协同关系接入 ITER-005/007/008/013/014/019，具体依赖见 CR §7；先以 MemoryStore 工具与单个模型 Driver 验证实现可替换、资源可释放和数据责任连续性。规划不启动重构，也不将已有正确性修复统一阻塞在架构工作上。
 
-2026-09-29 新增架构演进与深层瓶颈优化建议（ITER-025～028）：针对 ADR-020 解耦落地的剩余差量与深层性能瓶颈，提出思隅核心懒加载毫秒级冷启动（ITER-025）、伴学业务与会话执行器深度解耦插件化（ITER-026）、多进程 SQLite 写入并发与 Worker 自适应退避（ITER-027），以及纯本地多端点对点加密同步探索（ITER-028）。
+2026-09-29 新增架构演进与深层瓶颈优化建议（ITER-025～028）：针对 ADR-020 解耦落地的剩余差量与深层性能瓶颈，提出思隅核心懒加载毫秒级冷启动（ITER-025）、伴学业务与会话执行器深度解耦插件化（ITER-026）、多进程 SQLite 写入并发与 Worker 自适应退避（ITER-027），以及纯本地多端点对点加密同步探索（ITER-028）。其中 ITER-025 与 ITER-026 已随 PR #232 回退且未重新入队，是否恢复立项待维护者裁定；ADR-020 编号同批退役，原文存于归档仓库，编号不复用（见 [ADR-021](docs/reference/adr/ADR-021-aervox-core-standalone-package.md)）。
 
 2026-10-01 新增 pi（`PI-01`，固定 `5257d0d5`）对照改进建议：按[参考评估 §8.3](docs/explanation/reference-design-transfer.md#upstream-20260929) 的差量复评与 pi-ai 设计对照，新增 ITER-032（保真上下文投影与真实摘要压缩）与 ITER-033（统一模型 Provider 抽象面）两个建议条目。对照结论：思隅的核心缺点不在功能面，而在抽象收敛度与上下文保真；每请求证据链与取消/失败时序由 ITER-007/010 承接，流式背压与慢观察者由 ITER-013 承接，薄执行宿主仍按 CR-056（已归档至 Aervox-docs-archive）BTD-05/06 归属推进，不另设条目；按需工具披露与多模型路由仅在对照收益成立后另行立项。
 

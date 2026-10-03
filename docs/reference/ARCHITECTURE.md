@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.5.0
-updated_at: 2026-09-30
-reviewed_at: 2026-09-30
+version: 0.6.0
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 90
 ---
 
@@ -44,7 +44,7 @@ MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应
 | Retrieval | SQLite FTS5 + VectorSearchPort（`sqlite-vec`/内存适配） | 记录 embedding 模型/维度/版本，可离线重建；MVP 不引入 Neo4j/独立向量库 |
 | Queue | 本地 SQLite Outbox + Worker 轮询 | 至少一次投递、幂等键、重试、指数退避；SQLite Outbox 是持久化真源（CR-030） |
 | Object | 本地文件系统目录（attachments/exports） | 本地安全存储、上传前后做大小/格式/解压比扫描；删除遵循数据 SLA（CR-030） |
-| AI | Vercel AI SDK 6 + 内部 `ProviderPort` | SDK 负责流式表现层，业务通过内部接口调用模型；模型不能直写业务表 |
+| AI | 内部 `ProviderPort`：`@aervox/core` 自研 OpenAI 兼容流式 Provider（运行时零外部依赖，ADR-021） | 业务通过内部接口调用模型；本地 llama.cpp 侧车以 OpenAI 兼容端点接入（model-runtime）；模型不能直写业务表 |
 | Desktop/mobile | Electron（P1）、Capacitor（后续，打包 web UI） | `contextIsolation`、关闭 `nodeIntegration`、受限 IPC、签名更新包、逐项设备授权；CAP-033 使用独立签名 Privacy Host/OS Permission Broker 管理后台和设备能力；移动端优先 WebView 壳，团队用 RN 仅当细粒化需要原生能力时评估 |
 | Test/observability | Vitest、Playwright、Testing Library、Testcontainers、fast-check、OpenTelemetry、Pino、Prometheus/Grafana、Sentry | 正常 CI 不依赖实时供应商；日志默认不含完整用户内容 |
 
@@ -213,28 +213,28 @@ apps/api/test/                       # 集成测试
 ### 4.2 Containers
 
 ```text
-Web / Electron / Mobile
-          │ HTTPS/SSE
-       CDN + WAF
-          │
-       Stateless API instances
-        ├── SQLite (business truth + FTS5, WAL mode)
-        ├── SQLite Outbox (transactional queue)
-        ├── Local Filesystem (attachments/exports)
-        ├── RecoveryControlLedger (independent immutable control events)
-        └── AI Provider Gateway
+Web (:5173) / Electron Fairy / CLI / Mobile 壳
+          │ HTTP/SSE（默认 loopback，非 loopback 强制 Token）
+   API（Fastify 5 单实例，模块化单体）
+        ├── SQLite 主库 aervox.db（业务真源 + FTS5，WAL 模式）
+        ├── SQLite Outbox（事务性队列）
+        ├── Local Filesystem（attachments/exports/skills）
+        ├── proactive Vault（CAP-033 加密独立库）
+        ├── RecoveryControlLedger（独立故障域控制事件）
+        └── Model Provider Gateway（远程 OpenAI 兼容端点或本地模型侧车）
 
-Scheduler ──> SQLite Outbox ──> Worker pools
-                         ├── memory
-                         ├── diary
-                         ├── embedding
-                         ├── OCR/import
-                         └── notification
+API ── Domain Socket IPC（wake/pressure/ping）──> Worker（独立进程）
+Worker ──> SQLite Outbox 轮询消费（至少一次投递 + 幂等 + DLQ）
+        ├── memory / diary / embedding / review
+        ├── deletion / inbox-expiry / attempt-recovery
+        └── proactive 派生与画像提炼
 
-All processes ──> OpenTelemetry Collector ──> metrics/logs/traces
+各进程 ──> 结构化日志（stdout）+ GET /v1/metrics（Prometheus 文本/JSON）；OpenTelemetry 为目标基线
 ```
 
-CAP-033 的主动智能路径与普通云端路径分离：
+CR-030 后的部署形态为单机本地实例：共享数据库多租户、CDN/WAF 与无状态水平扩展不再是本架构组件，客户端与本机 API 之间的 loopback 加 Token 即信任边界。
+
+CAP-033 的主动智能路径与普通本地数据路径分离：
 
 ```text
 Electron Shell
@@ -384,7 +384,7 @@ Captured
 | 在线删除清除 | 24 小时内 | 24 小时内 |
 | RPO/RTO | 每日加密备份；每季度恢复演练 | RPO ≤ 5 分钟，RTO ≤ 1 小时 |
 
-MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；上线前完成 2 倍峰值压测。告警覆盖 API 错误、TTFT、队列延迟/DLQ、日记迟到、来源验证失败、删除积压、AI 成本和安全分类异常。
+CR-030 后部署形态为「永久本地单用户实例」：不存在多用户注册容量模型，容量以单机设备资源（CPU、内存、磁盘 I/O 与 SQLite 写入吞吐）为界；历史上按 10,000 注册用户、1,000 DAU、100 并发流式会话拟定的云端容量基线随 CR-030 取消，[PRD `NFR-SCALE-001`](PRD.md#prd-nfr) 的重估待产品范围复审后另行登记。上表「核心 API 可用性」与「RPO/RTO」两行源自云端多用户部署基线，随 CR-030 暂缓执行，待桌面分发与备份恢复形态复审后重定；其余指标继续适用于本地单机场景。告警覆盖 API 错误、TTFT、队列延迟/DLQ、日记迟到、来源验证失败、删除积压、AI 成本和安全分类异常。
 
 ### 9.1 成本与供应商降级
 
@@ -429,11 +429,11 @@ MVP 容量模型为 10,000 注册用户、1,000 DAU、100 并发流式会话；�
 
 每个 ADR 需要记录上下文、备选方案、决策、后果、迁移和回滚。未批准的技术建议不能写成已承诺架构。
 
-独立记录已建立在 `docs/reference/adr/ADR-###-slug.md`；权威索引与决策详情见 [docs/reference/adr/README.md](adr/README.md)。截至 2026-09-18，ADR-001～019 均已通过评审并正式落地（除 ADR-002 与 ADR-008 分别由 ADR-015 和 CR-030 Superseded 外，其余均为 Accepted）。
+独立记录已建立在 `docs/reference/adr/ADR-###-slug.md`；权威索引与决策详情见 [docs/reference/adr/README.md](adr/README.md)。截至 2026-10-04，ADR-001～019 与 ADR-021 均已通过评审并正式落地（除 ADR-002 与 ADR-008 分别由 ADR-015 和 CR-030 Superseded 外，其余均为 Accepted）；ADR-020 编号随 PR #232 回退退役，原文存于归档仓库，编号不复用以保留可考的历史空缺（见 [ADR-021](adr/ADR-021-aervox-core-standalone-package.md)）。
 
 ### 11.1 技术版本冻结规则
 
-本文中的 Node 24 LTS、TypeScript 6.x、Vue/Vite/Fastify/Zod、SQLite、AI SDK 等是目标基线（React 相关基线已随 ADR-015 更新为 Vue），不是尚未存在 `package.json`/lockfile 时的可构建证明。G2 前必须：
+本文中的 Node 24 LTS、TypeScript 6.x、Vue/Vite/Fastify/Zod、SQLite 等是目标基线（React 相关基线已随 ADR-015 更新为 Vue；原列出的 Vercel AI SDK 已由 `@aervox/core` 自研 Provider 取代，见 §2 AI 行），不是尚未存在 `package.json`/lockfile 时的可构建证明。G2 前必须：
 
 - 验证实际发布日期、LTS/支持周期、peer dependency、Node ABI、Electron 和参考适配器兼容；
 - 在根 `package.json`、`packageManager`、`engines`、lockfile、容器 digest 和 CI matrix 中精确冻结版本；
