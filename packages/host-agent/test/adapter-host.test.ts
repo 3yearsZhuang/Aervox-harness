@@ -12,8 +12,8 @@ import { createAgentHost, runAdapterTurn } from "../src/index.js";
 import {
   InMemoryExecutionStore,
   createSimAdapterDriver,
-} from "@aervox/agent-loop";
-import type { AdapterManifest } from "@aervox/agent-loop";
+} from "@aervox/core";
+import type { AdapterManifest } from "@aervox/core";
 import { createNoopObservability } from "@aervox/observability";
 
 const dshManifest: AdapterManifest = {

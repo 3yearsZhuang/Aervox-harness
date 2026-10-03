@@ -7,6 +7,8 @@
 import type {
   AgentInboxCommand,
   AgentInboxConsumeBoundary,
+  AskUserQuestionAnswerItem,
+  AskUserQuestionItem,
   AgentInboxItem,
   AttemptStatus,
   ContextCompactionInput,
@@ -305,6 +307,11 @@ export interface InboxPort {
   /** ack 消费完成（claimed → acknowledged）；只接受此前 claim 的项 */
   ack(input: { itemIds: string[] }): Promise<void>;
 }
+
+/** 2d：删除/撤权水位闸门（§11.3：删除/撤权水位未追平 → fail closed，不继续模型或工具调用） */
+export interface DeletionGatePort {
+  isBlocked(input: { turnId: string; sessionId: string }): Promise<boolean>;
+}
 /**
  * 阶段 5c：Subagent 委托端口（ADR-017 扩展点）。宿主实现子任务运行：创建独立子
  * turn/attempt 落库（可审计/恢复），嵌套执行后返回结构化结果；parentAttemptId +
@@ -320,13 +327,13 @@ export interface AskUserQuestionPortRequest {
   turnId: string;
   attemptId: string;
   step: number;
-  questions: import("@aervox/contracts").AskUserQuestionItem[];
+  questions: AskUserQuestionItem[];
   signal?: AbortSignal;
   timeoutMs?: number;
 }
 
 export interface AskUserQuestionPortResult {
-  answers: import("@aervox/contracts").AskUserQuestionAnswerItem[];
+  answers: AskUserQuestionAnswerItem[];
 }
 
 /** 宿主实现的向用户询问协调端口 */

@@ -126,7 +126,7 @@
 | **环境感知 (Perception)** | Home Assistant REST/WS + 小米开放平台 + OS Broker | 真实环境信号采集，私网白名单校验与授权动作审计 |
 | **表现交互 (Ambient UI)** | Electron 43 + Vue 3 + Vite 7 + Live2D Cubism | 透明穿透桌宠外壳、沙箱化 IPC 隔离、Element Plus 雾蓝液态工作台 |
 | **核心服务 (Core API)** | Fastify 5 + Zod 4 + OpenAPI 3.1 (`zod-to-openapi` v9) | POST Turn 建立会话 + GET SSE 活流输出，领域模块化单体组织（ADR-014） |
-| **智能大脑 (Agent Loop)** | `@aervox/agent-loop` + `@aervox/host-agent` | 多步工具调用循环、Lease & Fencing 租约恢复机制、异步收件箱排队 |
+| **智能大脑 (Agent Loop)** | `@aervox/core` + `@aervox/host-agent` | 多步工具调用循环、Lease & Fencing 租约恢复机制、异步收件箱排队 |
 | **认知进化 (Cognition)** | `@aervox/practice-review` + `@aervox/diary` | SM-2 科学复习排期调度、时区安全幂等计算、夜间日记 Prompt 渲染引擎 |
 | **本地真源 (Data Vault)** | SQLite (WAL 模式) + Drizzle ORM（[AVX-DB-001](docs/reference/DATABASE.md)） | 永久单用户本地真源，133 张业务表完整索引，FTS5 全文 + 向量混合检索 |
 | **后台作业 (Worker)** | 独立 Worker 进程（`tsx` 驱动） | SQLite Outbox 事务消费、定时排期批处理、日记生成、过期证据物理擦除 |
@@ -148,7 +148,6 @@ apps/
   worker/           后台任务进程（Outbox 投递、复习排期、日记生成、画像证据清理）
   mobile/           Capacitor 移动壳（跨平台打包 apps/web 静态产物）
 packages/
-  agent-loop/       Agent Turn 执行核心：多 Provider、工具循环、租约恢复与上下文压缩
   host-agent/       内嵌异步 Agent Host：任务领取、心跳续租、受控收件箱与进程外驱动
   contracts/        Zod 契约事实源 → OpenAPI 3.1（流式协议 / 学习域 / 插件 / Persona）
   schema/           Drizzle 表结构与实体模式定义（133 张业务表唯一事实源）

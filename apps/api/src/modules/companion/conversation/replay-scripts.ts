@@ -4,7 +4,7 @@
  * 机械拆分自 agent-executor.ts（B 档第三步，零行为变更）：
  * AERVOX_LOOP_PROVIDER=scripted* 系列的固定回放步骤逐字节迁移。
  */
-import type { ReplayStep } from "@aervox/agent-loop";
+import type { ReplayStep } from "@aervox/core";
 
 /** 阶段 2d 工具路径脚本（AERVOX_LOOP_PROVIDER=scripted 时使用；跨 Step 验证只读工具链） */
 export const API_TOOL_SCRIPT: readonly ReplayStep[] = [

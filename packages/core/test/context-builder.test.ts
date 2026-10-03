@@ -158,20 +158,25 @@ describe("基础系统提示词与工具指引 (Base System Prompt & Tool Guidan
   it("buildBaseSystemPrompt：支持 extraSections 注入扩展规则段并保持相对顺序", async () => {
     const { buildBaseSystemPrompt } = await import("../src/base-prompt.js");
     const customSection = "### 自定义扩展规则\n遵循某种特殊业务规则。";
+    const focusSection = "### 专注模式扩展段\n专注模式核心教学原则示例。";
     const prompt = buildBaseSystemPrompt({
       assistantName: "思隅",
-      extraSections: ["### 扩展段一\n拆解为 5 个连贯的小步骤。", customSection],
+      extraSections: [focusSection, customSection],
       personaPrompt: "专业严谨",
     });
 
-    expect(prompt).toContain("拆解为 5 个连贯的小步骤");
+    expect(prompt).toContain("专注模式核心教学原则");
     expect(prompt).toContain("自定义扩展规则");
     // 验证相对顺序：extraSections -> personaPrompt -> outputStyle
-    expect(prompt.indexOf("拆解为 5 个连贯的小步骤")).toBeLessThan(
+    expect(prompt.indexOf("专注模式核心教学原则")).toBeLessThan(
       prompt.indexOf("自定义扩展规则"),
     );
-    expect(prompt.indexOf("自定义扩展规则")).toBeLessThan(prompt.indexOf("# 人格设定"));
-    expect(prompt.indexOf("# 人格设定")).toBeLessThan(prompt.indexOf("输出格式"));
+    expect(prompt.indexOf("自定义扩展规则")).toBeLessThan(
+      prompt.indexOf("# 人格设定"),
+    );
+    expect(prompt.indexOf("# 人格设定")).toBeLessThan(
+      prompt.indexOf("输出格式"),
+    );
   });
 
   it("createComposedContextBuilder：baseSystemPrompt 置于最前并支持与 skills 组合", async () => {

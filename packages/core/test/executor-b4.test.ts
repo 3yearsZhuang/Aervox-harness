@@ -107,6 +107,42 @@ describe("B4-C：maxModelRetries（仅首可见片段前、无副作用）", () 
     expect(events.some((e) => e.eventType === "delta" && typeof e.data?.text === "string" && e.data.text.includes("重试成功"))).toBe(true);
   });
 
+  it("重试成功后，新 attempt 的 reasoning 尾部仍补落（flush 跟随生效收集器）", async () => {
+    const store = new InMemoryExecutionStore();
+    store.seedAttempt({ id: "atp_retry_tail", turnId: "turn_retry_tail" });
+    let calls = 0;
+    const flaky: ModelProviderPort = {
+      id: "flaky-reasoning",
+      stream: () => ({
+        async *[Symbol.asyncIterator]() {
+          calls += 1;
+          if (calls === 1) throw new Error("model boom");
+          // 首块 250 字符：超出节流阈值立即落事件；尾块 5 字符不足阈值（且距上次
+          // flush <400ms）被缓冲 → 只能靠收集结束后的 force flush 补落，不得丢失
+          yield { text: "", isFinal: false, reasoning: "甲".repeat(250) };
+          yield { text: "完成", isFinal: true, reasoning: "乙乙乙乙乙" };
+        },
+      }),
+    };
+    const result = await executeTurn(
+      {
+        execution: store,
+        provider: flaky,
+        contextBuilder: defaultContextBuilder,
+        options: { leaseHeartbeatIntervalMs: 0 },
+      },
+      { turnId: "turn_retry_tail", sessionId: "sess_retry_tail", attemptId: "atp_retry_tail", userMessage: "x" },
+    );
+    expect(result.status).toBe("completed");
+    const events = await store.listEvents("turn_retry_tail");
+    const reasoning = events
+      .filter((e) => e.eventType === "reasoning_delta")
+      .map((e) => (e.data as { text?: string })?.text ?? "")
+      .join("");
+    expect(reasoning).toContain("甲".repeat(250));
+    expect(reasoning).toContain("乙乙乙乙乙");
+  });
+
   it("重试关闭（maxModelRetries=0）且持续失败 → 失败收敛，仅调用一次", async () => {
     const store = new InMemoryExecutionStore();
     store.seedAttempt({ id: "atp_noretry", turnId: "turn_noretry" });

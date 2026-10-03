@@ -5,7 +5,7 @@ import {
   SqliteConversationRepository,
   type AervoxDatabase,
 } from "@aervox/repositories";
-import type { ToolProviderPort } from "@aervox/agent-loop";
+import type { ToolProviderPort } from "@aervox/core";
 import {
   createApprovalGatedToolProvider,
   FULL_ACCESS_DECIDER_PREFIX,

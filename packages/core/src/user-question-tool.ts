@@ -8,7 +8,7 @@
  * - 挂起与等待：委托 UserQuestionPort.ask() 等待人类提交回答；
  * - 结果回填：将结构化回答序列化为 JSON 文本 `{ answers: [...] }` 送回模型循环。
  */
-import type { AskUserQuestionItem } from "@aervox/contracts";
+import type { AskUserQuestionItem } from "./types.js";
 import type { ToolExecutionInput, ToolExecutionResult, ToolProviderPort, UserQuestionPort } from "./ports.js";
 import type { ToolSpec } from "./types.js";
 

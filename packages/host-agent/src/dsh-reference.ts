@@ -13,8 +13,8 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { verifyAdapterManifest } from "@aervox/agent-loop";
-import type { AdapterManifest } from "@aervox/agent-loop";
+import { verifyAdapterManifest } from "@aervox/core";
+import type { AdapterManifest } from "@aervox/core";
 
 /** DSH-01 固定参考 commit（reference-design-transfer §1.1 登记） */
 export const DSH_REFERENCE_SHA = "639ed015397290b3745d163aafe02ffee4aa3f84";

@@ -11,13 +11,12 @@
  * 底座分层（自底向上）：
  *   L0  packages/contracts    —— 纯契约，最底层
  *   L1  packages/schema / packages/repositories —— 数据真源 + Outbox/Audit（允许依赖 contracts）
- *   L1  packages/core         —— 独立内核包（执行器/Port/审批 SPI，禁触数据库）
- *   L1  packages/agent-loop   —— re-export 过渡壳（指向 @aervox/core，一个迭代后移除）
+ *   L1  packages/core         —— Agent 执行内核（Port/执行器，禁触数据库；ADR-021 壳移除后原 agent-loop 规则改指向 core）
  *   L2  packages/api-client / packages/ui —— 传输与表现底座（禁触数据库）
  *   L3  apps/*                —— 宿主 Shell（单向消费上述底座）
  *   预留 capabilities/ providers/ adapters/ modules/ —— 能力层（禁触库、禁依赖宿主）
  *   同层 plugins/<id>/        —— 插件实现（CR-060：禁触库、禁反向依赖宿主 Shell）
- * 参考规则：ADR-021（core 运行时零依赖，禁入 SQLite/LibSQL/Drizzle）、AVX-HAR-001 §16.2；
+ * 参考规则：AVX-HAR-001 §16.2（内核不导入 SQLite/Drizzle，原 agent-loop 规则随壳移除改指向 packages/core）；
  *           AVX-CAP-001 交付载体与自选机制（Kernel Substrate 边界、能力层接口边界）。
  *
  * 能力覆盖（AST 解析，2026-08-28 从正则升级；落地点修正见 ADR-016 决策记录）：
@@ -61,9 +60,9 @@ export const RULES = [
     forbid: [{ pattern: /^@aervox\//, label: "任何 @aervox 工作区包" }],
   },
   {
-    name: "kernel-no-db",
-    docRef: "ADR-021 · AVX-HAR-001 §16.2",
-    fromDir: /^packages\/(core|agent-loop)\//,
+    name: "core-no-db",
+    docRef: "AVX-HAR-001 §16.2 / ADR-021",
+    fromDir: /^packages\/core\//,
     forbid: [
       { pattern: /^@aervox\/(database|schema|repositories)($|\/)/, label: "数据库/模式/仓储" },
       { pattern: /^@libsql\//, label: "@libsql/client" },

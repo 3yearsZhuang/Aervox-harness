@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ModelRequest, PromptMessage } from "@aervox/agent-loop";
+import type { ModelRequest, PromptMessage } from "@aervox/core";
 import { createInMemoryDatabase } from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
 
 const captured = vi.hoisted(() => ({ requests: [] as ModelRequest[], useTool: false }));
-vi.mock("@aervox/agent-loop", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@aervox/agent-loop")>();
+vi.mock("@aervox/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@aervox/core")>();
   return {
     ...actual,
     createReplayProvider: () => ({

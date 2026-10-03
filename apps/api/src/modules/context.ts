@@ -12,7 +12,7 @@ import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
 import type { AervoxDatabase, ProactiveVaultCipher } from "@aervox/repositories";
 import type { IProactiveProfileRepository, SqliteProactiveIntelligenceRepository } from "@aervox/repositories";
-import type { WorkflowDefinition } from "@aervox/agent-loop";
+import type { WorkflowDefinition } from "@aervox/core";
 import type { ToolRuntimePort } from "./ecosystem/tools/index.js";
 import type { MemoryRecallPort } from "./companion/memory/index.js";
 import type { LLMConfigService } from "./ecosystem/llm/service.js";

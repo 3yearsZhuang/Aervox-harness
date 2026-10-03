@@ -12,7 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@aervox/agent-loop": "workspace:*",
+    "@aervox/core": "workspace:*",
     "@aervox/config": "workspace:*",
     "@aervox/contracts": "workspace:*",
     "@aervox/diary": "workspace:*",

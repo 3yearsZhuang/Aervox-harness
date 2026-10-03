@@ -12,7 +12,7 @@ import type {
   AgentInboxItemType,
   AgentInboxItemStatus,
   InboxPort,
-} from "@aervox/agent-loop";
+} from "@aervox/core";
 import type { AgentInboxItemModel, SqliteAgentInboxRepository, LocalContext } from "@aervox/repositories";
 
 let seq = 0;

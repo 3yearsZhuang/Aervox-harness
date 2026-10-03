@@ -17,7 +17,11 @@ export interface ToolGuidance {
   constraints?: string[];
 }
 
-/** 核心内置工具的标准指引清单（新增工具必须往此表或扩展表追加登记） */
+/**
+ * 内核内置工具的标准指引清单（ADR-021 内核提纯修订：仅登记内核自有工具；
+ * 宿主/插件贡献的工具 guidance 由宿主经 BaseSystemPromptOptions.customGuidance 注入，
+ * 参考 apps/api 的 HOST_TOOL_GUIDANCE。新增内核工具必须往此表追加登记。）
+ */
 export const BASE_TOOL_GUIDANCE: readonly ToolGuidance[] = [
   {
     name: "ask_user_question",
@@ -26,16 +30,6 @@ export const BASE_TOOL_GUIDANCE: readonly ToolGuidance[] = [
     constraints: [
       "问题必须简明，若有推荐选项必须放置在首位并追加 `(Recommended)` 标记。",
       "若使用 `plan-review` 意图，必须在 `detail` 中完整提供待审查的计划 Markdown，且 `intent.approve` 必须与选项匹配。",
-    ],
-  },
-  {
-    name: "aervox_diary_write",
-    whenToUse: "当且仅当用户明确表达写日记意图（如「写篇日记给我」「记录一下今天」「帮我写今天的日记」）时调用；工具会基于当日真实聊天与学习素材生成桌宠视角日记并落库。",
-    whenNotToUse: "用户只是聊到日记话题、询问已有日记内容、或要求写其他类型的文章（作文/周报/笔记）时禁止调用。",
-    constraints: [
-      "日记内容只能引用当日真实素材，禁止虚构事件或情绪（PRD §6.7 反虚构红线）。",
-      "属于写操作（需用户批准后落库）；当日已有日记时生成改写版本而非重复创建。",
-      "生成耗时较长（可能超过常规工具超时），一次对话最多调用一次。",
     ],
   },
   {
@@ -49,26 +43,10 @@ export const BASE_TOOL_GUIDANCE: readonly ToolGuidance[] = [
   },
   {
     name: "workflow_run",
-    whenToUse: "当需要执行预先注册的标准工作流步骤（如错题归因分析、知识点复盘工作流等）时调用。",
+    whenToUse: "当需要执行预先注册的标准工作流步骤时调用。",
     whenNotToUse: "无匹配的已注册工作流时禁止随意捏造 workflow 名称。",
     constraints: [
       "步骤顺序执行，前序步骤输出作为后续步骤输入。",
-    ],
-  },
-  {
-    name: "search_notes",
-    whenToUse: "当用户查询其学习笔记、复习计划、历史记录或需要相关知识检索时调用。",
-    whenNotToUse: "通用常识问答或用户未提及历史记录时无需调用。",
-    constraints: [
-      "仅用于检索用户个人学习数据，属于只读操作。",
-    ],
-  },
-  {
-    name: "save_memory_note",
-    whenToUse: "当用户明确要求记录重要事实、偏好、备忘或系统需要沉淀重要长期记忆时调用。",
-    whenNotToUse: "闲聊中的临时琐事或无长期保存价值的信息禁止写入。",
-    constraints: [
-      "属于写操作（需用户授权），必须确保内容准确客观。",
     ],
   },
 ];

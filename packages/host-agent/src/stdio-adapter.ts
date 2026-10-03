@@ -16,7 +16,7 @@ import {
   decodeAdapterLine,
   encodeAdapterLine,
   verifyAdapterManifest,
-} from "@aervox/agent-loop";
+} from "@aervox/core";
 import type {
   AdapterDriverId,
   AdapterDriverPort,
@@ -24,7 +24,7 @@ import type {
   AdapterManifest,
   AdapterRequest,
   AdapterWireMessage,
-} from "@aervox/agent-loop";
+} from "@aervox/core";
 
 export interface StdioAdapterDriverDeps {
   /** 适配器可执行（fixture 可为 `node <path>/sim-adapter.mjs`） */
@@ -248,4 +248,4 @@ export async function createStdioAdapterDriver(
   };
 }
 
-export type { AdapterDriverPort, AdapterManifest } from "@aervox/agent-loop";
+export type { AdapterDriverPort, AdapterManifest } from "@aervox/core";

@@ -5,8 +5,8 @@
  * （经 DiaryLlmConfigPort 解析租户配置），replay/scripted 等非 LLM 模式走确定性模板
  * （诚实降级，输出标注 template）；租户 LLM 未启用时同样模板降级。
  */
-import { createOpenAICompatProvider } from "@aervox/agent-loop";
-import type { ModelProviderPort, ModelRequest } from "@aervox/agent-loop";
+import { createOpenAICompatProvider } from "@aervox/core";
+import type { ModelProviderPort, ModelRequest } from "@aervox/core";
 import type { AervoxDatabase, SqliteLLMConfigRepository, LocalContext } from "@aervox/repositories";
 import { collectDiaryMaterial, diaryMaterialCount } from "./material.js";
 import { buildDiarySystemPrompt, buildDiaryUserPrompt } from "./prompts.js";

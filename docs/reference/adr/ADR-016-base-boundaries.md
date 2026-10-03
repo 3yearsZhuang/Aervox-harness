@@ -66,7 +66,7 @@ review_interval_days: 90
 | # | 规则 | from | 禁止 import 到 |
 |---|---|---|---|
 | 1 | `contracts-must-be-leaf` | `packages/contracts/` | 任何 `@aervox/*` |
-| 2 | `kernel-no-db` | `packages/core/`、`packages/agent-loop/` | `@aervox/repositories`、`@libsql/*`、`Drizzle ORM` |
+| 2 | `core-no-db` | `packages/core/` | `@aervox/repositories`、`@libsql/*`、`Drizzle ORM` |
 | 3 | `packages-no-host-imports` | `packages/*` 的 `src`/`test` | `@aervox/api\|worker\|web\|desktop\|mobile`、`apps/` |
 | 4 | `ui-client-no-db` | `packages/ui`、`packages/api-client` | `@aervox/repositories`、`@libsql/*`、`Drizzle ORM` |
 | 5 | `capability-layer-no-db-no-host` | `capabilities/`、`providers/`、`adapters/`、`modules/` | 同 #4 + 宿主 Shell |

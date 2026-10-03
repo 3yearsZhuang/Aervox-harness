@@ -16,7 +16,7 @@ import {
   createAskUserQuestionToolProvider,
   createSummaryCompaction,
   executeTurn,
-} from "@aervox/agent-loop";
+} from "@aervox/core";
 import type {
   InboxPort,
   ModelProviderPort,
@@ -27,7 +27,7 @@ import type {
   ToolProviderPort,
   UserQuestionPort,
   WorkflowDefinition,
-} from "@aervox/agent-loop";
+} from "@aervox/core";
 import type { PluginHostServices, ServerPluginRegistration, TurnLlmPort } from "@aervox/host-plugin-api";
 import { SqliteExecutionStore } from "@aervox/host-agent";
 import {
@@ -50,6 +50,7 @@ import {
   type TurnPluginContext,
 } from "../../ecosystem/plugins/turn-plugins/index.js";
 import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index.js";
+import { HOST_TOOL_GUIDANCE } from "../../ecosystem/tools/index.js";
 import type { LLMConfigService } from "../../ecosystem/llm/service.js";
 import type { LlmDegradationService } from "../../ecosystem/llm/degradation-service.js";
 import type { ModelRoutingSnapshot } from "@aervox/contracts";
@@ -103,7 +104,7 @@ export async function runLoopTurnOnce(
     /** CAP-008：安全与危机干预服务（危急阻断/资源注入/中度困扰支持） */
     safetyService?: import("../../platform/safety/service.js").SafetyService;
     /** 2d：删除/撤权水位未追平 → Loop fail-closed（AVX-HAR-001 §11.3） */
-    deletionGate?: import("@aervox/agent-loop").DeletionGatePort;
+    deletionGate?: import("@aervox/core").DeletionGatePort;
     /** 5a-2：受控收件箱消费（每 Step claim next-step → 注入 → ack；缺失时跳过） */
     inbox?: InboxPort;
     /** 5b：渐进披露的 Skill 清单（name+description；模型按需读取全文；缺省不注入） */
@@ -433,7 +434,9 @@ export async function runLoopTurnOnce(
   // 禁用、缺记录或不可用的插件不得向模型暴露其工具（与 Runner、插件端点同判据）。
   // 门控一律 fail-closed：`isPluginEnabled` 在仓储缺失时同样返回 false，故此处不得再
   // 用 `extRepo &&` 短路（那会在仓储不可用时退化为放行）。
-  // 模型侧使用指南由插件自述，经内核既有的 customGuidance 通用注入位合入基础提示词。
+  // 模型侧使用指南由插件自述，经内核既有的 customGuidance 通用注入位合入基础提示词；
+  // 宿主自有工具（日记 / 笔记检索 / 记忆沉淀）的指南同经该注入位提供
+  // （ADR-021 内核提纯修订：产品域 guidance 不再随内核发布，见 host-tool-guidance）。
   const pluginGuidance: ToolGuidance[] = [];
   if (deps.pluginRegistrations?.length && deps.pluginHostServices) {
     const services = deps.pluginHostServices(tenant);
@@ -558,7 +561,9 @@ export async function runLoopTurnOnce(
       personaPrompt: deps.persona?.prompt,
       activeTools: tools?.tools,
       extraSections: beforeTurnExec.extraSections,
-      ...(pluginGuidance.length > 0 ? { customGuidance: pluginGuidance } : {}),
+      ...(HOST_TOOL_GUIDANCE.length + pluginGuidance.length > 0
+        ? { customGuidance: [...HOST_TOOL_GUIDANCE, ...pluginGuidance] }
+        : {}),
     },
     skills: disclosedSkills,
     ...(loadApiConfig().loopCompaction === "rule"

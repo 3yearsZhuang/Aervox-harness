@@ -6,8 +6,8 @@
  * - 产生符合 AgentLoopProviderPort 契约的流式输出（ModelChunk）；
  * - 诚实标记离线规则输出来源。
  */
-import type { ModelProviderPort } from "@aervox/agent-loop";
-import type { ModelChunk, ModelRequest } from "@aervox/agent-loop";
+import type { ModelProviderPort } from "@aervox/core";
+import type { ModelChunk, ModelRequest } from "@aervox/core";
 import type { ModelRoutingSnapshot } from "@aervox/contracts";
 
 export interface RuleResponseProviderOptions {

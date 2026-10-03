@@ -13,8 +13,8 @@ import type {
   ModelProviderPort,
   ToolProviderPort,
   AdapterDriverPort,
-} from "@aervox/agent-loop";
-import { defaultContextBuilder, executeTurn } from "@aervox/agent-loop";
+} from "@aervox/core";
+import { defaultContextBuilder, executeTurn } from "@aervox/core";
 import { runAdapterTurn } from "./adapter-turn.js";
 import type { Observability } from "@aervox/observability";
 
@@ -28,7 +28,7 @@ export interface ClaimableTurn {
    * 4b 续跑上下文（§11.3 首范式）：候选为「工具结果已权威提交但尚未注入」的过期 Attempt 时，
    * 恢复源重建后携带 —— 宿主据此以占用式 claim 继续原 Attempt，禁止重复副作用。
    */
-  resume?: import("@aervox/agent-loop").ExecuteTurnResumeInput;
+  resume?: import("@aervox/core").ExecuteTurnResumeInput;
 }
 
 /** 待执行 Turn 来源（宿主实现：数据库候选查询） */

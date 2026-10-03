@@ -6,7 +6,7 @@ owner: platform
 doc_status: review-candidate
 decision_status: accepted
 delivery_status: planned
-version: 1.0.0
+version: 1.1.0
 updated_at: 2026-10-03
 reviewed_at: 2026-10-03
 review_interval_days: 90
@@ -88,6 +88,18 @@ ITER-035 验收口径（实现切片）：
 - headless 冒烟脚本在无 Fastify / 无 SQLite / 无 apps/api 的进程内跑通完整多步工具回路（含 ControlContext 预算与审批路径）；
 - `agent-loop` 为纯 re-export 壳，四下游包零改动、全量增量门禁通过；
 - `./aervox ci` 与 `plan-check` 全绿，追踪基线 §4.2 登记锚点就位。
+
+## Amendment
+
+**内核提纯修订（2026-10-03，用户裁决，ITER-036）**：方案 A 的"吸收 agent-loop 全量"在 PR #244 审核后进一步收敛——伴学产品构件不属内核：
+
+- `focus-mode-prompt`（专注模式教学提示词）迁回 apps/api 专注模式回合插件；
+- `practice-attempt-tool` 与 `PracticeAttemptPort` 契约（CAP-016 刷题闭环）迁回 apps/api companion 会话装配链；
+- `BASE_TOOL_GUIDANCE` 瘦身为内核自有工具（ask_user_question / subagent_delegate / workflow_run），宿主工具 guidance 由 apps/api `HOST_TOOL_GUIDANCE` 经 `customGuidance` 注入承接。
+
+判定依据：`user-question-tool`（通用 human-in-the-loop）与 `subagent-contribution`（Provider Contribution 扩展机制，AVX-HAR-001 §13 / ADR-017）为宿主无关能力，保留内核。修订后 core 公共导出面不再含伴学产品构件；Provider 统一仍归 ITER-033。
+
+**过渡壳移除（2026-10-03，ITER-037）**：Decision 2 约定的"一个迭代后移除"执行完成——`packages/agent-loop` 壳与 `host-agent/src/cli-approval.ts` 兼容壳物理删除，四下游 import 直连 `@aervox/core`；内核本地声明 `AskUserQuestion*` 负载类型（`type-compat` 测试锁定与 `@aervox/contracts` 单向结构兼容），core 源码对 contracts 的 type 依赖清零；import-boundary 健身函数 `agent-loop-no-db` 由 `core-no-db` 承接。Decision 2 至此闭环。
 
 ## 关联
 

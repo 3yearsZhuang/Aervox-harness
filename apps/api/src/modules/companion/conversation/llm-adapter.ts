@@ -10,8 +10,8 @@ import {
   createOpenAICompatProvider,
   createReplayProvider,
   createScriptedProvider,
-} from "@aervox/agent-loop";
-import type { ModelProviderPort, ReplayStep } from "@aervox/agent-loop";
+} from "@aervox/core";
+import type { ModelProviderPort, ReplayStep } from "@aervox/core";
 import type { TurnLlmPort } from "@aervox/host-plugin-api";
 import type { LocalContext } from "@aervox/repositories";
 import { loadApiConfig } from "@aervox/config";
