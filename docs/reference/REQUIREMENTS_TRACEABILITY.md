@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.51.0
+version: 1.52.0
 updated_at: 2026-10-03
 reviewed_at: 2026-10-03
 review_interval_days: 90
@@ -190,6 +190,7 @@ review_interval_days: 90
 - `core-shell-removal-20261003`：过渡壳移除与内核类型自持（ADR-021 Decision 2 闭环 / ITER-037），`packages/agent-loop` 壳与 host-agent `cli-approval` 兼容壳删除，四下游 import 直连 `@aervox/core`；内核本地声明 `AskUserQuestion*` 负载类型（`packages/core/test/type-compat.test.ts` 锁定与 contracts 结构兼容），core 源码零 contracts 引用；import-boundary `core-no-db` 规则承接内核禁库边界；验收证据见对应 PR 与 `ITER-037` 计划条目。
 - `core-provider-contract-20261003`：Provider 补全契约归一第一刀（ADR-021 Decision 4 / ITER-033 拆分切片 ITER-038），core `ModelChunk` 增加结构化 `stopReason`（`ModelStopReason`）与 `ModelUsage` 输入/输出用量分账，`openai-compat-provider` 透传；api 对话路径（本地 llama 与远程兼容端点）已统一经 `ModelProviderPort` 单一补全面；实现位置 `packages/core/src/types.ts`、`packages/core/src/openai-compat-provider.ts`；验收证据见对应 PR 与 `ITER-038` 计划条目。
 - `core-dedupe-stable-key-20261003`：工具调用去重键稳定序列化（缺陷 D-KEY / AVX-HAR-001 §9 幂等预留），`executor` 的 `dedupeKey` 由 `JSON.stringify(args)` 改为 `stableSerialize`（对象键字典序递归、数组保序、循环引用降级为 `[Circular]` 标记），修复键序不同的等价参数被误判为两次独立调用、导致幂等账本被绕过与副作用重复发生；实现位置 `packages/core/src/executor.ts`；回归由 `packages/core/test/dedupe-key.test.ts` 锁定（键序无关、嵌套键序无关、数组保序三条契约，验证手法为临时回退实现观察用例变红）；验收证据见对应 PR。
+- `core-circular-args-resilience-20261003`：循环引用工具参数可降级（缺陷 D-CIRC），模型返回自引用 `arguments` 时，预算计量行的裸 `JSON.stringify(chunk.toolCalls)` 原会抛 `Converting circular structure to JSON` 并逃出流式循环，把计量偏差放大为整 Turn 的 `execution error`；改用 `safeStringify`（保持原形不排序键，仅对环回引用与不可序列化值降级为标记），使畸形参数成为可降级输入异常而非致命错误，入参安全判定仍由 `inspectToolInput` 负责；回归由 `packages/core/test/circular-args-resilience.test.ts` 锁定（单层自引用、深度自引用、工具不执行、事件仍留痕、非循环引用路径行为不变）；实现位置 `packages/core/src/executor.ts`；验收证据见对应 PR。
 
 ## 5. 原子需求字段模板
 

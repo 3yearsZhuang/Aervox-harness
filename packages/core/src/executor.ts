@@ -110,6 +110,51 @@ export interface ExecuteTurnDeps {
 }
 
 /**
+ * 容错序列化：保持原形（键序、字段名不变），仅在遇到循环引用 / 不可序列化值时降级。
+ *
+ * 缺陷 D-CIRC：模型可能返回自引用的 `arguments`（`{self:{...self}}`）。任何裸
+ * `JSON.stringify` 遇之都会抛 `Converting circular structure to JSON`：
+ * - 预算计量里抛 → 逃出流式循环，整 Turn 收敛为 `execution error`；
+ * - 写 tool_request 事件时抛 → 事件与工具账本双双落不下去，崩溃点前移到
+ *   `inspectToolInput` 的入参安全判定之前（该判定本可优雅拒绝循环引用）。
+ *
+ * 本函数用于**事件载荷与工具账本**：这两者必须留痕（可审计要求不允许静默丢弃），
+ * 且必须能承载畸形参数，故不能因序列化失败而抛。策略是原样保留可序列化部分、
+ * 对环回引用处写入 `"[Circular]"` 标记 —— 审计者能看见参数里有环，
+ * 而不会看到一条「工具被静默丢弃」的空洞记录。
+ *
+ * 与 `stableSerialize`（去重键用，需键序无关的规范形）的区别：
+ * 本函数**不排序键、不改变结构**，只在循环处打标记。
+ */
+function safeStringify(value: unknown, seen: Set<object> = new Set()): string {
+  if (value === null) return "null";
+  const type = typeof value;
+  if (type === "number") return Number.isFinite(value as number) ? String(value) : "null";
+  if (type === "boolean") return String(value);
+  if (type === "string") return JSON.stringify(value);
+  if (type === "undefined") return "null";
+  if (type === "bigint") return `"${String(value)}"`;
+  if (type === "function" || type === "symbol") return "[Unserializable]";
+  const obj = value as object;
+  if (seen.has(obj)) return '"[Circular]"';
+  seen.add(obj);
+  try {
+    if (Array.isArray(obj)) {
+      return `[${obj.map((item) => safeStringify(item, seen)).join(",")}]`;
+    }
+    const entries = Object.entries(obj as Record<string, unknown>).map(
+      ([key, val]) => `${JSON.stringify(key)}:${safeStringify(val, seen)}`,
+    );
+    return `{${entries.join(",")}}`;
+  } catch {
+    // 兜底：getter 抛异常等极端情况也不得连带整个 Turn 失败
+    return '"[Unserializable]"';
+  } finally {
+    seen.delete(obj);
+  }
+}
+
+/**
  * 稳定序列化：用于工具调用去重键。
  *
  * 缺陷 D-KEY：原实现为 `JSON.stringify(args)`，对对象键序敏感 ——
@@ -391,7 +436,15 @@ export async function executeTurn(
         }), control?.abortSignal)) {
           // Charge UTF-8 bytes conservatively when provider token usage is absent;
           // cumulative provider usage can only increase the charge, never refund it.
-          let charge = utf8.encode(chunk.text + (chunk.reasoning ?? "") + (chunk.toolCalls ? JSON.stringify(chunk.toolCalls) : "")).length;
+          //
+          // 缺陷 D-CIRC：此处原为裸 JSON.stringify(chunk.toolCalls)。模型可能返回自引用
+          // arguments，序列化抛Converting circular structure to JSON 会逃出 collectStep，
+          //把「计量偏差」放大成整 Turn 的 execution error。计量只用于预算估算，不值得
+          // 让整轮执行失败 —— 序列化失败时按 0 计费（保守：charge 少算由 provider usage
+          // 分支与budgetExceeded 兜底），真正的入参安全判定由 inspectToolInput 负责。
+          let charge = utf8.encode(
+            chunk.text + (chunk.reasoning ?? "") + (chunk.toolCalls ? safeStringify(chunk.toolCalls) : ""),
+          ).length;
           if (chunk.usage) charge = Math.max(charge, chunk.usage.totalTokens - charged);
           charged += charge;
           control?.recordTokensUsed(charge);
