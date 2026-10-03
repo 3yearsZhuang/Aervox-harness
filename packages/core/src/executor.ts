@@ -1,4 +1,5 @@
 import { abortableStream } from "./abortable.js";
+import { dedupeKey } from "./stable-serialize.js";
 /**
  * Aervox｜思隅 @aervox/core — Turn 执行器（阶段 2：只读工具多 Step Loop）
  *
@@ -24,6 +25,8 @@ import { inspectToolResult } from "./tool-result-safe.js";
 import { createTurnTerminator } from "./turn-terminator.js";
 import { settleDuplicateToolCall, settleToolLedger } from "./tool-ledger.js";
 import { runToolExecution, ToolExecutionAborted } from "./tool-pipeline.js";
+import { StepCollector } from "./step-collector.js";
+import type { StepCollection } from "./step-collector.js";
 
 export interface ExecuteTurnInput {
   turnId: string;
@@ -108,114 +111,9 @@ export interface ExecuteTurnDeps {
   options?: ExecuteTurnOptions;
 }
 
-/**
- * 容错序列化：保持原形（键序、字段名不变），仅在遇到循环引用 / 不可序列化值时降级。
- *
- * 缺陷 D-CIRC：模型可能返回自引用的 `arguments`（`{self:{...self}}`）。任何裸
- * `JSON.stringify` 遇之都会抛 `Converting circular structure to JSON`：
- * - 预算计量里抛 → 逃出流式循环，整 Turn 收敛为 `execution error`；
- * - 写 tool_request 事件时抛 → 事件与工具账本双双落不下去，崩溃点前移到
- *   `inspectToolInput` 的入参安全判定之前（该判定本可优雅拒绝循环引用）。
- *
- * 本函数用于**事件载荷与工具账本**：这两者必须留痕（可审计要求不允许静默丢弃），
- * 且必须能承载畸形参数，故不能因序列化失败而抛。策略是原样保留可序列化部分、
- * 对环回引用处写入 `"[Circular]"` 标记 —— 审计者能看见参数里有环，
- * 而不会看到一条「工具被静默丢弃」的空洞记录。
- *
- * 与 `stableSerialize`（去重键用，需键序无关的规范形）的区别：
- * 本函数**不排序键、不改变结构**，只在循环处打标记。
- */
-function safeStringify(value: unknown, seen: Set<object> = new Set()): string {
-  if (value === null) return "null";
-  const type = typeof value;
-  if (type === "number") return Number.isFinite(value as number) ? String(value) : "null";
-  if (type === "boolean") return String(value);
-  if (type === "string") return JSON.stringify(value);
-  if (type === "undefined") return "null";
-  if (type === "bigint") return `"${String(value)}"`;
-  if (type === "function" || type === "symbol") return "[Unserializable]";
-  const obj = value as object;
-  if (seen.has(obj)) return '"[Circular]"';
-  seen.add(obj);
-  try {
-    if (Array.isArray(obj)) {
-      return `[${obj.map((item) => safeStringify(item, seen)).join(",")}]`;
-    }
-    const entries = Object.entries(obj as Record<string, unknown>).map(
-      ([key, val]) => `${JSON.stringify(key)}:${safeStringify(val, seen)}`,
-    );
-    return `{${entries.join(",")}}`;
-  } catch {
-    // 兜底：getter 抛异常等极端情况也不得连带整个 Turn 失败
-    return '"[Unserializable]"';
-  } finally {
-    seen.delete(obj);
-  }
-}
-
-/**
- * 稳定序列化：用于工具调用去重键。
- *
- * 缺陷 D-KEY：原实现为 `JSON.stringify(args)`，对对象键序敏感 ——
- * `{query:"x",limit:10}` 与 `{limit:10,query:"x"}` 语义完全相同却得到不同键，
- * 于是同一逻辑调用被当作两次不同调用执行，幂等账本被绕过、副作用可能重复发生。
- * 真实 LLM 输出中键序不保证稳定，故去重必须建立在规范序列化之上。
- *
- * 规则：
- * - 对象键按字典序排序后递归（键序无关）；
- * - 数组**保序**（`[1,2]` 与 `[2,1]` 语义不同，不可归一化）；
- * - 循环引用以 `"[Circular]"` 标记降级，不抛异常（不得因去重键构造使 Turn 崩溃）；
- * - 其余类型（null / 数字 / 字符串 / 布尔 / undefined）按值序列化。
- */
-function stableSerialize(value: unknown, seen: Set<object> = new Set()): string {
-  if (value === null) return "null";
-  const type = typeof value;
-  if (type === "number") return Number.isFinite(value as number) ? String(value) : "null";
-  if (type === "boolean") return String(value);
-  if (type === "string") return JSON.stringify(value);
-  if (type === "undefined") return "undefined";
-  if (type === "bigint") return `"${String(value)}"`;
-  if (type === "function" || type === "symbol") return "[Unsupported]";
-  const obj = value as object;
-  if (seen.has(obj)) return '"[Circular]"';
-  seen.add(obj);
-  try {
-    if (Array.isArray(obj)) {
-      return `[${obj.map((item) => stableSerialize(item, seen)).join(",")}]`;
-    }
-    const entries = Object.keys(obj as Record<string, unknown>).sort();
-    return `{${entries
-      .map((key) => `${JSON.stringify(key)}:${stableSerialize((obj as Record<string, unknown>)[key], seen)}`)
-      .join(",")}}`;
-  } finally {
-    seen.delete(obj);
-  }
-}
-
-/** 工具调用去重键：name + 参数稳定序列化（键序无关，数组保序） */
-const dedupeKey = (name: string, args: unknown): string => `${name}:${stableSerialize(args)}`;
-
-/** 共享 UTF-8 编码器（无状态；模块级复用，避免流式路径每 chunk 分配） */
-const utf8 = new TextEncoder();
-
-/** 消息输入计量缓存：key 为消息对象引用。
- *  executor 只向 history 追加新消息对象、不改写既有对象，宿主注入的 inbox/记忆消息
- *  每步亦为新对象，因此引用稳定即序列化结果稳定；按引用缓存使长回合的输入计量从
- *  每步全量重序列化（O(总上下文)，整体 O(n²)）摊销为仅计新增消息。 */
-const messageChargeBytes = new WeakMap<object, number>();
-
-/** 单条消息的 UTF-8 序列化字节数（含 +1 数组分隔符余量，保守不欠计） */
-function messageCharge(message: PromptMessage): number {
-  let n = messageChargeBytes.get(message);
-  if (n === undefined) {
-    n = utf8.encode(JSON.stringify(message)).length + 1;
-    messageChargeBytes.set(message, n);
-  }
-  return n;
-}
-
 /** 3a：Host 幂等键重生成（AVX-HAR-001 §9：上游 callId 不可信，副作用标识由 Host 生成） */
 const hostExecutionId = (attemptId: string, step: number, seq: number): string => `${attemptId}:${step}:${seq}`;
+
 
 /** 执行一次 Turn：claim → 多 Step 模型—工具循环 → 分段写事件 → 终态 */
 export async function executeTurn(
@@ -357,120 +255,74 @@ export async function executeTurn(
       const stepStartedAt = Date.now();
       // B4-C：模型调用重试 —— 仅【首个可见片段前且无副作用】时允许（§10 maxModelRetries）
       let canRetryModel = maxModelRetries > 0 && step === stepBase + 1 && textAccumulator.length === 0;
-      let midStreamStop: ExecuteResult | null = null;
-      let lastMidStreamCheck = 0;
-      // 思考型模型（CAP-034）：思考增量节流落 reasoning_delta 进度事件——
-      // 长思考期间客户端仍有事件流入（SSE 活性）；不进正文历史与安全片段。
-      let reasoningBuffer = "";
-      let reasoningEmitted = false;
-      let reasoningLastFlushAt = 0;
-      const flushReasoning = async (force = false): Promise<void> => {
-        const nowMs = Date.now();
-        if (!force && reasoningBuffer.length < 200 && nowMs - reasoningLastFlushAt < 400) return;
-        const text = reasoningBuffer;
-        reasoningBuffer = "";
-        reasoningLastFlushAt = nowMs;
-        if (!text) return;
-        reasoningEmitted = true;
-        try {
-          await execution.appendEvent({
-            turnId: input.turnId,
-            attemptId: input.attemptId,
-            expectedFencingToken: claimFencingToken,
-            sequence: sequence++,
-            eventType: "reasoning_delta",
-            data: { messageId, text },
-            safetyDecision: "approved",
-          });
-        } catch (err) {
-          // 进度事件失败不阻断 Turn；租约丢失除外（上层统一收敛 lease_lost）
-          if (err instanceof LeaseLostError) throw err;
-        }
-      };
-      const collectStep = async (): Promise<ModelChunk[]> => {
-        const out: ModelChunk[] = [];
-        const stop = await prematureTermination(sequence);
-        if (stop) { midStreamStop = stop; return out; }
-        // B4-B/预算：输入计量按消息引用缓存摊销（长回合 O(n²) → O(新增)）；
-        // 工具 schema 每步全量序列化（体积小且 seenToolCalls 会变更集合）
-        const inputCharge = context.messages.reduce((sum, m) => sum + messageCharge(m), 0)
-          + (tools?.tools ? utf8.encode(JSON.stringify(tools.tools)).length : 0);
-        if (control && (control.remainingCalls < 1 || control.remainingTokens <= inputCharge)) {
-          midStreamStop = await finalizeInterrupted(sequence, "budget_exhausted");
-          return out;
-        }
-        control?.recordCallUsed();
-        control?.recordTokensUsed(inputCharge);
-        let charged = inputCharge;
-        for await (const chunk of abortableStream(provider.stream({
+      // ITER-041 第四段：流式收集（计量 / 预算守卫 / 心跳检查点 / 取消节流 /
+      // 思考增量节流）已切至 step-collector.ts。StepCollector 持有本Step 的缓冲与
+      // 计量状态，对外只回传「分块 + 终止原因 + 是否已落 reasoning 进度事件」。
+      //
+      // 思考增量落进度事件（CAP-034）：序号分配与 fencing 在此与主循环共享计数器，
+      // 故以闭包注入而非由收集器自行分配。
+      const appendReasoningDelta = async (text: string): Promise<void> => {
+        await execution.appendEvent({
           turnId: input.turnId,
           attemptId: input.attemptId,
-          step,
-          context,
-          tools: tools?.tools,
-          signal: control?.abortSignal,
-          maxOutputTokens: control && Number.isFinite(control.remainingTokens) ? control.remainingTokens : undefined,
-        }), control?.abortSignal)) {
-          // Charge UTF-8 bytes conservatively when provider token usage is absent;
-          // cumulative provider usage can only increase the charge, never refund it.
-          //
-          // 缺陷 D-CIRC：此处原为裸 JSON.stringify(chunk.toolCalls)。模型可能返回自引用
-          // arguments，序列化抛Converting circular structure to JSON 会逃出 collectStep，
-          //把「计量偏差」放大成整 Turn 的 execution error。计量只用于预算估算，不值得
-          // 让整轮执行失败 —— 序列化失败时按 0 计费（保守：charge 少算由 provider usage
-          // 分支与budgetExceeded 兜底），真正的入参安全判定由 inspectToolInput 负责。
-          let charge = utf8.encode(
-            chunk.text + (chunk.reasoning ?? "") + (chunk.toolCalls ? safeStringify(chunk.toolCalls) : ""),
-          ).length;
-          if (chunk.usage) charge = Math.max(charge, chunk.usage.totalTokens - charged);
-          charged += charge;
-          control?.recordTokensUsed(charge);
-          if (control?.budgetExceeded) {
-            midStreamStop = await finalizeInterrupted(sequence, "token_budget_exceeded");
-            return out;
-          }
-          // B2：心跳检查点 —— 长流期间租约丢失则立即中止本 Step（不再产生新事件/副作用）
-          heartbeat?.throwIfLost();
-          // B4-B：流式期间取消/删除水位/总时长检查（≥100ms 节流，避免每 chunk 压库）
-          const nowMs = Date.now();
-          if (nowMs - lastMidStreamCheck >= 100) {
-            lastMidStreamCheck = nowMs;
-            const stop = await prematureTermination(sequence);
-            if (stop) {
-              midStreamStop = stop;
-              return out; // 提前退出迭代（async iterator 清理由 for-await 保证）
-            }
-          }
-          out.push(chunk);
-          if (chunk.reasoning) {
-            reasoningBuffer += chunk.reasoning;
-            await flushReasoning();
-          }
-        }
-        return out;
+          expectedFencingToken: claimFencingToken,
+          sequence: sequence++,
+          eventType: "reasoning_delta",
+          data: { messageId, text },
+          safetyDecision: "approved",
+        });
       };
-      let chunks: ModelChunk[];
+      const collector = new StepCollector({
+        provider,
+        context,
+        tools: tools?.tools,
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        step,
+        messageId,
+        control,
+        heartbeat,
+        prematureTermination: () => prematureTermination(sequence),
+        finalizeInterrupted: (reason) => finalizeInterrupted(sequence, reason),
+        appendReasoningDelta,
+      });
+      // 重试需重置「已落过 reasoning 进度事件」标记，故每次 attempt 用新收集器
+      let collected: StepCollection;
       try {
-        chunks = await collectStep();
+        collected = await collector.collect();
       } catch (err) {
         const stop = await prematureTermination(sequence);
         if (stop) return stop;
-        if (canRetryModel && !reasoningEmitted && !(err instanceof LeaseLostError) && !heartbeat?.lost) {
-          canRetryModel = false;
-          midStreamStop = null;
-          lastMidStreamCheck = 0;
-          chunks = await collectStep();
-        } else {
-          throw err;
-        }
+        // B4-C：仅【首个可见片段前且无副作用】时允许重试（§10 maxModelRetries）
+        const canRetry = canRetryModel && !collector.hasEmittedReasoning
+          && !(err instanceof LeaseLostError) && !heartbeat?.lost;
+        if (!canRetry) throw err;
+        canRetryModel = false;
+        const retryCollector = new StepCollector({
+          provider,
+          context,
+          tools: tools?.tools,
+          turnId: input.turnId,
+          attemptId: input.attemptId,
+          step,
+          messageId,
+          control,
+          heartbeat,
+          prematureTermination: () => prematureTermination(sequence),
+          finalizeInterrupted: (reason) => finalizeInterrupted(sequence, reason),
+          appendReasoningDelta,
+        });
+        collected = await retryCollector.collect();
       }
-      if (midStreamStop) {
-        // 终态已在 prematureTermination 内 CAS 提交；缓冲 reasoning 属进度事件，
-        // 对终态 Attempt 追加必被 fencing CAS 拒绝（LeaseLostError 会把取消/预算收敛
-        // 误报为 *_finalize_contested / lease_lost）——与 catch 路径同样静默丢弃。
-        return midStreamStop;
+      if (collected.stop) {
+        // 终态已在 prematureTermination / finalizeInterrupted 内 CAS 提交；缓冲
+        // reasoning 属进度事件，对终态 Attempt 追加必被 fencing CAS 拒绝
+        //（LeaseLostError 会把取消/预算收敛误报为 *_finalize_contested / lease_lost）
+        //——与 catch 路径同样静默丢弃。
+        return collected.stop;
       }
-      await flushReasoning(true);
+      await collector.flushPendingReasoning();
+      const chunks = collected.chunks;
       const stepText = chunks.map((c) => c.text).join("");
       const toolCalls = chunks.flatMap((c) => c.toolCalls ?? []);
       const hasToolCalls = toolCalls.length > 0;
