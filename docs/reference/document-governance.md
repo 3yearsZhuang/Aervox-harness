@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.3.2
-updated_at: 2026-09-28
-reviewed_at: 2026-09-28
+version: 0.3.3
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 90
 review_triggers:
   - docs/**
@@ -27,7 +27,7 @@ sources:
 - 提出人：3yearszhuang · 2026-08-28
 - 修改人：3yearszhuang · 2026-09-28
 
-关联：[文档索引](../README.md)、[文档写作规范](standards/doc-standards.md)、[生命周期登记表](../DOC_REGISTRY.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)、[工程与发布流程](../how-to/engineering-process.md)
+关联：[文档索引](../README.md)、[文档写作规范](standards/doc-standards.md)、[生命周期登记表](../DOC_REGISTRY.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)、[新增与规格化 CAP 能力](../how-to/add-capability.md)
 
 本文规定 Aervox 文档如何分类、归档、标记事实源、维护状态、触发复核并由工具校验。目标是让文档数量可控、同一事实只有一个维护入口，并能在代码变化后尽早发现描述漂移。
 
@@ -128,7 +128,7 @@ updated_at: 2026-09-28
 reviewed_at: 2026-09-28
 review_interval_days: 90
 review_triggers:
-  - packages/agent-loop/**
+  - packages/core/**
   - apps/api/src/modules/companion/conversation/**
 sources:
   - docs/reference/REQUIREMENTS_TRACEABILITY.md
@@ -164,7 +164,7 @@ sources:
 | `apps/**/src/**` 领域行为变化 | 架构、SRS、相关 CR、追踪基线 | 说明文档是否仍反映当前行为；无影响也要在 PR 说明 |
 | `packages/contracts/**` | 流式协议、SRS、API 教程、OpenAPI 产物 | 先改 schema，再生成产物和契约测试 |
 | `packages/schema/**`、`packages/repositories/**` | DATABASE、数据隐私、ERD、相关 ADR/CR | 记录迁移、删除传播和回滚影响 |
-| `packages/agent-loop/**` 或对话执行器 | Agent Harness Loop、流式协议、AIQ、安全、追踪基线 | 更新阶段、终止语义、证据和缺口 |
+| `packages/core/**` 或对话执行器 | Agent Harness Loop、流式协议、AIQ、安全、追踪基线 | 更新阶段、终止语义、证据和缺口 |
 | `modules/**`、插件或技能运行时 | 能力组合、能力注册表、插件规范、迁移教程 | 更新来源、权限、生命周期和撤权边界 |
 | Worker、部署、备份或恢复变化 | 架构、operations、威胁模型、数据隐私 | 更新 SLO、演练项和恢复证据 |
 
