@@ -4,6 +4,7 @@ import { registerToolRoutes } from "./routes.js";
 import { ToolRuntime } from "./runtime.js";
 
 export type { ToolDefinition, ToolDisposer, ToolHandler, ToolRegistryPort } from "./runtime.js";
+export { HOST_TOOL_GUIDANCE } from "./host-tool-guidance.js";
 export type ToolExecutionPort = Pick<ToolRuntime, "callTool" | "exportRegistry">;
 export type ToolContributionPort = Pick<ToolRuntime, "registerContribution">;
 export type ToolRuntimePort = Pick<ToolRuntime, "callTool" | "exportRegistry" | "registerHandler" | "registerContribution" | "registerTool" | "unregisterTool" | "listTools" | "setEnabled">;

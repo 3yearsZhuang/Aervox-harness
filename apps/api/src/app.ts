@@ -9,7 +9,7 @@
 import Fastify from "fastify";
 import path from "node:path";
 import cors from "@fastify/cors";
-import { openApiDocument } from "@aervox/contracts";
+import { buildOpenApiDocument } from "@aervox/contracts";
 import {
   createDatabase,
   createProactiveVaultDatabase,
@@ -32,7 +32,6 @@ import { registerInboxModule } from "./modules/companion/inbox/index.js";
 import { registerPersonaModule } from "./modules/companion/persona/index.js";
 // ── learning（学习与练习） ──
 import { registerLearningModule } from "./modules/learning/learning/index.js";
-import { registerTermsModule } from "./modules/learning/terms/index.js";
 import { registerStudyMaterialModule } from "./modules/learning/study-materials/index.js";
 import { registerDiaryModule } from "./modules/learning/diary/index.js";
 // ── knowledge（知识与内容） ──
@@ -43,6 +42,7 @@ import { registerProjectModule } from "./modules/knowledge/project/index.js";
 import { registerToolsModule } from "./modules/ecosystem/tools/index.js";
 import { registerMcpModule, type McpModuleOptions } from "./modules/ecosystem/mcp/index.js";
 import { registerPluginsModule, createServerPluginRegistry, type ServerPluginRegistry } from "./modules/ecosystem/plugins/index.js";
+import { createPluginHostServicesFactory } from "./plugin-host-services.js";
 import { registerSkillsModule } from "./modules/ecosystem/skills/index.js";
 import { registerLLMModule, type LLMServiceOptions } from "./modules/ecosystem/llm/index.js";
 import {
@@ -93,6 +93,8 @@ export interface BuildAppOptions {
   builtinPluginsSourceRoot?: string;
   /** 服务端通用插件注册表（默认创建独立实例） */
   pluginRegistry?: ServerPluginRegistry;
+  /** CR-060：插件宿主服务工厂（默认按 db 构造；测试可注入替身） */
+  pluginHostServices?: import("./plugin-assembly.js").PluginHostServicesFactory;
   /** 附件二进制落盘根目录（测试注入临时目录；缺省 <repo>/data/attachments） */
   attachmentsRoot?: string;
   /** 语音服务配置（如测试注入 mock provider） */
@@ -261,9 +263,11 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   });
 
-  // 契约骨架：暴露由 @aervox/contracts 生成的 OpenAPI 3.1 文档（预序列化并添加 1 小时客户端缓存头）
-  const openApiSerialized = JSON.stringify(openApiDocument);
+  // 契约骨架：暴露由 @aervox/contracts 生成的 OpenAPI 3.1 文档（首次请求时序列化并添加 1 小时客户端缓存头）。
+  // CR-060：插件端点在宿主装配阶段登记，故文档必须晚于插件加载生成，不能在此处预序列化。
+  let openApiSerialized: string | null = null;
   app.get("/openapi.json", async (_req, reply) => {
+    openApiSerialized ??= JSON.stringify(buildOpenApiDocument());
     reply.header("Content-Type", "application/json; charset=utf-8");
     reply.header("Cache-Control", "public, max-age=3600");
     return openApiSerialized;
@@ -301,6 +305,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
     builtinPluginsSourceRoot: options.builtinPluginsSourceRoot,
     attachmentsRoot: options.attachmentsRoot,
     pluginRegistry: options.pluginRegistry ?? createServerPluginRegistry(),
+    // CR-060：插件宿主服务工厂只依赖 db，构建期即确定，供插件端点与回合工具贡献共用
+    pluginHostServices: options.pluginHostServices ?? createPluginHostServicesFactory(db),
   };
 
   // 先注册「被依赖」模块并填充共享服务（依赖方经 ctx 读取；顺序显式）：
@@ -338,7 +344,6 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   registerStudyMaterialModule(ctx); // learning
   ctx.personaService = registerPersonaModule(ctx); // companion
   registerInboxModule(ctx); // companion
-  registerTermsModule(ctx); // learning
 
   if (ownsProactiveClient) {
     app.addHook("onClose", async () => {

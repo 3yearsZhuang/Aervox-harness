@@ -1,10 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
-import { ref, computed } from 'vue';
+import { ref, computed, defineComponent } from 'vue';
 import { useWorkbenchLayout } from '../src/composables/useWorkbenchLayout';
 import { WORKBENCH_CONTEXT_KEY, type WorkbenchContext } from '../src/composables/workbench-context';
 import { createUIRegistry, UI_REGISTRY_KEY } from '../src/registry/ui-registry';
-import { registerFocusModePlugin } from '../src/plugins';
 import WorkbenchSidebar from '../src/components/workbench/WorkbenchSidebar.vue';
 import TaskCenterDrawer from '../src/components/workbench/drawers/TaskCenterDrawer.vue';
 import type { SessionItem } from '@aervox/contracts';
@@ -204,16 +203,23 @@ describe('Standard Workbench Mode (CR-035 / W1 & W2)', () => {
     expect(wrapper.text()).toContain('番茄专注钟');
     expect(wrapper.text()).toContain('本地 SQLite 单库真源 (WAL 模式)');
 
-    // 注册专注模式插件后，声明式注入到 taskcenter:cards 槽位
-    const unregister = registerFocusModePlugin(registry, mockContext);
+    // 任意插件贡献的任务卡声明式注入 taskcenter:cards 槽位（CR-060 用通用桩验证接缝）
+    const PluginTaskCard = defineComponent({
+      props: { label: { type: String, default: '插件任务卡' } },
+      template: '<div class="plugin-task-card">{{ label }}</div>',
+    });
+    const unregister = registry.registerSlotComponent('taskcenter:cards', PluginTaskCard, {
+      id: 'plugin-a:task-card',
+      priority: 100,
+      props: { label: '插件任务卡内容' },
+    });
     await wrapper.vm.$nextTick();
 
-    expect(wrapper.text()).toContain('间隔复习与错题排期');
-    expect(wrapper.text()).toContain('3 个待复习');
+    expect(wrapper.text()).toContain('插件任务卡内容');
 
     // 卸载插件后，自动清除该卡片
     unregister();
     await wrapper.vm.$nextTick();
-    expect(wrapper.text()).not.toContain('间隔复习与错题排期');
+    expect(wrapper.text()).not.toContain('插件任务卡内容');
   });
 });

@@ -22,7 +22,6 @@ import { createSqliteSubagentPort, SqliteExecutionStore } from "@aervox/host-age
 import { buildLoopProvider } from "./llm-adapter.js";
 import { registerConversationRoutes } from "./routes.js";
 import { UserQuestionCoordinator } from "./user-question-coordinator.js";
-import { createPracticeAttemptPortFactory } from "./practice-attempt-port.js";
 
 export function registerConversationModule(ctx: ModuleContext): void {
   const {
@@ -86,8 +85,10 @@ export function registerConversationModule(ctx: ModuleContext): void {
     workflows,
     platformRepo,
     userQuestionCoordinator,
-    // CAP-016：刷题模式作答落库端口（模块自管 learning 仓储，按 request tenant 绑定）
-    practiceAttemptFactory: createPracticeAttemptPortFactory(new SqliteLearningRepository(db)),
+    // CR-060：第一方插件工具贡献（注册单元由 plugins 模块在装配后填充，故惰性读取；
+    // 宿主服务工厂由组合根提供，按 request 级本地上下文产出窄端口）
+    pluginRegistrations: () => ctx.pluginRegistrations,
+    pluginHostServices: ctx.pluginHostServices,
     proactiveActionAuthorizer,
     proactiveRepository,
     memoryRecall: ctx.memoryRecall,

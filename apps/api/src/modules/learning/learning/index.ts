@@ -6,7 +6,6 @@
 import type { ModuleContext } from "../../context.js";
 import { SqliteLearningRepository } from "@aervox/repositories";
 import { registerLearningRoutes } from "./routes.js";
-import { registerCap016017Routes } from "./cap016-017-routes.js";
 import { registerLearningPlanRoutes } from "./plan-routes.js";
 import { LearningPlanGenerationService, createLlmPlanModelPort } from "./plan-generation.js";
 
@@ -14,7 +13,7 @@ export function registerLearningModule(ctx: ModuleContext): void {
   const { app, db } = ctx;
   const learningRepo = new SqliteLearningRepository(db);
   registerLearningRoutes(app, learningRepo);
-  registerCap016017Routes(app, learningRepo);
+  // CR-060：CAP-016 报告路由已由第一方插件以 PluginHttpEndpoint 贡献（见 apps/api/src/plugin-assembly.ts）
 
   // 学习规划生成：llm 模式走 LLM 端口；llm 模块未接线或非 llm 模式由服务内模板降级/抛错
   const planGeneration = new LearningPlanGenerationService({

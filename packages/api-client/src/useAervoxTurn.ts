@@ -8,13 +8,10 @@ import type { AttachmentUploadInput, UploadedAttachment } from './transport';
 import type {
   AskUserQuestionAnswerItem,
   PetCommand,
-  TermsExtractedEventData,
   ToolApprovalMode,
   ToolApprovalRequiredEventData,
   TurnAttachmentRef,
   UserQuestionRequiredEventData,
-  TermExploreRequest,
-  TermExploreResponse,
 } from '@aervox/contracts';
 
 export interface StreamAervoxTurnCallbacks {
@@ -27,7 +24,8 @@ export interface StreamAervoxTurnCallbacks {
   /** UQ-01: 当模型请求向用户提问时触发 */
   onUserQuestion?: (data: UserQuestionRequiredEventData) => void;
   /** CAP-007 / CAP-002: 术语抽取完成事件 */
-  onTermsExtracted?: (data: TermsExtractedEventData) => void;
+  /** CR-060：通用插件事件出口（内核未专门分发的事件一律经此透传） */
+  onPluginEvent?: (eventType: string, data: unknown) => void;
   /** PET-05: 写工具需要用户授权时触发 */
   onToolApproval?: (data: ToolApprovalRequiredEventData & { turnId: string }) => void;
 }
@@ -53,8 +51,18 @@ export async function submitQuestionAnswers(turnId: string, answers: AskUserQues
   await getTransport().submitQuestionAnswers(turnId, answers);
 }
 
-export async function exploreTerm(request: TermExploreRequest): Promise<TermExploreResponse> {
-  return await getTransport().request<TermExploreResponse>('POST', '/v1/terms/explore', request);
+/**
+ * CR-060：通用请求透传。
+ *
+ * 插件自有端点的调用不再由宿主逐个包装成具名函数（宿主因此无需知道任何插件路径），
+ * 插件自行声明方法、路径与载荷类型。
+ */
+export async function requestAervoxApi<T = unknown>(
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  return await getTransport().request<T>(method, path, body);
 }
 
 export async function decideToolApproval(turnId: string, approvalId: string, decision: 'granted' | 'denied'): Promise<void> {

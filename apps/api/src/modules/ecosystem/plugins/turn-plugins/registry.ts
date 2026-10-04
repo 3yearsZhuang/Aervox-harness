@@ -1,88 +1,46 @@
 /**
  * Aervox｜思隅 @aervox/api — 服务端插件注册表 (Server Plugin Registry)
  *
- * 统一管理服务端插件生命周期、回合切面与声明式别名体系。
+ * 统一管理服务端插件生命周期与回合切面。
+ *
+ * CR-060：**不保留别名体系**。历史旧 id 别名与通用别名映射（`aliasMap` /
+ * `registerAliases` / 构造期 `initialAliases`）一并删除——别名没有生产声明方，
+ * 保留即等于给"同一插件按多个 id 生效"留后门（注册翻倍与门控判据分叉）。
+ * 插件 id 唯一且与 Manifest `metadata.id` 一致。
+ *
+ * `resolvePluginId` / `getAllAliases` 保留为**单 id** 语义占位：调用方（配置与卸载
+ * 路径）据此按 id 收敛即可，无需感知别名。
  */
 import type { ServerPlugin, ServerTurnPlugin } from "./types.js";
 
 export class ServerPluginRegistry {
   private readonly plugins = new Map<string, ServerPlugin>();
-  /** 别名索引：alias -> primaryPluginId */
-  private readonly aliasMap = new Map<string, string>();
-
-  constructor(initialAliases: Record<string, string[]> = {}) {
-    for (const [primaryId, aliases] of Object.entries(initialAliases)) {
-      this.registerAliases(primaryId, aliases);
-    }
-  }
-
-  /** 显式注册别名映射关系 */
-  registerAliases(primaryId: string, aliases: string[]): void {
-    this.aliasMap.set(primaryId, primaryId);
-    for (const alias of aliases) {
-      this.aliasMap.set(alias, primaryId);
-    }
-  }
 
   register(plugin: ServerPlugin): () => void {
-    const primaryId = this.aliasMap.get(plugin.id);
-    // 1. 若当前插件是某个已注册主插件的别名，且主插件已就绪，则忽略重复/次要注册，防止执行翻倍
-    if (primaryId && this.plugins.has(primaryId) && primaryId !== plugin.id) {
-      return () => undefined;
-    }
     if (this.plugins.has(plugin.id)) this.unregister(plugin.id);
-
-    // 2. 获取当前插件自带声明的所有别名
-    const aliases = plugin.aliases ?? [];
-
-    // 清理先前以别名身份单独注册的次要实例，并更新别名索引
-    if (aliases.length > 0) {
-      for (const alias of aliases) {
-        if (this.plugins.has(alias)) {
-          this.plugins.delete(alias);
-        }
-        this.aliasMap.set(alias, plugin.id);
-      }
-    }
-    this.aliasMap.set(plugin.id, plugin.id);
-
     this.plugins.set(plugin.id, plugin);
-    return () => { if (this.plugins.get(plugin.id) === plugin) this.unregister(plugin.id); };
+    return () => {
+      if (this.plugins.get(plugin.id) === plugin) this.unregister(plugin.id);
+    };
   }
 
   unregister(id: string): void {
-    const primaryId = this.resolvePluginId(id);
-    const plugin = this.plugins.get(primaryId);
-    if (plugin?.aliases) {
-      for (const alias of plugin.aliases) {
-        this.aliasMap.delete(alias);
-      }
-    }
-    this.plugins.delete(primaryId);
-    this.aliasMap.delete(id);
+    this.plugins.delete(id);
   }
 
-  /** 获取插件（支持主 ID 与别名寻址） */
-  get(idOrAlias: string): ServerPlugin | undefined {
-    const direct = this.plugins.get(idOrAlias);
-    if (direct) return direct;
-    const primaryId = this.aliasMap.get(idOrAlias);
-    if (primaryId) return this.plugins.get(primaryId);
-    return undefined;
+  /** 按插件 id 获取（无别名寻址） */
+  get(id: string): ServerPlugin | undefined {
+    return this.plugins.get(id);
   }
 
-  /** 解析真实的主插件 ID（若为别名则返回其归属的主插件 ID） */
-  resolvePluginId(idOrAlias: string): string {
-    return this.aliasMap.get(idOrAlias) ?? idOrAlias;
+  /** 解析插件主 id；无别名体系，原样返回 */
+  resolvePluginId(id: string): string {
+    return id;
   }
 
-  /** 获取插件及其所有别名候选列表（优先返回主 ID） */
-  getAllAliases(idOrAlias: string): string[] {
-    const primaryId = this.resolvePluginId(idOrAlias);
-    const plugin = this.plugins.get(primaryId);
-    if (!plugin) return [idOrAlias];
-    const aliases = plugin.aliases ?? [];
-    return [primaryId, ...aliases.filter((a) => a !== primaryId)];
+  /** 该 id 对应的候选 id 列表；无别名体系，故仅含自身 */
+  getAllAliases(id: string): string[] {
+    return [id];
   }
 
   getAll(): ServerPlugin[] {
@@ -91,7 +49,6 @@ export class ServerPluginRegistry {
 
   clear(): void {
     this.plugins.clear();
-    this.aliasMap.clear();
   }
 }
 
@@ -101,4 +58,3 @@ export type ServerTurnPluginRegistry = ServerPluginRegistry;
 
 export const defaultServerPluginRegistry = new ServerPluginRegistry();
 export const defaultServerTurnPluginRegistry = defaultServerPluginRegistry;
-
