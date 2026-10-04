@@ -14,6 +14,7 @@
   "dependencies": {
     "@aervox/api-client": "workspace:*",
     "@aervox/live2d": "workspace:*",
+    "@aervox/plugin-focus-mode": "workspace:*",
     "@aervox/public": "workspace:*",
     "@aervox/ui": "workspace:*",
     "@sekai-world/pixi-live2d-display-mulmotion": "^0.5.1",

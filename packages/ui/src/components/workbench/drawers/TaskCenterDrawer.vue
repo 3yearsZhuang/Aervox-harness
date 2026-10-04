@@ -55,7 +55,7 @@ function goToProactive() {
       </p>
 
       <div class="task-card-grid">
-        <!-- 插件注入任务卡片（例如专注模式的间隔复习与错题排期） -->
+        <!-- 插件注入任务卡片（宿主只提供通用槽位，不感知具体插件内容） -->
         <ExtensionSlot name="taskcenter:cards" />
 
         <!-- 每日日记提炼 -->

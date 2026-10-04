@@ -192,12 +192,6 @@
     "removeWhen": "消费者迁移到目标模块 index.ts 的窄 Port 后移除；CR-056 BTD-01，不允许新增私有边"
   },
   {
-    "from": "apps/api/src/modules/ecosystem/plugins/turn-plugins/focus-mode.ts",
-    "to": "apps/api/src/modules/companion/conversation/stream-hub.ts",
-    "owner": "platform / ITER-014",
-    "removeWhen": "消费者迁移到目标模块 index.ts 的窄 Port 后移除；CR-056 BTD-01，不允许新增私有边"
-  },
-  {
     "from": "apps/api/src/modules/learning/learning/plan-generation.ts",
     "to": "apps/api/src/modules/ecosystem/llm/service.ts",
     "owner": "platform / ITER-014",

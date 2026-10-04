@@ -50,6 +50,15 @@ test("check-banned-identifiers: detects tenant identifier in contracts/schema/pr
 
   const proactiveViolations = inspectFile("apps/worker/src/proactive/turn.ts", code);
   assert.equal(proactiveViolations.length, 2);
+
+  // PR #244 将内核实现迁至 packages/core；规则必须覆盖新包与过渡壳，
+  // 否则 CR-030 去租户化不变量对内核失效。
+  for (const kernelFile of ["packages/core/src/executor.ts", "packages/agent-loop/src/index.ts"]) {
+    const kernelViolations = inspectFile(kernelFile, code);
+    assert.equal(kernelViolations.length, 2);
+    assert.equal(kernelViolations[0].identifier, "tenant");
+    assert.equal(kernelViolations[0].rule, "ban-tenant-core-packages");
+  }
 });
 
 test("check-banned-identifiers: passes for clean code", () => {

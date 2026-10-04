@@ -17,7 +17,7 @@ const ARCHITECTURE_MD_PATH = "docs/reference/ARCHITECTURE.md";
 
 export function getDiskPackages() {
   const packages = [];
-  for (const root of ["apps", "packages"]) {
+  for (const root of ["apps", "packages", "plugins"]) {
     if (!existsSync(root)) continue;
     for (const entry of readdirSync(root)) {
       const dirPath = join(root, entry);
@@ -54,6 +54,10 @@ export function parseArchitecturePackages(docContent) {
     }
     if (trimmed.startsWith("packages/")) {
       currentGroup = "packages";
+      continue;
+    }
+    if (trimmed.startsWith("plugins/")) {
+      currentGroup = "plugins";
       continue;
     }
     if (currentGroup) {

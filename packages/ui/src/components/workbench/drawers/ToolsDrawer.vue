@@ -61,6 +61,7 @@ const {
   selectDiaryDate,
   completeReview,
   reviewBusyId,
+  reviewError,
 } = cards;
 
 const { story } = conversation;
@@ -108,7 +109,7 @@ function openHistoryView() {
           <!-- 学习同步：进行中目标 + 到期复习 -->
           <div v-if="syncGoals.length > 0 || syncReviewCount > 0" class="settings-section" style="margin-top: 18px;">
             <h4>学习同步 <small>{{ syncedTodoCount }}</small></h4>
-            <ul class="study-list">
+            <ul class="tool-list">
               <li v-for="goal in syncGoals" :key="goal.id">
                 <label class="todo-item" :class="{ done: goal.status === 'completed' }">
                   <input
@@ -143,6 +144,7 @@ function openHistoryView() {
                 </div>
               </li>
             </ul>
+            <p v-if="reviewError" class="drawer-empty" role="alert">{{ reviewError }}</p>
           </div>
         </template>
 

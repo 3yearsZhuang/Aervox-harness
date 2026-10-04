@@ -48,6 +48,68 @@ export const REMOVABLE_TARGETS = [
     ],
     dataRetentionRule: "移除驱动后模型文件与侧车完整保留，不静默走远程，通过 Fake/Unavailable 驱动维持服务契约",
   },
+  {
+    id: "focus-mode-plugin",
+    name: "专注模式第一方插件实现（服务端 + UI + 专属样式）",
+    pilot: "BTD-11",
+    implementationFiles: [
+      "plugins/focus-mode/src/server/index.ts",
+      "plugins/focus-mode/src/server/contracts.ts",
+      "plugins/focus-mode/src/server/focus-tools.ts",
+      "plugins/focus-mode/src/server/practice-reports-routes.ts",
+      "plugins/focus-mode/src/server/prompt.ts",
+      "plugins/focus-mode/src/server/terms-extractor.ts",
+      "plugins/focus-mode/src/server/terms-routes.ts",
+      "plugins/focus-mode/src/server/turn-plugin.ts",
+      "plugins/focus-mode/src/ui/index.ts",
+      "plugins/focus-mode/src/ui/plugin-events.ts",
+      "plugins/focus-mode/src/ui/plugin-state.ts",
+      "plugins/focus-mode/src/ui/useFocusLearning.ts",
+      "plugins/focus-mode/src/ui/daily-problem.ts",
+      "plugins/focus-mode/src/ui/FocusModeIndicator.vue",
+      "plugins/focus-mode/src/ui/FocusModeSwitch.vue",
+      "plugins/focus-mode/src/ui/FocusNavMenuItem.vue",
+      "plugins/focus-mode/src/ui/FocusSettingsRow.vue",
+      "plugins/focus-mode/src/ui/FocusStudyCardActions.vue",
+      "plugins/focus-mode/src/ui/FocusTaskCenterCard.vue",
+      "plugins/focus-mode/src/ui/FocusTermsBar.vue",
+      "plugins/focus-mode/src/ui/LearningDrawer.vue",
+      "plugins/focus-mode/src/ui/TermExploreDialog.vue",
+      "plugins/focus-mode/src/ui/styles.css",
+    ],
+    // CR-060：宿主中唯一允许接入插件实现的位置（AVX-PLUG-001 §4.1 组合根）；
+    // 插件自带测试直接引用其私有文件属合法（测试随实现内聚）。
+    allowedAssemblyFiles: [
+      "apps/api/src/plugin-assembly.ts",
+      "apps/web/src/App.vue",
+      "apps/desktop/src/renderer/src/App.vue",
+      "plugins/focus-mode/test/focus-tools.test.ts",
+      "plugins/focus-mode/test/prompt.test.ts",
+      "plugins/focus-mode/test/terms-extractor.test.ts",
+      "plugins/focus-mode/test/plugin-registration.test.ts",
+      "plugins/focus-mode/test/ui-components.test.ts",
+      "plugins/focus-mode/test/focus-learning.test.ts",
+    ],
+    /**
+     * 物理移除计划（`run-removability-drill.mjs` 依此演练"代码缺席"）：
+     * 删除整个插件包目录，并从三个组合根与其包清单中剥离引用——
+     * 这正是发布一个不含该插件的宿主版本所做的事。
+     */
+    removalPlan: {
+      removeDirectories: ["plugins/focus-mode"],
+      strips: [
+        { file: "apps/api/src/plugin-assembly.ts", pattern: "^.*@aervox/plugin-[^\\n]*\\n", flags: "gm" },
+        { file: "apps/web/src/App.vue", pattern: "^.*(@aervox/plugin-|firstPartyPlugin|firstPartyPlugins)[^\\n]*\\n", flags: "gm" },
+        { file: "apps/desktop/src/renderer/src/App.vue", pattern: "^.*(@aervox/plugin-|firstPartyPlugin|firstPartyPlugins)[^\\n]*\\n", flags: "gm" },
+        { file: "apps/api/package.json", pattern: "^\\s*\"@aervox/plugin-[^\"]*\": \"[^\"]*\",?\\n", flags: "gm" },
+        { file: "apps/web/package.json", pattern: "^\\s*\"@aervox/plugin-[^\"]*\": \"[^\"]*\",?\\n", flags: "gm" },
+        { file: "apps/desktop/package.json", pattern: "^\\s*\"@aervox/plugin-[^\"]*\": \"[^\"]*\",?\\n", flags: "gm" },
+      ],
+    },
+    dataRetentionRule:
+      "移除插件实现不删除任何数据：安装记录、配置、授权与数据管理入口保留（CR-056 代码缺席语义）；" +
+      "学习事实（questions/question_attempts/practice_reports）真源由宿主持有，不随插件删除",
+  },
 ];
 
 const CANDIDATE_EXTS = ["", ".ts", ".js", ".mjs", "/index.ts", "/index.js"];

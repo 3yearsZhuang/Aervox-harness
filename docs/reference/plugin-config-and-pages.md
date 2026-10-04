@@ -6,12 +6,13 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.2
-updated_at: 2026-09-28
-reviewed_at: 2026-09-28
+version: 1.0.5
+updated_at: 2026-10-03
+reviewed_at: 2026-10-03
 review_interval_days: 90
 review_triggers:
   - plugins/**
+  - packages/host-plugin-api/**
   - packages/contracts/src/plugin-config-schemas.ts
   - packages/repositories/src/repositories/sqlite/*plugin*
   - packages/ui/src/registry/**
@@ -21,6 +22,7 @@ review_triggers:
   - packages/ui/src/composables/workbench-context.ts
   - apps/api/src/modules/ecosystem/plugins/**
   - apps/api/src/modules/ecosystem/tools/**
+  - apps/api/src/plugin-assembly.ts
   - scripts/export-plugins.mjs
 sources:
   - docs/reference/capability-composition.md
@@ -55,6 +57,24 @@ sources:
 **作者规则**：第三方 Bundle 不得注入宿主 DOM、导入宿主内部路径或把第一方 Hook 当作动态插件执行入口。未来执行第三方服务端代码仍须满足 ADR-009 的进程外隔离要求；iframe、Vue 错误边界、Node `vm` 都不能替代该要求。
 
 能力组合规范中的 `CapabilityManifest`、Provider/Profile、依赖 Resolver、签名与锁文件是另一层契约，不能直接作为当前 `PluginManifest` 安装。其独立可执行可选模块通过 `modules/*` 子仓库交付的要求仍有效；当前 `plugins/*` 是声明与资源包，第一方 UI/Turn 是随主仓交付的受信实现，不能与独立可执行模块混同。单纯制作声明式 Bundle 不要求新建子仓库；真正新增独立可选业务模块、改变目录责任或放宽 ADR 边界，先按能力注册表与 [CR 流程](../how-to/cr-workflow.md)裁定。
+
+### 0.3 契约冻结：专注模式内聚与宿主去领域化（CR-060，实现已全部内聚）
+
+本节冻结 [CR-060](changes/CR-060-focus-mode-host-decoupling.md) 的目标契约，供实施与评审对齐。**落地进度**：服务端实现（回合切面、工具贡献、HTTP 端点、宿主服务窄端口、回放脚本）已迁入 `plugins/focus-mode/` 并由装配点注入；前端通用接缝（`pluginState`、`pluginEvents`、`metadata` 透传、`applySlotPreset`、`plugins` 注入、`composer:indicator` 与 `settings:conversation-rows` 插槽、fail-closed 插件运行时）已落地，§4.1、§4.2、§4.4、§5.1、§5.2、§8.4 已按落地事实改写。前端插件组件与 `study-*`/`term-*` 专属样式已迁入 `plugins/focus-mode/src/ui/`。可移除目标（`check-removable-implementation` 的 `focus-mode-plugin`，BTD-11）与移除演练已落地并通过：删除插件整包并剥离三处组合根与包清单引用后，API/Worker 冷构建与 Web/桌面 `typecheck` 均通过；剥离正则为空跑、实现文件清单与磁盘不一致都会被单测拒绝。
+
+**归属已完成**：宿主主题中仅由插件组件消费的 48 条规则已物理迁入插件样式表，`useWorkbenchCards` 的刷题/错题/学习规划状态机（含每日一题入口）已迁入插件自有组合式函数，宿主侧字段引用数归零并经用例断言；纯净性守卫的样式规则已覆盖该词汇且**豁免清单保持为空**。宿主仍保留 CAP-006 复习结果提交（复习排期属学习事实真源）。
+
+- **实现落点**：第一方实现的源码可与声明同置于 `plugins/<id>/`，但实现目录**不进入** `.aervox-plugin` 分发包；分发包仍只含 Manifest、Config、Skill、Page 等声明与资源。分发包内容以显式允许清单为准，不随目录递归扩张。
+- **宿主装配**：宿主只提供通用注册表；具体插件由唯一装配文件显式注入，宿主包内不得出现插件领域标识。
+- **插件自有状态**：插件状态经宿主命名空间化接口 `pluginState`（存储命名空间 `aervox-plugin-state:<pluginId>`）读写；宿主通用组合式函数不得承载单个插件的领域字段。宿主可提供领域中立的通用诉求接缝（如 `quietStartup`），但不得按插件身份分支。
+- **出站语义**：Turn `metadata` 是开放结构，由插件自行组装模式语义；宿主发送与 Composer 契约不得为单个插件预留私有字段。
+- **插件流事件**：核心事件枚举只保留内核事件；插件事件类型经贡献注册表校验与投影白名单。前端经宿主通用 `pluginEvents` 总线接收，宿主不解释事件类型与载荷。
+- **工具与路由贡献**：面向模型的工具贡献（含其提示词指南）与插件自有 HTTP 端点一律随插件**生效状态**（仓储启用记录且可用）门控，不得在宿主无条件注入；端点判定按每请求执行，停用后立即 404。模块缺包时端点不挂载、贡献不装配，但安装记录、配置、授权与数据管理入口一律保留（CR-056 代码缺席不等于显式卸载）。两端都必须 fail-closed。
+- **宿主服务窄端口**：插件不得接触数据库、模式包、仓储或宿主实时总线；凡需要宿主侧资源，一律经 `@aervox/host-plugin-api` 声明的窄端口按本地上下文注入（宿主侧唯一实现点为组合根）。插件自带工具的使用指南经内核既有 `customGuidance` 注入位合入基础提示词，内核基础提示词不得为插件工具预留条目。
+- **端点与回放贡献**：插件以 `httpEndpoints` 声明自有 API（方法、路径与业务处理归插件；鉴权、限流、本地上下文解析、出参包装、生效状态门控与异常兜底归宿主适配层）；以 `replayScripts` 自带其领域工具的确定性夹具，宿主只按 `AERVOX_LOOP_PROVIDER` 模式名分发且不内建插件领域脚本，插件不得覆盖宿主已内建的同名模式。
+- **对外契约贡献**：插件自有流事件类型、事件负载投影白名单、工具结果投影白名单与端点 OpenAPI 片段一律由插件经 `registerPluginApiContribution` 显式登记；内核契约源码不得出现插件事件名、工具名或路径字面量，投影对未登记项 fail-closed。
+- **代码缺席**：注册与门控两端一致 fail-closed；插件记录缺失时不得默认启用，且必须保留安装记录、配置与数据管理入口。
+- **兼容别名**：不保留历史别名；`study-mode`/`quiz-mode` 不再是 `focus-mode` 的注册别名。
 
 ### 0.1 Manifest、版本与命名
 
@@ -192,13 +212,15 @@ Page 元数据为 `id/title/description/entry/capabilities/checksum`。`id` 最�
 
 ### 4.1 核心契约与执行生命周期
 
-[ServerTurnPlugin](../../apps/api/src/modules/ecosystem/plugins/turn-plugins/types.ts)定义 `id`、可选 `name/aliases`、`beforeTurn(ctx, config)` 和 `afterTurn(ctx, config, beforeResult)`。上下文含 Turn/Session/Attempt ID、用户消息、本地上下文、受信仓储与可选 LLM；后置状态为 `Completed/Failed/Interrupted`。
+[ServerTurnPlugin](../../packages/host-plugin-api/src/turn-plugin.ts)定义 `id`、可选 `name/aliases`、`beforeTurn(ctx, config)` 和 `afterTurn(ctx, config, beforeResult)`。契约位于 `@aervox/host-plugin-api`（仅类型，零运行时依赖）；[本地出口](../../apps/api/src/modules/ecosystem/plugins/turn-plugins/types.ts)只做聚合，不再定义任何插件领域字段。上下文含 Turn/Session/Attempt ID、用户消息与窄端口（回合流读写 `stream`、可选 `llm`）；`tenant`/仓储属宿主侧依赖，经 Runner 的宿主依赖注入，**不进入插件上下文**。后置状态为 `Completed/Failed/Interrupted`。
 
-Hook 必须由 API 组合根 import 并注册到 [ServerPluginRegistry](../../apps/api/src/modules/ecosystem/plugins/turn-plugins/registry.ts)；仅在 Bundle 放置 `.ts/.js` 或 Manifest 字段不会激活 Hook。当前没有对第三方暴露的 Hook npm SDK、进程隔离或运行时代码热加载。现有主 ID `focus-mode` 的服务端兼容别名为 `study-mode/quiz-mode`，新插件不得借用这些 ID；别名是显式注册关系，不是任意插件自动获得的迁移功能。
+Hook 必须由 API 组合根 import 并注册到 [ServerPluginRegistry](../../apps/api/src/modules/ecosystem/plugins/turn-plugins/registry.ts)；仅在 Bundle 放置 `.ts/.js` 或 Manifest 字段不会激活 Hook。当前没有对第三方暴露的 Hook npm SDK、进程隔离或运行时代码热加载。第一方实现位于 `plugins/<id>/src/server`，由唯一装配点 [apps/api/src/plugin-assembly.ts](../../apps/api/src/plugin-assembly.ts) 以容错方式加载并注入其贡献（缺包或加载失败不中断宿主启动）。**不保留历史别名**：`study-mode`/`quiz-mode` 不再是 `focus-mode` 的注册别名；别名是显式注册关系，不是任意插件自动获得的迁移功能。
 
 ### 4.2 提示词动态插槽机制（Dynamic Extra Sections）
 
-领域提示词通过 `beforeTurn` 返回 `extraSections: string[]`，由上下文构建器拼入回合；禁止向通用 Base Prompt 增加插件业务分支。返回值还可含 `allowQuizTrigger/quizMode/state`，属于当前第一方内部协议；新业务不得借用刷题标志伪造领域语义。
+领域提示词通过 `beforeTurn` 返回 `extraSections: string[]`，由上下文构建器拼入回合；禁止向通用 Base Prompt 增加插件业务分支。插件私有语义一律经 `BeforeTurnResult.state`（回合内传递）与 Turn `metadata`（出站）自行承载，宿主通用契约不再为任何插件预留协议字段。
+
+插件工具的使用指南经 `PluginToolContribution.guidance` 声明，由宿主合入内核既有的 `customGuidance` 通用注入位（见 `packages/core/src/base-prompt.ts`）；内核基础提示词不得为插件工具预留条目。工具贡献按插件启用状态与可用性门控后才进入模型工具面。
 
 ### 4.3 本地配置与运行时门控（Gating & Config Injection）
 
@@ -208,7 +230,9 @@ Hook 必须由 API 组合根 import 并注册到 [ServerPluginRegistry](../../ap
 
 ### 4.4 结构化请求元数据契约（Structured Request Metadata）
 
-底层 [useAervoxTurn](../../packages/api-client/src/useAervoxTurn.ts)和 Turn 协议支持 `metadata`；模式信息应通过该结构传递，不向消息文本插入控制标签。但当前 [WorkbenchContext](../../packages/ui/src/composables/workbench-context.ts)的 `sendMessage` options 只有 `quizMode/resend`，不支持任意 `metadata`。宿主 [AervoxWorkbench](../../packages/ui/src/components/AervoxWorkbench.vue)负责产生现有模式元数据。新模式需要先扩展、评审并测试宿主适配接口，不能照抄不存在的 `sendMessage(text, {metadata})` 用法。
+底层 [useAervoxTurn](../../packages/api-client/src/useAervoxTurn.ts)与 Turn 协议支持 `metadata`；模式信息一律通过该结构传递，**禁止**向消息文本插入控制标签。
+
+CR-060 已落地通用接缝：[WorkbenchContext](../../packages/ui/src/composables/workbench-context.ts)的 `sendMessage(text, { metadata, resend })` 直接透传任意结构化元数据，宿主不解释其取值，也不为任何插件预留字段（原 `quizMode` 选项已删除）。携带元数据时消息变换器不再改写文本，避免语义双写。
 
 ## 5. 前端 UI 插槽扩展规范（UI Extension Slots）
 
@@ -220,8 +244,22 @@ Hook 必须由 API 组合根 import 并注册到 [ServerPluginRegistry](../../ap
 |---|---|
 | 标题与导航 | `header:before`、`header:actions`、`nav:menu-items` |
 | 侧栏与消息流 | `sidecards:widgets`、`conversation:top`、`conversation:bottom`、`message:bubble-actions` |
-| 输入区 | `composer:toolbar-actions`、`composer:bottom-bar` |
-| 设置、抽屉、任务中心 | `settings:tabs`、`workbench:drawers`、`taskcenter:cards` |
+| 输入区 | `composer:toolbar-actions`、`composer:bottom-bar`、`composer:indicator` |
+| 设置、抽屉、任务中心 | `settings:tabs`、`settings:conversation-rows`、`workbench:drawers`、`taskcenter:cards` |
+
+插件实现（`plugins/<id>/src/ui`）只能经下列**公共子路径**接入宿主展示基座，禁止深链 `packages/ui/src/**`：
+
+| 子路径 | 内容 |
+|---|---|
+| `@aervox/ui` | 组件库入口（不含插件实现） |
+| `@aervox/ui/primitives` | 基础控件（按钮、对话框、抽屉、反馈） |
+| `@aervox/ui/plugin-api` | 工作台上下文、插件状态与事件总线、UI 注册表与插件运行时契约 |
+| `@aervox/ui/markdown` | Markdown 渲染 |
+| `@aervox/ui/theme` | 主题 Token（全局样式） |
+
+插件 UI 的**专属样式随实现内聚**（插件包内 `styles.css` 由插件 UI 入口引入）；宿主主题 `workbench.css` 只承载全局 Token 与通用布局，不得出现插件类名，插件也不得依赖宿主内部类名选择器。
+
+`composer:indicator` 供插件渲染自有模式标记（宿主不再内建任何插件文案与样式）；`settings:conversation-rows` 供插件在「对话」分类注入自有设置行（宿主设置面板不内建插件行）。
 
 ### 5.2 注册接口与生命周期
 
@@ -229,7 +267,7 @@ Hook 必须由 API 组合根 import 并注册到 [ServerPluginRegistry](../../ap
 
 使用宿主注入的 `registry`；不要假定全局 `uiRegistry` 就是当前工作台实例。[BuiltinUIPlugin](../../packages/ui/src/plugins/plugin-runtime.ts)的 `setup(registry, context)` 必须返回清理函数，即使是空函数，避免未被登记 cleanup 的实例再次 setup。停用时释放槽位、事件监听、定时器、订阅与请求；清理应幂等。
 
-当前 runtime 只消费显式编译的 `defaultBuiltinPlugins/customPlugins`；默认先 setup，API 列表无对应记录时也视为可用。这是第一方离线体验策略，不是“所有插件默认拒绝激活”的实现，不得借此接入不受信代码。
+当前 runtime 只装配**组合根显式注入**的插件定义（`createWorkbenchPluginRuntime(registry, getContext, pluginDefinitions)`；宿主包内不内建任何具体插件，`defaultBuiltinPlugins` 已随 CR-060 删除）。插件是否生效统一由 `sync()` 依据仓储启停记录判定：**无记录、记录停用或不可用一律不启用（fail-closed）**，与服务端 Runner 同一判据；不再保留"离线默认可用"或历史别名互查。不得借此接入不受信代码。
 
 ### 5.3 功能卡片注册与操作区扩展（Functional Cards & Side Cards）
 
@@ -307,7 +345,7 @@ pages/dashboard/style.css
 
 [出厂同步](../../apps/api/src/modules/ecosystem/plugins/index.ts)扫描 `plugins/*`，同步主记录、根 Skill、Config 与主动声明；没有执行任意包内代码，也不等同完整包导入（工具/Page 贡献需走分发安装验证）。API 启动发现消失的 `installSource=builtin` 插件会清理其记录。
 
-集市 `GET /v1/plugins/market` 当前来自本地出厂目录，不是远程公共插件商店；`POST /v1/plugins/market/:id/install` 走该目录打包安装，内部固定 `overwrite: true`；对已安装插件执行集市安装/更新也会先卸载重装，没有默认拒绝覆盖保护，数据影响同 §8.3。更新提示采用版本字符串是否不同，不是 SemVer 新旧判断。根 `mise tasks run package-plugins` 批量生成 `dist-plugins/<id>-<version>.aervox-plugin`（等价 `pnpm package:plugins`）；脚本只打包，不完成契约校验或安全认证。产物字节可重现（ZIP 条目时间戳固化、目录与条目排序），同源码重复打包的 SHA-256 稳定；`dist-plugins/` 是 gitignore 产物，测试不得依赖它，需分发包时经导出端点现场生成。
+集市 `GET /v1/plugins/market` 当前来自本地出厂目录，不是远程公共插件商店；`POST /v1/plugins/market/:id/install` 走该目录打包安装，内部固定 `overwrite: true`；对已安装插件执行集市安装/更新也会先卸载重装，没有默认拒绝覆盖保护，数据影响同 §8.3。就地打包与构建期导出共用同一份**允许清单**（只收 Manifest、Config、Skill 与 `skills/`、`pages/` 资源；排除 `src/`、`dist/`、`node_modules/`、`test/`、构建配置），两份清单的一致性由 `apps/api/test/plugin-bundle-allowlist.test.ts` 机器断言。更新提示采用版本字符串是否不同，不是 SemVer 新旧判断。根 `mise tasks run package-plugins` 批量生成 `dist-plugins/<id>-<version>.aervox-plugin`（等价 `pnpm package:plugins`）；脚本只打包，不完成契约校验或安全认证。产物字节可重现（ZIP 条目时间戳固化、目录与条目排序），同源码重复打包的 SHA-256 稳定；`dist-plugins/` 是 gitignore 产物，测试不得依赖它，需分发包时经导出端点现场生成。
 
 ### 8.5 主动规则、MCP 与授权
 
@@ -325,7 +363,7 @@ MCP 使用独立[服务适配器](../../apps/api/src/modules/ecosystem/mcp/servi
 | Config 校验、串行旧版本拒绝、重置、资源路径、清理 | [plugin-config.test.ts](../../apps/api/test/plugin-config.test.ts) | Secret 静态加密、并发 CAS、配置与 Secret 原子性、全 Page 撤权 |
 | 工具与权限登记 | [tools-plugins.test.ts](../../apps/api/test/tools-plugins.test.ts) | 任意工具声明自动提供 handler 或 grant 强制检查 |
 | Hook 与领域切面 | [study-term-plugins.test.ts](../../apps/api/test/study-term-plugins.test.ts) | 第三方 Hook 隔离、硬超时或即时取消 |
-| UI 注册/清理/配置竞态 | [ui-registry.test.ts](../../packages/ui/test/ui-registry.test.ts)、[study-mode-plugin.test.ts](../../packages/ui/test/study-mode-plugin.test.ts) | 任意第三方 Vue 热加载或安全沙箱 |
+| UI 注册/清理/配置竞态 | [ui-registry.test.ts](../../packages/ui/test/ui-registry.test.ts)、[plugin-registration.test.ts](../../plugins/focus-mode/test/plugin-registration.test.ts) | 任意第三方 Vue 热加载或安全沙箱 |
 
 发布审查逐项确认：
 

@@ -93,7 +93,7 @@ describe('Workbench Composables Logic', () => {
     expect(DIAL_CIRCUMFERENCE).toBeCloseTo(2 * Math.PI * 80, 4);
   });
 
-  it('preserves custom timer minutes when toggling study mode', async () => {
+  it('preserves custom timer minutes when saving settings (no plugin state in host settings)', async () => {
     const storage: Record<string, string> = {};
     const mockLocalStorage = {
       getItem: (k: string) => storage[k] ?? null,
@@ -113,10 +113,12 @@ describe('Workbench Composables Logic', () => {
         },
       );
 
-      layout.toggleStudyMode();
+      await layout.saveSettings();
       const saved = JSON.parse(storage['aervox-settings'] || '{}');
       expect(saved.timerMinutes).toBe(45);
-      expect(saved.studyModeEnabled).toBe(true);
+      // CR-060：宿主设置不再持久化任何插件状态键（插件状态走 pluginState 命名空间）
+      expect(saved).not.toHaveProperty('studyModeEnabled');
+      expect(saved).not.toHaveProperty('focusModeEnabled');
     } finally {
       Object.defineProperty(globalThis, 'localStorage', { value: origStorage, configurable: true });
     }
@@ -282,7 +284,6 @@ describe('Workbench Composables Logic', () => {
   it('useWorkbenchCards dynamically merges cards from UIRegistry and defaults to core cards', async () => {
     const { useWorkbenchCards } = await import('../src/composables/useWorkbenchCards');
     const { createUIRegistry } = await import('../src/registry/ui-registry');
-    const { registerFocusModePlugin } = await import('../src/plugins');
     const registry = createUIRegistry();
 
     const cards = useWorkbenchCards({
@@ -291,7 +292,6 @@ describe('Workbench Composables Logic', () => {
       formattedTime: ref('25:00'),
       storyCount: ref(0),
       onOpenTool: vi.fn(),
-      onStartQuiz: vi.fn(),
       onSubmitQuestionAnswers: vi.fn(),
       recordActivity: vi.fn(),
       registry,
@@ -300,17 +300,169 @@ describe('Workbench Composables Logic', () => {
     // 1. Initially without plugin cards: only 4 core cards
     expect(cards.cardCatalog.value.map((c) => c.id)).toEqual(['todo', 'timer', 'history', 'diary']);
 
-    // 2. When focus-mode registers cards into registry: cardCatalog reactively merges them
-    const unregister = registerFocusModePlugin(registry);
-    expect(cards.cardCatalog.value.map((c) => c.id)).toEqual(['study', 'mistake', 'quiz', 'todo', 'timer', 'history', 'diary']);
+    // 2. 任意插件贡献的卡片都会响应式并入；宿主不感知具体插件（CR-060 用通用桩验证接缝）
+    const dummyIcon = { render: () => null };
+    const unregisterStudy = registry.registerCard({
+      id: 'plugin-a-card',
+      label: '插件 A 卡片',
+      description: '由插件贡献',
+      icon: dummyIcon as never,
+      summary: () => '1 项',
+      action: () => {},
+      extraComponent: dummyIcon as never,
+      priority: 100,
+    });
+    const unregisterMistake = registry.registerCard({
+      id: 'plugin-b-card',
+      label: '插件 B 卡片',
+      description: '由插件贡献',
+      icon: dummyIcon as never,
+      summary: () => '2 项',
+      action: () => {},
+      priority: 90,
+    });
+    expect(cards.cardCatalog.value.map((c) => c.id)).toEqual([
+      'plugin-a-card', 'plugin-b-card', 'todo', 'timer', 'history', 'diary',
+    ]);
 
-    // 3. Focus study card action is present
-    const studyCard = cards.cardCatalog.value.find((c) => c.id === 'study');
-    expect(studyCard?.extraComponent).toBeDefined();
+    // 3. 插件卡片可携带操作区组件
+    const firstCard = cards.cardCatalog.value.find((c) => c.id === 'plugin-a-card');
+    expect(firstCard?.extraComponent).toBeDefined();
 
-    // 4. When focus-mode unregisters: returns back to core cards
-    unregister();
+    // 4. 注销后回到核心卡片
+    unregisterStudy();
+    unregisterMistake();
     expect(cards.cardCatalog.value.map((c) => c.id)).toEqual(['todo', 'timer', 'history', 'diary']);
+  }, 20000);
+
+  it('槽位预设接缝：项数不匹配 fail-closed、基线只记首帧、恢复回到原始布局并同步落盘', async () => {
+    const storage: Record<string, string> = {};
+    const mockLocalStorage = {
+      getItem: (k: string) => storage[k] ?? null,
+      setItem: (k: string, v: string) => { storage[k] = v; },
+      removeItem: (k: string) => { delete storage[k]; },
+    };
+    const origStorage = globalThis.localStorage;
+    Object.defineProperty(globalThis, 'localStorage', { value: mockLocalStorage, configurable: true });
+
+    try {
+      const { useWorkbenchCards } = await import('../src/composables/useWorkbenchCards');
+      const { createUIRegistry } = await import('../src/registry/ui-registry');
+      const registry = createUIRegistry();
+
+      const cards = useWorkbenchCards({
+        activeQuestion: ref(null),
+        timerRunning: ref(false),
+        formattedTime: ref('25:00'),
+        storyCount: ref(0),
+        onOpenTool: vi.fn(),
+        onSubmitQuestionAnswers: vi.fn(),
+        recordActivity: vi.fn(),
+        registry,
+      });
+
+      // 用户原始布局
+      cards.cardSlots.value = ['diary', 'timer'];
+      mockLocalStorage.setItem('aervox-side-cards', JSON.stringify(['diary', 'timer']));
+
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+      // 1. 项数与槽位数不一致：不应用、不改变现状（fail-closed，不静默截断）
+      expect(cards.applySlotPreset(['study', 'timer', 'quiz'])).toBe(false);
+      expect(cards.cardSlots.value).toEqual(['diary', 'timer']);
+
+      // 2. 插件自述预设生效
+      expect(cards.applySlotPreset(['study', 'quiz'])).toBe(true);
+      expect(cards.cardSlots.value).toEqual(['study', 'quiz']);
+
+      // 3. 重复应用不覆盖基线，否则恢复会回到「上一次预设」而非用户原始布局
+      expect(cards.applySlotPreset(['mistake', 'timer'])).toBe(true);
+      expect(cards.cardSlots.value).toEqual(['mistake', 'timer']);
+
+      // 4. 预设期间用户显式换过卡片：该布局按既定行为落盘，内存与存储随之分叉
+      cards.selectCard(0, 'todo');
+      expect(cards.cardSlots.value).toEqual(['todo', 'timer']);
+      expect(JSON.parse(mockLocalStorage.getItem('aervox-side-cards') ?? 'null')).toEqual(['todo', 'timer']);
+
+      // 5. 恢复回到首帧基线，且必须**同步落盘**——只还原内存会让下次启动载回刚被恢复掉的布局
+      expect(cards.restoreSlotPreset()).toBe(true);
+      expect(cards.cardSlots.value).toEqual(['diary', 'timer']);
+      expect(JSON.parse(mockLocalStorage.getItem('aervox-side-cards') ?? 'null')).toEqual(['diary', 'timer']);
+
+      // 6. 未预设时恢复是空操作
+      expect(cards.restoreSlotPreset()).toBe(false);
+
+      warn.mockRestore();
+    } finally {
+      Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: origStorage });
+    }
+  }, 20000);
+
+  it('CR-060 §B9b：刷题/错题/学习规划状态机不在宿主组合式函数内（已迁入插件包）', async () => {
+    const { useWorkbenchCards } = await import('../src/composables/useWorkbenchCards');
+    const { createUIRegistry } = await import('../src/registry/ui-registry');
+
+    const cards = useWorkbenchCards({
+      activeQuestion: ref(null),
+      timerRunning: ref(false),
+      formattedTime: ref('25:00'),
+      storyCount: ref(0),
+      onOpenTool: vi.fn(),
+      onSubmitQuestionAnswers: vi.fn(),
+      recordActivity: vi.fn(),
+      registry: createUIRegistry(),
+    });
+
+    // 这些状态与编排已物理迁入 plugins/focus-mode/src/ui/useFocusLearning.ts
+    const movedToPlugin = [
+      'practiceSession', 'practiceIndex', 'practiceReadyToComplete', 'practiceAnswer',
+      'practiceFeedback', 'practiceReport', 'practiceBusy', 'practiceError',
+      'currentPracticeQuestion', 'visibleMistakes', 'mistakeFilter', 'mistakeReasonFilter',
+      'selectedMistakeIds', 'mistakeBusyId', 'mistakeReasonOptions', 'mistakeReasonLabel',
+      'mistakeInsightDraft', 'updateMistakeInsightDraft', 'submitPracticeAnswer',
+      'finishPractice', 'nextPracticeQuestion', 'startMistakePractice', 'setMistakeStatus',
+      'saveMistakeInsight', 'newPlanTopic', 'newPlanLevel', 'newPlanMinutes',
+      'planGenerating', 'planBusyId', 'planError', 'generatePlan', 'togglePlanTask',
+      'archivePlan', 'planMilestoneStatusLabel', 'activeMistakeCount', 'openDailyProblem',
+    ];
+    for (const key of movedToPlugin) {
+      expect(cards, `宿主不应再暴露 ${key}`).not.toHaveProperty(key);
+    }
+
+    // CAP-006 复习排期仍是宿主能力（宿主卡片直接消费），必须保留
+    expect(cards).toHaveProperty('completeReview');
+    expect(cards).toHaveProperty('reviewBusyId');
+    expect(cards).toHaveProperty('reviewError');
+    expect(cards).toHaveProperty('syncReviewCount');
+  }, 20000);
+
+  it('复习提交失败时错误进入用户可见状态（不再只留 console.warn）', async () => {
+    const { useWorkbenchCards } = await import('../src/composables/useWorkbenchCards');
+    const { createUIRegistry } = await import('../src/registry/ui-registry');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    try {
+      const cards = useWorkbenchCards({
+        activeQuestion: ref(null),
+        timerRunning: ref(false),
+        formattedTime: ref('25:00'),
+        storyCount: ref(0),
+        onOpenTool: vi.fn(),
+        onSubmitQuestionAnswers: vi.fn(),
+        recordActivity: vi.fn(),
+        registry: createUIRegistry(),
+      });
+
+      // 测试环境无后端：传输层必然失败。失败必须同时满足「留痕」与「用户可见」，
+      // 否则勾选保持选中会让用户误以为复习已记录（排期静默偏移）。
+      await cards.completeReview('rv_probe', true);
+
+      expect(warn).toHaveBeenCalled();
+      expect(cards.reviewError.value).toBe('复习结果没有保存，请使用相同结果重试。');
+      expect(cards.reviewBusyId.value).toBeNull();
+    } finally {
+      warn.mockRestore();
+    }
   }, 20000);
 
   it('supports customizable quick tools with add, remove, reorder, reset and persistence', async () => {
@@ -334,7 +486,6 @@ describe('Workbench Composables Logic', () => {
         formattedTime: ref('25:00'),
         storyCount: ref(0),
         onOpenTool: vi.fn(),
-        onStartQuiz: vi.fn(),
         onSubmitQuestionAnswers: vi.fn(),
         recordActivity: vi.fn(),
         registry,
