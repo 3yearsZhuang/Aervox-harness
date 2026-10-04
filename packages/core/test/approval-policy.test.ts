@@ -184,7 +184,7 @@ describe("executeTurn with ApprovalPolicyPort", () => {
       },
     );
 
-    expect(result).toMatchObject({ status: "failed", reason: "pending_approval" });
+    expect(result).toMatchObject({ status: "interrupted", reason: "pending_approval" });
     const events = await store.listEvents("turn_ask_user");
     const approvalReq = events.find((e) => e.eventType === "tool_approval_required");
     expect(approvalReq).toBeDefined();

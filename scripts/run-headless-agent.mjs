@@ -147,7 +147,7 @@ async function main() {
   expiredControl.dispose();
   check(
     "deadline 超时收敛 Interrupted",
-    resDeadline.status === "failed" && resDeadline.reason === "deadline_exceeded",
+    resDeadline.status === "interrupted" && resDeadline.reason === "deadline_exceeded",
     `status=${resDeadline.status}, reason=${resDeadline.reason}`,
   );
 
@@ -177,7 +177,7 @@ async function main() {
   starvedControl.dispose();
   check(
     "token 预算耗尽收敛 budget_exhausted",
-    resBudget.status === "failed" && resBudget.reason === "budget_exhausted",
+    resBudget.status === "interrupted" && resBudget.reason === "budget_exhausted",
     `status=${resBudget.status}, reason=${resBudget.reason}`,
   );
 

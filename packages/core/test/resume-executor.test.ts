@@ -121,7 +121,7 @@ describe("4b 续跑执行（executor resume）", () => {
       { turnId: "turn_r2", sessionId: "sess_r2", attemptId: "atp_r2", userMessage: "x" },
     );
     // 第二 Step 单工具后预算收敛：Interrupted（maxSteps 内终工具循环）
-    expect(["failed", "completed"]).toContain(result.status);
+    expect(["interrupted", "completed"]).toContain(result.status);
 
     const records = store.toolExecutionRecords();
     const resumed = records.find((r) => r.invocationId === "atp_r2:2:1");

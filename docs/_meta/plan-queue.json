@@ -828,6 +828,35 @@
         "docs/reference/agent-harness-loop.md#6-单次-turn-执行算法",
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现原则"
       ]
+    },
+    {
+      "id": "ITER-042",
+      "batch": "first",
+      "status": "已移交",
+      "delivery": "ExecuteResult 终态命名收敛（ITER-041 遗留交付项③）：ExecuteResult 增加 interrupted 变体——DB 侧以 Interrupted 收敛的路径（预算/截止/删除水位/turn 超时、max_steps 耗尽、审批待决 pending_approval）不再以 failed 承载返回值；DB 侧本即 Failed 的路径（tools_disabled、execution error、lease_lost、finalize contested）保持 failed 不动。AttemptStatus 持久化枚举零变更（Interrupted 早已存在），不触发 CR 条件",
+      "gate": "纯类型语义收敛：不触碰 AttemptStatus 持久化枚举、公开 SSE 契约与数据库 Schema；下游 reason 断言语义不变（headless 冒烟改断 status=interrupted + 原 reason）；子任务路径维持「Interrupted 收敛为 Failed、父侧可重试」既有语义",
+      "acceptance": [
+        "core ExecuteResult 增 interrupted 变体，DB=Interrupted 的三条收敛路径（finalizeInterrupted / pending_approval / max_steps）返回 interrupted，DB=Failed 路径保持 failed",
+        "下游消费方（host-agent / apps/api）编译与测试零回归，headless 冒烟断言同步更新",
+        "core 用例全绿且新增 interrupted 语义锁定用例"
+      ],
+      "checks": [
+        "packages/core/test/control-context.test.ts",
+        "packages/core/test/budget.test.ts",
+        "packages/core/test/cancel.test.ts",
+        "packages/core/test/executor-b4.test.ts",
+        "scripts/run-headless-agent.mjs"
+      ],
+      "owner": "platform",
+      "branch": "refactor/core-interrupted-status",
+      "statusNote": "2026-10-03 完成：ExecuteResult 增 interrupted 变体，返回值 status 与 Attempt 库内终态一一镜像（库内 Interrupted → interrupted：finalizeInterrupted 全路径 / max_steps / pending_approval；库内 Failed 与未终态化路径 → failed 保持：tools_disabled / execution error / lease_lost / finalize contested）。reason 全保留、AttemptStatus 持久化枚举与公开契约零变更、不触发 CR 条件。core 用例 266→268（新增对齐矩阵 2 条 + 13 处既有断言语义同步）；build 19/19、test-affected 14 任务全绿、headless 冒烟 PASS。验收证据见 PR #251",
+      "dependsOn": [
+        "ITER-041"
+      ],
+      "links": [
+        "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
+        "docs/reference/agent-harness-loop.md#6-单次-turn-执行算法"
+      ]
     }
   ]
 }
