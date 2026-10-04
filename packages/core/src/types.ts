@@ -173,6 +173,12 @@ export interface ModelChunk {
 export type ExecuteResult =
   | { status: "completed"; attemptId: string; lastSequence: number; stepsTaken: number }
   | { status: "cancelled"; attemptId: string; lastSequence: number; stepsTaken: number }
+  /**
+   * 库内终态 Interrupted 的镜像（预算 / 截止 / 删除水位 / turn 超时 / max_steps / 待授权）。
+   * 与 failed 的分界以 DB 收敛状态为准，不按「是否出错」：库内 Failed（tools_disabled、
+   * execution error）或本 runner 未能终态化（lease_lost、finalize contested）才用 failed。
+   */
+  | { status: "interrupted"; attemptId: string; reason: string }
   | { status: "failed"; attemptId: string; reason: string }
   | { status: "skipped"; attemptId: string; reason: "not_runnable" | "already_claimed" };
 

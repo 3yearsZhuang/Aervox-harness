@@ -108,7 +108,7 @@ describe("恢复三重场景（agent-loop-recovery）", () => {
       },
       { turnId: "turn_rd", sessionId: "sess_rd", attemptId: "atp_rd", userMessage: "x" },
     );
-    expect(first.status).toBe("failed"); // 单批后预算收敛
+    expect(first.status).toBe("interrupted"); // 单批后预算收敛
 
     // 重复投递：同一 Turn 重放执行被 claim 拒绝（不产生第二次执行）
     const redelivery = await executeTurn(

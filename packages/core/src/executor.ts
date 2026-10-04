@@ -566,7 +566,7 @@ export async function executeTurn(
             safetyDecision: "approved",
           });
           void approvalFinalized;
-          return { status: "failed", attemptId: input.attemptId, reason: "pending_approval" };
+          return { status: "interrupted", attemptId: input.attemptId, reason: "pending_approval" };
         }
 
       }
@@ -615,7 +615,7 @@ export async function executeTurn(
       },
       safetyDecision: "approved",
     });
-    return { status: "failed", attemptId: input.attemptId, reason: "max_steps" };
+    return { status: "interrupted", attemptId: input.attemptId, reason: "max_steps" };
   } catch (err) {
     if (control?.budgetExceeded) return finalizeInterrupted(await execution.nextSequence(input.turnId), "token_or_call_budget_exceeded");
     if (control?.isExpired()) {

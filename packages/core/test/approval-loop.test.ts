@@ -38,7 +38,7 @@ describe("executeTurn 阶段 3a：写工具审批待决", () => {
       { turnId: "turn_3a", sessionId: "sess_3a", attemptId: "atp_3a", userMessage: "帮我记一条笔记" },
     );
 
-    expect(result).toMatchObject({ status: "failed", reason: "pending_approval" });
+    expect(result).toMatchObject({ status: "interrupted", reason: "pending_approval" });
 
     const events = await store.listEvents("turn_3a");
     const types = events.map((e) => e.eventType);

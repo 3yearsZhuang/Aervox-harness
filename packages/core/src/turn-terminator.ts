@@ -92,8 +92,8 @@ export function createTurnTerminator(ctx: TerminatorContext): TurnTerminator {
     if (!finalized.ok) {
       return { status: "failed", attemptId, reason: `${reason}_finalize_contested` };
     }
-    // 收敛语义：库内终态是 Interrupted，ExecuteResult 以 failed 承载（见 ITER-041 gate 第三项）
-    return { status: "failed", attemptId, reason };
+    // 收敛语义：库内终态 Interrupted ↔ 返回值 interrupted（ITER-042 命名收敛）
+    return { status: "interrupted", attemptId, reason };
   };
 
   /** Step 边界守卫 —— 取消 / 删除撤权水位 / 总耗时预算 / ControlContext，任一命中即收敛 */
