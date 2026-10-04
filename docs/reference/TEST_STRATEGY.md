@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.1
-updated_at: 2026-09-17
-reviewed_at: 2026-09-17
+version: 0.5.0
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 测试策略
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-17
+- 修改人：3yearszhuang · 2026-10-04
 
 关联：[SRS](SRS.md) · [需求追踪](REQUIREMENTS_TRACEABILITY.md) · [AI 质量](AI_QUALITY_SAFETY.md) · `CR-023`（已归档） · `CR-030`（已归档）
 
@@ -35,7 +35,7 @@ review_interval_days: 90
 | Contract | OpenAPI/事件 schema diff、Provider/plugin fixtures | API 兼容、SSE framing/重放、模型适配、插件权限、外部同步 |
 | E2E | Playwright | 学习闭环、复习、日记、多日恢复、消息编辑/删除、流式重连/取消、导出、弱网恢复、无障碍 |
 | AI Eval | 版本化 EvalSet + 人工双标 | 教学事实、提示泄露、安全、记忆压缩、日记来源、Prompt injection |
-| Performance/resilience | k6/自选负载工具、故障注入 | 100 并发流式、2 倍峰值、供应商/DB/本地文件故障 |
+| Performance/resilience | k6/自选负载工具、故障注入、drill 脚本 | 本地单机负载（SQLite 写竞争、连续流式会话、长周期压测）、供应商/DB/本地文件故障；云端并发基线（100 并发/2 倍峰值）随 CR-030 暂缓 |
 | Security/privacy | ASVS 检查、SAST/DAST/SBOM/Secret scan | loopback/认证、文件 ACL、CSRF/CSP、插件、附件、删除后零召回 |
 
 ## 3. P0 必测路径
@@ -96,4 +96,8 @@ review_interval_days: 90
 
 ## 6. 当前阻断
 
-除已落地的 CAP-033 数据面、授权/lease、部分来源采集、提炼、动作授权器、导出和 heartbeat 测试外，CAP-033 全量平台适配、生产出网证明和删除传播 AC/TC 仍是占位；全部能力状态不得超过 `Specified`。进入 G1 前建立可执行用例仓库/任务并回填追踪矩阵。
+- 删除传播已不再是整体占位：`apps/api/test/conversation-deletion.test.ts` 与 `apps/api/test/proactive.test.ts`（来源级 revoke/delete：撤销 consent、scrub capture、删 observation/claim、撤销动作）提供可执行证据；追踪矩阵中仍为占位 ID 的 `TC-*` 在目标版本 G1 前逐项替换为可点击用例并回填。
+- CAP-033 全量平台适配（应用活动正文、通信、音视频、位置等 Provider）、生产 OS Broker 与全链本地出网证明仍未闭合；全部能力状态不得超过 `Specified`。
+- 测试范围须覆盖 `packages/core` 内核矩阵（契约/回放/状态机/fencing，见 [Agent Harness Loop §16.1](agent-harness-loop.md#16-测试与验收)）与 CLI 冒烟（`scripts/cli-smoke.test.mjs`、`test:cli:integration`）。
+
+进入 G1 前建立可执行用例仓库/任务并回填追踪矩阵。

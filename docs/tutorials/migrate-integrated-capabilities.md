@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.3.2
-updated_at: 2026-09-29
-reviewed_at: 2026-09-29
+version: 0.3.3
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 90
 ---
 
@@ -56,8 +56,8 @@ mise x -- pnpm install --frozen-lockfile
 | `apps/api/src/modules/ecosystem/plugins/{service,index}.ts` | 插件安装态、权限和工具 Provider | `capabilities/plugins/` |
 | `apps/api/src/modules/ecosystem/skills/` | 技能注册、生命周期和声明校验 | `capabilities/skills/` |
 | `packages/contracts/src/schemas.ts` | Manifest、Contribution、事件 schema | `packages/capability-contracts/` |
-| `packages/database/src/schema/tool-registry.ts` | SQLite Provider 内部 schema | `providers/tools/sqlite/` |
-| `packages/database/src/repositories/sqlite/*` | Port 的 SQLite 实现 | `providers/*/sqlite/` |
+| `packages/schema/src/tool-registry.ts` | SQLite Provider 内部 schema | `providers/tools/sqlite/` |
+| `packages/repositories/src/repositories/sqlite/*` | Port 的 SQLite 实现 | `providers/*/sqlite/` |
 | `apps/worker/src/*.ts` | 可独立测试的 Job Handler | `packages/host-worker/` + 能力 Provider |
 | `apps/api/src/app.ts` | 组合根 | `packages/host-api/` + `profiles/` |
 | 尚不存在 | DSH/Pi 外部运行时翻译层 | `adapters/dsh/`、`adapters/pi/` |

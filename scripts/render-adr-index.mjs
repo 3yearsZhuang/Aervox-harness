@@ -56,6 +56,7 @@ export function collectAdrs(dir = ADR_DIR) {
     if (id === "ADR-002") displayStatus = "Superseded by ADR-015";
     else if (id === "ADR-008") displayStatus = "Superseded by CR-030";
     else if (id === "ADR-003") displayStatus = "Accepted（经 CR-030 修订）";
+    else if (id === "ADR-005") displayStatus = "Accepted（经 ADR-021 修订）";
 
     adrs.push({ id, file, title, status, displayStatus });
   }

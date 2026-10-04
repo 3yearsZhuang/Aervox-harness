@@ -7,9 +7,9 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 planning_role: current
-version: 0.4.3
-updated_at: 2026-10-01
-reviewed_at: 2026-10-01
+version: 0.4.4
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 7
 review_triggers:
   - apps/**/src/**
@@ -23,7 +23,6 @@ sources:
   - docs/reference/document-governance.md
   - docs/reference/REQUIREMENTS_TRACEABILITY.md
   - docs/reference/plugin-config-and-pages.md
-  - docs/explanation/foundation-optimization-review.md
   - docs/explanation/architecture-implementation-review.md
   - docs/explanation/companion-hardware-directions.md
   - docs/explanation/hls-agent-competition-plan.md
@@ -33,7 +32,7 @@ sources:
 # Aervox 当前迭代计划
 
 - 提出人：3yearszhuang · 2026-09-18
-- 修改人：3yearszhuang · 2026-10-01
+- 修改人：3yearszhuang · 2026-10-04
 
 本文件是**当前项目迭代建议、排序、依赖和待决策项的唯一权威入口**。维护字段、状态、分支协调与归档规则见[计划治理](docs/reference/document-governance.md#31-当前迭代计划的唯一入口)；产品范围见 [PRD](docs/reference/PRD.md)，决策见 [ADR/CR](docs/reference/adr/README.md)，实现与发布证据见[追踪基线](docs/reference/REQUIREMENTS_TRACEABILITY.md)。计划的优先级不改写这些契约，也不自动批准所有条目实施。
 
@@ -41,7 +40,7 @@ sources:
 
 本轮建议聚焦“可信的本地执行底座 + 可验证的插件生命周期 + 配套设备方向选择”。继续采用本地单用户 SQLite 和模块化单体，先处理已确认的正确性问题，再以固定负载决定性能优化是否值得。没有测量依据时不启动数据库替换、全局单写者或整体微服务化。
 
-输入基线为 `6b20e7e` 及 2026-09-18 的代码评估。已完成的准备工作是[插件开发规范](docs/reference/plugin-config-and-pages.md)、[开发指南](docs/how-to/develop-plugin-ui-extension.md)、[底层评估](docs/explanation/foundation-optimization-review.md)、[架构深入评估](docs/explanation/architecture-implementation-review.md)和[九个硬件方向评估](docs/explanation/companion-hardware-directions.md)。这些是规范与证据交付，下面的业务修复与设备原型均尚未开工；评估中的历史测试结果不能替代修复后的回归与发布验证。
+输入基线为 `6b20e7e` 及 2026-09-18 的代码评估。已完成的准备工作是[插件开发规范](docs/reference/plugin-config-and-pages.md)、[开发指南](docs/how-to/develop-plugin-ui-extension.md)、[底层与架构深入评估（含 FND/ARC 双编号）](docs/explanation/architecture-implementation-review.md)和[九个硬件方向评估](docs/explanation/companion-hardware-directions.md)。这些是规范与证据交付，下面的业务修复与设备原型均尚未开工；评估中的历史测试结果不能替代修复后的回归与发布验证。
 
 **建议先启动 ITER-001、002、003、008 的范围复核与独立修复，认领后同时在制不超过 3 个工作包。** ITER-009 的产品访谈/方案比较可并行。CI 工作是合入验证前置，方案审阅和局部故障修复无需等它完成；涉及新契约的切片先完成 CR。每个工作包可拆多个小 PR，避免把整张表变成一次大重构。
 
@@ -51,13 +50,13 @@ sources:
 
 2026-09-28 新增 CR-056（Build to Delete 与类 pi 分层架构规划，已归档至 Aervox-docs-archive）：ITER-023 仅交付详细规划，ITER-014 进入架构差量待评审。CR 的切片按主归属和协同关系接入 ITER-005/007/008/013/014/019，具体依赖见 CR §7；先以 MemoryStore 工具与单个模型 Driver 验证实现可替换、资源可释放和数据责任连续性。规划不启动重构，也不将已有正确性修复统一阻塞在架构工作上。
 
-2026-09-29 新增架构演进与深层瓶颈优化建议（ITER-025～028）：针对 ADR-020 解耦落地的剩余差量与深层性能瓶颈，提出思隅核心懒加载毫秒级冷启动（ITER-025）、伴学业务与会话执行器深度解耦插件化（ITER-026）、多进程 SQLite 写入并发与 Worker 自适应退避（ITER-027），以及纯本地多端点对点加密同步探索（ITER-028）。
+2026-09-29 新增架构演进与深层瓶颈优化建议（ITER-025～028）：针对 ADR-020 解耦落地的剩余差量与深层性能瓶颈，提出思隅核心懒加载毫秒级冷启动（ITER-025）、伴学业务与会话执行器深度解耦插件化（ITER-026）、多进程 SQLite 写入并发与 Worker 自适应退避（ITER-027），以及纯本地多端点对点加密同步探索（ITER-028）。其中 ITER-025 与 ITER-026 已随 PR #232 回退且未重新入队，是否恢复立项待维护者裁定；ADR-020 编号同批退役，原文存于归档仓库，编号不复用（见 [ADR-021](docs/reference/adr/ADR-021-aervox-core-standalone-package.md)）。
 
 2026-10-01 新增 pi（`PI-01`，固定 `5257d0d5`）对照改进建议：按[参考评估 §8.3](docs/explanation/reference-design-transfer.md#upstream-20260929) 的差量复评与 pi-ai 设计对照，新增 ITER-032（保真上下文投影与真实摘要压缩）与 ITER-033（统一模型 Provider 抽象面）两个建议条目。对照结论：思隅的核心缺点不在功能面，而在抽象收敛度与上下文保真；每请求证据链与取消/失败时序由 ITER-007/010 承接，流式背压与慢观察者由 ITER-013 承接，薄执行宿主仍按 CR-056（已归档至 Aervox-docs-archive）BTD-05/06 归属推进，不另设条目；按需工具披露与多模型路由仅在对照收益成立后另行立项。
 
 ## 2. 当前建议工作
 
-下表是唯一活动队列，**由 `docs/_meta/plan-queue.json` 渲染生成**（改条目请改真源后运行 `mise tasks run plan-render`，校验见 `plan-check`）。每行“建议”表示尚未开工；“依赖”约束实际启用/交付顺序，前置设计与测试夹具可并行。证据编号 `FND-*` 见底层评估，`ARC-*` 见架构深入评估，不创建另一份问题正文。
+下表是唯一活动队列，**由 `docs/_meta/plan-queue.json` 渲染生成**（改条目请改真源后运行 `mise tasks run plan-render`，校验见 `plan-check`）。每行“建议”表示尚未开工；“依赖”约束实际启用/交付顺序，前置设计与测试夹具可并行。证据编号 `FND-*` 与 `ARC-*` 均见[架构实现与演进评估](docs/explanation/architecture-implementation-review.md)（FND 已并入其 §9），不创建另一份问题正文。
 
 <!-- plan-queue:begin · 本区由 `mise tasks run plan-render` 从 docs/_meta/plan-queue.json 生成，请勿手改 -->
 
@@ -151,7 +150,7 @@ ITER-009 需要给出下面的可审阅结论，目前不替用户选定产品�
 
 | 材料类别 | 归并结论 | 当前入口 |
 |---|---|---|
-| 评估类：[FND 评估](docs/explanation/foundation-optimization-review.md)、[ARC 评估](docs/explanation/architecture-implementation-review.md)、[参考设计迁移](docs/explanation/reference-design-transfer.md)、[Agent Loop 计划](docs/reference/agent-harness-loop.md#15-分阶段落地计划)与历史记录（已归档至 Aervox-docs-archive）、[Web 方案](docs/explanation/web-implementation.md)、[主动智能方案](docs/explanation/proactive-intelligence-mode.md) | 保留源码、实验、风险与方案；撤去独立当前排期，历史优先级只作评估时的风险标签；已实现部分不重做，未接线部分核验后入队 | 队列见 §2；证据与来源见各评估文档自身 |
+| 评估类：[底层与架构评估（FND/ARC，FND 已并入 §9）](docs/explanation/architecture-implementation-review.md)、[参考设计迁移](docs/explanation/reference-design-transfer.md)、[Agent Loop 计划](docs/reference/agent-harness-loop.md#15-分阶段落地计划)与历史记录（已归档至 Aervox-docs-archive）、[Web 方案](docs/explanation/web-implementation.md)、[主动智能方案](docs/explanation/proactive-intelligence-mode.md) | 保留源码、实验、风险与方案；撤去独立当前排期，历史优先级只作评估时的风险标签；已实现部分不重做，未接线部分核验后入队 | 队列见 §2；证据与来源见各评估文档自身 |
 | 硬件与移动：[硬件方向](docs/explanation/companion-hardware-directions.md)、[ESP32 方案](docs/explanation/esp32-s3-hardware-extension.md)、[CR-055](docs/reference/changes/CR-055-mobile-delivery-plan.md) | 两份硬件方向版本合成为单一文档，ESP32 保留完整正文作器件级事实源；移动规划随收割移入 `main` 并登记（Proposed/Planned），其平台顺序与工期估算只作提案参考 | §3 待决策项；ITER-009、016、018 |
 | 需求与决策权威：[追踪基线 §4.1](docs/reference/REQUIREMENTS_TRACEABILITY.md#41-建议交付批次与拆分原则)、PRD/SRS、ADR、CR、数据库与安全契约、覆盖矩阵、[治理规范 §7](docs/reference/document-governance.md#7-分阶段迁移) | 保留各自需求/决策/验收权威，不因计划统一而降级或删除；建议批次转至本文件，§4.2 继续维护实现事实 | 本文件只引用 |
 | 非迭代材料：`docs/CR-033-plan.md` 等旧计划（已归档且本地不存在）、`.workbuddy/REFACTOR-PLAN.md`、`.workbuddy/ARCHIVE-CANDIDATES.md`、`.zcode/plans/*.md`（Git 忽略的历史/会话快照）、StudyPlan 与学习/日记/复习排期、迁移与发布操作指南 | 旧计划不重新创建；忽略目录内的快照不删除、不强制纳入 Git、不作为当前队列（后续 Agent 先读本文件，旧建议须重新核验）；产品功能与操作程序保持原有归属 | 不进入本队列 |

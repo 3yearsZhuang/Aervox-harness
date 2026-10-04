@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.1
-updated_at: 2026-09-17
-reviewed_at: 2026-09-17
+version: 0.5.0
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 90
 ---
 
@@ -37,7 +37,7 @@ review_interval_days: 90
 
 - **本地用户**：产品数据归属于当前操作系统用户的数据目录；同一数据库不服务多个不互信用户。
 - **数据目录**：业务数据库、Vault、恢复账本、迁移状态和备份使用用户私有目录；多操作系统用户必须使用不同目录和 ACL。
-- **处理者/供应商**：身份、模型、对象存储、通知、分析和错误监控供应商须建立清单，记录用途、数据地区、保存策略、子处理者、删除能力和合同状态。
+- **处理者/供应商**：身份、模型、通知、分析和错误监控供应商须建立清单，记录用途、数据地区、保存策略、子处理者、删除能力和合同状态；当前部署形态为本地单用户，除用户显式配置的模型/语音/外部连接供应商外不存在其他处理者。
 - **远程访问者**：默认不存在；非 loopback 访问必须由用户显式启用并使用 token 认证，不提供组织管理员浏览入口。
 - **插件/外部集成**：是独立权限主体。安装不代表获得数据，必须按 scope 授权，可撤销、过期和审计。
 - **插件配置**：普通配置值按本地插件 ID 保存；`secret` 字段属于 Restricted，不进入普通配置 JSON、日志、API 响应或 iframe HTML，生产环境使用加密 SecretStore Port；卸载按删除规则清理配置、secret 与 Page。
@@ -175,7 +175,7 @@ CAP-033 的本地导出还必须能够按用户选择包含原始捕获副本、
 
 ## 10. 安全控制
 
-- Web 使用同源 HttpOnly/Secure/SameSite Cookie、CSRF、防重放、CSP 和速率限制；桌面/移动使用 OIDC Authorization Code + PKCE。
+- Web 使用同源 HttpOnly/Secure/SameSite Cookie、CSRF、防重放、CSP 和速率限制；桌面/移动端与本机 API 之间使用 loopback 加 Token 认证（CR-030 后无 OIDC 依赖，ADR-008 已 Superseded）。
 - API 默认仅监听 loopback；非 loopback 必须显式启用并强制 token 认证。数据目录使用当前操作系统用户私有 ACL；插件和供应商访问使用独立 `actorId`/Grant 并分别审计。
 - 静态和传输加密；Restricted 内容和对象使用 KMS envelope encryption；密钥不以明文入库或进入模型。
 - 模型、日志、错误监控和分析使用字段级脱敏；`ModelRun` 保存 ContextManifest，不默认复制完整 Prompt。
