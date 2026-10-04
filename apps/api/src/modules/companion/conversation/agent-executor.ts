@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/api — 会话回合编排（runLoopTurnOnce）
  *
  * 机械拆分（B 档第三步，零行为变更）：原「Agent Loop SQLite 执行存储适配 +
- * 工具接线」巨型文件拆为——Provider 构建与 LLMCallable 适配在 llm-adapter.ts、
+ * 工具接线」巨型文件拆为——Provider 构建与 TurnLlmPort 适配在 llm-adapter.ts、
  * 工具提供者在 tool-providers.ts、回放脚本在 replay-scripts.ts、SSE 广播桥在
  * broadcasting-store.ts、DSH 整 Turn 执行在 dsh-adapter.ts；本文件仅保留
  * 迁移期接线：创建 Turn 后立即执行一次 Loop（AVX-HAR-001 §13），
@@ -20,17 +20,16 @@ import {
 import type {
   InboxPort,
   ModelProviderPort,
+  ReplayStep,
   SkillDescriptor,
   SubagentPort,
+  ToolGuidance,
   ToolProviderPort,
   UserQuestionPort,
   WorkflowDefinition,
 } from "@aervox/core";
-// ADR-021 内核提纯修订：伴学工具与其 Port 契约回归插件宿主
-import { createPracticeAttemptToolProvider } from "./practice-attempt-tool.js";
-import type { PracticeAttemptPort } from "./practice-attempt-port.js";
+import type { PluginHostServices, ServerPluginRegistration, TurnLlmPort } from "@aervox/host-plugin-api";
 import { SqliteExecutionStore } from "@aervox/host-agent";
-import type { LLMCallable } from "@aervox/practice-review";
 import {
   type AervoxDatabase,
   type IExtensionRepository,
@@ -45,23 +44,43 @@ import type { Observability } from "@aervox/observability";
 import {
   executeAfterTurnPlugins,
   executeBeforeTurnPlugins,
+  isPluginEnabled,
   defaultServerPluginRegistry,
   type ServerPluginRegistry,
   type TurnPluginContext,
 } from "../../ecosystem/plugins/turn-plugins/index.js";
 import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index.js";
+import { HOST_TOOL_GUIDANCE } from "../../ecosystem/tools/index.js";
 import type { LLMConfigService } from "../../ecosystem/llm/service.js";
 import type { LlmDegradationService } from "../../ecosystem/llm/degradation-service.js";
 import type { ModelRoutingSnapshot } from "@aervox/contracts";
+import { isKnownStreamEventType, registerToolResultProjection } from "@aervox/contracts";
 import { loadProactiveProfilePrompt } from "../../proactive/proactive/profile-context.js";
 import type { ProactiveActionAuthorizer } from "../../proactive/proactive/action-authorizer.js";
 import { buildMemoryContext, type MemoryRecallPort } from "./memory-recall.js";
 import { buildLoopProvider, createLLMCallable } from "./llm-adapter.js";
 import { createApprovalGatedToolProvider, createRuntimeToolProvider } from "./tool-providers.js";
 import { createBroadcastingStore } from "./broadcasting-store.js";
+import { turnStreamHub } from "./stream-hub.js";
 import { failTurnWithError, runDshAdapterTurn } from "./dsh-adapter.js";
 
 /** SqliteExecutionStore 组合根适配由 @aervox/host-agent 提供（见上方 import），API 不再自维护 SQLite 执行存储 */
+
+/**
+ * 汇总第一方插件贡献的确定性回放脚本（键为 provider 模式名）。
+ * 宿主只做分发，不在自身内建插件领域夹具（CR-060）。
+ */
+function collectReplayScripts(
+  registrations?: ServerPluginRegistration[],
+): Record<string, readonly ReplayStep[]> | undefined {
+  const merged: Record<string, readonly ReplayStep[]> = {};
+  for (const registration of registrations ?? []) {
+    for (const [mode, script] of Object.entries(registration.replayScripts ?? {})) {
+      merged[mode] ??= script;
+    }
+  }
+  return Object.keys(merged).length > 0 ? merged : undefined;
+}
 
 /**
  * 迁移期接线：创建 Turn 后立即执行一次 Loop。
@@ -106,8 +125,10 @@ export async function runLoopTurnOnce(
     platformRepo?: import("@aervox/repositories").SqlitePlatformRepository;
     /** UQ-01：向用户提问协调端口（挂起与唤醒） */
     userQuestionPort?: UserQuestionPort;
-    /** CAP-016：刷题模式作答落库端口（AI 判定后写 questions + question_attempts） */
-    practiceAttemptPort?: PracticeAttemptPort;
+    /** CR-060：已装配的第一方插件注册单元（其工具贡献按启用状态门控后合入模型工具面） */
+    pluginRegistrations?: ServerPluginRegistration[];
+    /** CR-060：插件宿主服务工厂（按当前本地上下文产出窄端口集合） */
+    pluginHostServices?: (ctx: LocalContext) => PluginHostServices;
     /** CAP-033：主动智能全动作授权与本地动作账本。 */
     proactiveActionAuthorizer?: ProactiveActionAuthorizer;
     /** CAP-033：本地画像声明来源；仅在有效且本地模型准入时注入。 */
@@ -146,22 +167,46 @@ export async function runLoopTurnOnce(
     (repoDb ? new SqliteExtensionRepository(repoDb) : null);
   const pluginRegistry = deps.pluginRegistry ?? defaultServerPluginRegistry;
 
+  // CR-060：向插件暴露**窄端口**而非仓储与总线本体。
+  // 序号交由仓储原子分配（appendStreamEvent 缺省 sequence），避免插件自行推算；
+  // 写入同时落库并广播，保证 SSE 实时性与重放一致。
   const turnPluginCtx: TurnPluginContext = {
     turnId: input.turnId,
     sessionId: input.sessionId,
     attemptId: input.attemptId,
     userMessage: input.userMessage,
-    tenant,
-    repo,
     metadata: input.metadata,
+    stream: {
+      readEvents: (turnId, fromSequence) => repo.getStreamEvents(tenant, turnId, fromSequence),
+      appendEvent: async (appendInput) => {
+        // CR-060：插件只能写入内核事件类型或其在登记表中**声明过**的事件类型。
+        // 登记表不是装饰——未声明的类型在此拒绝（fail-closed），避免插件静默塞入
+        // 前端不认识、投影白名单也无从收敛的事件。
+        if (!isKnownStreamEventType(appendInput.eventType)) {
+          throw new Error(`unregistered_stream_event_type: ${appendInput.eventType}`);
+        }
+        // 具体仓储的 `appendStreamEvent` 要求显式 sequence（接口虽声明可选，
+        // 实现更严），故按既有序号推进；同一 Turn 的写入由执行器串行化。
+        const existing = await repo.getStreamEvents(tenant, input.turnId, 0);
+        const lastSequence = existing.reduce((max, event) => (event.sequence > max ? event.sequence : max), 0);
+        const stored = await repo.appendStreamEvent(tenant, {
+          id: `evt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+          turnId: input.turnId,
+          sequence: lastSequence + 1,
+          eventType: appendInput.eventType,
+          payloadVersion: appendInput.payloadVersion ?? 1,
+          data: appendInput.data,
+          occurredAt: new Date().toISOString(),
+        });
+        turnStreamHub.publishEvent(input.turnId, stored);
+        return stored;
+      },
+    },
   };
 
-  const beforeTurnExec = await executeBeforeTurnPlugins(
-    pluginRegistry,
-    turnPluginCtx,
-    extRepo,
-    deps.pluginConfigRepo,
-  );
+  // Runner 的宿主依赖：`tenant` 只用于读取插件配置，不进入插件上下文（CR-060）
+  const turnPluginDeps = { tenant, extRepo, configRepo: deps.pluginConfigRepo };
+  const beforeTurnExec = await executeBeforeTurnPlugins(pluginRegistry, turnPluginCtx, turnPluginDeps);
 
   // 阶段 7（ADR-017）：Step 级 ModelRun + 每 Turn ContextManifest 快照落库（委托 platform 域）
   const store = new SqliteExecutionStore(
@@ -318,7 +363,7 @@ export async function runLoopTurnOnce(
   // ADR-010 阶段 6f：AERVOX_LOOP_DRIVER=dsh → 整 Turn 走 DSH 进程外 Adapter
   // （自带 Agent 循环与模型回合，Provider/工具/上下文组合全部跳过；未就绪 fail-closed 不回退 native）。
   if (loadApiConfig().loopDriver === "dsh") {
-    let dshLlm: LLMCallable | undefined;
+    let dshLlm: TurnLlmPort | undefined;
     if (deps.llmConfigService && loadApiConfig().loopProvider === "llm") {
       try {
         const p = await buildLoopProvider(tenant, deps.llmConfigService);
@@ -337,8 +382,7 @@ export async function runLoopTurnOnce(
       await executeAfterTurnPlugins(
         pluginRegistry,
         { ...turnPluginCtx, status, llm: dshLlm },
-        extRepo,
-        deps.pluginConfigRepo,
+        turnPluginDeps,
         beforeTurnExec.pluginResults,
         beforeTurnExec.snapshots,
       );
@@ -359,6 +403,7 @@ export async function runLoopTurnOnce(
       turnId: input.turnId,
       modelRoutingService: deps.modelRoutingService,
       persona: deps.persona ? { name: deps.persona.name } : undefined,
+      pluginReplayScripts: collectReplayScripts(deps.pluginRegistrations),
     });
     provider = loopProvider;
     if (proactiveActive && deps.proactiveRepository) {
@@ -385,8 +430,43 @@ export async function runLoopTurnOnce(
   if (deps.userQuestionPort) {
     contribution.push(createAskUserQuestionToolProvider({ userQuestionPort: deps.userQuestionPort }));
   }
-  if (deps.practiceAttemptPort) {
-    contribution.push(createPracticeAttemptToolProvider({ practiceAttemptPort: deps.practiceAttemptPort }));
+  // CR-060：插件工具贡献——按当前本地上下文构造，并**按插件启用状态门控**。
+  // 禁用、缺记录或不可用的插件不得向模型暴露其工具（与 Runner、插件端点同判据）。
+  // 门控一律 fail-closed：`isPluginEnabled` 在仓储缺失时同样返回 false，故此处不得再
+  // 用 `extRepo &&` 短路（那会在仓储不可用时退化为放行）。
+  // 模型侧使用指南由插件自述，经内核既有的 customGuidance 通用注入位合入基础提示词；
+  // 宿主自有工具（日记 / 笔记检索 / 记忆沉淀）的指南同经该注入位提供
+  // （ADR-021 内核提纯修订：产品域 guidance 不再随内核发布，见 host-tool-guidance）。
+  const pluginGuidance: ToolGuidance[] = [];
+  if (deps.pluginRegistrations?.length && deps.pluginHostServices) {
+    const services = deps.pluginHostServices(tenant);
+    for (const registration of deps.pluginRegistrations) {
+      if (!registration.toolContributions) continue;
+      if (!(await isPluginEnabled(registration.pluginId, extRepo))) continue;
+      try {
+        for (const pluginContribution of registration.toolContributions(services)) {
+          contribution.push(pluginContribution.provider);
+          pluginGuidance.push(...(pluginContribution.guidance ?? []));
+          // CR-060 §B7：结果投影随工具贡献声明，宿主只为**本插件实际贡献的工具**代登记，
+          // 插件因此无法为内核工具或他人工具登记投影。
+          if (pluginContribution.resultProjection) {
+            for (const spec of pluginContribution.provider.tools) {
+              registerToolResultProjection(
+                registration.pluginId,
+                spec.name,
+                pluginContribution.resultProjection,
+              );
+            }
+          }
+        }
+      } catch (err) {
+        deps.observability?.log.warn({
+          event: "plugin.tool_contribution_failed",
+          message: `插件 ${registration.pluginId} 工具贡献构造失败，已跳过`,
+          fields: { pluginId: registration.pluginId, error: err instanceof Error ? err.message : String(err) },
+        });
+      }
+    }
   }
   const contributionProvider =
     contribution.length > 0
@@ -481,6 +561,9 @@ export async function runLoopTurnOnce(
       personaPrompt: deps.persona?.prompt,
       activeTools: tools?.tools,
       extraSections: beforeTurnExec.extraSections,
+      ...(HOST_TOOL_GUIDANCE.length + pluginGuidance.length > 0
+        ? { customGuidance: [...HOST_TOOL_GUIDANCE, ...pluginGuidance] }
+        : {}),
     },
     skills: disclosedSkills,
     ...(loadApiConfig().loopCompaction === "rule"
@@ -548,8 +631,7 @@ export async function runLoopTurnOnce(
     await executeAfterTurnPlugins(
       pluginRegistry,
       { ...turnPluginCtx, status: "Completed", llm },
-      extRepo,
-      deps.pluginConfigRepo,
+      turnPluginDeps,
       beforeTurnExec.pluginResults,
       beforeTurnExec.snapshots,
     );

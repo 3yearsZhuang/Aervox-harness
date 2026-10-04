@@ -1,0 +1,719 @@
+/**
+ * Aervox｜思隅 plugins/focus-mode — 插件专属样式（CR-060 自宿主主题迁入）
+ *
+ * 边界：宿主 `workbench.css` 只承载全局 Token 与通用布局；本文件承载插件自有组件
+ * （模式开关、概念标签栏、学习抽屉、任务卡）的类名与视觉。插件不得依赖宿主内部类名。
+ */
+
+/* 专注模式切换开关：玻璃胶囊（图标 + 文案 + 轨道） */
+.floating-study-switch-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 clamp(10px, 1vw, 14px);
+  height: clamp(34px, 4vh, 40px);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: .78;
+  transition: opacity .18s ease, color .18s ease, border-color .18s ease;
+  user-select: none;
+}
+
+.floating-study-switch-wrap:hover {
+  opacity: 1;
+  color: var(--text-secondary);
+}
+
+.floating-study-switch-wrap.on,
+.floating-study-switch-wrap:has(.study-switch-track.active) {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--glass-border));
+}
+
+.study-switch-icon {
+  flex: 0 0 auto;
+  color: currentColor;
+}
+
+.study-switch-label {
+  font-size: clamp(11.5px, .9vw, 13px);
+  font-weight: 640;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+
+/* 切换轨道（iOS 风格，点击整个胶囊均可切换） */
+.study-switch-track {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  flex: 0 0 36px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 22%, transparent);
+  cursor: pointer;
+  transition: background-color 0.28s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.28s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.study-switch-track:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border-strong));
+}
+
+.study-switch-track .study-switch-thumb {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(15, 20, 32, 0.22), 0 0 1px rgba(0, 0, 0, 0.12);
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform;
+}
+
+.study-switch-track:active .study-switch-thumb {
+  width: 18px;
+}
+
+.study-switch-track.active {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  background: var(--accent);
+}
+
+.study-switch-track.active .study-switch-thumb {
+  transform: translateX(16px);
+}
+
+.study-switch-track.active:active .study-switch-thumb {
+  transform: translateX(14px);
+}
+/* 核心概念标签栏（专注模式 · 渐变光泽卡片与芯片） */
+.message-terms-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent-soft) 35%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--accent) 30%, var(--glass-border));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: aervox-terms-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes aervox-terms-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.terms-bar-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+
+.terms-bar-label svg {
+  color: var(--accent);
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 40%, transparent));
+}
+
+.terms-chips-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.term-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px 4px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--glass-border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-main) 85%, var(--accent-soft));
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(15, 20, 32, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+  user-select: none;
+}
+
+:root[data-theme="dark"] .term-chip {
+  background: color-mix(in srgb, var(--bg-main) 75%, var(--accent-soft));
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.term-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--bg-main);
+  transform: translateY(-1.5px) scale(1.02);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 22%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.term-chip:active {
+  transform: translateY(0) scale(0.97);
+  box-shadow: 0 1px 2px rgba(15, 20, 32, 0.08);
+}
+
+.term-chip-text {
+  letter-spacing: 0.01em;
+}
+
+.term-chip-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0.02em;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.term-chip:hover .term-chip-badge {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+:root[data-theme="dark"] .term-chip:hover .term-chip-badge {
+  color: #121826;
+}
+
+.term-chip.contrast {
+  border-color: color-mix(in srgb, #f59e0b 35%, var(--glass-border));
+}
+
+.term-chip.contrast .term-chip-badge {
+  background: color-mix(in srgb, #f59e0b 18%, transparent);
+  color: #d97706;
+}
+
+.term-chip.contrast:hover {
+  border-color: #f59e0b;
+  color: #d97706;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+}
+
+.term-chip.contrast:hover .term-chip-badge {
+  background: #f59e0b;
+  color: #ffffff;
+}
+.todo-form,
+.focus-goal-form {
+  display: flex;
+  gap: 8px;
+}
+
+.todo-form input,
+.focus-goal-form input {
+  min-width: 0;
+  flex: 1;
+  padding: 10px 11px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  outline: 0;
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+
+.todo-form input:focus,
+.focus-goal-form input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.todo-form button,
+.focus-goal-form button {
+  width: 40px;
+  flex: 0 0 40px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+.focus-section {
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--bg-soft);
+}
+
+.focus-section h4 {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin: 0 0 11px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.focus-section h4 small {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.focus-section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.focus-section-title-row h4 {
+  margin-bottom: 11px;
+}
+
+.focus-archive-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.focus-archive-toggle input {
+  accent-color: var(--accent);
+}
+
+.focus-goal-form {
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.focus-goal-form select {
+  min-width: 0;
+  padding: 9px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  outline: 0;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.focus-goal-form select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.focus-list {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.focus-list li,
+.focus-diary {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-input);
+}
+.focus-item-title,
+.focus-diary strong {
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.focus-list small,
+.focus-diary p {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.focus-diary p {
+  margin: 5px 0 0;
+  white-space: pre-wrap;
+}
+
+.focus-empty {
+  color: var(--text-muted) !important;
+}
+.focus-subnav-tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 18px;
+  padding: 4px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.focus-subnav-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.focus-subnav-btn {
+  flex: 1 1 0;
+  min-width: fit-content;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.focus-subnav-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.focus-subnav-btn.active {
+  background: var(--bg-main);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.subnav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--border);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.focus-subnav-btn.active .subnav-badge {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.focus-section-desc {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+  /* 窄视口：专注模式开关去文字，只留图标 + 轨道，避免与左侧菜单胶囊拥挤 */
+  .study-switch-label {
+    display: none;
+  }
+
+  .floating-study-switch-wrap {
+    gap: 6px;
+    padding: 0 9px;
+  }
+.focus-task-center-card .task-card-icon.focus-icon {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* ============================================================
+ * 自宿主主题 `packages/ui/src/theme/workbench.css` 物理迁入（CR-060 §B9a）。
+ *
+ * 迁入判据：选择器含**仅由本插件组件产出**的类名（`.practice-*`、`.mistake-*`、
+ * `.goal-*`、`.drawer-error`、`.side-card-actions`、`.learning-dialog` 等），
+ * 故宿主侧已无任何消费者；搬迁以机器审计为准（宿主源码中该类名引用数归零）。
+ *
+ * 边界说明：`.task-summary-card` / `.task-status-tag` 是宿主卡片外壳类，本插件卡片
+ * 复用同一外壳词汇，相关规则均带插件专有修饰类（`.tag-active` / `.task-sub-btn`），
+ * 只匹配本插件渲染的 DOM；`.el-dialog__*` 来自 Element Plus 框架，非宿主内部类。
+ * ============================================================ */
+
+
+/* 学习模式下今日学习富卡片：快捷入口网格（固定高度，不抢统计行空间） */
+.side-card-actions {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.drawer-error {
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--danger) 32%, var(--border));
+  border-radius: 10px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.goal-item-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.goal-status {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.goal-status.is-paused {
+  background: #f4ead2;
+  color: #8e6d2a;
+}
+
+.goal-status.is-completed {
+  background: #dbe5f9;
+  color: #3b66b0;
+}
+
+.goal-status.is-archived {
+  background: var(--bg-soft);
+  color: var(--text-muted);
+}
+
+.practice-start,
+.practice-panel form button,
+.practice-feedback button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.practice-start { padding: 7px 10px; }
+
+.practice-panel,
+.practice-report {
+  display: grid;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-soft) 88%, var(--accent-soft));
+}
+
+.practice-panel > small,
+.practice-report small { color: var(--muted); }
+.practice-panel > strong,
+.practice-report > strong { color: var(--text-primary); }
+.practice-panel form { display: flex; gap: 8px; }
+.practice-panel input { flex: 1; min-width: 0; }
+.practice-panel form button,
+.practice-feedback button { padding: 8px 12px; }
+.practice-feedback { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.practice-feedback p,
+.practice-report p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.practice-end { justify-self: start; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
+.practice-start:disabled,
+.practice-panel button:disabled { cursor: not-allowed; opacity: .55; }
+
+.practice-guidance {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-soft) 50%, transparent);
+  border-left: 3px solid var(--accent);
+}
+.practice-guidance strong { font-size: 14px; color: var(--text-primary); }
+.practice-guidance small { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.practice-guidance.difficulty-ease { border-left-color: #e74c3c; background: color-mix(in srgb, #e74c3c 12%, transparent); }
+.practice-guidance.difficulty-increase { border-left-color: #27ae60; background: color-mix(in srgb, #27ae60 12%, transparent); }
+.practice-guidance.difficulty-maintain { border-left-color: var(--accent); }
+
+.mistake-heading,
+.mistake-heading label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.mistake-heading { justify-content: space-between; }
+.mistake-heading label { min-width: 0; }
+.mistake-heading input { accent-color: var(--accent); }
+.learning-dialog {
+  --el-dialog-bg-color: var(--bg-main);
+  --el-dialog-title-font-size: 16px;
+  background: var(--bg-main) !important;
+  border-radius: 16px !important;
+  overflow: hidden !important;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+.el-dialog.learning-dialog {
+  height: min(640px, calc(100vh - 48px)) !important;
+  max-height: min(640px, calc(100vh - 48px)) !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+.learning-dialog .el-dialog__header {
+  flex: 0 0 auto;
+}
+.learning-dialog .el-dialog__body {
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  color: var(--text-secondary);
+  background: var(--bg-main);
+}
+
+.mistake-status-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mistake-tab-btn {
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mistake-tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.mistake-tab-btn.active {
+  background: var(--bg-main);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+
+.mistake-filter-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.mistake-filter-summary strong {
+  color: var(--accent);
+}
+
+.mistake-selected-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.mistake-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: -4px;
+  padding: 8px 12px;
+  border-radius: 9px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+}
+
+.mistake-reason-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.mistake-reason-filter select {
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 12px;
+  outline: none;
+}
+
+.mistake-reason-filter select:focus {
+  border-color: var(--accent);
+}
+
+.task-summary-card .task-status-tag.tag-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 550;
+}
+
+.task-summary-card .task-sub-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.task-summary-card .task-sub-btn:hover {
+  color: var(--text-primary);
+}

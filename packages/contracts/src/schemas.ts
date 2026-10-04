@@ -24,7 +24,13 @@ export const turnStatusSchema = z.enum([
   "Failed",
 ]);
 
-/** 公开业务 SSE 事件类型（§4；tool_approval_required 为 PET-05 阶段 3a 事件，CR-024 补充登记） */
+/**
+ * 内核公开业务 SSE 事件类型（§4；tool_approval_required 为 PET-05 阶段 3a 事件，CR-024 补充登记）。
+ *
+ * CR-060：本枚举只列内核事件。插件自有事件类型经
+ * `registerPluginApiContribution({ streamEventTypes })` 显式登记，
+ * 故事件封套的 `eventType` 为开放字符串（见 `turnStreamEventSchema`）。
+ */
 export const streamEventTypeSchema = z.enum([
   "message",
   "delta",
@@ -36,8 +42,37 @@ export const streamEventTypeSchema = z.enum([
   "user_question_required",
   "user_question_answered",
   "tool_approval_required",
-  "terms_extracted",
 ]);
+
+/**
+ * 内核自有流事件类型**全集**。
+ *
+ * 与上面的 `streamEventTypeSchema`（收敛为"需要前端专门分发的内核事件"）不同，本集合还
+ * 包含由内核产出、但只经通用出口透传的工具事件（`tool_request` / `tool_result`）。
+ * 校验"插件写入的流事件类型是否已知"（`isKnownStreamEventType`）必须依据本全集，
+ * 否则插件将无法写入内核工具事件。与 `stream-projection.ts` 的投影白名单键集保持一致，
+ * 由 `plugin-api-registry.test.ts` 机器断言。
+ */
+export const KERNEL_STREAM_EVENT_TYPES = [
+  "message",
+  "delta",
+  "reasoning_delta",
+  "done",
+  "error",
+  "redacted",
+  "emote",
+  "user_question_required",
+  "user_question_answered",
+  "tool_approval_required",
+  "tool_request",
+  "tool_result",
+] as const;
+
+/** 事件封套的 eventType：内核事件 + 插件登记事件的并集（开放字符串，语义由登记表背书） */
+export const streamEventTypeNameSchema = z
+  .string()
+  .min(1)
+  .describe("内核事件类型，或经 registerPluginApiContribution 登记的插件自有事件类型");
 
 /** 标准错误码（§4.5） */
 export const streamErrorCodeSchema = z.enum([
@@ -58,7 +93,7 @@ export const turnStreamEventSchema = z.object({
   turnId: z.string().min(1),
   /** Turn 内从 1 单调递增且唯一 */
   sequence: z.number().int().positive(),
-  eventType: streamEventTypeSchema,
+  eventType: streamEventTypeNameSchema,
   payloadVersion: z.number().int(),
   /** ISO-8601 UTC */
   occurredAt: z.iso.datetime(),
@@ -907,46 +942,6 @@ export const convertToTextSchema = z.object({
 /** OCR 置信度阈值（BR-EXT-001：低于此值标记 low_confidence） */
 export const OCR_CONFIDENCE_THRESHOLD = 0.7;
 
-// ============ CAP-007 / CAP-002 术语抽取与追问探索契约 ============
-
-/** 抽取出来的单个术语 */
-export const extractedTermSchema = z.object({
-  text: z.string().min(1),
-  relation: z.enum(["background", "related"]),
-  description: z.string().optional(),
-});
-
-/** SSE terms_extracted 事件负载数据 */
-export const termsExtractedEventDataSchema = z.object({
-  turnId: z.string().min(1),
-  messageId: z.string().optional(),
-  terms: z.array(extractedTermSchema),
-});
-
-/** 追问探索方向类型 */
-export const termExploreKindSchema = z.enum([
-  "child",   // 深挖下钻（原理/前置细节）
-  "related", // 对比发散（异同/应用场景）
-  "branch",  // 分支对话（创建独立分支会话）
-]);
-
-/** 追问探索请求体 (POST /v1/terms/explore 或 POST /v1/hierarchy/explore) */
-export const termExploreRequestSchema = z.object({
-  term: z.string().min(1),
-  kind: termExploreKindSchema.default("child"),
-  context: z.string().optional(),
-  sessionId: z.string().optional(),
-});
-
-/** 追问探索响应体 */
-export const termExploreResponseSchema = z.object({
-  term: z.string(),
-  kind: termExploreKindSchema,
-  content: z.string(),
-  relatedQuestions: z.array(z.string()).default([]),
-  childSessionId: z.string().optional(),
-});
-
 // ============ CAP-014 层级对话与会话地图 ============
 
 /** 分支原因类型 */
@@ -1007,7 +1002,7 @@ export const mergeRelationsSchema = z.object({
   targetRelationId: z.string().min(1),
 });
 
-// ============ CAP-016 自适应刷题与报告 ============
+// ============ CAP-016 自适应练习报告 ============
 
 /** 创建练习报告请求体 */
 export const createPracticeReportSchema = z.object({

@@ -15,6 +15,7 @@
  *   L2  packages/api-client / packages/ui —— 传输与表现底座（禁触数据库）
  *   L3  apps/*                —— 宿主 Shell（单向消费上述底座）
  *   预留 capabilities/ providers/ adapters/ modules/ —— 能力层（禁触库、禁依赖宿主）
+ *   同层 plugins/<id>/        —— 插件实现（CR-060：禁触库、禁反向依赖宿主 Shell）
  * 参考规则：AVX-HAR-001 §16.2（内核不导入 SQLite/Drizzle，原 agent-loop 规则随壳移除改指向 packages/core）；
  *           AVX-CAP-001 交付载体与自选机制（Kernel Substrate 边界、能力层接口边界）。
  *
@@ -33,6 +34,22 @@
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, relative, sep, dirname, resolve } from "node:path";
 import { parse } from "@babel/parser";
+
+/**
+ * 组合根白名单：宿主中唯一允许接入插件实现包的位置。
+ *
+ * 依据 AVX-PLUG-001 §4.1「Hook 必须由组合根 import 并注册」与 CR-060：
+ * - API/Worker 组合根以**容错动态 import** 装配插件服务端注册单元（缺包不中断启动）；
+ * - Web / 桌面壳以静态 import 取插件 UI 定义的默认导出（删除该行即可下线）。
+ *
+ * 三处之外，宿主源码目录（apps 与 packages 下的 src）一律不得引用 `@aervox/plugin-*`；
+ * 宿主**测试**不在本规则范围（`src/` 限定），可引用插件包以验证插件行为。
+ */
+export const PLUGIN_COMPOSITION_ROOTS = new Set([
+  "apps/api/src/plugin-assembly.ts",
+  "apps/web/src/App.vue",
+  "apps/desktop/src/renderer/src/App.vue",
+]);
 
 /** 每条规则即 ADR-016 的一条健身函数 */
 export const RULES = [
@@ -81,6 +98,30 @@ export const RULES = [
       { pattern: /^@aervox\/(api|worker|web|desktop|mobile|cli)$/, label: "宿主 Shell 包" },
     ],
   },
+  {
+    // CR-060：插件实现内聚于 plugins/<id>/ 后，仍不得绕过宿主窄端口直连数据库或反向依赖宿主 Shell。
+    // 允许依赖 @aervox/ui 等共享包（宿主扩展 API 与展示基座），故不阻断全部 @aervox/*。
+    name: "host-no-plugin-implementation",
+    docRef: "CR-060 · AVX-PLUG-001 §0.3",
+    fromDir: /^(apps|packages)\/[^/]+\/src\//,
+    forbid: [
+      {
+        pattern: /^@aervox\/plugin-/,
+        label: "插件实现包（宿主只可在组合根以容错动态装配接入）",
+      },
+    ],
+  },
+  {
+    name: "plugins-domain-no-db-no-host",
+    docRef: "CR-060 · AVX-PLUG-001 §0.3",
+    fromDir: /^plugins\/[^/]+\//,
+    forbid: [
+      { pattern: /^@aervox\/(database|schema|repositories)($|\/)/, label: "数据库/模式/仓储" },
+      { pattern: /^@libsql\//, label: "@libsql/client" },
+      { pattern: /^drizzle-orm($|\/)/, label: "drizzle-orm" },
+      { pattern: /^@aervox\/(api|worker|web|desktop|mobile|cli)$/, label: "宿主 Shell 包" },
+    ],
+  },
 ];
 
 /** 源码文件扩展（含 .vue：提取 <script> 块再解析） */
@@ -107,7 +148,14 @@ function extractSpecifiers(source, fileName, strict = false) {
 function collectFromTs(text, out, strict) {
   let ast;
   try {
-    ast = parse(text, { sourceType: "module", plugins: ["typescript", "jsx"] });
+    ast = parse(text, {
+      sourceType: "module",
+      plugins: ["typescript", "jsx"],
+      // 必须显式开启：否则动态 import() 被解析为 CallExpression(callee=Import)，
+      // 下方 case "ImportExpression" 成为死分支，`await import("@libsql/client")`
+      // 这类违规会整体漏检（与 check-removable-implementation.mjs 保持一致）。
+      createImportExpressions: true,
+    });
   } catch (error) {
     if (strict) throw error;
     return; // 未纳管范围保持既有行为
@@ -116,7 +164,8 @@ function collectFromTs(text, out, strict) {
     if (!node || typeof node !== "object" || typeof node.type !== "string") return;
     switch (node.type) {
       case "TSImportType":
-        if (node.source?.value) out.push(node.source.value);
+        // Babel 将类型位置的 import() 实参放在 argument；source 仅部分版本存在。
+        if (node.argument?.value ?? node.source?.value) out.push(node.argument?.value ?? node.source.value);
         break;
       case "ImportDeclaration":
       case "ExportNamedDeclaration":
@@ -194,7 +243,7 @@ function toPseudoSpecifier(repoRel) {
 }
 
 /** 全量遍历目录（repo 根相对），返回源码文件相对路径列表 */
-export function collectSourceFiles(rootDirs = ["apps", "packages"]) {
+export function collectSourceFiles(rootDirs = ["apps", "packages", "plugins"]) {
   const out = [];
   const walk = (dir) => {
     for (const entry of readdirSync(dir)) {
@@ -257,6 +306,8 @@ export function inspectSource(relFile, source, { exceptions = MODULE_EXCEPTIONS 
   });
   for (const rule of RULES) {
     if (!rule.fromDir.test(relFile)) continue;
+    // 组合根白名单：仅对「宿主不得接入插件实现包」一条规则放行声明的装配文件
+    if (rule.name === "host-no-plugin-implementation" && PLUGIN_COMPOSITION_ROOTS.has(relFile)) continue;
     for (const specifier of normalized) {
       const forbidden = rule.forbid.find((f) => f.pattern.test(specifier));
       if (forbidden) {

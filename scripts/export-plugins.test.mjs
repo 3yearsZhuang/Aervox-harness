@@ -14,7 +14,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
+import { unzipSync } from "fflate";
 import { ROOT_DIR } from "./ci-scope.mjs";
+import { classifyDistEntry } from "./export-plugins.mjs";
 
 const MANIFEST = "plugin.manifest.json";
 
@@ -77,5 +79,48 @@ test("打包覆盖 plugins/ 下全部含清单的插件目录，不静默漏包"
       .sort();
 
     assert.deepEqual(produced, expected, `插件目录与分发包不一致：期望 ${expected.join(", ")}`);
+  });
+});
+
+test("允许清单分类：声明与资源进包，本地开发载体排除，未知条目 fail-closed", () => {
+  // 声明与资源（AVX-PLUG-001 §8.1 布局）
+  for (const rel of ["plugin.manifest.json", "manifest.json", "config.schema.json", "SKILL.md", "skill.md"]) {
+    assert.equal(classifyDistEntry(rel), "dist", rel);
+  }
+  assert.equal(classifyDistEntry("skills", true), "dist");
+  assert.equal(classifyDistEntry("pages", true), "dist");
+  assert.equal(classifyDistEntry("skills/review/SKILL.md"), "dist");
+  assert.equal(classifyDistEntry("pages/dashboard/index.html"), "dist");
+
+  // 本地开发载体（CR-060：第一方实现与声明同置一处，但不得进分发包）
+  for (const rel of ["package.json", "tsconfig.json", "vitest.config.ts", "README.md"]) {
+    assert.equal(classifyDistEntry(rel), "local", rel);
+  }
+  for (const rel of ["src", "dist", "node_modules", "test"]) {
+    assert.equal(classifyDistEntry(rel, true), "local", rel);
+  }
+  assert.equal(classifyDistEntry("src/server/index.ts"), "local");
+  assert.equal(classifyDistEntry("test/plugin.test.ts"), "local");
+
+  // 未知条目必须显式决策，不得静默进包或静默丢弃
+  assert.equal(classifyDistEntry("notes.txt"), "unknown");
+  assert.equal(classifyDistEntry("assets", true), "unknown");
+  assert.equal(classifyDistEntry("pages-extra/index.html"), "unknown");
+});
+
+test("分发包条目全部属于声明与资源允许清单（实现源码不随包发布）", () => {
+  withTempDirs(["aervox-plugins-d-"], ([dir]) => {
+    runExport(dir);
+    const zips = fs.readdirSync(dir).filter((file) => file.endsWith(".aervox-plugin"));
+    assert.ok(zips.length > 0, "应至少产出一个分发包");
+
+    for (const zip of zips) {
+      const entries = Object.keys(unzipSync(new Uint8Array(fs.readFileSync(path.join(dir, zip)))));
+      assert.ok(entries.length > 0, `${zip} 不应为空包`);
+      for (const entry of entries) {
+        assert.equal(classifyDistEntry(entry), "dist", `${zip} 含非声明条目：${entry}`);
+      }
+      assert.ok(entries.includes(MANIFEST), `${zip} 必须包含 ${MANIFEST}`);
+    }
   });
 });
