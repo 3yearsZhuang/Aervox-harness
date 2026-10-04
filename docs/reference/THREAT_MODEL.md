@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.0
-updated_at: 2026-09-17
-reviewed_at: 2026-09-17
+version: 0.5.0
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 90
 ---
 
@@ -39,6 +39,7 @@ review_interval_days: 90
 10. CAP-033 loopback 控制面 ↔ owner-only `proactive-access.token`（私密目录 `0600`）、HTTP 传输和 redirect/代理路径。
 11. CAP-034 本地连接网关 ↔ 私网 Home Assistant REST/WebSocket、实体目录和 service 调用。
 12. CAP-035 本地连接网关 ↔ 用户获准的小米开放平台 HTTPS/OAuth 与每日健康汇总。
+13. API/model-runtime ↔ 本地 llama.cpp 侧车（仅 loopback HTTP 健康检查与补全端点）。
 
 ## 3. 威胁登记（STRIDE）
 
@@ -48,7 +49,7 @@ review_interval_days: 90
 | TM-002 | Tampering | 修改消息版本、记忆证据、日记来源或删除状态 | 不可变版本、外键、checksum、事务 Outbox、审计 | `TC-INTEG-SOURCE-001`；管理员权限仍需最小化 |
 | TM-003 | Repudiation | 管理员/插件否认访问、用户删除无证据 | AuditRecord、ConsentGrant、DeletionTarget、模型/Prompt 版本 | `TC-SEC-AUDIT-001`；审计不能包含原文 |
 | TM-004 | Information disclosure | API 监听所有网卡、数据目录权限过宽或插件越权导致私人内容泄漏 | loopback 默认、open auth 禁止非 loopback、用户目录 ACL、`actorId`/Grant 分离、默认无插件权限、脱敏日志 | `TC-SEC-LOCAL-API-001`、`TC-SEC-LOCAL-FS-001`；配置错误为严重阻断 |
-| TM-005 | Denial of service | 流式会话、OCR、日记或插件耗尽模型/队列/CPU | WAF/限流、配额、队列隔离、超时、熔断、预算门槛 | `TC-PERF-ABUSE-001`；供应商级故障用备用/只读降级 |
+| TM-005 | Denial of service | 流式会话、OCR、日记或插件耗尽模型/队列/CPU | 限流、配额、队列隔离、超时、熔断、预算门槛 | `TC-PERF-ABUSE-001`；供应商级故障用备用/只读降级 |
 | TM-006 | Elevation | Prompt injection 或插件提升工具/文件/网络权限 | 信任层隔离、ToolPolicy、进程外沙箱、allowlist、kill switch | `TC-SEC-PROMPT-001`、`TC-SEC-PLUG-001` |
 | TM-007 | Disclosure | 模型/监控供应商保留或训练私人内容 | Provider 审查、用途同意、最小 ContextManifest、关闭训练、合同删除 | `TC-PRIV-PROVIDER-001`；无合格供应商则不启用该用途 |
 | TM-008 | Tampering/Disclosure | 删除后索引、缓存、备份或供应商副本复活，或恢复时漏掉撤权事件 | `RecoveryControlLedger` 先 durable append 作为 deny 控制事实源；业务状态按 sequence 幂等重放；序列缺口/账本不可用/水位未追平时 fail closed；零召回验证 | `TC-PRIV-DEL-001`、`TC-RES-LEDGER-001`；供应商 SLA 超时需告警和用户状态 |
@@ -68,7 +69,7 @@ review_interval_days: 90
 
 ## 4. 数据流安全规则
 
-- 客户端不能直接调用模型或持久对象服务；签名 URL 短期有效且绑定工作区/对象用途。
+- 客户端不能直接调用模型或持久对象服务；附件经本机 API 鉴权访问（loopback 加 Token），凭据不进入 URL。
 - 模型收到的是经同意、权限和 token budget 过滤的 ContextManifest；Restricted 数据默认排除。
 - 模型只能请求工具，服务端 ToolPolicy 作最终授权；插件/外部内容不能修改该策略。
 - 输入先安全分类；输出在持久化/展示前做 schema、引用和安全验证。分类不可用时采用固定保守响应。
@@ -79,7 +80,7 @@ review_interval_days: 90
 - 所有 Critical/High 威胁有自动化测试、告警和残余风险批准；
 - OWASP ASVS L2 基线、依赖/Secret/SBOM/许可证扫描通过；
 - 跨工作区、管理员、组织、插件、附件、Prompt injection 和 Electron IPC 测试通过；
-- 删除、导出、备份恢复、Redis 重建和供应商故障演练通过；
+- 删除、导出、备份恢复、SQLite 换库回滚（[CR-030 演练协议](../how-to/run-database-migration-drill.md)）和供应商故障演练通过；
 - CAP-033 设备捕获、后台恢复、全动作授权、本地出网阻断、七天提炼清理和导出删除的新增数据流已经加入本威胁模型，专项测试仍是启用前置；未成年人、社区、市场、支付或机构能力仍须各自扩展模型。
 - CAP-034/035 发布前必须完成 HA SSRF/重连/白名单、外部凭据零回显、小米真实厂商沙箱和健康连接级删除验证；当前本地集成测试不替代厂商审批或生产安全评审。
 

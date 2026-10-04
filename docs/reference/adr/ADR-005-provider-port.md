@@ -5,20 +5,23 @@ scope: decision
 owner: maintainers
 doc_status: review-candidate
 decision_status: accepted
-version: 0.1.1
-updated_at: 2026-09-13
-reviewed_at: 2026-09-13
+version: 0.2.0
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 90
 ---
 
 # ADR-005 内部 Provider Port 包裹 AI SDK
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-13
+- 修改人：3yearszhuang · 2026-10-04
 
-- 状态：Accepted
+- 状态：Accepted（经 ADR-021 修订）
 - 日期：2026-08-23
 - 关联：`AIQ-TEACH-001`、`AIQ-MEM-001`、`AIQ-DIA-001`、`RISK-010`
+
+> [!NOTE] 2026-10-04 修订注记
+> 本决策确立的内部 `ProviderPort` 抽象继续有效；其中「表现层采用 Vercel AI SDK」部分已被 [ADR-021](ADR-021-aervox-core-standalone-package.md) 取代——`@aervox/core` 的 `ModelProviderPort` 为自研零依赖 OpenAI 兼容流式 Provider，全仓已无 AI SDK 依赖（原 Decision 中的 `streamText/generateObject` 等方法名是 AI SDK 词汇，现行接口为 `stream(ModelRequest): AsyncIterable<ModelChunk>`）。原文保留作为历史依据。
 
 ## Context
 

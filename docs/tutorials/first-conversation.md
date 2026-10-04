@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.2.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 0.3.0
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 90
 ---
 
 # 教程：构建并运行你的第一个对话
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-10
+- 修改人：3yearszhuang · 2026-10-04
 
 关联：[从哪开始](../getting-started.md)、[流式协议契约](../reference/STREAMING_PROTOCOL.md)
 
@@ -34,7 +34,7 @@ cd aervox-harness
 git submodule update --init --recursive
 ```
 
-验证：`git submodule status` 无报错。子模块缺失会导致 `pnpm build` 缺 `@aervox/mod-*` 失败（见 [可选模块协作指南](../how-to/submodule-collaboration.md)）。
+验证：`git submodule status` 无报错。`reference/*` 子模块是设计输入参考代码，不影响构建；不拉取时 `pnpm build` 照常通过（见[从哪开始](../getting-started.md)）。
 
 ## 第 2 步 · 安装工具链与依赖
 
@@ -83,7 +83,7 @@ curl -N http://127.0.0.1:3000/v1/turns/<turnId>/events
 | 现象 | 处理 |
 |---|---|
 | 端口被占用 | 换端口，或 `./aervox dev api` 单独起 API |
-| 子模块缺失导致 build 失败 | 回到第 1 步补齐 `git submodule update --init --recursive` |
+| `reference/*` 子模块未拉取 | 不影响构建；需要查阅参考代码时再补 `git submodule update --init --recursive` |
 | 桌面端无法连接 | 确认 `AERVOX_API_URL` 指向 :3000 且会话 ID 有效 |
 
 ## 下一步

@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.2
-updated_at: 2026-09-17
-reviewed_at: 2026-09-17
+version: 0.5.0
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 90
 ---
 
@@ -17,9 +17,11 @@ review_interval_days: 90
 - 提出人：3yearszhuang · 2026-08-28
 - 修改人：3yearszhuang · 2026-09-17
 
-关联：[能力组合与可选化目录规范](capability-composition.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)、[submodule 协作指南](../how-to/submodule-collaboration.md)、[文档索引](../README.md)
+关联：[能力组合与可选化目录规范](capability-composition.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)、[文档索引](../README.md)
 
-本表是"哪些能力纳入自选机制、以什么方式启用、当前处于哪个状态"的唯一登记处。判定规则由[能力组合与可选化目录规范](capability-composition.md)的[边界判定](capability-composition.md#核心与可选的边界判定)裁决，落地操作与门禁见 [submodule 协作指南](../how-to/submodule-collaboration.md)。需求语义、优先级与交付状态以[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)为准，本表只登记**交付载体与启用方式**，不替代该基线。
+本表是"哪些能力纳入自选机制、以什么方式启用、当前处于哪个状态"的唯一登记处。判定规则由[能力组合与可选化目录规范](capability-composition.md)的[边界判定](capability-composition.md#核心与可选的边界判定)裁决；原 [submodule 协作指南](../how-to/) 已于 2026-10-04 移除（`modules/*` 机制未落地），实施 CR 立项时再恢复操作细节。需求语义、优先级与交付状态以[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)为准，本表只登记**交付载体与启用方式**，不替代该基线。
+
+**宿主形态组件（非自选能力，不进下表）**：`apps/desktop`（`@aervox/desktop`，ADR-009）、`apps/cli`（`siyu` 终端宿主，CR-058 已归档，仅消费 `@aervox/api-client/transport`）、`apps/mobile`（Capacitor 壳，CR-055 待评审）。
 
 ## 状态与启用方式
 
@@ -89,5 +91,5 @@ CAP-033 与 `CAP-002/005/007/008/009/010/012/013/018/020/022/023/024/026/027/030
 ## 维护规则
 
 - 本表条目（新增/状态变更/启用方式/移除）一律走 `CR-*` 登记，并同步更新[文档生命周期登记表](../DOC_REGISTRY.md)核验日期；
-- 新增独立模块必须先满足 [submodule 协作指南](../how-to/submodule-collaboration.md) 的[生命周期门禁](../how-to/submodule-collaboration.md#8-生命周期门禁)，再声明进入本表；
+- 新增独立模块必须先经 [能力组合规范](capability-composition.md) 边界判定与 `CR-*` 立项（原 submodule 生命周期门禁随指南退役，实施 CR 恢复），再声明进入本表；
 - 能力优先级与需求状态变更走[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)，本表不替代该基线。
