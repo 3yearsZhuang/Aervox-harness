@@ -6,9 +6,9 @@ owner: product-platform
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.5.2
-updated_at: 2026-09-18
-reviewed_at: 2026-09-18
+version: 0.5.3
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 60
 review_triggers:
   - docs/reference/PRD.md
@@ -16,12 +16,12 @@ review_triggers:
   - docs/reference/DATA_PRIVACY.md
   - docs/reference/THREAT_MODEL.md
   - docs/reference/adr/ADR-008-cloud-first-local-port.md
-  - docs/reference/changes/CR-022-full-access-tool-permission.md
+  # CR-022（已归档至 Aervox-docs-archive）：工具全量访问边界变更时复核
   - docs/reference/adr/ADR-018-proactive-local-privacy-host.md
-  - docs/reference/changes/CR-024-proactive-intelligence-suite-integrations.md
+  # CR-024（已归档至 Aervox-docs-archive）：主动智能套件集成变更时复核
   - docs/reference/adr/ADR-019-proactive-integrations-local-gateway.md
-  - packages/database/**
-  - packages/agent-loop/**
+  - packages/schema/**
+  - packages/core/**
   - apps/desktop/**
   - apps/web/**
   - packages/ui/**

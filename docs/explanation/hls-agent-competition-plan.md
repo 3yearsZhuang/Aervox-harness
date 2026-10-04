@@ -7,13 +7,12 @@ owner: platform
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.1.0
-updated_at: 2026-09-22
-reviewed_at: 2026-09-22
+version: 0.1.1
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 14
 review_triggers:
   - packages/core/**
-  - packages/agent-loop/**
   - packages/host-agent/**
   - apps/api/src/modules/companion/conversation/**
   - apps/api/src/modules/ecosystem/model-runtime/**

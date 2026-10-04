@@ -6,18 +6,18 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.5.2
-updated_at: 2026-09-29
-reviewed_at: 2026-09-29
+version: 0.6.0
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 90
 ---
 
 # Aervox 能力组合与可选化目录规范
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-29
+- 修改人：3yearszhuang · 2026-10-04
 
-关联：[架构设计](ARCHITECTURE.md)、[ADR-001](adr/ADR-001-modular-monolith.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-014](adr/ADR-014-modular-monolith-structure.md)、[能力注册表](capability-registry.md)、[submodule 协作指南](../how-to/submodule-collaboration.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
+关联：[架构设计](ARCHITECTURE.md)、[ADR-001](adr/ADR-001-modular-monolith.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-014](adr/ADR-014-modular-monolith-structure.md)、[ADR-021](adr/ADR-021-aervox-core-standalone-package.md)、[能力注册表](capability-registry.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
 本文规定 Aervox 的能力组合模型、**必选交付与自选机制**、最终形态目录、Manifest、生命周期、依赖解析和外部运行时适配边界。它是能力组合与交付的当前执行基线：原"可选功能模块化方案"（AVX-MOD-001）已并入本文（见[交付载体与自选机制](#交付载体与自选机制必选)），其不变量、双轴自选、接口边界与边界判定提升为必选机制，功能清单迁至[能力注册表](capability-registry.md)。文中标为目标形态的目录、Manifest/Profile 与状态机，只有在对应代码、迁移和契约测试落地后才可视为运行能力，当前仓库照此渐进迁移（见[当前仓库迁移](#当前仓库迁移)）。
 
@@ -31,7 +31,7 @@ review_interval_days: 90
 
 ### 所有业务能力都可选
 
-Conversation、Learning、Practice、Review、Memory、Diary、Identity、Notification、Tools 等业务能力一律由 Profile 选择，不存在不可替换的业务 `core` 目录。某个 Profile 可以省略任一业务能力，也可以为同一个 Definition 选择不同 Provider。
+Conversation、Learning、Practice、Review、Memory、Diary、Identity、Notification、Tools 等业务能力一律由 Profile 选择，不存在不可替换的业务 `core` 目录。某个 Profile 可以省略任一业务能力，也可以为同一个 Definition 选择不同 Provider。（澄清：`@aervox/core` 是 ADR-021 确立的 Kernel Substrate 执行内核——Loop 状态机、ControlContext、审批 SPI 与工具沙箱——不是业务能力包，与本节"业务 core 目录"的禁止项无关。）
 
 “所有能力可选”不表示安全与数据权利可以被关闭。以下 `Kernel Substrate` 不是业务能力包，而是 Host 对所有组合强制施加的不变量：
 
@@ -68,7 +68,7 @@ Profile 可以没有用户能力，但不能关闭 Kernel Substrate。任何外�
 
 ## 交付载体与自选机制（必选）
 
-能力语义（Definition/Provider/Profile）与代码载体分离，见上文；本节约束标准产品中每个能力**如何交付与自选**。原"可选功能模块化方案"（AVX-MOD-001）已并入本节：机制部分提升为必选执行，功能清单迁至[能力注册表](capability-registry.md)，落地步骤见[submodule 协作指南](../how-to/submodule-collaboration.md)。
+能力语义（Definition/Provider/Profile）与代码载体分离，见上文；本节约束标准产品中每个能力**如何交付与自选**。原"可选功能模块化方案"（AVX-MOD-001）已并入本节：机制部分提升为必选执行，功能清单迁至[能力注册表](capability-registry.md)；原 submodule 协作指南已随 2026-10-04 文档收敛移除（`modules/*` 机制落地时经实施 CR 恢复操作细节）。
 
 ### 模块化交付不变量
 
@@ -105,7 +105,7 @@ CAP-034/035 采用运行时连接机制：构建产物包含本地连接网关�
 ### 版本锁定与升级
 
 - 每个 `modules/*` 子模块固定 commit / tag；升级需走 `CR-*` 并记录变更原因、依赖画廊（peer 版本）与回归结果（对齐 [PRD 15.1](PRD.md#prd-reference-manifest) 参考仓库规则）。
-- 主仓记录各模块的"已批准版本"，作为构建清单事实源；升级前在 CI 中跑模块自身测试 + 主仓集成测试（见 [submodule 协作指南](../how-to/submodule-collaboration.md)）。
+- 主仓记录各模块的"已批准版本"，作为构建清单事实源；升级前在 CI 中跑模块自身测试 + 主仓集成测试（CI 显式校验 `modules/*` 初始化与 pin，未 pin 视为失败）。
 
 ### 接口边界
 
@@ -458,7 +458,7 @@ pi 下表概念映射的历史参考 commit 为 `c49906ec77788625aacbdc53ebca6fb
 - `ADR-009` 对本规范构成安全约束：其进程外隔离、默认无权、签名、配额、超时、撤销和 kill switch 从 Electron 场景扩展到所有外部 Host。
 - `ADR-010` 由本规范扩展：继续保持 DSH/pi 是可选 Adapter、Aervox 数据为唯一真源，并补充统一 Manifest/Profile/Contribution。
 - `ADR-014` 是迁移期结构：`apps/api/src/modules/*` 可以继续作为起点，但最终由组合根选择 Provider，能力不能自行实例化具体 SQLite 类。
-- `AVX-MOD-001`（可选功能模块化方案）已并入本文（见[交付载体与自选机制](#交付载体与自选机制必选)）：不变量、双轴自选、接口边界与边界判定提升为必选机制，功能清单迁至[能力注册表](capability-registry.md)，落地步骤见 [submodule 协作指南](../how-to/submodule-collaboration.md)；原 `docs/explanation/optional_modules.md` 已删除。
+- `AVX-MOD-001`（可选功能模块化方案）已并入本文（见[交付载体与自选机制](#交付载体与自选机制必选)）：不变量、双轴自选、接口边界与边界判定提升为必选机制，功能清单迁至[能力注册表](capability-registry.md)；原 `docs/explanation/optional_modules.md` 与 submodule 协作指南均已删除，操作细节随 `modules/*` 实施 CR 恢复。
 
 接受该目标前必须建立 `ADR-016`（或等效决策）并完成相关 `CR-*`。字段、目录、Kernel 范围、外部代码信任域或数据所有权的改变都必须保留迁移、回滚和追踪证据。
 

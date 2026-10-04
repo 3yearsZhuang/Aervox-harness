@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.3.0
-updated_at: 2026-09-18
-reviewed_at: 2026-09-18
+version: 0.3.1
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 90
 ---
 
@@ -135,7 +135,7 @@ ADR 另填 `decision_status`；CR 同时填写 `decision_status` 与 `delivery_s
 | How-to | [How-to 指南模板](../../templates/how-to.md) | 操作指南 |
 | Reference | [Reference 规范模板](../../templates/reference.md) | 契约、策略、数据库等规范 |
 | Explanation | [Explanation 概念阐释模板](../../templates/explanation.md) | 概念讲解、数据流总览 |
-| ADR | [写 ADR 指南](../../how-to/write-adr.md) + [ADR 索引](../adr/README.md) | 架构决策记录 |
+| ADR | [ADR 索引](../adr/README.md)（何时写/状态推进/模板） | 架构决策记录 |
 
 - 提交前自检第 3 步会校验全部相对链接，任何目录迁移后先跑链接检查再推送。
 

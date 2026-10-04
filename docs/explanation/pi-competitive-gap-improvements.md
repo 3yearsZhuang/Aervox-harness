@@ -6,9 +6,9 @@ owner: product
 doc_status: draft
 decision_status: proposed
 delivery_status: not-applicable
-version: 0.1.0
-updated_at: 2026-10-01
-reviewed_at: 2026-10-01
+version: 0.2.0
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 90
 review_triggers:
   - docs/reference/PRD.md
@@ -32,8 +32,8 @@ sources:
 
 关联：[PRD](../reference/PRD.md)、[能力注册表](../reference/capability-registry.md)、[架构设计说明书](../reference/ARCHITECTURE.md)、CR-056（Build to Delete 规划，已归档至 Aervox-docs-archive）
 
-> [!NOTE] 调研生命周期状态：已落地 / 已转化入队 (Adopted / In Progress)
-> 本文梳理的七项差距已转化为 CR-056（Build to Delete 类 pi 分层）以及迭代计划 ITER-032（保真上下文投影）与 ITER-033（统一模型 Provider 抽象面）建议条目推进。
+> [!NOTE] 调研生命周期状态：未入队候选 (Candidate, Not Queued)
+> 本文的产品体验差距（G1～G7）尚无队列条目承接，是否立项待维护者裁定。内核侧结论已由 pi 代码库复评（[参考评估 §8.3](reference-design-transfer.md#upstream-20260929)）吸收为 ITER-032/033/039/040，架构侧由 CR-056（Build to Delete，已归档）承载——但这两条线与本节产品差距是不同维度，不构成本文七项差距的转化。
 
 ## 1. 文档目的与边界
 

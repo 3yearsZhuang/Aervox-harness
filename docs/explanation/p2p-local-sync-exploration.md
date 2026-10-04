@@ -7,9 +7,9 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 planning_role: evidence
-version: 0.4.0
-updated_at: 2026-09-29
-reviewed_at: 2026-09-29
+version: 0.4.1
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 30
 review_triggers:
   - packages/repositories/src/sync/**
@@ -30,8 +30,8 @@ sources:
 - 提出人：3yearszhuang · 2026-09-29
 - 修改人：3yearszhuang · 2026-09-29
 
-> [!NOTE] 调研生命周期状态：未落地 / 推进中 (Pending / In Progress)
-> 本文梳理的纯本地多端点对点加密同步方案已完成密码学原语与 Changeset 引擎设计，待 ITER-028 推进真实多设备实操与接线。
+> [!NOTE] 调研生命周期状态：首切片完成，待评审 (First Slice Delivered, Pending Review)
+> 密码学原语、Changeset 引擎、UDP 多播发现与环回端到端切片已完成（69 项 P2P 用例通过，见 §3.1）；ITER-028 于 2026-10-02 完成验收重述后保持待评审，真实 mDNS/DNS-SD、生产接线与真实多设备直连待后续推进。
 
 本文档是当前迭代计划 `ITER-028` 的技术架构探索交付件，记录纯本地单用户场景下，桌面端（Electron）与移动端（Capacitor）之间基于局域网发现、零信任配对与 SQLite 增量变更集（Changeset）双向对齐的**设计输入、已实现范围与未实现清单**。
 

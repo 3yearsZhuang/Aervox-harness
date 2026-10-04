@@ -6,23 +6,22 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.1
-updated_at: 2026-09-16
-reviewed_at: 2026-09-16
+version: 1.1.0
+updated_at: 2026-10-04
+reviewed_at: 2026-10-04
 review_interval_days: 90
 sources:
   - apps/api/src/modules/ecosystem/tools/runtime.ts
   - packages/core/src/types.ts
   - docs/reference/agent-harness-loop.md
-  - docs/how-to/engineering-process.md
 ---
 
 # 教程：编写并注册一个自定义 Agent 工具
 
 - 提出人：3yearszhuang · 2026-09-10
-- 修改人：3yearszhuang · 2026-09-16
+- 修改人：3yearszhuang · 2026-10-04
 
-关联：[Agent Harness Loop 规范](../reference/agent-harness-loop.md) · [工程与发布流程](../how-to/engineering-process.md) · [能力组合规范](../reference/capability-composition.md)
+关联：[Agent Harness Loop 规范](../reference/agent-harness-loop.md) · [能力组合规范](../reference/capability-composition.md)
 
 本教程带领开发者一步步为 Aervox Agent 编写一个自定义工具（Tool），完成参数 Schema 定义、安全级别配置、运行时 Handler 编写、数据库注册表持久化及集成测试验证。
 
@@ -36,7 +35,7 @@ sources:
 |---|---|---|
 | `read_only` | 模型可自主调用，无需用户审批确认 | 搜索、信息查询、历史记录检索、只读统计 |
 | `write_with_approval` | 模型发起调用后挂起并生成审批请求，用户批准后方可执行 | 记录保存、修改配置、外发生效、删除数据 |
-| `privileged` | 仅系统管理员通道透传，AI Agent 运行时一律拒绝 | 租户重置、底层凭据导出、系统级网络操作 |
+| `privileged` | 仅系统管理员通道透传，AI Agent 运行时一律拒绝 | 底层凭据导出、破坏性数据操作、系统级网络操作 |
 
 ---
 
@@ -59,20 +58,23 @@ export type EnvSensorQueryArgs = z.infer<typeof EnvSensorQueryArgsSchema>;
 
 ## 3. 步骤 2 · 实现 ToolHandler 处理器
 
-工具处理器必须实现 `ToolHandler` 接口，接收本地上下文（`LocalContext`）、已校验参数及调用上下文（包含 `approval` 与 `proactiveAuthorization` 标记）：
+工具处理器必须实现 `ToolHandler` 接口（见 `apps/api/src/modules/ecosystem/tools/runtime.ts`），接收本地上下文（`LocalContext`）、已校验参数及调用上下文（包含 `approval`、`proactiveAuthorization` 标记与可监听取消的 `signal`）：
 
 ```typescript
 import type { LocalContext } from "@aervox/repositories";
-import type { ToolHandler } from "apps/api/src/modules/ecosystem/tools/runtime.js";
+import type { ToolHandler } from "./runtime.js";
 import { type EnvSensorQueryArgs } from "./env-sensor-schemas.js";
 
 export class EnvSensorQueryHandler implements ToolHandler {
   async call(
-    localCtx: LocalContext,
+    ctx: LocalContext,
     args: unknown,
-    context: { approval: boolean; proactiveAuthorization: boolean }
+    context: { approval: boolean; proactiveAuthorization: boolean; signal: AbortSignal }
   ): Promise<{ status: string; metric: string; value: number; unit: string }> {
     const validArgs = args as EnvSensorQueryArgs;
+    if (context.signal?.aborted) {
+      throw new Error("tool_call_cancelled");
+    }
 
     // 根据参数执行具体逻辑（此处为示例数据）
     const sampleValues: Record<string, { value: number; unit: string }> = {
@@ -145,9 +147,9 @@ describe("Custom Tool: aervox_env_sensor_query", () => {
   it("should successfully execute read_only sensor tool", async () => {
     const handler = new EnvSensorQueryHandler();
     const result = await handler.call(
-      { actorId: "actor_test" },
+      { workspaceId: "local", subjectUserId: "local_user", actorId: "actor_test" },
       { metric: "temperature" },
-      { approval: false, proactiveAuthorization: false }
+      { approval: false, proactiveAuthorization: false, signal: new AbortController().signal }
     );
 
     expect(result).toEqual({
