@@ -143,17 +143,19 @@ describe("基础系统提示词与工具指引 (Base System Prompt & Tool Guidan
     }
   });
 
-  it("buildBaseSystemPrompt：作为纯净底座，默认不包含专注模式或刷题模式内容", async () => {
+  it("buildBaseSystemPrompt：作为纯净底座，默认不含任何插件领域内容", async () => {
     const { buildBaseSystemPrompt } = await import("../src/base-prompt.js");
     const prompt = buildBaseSystemPrompt({ assistantName: "思隅" });
 
+    // CR-060：产品域提示词与插件工具指南一律不落在内核基础提示词内，
+    // 由插件经 extraSections 与 customGuidance 通用注入位提供。
     expect(prompt).not.toContain("专注模式核心教学原则");
     expect(prompt).not.toContain("刷题核心规范");
-    expect(prompt).not.toContain("刷题模式下");
-    expect(prompt).not.toContain("非刷题场景");
+    expect(prompt).not.toContain("record_practice_attempt");
+    expect(prompt).not.toContain("苏格拉底");
   });
 
-  it("buildBaseSystemPrompt：支持 extraSections 注入扩展规则段并保持顺序", async () => {
+  it("buildBaseSystemPrompt：支持 extraSections 注入扩展规则段并保持相对顺序", async () => {
     const { buildBaseSystemPrompt } = await import("../src/base-prompt.js");
     const customSection = "### 自定义扩展规则\n遵循某种特殊业务规则。";
     const focusSection = "### 专注模式扩展段\n专注模式核心教学原则示例。";

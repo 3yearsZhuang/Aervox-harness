@@ -12,7 +12,7 @@ export type LoopProvider =
   | "scripted"
   | "scripted-write"
   | "scripted-privileged"
-  | "scripted-quiz"
+  | "scripted-plugin"
   | "llm";
 
 /**
@@ -256,7 +256,7 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
     loopProvider: requireEnum(
       "AERVOX_LOOP_PROVIDER",
       env.AERVOX_LOOP_PROVIDER,
-      ["replay", "scripted", "scripted-write", "scripted-privileged", "scripted-quiz", "llm"] as const,
+      ["replay", "scripted", "scripted-write", "scripted-privileged", "scripted-plugin", "llm"] as const,
       "llm",
     ),
     loopDriver: requireEnum("AERVOX_LOOP_DRIVER", env.AERVOX_LOOP_DRIVER, ["native", "dsh"] as const, "native"),

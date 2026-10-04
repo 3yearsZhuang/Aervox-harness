@@ -41,13 +41,8 @@ import { AervoxNavDialog, AervoxConfirmDialog, AervoxDialog, AervoxButton } from
 const props = withDefaults(
   defineProps<{
     showCompanion?: boolean;
-    focusModeAvailable?: boolean;
-    studyModeAvailable?: boolean;
   }>(),
-  {
-    focusModeAvailable: undefined,
-    studyModeAvailable: undefined,
-  },
+  {},
 );
 
 const emit = defineEmits<{
@@ -56,23 +51,6 @@ const emit = defineEmits<{
 }>();
 
 const { layout, timer, cards, conversation, proactive, pluginRuntime } = useWorkbenchContext();
-
-const isFocusModeAvailable = computed(() => {
-  if (typeof props.focusModeAvailable === 'boolean') {
-    return props.focusModeAvailable;
-  }
-  if (typeof props.studyModeAvailable === 'boolean') {
-    return props.studyModeAvailable;
-  }
-  return pluginRuntime?.isPluginAvailable('focus-mode') ?? pluginRuntime?.isPluginAvailable('study-mode') ?? true;
-});
-const isStudyModeAvailable = isFocusModeAvailable;
-
-function handleFocusModeChange(checked: boolean) {
-  if (isFocusModeAvailable.value === false) return;
-  layout.setFocusModeEnabled(checked);
-}
-const handleStudyModeChange = handleFocusModeChange;
 
 const activeQuickCards = cards.activeQuickCards ?? cards.cardCatalog;
 const availableQuickCards = cards.availableQuickCards ?? ref<CardDefinition[]>([]);
@@ -92,8 +70,6 @@ const {
   isWeb,
   isDark,
   compactMode,
-  focusModeEnabled,
-  studyModeEnabled,
   enterToSend,
   desktopCompanionEnabled,
   assistantDisplayName,
@@ -412,7 +388,7 @@ async function onPluginChange(): Promise<void> {
                     />
                   </span>
                 </li>
-                <li v-if="!proactiveStatus" class="study-empty">等待桌面 Host 返回能力快照。</li>
+                <li v-if="!proactiveStatus" class="settings-empty-hint">等待桌面 Host 返回能力快照。</li>
               </ul>
               <div class="proactive-capability-heading"><strong>本地画像记忆</strong><small>推断可由你确认或拒绝；被拒绝的声明不会进入后续个性化上下文。</small></div>
               <ul class="proactive-claim-list">
@@ -423,7 +399,7 @@ async function onPluginChange(): Promise<void> {
                     <button type="button" :class="{ rejected: claim.state === 'rejected' }" :disabled="proactiveBusy" title="拒绝这条画像记忆" aria-label="拒绝画像记忆" @click="updateProactiveClaimState(claim, 'rejected')"><Trash2 :size="14" /></button>
                   </span>
                 </li>
-                <li v-if="proactiveClaims.length === 0" class="study-empty">尚未形成画像记忆。</li>
+                <li v-if="proactiveClaims.length === 0" class="settings-empty-hint">尚未形成画像记忆。</li>
               </ul>
               <div class="settings-note proactive-retention-note"><Database :size="16" />原始屏幕、音频、输入、剪贴板和文件副本最多保留 7 天，并在成功提炼为用户记忆后才删除；控制面与画像数据留在本机。</div>
             </template>
@@ -444,7 +420,7 @@ async function onPluginChange(): Promise<void> {
                     <button type="button" title="立即同步" aria-label="立即同步 Home Assistant" :disabled="proactiveBusy" @click="syncProactiveConnection(connection.provider, connection.id)"><RefreshCw :size="14" /></button>
                     <button type="button" title="撤销连接" aria-label="撤销 Home Assistant 连接" :disabled="proactiveBusy" @click="deleteProactiveConnection(connection.provider, connection.id, connection.displayName)"><Trash2 :size="14" /></button>
                   </li>
-                  <li v-if="homeAssistantConnections.length === 0" class="study-empty">尚未连接 Home Assistant。</li>
+                  <li v-if="homeAssistantConnections.length === 0" class="settings-empty-hint">尚未连接 Home Assistant。</li>
                 </ul>
                 <ul v-if="homeAssistantEntities.length > 0" class="proactive-entity-list">
                   <li v-for="entity in homeAssistantEntities" :key="entity.id">
@@ -475,7 +451,7 @@ async function onPluginChange(): Promise<void> {
                     <button type="button" title="同步今日健康数据" aria-label="同步今日健康数据" :disabled="proactiveBusy" @click="syncProactiveConnection(connection.provider, connection.id)"><RefreshCw :size="14" /></button>
                     <button type="button" title="撤销连接" aria-label="撤销小米运动健康连接" :disabled="proactiveBusy" @click="deleteProactiveConnection(connection.provider, connection.id, connection.displayName)"><Trash2 :size="14" /></button>
                   </li>
-                  <li v-if="xiaomiHealthConnections.length === 0" class="study-empty">尚未连接小米运动健康。</li>
+                  <li v-if="xiaomiHealthConnections.length === 0" class="settings-empty-hint">尚未连接小米运动健康。</li>
                 </ul>
                 <ul v-if="proactiveDashboard?.health.length" class="proactive-health-list">
                   <li v-for="sample in proactiveDashboard.health" :key="sample.id"><span>{{ healthMetricLabel(sample) }}</span><strong>{{ healthMetricValue(sample) }}</strong><small>{{ sample.localDate }}</small></li>
@@ -514,18 +490,8 @@ async function onPluginChange(): Promise<void> {
             <span><strong>对话</strong><small>调整你与思隅交流的输入与展示方式</small></span>
           </div>
           <label class="settings-field"><span><strong>助手称呼</strong><small>工作台中显示的名字</small></span><input v-model="assistantDisplayName" maxlength="12" @change="saveSettings(timerMinutes)" /></label>
-          <label v-if="isFocusModeAvailable" class="settings-row settings-choice-row">
-            <span>
-              <strong>专注模式</strong>
-              <small>启用专属苏格拉底启发式教学与防剧透规则</small>
-            </span>
-            <input
-              :checked="focusModeEnabled"
-              type="checkbox"
-              class="settings-switch"
-              @change="handleFocusModeChange(($event.target as HTMLInputElement).checked)"
-            />
-          </label>
+          <!-- CR-060：插件自有设置行经通用插槽注入，宿主不内建任何插件行 -->
+          <ExtensionSlot name="settings:conversation-rows" />
           <label class="settings-row settings-choice-row"><span><strong>回车发送</strong><small>关闭后，回车只换行</small></span><input v-model="enterToSend" type="checkbox" class="settings-switch" @change="saveSettings(timerMinutes)" /></label>
         </div>
         <LLMConfigPanel v-else-if="settingsCategory === 'model'" class="settings-section" />

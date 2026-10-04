@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.2
-updated_at: 2026-09-30
-reviewed_at: 2026-09-30
+version: 0.4.3
+updated_at: 2026-10-03
+reviewed_at: 2026-10-03
 review_interval_days: 90
 ---
 
@@ -125,6 +125,8 @@ Created -> InputChecking -> Running -> Finalizing -> Completed
 ```
 
 `eventId` 全局稳定且不可复用，`sequence` 在同一 Turn 内从 1 单调递增且唯一，`payloadVersion` 采用整数版本。SSE `id:` 字段必须等于 `eventId`；网络重试可以重复投递，客户端按 `eventId` 去重，并用 `sequence` 检测空洞或乱序。heartbeat 是无 `id` 的 SSE comment，不是业务事件，也不占用 sequence。
+
+本节列出**内核**事件类型，其类型枚举与对外投影白名单由 `@aervox/contracts` 持有。插件可声明自有事件类型：经 `registerPluginApiContribution({ streamEventTypes, eventProjections })` 登记后，`eventType` 采用开放字符串，对外投影仍按登记的模式 fail-closed 收敛（未登记的事件类型投影为空对象）。客户端不为任何插件事件预留专用回调，统一经通用插件事件出口接收（见[插件开发规范 §5](plugin-config-and-pages.md#5-前端-ui-插槽扩展规范ui-extension-slots)）。
 
 ### 4.1 `message`
 

@@ -30,9 +30,9 @@ export const RULES = [
   },
   {
     name: "ban-tenant-core-packages",
-    description: "契约、模式、底座及主动循环中禁止使用 tenant 标识符",
+    description: "契约、模式、内核及主动循环中禁止使用 tenant 标识符",
     bannedNames: new Set(["tenant"]),
-    filePattern: /^(packages\/(contracts|schema|agent-loop|host-agent)|apps\/worker\/src\/proactive)\//,
+    filePattern: /^(packages\/(contracts|schema|core|agent-loop|host-agent)|apps\/worker\/src\/proactive)\//,
     excludePattern: null,
   },
 ];
@@ -41,7 +41,7 @@ export const SOURCE_EXT_RE = /\.(ts|tsx|js|mjs|cjs|vue)$/;
 export const IGNORE_DIR_RE = /(^|\/)(node_modules|dist|out|reference|\.git)(\/|$)/;
 const SCRIPT_BLOCK_RE = /<script\b[^>]*>([\s\S]*?)<\/script>/g;
 
-export function collectSourceFiles(rootDirs = ["apps", "packages"]) {
+export function collectSourceFiles(rootDirs = ["apps", "packages", "plugins"]) {
   const out = [];
   const walk = (dir) => {
     for (const entry of readdirSync(dir)) {

@@ -18,11 +18,9 @@ export { default as WorkbenchNavPill } from './components/workbench/WorkbenchNav
 export { default as WorkbenchSideCards } from './components/workbench/WorkbenchSideCards.vue';
 export { default as ConversationConsole } from './components/workbench/ConversationConsole.vue';
 export { default as ToolApprovalCard } from './components/workbench/ToolApprovalCard.vue';
-export { FocusTermsBar as TermsBar } from './plugins/focus-mode';
 export { default as ComposerDock } from './components/workbench/ComposerDock.vue';
 export { default as ComposerAttachments } from './components/workbench/ComposerAttachments.vue';
 export const ToolsDrawer = defineAsyncComponent(() => import('./components/workbench/drawers/ToolsDrawer.vue'));
-export const LearningDrawer = defineAsyncComponent(() => import('./components/workbench/drawers/LearningDrawer.vue'));
 export const HistoryDrawer = defineAsyncComponent(() => import('./components/workbench/drawers/HistoryDrawer.vue'));
 export const SettingsModal = defineAsyncComponent(() => import('./components/workbench/drawers/SettingsModal.vue'));
 
