@@ -7,7 +7,7 @@ import {
   listSessionsResponseSchema,
   createSessionRequestSchema,
   renameSessionRequestSchema,
-  openApiDocument,
+  buildOpenApiDocument,
 } from "../src/index.js";
 
 describe("Session Management Contracts (CR-035 / W1)", () => {
@@ -61,8 +61,8 @@ describe("Session Management Contracts (CR-035 / W1)", () => {
     expect(() => renameSessionRequestSchema.parse({ title: "a".repeat(201) })).toThrow();
   });
 
-  it("registers session routes in openApiDocument", () => {
-    const paths = openApiDocument.paths;
+  it("registers session routes in generated document", () => {
+    const paths = buildOpenApiDocument().paths;
     expect(paths).toBeDefined();
     expect(paths?.["/v1/sessions"]?.get).toBeDefined();
     expect(paths?.["/v1/sessions"]?.post).toBeDefined();

@@ -14,7 +14,6 @@ import {
 import type { UserQuestionRequiredEventData } from '@aervox/contracts';
 import { MizukiExpression } from '../live2d/model';
 import { petReactKind } from '../live2d/petReactions';
-import { aervoxConfirm } from '../primitives';
 import type { UIRegistry } from '../registry/ui-registry';
 import type { WorkbenchCardContribution } from '../registry/types';
 import type { ToolId } from './useWorkbenchLayout';
@@ -54,7 +53,6 @@ const toDiaryViewFromRow = (row: DiaryDto): DiaryView => ({
 export const todayLocalDate = (): string =>
   new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 
-const DAILY_PROBLEM_URL = 'https://www.nowcoder.com/problem/tracker';
 
 export function useWorkbenchCards(options: {
   activeQuestion: Ref<UserQuestionRequiredEventData | null>;
@@ -62,7 +60,6 @@ export function useWorkbenchCards(options: {
   formattedTime: Ref<string>;
   storyCount: Ref<number>;
   onOpenTool: (tool: ToolId) => void;
-  onStartQuiz: () => void;
   onSubmitQuestionAnswers: (answers: Array<{ id: string; selected: string[] }>) => Promise<void>;
   recordActivity: (source: 'aervox.activity' | 'aervox.operation', eventType: string, payloadText?: string, metadata?: Record<string, unknown>) => void;
   registry?: UIRegistry;
@@ -73,9 +70,6 @@ export function useWorkbenchCards(options: {
   const {
     goals,
     dueReviews,
-    mistakes,
-    learningPlans,
-    activePracticeSession,
   } = api;
 
   const cardSlots = ref<Array<CardId | null>>([null, null]);
@@ -209,251 +203,23 @@ export function useWorkbenchCards(options: {
     }
   }
 
-  // 错题与练习
-  const activeMistakeCount = computed(() => mistakes.value.filter((item) => item.status === 'active').length);
-  const practiceSession = ref<{ sessionId: string; items: Array<{ id: string; prompt: string }>; nextQuestionIndex?: number } | null>(null);
-  const practiceIndex = ref(0);
-  const practiceReadyToComplete = ref(false);
-  const practiceAnswer = ref('');
-  const practiceFeedback = ref<{ judgement: string; nextStep: string } | null>(null);
-  const practiceSubmission = ref<{ sessionId: string; questionId: string; answer: string; idempotencyKey: string } | null>(null);
-  const practiceReport = ref<{
-    answeredCount: number;
-    questionCount: number;
-    remainingCount: number;
-    correctCount: number;
-    incorrectCount: number;
-    unverifiableCount: number;
-    accuracy: number | null;
-    avgTimeSpentSec: number | null;
-    totalHintsUsed: number;
-    guidance: { difficulty: 'ease' | 'maintain' | 'increase'; reasonCode: string; message: string };
-    nextStep: string;
-  } | null>(null);
-  const questionStartTime = ref<number>(0);
-  const practiceBusy = ref(false);
-  const practiceError = ref<string | null>(null);
-
-  const mistakeFilter = ref<'active' | 'mastered' | 'dismissed' | 'all'>('active');
-  const mistakeReasonFilter = ref<string>('all');
-  const selectedMistakeIds = ref<string[]>([]);
-  const mistakeBusyId = ref<string | null>(null);
-  const mistakeInsightDrafts = ref<Record<string, { reasonCode: string; note: string }>>({});
+  // 复习结果提交（CAP-006 复习排期属宿主能力，宿主卡片直接消费；CR-060 明确保留主仓）
   const reviewBusyId = ref<string | null>(null);
-
-  const currentPracticeQuestion = computed(() => practiceSession.value?.items[practiceIndex.value] ?? null);
-  const visibleMistakes = computed(() =>
-    mistakes.value.filter(
-      (item) =>
-        (mistakeFilter.value === 'all' || item.status === mistakeFilter.value)
-        && (mistakeReasonFilter.value === 'all' || item.reasonCode === mistakeReasonFilter.value),
-    ),
-  );
-
-  const mistakeReasonOptions = [
-    { value: 'concept_gap', label: '概念不清' },
-    { value: 'calculation', label: '计算失误' },
-    { value: 'careless', label: '粗心' },
-    { value: 'misread', label: '审题偏差' },
-    { value: 'other', label: '其他' },
-  ] as const;
-
-  function mistakeReasonLabel(reasonCode: string | null) {
-    return mistakeReasonOptions.find((item) => item.value === reasonCode)?.label ?? '未记录错因';
-  }
-
-  function mistakeInsightDraft(item: { questionId: string; reasonCode: string | null; note: string | null }) {
-    return mistakeInsightDrafts.value[item.questionId] ?? { reasonCode: item.reasonCode ?? '', note: item.note ?? '' };
-  }
-
-  function updateMistakeInsightDraft(questionId: string, update: Partial<{ reasonCode: string; note: string }>) {
-    const current = mistakeInsightDrafts.value[questionId] ?? { reasonCode: '', note: '' };
-    mistakeInsightDrafts.value[questionId] = { ...current, ...update };
-  }
-
-  function restorePracticeSession(session: { sessionId: string; items: Array<{ id: string; prompt: string }>; nextQuestionIndex?: number }) {
-    practiceSession.value = session;
-    const nextIndex = session.nextQuestionIndex ?? 0;
-    practiceReadyToComplete.value = nextIndex >= session.items.length;
-    practiceIndex.value = Math.min(nextIndex, Math.max(session.items.length - 1, 0));
-    practiceAnswer.value = '';
-    practiceSubmission.value = null;
-    practiceFeedback.value = null;
-    questionStartTime.value = Date.now();
-  }
-
-  async function submitPracticeAnswer() {
-    const question = currentPracticeQuestion.value;
-    const answer = practiceAnswer.value.trim();
-    if (!practiceSession.value || !question || !answer || practiceBusy.value) return;
-    practiceBusy.value = true;
-    practiceError.value = null;
-    try {
-      const elapsedSeconds = Math.max(1, Math.round((Date.now() - questionStartTime.value) / 1000));
-      const existing = practiceSubmission.value;
-      const submission = existing?.sessionId === practiceSession.value.sessionId && existing.questionId === question.id && existing.answer === answer
-        ? existing
-        : { sessionId: practiceSession.value.sessionId, questionId: question.id, answer, idempotencyKey: `attempt_${crypto.randomUUID()}` };
-      practiceSubmission.value = submission;
-      practiceFeedback.value = await api.submitPracticeAnswer(submission.sessionId, submission.questionId, submission.answer, submission.idempotencyKey, elapsedSeconds);
-    } catch (error) {
-      practiceError.value = error instanceof Error ? '作答没有保存，请重试。' : '作答失败，请重试。';
-    } finally {
-      practiceBusy.value = false;
-    }
-  }
-
-  async function finishPractice(showArchivedGoals = false) {
-    if (!practiceSession.value) return;
-    practiceBusy.value = true;
-    practiceError.value = null;
-    try {
-      practiceReport.value = await api.completePracticeSession(practiceSession.value.sessionId);
-      practiceFeedback.value = null;
-      practiceReadyToComplete.value = false;
-      await api.loadAll(showArchivedGoals);
-    } catch {
-      practiceError.value = '暂时无法生成练习报告，请稍后再试。';
-    } finally {
-      practiceBusy.value = false;
-    }
-  }
-
-  function nextPracticeQuestion() {
-    if (!practiceSession.value) return;
-    if (practiceIndex.value + 1 >= practiceSession.value.items.length) {
-      practiceReadyToComplete.value = true;
-      return;
-    }
-    practiceIndex.value += 1;
-    practiceAnswer.value = '';
-    practiceSubmission.value = null;
-    practiceFeedback.value = null;
-    questionStartTime.value = Date.now();
-  }
-
-  async function startMistakePractice() {
-    const activeIds = mistakes.value.filter((item) => item.status === 'active').map((item) => item.questionId);
-    const questionIds = (selectedMistakeIds.value.length ? selectedMistakeIds.value : activeIds).slice(0, 5);
-    if (!questionIds.length) {
-      practiceError.value = '当前没有可重练的错题。';
-      return;
-    }
-    practiceBusy.value = true;
-    practiceError.value = null;
-    practiceReport.value = null;
-    practiceFeedback.value = null;
-    try {
-      restorePracticeSession(await api.startMistakePractice(questionIds));
-      selectedMistakeIds.value = [];
-    } catch {
-      practiceError.value = '错题重练启动失败，请刷新后重试。';
-    } finally {
-      practiceBusy.value = false;
-    }
-  }
-
-  async function setMistakeStatus(questionId: string, status: 'active' | 'mastered' | 'dismissed') {
-    mistakeBusyId.value = questionId;
-    try {
-      await api.setMistakeStatus(questionId, status);
-      selectedMistakeIds.value = selectedMistakeIds.value.filter((id) => id !== questionId);
-    } catch {
-      practiceError.value = '错题状态没有保存，请稍后重试。';
-    } finally {
-      mistakeBusyId.value = null;
-    }
-  }
-
-  async function saveMistakeInsight(item: { questionId: string; reasonCode: string | null; note: string | null }) {
-    const draft = mistakeInsightDraft(item);
-    mistakeBusyId.value = item.questionId;
-    practiceError.value = null;
-    try {
-      await api.setMistakeInsight(item.questionId, {
-        reasonCode: (draft.reasonCode || null) as 'concept_gap' | 'calculation' | 'careless' | 'misread' | 'other' | null,
-        note: draft.note,
-      });
-      delete mistakeInsightDrafts.value[item.questionId];
-    } catch {
-      practiceError.value = '错因记录没有保存，请稍后重试。';
-    } finally {
-      mistakeBusyId.value = null;
-    }
-  }
+  // 复习提交失败的用户可见反馈。此前该提示由插件抽屉的错误位承载，CR-060 迁出后
+  // 一度只剩 console.warn——勾选保持选中会让用户误以为已记录（排期静默偏移）。
+  const reviewError = ref<string | null>(null);
 
   async function completeReview(reviewId: string, isCorrect: boolean) {
     reviewBusyId.value = reviewId;
-    practiceError.value = null;
+    reviewError.value = null;
     try {
       await api.completeReview(reviewId, isCorrect);
-    } catch {
-      practiceError.value = '复习结果没有保存，请使用相同结果重试。';
+    } catch (error) {
+      console.warn('[useWorkbenchCards] 复习结果没有保存，请使用相同结果重试：', error);
+      reviewError.value = '复习结果没有保存，请使用相同结果重试。';
     } finally {
       reviewBusyId.value = null;
     }
-  }
-
-  // 学习规划
-  const newPlanTopic = ref('');
-  const newPlanLevel = ref<'beginner' | 'intermediate' | 'advanced'>('beginner');
-  const newPlanMinutes = ref(25);
-  const planGenerating = ref(false);
-  const planBusyId = ref<string | null>(null);
-  const planError = ref<string | null>(null);
-
-  async function generatePlan() {
-    const topic = newPlanTopic.value.trim();
-    if (!topic || planGenerating.value) return;
-    planGenerating.value = true;
-    planError.value = null;
-    try {
-      await api.generateLearningPlan({ topic, level: newPlanLevel.value, dailyMinutes: newPlanMinutes.value });
-      newPlanTopic.value = '';
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '';
-      planError.value = message.includes('llm_disabled')
-        ? '尚未配置 LLM，请先在「设置 → 模型与服务」完成配置。'
-        : message.includes('plan_generation_failed')
-          ? '模型未能产出有效的学习规划，请换个主题描述再试。'
-          : '生成学习规划失败，请稍后重试。';
-    } finally {
-      planGenerating.value = false;
-    }
-  }
-
-  async function togglePlanTask(task: { id: string; status: string }) {
-    planBusyId.value = task.id;
-    planError.value = null;
-    try {
-      await api.setPlanTaskStatus(task.id, task.status === 'done' ? 'todo' : 'done');
-    } catch {
-      planError.value = '任务状态没有保存，请稍后重试。';
-    } finally {
-      planBusyId.value = null;
-    }
-  }
-
-  async function archivePlan(planId: string) {
-    const confirmed = await aervoxConfirm({
-      title: '归档学习规划',
-      message: '归档后规划将从列表隐藏，但完成记录仍会保留。确定归档吗？',
-      variant: 'danger',
-      confirmText: '归档',
-    });
-    if (!confirmed) return;
-    planBusyId.value = planId;
-    try {
-      await api.archiveLearningPlan(planId);
-    } catch {
-      planError.value = '规划归档失败，请稍后重试。';
-    } finally {
-      planBusyId.value = null;
-    }
-  }
-
-  function planMilestoneStatusLabel(status: string) {
-    return ({ active: '进行中', completed: '已完成', locked: '未解锁' } as Record<string, string>)[status] ?? status;
   }
 
   // 核心内置卡片
@@ -600,17 +366,22 @@ export function useWorkbenchCards(options: {
     return cardSlots.value.includes(id);
   }
 
+  /** 槽位布局落盘：用户显式选择与预设恢复共用同一键与格式，避免两处写法漂移 */
+  function persistCardSlots() {
+    localStorage.setItem('aervox-side-cards', JSON.stringify(cardSlots.value));
+  }
+
   function selectCard(slot: number, id: CardId | null, event?: MouseEvent) {
     if (slot === 0 && id === null && cardSlots.value[0] === 'diary' && diarySlotRestore !== undefined) {
       cardSlots.value = cardSlots.value.map((current, index) => (index === 0 ? diarySlotRestore : current)) as Array<CardId | null>;
       diarySlotRestore = undefined;
-      localStorage.setItem('aervox-side-cards', JSON.stringify(cardSlots.value));
+      persistCardSlots();
       const slotEl = (event?.target as HTMLElement | null)?.closest?.('.side-card-slot') ?? undefined;
       petReactKind('shake', { expression: MizukiExpression.face_trouble_01, lookAtEl: slotEl });
       return;
     }
     cardSlots.value = cardSlots.value.map((current, index) => (index === slot ? id : current));
-    localStorage.setItem('aervox-side-cards', JSON.stringify(cardSlots.value));
+    persistCardSlots();
     const slotEl = (event?.target as HTMLElement | null)?.closest?.('.side-card-slot') ?? undefined;
     if (id) petReactKind('glad', { expression: MizukiExpression.face_smile_03, lookAtEl: slotEl, lookDuration: 3600 });
     else petReactKind('shake', { expression: MizukiExpression.face_trouble_01, lookAtEl: slotEl });
@@ -622,23 +393,44 @@ export function useWorkbenchCards(options: {
     card.action();
   }
 
-  function applyStudyCardLayout() {
-    savedCardSlots = [...cardSlots.value];
-    cardSlots.value = ['study', 'timer'];
+  /**
+   * CR-060：通用槽位预设——宿主不再硬编码任何插件卡片 id，
+   * 由插件在需要时把**自己的**卡片 id 清单交进来。
+   *
+   * 语义：
+   * - 基线只在首次调用时记录，重复调用不覆盖，保证 `restoreSlotPreset()` 回到用户原始布局；
+   * - 预设项数必须与槽位数一致，否则视为契约缺陷：不应用并告警（fail-closed，不静默截断）；
+   * - **应用**不写 `localStorage`：预设是临时视图态。但 `restoreSlotPreset()` 会把恢复后的
+   *   基线写回，以对齐用户在预设期间经 `selectCard` 落盘的显式选择（见该函数注释）。
+   *
+   * @returns 是否应用成功
+   */
+  function applySlotPreset(slots: Array<CardId | null>): boolean {
+    if (slots.length !== cardSlots.value.length) {
+      console.warn(
+        `[useWorkbenchCards] applySlotPreset 项数(${slots.length})与槽位数(${cardSlots.value.length})不一致，已忽略本次预设`,
+      );
+      return false;
+    }
+    if (!savedCardSlots) savedCardSlots = [...cardSlots.value];
+    cardSlots.value = [...slots];
+    return true;
   }
 
-  function restoreStudyCardLayout() {
-    if (!savedCardSlots) return;
+  /**
+   * 恢复预设前的槽位（未预设时为空操作）。
+   *
+   * 恢复同样落盘：预设本身是临时视图态（不落盘），但用户若在预设期间显式换过卡片，
+   * `selectCard` 已把预设布局写进 `localStorage`；此时只还原内存会让两者分叉，
+   * 下次启动会载回刚被恢复掉的布局。故恢复必须把基线一并写回，
+   * 使 `localStorage` 与屏幕始终一致。
+   */
+  function restoreSlotPreset(): boolean {
+    if (!savedCardSlots) return false;
     cardSlots.value = savedCardSlots;
     savedCardSlots = null;
-  }
-
-  function openDailyProblem() {
-    options.recordActivity('aervox.operation', 'workbench.daily_problem_opened', DAILY_PROBLEM_URL);
-    petReactKind('forward', { lookAtEl: '.side-cards' });
-    const desktopBridge = (window as Window & { fairyDesktop?: { openExternal?: (url: string) => Promise<void> } }).fairyDesktop;
-    if (desktopBridge?.openExternal) void desktopBridge.openExternal(DAILY_PROBLEM_URL);
-    else window.open(DAILY_PROBLEM_URL, '_blank', 'noopener');
+    persistCardSlots();
+    return true;
   }
 
   function setDiarySlotRestore(val: CardId | null | undefined) {
@@ -648,7 +440,6 @@ export function useWorkbenchCards(options: {
   return {
     api,
     diaryApi,
-    mistakes,
     cardSlots,
     slotCards,
     cardCatalog,
@@ -675,29 +466,8 @@ export function useWorkbenchCards(options: {
     syncReviewCount,
     syncedTodoCount,
     goalBusyId,
-    activeMistakeCount,
-    practiceSession,
-    practiceIndex,
-    practiceReadyToComplete,
-    practiceAnswer,
-    practiceFeedback,
-    practiceReport,
-    practiceBusy,
-    practiceError,
-    currentPracticeQuestion,
-    visibleMistakes,
-    mistakeFilter,
-    mistakeReasonFilter,
-    selectedMistakeIds,
-    mistakeBusyId,
     reviewBusyId,
-    mistakeReasonOptions,
-    newPlanTopic,
-    newPlanLevel,
-    newPlanMinutes,
-    planGenerating,
-    planBusyId,
-    planError,
+    reviewError,
     handleQuestionCardOption,
     submitQuestionCardAnswers,
     openDiary,
@@ -706,26 +476,12 @@ export function useWorkbenchCards(options: {
     addTodo,
     completeGoalFromTodo,
     toggleGoalPausedFromTodo,
-    mistakeReasonLabel,
-    mistakeInsightDraft,
-    updateMistakeInsightDraft,
-    submitPracticeAnswer,
-    finishPractice,
-    nextPracticeQuestion,
-    startMistakePractice,
-    setMistakeStatus,
-    saveMistakeInsight,
     completeReview,
-    generatePlan,
-    togglePlanTask,
-    archivePlan,
-    planMilestoneStatusLabel,
     isCardPicked,
     selectCard,
     activateCard,
-    applyStudyCardLayout,
-    restoreStudyCardLayout,
-    openDailyProblem,
+    applySlotPreset,
+    restoreSlotPreset,
     setDiarySlotRestore,
   };
 }

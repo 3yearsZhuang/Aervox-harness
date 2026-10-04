@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defineComponent, h } from 'vue';
-import { UIRegistry, createUIRegistry } from '../src/registry/ui-registry';
+import { UIRegistry, createUIRegistry, mergeTransformMetadata } from '../src/registry/ui-registry';
 
 describe('UIRegistry', () => {
   it('creates registry via createUIRegistry factory', () => {
@@ -55,16 +55,49 @@ describe('UIRegistry', () => {
 
     // Execution order: step2 (50) -> step3 (30) -> step1 (10)
     // text="hi" -> "[step2:hi]" -> "[step3:[step2:hi]]" -> "[step1:[step3:[step2:hi]]]"
-    expect(registry.transformMessage('hi')).toBe('[step1:[step3:[step2:hi]]]');
+    expect(registry.transformMessage('hi').text).toBe('[step1:[step3:[step2:hi]]]');
   });
 
   it('unregisters message transformers correctly', () => {
     const registry = createUIRegistry();
     const unregister = registry.registerMessageTransformer('prefix', (text) => `prefix_${text}`);
 
-    expect(registry.transformMessage('msg')).toBe('prefix_msg');
+    expect(registry.transformMessage('msg').text).toBe('prefix_msg');
     unregister();
-    expect(registry.transformMessage('msg')).toBe('msg');
+    expect(registry.transformMessage('msg').text).toBe('msg');
+  });
+
+  it('收集变换器自述的出站 metadata，且宿主显式 metadata 优先（CR-060）', () => {
+    const registry = createUIRegistry();
+
+    registry.registerMessageTransformer('plugin-a', (text) => ({ text, metadata: { mode: 'focus', a: 1 } }), 10);
+    registry.registerMessageTransformer('plugin-b', (text) => ({ text, metadata: { b: 2 } }), 5);
+
+    const produced = registry.transformMessage('hi');
+    expect(produced.text).toBe('hi');
+    expect(produced.metadata).toEqual({ mode: 'focus', a: 1, b: 2 });
+
+    // 返回字符串的变换器只改写文本，不产生 metadata
+    registry.unregisterMessageTransformer('plugin-b');
+    registry.registerMessageTransformer('plain', (text) => `[plain:${text}]`, 1);
+    expect(registry.transformMessage('hi').metadata).toEqual({ mode: 'focus', a: 1 });
+
+    // 宿主显式值覆盖插件自述值（插件不得覆盖宿主语义）
+    expect(mergeTransformMetadata({ mode: 'quiz' }, produced.metadata)).toEqual({ mode: 'quiz', a: 1, b: 2 });
+
+    // 两者皆空时不产生 metadata
+    expect(mergeTransformMetadata(undefined, undefined)).toBeUndefined();
+    expect(mergeTransformMetadata(undefined, {})).toBeUndefined();
+  });
+
+  it('多个变换器自述同一键时，高优先级插件胜出（CR-060）', () => {
+    const registry = createUIRegistry();
+
+    registry.registerMessageTransformer('high', (text) => ({ text, metadata: { mode: 'high' } }), 100);
+    registry.registerMessageTransformer('low', (text) => ({ text, metadata: { mode: 'low', extra: 1 } }), 1);
+
+    // 管道按优先级降序执行，后执行者不得覆盖先执行者的同名键
+    expect(registry.transformMessage('hi').metadata).toEqual({ mode: 'high', extra: 1 });
   });
 
   it('registers and orders cards by priority and unregisters cleanly', () => {

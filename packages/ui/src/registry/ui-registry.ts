@@ -6,8 +6,50 @@ import type {
   SlotItemConfig,
   MessageTransformer,
   MessageTransformContext,
+  MessageTransformOutput,
+  MessageTransformResult,
   WorkbenchCardContribution,
 } from './types';
+
+/**
+ * 合并出站元数据（CR-060）：宿主**显式**值优先于插件自述值；两者皆空则视为不携带元数据。
+ * 该判据由宿主唯一执行，保证「宿主不解释插件私有取值」的同时不接受插件覆盖宿主语义。
+ */
+export function mergeTransformMetadata(
+  explicit: Record<string, unknown> | undefined,
+  produced: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  const merged = { ...(produced ?? {}), ...(explicit ?? {}) };
+  return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
+/** 归一变换器返回值：字符串视为仅改写文本 */
+function normalizeTransformResult(result: MessageTransformResult): {
+  text: string;
+  metadata?: Record<string, unknown>;
+} {
+  if (typeof result === 'string') return { text: result };
+  return { text: result.text, metadata: result.metadata };
+}
+
+/**
+ * 计算一次出站发送的最终文本与元数据（CR-060）。
+ *
+ * 宿主发送路径的**唯一**决策点：插件经变换管道自述模式语义，宿主显式元数据优先。
+ * 普通发送（无显式元数据）同样会带上插件自述语义——这是插件开关类语义得以生效的关键，
+ * 也是本函数被单测覆盖的原因（宿主不得再为具体插件硬编码模式派生）。
+ */
+export function resolveOutgoingMessage(
+  registry: UIRegistry,
+  text: string,
+  explicitMetadata?: Record<string, unknown>,
+): { text: string; metadata?: Record<string, unknown> } {
+  const transformed = registry.transformMessage(text, { metadata: explicitMetadata });
+  return {
+    text: transformed.text,
+    metadata: mergeTransformMetadata(explicitMetadata, transformed.metadata),
+  };
+}
 
 export class UIRegistry {
   private slots = shallowReactive<Record<string, ExtensionComponentRegistration[]>>({});
@@ -103,20 +145,31 @@ export class UIRegistry {
     delete this.messageTransformers[id];
   }
 
-  /** 执行已注册的消息变换管道（按优先级降序排序） */
-  transformMessage(message: string, context?: MessageTransformContext): string {
+  /**
+   * 执行已注册的消息变换管道（按优先级降序排序）。
+   *
+   * 返回最终文本与各插件自述的出站元数据（后者由调用方经 `mergeTransformMetadata`
+   * 与宿主显式元数据合并，插件不得覆盖宿主显式语义）。
+   *
+   * 元数据键冲突时**高优先级插件胜出**：管道按优先级降序执行，故后执行者不得覆盖
+   * 先执行者的同名键（与「priority 越大越权威」的既有语义一致）。
+   */
+  transformMessage(message: string, context?: MessageTransformContext): MessageTransformOutput {
     let result = message;
+    let metadata: Record<string, unknown> | undefined;
     const sorted = Object.values(this.messageTransformers)
       .slice()
       .sort((a, b) => b.priority - a.priority);
     for (const item of sorted) {
       try {
-        result = item.transformer(result, context);
+        const out = normalizeTransformResult(item.transformer(result, context));
+        result = out.text;
+        if (out.metadata) metadata = { ...out.metadata, ...(metadata ?? {}) };
       } catch (err) {
         console.error(`[UIRegistry] Message transformer error:`, err);
       }
     }
-    return result;
+    return { text: result, metadata };
   }
 
   /** 注册功能卡片 */

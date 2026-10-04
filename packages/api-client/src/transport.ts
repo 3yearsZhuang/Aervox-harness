@@ -8,7 +8,6 @@ import type {
   AskUserQuestionAnswerItem,
   AttachmentPurpose,
   PetCommand,
-  TermsExtractedEventData,
   ToolApprovalMode,
   ToolApprovalRequiredEventData,
   TurnAttachmentRef,
@@ -26,8 +25,14 @@ export interface TurnCallbacks {
   onReasoning?: (text: string) => void;
   /** UQ-01: 当模型请求向用户提问时触发 */
   onUserQuestion?: (data: UserQuestionRequiredEventData) => void;
-  /** CAP-007 / CAP-002: 术语抽取完成事件 */
-  onTermsExtracted?: (data: TermsExtractedEventData) => void;
+  /**
+   * CR-060：通用插件事件出口。
+   *
+   * 内核未做专门分发的流事件（含插件经 `registerPluginApiContribution` 登记的
+   * 自有事件类型）一律经此回调透传，宿主不再为任何插件事件预留专用回调；
+   * 载荷结构由声明该事件类型的插件定义与校验。
+   */
+  onPluginEvent?: (eventType: string, data: unknown) => void;
   /** PET-05: 写工具需要用户授权时触发（含 turnId 供授权提交使用） */
   onToolApproval?: (data: ToolApprovalRequiredEventData & { turnId: string }) => void;
   /** 已通过回合/顺序投影的事件；等待消费者处理以支持终端背压及交互。 */

@@ -481,6 +481,43 @@
       ]
     },
     {
+      "id": "ITER-026",
+      "batch": "next",
+      "status": "待评审",
+      "delivery": "伴学业务与会话执行器深度解耦插件化：宿主去领域化——CAP-002/007/016 的实现全部内聚于 `plugins/focus-mode`，宿主只保留通用扩展接缝（插件自有状态、出站 metadata 透传、插件流事件订阅、卡片槽位预设、设置与 Composer 贡献、工具与路由贡献）；清除 Turn 协议失效刷题字段与 `study-mode`/`quiz-mode` 历史别名；内核 `@aervox/core` 出口去除产品域提示词与刷题工具（对齐 Apache-2.0 分层）；建立宿主纯净性棘轮守卫与插件可移除目标（BTD-11，移除演练通过）；CR-060（Accepted / Implemented）；CAP-002/007/016",
+      "gate": "学习闭环为 P0 且属学习事实真源，按 AVX-CAP-001 反向检查保留主仓，故不新增 ADR、不转自选模块、不新建 `modules/*` submodule；不修改 learning 表结构与 CAP-003/004/006 端点；破坏性契约变更（`streamEventTypeSchema`、`@aervox/ui` 发送选项、`@aervox/core` 出口）先落 CR-060 并同步 OpenAPI 生成；插件实现目录不得进入分发包；代码缺席须保留安装记录、配置与数据管理入口",
+      "acceptance": [
+        "宿主（apps/api、apps/worker、apps/web、apps/desktop、packages/ui、packages/api-client、packages/core）零 domain 命中：check-host-domain-purity 零违规且豁免清单已清空，规则已覆盖 B9 迁出的全部样式类名（该守卫为字面量黑名单 + 棘轮：新增领域词汇须同步扩规则，已按此办理）",
+        "物理删除 plugins/focus-mode 的实现目录后宿主仍可编译运行，且保留安装记录、配置与数据管理入口：run-removability-drill 三相位通过（API/Worker 冷构建 + 被剥离的 Web/桌面组合根 typecheck）",
+        "分发包只含 plugin.manifest.json / config.schema.json / SKILL.md，SHA-256 仍字节可重现",
+        "别名体系整体删除（ServerTurnPlugin.aliases、注册表别名映射与候选 id 探测循环），插件 id 唯一；刷新前旧配置由插件自行一次性迁移至 pluginState 命名空间，不静默丢失",
+        "插件禁用时模型工具面不含 record_practice_attempt，/v1/terms/explore 不再注册；@aervox/core 公共出口不含产品域提示词与刷题工具",
+        "Web 与桌面组合根的插件注入经编译校验（移除演练的 Web/桌面 typecheck 相位）；宿主通用接缝有渲染回归（standard-workbench 用通用插件桩），组合根注入当前无独立渲染用例"
+      ],
+      "checks": [
+        "`scripts/check-host-domain-purity.test.mjs`（零命中、零豁免）",
+        "`scripts/check-removable-implementation.test.mjs`（focus-mode-plugin / BTD-11 / 移除计划 / 剥离正则命中 / 实现清单与磁盘对齐）",
+        "`scripts/run-removability-drill.mjs`（三相位，含插件整包移除与 Web/桌面 typecheck）",
+        "`scripts/export-plugins.test.mjs`",
+        "`apps/api/test/focus-mode-loop.test.ts`",
+        "`apps/api/test/study-term-plugins.test.ts`",
+        "`apps/api/test/plugin-bundle-allowlist.test.ts`",
+        "`packages/core/test/context-builder.test.ts`（提示词内容负向断言）+ `scripts/check-type-boundary.test.mjs`（插件目录纳入扫描根）",
+        "`packages/contracts/test/plugin-api-registry.test.ts`（路由冲突/非法路径/投影归属/重置生效负向断言）；`packages/api-client/test/projector.test.ts`（内核事件不下发插件通道）；`packages/ui/test/ui-registry.test.ts`、`packages/ui/test/workbench-startup.test.ts`",
+        "`plugins/focus-mode/test/plugin-registration.test.ts`",
+        "`packages/ui/test/standard-workbench.test.ts`"
+      ],
+      "owner": "platform/ecosystem",
+      "branch": "feat/iter-026-focus-mode-decoupling",
+      "statusNote": "2026-10-03 立项：CR-060 提出（审计基线 169720c，确认 43 个宿主文件含专注模式领域知识）；前置门禁缺陷修复随 3ede34e 独立交付。实施完成 S1–S7：服务端实现（回合切面/术语管线/作答工具/端点/回放夹具）迁入插件包并去宿主硬装配；宿主服务窄端口与装配点唯一实现点建立；内核与共享复习包去产品域内容；插件 API 契约改由登记表扩展；前端接缝通用化（pluginState / pluginEvents / metadata 透传 / applySlotPreset / plugins 注入 / 两个新插槽 / fail-closed 运行时）；插件 UI 与专属样式物理迁入 plugins/focus-mode/src/ui；宿主纯净性棘轮收敛至零命中零豁免；移除演练（BTD-11）删除插件整包并剥离组合根引用后 API/Worker 冷构建通过。评审第二轮修正：专注模式普通发送失效（补变换器回传 metadata 接缝）、quietStartup 不可观测（宿主先 await 插件同步）、applySlotPreset 零调用（插件接续调用）、CR 文档 Vale 红灯、插件 OpenAPI 可劫持内核契约（独立注册表 + 冲突拒绝）、投影白名单失去归属校验（随工具贡献声明 + 宿主代登记）、回合与工具门控 fail-open（统一为 fail-closed，端点门控必填）、别名体系死代码与内核事件外泄、旧配置迁移归插件、check-type-boundary 覆盖 plugins、移除演练纳入 Web/桌面编译。B9 物理搬迁补齐：宿主主题 48 条插件专属规则迁入插件样式表（混合选择器就地拆分，迁出后宿主源码引用数归零）；useWorkbenchCards 的刷题/错题/学习规划状态机与每日一题入口迁入插件自有组合式函数（宿主 752→471 行，保留 CAP-006 复习结果提交）；纯净性样式规则扩至该词汇并保持零豁免；补宿主侧「不再暴露已迁字段」断言与插件侧状态机行为用例。评审第三轮修正：插件端点诊断留痕（warn 与门控同列必填，失败不再静默 500）、复习结果保存失败恢复用户可见提示、槽位预设恢复同步落盘、消息 metadata 键冲突改高优先级胜出、插件学习状态机绑定改 shallowRef 并支持显式解绑、initFocusModeState 初始化标记移至容器守卫之后、清理遗留别名用法与外链 noreferrer。2026-10-03 已开 PR #250 待评审合入。",
+      "dependsOn": [],
+      "links": [
+        "docs/reference/changes/CR-060-focus-mode-host-decoupling.md",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/250"
+      ]
+    },
+    {
       "id": "ITER-027",
       "batch": "next",
       "status": "待评审",
@@ -646,7 +683,7 @@
       "id": "ITER-033",
       "batch": "next",
       "status": "建议",
-      "delivery": "统一模型 Provider 抽象面：收敛两套模型接入栈——`@aervox/agent-loop` 的 OpenAI 兼容 Provider（对话路径，`src/openai-compat-provider.ts`）与 `apps/api` model-runtime 的 Driver SPI（本地 llama 侧车）；补齐统一 Provider 目录与代际注册、跨栈一致的 stop reason 归一与 usage 分账（复用 T-10）、跨 Provider 上下文交接与标准化测试 Provider；收敛 BTD-04 剩余 `Llama*` 类型泄漏，为多模型路由与成本治理铺路；参考 PI-01 `packages/ai` 设计（参考评估 §8.3）；CAP-002/007；本地模型基础设施",
+      "delivery": "统一模型 Provider 抽象面：收敛两套模型接入栈——`@aervox/core` 的 OpenAI 兼容 Provider（对话路径，`src/openai-compat-provider.ts`；`@aervox/agent-loop` 已降级为 re-export 过渡壳）与 `apps/api` model-runtime 的 Driver SPI（本地 llama 侧车）；补齐统一 Provider 目录与代际注册、跨栈一致的 stop reason 归一与 usage 分账（复用 T-10）、跨 Provider 上下文交接与标准化测试 Provider；收敛 BTD-04 剩余 `Llama*` 类型泄漏，为多模型路由与成本治理铺路；参考 PI-01 `packages/ai` 设计（参考评估 §8.3）；CAP-002/007；本地模型基础设施",
       "gate": "保持本地单用户与不出网红线：Driver 缺省仍为 unavailable 明确拒绝，受限本地任务缺合规 Provider 时不静默转远程；新增远程 Provider、改变制品信任等级或合并两栈持久化语义先 CR；不引入第二套 Provider 注册表真源；与 ITER-008 下载/进程正确性协同",
       "acceptance": [
         "同一 Fake/Replay Provider 轨迹下，对话与本地模型两条路径产出一致的规范化终止语义与 usage 分账（对照 provider-parity 表）",
@@ -827,6 +864,35 @@
         "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
         "docs/reference/agent-harness-loop.md#6-单次-turn-执行算法",
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现原则"
+      ]
+    },
+    {
+      "id": "ITER-042",
+      "batch": "first",
+      "status": "已移交",
+      "delivery": "ExecuteResult 终态命名收敛（ITER-041 遗留交付项③）：ExecuteResult 增加 interrupted 变体——DB 侧以 Interrupted 收敛的路径（预算/截止/删除水位/turn 超时、max_steps 耗尽、审批待决 pending_approval）不再以 failed 承载返回值；DB 侧本即 Failed 的路径（tools_disabled、execution error、lease_lost、finalize contested）保持 failed 不动。AttemptStatus 持久化枚举零变更（Interrupted 早已存在），不触发 CR 条件",
+      "gate": "纯类型语义收敛：不触碰 AttemptStatus 持久化枚举、公开 SSE 契约与数据库 Schema；下游 reason 断言语义不变（headless 冒烟改断 status=interrupted + 原 reason）；子任务路径维持「Interrupted 收敛为 Failed、父侧可重试」既有语义",
+      "acceptance": [
+        "core ExecuteResult 增 interrupted 变体，DB=Interrupted 的三条收敛路径（finalizeInterrupted / pending_approval / max_steps）返回 interrupted，DB=Failed 路径保持 failed",
+        "下游消费方（host-agent / apps/api）编译与测试零回归，headless 冒烟断言同步更新",
+        "core 用例全绿且新增 interrupted 语义锁定用例"
+      ],
+      "checks": [
+        "packages/core/test/control-context.test.ts",
+        "packages/core/test/budget.test.ts",
+        "packages/core/test/cancel.test.ts",
+        "packages/core/test/executor-b4.test.ts",
+        "scripts/run-headless-agent.mjs"
+      ],
+      "owner": "platform",
+      "branch": "refactor/core-interrupted-status",
+      "statusNote": "2026-10-03 完成：ExecuteResult 增 interrupted 变体，返回值 status 与 Attempt 库内终态一一镜像（库内 Interrupted → interrupted：finalizeInterrupted 全路径 / max_steps / pending_approval；库内 Failed 与未终态化路径 → failed 保持：tools_disabled / execution error / lease_lost / finalize contested）。reason 全保留、AttemptStatus 持久化枚举与公开契约零变更、不触发 CR 条件。core 用例 266→268（新增对齐矩阵 2 条 + 13 处既有断言语义同步）；build 19/19、test-affected 14 任务全绿、headless 冒烟 PASS。验收证据见 PR #251",
+      "dependsOn": [
+        "ITER-041"
+      ],
+      "links": [
+        "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
+        "docs/reference/agent-harness-loop.md#6-单次-turn-执行算法"
       ]
     }
   ]

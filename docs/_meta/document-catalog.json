@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-03",
-  "totalCount": 67,
+  "generatedAt": "2026-10-04",
+  "totalCount": 68,
   "documents": [
     {
       "id": "AVX-PLAN-001",
@@ -796,9 +796,9 @@
       "doc_status": "approved",
       "decision_status": "accepted",
       "delivery_status": "not-applicable",
-      "version": "0.2.2",
-      "updated_at": "2026-09-28",
-      "reviewed_at": "2026-09-28",
+      "version": "0.2.3",
+      "updated_at": "2026-10-03",
+      "reviewed_at": "2026-10-03",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -1029,6 +1029,45 @@
       ]
     },
     {
+      "id": "CR-060",
+      "title": "CR-060 专注模式宿主去领域化与插件实现内聚",
+      "path": "reference/changes/CR-060-focus-mode-host-decoupling.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "maintainers",
+      "doc_status": "review-candidate",
+      "decision_status": "accepted",
+      "delivery_status": "implemented",
+      "version": "1.0.0",
+      "updated_at": "2026-10-03",
+      "reviewed_at": "2026-10-03",
+      "review_interval_days": 30,
+      "review_triggers": [
+        "plugins/**",
+        "packages/host-plugin-api/**",
+        "packages/ui/src/plugins/**",
+        "packages/ui/src/composables/workbench-context.ts",
+        "packages/ui/src/registry/**",
+        "packages/core/src/index.ts",
+        "packages/core/src/ports.ts",
+        "apps/api/src/modules/ecosystem/plugins/**",
+        "apps/api/src/app.ts",
+        "apps/api/src/plugin-assembly.ts",
+        "scripts/check-host-domain-purity.mjs",
+        "scripts/check-removable-implementation.mjs"
+      ],
+      "sources": [
+        "docs/reference/PRD.md",
+        "docs/reference/ARCHITECTURE.md",
+        "docs/reference/capability-composition.md",
+        "docs/reference/plugin-config-and-pages.md",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md",
+        "docs/reference/adr/ADR-014-modular-monolith-structure.md",
+        "docs/reference/adr/ADR-016-base-boundaries.md",
+        "docs/reference/adr/ADR-021-aervox-core-standalone-package.md"
+      ]
+    },
+    {
       "id": "CR-000",
       "title": "变更请求索引与归档导航 (Change Requests Index)",
       "path": "reference/changes/README.md",
@@ -1164,12 +1203,13 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.0.2",
-      "updated_at": "2026-09-28",
-      "reviewed_at": "2026-09-28",
+      "version": "1.0.5",
+      "updated_at": "2026-10-03",
+      "reviewed_at": "2026-10-03",
       "review_interval_days": 90,
       "review_triggers": [
         "plugins/**",
+        "packages/host-plugin-api/**",
         "packages/contracts/src/plugin-config-schemas.ts",
         "packages/repositories/src/repositories/sqlite/*plugin*",
         "packages/ui/src/registry/**",
@@ -1179,6 +1219,7 @@
         "packages/ui/src/composables/workbench-context.ts",
         "apps/api/src/modules/ecosystem/plugins/**",
         "apps/api/src/modules/ecosystem/tools/**",
+        "apps/api/src/plugin-assembly.ts",
         "scripts/export-plugins.mjs"
       ],
       "sources": [
@@ -1301,9 +1342,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.4.2",
-      "updated_at": "2026-09-30",
-      "reviewed_at": "2026-09-30",
+      "version": "0.4.3",
+      "updated_at": "2026-10-03",
+      "reviewed_at": "2026-10-03",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []

@@ -51,7 +51,7 @@ export const ALLOWED_DUPLICATES = new Map([
   ],
 ]);
 
-export function getSubpackageJsonPaths(roots = ["apps", "packages"]) {
+export function getSubpackageJsonPaths(roots = ["apps", "packages", "plugins"]) {
   const paths = [];
   for (const root of roots) {
     if (!existsSync(root)) continue;
@@ -98,7 +98,7 @@ export function inspectSubpackage(relDir, pkgJson, rootDevDeps) {
   return violations;
 }
 
-export function runInspection(rootPkgPath = "package.json", roots = ["apps", "packages"]) {
+export function runInspection(rootPkgPath = "package.json", roots = ["apps", "packages", "plugins"]) {
   const rootPkg = JSON.parse(readFileSync(rootPkgPath, "utf8"));
   const rootDevDeps = new Set(Object.keys(rootPkg.devDependencies || {}));
   const subpackages = getSubpackageJsonPaths(roots);

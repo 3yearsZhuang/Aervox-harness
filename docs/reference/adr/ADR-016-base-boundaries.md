@@ -5,9 +5,9 @@ scope: decision
 owner: maintainers
 doc_status: approved
 decision_status: accepted
-version: 0.2.2
-updated_at: 2026-09-28
-reviewed_at: 2026-09-28
+version: 0.2.3
+updated_at: 2026-10-03
+reviewed_at: 2026-10-03
 review_interval_days: 90
 ---
 
@@ -56,7 +56,7 @@ review_interval_days: 90
 |---|---|---|
 | L0 | `packages/contracts` | 仅第三方契约库；不得依赖任何 `@aervox/*` |
 | L1 | `packages/database` | `@aervox/contracts`、libsql、Drizzle（数据真源底座） |
-| L1 | `packages/agent-loop` | `@aervox/contracts`；不得导入 database/libsql/Drizzle |
+| L1 | `packages/core` | `@aervox/contracts`（仅 type-only）；不得导入 database/libsql/Drizzle；运行时应保持零依赖（ADR-021）；`packages/agent-loop` 为指向它的 re-export 过渡壳，同受本条约束 |
 | L2 | `packages/api-client`、`packages/ui` | 契约/传输/共享组件；不得导入 database/libsql/Drizzle、不得依赖宿主 Shell |
 | L3 | `apps/*` | 上述所有底座（宿主单向消费底座） |
 | 预留 | `capabilities/`、`providers/`、`adapters/`、`modules/` | 仅经 Port/Contract 与宿主受限接口交互；不得导入 database/libsql/Drizzle、不得依赖宿主 Shell |
@@ -66,7 +66,7 @@ review_interval_days: 90
 | # | 规则 | from | 禁止 import 到 |
 |---|---|---|---|
 | 1 | `contracts-must-be-leaf` | `packages/contracts/` | 任何 `@aervox/*` |
-| 2 | `agent-loop-no-db` | `packages/agent-loop/` | `@aervox/repositories`、`@libsql/*`、`Drizzle ORM` |
+| 2 | `core-no-db` | `packages/core/` | `@aervox/repositories`、`@libsql/*`、`Drizzle ORM` |
 | 3 | `packages-no-host-imports` | `packages/*` 的 `src`/`test` | `@aervox/api\|worker\|web\|desktop\|mobile`、`apps/` |
 | 4 | `ui-client-no-db` | `packages/ui`、`packages/api-client` | `@aervox/repositories`、`@libsql/*`、`Drizzle ORM` |
 | 5 | `capability-layer-no-db-no-host` | `capabilities/`、`providers/`、`adapters/`、`modules/` | 同 #4 + 宿主 Shell |

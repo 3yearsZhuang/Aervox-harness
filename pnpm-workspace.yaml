@@ -1,6 +1,9 @@
 packages:
   - "apps/*"
   - "packages/*"
+  # CR-060：第一方插件的实现与声明同置于 plugins/<id>/，实现以 workspace 包消费
+  # （AVX-CAP-001「消费一律走 workspace 包」，禁止路径 hack、禁止复制代码引用）。
+  - "plugins/*"
 
 # pnpm 11：允许 esbuild / electron 构建脚本（下载平台二进制），显式阻断 better-sqlite3 原生编译（@aervox/repositories 实际使用 @libsql/client）
 # electron-winstaller 为 electron-builder 传递依赖（仅 Squirrel 目标使用，本项目用 NSIS），不执行安装脚本

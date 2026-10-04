@@ -211,7 +211,7 @@ describe("executeTurn 阶段 2：只读工具多 Step Loop", () => {
       { turnId: "turn_t", sessionId: "sess_t", attemptId: "atp_t", userMessage: "x" },
     );
 
-    expect(result).toMatchObject({ status: "failed", reason: "max_steps" });
+    expect(result).toMatchObject({ status: "interrupted", reason: "max_steps" });
     const events = await store.listEvents("turn_t");
     const done = events.find((e) => e.eventType === "done")?.data as { status: string; isComplete: boolean } | undefined;
     expect(done).toMatchObject({ status: "Interrupted", isComplete: false });

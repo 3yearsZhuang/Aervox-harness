@@ -4,8 +4,8 @@
  */
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { openApiDocument } from "../dist/openapi.js";
+import { buildOpenApiDocument } from "../dist/openapi.js";
 
 const out = fileURLToPath(new URL("../openapi.json", import.meta.url));
-writeFileSync(out, `${JSON.stringify(openApiDocument, null, 2)}\n`, "utf8");
+writeFileSync(out, `${JSON.stringify(buildOpenApiDocument(), null, 2)}\n`, "utf8");
 console.log(`[contracts] wrote ${out}`);
