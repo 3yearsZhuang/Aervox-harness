@@ -3,7 +3,7 @@
 - 提出人：3yearszhuang · 2026-08-26
 - 修改人：3yearszhuang · 2026-09-30
 
-本文件是所有 AI 编码助手（包括 Antigravity、Claude Code、Cursor、GitHub Copilot、Roo Code、Windsurf 等）的进入点与协作底线协议：
+本文件是所有 AI 编码助手（包括 Antigravity、Cursor、GitHub Copilot、Roo Code、Windsurf 等）的进入点与协作底线协议：
 **只索引，不复制**：权威技术规范、产品定义与架构事实源一律深链至 `docs/`，严禁在入口复制可能变更的业务逻辑，杜绝双源漂移。
 当前迭代从根目录 [plan.md](plan.md) 开始：它是项目当前迭代建议、排序、依赖与待决策事项的唯一权威入口。长期维护规则见[迭代计划治理](docs/reference/document-governance.md#31-当前迭代计划的唯一入口)，需求、架构决策与交付证据仍按各自事实源维护。
 详细协作指南见 [从哪开始](docs/getting-started.md)（新成员与 Agent 完整 onboarding）、[文档治理规范](docs/reference/document-governance.md) 与 [文档写作规范](docs/reference/standards/doc-standards.md)。
