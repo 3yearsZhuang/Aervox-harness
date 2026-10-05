@@ -1,0 +1,16 @@
+{
+  "model": {
+    "baseUrl": "http://127.0.0.1:8000/v1",
+    "modelId": "REPLACE_WITH_SERVED_MODEL_ID",
+    "revision": "UNVERIFIED_REPLACE_WITH_MODEL_DIGEST",
+    "quantization": "UNVERIFIED_REPLACE_WITH_ACTUAL_FORMAT",
+    "contextTokens": 32768,
+    "temperature": 0.2,
+    "maxTokens": 4096
+  },
+  "eda": { "image": null, "cpus": 4, "memoryMb": 8192, "pids": 512, "timeoutMs": 300000 },
+  "budget": { "runMs": 900000, "judgeMs": 600000, "maxCalls": 4, "maxChecks": 4, "maxInputBytes": 24000, "maxResponseBytes": 262144, "maxCodeBytes": 8000 },
+  "seed": 2026,
+  "samples": 1,
+  "timing": "mixed-unverified"
+}
