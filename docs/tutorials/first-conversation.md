@@ -7,8 +7,8 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.3.0
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
+updated_at: 2026-10-06
+reviewed_at: 2026-10-06
 review_interval_days: 90
 ---
 
@@ -61,7 +61,7 @@ git submodule update --init --recursive
 - 桌面端：打开桌宠窗口，输入"你好"并发送，应看到逐句流式回复；
 - Web 端：打开 `http://127.0.0.1:5173` 后同样发消息。
 
-> 桌面端需要 `AERVOX_API_URL='http://127.0.0.1:3000'` 与 `AERVOX_SESSION_ID='<现有会话 ID>'`；会话 ID 必须指向 API 有权访问的会话（见 [README 快速开始](../../README.md#快速开始)）。
+> 桌面端需要 `AERVOX_API_URL='http://127.0.0.1:3000'` 与 `AERVOX_SESSION_ID='<现有会话 ID>'`；会话 ID 必须指向 API 有权访问的会话（见 [常用开发环境变量](../getting-started.md#7-常用开发环境变量)）。
 
 ## 第 5 步 · 验证（可选，CLI 视角）
 
