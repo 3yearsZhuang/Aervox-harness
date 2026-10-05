@@ -23,9 +23,9 @@ review_interval_days: 90
 
 | 文档编号 | 文档 | 最后核验 | 核验节奏 | 陈旧信号 |
 |---|---|---|---|---|
-| `AVX-PRD-001` | [PRD](reference/PRD.md) | 2026-10-04 | 每次版本立项 / G0 | CAP 范围或优先级变更未建立 `CR-*` |
+| `AVX-PRD-001` | [PRD](reference/PRD.md) | 2026-10-06 | 每次版本立项 / G0 | CAP 范围或优先级变更未建立 `CR-*` |
 | `AVX-SRS-001` | [SRS](reference/SRS.md) | 2026-10-04 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
-| `AVX-SAD-001` | [架构设计](reference/ARCHITECTURE.md) | 2026-10-04 | G2 评审 + 架构变更 | CR-030 本地单用户边界、API 安全或数据拓扑未同步 |
+| `AVX-SAD-001` | [架构设计](reference/ARCHITECTURE.md) | 2026-10-06 | G2 评审 + 架构变更 | CR-030 本地单用户边界、API 安全或数据拓扑未同步 |
 | `AVX-DS-001` | [视觉系统与设计规范](reference/DESIGN.md) | 2026-09-17 | UI 重构 / 主题演进 | 视觉规范、Token 或禁止模式未同步 |
 | `ADR-001~021` | [ADR 索引](reference/adr/README.md) | 2026-10-04 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
 | `ADR-001` | [模块化单体架构与 Worker 拆分](reference/adr/ADR-001-modular-monolith.md) | 2026-09-13 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
@@ -71,7 +71,7 @@ review_interval_days: 90
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 2026-10-04 | 写作规则、模板或季度评审 | 新文档未使用规范元数据/签名，或 Vale 规则与术语表不一致 |
 | `AVX-STD-002` | [代码与 API 命名规范](reference/standards/naming-conventions.md) | 2026-09-17 | 命名规则、术语或季度评审 | `tenant` 残留扩大化、`@aervox/database` 复现、路由/包命名偏离本文，或新规则未先登记即落地 |
 | `AVX-TERM-001` | [术语表](reference/standards/terminology.md) | 2026-09-18 | 术语新增/变更 | 新增缩写未登记，或正文拼写与「禁写」列不一致 |
-| `AVX-TUT-001` | [教程：第一个对话](tutorials/first-conversation.md) | 2026-10-04 | 启动命令/端点变更 | 快速开始命令、Turn/SSE 端点与 README/契约不一致 |
+| `AVX-TUT-001` | [教程：第一个对话](tutorials/first-conversation.md) | 2026-10-06 | 启动命令/端点变更 | 快速开始命令、Turn/SSE 端点与 README/契约不一致 |
 | `AVX-TUT-002` | [教程：迁移已集成能力并接入 DSH/pi](tutorials/migrate-integrated-capabilities.md) | 2026-10-04 | 能力目录、DSH/pi 上游或迁移步骤变更 | 当前实现路径、固定 SHA、权限/隔离边界或验证命令与仓库不一致 |
 | `AVX-TUT-003` | [教程：编写自定义 Agent 工具](tutorials/create-agent-tool.md) | 2026-10-04 | 工具运行时、安全级别或注册表持久化变更 | Schema 定义、安全级别枚举或 Handler 接口与代码不一致 |
 | `AVX-EXPL-000` | [Explanation 概念与架构解释索引](explanation/README.md) | 2026-10-04 | 概念解释目录或调研生命周期变更 | 解释目录索引或三态分类与实际不符 |
@@ -86,7 +86,7 @@ review_interval_days: 90
 | `AVX-EXPL-011` | [配套硬件方向：能力核查、移动协同取舍与原型路线](explanation/companion-hardware-directions.md) | 2026-09-18 | 移动范围、设备宿主、语音、表现协议、本地模型或外部连接能力变更 | 能力现状、手机重合、器件候选、原型范围、成本或停止条件与实际证据不一致 |
 | `AVX-EXPL-008` | [主动智能模式设计方案](explanation/proactive-intelligence-mode.md) | 2026-10-04 | CR-023/CAP-033、完全访问、全量画像、OS 能力授权、特权观察 Host、本地处理、动作授权、CAP-022/026/027/030 变更 | 四维状态、完整画像 manifest、平台能力清单、OS grant、本地出网边界、七天提炼保留、动作授权、阻断项或实现门禁与基线不一致 |
 | `AVX-DOC-001` | [文档索引](README.md) | 2026-10-04 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
-| `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-10-04 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |
+| `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-10-06 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |
 | `AVX-DOC-CONF-001` | [文档生命周期登记表](DOC_REGISTRY.md) | 2026-10-04 | 每季度 + 每次文档集变更 | 登记条目与实际文档集不一致 |
 | `CR-000` | [变更请求索引与归档导航](reference/changes/README.md) | 2026-10-01 | 变更提案生命周期或归档目录变更 | 提案生命周期规则或归档索引与实际不符 |
 | `CR-055` | [CR-055 移动端落地范围与分阶段交付规划](reference/changes/CR-055-mobile-delivery-plan.md) | 2026-09-18 | 移动宿主、连接认证、跨设备数据边界或阶段范围变更 | 配套/独立端定位、原生支持范围、实际实现证据或隐私约束与规划不一致 |

@@ -7,8 +7,8 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.6.0
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
+updated_at: 2026-10-06
+reviewed_at: 2026-10-06
 review_interval_days: 90
 ---
 
@@ -176,6 +176,14 @@ apps/api/test/                       # 集成测试
 - **内容边界**：只放跨端复用且**无壳依赖**（Electron IPC / Capacitor）的展示组件与主题 token；页面壳、窗口控制、preload 桥接、平台通道逻辑一律留在各端。
 - **允许端内差异**：Electron 多窗口桌宠与 Web 无桌宠表现层属于壳能力差异；桌面保留桌宠区域和 `pet.html`，Web 只承载共享工作台。
 - **约束**：建包不改变 ADR-014/015 决策；若仅两端复用亦可在各自端内先收敛再提升，避免为假想需求建包。
+
+#### 3.2.1 桌宠多形态渲染引擎
+
+桌面端与 Web 端共用一套协议契约与 SSE `emote` 情感表现，支持三种按需渲染模式：
+
+1. **CSS 骨架（`PetHero`）**：纯静态 DOM + CSS 变换驱动动作与表情，零外部素材依赖，极速轻量启动。
+2. **Codex 精灵图（`SpritePet`）**：消费标准 9 状态 Spritesheet（`pet.json` + 8×9 atlas），支持依据工具调用成败（`waving` / `failed`）实时改变姿态。
+3. **Live2D 动态模型（`Live2D`）**：加载标准 Live2D Cubism 模型（真源位于 `packages/live2d/mizuki`），在 Web 与桌面独立桌宠窗口中呈现细腻骨骼动作，加载异常时自动平滑回退至 CSS 骨架。
 
 领域模块：
 
@@ -463,3 +471,19 @@ CR-030 后部署形态为「永久本地单用户实例」：不存在多用户�
 - 演练证明模型供应商中断、SQLite 备份恢复、原子换库与回滚、本地附件恢复、Outbox 队列重放和功能开关回滚可执行。
 - CAP-033 另须证明本地出网阻断、全量来源授权、七天捕获提炼清理、后台自启/恢复通知、全动作授权/撤权和独立可读导出；ADR-018 接受前不得启用真实广域数据。
 - CAP-034/035 另须证明 HA 重连/版本矩阵、真实 OAuth/LLAT 撤销、小米厂商沙箱契约、凭据零回显和连接级删除；通过前保持 `Not Ready`。
+
+### 12.1 系统级防多源漂移守卫体系
+
+为了从根源上杜绝架构文档、数据库定义、跨层契约与依赖拓扑随时间推移产生的多源漂移，仓库内置了 5 道自动化防漂移系统级门禁（在本地 `./aervox ci` 与 GitHub Actions CI 中严格阻断）：
+
+- **Guard 1 (P0 表结构双源等价守卫)**：内存 SQLite DDL 与 Drizzle Schema 全量 134 表双向等价断言，杜绝建表遗漏 Schema 或 Schema 遗漏 DDL；
+- **Guard 2 (P0 AST 级租户遗留标识拦截)**：基于 Babel AST 语法树遍历，硬性阻断 `TenantContext`、`tenantId` 及承载 `LocalContext` 的 `tenant` 变量复发；
+- **Guard 3 (P1 文档-代码自动渲染与校验)**：校验全部业务表在覆盖矩阵中的登记完整性、校验 19 个工作区包与架构拓扑对齐、自动化 ADR 索引生成与 `--check` 一致性门禁；
+- **Guard 4 (P1 跨层 DTO 类型单一真源)**：扫描下游应用层，严禁本地重复声明已由 `@aervox/contracts` 导出的 DTO 类型；
+- **Guard 5 (P2 依赖提升与版本分裂治理)**：扫描子包 `package.json`，严禁重复声明根级构建工具（`typescript`、`turbo`、`vitest` 等）。
+
+本地运行守卫套件：
+
+```bash
+pnpm check:guards        # 秒级运行 6 项守卫与针对性单元测试
+```
