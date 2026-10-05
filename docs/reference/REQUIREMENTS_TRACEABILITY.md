@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.53.1
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
+version: 1.54.0
+updated_at: 2026-10-05
+reviewed_at: 2026-10-05
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 需求追踪与交付质量基线
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-10-03
+- 修改人：3yearszhuang · 2026-10-05
 
 产品需求来源：[PRD.md](PRD.md)
 
@@ -194,6 +194,8 @@ review_interval_days: 90
 - `core-circular-args-resilience-20261003`：循环引用工具参数可降级（缺陷 D-CIRC），模型返回自引用 `arguments` 时，预算计量行的裸 `JSON.stringify(chunk.toolCalls)` 原会抛 `Converting circular structure to JSON` 并逃出流式循环，把计量偏差放大为整 Turn 的 `execution error`；改用 `safeStringify`（保持原形不排序键，仅对环回引用与不可序列化值降级为标记），使畸形参数成为可降级输入异常而非致命错误，入参安全判定仍由 `inspectToolInput` 负责；回归由 `packages/core/test/circular-args-resilience.test.ts` 锁定（单层自引用、深度自引用、工具不执行、事件仍留痕、非循环引用路径行为不变）；实现位置 `packages/core/src/executor.ts`、`packages/core/src/safe-serialize.ts`；验收证据见对应 PR。
 - `core-executor-decoupling-20261003`：executor 单函数复杂度收口与审批裁决单点收敛（ITER-041），`executeTurn` 由 911 行单函数拆为「编排 + 四个职责模块」，外部端口签名（`ExecutionStorePort` / `ModelProviderPort` / `ToolProviderPort` / `ApprovalPolicyPort`）与公开 SSE 契约零变更：终态收敛切至 `packages/core/src/turn-terminator.ts`（取消 / 预算 / 删除闸门四条路径与主循环解耦）、工具执行管线切至 `packages/core/src/tool-pipeline.ts`（入参沙箱 → 审批 → 子任务 ControlContext 派生 → 执行 → 租约丢失中止）、账本收口切至 `packages/core/src/tool-ledger.ts`（结果分类与账本状态映射，幂等正确性关键）、Step 流式收集切至 `packages/core/src/step-collector.ts`（计量 / 预算守卫 / 心跳检查点 / 思考增量节流）；审批裁决映射收敛为单一真源 `packages/core/src/approval-decision.ts` 的 `decideToolCall`，消除 executor 内联段与 `withApprovalPolicy` 装饰器的双实现分叉；两个序列化函数各自独立为单一真源且明确不可合并（`stable-serialize.ts` 排序键供去重，`safe-serialize.ts` 不排序供事件账本保真）；实现位置 `packages/core/src/executor.ts` 及上述五个新模块；回归由 `dedupe-key` / `circular-args-resilience` / `approval-decision` / `tool-ledger` / `tool-pipeline` / `step-collector` 六个测试文件与 `executor-b4` 重试补录用例共 41 条新增用例锁定，core 用例由 225 增至 266；executor 由 911 行降至 655 行、最大缩进层级由 5.5 降至 3.5；同日审核整改修复重试路径 reasoning 尾部丢失（收尾 flush 归位至生效收集器）并清理 `safe-serialize` 残留副本与 `decideToolCall` 未用入参，`DeletionGatePort` 迁至 `ports.ts`；`ExecuteResult` 以 `failed` 承载 `Interrupted` 终态的命名收敛未动（涉持久化枚举需先立 CR）；验收证据见对应 PR 与 `ITER-041` 计划条目。
 - `core-execute-result-interrupted-20261003`：ExecuteResult 终态命名收敛（ITER-041 遗留交付项③ / ITER-042），`ExecuteResult` 增加 `interrupted` 变体，返回值 status 与 Attempt 库内终态一一镜像——库内 `Interrupted`（`finalizeInterrupted` 全路径、`max_steps`、`pending_approval`）返回 `interrupted`，库内 `Failed` 与本 runner 未能终态化路径（`tools_disabled` / `execution error` / `lease_lost` / finalize contested）保持 `failed`；`reason` 字段全保留，`AttemptStatus` 持久化枚举与公开 SSE 契约零变更（不满足 CR 触发条件）；实现位置 `packages/core/src/types.ts`、`packages/core/src/turn-terminator.ts`、`packages/core/src/executor.ts`；回归由 `packages/core/test/execute-result-status.test.ts` 对齐矩阵 2 条与 13 处既有断言语义同步锁定，headless 冒烟断言同步（status=interrupted + 原 reason）；验收证据见对应 PR。
+- `hls-agent-research-executor-20261005`：HLS 本地智能体研究执行器合流（CR-057 / ITER-021 研究切片），`scripts/hls-agent/` 提供配置校验、环境诊断、裸跑（B0）/普通诊断（A1）/结构化诊断+技能（A2）/独立采样（C1）双入口四组对照、Vitis 容器隔离适配（禁网、只读根目录、最小挂载、资源上限、强制清理）、候选与事件证据落盘、固定分母批跑与 pass@1/pass@5 汇总；内核协议修复随迁 `@aervox/core`：assistant 历史逐项配对 `tool_calls`（ID/名称/参数）、`reasoning` 由每条 assistant 消息持有（Provider 不再跨请求共享推理状态）、可选采样种子 `seed`、原始流字节上限 `maxResponseBytes` 与错误正文 200 字节截断；实现位置 `scripts/hls-agent/`、`scripts/hls-agent.test.mjs`、`packages/core/src/types.ts`、`packages/core/src/executor.ts`、`packages/core/src/openai-compat-provider.ts`；`mise tasks run hls-check`（构建 `@aervox/core...` + HLS 合同）接入 ci-fast/ci-code/ci-code-full；验证：`packages/core` 40 文件 270/270（含逐消息推理隔离与错误截断 2 项新增回归）、HLS 合同 14/14；研究执行器不接入默认应用启动，不改变 API、数据库与业务 CAP 合同；真实 GPU/Vitis、官方评分与留出集增益差量保持；验收证据见对应 PR 与 [CR-057 §4](changes/CR-057-hls-local-agent-validation.md#4-回滚与交付记录)。
+- `hls-plugin-delivery-plan-20261005`：HLS 插件详细落成规划纳入唯一计划入口（[plan.md §4.1](../../plan.md#hls-plugin-delivery)）：H1～H4 对应 ITER-021 真实验证与去留，S1～S3 对应 ITER-022 竞赛适配与冻结提交，M1～M6 对应新增条件候选 ITER-043 可选插件产品化（原规划占用的 ITER-029 编号已归属 CLI 条目，随合流重登记）；关联 CAP-007/020/027 仅作规划关联，不改变能力状态；本轮仅改计划与登记，不新增产品代码、不注册业务 CAP、不创建独立仓库；边界参考 [CR-057](changes/CR-057-hls-local-agent-validation.md) 与[能力组合规范](capability-composition.md#模块化交付不变量)。
 
 ## 5. 原子需求字段模板
 
