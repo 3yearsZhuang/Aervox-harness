@@ -21,14 +21,14 @@ AERVOX_LOOP_PROVIDER = "llm"
 install = "pnpm install --frozen-lockfile"
 
 # 极速本地增量门禁（CI 配置一致性 + 防漂移守卫 + 增量代码构建/类型/测试 + 增量文档检查，15~30秒完成）
-ci-fast = "node --test scripts/ci-scope.test.mjs && pnpm check:guards && node scripts/check-affected.mjs && node scripts/docs-lint-affected.mjs"
+ci-fast = "node --test scripts/ci-scope.test.mjs && pnpm check:guards && node scripts/check-affected.mjs && pnpm check:hls && node scripts/docs-lint-affected.mjs"
 ci-affected = "mise tasks run ci-fast"
 
 # 本地代码门禁（免重复 install，受控 2 并发）
-ci-code = "pnpm check:guards && pnpm check:boundary && pnpm check:ci-config && pnpm check:artifacts && pnpm build && pnpm typecheck && pnpm test"
+ci-code = "pnpm check:guards && pnpm check:boundary && pnpm check:ci-config && pnpm check:artifacts && pnpm build && pnpm typecheck && pnpm test && pnpm check:hls"
 
 # 全量冷启动代码门禁（对齐 GitHub Actions CI，含 frozen-lockfile install）
-ci-code-full = "pnpm install --frozen-lockfile && pnpm check:guards && pnpm check:boundary && pnpm check:ci-config && pnpm check:artifacts && pnpm build && pnpm typecheck && pnpm test"
+ci-code-full = "pnpm install --frozen-lockfile && pnpm check:guards && pnpm check:boundary && pnpm check:ci-config && pnpm check:artifacts && pnpm build && pnpm typecheck && pnpm test && pnpm check:hls"
 
 # 统一防多源漂移守卫集合（租户禁用词 + 类型边界 + 依赖提升 + 包拓扑 + 数据库覆盖矩阵 + ADR 索引）
 check-guards = "pnpm check:guards"
@@ -91,3 +91,11 @@ build = "pnpm build"
 
 # 清理构建产物与缓存
 clean = "rm -rf apps/*/dist apps/*/out packages/*/dist node_modules/.turbo && pnpm install"
+
+[tasks.hls-agent]
+description = "HLS research CLI (doctor/run/batch/report)"
+run = "node scripts/hls-agent/cli.mjs"
+
+[tasks.hls-check]
+description = "Build core and test HLS research contracts"
+run = "pnpm check:hls"
