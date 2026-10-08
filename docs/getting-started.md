@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.2.0
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
+version: 1.3.0
+updated_at: 2026-10-06
+reviewed_at: 2026-10-06
 review_interval_days: 90
 ---
 
 # 从哪开始（新成员 / AI Agent 入口）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-28
+- 修改人：3yearszhuang · 2026-10-06
 
 关联：[文档索引](README.md)（AVX-DOC-001）
 
@@ -102,3 +102,15 @@ reference/               # 固定 commit 的子模块（只读参考，见 PRD 1
 - 规划可替换实现与类 pi 分层：CR-056（已归档至 Aervox-docs-archive）给出公开 Port、生命周期、试点与退出验收；当前架构评审见 ITER-014，本次规划交付见 ITER-023，实施状态不由 CR 内切片另行维护；
 - 规划配套设备：[配套硬件方向：能力核查、移动协同取舍与原型路线](explanation/companion-hardware-directions.md)，器件级设计输入见 [ESP32-S3 硬件延伸方案](explanation/esp32-s3-hardware-extension.md)；
 - 规划手机体验：[移动端落地规划](reference/changes/CR-055-mobile-delivery-plan.md)（CR-055，待评审），比较配套端与独立端，核对连接、数据边界与逐阶段验收。
+
+## 7. 常用开发环境变量
+
+| 作用域 | 环境变量 | 说明与推荐默认值 |
+|---|---|---|
+| API | `PORT` | 监听端口（默认 `3000`） |
+| API | `AERVOX_LOOP_DRIVER` | Turn 执行驱动：`native`（默认，内置 Harness Loop）/ `dsh`（外部 DSH 进程驱动，准入失败 fail-closed） |
+| API | `AERVOX_TRUST_LOCAL_DEV_HOST` | 本地未签名开发宿主信任开关：开发模式置 `1`（主动智能可用）；设 `0` 恢复挂起 |
+| Web / Mobile | `VITE_API_URL` | 后端 API 服务地址（默认 `http://127.0.0.1:3000`） |
+| Web / Mobile | `VITE_SESSION_ID` | 默认会话 ID（默认 `web_default`） |
+| Desktop | `AERVOX_API_URL` / `AERVOX_SESSION_ID` | 桌面端直连的 API 地址与绑定会话 ID |
+| 数据持久化 | `DATABASE_URL` | 本地 SQLite 数据库文件路径；默认指向 `<repo>/data/aervox.db`（详见 [AVX-DB-001 §3](reference/DATABASE.md#3-本地存储拓扑)） |
