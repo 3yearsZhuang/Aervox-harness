@@ -82,12 +82,16 @@
       ],
       "owner": "data/privacy",
       "dependsOn": [],
-      "statusNote": "ITER-045 承接显式 Memory 目标清理/独立验证、失败不解闸、迟到索引阻断与自动召回期限/敏感度检查；范围解析、用途/授权修订、恢复账本与全来源传播仍保留。"
+      "statusNote": "2026-10-08 ITER-050（PR #258）交付显式 Memory 目标清理/独立验证、失败不解闸与迟到索引/压缩副本阻断；ITER-051（PR #259）补自动召回期限/敏感度资格检查；范围解析、用途/授权修订、恢复账本与全来源传播仍保留。",
+      "links": [
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/258",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/259"
+      ]
     },
     {
       "id": "ITER-004",
       "batch": "first",
-      "status": "建议",
+      "status": "已移交",
       "delivery": "三个独立修复：消息版本短事务/CAS，Config 与同库 Secret 一致提交，会话锁尾链回收；ARC-07、FND-02/07；CAP-013/020",
       "gate": "不引入全局通用事务框架；外部 Secret 补偿或历史数据转换单独评审",
       "acceptance": [
@@ -97,9 +101,18 @@
       "owner": "data",
       "dependsOn": [],
       "links": [
-        "docs/explanation/reference-design-transfer.md#upstream-20260929"
+        "docs/explanation/reference-design-transfer.md#upstream-20260929",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/259",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/258"
       ],
-      "statusNote": "ITER-045 承接三个正确性修复及故障回归；保持原验收，待关联 PR 后移交。"
+      "statusNote": "2026-10-08 PR #258 合入：消息短事务/CAS、同库 Config/Secret 一致提交与会话锁尾链回收均有故障/并发回归；外部 SecretStore 不在范围；PR #259 的重叠实现按已合入版本收敛。",
+      "branch": "docs/repository-audit-and-docs-slimming",
+      "checks": [
+        "packages/repositories/test/message-edit-atomic.test.ts",
+        "packages/repositories/test/plugin-config.test.ts",
+        "apps/api/test/plugin-config.test.ts",
+        "packages/repositories/test/session-lock.test.ts"
+      ]
     },
     {
       "id": "ITER-005",
@@ -118,11 +131,13 @@
       ],
       "links": [
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
-        "docs/explanation/reference-design-transfer.md#upstream-20260929"
+        "docs/explanation/reference-design-transfer.md#upstream-20260929",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/259",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/258"
       ],
       "branch": "docs/build-to-delete-pi-architecture-plan",
-      "statusNote": "2026-09-28 CR-056 BTD-02 缺包保护切片：可用性独立于用户开关，新增兼容字段保留数据；原升级验收仍保留；2026-10-03 暂停让位 ITER-035",
-      "blocker": "2026-10-03 让位 ITER-035（aervox-core 独立化）在制上限：激活主链依赖 ITER-004 未移交本就受阻，BTD-02 缺包保护切片已落地，剩余升级验收债待恢复后推进"
+      "statusNote": "2026-09-28 CR-056 BTD-02 缺包保护切片：可用性独立于用户开关，新增兼容字段保留数据；原升级验收仍保留；2026-10-03 暂停让位 ITER-035；2026-10-08 ITER-051（PR #259）交付预检/解压配额与 Page 资源导出切片，staging 激活、完整元数据导出和升级回滚仍未交付。",
+      "blocker": "2026-10-03 因在制上限让位 ITER-035；本批只交付预检，完整升级恢复尚未恢复执行。ITER-004 前置修复已随 PR #258 合入。"
     },
     {
       "id": "ITER-006",
@@ -151,9 +166,10 @@
       "owner": "platform/ecosystem",
       "dependsOn": [],
       "links": [
-        "docs/explanation/reference-design-transfer.md#upstream-20260929"
+        "docs/explanation/reference-design-transfer.md#upstream-20260929",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/259"
       ],
-      "statusNote": "2026-10-08 复核：动态工具 tool-providers → ToolRuntime 仍未传递调用级 signal/controlContext，注册生命周期取消不能替代 Turn 取消；保留原验收。"
+      "statusNote": "2026-10-08 复核更新：动态工具调用级 signal/controlContext（含 MCP 透传）已随 PR #257/#258 打通；每次实际模型调用（含重试/失败）的消息与工具 Schema 快照由 PR #259 补齐；动态工具开放仍受授权修订及最终容量检查前置约束，本条目不整项关闭。"
     },
     {
       "id": "ITER-008",
@@ -787,7 +803,7 @@
     {
       "id": "ITER-039",
       "batch": "next",
-      "status": "建议",
+      "status": "已移交",
       "delivery": "内核对标增强（PI-01 pi-ai 对比结论，2026-10-03 内核自查）：①截断 fail-closed——executor 消费 `ModelStopReason=length`，截断 Step 的工具调用整批拒绝升级为可执行（含参数不完整拒绝），补 Provider 边界坏响应夹具；②usage 缓存/成本分账——`ModelUsage` 扩展 cacheRead/cacheWrite（OpenAI prompt_tokens_details.cached_tokens 透传），为 ModelRun 埋点与成本治理铺路（对应 T-10）",
       "gate": "不新增 Provider 与依赖；截断 fail-closed 属安全收敛（更严格方向），length 终态 isFinal 行为变更需同时更新 executor Step 终止测试；不引入 pi 运行时代码（自研重写）",
       "acceptance": [
@@ -796,17 +812,21 @@
       ],
       "checks": [
         "packages/core/test/openai-compat-provider.test.ts",
-        "packages/core/test/executor.test.ts"
+        "packages/core/test/executor.test.ts",
+        "packages/core/test/model-terminal.test.ts",
+        "packages/core/test/context-manifest.test.ts"
       ],
       "owner": "platform",
-      "branch": "",
-      "statusNote": "2026-10-03 建议：内核与 pi-ai 全面对比后立项（来源 PI-01 §8.3『截断工具参数拒绝』与 T-10 缓存分账）",
+      "branch": "fix/core-audit-five-iterations",
+      "statusNote": "2026-10-08 随 PR #257 合入：截断/异常终态整批拒绝与 usage 缓存分账（cached_tokens / cache_creation_input_tokens）透传；PR #259 的对应实现与 #257 重叠，按已合入版本收敛。",
       "dependsOn": [
         "ITER-038"
       ],
       "links": [
         "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
-        "docs/explanation/reference-design-transfer.md#83-pi最值得学习的是控制边界和上下文保真"
+        "docs/explanation/reference-design-transfer.md#83-pi最值得学习的是控制边界和上下文保真",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/259",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/257"
       ]
     },
     {
@@ -1057,7 +1077,7 @@
     {
       "id": "ITER-051",
       "batch": "first",
-      "status": "执行中",
+      "status": "已移交",
       "delivery": "参考审计首批正确性修复：消息/配置原子写入、锁尾链回收、Memory 清理验证与召回资格、模型异常终止与逐调用快照、插件包预检；对应 ITER-003/004/005/007/039。",
       "gate": "2026-10-08 用户明确授权按审计建议解决不足；既有合同正确性修复直接实施，新增生命周期或架构合同先 CR；真实用户研究和生产发布分别取证。",
       "acceptance": [
@@ -1066,10 +1086,12 @@
       ],
       "owner": "Codex",
       "branch": "fix/audit-trust-chain",
-      "statusNote": "2026-10-08 已实施首批修复，正在全量验证；ITER-003 的范围解析/独立恢复账本、ITER-005 的 staging 激活与回滚、ITER-007 的动态工具授权、ITER-013 的正文流式背压、ITER-032 的真实摘要及学习效果实验仍未交付。",
+      "statusNote": "2026-10-08 首批切片合入：自动召回期限/敏感度资格、插件包预检/解压配额与 Page 资源导出、每次实际模型调用（含重试/失败）快照；与 PR #257/#258 重叠的删除、配置、消息、锁与 Provider 实现按已合入版本收敛，未重复计数。",
       "dependsOn": [],
       "links": [
-        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现原则"
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现原则",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/259",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/258"
       ],
       "checks": [
         "packages/repositories/test/message-edit-atomic.test.ts",
