@@ -28,6 +28,7 @@ export interface IPrivacyRepository {
       idempotencyKey: string;
       requestedAt?: string;
       ownerModule: string;
+      targets?: Array<{ targetType: string; targetId: string; ownerModule: string }>;
     },
   ): Promise<DeletionRequestModel>;
   getDeletionRequest(ctx: LocalContext, id: string): Promise<DeletionRequestModel | null>;

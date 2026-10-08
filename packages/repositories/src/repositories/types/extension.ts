@@ -100,5 +100,7 @@ export interface PluginConfigSaveInput {
   expectedRevision: number;
   values: Record<string, unknown>;
   secretKeys: string[];
+  /** Same-database Secret mutations, committed only with the matching config revision. */
+  secretChanges?: Record<string, string | null>;
   orphanedValues?: Record<string, unknown>;
 }

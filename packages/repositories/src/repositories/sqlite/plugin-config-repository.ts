@@ -5,6 +5,7 @@
  * - secret 值与配置分开存储，接口只暴露配置状态；生产应替换为加密 SecretStore Port；
  * - Page 元数据为系统级（生命周期归插件，启停/卸载联动由 API 层处理）。
  */
+import { withSessionLock } from "../../session-lock.js";
 import { and, eq, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import {
@@ -42,48 +43,49 @@ export class SqlitePluginConfigRepository implements IPluginConfigRepository {
   async saveConfig(
     ctx: LocalContext,
     input: PluginConfigSaveInput,
-  ): Promise<{ saved: PluginConfigModel; conflict: boolean }> {
-    const now = new Date().toISOString();
-    const existing = await this.getConfig(ctx, input.pluginId);
-
-    if (existing) {
-      if (input.expectedRevision >= 0 && existing.revision !== input.expectedRevision) {
-        return { saved: existing, conflict: true };
+  ): Promise<{ saved: PluginConfigModel; conflict: false } | { saved: PluginConfigModel | null; conflict: true }> {
+    return withSessionLock(`plugin-config:${input.pluginId}`, () => this.db.transaction(async (tx) => {
+      const now = new Date().toISOString();
+      const [existing] = await tx.select().from(pluginConfigs).where(eq(pluginConfigs.pluginId, input.pluginId));
+      if (input.expectedRevision >= 0 && (existing?.revision ?? 0) !== input.expectedRevision) {
+        return { saved: (existing as PluginConfigModel) ?? null, conflict: true as const };
       }
-      const [updated] = await this.db
-        .update(pluginConfigs)
-        .set({
-          valuesJson: input.values,
-          secretKeysJson: input.secretKeys,
-          schemaVersion: input.schemaVersion,
-          revision: existing.revision + 1,
-          orphanedValuesJson: input.orphanedValues ?? null,
-          updatedAt: now,
-        })
-        .where(
-          and(
-            eq(pluginConfigs.id, existing.id),
-          ),
-        )
-        .returning();
-      return { saved: updated as PluginConfigModel, conflict: false };
-    }
-
-    const [created] = await this.db
-      .insert(pluginConfigs)
-      .values({
-        id: `pcfg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
-        pluginId: input.pluginId,
-        valuesJson: input.values,
-        secretKeysJson: input.secretKeys,
-        schemaVersion: input.schemaVersion,
-        revision: 1,
-        orphanedValuesJson: input.orphanedValues ?? null,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
-    return { saved: created as PluginConfigModel, conflict: false };
+      // The revision check and all credential writes share the same writer transaction.
+      for (const [fieldKey, value] of Object.entries(input.secretChanges ?? {})) {
+        if (value === null) {
+          await tx.delete(pluginConfigSecrets).where(and(
+            eq(pluginConfigSecrets.pluginId, input.pluginId), eq(pluginConfigSecrets.fieldKey, fieldKey),
+          ));
+        } else {
+          await tx.insert(pluginConfigSecrets).values({
+            id: `psec_${crypto.randomUUID()}`, pluginId: input.pluginId, fieldKey,
+            valueJson: value, configured: 1, createdAt: now, updatedAt: now,
+          }).onConflictDoUpdate({
+            target: [pluginConfigSecrets.pluginId, pluginConfigSecrets.fieldKey],
+            set: { valueJson: value, configured: 1, updatedAt: now },
+          });
+        }
+      }
+      const secretKeys = input.secretChanges === undefined ? input.secretKeys
+        : (await tx.select({ fieldKey: pluginConfigSecrets.fieldKey }).from(pluginConfigSecrets)
+          .where(and(eq(pluginConfigSecrets.pluginId, input.pluginId), eq(pluginConfigSecrets.configured, 1))))
+          .map((row) => row.fieldKey);
+      const values = {
+        valuesJson: input.values, secretKeysJson: secretKeys, schemaVersion: input.schemaVersion,
+        revision: (existing?.revision ?? 0) + 1, orphanedValuesJson: input.orphanedValues ?? null, updatedAt: now,
+      };
+      if (existing) {
+        const [updated] = await tx.update(pluginConfigs).set(values).where(and(
+          eq(pluginConfigs.id, existing.id), eq(pluginConfigs.revision, existing.revision),
+        )).returning();
+        if (!updated) throw new Error("plugin_config_revision_conflict");
+        return { saved: updated as PluginConfigModel, conflict: false as const };
+      }
+      const [created] = await tx.insert(pluginConfigs).values({
+        id: `pcfg_${crypto.randomUUID()}`, pluginId: input.pluginId, createdAt: now, ...values,
+      }).returning();
+      return { saved: created as PluginConfigModel, conflict: false as const };
+    }));
   }
 
   async resetConfig(
@@ -92,38 +94,20 @@ export class SqlitePluginConfigRepository implements IPluginConfigRepository {
     schemaVersion: number,
     defaults: Record<string, unknown>,
   ): Promise<PluginConfigModel> {
-    const now = new Date().toISOString();
-    const existing = await this.getConfig(ctx, pluginId);
-    if (existing) {
-      const [updated] = await this.db
-        .update(pluginConfigs)
-        .set({
-          valuesJson: defaults,
-          secretKeysJson: [],
-          schemaVersion,
-          revision: existing.revision + 1,
-          orphanedValuesJson: null,
-          updatedAt: now,
-        })
-        .where(eq(pluginConfigs.id, existing.id))
-        .returning();
-      return updated as PluginConfigModel;
-    }
-    const [created] = await this.db
-      .insert(pluginConfigs)
-      .values({
-        id: `pcfg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
-        pluginId,
-        valuesJson: defaults,
-        secretKeysJson: [],
-        schemaVersion,
-        revision: 1,
-        orphanedValuesJson: null,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
-    return created as PluginConfigModel;
+    return withSessionLock(`plugin-config:${pluginId}`, () => this.db.transaction(async (tx) => {
+      const now = new Date().toISOString();
+      await tx.delete(pluginConfigSecrets).where(eq(pluginConfigSecrets.pluginId, pluginId));
+      const [saved] = await tx.insert(pluginConfigs).values({
+        id: `pcfg_${crypto.randomUUID()}`, pluginId, valuesJson: defaults,
+        secretKeysJson: [], schemaVersion, revision: 1, orphanedValuesJson: null,
+        createdAt: now, updatedAt: now,
+      }).onConflictDoUpdate({
+        target: pluginConfigs.pluginId,
+        set: { valuesJson: defaults, secretKeysJson: [], schemaVersion,
+          revision: sql`${pluginConfigs.revision} + 1`, orphanedValuesJson: null, updatedAt: now },
+      }).returning();
+      return saved as PluginConfigModel;
+    }));
   }
 
   async deleteConfigsForPlugin(pluginId: string): Promise<void> {

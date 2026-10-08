@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.56.0
+version: 1.56.1
 updated_at: 2026-10-08
 reviewed_at: 2026-10-08
 review_interval_days: 90
@@ -181,6 +181,7 @@ review_interval_days: 90
 
 代码与能力的落地完成情况由 Git 提交记录、PR 审查证据以及全自动化测试套件直接证明，不再在此维护手工同步的终端测试日志巨型表格。
 
+- `repository-audit-implementation-20261008`：ITER-045 在 [PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258) 落实审计的原子接单、消息/配置组合写、动态工具取消接线、取消恢复、锁回收与资产单源；Memory 删除仅完成无共享派生关系的明确目标切片。逐项验证与未完成范围见[审计 §10.2](../explanation/architecture-implementation-review.md#audit-findings)，不提升关联 CAP 的发布状态。
 - 历史落地日志（2026-08 至 2026-09 的阶段性切片流水账）已归档至外部归档仓库 `Aervox-docs-archive`；
 - 现行能力的生命周期推进（Mapped → Specified → Implemented → Verified → Released）统一维护在上方 **§4 覆盖矩阵** 中；
 - 每次功能与修复的交付证据（测试结果、影响范围、迁移方案）直接保留在 Pull Request 与 Git 提交日志中，杜绝多源漂移与人肉记账负担；

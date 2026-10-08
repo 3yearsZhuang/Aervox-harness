@@ -1,6 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/repositories — 消息身份与版本（编辑/软删/脱敏）Store
  */
+import { withSessionLock } from "../../../session-lock.js";
 import { eq, and, desc, isNull } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
 import { messages, messageVersions, sessions } from "@aervox/schema";
@@ -34,61 +35,38 @@ export class MessageStore {
     content: string,
     expectedVersion: number,
   ): Promise<{ message: MessageModel; newVersion: MessageVersionModel } | null> {
-    const now = new Date().toISOString();
+    return withSessionLock(`message-edit:${messageId}`, () => this.db.transaction(async (tx) => {
+      const now = new Date().toISOString();
+      const [message] = await tx.select().from(messages)
+        .where(and(eq(messages.id, messageId), isNull(messages.deletedAt)));
+      if (!message) return null;
+      const [currentVersion] = await tx.select().from(messageVersions).where(and(
+        eq(messageVersions.messageId, messageId),
+        isNull(messageVersions.supersededAt),
+        message.currentVersionId ? eq(messageVersions.id, message.currentVersionId) : undefined,
+      )).orderBy(desc(messageVersions.version)).limit(1);
+      if (!currentVersion || currentVersion.version !== expectedVersion) return null;
 
-    // 1. 获取消息，校验存在性和删除状态
-    const message = await this.getMessage(ctx, messageId);
-    if (!message || message.deletedAt) return null;
-
-    // 2. 获取当前版本，CAS 校验
-    const currentVersions = await this.db
-      .select()
-      .from(messageVersions)
-      .where(
-        and(
-          eq(messageVersions.messageId, messageId),
-          isNull(messageVersions.supersededAt),
-        ),
-      )
-      .orderBy(desc(messageVersions.version))
-      .limit(1);
-
-    if (currentVersions.length === 0) return null;
-    const currentVersion = currentVersions[0] as MessageVersionModel;
-    if (currentVersion.version !== expectedVersion) return null;
-
-    // 3. 标记旧版本 supersededAt
-    await this.db
-      .update(messageVersions)
-      .set({ supersededAt: now })
-      .where(eq(messageVersions.id, currentVersion.id));
-
-    // 4. 插入新版本
-    const newVersionId = `mv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    const [newVersion] = await this.db
-      .insert(messageVersions)
-      .values({
-        id: newVersionId,
-        turnId: currentVersion.turnId,
-        messageId: messageId,
-        role: currentVersion.role,
-        version: expectedVersion + 1,
-        content,
-        isRedacted: 0,
-        createdAt: now,
-      })
-      .returning();
-
-    // 5. 更新 messages.currentVersionId
-    await this.db
-      .update(messages)
-      .set({ currentVersionId: newVersionId })
-      .where(eq(messages.id, messageId));
-
-    return {
-      message: { ...message, currentVersionId: newVersionId } as MessageModel,
-      newVersion: newVersion as MessageVersionModel,
-    };
+      const [claimed] = await tx.update(messageVersions).set({ supersededAt: now }).where(and(
+        eq(messageVersions.id, currentVersion.id),
+        eq(messageVersions.version, expectedVersion),
+        isNull(messageVersions.supersededAt),
+      )).returning();
+      if (!claimed) return null;
+      const newVersionId = `mv_${crypto.randomUUID()}`;
+      const [newVersion] = await tx.insert(messageVersions).values({
+        id: newVersionId, turnId: currentVersion.turnId, messageId,
+        role: currentVersion.role, version: expectedVersion + 1, content,
+        isRedacted: currentVersion.isRedacted, createdAt: now,
+      }).returning();
+      const [updated] = await tx.update(messages).set({ currentVersionId: newVersionId }).where(and(
+        eq(messages.id, messageId), isNull(messages.deletedAt),
+        message.currentVersionId ? eq(messages.currentVersionId, message.currentVersionId) : isNull(messages.currentVersionId),
+      )).returning();
+      // Throw to roll back the version chain if the identity can no longer be advanced.
+      if (!updated) throw new Error("message_version_pointer_conflict");
+      return { message: updated as MessageModel, newVersion: newVersion as MessageVersionModel };
+    }));
   }
 
   /**

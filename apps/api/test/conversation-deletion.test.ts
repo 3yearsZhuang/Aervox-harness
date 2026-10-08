@@ -6,7 +6,7 @@
  * - 追平（request completed）后：新 Turn 正常完成。
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createInMemoryDatabase, SqliteConversationRepository, SqlitePrivacyRepository, type AervoxDatabase, type LocalContext } from "@aervox/repositories";
+import { createInMemoryDatabase, SqliteConversationRepository, SqlitePrivacyRepository, SqliteMemoryDeletionStore, memoryRecords, type AervoxDatabase, type LocalContext } from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
@@ -91,11 +91,19 @@ describe("阶段 2d 删除/撤权未追平 → Loop fail-closed", () => {
   it("追平后新 Turn 正常完成", async () => {
     const req = await privacyRepo.createDeletionRequest(tenant, {
       id: "delreq_then_done",
-      scope: "all",
+      scope: "memory",
       idempotencyKey: "idem_del_then_done",
-      ownerModule: "privacy",
+      ownerModule: "memory",
+      targets: [{ targetType: "memory", targetId: "deleted", ownerModule: "memory" }],
     });
+    // Merely setting completed (the former placeholder) must not open the gate.
     await privacyRepo.updateDeletionRequestStatus(tenant, req.id, "completed");
+    expect(await privacyRepo.hasPendingDeletionRequest(tenant)).toBe(true);
+    await db.insert(memoryRecords).values({ id: "deleted", layer: "long_term", type: "user_fact", content: "remove" });
+    const deletion = new SqliteMemoryDeletionStore(db);
+    await deletion.clean("deleted");
+    await privacyRepo.updateDeletionTargetStatus({ requestId: req.id, targetType: "memory", targetId: "deleted" }, "completed", await deletion.verify("deleted"));
+    await privacyRepo.updateDeletionRequestStatus(tenant, req.id, "completed", { lastVerifiedAt: new Date().toISOString() });
 
     const create = await app.inject({
       method: "POST",

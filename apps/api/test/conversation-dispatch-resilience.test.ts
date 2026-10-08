@@ -1,9 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { doneEventDataSchema } from "@aervox/contracts";
 import Fastify, { type FastifyInstance } from "fastify";
 import {
   createInMemoryDatabase,
   initDatabaseSchema,
   SqliteConversationRepository,
+  SqliteAgentInboxRepository,
   type AervoxDatabase,
   type LocalContext,
 } from "@aervox/repositories";
@@ -141,4 +143,45 @@ describe("ARC-01: 对话接单弹性、Claim 前故障追踪与孤儿 Attempt �
     expect(turn).not.toBeNull();
     expect(turn!.status).toBe("Interrupted");
   });
+  it("concurrent HTTP acceptance dispatches once with the persisted Inbox input", async () => {
+    const inboxRepo = new SqliteAgentInboxRepository(db);
+    const skillLoader = vi.fn(async () => { throw new Error("stop after dispatch"); });
+    registerConversationRoutes(app, conversationRepo, { inboxRepo, skillLoader });
+    await app.ready();
+    await conversationRepo.getOrCreateSession(localCtx, "s");
+    await inboxRepo.enqueue(localCtx, { id: "followup", idempotencyKey: "followup", sessionId: "s", type: "followup", sourceActor: "user", payload: "queued input" });
+    const responses = await Promise.all([1, 2].map(() => app.inject({
+      method: "POST", url: "/v1/sessions/s/turns", headers: { ...headers, "idempotency-key": "same" },
+      payload: { message: { content: "new input", contentType: "text" }, clientVersion: "test", references: [] },
+    })));
+    expect(responses.map((r) => r.statusCode).sort()).toEqual([200, 201]);
+    expect(responses[0]!.json().turnId).toBe(responses[1]!.json().turnId);
+    await vi.waitFor(() => expect(skillLoader).toHaveBeenCalledTimes(1));
+    const messages = await client.execute("SELECT content FROM message_versions");
+    expect(messages.rows.map((row) => row.content)).toEqual(["queued input\n\nnew input"]);
+    await vi.waitFor(async () => expect((await conversationRepo.getTurn(localCtx, responses[0]!.json().turnId))?.status).toBe("Failed"));
+  });
+
+  it("restart recovers CancelRequested, fences late outcomes, and reconnect observes a terminal event", async () => {
+    await conversationRepo.getOrCreateSession(localCtx, "s");
+    await conversationRepo.acceptTurn(localCtx, { turnId: "cancelled", sessionId: "s", idempotencyKey: "cancelled", attemptId: "a", message: { id: "m", content: "x" }, consumeInbox: false });
+    await conversationRepo.reserveToolExecution(localCtx, { turnId: "cancelled", attemptId: "a", invocationId: "i", name: "write" });
+    await conversationRepo.requestCancelTurnAttempt(localCtx, { turnId: "cancelled", attemptId: "a" });
+    await client.execute("UPDATE turn_attempts SET started_at = '2000-01-01T00:00:00.000Z'");
+    const restarted = new SqliteConversationRepository(db);
+    expect(await restarted.recoverExpiredAttempts(client)).toBe(1);
+    expect(await restarted.recoverExpiredAttempts(client)).toBe(0);
+    expect(await restarted.listTurnAttempts(localCtx, "cancelled")).toMatchObject([{ status: "Cancelled", fencingToken: 1 }]);
+    expect(await restarted.finalizeTurnAttempt(localCtx, { turnId: "cancelled", attemptId: "a", status: "Completed", expectedFencingToken: 0 })).toBeNull();
+    expect((await client.execute("SELECT status FROM tool_executions")).rows[0]!.status).toBe("outcome_unknown");
+    registerConversationRoutes(app, restarted, {}); await app.ready();
+    const stream = await app.inject({ method: "GET", url: "/v1/turns/cancelled/events", headers });
+    expect(stream.statusCode).toBe(200);
+    expect(stream.body).toContain('"status":"Cancelled"');
+    expect(stream.body).toContain('"eventType":"done"');
+    const frame = JSON.parse(stream.body.split("\n").find((line) => line.startsWith("data: "))!.slice(6));
+    expect(doneEventDataSchema.safeParse(frame.data).success).toBe(true);
+    expect(frame.data.lastSequence).toBe(frame.sequence);
+  });
+
 });
