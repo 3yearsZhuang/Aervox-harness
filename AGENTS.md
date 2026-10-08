@@ -1,7 +1,7 @@
 # AGENTS.md — AI 协作指南（薄入口）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-30
+- 修改人：3yearszhuang · 2026-10-06
 
 本文件是所有 AI 编码助手（包括 Antigravity、Cursor、GitHub Copilot、Roo Code、Windsurf 等）的进入点与协作底线协议：
 **只索引，不复制**：权威技术规范、产品定义与架构事实源一律深链至 `docs/`，严禁在入口复制可能变更的业务逻辑，杜绝双源漂移。
@@ -48,7 +48,7 @@ Aervox｜思隅：更好上手的“主动智能” Agent——以桌宠为入�
 
 以下规则为全仓库不可妥协的硬约束，任何违反都会在自动化门禁或人工 Code Review 中被直接拒绝：
 
-- **工具链唯一真源**：工具版本以 [mise.toml](mise.toml) 为唯一真源（Node 24 / pnpm 11 / Vale 3.18）。严禁使用系统全局不受控的 Node 执行 `.ts` 脚本，统一运行 `./aervox <cmd>` 或 `mise exec -- <cmd>`。
+- **工具链唯一真源**：工具版本以 [mise.toml](mise.toml) 为唯一真源（Node 24 / pnpm 11 / Vale 3.18 / markdownlint-cli2 0.23.3）。严禁使用系统全局不受控的 Node 执行 `.ts` 脚本，统一运行 `./aervox <cmd>` 或 `mise exec -- <cmd>`；**Markdown 门禁必须用 `mise` 注入的 `markdownlint-cli2`，严禁 `npx` 现取**（不受版本约束，且 `~/.npm/_npx` 缓存锁残留会让整条门禁失败）。
 - **纯本地单用户数据隔离**：CR-030 已全面去租户化。严禁在代码或契约中引入 `tenantId`、`TenantContext` 等多租户隔离概念，统一使用本地上下文 `LocalContext`。
 - **SQLite / LibSQL 事务与读写一致性**：
   - 所有数据写入操作必须通过“写者连接”执行；

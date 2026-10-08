@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-04",
-  "totalCount": 68,
+  "generatedAt": "2026-10-05",
+  "totalCount": 69,
   "documents": [
     {
       "id": "AVX-PLAN-001",
@@ -14,9 +14,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.4.4",
-      "updated_at": "2026-10-04",
-      "reviewed_at": "2026-10-04",
+      "version": "0.5.0",
+      "updated_at": "2026-10-05",
+      "reviewed_at": "2026-10-05",
       "review_interval_days": 7,
       "review_triggers": [
         "apps/**/src/**",
@@ -34,6 +34,8 @@
         "docs/explanation/architecture-implementation-review.md",
         "docs/explanation/companion-hardware-directions.md",
         "docs/explanation/hls-agent-competition-plan.md",
+        "docs/reference/changes/CR-057-hls-local-agent-validation.md",
+        "docs/reference/capability-composition.md",
         "docs/reference/changes/README.md"
       ]
     },
@@ -179,9 +181,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.1.1",
-      "updated_at": "2026-10-04",
-      "reviewed_at": "2026-10-04",
+      "version": "0.2.0",
+      "updated_at": "2026-10-05",
+      "reviewed_at": "2026-10-05",
       "review_interval_days": 14,
       "review_triggers": [
         "packages/core/**",
@@ -524,9 +526,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.17.0",
-      "updated_at": "2026-10-04",
-      "reviewed_at": "2026-10-04",
+      "version": "1.18.0",
+      "updated_at": "2026-10-05",
+      "reviewed_at": "2026-10-05",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -920,9 +922,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.7.5",
-      "updated_at": "2026-10-02",
-      "reviewed_at": "2026-10-02",
+      "version": "0.7.6",
+      "updated_at": "2026-10-05",
+      "reviewed_at": "2026-10-05",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -1026,6 +1028,32 @@
         "docs/reference/adr/ADR-015-vue-full-stack.md",
         "docs/reference/adr/ADR-018-proactive-local-privacy-host.md",
         "docs/reference/REQUIREMENTS_TRACEABILITY.md"
+      ]
+    },
+    {
+      "id": "CR-057",
+      "title": "CR-057 实施 HLS 本地智能体验证执行器",
+      "path": "reference/changes/CR-057-hls-local-agent-validation.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "platform",
+      "doc_status": "review-candidate",
+      "decision_status": "accepted",
+      "delivery_status": "implemented",
+      "version": "0.3.0",
+      "updated_at": "2026-10-05",
+      "reviewed_at": "2026-10-05",
+      "review_interval_days": 14,
+      "review_triggers": [
+        "scripts/hls-agent/**",
+        "scripts/hls-agent.test.mjs",
+        "packages/core/**"
+      ],
+      "sources": [
+        "docs/explanation/hls-agent-competition-plan.md",
+        "docs/reference/agent-harness-loop.md",
+        "docs/reference/capability-composition.md",
+        "plan.md"
       ]
     },
     {
@@ -1257,9 +1285,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.53.1",
-      "updated_at": "2026-10-04",
-      "reviewed_at": "2026-10-04",
+      "version": "1.54.0",
+      "updated_at": "2026-10-05",
+      "reviewed_at": "2026-10-05",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []

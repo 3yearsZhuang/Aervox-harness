@@ -572,7 +572,10 @@ export async function executeTurn(
       }
 
       // 工具结果回填上下文（工具消息），模型下一轮可见
-      history.push({ role: "assistant", content: stepText, name: toolCalls[0]?.name, toolCallId: toolCalls[0]?.id });
+      history.push({
+        role: "assistant", content: stepText, toolCalls,
+        reasoning: chunks.map((chunk) => chunk.reasoning ?? "").join("") || undefined,
+      });
       for (const result of results) {
         // B4-A：§9 工具结果入口校验（大小截断 + Prompt injection 启发式）。
         // 注入命中 → 以受控摘要替代完整内容（fail-closed，不让样本进模型）；

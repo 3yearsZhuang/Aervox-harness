@@ -8,7 +8,7 @@
  * - 思考型模型：思考增量以 `delta.reasoning_content`（DeepSeek / Qwen / vLLM 事实标准）
  *   或 `delta.reasoning`（OpenRouter 统一字段 / Ollama 兼容端点）透传，两种格式同时解析；
  *   OpenAI 官方 Chat Completions 不透出原生推理（走 Responses API），此时自然无思考增量。
- *   捕获的思考内容在下一 Step 序列化时随 assistant 消息回灌（provider 实例单回合内跨 Step 存活）。
+ *   捕获的思考内容由每条 assistant 历史持有，在下一 Step 序列化时回传。
  * - timeoutMs 为【空闲超时】：每收到一段上游数据即重置；思考模型持续吐 reasoning 也算活性。
  * 使用全局 fetch（Node 18+ / 浏览器均可用）。
  */
@@ -20,6 +20,10 @@ export interface OpenAICompatConfig {
   apiKey?: string;
   modelId: string;
   temperature?: number;
+  /** Reproducibility hint; server support requires separate verification. */
+  seed?: number;
+  /** Optional cap on raw SSE response bytes, including tool argument fragments. */
+  maxResponseBytes?: number;
   maxTokens?: number;
   /** 上游空闲超时：连接/首包/任意流片段之间的最大静默间隔（收到数据即重置）。 */
   timeoutMs?: number;
@@ -56,7 +60,6 @@ function encodeToolName(name: string): string {
 function toOpenAIMessages(
   messages: PromptMessage[],
   encodeName: (name: string) => string,
-  opts: { lastStepReasoning?: string } = {},
 ): unknown[] {
   const out: unknown[] = [];
   for (const m of messages) {
@@ -66,8 +69,13 @@ function toOpenAIMessages(
     }
     const msg: Record<string, unknown> = { role: m.role, content: m.content };
     if (m.name) msg.name = encodeName(m.name);
-    // 思考型模型：把上一步骤的 reasoning_content 随 assistant 消息回传
-    if (m.role === "assistant" && opts.lastStepReasoning) msg.reasoning_content = opts.lastStepReasoning;
+    if (m.role === "assistant") {
+      if (m.toolCalls?.length) msg.tool_calls = m.toolCalls.map((call) => ({
+        id: call.id, type: "function",
+        function: { name: encodeName(call.name), arguments: typeof call.arguments === "string" ? call.arguments : JSON.stringify(call.arguments ?? {}) },
+      }));
+      if (m.reasoning) msg.reasoning_content = m.reasoning;
+    }
     out.push(msg);
   }
   return out;
@@ -93,8 +101,6 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
         (request.tools ?? []).map((tool) => [encodeToolName(tool.name), tool.name]),
       );
       const encodeName = (name: string): string => toolNameByWireName.has(name) ? name : encodeToolName(name);
-      // 思考型模型跨 Step 回灌：上一次 stream 捕获的 reasoning_content（provider 实例单回合内存活）
-      let lastStepReasoning = "";
       const controller = new AbortController();
       let timedOut = false;
       let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -124,7 +130,8 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
           },
           body: JSON.stringify({
             model: config.modelId,
-            messages: toOpenAIMessages(request.context.messages, encodeName, { lastStepReasoning }),
+            messages: toOpenAIMessages(request.context.messages, encodeName),
+            ...(config.seed !== undefined ? { seed: config.seed } : {}),
             stream: true,
             temperature: request.temperature ?? config.temperature ?? 0.7,
             ...((request.maxOutputTokens ?? config.maxTokens) !== undefined ? { max_tokens: Math.min(request.maxOutputTokens ?? Infinity, config.maxTokens ?? Infinity) } : {}),
@@ -142,8 +149,25 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
           redirect: config.redirect,
         });
       if (!res.ok || !res.body) {
-        const detail = await res.text().catch(() => "");
-        throw new Error(`llm_http_${res.status}: ${detail.slice(0, 200)}`);
+        // An error response may also be an unbounded stream. Read only a snippet.
+        let detail = "";
+        const errorReader = res.body?.getReader();
+        if (errorReader) {
+          try {
+            let bytes = 0;
+            const decoder = new TextDecoder();
+            while (bytes < 200) {
+              const { done, value } = await errorReader.read();
+              if (done) break;
+              const slice = value.subarray(0, 200 - bytes);
+              bytes += slice.byteLength;
+              detail += decoder.decode(slice, { stream: true });
+            }
+          } finally {
+            void errorReader.cancel().catch(() => {});
+          }
+        }
+        throw new Error(`llm_http_${res.status}: ${detail}`);
       }
       armIdleTimer();
 
@@ -151,9 +175,8 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
       const decoder = new TextDecoder();
       // 工具调用分片累积：index → { id, name, arguments }
       const toolAccumulator = new Map<number, { id?: string; name: string; args: string }>();
-      // 本 Step 的思考内容（思考型模型要求下一步骤随 assistant 消息回传；不作为正文输出）
-      let stepReasoning = "";
       let buffer = "";
+      let responseBytes = 0;
 
       const flushToolCalls = (): ToolCallRequest[] => {
         if (toolAccumulator.size === 0) return [];
@@ -173,6 +196,8 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
         const { done, value } = await reader.read();
         if (done) break;
         armIdleTimer();
+        responseBytes += value.byteLength;
+        if (config.maxResponseBytes !== undefined && responseBytes > config.maxResponseBytes) throw new Error("llm_response_limit");
         buffer += decoder.decode(value, { stream: true });
 
         let newlineIndex: number;
@@ -207,7 +232,6 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
             // 思考增量：reasoning_content（DeepSeek/Qwen/vLLM）与 reasoning（OpenRouter/Ollama）双格式
             const reasoningDelta = delta.reasoning_content ?? delta.reasoning ?? "";
             if (reasoningDelta) {
-              stepReasoning += reasoningDelta;
               yield { text: "", isFinal: false, reasoning: reasoningDelta };
             }
             if (delta.content) {
@@ -235,8 +259,6 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
       if (leftover.length > 0) {
         yield { text: "", isFinal: true, toolCalls: leftover };
       }
-      // 供同回合下一 Step 序列化时回灌（思考型模型协议要求）
-      lastStepReasoning = stepReasoning;
       } catch (error) {
         if (timedOut) throw new Error(`llm_timeout: upstream idle for over ${timeoutMs}ms`);
         throw error;

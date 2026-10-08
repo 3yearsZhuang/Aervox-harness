@@ -380,37 +380,45 @@
       "id": "ITER-021",
       "batch": "first",
       "status": "建议",
-      "delivery": "HLS 竞赛可行性验证：规则与环境核对、双入口最小闭环、同模型配对对照与去留证据；AVX-EXPL-013 P0～P2；关联 CAP-007/020/027（探索）",
-      "gate": "依据 ITER-020 的规划复核范围与可投入工时；新增模块/工具合同先 CR；只修实际复用路径，不等待 ITER-007/008/013 全部完成",
+      "delivery": "HLS 竞赛可行性验证：规则/环境、真实双入口、公开题集与同模型配对报告；研究执行器已实施，详细剩余步骤见 [§4.1](#hls-plugin-delivery) H1～H4；关联 CAP-007/020/027（探索）",
+      "gate": "研究范围已由 CR-057 接受；模型服务与 Vitis 镜像待配置；真实验收按 H1→H2→H4，H3 题集/协议可并行准备；只修实际复用路径",
       "acceptance": [
-        "本地模型与 Vitis 真正运行，裸跑/Agent 双入口公平且逐题可追溯",
-        "留出题报告分级通过率、增益、不确定性与成本，并给出继续、限定补证或暂缓结论"
+        "固定模型/镜像/目标环境后，真实裸跑和 Agent 可复现，正反 HLS 样例及隔离/杀停通过",
+        "开发/留出题按家族隔离，四组同配置、固定分母、独立样本、增益区间和成本齐全；官方未公开判定明确留缺",
+        "按专项 §6.3 形成继续、限定补证或暂缓结论，§4.2 登记后才整项移交"
       ],
-      "owner": "platform/competition（模型环境、HLS 工具、Agent 评测三个角色，待认领）",
+      "owner": "platform/competition",
       "dependsOn": [
         "ITER-020"
       ],
       "links": [
         "docs/explanation/hls-agent-competition-plan.md#5-从验证到交付的阶段路径",
-        "docs/explanation/hls-agent-competition-plan.md#6-实验协议与去留依据"
-      ]
+        "docs/explanation/hls-agent-competition-plan.md#6-实验协议与去留依据",
+        "plan.md#hls-plugin-delivery",
+        "docs/reference/changes/CR-057-hls-local-agent-validation.md",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
+      ],
+      "branch": "feat/hls-agent-research",
+      "statusNote": "2026-09-29 研究切片实施并通过双门禁（证据见 CR-057 / §4.2）；2026-10-05 移植合流到 main 内核 `@aervox/core`（core 270/270、HLS 合同 14/14）。本条目保持建议：H1～H4 真实环境验收未启动，模型/Vitis 未配置。"
     },
     {
       "id": "ITER-022",
       "batch": "candidate",
       "status": "建议",
-      "delivery": "HLS 参赛方案扩大验证与冻结提交：正式评分接口、最终 32 GB 环境、离线容器、固定技能和复现报告；AVX-EXPL-013 P3",
+      "delivery": "HLS 参赛方案扩大验证与冻结提交：正式评分 ABI、最终 32 GB 环境、离线包与复现报告；详细步骤见 [§4.1](#hls-plugin-delivery) S1～S3；AVX-EXPL-013 P3",
       "gate": "ITER-021 证据支持继续且正式范围/必要 CR 已评审；先取得最新细则与提交窗口；本项不自动包含产品化、微调或硬件采购",
       "acceptance": [
-        "官方目标环境在预算内完成，干净环境断网双入口可复现且冻结哈希一致",
-        "报告包含分级通过率、pass@1/pass@5、裸跑增益、墙钟和失败证据；产品化另作决定"
+        "正式入口与评分/反馈边界适配，官方完整分级判定及独立 pass@1/pass@5 可追溯",
+        "最终目标环境满足显存与时间预算，另一队员在干净环境断网复现双入口，冻结哈希一致",
+        "提交包、依赖/模型/技能声明、失败与成本报告完整；实际赛事提交按窗口与用户授权执行，产品化另归 ITER-043"
       ],
       "owner": "platform/competition",
       "dependsOn": [
         "ITER-021"
       ],
       "links": [
-        "docs/explanation/hls-agent-competition-plan.md#8-交付路径冻结与产品回接"
+        "docs/explanation/hls-agent-competition-plan.md#8-交付路径冻结与产品回接",
+        "plan.md#hls-plugin-delivery"
       ]
     },
     {
@@ -575,6 +583,29 @@
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
         "docs/explanation/p2p-local-sync-exploration.md"
       ]
+    },
+    {
+      "id": "ITER-043",
+      "batch": "candidate",
+      "status": "建议",
+      "delivery": "HLS 可选插件产品化：独立模块、真实工具与权限接线、配置/工作台、数据责任及安装升级；详细步骤见 [§4.1](#hls-plugin-delivery) M1～M6；关联 CAP-007/020/027，新增能力编号待 CR",
+      "gate": "ITER-022 竞赛证据完整且有真实学习/调试需求；产品范围与独立 CR 接受后实施。仅复用 ITER-004/005/006/007/008/013 中所需子合同，关键权限/撤权/生命周期缺口先补齐；本轮只授权写规划",
+      "acceptance": [
+        "非核心实现独立子仓并经 modules/* workspace 包消费，主仓保留单一接口/受信装配，默认不激活且不复制研究内核",
+        "公开题导入→生成/验证→诊断→取消/复盘/导出端到端可用，工具声明有真实 handler，缺权限或撤权后无继续执行",
+        "安装/升级失败、禁用、缺包、卸载、重装与回滚可验证；实现缺席时产物仍可导出/删除，竞赛双入口回归不变"
+      ],
+      "owner": "platform/ecosystem（A 环境与发布、B HLS 与数据、C Agent 与交互；具体人员待认领）",
+      "dependsOn": [
+        "ITER-022"
+      ],
+      "links": [
+        "plan.md#hls-plugin-delivery",
+        "docs/reference/capability-composition.md#模块化交付不变量",
+        "docs/reference/plugin-config-and-pages.md#9-验证与发布清单",
+        "docs/reference/changes/CR-057-hls-local-agent-validation.md"
+      ],
+      "statusNote": "2026-09-29 纳入有限候选，仅完成落成规划；2026-10-05 随研究执行器合流重登记（原占用的 ITER-029 编号已归属 CLI 条目）。未创建独立仓库、注册业务 CAP、接入产品插件或承诺工期。"
     },
     {
       "id": "ITER-029",

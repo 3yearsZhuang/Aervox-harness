@@ -2,6 +2,10 @@
 node = "24"
 pnpm = "11.22.0"
 vale = "3.18.0"
+# Markdown 门禁工具纳入工具链真源：此前用 `npx markdownlint-cli2` 每次现取，
+# 既不在 [tools] 也不在 package.json —— 版本不受控（§51），且绕过统一依赖治理（§57）。
+# 固定版本后 `mise x` 会把它放进 PATH，脚本可直接 spawnSync 调用，不再依赖 npx 缓存。
+"npm:markdownlint-cli2" = "0.23.3"
 
 [settings]
 env_file = ".env"
@@ -21,14 +25,16 @@ AERVOX_LOOP_PROVIDER = "llm"
 install = "pnpm install --frozen-lockfile"
 
 # 极速本地增量门禁（CI 配置一致性 + 防漂移守卫 + 增量代码构建/类型/测试 + 增量文档检查，15~30秒完成）
+# 不含 check:hls：它会构建 @aervox/core 并跑 14 个起服务/拉子进程的用例（~13s 固定成本），
+# 纯文档改动也要付这笔钱，与本任务「增量、15~30s」的定位冲突。已改由 ci-code/ci-code-full 兜底。
 ci-fast = "node --test scripts/ci-scope.test.mjs && pnpm check:guards && node scripts/check-affected.mjs && node scripts/docs-lint-affected.mjs"
 ci-affected = "mise tasks run ci-fast"
 
 # 本地代码门禁（免重复 install，受控 2 并发）
-ci-code = "pnpm check:guards && pnpm check:boundary && pnpm check:ci-config && pnpm check:artifacts && pnpm build && pnpm typecheck && pnpm test"
+ci-code = "pnpm check:guards && pnpm check:boundary && pnpm check:ci-config && pnpm check:artifacts && pnpm build && pnpm typecheck && pnpm test && pnpm check:hls"
 
 # 全量冷启动代码门禁（对齐 GitHub Actions CI，含 frozen-lockfile install）
-ci-code-full = "pnpm install --frozen-lockfile && pnpm check:guards && pnpm check:boundary && pnpm check:ci-config && pnpm check:artifacts && pnpm build && pnpm typecheck && pnpm test"
+ci-code-full = "pnpm install --frozen-lockfile && pnpm check:guards && pnpm check:boundary && pnpm check:ci-config && pnpm check:artifacts && pnpm build && pnpm typecheck && pnpm test && pnpm check:hls"
 
 # 统一防多源漂移守卫集合（租户禁用词 + 类型边界 + 依赖提升 + 包拓扑 + 数据库覆盖矩阵 + ADR 索引）
 check-guards = "pnpm check:guards"
@@ -49,7 +55,7 @@ check-affected = "node scripts/check-affected.mjs"
 docs-lint-affected = "node scripts/docs-lint-affected.mjs"
 
 # 本地全量文档门禁：Markdown lint + 术语散文 lint + 治理/本地链接校验 + 计划队列校验 + 派生文档校验
-ci-docs = "node --test scripts/docs-*.test.mjs && node scripts/render-adr-index.mjs --check && node scripts/check-architecture-topology.mjs && pnpm check:plan && npx markdownlint-cli2 --config .markdownlint-cli2.jsonc 'docs/**/*.md' 'README.md' 'AGENTS.md' 'CONTRIBUTING.md' 'plan.md' && mise tasks run docs-lint-prose && mise tasks run docs-validate"
+ci-docs = "node --test scripts/docs-*.test.mjs && node scripts/render-adr-index.mjs --check && node scripts/check-architecture-topology.mjs && pnpm check:plan && markdownlint-cli2 --config .markdownlint-cli2.jsonc 'docs/**/*.md' 'README.md' 'AGENTS.md' 'CONTRIBUTING.md' 'plan.md' && mise tasks run docs-lint-prose && mise tasks run docs-validate"
 
 # 术语/散文一致性（配置见 .vale.ini，错误级别阻断）
 docs-lint-prose = "vale --minAlertLevel=error docs README.md AGENTS.md CONTRIBUTING.md plan.md"
@@ -91,3 +97,11 @@ build = "pnpm build"
 
 # 清理构建产物与缓存
 clean = "rm -rf apps/*/dist apps/*/out packages/*/dist node_modules/.turbo && pnpm install"
+
+[tasks.hls-agent]
+description = "HLS research CLI (doctor/run/batch/report)"
+run = "node scripts/hls-agent/cli.mjs"
+
+[tasks.hls-check]
+description = "Build core and test HLS research contracts"
+run = "pnpm check:hls"

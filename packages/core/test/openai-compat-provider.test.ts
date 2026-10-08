@@ -16,7 +16,7 @@ const baseRequest: ModelRequest = {
     sessionId: "sess_llm",
     messages: [
       { role: "user", content: "帮我查复习计划" },
-      { role: "assistant", content: "我先查一下", toolCallId: "call_1", name: "search_notes" },
+      { role: "assistant", content: "我先查一下", toolCalls: [{ id: "call_1", name: "search_notes", arguments: { q: "notes" } }], reasoning: "step one" },
       { role: "tool", content: "{\"ok\":true}", toolCallId: "call_1", name: "search_notes" },
     ],
   },
@@ -25,7 +25,7 @@ const baseRequest: ModelRequest = {
 const sseBody = (events: string[]): string => events.map((e) => `data: ${e}\n\n`).join("") + "data: [DONE]\n\n";
 
 function mockFetch(body: string, status = 200): ReturnType<typeof vi.fn> {
-  const fn = vi.fn().mockResolvedValue(new Response(body, { status }));
+  const fn = vi.fn().mockImplementation(async () => new Response(body, { status }));
   vi.stubGlobal("fetch", fn);
   return fn;
 }
@@ -39,6 +39,26 @@ async function collect(provider: ReturnType<typeof createOpenAICompatProvider>, 
 describe("createOpenAICompatProvider（阶段 2e）", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("reasoning stays with each assistant message and never leaks to another request", async () => {
+    const fn = mockFetch(sseBody([]));
+    const provider = createOpenAICompatProvider({ baseUrl: "http://x/v1", modelId: "m", seed: 42 });
+    await collect(provider, {
+      ...baseRequest,
+      context: { ...baseRequest.context, messages: [
+        { role: "assistant", content: "one", reasoning: "reason one" },
+        { role: "assistant", content: "two", reasoning: "reason two" },
+      ] },
+    });
+    await collect(provider, {
+      ...baseRequest,
+      context: { ...baseRequest.context, messages: [{ role: "user", content: "new turn" }] },
+    });
+    const bodies = fn.mock.calls.map((call) => JSON.parse(String(call[1].body)));
+    expect(bodies[0].messages.map((m: Record<string, unknown>) => m.reasoning_content)).toEqual(["reason one", "reason two"]);
+    expect(bodies[1].messages).toEqual([{ role: "user", content: "new turn" }]);
+    expect(bodies[0].seed).toBe(42);
   });
 
   it("纯文本流：content 逐块 yield，finish_reason=stop 收尾", async () => {
@@ -164,10 +184,10 @@ describe("createOpenAICompatProvider（阶段 2e）", () => {
       tools?: Array<{ type: string; function: { name: string } }>;
     };
     expect(body.stream).toBe(true);
-    // 携带 toolCallId 的 assistant 消息 → assistant.tool_calls 载体；tool 消息紧跟其后（OpenAI 协议）
+    // 携带完整 toolCalls 的 assistant 消息 → assistant.tool_calls 载体（逐调用配对协议）；tool 消息紧跟其后（OpenAI 协议）
     expect(body.messages).toEqual([
       { role: "user", content: "帮我查复习计划" },
-      { role: "assistant", content: "我先查一下", name: "avx_search_notes" },
+      { role: "assistant", content: "我先查一下", tool_calls: [{ id: "call_1", type: "function", function: { name: "avx_search_notes", arguments: '{"q":"notes"}' } }], reasoning_content: "step one" },
       { role: "tool", content: "{\"ok\":true}", tool_call_id: "call_1" },
     ]);
     expect(body.tools).toEqual([
@@ -233,6 +253,18 @@ describe("createOpenAICompatProvider（阶段 2e）", () => {
     const provider = createOpenAICompatProvider({ baseUrl: "http://x/v1", modelId: "m" });
     const chunks = collect(provider);
     await expect(chunks).rejects.toThrow(/llm_http_401/);
+  });
+
+  it("caps error bodies without waiting for an endless HTTP error stream", async () => {
+    const cancel = vi.fn();
+    const body = new ReadableStream({
+      start(controller) { controller.enqueue(new TextEncoder().encode("x".repeat(10000))); },
+      cancel,
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 503 })));
+    const provider = createOpenAICompatProvider({ baseUrl: "http://x/v1", modelId: "m" });
+    await expect(collect(provider)).rejects.toThrow(`llm_http_503: ${"x".repeat(200)}`);
+    expect(cancel).toHaveBeenCalledOnce();
   });
 
   it("上游模型长期不响应时中止请求并报告 llm_timeout", async () => {
