@@ -103,10 +103,16 @@ export function createApprovalGatedToolProvider(
   proactiveActionAuthorizer?: ProactiveActionAuthorizer,
   observability?: Observability,
 ): ToolProviderPort {
-  const specs = new Map(provider.tools.map((tool) => [tool.name, tool]));
+  let specs = new Map(provider.tools.map((tool) => [tool.name, { ...tool }]));
   return {
     tools: provider.tools,
-    listTools: provider.listTools ? () => provider.listTools!() : undefined,
+    listTools: provider.listTools ? async () => {
+      // A failed refresh must not leave previously advertised tools authorized.
+      specs.clear();
+      const tools = await provider.listTools!();
+      specs = new Map(tools.map((tool) => [tool.name, { ...tool }]));
+      return tools;
+    } : undefined,
     async execute(input: ToolExecutionInput): Promise<ToolExecutionResult> {
       const emitResult = (res: ToolExecutionResult): ToolExecutionResult => {
         if (res.ok) {
@@ -123,7 +129,8 @@ export function createApprovalGatedToolProvider(
       }
 
       const spec = specs.get(input.name);
-      if (!spec || spec.readOnly) return emitResult(await provider.execute(input));
+      if (!spec) return emitResult({ ok: false, error: `unregistered_tool: ${input.name}` });
+      if (spec.readOnly) return emitResult(await provider.execute(input));
 
       const argumentsHash = stableStringify(input.arguments);
       const granted = await findExplicitToolApproval(repo, tenant, {
