@@ -879,12 +879,11 @@
     {
       "id": "ITER-044",
       "batch": "first",
-      "status": "执行中",
+      "status": "已移交",
       "delivery": "项目代码质量、仓库卫生与文档多源偏移审计；收敛入口规则、当前实现和历史证据，压缩重复叙述。",
       "gate": "本次授权覆盖审计与文档整理；行为修复按已有条目另行实施，保留契约、稳定锚点及发布门槛。",
       "acceptance": [
-        "发现有源码或工具证据，区分已知缺口与新增问题",
-        "文档净缩减，事实源与队列状态一致，双门禁通过"
+        "审计证据、净缩减与双门禁见 [PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258)；本项不宣称行为修复或生产发布完成。"
       ],
       "checks": [
         "mise tasks run ci-code",
@@ -892,11 +891,12 @@
       ],
       "owner": "Codex",
       "branch": "docs/repository-audit-and-docs-slimming",
-      "statusNote": "2026-10-08 本地审计与文档整理完成，等待最终文档验证及 PR 移交；ITER-002 剩余提交窗口重开，ITER-038 按 PR #247 核实移交。",
+      "statusNote": "2026-10-08 审计及文档交付见 PR #258；双门禁通过。运行时问题仍按 ITER-002/003/004/007/010/017 分别承接。",
       "dependsOn": [],
       "links": [
         "docs/explanation/architecture-implementation-review.md",
-        "docs/reference/document-governance.md"
+        "docs/reference/document-governance.md",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/258"
       ]
     },
     {
