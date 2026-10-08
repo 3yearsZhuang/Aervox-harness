@@ -101,3 +101,17 @@ describe("AST-01 会话级写锁", () => {
     expect(sessionLockManager.activeLockCount).toBe(0);
   });
 });
+it("10,000 completed keys release the actual tail cache, including rejected queues", async () => {
+  const manager = new SessionLockManager();
+  await Promise.all(Array.from({ length: 10_000 }, (_, i) => manager.runExclusive(String(i), async () => i)));
+  expect(manager.activeLockCount).toBe(0);
+  expect((manager as unknown as { tails: Map<string, unknown> }).tails.size).toBe(0);
+  let release!: () => void;
+  const barrier = new Promise<void>((resolve) => { release = resolve; });
+  const first = manager.runExclusive("queued", async () => { throw new Error("first failed"); });
+  const second = manager.runExclusive("queued", () => barrier);
+  await expect(first).rejects.toThrow("first failed");
+  expect(manager.activeLockCount).toBe(1);
+  release(); await second;
+  expect(manager.activeLockCount).toBe(0);
+});

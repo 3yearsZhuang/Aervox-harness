@@ -205,3 +205,4 @@ export {
   resetPluginApiContributions,
 } from "./plugin-api-registry.js";
 export type { PluginApiContribution, PluginOpenApiRoute, ToolResultProjectionSchema } from "./plugin-api-registry.js";
+export { createDeletionRequestSchema } from "./privacy-schemas.js";

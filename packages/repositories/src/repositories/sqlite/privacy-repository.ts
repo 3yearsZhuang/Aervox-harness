@@ -3,7 +3,7 @@
  *
  * 规则依据：docs/reference/PRD.md §8（ConsentGrant/DeletionRequest/DeletionTarget）
  */
-import { eq, and, sql, inArray } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { consentGrants, deletionRequests, deletionTargets } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
@@ -13,6 +13,13 @@ import type {
   DeletionRequestModel,
   DeletionTargetModel,
 } from "../types/index.js";
+
+/** Shared retry/gate predicate: legacy completion without supported verification stays denied. */
+export const unverifiedDeletionRequest = sql`${deletionRequests.status} != 'completed' OR ${deletionRequests.lastVerifiedAt} IS NULL
+            OR NOT EXISTS (SELECT 1 FROM deletion_targets t WHERE t.request_id = ${deletionRequests.id})
+            OR EXISTS (SELECT 1 FROM deletion_targets t WHERE t.request_id = ${deletionRequests.id}
+              AND (t.status != 'completed' OR t.verified_at IS NULL OR
+                CASE WHEN json_valid(t.evidence_ref) THEN json_extract(t.evidence_ref, '$.verifier') ELSE NULL END IS NOT 'memory-local-v1'))`;
 
 export class SqlitePrivacyRepository implements IPrivacyRepository {
   constructor(private readonly db: AervoxDatabase) {}
@@ -77,7 +84,7 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
       .from(deletionRequests)
       .where(
         and(
-          inArray(deletionRequests.status, ["pending", "in_progress"]),
+          unverifiedDeletionRequest,
         ),
       )
       .limit(1);
@@ -92,24 +99,23 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
       idempotencyKey: string;
       requestedAt?: string;
       ownerModule: string;
+      targets?: Array<{ targetType: string; targetId: string; ownerModule: string }>;
     },
   ): Promise<DeletionRequestModel> {
-    const now = new Date().toISOString();
-    const [created] = await this.db
-      .insert(deletionRequests)
-      .values({
-        id: requestData.id,
-        scope: requestData.scope,
-        idempotencyKey: requestData.idempotencyKey,
-        requestedAt: requestData.requestedAt ?? now,
-        status: "pending",
-        attemptCount: 0,
-        ownerModule: requestData.ownerModule,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
-    return created as DeletionRequestModel;
+    return this.db.transaction(async (tx) => {
+      const [existing] = await tx.select().from(deletionRequests).where(eq(deletionRequests.idempotencyKey, requestData.idempotencyKey));
+      if (existing) return existing as DeletionRequestModel;
+      const now = new Date().toISOString();
+      const [created] = await tx.insert(deletionRequests).values({
+        id: requestData.id, scope: requestData.scope, idempotencyKey: requestData.idempotencyKey,
+        requestedAt: requestData.requestedAt ?? now, status: "pending", attemptCount: 0,
+        ownerModule: requestData.ownerModule, createdAt: now, updatedAt: now,
+      }).returning();
+      for (const target of requestData.targets ?? []) {
+        await tx.insert(deletionTargets).values({ ...target, requestId: requestData.id, status: "pending", attemptCount: 0 });
+      }
+      return created as DeletionRequestModel;
+    });
   }
 
   async getDeletionRequest(ctx: LocalContext, id: string): Promise<DeletionRequestModel | null> {
@@ -170,6 +176,10 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
     evidenceRef?: string,
   ): Promise<DeletionTargetModel | null> {
     const updateData: Record<string, unknown> = { status };
+    if (status !== "completed") {
+      updateData.verifiedAt = null;
+      updateData.evidenceRef = null;
+    }
     if (status === "completed") {
       updateData.verifiedAt = new Date().toISOString();
     }

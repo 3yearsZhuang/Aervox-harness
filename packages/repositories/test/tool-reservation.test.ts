@@ -111,10 +111,10 @@ describe("2c 工具幂等预留与结果收口", () => {
     });
     await new Promise((r) => setTimeout(r, 10)); // 租约过期
     await repo.recoverExpiredAttempts(client); // attempt → Interrupted（fencing+1）
-    const marked = await repo.markPendingOutcomeUnknown(client);
-    expect(marked).toBeGreaterThanOrEqual(1);
+    // The recovery commit already closes the uncertain reservation; fallback is idempotent.
     const rows = await repo.listToolExecutionsByTurn(ctx, "turn_resv");
     expect(rows[0]?.status).toBe("outcome_unknown");
+    expect(await repo.markPendingOutcomeUnknown(client)).toBe(0);
   });
 });
 

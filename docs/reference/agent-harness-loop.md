@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.8.0
+version: 0.8.1
 updated_at: 2026-10-08
 reviewed_at: 2026-10-08
 review_interval_days: 90
@@ -482,9 +482,9 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 | 契约、回放与状态机 | [contract](../../packages/core/test/contract.test.ts)、[replay](../../packages/core/test/replay.test.ts)、[state-machine](../../packages/core/test/state-machine.test.ts) | 确定性与终态唯一 |
 | fencing 与原子提交 | [executor-fencing](../../packages/core/test/executor-fencing.test.ts)、[SQLite Store](../../packages/host-agent/test/sqlite-execution-store-fencing.test.ts) | 旧执行器不能提交 chunk、工具结果或终态；全体旁路仍须覆盖 |
 | 审批与工具 | [tool-policy](../../packages/core/test/tool-policy.test.ts)、[tool-ledger](../../packages/core/test/tool-ledger.test.ts)、[adapter-contract](../../packages/core/test/adapter-contract.test.ts) | 权限、预留、未知结果与 Adapter 批次翻译；原生终端工具合同仍待实现 |
-| 恢复 | [recovery](../../packages/core/test/recovery.test.ts)、[resume-source](../../packages/host-agent/test/sqlite-resume-source.test.ts) | 首片段前重试、可见后中断、确定结果续跑和合成结果；生产接线与完整故障矩阵独立验收 |
-| 输入与上下文 | [inbox](../../packages/core/test/inbox.test.ts)、[Inbox API](../../apps/api/test/inbox-routes.test.ts)、[context-manifest](../../packages/core/test/context-manifest.test.ts) | 受控消费与当前快照粒度；每请求来源证据链仍待闭合 |
-| 限额与取消 | [budget](../../packages/core/test/budget.test.ts)、[control-context](../../packages/core/test/control-context.test.ts)、[cancel](../../packages/core/test/cancel.test.ts) | step/token/time/tool 限额与取消传播；费用和 Provider 窗口不得由字节预算替代 |
+| 恢复 | [派发与取消恢复](../../apps/api/test/conversation-dispatch-resilience.test.ts)、[recovery](../../packages/core/test/recovery.test.ts)、[resume-source](../../packages/host-agent/test/sqlite-resume-source.test.ts) | 首片段前重试、可见后中断、确定结果续跑和合成结果；生产接线与完整故障矩阵独立验收 |
+| 输入与上下文 | [原子接单](../../packages/repositories/test/turn-acceptance.test.ts)、[inbox](../../packages/core/test/inbox.test.ts)、[Inbox API](../../apps/api/test/inbox-routes.test.ts)、[context-manifest](../../packages/core/test/context-manifest.test.ts) | 受控消费与当前快照粒度；每请求来源证据链仍待闭合 |
+| 限额与取消 | [动态工具取消](../../apps/api/test/tool-runtime-lifecycle.test.ts)、[budget](../../packages/core/test/budget.test.ts)、[control-context](../../packages/core/test/control-context.test.ts)、[cancel](../../packages/core/test/cancel.test.ts) | step/token/time/tool 限额与取消传播；费用和 Provider 窗口不得由字节预算替代 |
 | Host 与 Provider | [profile](../../packages/host-agent/test/profile.test.ts)、[host-health](../../packages/host-agent/test/host-health.test.ts)、[provider-parity](../../packages/core/test/provider-parity.test.ts) | native/replay 独立可用与接口一致；真实 DSH/pi 运行时另验 |
 
 SSE 必须验证持久后发送、高水位补读、弱网重连与游标过期，见[流式协议](STREAMING_PROTOCOL.md)及[测试策略](TEST_STRATEGY.md)。删除/撤权后的零召回、零副作用和 fail closed 必须跨 API、Host、记忆与工具路径验证，不能只由 Loop 单元测试证明。

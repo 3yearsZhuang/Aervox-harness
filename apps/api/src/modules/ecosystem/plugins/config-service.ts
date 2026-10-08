@@ -211,26 +211,21 @@ export class PluginConfigService {
       throw new PluginConfigError(400, "INVALID_CONFIG", "config validation failed", issues);
     }
 
-    // secret 操作：null=清除，string=写入，缺省=保持
+    // Pass only schema-declared operations to the same-database config transaction.
+    const secretChanges: Record<string, string | null> = {};
     for (const field of fields) {
       if (field.type !== "secret") continue;
       const op = body.secretValues?.[field.key];
-      if (op === null) {
-        await this.deps.secretRepo.delete(tenant, targetId, field.key);
-      } else if (typeof op === "string") {
-        await this.deps.secretRepo.put(tenant, { pluginId: targetId, fieldKey: field.key, value: op });
-      }
+      if (op === null || typeof op === "string") secretChanges[field.key] = op;
     }
-    const secretStates = await this.deps.secretRepo.listStates(tenant, targetId);
-    const secretKeys = secretStates.map((s) => s.fieldKey);
-    const secretFields = this.buildSecretFields(fields, secretStates);
 
     const { saved, conflict } = await this.deps.configRepo.saveConfig(tenant, {
       pluginId: targetId,
       schemaVersion: schema.schemaVersion,
       expectedRevision: body.revision,
       values,
-      secretKeys,
+      secretKeys: [],
+      secretChanges,
       orphanedValues: stored?.orphanedValuesJson as Record<string, unknown> | undefined,
     });
     if (conflict) {
@@ -242,7 +237,7 @@ export class PluginConfigService {
       revision: saved.revision,
       schemaVersion: saved.schemaVersion,
       values: saved.valuesJson as Record<string, unknown>,
-      secretFields,
+      secretFields: this.buildSecretFields(fields, saved.secretKeysJson.map((fieldKey) => ({ fieldKey, configured: true }))),
       orphanedValues: (saved.orphanedValuesJson as Record<string, unknown>) ?? {},
       issues: [],
     };
@@ -258,7 +253,6 @@ export class PluginConfigService {
     const schema = await this.getConfigSchema(targetId);
     const fields = schema.fields as Parameters<typeof validateValues>[0];
     const defaults = applyDefaults(fields);
-    await this.deps.secretRepo.deleteAllForPlugin(targetId);
     const saved = await this.deps.configRepo.resetConfig(tenant, targetId, schema.schemaVersion, defaults);
     await this.audit(tenant, "plugin.config.reset", pluginId, { revision: saved.revision });
     return {

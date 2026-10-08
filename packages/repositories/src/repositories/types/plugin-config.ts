@@ -12,7 +12,7 @@ export interface IPluginConfigRepository {
   saveConfig(
     ctx: LocalContext,
     input: PluginConfigSaveInput,
-  ): Promise<{ saved: PluginConfigModel; conflict: boolean }>;
+  ): Promise<{ saved: PluginConfigModel; conflict: false } | { saved: PluginConfigModel | null; conflict: true }>;
   resetConfig(
     ctx: LocalContext,
     pluginId: string,

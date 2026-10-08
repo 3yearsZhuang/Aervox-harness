@@ -65,7 +65,20 @@ export interface SessionHistoryMessage {
   content: string;
 }
 
+export interface TurnAcceptanceInput {
+  turnId: string;
+  sessionId: string;
+  idempotencyKey: string;
+  message: { id: string; content: string };
+  attemptId: string;
+  consumeInbox: boolean;
+}
+export type TurnAcceptanceResult =
+  | { created: false; turn: TurnModel }
+  | { created: true; turn: TurnModel; message: MessageVersionModel; attempt: TurnAttemptModel };
+
 export interface IConversationRepository {
+  acceptTurn(ctx: LocalContext, input: TurnAcceptanceInput): Promise<TurnAcceptanceResult>;
   /** 当前轮之前、同租户同会话的有界安全历史；不含当前输入。 */
   getSessionHistory(
     ctx: LocalContext,

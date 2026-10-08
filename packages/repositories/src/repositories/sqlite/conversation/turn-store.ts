@@ -1,11 +1,12 @@
 /**
  * Aervox｜思隅 @aervox/repositories — Turn 生命周期与 Outbox 伴随写入 Store
  */
-import { eq, and } from "drizzle-orm";
+import { eq, and, or, isNull, gt, inArray } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
-import { turns, messageVersions, outboxEvents } from "@aervox/schema";
+import { turns, messageVersions, outboxEvents, turnAttempts, agentInboxItems } from "@aervox/schema";
 import type { LocalContext } from "../../../local-context.js";
-import type { TurnModel, MessageVersionModel } from "../../types/index.js";
+import type { TurnModel, MessageVersionModel, TurnAcceptanceInput, TurnAcceptanceResult, TurnAttemptModel } from "../../types/index.js";
+import { withSessionLock } from "../../../session-lock.js";
 import { notifyWorkerWakeup } from "../../../worker-ipc.js";
 
 export class TurnStore {
@@ -17,68 +18,61 @@ export class TurnStore {
     userMessage: { id: string; content: string },
     outboxEventData?: { id: string; eventType: string; idempotencyKey: string; payload: unknown },
   ): Promise<{ turn: TurnModel; message: MessageVersionModel }> {
-    const now = new Date().toISOString();
-
-    // 说明：此处**不得**再包一层 runWithBusyRetry。client 边界的 withBusyRetry 代理已在
-    // `transaction()` 内部对 tx.execute/commit/rollback 做 busy 重试，并刻意**不重试 BEGIN**
-    // （libsql@0.4.7 在 BEGIN 竞争失败后会残留语句状态，重试反而破坏后续 commit，见
-    // write-retry.ts 的边界说明与 test/write-retry.test.ts 的回归用例）。若在外层再包一层，
-    // 就会重新引入被禁止的 BEGIN 重试：每次尝试都会耗尽 busy_timeout（默认 5s），把同步
-    // POST /v1/sessions/:id/turns 路径的最坏等待从一次 5s 放大到数十秒，并把已经损坏的
-    // 连接（"SQL statements in progress"）误判为可重试的写锁竞争。
-    const result = await this.db.transaction(async (tx) => {
-      // 1. 插入 Turn 记录
-      const [createdTurn] = await tx
-        .insert(turns)
-        .values({
-          id: turnData.id,
-          sessionId: turnData.sessionId,
-          idempotencyKey: turnData.idempotencyKey,
-          status: turnData.status ?? "Created",
-          lastSequence: 0,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .returning();
-
-      // 2. 插入首条用户输入消息版本
-      const [createdMessage] = await tx
-        .insert(messageVersions)
-        .values({
-          id: userMessage.id,
-          turnId: turnData.id,
-          role: "user",
-          version: 1,
-          content: userMessage.content,
-          isRedacted: 0,
-          createdAt: now,
-        })
-        .returning();
-
-      // 3. 伴随写入 Outbox 事件（若提供）
-      if (outboxEventData) {
-        await tx.insert(outboxEvents).values({
-          id: outboxEventData.id,
-          idempotencyKey: outboxEventData.idempotencyKey,
-          eventType: outboxEventData.eventType,
-          payload: outboxEventData.payload,
-          status: "pending",
-          createdAt: now,
-        });
-      }
-
-      return {
-        turn: createdTurn as TurnModel,
-        message: createdMessage as MessageVersionModel,
-      };
-    });
-
-    if (outboxEventData) {
-      // 事务已提交后再唤醒，避免 Worker 读到未提交数据；尽力而为，失败由轮询兜底。
-      void notifyWorkerWakeup("outbox");
-    }
-
+    const result = await this.db.transaction((tx) => this.insertTurn(tx, turnData, userMessage, outboxEventData));
+    if (outboxEventData) void notifyWorkerWakeup("outbox");
     return result;
+  }
+
+  /** Acceptance is one writer commit: input consumption, Turn, Outbox and initial Attempt. */
+  async acceptTurn(ctx: LocalContext, input: TurnAcceptanceInput): Promise<TurnAcceptanceResult> {
+    const result = await withSessionLock(`turn-accept:${input.sessionId}`, () => this.db.transaction(async (tx): Promise<TurnAcceptanceResult> => {
+      const [existing] = await tx.select().from(turns).where(eq(turns.idempotencyKey, input.idempotencyKey));
+      if (existing) return { created: false, turn: existing as TurnModel };
+      const now = new Date().toISOString();
+      const inbox = input.consumeInbox ? await tx.select().from(agentInboxItems).where(and(
+        eq(agentInboxItems.sessionId, input.sessionId), eq(agentInboxItems.consumeBoundary, "next-turn"),
+        eq(agentInboxItems.status, "pending"),
+        or(isNull(agentInboxItems.expiresAt), gt(agentInboxItems.expiresAt, now)),
+      )).orderBy(agentInboxItems.createdAt, agentInboxItems.id).limit(20) : [];
+      const content = [...inbox.map((item) => typeof item.payloadJson === "string"
+        ? item.payloadJson : JSON.stringify(item.payloadJson)), input.message.content].join("\n\n");
+      const accepted = await this.insertTurn(tx, {
+        id: input.turnId, sessionId: input.sessionId, idempotencyKey: input.idempotencyKey,
+      }, { ...input.message, content }, {
+        id: `outbox_${input.turnId}`, eventType: "turn.created", idempotencyKey: `idem_outbox_${input.turnId}`,
+        payload: { turnId: input.turnId, sessionId: input.sessionId },
+      });
+      const [attempt] = await tx.insert(turnAttempts).values({
+        id: input.attemptId, turnId: input.turnId, attempt: 1, fencingToken: 0, status: "Running", startedAt: now,
+      }).returning();
+      if (inbox.length) {
+        const consumed = await tx.update(agentInboxItems).set({
+          status: "acknowledged", claimedAt: now, ackedAt: now, updatedAt: now, attemptId: input.attemptId,
+        }).where(and(inArray(agentInboxItems.id, inbox.map((item) => item.id)), eq(agentInboxItems.status, "pending"))).returning();
+        if (consumed.length !== inbox.length) throw new Error("inbox_acceptance_conflict");
+      }
+      return { created: true, ...accepted, attempt: attempt as TurnAttemptModel };
+    }));
+    if (result.created) void notifyWorkerWakeup("outbox");
+    return result;
+  }
+
+  private async insertTurn(
+    tx: Parameters<Parameters<AervoxDatabase["transaction"]>[0]>[0],
+    turnData: { id: string; sessionId: string; idempotencyKey: string; status?: string },
+    userMessage: { id: string; content: string },
+    outboxEventData?: { id: string; eventType: string; idempotencyKey: string; payload: unknown },
+  ): Promise<{ turn: TurnModel; message: MessageVersionModel }> {
+    const now = new Date().toISOString();
+    const [turn] = await tx.insert(turns).values({
+      ...turnData, status: turnData.status ?? "Created", lastSequence: 0, acceptedAt: now, createdAt: now, updatedAt: now,
+    }).returning();
+    const [message] = await tx.insert(messageVersions).values({
+      id: userMessage.id, turnId: turnData.id, role: "user", version: 1,
+      content: userMessage.content, isRedacted: 0, createdAt: now,
+    }).returning();
+    if (outboxEventData) await tx.insert(outboxEvents).values({ ...outboxEventData, status: "pending", createdAt: now });
+    return { turn: turn as TurnModel, message: message as MessageVersionModel };
   }
 
   async getTurn(ctx: LocalContext, turnId: string): Promise<TurnModel | null> {

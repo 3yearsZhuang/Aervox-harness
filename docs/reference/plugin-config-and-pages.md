@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.6
+version: 1.0.7
 updated_at: 2026-10-08
 reviewed_at: 2026-10-08
 review_interval_days: 90
@@ -357,7 +357,7 @@ MCP 使用独立[服务适配器](../../apps/api/src/modules/ecosystem/mcp/servi
 | 验证范围 | 当前回归证据 | 不应据此推断 |
 |---|---|---|
 | Bundle 预检、安装、冲突、基本导出、集市 | [plugin-distribution.test.ts](../../apps/api/test/plugin-distribution.test.ts) | 原子安装、签名、完整导出回滚、ZIP 资源配额 |
-| Config 校验、串行旧版本拒绝、重置、资源路径、清理 | [plugin-config.test.ts](../../apps/api/test/plugin-config.test.ts) | Secret 静态加密、并发 CAS、配置与 Secret 原子性、全 Page 撤权 |
+| Config 校验、并发 CAS、同库 Config/Secret 原子保存与重置 | [plugin-config.test.ts](../../apps/api/test/plugin-config.test.ts)、[atomic-edits.test.ts](../../packages/repositories/test/atomic-edits.test.ts) | Secret 静态加密、外部 SecretStore 补偿、全 Page 撤权 |
 | 工具与权限登记 | [tools-plugins.test.ts](../../apps/api/test/tools-plugins.test.ts) | 任意工具声明自动提供 handler 或 grant 强制检查 |
 | Hook 与领域切面 | [study-term-plugins.test.ts](../../apps/api/test/study-term-plugins.test.ts) | 第三方 Hook 隔离、硬超时或即时取消 |
 | UI 注册/清理/配置竞态 | [ui-registry.test.ts](../../packages/ui/test/ui-registry.test.ts)、[plugin-registration.test.ts](../../plugins/focus-mode/test/plugin-registration.test.ts) | 任意第三方 Vue 热加载或安全沙箱 |
@@ -378,4 +378,4 @@ MCP 使用独立[服务适配器](../../apps/api/src/modules/ecosystem/mcp/servi
 
 停用、撤权、代码缺席、显式卸载和显式数据清理是不同操作。启动扫描遇到缺包、不可读根目录或非法清单时，必须阻断相应执行并保留安装记录、配置、Secret、授权历史和恢复诊断，不能调用卸载清理推断用户意图。恢复有效包只恢复实现的可用性，不能恢复已撤销权限或改变用户开关。数据导出/删除入口必须在实现退出后继续可用。
 
-内存注册与持久数据分开管理，注册释放绑定实例代际且幂等；双 App 不共享隐式全局注册表。显式卸载继续遵循本文既有流程；Config/Secret 原子提交仍由 ITER-004 验收。本节为已接受契约，实施证据按 CR-056（已归档至 Aervox-docs-archive）逐切片登记。
+内存注册与持久数据分开管理，注册释放绑定实例代际且幂等；双 App 不共享隐式全局注册表。显式卸载继续遵循本文既有流程；Config/Secret 的同库原子保存与重置已由 PR #258 落实，外部 SecretStore 补偿仍须独立定义。本节为已接受契约，实施证据按 CR-056（已归档至 Aervox-docs-archive）逐切片登记。
