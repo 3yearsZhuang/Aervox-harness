@@ -6,16 +6,13 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.6.0
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
+version: 0.6.1
+updated_at: 2026-10-08
+reviewed_at: 2026-10-08
 review_interval_days: 90
 ---
 
 # Aervox 能力组合与可选化目录规范
-
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-10-04
 
 关联：[架构设计](ARCHITECTURE.md)、[ADR-001](adr/ADR-001-modular-monolith.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-014](adr/ADR-014-modular-monolith-structure.md)、[ADR-021](adr/ADR-021-aervox-core-standalone-package.md)、[能力注册表](capability-registry.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
@@ -39,13 +36,15 @@ Conversation、Learning、Practice、Review、Memory、Diary、Identity、Notifi
 |---|---|
 | Composition/Lifecycle | 解析、激活、停用、资源回收和状态机 |
 | Contract/Protocol | Manifest、Port、事件版本和输入输出校验 |
-| Policy/Consent | 身份上下文、租户、权限、同意、撤销和最小权限 |
+| Policy/Consent | 本地上下文、用户权限、同意、撤销和最小权限 |
 | Data Rights | 数据所有权、保留、导出、更正和删除传播 |
 | Outbox/Audit | 事务事件、幂等投递、审计和可追溯性 |
 | Sandbox/Revocation | 外部代码隔离、超时、配额、杀停和撤权 |
 | Observability/Recovery | 健康状态、告警、回滚、恢复和证据 |
 
 Profile 可以没有用户能力，但不能关闭 Kernel Substrate。任何外部代码、模型或持久化能力如果无法满足 Policy、Consent、Deletion 和 Audit，Resolver 必须拒绝激活。
+
+CAP-027 的本地 SQLite 真源与数据权利由 CR-030 和[数据库契约](DATABASE.md#1-适用范围与不变量)规定，属于不可关闭的系统边界，不纳入构建或运行时自选。该边界不表示备份、迁移、导出和恢复已全部验收；能力完整交付状态仍以[追踪矩阵](REQUIREMENTS_TRACEABILITY.md#4-cap-001cap-035-覆盖矩阵全部能力状态唯一速览)为准。
 
 ### 能力与代码载体分离
 
@@ -62,7 +61,7 @@ Profile 可以没有用户能力，但不能关闭 Kernel Substrate。任何外�
 | `Manifest` | 身份、版本、依赖、权限、数据和入口的机器可读声明 |
 | `Bundle` | 可一起分发的一组能力、Provider 和适配器 |
 | `Profile` | 一套可运行的能力选择和 Provider 绑定 |
-| `Overlay` | 对 Profile/Bundle 的环境、租户或用户级覆盖 |
+| `Overlay` | 对 Profile/Bundle 的环境或本地用户配置覆盖 |
 
 `modules/*`、npm、git submodule、DSH Bundle 和 pi Package 都只是代码来源或分发载体，不是能力语义本身。
 
@@ -88,7 +87,7 @@ Profile 可以没有用户能力，但不能关闭 Kernel Substrate。任何外�
 
 - 主仓通过 workspace 依赖与构建配置决定"默认打包哪些能力"；
 - 未在默认列表的能力不进入产物，减少体积与攻击面；
-- 用于：桌面端（CAP-018）、Live2D / 桌宠皮肤、本地优先（CAP-027）等在发布边界上更自然的候选。
+- 用于：桌面端（CAP-018）、Live2D / 桌宠皮肤等在发布边界上更自然的候选。
 
 #### B. 运行时自选（端用户在设置里开关）
 
@@ -98,7 +97,7 @@ Profile 可以没有用户能力，但不能关闭 Kernel Substrate。任何外�
 
 CAP-033「全域感知与个人画像（主动智能模式）」采用双机制：构建时提供受信桌面 Privacy Host/OS Broker 载体，运行时由用户确认版本化来源、后台和动作 grant 后激活。其本地私密存储、撤权、导出和删除责任属于 Kernel Substrate 的强制边界，不能被自选开关关闭。
 
-CAP-034/035 采用运行时连接机制：构建产物包含本地连接网关和工具定义，用户在 CAP-033 active 后分别配置 HA 或健康 Provider。连接开关可以停止同步和工具，但不能关闭凭据删除、审计、租户隔离和数据权利责任。
+CAP-034/035 采用运行时连接机制：构建产物包含本地连接网关和工具定义，用户在 CAP-033 active 后分别配置 HA 或健康 Provider。连接开关可以停止同步和工具，但不能关闭凭据删除、审计、本地用户权限校验和数据权利责任。
 
 > 二者关系：构建时决定**能力是否存在**，运行时决定**对当前用户是否可用**。
 
@@ -228,7 +227,7 @@ profiles/
   pi-lab/
   local/
   full/
-  overlays/{dev,ci,tenant.example}.yaml
+  overlays/{dev,ci,user.example}.yaml
 
 registry/
   manifests/
@@ -350,7 +349,7 @@ spec:
   overlays: [dev]
 ```
 
-Profile 合并顺序固定为：Kernel Substrate → Capability Bundles → Provider Bindings → Host/Shell Bindings → User/Tenant Overlay。构建时选择决定代码是否进入产物；运行时选择决定已安装能力是否激活，两者必须分别记录。
+Profile 合并顺序固定为：Kernel Substrate → Capability Bundles → Provider Bindings → Host/Shell Bindings → Local User Overlay。构建时选择决定代码是否进入产物；运行时选择决定已安装能力是否激活，两者必须分别记录。
 
 ## 依赖解析与生命周期
 
@@ -382,7 +381,7 @@ discovered -> verified -> resolved -> installed -> enabled
 |---|---|---|
 | Cordis `apply(ctx)` / `inject` | Provider/Consumer activation | Cordis Context 不穿过 Adapter |
 | Cordis service key | Definition ID | 登记 Aervox 版本和语义 |
-| Cordis typed event | Aervox typed event / Outbox | schema、租户和权限校验 |
+| Cordis typed event | Aervox typed event / Outbox | schema、本地上下文和用户权限校验 |
 | `ctx.effect()` / disposer | Capability disposer | 停用必须可逆 |
 | `package.json.dsh.bundle/profile` | Bundle source metadata | 不是 Aervox 事实源 |
 | `cordis.patch.yml` | Overlay 输入 | 只在 `adapter-dsh` 解析 |
@@ -423,7 +422,7 @@ pi 下表概念映射的历史参考 commit 为 `c49906ec77788625aacbdc53ebca6fb
 | CAP-033 Profile/Action/Source | CAP-033 Privacy Host | 只在用户确认的 grant/revision、OS 能力和本地处理边界交集内观察、提炼和动作；原始副本七天且提炼后清理 |
 | CAP-034/035 Connection/Entity/HealthSample | CAP-033 本地连接网关 | 只暴露脱敏连接状态、授权实体和规范化每日指标；凭据不进入 Contribution，撤销连接删除凭据与对应缓存 |
 
-外部能力的有效权限是 Manifest 声明、用户/租户授权和当前 Policy 的交集。模型请求、插件声明或外部运行时自报的租户字段不能产生授权。删除必须传播到摘要、索引、缓存、视图投影和外部副本，不能只删除安装记录。
+外部能力的有效权限是 Manifest 声明、本地用户授权和当前 Policy 的交集。模型请求、插件声明或外部运行时自报的身份字段不能产生授权。删除必须传播到摘要、索引、缓存、视图投影和外部副本，不能只删除安装记录。
 
 ## 当前仓库迁移
 

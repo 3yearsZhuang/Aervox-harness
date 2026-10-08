@@ -28,21 +28,18 @@
       "id": "ITER-001",
       "batch": "first",
       "status": "已移交",
-      "delivery": "冷 CI 与插件验证：各 Job 锁文件安装、插件制品生成、工作流触发与 Turbo 输入；ARC-14、FND-10；基础设施/CAP-020",
-      "gate": "可独立修复；不借此开启已有禁用的资产缓存",
+      "delivery": "冷 CI、插件产物恢复与可重现验证；ARC-14/FND-10；CAP-020。",
+      "gate": "已移交切片；新范围另按现行需求与 CR 门槛评审。",
       "acceptance": [
-        "干净 checkout 通过（显式锁文件安装，不依赖 pnpm 隐式安装）",
-        "仅插件变动会重新验证（工作流触发、Turbo 输入与增量选择三层同源）",
-        "删除生成物后由声明任务恢复，且产物字节可重现"
+        "切片验收见 [PR #221](https://github.com/3yearsZhuang/Aervox-harness/pull/221)；适用限制见本条移交摘要。"
       ],
       "checks": [
-        "`scripts/ci-scope.test.mjs`",
-        "`scripts/export-plugins.test.mjs`",
-        "`.github/workflows/ci.yml` 的 frozen lockfile 与 plugin bundles 步骤"
+        "scripts/ci-scope.test.mjs",
+        "scripts/export-plugins.test.mjs"
       ],
       "owner": "quality/release",
       "branch": "fix/iter-001-ci-verification-entry",
-      "statusNote": "2026-09-18 移交：PR #221 冷 CI 全绿（Install/build/typecheck 5m23s、E2E 1m25s、Docs 24s），三条验收均有机会证据；合并后由 §4.2 记录交付",
+      "statusNote": "冷检出、包外输入触发与产物重建均有证据。",
       "dependsOn": [],
       "links": [
         "https://github.com/3yearsZhuang/Aervox-harness/pull/221",
@@ -52,23 +49,25 @@
     {
       "id": "ITER-002",
       "batch": "first",
-      "status": "已移交",
-      "delivery": "可靠接单与 Outbox：先修消费者抢先完成，再闭合 Turn/Attempt/Inbox/可重放输入与受控派发；ARC-01、FND-01/05；CAP-007",
-      "gate": "拆为消费修复与调度切片；新状态、容量/接单语义或多订阅契约先 CR",
+      "status": "建议",
+      "delivery": "可靠接单剩余差量：Inbox 确认、Turn/Outbox 与 Attempt 的原子接单或可重放恢复；ARC-01；CAP-007。",
+      "gate": "PR #228 的消费隔离、死信与已有 Attempt 恢复保留；修改接单或重放合同先 CR。",
       "acceptance": [
-        "提交、预加载、claim 各点中断后已受理任务可追踪",
-        "无永久未领取孤儿，不重复消费/副作用"
+        "Inbox 确认后写 Turn 失败不丢输入",
+        "Turn 已提交而 Attempt 创建失败时仍能发现并恢复；同幂等键不产生重复副作用"
       ],
       "checks": [
-        "`apps/worker/test/outbox-worker.test.ts`",
-        "`apps/api/test/conversation-dispatch-resilience.test.ts`"
+        "`apps/api/test/conversation-dispatch-resilience.test.ts`",
+        "`packages/repositories/src/repositories/sqlite/conversation/attempt-store.ts`"
       ],
       "owner": "platform",
       "branch": "fix/iter-002-reliable-dispatch-and-outbox",
-      "statusNote": "2026-09-18 移交：完成 Outbox 消费隔离、死信转移及 Turn/Attempt 孤儿恢复切片闭环（FND-01/ARC-01）；测试全绿，./aervox ci 通过",
+      "statusNote": "2026-10-08 审计重开剩余范围：PR #228 已修预加载失败和无租约 Attempt，但未覆盖 Inbox/Turn/Attempt 分离提交窗口；不得将部分修复标为整项闭环。",
       "dependsOn": [],
       "links": [
-        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/228",
+        "docs/explanation/architecture-implementation-review.md#audit-findings"
       ]
     },
     {
@@ -151,7 +150,8 @@
       "dependsOn": [],
       "links": [
         "docs/explanation/reference-design-transfer.md#upstream-20260929"
-      ]
+      ],
+      "statusNote": "2026-10-08 复核：动态工具 tool-providers → ToolRuntime 仍未传递调用级 signal/controlContext，注册生命周期取消不能替代 Turn 取消；保留原验收。"
     },
     {
       "id": "ITER-008",
@@ -192,7 +192,8 @@
       "gate": "依赖 ITER-002/003/007 的必要切片；续跑、一次性授权/有效期、跨库恢复和账本保留先 CR；不直接启用现有 Resume Host",
       "acceptance": [
         "缺账本、多工具、跨进程答案、重复接管与旧备份恢复不重复副作用、不吞答案、不复活撤权",
-        "未知结果不盲重放"
+        "未知结果不盲重放",
+        "取消请求提交后进程退出，过期 CancelRequested 能以 fencing 收敛终态并结束重连流"
       ],
       "owner": "platform/data",
       "dependsOn": [
@@ -201,7 +202,8 @@
         "ITER-007"
       ],
       "links": [
-        "docs/explanation/reference-design-transfer.md#upstream-20260929"
+        "docs/explanation/reference-design-transfer.md#upstream-20260929",
+        "docs/explanation/architecture-implementation-review.md#audit-findings"
       ]
     },
     {
@@ -258,21 +260,21 @@
       "id": "ITER-014",
       "batch": "next",
       "status": "已移交",
-      "delivery": "模块公开 Port 与 Build to Delete：评审 ADR-014 的通信/装配差量，建立试点模块边界、MemoryStore 贡献与退出演练；ARC-10、CR-056（已归档至 Aervox-docs-archive）；CAP-005/007/020 与架构基础设施",
-      "gate": "CR-056 相关决策先接受；模型 Driver 归 ITER-008，生命周期/控制协同 ITER-005/007/013；不要求先改完全部模块，也不阻塞已有缺陷修复",
+      "delivery": "公开 Port、MemoryStore 试点与实现退出演练；ARC-10；CAP-005/007/020。",
+      "gate": "已移交切片；新范围另按现行需求与 CR 门槛评审。",
       "acceptance": [
-        "私有引用 fixture 失败、公开 Port 通过、模块可用 Fake Port 测试",
-        "实际依赖与批准规则一致；临时检出移除试点实现后非目标能力通过，资源无残留且数据权利连续"
+        "切片验收见 [PR #230](https://github.com/3yearsZhuang/Aervox-harness/pull/230)；适用限制见本条移交摘要。"
       ],
       "owner": "platform",
       "dependsOn": [],
-      "statusNote": "2026-09-29 PR #230 四项审查阻断已修复并补证：生命周期/AST 回归与三阶段 11 包零缓存物理退出构建，真实 SQLite 数据权利和恢复通过；具体证据及发布限制见 CR-056 §10.2 / §4.2",
+      "statusNote": "保留数据权利与恢复证据；不扩展生产发布结论。",
       "links": [
         "docs/reference/changes/README.md",
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
         "https://github.com/3yearsZhuang/Aervox-harness/pull/230"
       ],
-      "branch": "docs/build-to-delete-pi-architecture-plan"
+      "branch": "docs/build-to-delete-pi-architecture-plan",
+      "checks": []
     },
     {
       "id": "ITER-015",
@@ -361,20 +363,21 @@
       "id": "ITER-020",
       "batch": "first",
       "status": "已移交",
-      "delivery": "HLS 本地智能体竞赛规划：三人团队、C++ 与 RX 9070 XT 条件下的能力复用、验证路径、实验协议和交付边界；AVX-EXPL-013；关联 CAP-007/020/027（规划，不改变能力状态）",
-      "gate": "本项仅文档交付；赛规、实测、实现授权和产品化分别判断，后续实验见 ITER-021",
+      "delivery": "HLS 竞赛验证规划；CAP-007/020/027。",
+      "gate": "已移交切片；新范围另按现行需求与 CR 门槛评审。",
       "acceptance": [
-        "专项文档明确规则与环境、双入口、对照实验、冻结提交和产品回接路径",
-        "三人角色、预算估算、去留标准、来源和索引齐全，文档门禁通过"
+        "切片验收见 [PR #229](https://github.com/3yearsZhuang/Aervox-harness/pull/229)；适用限制见本条移交摘要。"
       ],
       "owner": "platform/docs",
       "branch": "docs/hls-competition-validation-plan",
-      "statusNote": "2026-09-22 文档移交：P0～P4 路径、三人角色、四组对照、冻结产物与去留标准已登记；ci-docs 全量通过（治理回归 33/33、队列回归 9/9、78 文件排版/术语及严格治理无问题）；未实施竞赛能力",
+      "statusNote": "仅规划交付；真实验证与产品化见 ITER-021/022/043。",
       "dependsOn": [],
       "links": [
         "docs/explanation/hls-agent-competition-plan.md",
-        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
-      ]
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/229"
+      ],
+      "checks": []
     },
     {
       "id": "ITER-021",
@@ -425,40 +428,34 @@
       "id": "ITER-023",
       "batch": "first",
       "status": "已移交",
-      "delivery": "Build to Delete 与类 pi 架构详细规划：CR-056（已归档至 Aervox-docs-archive）的固定基线、目标边界、决策差量、实施切片、退出验收与回滚；关联 CAP-002/005/007/018/020/027/033（仅规划）",
-      "gate": "本项仅交付 Proposed/Planned 的 CR；实现认领继续使用既有 ITER 条目，架构接受、代码实施和发布分别判断",
+      "delivery": "Build to Delete 与类 pi 架构规划；CR-056 历史材料见归档导航。",
+      "gate": "已移交切片；新范围另按现行需求与 CR 门槛评审。",
       "acceptance": [
-        "每个切片给出输入依赖、代码落点、契约影响、测试、退出条件与回滚",
-        "规划接入唯一队列、追踪和索引，文档门禁通过"
+        "切片验收见[交付证据](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)；保留本条范围与适用限制。"
       ],
       "owner": "platform/docs",
       "branch": "docs/build-to-delete-pi-architecture-plan",
-      "statusNote": "2026-09-28 文档移交：CR-056 的九个切片、两项试点、依赖估算及退出/回滚验收已登记；ci-docs 全量通过（治理 33/33、队列 9/9、79 文件排版/术语及严格治理无问题）；CR 保持 Proposed/Planned，未启动业务重构",
+      "statusNote": "规划交付；后续实现与 ADR 差量由各自条目承接。",
       "dependsOn": [],
       "links": [
         "docs/reference/changes/README.md",
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
-      ]
+      ],
+      "checks": []
     },
     {
       "id": "ITER-030",
       "batch": "first",
       "status": "已移交",
-      "delivery": "DSH、pi、AstrBot 上游固定版本更新与差异复评：核对默认分支、许可证与适配准入，形成面向思隅的设计借鉴和验证建议；DSH-01/PI-01/AST-*；关联 CAP-007/020/027/033（参考维护与评估）",
-      "gate": "仅更新参考基线及必要准入常量；产品能力和架构实施仍由既有 ITER 与 CR 决定",
+      "delivery": "DSH、pi、AstrBot 固定版本更新与差异复评；CAP-007/020/027/033。",
+      "gate": "已移交切片；新范围另按现行需求与 CR 门槛评审。",
       "acceptance": [
-        "三个子模块固定到本次抓取的上游默认分支提交，保留旧版本可回溯",
-        "源码与测试证据区分本次变化、既有能力和未验证事项，映射思隅实际差量",
-        "参考清单、适配准入、追踪登记和文档门禁一致"
+        "切片验收见[交付证据](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)；保留本条范围与适用限制。"
       ],
-      "checks": [
-        "`git diff --submodule=short`",
-        "`mise tasks run ci-code`",
-        "`mise tasks run ci-docs`"
-      ],
+      "checks": [],
       "owner": "platform/docs",
       "branch": "docs/update-reference-upstreams-20260929",
-      "statusNote": "2026-09-29 移交：三个上游固定版本、源码/测试差异复评与 DSH 准入同步完成；ci-code 全量通过（测试 27/27 任务），ci-docs 全量通过；参考更新不代表真实外部运行时已集成，验证与限制见 §4.2/参考评估 §8",
+      "statusNote": "仅参考更新及准入复评，不等于真实外部运行时已集成。",
       "dependsOn": [],
       "links": [
         "docs/explanation/reference-design-transfer.md",
@@ -470,22 +467,19 @@
       "id": "ITER-031",
       "batch": "first",
       "status": "已移交",
-      "delivery": "标准工作台连续对话与雾蓝视觉重构；用户确认静态预览，关联 CAP-001/002/018",
-      "gate": "复用现有会话、发送、授权与插件接口；不新增服务端契约",
+      "delivery": "标准工作台连续对话与雾蓝视觉重构；CAP-001/002/018。",
+      "gate": "已移交切片；新范围另按现行需求与 CR 门槛评审。",
       "acceptance": [
-        "标准模式完整展示多轮消息与流式全文，保留授权确认和插件插槽",
-        "雾蓝主题、底部收窄居中输入区通过亮暗主题及窄窗核验",
-        "桌宠陪伴模式分句显示继续可用"
+        "切片验收见 [PR #233](https://github.com/3yearsZhuang/Aervox-harness/pull/233)；适用限制见本条移交摘要。"
       ],
-      "checks": [
-        "`packages/ui/test/standard-conversation.test.ts`"
-      ],
+      "checks": [],
       "owner": "Codex",
       "branch": "feat/workbench-frontend",
-      "statusNote": "2026-09-29 用户确认并授权推送，功能分支待合并；ci-code、ci-docs 与 7 项回归通过；侧边栏加宽至 256px；合并解决 main 冲突并顺延为 ITER-031；UI 类型检查与测试全绿",
+      "statusNote": "功能合入；交付证据见关联 PR。",
       "dependsOn": [],
       "links": [
-        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记"
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/233"
       ]
     },
     {
@@ -661,60 +655,49 @@
       "id": "ITER-034",
       "batch": "first",
       "status": "已移交",
-      "delivery": "重落 Aervox Core 高优先级内核切片（自已关闭 PR #235 分支原子移植）：`ControlContext` 统一执行控制（截止/token 与调用预算/取消的棘轮式派生）、`abortable` 有界等待原语、`ApprovalPolicyPort` 审批 SPI（`AutoApprovalPolicy` 与 `CliInteractiveApprovalPolicy` TTY 实现）及 executor 接线（流式预算计费、审批前置拦截、工具子任务派生）；并修复审查发现的监听器累积与预中止快速失败缺陷；BTD-05 / ITER-007 / ITER-013 / PET-05",
-      "gate": "均为可选注入（`approvalPolicy` / `controlContext`），不修改 API 路由、SSE 契约与数据库 Schema，API/Worker 下游行为不变；不含 ExecutionPipeline、HostToolRuntime 与 `core.ts` 出口（后续切片另行评审）；不新增外部依赖",
+      "delivery": "ControlContext、abortable 与 ApprovalPolicyPort 内核构件及 executor 接线；ITER-007/013。",
+      "gate": "已移交切片；新范围另按现行需求与 CR 门槛评审。",
       "acceptance": [
-        "`packages/core`（原 agent-loop，迁入后由 core 套件承接）31 文件 209 例全绿（含新增 control-context / approval-policy 套件）",
-        "`packages/host-agent` 审批回归全绿（含监听器清理与预中止快速失败 2 项新增回归）",
-        "增量门禁 `./aervox ci` 通过，下游包类型与测试无差量"
+        "切片验收见 [PR #241](https://github.com/3yearsZhuang/Aervox-harness/pull/241)；适用限制见本条移交摘要。"
       ],
-      "checks": [
-        "`packages/core/test/control-context.test.ts`",
-        "`packages/core/test/approval-policy.test.ts`",
-        "`packages/core/test/cli-approval.test.ts`"
-      ],
+      "checks": [],
       "owner": "platform",
       "branch": "feat/core-control-approval",
-      "statusNote": "2026-10-02 待评审：代码完成（自 origin/feat/siyu-cli 原子移植 agent-loop 全包与 cli-approval 构件，main 与分支基点对该包零漂移故无合并冲突），agent-loop 209 例 / host-agent 77 例全绿，PR 评审中；2026-10-03 移交：PR #241 合入 main，内核构件经 ITER-035 迁入 `packages/core`（checks 路径随迁，验收由 core 套件承接）",
+      "statusNote": "构件现位于 packages/core；生产宿主控制传播仍按关联条目核验。",
       "dependsOn": [],
       "links": [
         "docs/reference/agent-harness-loop.md#10-限额与终止策略",
-        "docs/reference/REQUIREMENTS_TRACEABILITY.md#core-control-approval-20261002"
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#core-control-approval-20261002",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/241"
       ]
     },
     {
       "id": "ITER-035",
       "batch": "first",
       "status": "已移交",
-      "delivery": "按 ADR-021 建立 `packages/core`（`@aervox/core`）独立内核包：吸收 agent-loop 全部内容 + `cli-approval` 迁入 + HostToolRuntime 内存版（含 InMemoryToolRegistry 与 definitionKey 代际指纹）移植 + `core.ts` 轻量出口 + headless 冒烟脚本；`agent-loop` 降级为纯 re-export 壳（一个迭代后移除）；包许可证 Apache-2.0（单一版权人再许可），主仓其余维持 AGPLv3",
-      "gate": "不修改 apps/api 路由、SSE 契约与数据库 Schema；SQLite 注册表实现留 apps/api 生态；core 是库不是宿主，不违反 ITER-029 连接版门禁；public npm 发布延后另行决策；core 运行时依赖必须为空",
+      "delivery": "建立独立 @aervox/core、内存 HostToolRuntime、轻量出口与分层许可证；ADR-021。",
+      "gate": "已移交切片；新范围另按现行需求与 CR 门槛评审。",
       "acceptance": [
-        "`packages/core` 运行时依赖为空（`dependencies: {}`），contracts 仅 type-only devDependency",
-        "headless 冒烟在无 Fastify / 无 SQLite / 无 apps/api 的进程内跑通完整多步工具回路（含 ControlContext 预算与审批路径）",
-        "`agent-loop` 为纯 re-export 壳，diary / host-agent / api / worker 四下游零改动且增量门禁通过",
-        "ADR-021 登记完备，追踪基线 §4.2 落地锚点就位"
+        "切片验收见 [PR #244](https://github.com/3yearsZhuang/Aervox-harness/pull/244)；适用限制见本条移交摘要。"
       ],
-      "checks": [
-        "packages/core/test/**",
-        "scripts/ 下 headless 冒烟脚本",
-        "agent-loop 壳与四下游零 diff 验证"
-      ],
+      "checks": [],
       "owner": "platform",
       "branch": "feat/core-standalone",
-      "statusNote": "2026-10-03 启动：按 ADR-021 方案 A 建 packages/core 吸收 agent-loop 全量 + cli-approval 迁入 + HostToolRuntime 内存版，Apache-2.0 分层许可；2026-10-03 移交：PR #244 合入 main（squash 169720c），验收全达成",
+      "statusNote": "过渡壳已在 ITER-037 移除。",
       "dependsOn": [
         "ITER-034"
       ],
       "links": [
         "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
-        "docs/reference/agent-harness-loop.md#10-限额与终止策略"
+        "docs/reference/agent-harness-loop.md#10-限额与终止策略",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/244"
       ]
     },
     {
       "id": "ITER-033",
       "batch": "next",
       "status": "建议",
-      "delivery": "统一模型 Provider 抽象面：收敛两套模型接入栈——`@aervox/core` 的 OpenAI 兼容 Provider（对话路径，`src/openai-compat-provider.ts`；`@aervox/agent-loop` 已降级为 re-export 过渡壳）与 `apps/api` model-runtime 的 Driver SPI（本地 llama 侧车）；补齐统一 Provider 目录与代际注册、跨栈一致的 stop reason 归一与 usage 分账（复用 T-10）、跨 Provider 上下文交接与标准化测试 Provider；收敛 BTD-04 剩余 `Llama*` 类型泄漏，为多模型路由与成本治理铺路；参考 PI-01 `packages/ai` 设计（参考评估 §8.3）；CAP-002/007；本地模型基础设施",
+      "delivery": "统一模型 Provider 抽象面：收敛两套模型接入栈——`@aervox/core` 的 OpenAI 兼容 Provider（对话路径，`src/openai-compat-provider.ts`；原 `@aervox/agent-loop` 过渡壳已移除）与 `apps/api` model-runtime 的 Driver SPI（本地 llama 侧车）；补齐统一 Provider 目录与代际注册、跨栈一致的 stop reason 归一与 usage 分账（复用 T-10）、跨 Provider 上下文交接与标准化测试 Provider；收敛 BTD-04 剩余 `Llama*` 类型泄漏，为多模型路由与成本治理铺路；参考 PI-01 `packages/ai` 设计（参考评估 §8.3）；CAP-002/007；本地模型基础设施",
       "gate": "保持本地单用户与不出网红线：Driver 缺省仍为 unavailable 明确拒绝，受限本地任务缺合规 Provider 时不静默转远程；新增远程 Provider、改变制品信任等级或合并两栈持久化语义先 CR；不引入第二套 Provider 注册表真源；与 ITER-008 下载/进程正确性协同",
       "acceptance": [
         "同一 Fake/Replay Provider 轨迹下，对话与本地模型两条路径产出一致的规范化终止语义与 usage 分账（对照 provider-parity 表）",
@@ -737,77 +720,59 @@
       "id": "ITER-036",
       "batch": "first",
       "status": "已移交",
-      "delivery": "内核提纯与伴学功能回归插件宿主（ADR-021 内核提纯修订，PR #244 审核后用户裁决）：`focus-mode-prompt` 迁回 apps/api 专注模式回合插件、`practice-attempt-tool` 与 `PracticeAttemptPort` 契约迁回 apps/api companion 会话装配链、宿主工具 guidance（diary/notes/memory/practice）自内核 `BASE_TOOL_GUIDANCE` 迁回宿主 `HOST_TOOL_GUIDANCE`（经 `customGuidance` 注入）；内核导出面与 Port 契约面同步收窄；`user-question-tool`（通用 human-in-the-loop）与 `subagent-contribution`（扩展机制）判定为内核能力保留",
-      "gate": "内核运行时依赖保持为空；core 公共导出面不再含伴学产品构件；不修改 API 路由、SSE 契约与数据库 Schema；headless 冒烟与壳一致性测试保持绿；Provider 统一仍归 ITER-033，不在本切片",
+      "delivery": "伴学 Prompt、工具契约与宿主 guidance 迁出内核，收窄内核导出面；ADR-021。",
+      "gate": "已移交切片；新范围另按现行需求与 CR 门槛评审。",
       "acceptance": [
-        "内核源码无伴学构件残留（focus-mode/practice-attempt/PracticeAttemptPort 零引用），core 与 api 全量测试绿",
-        "壳导出面与 core 一致（re-export 壳测试锁定）；headless 冒烟 PASS",
-        "`BASE_TOOL_GUIDANCE` 仅含内核自有工具，宿主 guidance 由 `HOST_TOOL_GUIDANCE` 承接；ADR-021 修订登记与追踪基线锚点就位"
+        "切片验收见 [PR #245](https://github.com/3yearsZhuang/Aervox-harness/pull/245)；适用限制见本条移交摘要。"
       ],
-      "checks": [
-        "packages/core/test/**",
-        "apps/api/test/practice-attempt-tool.test.ts",
-        "apps/api/test/quiz-mode.test.ts",
-        "scripts/run-headless-agent.mjs"
-      ],
+      "checks": [],
       "owner": "platform",
       "branch": "feat/core-companion-extraction",
-      "statusNote": "2026-10-03 启动：基于 PR #244 审核结论执行内核提纯，伴学构件回归 apps/api 插件宿主；2026-10-03 移交：实现完成且验收全绿，PR #245 待合并（堆叠切片 ITER-037 在 feat/core-shell-removal 继续，合并顺序 #245 先行）",
+      "statusNote": "内核通用交互与扩展机制保留；业务实现归属宿主/插件。",
       "dependsOn": [
         "ITER-035"
       ],
       "links": [
         "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
-        "docs/reference/agent-harness-loop.md#10-限额与终止策略"
+        "docs/reference/agent-harness-loop.md#10-限额与终止策略",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/245"
       ]
     },
     {
       "id": "ITER-037",
       "batch": "first",
       "status": "已移交",
-      "delivery": "过渡壳移除与内核类型自持（ADR-021 Decision 2 执行完成 + 内核提纯续刀，基于 ITER-036 堆叠）：删除 `packages/agent-loop` re-export 壳与 `host-agent/src/cli-approval.ts` 兼容壳，四下游（diary / host-agent / api / worker）import 直连 `@aervox/core`；内核本地声明 `AskUserQuestion*` 负载类型切断对 `@aervox/contracts` 的 type 依赖（`type-compat` 结构兼容测试锁定单向可赋值）；import-boundary 健身函数 `agent-loop-no-db` 改指 `packages/core`（`core-no-db`）",
-      "gate": "全仓源码与脚本零 `@aervox/agent-loop` 引用；core/src 零 `@aervox/contracts` 引用（devDependency 仅保留供结构兼容测试）；core 运行时依赖保持为空；不修改 API 路由、SSE 契约与数据库 Schema；Provider 统一仍归 ITER-033",
+      "delivery": "移除 agent-loop/cli-approval 过渡壳，下游直连 core，内核类型自持与边界守卫；ADR-021。",
+      "gate": "已移交切片；新范围另按现行需求与 CR 门槛评审。",
       "acceptance": [
-        "全仓（apps/packages/scripts）零 `@aervox/agent-loop` 引用；壳包与壳文件物理删除",
-        "core/src 零 `@aervox/contracts` 引用；`type-compat.test.ts` 锁定 contracts→core 单向可赋值",
-        "边界测试 20/20 通过（core-no-db 规则生效）；四下游与 api 全量测试绿；headless 冒烟 PASS"
+        "切片验收见 [PR #248](https://github.com/3yearsZhuang/Aervox-harness/pull/248)；适用限制见本条移交摘要。"
       ],
-      "checks": [
-        "scripts/import-boundary.test.mjs",
-        "packages/core/test/type-compat.test.ts",
-        "packages/core/test/**",
-        "scripts/run-headless-agent.mjs"
-      ],
+      "checks": [],
       "owner": "platform",
       "branch": "feat/core-shell-removal",
-      "statusNote": "2026-10-03 启动：基于 feat/core-companion-extraction（ITER-036，PR #245）堆叠执行；2026-10-03 移交：实现完成且验收全绿，PR #246 待合并（堆叠顺序 #245→#246）",
+      "statusNote": "以主线合并 PR #248 为证据；原队列 #246 待合并说明已失效。",
       "dependsOn": [
         "ITER-036"
       ],
       "links": [
         "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
-        "docs/reference/agent-harness-loop.md#10-限额与终止策略"
+        "docs/reference/agent-harness-loop.md#10-限额与终止策略",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/248"
       ]
     },
     {
       "id": "ITER-038",
       "batch": "first",
       "status": "已移交",
-      "delivery": "Provider 补全契约归一第一刀（ITER-033 拆分切片，ADR-021 Decision 4 载体）：core `ModelChunk` 增加结构化 `stopReason`（`ModelStopReason` 归一 OpenAI 兼容 finish_reason）与 `ModelUsage` 输入/输出用量分账；`openai-compat-provider` 透传（include_usage 已启用）；跨栈统一由既有事实承接——api 对话路径（含本地 llama 端点与远程兼容端点）已全部经 `ModelProviderPort` 单一补全面",
-      "gate": "不新增远程 Provider、不改变制品信任等级、不合并两栈持久化语义（均 ITER-033 的 CR 触发项）；executor 不消费 stopReason（零行为变更），length/content_filter 截断终态的 isFinal 行为留消费切片；Driver 进程生命周期面（ITER-008）不并入",
+      "delivery": "Provider stopReason 归一与输入/输出 usage 分账；ITER-033 拆分切片。",
+      "gate": "已移交切片；新范围另按现行需求与 CR 门槛评审。",
       "acceptance": [
-        "core 契约测试绿：stop_reason 归一（stop/tool_calls 终态透传）与 usage 三字段分账用例通过",
-        "api 全量回归绿（零行为变更验证）；headless 冒烟 PASS",
-        "追踪基线锚点与 ITER-033 拆分备注登记"
+        "切片验收见 [PR #247](https://github.com/3yearsZhuang/Aervox-harness/pull/247)；适用限制见本条移交摘要。"
       ],
-      "checks": [
-        "packages/core/test/openai-compat-provider.test.ts",
-        "packages/core/test/**",
-        "scripts/run-headless-agent.mjs"
-      ],
+      "checks": [],
       "owner": "platform",
       "branch": "feat/core-provider-contract",
-      "statusNote": "2026-10-03 启动：基于 feat/core-shell-removal（ITER-037，PR #246）堆叠执行；ITER-033 剩余项（统一 Provider 目录与代际注册、length 终态消费行为、api-client Llama DTO 命名收敛）留后续切片；2026-10-08 核验已随 PR #247（37abb3e5）合入，补齐历史移交状态",
+      "statusNote": "2026-10-08 按主线证据修正状态（PR #247 已合入）；终态消费与缓存分账留 ITER-039。",
       "dependsOn": [
         "ITER-037"
       ],
@@ -870,61 +835,68 @@
       "id": "ITER-041",
       "batch": "first",
       "status": "已移交",
-      "delivery": "executor 复杂度收口与审批单点收敛（2026-10-03 core 代码质量评审结论）：①按职责拆分 executeTurn（当前单函数 911 行 / 6 层以上嵌套）——流式收集器、工具执行管线、终态收敛器三段切分，外部端口（ExecutionStorePort / ModelProviderPort / ToolProviderPort / ApprovalPolicyPort）签名保持不变；②审批双实现收敛到一处（executor 内联 approvalPolicy.evaluate 与 approval-policy.ts 的 withApprovalPolicy 装饰器语义分叉，ask_user → needsApproval 收口需单点）；③ExecuteResult 用 failed 承载 Interrupted 终态的命名与数据模型不一致一并收敛",
-      "gate": "纯内部重构：不得改动任何公开端口签名、公开 SSE 契约与数据库 Schema；行为等价（重构前后同一场景事件序列与账本状态必须一致，以现有 225 用例为回归基线）；不合并 ITER-039/040 的 Provider 面工作；Interrupted 命名收敛若波及持久化终态枚举则先立 CR",
+      "delivery": "拆分 executor 流式收集、工具管线与终态收口，统一审批裁决。",
+      "gate": "已移交切片；新范围另按现行需求与 CR 门槛评审。",
       "acceptance": [
-        "executeTurn 按职责切分后单函数复杂度显著下降，取消/租约丢失/审批/预算四条关键路径行为等价（现有 core 225 用例零改动全绿）",
-        "审批策略仅剩一条生效路径：同一工具请求在 executor 内联与装饰器两条路径下裁决结果一致，有测试锁定",
-        "ExecuteResult 终态语义与 AttemptStatus 对齐；如涉持久化枚举变更则先立 CR 并说明迁移路径"
+        "切片验收见 [PR #249](https://github.com/3yearsZhuang/Aervox-harness/pull/249)；适用限制见本条移交摘要。"
       ],
-      "checks": [
-        "packages/core/test/dedupe-key.test.ts",
-        "packages/core/test/circular-args-resilience.test.ts",
-        "packages/core/test/approval-decision.test.ts",
-        "packages/core/test/tool-ledger.test.ts",
-        "packages/core/test/tool-pipeline.test.ts",
-        "packages/core/test/step-collector.test.ts",
-        "scripts/run-headless-agent.mjs"
-      ],
+      "checks": [],
       "owner": "platform",
       "branch": "refactor/core-executor-split",
-      "statusNote": "2026-10-03 完成：四段拆分全部落地（终态收敛器 / 账本收口 / 工具执行管线 / Step 流式收集器），另修两个独立缺陷（D-KEY 去重键绕过、D-CIRC 循环引用杀Turn）；同日审核整改：重试路径收尾 flush 归位至生效收集器（修重试 attempt 的 reasoning 尾部丢失）、清理 `safe-serialize` 残留副本与 `decideToolCall` 未用入参、`DeletionGatePort` 迁至 ports。executor 911→655 行、嵌套 5.5→3.5；core 用例 225→266（新增 41 条）；headless 冒烟 5/5 与四守卫全绿。外部端口签名与公开 SSE 契约零变更；交付项③（`ExecuteResult` 终态命名收敛）涉持久化枚举、先立 CR 后实施。",
+      "statusNote": "终态命名后续由 ITER-042 完成；保留公开端口、SSE 与持久化契约。",
       "dependsOn": [
         "ITER-038"
       ],
       "links": [
         "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
         "docs/reference/agent-harness-loop.md#6-单次-turn-执行算法",
-        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现原则"
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现原则",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/249"
       ]
     },
     {
       "id": "ITER-042",
       "batch": "first",
       "status": "已移交",
-      "delivery": "ExecuteResult 终态命名收敛（ITER-041 遗留交付项③）：ExecuteResult 增加 interrupted 变体——DB 侧以 Interrupted 收敛的路径（预算/截止/删除水位/turn 超时、max_steps 耗尽、审批待决 pending_approval）不再以 failed 承载返回值；DB 侧本即 Failed 的路径（tools_disabled、execution error、lease_lost、finalize contested）保持 failed 不动。AttemptStatus 持久化枚举零变更（Interrupted 早已存在），不触发 CR 条件",
-      "gate": "纯类型语义收敛：不触碰 AttemptStatus 持久化枚举、公开 SSE 契约与数据库 Schema；下游 reason 断言语义不变（headless 冒烟改断 status=interrupted + 原 reason）；子任务路径维持「Interrupted 收敛为 Failed、父侧可重试」既有语义",
+      "delivery": "ExecuteResult interrupted 与 AttemptStatus 对齐，保留 reason；持久化枚举不变。",
+      "gate": "已移交切片；新范围另按现行需求与 CR 门槛评审。",
       "acceptance": [
-        "core ExecuteResult 增 interrupted 变体，DB=Interrupted 的三条收敛路径（finalizeInterrupted / pending_approval / max_steps）返回 interrupted，DB=Failed 路径保持 failed",
-        "下游消费方（host-agent / apps/api）编译与测试零回归，headless 冒烟断言同步更新",
-        "core 用例全绿且新增 interrupted 语义锁定用例"
+        "切片验收见 [PR #251](https://github.com/3yearsZhuang/Aervox-harness/pull/251)；适用限制见本条移交摘要。"
       ],
-      "checks": [
-        "packages/core/test/control-context.test.ts",
-        "packages/core/test/budget.test.ts",
-        "packages/core/test/cancel.test.ts",
-        "packages/core/test/executor-b4.test.ts",
-        "scripts/run-headless-agent.mjs"
-      ],
+      "checks": [],
       "owner": "platform",
       "branch": "refactor/core-interrupted-status",
-      "statusNote": "2026-10-03 完成：ExecuteResult 增 interrupted 变体，返回值 status 与 Attempt 库内终态一一镜像（库内 Interrupted → interrupted：finalizeInterrupted 全路径 / max_steps / pending_approval；库内 Failed 与未终态化路径 → failed 保持：tools_disabled / execution error / lease_lost / finalize contested）。reason 全保留、AttemptStatus 持久化枚举与公开契约零变更、不触发 CR 条件。core 用例 266→268（新增对齐矩阵 2 条 + 13 处既有断言语义同步）；build 19/19、test-affected 14 任务全绿、headless 冒烟 PASS。验收证据见 PR #251",
+      "statusNote": "交付项③已完成，不再要求重复实施或另立同内容 CR。",
       "dependsOn": [
         "ITER-041"
       ],
       "links": [
         "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
-        "docs/reference/agent-harness-loop.md#6-单次-turn-执行算法"
+        "docs/reference/agent-harness-loop.md#6-单次-turn-执行算法",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/251"
+      ]
+    },
+    {
+      "id": "ITER-044",
+      "batch": "first",
+      "status": "执行中",
+      "delivery": "项目代码质量、仓库卫生与文档多源偏移审计；收敛入口规则、当前实现和历史证据，压缩重复叙述。",
+      "gate": "本次授权覆盖审计与文档整理；行为修复按已有条目另行实施，保留契约、稳定锚点及发布门槛。",
+      "acceptance": [
+        "发现有源码或工具证据，区分已知缺口与新增问题",
+        "文档净缩减，事实源与队列状态一致，双门禁通过"
+      ],
+      "checks": [
+        "mise tasks run ci-code",
+        "mise tasks run ci-docs"
+      ],
+      "owner": "Codex",
+      "branch": "docs/repository-audit-and-docs-slimming",
+      "statusNote": "2026-10-08 本地审计与文档整理完成，等待最终文档验证及 PR 移交；ITER-002 剩余提交窗口重开，ITER-038 按 PR #247 核实移交。",
+      "dependsOn": [],
+      "links": [
+        "docs/explanation/architecture-implementation-review.md",
+        "docs/reference/document-governance.md"
       ]
     },
     {

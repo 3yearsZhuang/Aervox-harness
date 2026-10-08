@@ -6,16 +6,13 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.7.0
-updated_at: 2026-10-06
-reviewed_at: 2026-10-06
+version: 0.7.1
+updated_at: 2026-10-08
+reviewed_at: 2026-10-08
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 系统架构设计（SAD）
-
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-10-06
 
 关联 PRD：[PRD.md](PRD.md) · 追踪：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
 
@@ -442,7 +439,7 @@ CR-030 后部署形态为「永久本地单用户实例」：不存在多用户�
 
 每个 ADR 需要记录上下文、备选方案、决策、后果、迁移和回滚。未批准的技术建议不能写成已承诺架构。
 
-独立记录已建立在 `docs/reference/adr/ADR-###-slug.md`；权威索引与决策详情见 [docs/reference/adr/README.md](adr/README.md)。截至 2026-10-04，ADR-001～019 与 ADR-021 均已通过评审并正式落地（除 ADR-002 与 ADR-008 分别由 ADR-015 和 CR-030 Superseded 外，其余均为 Accepted）；ADR-020 编号随 PR #232 回退退役，原文存于归档仓库，编号不复用以保留可考的历史空缺（见 [ADR-021](adr/ADR-021-aervox-core-standalone-package.md)）。
+决策状态由各 ADR 的 `decision_status` 维护，上表与 [ADR 索引](adr/README.md)由机器生成；`Accepted` 只表示方案获接受，不代表代码、运行接线或发布验收已完成。交付与剩余差量见[追踪基线](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)，例如 [ADR-018](adr/ADR-018-proactive-local-privacy-host.md) 的 CAP-033 仍有 Privacy Host、授权与恢复门禁。ADR-002/008 已分别由 ADR-015/CR-030 替代；ADR-020 随 PR #232 回退退役，原文保留在归档库，编号不复用（见 [ADR-021](adr/ADR-021-aervox-core-standalone-package.md)）。
 
 ### 11.1 技术版本冻结规则
 
