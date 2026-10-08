@@ -32,7 +32,8 @@
     "package:plugins": "node scripts/export-plugins.mjs",
     "drill:worker-contention": "node scripts/worker-write-contention-drill.mjs",
     "dist:desktop": "turbo run build --filter=@aervox/desktop && pnpm --filter @aervox/desktop dist:pack",
-    "test:cli:integration": "turbo run build --filter=@aervox/cli --filter=@aervox/api && node --test scripts/cli-smoke.test.mjs"
+    "test:cli:integration": "turbo run build --filter=@aervox/cli --filter=@aervox/api && node --test scripts/cli-smoke.test.mjs",
+    "check:hls": "turbo run build --filter=@aervox/core... && node --test scripts/hls-agent.test.mjs"
   },
   "devDependencies": {
     "@babel/parser": "^8.0.4",

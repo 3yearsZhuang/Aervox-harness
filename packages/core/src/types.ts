@@ -49,6 +49,10 @@ export interface PromptMessage {
   /** tool 消息必填：对应 ToolInvocation 标识 */
   toolCallId?: string;
   name?: string;
+  /** Complete assistant calls paired with subsequent tool messages. */
+  toolCalls?: ToolCallRequest[];
+  /** Reasoning belongs to this assistant step, never shared across requests. */
+  reasoning?: string;
 }
 
 /** ContextBuilder 产出：Provider 组装输入所需的上下文 */
@@ -163,7 +167,8 @@ export interface ModelChunk {
   toolCalls?: ToolCallRequest[];
   /**
    * 思考型模型（DeepSeek reasoning_content / OpenRouter·Ollama reasoning）的思考增量。
-   * 非正文：不进 message 历史与安全片段，仅作为 reasoning_delta 进度事件透出，
+   * 非正文：不进用户可见消息与安全片段；作为 reasoning_delta 进度事件透出，
+   * 并由当前 Step 的 assistant PromptMessage 保存以满足后续工具调用协议，
    * 让客户端在长思考期间保持活性与「思考中」反馈。
    */
   reasoning?: string;

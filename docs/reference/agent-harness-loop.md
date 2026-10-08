@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.7.5
-updated_at: 2026-10-02
-reviewed_at: 2026-10-02
+version: 0.7.6
+updated_at: 2026-10-05
+reviewed_at: 2026-10-05
 review_interval_days: 90
 ---
 
 # Agent Harness Loop 设计与落地规范
 
 - 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-09-28
+- 修改人：3yearszhuang · 2026-10-05
 
 关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[ADR-016](adr/ADR-016-base-boundaries.md)、[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md)、`CR-012`（已归档）、`CR-021`（已归档）、`CR-022`（已归档）、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
@@ -301,6 +301,8 @@ interface LoopDriverPort {
 `AgentLoopDefinition` 绑定一个 `LoopDriverPort`，再由 Driver 解析一个 `ModelProviderPort`。当前 `executeTurn()` 是 Native Driver 的过渡形态，尚未实现完整 `LoopDriverPort`。DSH/pi Adapter 必须在 Manifest 中声明自己提供的是完整 Loop Driver、Model Provider 还是受限 Contribution，以及终止、取消和恢复语义的兼容等级；不能仅凭“Provider”名称推断其职责。
 
 Loop 必须在调用前固化 Provider、model、PromptVersion、ContextManifest、Tool schema、reasoning 配置和预算。一次重试创建新的 ModelRun，但仍属于同一 AgentStep；只有尚未持久化用户可见片段且没有工具副作用时才允许自动重试。
+
+2026-10-05 协议修复（[CR-057](changes/CR-057-hls-local-agent-validation.md)）：同一执行循环的 assistant 历史保留完整 `toolCalls`（ID、名称、参数）及该步骤的 `reasoning`，兼容 Provider 映射为 `tool_calls` / `reasoning_content`，与后续 tool 结果逐项配对。推理内容由历史持有，不在 Provider 实例跨请求共享；旧历史缺少参数时不虚构参数。该修复不代表跨进程恢复源已补齐全部历史字段，研究执行器暂不支持断点续跑。
 
 Provider chunk 先进入有界 assembler，不得直接写 HTTP、日志或 Message。文本、结构化输出、tool-call、usage 和 finish reason 必须被规范化为 Aervox 类型。
 

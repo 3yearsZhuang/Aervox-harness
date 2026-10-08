@@ -69,6 +69,18 @@ export function createSqliteResumeSource(deps: SqliteResumeSourceDeps): TurnSour
               ? lastRequest.data.invocationId
               : decision.synthesized[0]!.executionId;
           const name = typeof lastRequest?.data?.name === "string" ? lastRequest.data.name : "";
+          // 配对不变量：tool 消息前必须已有声明该 tool_calls 的 assistant 消息，
+          // 否则严格 OpenAI 兼容端会因「孤立 tool_call_id」直接 400。
+          // 正常路径下 buildResumeHistory 的末条 assistant 已携带该调用；此处只补事件缺失的兜底。
+          const last = rebuilt.history[rebuilt.history.length - 1];
+          const declared = last?.role === "assistant" && (last.toolCalls ?? []).some((c) => c.id === toolCallId);
+          if (!declared) {
+            rebuilt.history.push({
+              role: "assistant",
+              content: "",
+              toolCalls: [{ id: toolCallId, name, arguments: {} }],
+            });
+          }
           for (const item of decision.synthesized) {
             rebuilt.history.push({
               role: "tool",
